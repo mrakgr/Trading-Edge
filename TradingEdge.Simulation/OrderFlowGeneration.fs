@@ -171,8 +171,8 @@ let generatePricesAndSizes
             prevTime <- timestamps.[i]
             
             let size = sampleSize rng mu sigma
-            let sizeNorm = correction * sqrt(float size) / expectedSqrtSize
-            let scaledVol = vol * sizeNorm * tradeCountScale
+            let sizeScale = correction * sqrt(float size) / expectedSqrtSize
+            let scaledVol = vol * sizeScale * tradeCountScale
             
             let t = timestamps.[i]
             let support = logStartPrice + srParams.SupportOffset + srParams.SupportDrift * t + srParams.Noise * srNormal.Sample()
