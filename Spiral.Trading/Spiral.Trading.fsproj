@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Types.fs" />
+    <Compile Include="Config.fs" />
+    <Compile Include="S3Download.fs" />
+    <Compile Include="SplitDownload.fs" />
+    <Compile Include="IntradayDownload.fs" />
+    <Compile Include="TradesDownload.fs" />
+    <Compile Include="QuotesDownload.fs" />
+    <Compile Include="Conditions.fs" />
+    <Compile Include="TradeMetrics.fs" />
+    <Compile Include="Database.fs" />
+    <Compile Include="Plotting.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="sql/schema/tables/*.sql" />
+    <EmbeddedResource Include="sql/schema/materialized/*.sql" />
+    <EmbeddedResource Include="sql/schema/views/*.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" Version="4.0.14.2" />
+    <PackageReference Include="Dapper" Version="2.1.66" />
+    <PackageReference Include="FSharp.Data" Version="6.6.0" />
+    <PackageReference Include="FSharp.SystemTextJson" Version="1.4.36" />
+    <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.1" />
+    <PackageReference Include="XPlot.Plotly" Version="4.1.0" />
+  </ItemGroup>
+
+</Project>
