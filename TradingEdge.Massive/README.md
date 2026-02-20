@@ -1,4 +1,4 @@
-# TradingEdge (F# Version)
+# TradingEdge.Massive
 
 A trading data analysis library for downloading and processing stock market data from Massive.
 
