@@ -449,7 +449,7 @@ dotnet run --project TradingEdge.Massive -- list-conditions -a options
 
 ```
 TradingEdge/
-├── TradingEdge/              # Core library
+├── TradingEdge.Massive/         # Core library
 │   ├── Types.fs                 # Domain types
 │   ├── Config.fs                # Configuration loading
 │   ├── S3Download.fs            # S3 bulk download (daily aggregates)
@@ -460,6 +460,7 @@ TradingEdge/
 │   ├── Conditions.fs            # Trade condition codes API client
 │   ├── Database.fs              # DuckDB database operations
 │   ├── Plotting.fs              # Chart generation (candlestick, DOM)
+│   ├── Program.fs               # CLI application
 │   └── sql/schema/              # SQL schema files
 │       ├── tables/              # Base tables
 │       │   ├── daily_prices.sql
@@ -475,8 +476,6 @@ TradingEdge/
 │           ├── 07_stock_laggards.sql
 │           ├── 08_dom_indicator.sql
 │           └── 09_stocks_in_play.sql
-├── TradingEdge.Massive/      # CLI application
-│   └── Program.fs
 ├── api_key.json                 # API credentials (not in git)
 └── data/                        # Downloaded data
     ├── daily_aggregates/        # Daily OHLCV CSV files
