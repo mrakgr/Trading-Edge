@@ -91,17 +91,21 @@ let stochasticRound (rng: Random) (x: float) : int =
     let frac = x - floor
     int (if rng.NextDouble() < frac then floor + 1.0 else floor)
 
+/// Compute LogNormal sigma from median/mean ratio
+let logNormalSigma (median: float) (mean: float) : float =
+    sqrt(2.0 * log(mean / median))
+
 /// Sample trade count using LogNormal distribution
 let sampleTradeCount (rng: Random) (orderFlowParams: OrderFlowParams) (duration: float) =
     let mu = log(orderFlowParams.MedianTradesPerSecond)
-    let sigma = sqrt(2.0 * log(orderFlowParams.MeanTradesPerSecond / orderFlowParams.MedianTradesPerSecond))
+    let sigma = logNormalSigma orderFlowParams.MedianTradesPerSecond orderFlowParams.MeanTradesPerSecond
     let count = LogNormal(mu, sigma, rng).Sample() * duration
     max 1 (stochasticRound rng count)
 
 /// Convert median/mean parameterization to LogNormal mu/sigma
 let activityMuSigma (activityParams: ActivityParams) : float * float =
     let mu = log(activityParams.MedianSize)
-    let sigma = sqrt(2.0 * log(activityParams.MeanSize / activityParams.MedianSize))
+    let sigma = logNormalSigma activityParams.MedianSize activityParams.MeanSize
     (mu, sigma)
 
 /// Sample size from LogNormal distribution
@@ -118,8 +122,8 @@ let generateTimestamps (rng: Random) (startTime: float) (duration: float) (count
     Array.sortInPlace timestamps
     timestamps
 
-/// Correction factor so E[correction * sqrt(size/meanSize)] = 1 for LogNormal
-let getActivityCorrection (sigma: float) : float =
+/// Correction factor so E[correction * sqrt(X/mean)] = 1 for LogNormal X with parameter sigma
+let sqrtLogNormalCorrection (sigma: float) : float =
     exp(sigma * sigma / 8.0)
 
 /// Sample from a truncated standard normal on [lo, hi] using inverse CDF
@@ -145,7 +149,7 @@ let generatePricesAndSizes
         [||], startPrice
     else
         let mu, sigma = activityMuSigma activityParams
-        let correction = getActivityCorrection sigma
+        let correction = sqrtLogNormalCorrection sigma
         let normal = Normal(0.0, 1.0, rng)
         let srNormal = Normal(0.0, 1.0, rng)
         let results = Array.zeroCreate count
@@ -154,7 +158,9 @@ let generatePricesAndSizes
         
         let expectedSqrtSize = sqrt(activityParams.MeanSize)
         let expectedTradeCount = orderFlowParams.MeanTradesPerSecond * (if count > 1 then timestamps.[count-1] - timestamps.[0] else 1.0)
-        let tradeCountScale = sqrt(float count / (max 1.0 expectedTradeCount))
+        let tradeCountSigma = logNormalSigma orderFlowParams.MedianTradesPerSecond orderFlowParams.MeanTradesPerSecond
+        let tradeCountCorrection = sqrtLogNormalCorrection tradeCountSigma
+        let tradeCountScale = tradeCountCorrection * sqrt(float count / (max 1.0 expectedTradeCount))
         let vol = priceParams.VolatilityPerSecond
         
         let mutable prevTime = timestamps.[0]
@@ -179,7 +185,7 @@ let generatePricesAndSizes
                 if zLo >= zHi then normal.Sample()
                 else sampleTruncatedNormal rng zLo zHi
             
-            logPrice <- logPrice + (-scaledVol * scaledVol / 2.0) * dt + scaledVol * sqrtDt * z
+            logPrice <- logPrice + scaledVol * sqrtDt * z
             results.[i] <- (exp(logPrice), size)
         
         results, exp(logPrice)
