@@ -18,18 +18,15 @@ type OrderFlowParams = {
     MeanTradesPerSecond: float    // Average trade rate (>= Median due to right skew)
 }
 
-/// Parameters for price generation (time-normalized, then applied per-trade)
+/// Parameters for price generation
 type PriceParams = {
+    DriftPerSecond: float        // Expected log-price change per second (used to sample episode end price)
     VolatilityPerSecond: float   // Volatility per second (normalized to mean trade rate and size)
 }
 
 /// Support/resistance level parameters for a trend
 type SRParams = {
-    SupportOffset: float         // Starting support as log-offset from start price (negative = below)
-    ResistanceOffset: float      // Starting resistance as log-offset from start price (positive = above)
-    SupportDrift: float          // How much support moves per second (positive = dragged up)
-    ResistanceDrift: float       // How much resistance moves per second (negative = dragged down)
-    Noise: float                 // Gaussian noise std dev added to S/R levels per trade
+    Noise: float                 // Gaussian noise std dev for S/R jitter per trade
 }
 
 /// Parameters for trade size generation (LogNormal activity model)
@@ -53,25 +50,24 @@ let getOrderFlowParams (trend: Trend) : OrderFlowParams =
 /// Get price parameters for a trend type (volatility per second)
 let getPriceParams (trend: Trend) : PriceParams =
     match trend with
-    | StrongUptrend ->   { VolatilityPerSecond = 300e-6 }
-    | MidUptrend ->      { VolatilityPerSecond = 240e-6 }
-    | WeakUptrend ->     { VolatilityPerSecond = 180e-6 }
-    | Consolidation ->   { VolatilityPerSecond = 120e-6 }
-    | WeakDowntrend ->   { VolatilityPerSecond = 180e-6 }
-    | MidDowntrend ->    { VolatilityPerSecond = 240e-6 }
-    | StrongDowntrend -> { VolatilityPerSecond = 300e-6 }
+    | StrongUptrend ->   { DriftPerSecond = 30e-6;  VolatilityPerSecond = 300e-6 }
+    | MidUptrend ->      { DriftPerSecond = 15e-6;  VolatilityPerSecond = 240e-6 }
+    | WeakUptrend ->     { DriftPerSecond = 7e-6;   VolatilityPerSecond = 180e-6 }
+    | Consolidation ->   { DriftPerSecond = 0.0;    VolatilityPerSecond = 120e-6 }
+    | WeakDowntrend ->   { DriftPerSecond = -7e-6;  VolatilityPerSecond = 180e-6 }
+    | MidDowntrend ->    { DriftPerSecond = -15e-6; VolatilityPerSecond = 240e-6 }
+    | StrongDowntrend -> { DriftPerSecond = -30e-6; VolatilityPerSecond = 300e-6 }
 
-/// Get support/resistance parameters for a trend type
-/// For uptrends: support drags upward. For downtrends: resistance drags downward.
+/// Get support/resistance noise parameters for a trend type
 let getSRParams (trend: Trend) : SRParams =
     match trend with
-    | StrongUptrend ->   { SupportOffset = -0.002; ResistanceOffset = 0.004; SupportDrift = 50e-6; ResistanceDrift = 0.0; Noise = 0.0005 }
-    | MidUptrend ->      { SupportOffset = -0.002; ResistanceOffset = 0.003; SupportDrift = 25e-6; ResistanceDrift = 0.0; Noise = 0.0004 }
-    | WeakUptrend ->     { SupportOffset = -0.002; ResistanceOffset = 0.002; SupportDrift = 10e-6; ResistanceDrift = 0.0; Noise = 0.0003 }
-    | Consolidation ->   { SupportOffset = -0.002; ResistanceOffset = 0.002; SupportDrift = 0.0;   ResistanceDrift = 0.0; Noise = 0.0003 }
-    | WeakDowntrend ->   { SupportOffset = -0.002; ResistanceOffset = 0.002; SupportDrift = 0.0;   ResistanceDrift = -10e-6; Noise = 0.0003 }
-    | MidDowntrend ->    { SupportOffset = -0.003; ResistanceOffset = 0.002; SupportDrift = 0.0;   ResistanceDrift = -25e-6; Noise = 0.0004 }
-    | StrongDowntrend -> { SupportOffset = -0.004; ResistanceOffset = 0.002; SupportDrift = 0.0;   ResistanceDrift = -50e-6; Noise = 0.0005 }
+    | StrongUptrend ->   { Noise = 0.0005 }
+    | MidUptrend ->      { Noise = 0.0004 }
+    | WeakUptrend ->     { Noise = 0.0003 }
+    | Consolidation ->   { Noise = 0.0003 }
+    | WeakDowntrend ->   { Noise = 0.0003 }
+    | MidDowntrend ->    { Noise = 0.0004 }
+    | StrongDowntrend -> { Noise = 0.0005 }
 
 /// Get activity parameters for a trend type (LogNormal activity model)
 /// Stronger trends have higher mean/median ratio (more large trades)
@@ -141,6 +137,7 @@ let generatePricesAndSizes
     (activityParams: ActivityParams)
     (srParams: SRParams)
     (startPrice: float) 
+    (duration: float)
     (timestamps: float[])
     : (float * int)[] * float =
     
@@ -154,13 +151,15 @@ let generatePricesAndSizes
         let srNormal = Normal(0.0, 1.0, rng)
         let results = Array.zeroCreate count
         let mutable logPrice = log(startPrice)
+        
         let logStartPrice = logPrice
+        let logEndPrice = logStartPrice + priceParams.DriftPerSecond * duration + priceParams.VolatilityPerSecond * sqrt(duration) * Normal(0.0, 1.0, rng).Sample()
         
         let expectedSqrtSize = sqrt(activityParams.MeanSize)
-        let expectedTradeCount = orderFlowParams.MeanTradesPerSecond * (if count > 1 then timestamps.[count-1] - timestamps.[0] else 1.0)
+        let expectedTradeCount = orderFlowParams.MeanTradesPerSecond * duration
         let tradeCountSigma = logNormalSigma orderFlowParams.MedianTradesPerSecond orderFlowParams.MeanTradesPerSecond
         let tradeCountCorrection = sqrtLogNormalCorrection tradeCountSigma
-        let tradeCountScale = tradeCountCorrection * sqrt(float count / (max 1.0 expectedTradeCount))
+        let tradeCountScale = tradeCountCorrection * sqrt(float count / expectedTradeCount)
         let vol = priceParams.VolatilityPerSecond
         
         let mutable prevTime = timestamps.[0]
@@ -174,9 +173,11 @@ let generatePricesAndSizes
             let sizeScale = correction * sqrt(float size) / expectedSqrtSize
             let scaledVol = vol * sizeScale * tradeCountScale
             
-            let t = timestamps.[i]
-            let support = logStartPrice + srParams.SupportOffset + srParams.SupportDrift * t + srParams.Noise * srNormal.Sample()
-            let resistance = logStartPrice + srParams.ResistanceOffset + srParams.ResistanceDrift * t + srParams.Noise * srNormal.Sample()
+            let frac = timestamps.[i] / duration
+            let supportBase = logStartPrice + (logEndPrice - logStartPrice) * frac
+            let resistanceBase = logEndPrice
+            let support = (min supportBase resistanceBase) - abs(srParams.Noise * srNormal.Sample())
+            let resistance = (max supportBase resistanceBase) + abs(srParams.Noise * srNormal.Sample())
             
             let zLo = (support - logPrice) / (scaledVol * sqrtDt)
             let zHi = (resistance - logPrice) / (scaledVol * sqrtDt)
@@ -201,7 +202,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (episode: Episode<Tr
     
     let tradeCount = sampleTradeCount rng orderFlowParams durationSeconds
     let timestamps = generateTimestamps rng 0.0 durationSeconds tradeCount
-    let pricesAndSizes, endPrice = generatePricesAndSizes rng priceParams orderFlowParams activityParams srParams startPrice timestamps
+    let pricesAndSizes, endPrice = generatePricesAndSizes rng priceParams orderFlowParams activityParams srParams startPrice durationSeconds timestamps
     
     let trades = Array.init tradeCount (fun i -> 
         let price, size = pricesAndSizes.[i]
