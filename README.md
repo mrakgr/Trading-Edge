@@ -1,4 +1,4 @@
-# Spiral.Trading (F# Version)
+# TradingEdge (F# Version)
 
 A trading data analysis library for downloading and processing stock market data from Massive.
 
@@ -28,7 +28,7 @@ dotnet build
 Downloads daily OHLCV data from Massive S3 storage as compressed CSV files.
 
 ```bash
-dotnet run --project Spiral.Trading.Console -- download-bulk [options]
+dotnet run --project TradingEdge.Console -- download-bulk [options]
 ```
 
 **Options:**
@@ -40,13 +40,13 @@ dotnet run --project Spiral.Trading.Console -- download-bulk [options]
 
 ```bash
 # Download last 5 years of data
-dotnet run --project Spiral.Trading.Console -- download-bulk
+dotnet run --project TradingEdge.Console -- download-bulk
 
 # Download specific date range
-dotnet run --project Spiral.Trading.Console -- download-bulk -s 2024-01-01 -e 2024-12-11
+dotnet run --project TradingEdge.Console -- download-bulk -s 2024-01-01 -e 2024-12-11
 
 # Download with lower parallelism
-dotnet run --project Spiral.Trading.Console -- download-bulk -s 2024-12-01 -e 2024-12-11 -p 4
+dotnet run --project TradingEdge.Console -- download-bulk -s 2024-12-01 -e 2024-12-11 -p 4
 ```
 
 Output: `data/daily_aggregates/{yyyy-MM-dd}.csv.gz`
@@ -56,7 +56,7 @@ Output: `data/daily_aggregates/{yyyy-MM-dd}.csv.gz`
 Downloads stock split information from the Massive API.
 
 ```bash
-dotnet run --project Spiral.Trading.Console -- download-splits [options]
+dotnet run --project TradingEdge.Console -- download-splits [options]
 ```
 
 **Options:**
@@ -67,13 +67,13 @@ dotnet run --project Spiral.Trading.Console -- download-splits [options]
 
 ```bash
 # Download all splits from the last 5 years
-dotnet run --project Spiral.Trading.Console -- download-splits
+dotnet run --project TradingEdge.Console -- download-splits
 
 # Download splits for a specific date range
-dotnet run --project Spiral.Trading.Console -- download-splits -s 2024-01-01 -e 2024-12-11
+dotnet run --project TradingEdge.Console -- download-splits -s 2024-01-01 -e 2024-12-11
 
 # Download splits from a date onwards (no end date)
-dotnet run --project Spiral.Trading.Console -- download-splits -s 2024-01-01
+dotnet run --project TradingEdge.Console -- download-splits -s 2024-01-01
 ```
 
 Output: `data/splits.csv`
@@ -83,7 +83,7 @@ Output: `data/splits.csv`
 Downloads intraday (minute or second) aggregate bars for specific tickers via the Polygon REST API. Can download for individual tickers or automatically fetch data for all stocks in play.
 
 ```bash
-dotnet run --project Spiral.Trading.Console -- download-intraday [options]
+dotnet run --project TradingEdge.Console -- download-intraday [options]
 ```
 
 **Options:**
@@ -103,16 +103,16 @@ dotnet run --project Spiral.Trading.Console -- download-intraday [options]
 
 ```bash
 # Download minute data for a specific ticker
-dotnet run --project Spiral.Trading.Console -- download-intraday -t NVDA -s 2024-12-01 -e 2024-12-11
+dotnet run --project TradingEdge.Console -- download-intraday -t NVDA -s 2024-12-01 -e 2024-12-11
 
 # Download second aggregates for a ticker
-dotnet run --project Spiral.Trading.Console -- download-intraday -t AAPL -s 2024-12-10 --timespan second
+dotnet run --project TradingEdge.Console -- download-intraday -t AAPL -s 2024-12-10 --timespan second
 
 # Download minute data for all stocks in play (from database)
-dotnet run --project Spiral.Trading.Console -- download-intraday --from-sip -s 2024-12-01 -e 2024-12-11
+dotnet run --project TradingEdge.Console -- download-intraday --from-sip -s 2024-12-01 -e 2024-12-11
 
 # Download for SIPs with custom filters
-dotnet run --project Spiral.Trading.Console -- download-intraday --from-sip -r 5 -g 0.10 -s 2024-12-01
+dotnet run --project TradingEdge.Console -- download-intraday --from-sip -r 5 -g 0.10 -s 2024-12-01
 ```
 
 Output: `data/intraday/{timespan}/{ticker}/{date}.json`
@@ -122,7 +122,7 @@ Output: `data/intraday/{timespan}/{ticker}/{date}.json`
 Downloads tick-level trades data for a specific ticker via the Polygon REST API. Each trade record includes price, size, exchange, conditions, and precise timestamps.
 
 ```bash
-dotnet run --project Spiral.Trading.Console -- download-trades [options]
+dotnet run --project TradingEdge.Console -- download-trades [options]
 ```
 
 **Options:**
@@ -136,13 +136,13 @@ dotnet run --project Spiral.Trading.Console -- download-trades [options]
 
 ```bash
 # Download trades for a single day
-dotnet run --project Spiral.Trading.Console -- download-trades -t NVDA -s 2024-12-20
+dotnet run --project TradingEdge.Console -- download-trades -t NVDA -s 2024-12-20
 
 # Download trades for a date range
-dotnet run --project Spiral.Trading.Console -- download-trades -t NVDA -s 2024-12-15 -e 2024-12-20
+dotnet run --project TradingEdge.Console -- download-trades -t NVDA -s 2024-12-15 -e 2024-12-20
 
 # Download with custom output directory
-dotnet run --project Spiral.Trading.Console -- download-trades -t AAPL -s 2024-12-20 -o data/my_trades
+dotnet run --project TradingEdge.Console -- download-trades -t AAPL -s 2024-12-20 -o data/my_trades
 ```
 
 Output: `data/trades/{ticker}/{date}.json`
@@ -152,7 +152,7 @@ Output: `data/trades/{ticker}/{date}.json`
 Downloads NBBO (National Best Bid and Offer) quotes data for a specific ticker via the Polygon REST API. Each quote record includes bid/ask prices, sizes, exchanges, and timestamps.
 
 ```bash
-dotnet run --project Spiral.Trading.Console -- download-quotes [options]
+dotnet run --project TradingEdge.Console -- download-quotes [options]
 ```
 
 **Options:**
@@ -167,13 +167,13 @@ dotnet run --project Spiral.Trading.Console -- download-quotes [options]
 
 ```bash
 # Download quotes for a single day
-dotnet run --project Spiral.Trading.Console -- download-quotes -t NVDA -s 2024-12-20
+dotnet run --project TradingEdge.Console -- download-quotes -t NVDA -s 2024-12-20
 
 # Download quotes for a date range
-dotnet run --project Spiral.Trading.Console -- download-quotes -t NVDA -s 2024-12-15 -e 2024-12-20
+dotnet run --project TradingEdge.Console -- download-quotes -t NVDA -s 2024-12-15 -e 2024-12-20
 
 # Download with pretty-printed JSON
-dotnet run --project Spiral.Trading.Console -- download-quotes -t AAPL -s 2024-12-20 --pretty
+dotnet run --project TradingEdge.Console -- download-quotes -t AAPL -s 2024-12-20 --pretty
 ```
 
 Output: `data/quotes/{ticker}/{date}.json`
@@ -183,7 +183,7 @@ Output: `data/quotes/{ticker}/{date}.json`
 Ingests downloaded CSV files and splits into a DuckDB database.
 
 ```bash
-dotnet run --project Spiral.Trading.Console -- ingest-data [options]
+dotnet run --project TradingEdge.Console -- ingest-data [options]
 ```
 
 **Options:**
@@ -195,10 +195,10 @@ dotnet run --project Spiral.Trading.Console -- ingest-data [options]
 
 ```bash
 # Ingest all data with defaults
-dotnet run --project Spiral.Trading.Console -- ingest-data
+dotnet run --project TradingEdge.Console -- ingest-data
 
 # Ingest to a custom database
-dotnet run --project Spiral.Trading.Console -- ingest-data -d /path/to/custom.db
+dotnet run --project TradingEdge.Console -- ingest-data -d /path/to/custom.db
 ```
 
 **Features:**
@@ -211,7 +211,7 @@ dotnet run --project Spiral.Trading.Console -- ingest-data -d /path/to/custom.db
 Ingests downloaded intraday JSON files into the DuckDB database.
 
 ```bash
-dotnet run --project Spiral.Trading.Console -- ingest-intraday [options]
+dotnet run --project TradingEdge.Console -- ingest-intraday [options]
 ```
 
 **Options:**
@@ -223,16 +223,16 @@ dotnet run --project Spiral.Trading.Console -- ingest-intraday [options]
 
 ```bash
 # Ingest all intraday data (minute and second)
-dotnet run --project Spiral.Trading.Console -- ingest-intraday
+dotnet run --project TradingEdge.Console -- ingest-intraday
 
 # Ingest only minute data
-dotnet run --project Spiral.Trading.Console -- ingest-intraday --timespan minute
+dotnet run --project TradingEdge.Console -- ingest-intraday --timespan minute
 
 # Ingest only second data
-dotnet run --project Spiral.Trading.Console -- ingest-intraday --timespan second
+dotnet run --project TradingEdge.Console -- ingest-intraday --timespan second
 
 # Ingest from a custom directory
-dotnet run --project Spiral.Trading.Console -- ingest-intraday -i /path/to/intraday
+dotnet run --project TradingEdge.Console -- ingest-intraday -i /path/to/intraday
 ```
 
 **Features:**
@@ -245,7 +245,7 @@ dotnet run --project Spiral.Trading.Console -- ingest-intraday -i /path/to/intra
 Refreshes only the SQL views without rematerializing the derived tables. Use this when you've modified view definitions but don't need to recompute the underlying materialized tables.
 
 ```bash
-dotnet run --project Spiral.Trading.Console -- refresh-views [options]
+dotnet run --project TradingEdge.Console -- refresh-views [options]
 ```
 
 **Options:**
@@ -255,10 +255,10 @@ dotnet run --project Spiral.Trading.Console -- refresh-views [options]
 
 ```bash
 # Refresh views with default database
-dotnet run --project Spiral.Trading.Console -- refresh-views
+dotnet run --project TradingEdge.Console -- refresh-views
 
 # Refresh views for a custom database
-dotnet run --project Spiral.Trading.Console -- refresh-views -d /path/to/custom.db
+dotnet run --project TradingEdge.Console -- refresh-views -d /path/to/custom.db
 ```
 
 ### Plot Chart
@@ -266,7 +266,7 @@ dotnet run --project Spiral.Trading.Console -- refresh-views -d /path/to/custom.
 Generates an interactive candlestick chart with volume for a given ticker.
 
 ```bash
-dotnet run --project Spiral.Trading.Console -- plot-chart [options]
+dotnet run --project TradingEdge.Console -- plot-chart [options]
 ```
 
 **Options:**
@@ -280,13 +280,13 @@ dotnet run --project Spiral.Trading.Console -- plot-chart [options]
 
 ```bash
 # Plot NVDA chart
-dotnet run --project Spiral.Trading.Console -- plot-chart -t NVDA
+dotnet run --project TradingEdge.Console -- plot-chart -t NVDA
 
 # Plot with custom output path
-dotnet run --project Spiral.Trading.Console -- plot-chart -t AAPL -o charts/apple.html
+dotnet run --project TradingEdge.Console -- plot-chart -t AAPL -o charts/apple.html
 
 # Plot with custom dimensions
-dotnet run --project Spiral.Trading.Console -- plot-chart -t MSFT -w 1600 -h 1000
+dotnet run --project TradingEdge.Console -- plot-chart -t MSFT -w 1600 -h 1000
 ```
 
 **Features:**
@@ -299,7 +299,7 @@ dotnet run --project Spiral.Trading.Console -- plot-chart -t MSFT -w 1600 -h 100
 Generates a DOM (Direction of Momentum) indicator chart.
 
 ```bash
-dotnet run --project Spiral.Trading.Console -- plot-dom [options]
+dotnet run --project TradingEdge.Console -- plot-dom [options]
 ```
 
 **Options:**
@@ -313,13 +313,13 @@ dotnet run --project Spiral.Trading.Console -- plot-dom [options]
 
 ```bash
 # Plot DOM chart with default SPY reference
-dotnet run --project Spiral.Trading.Console -- plot-dom
+dotnet run --project TradingEdge.Console -- plot-dom
 
 # Plot DOM chart against QQQ
-dotnet run --project Spiral.Trading.Console -- plot-dom -t QQQ
+dotnet run --project TradingEdge.Console -- plot-dom -t QQQ
 
 # Plot with custom output path
-dotnet run --project Spiral.Trading.Console -- plot-dom -o charts/dom.html
+dotnet run --project TradingEdge.Console -- plot-dom -o charts/dom.html
 ```
 
 **Features:**
@@ -332,7 +332,7 @@ dotnet run --project Spiral.Trading.Console -- plot-dom -o charts/dom.html
 Generates an interactive intraday candlestick chart with volume and VWAP indicators.
 
 ```bash
-dotnet run --project Spiral.Trading.Console -- plot-intraday [options]
+dotnet run --project TradingEdge.Console -- plot-intraday [options]
 ```
 
 **Options:**
@@ -348,13 +348,13 @@ dotnet run --project Spiral.Trading.Console -- plot-intraday [options]
 
 ```bash
 # Plot NVDA intraday chart for a specific date
-dotnet run --project Spiral.Trading.Console -- plot-intraday -t NVDA -s 2024-12-12
+dotnet run --project TradingEdge.Console -- plot-intraday -t NVDA -s 2024-12-12
 
 # Plot second-level data
-dotnet run --project Spiral.Trading.Console -- plot-intraday -t AAPL -s 2024-12-12 --timespan second
+dotnet run --project TradingEdge.Console -- plot-intraday -t AAPL -s 2024-12-12 --timespan second
 
 # Plot with custom output path
-dotnet run --project Spiral.Trading.Console -- plot-intraday -t MSFT -s 2024-12-12 -o charts/msft_intraday.html
+dotnet run --project TradingEdge.Console -- plot-intraday -t MSFT -s 2024-12-12 -o charts/msft_intraday.html
 ```
 
 **Features:**
@@ -370,7 +370,7 @@ dotnet run --project Spiral.Trading.Console -- plot-intraday -t MSFT -s 2024-12-
 Lists top stocks in play for a date range based on relative volume, opening gap, and liquidity.
 
 ```bash
-dotnet run --project Spiral.Trading.Console -- stocks-in-play [options]
+dotnet run --project TradingEdge.Console -- stocks-in-play [options]
 ```
 
 **Options:**
@@ -385,19 +385,19 @@ dotnet run --project Spiral.Trading.Console -- stocks-in-play [options]
 
 ```bash
 # List stocks in play for the past week (default filters)
-dotnet run --project Spiral.Trading.Console -- stocks-in-play
+dotnet run --project TradingEdge.Console -- stocks-in-play
 
 # List stocks in play for a specific date range
-dotnet run --project Spiral.Trading.Console -- stocks-in-play -s 2024-12-01 -e 2024-12-11
+dotnet run --project TradingEdge.Console -- stocks-in-play -s 2024-12-01 -e 2024-12-11
 
 # Find stocks with higher volatility (5x RVOL, 10% gap)
-dotnet run --project Spiral.Trading.Console -- stocks-in-play -r 5 -g 0.10
+dotnet run --project TradingEdge.Console -- stocks-in-play -r 5 -g 0.10
 
 # Include smaller-cap stocks ($50M+ avg volume instead of $100M)
-dotnet run --project Spiral.Trading.Console -- stocks-in-play -v 50
+dotnet run --project TradingEdge.Console -- stocks-in-play -v 50
 
 # Combine all filters: aggressive settings for small caps
-dotnet run --project Spiral.Trading.Console -- stocks-in-play -r 2 -g 0.03 -v 25
+dotnet run --project TradingEdge.Console -- stocks-in-play -r 2 -g 0.03 -v 25
 ```
 
 **Default Criteria:**
@@ -412,7 +412,7 @@ dotnet run --project Spiral.Trading.Console -- stocks-in-play -r 2 -g 0.03 -v 25
 Lists trade and quote condition codes from the Polygon API. These codes appear in the `conditions` field of trades data and indicate special circumstances like extended hours trades, odd lots, or intermarket sweeps.
 
 ```bash
-dotnet run --project Spiral.Trading.Console -- list-conditions [options]
+dotnet run --project TradingEdge.Console -- list-conditions [options]
 ```
 
 **Options:**
@@ -423,13 +423,13 @@ dotnet run --project Spiral.Trading.Console -- list-conditions [options]
 
 ```bash
 # List all stock trade conditions (default)
-dotnet run --project Spiral.Trading.Console -- list-conditions
+dotnet run --project TradingEdge.Console -- list-conditions
 
 # List quote conditions for stocks
-dotnet run --project Spiral.Trading.Console -- list-conditions -d quote
+dotnet run --project TradingEdge.Console -- list-conditions -d quote
 
 # List trade conditions for options
-dotnet run --project Spiral.Trading.Console -- list-conditions -a options
+dotnet run --project TradingEdge.Console -- list-conditions -a options
 ```
 
 **Output columns:**
@@ -448,8 +448,8 @@ dotnet run --project Spiral.Trading.Console -- list-conditions -a options
 ## Project Structure
 
 ```
-Spiral.Trading/
-├── Spiral.Trading/              # Core library
+TradingEdge/
+├── TradingEdge/              # Core library
 │   ├── Types.fs                 # Domain types
 │   ├── Config.fs                # Configuration loading
 │   ├── S3Download.fs            # S3 bulk download (daily aggregates)
@@ -475,7 +475,7 @@ Spiral.Trading/
 │           ├── 07_stock_laggards.sql
 │           ├── 08_dom_indicator.sql
 │           └── 09_stocks_in_play.sql
-├── Spiral.Trading.Console/      # CLI application
+├── TradingEdge.Console/      # CLI application
 │   └── Program.fs
 ├── api_key.json                 # API credentials (not in git)
 └── data/                        # Downloaded data

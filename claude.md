@@ -1,4 +1,4 @@
-# Claude Guidelines for Spiral.Trading
+# Claude Guidelines for TradingEdge
 
 ## F# Async Patterns
 

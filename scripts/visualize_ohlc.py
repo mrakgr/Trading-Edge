@@ -4,7 +4,7 @@ import matplotlib.patches as mpatches
 from matplotlib.lines import Line2D
 
 # Load data
-df = pd.read_csv('/home/mrakgr/Spiral-s-ML-Library/Spiral.Trading/data/new_generator_bars.csv')
+df = pd.read_csv('/home/mrakgr/Spiral-s-ML-Library/TradingEdge/data/new_generator_bars.csv')
 
 # Use 1-second bars directly
 bars = df.copy()
@@ -62,6 +62,6 @@ ax_vol.set_ylabel('Volume')
 ax_vol.set_xlabel('Time (seconds)')
 
 plt.tight_layout()
-plt.savefig('/home/mrakgr/Spiral-s-ML-Library/Spiral.Trading/data/new_generator_ohlc.png', dpi=150)
-print(f"Saved to /home/mrakgr/Spiral-s-ML-Library/Spiral.Trading/data/new_generator_ohlc.png")
+plt.savefig('/home/mrakgr/Spiral-s-ML-Library/TradingEdge/data/new_generator_ohlc.png', dpi=150)
+print(f"Saved to /home/mrakgr/Spiral-s-ML-Library/TradingEdge/data/new_generator_ohlc.png")
 plt.close()
