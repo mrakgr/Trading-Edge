@@ -20,8 +20,16 @@ type OrderFlowParams = {
 
 /// Parameters for price generation (time-normalized, then applied per-trade)
 type PriceParams = {
-    DriftPerSecond: float        // Drift per second (normalized to mean trade rate and size)
     VolatilityPerSecond: float   // Volatility per second (normalized to mean trade rate and size)
+}
+
+/// Support/resistance level parameters for a trend
+type SRParams = {
+    SupportOffset: float         // Starting support as log-offset from start price (negative = below)
+    ResistanceOffset: float      // Starting resistance as log-offset from start price (positive = above)
+    SupportDrift: float          // How much support moves per second (positive = dragged up)
+    ResistanceDrift: float       // How much resistance moves per second (negative = dragged down)
+    Noise: float                 // Gaussian noise std dev added to S/R levels per trade
 }
 
 /// Parameters for trade size generation (LogNormal activity model)
@@ -42,17 +50,28 @@ let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     | MidDowntrend ->    { MedianTradesPerSecond = 40.0; MeanTradesPerSecond = 48.0 }
     | StrongDowntrend -> { MedianTradesPerSecond = 50.0; MeanTradesPerSecond = 60.0 }
 
-/// Get price parameters for a trend type (drift and volatility per second)
-/// These match the original time-based model values
+/// Get price parameters for a trend type (volatility per second)
 let getPriceParams (trend: Trend) : PriceParams =
     match trend with
-    | StrongUptrend ->   { DriftPerSecond = 30e-6;  VolatilityPerSecond = 300e-6 }
-    | MidUptrend ->      { DriftPerSecond = 15e-6;  VolatilityPerSecond = 240e-6 }
-    | WeakUptrend ->     { DriftPerSecond = 7e-6;   VolatilityPerSecond = 180e-6 }
-    | Consolidation ->   { DriftPerSecond = 0.0;    VolatilityPerSecond = 120e-6 }
-    | WeakDowntrend ->   { DriftPerSecond = -7e-6;  VolatilityPerSecond = 180e-6 }
-    | MidDowntrend ->    { DriftPerSecond = -15e-6; VolatilityPerSecond = 240e-6 }
-    | StrongDowntrend -> { DriftPerSecond = -30e-6; VolatilityPerSecond = 300e-6 }
+    | StrongUptrend ->   { VolatilityPerSecond = 300e-6 }
+    | MidUptrend ->      { VolatilityPerSecond = 240e-6 }
+    | WeakUptrend ->     { VolatilityPerSecond = 180e-6 }
+    | Consolidation ->   { VolatilityPerSecond = 120e-6 }
+    | WeakDowntrend ->   { VolatilityPerSecond = 180e-6 }
+    | MidDowntrend ->    { VolatilityPerSecond = 240e-6 }
+    | StrongDowntrend -> { VolatilityPerSecond = 300e-6 }
+
+/// Get support/resistance parameters for a trend type
+/// For uptrends: support drags upward. For downtrends: resistance drags downward.
+let getSRParams (trend: Trend) : SRParams =
+    match trend with
+    | StrongUptrend ->   { SupportOffset = -0.002; ResistanceOffset = 0.004; SupportDrift = 50e-6; ResistanceDrift = 0.0; Noise = 0.0005 }
+    | MidUptrend ->      { SupportOffset = -0.002; ResistanceOffset = 0.003; SupportDrift = 25e-6; ResistanceDrift = 0.0; Noise = 0.0004 }
+    | WeakUptrend ->     { SupportOffset = -0.002; ResistanceOffset = 0.002; SupportDrift = 10e-6; ResistanceDrift = 0.0; Noise = 0.0003 }
+    | Consolidation ->   { SupportOffset = -0.002; ResistanceOffset = 0.002; SupportDrift = 0.0;   ResistanceDrift = 0.0; Noise = 0.0003 }
+    | WeakDowntrend ->   { SupportOffset = -0.002; ResistanceOffset = 0.002; SupportDrift = 0.0;   ResistanceDrift = -10e-6; Noise = 0.0003 }
+    | MidDowntrend ->    { SupportOffset = -0.003; ResistanceOffset = 0.002; SupportDrift = 0.0;   ResistanceDrift = -25e-6; Noise = 0.0004 }
+    | StrongDowntrend -> { SupportOffset = -0.004; ResistanceOffset = 0.002; SupportDrift = 0.0;   ResistanceDrift = -50e-6; Noise = 0.0005 }
 
 /// Get activity parameters for a trend type (LogNormal activity model)
 /// Stronger trends have higher mean/median ratio (more large trades)
@@ -103,39 +122,64 @@ let generateTimestamps (rng: Random) (startTime: float) (duration: float) (count
 let getActivityCorrection (sigma: float) : float =
     exp(sigma * sigma / 8.0)
 
-/// Generate prices and sizes using volume-based GBM with activity scaling
-/// Returns array of (price, size) pairs and the final price for chaining
+/// Sample from a truncated standard normal on [lo, hi] using inverse CDF
+let sampleTruncatedNormal (rng: Random) (lo: float) (hi: float) : float =
+    let cdfLo = Normal.CDF(0.0, 1.0, lo)
+    let cdfHi = Normal.CDF(0.0, 1.0, hi)
+    let u = cdfLo + rng.NextDouble() * (cdfHi - cdfLo)
+    Normal.InvCDF(0.0, 1.0, u)
+
+/// Generate prices and sizes using truncated normal S/R model with actual dt
 let generatePricesAndSizes 
     (rng: Random) 
     (priceParams: PriceParams) 
     (orderFlowParams: OrderFlowParams)
     (activityParams: ActivityParams)
+    (srParams: SRParams)
     (startPrice: float) 
-    (count: int) 
+    (timestamps: float[])
     : (float * int)[] * float =
     
+    let count = timestamps.Length
     if count = 0 then
         [||], startPrice
     else
         let mu, sigma = activityMuSigma activityParams
         let correction = getActivityCorrection sigma
         let normal = Normal(0.0, 1.0, rng)
+        let srNormal = Normal(0.0, 1.0, rng)
         let results = Array.zeroCreate count
         let mutable logPrice = log(startPrice)
+        let logStartPrice = logPrice
         
-        let expectedDt = 1.0 / orderFlowParams.MeanTradesPerSecond
-        let sqrtExpectedDt = sqrt(expectedDt)
         let expectedSqrtSize = sqrt(activityParams.MeanSize)
-        let drift = priceParams.DriftPerSecond
+        let expectedTradeCount = orderFlowParams.MeanTradesPerSecond * (if count > 1 then timestamps.[count-1] - timestamps.[0] else 1.0)
+        let tradeCountScale = sqrt(float count / (max 1.0 expectedTradeCount))
         let vol = priceParams.VolatilityPerSecond
         
+        let mutable prevTime = timestamps.[0]
+        
         for i in 0 .. count - 1 do
+            let dt = if i = 0 then 1.0 / orderFlowParams.MeanTradesPerSecond else timestamps.[i] - prevTime
+            let sqrtDt = sqrt(max dt 1e-9)
+            prevTime <- timestamps.[i]
+            
             let size = sampleSize rng mu sigma
             let sizeNorm = correction * sqrt(float size) / expectedSqrtSize
-            let scaledDrift = drift * sizeNorm
-            let scaledVol = vol * sizeNorm
-            let z = normal.Sample()
-            logPrice <- logPrice + (scaledDrift - scaledVol * scaledVol / 2.0) * expectedDt + scaledVol * sqrtExpectedDt * z
+            let scaledVol = vol * sizeNorm * tradeCountScale
+            
+            let t = timestamps.[i]
+            let support = logStartPrice + srParams.SupportOffset + srParams.SupportDrift * t + srParams.Noise * srNormal.Sample()
+            let resistance = logStartPrice + srParams.ResistanceOffset + srParams.ResistanceDrift * t + srParams.Noise * srNormal.Sample()
+            
+            let zLo = (support - logPrice) / (scaledVol * sqrtDt)
+            let zHi = (resistance - logPrice) / (scaledVol * sqrtDt)
+            
+            let z = 
+                if zLo >= zHi then normal.Sample()
+                else sampleTruncatedNormal rng zLo zHi
+            
+            logPrice <- logPrice + (-scaledVol * scaledVol / 2.0) * dt + scaledVol * sqrtDt * z
             results.[i] <- (exp(logPrice), size)
         
         results, exp(logPrice)
@@ -147,10 +191,11 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (episode: Episode<Tr
     let orderFlowParams = getOrderFlowParams episode.Label
     let priceParams = getPriceParams episode.Label
     let activityParams = getActivityParams episode.Label
+    let srParams = getSRParams episode.Label
     
     let tradeCount = sampleTradeCount rng orderFlowParams durationSeconds
     let timestamps = generateTimestamps rng 0.0 durationSeconds tradeCount
-    let pricesAndSizes, endPrice = generatePricesAndSizes rng priceParams orderFlowParams activityParams startPrice tradeCount
+    let pricesAndSizes, endPrice = generatePricesAndSizes rng priceParams orderFlowParams activityParams srParams startPrice timestamps
     
     let trades = Array.init tradeCount (fun i -> 
         let price, size = pricesAndSizes.[i]
