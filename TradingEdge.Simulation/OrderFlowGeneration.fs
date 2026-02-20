@@ -129,6 +129,12 @@ let sampleTruncatedNormal (rng: Random) (lo: float) (hi: float) : float =
     let u = cdfLo + rng.NextDouble() * (cdfHi - cdfLo)
     Normal.InvCDF(0.0, 1.0, u)
 
+/// Metropolis-Hastings step for S/R noise: target is N(0, sigma), proposal is current + sqrt(dt) * sigma * z
+let mhStepSRNoise (rng: Random) (sigma: float) (dt: float) (current: float) : float =
+    let proposal = current + sigma * sqrt(dt) * Normal.Sample(rng, 0.0, 1.0)
+    let logAccept = (current * current - proposal * proposal) / (2.0 * sigma * sigma)
+    if log(rng.NextDouble()) < logAccept then proposal else current
+
 /// Generate prices and sizes using truncated normal S/R model with actual dt
 let generatePricesAndSizes 
     (rng: Random) 
@@ -148,7 +154,6 @@ let generatePricesAndSizes
         let mu, sigma = activityMuSigma activityParams
         let correction = sqrtLogNormalCorrection sigma
         let normal = Normal(0.0, 1.0, rng)
-        let srNormal = Normal(0.0, 1.0, rng)
         let results = Array.zeroCreate count
         let mutable logPrice = log(startPrice)
         
@@ -163,6 +168,8 @@ let generatePricesAndSizes
         let vol = priceParams.VolatilityPerSecond
         
         let mutable prevTime = timestamps.[0]
+        let mutable supportNoise = srParams.Noise * Normal.Sample(rng, 0.0, 1.0)
+        let mutable resistanceNoise = srParams.Noise * Normal.Sample(rng, 0.0, 1.0)
         
         for i in 0 .. count - 1 do
             let dt = if i = 0 then 1.0 / orderFlowParams.MeanTradesPerSecond else timestamps.[i] - prevTime
@@ -176,8 +183,10 @@ let generatePricesAndSizes
             let frac = timestamps.[i] / duration
             let supportBase = logStartPrice + (logEndPrice - logStartPrice) * frac
             let resistanceBase = logEndPrice
-            let support = (min supportBase resistanceBase) - abs(srParams.Noise * srNormal.Sample())
-            let resistance = (max supportBase resistanceBase) + abs(srParams.Noise * srNormal.Sample())
+            supportNoise <- mhStepSRNoise rng srParams.Noise dt supportNoise
+            resistanceNoise <- mhStepSRNoise rng srParams.Noise dt resistanceNoise
+            let support = (min supportBase resistanceBase) - abs supportNoise
+            let resistance = (max supportBase resistanceBase) + abs resistanceNoise
             
             let zLo = (support - logPrice) / (scaledVol * sqrtDt)
             let zHi = (resistance - logPrice) / (scaledVol * sqrtDt)
@@ -189,7 +198,7 @@ let generatePricesAndSizes
             logPrice <- logPrice + scaledVol * sqrtDt * z
             results.[i] <- (exp(logPrice), size)
         
-        results, exp(logPrice)
+        results, exp(logEndPrice)
 
 /// Generate trades for a single trend episode
 /// Returns trades and the ending price for chaining to next episode
