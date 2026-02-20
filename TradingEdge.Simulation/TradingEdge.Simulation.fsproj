@@ -9,10 +9,7 @@
   <ItemGroup>
     <Compile Include="OrderBook.fs" />
     <Compile Include="EpisodeMCMC.fs" />
-    <Compile Include="PriceGeneration.fs" />
     <Compile Include="OrderFlowGeneration.fs" />
-    <Compile Include="MovingAverage.fs" />
-    <Compile Include="DatasetGeneration.fs" />
     <Compile Include="TDigestProcessing.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
