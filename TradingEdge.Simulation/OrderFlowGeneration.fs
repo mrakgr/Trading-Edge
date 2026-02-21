@@ -120,10 +120,14 @@ let generateTimestamps (rng: Random) (startTime: float) (duration: float) (count
 
 /// Sample from a truncated standard normal on [lo, hi] using inverse CDF
 let sampleTruncatedNormal (rng: Random) (lo: float) (hi: float) : float =
-    let cdfLo = Normal.CDF(0.0, 1.0, lo)
-    let cdfHi = Normal.CDF(0.0, 1.0, hi)
-    let u = cdfLo + rng.NextDouble() * (cdfHi - cdfLo)
-    Normal.InvCDF(0.0, 1.0, u)
+    let lo = max lo -38.0 |> min 8.2
+    let hi = min hi 8.2 |> max -38.0
+    if lo >= hi then lo
+    else
+        let cdfLo = Normal.CDF(0.0, 1.0, lo)
+        let cdfHi = Normal.CDF(0.0, 1.0, hi)
+        let u = cdfLo + rng.NextDouble() * (cdfHi - cdfLo)
+        Normal.InvCDF(0.0, 1.0, u)
 
 /// Metropolis-Hastings step for S/R noise: target is N(0, sigma), proposal is current + sqrt(dt) * sigma * z
 let mhStepSRNoise (rng: Random) (sigma: float) (dt: float) (current: float) : float =
