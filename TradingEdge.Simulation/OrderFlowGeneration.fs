@@ -170,7 +170,7 @@ let generatePricesAndSizes
             
             let size = sampleSize rng mu sigma
             let sizeVol = sqrt(float size / activityParams.MeanSize)
-            let stepVol = vol * sizeVol * dtVol
+            let vol = vol * sizeVol * dtVol
             
             let frac = timestamps.[i] / duration
             let supportBase = logStartPrice + (logEndPrice - logStartPrice) * frac
@@ -180,14 +180,14 @@ let generatePricesAndSizes
             let support = (min supportBase resistanceBase) - abs supportNoise
             let resistance = (max supportBase resistanceBase) + abs resistanceNoise
             
-            let zLo = (support - logPrice) / stepVol
-            let zHi = (resistance - logPrice) / stepVol
+            let zLo = (support - logPrice) / vol
+            let zHi = (resistance - logPrice) / vol
             
             let z = 
                 if zLo > zHi then failwith "Support shouldn't be greater than resistance."
                 else sampleTruncatedNormal rng zLo zHi
             
-            logPrice <- logPrice + stepVol * z
+            logPrice <- logPrice + vol * z
             results.[i] <- (exp(logPrice), size)
         
         results, exp(logEndPrice)
