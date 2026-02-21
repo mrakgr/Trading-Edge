@@ -18,9 +18,9 @@ type OrderFlowParams = {
     MeanTradesPerSecond: float    // Average trade rate (>= Median due to right skew)
 }
 
-/// Parameters for price generation (in basis points per second; 1 bps = 1e-4)
+/// Parameters for price generation
 type PriceParams = {
-    DriftBps: float              // Expected log-price drift in bps/sec (used to sample episode end price)
+    DriftToVolRatio: float       // Drift as a fraction of volatility (e.g. 0.1 = 10% of vol)
     VolatilityBps: float         // Volatility in bps/sec (normalized to mean trade rate and size)
 }
 
@@ -50,13 +50,13 @@ let getOrderFlowParams (trend: Trend) : OrderFlowParams =
 /// Get price parameters for a trend type (volatility per second)
 let getPriceParams (trend: Trend) : PriceParams =
     match trend with
-    | StrongUptrend ->   { DriftBps = 0.3;  VolatilityBps = 3.0 }
-    | MidUptrend ->      { DriftBps = 0.15; VolatilityBps = 2.4 }
-    | WeakUptrend ->     { DriftBps = 0.07; VolatilityBps = 1.8 }
-    | Consolidation ->   { DriftBps = 0.0;  VolatilityBps = 1.2 }
-    | WeakDowntrend ->   { DriftBps = -0.07; VolatilityBps = 1.8 }
-    | MidDowntrend ->    { DriftBps = -0.15; VolatilityBps = 2.4 }
-    | StrongDowntrend -> { DriftBps = -0.3;  VolatilityBps = 3.0 }
+    | StrongUptrend ->   { DriftToVolRatio = 0.10;  VolatilityBps = 3.0 }
+    | MidUptrend ->      { DriftToVolRatio = 0.0625; VolatilityBps = 2.4 }
+    | WeakUptrend ->     { DriftToVolRatio = 0.0389; VolatilityBps = 1.8 }
+    | Consolidation ->   { DriftToVolRatio = 0.0;    VolatilityBps = 1.2 }
+    | WeakDowntrend ->   { DriftToVolRatio = -0.0389; VolatilityBps = 1.8 }
+    | MidDowntrend ->    { DriftToVolRatio = -0.0625; VolatilityBps = 2.4 }
+    | StrongDowntrend -> { DriftToVolRatio = -0.10;  VolatilityBps = 3.0 }
 
 /// Get support/resistance noise parameters for a trend type
 let getSRParams (trend: Trend) : SRParams =
@@ -157,7 +157,8 @@ let generatePricesAndSizes
         let tradeCountVar = float count / expectedTradeCount
         let tradeCountVol = sqrt tradeCountVar
         let vol = priceParams.VolatilityBps * bps * tradeCountVol
-        let logEndPrice = logStartPrice + priceParams.DriftBps * bps * tradeCountVar * duration + vol * sqrt duration * Normal(0.0, 1.0, rng).Sample()
+        let driftBps = priceParams.DriftToVolRatio * priceParams.VolatilityBps
+        let logEndPrice = logStartPrice + driftBps * bps * tradeCountVar * duration + vol * sqrt duration * Normal(0.0, 1.0, rng).Sample()
         
         let mutable prevTime = timestamps.[0]
         let srNoise = srParams.NoiseBps * bps
