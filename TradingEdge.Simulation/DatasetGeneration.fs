@@ -125,9 +125,8 @@ let combineBars (bars: SecondBar[]) (periodSeconds: int) : (float * int * float)
         if b.Volume > 0 then
             vol <- vol + b.Volume
             let delta = b.Vwap - mean
-            let w = float b.Volume
-            mean <- mean + delta * w / float vol
-            s <- s + w * (b.StdDev * b.StdDev + delta * (b.Vwap - mean))
+            mean <- mean + delta * float b.Volume / float vol
+            s <- s + float b.Volume * (b.StdDev * b.StdDev + delta * (b.Vwap - mean))
         
         let stdDev = sqrt(s / float vol)
         result.[i] <- mean, vol, stdDev
