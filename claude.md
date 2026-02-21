@@ -8,3 +8,4 @@ When writing concurrent F# code in this project:
 2. **Use `ReadAllAsync()` for channel reading** - iterate with `for item in channel.Reader.ReadAllAsync() do`
 3. **Avoid `.Wait()` and `.Result`** inside async code - use `do!` and `let!` instead
 4. **FSharp.Control.TaskSeq** is available for `IAsyncEnumerable` support in `task {}` blocks
+5. **`open FSharp.Control`** is required to use `for ... in` with `IAsyncEnumerable` inside `task {}` - without it you get a type mismatch error about `IAsyncEnumerable` not being compatible with `seq`

@@ -1,267 +1,256 @@
 module TradingEdge.Simulation.DatasetGeneration
 
-// TODO: Adjust to use OrderFlowGeneration instead of PriceGeneration
+open System
+open System.IO
+open System.Threading.Tasks
+open System.Threading.Channels
+open Parquet
+open Parquet.Schema
+open Parquet.Data
+open FSharp.Control
+open TradingEdge.Simulation.EpisodeMCMC
+open TradingEdge.Simulation.OrderFlowGeneration
 
-// open System
-// open System.IO
-// open System.Threading.Tasks
-// open System.Threading.Channels
-// open Parquet
-// open Parquet.Schema
-// open Parquet.Data
-// open TradingEdge.Simulation.EpisodeMCMC
-// open TradingEdge.Simulation.PriceGeneration
-// open FSharp.Control
-// 
-// let sessionToInt (s: DaySession) : int =
-//     match s with
-//     | Morning -> 0
-//     | Mid -> 1
-//     | Close -> 2
-// 
-// let trendToInt (t: Trend) : int =
-//     match t with
-//     | StrongUptrend -> 0
-//     | MidUptrend -> 1
-//     | WeakUptrend -> 2
-//     | Consolidation -> 3
-//     | WeakDowntrend -> 4
-//     | MidDowntrend -> 5
-//     | StrongDowntrend -> 6
-// 
-// let computeDeltas (opens: float[]) (highs: float[]) (lows: float[]) (closes: float[]) (periodSeconds: int) =
-//     let n = opens.Length
-//     let deltaOpens = Array.zeroCreate<float> n
-//     let deltaHighs = Array.zeroCreate<float> n
-//     let deltaLows = Array.zeroCreate<float> n
-//     let deltaCloses = Array.zeroCreate<float> n
-// 
-//     let mutable periodOpen = 0.0
-//     let mutable runningHigh = 0.0
-//     let mutable runningLow = 0.0
-// 
-//     for i in 0 .. n - 1 do
-//         let posInPeriod = i % periodSeconds
-//         if posInPeriod = 0 then
-//             periodOpen <- opens.[i]
-//             runningHigh <- highs.[i]
-//             runningLow <- lows.[i]
-//         else
-//             if highs.[i] > runningHigh then runningHigh <- highs.[i]
-//             if lows.[i] < runningLow then runningLow <- lows.[i]
-// 
-//         let scale = 100.0 / periodOpen
-//         deltaOpens.[i] <- 0.0
-//         deltaHighs.[i] <- (runningHigh - periodOpen) * scale
-//         deltaLows.[i] <- (runningLow - periodOpen) * scale
-//         deltaCloses.[i] <- (closes.[i] - periodOpen) * scale
-// 
-//     (deltaOpens, deltaHighs, deltaLows, deltaCloses)
-// 
-// let computePartials (opens: float[]) (highs: float[]) (lows: float[]) (closes: float[]) (periodSeconds: int) =
-//     let n = opens.Length
-//     let partialOpens = Array.zeroCreate<float> n
-//     let partialHighs = Array.zeroCreate<float> n
-//     let partialLows = Array.zeroCreate<float> n
-//     let partialCloses = Array.zeroCreate<float> n
-// 
-//     let mutable periodOpen = 0.0
-//     let mutable runningHigh = 0.0
-//     let mutable runningLow = 0.0
-// 
-//     for i in 0 .. n - 1 do
-//         let posInPeriod = i % periodSeconds
-//         if posInPeriod = 0 then
-//             periodOpen <- opens.[i]
-//             runningHigh <- highs.[i]
-//             runningLow <- lows.[i]
-//         else
-//             if highs.[i] > runningHigh then runningHigh <- highs.[i]
-//             if lows.[i] < runningLow then runningLow <- lows.[i]
-// 
-//         partialOpens.[i] <- periodOpen
-//         partialHighs.[i] <- runningHigh
-//         partialLows.[i] <- runningLow
-//         partialCloses.[i] <- closes.[i]
-// 
-//     (partialOpens, partialHighs, partialLows, partialCloses)
-// 
-// type DayData = {
-//     DayId: int
-//     DayIds: int[]
-//     Times: int[]
-//     Opens: float[]
-//     Highs: float[]
-//     Lows: float[]
-//     Closes: float[]
-//     Sessions: int[]
-//     Trends: int[]
-//     DeltaHigh1s: float[]
-//     DeltaLow1s: float[]
-//     DeltaClose1s: float[]
-//     DeltaHigh1m: float[]
-//     DeltaLow1m: float[]
-//     DeltaClose1m: float[]
-//     DeltaHigh5m: float[]
-//     DeltaLow5m: float[]
-//     DeltaClose5m: float[]
-// }
-// 
-// let generateSingleDay
-//     (dayId: int)
-//     (seed: int)
-//     (mcmcConfig: MCMC.Config)
-//     (sessionConfig: SessionLevel.Config)
-//     (trendConfig: TrendLevel.Config)
-//     (startPrice: float)
-//     : DayData =
-// 
-//     let barsPerDay = 390 * 60
-//     let rng = Random(seed)
-// 
-//     let result = generateDay sessionConfig trendConfig mcmcConfig rng 390.0
-//     let bars = generateDayBars rng startPrice result
-// 
-//     let dayIds = Array.create barsPerDay dayId
-//     let times = Array.zeroCreate<int> barsPerDay
-//     let opens = Array.zeroCreate<float> barsPerDay
-//     let highs = Array.zeroCreate<float> barsPerDay
-//     let lows = Array.zeroCreate<float> barsPerDay
-//     let closes = Array.zeroCreate<float> barsPerDay
-//     let sessions = Array.zeroCreate<int> barsPerDay
-//     let trends = Array.zeroCreate<int> barsPerDay
-// 
-//     for i in 0 .. bars.Length - 1 do
-//         times.[i] <- int bars.[i].Time
-//         opens.[i] <- bars.[i].Open
-//         highs.[i] <- bars.[i].High
-//         lows.[i] <- bars.[i].Low
-//         closes.[i] <- bars.[i].Close
-//         sessions.[i] <- sessionToInt bars.[i].Session
-//         trends.[i] <- trendToInt bars.[i].Trend
-// 
-//     let (_, deltaHigh1s, deltaLow1s, deltaClose1s) =
-//         computeDeltas opens highs lows closes 1
-// 
-//     let (_, deltaHigh1m, deltaLow1m, deltaClose1m) =
-//         computeDeltas opens highs lows closes 60
-// 
-//     let (_, deltaHigh5m, deltaLow5m, deltaClose5m) =
-//         computeDeltas opens highs lows closes 300
-// 
-//     { DayId = dayId; DayIds = dayIds; Times = times; Opens = opens
-//       Highs = highs; Lows = lows; Closes = closes; Sessions = sessions; Trends = trends
-//       DeltaHigh1s = deltaHigh1s; DeltaLow1s = deltaLow1s; DeltaClose1s = deltaClose1s
-//       DeltaHigh1m = deltaHigh1m; DeltaLow1m = deltaLow1m; DeltaClose1m = deltaClose1m
-//       DeltaHigh5m = deltaHigh5m; DeltaLow5m = deltaLow5m; DeltaClose5m = deltaClose5m }
-// 
-// let writerTask
-//     (schema: ParquetSchema)
-//     (outputPath: string)
-//     (numDays: int)
-//     (channel: Channel<DayData>)
-//     = task {
-//     use stream = File.Create(outputPath)
-//     let! writer = ParquetWriter.CreateAsync(schema, stream)
-//     use writer = writer
-// 
-//     let mutable daysWritten = 0
-// 
-//     for data in channel.Reader.ReadAllAsync() do
-//         use rowGroup = writer.CreateRowGroup()
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[0], data.DayIds))
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[1], data.Times))
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[2], data.Opens))
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[3], data.Highs))
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[4], data.Lows))
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[5], data.Closes))
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[6], data.Sessions))
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[7], data.Trends))
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[8], data.DeltaHigh1s))
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[9], data.DeltaLow1s))
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[10], data.DeltaClose1s))
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[11], data.DeltaHigh1m))
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[12], data.DeltaLow1m))
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[13], data.DeltaClose1m))
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[14], data.DeltaHigh5m))
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[15], data.DeltaLow5m))
-//         do! rowGroup.WriteColumnAsync(DataColumn(schema.DataFields.[16], data.DeltaClose5m))
-// 
-//         daysWritten <- daysWritten + 1
-//         if daysWritten % 500 = 0 then
-//             printfn "  Written %d / %d days" daysWritten numDays
-// }
-// 
-// let generatorTask
-//     (workerId: int)
-//     (numWorkers: int)
-//     (numDays: int)
-//     (baseSeed: int)
-//     (mcmcConfig: MCMC.Config)
-//     (sessionConfig: SessionLevel.Config)
-//     (trendConfig: TrendLevel.Config)
-//     (startPrice: float)
-//     (channel: Channel<DayData>)
-//     = task {
-//     let writer = channel.Writer
-//     let mutable dayId = workerId
-//     while dayId < numDays do
-//         let seed = baseSeed + dayId
-//         let data = generateSingleDay dayId seed mcmcConfig sessionConfig trendConfig startPrice
-//         do! writer.WriteAsync(data)
-//         dayId <- dayId + numWorkers
-// }
-// 
-// let generateDataset
-//     (baseSeed: int)
-//     (numDays: int)
-//     (outputPath: string)
-//     (mcmcConfig: MCMC.Config)
-//     (sessionConfig: SessionLevel.Config)
-//     (trendConfig: TrendLevel.Config)
-//     (startPrice: float)
-//     : unit =
-// 
-//     let barsPerDay = 390 * 60
-//     let totalBars = numDays * barsPerDay
-//     let numWorkers = Environment.ProcessorCount
-// 
-//     printfn "Generating %d days (%d bars) with %d workers..." numDays totalBars numWorkers
-// 
-//     let dir = Path.GetDirectoryName(outputPath)
-//     if not (String.IsNullOrEmpty(dir)) && not (Directory.Exists(dir)) then
-//         Directory.CreateDirectory(dir) |> ignore
-// 
-//     let schema = ParquetSchema(
-//         DataField<int>("day_id"),
-//         DataField<int>("time"),
-//         DataField<float>("open"),
-//         DataField<float>("high"),
-//         DataField<float>("low"),
-//         DataField<float>("close"),
-//         DataField<int>("session"),
-//         DataField<int>("trend"),
-//         DataField<float>("delta_high_1s"),
-//         DataField<float>("delta_low_1s"),
-//         DataField<float>("delta_close_1s"),
-//         DataField<float>("delta_high_1m"),
-//         DataField<float>("delta_low_1m"),
-//         DataField<float>("delta_close_1m"),
-//         DataField<float>("delta_high_5m"),
-//         DataField<float>("delta_low_5m"),
-//         DataField<float>("delta_close_5m")
-//     )
-// 
-//     let channel = Channel.CreateBounded<DayData>(BoundedChannelOptions(numWorkers * 2))
-// 
-//     let writer = writerTask schema outputPath numDays channel
-// 
-//     let generators =
-//         [| for w in 0 .. numWorkers - 1 ->
-//             Task.Run(Func<Task>(fun () ->
-//                 generatorTask w numWorkers numDays baseSeed mcmcConfig sessionConfig trendConfig startPrice channel)) |]
-// 
-//     Task.WhenAll(generators).ContinueWith(Action<Task>(fun _ -> channel.Writer.Complete())).Wait()
-//     writer.Wait()
-// 
-//     printfn "Done. Wrote %d bars to %s" totalBars outputPath
+let sessionToInt (s: DaySession) : int =
+    match s with
+    | Morning -> 0
+    | Mid -> 1
+    | Close -> 2
+
+let trendToInt (t: Trend) : int =
+    match t with
+    | StrongUptrend -> 0
+    | MidUptrend -> 1
+    | WeakUptrend -> 2
+    | Consolidation -> 3
+    | WeakDowntrend -> 4
+    | MidDowntrend -> 5
+    | StrongDowntrend -> 6
+
+type SecondBar = {
+    Vwap: float
+    Volume: int
+    StdDev: float
+    Session: int
+    Trend: int
+}
+
+/// Generate all trades for a full day, chaining episode end prices
+let generateDayTrades (rng: Random) (startPrice: float) (result: DayResult) : Trade[] =
+    let allTrades = ResizeArray<Trade>()
+    let mutable price = startPrice
+    let mutable timeOffset = 0.0
+    for sessionTrends in result.Trends do
+        for episode in sessionTrends do
+            let trades, endPrice = generateEpisodeTrades rng price episode
+            for t in trades do
+                allTrades.Add({ t with Time = t.Time + timeOffset })
+            timeOffset <- timeOffset + episode.Duration * 60.0
+            price <- endPrice
+    allTrades.ToArray()
+
+/// Aggregate trades into 1-second bars
+let aggregateToSecondBars (trades: Trade[]) (totalSeconds: int) : SecondBar[] =
+    let bars = Array.init totalSeconds (fun _ -> { Vwap = 0.0; Volume = 0; StdDev = 0.0; Session = 0; Trend = 0 })
+    
+    // Group trades by second
+    let buckets = Array.init totalSeconds (fun _ -> ResizeArray<Trade>())
+    for t in trades do
+        let sec = int t.Time |> min (totalSeconds - 1) |> max 0
+        buckets.[sec].Add(t)
+    
+    let mutable lastVwap = if trades.Length > 0 then trades.[0].Price else 0.0
+    
+    for sec in 0 .. totalSeconds - 1 do
+        let bucket = buckets.[sec]
+        if bucket.Count = 0 then
+            bars.[sec] <- { Vwap = lastVwap; Volume = 0; StdDev = 0.0; Session = 0; Trend = 0 }
+        else
+            let totalVol = bucket |> Seq.sumBy (fun t -> t.Size)
+            let vwap = (bucket |> Seq.sumBy (fun t -> float t.Size * t.Price)) / float totalVol
+            let variance =
+                if totalVol > 0 then
+                    (bucket |> Seq.sumBy (fun t -> float t.Size * (t.Price - vwap) ** 2.0)) / float totalVol
+                else 0.0
+            let lastTrade = bucket.[bucket.Count - 1]
+            bars.[sec] <- { Vwap = vwap; Volume = totalVol; StdDev = sqrt variance; Session = sessionToInt Morning; Trend = trendToInt lastTrade.Trend }
+            lastVwap <- vwap
+    bars
+
+/// Assign session/trend labels to second bars based on episode structure
+let assignLabels (bars: SecondBar[]) (result: DayResult) : unit =
+    let mutable sec = 0
+    for i in 0 .. result.Sessions.Length - 1 do
+        let session = result.Sessions.[i]
+        let sessionInt = sessionToInt session.Label
+        for episode in result.Trends.[i] do
+            let trendInt = trendToInt episode.Label
+            let endSec = sec + int (episode.Duration * 60.0)
+            for s in sec .. min (endSec - 1) (bars.Length - 1) do
+                bars.[s] <- { bars.[s] with Session = sessionInt; Trend = trendInt }
+            sec <- endSec
+
+type DayData = {
+    DayId: int
+    DayIds: int[]
+    Times: int[]
+    Sessions: int[]
+    Trends: int[]
+    Vwap1s: float[]
+    Volume1s: int[]
+    StdDev1s: float[]
+    Vwap1m: float[]
+    Volume1m: int[]
+    StdDev1m: float[]
+    Vwap5m: float[]
+    Volume5m: int[]
+    StdDev5m: float[]
+}
+
+/// Combine 1s bars into period bars (1m, 5m) using online weighted variance (West 1979)
+let combineBars (bars: SecondBar[]) (periodSeconds: int) : (float * int * float)[] =
+    let n = bars.Length
+    let result = Array.zeroCreate n
+    let mutable wSum = 0.0
+    let mutable mean = 0.0
+    let mutable s = 0.0
+    let mutable vol = 0
+    
+    for i in 0 .. n - 1 do
+        if i % periodSeconds = 0 then
+            wSum <- 0.0
+            mean <- 0.0
+            s <- 0.0
+            vol <- 0
+        
+        let b = bars.[i]
+        let w = float b.Volume
+        if w > 0.0 then
+            let prevWSum = wSum
+            wSum <- wSum + w
+            vol <- vol + b.Volume
+            let delta = b.Vwap - mean
+            mean <- mean + delta * w / wSum
+            s <- s + w * delta * (b.Vwap - mean)
+            s <- s + w * b.StdDev * b.StdDev
+        
+        let stdDev = if wSum > 0.0 then sqrt(s / wSum) else 0.0
+        result.[i] <- (mean, vol, stdDev)
+    
+    result
+
+let barsPerDay = 390 * 60
+
+let generateSingleDay
+    (dayId: int)
+    (seed: int)
+    (mcmcConfig: MCMC.Config)
+    (sessionConfig: SessionLevel.Config)
+    (trendConfig: TrendLevel.Config)
+    (startPrice: float)
+    : DayData =
+
+    let rng = Random(seed)
+    let result = generateDay sessionConfig trendConfig mcmcConfig rng 390.0
+    let trades = generateDayTrades rng startPrice result
+    let bars = aggregateToSecondBars trades barsPerDay
+    assignLabels bars result
+
+    let agg1m = combineBars bars 60
+    let agg5m = combineBars bars 300
+
+    { DayId = dayId
+      DayIds = Array.create barsPerDay dayId
+      Times = Array.init barsPerDay id
+      Sessions = bars |> Array.map (fun b -> b.Session)
+      Trends = bars |> Array.map (fun b -> b.Trend)
+      Vwap1s = bars |> Array.map (fun b -> b.Vwap)
+      Volume1s = bars |> Array.map (fun b -> b.Volume)
+      StdDev1s = bars |> Array.map (fun b -> b.StdDev)
+      Vwap1m = agg1m |> Array.map (fun (v,_,_) -> v)
+      Volume1m = agg1m |> Array.map (fun (_,v,_) -> v)
+      StdDev1m = agg1m |> Array.map (fun (_,_,s) -> s)
+      Vwap5m = agg5m |> Array.map (fun (v,_,_) -> v)
+      Volume5m = agg5m |> Array.map (fun (_,v,_) -> v)
+      StdDev5m = agg5m |> Array.map (fun (_,_,s) -> s) }
+
+let datasetSchema = ParquetSchema(
+    DataField<int>("day_id"),
+    DataField<int>("time"),
+    DataField<int>("session"),
+    DataField<int>("trend"),
+    DataField<float>("vwap_1s"),
+    DataField<int>("volume_1s"),
+    DataField<float>("stddev_1s"),
+    DataField<float>("vwap_1m"),
+    DataField<int>("volume_1m"),
+    DataField<float>("stddev_1m"),
+    DataField<float>("vwap_5m"),
+    DataField<int>("volume_5m"),
+    DataField<float>("stddev_5m")
+)
+
+let writerTask (outputPath: string) (numDays: int) (channel: Channel<DayData>) = task {
+    use stream = File.Create(outputPath)
+    let! writer = ParquetWriter.CreateAsync(datasetSchema, stream)
+    use writer = writer
+    let mutable daysWritten = 0
+
+    for data in channel.Reader.ReadAllAsync() do
+        let fields = datasetSchema.DataFields
+        use rowGroup = writer.CreateRowGroup()
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[0], data.DayIds))
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[1], data.Times))
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[2], data.Sessions))
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[3], data.Trends))
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[4], data.Vwap1s))
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[5], data.Volume1s))
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[6], data.StdDev1s))
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[7], data.Vwap1m))
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[8], data.Volume1m))
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[9], data.StdDev1m))
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[10], data.Vwap5m))
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[11], data.Volume5m))
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[12], data.StdDev5m))
+        daysWritten <- daysWritten + 1
+        if daysWritten % 500 = 0 then
+            printfn "  Written %d / %d days" daysWritten numDays
+}
+
+let generatorTask
+    (workerId: int) (numWorkers: int) (numDays: int) (baseSeed: int)
+    (mcmcConfig: MCMC.Config) (sessionConfig: SessionLevel.Config)
+    (trendConfig: TrendLevel.Config) (startPrice: float)
+    (channel: Channel<DayData>) = task {
+    let mutable dayId = workerId
+    while dayId < numDays do
+        let data = generateSingleDay dayId (baseSeed + dayId) mcmcConfig sessionConfig trendConfig startPrice
+        do! channel.Writer.WriteAsync(data)
+        dayId <- dayId + numWorkers
+}
+
+let generateDataset
+    (baseSeed: int) (numDays: int) (outputPath: string)
+    (mcmcConfig: MCMC.Config) (sessionConfig: SessionLevel.Config)
+    (trendConfig: TrendLevel.Config) (startPrice: float) : unit =
+
+    let numWorkers = Environment.ProcessorCount
+    printfn "Generating %d days (%d bars) with %d workers..." numDays (numDays * barsPerDay) numWorkers
+
+    let dir = Path.GetDirectoryName(outputPath)
+    if not (String.IsNullOrEmpty(dir)) && not (Directory.Exists(dir)) then
+        Directory.CreateDirectory(dir) |> ignore
+
+    let channel = Channel.CreateBounded<DayData>(BoundedChannelOptions(numWorkers * 2))
+
+    let writer = writerTask outputPath numDays channel
+
+    let generators =
+        [| for w in 0 .. numWorkers - 1 ->
+            Task.Run(Func<Task>(fun () ->
+                generatorTask w numWorkers numDays baseSeed mcmcConfig sessionConfig trendConfig startPrice channel)) |]
+
+    Task.WhenAll(generators).ContinueWith(fun (_: Task) -> channel.Writer.Complete()).Wait()
+    writer.Wait()
+
+    printfn "Done. Wrote %d bars to %s" (numDays * barsPerDay) outputPath

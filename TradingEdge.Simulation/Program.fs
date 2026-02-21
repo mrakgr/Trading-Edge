@@ -3,6 +3,7 @@ open Argu
 open TradingEdge.Simulation.OrderBook
 open TradingEdge.Simulation.EpisodeMCMC
 open TradingEdge.Simulation.TDigestProcessing
+open TradingEdge.Simulation.DatasetGeneration
 
 type OrderBookArgs =
     | [<AltCommandLine("-s")>] Seed of int
@@ -20,6 +21,21 @@ type GenerateDayArgs =
             match this with
             | Seed _ -> "Random seed for generation"
             | Runs _ -> "Number of days to generate"
+            | Iterations _ -> "MCMC iterations per level"
+
+type GenerateDatasetArgs =
+    | [<AltCommandLine("-s")>] Seed of int
+    | [<AltCommandLine("-n")>] Days of int
+    | [<AltCommandLine("-o")>] Output of string
+    | [<AltCommandLine("-p")>] Price of float
+    | [<AltCommandLine("-i")>] Iterations of int
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Seed _ -> "Random seed for generation"
+            | Days _ -> "Number of days to generate"
+            | Output _ -> "Output parquet file path"
+            | Price _ -> "Starting price (default: 100.0)"
             | Iterations _ -> "MCMC iterations per level"
 
 type PreprocessArgs =
@@ -40,12 +56,14 @@ type PreprocessArgs =
 type Command =
     | [<CliPrefix(CliPrefix.None)>] Order_Book of ParseResults<OrderBookArgs>
     | [<CliPrefix(CliPrefix.None)>] Generate_Day of ParseResults<GenerateDayArgs>
+    | [<CliPrefix(CliPrefix.None)>] Generate_Dataset of ParseResults<GenerateDatasetArgs>
     | [<CliPrefix(CliPrefix.None)>] Preprocess of ParseResults<PreprocessArgs>
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | Order_Book _ -> "Generate and display an order book"
             | Generate_Day _ -> "Generate a full day with sessions and trends using MCMC"
+            | Generate_Dataset _ -> "Generate dataset of VWAP/Volume/StdDev bars to parquet"
             | Preprocess _ -> "Apply t-digest CDF transform to raw dataset"
 
 let runOrderBook (args: ParseResults<OrderBookArgs>) =
@@ -84,6 +102,15 @@ let runGenerateDay (args: ParseResults<GenerateDayArgs>) =
         if i < runs then printfn "---"
         printfn ""
 
+let runGenerateDataset (args: ParseResults<GenerateDatasetArgs>) =
+    let seed = args.GetResult(GenerateDatasetArgs.Seed, 42)
+    let numDays = args.GetResult(GenerateDatasetArgs.Days, 1000)
+    let output = args.GetResult(GenerateDatasetArgs.Output, "data/dataset.parquet")
+    let startPrice = args.GetResult(GenerateDatasetArgs.Price, 100.0)
+    let iterations = args.GetResult(GenerateDatasetArgs.Iterations, 10000)
+    let mcmcConfig = { MCMC.Iterations = iterations }
+    generateDataset seed numDays output mcmcConfig SessionLevel.defaultConfig TrendLevel.defaultConfig startPrice
+
 let runPreprocess (args: ParseResults<PreprocessArgs>) =
     let input = args.GetResult(PreprocessArgs.Input)
     let output = args.GetResult(PreprocessArgs.Output)
@@ -114,6 +141,7 @@ let main argv =
         match results.GetSubCommand() with
         | Order_Book args -> runOrderBook args
         | Generate_Day args -> runGenerateDay args
+        | Generate_Dataset args -> runGenerateDataset args
         | Preprocess args -> runPreprocess args
 
         0
