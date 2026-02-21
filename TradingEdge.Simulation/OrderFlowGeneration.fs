@@ -118,16 +118,17 @@ let generateTimestamps (rng: Random) (startTime: float) (duration: float) (count
     Array.sortInPlace timestamps
     timestamps
 
+let clip lo hi x = max lo (min hi x)
+
 /// Sample from a truncated standard normal on [lo, hi] using inverse CDF
 let sampleTruncatedNormal (rng: Random) (lo: float) (hi: float) : float =
-    let lo = max lo -38.0 |> min 8.2
-    let hi = min hi 8.2 |> max -38.0
-    if lo >= hi then lo
-    else
-        let cdfLo = Normal.CDF(0.0, 1.0, lo)
-        let cdfHi = Normal.CDF(0.0, 1.0, hi)
-        let u = cdfLo + rng.NextDouble() * (cdfHi - cdfLo)
-        Normal.InvCDF(0.0, 1.0, u)
+    let lo = clip -38.0 8.2 lo
+    let hi = clip -38.0 8.2 hi
+    if lo > hi then failwith "Support shouldn't be greater than resistance after clipping."
+    let cdfLo = Normal.CDF(0.0, 1.0, lo)
+    let cdfHi = Normal.CDF(0.0, 1.0, hi)
+    let u = cdfLo + rng.NextDouble() * (cdfHi - cdfLo)
+    Normal.InvCDF(0.0, 1.0, u)
 
 /// Metropolis-Hastings step for S/R noise: target is N(0, sigma), proposal is current + sqrt(dt) * sigma * z
 let mhStepSRNoise (rng: Random) (sigma: float) (dt: float) (current: float) : float =
@@ -185,14 +186,10 @@ let generatePricesAndSizes
             resistanceNoise <- mhStepSRNoise rng srNoise dt resistanceNoise
             let support = min supportBase resistanceBase - abs supportNoise
             let resistance = max supportBase resistanceBase + abs resistanceNoise
-            
+            logPrice <- clip support resistance logPrice            
             let zLo = (support - logPrice) / vol
             let zHi = (resistance - logPrice) / vol
-            
-            let z = 
-                if zLo > zHi then failwith "Support shouldn't be greater than resistance."
-                else sampleTruncatedNormal rng zLo zHi
-            
+            let z = sampleTruncatedNormal rng zLo zHi           
             logPrice <- logPrice + vol * z
             results.[i] <- exp logPrice, size
         
