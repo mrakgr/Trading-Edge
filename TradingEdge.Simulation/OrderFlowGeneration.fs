@@ -148,7 +148,6 @@ let generatePricesAndSizes
         [||], startPrice
     else
         let mu, sigma = activityMuSigma activityParams
-        let normal = Normal(0.0, 1.0, rng)
         let results = Array.zeroCreate count
         let mutable logPrice = log startPrice
         
