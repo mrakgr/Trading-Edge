@@ -118,10 +118,6 @@ let generateTimestamps (rng: Random) (startTime: float) (duration: float) (count
     Array.sortInPlace timestamps
     timestamps
 
-/// Correction factor so E[correction * sqrt(X/mean)] = 1 for LogNormal X with parameter sigma
-let sqrtLogNormalCorrection (sigma: float) : float =
-    exp(sigma * sigma / 8.0)
-
 /// Sample from a truncated standard normal on [lo, hi] using inverse CDF
 let sampleTruncatedNormal (rng: Random) (lo: float) (hi: float) : float =
     let cdfLo = Normal.CDF(0.0, 1.0, lo)
@@ -152,20 +148,16 @@ let generatePricesAndSizes
         [||], startPrice
     else
         let mu, sigma = activityMuSigma activityParams
-        let correction = sqrtLogNormalCorrection sigma
         let normal = Normal(0.0, 1.0, rng)
         let results = Array.zeroCreate count
         let mutable logPrice = log(startPrice)
         
         let logStartPrice = logPrice
-        let logEndPrice = logStartPrice + priceParams.DriftPerSecond * duration + priceParams.VolatilityPerSecond * sqrt(duration) * Normal(0.0, 1.0, rng).Sample()
-        
-        let expectedSqrtSize = sqrt(activityParams.MeanSize)
         let expectedTradeCount = orderFlowParams.MeanTradesPerSecond * duration
-        let tradeCountSigma = logNormalSigma orderFlowParams.MedianTradesPerSecond orderFlowParams.MeanTradesPerSecond
-        let tradeCountCorrection = sqrtLogNormalCorrection tradeCountSigma
-        let tradeCountScale = tradeCountCorrection * sqrt(float count / expectedTradeCount)
-        let vol = priceParams.VolatilityPerSecond
+        let tradeCountVar = float count / expectedTradeCount
+        let tradeCountVol = sqrt tradeCountVar
+        let vol = priceParams.VolatilityPerSecond * tradeCountVol
+        let logEndPrice = logStartPrice + priceParams.DriftPerSecond * tradeCountVar * duration + vol * sqrt duration * Normal(0.0, 1.0, rng).Sample()
         
         let mutable prevTime = timestamps.[0]
         let mutable supportNoise = srParams.Noise * Normal.Sample(rng, 0.0, 1.0)
@@ -173,12 +165,12 @@ let generatePricesAndSizes
         
         for i in 0 .. count - 1 do
             let dt = if i = 0 then 1.0 / orderFlowParams.MeanTradesPerSecond else timestamps.[i] - prevTime
-            let sqrtDt = sqrt(max dt 1e-9)
+            let dtVol = sqrt(max dt 1e-9)
             prevTime <- timestamps.[i]
             
             let size = sampleSize rng mu sigma
-            let sizeScale = correction * sqrt(float size) / expectedSqrtSize
-            let scaledVol = vol * sizeScale * tradeCountScale
+            let sizeVol = sqrt(float size / activityParams.MeanSize)
+            let stepVol = vol * sizeVol * dtVol
             
             let frac = timestamps.[i] / duration
             let supportBase = logStartPrice + (logEndPrice - logStartPrice) * frac
@@ -188,14 +180,14 @@ let generatePricesAndSizes
             let support = (min supportBase resistanceBase) - abs supportNoise
             let resistance = (max supportBase resistanceBase) + abs resistanceNoise
             
-            let zLo = (support - logPrice) / (scaledVol * sqrtDt)
-            let zHi = (resistance - logPrice) / (scaledVol * sqrtDt)
+            let zLo = (support - logPrice) / stepVol
+            let zHi = (resistance - logPrice) / stepVol
             
             let z = 
-                if zLo >= zHi then normal.Sample()
+                if zLo > zHi then failwith "Support shouldn't be greater than resistance."
                 else sampleTruncatedNormal rng zLo zHi
             
-            logPrice <- logPrice + scaledVol * sqrtDt * z
+            logPrice <- logPrice + stepVol * z
             results.[i] <- (exp(logPrice), size)
         
         results, exp(logEndPrice)
