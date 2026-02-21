@@ -12,166 +12,133 @@ open TDigest
 open FSharp.Control
 
 type TDigests = {
-    PriceDeltas: MergingDigest
+    Vwap: MergingDigest
+    Volume: MergingDigest
+    StdDev: MergingDigest
 }
 
-type private DeltaArrays = {
-    DeltaHigh1s: float[]
-    DeltaLow1s: float[]
-    DeltaClose1s: float[]
-    DeltaHigh1m: float[]
-    DeltaLow1m: float[]
-    DeltaClose1m: float[]
-    DeltaHigh5m: float[]
-    DeltaLow5m: float[]
-    DeltaClose5m: float[]
+type private FeatureArrays = {
+    Vwap1s: float[]; Volume1s: int[]; StdDev1s: float[]
+    Vwap1m: float[]; Volume1m: int[]; StdDev1m: float[]
+    Vwap5m: float[]; Volume5m: int[]; StdDev5m: float[]
 }
 
 type private RowGroupData = {
     Index: int
-    DayIds: int[]
-    Times: int[]
-    Opens: float[]
-    Highs: float[]
-    Lows: float[]
-    Closes: float[]
-    Sessions: int[]
-    Trends: int[]
-    Deltas: DeltaArrays
+    DayIds: int[]; Times: int[]; Sessions: int[]; Trends: int[]
+    Features: FeatureArrays
 }
 
-let createTDigests (compression: float) =
-    { PriceDeltas = MergingDigest(compression) }
+let defaultCompression = 4096.0
 
-let defaultCompression = 4096.0 // 2^12
-
-let private readDeltaArrays (rowGroupReader: ParquetRowGroupReader) (schema: ParquetSchema) = task {
-    let! deltaHigh1sCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[8])
-    let! deltaLow1sCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[9])
-    let! deltaClose1sCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[10])
-    let! deltaHigh1mCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[11])
-    let! deltaLow1mCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[12])
-    let! deltaClose1mCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[13])
-    let! deltaHigh5mCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[14])
-    let! deltaLow5mCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[15])
-    let! deltaClose5mCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[16])
+let private readFeatureArrays (rg: ParquetRowGroupReader) (schema: ParquetSchema) = task {
+    let! vwap1s = rg.ReadColumnAsync(schema.DataFields.[4])
+    let! vol1s = rg.ReadColumnAsync(schema.DataFields.[5])
+    let! std1s = rg.ReadColumnAsync(schema.DataFields.[6])
+    let! vwap1m = rg.ReadColumnAsync(schema.DataFields.[7])
+    let! vol1m = rg.ReadColumnAsync(schema.DataFields.[8])
+    let! std1m = rg.ReadColumnAsync(schema.DataFields.[9])
+    let! vwap5m = rg.ReadColumnAsync(schema.DataFields.[10])
+    let! vol5m = rg.ReadColumnAsync(schema.DataFields.[11])
+    let! std5m = rg.ReadColumnAsync(schema.DataFields.[12])
     return {
-        DeltaHigh1s = deltaHigh1sCol.Data :?> float[]
-        DeltaLow1s = deltaLow1sCol.Data :?> float[]
-        DeltaClose1s = deltaClose1sCol.Data :?> float[]
-        DeltaHigh1m = deltaHigh1mCol.Data :?> float[]
-        DeltaLow1m = deltaLow1mCol.Data :?> float[]
-        DeltaClose1m = deltaClose1mCol.Data :?> float[]
-        DeltaHigh5m = deltaHigh5mCol.Data :?> float[]
-        DeltaLow5m = deltaLow5mCol.Data :?> float[]
-        DeltaClose5m = deltaClose5mCol.Data :?> float[]
+        Vwap1s = vwap1s.Data :?> float[]; Volume1s = vol1s.Data :?> int[]; StdDev1s = std1s.Data :?> float[]
+        Vwap1m = vwap1m.Data :?> float[]; Volume1m = vol1m.Data :?> int[]; StdDev1m = std1m.Data :?> float[]
+        Vwap5m = vwap5m.Data :?> float[]; Volume5m = vol5m.Data :?> int[]; StdDev5m = std5m.Data :?> float[]
     }
 }
 
-let private addDeltasToDigest (td: MergingDigest) (deltas: DeltaArrays) =
-    for i in 0 .. deltas.DeltaHigh1s.Length - 1 do
-        td.Add(deltas.DeltaHigh1s.[i])
-        td.Add(deltas.DeltaLow1s.[i])
-        td.Add(deltas.DeltaClose1s.[i])
-        td.Add(deltas.DeltaHigh1m.[i])
-        td.Add(deltas.DeltaLow1m.[i])
-        td.Add(deltas.DeltaClose1m.[i])
-        td.Add(deltas.DeltaHigh5m.[i])
-        td.Add(deltas.DeltaLow5m.[i])
-        td.Add(deltas.DeltaClose5m.[i])
+let private addFinite (td: MergingDigest) (v: float) =
+    if Double.IsFinite(v) then td.Add(v)
 
-let private readRowGroupData (rowGroupReader: ParquetRowGroupReader) (schema: ParquetSchema) (rgIndex: int) = task {
-    let! dayIdsCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[0])
-    let! timesCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[1])
-    let! opensCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[2])
-    let! highsCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[3])
-    let! lowsCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[4])
-    let! closesCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[5])
-    let! sessionsCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[6])
-    let! trendsCol = rowGroupReader.ReadColumnAsync(schema.DataFields.[7])
-    let! deltas = readDeltaArrays rowGroupReader schema
+let private addToDigests (vwapTd: MergingDigest) (volTd: MergingDigest) (stdTd: MergingDigest) (f: FeatureArrays) =
+    for i in 0 .. f.Vwap1s.Length - 1 do
+        addFinite vwapTd f.Vwap1s.[i]; addFinite vwapTd f.Vwap1m.[i]; addFinite vwapTd f.Vwap5m.[i]
+        volTd.Add(float f.Volume1s.[i]); volTd.Add(float f.Volume1m.[i]); volTd.Add(float f.Volume5m.[i])
+        addFinite stdTd f.StdDev1s.[i]; addFinite stdTd f.StdDev1m.[i]; addFinite stdTd f.StdDev5m.[i]
+
+let private readRowGroupData (rg: ParquetRowGroupReader) (schema: ParquetSchema) (rgIndex: int) = task {
+    let! dayIds = rg.ReadColumnAsync(schema.DataFields.[0])
+    let! times = rg.ReadColumnAsync(schema.DataFields.[1])
+    let! sessions = rg.ReadColumnAsync(schema.DataFields.[2])
+    let! trends = rg.ReadColumnAsync(schema.DataFields.[3])
+    let! features = readFeatureArrays rg schema
     return {
         Index = rgIndex
-        DayIds = dayIdsCol.Data :?> int[]
-        Times = timesCol.Data :?> int[]
-        Opens = opensCol.Data :?> float[]
-        Highs = highsCol.Data :?> float[]
-        Lows = lowsCol.Data :?> float[]
-        Closes = closesCol.Data :?> float[]
-        Sessions = sessionsCol.Data :?> int[]
-        Trends = trendsCol.Data :?> int[]
-        Deltas = deltas
+        DayIds = dayIds.Data :?> int[]; Times = times.Data :?> int[]
+        Sessions = sessions.Data :?> int[]; Trends = trends.Data :?> int[]
+        Features = features
     }
 }
 
 let buildTDigestsFromParquet (inputPath: string) (compression: float) (numWorkers: int) = task {
     printfn "Building t-digests from %s..." inputPath
-    
     use stream = File.OpenRead(inputPath)
     let! reader = ParquetReader.CreateAsync(stream)
     use reader = reader
     let rowGroupCount = reader.RowGroupCount
     let schema = reader.Schema
-    
     printfn "  Using %d workers for %d row groups..." numWorkers rowGroupCount
-    
-    let channel = Channel.CreateBounded<DeltaArrays>(BoundedChannelOptions(numWorkers * 2))
+
+    let channel = Channel.CreateBounded<FeatureArrays>(BoundedChannelOptions(numWorkers * 2))
     let mutable processed = 0
-    
+
     let producer = task {
         for rgIndex in 0 .. rowGroupCount - 1 do
-            use rowGroupReader = reader.OpenRowGroupReader(rgIndex)
-            let! deltas = readDeltaArrays rowGroupReader schema
-            do! channel.Writer.WriteAsync(deltas)
+            use rg = reader.OpenRowGroupReader(rgIndex)
+            let! features = readFeatureArrays rg schema
+            do! channel.Writer.WriteAsync(features)
         channel.Writer.Complete()
     }
-    
+
     let workers = [|
         for _ in 0 .. numWorkers - 1 ->
             task {
-                let td = MergingDigest(compression)
-                for deltas in channel.Reader.ReadAllAsync() do
-                    addDeltasToDigest td deltas
+                let vwapTd = MergingDigest(compression)
+                let volTd = MergingDigest(compression)
+                let stdTd = MergingDigest(compression)
+                for features in channel.Reader.ReadAllAsync() do
+                    addToDigests vwapTd volTd stdTd features
                     let count = Interlocked.Increment(&processed)
                     if count % 100 = 0 then
                         printfn "  Processed %d / %d row groups" count rowGroupCount
-                return td
+                return (vwapTd, volTd, stdTd)
             }
     |]
-    
+
     do! producer
-    let! digests = Task.WhenAll(workers)
-    
-    printfn "  Merging %d t-digests..." digests.Length
-    let merged = MergingDigest(compression)
-    merged.Add(digests |> Seq.cast<Digest>)
-    
+    let! results = Task.WhenAll(workers)
+
+    let merge (compression: float) (digests: MergingDigest seq) =
+        let merged = MergingDigest(compression)
+        merged.Add(digests |> Seq.cast<Digest>)
+        merged
+
     printfn "Done. Processed %d row groups" rowGroupCount
-    return { PriceDeltas = merged }
+    return {
+        Vwap = merge compression (results |> Seq.map (fun (v,_,_) -> v))
+        Volume = merge compression (results |> Seq.map (fun (_,v,_) -> v))
+        StdDev = merge compression (results |> Seq.map (fun (_,_,s) -> s))
+    }
 }
 
 let saveTDigests (tds: TDigests) (outputPath: string) =
     use stream = File.Create(outputPath)
     use writer = new BinaryWriter(stream)
-    tds.PriceDeltas.AsBytes(writer)
+    tds.Vwap.AsBytes(writer)
+    tds.Volume.AsBytes(writer)
+    tds.StdDev.AsBytes(writer)
     printfn "Saved t-digests to %s" outputPath
 
 let loadTDigests (inputPath: string) =
     use stream = File.OpenRead(inputPath)
     use reader = new BinaryReader(stream)
-    { PriceDeltas = MergingDigest.FromBytes(reader) }
-
-let applyCdf (td: MergingDigest) (values: float[]) =
-    let result = Array.zeroCreate<float> values.Length
-    for i in 0 .. values.Length - 1 do
-        result.[i] <- td.Cdf(values.[i]) * 2.0 - 1.0
-    result
+    { Vwap = MergingDigest.FromBytes(reader)
+      Volume = MergingDigest.FromBytes(reader)
+      StdDev = MergingDigest.FromBytes(reader) }
 
 type CdfLookupTable = {
-    Min: float
-    Max: float
-    Step: float
-    Values: float[]
+    Min: float; Max: float; Step: float; Values: float[]
 }
 
 let createCdfLookup (td: MergingDigest) (numBuckets: int) =
@@ -179,17 +146,13 @@ let createCdfLookup (td: MergingDigest) (numBuckets: int) =
     let max = td.GetMax()
     let step = (max - min) / float (numBuckets - 1)
     let values = Array.init numBuckets (fun i ->
-        let x = min + float i * step
-        td.Cdf(x) * 2.0 - 1.0
-    )
+        td.Cdf(min + float i * step) * 2.0 - 1.0)
     { Min = min; Max = max; Step = step; Values = values }
 
 let lookupValue (lookup: CdfLookupTable) (v: float) =
     let maxIdx = lookup.Values.Length - 1
-    if v <= lookup.Min then
-        lookup.Values.[0]
-    elif v >= lookup.Max then
-        lookup.Values.[maxIdx]
+    if v <= lookup.Min then lookup.Values.[0]
+    elif v >= lookup.Max then lookup.Values.[maxIdx]
     else
         let idx = (v - lookup.Min) / lookup.Step
         let lo = int idx
@@ -197,130 +160,109 @@ let lookupValue (lookup: CdfLookupTable) (v: float) =
         let t = idx - float lo
         lookup.Values.[lo] * (1.0 - t) + lookup.Values.[hi] * t
 
-let applyCdfWithLookup (lookup: CdfLookupTable) (values: float[]) = Array.map (lookupValue lookup) values
+let applyCdf (lookup: CdfLookupTable) (values: float[]) = Array.map (lookupValue lookup) values
+let applyCdfInt (lookup: CdfLookupTable) (values: int[]) = values |> Array.map (fun v -> lookupValue lookup (float v))
 
 type private TransformedRowGroup = {
     Index: int
-    DayIds: int[]
-    Times: int[]
-    Opens: float[]
-    Highs: float[]
-    Lows: float[]
-    Closes: float[]
-    Sessions: int[]
-    Trends: int[]
-    CdfHigh1s: float[]
-    CdfLow1s: float[]
-    CdfClose1s: float[]
-    CdfHigh1m: float[]
-    CdfLow1m: float[]
-    CdfClose1m: float[]
-    CdfHigh5m: float[]
-    CdfLow5m: float[]
-    CdfClose5m: float[]
+    DayIds: int[]; Times: int[]; Sessions: int[]; Trends: int[]
+    CdfVwap1s: float[]; CdfVolume1s: float[]; CdfStdDev1s: float[]
+    CdfVwap1m: float[]; CdfVolume1m: float[]; CdfStdDev1m: float[]
+    CdfVwap5m: float[]; CdfVolume5m: float[]; CdfStdDev5m: float[]
 }
 
-let private applyTransform (lookup: CdfLookupTable) (data: RowGroupData) =
+let private applyTransform (vwapLookup: CdfLookupTable) (volLookup: CdfLookupTable) (stdLookup: CdfLookupTable) (data: RowGroupData) =
+    let f = data.Features
     { Index = data.Index
-      DayIds = data.DayIds; Times = data.Times
-      Opens = data.Opens; Highs = data.Highs; Lows = data.Lows; Closes = data.Closes
-      Sessions = data.Sessions; Trends = data.Trends
-      CdfHigh1s = applyCdfWithLookup lookup data.Deltas.DeltaHigh1s
-      CdfLow1s = applyCdfWithLookup lookup data.Deltas.DeltaLow1s
-      CdfClose1s = applyCdfWithLookup lookup data.Deltas.DeltaClose1s
-      CdfHigh1m = applyCdfWithLookup lookup data.Deltas.DeltaHigh1m
-      CdfLow1m = applyCdfWithLookup lookup data.Deltas.DeltaLow1m
-      CdfClose1m = applyCdfWithLookup lookup data.Deltas.DeltaClose1m
-      CdfHigh5m = applyCdfWithLookup lookup data.Deltas.DeltaHigh5m
-      CdfLow5m = applyCdfWithLookup lookup data.Deltas.DeltaLow5m
-      CdfClose5m = applyCdfWithLookup lookup data.Deltas.DeltaClose5m }
+      DayIds = data.DayIds; Times = data.Times; Sessions = data.Sessions; Trends = data.Trends
+      CdfVwap1s = applyCdf vwapLookup f.Vwap1s; CdfVolume1s = applyCdfInt volLookup f.Volume1s; CdfStdDev1s = applyCdf stdLookup f.StdDev1s
+      CdfVwap1m = applyCdf vwapLookup f.Vwap1m; CdfVolume1m = applyCdfInt volLookup f.Volume1m; CdfStdDev1m = applyCdf stdLookup f.StdDev1m
+      CdfVwap5m = applyCdf vwapLookup f.Vwap5m; CdfVolume5m = applyCdfInt volLookup f.Volume5m; CdfStdDev5m = applyCdf stdLookup f.StdDev5m }
 
-let private writeRowGroup (outSchema: ParquetSchema) (writer: ParquetWriter) (d: TransformedRowGroup) = task {
-    use rowGroup = writer.CreateRowGroup()
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[0], d.DayIds))
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[1], d.Times))
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[2], d.Opens))
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[3], d.Highs))
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[4], d.Lows))
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[5], d.Closes))
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[6], d.Sessions))
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[7], d.Trends))
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[8], d.CdfHigh1s))
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[9], d.CdfLow1s))
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[10], d.CdfClose1s))
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[11], d.CdfHigh1m))
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[12], d.CdfLow1m))
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[13], d.CdfClose1m))
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[14], d.CdfHigh5m))
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[15], d.CdfLow5m))
-    do! rowGroup.WriteColumnAsync(DataColumn(outSchema.DataFields.[16], d.CdfClose5m))
+let private outSchema = ParquetSchema(
+    DataField<int>("day_id"), DataField<int>("time"), DataField<int>("session"), DataField<int>("trend"),
+    DataField<float>("cdf_vwap_1s"), DataField<float>("cdf_volume_1s"), DataField<float>("cdf_stddev_1s"),
+    DataField<float>("cdf_vwap_1m"), DataField<float>("cdf_volume_1m"), DataField<float>("cdf_stddev_1m"),
+    DataField<float>("cdf_vwap_5m"), DataField<float>("cdf_volume_5m"), DataField<float>("cdf_stddev_5m")
+)
+
+let private writeRowGroup (writer: ParquetWriter) (d: TransformedRowGroup) = task {
+    use rg = writer.CreateRowGroup()
+    let f = outSchema.DataFields
+    do! rg.WriteColumnAsync(DataColumn(f.[0], d.DayIds))
+    do! rg.WriteColumnAsync(DataColumn(f.[1], d.Times))
+    do! rg.WriteColumnAsync(DataColumn(f.[2], d.Sessions))
+    do! rg.WriteColumnAsync(DataColumn(f.[3], d.Trends))
+    do! rg.WriteColumnAsync(DataColumn(f.[4], d.CdfVwap1s))
+    do! rg.WriteColumnAsync(DataColumn(f.[5], d.CdfVolume1s))
+    do! rg.WriteColumnAsync(DataColumn(f.[6], d.CdfStdDev1s))
+    do! rg.WriteColumnAsync(DataColumn(f.[7], d.CdfVwap1m))
+    do! rg.WriteColumnAsync(DataColumn(f.[8], d.CdfVolume1m))
+    do! rg.WriteColumnAsync(DataColumn(f.[9], d.CdfStdDev1m))
+    do! rg.WriteColumnAsync(DataColumn(f.[10], d.CdfVwap5m))
+    do! rg.WriteColumnAsync(DataColumn(f.[11], d.CdfVolume5m))
+    do! rg.WriteColumnAsync(DataColumn(f.[12], d.CdfStdDev5m))
 }
 
 let transformParquetWithCdf (inputPath: string) (tds: TDigests) (outputPath: string) (numWorkers: int) = task {
     printfn "Transforming %s with CDF..." inputPath
-    
-    let outSchema = ParquetSchema(
-        DataField<int>("day_id"), DataField<int>("time"),
-        DataField<float>("open"), DataField<float>("high"), DataField<float>("low"), DataField<float>("close"),
-        DataField<int>("session"), DataField<int>("trend"),
-        DataField<float>("cdf_high_1s"), DataField<float>("cdf_low_1s"), DataField<float>("cdf_close_1s"),
-        DataField<float>("cdf_high_1m"), DataField<float>("cdf_low_1m"), DataField<float>("cdf_close_1m"),
-        DataField<float>("cdf_high_5m"), DataField<float>("cdf_low_5m"), DataField<float>("cdf_close_5m")
-    )
-    
+
     use inStream = File.OpenRead(inputPath)
     let! reader = ParquetReader.CreateAsync(inStream)
     use reader = reader
     let rowGroupCount = reader.RowGroupCount
     let inSchema = reader.Schema
-    
+
     printfn "  Using %d workers for %d row groups..." numWorkers rowGroupCount
-    
-    let lookupPriceDeltas = createCdfLookup tds.PriceDeltas (1 <<< 17) // 128k buckets
-    
+
+    let numBuckets = 1 <<< 17
+    let vwapLookup = createCdfLookup tds.Vwap numBuckets
+    let volLookup = createCdfLookup tds.Volume numBuckets
+    let stdLookup = createCdfLookup tds.StdDev numBuckets
+
     let readChannel = Channel.CreateBounded<RowGroupData>(BoundedChannelOptions(numWorkers * 2))
     let writeChannel = Channel.CreateBounded<TransformedRowGroup>(BoundedChannelOptions(numWorkers * 2))
     let mutable processed = 0
-    
+
     let producer = task {
         for rgIndex in 0 .. rowGroupCount - 1 do
-            use rowGroupReader = reader.OpenRowGroupReader(rgIndex)
-            let! data = readRowGroupData rowGroupReader inSchema rgIndex
+            use rg = reader.OpenRowGroupReader(rgIndex)
+            let! data = readRowGroupData rg inSchema rgIndex
             do! readChannel.Writer.WriteAsync(data)
         readChannel.Writer.Complete()
     }
-    
+
     let workers = [|
         for _ in 0 .. numWorkers - 1 ->
             task {
                 for data in readChannel.Reader.ReadAllAsync() do
-                    let transformed = applyTransform lookupPriceDeltas data
+                    let transformed = applyTransform vwapLookup volLookup stdLookup data
                     do! writeChannel.Writer.WriteAsync(transformed)
                     let count = Interlocked.Increment(&processed)
                     if count % 100 = 0 then
                         printfn "  Transformed %d / %d row groups" count rowGroupCount
             }
     |]
-    
+
     let workersDone = task {
         let! _ = Task.WhenAll(workers)
         writeChannel.Writer.Complete()
     }
-    
+
     use outStream = File.Create(outputPath)
     let! writer = ParquetWriter.CreateAsync(outSchema, outStream)
     use writer = writer
     let pending = Collections.Generic.Dictionary<int, TransformedRowGroup>()
     let mutable nextToWrite = 0
-    
+
     for data in writeChannel.Reader.ReadAllAsync() do
         pending.[data.Index] <- data
         while pending.ContainsKey(nextToWrite) do
             let d = pending.[nextToWrite]
             pending.Remove(nextToWrite) |> ignore
-            do! writeRowGroup outSchema writer d
+            do! writeRowGroup writer d
             nextToWrite <- nextToWrite + 1
-    
+
     do! producer
     do! workersDone
     printfn "Done. Transformed %d row groups to %s" rowGroupCount outputPath
