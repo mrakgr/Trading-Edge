@@ -150,7 +150,7 @@ let generatePricesAndSizes
         let mu, sigma = activityMuSigma activityParams
         let normal = Normal(0.0, 1.0, rng)
         let results = Array.zeroCreate count
-        let mutable logPrice = log(startPrice)
+        let mutable logPrice = log startPrice
         
         let logStartPrice = logPrice
         let expectedTradeCount = orderFlowParams.MeanTradesPerSecond * duration
