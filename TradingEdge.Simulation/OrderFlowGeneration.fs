@@ -177,8 +177,8 @@ let generatePricesAndSizes
             let resistanceBase = logEndPrice
             supportNoise <- mhStepSRNoise rng srParams.Noise dt supportNoise
             resistanceNoise <- mhStepSRNoise rng srParams.Noise dt resistanceNoise
-            let support = (min supportBase resistanceBase) - abs supportNoise
-            let resistance = (max supportBase resistanceBase) + abs resistanceNoise
+            let support = min supportBase resistanceBase - abs supportNoise
+            let resistance = max supportBase resistanceBase + abs resistanceNoise
             
             let zLo = (support - logPrice) / vol
             let zHi = (resistance - logPrice) / vol
@@ -188,9 +188,9 @@ let generatePricesAndSizes
                 else sampleTruncatedNormal rng zLo zHi
             
             logPrice <- logPrice + vol * z
-            results.[i] <- (exp(logPrice), size)
+            results.[i] <- exp logPrice, size
         
-        results, exp(logEndPrice)
+        results, exp logEndPrice
 
 /// Generate trades for a single trend episode
 /// Returns trades and the ending price for chaining to next episode
