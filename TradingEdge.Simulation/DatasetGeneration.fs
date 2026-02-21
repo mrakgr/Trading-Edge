@@ -111,31 +111,26 @@ type DayData = {
 let combineBars (bars: SecondBar[]) (periodSeconds: int) : (float * int * float)[] =
     let n = bars.Length
     let result = Array.zeroCreate n
-    let mutable wSum = 0.0
     let mutable mean = 0.0
     let mutable s = 0.0
     let mutable vol = 0
     
     for i in 0 .. n - 1 do
         if i % periodSeconds = 0 then
-            wSum <- 0.0
             mean <- 0.0
             s <- 0.0
             vol <- 0
         
         let b = bars.[i]
-        let w = float b.Volume
-        if w > 0.0 then
-            let prevWSum = wSum
-            wSum <- wSum + w
+        if b.Volume > 0 then
             vol <- vol + b.Volume
             let delta = b.Vwap - mean
-            mean <- mean + delta * w / wSum
-            s <- s + w * delta * (b.Vwap - mean)
-            s <- s + w * b.StdDev * b.StdDev
+            let w = float b.Volume
+            mean <- mean + delta * w / float vol
+            s <- s + w * (b.StdDev * b.StdDev + delta * (b.Vwap - mean))
         
-        let stdDev = if wSum > 0.0 then sqrt(s / wSum) else 0.0
-        result.[i] <- (mean, vol, stdDev)
+        let stdDev = sqrt(s / float vol)
+        result.[i] <- mean, vol, stdDev
     
     result
 
