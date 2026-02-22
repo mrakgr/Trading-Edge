@@ -177,7 +177,7 @@ let generatePricesAndSizes
             
             let size = sampleSize rng mu sigma
             let sizeVol = sqrt(float size / activityParams.MeanSize)
-            let vol = vol * sizeVol * dtVol
+            let vol = vol * sizeVol * dtVol |> max 1e-9
             
             let frac = timestamps.[i] / duration
             let supportBase = logStartPrice + (logEndPrice - logStartPrice) * frac
@@ -186,7 +186,7 @@ let generatePricesAndSizes
             resistanceNoise <- mhStepSRNoise rng srNoise dt resistanceNoise
             let support = min supportBase resistanceBase - abs supportNoise
             let resistance = max supportBase resistanceBase + abs resistanceNoise
-            logPrice <- clip support resistance logPrice            
+            logPrice <- clip support resistance logPrice
             let zLo = (support - logPrice) / vol
             let zHi = (resistance - logPrice) / vol
             let z = sampleTruncatedNormal rng zLo zHi           
