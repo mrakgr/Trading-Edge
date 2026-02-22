@@ -172,7 +172,7 @@ let generatePricesAndSizes
         
         for i in 0 .. count - 1 do
             let dt = if i = 0 then 1.0 / orderFlowParams.MeanTradesPerSecond else timestamps.[i] - prevTime
-            let dtVol = sqrt(max dt 1e-9)
+            let dtVol = sqrt dt
             prevTime <- timestamps.[i]
             
             let size = sampleSize rng mu sigma
