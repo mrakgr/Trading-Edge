@@ -24,7 +24,7 @@ def make_chart(df, day_id):
         price_row = i * 2 + 1
         vol_row = i * 2 + 2
         period = periods[tf]
-        mask = df['time'] % period == 0
+        mask = df['time'] % period == period - 1
         t = times[mask]
         vwap = df[f'vwap_{tf}'][mask]
         std = df[f'stddev_{tf}'][mask]
