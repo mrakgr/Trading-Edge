@@ -10,6 +10,8 @@ type Trade = {
     Price: float     // Execution price
     Size: int        // Number of shares/contracts
     Trend: Trend
+    Support: float   // Support level (price space)
+    Resistance: float // Resistance level (price space)
 }
 
 /// Parameters for order flow generation within a trend (LogNormal model)
@@ -61,13 +63,13 @@ let getPriceParams (trend: Trend) : PriceParams =
 /// Get support/resistance noise parameters for a trend type
 let getSRParams (trend: Trend) : SRParams =
     match trend with
-    | StrongUptrend ->   { NoiseBps = 5.0 }
-    | MidUptrend ->      { NoiseBps = 4.0 }
-    | WeakUptrend ->     { NoiseBps = 3.0 }
-    | Consolidation ->   { NoiseBps = 3.0 }
-    | WeakDowntrend ->   { NoiseBps = 3.0 }
-    | MidDowntrend ->    { NoiseBps = 4.0 }
-    | StrongDowntrend -> { NoiseBps = 5.0 }
+    | StrongUptrend ->   { NoiseBps = 50.0 }
+    | MidUptrend ->      { NoiseBps = 40.0 }
+    | WeakUptrend ->     { NoiseBps = 30.0 }
+    | Consolidation ->   { NoiseBps = 30.0 }
+    | WeakDowntrend ->   { NoiseBps = 30.0 }
+    | MidDowntrend ->    { NoiseBps = 40.0 }
+    | StrongDowntrend -> { NoiseBps = 50.0 }
 
 /// Get activity parameters for a trend type (LogNormal activity model)
 /// Stronger trends have higher mean/median ratio (more large trades)
@@ -132,7 +134,7 @@ let sampleTruncatedNormal (rng: Random) (lo: float) (hi: float) : float =
 
 /// Metropolis-Hastings step for S/R noise: target is N(0, sigma), proposal is current + sqrt(dt) * sigma * z
 let mhStepSRNoise (rng: Random) (sigma: float) (dt: float) (current: float) : float =
-    let proposal = current + sigma * sqrt(dt) * Normal.Sample(rng, 0.0, 1.0)
+    let proposal = current + sigma * 0.1 * sqrt(dt) * Normal.Sample(rng, 0.0, 1.0)
     let logAccept = (current * current - proposal * proposal) / (2.0 * sigma * sigma)
     if log(rng.NextDouble()) < logAccept then proposal else current
 
@@ -146,7 +148,7 @@ let generatePricesAndSizes
     (startPrice: float) 
     (duration: float)
     (timestamps: float[])
-    : (float * int)[] * float =
+    : (float * int * float * float)[] * float =
     
     let count = timestamps.Length
     if count = 0 then
@@ -191,7 +193,7 @@ let generatePricesAndSizes
             let zHi = (resistance - logPrice) / vol
             let z = sampleTruncatedNormal rng zLo zHi           
             logPrice <- logPrice + vol * z
-            results.[i] <- exp logPrice, size
+            results.[i] <- exp logPrice, size, exp support, exp resistance
         
         results, exp logEndPrice
 
@@ -209,12 +211,14 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (episode: Episode<Tr
     let pricesAndSizes, endPrice = generatePricesAndSizes rng priceParams orderFlowParams activityParams srParams startPrice durationSeconds timestamps
     
     let trades = Array.init tradeCount (fun i -> 
-        let price, size = pricesAndSizes.[i]
+        let price, size, support, resistance = pricesAndSizes.[i]
         {
             Time = timestamps.[i]
             Price = price
             Size = size
             Trend = episode.Label
+            Support = support
+            Resistance = resistance
         })
     
     trades, endPrice

@@ -33,6 +33,8 @@ type SecondBar = {
     StdDev: float
     Session: int
     Trend: int
+    Support: float
+    Resistance: float
 }
 
 /// Generate all trades for a full day, chaining episode end prices
@@ -51,7 +53,7 @@ let generateDayTrades (rng: Random) (startPrice: float) (result: DayResult) : Tr
 
 /// Aggregate trades into 1-second bars
 let aggregateToSecondBars (trades: Trade[]) (totalSeconds: int) : SecondBar[] =
-    let bars = Array.init totalSeconds (fun _ -> { Vwap = 0.0; Volume = 0; StdDev = 0.0; Session = 0; Trend = 0 })
+    let bars = Array.init totalSeconds (fun _ -> { Vwap = 0.0; Volume = 0; StdDev = 0.0; Session = 0; Trend = 0; Support = 0.0; Resistance = 0.0 })
     
     // Group trades by second
     let buckets = Array.init totalSeconds (fun _ -> ResizeArray<Trade>())
@@ -60,11 +62,13 @@ let aggregateToSecondBars (trades: Trade[]) (totalSeconds: int) : SecondBar[] =
         buckets.[sec].Add(t)
     
     let mutable lastVwap = if trades.Length > 0 then trades.[0].Price else 0.0
+    let mutable lastSupport = if trades.Length > 0 then trades.[0].Support else 0.0
+    let mutable lastResistance = if trades.Length > 0 then trades.[0].Resistance else 0.0
     
     for sec in 0 .. totalSeconds - 1 do
         let bucket = buckets.[sec]
         if bucket.Count = 0 then
-            bars.[sec] <- { Vwap = lastVwap; Volume = 0; StdDev = 0.0; Session = 0; Trend = 0 }
+            bars.[sec] <- { Vwap = lastVwap; Volume = 0; StdDev = 0.0; Session = 0; Trend = 0; Support = lastSupport; Resistance = lastResistance }
         else
             let totalVol = bucket |> Seq.sumBy (fun t -> t.Size)
             let vwap = (bucket |> Seq.sumBy (fun t -> float t.Size * t.Price)) / float totalVol
@@ -73,8 +77,10 @@ let aggregateToSecondBars (trades: Trade[]) (totalSeconds: int) : SecondBar[] =
                     (bucket |> Seq.sumBy (fun t -> float t.Size * (t.Price - vwap) ** 2.0)) / float totalVol
                 else 0.0
             let lastTrade = bucket.[bucket.Count - 1]
-            bars.[sec] <- { Vwap = vwap; Volume = totalVol; StdDev = sqrt variance; Session = sessionToInt Morning; Trend = trendToInt lastTrade.Trend }
+            bars.[sec] <- { Vwap = vwap; Volume = totalVol; StdDev = sqrt variance; Session = sessionToInt Morning; Trend = trendToInt lastTrade.Trend; Support = lastTrade.Support; Resistance = lastTrade.Resistance }
             lastVwap <- vwap
+            lastSupport <- lastTrade.Support
+            lastResistance <- lastTrade.Resistance
     bars
 
 /// Assign session/trend labels to second bars based on episode structure
@@ -105,9 +111,11 @@ type DayData = {
     Vwap5m: float[]
     Volume5m: int[]
     StdDev5m: float[]
+    Support: float[]
+    Resistance: float[]
 }
 
-/// Combine 1s bars into period bars (1m, 5m) using online weighted variance (West 1979)
+/// Combine 1s bars into period bars (1m, 5m) - volume-weighted variance of 1s VWAPs
 let combineBars (bars: SecondBar[]) (periodSeconds: int) : (float * int * float)[] =
     let n = bars.Length
     let result = Array.zeroCreate n
@@ -166,7 +174,9 @@ let generateSingleDay
       StdDev1m = agg1m |> Array.map (fun (_,_,s) -> s)
       Vwap5m = agg5m |> Array.map (fun (v,_,_) -> v)
       Volume5m = agg5m |> Array.map (fun (_,v,_) -> v)
-      StdDev5m = agg5m |> Array.map (fun (_,_,s) -> s) }
+      StdDev5m = agg5m |> Array.map (fun (_,_,s) -> s)
+      Support = bars |> Array.map (fun b -> b.Support)
+      Resistance = bars |> Array.map (fun b -> b.Resistance) }
 
 let datasetSchema = ParquetSchema(
     DataField<int>("day_id"),
@@ -181,7 +191,9 @@ let datasetSchema = ParquetSchema(
     DataField<float>("stddev_1m"),
     DataField<float>("vwap_5m"),
     DataField<int>("volume_5m"),
-    DataField<float>("stddev_5m")
+    DataField<float>("stddev_5m"),
+    DataField<float>("support"),
+    DataField<float>("resistance")
 )
 
 let writerTask (outputPath: string) (numDays: int) (channel: Channel<DayData>) = task {
@@ -206,6 +218,8 @@ let writerTask (outputPath: string) (numDays: int) (channel: Channel<DayData>) =
         do! rowGroup.WriteColumnAsync(DataColumn(fields.[10], data.Vwap5m))
         do! rowGroup.WriteColumnAsync(DataColumn(fields.[11], data.Volume5m))
         do! rowGroup.WriteColumnAsync(DataColumn(fields.[12], data.StdDev5m))
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[13], data.Support))
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[14], data.Resistance))
         daysWritten <- daysWritten + 1
         if daysWritten % 500 = 0 then
             printfn "  Written %d / %d days" daysWritten numDays
