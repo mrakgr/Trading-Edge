@@ -33,27 +33,29 @@ type SecondBar = {
     StdDev: float
     Session: int
     Trend: int
-    Support: float
-    Resistance: float
+    TargetMean: float
+    TargetSigma: float
 }
 
 /// Generate all trades for a full day, chaining episode end prices
-let generateDayTrades (rng: Random) (startPrice: float) (result: DayResult) : Trade[] =
+let generateDayTrades (rng: Random) (startPrice: float) (baseline: SessionBaseline) (result: DayResult) : Trade[] =
     let allTrades = ResizeArray<Trade>()
     let mutable price = startPrice
+    let mutable targetMean = log startPrice
     let mutable timeOffset = 0.0
     for sessionTrends in result.Trends do
         for episode in sessionTrends do
-            let trades, endPrice = generateEpisodeTrades rng price episode
+            let trades, endPrice, newTargetMean = generateEpisodeTrades rng price targetMean baseline episode
             for t in trades do
                 allTrades.Add({ t with Time = t.Time + timeOffset })
             timeOffset <- timeOffset + episode.Duration * 60.0
             price <- endPrice
+            targetMean <- newTargetMean
     allTrades.ToArray()
 
 /// Aggregate trades into 1-second bars
 let aggregateToSecondBars (trades: Trade[]) (totalSeconds: int) : SecondBar[] =
-    let bars = Array.init totalSeconds (fun _ -> { Vwap = 0.0; Volume = 0; StdDev = 0.0; Session = 0; Trend = 0; Support = 0.0; Resistance = 0.0 })
+    let bars = Array.init totalSeconds (fun _ -> { Vwap = 0.0; Volume = 0; StdDev = 0.0; Session = 0; Trend = 0; TargetMean = 0.0; TargetSigma = 0.0 })
     
     // Group trades by second
     let buckets = Array.init totalSeconds (fun _ -> ResizeArray<Trade>())
@@ -62,13 +64,13 @@ let aggregateToSecondBars (trades: Trade[]) (totalSeconds: int) : SecondBar[] =
         buckets.[sec].Add(t)
     
     let mutable lastVwap = if trades.Length > 0 then trades.[0].Price else 0.0
-    let mutable lastSupport = if trades.Length > 0 then trades.[0].Support else 0.0
-    let mutable lastResistance = if trades.Length > 0 then trades.[0].Resistance else 0.0
+    let mutable lastTargetMean = if trades.Length > 0 then trades.[0].TargetMean else 0.0
+    let mutable lastTargetSigma = if trades.Length > 0 then trades.[0].TargetSigma else 0.0
     
     for sec in 0 .. totalSeconds - 1 do
         let bucket = buckets.[sec]
         if bucket.Count = 0 then
-            bars.[sec] <- { Vwap = lastVwap; Volume = 0; StdDev = 0.0; Session = 0; Trend = 0; Support = lastSupport; Resistance = lastResistance }
+            bars.[sec] <- { Vwap = lastVwap; Volume = 0; StdDev = 0.0; Session = 0; Trend = 0; TargetMean = lastTargetMean; TargetSigma = lastTargetSigma }
         else
             let totalVol = bucket |> Seq.sumBy (fun t -> t.Size)
             let vwap = (bucket |> Seq.sumBy (fun t -> float t.Size * t.Price)) / float totalVol
@@ -77,10 +79,10 @@ let aggregateToSecondBars (trades: Trade[]) (totalSeconds: int) : SecondBar[] =
                     (bucket |> Seq.sumBy (fun t -> float t.Size * (t.Price - vwap) ** 2.0)) / float totalVol
                 else 0.0
             let lastTrade = bucket.[bucket.Count - 1]
-            bars.[sec] <- { Vwap = vwap; Volume = totalVol; StdDev = sqrt variance; Session = sessionToInt Morning; Trend = trendToInt lastTrade.Trend; Support = lastTrade.Support; Resistance = lastTrade.Resistance }
+            bars.[sec] <- { Vwap = vwap; Volume = totalVol; StdDev = sqrt variance; Session = sessionToInt Morning; Trend = trendToInt lastTrade.Trend; TargetMean = lastTrade.TargetMean; TargetSigma = lastTrade.TargetSigma }
             lastVwap <- vwap
-            lastSupport <- lastTrade.Support
-            lastResistance <- lastTrade.Resistance
+            lastTargetMean <- lastTrade.TargetMean
+            lastTargetSigma <- lastTrade.TargetSigma
     bars
 
 /// Assign session/trend labels to second bars based on episode structure
@@ -111,8 +113,8 @@ type DayData = {
     Vwap5m: float[]
     Volume5m: int[]
     StdDev5m: float[]
-    Support: float[]
-    Resistance: float[]
+    TargetMean: float[]
+    TargetSigma: float[]
 }
 
 /// Combine 1s bars into period bars (1m, 5m) - volume-weighted variance of 1s VWAPs
@@ -154,7 +156,7 @@ let generateSingleDay
 
     let rng = Random(seed)
     let result = generateDay sessionConfig trendConfig mcmcConfig rng 390.0
-    let trades = generateDayTrades rng startPrice result
+    let trades = generateDayTrades rng startPrice defaultBaseline result
     let bars = aggregateToSecondBars trades barsPerDay
     assignLabels bars result
 
@@ -175,8 +177,8 @@ let generateSingleDay
       Vwap5m = agg5m |> Array.map (fun (v,_,_) -> v)
       Volume5m = agg5m |> Array.map (fun (_,v,_) -> v)
       StdDev5m = agg5m |> Array.map (fun (_,_,s) -> s)
-      Support = bars |> Array.map (fun b -> b.Support)
-      Resistance = bars |> Array.map (fun b -> b.Resistance) }
+      TargetMean = bars |> Array.map (fun b -> b.TargetMean)
+      TargetSigma = bars |> Array.map (fun b -> b.TargetSigma) }
 
 let datasetSchema = ParquetSchema(
     DataField<int>("day_id"),
@@ -192,8 +194,8 @@ let datasetSchema = ParquetSchema(
     DataField<float>("vwap_5m"),
     DataField<int>("volume_5m"),
     DataField<float>("stddev_5m"),
-    DataField<float>("support"),
-    DataField<float>("resistance")
+    DataField<float>("target_mean"),
+    DataField<float>("target_sigma")
 )
 
 let writerTask (outputPath: string) (numDays: int) (channel: Channel<DayData>) = task {
@@ -218,8 +220,8 @@ let writerTask (outputPath: string) (numDays: int) (channel: Channel<DayData>) =
         do! rowGroup.WriteColumnAsync(DataColumn(fields.[10], data.Vwap5m))
         do! rowGroup.WriteColumnAsync(DataColumn(fields.[11], data.Volume5m))
         do! rowGroup.WriteColumnAsync(DataColumn(fields.[12], data.StdDev5m))
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[13], data.Support))
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[14], data.Resistance))
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[13], data.TargetMean))
+        do! rowGroup.WriteColumnAsync(DataColumn(fields.[14], data.TargetSigma))
         daysWritten <- daysWritten + 1
         if daysWritten % 500 = 0 then
             printfn "  Written %d / %d days" daysWritten numDays

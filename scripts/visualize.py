@@ -30,15 +30,19 @@ def make_chart(df, day_id):
         std = df[f'stddev_{tf}'][mask]
         vol = df[f'volume_{tf}'][mask]
 
-        # S/R levels (only on 1s chart since they're per-second)
+        # Target distribution (only on 1s chart)
         if tf == '1s':
             fig.add_trace(go.Scatter(
-                x=t, y=df['support'][mask], mode='lines', name='Support',
-                line=dict(color='green', width=1, dash='dot')
+                x=t, y=df['target_mean'][mask], mode='lines', name='Target',
+                line=dict(color='orange', width=1, dash='dot')
             ), row=price_row, col=1)
             fig.add_trace(go.Scatter(
-                x=t, y=df['resistance'][mask], mode='lines', name='Resistance',
-                line=dict(color='red', width=1, dash='dot')
+                x=t, y=df['target_mean'][mask] + df['target_sigma'][mask], mode='lines', name='+1σ target',
+                line=dict(color='orange', width=0.5, dash='dot'), showlegend=False
+            ), row=price_row, col=1)
+            fig.add_trace(go.Scatter(
+                x=t, y=df['target_mean'][mask] - df['target_sigma'][mask], mode='lines', name='-1σ target',
+                line=dict(color='orange', width=0.5, dash='dot'), showlegend=False
             ), row=price_row, col=1)
 
         # VWAP line
@@ -60,7 +64,7 @@ def make_chart(df, day_id):
         # Volume bars
         fig.add_trace(go.Bar(
             x=t, y=vol, name=f'Vol {label}',
-            marker_color='rgba(100,100,100,0.5)'
+            marker_color='rgba(0,200,0,1)'
         ), row=vol_row, col=1)
 
     fig.update_layout(
@@ -68,6 +72,9 @@ def make_chart(df, day_id):
         height=1800, showlegend=False,
         xaxis6=dict(title='Time (minutes)')
     )
+    # Set log scale on price y-axes (rows 1, 3, 5)
+    for i in range(3):
+        fig.update_yaxes(type='log', row=i * 2 + 1, col=1)
     return fig
 
 if __name__ == '__main__':
