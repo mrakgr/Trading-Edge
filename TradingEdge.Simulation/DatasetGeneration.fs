@@ -42,15 +42,17 @@ let generateDayTrades (rng: Random) (startPrice: float) (baseline: SessionBaseli
     let allTrades = ResizeArray<Trade>()
     let mutable price = startPrice
     let mutable targetMean = log startPrice
+    let mutable logRate = log 10.0  // Start at a moderate rate
     let mutable timeOffset = 0.0
     for sessionTrends in result.Trends do
         for episode in sessionTrends do
-            let trades, endPrice, newTargetMean = generateEpisodeTrades rng price targetMean baseline episode
+            let trades, endPrice, newTargetMean, newLogRate = generateEpisodeTrades rng price targetMean logRate baseline episode
             for t in trades do
                 allTrades.Add({ t with Time = t.Time + timeOffset })
             timeOffset <- timeOffset + episode.Duration * 60.0
             price <- endPrice
             targetMean <- newTargetMean
+            logRate <- newLogRate
     allTrades.ToArray()
 
 /// Aggregate trades into 1-second bars

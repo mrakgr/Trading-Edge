@@ -36,10 +36,11 @@ type ActivityParams = {
 /// Session-wide baseline parameters
 type SessionBaseline = {
     ProposalVolBps: float   // Proposal random walk σ in bps
+    RateProposalVol: float  // Proposal σ for log-rate MCMC walk
     MeanSize: float         // Baseline mean trade size for scaling
 }
 
-let defaultBaseline = { ProposalVolBps = 0.375; MeanSize = 100.0 }
+let defaultBaseline = { ProposalVolBps = 0.375; RateProposalVol = 0.05; MeanSize = 100.0 }
 
 let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     match trend with
@@ -146,8 +147,8 @@ let sampleTargetMean (rng: Random) (prevTargetMean: float) (targetParams: Target
         | Consolidation -> if rng.NextDouble() < 0.5 then 1.0 else -1.0
     prevTargetMean + sign * moveSize
 
-/// Generate trades for a single trend episode
-let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: float) (baseline: SessionBaseline) (episode: Episode<Trend>) : Trade[] * float * float =
+/// Generate trades for a single trend episode with sequential MCMC rate walk
+let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: float) (startLogRate: float) (baseline: SessionBaseline) (episode: Episode<Trend>) : Trade[] * float * float * float =
     let durationSeconds = episode.Duration * 60.0
     let orderFlowParams = getOrderFlowParams episode.Label
     let activityParams = getActivityParams episode.Label
@@ -159,25 +160,39 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
     let targetVar = targetSigma * targetSigma
     let proposalVol = baseline.ProposalVolBps * bps
 
-    let tradeCount = sampleTradeCount rng orderFlowParams durationSeconds
-    let timestamps = generateTimestamps rng 0.0 durationSeconds tradeCount
-    let mu, sigma = activityMuSigma activityParams
+    // Rate MCMC target in log space - derive σ from median/mean
+    let logRateTarget = log orderFlowParams.MeanTradesPerSecond
+    let logRateTargetSigma = logNormalSigma orderFlowParams.MedianTradesPerSecond orderFlowParams.MeanTradesPerSecond
+    let logRateTargetVar = logRateTargetSigma * logRateTargetSigma
 
+    let mu, sigma = activityMuSigma activityParams
+    let trades = ResizeArray<Trade>()
     let mutable logPrice = log startPrice
-    let trades = Array.init tradeCount (fun i ->
-        let size = sampleSize rng mu sigma
-        logPrice <- multiTryStep rng logPrice proposalVol targetMean targetVar 10
-        {
-            Time = timestamps.[i]
-            Price = exp logPrice
-            Size = size
-            Trend = episode.Label
-            TargetMean = exp targetMean
-            TargetSigma = exp(targetMean + targetSigma) - exp targetMean
-        })
+    let mutable logRate = startLogRate
+    let mutable time = 0.0
+
+    while time < durationSeconds do
+        let rate = exp logRate
+        let gap = -log(rng.NextDouble()) / rate
+        time <- time + gap
+        if time < durationSeconds then
+            let sqrtGap = sqrt gap
+            // MCMC step on log-rate (scaled by sqrt dt)
+            logRate <- multiTryStep rng logRate (baseline.RateProposalVol * sqrtGap) logRateTarget logRateTargetVar 10
+            // MCMC step on price
+            logPrice <- multiTryStep rng logPrice proposalVol targetMean targetVar 10
+            let size = sampleSize rng mu sigma
+            trades.Add({
+                Time = time
+                Price = exp logPrice
+                Size = size
+                Trend = episode.Label
+                TargetMean = exp targetMean
+                TargetSigma = exp(targetMean + targetSigma) - exp targetMean
+            })
 
     let endPrice = exp logPrice
-    trades, endPrice, targetMean
+    trades.ToArray(), endPrice, targetMean, logRate
 
 /// Print summary statistics for generated trades
 let printTradesSummary (trades: Trade[]) : unit =
