@@ -177,7 +177,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
                 Size = size
                 Trend = episode.Label
                 TargetMean = exp targetMean
-                TargetSigma = exp(targetMean + targetSigma) - exp targetMean
+                TargetSigma = LogNormal(targetMean, targetSigma).StdDev
             })
 
     let endPrice = exp logPrice
