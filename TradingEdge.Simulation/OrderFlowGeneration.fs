@@ -86,9 +86,9 @@ let sampleTradeCount (rng: Random) (orderFlowParams: OrderFlowParams) (duration:
     let count = LogNormal(mu, sigma, rng).Sample() * duration
     max 1 (stochasticRound rng count)
 
-let activityMuSigma (activityParams: ActivityParams) : float * float =
-    let mu = log(activityParams.MedianSize)
-    let sigma = logNormalSigma activityParams.MedianSize activityParams.MeanSize
+let logNormalMuSigma (median: float) (mean: float) : float * float =
+    let mu = log median
+    let sigma = logNormalSigma median mean
     (mu, sigma)
 
 let sampleSize (rng: Random) (mu: float) (sigma: float) : int =
@@ -150,12 +150,9 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
     let targetMean = sampleTargetMean rng prevTargetMean targetParams episode.Label
     let targetSigma = targetParams.TargetVolBps * bps
     let proposalVol = baseline.ProposalVolBps * bps
-
-    // Rate MCMC target in log space - derive σ from median/mean
-    let logRateTarget = log orderFlowParams.MeanTradesPerSecond
-    let logRateTargetSigma = logNormalSigma orderFlowParams.MedianTradesPerSecond orderFlowParams.MeanTradesPerSecond
-
-    let mu, sigma = activityMuSigma activityParams
+    let logRateTarget, logRateTargetSigma = logNormalMuSigma orderFlowParams.MedianTradesPerSecond orderFlowParams.MeanTradesPerSecond
+    let logSizeTarget, logSizeSigma = logNormalMuSigma activityParams.MedianSize activityParams.MeanSize
+    
     let trades = ResizeArray<Trade>()
     let mutable logPrice = log startPrice
     let mutable logRate = startLogRate
@@ -170,7 +167,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
             logRate <- multiTryStep rng logRate (baseline.RateProposalVol * sqrtDt) logRateTarget logRateTargetSigma 10
             // MCMC step on price
             logPrice <- multiTryStep rng logPrice proposalVol targetMean targetSigma 10
-            let size = sampleSize rng mu sigma
+            let size = sampleSize rng logSizeTarget logSizeSigma
             trades.Add({
                 Time = time
                 Price = exp logPrice

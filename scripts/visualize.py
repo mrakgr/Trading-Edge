@@ -64,7 +64,7 @@ def make_chart(df, day_id):
         # Volume bars
         fig.add_trace(go.Bar(
             x=t, y=vol, name=f'Vol {label}',
-            marker_color='rgba(0,200,0,1)'
+            marker_color='rgba(0,255,0,1)'
         ), row=vol_row, col=1)
 
     fig.update_layout(
