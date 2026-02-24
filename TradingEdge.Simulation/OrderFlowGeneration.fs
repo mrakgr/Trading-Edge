@@ -162,8 +162,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
     let mutable time = 0.0
 
     while time < durationSeconds do
-        let rate = exp logRate
-        let dt = -log(rng.NextDouble()) / rate
+        let dt = Exponential.Sample(rng, exp logRate)
         time <- time + dt
         if time < durationSeconds then
             let sqrtDt = sqrt dt
