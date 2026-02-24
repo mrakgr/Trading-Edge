@@ -121,15 +121,10 @@ let multiTryStep (rng: Random) (logPrice: float) (proposalVol: float) (targetMea
         let dNeg = yNeg - targetMean
         logWeights.[2 * i + 1] <- -dPos * dPos / (2.0 * targetVar)
         logWeights.[2 * i + 2] <- -dNeg * dNeg / (2.0 * targetVar)
-    // Normalize via log-sum-exp and select
+    // Normalize via log-sum-exp and select using Categorical distribution
     let maxW = Array.max logWeights
     let weights = logWeights |> Array.map (fun w -> exp(w - maxW))
-    let total = Array.sum weights
-    let mutable u = rng.NextDouble() * total
-    let mutable idx = 0
-    while idx < candidates.Length - 1 && u > weights.[idx] do
-        u <- u - weights.[idx]
-        idx <- idx + 1
+    let idx = Categorical.Sample(rng, weights)
     candidates.[idx]
 
 /// Sample target mean for an episode
