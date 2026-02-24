@@ -103,13 +103,12 @@ let generateTimestamps (rng: Random) (startTime: float) (duration: float) (count
     timestamps
 
 /// Multi-try Metropolis step: propose n moves + n negated + current, select by target likelihood
-let multiTryStep (rng: Random) (logPrice: float) (proposalVol: float) (targetMean: float) (targetVar: float) (n: int) : float =
+let multiTryStep (rng: Random) (logPrice: float) (proposalVol: float) (targetMean: float) (targetSigma: float) (n: int) : float =
     let candidates = Array.zeroCreate (2 * n + 1)
     let logWeights = Array.zeroCreate (2 * n + 1)
     // Current position
     candidates.[0] <- logPrice
-    let d0 = logPrice - targetMean
-    logWeights.[0] <- -d0 * d0 / (2.0 * targetVar)
+    logWeights.[0] <- Normal.PDFLn(targetMean, targetSigma, logPrice)
     // Proposals and their negations
     for i in 0 .. n - 1 do
         let z = Normal.Sample(rng, 0.0, proposalVol)
@@ -117,10 +116,8 @@ let multiTryStep (rng: Random) (logPrice: float) (proposalVol: float) (targetMea
         let yNeg = logPrice - z
         candidates.[2 * i + 1] <- yPos
         candidates.[2 * i + 2] <- yNeg
-        let dPos = yPos - targetMean
-        let dNeg = yNeg - targetMean
-        logWeights.[2 * i + 1] <- -dPos * dPos / (2.0 * targetVar)
-        logWeights.[2 * i + 2] <- -dNeg * dNeg / (2.0 * targetVar)
+        logWeights.[2 * i + 1] <- Normal.PDFLn(targetMean, targetSigma, yPos)
+        logWeights.[2 * i + 2] <- Normal.PDFLn(targetMean, targetSigma, yNeg)
     // Normalize via log-sum-exp and select using Categorical distribution
     let maxW = Array.max logWeights
     let weights = logWeights |> Array.map (fun w -> exp(w - maxW))
@@ -152,13 +149,11 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
 
     let targetMean = sampleTargetMean rng prevTargetMean targetParams episode.Label
     let targetSigma = targetParams.TargetVolBps * bps
-    let targetVar = targetSigma * targetSigma
     let proposalVol = baseline.ProposalVolBps * bps
 
     // Rate MCMC target in log space - derive σ from median/mean
     let logRateTarget = log orderFlowParams.MeanTradesPerSecond
     let logRateTargetSigma = logNormalSigma orderFlowParams.MedianTradesPerSecond orderFlowParams.MeanTradesPerSecond
-    let logRateTargetVar = logRateTargetSigma * logRateTargetSigma
 
     let mu, sigma = activityMuSigma activityParams
     let trades = ResizeArray<Trade>()
@@ -173,9 +168,9 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
         if time < durationSeconds then
             let sqrtGap = sqrt gap
             // MCMC step on log-rate (scaled by sqrt dt)
-            logRate <- multiTryStep rng logRate (baseline.RateProposalVol * sqrtGap) logRateTarget logRateTargetVar 10
+            logRate <- multiTryStep rng logRate (baseline.RateProposalVol * sqrtGap) logRateTarget logRateTargetSigma 10
             // MCMC step on price
-            logPrice <- multiTryStep rng logPrice proposalVol targetMean targetVar 10
+            logPrice <- multiTryStep rng logPrice proposalVol targetMean targetSigma 10
             let size = sampleSize rng mu sigma
             trades.Add({
                 Time = time
