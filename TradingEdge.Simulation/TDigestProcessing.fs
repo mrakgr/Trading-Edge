@@ -21,12 +21,20 @@ type private FeatureArrays = {
     Vwap1s: float[]; Volume1s: int[]; StdDev1s: float[]
     Vwap1m: float[]; Volume1m: int[]; StdDev1m: float[]
     Vwap5m: float[]; Volume5m: int[]; StdDev5m: float[]
+    TargetMean: float[]; TargetSigma: float[]
+}
+
+type private NormalizedFeatures = {
+    VwapRatio1s: float[]; Volume1s: int[]; RelStdDev1s: float[]
+    VwapRatio1m: float[]; Volume1m: int[]; RelStdDev1m: float[]
+    VwapRatio5m: float[]; Volume5m: int[]; RelStdDev5m: float[]
+    TargetMean: float[]; TargetSigma: float[]
 }
 
 type private RowGroupData = {
     Index: int
     DayIds: int[]; Times: int[]; Sessions: int[]; Trends: int[]
-    Features: FeatureArrays
+    Features: NormalizedFeatures
 }
 
 let defaultCompression = 4096.0
@@ -41,21 +49,43 @@ let private readFeatureArrays (rg: ParquetRowGroupReader) (schema: ParquetSchema
     let! vwap5m = rg.ReadColumnAsync(schema.DataFields.[10])
     let! vol5m = rg.ReadColumnAsync(schema.DataFields.[11])
     let! std5m = rg.ReadColumnAsync(schema.DataFields.[12])
+    let! targetMean = rg.ReadColumnAsync(schema.DataFields.[13])
+    let! targetSigma = rg.ReadColumnAsync(schema.DataFields.[14])
     return {
         Vwap1s = vwap1s.Data :?> float[]; Volume1s = vol1s.Data :?> int[]; StdDev1s = std1s.Data :?> float[]
         Vwap1m = vwap1m.Data :?> float[]; Volume1m = vol1m.Data :?> int[]; StdDev1m = std1m.Data :?> float[]
         Vwap5m = vwap5m.Data :?> float[]; Volume5m = vol5m.Data :?> int[]; StdDev5m = std5m.Data :?> float[]
+        TargetMean = targetMean.Data :?> float[]; TargetSigma = targetSigma.Data :?> float[]
     }
 }
 
 let private addFinite (td: MergingDigest) (v: float) =
     if Double.IsFinite(v) then td.Add(v)
 
-let private addToDigests (vwapTd: MergingDigest) (volTd: MergingDigest) (stdTd: MergingDigest) (f: FeatureArrays) =
-    for i in 0 .. f.Vwap1s.Length - 1 do
-        addFinite vwapTd f.Vwap1s.[i]; addFinite vwapTd f.Vwap1m.[i]; addFinite vwapTd f.Vwap5m.[i]
+/// Compute VWAP ratio to previous complete bar and relative stddev
+let private vwapRatio (vwap: float[]) (period: int) =
+    let result = Array.zeroCreate vwap.Length
+    let mutable prevComplete = vwap.[0]
+    for i in 0 .. vwap.Length - 1 do
+        result.[i] <- if prevComplete > 0.0 then vwap.[i] / prevComplete else 1.0
+        if i % period = period - 1 then
+            prevComplete <- vwap.[i]
+    result
+
+let private relativeStdDev (stddev: float[]) (vwap: float[]) =
+    Array.init stddev.Length (fun i -> if vwap.[i] > 0.0 then stddev.[i] / vwap.[i] else 0.0)
+
+let private normalizeFeatures (f: FeatureArrays) : NormalizedFeatures =
+    { VwapRatio1s = vwapRatio f.Vwap1s 1;     Volume1s = f.Volume1s; RelStdDev1s = relativeStdDev f.StdDev1s f.Vwap1s
+      VwapRatio1m = vwapRatio f.Vwap1m 60;    Volume1m = f.Volume1m; RelStdDev1m = relativeStdDev f.StdDev1m f.Vwap1m
+      VwapRatio5m = vwapRatio f.Vwap5m 300;   Volume5m = f.Volume5m; RelStdDev5m = relativeStdDev f.StdDev5m f.Vwap5m
+      TargetMean = f.TargetMean; TargetSigma = f.TargetSigma }
+
+let private addToDigests (vwapTd: MergingDigest) (volTd: MergingDigest) (stdTd: MergingDigest) (f: NormalizedFeatures) =
+    for i in 0 .. f.VwapRatio1s.Length - 1 do
+        addFinite vwapTd f.VwapRatio1s.[i]; addFinite vwapTd f.VwapRatio1m.[i]; addFinite vwapTd f.VwapRatio5m.[i]
         volTd.Add(float f.Volume1s.[i]); volTd.Add(float f.Volume1m.[i]); volTd.Add(float f.Volume5m.[i])
-        addFinite stdTd f.StdDev1s.[i]; addFinite stdTd f.StdDev1m.[i]; addFinite stdTd f.StdDev5m.[i]
+        addFinite stdTd f.RelStdDev1s.[i]; addFinite stdTd f.RelStdDev1m.[i]; addFinite stdTd f.RelStdDev5m.[i]
 
 let private readRowGroupData (rg: ParquetRowGroupReader) (schema: ParquetSchema) (rgIndex: int) = task {
     let! dayIds = rg.ReadColumnAsync(schema.DataFields.[0])
@@ -67,7 +97,7 @@ let private readRowGroupData (rg: ParquetRowGroupReader) (schema: ParquetSchema)
         Index = rgIndex
         DayIds = dayIds.Data :?> int[]; Times = times.Data :?> int[]
         Sessions = sessions.Data :?> int[]; Trends = trends.Data :?> int[]
-        Features = features
+        Features = normalizeFeatures features
     }
 }
 
@@ -80,14 +110,14 @@ let buildTDigestsFromParquet (inputPath: string) (compression: float) (numWorker
     let schema = reader.Schema
     printfn "  Using %d workers for %d row groups..." numWorkers rowGroupCount
 
-    let channel = Channel.CreateBounded<FeatureArrays>(BoundedChannelOptions(numWorkers * 2))
+    let channel = Channel.CreateBounded<NormalizedFeatures>(BoundedChannelOptions(numWorkers * 2))
     let mutable processed = 0
 
     let producer = task {
         for rgIndex in 0 .. rowGroupCount - 1 do
             use rg = reader.OpenRowGroupReader(rgIndex)
             let! features = readFeatureArrays rg schema
-            do! channel.Writer.WriteAsync(features)
+            do! channel.Writer.WriteAsync(normalizeFeatures features)
         channel.Writer.Complete()
     }
 
@@ -166,24 +196,27 @@ let applyCdfInt (lookup: CdfLookupTable) (values: int[]) = values |> Array.map (
 type private TransformedRowGroup = {
     Index: int
     DayIds: int[]; Times: int[]; Sessions: int[]; Trends: int[]
-    CdfVwap1s: float[]; CdfVolume1s: float[]; CdfStdDev1s: float[]
-    CdfVwap1m: float[]; CdfVolume1m: float[]; CdfStdDev1m: float[]
-    CdfVwap5m: float[]; CdfVolume5m: float[]; CdfStdDev5m: float[]
+    CdfVwapRatio1s: float[]; CdfVolume1s: float[]; CdfRelStdDev1s: float[]
+    CdfVwapRatio1m: float[]; CdfVolume1m: float[]; CdfRelStdDev1m: float[]
+    CdfVwapRatio5m: float[]; CdfVolume5m: float[]; CdfRelStdDev5m: float[]
+    TargetMean: float[]; TargetSigma: float[]
 }
 
 let private applyTransform (vwapLookup: CdfLookupTable) (volLookup: CdfLookupTable) (stdLookup: CdfLookupTable) (data: RowGroupData) =
     let f = data.Features
     { Index = data.Index
       DayIds = data.DayIds; Times = data.Times; Sessions = data.Sessions; Trends = data.Trends
-      CdfVwap1s = applyCdf vwapLookup f.Vwap1s; CdfVolume1s = applyCdfInt volLookup f.Volume1s; CdfStdDev1s = applyCdf stdLookup f.StdDev1s
-      CdfVwap1m = applyCdf vwapLookup f.Vwap1m; CdfVolume1m = applyCdfInt volLookup f.Volume1m; CdfStdDev1m = applyCdf stdLookup f.StdDev1m
-      CdfVwap5m = applyCdf vwapLookup f.Vwap5m; CdfVolume5m = applyCdfInt volLookup f.Volume5m; CdfStdDev5m = applyCdf stdLookup f.StdDev5m }
+      CdfVwapRatio1s = applyCdf vwapLookup f.VwapRatio1s; CdfVolume1s = applyCdfInt volLookup f.Volume1s; CdfRelStdDev1s = applyCdf stdLookup f.RelStdDev1s
+      CdfVwapRatio1m = applyCdf vwapLookup f.VwapRatio1m; CdfVolume1m = applyCdfInt volLookup f.Volume1m; CdfRelStdDev1m = applyCdf stdLookup f.RelStdDev1m
+      CdfVwapRatio5m = applyCdf vwapLookup f.VwapRatio5m; CdfVolume5m = applyCdfInt volLookup f.Volume5m; CdfRelStdDev5m = applyCdf stdLookup f.RelStdDev5m
+      TargetMean = f.TargetMean; TargetSigma = f.TargetSigma }
 
 let private outSchema = ParquetSchema(
     DataField<int>("day_id"), DataField<int>("time"), DataField<int>("session"), DataField<int>("trend"),
-    DataField<float>("cdf_vwap_1s"), DataField<float>("cdf_volume_1s"), DataField<float>("cdf_stddev_1s"),
-    DataField<float>("cdf_vwap_1m"), DataField<float>("cdf_volume_1m"), DataField<float>("cdf_stddev_1m"),
-    DataField<float>("cdf_vwap_5m"), DataField<float>("cdf_volume_5m"), DataField<float>("cdf_stddev_5m")
+    DataField<float>("cdf_vwap_ratio_1s"), DataField<float>("cdf_volume_1s"), DataField<float>("cdf_rel_stddev_1s"),
+    DataField<float>("cdf_vwap_ratio_1m"), DataField<float>("cdf_volume_1m"), DataField<float>("cdf_rel_stddev_1m"),
+    DataField<float>("cdf_vwap_ratio_5m"), DataField<float>("cdf_volume_5m"), DataField<float>("cdf_rel_stddev_5m"),
+    DataField<float>("target_mean"), DataField<float>("target_sigma")
 )
 
 let private writeRowGroup (writer: ParquetWriter) (d: TransformedRowGroup) = task {
@@ -193,15 +226,17 @@ let private writeRowGroup (writer: ParquetWriter) (d: TransformedRowGroup) = tas
     do! rg.WriteColumnAsync(DataColumn(f.[1], d.Times))
     do! rg.WriteColumnAsync(DataColumn(f.[2], d.Sessions))
     do! rg.WriteColumnAsync(DataColumn(f.[3], d.Trends))
-    do! rg.WriteColumnAsync(DataColumn(f.[4], d.CdfVwap1s))
+    do! rg.WriteColumnAsync(DataColumn(f.[4], d.CdfVwapRatio1s))
     do! rg.WriteColumnAsync(DataColumn(f.[5], d.CdfVolume1s))
-    do! rg.WriteColumnAsync(DataColumn(f.[6], d.CdfStdDev1s))
-    do! rg.WriteColumnAsync(DataColumn(f.[7], d.CdfVwap1m))
+    do! rg.WriteColumnAsync(DataColumn(f.[6], d.CdfRelStdDev1s))
+    do! rg.WriteColumnAsync(DataColumn(f.[7], d.CdfVwapRatio1m))
     do! rg.WriteColumnAsync(DataColumn(f.[8], d.CdfVolume1m))
-    do! rg.WriteColumnAsync(DataColumn(f.[9], d.CdfStdDev1m))
-    do! rg.WriteColumnAsync(DataColumn(f.[10], d.CdfVwap5m))
+    do! rg.WriteColumnAsync(DataColumn(f.[9], d.CdfRelStdDev1m))
+    do! rg.WriteColumnAsync(DataColumn(f.[10], d.CdfVwapRatio5m))
     do! rg.WriteColumnAsync(DataColumn(f.[11], d.CdfVolume5m))
-    do! rg.WriteColumnAsync(DataColumn(f.[12], d.CdfStdDev5m))
+    do! rg.WriteColumnAsync(DataColumn(f.[12], d.CdfRelStdDev5m))
+    do! rg.WriteColumnAsync(DataColumn(f.[13], d.TargetMean))
+    do! rg.WriteColumnAsync(DataColumn(f.[14], d.TargetSigma))
 }
 
 let transformParquetWithCdf (inputPath: string) (tds: TDigests) (outputPath: string) (numWorkers: int) = task {
