@@ -163,12 +163,12 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
 
     while time < durationSeconds do
         let rate = exp logRate
-        let gap = -log(rng.NextDouble()) / rate
-        time <- time + gap
+        let dt = -log(rng.NextDouble()) / rate
+        time <- time + dt
         if time < durationSeconds then
-            let sqrtGap = sqrt gap
+            let sqrtDt = sqrt dt
             // MCMC step on log-rate (scaled by sqrt dt)
-            logRate <- multiTryStep rng logRate (baseline.RateProposalVol * sqrtGap) logRateTarget logRateTargetSigma 10
+            logRate <- multiTryStep rng logRate (baseline.RateProposalVol * sqrtDt) logRateTarget logRateTargetSigma 10
             // MCMC step on price
             logPrice <- multiTryStep rng logPrice proposalVol targetMean targetSigma 10
             let size = sampleSize rng mu sigma
