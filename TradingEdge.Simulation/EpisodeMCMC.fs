@@ -201,7 +201,7 @@ module SessionLevel =
 module TrendLevel =
     /// A tree of episode patterns. Nodes branch with probabilities, leaves define trend sequences.
     type EpisodeTree =
-        | Node of children: EpisodeTree[] * probs: float[]
+        | Node of children: (EpisodeTree * float)[]
         | Leaf of trends: Trend[]
 
     /// A single selection from the tree: path indices + episodes with durations
@@ -223,29 +223,31 @@ module TrendLevel =
     let rec private pathLogProb (tree: EpisodeTree) (path: int[]) (depth: int) : float =
         match tree with
         | Leaf _ -> 0.0
-        | Node (children, probs) ->
+        | Node children ->
             let idx = path.[depth]
-            log probs.[idx] + pathLogProb children.[idx] path (depth + 1)
+            let child, prob = children.[idx]
+            log prob + pathLogProb child path (depth + 1)
 
     /// Get the leaf trends for a given path
     let rec private getLeafTrends (tree: EpisodeTree) (path: int[]) (depth: int) : Trend[] =
         match tree with
         | Leaf trends -> trends
-        | Node (children, _) -> getLeafTrends children.[path.[depth]] path (depth + 1)
+        | Node children -> getLeafTrends (fst children.[path.[depth]]) path (depth + 1)
 
     /// Compute path depth (number of Node levels) for a given path
     let rec private pathDepth (tree: EpisodeTree) (path: int[]) (depth: int) : int =
         match tree with
         | Leaf _ -> depth
-        | Node (children, _) -> pathDepth children.[path.[depth]] path (depth + 1)
+        | Node children -> pathDepth (fst children.[path.[depth]]) path (depth + 1)
 
     /// Sample a random path through the tree, returning path indices and leaf trends
     let rec private samplePath (rng: Random) (tree: EpisodeTree) : int list * Trend[] =
         match tree with
         | Leaf trends -> [], trends
-        | Node (children, probs) ->
+        | Node children ->
+            let probs = children |> Array.map snd
             let idx = Categorical.Sample(rng, probs)
-            let rest, trends = samplePath rng children.[idx]
+            let rest, trends = samplePath rng (fst children.[idx])
             idx :: rest, trends
 
     let private logLikelihoodSelection (config: Config) (tree: EpisodeTree) (sel: TreeSelection) : float =
@@ -374,42 +376,42 @@ module TrendLevel =
         ]
 
     let private defaultPatternTrees : Map<DaySession, EpisodeTree> =
-        let midUp = Node([|
-            Leaf [| MidUptrend |]
-            Leaf [| TightHold; MidUptrend |]
-        |], [| 0.25; 0.75 |])
-        let strongUp = Node([|
-            Leaf [| StrongUptrend |]
-            Leaf [| TightHold; StrongUptrend |]
-        |], [| 0.10; 0.90 |])
-        let midDown = Node([|
-            Leaf [| MidDowntrend |]
-            Leaf [| TightHold; MidDowntrend |]
-        |], [| 0.25; 0.75 |])
-        let strongDown = Node([|
-            Leaf [| StrongDowntrend |]
-            Leaf [| TightHold; StrongDowntrend |]
-        |], [| 0.10; 0.90 |])
+        let midUp = Node [|
+            Leaf [| MidUptrend |],           0.25
+            Leaf [| TightHold; MidUptrend |], 0.75
+        |]
+        let strongUp = Node [|
+            Leaf [| StrongUptrend |],           0.10
+            Leaf [| TightHold; StrongUptrend |], 0.90
+        |]
+        let midDown = Node [|
+            Leaf [| MidDowntrend |],           0.25
+            Leaf [| TightHold; MidDowntrend |], 0.75
+        |]
+        let strongDown = Node [|
+            Leaf [| StrongDowntrend |],           0.10
+            Leaf [| TightHold; StrongDowntrend |], 0.90
+        |]
 
-        let morningCloseTree = Node([|
-            strongUp;                    // 0.15
-            midUp;                       // 0.15
-            Leaf [| WeakUptrend |];      // 0.10
-            Leaf [| Consolidation |];    // 0.20
-            Leaf [| WeakDowntrend |];    // 0.10
-            midDown;                     // 0.15
-            strongDown                   // 0.15
-        |], [| 0.15; 0.15; 0.10; 0.20; 0.10; 0.15; 0.15 |])
+        let morningCloseTree = Node [|
+            strongUp,                    0.15
+            midUp,                       0.15
+            Leaf [| WeakUptrend |],      0.10
+            Leaf [| Consolidation |],    0.20
+            Leaf [| WeakDowntrend |],    0.10
+            midDown,                     0.15
+            strongDown,                  0.15
+        |]
 
-        let midTree = Node([|
-            strongUp;                    // 0.02
-            midUp;                       // 0.08
-            Leaf [| WeakUptrend |];      // 0.15
-            Leaf [| Consolidation |];    // 0.50
-            Leaf [| WeakDowntrend |];    // 0.15
-            midDown;                     // 0.08
-            strongDown                   // 0.02
-        |], [| 0.02; 0.08; 0.15; 0.50; 0.15; 0.08; 0.02 |])
+        let midTree = Node [|
+            strongUp,                    0.02
+            midUp,                       0.08
+            Leaf [| WeakUptrend |],      0.15
+            Leaf [| Consolidation |],    0.50
+            Leaf [| WeakDowntrend |],    0.15
+            midDown,                     0.08
+            strongDown,                  0.02
+        |]
 
         Map.ofList [
             Morning, morningCloseTree
