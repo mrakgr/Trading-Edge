@@ -53,11 +53,25 @@ type PreprocessArgs =
             | Compression _ -> "T-digest compression factor (default: 4096)"
             | Workers _ -> "Number of worker threads (default: CPU count)"
 
+type DumpTradesArgs =
+    | [<AltCommandLine("-s")>] Seed of int
+    | [<AltCommandLine("-o")>] Output of string
+    | [<AltCommandLine("-p")>] Price of float
+    | [<AltCommandLine("-i")>] Iterations of int
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Seed _ -> "Random seed for generation"
+            | Output _ -> "Output CSV file path (default: stdout)"
+            | Price _ -> "Starting price (default: 100.0)"
+            | Iterations _ -> "MCMC iterations per level"
+
 type Command =
     | [<CliPrefix(CliPrefix.None)>] Order_Book of ParseResults<OrderBookArgs>
     | [<CliPrefix(CliPrefix.None)>] Generate_Day of ParseResults<GenerateDayArgs>
     | [<CliPrefix(CliPrefix.None)>] Generate_Dataset of ParseResults<GenerateDatasetArgs>
     | [<CliPrefix(CliPrefix.None)>] Preprocess of ParseResults<PreprocessArgs>
+    | [<CliPrefix(CliPrefix.None)>] Dump_Trades of ParseResults<DumpTradesArgs>
     interface IArgParserTemplate with
         member this.Usage =
             match this with
@@ -65,6 +79,7 @@ type Command =
             | Generate_Day _ -> "Generate a full day with sessions and trends using MCMC"
             | Generate_Dataset _ -> "Generate dataset of VWAP/Volume/StdDev bars to parquet"
             | Preprocess _ -> "Apply t-digest CDF transform to raw dataset"
+            | Dump_Trades _ -> "Dump raw trade data for a single day as CSV"
 
 let runOrderBook (args: ParseResults<OrderBookArgs>) =
     let seed = args.GetResult(OrderBookArgs.Seed, 42)
@@ -111,6 +126,36 @@ let runGenerateDataset (args: ParseResults<GenerateDatasetArgs>) =
     let mcmcConfig = { MCMC.Iterations = iterations }
     generateDataset seed numDays output mcmcConfig SessionLevel.defaultConfig TrendLevel.defaultConfig startPrice
 
+open TradingEdge.Simulation.OrderFlowGeneration
+
+let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
+    let seed = args.GetResult(DumpTradesArgs.Seed, 42)
+    let startPrice = args.GetResult(DumpTradesArgs.Price, 100.0)
+    let iterations = args.GetResult(DumpTradesArgs.Iterations, 10000)
+    let outputPath = args.TryGetResult(DumpTradesArgs.Output)
+    let rng = Random(seed)
+    let mcmcConfig = { MCMC.Iterations = iterations }
+    let result = generateDay SessionLevel.defaultConfig TrendLevel.defaultConfig mcmcConfig rng 390.0
+    let trades = generateDayTrades rng startPrice defaultBaseline result
+
+    let writer : System.IO.TextWriter =
+        match outputPath with
+        | Some path -> new System.IO.StreamWriter(path) :> _
+        | None -> System.Console.Out
+
+    writer.WriteLine("time,dt,price,size,trend")
+    let mutable prevTime = 0.0
+    for t in trades do
+        let dt = t.Time - prevTime
+        writer.WriteLine(sprintf "%.6f,%.6f,%.6f,%d,%s" t.Time dt t.Price t.Size (showTrend t.Trend))
+        prevTime <- t.Time
+
+    match outputPath with
+    | Some path ->
+        (writer :?> System.IO.StreamWriter).Dispose()
+        printfn "Wrote %d trades to %s" trades.Length path
+    | None -> ()
+
 let runPreprocess (args: ParseResults<PreprocessArgs>) =
     let input = args.GetResult(PreprocessArgs.Input)
     let output = args.GetResult(PreprocessArgs.Output)
@@ -143,6 +188,7 @@ let main argv =
         | Generate_Day args -> runGenerateDay args
         | Generate_Dataset args -> runGenerateDataset args
         | Preprocess args -> runPreprocess args
+        | Dump_Trades args -> runDumpTrades args
 
         0
     with

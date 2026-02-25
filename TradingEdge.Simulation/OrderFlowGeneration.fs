@@ -18,6 +18,7 @@ type Trade = {
 type OrderFlowParams = {
     MedianTradesPerSecond: float
     MeanTradesPerSecond: float
+    RateProposalVol: float
 }
 
 /// Target distribution parameters per trend
@@ -36,22 +37,21 @@ type ActivityParams = {
 /// Session-wide baseline parameters
 type SessionBaseline = {
     ProposalVolBps: float   // Proposal random walk σ in bps
-    RateProposalVol: float  // Proposal σ for log-rate MCMC walk
     MeanSize: float         // Baseline mean trade size for scaling
 }
 
-let defaultBaseline = { ProposalVolBps = 0.375; RateProposalVol = 0.05; MeanSize = 100.0 }
+let defaultBaseline = { ProposalVolBps = 0.375; MeanSize = 100.0 }
 
 let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     match trend with
-    | StrongUptrend   -> { MedianTradesPerSecond = 35.0; MeanTradesPerSecond = 40.0 }
-    | MidUptrend      -> { MedianTradesPerSecond = 17.0; MeanTradesPerSecond = 20.0 }
-    | WeakUptrend     -> { MedianTradesPerSecond = 8.5;  MeanTradesPerSecond = 10.0 }
-    | Consolidation   -> { MedianTradesPerSecond = 4.0;  MeanTradesPerSecond = 5.0 }
-    | WeakDowntrend   -> { MedianTradesPerSecond = 8.5;  MeanTradesPerSecond = 10.0 }
-    | MidDowntrend    -> { MedianTradesPerSecond = 17.0; MeanTradesPerSecond = 20.0 }
-    | StrongDowntrend -> { MedianTradesPerSecond = 35.0; MeanTradesPerSecond = 40.0 }
-    | TightHold       -> { MedianTradesPerSecond = 15.0; MeanTradesPerSecond = 20.0 }
+    | StrongUptrend   -> { MedianTradesPerSecond = 35.0; MeanTradesPerSecond = 40.0; RateProposalVol = 0.08 }
+    | MidUptrend      -> { MedianTradesPerSecond = 17.0; MeanTradesPerSecond = 20.0; RateProposalVol = 0.06 }
+    | WeakUptrend     -> { MedianTradesPerSecond = 8.5;  MeanTradesPerSecond = 10.0; RateProposalVol = 0.05 }
+    | Consolidation   -> { MedianTradesPerSecond = 4.0;  MeanTradesPerSecond = 5.0;  RateProposalVol = 0.03 }
+    | WeakDowntrend   -> { MedianTradesPerSecond = 8.5;  MeanTradesPerSecond = 10.0; RateProposalVol = 0.05 }
+    | MidDowntrend    -> { MedianTradesPerSecond = 17.0; MeanTradesPerSecond = 20.0; RateProposalVol = 0.06 }
+    | StrongDowntrend -> { MedianTradesPerSecond = 35.0; MeanTradesPerSecond = 40.0; RateProposalVol = 0.08 }
+    | TightHold       -> { MedianTradesPerSecond = 60.0; MeanTradesPerSecond = 80.0; RateProposalVol = 0.15 }
 
 let getTargetParams (trend: Trend) : TargetParams =
     match trend with
@@ -167,7 +167,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
         if time < durationSeconds then
             let sqrtDt = sqrt dt
             // MCMC step on log-rate (scaled by sqrt dt)
-            logRate <- multiTryStep rng logRate (baseline.RateProposalVol * sqrtDt) logRateTarget logRateTargetSigma 10
+            logRate <- multiTryStep rng logRate (orderFlowParams.RateProposalVol * sqrtDt) logRateTarget logRateTargetSigma 10
             // MCMC step on price
             logPrice <- multiTryStep rng logPrice proposalVol targetMean targetSigma 10
             let size = sampleSize rng logSizeTarget logSizeSigma
