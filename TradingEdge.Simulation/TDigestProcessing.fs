@@ -60,7 +60,7 @@ let private readFeatureArrays (rg: ParquetRowGroupReader) (schema: ParquetSchema
 }
 
 let private addFinite (td: MergingDigest) (v: float) =
-    if Double.IsFinite(v) then td.Add(v)
+    if Double.IsFinite(v) then td.Add(v) else failwith "The feature must be a finite value."
 
 /// Compute VWAP ratio to previous complete bar and relative stddev
 let private vwapRatio (vwap: float[]) (period: int) =
