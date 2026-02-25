@@ -47,14 +47,11 @@ module MCMC =
         let idx2 = (idx1 + 1 + rng.Next(n - 1)) % n
         (idx1, idx2)
 
-    /// Transfer duration between two episodes in a state array
-    let transferDuration (rng: Random) (maxDelta: float) (state: Episode<'a>[]) : Episode<'a>[] =
-        let (idx1, idx2) = pickTwoDistinctIndices rng state.Length
-
-        let delta =
-            let d = rng.NextDouble() * maxDelta
-            if rng.NextDouble() < 0.5 then -d else d
-
+    /// Transfer duration between two episodes, using min stddev of the pair as proposal scale
+    let transferDuration (stddev : 'a -> float) (rng: Random) (state: Episode<'a>[]) : Episode<'a>[] =
+        let idx1, idx2 = pickTwoDistinctIndices rng state.Length
+        let proposalStdDev = min (stddev state.[idx1].Label) (stddev state.[idx2].Label)
+        let delta = Normal.Sample(rng, 0.0, proposalStdDev)
         let newState = Array.copy state
         newState.[idx1] <- { state.[idx1] with Duration = state.[idx1].Duration + delta }
         newState.[idx2] <- { state.[idx2] with Duration = state.[idx2].Duration - delta }
@@ -117,6 +114,13 @@ module Distribution =
         let sigma = sqrt(2.0 * log(mean / median))
         (mu, sigma)
 
+    /// Get the standard deviation of the distribution
+    let stdDev (dist: Params) : float =
+        match dist with
+        | LogNormal (median, mean) ->
+            let (mu, sigma) = logNormalParams median mean
+            MathNet.Numerics.Distributions.LogNormal(mu, sigma).StdDev
+
     /// Compute log-likelihood for a value under the given distribution
     let logLikelihood (dist: Params) (value: float) : float =
         match dist with
@@ -144,14 +148,12 @@ module SessionLevel =
         MorningParams: Distribution.Params
         MidParams: Distribution.Params
         CloseParams: Distribution.Params
-        MaxDelta: float
     }
 
     let defaultConfig = {
         MorningParams = Distribution.LogNormal (45.0, 60.0)
         MidParams = Distribution.LogNormal (240.0, 270.0)
         CloseParams = Distribution.LogNormal (45.0, 60.0)
-        MaxDelta = 10.0
     }
 
     /// State for session-level MCMC: array of (session, duration) pairs
@@ -172,7 +174,8 @@ module SessionLevel =
 
     /// Propose a move by transferring duration between two sessions
     let propose (config: Config) (rng: Random) (state: State) : State option =
-        Some (MCMC.transferDuration rng config.MaxDelta state)
+        let stddev session = Distribution.stdDev (getParams config session)
+        Some (MCMC.transferDuration stddev rng state)
 
     /// Create initial state for a given total duration
     let initialState (totalDuration: float) : State =
@@ -216,7 +219,6 @@ module TrendLevel =
     type Config = {
         PatternTrees: Map<DaySession, EpisodeTree>
         DurationParams: Map<Trend, Distribution.Params>
-        MaxDelta: float
     }
 
     /// Compute log-probability of a path through the tree
@@ -279,21 +281,19 @@ module TrendLevel =
         mapping.ToArray()
 
     /// Propose: transfer duration between two random episodes across all selections
-    let private proposeTransferDuration (rng: Random) (maxDelta: float) (state: TreeSelection[]) : TreeSelection[] option =
+    let private proposeTransferDuration (rng: Random) (config: Config) (state: TreeSelection[]) : TreeSelection[] option =
         let mapping = createMappings state
         if mapping.Length < 2 then None
         else
             let idx1, idx2 = MCMC.pickTwoDistinctIndices rng mapping.Length
-            let delta =
-                let d = rng.NextDouble() * maxDelta
-                if rng.NextDouble() < 0.5 then -d else d
             let si1, ei1 = mapping.[idx1]
             let si2, ei2 = mapping.[idx2]
-            let newState =  state |> Array.map _.Copy()
-            let ep1 = newState.[si1].Episodes.[ei1]
-            let ep2 = newState.[si2].Episodes.[ei2]
-            newState.[si1].Episodes.[ei1] <- { ep1 with Duration = ep1.Duration + delta }
-            newState.[si2].Episodes.[ei2] <- { ep2 with Duration = ep2.Duration - delta }
+            let stddev trend = Distribution.stdDev config.DurationParams.[trend]
+            let proposalStdDev = min (stddev state.[si1].Episodes.[ei1].Label) (stddev state.[si2].Episodes.[ei2].Label)
+            let delta = Normal.Sample(rng, 0.0, proposalStdDev)
+            let newState = state |> Array.map _.Copy()
+            newState.[si1].Episodes.[ei1] <- { newState.[si1].Episodes.[ei1] with Duration = newState.[si1].Episodes.[ei1].Duration + delta }
+            newState.[si2].Episodes.[ei2] <- { newState.[si2].Episodes.[ei2] with Duration = newState.[si2].Episodes.[ei2].Duration - delta }
             Some newState
 
     /// Propose: replace one selection with a new random sample from the tree
@@ -318,11 +318,10 @@ module TrendLevel =
     let propose (config: Config) (parentSession: DaySession) (rng: Random) (state: TreeSelection[]) : TreeSelection[] option =
         let tree = config.PatternTrees.[parentSession]
         let proposals = [
-            (fun () -> proposeTransferDuration rng config.MaxDelta state), if length state >= 2 then 0.7 else 0.0
+            (fun () -> proposeTransferDuration rng config state), if length state >= 2 then 0.7 else 0.0
             (fun () -> proposeChangeSelection rng tree config state), 0.3
         ]
-        let move = MCMC.sampleWeighted rng proposals
-        move ()
+        MCMC.sampleWeighted rng proposals ()
 
     /// Create initial state by sampling selections until total duration is filled
     let initialState (config: Config) (parentSession: DaySession) (rng: Random) (sessionDuration: float) : TreeSelection[] =
@@ -422,7 +421,6 @@ module TrendLevel =
     let defaultConfig = {
         PatternTrees = defaultPatternTrees
         DurationParams = defaultDurationParams
-        MaxDelta = 5.0
     }
 
 // =============================================================================
