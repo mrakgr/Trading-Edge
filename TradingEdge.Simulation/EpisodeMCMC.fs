@@ -207,10 +207,13 @@ module TrendLevel =
         | Leaf of trends: Trend[]
 
     /// A single selection from the tree: path indices + episodes with durations
-    type TreeSelection = {
-        Path: int[]
-        Episodes: Episode<Trend>[]
-    }
+    type TreeSelection = 
+        {
+            Path: int[]
+            Episodes: Episode<Trend>[]
+        }
+
+        member s.Copy() = { s with Episodes = Array.copy s.Episodes }
 
     type Config = {
         PatternTrees: Map<DaySession, EpisodeTree>
@@ -261,29 +264,28 @@ module TrendLevel =
 
     /// Flatten state to Episode<Trend>[] for downstream consumption
     let flatten (state: TreeSelection[]) : Episode<Trend>[] =
-        state |> Array.collect (fun sel -> sel.Episodes)
+        state |> Array.collect _.Episodes
+
+    // Map flat indices back to (selection, episode) pairs
+    let createMappings (state: TreeSelection[]) =
+        let mapping = ResizeArray()
+        for si in 0 .. state.Length - 1 do
+            for ei in 0 .. state.[si].Episodes.Length - 1 do
+                mapping.Add(si, ei)
+        mapping.ToArray()
 
     /// Propose: transfer duration between two random episodes across all selections
     let private proposeTransferDuration (rng: Random) (maxDelta: float) (state: TreeSelection[]) : TreeSelection[] option =
-        let flat = flatten state
-        if flat.Length < 2 then None
+        let mapping = createMappings state
+        if mapping.Length < 2 then None
         else
-            let idx1, idx2 = MCMC.pickTwoDistinctIndices rng flat.Length
+            let idx1, idx2 = MCMC.pickTwoDistinctIndices rng mapping.Length
             let delta =
                 let d = rng.NextDouble() * maxDelta
                 if rng.NextDouble() < 0.5 then -d else d
-            // Map flat indices back to (selection, episode) pairs
-            let mutable selIdx = 0
-            let mutable epIdx = 0
-            let mutable flatIdx = 0
-            let mapping = Array.zeroCreate flat.Length
-            for si in 0 .. state.Length - 1 do
-                for ei in 0 .. state.[si].Episodes.Length - 1 do
-                    mapping.[flatIdx] <- (si, ei)
-                    flatIdx <- flatIdx + 1
             let si1, ei1 = mapping.[idx1]
             let si2, ei2 = mapping.[idx2]
-            let newState = state |> Array.map (fun s -> { s with Episodes = Array.copy s.Episodes })
+            let newState =  state |> Array.map _.Copy()
             let ep1 = newState.[si1].Episodes.[ei1]
             let ep2 = newState.[si2].Episodes.[ei2]
             newState.[si1].Episodes.[ei1] <- { ep1 with Duration = ep1.Duration + delta }
