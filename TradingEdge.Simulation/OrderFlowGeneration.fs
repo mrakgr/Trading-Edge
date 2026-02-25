@@ -94,11 +94,21 @@ let logNormalMuSigma (median: float) (mean: float) : float * float =
     let sigma = logNormalSigma median mean
     (mu, sigma)
 
+let private baselineSizeMu, private baselineSizeSigma =
+    let p = getActivityParams Consolidation
+    logNormalMuSigma p.MedianSize p.MeanSize
+
 let sampleSize (rng: Random) (mu: float) (sigma: float) : int =
-    let rec loop() =
-        let size = LogNormal(mu, sigma, rng).Sample() |> stochasticRound rng
-        if size > 0 then size else loop()
-    loop()
+    let median = exp mu
+    let rec sampleBelow () =
+        let v = LogNormal(baselineSizeMu, baselineSizeSigma, rng).Sample()
+        if v < median then v else sampleBelow ()
+    let rec loop () =
+        let raw = LogNormal(mu, sigma, rng).Sample()
+        let size = if raw < median then sampleBelow () else raw
+        let rounded = stochasticRound rng size
+        if rounded > 0 then rounded else loop ()
+    loop ()
 
 let generateTimestamps (rng: Random) (startTime: float) (duration: float) (count: int) : float[] =
     let timestamps = Array.init count (fun _ -> startTime + rng.NextDouble() * duration)
