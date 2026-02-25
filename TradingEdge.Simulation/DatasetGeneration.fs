@@ -26,6 +26,7 @@ let trendToInt (t: Trend) : int =
     | WeakDowntrend -> 4
     | MidDowntrend -> 5
     | StrongDowntrend -> 6
+    | TightHold -> 7
 
 type SecondBar = {
     Vwap: float

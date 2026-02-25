@@ -51,6 +51,7 @@ let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     | WeakDowntrend   -> { MedianTradesPerSecond = 8.5;  MeanTradesPerSecond = 10.0 }
     | MidDowntrend    -> { MedianTradesPerSecond = 17.0; MeanTradesPerSecond = 20.0 }
     | StrongDowntrend -> { MedianTradesPerSecond = 35.0; MeanTradesPerSecond = 40.0 }
+    | TightHold       -> { MedianTradesPerSecond = 15.0; MeanTradesPerSecond = 20.0 }
 
 let getTargetParams (trend: Trend) : TargetParams =
     match trend with
@@ -61,6 +62,7 @@ let getTargetParams (trend: Trend) : TargetParams =
     | WeakDowntrend   -> { MoveSigmaMedian = 1.2; MoveSigmaMean = 1.5; TargetVolBps = 12.0 }
     | MidDowntrend    -> { MoveSigmaMedian = 2.5; MoveSigmaMean = 3.0; TargetVolBps = 18.0 }
     | StrongDowntrend -> { MoveSigmaMedian = 4.0; MoveSigmaMean = 5.0; TargetVolBps = 24.0 }
+    | TightHold       -> { MoveSigmaMedian = 0.1; MoveSigmaMean = 0.2; TargetVolBps = 3.0 }
 
 let getActivityParams (trend: Trend) : ActivityParams =
     match trend with
@@ -71,6 +73,7 @@ let getActivityParams (trend: Trend) : ActivityParams =
     | WeakDowntrend   -> { MedianSize = 100.0; MeanSize = 120.0 }
     | MidDowntrend    -> { MedianSize = 100.0; MeanSize = 150.0 }
     | StrongDowntrend -> { MedianSize = 100.0; MeanSize = 200.0 }
+    | TightHold       -> { MedianSize = 100.0; MeanSize = 150.0 }
 
 let stochasticRound (rng: Random) (x: float) : int =
     let floor = Math.Floor(x)
@@ -136,7 +139,7 @@ let sampleTargetMean (rng: Random) (prevTargetMean: float) (targetParams: Target
         match trend with
         | StrongUptrend | MidUptrend | WeakUptrend -> 1.0
         | StrongDowntrend | MidDowntrend | WeakDowntrend -> -1.0
-        | Consolidation -> if rng.NextDouble() < 0.5 then 1.0 else -1.0
+        | Consolidation | TightHold -> if rng.NextDouble() < 0.5 then 1.0 else -1.0
     prevTargetMean + sign * moveSize
 
 /// Generate trades for a single trend episode with sequential MCMC rate walk

@@ -28,6 +28,7 @@ type Trend =
     | WeakDowntrend
     | MidDowntrend
     | StrongDowntrend
+    | TightHold
 
 // =============================================================================
 // Generic MCMC Module
@@ -196,110 +197,146 @@ module SessionLevel =
         MCMC.run mcmcConfig (logLikelihood config) (propose config) initial rng
 
 // =============================================================================
-// Trend Level (Session -> Trends)
+// Trend Level (Session -> Trends) - Tree-based compositional patterns
 // =============================================================================
 
 module TrendLevel =
+    /// A tree of episode patterns. Nodes branch with probabilities, leaves define trend sequences.
+    type EpisodeTree =
+        | Node of children: EpisodeTree[] * probs: float[]
+        | Leaf of trends: Trend[]
+
+    /// A single selection from the tree: path indices + episodes with durations
+    type TreeSelection = {
+        Path: int[]
+        Episodes: Episode<Trend>[]
+    }
+
     type Config = {
-        SelectionWeights: Map<DaySession, Map<Trend, float>>
+        PatternTrees: Map<DaySession, EpisodeTree>
         DurationParams: Map<Trend, Distribution.Params>
         MaxDelta: float
     }
 
-    let private defaultSelectionWeights : Map<DaySession, Map<Trend, float>> =
-        let morningCloseWeights = Map.ofList [
-            StrongUptrend, 0.15
-            MidUptrend, 0.15
-            WeakUptrend, 0.10
-            Consolidation, 0.20
-            WeakDowntrend, 0.10
-            MidDowntrend, 0.15
-            StrongDowntrend, 0.15
-        ]
-        let midWeights = Map.ofList [
-            StrongUptrend, 0.02
-            MidUptrend, 0.08
-            WeakUptrend, 0.15
-            Consolidation, 0.50
-            WeakDowntrend, 0.15
-            MidDowntrend, 0.08
-            StrongDowntrend, 0.02
-        ]
-        Map.ofList [
-            Morning, morningCloseWeights
-            Mid, midWeights
-            Close, morningCloseWeights
-        ]
+    /// Compute log-probability of a path through the tree
+    let rec private pathLogProb (tree: EpisodeTree) (path: int[]) (depth: int) : float =
+        match tree with
+        | Leaf _ -> 0.0
+        | Node (children, probs) ->
+            let idx = path.[depth]
+            log probs.[idx] + pathLogProb children.[idx] path (depth + 1)
 
-    let private defaultDurationParams : Map<Trend, Distribution.Params> =
-        Map.ofList [
-            StrongUptrend, Distribution.LogNormal (5.0, 2.0)
-            MidUptrend, Distribution.LogNormal (15.0, 5.0)
-            WeakUptrend, Distribution.LogNormal (30.0, 10.0)
-            Consolidation, Distribution.LogNormal (20.0, 10.0)
-            WeakDowntrend, Distribution.LogNormal (30.0, 10.0)
-            MidDowntrend, Distribution.LogNormal (15.0, 5.0)
-            StrongDowntrend, Distribution.LogNormal (5.0, 2.0)
-        ]
+    /// Get the leaf trends for a given path
+    let rec private getLeafTrends (tree: EpisodeTree) (path: int[]) (depth: int) : Trend[] =
+        match tree with
+        | Leaf trends -> trends
+        | Node (children, _) -> getLeafTrends children.[path.[depth]] path (depth + 1)
 
-    let defaultConfig = {
-        SelectionWeights = defaultSelectionWeights
-        DurationParams = defaultDurationParams
-        MaxDelta = 5.0
-    }
+    /// Compute path depth (number of Node levels) for a given path
+    let rec private pathDepth (tree: EpisodeTree) (path: int[]) (depth: int) : int =
+        match tree with
+        | Leaf _ -> depth
+        | Node (children, _) -> pathDepth children.[path.[depth]] path (depth + 1)
 
-    /// State for trend-level MCMC
-    type State = Episode<Trend>[]
+    /// Sample a random path through the tree, returning path indices and leaf trends
+    let rec private samplePath (rng: Random) (tree: EpisodeTree) : int list * Trend[] =
+        match tree with
+        | Leaf trends -> [], trends
+        | Node (children, probs) ->
+            let idx = Categorical.Sample(rng, probs)
+            let rest, trends = samplePath rng children.[idx]
+            idx :: rest, trends
 
-    /// Sample a trend type based on selection weights
-    let sampleTrendType (weights: Map<Trend, float>) (rng: Random) : Trend =
-        MCMC.sampleWeighted rng (Map.toSeq weights)
+    let private logLikelihoodSelection (config: Config) (tree: EpisodeTree) (sel: TreeSelection) : float =
+        let pathLL = pathLogProb tree sel.Path 0
+        let durationLL =
+            sel.Episodes |> Array.sumBy (fun ep ->
+                Distribution.logLikelihood config.DurationParams.[ep.Label] ep.Duration)
+        pathLL + durationLL
 
-    /// Compute log-likelihood for a trend state
-    let logLikelihood (config: Config) (parentSession: DaySession) (state: State) : float =
-        let weights = config.SelectionWeights.[parentSession]
-        state
-        |> Array.sumBy (fun ep ->
-            let selectionLL = log(weights.[ep.Label])
-            let durationParams = config.DurationParams.[ep.Label]
-            let durationLL = Distribution.logLikelihood durationParams ep.Duration
-            selectionLL + durationLL)
+    /// Compute log-likelihood for the full state
+    let logLikelihood (config: Config) (parentSession: DaySession) (state: TreeSelection[]) : float =
+        let tree = config.PatternTrees.[parentSession]
+        state |> Array.sumBy (logLikelihoodSelection config tree)
 
-    /// Propose a move: transfer duration, change label, or swap
-    let propose (config: Config) (rng: Random) (state: State) : State option =
-        let transferDuration () = MCMC.transferDuration rng config.MaxDelta state
-        let changeLabel () = 
-            let allTrends = config.DurationParams |> Map.keys |> Seq.toArray
-            MCMC.changeLabel rng allTrends state
+    /// Flatten state to Episode<Trend>[] for downstream consumption
+    let flatten (state: TreeSelection[]) : Episode<Trend>[] =
+        state |> Array.collect (fun sel -> sel.Episodes)
 
+    /// Propose: transfer duration between two random episodes across all selections
+    let private proposeTransferDuration (rng: Random) (maxDelta: float) (state: TreeSelection[]) : TreeSelection[] option =
+        let flat = flatten state
+        if flat.Length < 2 then None
+        else
+            let idx1, idx2 = MCMC.pickTwoDistinctIndices rng flat.Length
+            let delta =
+                let d = rng.NextDouble() * maxDelta
+                if rng.NextDouble() < 0.5 then -d else d
+            // Map flat indices back to (selection, episode) pairs
+            let mutable selIdx = 0
+            let mutable epIdx = 0
+            let mutable flatIdx = 0
+            let mapping = Array.zeroCreate flat.Length
+            for si in 0 .. state.Length - 1 do
+                for ei in 0 .. state.[si].Episodes.Length - 1 do
+                    mapping.[flatIdx] <- (si, ei)
+                    flatIdx <- flatIdx + 1
+            let si1, ei1 = mapping.[idx1]
+            let si2, ei2 = mapping.[idx2]
+            let newState = state |> Array.map (fun s -> { s with Episodes = Array.copy s.Episodes })
+            let ep1 = newState.[si1].Episodes.[ei1]
+            let ep2 = newState.[si2].Episodes.[ei2]
+            newState.[si1].Episodes.[ei1] <- { ep1 with Duration = ep1.Duration + delta }
+            newState.[si2].Episodes.[ei2] <- { ep2 with Duration = ep2.Duration - delta }
+            Some newState
+
+    /// Propose: replace one selection with a new random sample from the tree
+    let private proposeChangeSelection (rng: Random) (tree: EpisodeTree) (config: Config) (state: TreeSelection[]) : TreeSelection[] option =
+        if state.Length = 0 then None
+        else
+            let idx = rng.Next(state.Length)
+            let oldSel = state.[idx]
+            let totalDuration = oldSel.Episodes |> Array.sumBy (fun e -> e.Duration)
+            let pathList, trends = samplePath rng tree
+            let path = pathList |> Array.ofList
+            // Distribute duration proportionally using duration priors
+            let rawDurations = trends |> Array.map (fun t -> Distribution.sample rng config.DurationParams.[t])
+            let rawTotal = rawDurations |> Array.sum
+            let scale = totalDuration / rawTotal
+            let episodes = Array.init trends.Length (fun i ->
+                { Label = trends.[i]; Duration = rawDurations.[i] * scale })
+            let newState = Array.copy state
+            newState.[idx] <- { Path = path; Episodes = episodes }
+            Some newState
+
+    let propose (config: Config) (parentSession: DaySession) (rng: Random) (state: TreeSelection[]) : TreeSelection[] option =
+        let tree = config.PatternTrees.[parentSession]
         let proposals = [
-            transferDuration, if state.Length >= 2 then 0.7 else 0.0
-            changeLabel, 0.3
+            (fun () -> proposeTransferDuration rng config.MaxDelta state), if (flatten state).Length >= 2 then 0.7 else 0.0
+            (fun () -> proposeChangeSelection rng tree config state), 0.3
         ]
-
         let move = MCMC.sampleWeighted rng proposals
-        Some (move ())
+        move ()
 
-    /// Create initial state for a given session duration
-    let initialState (config: Config) (parentSession: DaySession) (rng: Random) (sessionDuration: float) : State =
-        let weights = config.SelectionWeights.[parentSession]
-
-        // Sample trends until total duration exceeds session duration
-        let rec sampleTrends acc total =
-            if total >= sessionDuration then
-                acc
-            else
-                let trend = sampleTrendType weights rng
-                let p = config.DurationParams.[trend]
-                let duration = Distribution.sample rng p
-                sampleTrends ({ Label = trend; Duration = duration } :: acc) (total + duration)
-
-        let trends = sampleTrends [] 0.0 |> List.toArray
-
-        // Scale durations to sum exactly to sessionDuration
-        let total = trends |> Array.sumBy (fun t -> t.Duration)
-        let scale = sessionDuration / total
-        trends |> Array.map (fun t -> { t with Duration = t.Duration * scale })
+    /// Create initial state by sampling selections until total duration is filled
+    let initialState (config: Config) (parentSession: DaySession) (rng: Random) (sessionDuration: float) : TreeSelection[] =
+        let tree = config.PatternTrees.[parentSession]
+        let selections = ResizeArray<TreeSelection>()
+        let mutable total = 0.0
+        while total < sessionDuration do
+            let pathList, trends = samplePath rng tree
+            let path = pathList |> Array.ofList
+            let episodes = trends |> Array.map (fun t ->
+                let dur = Distribution.sample rng config.DurationParams.[t]
+                { Label = t; Duration = dur })
+            selections.Add({ Path = path; Episodes = episodes })
+            total <- total + (episodes |> Array.sumBy (fun e -> e.Duration))
+        // Scale all durations to sum exactly to sessionDuration
+        let result = selections.ToArray()
+        let actualTotal = result |> Array.sumBy (fun s -> s.Episodes |> Array.sumBy (fun e -> e.Duration))
+        let scale = sessionDuration / actualTotal
+        result |> Array.map (fun s ->
+            { s with Episodes = s.Episodes |> Array.map (fun e -> { e with Duration = e.Duration * scale }) })
 
     /// Sample trend subdivision for a session
     let sample
@@ -308,12 +345,79 @@ module TrendLevel =
         (rng: Random)
         (parentSession: DaySession)
         (sessionDuration: float)
-        : State =
+        : Episode<Trend>[] =
 
         let initial = initialState config parentSession rng sessionDuration
         let ll = logLikelihood config parentSession
-        let prop = propose config
-        MCMC.run mcmcConfig ll prop initial rng
+        let prop = propose config parentSession
+        let result = MCMC.run mcmcConfig ll prop initial rng
+        flatten result
+
+    // =========================================================================
+    // Default Configuration
+    // =========================================================================
+
+    let private defaultDurationParams : Map<Trend, Distribution.Params> =
+        Map.ofList [
+            StrongUptrend,   Distribution.LogNormal (5.0, 2.0)
+            MidUptrend,      Distribution.LogNormal (15.0, 5.0)
+            WeakUptrend,     Distribution.LogNormal (30.0, 10.0)
+            Consolidation,   Distribution.LogNormal (20.0, 10.0)
+            WeakDowntrend,   Distribution.LogNormal (30.0, 10.0)
+            MidDowntrend,    Distribution.LogNormal (15.0, 5.0)
+            StrongDowntrend, Distribution.LogNormal (5.0, 2.0)
+            TightHold,       Distribution.LogNormal (3.0, 2.0)
+        ]
+
+    let private defaultPatternTrees : Map<DaySession, EpisodeTree> =
+        let midUp = Node([|
+            Leaf [| MidUptrend |]
+            Leaf [| TightHold; MidUptrend |]
+        |], [| 0.25; 0.75 |])
+        let strongUp = Node([|
+            Leaf [| StrongUptrend |]
+            Leaf [| TightHold; StrongUptrend |]
+        |], [| 0.10; 0.90 |])
+        let midDown = Node([|
+            Leaf [| MidDowntrend |]
+            Leaf [| TightHold; MidDowntrend |]
+        |], [| 0.25; 0.75 |])
+        let strongDown = Node([|
+            Leaf [| StrongDowntrend |]
+            Leaf [| TightHold; StrongDowntrend |]
+        |], [| 0.10; 0.90 |])
+
+        let morningCloseTree = Node([|
+            strongUp;                    // 0.15
+            midUp;                       // 0.15
+            Leaf [| WeakUptrend |];      // 0.10
+            Leaf [| Consolidation |];    // 0.20
+            Leaf [| WeakDowntrend |];    // 0.10
+            midDown;                     // 0.15
+            strongDown                   // 0.15
+        |], [| 0.15; 0.15; 0.10; 0.20; 0.10; 0.15; 0.15 |])
+
+        let midTree = Node([|
+            strongUp;                    // 0.02
+            midUp;                       // 0.08
+            Leaf [| WeakUptrend |];      // 0.15
+            Leaf [| Consolidation |];    // 0.50
+            Leaf [| WeakDowntrend |];    // 0.15
+            midDown;                     // 0.08
+            strongDown                   // 0.02
+        |], [| 0.02; 0.08; 0.15; 0.50; 0.15; 0.08; 0.02 |])
+
+        Map.ofList [
+            Morning, morningCloseTree
+            Mid, midTree
+            Close, morningCloseTree
+        ]
+
+    let defaultConfig = {
+        PatternTrees = defaultPatternTrees
+        DurationParams = defaultDurationParams
+        MaxDelta = 5.0
+    }
 
 // =============================================================================
 // Composition: Full Day Generation
@@ -368,6 +472,7 @@ let showTrend (t: Trend) : string =
     | WeakDowntrend -> "WeakDown"
     | MidDowntrend -> "MidDown"
     | StrongDowntrend -> "StrongDown"
+    | TightHold -> "TightHold"
 
 let printDayResult (result: DayResult) : unit =
     printEpisodes "Sessions" result.Sessions showSession
