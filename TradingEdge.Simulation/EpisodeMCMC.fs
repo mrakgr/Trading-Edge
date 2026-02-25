@@ -107,34 +107,32 @@ module MCMC =
 // =============================================================================
 
 module Distribution =
-    /// Distribution specification for positive values
+    /// Distribution specification for positive values (median/mean parameterization)
     type Params =
-        | LogNormal of mean: float * stdDev: float
+        | LogNormal of median: float * mean: float
 
-    /// Convert mean/stdDev to log-normal mu/sigma parameters
-    let logNormalParams (mean: float) (stdDev: float) : float * float =
-        let variance = stdDev * stdDev
-        let sigma2 = log(1.0 + variance / (mean * mean))
-        let sigma = sqrt(sigma2)
-        let mu = log(mean) - sigma2 / 2.0
+    /// Convert median/mean to log-normal mu/sigma parameters
+    let logNormalParams (median: float) (mean: float) : float * float =
+        let mu = log median
+        let sigma = sqrt(2.0 * log(mean / median))
         (mu, sigma)
 
     /// Compute log-likelihood for a value under the given distribution
     let logLikelihood (dist: Params) (value: float) : float =
         match dist with
-        | LogNormal (mean, stdDev) ->
+        | LogNormal (median, mean) ->
             if value <= 0.0 then
                 Double.NegativeInfinity
             else
-                let (mu, sigma) = logNormalParams mean stdDev
+                let (mu, sigma) = logNormalParams median mean
                 let d = MathNet.Numerics.Distributions.LogNormal(mu, sigma)
                 d.DensityLn(value)
 
     /// Sample a value from the given distribution
     let sample (rng: Random) (dist: Params) : float =
         match dist with
-        | LogNormal (mean, stdDev) ->
-            let (mu, sigma) = logNormalParams mean stdDev
+        | LogNormal (median, mean) ->
+            let (mu, sigma) = logNormalParams median mean
             MathNet.Numerics.Distributions.LogNormal(mu, sigma, rng).Sample()
 
 // =============================================================================
@@ -150,9 +148,9 @@ module SessionLevel =
     }
 
     let defaultConfig = {
-        MorningParams = Distribution.LogNormal (60.0, 20.0)
-        MidParams = Distribution.LogNormal (270.0, 40.0)
-        CloseParams = Distribution.LogNormal (60.0, 20.0)
+        MorningParams = Distribution.LogNormal (45.0, 60.0)
+        MidParams = Distribution.LogNormal (240.0, 270.0)
+        CloseParams = Distribution.LogNormal (45.0, 60.0)
         MaxDelta = 10.0
     }
 
@@ -266,6 +264,10 @@ module TrendLevel =
     let flatten (state: TreeSelection[]) : Episode<Trend>[] =
         state |> Array.collect _.Episodes
 
+    /// Gets the number of episodes in a state.
+    let length (state: TreeSelection[]) : int =
+        state |> Array.sumBy _.Episodes.Length
+
     // Map flat indices back to (selection, episode) pairs
     let createMappings (state: TreeSelection[]) =
         let mapping = ResizeArray()
@@ -298,7 +300,7 @@ module TrendLevel =
         else
             let idx = rng.Next(state.Length)
             let oldSel = state.[idx]
-            let totalDuration = oldSel.Episodes |> Array.sumBy (fun e -> e.Duration)
+            let totalDuration = oldSel.Episodes |> Array.sumBy _.Duration
             let pathList, trends = samplePath rng tree
             let path = pathList |> Array.ofList
             // Distribute duration proportionally using duration priors
@@ -314,7 +316,7 @@ module TrendLevel =
     let propose (config: Config) (parentSession: DaySession) (rng: Random) (state: TreeSelection[]) : TreeSelection[] option =
         let tree = config.PatternTrees.[parentSession]
         let proposals = [
-            (fun () -> proposeTransferDuration rng config.MaxDelta state), if (flatten state).Length >= 2 then 0.7 else 0.0
+            (fun () -> proposeTransferDuration rng config.MaxDelta state), if length state >= 2 then 0.7 else 0.0
             (fun () -> proposeChangeSelection rng tree config state), 0.3
         ]
         let move = MCMC.sampleWeighted rng proposals
@@ -331,11 +333,11 @@ module TrendLevel =
             let episodes = trends |> Array.map (fun t ->
                 let dur = Distribution.sample rng config.DurationParams.[t]
                 { Label = t; Duration = dur })
-            selections.Add({ Path = path; Episodes = episodes })
-            total <- total + (episodes |> Array.sumBy (fun e -> e.Duration))
+            selections.Add { Path = path; Episodes = episodes }
+            total <- total + (episodes |> Array.sumBy _.Duration)
         // Scale all durations to sum exactly to sessionDuration
         let result = selections.ToArray()
-        let actualTotal = result |> Array.sumBy (fun s -> s.Episodes |> Array.sumBy (fun e -> e.Duration))
+        let actualTotal = result |> Array.sumBy (fun s -> s.Episodes |> Array.sumBy _.Duration)
         let scale = sessionDuration / actualTotal
         result |> Array.map (fun s ->
             { s with Episodes = s.Episodes |> Array.map (fun e -> { e with Duration = e.Duration * scale }) })
@@ -361,14 +363,14 @@ module TrendLevel =
 
     let private defaultDurationParams : Map<Trend, Distribution.Params> =
         Map.ofList [
-            StrongUptrend,   Distribution.LogNormal (5.0, 2.0)
-            MidUptrend,      Distribution.LogNormal (15.0, 5.0)
-            WeakUptrend,     Distribution.LogNormal (30.0, 10.0)
-            Consolidation,   Distribution.LogNormal (20.0, 10.0)
-            WeakDowntrend,   Distribution.LogNormal (30.0, 10.0)
-            MidDowntrend,    Distribution.LogNormal (15.0, 5.0)
-            StrongDowntrend, Distribution.LogNormal (5.0, 2.0)
-            TightHold,       Distribution.LogNormal (3.0, 2.0)
+            StrongUptrend,   Distribution.LogNormal (4.0, 5.0)
+            MidUptrend,      Distribution.LogNormal (7.0, 10.0)
+            WeakUptrend,     Distribution.LogNormal (12.0, 15.0)
+            Consolidation,   Distribution.LogNormal (25.0, 35.0)
+            WeakDowntrend,   Distribution.LogNormal (12.0, 15.0)
+            MidDowntrend,    Distribution.LogNormal (7.0, 10.0)
+            StrongDowntrend, Distribution.LogNormal (4.0, 5.0)
+            TightHold,       Distribution.LogNormal (2.0, 3.0)
         ]
 
     let private defaultPatternTrees : Map<DaySession, EpisodeTree> =
