@@ -36,17 +36,15 @@ type ActivityParams = {
 
 /// HMM hold parameters for TightHold episodes
 type HoldParams = {
-    LaplaceScale: float       // Laplace scale (bps) when holding
-    LooseVolBps: float        // Normal sigma (bps) when loose
-    HoldProposalVolBps: float // Reduced proposal vol (bps) during holds
-    HoldDurationSec: float    // Average hold duration in seconds
-    LooseDurationSec: float   // Average loose/fakeout duration in seconds
+    LaplaceScaleFraction: float  // Laplace scale as fraction of TargetVolBps
+    HoldProposalFraction: float  // Hold proposal vol as fraction of baseline ProposalVolBps
+    HoldDurationSec: float       // Average hold duration in seconds
+    LooseDurationSec: float      // Average loose/fakeout duration in seconds
 }
 
 let defaultHoldParams = {
-    LaplaceScale = 0.5
-    LooseVolBps = 9.0
-    HoldProposalVolBps = 0.1
+    LaplaceScaleFraction = 0.1
+    HoldProposalFraction = 0.1
     HoldDurationSec = 15.0
     LooseDurationSec = 0.5
 }
@@ -79,7 +77,7 @@ let getTargetParams (trend: Trend) : TargetParams =
     | WeakDowntrend   -> { MoveSigmaMedian = 1.2; MoveSigmaMean = 1.5; TargetVolBps = 12.0 }
     | MidDowntrend    -> { MoveSigmaMedian = 2.5; MoveSigmaMean = 3.0; TargetVolBps = 18.0 }
     | StrongDowntrend -> { MoveSigmaMedian = 4.0; MoveSigmaMean = 5.0; TargetVolBps = 24.0 }
-    | TightHold       -> { MoveSigmaMedian = 0.1; MoveSigmaMean = 0.2; TargetVolBps = 3.0 }
+    | TightHold       -> { MoveSigmaMedian = 0.1; MoveSigmaMean = 0.2; TargetVolBps = 9.0 }
 
 let getActivityParams (trend: Trend) : ActivityParams =
     match trend with
@@ -187,13 +185,11 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
     let priceTransition = 
         match episode.Label with
         | TightHold ->
-            // HMM state for TightHold: start in holding state
             let holdParams = defaultHoldParams
             let mutable holding = true
             let holdLevel = targetMean
-            let laplaceScale = holdParams.LaplaceScale * bps
-            let looseVol = holdParams.LooseVolBps * bps
-            let holdProposalVol = holdParams.HoldProposalVolBps * bps
+            let laplaceScale = targetSigma * holdParams.LaplaceScaleFraction
+            let holdProposalVol = proposalVol * holdParams.HoldProposalFraction
             let meanRate = orderFlowParams.MeanTradesPerSecond
             let pHoldToLoose = 1.0 / (holdParams.HoldDurationSec * meanRate)
             let pLooseToHold = 1.0 / (holdParams.LooseDurationSec * meanRate)
@@ -207,7 +203,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
                 let pVol = if holding then holdProposalVol else proposalVol
                 let logDensity =
                     if holding then fun x -> Laplace.PDFLn(holdLevel, laplaceScale, x)
-                    else fun x -> Normal.PDFLn(holdLevel, looseVol, x)
+                    else fun x -> Normal.PDFLn(holdLevel, targetSigma, x)
                 multiTryStepGeneric rng logPrice pVol logDensity 10
         | StrongDowntrend | StrongUptrend | MidUptrend | MidDowntrend | WeakUptrend | WeakDowntrend | Consolidation ->
             fun logPrice ->
