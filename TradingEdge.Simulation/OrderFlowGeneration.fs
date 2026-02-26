@@ -184,18 +184,35 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
     let logRateTarget, logRateTargetSigma = logNormalMuSigma orderFlowParams.MedianTradesPerSecond orderFlowParams.MeanTradesPerSecond
     let logSizeTarget, logSizeSigma = logNormalMuSigma activityParams.MedianSize activityParams.MeanSize
 
-    // HMM state for TightHold: start in holding state
-    let isHold = episode.Label = TightHold
-    let holdParams = defaultHoldParams
-    let mutable holding = true
-    let holdLevel = targetMean
-    let laplaceScale = holdParams.LaplaceScale * bps
-    let looseVol = holdParams.LooseVolBps * bps
-    let holdProposalVol = holdParams.HoldProposalVolBps * bps
-    let meanRate = orderFlowParams.MeanTradesPerSecond
-    let pHoldToLoose = 1.0 / (holdParams.HoldDurationSec * meanRate)
-    let pLooseToHold = 1.0 / (holdParams.LooseDurationSec * meanRate)
-    
+    let priceTransition = 
+        match episode.Label with
+        | TightHold ->
+            // HMM state for TightHold: start in holding state
+            let holdParams = defaultHoldParams
+            let mutable holding = true
+            let holdLevel = targetMean
+            let laplaceScale = holdParams.LaplaceScale * bps
+            let looseVol = holdParams.LooseVolBps * bps
+            let holdProposalVol = holdParams.HoldProposalVolBps * bps
+            let meanRate = orderFlowParams.MeanTradesPerSecond
+            let pHoldToLoose = 1.0 / (holdParams.HoldDurationSec * meanRate)
+            let pLooseToHold = 1.0 / (holdParams.LooseDurationSec * meanRate)
+            fun logPrice ->
+                // HMM transition
+                if holding then
+                    if rng.NextDouble() < pHoldToLoose then holding <- false
+                else
+                    if rng.NextDouble() < pLooseToHold then holding <- true
+                // Price step depends on HMM state
+                let pVol = if holding then holdProposalVol else proposalVol
+                let logDensity =
+                    if holding then fun x -> Laplace.PDFLn(holdLevel, laplaceScale, x)
+                    else fun x -> Normal.PDFLn(holdLevel, looseVol, x)
+                multiTryStepGeneric rng logPrice pVol logDensity 10
+        | StrongDowntrend | StrongUptrend | MidUptrend | MidDowntrend | WeakUptrend | WeakDowntrend | Consolidation ->
+            fun logPrice ->
+                multiTryStep rng logPrice proposalVol targetMean targetSigma 10
+
     let trades = ResizeArray<Trade>()
     let mutable logPrice = log startPrice
     let mutable logRate = startLogRate
@@ -207,22 +224,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
         if time < durationSeconds then
             let sqrtDt = sqrt dt
             logRate <- multiTryStep rng logRate (orderFlowParams.RateProposalVol * sqrtDt) logRateTarget logRateTargetSigma 10
-
-            if isHold then
-                // HMM transition
-                if holding then
-                    if rng.NextDouble() < pHoldToLoose then holding <- false
-                else
-                    if rng.NextDouble() < pLooseToHold then holding <- true
-                // Price step depends on HMM state
-                let pVol = if holding then holdProposalVol else proposalVol
-                let logDensity =
-                    if holding then fun x -> Laplace.PDFLn(holdLevel, laplaceScale, x)
-                    else fun x -> Normal.PDFLn(holdLevel, looseVol, x)
-                logPrice <- multiTryStepGeneric rng logPrice pVol logDensity 10
-            else
-                logPrice <- multiTryStep rng logPrice proposalVol targetMean targetSigma 10
-
+            logPrice <- priceTransition logPrice
             let size = sampleSize rng logSizeTarget logSizeSigma
             trades.Add({
                 Time = time
