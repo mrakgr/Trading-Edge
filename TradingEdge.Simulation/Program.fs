@@ -143,11 +143,11 @@ let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
         | Some path -> new System.IO.StreamWriter(path) :> _
         | None -> System.Console.Out
 
-    writer.WriteLine("time,dt,price,size,trend")
+    writer.WriteLine("time,dt,price,size,trend,target_mean,target_sigma")
     let mutable prevTime = 0.0
     for t in trades do
         let dt = t.Time - prevTime
-        writer.WriteLine(sprintf "%.6f,%.6f,%.6f,%d,%s" t.Time dt t.Price t.Size (showTrend t.Trend))
+        writer.WriteLine(sprintf "%.6f,%.6f,%.6f,%d,%s,%.6f,%.6f" t.Time dt t.Price t.Size (showTrend t.Trend) t.TargetMean t.TargetSigma)
         prevTime <- t.Time
 
     match outputPath with

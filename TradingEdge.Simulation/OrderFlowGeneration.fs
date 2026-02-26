@@ -36,17 +36,17 @@ type ActivityParams = {
 
 /// HMM hold parameters for TightHold episodes
 type HoldParams = {
-    LaplaceScaleFraction: float  // Laplace scale as fraction of TargetVolBps
+    HoldSigmaFraction: float     // Hold sigma as fraction of TargetVolBps
     HoldProposalFraction: float  // Hold proposal vol as fraction of baseline ProposalVolBps
     HoldDurationSec: float       // Average hold duration in seconds
     LooseDurationSec: float      // Average loose/fakeout duration in seconds
 }
 
 let defaultHoldParams = {
-    LaplaceScaleFraction = 0.1
-    HoldProposalFraction = 0.1
+    HoldSigmaFraction = 0.05
+    HoldProposalFraction = 0.2
     HoldDurationSec = 15.0
-    LooseDurationSec = 0.5
+    LooseDurationSec = 1.0
 }
 
 /// Session-wide baseline parameters
@@ -188,7 +188,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
             let holdParams = defaultHoldParams
             let mutable holding = true
             let holdLevel = targetMean
-            let laplaceScale = targetSigma * holdParams.LaplaceScaleFraction / sqrt 2.0
+            let holdSigma = targetSigma * holdParams.HoldSigmaFraction
             let holdProposalVol = proposalVol * holdParams.HoldProposalFraction
             let meanRate = orderFlowParams.MeanTradesPerSecond
             let pHoldToLoose = 1.0 / (holdParams.HoldDurationSec * meanRate)
@@ -202,7 +202,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
                 // Price step depends on HMM state
                 let pVol = if holding then holdProposalVol else proposalVol
                 let logDensity =
-                    if holding then fun x -> Laplace.PDFLn(holdLevel, laplaceScale, x)
+                    if holding then fun x -> Normal.PDFLn(holdLevel, holdSigma, x)
                     else fun x -> Normal.PDFLn(holdLevel, targetSigma, x)
                 multiTryStepGeneric rng logPrice pVol logDensity 10
         | StrongDowntrend | StrongUptrend | MidUptrend | MidDowntrend | WeakUptrend | WeakDowntrend | Consolidation ->
