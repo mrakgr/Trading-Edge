@@ -188,7 +188,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
             let holdParams = defaultHoldParams
             let mutable holding = true
             let holdLevel = targetMean
-            let laplaceScale = targetSigma * holdParams.LaplaceScaleFraction
+            let laplaceScale = targetSigma * holdParams.LaplaceScaleFraction / sqrt 2.0
             let holdProposalVol = proposalVol * holdParams.HoldProposalFraction
             let meanRate = orderFlowParams.MeanTradesPerSecond
             let pHoldToLoose = 1.0 / (holdParams.HoldDurationSec * meanRate)
