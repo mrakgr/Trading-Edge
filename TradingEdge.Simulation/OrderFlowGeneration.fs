@@ -34,6 +34,23 @@ type ActivityParams = {
     MeanSize: float
 }
 
+/// HMM hold parameters for TightHold episodes
+type HoldParams = {
+    LaplaceScale: float       // Laplace scale (bps) when holding
+    LooseVolBps: float        // Normal sigma (bps) when loose
+    HoldProposalVolBps: float // Reduced proposal vol (bps) during holds
+    HoldDurationSec: float    // Average hold duration in seconds
+    LooseDurationSec: float   // Average loose/fakeout duration in seconds
+}
+
+let defaultHoldParams = {
+    LaplaceScale = 0.5
+    LooseVolBps = 9.0
+    HoldProposalVolBps = 0.1
+    HoldDurationSec = 15.0
+    LooseDurationSec = 0.5
+}
+
 /// Session-wide baseline parameters
 type SessionBaseline = {
     ProposalVolBps: float   // Proposal random walk σ in bps
@@ -115,27 +132,28 @@ let generateTimestamps (rng: Random) (startTime: float) (duration: float) (count
     Array.sortInPlace timestamps
     timestamps
 
-/// Multi-try Metropolis step: propose n moves + n negated + current, select by target likelihood
-let multiTryStep (rng: Random) (logPrice: float) (proposalVol: float) (targetMean: float) (targetSigma: float) (n: int) : float =
+/// Multi-try step with pluggable log-density function
+let multiTryStepGeneric (rng: Random) (logPrice: float) (proposalVol: float) (logDensity: float -> float) (n: int) : float =
     let candidates = Array.zeroCreate (2 * n + 1)
     let logWeights = Array.zeroCreate (2 * n + 1)
-    // Current position
     candidates.[0] <- logPrice
-    logWeights.[0] <- Normal.PDFLn(targetMean, targetSigma, logPrice)
-    // Proposals and their negations
+    logWeights.[0] <- logDensity logPrice
     for i in 0 .. n - 1 do
         let z = Normal.Sample(rng, 0.0, proposalVol)
         let yPos = logPrice + z
         let yNeg = logPrice - z
         candidates.[2 * i + 1] <- yPos
         candidates.[2 * i + 2] <- yNeg
-        logWeights.[2 * i + 1] <- Normal.PDFLn(targetMean, targetSigma, yPos)
-        logWeights.[2 * i + 2] <- Normal.PDFLn(targetMean, targetSigma, yNeg)
-    // Normalize via log-sum-exp and select using Categorical distribution
+        logWeights.[2 * i + 1] <- logDensity yPos
+        logWeights.[2 * i + 2] <- logDensity yNeg
     let maxW = Array.max logWeights
     let weights = logWeights |> Array.map (fun w -> exp(w - maxW))
     let idx = Categorical.Sample(rng, weights)
     candidates.[idx]
+
+/// Multi-try Metropolis step: propose n moves + n negated + current, select by target likelihood
+let multiTryStep (rng: Random) (logPrice: float) (proposalVol: float) (targetMean: float) (targetSigma: float) (n: int) : float =
+    multiTryStepGeneric rng logPrice proposalVol (fun x -> Normal.PDFLn(targetMean, targetSigma, x)) n
 
 /// Sample target mean for an episode
 let sampleTargetMean (rng: Random) (prevTargetMean: float) (targetParams: TargetParams) (trend: Trend) : float =
@@ -165,6 +183,18 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
     let proposalVol = baseline.ProposalVolBps * bps
     let logRateTarget, logRateTargetSigma = logNormalMuSigma orderFlowParams.MedianTradesPerSecond orderFlowParams.MeanTradesPerSecond
     let logSizeTarget, logSizeSigma = logNormalMuSigma activityParams.MedianSize activityParams.MeanSize
+
+    // HMM state for TightHold: start in holding state
+    let isHold = episode.Label = TightHold
+    let holdParams = defaultHoldParams
+    let mutable holding = true
+    let holdLevel = targetMean
+    let laplaceScale = holdParams.LaplaceScale * bps
+    let looseVol = holdParams.LooseVolBps * bps
+    let holdProposalVol = holdParams.HoldProposalVolBps * bps
+    let meanRate = orderFlowParams.MeanTradesPerSecond
+    let pHoldToLoose = 1.0 / (holdParams.HoldDurationSec * meanRate)
+    let pLooseToHold = 1.0 / (holdParams.LooseDurationSec * meanRate)
     
     let trades = ResizeArray<Trade>()
     let mutable logPrice = log startPrice
@@ -176,10 +206,23 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
         time <- time + dt
         if time < durationSeconds then
             let sqrtDt = sqrt dt
-            // MCMC step on log-rate (scaled by sqrt dt)
             logRate <- multiTryStep rng logRate (orderFlowParams.RateProposalVol * sqrtDt) logRateTarget logRateTargetSigma 10
-            // MCMC step on price
-            logPrice <- multiTryStep rng logPrice proposalVol targetMean targetSigma 10
+
+            if isHold then
+                // HMM transition
+                if holding then
+                    if rng.NextDouble() < pHoldToLoose then holding <- false
+                else
+                    if rng.NextDouble() < pLooseToHold then holding <- true
+                // Price step depends on HMM state
+                let pVol = if holding then holdProposalVol else proposalVol
+                let logDensity =
+                    if holding then fun x -> Laplace.PDFLn(holdLevel, laplaceScale, x)
+                    else fun x -> Normal.PDFLn(holdLevel, looseVol, x)
+                logPrice <- multiTryStepGeneric rng logPrice pVol logDensity 10
+            else
+                logPrice <- multiTryStep rng logPrice proposalVol targetMean targetSigma 10
+
             let size = sampleSize rng logSizeTarget logSizeSigma
             trades.Add({
                 Time = time
