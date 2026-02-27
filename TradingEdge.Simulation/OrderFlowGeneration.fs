@@ -97,7 +97,7 @@ let getActivityParams (trend: Trend) : ActivityParams =
     | WeakDowntrend   -> { MedianSize = 100.0; MeanSize = 120.0 }
     | MidDowntrend    -> { MedianSize = 100.0; MeanSize = 150.0 }
     | StrongDowntrend -> { MedianSize = 100.0; MeanSize = 200.0 }
-    | TightHold _     -> { MedianSize = 100.0; MeanSize = 150.0 }
+    | TightHold _     -> { MedianSize = 100.0; MeanSize = 200.0 }
 
 let stochasticRound (rng: Random) (x: float) : int =
     let floor = Math.Floor(x)
