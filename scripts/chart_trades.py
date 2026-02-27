@@ -1,9 +1,13 @@
 import csv
+import sys
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+input_csv = sys.argv[1] if len(sys.argv) > 1 else 'data/test_hmm.csv'
+output_html = sys.argv[2] if len(sys.argv) > 2 else 'data/hmm_chart.html'
+
 trades = []
-with open('data/test_hmm.csv') as f:
+with open(input_csv) as f:
     r = csv.DictReader(f)
     for row in r:
         trades.append({
@@ -123,10 +127,10 @@ fig.add_trace(go.Scattergl(
     name='Size', showlegend=False
 ), row=2, col=1)
 
-fig.update_layout(height=900, width=1400, title='Trade Data with HMM Hold/Loose (seed=42)',
+fig.update_layout(height=900, width=1400, title=f'Trade Data ({input_csv})',
     xaxis2=dict(title='Time (minutes)'))
 fig.update_yaxes(title_text='Price', row=1, col=1)
 fig.update_yaxes(title_text='Size', row=2, col=1)
 
-fig.write_html('data/hmm_chart.html')
-print('Written to data/hmm_chart.html')
+fig.write_html(output_html)
+print(f'Written to {output_html}')

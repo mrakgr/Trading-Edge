@@ -48,18 +48,19 @@ let defaultHoldParams = {
     HoldSigmaFraction = 0.05
     LooseSigmaFraction = 0.5
     HoldProposalFraction = 1.0
-    PinnedMassFraction = 0.9
-    HoldDurationSec = 15.0
+    PinnedMassFraction = 0.8
+    HoldDurationSec = 10.0
     LooseDurationSec = 1.0
 }
 
 /// Session-wide baseline parameters
 type SessionBaseline = {
-    ProposalVolBps: float   // Proposal random walk σ in bps
-    MeanSize: float         // Baseline mean trade size for scaling
+    ProposalVolBps: float        // Proposal random walk σ in bps
+    RateProposalBaseline: float  // Multiplier for rate proposal vol
+    MeanSize: float              // Baseline mean trade size for scaling
 }
 
-let defaultBaseline = { ProposalVolBps = 0.375; MeanSize = 100.0 }
+let defaultBaseline = { ProposalVolBps = 0.375; RateProposalBaseline = 0.093; MeanSize = 100.0 }
 
 let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     match trend with
@@ -238,7 +239,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
             let sqrtDt = sqrt dt
             let size = sampleSize rng logSizeTarget logSizeSigma
             let rateScale = sqrtDt * sqrt (float size)
-            logRate <- multiTryStep rng logRate (orderFlowParams.RateProposalVol * rateScale) logRateTarget logRateTargetSigma 10
+            logRate <- multiTryStep rng logRate (baseline.RateProposalBaseline * orderFlowParams.RateProposalVol * rateScale) logRateTarget logRateTargetSigma 10
             logPrice <- priceTransition logPrice
             trades.Add({
                 Time = time
