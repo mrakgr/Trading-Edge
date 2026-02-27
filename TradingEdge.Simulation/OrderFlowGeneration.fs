@@ -39,9 +39,11 @@ type HoldParams = {
     HoldSigmaFraction: float     // Hold sigma as fraction of TargetVolBps (tight side)
     LooseSigmaFraction: float    // Loose side sigma as fraction of TargetVolBps (for asymmetric holds)
     HoldProposalFraction: float  // Hold proposal vol as fraction of baseline ProposalVolBps
-    PinnedMassFraction: float    // Mass fraction on the pinned side (e.g. 0.9 = 90% of density)
-    HoldDurationSec: float       // Average hold duration in seconds
-    LooseDurationSec: float      // Average loose/fakeout duration in seconds
+    PinnedMassFraction: float    // Mass fraction on the pinned side (e.g. 0.8 = 80% of density)
+    HoldDurationMedian: float    // Median hold duration in seconds
+    HoldDurationMean: float      // Mean hold duration in seconds
+    ReleaseDurationMedian: float // Median release/fakeout duration in seconds
+    ReleaseDurationMean: float   // Mean release/fakeout duration in seconds
 }
 
 let defaultHoldParams = {
@@ -49,8 +51,10 @@ let defaultHoldParams = {
     LooseSigmaFraction = 0.5
     HoldProposalFraction = 1.0
     PinnedMassFraction = 0.8
-    HoldDurationSec = 10.0
-    LooseDurationSec = 1.0
+    HoldDurationMedian = 10.0
+    HoldDurationMean = 20.0
+    ReleaseDurationMedian = 1.0
+    ReleaseDurationMean = 2.0
 }
 
 /// Session-wide baseline parameters
@@ -130,6 +134,16 @@ let sampleSize (rng: Random) (mu: float) (sigma: float) : int =
         if rounded > 0 then rounded else loop ()
     loop ()
 
+/// Sample a duration (seconds) from LogNormal with below-median compression
+let sampleDuration (rng: Random) (median: float) (mean: float) : float =
+    let mu, sigma = logNormalMuSigma median mean
+    let tightMu, tightSigma = logNormalMuSigma median (median * 1.1)
+    let rec sampleBelow () =
+        let v = LogNormal(tightMu, tightSigma, rng).Sample()
+        if v < median then v else sampleBelow ()
+    let raw = LogNormal(mu, sigma, rng).Sample()
+    if raw < median then sampleBelow () else raw
+
 let generateTimestamps (rng: Random) (startTime: float) (duration: float) (count: int) : float[] =
     let timestamps = Array.init count (fun _ -> startTime + rng.NextDouble() * duration)
     Array.sortInPlace timestamps
@@ -196,16 +210,16 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
             let tightSigma = targetSigma * holdParams.HoldSigmaFraction
             let looseSigma = targetSigma * holdParams.LooseSigmaFraction
             let holdProposalVol = proposalVol * holdParams.HoldProposalFraction
-            let meanRate = orderFlowParams.MeanTradesPerSecond
-            let pHoldToLoose = 1.0 / (holdParams.HoldDurationSec * meanRate)
-            let pLooseToHold = 1.0 / (holdParams.LooseDurationSec * meanRate)
             let logPinned = log holdParams.PinnedMassFraction
             let logUnpinned = log (1.0 - holdParams.PinnedMassFraction)
-            fun logPrice ->
-                if holding then
-                    if rng.NextDouble() < pHoldToLoose then holding <- false
-                else
-                    if rng.NextDouble() < pLooseToHold then holding <- true
+            let sampleHoldTime () = sampleDuration rng holdParams.HoldDurationMedian holdParams.HoldDurationMean
+            let sampleReleaseTime () = sampleDuration rng holdParams.ReleaseDurationMedian holdParams.ReleaseDurationMean
+            let mutable timeLeft = sampleHoldTime ()
+            fun dt size logRate logPrice ->
+                timeLeft <- timeLeft - dt
+                if timeLeft <= 0.0 then
+                    holding <- not holding
+                    timeLeft <- if holding then sampleHoldTime () else sampleReleaseTime ()
                 let pVol = if holding then holdProposalVol else proposalVol
                 let logDensity =
                     if holding then
@@ -225,7 +239,12 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
                     else fun x -> Normal.PDFLn(holdLevel, targetSigma, x)
                 multiTryStepGeneric rng logPrice pVol logDensity 10
         | StrongDowntrend | StrongUptrend | MidUptrend | MidDowntrend | WeakUptrend | WeakDowntrend | Consolidation ->
-            fun logPrice -> multiTryStep rng logPrice proposalVol targetMean targetSigma 10
+            fun dt size logRate logPrice -> multiTryStep rng logPrice proposalVol targetMean targetSigma 10
+
+    let rateTransition dt size logRate logPrice =
+        let sqrtDt = sqrt dt
+        let sqrtSize = sqrt (float size)
+        multiTryStep rng logRate (baseline.RateProposalBaseline * orderFlowParams.RateProposalVol * sqrtDt * sqrtSize) logRateTarget logRateTargetSigma 10
 
     let trades = ResizeArray<Trade>()
     let mutable logPrice = log startPrice
@@ -236,11 +255,9 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
         let dt = Exponential.Sample(rng, exp logRate)
         time <- time + dt
         if time < durationSeconds then
-            let sqrtDt = sqrt dt
             let size = sampleSize rng logSizeTarget logSizeSigma
-            let rateScale = sqrtDt * sqrt (float size)
-            logRate <- multiTryStep rng logRate (baseline.RateProposalBaseline * orderFlowParams.RateProposalVol * rateScale) logRateTarget logRateTargetSigma 10
-            logPrice <- priceTransition logPrice
+            logRate <- rateTransition dt size logRate logPrice
+            logPrice <- priceTransition dt size logRate logPrice
             trades.Add({
                 Time = time
                 Price = exp logPrice
