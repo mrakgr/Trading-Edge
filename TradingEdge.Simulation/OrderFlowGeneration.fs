@@ -122,14 +122,11 @@ let private baselineSizeMu, private baselineSizeSigma =
     let p = getActivityParams Consolidation
     logNormalMuSigma p.MedianSize p.MeanSize
 
-let sampleSize (rng: Random) (mu: float) (sigma: float) : int =
-    let median = exp mu
-    let rec sampleBelow () =
-        let v = LogNormal(baselineSizeMu, baselineSizeSigma, rng).Sample()
-        if v < median then v else sampleBelow ()
+let sampleSize (rng: Random) (median: float) (mean: float) : int =
+    let alpha = mean / (mean - median)
     let rec loop () =
-        let raw = LogNormal(mu, sigma, rng).Sample()
-        let size = if raw < median then sampleBelow () else raw
+        let v = LogNormal(baselineSizeMu, baselineSizeSigma, rng).Sample()
+        let size = if v <= median then v else Pareto(median, alpha, rng).Sample()
         let rounded = stochasticRound rng size
         if rounded > 0 then rounded else loop ()
     loop ()
@@ -199,7 +196,6 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
     let targetSigma = targetParams.TargetVolBps * bps
     let proposalVol = baseline.ProposalVolBps * bps
     let logRateTarget, logRateTargetSigma = logNormalMuSigma orderFlowParams.MedianTradesPerSecond orderFlowParams.MeanTradesPerSecond
-    let logSizeTarget, logSizeSigma = logNormalMuSigma activityParams.MedianSize activityParams.MeanSize
 
     let priceTransition = 
         match episode.Label with
@@ -255,7 +251,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
         let dt = Exponential.Sample(rng, exp logRate)
         time <- time + dt
         if time < durationSeconds then
-            let size = sampleSize rng logSizeTarget logSizeSigma
+            let size = sampleSize rng activityParams.MedianSize activityParams.MeanSize
             logRate <- rateTransition dt size logRate logPrice
             logPrice <- priceTransition dt size logRate logPrice
             trades.Add({
