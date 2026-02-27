@@ -25,16 +25,15 @@ type HoldSide =
     | Ask
     | Neutral
 
+type Direction = Up | Down
+
+type Intensity = Strong | Mid | Weak
+
 /// Trend types within sessions
 type Trend =
-    | StrongUptrend
-    | MidUptrend
-    | WeakUptrend
+    | Move of Direction * Intensity
+    | Hold of HoldSide * Intensity
     | Consolidation
-    | WeakDowntrend
-    | MidDowntrend
-    | StrongDowntrend
-    | TightHold of HoldSide
 
 // =============================================================================
 // Generic MCMC Module
@@ -168,7 +167,7 @@ module SessionLevel =
     let private getParams (config: Config) (session: DaySession) : Distribution.Params =
         match session with
         | Morning -> config.MorningParams
-        | Mid -> config.MidParams
+        | DaySession.Mid -> config.MidParams
         | Close -> config.CloseParams
 
     /// Compute log-likelihood for a session state
@@ -188,7 +187,7 @@ module SessionLevel =
         let ratio = totalDuration / 390.0
         [|
             { Label = Morning; Duration = 60.0 * ratio }
-            { Label = Mid; Duration = 270.0 * ratio }
+            { Label = DaySession.Mid; Duration = 270.0 * ratio }
             { Label = Close; Duration = 60.0 * ratio }
         |]
 
@@ -370,59 +369,61 @@ module TrendLevel =
 
     let private defaultDurationParams : Map<Trend, Distribution.Params> =
         Map.ofList [
-            StrongUptrend,   Distribution.LogNormal (4.0, 5.0)
-            MidUptrend,      Distribution.LogNormal (7.0, 10.0)
-            WeakUptrend,     Distribution.LogNormal (12.0, 15.0)
-            Consolidation,   Distribution.LogNormal (25.0, 35.0)
-            WeakDowntrend,   Distribution.LogNormal (12.0, 15.0)
-            MidDowntrend,    Distribution.LogNormal (7.0, 10.0)
-            StrongDowntrend, Distribution.LogNormal (4.0, 5.0)
-            TightHold Bid,     Distribution.LogNormal (2.0, 3.0)
-            TightHold Ask,     Distribution.LogNormal (2.0, 3.0)
-            TightHold Neutral, Distribution.LogNormal (2.0, 3.0)
+            Move (Up, Strong),   Distribution.LogNormal (4.0, 5.0)
+            Move (Up, Mid),      Distribution.LogNormal (7.0, 10.0)
+            Move (Up, Weak),     Distribution.LogNormal (12.0, 15.0)
+            Consolidation,       Distribution.LogNormal (25.0, 35.0)
+            Move (Down, Weak),   Distribution.LogNormal (12.0, 15.0)
+            Move (Down, Mid),    Distribution.LogNormal (7.0, 10.0)
+            Move (Down, Strong), Distribution.LogNormal (4.0, 5.0)
+            Hold (Bid, Strong),  Distribution.LogNormal (2.0, 3.0)
+            Hold (Ask, Strong),  Distribution.LogNormal (2.0, 3.0)
+            Hold (Bid, Mid),     Distribution.LogNormal (2.0, 3.0)
+            Hold (Ask, Mid),     Distribution.LogNormal (2.0, 3.0)
+            Hold (Neutral, Mid), Distribution.LogNormal (2.0, 3.0)
         ]
 
     let private defaultPatternTrees : Map<DaySession, EpisodeTree> =
         let midUp = Node [|
-            Leaf [| MidUptrend |],                      0.25
-            Leaf [| TightHold Ask; MidUptrend |],       0.75
+            Leaf [| Move (Up, Mid) |],                          0.25
+            Leaf [| Hold (Ask, Mid); Move (Up, Mid) |],         0.75
         |]
         let strongUp = Node [|
-            Leaf [| StrongUptrend |],                   0.10
-            Leaf [| TightHold Ask; StrongUptrend |],    0.90
+            Leaf [| Move (Up, Strong) |],                       0.10
+            Leaf [| Hold (Ask, Strong); Move (Up, Strong) |],   0.90
         |]
         let midDown = Node [|
-            Leaf [| MidDowntrend |],                    0.25
-            Leaf [| TightHold Bid; MidDowntrend |],     0.75
+            Leaf [| Move (Down, Mid) |],                        0.25
+            Leaf [| Hold (Bid, Mid); Move (Down, Mid) |],       0.75
         |]
         let strongDown = Node [|
-            Leaf [| StrongDowntrend |],                 0.10
-            Leaf [| TightHold Bid; StrongDowntrend |],  0.90
+            Leaf [| Move (Down, Strong) |],                     0.10
+            Leaf [| Hold (Bid, Strong); Move (Down, Strong) |], 0.90
         |]
 
         let morningCloseTree = Node [|
-            strongUp,                    0.15
-            midUp,                       0.15
-            Leaf [| WeakUptrend |],      0.10
-            Leaf [| Consolidation |],    0.20
-            Leaf [| WeakDowntrend |],    0.10
-            midDown,                     0.15
-            strongDown,                  0.15
+            strongUp,                        0.15
+            midUp,                           0.15
+            Leaf [| Move (Up, Weak) |],      0.10
+            Leaf [| Consolidation |],        0.20
+            Leaf [| Move (Down, Weak) |],    0.10
+            midDown,                         0.15
+            strongDown,                      0.15
         |]
 
         let midTree = Node [|
-            strongUp,                    0.02
-            midUp,                       0.08
-            Leaf [| WeakUptrend |],      0.15
-            Leaf [| Consolidation |],    0.50
-            Leaf [| WeakDowntrend |],    0.15
-            midDown,                     0.08
-            strongDown,                  0.02
+            strongUp,                        0.02
+            midUp,                           0.08
+            Leaf [| Move (Up, Weak) |],      0.15
+            Leaf [| Consolidation |],        0.50
+            Leaf [| Move (Down, Weak) |],    0.15
+            midDown,                         0.08
+            strongDown,                      0.02
         |]
 
         Map.ofList [
             Morning, morningCloseTree
-            Mid, midTree
+            DaySession.Mid, midTree
             Close, morningCloseTree
         ]
 
@@ -477,16 +478,16 @@ let showSession (s: DaySession) : string = sprintf "%A" s
 
 let showTrend (t: Trend) : string =
     match t with
-    | StrongUptrend -> "StrongUp"
-    | MidUptrend -> "MidUp"
-    | WeakUptrend -> "WeakUp"
+    | Move (Up, Strong) -> "StrongUp"
+    | Move (Up, Mid) -> "MidUp"
+    | Move (Up, Weak) -> "WeakUp"
     | Consolidation -> "Consol"
-    | WeakDowntrend -> "WeakDown"
-    | MidDowntrend -> "MidDown"
-    | StrongDowntrend -> "StrongDown"
-    | TightHold Bid -> "HoldBid"
-    | TightHold Ask -> "HoldAsk"
-    | TightHold Neutral -> "HoldNeutral"
+    | Move (Down, Weak) -> "WeakDown"
+    | Move (Down, Mid) -> "MidDown"
+    | Move (Down, Strong) -> "StrongDown"
+    | Hold (Bid, _) -> "HoldBid"
+    | Hold (Ask, _) -> "HoldAsk"
+    | Hold (Neutral, _) -> "HoldNeutral"
 
 let printDayResult (result: DayResult) : unit =
     printEpisodes "Sessions" result.Sessions showSession

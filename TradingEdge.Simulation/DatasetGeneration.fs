@@ -14,21 +14,27 @@ open TradingEdge.Simulation.OrderFlowGeneration
 let sessionToInt (s: DaySession) : int =
     match s with
     | Morning -> 0
-    | Mid -> 1
+    | DaySession.Mid -> 1
     | Close -> 2
 
 let trendToInt (t: Trend) : int =
     match t with
-    | StrongUptrend -> 0
-    | MidUptrend -> 1
-    | WeakUptrend -> 2
+    | Move (Up, Strong) -> 0
+    | Move (Up, Mid) -> 1
+    | Move (Up, Weak) -> 2
     | Consolidation -> 3
-    | WeakDowntrend -> 4
-    | MidDowntrend -> 5
-    | StrongDowntrend -> 6
-    | TightHold Bid -> 7
-    | TightHold Ask -> 8
-    | TightHold Neutral -> 9
+    | Move (Down, Weak) -> 4
+    | Move (Down, Mid) -> 5
+    | Move (Down, Strong) -> 6
+    | Hold (Bid, Strong) -> 7
+    | Hold (Bid, Mid) -> 8
+    | Hold (Bid, Weak) -> 9
+    | Hold (Ask, Strong) -> 10
+    | Hold (Ask, Mid) -> 11
+    | Hold (Ask, Weak) -> 12
+    | Hold (Neutral, Strong) -> 13
+    | Hold (Neutral, Mid) -> 14
+    | Hold (Neutral, Weak) -> 15
 
 type SecondBar = {
     Vwap: float

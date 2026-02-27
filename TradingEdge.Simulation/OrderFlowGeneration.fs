@@ -68,36 +68,27 @@ let defaultBaseline = { ProposalVolBps = 0.375; RateProposalBaseline = 0.093; Me
 
 let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     match trend with
-    | StrongUptrend   -> { MedianTradesPerSecond = 35.0; MeanTradesPerSecond = 40.0; RateProposalVol = 0.08 }
-    | MidUptrend      -> { MedianTradesPerSecond = 17.0; MeanTradesPerSecond = 20.0; RateProposalVol = 0.06 }
-    | WeakUptrend     -> { MedianTradesPerSecond = 8.5;  MeanTradesPerSecond = 10.0; RateProposalVol = 0.05 }
-    | Consolidation   -> { MedianTradesPerSecond = 4.0;  MeanTradesPerSecond = 5.0;  RateProposalVol = 0.03 }
-    | WeakDowntrend   -> { MedianTradesPerSecond = 8.5;  MeanTradesPerSecond = 10.0; RateProposalVol = 0.05 }
-    | MidDowntrend    -> { MedianTradesPerSecond = 17.0; MeanTradesPerSecond = 20.0; RateProposalVol = 0.06 }
-    | StrongDowntrend -> { MedianTradesPerSecond = 35.0; MeanTradesPerSecond = 40.0; RateProposalVol = 0.08 }
-    | TightHold _     -> { MedianTradesPerSecond = 60.0; MeanTradesPerSecond = 80.0; RateProposalVol = 0.15 }
+    | Move (_, Strong) -> { MedianTradesPerSecond = 35.0; MeanTradesPerSecond = 40.0; RateProposalVol = 0.08 }
+    | Move (_, Mid)    -> { MedianTradesPerSecond = 17.0; MeanTradesPerSecond = 20.0; RateProposalVol = 0.06 }
+    | Move (_, Weak)   -> { MedianTradesPerSecond = 8.5;  MeanTradesPerSecond = 10.0; RateProposalVol = 0.05 }
+    | Consolidation    -> { MedianTradesPerSecond = 4.0;  MeanTradesPerSecond = 5.0;  RateProposalVol = 0.03 }
+    | Hold _           -> { MedianTradesPerSecond = 60.0; MeanTradesPerSecond = 80.0; RateProposalVol = 0.15 }
 
 let getTargetParams (trend: Trend) : TargetParams =
     match trend with
-    | StrongUptrend   -> { MoveSigmaMedian = 4.0; MoveSigmaMean = 5.0; TargetVolBps = 24.0 }
-    | MidUptrend      -> { MoveSigmaMedian = 2.5; MoveSigmaMean = 3.0; TargetVolBps = 18.0 }
-    | WeakUptrend     -> { MoveSigmaMedian = 1.2; MoveSigmaMean = 1.5; TargetVolBps = 12.0 }
-    | Consolidation   -> { MoveSigmaMedian = 0.2; MoveSigmaMean = 0.5; TargetVolBps = 9.0 }
-    | WeakDowntrend   -> { MoveSigmaMedian = 1.2; MoveSigmaMean = 1.5; TargetVolBps = 12.0 }
-    | MidDowntrend    -> { MoveSigmaMedian = 2.5; MoveSigmaMean = 3.0; TargetVolBps = 18.0 }
-    | StrongDowntrend -> { MoveSigmaMedian = 4.0; MoveSigmaMean = 5.0; TargetVolBps = 24.0 }
-    | TightHold _     -> { MoveSigmaMedian = 0.1; MoveSigmaMean = 0.2; TargetVolBps = 9.0 }
+    | Move (_, Strong) -> { MoveSigmaMedian = 4.0; MoveSigmaMean = 5.0; TargetVolBps = 24.0 }
+    | Move (_, Mid)    -> { MoveSigmaMedian = 2.5; MoveSigmaMean = 3.0; TargetVolBps = 18.0 }
+    | Move (_, Weak)   -> { MoveSigmaMedian = 1.2; MoveSigmaMean = 1.5; TargetVolBps = 12.0 }
+    | Consolidation    -> { MoveSigmaMedian = 0.2; MoveSigmaMean = 0.5; TargetVolBps = 9.0 }
+    | Hold _           -> { MoveSigmaMedian = 0.1; MoveSigmaMean = 0.2; TargetVolBps = 9.0 }
 
 let getActivityParams (trend: Trend) : ActivityParams =
     match trend with
-    | StrongUptrend   -> { MedianSize = 100.0; MeanSize = 200.0 }
-    | MidUptrend      -> { MedianSize = 100.0; MeanSize = 150.0 }
-    | WeakUptrend     -> { MedianSize = 100.0; MeanSize = 120.0 }
-    | Consolidation   -> { MedianSize = 100.0; MeanSize = 110.0 }
-    | WeakDowntrend   -> { MedianSize = 100.0; MeanSize = 120.0 }
-    | MidDowntrend    -> { MedianSize = 100.0; MeanSize = 150.0 }
-    | StrongDowntrend -> { MedianSize = 100.0; MeanSize = 200.0 }
-    | TightHold _     -> { MedianSize = 100.0; MeanSize = 200.0 }
+    | Move (_, Strong) -> { MedianSize = 100.0; MeanSize = 200.0 }
+    | Move (_, Mid)    -> { MedianSize = 100.0; MeanSize = 150.0 }
+    | Move (_, Weak)   -> { MedianSize = 100.0; MeanSize = 120.0 }
+    | Consolidation    -> { MedianSize = 100.0; MeanSize = 110.0 }
+    | Hold _           -> { MedianSize = 100.0; MeanSize = 200.0 }
 
 let stochasticRound (rng: Random) (x: float) : int =
     let floor = Math.Floor(x)
@@ -179,9 +170,9 @@ let sampleTargetMean (rng: Random) (prevTargetMean: float) (targetParams: Target
     let moveSize = kSigmas * targetSigma
     let sign =
         match trend with
-        | StrongUptrend | MidUptrend | WeakUptrend -> 1.0
-        | StrongDowntrend | MidDowntrend | WeakDowntrend -> -1.0
-        | Consolidation | TightHold _ -> if rng.NextDouble() < 0.5 then 1.0 else -1.0
+        | Move (Up, _) -> 1.0
+        | Move (Down, _) -> -1.0
+        | Consolidation | Hold _ -> if rng.NextDouble() < 0.5 then 1.0 else -1.0
     prevTargetMean + sign * moveSize
 
 /// Generate trades for a single trend episode with sequential MCMC rate walk
@@ -199,7 +190,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
 
     let priceTransition = 
         match episode.Label with
-        | TightHold holdSide ->
+        | Hold (holdSide, _) ->
             let holdParams = defaultHoldParams
             let mutable holding = true
             let holdLevel = targetMean
@@ -234,7 +225,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
                                 Normal.PDFLn(holdLevel, sigma, x) + massLn
                     else fun x -> Normal.PDFLn(holdLevel, targetSigma, x)
                 multiTryStepGeneric rng logPrice pVol logDensity 10
-        | StrongDowntrend | StrongUptrend | MidUptrend | MidDowntrend | WeakUptrend | WeakDowntrend | Consolidation ->
+        | Move _ | Consolidation ->
             fun dt size logRate logPrice -> multiTryStep rng logPrice proposalVol targetMean targetSigma 10
 
     let rateTransition dt size logRate logPrice =
