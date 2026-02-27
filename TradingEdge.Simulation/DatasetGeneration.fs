@@ -26,15 +26,33 @@ let trendToInt (t: Trend) : int =
     | Move (Down, Weak) -> 4
     | Move (Down, Mid) -> 5
     | Move (Down, Strong) -> 6
-    | Hold (Bid, Strong) -> 7
-    | Hold (Bid, Mid) -> 8
-    | Hold (Bid, Weak) -> 9
-    | Hold (Ask, Strong) -> 10
-    | Hold (Ask, Mid) -> 11
-    | Hold (Ask, Weak) -> 12
-    | Hold (Neutral, Strong) -> 13
-    | Hold (Neutral, Mid) -> 14
-    | Hold (Neutral, Weak) -> 15
+    | Hold (Bid, Strong, Short) -> 7
+    | Hold (Bid, Strong, Medium) -> 8
+    | Hold (Bid, Strong, Long) -> 9
+    | Hold (Bid, Mid, Short) -> 10
+    | Hold (Bid, Mid, Medium) -> 11
+    | Hold (Bid, Mid, Long) -> 12
+    | Hold (Bid, Weak, Short) -> 13
+    | Hold (Bid, Weak, Medium) -> 14
+    | Hold (Bid, Weak, Long) -> 15
+    | Hold (Ask, Strong, Short) -> 16
+    | Hold (Ask, Strong, Medium) -> 17
+    | Hold (Ask, Strong, Long) -> 18
+    | Hold (Ask, Mid, Short) -> 19
+    | Hold (Ask, Mid, Medium) -> 20
+    | Hold (Ask, Mid, Long) -> 21
+    | Hold (Ask, Weak, Short) -> 22
+    | Hold (Ask, Weak, Medium) -> 23
+    | Hold (Ask, Weak, Long) -> 24
+    | Hold (Neutral, Strong, Short) -> 25
+    | Hold (Neutral, Strong, Medium) -> 26
+    | Hold (Neutral, Strong, Long) -> 27
+    | Hold (Neutral, Mid, Short) -> 28
+    | Hold (Neutral, Mid, Medium) -> 29
+    | Hold (Neutral, Mid, Long) -> 30
+    | Hold (Neutral, Weak, Short) -> 31
+    | Hold (Neutral, Weak, Medium) -> 32
+    | Hold (Neutral, Weak, Long) -> 33
 
 type SecondBar = {
     Vwap: float

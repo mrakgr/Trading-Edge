@@ -29,10 +29,12 @@ type Direction = Up | Down
 
 type Intensity = Strong | Mid | Weak
 
+type HoldDuration = Short | Medium | Long
+
 /// Trend types within sessions
 type Trend =
     | Move of Direction * Intensity
-    | Hold of HoldSide * Intensity
+    | Hold of HoldSide * Intensity * HoldDuration
     | Consolidation
 
 // =============================================================================
@@ -376,29 +378,29 @@ module TrendLevel =
             Move (Down, Weak),   Distribution.LogNormal (12.0, 15.0)
             Move (Down, Mid),    Distribution.LogNormal (7.0, 10.0)
             Move (Down, Strong), Distribution.LogNormal (4.0, 5.0)
-            Hold (Bid, Strong),  Distribution.LogNormal (2.0, 3.0)
-            Hold (Ask, Strong),  Distribution.LogNormal (2.0, 3.0)
-            Hold (Bid, Mid),     Distribution.LogNormal (2.0, 3.0)
-            Hold (Ask, Mid),     Distribution.LogNormal (2.0, 3.0)
-            Hold (Neutral, Mid), Distribution.LogNormal (2.0, 3.0)
+            Hold (Bid, Strong, Medium),  Distribution.LogNormal (2.0, 3.0)
+            Hold (Ask, Strong, Medium),  Distribution.LogNormal (2.0, 3.0)
+            Hold (Bid, Mid, Medium),     Distribution.LogNormal (2.0, 3.0)
+            Hold (Ask, Mid, Medium),     Distribution.LogNormal (2.0, 3.0)
+            Hold (Neutral, Mid, Medium), Distribution.LogNormal (2.0, 3.0)
         ]
 
     let private defaultPatternTrees : Map<DaySession, EpisodeTree> =
         let midUp = Node [|
             Leaf [| Move (Up, Mid) |],                          0.25
-            Leaf [| Hold (Ask, Mid); Move (Up, Mid) |],         0.75
+            Leaf [| Hold (Ask, Mid, Medium); Move (Up, Mid) |],         0.75
         |]
         let strongUp = Node [|
             Leaf [| Move (Up, Strong) |],                       0.10
-            Leaf [| Hold (Ask, Strong); Move (Up, Strong) |],   0.90
+            Leaf [| Hold (Ask, Strong, Medium); Move (Up, Strong) |],   0.90
         |]
         let midDown = Node [|
             Leaf [| Move (Down, Mid) |],                        0.25
-            Leaf [| Hold (Bid, Mid); Move (Down, Mid) |],       0.75
+            Leaf [| Hold (Bid, Mid, Medium); Move (Down, Mid) |],       0.75
         |]
         let strongDown = Node [|
             Leaf [| Move (Down, Strong) |],                     0.10
-            Leaf [| Hold (Bid, Strong); Move (Down, Strong) |], 0.90
+            Leaf [| Hold (Bid, Strong, Medium); Move (Down, Strong) |], 0.90
         |]
 
         let morningCloseTree = Node [|
@@ -485,9 +487,9 @@ let showTrend (t: Trend) : string =
     | Move (Down, Weak) -> "WeakDown"
     | Move (Down, Mid) -> "MidDown"
     | Move (Down, Strong) -> "StrongDown"
-    | Hold (Bid, _) -> "HoldBid"
-    | Hold (Ask, _) -> "HoldAsk"
-    | Hold (Neutral, _) -> "HoldNeutral"
+    | Hold (Bid, _, _) -> "HoldBid"
+    | Hold (Ask, _, _) -> "HoldAsk"
+    | Hold (Neutral, _, _) -> "HoldNeutral"
 
 let printDayResult (result: DayResult) : unit =
     printEpisodes "Sessions" result.Sessions showSession

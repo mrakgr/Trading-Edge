@@ -190,7 +190,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
 
     let priceTransition = 
         match episode.Label with
-        | Hold (holdSide, _) ->
+        | Hold (holdSide, _, _) ->
             let holdParams = defaultHoldParams
             let mutable holding = true
             let holdLevel = targetMean
