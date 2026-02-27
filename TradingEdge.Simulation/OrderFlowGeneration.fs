@@ -78,7 +78,9 @@ let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     | Move (_, Mid)    -> { MedianTradesPerSecond = 17.0; MeanTradesPerSecond = 20.0; RateProposalVol = 0.06 }
     | Move (_, Weak)   -> { MedianTradesPerSecond = 8.5;  MeanTradesPerSecond = 10.0; RateProposalVol = 0.05 }
     | Consolidation    -> { MedianTradesPerSecond = 4.0;  MeanTradesPerSecond = 5.0;  RateProposalVol = 0.03 }
-    | Hold _           -> { MedianTradesPerSecond = 60.0; MeanTradesPerSecond = 80.0; RateProposalVol = 0.15 }
+    | Hold (_, Strong, _) -> { MedianTradesPerSecond = 120.0; MeanTradesPerSecond = 160.0; RateProposalVol = 0.15 }
+    | Hold (_, Mid, _)    -> { MedianTradesPerSecond = 60.0;  MeanTradesPerSecond = 80.0;  RateProposalVol = 0.15 }
+    | Hold (_, Weak, _)   -> { MedianTradesPerSecond = 30.0;  MeanTradesPerSecond = 40.0;  RateProposalVol = 0.15 }
 
 let getTargetParams (trend: Trend) : TargetParams =
     match trend with
@@ -94,7 +96,9 @@ let getActivityParams (trend: Trend) : ActivityParams =
     | Move (_, Mid)    -> { MedianSize = 100.0; MeanSize = 150.0 }
     | Move (_, Weak)   -> { MedianSize = 100.0; MeanSize = 120.0 }
     | Consolidation    -> { MedianSize = 100.0; MeanSize = 110.0 }
-    | Hold _           -> { MedianSize = 100.0; MeanSize = 200.0 }
+    | Hold (_, Strong, _) -> { MedianSize = 100.0; MeanSize = 300.0 }
+    | Hold (_, Mid, _)    -> { MedianSize = 100.0; MeanSize = 200.0 }
+    | Hold (_, Weak, _)   -> { MedianSize = 100.0; MeanSize = 150.0 }
 
 let stochasticRound (rng: Random) (x: float) : int =
     let floor = Math.Floor(x)

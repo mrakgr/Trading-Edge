@@ -393,44 +393,74 @@ module TrendLevel =
             Hold (Neutral, Mid, Short),  Distribution.LogNormal (0.2, 0.3)
             Hold (Neutral, Mid, Medium), Distribution.LogNormal (2.0, 3.0)
             Hold (Neutral, Mid, Long),   Distribution.LogNormal (20.0, 30.0)
+            Hold (Bid, Weak, Short),     Distribution.LogNormal (0.2, 0.3)
+            Hold (Ask, Weak, Short),     Distribution.LogNormal (0.2, 0.3)
+            Hold (Bid, Weak, Medium),    Distribution.LogNormal (2.0, 3.0)
+            Hold (Ask, Weak, Medium),    Distribution.LogNormal (2.0, 3.0)
+            Hold (Bid, Weak, Long),      Distribution.LogNormal (20.0, 30.0)
+            Hold (Ask, Weak, Long),      Distribution.LogNormal (20.0, 30.0)
         ]
 
     let private defaultPatternTrees : Map<DaySession, EpisodeTree> =
-        let midUp = Node [|
-            Leaf [| Move (Up, Mid) |],                          0.25
-            Leaf [| Hold (Ask, Mid, Medium); Move (Up, Mid) |],         0.75
-        |]
-        let strongUp = Node [|
-            Leaf [| Move (Up, Strong) |],                       0.10
-            Leaf [| Hold (Ask, Strong, Medium); Move (Up, Strong) |],   0.90
-        |]
-        let midDown = Node [|
-            Leaf [| Move (Down, Mid) |],                        0.25
-            Leaf [| Hold (Bid, Mid, Medium); Move (Down, Mid) |],       0.75
-        |]
-        let strongDown = Node [|
-            Leaf [| Move (Down, Strong) |],                     0.10
-            Leaf [| Hold (Bid, Strong, Medium); Move (Down, Strong) |], 0.90
-        |]
+        // Hold patterns: each hold resolves 50/50 up/down
+        // Normalizes the probabilities of the node inputs to 1.
+        let normalizedNode (x : (EpisodeTree * float) array) : EpisodeTree =
+            let total = x |> Array.sumBy snd
+            Node (x |> Array.map (fun (tree, w) -> tree, w / total))
+
+        let sides = [| Bid; Ask |]
+        let directions = [| Up; Down |]
+        let intensityProb = function
+            | Weak -> 0.5
+            | Mid -> 0.35
+            | Strong -> 0.15
+        let durationProb = function
+            | Short -> 0.5
+            | Medium -> 0.35
+            | Long -> 0.15
+        let matrix direction = function
+            | Weak, Short -> [|Move(direction, Weak)|]
+            | Mid, Short | Weak, Medium -> [|Move(direction, Mid)|]
+            | Strong, Short | Mid, Medium | Weak, Long -> [|Move(direction, Strong)|]
+            | Strong, Medium | Mid, Long -> [|Move(direction, Strong); Move(direction, Strong)|]
+            | Strong, Long -> failwith "Doesn't exist."
+
+        let holdPatterns =
+            normalizedNode [|
+                for intensity in [Weak; Mid; Strong] do
+                    for duration in [Short; Medium; Long] do
+                        if not (intensity = Strong && duration = Long) then
+                            normalizedNode [|
+                                for side in [Ask; Bid] do
+                                    for direction in [Up; Down] do
+                                        Leaf [|
+                                            Hold(side, intensity, duration)
+                                            for move in matrix direction (intensity, duration) do 
+                                                move
+                                            |], 1
+                            |], intensityProb intensity * durationProb duration
+            |]
 
         let morningCloseTree = Node [|
-            strongUp,                        0.15
-            midUp,                           0.15
+            Leaf [| Move (Up, Strong) |],    0.03
+            Leaf [| Move (Up, Mid) |],       0.05
             Leaf [| Move (Up, Weak) |],      0.10
-            Leaf [| Consolidation |],        0.20
+            holdPatterns,                    0.40
+            Leaf [| Consolidation |],        0.24
             Leaf [| Move (Down, Weak) |],    0.10
-            midDown,                         0.15
-            strongDown,                      0.15
+            Leaf [| Move (Down, Mid) |],     0.05
+            Leaf [| Move (Down, Strong) |],  0.03
         |]
 
         let midTree = Node [|
-            strongUp,                        0.02
-            midUp,                           0.08
-            Leaf [| Move (Up, Weak) |],      0.15
-            Leaf [| Consolidation |],        0.50
-            Leaf [| Move (Down, Weak) |],    0.15
-            midDown,                         0.08
-            strongDown,                      0.02
+            Leaf [| Move (Up, Strong) |],    0.01
+            Leaf [| Move (Up, Mid) |],       0.03
+            Leaf [| Move (Up, Weak) |],      0.10
+            holdPatterns,                    0.24
+            Leaf [| Consolidation |],        0.48
+            Leaf [| Move (Down, Weak) |],    0.10
+            Leaf [| Move (Down, Mid) |],     0.03
+            Leaf [| Move (Down, Strong) |],  0.01
         |]
 
         Map.ofList [
