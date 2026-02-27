@@ -19,6 +19,12 @@ type DaySession =
     | Mid
     | Close
 
+/// Which side of the book the hold is pinned to
+type HoldSide =
+    | Bid
+    | Ask
+    | Neutral
+
 /// Trend types within sessions
 type Trend =
     | StrongUptrend
@@ -28,7 +34,7 @@ type Trend =
     | WeakDowntrend
     | MidDowntrend
     | StrongDowntrend
-    | TightHold
+    | TightHold of HoldSide
 
 // =============================================================================
 // Generic MCMC Module
@@ -371,25 +377,27 @@ module TrendLevel =
             WeakDowntrend,   Distribution.LogNormal (12.0, 15.0)
             MidDowntrend,    Distribution.LogNormal (7.0, 10.0)
             StrongDowntrend, Distribution.LogNormal (4.0, 5.0)
-            TightHold,       Distribution.LogNormal (2.0, 3.0)
+            TightHold Bid,     Distribution.LogNormal (2.0, 3.0)
+            TightHold Ask,     Distribution.LogNormal (2.0, 3.0)
+            TightHold Neutral, Distribution.LogNormal (2.0, 3.0)
         ]
 
     let private defaultPatternTrees : Map<DaySession, EpisodeTree> =
         let midUp = Node [|
-            Leaf [| MidUptrend |],           0.25
-            Leaf [| TightHold; MidUptrend |], 0.75
+            Leaf [| MidUptrend |],                      0.25
+            Leaf [| TightHold Ask; MidUptrend |],       0.75
         |]
         let strongUp = Node [|
-            Leaf [| StrongUptrend |],           0.10
-            Leaf [| TightHold; StrongUptrend |], 0.90
+            Leaf [| StrongUptrend |],                   0.10
+            Leaf [| TightHold Ask; StrongUptrend |],    0.90
         |]
         let midDown = Node [|
-            Leaf [| MidDowntrend |],           0.25
-            Leaf [| TightHold; MidDowntrend |], 0.75
+            Leaf [| MidDowntrend |],                    0.25
+            Leaf [| TightHold Bid; MidDowntrend |],     0.75
         |]
         let strongDown = Node [|
-            Leaf [| StrongDowntrend |],           0.10
-            Leaf [| TightHold; StrongDowntrend |], 0.90
+            Leaf [| StrongDowntrend |],                 0.10
+            Leaf [| TightHold Bid; StrongDowntrend |],  0.90
         |]
 
         let morningCloseTree = Node [|
@@ -476,7 +484,9 @@ let showTrend (t: Trend) : string =
     | WeakDowntrend -> "WeakDown"
     | MidDowntrend -> "MidDown"
     | StrongDowntrend -> "StrongDown"
-    | TightHold -> "TightHold"
+    | TightHold Bid -> "HoldBid"
+    | TightHold Ask -> "HoldAsk"
+    | TightHold Neutral -> "HoldNeutral"
 
 let printDayResult (result: DayResult) : unit =
     printEpisodes "Sessions" result.Sessions showSession

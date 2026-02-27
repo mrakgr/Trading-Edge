@@ -17,19 +17,23 @@ with open('data/test_hmm.csv') as f:
 
 trend_colors = {
     'StrongUp': 'darkgreen', 'MidUp': 'green', 'WeakUp': 'lightgreen',
-    'Consol': 'gray', 'TightHold': 'red',
+    'Consol': 'gray',
+    'HoldBid': 'red', 'HoldAsk': 'magenta', 'HoldNeutral': 'salmon',
     'WeakDown': 'lightsalmon', 'MidDown': 'orange', 'StrongDown': 'darkred'
 }
 
-# Find TightHold segments for highlighting
+def is_hold(trend):
+    return trend in ('HoldBid', 'HoldAsk', 'HoldNeutral')
+
+# Find hold segments for highlighting
 hold_starts = []
 hold_ends = []
 in_hold = False
 for t in trades:
-    if t['trend'] == 'TightHold' and not in_hold:
+    if is_hold(t['trend']) and not in_hold:
         hold_starts.append(t['time'] / 60.0)
         in_hold = True
-    elif t['trend'] != 'TightHold' and in_hold:
+    elif not is_hold(t['trend']) and in_hold:
         hold_ends.append(t['time'] / 60.0)
         in_hold = False
 if in_hold:
@@ -77,13 +81,13 @@ fig.add_trace(go.Scattergl(
     name='-1σ', showlegend=False
 ), row=1, col=1)
 
-# Effective hold stddev band for TightHold regions (HoldSigmaFraction = 0.05)
+# Effective hold stddev band for hold regions (HoldSigmaFraction = 0.05)
 # Insert None breaks between separate hold segments to avoid connecting lines
 hold_upper_x, hold_upper_y = [], []
 hold_lower_x, hold_lower_y = [], []
 prev_was_hold = False
 for t in trades[::step]:
-    if t['trend'] == 'TightHold':
+    if is_hold(t['trend']):
         if not prev_was_hold:
             hold_upper_x.append(None); hold_upper_y.append(None)
             hold_lower_x.append(None); hold_lower_y.append(None)

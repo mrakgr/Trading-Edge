@@ -36,15 +36,19 @@ type ActivityParams = {
 
 /// HMM hold parameters for TightHold episodes
 type HoldParams = {
-    HoldSigmaFraction: float     // Hold sigma as fraction of TargetVolBps
+    HoldSigmaFraction: float     // Hold sigma as fraction of TargetVolBps (tight side)
+    LooseSigmaFraction: float    // Loose side sigma as fraction of TargetVolBps (for asymmetric holds)
     HoldProposalFraction: float  // Hold proposal vol as fraction of baseline ProposalVolBps
+    PinnedMassFraction: float    // Mass fraction on the pinned side (e.g. 0.9 = 90% of density)
     HoldDurationSec: float       // Average hold duration in seconds
     LooseDurationSec: float      // Average loose/fakeout duration in seconds
 }
 
 let defaultHoldParams = {
     HoldSigmaFraction = 0.05
-    HoldProposalFraction = 0.2
+    LooseSigmaFraction = 0.5
+    HoldProposalFraction = 1.0
+    PinnedMassFraction = 0.9
     HoldDurationSec = 15.0
     LooseDurationSec = 1.0
 }
@@ -66,7 +70,7 @@ let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     | WeakDowntrend   -> { MedianTradesPerSecond = 8.5;  MeanTradesPerSecond = 10.0; RateProposalVol = 0.05 }
     | MidDowntrend    -> { MedianTradesPerSecond = 17.0; MeanTradesPerSecond = 20.0; RateProposalVol = 0.06 }
     | StrongDowntrend -> { MedianTradesPerSecond = 35.0; MeanTradesPerSecond = 40.0; RateProposalVol = 0.08 }
-    | TightHold       -> { MedianTradesPerSecond = 60.0; MeanTradesPerSecond = 80.0; RateProposalVol = 0.15 }
+    | TightHold _     -> { MedianTradesPerSecond = 60.0; MeanTradesPerSecond = 80.0; RateProposalVol = 0.15 }
 
 let getTargetParams (trend: Trend) : TargetParams =
     match trend with
@@ -77,7 +81,7 @@ let getTargetParams (trend: Trend) : TargetParams =
     | WeakDowntrend   -> { MoveSigmaMedian = 1.2; MoveSigmaMean = 1.5; TargetVolBps = 12.0 }
     | MidDowntrend    -> { MoveSigmaMedian = 2.5; MoveSigmaMean = 3.0; TargetVolBps = 18.0 }
     | StrongDowntrend -> { MoveSigmaMedian = 4.0; MoveSigmaMean = 5.0; TargetVolBps = 24.0 }
-    | TightHold       -> { MoveSigmaMedian = 0.1; MoveSigmaMean = 0.2; TargetVolBps = 9.0 }
+    | TightHold _     -> { MoveSigmaMedian = 0.1; MoveSigmaMean = 0.2; TargetVolBps = 9.0 }
 
 let getActivityParams (trend: Trend) : ActivityParams =
     match trend with
@@ -88,7 +92,7 @@ let getActivityParams (trend: Trend) : ActivityParams =
     | WeakDowntrend   -> { MedianSize = 100.0; MeanSize = 120.0 }
     | MidDowntrend    -> { MedianSize = 100.0; MeanSize = 150.0 }
     | StrongDowntrend -> { MedianSize = 100.0; MeanSize = 200.0 }
-    | TightHold       -> { MedianSize = 100.0; MeanSize = 150.0 }
+    | TightHold _     -> { MedianSize = 100.0; MeanSize = 150.0 }
 
 let stochasticRound (rng: Random) (x: float) : int =
     let floor = Math.Floor(x)
@@ -165,7 +169,7 @@ let sampleTargetMean (rng: Random) (prevTargetMean: float) (targetParams: Target
         match trend with
         | StrongUptrend | MidUptrend | WeakUptrend -> 1.0
         | StrongDowntrend | MidDowntrend | WeakDowntrend -> -1.0
-        | Consolidation | TightHold -> if rng.NextDouble() < 0.5 then 1.0 else -1.0
+        | Consolidation | TightHold _ -> if rng.NextDouble() < 0.5 then 1.0 else -1.0
     prevTargetMean + sign * moveSize
 
 /// Generate trades for a single trend episode with sequential MCMC rate walk
@@ -184,30 +188,43 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
 
     let priceTransition = 
         match episode.Label with
-        | TightHold ->
+        | TightHold holdSide ->
             let holdParams = defaultHoldParams
             let mutable holding = true
             let holdLevel = targetMean
-            let holdSigma = targetSigma * holdParams.HoldSigmaFraction
+            let tightSigma = targetSigma * holdParams.HoldSigmaFraction
+            let looseSigma = targetSigma * holdParams.LooseSigmaFraction
             let holdProposalVol = proposalVol * holdParams.HoldProposalFraction
             let meanRate = orderFlowParams.MeanTradesPerSecond
             let pHoldToLoose = 1.0 / (holdParams.HoldDurationSec * meanRate)
             let pLooseToHold = 1.0 / (holdParams.LooseDurationSec * meanRate)
+            let logPinned = log holdParams.PinnedMassFraction
+            let logUnpinned = log (1.0 - holdParams.PinnedMassFraction)
             fun logPrice ->
-                // HMM transition
                 if holding then
                     if rng.NextDouble() < pHoldToLoose then holding <- false
                 else
                     if rng.NextDouble() < pLooseToHold then holding <- true
-                // Price step depends on HMM state
                 let pVol = if holding then holdProposalVol else proposalVol
                 let logDensity =
-                    if holding then fun x -> Normal.PDFLn(holdLevel, holdSigma, x)
+                    if holding then
+                        match holdSide with
+                        | Neutral ->
+                            fun x -> Normal.PDFLn(holdLevel, tightSigma, x)
+                        | Bid ->
+                            fun x ->
+                                let sigma = if x <= holdLevel then tightSigma else looseSigma
+                                let massLn = if x <= holdLevel then logPinned else logUnpinned
+                                Normal.PDFLn(holdLevel, sigma, x) + massLn
+                        | Ask ->
+                            fun x ->
+                                let sigma = if x >= holdLevel then tightSigma else looseSigma
+                                let massLn = if x >= holdLevel then logPinned else logUnpinned
+                                Normal.PDFLn(holdLevel, sigma, x) + massLn
                     else fun x -> Normal.PDFLn(holdLevel, targetSigma, x)
                 multiTryStepGeneric rng logPrice pVol logDensity 10
         | StrongDowntrend | StrongUptrend | MidUptrend | MidDowntrend | WeakUptrend | WeakDowntrend | Consolidation ->
-            fun logPrice ->
-                multiTryStep rng logPrice proposalVol targetMean targetSigma 10
+            fun logPrice -> multiTryStep rng logPrice proposalVol targetMean targetSigma 10
 
     let trades = ResizeArray<Trade>()
     let mutable logPrice = log startPrice
@@ -219,9 +236,10 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
         time <- time + dt
         if time < durationSeconds then
             let sqrtDt = sqrt dt
-            logRate <- multiTryStep rng logRate (orderFlowParams.RateProposalVol * sqrtDt) logRateTarget logRateTargetSigma 10
-            logPrice <- priceTransition logPrice
             let size = sampleSize rng logSizeTarget logSizeSigma
+            let rateScale = sqrtDt * sqrt (float size)
+            logRate <- multiTryStep rng logRate (orderFlowParams.RateProposalVol * rateScale) logRateTarget logRateTargetSigma 10
+            logPrice <- priceTransition logPrice
             trades.Add({
                 Time = time
                 Price = exp logPrice
