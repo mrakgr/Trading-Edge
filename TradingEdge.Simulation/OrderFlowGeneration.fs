@@ -46,16 +46,22 @@ type HoldParams = {
     ReleaseDurationMean: float   // Mean release/fakeout duration in seconds
 }
 
-let defaultHoldParams = {
-    HoldSigmaFraction = 0.05
-    LooseSigmaFraction = 0.5
-    HoldProposalFraction = 1.0
-    PinnedMassFraction = 0.8
-    HoldDurationMedian = 10.0
-    HoldDurationMean = 20.0
-    ReleaseDurationMedian = 1.0
-    ReleaseDurationMean = 2.0
-}
+let getHoldParams (duration: HoldDuration) : HoldParams =
+    let holdMedian, holdMean, releaseMedian, releaseMean =
+        match duration with
+        | Short  -> 1.2, 1.8, 0.2, 0.3
+        | Medium -> 12.0, 18.0, 1.0, 1.5
+        | Long   -> 120.0, 180.0, 10.0, 15.0
+    {
+        HoldSigmaFraction = 0.05
+        LooseSigmaFraction = 0.5
+        HoldProposalFraction = 1.0
+        PinnedMassFraction = 0.8
+        HoldDurationMedian = holdMedian
+        HoldDurationMean = holdMean
+        ReleaseDurationMedian = releaseMedian
+        ReleaseDurationMean = releaseMean
+    }
 
 /// Session-wide baseline parameters
 type SessionBaseline = {
@@ -190,8 +196,8 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
 
     let priceTransition = 
         match episode.Label with
-        | Hold (holdSide, _, _) ->
-            let holdParams = defaultHoldParams
+        | Hold (holdSide, _, holdDuration) ->
+            let holdParams = getHoldParams holdDuration
             let mutable holding = true
             let holdLevel = targetMean
             let tightSigma = targetSigma * holdParams.HoldSigmaFraction

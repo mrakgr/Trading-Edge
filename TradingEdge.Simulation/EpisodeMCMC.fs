@@ -378,11 +378,21 @@ module TrendLevel =
             Move (Down, Weak),   Distribution.LogNormal (12.0, 15.0)
             Move (Down, Mid),    Distribution.LogNormal (7.0, 10.0)
             Move (Down, Strong), Distribution.LogNormal (4.0, 5.0)
+            Hold (Bid, Strong, Short),   Distribution.LogNormal (0.2, 0.3)
+            Hold (Ask, Strong, Short),   Distribution.LogNormal (0.2, 0.3)
             Hold (Bid, Strong, Medium),  Distribution.LogNormal (2.0, 3.0)
             Hold (Ask, Strong, Medium),  Distribution.LogNormal (2.0, 3.0)
+            Hold (Bid, Strong, Long),    Distribution.LogNormal (20.0, 30.0)
+            Hold (Ask, Strong, Long),    Distribution.LogNormal (20.0, 30.0)
+            Hold (Bid, Mid, Short),      Distribution.LogNormal (0.2, 0.3)
+            Hold (Ask, Mid, Short),      Distribution.LogNormal (0.2, 0.3)
             Hold (Bid, Mid, Medium),     Distribution.LogNormal (2.0, 3.0)
             Hold (Ask, Mid, Medium),     Distribution.LogNormal (2.0, 3.0)
+            Hold (Bid, Mid, Long),       Distribution.LogNormal (20.0, 30.0)
+            Hold (Ask, Mid, Long),       Distribution.LogNormal (20.0, 30.0)
+            Hold (Neutral, Mid, Short),  Distribution.LogNormal (0.2, 0.3)
             Hold (Neutral, Mid, Medium), Distribution.LogNormal (2.0, 3.0)
+            Hold (Neutral, Mid, Long),   Distribution.LogNormal (20.0, 30.0)
         ]
 
     let private defaultPatternTrees : Map<DaySession, EpisodeTree> =
