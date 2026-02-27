@@ -210,57 +210,29 @@ module SessionLevel =
 
 module TrendLevel =
     /// A tree of episode patterns. Nodes branch with probabilities, leaves define trend sequences.
-    type EpisodeTree =
-        | Node of children: (EpisodeTree * float)[]
-        | Leaf of trends: Trend[]
+    type EpisodeTree<'t> = ('t * float)[]
 
     /// A single selection from the tree: path indices + episodes with durations
     type TreeSelection = 
         {
-            Path: int[]
+            SelectionProbability: float
             Episodes: Episode<Trend>[]
         }
 
         member s.Copy() = { s with Episodes = Array.copy s.Episodes }
 
     type Config = {
-        PatternTrees: Map<DaySession, EpisodeTree>
+        PatternTrees: Map<DaySession, EpisodeTree<Trend[]>>
         DurationParams: Map<Trend, Distribution.Params>
     }
 
-    /// Compute log-probability of a path through the tree
-    let rec private pathLogProb (tree: EpisodeTree) (path: int[]) (depth: int) : float =
-        match tree with
-        | Leaf _ -> 0.0
-        | Node children ->
-            let idx = path.[depth]
-            let child, prob = children.[idx]
-            log prob + pathLogProb child path (depth + 1)
+    /// Sample a random path through the tree, returning the leaf trends and their selection probability
+    let rec private samplePath (rng: Random) (tree: EpisodeTree<Trend[]>) : Trend[] * float =
+        let idx = Categorical.Sample(rng, Array.map snd tree)
+        tree.[idx]
 
-    /// Get the leaf trends for a given path
-    let rec private getLeafTrends (tree: EpisodeTree) (path: int[]) (depth: int) : Trend[] =
-        match tree with
-        | Leaf trends -> trends
-        | Node children -> getLeafTrends (fst children.[path.[depth]]) path (depth + 1)
-
-    /// Compute path depth (number of Node levels) for a given path
-    let rec private pathDepth (tree: EpisodeTree) (path: int[]) (depth: int) : int =
-        match tree with
-        | Leaf _ -> depth
-        | Node children -> pathDepth (fst children.[path.[depth]]) path (depth + 1)
-
-    /// Sample a random path through the tree, returning path indices and leaf trends
-    let rec private samplePath (rng: Random) (tree: EpisodeTree) : int list * Trend[] =
-        match tree with
-        | Leaf trends -> [], trends
-        | Node children ->
-            let probs = children |> Array.map snd
-            let idx = Categorical.Sample(rng, probs)
-            let rest, trends = samplePath rng (fst children.[idx])
-            idx :: rest, trends
-
-    let private logLikelihoodSelection (config: Config) (tree: EpisodeTree) (sel: TreeSelection) : float =
-        let pathLL = pathLogProb tree sel.Path 0
+    let private logLikelihoodSelection (config: Config) (tree: EpisodeTree<Trend[]>) (sel: TreeSelection) : float =
+        let pathLL = log sel.SelectionProbability
         let durationLL =
             sel.Episodes |> Array.sumBy (fun ep ->
                 Distribution.logLikelihood config.DurationParams.[ep.Label] ep.Duration)
@@ -304,14 +276,13 @@ module TrendLevel =
             Some newState
 
     /// Propose: replace one selection with a new random sample from the tree
-    let private proposeChangeSelection (rng: Random) (tree: EpisodeTree) (config: Config) (state: TreeSelection[]) : TreeSelection[] option =
+    let private proposeChangeSelection (rng: Random) (tree: EpisodeTree<Trend[]>) (config: Config) (state: TreeSelection[]) : TreeSelection[] option =
         if state.Length = 0 then None
         else
             let idx = rng.Next(state.Length)
             let oldSel = state.[idx]
             let totalDuration = oldSel.Episodes |> Array.sumBy _.Duration
-            let pathList, trends = samplePath rng tree
-            let path = pathList |> Array.ofList
+            let trends, prob = samplePath rng tree
             // Distribute duration proportionally using duration priors
             let rawDurations = trends |> Array.map (fun t -> Distribution.sample rng config.DurationParams.[t])
             let rawTotal = rawDurations |> Array.sum
@@ -319,7 +290,7 @@ module TrendLevel =
             let episodes = Array.init trends.Length (fun i ->
                 { Label = trends.[i]; Duration = rawDurations.[i] * scale })
             let newState = Array.copy state
-            newState.[idx] <- { Path = path; Episodes = episodes }
+            newState.[idx] <- { SelectionProbability = prob; Episodes = episodes }
             Some newState
 
     let propose (config: Config) (parentSession: DaySession) (rng: Random) (state: TreeSelection[]) : TreeSelection[] option =
@@ -336,12 +307,11 @@ module TrendLevel =
         let selections = ResizeArray<TreeSelection>()
         let mutable total = 0.0
         while total < sessionDuration do
-            let pathList, trends = samplePath rng tree
-            let path = pathList |> Array.ofList
+            let trends, prob = samplePath rng tree
             let episodes = trends |> Array.map (fun t ->
                 let dur = Distribution.sample rng config.DurationParams.[t]
                 { Label = t; Duration = dur })
-            selections.Add { Path = path; Episodes = episodes }
+            selections.Add { SelectionProbability = prob; Episodes = episodes }
             total <- total + (episodes |> Array.sumBy _.Duration)
         // Scale all durations to sum exactly to sessionDuration
         let result = selections.ToArray()
@@ -401,15 +371,21 @@ module TrendLevel =
             Hold (Ask, Weak, Long),      Distribution.LogNormal (20.0, 30.0)
         ]
 
-    let private defaultPatternTrees : Map<DaySession, EpisodeTree> =
+    let private defaultPatternTrees : Map<DaySession, EpisodeTree<Trend[]>> =
         // Hold patterns: each hold resolves 50/50 up/down
         // Normalizes the probabilities of the node inputs to 1.
-        let normalizedNode (x : (EpisodeTree * float) array) : EpisodeTree =
+        let normalize (x : EpisodeTree<Trend[]>) : EpisodeTree<Trend[]> =
             let total = x |> Array.sumBy snd
-            Node (x |> Array.map (fun (tree, w) -> tree, w / total))
+            x |> Array.map (fun (tree, w) -> tree, w / total)
 
-        let sides = [| Bid; Ask |]
-        let directions = [| Up; Down |]
+        // Flattens the nested array of tree nodes into one.
+        let flatten (x : EpisodeTree<EpisodeTree<Trend[]>>) : EpisodeTree<Trend[]> =
+            x |> Array.collect (fun (node, node_prob) ->
+                node |> Array.map (fun (leaf, leaf_prob) -> leaf, node_prob * leaf_prob)
+                )
+
+        let nest x = x |> flatten |> normalize
+
         let intensityProb = function
             | Weak -> 0.5
             | Mid -> 0.35
@@ -425,42 +401,44 @@ module TrendLevel =
             | Strong, Medium | Mid, Long -> [|Move(direction, Strong); Move(direction, Strong)|]
             | Strong, Long -> failwith "Doesn't exist."
 
-        let holdPatterns =
-            normalizedNode [|
+        let holdPatterns : EpisodeTree<Trend[]> =
+            nest [|
                 for intensity in [Weak; Mid; Strong] do
                     for duration in [Short; Medium; Long] do
                         if not (intensity = Strong && duration = Long) then
-                            normalizedNode [|
+                            normalize [|
                                 for side in [Ask; Bid] do
                                     for direction in [Up; Down] do
-                                        Leaf [|
+                                        [|
                                             Hold(side, intensity, duration)
                                             for move in matrix direction (intensity, duration) do 
                                                 move
-                                            |], 1
+                                        |], 1
                             |], intensityProb intensity * durationProb duration
             |]
 
-        let morningCloseTree = Node [|
-            Leaf [| Move (Up, Strong) |],    0.03
-            Leaf [| Move (Up, Mid) |],       0.05
-            Leaf [| Move (Up, Weak) |],      0.10
+        let leaf (x : Trend[]) : EpisodeTree<Trend[]> = [|x, 1.0|]
+
+        let morningCloseTree = nest [|
+            leaf [| Move (Up, Strong) |],    0.03
+            leaf [| Move (Up, Mid) |],       0.05
+            leaf [| Move (Up, Weak) |],      0.10
             holdPatterns,                    0.40
-            Leaf [| Consolidation |],        0.24
-            Leaf [| Move (Down, Weak) |],    0.10
-            Leaf [| Move (Down, Mid) |],     0.05
-            Leaf [| Move (Down, Strong) |],  0.03
+            leaf [| Consolidation |],        0.24
+            leaf [| Move (Down, Weak) |],    0.10
+            leaf [| Move (Down, Mid) |],     0.05
+            leaf [| Move (Down, Strong) |],  0.03
         |]
 
-        let midTree = Node [|
-            Leaf [| Move (Up, Strong) |],    0.01
-            Leaf [| Move (Up, Mid) |],       0.03
-            Leaf [| Move (Up, Weak) |],      0.10
+        let midTree = nest [|
+            leaf [| Move (Up, Strong) |],    0.01
+            leaf [| Move (Up, Mid) |],       0.03
+            leaf [| Move (Up, Weak) |],      0.10
             holdPatterns,                    0.24
-            Leaf [| Consolidation |],        0.48
-            Leaf [| Move (Down, Weak) |],    0.10
-            Leaf [| Move (Down, Mid) |],     0.03
-            Leaf [| Move (Down, Strong) |],  0.01
+            leaf [| Consolidation |],        0.48
+            leaf [| Move (Down, Weak) |],    0.10
+            leaf [| Move (Down, Mid) |],     0.03
+            leaf [| Move (Down, Strong) |],  0.01
         |]
 
         Map.ofList [
