@@ -37,7 +37,6 @@ type ActivityParams = {
 /// HMM hold parameters for TightHold episodes
 type HoldParams = {
     HoldSigmaFraction: float     // Hold sigma as fraction of TargetVolBps (tight side)
-    LooseSigmaFraction: float    // Loose side sigma as fraction of TargetVolBps (for asymmetric holds)
     HoldProposalFraction: float  // Hold proposal vol as fraction of baseline ProposalVolBps
     PinnedMassFraction: float    // Mass fraction on the pinned side (e.g. 0.8 = 80% of density)
     HoldDurationMedian: float    // Median hold duration in seconds
@@ -54,7 +53,6 @@ let getHoldParams (duration: HoldDuration) : HoldParams =
         | Long   -> 120.0, 180.0, 10.0, 15.0
     {
         HoldSigmaFraction = 0.05
-        LooseSigmaFraction = 0.5
         HoldProposalFraction = 1.0
         PinnedMassFraction = 0.8
         HoldDurationMedian = holdMedian
@@ -78,9 +76,9 @@ let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     | Move (_, Mid)    -> { MedianTradesPerSecond = 17.0; MeanTradesPerSecond = 20.0; RateProposalVol = 0.06 }
     | Move (_, Weak)   -> { MedianTradesPerSecond = 8.5;  MeanTradesPerSecond = 10.0; RateProposalVol = 0.05 }
     | Consolidation    -> { MedianTradesPerSecond = 4.0;  MeanTradesPerSecond = 5.0;  RateProposalVol = 0.03 }
-    | Hold (_, Strong, Short) -> { MedianTradesPerSecond = 120.0; MeanTradesPerSecond = 160.0; RateProposalVol = 1.5 }
-    | Hold (_, Mid, Short)    -> { MedianTradesPerSecond = 60.0;  MeanTradesPerSecond = 80.0;  RateProposalVol = 1.5 }
-    | Hold (_, Weak, Short)   -> { MedianTradesPerSecond = 30.0;  MeanTradesPerSecond = 40.0;  RateProposalVol = 1.5 }
+    | Hold (_, Strong, Short) -> { MedianTradesPerSecond = 160.0; MeanTradesPerSecond = 213.0; RateProposalVol = 1.0 }
+    | Hold (_, Mid, Short)    -> { MedianTradesPerSecond = 80.0;  MeanTradesPerSecond = 107.0; RateProposalVol = 1.0 }
+    | Hold (_, Weak, Short)   -> { MedianTradesPerSecond = 40.0;  MeanTradesPerSecond = 53.0;  RateProposalVol = 1.0 }
     | Hold (_, Strong, _) -> { MedianTradesPerSecond = 120.0; MeanTradesPerSecond = 160.0; RateProposalVol = 0.15 }
     | Hold (_, Mid, _)    -> { MedianTradesPerSecond = 60.0;  MeanTradesPerSecond = 80.0;  RateProposalVol = 0.15 }
     | Hold (_, Weak, _)   -> { MedianTradesPerSecond = 30.0;  MeanTradesPerSecond = 40.0;  RateProposalVol = 0.15 }
@@ -133,6 +131,22 @@ let sampleSize (rng: Random) (median: float) (mean: float) : int =
         let size = if v <= median then v else Pareto(median, alpha, rng).Sample()
         let rounded = stochasticRound rng size
         if rounded > 0 then rounded else loop ()
+    loop ()
+
+/// Sample from LogNormal, restricted to below the median
+let sampleLogNormalBelow (rng: Random) (median: float) (mean: float) : float =
+    let mu, sigma = logNormalMuSigma median mean
+    let rec loop () =
+        let v = LogNormal(mu, sigma, rng).Sample()
+        if v <= median then v else loop ()
+    loop ()
+
+/// Sample from LogNormal, restricted to above the median
+let sampleLogNormalAbove (rng: Random) (median: float) (mean: float) : float =
+    let mu, sigma = logNormalMuSigma median mean
+    let rec loop () =
+        let v = LogNormal(mu, sigma, rng).Sample()
+        if v >= median then v else loop ()
     loop ()
 
 /// Sample a duration (seconds) from LogNormal with below-median compression
@@ -208,13 +222,12 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
             let mutable holding = true
             let holdLevel = targetMean
             let tightSigma = targetSigma * holdParams.HoldSigmaFraction
-            let looseSigma = targetSigma * holdParams.LooseSigmaFraction
             let holdProposalVol = proposalVol * holdParams.HoldProposalFraction
             let logPinned = log holdParams.PinnedMassFraction
             let logUnpinned = log (1.0 - holdParams.PinnedMassFraction)
             let sampleHoldTime () = sampleDuration rng holdParams.HoldDurationMedian holdParams.HoldDurationMean
             let sampleReleaseTime () = sampleDuration rng holdParams.ReleaseDurationMedian holdParams.ReleaseDurationMean
-            let mutable timeLeft = sampleHoldTime ()
+            let mutable timeLeft = sampleLogNormalAbove rng holdParams.HoldDurationMedian holdParams.HoldDurationMean
             fun dt size logRate logPrice ->
                 timeLeft <- timeLeft - dt
                 if timeLeft <= 0.0 then
@@ -228,14 +241,12 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
                             fun x -> Normal.PDFLn(holdLevel, tightSigma, x)
                         | Bid ->
                             fun x ->
-                                let sigma = if x <= holdLevel then tightSigma else looseSigma
                                 let massLn = if x <= holdLevel then logPinned else logUnpinned
-                                Normal.PDFLn(holdLevel, sigma, x) + massLn
+                                Normal.PDFLn(holdLevel, tightSigma, x) + massLn
                         | Ask ->
                             fun x ->
-                                let sigma = if x >= holdLevel then tightSigma else looseSigma
                                 let massLn = if x >= holdLevel then logPinned else logUnpinned
-                                Normal.PDFLn(holdLevel, sigma, x) + massLn
+                                Normal.PDFLn(holdLevel, tightSigma, x) + massLn
                     else fun x -> Normal.PDFLn(holdLevel, targetSigma, x)
                 multiTryStepGeneric rng logPrice pVol logDensity 10
         | Move _ | Consolidation ->

@@ -411,49 +411,49 @@ module TrendLevel =
         let weakHolds direction = holds [Weak, Short] (Move(direction, Weak))
 
         let strongUp = node [|
-            leaf [| Move (Up, Strong) |],    0.10
-            strongHolds Up,                  0.90
-        |]
-        let midUp = node [|
-            leaf [| Move (Up, Mid) |],       0.25
-            midHolds Up,                     0.75
-        |]
-        let midDown = node [|
-            leaf [| Move (Down, Mid) |],     0.25
-            midHolds Down,                   0.75
+            leaf [| Move (Up, Strong) |],    1
+            strongHolds Up,                  4
         |]
         let strongDown = node [|
-            leaf [| Move (Down, Strong) |],  0.10
-            strongHolds Down,                0.90
+            leaf [| Move (Down, Strong) |],  1
+            strongHolds Down,                4
+        |]
+        let midUp = node [|
+            leaf [| Move (Up, Mid) |],       1
+            midHolds Up,                     2
+        |]
+        let midDown = node [|
+            leaf [| Move (Down, Mid) |],     1
+            midHolds Down,                   2
         |]
         let weakUp = node [|
-            leaf [| Move (Up, Weak) |],   0.5
-            weakHolds Up,                 0.5
+            leaf [| Move (Up, Weak) |],   1
+            weakHolds Up,                 1
         |]
         let weakDown = node [|
-            leaf [| Move (Down, Weak) |], 0.5
-            weakHolds Down,               0.5
+            leaf [| Move (Down, Weak) |], 1
+            weakHolds Down,               1
         |]
         let consolidation = leaf [| Consolidation |]
 
         let morningCloseTree = node [|
-            strongUp,                        0.15
-            midUp,                           0.15
+            //strongUp,                        0.15
+            //midUp,                           0.15
             weakUp,                          0.10
-            consolidation,                   0.20
+            //consolidation,                   0.20
             weakDown,                        0.10
-            midDown,                         0.15
-            strongDown,                      0.15
+            //midDown,                         0.15
+            //strongDown,                      0.15
         |]
 
         let midTree = node [|
-            strongUp,                        0.02
-            midUp,                           0.08
+            //strongUp,                        0.02
+            //midUp,                           0.08
             weakUp,                          0.15
-            consolidation,                   0.50
+            //consolidation,                   0.50
             weakDown,                        0.15
-            midDown,                         0.08
-            strongDown,                      0.02
+            //midDown,                         0.08
+            //strongDown,                      0.02
         |]
 
         Map.ofList [
