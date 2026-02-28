@@ -205,14 +205,14 @@ module SessionLevel =
         MCMC.run mcmcConfig (logLikelihood config) (propose config) initial rng
 
 // =============================================================================
-// Trend Level (Session -> Trends) - Tree-based compositional patterns
+// Trend Level (Session -> Trends) - Weighted table compositional patterns
 // =============================================================================
 
 module TrendLevel =
-    /// A tree of episode patterns. Nodes branch with probabilities, leaves define trend sequences.
-    type EpisodeTree<'t> = ('t * float)[]
+    /// A flat weighted table of options, sampled via Categorical distribution.
+    type WeightedTable<'t> = ('t * float)[]
 
-    /// A single selection from the tree: path indices + episodes with durations
+    /// A single selection from the weighted table: trend episodes with durations
     type TreeSelection = 
         {
             SelectionProbability: float
@@ -222,16 +222,16 @@ module TrendLevel =
         member s.Copy() = { s with Episodes = Array.copy s.Episodes }
 
     type Config = {
-        PatternTrees: Map<DaySession, EpisodeTree<Trend[]>>
+        PatternTrees: Map<DaySession, WeightedTable<Trend[]>>
         DurationParams: Map<Trend, Distribution.Params>
     }
 
-    /// Sample a random path through the tree, returning the leaf trends and their selection probability
-    let rec private samplePath (rng: Random) (tree: EpisodeTree<Trend[]>) : Trend[] * float =
+    /// Sample a random entry from the weighted table, returning the trend sequence and its probability
+    let private samplePath (rng: Random) (tree: WeightedTable<Trend[]>) : Trend[] * float =
         let idx = Categorical.Sample(rng, Array.map snd tree)
         tree.[idx]
 
-    let private logLikelihoodSelection (config: Config) (tree: EpisodeTree<Trend[]>) (sel: TreeSelection) : float =
+    let private logLikelihoodSelection (config: Config) (tree: WeightedTable<Trend[]>) (sel: TreeSelection) : float =
         let pathLL = log sel.SelectionProbability
         let durationLL =
             sel.Episodes |> Array.sumBy (fun ep ->
@@ -276,7 +276,7 @@ module TrendLevel =
             Some newState
 
     /// Propose: replace one selection with a new random sample from the tree
-    let private proposeChangeSelection (rng: Random) (tree: EpisodeTree<Trend[]>) (config: Config) (state: TreeSelection[]) : TreeSelection[] option =
+    let private proposeChangeSelection (rng: Random) (tree: WeightedTable<Trend[]>) (config: Config) (state: TreeSelection[]) : TreeSelection[] option =
         if state.Length = 0 then None
         else
             let idx = rng.Next(state.Length)
@@ -371,20 +371,19 @@ module TrendLevel =
             Hold (Ask, Weak, Long),      Distribution.LogNormal (20.0, 30.0)
         ]
 
-    let private defaultPatternTrees : Map<DaySession, EpisodeTree<Trend[]>> =
-        // Hold patterns: each hold resolves 50/50 up/down
-        // Normalizes the probabilities of the node inputs to 1.
-        let normalize (x : EpisodeTree<Trend[]>) : EpisodeTree<Trend[]> =
+    let private defaultPatternTrees : Map<DaySession, WeightedTable<Trend[]>> =
+        // Normalizes the weights to sum to 1.
+        let normalize (x : WeightedTable<Trend[]>) : WeightedTable<Trend[]> =
             let total = x |> Array.sumBy snd
             x |> Array.map (fun (tree, w) -> tree, w / total)
 
-        // Flattens the nested array of tree nodes into one.
-        let flatten (x : EpisodeTree<EpisodeTree<Trend[]>>) : EpisodeTree<Trend[]> =
+        // Flattens a nested weighted table into a single level, multiplying through probabilities.
+        let flatten (x : WeightedTable<WeightedTable<Trend[]>>) : WeightedTable<Trend[]> =
             x |> Array.collect (fun (node, node_prob) ->
                 node |> Array.map (fun (leaf, leaf_prob) -> leaf, node_prob * leaf_prob)
                 )
 
-        let nest x = x |> flatten |> normalize
+        let node x = x |> flatten |> normalize
 
         let intensityProb = function
             | Weak -> 0.5
@@ -394,60 +393,65 @@ module TrendLevel =
             | Short -> 0.5
             | Medium -> 0.35
             | Long -> 0.15
-        let matrix direction = function
-            | Weak, Short -> [|Move(direction, Weak)|]
-            | Mid, Short | Weak, Medium -> [|Move(direction, Mid)|]
-            | Strong, Short | Mid, Medium | Weak, Long -> [|Move(direction, Strong)|]
-            | Strong, Medium | Mid, Long -> [|Move(direction, Strong); Move(direction, Strong)|]
-            | Strong, Long -> failwith "Doesn't exist."
 
         // Hold patterns sit next to their corresponding bare moves.
-        let leaf (x : Trend[]) : EpisodeTree<Trend[]> = [|x, 1.0|]
+        let leaf (x : Trend[]) : WeightedTable<Trend[]> = [|x, 1.0|]
 
-        let holdMoves (side: HoldSide) (intensity: Intensity) : EpisodeTree<Trend[]> =
-            normalize [|
-                for duration in [Short; Medium; Long] do
-                    if not (intensity = Strong && duration = Long) then
-                        for direction in [Up; Down] do
-                            [|
-                                Hold(side, intensity, duration)
-                                for move in matrix direction (intensity, duration) do move
-                            |], durationProb duration
-            |]
+        let holds (intensity_duration : (Intensity * HoldDuration) list) move = node [|
+            for side in [Bid; Ask] do
+                for intensity, duration in intensity_duration do
+                    leaf [|
+                        Hold(side,intensity,duration)
+                        move
+                    |], durationProb duration * intensityProb intensity
+        |]
 
-        let strongUp = nest [|
+        let strongHolds direction = holds [Strong, Short; Mid, Medium; Weak, Long] (Move(direction, Strong))
+        let midHolds direction = holds [Mid, Short; Weak, Medium] (Move(direction, Mid))
+        let weakHolds direction = holds [Weak, Short] (Move(direction, Weak))
+
+        let strongUp = node [|
             leaf [| Move (Up, Strong) |],    0.10
-            holdMoves Ask Strong,            0.90
+            strongHolds Up,                  0.90
         |]
-        let midUp = nest [|
+        let midUp = node [|
             leaf [| Move (Up, Mid) |],       0.25
-            holdMoves Ask Mid,               0.75
+            midHolds Up,                     0.75
         |]
-        let midDown = nest [|
+        let midDown = node [|
             leaf [| Move (Down, Mid) |],     0.25
-            holdMoves Bid Mid,               0.75
+            midHolds Down,                   0.75
         |]
-        let strongDown = nest [|
+        let strongDown = node [|
             leaf [| Move (Down, Strong) |],  0.10
-            holdMoves Bid Strong,            0.90
+            strongHolds Down,                0.90
         |]
+        let weakUp = node [|
+            leaf [| Move (Up, Weak) |],   0.5
+            weakHolds Up,                 0.5
+        |]
+        let weakDown = node [|
+            leaf [| Move (Down, Weak) |], 0.5
+            weakHolds Down,               0.5
+        |]
+        let consolidation = leaf [| Consolidation |]
 
-        let morningCloseTree = nest [|
+        let morningCloseTree = node [|
             strongUp,                        0.15
             midUp,                           0.15
-            leaf [| Move (Up, Weak) |],      0.10
-            leaf [| Consolidation |],        0.20
-            leaf [| Move (Down, Weak) |],    0.10
+            weakUp,                          0.10
+            consolidation,                   0.20
+            weakDown,                        0.10
             midDown,                         0.15
             strongDown,                      0.15
         |]
 
-        let midTree = nest [|
+        let midTree = node [|
             strongUp,                        0.02
             midUp,                           0.08
-            leaf [| Move (Up, Weak) |],      0.15
-            leaf [| Consolidation |],        0.50
-            leaf [| Move (Down, Weak) |],    0.15
+            weakUp,                          0.15
+            consolidation,                   0.50
+            weakDown,                        0.15
             midDown,                         0.08
             strongDown,                      0.02
         |]
