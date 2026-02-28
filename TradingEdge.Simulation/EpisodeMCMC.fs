@@ -520,9 +520,11 @@ let showTrend (t: Trend) : string =
     | Move (Down, Weak) -> "WeakDown"
     | Move (Down, Mid) -> "MidDown"
     | Move (Down, Strong) -> "StrongDown"
-    | Hold (Bid, _, _) -> "HoldBid"
-    | Hold (Ask, _, _) -> "HoldAsk"
-    | Hold (Neutral, _, _) -> "HoldNeutral"
+    | Hold (side, intensity, duration) ->
+        let s = match side with Bid -> "Bid" | Ask -> "Ask" | Neutral -> "Neutral"
+        let i = match intensity with Strong -> "Strong" | Mid -> "Mid" | Weak -> "Weak"
+        let d = match duration with Short -> "Short" | Medium -> "Medium" | Long -> "Long"
+        sprintf "Hold%s%s%s" s i d
 
 let printDayResult (result: DayResult) : unit =
     printEpisodes "Sessions" result.Sessions showSession

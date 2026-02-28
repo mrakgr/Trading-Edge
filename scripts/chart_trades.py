@@ -22,12 +22,18 @@ with open(input_csv) as f:
 trend_colors = {
     'StrongUp': 'darkgreen', 'MidUp': 'green', 'WeakUp': 'lightgreen',
     'Consol': 'gray',
-    'HoldBid': 'red', 'HoldAsk': 'magenta', 'HoldNeutral': 'salmon',
     'WeakDown': 'lightsalmon', 'MidDown': 'orange', 'StrongDown': 'darkred'
 }
 
+# Assign colors to hold trends dynamically
+hold_palette = ['red', 'magenta', 'salmon', 'deeppink', 'crimson', 'hotpink',
+                'indianred', 'mediumvioletred', 'palevioletred', 'tomato']
+hold_trends = sorted(set(t['trend'] for t in trades if t['trend'].startswith('Hold')))
+for i, ht in enumerate(hold_trends):
+    trend_colors[ht] = hold_palette[i % len(hold_palette)]
+
 def is_hold(trend):
-    return trend in ('HoldBid', 'HoldAsk', 'HoldNeutral')
+    return trend.startswith('Hold')
 
 # Find hold segments for highlighting
 hold_starts = []
