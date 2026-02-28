@@ -78,9 +78,12 @@ let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     | Move (_, Mid)    -> { MedianTradesPerSecond = 17.0; MeanTradesPerSecond = 20.0; RateProposalVol = 0.06 }
     | Move (_, Weak)   -> { MedianTradesPerSecond = 8.5;  MeanTradesPerSecond = 10.0; RateProposalVol = 0.05 }
     | Consolidation    -> { MedianTradesPerSecond = 4.0;  MeanTradesPerSecond = 5.0;  RateProposalVol = 0.03 }
-    | Hold (_, Strong, _) -> { MedianTradesPerSecond = 120.0; MeanTradesPerSecond = 160.0; RateProposalVol = 1.5 }
-    | Hold (_, Mid, _)    -> { MedianTradesPerSecond = 60.0;  MeanTradesPerSecond = 80.0;  RateProposalVol = 1.5 }
-    | Hold (_, Weak, _)   -> { MedianTradesPerSecond = 30.0;  MeanTradesPerSecond = 40.0;  RateProposalVol = 1.5 }
+    | Hold (_, Strong, Short) -> { MedianTradesPerSecond = 120.0; MeanTradesPerSecond = 160.0; RateProposalVol = 1.5 }
+    | Hold (_, Mid, Short)    -> { MedianTradesPerSecond = 60.0;  MeanTradesPerSecond = 80.0;  RateProposalVol = 1.5 }
+    | Hold (_, Weak, Short)   -> { MedianTradesPerSecond = 30.0;  MeanTradesPerSecond = 40.0;  RateProposalVol = 1.5 }
+    | Hold (_, Strong, _) -> { MedianTradesPerSecond = 120.0; MeanTradesPerSecond = 160.0; RateProposalVol = 0.15 }
+    | Hold (_, Mid, _)    -> { MedianTradesPerSecond = 60.0;  MeanTradesPerSecond = 80.0;  RateProposalVol = 0.15 }
+    | Hold (_, Weak, _)   -> { MedianTradesPerSecond = 30.0;  MeanTradesPerSecond = 40.0;  RateProposalVol = 0.15 }
 
 let getTargetParams (trend: Trend) : TargetParams =
     match trend with
