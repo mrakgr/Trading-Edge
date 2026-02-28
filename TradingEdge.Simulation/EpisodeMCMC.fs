@@ -437,23 +437,23 @@ module TrendLevel =
         let consolidation = leaf [| Consolidation |]
 
         let morningCloseTree = node [|
-            //strongUp,                        0.15
-            //midUp,                           0.15
+            strongUp,                        0.15
+            midUp,                           0.15
             weakUp,                          0.10
-            //consolidation,                   0.20
+            consolidation,                   0.20
             weakDown,                        0.10
-            //midDown,                         0.15
-            //strongDown,                      0.15
+            midDown,                         0.15
+            strongDown,                      0.15
         |]
 
         let midTree = node [|
-            //strongUp,                        0.02
-            //midUp,                           0.08
+            strongUp,                        0.02
+            midUp,                           0.08
             weakUp,                          0.15
-            //consolidation,                   0.50
+            consolidation,                   0.50
             weakDown,                        0.15
-            //midDown,                         0.08
-            //strongDown,                      0.02
+            midDown,                         0.08
+            strongDown,                      0.02
         |]
 
         Map.ofList [
