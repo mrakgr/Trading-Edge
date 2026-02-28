@@ -401,44 +401,55 @@ module TrendLevel =
             | Strong, Medium | Mid, Long -> [|Move(direction, Strong); Move(direction, Strong)|]
             | Strong, Long -> failwith "Doesn't exist."
 
-        let holdPatterns : EpisodeTree<Trend[]> =
-            nest [|
-                for intensity in [Weak; Mid; Strong] do
-                    for duration in [Short; Medium; Long] do
-                        if not (intensity = Strong && duration = Long) then
-                            normalize [|
-                                for side in [Ask; Bid] do
-                                    for direction in [Up; Down] do
-                                        [|
-                                            Hold(side, intensity, duration)
-                                            for move in matrix direction (intensity, duration) do 
-                                                move
-                                        |], 1
-                            |], intensityProb intensity * durationProb duration
-            |]
-
+        // Hold patterns sit next to their corresponding bare moves.
         let leaf (x : Trend[]) : EpisodeTree<Trend[]> = [|x, 1.0|]
 
+        let holdMoves (side: HoldSide) (intensity: Intensity) : EpisodeTree<Trend[]> =
+            normalize [|
+                for duration in [Short; Medium; Long] do
+                    if not (intensity = Strong && duration = Long) then
+                        for direction in [Up; Down] do
+                            [|
+                                Hold(side, intensity, duration)
+                                for move in matrix direction (intensity, duration) do move
+                            |], durationProb duration
+            |]
+
+        let strongUp = nest [|
+            leaf [| Move (Up, Strong) |],    0.10
+            holdMoves Ask Strong,            0.90
+        |]
+        let midUp = nest [|
+            leaf [| Move (Up, Mid) |],       0.25
+            holdMoves Ask Mid,               0.75
+        |]
+        let midDown = nest [|
+            leaf [| Move (Down, Mid) |],     0.25
+            holdMoves Bid Mid,               0.75
+        |]
+        let strongDown = nest [|
+            leaf [| Move (Down, Strong) |],  0.10
+            holdMoves Bid Strong,            0.90
+        |]
+
         let morningCloseTree = nest [|
-            leaf [| Move (Up, Strong) |],    0.03
-            leaf [| Move (Up, Mid) |],       0.05
+            strongUp,                        0.15
+            midUp,                           0.15
             leaf [| Move (Up, Weak) |],      0.10
-            holdPatterns,                    0.40
-            leaf [| Consolidation |],        0.24
+            leaf [| Consolidation |],        0.20
             leaf [| Move (Down, Weak) |],    0.10
-            leaf [| Move (Down, Mid) |],     0.05
-            leaf [| Move (Down, Strong) |],  0.03
+            midDown,                         0.15
+            strongDown,                      0.15
         |]
 
         let midTree = nest [|
-            leaf [| Move (Up, Strong) |],    0.01
-            leaf [| Move (Up, Mid) |],       0.03
-            leaf [| Move (Up, Weak) |],      0.10
-            holdPatterns,                    0.24
-            leaf [| Consolidation |],        0.48
-            leaf [| Move (Down, Weak) |],    0.10
-            leaf [| Move (Down, Mid) |],     0.03
-            leaf [| Move (Down, Strong) |],  0.01
+            strongUp,                        0.02
+            midUp,                           0.08
+            leaf [| Move (Up, Weak) |],      0.15
+            leaf [| Consolidation |],        0.50
+            leaf [| Move (Down, Weak) |],    0.15
+            midDown,                         0.08
+            strongDown,                      0.02
         |]
 
         Map.ofList [
