@@ -59,6 +59,10 @@ fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
     row_heights=[3, 1], vertical_spacing=0.05,
     subplot_titles=['Price (colored by trend)', 'Trade Size'])
 
+# Precompute sizes for subsampled trades
+import math
+sub_sizes = [math.sqrt(t['size']) for t in trades[::step]]
+
 # Price scatter colored by trend
 for trend, color in trend_colors.items():
     idx = [i for i, t in enumerate(trades[::step]) if t['trend'] == trend]
@@ -66,7 +70,7 @@ for trend, color in trend_colors.items():
         fig.add_trace(go.Scattergl(
             x=[times[i] for i in idx],
             y=[prices[i] for i in idx],
-            mode='markers', marker=dict(size=1.5, color=color),
+            mode='markers', marker=dict(size=[sub_sizes[i] for i in idx], color=color),
             name=trend
         ), row=1, col=1)
 
@@ -129,7 +133,7 @@ for s, e in zip(hold_starts, hold_ends):
 sizes = [t['size'] for t in trades[::step]]
 fig.add_trace(go.Scattergl(
     x=times, y=sizes, mode='markers',
-    marker=dict(size=1.5, color='blue', opacity=0.3),
+    marker=dict(size=sub_sizes, color='blue', opacity=0.3),
     name='Size', showlegend=False
 ), row=2, col=1)
 
