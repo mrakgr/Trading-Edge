@@ -149,15 +149,10 @@ let sampleLogNormalAbove (rng: Random) (median: float) (mean: float) : float =
         if v >= median then v else loop ()
     loop ()
 
-/// Sample a duration (seconds) from LogNormal with below-median compression
+/// Sample a duration (seconds) from LogNormal
 let sampleDuration (rng: Random) (median: float) (mean: float) : float =
     let mu, sigma = logNormalMuSigma median mean
-    let tightMu, tightSigma = logNormalMuSigma median (median * 1.1)
-    let rec sampleBelow () =
-        let v = LogNormal(tightMu, tightSigma, rng).Sample()
-        if v < median then v else sampleBelow ()
-    let raw = LogNormal(mu, sigma, rng).Sample()
-    if raw < median then sampleBelow () else raw
+    LogNormal(mu, sigma, rng).Sample()
 
 let generateTimestamps (rng: Random) (startTime: float) (duration: float) (count: int) : float[] =
     let timestamps = Array.init count (fun _ -> startTime + rng.NextDouble() * duration)
