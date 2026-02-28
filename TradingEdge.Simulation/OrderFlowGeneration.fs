@@ -133,21 +133,21 @@ let sampleSize (rng: Random) (median: float) (mean: float) : int =
         if rounded > 0 then rounded else loop ()
     loop ()
 
-/// Sample from LogNormal, restricted to below the median
-let sampleLogNormalBelow (rng: Random) (median: float) (mean: float) : float =
+/// Sample from LogNormal, and continue to resample if the conditional returns false
+let inline sampleLogNormalConditional cond (rng: Random) (median: float) (mean: float) : float =
     let mu, sigma = logNormalMuSigma median mean
     let rec loop () =
         let v = LogNormal(mu, sigma, rng).Sample()
-        if v <= median then v else loop ()
+        if cond v then v else loop ()
     loop ()
+
+/// Sample from LogNormal, restricted to below the median
+let sampleLogNormalBelow (rng: Random) (median: float) (mean: float) : float =
+    sampleLogNormalConditional (fun v -> v <= median) rng median mean
 
 /// Sample from LogNormal, restricted to above the median
 let sampleLogNormalAbove (rng: Random) (median: float) (mean: float) : float =
-    let mu, sigma = logNormalMuSigma median mean
-    let rec loop () =
-        let v = LogNormal(mu, sigma, rng).Sample()
-        if v >= median then v else loop ()
-    loop ()
+    sampleLogNormalConditional (fun v -> v >= median) rng median mean
 
 /// Sample a duration (seconds) from LogNormal
 let sampleDuration (rng: Random) (median: float) (mean: float) : float =
