@@ -213,9 +213,9 @@ module TrendLevel =
     type WeightedTable<'t> = ('t * float)[]
 
     /// A single selection from the weighted table: trend episodes with durations
-    type TreeSelection = 
+    type Selection = 
         {
-            SelectionProbability: float
+            Probability: float
             Episodes: Episode<Trend>[]
         }
 
@@ -231,28 +231,28 @@ module TrendLevel =
         let idx = Categorical.Sample(rng, Array.map snd tree)
         tree.[idx]
 
-    let private logLikelihoodSelection (config: Config) (tree: WeightedTable<Trend[]>) (sel: TreeSelection) : float =
-        let pathLL = log sel.SelectionProbability
+    let private logLikelihoodSelection (config: Config) (tree: WeightedTable<Trend[]>) (sel: Selection) : float =
+        let pathLL = log sel.Probability
         let durationLL =
             sel.Episodes |> Array.sumBy (fun ep ->
                 Distribution.logLikelihood config.DurationParams.[ep.Label] ep.Duration)
         pathLL + durationLL
 
     /// Compute log-likelihood for the full state
-    let logLikelihood (config: Config) (parentSession: DaySession) (state: TreeSelection[]) : float =
+    let logLikelihood (config: Config) (parentSession: DaySession) (state: Selection[]) : float =
         let tree = config.PatternTrees.[parentSession]
         state |> Array.sumBy (logLikelihoodSelection config tree)
 
     /// Flatten state to Episode<Trend>[] for downstream consumption
-    let flatten (state: TreeSelection[]) : Episode<Trend>[] =
+    let flatten (state: Selection[]) : Episode<Trend>[] =
         state |> Array.collect _.Episodes
 
     /// Gets the number of episodes in a state.
-    let length (state: TreeSelection[]) : int =
+    let length (state: Selection[]) : int =
         state |> Array.sumBy _.Episodes.Length
 
     // Map flat indices back to (selection, episode) pairs
-    let createMappings (state: TreeSelection[]) =
+    let createMappings (state: Selection[]) =
         let mapping = ResizeArray()
         for si in 0 .. state.Length - 1 do
             for ei in 0 .. state.[si].Episodes.Length - 1 do
@@ -260,7 +260,7 @@ module TrendLevel =
         mapping.ToArray()
 
     /// Propose: transfer duration between two random episodes across all selections
-    let private proposeTransferDuration (rng: Random) (config: Config) (state: TreeSelection[]) : TreeSelection[] option =
+    let private proposeTransferDuration (rng: Random) (config: Config) (state: Selection[]) : Selection[] option =
         let mapping = createMappings state
         if mapping.Length < 2 then None
         else
@@ -276,7 +276,7 @@ module TrendLevel =
             Some newState
 
     /// Propose: replace one selection with a new random sample from the tree
-    let private proposeChangeSelection (rng: Random) (tree: WeightedTable<Trend[]>) (config: Config) (state: TreeSelection[]) : TreeSelection[] option =
+    let private proposeChangeSelection (rng: Random) (tree: WeightedTable<Trend[]>) (config: Config) (state: Selection[]) : Selection[] option =
         if state.Length = 0 then None
         else
             let idx = rng.Next(state.Length)
@@ -290,10 +290,10 @@ module TrendLevel =
             let episodes = Array.init trends.Length (fun i ->
                 { Label = trends.[i]; Duration = rawDurations.[i] * scale })
             let newState = Array.copy state
-            newState.[idx] <- { SelectionProbability = prob; Episodes = episodes }
+            newState.[idx] <- { Probability = prob; Episodes = episodes }
             Some newState
 
-    let propose (config: Config) (parentSession: DaySession) (rng: Random) (state: TreeSelection[]) : TreeSelection[] option =
+    let propose (config: Config) (parentSession: DaySession) (rng: Random) (state: Selection[]) : Selection[] option =
         let tree = config.PatternTrees.[parentSession]
         let proposals = [
             (fun () -> proposeTransferDuration rng config state), if length state >= 2 then 0.7 else 0.0
@@ -302,16 +302,16 @@ module TrendLevel =
         MCMC.sampleWeighted rng proposals ()
 
     /// Create initial state by sampling selections until total duration is filled
-    let initialState (config: Config) (parentSession: DaySession) (rng: Random) (sessionDuration: float) : TreeSelection[] =
+    let initialState (config: Config) (parentSession: DaySession) (rng: Random) (sessionDuration: float) : Selection[] =
         let tree = config.PatternTrees.[parentSession]
-        let selections = ResizeArray<TreeSelection>()
+        let selections = ResizeArray<Selection>()
         let mutable total = 0.0
         while total < sessionDuration do
             let trends, prob = samplePath rng tree
             let episodes = trends |> Array.map (fun t ->
                 let dur = Distribution.sample rng config.DurationParams.[t]
                 { Label = t; Duration = dur })
-            selections.Add { SelectionProbability = prob; Episodes = episodes }
+            selections.Add { Probability = prob; Episodes = episodes }
             total <- total + (episodes |> Array.sumBy _.Duration)
         // Scale all durations to sum exactly to sessionDuration
         let result = selections.ToArray()
