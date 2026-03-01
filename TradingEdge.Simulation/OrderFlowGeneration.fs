@@ -18,7 +18,6 @@ type Trade = {
 type OrderFlowParams = {
     MedianTradesPerSecond: float
     MeanTradesPerSecond: float
-    RateProposalVol: float
 }
 
 /// Target distribution parameters per trend
@@ -63,25 +62,25 @@ let getHoldParams (duration: HoldDuration) : HoldParams =
 
 /// Session-wide baseline parameters
 type SessionBaseline = {
-    ProposalVolBps: float        // Proposal random walk σ in bps
-    RateProposalBaseline: float  // Multiplier for rate proposal vol
-    MeanSize: float              // Baseline mean trade size for scaling
+    ProposalVolBps: float   // Price proposal random walk σ in bps
+    RateProposalBps: float  // Rate proposal random walk σ in bps (scaled by sqrt size)
+    MeanSize: float         // Baseline mean trade size for scaling
 }
 
-let defaultBaseline = { ProposalVolBps = 0.375; RateProposalBaseline = 0.093; MeanSize = 100.0 }
+let defaultBaseline = { ProposalVolBps = 0.375; RateProposalBps = 20.0; MeanSize = 100.0 }
 
 let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     match trend with
-    | Move (_, Strong) -> { MedianTradesPerSecond = 35.0; MeanTradesPerSecond = 40.0; RateProposalVol = 0.08 }
-    | Move (_, Mid)    -> { MedianTradesPerSecond = 17.0; MeanTradesPerSecond = 20.0; RateProposalVol = 0.06 }
-    | Move (_, Weak)   -> { MedianTradesPerSecond = 8.5;  MeanTradesPerSecond = 10.0; RateProposalVol = 0.05 }
-    | Consolidation    -> { MedianTradesPerSecond = 4.0;  MeanTradesPerSecond = 5.0;  RateProposalVol = 0.03 }
-    | Hold (_, Strong, Short) -> { MedianTradesPerSecond = 160.0; MeanTradesPerSecond = 213.0; RateProposalVol = 1.0 }
-    | Hold (_, Mid, Short)    -> { MedianTradesPerSecond = 80.0;  MeanTradesPerSecond = 107.0; RateProposalVol = 1.0 }
-    | Hold (_, Weak, Short)   -> { MedianTradesPerSecond = 40.0;  MeanTradesPerSecond = 53.0;  RateProposalVol = 1.0 }
-    | Hold (_, Strong, _) -> { MedianTradesPerSecond = 120.0; MeanTradesPerSecond = 160.0; RateProposalVol = 0.15 }
-    | Hold (_, Mid, _)    -> { MedianTradesPerSecond = 60.0;  MeanTradesPerSecond = 80.0;  RateProposalVol = 0.15 }
-    | Hold (_, Weak, _)   -> { MedianTradesPerSecond = 30.0;  MeanTradesPerSecond = 40.0;  RateProposalVol = 0.15 }
+    | Move (_, Strong) -> { MedianTradesPerSecond = 35.0; MeanTradesPerSecond = 40.0 }
+    | Move (_, Mid)    -> { MedianTradesPerSecond = 17.0; MeanTradesPerSecond = 20.0 }
+    | Move (_, Weak)   -> { MedianTradesPerSecond = 8.5;  MeanTradesPerSecond = 10.0 }
+    | Consolidation    -> { MedianTradesPerSecond = 4.0;  MeanTradesPerSecond = 5.0 }
+    | Hold (_, Strong, Short) -> { MedianTradesPerSecond = 160.0; MeanTradesPerSecond = 213.0 }
+    | Hold (_, Mid, Short)    -> { MedianTradesPerSecond = 80.0;  MeanTradesPerSecond = 107.0 }
+    | Hold (_, Weak, Short)   -> { MedianTradesPerSecond = 40.0;  MeanTradesPerSecond = 53.0 }
+    | Hold (_, Strong, _) -> { MedianTradesPerSecond = 120.0; MeanTradesPerSecond = 160.0 }
+    | Hold (_, Mid, _)    -> { MedianTradesPerSecond = 60.0;  MeanTradesPerSecond = 80.0 }
+    | Hold (_, Weak, _)   -> { MedianTradesPerSecond = 30.0;  MeanTradesPerSecond = 40.0 }
 
 let getTargetParams (trend: Trend) : TargetParams =
     match trend with
@@ -208,6 +207,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
     let targetMean = sampleTargetMean rng prevTargetMean targetParams episode.Label
     let targetSigma = targetParams.TargetVolBps * bps
     let proposalVol = baseline.ProposalVolBps * bps
+    let rateProposalVol = baseline.RateProposalBps * bps
     let logRateTarget, logRateTargetSigma = logNormalMuSigma orderFlowParams.MedianTradesPerSecond orderFlowParams.MeanTradesPerSecond
 
     let priceTransition = 
@@ -247,10 +247,9 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
         | Move _ | Consolidation ->
             fun dt size logRate logPrice -> multiTryStep rng logPrice proposalVol targetMean targetSigma 10
 
-    let rateTransition dt size logRate logPrice =
-        let sqrtDt = sqrt dt
+    let rateTransition _dt size logRate logPrice =
         let sqrtSize = sqrt (float size)
-        multiTryStep rng logRate (baseline.RateProposalBaseline * orderFlowParams.RateProposalVol * sqrtDt * sqrtSize) logRateTarget logRateTargetSigma 10
+        multiTryStep rng logRate (rateProposalVol * sqrtSize) logRateTarget logRateTargetSigma 10
 
     let trades = ResizeArray<Trade>()
     let mutable logPrice = log startPrice
