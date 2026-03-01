@@ -66,7 +66,7 @@ type SessionBaseline = {
     RateProposalBps: float  // Rate proposal random walk σ in bps (scaled by sqrt size)
 }
 
-let defaultBaseline = { ProposalVolBps = 0.0315; RateProposalBps = 50.0 }
+let defaultBaseline = { ProposalVolBps = 0.035; RateProposalBps = 50.0 }
 
 let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     match trend with
