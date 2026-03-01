@@ -62,11 +62,12 @@ let getHoldParams (duration: HoldDuration) : HoldParams =
 
 /// Session-wide baseline parameters
 type SessionBaseline = {
-    ProposalVolBps: float   // Price proposal random walk σ in bps
+    ProposalVolBps: float   // Price proposal random walk σ in bps (scaled by sqrt size)
     RateProposalBps: float  // Rate proposal random walk σ in bps (scaled by sqrt size)
 }
 
-let defaultBaseline = { ProposalVolBps = 0.035; RateProposalBps = 50.0 }
+let medianSize = 100 // Scales the proposal volatilities.
+let defaultBaseline = { ProposalVolBps = 0.35; RateProposalBps = 300.0 }
 
 let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     match trend with
@@ -88,13 +89,13 @@ let getTargetParams (trend: Trend) : TargetParams =
 
 let getActivityParams (trend: Trend) : ActivityParams =
     match trend with
-    | Move (_, Strong) -> { MedianSize = 100.0; MeanSize = 250.0 }
-    | Move (_, Mid)    -> { MedianSize = 100.0; MeanSize = 175.0 }
-    | Move (_, Weak)   -> { MedianSize = 100.0; MeanSize = 130.0 }
-    | Consolidation    -> { MedianSize = 100.0; MeanSize = 115.0 }
-    | Hold (_, Strong, _) -> { MedianSize = 100.0; MeanSize = 400.0 }
-    | Hold (_, Mid, _)    -> { MedianSize = 100.0; MeanSize = 250.0 }
-    | Hold (_, Weak, _)   -> { MedianSize = 100.0; MeanSize = 175.0 }
+    | Move (_, Strong) -> { MedianSize = medianSize; MeanSize = 250.0 }
+    | Move (_, Mid)    -> { MedianSize = medianSize; MeanSize = 175.0 }
+    | Move (_, Weak)   -> { MedianSize = medianSize; MeanSize = 130.0 }
+    | Consolidation    -> { MedianSize = medianSize; MeanSize = 115.0 }
+    | Hold (_, Strong, _) -> { MedianSize = medianSize; MeanSize = 400.0 }
+    | Hold (_, Mid, _)    -> { MedianSize = medianSize; MeanSize = 250.0 }
+    | Hold (_, Weak, _)   -> { MedianSize = medianSize; MeanSize = 175.0 }
 
 let stochasticRound (rng: Random) (x: float) : int =
     let floor = Math.Floor(x)
@@ -191,8 +192,8 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
 
     let targetMean = sampleTargetMean rng prevTargetMean targetParams episode.Label
     let targetSigma = targetParams.TargetVolBps * bps
-    let proposalVol = baseline.ProposalVolBps * bps
-    let rateProposalVol = baseline.RateProposalBps * bps
+    let proposalVol = baseline.ProposalVolBps * bps / sqrt (float medianSize)
+    let rateProposalVol = baseline.RateProposalBps * bps / sqrt (float medianSize)
     let logRateTarget, logRateTargetSigma = logNormalMuSigma orderFlowParams.MedianTradesPerSecond orderFlowParams.MeanTradesPerSecond
 
     let priceTransition = 
