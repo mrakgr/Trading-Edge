@@ -228,7 +228,8 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
                                 let massLn = if x >= holdLevel then logPinned else logUnpinned
                                 Normal.PDFLn(holdLevel, tightSigma, x) + massLn
                     else fun x -> Normal.PDFLn(holdLevel, targetSigma, x)
-                multiTryStepGeneric rng logPrice pVol logDensity 10
+                let sqrtSize = sqrt (float size)
+                multiTryStepGeneric rng logPrice (pVol * sqrtSize) logDensity 10
         | Move _ | Consolidation ->
             fun dt size logRate logPrice -> 
                 let sqrtSize = sqrt (float size)
