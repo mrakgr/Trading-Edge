@@ -67,7 +67,7 @@ type SessionBaseline = {
     MeanSize: float         // Baseline mean trade size for scaling
 }
 
-let defaultBaseline = { ProposalVolBps = 0.375; RateProposalBps = 22.5; MeanSize = 100.0 }
+let defaultBaseline = { ProposalVolBps = 0.315; RateProposalBps = 22.5; MeanSize = 100.0 }
 
 let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     match trend with
