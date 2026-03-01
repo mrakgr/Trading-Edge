@@ -67,7 +67,7 @@ type SessionBaseline = {
     MeanSize: float         // Baseline mean trade size for scaling
 }
 
-let defaultBaseline = { ProposalVolBps = 0.375; RateProposalBps = 20.0; MeanSize = 100.0 }
+let defaultBaseline = { ProposalVolBps = 0.375; RateProposalBps = 22.5; MeanSize = 100.0 }
 
 let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     match trend with
@@ -92,13 +92,13 @@ let getTargetParams (trend: Trend) : TargetParams =
 
 let getActivityParams (trend: Trend) : ActivityParams =
     match trend with
-    | Move (_, Strong) -> { MedianSize = 100.0; MeanSize = 200.0 }
-    | Move (_, Mid)    -> { MedianSize = 100.0; MeanSize = 150.0 }
-    | Move (_, Weak)   -> { MedianSize = 100.0; MeanSize = 120.0 }
-    | Consolidation    -> { MedianSize = 100.0; MeanSize = 110.0 }
-    | Hold (_, Strong, _) -> { MedianSize = 100.0; MeanSize = 300.0 }
-    | Hold (_, Mid, _)    -> { MedianSize = 100.0; MeanSize = 200.0 }
-    | Hold (_, Weak, _)   -> { MedianSize = 100.0; MeanSize = 150.0 }
+    | Move (_, Strong) -> { MedianSize = 100.0; MeanSize = 250.0 }
+    | Move (_, Mid)    -> { MedianSize = 100.0; MeanSize = 175.0 }
+    | Move (_, Weak)   -> { MedianSize = 100.0; MeanSize = 130.0 }
+    | Consolidation    -> { MedianSize = 100.0; MeanSize = 115.0 }
+    | Hold (_, Strong, _) -> { MedianSize = 100.0; MeanSize = 400.0 }
+    | Hold (_, Mid, _)    -> { MedianSize = 100.0; MeanSize = 250.0 }
+    | Hold (_, Weak, _)   -> { MedianSize = 100.0; MeanSize = 175.0 }
 
 let stochasticRound (rng: Random) (x: float) : int =
     let floor = Math.Floor(x)

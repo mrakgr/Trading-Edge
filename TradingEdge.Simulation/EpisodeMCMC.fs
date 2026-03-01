@@ -412,27 +412,27 @@ module TrendLevel =
 
         let strongUp = node [|
             leaf [| Move (Up, Strong) |],    1
-            strongHolds Up,                  4
+            // strongHolds Up,                  4
         |]
         let strongDown = node [|
             leaf [| Move (Down, Strong) |],  1
-            strongHolds Down,                4
+            // strongHolds Down,                4
         |]
         let midUp = node [|
             leaf [| Move (Up, Mid) |],       1
-            midHolds Up,                     2
+            // midHolds Up,                     2
         |]
         let midDown = node [|
             leaf [| Move (Down, Mid) |],     1
-            midHolds Down,                   2
+            // midHolds Down,                   2
         |]
         let weakUp = node [|
             leaf [| Move (Up, Weak) |],   1
-            weakHolds Up,                 1
+            // weakHolds Up,                 1
         |]
         let weakDown = node [|
             leaf [| Move (Down, Weak) |], 1
-            weakHolds Down,               1
+            // weakHolds Down,               1
         |]
         let consolidation = leaf [| Consolidation |]
 

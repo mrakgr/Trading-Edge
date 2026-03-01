@@ -59,9 +59,9 @@ fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
     row_heights=[3, 1], vertical_spacing=0.05,
     subplot_titles=['Price (colored by trend)', 'Trade Size'])
 
-# Precompute sizes for subsampled trades
+# Precompute sizes for subsampled trades (halved)
 import math
-sub_sizes = [math.sqrt(t['size']) for t in trades[::step]]
+sub_sizes = [0.5 * math.sqrt(t['size']) for t in trades[::step]]
 
 # Price scatter colored by trend
 for trend, color in trend_colors.items():
