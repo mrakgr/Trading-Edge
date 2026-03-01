@@ -64,10 +64,9 @@ let getHoldParams (duration: HoldDuration) : HoldParams =
 type SessionBaseline = {
     ProposalVolBps: float   // Price proposal random walk σ in bps
     RateProposalBps: float  // Rate proposal random walk σ in bps (scaled by sqrt size)
-    MeanSize: float         // Baseline mean trade size for scaling
 }
 
-let defaultBaseline = { ProposalVolBps = 0.315; RateProposalBps = 22.5; MeanSize = 100.0 }
+let defaultBaseline = { ProposalVolBps = 0.0315; RateProposalBps = 50.0 }
 
 let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     match trend with
@@ -75,9 +74,6 @@ let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     | Move (_, Mid)    -> { MedianTradesPerSecond = 17.0; MeanTradesPerSecond = 20.0 }
     | Move (_, Weak)   -> { MedianTradesPerSecond = 8.5;  MeanTradesPerSecond = 10.0 }
     | Consolidation    -> { MedianTradesPerSecond = 4.0;  MeanTradesPerSecond = 5.0 }
-    | Hold (_, Strong, Short) -> { MedianTradesPerSecond = 160.0; MeanTradesPerSecond = 213.0 }
-    | Hold (_, Mid, Short)    -> { MedianTradesPerSecond = 80.0;  MeanTradesPerSecond = 107.0 }
-    | Hold (_, Weak, Short)   -> { MedianTradesPerSecond = 40.0;  MeanTradesPerSecond = 53.0 }
     | Hold (_, Strong, _) -> { MedianTradesPerSecond = 120.0; MeanTradesPerSecond = 160.0 }
     | Hold (_, Mid, _)    -> { MedianTradesPerSecond = 60.0;  MeanTradesPerSecond = 80.0 }
     | Hold (_, Weak, _)   -> { MedianTradesPerSecond = 30.0;  MeanTradesPerSecond = 40.0 }
@@ -107,12 +103,6 @@ let stochasticRound (rng: Random) (x: float) : int =
 
 let logNormalSigma (median: float) (mean: float) : float =
     sqrt(2.0 * log(mean / median))
-
-let sampleTradeCount (rng: Random) (orderFlowParams: OrderFlowParams) (duration: float) =
-    let mu = log(orderFlowParams.MedianTradesPerSecond)
-    let sigma = logNormalSigma orderFlowParams.MedianTradesPerSecond orderFlowParams.MeanTradesPerSecond
-    let count = LogNormal(mu, sigma, rng).Sample() * duration
-    max 1 (stochasticRound rng count)
 
 let logNormalMuSigma (median: float) (mean: float) : float * float =
     let mu = log median
@@ -152,11 +142,6 @@ let sampleLogNormalAbove (rng: Random) (median: float) (mean: float) : float =
 let sampleDuration (rng: Random) (median: float) (mean: float) : float =
     let mu, sigma = logNormalMuSigma median mean
     LogNormal(mu, sigma, rng).Sample()
-
-let generateTimestamps (rng: Random) (startTime: float) (duration: float) (count: int) : float[] =
-    let timestamps = Array.init count (fun _ -> startTime + rng.NextDouble() * duration)
-    Array.sortInPlace timestamps
-    timestamps
 
 /// Multi-try step with pluggable log-density function
 let multiTryStepGeneric (rng: Random) (logPrice: float) (proposalVol: float) (logDensity: float -> float) (n: int) : float =
@@ -245,7 +230,9 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
                     else fun x -> Normal.PDFLn(holdLevel, targetSigma, x)
                 multiTryStepGeneric rng logPrice pVol logDensity 10
         | Move _ | Consolidation ->
-            fun dt size logRate logPrice -> multiTryStep rng logPrice proposalVol targetMean targetSigma 10
+            fun dt size logRate logPrice -> 
+                let sqrtSize = sqrt (float size)
+                multiTryStep rng logPrice (proposalVol * sqrtSize) targetMean targetSigma 10
 
     let rateTransition _dt size logRate logPrice =
         let sqrtSize = sqrt (float size)
@@ -253,7 +240,10 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
 
     let trades = ResizeArray<Trade>()
     let mutable logPrice = log startPrice
-    let mutable logRate = startLogRate
+    let mutable logRate = 
+        match episode.Label with
+        | Move _ | Consolidation -> startLogRate
+        | Hold _ -> Normal(logRateTarget, logRateTargetSigma, rng).Sample()
     let mutable time = 0.0
 
     while time < durationSeconds do
