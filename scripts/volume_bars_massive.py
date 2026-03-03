@@ -2,6 +2,7 @@ import json
 import sys
 import numpy as np
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from datetime import datetime
 
 def load_trades(json_path):
@@ -69,7 +70,7 @@ def create_volume_bars_vwap(trades, volume_per_bar):
     return bars
 
 def compute_bar_stats(bar_data, existing_bars):
-    """Compute VWAP and stddev for a bar."""
+    """Compute VWAP, stddev, and time duration for a bar."""
     prices = np.array([p for p, v, t in bar_data])
     volumes = np.array([v for p, v, t in bar_data])
     timestamps = [t for p, v, t in bar_data]
@@ -83,6 +84,10 @@ def compute_bar_stats(bar_data, existing_bars):
 
     cumulative_volume = existing_bars[-1]['cumulative_volume'] + total_volume if existing_bars else total_volume
 
+    # Calculate time duration in seconds
+    time_duration_ns = timestamps[-1] - timestamps[0]
+    time_duration_s = time_duration_ns / 1e9
+
     return {
         'cumulative_volume': cumulative_volume,
         'vwap': vwap,
@@ -90,6 +95,7 @@ def compute_bar_stats(bar_data, existing_bars):
         'volume': total_volume,
         'start_time': timestamps[0],
         'end_time': timestamps[-1],
+        'time_duration_s': time_duration_s,
         'num_trades': len(bar_data)
     }
 
@@ -98,18 +104,26 @@ def plot_volume_bars_vwap(bars, output_html):
     Create fixed volume bar chart with VWAP and stddev bands.
     X-axis: cumulative volume
     Y-axis: price (VWAP ± 2σ)
+    Bottom panel: time duration for each volume bar
     Uses candlesticks where:
     - Open = VWAP - 2σ
     - Close = VWAP + 2σ
     - High = VWAP + 2σ
     - Low = VWAP - 2σ
     """
-    fig = go.Figure()
+    fig = make_subplots(
+        rows=2, cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.05,
+        row_heights=[0.7, 0.3],
+        subplot_titles=['VWAP ±2σ', 'Time Duration (seconds)']
+    )
 
     x_vals = [b['cumulative_volume'] for b in bars]
     vwap_vals = [b['vwap'] for b in bars]
     upper_2sigma = [b['vwap'] + 2 * b['stddev'] for b in bars]
     lower_2sigma = [b['vwap'] - 2 * b['stddev'] for b in bars]
+    time_durations = [b['time_duration_s'] for b in bars]
 
     # Convert nanosecond timestamps to human readable
     def format_time(ns_timestamp):
@@ -124,11 +138,12 @@ def plot_volume_bars_vwap(bars, output_html):
         f"-2σ: {b['vwap'] - 2 * b['stddev']:.2f}<br>"
         f"Start: {format_time(b['start_time'])}<br>"
         f"End: {format_time(b['end_time'])}<br>"
+        f"Duration: {b['time_duration_s']:.3f}s<br>"
         f"Trades: {b['num_trades']}"
         for b in bars
     ]
 
-    # Plot as candlesticks
+    # Plot candlesticks on main panel
     fig.add_trace(go.Candlestick(
         x=x_vals,
         open=lower_2sigma,
@@ -140,7 +155,7 @@ def plot_volume_bars_vwap(bars, output_html):
         decreasing_line_color='red',
         text=hover_text,
         hoverinfo='text'
-    ))
+    ), row=1, col=1)
 
     # Add VWAP line overlay
     fig.add_trace(go.Scatter(
@@ -150,17 +165,29 @@ def plot_volume_bars_vwap(bars, output_html):
         name='VWAP',
         line=dict(color='blue', width=1),
         hoverinfo='skip'
-    ))
+    ), row=1, col=1)
+
+    # Plot time duration bars on bottom panel
+    fig.add_trace(go.Bar(
+        x=x_vals,
+        y=time_durations,
+        name='Time Duration',
+        marker_color='rgba(100, 150, 200, 0.6)',
+        hovertemplate='Volume: %{x:,.0f}<br>Duration: %{y:.3f}s<extra></extra>'
+    ), row=2, col=1)
 
     fig.update_layout(
-        title='Fixed Volume Bars - VWAP with ±2σ Bands (Massive Data)',
-        xaxis_title='Cumulative Volume',
-        yaxis_title='Price',
-        height=800,
+        title='Fixed Volume Bars - VWAP with ±2σ Bands and Time Duration (Massive Data)',
+        height=1000,
         width=1400,
         hovermode='x unified',
-        xaxis_rangeslider_visible=False
+        xaxis2_title='Cumulative Volume',
+        showlegend=True
     )
+
+    fig.update_xaxes(rangeslider_visible=False, row=1, col=1)
+    fig.update_yaxes(title_text='Price', row=1, col=1)
+    fig.update_yaxes(title_text='Seconds', row=2, col=1)
 
     fig.write_html(output_html)
     print(f'Saved to {output_html}')
