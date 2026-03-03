@@ -222,11 +222,11 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
                             fun x -> Normal.PDFLn(holdLevel, tightSigma, x)
                         | Bid ->
                             fun x ->
-                                let massLn = if x <= holdLevel then logPinned else logUnpinned
+                                let massLn = if x >= holdLevel then logPinned else logUnpinned
                                 Normal.PDFLn(holdLevel, tightSigma, x) + massLn
                         | Ask ->
                             fun x ->
-                                let massLn = if x >= holdLevel then logPinned else logUnpinned
+                                let massLn = if x <= holdLevel then logPinned else logUnpinned
                                 Normal.PDFLn(holdLevel, tightSigma, x) + massLn
                     else fun x -> Normal.PDFLn(holdLevel, targetSigma, x)
                 let sqrtSize = sqrt (float size)
