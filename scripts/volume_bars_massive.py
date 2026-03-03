@@ -1,0 +1,182 @@
+import json
+import sys
+import numpy as np
+import plotly.graph_objects as go
+from datetime import datetime
+
+def load_trades(json_path):
+    """Load trades from Massive JSON file."""
+    with open(json_path) as f:
+        trades = json.load(f)
+
+    # Sort by participant_timestamp
+    trades.sort(key=lambda t: t['participant_timestamp'])
+    return trades
+
+def create_volume_bars_vwap(trades, volume_per_bar):
+    """
+    Group trades into fixed volume chunks and compute VWAP with stddev.
+
+    Splits trades across bars when they exceed the volume threshold.
+
+    Returns list of bars with:
+    - cumulative_volume: x-axis position
+    - vwap: volume-weighted average price
+    - stddev: standard deviation of prices
+    - start_time, end_time: time range (participant_timestamp)
+    - num_trades: number of trades (partial trades count fractionally)
+    """
+    bars = []
+    current_volume = 0
+    bar_data = []  # List of (price, volume, timestamp) tuples
+
+    for trade in trades:
+        price = trade['price']
+        size = trade['size']
+        timestamp = trade['participant_timestamp']
+
+        remaining_size = size
+
+        while remaining_size > 0:
+            space_left = volume_per_bar - current_volume
+
+            if remaining_size <= space_left:
+                # Trade fits in current bar
+                bar_data.append((price, remaining_size, timestamp))
+                current_volume += remaining_size
+                remaining_size = 0
+            else:
+                # Split trade: fill current bar and continue to next
+                if space_left > 0:
+                    bar_data.append((price, space_left, timestamp))
+                    current_volume += space_left
+                    remaining_size -= space_left
+
+                # Complete current bar
+                if current_volume >= volume_per_bar:
+                    bar = compute_bar_stats(bar_data, bars)
+                    bars.append(bar)
+
+                    # Reset for next bar
+                    current_volume = 0
+                    bar_data = []
+
+    # Handle remaining data
+    if bar_data:
+        bar = compute_bar_stats(bar_data, bars)
+        bars.append(bar)
+
+    return bars
+
+def compute_bar_stats(bar_data, existing_bars):
+    """Compute VWAP and stddev for a bar."""
+    prices = np.array([p for p, v, t in bar_data])
+    volumes = np.array([v for p, v, t in bar_data])
+    timestamps = [t for p, v, t in bar_data]
+
+    total_volume = volumes.sum()
+    vwap = np.sum(prices * volumes) / total_volume
+
+    # Weighted standard deviation
+    variance = np.sum(volumes * (prices - vwap) ** 2) / total_volume
+    stddev = np.sqrt(variance)
+
+    cumulative_volume = existing_bars[-1]['cumulative_volume'] + total_volume if existing_bars else total_volume
+
+    return {
+        'cumulative_volume': cumulative_volume,
+        'vwap': vwap,
+        'stddev': stddev,
+        'volume': total_volume,
+        'start_time': timestamps[0],
+        'end_time': timestamps[-1],
+        'num_trades': len(bar_data)
+    }
+
+def plot_volume_bars_vwap(bars, output_html):
+    """
+    Create fixed volume bar chart with VWAP and stddev bands.
+    X-axis: cumulative volume
+    Y-axis: price (VWAP ± 2σ)
+    Uses candlesticks where:
+    - Open = VWAP - 2σ
+    - Close = VWAP + 2σ
+    - High = VWAP + 2σ
+    - Low = VWAP - 2σ
+    """
+    fig = go.Figure()
+
+    x_vals = [b['cumulative_volume'] for b in bars]
+    vwap_vals = [b['vwap'] for b in bars]
+    upper_2sigma = [b['vwap'] + 2 * b['stddev'] for b in bars]
+    lower_2sigma = [b['vwap'] - 2 * b['stddev'] for b in bars]
+
+    # Convert nanosecond timestamps to human readable
+    def format_time(ns_timestamp):
+        dt = datetime.fromtimestamp(ns_timestamp / 1e9)
+        return dt.strftime('%H:%M:%S.%f')[:-3]  # Include milliseconds
+
+    hover_text = [
+        f"Volume: {b['cumulative_volume']:,.0f}<br>"
+        f"VWAP: {b['vwap']:.2f}<br>"
+        f"StdDev: {b['stddev']:.4f}<br>"
+        f"+2σ: {b['vwap'] + 2 * b['stddev']:.2f}<br>"
+        f"-2σ: {b['vwap'] - 2 * b['stddev']:.2f}<br>"
+        f"Start: {format_time(b['start_time'])}<br>"
+        f"End: {format_time(b['end_time'])}<br>"
+        f"Trades: {b['num_trades']}"
+        for b in bars
+    ]
+
+    # Plot as candlesticks
+    fig.add_trace(go.Candlestick(
+        x=x_vals,
+        open=lower_2sigma,
+        high=upper_2sigma,
+        low=lower_2sigma,
+        close=upper_2sigma,
+        name='VWAP ±2σ',
+        increasing_line_color='green',
+        decreasing_line_color='red',
+        text=hover_text,
+        hoverinfo='text'
+    ))
+
+    # Add VWAP line overlay
+    fig.add_trace(go.Scatter(
+        x=x_vals,
+        y=vwap_vals,
+        mode='lines',
+        name='VWAP',
+        line=dict(color='blue', width=1),
+        hoverinfo='skip'
+    ))
+
+    fig.update_layout(
+        title='Fixed Volume Bars - VWAP with ±2σ Bands (Massive Data)',
+        xaxis_title='Cumulative Volume',
+        yaxis_title='Price',
+        height=800,
+        width=1400,
+        hovermode='x unified',
+        xaxis_rangeslider_visible=False
+    )
+
+    fig.write_html(output_html)
+    print(f'Saved to {output_html}')
+
+if __name__ == '__main__':
+    input_json = sys.argv[1] if len(sys.argv) > 1 else 'data/trades/LW/2025-12-19.json'
+    volume_per_bar = int(sys.argv[2]) if len(sys.argv) > 2 else 10000
+    output_html = sys.argv[3] if len(sys.argv) > 3 else 'data/volume_bars_massive.html'
+
+    print(f'Loading trades from {input_json}...')
+    trades = load_trades(input_json)
+    print(f'Loaded {len(trades)} trades')
+
+    print(f'Creating volume bars with {volume_per_bar} volume per bar...')
+    bars = create_volume_bars_vwap(trades, volume_per_bar)
+    print(f'Created {len(bars)} volume bars')
+
+    print(f'Plotting...')
+    plot_volume_bars_vwap(bars, output_html)
