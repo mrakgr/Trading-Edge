@@ -264,6 +264,16 @@ def plot_volume_bars(bars, output_html, input_csv):
             Plotly.relayout(gd, {'dragmode': newMode});
         }
     });
+    document.addEventListener('keydown', function(e) {
+        var gd = document.querySelector('.plotly-graph-div');
+        if (e.key === 'a') {
+            Plotly.relayout(gd, {'dragmode': 'zoom'});
+        } else if (e.key === 's') {
+            Plotly.relayout(gd, {'dragmode': 'pan'});
+        } else if (e.key === 'd') {
+            Plotly.relayout(gd, {'dragmode': 'select'});
+        }
+    });
     """
 
     fig.write_html(output_html, config=config, post_script=post_script)
