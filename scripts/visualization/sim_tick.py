@@ -50,35 +50,34 @@ for t in trades:
 if in_hold:
     hold_ends.append(trades[-1]['time'] / 60.0)
 
-# Subsample for plotting (every 10th trade)
-step = 10
-times = [t['time'] / 60.0 for t in trades[::step]]
-prices = [t['price'] for t in trades[::step]]
-colors = [trend_colors.get(t['trend'], 'black') for t in trades[::step]]
+# Plot all trades
+times = [t['time'] / 60.0 for t in trades]
+prices = [t['price'] for t in trades]
+colors = [trend_colors.get(t['trend'], 'black') for t in trades]
 
 fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
     row_heights=[3, 1], vertical_spacing=0.05,
     subplot_titles=['Price (colored by trend)', 'Trade Size'])
 
-# Precompute sizes for subsampled trades (halved)
+# Precompute marker sizes
 import math
-sub_sizes = [0.5 * math.sqrt(t['size']) for t in trades[::step]]
+marker_sizes = [0.5 * math.sqrt(t['size']) for t in trades]
 
 # Price scatter colored by trend
 for trend, color in trend_colors.items():
-    idx = [i for i, t in enumerate(trades[::step]) if t['trend'] == trend]
+    idx = [i for i, t in enumerate(trades) if t['trend'] == trend]
     if idx:
         fig.add_trace(go.Scattergl(
             x=[times[i] for i in idx],
             y=[prices[i] for i in idx],
-            mode='markers', marker=dict(size=[sub_sizes[i] for i in idx], color=color),
+            mode='markers', marker=dict(size=[marker_sizes[i] for i in idx], color=color),
             name=trend
         ), row=1, col=1)
 
-# Target mean and stddev bands (subsampled)
-target_means = [t['target_mean'] for t in trades[::step]]
-target_upper = [t['target_mean'] + t['target_sigma'] for t in trades[::step]]
-target_lower = [t['target_mean'] - t['target_sigma'] for t in trades[::step]]
+# Target mean and stddev bands
+target_means = [t['target_mean'] for t in trades]
+target_upper = [t['target_mean'] + t['target_sigma'] for t in trades]
+target_lower = [t['target_mean'] - t['target_sigma'] for t in trades]
 
 fig.add_trace(go.Scattergl(
     x=times, y=target_means, mode='lines',
@@ -101,7 +100,7 @@ fig.add_trace(go.Scattergl(
 hold_upper_x, hold_upper_y = [], []
 hold_lower_x, hold_lower_y = [], []
 prev_was_hold = False
-for t in trades[::step]:
+for t in trades:
     if is_hold(t['trend']):
         if not prev_was_hold:
             hold_upper_x.append(None); hold_upper_y.append(None)
@@ -130,11 +129,11 @@ if hold_upper_x:
 for s, e in zip(hold_starts, hold_ends):
     fig.add_vrect(x0=s, x1=e, fillcolor='red', opacity=0.08, line_width=0, row=1, col=1)
 
-# Volume (subsampled)
-sizes = [t['size'] for t in trades[::step]]
+# Volume
+sizes = [t['size'] for t in trades]
 fig.add_trace(go.Scattergl(
     x=times, y=sizes, mode='markers',
-    marker=dict(size=sub_sizes, color='blue', opacity=0.3),
+    marker=dict(size=marker_sizes, color='blue', opacity=0.3),
     name='Size', showlegend=False
 ), row=2, col=1)
 

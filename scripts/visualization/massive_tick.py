@@ -26,12 +26,11 @@ def plot_trades(trades, output_html, market_open=15.5, market_close=22.0):
     print(f'Filtered to {len(filtered)} trades ({market_open}:00-{market_close}:00 UTC)')
     trades = filtered
 
-    # Subsample for plotting
-    step = max(1, len(trades) // 10000)
-    times = [datetime.fromtimestamp(t['participant_timestamp'] / 1e9) for t in trades[::step]]
-    prices = [t['price'] for t in trades[::step]]
-    sizes = [t['size'] for t in trades[::step]]
-    sub_sizes = [0.5 * math.sqrt(s) for s in sizes]
+    # Plot all trades (Scattergl handles large datasets efficiently)
+    times = [datetime.fromtimestamp(t['participant_timestamp'] / 1e9) for t in trades]
+    prices = [t['price'] for t in trades]
+    sizes = [t['size'] for t in trades]
+    marker_sizes = [0.5 * math.sqrt(s) for s in sizes]
 
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
         row_heights=[3, 1], vertical_spacing=0.05,
@@ -39,13 +38,13 @@ def plot_trades(trades, output_html, market_open=15.5, market_close=22.0):
 
     fig.add_trace(go.Scattergl(
         x=times, y=prices, mode='markers',
-        marker=dict(size=sub_sizes, color='blue', opacity=0.3),
+        marker=dict(size=marker_sizes, color='blue', opacity=0.3),
         name='Price'
     ), row=1, col=1)
 
     fig.add_trace(go.Scattergl(
         x=times, y=sizes, mode='markers',
-        marker=dict(size=sub_sizes, color='blue', opacity=0.3),
+        marker=dict(size=marker_sizes, color='blue', opacity=0.3),
         name='Size', showlegend=False
     ), row=2, col=1)
 
