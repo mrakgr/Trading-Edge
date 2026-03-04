@@ -2,6 +2,7 @@ import json
 import sys
 import numpy as np
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from datetime import datetime
 
 def load_trades(json_path):
@@ -80,7 +81,13 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
     X-axis: time
     Y-axis: price
     """
-    fig = go.Figure()
+    fig = make_subplots(
+        rows=2, cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.05,
+        row_heights=[0.7, 0.3],
+        subplot_titles=['Price', 'Volume']
+    )
 
     # Convert nanosecond timestamps to datetime
     def ns_to_datetime(ns_timestamp):
@@ -91,6 +98,7 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
     high_vals = [b['high'] for b in bars]
     low_vals = [b['low'] for b in bars]
     close_vals = [b['close'] for b in bars]
+    volumes = [b['volume'] for b in bars]
 
     hover_text = [
         f"Time: {ns_to_datetime(b['timestamp']).strftime('%H:%M:%S')}<br>"
@@ -111,17 +119,28 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
         name='Price',
         text=hover_text,
         hoverinfo='text'
-    ))
+    ), row=1, col=1)
+
+    fig.add_trace(go.Bar(
+        x=x_vals,
+        y=volumes,
+        name='Volume',
+        marker_color='blue',
+        opacity=0.5
+    ), row=2, col=1)
 
     fig.update_layout(
         title=f'Traditional Candlestick Chart ({seconds_per_bar}s bars) - Massive Data',
-        xaxis_title='Time',
-        yaxis_title='Price',
-        height=800,
+        height=900,
         width=1400,
         hovermode='x unified',
-        xaxis_rangeslider_visible=False
+        showlegend=False,
+        xaxis2_title='Time'
     )
+
+    fig.update_xaxes(rangeslider_visible=False, row=1, col=1)
+    fig.update_yaxes(title_text='Price', row=1, col=1)
+    fig.update_yaxes(title_text='Volume', row=2, col=1)
 
     config = {
         'scrollZoom': True,

@@ -219,20 +219,14 @@ def plot_volume_bars(bars, output_html, input_csv):
         fig.add_vrect(x0=hold_start, x1=bars[-1]['cumulative_volume'],
                      fillcolor='red', opacity=0.08, line_width=0, row=1, col=1)
 
-    # Time duration markers sized by sqrt of duration, colored by trend
+    # Time duration bars colored by trend
     bar_colors = [get_trend_color(b['dominant_trend'], hold_color_map) for b in bars]
-    marker_sizes = [3 * np.sqrt(d) for d in time_durations]
-    fig.add_trace(go.Scatter(
+    fig.add_trace(go.Bar(
         x=x_vals,
         y=time_durations,
-        mode='markers',
         name='Time Duration',
-        marker=dict(
-            size=marker_sizes,
-            color=bar_colors,
-            opacity=0.6,
-            line=dict(width=0)
-        ),
+        marker_color=bar_colors,
+        opacity=0.6,
         hovertemplate='Volume: %{x:,.0f}<br>Duration: %{y:.3f}s<extra></extra>'
     ), row=2, col=1)
 

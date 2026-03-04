@@ -1,6 +1,7 @@
 import csv
 import sys
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 def load_trades(csv_path):
     trades = []
@@ -56,13 +57,20 @@ def compute_bar_ohlc(bar_trades, bar_start_time):
     }
 
 def plot_candlesticks(bars, output_html, seconds_per_bar):
-    fig = go.Figure()
+    fig = make_subplots(
+        rows=2, cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.05,
+        row_heights=[0.7, 0.3],
+        subplot_titles=['Price', 'Volume']
+    )
 
     x_vals = [b['timestamp'] / 60.0 for b in bars]
     open_vals = [b['open'] for b in bars]
     high_vals = [b['high'] for b in bars]
     low_vals = [b['low'] for b in bars]
     close_vals = [b['close'] for b in bars]
+    volumes = [b['volume'] for b in bars]
 
     hover_text = [
         f"Time: {b['timestamp']/60:.2f}m<br>"
@@ -82,17 +90,28 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
         name='Price',
         text=hover_text,
         hoverinfo='text'
-    ))
+    ), row=1, col=1)
+
+    fig.add_trace(go.Bar(
+        x=x_vals,
+        y=volumes,
+        name='Volume',
+        marker_color='blue',
+        opacity=0.5
+    ), row=2, col=1)
 
     fig.update_layout(
         title=f'Candlestick Chart ({seconds_per_bar}s bars) - Simulation Data',
-        xaxis_title='Time (minutes)',
-        yaxis_title='Price',
-        height=800,
+        height=900,
         width=1400,
         hovermode='x unified',
-        xaxis_rangeslider_visible=False
+        showlegend=False,
+        xaxis2_title='Time (minutes)'
     )
+
+    fig.update_xaxes(rangeslider_visible=False, row=1, col=1)
+    fig.update_yaxes(title_text='Price', row=1, col=1)
+    fig.update_yaxes(title_text='Volume', row=2, col=1)
 
     config = {
         'scrollZoom': True,
