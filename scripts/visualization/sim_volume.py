@@ -282,7 +282,7 @@ def plot_volume_bars(bars, output_html, input_csv):
 if __name__ == '__main__':
     input_csv = sys.argv[1] if len(sys.argv) > 1 else 'data/test_hmm.csv'
     volume_per_bar = int(sys.argv[2]) if len(sys.argv) > 2 else 10000
-    output_html = sys.argv[3] if len(sys.argv) > 3 else 'data/equivolume_chart.html'
+    output_html = sys.argv[3] if len(sys.argv) > 3 else 'data/charts/sim_volume.html'
 
     print(f'Loading trades from {input_csv}...')
     trades = load_trades(input_csv)

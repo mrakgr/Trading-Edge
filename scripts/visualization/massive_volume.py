@@ -228,7 +228,7 @@ def plot_volume_bars_vwap(bars, output_html):
 if __name__ == '__main__':
     input_json = sys.argv[1] if len(sys.argv) > 1 else 'data/trades/LW/2025-12-19.json'
     volume_per_bar = int(sys.argv[2]) if len(sys.argv) > 2 else 10000
-    output_html = sys.argv[3] if len(sys.argv) > 3 else 'data/volume_bars_massive.html'
+    output_html = sys.argv[3] if len(sys.argv) > 3 else 'data/charts/massive_volume.html'
     market_open = float(sys.argv[4]) if len(sys.argv) > 4 else 15.5   # UTC (10:30 ET)
     market_close = float(sys.argv[5]) if len(sys.argv) > 5 else 22.0  # UTC (17:00 ET)
 
