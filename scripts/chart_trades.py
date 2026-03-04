@@ -142,5 +142,22 @@ fig.update_layout(height=900, width=1400, title=f'Trade Data ({input_csv})',
 fig.update_yaxes(title_text='Price', row=1, col=1)
 fig.update_yaxes(title_text='Size', row=2, col=1)
 
-fig.write_html(output_html)
+config = {
+    'scrollZoom': True,
+    'displayModeBar': True
+}
+
+post_script = """
+document.addEventListener('mousedown', function(e) {
+    if (e.button === 1) {
+        e.preventDefault();
+        var gd = document.querySelector('.plotly-graph-div');
+        var currentMode = gd.layout.dragmode;
+        var newMode = currentMode === 'zoom' ? 'pan' : 'zoom';
+        Plotly.relayout(gd, {'dragmode': newMode});
+    }
+});
+"""
+
+fig.write_html(output_html, config=config, post_script=post_script)
 print(f'Written to {output_html}')

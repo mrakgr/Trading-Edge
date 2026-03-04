@@ -123,7 +123,24 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
         xaxis_rangeslider_visible=False
     )
 
-    fig.write_html(output_html)
+    config = {
+        'scrollZoom': True,
+        'displayModeBar': True
+    }
+
+    post_script = """
+    document.addEventListener('mousedown', function(e) {
+        if (e.button === 1) {
+            e.preventDefault();
+            var gd = document.querySelector('.plotly-graph-div');
+            var currentMode = gd.layout.dragmode;
+            var newMode = currentMode === 'zoom' ? 'pan' : 'zoom';
+            Plotly.relayout(gd, {'dragmode': newMode});
+        }
+    });
+    """
+
+    fig.write_html(output_html, config=config, post_script=post_script)
     print(f'Saved to {output_html}')
 
 if __name__ == '__main__':
