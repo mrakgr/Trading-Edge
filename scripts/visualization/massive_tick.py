@@ -1,5 +1,6 @@
 import json
 import sys
+import os
 import math
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -58,27 +59,9 @@ def plot_trades(trades, output_html, market_open=15.5, market_close=22.0):
         'displayModeBar': True
     }
 
-    post_script = """
-    document.addEventListener('mousedown', function(e) {
-        if (e.button === 1) {
-            e.preventDefault();
-            var gd = document.querySelector('.plotly-graph-div');
-            var currentMode = gd.layout.dragmode;
-            var newMode = currentMode === 'zoom' ? 'pan' : 'zoom';
-            Plotly.relayout(gd, {'dragmode': newMode});
-        }
-    });
-    document.addEventListener('keydown', function(e) {
-        var gd = document.querySelector('.plotly-graph-div');
-        if (e.key === 'a') {
-            Plotly.relayout(gd, {'dragmode': 'zoom'});
-        } else if (e.key === 's') {
-            Plotly.relayout(gd, {'dragmode': 'pan'});
-        } else if (e.key === 'd') {
-            Plotly.relayout(gd, {'dragmode': 'select'});
-        }
-    });
-    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(script_dir, 'chart_controls.js')) as f:
+        post_script = f.read()
 
     fig.write_html(output_html, config=config, post_script=post_script)
     print(f'Saved to {output_html}')
