@@ -109,7 +109,7 @@ def compute_bar_stats(bar_data, existing_bars):
 
 trend_colors = {
     'StrongUp': 'darkgreen', 'MidUp': 'green', 'WeakUp': 'lightgreen',
-    'Consol': 'gray',
+    'Consol': 'black',
     'WeakDown': 'lightsalmon', 'MidDown': 'orange', 'StrongDown': 'darkred'
 }
 
@@ -227,7 +227,6 @@ def plot_volume_bars(bars, output_html, input_csv):
         y=time_durations,
         name='Time Duration',
         marker_color=bar_colors,
-        opacity=0.6,
         hovertemplate='Volume: %{x:,.0f}<br>Duration: %{y:.3f}s<extra></extra>'
     ), row=2, col=1)
 
