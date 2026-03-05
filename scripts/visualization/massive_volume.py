@@ -210,7 +210,9 @@ if __name__ == '__main__':
     else:
         ticker = os.path.basename(os.path.dirname(input_json))
         date = os.path.splitext(os.path.basename(input_json))[0]
-        output_html = f'data/charts/massive_{ticker}_{date}_volume.html'
+        output_dir = f'data/charts/massive/{ticker}_{date}'
+        os.makedirs(output_dir, exist_ok=True)
+        output_html = f'{output_dir}/volume.html'
     market_open = float(sys.argv[4]) if len(sys.argv) > 4 else 15.5   # UTC (10:30 ET)
     market_close = float(sys.argv[5]) if len(sys.argv) > 5 else 22.0  # UTC (17:00 ET)
 

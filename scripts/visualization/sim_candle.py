@@ -133,8 +133,9 @@ if __name__ == '__main__':
         output_html = sys.argv[3]
     else:
         basename = os.path.splitext(os.path.basename(input_csv))[0]
-        seed = basename.split('_')[-1] if '_' in basename else 'default'
-        output_html = f'data/charts/sim_{seed}_candle.html'
+        output_dir = f'data/charts/sim/{basename}'
+        os.makedirs(output_dir, exist_ok=True)
+        output_html = f'{output_dir}/candle.html'
 
     print(f'Loading trades from {input_csv}...')
     trades = load_trades(input_csv)

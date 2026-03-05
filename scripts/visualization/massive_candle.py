@@ -163,7 +163,9 @@ if __name__ == '__main__':
     else:
         ticker = os.path.basename(os.path.dirname(input_json))
         date = os.path.splitext(os.path.basename(input_json))[0]
-        output_html = f'data/charts/massive_{ticker}_{date}_candle.html'
+        output_dir = f'data/charts/massive/{ticker}_{date}'
+        os.makedirs(output_dir, exist_ok=True)
+        output_html = f'{output_dir}/candle.html'
 
     print(f'Loading trades from {input_json}...')
     trades = load_trades(input_json)

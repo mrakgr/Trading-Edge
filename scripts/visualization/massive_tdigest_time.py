@@ -121,6 +121,8 @@ if __name__ == '__main__':
     else:
         ticker = os.path.basename(os.path.dirname(json_path))
         date = os.path.splitext(os.path.basename(json_path))[0]
-        output_html = f'data/charts/massive_{ticker}_{date}_tdigest_time.html'
+        output_dir = f'data/charts/massive/{ticker}_{date}'
+        os.makedirs(output_dir, exist_ok=True)
+        output_html = f'{output_dir}/tdigest_time.html'
 
     plot_tdigest(json_path, output_html, market_open, market_close)

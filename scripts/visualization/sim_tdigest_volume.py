@@ -101,7 +101,8 @@ if __name__ == '__main__':
         output_html = sys.argv[2]
     else:
         basename = os.path.splitext(os.path.basename(csv_path))[0]
-        seed = basename.split('_')[-1]
-        output_html = f'data/charts/sim_{seed}_tdigest_volume.html'
+        output_dir = f'data/charts/sim/{basename}'
+        os.makedirs(output_dir, exist_ok=True)
+        output_html = f'{output_dir}/tdigest_volume.html'
 
     plot_tdigest(csv_path, output_html)

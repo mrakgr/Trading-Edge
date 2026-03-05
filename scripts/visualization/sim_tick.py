@@ -9,8 +9,9 @@ if len(sys.argv) > 2:
     output_html = sys.argv[2]
 else:
     basename = os.path.splitext(os.path.basename(input_csv))[0]
-    seed = basename.split('_')[-1] if '_' in basename else 'default'
-    output_html = f'data/charts/sim_{seed}_tick.html'
+    output_dir = f'data/charts/sim/{basename}'
+    os.makedirs(output_dir, exist_ok=True)
+    output_html = f'{output_dir}/tick.html'
 
 trades = []
 with open(input_csv) as f:
@@ -60,13 +61,21 @@ times = [t['time'] / 60.0 for t in trades]
 prices = [t['price'] for t in trades]
 colors = [trend_colors.get(t['trend'], 'black') for t in trades]
 
-fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
-    row_heights=[3, 1], vertical_spacing=0.05,
-    subplot_titles=['Price (colored by trend)', 'Trade Size'])
-
 # Precompute marker sizes
 import math
 marker_sizes = [0.5 * math.sqrt(t['size']) for t in trades]
+
+hover_text = [
+    f"Time: {t['time']/60:.2f}m<br>"
+    f"Price: ${t['price']:.4f}<br>"
+    f"Size: {t['size']:,}<br>"
+    f"Trend: {t['trend']}"
+    for t in trades
+]
+
+fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
+    row_heights=[3, 1], vertical_spacing=0.05,
+    subplot_titles=['Price (colored by trend)', 'Trade Size'])
 
 # Price scatter colored by trend
 for trend, color in trend_colors.items():
@@ -76,6 +85,8 @@ for trend, color in trend_colors.items():
             x=[times[i] for i in idx],
             y=[prices[i] for i in idx],
             mode='markers', marker=dict(size=[marker_sizes[i] for i in idx], color=color),
+            text=[hover_text[i] for i in idx],
+            hoverinfo='text',
             name=trend
         ), row=1, col=1)
 
@@ -139,6 +150,8 @@ sizes = [t['size'] for t in trades]
 fig.add_trace(go.Scattergl(
     x=times, y=sizes, mode='markers',
     marker=dict(size=marker_sizes, color='blue', opacity=0.3),
+    text=hover_text,
+    hoverinfo='text',
     name='Size', showlegend=False
 ), row=2, col=1)
 
