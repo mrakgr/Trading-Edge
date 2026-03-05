@@ -111,6 +111,7 @@ if __name__ == '__main__':
         output_html = sys.argv[2]
     else:
         basename = os.path.splitext(os.path.basename(csv_path))[0]
-        output_html = f'data/charts/sim_tdigest_time_{basename}.html'
+        seed = basename.split('_')[-1]
+        output_html = f'data/charts/sim_tdigest_time_{seed}.html'
 
     plot_tdigest(csv_path, output_html)

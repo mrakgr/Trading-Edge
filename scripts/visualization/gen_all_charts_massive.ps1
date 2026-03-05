@@ -1,0 +1,26 @@
+param(
+    [string[]]$Files = @('data/trades/LW/2025-12-19.json'),
+    [int]$SecondsPerBar = 60,
+    [int]$VolumePerBar = 10000,
+    [double]$MarketOpen = 15.5,
+    [double]$MarketClose = 22.0
+)
+
+foreach ($file in $Files) {
+    $ticker = Split-Path (Split-Path $file -Parent) -Leaf
+    $date = [System.IO.Path]::GetFileNameWithoutExtension($file)
+    $basename = "${ticker}_${date}"
+    Write-Host "Generating all charts for $basename..."
+
+    # Generate t-digest charts
+    python3 scripts/visualization/massive_tdigest_volume.py $file
+    python3 scripts/visualization/massive_tdigest_time.py $file $MarketOpen $MarketClose
+    python3 scripts/visualization/massive_tdigest_volume_duration.py $file $VolumePerBar $MarketOpen $MarketClose
+
+    # Generate regular charts
+    python3 scripts/visualization/massive_tick.py $file "data/charts/massive_tick_$basename.html" $MarketOpen $MarketClose
+    python3 scripts/visualization/massive_candle.py $file $SecondsPerBar "data/charts/massive_candle_$basename.html"
+    python3 scripts/visualization/massive_volume.py $file $VolumePerBar "data/charts/massive_volume_$basename.html" $MarketOpen $MarketClose
+}
+
+Write-Host "Done generating all charts."
