@@ -15,7 +15,7 @@ def load_trades(csv_path):
 
 def plot_tdigest(json_path, output_html):
     trades = load_trades(json_path)
-    sizes = [t['size'] for t in trades]
+    sizes = [t['size'] for t in trades if t['size'] > 0]
 
     # Build t-digest
     digest = TDigest(delta=0.00022, K=1024)
@@ -26,8 +26,10 @@ def plot_tdigest(json_path, output_html):
     quantiles = np.linspace(0, 1, 1000)
     values = [digest.percentile(q * 100) for q in quantiles]
 
-    # Get median
+    # Get median and range
     median = digest.percentile(50)
+    min_val = max(min(sizes), 1e-10)
+    max_val = max(sizes)
 
     fig = go.Figure()
 
@@ -52,6 +54,8 @@ def plot_tdigest(json_path, output_html):
         title=f'T-Digest of Trade Sizes ({len(trades):,} trades)',
         xaxis_title='Trade Size',
         yaxis_title='Cumulative Probability',
+        xaxis_type='log',
+        xaxis_range=[np.log10(min_val), np.log10(max_val)],
         hovermode='x',
         template='plotly_white'
     )
@@ -97,6 +101,6 @@ if __name__ == '__main__':
         output_html = sys.argv[2]
     else:
         basename = os.path.splitext(os.path.basename(csv_path))[0]
-        output_html = f'data/charts/sim_tdigest_{basename}.html'
+        output_html = f'data/charts/sim_tdigest_volume_{basename}.html'
 
     plot_tdigest(csv_path, output_html)

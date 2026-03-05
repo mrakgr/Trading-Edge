@@ -1,24 +1,36 @@
-import json
+import csv
 import sys
 import os
 import numpy as np
 import plotly.graph_objects as go
 from tdigest import TDigest
 
-def load_trades(json_path):
-    with open(json_path) as f:
-        trades = json.load(f)
-    trades.sort(key=lambda t: t['participant_timestamp'])
+def load_trades(csv_path):
+    trades = []
+    with open(csv_path) as f:
+        r = csv.DictReader(f)
+        for row in r:
+            trades.append({
+                'time': float(row['time']),
+                'size': int(row['size'])
+            })
     return trades
 
-def plot_tdigest(json_path, output_html):
-    trades = load_trades(json_path)
-    sizes = [t['size'] for t in trades if t['size'] > 0]
+def plot_tdigest(csv_path, output_html):
+    trades = load_trades(csv_path)
+    trades = [t for t in trades if t['size'] > 0]
+
+    # Calculate time deltas in seconds (time is in minutes)
+    deltas = []
+    for i in range(1, len(trades)):
+        delta_min = trades[i]['time'] - trades[i-1]['time']
+        delta_s = delta_min * 60
+        deltas.append(delta_s)
 
     # Build t-digest
     digest = TDigest(delta=0.00022, K=1024)
-    for size in sizes:
-        digest.update(size)
+    for d in deltas:
+        digest.update(d)
 
     # Get quantiles for plotting
     quantiles = np.linspace(0, 1, 1000)
@@ -26,8 +38,8 @@ def plot_tdigest(json_path, output_html):
 
     # Get median and range
     median = digest.percentile(50)
-    min_val = max(min(sizes), 1e-10)
-    max_val = max(sizes)
+    min_val = max(min(deltas), 1e-10)
+    max_val = max(deltas)
 
     fig = go.Figure()
 
@@ -42,15 +54,15 @@ def plot_tdigest(json_path, output_html):
 
     # Mark median
     fig.add_vline(x=median, line_dash="dash", line_color="red",
-                  annotation_text=f"Median: {median:.0f}")
+                  annotation_text=f"Median: {median:.3f}s")
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(script_dir, 'chart_controls.js')) as f:
         post_script = f.read()
 
     fig.update_layout(
-        title=f'T-Digest of Trade Sizes ({len(trades):,} trades)',
-        xaxis_title='Trade Size',
+        title=f'T-Digest of Time Deltas ({len(deltas):,} intervals)',
+        xaxis_title='Time Delta (seconds)',
         yaxis_title='Cumulative Probability',
         xaxis_type='log',
         xaxis_range=[np.log10(min_val), np.log10(max_val)],
@@ -84,22 +96,21 @@ def plot_tdigest(json_path, output_html):
 
     print(f"Saved to {output_html}")
     print(f"Centroids: {len(digest.C)}")
-    print(f"Average: {overall_mean:.2f}")
-    print(f"Median: {median:.2f}")
-    print(f"Bottom 50% avg: {bottom_mean:.2f}")
-    print(f"Top 50% avg: {top_mean:.2f}")
-    print(f"P25: {digest.percentile(25):.2f}")
-    print(f"P75: {digest.percentile(75):.2f}")
-    print(f"P95: {digest.percentile(95):.2f}")
+    print(f"Average: {overall_mean:.4f}s")
+    print(f"Median: {median:.4f}s")
+    print(f"Bottom 50% avg: {bottom_mean:.4f}s")
+    print(f"Top 50% avg: {top_mean:.4f}s")
+    print(f"P25: {digest.percentile(25):.4f}s")
+    print(f"P75: {digest.percentile(75):.4f}s")
+    print(f"P95: {digest.percentile(95):.4f}s")
 
 if __name__ == '__main__':
-    json_path = sys.argv[1] if len(sys.argv) > 1 else 'data/trades/LW/2025-12-19.json'
+    csv_path = sys.argv[1] if len(sys.argv) > 1 else 'data/test_hmm_42.csv'
 
     if len(sys.argv) > 2:
         output_html = sys.argv[2]
     else:
-        ticker = os.path.basename(os.path.dirname(json_path))
-        date = os.path.splitext(os.path.basename(json_path))[0]
-        output_html = f'data/charts/massive_tdigest_volume_{ticker}_{date}.html'
+        basename = os.path.splitext(os.path.basename(csv_path))[0]
+        output_html = f'data/charts/sim_tdigest_time_{basename}.html'
 
-    plot_tdigest(json_path, output_html)
+    plot_tdigest(csv_path, output_html)
