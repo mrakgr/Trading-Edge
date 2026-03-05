@@ -67,7 +67,12 @@ def plot_trades(trades, output_html, market_open=15.5, market_close=22.0):
 
 if __name__ == '__main__':
     input_json = sys.argv[1] if len(sys.argv) > 1 else 'data/trades/LW/2025-12-19.json'
-    output_html = sys.argv[2] if len(sys.argv) > 2 else 'data/charts/massive_tick.html'
+    if len(sys.argv) > 2:
+        output_html = sys.argv[2]
+    else:
+        ticker = os.path.basename(os.path.dirname(input_json))
+        date = os.path.splitext(os.path.basename(input_json))[0]
+        output_html = f'data/charts/massive_{ticker}_{date}_tick.html'
     market_open = float(sys.argv[3]) if len(sys.argv) > 3 else 15.5
     market_close = float(sys.argv[4]) if len(sys.argv) > 4 else 22.0
 

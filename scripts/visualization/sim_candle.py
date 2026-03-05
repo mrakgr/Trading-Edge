@@ -129,7 +129,12 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
 if __name__ == '__main__':
     input_csv = sys.argv[1] if len(sys.argv) > 1 else 'data/test_hmm.csv'
     seconds_per_bar = int(sys.argv[2]) if len(sys.argv) > 2 else 60
-    output_html = sys.argv[3] if len(sys.argv) > 3 else 'data/charts/sim_candle.html'
+    if len(sys.argv) > 3:
+        output_html = sys.argv[3]
+    else:
+        basename = os.path.splitext(os.path.basename(input_csv))[0]
+        seed = basename.split('_')[-1] if '_' in basename else 'default'
+        output_html = f'data/charts/sim_{seed}_candle.html'
 
     print(f'Loading trades from {input_csv}...')
     trades = load_trades(input_csv)

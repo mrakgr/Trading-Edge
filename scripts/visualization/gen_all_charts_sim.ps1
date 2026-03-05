@@ -10,15 +10,15 @@ foreach ($seed in $Seeds) {
 
     $csvFile = "data/test_hmm_$seed.csv"
 
-    # Generate t-digest charts
+    # Generate t-digest charts (use default naming)
     python3 scripts/visualization/sim_tdigest_volume.py $csvFile
     python3 scripts/visualization/sim_tdigest_time.py $csvFile
     python3 scripts/visualization/sim_tdigest_volume_duration.py $csvFile
 
-    # Generate regular charts
-    python3 scripts/visualization/sim_tick.py $csvFile "data/charts/sim_tick_$seed.html"
-    python3 scripts/visualization/sim_candle.py $csvFile 60 "data/charts/sim_candle_$seed.html"
-    python3 scripts/visualization/sim_volume.py $csvFile 10000 "data/charts/sim_volume_$seed.html"
+    # Generate regular charts (use default naming)
+    python3 scripts/visualization/sim_tick.py $csvFile
+    python3 scripts/visualization/sim_candle.py $csvFile 60
+    python3 scripts/visualization/sim_volume.py $csvFile 10000
 }
 
 Write-Host "Done generating all charts."

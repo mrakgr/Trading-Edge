@@ -102,6 +102,6 @@ if __name__ == '__main__':
     else:
         basename = os.path.splitext(os.path.basename(csv_path))[0]
         seed = basename.split('_')[-1]
-        output_html = f'data/charts/sim_tdigest_volume_{seed}.html'
+        output_html = f'data/charts/sim_{seed}_tdigest_volume.html'
 
     plot_tdigest(csv_path, output_html)

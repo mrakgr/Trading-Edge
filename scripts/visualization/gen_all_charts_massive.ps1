@@ -12,15 +12,15 @@ foreach ($file in $Files) {
     $basename = "${ticker}_${date}"
     Write-Host "Generating all charts for $basename..."
 
-    # Generate t-digest charts
+    # Generate t-digest charts (use default naming)
     python3 scripts/visualization/massive_tdigest_volume.py $file
     python3 scripts/visualization/massive_tdigest_time.py $file $MarketOpen $MarketClose
     python3 scripts/visualization/massive_tdigest_volume_duration.py $file $VolumePerBar $MarketOpen $MarketClose
 
-    # Generate regular charts
-    python3 scripts/visualization/massive_tick.py $file "data/charts/massive_tick_$basename.html" $MarketOpen $MarketClose
-    python3 scripts/visualization/massive_candle.py $file $SecondsPerBar "data/charts/massive_candle_$basename.html"
-    python3 scripts/visualization/massive_volume.py $file $VolumePerBar "data/charts/massive_volume_$basename.html" $MarketOpen $MarketClose
+    # Generate regular charts (use default naming)
+    python3 scripts/visualization/massive_tick.py $file
+    python3 scripts/visualization/massive_candle.py $file $SecondsPerBar
+    python3 scripts/visualization/massive_volume.py $file $VolumePerBar
 }
 
 Write-Host "Done generating all charts."

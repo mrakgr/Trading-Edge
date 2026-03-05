@@ -5,7 +5,12 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 input_csv = sys.argv[1] if len(sys.argv) > 1 else 'data/test_hmm.csv'
-output_html = sys.argv[2] if len(sys.argv) > 2 else 'data/charts/sim_tick.html'
+if len(sys.argv) > 2:
+    output_html = sys.argv[2]
+else:
+    basename = os.path.splitext(os.path.basename(input_csv))[0]
+    seed = basename.split('_')[-1] if '_' in basename else 'default'
+    output_html = f'data/charts/sim_{seed}_tick.html'
 
 trades = []
 with open(input_csv) as f:

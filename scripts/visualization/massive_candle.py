@@ -158,7 +158,12 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
 if __name__ == '__main__':
     input_json = sys.argv[1] if len(sys.argv) > 1 else 'data/trades/LW/2025-12-19.json'
     seconds_per_bar = int(sys.argv[2]) if len(sys.argv) > 2 else 60
-    output_html = sys.argv[3] if len(sys.argv) > 3 else 'data/charts/massive_candle.html'
+    if len(sys.argv) > 3:
+        output_html = sys.argv[3]
+    else:
+        ticker = os.path.basename(os.path.dirname(input_json))
+        date = os.path.splitext(os.path.basename(input_json))[0]
+        output_html = f'data/charts/massive_{ticker}_{date}_candle.html'
 
     print(f'Loading trades from {input_json}...')
     trades = load_trades(input_json)

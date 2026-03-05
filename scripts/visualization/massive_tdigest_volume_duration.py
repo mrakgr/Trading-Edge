@@ -153,6 +153,6 @@ if __name__ == '__main__':
     else:
         ticker = os.path.basename(os.path.dirname(json_path))
         date = os.path.splitext(os.path.basename(json_path))[0]
-        output_html = f'data/charts/massive_tdigest_volume_duration_{ticker}_{date}.html'
+        output_html = f'data/charts/massive_{ticker}_{date}_tdigest_volume_duration.html'
 
     plot_tdigest(json_path, output_html, volume_per_bar, market_open, market_close)
