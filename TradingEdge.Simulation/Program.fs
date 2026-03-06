@@ -28,6 +28,8 @@ type BuildDigestsArgs =
     | [<AltCommandLine("-o")>] Output of string
     | [<AltCommandLine("-c")>] Compression of float
     | [<AltCommandLine("-t")>] Threshold of int64
+    | Market_Open of float
+    | Market_Close of float
     interface IArgParserTemplate with
         member this.Usage =
             match this with
@@ -35,6 +37,8 @@ type BuildDigestsArgs =
             | Output _ -> "Output t-digests file path"
             | Compression _ -> "T-digest compression factor (default: 4096)"
             | Threshold _ -> "Merge threshold in nanoseconds (default: 100000)"
+            | Market_Open _ -> "Market open hour in UTC (default: 14.5)"
+            | Market_Close _ -> "Market close hour in UTC (default: 21.0)"
 
 type GenerateDatasetArgs =
     | [<AltCommandLine("-s")>] Seed of int
@@ -151,7 +155,9 @@ let runBuildDigests (args: ParseResults<BuildDigestsArgs>) =
     let output = args.GetResult(BuildDigestsArgs.Output)
     let compression = args.GetResult(BuildDigestsArgs.Compression, 4096.0)
     let threshold = args.GetResult(BuildDigestsArgs.Threshold, 100000L)
-    let digests = TradingEdge.Simulation.TradeDataTDigests.buildTDigestsFromJson input compression threshold
+    let marketOpen = args.GetResult(BuildDigestsArgs.Market_Open, 14.5)
+    let marketClose = args.GetResult(BuildDigestsArgs.Market_Close, 21.0)
+    let digests = TradingEdge.Simulation.TradeDataTDigests.buildTDigestsFromJson input compression threshold marketOpen marketClose
     TradingEdge.Simulation.TradeDataTDigests.saveTDigests digests output
 
 let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
