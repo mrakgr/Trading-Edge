@@ -264,16 +264,16 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
 
     let trades = ResizeArray<Trade>()
     let mutable logPrice = log startPrice
-    let mutable logBetaScale = startBetaScale
+    let mutable logBetaScale = log 10.0  // Constant scale of 10.0
     let mutable time = 0.0
 
     while time < durationSeconds do
-        let betaScale = exp logBetaScale
+        let betaScale = exp logBetaScale  // Constant scale of 10.0
         let gap = sampleGapFromDigest rng digests.GapDigest betaMean betaScale
         time <- time + gap
         if time < durationSeconds then
             let size = sampleSizeFromDigest rng digests.SizeDigest betaMean betaScale
-            logBetaScale <- betaScaleTransition gap size logBetaScale
+            // logBetaScale <- betaScaleTransition gap size logBetaScale  // Commented out - using constant scale
             logPrice <- priceTransition gap size logBetaScale logPrice
             trades.Add({
                 Time = time
