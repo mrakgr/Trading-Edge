@@ -87,6 +87,13 @@ type DumpTradesArgs =
             | Iterations _ -> "MCMC iterations per level"
             | Digests _ -> "T-digests file path for trade sizes and gaps"
 
+type DiagnoseDigestsArgs =
+    | [<Mandatory; AltCommandLine("-d")>] Digests of string
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Digests _ -> "T-digests file path to diagnose"
+
 type Command =
     | [<CliPrefix(CliPrefix.None)>] Order_Book of ParseResults<OrderBookArgs>
     | [<CliPrefix(CliPrefix.None)>] Generate_Day of ParseResults<GenerateDayArgs>
@@ -94,6 +101,7 @@ type Command =
     | [<CliPrefix(CliPrefix.None)>] Build_Digests of ParseResults<BuildDigestsArgs>
     | [<CliPrefix(CliPrefix.None)>] Preprocess of ParseResults<PreprocessArgs>
     | [<CliPrefix(CliPrefix.None)>] Dump_Trades of ParseResults<DumpTradesArgs>
+    | [<CliPrefix(CliPrefix.None)>] Diagnose_Digests of ParseResults<DiagnoseDigestsArgs>
     interface IArgParserTemplate with
         member this.Usage =
             match this with
@@ -103,6 +111,7 @@ type Command =
             | Build_Digests _ -> "Build t-digests from JSON trade data"
             | Preprocess _ -> "Apply t-digest CDF transform to raw dataset"
             | Dump_Trades _ -> "Dump raw trade data for a single day as CSV"
+            | Diagnose_Digests _ -> "Show expected statistics for beta-reweighted t-digests"
 
 let runOrderBook (args: ParseResults<OrderBookArgs>) =
     let seed = args.GetResult(OrderBookArgs.Seed, 42)
@@ -210,6 +219,12 @@ let runPreprocess (args: ParseResults<PreprocessArgs>) =
 
     (TradingEdge.Simulation.TDigestProcessing.transformParquetWithCdf input tds output numWorkers).Wait()
 
+let runDiagnoseDigests (args: ParseResults<DiagnoseDigestsArgs>) =
+    let digestsPath = args.GetResult(DiagnoseDigestsArgs.Digests)
+    let digests = TradingEdge.Simulation.TradeDataTDigests.loadTDigests digestsPath
+    printBetaDigestDiagnostics digests
+    printExponentialTiltDiagnostics digests
+
 [<EntryPoint>]
 let main argv =
     let parser = ArgumentParser.Create<Command>(programName = "TradingEdge.Simulation")
@@ -224,6 +239,7 @@ let main argv =
         | Build_Digests args -> runBuildDigests args
         | Preprocess args -> runPreprocess args
         | Dump_Trades args -> runDumpTrades args
+        | Diagnose_Digests args -> runDiagnoseDigests args
 
         0
     with

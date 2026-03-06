@@ -6,7 +6,7 @@ foreach ($seed in $Seeds) {
     Write-Host "Generating charts for seed $seed..."
 
     # Dump trades
-    dotnet run --project TradingEdge.Simulation -- dump-trades -s $seed -o "data/test_hmm_$seed.csv"
+    dotnet run --project TradingEdge.Simulation -- dump-trades -s $seed -d "data/tdigests/LW_2025-12-19.tdigest" -o "data/test_hmm_$seed.csv"
 
     # Generate tick chart
     python3 scripts/visualization/sim_tick.py "data/test_hmm_$seed.csv" "data/charts/sim_tick_$seed.html"
