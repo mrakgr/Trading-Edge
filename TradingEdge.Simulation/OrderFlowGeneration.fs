@@ -17,31 +17,11 @@ type Trade = {
     TargetSigma: float  // Target distribution sigma (price space)
 }
 
-/// Target statistics for sampling from t-digests
-type TargetStats = {
-    MedianSize: float
-    MeanSize: float
-    MedianGap: float  // In seconds
-    MeanGap: float    // In seconds
-}
-
-/// Order flow parameters per trend (computed from target stats)
-type OrderFlowParams = {
-    BetaMean: float  // Target mean for beta distribution (activity level)
-    BetaMeanGap: float  // Beta mean for gap sampling (inverted)
-}
-
 /// Target distribution parameters per trend
 type TargetParams = {
     MoveSigmaMedian: float  // Median of LogNormal for move magnitude in target σ units
     MoveSigmaMean: float    // Mean of LogNormal for move magnitude
     TargetVolBps: float     // Target distribution σ in bps
-}
-
-/// Trade size parameters
-type ActivityParams = {
-    MedianSize: float
-    MeanSize: float
 }
 
 /// HMM hold parameters for TightHold episodes
@@ -74,21 +54,29 @@ let getHoldParams (duration: HoldDuration) : HoldParams =
 /// Session-wide baseline parameters
 type SessionBaseline = {
     ProposalVolBps: float   // Price proposal random walk σ in bps (scaled by sqrt size)
-    BetaScaleProposalBps: float  // Beta scale proposal random walk σ in bps (scaled by sqrt size)
 }
 
-let medianSize = 100 // Scales the proposal volatilities.
-let defaultBaseline = { ProposalVolBps = 0.35; BetaScaleProposalBps = 200.0 }
+let defaultBaseline = { ProposalVolBps = 0.35 }
 
-let getTargetStats (trend: Trend) : TargetStats =
+let getSizeMultiplier (trend: Trend) : float =
     match trend with
-    | Move (_, Strong) -> { MedianSize = 100.0; MeanSize = 150.0; MedianGap = 0.01; MeanGap = 0.015 }
-    | Move (_, Mid)    -> { MedianSize = 80.0; MeanSize = 120.0; MedianGap = 0.02; MeanGap = 0.03 }
-    | Move (_, Weak)   -> { MedianSize = 60.0; MeanSize = 90.0; MedianGap = 0.04; MeanGap = 0.06 }
-    | Consolidation    -> { MedianSize = 50.0; MeanSize = 75.0; MedianGap = 0.08; MeanGap = 0.12 }
-    | Hold (_, Strong, _) -> { MedianSize = 150.0; MeanSize = 250.0; MedianGap = 0.005; MeanGap = 0.008 }
-    | Hold (_, Mid, _)    -> { MedianSize = 100.0; MeanSize = 150.0; MedianGap = 0.01; MeanGap = 0.015 }
-    | Hold (_, Weak, _)   -> { MedianSize = 80.0; MeanSize = 120.0; MedianGap = 0.02; MeanGap = 0.03 }
+    | Move (_, Strong) -> 1.5 ** 2.0
+    | Move (_, Mid)    -> 1.5 ** 1.0
+    | Move (_, Weak)   -> 1.5 ** 0.0
+    | Consolidation    -> 1.5 ** -1.0
+    | Hold (_, Strong, _) -> 1.5 ** 2.5
+    | Hold (_, Mid, _)    -> 1.5 ** 1.5
+    | Hold (_, Weak, _)   -> 1.5 ** 0.5
+
+let getGapMultiplier (trend: Trend) : float =
+    match trend with
+    | Move (_, Strong) -> 1.5 ** -2.0
+    | Move (_, Mid)    -> 1.5 ** -1.0
+    | Move (_, Weak)   -> 1.5 ** 0.0
+    | Consolidation    -> 1.5 ** 1.0
+    | Hold (_, Strong, _) -> 1.5 ** -2.5
+    | Hold (_, Mid, _)    -> 1.5 ** -1.5
+    | Hold (_, Weak, _)   -> 1.5 ** -0.5
 
 let getTargetParams (trend: Trend) : TargetParams =
     match trend with
@@ -97,16 +85,6 @@ let getTargetParams (trend: Trend) : TargetParams =
     | Move (_, Weak)   -> { MoveSigmaMedian = 1.2; MoveSigmaMean = 1.5; TargetVolBps = 12.0 }
     | Consolidation    -> { MoveSigmaMedian = 0.2; MoveSigmaMean = 0.5; TargetVolBps = 9.0 }
     | Hold _           -> { MoveSigmaMedian = 0.1; MoveSigmaMean = 0.2; TargetVolBps = 9.0 }
-
-let getActivityParams (trend: Trend) : ActivityParams =
-    match trend with
-    | Move (_, Strong) -> { MedianSize = medianSize; MeanSize = 250.0 }
-    | Move (_, Mid)    -> { MedianSize = medianSize; MeanSize = 175.0 }
-    | Move (_, Weak)   -> { MedianSize = medianSize; MeanSize = 130.0 }
-    | Consolidation    -> { MedianSize = medianSize; MeanSize = 115.0 }
-    | Hold (_, Strong, _) -> { MedianSize = medianSize; MeanSize = 400.0 }
-    | Hold (_, Mid, _)    -> { MedianSize = medianSize; MeanSize = 250.0 }
-    | Hold (_, Weak, _)   -> { MedianSize = medianSize; MeanSize = 175.0 }
 
 let stochasticRound (rng: Random) (x: float) : int =
     let floor = Math.Floor(x)
@@ -120,19 +98,6 @@ let logNormalMuSigma (median: float) (mean: float) : float * float =
     let mu = log median
     let sigma = logNormalSigma median mean
     (mu, sigma)
-
-let private baselineSizeMu, private baselineSizeSigma =
-    let p = getActivityParams Consolidation
-    logNormalMuSigma p.MedianSize p.MeanSize
-
-let sampleSize (rng: Random) (median: float) (mean: float) : int =
-    let alpha = mean / (mean - median)
-    let rec loop () =
-        let v = LogNormal(baselineSizeMu, baselineSizeSigma, rng).Sample()
-        let size = if v <= median then v else Pareto(median, alpha, rng).Sample()
-        let rounded = stochasticRound rng size
-        if rounded > 0 then rounded else loop ()
-    loop ()
 
 /// Sample from LogNormal, and continue to resample if the conditional returns false
 let inline sampleLogNormalConditional cond (rng: Random) (median: float) (mean: float) : float =
@@ -155,25 +120,19 @@ let sampleDuration (rng: Random) (median: float) (mean: float) : float =
     let mu, sigma = logNormalMuSigma median mean
     LogNormal(mu, sigma, rng).Sample()
 
-/// Sample from beta distribution with given mean and scale
-let sampleBeta (rng: Random) (mean: float) (scale: float) : float =
-    let a = mean * scale
-    let b = (1.0 - mean) * scale
-    Beta(a, b, rng).Sample()
-
 /// Query t-digest at percentile (0.0 to 1.0)
 let queryPercentile (digest: TDigest.MergingDigest) (percentile: float) : float =
     digest.Quantile(percentile)
 
-/// Sample size from t-digest using beta distribution (high beta = high percentile = large size)
-let sampleSizeFromDigest (rng: Random) (digest: TDigest.MergingDigest) (betaMean: float) (betaScale: float) : int =
-    let percentile = sampleBeta rng betaMean betaScale
+/// Sample size from t-digest uniformly
+let sampleSizeFromDigest (rng: Random) (digest: TDigest.MergingDigest) : int =
+    let percentile = rng.NextDouble()
     let size = queryPercentile digest percentile
     stochasticRound rng size
 
-/// Sample gap from t-digest using beta distribution (high beta = low percentile = short gap)
-let sampleGapFromDigest (rng: Random) (digest: TDigest.MergingDigest) (betaMean: float) (betaScale: float) : float =
-    let percentile = 1.0 - sampleBeta rng betaMean betaScale
+/// Sample gap from t-digest uniformly
+let sampleGapFromDigest (rng: Random) (digest: TDigest.MergingDigest) : float =
+    let percentile = rng.NextDouble()
     queryPercentile digest percentile
 
 /// Extract centroids from t-digest as (value, weight) pairs
@@ -199,45 +158,6 @@ let createTiltedDigest (digest: MergingDigest) (targetMean: float) (compression:
             tiltedDigest.Add(values.[i])
 
     tiltedDigest
-
-/// Compute expected median and mean for a given beta distribution + t-digest
-let computeExpectedStats (digest: TDigest.MergingDigest) (betaMean: float) (betaScale: float) (numSamples: int) : float * float =
-    let rng = Random(42)
-    let samples = Array.init numSamples (fun _ ->
-        let percentile = sampleBeta rng betaMean betaScale
-        queryPercentile digest percentile
-    )
-    let sorted = Array.sort samples
-    let median = sorted.[numSamples / 2]
-    let mean = Array.average samples
-    (median, mean)
-
-/// Find beta mean that produces target median and mean from a t-digest
-let findBetaMean (digest: TDigest.MergingDigest) (targetMedian: float) (targetMean: float) (betaScale: float) (numSamples: int) : float =
-    let mutable bestBetaMean = 0.5
-    let mutable bestError = infinity
-
-    for betaMean in [0.05.. 0.05 .. 0.95] do
-        let (median, mean) = computeExpectedStats digest betaMean betaScale numSamples
-        let medianError = abs(median - targetMedian) / targetMedian
-        let meanError = abs(mean - targetMean) / targetMean
-        let error = medianError + meanError
-        if error < bestError then
-            bestError <- error
-            bestBetaMean <- betaMean
-
-    bestBetaMean
-
-/// Compute order flow parameters from target stats and t-digests
-let computeOrderFlowParams (digests: TradeDataDigests) (trend: Trend) : OrderFlowParams =
-    let targets = getTargetStats trend
-    let betaScale = 10.0
-    let numSamples = 10000
-
-    let betaMean = findBetaMean digests.SizeDigest targets.MedianSize targets.MeanSize betaScale numSamples
-    let betaMeanGap = findBetaMean digests.GapDigest targets.MedianGap targets.MeanGap betaScale numSamples
-
-    { BetaMean = betaMean; BetaMeanGap = betaMeanGap }
 
 /// Multi-try step with pluggable log-density function
 let multiTryStepGeneric (rng: Random) (logPrice: float) (proposalVol: float) (logDensity: float -> float) (n: int) : float =
@@ -277,20 +197,15 @@ let sampleTargetMean (rng: Random) (prevTargetMean: float) (targetParams: Target
         | Consolidation | Hold _ -> if rng.NextDouble() < 0.5 then 1.0 else -1.0
     prevTargetMean + sign * moveSize
 
-/// Generate trades for a single trend episode with beta scale random walk
-let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: float) (startBetaScale: float) (baseline: SessionBaseline) (digests: TradeDataDigests) (episode: Episode<Trend>) : Trade[] * float * float * float =
+/// Generate trades for a single trend episode
+let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: float) (baselineSize: float) (baseline: SessionBaseline) (digests: TradeDataDigests) (episode: Episode<Trend>) : Trade[] * float * float =
     let durationSeconds = episode.Duration * 60.0
-    let orderFlowParams = computeOrderFlowParams digests episode.Label
     let targetParams = getTargetParams episode.Label
     let bps = 1e-4
 
     let targetMean = sampleTargetMean rng prevTargetMean targetParams episode.Label
     let targetSigma = targetParams.TargetVolBps * bps
-    let proposalVol = baseline.ProposalVolBps * bps / sqrt (float medianSize)
-    let betaScaleProposalVol = baseline.BetaScaleProposalBps * bps / sqrt (float medianSize)
-    let betaMean = orderFlowParams.BetaMean
-    let logBetaScaleTarget = log 10.0
-    let logBetaScaleTargetSigma = 0.5
+    let proposalVol = baseline.ProposalVolBps * bps / sqrt baselineSize
 
     let priceTransition =
         match episode.Label with
@@ -305,7 +220,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
             let sampleHoldTime () = sampleDuration rng holdParams.HoldDurationMedian holdParams.HoldDurationMean
             let sampleReleaseTime () = sampleDuration rng holdParams.ReleaseDurationMedian holdParams.ReleaseDurationMean
             let mutable timeLeft = sampleLogNormalAbove rng holdParams.HoldDurationMedian holdParams.HoldDurationMean
-            fun gap size logBetaScale logPrice ->
+            fun gap size logPrice ->
                 timeLeft <- timeLeft - gap
                 if timeLeft <= 0.0 then
                     holding <- not holding
@@ -328,27 +243,20 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
                 let sqrtSize = sqrt (float size)
                 multiTryStepGeneric rng logPrice (pVol * sqrtSize) logDensity 10
         | Move _ | Consolidation ->
-            fun gap size logBetaScale logPrice ->
+            fun gap size logPrice ->
                 let sqrtSize = sqrt (float size)
                 multiTryStep rng logPrice (proposalVol * sqrtSize) targetMean targetSigma 10
 
-    let betaScaleTransition _gap size logBetaScale =
-        let sqrtSize = sqrt (float size)
-        multiTryStep rng logBetaScale (betaScaleProposalVol * sqrtSize) logBetaScaleTarget logBetaScaleTargetSigma 10
-
     let trades = ResizeArray<Trade>()
     let mutable logPrice = log startPrice
-    let mutable logBetaScale = log 10.0  // Constant scale of 10.0
     let mutable time = 0.0
 
     while time < durationSeconds do
-        let betaScale = exp logBetaScale  // Constant scale of 10.0
-        let gap = sampleGapFromDigest rng digests.GapDigest orderFlowParams.BetaMeanGap betaScale
+        let gap = sampleGapFromDigest rng digests.GapDigest
         time <- time + gap
         if time < durationSeconds then
-            let size = sampleSizeFromDigest rng digests.SizeDigest orderFlowParams.BetaMean betaScale
-            // logBetaScale <- betaScaleTransition gap size logBetaScale  // Commented out - using constant scale
-            logPrice <- priceTransition gap size logBetaScale logPrice
+            let size = sampleSizeFromDigest rng digests.SizeDigest
+            logPrice <- priceTransition gap size logPrice
             trades.Add({
                 Time = time
                 Price = exp logPrice
@@ -359,43 +267,11 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
             })
 
     let endPrice = exp logPrice
-    trades.ToArray(), endPrice, targetMean, logBetaScale
+    trades.ToArray(), endPrice, targetMean
 
-/// Print diagnostic statistics for all episode types
+/// Print diagnostic statistics for exponential tilting
 let printBetaDigestDiagnostics (digests: TradeDataDigests) : unit =
-    let numSamples = 10000
-    let betaScale = 10.0
-
-    printfn "\nBeta-reweighted t-digest statistics (scale=%.1f, samples=%d):" betaScale numSamples
-    printfn "\nSIZE DISTRIBUTION:"
-    printfn "%-20s %10s %10s %10s %10s" "Episode Type" "BetaMean" "Median" "Mean" "Mean/Med"
-    printfn "%s" (String.replicate 60 "-")
-
-    let trends = [
-        ("Move Up Strong", Move (Up, Strong))
-        ("Move Up Mid", Move (Up, Mid))
-        ("Move Up Weak", Move (Up, Weak))
-        ("Consolidation", Consolidation)
-        ("Hold Bid Strong", Hold (Bid, Strong, Short))
-        ("Hold Bid Mid", Hold (Bid, Mid, Short))
-        ("Hold Bid Weak", Hold (Bid, Weak, Short))
-    ]
-
-    for (name, trend) in trends do
-        let orderFlowParams = computeOrderFlowParams digests trend
-        let (median, mean) = computeExpectedStats digests.SizeDigest orderFlowParams.BetaMean betaScale numSamples
-        let ratio = mean / median
-        printfn "%-20s %10.2f %10.1f %10.1f %10.2f" name orderFlowParams.BetaMean median mean ratio
-
-    printfn "\nGAP DISTRIBUTION (seconds):"
-    printfn "%-20s %10s %10s %10s %10s" "Episode Type" "BetaMean" "Median" "Mean" "Mean/Med"
-    printfn "%s" (String.replicate 60 "-")
-
-    for (name, trend) in trends do
-        let orderFlowParams = computeOrderFlowParams digests trend
-        let (median, mean) = computeExpectedStats digests.GapDigest orderFlowParams.BetaMeanGap betaScale numSamples
-        let ratio = mean / median
-        printfn "%-20s %10.2f %10.6f %10.6f %10.2f" name orderFlowParams.BetaMeanGap median mean ratio
+    printfn "\nExponential tilting approach - beta diagnostics removed"
 
 /// Test exponential tilting on t-digest
 let printExponentialTiltDiagnostics (digests: TradeDataDigests) : unit =
