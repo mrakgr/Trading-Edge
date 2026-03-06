@@ -73,17 +73,13 @@ type private BarFragment = {
 
 /// Generate all trades for a full day
 let generateDayTrades (rng: Random) (startPrice: float) (baseline: SessionBaseline) (digests: TradeDataDigests) (result: DayResult) : Trade[] =
-    let centroids = extractCentroids digests.SizeDigest
-    let totalWeight = centroids |> Array.sumBy snd
-    let baselineSize = centroids |> Array.map (fun (v, w) -> v * w) |> Array.sum |> fun s -> s / totalWeight
-
     let allTrades = ResizeArray<Trade>()
     let mutable price = startPrice
     let mutable targetMean = log startPrice
     let mutable timeOffset = 0.0
     for sessionTrends in result.Trends do
         for episode in sessionTrends do
-            let trades, endPrice, newTargetMean = generateEpisodeTrades rng price targetMean baselineSize baseline digests episode
+            let trades, endPrice, newTargetMean = generateEpisodeTrades rng price targetMean baseline digests episode
             for t in trades do
                 allTrades.Add({ t with Time = t.Time + timeOffset })
             timeOffset <- timeOffset + episode.Duration * 60.0

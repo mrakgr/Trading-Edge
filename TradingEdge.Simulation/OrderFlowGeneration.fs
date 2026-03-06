@@ -141,23 +141,40 @@ let extractCentroids (digest: MergingDigest) : (float * float) array =
     |> Seq.map (fun c -> c.Mean(), float c.Count)
     |> Seq.toArray
 
+/// Calculate mean from t-digest
+let digestMean (digest: MergingDigest) : float =
+    let centroids = extractCentroids digest
+    let totalWeight = centroids |> Array.sumBy snd
+    centroids |> Array.map (fun (v, w) -> v * w) |> Array.sum |> fun s -> s / totalWeight
+
 /// Create a tilted t-digest with a target mean using exponential tilting
-let createTiltedDigest (digest: MergingDigest) (targetMean: float) (compression: float) : MergingDigest =
+let createTiltedDigest (rng: Random) (digest: MergingDigest) (targetMean: float) : MergingDigest =
     let centroids = extractCentroids digest
     let lambda, tiltedWeights = tiltWeights centroids targetMean
 
     // Reconstruct t-digest with tilted weights
-    let tiltedDigest = MergingDigest(compression)
+    let tiltedDigest = MergingDigest digest.Compression
     let values = centroids |> Array.map fst
     let totalWeight = Array.sum tiltedWeights
 
     // Add samples proportional to tilted weights
     for i in 0 .. values.Length - 1 do
-        let count = int (tiltedWeights.[i] * totalWeight * 10000.0) // Scale up for precision
-        for _ in 1 .. count do
-            tiltedDigest.Add(values.[i])
+        let x = tiltedWeights.[i] * totalWeight
+        if x > float Int32.MaxValue then failwith "x is greater than the max integer value"
+        tiltedDigest.Add(values.[i], stochasticRound rng x)
 
     tiltedDigest
+
+/// Create tilted digests for a trend using multipliers
+let createTiltedDigests (rng: Random) (digests: TradeDataDigests) (trend: Trend) : TradeDataDigests =
+    let baselineSizeMean = digestMean digests.SizeDigest
+    let baselineGapMean = digestMean digests.GapDigest
+    let targetSizeMean = baselineSizeMean * getSizeMultiplier trend
+    let targetGapMean = baselineGapMean * getGapMultiplier trend
+    {
+        SizeDigest = createTiltedDigest rng digests.SizeDigest targetSizeMean
+        GapDigest = createTiltedDigest rng digests.GapDigest targetGapMean
+    }
 
 /// Multi-try step with pluggable log-density function
 let multiTryStepGeneric (rng: Random) (logPrice: float) (proposalVol: float) (logDensity: float -> float) (n: int) : float =
@@ -198,10 +215,13 @@ let sampleTargetMean (rng: Random) (prevTargetMean: float) (targetParams: Target
     prevTargetMean + sign * moveSize
 
 /// Generate trades for a single trend episode
-let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: float) (baselineSize: float) (baseline: SessionBaseline) (digests: TradeDataDigests) (episode: Episode<Trend>) : Trade[] * float * float =
+let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: float) (baseline: SessionBaseline) (digests: TradeDataDigests) (episode: Episode<Trend>) : Trade[] * float * float =
     let durationSeconds = episode.Duration * 60.0
     let targetParams = getTargetParams episode.Label
     let bps = 1e-4
+
+    let baselineSize = digestMean digests.SizeDigest
+    let tiltedDigests = createTiltedDigests rng digests episode.Label
 
     let targetMean = sampleTargetMean rng prevTargetMean targetParams episode.Label
     let targetSigma = targetParams.TargetVolBps * bps
@@ -252,10 +272,10 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
     let mutable time = 0.0
 
     while time < durationSeconds do
-        let gap = sampleGapFromDigest rng digests.GapDigest
+        let gap = sampleGapFromDigest rng tiltedDigests.GapDigest
         time <- time + gap
         if time < durationSeconds then
-            let size = sampleSizeFromDigest rng digests.SizeDigest
+            let size = sampleSizeFromDigest rng tiltedDigests.SizeDigest
             logPrice <- priceTransition gap size logPrice
             trades.Add({
                 Time = time
