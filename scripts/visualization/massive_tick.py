@@ -4,7 +4,7 @@ import os
 import math
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from datetime import datetime
+from datetime import datetime, timezone
 
 def load_trades(json_path):
     with open(json_path) as f:
@@ -44,13 +44,13 @@ def merge_group(group):
         'size': total_size
     }
 
-def plot_trades(trades, output_html, market_open=15.5, market_close=22.0):
-    # Filter to market hours
+def plot_trades(trades, output_html, market_open=14.5, market_close=21.0):
+    # Filter to market hours (UTC)
     open_minutes = market_open * 60
     close_minutes = market_close * 60
     filtered = []
     for t in trades:
-        dt = datetime.fromtimestamp(t['participant_timestamp'] / 1e9)
+        dt = datetime.fromtimestamp(t['participant_timestamp'] / 1e9, timezone.utc)
         ts_minutes = dt.hour * 60 + dt.minute
         if open_minutes <= ts_minutes < close_minutes:
             filtered.append(t)
@@ -59,7 +59,7 @@ def plot_trades(trades, output_html, market_open=15.5, market_close=22.0):
     trades = filtered
 
     # Plot all trades (Scattergl handles large datasets efficiently)
-    times = [datetime.fromtimestamp(t['participant_timestamp'] / 1e9) for t in trades]
+    times = [datetime.fromtimestamp(t['participant_timestamp'] / 1e9, timezone.utc) for t in trades]
     prices = [t['price'] for t in trades]
     sizes = [t['size'] for t in trades]
     marker_sizes = [0.5 * math.sqrt(s) for s in sizes]

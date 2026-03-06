@@ -4,7 +4,7 @@ import os
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from datetime import datetime
+from datetime import datetime, timezone
 
 def load_trades(json_path):
     """Load trades from Massive JSON file."""
@@ -128,7 +128,7 @@ def plot_volume_bars_vwap(bars, output_html):
 
     # Convert nanosecond timestamps to human readable
     def format_time(ns_timestamp):
-        dt = datetime.fromtimestamp(ns_timestamp / 1e9)
+        dt = datetime.fromtimestamp(ns_timestamp / 1e9, timezone.utc)
         return dt.strftime('%H:%M:%S.%f')[:-3]  # Include milliseconds
 
     hover_text = [
@@ -213,8 +213,8 @@ if __name__ == '__main__':
         output_dir = f'data/charts/massive/{ticker}_{date}'
         os.makedirs(output_dir, exist_ok=True)
         output_html = f'{output_dir}/volume.html'
-    market_open = float(sys.argv[4]) if len(sys.argv) > 4 else 15.5   # UTC (10:30 ET)
-    market_close = float(sys.argv[5]) if len(sys.argv) > 5 else 22.0  # UTC (17:00 ET)
+    market_open = float(sys.argv[4]) if len(sys.argv) > 4 else 14.5   # UTC
+    market_close = float(sys.argv[5]) if len(sys.argv) > 5 else 21.0  # UTC
 
     print(f'Loading trades from {input_json}...')
     trades = load_trades(input_json)
@@ -225,7 +225,7 @@ if __name__ == '__main__':
     close_minutes = market_close * 60
     filtered = []
     for t in trades:
-        dt = datetime.fromtimestamp(t['participant_timestamp'] / 1e9)
+        dt = datetime.fromtimestamp(t['participant_timestamp'] / 1e9, timezone.utc)
         ts_minutes = dt.hour * 60 + dt.minute
         if open_minutes <= ts_minutes < close_minutes:
             filtered.append(t)

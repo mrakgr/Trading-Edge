@@ -4,7 +4,7 @@ import os
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from datetime import datetime
+from datetime import datetime, timezone
 
 def load_trades(json_path):
     """Load trades from Massive JSON file."""
@@ -92,7 +92,7 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
 
     # Convert nanosecond timestamps to datetime
     def ns_to_datetime(ns_timestamp):
-        return datetime.fromtimestamp(ns_timestamp / 1e9)
+        return datetime.fromtimestamp(ns_timestamp / 1e9, timezone.utc)
 
     x_vals = [ns_to_datetime(b['timestamp']) for b in bars]
     open_vals = [b['open'] for b in bars]
