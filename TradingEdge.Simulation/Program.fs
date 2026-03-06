@@ -2,8 +2,8 @@ open System
 open Argu
 open TradingEdge.Simulation.OrderBook
 open TradingEdge.Simulation.EpisodeMCMC
-open TradingEdge.Simulation.TDigestProcessing
 open TradingEdge.Simulation.DatasetGeneration
+open TradingEdge.Simulation.OrderFlowGeneration
 
 type OrderBookArgs =
     | [<AltCommandLine("-s")>] Seed of int
@@ -23,12 +23,26 @@ type GenerateDayArgs =
             | Runs _ -> "Number of days to generate"
             | Iterations _ -> "MCMC iterations per level"
 
+type BuildDigestsArgs =
+    | [<AltCommandLine("-i")>] Input of string
+    | [<AltCommandLine("-o")>] Output of string
+    | [<AltCommandLine("-c")>] Compression of float
+    | [<AltCommandLine("-t")>] Threshold of int64
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Input _ -> "Input JSON trade file path"
+            | Output _ -> "Output t-digests file path"
+            | Compression _ -> "T-digest compression factor (default: 4096)"
+            | Threshold _ -> "Merge threshold in nanoseconds (default: 100000)"
+
 type GenerateDatasetArgs =
     | [<AltCommandLine("-s")>] Seed of int
     | [<AltCommandLine("-n")>] Days of int
     | [<AltCommandLine("-o")>] Output of string
     | [<AltCommandLine("-p")>] Price of float
     | [<AltCommandLine("-i")>] Iterations of int
+    | [<Mandatory; AltCommandLine("-d")>] Digests of string
     interface IArgParserTemplate with
         member this.Usage =
             match this with
@@ -37,6 +51,7 @@ type GenerateDatasetArgs =
             | Output _ -> "Output parquet file path"
             | Price _ -> "Starting price (default: 100.0)"
             | Iterations _ -> "MCMC iterations per level"
+            | Digests _ -> "T-digests file path for trade sizes and gaps"
 
 type PreprocessArgs =
     | [<AltCommandLine("-i")>] Input of string
@@ -58,6 +73,7 @@ type DumpTradesArgs =
     | [<AltCommandLine("-o")>] Output of string
     | [<AltCommandLine("-p")>] Price of float
     | [<AltCommandLine("-i")>] Iterations of int
+    | [<Mandatory; AltCommandLine("-d")>] Digests of string
     interface IArgParserTemplate with
         member this.Usage =
             match this with
@@ -65,11 +81,13 @@ type DumpTradesArgs =
             | Output _ -> "Output CSV file path (default: stdout)"
             | Price _ -> "Starting price (default: 100.0)"
             | Iterations _ -> "MCMC iterations per level"
+            | Digests _ -> "T-digests file path for trade sizes and gaps"
 
 type Command =
     | [<CliPrefix(CliPrefix.None)>] Order_Book of ParseResults<OrderBookArgs>
     | [<CliPrefix(CliPrefix.None)>] Generate_Day of ParseResults<GenerateDayArgs>
     | [<CliPrefix(CliPrefix.None)>] Generate_Dataset of ParseResults<GenerateDatasetArgs>
+    | [<CliPrefix(CliPrefix.None)>] Build_Digests of ParseResults<BuildDigestsArgs>
     | [<CliPrefix(CliPrefix.None)>] Preprocess of ParseResults<PreprocessArgs>
     | [<CliPrefix(CliPrefix.None)>] Dump_Trades of ParseResults<DumpTradesArgs>
     interface IArgParserTemplate with
@@ -77,7 +95,8 @@ type Command =
             match this with
             | Order_Book _ -> "Generate and display an order book"
             | Generate_Day _ -> "Generate a full day with sessions and trends using MCMC"
-            | Generate_Dataset _ -> "Generate dataset of VWAP/Volume/StdDev bars to parquet"
+            | Generate_Dataset _ -> "Generate dataset of volume bars to parquet"
+            | Build_Digests _ -> "Build t-digests from JSON trade data"
             | Preprocess _ -> "Apply t-digest CDF transform to raw dataset"
             | Dump_Trades _ -> "Dump raw trade data for a single day as CSV"
 
@@ -123,20 +142,29 @@ let runGenerateDataset (args: ParseResults<GenerateDatasetArgs>) =
     let output = args.GetResult(GenerateDatasetArgs.Output, "data/dataset.parquet")
     let startPrice = args.GetResult(GenerateDatasetArgs.Price, 100.0)
     let iterations = args.GetResult(GenerateDatasetArgs.Iterations, 10000)
+    let digestsPath = args.GetResult(GenerateDatasetArgs.Digests)
     let mcmcConfig = { MCMC.Iterations = iterations }
-    generateDataset seed numDays output mcmcConfig SessionLevel.defaultConfig TrendLevel.defaultConfig startPrice
+    generateDataset seed numDays output mcmcConfig SessionLevel.defaultConfig TrendLevel.defaultConfig startPrice digestsPath
 
-open TradingEdge.Simulation.OrderFlowGeneration
+let runBuildDigests (args: ParseResults<BuildDigestsArgs>) =
+    let input = args.GetResult(BuildDigestsArgs.Input)
+    let output = args.GetResult(BuildDigestsArgs.Output)
+    let compression = args.GetResult(BuildDigestsArgs.Compression, 4096.0)
+    let threshold = args.GetResult(BuildDigestsArgs.Threshold, 100000L)
+    let digests = TradingEdge.Simulation.TradeDataTDigests.buildTDigestsFromJson input compression threshold
+    TradingEdge.Simulation.TradeDataTDigests.saveTDigests digests output
 
 let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
     let seed = args.GetResult(DumpTradesArgs.Seed, 42)
     let startPrice = args.GetResult(DumpTradesArgs.Price, 100.0)
     let iterations = args.GetResult(DumpTradesArgs.Iterations, 10000)
+    let digestsPath = args.GetResult(DumpTradesArgs.Digests)
     let outputPath = args.TryGetResult(DumpTradesArgs.Output)
     let rng = Random(seed)
     let mcmcConfig = { MCMC.Iterations = iterations }
     let result = generateDay SessionLevel.defaultConfig TrendLevel.defaultConfig mcmcConfig rng 390.0
-    let trades = generateDayTrades rng startPrice defaultBaseline result
+    let digests = TradingEdge.Simulation.TradeDataTDigests.loadTDigests digestsPath
+    let trades = generateDayTrades rng startPrice defaultBaseline digests result
 
     let writer : System.IO.TextWriter =
         match outputPath with
@@ -160,21 +188,21 @@ let runPreprocess (args: ParseResults<PreprocessArgs>) =
     let input = args.GetResult(PreprocessArgs.Input)
     let output = args.GetResult(PreprocessArgs.Output)
     let tdigestPath = args.TryGetResult(PreprocessArgs.Tdigest)
-    let compression = args.GetResult(PreprocessArgs.Compression, defaultCompression)
+    let compression = args.GetResult(PreprocessArgs.Compression, TradingEdge.Simulation.TDigestProcessing.defaultCompression)
     let numWorkers = args.GetResult(PreprocessArgs.Workers, Environment.ProcessorCount)
-    
-    let tds = 
+
+    let tds =
         match tdigestPath with
         | Some path ->
             printfn "Loading t-digests from %s..." path
-            loadTDigests path
+            TradingEdge.Simulation.TDigestProcessing.loadTDigests path
         | None ->
             let path = input + ".tdigests"
-            let tds = (buildTDigestsFromParquet input compression numWorkers).Result
-            saveTDigests tds path
+            let tds = (TradingEdge.Simulation.TDigestProcessing.buildTDigestsFromParquet input compression numWorkers).Result
+            TradingEdge.Simulation.TDigestProcessing.saveTDigests tds path
             tds
-    
-    (transformParquetWithCdf input tds output numWorkers).Wait()
+
+    (TradingEdge.Simulation.TDigestProcessing.transformParquetWithCdf input tds output numWorkers).Wait()
 
 [<EntryPoint>]
 let main argv =
@@ -187,6 +215,7 @@ let main argv =
         | Order_Book args -> runOrderBook args
         | Generate_Day args -> runGenerateDay args
         | Generate_Dataset args -> runGenerateDataset args
+        | Build_Digests args -> runBuildDigests args
         | Preprocess args -> runPreprocess args
         | Dump_Trades args -> runDumpTrades args
 

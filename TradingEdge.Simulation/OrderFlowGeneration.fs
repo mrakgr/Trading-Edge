@@ -3,6 +3,7 @@ module TradingEdge.Simulation.OrderFlowGeneration
 open System
 open MathNet.Numerics.Distributions
 open TradingEdge.Simulation.EpisodeMCMC
+open TradingEdge.Simulation.TradeDataTDigests
 
 /// A single trade
 type Trade = {
@@ -16,8 +17,7 @@ type Trade = {
 
 /// Order flow parameters per trend
 type OrderFlowParams = {
-    MedianTradesPerSecond: float
-    MeanTradesPerSecond: float
+    BetaMean: float  // Target mean for beta distribution (activity level)
 }
 
 /// Target distribution parameters per trend
@@ -63,21 +63,21 @@ let getHoldParams (duration: HoldDuration) : HoldParams =
 /// Session-wide baseline parameters
 type SessionBaseline = {
     ProposalVolBps: float   // Price proposal random walk σ in bps (scaled by sqrt size)
-    RateProposalBps: float  // Rate proposal random walk σ in bps (scaled by sqrt size)
+    BetaScaleProposalBps: float  // Beta scale proposal random walk σ in bps (scaled by sqrt size)
 }
 
 let medianSize = 100 // Scales the proposal volatilities.
-let defaultBaseline = { ProposalVolBps = 0.35; RateProposalBps = 300.0 }
+let defaultBaseline = { ProposalVolBps = 0.35; BetaScaleProposalBps = 200.0 }
 
 let getOrderFlowParams (trend: Trend) : OrderFlowParams =
     match trend with
-    | Move (_, Strong) -> { MedianTradesPerSecond = 35.0; MeanTradesPerSecond = 40.0 }
-    | Move (_, Mid)    -> { MedianTradesPerSecond = 17.0; MeanTradesPerSecond = 20.0 }
-    | Move (_, Weak)   -> { MedianTradesPerSecond = 8.5;  MeanTradesPerSecond = 10.0 }
-    | Consolidation    -> { MedianTradesPerSecond = 4.0;  MeanTradesPerSecond = 5.0 }
-    | Hold (_, Strong, _) -> { MedianTradesPerSecond = 120.0; MeanTradesPerSecond = 160.0 }
-    | Hold (_, Mid, _)    -> { MedianTradesPerSecond = 60.0;  MeanTradesPerSecond = 80.0 }
-    | Hold (_, Weak, _)   -> { MedianTradesPerSecond = 30.0;  MeanTradesPerSecond = 40.0 }
+    | Move (_, Strong) -> { BetaMean = 0.7 }
+    | Move (_, Mid)    -> { BetaMean = 0.5 }
+    | Move (_, Weak)   -> { BetaMean = 0.3 }
+    | Consolidation    -> { BetaMean = 0.2 }
+    | Hold (_, Strong, _) -> { BetaMean = 0.9 }
+    | Hold (_, Mid, _)    -> { BetaMean = 0.7 }
+    | Hold (_, Weak, _)   -> { BetaMean = 0.5 }
 
 let getTargetParams (trend: Trend) : TargetParams =
     match trend with
@@ -144,6 +144,27 @@ let sampleDuration (rng: Random) (median: float) (mean: float) : float =
     let mu, sigma = logNormalMuSigma median mean
     LogNormal(mu, sigma, rng).Sample()
 
+/// Sample from beta distribution with given mean and scale
+let sampleBeta (rng: Random) (mean: float) (scale: float) : float =
+    let a = mean * scale
+    let b = (1.0 - mean) * scale
+    Beta(a, b, rng).Sample()
+
+/// Query t-digest at percentile (0.0 to 1.0)
+let queryPercentile (digest: TDigest.MergingDigest) (percentile: float) : float =
+    digest.Quantile(percentile)
+
+/// Sample size from t-digest using beta distribution (high beta = high percentile = large size)
+let sampleSizeFromDigest (rng: Random) (digest: TDigest.MergingDigest) (betaMean: float) (betaScale: float) : int =
+    let percentile = sampleBeta rng betaMean betaScale
+    let size = queryPercentile digest percentile
+    stochasticRound rng size
+
+/// Sample gap from t-digest using beta distribution (high beta = low percentile = short gap)
+let sampleGapFromDigest (rng: Random) (digest: TDigest.MergingDigest) (betaMean: float) (betaScale: float) : float =
+    let percentile = 1.0 - sampleBeta rng betaMean betaScale
+    queryPercentile digest percentile
+
 /// Multi-try step with pluggable log-density function
 let multiTryStepGeneric (rng: Random) (logPrice: float) (proposalVol: float) (logDensity: float -> float) (n: int) : float =
     let candidates = Array.zeroCreate (2 * n + 1)
@@ -182,21 +203,22 @@ let sampleTargetMean (rng: Random) (prevTargetMean: float) (targetParams: Target
         | Consolidation | Hold _ -> if rng.NextDouble() < 0.5 then 1.0 else -1.0
     prevTargetMean + sign * moveSize
 
-/// Generate trades for a single trend episode with sequential MCMC rate walk
-let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: float) (startLogRate: float) (baseline: SessionBaseline) (episode: Episode<Trend>) : Trade[] * float * float * float =
+/// Generate trades for a single trend episode with beta scale random walk
+let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: float) (startBetaScale: float) (baseline: SessionBaseline) (digests: TradeDataDigests) (episode: Episode<Trend>) : Trade[] * float * float * float =
     let durationSeconds = episode.Duration * 60.0
     let orderFlowParams = getOrderFlowParams episode.Label
-    let activityParams = getActivityParams episode.Label
     let targetParams = getTargetParams episode.Label
     let bps = 1e-4
 
     let targetMean = sampleTargetMean rng prevTargetMean targetParams episode.Label
     let targetSigma = targetParams.TargetVolBps * bps
     let proposalVol = baseline.ProposalVolBps * bps / sqrt (float medianSize)
-    let rateProposalVol = baseline.RateProposalBps * bps / sqrt (float medianSize)
-    let logRateTarget, logRateTargetSigma = logNormalMuSigma orderFlowParams.MedianTradesPerSecond orderFlowParams.MeanTradesPerSecond
+    let betaScaleProposalVol = baseline.BetaScaleProposalBps * bps / sqrt (float medianSize)
+    let betaMean = orderFlowParams.BetaMean
+    let logBetaScaleTarget = log 10.0
+    let logBetaScaleTargetSigma = 0.5
 
-    let priceTransition = 
+    let priceTransition =
         match episode.Label with
         | Hold (holdSide, _, holdDuration) ->
             let holdParams = getHoldParams holdDuration
@@ -209,8 +231,8 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
             let sampleHoldTime () = sampleDuration rng holdParams.HoldDurationMedian holdParams.HoldDurationMean
             let sampleReleaseTime () = sampleDuration rng holdParams.ReleaseDurationMedian holdParams.ReleaseDurationMean
             let mutable timeLeft = sampleLogNormalAbove rng holdParams.HoldDurationMedian holdParams.HoldDurationMean
-            fun dt size logRate logPrice ->
-                timeLeft <- timeLeft - dt
+            fun gap size logBetaScale logPrice ->
+                timeLeft <- timeLeft - gap
                 if timeLeft <= 0.0 then
                     holding <- not holding
                     timeLeft <- if holding then sampleHoldTime () else sampleReleaseTime ()
@@ -232,29 +254,27 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
                 let sqrtSize = sqrt (float size)
                 multiTryStepGeneric rng logPrice (pVol * sqrtSize) logDensity 10
         | Move _ | Consolidation ->
-            fun dt size logRate logPrice -> 
+            fun gap size logBetaScale logPrice ->
                 let sqrtSize = sqrt (float size)
                 multiTryStep rng logPrice (proposalVol * sqrtSize) targetMean targetSigma 10
 
-    let rateTransition _dt size logRate logPrice =
+    let betaScaleTransition _gap size logBetaScale =
         let sqrtSize = sqrt (float size)
-        multiTryStep rng logRate (rateProposalVol * sqrtSize) logRateTarget logRateTargetSigma 10
+        multiTryStep rng logBetaScale (betaScaleProposalVol * sqrtSize) logBetaScaleTarget logBetaScaleTargetSigma 10
 
     let trades = ResizeArray<Trade>()
     let mutable logPrice = log startPrice
-    let mutable logRate = 
-        match episode.Label with
-        | Move _ | Consolidation -> startLogRate
-        | Hold _ -> Normal(logRateTarget, logRateTargetSigma, rng).Sample()
+    let mutable logBetaScale = startBetaScale
     let mutable time = 0.0
 
     while time < durationSeconds do
-        let dt = Exponential.Sample(rng, exp logRate)
-        time <- time + dt
+        let betaScale = exp logBetaScale
+        let gap = sampleGapFromDigest rng digests.GapDigest betaMean betaScale
+        time <- time + gap
         if time < durationSeconds then
-            let size = sampleSize rng activityParams.MedianSize activityParams.MeanSize
-            logRate <- rateTransition dt size logRate logPrice
-            logPrice <- priceTransition dt size logRate logPrice
+            let size = sampleSizeFromDigest rng digests.SizeDigest betaMean betaScale
+            logBetaScale <- betaScaleTransition gap size logBetaScale
+            logPrice <- priceTransition gap size logBetaScale logPrice
             trades.Add({
                 Time = time
                 Price = exp logPrice
@@ -265,7 +285,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
             })
 
     let endPrice = exp logPrice
-    trades.ToArray(), endPrice, targetMean, logRate
+    trades.ToArray(), endPrice, targetMean, logBetaScale
 
 /// Print summary statistics for generated trades
 let printTradesSummary (trades: Trade[]) : unit =

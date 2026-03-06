@@ -10,6 +10,7 @@ open Parquet.Data
 open FSharp.Control
 open TradingEdge.Simulation.EpisodeMCMC
 open TradingEdge.Simulation.OrderFlowGeneration
+open TradingEdge.Simulation.TradeDataTDigests
 
 let sessionToInt (s: DaySession) : int =
     match s with
@@ -54,125 +55,94 @@ let trendToInt (t: Trend) : int =
     | Hold (Neutral, Weak, Medium) -> 32
     | Hold (Neutral, Weak, Long) -> 33
 
-type SecondBar = {
+type VolumeBar = {
     Vwap: float
-    Volume: int
-    StdDev: float
+    VwStd: float
+    Duration: float
     Session: int
     Trend: int
-    TargetMean: float
-    TargetSigma: float
 }
 
-/// Generate all trades for a full day, chaining episode end prices
-let generateDayTrades (rng: Random) (startPrice: float) (baseline: SessionBaseline) (result: DayResult) : Trade[] =
+type private BarFragment = {
+    Price: float
+    Volume: int
+    Time: float
+    Session: int
+    Trend: int
+}
+
+/// Generate all trades for a full day
+let generateDayTrades (rng: Random) (startPrice: float) (baseline: SessionBaseline) (digests: TradeDataDigests) (result: DayResult) : Trade[] =
     let allTrades = ResizeArray<Trade>()
     let mutable price = startPrice
     let mutable targetMean = log startPrice
-    let mutable logRate = log 10.0  // Start at a moderate rate
+    let mutable logBetaScale = log 10.0
     let mutable timeOffset = 0.0
     for sessionTrends in result.Trends do
         for episode in sessionTrends do
-            let trades, endPrice, newTargetMean, newLogRate = generateEpisodeTrades rng price targetMean logRate baseline episode
+            let trades, endPrice, newTargetMean, newLogBetaScale = generateEpisodeTrades rng price targetMean logBetaScale baseline digests episode
             for t in trades do
                 allTrades.Add({ t with Time = t.Time + timeOffset })
             timeOffset <- timeOffset + episode.Duration * 60.0
             price <- endPrice
             targetMean <- newTargetMean
-            logRate <- newLogRate
+            logBetaScale <- newLogBetaScale
     allTrades.ToArray()
 
-/// Aggregate trades into 1-second bars
-let aggregateToSecondBars (trades: Trade[]) (totalSeconds: int) : SecondBar[] =
-    let bars = Array.init totalSeconds (fun _ -> { Vwap = 0.0; Volume = 0; StdDev = 0.0; Session = 0; Trend = 0; TargetMean = 0.0; TargetSigma = 0.0 })
-    
-    // Group trades by second
-    let buckets = Array.init totalSeconds (fun _ -> ResizeArray<Trade>())
-    for t in trades do
-        let sec = int t.Time |> min (totalSeconds - 1) |> max 0
-        buckets.[sec].Add(t)
-    
-    let mutable lastVwap = if trades.Length > 0 then trades.[0].Price else 0.0
-    let mutable lastTargetMean = if trades.Length > 0 then trades.[0].TargetMean else 0.0
-    let mutable lastTargetSigma = if trades.Length > 0 then trades.[0].TargetSigma else 0.0
-    
-    for sec in 0 .. totalSeconds - 1 do
-        let bucket = buckets.[sec]
-        if bucket.Count = 0 then
-            bars.[sec] <- { Vwap = lastVwap; Volume = 0; StdDev = 0.0; Session = 0; Trend = 0; TargetMean = lastTargetMean; TargetSigma = lastTargetSigma }
-        else
-            let totalVol = bucket |> Seq.sumBy (fun t -> t.Size)
-            let vwap = (bucket |> Seq.sumBy (fun t -> float t.Size * t.Price)) / float totalVol
-            let variance =
-                if totalVol > 0 then
-                    (bucket |> Seq.sumBy (fun t -> float t.Size * (t.Price - vwap) ** 2.0)) / float totalVol
-                else 0.0
-            let lastTrade = bucket.[bucket.Count - 1]
-            bars.[sec] <- { Vwap = vwap; Volume = totalVol; StdDev = sqrt variance; Session = sessionToInt Morning; Trend = trendToInt lastTrade.Trend; TargetMean = lastTrade.TargetMean; TargetSigma = lastTrade.TargetSigma }
-            lastVwap <- vwap
-            lastTargetMean <- lastTrade.TargetMean
-            lastTargetSigma <- lastTrade.TargetSigma
-    bars
+/// Aggregate trades into fixed volume bars with trade splitting
+let aggregateToVolumeBars (trades: Trade[]) (volumeSize: int) : VolumeBar[] =
+    if trades.Length = 0 then [||]
+    else
+        let bars = ResizeArray<VolumeBar>()
+        let mutable currentVolume = 0
+        let barData = ResizeArray<BarFragment>()
+        let mutable startTime = trades.[0].Time
 
-/// Assign session/trend labels to second bars based on episode structure
-let assignLabels (bars: SecondBar[]) (result: DayResult) : unit =
-    let mutable sec = 0
-    for i in 0 .. result.Sessions.Length - 1 do
-        let session = result.Sessions.[i]
-        let sessionInt = sessionToInt session.Label
-        for episode in result.Trends.[i] do
-            let trendInt = trendToInt episode.Label
-            let endSec = sec + int (episode.Duration * 60.0)
-            for s in sec .. min (endSec - 1) (bars.Length - 1) do
-                bars.[s] <- { bars.[s] with Session = sessionInt; Trend = trendInt }
-            sec <- endSec
+        let computeBar () =
+            if barData.Count > 0 then
+                let totalVol = barData |> Seq.sumBy (fun f -> f.Volume)
+                let vwap = (barData |> Seq.sumBy (fun f -> f.Price * float f.Volume)) / float totalVol
+                let variance = (barData |> Seq.sumBy (fun f -> float f.Volume * (f.Price - vwap) * (f.Price - vwap))) / float totalVol
+                let vwstd = sqrt variance
+                let lastFrag = barData.[barData.Count - 1]
+                let duration = lastFrag.Time - startTime
+                bars.Add { Vwap = vwap; VwStd = vwstd; Duration = duration; Session = lastFrag.Session; Trend = lastFrag.Trend }
+
+        for t in trades do
+            let mutable remainingSize = t.Size
+            let session = sessionToInt Morning
+            let trend = trendToInt t.Trend
+
+            while remainingSize > 0 do
+                let spaceLeft = volumeSize - currentVolume
+
+                if remainingSize <= spaceLeft then
+                    barData.Add { Price = t.Price; Volume = remainingSize; Time = t.Time; Session = session; Trend = trend }
+                    currentVolume <- currentVolume + remainingSize
+                    remainingSize <- 0
+                else
+                    if spaceLeft > 0 then
+                        barData.Add { Price = t.Price; Volume = spaceLeft; Time = t.Time; Session = session; Trend = trend }
+                        currentVolume <- currentVolume + spaceLeft
+                        remainingSize <- remainingSize - spaceLeft
+
+                    if currentVolume >= volumeSize then
+                        computeBar()
+                        currentVolume <- 0
+                        barData.Clear()
+                        startTime <- t.Time
+
+        if barData.Count > 0 then
+            computeBar()
+
+        bars.ToArray()
 
 type DayData = {
     DayId: int
-    DayIds: int[]
-    Times: int[]
-    Sessions: int[]
-    Trends: int[]
-    Vwap1s: float[]
-    Volume1s: int[]
-    StdDev1s: float[]
-    Vwap1m: float[]
-    Volume1m: int[]
-    StdDev1m: float[]
-    Vwap5m: float[]
-    Volume5m: int[]
-    StdDev5m: float[]
-    TargetMean: float[]
-    TargetSigma: float[]
+    Bars500: VolumeBar[]
+    Bars2000: VolumeBar[]
+    Bars10000: VolumeBar[]
 }
-
-/// Combine 1s bars into period bars (1m, 5m) - volume-weighted variance of 1s VWAPs
-let combineBars (bars: SecondBar[]) (periodSeconds: int) : (float * int * float)[] =
-    let n = bars.Length
-    let result = Array.zeroCreate n
-    let mutable mean = 0.0
-    let mutable s = 0.0
-    let mutable vol = 0
-    
-    for i in 0 .. n - 1 do
-        if i % periodSeconds = 0 then
-            mean <- 0.0
-            s <- 0.0
-            vol <- 0
-        
-        let b = bars.[i]
-        if b.Volume > 0 then
-            vol <- vol + b.Volume
-            let delta = b.Vwap - mean
-            mean <- mean + delta * float b.Volume / float vol
-            s <- s + float b.Volume * (b.StdDev * b.StdDev + delta * (b.Vwap - mean))
-        
-        let stdDev = if vol > 0 then sqrt(s / float vol) else 0.0
-        result.[i] <- (if vol > 0 then mean else bars.[i].Vwap), vol, stdDev
-    
-    result
-
-let barsPerDay = 390 * 60
 
 let generateSingleDay
     (dayId: int)
@@ -181,50 +151,26 @@ let generateSingleDay
     (sessionConfig: SessionLevel.Config)
     (trendConfig: TrendLevel.Config)
     (startPrice: float)
+    (digests: TradeDataDigests)
     : DayData =
 
     let rng = Random(seed)
     let result = generateDay sessionConfig trendConfig mcmcConfig rng 390.0
-    let trades = generateDayTrades rng startPrice defaultBaseline result
-    let bars = aggregateToSecondBars trades barsPerDay
-    assignLabels bars result
-
-    let agg1m = combineBars bars 60
-    let agg5m = combineBars bars 300
+    let trades = generateDayTrades rng startPrice defaultBaseline digests result
 
     { DayId = dayId
-      DayIds = Array.create barsPerDay dayId
-      Times = Array.init barsPerDay id
-      Sessions = bars |> Array.map (fun b -> b.Session)
-      Trends = bars |> Array.map (fun b -> b.Trend)
-      Vwap1s = bars |> Array.map (fun b -> b.Vwap)
-      Volume1s = bars |> Array.map (fun b -> b.Volume)
-      StdDev1s = bars |> Array.map (fun b -> b.StdDev)
-      Vwap1m = agg1m |> Array.map (fun (v,_,_) -> v)
-      Volume1m = agg1m |> Array.map (fun (_,v,_) -> v)
-      StdDev1m = agg1m |> Array.map (fun (_,_,s) -> s)
-      Vwap5m = agg5m |> Array.map (fun (v,_,_) -> v)
-      Volume5m = agg5m |> Array.map (fun (_,v,_) -> v)
-      StdDev5m = agg5m |> Array.map (fun (_,_,s) -> s)
-      TargetMean = bars |> Array.map (fun b -> b.TargetMean)
-      TargetSigma = bars |> Array.map (fun b -> b.TargetSigma) }
+      Bars500 = aggregateToVolumeBars trades 500
+      Bars2000 = aggregateToVolumeBars trades 2000
+      Bars10000 = aggregateToVolumeBars trades 10000 }
 
 let datasetSchema = ParquetSchema(
     DataField<int>("day_id"),
-    DataField<int>("time"),
+    DataField<int>("bar_type"),
+    DataField<float>("vwap"),
+    DataField<float>("vwstd"),
+    DataField<float>("duration"),
     DataField<int>("session"),
-    DataField<int>("trend"),
-    DataField<float>("vwap_1s"),
-    DataField<int>("volume_1s"),
-    DataField<float>("stddev_1s"),
-    DataField<float>("vwap_1m"),
-    DataField<int>("volume_1m"),
-    DataField<float>("stddev_1m"),
-    DataField<float>("vwap_5m"),
-    DataField<int>("volume_5m"),
-    DataField<float>("stddev_5m"),
-    DataField<float>("target_mean"),
-    DataField<float>("target_sigma")
+    DataField<int>("trend")
 )
 
 let writerTask (outputPath: string) (numDays: int) (channel: Channel<DayData>) = task {
@@ -235,24 +181,25 @@ let writerTask (outputPath: string) (numDays: int) (channel: Channel<DayData>) =
 
     for data in channel.Reader.ReadAllAsync() do
         let fields = datasetSchema.DataFields
-        use rowGroup = writer.CreateRowGroup()
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[0], data.DayIds))
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[1], data.Times))
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[2], data.Sessions))
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[3], data.Trends))
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[4], data.Vwap1s))
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[5], data.Volume1s))
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[6], data.StdDev1s))
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[7], data.Vwap1m))
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[8], data.Volume1m))
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[9], data.StdDev1m))
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[10], data.Vwap5m))
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[11], data.Volume5m))
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[12], data.StdDev5m))
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[13], data.TargetMean))
-        do! rowGroup.WriteColumnAsync(DataColumn(fields.[14], data.TargetSigma))
+        for barType, bars in [(500, data.Bars500); (2000, data.Bars2000); (10000, data.Bars10000)] do
+            if bars.Length > 0 then
+                use rowGroup = writer.CreateRowGroup()
+                let dayIds = Array.create bars.Length data.DayId
+                let barTypes = Array.create bars.Length barType
+                let vwaps = bars |> Array.map (fun b -> b.Vwap)
+                let vwstds = bars |> Array.map (fun b -> b.VwStd)
+                let durations = bars |> Array.map (fun b -> b.Duration)
+                let sessions = bars |> Array.map (fun b -> b.Session)
+                let trends = bars |> Array.map (fun b -> b.Trend)
+                do! rowGroup.WriteColumnAsync(DataColumn(fields.[0], dayIds))
+                do! rowGroup.WriteColumnAsync(DataColumn(fields.[1], barTypes))
+                do! rowGroup.WriteColumnAsync(DataColumn(fields.[2], vwaps))
+                do! rowGroup.WriteColumnAsync(DataColumn(fields.[3], vwstds))
+                do! rowGroup.WriteColumnAsync(DataColumn(fields.[4], durations))
+                do! rowGroup.WriteColumnAsync(DataColumn(fields.[5], sessions))
+                do! rowGroup.WriteColumnAsync(DataColumn(fields.[6], trends))
         daysWritten <- daysWritten + 1
-        if daysWritten % 500 = 0 then
+        if daysWritten % 100 = 0 then
             printfn "  Written %d / %d days" daysWritten numDays
 }
 
@@ -260,10 +207,11 @@ let generatorTask
     (workerId: int) (numWorkers: int) (numDays: int) (baseSeed: int)
     (mcmcConfig: MCMC.Config) (sessionConfig: SessionLevel.Config)
     (trendConfig: TrendLevel.Config) (startPrice: float)
+    (digests: TradeDataDigests)
     (channel: Channel<DayData>) = task {
     let mutable dayId = workerId
     while dayId < numDays do
-        let data = generateSingleDay dayId (baseSeed + dayId) mcmcConfig sessionConfig trendConfig startPrice
+        let data = generateSingleDay dayId (baseSeed + dayId) mcmcConfig sessionConfig trendConfig startPrice digests
         do! channel.Writer.WriteAsync(data)
         dayId <- dayId + numWorkers
 }
@@ -271,10 +219,14 @@ let generatorTask
 let generateDataset
     (baseSeed: int) (numDays: int) (outputPath: string)
     (mcmcConfig: MCMC.Config) (sessionConfig: SessionLevel.Config)
-    (trendConfig: TrendLevel.Config) (startPrice: float) : unit =
+    (trendConfig: TrendLevel.Config) (startPrice: float)
+    (digestsPath: string) : unit =
+
+    printfn "Loading t-digests from %s..." digestsPath
+    let digests = loadTDigests digestsPath
 
     let numWorkers = Environment.ProcessorCount
-    printfn "Generating %d days (%d bars) with %d workers..." numDays (numDays * barsPerDay) numWorkers
+    printfn "Generating %d days with %d workers..." numDays numWorkers
 
     let dir = Path.GetDirectoryName(outputPath)
     if not (String.IsNullOrEmpty(dir)) && not (Directory.Exists(dir)) then
@@ -287,9 +239,9 @@ let generateDataset
     let generators =
         [| for w in 0 .. numWorkers - 1 ->
             Task.Run(Func<Task>(fun () ->
-                generatorTask w numWorkers numDays baseSeed mcmcConfig sessionConfig trendConfig startPrice channel)) |]
+                generatorTask w numWorkers numDays baseSeed mcmcConfig sessionConfig trendConfig startPrice digests channel)) |]
 
     Task.WhenAll(generators).ContinueWith(fun (_: Task) -> channel.Writer.Complete()).Wait()
     writer.Wait()
 
-    printfn "Done. Wrote %d bars to %s" (numDays * barsPerDay) outputPath
+    printfn "Done. Wrote dataset to %s" outputPath
