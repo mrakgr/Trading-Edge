@@ -37,6 +37,13 @@ type Trend =
     | Hold of HoldSide * Intensity * HoldDuration
     | Consolidation
 
+/// Subepisode with auction target parameters
+type Subepisode = {
+    TargetMean: float      // Log-price space
+    TargetSigma: float     // Log-price space
+    Duration: float        // Minutes
+}
+
 // =============================================================================
 // Generic MCMC Module
 // =============================================================================
@@ -496,6 +503,78 @@ let generateDay
             TrendLevel.sample trendConfig mcmcConfig rng session.Label session.Duration)
 
     { Sessions = sessions; Trends = trends }
+
+// =============================================================================
+// Subepisode Generation
+// =============================================================================
+
+/// Generate subepisodes for a session episode
+let generateSubepisodes
+    (rng: Random)
+    (calculateVariance: float -> float)  // Takes duration in seconds, returns variance
+    (episodeTarget: float)               // Log-price space
+    (episodeSigma: float)                // Log-price space
+    (episodeDuration: float)             // Minutes
+    : Subepisode[] =
+
+    let subepisodeDist = Distribution.LogNormal(8.0, 10.0)
+
+    // Sample initial durations until sum >= episodeDuration
+    let rec sampleInitial acc =
+        let d = Distribution.sample rng subepisodeDist
+        let newAcc = d :: acc
+        let total = List.sum newAcc
+        if total >= episodeDuration then newAcc else sampleInitial newAcc
+
+    let initialDurations = sampleInitial [] |> List.toArray
+    let initialSum = Array.sum initialDurations
+    let scaledDurations = initialDurations |> Array.map (fun d -> d * episodeDuration / initialSum)
+
+    // MCMC optimization of durations
+    let logLikelihood (durations: float[]) =
+        durations |> Array.sumBy (Distribution.logLikelihood subepisodeDist)
+
+    let propose (rng: Random) (durations: float[]) =
+        if durations.Length < 2 then Some durations
+        else
+            let idx1, idx2 = MCMC.pickTwoDistinctIndices rng durations.Length
+            let proposalStdDev = Distribution.stdDev subepisodeDist
+            let delta = Normal.Sample(rng, 0.0, proposalStdDev)
+            let newDurations = Array.copy durations
+            newDurations.[idx1] <- durations.[idx1] + delta
+            newDurations.[idx2] <- durations.[idx2] - delta
+            if newDurations.[idx1] > 0.0 && newDurations.[idx2] > 0.0 then
+                Some newDurations
+            else
+                None
+
+    let optimizedDurations = MCMC.run { Iterations = 5000 } logLikelihood propose scaledDurations rng
+
+    // Sample target for each subepisode using multi-try MCMC
+    optimizedDurations
+    |> Array.map (fun duration ->
+        let durationSeconds = duration * 60.0
+        let variance = calculateVariance durationSeconds
+        let proposalSigma = sqrt variance
+
+        // Multi-try MCMC: sample target around episode target
+        let mutable target = episodeTarget
+        for _ in 1 .. 100 do
+            let candidates = Array.init 21 (fun i ->
+                if i = 0 then target
+                else
+                    let z = Normal.Sample(rng, 0.0, proposalSigma)
+                    if i % 2 = 1 then target + z else target - z)
+            let weights = candidates |> Array.map (fun t ->
+                exp (Normal.PDFLn(episodeTarget, episodeSigma, t)))
+            let idx = Categorical.Sample(rng, weights)
+            target <- candidates.[idx]
+
+        {
+            TargetMean = target
+            TargetSigma = proposalSigma
+            Duration = duration
+        })
 
 // =============================================================================
 // Display Utilities

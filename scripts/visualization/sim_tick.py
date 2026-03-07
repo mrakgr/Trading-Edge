@@ -21,45 +21,14 @@ with open(input_csv) as f:
             'time': float(row['time']),
             'price': float(row['price']),
             'size': int(row['size']),
-            'trend': row['trend'],
             'target_mean': float(row['target_mean']),
             'target_sigma': float(row['target_sigma']),
         })
 
-trend_colors = {
-    'StrongUp': 'darkgreen', 'MidUp': 'green', 'WeakUp': 'lightgreen',
-    'Consol': 'gray',
-    'WeakDown': 'lightsalmon', 'MidDown': 'orange', 'StrongDown': 'darkred'
-}
-
-# Assign colors to hold trends dynamically
-hold_palette = ['red', 'magenta', 'salmon', 'deeppink', 'crimson', 'hotpink',
-                'indianred', 'mediumvioletred', 'palevioletred', 'tomato']
-hold_trends = sorted(set(t['trend'] for t in trades if t['trend'].startswith('Hold')))
-for i, ht in enumerate(hold_trends):
-    trend_colors[ht] = hold_palette[i % len(hold_palette)]
-
-def is_hold(trend):
-    return trend.startswith('Hold')
-
-# Find hold segments for highlighting
-hold_starts = []
-hold_ends = []
-in_hold = False
-for t in trades:
-    if is_hold(t['trend']) and not in_hold:
-        hold_starts.append(t['time'] / 60.0)
-        in_hold = True
-    elif not is_hold(t['trend']) and in_hold:
-        hold_ends.append(t['time'] / 60.0)
-        in_hold = False
-if in_hold:
-    hold_ends.append(trades[-1]['time'] / 60.0)
 
 # Plot all trades
 times = [t['time'] / 60.0 for t in trades]
 prices = [t['price'] for t in trades]
-colors = [trend_colors.get(t['trend'], 'black') for t in trades]
 
 # Precompute marker sizes
 import math
@@ -68,27 +37,24 @@ marker_sizes = [0.5 * math.sqrt(t['size']) for t in trades]
 hover_text = [
     f"Time: {t['time']/60:.2f}m<br>"
     f"Price: ${t['price']:.4f}<br>"
-    f"Size: {t['size']:,}<br>"
-    f"Trend: {t['trend']}"
+    f"Size: {t['size']:,}"
     for t in trades
 ]
 
 fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
     row_heights=[3, 1], vertical_spacing=0.05,
-    subplot_titles=['Price (colored by trend)', 'Trade Size'])
+    subplot_titles=['Price', 'Trade Size'])
 
-# Price scatter colored by trend
-for trend, color in trend_colors.items():
-    idx = [i for i, t in enumerate(trades) if t['trend'] == trend]
-    if idx:
-        fig.add_trace(go.Scattergl(
-            x=[times[i] for i in idx],
-            y=[prices[i] for i in idx],
-            mode='markers', marker=dict(size=[marker_sizes[i] for i in idx], color=color),
-            text=[hover_text[i] for i in idx],
-            hoverinfo='text',
-            name=trend
-        ), row=1, col=1)
+# Price scatter
+fig.add_trace(go.Scattergl(
+    x=times,
+    y=prices,
+    mode='markers',
+    marker=dict(size=marker_sizes, color='blue', opacity=0.6),
+    text=hover_text,
+    hoverinfo='text',
+    name='Trades'
+), row=1, col=1)
 
 # Target mean and stddev bands
 target_means = [t['target_mean'] for t in trades]
@@ -110,40 +76,6 @@ fig.add_trace(go.Scattergl(
     line=dict(color='orange', width=0.5, dash='dot'),
     name='-1σ', showlegend=False
 ), row=1, col=1)
-
-# Effective hold stddev band for hold regions (HoldSigmaFraction = 0.05)
-# Insert None breaks between separate hold segments to avoid connecting lines
-hold_upper_x, hold_upper_y = [], []
-hold_lower_x, hold_lower_y = [], []
-prev_was_hold = False
-for t in trades:
-    if is_hold(t['trend']):
-        if not prev_was_hold:
-            hold_upper_x.append(None); hold_upper_y.append(None)
-            hold_lower_x.append(None); hold_lower_y.append(None)
-        x = t['time'] / 60.0
-        eff_sigma = t['target_sigma'] * 0.05
-        hold_upper_x.append(x); hold_upper_y.append(t['target_mean'] + eff_sigma)
-        hold_lower_x.append(x); hold_lower_y.append(t['target_mean'] - eff_sigma)
-        prev_was_hold = True
-    else:
-        prev_was_hold = False
-
-if hold_upper_x:
-    fig.add_trace(go.Scattergl(
-        x=hold_upper_x, y=hold_upper_y, mode='lines',
-        line=dict(color='red', width=1, dash='dot'),
-        name='+1σ hold', showlegend=False
-    ), row=1, col=1)
-    fig.add_trace(go.Scattergl(
-        x=hold_lower_x, y=hold_lower_y, mode='lines',
-        line=dict(color='red', width=1, dash='dot'),
-        name='-1σ hold', showlegend=False
-    ), row=1, col=1)
-
-# Hold region shading
-for s, e in zip(hold_starts, hold_ends):
-    fig.add_vrect(x0=s, x1=e, fillcolor='red', opacity=0.08, line_width=0, row=1, col=1)
 
 # Volume
 sizes = [t['size'] for t in trades]

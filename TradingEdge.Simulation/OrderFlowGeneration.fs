@@ -2,7 +2,6 @@ module TradingEdge.Simulation.OrderFlowGeneration
 
 open System
 open MathNet.Numerics.Distributions
-open TradingEdge.Simulation.EpisodeMCMC
 open TradingEdge.Simulation.TradeDataTDigests
 open TradingEdge.Simulation.ExponentialTilt
 open TDigest
@@ -12,44 +11,17 @@ type Trade = {
     Time: float
     Price: float
     Size: int
-    Trend: Trend
     TargetMean: float   // Target distribution mean (price space)
     TargetSigma: float  // Target distribution sigma (price space)
 }
 
-/// Target distribution parameters per trend
-type TargetParams = {
-    MoveSigmaMedian: float  // Median of LogNormal for move magnitude in target σ units
-    MoveSigmaMean: float    // Mean of LogNormal for move magnitude
-    TargetVolBps: float     // Target distribution σ in bps
+/// Auction target parameters
+type AuctionParams = {
+    BaseVolBps: float
+    MeanVolume: float
+    MeanRate: float
+    SessionMultiplier: float  // sqrt(3) for Morning/Close, 1.0 for Mid
 }
-
-/// HMM hold parameters for TightHold episodes
-type HoldParams = {
-    HoldSigmaFraction: float     // Hold sigma as fraction of TargetVolBps (tight side)
-    HoldProposalFraction: float  // Hold proposal vol as fraction of baseline ProposalVolBps
-    PinnedMassFraction: float    // Mass fraction on the pinned side (e.g. 0.8 = 80% of density)
-    HoldDurationMedian: float    // Median hold duration in seconds
-    HoldDurationMean: float      // Mean hold duration in seconds
-    ReleaseDurationMedian: float // Median release/fakeout duration in seconds
-    ReleaseDurationMean: float   // Mean release/fakeout duration in seconds
-}
-
-let getHoldParams (duration: HoldDuration) : HoldParams =
-    let holdMedian, holdMean, releaseMedian, releaseMean =
-        match duration with
-        | Short  -> 1.2, 1.8, 0.2, 0.3
-        | Medium -> 12.0, 18.0, 1.0, 1.5
-        | Long   -> 120.0, 180.0, 10.0, 15.0
-    {
-        HoldSigmaFraction = 0.05
-        HoldProposalFraction = 1.0
-        PinnedMassFraction = 0.8
-        HoldDurationMedian = holdMedian
-        HoldDurationMean = holdMean
-        ReleaseDurationMedian = releaseMedian
-        ReleaseDurationMean = releaseMean
-    }
 
 /// Session-wide baseline parameters
 type SessionBaseline = {
@@ -58,33 +30,14 @@ type SessionBaseline = {
 
 let defaultBaseline = { ProposalVolBps = 0.35 }
 
-let getSizeMultiplier (trend: Trend) : float =
-    match trend with
-    | Move (_, Strong) -> 1.5 ** 2.0
-    | Move (_, Mid)    -> 1.5 ** 1.0
-    | Move (_, Weak)   -> 1.5 ** 0.0
-    | Consolidation    -> 1.5 ** -1.0
-    | Hold (_, Strong, _) -> 1.5 ** 2.5
-    | Hold (_, Mid, _)    -> 1.5 ** 1.5
-    | Hold (_, Weak, _)   -> 1.5 ** 0.5
+let calculateVariance (auctionParams: AuctionParams) (durationSeconds: float) : float =
+    let bps = 1e-4
+    let baseVol = auctionParams.BaseVolBps * bps
+    let multiplierSq = auctionParams.SessionMultiplier * auctionParams.SessionMultiplier
+    baseVol * baseVol * auctionParams.MeanVolume * auctionParams.MeanRate * multiplierSq * durationSeconds
 
-let getGapMultiplier (trend: Trend) : float =
-    match trend with
-    | Move (_, Strong) -> 1.5 ** -2.0
-    | Move (_, Mid)    -> 1.5 ** -1.0
-    | Move (_, Weak)   -> 1.5 ** 0.0
-    | Consolidation    -> 1.5 ** 1.0
-    | Hold (_, Strong, _) -> 1.5 ** -2.5
-    | Hold (_, Mid, _)    -> 1.5 ** -1.5
-    | Hold (_, Weak, _)   -> 1.5 ** -0.5
-
-let getTargetParams (trend: Trend) : TargetParams =
-    match trend with
-    | Move (_, Strong) -> { MoveSigmaMedian = 4.0; MoveSigmaMean = 5.0; TargetVolBps = 24.0 }
-    | Move (_, Mid)    -> { MoveSigmaMedian = 2.5; MoveSigmaMean = 3.0; TargetVolBps = 18.0 }
-    | Move (_, Weak)   -> { MoveSigmaMedian = 1.2; MoveSigmaMean = 1.5; TargetVolBps = 12.0 }
-    | Consolidation    -> { MoveSigmaMedian = 0.2; MoveSigmaMean = 0.5; TargetVolBps = 9.0 }
-    | Hold _           -> { MoveSigmaMedian = 0.1; MoveSigmaMean = 0.2; TargetVolBps = 9.0 }
+let sampleAuctionTarget (rng: Random) (variance: float) : float =
+    Normal.Sample(rng, 0.0, sqrt variance)
 
 let stochasticRound (rng: Random) (x: float) : int =
     let floor = Math.Floor(x)
@@ -164,15 +117,13 @@ let createTiltedDigest (rng: Random) (digest: MergingDigest) (targetMean: float)
 
     tiltedDigest
 
-/// Create tilted digests for a trend using multipliers
-let createTiltedDigests (rng: Random) (digests: TradeDataDigests) (trend: Trend) : TradeDataDigests =
+/// Create tilted digests for a session using multipliers
+let createSessionTiltedDigests (rng: Random) (digests: TradeDataDigests) (multiplier: float) : TradeDataDigests =
     let baselineSizeMean = digestMean digests.SizeDigest
     let baselineGapMean = digestMean digests.GapDigest
-    let targetSizeMean = baselineSizeMean * getSizeMultiplier trend
-    let targetGapMean = baselineGapMean * getGapMultiplier trend
     {
-        SizeDigest = createTiltedDigest rng digests.SizeDigest targetSizeMean
-        GapDigest = createTiltedDigest rng digests.GapDigest targetGapMean
+        SizeDigest = createTiltedDigest rng digests.SizeDigest (baselineSizeMean * multiplier)
+        GapDigest = createTiltedDigest rng digests.GapDigest (baselineGapMean / multiplier)
     }
 
 /// Multi-try step with pluggable log-density function
@@ -199,94 +150,33 @@ let multiTryStep (rng: Random) (logPrice: float) (proposalVol: float) (targetMea
     multiTryStepGeneric rng logPrice proposalVol (fun x -> Normal.PDFLn(targetMean, targetSigma, x)) n
 
 /// Sample target mean for an episode
-let sampleTargetMean (rng: Random) (prevTargetMean: float) (targetParams: TargetParams) (trend: Trend) : float =
+/// Generate trades for a single subepisode
+let generateSubepisodeTrades (rng: Random) (startPrice: float) (baseline: SessionBaseline) (digests: TradeDataDigests) (targetMean: float) (targetSigma: float) (durationSeconds: float) : Trade[] * float =
     let bps = 1e-4
-    let targetSigma = targetParams.TargetVolBps * bps
-    let moveSigma = logNormalSigma targetParams.MoveSigmaMedian targetParams.MoveSigmaMean
-    let moveMu = log targetParams.MoveSigmaMedian
-    let kSigmas = LogNormal(moveMu, moveSigma, rng).Sample()
-    let moveSize = kSigmas * targetSigma
-    let sign =
-        match trend with
-        | Move (Up, _) -> 1.0
-        | Move (Down, _) -> -1.0
-        | Consolidation | Hold _ -> if rng.NextDouble() < 0.5 then 1.0 else -1.0
-    prevTargetMean + sign * moveSize
-
-/// Generate trades for a single trend episode
-let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: float) (baseline: SessionBaseline) (digests: TradeDataDigests) (episode: Episode<Trend>) : Trade[] * float * float =
-    let durationSeconds = episode.Duration * 60.0
-    let targetParams = getTargetParams episode.Label
-    let bps = 1e-4
-
     let baselineSize = digestMean digests.SizeDigest
-    let tiltedDigests = createTiltedDigests rng digests episode.Label
-
-    let targetMean = sampleTargetMean rng prevTargetMean targetParams episode.Label
-    let targetSigma = targetParams.TargetVolBps * bps
     let proposalVol = baseline.ProposalVolBps * bps / sqrt baselineSize
-
-    let priceTransition =
-        match episode.Label with
-        | Hold (holdSide, _, holdDuration) ->
-            let holdParams = getHoldParams holdDuration
-            let mutable holding = true
-            let holdLevel = targetMean
-            let tightSigma = targetSigma * holdParams.HoldSigmaFraction
-            let holdProposalVol = proposalVol * holdParams.HoldProposalFraction
-            let logPinned = log holdParams.PinnedMassFraction
-            let logUnpinned = log (1.0 - holdParams.PinnedMassFraction)
-            let sampleHoldTime () = sampleDuration rng holdParams.HoldDurationMedian holdParams.HoldDurationMean
-            let sampleReleaseTime () = sampleDuration rng holdParams.ReleaseDurationMedian holdParams.ReleaseDurationMean
-            let mutable timeLeft = sampleLogNormalAbove rng holdParams.HoldDurationMedian holdParams.HoldDurationMean
-            fun gap size logPrice ->
-                timeLeft <- timeLeft - gap
-                if timeLeft <= 0.0 then
-                    holding <- not holding
-                    timeLeft <- if holding then sampleHoldTime () else sampleReleaseTime ()
-                let pVol = if holding then holdProposalVol else proposalVol
-                let logDensity =
-                    if holding then
-                        match holdSide with
-                        | Neutral ->
-                            fun x -> Normal.PDFLn(holdLevel, tightSigma, x)
-                        | Bid ->
-                            fun x ->
-                                let massLn = if x >= holdLevel then logPinned else logUnpinned
-                                Normal.PDFLn(holdLevel, tightSigma, x) + massLn
-                        | Ask ->
-                            fun x ->
-                                let massLn = if x <= holdLevel then logPinned else logUnpinned
-                                Normal.PDFLn(holdLevel, tightSigma, x) + massLn
-                    else fun x -> Normal.PDFLn(holdLevel, targetSigma, x)
-                let sqrtSize = sqrt (float size)
-                multiTryStepGeneric rng logPrice (pVol * sqrtSize) logDensity 10
-        | Move _ | Consolidation ->
-            fun _gap size logPrice ->
-                let sqrtSize = sqrt (float size)
-                multiTryStep rng logPrice (proposalVol * sqrtSize) targetMean targetSigma 10
 
     let trades = ResizeArray<Trade>()
     let mutable logPrice = log startPrice
     let mutable time = 0.0
 
     while time < durationSeconds do
-        let gap = sampleGapFromDigest rng tiltedDigests.GapDigest
+        let gap = sampleGapFromDigest rng digests.GapDigest
         time <- time + gap
         if time < durationSeconds then
-            let size = sampleSizeFromDigest rng tiltedDigests.SizeDigest
-            logPrice <- priceTransition gap size logPrice
+            let size = sampleSizeFromDigest rng digests.SizeDigest
+            let sqrtSize = sqrt (float size)
+            logPrice <- multiTryStep rng logPrice (proposalVol * sqrtSize) targetMean targetSigma 10
             trades.Add({
                 Time = time
                 Price = exp logPrice
                 Size = size
-                Trend = episode.Label
                 TargetMean = exp targetMean
                 TargetSigma = LogNormal(targetMean, targetSigma).StdDev
             })
 
     let endPrice = exp logPrice
-    trades.ToArray(), endPrice, targetMean
+    trades.ToArray(), endPrice
 
 /// Print diagnostic statistics for exponential tilting
 let printBetaDigestDiagnostics (digests: TradeDataDigests) : unit =
