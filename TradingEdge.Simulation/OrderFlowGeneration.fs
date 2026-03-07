@@ -150,17 +150,16 @@ let digestMean (digest: MergingDigest) : float =
 /// Create a tilted t-digest with a target mean using exponential tilting
 let createTiltedDigest (rng: Random) (digest: MergingDigest) (targetMean: float) : MergingDigest =
     let centroids = extractCentroids digest
-    let lambda, tiltedWeights = tiltWeights centroids targetMean
+    let _lambda, tiltedWeights = tiltWeights centroids targetMean
 
     // Reconstruct t-digest with tilted weights
     let tiltedDigest = MergingDigest digest.Compression
     let values = centroids |> Array.map fst
-    let totalWeight = Array.sum tiltedWeights
+    let totalWeight = float Int32.MaxValue
 
     // Add samples proportional to tilted weights
     for i in 0 .. values.Length - 1 do
         let x = tiltedWeights.[i] * totalWeight
-        if x > float Int32.MaxValue then failwith "`tiltedWeights.[i] * totalWeight` is greater than the max integer value. Try increasing the number of centroids in the t-digest."
         tiltedDigest.Add(values.[i], stochasticRound rng x)
 
     tiltedDigest
@@ -263,7 +262,7 @@ let generateEpisodeTrades (rng: Random) (startPrice: float) (prevTargetMean: flo
                 let sqrtSize = sqrt (float size)
                 multiTryStepGeneric rng logPrice (pVol * sqrtSize) logDensity 10
         | Move _ | Consolidation ->
-            fun gap size logPrice ->
+            fun _gap size logPrice ->
                 let sqrtSize = sqrt (float size)
                 multiTryStep rng logPrice (proposalVol * sqrtSize) targetMean targetSigma 10
 

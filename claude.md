@@ -13,3 +13,8 @@ When writing concurrent F# code in this project:
 ## MathNet.Numerics Usage
 
 - **Prefer MathNet distributions over manual calculations** - use `Normal.PDFLn`, `Exponential.Sample`, `Categorical.Sample`, etc. from `MathNet.Numerics.Distributions` instead of hand-rolling equivalent math.
+
+## Visualization
+
+- **PowerShell scripts in `scripts/visualization/`** are used for chart generation
+- Run `pwsh scripts/visualization/gen_all_charts_sim.ps1` to regenerate simulation charts
