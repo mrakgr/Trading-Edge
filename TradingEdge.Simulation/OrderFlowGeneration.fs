@@ -160,7 +160,7 @@ let createTiltedDigest (rng: Random) (digest: MergingDigest) (targetMean: float)
     // Add samples proportional to tilted weights
     for i in 0 .. values.Length - 1 do
         let x = tiltedWeights.[i] * totalWeight
-        if x > float Int32.MaxValue then failwith "x is greater than the max integer value"
+        if x > float Int32.MaxValue then failwith "`tiltedWeights.[i] * totalWeight` is greater than the max integer value. Try increasing the number of centroids in the t-digest."
         tiltedDigest.Add(values.[i], stochasticRound rng x)
 
     tiltedDigest
