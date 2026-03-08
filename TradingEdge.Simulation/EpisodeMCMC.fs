@@ -98,23 +98,22 @@ module MCMC =
         let idx2 = (idx1 + 1 + rng.Next(n - 1)) % n
         (idx1, idx2)
 
-    /// Transfer duration between two episodes, using min stddev of the pair as proposal scale
-    let transferDuration (rng: Random) (state: Episode[]) : Episode[] =
+    /// Transfer duration between two episode instances
+    let transferDuration (rng: Random) (state: EpisodeInstance[]) : EpisodeInstance[] =
         let idx1, idx2 = pickTwoDistinctIndices rng state.Length
-        let proposalStdDev = min (Distribution.stdDev state.[idx1].DurationParam) (Distribution.stdDev state.[idx2].DurationParam)
+        let proposalStdDev = min (Distribution.stdDev state.[idx1].Episode.DurationParam) (Distribution.stdDev state.[idx2].Episode.DurationParam)
         let delta = Normal.Sample(rng, 0.0, proposalStdDev)
         let newState = Array.copy state
         newState.[idx1] <- { state.[idx1] with Duration = state.[idx1].Duration + delta }
         newState.[idx2] <- { state.[idx2] with Duration = state.[idx2].Duration - delta }
         newState
 
-    /// Change the label of a random episode to a uniformly sampled label from the given array
-    let changeLabel (rng: Random) (allLabels: 'a[]) (state: Episode<'a>[]) : Episode<'a>[] =
+    /// Change the episode of a random instance to a different episode from the pool
+    let changeEpisode (rng: Random) (availableEpisodes: Episode[]) (state: EpisodeInstance[]) : EpisodeInstance[] =
         let idx = rng.Next(state.Length)
-        let newLabel = allLabels.[rng.Next(allLabels.Length)]
-
+        let newEpisode = availableEpisodes.[rng.Next(availableEpisodes.Length)]
         let newState = Array.copy state
-        newState.[idx] <- { state.[idx] with Label = newLabel }
+        newState.[idx] <- { Episode = newEpisode; Duration = state.[idx].Duration }
         newState
 
     /// Sample a label from weighted options
@@ -123,30 +122,55 @@ module MCMC =
         let dist = Categorical(probs, rng)
         labels.[dist.Sample()]
 
-    /// Run Metropolis-Hastings MCMC sampler
-    /// Returns a single sample from the posterior after running for the specified iterations
+    /// Run MCMC to sample episode instances that fill a target duration
     let run
         (config: Config)
-        (logLikelihood: 'state -> float)
-        (propose: Random -> 'state -> 'state option)
-        (initial: 'state)
+        (availableEpisodes: Episode[])
+        (targetDuration: float)
         (rng: Random)
-        : 'state =
+        : EpisodeInstance[] =
 
-        let mutable current = initial
+        // Sample episodes by weight until duration is filled
+        let weights = availableEpisodes |> Array.map (fun e -> e, e.Weight)
+        let initial =
+            Array.unfold (fun totalDur ->
+                if totalDur < targetDuration then
+                    let ep = sampleWeighted rng weights
+                    let dur = Distribution.sample rng ep.DurationParam
+                    Some({ Episode = ep; Duration = dur }, totalDur + dur)
+                else
+                    None
+                ) 0.0
+
+        // Scale durations to match target exactly
+        let totalDur = initial |> Array.sumBy (fun i -> i.Duration)
+        let scale = targetDuration / totalDur
+        let mutable current = initial |> Array.map (fun i -> { i with Duration = i.Duration * scale })
+
+        // Log-likelihood function
+        let logLikelihood (state: EpisodeInstance[]) =
+            state |> Array.sumBy (fun i ->
+                let durLL = Distribution.logLikelihood i.Episode.DurationParam i.Duration
+                let weightLL = log i.Episode.Weight
+                durLL + weightLL)
+
         let mutable currentLL = logLikelihood current
 
+        // MCMC loop
         for _ in 1 .. config.Iterations do
-            match propose rng current with
-            | Some proposed ->
-                let proposedLL = logLikelihood proposed
-                let logAcceptRatio = proposedLL - currentLL
+            // Propose: either transfer duration or change episode
+            let proposed =
+                if rng.NextDouble() < 0.7 && current.Length >= 2 then
+                    transferDuration rng current
+                else
+                    changeEpisode rng availableEpisodes current
 
-                if log(rng.NextDouble()) < logAcceptRatio then
-                    current <- proposed
-                    currentLL <- proposedLL
-            | None ->
-                () // Invalid move, reject
+            let proposedLL = logLikelihood proposed
+            let logAcceptRatio = proposedLL - currentLL
+
+            if log(rng.NextDouble()) < logAcceptRatio then
+                current <- proposed
+                currentLL <- proposedLL
 
         current
 
