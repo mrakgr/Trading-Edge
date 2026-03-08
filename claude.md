@@ -18,3 +18,8 @@ When writing concurrent F# code in this project:
 
 - **PowerShell scripts in `scripts/visualization/`** are used for chart generation
 - Run `pwsh scripts/visualization/gen_all_charts_sim.ps1` to regenerate simulation charts
+
+## Git Commits
+
+- **Do not use command substitutions (heredocs)** when creating git commits
+- Use simple `-m` flags instead: `git commit -m "Title" -m "Body"`
