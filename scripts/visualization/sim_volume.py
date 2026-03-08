@@ -15,7 +15,6 @@ def load_trades(csv_path):
                 'time': float(row['time']),
                 'price': float(row['price']),
                 'size': int(row['size']),
-                'trend': row['trend'],
                 'target_mean': float(row['target_mean']),
                 'target_sigma': float(row['target_sigma']),
             })
@@ -34,7 +33,6 @@ def create_volume_bars(trades, volume_per_bar):
         price = trade['price']
         size = trade['size']
         time = trade['time']
-        trend = trade['trend']
         target_mean = trade['target_mean']
         target_sigma = trade['target_sigma']
 
@@ -44,12 +42,12 @@ def create_volume_bars(trades, volume_per_bar):
             space_left = volume_per_bar - current_volume
 
             if remaining_size <= space_left:
-                bar_data.append((price, remaining_size, time, trend, target_mean, target_sigma))
+                bar_data.append((price, remaining_size, time, target_mean, target_sigma))
                 current_volume += remaining_size
                 remaining_size = 0
             else:
                 if space_left > 0:
-                    bar_data.append((price, space_left, time, trend, target_mean, target_sigma))
+                    bar_data.append((price, space_left, time, target_mean, target_sigma))
                     current_volume += space_left
                     remaining_size -= space_left
 
@@ -64,11 +62,10 @@ def create_volume_bars(trades, volume_per_bar):
     return bars
 
 def compute_bar_stats(bar_data, existing_bars):
-    """Compute VWAP, stddev, time duration, and dominant trend for a bar."""
-    prices = np.array([p for p, v, t, tr, tm, ts in bar_data])
-    volumes = np.array([v for p, v, t, tr, tm, ts in bar_data])
-    times = [t for p, v, t, tr, tm, ts in bar_data]
-    trends = [tr for p, v, t, tr, tm, ts in bar_data]
+    """Compute VWAP, stddev, and time duration for a bar."""
+    prices = np.array([p for p, v, t, tm, ts in bar_data])
+    volumes = np.array([v for p, v, t, tm, ts in bar_data])
+    times = [t for p, v, t, tm, ts in bar_data]
 
     total_volume = volumes.sum()
     vwap = np.sum(prices * volumes) / total_volume
@@ -80,15 +77,9 @@ def compute_bar_stats(bar_data, existing_bars):
 
     time_duration = times[-1] - times[0]
 
-    # Dominant trend (volume-weighted)
-    trend_vol = {}
-    for (_, v, _, tr, _, _) in bar_data:
-        trend_vol[tr] = trend_vol.get(tr, 0) + v
-    dominant_trend = max(trend_vol, key=trend_vol.get)
-
     # Volume-weighted target mean and sigma
-    target_means = np.array([tm for p, v, t, tr, tm, ts in bar_data])
-    target_sigmas = np.array([ts for p, v, t, tr, tm, ts in bar_data])
+    target_means = np.array([tm for p, v, t, tm, ts in bar_data])
+    target_sigmas = np.array([ts for p, v, t, tm, ts in bar_data])
     avg_target_mean = np.sum(target_means * volumes) / total_volume
     avg_target_sigma = np.sum(target_sigmas * volumes) / total_volume
 
@@ -100,26 +91,10 @@ def compute_bar_stats(bar_data, existing_bars):
         'start_time': times[0],
         'end_time': times[-1],
         'time_duration': time_duration,
-        'dominant_trend': dominant_trend,
         'target_mean': avg_target_mean,
         'target_sigma': avg_target_sigma,
-        'is_hold': dominant_trend.startswith('Hold'),
         'num_trades': len(bar_data)
     }
-
-trend_colors = {
-    'StrongUp': 'darkgreen', 'MidUp': 'green', 'WeakUp': 'lightgreen',
-    'Consol': 'black',
-    'WeakDown': 'lightsalmon', 'MidDown': 'orange', 'StrongDown': 'darkred'
-}
-
-hold_palette = ['red', 'magenta', 'salmon', 'deeppink', 'crimson', 'hotpink',
-                'indianred', 'mediumvioletred', 'palevioletred', 'tomato']
-
-def get_trend_color(trend, hold_color_map):
-    if trend in trend_colors:
-        return trend_colors[trend]
-    return hold_color_map.get(trend, 'magenta')
 
 def plot_volume_bars(bars, output_html, input_csv):
     """
@@ -141,12 +116,6 @@ def plot_volume_bars(bars, output_html, input_csv):
     lower_2sigma = [b['vwap'] - 2 * b['stddev'] for b in bars]
     time_durations = [b['time_duration'] for b in bars]
 
-    # Assign colors to hold trends
-    hold_trends = sorted(set(b['dominant_trend'] for b in bars if b['dominant_trend'].startswith('Hold')))
-    hold_color_map = {}
-    for i, ht in enumerate(hold_trends):
-        hold_color_map[ht] = hold_palette[i % len(hold_palette)]
-
     hover_text = [
         f"Volume: {b['cumulative_volume']:,.0f}<br>"
         f"VWAP: {b['vwap']:.4f}<br>"
@@ -155,7 +124,6 @@ def plot_volume_bars(bars, output_html, input_csv):
         f"-2σ: {b['vwap'] - 2 * b['stddev']:.4f}<br>"
         f"Time: {b['start_time']/60:.2f}-{b['end_time']/60:.2f}m<br>"
         f"Duration: {b['time_duration']:.3f}s<br>"
-        f"Trend: {b['dominant_trend']}<br>"
         f"Trades: {b['num_trades']}"
         for b in bars
     ]
@@ -205,28 +173,12 @@ def plot_volume_bars(bars, output_html, input_csv):
         name='-1σ target', showlegend=False
     ), row=1, col=1)
 
-    # Hold region shading
-    in_hold = False
-    hold_start = 0
-    for b in bars:
-        if b['is_hold'] and not in_hold:
-            hold_start = b['cumulative_volume'] - b['volume']
-            in_hold = True
-        elif not b['is_hold'] and in_hold:
-            fig.add_vrect(x0=hold_start, x1=b['cumulative_volume'] - b['volume'],
-                         fillcolor='red', opacity=0.08, line_width=0, row=1, col=1)
-            in_hold = False
-    if in_hold:
-        fig.add_vrect(x0=hold_start, x1=bars[-1]['cumulative_volume'],
-                     fillcolor='red', opacity=0.08, line_width=0, row=1, col=1)
-
-    # Time duration bars colored by trend
-    bar_colors = [get_trend_color(b['dominant_trend'], hold_color_map) for b in bars]
+    # Time duration bars
     fig.add_trace(go.Bar(
         x=x_vals,
         y=time_durations,
         name='Time Duration',
-        marker_color=bar_colors,
+        marker_color='blue',
         hovertemplate='Volume: %{x:,.0f}<br>Duration: %{y:.3f}s<extra></extra>'
     ), row=2, col=1)
 
