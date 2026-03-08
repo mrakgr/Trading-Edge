@@ -75,6 +75,10 @@ type Episode = {
     Generate: GenerateParams -> Trade[]
 }
 
+type EpisodeSeries =
+    | RandomlySampled of Episode[]
+    | FixedOrder of Episode[]
+
 /// Episode instance with sampled duration
 type EpisodeInstance = {
     Episode: Episode
@@ -126,14 +130,31 @@ module MCMC =
         let dist = Categorical(probs, rng)
         labels.[dist.Sample()]
 
-    /// Run MCMC optimization on initial episode instances, scaling to target duration
-    let run_with_initial
+    /// Run MCMC to sample episode instances that fill a target duration
+    let run
         (config: Config)
-        (availableEpisodes: Episode[])
+        (series: EpisodeSeries)
         (targetDuration: float)
         (rng: Random)
-        (initial : EpisodeInstance[])
         : EpisodeInstance[] =
+
+        // Generate initial state based on series type
+        let initial =
+            match series with
+            | FixedOrder episodes ->
+                episodes |> Array.map (fun ep ->
+                    let dur = Distribution.sample rng ep.DurationParam
+                    { Episode = ep; Duration = dur })
+            | RandomlySampled episodes ->
+                let weights = episodes |> Array.map (fun e -> e, e.Weight)
+                Array.unfold (fun totalDur ->
+                    if totalDur < targetDuration then
+                        let ep = sampleWeighted rng weights
+                        let dur = Distribution.sample rng ep.DurationParam
+                        Some({ Episode = ep; Duration = dur }, totalDur + dur)
+                    else
+                        None) 0.0
+
         // Scale durations to match target exactly
         let totalDur = initial |> Array.sumBy (fun i -> i.Duration)
         let scale = targetDuration / totalDur
@@ -148,14 +169,22 @@ module MCMC =
 
         let mutable currentLL = logLikelihood current
 
-        // MCMC loop
+        // MCMC loop with proposals based on series type
         for _ in 1 .. config.Iterations do
-            // Propose: either transfer duration or change episode
             let proposed =
-                if rng.NextDouble() <= config.TransferDurationProb && current.Length >= 2 then
-                    transferDuration rng current
-                else
-                    changeEpisode rng availableEpisodes current
+                match series with
+                | FixedOrder _ ->
+                    // Only transfer duration for fixed order
+                    if current.Length >= 2 then
+                        transferDuration rng current
+                    else
+                        current
+                | RandomlySampled episodes ->
+                    // Both transfer duration and change episode
+                    if rng.NextDouble() <= config.TransferDurationProb && current.Length >= 2 then
+                        transferDuration rng current
+                    else
+                        changeEpisode rng episodes current
 
             let proposedLL = logLikelihood proposed
             let logAcceptRatio = proposedLL - currentLL
@@ -165,28 +194,6 @@ module MCMC =
                 currentLL <- proposedLL
 
         current
-
-    /// Run MCMC to sample episode instances that fill a target duration
-    let run
-        (config: Config)
-        (availableEpisodes: Episode[])
-        (targetDuration: float)
-        (rng: Random)
-        : EpisodeInstance[] =
-
-        // Sample episodes by weight until duration is filled
-        let weights = availableEpisodes |> Array.map (fun e -> e, e.Weight)
-        let initial =
-            Array.unfold (fun totalDur ->
-                if totalDur < targetDuration then
-                    let ep = sampleWeighted rng weights
-                    let dur = Distribution.sample rng ep.DurationParam
-                    Some({ Episode = ep; Duration = dur }, totalDur + dur)
-                else
-                    None
-                ) 0.0
-                
-        run_with_initial config availableEpisodes targetDuration rng initial
 
 
 // =============================================================================
@@ -199,6 +206,10 @@ module SessionLevel =
         MidParams: Distribution.Params
         CloseParams: Distribution.Params
     }
+
+    let episodes = [|
+        
+    |]
 
     let defaultConfig = {
         MorningParams = Distribution.LogNormal (45.0, 60.0)
