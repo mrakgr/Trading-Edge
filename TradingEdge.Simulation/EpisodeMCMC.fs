@@ -47,41 +47,30 @@ module Distribution =
 // Core Types
 // =============================================================================
 
-/// Generic episode with a label and duration
-type Episode<'label> = {
-    Label: 'label
+/// A single trade
+type Trade = {
+    Time: float
+    Price: float
+    Size: int
+    TargetMean: float
+    TargetSigma: float
+    Label : string list
+}
+
+/// Parameters for episode generation
+type GenerateParams = {
+    StartPrice: float
+    StartTime: float
+    TargetMean: float
+    TargetSigma: float
     Duration: float
 }
 
-/// Day session types
-type DaySession =
-    | Morning
-    | Mid
-    | Close
-
-/// Which side of the book the hold is pinned to
-type HoldSide =
-    | Bid
-    | Ask
-    | Neutral
-
-type Direction = Up | Down
-
-type Intensity = Strong | Mid | Weak
-
-type HoldDuration = Short | Medium | Long
-
-/// Trend types within sessions
-type Trend =
-    | Move of Direction * Intensity
-    | Hold of HoldSide * Intensity * HoldDuration
-    | Consolidation
-
-/// Subepisode with auction target parameters
-type Subepisode = {
-    TargetMean: float      // Log-price space
-    TargetSigma: float     // Log-price space
-    Duration: float        // Minutes
+/// Episode as a generative process
+type Episode = {
+    Label: string
+    DurationParam: Distribution.Params
+    Generate: GenerateParams -> Trade[]
 }
 
 // =============================================================================
