@@ -64,12 +64,14 @@ type GenerateParams = {
     TargetMean: float
     TargetSigma: float
     Duration: float
+    ParentLabel: string
 }
 
 /// Episode as a generative process
 type Episode = {
     Label: string
     DurationParam: Distribution.Params
+    Weight: float // unnormalized selection probability
     Generate: GenerateParams -> Trade[]
 }
 
@@ -91,9 +93,9 @@ module MCMC =
         (idx1, idx2)
 
     /// Transfer duration between two episodes, using min stddev of the pair as proposal scale
-    let transferDuration (stddev : 'a -> float) (rng: Random) (state: Episode<'a>[]) : Episode<'a>[] =
+    let transferDuration (rng: Random) (state: Episode[]) : Episode[] =
         let idx1, idx2 = pickTwoDistinctIndices rng state.Length
-        let proposalStdDev = min (stddev state.[idx1].Label) (stddev state.[idx2].Label)
+        let proposalStdDev = min (Distribution.stdDev state.[idx1].DurationParam) (Distribution.stdDev state.[idx2].DurationParam)
         let delta = Normal.Sample(rng, 0.0, proposalStdDev)
         let newState = Array.copy state
         newState.[idx1] <- { state.[idx1] with Duration = state.[idx1].Duration + delta }
