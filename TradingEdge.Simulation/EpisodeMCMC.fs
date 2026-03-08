@@ -75,6 +75,12 @@ type Episode = {
     Generate: GenerateParams -> Trade[]
 }
 
+/// Episode instance with sampled duration
+type EpisodeInstance = {
+    Episode: Episode
+    Duration: float
+}
+
 // =============================================================================
 // Generic MCMC Module
 // =============================================================================
