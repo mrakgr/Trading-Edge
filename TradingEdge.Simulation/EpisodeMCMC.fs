@@ -126,26 +126,14 @@ module MCMC =
         let dist = Categorical(probs, rng)
         labels.[dist.Sample()]
 
-    /// Run MCMC to sample episode instances that fill a target duration
-    let run
+    /// Run MCMC optimization on initial episode instances, scaling to target duration
+    let run_with_initial
         (config: Config)
         (availableEpisodes: Episode[])
         (targetDuration: float)
         (rng: Random)
+        (initial : EpisodeInstance[])
         : EpisodeInstance[] =
-
-        // Sample episodes by weight until duration is filled
-        let weights = availableEpisodes |> Array.map (fun e -> e, e.Weight)
-        let initial =
-            Array.unfold (fun totalDur ->
-                if totalDur < targetDuration then
-                    let ep = sampleWeighted rng weights
-                    let dur = Distribution.sample rng ep.DurationParam
-                    Some({ Episode = ep; Duration = dur }, totalDur + dur)
-                else
-                    None
-                ) 0.0
-
         // Scale durations to match target exactly
         let totalDur = initial |> Array.sumBy (fun i -> i.Duration)
         let scale = targetDuration / totalDur
@@ -177,6 +165,29 @@ module MCMC =
                 currentLL <- proposedLL
 
         current
+
+    /// Run MCMC to sample episode instances that fill a target duration
+    let run
+        (config: Config)
+        (availableEpisodes: Episode[])
+        (targetDuration: float)
+        (rng: Random)
+        : EpisodeInstance[] =
+
+        // Sample episodes by weight until duration is filled
+        let weights = availableEpisodes |> Array.map (fun e -> e, e.Weight)
+        let initial =
+            Array.unfold (fun totalDur ->
+                if totalDur < targetDuration then
+                    let ep = sampleWeighted rng weights
+                    let dur = Distribution.sample rng ep.DurationParam
+                    Some({ Episode = ep; Duration = dur }, totalDur + dur)
+                else
+                    None
+                ) 0.0
+                
+        run_with_initial config availableEpisodes targetDuration rng initial
+
 
 // =============================================================================
 // Session Level (Day -> Sessions)
