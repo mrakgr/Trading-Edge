@@ -4,6 +4,46 @@ open System
 open MathNet.Numerics.Distributions
 
 // =============================================================================
+// Distribution Utilities
+// =============================================================================
+
+module Distribution =
+    /// Distribution specification for positive values (median/mean parameterization)
+    type Params =
+        | LogNormal of median: float * mean: float
+
+    /// Convert median/mean to log-normal mu/sigma parameters
+    let logNormalParams (median: float) (mean: float) : float * float =
+        let mu = log median
+        let sigma = sqrt(2.0 * log(mean / median))
+        (mu, sigma)
+
+    /// Get the standard deviation of the distribution
+    let stdDev (dist: Params) : float =
+        match dist with
+        | LogNormal (median, mean) ->
+            let (mu, sigma) = logNormalParams median mean
+            MathNet.Numerics.Distributions.LogNormal(mu, sigma).StdDev
+
+    /// Compute log-likelihood for a value under the given distribution
+    let logLikelihood (dist: Params) (value: float) : float =
+        match dist with
+        | LogNormal (median, mean) ->
+            if value <= 0.0 then
+                Double.NegativeInfinity
+            else
+                let (mu, sigma) = logNormalParams median mean
+                let d = MathNet.Numerics.Distributions.LogNormal(mu, sigma)
+                d.DensityLn(value)
+
+    /// Sample a value from the given distribution
+    let sample (rng: Random) (dist: Params) : float =
+        match dist with
+        | LogNormal (median, mean) ->
+            let (mu, sigma) = logNormalParams median mean
+            MathNet.Numerics.Distributions.LogNormal(mu, sigma, rng).Sample()
+
+// =============================================================================
 // Core Types
 // =============================================================================
 
@@ -112,46 +152,6 @@ module MCMC =
                 () // Invalid move, reject
 
         current
-
-// =============================================================================
-// Distribution Utilities
-// =============================================================================
-
-module Distribution =
-    /// Distribution specification for positive values (median/mean parameterization)
-    type Params =
-        | LogNormal of median: float * mean: float
-
-    /// Convert median/mean to log-normal mu/sigma parameters
-    let logNormalParams (median: float) (mean: float) : float * float =
-        let mu = log median
-        let sigma = sqrt(2.0 * log(mean / median))
-        (mu, sigma)
-
-    /// Get the standard deviation of the distribution
-    let stdDev (dist: Params) : float =
-        match dist with
-        | LogNormal (median, mean) ->
-            let (mu, sigma) = logNormalParams median mean
-            MathNet.Numerics.Distributions.LogNormal(mu, sigma).StdDev
-
-    /// Compute log-likelihood for a value under the given distribution
-    let logLikelihood (dist: Params) (value: float) : float =
-        match dist with
-        | LogNormal (median, mean) ->
-            if value <= 0.0 then
-                Double.NegativeInfinity
-            else
-                let (mu, sigma) = logNormalParams median mean
-                let d = MathNet.Numerics.Distributions.LogNormal(mu, sigma)
-                d.DensityLn(value)
-
-    /// Sample a value from the given distribution
-    let sample (rng: Random) (dist: Params) : float =
-        match dist with
-        | LogNormal (median, mean) ->
-            let (mu, sigma) = logNormalParams median mean
-            MathNet.Numerics.Distributions.LogNormal(mu, sigma, rng).Sample()
 
 // =============================================================================
 // Session Level (Day -> Sessions)
