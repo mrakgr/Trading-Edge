@@ -62,16 +62,20 @@ type GenerateParams = {
     StartTime: float
     TargetMean: float
     TargetSigma: float
-    VolumeFactor: float
     Duration: float
     ParentLabel: string
+}
+
+type GenerateOutput = {
+    Trades: Trade []
+    EndPrice: float
 }
 
 /// Episode as a generative process
 type Episode = {
     Label: string
     DurationParam: Distribution.Params
-    Generate: GenerateParams -> Trade[]
+    Generate: GenerateParams -> Trade[] * float
 }
 
 type EpisodeSeries =
@@ -207,22 +211,22 @@ module SessionLevel =
         CloseParams: Distribution.Params
     }
 
-    let episodes generator = 
+    let episodes mid_close_generator mid_generator = 
         FixedOrder [|
             {
                 Label = "Morning"
                 DurationParam = Distribution.LogNormal (45.0, 60.0)
-                Generate = generator
+                Generate = mid_close_generator
             }
             {
                 Label = "Mid"
                 DurationParam = Distribution.LogNormal (240.0, 270.0)
-                Generate = generator
+                Generate = mid_generator
             }
             {
                 Label = "Close"
                 DurationParam = Distribution.LogNormal (45.0, 60.0)
-                Generate = generator
+                Generate = mid_close_generator
             }
         |]
 
