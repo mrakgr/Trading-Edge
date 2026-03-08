@@ -88,9 +88,13 @@ type EpisodeInstance = {
 module MCMC =
     type Config = {
         Iterations: int
+        TransferDurationProb: float
     }
 
-    let defaultConfig = { Iterations = 10000 }
+    let defaultConfig = {
+        Iterations = 10000
+        TransferDurationProb = 0.7
+    }
 
     /// Pick two distinct random indices from 0 to n-1
     let pickTwoDistinctIndices (rng: Random) (n: int) : int * int =
@@ -160,7 +164,7 @@ module MCMC =
         for _ in 1 .. config.Iterations do
             // Propose: either transfer duration or change episode
             let proposed =
-                if rng.NextDouble() < 0.7 && current.Length >= 2 then
+                if rng.NextDouble() <= config.TransferDurationProb && current.Length >= 2 then
                     transferDuration rng current
                 else
                     changeEpisode rng availableEpisodes current
