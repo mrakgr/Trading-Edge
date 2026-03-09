@@ -52,3 +52,39 @@ let stochasticRound (rng: Random) (x: float) : int =
     let floor = Math.Floor(x)
     let frac = x - floor
     int (if rng.NextDouble() < frac then floor + 1.0 else floor)
+
+// =============================================================================
+// Subepisode Generation
+// =============================================================================
+
+/// Generate subepisodes with targets from a parent episode
+let generateSubepisodes
+    (rng: Random)
+    (baseVolBps: float)
+    (parentTarget: float)
+    (parentVolume: float)
+    (parentRate: float)
+    (parentDuration: float)
+    (childEpisodeSeries: EpisodeSeries<'a>)
+    : (EpisodeInstance<'a> * float * float)[] =
+
+    // Use MCMC to sample child episode instances (with durations)
+    let childInstances = MCMC.run MCMC.defaultConfig childEpisodeSeries parentDuration rng
+
+    // For each child, calculate variance and sample target
+    childInstances |> Array.map (fun instance ->
+        // Calculate actual means (parent × child)
+        let actualVolume = parentVolume * instance.Episode.VolumeMean
+        let actualRate = parentRate * instance.Episode.RateMean
+
+        // Calculate total variance for this child
+        let childVariance = calculateVariance baseVolBps actualVolume actualRate instance.Duration
+
+        // Child gets 25% of variance for variation around parent target
+        let childTargetSigma = sqrt(0.25 * childVariance)
+
+        // Sample child target using multi-try MCMC around parent target
+        let childTarget = multiTryStep rng parentTarget childTargetSigma parentTarget childTargetSigma 10
+
+        (instance, childTarget, childVariance)
+    )

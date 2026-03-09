@@ -12,11 +12,11 @@ open TradingEdge.Simulation.EpisodeMCMC
 open TradingEdge.Simulation.OrderFlowGeneration
 open TradingEdge.Simulation.TradeDataTDigests
 
-let sessionToInt (s: DaySession) : int =
-    match s with
-    | Morning -> 0
-    | DaySession.Mid -> 1
-    | Close -> 2
+// let sessionToInt (s: DaySession) : int =
+//     match s with
+//     | Morning -> 0
+//     | DaySession.Mid -> 1
+//     | Close -> 2
 
 type VolumeBar = {
     Vwap: float
@@ -32,95 +32,95 @@ type private BarFragment = {
     Session: int
 }
 
-/// Generate all trades for a full day
-let generateDayTrades (rng: Random) (startPrice: float) (baseline: SessionBaseline) (digests: TradeDataDigests) (result: DayResult) : Trade[] =
-    let getSessionMultiplier = function
-        | DaySession.Morning -> sqrt 3.0
-        | DaySession.Mid -> 1.0
-        | DaySession.Close -> sqrt 3.0
+// /// Generate all trades for a full day
+// let generateDayTrades (rng: Random) (startPrice: float) (baseline: SessionBaseline) (digests: TradeDataDigests) (result: DayResult) : Trade[] =
+//     let getSessionMultiplier = function
+//         | DaySession.Morning -> sqrt 3.0
+//         | DaySession.Mid -> 1.0
+//         | DaySession.Close -> sqrt 3.0
 
-    let baselineSizeMean = digestMean digests.SizeDigest
-    let baselineGapMean = digestMean digests.GapDigest
-    let baselineRate = 1.0 / baselineGapMean
+//     let baselineSizeMean = digestMean digests.SizeDigest
+//     let baselineGapMean = digestMean digests.GapDigest
+//     let baselineRate = 1.0 / baselineGapMean
 
-    let allTrades = ResizeArray<Trade>()
-    let mutable price = startPrice
-    let mutable timeOffset = 0.0
+//     let allTrades = ResizeArray<Trade>()
+//     let mutable price = startPrice
+//     let mutable timeOffset = 0.0
 
-    for session in result.Sessions do
-        let multiplier = getSessionMultiplier session.Label
-        let tiltedDigests = createSessionTiltedDigests rng digests multiplier
+//     for session in result.Sessions do
+//         let multiplier = getSessionMultiplier session.Label
+//         let tiltedDigests = createSessionTiltedDigests rng digests multiplier
 
-        let auctionParams = {
-            BaseVolBps = baseline.ProposalVolBps
-            MeanVolume = baselineSizeMean
-            MeanRate = baselineRate
-            SessionMultiplier = multiplier
-        }
+//         let auctionParams = {
+//             BaseVolBps = baseline.ProposalVolBps
+//             MeanVolume = baselineSizeMean
+//             MeanRate = baselineRate
+//             SessionMultiplier = multiplier
+//         }
 
-        let episodeDurationSeconds = session.Duration * 60.0
-        let episodeVariance = calculateVariance auctionParams episodeDurationSeconds
-        let episodeTarget = log price + sampleAuctionTarget rng episodeVariance
-        let episodeSigma = sqrt episodeVariance
+//         let episodeDurationSeconds = session.Duration * 60.0
+//         let episodeVariance = calculateVariance auctionParams episodeDurationSeconds
+//         let episodeTarget = log price + sampleAuctionTarget rng episodeVariance
+//         let episodeSigma = sqrt episodeVariance
 
-        let subepisodes = generateSubepisodes rng (fun d -> calculateVariance auctionParams d) episodeTarget episodeSigma session.Duration
+//         let subepisodes = generateSubepisodes rng (fun d -> calculateVariance auctionParams d) episodeTarget episodeSigma session.Duration
 
-        for subepisode in subepisodes do
-            let durationSeconds = subepisode.Duration * 60.0
-            let trades, endPrice = generateSubepisodeTrades rng price baseline tiltedDigests subepisode.TargetMean subepisode.TargetSigma durationSeconds
-            for t in trades do
-                allTrades.Add({ t with Time = t.Time + timeOffset })
-            timeOffset <- timeOffset + durationSeconds
-            price <- endPrice
+//         for subepisode in subepisodes do
+//             let durationSeconds = subepisode.Duration * 60.0
+//             let trades, endPrice = generateSubepisodeTrades rng price baseline tiltedDigests subepisode.TargetMean subepisode.TargetSigma durationSeconds
+//             for t in trades do
+//                 allTrades.Add({ t with Time = t.Time + timeOffset })
+//             timeOffset <- timeOffset + durationSeconds
+//             price <- endPrice
 
-    allTrades.ToArray()
+//     allTrades.ToArray()
 
-/// Aggregate trades into fixed volume bars with trade splitting
-let aggregateToVolumeBars (trades: Trade[]) (volumeSize: int) : VolumeBar[] =
-    if trades.Length = 0 then [||]
-    else
-        let bars = ResizeArray<VolumeBar>()
-        let mutable currentVolume = 0
-        let barData = ResizeArray<BarFragment>()
-        let mutable startTime = trades.[0].Time
+// /// Aggregate trades into fixed volume bars with trade splitting
+// let aggregateToVolumeBars (trades: Trade[]) (volumeSize: int) : VolumeBar[] =
+//     if trades.Length = 0 then [||]
+//     else
+//         let bars = ResizeArray<VolumeBar>()
+//         let mutable currentVolume = 0
+//         let barData = ResizeArray<BarFragment>()
+//         let mutable startTime = trades.[0].Time
 
-        let computeBar () =
-            if barData.Count > 0 then
-                let totalVol = barData |> Seq.sumBy (fun f -> f.Volume)
-                let vwap = (barData |> Seq.sumBy (fun f -> f.Price * float f.Volume)) / float totalVol
-                let variance = (barData |> Seq.sumBy (fun f -> float f.Volume * (f.Price - vwap) * (f.Price - vwap))) / float totalVol
-                let vwstd = sqrt variance
-                let lastFrag = barData.[barData.Count - 1]
-                let duration = lastFrag.Time - startTime
-                bars.Add { Vwap = vwap; VwStd = vwstd; Duration = duration; Session = lastFrag.Session }
+//         let computeBar () =
+//             if barData.Count > 0 then
+//                 let totalVol = barData |> Seq.sumBy (fun f -> f.Volume)
+//                 let vwap = (barData |> Seq.sumBy (fun f -> f.Price * float f.Volume)) / float totalVol
+//                 let variance = (barData |> Seq.sumBy (fun f -> float f.Volume * (f.Price - vwap) * (f.Price - vwap))) / float totalVol
+//                 let vwstd = sqrt variance
+//                 let lastFrag = barData.[barData.Count - 1]
+//                 let duration = lastFrag.Time - startTime
+//                 bars.Add { Vwap = vwap; VwStd = vwstd; Duration = duration; Session = lastFrag.Session }
 
-        for t in trades do
-            let mutable remainingSize = t.Size
-            let session = sessionToInt Morning
+//         for t in trades do
+//             let mutable remainingSize = t.Size
+//             let session = sessionToInt Morning
 
-            while remainingSize > 0 do
-                let spaceLeft = volumeSize - currentVolume
+//             while remainingSize > 0 do
+//                 let spaceLeft = volumeSize - currentVolume
 
-                if remainingSize <= spaceLeft then
-                    barData.Add { Price = t.Price; Volume = remainingSize; Time = t.Time; Session = session }
-                    currentVolume <- currentVolume + remainingSize
-                    remainingSize <- 0
-                else
-                    if spaceLeft > 0 then
-                        barData.Add { Price = t.Price; Volume = spaceLeft; Time = t.Time; Session = session }
-                        currentVolume <- currentVolume + spaceLeft
-                        remainingSize <- remainingSize - spaceLeft
+//                 if remainingSize <= spaceLeft then
+//                     barData.Add { Price = t.Price; Volume = remainingSize; Time = t.Time; Session = session }
+//                     currentVolume <- currentVolume + remainingSize
+//                     remainingSize <- 0
+//                 else
+//                     if spaceLeft > 0 then
+//                         barData.Add { Price = t.Price; Volume = spaceLeft; Time = t.Time; Session = session }
+//                         currentVolume <- currentVolume + spaceLeft
+//                         remainingSize <- remainingSize - spaceLeft
 
-                    if currentVolume >= volumeSize then
-                        computeBar()
-                        currentVolume <- 0
-                        barData.Clear()
-                        startTime <- t.Time
+//                     if currentVolume >= volumeSize then
+//                         computeBar()
+//                         currentVolume <- 0
+//                         barData.Clear()
+//                         startTime <- t.Time
 
-        if barData.Count > 0 then
-            computeBar()
+//         if barData.Count > 0 then
+//             computeBar()
 
-        bars.ToArray()
+//         bars.ToArray()
 
 type DayData = {
     DayId: int
@@ -129,24 +129,24 @@ type DayData = {
     Bars10000: VolumeBar[]
 }
 
-let generateSingleDay
-    (dayId: int)
-    (seed: int)
-    (mcmcConfig: MCMC.Config)
-    (sessionConfig: SessionLevel.Config)
-    (trendConfig: TrendLevel.Config)
-    (startPrice: float)
-    (digests: TradeDataDigests)
-    : DayData =
+// let generateSingleDay
+//     (dayId: int)
+//     (seed: int)
+//     (mcmcConfig: MCMC.Config)
+//     (sessionConfig: SessionLevel.Config)
+//     (trendConfig: TrendLevel.Config)
+//     (startPrice: float)
+//     (digests: TradeDataDigests)
+//     : DayData =
 
-    let rng = Random(seed)
-    let result = generateDay sessionConfig trendConfig mcmcConfig rng 390.0
-    let trades = generateDayTrades rng startPrice defaultBaseline digests result
+//     let rng = Random(seed)
+//     let result = generateDay sessionConfig trendConfig mcmcConfig rng 390.0
+//     let trades = generateDayTrades rng startPrice defaultBaseline digests result
 
-    { DayId = dayId
-      Bars500 = aggregateToVolumeBars trades 500
-      Bars2000 = aggregateToVolumeBars trades 2000
-      Bars10000 = aggregateToVolumeBars trades 10000 }
+//     { DayId = dayId
+//       Bars500 = aggregateToVolumeBars trades 500
+//       Bars2000 = aggregateToVolumeBars trades 2000
+//       Bars10000 = aggregateToVolumeBars trades 10000 }
 
 let datasetSchema = ParquetSchema(
     DataField<int>("day_id"),
@@ -185,45 +185,45 @@ let writerTask (outputPath: string) (numDays: int) (channel: Channel<DayData>) =
             printfn "  Written %d / %d days" daysWritten numDays
 }
 
-let generatorTask
-    (workerId: int) (numWorkers: int) (numDays: int) (baseSeed: int)
-    (mcmcConfig: MCMC.Config) (sessionConfig: SessionLevel.Config)
-    (trendConfig: TrendLevel.Config) (startPrice: float)
-    (digests: TradeDataDigests)
-    (channel: Channel<DayData>) = task {
-    let mutable dayId = workerId
-    while dayId < numDays do
-        let data = generateSingleDay dayId (baseSeed + dayId) mcmcConfig sessionConfig trendConfig startPrice digests
-        do! channel.Writer.WriteAsync(data)
-        dayId <- dayId + numWorkers
-}
+// let generatorTask
+//     (workerId: int) (numWorkers: int) (numDays: int) (baseSeed: int)
+//     (mcmcConfig: MCMC.Config) (sessionConfig: SessionLevel.Config)
+//     (trendConfig: TrendLevel.Config) (startPrice: float)
+//     (digests: TradeDataDigests)
+//     (channel: Channel<DayData>) = task {
+//     let mutable dayId = workerId
+//     while dayId < numDays do
+//         let data = generateSingleDay dayId (baseSeed + dayId) mcmcConfig sessionConfig trendConfig startPrice digests
+//         do! channel.Writer.WriteAsync(data)
+//         dayId <- dayId + numWorkers
+// }
 
-let generateDataset
-    (baseSeed: int) (numDays: int) (outputPath: string)
-    (mcmcConfig: MCMC.Config) (sessionConfig: SessionLevel.Config)
-    (trendConfig: TrendLevel.Config) (startPrice: float)
-    (digestsPath: string) : unit =
+// let generateDataset
+//     (baseSeed: int) (numDays: int) (outputPath: string)
+//     (mcmcConfig: MCMC.Config) (sessionConfig: SessionLevel.Config)
+//     (trendConfig: TrendLevel.Config) (startPrice: float)
+//     (digestsPath: string) : unit =
 
-    printfn "Loading t-digests from %s..." digestsPath
-    let digests = loadTDigests digestsPath
+//     printfn "Loading t-digests from %s..." digestsPath
+//     let digests = loadTDigests digestsPath
 
-    let numWorkers = Environment.ProcessorCount
-    printfn "Generating %d days with %d workers..." numDays numWorkers
+//     let numWorkers = Environment.ProcessorCount
+//     printfn "Generating %d days with %d workers..." numDays numWorkers
 
-    let dir = Path.GetDirectoryName(outputPath)
-    if not (String.IsNullOrEmpty(dir)) && not (Directory.Exists(dir)) then
-        Directory.CreateDirectory(dir) |> ignore
+//     let dir = Path.GetDirectoryName(outputPath)
+//     if not (String.IsNullOrEmpty(dir)) && not (Directory.Exists(dir)) then
+//         Directory.CreateDirectory(dir) |> ignore
 
-    let channel = Channel.CreateBounded<DayData>(BoundedChannelOptions(numWorkers * 2))
+//     let channel = Channel.CreateBounded<DayData>(BoundedChannelOptions(numWorkers * 2))
 
-    let writer = writerTask outputPath numDays channel
+//     let writer = writerTask outputPath numDays channel
 
-    let generators =
-        [| for w in 0 .. numWorkers - 1 ->
-            Task.Run(Func<Task>(fun () ->
-                generatorTask w numWorkers numDays baseSeed mcmcConfig sessionConfig trendConfig startPrice digests channel)) |]
+//     let generators =
+//         [| for w in 0 .. numWorkers - 1 ->
+//             Task.Run(Func<Task>(fun () ->
+//                 generatorTask w numWorkers numDays baseSeed mcmcConfig sessionConfig trendConfig startPrice digests channel)) |]
 
-    Task.WhenAll(generators).ContinueWith(fun (_: Task) -> channel.Writer.Complete()).Wait()
-    writer.Wait()
+//     Task.WhenAll(generators).ContinueWith(fun (_: Task) -> channel.Writer.Complete()).Wait()
+//     writer.Wait()
 
-    printfn "Done. Wrote dataset to %s" outputPath
+//     printfn "Done. Wrote dataset to %s" outputPath

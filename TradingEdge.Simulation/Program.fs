@@ -129,35 +129,35 @@ let runOrderBook (args: ParseResults<OrderBookArgs>) =
     let book = generate config rng
     print book
 
-let runGenerateDay (args: ParseResults<GenerateDayArgs>) =
-    let seed = args.GetResult(GenerateDayArgs.Seed, 42)
-    let runs = args.GetResult(GenerateDayArgs.Runs, 1)
-    let iterations = args.GetResult(GenerateDayArgs.Iterations, 10000)
-    let rng = Random(seed)
+// let runGenerateDay (args: ParseResults<GenerateDayArgs>) =
+//     let seed = args.GetResult(GenerateDayArgs.Seed, 42)
+//     let runs = args.GetResult(GenerateDayArgs.Runs, 1)
+//     let iterations = args.GetResult(GenerateDayArgs.Iterations, 10000)
+//     let rng = Random(seed)
 
-    let mcmcConfig = { MCMC.Iterations = iterations }
-    let sessionConfig = SessionLevel.defaultConfig
-    let trendConfig = TrendLevel.defaultConfig
+//     let mcmcConfig = { MCMC.Iterations = iterations }
+//     let sessionConfig = SessionLevel.defaultConfig
+//     let trendConfig = TrendLevel.defaultConfig
 
-    printfn "Day Generation (MCMC iterations=%d)" iterations
-    printfn ""
+//     printfn "Day Generation (MCMC iterations=%d)" iterations
+//     printfn ""
 
-    for i in 1 .. runs do
-        if runs > 1 then printfn "=== Day %d ===" i
-        let result = generateDay sessionConfig trendConfig mcmcConfig rng 390.0
-        printDayResult result
-        if i < runs then printfn "---"
-        printfn ""
+//     for i in 1 .. runs do
+//         if runs > 1 then printfn "=== Day %d ===" i
+//         let result = generateDay sessionConfig trendConfig mcmcConfig rng 390.0
+//         printDayResult result
+//         if i < runs then printfn "---"
+//         printfn ""
 
-let runGenerateDataset (args: ParseResults<GenerateDatasetArgs>) =
-    let seed = args.GetResult(GenerateDatasetArgs.Seed, 42)
-    let numDays = args.GetResult(GenerateDatasetArgs.Days, 1000)
-    let output = args.GetResult(GenerateDatasetArgs.Output, "data/dataset.parquet")
-    let startPrice = args.GetResult(GenerateDatasetArgs.Price, 100.0)
-    let iterations = args.GetResult(GenerateDatasetArgs.Iterations, 10000)
-    let digestsPath = args.GetResult(GenerateDatasetArgs.Digests)
-    let mcmcConfig = { MCMC.Iterations = iterations }
-    generateDataset seed numDays output mcmcConfig SessionLevel.defaultConfig TrendLevel.defaultConfig startPrice digestsPath
+// let runGenerateDataset (args: ParseResults<GenerateDatasetArgs>) =
+//     let seed = args.GetResult(GenerateDatasetArgs.Seed, 42)
+//     let numDays = args.GetResult(GenerateDatasetArgs.Days, 1000)
+//     let output = args.GetResult(GenerateDatasetArgs.Output, "data/dataset.parquet")
+//     let startPrice = args.GetResult(GenerateDatasetArgs.Price, 100.0)
+//     let iterations = args.GetResult(GenerateDatasetArgs.Iterations, 10000)
+//     let digestsPath = args.GetResult(GenerateDatasetArgs.Digests)
+//     let mcmcConfig = { MCMC.Iterations = iterations }
+//     generateDataset seed numDays output mcmcConfig SessionLevel.defaultConfig TrendLevel.defaultConfig startPrice digestsPath
 
 let runBuildDigests (args: ParseResults<BuildDigestsArgs>) =
     let input = args.GetResult(BuildDigestsArgs.Input)
@@ -169,35 +169,35 @@ let runBuildDigests (args: ParseResults<BuildDigestsArgs>) =
     let digests = TradingEdge.Simulation.TradeDataTDigests.buildTDigestsFromJson input compression threshold marketOpen marketClose
     TradingEdge.Simulation.TradeDataTDigests.saveTDigests digests output
 
-let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
-    let seed = args.GetResult(DumpTradesArgs.Seed, 42)
-    let startPrice = args.GetResult(DumpTradesArgs.Price, 100.0)
-    let iterations = args.GetResult(DumpTradesArgs.Iterations, 10000)
-    let digestsPath = args.GetResult(DumpTradesArgs.Digests)
-    let outputPath = args.TryGetResult(DumpTradesArgs.Output)
-    let rng = Random(seed)
-    let mcmcConfig = { MCMC.Iterations = iterations }
-    let result = generateDay SessionLevel.defaultConfig TrendLevel.defaultConfig mcmcConfig rng 390.0
-    let digests = TradingEdge.Simulation.TradeDataTDigests.loadTDigests digestsPath
-    let trades = generateDayTrades rng startPrice defaultBaseline digests result
+// let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
+//     let seed = args.GetResult(DumpTradesArgs.Seed, 42)
+//     let startPrice = args.GetResult(DumpTradesArgs.Price, 100.0)
+//     let iterations = args.GetResult(DumpTradesArgs.Iterations, 10000)
+//     let digestsPath = args.GetResult(DumpTradesArgs.Digests)
+//     let outputPath = args.TryGetResult(DumpTradesArgs.Output)
+//     let rng = Random(seed)
+//     let mcmcConfig = { MCMC.Iterations = iterations }
+//     let result = generateDay SessionLevel.defaultConfig TrendLevel.defaultConfig mcmcConfig rng 390.0
+//     let digests = TradingEdge.Simulation.TradeDataTDigests.loadTDigests digestsPath
+//     let trades = generateDayTrades rng startPrice defaultBaseline digests result
 
-    let writer : System.IO.TextWriter =
-        match outputPath with
-        | Some path -> new System.IO.StreamWriter(path) :> _
-        | None -> System.Console.Out
+//     let writer : System.IO.TextWriter =
+//         match outputPath with
+//         | Some path -> new System.IO.StreamWriter(path) :> _
+//         | None -> System.Console.Out
 
-    writer.WriteLine("time,dt,price,size,target_mean,target_sigma")
-    let mutable prevTime = 0.0
-    for t in trades do
-        let dt = t.Time - prevTime
-        writer.WriteLine(sprintf "%.6f,%.6f,%.6f,%d,%.6f,%.6f" t.Time dt t.Price t.Size t.TargetMean t.TargetSigma)
-        prevTime <- t.Time
+//     writer.WriteLine("time,dt,price,size,target_mean,target_sigma")
+//     let mutable prevTime = 0.0
+//     for t in trades do
+//         let dt = t.Time - prevTime
+//         writer.WriteLine(sprintf "%.6f,%.6f,%.6f,%d,%.6f,%.6f" t.Time dt t.Price t.Size t.TargetMean t.TargetSigma)
+//         prevTime <- t.Time
 
-    match outputPath with
-    | Some path ->
-        (writer :?> System.IO.StreamWriter).Dispose()
-        printfn "Wrote %d trades to %s" trades.Length path
-    | None -> ()
+//     match outputPath with
+//     | Some path ->
+//         (writer :?> System.IO.StreamWriter).Dispose()
+//         printfn "Wrote %d trades to %s" trades.Length path
+//     | None -> ()
 
 let runPreprocess (args: ParseResults<PreprocessArgs>) =
     let input = args.GetResult(PreprocessArgs.Input)
@@ -219,11 +219,11 @@ let runPreprocess (args: ParseResults<PreprocessArgs>) =
 
     (TradingEdge.Simulation.TDigestProcessing.transformParquetWithCdf input tds output numWorkers).Wait()
 
-let runDiagnoseDigests (args: ParseResults<DiagnoseDigestsArgs>) =
-    let digestsPath = args.GetResult(DiagnoseDigestsArgs.Digests)
-    let digests = TradingEdge.Simulation.TradeDataTDigests.loadTDigests digestsPath
-    printBetaDigestDiagnostics digests
-    printExponentialTiltDiagnostics digests
+// let runDiagnoseDigests (args: ParseResults<DiagnoseDigestsArgs>) =
+//     let digestsPath = args.GetResult(DiagnoseDigestsArgs.Digests)
+//     let digests = TradingEdge.Simulation.TradeDataTDigests.loadTDigests digestsPath
+//     printBetaDigestDiagnostics digests
+//     printExponentialTiltDiagnostics digests
 
 [<EntryPoint>]
 let main argv =
@@ -234,12 +234,13 @@ let main argv =
 
         match results.GetSubCommand() with
         | Order_Book args -> runOrderBook args
-        | Generate_Day args -> runGenerateDay args
-        | Generate_Dataset args -> runGenerateDataset args
+        // | Generate_Day args -> runGenerateDay args
+        // | Generate_Dataset args -> runGenerateDataset args
         | Build_Digests args -> runBuildDigests args
         | Preprocess args -> runPreprocess args
-        | Dump_Trades args -> runDumpTrades args
-        | Diagnose_Digests args -> runDiagnoseDigests args
+        // | Dump_Trades args -> runDumpTrades args
+        // | Diagnose_Digests args -> runDiagnoseDigests args
+        | _ -> failwith "Command not implemented"
 
         0
     with

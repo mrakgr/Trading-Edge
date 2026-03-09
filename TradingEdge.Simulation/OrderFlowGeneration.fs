@@ -63,33 +63,33 @@ let sampleSize (rng: Random) (median: float) (mean: float) : int =
         if rounded > 0 then rounded else loop ()
     loop ()
 
-/// Sample target mean for an episode
-/// Generate trades for a single subepisode
-let generateSubepisodeTrades (rng: Random) (auction_args: AuctionParams) (gen_args: GenerateParams) : GenerateOutput =
-    let bps = 1e-4
-    let proposalVol = auction_args.BaseVolBps * bps
+// /// Sample target mean for an episode
+// /// Generate trades for a single subepisode
+// let generateSubepisodeTrades (rng: Random) (auction_args: AuctionParams) (gen_args: GenerateParams) : GenerateOutput =
+//     let bps = 1e-4
+//     let proposalVol = auction_args.BaseVolBps * bps
 
-    let trades = ResizeArray<Trade>()
-    let mutable logPrice = log gen_args.StartPrice
-    let mutable time = 0.0
+//     let trades = ResizeArray<Trade>()
+//     let mutable logPrice = log gen_args.StartPrice
+//     let mutable time = 0.0
 
-    while time < gen_args.Duration do
-        let gap = Exponential.Sample(rng, 1.0 / auction_args.MeanRate)
-        time <- time + gap
-        if time < gen_args.Duration then
-            let size = sampleSize rng (auction_args.MeanVolume / 2.0) auction_args.MeanVolume
-            let sqrtSize = sqrt (float size)
-            logPrice <- multiTryStep rng logPrice (proposalVol * sqrtSize) gen_args.TargetMean gen_args.TargetVariance 10
-            trades.Add({
-                Time = time
-                Price = exp logPrice
-                Size = size
-                TargetMean = exp targetMean
-                TargetSigma = LogNormal(targetMean, targetSigma).StdDev
-            })
+//     while time < gen_args.Duration do
+//         let gap = Exponential.Sample(rng, 1.0 / auction_args.MeanRate)
+//         time <- time + gap
+//         if time < gen_args.Duration then
+//             let size = sampleSize rng (auction_args.MeanVolume / 2.0) auction_args.MeanVolume
+//             let sqrtSize = sqrt (float size)
+//             logPrice <- multiTryStep rng logPrice (proposalVol * sqrtSize) gen_args.TargetMean gen_args.TargetVariance 10
+//             trades.Add({
+//                 Time = time
+//                 Price = exp logPrice
+//                 Size = size
+//                 TargetMean = exp targetMean
+//                 TargetSigma = LogNormal(targetMean, targetSigma).StdDev
+//             })
 
-    let endPrice = exp logPrice
-    trades.ToArray(), endPrice
+//     let endPrice = exp logPrice
+//     trades.ToArray(), endPrice
 
 
 // let calculateVariance (auctionParams: AuctionParams) (durationSeconds: float) : float =
