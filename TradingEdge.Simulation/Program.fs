@@ -94,6 +94,13 @@ type DiagnoseDigestsArgs =
             match this with
             | Digests _ -> "T-digests file path to diagnose"
 
+type TestNestedArgs =
+    | [<Hidden>] Dummy
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Dummy -> ""
+
 type Command =
     | [<CliPrefix(CliPrefix.None)>] Order_Book of ParseResults<OrderBookArgs>
     | [<CliPrefix(CliPrefix.None)>] Generate_Day of ParseResults<GenerateDayArgs>
@@ -102,6 +109,7 @@ type Command =
     | [<CliPrefix(CliPrefix.None)>] Preprocess of ParseResults<PreprocessArgs>
     | [<CliPrefix(CliPrefix.None)>] Dump_Trades of ParseResults<DumpTradesArgs>
     | [<CliPrefix(CliPrefix.None)>] Diagnose_Digests of ParseResults<DiagnoseDigestsArgs>
+    | [<CliPrefix(CliPrefix.None)>] Test_Nested of ParseResults<TestNestedArgs>
     interface IArgParserTemplate with
         member this.Usage =
             match this with
@@ -112,6 +120,7 @@ type Command =
             | Preprocess _ -> "Apply t-digest CDF transform to raw dataset"
             | Dump_Trades _ -> "Dump raw trade data for a single day as CSV"
             | Diagnose_Digests _ -> "Show expected statistics for beta-reweighted t-digests"
+            | Test_Nested _ -> "Test nested episode generation"
 
 let runOrderBook (args: ParseResults<OrderBookArgs>) =
     let seed = args.GetResult(OrderBookArgs.Seed, 42)
@@ -240,7 +249,8 @@ let main argv =
         | Preprocess args -> runPreprocess args
         // | Dump_Trades args -> runDumpTrades args
         // | Diagnose_Digests args -> runDiagnoseDigests args
-        | _ -> failwith "Command not implemented"
+        | Test_Nested _ ->
+            TradingEdge.Simulation.TradeGeneration.testNestedGeneration() |> ignore
 
         0
     with

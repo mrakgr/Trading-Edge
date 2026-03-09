@@ -94,3 +94,92 @@ let generateSubepisodes
             { Instance = instance; Target = newTarget; Variance = variancePartitionChild * childVariance }
         ) childInstances childVariances
     (results, currentTarget)
+
+// =============================================================================
+// Testing
+// =============================================================================
+
+let testNestedGeneration () =
+    let rng = Random(42)
+    let baseVolBps = 10.0  // 10 basis points base volatility
+
+    // Top level: Day parameters
+    let dayTarget = log 100.0
+    let dayVolume = 1.0
+    let dayRate = 1.0
+    let dayDuration = 390.0  // minutes
+
+    // Session level episodes
+    let sessionEpisodes =
+        FixedOrder [|
+            {
+                Label = SessionLevel.Morning
+                DurationParam = Distribution.LogNormal (45.0, 60.0)
+                VolumeMean = sqrt 3.0
+                RateMean = sqrt 3.0
+            }
+            {
+                Label = SessionLevel.Mid
+                DurationParam = Distribution.LogNormal (240.0, 270.0)
+                VolumeMean = 1.0
+                RateMean = 1.0
+            }
+            {
+                Label = SessionLevel.Close
+                DurationParam = Distribution.LogNormal (45.0, 60.0)
+                VolumeMean = sqrt 3.0
+                RateMean = sqrt 3.0
+            }
+        |]
+
+    // Generate sessions
+    printfn "=== Generating Sessions ==="
+    let sessionResults, finalSessionTarget =
+        generateSubepisodes rng baseVolBps dayTarget dayVolume dayRate dayDuration sessionEpisodes
+
+    printfn "Day target: %.6f" dayTarget
+    printfn "Final session target: %.6f" finalSessionTarget
+    printfn ""
+
+    // For each session, generate subepisodes
+    printfn "=== Generating Subepisodes ==="
+    let allSubepisodes = ResizeArray<SubepisodeResult<TrendLevel.Trend>>()
+
+    for sessionResult in sessionResults do
+        let session = sessionResult.Instance.Episode
+        let sessionDuration = sessionResult.Instance.Duration
+        let sessionTarget = sessionResult.Target
+        let sessionVariance = sessionResult.Variance
+
+        printfn "Session: %A, Duration: %.2f min, Target: %.6f"
+            session.Label sessionDuration sessionTarget
+
+        // Generate subepisodes for this session
+        let subepisodeResults, finalSubepisodeTarget =
+            generateSubepisodes
+                rng
+                baseVolBps
+                sessionTarget
+                session.VolumeMean
+                session.RateMean
+                (sessionDuration * 60.0)  // Convert to seconds
+                TrendLevel.episodes
+
+        printfn "  Generated %d subepisodes, final target: %.6f"
+            subepisodeResults.Length finalSubepisodeTarget
+
+        for subepisode in subepisodeResults do
+            allSubepisodes.Add(subepisode)
+            printfn "    Trend: %A, Duration: %.2f sec, Target: %.6f, Variance: %.6f"
+                subepisode.Instance.Episode.Label
+                subepisode.Instance.Duration
+                subepisode.Target
+                subepisode.Variance
+
+        printfn ""
+
+    printfn "=== Summary ==="
+    printfn "Total sessions: %d" sessionResults.Length
+    printfn "Total subepisodes: %d" allSubepisodes.Count
+
+    allSubepisodes.ToArray()
