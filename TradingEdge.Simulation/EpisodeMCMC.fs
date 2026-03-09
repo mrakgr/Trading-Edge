@@ -72,19 +72,20 @@ type GenerateOutput = {
 }
 
 /// Episode as a generative process
-type Episode = {
-    Label: string
+type Episode<'a> = {
+    Label: 'a
+    RateMean: float
+    VolumeMean: float
     DurationParam: Distribution.Params
-    Generate: GenerateParams -> Trade[] * float
 }
 
-type EpisodeSeries =
-    | RandomlySampled of (Episode * float)[]
-    | FixedOrder of Episode[]
+type EpisodeSeries<'a> =
+    | RandomlySampled of (Episode<'a> * float)[]
+    | FixedOrder of Episode<'a>[]
 
 /// Episode instance with sampled duration
-type EpisodeInstance = {
-    Episode: Episode
+type EpisodeInstance<'a> = {
+    Episode: Episode<'a>
     Duration: float
     Weight: float
 }
