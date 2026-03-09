@@ -212,22 +212,30 @@ module SessionLevel =
         CloseParams: Distribution.Params
     }
 
-    let episodes mid_close_generator mid_generator = 
+    type Session =
+        | Morning
+        | Mid
+        | Close
+
+    let episodes = 
         FixedOrder [|
             {
-                Label = "Morning"
+                Label = Morning
                 DurationParam = Distribution.LogNormal (45.0, 60.0)
-                Generate = mid_close_generator
+                VolumeMean = 100.0 * sqrt 3.
+                RateMean = 20.0 * sqrt 3.
             }
             {
-                Label = "Mid"
+                Label = Mid
                 DurationParam = Distribution.LogNormal (240.0, 270.0)
-                Generate = mid_generator
+                VolumeMean = 100.0
+                RateMean = 20.0
             }
             {
-                Label = "Close"
+                Label = Close
                 DurationParam = Distribution.LogNormal (45.0, 60.0)
-                Generate = mid_close_generator
+                VolumeMean = 100.0 * sqrt 3.
+                RateMean = 20.0 * sqrt 3.
             }
         |]
 
@@ -236,12 +244,16 @@ module SessionLevel =
 // =============================================================================
 
 module TrendLevel =
-    let episodes generator = 
+    type Trend =
+        | Generic
+        
+    let episodes = 
         RandomlySampled [|
             {
-                Label = "Generic"
+                Label = Generic
                 DurationParam = Distribution.LogNormal (8.0, 10.0)
-                Generate = generator
+                VolumeMean = 1.0
+                RateMean = 1.0
             }, 1.0
         |]
 
