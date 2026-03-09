@@ -11,7 +11,7 @@
     <Compile Include="EpisodeMCMC.fs" />
     <Compile Include="TradeDataTDigests.fs" />
     <Compile Include="ExponentialTilt.fs" />
-    <Compile Include="OrderFlowGeneration.fs" />
+    <Compile Include="TradeGeneration.fs" />
     <Compile Include="DatasetGeneration.fs" />
     <Compile Include="TDigestProcessing.fs" />
     <Compile Include="Program.fs" />

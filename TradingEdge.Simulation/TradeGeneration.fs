@@ -18,13 +18,6 @@ let calculateVariance (baseVolBps: float) (volumeMean: float) (rateMean: float) 
 // Target Sampling
 // =============================================================================
 
-/// Sample a target with variance partitioning (75% parent, 25% child)
-let sampleChildTarget (rng: Random) (parentTarget: float) (totalVariance: float) (childDurationFraction: float) : float =
-    let parentVariance = 0.75 * totalVariance
-    let childVariance = 0.25 * totalVariance * childDurationFraction
-    Normal.Sample(rng, parentTarget, sqrt childVariance)
-
-
 /// Multi-try step with pluggable log-density function
 let inline multiTryStepGeneric (rng: Random) (price: float) (proposalVol: float) (density: float -> float) (n: int) : float =
     let candidates = Array.zeroCreate (2 * n + 1)
