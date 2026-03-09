@@ -105,6 +105,7 @@ let testNestedGeneration () =
     let baseVolBps = 3000.0  // 1000 basis points base volatility
 
     // Top level: Day parameters
+    let startPrice = 100.0
     let dayTarget = 150.0
     let dayVolume = 1.0
     let dayRate = 1.0
@@ -136,9 +137,9 @@ let testNestedGeneration () =
     // Generate sessions
     printfn "=== Generating Sessions ==="
     let sessionResults, finalSessionTarget =
-        generateSubepisodes rng baseVolBps 100.0 dayTarget dayVolume dayRate dayDuration sessionEpisodes
+        generateSubepisodes rng baseVolBps startPrice dayTarget dayVolume dayRate dayDuration sessionEpisodes
 
-    printfn "Start price: 100.0"
+    printfn "Start price: %.1f" startPrice
     printfn "Day target: %.6f" dayTarget
     printfn "Final session target: %.6f" finalSessionTarget
     printfn ""
@@ -161,7 +162,7 @@ let testNestedGeneration () =
             generateSubepisodes
                 rng
                 baseVolBps
-                100.0  // Start from initial price
+                startPrice
                 sessionTarget
                 session.VolumeMean
                 session.RateMean
