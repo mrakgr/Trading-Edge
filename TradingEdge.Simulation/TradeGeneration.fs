@@ -61,6 +61,10 @@ let generateSubepisodes
     (childEpisodeSeries: EpisodeSeries<'a>)
     : (EpisodeInstance<'a> * float * float)[] =
 
+    // Calculate parent's total variance and sigma (75% of total)
+    let totalVariance = calculateVariance baseVolBps parentVolume parentRate parentDuration
+    let parentTargetSigma = sqrt(0.75 * totalVariance)
+
     // Use MCMC to sample child episode instances (with durations)
     let childInstances = MCMC.run MCMC.defaultConfig childEpisodeSeries parentDuration rng
 
@@ -77,7 +81,7 @@ let generateSubepisodes
         let childTargetSigma = sqrt(0.25 * childVariance)
 
         // Sample child target using multi-try MCMC around parent target
-        let childTarget = multiTryStep rng parentTarget childTargetSigma parentTarget childTargetSigma 10
+        let childTarget = multiTryStep rng parentTarget childTargetSigma parentTarget parentTargetSigma 10
 
         (instance, childTarget, childVariance)
     )
