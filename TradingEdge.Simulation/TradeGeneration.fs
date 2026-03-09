@@ -157,6 +157,7 @@ let testNestedGeneration () =
     // For each session, generate subepisodes
     printfn "=== Generating Subepisodes ==="
     let allSubepisodes = ResizeArray<SubepisodeResult<TrendLevel.Trend>>()
+    let mutable currentPrice = startPrice
 
     for sessionResult in sessionResults do
         let session = sessionResult.Instance.Episode
@@ -164,20 +165,22 @@ let testNestedGeneration () =
         let sessionTarget = sessionResult.Target
         let sessionVariance = sessionResult.Variance
 
-        printfn "Session: %A, Duration: %.2f min, Target: %.6f"
-            session.Label sessionDuration sessionTarget
+        printfn "Session: %A, Duration: %.2f min, Target: %.6f, Start price: %.6f"
+            session.Label sessionDuration sessionTarget currentPrice
 
         // Generate subepisodes for this session (keep in minutes, don't convert to seconds)
         let subepisodeResults, finalSubepisodeTarget =
             generateSubepisodes
                 rng
                 sessionResult.Variance
-                startPrice
+                currentPrice
                 sessionTarget
                 session.VolumeMean
                 session.RateMean
                 sessionDuration  // Keep in minutes
                 TrendLevel.episodes
+
+        currentPrice <- finalSubepisodeTarget  // Update price for next session
 
         printfn "  Generated %d subepisodes, final target: %.6f"
             subepisodeResults.Length finalSubepisodeTarget
