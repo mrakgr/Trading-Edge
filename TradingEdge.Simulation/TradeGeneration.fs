@@ -50,6 +50,12 @@ let stochasticRound (rng: Random) (x: float) : int =
 // Subepisode Generation
 // =============================================================================
 
+type SubepisodeResult<'a> = {
+    Instance: EpisodeInstance<'a>
+    Target: float
+    Variance: float
+}
+
 /// Generate subepisodes with targets from a parent episode
 let generateSubepisodes
     (rng: Random)
@@ -59,7 +65,7 @@ let generateSubepisodes
     (parentRate: float)
     (parentDuration: float)
     (childEpisodeSeries: EpisodeSeries<'a>)
-    : (EpisodeInstance<'a> * float * float)[] =
+    : SubepisodeResult<'a>[] =
 
     // Use MCMC to sample child episode instances (with durations)
     let childInstances = MCMC.run MCMC.defaultConfig childEpisodeSeries parentDuration rng
@@ -80,5 +86,5 @@ let generateSubepisodes
     Array.map2 (fun instance childVariance ->
         let childTargetSigma = sqrt(0.25 * childVariance)
         let childTarget = multiTryStep rng parentTarget childTargetSigma parentTarget parentTargetSigma 10
-        (instance, childTarget, childVariance)
+        { Instance = instance; Target = childTarget; Variance = childVariance }
     ) childInstances childVariances
