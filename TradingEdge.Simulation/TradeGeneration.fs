@@ -86,11 +86,10 @@ let generateSubepisodes
     let parentTargetSigma = sqrt(variancePartitionParent * totalVariance)
 
     // Sample target for each child as a random walk
-    let results, _ = Array.mapFold (fun currentTarget (instance, childVariance) ->
+    let mutable currentTarget = parentTarget
+    Array.map2 (fun instance childVariance ->
         let childTargetVariance = variancePartitionChild * childVariance
         let newTarget = multiTryStep rng currentTarget (sqrt childVariance) parentTarget parentTargetSigma 10
-        let result = { Instance = instance; Target = newTarget; Variance = childTargetVariance }
-        (result, newTarget)
-    ) parentTarget (Array.zip childInstances childVariances)
-
-    results
+        currentTarget <- newTarget
+        { Instance = instance; Target = newTarget; Variance = childTargetVariance }
+    ) childInstances childVariances
