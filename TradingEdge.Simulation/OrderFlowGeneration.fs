@@ -20,27 +20,27 @@ type SessionBaseline = {
 let defaultBaseline = { ProposalVolBps = 0.35 }
 
 /// Multi-try step with pluggable log-density function
-let multiTryStepGeneric (rng: Random) (logPrice: float) (proposalVol: float) (logDensity: float -> float) (n: int) : float =
+let multiTryStepGeneric (rng: Random) (price: float) (proposalVol: float) (density: float -> float) (n: int) : float =
     let candidates = Array.zeroCreate (2 * n + 1)
     let logWeights = Array.zeroCreate (2 * n + 1)
-    candidates.[0] <- logPrice
-    logWeights.[0] <- logDensity logPrice
+    candidates.[0] <- price
+    logWeights.[0] <- density price
     for i in 0 .. n - 1 do
         let z = Normal.Sample(rng, 0.0, proposalVol)
-        let yPos = logPrice + z
-        let yNeg = logPrice - z
+        let yPos = price + z
+        let yNeg = price - z
         candidates.[2 * i + 1] <- yPos
         candidates.[2 * i + 2] <- yNeg
-        logWeights.[2 * i + 1] <- logDensity yPos
-        logWeights.[2 * i + 2] <- logDensity yNeg
+        logWeights.[2 * i + 1] <- density yPos
+        logWeights.[2 * i + 2] <- density yNeg
     let maxW = Array.max logWeights
     let weights = logWeights |> Array.map (fun w -> exp(w - maxW))
     let idx = Categorical.Sample(rng, weights)
     candidates.[idx]
 
 /// Multi-try Metropolis step: propose n moves + n negated + current, select by target likelihood
-let multiTryStep (rng: Random) (logPrice: float) (proposalVol: float) (targetMean: float) (targetSigma: float) (n: int) : float =
-    multiTryStepGeneric rng logPrice proposalVol (fun x -> Normal.PDFLn(targetMean, targetSigma, x)) n
+let multiTryStep (rng: Random) (price: float) (proposalVol: float) (targetMean: float) (targetSigma: float) (n: int) : float =
+    multiTryStepGeneric rng price proposalVol (fun x -> Normal.PDFLn(targetMean, targetSigma, x)) n
 
 let stochasticRound (rng: Random) (x: float) : int =
     let floor = Math.Floor(x)
