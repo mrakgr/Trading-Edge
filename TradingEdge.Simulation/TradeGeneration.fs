@@ -102,10 +102,10 @@ let generateSubepisodes
 
 let testNestedGeneration () =
     let rng = Random(42)
-    let baseVolBps = 10.0  // 10 basis points base volatility
+    let baseVolBps = 3000.0  // 1000 basis points base volatility
 
     // Top level: Day parameters
-    let dayTarget = 50.0
+    let dayTarget = 150.0
     let dayVolume = 1.0
     let dayRate = 1.0
     let dayDuration = 390.0  // minutes
