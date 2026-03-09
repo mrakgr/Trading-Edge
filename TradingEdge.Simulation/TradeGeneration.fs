@@ -63,6 +63,7 @@ type SubepisodeResult<'a> = {
 let generateSubepisodes
     (rng: Random)
     (baseVolBps: float)
+    (startPrice: float)
     (parentTarget: float)
     (parentVolume: float)
     (parentRate: float)
@@ -85,8 +86,8 @@ let generateSubepisodes
     let totalVariance = Array.sum childVariances
     let parentTargetSigma = sqrt(variancePartitionParent * totalVariance)
 
-    // Sample target for each child as a random walk
-    let mutable currentTarget = parentTarget
+    // Sample target for each child as a random walk starting from startPrice
+    let mutable currentTarget = startPrice
     let results =
         Array.map2 (fun instance childVariance ->
             let newTarget = multiTryStep rng currentTarget (sqrt childVariance) parentTarget parentTargetSigma 10
@@ -104,7 +105,7 @@ let testNestedGeneration () =
     let baseVolBps = 10.0  // 10 basis points base volatility
 
     // Top level: Day parameters
-    let dayTarget = log 100.0
+    let dayTarget = 50.0
     let dayVolume = 1.0
     let dayRate = 1.0
     let dayDuration = 390.0  // minutes
@@ -135,8 +136,9 @@ let testNestedGeneration () =
     // Generate sessions
     printfn "=== Generating Sessions ==="
     let sessionResults, finalSessionTarget =
-        generateSubepisodes rng baseVolBps dayTarget dayVolume dayRate dayDuration sessionEpisodes
+        generateSubepisodes rng baseVolBps 100.0 dayTarget dayVolume dayRate dayDuration sessionEpisodes
 
+    printfn "Start price: 100.0"
     printfn "Day target: %.6f" dayTarget
     printfn "Final session target: %.6f" finalSessionTarget
     printfn ""
@@ -154,15 +156,16 @@ let testNestedGeneration () =
         printfn "Session: %A, Duration: %.2f min, Target: %.6f"
             session.Label sessionDuration sessionTarget
 
-        // Generate subepisodes for this session
+        // Generate subepisodes for this session (keep in minutes, don't convert to seconds)
         let subepisodeResults, finalSubepisodeTarget =
             generateSubepisodes
                 rng
                 baseVolBps
+                100.0  // Start from initial price
                 sessionTarget
                 session.VolumeMean
                 session.RateMean
-                (sessionDuration * 60.0)  // Convert to seconds
+                sessionDuration  // Keep in minutes
                 TrendLevel.episodes
 
         printfn "  Generated %d subepisodes, final target: %.6f"
@@ -170,7 +173,7 @@ let testNestedGeneration () =
 
         for subepisode in subepisodeResults do
             allSubepisodes.Add(subepisode)
-            printfn "    Trend: %A, Duration: %.2f sec, Target: %.6f, Variance: %.6f"
+            printfn "    Trend: %A, Duration: %.2f min, Target: %.6f, Variance: %.6f"
                 subepisode.Instance.Episode.Label
                 subepisode.Instance.Duration
                 subepisode.Target
