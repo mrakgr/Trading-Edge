@@ -68,7 +68,7 @@ let generateSubepisodes
     (parentRate: float)
     (parentDuration: float)
     (childEpisodeSeries: EpisodeSeries<'a>)
-    : SubepisodeResult<'a>[] =
+    : SubepisodeResult<'a>[] * float =
 
     // Use MCMC to sample child episode instances (with durations)
     let childInstances = MCMC.run MCMC.defaultConfig childEpisodeSeries parentDuration rng
@@ -87,8 +87,9 @@ let generateSubepisodes
 
     // Sample target for each child as a random walk
     let mutable currentTarget = parentTarget
-    Array.map2 (fun instance childVariance ->
+    let results = Array.map2 (fun instance childVariance ->
         let newTarget = multiTryStep rng currentTarget (sqrt childVariance) parentTarget parentTargetSigma 10
         currentTarget <- newTarget
         { Instance = instance; Target = newTarget; Variance = variancePartitionChild * childVariance }
     ) childInstances childVariances
+    (results, currentTarget)
