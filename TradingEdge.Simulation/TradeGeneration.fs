@@ -50,8 +50,8 @@ let stochasticRound (rng: Random) (x: float) : int =
 // Subepisode Generation
 // =============================================================================
 
+// Controls the variance distribution between the parent and child.
 let variancePartitionParent = 0.75
-let variancePartitionChild = 0.25
 
 type SubepisodeResult<'a> = {
     Instance: EpisodeInstance<'a>
@@ -92,7 +92,7 @@ let generateSubepisodes
         Array.map2 (fun instance childVariance ->
             let newTarget = multiTryStep rng currentTarget (sqrt childVariance) parentTarget parentTargetSigma 10
             currentTarget <- newTarget
-            { Instance = instance; Target = newTarget; Variance = variancePartitionChild * childVariance }
+            { Instance = instance; Target = newTarget; Variance = (1. - variancePartitionParent) * childVariance }
         ) childInstances childVariances
     (results, currentTarget)
 
