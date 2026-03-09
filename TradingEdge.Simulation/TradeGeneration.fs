@@ -151,7 +151,16 @@ let testNestedGeneration () =
     printfn "Start price: %.1f" startPrice
     printfn "Day target: %.6f" dayTarget
     printfn "Day sigma: %.6f" daySigma
+    printfn "Day variance: %.6f" dayVariance
     printfn "Final session target: %.6f" finalSessionTarget
+    printfn ""
+
+    // Print session variances
+    printfn "Session variances:"
+    for sr in sessionResults do
+        printfn "  %A: %.6f" sr.Instance.Episode.Label sr.Variance
+    let totalSessionVariance = sessionResults |> Array.sumBy (fun sr -> sr.Variance)
+    printfn "  Total session variance: %.6f (should be %.6f)" totalSessionVariance (0.25 * dayVariance)
     printfn ""
 
     // For each session, generate subepisodes
