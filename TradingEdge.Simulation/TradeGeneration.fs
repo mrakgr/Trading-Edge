@@ -88,8 +88,7 @@ let generateSubepisodes
     // Sample target for each child as a random walk
     let mutable currentTarget = parentTarget
     Array.map2 (fun instance childVariance ->
-        let childTargetVariance = variancePartitionChild * childVariance
         let newTarget = multiTryStep rng currentTarget (sqrt childVariance) parentTarget parentTargetSigma 10
         currentTarget <- newTarget
-        { Instance = instance; Target = newTarget; Variance = childTargetVariance }
+        { Instance = instance; Target = newTarget; Variance = variancePartitionChild * childVariance }
     ) childInstances childVariances
