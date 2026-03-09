@@ -52,7 +52,7 @@ type Trade = {
     Time: float
     Price: float
     Size: int
-    TargetMeanAndSigmas: (float * float) list
+    TargetMeanAndVariances: (float * float) list
     Label : string list
 }
 
@@ -61,7 +61,7 @@ type GenerateParams = {
     StartPrice: float
     StartTime: float
     TargetMean: float
-    TargetSigma: float
+    TargetVariance: float
     Duration: float
     ParentLabel: string
 }

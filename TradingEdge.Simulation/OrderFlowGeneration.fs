@@ -79,7 +79,7 @@ let generateSubepisodeTrades (rng: Random) (auction_args: AuctionParams) (gen_ar
         if time < gen_args.Duration then
             let size = sampleSize rng (auction_args.MeanVolume / 2.0) auction_args.MeanVolume
             let sqrtSize = sqrt (float size)
-            logPrice <- multiTryStep rng logPrice (proposalVol * sqrtSize) gen_args.TargetMean gen_args.TargetSigma 10
+            logPrice <- multiTryStep rng logPrice (proposalVol * sqrtSize) gen_args.TargetMean gen_args.TargetVariance 10
             trades.Add({
                 Time = time
                 Price = exp logPrice
