@@ -87,7 +87,7 @@ let generateSubepisodes
 
     // Sample target for each child
     Array.map2 (fun instance childVariance ->
-        let childTargetSigma = sqrt(variancePartitionChild * childVariance)
-        let childTarget = multiTryStep rng parentTarget childTargetSigma parentTarget parentTargetSigma 10
+        let childTargetVariance = variancePartitionChild * childVariance
+        let childTarget = multiTryStep rng parentTarget (sqrt childTargetVariance) parentTarget parentTargetSigma 10
         { Instance = instance; Target = childTarget; Variance = childVariance }
     ) childInstances childVariances
