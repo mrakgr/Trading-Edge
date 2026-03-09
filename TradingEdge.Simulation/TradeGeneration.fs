@@ -62,7 +62,7 @@ type SubepisodeResult<'a> = {
 /// Generate subepisodes with targets from a parent episode
 let generateSubepisodes
     (rng: Random)
-    (baseVolBps: float)
+    (parentVariance: float)
     (startPrice: float)
     (parentTarget: float)
     (parentVolume: float)
@@ -74,17 +74,25 @@ let generateSubepisodes
     // Use MCMC to sample child episode instances (with durations)
     let childInstances = MCMC.run MCMC.defaultConfig childEpisodeSeries parentDuration rng
 
-    // Calculate variance for each child
+    // Calculate total volume across all children
+    let totalVolume =
+        childInstances |> Array.sumBy (fun instance ->
+            let actualVolume = parentVolume * instance.Episode.VolumeMean
+            let actualRate = parentRate * instance.Episode.RateMean
+            actualVolume * actualRate * instance.Duration
+        )
+
+    // Distribute parent variance proportionally based on volume
     let childVariances =
         childInstances |> Array.map (fun instance ->
             let actualVolume = parentVolume * instance.Episode.VolumeMean
             let actualRate = parentRate * instance.Episode.RateMean
-            calculateVariance baseVolBps actualVolume actualRate instance.Duration
+            let childVolume = actualVolume * actualRate * instance.Duration
+            parentVariance * (childVolume / totalVolume)
         )
 
-    // Parent gets 75% of total variance (sum of all child variances)
-    let totalVariance = Array.sum childVariances
-    let parentTargetSigma = sqrt(variancePartitionParent * totalVariance)
+    // Parent uses 75% of variance for target sigma
+    let parentTargetSigma = sqrt(variancePartitionParent * parentVariance)
 
     // Sample target for each child as a random walk starting from startPrice
     let mutable currentTarget = startPrice
@@ -102,11 +110,12 @@ let generateSubepisodes
 
 let testNestedGeneration () =
     let rng = Random(42)
-    let baseVolBps = 3000.0  // 1000 basis points base volatility
 
     // Top level: Day parameters
     let startPrice = 100.0
     let dayTarget = 150.0
+    let daySigma = 10.0
+    let dayVariance = daySigma * daySigma  // 100
     let dayVolume = 1.0
     let dayRate = 1.0
     let dayDuration = 390.0  // minutes
@@ -137,10 +146,11 @@ let testNestedGeneration () =
     // Generate sessions
     printfn "=== Generating Sessions ==="
     let sessionResults, finalSessionTarget =
-        generateSubepisodes rng baseVolBps startPrice dayTarget dayVolume dayRate dayDuration sessionEpisodes
+        generateSubepisodes rng dayVariance startPrice dayTarget dayVolume dayRate dayDuration sessionEpisodes
 
     printfn "Start price: %.1f" startPrice
     printfn "Day target: %.6f" dayTarget
+    printfn "Day sigma: %.6f" daySigma
     printfn "Final session target: %.6f" finalSessionTarget
     printfn ""
 
@@ -161,7 +171,7 @@ let testNestedGeneration () =
         let subepisodeResults, finalSubepisodeTarget =
             generateSubepisodes
                 rng
-                baseVolBps
+                sessionResult.Variance
                 startPrice
                 sessionTarget
                 session.VolumeMean
