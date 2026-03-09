@@ -112,7 +112,7 @@ module MCMC =
         (idx1, idx2)
 
     /// Transfer duration between two episode instances
-    let transferDuration (rng: Random) (state: EpisodeInstance[]) : EpisodeInstance[] =
+    let transferDuration (rng: Random) (state: EpisodeInstance<'a>[]) : EpisodeInstance<'a>[] =
         let idx1, idx2 = pickTwoDistinctIndices rng state.Length
         let proposalStdDev = min (Distribution.stdDev state.[idx1].Episode.DurationParam) (Distribution.stdDev state.[idx2].Episode.DurationParam)
         let delta = Normal.Sample(rng, 0.0, proposalStdDev)
@@ -122,7 +122,7 @@ module MCMC =
         newState
 
     /// Change the episode of a random instance to a different episode from the pool
-    let changeEpisode (rng: Random) (availableEpisodes: (Episode * float)[]) (state: EpisodeInstance[]) : EpisodeInstance[] =
+    let changeEpisode (rng: Random) (availableEpisodes: (Episode<'a> * float)[]) (state: EpisodeInstance<'a>[]) : EpisodeInstance<'a>[] =
         let idx = rng.Next(state.Length)
         let newEpisode, weight = availableEpisodes.[rng.Next(availableEpisodes.Length)]
         let newState = Array.copy state
@@ -139,10 +139,10 @@ module MCMC =
     /// Run MCMC to sample episode instances that fill a target duration
     let run
         (config: Config)
-        (series: EpisodeSeries)
+        (series: EpisodeSeries<'a>)
         (targetDuration: float)
         (rng: Random)
-        : EpisodeInstance[] =
+        : EpisodeInstance<'a>[] =
 
         // Generate initial state based on series type
         let initial =
@@ -166,7 +166,7 @@ module MCMC =
         let mutable current = initial |> Array.map (fun i -> { i with Duration = i.Duration * scale })
 
         // Log-likelihood function
-        let logLikelihood (state: EpisodeInstance[]) =
+        let logLikelihood (state: EpisodeInstance<'a>[]) =
             state |> Array.sumBy (fun i ->
                 let durLL = Distribution.logLikelihood i.Episode.DurationParam i.Duration
                 let weightLL = log i.Weight
