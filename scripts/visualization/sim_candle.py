@@ -75,7 +75,7 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
         subplot_titles=['Price', 'Volume']
     )
 
-    x_vals = [b['timestamp'] / 60.0 for b in bars]
+    x_vals = [b['timestamp'] for b in bars]  # Already in minutes
     open_vals = [b['open'] for b in bars]
     high_vals = [b['high'] for b in bars]
     low_vals = [b['low'] for b in bars]
@@ -119,7 +119,7 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
         else:
             bar_targets.append(trades[-1])
 
-    x_minutes = [t / 60.0 for t in bar_times]
+    x_minutes = bar_times  # Already in minutes
 
     # Day level
     fig.add_trace(go.Scatter(
