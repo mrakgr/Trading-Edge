@@ -26,10 +26,13 @@ def create_time_bars(trades, seconds_per_bar):
     if not trades:
         return []
 
+    # Convert seconds to minutes since trade times are in minutes
+    minutes_per_bar = seconds_per_bar / 60.0
+
     bars = []
     start_time = trades[0]['time']
     current_bar_start = start_time
-    current_bar_end = current_bar_start + seconds_per_bar
+    current_bar_end = current_bar_start + minutes_per_bar
     bar_trades = []
 
     for trade in trades:
@@ -40,7 +43,7 @@ def create_time_bars(trades, seconds_per_bar):
                 bars.append(compute_bar_ohlc(bar_trades, current_bar_start))
                 bar_trades = []
             current_bar_start = current_bar_end
-            current_bar_end = current_bar_start + seconds_per_bar
+            current_bar_end = current_bar_start + minutes_per_bar
 
         bar_trades.append(trade)
 
