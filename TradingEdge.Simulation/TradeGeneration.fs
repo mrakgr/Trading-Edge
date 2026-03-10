@@ -8,9 +8,11 @@ open EpisodeMCMC
 // Variance Calculation
 // =============================================================================
 
+[<Literal>]
+let bps = 1e-4
+
 /// Calculate variance for a given duration using the auction formula
 let calculateVariance (baseVolBps: float) (volumeMean: float) (rateMean: float) (durationSeconds: float) : float =
-    let bps = 1e-4
     let baseVol = baseVolBps * bps
     baseVol * baseVol * volumeMean * rateMean * durationSeconds
 
@@ -93,7 +95,6 @@ let generateTrades
     (ctx: GenerationContext<'label>)
     : Trade[] * float =
 
-    let bps = 1e-4
     let proposalVol = baseVolBps * bps
     let parentTarget, parentVariance = ctx.ParentTargetAndVariance |> List.head
     let targetSigma = sqrt parentVariance
@@ -163,7 +164,7 @@ let generateSubepisodes
     let mutable currentTarget = ctx.StartPrice
     let mutable currentTime = ctx.StartTime
     Array.map3 (fun instance childVolume childVariance ->
-        let newTarget = multiTryStep rng currentTarget (baseVolBps * sqrt childVolume) parentTarget parentTargetSigma 10
+        let newTarget = multiTryStep rng currentTarget (baseVolBps * bps * sqrt childVolume) parentTarget parentTargetSigma 10
         let childVariance' = (1. - variancePartitionParent) * childVariance
         let childCtx = {
             Label = instance.Episode.Label
@@ -262,7 +263,7 @@ let testNestedGeneration () =
     let dayVolume = 100.0
     let dayRate = 10.0 * 60.
     let dayDuration = 390.0  // minutes
-    let baseVolBps = 1.
+    let baseVolBps = 4.
 
     // Generate sessions
     printfn "=== Generating Sessions ==="
