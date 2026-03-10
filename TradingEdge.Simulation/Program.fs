@@ -177,14 +177,15 @@ let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
     let outputPath = args.TryGetResult(DumpTradesArgs.Output)
     let rng = Random(seed)
 
-    let baseVolBps = 4.
+    let baseVolBps = 2.
+    let tradeVolBps = 1.
     let dayTarget = startPrice + 5.0
     let daySigma = 1.0
     let dayVolume = 100.0
     let dayRate = 10.0 * 60.
     let dayDuration = 390.0
 
-    let trades = generateDayTrades rng startPrice baseVolBps dayTarget daySigma dayVolume dayRate dayDuration
+    let trades = generateDayTrades rng startPrice baseVolBps tradeVolBps dayTarget daySigma dayVolume dayRate dayDuration
 
     let writer : System.IO.TextWriter =
         match outputPath with

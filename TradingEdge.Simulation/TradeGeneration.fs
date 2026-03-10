@@ -188,7 +188,7 @@ let generateSubepisodes
 /// Leaf function: Generate trades from subepisode contexts
 let generateTradesFromSubepisodes
     (rng: Random)
-    (baseVolBps: float)
+    (tradeVolBps: float)
     (subepisodes: GenerationContext<'label>[])
     : Trade[] =
 
@@ -196,7 +196,7 @@ let generateTradesFromSubepisodes
     let mutable currentPrice = (Array.head subepisodes).StartPrice
     for ctx in subepisodes do
         let updatedCtx = { ctx with StartPrice = currentPrice }
-        let trades, endPrice = generateTrades rng baseVolBps updatedCtx
+        let trades, endPrice = generateTrades rng tradeVolBps updatedCtx
         allTrades.AddRange(trades)
         currentPrice <- endPrice
     allTrades.ToArray()
@@ -240,13 +240,14 @@ let generateNodeLevel<'a,'b,'c>
 let generateNodeLevelTrades<'a,'b,'c>
     (rng: Random)
     (baseVolBps: float)
+    (tradeVolBps: float)
     (parentCtx: GenerationContext<'a>)
     (parentEpisodes: EpisodeSeries<'a,'b>)
     (childEpisodes: EpisodeSeries<'b,'c>)
     : Trade[] =
 
     let childContexts = generateNodeLevel rng baseVolBps parentCtx parentEpisodes childEpisodes
-    generateTradesFromSubepisodes rng baseVolBps childContexts
+    generateTradesFromSubepisodes rng tradeVolBps childContexts
 
 // =============================================================================
 // Testing
@@ -263,7 +264,8 @@ let testNestedGeneration () =
     let dayVolume = 100.0
     let dayRate = 10.0 * 60.
     let dayDuration = 390.0  // minutes
-    let baseVolBps = 4.
+    let baseVolBps = 2.
+    let tradeVolBps = 1.
 
     // Generate sessions
     printfn "=== Generating Sessions ==="
@@ -330,6 +332,7 @@ let generateDayTrades
     (rng: Random)
     (startPrice: float)
     (baseVolBps: float)
+    (tradeVolBps: float)
     (dayTarget: float)
     (daySigma: float)
     (dayVolume: float)
@@ -348,4 +351,4 @@ let generateDayTrades
         ParentDuration = dayDuration
         ParentLabels = ["Day"]
     }
-    generateNodeLevelTrades rng baseVolBps dayContext SessionLevel.episodes TrendLevel.episodes
+    generateNodeLevelTrades rng baseVolBps tradeVolBps dayContext SessionLevel.episodes TrendLevel.episodes
