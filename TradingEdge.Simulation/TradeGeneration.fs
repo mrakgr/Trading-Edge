@@ -20,12 +20,14 @@ let calculateVariance (baseVolBps: float) (volumeMean: float) (rateMean: float) 
 
 /// Common parameters for recursive generation
 type GenerationContext = {
-    ParentVariance: float
     StartPrice: float
-    ParentTarget: float
+    StartTime: float
+    ParentTargetAndVariance: (float * float) list
+    ParentVariance: float
     ParentVolume: float
     ParentRate: float
     ParentDuration: float
+    ParentLabels: string list
 }
 
 let stochasticRound (rng: Random) (x: float) : int =
@@ -89,35 +91,34 @@ let generateTrades
     (rng: Random)
     (baseVolBps: float)
     (ctx: GenerationContext)
-    (startTime: float)
-    (parentLabel: string)
     : Trade[] * float =
 
     let bps = 1e-4
     let proposalVol = baseVolBps * bps
     let targetSigma = sqrt ctx.ParentVariance
+    let parentTarget = ctx.ParentTargetAndVariance |> List.head |> fst
 
     let trades = ResizeArray<Trade>()
     let mutable price = ctx.StartPrice
-    let mutable time = startTime
+    let mutable time = ctx.StartTime
 
     let volumeMedian = ctx.ParentVolume / 2.0
     let gapMean = 1.0 / ctx.ParentRate
     let gapMedian = gapMean / 2.0
 
-    while time < startTime + ctx.ParentDuration do
+    while time < ctx.StartTime + ctx.ParentDuration do
         let gap = sampleGap rng gapMedian gapMean
         time <- time + gap
-        if time < startTime + ctx.ParentDuration then
+        if time < ctx.StartTime + ctx.ParentDuration then
             let size = sampleSize rng volumeMedian ctx.ParentVolume
             let sqrtSize = sqrt (float size)
-            price <- multiTryStep rng price (proposalVol * sqrtSize) ctx.ParentTarget targetSigma 10
+            price <- multiTryStep rng price (proposalVol * sqrtSize) parentTarget targetSigma 10
             trades.Add({
                 Time = time
                 Price = price
                 Size = size
-                TargetMeanAndVariances = [(ctx.ParentTarget, ctx.ParentVariance)]
-                Label = [parentLabel]
+                TargetMeanAndVariances = ctx.ParentTargetAndVariance
+                Label = ctx.ParentLabels
             })
 
     let endPrice = price
@@ -165,12 +166,13 @@ let generateSubepisodes
 
     // Parent uses 75% of variance for target sigma
     let parentTargetSigma = sqrt(variancePartitionParent * ctx.ParentVariance)
+    let parentTarget = ctx.ParentTargetAndVariance |> List.head |> fst
 
     // Sample target for each child as a random walk starting from startPrice
     let mutable currentTarget = ctx.StartPrice
     let results =
         Array.map2 (fun instance childVariance ->
-            let newTarget = multiTryStep rng currentTarget (sqrt childVariance) ctx.ParentTarget parentTargetSigma 10
+            let newTarget = multiTryStep rng currentTarget (sqrt childVariance) parentTarget parentTargetSigma 10
             currentTarget <- newTarget
             { Instance = instance; Target = newTarget; Variance = (1. - variancePartitionParent) * childVariance }
         ) childInstances childVariances
@@ -190,28 +192,25 @@ let generateTradesFromSubepisodes<'a>
     : Trade[] * float =
 
     let allTrades = ResizeArray<Trade>()
-    let mutable currentTime = 0.0
+    let mutable currentTime = parentCtx.StartTime
     let mutable currentPrice = parentCtx.StartPrice
+    let parentTarget = parentCtx.ParentTargetAndVariance |> List.head |> fst
 
     for subepisode in subepisodes do
+        let label = string subepisode.Instance.Episode.Label
         let ctx = {
-            ParentVariance = subepisode.Variance
             StartPrice = currentPrice
-            ParentTarget = subepisode.Target
+            StartTime = currentTime
+            ParentTargetAndVariance = (subepisode.Target, subepisode.Variance) :: parentCtx.ParentTargetAndVariance
+            ParentVariance = subepisode.Variance
             ParentVolume = parentCtx.ParentVolume * subepisode.Instance.Episode.VolumeMean
             ParentRate = parentCtx.ParentRate * subepisode.Instance.Episode.RateMean
             ParentDuration = subepisode.Instance.Duration
+            ParentLabels = label :: parentCtx.ParentLabels
         }
-        let label = string subepisode.Instance.Episode.Label
-        let trades, endPrice = generateTrades rng baseVolBps ctx currentTime label
+        let trades, endPrice = generateTrades rng baseVolBps ctx
 
-        for trade in trades do
-            allTrades.Add({
-                trade with
-                    Label = parentLabel :: trade.Label
-                    TargetMeanAndVariances = (parentCtx.ParentTarget, parentCtx.ParentVariance) :: trade.TargetMeanAndVariances
-            })
-
+        allTrades.AddRange(trades)
         currentTime <- currentTime + subepisode.Instance.Duration
         currentPrice <- endPrice
 
@@ -228,21 +227,47 @@ let generateNodeLevel<'a, 'b>
     let parentResults, _finalTarget = generateSubepisodes rng parentCtx parentEpisodes
     let allChildResults = ResizeArray<SubepisodeResult<'b>>()
     let mutable currentPrice = parentCtx.StartPrice
+    let mutable currentTime = parentCtx.StartTime
 
     for parentResult in parentResults do
+        let label = string parentResult.Instance.Episode.Label
         let childCtx = {
-            ParentVariance = parentResult.Variance
             StartPrice = currentPrice
-            ParentTarget = parentResult.Target
+            StartTime = currentTime
+            ParentTargetAndVariance = (parentResult.Target, parentResult.Variance) :: parentCtx.ParentTargetAndVariance
+            ParentVariance = parentResult.Variance
             ParentVolume = parentCtx.ParentVolume * parentResult.Instance.Episode.VolumeMean
             ParentRate = parentCtx.ParentRate * parentResult.Instance.Episode.RateMean
             ParentDuration = parentResult.Instance.Duration
+            ParentLabels = label :: parentCtx.ParentLabels
         }
         let childResults, endPrice = generateSubepisodes rng childCtx childEpisodes
         allChildResults.AddRange(childResults)
+        currentTime <- currentTime + parentResult.Instance.Duration
         currentPrice <- endPrice
 
     allChildResults.ToArray(), currentPrice
+
+let instantiate (ctx : GenerationContext) (a : EpisodeSeries<'a>) : (GenerationContext * SubepisodeResult<'a>)[] =
+    failwith ""
+
+let trades (a : SubepisodeResult<'a>[]) : Trade[] =
+    failwith ""
+
+let merge (b : EpisodeSeries<'b>) (a : SubepisodeResult<'a>[]) : SubepisodeResult<'b>[] =
+    failwith ""
+
+let compose2 (a : EpisodeSeries<'a>) (b : EpisodeSeries<'b>) : Trade[] =
+    instantiate a
+    |> merge b 
+    |> trades
+
+let compose3 (a : EpisodeSeries<'a>) (b : EpisodeSeries<'b>) (c : EpisodeSeries<'b>) : Trade[] =
+    instantiate a
+    |> merge b 
+    |> merge c 
+    |> trades
+
 
 // =============================================================================
 // Testing
@@ -263,12 +288,14 @@ let testNestedGeneration () =
     // Generate sessions
     printfn "=== Generating Sessions ==="
     let dayContext = {
-        ParentVariance = dayVariance
         StartPrice = startPrice
-        ParentTarget = dayTarget
+        StartTime = 0.0
+        ParentTargetAndVariance = [(dayTarget, dayVariance)]
+        ParentVariance = dayVariance
         ParentVolume = dayVolume
         ParentRate = dayRate
         ParentDuration = dayDuration
+        ParentLabels = ["Day"]
     }
     let sessionResults, finalSessionTarget =
         generateSubepisodes rng dayContext SessionLevel.episodes
@@ -292,29 +319,33 @@ let testNestedGeneration () =
     printfn "=== Generating Subepisodes ==="
     let allSubepisodes = ResizeArray<SubepisodeResult<TrendLevel.Trend>>()
     let mutable currentPrice = startPrice
+    let mutable currentTime = 0.0
 
     for sessionResult in sessionResults do
         let session = sessionResult.Instance.Episode
         let sessionDuration = sessionResult.Instance.Duration
         let sessionTarget = sessionResult.Target
-        let sessionVariance = sessionResult.Variance
 
         printfn "Session: %A, Duration: %.2f min, Target: %.6f, Start price: %.6f"
             session.Label sessionDuration sessionTarget currentPrice
 
         // Generate subepisodes for this session (keep in minutes, don't convert to seconds)
+        let sessionLabel = string session.Label
         let sessionContext = {
-            ParentVariance = sessionResult.Variance
             StartPrice = currentPrice
-            ParentTarget = sessionTarget
+            StartTime = currentTime
+            ParentTargetAndVariance = (sessionTarget, sessionResult.Variance) :: dayContext.ParentTargetAndVariance
+            ParentVariance = sessionResult.Variance
             ParentVolume = session.VolumeMean
             ParentRate = session.RateMean
             ParentDuration = sessionDuration
+            ParentLabels = sessionLabel :: dayContext.ParentLabels
         }
         let subepisodeResults, finalSubepisodeTarget =
             generateSubepisodes rng sessionContext TrendLevel.episodes
 
         currentPrice <- finalSubepisodeTarget  // Update price for next session
+        currentTime <- currentTime + sessionDuration
 
         printfn "  Generated %d subepisodes, final target: %.6f"
             subepisodeResults.Length finalSubepisodeTarget
