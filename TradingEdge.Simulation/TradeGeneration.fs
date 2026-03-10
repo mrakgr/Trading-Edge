@@ -202,6 +202,15 @@ let generateTradesFromSubepisodes
         currentPrice <- endPrice
     allTrades.ToArray()
 
+/// Expand contexts by generating child subepisodes for each
+let expandContexts<'b>
+    (rng: Random)
+    (parentContexts: GenerationContext[])
+    (childEpisodes: EpisodeSeries<'b>)
+    : GenerationContext[] =
+
+    parentContexts |> Array.collect (fun ctx -> generateSubepisodes rng ctx childEpisodes)
+
 /// Node function: Generate child subepisodes from parent and child episode series
 let generateNodeLevel<'a, 'b>
     (rng: Random)
@@ -211,7 +220,7 @@ let generateNodeLevel<'a, 'b>
     : GenerationContext[] =
 
     let parentContexts = generateSubepisodes rng parentCtx parentEpisodes
-    parentContexts |> Array.collect (fun ctx -> generateSubepisodes rng ctx childEpisodes)
+    expandContexts rng parentContexts childEpisodes
 
 // =============================================================================
 // Testing
