@@ -177,11 +177,11 @@ let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
     let outputPath = args.TryGetResult(DumpTradesArgs.Output)
     let rng = Random(seed)
 
-    let baseVolBps = 1.75  // 5x base volatility
+    let baseVolBps = 0.0875  // 5x base volatility
     let dayTarget = startPrice + 5.0
     let daySigma = 1.0
     let dayVolume = 100.0
-    let dayRate = 10.0
+    let dayRate = 10.0 * 60.
     let dayDuration = 390.0
 
     let trades = generateDayTrades rng startPrice baseVolBps dayTarget daySigma dayVolume dayRate dayDuration
@@ -248,8 +248,7 @@ let main argv =
         | Build_Digests args -> runBuildDigests args
         | Preprocess args -> runPreprocess args
         | Dump_Trades args -> runDumpTrades args
-        | Test_Nested _ ->
-            TradingEdge.Simulation.TradeGeneration.testNestedGeneration() |> ignore
+        | Test_Nested _ -> testNestedGeneration() |> ignore
 
         0
     with

@@ -261,7 +261,7 @@ let testNestedGeneration () =
     let daySigma = 1.0
     let dayVariance = daySigma * daySigma
     let dayVolume = 100.0
-    let dayRate = 10.0
+    let dayRate = 10.0 * 60.
     let dayDuration = 390.0  // minutes
 
     // Generate sessions
