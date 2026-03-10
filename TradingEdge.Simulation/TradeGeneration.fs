@@ -210,8 +210,8 @@ let expandContexts<'b>
     : GenerationContext[] =
 
     let allChildren = ResizeArray<GenerationContext>()
-    let mutable currentPrice = if parentContexts.Length > 0 then parentContexts.[0].StartPrice else 0.0
-    let mutable currentTime = if parentContexts.Length > 0 then parentContexts.[0].StartTime else 0.0
+    let mutable currentPrice = (Array.head parentContexts).StartPrice
+    let mutable currentTime = (Array.head parentContexts).StartTime
 
     for parentCtx in parentContexts do
         let updatedParentCtx = { parentCtx with StartPrice = currentPrice; StartTime = currentTime }
