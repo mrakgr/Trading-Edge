@@ -15,8 +15,8 @@ def load_trades(csv_path):
                 'time': float(row['time']),
                 'price': float(row['price']),
                 'size': int(row['size']),
-                'target_mean': float(row['target_mean']),
-                'target_sigma': float(row['target_sigma']),
+                'target_mean': float(row['trend_target']),
+                'target_sigma': float(row['trend_variance']) ** 0.5,
             })
     return trades
 

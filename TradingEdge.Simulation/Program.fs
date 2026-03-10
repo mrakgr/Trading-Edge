@@ -177,7 +177,7 @@ let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
     let outputPath = args.TryGetResult(DumpTradesArgs.Output)
     let rng = Random(seed)
 
-    let baseVolBps = 0.35
+    let baseVolBps = 1.75  // 5x base volatility
     let dayTarget = startPrice + 5.0
     let daySigma = 1.0
     let dayVolume = 100.0
