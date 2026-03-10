@@ -21,14 +21,27 @@ with open(input_csv) as f:
             'time': float(row['time']),
             'price': float(row['price']),
             'size': int(row['size']),
-            'target_mean': float(row['target_mean']),
-            'target_sigma': float(row['target_sigma']),
+            'label': row['label'],
+            'trend_target': float(row['trend_target']),
+            'trend_sigma': float(row['trend_variance']) ** 0.5,
+            'session_target': float(row['session_target']),
+            'session_sigma': float(row['session_variance']) ** 0.5,
+            'day_target': float(row['day_target']),
+            'day_sigma': float(row['day_variance']) ** 0.5,
         })
 
 
 # Plot all trades
 times = [t['time'] / 60.0 for t in trades]
 prices = [t['price'] for t in trades]
+
+# Extract session labels and assign colors
+session_colors = {'Morning': 'red', 'Mid': 'blue', 'Close': 'green'}
+colors = []
+for t in trades:
+    label_parts = t['label'].split('|')
+    session = label_parts[1] if len(label_parts) > 1 else 'Unknown'
+    colors.append(session_colors.get(session, 'gray'))
 
 # Precompute marker sizes
 import math
@@ -37,7 +50,8 @@ marker_sizes = [0.5 * math.sqrt(t['size']) for t in trades]
 hover_text = [
     f"Time: {t['time']/60:.2f}m<br>"
     f"Price: ${t['price']:.4f}<br>"
-    f"Size: {t['size']:,}"
+    f"Size: {t['size']:,}<br>"
+    f"Label: {t['label']}"
     for t in trades
 ]
 
@@ -56,25 +70,68 @@ fig.add_trace(go.Scattergl(
     name='Trades'
 ), row=1, col=1)
 
-# Target mean and stddev bands
-target_means = [t['target_mean'] for t in trades]
-target_upper = [t['target_mean'] + t['target_sigma'] for t in trades]
-target_lower = [t['target_mean'] - t['target_sigma'] for t in trades]
+# Target mean and stddev bands for all three levels
+# Day level (outermost)
+day_targets = [t['day_target'] for t in trades]
+day_upper = [t['day_target'] + t['day_sigma'] for t in trades]
+day_lower = [t['day_target'] - t['day_sigma'] for t in trades]
 
 fig.add_trace(go.Scattergl(
-    x=times, y=target_means, mode='lines',
+    x=times, y=day_targets, mode='lines',
+    line=dict(color='purple', width=1, dash='dash'),
+    name='Day Target'
+), row=1, col=1)
+fig.add_trace(go.Scattergl(
+    x=times, y=day_upper, mode='lines',
+    line=dict(color='purple', width=0.5, dash='dash'),
+    name='Day +1σ', showlegend=False
+), row=1, col=1)
+fig.add_trace(go.Scattergl(
+    x=times, y=day_lower, mode='lines',
+    line=dict(color='purple', width=0.5, dash='dash'),
+    name='Day -1σ', showlegend=False
+), row=1, col=1)
+
+# Session level (middle)
+session_targets = [t['session_target'] for t in trades]
+session_upper = [t['session_target'] + t['session_sigma'] for t in trades]
+session_lower = [t['session_target'] - t['session_sigma'] for t in trades]
+
+fig.add_trace(go.Scattergl(
+    x=times, y=session_targets, mode='lines',
     line=dict(color='orange', width=1, dash='dot'),
-    name='Target Mean'
+    name='Session Target'
 ), row=1, col=1)
 fig.add_trace(go.Scattergl(
-    x=times, y=target_upper, mode='lines',
+    x=times, y=session_upper, mode='lines',
     line=dict(color='orange', width=0.5, dash='dot'),
-    name='+1σ', showlegend=False
+    name='Session +1σ', showlegend=False
 ), row=1, col=1)
 fig.add_trace(go.Scattergl(
-    x=times, y=target_lower, mode='lines',
+    x=times, y=session_lower, mode='lines',
     line=dict(color='orange', width=0.5, dash='dot'),
-    name='-1σ', showlegend=False
+    name='Session -1σ', showlegend=False
+), row=1, col=1)
+
+# Trend level (innermost)
+trend_targets = [t['trend_target'] for t in trades]
+trend_upper = [t['trend_target'] + t['trend_sigma'] for t in trades]
+trend_lower = [t['trend_target'] - t['trend_sigma'] for t in trades]
+
+fig.add_trace(go.Scattergl(
+    x=times, y=trend_targets, mode='lines',
+    line=dict(color='cyan', width=1),
+    name='Trend Target'
+), row=1, col=1)
+fig.add_trace(go.Scattergl(
+    x=times, y=trend_upper, mode='lines',
+    line=dict(color='cyan', width=0.5),
+    name='Trend +1σ', showlegend=False
+), row=1, col=1)
+fig.add_trace(go.Scattergl(
+    x=times, y=trend_lower, mode='lines',
+    line=dict(color='cyan', width=0.5),
+    name='Trend -1σ', showlegend=False
 ), row=1, col=1)
 
 # Volume

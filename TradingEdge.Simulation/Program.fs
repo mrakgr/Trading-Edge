@@ -3,7 +3,7 @@ open Argu
 open TradingEdge.Simulation.OrderBook
 open TradingEdge.Simulation.EpisodeMCMC
 open TradingEdge.Simulation.DatasetGeneration
-// open TradingEdge.Simulation.OrderFlowGeneration
+open TradingEdge.Simulation.TradeGeneration
 
 type OrderBookArgs =
     | [<AltCommandLine("-s")>] Seed of int
@@ -77,7 +77,6 @@ type DumpTradesArgs =
     | [<AltCommandLine("-o")>] Output of string
     | [<AltCommandLine("-p")>] Price of float
     | [<AltCommandLine("-i")>] Iterations of int
-    | [<Mandatory; AltCommandLine("-d")>] Digests of string
     interface IArgParserTemplate with
         member this.Usage =
             match this with
@@ -85,7 +84,6 @@ type DumpTradesArgs =
             | Output _ -> "Output CSV file path (default: stdout)"
             | Price _ -> "Starting price (default: 100.0)"
             | Iterations _ -> "MCMC iterations per level"
-            | Digests _ -> "T-digests file path for trade sizes and gaps"
 
 type DiagnoseDigestsArgs =
     | [<Mandatory; AltCommandLine("-d")>] Digests of string
@@ -103,23 +101,17 @@ type TestNestedArgs =
 
 type Command =
     | [<CliPrefix(CliPrefix.None)>] Order_Book of ParseResults<OrderBookArgs>
-    // | [<CliPrefix(CliPrefix.None)>] Generate_Day of ParseResults<GenerateDayArgs>
-    // | [<CliPrefix(CliPrefix.None)>] Generate_Dataset of ParseResults<GenerateDatasetArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Digests of ParseResults<BuildDigestsArgs>
     | [<CliPrefix(CliPrefix.None)>] Preprocess of ParseResults<PreprocessArgs>
-    // | [<CliPrefix(CliPrefix.None)>] Dump_Trades of ParseResults<DumpTradesArgs>
-    // | [<CliPrefix(CliPrefix.None)>] Diagnose_Digests of ParseResults<DiagnoseDigestsArgs>
+    | [<CliPrefix(CliPrefix.None)>] Dump_Trades of ParseResults<DumpTradesArgs>
     | [<CliPrefix(CliPrefix.None)>] Test_Nested of ParseResults<TestNestedArgs>
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | Order_Book _ -> "Generate and display an order book"
-            // | Generate_Day _ -> "Generate a full day with sessions and trends using MCMC"
-            // | Generate_Dataset _ -> "Generate dataset of volume bars to parquet"
             | Build_Digests _ -> "Build t-digests from JSON trade data"
             | Preprocess _ -> "Apply t-digest CDF transform to raw dataset"
-            // | Dump_Trades _ -> "Dump raw trade data for a single day as CSV"
-            // | Diagnose_Digests _ -> "Show expected statistics for beta-reweighted t-digests"
+            | Dump_Trades _ -> "Dump raw trade data for a single day as CSV"
             | Test_Nested _ -> "Test nested episode generation"
 
 let runOrderBook (args: ParseResults<OrderBookArgs>) =
@@ -178,35 +170,45 @@ let runBuildDigests (args: ParseResults<BuildDigestsArgs>) =
     let digests = TradingEdge.Simulation.TradeDataTDigests.buildTDigestsFromJson input compression threshold marketOpen marketClose
     TradingEdge.Simulation.TradeDataTDigests.saveTDigests digests output
 
-// let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
-//     let seed = args.GetResult(DumpTradesArgs.Seed, 42)
-//     let startPrice = args.GetResult(DumpTradesArgs.Price, 100.0)
-//     let iterations = args.GetResult(DumpTradesArgs.Iterations, 10000)
-//     let digestsPath = args.GetResult(DumpTradesArgs.Digests)
-//     let outputPath = args.TryGetResult(DumpTradesArgs.Output)
-//     let rng = Random(seed)
-//     let mcmcConfig = { MCMC.Iterations = iterations }
-//     let result = generateDay SessionLevel.defaultConfig TrendLevel.defaultConfig mcmcConfig rng 390.0
-//     let digests = TradingEdge.Simulation.TradeDataTDigests.loadTDigests digestsPath
-//     let trades = generateDayTrades rng startPrice defaultBaseline digests result
+let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
+    let seed = args.GetResult(DumpTradesArgs.Seed, 42)
+    let startPrice = args.GetResult(DumpTradesArgs.Price, 100.0)
+    let iterations = args.GetResult(DumpTradesArgs.Iterations, 10000)
+    let outputPath = args.TryGetResult(DumpTradesArgs.Output)
+    let rng = Random(seed)
 
-//     let writer : System.IO.TextWriter =
-//         match outputPath with
-//         | Some path -> new System.IO.StreamWriter(path) :> _
-//         | None -> System.Console.Out
+    let baseVolBps = 0.35
+    let dayTarget = startPrice + 5.0
+    let daySigma = 1.0
+    let dayVolume = 100.0
+    let dayRate = 10.0
+    let dayDuration = 390.0
 
-//     writer.WriteLine("time,dt,price,size,target_mean,target_sigma")
-//     let mutable prevTime = 0.0
-//     for t in trades do
-//         let dt = t.Time - prevTime
-//         writer.WriteLine(sprintf "%.6f,%.6f,%.6f,%d,%.6f,%.6f" t.Time dt t.Price t.Size t.TargetMean t.TargetSigma)
-//         prevTime <- t.Time
+    let trades = generateDayTrades rng startPrice baseVolBps dayTarget daySigma dayVolume dayRate dayDuration
 
-//     match outputPath with
-//     | Some path ->
-//         (writer :?> System.IO.StreamWriter).Dispose()
-//         printfn "Wrote %d trades to %s" trades.Length path
-//     | None -> ()
+    let writer : System.IO.TextWriter =
+        match outputPath with
+        | Some path -> new System.IO.StreamWriter(path) :> _
+        | None -> System.Console.Out
+
+    writer.WriteLine("time,dt,price,size,label,day_target,day_variance,session_target,session_variance,trend_target,trend_variance")
+    let mutable prevTime = 0.0
+    for t in trades do
+        let dt = t.Time - prevTime
+        let label = String.concat "|" (List.rev t.Label)
+        let targets = t.TargetMeanAndVariances |> List.rev |> List.toArray
+        let dayTarget, dayVariance = if targets.Length > 0 then targets.[0] else (0.0, 0.0)
+        let sessionTarget, sessionVariance = if targets.Length > 1 then targets.[1] else (0.0, 0.0)
+        let trendTarget, trendVariance = if targets.Length > 2 then targets.[2] else (0.0, 0.0)
+        writer.WriteLine(sprintf "%.6f,%.6f,%.6f,%d,%s,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f"
+            t.Time dt t.Price t.Size label dayTarget dayVariance sessionTarget sessionVariance trendTarget trendVariance)
+        prevTime <- t.Time
+
+    match outputPath with
+    | Some path ->
+        (writer :?> System.IO.StreamWriter).Dispose()
+        printfn "Wrote %d trades to %s" trades.Length path
+    | None -> ()
 
 let runPreprocess (args: ParseResults<PreprocessArgs>) =
     let input = args.GetResult(PreprocessArgs.Input)
@@ -243,12 +245,9 @@ let main argv =
 
         match results.GetSubCommand() with
         | Order_Book args -> runOrderBook args
-        // | Generate_Day args -> runGenerateDay args
-        // | Generate_Dataset args -> runGenerateDataset args
         | Build_Digests args -> runBuildDigests args
         | Preprocess args -> runPreprocess args
-        // | Dump_Trades args -> runDumpTrades args
-        // | Diagnose_Digests args -> runDiagnoseDigests args
+        | Dump_Trades args -> runDumpTrades args
         | Test_Nested _ ->
             TradingEdge.Simulation.TradeGeneration.testNestedGeneration() |> ignore
 

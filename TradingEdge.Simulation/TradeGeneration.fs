@@ -323,3 +323,28 @@ let testNestedGeneration () =
     printfn "Total subepisodes: %d" allSubepisodes.Count
 
     allSubepisodes.ToArray()
+
+/// Generate trades for a full day
+let generateDayTrades
+    (rng: Random)
+    (startPrice: float)
+    (baseVolBps: float)
+    (dayTarget: float)
+    (daySigma: float)
+    (dayVolume: float)
+    (dayRate: float)
+    (dayDuration: float)
+    : Trade[] =
+
+    let dayVariance = daySigma * daySigma
+    let dayContext = {
+        Label = ()
+        StartPrice = startPrice
+        StartTime = 0.0
+        ParentTargetAndVariance = [(dayTarget, dayVariance)]
+        ParentVolume = dayVolume
+        ParentRate = dayRate
+        ParentDuration = dayDuration
+        ParentLabels = ["Day"]
+    }
+    generateNodeLevelTrades rng baseVolBps dayContext SessionLevel.episodes TrendLevel.episodes
