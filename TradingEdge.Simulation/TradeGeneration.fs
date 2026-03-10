@@ -15,7 +15,46 @@ let calculateVariance (baseVolBps: float) (volumeMean: float) (rateMean: float) 
     baseVol * baseVol * volumeMean * rateMean * durationSeconds
 
 // =============================================================================
-// Target Sampling
+// Generation Context and Utilities
+// =============================================================================
+
+/// Common parameters for recursive generation
+type GenerationContext = {
+    ParentVariance: float
+    StartPrice: float
+    ParentTarget: float
+    ParentVolume: float
+    ParentRate: float
+    ParentDuration: float
+}
+
+let stochasticRound (rng: Random) (x: float) : int =
+    let floor = Math.Floor(x)
+    let frac = x - floor
+    int (if rng.NextDouble() < frac then floor + 1.0 else floor)
+
+let logNormalSigma (median: float) (mean: float) : float =
+    sqrt(2.0 * log(mean / median))
+
+let logNormalMuSigma (median: float) (mean: float) : float * float =
+    let mu = log median
+    let sigma = logNormalSigma median mean
+    (mu, sigma)
+
+let sampleSize (rng: Random) (median: float) (mean: float) : int =
+    let mu, sigma = logNormalMuSigma median mean
+    let rec loop () =
+        let size = LogNormal(mu, sigma, rng).Sample()
+        let rounded = stochasticRound rng size
+        if rounded > 0 then rounded else loop ()
+    loop ()
+
+let sampleGap (rng: Random) (median: float) (mean: float) : float =
+    let mu, sigma = logNormalMuSigma median mean
+    LogNormal(mu, sigma, rng).Sample()
+
+// =============================================================================
+// Target Sampling (Multi-try MCMC)
 // =============================================================================
 
 /// Multi-try step with pluggable log-density function
@@ -41,10 +80,48 @@ let inline multiTryStepGeneric (rng: Random) (price: float) (proposalVol: float)
 let multiTryStep (rng: Random) (price: float) (proposalVol: float) (targetMean: float) (targetSigma: float) (n: int) : float =
     multiTryStepGeneric rng price proposalVol (fun x -> Normal.PDFLn(targetMean, targetSigma, x)) n
 
-let stochasticRound (rng: Random) (x: float) : int =
-    let floor = Math.Floor(x)
-    let frac = x - floor
-    int (if rng.NextDouble() < frac then floor + 1.0 else floor)
+// =============================================================================
+// Trade Generation
+// =============================================================================
+
+/// Generate trades for a leaf episode (no child episodes)
+let generateTrades
+    (rng: Random)
+    (baseVolBps: float)
+    (ctx: GenerationContext)
+    (startTime: float)
+    (parentLabel: string)
+    : Trade[] * float =
+
+    let bps = 1e-4
+    let proposalVol = baseVolBps * bps
+    let targetSigma = sqrt ctx.ParentVariance
+
+    let trades = ResizeArray<Trade>()
+    let mutable price = ctx.StartPrice
+    let mutable time = startTime
+
+    let volumeMedian = ctx.ParentVolume / 2.0
+    let gapMean = 1.0 / ctx.ParentRate
+    let gapMedian = gapMean / 2.0
+
+    while time < startTime + ctx.ParentDuration do
+        let gap = sampleGap rng gapMedian gapMean
+        time <- time + gap
+        if time < startTime + ctx.ParentDuration then
+            let size = sampleSize rng volumeMedian ctx.ParentVolume
+            let sqrtSize = sqrt (float size)
+            price <- multiTryStep rng price (proposalVol * sqrtSize) ctx.ParentTarget targetSigma 10
+            trades.Add({
+                Time = time
+                Price = price
+                Size = size
+                TargetMeanAndVariances = [(ctx.ParentTarget, ctx.ParentVariance)]
+                Label = [parentLabel]
+            })
+
+    let endPrice = price
+    trades.ToArray(), endPrice
 
 // =============================================================================
 // Subepisode Generation
@@ -62,47 +139,42 @@ type SubepisodeResult<'a> = {
 /// Generate subepisodes with targets from a parent episode
 let generateSubepisodes
     (rng: Random)
-    (parentVariance: float)
-    (startPrice: float)
-    (parentTarget: float)
-    (parentVolume: float)
-    (parentRate: float)
-    (parentDuration: float)
+    (ctx: GenerationContext)
     (childEpisodeSeries: EpisodeSeries<'a>)
     : SubepisodeResult<'a>[] * float =
 
     // Use MCMC to sample child episode instances (with durations)
-    let childInstances = MCMC.run MCMC.defaultConfig childEpisodeSeries parentDuration rng
+    let childInstances = MCMC.run MCMC.defaultConfig childEpisodeSeries ctx.ParentDuration rng
 
     // Calculate total volume across all children
     let totalVolume =
         childInstances |> Array.sumBy (fun instance ->
-            let actualVolume = parentVolume * instance.Episode.VolumeMean
-            let actualRate = parentRate * instance.Episode.RateMean
+            let actualVolume = ctx.ParentVolume * instance.Episode.VolumeMean
+            let actualRate = ctx.ParentRate * instance.Episode.RateMean
             actualVolume * actualRate * instance.Duration
         )
 
     // Distribute parent variance proportionally based on volume
     let childVariances =
         childInstances |> Array.map (fun instance ->
-            let actualVolume = parentVolume * instance.Episode.VolumeMean
-            let actualRate = parentRate * instance.Episode.RateMean
+            let actualVolume = ctx.ParentVolume * instance.Episode.VolumeMean
+            let actualRate = ctx.ParentRate * instance.Episode.RateMean
             let childVolume = actualVolume * actualRate * instance.Duration
-            parentVariance * (childVolume / totalVolume)
+            ctx.ParentVariance * (childVolume / totalVolume)
         )
 
     // Parent uses 75% of variance for target sigma
-    let parentTargetSigma = sqrt(variancePartitionParent * parentVariance)
+    let parentTargetSigma = sqrt(variancePartitionParent * ctx.ParentVariance)
 
     // Sample target for each child as a random walk starting from startPrice
-    let mutable currentTarget = startPrice
+    let mutable currentTarget = ctx.StartPrice
     let results =
         Array.map2 (fun instance childVariance ->
-            let newTarget = multiTryStep rng currentTarget (sqrt childVariance) parentTarget parentTargetSigma 10
+            let newTarget = multiTryStep rng currentTarget (sqrt childVariance) ctx.ParentTarget parentTargetSigma 10
             currentTarget <- newTarget
             { Instance = instance; Target = newTarget; Variance = (1. - variancePartitionParent) * childVariance }
         ) childInstances childVariances
-    (results, currentTarget)
+    results, currentTarget
 
 // =============================================================================
 // Testing
@@ -122,8 +194,16 @@ let testNestedGeneration () =
 
     // Generate sessions
     printfn "=== Generating Sessions ==="
+    let dayContext = {
+        ParentVariance = dayVariance
+        StartPrice = startPrice
+        ParentTarget = dayTarget
+        ParentVolume = dayVolume
+        ParentRate = dayRate
+        ParentDuration = dayDuration
+    }
     let sessionResults, finalSessionTarget =
-        generateSubepisodes rng dayVariance startPrice dayTarget dayVolume dayRate dayDuration SessionLevel.episodes
+        generateSubepisodes rng dayContext SessionLevel.episodes
 
     printfn "Start price: %.1f" startPrice
     printfn "Day target: %.6f" dayTarget
@@ -155,16 +235,16 @@ let testNestedGeneration () =
             session.Label sessionDuration sessionTarget currentPrice
 
         // Generate subepisodes for this session (keep in minutes, don't convert to seconds)
+        let sessionContext = {
+            ParentVariance = sessionResult.Variance
+            StartPrice = currentPrice
+            ParentTarget = sessionTarget
+            ParentVolume = session.VolumeMean
+            ParentRate = session.RateMean
+            ParentDuration = sessionDuration
+        }
         let subepisodeResults, finalSubepisodeTarget =
-            generateSubepisodes
-                rng
-                sessionResult.Variance
-                currentPrice
-                sessionTarget
-                session.VolumeMean
-                session.RateMean
-                sessionDuration  // Keep in minutes
-                TrendLevel.episodes
+            generateSubepisodes rng sessionContext TrendLevel.episodes
 
         currentPrice <- finalSubepisodeTarget  // Update price for next session
 

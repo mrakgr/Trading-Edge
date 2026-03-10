@@ -4,64 +4,117 @@ open System
 open MathNet.Numerics.Distributions
 open EpisodeMCMC
 
-/// Auction target parameters
-type AuctionParams = {
-    BaseVolBps: float
-    MeanVolume: float
-    MeanRate: float
-    SessionMultiplier: float  // sqrt(3) for Morning/Close, 1.0 for Mid
-}
-
-/// Session-wide baseline parameters
-type SessionBaseline = {
-    ProposalVolBps: float   // Price proposal random walk σ in bps (scaled by sqrt size)
-}
-
-let defaultBaseline = { ProposalVolBps = 0.35 }
-
-/// Multi-try step with pluggable log-density function
-let multiTryStepGeneric (rng: Random) (price: float) (proposalVol: float) (density: float -> float) (n: int) : float =
-    let candidates = Array.zeroCreate (2 * n + 1)
-    let logWeights = Array.zeroCreate (2 * n + 1)
-    candidates.[0] <- price
-    logWeights.[0] <- density price
-    for i in 0 .. n - 1 do
-        let z = Normal.Sample(rng, 0.0, proposalVol)
-        let yPos = price + z
-        let yNeg = price - z
-        candidates.[2 * i + 1] <- yPos
-        candidates.[2 * i + 2] <- yNeg
-        logWeights.[2 * i + 1] <- density yPos
-        logWeights.[2 * i + 2] <- density yNeg
-    let maxW = Array.max logWeights
-    let weights = logWeights |> Array.map (fun w -> exp(w - maxW))
-    let idx = Categorical.Sample(rng, weights)
-    candidates.[idx]
-
-/// Multi-try Metropolis step: propose n moves + n negated + current, select by target likelihood
-let multiTryStep (rng: Random) (price: float) (proposalVol: float) (targetMean: float) (targetSigma: float) (n: int) : float =
-    multiTryStepGeneric rng price proposalVol (fun x -> Normal.PDFLn(targetMean, targetSigma, x)) n
-
-let stochasticRound (rng: Random) (x: float) : int =
-    let floor = Math.Floor(x)
-    let frac = x - floor
-    int (if rng.NextDouble() < frac then floor + 1.0 else floor)
-
-let logNormalSigma (median: float) (mean: float) : float =
-    sqrt(2.0 * log(mean / median))
-
-let logNormalMuSigma (median: float) (mean: float) : float * float =
-    let mu = log median
-    let sigma = logNormalSigma median mean
-    (mu, sigma)
-
-let sampleSize (rng: Random) (median: float) (mean: float) : int =
-    let mu, sigma = logNormalMuSigma median mean
-    let rec loop () =
-        let size = LogNormal(mu, sigma, rng).Sample()
-        let rounded = stochasticRound rng size
-        if rounded > 0 then rounded else loop ()
-    loop ()
+// /// Common parameters for recursive generation
+// type GenerationContext = {
+//     ParentVariance: float
+//     StartPrice: float
+//     ParentTarget: float
+//     ParentVolume: float
+//     ParentRate: float
+//     ParentDuration: float
+// }
+//
+// /// Auction target parameters
+// type AuctionParams = {
+//     BaseVolBps: float
+//     MeanVolume: float
+//     MeanRate: float
+//     SessionMultiplier: float  // sqrt(3) for Morning/Close, 1.0 for Mid
+// }
+//
+// /// Session-wide baseline parameters
+// type SessionBaseline = {
+//     ProposalVolBps: float   // Price proposal random walk σ in bps (scaled by sqrt size)
+// }
+//
+// let defaultBaseline = { ProposalVolBps = 0.35 }
+//
+// /// Multi-try step with pluggable log-density function
+// let multiTryStepGeneric (rng: Random) (price: float) (proposalVol: float) (density: float -> float) (n: int) : float =
+//     let candidates = Array.zeroCreate (2 * n + 1)
+//     let logWeights = Array.zeroCreate (2 * n + 1)
+//     candidates.[0] <- price
+//     logWeights.[0] <- density price
+//     for i in 0 .. n - 1 do
+//         let z = Normal.Sample(rng, 0.0, proposalVol)
+//         let yPos = price + z
+//         let yNeg = price - z
+//         candidates.[2 * i + 1] <- yPos
+//         candidates.[2 * i + 2] <- yNeg
+//         logWeights.[2 * i + 1] <- density yPos
+//         logWeights.[2 * i + 2] <- density yNeg
+//     let maxW = Array.max logWeights
+//     let weights = logWeights |> Array.map (fun w -> exp(w - maxW))
+//     let idx = Categorical.Sample(rng, weights)
+//     candidates.[idx]
+//
+// /// Multi-try Metropolis step: propose n moves + n negated + current, select by target likelihood
+// let multiTryStep (rng: Random) (price: float) (proposalVol: float) (targetMean: float) (targetSigma: float) (n: int) : float =
+//     multiTryStepGeneric rng price proposalVol (fun x -> Normal.PDFLn(targetMean, targetSigma, x)) n
+//
+// let stochasticRound (rng: Random) (x: float) : int =
+//     let floor = Math.Floor(x)
+//     let frac = x - floor
+//     int (if rng.NextDouble() < frac then floor + 1.0 else floor)
+//
+// let logNormalSigma (median: float) (mean: float) : float =
+//     sqrt(2.0 * log(mean / median))
+//
+// let logNormalMuSigma (median: float) (mean: float) : float * float =
+//     let mu = log median
+//     let sigma = logNormalSigma median mean
+//     (mu, sigma)
+//
+// let sampleSize (rng: Random) (median: float) (mean: float) : int =
+//     let mu, sigma = logNormalMuSigma median mean
+//     let rec loop () =
+//         let size = LogNormal(mu, sigma, rng).Sample()
+//         let rounded = stochasticRound rng size
+//         if rounded > 0 then rounded else loop ()
+//     loop ()
+//
+// let sampleGap (rng: Random) (median: float) (mean: float) : float =
+//     let mu, sigma = logNormalMuSigma median mean
+//     LogNormal(mu, sigma, rng).Sample()
+//
+// /// Generate trades for a leaf episode (no child episodes)
+// let generateTrades
+//     (rng: Random)
+//     (baseVolBps: float)
+//     (ctx: GenerationContext)
+//     (startTime: float)
+//     (parentLabel: string)
+//     : Trade[] * float =
+//
+//     let bps = 1e-4
+//     let proposalVol = baseVolBps * bps
+//     let targetSigma = sqrt ctx.ParentVariance
+//
+//     let trades = ResizeArray<Trade>()
+//     let mutable price = ctx.StartPrice
+//     let mutable time = startTime
+//
+//     let volumeMedian = ctx.ParentVolume / 2.0
+//     let gapMean = 1.0 / ctx.ParentRate
+//     let gapMedian = gapMean / 2.0
+//
+//     while time < startTime + ctx.ParentDuration do
+//         let gap = sampleGap rng gapMedian gapMean
+//         time <- time + gap
+//         if time < startTime + ctx.ParentDuration then
+//             let size = sampleSize rng volumeMedian ctx.ParentVolume
+//             let sqrtSize = sqrt (float size)
+//             price <- multiTryStep rng price (proposalVol * sqrtSize) ctx.ParentTarget targetSigma 10
+//             trades.Add({
+//                 Time = time
+//                 Price = price
+//                 Size = size
+//                 TargetMeanAndVariances = [(ctx.ParentTarget, ctx.ParentVariance)]
+//                 Label = [parentLabel]
+//             })
+//
+//     let endPrice = price
+//     trades.ToArray(), endPrice
 
 // /// Sample target mean for an episode
 // /// Generate trades for a single subepisode
