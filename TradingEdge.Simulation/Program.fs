@@ -103,23 +103,23 @@ type TestNestedArgs =
 
 type Command =
     | [<CliPrefix(CliPrefix.None)>] Order_Book of ParseResults<OrderBookArgs>
-    | [<CliPrefix(CliPrefix.None)>] Generate_Day of ParseResults<GenerateDayArgs>
-    | [<CliPrefix(CliPrefix.None)>] Generate_Dataset of ParseResults<GenerateDatasetArgs>
+    // | [<CliPrefix(CliPrefix.None)>] Generate_Day of ParseResults<GenerateDayArgs>
+    // | [<CliPrefix(CliPrefix.None)>] Generate_Dataset of ParseResults<GenerateDatasetArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Digests of ParseResults<BuildDigestsArgs>
     | [<CliPrefix(CliPrefix.None)>] Preprocess of ParseResults<PreprocessArgs>
-    | [<CliPrefix(CliPrefix.None)>] Dump_Trades of ParseResults<DumpTradesArgs>
-    | [<CliPrefix(CliPrefix.None)>] Diagnose_Digests of ParseResults<DiagnoseDigestsArgs>
+    // | [<CliPrefix(CliPrefix.None)>] Dump_Trades of ParseResults<DumpTradesArgs>
+    // | [<CliPrefix(CliPrefix.None)>] Diagnose_Digests of ParseResults<DiagnoseDigestsArgs>
     | [<CliPrefix(CliPrefix.None)>] Test_Nested of ParseResults<TestNestedArgs>
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | Order_Book _ -> "Generate and display an order book"
-            | Generate_Day _ -> "Generate a full day with sessions and trends using MCMC"
-            | Generate_Dataset _ -> "Generate dataset of volume bars to parquet"
+            // | Generate_Day _ -> "Generate a full day with sessions and trends using MCMC"
+            // | Generate_Dataset _ -> "Generate dataset of volume bars to parquet"
             | Build_Digests _ -> "Build t-digests from JSON trade data"
             | Preprocess _ -> "Apply t-digest CDF transform to raw dataset"
-            | Dump_Trades _ -> "Dump raw trade data for a single day as CSV"
-            | Diagnose_Digests _ -> "Show expected statistics for beta-reweighted t-digests"
+            // | Dump_Trades _ -> "Dump raw trade data for a single day as CSV"
+            // | Diagnose_Digests _ -> "Show expected statistics for beta-reweighted t-digests"
             | Test_Nested _ -> "Test nested episode generation"
 
 let runOrderBook (args: ParseResults<OrderBookArgs>) =

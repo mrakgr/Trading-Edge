@@ -56,36 +56,21 @@ type Trade = {
     Label : string list
 }
 
-/// Parameters for episode generation
-type GenerateParams = {
-    StartPrice: float
-    StartTime: float
-    TargetMean: float
-    TargetVariance: float
-    Duration: float
-    ParentLabel: string
-}
-
-type GenerateOutput = {
-    Trades: Trade []
-    EndPrice: float
-}
-
 /// Episode as a generative process
-type Episode<'a> = {
-    Label: 'a
+type Episode<'t> = {
+    Label: 't
     RateMean: float
     VolumeMean: float
     DurationParam: Distribution.Params
 }
 
-type EpisodeSeries<'a> =
-    | RandomlySampled of (Episode<'a> * float)[]
-    | FixedOrder of Episode<'a>[]
+type EpisodeSeries<'a,'b> =
+    | RandomlySampled of ('a -> (Episode<'b> * float)[])
+    | FixedOrder of ('a -> Episode<'b>[])
 
 /// Episode instance with sampled duration
-type EpisodeInstance<'a> = {
-    Episode: Episode<'a>
+type EpisodeInstance<'t> = {
+    Episode: Episode<'t>
     Duration: float
     Weight: float
 }
@@ -112,7 +97,7 @@ module MCMC =
         (idx1, idx2)
 
     /// Transfer duration between two episode instances
-    let transferDuration (rng: Random) (state: EpisodeInstance<'a>[]) : EpisodeInstance<'a>[] =
+    let transferDuration (rng: Random) (state: EpisodeInstance<'t>[]) : EpisodeInstance<'t>[] =
         let idx1, idx2 = pickTwoDistinctIndices rng state.Length
         let proposalStdDev = min (Distribution.stdDev state.[idx1].Episode.DurationParam) (Distribution.stdDev state.[idx2].Episode.DurationParam)
         let delta = Normal.Sample(rng, 0.0, proposalStdDev)
@@ -122,7 +107,7 @@ module MCMC =
         newState
 
     /// Change the episode of a random instance to a different episode from the pool
-    let changeEpisode (rng: Random) (availableEpisodes: (Episode<'a> * float)[]) (state: EpisodeInstance<'a>[]) : EpisodeInstance<'a>[] =
+    let changeEpisode (rng: Random) (availableEpisodes: (Episode<'t> * float)[]) (state: EpisodeInstance<'t>[]) : EpisodeInstance<'t>[] =
         let idx = rng.Next(state.Length)
         let newEpisode, weight = availableEpisodes.[rng.Next(availableEpisodes.Length)]
         let newState = Array.copy state
@@ -139,19 +124,22 @@ module MCMC =
     /// Run MCMC to sample episode instances that fill a target duration
     let run
         (config: Config)
-        (series: EpisodeSeries<'a>)
+        (series: EpisodeSeries<'a,'b>)
+        (label: 'a)
         (targetDuration: float)
         (rng: Random)
-        : EpisodeInstance<'a>[] =
+        : EpisodeInstance<'b>[] =
 
         // Generate initial state based on series type
         let initial =
             match series with
-            | FixedOrder episodes ->
+            | FixedOrder getEpisodes ->
+                let episodes = getEpisodes label
                 episodes |> Array.map (fun ep ->
                     let dur = Distribution.sample rng ep.DurationParam
                     { Episode = ep; Duration = dur; Weight = 1.0 })
-            | RandomlySampled weighted_episodes ->
+            | RandomlySampled getWeightedEpisodes ->
+                let weighted_episodes = getWeightedEpisodes label
                 Array.unfold (fun totalDur ->
                     if totalDur < targetDuration then
                         let ep, weight = sampleWeighted rng weighted_episodes
@@ -166,7 +154,7 @@ module MCMC =
         let mutable current = initial |> Array.map (fun i -> { i with Duration = i.Duration * scale })
 
         // Log-likelihood function
-        let logLikelihood (state: EpisodeInstance<'a>[]) =
+        let logLikelihood (state: EpisodeInstance<'b>[]) =
             state |> Array.sumBy (fun i ->
                 let durLL = Distribution.logLikelihood i.Episode.DurationParam i.Duration
                 let weightLL = log i.Weight
@@ -184,12 +172,12 @@ module MCMC =
                         transferDuration rng current
                     else
                         current
-                | RandomlySampled episodes ->
+                | RandomlySampled getWeightedEpisodes ->
                     // Both transfer duration and change episode
                     if rng.NextDouble() <= config.TransferDurationProb && current.Length >= 2 then
                         transferDuration rng current
                     else
-                        changeEpisode rng episodes current
+                        changeEpisode rng (getWeightedEpisodes label) current
 
             let proposedLL = logLikelihood proposed
             let logAcceptRatio = proposedLL - currentLL
@@ -217,8 +205,8 @@ module SessionLevel =
         | Mid
         | Close
 
-    let episodes = 
-        FixedOrder [|
+    let episodes =
+        FixedOrder (fun _ -> [|
             {
                 Label = Morning
                 DurationParam = Distribution.LogNormal (45.0, 60.0)
@@ -237,7 +225,7 @@ module SessionLevel =
                 VolumeMean = sqrt 4.
                 RateMean = sqrt 4.
             }
-        |]
+        |])
 
 // =============================================================================
 // Subepisode Level Episodes
@@ -247,13 +235,13 @@ module TrendLevel =
     type Trend =
         | Generic
         
-    let episodes = 
-        RandomlySampled [|
+    let episodes =
+        RandomlySampled (fun _ -> [|
             {
                 Label = Generic
                 DurationParam = Distribution.LogNormal (8.0, 10.0)
                 VolumeMean = 1.0
                 RateMean = 1.0
             }, 1.0
-        |]
+        |])
 
