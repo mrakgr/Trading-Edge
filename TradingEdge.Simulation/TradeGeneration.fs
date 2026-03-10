@@ -209,7 +209,21 @@ let expandContexts<'b>
     (childEpisodes: EpisodeSeries<'b>)
     : GenerationContext[] =
 
-    parentContexts |> Array.collect (fun ctx -> generateSubepisodes rng ctx childEpisodes)
+    let allChildren = ResizeArray<GenerationContext>()
+    let mutable currentPrice = if parentContexts.Length > 0 then parentContexts.[0].StartPrice else 0.0
+    let mutable currentTime = if parentContexts.Length > 0 then parentContexts.[0].StartTime else 0.0
+
+    for parentCtx in parentContexts do
+        let updatedParentCtx = { parentCtx with StartPrice = currentPrice; StartTime = currentTime }
+        let children = generateSubepisodes rng updatedParentCtx childEpisodes
+        allChildren.AddRange(children)
+
+        if children.Length > 0 then
+            let lastChild = children.[children.Length - 1]
+            currentPrice <- lastChild.StartPrice
+            currentTime <- lastChild.StartTime + lastChild.ParentDuration
+
+    allChildren.ToArray()
 
 /// Node function: Generate child subepisodes from parent and child episode series
 let generateNodeLevel<'a, 'b>
