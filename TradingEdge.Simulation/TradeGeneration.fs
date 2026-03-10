@@ -177,6 +177,74 @@ let generateSubepisodes
     results, currentTarget
 
 // =============================================================================
+// Recursive Episode Processing
+// =============================================================================
+
+/// Leaf function: Generate trades from subepisode results
+let generateTradesFromSubepisodes<'a>
+    (rng: Random)
+    (baseVolBps: float)
+    (parentCtx: GenerationContext)
+    (parentLabel: string)
+    (subepisodes: SubepisodeResult<'a>[])
+    : Trade[] * float =
+
+    let allTrades = ResizeArray<Trade>()
+    let mutable currentTime = 0.0
+    let mutable currentPrice = parentCtx.StartPrice
+
+    for subepisode in subepisodes do
+        let ctx = {
+            ParentVariance = subepisode.Variance
+            StartPrice = currentPrice
+            ParentTarget = subepisode.Target
+            ParentVolume = parentCtx.ParentVolume * subepisode.Instance.Episode.VolumeMean
+            ParentRate = parentCtx.ParentRate * subepisode.Instance.Episode.RateMean
+            ParentDuration = subepisode.Instance.Duration
+        }
+        let label = string subepisode.Instance.Episode.Label
+        let trades, endPrice = generateTrades rng baseVolBps ctx currentTime label
+
+        for trade in trades do
+            allTrades.Add({
+                trade with
+                    Label = parentLabel :: trade.Label
+                    TargetMeanAndVariances = (parentCtx.ParentTarget, parentCtx.ParentVariance) :: trade.TargetMeanAndVariances
+            })
+
+        currentTime <- currentTime + subepisode.Instance.Duration
+        currentPrice <- endPrice
+
+    allTrades.ToArray(), currentPrice
+
+/// Node function: Generate child subepisodes from parent and child episode series
+let generateNodeLevel<'a, 'b>
+    (rng: Random)
+    (parentCtx: GenerationContext)
+    (parentEpisodes: EpisodeSeries<'a>)
+    (childEpisodes: EpisodeSeries<'b>)
+    : SubepisodeResult<'b>[] * float =
+
+    let parentResults, _finalTarget = generateSubepisodes rng parentCtx parentEpisodes
+    let allChildResults = ResizeArray<SubepisodeResult<'b>>()
+    let mutable currentPrice = parentCtx.StartPrice
+
+    for parentResult in parentResults do
+        let childCtx = {
+            ParentVariance = parentResult.Variance
+            StartPrice = currentPrice
+            ParentTarget = parentResult.Target
+            ParentVolume = parentCtx.ParentVolume * parentResult.Instance.Episode.VolumeMean
+            ParentRate = parentCtx.ParentRate * parentResult.Instance.Episode.RateMean
+            ParentDuration = parentResult.Instance.Duration
+        }
+        let childResults, endPrice = generateSubepisodes rng childCtx childEpisodes
+        allChildResults.AddRange(childResults)
+        currentPrice <- endPrice
+
+    allChildResults.ToArray(), currentPrice
+
+// =============================================================================
 // Testing
 // =============================================================================
 
