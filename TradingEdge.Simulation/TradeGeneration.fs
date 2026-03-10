@@ -168,7 +168,6 @@ let generateSubepisodes
     Array.map2 (fun instance childVariance ->
         let newTarget = multiTryStep rng currentTarget (sqrt childVariance) parentTarget parentTargetSigma 10
         let childVariance' = (1. - variancePartitionParent) * childVariance
-        let label = string instance.Episode.Label
         let childCtx = {
             Label = instance.Episode.Label
             StartPrice = currentTarget
@@ -177,7 +176,7 @@ let generateSubepisodes
             ParentVolume = ctx.ParentVolume * instance.Episode.VolumeMean
             ParentRate = ctx.ParentRate * instance.Episode.RateMean
             ParentDuration = instance.Duration
-            ParentLabels = label :: ctx.ParentLabels
+            ParentLabels = string instance.Episode.Label :: ctx.ParentLabels
         }
         currentTarget <- newTarget
         currentTime <- currentTime + instance.Duration

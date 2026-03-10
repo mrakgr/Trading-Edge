@@ -215,7 +215,7 @@ module SessionLevel =
             }
             {
                 Label = Mid
-                DurationParam = Distribution.LogNormal (240.0, 270.0)
+                DurationParam = Distribution.LogNormal (180.0, 270.0)
                 VolumeMean = 1.
                 RateMean = 1.
             }
