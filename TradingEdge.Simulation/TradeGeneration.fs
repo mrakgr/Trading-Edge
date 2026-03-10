@@ -134,6 +134,7 @@ let variancePartitionParent = 0.75
 /// Generate subepisodes with targets from a parent episode
 let generateSubepisodes
     (rng: Random)
+    (baseVolBps: float)
     (ctx: GenerationContext<'a>)
     (childEpisodeSeries: EpisodeSeries<'a,'b>)
     : GenerationContext<'b>[] =
@@ -141,23 +142,19 @@ let generateSubepisodes
     // Use MCMC to sample child episode instances (with durations)
     let childInstances = MCMC.run MCMC.defaultConfig childEpisodeSeries ctx.Label ctx.ParentDuration rng
 
-    // Calculate total volume across all children
-    let totalVolume =
-        childInstances |> Array.sumBy (fun instance ->
-            let actualVolume = ctx.ParentVolume * instance.Episode.VolumeMean
-            let actualRate = ctx.ParentRate * instance.Episode.RateMean
-            actualVolume * actualRate * instance.Duration
-        )
-
-    // Distribute parent variance proportionally based on volume
-    let parentTarget, parentVariance = ctx.ParentTargetAndVariance |> List.head
-    let childVariances =
+    // Calculate the volume for the children.
+    let childVolumes = 
         childInstances |> Array.map (fun instance ->
             let actualVolume = ctx.ParentVolume * instance.Episode.VolumeMean
             let actualRate = ctx.ParentRate * instance.Episode.RateMean
-            let childVolume = actualVolume * actualRate * instance.Duration
-            parentVariance * (childVolume / totalVolume)
-        )
+            actualVolume * actualRate * instance.Duration
+            )
+    // Calculate total volume across all children
+    let totalVolume = Array.sum childVolumes
+
+    // Distribute parent variance proportionally based on volume
+    let parentTarget, parentVariance = ctx.ParentTargetAndVariance |> List.head
+    let childVariances = childVolumes |> Array.map (fun cv -> parentVariance * (cv / totalVolume))
 
     // Parent uses 75% of variance for target sigma
     let parentTargetSigma = sqrt(variancePartitionParent * parentVariance)
@@ -165,8 +162,8 @@ let generateSubepisodes
     // Sample target for each child and build contexts
     let mutable currentTarget = ctx.StartPrice
     let mutable currentTime = ctx.StartTime
-    Array.map2 (fun instance childVariance ->
-        let newTarget = multiTryStep rng currentTarget (sqrt childVariance) parentTarget parentTargetSigma 10
+    Array.map3 (fun instance childVolume childVariance ->
+        let newTarget = multiTryStep rng currentTarget (baseVolBps * sqrt childVolume) parentTarget parentTargetSigma 10
         let childVariance' = (1. - variancePartitionParent) * childVariance
         let childCtx = {
             Label = instance.Episode.Label
@@ -181,7 +178,7 @@ let generateSubepisodes
         currentTarget <- newTarget
         currentTime <- currentTime + instance.Duration
         childCtx
-    ) childInstances childVariances
+    ) childInstances childVolumes childVariances
 
 // =============================================================================
 // Recursive Episode Processing
@@ -206,6 +203,7 @@ let generateTradesFromSubepisodes
 /// Expand contexts by generating child subepisodes for each
 let expandContexts<'a,'b>
     (rng: Random)
+    (baseVolBps: float)
     (parentContexts: GenerationContext<'a>[])
     (childEpisodes: EpisodeSeries<'a,'b>)
     : GenerationContext<'b>[] =
@@ -216,7 +214,7 @@ let expandContexts<'a,'b>
 
     for parentCtx in parentContexts do
         let updatedParentCtx = { parentCtx with StartPrice = currentPrice; StartTime = currentTime }
-        let children = generateSubepisodes rng updatedParentCtx childEpisodes
+        let children = generateSubepisodes rng baseVolBps updatedParentCtx childEpisodes
         allChildren.AddRange(children)
 
         let lastChild = Array.last children
@@ -228,13 +226,14 @@ let expandContexts<'a,'b>
 /// Node function: Generate child subepisodes from parent and child episode series
 let generateNodeLevel<'a,'b,'c>
     (rng: Random)
+    (baseVolBps: float)
     (parentCtx: GenerationContext<'a>)
     (parentEpisodes: EpisodeSeries<'a,'b>)
     (childEpisodes: EpisodeSeries<'b,'c>)
     : GenerationContext<'c>[] =
 
-    let parentContexts = generateSubepisodes rng parentCtx parentEpisodes
-    expandContexts rng parentContexts childEpisodes
+    let parentContexts = generateSubepisodes rng baseVolBps parentCtx parentEpisodes
+    expandContexts rng baseVolBps parentContexts childEpisodes
 
 /// Generate trades from two levels of episodes
 let generateNodeLevelTrades<'a,'b,'c>
@@ -245,7 +244,7 @@ let generateNodeLevelTrades<'a,'b,'c>
     (childEpisodes: EpisodeSeries<'b,'c>)
     : Trade[] =
 
-    let childContexts = generateNodeLevel rng parentCtx parentEpisodes childEpisodes
+    let childContexts = generateNodeLevel rng baseVolBps parentCtx parentEpisodes childEpisodes
     generateTradesFromSubepisodes rng baseVolBps childContexts
 
 // =============================================================================
@@ -263,6 +262,7 @@ let testNestedGeneration () =
     let dayVolume = 100.0
     let dayRate = 10.0 * 60.
     let dayDuration = 390.0  // minutes
+    let baseVolBps = 1.
 
     // Generate sessions
     printfn "=== Generating Sessions ==="
@@ -276,7 +276,7 @@ let testNestedGeneration () =
         ParentDuration = dayDuration
         ParentLabels = ["Day"]
     }
-    let sessionResults = generateSubepisodes rng dayContext SessionLevel.episodes
+    let sessionResults = generateSubepisodes rng baseVolBps dayContext SessionLevel.episodes
 
     printfn "Start price: %.1f" startPrice
     printfn "Day target: %.6f" dayTarget
@@ -305,7 +305,7 @@ let testNestedGeneration () =
         printfn "Session: %s, Duration: %.2f min, Target: %.6f, Start price: %.6f"
             sessionLabel sessionCtx.ParentDuration sessionTarget sessionCtx.StartPrice
 
-        let subepisodeResults = generateSubepisodes rng sessionCtx TrendLevel.episodes
+        let subepisodeResults = generateSubepisodes rng baseVolBps sessionCtx TrendLevel.episodes
 
         printfn "  Generated %d subepisodes" subepisodeResults.Length
 
