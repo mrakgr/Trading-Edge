@@ -15,8 +15,12 @@ def load_trades(csv_path):
                 'time': float(row['time']),
                 'price': float(row['price']),
                 'size': int(row['size']),
-                'target_mean': float(row['trend_target']),
-                'target_sigma': float(row['trend_variance']) ** 0.5,
+                'day_target': float(row['day_target']),
+                'day_sigma': float(row['day_variance']) ** 0.5,
+                'session_target': float(row['session_target']),
+                'session_sigma': float(row['session_variance']) ** 0.5,
+                'trend_target': float(row['trend_target']),
+                'trend_sigma': float(row['trend_variance']) ** 0.5,
             })
     return trades
 
@@ -27,14 +31,18 @@ def create_volume_bars(trades, volume_per_bar):
     """
     bars = []
     current_volume = 0
-    bar_data = []  # List of (price, volume, time, trend, target_mean, target_sigma) tuples
+    bar_data = []
 
     for trade in trades:
         price = trade['price']
         size = trade['size']
         time = trade['time']
-        target_mean = trade['target_mean']
-        target_sigma = trade['target_sigma']
+        day_target = trade['day_target']
+        day_sigma = trade['day_sigma']
+        session_target = trade['session_target']
+        session_sigma = trade['session_sigma']
+        trend_target = trade['trend_target']
+        trend_sigma = trade['trend_sigma']
 
         remaining_size = size
 
@@ -42,12 +50,12 @@ def create_volume_bars(trades, volume_per_bar):
             space_left = volume_per_bar - current_volume
 
             if remaining_size <= space_left:
-                bar_data.append((price, remaining_size, time, target_mean, target_sigma))
+                bar_data.append((price, remaining_size, time, day_target, day_sigma, session_target, session_sigma, trend_target, trend_sigma))
                 current_volume += remaining_size
                 remaining_size = 0
             else:
                 if space_left > 0:
-                    bar_data.append((price, space_left, time, target_mean, target_sigma))
+                    bar_data.append((price, space_left, time, day_target, day_sigma, session_target, session_sigma, trend_target, trend_sigma))
                     current_volume += space_left
                     remaining_size -= space_left
 
@@ -63,9 +71,9 @@ def create_volume_bars(trades, volume_per_bar):
 
 def compute_bar_stats(bar_data, existing_bars):
     """Compute VWAP, stddev, and time duration for a bar."""
-    prices = np.array([p for p, v, t, tm, ts in bar_data])
-    volumes = np.array([v for p, v, t, tm, ts in bar_data])
-    times = [t for p, v, t, tm, ts in bar_data]
+    prices = np.array([d[0] for d in bar_data])
+    volumes = np.array([d[1] for d in bar_data])
+    times = [d[2] for d in bar_data]
 
     total_volume = volumes.sum()
     vwap = np.sum(prices * volumes) / total_volume
@@ -77,11 +85,13 @@ def compute_bar_stats(bar_data, existing_bars):
 
     time_duration = times[-1] - times[0]
 
-    # Volume-weighted target mean and sigma
-    target_means = np.array([tm for p, v, t, tm, ts in bar_data])
-    target_sigmas = np.array([ts for p, v, t, tm, ts in bar_data])
-    avg_target_mean = np.sum(target_means * volumes) / total_volume
-    avg_target_sigma = np.sum(target_sigmas * volumes) / total_volume
+    # Volume-weighted target means and sigmas for all three levels
+    day_targets = np.array([d[3] for d in bar_data])
+    day_sigmas = np.array([d[4] for d in bar_data])
+    session_targets = np.array([d[5] for d in bar_data])
+    session_sigmas = np.array([d[6] for d in bar_data])
+    trend_targets = np.array([d[7] for d in bar_data])
+    trend_sigmas = np.array([d[8] for d in bar_data])
 
     return {
         'cumulative_volume': cumulative_volume,
@@ -91,8 +101,12 @@ def compute_bar_stats(bar_data, existing_bars):
         'start_time': times[0],
         'end_time': times[-1],
         'time_duration': time_duration,
-        'target_mean': avg_target_mean,
-        'target_sigma': avg_target_sigma,
+        'day_target': np.sum(day_targets * volumes) / total_volume,
+        'day_sigma': np.sum(day_sigmas * volumes) / total_volume,
+        'session_target': np.sum(session_targets * volumes) / total_volume,
+        'session_sigma': np.sum(session_sigmas * volumes) / total_volume,
+        'trend_target': np.sum(trend_targets * volumes) / total_volume,
+        'trend_sigma': np.sum(trend_sigmas * volumes) / total_volume,
         'num_trades': len(bar_data)
     }
 
@@ -152,25 +166,67 @@ def plot_volume_bars(bars, output_html, input_csv):
         hoverinfo='skip'
     ), row=1, col=1)
 
-    # Target mean line
-    target_means = [b['target_mean'] for b in bars]
-    target_upper = [b['target_mean'] + b['target_sigma'] for b in bars]
-    target_lower = [b['target_mean'] - b['target_sigma'] for b in bars]
+    # Day level
+    day_targets = [b['day_target'] for b in bars]
+    day_upper = [b['day_target'] + b['day_sigma'] for b in bars]
+    day_lower = [b['day_target'] - b['day_sigma'] for b in bars]
 
     fig.add_trace(go.Scatter(
-        x=x_vals, y=target_means, mode='lines',
+        x=x_vals, y=day_targets, mode='lines',
+        line=dict(color='purple', width=2, dash='dash'),
+        name='Day Target'
+    ), row=1, col=1)
+    fig.add_trace(go.Scatter(
+        x=x_vals, y=day_upper, mode='lines',
+        line=dict(color='purple', width=1, dash='dash'),
+        name='Day +1σ', showlegend=False
+    ), row=1, col=1)
+    fig.add_trace(go.Scatter(
+        x=x_vals, y=day_lower, mode='lines',
+        line=dict(color='purple', width=1, dash='dash'),
+        name='Day -1σ', showlegend=False
+    ), row=1, col=1)
+
+    # Session level
+    session_targets = [b['session_target'] for b in bars]
+    session_upper = [b['session_target'] + b['session_sigma'] for b in bars]
+    session_lower = [b['session_target'] - b['session_sigma'] for b in bars]
+
+    fig.add_trace(go.Scatter(
+        x=x_vals, y=session_targets, mode='lines',
+        line=dict(color='orange', width=2, dash='dot'),
+        name='Session Target'
+    ), row=1, col=1)
+    fig.add_trace(go.Scatter(
+        x=x_vals, y=session_upper, mode='lines',
         line=dict(color='orange', width=1, dash='dot'),
-        name='Target Mean'
+        name='Session +1σ', showlegend=False
     ), row=1, col=1)
     fig.add_trace(go.Scatter(
-        x=x_vals, y=target_upper, mode='lines',
-        line=dict(color='orange', width=0.5, dash='dot'),
-        name='+1σ target', showlegend=False
+        x=x_vals, y=session_lower, mode='lines',
+        line=dict(color='orange', width=1, dash='dot'),
+        name='Session -1σ', showlegend=False
+    ), row=1, col=1)
+
+    # Trend level
+    trend_targets = [b['trend_target'] for b in bars]
+    trend_upper = [b['trend_target'] + b['trend_sigma'] for b in bars]
+    trend_lower = [b['trend_target'] - b['trend_sigma'] for b in bars]
+
+    fig.add_trace(go.Scatter(
+        x=x_vals, y=trend_targets, mode='lines',
+        line=dict(color='cyan', width=2),
+        name='Trend Target'
     ), row=1, col=1)
     fig.add_trace(go.Scatter(
-        x=x_vals, y=target_lower, mode='lines',
-        line=dict(color='orange', width=0.5, dash='dot'),
-        name='-1σ target', showlegend=False
+        x=x_vals, y=trend_upper, mode='lines',
+        line=dict(color='cyan', width=1),
+        name='Trend +1σ', showlegend=False
+    ), row=1, col=1)
+    fig.add_trace(go.Scatter(
+        x=x_vals, y=trend_lower, mode='lines',
+        line=dict(color='cyan', width=1),
+        name='Trend -1σ', showlegend=False
     ), row=1, col=1)
 
     # Time duration bars
