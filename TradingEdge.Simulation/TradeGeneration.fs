@@ -218,10 +218,9 @@ let expandContexts<'b>
         let children = generateSubepisodes rng updatedParentCtx childEpisodes
         allChildren.AddRange(children)
 
-        if children.Length > 0 then
-            let lastChild = children.[children.Length - 1]
-            currentPrice <- lastChild.StartPrice
-            currentTime <- lastChild.StartTime + lastChild.ParentDuration
+        let lastChild = Array.last children
+        currentPrice <- lastChild.StartPrice
+        currentTime <- lastChild.StartTime + lastChild.ParentDuration
 
     allChildren.ToArray()
 
@@ -235,6 +234,18 @@ let generateNodeLevel<'a, 'b>
 
     let parentContexts = generateSubepisodes rng parentCtx parentEpisodes
     expandContexts rng parentContexts childEpisodes
+
+/// Generate trades from two levels of episodes
+let generateNodeLevelTrades<'a, 'b>
+    (rng: Random)
+    (baseVolBps: float)
+    (parentCtx: GenerationContext)
+    (parentEpisodes: EpisodeSeries<'a>)
+    (childEpisodes: EpisodeSeries<'b>)
+    : Trade[] =
+
+    let childContexts = generateNodeLevel rng parentCtx parentEpisodes childEpisodes
+    generateTradesFromSubepisodes rng baseVolBps childContexts
 
 // =============================================================================
 // Testing
