@@ -129,6 +129,22 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
         line=dict(color='purple', width=2, dash='dash'),
         name='Day Target'
     ), row=1, col=1)
+    fig.add_trace(go.Scatter(
+        x=x_minutes,
+        y=[t['day_target'] + t['day_sigma'] for t in bar_targets],
+        mode='lines',
+        line=dict(color='purple', width=1, dash='dash'),
+        name='Day +1σ',
+        showlegend=False
+    ), row=1, col=1)
+    fig.add_trace(go.Scatter(
+        x=x_minutes,
+        y=[t['day_target'] - t['day_sigma'] for t in bar_targets],
+        mode='lines',
+        line=dict(color='purple', width=1, dash='dash'),
+        name='Day -1σ',
+        showlegend=False
+    ), row=1, col=1)
 
     # Session level
     fig.add_trace(go.Scatter(
@@ -138,6 +154,22 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
         line=dict(color='orange', width=2, dash='dot'),
         name='Session Target'
     ), row=1, col=1)
+    fig.add_trace(go.Scatter(
+        x=x_minutes,
+        y=[t['session_target'] + t['session_sigma'] for t in bar_targets],
+        mode='lines',
+        line=dict(color='orange', width=1, dash='dot'),
+        name='Session +1σ',
+        showlegend=False
+    ), row=1, col=1)
+    fig.add_trace(go.Scatter(
+        x=x_minutes,
+        y=[t['session_target'] - t['session_sigma'] for t in bar_targets],
+        mode='lines',
+        line=dict(color='orange', width=1, dash='dot'),
+        name='Session -1σ',
+        showlegend=False
+    ), row=1, col=1)
 
     # Trend level
     fig.add_trace(go.Scatter(
@@ -146,6 +178,22 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
         mode='lines',
         line=dict(color='cyan', width=2),
         name='Trend Target'
+    ), row=1, col=1)
+    fig.add_trace(go.Scatter(
+        x=x_minutes,
+        y=[t['trend_target'] + t['trend_sigma'] for t in bar_targets],
+        mode='lines',
+        line=dict(color='cyan', width=1),
+        name='Trend +1σ',
+        showlegend=False
+    ), row=1, col=1)
+    fig.add_trace(go.Scatter(
+        x=x_minutes,
+        y=[t['trend_target'] - t['trend_sigma'] for t in bar_targets],
+        mode='lines',
+        line=dict(color='cyan', width=1),
+        name='Trend -1σ',
+        showlegend=False
     ), row=1, col=1)
 
     fig.add_trace(go.Bar(
