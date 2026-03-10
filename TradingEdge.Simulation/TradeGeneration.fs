@@ -194,9 +194,12 @@ let generateTradesFromSubepisodes
     : Trade[] =
 
     let allTrades = ResizeArray<Trade>()
+    let mutable currentPrice = if subepisodes.Length > 0 then subepisodes.[0].StartPrice else 0.0
     for ctx in subepisodes do
-        let trades, _endPrice = generateTrades rng baseVolBps ctx
+        let updatedCtx = { ctx with StartPrice = currentPrice }
+        let trades, endPrice = generateTrades rng baseVolBps updatedCtx
         allTrades.AddRange(trades)
+        currentPrice <- endPrice
     allTrades.ToArray()
 
 /// Node function: Generate child subepisodes from parent and child episode series
