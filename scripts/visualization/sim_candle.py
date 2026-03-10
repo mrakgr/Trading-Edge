@@ -83,7 +83,7 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
     volumes = [b['volume'] for b in bars]
 
     hover_text = [
-        f"Time: {b['timestamp']/60:.2f}m<br>"
+        f"Time: {b['timestamp']:.2f}m<br>"
         f"O: {b['open']:.4f} H: {b['high']:.4f}<br>"
         f"L: {b['low']:.4f} C: {b['close']:.4f}<br>"
         f"Volume: {b['volume']:,}<br>"
