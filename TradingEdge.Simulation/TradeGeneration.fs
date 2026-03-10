@@ -195,7 +195,7 @@ let generateTradesFromSubepisodes
     : Trade[] =
 
     let allTrades = ResizeArray<Trade>()
-    let mutable currentPrice = if subepisodes.Length > 0 then subepisodes.[0].StartPrice else 0.0
+    let mutable currentPrice = (Array.head subepisodes).StartPrice
     for ctx in subepisodes do
         let updatedCtx = { ctx with StartPrice = currentPrice }
         let trades, endPrice = generateTrades rng baseVolBps updatedCtx

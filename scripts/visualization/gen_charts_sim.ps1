@@ -8,16 +8,16 @@ foreach ($seed in $Seeds) {
     $csvFile = "data/test_nested_atm_$seed.csv"
 
     # Dump trades
-    dotnet run --project TradingEdge.Simulation -- dump-trades -s $seed -d "data/tdigests/LW_2025-12-19.tdigest" -o $csvFile
+    dotnet run --project TradingEdge.Simulation -- dump-trades -s $seed -o $csvFile
 
     # Generate tick chart
-    python3 scripts/visualization/sim_tick.py $csvFile "data/charts/sim_tick_$seed.html"
+    python3 scripts/visualization/sim_tick.py $csvFile
 
     # Generate candle chart
-    python3 scripts/visualization/sim_candle.py $csvFile 60 "data/charts/sim_candle_$seed.html"
+    python3 scripts/visualization/sim_candle.py $csvFile 60
 
     # Generate volume chart
-    python3 scripts/visualization/sim_volume.py $csvFile 10000 "data/charts/sim_volume_$seed.html"
+    python3 scripts/visualization/sim_volume.py $csvFile 10000
 }
 
 Write-Host "Done generating all charts."
