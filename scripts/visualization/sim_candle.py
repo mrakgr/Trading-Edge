@@ -12,7 +12,13 @@ def load_trades(csv_path):
             trades.append({
                 'time': float(row['time']),
                 'price': float(row['price']),
-                'size': int(row['size'])
+                'size': int(row['size']),
+                'day_target': float(row['day_target']),
+                'day_sigma': float(row['day_variance']) ** 0.5,
+                'session_target': float(row['session_target']),
+                'session_sigma': float(row['session_variance']) ** 0.5,
+                'trend_target': float(row['trend_target']),
+                'trend_sigma': float(row['trend_variance']) ** 0.5,
             })
     return trades
 
@@ -93,6 +99,52 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
         hoverinfo='text'
     ), row=1, col=1)
 
+    # Add target lines for all three levels
+    # Get target values from first trade in each bar
+    bar_times = [b['timestamp'] for b in bars]
+
+    # Find corresponding trades for each bar to get targets
+    bar_targets = []
+    trade_idx = 0
+    for bar in bars:
+        bar_start = bar['timestamp']
+        # Find first trade in this bar
+        while trade_idx < len(trades) and trades[trade_idx]['time'] < bar_start:
+            trade_idx += 1
+        if trade_idx < len(trades):
+            bar_targets.append(trades[trade_idx])
+        else:
+            bar_targets.append(trades[-1])
+
+    x_minutes = [t / 60.0 for t in bar_times]
+
+    # Day level
+    fig.add_trace(go.Scatter(
+        x=x_minutes,
+        y=[t['day_target'] for t in bar_targets],
+        mode='lines',
+        line=dict(color='purple', width=2, dash='dash'),
+        name='Day Target'
+    ), row=1, col=1)
+
+    # Session level
+    fig.add_trace(go.Scatter(
+        x=x_minutes,
+        y=[t['session_target'] for t in bar_targets],
+        mode='lines',
+        line=dict(color='orange', width=2, dash='dot'),
+        name='Session Target'
+    ), row=1, col=1)
+
+    # Trend level
+    fig.add_trace(go.Scatter(
+        x=x_minutes,
+        y=[t['trend_target'] for t in bar_targets],
+        mode='lines',
+        line=dict(color='cyan', width=2),
+        name='Trend Target'
+    ), row=1, col=1)
+
     fig.add_trace(go.Bar(
         x=x_vals,
         y=volumes,
@@ -106,7 +158,7 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
         height=900,
         width=1400,
         hovermode='x unified',
-        showlegend=False,
+        showlegend=True,
         xaxis2_title='Time (minutes)'
     )
 
