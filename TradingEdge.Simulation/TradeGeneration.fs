@@ -116,37 +116,14 @@ let testNestedGeneration () =
     let dayTarget = 150.0
     let daySigma = 10.0
     let dayVariance = daySigma * daySigma  // 100
-    let dayVolume = 1.0
-    let dayRate = 1.0
+    let dayVolume = 100.0
+    let dayRate = 10.0
     let dayDuration = 390.0  // minutes
-
-    // Session level episodes
-    let sessionEpisodes =
-        FixedOrder [|
-            {
-                Label = SessionLevel.Morning
-                DurationParam = Distribution.LogNormal (45.0, 60.0)
-                VolumeMean = sqrt 3.0
-                RateMean = sqrt 3.0
-            }
-            {
-                Label = SessionLevel.Mid
-                DurationParam = Distribution.LogNormal (240.0, 270.0)
-                VolumeMean = 1.0
-                RateMean = 1.0
-            }
-            {
-                Label = SessionLevel.Close
-                DurationParam = Distribution.LogNormal (45.0, 60.0)
-                VolumeMean = sqrt 3.0
-                RateMean = sqrt 3.0
-            }
-        |]
 
     // Generate sessions
     printfn "=== Generating Sessions ==="
     let sessionResults, finalSessionTarget =
-        generateSubepisodes rng dayVariance startPrice dayTarget dayVolume dayRate dayDuration sessionEpisodes
+        generateSubepisodes rng dayVariance startPrice dayTarget dayVolume dayRate dayDuration SessionLevel.episodes
 
     printfn "Start price: %.1f" startPrice
     printfn "Day target: %.6f" dayTarget

@@ -222,20 +222,20 @@ module SessionLevel =
             {
                 Label = Morning
                 DurationParam = Distribution.LogNormal (45.0, 60.0)
-                VolumeMean = 100.0 * sqrt 3.
-                RateMean = 20.0 * sqrt 3.
+                VolumeMean = sqrt 4.
+                RateMean = sqrt 4.
             }
             {
                 Label = Mid
                 DurationParam = Distribution.LogNormal (240.0, 270.0)
-                VolumeMean = 100.0
-                RateMean = 20.0
+                VolumeMean = 1.
+                RateMean = 1.
             }
             {
                 Label = Close
                 DurationParam = Distribution.LogNormal (45.0, 60.0)
-                VolumeMean = 100.0 * sqrt 3.
-                RateMean = 20.0 * sqrt 3.
+                VolumeMean = sqrt 4.
+                RateMean = sqrt 4.
             }
         |]
 
