@@ -61,8 +61,10 @@ let sampleGap (rng: Random) (median: float) (mean: float) : float =
 // Target Sampling (Multi-try MCMC)
 // =============================================================================
 
-/// Multi-try step with pluggable log-density function
-let inline multiTryStepGeneric (rng: Random) (price: float) (proposalVol: float) (density: float -> float) (n: int) : float =
+/// Multi-try Metropolis template: proposes n symmetric pairs around current price, weights by density,
+/// and selects via categorical sampling. When is_calculate_ev is true, also computes risk-adjusted EV
+/// as (expected_price - price) / proposalVol; otherwise returns nan to skip the extra work.
+let inline private multiTryStepTemplate (is_calculate_ev : bool) (rng: Random) (price: float) (proposalVol: float) (density: float -> float) (n: int) =
     let candidates = Array.zeroCreate (2 * n + 1)
     let logWeights = Array.zeroCreate (2 * n + 1)
     candidates.[0] <- price
@@ -78,11 +80,31 @@ let inline multiTryStepGeneric (rng: Random) (price: float) (proposalVol: float)
     let maxW = Array.max logWeights
     let weights = logWeights |> Array.map (fun w -> exp(w - maxW))
     let idx = Categorical.Sample(rng, weights)
-    candidates.[idx]
+    let riskAdjustedEV =
+        if is_calculate_ev then
+            let totalWeight = Array.sum weights
+            let normalizedWeights = weights |> Array.map (fun w -> w / totalWeight)
+            let expectedPrice = Array.map2 (fun c w -> c * w) candidates normalizedWeights |> Array.sum
+            let ev = expectedPrice - price
+            ev / proposalVol
+        else nan
+    candidates.[idx], riskAdjustedEV
+
+/// Multi-try step with pluggable log-density function
+let inline multiTryStepGeneric (rng: Random) (price: float) (proposalVol: float) (density: float -> float) (n: int) : float =
+    multiTryStepTemplate false rng price proposalVol density n |> fst
+
+/// Multi-try step with pluggable log-density function, also returns risk-adjusted EV
+let inline multiTryStepGenericWithEV (rng: Random) (price: float) (proposalVol: float) (density: float -> float) (n: int) : float * float =
+    multiTryStepTemplate true rng price proposalVol density n
 
 /// Multi-try Metropolis step: propose n moves + n negated + current, select by target likelihood
 let multiTryStep (rng: Random) (price: float) (proposalVol: float) (targetMean: float) (targetSigma: float) (n: int) : float =
     multiTryStepGeneric rng price proposalVol (fun x -> Normal.PDFLn(targetMean, targetSigma, x)) n
+
+/// Multi-try Metropolis step that also returns risk-adjusted EV
+let multiTryStepWithEV (rng: Random) (price: float) (proposalVol: float) (targetMean: float) (targetSigma: float) (n: int) : float * float =
+    multiTryStepGenericWithEV rng price proposalVol (fun x -> Normal.PDFLn(targetMean, targetSigma, x)) n
 
 // =============================================================================
 // Trade Generation
