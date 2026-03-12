@@ -5,6 +5,32 @@ open MathNet.Numerics.Distributions
 open EpisodeMCMC
 
 // =============================================================================
+// Types
+// =============================================================================
+
+type GenerationEffect<'r> =
+    abstract member Session: SessionLevel.Session
+    abstract member AddTrade : Trade -> unit
+    abstract member OnTimeChanged : (unit -> 'r) -> 'r
+    abstract member OnDone : GenerationContext<'r> -> 'r
+
+/// Common parameters for pattern generation
+and GenerationContext<'r> = {
+    StartPrice: float
+    StartTime: float
+    StartTarget: float
+    Duration: float
+    Labels: string list
+    BaseVolume: float
+    BaseRate: float
+    BaseVolatility: float
+    Effects : GenerationEffect<'r>
+}
+
+type PatternContinuation<'r> = GenerationContext<'r> -> 'r
+type Pattern<'r> = GenerationContext<'r> -> PatternContinuation<'r> -> 'r
+
+// =============================================================================
 // Variance Calculation
 // =============================================================================
 
@@ -19,20 +45,6 @@ let calculateVariance (baseVolBps: float) (volumeMean: float) (rateMean: float) 
 // =============================================================================
 // Generation Context and Utilities
 // =============================================================================
-
-/// Common parameters for pattern generation
-type GenerationContext = {
-    Session: SessionLevel.Session
-    StartPrice: float
-    StartTime: float
-    StartTarget: float
-    Duration: float
-    Labels: string list
-    BaseVolume: float
-    BaseRate: float
-    BaseVolatility: float
-    Trades: ResizeArray<Trade>
-}
 
 let stochasticRound (rng: Random) (x: float) : int =
     let floor = Math.Floor(x)
@@ -108,31 +120,23 @@ let multiTryStep (rng: Random) (price: float) (proposalVol: float) (targetMean: 
 let multiTryStepWithEV (rng: Random) (price: float) (proposalVol: float) (targetMean: float) (targetSigma: float) (n: int) : float * float =
     multiTryStepGenericWithEV rng price proposalVol (fun x -> Normal.PDFLn(targetMean, targetSigma, x)) n
 
-type PatternContext<'r> =
-    {
-        OnVolumeExhausted : GenerationContext -> 'r
-        OnTimeChanged : (SessionLevel.Session -> 'r) -> 'r
-        OnDone : GenerationContext -> 'r
-    }
-
-type Pattern<'r> = GenerationContext -> PatternContext<'r> -> 'r
-
 // =============================================================================
 // Pattern Combinators
 // =============================================================================
 
 let sequence (patterns: Pattern<'r> list) : Pattern<'r> =
     List.foldBack
-        (fun p acc -> fun genCtx ctx -> p genCtx { ctx with OnVolumeExhausted = fun genCtx' -> acc genCtx' ctx })
+        (fun p acc -> fun genCtx cont -> p genCtx (fun genCtx' -> acc genCtx' cont))
         patterns
-        (fun genCtx ctx -> ctx.OnVolumeExhausted genCtx)
+        (fun genCtx cont -> cont genCtx)
 
 let choice (rng: Random) (weightedPatterns: (Pattern<'r> * float) list) : Pattern<'r> =
-    fun genCtx ctx ->
+    fun genCtx cont ->
         let patterns, weights = List.unzip weightedPatterns
         let categorical = Categorical(Array.ofList weights, rng)
         let idx = categorical.Sample()
-        patterns.[idx] genCtx ctx
+        patterns.[idx] genCtx cont
+
 
 // // =============================================================================
 // // Trade Generation
