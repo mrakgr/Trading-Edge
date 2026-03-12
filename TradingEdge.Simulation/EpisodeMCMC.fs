@@ -53,7 +53,7 @@ type Trade = {
     Price: float
     Size: int
     TargetMean: float
-    TargetVariance: float
+    TargetSigma: float
     Label : string list
 }
 
