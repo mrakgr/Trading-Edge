@@ -10,6 +10,7 @@ open EpisodeMCMC
 
 type GenerationEffect<'r> =
     abstract member Session: SessionLevel.Session
+    abstract member Duration: float
     abstract member AddTrade : Trade -> unit
     abstract member OnTimeChanged : (unit -> 'r) -> 'r
     abstract member OnDone : GenerationContext<'r> -> 'r
@@ -19,7 +20,6 @@ and GenerationContext<'r> = {
     StartPrice: float
     StartTime: float
     StartTarget: float
-    Duration: float
     Labels: string list
     BaseVolume: float
     BaseRate: float
@@ -136,6 +136,51 @@ let choice (rng: Random) (weightedPatterns: (Pattern<'r> * float) list) : Patter
         let categorical = Categorical(Array.ofList weights, rng)
         let idx = categorical.Sample()
         patterns.[idx] genCtx cont
+
+// =============================================================================
+// Default Effect Handler
+// =============================================================================
+
+let makeDefaultEffect (rng: Random) (totalDuration: float) : GenerationEffect<Trade[]> =
+    let sessions = MCMC.run MCMC.defaultConfig SessionLevel.episodes totalDuration rng
+    let trades = ResizeArray<Trade>()
+    let mutable currentSessionIdx = 0
+
+    { new GenerationEffect<Trade[]> with
+        member _.Session = sessions.[currentSessionIdx].Episode.Label
+        member _.Duration = sessions.[currentSessionIdx].Duration
+        member _.AddTrade(trade) = trades.Add(trade)
+        member _.OnTimeChanged(cont) =
+            currentSessionIdx <- currentSessionIdx + 1
+            if currentSessionIdx < sessions.Length then
+                cont ()
+            else
+                trades.ToArray()
+        member _.OnDone(_) = trades.ToArray()
+    }
+
+let makeDefaultContext
+    (rng: Random)
+    (totalDuration: float)
+    (startPrice: float)
+    (startTarget: float)
+    (baseVolume: float)
+    (baseRate: float)
+    (baseVolatility: float)
+    : GenerationContext<Trade[]> =
+
+    let effect = makeDefaultEffect rng totalDuration
+
+    {
+        StartPrice = startPrice
+        StartTime = 0.0
+        StartTarget = startTarget
+        Labels = []
+        BaseVolume = baseVolume
+        BaseRate = baseRate
+        BaseVolatility = baseVolatility
+        Effects = effect
+    }
 
 
 // // =============================================================================
