@@ -200,18 +200,21 @@ let generateTrades (targetSigma: float) (volumeLimit: float) (respectSessionBoun
         let volumeMedian = ctx.BaseVolume / 2.0
         let gapMean = 1.0 / ctx.BaseRate
         let gapMedian = gapMean / 2.0
-        let endTime = ctx.StartTime + ctx.Effects.Duration
 
-        let rec loop price time volumeConsumed =
+        let rec loop price time volumeConsumed sessionStartTime =
             if volumeConsumed >= volumeLimit then
                 cont { ctx with StartPrice = price; StartTime = time }
             else
                 let gap = sampleGap rng gapMedian gapMean
                 let newTime = time + gap
+                let sessionEndTime = sessionStartTime + ctx.Effects.Duration
 
-                if newTime >= endTime && respectSessionBoundaries then
+                if newTime >= sessionEndTime then
                     ctx.Effects.OnTimeChanged (fun () ->
-                        cont { ctx with StartPrice = price; StartTime = newTime })
+                        if respectSessionBoundaries then
+                            cont { ctx with StartPrice = price; StartTime = newTime }
+                        else
+                            loop price newTime volumeConsumed sessionEndTime)
                 else
                     let size = sampleSize rng volumeMedian ctx.BaseVolume
                     let sizeFloat = float size
@@ -225,9 +228,9 @@ let generateTrades (targetSigma: float) (volumeLimit: float) (respectSessionBoun
                         TargetSigma = targetSigma
                         Label = ctx.Labels
                     })
-                    loop newPrice newTime (volumeConsumed + sizeFloat)
+                    loop newPrice newTime (volumeConsumed + sizeFloat) sessionStartTime
 
-        loop ctx.StartPrice ctx.StartTime 0.0
+        loop ctx.StartPrice ctx.StartTime 0.0 ctx.StartTime
 
 // // =============================================================================
 // // Subepisode Generation
