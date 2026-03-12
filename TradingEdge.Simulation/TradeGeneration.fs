@@ -243,7 +243,7 @@ let generateDrift (endTarget: float) (targetSigma: float) (volumeLimit: float) (
 
         let rec loop price time volumeConsumed =
             if volumeConsumed >= volumeLimit then
-                cont { ctx with StartPrice = price; StartTime = time }
+                cont { ctx with StartPrice = price; StartTime = time; StartTarget = endTarget }
             else
                 let progress = volumeConsumed / volumeLimit
                 let currentTarget = ctx.StartTarget + (endTarget - ctx.StartTarget) * progress
@@ -255,7 +255,7 @@ let generateDrift (endTarget: float) (targetSigma: float) (volumeLimit: float) (
                 if newTime >= endTime then
                     ctx.Effects.OnTimeChanged (fun () ->
                         if respectSessionBoundaries then
-                            cont { ctx with StartPrice = price; StartTime = endTime }
+                            cont { ctx with StartPrice = price; StartTime = endTime; StartTarget = currentTarget }
                         else
                             loop price time volumeConsumed)
                 else
