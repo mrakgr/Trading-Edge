@@ -11,7 +11,7 @@ open EpisodeMCMC
 type GenerationEffect<'r> =
     abstract member Rng: Random
     abstract member Session: SessionLevel.Session
-    abstract member Duration: float
+    abstract member SessionEndTime: float
     abstract member AddTrade : Trade -> unit
     abstract member OnTimeChanged : (unit -> 'r) -> 'r
     abstract member OnDone : GenerationContext<'r> -> 'r
@@ -153,13 +153,15 @@ let choice (rng: Random) (weightedPatterns: (Pattern<'r> * float) list) : Patter
 
 let makeDefaultEffect (rng: Random) (totalDuration: float) : GenerationEffect<Trade[]> =
     let sessions = MCMC.run MCMC.defaultConfig SessionLevel.episodes totalDuration rng
+    let sessionEndTimes =
+        sessions |> Array.scan (fun acc s -> acc + s.Duration) 0.0 |> Array.tail
     let trades = ResizeArray<Trade>()
     let mutable currentSessionIdx = 0
 
     { new GenerationEffect<Trade[]> with
         member _.Rng = rng
         member _.Session = sessions.[currentSessionIdx].Episode.Label
-        member _.Duration = sessions.[currentSessionIdx].Duration
+        member _.SessionEndTime = sessionEndTimes.[currentSessionIdx]
         member _.AddTrade(trade) = trades.Add(trade)
         member _.OnTimeChanged(cont) =
             currentSessionIdx <- currentSessionIdx + 1
@@ -201,20 +203,19 @@ let generateTrades (targetSigma: float) (volumeLimit: float) (respectSessionBoun
         let gapMean = 1.0 / ctx.BaseRate
         let gapMedian = gapMean / 2.0
 
-        let rec loop price time volumeConsumed sessionStartTime =
+        let rec loop price time volumeConsumed =
             if volumeConsumed >= volumeLimit then
                 cont { ctx with StartPrice = price; StartTime = time }
             else
                 let gap = sampleGap rng gapMedian gapMean
                 let newTime = time + gap
-                let sessionEndTime = sessionStartTime + ctx.Effects.Duration
 
-                if newTime >= sessionEndTime then
+                if newTime >= ctx.Effects.SessionEndTime then
                     ctx.Effects.OnTimeChanged (fun () ->
                         if respectSessionBoundaries then
                             cont { ctx with StartPrice = price; StartTime = newTime }
                         else
-                            loop price newTime volumeConsumed sessionEndTime)
+                            loop price newTime volumeConsumed)
                 else
                     let size = sampleSize rng volumeMedian ctx.BaseVolume
                     let sizeFloat = float size
@@ -228,9 +229,9 @@ let generateTrades (targetSigma: float) (volumeLimit: float) (respectSessionBoun
                         TargetSigma = targetSigma
                         Label = ctx.Labels
                     })
-                    loop newPrice newTime (volumeConsumed + sizeFloat) sessionStartTime
+                    loop newPrice newTime (volumeConsumed + sizeFloat)
 
-        loop ctx.StartPrice ctx.StartTime 0.0 ctx.StartTime
+        loop ctx.StartPrice ctx.StartTime 0.0
 
 // // =============================================================================
 // // Subepisode Generation
