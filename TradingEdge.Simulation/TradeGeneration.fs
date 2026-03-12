@@ -140,6 +140,20 @@ let sequence (patterns: Pattern<'r> list) : Pattern<'r> =
         patterns
         (fun genCtx cont -> cont genCtx)
 
+let sequenceAtomic (patterns: Pattern<'r> list) : Pattern<'r> =
+    fun ctx cont ->
+        let initialSession = ctx.Effects.Session
+        let rec runPatterns patterns' ctx' =
+            match patterns' with
+            | [] -> cont ctx'
+            | p :: rest ->
+                p ctx' (fun ctx'' ->
+                    if ctx''.Effects.Session <> initialSession then
+                        cont ctx''
+                    else
+                        runPatterns rest ctx'')
+        runPatterns patterns ctx
+
 let choice (rng: Random) (weightedPatterns: (Pattern<'r> * float) list) : Pattern<'r> =
     fun genCtx cont ->
         let patterns, weights = List.unzip weightedPatterns
@@ -254,7 +268,8 @@ let generateHold (looseSigma: float) (tightSigma: float) (looseVolume: float) (t
                 buildPatterns (volumeRemaining - actualVolume) (pattern :: acc)
 
         let patterns = buildPatterns volumeLimit []
-        sequence patterns ctx cont
+        let sequencer = if respectSessionBoundaries then sequenceAtomic else sequence
+        sequencer patterns ctx cont
 
 // // =============================================================================
 // // Subepisode Generation
