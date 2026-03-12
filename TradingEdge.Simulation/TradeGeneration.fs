@@ -31,6 +31,7 @@ type GenerationContext = {
     BaseVolume: float
     BaseRate: float
     BaseVolatility: float
+    Trades: ResizeArray<Trade>
 }
 
 let stochasticRound (rng: Random) (x: float) : int =
@@ -107,7 +108,14 @@ let multiTryStep (rng: Random) (price: float) (proposalVol: float) (targetMean: 
 let multiTryStepWithEV (rng: Random) (price: float) (proposalVol: float) (targetMean: float) (targetSigma: float) (n: int) : float * float =
     multiTryStepGenericWithEV rng price proposalVol (fun x -> Normal.PDFLn(targetMean, targetSigma, x)) n
 
+type PatternContext<'r> =
+    {
+        OnVolumeExhausted : GenerationContext -> 'r
+        OnTimeChanged : (SessionLevel.Session -> 'r) -> 'r
+        OnDone : GenerationContext -> 'r
+    }
 
+type Pattern<'r> = PatternContext<'r> -> 'r
 
 // // =============================================================================
 // // Trade Generation
