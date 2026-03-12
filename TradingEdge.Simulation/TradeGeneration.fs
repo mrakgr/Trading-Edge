@@ -121,9 +121,18 @@ type Pattern<'r> = GenerationContext -> PatternContext<'r> -> 'r
 // Pattern Combinators
 // =============================================================================
 
-let sequence (p1: Pattern<'r>) (p2: Pattern<'r>) : Pattern<'r> =
+let sequence (patterns: Pattern<'r> list) : Pattern<'r> =
+    List.foldBack
+        (fun p acc -> fun genCtx ctx -> p genCtx { ctx with OnVolumeExhausted = fun genCtx' -> acc genCtx' ctx })
+        patterns
+        (fun genCtx ctx -> ctx.OnVolumeExhausted genCtx)
+
+let choice (rng: Random) (weightedPatterns: (Pattern<'r> * float) list) : Pattern<'r> =
     fun genCtx ctx ->
-        p1 genCtx { ctx with OnVolumeExhausted = fun genCtx' -> p2 genCtx' ctx }
+        let patterns, weights = List.unzip weightedPatterns
+        let categorical = Categorical(Array.ofList weights, rng)
+        let idx = categorical.Sample()
+        patterns.[idx] genCtx ctx
 
 // // =============================================================================
 // // Trade Generation
