@@ -236,7 +236,7 @@ let generateDrift (endTarget: float) (targetSigma: float) (volumeLimit: float) (
 
         loop ctx.StartPrice ctx.StartTime 0.0
 
-let generateTrades (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
+let generateBreakout (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
         generateDrift ctx.StartTarget targetSigma volumeLimit respectSessionBoundaries ctx cont
 
