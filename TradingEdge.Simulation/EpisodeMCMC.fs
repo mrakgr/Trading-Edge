@@ -52,27 +52,21 @@ type Trade = {
     Time: float
     Price: float
     Size: int
-    TargetMeanAndVariances: (float * float) list
+    TargetMean: float
+    TargetVariance: float
     Label : string list
 }
 
 /// Episode as a generative process
 type Episode<'t> = {
     Label: 't
-    RateMean: float
-    VolumeMean: float
     DurationParam: Distribution.Params
 }
-
-type EpisodeSeries<'a,'b> =
-    | RandomlySampled of ('a -> (Episode<'b> * float)[])
-    | FixedOrder of ('a -> Episode<'b>[])
 
 /// Episode instance with sampled duration
 type EpisodeInstance<'t> = {
     Episode: Episode<'t>
     Duration: float
-    Weight: float
 }
 
 // =============================================================================
@@ -106,47 +100,19 @@ module MCMC =
         newState.[idx2] <- { state.[idx2] with Duration = state.[idx2].Duration - delta }
         newState
 
-    /// Change the episode of a random instance to a different episode from the pool
-    let changeEpisode (rng: Random) (availableEpisodes: (Episode<'t> * float)[]) (state: EpisodeInstance<'t>[]) : EpisodeInstance<'t>[] =
-        let idx = rng.Next(state.Length)
-        let newEpisode, weight = availableEpisodes.[rng.Next(availableEpisodes.Length)]
-        let newState = Array.copy state
-        newState.[idx] <- { Episode = newEpisode; Duration = state.[idx].Duration; Weight = weight }
-        newState
-
-    /// Sample a label from weighted options
-    let sampleWeighted (rng: Random) (weights: seq<'a * float>) : 'a * float =
-        let labels, probs = weights |> Seq.toArray |> Array.unzip
-        let dist = Categorical(probs, rng)
-        let i = dist.Sample()
-        labels.[i], probs.[i]
-
     /// Run MCMC to sample episode instances that fill a target duration
     let run
         (config: Config)
-        (series: EpisodeSeries<'a,'b>)
-        (label: 'a)
+        (episodes: Episode<'t>[])
         (targetDuration: float)
         (rng: Random)
-        : EpisodeInstance<'b>[] =
+        : EpisodeInstance<'t>[] =
 
-        // Generate initial state based on series type
+        // Generate initial state
         let initial =
-            match series with
-            | FixedOrder getEpisodes ->
-                let episodes = getEpisodes label
-                episodes |> Array.map (fun ep ->
-                    let dur = Distribution.sample rng ep.DurationParam
-                    { Episode = ep; Duration = dur; Weight = 1.0 })
-            | RandomlySampled getWeightedEpisodes ->
-                let weighted_episodes = getWeightedEpisodes label
-                Array.unfold (fun totalDur ->
-                    if totalDur < targetDuration then
-                        let ep, weight = sampleWeighted rng weighted_episodes
-                        let dur = Distribution.sample rng ep.DurationParam
-                        Some({ Episode = ep; Duration = dur; Weight = weight }, totalDur + dur)
-                    else
-                        None) 0.0
+            episodes |> Array.map (fun ep ->
+                let dur = Distribution.sample rng ep.DurationParam
+                { Episode = ep; Duration = dur })
 
         // Scale durations to match target exactly
         let totalDur = initial |> Array.sumBy (fun i -> i.Duration)
@@ -154,30 +120,19 @@ module MCMC =
         let mutable current = initial |> Array.map (fun i -> { i with Duration = i.Duration * scale })
 
         // Log-likelihood function
-        let logLikelihood (state: EpisodeInstance<'b>[]) =
+        let logLikelihood (state: EpisodeInstance<'t>[]) =
             state |> Array.sumBy (fun i ->
-                let durLL = Distribution.logLikelihood i.Episode.DurationParam i.Duration
-                let weightLL = log i.Weight
-                durLL + weightLL)
+                Distribution.logLikelihood i.Episode.DurationParam i.Duration)
 
         let mutable currentLL = logLikelihood current
 
-        // MCMC loop with proposals based on series type
+        // MCMC loop
         for _ in 1 .. config.Iterations do
             let proposed =
-                match series with
-                | FixedOrder _ ->
-                    // Only transfer duration for fixed order
-                    if current.Length >= 2 then
-                        transferDuration rng current
-                    else
-                        current
-                | RandomlySampled getWeightedEpisodes ->
-                    // Both transfer duration and change episode
-                    if rng.NextDouble() <= config.TransferDurationProb && current.Length >= 2 then
-                        transferDuration rng current
-                    else
-                        changeEpisode rng (getWeightedEpisodes label) current
+                if current.Length >= 2 then
+                    transferDuration rng current
+                else
+                    current
 
             let proposedLL = logLikelihood proposed
             let logAcceptRatio = proposedLL - currentLL
@@ -194,54 +149,23 @@ module MCMC =
 // =============================================================================
 
 module SessionLevel =
-    type Config = {
-        MorningParams: Distribution.Params
-        MidParams: Distribution.Params
-        CloseParams: Distribution.Params
-    }
-
     type Session =
         | Morning
         | Mid
         | Close
 
-    let episodes =
-        FixedOrder (fun _ -> [|
-            {
-                Label = Morning
-                DurationParam = Distribution.LogNormal (45.0, 60.0)
-                VolumeMean = sqrt 4.
-                RateMean = sqrt 4.
-            }
-            {
-                Label = Mid
-                DurationParam = Distribution.LogNormal (180.0, 270.0)
-                VolumeMean = 1.
-                RateMean = 1.
-            }
-            {
-                Label = Close
-                DurationParam = Distribution.LogNormal (45.0, 60.0)
-                VolumeMean = sqrt 4.
-                RateMean = sqrt 4.
-            }
-        |])
-
-// =============================================================================
-// Subepisode Level Episodes
-// =============================================================================
-
-module TrendLevel =
-    type Trend =
-        | Generic
-        
-    let episodes =
-        RandomlySampled (fun _ -> [|
-            {
-                Label = Generic
-                DurationParam = Distribution.LogNormal (8.0, 10.0)
-                VolumeMean = 1.0
-                RateMean = 1.0
-            }, 1.0
-        |])
+    let episodes : Episode<Session>[] = [|
+        {
+            Label = Morning
+            DurationParam = Distribution.LogNormal (45.0, 60.0)
+        }
+        {
+            Label = Mid
+            DurationParam = Distribution.LogNormal (180.0, 270.0)
+        }
+        {
+            Label = Close
+            DurationParam = Distribution.LogNormal (45.0, 60.0)
+        }
+    |]
 
