@@ -115,7 +115,15 @@ type PatternContext<'r> =
         OnDone : GenerationContext -> 'r
     }
 
-type Pattern<'r> = PatternContext<'r> -> 'r
+type Pattern<'r> = GenerationContext -> PatternContext<'r> -> 'r
+
+// =============================================================================
+// Pattern Combinators
+// =============================================================================
+
+let sequence (p1: Pattern<'r>) (p2: Pattern<'r>) : Pattern<'r> =
+    fun genCtx ctx ->
+        p1 genCtx { ctx with OnVolumeExhausted = fun genCtx' -> p2 genCtx' ctx }
 
 // // =============================================================================
 // // Trade Generation
