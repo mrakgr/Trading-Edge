@@ -9,6 +9,7 @@ open EpisodeMCMC
 // =============================================================================
 
 type GenerationEffect<'r> =
+    abstract member Rng: Random
     abstract member Session: SessionLevel.Session
     abstract member Duration: float
     abstract member AddTrade : Trade -> unit
@@ -29,6 +30,15 @@ and GenerationContext<'r> = {
 
 type PatternContinuation<'r> = GenerationContext<'r> -> 'r
 type Pattern<'r> = GenerationContext<'r> -> PatternContinuation<'r> -> 'r
+
+type SimulationParams = {
+    TotalDuration: float
+    StartPrice: float
+    StartTarget: float
+    BaseVolume: float
+    BaseRate: float
+    BaseVolatility: float
+}
 
 // =============================================================================
 // Variance Calculation
@@ -147,6 +157,7 @@ let makeDefaultEffect (rng: Random) (totalDuration: float) : GenerationEffect<Tr
     let mutable currentSessionIdx = 0
 
     { new GenerationEffect<Trade[]> with
+        member _.Rng = rng
         member _.Session = sessions.[currentSessionIdx].Episode.Label
         member _.Duration = sessions.[currentSessionIdx].Duration
         member _.AddTrade(trade) = trades.Add(trade)
@@ -161,24 +172,19 @@ let makeDefaultEffect (rng: Random) (totalDuration: float) : GenerationEffect<Tr
 
 let makeDefaultContext
     (rng: Random)
-    (totalDuration: float)
-    (startPrice: float)
-    (startTarget: float)
-    (baseVolume: float)
-    (baseRate: float)
-    (baseVolatility: float)
+    (simParams: SimulationParams)
     : GenerationContext<Trade[]> =
 
-    let effect = makeDefaultEffect rng totalDuration
+    let effect = makeDefaultEffect rng simParams.TotalDuration
 
     {
-        StartPrice = startPrice
+        StartPrice = simParams.StartPrice
         StartTime = 0.0
-        StartTarget = startTarget
+        StartTarget = simParams.StartTarget
         Labels = []
-        BaseVolume = baseVolume
-        BaseRate = baseRate
-        BaseVolatility = baseVolatility
+        BaseVolume = simParams.BaseVolume
+        BaseRate = simParams.BaseRate
+        BaseVolatility = simParams.BaseVolatility
         Effects = effect
     }
 
