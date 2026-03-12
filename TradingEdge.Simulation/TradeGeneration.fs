@@ -193,35 +193,41 @@ let makeDefaultContext
 // Trade Generation
 // =============================================================================
 
-let generateTrades (targetSigma: float) : Pattern<'r> =
+let generateTrades (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
         let rng = ctx.Effects.Rng
         let proposalVol = ctx.BaseVolatility * bps
-
-        let mutable price = ctx.StartPrice
-        let mutable time = ctx.StartTime
-
         let volumeMedian = ctx.BaseVolume / 2.0
         let gapMean = 1.0 / ctx.BaseRate
         let gapMedian = gapMean / 2.0
+        let endTime = ctx.StartTime + ctx.Effects.Duration
 
-        while time < ctx.StartTime + ctx.Effects.Duration do
-            let gap = sampleGap rng gapMedian gapMean
-            time <- time + gap
-            if time < ctx.StartTime + ctx.Effects.Duration then
-                let size = sampleSize rng volumeMedian ctx.BaseVolume
-                let sqrtSize = sqrt (float size)
-                price <- multiTryStep rng price (proposalVol * sqrtSize) ctx.StartTarget targetSigma 10
-                ctx.Effects.AddTrade({
-                    Time = time
-                    Price = price
-                    Size = size
-                    TargetMean = ctx.StartTarget
-                    TargetSigma = targetSigma
-                    Label = ctx.Labels
-                })
+        let rec loop price time volumeConsumed =
+            if volumeConsumed >= volumeLimit then
+                cont { ctx with StartPrice = price; StartTime = time }
+            else
+                let gap = sampleGap rng gapMedian gapMean
+                let newTime = time + gap
 
-        cont { ctx with StartPrice = price; StartTime = time }
+                if newTime >= endTime && respectSessionBoundaries then
+                    ctx.Effects.OnTimeChanged (fun () ->
+                        cont { ctx with StartPrice = price; StartTime = newTime })
+                else
+                    let size = sampleSize rng volumeMedian ctx.BaseVolume
+                    let sizeFloat = float size
+                    let sqrtSize = sqrt sizeFloat
+                    let newPrice = multiTryStep rng price (proposalVol * sqrtSize) ctx.StartTarget targetSigma 10
+                    ctx.Effects.AddTrade({
+                        Time = newTime
+                        Price = newPrice
+                        Size = size
+                        TargetMean = ctx.StartTarget
+                        TargetSigma = targetSigma
+                        Label = ctx.Labels
+                    })
+                    loop newPrice newTime (volumeConsumed + sizeFloat)
+
+        loop ctx.StartPrice ctx.StartTime 0.0
 
 // // =============================================================================
 // // Subepisode Generation
