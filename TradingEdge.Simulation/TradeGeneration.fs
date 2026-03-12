@@ -240,6 +240,16 @@ let generateBreakout (targetSigma: float) (volumeLimit: float) (respectSessionBo
     fun ctx cont ->
         generateDrift ctx.StartTarget targetSigma volumeLimit respectSessionBoundaries ctx cont
 
+let generateHold (looseSigma: float) (tightSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
+    fun ctx cont ->
+        let chunkVolume = volumeLimit / 4.0
+        sequence [
+            generateBreakout looseSigma chunkVolume respectSessionBoundaries
+            generateBreakout tightSigma chunkVolume respectSessionBoundaries
+            generateBreakout looseSigma chunkVolume respectSessionBoundaries
+            generateBreakout tightSigma chunkVolume respectSessionBoundaries
+        ] ctx cont
+
 // // =============================================================================
 // // Subepisode Generation
 // // =============================================================================
