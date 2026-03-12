@@ -197,42 +197,7 @@ let makeDefaultContext
 
 let generateTrades (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
-        let proposalVol = ctx.BaseVolatility * bps
-        let volumeMedian = ctx.BaseVolume / 2.0
-        let gapMean = 1.0 / ctx.BaseRate
-        let gapMedian = gapMean / 2.0
-
-        let rec loop price time volumeConsumed =
-            if volumeConsumed >= volumeLimit then
-                cont { ctx with StartPrice = price; StartTime = time }
-            else
-                let rng = ctx.Effects.Rng
-                let gap = sampleGap rng gapMedian gapMean
-                let newTime = time + gap
-                let endTime = ctx.Effects.SessionEndTime 
-
-                if newTime >= endTime then
-                    ctx.Effects.OnTimeChanged (fun () ->
-                        if respectSessionBoundaries then
-                            cont { ctx with StartPrice = price; StartTime = endTime }
-                        else
-                            loop price time volumeConsumed)
-                else
-                    let size = sampleSize rng volumeMedian ctx.BaseVolume
-                    let sizeFloat = float size
-                    let sqrtSize = sqrt sizeFloat
-                    let newPrice = multiTryStep rng price (proposalVol * sqrtSize) ctx.StartTarget targetSigma 10
-                    ctx.Effects.AddTrade({
-                        Time = newTime
-                        Price = newPrice
-                        Size = size
-                        TargetMean = ctx.StartTarget
-                        TargetSigma = targetSigma
-                        Label = ctx.Labels
-                    })
-                    loop newPrice newTime (volumeConsumed + sizeFloat)
-
-        loop ctx.StartPrice ctx.StartTime 0.0
+        generateDrift ctx.StartTarget targetSigma volumeLimit respectSessionBoundaries ctx cont
 
 let generateDrift (endTarget: float) (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
