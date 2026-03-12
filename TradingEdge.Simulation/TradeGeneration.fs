@@ -195,10 +195,6 @@ let makeDefaultContext
 // Trade Generation
 // =============================================================================
 
-let generateTrades (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
-    fun ctx cont ->
-        generateDrift ctx.StartTarget targetSigma volumeLimit respectSessionBoundaries ctx cont
-
 let generateDrift (endTarget: float) (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
         let proposalVol = ctx.BaseVolatility * bps
@@ -239,6 +235,10 @@ let generateDrift (endTarget: float) (targetSigma: float) (volumeLimit: float) (
                     loop newPrice newTime (volumeConsumed + sizeFloat)
 
         loop ctx.StartPrice ctx.StartTime 0.0
+
+let generateTrades (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
+    fun ctx cont ->
+        generateDrift ctx.StartTarget targetSigma volumeLimit respectSessionBoundaries ctx cont
 
 // // =============================================================================
 // // Subepisode Generation
