@@ -209,13 +209,14 @@ let generateTrades (targetSigma: float) (volumeLimit: float) (respectSessionBoun
             else
                 let gap = sampleGap rng gapMedian gapMean
                 let newTime = time + gap
+                let endTime = ctx.Effects.SessionEndTime 
 
-                if newTime >= ctx.Effects.SessionEndTime then
+                if newTime >= endTime then
                     ctx.Effects.OnTimeChanged (fun () ->
                         if respectSessionBoundaries then
-                            cont { ctx with StartPrice = price; StartTime = newTime }
+                            cont { ctx with StartPrice = price; StartTime = endTime }
                         else
-                            loop price newTime volumeConsumed)
+                            loop price time volumeConsumed)
                 else
                     let size = sampleSize rng volumeMedian ctx.BaseVolume
                     let sizeFloat = float size
