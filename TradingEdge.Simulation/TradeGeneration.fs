@@ -240,15 +240,21 @@ let generateBreakout (targetSigma: float) (volumeLimit: float) (respectSessionBo
     fun ctx cont ->
         generateDrift ctx.StartTarget targetSigma volumeLimit respectSessionBoundaries ctx cont
 
-let generateHold (looseSigma: float) (tightSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
+let generateHold (looseSigma: float) (tightSigma: float) (looseVolume: float) (tightVolume: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
-        let chunkVolume = volumeLimit / 4.0
-        sequence [
-            generateBreakout looseSigma chunkVolume respectSessionBoundaries
-            generateBreakout tightSigma chunkVolume respectSessionBoundaries
-            generateBreakout looseSigma chunkVolume respectSessionBoundaries
-            generateBreakout tightSigma chunkVolume respectSessionBoundaries
-        ] ctx cont
+        let rng = ctx.Effects.Rng
+        let rec buildPatterns volumeRemaining acc =
+            if volumeRemaining <= 0.0 then
+                List.rev acc
+            else
+                let useTight = rng.NextDouble() < 0.5
+                let (sigma, chunkVolume) = if useTight then (tightSigma, tightVolume) else (looseSigma, looseVolume)
+                let actualVolume = min chunkVolume volumeRemaining
+                let pattern = generateBreakout sigma actualVolume respectSessionBoundaries
+                buildPatterns (volumeRemaining - actualVolume) (pattern :: acc)
+
+        let patterns = buildPatterns volumeLimit []
+        sequence patterns ctx cont
 
 // // =============================================================================
 // // Subepisode Generation
