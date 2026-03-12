@@ -189,46 +189,39 @@ let makeDefaultContext
     }
 
 
-// // =============================================================================
-// // Trade Generation
-// // =============================================================================
+// =============================================================================
+// Trade Generation
+// =============================================================================
 
-// /// Generate trades for a leaf episode (no child episodes)
-// let generateTrades
-//     (rng: Random)
-//     (baseVolBps: float)
-//     (ctx: GenerationContext<'label>)
-//     : Trade[] * float =
+let generateTrades (targetSigma: float) : Pattern<'r> =
+    fun ctx cont ->
+        let rng = ctx.Effects.Rng
+        let proposalVol = ctx.BaseVolatility * bps
 
-//     let proposalVol = baseVolBps * bps
-//     let parentTarget, parentVariance = ctx.ParentTargetAndVariance |> List.head
-//     let targetSigma = sqrt parentVariance
+        let mutable price = ctx.StartPrice
+        let mutable time = ctx.StartTime
 
-//     let trades = ResizeArray<Trade>()
-//     let mutable price = ctx.StartPrice
-//     let mutable time = ctx.StartTime
+        let volumeMedian = ctx.BaseVolume / 2.0
+        let gapMean = 1.0 / ctx.BaseRate
+        let gapMedian = gapMean / 2.0
 
-//     let volumeMedian = ctx.ParentVolume / 2.0
-//     let gapMean = 1.0 / ctx.ParentRate
-//     let gapMedian = gapMean / 2.0
+        while time < ctx.StartTime + ctx.Effects.Duration do
+            let gap = sampleGap rng gapMedian gapMean
+            time <- time + gap
+            if time < ctx.StartTime + ctx.Effects.Duration then
+                let size = sampleSize rng volumeMedian ctx.BaseVolume
+                let sqrtSize = sqrt (float size)
+                price <- multiTryStep rng price (proposalVol * sqrtSize) ctx.StartTarget targetSigma 10
+                ctx.Effects.AddTrade({
+                    Time = time
+                    Price = price
+                    Size = size
+                    TargetMean = ctx.StartTarget
+                    TargetSigma = targetSigma
+                    Label = ctx.Labels
+                })
 
-//     while time < ctx.StartTime + ctx.ParentDuration do
-//         let gap = sampleGap rng gapMedian gapMean
-//         time <- time + gap
-//         if time < ctx.StartTime + ctx.ParentDuration then
-//             let size = sampleSize rng volumeMedian ctx.ParentVolume
-//             let sqrtSize = sqrt (float size)
-//             price <- multiTryStep rng price (proposalVol * sqrtSize) parentTarget targetSigma 10
-//             trades.Add({
-//                 Time = time
-//                 Price = price
-//                 Size = size
-//                 TargetMeanAndVariances = ctx.ParentTargetAndVariance
-//                 Label = ctx.ParentLabels
-//             })
-
-//     let endPrice = price
-//     trades.ToArray(), endPrice
+        cont { ctx with StartPrice = price; StartTime = time }
 
 // // =============================================================================
 // // Subepisode Generation
