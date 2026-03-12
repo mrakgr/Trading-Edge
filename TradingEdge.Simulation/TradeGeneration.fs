@@ -197,7 +197,6 @@ let makeDefaultContext
 
 let generateTrades (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
-        let rng = ctx.Effects.Rng
         let proposalVol = ctx.BaseVolatility * bps
         let volumeMedian = ctx.BaseVolume / 2.0
         let gapMean = 1.0 / ctx.BaseRate
@@ -207,6 +206,7 @@ let generateTrades (targetSigma: float) (volumeLimit: float) (respectSessionBoun
             if volumeConsumed >= volumeLimit then
                 cont { ctx with StartPrice = price; StartTime = time }
             else
+                let rng = ctx.Effects.Rng
                 let gap = sampleGap rng gapMedian gapMean
                 let newTime = time + gap
                 let endTime = ctx.Effects.SessionEndTime 
