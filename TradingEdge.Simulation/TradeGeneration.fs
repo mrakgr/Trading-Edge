@@ -143,16 +143,16 @@ let sequence (patterns: Pattern<'r> list) : Pattern<'r> =
 let sequenceAtomic (patterns: Pattern<'r> list) : Pattern<'r> =
     fun ctx cont ->
         let initialSession = ctx.Effects.Session
-        let rec runPatterns patterns' ctx' =
-            match patterns' with
-            | [] -> cont ctx'
-            | p :: rest ->
-                p ctx' (fun ctx'' ->
-                    if ctx''.Effects.Session <> initialSession then
-                        cont ctx''
+        List.foldBack
+            (fun p acc -> fun genCtx cont' ->
+                p genCtx (fun genCtx' ->
+                    if genCtx'.Effects.Session <> initialSession then
+                        cont' genCtx'
                     else
-                        runPatterns rest ctx'')
-        runPatterns patterns ctx
+                        acc genCtx' cont'))
+            patterns
+            (fun genCtx cont' -> cont' genCtx)
+            ctx cont
 
 let choice (rng: Random) (weightedPatterns: (Pattern<'r> * float) list) : Pattern<'r> =
     fun genCtx cont ->
