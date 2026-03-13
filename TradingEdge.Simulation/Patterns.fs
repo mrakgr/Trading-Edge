@@ -57,7 +57,7 @@ let downtrendDay (baseParams: BaseParams) (volumeUnitsPerMove : float) : Pattern
         let hold : Pattern<'r> =
             fun ctx cont ->
                 let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
-                let volumeAbnormality = 3.
+                let volumeAbnormality = 7.5
                 let moveSigma = 0.5 * sigmaPerVolume baseParams volumePerMove
                 let ctx = {ctx with StartTarget = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, 0.0, moveSigma)}
                 generateHold baseParams ["Hold"; "DowntrendDay"] volumeAbnormality (targetSigma, volumePerMove * 0.9) (targetSigma * 0.1, volumePerMove * 0.1) volumePerMove true ctx cont

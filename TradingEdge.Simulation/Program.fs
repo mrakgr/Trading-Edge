@@ -4,6 +4,7 @@ open TradingEdge.Simulation.OrderBook
 open TradingEdge.Simulation.SessionDuration
 open TradingEdge.Simulation.DatasetGeneration
 open TradingEdge.Simulation.TradeGeneration
+open TradingEdge.Simulation.Patterns
 
 type OrderBookArgs =
     | [<AltCommandLine("-s")>] Seed of int
@@ -173,36 +174,49 @@ let runBuildDigests (args: ParseResults<BuildDigestsArgs>) =
 let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
     let seed = args.GetResult(DumpTradesArgs.Seed, 42)
     let startPrice = args.GetResult(DumpTradesArgs.Price, 100.0)
-    let iterations = args.GetResult(DumpTradesArgs.Iterations, 10000)
     let outputPath = args.TryGetResult(DumpTradesArgs.Output)
     let rng = Random(seed)
 
-    let baseVolBps = 2.
-    let tradeVolBps = 1.
-    let dayTarget = startPrice + 5.0
-    let daySigma = 1.0
     let dayVolume = 100.0
-    let dayRate = 10.0 * 60.
+    let dayRate = 10.0 * 60.0
     let dayDuration = 390.0
+    let baseVolBps = 2.0
 
-    let trades = generateDayTrades rng startPrice baseVolBps tradeVolBps dayTarget daySigma dayVolume dayRate dayDuration
+    // Normalize base volatility by sqrt(mean rate * mean volume)
+    let normalizedBaseVol = baseVolBps / sqrt(dayRate * dayVolume)
+
+    let baseParams = {
+        BaseVolume = dayVolume
+        BaseRate = dayRate
+        BaseVolatility = normalizedBaseVol
+    }
+
+    let simParams = {
+        TotalDuration = dayDuration
+        StartPrice = startPrice
+        StartTarget = startPrice
+        BaseVolume = dayVolume
+        BaseRate = dayRate
+        BaseVolatility = normalizedBaseVol
+    }
+
+    let ctx = makeDefaultContext rng simParams
+    let volumeUnitsPerMove = 3.5
+    let pattern = downtrendDay baseParams volumeUnitsPerMove
+    let trades = pattern ctx (fun _ -> ctx.Effects.OnDone ctx)
 
     let writer : System.IO.TextWriter =
         match outputPath with
         | Some path -> new System.IO.StreamWriter(path) :> _
         | None -> System.Console.Out
 
-    writer.WriteLine("time,dt,price,size,label,day_target,day_variance,session_target,session_variance,trend_target,trend_variance")
+    writer.WriteLine("time,dt,price,size,label,target_mean,target_sigma")
     let mutable prevTime = 0.0
     for t in trades do
         let dt = t.Time - prevTime
-        let label = String.concat "|" (List.rev t.Label)
-        let targets = t.TargetMeanAndVariances |> List.rev |> List.toArray
-        let dayTarget, dayVariance = if targets.Length > 0 then targets.[0] else (0.0, 0.0)
-        let sessionTarget, sessionVariance = if targets.Length > 1 then targets.[1] else (0.0, 0.0)
-        let trendTarget, trendVariance = if targets.Length > 2 then targets.[2] else (0.0, 0.0)
-        writer.WriteLine(sprintf "%.6f,%.6f,%.6f,%d,%s,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f"
-            t.Time dt t.Price t.Size label dayTarget dayVariance sessionTarget sessionVariance trendTarget trendVariance)
+        let label = String.concat "|" t.Label
+        writer.WriteLine(sprintf "%.6f,%.6f,%.6f,%d,%s,%.6f,%.6f"
+            t.Time dt t.Price t.Size label t.TargetMean t.TargetSigma)
         prevTime <- t.Time
 
     match outputPath with
@@ -249,7 +263,7 @@ let main argv =
         | Build_Digests args -> runBuildDigests args
         | Preprocess args -> runPreprocess args
         | Dump_Trades args -> runDumpTrades args
-        | Test_Nested _ -> testNestedGeneration() |> ignore
+        | Test_Nested _ -> printfn "Test_Nested command not implemented"
 
         0
     with
