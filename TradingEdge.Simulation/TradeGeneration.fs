@@ -221,7 +221,7 @@ let makeDefaultContext
 
 let generateDrift (baseParams: BaseParams) (labels: string list) (volumeAbnormality : float) (endTarget: float) (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
-        let proposalVol = baseParams.BaseVolatility * bps
+        let proposalVol = baseParams.BaseVolatility
         let sqrtVolumeAbnormality = sqrt volumeAbnormality
         let volumeMean = baseParams.BaseVolume * sqrtVolumeAbnormality
         let volumeMedian = volumeMean / 2.0
