@@ -10,7 +10,7 @@ foreach ($seed in $Seeds) {
     # Dump trades
     dotnet run --project TradingEdge.Simulation -- dump-trades -s $seed -o $csvFile
 
-    # Generate tick chart
+    # Generate tick chart (note that it's subsampled)
     python3 scripts/visualization/sim_tick.py $csvFile
 
     # Generate candle chart
