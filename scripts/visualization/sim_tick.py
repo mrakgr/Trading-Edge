@@ -26,6 +26,12 @@ with open(input_csv) as f:
             'target_sigma': float(row['target_sigma']),
         })
 
+# Downsample if too many trades
+max_points = 10000
+if len(trades) > max_points:
+    step = len(trades) // max_points
+    trades = trades[::step]
+    print(f'Downsampled to {len(trades)} trades (step={step})')
 
 # Plot all trades
 times = [t['time'] / 60.0 for t in trades]
