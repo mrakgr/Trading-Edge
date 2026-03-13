@@ -17,6 +17,7 @@ def load_trades(csv_path):
                 'size': int(row['size']),
                 'target_mean': float(row['target_mean']),
                 'target_sigma': float(row['target_sigma']),
+                'label': row['label'],
             })
     return trades
 
@@ -35,6 +36,7 @@ def create_volume_bars(trades, volume_per_bar):
         time = trade['time']
         target_mean = trade['target_mean']
         target_sigma = trade['target_sigma']
+        label = trade['label']
 
         remaining_size = size
 
@@ -42,12 +44,12 @@ def create_volume_bars(trades, volume_per_bar):
             space_left = volume_per_bar - current_volume
 
             if remaining_size <= space_left:
-                bar_data.append((price, remaining_size, time, target_mean, target_sigma))
+                bar_data.append((price, remaining_size, time, target_mean, target_sigma, label))
                 current_volume += remaining_size
                 remaining_size = 0
             else:
                 if space_left > 0:
-                    bar_data.append((price, space_left, time, target_mean, target_sigma))
+                    bar_data.append((price, space_left, time, target_mean, target_sigma, label))
                     current_volume += space_left
                     remaining_size -= space_left
 
@@ -91,7 +93,8 @@ def compute_bar_stats(bar_data, existing_bars):
         'time_duration': time_duration,
         'target_mean': np.sum(target_means * volumes) / total_volume,
         'target_sigma': np.sum(target_sigmas * volumes) / total_volume,
-        'num_trades': len(bar_data)
+        'num_trades': len(bar_data),
+        'labels': bar_data[0][5] if bar_data else ''
     }
 
 def plot_volume_bars(bars, output_html, input_csv):
@@ -122,7 +125,8 @@ def plot_volume_bars(bars, output_html, input_csv):
         f"-2σ: {b['vwap'] - 2 * b['stddev']:.4f}<br>"
         f"Time: {b['start_time']/60:.2f}-{b['end_time']/60:.2f}m<br>"
         f"Duration: {b['time_duration']:.3f}s<br>"
-        f"Trades: {b['num_trades']}"
+        f"Trades: {b['num_trades']}<br>"
+        f"Labels: {b['labels']}"
         for b in bars
     ]
 

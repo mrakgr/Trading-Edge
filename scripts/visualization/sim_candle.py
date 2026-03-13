@@ -15,6 +15,7 @@ def load_trades(csv_path):
                 'size': int(row['size']),
                 'target_mean': float(row['target_mean']),
                 'target_sigma': float(row['target_sigma']),
+                'label': row['label'],
             })
     return trades
 
@@ -22,13 +23,10 @@ def create_time_bars(trades, seconds_per_bar):
     if not trades:
         return []
 
-    # Convert seconds to minutes since trade times are in minutes
-    minutes_per_bar = seconds_per_bar / 60.0
-
     bars = []
     start_time = trades[0]['time']
     current_bar_start = start_time
-    current_bar_end = current_bar_start + minutes_per_bar
+    current_bar_end = current_bar_start + seconds_per_bar
     bar_trades = []
 
     for trade in trades:
@@ -39,7 +37,7 @@ def create_time_bars(trades, seconds_per_bar):
                 bars.append(compute_bar_ohlc(bar_trades, current_bar_start))
                 bar_trades = []
             current_bar_start = current_bar_end
-            current_bar_end = current_bar_start + minutes_per_bar
+            current_bar_end = current_bar_start + seconds_per_bar
 
         bar_trades.append(trade)
 
@@ -52,6 +50,11 @@ def compute_bar_ohlc(bar_trades, bar_start_time):
     prices = [t['price'] for t in bar_trades]
     volumes = [t['size'] for t in bar_trades]
 
+    # Collect unique labels
+    labels = set()
+    for t in bar_trades:
+        labels.update(t['label'].split('|'))
+
     return {
         'timestamp': bar_start_time,
         'open': bar_trades[0]['price'],
@@ -59,7 +62,8 @@ def compute_bar_ohlc(bar_trades, bar_start_time):
         'low': min(prices),
         'close': bar_trades[-1]['price'],
         'volume': sum(volumes),
-        'num_trades': len(bar_trades)
+        'num_trades': len(bar_trades),
+        'labels': ', '.join(sorted(labels))
     }
 
 def plot_candlesticks(bars, output_html, seconds_per_bar):
@@ -79,11 +83,12 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
     volumes = [b['volume'] for b in bars]
 
     hover_text = [
-        f"Time: {b['timestamp']:.2f}m<br>"
+        f"Time: {b['timestamp']/60:.2f}m<br>"
         f"O: {b['open']:.4f} H: {b['high']:.4f}<br>"
         f"L: {b['low']:.4f} C: {b['close']:.4f}<br>"
         f"Volume: {b['volume']:,}<br>"
-        f"Trades: {b['num_trades']}"
+        f"Trades: {b['num_trades']}<br>"
+        f"Labels: {b['labels']}"
         for b in bars
     ]
 

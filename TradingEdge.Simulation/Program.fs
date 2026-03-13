@@ -178,7 +178,7 @@ let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
     let rng = Random(seed)
 
     let dayVolume = 100.0
-    let dayRate = 10.0 * 60.0
+    let dayRate = 10.0
     let dayDuration = 390.0
     let baseVolBps = 2.0
 

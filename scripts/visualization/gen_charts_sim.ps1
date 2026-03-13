@@ -1,5 +1,5 @@
 param(
-    [int[]]$Seeds = @(42, 123, 456, 789)
+    [int[]]$Seeds = @(42)
 )
 
 foreach ($seed in $Seeds) {
