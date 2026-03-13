@@ -61,8 +61,8 @@ let downtrendDay (baseParams: BaseParams) (volumeUnitsPerMove : float) : Pattern
         // Session-specific patterns
         let morning : Pattern<'r> =
             choice [
-                driftDown, 0.8
-                hold, 0.2
+                driftDown, 0.9
+                hold, 0.1
             ]
         let mid : Pattern<'r> = driftFlat
         let close : Pattern<'r> = morning

@@ -16,12 +16,6 @@ type GenerationEffect<'r> =
     abstract member OnTimeChanged : (unit -> 'r) -> 'r
     abstract member OnDone : GenerationContext<'r> -> 'r
 
-type BaseParams = {
-    BaseVolume: float
-    BaseRate: float
-    BaseVolatility: float
-}
-
 /// Common parameters for pattern generation
 and GenerationContext<'r> = {
     StartPrice: float
@@ -29,6 +23,13 @@ and GenerationContext<'r> = {
     StartTarget: float
     Effects : GenerationEffect<'r>
 }
+
+type BaseParams = {
+    BaseVolume: float
+    BaseRate: float
+    BaseVolatility: float
+}
+
 
 type PatternContinuation<'r> = GenerationContext<'r> -> 'r
 type Pattern<'r> = GenerationContext<'r> -> PatternContinuation<'r> -> 'r
