@@ -16,12 +16,7 @@ let volumeUnitToTotal (baseParams: BaseParams) (volumeUnit: float) : float =
 /// Median is 85% of mean for slight right skew
 let volumePerMove (baseParams: BaseParams) (ctx : GenerationContext<'r>) (volumeUnitsPerMove: float) : float =
     let mean = volumeUnitToTotal baseParams volumeUnitsPerMove
-    let mu, sigma = logNormalMuSigma (mean * 0.85) mean
-    LogNormal.Sample(ctx.Effects.Rng, mu, sigma)
-
-/// Calculate volatility sigma scaled by square root of volume
-let sigmaPerVolume (baseParams: BaseParams) (volume : float) =
-    baseParams.BaseVolatility * sqrt volume
+    sampleLogNormal ctx.Effects.Rng (mean * 0.8) mean
 
 // =============================================================================
 // Patterns
@@ -42,7 +37,7 @@ let downtrendDay (baseParams: BaseParams) (volumeUnitsPerMove : float) : Pattern
             fun ctx cont ->
                 let volumeAbnormality = 1.
                 let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
-                let moveSigma = volumeAbnormality * sigmaPerVolume baseParams volumePerMove
+                let moveSigma = volumeAbnormality * baseParams.BaseVolatility * sqrt volumePerMove
                 let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, 0.0, moveSigma)
                 generateDrift baseParams ["DriftFlat"; "DowntrendDay"] volumeAbnormality target targetSigma volumePerMove true ctx cont
 
@@ -51,19 +46,28 @@ let downtrendDay (baseParams: BaseParams) (volumeUnitsPerMove : float) : Pattern
             fun ctx cont ->
                 let volumeAbnormality = 3.
                 let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
-                let moveSigma = volumeAbnormality * sigmaPerVolume baseParams volumePerMove
-                let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, -0.35 * moveSigma, moveSigma)
+                let moveSigma = volumeAbnormality * baseParams.BaseVolatility * sqrt volumePerMove
+                let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, -0.3 * moveSigma, moveSigma)
                 generateDrift baseParams ["DriftDown"; "DowntrendDay"] volumeAbnormality target targetSigma volumePerMove true ctx cont
 
         // Hold pattern: 3x abnormal volume, alternates between loose and tight consolidation
         // Target nudged slightly with small random walk
         let hold : Pattern<'r> =
-            fun ctx cont ->
+            let hold ctx cont =
                 let volumeAbnormality = 7.5
-                let volumePerMove = volumePerMove baseParams ctx (3. * volumeUnitsPerMove)
-                let moveSigma = 0.5 * sigmaPerVolume baseParams volumePerMove
+                let volumePerMove = volumePerMove baseParams ctx (2. * volumeUnitsPerMove)
+                let moveSigma = 0.5 * baseParams.BaseVolatility * sqrt volumePerMove
                 let ctx = {ctx with StartTarget = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, 0.0, moveSigma)}
-                generateHold baseParams ["Hold"; "DowntrendDay"] volumeAbnormality (targetSigma * 0.1, volumePerMove * 0.9) (targetSigma, volumePerMove * 0.1) volumePerMove true ctx cont
+                generateHold baseParams ["Hold"; "DowntrendDay"] volumeAbnormality (targetSigma * 0.1, volumePerMove * 0.9 * 0.3) (targetSigma, volumePerMove * 0.1 * 0.3) volumePerMove false ctx cont
+            let release ctx cont =
+                let volumeAbnormality = 4.
+                let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
+                let moveSigma = volumeAbnormality * baseParams.BaseVolatility * sqrt volumePerMove
+                let z = Normal.Sample(ctx.Effects.Rng, -1. * moveSigma, moveSigma)
+                let target = ctx.StartTarget + z
+                let ctx = {ctx with StartTarget = ctx.StartTarget + z * 0.33}
+                generateDrift baseParams ["HoldRelease"; "DowntrendDay"] volumeAbnormality target targetSigma volumePerMove false ctx cont
+            sequence [hold; release]
 
         // Session-specific patterns
         let morning : Pattern<'r> =
