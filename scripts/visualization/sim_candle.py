@@ -13,12 +13,8 @@ def load_trades(csv_path):
                 'time': float(row['time']),
                 'price': float(row['price']),
                 'size': int(row['size']),
-                'day_target': float(row['day_target']),
-                'day_sigma': float(row['day_variance']) ** 0.5,
-                'session_target': float(row['session_target']),
-                'session_sigma': float(row['session_variance']) ** 0.5,
-                'trend_target': float(row['trend_target']),
-                'trend_sigma': float(row['trend_variance']) ** 0.5,
+                'target_mean': float(row['target_mean']),
+                'target_sigma': float(row['target_sigma']),
             })
     return trades
 
@@ -102,7 +98,7 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
         hoverinfo='text'
     ), row=1, col=1)
 
-    # Add target lines for all three levels
+    # Add target line
     # Get target values from first trade in each bar
     bar_times = [b['timestamp'] for b in bars]
 
@@ -121,78 +117,28 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
 
     x_minutes = bar_times  # Already in minutes
 
-    # Day level
+    # Target mean and sigma bands
     fig.add_trace(go.Scatter(
         x=x_minutes,
-        y=[t['day_target'] for t in bar_targets],
+        y=[t['target_mean'] for t in bar_targets],
         mode='lines',
-        line=dict(color='purple', width=2, dash='dash'),
-        name='Day Target'
+        line=dict(color='red', width=2),
+        name='Target Mean'
     ), row=1, col=1)
     fig.add_trace(go.Scatter(
         x=x_minutes,
-        y=[t['day_target'] + t['day_sigma'] for t in bar_targets],
+        y=[t['target_mean'] + t['target_sigma'] for t in bar_targets],
         mode='lines',
-        line=dict(color='purple', width=1, dash='dash'),
-        name='Day +1σ',
+        line=dict(color='red', width=1, dash='dash'),
+        name='Target +1σ',
         showlegend=False
     ), row=1, col=1)
     fig.add_trace(go.Scatter(
         x=x_minutes,
-        y=[t['day_target'] - t['day_sigma'] for t in bar_targets],
+        y=[t['target_mean'] - t['target_sigma'] for t in bar_targets],
         mode='lines',
-        line=dict(color='purple', width=1, dash='dash'),
-        name='Day -1σ',
-        showlegend=False
-    ), row=1, col=1)
-
-    # Session level
-    fig.add_trace(go.Scatter(
-        x=x_minutes,
-        y=[t['session_target'] for t in bar_targets],
-        mode='lines',
-        line=dict(color='orange', width=2, dash='dot'),
-        name='Session Target'
-    ), row=1, col=1)
-    fig.add_trace(go.Scatter(
-        x=x_minutes,
-        y=[t['session_target'] + t['session_sigma'] for t in bar_targets],
-        mode='lines',
-        line=dict(color='orange', width=1, dash='dot'),
-        name='Session +1σ',
-        showlegend=False
-    ), row=1, col=1)
-    fig.add_trace(go.Scatter(
-        x=x_minutes,
-        y=[t['session_target'] - t['session_sigma'] for t in bar_targets],
-        mode='lines',
-        line=dict(color='orange', width=1, dash='dot'),
-        name='Session -1σ',
-        showlegend=False
-    ), row=1, col=1)
-
-    # Trend level
-    fig.add_trace(go.Scatter(
-        x=x_minutes,
-        y=[t['trend_target'] for t in bar_targets],
-        mode='lines',
-        line=dict(color='cyan', width=2),
-        name='Trend Target'
-    ), row=1, col=1)
-    fig.add_trace(go.Scatter(
-        x=x_minutes,
-        y=[t['trend_target'] + t['trend_sigma'] for t in bar_targets],
-        mode='lines',
-        line=dict(color='cyan', width=1),
-        name='Trend +1σ',
-        showlegend=False
-    ), row=1, col=1)
-    fig.add_trace(go.Scatter(
-        x=x_minutes,
-        y=[t['trend_target'] - t['trend_sigma'] for t in bar_targets],
-        mode='lines',
-        line=dict(color='cyan', width=1),
-        name='Trend -1σ',
+        line=dict(color='red', width=1, dash='dash'),
+        name='Target -1σ',
         showlegend=False
     ), row=1, col=1)
 
