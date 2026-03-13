@@ -227,7 +227,7 @@ let generateDrift (baseParams: BaseParams) (labels: string list) (volumeAbnormal
         let sqrtVolumeAbnormality = sqrt volumeAbnormality
         let volumeMean = baseParams.BaseVolume * sqrtVolumeAbnormality
         let volumeMedian = volumeMean / 2.0
-        let gapMean = 1.0 / baseParams.BaseRate * sqrtVolumeAbnormality
+        let gapMean = 1.0 / (baseParams.BaseRate * sqrtVolumeAbnormality)
         let gapMedian = gapMean / 2.0
 
         let rec loop price time volumeConsumed =
