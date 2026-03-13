@@ -154,10 +154,10 @@ let sequenceAtomic (patterns: Pattern<'r> list) : Pattern<'r> =
             (fun genCtx cont' -> cont' genCtx)
             ctx cont
 
-let choice (rng: Random) (weightedPatterns: (Pattern<'r> * float) list) : Pattern<'r> =
+let choice (weightedPatterns: (Pattern<'r> * float) list) : Pattern<'r> =
     fun genCtx cont ->
         let patterns, weights = List.unzip weightedPatterns
-        let categorical = Categorical(Array.ofList weights, rng)
+        let categorical = Categorical(Array.ofList weights, genCtx.Effects.Rng)
         let idx = categorical.Sample()
         patterns.[idx] genCtx cont
 
@@ -220,11 +220,13 @@ let makeDefaultContext
 // Trade Generation
 // =============================================================================
 
-let generateDrift (endTarget: float) (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
+let generateDrift (volumeAbnormality : float) (endTarget: float) (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
         let proposalVol = ctx.BaseVolatility * bps
-        let volumeMedian = ctx.BaseVolume / 2.0
-        let gapMean = 1.0 / ctx.BaseRate
+        let sqrtVolumeAbnormality = sqrt volumeAbnormality
+        let volumeMean = ctx.BaseVolume * sqrtVolumeAbnormality
+        let volumeMedian = volumeMean / 2.0
+        let gapMean = 1.0 / ctx.BaseRate * sqrtVolumeAbnormality
         let gapMedian = gapMean / 2.0
 
         let rec loop price time volumeConsumed =
@@ -245,7 +247,7 @@ let generateDrift (endTarget: float) (targetSigma: float) (volumeLimit: float) (
                         else
                             loop price time volumeConsumed)
                 else
-                    let size = sampleSize rng volumeMedian ctx.BaseVolume
+                    let size = sampleSize rng volumeMedian volumeMean
                     let sizeFloat = float size
                     let sqrtSize = sqrt sizeFloat
                     let newPrice = multiTryStep rng price (proposalVol * sqrtSize) currentTarget targetSigma 10
@@ -261,11 +263,11 @@ let generateDrift (endTarget: float) (targetSigma: float) (volumeLimit: float) (
 
         loop ctx.StartPrice ctx.StartTime 0.0
 
-let generateBreakout (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
+let generateBreakout (volumeAbnormality : float) (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
-        generateDrift ctx.StartTarget targetSigma volumeLimit respectSessionBoundaries ctx cont
+        generateDrift volumeAbnormality ctx.StartTarget targetSigma volumeLimit respectSessionBoundaries ctx cont
 
-let generateHold (looseSigma: float) (tightSigma: float) (looseVolume: float) (tightVolume: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
+let generateHold (volumeAbnormality : float) (looseSigma : float, looseVolume : float) (tightSigma : float, tightVolume : float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
         let rng = ctx.Effects.Rng
         let rec buildPatterns volumeRemaining acc =
@@ -275,32 +277,9 @@ let generateHold (looseSigma: float) (tightSigma: float) (looseVolume: float) (t
                 let useTight = rng.NextDouble() < 0.5
                 let (sigma, chunkVolume) = if useTight then (tightSigma, tightVolume) else (looseSigma, looseVolume)
                 let actualVolume = min chunkVolume volumeRemaining
-                let pattern = generateBreakout sigma actualVolume respectSessionBoundaries
+                let pattern = generateBreakout volumeAbnormality sigma actualVolume respectSessionBoundaries
                 buildPatterns (volumeRemaining - actualVolume) (pattern :: acc)
 
         let patterns = buildPatterns volumeLimit []
         let sequencer = if respectSessionBoundaries then sequenceAtomic else sequence
         sequencer patterns ctx cont
-
-
-// =============================================================================
-// Patterns
-// =============================================================================
-
-// let patternDowntrend (endTarget: float) (targetSigma: float) (abnormalVolMultiplier: float) (driftVolume: float) (holdVolume: float) : Pattern<'r> =
-//     fun ctx cont ->
-//         let rng = ctx.Effects.Rng
-//         let session = ctx.Effects.Session
-//         let isMid = session = SessionLevel.Mid
-//         let target = if isMid then ctx.StartTarget else endTarget
-
-//         let driftPattern : Pattern<'r> =
-//             fun genCtx genCont ->
-//                 let driftCtx = { genCtx with BaseVolatility = genCtx.BaseVolatility * abnormalVolMultiplier }
-//                 repeat (generateDrift target targetSigma driftVolume true) driftCtx genCont
-
-//         let holdPattern = generateHold (targetSigma * 2.0) targetSigma holdVolume (holdVolume / 2.0) holdVolume true
-
-//         choice rng [driftPattern, 0.8; holdPattern, 0.2] ctx cont
-
-
