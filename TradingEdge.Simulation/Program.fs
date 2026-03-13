@@ -180,7 +180,7 @@ let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
     let dayVolume = 100.0
     let dayRate = 10.0
     let dayDuration = 390.0
-    let baseVolBps = 2.0 * bps
+    let baseVolBps = 15.0 * bps
 
     // Normalize base volatility by sqrt(mean rate * mean volume)
     let normalizedBaseVol = baseVolBps / sqrt(dayRate * dayVolume)

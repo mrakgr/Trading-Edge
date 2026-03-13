@@ -35,7 +35,7 @@ let sigmaPerVolume (baseParams: BaseParams) (volume : float) =
 let downtrendDay (baseParams: BaseParams) (volumeUnitsPerMove : float) : Pattern<'r> =
     fun ctx cont ->
         // Wide target sigma allows significant price movement
-        let targetSigma = baseParams.BaseVolatility * 10.
+        let targetSigma = 10. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
 
         // Flat drift: normal volume, no directional bias
         let driftFlat : Pattern<'r> =
