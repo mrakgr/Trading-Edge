@@ -13,10 +13,9 @@ let volumeUnitToTotal (baseParams: BaseParams) (volumeUnit: float) : float =
     volumeUnit * baseParams.BaseVolume * baseParams.BaseRate
 
 /// Sample volume per move from log normal distribution
-/// Median is 85% of mean for slight right skew
 let volumePerMove (baseParams: BaseParams) (ctx : GenerationContext<'r>) (volumeUnitsPerMove: float) : float =
     let mean = volumeUnitToTotal baseParams volumeUnitsPerMove
-    sampleLogNormal ctx.Effects.Rng (mean * 0.8) mean
+    sampleLogNormal ctx.Effects.Rng (mean * 0.7) mean
 
 // =============================================================================
 // Patterns
@@ -58,7 +57,7 @@ let downtrendDay (baseParams: BaseParams) (volumeUnitsPerMove : float) : Pattern
                 let volumePerMove = volumePerMove baseParams ctx (2. * volumeUnitsPerMove)
                 let moveSigma = 0.5 * baseParams.BaseVolatility * sqrt volumePerMove
                 let ctx = {ctx with StartTarget = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, 0.0, moveSigma)}
-                generateHold baseParams ["Hold"; "DowntrendDay"] volumeAbnormality (targetSigma * 0.1, volumePerMove * 0.9 * 0.3) (targetSigma, volumePerMove * 0.1 * 0.3) volumePerMove false ctx cont
+                generateHold baseParams ["Hold"; "DowntrendDay"] volumeAbnormality (targetSigma * 0.1, volumePerMove * 0.8 * 0.3) (targetSigma, volumePerMove * 0.2 * 0.3) volumePerMove false ctx cont
             let release ctx cont =
                 let volumeAbnormality = 4.
                 let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
