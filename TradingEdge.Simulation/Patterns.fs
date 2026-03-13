@@ -35,13 +35,13 @@ let sigmaPerVolume (baseParams: BaseParams) (volume : float) =
 let downtrendDay (baseParams: BaseParams) (volumeUnitsPerMove : float) : Pattern<'r> =
     fun ctx cont ->
         // Wide target sigma allows significant price movement
-        let targetSigma = 10. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
+        let targetSigma = 30. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
 
         // Flat drift: normal volume, no directional bias
         let driftFlat : Pattern<'r> =
             fun ctx cont ->
-                let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
                 let volumeAbnormality = 1.
+                let volumePerMove = volumePerMove baseParams ctx (volumeAbnormality * volumeUnitsPerMove)
                 let moveSigma = volumeAbnormality * sigmaPerVolume baseParams volumePerMove
                 let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, 0.0, moveSigma)
                 generateDrift baseParams ["DriftFlat"; "DowntrendDay"] volumeAbnormality target targetSigma volumePerMove true ctx cont
@@ -49,8 +49,8 @@ let downtrendDay (baseParams: BaseParams) (volumeUnitsPerMove : float) : Pattern
         // Downward drift: 3x abnormal volume, target biased -1 sigma below current
         let driftDown : Pattern<'r> =
             fun ctx cont ->
-                let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
                 let volumeAbnormality = 3.
+                let volumePerMove = volumePerMove baseParams ctx (volumeAbnormality * volumeUnitsPerMove)
                 let moveSigma = volumeAbnormality * sigmaPerVolume baseParams volumePerMove
                 let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, -1. * moveSigma, moveSigma)
                 generateDrift baseParams ["DriftDown"; "DowntrendDay"] volumeAbnormality target targetSigma volumePerMove true ctx cont
@@ -59,8 +59,8 @@ let downtrendDay (baseParams: BaseParams) (volumeUnitsPerMove : float) : Pattern
         // Target nudged slightly with small random walk
         let hold : Pattern<'r> =
             fun ctx cont ->
-                let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
                 let volumeAbnormality = 7.5
+                let volumePerMove = volumePerMove baseParams ctx (volumeAbnormality * volumeUnitsPerMove)
                 let moveSigma = 0.5 * sigmaPerVolume baseParams volumePerMove
                 let ctx = {ctx with StartTarget = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, 0.0, moveSigma)}
                 generateHold baseParams ["Hold"; "DowntrendDay"] volumeAbnormality (targetSigma, volumePerMove * 0.9) (targetSigma * 0.1, volumePerMove * 0.1) volumePerMove true ctx cont
