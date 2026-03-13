@@ -8,7 +8,7 @@ open Parquet
 open Parquet.Schema
 open Parquet.Data
 open FSharp.Control
-open TradingEdge.Simulation.EpisodeMCMC
+open TradingEdge.Simulation.SessionDuration
 // open TradingEdge.Simulation.OrderFlowGeneration
 open TradingEdge.Simulation.TradeDataTDigests
 

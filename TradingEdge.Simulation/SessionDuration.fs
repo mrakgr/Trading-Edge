@@ -1,4 +1,4 @@
-module TradingEdge.Simulation.EpisodeMCMC
+module TradingEdge.Simulation.SessionDuration
 
 open System
 open MathNet.Numerics.Distributions

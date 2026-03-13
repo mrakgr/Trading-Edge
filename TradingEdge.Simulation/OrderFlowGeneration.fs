@@ -2,7 +2,7 @@ module TradingEdge.Simulation.OrderFlowGeneration
 
 open System
 open MathNet.Numerics.Distributions
-open EpisodeMCMC
+open SessionDuration
 
 // /// Common parameters for recursive generation
 // type GenerationContext = {

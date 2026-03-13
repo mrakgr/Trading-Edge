@@ -1,7 +1,7 @@
 open System
 open Argu
 open TradingEdge.Simulation.OrderBook
-open TradingEdge.Simulation.EpisodeMCMC
+open TradingEdge.Simulation.SessionDuration
 open TradingEdge.Simulation.DatasetGeneration
 open TradingEdge.Simulation.TradeGeneration
 
