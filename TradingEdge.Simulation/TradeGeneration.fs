@@ -21,7 +21,6 @@ and GenerationContext<'r> = {
     StartPrice: float
     StartTime: float
     StartTarget: float
-    Labels: string list
     BaseVolume: float
     BaseRate: float
     BaseVolatility: float
@@ -208,7 +207,6 @@ let makeDefaultContext
         StartPrice = simParams.StartPrice
         StartTime = 0.0
         StartTarget = simParams.StartTarget
-        Labels = []
         BaseVolume = simParams.BaseVolume
         BaseRate = simParams.BaseRate
         BaseVolatility = simParams.BaseVolatility
@@ -220,7 +218,7 @@ let makeDefaultContext
 // Trade Generation
 // =============================================================================
 
-let generateDrift (volumeAbnormality : float) (endTarget: float) (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
+let generateDrift (labels: string list) (volumeAbnormality : float) (endTarget: float) (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
         let proposalVol = ctx.BaseVolatility * bps
         let sqrtVolumeAbnormality = sqrt volumeAbnormality
@@ -257,17 +255,17 @@ let generateDrift (volumeAbnormality : float) (endTarget: float) (targetSigma: f
                         Size = size
                         TargetMean = currentTarget
                         TargetSigma = targetSigma
-                        Label = ctx.Labels
+                        Label = labels
                     })
                     loop newPrice newTime (volumeConsumed + sizeFloat)
 
         loop ctx.StartPrice ctx.StartTime 0.0
 
-let generateBreakout (volumeAbnormality : float) (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
+let generateBreakout (labels: string list) (volumeAbnormality : float) (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
-        generateDrift volumeAbnormality ctx.StartTarget targetSigma volumeLimit respectSessionBoundaries ctx cont
+        generateDrift labels volumeAbnormality ctx.StartTarget targetSigma volumeLimit respectSessionBoundaries ctx cont
 
-let generateHold (volumeAbnormality : float) (looseSigma : float, looseVolume : float) (tightSigma : float, tightVolume : float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
+let generateHold (labels: string list) (volumeAbnormality : float) (looseSigma : float, looseVolume : float) (tightSigma : float, tightVolume : float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
         let rng = ctx.Effects.Rng
         let rec buildPatterns volumeRemaining acc =
@@ -277,7 +275,7 @@ let generateHold (volumeAbnormality : float) (looseSigma : float, looseVolume : 
                 let useTight = rng.NextDouble() < 0.5
                 let (sigma, chunkVolume) = if useTight then (tightSigma, tightVolume) else (looseSigma, looseVolume)
                 let actualVolume = min chunkVolume volumeRemaining
-                let pattern = generateBreakout volumeAbnormality sigma actualVolume respectSessionBoundaries
+                let pattern = generateBreakout labels volumeAbnormality sigma actualVolume respectSessionBoundaries
                 buildPatterns (volumeRemaining - actualVolume) (pattern :: acc)
 
         let patterns = buildPatterns volumeLimit []
