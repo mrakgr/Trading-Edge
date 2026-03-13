@@ -72,6 +72,10 @@ let logNormalMuSigma (median: float) (mean: float) : float * float =
     let sigma = logNormalSigma median mean
     (mu, sigma)
 
+let sampleLogNormal (rng: Random) (median: float) (mean: float) : float =
+    let mu, sigma = logNormalMuSigma median mean
+    LogNormal(mu, sigma, rng).Sample()
+
 let sampleSize (rng: Random) (median: float) (mean: float) : int =
     let mu, sigma = logNormalMuSigma median mean
     let rec loop () =
@@ -81,8 +85,7 @@ let sampleSize (rng: Random) (median: float) (mean: float) : int =
     loop ()
 
 let sampleGap (rng: Random) (median: float) (mean: float) : float =
-    let mu, sigma = logNormalMuSigma median mean
-    LogNormal(mu, sigma, rng).Sample()
+    sampleLogNormal rng median mean
 
 // =============================================================================
 // Target Sampling (Multi-try MCMC)
@@ -226,9 +229,9 @@ let generateDrift (baseParams: BaseParams) (labels: string list) (volumeAbnormal
         let proposalVol = baseParams.BaseVolatility
         let sqrtVolumeAbnormality = sqrt volumeAbnormality
         let volumeMean = baseParams.BaseVolume * sqrtVolumeAbnormality
-        let volumeMedian = volumeMean / 2.0
+        let volumeMedian = volumeMean / 3.0
         let gapMean = 1.0 / (baseParams.BaseRate * sqrtVolumeAbnormality)
-        let gapMedian = gapMean / 2.0
+        let gapMedian = gapMean / 3.0
 
         let rec loop price time volumeConsumed =
             if volumeConsumed >= volumeLimit then
@@ -276,7 +279,8 @@ let generateHold (baseParams: BaseParams) (labels: string list) (volumeAbnormali
                 List.rev acc
             else
                 let useTight = rng.NextDouble() < 0.5
-                let (sigma, chunkVolume) = if useTight then (tightSigma, tightVolume) else (looseSigma, looseVolume)
+                let sigma, chunkVolumeMean = if useTight then tightSigma, tightVolume else looseSigma, looseVolume
+                let chunkVolume = sampleLogNormal rng (chunkVolumeMean * 0.75) chunkVolumeMean
                 let actualVolume = min chunkVolume volumeRemaining
                 let pattern = generateBreakout baseParams labels volumeAbnormality sigma actualVolume respectSessionBoundaries
                 buildPatterns (volumeRemaining - actualVolume) (pattern :: acc)
