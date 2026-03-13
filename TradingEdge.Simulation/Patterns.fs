@@ -27,6 +27,9 @@ let sigmaPerVolume (baseParams: BaseParams) (volume : float) =
 // Patterns
 // =============================================================================
 
+// Many patterns here are using `volumeUnitsPerMove` rather than total volume. Volume units act as a pseudo duration. Assuming that volume abnormality is 1,
+// each volume unit will be 1s on average. 
+
 /// Downtrend day pattern: Morning and Close sessions drift down with occasional holds,
 /// Mid session maintains flat drift. Uses abnormal volume (3x) for trending moves.
 let downtrendDay (baseParams: BaseParams) (volumeUnitsPerMove : float) : Pattern<'r> =
