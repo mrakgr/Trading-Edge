@@ -180,7 +180,9 @@ let repeat (pattern: Pattern<'r>) : Pattern<'r> =
 // =============================================================================
 
 let makeDefaultEffect (rng: Random) (totalDuration: float) : GenerationEffect<Trade[]> =
-    let sessions = MCMC.run MCMC.defaultConfig SessionLevel.episodes totalDuration rng
+    let sessions =
+        MCMC.run MCMC.defaultConfig SessionLevel.episodes totalDuration rng
+        |> Array.map (fun s -> { s with Duration = s.Duration * 60.0 })  // Convert minutes to seconds
     let sessionEndTimes =
         sessions |> Array.scan (fun acc s -> acc + s.Duration) 0.0 |> Array.tail
     let trades = ResizeArray<Trade>()

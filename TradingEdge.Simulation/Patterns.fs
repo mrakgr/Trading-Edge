@@ -74,10 +74,5 @@ let downtrendDay (baseParams: BaseParams) (volumeUnitsPerMove : float) : Pattern
         let mid : Pattern<'r> = driftFlat
         let close : Pattern<'r> = morning
 
-        // Select pattern based on current session and repeat until session changes
-        let sessionPattern =
-            match ctx.Effects.Session with
-            | SessionLevel.Morning ->  morning
-            | SessionLevel.Mid -> mid
-            | SessionLevel.Close -> close
-        repeat sessionPattern ctx cont
+        // Apply repeat to each session pattern and sequence them
+        sequence [repeat morning; repeat mid; repeat close] ctx cont

@@ -5,7 +5,7 @@ param(
 foreach ($seed in $Seeds) {
     Write-Host "Generating charts for seed $seed..."
 
-    $csvFile = "data/test_nested_atm_$seed.csv"
+    $csvFile = "data/test_combinator_atm_$seed.csv"
 
     # Dump trades
     dotnet run --project TradingEdge.Simulation -- dump-trades -s $seed -o $csvFile
