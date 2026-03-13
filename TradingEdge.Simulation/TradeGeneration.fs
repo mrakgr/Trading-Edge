@@ -289,7 +289,7 @@ let generateDowntrend (endTarget: float) (targetSigma: float) (abnormalVolMultip
         let isMid = session = SessionLevel.Mid
         let target = if isMid then ctx.StartTarget else endTarget
 
-        let driftPattern =
+        let driftPattern : Pattern<'r> =
             fun genCtx genCont ->
                 let driftCtx = { genCtx with BaseVolatility = genCtx.BaseVolatility * abnormalVolMultiplier }
                 repeat (generateDrift target targetSigma driftVolume true) driftCtx genCont
