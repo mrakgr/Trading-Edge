@@ -201,7 +201,7 @@ let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
     }
 
     let ctx = makeDefaultContext rng simParams
-    let volumeUnitsPerMove = 3.5
+    let volumeUnitsPerMove = 3.5 * 60.0  // Multiply by 60 since rate is in trades per second
     let pattern = downtrendDay baseParams volumeUnitsPerMove
     let trades = pattern ctx (fun _ -> ctx.Effects.OnDone ctx)
 
