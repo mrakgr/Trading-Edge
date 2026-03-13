@@ -162,17 +162,17 @@ def plot_volume_bars(bars, output_html, input_csv):
     fig.add_trace(go.Scatter(
         x=x_vals, y=target_means, mode='lines',
         line=dict(color='red', width=2),
-        name='Target Mean'
+        name='Target Mean', hoverinfo='skip'
     ), row=1, col=1)
     fig.add_trace(go.Scatter(
         x=x_vals, y=target_upper, mode='lines',
         line=dict(color='red', width=1, dash='dash'),
-        name='Target +1σ', showlegend=False
+        name='Target +1σ', showlegend=False, hoverinfo='skip'
     ), row=1, col=1)
     fig.add_trace(go.Scatter(
         x=x_vals, y=target_lower, mode='lines',
         line=dict(color='red', width=1, dash='dash'),
-        name='Target -1σ', showlegend=False
+        name='Target -1σ', showlegend=False, hoverinfo='skip'
     ), row=1, col=1)
 
     # Time duration bars
