@@ -161,6 +161,17 @@ let choice (rng: Random) (weightedPatterns: (Pattern<'r> * float) list) : Patter
         let idx = categorical.Sample()
         patterns.[idx] genCtx cont
 
+let repeat (pattern: Pattern<'r>) : Pattern<'r> =
+    fun ctx cont ->
+        let initialSession = ctx.Effects.Session
+        let rec loop genCtx =
+            pattern genCtx (fun genCtx' ->
+                if genCtx'.Effects.Session <> initialSession then
+                    cont genCtx'
+                else
+                    loop genCtx')
+        loop ctx
+
 // =============================================================================
 // Default Effect Handler
 // =============================================================================
@@ -270,6 +281,22 @@ let generateHold (looseSigma: float) (tightSigma: float) (looseVolume: float) (t
         let patterns = buildPatterns volumeLimit []
         let sequencer = if respectSessionBoundaries then sequenceAtomic else sequence
         sequencer patterns ctx cont
+
+let generateDowntrend (endTarget: float) (targetSigma: float) (abnormalVolMultiplier: float) (driftVolume: float) (holdVolume: float) : Pattern<'r> =
+    fun ctx cont ->
+        let rng = ctx.Effects.Rng
+        let session = ctx.Effects.Session
+        let isMid = session = SessionLevel.Mid
+        let target = if isMid then ctx.StartTarget else endTarget
+
+        let driftPattern =
+            fun genCtx genCont ->
+                let driftCtx = { genCtx with BaseVolatility = genCtx.BaseVolatility * abnormalVolMultiplier }
+                repeat (generateDrift target targetSigma driftVolume true) driftCtx genCont
+
+        let holdPattern = generateHold (targetSigma * 2.0) targetSigma holdVolume (holdVolume / 2.0) holdVolume true
+
+        choice rng [driftPattern, 0.8; holdPattern, 0.2] ctx cont
 
 // // =============================================================================
 // // Subepisode Generation
