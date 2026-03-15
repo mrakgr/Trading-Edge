@@ -5,6 +5,7 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timezone
+from trade_filters import filter_trades
 
 def load_trades(json_path):
     """Load trades from Massive JSON file."""
@@ -172,6 +173,10 @@ if __name__ == '__main__':
     print(f'Loading trades from {input_json}...')
     trades = load_trades(input_json)
     print(f'Loaded {len(trades)} trades')
+
+    # Filter out special trade types
+    trades = filter_trades(trades, exclude_odd_lots=False, exclude_extended_hours=False)
+    print(f'After filtering: {len(trades)} trades')
 
     # Filter to market hours
     open_minutes = market_open * 60
