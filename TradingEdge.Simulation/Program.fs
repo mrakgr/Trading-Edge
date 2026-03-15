@@ -177,8 +177,8 @@ let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
     let outputPath = args.TryGetResult(DumpTradesArgs.Output)
     let rng = Random(seed)
 
-    let dayVolume = 50.0
-    let dayRate = 5.
+    let dayVolume = 100.0
+    let dayRate = 10.
     let dayDuration = 390.0
     let baseVolBps = 15.0 * bps
 
