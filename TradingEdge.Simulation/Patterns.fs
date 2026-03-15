@@ -15,7 +15,7 @@ let volumeUnitToTotal (baseParams: BaseParams) (volumeUnit: float) : float =
 /// Sample volume per move from log normal distribution
 let volumePerMove (baseParams: BaseParams) (ctx : GenerationContext<'r>) (volumeUnitsPerMove: float) : float =
     let mean = volumeUnitToTotal baseParams volumeUnitsPerMove
-    sampleLogNormal ctx.Effects.Rng (mean * 0.7) mean
+    sampleLogNormal ctx.Effects.Rng (mean * 0.85) mean
 
 // =============================================================================
 // Patterns
@@ -26,10 +26,16 @@ let volumePerMove (baseParams: BaseParams) (ctx : GenerationContext<'r>) (volume
 
 /// Downtrend day pattern: Morning and Close sessions drift down with occasional holds,
 /// Mid session maintains flat drift. Uses abnormal volume (3x) for trending moves.
-let downtrendDay (baseParams: BaseParams) (volumeUnitsPerMove : float) : Pattern<'r> =
+/// Uses wide long drifting moves.
+let downtrendDay (baseParams: BaseParams) : Pattern<'r> =
     fun ctx cont ->
+        let volumeUnitsPerMove = 50.0 * 60.0  // Multiply by 60 since rate is in trades per second
+
         // Wide target sigma allows significant price movement
-        let targetSigma = 10. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
+        let targetSigma = 50. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
+        
+        // Retargets the target to the price.
+        let retarget : Pattern<'r> = fun ctx cont -> cont {ctx with StartTarget = ctx.StartPrice}
 
         // Flat drift: normal volume, no directional bias
         let driftFlat : Pattern<'r> =
@@ -38,35 +44,35 @@ let downtrendDay (baseParams: BaseParams) (volumeUnitsPerMove : float) : Pattern
                 let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
                 let moveSigma = volumeAbnormality * baseParams.BaseVolatility * sqrt volumePerMove
                 let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, 0.0, moveSigma)
-                generateDrift baseParams ["DriftFlat"; "DowntrendDay"] volumeAbnormality target targetSigma volumePerMove true ctx cont
+                generateDrift baseParams ["DriftFlat"; "DowntrendDay"] volumeAbnormality target targetSigma volumePerMove true ctx cont // (fun ctx -> cont {ctx with StartTarget = ctx.StartPrice})
 
-        // Downward drift: 3x abnormal volume, target biased -1 sigma below current
+        // Downward drift: 3x abnormal volume, target biased -0.3 sigma below current
         let driftDown : Pattern<'r> =
             fun ctx cont ->
                 let volumeAbnormality = 3.
                 let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
                 let moveSigma = volumeAbnormality * baseParams.BaseVolatility * sqrt volumePerMove
                 let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, -0.3 * moveSigma, moveSigma)
-                generateDrift baseParams ["DriftDown"; "DowntrendDay"] volumeAbnormality target targetSigma volumePerMove true ctx cont
+                generateDrift baseParams ["DriftDown"; "DowntrendDay"] volumeAbnormality target targetSigma volumePerMove true ctx cont // (fun ctx -> cont {ctx with StartTarget = ctx.StartPrice})
 
-        // Hold pattern: 3x abnormal volume, alternates between loose and tight consolidation
-        // Target nudged slightly with small random walk
+        // Hold pattern: 7.5x abnormal volume, alternates between loose and tight consolidation, followed by a release that has 4x abnormal volume and -1.5 sigma target below current.
         let hold : Pattern<'r> =
             let hold ctx cont =
                 let volumeAbnormality = 7.5
-                let volumePerMove = volumePerMove baseParams ctx (2. * volumeUnitsPerMove)
+                let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
                 let moveSigma = 0.5 * baseParams.BaseVolatility * sqrt volumePerMove
                 let ctx = {ctx with StartTarget = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, 0.0, moveSigma)}
-                generateHold baseParams ["Hold"; "DowntrendDay"] volumeAbnormality (targetSigma * 0.1, volumePerMove * 0.8 * 0.3) (targetSigma, volumePerMove * 0.2 * 0.3) volumePerMove false ctx cont
+                let looseSigma = 10. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
+                let tightSigma = 1. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
+                generateHold baseParams ["Hold"; "DowntrendDay"] volumeAbnormality (tightSigma, volumePerMove * 0.8 * 0.3) (looseSigma, volumePerMove * 0.2 * 0.3) volumePerMove false ctx cont
             let release ctx cont =
                 let volumeAbnormality = 4.
-                let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
+                let volumePerMove = volumePerMove baseParams ctx (1.5 * volumeUnitsPerMove)
                 let moveSigma = volumeAbnormality * baseParams.BaseVolatility * sqrt volumePerMove
-                let z = Normal.Sample(ctx.Effects.Rng, -1. * moveSigma, moveSigma)
-                let target = ctx.StartTarget + z
-                let ctx = {ctx with StartTarget = ctx.StartTarget + z * 0.33}
+                let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, -1.5 * moveSigma, moveSigma)
+                let ctx = {ctx with StartTarget = ctx.StartTarget - 0.7 * targetSigma}
                 generateDrift baseParams ["HoldRelease"; "DowntrendDay"] volumeAbnormality target targetSigma volumePerMove false ctx cont
-            sequence [hold; release]
+            sequence [retarget; hold; release]
 
         // Session-specific patterns
         let morning : Pattern<'r> =
@@ -78,4 +84,4 @@ let downtrendDay (baseParams: BaseParams) (volumeUnitsPerMove : float) : Pattern
         let close : Pattern<'r> = morning
 
         // Apply repeat to each session pattern and sequence them
-        sequence [repeat morning; repeat mid; repeat close] ctx cont
+        sequence [repeat morning; retarget; repeat mid; retarget; repeat close] ctx cont
