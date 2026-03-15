@@ -168,12 +168,15 @@ def plot_volume_bars_vwap(bars, output_html):
         hoverinfo='skip'
     ), row=1, col=1)
 
-    # Plot time duration bars on bottom panel (inverted)
-    fig.add_trace(go.Bar(
+    # Plot time duration area on bottom panel (inverted)
+    fig.add_trace(go.Scatter(
         x=x_vals,
         y=time_durations,
+        fill='tozeroy',
+        mode='lines',
         name='Time Duration',
-        marker_color='rgba(100, 150, 200, 0.6)',
+        line=dict(color='blue', width=1),
+        fillcolor='rgba(0, 0, 255, 0.3)',
         hovertemplate='Volume: %{x:,.0f}<br>Duration: %{y:.3f}s<extra></extra>'
     ), row=2, col=1)
 

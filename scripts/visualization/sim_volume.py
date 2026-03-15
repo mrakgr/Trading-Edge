@@ -175,12 +175,15 @@ def plot_volume_bars(bars, output_html, input_csv):
         name='Target -1σ', showlegend=False, hoverinfo='skip'
     ), row=1, col=1)
 
-    # Time duration bars
-    fig.add_trace(go.Bar(
+    # Time duration area chart
+    fig.add_trace(go.Scatter(
         x=x_vals,
         y=time_durations,
+        fill='tozeroy',
+        mode='lines',
         name='Time Duration',
-        marker_color='blue',
+        line=dict(color='blue', width=1),
+        fillcolor='rgba(0, 0, 255, 0.3)',
         hovertemplate='Volume: %{x:,.0f}<br>Duration: %{y:.3f}s<extra></extra>'
     ), row=2, col=1)
 
