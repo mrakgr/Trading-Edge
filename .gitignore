@@ -24,3 +24,4 @@ api_key.json
 
 .fake
 chat.md
+**/__pycache__
