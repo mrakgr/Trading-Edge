@@ -8,10 +8,12 @@ Based on CTA/UTP trade condition codes documented in docs/trade_conditions.md
 EXCLUDE_FOR_PRICE_DISCOVERY = {
     2,   # Average Price Trade
     7,   # Cash Sale (special settlement)
+    10,  # Derivatively Priced
     12,  # Form T/Extended Hours
     13,  # Extended Hours (Sold Out Of Sequence)
     20,  # Next Day (special settlement)
     21,  # Price Variation Trade
+    22,  # Prior Reference Price
     29,  # Seller (special settlement)
     37,  # Odd Lot Trade
     52,  # Contingent Trade
