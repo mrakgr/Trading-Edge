@@ -158,7 +158,7 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
 if __name__ == '__main__':
     input_json = sys.argv[1] if len(sys.argv) > 1 else 'data/trades/LW/2025-12-19.json'
     seconds_per_bar = int(sys.argv[2]) if len(sys.argv) > 2 else 60
-    if len(sys.argv) > 3:
+    if len(sys.argv) > 3 and sys.argv[3]:
         output_html = sys.argv[3]
     else:
         ticker = os.path.basename(os.path.dirname(input_json))
@@ -166,10 +166,24 @@ if __name__ == '__main__':
         output_dir = f'data/charts/massive/{ticker}_{date}'
         os.makedirs(output_dir, exist_ok=True)
         output_html = f'{output_dir}/candle.html'
+    market_open = float(sys.argv[4]) if len(sys.argv) > 4 else 13.5
+    market_close = float(sys.argv[5]) if len(sys.argv) > 5 else 20.0
 
     print(f'Loading trades from {input_json}...')
     trades = load_trades(input_json)
     print(f'Loaded {len(trades)} trades')
+
+    # Filter to market hours
+    open_minutes = market_open * 60
+    close_minutes = market_close * 60
+    filtered = []
+    for t in trades:
+        dt = datetime.fromtimestamp(t['participant_timestamp'] / 1e9, timezone.utc)
+        ts_minutes = dt.hour * 60 + dt.minute
+        if open_minutes <= ts_minutes < close_minutes:
+            filtered.append(t)
+    print(f'Filtered to {len(filtered)} trades ({market_open}:00-{market_close}:00 UTC)')
+    trades = filtered
 
     print(f'Creating {seconds_per_bar}s time bars...')
     bars = create_time_bars(trades, seconds_per_bar)

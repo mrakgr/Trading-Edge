@@ -208,7 +208,7 @@ def plot_volume_bars_vwap(bars, output_html):
 if __name__ == '__main__':
     input_json = sys.argv[1] if len(sys.argv) > 1 else 'data/trades/LW/2025-12-19.json'
     volume_per_bar = int(sys.argv[2]) if len(sys.argv) > 2 else 10000
-    if len(sys.argv) > 3:
+    if len(sys.argv) > 3 and sys.argv[3]:
         output_html = sys.argv[3]
     else:
         ticker = os.path.basename(os.path.dirname(input_json))
@@ -216,8 +216,8 @@ if __name__ == '__main__':
         output_dir = f'data/charts/massive/{ticker}_{date}'
         os.makedirs(output_dir, exist_ok=True)
         output_html = f'{output_dir}/volume.html'
-    market_open = float(sys.argv[4]) if len(sys.argv) > 4 else 14.5   # UTC
-    market_close = float(sys.argv[5]) if len(sys.argv) > 5 else 21.0  # UTC
+    market_open = float(sys.argv[4]) if len(sys.argv) > 4 else 13.5   # UTC
+    market_close = float(sys.argv[5]) if len(sys.argv) > 5 else 20.0  # UTC
 
     print(f'Loading trades from {input_json}...')
     trades = load_trades(input_json)

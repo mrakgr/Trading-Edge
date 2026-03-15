@@ -110,7 +110,7 @@ def plot_trades(trades, output_html, market_open=14.5, market_close=21.0):
 
 if __name__ == '__main__':
     input_json = sys.argv[1] if len(sys.argv) > 1 else 'data/trades/LW/2025-12-19.json'
-    if len(sys.argv) > 2:
+    if len(sys.argv) > 2 and sys.argv[2]:
         output_html = sys.argv[2]
     else:
         ticker = os.path.basename(os.path.dirname(input_json))
@@ -118,8 +118,8 @@ if __name__ == '__main__':
         output_dir = f'data/charts/massive/{ticker}_{date}'
         os.makedirs(output_dir, exist_ok=True)
         output_html = f'{output_dir}/tick.html'
-    market_open = float(sys.argv[3]) if len(sys.argv) > 3 else 15.5
-    market_close = float(sys.argv[4]) if len(sys.argv) > 4 else 22.0
+    market_open = float(sys.argv[3]) if len(sys.argv) > 3 else 13.5
+    market_close = float(sys.argv[4]) if len(sys.argv) > 4 else 20.0
 
     print(f'Loading trades from {input_json}...')
     trades = load_trades(input_json)
