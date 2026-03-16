@@ -9,6 +9,12 @@ from datetime import datetime, timezone
 def load_trades(json_path):
     with open(json_path) as f:
         trades = json.load(f)
+
+    # OTC stocks have participant_timestamp=0; fall back to sip_timestamp
+    for t in trades:
+        if t['participant_timestamp'] == 0:
+            t['participant_timestamp'] = t['sip_timestamp']
+
     trades.sort(key=lambda t: t['participant_timestamp'])
     return trades
 
