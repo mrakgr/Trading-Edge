@@ -9,10 +9,12 @@ param(
         # 'data/trades/ZJYL/2023-12-18.json'
         # 'data/trades/LMT/2025-03-21.json'
         # 'data/trades/PLTR/2025-02-20.json'
-        'data/trades/QNCCF/2025-01-02.json'
+        # 'data/trades/QNCCF/2025-01-02.json'
+        # 'data/trades/FTAI/2025-01-15.json'
+        'data/trades/MSTR/2024-11-21.json'
         ),
     [int]$SecondsPerBar = 60,
-    [int]$VolumePerBar = 10000,
+    [int]$VolumePerBar = 30000,
     [switch]$ShowExtendedHours
 )
 
@@ -52,7 +54,7 @@ foreach ($file in $Files) {
     Write-Host "Generating all charts for $basename (market hours: ${marketOpen}:00-${marketClose}:00 UTC)..."
 
     # Generate charts with market hours (empty string for default output path)
-    # python3 scripts/visualization/massive_tick.py $file "" $marketOpen $marketClose
+    python3 scripts/visualization/massive_tick.py $file "" $marketOpen $marketClose
     python3 scripts/visualization/massive_candle.py $file $SecondsPerBar "" $marketOpen $marketClose
     python3 scripts/visualization/massive_volume.py $file $VolumePerBar "" $marketOpen $marketClose
 }
