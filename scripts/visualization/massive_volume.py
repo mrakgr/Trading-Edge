@@ -233,12 +233,12 @@ def plot_volume_bars_vwap(bars, output_html, all_trades=None):
     ), row=2, col=1)
 
     fig.update_layout(
-        title='Fixed Volume Bars - VWAP with ±2σ Bands and Time Duration (Massive Data)',
-        height=1000,
+        height=700,
         width=1400,
-        hovermode='closest',
+        hovermode='x unified',
+        hoverdistance=100,
         xaxis2_title='Cumulative Volume',
-        showlegend=True
+        showlegend=False
     )
 
     fig.update_xaxes(rangeslider_visible=False, row=1, col=1)
