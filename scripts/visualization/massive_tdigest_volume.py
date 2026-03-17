@@ -4,6 +4,8 @@ import os
 import numpy as np
 import plotly.graph_objects as go
 from tdigest import TDigest
+from market_hours import get_market_hours_bounds
+from trade_filters import filter_trades
 
 def load_trades(json_path):
     with open(json_path) as f:
@@ -17,8 +19,21 @@ def load_trades(json_path):
     trades.sort(key=lambda t: t['participant_timestamp'])
     return trades
 
-def plot_tdigest(json_path, output_html):
-    trades = load_trades(json_path)
+def plot_tdigest(json_path, output_html, show_extended_hours=True):
+    all_trades = load_trades(json_path)
+
+    # Filter out special trade types
+    all_trades = filter_trades(all_trades, exclude_odd_lots=False, exclude_extended_hours=False)
+
+    # Filter to regular hours if requested
+    trades = all_trades
+    if not show_extended_hours:
+        hours = get_market_hours_bounds(all_trades)
+        if hours:
+            open_ts, close_ts = hours
+            trades = [t for t in all_trades if open_ts <= t['participant_timestamp'] <= close_ts]
+            print(f'Filtered to regular hours: {len(trades)} trades')
+
     sizes = [t['size'] for t in trades if t['size'] > 0]
 
     # Build t-digest
@@ -101,7 +116,7 @@ def plot_tdigest(json_path, output_html):
 if __name__ == '__main__':
     json_path = sys.argv[1] if len(sys.argv) > 1 else 'data/trades/LW/2025-12-19.json'
 
-    if len(sys.argv) > 2:
+    if len(sys.argv) > 2 and sys.argv[2]:
         output_html = sys.argv[2]
     else:
         ticker = os.path.basename(os.path.dirname(json_path))
@@ -110,4 +125,6 @@ if __name__ == '__main__':
         os.makedirs(output_dir, exist_ok=True)
         output_html = f'{output_dir}/tdigest_volume.html'
 
-    plot_tdigest(json_path, output_html)
+    show_extended_hours = sys.argv[3].lower() == 'true' if len(sys.argv) > 3 else True
+
+    plot_tdigest(json_path, output_html, show_extended_hours)

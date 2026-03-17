@@ -1,9 +1,11 @@
 param(
-    [string[]]$Files = @('data/trades/LW/2025-12-19.json'),
+    [string[]]$Files = @(
+        'data/trades/LW/2025-12-19.json'
+        'data/trades/QNCCF/2025-01-02.json'
+        ),
     [int]$SecondsPerBar = 60,
-    [int]$VolumePerBar = 10000,
-    [double]$MarketOpen = 15.5,
-    [double]$MarketClose = 22.0
+    [int]$VolumePerBar = 30000,
+    [switch]$ShowExtendedHours
 )
 
 foreach ($file in $Files) {
@@ -12,15 +14,17 @@ foreach ($file in $Files) {
     $basename = "${ticker}_${date}"
     Write-Host "Generating all charts for $basename..."
 
-    # Generate t-digest charts (use default naming)
-    python3 scripts/visualization/massive_tdigest_volume.py $file
-    python3 scripts/visualization/massive_tdigest_time.py $file $MarketOpen $MarketClose
-    python3 scripts/visualization/massive_tdigest_volume_duration.py $file $VolumePerBar $MarketOpen $MarketClose
+    $showExtended = if ($ShowExtendedHours) { "true" } else { "false" }
 
-    # Generate regular charts (use default naming)
-    python3 scripts/visualization/massive_tick.py $file
-    python3 scripts/visualization/massive_candle.py $file $SecondsPerBar
-    python3 scripts/visualization/massive_volume.py $file $VolumePerBar
+    # Generate t-digest charts (use default naming)
+    python3 scripts/visualization/massive_tdigest_volume.py $file "" $showExtended
+    python3 scripts/visualization/massive_tdigest_time.py $file "" $showExtended
+    python3 scripts/visualization/massive_tdigest_volume_duration.py $file $VolumePerBar "" $showExtended
+
+    # Generate regular charts with market hours detection
+    python3 scripts/visualization/massive_tick.py $file "" $showExtended
+    python3 scripts/visualization/massive_candle.py $file $SecondsPerBar "" $showExtended
+    python3 scripts/visualization/massive_volume.py $file $VolumePerBar "" $showExtended
 }
 
 Write-Host "Done generating all charts."

@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timezone
 from trade_filters import filter_trades
+from market_hours import get_market_hours_bounds
 
 def load_trades(json_path):
     """Load trades from Massive JSON file."""
@@ -81,7 +82,7 @@ def compute_bar_ohlc(bar_trades, bar_start_time):
         'num_trades': len(bar_trades)
     }
 
-def plot_candlesticks(bars, output_html, seconds_per_bar):
+def plot_candlesticks(bars, output_html, seconds_per_bar, trades=None):
     """
     Create traditional time-based candlestick chart.
     X-axis: time
@@ -114,6 +115,43 @@ def plot_candlesticks(bars, output_html, seconds_per_bar):
         f"Trades: {b['num_trades']}"
         for b in bars
     ]
+
+    # Add background shading for market hours zones
+    if trades and show_extended_hours:
+        hours = get_market_hours_bounds(trades)
+        if hours:
+            open_ts, close_ts = hours
+            open_dt = ns_to_datetime(open_ts)
+            close_dt = ns_to_datetime(close_ts)
+
+            first_ts = min(t['participant_timestamp'] for t in trades)
+            last_ts = max(t['participant_timestamp'] for t in trades)
+            first_dt = ns_to_datetime(first_ts)
+            last_dt = ns_to_datetime(last_ts)
+
+            shapes = []
+            if first_dt < open_dt:
+                shapes.extend([
+                    dict(type="rect", xref="x", yref="paper", x0=first_dt, x1=open_dt, y0=0, y1=0.7,
+                         fillcolor="lightblue", opacity=0.3, layer="below", line_width=0),
+                    dict(type="rect", xref="x2", yref="paper", x0=first_dt, x1=open_dt, y0=0.7, y1=1,
+                         fillcolor="lightblue", opacity=0.3, layer="below", line_width=0)
+                ])
+            shapes.extend([
+                dict(type="rect", xref="x", yref="paper", x0=open_dt, x1=close_dt, y0=0, y1=0.7,
+                     fillcolor="lightgreen", opacity=0.3, layer="below", line_width=0),
+                dict(type="rect", xref="x2", yref="paper", x0=open_dt, x1=close_dt, y0=0.7, y1=1,
+                     fillcolor="lightgreen", opacity=0.3, layer="below", line_width=0)
+            ])
+            if last_dt > close_dt:
+                shapes.extend([
+                    dict(type="rect", xref="x", yref="paper", x0=close_dt, x1=last_dt, y0=0, y1=0.7,
+                         fillcolor="lightyellow", opacity=0.3, layer="below", line_width=0),
+                    dict(type="rect", xref="x2", yref="paper", x0=close_dt, x1=last_dt, y0=0.7, y1=1,
+                         fillcolor="lightyellow", opacity=0.3, layer="below", line_width=0)
+                ])
+
+            fig.update_layout(shapes=shapes)
 
     # Plot candlesticks
     fig.add_trace(go.Candlestick(
@@ -171,32 +209,28 @@ if __name__ == '__main__':
         output_dir = f'data/charts/massive/{ticker}_{date}'
         os.makedirs(output_dir, exist_ok=True)
         output_html = f'{output_dir}/candle.html'
-    market_open = float(sys.argv[4]) if len(sys.argv) > 4 else 13.5
-    market_close = float(sys.argv[5]) if len(sys.argv) > 5 else 20.0
+    show_extended_hours = sys.argv[4].lower() == 'true' if len(sys.argv) > 4 else True
 
     print(f'Loading trades from {input_json}...')
-    trades = load_trades(input_json)
-    print(f'Loaded {len(trades)} trades')
+    all_trades = load_trades(input_json)
+    print(f'Loaded {len(all_trades)} trades')
 
     # Filter out special trade types
-    trades = filter_trades(trades, exclude_odd_lots=False, exclude_extended_hours=False)
-    print(f'After filtering: {len(trades)} trades')
+    all_trades = filter_trades(all_trades, exclude_odd_lots=False, exclude_extended_hours=False)
+    print(f'After filtering: {len(all_trades)} trades')
 
-    # Filter to market hours
-    open_minutes = market_open * 60
-    close_minutes = market_close * 60
-    filtered = []
-    for t in trades:
-        dt = datetime.fromtimestamp(t['participant_timestamp'] / 1e9, timezone.utc)
-        ts_minutes = dt.hour * 60 + dt.minute
-        if open_minutes <= ts_minutes < close_minutes:
-            filtered.append(t)
-    print(f'Filtered to {len(filtered)} trades ({market_open}:00-{market_close}:00 UTC)')
-    trades = filtered
+    # Filter to regular hours if requested
+    trades = all_trades
+    if not show_extended_hours:
+        hours = get_market_hours_bounds(all_trades)
+        if hours:
+            open_ts, close_ts = hours
+            trades = [t for t in all_trades if open_ts <= t['participant_timestamp'] <= close_ts]
+            print(f'Filtered to regular hours: {len(trades)} trades')
 
     print(f'Creating {seconds_per_bar}s time bars...')
     bars = create_time_bars(trades, seconds_per_bar)
     print(f'Created {len(bars)} time bars')
 
     print(f'Plotting...')
-    plot_candlesticks(bars, output_html, seconds_per_bar)
+    plot_candlesticks(bars, output_html, seconds_per_bar, all_trades)

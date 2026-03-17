@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timezone
 from trade_filters import filter_trades
+from market_hours import get_market_hours_bounds
 
 def load_trades(json_path):
     """Load trades from Massive JSON file."""
@@ -105,7 +106,7 @@ def compute_bar_stats(bar_data, existing_bars):
         'num_trades': len(bar_data)
     }
 
-def plot_volume_bars_vwap(bars, output_html):
+def plot_volume_bars_vwap(bars, output_html, all_trades=None):
     """
     Create fixed volume bar chart with VWAP and stddev bands.
     X-axis: cumulative volume
@@ -148,6 +149,52 @@ def plot_volume_bars_vwap(bars, output_html):
         f"Trades: {b['num_trades']}"
         for b in bars
     ]
+
+    # Add background shading for market hours zones (based on time, not volume)
+    if all_trades and bars and show_extended_hours:
+        hours = get_market_hours_bounds(all_trades)
+        if hours:
+            open_ts, close_ts = hours
+
+            # Find volume positions corresponding to market hours
+            open_vol = None
+            close_vol = None
+
+            for bar in bars:
+                if open_vol is None and bar['end_time'] >= open_ts:
+                    open_vol = bar['cumulative_volume'] - bar['volume']
+                if close_vol is None and bar['start_time'] >= close_ts:
+                    close_vol = bar['cumulative_volume'] - bar['volume']
+                    break
+
+            if open_vol is None:
+                open_vol = 0
+            if close_vol is None:
+                close_vol = bars[-1]['cumulative_volume']
+
+            shapes = []
+            if open_vol > 0:
+                shapes.extend([
+                    dict(type="rect", xref="x", yref="paper", x0=0, x1=open_vol, y0=0, y1=0.7,
+                         fillcolor="lightblue", opacity=0.3, layer="below", line_width=0),
+                    dict(type="rect", xref="x2", yref="paper", x0=0, x1=open_vol, y0=0.7, y1=1,
+                         fillcolor="lightblue", opacity=0.3, layer="below", line_width=0)
+                ])
+            shapes.extend([
+                dict(type="rect", xref="x", yref="paper", x0=open_vol, x1=close_vol, y0=0, y1=0.7,
+                     fillcolor="lightgreen", opacity=0.3, layer="below", line_width=0),
+                dict(type="rect", xref="x2", yref="paper", x0=open_vol, x1=close_vol, y0=0.7, y1=1,
+                     fillcolor="lightgreen", opacity=0.3, layer="below", line_width=0)
+            ])
+            if close_vol < bars[-1]['cumulative_volume']:
+                shapes.extend([
+                    dict(type="rect", xref="x", yref="paper", x0=close_vol, x1=bars[-1]['cumulative_volume'], y0=0, y1=0.7,
+                         fillcolor="lightyellow", opacity=0.3, layer="below", line_width=0),
+                    dict(type="rect", xref="x2", yref="paper", x0=close_vol, x1=bars[-1]['cumulative_volume'], y0=0.7, y1=1,
+                         fillcolor="lightyellow", opacity=0.3, layer="below", line_width=0)
+                ])
+
+            fig.update_layout(shapes=shapes)
 
     # Plot candlesticks on main panel
     fig.add_trace(go.Candlestick(
@@ -221,32 +268,28 @@ if __name__ == '__main__':
         output_dir = f'data/charts/massive/{ticker}_{date}'
         os.makedirs(output_dir, exist_ok=True)
         output_html = f'{output_dir}/volume.html'
-    market_open = float(sys.argv[4]) if len(sys.argv) > 4 else 13.5   # UTC
-    market_close = float(sys.argv[5]) if len(sys.argv) > 5 else 20.0  # UTC
+    show_extended_hours = sys.argv[4].lower() == 'true' if len(sys.argv) > 4 else True
 
     print(f'Loading trades from {input_json}...')
-    trades = load_trades(input_json)
-    print(f'Loaded {len(trades)} trades')
+    all_trades = load_trades(input_json)
+    print(f'Loaded {len(all_trades)} trades')
 
     # Filter out special trade types
-    trades = filter_trades(trades, exclude_odd_lots=False, exclude_extended_hours=False)
-    print(f'After filtering: {len(trades)} trades')
+    all_trades = filter_trades(all_trades, exclude_odd_lots=False, exclude_extended_hours=False)
+    print(f'After filtering: {len(all_trades)} trades')
 
-    # Filter to market hours
-    open_minutes = market_open * 60
-    close_minutes = market_close * 60
-    filtered = []
-    for t in trades:
-        dt = datetime.fromtimestamp(t['participant_timestamp'] / 1e9, timezone.utc)
-        ts_minutes = dt.hour * 60 + dt.minute
-        if open_minutes <= ts_minutes < close_minutes:
-            filtered.append(t)
-    print(f'Filtered to {len(filtered)} trades ({market_open}:00-{market_close}:00 UTC)')
-    trades = filtered
+    # Filter to regular hours if requested
+    trades = all_trades
+    if not show_extended_hours:
+        hours = get_market_hours_bounds(all_trades)
+        if hours:
+            open_ts, close_ts = hours
+            trades = [t for t in all_trades if open_ts <= t['participant_timestamp'] <= close_ts]
+            print(f'Filtered to regular hours: {len(trades)} trades')
 
     print(f'Creating volume bars with {volume_per_bar} volume per bar...')
     bars = create_volume_bars_vwap(trades, volume_per_bar)
     print(f'Created {len(bars)} volume bars')
 
     print(f'Plotting...')
-    plot_volume_bars_vwap(bars, output_html)
+    plot_volume_bars_vwap(bars, output_html, all_trades)

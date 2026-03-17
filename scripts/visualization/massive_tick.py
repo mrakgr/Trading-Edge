@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timezone
 from trade_filters import filter_trades
+from market_hours import get_market_hours_bounds
 
 def load_trades(json_path):
     with open(json_path) as f:
@@ -51,19 +52,17 @@ def merge_group(group):
         'size': total_size
     }
 
-def plot_trades(trades, output_html, market_open=14.5, market_close=21.0):
-    # Filter to market hours (UTC)
-    open_minutes = market_open * 60
-    close_minutes = market_close * 60
-    filtered = []
-    for t in trades:
-        dt = datetime.fromtimestamp(t['participant_timestamp'] / 1e9, timezone.utc)
-        ts_minutes = dt.hour * 60 + dt.minute
-        if open_minutes <= ts_minutes < close_minutes:
-            filtered.append(t)
+def plot_trades(trades, output_html, all_trades, show_extended_hours=True):
+    hours = get_market_hours_bounds(all_trades)
 
-    print(f'Filtered to {len(filtered)} trades ({market_open}:00-{market_close}:00 UTC)')
-    trades = filtered
+    if not show_extended_hours and hours:
+        open_ts, close_ts = hours
+        trades = [t for t in trades if open_ts <= t['participant_timestamp'] <= close_ts]
+        print(f'Filtered to regular hours: {len(trades)} trades')
+
+    if not trades:
+        print('No trades to plot')
+        return
 
     # Plot all trades (Scattergl handles large datasets efficiently)
     times = [datetime.fromtimestamp(t['participant_timestamp'] / 1e9, timezone.utc) for t in trades]
@@ -81,6 +80,41 @@ def plot_trades(trades, output_html, market_open=14.5, market_close=21.0):
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
         row_heights=[3, 1], vertical_spacing=0.05,
         subplot_titles=['Price', 'Trade Size'])
+
+    # Add background shading for market hours zones
+    if hours and show_extended_hours:
+        open_ts, close_ts = hours
+        open_dt = datetime.fromtimestamp(open_ts / 1e9, timezone.utc)
+        close_dt = datetime.fromtimestamp(close_ts / 1e9, timezone.utc)
+
+        first_ts = min(t['participant_timestamp'] for t in all_trades)
+        last_ts = max(t['participant_timestamp'] for t in all_trades)
+        first_dt = datetime.fromtimestamp(first_ts / 1e9, timezone.utc)
+        last_dt = datetime.fromtimestamp(last_ts / 1e9, timezone.utc)
+
+        shapes = []
+        if first_dt < open_dt:
+            shapes.extend([
+                dict(type="rect", xref="x", yref="paper", x0=first_dt, x1=open_dt, y0=0, y1=0.75,
+                     fillcolor="lightblue", opacity=0.3, layer="below", line_width=0),
+                dict(type="rect", xref="x2", yref="paper", x0=first_dt, x1=open_dt, y0=0.75, y1=1,
+                     fillcolor="lightblue", opacity=0.3, layer="below", line_width=0)
+            ])
+        shapes.extend([
+            dict(type="rect", xref="x", yref="paper", x0=open_dt, x1=close_dt, y0=0, y1=0.75,
+                 fillcolor="lightgreen", opacity=0.3, layer="below", line_width=0),
+            dict(type="rect", xref="x2", yref="paper", x0=open_dt, x1=close_dt, y0=0.75, y1=1,
+                 fillcolor="lightgreen", opacity=0.3, layer="below", line_width=0)
+        ])
+        if last_dt > close_dt:
+            shapes.extend([
+                dict(type="rect", xref="x", yref="paper", x0=close_dt, x1=last_dt, y0=0, y1=0.75,
+                     fillcolor="lightyellow", opacity=0.3, layer="below", line_width=0),
+                dict(type="rect", xref="x2", yref="paper", x0=close_dt, x1=last_dt, y0=0.75, y1=1,
+                     fillcolor="lightyellow", opacity=0.3, layer="below", line_width=0)
+            ])
+
+        fig.update_layout(shapes=shapes)
 
     fig.add_trace(go.Scattergl(
         x=times, y=prices, mode='markers',
@@ -125,20 +159,19 @@ if __name__ == '__main__':
         output_dir = f'data/charts/massive/{ticker}_{date}'
         os.makedirs(output_dir, exist_ok=True)
         output_html = f'{output_dir}/tick.html'
-    market_open = float(sys.argv[3]) if len(sys.argv) > 3 else 13.5
-    market_close = float(sys.argv[4]) if len(sys.argv) > 4 else 20.0
+    show_extended_hours = sys.argv[3].lower() == 'true' if len(sys.argv) > 3 else True
 
     print(f'Loading trades from {input_json}...')
-    trades = load_trades(input_json)
-    print(f'Loaded {len(trades)} trades')
+    all_trades = load_trades(input_json)
+    print(f'Loaded {len(all_trades)} trades')
 
     # Filter out special trade types
-    trades = filter_trades(trades, exclude_odd_lots=False, exclude_extended_hours=False)
-    print(f'After filtering: {len(trades)} trades')
+    all_trades = filter_trades(all_trades, exclude_odd_lots=False, exclude_extended_hours=False)
+    print(f'After filtering: {len(all_trades)} trades')
 
     print(f'Merging trades within 100 microseconds...')
-    trades = merge_trades(trades)
+    trades = merge_trades(all_trades)
     print(f'After merging: {len(trades)} trades')
 
     print(f'Plotting...')
-    plot_trades(trades, output_html, market_open, market_close)
+    plot_trades(trades, output_html, all_trades, show_extended_hours)

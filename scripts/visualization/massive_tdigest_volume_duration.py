@@ -5,6 +5,8 @@ import numpy as np
 import plotly.graph_objects as go
 from tdigest import TDigest
 from datetime import datetime, timezone
+from market_hours import get_market_hours_bounds
+from trade_filters import filter_trades
 
 def load_trades(json_path):
     with open(json_path) as f:
@@ -17,16 +19,6 @@ def load_trades(json_path):
 
     trades.sort(key=lambda t: t['participant_timestamp'])
     return trades
-
-def filter_market_hours(trades, market_open, market_close):
-    """Filter trades to only include regular market hours (UTC)."""
-    filtered = []
-    for t in trades:
-        dt = datetime.fromtimestamp(t['participant_timestamp'] / 1e9, timezone.utc)
-        hour = dt.hour + dt.minute / 60.0
-        if market_open <= hour <= market_close:
-            filtered.append(t)
-    return filtered
 
 def create_volume_bars(trades, volume_per_bar):
     """Group trades into fixed volume chunks and track duration."""
@@ -66,9 +58,21 @@ def create_volume_bars(trades, volume_per_bar):
 
     return bars
 
-def plot_tdigest(json_path, output_html, volume_per_bar, market_open, market_close):
-    trades = load_trades(json_path)
-    trades = filter_market_hours(trades, market_open, market_close)
+def plot_tdigest(json_path, output_html, volume_per_bar, show_extended_hours=True):
+    all_trades = load_trades(json_path)
+
+    # Filter out special trade types
+    all_trades = filter_trades(all_trades, exclude_odd_lots=False, exclude_extended_hours=False)
+
+    # Filter to regular hours if requested
+    trades = all_trades
+    if not show_extended_hours:
+        hours = get_market_hours_bounds(all_trades)
+        if hours:
+            open_ts, close_ts = hours
+            trades = [t for t in all_trades if open_ts <= t['participant_timestamp'] <= close_ts]
+            print(f'Filtered to regular hours: {len(trades)} trades')
+
     durations = create_volume_bars(trades, volume_per_bar)
 
     # Build t-digest
@@ -151,11 +155,9 @@ def plot_tdigest(json_path, output_html, volume_per_bar, market_open, market_clo
 if __name__ == '__main__':
     json_path = sys.argv[1] if len(sys.argv) > 1 else 'data/trades/LW/2025-12-19.json'
     volume_per_bar = int(sys.argv[2]) if len(sys.argv) > 2 else 1000
-    market_open = float(sys.argv[3]) if len(sys.argv) > 3 else 14.5
-    market_close = float(sys.argv[4]) if len(sys.argv) > 4 else 21.0
 
-    if len(sys.argv) > 5:
-        output_html = sys.argv[5]
+    if len(sys.argv) > 3 and sys.argv[3]:
+        output_html = sys.argv[3]
     else:
         ticker = os.path.basename(os.path.dirname(json_path))
         date = os.path.splitext(os.path.basename(json_path))[0]
@@ -163,4 +165,6 @@ if __name__ == '__main__':
         os.makedirs(output_dir, exist_ok=True)
         output_html = f'{output_dir}/tdigest_volume_duration.html'
 
-    plot_tdigest(json_path, output_html, volume_per_bar, market_open, market_close)
+    show_extended_hours = sys.argv[4].lower() == 'true' if len(sys.argv) > 4 else True
+
+    plot_tdigest(json_path, output_html, volume_per_bar, show_extended_hours)
