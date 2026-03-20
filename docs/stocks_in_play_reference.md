@@ -67,12 +67,16 @@ Rangebound price action in the market for the past month. Not related to the dom
 
 Avg. Volume: 1.35m
 Float: 136.76m
-Short %: 15.3%
-Gap %: -14%
+Short %: 15.3% (relatively high)
+Gap %: -14% (large)
 Premarket volume: 330k (24%)
-Catalyst: 4/10
+Catalyst: 4/10 (weak)
 
-Minor analyst beat on earnings release that had a massively negative reaction from the market possibly due to the analyst questions. 
+Minor analyst beat on earnings release that had a massively negative reaction from the market possibly due to the analyst questions. A **Changing Fundamentals** play.
+
+Quality: 7.5/10.
+
+The premarket volume is there, but the catalyst is weak, liquidity is low and the float is high.
 
 ### Technical Analysis
 
@@ -81,11 +85,15 @@ Support: 47, 49.
 ### Orderflow Analysis
 <iframe src="charts/LW_2025-12-19.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
-The open was delayed for 2m, but the volume came in strong after that. The opening prints were block trades totaling around 600k which was followed by a hold above 50, during which laster 100k on the volume chart. The volume was very fast. After wich there was a breakout below 50 that never looked back and the stock trended for the rest of the day.
+The open was delayed for 2m, but the volume came in strong after that. The opening prints were block trades totaling around 600k which was followed by a hold above 50, during which laster 100k on the volume chart. The volume was very fast. After which there was a breakout below 50 that never looked back and the stock trended for the rest of the day.
 
 A noteworthy event was an unusual hold at 47 that lasted for 300k shares of volume. There was a fakeout above that level after it broke down, but a second short would have caught the majority move down.
 
-TODO...
+All in all, this was a great trend trade throughout the day. When the volume was fast during morning, the trending action was in progress, and there was a counter trend consolidation when the volume was slow. Towards the end it speed up again.
+
+The 3 major entry opportunities were near the open after the hold above 50 broke, below 47 after the unusual hold was broken the second time, and once the volume's pace picked up again an hour before the close.
+
+I will certainly be looking that my systems enter during those periods, but exits will be harder and less certain. Two possible exits are during midday when the volume slowed and near the close. The stock had a few counter trend rallies during this period, but they weren't out of the ordinary.
 
 ### Extra
 
@@ -93,24 +101,88 @@ LW is noteworthy to me because it is the stock I created the volume charts for t
 
 Initially, I wanted to learn tape reading, but the LW's open had 800 transactions in a 3s span, which made me realize that there are a lot of situations where it would be outright impossible to read the tape for a human. Though my initial intetion was to throw away charts, the solution was always to find a middle ground between tape reading and regular time based charts. Volume charts are that middle ground. May they serve us well.
 
-## Ticker: MSTR Date: 2024-11-21
+## Ticker: NBIS Date: 2025-09-10
 
 ### Big Picture
 
-
+Rangebound indices for the past month. AI mania is in progress and this is an AI cloud stock so news can be expected to cause large reactions.
 
 ### Intraday Fundamentals
 
+Avg. Volume: 5.8m
+Float: 202.8m
+Short %: 22.3% (relatively high)
+Gap %: -4.3% (small)
+Premarket volume: 3.9m (75%)
+Catalyst: 10/10 (best)
+
+The catalyst is a 17b AI deal with Microsoft which is huge for a company that had a market cap less than that amount when it was announced. This was 2 days ago, so this is a **Second Day** play on this stock.
+
+Quality: 8.5/10.
+
+Very strong catalyst and volume premarket. Highly liquid stock. A very good second day play. It had some time to digest yesterday's rise and build some support.
+
 ### Technical Analysis
 
+Support: 86, 90.
+
 ### Orderflow Analysis
-<iframe src="charts/MSTR_2024-11-21.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<iframe src="charts/NBIS_2025-09-10.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+The premarket levels were 90 and 92. The open was decently strong, and the break above the hold at 92 was a good long entry, but it didn't go far and the volume slowed down after that.
+
+The stock was essentially rangebound for 20m after the open, but what is really remarkable after that is the breakout above 95. On a 1m candlestick chart this move would have been over in a few bars, but the volume charts here show a smoothly trending move that could have been good for at least 4 to 5 points. Then the volume became slow and the stock essentially gave up all the gains that it had made throughout the rest of the day on increasigly anemic volume. I wouldn't consider the failed breakout above 100 a good short, because the volume on the downside was so slow. The best trades have fast volume rather than a lot of it over a long period of time.
+
+The breakout above 95 was an A+ trade.
+
+### Extra
+
+LW might have motivated the initial creation of volume charts, but it is this chart of NBIS on this particular day that convinced me that trading could be profitable, so I wanted it in second place on this document. Take a look at the following chart and contrast it with the previous to get a feel for the difference.
+
+<iframe src="charts/NBIS_2025-09-10_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+The candlestick charts would always lead you to missing the most profitable opportunities, and don't illustrate key levels well at all. On a candlestick chart, by the time the huge upbar appeared, the move was essentially over, and only the but of the cigarete was left. It's a very common pattern on these kinds of charts, which is why we're not going to be using them.
 
 ## Ticker: NBIS Date: 2025-09-09
+
+### Big Picture
+
+Rangebound indices for the past month. AI mania is in progress and this is an AI cloud stock so positive news can be expected to cause large reactions.
+
+### Intraday Fundamentals
+
+Avg. Volume: 5.8m
+Float: 202.8m
+Short %: 7.5% (low)
+Gap %: 50.5% (huge)
+Premarket volume: 7.9m (136%)
+Catalyst: 10/10 (best)
+
+The catalyst is a 17b AI deal with Microsoft which is huge for a company that had a market cap less than that amount when it was announced. This was done the previous day and today is the day of the catalyst. A **Changing Fundamentals** play.
+
+Quality: 8/10.
+
+The volume and the catalyst quality is amazing, but I really wish the opening gap wasn't 50%. I guess it doesn't matter to a daytrader, but in today's markets the swing are position traders never seem to get easy plays. Usually this kind of news should be a huge long opportunity, but due to the huge price increase it was actually a short opportunity in the end. If this was a low float stock, even 50% might have been bearable, but not on a large float stock like this one.
+
+Had it had 20m float, this would be 10/10 instead 8/10.
+
+### Technical Analysis
+
+Support: 60 (far from the current prices)
+
+### Orderflow Analysis
+
 <iframe src="charts/NBIS_2025-09-09.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
-## Ticker: NBIS Date: 2025-09-10
-<iframe src="charts/NBIS_2025-09-10.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+The chart of this was pretty messy, and while this was a decent short trade after the open, the trade can be considered difficult. The ideal way of handling this stock would have been to go short below the open or below the premarket low at 96 and holding for 25m to 35m shares of trading when the volume slowed down considerably from it's initial frenzy. The huge gap up led to a lot of profit taking.
+
+The premarket high was at 100, but the trade never came close to it.
+
+In fact, it bears highlighting that after the selloff exhausted itself there was a reversal that lasted for a long time, but it was on very slow volume, so I wouldn't touch that kind of trade. As a rule, I'd want to be in when the volume is fast and out when it is slow, and I am going to design my trading systems around that principle.
+
+## Ticker: MSTR Date: 2024-11-21
+
+<iframe src="charts/MSTR_2024-11-21.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
 ## Ticker: OPEN Date: 2025-09-11
 <iframe src="charts/OPEN_2025-09-11.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>

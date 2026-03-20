@@ -15,6 +15,7 @@ $Files =
         @{
             Path = 'data/trades/NBIS/2025-09-10.json'
             VolumePerBar = 30000
+            SecondsPerBar = 60
         }
         @{
             Path = 'data/trades/MSTR/2024-11-21.json'
@@ -29,6 +30,10 @@ foreach ($file in $Files) {
 
     Write-Host "Generating volume chart for $basename..."
     python3 scripts/visualization/massive_volume.py $file.Path $file.VolumePerBar "docs/charts/$basename.html" $true
+    if ($file.SecondsPerBar) {
+        Write-Host "Generating candlestick chart for $basename..."
+        python3 scripts/visualization/massive_candle.py $file.Path $file.SecondsPerBar "docs/charts/${basename}_candle.html" $true
+    }
 }
 
 Write-Host "Done generating all charts."
