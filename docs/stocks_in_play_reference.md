@@ -69,7 +69,7 @@ Avg. Volume: 1.35m
 Float: 136.76m
 Short %: 15.3% (relatively high)
 Gap %: -14% (large)
-Premarket volume: 330k (24%)
+Premarket volume: 330k (24% avg, 0.24% float)
 Catalyst: 4/10 (weak)
 
 Minor analyst beat on earnings release that had a massively negative reaction from the market possibly due to the analyst questions. A **Changing Fundamentals** play.
@@ -111,9 +111,9 @@ Rangebound indices for the past month. AI mania is in progress and this is an AI
 
 Avg. Volume: 5.8m
 Float: 202.8m
-Short %: 22.3% (relatively high)
+Short %: 22.3% (high)
 Gap %: -4.3% (small)
-Premarket volume: 3.9m (75%)
+Premarket volume: 3.9m (75% avg, 1.9% float)
 Catalyst: 10/10 (best)
 
 The catalyst is a 17b AI deal with Microsoft which is huge for a company that had a market cap less than that amount when it was announced. This was 2 days ago, so this is a **Second Day** play on this stock.
@@ -155,7 +155,7 @@ Avg. Volume: 5.8m
 Float: 202.8m
 Short %: 7.5% (low)
 Gap %: 50.5% (huge)
-Premarket volume: 7.9m (136%)
+Premarket volume: 7.9m (136%, 3.9%)
 Catalyst: 10/10 (best)
 
 The catalyst is a 17b AI deal with Microsoft which is huge for a company that had a market cap less than that amount when it was announced. This was done the previous day and today is the day of the catalyst. A **Changing Fundamentals** play.
@@ -182,7 +182,89 @@ In fact, it bears highlighting that after the selloff exhausted itself there was
 
 ## Ticker: MSTR Date: 2024-11-21
 
+### Big Picture
+
+Opus:
+  - S&P 500 gained 0.53%, closing at 5,948.71 — extending a 4-day winning streak as part of a strong post-election rally (S&P finished November up 5%+, best month of 2024)                        
+  - Bitcoin hit a record high above $99,000 that day, driving crypto-related names
+  - The dominant themes were the post-Trump-election rally, AI, and crypto
+
+### Intraday Fundamentals
+
+Avg. Volume: 20.59m
+Float: 313.41m
+Short %: 17.8% (relatively high)
+Gap %: 12.9% (large)
+Premarket volume: 7.4m (35.9%)
+Catalyst: 7/10 (thesis busting)
+
+Opus:
+  - Convertible note offering: On Nov 18, MicroStrategy announced a $1.75B convertible note offering (later upsized to $3B at 0% coupon) to buy more Bitcoin. Between Nov 18-24 they bought 55,500
+  BTC for ~$5.4B
+  - The stock had rallied ~59% in November heading into this day, riding Bitcoin's surge and the company's aggressive BTC acquisition strategy
+  - MSTR hit an all-time high of ~$543 intraday on Nov 21
+  - Then Citron Research (Andrew Left) disclosed a short position, arguing the stock was "overheated" and disconnected from Bitcoin fundamentals (while remaining bullish on BTC itself)
+  - The stock reversed ~16% intraday, closing around $397 after being up 11% earlier in the session
+  - This marked the beginning of a prolonged decline — MSTR fell ~35% within a week and eventually ~70% from this peak
+
+  In summary: Strong intraday fundamentals (massive volume, Bitcoin proxy at ATH, $3B convertible offering), but the Citron short announcement mid-day was the catalyst for the reversal. A classic
+   blow-off top.
+
+Quality: 8/10.
+
+This stock was covered in Lance's Magnum Opus course, so I decided to review it and add it to this reference book. Not sure how many blow off setups I'll be trading, but this one was close to ideal for a large float stock such as this. It went up from 3 straight days on very high volume and the gap up open was a sign to become bearish.
+
+A **Parabolic Reversal** play.
+
+### Technical Analysis
+
+Support: 400
+
+### Orderflow Analysis
 <iframe src="charts/MSTR_2024-11-21.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+The stock had a very difficult initial 20 minutes, and I am looking forward to seeing how my systems will handle it. It took 20 minutes and 10m shares traded for the downtrend to properly develop, so trying to catch the opening drive would have gotten us stopped out a few times. The question we'll be answering in the future is whether the stock would have had liquidy to keep the losses small.
+
+The ideal way of handling this stock would have been to short after the first 20m when the volume started to get fast and holding it either until the second exhaustion point or until the end of the day risking a full stop out. But rather than aim for ideal, the realistic way would have been to short 20m in once the volume started to get fast, then hold until the first exhaustion nearly 30m later. That would have been an A+ trade. Trying to short again once the volume became fast would have led to stop outs.
+
+Very messy chart, LW was much better. It makes me wonder whether trying to play the upside on the previous days would have gone better, but I'll want to fill this document with low floats rather than stocks like MSTR. I see no real point in rating the chart quality in hindsight, but if most high short floats act like this, I'd rather avoid these kinds of trades.
+
 ## Ticker: OPEN Date: 2025-09-11
+
+### Big Picture
+
+Opus:
+  All three major indexes closed at record highs. S&P 500 gained 0.85% to ~6,532. CPI inflation report kept Fed rate cut hopes alive. The dominant themes were AI/tech and a broad post-summer rally. OPEN is a real estate iBuyer — not directly tied to the AI theme, but lower rates are bullish for housing. The stock had been on a massive retail-driven meme rally — up ~900% from late June through early September 2025, fueled by high short interest creating short squeeze dynamics. The broader bullish market was supportive of the rally.
+
+### Intraday Fundamentals
+
+Avg. Volume: 301m
+Float: 793m
+Short %: 19.5%
+Gap %: 29.7%
+Premarket volume: 77m (25% avg, 9.7% float)
+Catalyst: 5/10 (meme rally)
+
+Opus:
+  New CEO announced on Sep 10 — Kaz Nejatian (ex-Shopify COO) named CEO effective Sep 15. Co-founders Keith Rabois (as Chairman) and Eric Wu rejoined the board. Khosla Ventures and Wu invested $40M in PIPE financing. Nejatian's compensation package could net ~$2.8B if ambitious stock targets are met (82.4M share inducement grant). The stock was near its 52-week high of $10.52 and at the peak of the meme/squeeze rally before a subsequent ~54% decline.
+
+Quality: 9/10.
+
+The premarket volume might be only 25% of the average dialy volume, but the average daily volume has been growing steadily for the past 2 months, if it wasn't for that inflation, the average should be decently lower. The only reason to even look at this stock is because of the huge gap that is supported by volume. On the day of this climax top, the stock churned through more than its entire float. Maybe we should be looking at the premarket volume relative to its % of float rather than relative to its average. At this point I am wondering whether the catalyst quality even matters for an intraday trader. We should be just looking at volume either way and this stock meets that criterion in spades.
+
+Given how the strong the stock was prior to this large gap up and the fact that it has been going parabolic for weeks leading up to it, this could very well have been a **Parabolic Reversal** trade, but it ended up being a continuation intraday simply due to how overwhelming the volume was on this day. That having said the date did end up being the absolute top in the stock.
+
+### Technical Analysis
+
+Support: 7.
+
+### Orderflow Analysis
 <iframe src="charts/OPEN_2025-09-11.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+This stock had messy initial action. Once the premarket high of 8 was broken, there was a breakout, but the momentum had no follow through and would have lead to a stop out. On the chart you can see very clear holds at 8, but it is too bad the trend didn't take hold properly. The breakout above 8.5 had much faster volume and worked better in contrast and would have bee a good Move2Move trade. After that the stock slowly grided up for the rest of the day. What is noteworthy is the breakout above 10 near the end of the day. The volume uncharacteristically speed up, but if you look at the durations you'll see that unless you got in around 9.9 mark, you wouldn't get a chance to input the limit orders afterwards. I am guessing somebody panic bought this stock.
+
+The morning breakouts above 8 and 8.5 were A+ trades either way. The second break above 8 would have given at least a 10% gain assuming you held it to the end of the morning hours.
+
+My personal preference is for my systems to go long above 8.5 when the volume started to become faster and sell once it started vaning. It's not so much about getting the meat of the move, but simply the best part of the move and leaving the volatility to others.
+
+The stock was so liquid that it would have been no trouble to scale into this trade.
