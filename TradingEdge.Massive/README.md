@@ -78,6 +78,35 @@ dotnet run --project TradingEdge.Massive -- download-splits -s 2024-01-01
 
 Output: `data/splits.csv`
 
+### Download Dividends
+
+Downloads dividend information from the Polygon API. Uses monthly chunking with full parallelism and caches completed months locally.
+
+```bash
+dotnet run --project TradingEdge.Massive -- download-dividends [options]
+```
+
+**Options:**
+- `-s, --start-date <yyyy-MM-dd>` - Start date (default: 5 years ago)
+- `-e, --end-date <yyyy-MM-dd>` - End date (default: none, includes all future)
+
+**Examples:**
+
+```bash
+# Download all dividends from the last 5 years
+dotnet run --project TradingEdge.Massive -- download-dividends
+
+# Download dividends for a specific date range
+dotnet run --project TradingEdge.Massive -- download-dividends -s 2024-01-01 -e 2024-12-31
+```
+
+Output: `data/dividends.csv` (merged), `data/dividends_cache/{yyyy-MM}.csv` (per-month cache)
+
+**Features:**
+- Downloads all months in parallel for maximum speed (~14s for 5 years)
+- Caches completed months (only current month is re-fetched on subsequent runs)
+- Second run takes ~6s (reads cache + fetches current month only)
+
 ### Download Intraday Data
 
 Downloads intraday (minute or second) aggregate bars for specific tickers via the Polygon REST API. Can download for individual tickers or automatically fetch data for all stocks in play.
@@ -180,7 +209,7 @@ Output: `data/quotes/{ticker}/{date}.json`
 
 ### Ingest Data
 
-Ingests downloaded CSV files and splits into a DuckDB database.
+Ingests downloaded CSV files, splits, and dividends into a DuckDB database.
 
 ```bash
 dotnet run --project TradingEdge.Massive -- ingest-data [options]
@@ -190,6 +219,7 @@ dotnet run --project TradingEdge.Massive -- ingest-data [options]
 - `-d, --database <path>` - DuckDB database path (default: data/trading.db)
 - `-c, --csv-dir <path>` - Directory containing .csv.gz files (default: data/daily_aggregates)
 - `-s, --splits-file <path>` - CSV file containing splits (default: data/splits.csv)
+- `--dividends-file <path>` - CSV file containing dividends (default: data/dividends.csv)
 
 **Examples:**
 
@@ -203,8 +233,8 @@ dotnet run --project TradingEdge.Massive -- ingest-data -d /path/to/custom.db
 
 **Features:**
 - Uses DuckDB's native CSV reader for fast bulk ingestion
-- Upserts splits (inserts new, updates existing) on each run
-- Materializes derived tables (split-adjusted prices, momentum rankings, etc.)
+- Upserts splits and dividends (inserts new, updates existing) on each run
+- Materializes derived tables (split-and-dividend-adjusted prices, momentum rankings, etc.)
 
 ### Ingest Intraday Data
 
@@ -290,7 +320,7 @@ dotnet run --project TradingEdge.Massive -- plot-chart -t MSFT -w 1600 -h 1000
 ```
 
 **Features:**
-- Split-adjusted prices calculated via SQL view
+- Split-and-dividend-adjusted prices calculated via SQL materialized table
 - Interactive candlestick chart with volume bars
 - Output as standalone HTML file (uses Plotly.js)
 
@@ -454,6 +484,7 @@ TradingEdge/
 │   ├── Config.fs                # Configuration loading
 │   ├── S3Download.fs            # S3 bulk download (daily aggregates)
 │   ├── SplitDownload.fs         # Splits API client
+│   ├── DividendDownload.fs      # Dividends API client (monthly cached)
 │   ├── IntradayDownload.fs      # Intraday API client (minute/second bars)
 │   ├── TradesDownload.fs        # Trades API client (tick-level data)
 │   ├── QuotesDownload.fs        # Quotes API client (NBBO data)
@@ -464,9 +495,10 @@ TradingEdge/
 │   └── sql/schema/              # SQL schema files
 │       ├── tables/              # Base tables
 │       │   ├── daily_prices.sql
-│       │   └── splits.sql
+│       │   ├── splits.sql
+│       │   └── dividends.sql
 │       ├── materialized/        # Materialized tables (slow to rebuild)
-│       │   ├── 01_split_adjusted_prices.sql
+│       │   ├── 01_split_adjusted_prices.sql  # Split + dividend adjusted
 │       │   ├── 02_trading_calendar.sql
 │       │   ├── 03_stock_momentum_26w.sql
 │       │   ├── 04_stock_dollar_volume_4w.sql
@@ -483,5 +515,7 @@ TradingEdge/
     ├── trades/                  # Tick-level trades data (JSON)
     ├── quotes/                  # NBBO quotes data (JSON)
     ├── splits.csv               # Splits data
+    ├── dividends.csv            # Dividends data (merged)
+    ├── dividends_cache/         # Per-month dividend cache
     └── trading.db               # DuckDB database
 ```
