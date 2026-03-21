@@ -1,4 +1,4 @@
-$Files = 
+$Files =
     @(
         @{
             Path = 'data/trades/LW/2025-12-19.json'
@@ -30,9 +30,11 @@ foreach ($file in $Files) {
 
     Write-Host "Generating volume chart for $basename..."
     python3 scripts/visualization/massive_volume.py $file.Path $file.VolumePerBar "docs/charts/$basename.html" $true
+    Write-Host "Generating daily chart for $basename..."
+    python3 scripts/visualization/daily_chart.py $ticker $date docs/charts/${basename}_daily.html
     if ($file.SecondsPerBar) {
-        Write-Host "Generating candlestick chart for $basename..."
-        python3 scripts/visualization/massive_candle.py $file.Path $file.SecondsPerBar "docs/charts/${basename}_candle.html" $true
+        Write-Host "Generating intraday candlestick chart for $basename..."
+        python3 scripts/visualization/massive_candle.py $file.Path $file.SecondsPerBar docs/charts/${basename}_intraday_candle.html $true
     }
 }
 

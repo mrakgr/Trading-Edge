@@ -7,6 +7,7 @@ open TradingEdge
 open TradingEdge.Config
 open TradingEdge.S3Download
 open TradingEdge.SplitDownload
+open TradingEdge.DividendDownload
 open TradingEdge.IntradayDownload
 open TradingEdge.TradesDownload
 open TradingEdge.QuotesDownload
@@ -39,10 +40,21 @@ type DownloadSplitsArgs =
             | Start_Date _ -> "Start date (yyyy-MM-dd). Default: 5 years ago"
             | End_Date _ -> "End date (yyyy-MM-dd). Default: none (all future)"
 
+type DownloadDividendsArgs =
+    | [<AltCommandLine("-s")>] Start_Date of string
+    | [<AltCommandLine("-e")>] End_Date of string
+
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Start_Date _ -> "Start date (yyyy-MM-dd). Default: 5 years ago"
+            | End_Date _ -> "End date (yyyy-MM-dd). Default: none (all future)"
+
 type IngestDataArgs =
     | [<AltCommandLine("-d")>] Database of string
     | [<AltCommandLine("-c")>] Csv_Dir of string
     | [<AltCommandLine("-s")>] Splits_File of string
+    | Dividends_File of string
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -50,6 +62,7 @@ type IngestDataArgs =
             | Database _ -> "DuckDB database path (default: data/trading.db)"
             | Csv_Dir _ -> "Directory containing .csv.gz files (default: data/daily_aggregates)"
             | Splits_File _ -> "CSV file containing splits (default: data/splits.csv)"
+            | Dividends_File _ -> "CSV file containing dividends (default: data/dividends.csv)"
 
 type PlotChartArgs =
     | [<AltCommandLine("-t")>] Ticker of string
@@ -57,6 +70,8 @@ type PlotChartArgs =
     | [<AltCommandLine("-o")>] Output of string
     | [<AltCommandLine("-w")>] Width of int
     | [<AltCommandLine("-h")>] Height of int
+    | [<AltCommandLine("-s")>] Start_Date of string
+    | [<AltCommandLine("-e")>] End_Date of string
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -64,8 +79,10 @@ type PlotChartArgs =
             | Ticker _ -> "Stock ticker symbol (required)"
             | Database _ -> "DuckDB database path (default: data/trading.db)"
             | Output _ -> "Output HTML file path (default: data/{ticker}_chart.html)"
-            | Width _ -> "Chart width in pixels (default: 1200)"
-            | Height _ -> "Chart height in pixels (default: 900)"
+            | Width _ -> "Chart width in pixels (default: 1400)"
+            | Height _ -> "Chart height in pixels (default: 700)"
+            | Start_Date _ -> "Start date yyyy-MM-dd (default: 3 years before end date)"
+            | End_Date _ -> "End date yyyy-MM-dd (default: today)"
 
 type PlotDomArgs =
     | [<AltCommandLine("-t")>] Ticker of string
@@ -282,6 +299,7 @@ type ExportSimplifiedArgs =
 type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Download_Bulk of ParseResults<DownloadBulkArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Splits of ParseResults<DownloadSplitsArgs>
+    | [<CliPrefix(CliPrefix.None)>] Download_Dividends of ParseResults<DownloadDividendsArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Intraday of ParseResults<DownloadIntradayArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Trades of ParseResults<DownloadTradesArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Quotes of ParseResults<DownloadQuotesArgs>
@@ -304,6 +322,7 @@ type Arguments =
             match this with
             | Download_Bulk _ -> "Download daily aggregate files from Massive S3"
             | Download_Splits _ -> "Download stock splits from Massive API"
+            | Download_Dividends _ -> "Download dividends from Polygon API"
             | Download_Intraday _ -> "Download intraday (minute/second) data for tickers"
             | Download_Trades _ -> "Download tick-level trades data for a ticker"
             | Download_Quotes _ -> "Download NBBO quotes data for a ticker"
@@ -402,6 +421,51 @@ let private handleDownloadSplits (config: MassiveConfig) (args: ParseResults<Dow
     | Error msg ->
         printfn "Error downloading splits: %s" msg
 
+let private handleDownloadDividends (config: MassiveConfig) (args: ParseResults<DownloadDividendsArgs>) =
+    ensureDataDir ()
+
+    let startDate =
+        args.TryGetResult DownloadDividendsArgs.Start_Date
+        |> Option.map DateTime.Parse
+        |> Option.defaultValue (DateTime.Now.AddYears(-5))
+
+    let endDate =
+        args.TryGetResult DownloadDividendsArgs.End_Date
+        |> Option.map DateTime.Parse
+
+    let endDateStr =
+        match endDate with
+        | Some d -> sprintf " to %s" (formatDate d)
+        | None -> ""
+
+    printfn "Downloading dividends from %s%s" (formatDate startDate) endDateStr
+
+    use httpClient = new HttpClient()
+    use cts = new CancellationTokenSource()
+
+    let result =
+        downloadDividendsWithConsoleProgress httpClient config.ApiKey startDate endDate cts.Token
+        |> Async.RunSynchronously
+
+    match result with
+    | Ok dividends ->
+        printfn ""
+        printfn "Downloaded %d dividends" dividends.Length
+
+        // Save to CSV for fast DuckDB ingestion
+        let outputPath = "data/dividends.csv"
+        use writer = new StreamWriter(outputPath)
+        writer.WriteLine("ticker,ex_dividend_date,cash_amount,declaration_date,pay_date,frequency,dividend_type")
+        for d in dividends do
+            let exDateStr = d.ExDividendDate.ToString("yyyy-MM-dd")
+            let declDateStr = d.DeclarationDate |> Option.map (fun dt -> dt.ToString("yyyy-MM-dd")) |> Option.defaultValue ""
+            let payDateStr = d.PayDate |> Option.map (fun dt -> dt.ToString("yyyy-MM-dd")) |> Option.defaultValue ""
+            writer.WriteLine($"{d.Ticker},{exDateStr},{d.CashAmount},{declDateStr},{payDateStr},{d.Frequency},{d.DividendType}")
+        printfn "Saved dividends to %s" (Path.GetFullPath outputPath)
+
+    | Error msg ->
+        printfn "Error downloading dividends: %s" msg
+
 let private handleIngestData (args: ParseResults<IngestDataArgs>) =
     ensureDataDir ()
 
@@ -417,9 +481,14 @@ let private handleIngestData (args: ParseResults<IngestDataArgs>) =
         args.TryGetResult IngestDataArgs.Splits_File
         |> Option.defaultValue "data/splits.csv"
 
+    let dividendsFile =
+        args.TryGetResult IngestDataArgs.Dividends_File
+        |> Option.defaultValue "data/dividends.csv"
+
     printfn "Database: %s" (Path.GetFullPath dbPath)
     printfn "CSV directory: %s" (Path.GetFullPath csvDir)
     printfn "Splits file: %s" (Path.GetFullPath splitsFile)
+    printfn "Dividends file: %s" (Path.GetFullPath dividendsFile)
     printfn ""
 
     use connection = openConnection dbPath
@@ -457,6 +526,18 @@ let private handleIngestData (args: ParseResults<IngestDataArgs>) =
     else
         printfn "Splits file not found: %s" splitsFile
 
+    // Ingest dividends from CSV file using DuckDB's native CSV reader
+    if File.Exists dividendsFile then
+        let sw = System.Diagnostics.Stopwatch.StartNew()
+        let countBefore = getDividendCount connection
+        let _ = ingestDividendsFromCsv connection dividendsFile
+        let countAfter = getDividendCount connection
+        let newDividends = countAfter - countBefore
+        sw.Stop()
+        printfn "Ingested %d new dividends (total: %d) in %.2fs" newDividends countAfter sw.Elapsed.TotalSeconds
+    else
+        printfn "Dividends file not found: %s" dividendsFile
+
     printfn "Data ingestion complete."
 
     // Materialize derived tables (split-adjusted prices, momentum, DOM indicator, etc.)
@@ -479,6 +560,7 @@ let private handleIngestData (args: ParseResults<IngestDataArgs>) =
     printfn "Database summary:"
     printfn "  Daily prices: %d" (getDailyPriceCount connection)
     printfn "  Splits: %d" (getSplitCount connection)
+    printfn "  Dividends: %d" (getDividendCount connection)
 
     match getDateRange connection with
     | Some (minDate, maxDate) ->
@@ -500,14 +582,17 @@ let private handlePlotChart (args: ParseResults<PlotChartArgs>) =
         args.TryGetResult PlotChartArgs.Output
         |> Option.defaultValue $"data/{ticker}_chart.html"
 
-    let width = args.GetResult(PlotChartArgs.Width, defaultValue = 1200)
-    let height = args.GetResult(PlotChartArgs.Height, defaultValue = 900)
+    let width = args.GetResult(PlotChartArgs.Width, defaultValue = 1400)
+    let height = args.GetResult(PlotChartArgs.Height, defaultValue = 700)
+
+    let endDate = args.TryGetResult PlotChartArgs.End_Date |> Option.map DateOnly.Parse
+    let startDate = args.TryGetResult PlotChartArgs.Start_Date |> Option.map DateOnly.Parse
 
     printfn "Generating chart for %s" ticker
     printfn "Database: %s" (Path.GetFullPath dbPath)
     printfn "Output: %s" (Path.GetFullPath outputPath)
 
-    Plotting.generateChart dbPath ticker outputPath width height
+    Plotting.generateChart dbPath ticker outputPath width height startDate endDate
 
 let private handlePlotDom (args: ParseResults<PlotDomArgs>) =
     let ticker = args.TryGetResult PlotDomArgs.Ticker |> Option.map (fun t -> t.ToUpperInvariant())
@@ -1055,6 +1140,9 @@ let main argv =
             | Download_Splits args ->
                 let config = loadConfigOrFail configPath
                 handleDownloadSplits config args
+            | Download_Dividends args ->
+                let config = loadConfigOrFail configPath
+                handleDownloadDividends config args
             | Download_Intraday args ->
                 let config = loadConfigOrFail configPath
                 handleDownloadIntraday config args

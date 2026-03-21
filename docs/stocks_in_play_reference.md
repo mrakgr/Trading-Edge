@@ -4,7 +4,7 @@ The reference document for the stocks in play that will serve as the basis for t
 
 ```bash
 pip install markdown
-python3 -c "import markdown; print(markdown.markdown(open('docs/stocks_in_play_reference.md').read(), extensions=['extra']))" > docs/stocks_in_play_reference.html
+python3 -c "import markdown; print(markdown.markdown(open('docs/stocks_in_play_reference.md').read(), extensions=['extra', 'nl2br']))" > docs/stocks_in_play_reference.html
 ```
 
 # Grading Criteria
@@ -82,6 +82,8 @@ The premarket volume is there, but the catalyst is weak, liquidity is low and th
 
 Support: 47, 49.
 
+<iframe src="charts/LW_2025-12-19_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
 ### Orderflow Analysis
 <iframe src="charts/LW_2025-12-19.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
@@ -126,6 +128,8 @@ Very strong catalyst and volume premarket. Highly liquid stock. A very good seco
 
 Support: 86, 90.
 
+<iframe src="charts/NBIS_2025-09-10_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
 ### Orderflow Analysis
 <iframe src="charts/NBIS_2025-09-10.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
@@ -139,7 +143,7 @@ The breakout above 95 was an A+ trade.
 
 LW might have motivated the initial creation of volume charts, but it is this chart of NBIS on this particular day that convinced me that trading could be profitable, so I wanted it in second place on this document. Take a look at the following chart and contrast it with the previous to get a feel for the difference.
 
-<iframe src="charts/NBIS_2025-09-10_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<iframe src="charts/NBIS_2025-09-10_intraday_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
 The candlestick charts would always lead you to missing the most profitable opportunities, and don't illustrate key levels well at all. On a candlestick chart, by the time the huge upbar appeared, the move was essentially over, and only the but of the cigarete was left. It's a very common pattern on these kinds of charts, which is why we're not going to be using them.
 
@@ -169,6 +173,8 @@ Had it had 20m float, this would be 10/10 instead 8/10.
 ### Technical Analysis
 
 Support: 60 (far from the current prices)
+
+<iframe src="charts/NBIS_2025-09-09_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
 ### Orderflow Analysis
 
@@ -220,6 +226,8 @@ A **Parabolic Reversal** play.
 
 Support: 400
 
+<iframe src="charts/MSTR_2024-11-21_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
 ### Orderflow Analysis
 <iframe src="charts/MSTR_2024-11-21.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
@@ -257,6 +265,8 @@ Given how the strong the stock was prior to this large gap up and the fact that 
 ### Technical Analysis
 
 Support: 7.
+
+<iframe src="charts/OPEN_2025-09-11_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
 ### Orderflow Analysis
 <iframe src="charts/OPEN_2025-09-11.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>

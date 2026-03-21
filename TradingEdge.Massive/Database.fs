@@ -321,6 +321,45 @@ let getDailyPriceCount (connection: IDbConnection) : int64 =
 let getSplitCount (connection: IDbConnection) : int64 =
     connection.ExecuteScalar<int64>("SELECT COUNT(*) FROM splits")
 
+// --- Dividends ---
+
+/// Bulk ingest dividends directly from a CSV file using DuckDB's native CSV reader
+let ingestDividendsFromCsv (connection: IDbConnection) (filePath: string) : int64 =
+    let sql = $"""
+        INSERT INTO dividends (ticker, ex_dividend_date, cash_amount, declaration_date, pay_date, frequency, dividend_type)
+        SELECT
+            ticker,
+            ex_dividend_date::DATE,
+            cash_amount,
+            CASE WHEN declaration_date = '' THEN NULL ELSE declaration_date::DATE END,
+            CASE WHEN pay_date = '' THEN NULL ELSE pay_date::DATE END,
+            frequency,
+            dividend_type
+        FROM read_csv('{filePath}',
+            columns = {{
+                'ticker': 'VARCHAR',
+                'ex_dividend_date': 'VARCHAR',
+                'cash_amount': 'DOUBLE',
+                'declaration_date': 'VARCHAR',
+                'pay_date': 'VARCHAR',
+                'frequency': 'INTEGER',
+                'dividend_type': 'VARCHAR'
+            }},
+            header = true
+        )
+        ON CONFLICT(ticker, ex_dividend_date) DO UPDATE SET
+            cash_amount = excluded.cash_amount,
+            declaration_date = excluded.declaration_date,
+            pay_date = excluded.pay_date,
+            frequency = excluded.frequency,
+            dividend_type = excluded.dividend_type
+    """
+    connection.Execute(sql) |> int64
+
+/// Get count of dividends in database
+let getDividendCount (connection: IDbConnection) : int64 =
+    connection.ExecuteScalar<int64>("SELECT COUNT(*) FROM dividends")
+
 /// Get all unique tickers from daily prices
 let getTickers (connection: IDbConnection) : string array =
     connection.Query<string>("SELECT DISTINCT ticker FROM daily_prices ORDER BY ticker")
@@ -376,6 +415,13 @@ let getSplitAdjustedPricesByTicker (connection: IDbConnection) (ticker: string) 
     connection.Query<SplitAdjustedPriceRow>(
         "SELECT ticker, date, adj_open, adj_high, adj_low, adj_close, adj_volume FROM split_adjusted_prices WHERE ticker = $ticker ORDER BY date",
         {| ticker = ticker |})
+    |> Seq.toArray
+
+/// Get split-adjusted daily prices for a specific ticker within a date range
+let getSplitAdjustedPricesByTickerDateRange (connection: IDbConnection) (ticker: string) (startDate: DateOnly) (endDate: DateOnly) : SplitAdjustedPriceRow array =
+    connection.Query<SplitAdjustedPriceRow>(
+        "SELECT ticker, date, adj_open, adj_high, adj_low, adj_close, adj_volume FROM split_adjusted_prices WHERE ticker = $ticker AND date >= $startDate AND date <= $endDate ORDER BY date",
+        {| ticker = ticker; startDate = startDate.ToString("yyyy-MM-dd"); endDate = endDate.ToString("yyyy-MM-dd") |})
     |> Seq.toArray
 
 // --- DOM Indicator ---

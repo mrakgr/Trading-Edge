@@ -18,6 +18,17 @@ type Split = {
     SplitRatio: float
 }
 
+/// Dividend information from Polygon API
+type Dividend = {
+    Ticker: string
+    ExDividendDate: DateTime
+    CashAmount: float
+    DeclarationDate: DateTime option
+    PayDate: DateTime option
+    Frequency: int
+    DividendType: string
+}
+
 /// Daily OHLCV price data
 type DailyPrice = {
     Ticker: string

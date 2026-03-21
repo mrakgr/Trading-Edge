@@ -29,7 +29,7 @@ let generateCandlestickChart (prices: Database.SplitAdjustedPriceRow array) (tic
     
     let layout =
         Layout(
-            title = $"Daily Price Chart - {ticker} (Split Adjusted)",
+            title = $"Daily Price Chart - {ticker} (Adjusted)",
             xaxis = Xaxis(title = "Date"),
             yaxis = Yaxis(title = "Price", domain = [| 0.3; 1.0 |]),
             yaxis2 = Yaxis(title = "Volume", domain = [| 0.0; 0.25 |]),
@@ -46,20 +46,100 @@ let generateCandlestickChart (prices: Database.SplitAdjustedPriceRow array) (tic
     File.WriteAllText(outputPath, html)
     printfn "Chart saved to %s" outputPath
 
+/// Inject chart_controls.js and scrollZoom config into an HTML string
+let private injectPostScripts (html: string) : string =
+    let jsPath = "scripts/visualization/chart_controls.js"
+    let controlsJs =
+        if File.Exists jsPath then File.ReadAllText jsPath
+        else
+            printfn "Warning: chart_controls.js not found at %s" jsPath
+            ""
+
+    // Enable scrollZoom and add rangebreaks for weekends
+    let configJs = """
+var gd = document.querySelector('.plotly-graph-div');
+if (gd && gd._fullLayout) {
+    Plotly.relayout(gd, {
+        'xaxis.rangebreaks': [{bounds: ['sat', 'mon']}]
+    });
+}
+gd._context = gd._context || {};
+gd._context.scrollZoom = true;
+Plotly.newPlot(gd, gd.data, gd.layout, {scrollZoom: true, displayModeBar: true});
+"""
+
+    let scriptTag = $"\n<script>\n{configJs}\n{controlsJs}\n</script>"
+    let bodyCloseIdx = html.LastIndexOf("</body>")
+    if bodyCloseIdx >= 0 then
+        html.Insert(bodyCloseIdx, scriptTag)
+    else
+        html + scriptTag
+
+/// Generate a candlestick chart with volume, chart controls, and save as HTML
+let private generateCandlestickChartWithControls (prices: Database.SplitAdjustedPriceRow array) (ticker: string) (outputPath: string) (width: int) (height: int) : unit =
+    let dates = prices |> Array.map (fun p -> p.date)
+
+    let candlestick =
+        Candlestick(
+            x = dates,
+            ``open`` = (prices |> Array.map (fun p -> p.adj_open)),
+            high = (prices |> Array.map (fun p -> p.adj_high)),
+            low = (prices |> Array.map (fun p -> p.adj_low)),
+            close = (prices |> Array.map (fun p -> p.adj_close)),
+            name = ticker
+        )
+
+    let volume =
+        Bar(
+            x = dates,
+            y = (prices |> Array.map (fun p -> p.adj_volume)),
+            name = "Volume",
+            marker = Marker(color = "rgba(100, 100, 200, 0.5)"),
+            yaxis = "y2"
+        )
+
+    let layout =
+        Layout(
+            title = $"Daily Price Chart - {ticker} (Adjusted)",
+            xaxis = Xaxis(title = "Date"),
+            yaxis = Yaxis(title = "Price", domain = [| 0.3; 1.0 |]),
+            yaxis2 = Yaxis(title = "Volume", domain = [| 0.0; 0.25 |]),
+            width = width,
+            height = height
+        )
+
+    let chart =
+        [candlestick :> Trace; volume :> Trace]
+        |> Chart.Plot
+        |> Chart.WithLayout(layout)
+
+    let html = chart.GetHtml() |> injectPostScripts
+    File.WriteAllText(outputPath, html)
+    printfn "Chart saved to %s" outputPath
+
 /// Generate a stock chart with split-adjusted prices from SQL
-let generateChart (dbPath: string) (ticker: string) (outputPath: string) (width: int) (height: int) : unit =
+let generateChart (dbPath: string) (ticker: string) (outputPath: string) (width: int) (height: int) (startDate: DateOnly option) (endDate: DateOnly option) : unit =
     if not (File.Exists dbPath) then
         failwithf "Database not found at %s" dbPath
-    
+
     use connection = Database.openConnection dbPath
-    
-    let prices = Database.getSplitAdjustedPricesByTicker connection ticker
-    
+
+    let prices =
+        match startDate, endDate with
+        | Some s, Some e ->
+            Database.getSplitAdjustedPricesByTickerDateRange connection ticker s e
+        | Some s, None ->
+            Database.getSplitAdjustedPricesByTickerDateRange connection ticker s (DateOnly.FromDateTime(DateTime.Today))
+        | None, Some e ->
+            Database.getSplitAdjustedPricesByTickerDateRange connection ticker (e.AddYears(-3)) e
+        | None, None ->
+            Database.getSplitAdjustedPricesByTicker connection ticker
+
     if prices.Length = 0 then
         printfn "No data found for ticker %s" ticker
     else
-        printfn "Found %d records for %s (split-adjusted via SQL)" prices.Length ticker
-        generateCandlestickChart prices ticker outputPath width height
+        printfn "Found %d records for %s (adjusted via SQL)" prices.Length ticker
+        generateCandlestickChartWithControls prices ticker outputPath width height
 
 /// Generate a DOM indicator chart against a reference ticker
 let generateDomChart (dbPath: string) (ticker: string option) (outputPath: string) (width: int) (height: int) : unit =

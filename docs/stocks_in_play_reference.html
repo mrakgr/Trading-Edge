@@ -1,7 +1,7 @@
 <h1>Overview</h1>
 <p>The reference document for the stocks in play that will serve as the basis for the generative models. Here is a quick conversion script that should be run from the parent directory in order to convert this markdown file into .html for viewing in the browser.</p>
 <pre><code class="language-bash">pip install markdown
-python3 -c &quot;import markdown; print(markdown.markdown(open('docs/stocks_in_play_reference.md').read(), extensions=['extra']))&quot; &gt; docs/stocks_in_play_reference.html
+python3 -c &quot;import markdown; print(markdown.markdown(open('docs/stocks_in_play_reference.md').read(), extensions=['extra', 'nl2br']))&quot; &gt; docs/stocks_in_play_reference.html
 </code></pre>
 <h1>Grading Criteria</h1>
 <p>These are adopted from SMB Capital. They use 4 criteria to judge the quality of their setups + 3 more criteria related to trade management, which we aren't going to be using in this document because we'll have our trades managed by computer agents. We'll be reviewing tier effectiveness, but that process will be different from discretionary decisions of human agents.</p>
@@ -40,17 +40,19 @@ python3 -c &quot;import markdown; print(markdown.markdown(open('docs/stocks_in_p
 <h3>Big Picture</h3>
 <p>Rangebound price action in the market for the past month. Not related to the dominant themes of the day which are AI and crypto related. The company deals in frozen potato products. Irrelevant to this setup.</p>
 <h3>Intraday Fundamentals</h3>
-<p>Avg. Volume: 1.35m
-Float: 136.76m
-Short %: 15.3% (relatively high)
-Gap %: -14% (large)
-Premarket volume: 330k (24%)
+<p>Avg. Volume: 1.35m<br />
+Float: 136.76m<br />
+Short %: 15.3% (relatively high)<br />
+Gap %: -14% (large)<br />
+Premarket volume: 330k (24% avg, 0.24% float)<br />
 Catalyst: 4/10 (weak)</p>
 <p>Minor analyst beat on earnings release that had a massively negative reaction from the market possibly due to the analyst questions. A <strong>Changing Fundamentals</strong> play.</p>
 <p>Quality: 7.5/10.</p>
 <p>The premarket volume is there, but the catalyst is weak, liquidity is low and the float is high.</p>
 <h3>Technical Analysis</h3>
 <p>Support: 47, 49.</p>
+<iframe src="charts/LW_2025-12-19_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
 <h3>Orderflow Analysis</h3>
 <iframe src="charts/LW_2025-12-19.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
@@ -66,17 +68,19 @@ Catalyst: 4/10 (weak)</p>
 <h3>Big Picture</h3>
 <p>Rangebound indices for the past month. AI mania is in progress and this is an AI cloud stock so news can be expected to cause large reactions.</p>
 <h3>Intraday Fundamentals</h3>
-<p>Avg. Volume: 5.8m
-Float: 202.8m
-Short %: 22.3% (relatively high)
-Gap %: -4.3% (small)
-Premarket volume: 3.9m (75%)
+<p>Avg. Volume: 5.8m<br />
+Float: 202.8m<br />
+Short %: 22.3% (high)<br />
+Gap %: -4.3% (small)<br />
+Premarket volume: 3.9m (75% avg, 1.9% float)<br />
 Catalyst: 10/10 (best)</p>
 <p>The catalyst is a 17b AI deal with Microsoft which is huge for a company that had a market cap less than that amount when it was announced. This was 2 days ago, so this is a <strong>Second Day</strong> play on this stock.</p>
 <p>Quality: 8.5/10.</p>
 <p>Very strong catalyst and volume premarket. Highly liquid stock. A very good second day play. It had some time to digest yesterday's rise and build some support.</p>
 <h3>Technical Analysis</h3>
 <p>Support: 86, 90.</p>
+<iframe src="charts/NBIS_2025-09-10_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
 <h3>Orderflow Analysis</h3>
 <iframe src="charts/NBIS_2025-09-10.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
@@ -85,18 +89,18 @@ Catalyst: 10/10 (best)</p>
 <p>The breakout above 95 was an A+ trade.</p>
 <h3>Extra</h3>
 <p>LW might have motivated the initial creation of volume charts, but it is this chart of NBIS on this particular day that convinced me that trading could be profitable, so I wanted it in second place on this document. Take a look at the following chart and contrast it with the previous to get a feel for the difference.</p>
-<iframe src="charts/NBIS_2025-09-10_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<iframe src="charts/NBIS_2025-09-10_intraday_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
 <p>The candlestick charts would always lead you to missing the most profitable opportunities, and don't illustrate key levels well at all. On a candlestick chart, by the time the huge upbar appeared, the move was essentially over, and only the but of the cigarete was left. It's a very common pattern on these kinds of charts, which is why we're not going to be using them.</p>
 <h2>Ticker: NBIS Date: 2025-09-09</h2>
 <h3>Big Picture</h3>
 <p>Rangebound indices for the past month. AI mania is in progress and this is an AI cloud stock so positive news can be expected to cause large reactions.</p>
 <h3>Intraday Fundamentals</h3>
-<p>Avg. Volume: 5.8m
-Float: 202.8m
-Short %: 7.5% (low)
-Gap %: 50.5% (huge)
-Premarket volume: 7.9m (136%)
+<p>Avg. Volume: 5.8m<br />
+Float: 202.8m<br />
+Short %: 7.5% (low)<br />
+Gap %: 50.5% (huge)<br />
+Premarket volume: 7.9m (136%, 3.9%)<br />
 Catalyst: 10/10 (best)</p>
 <p>The catalyst is a 17b AI deal with Microsoft which is huge for a company that had a market cap less than that amount when it was announced. This was done the previous day and today is the day of the catalyst. A <strong>Changing Fundamentals</strong> play.</p>
 <p>Quality: 8/10.</p>
@@ -104,6 +108,8 @@ Catalyst: 10/10 (best)</p>
 <p>Had it had 20m float, this would be 10/10 instead 8/10.</p>
 <h3>Technical Analysis</h3>
 <p>Support: 60 (far from the current prices)</p>
+<iframe src="charts/NBIS_2025-09-09_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
 <h3>Orderflow Analysis</h3>
 <iframe src="charts/NBIS_2025-09-09.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
@@ -111,7 +117,65 @@ Catalyst: 10/10 (best)</p>
 <p>The premarket high was at 100, but the trade never came close to it.</p>
 <p>In fact, it bears highlighting that after the selloff exhausted itself there was a reversal that lasted for a long time, but it was on very slow volume, so I wouldn't touch that kind of trade. As a rule, I'd want to be in when the volume is fast and out when it is slow, and I am going to design my trading systems around that principle.</p>
 <h2>Ticker: MSTR Date: 2024-11-21</h2>
+<h3>Big Picture</h3>
+<p>Opus:<br />
+  - S&amp;P 500 gained 0.53%, closing at 5,948.71 — extending a 4-day winning streak as part of a strong post-election rally (S&amp;P finished November up 5%+, best month of 2024)                      <br />
+  - Bitcoin hit a record high above $99,000 that day, driving crypto-related names<br />
+  - The dominant themes were the post-Trump-election rally, AI, and crypto</p>
+<h3>Intraday Fundamentals</h3>
+<p>Avg. Volume: 20.59m<br />
+Float: 313.41m<br />
+Short %: 17.8% (relatively high)<br />
+Gap %: 12.9% (large)<br />
+Premarket volume: 7.4m (35.9%)<br />
+Catalyst: 7/10 (thesis busting)</p>
+<p>Opus:<br />
+  - Convertible note offering: On Nov 18, MicroStrategy announced a $1.75B convertible note offering (later upsized to $3B at 0% coupon) to buy more Bitcoin. Between Nov 18-24 they bought 55,500<br />
+  BTC for ~$5.4B<br />
+  - The stock had rallied ~59% in November heading into this day, riding Bitcoin's surge and the company's aggressive BTC acquisition strategy<br />
+  - MSTR hit an all-time high of ~$543 intraday on Nov 21<br />
+  - Then Citron Research (Andrew Left) disclosed a short position, arguing the stock was "overheated" and disconnected from Bitcoin fundamentals (while remaining bullish on BTC itself)<br />
+  - The stock reversed ~16% intraday, closing around $397 after being up 11% earlier in the session<br />
+  - This marked the beginning of a prolonged decline — MSTR fell ~35% within a week and eventually ~70% from this peak</p>
+<p>In summary: Strong intraday fundamentals (massive volume, Bitcoin proxy at ATH, $3B convertible offering), but the Citron short announcement mid-day was the catalyst for the reversal. A classic<br />
+   blow-off top.</p>
+<p>Quality: 8/10.</p>
+<p>This stock was covered in Lance's Magnum Opus course, so I decided to review it and add it to this reference book. Not sure how many blow off setups I'll be trading, but this one was close to ideal for a large float stock such as this. It went up from 3 straight days on very high volume and the gap up open was a sign to become bearish.</p>
+<p>A <strong>Parabolic Reversal</strong> play.</p>
+<h3>Technical Analysis</h3>
+<p>Support: 400</p>
+<iframe src="charts/MSTR_2024-11-21_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h3>Orderflow Analysis</h3>
 <iframe src="charts/MSTR_2024-11-21.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+<p>The stock had a very difficult initial 20 minutes, and I am looking forward to seeing how my systems will handle it. It took 20 minutes and 10m shares traded for the downtrend to properly develop, so trying to catch the opening drive would have gotten us stopped out a few times. The question we'll be answering in the future is whether the stock would have had liquidy to keep the losses small.</p>
+<p>The ideal way of handling this stock would have been to short after the first 20m when the volume started to get fast and holding it either until the second exhaustion point or until the end of the day risking a full stop out. But rather than aim for ideal, the realistic way would have been to short 20m in once the volume started to get fast, then hold until the first exhaustion nearly 30m later. That would have been an A+ trade. Trying to short again once the volume became fast would have led to stop outs.</p>
+<p>Very messy chart, LW was much better. It makes me wonder whether trying to play the upside on the previous days would have gone better, but I'll want to fill this document with low floats rather than stocks like MSTR. I see no real point in rating the chart quality in hindsight, but if most high short floats act like this, I'd rather avoid these kinds of trades.</p>
 <h2>Ticker: OPEN Date: 2025-09-11</h2>
+<h3>Big Picture</h3>
+<p>Opus:<br />
+  All three major indexes closed at record highs. S&amp;P 500 gained 0.85% to ~6,532. CPI inflation report kept Fed rate cut hopes alive. The dominant themes were AI/tech and a broad post-summer rally. OPEN is a real estate iBuyer — not directly tied to the AI theme, but lower rates are bullish for housing. The stock had been on a massive retail-driven meme rally — up ~900% from late June through early September 2025, fueled by high short interest creating short squeeze dynamics. The broader bullish market was supportive of the rally.</p>
+<h3>Intraday Fundamentals</h3>
+<p>Avg. Volume: 301m<br />
+Float: 793m<br />
+Short %: 19.5%<br />
+Gap %: 29.7%<br />
+Premarket volume: 77m (25% avg, 9.7% float)<br />
+Catalyst: 5/10 (meme rally)</p>
+<p>Opus:<br />
+  New CEO announced on Sep 10 — Kaz Nejatian (ex-Shopify COO) named CEO effective Sep 15. Co-founders Keith Rabois (as Chairman) and Eric Wu rejoined the board. Khosla Ventures and Wu invested $40M in PIPE financing. Nejatian's compensation package could net ~$2.8B if ambitious stock targets are met (82.4M share inducement grant). The stock was near its 52-week high of $10.52 and at the peak of the meme/squeeze rally before a subsequent ~54% decline.</p>
+<p>Quality: 9/10.</p>
+<p>The premarket volume might be only 25% of the average dialy volume, but the average daily volume has been growing steadily for the past 2 months, if it wasn't for that inflation, the average should be decently lower. The only reason to even look at this stock is because of the huge gap that is supported by volume. On the day of this climax top, the stock churned through more than its entire float. Maybe we should be looking at the premarket volume relative to its % of float rather than relative to its average. At this point I am wondering whether the catalyst quality even matters for an intraday trader. We should be just looking at volume either way and this stock meets that criterion in spades.</p>
+<p>Given how the strong the stock was prior to this large gap up and the fact that it has been going parabolic for weeks leading up to it, this could very well have been a <strong>Parabolic Reversal</strong> trade, but it ended up being a continuation intraday simply due to how overwhelming the volume was on this day. That having said the date did end up being the absolute top in the stock.</p>
+<h3>Technical Analysis</h3>
+<p>Support: 7.</p>
+<iframe src="charts/OPEN_2025-09-11_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h3>Orderflow Analysis</h3>
 <iframe src="charts/OPEN_2025-09-11.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>This stock had messy initial action. Once the premarket high of 8 was broken, there was a breakout, but the momentum had no follow through and would have lead to a stop out. On the chart you can see very clear holds at 8, but it is too bad the trend didn't take hold properly. The breakout above 8.5 had much faster volume and worked better in contrast and would have bee a good Move2Move trade. After that the stock slowly grided up for the rest of the day. What is noteworthy is the breakout above 10 near the end of the day. The volume uncharacteristically speed up, but if you look at the durations you'll see that unless you got in around 9.9 mark, you wouldn't get a chance to input the limit orders afterwards. I am guessing somebody panic bought this stock.</p>
+<p>The morning breakouts above 8 and 8.5 were A+ trades either way. The second break above 8 would have given at least a 10% gain assuming you held it to the end of the morning hours.</p>
+<p>My personal preference is for my systems to go long above 8.5 when the volume started to become faster and sell once the momentum started vaning at around 9.2. It's not so much about getting the meat of the move, but simply the best part of the move and leaving the volatility to others.</p>
+<p>The stock was so liquid that it would have been no trouble to scale into this trade.</p>
