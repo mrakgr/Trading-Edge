@@ -13,7 +13,7 @@ WITH split_boundaries AS (
         execution_date,
         EXP(SUM(LN(split_ratio)) OVER (
             PARTITION BY ticker
-            ORDER BY execution_date DESC
+            ORDER BY execution_date ASC
             ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
         )) AS cum_split_factor
     FROM splits
@@ -36,7 +36,7 @@ div_cumulative AS (
         ex_dividend_date,
         SUM(adj_cash_amount) OVER (
             PARTITION BY ticker
-            ORDER BY ex_dividend_date DESC
+            ORDER BY ex_dividend_date ASC
             ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
         ) AS cum_future_dividends
     FROM div_split_adjusted

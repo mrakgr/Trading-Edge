@@ -58,7 +58,7 @@ def plot_daily_chart(df, ticker, end_date, output_html):
     ), row=2, col=1)
 
     fig.update_layout(
-        title=f'Daily Price Chart - {ticker} (Split Adjusted) ending {end_date}',
+        title=f'Daily Price Chart - {ticker} (Adjusted) ending {end_date}',
         height=700,
         width=1400,
         hovermode='x unified',
