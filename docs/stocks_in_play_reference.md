@@ -265,6 +265,6 @@ This stock had messy initial action. Once the premarket high of 8 was broken, th
 
 The morning breakouts above 8 and 8.5 were A+ trades either way. The second break above 8 would have given at least a 10% gain assuming you held it to the end of the morning hours.
 
-My personal preference is for my systems to go long above 8.5 when the volume started to become faster and sell once it started vaning. It's not so much about getting the meat of the move, but simply the best part of the move and leaving the volatility to others.
+My personal preference is for my systems to go long above 8.5 when the volume started to become faster and sell once the momentum started vaning at around 9.2. It's not so much about getting the meat of the move, but simply the best part of the move and leaving the volatility to others.
 
 The stock was so liquid that it would have been no trouble to scale into this trade.
