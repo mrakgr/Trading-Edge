@@ -1,0 +1,315 @@
+Stocks In Play from 2026-01-01 to 2026-03-22
+Filters: RVOL >= 3.0x, Gap >= 5.0%, Avg Dollar Volume >= $100M
+Database: /home/mrakgr/Trading-Edge/data/trading.db
+
+=== 2026-01-02 ===
+   1. SIDU    Gap: +16.40%  RVOL:   3.6x  Score: 10.00
+   2. BIDU    Gap: +10.62%  RVOL:   4.4x  Score:  7.52
+   3. ZSL     Gap:  -9.55%  RVOL:   3.3x  Score:  6.42
+=== 2026-01-05 ===
+   1. ZSL     Gap: -12.48%  RVOL:   3.2x  Score:  7.85
+   2. SMR     Gap: +10.02%  RVOL:   3.0x  Score:  6.53
+   3. HAL     Gap:  +8.15%  RVOL:   4.6x  Score:  6.38
+   4. VLO     Gap:  +8.76%  RVOL:   3.1x  Score:  5.94
+   5. SLB     Gap:  +7.02%  RVOL:   4.1x  Score:  5.54
+   6. OIH     Gap:  +5.94%  RVOL:   4.7x  Score:  5.32
+   7. CVX     Gap:  +6.39%  RVOL:   4.0x  Score:  5.22
+=== 2026-01-06 ===
+   1. ARWR    Gap: +12.81%  RVOL:   3.3x  Score:  8.07
+   2. MOD     Gap:  -7.46%  RVOL:   4.1x  Score:  5.79
+   3. JCI     Gap:  -7.38%  RVOL:   3.1x  Score:  5.25
+   4. ZSL     Gap:  -6.90%  RVOL:   3.4x  Score:  5.13
+   5. ZETA    Gap:  +6.71%  RVOL:   3.3x  Score:  5.00
+   6. SNDK    Gap:  +5.35%  RVOL:   4.0x  Score:  4.66
+   7. TT      Gap:  -6.12%  RVOL:   3.1x  Score:  4.60
+=== 2026-01-07 ===
+   1. COMP    Gap:  +8.96%  RVOL:   7.8x  Score:  8.37
+=== 2026-01-08 ===
+   1. ICLR    Gap: -11.75%  RVOL:   3.8x  Score:  7.76
+   2. GMED    Gap: +10.56%  RVOL:   3.2x  Score:  6.89
+   3. KTOS    Gap:  +8.85%  RVOL:   4.4x  Score:  6.61
+   4. AVAV    Gap:  +9.90%  RVOL:   3.1x  Score:  6.52
+   5. CRML    Gap:  -8.29%  RVOL:   3.6x  Score:  5.93
+   6. RVMD    Gap:  -7.30%  RVOL:   4.5x  Score:  5.90
+   7. NOC     Gap:  +7.11%  RVOL:   4.4x  Score:  5.76
+   8. LHX     Gap:  +7.51%  RVOL:   3.4x  Score:  5.45
+   9. AYI     Gap:  -7.56%  RVOL:   3.2x  Score:  5.38
+  10. APLD    Gap:  +7.07%  RVOL:   3.4x  Score:  5.24
+=== 2026-01-09 ===
+   1. OKLO    Gap: +17.16%  RVOL:   3.4x  Score: 10.30
+   2. AXTI    Gap: -16.51%  RVOL:   3.3x  Score:  9.89
+   3. RVMD    Gap: +11.74%  RVOL:   5.5x  Score:  8.63
+   4. CRML    Gap:  +5.98%  RVOL:   3.3x  Score:  4.62
+=== 2026-01-12 ===
+   1. EVTV    Gap: +148.33%  RVOL:  16.8x  Score: 82.54
+   2. TEM     Gap: +13.69%  RVOL:   3.5x  Score:  8.60
+   3. COF     Gap:  -7.75%  RVOL:   3.8x  Score:  5.79
+=== 2026-01-13 ===
+   1. EVTV    Gap: +32.67%  RVOL:   6.0x  Score: 19.36
+   2. TVTX    Gap: -32.52%  RVOL:   5.4x  Score: 18.96
+   3. RCAT    Gap:  +6.78%  RVOL:   3.7x  Score:  5.25
+   4. LHX     Gap:  +6.16%  RVOL:   3.7x  Score:  4.94
+=== 2026-01-14 ===
+   1. TCOM    Gap: -16.72%  RVOL:  10.2x  Score: 13.46
+=== 2026-01-15 ===
+   1. SPHL    Gap: +247.56%  RVOL:  19.0x  Score: 133.27
+   2. ROLR    Gap: +20.96%  RVOL:   5.0x  Score: 12.97
+   3. PEN     Gap: +11.06%  RVOL:  10.1x  Score: 10.56
+   4. GLXY    Gap:  +6.94%  RVOL:   4.7x  Score:  5.79
+=== 2026-01-16 ===
+   1. VERO    Gap: +301.40%  RVOL:  18.8x  Score: 160.09
+   2. IBRX    Gap: +18.99%  RVOL:   9.8x  Score: 14.39
+   3. TLN     Gap:  -7.03%  RVOL:   3.8x  Score:  5.43
+   4. RIOT    Gap:  +7.00%  RVOL:   3.8x  Score:  5.42
+   5. QXO     Gap:  -5.72%  RVOL:   3.2x  Score:  4.44
+=== 2026-01-20 ===
+   1. CRVS    Gap: +67.83%  RVOL:  16.4x  Score: 42.10
+   2. RAPT    Gap: +63.73%  RVOL:  16.6x  Score: 40.16
+   3. IBRX    Gap: +18.48%  RVOL:   7.7x  Score: 13.08
+   4. UVIX    Gap: +17.44%  RVOL:   4.0x  Score: 10.73
+=== 2026-01-21 ===
+   1. RMBS    Gap:  +9.73%  RVOL:   4.1x  Score:  6.94
+   2. TDY     Gap:  +7.27%  RVOL:   3.0x  Score:  5.15
+=== 2026-01-22 ===
+   1. ABT     Gap: -10.99%  RVOL:   4.1x  Score:  7.54
+   2. KOLD    Gap:  -8.75%  RVOL:   3.2x  Score:  5.97
+=== 2026-01-23 ===
+   1. BNAI    Gap: +21.36%  RVOL:   5.8x  Score: 13.58
+   2. BAH     Gap: +10.86%  RVOL:   3.2x  Score:  7.05
+   3. ERIC    Gap:  +8.60%  RVOL:   3.3x  Score:  5.94
+=== 2026-01-26 ===
+   1. BNAI    Gap: +234.68%  RVOL:   8.9x  Score: 121.80
+   2. USAR    Gap: +23.38%  RVOL:   7.7x  Score: 15.53
+   3. AGQ     Gap: +13.66%  RVOL:   3.9x  Score:  8.76
+   4. SLV     Gap:  +6.95%  RVOL:   3.6x  Score:  5.29
+   5. SIVR    Gap:  +7.04%  RVOL:   3.4x  Score:  5.21
+   6. COPX    Gap:  +5.57%  RVOL:   3.5x  Score:  4.55
+=== 2026-01-27 ===
+   1. CVLT    Gap: -19.77%  RVOL:   5.5x  Score: 12.63
+   2. HUM     Gap: -16.61%  RVOL:   5.9x  Score: 11.26
+   3. UNH     Gap: -16.50%  RVOL:   5.7x  Score: 11.10
+   4. SANM    Gap: -14.01%  RVOL:   4.2x  Score:  9.11
+   5. RR      Gap: +10.50%  RVOL:   5.5x  Score:  7.98
+   6. NET     Gap: +11.98%  RVOL:   3.9x  Score:  7.93
+   7. RDW     Gap: +11.54%  RVOL:   3.8x  Score:  7.66
+   8. CVS     Gap: -10.19%  RVOL:   4.3x  Score:  7.26
+   9. ROP     Gap:  -9.85%  RVOL:   3.6x  Score:  6.74
+  10. GLW     Gap:  +7.52%  RVOL:   4.8x  Score:  6.14
+=== 2026-01-28 ===
+   1. LRN     Gap: +24.26%  RVOL:   5.1x  Score: 14.70
+   2. NXT     Gap: +16.11%  RVOL:   3.6x  Score:  9.83
+   3. APH     Gap: -15.21%  RVOL:   3.5x  Score:  9.35
+   4. QRVO    Gap:  -7.46%  RVOL:   3.9x  Score:  5.67
+   5. STX     Gap:  +6.32%  RVOL:   4.3x  Score:  5.33
+=== 2026-01-29 ===
+   1. METU    Gap: +21.04%  RVOL:   5.4x  Score: 13.24
+   2. JOBY    Gap: -15.18%  RVOL:   4.0x  Score:  9.57
+   3. SAP     Gap: -15.70%  RVOL:   3.3x  Score:  9.49
+   4. MOD     Gap: +15.72%  RVOL:   3.1x  Score:  9.44
+   5. GLL     Gap:  -6.41%  RVOL:   8.2x  Score:  7.29
+   6. META    Gap: +10.28%  RVOL:   3.7x  Score:  7.00
+   7. MSFT    Gap:  -8.68%  RVOL:   3.7x  Score:  6.18
+   8. UGL     Gap:  +6.04%  RVOL:   6.3x  Score:  6.15
+   9. RCL     Gap:  +8.46%  RVOL:   3.4x  Score:  5.96
+  10. NOW     Gap:  -8.56%  RVOL:   3.1x  Score:  5.85
+=== 2026-01-30 ===
+   1. GLL     Gap: +12.42%  RVOL:   6.3x  Score:  9.35
+   2. DECK    Gap: +15.02%  RVOL:   3.4x  Score:  9.23
+   3. UGL     Gap: -11.80%  RVOL:   3.7x  Score:  7.74
+   4. CEF     Gap:  -9.78%  RVOL:   3.2x  Score:  6.49
+   5. GDX     Gap:  -8.40%  RVOL:   3.1x  Score:  5.77
+   6. IAUM    Gap:  -6.02%  RVOL:   5.1x  Score:  5.56
+   7. SGOL    Gap:  -5.99%  RVOL:   4.8x  Score:  5.41
+   8. PHYS    Gap:  -6.16%  RVOL:   4.3x  Score:  5.21
+   9. BAR     Gap:  -6.04%  RVOL:   4.4x  Score:  5.20
+  10. GLDM    Gap:  -5.97%  RVOL:   4.1x  Score:  5.03
+=== 2026-02-02 ===
+   1. DIS     Gap:  -7.84%  RVOL:   3.1x  Score:  5.45
+   2. GLL     Gap:  +5.64%  RVOL:   3.3x  Score:  4.45
+=== 2026-02-03 ===
+   1. IT      Gap: -26.91%  RVOL:   4.0x  Score: 15.47
+   2. PYPL    Gap: -18.10%  RVOL:   5.1x  Score: 11.60
+   3. DVA     Gap: +15.12%  RVOL:   4.8x  Score:  9.93
+   4. WWD     Gap: +14.00%  RVOL:   4.2x  Score:  9.08
+   5. TRI     Gap: -11.20%  RVOL:   4.3x  Score:  7.76
+   6. ATI     Gap:  +5.12%  RVOL:   3.2x  Score:  4.14
+=== 2026-02-04 ===
+   1. SLAB    Gap: +50.23%  RVOL:  12.9x  Score: 31.54
+   2. ENPH    Gap: +28.76%  RVOL:   6.9x  Score: 17.84
+   3. NYT     Gap: -13.70%  RVOL:   4.5x  Score:  9.10
+   4. VRNS    Gap: -12.66%  RVOL:   4.2x  Score:  8.43
+   5. BSX     Gap: -11.18%  RVOL:   3.9x  Score:  7.54
+   6. SMCI    Gap: +11.05%  RVOL:   3.4x  Score:  7.25
+   7. PFGC    Gap:  -9.78%  RVOL:   4.3x  Score:  7.03
+   8. CSL     Gap:  +7.65%  RVOL:   4.2x  Score:  5.94
+=== 2026-02-05 ===
+   1. EL      Gap: -12.46%  RVOL:   3.6x  Score:  8.04
+   2. XPO     Gap: +11.44%  RVOL:   4.5x  Score:  7.99
+   3. MSTZ    Gap: +12.02%  RVOL:   3.6x  Score:  7.80
+   4. SITM    Gap: +10.48%  RVOL:   4.5x  Score:  7.48
+   5. STE     Gap:  -9.13%  RVOL:   5.4x  Score:  7.25
+   6. SBIT    Gap:  +9.38%  RVOL:   4.1x  Score:  6.75
+   7. SIRI    Gap:  +8.28%  RVOL:   4.6x  Score:  6.46
+   8. RRX     Gap:  +6.57%  RVOL:   5.3x  Score:  5.92
+   9. ITT     Gap:  +8.20%  RVOL:   3.6x  Score:  5.92
+  10. RL      Gap:  -8.26%  RVOL:   3.5x  Score:  5.87
+=== 2026-02-06 ===
+   1. DOCS    Gap: -28.90%  RVOL:   4.3x  Score: 16.58
+   2. MOH     Gap: -28.77%  RVOL:   4.4x  Score: 16.58
+   3. STLA    Gap: -24.95%  RVOL:   3.8x  Score: 14.38
+   4. PI      Gap: -18.86%  RVOL:   3.2x  Score: 11.03
+   5. AMZU    Gap: -17.74%  RVOL:   4.0x  Score: 10.88
+   6. BILL    Gap: +15.30%  RVOL:   6.1x  Score: 10.69
+   7. ROIV    Gap: +15.78%  RVOL:   4.2x  Score:  9.97
+   8. AMZN    Gap:  -8.98%  RVOL:   3.1x  Score:  6.06
+=== 2026-02-09 ===
+   1. VAL     Gap: +18.75%  RVOL:  10.4x  Score: 14.57
+   2. HIMS    Gap: -22.55%  RVOL:   3.8x  Score: 13.18
+   3. MNDY    Gap: -21.51%  RVOL:   3.5x  Score: 12.53
+   4. WAT     Gap: -12.85%  RVOL:   3.4x  Score:  8.10
+=== 2026-02-10 ===
+   1. SPGI    Gap:  -5.69%  RVOL:   3.1x  Score:  4.42
+=== 2026-02-11 ===
+   1. U       Gap: -26.32%  RVOL:   3.3x  Score: 14.79
+   2. VRT     Gap: +16.85%  RVOL:   4.2x  Score: 10.53
+   3. LSCC    Gap: +15.89%  RVOL:   3.3x  Score:  9.58
+   4. LYFT    Gap: -15.64%  RVOL:   3.4x  Score:  9.51
+   5. SHOP    Gap:  +9.16%  RVOL:   3.2x  Score:  6.19
+   6. SW      Gap:  +6.46%  RVOL:   3.5x  Score:  4.98
+   7. GNRC    Gap:  +5.32%  RVOL:   4.0x  Score:  4.66
+   8. SOLS    Gap:  +5.93%  RVOL:   3.1x  Score:  4.52
+=== 2026-02-12 ===
+   1. FSLY    Gap: +44.90%  RVOL:  14.3x  Score: 29.59
+   2. ICLR    Gap: -39.94%  RVOL:   7.0x  Score: 23.47
+   3. CGNX    Gap: +31.37%  RVOL:   6.7x  Score: 19.01
+   4. CROX    Gap: +16.64%  RVOL:   4.2x  Score: 10.42
+   5. ROL     Gap: -15.21%  RVOL:   4.6x  Score:  9.89
+   6. EQIX    Gap: +10.31%  RVOL:   4.7x  Score:  7.50
+=== 2026-02-13 ===
+   1. RIVN    Gap: +26.93%  RVOL:   4.7x  Score: 15.81
+   2. FBIN    Gap: -19.00%  RVOL:   5.9x  Score: 12.44
+   3. ROKU    Gap: +16.42%  RVOL:   3.3x  Score:  9.88
+   4. MGA     Gap:  +9.37%  RVOL:   4.8x  Score:  7.06
+=== 2026-02-17 ===
+   1. ZIM     Gap: +36.44%  RVOL:  10.0x  Score: 23.21
+   2. MASI    Gap: +34.46%  RVOL:  11.5x  Score: 22.99
+=== 2026-02-18 ===
+   1. DINO    Gap: -17.26%  RVOL:   4.1x  Score: 10.67
+   2. GRMN    Gap: +16.15%  RVOL:   3.0x  Score:  9.59
+   3. WING    Gap: +11.62%  RVOL:   3.6x  Score:  7.60
+   4. SEDG    Gap:  +8.43%  RVOL:   3.3x  Score:  5.88
+=== 2026-02-19 ===
+   1. EPAM    Gap: -21.40%  RVOL:   3.4x  Score: 12.38
+   2. KLAR    Gap: -18.18%  RVOL:   6.0x  Score: 12.11
+   3. POOL    Gap: -10.76%  RVOL:   3.6x  Score:  7.17
+   4. FIG     Gap:  +7.48%  RVOL:   4.2x  Score:  5.84
+   5. DE      Gap:  +6.82%  RVOL:   3.9x  Score:  5.38
+   6. OMC     Gap:  +6.23%  RVOL:   3.0x  Score:  4.63
+   7. OXY     Gap:  +5.65%  RVOL:   3.2x  Score:  4.41
+=== 2026-02-20 ===
+   1. GRAL    Gap: -51.09%  RVOL:   6.5x  Score: 28.81
+   2. RNG     Gap: +16.95%  RVOL:   5.2x  Score: 11.08
+=== 2026-02-23 ===
+   1. ACLX    Gap: +78.04%  RVOL:  15.9x  Score: 46.97
+   2. NVO     Gap: -15.67%  RVOL:   3.1x  Score:  9.36
+   3. IBRX    Gap: +14.37%  RVOL:   3.5x  Score:  8.92
+=== 2026-02-24 ===
+   1. PRIM    Gap: -15.99%  RVOL:   3.0x  Score:  9.50
+   2. KEYS    Gap: +13.36%  RVOL:   5.0x  Score:  9.18
+=== 2026-02-25 ===
+   1. CRCL    Gap: +20.21%  RVOL:   5.6x  Score: 12.90
+   2. FSLR    Gap: -18.78%  RVOL:   3.1x  Score: 10.93
+   3. CAVA    Gap: +15.86%  RVOL:   5.4x  Score: 10.63
+   4. GDDY    Gap: -16.70%  RVOL:   3.2x  Score:  9.97
+   5. DEO     Gap: -13.60%  RVOL:   4.5x  Score:  9.07
+   6. AXON    Gap: +12.64%  RVOL:   3.6x  Score:  8.11
+   7. MELI    Gap:  -8.45%  RVOL:   3.4x  Score:  5.92
+=== 2026-02-26 ===
+   1. EOSE    Gap: -34.23%  RVOL:   4.0x  Score: 19.11
+   2. Q       Gap: +16.76%  RVOL:   3.4x  Score: 10.07
+   3. IONQ    Gap: +16.25%  RVOL:   3.5x  Score:  9.89
+   4. CELH    Gap: +15.93%  RVOL:   3.3x  Score:  9.60
+   5. SHAK    Gap: +13.33%  RVOL:   3.2x  Score:  8.26
+   6. HEI     Gap:  -9.30%  RVOL:   4.4x  Score:  6.82
+   7. SJM     Gap: +10.40%  RVOL:   3.2x  Score:  6.82
+   8. KORU    Gap:  +8.74%  RVOL:   4.6x  Score:  6.66
+   9. PRMB    Gap:  +9.58%  RVOL:   3.6x  Score:  6.62
+  10. NTNX    Gap:  +9.68%  RVOL:   3.4x  Score:  6.54
+=== 2026-02-27 ===
+   1. AAOI    Gap: +22.80%  RVOL:   6.2x  Score: 14.48
+   2. DUOL    Gap: -21.45%  RVOL:   4.7x  Score: 13.09
+   3. XYZ     Gap: +15.70%  RVOL:   4.1x  Score:  9.90
+   4. DELL    Gap: +13.18%  RVOL:   4.2x  Score:  8.71
+   5. NFLX    Gap: +11.47%  RVOL:   4.3x  Score:  7.88
+   6. FLUT    Gap: -10.63%  RVOL:   3.0x  Score:  6.83
+   7. RUN     Gap:  -8.96%  RVOL:   3.9x  Score:  6.45
+   8. KTOS    Gap:  -7.42%  RVOL:   3.1x  Score:  5.28
+=== 2026-03-02 ===
+   1. AAOI    Gap: +27.69%  RVOL:   6.1x  Score: 16.91
+   2. LASR    Gap: +20.15%  RVOL:   3.0x  Score: 11.58
+   3. AES     Gap: -17.16%  RVOL:   5.2x  Score: 11.16
+   4. VG      Gap: +15.61%  RVOL:   4.8x  Score: 10.19
+   5. AVAV    Gap: +12.68%  RVOL:   6.6x  Score:  9.65
+   6. UCO     Gap: +10.34%  RVOL:   4.3x  Score:  7.33
+   7. RCAT    Gap:  +8.93%  RVOL:   3.8x  Score:  6.37
+   8. KTOS    Gap:  +7.24%  RVOL:   4.0x  Score:  5.60
+   9. USO     Gap:  +6.92%  RVOL:   4.1x  Score:  5.52
+  10. FRO     Gap:  +5.20%  RVOL:   3.3x  Score:  4.23
+=== 2026-03-03 ===
+   1. BATL    Gap: +109.83%  RVOL:  10.3x  Score: 60.07
+   2. KORU    Gap: -35.30%  RVOL:   5.1x  Score: 20.20
+   3. MDB     Gap: -27.57%  RVOL:   3.9x  Score: 15.71
+   4. SE      Gap: -23.58%  RVOL:   3.8x  Score: 13.71
+   5. VG      Gap: +16.90%  RVOL:   4.3x  Score: 10.61
+   6. ONON    Gap: -12.23%  RVOL:   3.5x  Score:  7.85
+   7. EWY     Gap: -11.86%  RVOL:   3.2x  Score:  7.52
+   8. UCO     Gap:  +9.85%  RVOL:   4.7x  Score:  7.27
+   9. AAOI    Gap: -10.74%  RVOL:   3.2x  Score:  6.95
+  10. USO     Gap:  +7.93%  RVOL:   4.2x  Score:  6.07
+=== 2026-03-04 ===
+   1. MOBX    Gap:  +8.93%  RVOL:   3.6x  Score:  6.29
+   2. KORU    Gap:  -6.61%  RVOL:   4.4x  Score:  5.50
+=== 2026-03-05 ===
+   1. TTD     Gap: +25.11%  RVOL:   4.3x  Score: 14.69
+   2. BATL    Gap:  -8.89%  RVOL:   3.8x  Score:  6.34
+   3. VSCO    Gap:  -6.02%  RVOL:   4.3x  Score:  5.15
+=== 2026-03-06 ===
+   1. DAWN    Gap: +65.30%  RVOL:  14.9x  Score: 40.10
+   2. TPET    Gap: +32.08%  RVOL:   4.3x  Score: 18.19
+   3. MRVL    Gap: +11.95%  RVOL:   5.5x  Score:  8.75
+   4. USO     Gap:  +9.42%  RVOL:   4.5x  Score:  6.94
+   5. IOT     Gap:  +8.82%  RVOL:   4.2x  Score:  6.50
+   6. UCO     Gap:  +8.54%  RVOL:   3.5x  Score:  6.00
+   7. SOXS    Gap:  +8.29%  RVOL:   3.6x  Score:  5.94
+   8. BNO     Gap:  +7.18%  RVOL:   4.5x  Score:  5.87
+=== 2026-03-09 ===
+   1. HIMS    Gap: +47.49%  RVOL:   5.0x  Score: 26.23
+   2. SCO     Gap: -10.33%  RVOL:   8.4x  Score:  9.38
+   3. UCO     Gap: +10.48%  RVOL:   6.8x  Score:  8.63
+   4. BNO     Gap: +10.85%  RVOL:   5.9x  Score:  8.39
+   5. USO     Gap:  +9.79%  RVOL:   6.2x  Score:  8.02
+=== 2026-03-10 ===
+   1. BNTX    Gap: -18.94%  RVOL:   9.2x  Score: 14.07
+   2. CRSP    Gap:  -8.23%  RVOL:   4.7x  Score:  6.45
+   3. HIMS    Gap:  +8.30%  RVOL:   3.6x  Score:  5.94
+   4. NIO     Gap:  +6.48%  RVOL:   4.0x  Score:  5.24
+=== 2026-03-11 ===
+   1. ORCL    Gap: +11.40%  RVOL:   3.1x  Score:  7.26
+=== 2026-03-12 ===
+   1. CF      Gap:  +6.57%  RVOL:   3.5x  Score:  5.05
+   2. MOS     Gap:  +6.57%  RVOL:   3.5x  Score:  5.02
+=== 2026-03-13 ===
+   1. ULTA    Gap:  -9.35%  RVOL:   3.5x  Score:  6.42
+=== 2026-03-16 ===
+   1. NBIS    Gap: +10.45%  RVOL:   3.0x  Score:  6.75
+=== 2026-03-17 ===
+   1. TME     Gap: -15.35%  RVOL:   6.2x  Score: 10.79
+   2. NBIS    Gap:  -7.32%  RVOL:   3.9x  Score:  5.59
+=== 2026-03-19 ===
+   1. VG      Gap:  +6.06%  RVOL:   4.2x  Score:  5.13
+   2. IAUM    Gap:  -5.49%  RVOL:   3.1x  Score:  4.30
+=== 2026-03-20 ===
+   1. SMCI    Gap: -26.86%  RVOL:   5.1x  Score: 15.97
+   2. PL      Gap: +24.44%  RVOL:   6.0x  Score: 15.20
+   3. FDX     Gap:  +6.94%  RVOL:   3.3x  Score:  5.13
+   4. ARM     Gap:  +5.45%  RVOL:   3.1x  Score:  4.27
