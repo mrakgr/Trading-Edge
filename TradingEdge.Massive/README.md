@@ -291,110 +291,6 @@ dotnet run --project TradingEdge.Massive -- refresh-views
 dotnet run --project TradingEdge.Massive -- refresh-views -d /path/to/custom.db
 ```
 
-### Plot Chart
-
-Generates an interactive candlestick chart with volume for a given ticker.
-
-```bash
-dotnet run --project TradingEdge.Massive -- plot-chart [options]
-```
-
-**Options:**
-- `-t, --ticker <symbol>` - Stock ticker symbol (required)
-- `-d, --database <path>` - DuckDB database path (default: data/trading.db)
-- `-o, --output <path>` - Output HTML file path (default: data/{ticker}_chart.html)
-- `-w, --width <int>` - Chart width in pixels (default: 1200)
-- `-h, --height <int>` - Chart height in pixels (default: 900)
-
-**Examples:**
-
-```bash
-# Plot NVDA chart
-dotnet run --project TradingEdge.Massive -- plot-chart -t NVDA
-
-# Plot with custom output path
-dotnet run --project TradingEdge.Massive -- plot-chart -t AAPL -o charts/apple.html
-
-# Plot with custom dimensions
-dotnet run --project TradingEdge.Massive -- plot-chart -t MSFT -w 1600 -h 1000
-```
-
-**Features:**
-- Split-and-dividend-adjusted prices calculated via SQL materialized table
-- Interactive candlestick chart with volume bars
-- Output as standalone HTML file (uses Plotly.js)
-
-### Plot DOM Chart
-
-Generates a DOM (Direction of Momentum) indicator chart.
-
-```bash
-dotnet run --project TradingEdge.Massive -- plot-dom [options]
-```
-
-**Options:**
-- `-t, --ticker <symbol>` - Reference ticker to plot against (default: SPY)
-- `-d, --database <path>` - DuckDB database path (default: data/trading.db)
-- `-o, --output <path>` - Output HTML file path (default: data/dom_chart.html)
-- `-w, --width <int>` - Chart width in pixels (default: 1200)
-- `-h, --height <int>` - Chart height in pixels (default: 600)
-
-**Examples:**
-
-```bash
-# Plot DOM chart with default SPY reference
-dotnet run --project TradingEdge.Massive -- plot-dom
-
-# Plot DOM chart against QQQ
-dotnet run --project TradingEdge.Massive -- plot-dom -t QQQ
-
-# Plot with custom output path
-dotnet run --project TradingEdge.Massive -- plot-dom -o charts/dom.html
-```
-
-**Features:**
-- Market breadth indicator visualization
-- Optional reference ticker overlay
-- Output as standalone HTML file (uses Plotly.js)
-
-### Plot Intraday Chart
-
-Generates an interactive intraday candlestick chart with volume and VWAP indicators.
-
-```bash
-dotnet run --project TradingEdge.Massive -- plot-intraday [options]
-```
-
-**Options:**
-- `-t, --ticker <symbol>` - Stock ticker symbol (required)
-- `-s, --date <yyyy-MM-dd>` - Date to plot (required)
-- `-d, --database <path>` - DuckDB database path (default: data/trading.db)
-- `-o, --output <path>` - Output HTML file path (default: data/{ticker}_{date}_intraday.html)
-- `-w, --width <int>` - Chart width in pixels (default: 1200)
-- `-h, --height <int>` - Chart height in pixels (default: 900)
-- `--timespan <string>` - Aggregate timespan: 'minute' or 'second' (default: minute)
-
-**Examples:**
-
-```bash
-# Plot NVDA intraday chart for a specific date
-dotnet run --project TradingEdge.Massive -- plot-intraday -t NVDA -s 2024-12-12
-
-# Plot second-level data
-dotnet run --project TradingEdge.Massive -- plot-intraday -t AAPL -s 2024-12-12 --timespan second
-
-# Plot with custom output path
-dotnet run --project TradingEdge.Massive -- plot-intraday -t MSFT -s 2024-12-12 -o charts/msft_intraday.html
-```
-
-**Features:**
-- Candlestick chart with OHLC prices
-- Volume bars at the bottom
-- Session VWAP (orange line) - cumulative volume-weighted average price, commonly used as institutional execution benchmark
-- Bar VWAP (purple dots) - individual bar VWAP values
-- Unified hover mode for easy data inspection
-- Output as standalone HTML file (uses Plotly.js)
-
 ### Stocks In Play
 
 Lists top stocks in play for a date range based on relative volume, opening gap, and liquidity.
@@ -437,44 +333,6 @@ dotnet run --project TradingEdge.Massive -- stocks-in-play -r 2 -g 0.03 -v 25
 - Ranked by composite score (RVOL + gap magnitude)
 - Top 10 stocks per day
 
-### List Conditions
-
-Lists trade and quote condition codes from the Polygon API. These codes appear in the `conditions` field of trades data and indicate special circumstances like extended hours trades, odd lots, or intermarket sweeps.
-
-```bash
-dotnet run --project TradingEdge.Massive -- list-conditions [options]
-```
-
-**Options:**
-- `-a, --asset-class <string>` - Asset class filter: stocks, options, crypto, fx (default: stocks)
-- `-d, --data-type <string>` - Data type filter: trade, quote (default: trade)
-
-**Examples:**
-
-```bash
-# List all stock trade conditions (default)
-dotnet run --project TradingEdge.Massive -- list-conditions
-
-# List quote conditions for stocks
-dotnet run --project TradingEdge.Massive -- list-conditions -d quote
-
-# List trade conditions for options
-dotnet run --project TradingEdge.Massive -- list-conditions -a options
-```
-
-**Output columns:**
-- **ID** - Condition code number (appears in trades data `conditions` field)
-- **Name** - Human-readable description
-- **Type** - Category (sale_condition, trade_thru_exempt, etc.)
-- **CTA/UTP** - Exchange-specific codes
-- **Hi/Lo, Op/Cl, Volume** - Whether trades with this condition update high/low, open/close, and volume calculations
-
-**Common conditions:**
-- **37 (Odd Lot Trade)** - Trades < 100 shares, excluded from hi/lo and open/close
-- **12 (Form T/Extended Hours)** - Pre-market and after-hours trades
-- **14 (Intermarket Sweep)** - Large orders swept across multiple exchanges
-- **41 (Trade Thru Exempt)** - Exempt from trade-through rules
-
 ## Project Structure
 
 ```
@@ -488,9 +346,7 @@ TradingEdge/
 │   ├── IntradayDownload.fs      # Intraday API client (minute/second bars)
 │   ├── TradesDownload.fs        # Trades API client (tick-level data)
 │   ├── QuotesDownload.fs        # Quotes API client (NBBO data)
-│   ├── Conditions.fs            # Trade condition codes API client
 │   ├── Database.fs              # DuckDB database operations
-│   ├── Plotting.fs              # Chart generation (candlestick, DOM)
 │   ├── Program.fs               # CLI application
 │   └── sql/schema/              # SQL schema files
 │       ├── tables/              # Base tables
@@ -500,14 +356,10 @@ TradingEdge/
 │       ├── materialized/        # Materialized tables (slow to rebuild)
 │       │   ├── 01_split_adjusted_prices.sql  # Split + dividend adjusted
 │       │   ├── 02_trading_calendar.sql
-│       │   ├── 03_stock_momentum_26w.sql
-│       │   ├── 04_stock_dollar_volume_4w.sql
-│       │   └── 05_stock_momentum_ranking.sql
+│       │   └── 04_stock_dollar_volume_4w.sql
 │       └── views/               # Views/macros (fast to refresh)
-│           ├── 06_stock_leaders.sql
-│           ├── 07_stock_laggards.sql
-│           ├── 08_dom_indicator.sql
-│           └── 09_stocks_in_play.sql
+│           ├── 09_stocks_in_play.sql
+│           └── 10_trades_with_quotes.sql
 ├── api_key.json                 # API credentials (not in git)
 └── data/                        # Downloaded data
     ├── daily_aggregates/        # Daily OHLCV CSV files
