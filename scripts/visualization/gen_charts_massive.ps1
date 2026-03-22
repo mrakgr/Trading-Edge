@@ -1,10 +1,11 @@
 param(
     [string[]]$Files = @(
         # 'data/trades/LW/2025-12-19.json'
-        'data/trades/NBIS/2025-09-09.json'
-        'data/trades/NBIS/2025-09-10.json'
+        # 'data/trades/NBIS/2025-09-09.json'
+        # 'data/trades/NBIS/2025-09-10.json'
         # 'data/trades/OPEN/2025-09-11.json'
         # 'data/trades/MSTR/2024-11-21.json'
+        
         ),
     [int]$SecondsPerBar = 60,
     [int]$VolumePerBar = 30000,
