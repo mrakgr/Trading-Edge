@@ -7,6 +7,24 @@ pip install markdown
 python3 -c "import markdown; print(markdown.markdown(open('docs/stocks_in_play_reference.md').read(), extensions=['extra', 'nl2br']))" > docs/stocks_in_play_reference.html
 ```
 
+## What it has (reference characteristics):
+
+- Historical examples of stocks that moved
+- Intraday fundamentals (gap %, RVOL, volume, news)
+- Charts showing what happened
+
+## What it lacks (playbook characteristics):
+
+- Entry criteria and triggers
+- Stop loss placement rules
+- Position sizing guidelines
+- Exit strategies
+- Risk management rules
+- Specific patterns to trade (e.g., "bull flag breakout", "VWAP reclaim")
+- Trade management rules (scaling in/out, trailing stops)
+
+Those will be up to the actual automated systems that I will create. This document is intended to be representative of the kinds of stocks I will be trading in the future. You'll note these aren't random stocks, but the most volatile opportunities on any given day.
+
 # Grading Criteria
 
 These are adopted from SMB Capital. They use 4 criteria to judge the quality of their setups + 3 more criteria related to trade management, which we aren't going to be using in this document because we'll have our trades managed by computer agents. We'll be reviewing tier effectiveness, but that process will be different from discretionary decisions of human agents.
@@ -274,3 +292,4 @@ The morning breakouts above 8 and 8.5 were A+ trades either way. The second brea
 My personal preference is for my systems to go long above 8.5 when the volume started to become faster and sell once the momentum started vaning at around 9.2. It's not so much about getting the meat of the move, but simply the best part of the move and leaving the volatility to others.
 
 The stock was so liquid that it would have been no trouble to scale into this trade.
+
