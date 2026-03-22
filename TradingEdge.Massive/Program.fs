@@ -11,10 +11,7 @@ open TradingEdge.DividendDownload
 open TradingEdge.IntradayDownload
 open TradingEdge.TradesDownload
 open TradingEdge.QuotesDownload
-open TradingEdge.Conditions
-open TradingEdge.TradeMetrics
 open TradingEdge.Database
-open TradingEdge.Plotting
 
 let private formatDate (d: DateTime) = d.ToString("yyyy-MM-dd")
 
@@ -63,42 +60,6 @@ type IngestDataArgs =
             | Csv_Dir _ -> "Directory containing .csv.gz files (default: data/daily_aggregates)"
             | Splits_File _ -> "CSV file containing splits (default: data/splits.csv)"
             | Dividends_File _ -> "CSV file containing dividends (default: data/dividends.csv)"
-
-type PlotChartArgs =
-    | [<AltCommandLine("-t")>] Ticker of string
-    | [<AltCommandLine("-d")>] Database of string
-    | [<AltCommandLine("-o")>] Output of string
-    | [<AltCommandLine("-w")>] Width of int
-    | [<AltCommandLine("-h")>] Height of int
-    | [<AltCommandLine("-s")>] Start_Date of string
-    | [<AltCommandLine("-e")>] End_Date of string
-
-    interface IArgParserTemplate with
-        member this.Usage =
-            match this with
-            | Ticker _ -> "Stock ticker symbol (required)"
-            | Database _ -> "DuckDB database path (default: data/trading.db)"
-            | Output _ -> "Output HTML file path (default: data/{ticker}_chart.html)"
-            | Width _ -> "Chart width in pixels (default: 1400)"
-            | Height _ -> "Chart height in pixels (default: 700)"
-            | Start_Date _ -> "Start date yyyy-MM-dd (default: 3 years before end date)"
-            | End_Date _ -> "End date yyyy-MM-dd (default: today)"
-
-type PlotDomArgs =
-    | [<AltCommandLine("-t")>] Ticker of string
-    | [<AltCommandLine("-d")>] Database of string
-    | [<AltCommandLine("-o")>] Output of string
-    | [<AltCommandLine("-w")>] Width of int
-    | [<AltCommandLine("-h")>] Height of int
-
-    interface IArgParserTemplate with
-        member this.Usage =
-            match this with
-            | Ticker _ -> "Reference ticker to plot against (default: SPY)"
-            | Database _ -> "DuckDB database path (default: data/trading.db)"
-            | Output _ -> "Output HTML file path (default: data/dom_chart.html)"
-            | Width _ -> "Chart width in pixels (default: 1200)"
-            | Height _ -> "Chart height in pixels (default: 600)"
 
 type StocksInPlayArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
@@ -222,80 +183,6 @@ type IngestQuotesArgs =
             | Database _ -> "DuckDB database path (default: data/trading.db)"
             | Input_Dir _ -> "Input directory for quotes data (default: data/quotes)"
 
-type PlotIntradayArgs =
-    | [<AltCommandLine("-t")>] Ticker of string
-    | [<AltCommandLine("-s")>] Date of string
-    | [<AltCommandLine("-d")>] Database of string
-    | [<AltCommandLine("-o")>] Output of string
-    | [<AltCommandLine("-w")>] Width of int
-    | [<AltCommandLine("-h")>] Height of int
-    | Timespan of string
-
-    interface IArgParserTemplate with
-        member this.Usage =
-            match this with
-            | Ticker _ -> "Stock ticker symbol (required)"
-            | Date _ -> "Date to plot (yyyy-MM-dd, required)"
-            | Database _ -> "DuckDB database path (default: data/trading.db)"
-            | Output _ -> "Output HTML file path (default: data/{ticker}_{date}_intraday.html)"
-            | Width _ -> "Chart width in pixels (default: 1200)"
-            | Height _ -> "Chart height in pixels (default: 900)"
-            | Timespan _ -> "Aggregate timespan: 'minute' or 'second' (default: minute)"
-
-type ListConditionsArgs =
-    | [<AltCommandLine("-a")>] Asset_Class of string
-    | [<AltCommandLine("-d")>] Data_Type of string
-
-    interface IArgParserTemplate with
-        member this.Usage =
-            match this with
-            | Asset_Class _ -> "Asset class filter: stocks, options, crypto, fx (default: stocks)"
-            | Data_Type _ -> "Data type filter: trade, quote (default: trade)"
-
-type ComputeMetricsArgs =
-    | [<AltCommandLine("-t")>] Ticker of string
-    | [<AltCommandLine("-s")>] Session_Date of string
-    | [<AltCommandLine("-w")>] Window of float
-    | [<AltCommandLine("-d")>] Database of string
-    | [<AltCommandLine("-l")>] Limit of int
-
-    interface IArgParserTemplate with
-        member this.Usage =
-            match this with
-            | Ticker _ -> "Stock ticker symbol (required)"
-            | Session_Date _ -> "Session date (yyyy-MM-dd, required)"
-            | Window _ -> "Window size in seconds (default: 60)"
-            | Database _ -> "DuckDB database path (default: data/trading.db)"
-            | Limit _ -> "Limit output rows (default: show all)"
-
-type ExportMetricsArgs =
-    | [<AltCommandLine("-t")>] Ticker of string
-    | [<AltCommandLine("-s")>] Session_Date of string
-    | [<AltCommandLine("-d")>] Database of string
-    | [<AltCommandLine("-o")>] Output of string
-
-    interface IArgParserTemplate with
-        member this.Usage =
-            match this with
-            | Ticker _ -> "Stock ticker symbol (required)"
-            | Session_Date _ -> "Session date (yyyy-MM-dd, required)"
-            | Database _ -> "DuckDB database path (default: data/trading.db)"
-            | Output _ -> "Output CSV file path (default: data/{ticker}_{date}_metrics.csv)"
-
-type ExportSimplifiedArgs =
-    | [<AltCommandLine("-t")>] Ticker of string
-    | [<AltCommandLine("-s")>] Session_Date of string
-    | [<AltCommandLine("-d")>] Database of string
-    | [<AltCommandLine("-o")>] Output of string
-
-    interface IArgParserTemplate with
-        member this.Usage =
-            match this with
-            | Ticker _ -> "Stock ticker symbol (required)"
-            | Session_Date _ -> "Session date (yyyy-MM-dd, required)"
-            | Database _ -> "DuckDB database path (default: data/trading.db)"
-            | Output _ -> "Output CSV file path (default: data/{ticker}_{date}_simple.csv)"
-
 type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Download_Bulk of ParseResults<DownloadBulkArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Splits of ParseResults<DownloadSplitsArgs>
@@ -307,15 +194,8 @@ type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Ingest_Intraday of ParseResults<IngestIntradayArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Trades of ParseResults<IngestTradesArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Quotes of ParseResults<IngestQuotesArgs>
-    | [<CliPrefix(CliPrefix.None)>] Plot_Chart of ParseResults<PlotChartArgs>
-    | [<CliPrefix(CliPrefix.None)>] Plot_Dom of ParseResults<PlotDomArgs>
-    | [<CliPrefix(CliPrefix.None)>] Plot_Intraday of ParseResults<PlotIntradayArgs>
     | [<CliPrefix(CliPrefix.None)>] Stocks_In_Play of ParseResults<StocksInPlayArgs>
     | [<CliPrefix(CliPrefix.None)>] Refresh_Views of ParseResults<RefreshViewsArgs>
-    | [<CliPrefix(CliPrefix.None)>] List_Conditions of ParseResults<ListConditionsArgs>
-    | [<CliPrefix(CliPrefix.None)>] Compute_Metrics of ParseResults<ComputeMetricsArgs>
-    | [<CliPrefix(CliPrefix.None)>] Export_Metrics of ParseResults<ExportMetricsArgs>
-    | [<CliPrefix(CliPrefix.None)>] Export_Simplified of ParseResults<ExportSimplifiedArgs>
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -330,15 +210,8 @@ type Arguments =
             | Ingest_Intraday _ -> "Ingest intraday data into DuckDB database"
             | Ingest_Trades _ -> "Ingest trades data into DuckDB database"
             | Ingest_Quotes _ -> "Ingest quotes data into DuckDB database"
-            | Plot_Chart _ -> "Generate a candlestick chart for a ticker"
-            | Plot_Dom _ -> "Generate a DOM indicator chart"
-            | Plot_Intraday _ -> "Generate an intraday candlestick chart for a ticker on a specific date"
             | Stocks_In_Play _ -> "List top stocks in play for a date range"
             | Refresh_Views _ -> "Refresh views only (fast, no table rematerialization)"
-            | List_Conditions _ -> "List trade/quote condition codes from the API"
-            | Compute_Metrics _ -> "Compute trade metrics (VWAP, VWSTD, volume) for a session"
-            | Export_Metrics _ -> "Export trades with multi-window metrics to CSV"
-            | Export_Simplified _ -> "Export simplified trade table for human reading"
 
 let private ensureDataDir () =
     Directory.CreateDirectory("data") |> ignore
@@ -567,87 +440,6 @@ let private handleIngestData (args: ParseResults<IngestDataArgs>) =
         printfn "  Date range: %s to %s" (formatDate minDate) (formatDate maxDate)
     | None ->
         printfn "  Date range: (no data)"
-
-let private handlePlotChart (args: ParseResults<PlotChartArgs>) =
-    let ticker =
-        match args.TryGetResult PlotChartArgs.Ticker with
-        | Some t -> t.ToUpperInvariant()
-        | None -> failwith "Ticker is required. Use -t or --ticker to specify."
-
-    let dbPath =
-        args.TryGetResult PlotChartArgs.Database
-        |> Option.defaultValue "data/trading.db"
-
-    let outputPath =
-        args.TryGetResult PlotChartArgs.Output
-        |> Option.defaultValue $"data/{ticker}_chart.html"
-
-    let width = args.GetResult(PlotChartArgs.Width, defaultValue = 1400)
-    let height = args.GetResult(PlotChartArgs.Height, defaultValue = 700)
-
-    let endDate = args.TryGetResult PlotChartArgs.End_Date |> Option.map DateOnly.Parse
-    let startDate = args.TryGetResult PlotChartArgs.Start_Date |> Option.map DateOnly.Parse
-
-    printfn "Generating chart for %s" ticker
-    printfn "Database: %s" (Path.GetFullPath dbPath)
-    printfn "Output: %s" (Path.GetFullPath outputPath)
-
-    Plotting.generateChart dbPath ticker outputPath width height startDate endDate
-
-let private handlePlotDom (args: ParseResults<PlotDomArgs>) =
-    let ticker = args.TryGetResult PlotDomArgs.Ticker |> Option.map (fun t -> t.ToUpperInvariant())
-
-    let dbPath =
-        args.TryGetResult PlotDomArgs.Database
-        |> Option.defaultValue "data/trading.db"
-
-    let outputPath =
-        args.TryGetResult PlotDomArgs.Output
-        |> Option.defaultValue "data/dom_chart.html"
-
-    let width = args.GetResult(PlotDomArgs.Width, defaultValue = 1200)
-    let height = args.GetResult(PlotDomArgs.Height, defaultValue = 600)
-
-    let tickerStr = ticker |> Option.defaultValue "SPY"
-    printfn "Generating DOM chart against %s" tickerStr
-    printfn "Database: %s" (Path.GetFullPath dbPath)
-    printfn "Output: %s" (Path.GetFullPath outputPath)
-
-    Plotting.generateDomChart dbPath ticker outputPath width height
-
-let private handlePlotIntraday (args: ParseResults<PlotIntradayArgs>) =
-    let ticker =
-        match args.TryGetResult PlotIntradayArgs.Ticker with
-        | Some t -> t.ToUpperInvariant()
-        | None -> failwith "Ticker is required. Use -t or --ticker to specify."
-
-    let date =
-        match args.TryGetResult PlotIntradayArgs.Date with
-        | Some d -> DateTime.Parse(d)
-        | None -> failwith "Date is required. Use -s or --date to specify (yyyy-MM-dd)."
-
-    let dbPath =
-        args.TryGetResult PlotIntradayArgs.Database
-        |> Option.defaultValue "data/trading.db"
-
-    let timespan =
-        args.TryGetResult PlotIntradayArgs.Timespan
-        |> Option.defaultValue "minute"
-
-    let dateStr = date.ToString("yyyy-MM-dd")
-    let outputPath =
-        args.TryGetResult PlotIntradayArgs.Output
-        |> Option.defaultValue $"data/{ticker}_{dateStr}_intraday.html"
-
-    let width = args.GetResult(PlotIntradayArgs.Width, defaultValue = 1200)
-    let height = args.GetResult(PlotIntradayArgs.Height, defaultValue = 900)
-
-    printfn "Generating intraday chart for %s on %s" ticker dateStr
-    printfn "Database: %s" (Path.GetFullPath dbPath)
-    printfn "Output: %s" (Path.GetFullPath outputPath)
-    printfn "Timespan: %s" timespan
-
-    Plotting.generateIntradayChart dbPath ticker date timespan outputPath width height
 
 let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
     let endDate =
@@ -1016,113 +808,6 @@ let private handleIngestQuotes (args: ParseResults<IngestQuotesArgs>) =
     printfn ""
     printfn "Quotes ingestion complete."
 
-let private handleListConditions (config: MassiveConfig) (args: ParseResults<ListConditionsArgs>) =
-    let assetClass =
-        args.TryGetResult ListConditionsArgs.Asset_Class
-        |> Option.defaultValue "stocks"
-        |> Some
-
-    let dataType =
-        args.TryGetResult ListConditionsArgs.Data_Type
-        |> Option.defaultValue "trade"
-        |> Some
-
-    printfn "Fetching condition codes..."
-    printfn "Asset class: %s" (assetClass |> Option.defaultValue "all")
-    printfn "Data type: %s" (dataType |> Option.defaultValue "all")
-
-    use httpClient = new HttpClient()
-    use cts = new CancellationTokenSource()
-
-    let result =
-        fetchConditions httpClient config.ApiKey assetClass dataType cts.Token
-        |> Async.RunSynchronously
-
-    match result with
-    | Ok conditions ->
-        printConditionsTable conditions
-    | Error msg ->
-        printfn "Error fetching conditions: %s" msg
-
-let private handleComputeMetrics (args: ParseResults<ComputeMetricsArgs>) =
-    let ticker = args.GetResult ComputeMetricsArgs.Ticker
-    let sessionDateStr = args.GetResult ComputeMetricsArgs.Session_Date
-    let sessionDate = DateOnly.Parse(sessionDateStr)
-    let windowSeconds = args.GetResult(ComputeMetricsArgs.Window, defaultValue = 60.0)
-    let dbPath = args.GetResult(ComputeMetricsArgs.Database, defaultValue = "data/trading.db")
-    let limit = args.TryGetResult ComputeMetricsArgs.Limit
-
-    printfn "Computing trade metrics..."
-    printfn "Ticker: %s" ticker
-    printfn "Session: %s" sessionDateStr
-    printfn "Window: %.0f seconds" windowSeconds
-    printfn "Database: %s" dbPath
-    printfn ""
-
-    use connection = openConnection dbPath
-    
-    let stopwatch = System.Diagnostics.Stopwatch.StartNew()
-    let trades = TradeMetrics.loadTrades connection ticker sessionDate
-    let loadTime = stopwatch.ElapsedMilliseconds
-    
-    stopwatch.Restart()
-    let metrics = TradeMetrics.computeMetrics trades windowSeconds
-    let computeTime = stopwatch.ElapsedMilliseconds
-    
-    printfn "Loaded %d trades in %dms" trades.Length loadTime
-    printfn "Computed metrics in %dms" computeTime
-    printfn ""
-    
-    let displayMetrics = 
-        match limit with
-        | Some n -> metrics |> Array.truncate n
-        | None -> metrics
-    
-    printfn "%-12s %-12s %-12s %-12s %-12s %-12s %-12s" "ID" "VWAP" "VWSTD" "AskVol" "BidVol" "MidVol" "TotalVol"
-    printfn "%s" (String.replicate 84 "-")
-    
-    for m in displayMetrics do
-        printfn "%-12d %-12.4f %-12.4f %-12.0f %-12.0f %-12.0f %-12.0f" 
-            m.Id m.Vwap m.Vwstd m.AskVolume m.BidVolume m.MidVolume m.TotalVolume
-
-let private handleExportMetrics (args: ParseResults<ExportMetricsArgs>) =
-    let ticker = args.GetResult ExportMetricsArgs.Ticker
-    let sessionDateStr = args.GetResult ExportMetricsArgs.Session_Date
-    let sessionDate = DateOnly.Parse(sessionDateStr)
-    let dbPath = args.GetResult(ExportMetricsArgs.Database, defaultValue = "data/trading.db")
-    let outputPath = 
-        args.TryGetResult ExportMetricsArgs.Output
-        |> Option.defaultValue (sprintf "data/%s_%s_metrics.csv" ticker sessionDateStr)
-
-    printfn "Exporting trade metrics..."
-    printfn "Ticker: %s" ticker
-    printfn "Session: %s" sessionDateStr
-    printfn "Database: %s" dbPath
-    printfn "Output: %s" outputPath
-    printfn ""
-
-    use connection = openConnection dbPath
-    TradeMetrics.exportToCsv connection ticker sessionDate outputPath
-
-let private handleExportSimplified (args: ParseResults<ExportSimplifiedArgs>) =
-    let ticker = args.GetResult ExportSimplifiedArgs.Ticker
-    let sessionDateStr = args.GetResult ExportSimplifiedArgs.Session_Date
-    let sessionDate = DateOnly.Parse(sessionDateStr)
-    let dbPath = args.GetResult(ExportSimplifiedArgs.Database, defaultValue = "data/trading.db")
-    let outputPath = 
-        args.TryGetResult ExportSimplifiedArgs.Output
-        |> Option.defaultValue (sprintf "data/%s_%s_simple.csv" ticker sessionDateStr)
-
-    printfn "Exporting simplified trade table..."
-    printfn "Ticker: %s" ticker
-    printfn "Session: %s" sessionDateStr
-    printfn "Database: %s" dbPath
-    printfn "Output: %s" outputPath
-    printfn ""
-
-    use connection = openConnection dbPath
-    TradeMetrics.exportSimplified connection ticker sessionDate outputPath
-
 [<EntryPoint>]
 let main argv =
     let parser = ArgumentParser.Create<Arguments>(programName = "TradingEdge")
@@ -1162,23 +847,8 @@ let main argv =
                 handleIngestQuotes args
             | Refresh_Views args ->
                 handleRefreshViews args
-            | Plot_Chart args ->
-                handlePlotChart args
-            | Plot_Dom args ->
-                handlePlotDom args
-            | Plot_Intraday args ->
-                handlePlotIntraday args
             | Stocks_In_Play args ->
                 handleStocksInPlay args
-            | List_Conditions args ->
-                let config = loadConfigOrFail configPath
-                handleListConditions config args
-            | Compute_Metrics args ->
-                handleComputeMetrics args
-            | Export_Metrics args ->
-                handleExportMetrics args
-            | Export_Simplified args ->
-                handleExportSimplified args
 
         0
     with
