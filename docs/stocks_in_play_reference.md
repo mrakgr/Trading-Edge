@@ -190,10 +190,10 @@ In fact, it bears highlighting that after the selloff exhausted itself there was
 
 ### Big Picture
 
-Opus:
-  - S&P 500 gained 0.53%, closing at 5,948.71 — extending a 4-day winning streak as part of a strong post-election rally (S&P finished November up 5%+, best month of 2024)                        
-  - Bitcoin hit a record high above $99,000 that day, driving crypto-related names
-  - The dominant themes were the post-Trump-election rally, AI, and crypto
+
+*- S&P 500 gained 0.53%, closing at 5,948.71 — extending a 4-day winning streak as part of a strong post-election rally (S&P finished November up 5%+, best month of 2024)*
+*- Bitcoin hit a record high above $99,000 that day, driving crypto-related names*
+*- The dominant themes were the post-Trump-election rally, AI, and crypto*
 
 ### Intraday Fundamentals
 
@@ -204,17 +204,15 @@ Gap %: 12.9% (large)
 Premarket volume: 7.4m (35.9%)
 Catalyst: 7/10 (thesis busting)
 
-Opus:
-  - Convertible note offering: On Nov 18, MicroStrategy announced a $1.75B convertible note offering (later upsized to $3B at 0% coupon) to buy more Bitcoin. Between Nov 18-24 they bought 55,500
-  BTC for ~$5.4B
-  - The stock had rallied ~59% in November heading into this day, riding Bitcoin's surge and the company's aggressive BTC acquisition strategy
-  - MSTR hit an all-time high of ~$543 intraday on Nov 21
-  - Then Citron Research (Andrew Left) disclosed a short position, arguing the stock was "overheated" and disconnected from Bitcoin fundamentals (while remaining bullish on BTC itself)
-  - The stock reversed ~16% intraday, closing around $397 after being up 11% earlier in the session
-  - This marked the beginning of a prolonged decline — MSTR fell ~35% within a week and eventually ~70% from this peak
+*- Convertible note offering: On Nov 18, MicroStrategy announced a $1.75B convertible note offering (later upsized to $3B at 0% coupon) to buy more Bitcoin. Between Nov 18-24 they bought 55,500*
+*BTC for ~$5.4B*
+*- The stock had rallied ~59% in November heading into this day, riding Bitcoin's surge and the company's aggressive BTC acquisition strategy*
+*- MSTR hit an all-time high of ~$543 intraday on Nov 21*
+*- Then Citron Research (Andrew Left) disclosed a short position, arguing the stock was "overheated" and disconnected from Bitcoin fundamentals (while remaining bullish on BTC itself)*
+*- The stock reversed ~16% intraday, closing around $397 after being up 11% earlier in the session*
+*- This marked the beginning of a prolonged decline — MSTR fell ~35% within a week and eventually ~70% from this peak*
 
-  In summary: Strong intraday fundamentals (massive volume, Bitcoin proxy at ATH, $3B convertible offering), but the Citron short announcement mid-day was the catalyst for the reversal. A classic
-   blow-off top.
+*In summary: Strong intraday fundamentals (massive volume, Bitcoin proxy at ATH, $3B convertible offering), but the Citron short announcement mid-day was the catalyst for the reversal. A classic blow-off top.*
 
 Quality: 8/10.
 
@@ -241,8 +239,7 @@ Very messy chart, LW was much better. It makes me wonder whether trying to play 
 
 ### Big Picture
 
-Opus:
-  All three major indexes closed at record highs. S&P 500 gained 0.85% to ~6,532. CPI inflation report kept Fed rate cut hopes alive. The dominant themes were AI/tech and a broad post-summer rally. OPEN is a real estate iBuyer — not directly tied to the AI theme, but lower rates are bullish for housing. The stock had been on a massive retail-driven meme rally — up ~900% from late June through early September 2025, fueled by high short interest creating short squeeze dynamics. The broader bullish market was supportive of the rally.
+*All three major indexes closed at record highs. S&P 500 gained 0.85% to ~6,532. CPI inflation report kept Fed rate cut hopes alive. The dominant themes were AI/tech and a broad post-summer rally. OPEN is a real estate iBuyer — not directly tied to the AI theme, but lower rates are bullish for housing. The stock had been on a massive retail-driven meme rally — up ~900% from late June through early September 2025, fueled by high short interest creating short squeeze dynamics. The broader bullish market was supportive of the rally.*
 
 ### Intraday Fundamentals
 
@@ -253,8 +250,7 @@ Gap %: 29.7%
 Premarket volume: 77m (25% avg, 9.7% float)
 Catalyst: 5/10 (meme rally)
 
-Opus:
-  New CEO announced on Sep 10 — Kaz Nejatian (ex-Shopify COO) named CEO effective Sep 15. Co-founders Keith Rabois (as Chairman) and Eric Wu rejoined the board. Khosla Ventures and Wu invested $40M in PIPE financing. Nejatian's compensation package could net ~$2.8B if ambitious stock targets are met (82.4M share inducement grant). The stock was near its 52-week high of $10.52 and at the peak of the meme/squeeze rally before a subsequent ~54% decline.
+*New CEO announced on Sep 10 — Kaz Nejatian (ex-Shopify COO) named CEO effective Sep 15. Co-founders Keith Rabois (as Chairman) and Eric Wu rejoined the board. Khosla Ventures and Wu invested $40M in PIPE financing. Nejatian's compensation package could net ~$2.8B if ambitious stock targets are met (82.4M share inducement grant). The stock was near its 52-week high of $10.52 and at the peak of the meme/squeeze rally before a subsequent ~54% decline.*
 
 Quality: 9/10.
 
