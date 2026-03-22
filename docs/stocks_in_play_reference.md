@@ -293,3 +293,289 @@ My personal preference is for my systems to go long above 8.5 when the volume st
 
 The stock was so liquid that it would have been no trouble to scale into this trade.
 
+## Ticker: SMCI Date: 2026-03-20
+### Big Picture
+
+Market context unavailable for this date. AI infrastructure and data center themes remain dominant in tech sector. SMCI is a major AI server manufacturer with strong ties to NVIDIA's GPU platforms.
+
+### Intraday Fundamentals
+
+Avg. Volume: ~20m (estimated)
+Float: ~600m (estimated)
+Short %: Unknown
+Gap %: TBD
+Premarket volume: TBD
+Catalyst: 7/10
+
+Recent federal indictment against co-founder for allegedly smuggling AI servers to China introduced governance risks. Stock experiencing volatility due to margin compression (6.3% in Q2 FY26 vs 11.8% prior year) despite record revenue growth of 123% YoY. Company projecting $40B revenue for FY26 driven by AI server demand.
+
+Quality: TBD (pending volume data)
+
+### Technical Analysis
+
+<iframe src="charts/SMCI_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### Orderflow Analysis
+<iframe src="charts/SMCI_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+## Ticker: PL Date: 2026-03-20
+### Big Picture
+
+Market context unavailable. AI and satellite imaging themes driving growth. PL partners with NVIDIA and Google for AI-enhanced satellite imagery processing.
+
+### Intraday Fundamentals
+
+Avg. Volume: ~15m (estimated)
+Float: ~300m (estimated)
+Short %: Unknown
+Gap %: 26.1% (huge)
+Premarket volume: TBD
+Catalyst: 9/10 (strong earnings beat)
+
+Q4 FY26 earnings released March 20: Revenue $86.8M (41% YoY growth), achieved break-even non-GAAP EPS beating estimates. First full-year Adjusted EBITDA profitability ($15.5M) and FCF positive. FY27 guidance $415-440M (39% growth). Backlog surged 79% to $900.4M. Stock hit all-time high at $33.83, up 70% YTD and 242% since IPO. A **Changing Fundamentals** play.
+
+Quality: 9/10.
+
+Exceptional catalyst with strong earnings beat, positive guidance, and massive backlog growth. High volatility stock (beta 3.64) with extreme valuation (P/S 28.92).
+
+### Technical Analysis
+
+<iframe src="charts/PL_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### Orderflow Analysis
+<iframe src="charts/PL_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+## Ticker: FDX Date: 2026-03-20
+### Big Picture
+
+Market context unavailable. FDX hit all-time high of $386.91 on Feb 20, 2026. Stock up 55.8% over past year. Logistics and shipping sector showing strength.
+
+### Intraday Fundamentals
+
+Avg. Volume: ~3m (estimated)
+Float: ~250m (estimated)
+Short %: Unknown
+Gap %: TBD
+Premarket volume: TBD
+Catalyst: 6/10
+
+No specific catalyst for this date. Stock trading near highs around $358-359. Federal Express segment (86% of revenue) saw 8% YoY revenue increase and 48.7% EBIT rise to $1.56B in FY25. Positive outlook with 10% revenue growth projected for FY26. Analysts maintain "Moderate Buy" with avg target $393.85.
+
+Quality: TBD (pending volume data)
+
+### Technical Analysis
+
+<iframe src="charts/FDX_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### Orderflow Analysis
+<iframe src="charts/FDX_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+## Ticker: ARM Date: 2026-03-20
+### Big Picture
+
+Market context unavailable. AI and data center themes dominant. ARM positioned as key player in AI chip design ecosystem with strong NVIDIA partnerships.
+
+### Intraday Fundamentals
+
+Avg. Volume: ~10m (estimated)
+Float: ~1B (estimated)
+Short %: Unknown
+Gap %: TBD
+Premarket volume: TBD
+Catalyst: 8/10 (analyst upgrade)
+
+HSBC upgraded ARM to "Buy" with $205 price target on March 20, citing "game-changing" shift to AI server CPUs. Citi reiterated "Buy" with $190 target. Q3 FY26 showed 26% YoY revenue growth to $1.24B. v9 architecture adoption driving higher royalty rates. Meta-NVIDIA collaboration on ARM-based data centers announced. "Arm Everywhere" event scheduled March 24. A **Thesis Busting** play on AI infrastructure.
+
+Quality: 8/10.
+
+Strong catalyst with major analyst upgrades and strategic partnerships. Large float but high institutional interest in AI infrastructure plays.
+
+### Technical Analysis
+
+<iframe src="charts/ARM_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### Orderflow Analysis
+<iframe src="charts/ARM_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+## Ticker: VG Date: 2026-03-19
+### Big Picture
+
+Market context unavailable. VG (Venture Global) is an LNG infrastructure company listed on NYSE. Energy sector activity.
+
+### Intraday Fundamentals
+
+Avg. Volume: TBD
+Float: ~2.4B (estimated from $38.7B market cap)
+Short %: Unknown
+Gap %: TBD
+Premarket volume: TBD
+Catalyst: 6/10
+
+Stock showed 10.29% increase in 24-hour period around this date. Price moved from $12.28 on March 16 to $15.79-15.89 range by March 20-21. Raymond James raised price target to $13 from $11, RBC Capital raised to $14 from $11. Analyst avg target $11.40 (range $5.05-$17.85).
+
+Quality: TBD (pending volume data)
+
+### Technical Analysis
+
+<iframe src="charts/VG_2026-03-19_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### Orderflow Analysis
+<iframe src="charts/VG_2026-03-19.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+## Ticker: NBIS Date: 2026-03-16
+### Big Picture
+
+Market context unavailable. AI cloud infrastructure theme remains dominant. NBIS previously had major Microsoft AI deal catalyst in 2025.
+
+### Intraday Fundamentals
+
+Avg. Volume: TBD
+Float: ~200m (estimated)
+Short %: Unknown
+Gap %: TBD
+Premarket volume: TBD
+Catalyst: TBD
+
+No specific catalyst identified for this date. Likely continuation or follow-through from previous AI infrastructure momentum.
+
+Quality: TBD (pending volume data)
+
+### Technical Analysis
+
+<iframe src="charts/NBIS_2026-03-16_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### Orderflow Analysis
+<iframe src="charts/NBIS_2026-03-16.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+## Ticker: NBIS Date: 2026-03-17
+### Big Picture
+
+Market context unavailable. AI cloud infrastructure theme remains dominant. NBIS previously had major Microsoft AI deal catalyst in 2025.
+
+### Intraday Fundamentals
+
+Avg. Volume: TBD
+Float: ~200m (estimated)
+Short %: Unknown
+Gap %: TBD
+Premarket volume: TBD
+Catalyst: TBD
+
+No specific catalyst identified for this date. Likely **Second Day** continuation from March 16 activity.
+
+Quality: TBD (pending volume data)
+
+### Technical Analysis
+
+<iframe src="charts/NBIS_2026-03-17_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### Orderflow Analysis
+<iframe src="charts/NBIS_2026-03-17.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+## Ticker: TME Date: 2026-03-17
+### Big Picture
+
+Market context unavailable. Chinese tech and streaming music sector. TME is Tencent Music Entertainment.
+
+### Intraday Fundamentals
+
+Avg. Volume: ~30m (estimated)
+Float: ~1.6B (estimated)
+Short %: Unknown
+Gap %: -24.65% (huge)
+Premarket volume: TBD
+Catalyst: 8/10 (earnings miss on guidance)
+
+Q4 2025 earnings released March 17: Revenue beat at RMB 8.64B (+15.9% YoY), music subscription revenue +13.2% to RMB 4.56B. However, subscription growth slowed (13% Q4 vs 17% Q3), online music MAU declined 5%, and company discontinued reporting quarterly KPIs. Multiple analyst downgrades: JPM to neutral ($12 target from $30), Benchmark to hold, UBS to neutral, Macquarie to neutral ($14.10). Concerns over competition from Soda Music and reduced transparency. A **Changing Fundamentals** play (negative).
+
+Quality: 8/10.
+
+Strong negative catalyst with earnings disappointment and multiple downgrades. Stock down 24.65% on day.
+
+### Technical Analysis
+
+<iframe src="charts/TME_2026-03-17_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### Orderflow Analysis
+<iframe src="charts/TME_2026-03-17.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+## Ticker: TME Date: 2026-03-18
+### Big Picture
+
+Market context unavailable. Chinese tech and streaming music sector. TME is Tencent Music Entertainment.
+
+### Intraday Fundamentals
+
+Avg. Volume: ~30m (estimated)
+Float: ~1.6B (estimated)
+Short %: Unknown
+Gap %: TBD (continued decline)
+Premarket volume: TBD
+Catalyst: 7/10 (continued selloff)
+
+**Second Day** continuation from March 17 earnings selloff. Stock on track to lose nearly a third of value since earnings report. Analyst downgrades continuing to pressure stock. Concerns over slowing subscription growth, MAU decline, and reduced transparency weighing on sentiment.
+
+Quality: 7/10.
+
+Strong continuation setup on negative catalyst. High volume expected as selloff continues.
+
+### Technical Analysis
+
+<iframe src="charts/TME_2026-03-18_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### Orderflow Analysis
+<iframe src="charts/TME_2026-03-18.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+## Ticker: ULTA Date: 2026-03-13
+### Big Picture
+
+Market context unavailable. Retail/beauty sector. ULTA is Ulta Beauty.
+
+### Intraday Fundamentals
+
+Avg. Volume: ~2m (estimated)
+Float: ~50m (estimated)
+Short %: Unknown
+Gap %: TBD (post-earnings decline)
+Premarket volume: TBD
+Catalyst: 7/10 (earnings beat with selloff)
+
+Q4 FY25 earnings released March 12: EPS $8.01 beat est. $7.93, revenue $3.90B (+11.8% YoY) beat est. $3.81B. Full year EPS $25.64, sales $12.4B (+9.7%). FY26 guidance: 6-7% sales growth, EPS $28.05-28.55 (+9.4-11.4%). Despite beat, stock declined post-earnings. JPMorgan viewed dip as buying opportunity with $750 target. A **Changing Fundamentals** play with post-earnings volatility.
+
+Quality: 7/10.
+
+Solid earnings beat but market reaction negative. Potential reversal or continuation setup.
+
+### Technical Analysis
+
+<iframe src="charts/ULTA_2026-03-13_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### Orderflow Analysis
+<iframe src="charts/ULTA_2026-03-13.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+## Ticker: ULTA Date: 2026-03-16
+### Big Picture
+
+Market context unavailable. Retail/beauty sector. ULTA is Ulta Beauty.
+
+### Intraday Fundamentals
+
+Avg. Volume: ~2m (estimated)
+Float: ~50m (estimated)
+Short %: Unknown
+Gap %: TBD
+Premarket volume: TBD
+Catalyst: 6/10 (post-earnings continuation)
+
+**Second Day** or continuation from March 12-13 earnings reaction. Stock potentially finding support or continuing post-earnings move. JPMorgan $750 price target suggests upside potential from post-earnings dip.
+
+Quality: 6/10.
+
+Follow-through setup from earnings volatility. Lower catalyst strength as initial reaction has passed.
+
+### Technical Analysis
+
+<iframe src="charts/ULTA_2026-03-16_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### Orderflow Analysis
+<iframe src="charts/ULTA_2026-03-16.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
