@@ -15,6 +15,7 @@ EXCLUDE_FOR_PRICE_DISCOVERY = {
     21,  # Price Variation Trade
     22,  # Prior Reference Price
     29,  # Seller (special settlement)
+    32,  # Sold (Out of Sequence)
     37,  # Odd Lot Trade
     52,  # Contingent Trade
     53,  # Qualified Contingent Trade (QCT)
