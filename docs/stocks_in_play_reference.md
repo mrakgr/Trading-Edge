@@ -296,84 +296,105 @@ The stock was so liquid that it would have been no trouble to scale into this tr
 ## Ticker: SMCI Date: 2026-03-20
 ### Big Picture
 
-Market context unavailable for this date. AI infrastructure and data center themes remain dominant in tech sector. SMCI is a major AI server manufacturer with strong ties to NVIDIA's GPU platforms.
+3 weeks into the Iran war with the oil price sharply higher, but the market acting solid, steadfast and somewhat complacent. On this date, it had a notable close below the 200-day moving average. It's extremely abnormal for the market to have been hovering in a narrow range near the all time highs with the news of a potential credit crunch due to private credit defaults breving in the background, and also an energy crisis. It's possible we'll be getting a panic next week.
+
+That having said, AI infrastructure and data center themes remain dominant in the tech sector. SMCI is a major AI server manufacturer with strong ties to NVIDIA's GPU platforms.
 
 ### Intraday Fundamentals
 
-Avg. Volume: ~20m (estimated)
-Float: ~600m (estimated)
-Short %: Unknown
-Gap %: TBD
-Premarket volume: TBD
-Catalyst: 7/10
+Avg. Volume: 24.3m
+Float: 514m
+Short %: 15.8%
+Gap %: 27%
+Premarket volume: 32.5m (133% avg, 4.7% float)
+Catalyst: 9/10 
 
 Recent federal indictment against co-founder for allegedly smuggling AI servers to China introduced governance risks. Stock experiencing volatility due to margin compression (6.3% in Q2 FY26 vs 11.8% prior year) despite record revenue growth of 123% YoY. Company projecting $40B revenue for FY26 driven by AI server demand.
 
-Quality: TBD (pending volume data)
+Quality: 8.5/10
+
+The massive volume combined with a strong catalyst makes this a very strong setup. A **Changing Fundamentals** play if there ever was one.
 
 ### Technical Analysis
-
 <iframe src="charts/SMCI_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+Not the lowest it's ever been, but the dip it had last time it panicked doesn't really qualify as support in my eyes. As far as I am concerned it has no support.
 
 ### Orderflow Analysis
 <iframe src="charts/SMCI_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+The fact that this stock had its downtrend initiated only at the end of day is really a sharp indicator that maybe I shouldn't pay too much attention to speed of volume and perhaps target duration type moves. Since it didn't panic much during the day, and the panic later in the day was very controlled we should be very much on the lookout for **Second Day** plays in this stock tomorrow.
+
 ## Ticker: PL Date: 2026-03-20
 ### Big Picture
 
-Market context unavailable. AI and satellite imaging themes driving growth. PL partners with NVIDIA and Google for AI-enhanced satellite imagery processing.
+3 weeks into the Iran war with the oil price sharply higher, but the market acting solid, steadfast and somewhat complacent. On this date, it had a notable close below the 200-day moving average. It's extremely abnormal for the market to have been hovering in a narrow range near the all time highs with the news of a potential credit crunch due to private credit defaults breving in the background, and also an energy crisis. It's possible we'll be getting a panic next week.
+
+AI and satellite imaging themes driving growth. PL partners with NVIDIA and Google for AI-enhanced satellite imagery processing.
 
 ### Intraday Fundamentals
 
-Avg. Volume: ~15m (estimated)
-Float: ~300m (estimated)
-Short %: Unknown
-Gap %: 26.1% (huge)
-Premarket volume: TBD
-Catalyst: 9/10 (strong earnings beat)
+Avg. Volume: 10m
+Float: 260m
+Short %: 13.2
+Gap %: 24.4% (huge)
+Premarket volume: 3m (30% avg, 1.1% float)
+Catalyst: 8/10 (strong earnings beat)
 
 Q4 FY26 earnings released March 20: Revenue $86.8M (41% YoY growth), achieved break-even non-GAAP EPS beating estimates. First full-year Adjusted EBITDA profitability ($15.5M) and FCF positive. FY27 guidance $415-440M (39% growth). Backlog surged 79% to $900.4M. Stock hit all-time high at $33.83, up 70% YTD and 242% since IPO. A **Changing Fundamentals** play.
 
-Quality: 9/10.
+Quality: 7.5/10.
 
-Exceptional catalyst with strong earnings beat, positive guidance, and massive backlog growth. High volatility stock (beta 3.64) with extreme valuation (P/S 28.92).
+The earning beat is good, but it's the 4th one in a row and the stock is greatly runup. The premarket volume isn't that exceptional relative to the avg or the float, but this is still quite a decent trade. If this was the first earnings beat rather than the 4th, I'd give this a 8.5 rating.
 
 ### Technical Analysis
-
 <iframe src="charts/PL_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+Hitting ATH, no resistance in sight.
 
 ### Orderflow Analysis
 <iframe src="charts/PL_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+The opening drive looks great, but every bar is only a milisecond long, so it would be a very hard play even for my computer systems to catch. The reason being the latency between them and the exchange. Afterwards the main opportunity is the breakout above 36 which unfortunately failed. For the rest of the day, the stock was essentially in no-man's land. Could have been a lot better, but wasn't. Still it will serve as a good reference for the automated systems.
+
 ## Ticker: FDX Date: 2026-03-20
 ### Big Picture
 
-Market context unavailable. FDX hit all-time high of $386.91 on Feb 20, 2026. Stock up 55.8% over past year. Logistics and shipping sector showing strength.
+3 weeks into the Iran war with the oil price sharply higher, but the market acting solid, steadfast and somewhat complacent. On this date, it had a notable close below the 200-day moving average. It's extremely abnormal for the market to have been hovering in a narrow range near the all time highs with the news of a potential credit crunch due to private credit defaults breving in the background, and also an energy crisis. It's possible we'll be getting a panic next week.
+
+Logistics and shipping sector showing strength.
 
 ### Intraday Fundamentals
 
-Avg. Volume: ~3m (estimated)
-Float: ~250m (estimated)
-Short %: Unknown
-Gap %: TBD
-Premarket volume: TBD
+Avg. Volume: 1.7m
+Float: 218m
+Short %: 9.1%
+Gap %: 7%
+Premarket volume: 216k (12% avg, 0.1% float)
 Catalyst: 6/10
 
-No specific catalyst for this date. Stock trading near highs around $358-359. Federal Express segment (86% of revenue) saw 8% YoY revenue increase and 48.7% EBIT rise to $1.56B in FY25. Positive outlook with 10% revenue growth projected for FY26. Analysts maintain "Moderate Buy" with avg target $393.85.
+Earnings beat. Federal Express segment (86% of revenue) saw 8% YoY revenue increase and 48.7% EBIT rise to $1.56B in FY25. Positive outlook with 10% revenue growth projected for FY26. Analysts maintain "Moderate Buy" with avg target $393.85.
 
-Quality: TBD (pending volume data)
+Quality: 7/10.
+
+Just barely meets the criteria for a trade. Had a lot of resistance above the gap.
 
 ### Technical Analysis
-
 <iframe src="charts/FDX_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+A lot of resistance in the 380-390 area and support at 345.
 
 ### Orderflow Analysis
 <iframe src="charts/FDX_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+Not sure what to think about this one. Very choppy open that turned into a decent breakout trade, but it didn't trend much afterwards.
+
 ## Ticker: ARM Date: 2026-03-20
 ### Big Picture
 
-Market context unavailable. AI and data center themes dominant. ARM positioned as key player in AI chip design ecosystem with strong NVIDIA partnerships.
+3 weeks into the Iran war with the oil price sharply higher, but the market acting solid, steadfast and somewhat complacent. On this date, it had a notable close below the 200-day moving average. It's extremely abnormal for the market to have been hovering in a narrow range near the all time highs with the news of a potential credit crunch due to private credit defaults breving in the background, and also an energy crisis. It's possible we'll be getting a panic next week.
+
+AI and data center themes dominant. ARM positioned as key player in AI chip design ecosystem with strong NVIDIA partnerships.
 
 ### Intraday Fundamentals
 
