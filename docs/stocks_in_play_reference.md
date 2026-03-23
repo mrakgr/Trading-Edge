@@ -85,9 +85,9 @@ Rangebound price action in the market for the past month. Not related to the dom
 
 Avg. Volume: 1.35m
 Float: 136.76m
-Short %: 15.3% (relatively high)
 Gap %: -14% (large)
 Premarket volume: 330k (24% avg, 0.24% float)
+Short %: 15.3% (relatively high)
 Catalyst: 4/10 (weak)
 
 Minor analyst beat on earnings release that had a massively negative reaction from the market possibly due to the analyst questions. A **Changing Fundamentals** play.
@@ -131,9 +131,9 @@ Rangebound indices for the past month. AI mania is in progress and this is an AI
 
 Avg. Volume: 5.8m
 Float: 202.8m
-Short %: 22.3% (high)
 Gap %: -4.3% (small)
 Premarket volume: 3.9m (75% avg, 1.9% float)
+Short %: 22.3% (high)
 Catalyst: 10/10 (big deal)
 
 The catalyst is a 17b AI deal with Microsoft which is huge for a company that had a market cap less than that amount when it was announced. This was 2 days ago, so this is a **Second Day** play on this stock.
@@ -175,9 +175,9 @@ Rangebound indices for the past month. AI mania is in progress and this is an AI
 
 Avg. Volume: 5.8m
 Float: 202.8m
-Short %: 7.5% (low)
 Gap %: 50.5% (huge)
 Premarket volume: 7.9m (136%, 3.9%)
+Short %: 7.5% (low)
 Catalyst: 10/10 (big deal)
 
 The catalyst is a 17b AI deal with Microsoft which is huge for a company that had a market cap less than that amount when it was announced. This was done the previous day and today is the day of the catalyst. A **Changing Fundamentals** play.
@@ -216,9 +216,9 @@ In fact, it bears highlighting that after the selloff exhausted itself there was
 
 Avg. Volume: 20.59m
 Float: 313.41m
-Short %: 17.8% (relatively high)
 Gap %: 12.9% (large)
 Premarket volume: 7.4m (35.9%)
+Short %: 17.8% (relatively high)
 Catalyst: 7/10 (thesis busting)
 
 - Convertible note offering: On Nov 18, MicroStrategy announced a $1.75B convertible note offering (later upsized to $3B at 0% coupon) to buy more Bitcoin. Between Nov 18-24 they bought 55,500 BTC for ~$5.4B
@@ -255,18 +255,18 @@ Very messy chart, LW was much better. It makes me wonder whether trying to play 
 
 ### Big Picture
 
-*All three major indexes closed at record highs. S&P 500 gained 0.85% to ~6,532. CPI inflation report kept Fed rate cut hopes alive. The dominant themes were AI/tech and a broad post-summer rally. OPEN is a real estate iBuyer — not directly tied to the AI theme, but lower rates are bullish for housing. The stock had been on a massive retail-driven meme rally — up ~900% from late June through early September 2025, fueled by high short interest creating short squeeze dynamics. The broader bullish market was supportive of the rally.*
+All three major indexes closed at record highs. S&P 500 gained 0.85% to ~6,532. CPI inflation report kept Fed rate cut hopes alive. The dominant themes were AI/tech and a broad post-summer rally. OPEN is a real estate iBuyer — not directly tied to the AI theme, but lower rates are bullish for housing. The stock had been on a massive retail-driven meme rally — up ~900% from late June through early September 2025, fueled by high short interest creating short squeeze dynamics. The broader bullish market was supportive of the rally.
 
 ### Intraday Fundamentals
 
 Avg. Volume: 301m
 Float: 793m
-Short %: 19.5%
 Gap %: 29.7%
 Premarket volume: 77m (25% avg, 9.7% float)
+Short %: 19.5%
 Catalyst: 5/10 (meme rally)
 
-*New CEO announced on Sep 10 — Kaz Nejatian (ex-Shopify COO) named CEO effective Sep 15. Co-founders Keith Rabois (as Chairman) and Eric Wu rejoined the board. Khosla Ventures and Wu invested $40M in PIPE financing. Nejatian's compensation package could net ~$2.8B if ambitious stock targets are met (82.4M share inducement grant). The stock was near its 52-week high of $10.52 and at the peak of the meme/squeeze rally before a subsequent ~54% decline.*
+New CEO announced on Sep 10 — Kaz Nejatian (ex-Shopify COO) named CEO effective Sep 15. Co-founders Keith Rabois (as Chairman) and Eric Wu rejoined the board. Khosla Ventures and Wu invested $40M in PIPE financing. Nejatian's compensation package could net ~$2.8B if ambitious stock targets are met (82.4M share inducement grant). The stock was near its 52-week high of $10.52 and at the peak of the meme/squeeze rally before a subsequent ~54% decline.
 
 Quality: 9/10.
 
@@ -302,9 +302,9 @@ That having said, AI infrastructure and data center themes remain dominant in th
 
 Avg. Volume: 24.3m
 Float: 514m
-Short %: 15.8%
 Gap %: 27%
 Premarket volume: 32.5m (133% avg, 4.7% float)
+Short %: 15.8%
 Catalyst: 9/10 
 
 Recent federal indictment against co-founder for allegedly smuggling AI servers to China introduced governance risks. Stock experiencing volatility due to margin compression (6.3% in Q2 FY26 vs 11.8% prior year) despite record revenue growth of 123% YoY. Company projecting $40B revenue for FY26 driven by AI server demand.
@@ -334,9 +334,9 @@ AI and satellite imaging themes driving growth. PL partners with NVIDIA and Goog
 
 Avg. Volume: 10m
 Float: 260m
-Short %: 13.2
 Gap %: 24.4% (huge)
 Premarket volume: 3m (30% avg, 1.1% float)
+Short %: 13.2
 Catalyst: 8/10 (strong earnings beat)
 
 Q4 FY26 earnings released March 20: Revenue $86.8M (41% YoY growth), achieved break-even non-GAAP EPS beating estimates. First full-year Adjusted EBITDA profitability ($15.5M) and FCF positive. FY27 guidance $415-440M (39% growth). Backlog surged 79% to $900.4M. Stock hit all-time high at $33.83, up 70% YTD and 242% since IPO. A **Changing Fundamentals** play.
@@ -366,9 +366,9 @@ Logistics and shipping sector showing strength.
 
 Avg. Volume: 1.7m
 Float: 218m
-Short %: 9.1%
 Gap %: 7%
 Premarket volume: 216k (12% avg, 0.1% float)
+Short %: 9.1%
 Catalyst: 6/10
 
 Earnings beat. Federal Express segment (86% of revenue) saw 8% YoY revenue increase and 48.7% EBIT rise to $1.56B in FY25. Positive outlook with 10% revenue growth projected for FY26. Analysts maintain "Moderate Buy" with avg target $393.85.
@@ -398,9 +398,9 @@ AI and data center themes dominant. ARM positioned as key player in AI chip desi
 
 Avg. Volume: 4m
 Float: 1.06b
-Short %: 20.6%
 Gap %: 5.37%
 Premarket volume: 244k (6.1% avg, 0.02% float)
+Short %: 20.6%
 Catalyst: 5/10 (double analyst upgrade)
 
 HSBC upgraded ARM to "Buy" with $205 price target on March 20, citing "game-changing" shift to AI server CPUs. Citi reiterated "Buy" with $190 target. Q3 FY26 showed 26% YoY revenue growth to $1.24B. v9 architecture adoption driving higher royalty rates. Meta-NVIDIA collaboration on ARM-based data centers announced. "Arm Everywhere" event scheduled March 24.
@@ -431,9 +431,9 @@ VG (Venture Global) is an LNG infrastructure company listed on NYSE. Energy sect
 
 Avg. Volume: 21m
 Float: 477m
-Short %: 20.9%%
 Gap %: 6%
 Premarket volume: 3.76m (18% avg, 0.8% float)
+Short %: 20.9%%
 Catalyst: 7/10 (breakout)
 
 The stock had a large earnings related breakout 3 weeks ago, and now it is breakout out from a consolidation. The breakout has been drawing trading activity so the avg volume of 21 would have been 11m just a month ago. It'd say it's about as good as a 40% premarket volume would be on a regular stock. This is a **Second Day** play from yesterday's late day breakout.
@@ -464,9 +464,9 @@ AI cloud infrastructure theme remains dominant. NBIS previously had major Micros
 
 Avg. Volume: 13.3m
 Float: 202m
-Short %: 17.2%
 Gap %: 10.4%
 Premarket volume: 3.7m (27.8% avg, 1.8% float)
+Short %: 17.2%
 Catalyst: 8/10 (big deal)
 
 An infrastructure deal with Meta worth 12b. It had a lot of news coverage.
@@ -495,9 +495,9 @@ AI cloud infrastructure theme remains dominant. NBIS previously had major Micros
 
 Avg. Volume: 13.3m
 Float: 202m
-Short %: 17.2%
 Gap %: 10.4%
 Premarket volume: 3.7m (27.8% avg, 1.8% float)
+Short %: 17.2%
 Catalyst: 8/10 (big deal)
 
 The previous day had an infrastructure deal with Meta worth 12b and had a lot of news coverage. Today the stock is gapping down and reversing. Not sure what this play should be called...I suppose it is a type of **Reversal** plays.
@@ -526,9 +526,9 @@ Chinese tech and streaming music sector. TME is Tencent Music Entertainment.
 
 Avg. Volume: 6.3m
 Float: 575m
-Short %: 23.3%
 Gap %: -15%
 Premarket volume: 1.7m (27% avg, 0.3% float)
+Short %: 23.3%
 Catalyst: 8/10 (earnings miss on guidance)
 
 Q4 2025 earnings released March 17: Revenue beat at RMB 8.64B (+15.9% YoY), music subscription revenue +13.2% to RMB 4.56B. However, subscription growth slowed (13% Q4 vs 17% Q3), online music MAU declined 5%, and company discontinued reporting quarterly KPIs. Multiple analyst downgrades: JPM to neutral ($12 target from $30), Benchmark to hold, UBS to neutral, Macquarie to neutral ($14.10). Concerns over competition from Soda Music and reduced transparency. A **Changing Fundamentals** play (negative).
@@ -555,11 +555,11 @@ Market context unavailable. Chinese tech and streaming music sector. TME is Tenc
 
 ### Intraday Fundamentals
 
-Avg. Volume: ~30m (estimated)
-Float: ~1.6B (estimated)
-Short %: Unknown
-Gap %: TBD (continued decline)
-Premarket volume: TBD
+Float: 575.0m
+Avg. Volume: 9.2m
+Gap %: -0.18%
+Premarket volume: 799.0k (9% avg, 0.1% float)
+Short %: 40.2%
 Catalyst: 7/10 (continued selloff)
 
 **Second Day** continuation from March 17 earnings selloff. Stock on track to lose nearly a third of value since earnings report. Analyst downgrades continuing to pressure stock. Concerns over slowing subscription growth, MAU decline, and reduced transparency weighing on sentiment.
@@ -582,11 +582,11 @@ Market context unavailable. Retail/beauty sector. ULTA is Ulta Beauty.
 
 ### Intraday Fundamentals
 
-Avg. Volume: ~2m (estimated)
-Float: ~50m (estimated)
-Short %: Unknown
-Gap %: TBD (post-earnings decline)
-Premarket volume: TBD
+Float: 44.2m
+Avg. Volume: 549.5k
+Gap %: -9.35%
+Premarket volume: 45.6k (8% avg, 0.1% float)
+Short %: 20.3%
 Catalyst: 7/10 (earnings beat with selloff)
 
 Q4 FY25 earnings released March 12: EPS $8.01 beat est. $7.93, revenue $3.90B (+11.8% YoY) beat est. $3.81B. Full year EPS $25.64, sales $12.4B (+9.7%). FY26 guidance: 6-7% sales growth, EPS $28.05-28.55 (+9.4-11.4%). Despite beat, stock declined post-earnings. JPMorgan viewed dip as buying opportunity with $750 target. A **Changing Fundamentals** play with post-earnings volatility.
@@ -609,11 +609,11 @@ Market context unavailable. Retail/beauty sector. ULTA is Ulta Beauty.
 
 ### Intraday Fundamentals
 
-Avg. Volume: ~2m (estimated)
-Float: ~50m (estimated)
-Short %: Unknown
-Gap %: TBD
-Premarket volume: TBD
+Float: 44.2m
+Avg. Volume: 660.3k
+Gap %: -0.52%
+Premarket volume: 28.7k (4% avg, 0.1% float)
+Short %: 24.8%
 Catalyst: 6/10 (post-earnings continuation)
 
 **Second Day** or continuation from March 12-13 earnings reaction. Stock potentially finding support or continuing post-earnings move. JPMorgan $750 price target suggests upside potential from post-earnings dip.

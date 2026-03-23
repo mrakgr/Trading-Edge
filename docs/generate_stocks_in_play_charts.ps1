@@ -11,10 +11,10 @@ $Files = @(
     @{Ticker = "VG";   Date = "2026-03-19"; VolumePerBar = 33000}
     @{Ticker = "NBIS"; Date = "2026-03-16"; VolumePerBar = 20000}
     @{Ticker = "NBIS"; Date = "2026-03-17"; VolumePerBar = 20000}
-    @{Ticker = "TME";  Date = "2026-03-17"; VolumePerBar = 20000}
-    @{Ticker = "TME";  Date = "2026-03-18"; VolumePerBar = 20000}
-    @{Ticker = "ULTA"; Date = "2026-03-13"; VolumePerBar = 1000}
-    @{Ticker = "ULTA"; Date = "2026-03-16"; VolumePerBar = 1000}
+    @{Ticker = "TME";  Date = "2026-03-17"; VolumePerBar = 20000; Float = "575m"}
+    @{Ticker = "TME";  Date = "2026-03-18"; VolumePerBar = 20000; Float = "575m"}
+    @{Ticker = "ULTA"; Date = "2026-03-13"; VolumePerBar = 1000; Float = "44.2m"}
+    @{Ticker = "ULTA"; Date = "2026-03-16"; VolumePerBar = 1000; Float = "44.2m"}
 )
 
 $showExtended = "true"
@@ -32,9 +32,13 @@ function Generate {
 foreach ($file in $Files) {
     $basename = "$($file.Ticker)_$($file.Date)"
     $jsonPath = "data/trades/$($file.Ticker)/$($file.Date).json"
-    Generate -Path $jsonPath -Action {param ($outputPath) 
+    Generate -Path $jsonPath -Action {param ($outputPath)
         Write-Host "Downloading data for $basename..."
         dotnet run --project TradingEdge.Massive -- download-trades -t $file.Ticker -s $file.Date
+    }
+    if ($file.Float) {
+        Write-Host "Fetching fundamentals for $($file.Ticker) on $($file.Date)..."
+        python3 scripts/visualization/fetch_stock_fundamentals.py $file.Ticker $file.Date $file.Float
     }
     Generate -Path "docs/charts/${basename}.html" -Action {param ($outputPath) 
         Write-Host "Generating volume chart for $basename..."
