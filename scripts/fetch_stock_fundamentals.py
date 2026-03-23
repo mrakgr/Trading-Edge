@@ -13,24 +13,23 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'visualization'))
 from trade_filters import filter_trades
 from market_hours import split_by_market_hours
 
-# Try to load API key from api_key.json
-API_KEY = None
+# Load API keys from config files
+CONFIG = {}
 if os.path.exists('api_key.json'):
     with open('api_key.json') as f:
-        config = json.load(f)
-        API_KEY = config.get('massive_api_key')
+        CONFIG = json.load(f)
 
-if not API_KEY:
-    API_KEY = os.getenv('POLYGON_API_KEY')
+POLYGON_KEY = CONFIG.get('massive_api_key') or os.getenv('POLYGON_API_KEY')
+FMP_KEY = CONFIG.get('financialmodelingprep_key') or os.getenv('FMP_API_KEY')
 
-if not API_KEY:
-    print("Error: API key not found in api_key.json or POLYGON_API_KEY environment variable")
+if not POLYGON_KEY:
+    print("Error: Polygon API key not found in api_key.json or POLYGON_API_KEY environment variable")
     sys.exit(1)
 
 def get_ticker_details(ticker):
-    """Get float and other ticker details from Polygon."""
+    """Get shares outstanding from Polygon."""
     url = f"https://api.polygon.io/v3/reference/tickers/{ticker}"
-    params = {'apiKey': API_KEY}
+    params = {'apiKey': POLYGON_KEY}
 
     response = requests.get(url, params=params)
     if response.status_code != 200:
@@ -39,8 +38,6 @@ def get_ticker_details(ticker):
     data = response.json().get('results', {})
     return {
         'float': data.get('share_class_shares_outstanding'),
-        'market_cap': data.get('market_cap'),
-        'weighted_shares_outstanding': data.get('weighted_shares_outstanding')
     }
 
 def get_avg_volume(ticker, date_str=None, db_path='data/trading.db'):
@@ -123,6 +120,17 @@ def get_gap_and_premarket(ticker, date_str):
         'open_price': open_price
     }
 
+def parse_number(s):
+    """Parse number with k/m/b suffixes (e.g., '575m' -> 575000000)."""
+    s = s.lower().strip()
+    multipliers = {'k': 1e3, 'm': 1e6, 'b': 1e9}
+
+    for suffix, mult in multipliers.items():
+        if s.endswith(suffix):
+            return int(float(s[:-1]) * mult)
+
+    return int(s)
+
 def format_number(num):
     """Format large numbers with k/m/b suffixes."""
     if num is None:
@@ -137,21 +145,28 @@ def format_number(num):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Usage: python fetch_stock_fundamentals.py TICKER [DATE]")
+        print("Usage: python fetch_stock_fundamentals.py TICKER [DATE] [FLOAT]")
         print("Example: python fetch_stock_fundamentals.py SMCI 2026-03-20")
+        print("Example: python fetch_stock_fundamentals.py TME 2026-03-17 575000000")
         sys.exit(1)
 
     ticker = sys.argv[1].upper()
     date_str = sys.argv[2] if len(sys.argv) > 2 else None
+    manual_float = parse_number(sys.argv[3]) if len(sys.argv) > 3 else None
 
     print(f"Fetching fundamentals for {ticker}...")
 
-    # Get ticker details
-    details = get_ticker_details(ticker)
-    if details:
-        print(f"Float: {format_number(details['float'])}")
+    # Get ticker details (use manual float if provided)
+    if manual_float:
+        print(f"Float: {format_number(manual_float)}")
+        details = {'float': manual_float}
     else:
-        print("Float: Unable to fetch")
+        details = get_ticker_details(ticker)
+        if details:
+            print(f"Float: {format_number(details['float'])} (shares outstanding)")
+        else:
+            print("Float: Unable to fetch")
+            details = None
 
     # Get average volume
     avg_vol = get_avg_volume(ticker, date_str)
@@ -164,4 +179,19 @@ if __name__ == '__main__':
             print(f"Gap %: {gap_data['gap_pct']:.2f}%")
         else:
             print("Gap %: Unable to calculate")
-        print(f"Premarket volume: {format_number(gap_data['premarket_volume'])}")
+
+        pm_vol = gap_data['premarket_volume']
+        pm_str = f"Premarket volume: {format_number(pm_vol)}"
+
+        # Calculate percentages
+        if avg_vol and pm_vol:
+            pm_avg_pct = (pm_vol / avg_vol) * 100
+            pm_str += f" ({pm_avg_pct:.0f}% avg"
+
+            if details and details['float']:
+                pm_float_pct = (pm_vol / details['float']) * 100
+                pm_str += f", {pm_float_pct:.1f}% float"
+
+            pm_str += ")"
+
+        print(pm_str)

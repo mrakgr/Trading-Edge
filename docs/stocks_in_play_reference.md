@@ -1,4 +1,4 @@
-# Overview
+`# Overview
 
 The reference document for the stocks in play that will serve as the basis for the generative models. Here is a quick conversion script that should be run from the parent directory in order to convert this markdown file into .html for viewing in the browser.
 
@@ -134,7 +134,7 @@ Float: 202.8m
 Short %: 22.3% (high)
 Gap %: -4.3% (small)
 Premarket volume: 3.9m (75% avg, 1.9% float)
-Catalyst: 10/10 (best)
+Catalyst: 10/10 (big deal)
 
 The catalyst is a 17b AI deal with Microsoft which is huge for a company that had a market cap less than that amount when it was announced. This was 2 days ago, so this is a **Second Day** play on this stock.
 
@@ -178,7 +178,7 @@ Float: 202.8m
 Short %: 7.5% (low)
 Gap %: 50.5% (huge)
 Premarket volume: 7.9m (136%, 3.9%)
-Catalyst: 10/10 (best)
+Catalyst: 10/10 (big deal)
 
 The catalyst is a 17b AI deal with Microsoft which is huge for a company that had a market cap less than that amount when it was announced. This was done the previous day and today is the day of the catalyst. A **Changing Fundamentals** play.
 
@@ -208,10 +208,9 @@ In fact, it bears highlighting that after the selloff exhausted itself there was
 
 ### Big Picture
 
-
-*- S&P 500 gained 0.53%, closing at 5,948.71 — extending a 4-day winning streak as part of a strong post-election rally (S&P finished November up 5%+, best month of 2024)*
-*- Bitcoin hit a record high above $99,000 that day, driving crypto-related names*
-*- The dominant themes were the post-Trump-election rally, AI, and crypto*
+- S&P 500 gained 0.53%, closing at 5,948.71 — extending a 4-day winning streak as part of a strong post-election rally (S&P finished November up 5%+, best month of 2024)
+- Bitcoin hit a record high above $99,000 that day, driving crypto-related names
+- The dominant themes were the post-Trump-election rally, AI, and crypto
 
 ### Intraday Fundamentals
 
@@ -222,21 +221,20 @@ Gap %: 12.9% (large)
 Premarket volume: 7.4m (35.9%)
 Catalyst: 7/10 (thesis busting)
 
-*- Convertible note offering: On Nov 18, MicroStrategy announced a $1.75B convertible note offering (later upsized to $3B at 0% coupon) to buy more Bitcoin. Between Nov 18-24 they bought 55,500*
-*BTC for ~$5.4B*
-*- The stock had rallied ~59% in November heading into this day, riding Bitcoin's surge and the company's aggressive BTC acquisition strategy*
-*- MSTR hit an all-time high of ~$543 intraday on Nov 21*
-*- Then Citron Research (Andrew Left) disclosed a short position, arguing the stock was "overheated" and disconnected from Bitcoin fundamentals (while remaining bullish on BTC itself)*
-*- The stock reversed ~16% intraday, closing around $397 after being up 11% earlier in the session*
-*- This marked the beginning of a prolonged decline — MSTR fell ~35% within a week and eventually ~70% from this peak*
+- Convertible note offering: On Nov 18, MicroStrategy announced a $1.75B convertible note offering (later upsized to $3B at 0% coupon) to buy more Bitcoin. Between Nov 18-24 they bought 55,500 BTC for ~$5.4B
+- The stock had rallied ~59% in November heading into this day, riding Bitcoin's surge and the company's aggressive BTC acquisition strategy
+- MSTR hit an all-time high of ~$543 intraday on Nov 21
+- Then Citron Research (Andrew Left) disclosed a short position, arguing the stock was "overheated" and disconnected from Bitcoin fundamentals (while remaining bullish on BTC itself)
+- The stock reversed ~16% intraday, closing around $397 after being up 11% earlier in the session
+- This marked the beginning of a prolonged decline — MSTR fell ~35% within a week and eventually ~70% from this peak
 
-*In summary: Strong intraday fundamentals (massive volume, Bitcoin proxy at ATH, $3B convertible offering), but the Citron short announcement mid-day was the catalyst for the reversal. A classic blow-off top.*
+In summary: Strong intraday fundamentals (massive volume, Bitcoin proxy at ATH, $3B convertible offering), but the Citron short announcement mid-day was the catalyst for the reversal. A classic blow-off top.
 
 Quality: 8/10.
 
 This stock was covered in Lance's Magnum Opus course, so I decided to review it and add it to this reference book. Not sure how many blow off setups I'll be trading, but this one was close to ideal for a large float stock such as this. It went up from 3 straight days on very high volume and the gap up open was a sign to become bearish.
 
-A **Parabolic Reversal** play.
+A **Reversal** play.
 
 ### Technical Analysis
 
@@ -398,18 +396,18 @@ AI and data center themes dominant. ARM positioned as key player in AI chip desi
 
 ### Intraday Fundamentals
 
-Avg. Volume: ~10m (estimated)
-Float: ~1B (estimated)
-Short %: Unknown
-Gap %: TBD
-Premarket volume: TBD
-Catalyst: 8/10 (analyst upgrade)
+Avg. Volume: 4m
+Float: 1.06b
+Short %: 20.6%
+Gap %: 5.37%
+Premarket volume: 244k (6.1% avg, 0.02% float)
+Catalyst: 5/10 (double analyst upgrade)
 
-HSBC upgraded ARM to "Buy" with $205 price target on March 20, citing "game-changing" shift to AI server CPUs. Citi reiterated "Buy" with $190 target. Q3 FY26 showed 26% YoY revenue growth to $1.24B. v9 architecture adoption driving higher royalty rates. Meta-NVIDIA collaboration on ARM-based data centers announced. "Arm Everywhere" event scheduled March 24. A **Thesis Busting** play on AI infrastructure.
+HSBC upgraded ARM to "Buy" with $205 price target on March 20, citing "game-changing" shift to AI server CPUs. Citi reiterated "Buy" with $190 target. Q3 FY26 showed 26% YoY revenue growth to $1.24B. v9 architecture adoption driving higher royalty rates. Meta-NVIDIA collaboration on ARM-based data centers announced. "Arm Everywhere" event scheduled March 24.
 
-Quality: 8/10.
+Quality: 5.5/10.
 
-Strong catalyst with major analyst upgrades and strategic partnerships. Large float but high institutional interest in AI infrastructure plays.
+Large float, weak premarket volume, and weak catalyst. Compared to other stocks we've covered it had a decently high short interest, but the other factors are dominant. Honestly, the quality of this trade is below the minimum given that it doesn't meet the premarket volume criteria. To boot, it's in the middle of the range rather than making new highs or lows.
 
 ### Technical Analysis
 
@@ -418,48 +416,64 @@ Strong catalyst with major analyst upgrades and strategic partnerships. Large fl
 ### Orderflow Analysis
 <iframe src="charts/ARM_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+What is noteworthy about this stock is the tight range 20 to 40m after the open between 136.4 and 137. The breakout to the downside was decent for a bit, but a sharp rally would have wiped out most of the gains. The volume simply wasn't there in this stock for it to make large moves. The opening drive looked decent for 10s, but reversed those gains.
+
+We'll see what our systems say about this later.
+
 ## Ticker: VG Date: 2026-03-19
 ### Big Picture
 
-Market context unavailable. VG (Venture Global) is an LNG infrastructure company listed on NYSE. Energy sector activity.
+3 weeks into the Iran war with the oil price sharply higher, but the market acting solid, steadfast and somewhat complacent. On this date, it had a notable close below the 200-day moving average. It's extremely abnormal for the market to have been hovering in a narrow range near the all time highs with the news of a potential credit crunch due to private credit defaults breving in the background, and also an energy crisis.
+
+VG (Venture Global) is an LNG infrastructure company listed on NYSE. Energy sector activity.
 
 ### Intraday Fundamentals
 
-Avg. Volume: TBD
-Float: ~2.4B (estimated from $38.7B market cap)
-Short %: Unknown
-Gap %: TBD
-Premarket volume: TBD
-Catalyst: 6/10
+Avg. Volume: 21m
+Float: 477m
+Short %: 20.9%%
+Gap %: 6%
+Premarket volume: 3.76m (18% avg, 0.8% float)
+Catalyst: 7/10 (breakout)
 
-Stock showed 10.29% increase in 24-hour period around this date. Price moved from $12.28 on March 16 to $15.79-15.89 range by March 20-21. Raymond James raised price target to $13 from $11, RBC Capital raised to $14 from $11. Analyst avg target $11.40 (range $5.05-$17.85).
+The stock had a large earnings related breakout 3 weeks ago, and now it is breakout out from a consolidation. The breakout has been drawing trading activity so the avg volume of 21 would have been 11m just a month ago. It'd say it's about as good as a 40% premarket volume would be on a regular stock. This is a **Second Day** play from yesterday's late day breakout.
 
-Quality: TBD (pending volume data)
+Quality: 7.5/10.
+
+Firstly, while the premarket volume wasn't overly impressive, the volume during the first 10-20 minutes was and I would upgrade my opinion of this opportunity to 8 or 8.5 after seeing that. The stock is making new highs on massive volume above the previous resistance areas so this is a good daytrading opportunity.
 
 ### Technical Analysis
 
 <iframe src="charts/VG_2026-03-19_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+It lasted turned around at 15, so we can consider that a longer term resistance area. To be honest, I am not happy with just throwing out a number like this. The automated systems certainly won't care about it. To me the really important figure would be 24 which was around its IPO price, but it's quite distant from the current one. It's not relevant to the current trade.
+
 ### Orderflow Analysis
 <iframe src="charts/VG_2026-03-19.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+Impressive volume within the first 15-20m. For a moment it seemed like it would resolve to the downside, but when it broke above 16 that turned out to be a good entry. Too bad the uptrend reversed. A noteworthy event is the momentum move in the last hour once it broke below 14.6. All in all, it was a pretty difficult stock to trade. A good reference for our models.
 
 ## Ticker: NBIS Date: 2026-03-16
 ### Big Picture
 
-Market context unavailable. AI cloud infrastructure theme remains dominant. NBIS previously had major Microsoft AI deal catalyst in 2025.
+3 weeks into the Iran war with the oil price sharply higher, but the market acting solid, steadfast and somewhat complacent. On this date, it had a notable close below the 200-day moving average. It's extremely abnormal for the market to have been hovering in a narrow range near the all time highs with the news of a potential credit crunch due to private credit defaults breving in the background, and also an energy crisis.
+
+AI cloud infrastructure theme remains dominant. NBIS previously had major Microsoft AI deal catalyst in 2025.
 
 ### Intraday Fundamentals
 
-Avg. Volume: TBD
-Float: ~200m (estimated)
-Short %: Unknown
-Gap %: TBD
-Premarket volume: TBD
-Catalyst: TBD
+Avg. Volume: 13.3m
+Float: 202m
+Short %: 17.2%
+Gap %: 10.4%
+Premarket volume: 3.7m (27.8% avg, 1.8% float)
+Catalyst: 8/10 (big deal)
 
-No specific catalyst identified for this date. Likely continuation or follow-through from previous AI infrastructure momentum.
+An infrastructure deal with Meta worth 12b. It had a lot of news coverage.
 
-Quality: TBD (pending volume data)
+Quality: 7.5/10.
+
+NBIS is a gift that keeps giving opportunities, and this breakout is one of them.
 
 ### Technical Analysis
 
@@ -468,23 +482,29 @@ Quality: TBD (pending volume data)
 ### Orderflow Analysis
 <iframe src="charts/NBIS_2026-03-16.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+Great volume in the price discovery phase. The first hold near the open led to a significant reversal, and the breakout above it during the retest could't start a sustained trend. I'd be happy if my system breaks even on days like these.
+
 ## Ticker: NBIS Date: 2026-03-17
 ### Big Picture
 
-Market context unavailable. AI cloud infrastructure theme remains dominant. NBIS previously had major Microsoft AI deal catalyst in 2025.
+3 weeks into the Iran war with the oil price sharply higher, but the market acting solid, steadfast and somewhat complacent. On this date, it had a notable close below the 200-day moving average. It's extremely abnormal for the market to have been hovering in a narrow range near the all time highs with the news of a potential credit crunch due to private credit defaults breving in the background, and also an energy crisis.
+
+AI cloud infrastructure theme remains dominant. NBIS previously had major Microsoft AI deal catalyst in 2025.
 
 ### Intraday Fundamentals
 
-Avg. Volume: TBD
-Float: ~200m (estimated)
-Short %: Unknown
-Gap %: TBD
-Premarket volume: TBD
-Catalyst: TBD
+Avg. Volume: 13.3m
+Float: 202m
+Short %: 17.2%
+Gap %: 10.4%
+Premarket volume: 3.7m (27.8% avg, 1.8% float)
+Catalyst: 8/10 (big deal)
 
-No specific catalyst identified for this date. Likely **Second Day** continuation from March 16 activity.
+The previous day had an infrastructure deal with Meta worth 12b and had a lot of news coverage. Today the stock is gapping down and reversing. Not sure what this play should be called...I suppose it is a type of **Reversal** plays.
 
-Quality: TBD (pending volume data)
+Quality: 7.5/10.
+
+The previous day's breakout was very uneven and new we're getting sell the news type of action.
 
 ### Technical Analysis
 
@@ -493,32 +513,40 @@ Quality: TBD (pending volume data)
 ### Orderflow Analysis
 <iframe src="charts/NBIS_2026-03-17.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+A slow grinding trend day, but I prefer these more than when the stock has a lot of ranging action like yesterday. A noteworthy event is the momentum move in the last 10m of the day. When that started to develop, I definitely hope my systems would start to cover.
+
 ## Ticker: TME Date: 2026-03-17
 ### Big Picture
 
-Market context unavailable. Chinese tech and streaming music sector. TME is Tencent Music Entertainment.
+3 weeks into the Iran war with the oil price sharply higher, but the market acting solid, steadfast and somewhat complacent. On this date, it had a notable close below the 200-day moving average. It's extremely abnormal for the market to have been hovering in a narrow range near the all time highs with the news of a potential credit crunch due to private credit defaults breving in the background, and also an energy crisis.
+
+Chinese tech and streaming music sector. TME is Tencent Music Entertainment.
 
 ### Intraday Fundamentals
 
-Avg. Volume: ~30m (estimated)
-Float: ~1.6B (estimated)
-Short %: Unknown
-Gap %: -24.65% (huge)
-Premarket volume: TBD
+Avg. Volume: 6.3m
+Float: 575m
+Short %: 23.3%
+Gap %: -15%
+Premarket volume: 1.7m (27% avg, 0.3% float)
 Catalyst: 8/10 (earnings miss on guidance)
 
 Q4 2025 earnings released March 17: Revenue beat at RMB 8.64B (+15.9% YoY), music subscription revenue +13.2% to RMB 4.56B. However, subscription growth slowed (13% Q4 vs 17% Q3), online music MAU declined 5%, and company discontinued reporting quarterly KPIs. Multiple analyst downgrades: JPM to neutral ($12 target from $30), Benchmark to hold, UBS to neutral, Macquarie to neutral ($14.10). Concerns over competition from Soda Music and reduced transparency. A **Changing Fundamentals** play (negative).
 
-Quality: 8/10.
+Quality: 7.5/10.
 
-Strong negative catalyst with earnings disappointment and multiple downgrades. Stock down 24.65% on day.
+Not sure how I would rate the quality of this setup. It certainly meets the criteria for the trade.
 
 ### Technical Analysis
 
 <iframe src="charts/TME_2026-03-17_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+It has plenty of longer term support into the areas it is selling into.
+
 ### Orderflow Analysis
 <iframe src="charts/TME_2026-03-17.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+This is one stock that demostrates just how important it is to constantly reevalutate your position. It had very clean price action that after the initial rally in the price discovery phase led to an incredible downtrend. It's the type of trade that could make your week. It had a large number of holds that were continually broken throughout the day.
 
 ## Ticker: TME Date: 2026-03-18
 ### Big Picture
