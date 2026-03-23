@@ -551,7 +551,9 @@ This is one stock that demostrates just how important it is to constantly reeval
 ## Ticker: TME Date: 2026-03-18
 ### Big Picture
 
-Market context unavailable. Chinese tech and streaming music sector. TME is Tencent Music Entertainment.
+3 weeks into the Iran war with the oil price sharply higher, but the market acting solid, steadfast and somewhat complacent. On this date, it had a notable close below the 200-day moving average. It's extremely abnormal for the market to have been hovering in a narrow range near the all time highs with the news of a potential credit crunch due to private credit defaults breving in the background, and also an energy crisis.
+
+Chinese tech and streaming music sector. TME is Tencent Music Entertainment.
 
 ### Intraday Fundamentals
 
@@ -578,7 +580,9 @@ Strong continuation setup on negative catalyst. High volume expected as selloff 
 ## Ticker: ULTA Date: 2026-03-13
 ### Big Picture
 
-Market context unavailable. Retail/beauty sector. ULTA is Ulta Beauty.
+3 weeks into the Iran war with the oil price sharply higher, but the market acting solid, steadfast and somewhat complacent. On this date, it had a notable close below the 200-day moving average. It's extremely abnormal for the market to have been hovering in a narrow range near the all time highs with the news of a potential credit crunch due to private credit defaults breving in the background, and also an energy crisis.
+
+Retail/beauty sector. ULTA is Ulta Beauty.
 
 ### Intraday Fundamentals
 
@@ -605,7 +609,9 @@ Solid earnings beat but market reaction negative. Potential reversal or continua
 ## Ticker: ULTA Date: 2026-03-16
 ### Big Picture
 
-Market context unavailable. Retail/beauty sector. ULTA is Ulta Beauty.
+3 weeks into the Iran war with the oil price sharply higher, but the market acting solid, steadfast and somewhat complacent. On this date, it had a notable close below the 200-day moving average. It's extremely abnormal for the market to have been hovering in a narrow range near the all time highs with the news of a potential credit crunch due to private credit defaults breving in the background, and also an energy crisis.
+
+Retail/beauty sector. ULTA is Ulta Beauty.
 
 ### Intraday Fundamentals
 
