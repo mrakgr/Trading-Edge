@@ -11,6 +11,7 @@ open TradingEdge.DividendDownload
 open TradingEdge.IntradayDownload
 open TradingEdge.TradesDownload
 open TradingEdge.QuotesDownload
+open TradingEdge.NewsDownload
 open TradingEdge.Database
 
 let private formatDate (d: DateTime) = d.ToString("yyyy-MM-dd")
@@ -151,6 +152,22 @@ type DownloadQuotesArgs =
             | Parallelism _ -> "Max parallel downloads (default: 5)"
             | Pretty -> "Output JSON with indentation (pretty print)"
 
+type DownloadNewsArgs =
+    | [<AltCommandLine("-t")>] Ticker of string
+    | [<AltCommandLine("-s")>] Start_Date of string
+    | [<AltCommandLine("-e")>] End_Date of string
+    | [<AltCommandLine("-o")>] Output_Dir of string
+    | [<AltCommandLine("-p")>] Parallelism of int
+
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Ticker _ -> "Stock ticker symbol (required)"
+            | Start_Date _ -> "Start date (yyyy-MM-dd, required)"
+            | End_Date _ -> "End date (yyyy-MM-dd). If omitted, uses start date"
+            | Output_Dir _ -> "Output directory for downloaded data (default: data/news)"
+            | Parallelism _ -> "Max parallel downloads (default: 5)"
+
 type IngestIntradayArgs =
     | [<AltCommandLine("-d")>] Database of string
     | [<AltCommandLine("-i")>] Input_Dir of string
@@ -190,6 +207,7 @@ type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Download_Intraday of ParseResults<DownloadIntradayArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Trades of ParseResults<DownloadTradesArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Quotes of ParseResults<DownloadQuotesArgs>
+    | [<CliPrefix(CliPrefix.None)>] Download_News of ParseResults<DownloadNewsArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Data of ParseResults<IngestDataArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Intraday of ParseResults<IngestIntradayArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Trades of ParseResults<IngestTradesArgs>
@@ -206,6 +224,7 @@ type Arguments =
             | Download_Intraday _ -> "Download intraday (minute/second) data for tickers"
             | Download_Trades _ -> "Download tick-level trades data for a ticker"
             | Download_Quotes _ -> "Download NBBO quotes data for a ticker"
+            | Download_News _ -> "Download news articles for a ticker"
             | Ingest_Data _ -> "Ingest daily data into DuckDB database"
             | Ingest_Intraday _ -> "Ingest intraday data into DuckDB database"
             | Ingest_Trades _ -> "Ingest trades data into DuckDB database"
@@ -682,6 +701,55 @@ let private handleDownloadQuotes (config: MassiveConfig) (args: ParseResults<Dow
         printfn ""
         printfn "Download complete: %d downloaded, %d skipped, %d failed" downloaded skipped failed
 
+let private handleDownloadNews (config: MassiveConfig) (args: ParseResults<DownloadNewsArgs>) =
+    let ticker =
+        match args.TryGetResult DownloadNewsArgs.Ticker with
+        | Some t -> t.ToUpperInvariant()
+        | None -> failwith "Ticker is required. Use -t or --ticker to specify."
+
+    let endDateOpt = args.TryGetResult DownloadNewsArgs.End_Date |> Option.map DateTime.Parse
+    let startDateOpt = args.TryGetResult DownloadNewsArgs.Start_Date |> Option.map DateTime.Parse
+
+    let (startDate, endDate) =
+        match startDateOpt, endDateOpt with
+        | Some s, Some e -> (s, e)
+        | Some s, None -> (s, s)
+        | None, Some e -> (e.AddDays(-7), e)
+        | None, None -> failwith "Either start date or end date is required."
+
+    let outputDir =
+        args.TryGetResult DownloadNewsArgs.Output_Dir
+        |> Option.defaultValue "data/news"
+
+    let parallelism = args.GetResult(DownloadNewsArgs.Parallelism, defaultValue = 5)
+
+    let days = getTradingDays startDate endDate
+    let tickerDates = days |> List.map (fun d -> (ticker, d))
+
+    if tickerDates.IsEmpty then
+        printfn "No trading days in the specified range."
+    else
+        printfn "Downloading news for %s" ticker
+        printfn "Date range: %s to %s (%d days)" (formatDate startDate) (formatDate endDate) tickerDates.Length
+        printfn "Output directory: %s" (Path.GetFullPath outputDir)
+        printfn ""
+
+        Directory.CreateDirectory(outputDir) |> ignore
+
+        use httpClient = new HttpClient()
+        use cts = new CancellationTokenSource()
+
+        let results =
+            downloadNewsBatch httpClient config.ApiKey outputDir tickerDates parallelism (Some NewsDownload.consoleProgress) cts.Token
+            |> Async.RunSynchronously
+
+        let downloaded = results |> List.filter (function NewsDownloaded _ -> true | _ -> false) |> List.length
+        let skipped = results |> List.filter (function NewsSkipped _ -> true | _ -> false) |> List.length
+        let failed = results |> List.filter (function NewsFailed _ -> true | _ -> false) |> List.length
+
+        printfn ""
+        printfn "Download complete: %d downloaded, %d skipped, %d failed" downloaded skipped failed
+
 let private handleIngestIntraday (args: ParseResults<IngestIntradayArgs>) =
     let dbPath =
         args.TryGetResult IngestIntradayArgs.Database
@@ -837,6 +905,9 @@ let main argv =
             | Download_Quotes args ->
                 let config = loadConfigOrFail configPath
                 handleDownloadQuotes config args
+            | Download_News args ->
+                let config = loadConfigOrFail configPath
+                handleDownloadNews config args
             | Ingest_Data args ->
                 handleIngestData args
             | Ingest_Intraday args ->

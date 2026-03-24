@@ -207,6 +207,36 @@ dotnet run --project TradingEdge.Massive -- download-quotes -t AAPL -s 2024-12-2
 
 Output: `data/quotes/{ticker}/{date}.json`
 
+### Download News Articles
+
+Downloads news articles for a specific ticker via the Polygon REST API. Each article includes title, description, URL, publication date, sentiment analysis, and publisher information.
+
+```bash
+dotnet run --project TradingEdge.Massive -- download-news [options]
+```
+
+**Options:**
+- `-t, --ticker <symbol>` - Stock ticker symbol (required)
+- `-s, --start-date <yyyy-MM-dd>` - Start date. If omitted with -e, defaults to 1 week before end date
+- `-e, --end-date <yyyy-MM-dd>` - End date. If omitted with -s, defaults to start date
+- `-o, --output-dir <path>` - Output directory (default: data/news)
+- `-p, --parallelism <int>` - Max parallel downloads (default: 5)
+
+**Examples:**
+
+```bash
+# Download news for a single day
+dotnet run --project TradingEdge.Massive -- download-news -t BYND -s 2025-10-22
+
+# Download news for a date range
+dotnet run --project TradingEdge.Massive -- download-news -t NVDA -s 2024-12-15 -e 2024-12-20
+
+# Download news for the week leading up to a date (start date defaults to 1 week before)
+dotnet run --project TradingEdge.Massive -- download-news -t BYND -e 2025-10-22
+```
+
+Output: `data/news/{ticker}/{date}.json`
+
 ### Ingest Data
 
 Ingests downloaded CSV files, splits, and dividends into a DuckDB database.
@@ -346,6 +376,7 @@ TradingEdge/
 │   ├── IntradayDownload.fs      # Intraday API client (minute/second bars)
 │   ├── TradesDownload.fs        # Trades API client (tick-level data)
 │   ├── QuotesDownload.fs        # Quotes API client (NBBO data)
+│   ├── NewsDownload.fs          # News API client (articles with sentiment)
 │   ├── Database.fs              # DuckDB database operations
 │   ├── Program.fs               # CLI application
 │   └── sql/schema/              # SQL schema files
@@ -366,6 +397,7 @@ TradingEdge/
     ├── intraday/                # Intraday data (minute/second JSON)
     ├── trades/                  # Tick-level trades data (JSON)
     ├── quotes/                  # NBBO quotes data (JSON)
+    ├── news/                    # News articles (JSON)
     ├── splits.csv               # Splits data
     ├── dividends.csv            # Dividends data (merged)
     ├── dividends_cache/         # Per-month dividend cache
