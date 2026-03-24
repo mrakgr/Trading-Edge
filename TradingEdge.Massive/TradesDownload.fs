@@ -162,6 +162,7 @@ let downloadAndSaveTrades
         if File.Exists outputPath then
             return TradesSkipped(ticker, date)
         else
+            printfn "Downloading trades for %s %s..." ticker (date.ToString("yyyy-MM-dd"))
             let! result = downloadTrades httpClient apiKey ticker date ct
 
             match result with
@@ -169,11 +170,13 @@ let downloadAndSaveTrades
                 return TradesFailed(ticker, date, msg)
             | Ok trades ->
                 let tradeCount = trades.Length
+                printfn "Downloaded %d trades, streaming to disk..." tradeCount
 
-                // Save as JSON array
+                // Stream JSON directly to file to avoid 2GB string limit
+                use fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize = 65536, useAsync = true)
                 let serializerOptions = if prettyPrint then jsonOptionsPretty else jsonOptions
-                let json = JsonSerializer.Serialize(trades, serializerOptions)
-                do! File.WriteAllTextAsync(outputPath, json, ct) |> Async.AwaitTask
+                do! JsonSerializer.SerializeAsync(fileStream, trades, serializerOptions, ct) |> Async.AwaitTask
+                printfn "Successfully saved to %s" outputPath
 
                 return TradesDownloaded(ticker, date, tradeCount)
     }
