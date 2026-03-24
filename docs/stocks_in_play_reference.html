@@ -1,0 +1,369 @@
+<h1>Overview</h1>
+<p>The reference document for the stocks in play that will serve as the basis for the generative models. Here is a quick conversion script that should be run from the parent directory in order to convert this markdown file into .html for viewing in the browser.</p>
+<pre><code class="language-bash">pip install markdown
+python3 -c &quot;import markdown; print(markdown.markdown(open('docs/stocks_in_play_reference.md').read(), extensions=['extra', 'nl2br']))&quot; &gt; docs/stocks_in_play_reference.html
+</code></pre>
+<h2>What it has (reference characteristics):</h2>
+<ul>
+<li>Historical examples of stocks that moved</li>
+<li>Intraday fundamentals (gap %, RVOL, volume, news)</li>
+<li>Categories for the catalysts and longer term price action</li>
+<li>Charts showing what happened</li>
+</ul>
+<h2>What it lacks (playbook characteristics):</h2>
+<ul>
+<li>Entry criteria and triggers</li>
+<li>Stop loss placement rules</li>
+<li>Position sizing guidelines</li>
+<li>Exit strategies</li>
+<li>Risk management rules</li>
+<li>Specific patterns to trade (e.g., "bull flag breakout", "VWAP reclaim")</li>
+<li>Trade management rules (scaling in/out, trailing stops)</li>
+</ul>
+<p>Those will be up to the actual automated systems that I will create. This document is intended to be representative of the kinds of stocks I will be trading in the future. You'll note these aren't random stocks, but the most volatile opportunities on any given day.</p>
+<h1>Orderflow Analysis Chart Notes</h1>
+<p>The charts in the Orderflow Analysis section are volume charts. Unlike regular time based charts, these volume charts are built by grouping the trades into fixed size blocks and calculating their Volume Weighted Average Price and the Volume Weighted Standard Deviation. I found this to make analysis far easier than with time based charts. The bottom panel on the charts is the trade duration. When a trade goes over the block size limit, it is split and its remainder is passed into the next block. For large blocks this might entail splitting it up multiple times until the entire trade is consumed.</p>
+<h2>Ticker: LW Date: 2025-12-19</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Neutral</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 136.8m<br />
+Avg. Volume: 1.2m<br />
+Gap %: -14.39%<br />
+Premarket volume: 338.0k (27% avg, 0.2% float)<br />
+Short %: 15.3%<br />
+Catalyst: Earnings Surprise</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/LW_2025-12-19_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Jumpy<br />
+Play: Changing Fundamentals</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/LW_2025-12-19.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: NBIS Date: 2025-09-10</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Neutral</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 202.8m<br />
+Avg. Volume: 11.1m<br />
+Gap %: 51.73%<br />
+Premarket volume: 7.9m (71% avg, 3.9% float)<br />
+Short %: 22.3%<br />
+Catalyst: Major Deal</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/NBIS_2025-09-10_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Jumpy<br />
+Play: Second Day</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/NBIS_2025-09-10.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: NBIS Date: 2025-09-09</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Neutral</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 202.8m<br />
+Avg. Volume: 14.5m<br />
+Gap %: -4.26%<br />
+Premarket volume: 3.9m (27% avg, 1.9% float)<br />
+Short %: 7.5%<br />
+Catalyst: Major Deal</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/NBIS_2025-09-09_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Jumpy<br />
+Play: Changing Fundamentals</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/NBIS_2025-09-09.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: MSTR Date: 2024-11-21</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Neutral</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 313.4m<br />
+Avg. Volume: 30.3m<br />
+Gap %: 13.04%<br />
+Premarket volume: 7.4m (24% avg, 2.4% float)<br />
+Short %: 17.8%<br />
+Catalyst: Short Report</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/MSTR_2024-11-21_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Strong Positive Momentum<br />
+Play: Parabolic Reversal</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/MSTR_2024-11-21.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: OPEN Date: 2025-09-11</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Neutral</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 793.0m<br />
+Avg. Volume: 395.5m<br />
+Gap %: 29.86%<br />
+Premarket volume: 77.0m (19% avg, 9.7% float)<br />
+Short %: 19.5%<br />
+Catalyst: Deal</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/OPEN_2025-09-11_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Strong Positive Momentum<br />
+Play: Changing Fundamentals</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/OPEN_2025-09-11.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: SMCI Date: 2026-03-20</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Negative</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 514.0m<br />
+Avg. Volume: 24.6m<br />
+Gap %: -26.86%<br />
+Premarket volume: 32.5m (132% avg, 6.3% float)<br />
+Short %: 15.8%<br />
+Catalyst: Federal Indictment </p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/SMCI_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Battleground<br />
+Play: Changing Fundamentals</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/SMCI_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: PL Date: 2026-03-20</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Negative</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 260.0m<br />
+Avg. Volume: 10.7m<br />
+Gap %: 24.44%<br />
+Premarket volume: 3.1m (29% avg, 1.2% float)<br />
+Short %: 13.2<br />
+Catalyst: Strong Earnings Surprise</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/PL_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Jumpy<br />
+Play: Changing Fundamentals</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/PL_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: FDX Date: 2026-03-20</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Negative</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 218.0m<br />
+Avg. Volume: 1.8m<br />
+Gap %: 6.94%<br />
+Premarket volume: 216.9k (12% avg, 0.1% float)<br />
+Short %: 9.1%<br />
+Catalyst: Earnings Surprise</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/FDX_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Strong Positive Momentum<br />
+Play: Changing Fundamentals</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/FDX_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: ARM Date: 2026-03-20</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Negative</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 1.1b<br />
+Avg. Volume: 3.9m<br />
+Gap %: 5.45%<br />
+Premarket volume: 246.5k (6% avg, 0.0% float)<br />
+Short %: 20.6%<br />
+Catalyst: Analyst Upgrade</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/ARM_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Neutral Momentum<br />
+Play: Changing Fundamentals</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/ARM_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: VG Date: 2026-03-19</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Negative</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 477.0m<br />
+Avg. Volume: 24.1m<br />
+Gap %: 6.06%<br />
+Premarket volume: 3.7m (16% avg, 0.8% float)<br />
+Short %: 20.9%%<br />
+Catalyst: Breakout</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/VG_2026-03-19_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Strong Positive Momentum<br />
+Play: Second Day</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/VG_2026-03-19.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: NBIS Date: 2026-03-16</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Neutral</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 202.0m<br />
+Avg. Volume: 13.4m<br />
+Gap %: 10.45%<br />
+Premarket volume: 3.7m (28% avg, 1.8% float)<br />
+Short %: 17.2%<br />
+Catalyst: Major Deal</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/NBIS_2026-03-16_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Strong Positive Momentum<br />
+Play: Changing Fundamentals</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/NBIS_2026-03-16.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: NBIS Date: 2026-03-17</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Neutral</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 202.0m<br />
+Avg. Volume: 14.1m<br />
+Gap %: -7.32%<br />
+Premarket volume: 3.4m (24% avg, 1.7% float)<br />
+Short %: 17.2%<br />
+Catalyst: Major Deal</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/NBIS_2026-03-17_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/NBIS_2026-03-17.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Strong Positive Momentum<br />
+Play: Second Day</p>
+<h2>Ticker: TME Date: 2026-03-17</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Neutral</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 575.0m<br />
+Avg. Volume: 6.1m<br />
+Gap %: -15.35%<br />
+Premarket volume: 1.7m (28% avg, 0.3% float)<br />
+Short %: 23.3%<br />
+Catalyst: Earnings Surprise</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/TME_2026-03-17_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Strong Negative Momentum<br />
+Play: Changing Fundamentals</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/TME_2026-03-17.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: TME Date: 2026-03-18</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Neutral</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 575.0m<br />
+Avg. Volume: 9.2m<br />
+Gap %: -0.18%<br />
+Premarket volume: 799.0k (9% avg, 0.1% float)<br />
+Short %: 40.2%<br />
+Catalyst: Earnings Surprise</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/TME_2026-03-18_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Strong Negative Momentum<br />
+Play: Second Day</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/TME_2026-03-18.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: ULTA Date: 2026-03-13</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Neutral</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 44.2m<br />
+Avg. Volume: 549.5k<br />
+Gap %: -9.35%<br />
+Premarket volume: 45.6k (8% avg, 0.1% float)<br />
+Short %: 20.3%<br />
+Catalyst: Earnings Surprise</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/ULTA_2026-03-13_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Strong Positive Momentum<br />
+Play: Changing Fundamentals</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/ULTA_2026-03-13.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: ULTA Date: 2026-03-16</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Neutral</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 44.2m<br />
+Avg. Volume: 660.3k<br />
+Gap %: -0.52%<br />
+Premarket volume: 28.7k (4% avg, 0.1% float)<br />
+Short %: 24.8%<br />
+Catalyst: Earnings Surprise</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/ULTA_2026-03-16_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Strong Positive Momentum<br />
+Play: Second Day</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/ULTA_2026-03-16.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: BYND Date: 2025-10-20</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Neutral</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 438.0m<br />
+Avg. Volume: 57.4m<br />
+Gap %: 57.99%<br />
+Premarket volume: 178.0m (310% avg, 40.6% float)<br />
+Short %: 38.6%<br />
+Catalyst: Deal</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/BYND_2025-10-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<iframe src="charts/BYND_2025-10-20_intraday_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Pump And Dump<br />
+Play: Changing Fundamentals</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/BYND_2025-10-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: BYND Date: 2025-10-21</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Neutral</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 438.0m<br />
+Avg. Volume: 117.5m<br />
+Gap %: 57.14%<br />
+Premarket volume: 244.4m (208% avg, 55.8% float)<br />
+Short %: 22.1%<br />
+Catalyst: Deal</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/BYND_2025-10-21_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<iframe src="charts/BYND_2025-10-21_intraday_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Pump And Dump<br />
+Play: Second Day</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/BYND_2025-10-21.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<h2>Ticker: BYND Date: 2025-10-22</h2>
+<h3>Big Picture</h3>
+<p>Market Momentum: Neutral</p>
+<h3>Intraday Fundamentals</h3>
+<p>Float: 438.0m<br />
+Avg. Volume: 220.9m<br />
+Gap %: 70.44%<br />
+Premarket volume: 501.9m (227% avg, 114.6% float)<br />
+Short %: 26.2%<br />
+Catalyst: Deal</p>
+<h3>Technical Analysis</h3>
+<iframe src="charts/BYND_2025-10-22_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<iframe src="charts/BYND_2025-10-22_intraday_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+<p>Overall Pattern: Pump And Dump<br />
+Play: Parabolic Reversal</p>
+<h3>Orderflow Analysis</h3>
+<iframe src="charts/BYND_2025-10-22.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>

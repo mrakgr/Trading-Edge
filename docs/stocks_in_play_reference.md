@@ -398,3 +398,99 @@ Play: Second Day
 
 ### Orderflow Analysis
 <iframe src="charts/ULTA_2026-03-16.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+## Ticker: BYND Date: 2025-10-20
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 438.0m
+Avg. Volume: 57.4m
+Gap %: 57.99%
+Premarket volume: 178.0m (310% avg, 40.6% float)
+Short %: 38.6%
+Catalyst: Deal
+
+### Technical Analysis
+<iframe src="charts/BYND_2025-10-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<iframe src="charts/BYND_2025-10-20_intraday_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+Overall Pattern: Pump And Dump
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<iframe src="charts/BYND_2025-10-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+## Ticker: BYND Date: 2025-10-21
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 438.0m
+Avg. Volume: 117.5m
+Gap %: 57.14%
+Premarket volume: 244.4m (208% avg, 55.8% float)
+Short %: 22.1%
+Catalyst: Deal
+
+### Technical Analysis
+<iframe src="charts/BYND_2025-10-21_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<iframe src="charts/BYND_2025-10-21_intraday_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+Overall Pattern: Pump And Dump
+Play: Second Day
+
+### Orderflow Analysis
+<iframe src="charts/BYND_2025-10-21.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+## Ticker: BYND Date: 2025-10-22
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 438.0m
+Avg. Volume: 220.9m
+Gap %: 70.44%
+Premarket volume: 501.9m (227% avg, 114.6% float)
+Short %: 26.2%
+Catalyst: Deal
+
+### Technical Analysis
+<iframe src="charts/BYND_2025-10-22_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<iframe src="charts/BYND_2025-10-22_intraday_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+Overall Pattern: Pump And Dump
+Play: Parabolic Reversal
+
+### Orderflow Analysis
+<iframe src="charts/BYND_2025-10-22.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### News Summary
+
+October 20th - The Short Squeeze Begins:
+- BYND surged 137% in 24 hours due to a coordinated short squeeze on social media
+- High short interest of 54% made it a prime target
+- Despite the rally, fundamentals remained weak: falling revenue, deep losses, and bankruptcy risk
+- Stock was down 99% over 5 years
+
+October 21st - Momentum Continues:
+- Stock climbed another 170% over two days
+- Part of a broader "meme stock" rally where investors piled into unprofitable companies
+- Market enthusiasm for growth potential over immediate profitability
+
+October 22nd - Peak Volatility:
+- Martin Shkreli announced a short position, citing negative gross margins
+- Stock experienced extreme swings: 127% and 146% jumps in consecutive days
+- Over 63% of tradable shares were shorted
+- Fundamentals deteriorated: Q2 revenue down 20%, $29.2M net loss, margins declining from 14.7% to 11.5%
+- Analysts bearish with $0.80 price target and "sell" recommendations
+- Massive trading volume driven by retail investors and social media buzz
+
+Summary: BYND experienced a classic short squeeze driven by social media coordination, high short interest, and retail speculation - not fundamental improvement. The extreme volatility and
+volume on October 22nd represented the peak of this speculative frenzy.
