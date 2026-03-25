@@ -231,7 +231,7 @@ Float: 260.0m
 Avg. Volume: 10.7m
 Gap %: 24.44%
 Premarket volume: 3.1m (29% avg, 1.2% float)
-Short %: 13.2
+Short %: 13.2%
 Catalyst: Strong Earnings Surprise
 
 ### Technical Analysis
@@ -312,7 +312,7 @@ Float: 477.0m
 Avg. Volume: 24.1m
 Gap %: 6.06%
 Premarket volume: 3.7m (16% avg, 0.8% float)
-Short %: 20.9%%
+Short %: 20.9%
 Catalyst: Breakout
 
 ### Technical Analysis
@@ -573,3 +573,31 @@ Play: Parabolic Reversal
 ### News Summary
 
 Martin Shkreli announced a short position, citing negative gross margins. Stock experienced extreme swings with over 63% of tradable shares shorted. Fundamentals deteriorated: Q2 revenue down 20%, $29.2M net loss, margins declining from 14.7% to 11.5%. Analysts bearish with $0.80 price target. Massive trading volume represented the peak of the speculative frenzy.
+
+## Ticker: MOS Date: 2026-03-12
+
+### Big Picture
+
+Market Momentum: Negative
+
+### Intraday Fundamentals
+
+Fetching fundamentals for MOS...
+Float: 316.0m
+Avg. Volume: 8.0m
+Gap %: 6.57%
+Premarket volume: 737.4k (9% avg, 0.2% float)
+Short %: 17.9%
+Catalyst: 
+
+### Technical Analysis
+
+<iframe src="charts/MOS_2026-03-12_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+Overall Pattern: Neutral
+Play: 
+
+### Orderflow Analysis
+<iframe src="charts/MOS_2026-03-12.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### News Summary
