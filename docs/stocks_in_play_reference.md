@@ -411,7 +411,7 @@ Avg. Volume: 57.4m
 Gap %: 57.99%
 Premarket volume: 178.0m (310% avg, 40.6% float)
 Short %: 38.6%
-Catalyst: Deal
+Catalyst: Short Squeeze
 
 ### Technical Analysis
 <iframe src="charts/BYND_2025-10-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
@@ -435,7 +435,7 @@ Avg. Volume: 117.5m
 Gap %: 57.14%
 Premarket volume: 244.4m (208% avg, 55.8% float)
 Short %: 22.1%
-Catalyst: Deal
+Catalyst: Short Squeeze
 
 ### Technical Analysis
 <iframe src="charts/BYND_2025-10-21_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
@@ -459,7 +459,7 @@ Avg. Volume: 220.9m
 Gap %: 70.44%
 Premarket volume: 501.9m (227% avg, 114.6% float)
 Short %: 26.2%
-Catalyst: Deal
+Catalyst: Short Squeeze
 
 ### Technical Analysis
 <iframe src="charts/BYND_2025-10-22_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
