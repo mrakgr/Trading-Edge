@@ -53,6 +53,10 @@ Play: Changing Fundamentals
 ### Orderflow Analysis
 <iframe src="charts/LW_2025-12-19.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+### News Summary
+
+LW plunged 26% on underwhelming Q2 earnings and weak guidance, reflecting broader consumer sector weakness amid concerns over profits and declining demand.
+
 ## Ticker: NBIS Date: 2025-09-10
 ### Big Picture
 
@@ -75,6 +79,10 @@ Play: Second Day
 
 ### Orderflow Analysis
 <iframe src="charts/NBIS_2025-09-10.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### News Summary
+
+NBIS surged 136% over two days, crushing Nvidia and Palantir performance. The rally was driven by exceptional 545% revenue growth, expanding data center capacity, and strong demand for GPU-powered cloud infrastructure.
 
 ## Ticker: NBIS Date: 2025-09-09
 ### Big Picture
@@ -100,6 +108,10 @@ Play: Changing Fundamentals
 
 <iframe src="charts/NBIS_2025-09-09.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+### News Summary
+
+NBIS announced a multi-billion dollar agreement with Microsoft to provide dedicated GPU infrastructure, with the deal potentially worth up to $19.4 billion over five years. Stock surged 40-50% on the news, with 97.7% net profit margin demonstrating strong business fundamentals.
+
 ## Ticker: MSTR Date: 2024-11-21
 ### Big Picture
 
@@ -122,6 +134,10 @@ Play: Parabolic Reversal
 
 ### Orderflow Analysis
 <iframe src="charts/MSTR_2024-11-21.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### News Summary
+
+Citron Research issued a short report on MSTR, causing a 16% drop in 90 minutes. Despite congratulating CEO Michael Saylor on his "visionary Bitcoin strategy," Citron argued MSTR's trading had become "completely detached from BTC fundamentals" and disclosed a short position. The stock had been trading as a leveraged proxy for Bitcoin.
 
 ## Ticker: OPEN Date: 2025-09-11
 ### Big Picture
@@ -146,6 +162,10 @@ Play: Changing Fundamentals
 ### Orderflow Analysis
 <iframe src="charts/OPEN_2025-09-11.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+### News Summary
+
+OPEN surged over 1,000% driven by meme-stock momentum and leadership changes. The company appointed Kaz Nejatian as new CEO and brought back co-founders Keith Rabois and Eric Wu to the board, signaling potential strategic shifts and positioning for potential interest rate cuts.
+
 ## Ticker: SMCI Date: 2026-03-20
 ### Big Picture
 
@@ -168,6 +188,10 @@ Play: Changing Fundamentals
 
 ### Orderflow Analysis
 <iframe src="charts/SMCI_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### News Summary
+
+SMCI plunged 28-33% after co-founder Yin-Shyan Liaw was charged with smuggling $2.5 billion worth of Nvidia GPUs to China in violation of U.S. export controls. Despite strong fundamentals (123% sales growth), the federal indictment triggered securities investigations and massive selloff.
 
 ## Ticker: PL Date: 2026-03-20
 ### Big Picture
@@ -192,6 +216,10 @@ Play: Changing Fundamentals
 ### Orderflow Analysis
 <iframe src="charts/PL_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+### News Summary
+
+PL rocketed 25-26% after reporting record Q4 revenue with 41% growth, achieving breakeven adjusted EPS, and issuing strong FY27 guidance of 39% sales growth. The company's 79% backlog growth and AI partnerships with Nvidia and Google drove investor optimism.
+
 ## Ticker: FDX Date: 2026-03-20
 ### Big Picture
 
@@ -214,6 +242,10 @@ Play: Changing Fundamentals
 
 ### Orderflow Analysis
 <iframe src="charts/FDX_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### News Summary
+
+FDX surged 10% after reporting better-than-expected Q3 results with EPS of $5.25 (well above $4.01 consensus) and raising FY26 adjusted EPS guidance above estimates, demonstrating strong logistics demand.
 
 ## Ticker: ARM Date: 2026-03-20
 ### Big Picture
@@ -238,6 +270,10 @@ Play: Changing Fundamentals
 ### Orderflow Analysis
 <iframe src="charts/ARM_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+### News Summary
+
+HSBC upgraded ARM from 'reduce' to 'buy' with a $205 price target (up from $90), citing ARM's undervalued position as a major beneficiary of the AI server CPU market. Citi reiterated a 'Buy' rating with $190 target, noting ARM's v9 product commands 2x the royalty rate of older technology. Stock rose 3.81% to $134.76 on the analyst upgrades.
+
 ## Ticker: VG Date: 2026-03-19
 ### Big Picture
 
@@ -260,6 +296,10 @@ Play: Second Day
 
 ### Orderflow Analysis
 <iframe src="charts/VG_2026-03-19.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### News Summary
+
+VG traded higher driven by global LNG supply disruptions and rising energy prices following Iranian strikes on Qatari energy infrastructure. European natural gas prices surged 30% to above 70 euros per MWh, benefiting the LNG provider.
 
 ## Ticker: NBIS Date: 2026-03-16
 ### Big Picture
@@ -284,6 +324,10 @@ Play: Changing Fundamentals
 ### Orderflow Analysis
 <iframe src="charts/NBIS_2026-03-16.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+### News Summary
+
+NBIS secured a massive $27 billion five-year agreement with Meta for AI infrastructure, with $12 billion in base commitment and up to $15 billion in additional capacity. Combined with previous Microsoft ($17.4B) and Nvidia ($2B investment) deals, NBIS now has $46 billion in total contracts. Stock surged 11-15% on the announcement.
+
 ## Ticker: NBIS Date: 2026-03-17
 ### Big Picture
 
@@ -306,6 +350,10 @@ Catalyst: Major Deal
 
 Overall Pattern: Strong Positive Momentum
 Play: Second Day
+
+### News Summary
+
+No new catalyst. Second day continuation following the previous day's $27 billion Meta deal announcement. The -7.32% gap down reflects profit-taking after the 11-15% surge on 2026-03-16.
 
 ## Ticker: TME Date: 2026-03-17
 ### Big Picture
@@ -330,6 +378,10 @@ Play: Changing Fundamentals
 ### Orderflow Analysis
 <iframe src="charts/TME_2026-03-17.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+### News Summary
+
+TME tumbled despite solid Q4 earnings (15.9% revenue growth, matching EPS estimates) due to a concerning 5% decline in monthly active users to 528 million. The decline was driven by competition from short-form video platforms like ByteDance's Douyin and Qishui Music.
+
 ## Ticker: TME Date: 2026-03-18
 ### Big Picture
 
@@ -352,6 +404,10 @@ Play: Second Day
 
 ### Orderflow Analysis
 <iframe src="charts/TME_2026-03-18.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### News Summary
+
+No new catalyst. Second day continuation following the previous day's earnings disappointment. Continued selling pressure from the 5% MAU decline reported on 2026-03-17.
 
 ## Ticker: ULTA Date: 2026-03-13
 ### Big Picture
@@ -376,6 +432,10 @@ Play: Changing Fundamentals
 ### Orderflow Analysis
 <iframe src="charts/ULTA_2026-03-13.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+### News Summary
+
+ULTA plunged 11.3% despite beating earnings estimates. The company cut FY2027 net sales growth guidance to 6%-7%, citing consumer pullback in discretionary beauty spending amid broader economic concerns.
+
 ## Ticker: ULTA Date: 2026-03-16
 ### Big Picture
 
@@ -398,6 +458,10 @@ Play: Second Day
 
 ### Orderflow Analysis
 <iframe src="charts/ULTA_2026-03-16.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### News Summary
+
+No new catalyst. Second day continuation following the 2026-03-13 earnings selloff. Continued volatility from the weak FY2027 guidance despite earnings beat.
 
 ## Ticker: BYND Date: 2025-10-20
 ### Big Picture
@@ -423,6 +487,10 @@ Play: Changing Fundamentals
 ### Orderflow Analysis
 <iframe src="charts/BYND_2025-10-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
+### News Summary
+
+BYND surged 137% in 24 hours due to a coordinated short squeeze on social media platforms, triggered by a convertible notes tender offer. With 54% short interest, the stock became a prime target despite weak fundamentals: falling revenue, deep losses, and bankruptcy risk. Stock was down 99% over five years before the rally.
+
 ## Ticker: BYND Date: 2025-10-21
 ### Big Picture
 
@@ -446,6 +514,10 @@ Play: Second Day
 
 ### Orderflow Analysis
 <iframe src="charts/BYND_2025-10-21.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### News Summary
+
+Stock climbed another 170% over two days as part of a broader "meme stock" rally. Investors piled into unprofitable companies, showing market enthusiasm for growth potential over immediate profitability despite ongoing operational losses.
 
 ## Ticker: BYND Date: 2025-10-22
 ### Big Picture
@@ -473,24 +545,4 @@ Play: Parabolic Reversal
 
 ### News Summary
 
-October 20th - The Short Squeeze Begins:
-- BYND surged 137% in 24 hours due to a coordinated short squeeze on social media
-- High short interest of 54% made it a prime target
-- Despite the rally, fundamentals remained weak: falling revenue, deep losses, and bankruptcy risk
-- Stock was down 99% over 5 years
-
-October 21st - Momentum Continues:
-- Stock climbed another 170% over two days
-- Part of a broader "meme stock" rally where investors piled into unprofitable companies
-- Market enthusiasm for growth potential over immediate profitability
-
-October 22nd - Peak Volatility:
-- Martin Shkreli announced a short position, citing negative gross margins
-- Stock experienced extreme swings: 127% and 146% jumps in consecutive days
-- Over 63% of tradable shares were shorted
-- Fundamentals deteriorated: Q2 revenue down 20%, $29.2M net loss, margins declining from 14.7% to 11.5%
-- Analysts bearish with $0.80 price target and "sell" recommendations
-- Massive trading volume driven by retail investors and social media buzz
-
-Summary: BYND experienced a classic short squeeze driven by social media coordination, high short interest, and retail speculation - not fundamental improvement. The extreme volatility and
-volume on October 22nd represented the peak of this speculative frenzy.
+Martin Shkreli announced a short position, citing negative gross margins. Stock experienced extreme swings with over 63% of tradable shares shorted. Fundamentals deteriorated: Q2 revenue down 20%, $29.2M net loss, margins declining from 14.7% to 11.5%. Analysts bearish with $0.80 price target. Massive trading volume represented the peak of the speculative frenzy.
