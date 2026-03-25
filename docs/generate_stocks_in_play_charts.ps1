@@ -41,35 +41,6 @@ foreach ($file in $Files) {
         Write-Host "Downloading data for $basename..."
         dotnet run --project TradingEdge.Massive -- download-trades -t $file.Ticker -s $file.Date
     }
-    if ($file.Float) {
-        Write-Host "## Ticker: $($file.Ticker) Date: $($file.Date)"
-        Write-Host ""
-        Write-Host "### Big Picture"
-        Write-Host ""
-        Write-Host "Market Momentum: "
-        Write-Host ""
-        Write-Host "### Intraday Fundamentals"
-        Write-Host ""
-        python3 scripts/visualization/fetch_stock_fundamentals.py $file.Ticker $file.Date $file.Float
-        Write-Host "Short %: "
-        Write-Host "Catalyst: "
-        Write-Host ""
-        Write-Host "### Technical Analysis"
-        Write-Host ""
-        Write-Host "<iframe src=""charts/$($file.Ticker)_$($file.Date)_daily.html"" width=""100%"" height=""100%"" style=""border: 1px solid #ccc;""></iframe>"
-        if ($file.SecondsPerBar) {
-            Write-Host "<iframe src=""charts/$($file.Ticker)_$($file.Date)_intraday_candle.html"" width=""100%"" height=""100%"" style=""border: 1px solid #ccc;""></iframe>"
-        }
-        Write-Host ""
-        Write-Host "Overall Pattern: "
-        Write-Host "Play: "
-        Write-Host ""
-        Write-Host "### Orderflow Analysis"
-        Write-Host "<iframe src=""charts/$($file.Ticker)_$($file.Date).html"" width=""100%"" height=""100%"" style=""border: 1px solid #ccc;""></iframe>"
-        Write-Host ""
-        Write-Host "### News Summary"
-        Write-Host ""
-    }
     Generate -Path "docs/charts/${basename}.html" -Action {param ($outputPath) 
         Write-Host "Generating volume chart for $basename..."
         python3 scripts/visualization/massive_volume.py $jsonPath $file.VolumePerBar $outputPath $showExtended
@@ -86,4 +57,38 @@ foreach ($file in $Files) {
     }
 }
 
-Write-Host "Done generating all charts."
+Write-Host "Done generating all charts. Moving on to reference templates..."
+
+foreach ($file in $Files) {
+    $basename = "$($file.Ticker)_$($file.Date)"
+    $jsonPath = "data/trades/$($file.Ticker)/$($file.Date).json"
+    if ($file.Float) {
+        Write-Host "## Ticker: $($file.Ticker) Date: $($file.Date)"
+        Write-Host ""
+        Write-Host "### Big Picture"
+        Write-Host ""
+        Write-Host "Market Momentum: "
+        Write-Host ""
+        Write-Host "### Intraday Fundamentals"
+        Write-Host ""
+        python3 scripts/visualization/fetch_stock_fundamentals.py $file.Ticker $file.Date $file.Float
+        Write-Host "Short %: "
+        Write-Host "Catalyst: "
+        Write-Host ""
+        Write-Host "### Technical Analysis"
+        Write-Host ""
+        Write-Host "<iframe src=""charts/${basename}_daily.html"" width=""100%"" height=""100%"" style=""border: 1px solid #ccc;""></iframe>"
+        if ($file.SecondsPerBar) {
+            Write-Host "<iframe src=""charts/${basename}_intraday_candle.html"" width=""100%"" height=""100%"" style=""border: 1px solid #ccc;""></iframe>"
+        }
+        Write-Host ""
+        Write-Host "Overall Pattern: "
+        Write-Host "Play: "
+        Write-Host ""
+        Write-Host "### Orderflow Analysis"
+        Write-Host "<iframe src=""charts/$basename.html"" width=""100%"" height=""100%"" style=""border: 1px solid #ccc;""></iframe>"
+        Write-Host ""
+        Write-Host "### News Summary"
+        Write-Host ""
+    }
+}
