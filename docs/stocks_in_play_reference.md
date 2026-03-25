@@ -578,26 +578,27 @@ Martin Shkreli announced a short position, citing negative gross margins. Stock 
 
 ### Big Picture
 
-Market Momentum: Negative
+Market Momentum: Neutral
 
 ### Intraday Fundamentals
 
-Fetching fundamentals for MOS...
 Float: 316.0m
 Avg. Volume: 8.0m
 Gap %: 6.57%
 Premarket volume: 737.4k (9% avg, 0.2% float)
 Short %: 17.9%
-Catalyst: 
+Catalyst: Deal 
 
 ### Technical Analysis
 
 <iframe src="charts/MOS_2026-03-12_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
 Overall Pattern: Neutral
-Play: 
+Play: Changing Fundamentals 
 
 ### Orderflow Analysis
 <iframe src="charts/MOS_2026-03-12.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
 
 ### News Summary
+
+MOS announced a joint project development agreement with Rainbow Rare Earths Limited for the Uberaba rare earths facility in Brazil. The project aims to extract rare earth elements from phosphogypsum, with initial production targeted for 2030. Stock rose 6.50% on the announcement, supported by concerns over Strait of Hormuz closures affecting Middle East producers.
