@@ -21,7 +21,11 @@ $Files = @(
     # @{Ticker = "BYND"; Date = "2025-10-22"; VolumePerBar = 600000; SecondsPerBar = 60; Float = "438m"}
     # @{Ticker = "MOS"; Date = "2026-03-12"; VolumePerBar = 5000; Float = "316m"}
     # @{Ticker = "CF"; Date = "2026-03-12"; VolumePerBar = 5000; Float = "152m"}
-    @{Ticker = "ORCL"; Date = "2026-03-11"; VolumePerBar = 25000; Float = "1.71b"}
+    # @{Ticker = "ORCL"; Date = "2026-03-11"; VolumePerBar = 25000; Float = "1.71b"}
+    @{Ticker = "BNTX"; Date = "2026-03-10"; Float = "250m"; Short = 14.8}
+    # @{Ticker = "CRSP"; Date = "2026-03-10"; Float = "89m"; Short = 21.2}
+    # @{Ticker = "NIO"; Date = "2026-03-10"; Float = "2.08b"; Short = 20.8}
+    # @{Ticker = "HIMS"; Date = "2026-03-10"; Float = "207m"; Short = 31.1}
 )
 
 $showExtended = "true"
@@ -43,9 +47,12 @@ foreach ($file in $Files) {
         Write-Host "Downloading data for $basename..."
         dotnet run --project TradingEdge.Massive -- download-trades -t $file.Ticker -s $file.Date
     }
-    Generate -Path "docs/charts/${basename}.html" -Action {param ($outputPath) 
+    Generate -Path "docs/charts/${basename}.html" -Action {param ($outputPath)
         Write-Host "Generating volume chart for $basename..."
-        python3 scripts/visualization/massive_volume.py $jsonPath $file.VolumePerBar $outputPath $showExtended
+        $pythonArgs = @($jsonPath, "-o", $outputPath)
+        if ($file.VolumePerBar) { $pythonArgs += @("-v", $file.VolumePerBar) }
+        if ($showExtended -eq "false") { $pythonArgs += "--no-extended-hours" }
+        python3 scripts/visualization/massive_volume.py @pythonArgs
     }
     Generate -Path "docs/charts/${basename}_daily.html" -Action {param ($outputPath) 
         Write-Host "Generating daily chart for $basename..."
@@ -74,7 +81,7 @@ foreach ($file in $Files) {
         Write-Host "### Intraday Fundamentals"
         Write-Host ""
         python3 scripts/visualization/fetch_stock_fundamentals.py $file.Ticker $file.Date $file.Float
-        Write-Host "Short %: "
+        Write-Host "Short %: $($file.Short)"
         Write-Host "Catalyst: "
         Write-Host ""
         Write-Host "### Technical Analysis"

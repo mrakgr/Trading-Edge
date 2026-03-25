@@ -26,7 +26,10 @@ foreach ($file in $Files) {
         Write-Host "Downloading data for $basename..."
         dotnet run --project TradingEdge.Massive -- download-trades -t $file.Ticker -s $file.Date
         Write-Host "Generating volume chart for $basename..."
-        python3 scripts/visualization/massive_volume.py $path $file.VolumePerBar "" $showExtended
+        $pythonArgs = @($path)
+        if ($file.VolumePerBar) { $pythonArgs += @("-v", $file.VolumePerBar) }
+        if ($showExtended -eq "false") { $pythonArgs += "--no-extended-hours" }
+        python3 scripts/visualization/massive_volume.py @pythonArgs
         if ($file.SecondsPerBar) {
             Write-Host "Generating intraday candlestick chart for $basename..."
             python3 scripts/visualization/massive_candle.py $file.Path $file.SecondsPerBar "" $showExtended

@@ -1,6 +1,7 @@
 import json
 import sys
 import os
+import argparse
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -258,17 +259,27 @@ def plot_volume_bars_vwap(bars, output_html, all_trades=None):
     print(f'Saved to {output_html}')
 
 if __name__ == '__main__':
-    input_json = sys.argv[1] if len(sys.argv) > 1 else 'data/trades/LW/2025-12-19.json'
-    volume_per_bar = int(sys.argv[2]) if len(sys.argv) > 2 else 10000
-    if len(sys.argv) > 3 and sys.argv[3]:
-        output_html = sys.argv[3]
+    parser = argparse.ArgumentParser(description='Generate volume-based VWAP charts from trade data')
+    parser.add_argument('input_json', help='Path to trades JSON file')
+    parser.add_argument('-v', '--volume-per-bar', type=int, default=None, help='Volume per bar (auto-calculated if not specified)')
+    parser.add_argument('-o', '--output', help='Output HTML file path')
+    parser.add_argument('--show-extended-hours', action='store_true', default=True, help='Show extended hours (default: True)')
+    parser.add_argument('--no-extended-hours', dest='show_extended_hours', action='store_false', help='Hide extended hours')
+
+    args = parser.parse_args()
+
+    input_json = args.input_json
+    volume_per_bar = args.volume_per_bar
+    show_extended_hours = args.show_extended_hours
+
+    if args.output:
+        output_html = args.output
     else:
         ticker = os.path.basename(os.path.dirname(input_json))
         date = os.path.splitext(os.path.basename(input_json))[0]
         output_dir = f'data/charts/massive/{ticker}_{date}'
         os.makedirs(output_dir, exist_ok=True)
         output_html = f'{output_dir}/volume.html'
-    show_extended_hours = sys.argv[4].lower() == 'true' if len(sys.argv) > 4 else True
 
     print(f'Loading trades from {input_json}...')
     all_trades = load_trades(input_json)
@@ -277,6 +288,20 @@ if __name__ == '__main__':
     # Filter out special trade types
     all_trades = filter_trades(all_trades, exclude_odd_lots=False, exclude_extended_hours=False)
     print(f'After filtering: {len(all_trades)} trades')
+
+    # Auto-calculate volume_per_bar if not specified
+    if volume_per_bar is None:
+        hours = get_market_hours_bounds(all_trades)
+        if hours:
+            open_ts, close_ts = hours
+            regular_hours_trades = [t for t in all_trades if open_ts <= t['participant_timestamp'] <= close_ts]
+            regular_hours_volume = sum(t['size'] for t in regular_hours_trades)
+            volume_per_bar = int(np.ceil(regular_hours_volume / 3000 / 1000) * 1000)
+            print(f'Auto-calculated volume_per_bar: {volume_per_bar} (regular hours volume: {regular_hours_volume:,.0f})')
+        else:
+            total_volume = sum(t['size'] for t in all_trades)
+            volume_per_bar = int(np.ceil(total_volume / 3000 / 1000) * 1000)
+            print(f'Auto-calculated volume_per_bar: {volume_per_bar} (total volume: {total_volume:,.0f}, market hours not determined)')
 
     # Filter to regular hours if requested
     trades = all_trades

@@ -24,7 +24,10 @@ foreach ($file in $Files) {
     # Generate charts with market hours detection from trade conditions
     # python3 scripts/visualization/massive_tick.py $file "" $showExtended
     python3 scripts/visualization/massive_candle.py $file $SecondsPerBar "" $showExtended
-    python3 scripts/visualization/massive_volume.py $file $VolumePerBar "" $showExtended
+    $pythonArgs = @($file)
+    if ($VolumePerBar) { $pythonArgs += @("-v", $VolumePerBar) }
+    if ($showExtended -eq "false") { $pythonArgs += "--no-extended-hours" }
+    python3 scripts/visualization/massive_volume.py @pythonArgs
 }
 
 Write-Host "Done generating all charts."
