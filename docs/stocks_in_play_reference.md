@@ -30,6 +30,21 @@ Those will be up to the actual automated systems that I will create. This docume
 
 The charts in the Orderflow Analysis section are volume charts. Unlike regular time based charts, these volume charts are built by grouping the trades into fixed size blocks and calculating their Volume Weighted Average Price and the Volume Weighted Standard Deviation. I found this to make analysis far easier than with time based charts. The bottom panel on the charts is the trade duration. When a trade goes over the block size limit, it is split and its remainder is passed into the next block. For large blocks this might entail splitting it up multiple times until the entire trade is consumed.
 
+<script>
+// This script replaces the placeholders with charts.
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('chart-placeholder')) {
+    const src = e.target.getAttribute('data-src');
+    const iframe = document.createElement('iframe');
+    iframe.src = src;
+    iframe.width = '100%';
+    iframe.height = '100%';
+    iframe.style.border = '1px solid #ccc';
+    e.target.replaceWith(iframe);
+  }
+});
+</script>
+
 ## Ticker: LW Date: 2025-12-19
 ### Big Picture
 
@@ -45,13 +60,13 @@ Short %: 15.3%
 Catalyst: Earnings Surprise
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/LW_2025-12-19_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/LW_2025-12-19_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Jumpy
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/LW_2025-12-19.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/LW_2025-12-19.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -72,13 +87,13 @@ Short %: 22.3%
 Catalyst: Major Deal
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/NBIS_2025-09-10_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/NBIS_2025-09-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Jumpy
 Play: Second Day
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/NBIS_2025-09-10.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/NBIS_2025-09-10.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -99,14 +114,14 @@ Short %: 7.5%
 Catalyst: Major Deal
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/NBIS_2025-09-09_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/NBIS_2025-09-09_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Jumpy
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
 
-<iframe loading="lazy" src="charts/NBIS_2025-09-09.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/NBIS_2025-09-09.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -127,13 +142,13 @@ Short %: 17.8%
 Catalyst: Short Report
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/MSTR_2024-11-21_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/MSTR_2024-11-21_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Strong Positive Momentum
 Play: Parabolic Reversal
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/MSTR_2024-11-21.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/MSTR_2024-11-21.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -154,13 +169,13 @@ Short %: 19.5%
 Catalyst: Deal
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/OPEN_2025-09-11_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/OPEN_2025-09-11_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Strong Positive Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/OPEN_2025-09-11.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/OPEN_2025-09-11.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -181,13 +196,13 @@ Short %: 15.8%
 Catalyst: Federal Indictment 
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/SMCI_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/SMCI_2026-03-20_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Battleground
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/SMCI_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/SMCI_2026-03-20.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -208,13 +223,13 @@ Short %: 17.9%
 Catalyst: Federal Indictment 
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/SMCI_2026-03-23_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/SMCI_2026-03-23_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Battleground
 Play: Second Day
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/SMCI_2026-03-23.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/SMCI_2026-03-23.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -235,13 +250,13 @@ Short %: 13.2%
 Catalyst: Strong Earnings Surprise
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/PL_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/PL_2026-03-20_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Jumpy
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/PL_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/PL_2026-03-20.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -262,13 +277,13 @@ Short %: 9.1%
 Catalyst: Earnings Surprise
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/FDX_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/FDX_2026-03-20_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Strong Positive Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/FDX_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/FDX_2026-03-20.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -289,13 +304,13 @@ Short %: 20.6%
 Catalyst: Analyst Upgrade
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/ARM_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/ARM_2026-03-20_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Neutral Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/ARM_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/ARM_2026-03-20.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -316,13 +331,13 @@ Short %: 20.9%
 Catalyst: Breakout
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/VG_2026-03-19_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/VG_2026-03-19_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Strong Positive Momentum
 Play: Second Day
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/VG_2026-03-19.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/VG_2026-03-19.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -343,13 +358,13 @@ Short %: 17.2%
 Catalyst: Major Deal
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/NBIS_2026-03-16_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/NBIS_2026-03-16_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Strong Positive Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/NBIS_2026-03-16.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/NBIS_2026-03-16.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -370,10 +385,10 @@ Short %: 17.2%
 Catalyst: Major Deal
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/NBIS_2026-03-17_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/NBIS_2026-03-17_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/NBIS_2026-03-17.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/NBIS_2026-03-17.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Strong Positive Momentum
 Play: Second Day
@@ -397,13 +412,13 @@ Short %: 23.3%
 Catalyst: Earnings Surprise
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/TME_2026-03-17_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/TME_2026-03-17_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Strong Negative Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/TME_2026-03-17.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/TME_2026-03-17.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -424,13 +439,13 @@ Short %: 40.2%
 Catalyst: Earnings Surprise
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/TME_2026-03-18_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/TME_2026-03-18_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Strong Negative Momentum
 Play: Second Day
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/TME_2026-03-18.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/TME_2026-03-18.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -451,13 +466,13 @@ Short %: 20.3%
 Catalyst: Earnings Surprise
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/ULTA_2026-03-13_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/ULTA_2026-03-13_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Strong Positive Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/ULTA_2026-03-13.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/ULTA_2026-03-13.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -478,13 +493,13 @@ Short %: 24.8%
 Catalyst: Earnings Surprise
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/ULTA_2026-03-16_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/ULTA_2026-03-16_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Strong Positive Momentum
 Play: Second Day
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/ULTA_2026-03-16.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/ULTA_2026-03-16.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -505,14 +520,14 @@ Short %: 38.6%
 Catalyst: Short Squeeze
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/BYND_2025-10-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
-<iframe loading="lazy" src="charts/BYND_2025-10-20_intraday_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-20_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-20_intraday_candle.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Pump And Dump
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/BYND_2025-10-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-20.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -533,14 +548,14 @@ Short %: 22.1%
 Catalyst: Short Squeeze
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/BYND_2025-10-21_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
-<iframe loading="lazy" src="charts/BYND_2025-10-21_intraday_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-21_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-21_intraday_candle.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Pump And Dump
 Play: Second Day
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/BYND_2025-10-21.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-21.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -561,14 +576,14 @@ Short %: 26.2%
 Catalyst: Short Squeeze
 
 ### Technical Analysis
-<iframe loading="lazy" src="charts/BYND_2025-10-22_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
-<iframe loading="lazy" src="charts/BYND_2025-10-22_intraday_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-22_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-22_intraday_candle.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Pump And Dump
 Play: Parabolic Reversal
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/BYND_2025-10-22.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-22.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -591,13 +606,13 @@ Catalyst: Deal
 
 ### Technical Analysis
 
-<iframe loading="lazy" src="charts/MOS_2026-03-12_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/MOS_2026-03-12_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Neutral
 Play: Changing Fundamentals 
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/MOS_2026-03-12.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/MOS_2026-03-12.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -620,13 +635,13 @@ Catalyst: Breakout
 
 ### Technical Analysis
 
-<iframe loading="lazy" src="charts/CF_2026-03-12_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/CF_2026-03-12_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Positive Momentum
 Play: Changing Fundamentals 
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/CF_2026-03-12.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/CF_2026-03-12.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
@@ -649,13 +664,13 @@ Catalyst: Strong Earnings Surprise
 
 ### Technical Analysis
 
-<iframe loading="lazy" src="charts/ORCL_2026-03-11_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/ORCL_2026-03-11_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Strong Positive Momentum
 Play: Changing Fundamentals 
 
 ### Orderflow Analysis
-<iframe loading="lazy" src="charts/ORCL_2026-03-11.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/ORCL_2026-03-11.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
