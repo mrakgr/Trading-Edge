@@ -466,14 +466,18 @@ let getStocksInPlay
     (minRvol: float)
     (minGapPct: float)
     (minAvgDollarVolume: float)
+    (rvolWeight: float)
+    (gapWeight: float)
     : StockInPlayRow array =
     connection.Query<StockInPlayRow>(
-        "SELECT * FROM stocks_in_play(min_rvol := $minRvol, min_gap_pct := $minGapPct, min_avg_dollar_volume := $minAvgDollarVolume) WHERE date >= $startDate AND date <= $endDate ORDER BY date, rank",
+        "SELECT * FROM stocks_in_play(min_rvol := $minRvol, min_gap_pct := $minGapPct, min_avg_dollar_volume := $minAvgDollarVolume, rvol_weight := $rvolWeight, gap_weight := $gapWeight) WHERE date >= $startDate AND date <= $endDate ORDER BY date, rank",
         {| startDate = startDate.ToString("yyyy-MM-dd")
            endDate = endDate.ToString("yyyy-MM-dd")
            minRvol = minRvol
            minGapPct = minGapPct
-           minAvgDollarVolume = minAvgDollarVolume |})
+           minAvgDollarVolume = minAvgDollarVolume
+           rvolWeight = rvolWeight
+           gapWeight = gapWeight |})
     |> Seq.toArray
 
 // --- Intraday Prices ---

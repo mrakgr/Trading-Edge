@@ -337,6 +337,8 @@ dotnet run --project TradingEdge.Massive -- stocks-in-play [options]
 - `-r, --min-rvol <float>` - Minimum relative volume (default: 3)
 - `-g, --min-gap-pct <float>` - Minimum gap percentage as decimal (default: 0.05 for 5%)
 - `-v, --min-dollar-volume <float>` - Minimum avg dollar volume in millions (default: 100)
+- `-rw, --rvol-weight <float>` - Weight for RVOL in scoring (default: 0.95)
+- `-gw, --gap-weight <float>` - Weight for gap in scoring (default: 0.05)
 
 **Examples:**
 
@@ -355,13 +357,16 @@ dotnet run --project TradingEdge.Massive -- stocks-in-play -v 50
 
 # Combine all filters: aggressive settings for small caps
 dotnet run --project TradingEdge.Massive -- stocks-in-play -r 2 -g 0.03 -v 25
+
+# Use balanced weighting (50% RVOL, 50% gap) instead of volume-focused default
+dotnet run --project TradingEdge.Massive -- stocks-in-play -rw 0.5 -gw 0.5
 ```
 
 **Default Criteria:**
 - Liquidity: $100M+ average daily dollar volume (4-week)
 - Relative Volume (RVOL): >= 3x normal volume
 - Opening Gap: >= 5% from previous close
-- Ranked by composite score (RVOL + gap magnitude)
+- Ranked by composite score (95% RVOL weight, 5% gap weight)
 - Top 10 stocks per day
 
 ## Project Structure

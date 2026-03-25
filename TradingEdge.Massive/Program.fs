@@ -69,6 +69,8 @@ type StocksInPlayArgs =
     | [<AltCommandLine("-r")>] Min_Rvol of float
     | [<AltCommandLine("-g")>] Min_Gap_Pct of float
     | [<AltCommandLine("-v")>] Min_Dollar_Volume of float
+    | [<AltCommandLine("-rw")>] Rvol_Weight of float
+    | [<AltCommandLine("-gw")>] Gap_Weight of float
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -79,6 +81,8 @@ type StocksInPlayArgs =
             | Min_Rvol _ -> "Minimum relative volume (default: 3)"
             | Min_Gap_Pct _ -> "Minimum gap percentage as decimal, e.g. 0.05 for 5% (default: 0.05)"
             | Min_Dollar_Volume _ -> "Minimum avg dollar volume in millions (default: 100)"
+            | Rvol_Weight _ -> "Weight for RVOL in scoring (default: 0.95)"
+            | Gap_Weight _ -> "Weight for gap in scoring (default: 0.05)"
 
 type RefreshViewsArgs =
     | [<AltCommandLine("-d")>] Database of string
@@ -478,6 +482,8 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
     let minRvol = args.GetResult(StocksInPlayArgs.Min_Rvol, defaultValue = 3.0)
     let minGapPct = args.GetResult(StocksInPlayArgs.Min_Gap_Pct, defaultValue = 0.05)
     let minDollarVolume = args.GetResult(StocksInPlayArgs.Min_Dollar_Volume, defaultValue = 100.0) * 1_000_000.0
+    let rvolWeight = args.GetResult(StocksInPlayArgs.Rvol_Weight, defaultValue = 0.95)
+    let gapWeight = args.GetResult(StocksInPlayArgs.Gap_Weight, defaultValue = 0.05)
 
     printfn "Stocks In Play from %s to %s" (formatDate startDate) (formatDate endDate)
     printfn "Filters: RVOL >= %.1fx, Gap >= %.1f%%, Avg Dollar Volume >= $%.0fM" minRvol (minGapPct * 100.0) (minDollarVolume / 1_000_000.0)
@@ -485,7 +491,7 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
     printfn ""
 
     use connection = openConnection dbPath
-    let stocks = getStocksInPlay connection startDate endDate minRvol minGapPct minDollarVolume
+    let stocks = getStocksInPlay connection startDate endDate minRvol minGapPct minDollarVolume rvolWeight gapWeight
 
     if stocks.Length = 0 then
         printfn "No stocks in play found for the given date range."
@@ -561,7 +567,7 @@ let private handleDownloadIntraday (config: MassiveConfig) (args: ParseResults<D
             printfn "SIP Filters: RVOL >= %.1fx, Gap >= %.1f%%, Avg Dollar Volume >= $%.0fM" minRvol (minGapPct * 100.0) (minDollarVolume / 1_000_000.0)
 
             use connection = openConnection dbPath
-            let stocks = getStocksInPlay connection startDate endDate minRvol minGapPct minDollarVolume
+            let stocks = getStocksInPlay connection startDate endDate minRvol minGapPct minDollarVolume 0.95 0.05
 
             stocks
             |> Array.map (fun s -> (s.ticker, s.date.ToDateTime(TimeOnly.MinValue)))

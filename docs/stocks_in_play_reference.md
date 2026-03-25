@@ -193,6 +193,33 @@ Play: Changing Fundamentals
 
 SMCI plunged 28-33% after co-founder Yin-Shyan Liaw was charged with smuggling $2.5 billion worth of Nvidia GPUs to China in violation of U.S. export controls. Despite strong fundamentals (123% sales growth), the federal indictment triggered securities investigations and massive selloff.
 
+## Ticker: SMCI Date: 2026-03-23
+### Big Picture
+
+Market Momentum: Negative
+
+### Intraday Fundamentals
+
+Float: 514.0m
+Avg. Volume: 35.4m
+Gap %: -1.07%
+Premarket volume: 7.7m (22% avg, 1.5% float)
+Short %: 17.9%
+Catalyst: Federal Indictment 
+
+### Technical Analysis
+<iframe src="charts/SMCI_2026-03-23_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+Overall Pattern: Battleground
+Play: Second Day
+
+### Orderflow Analysis
+<iframe src="charts/SMCI_2026-03-23.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+
+### News Summary
+
+No new catalyst. Second day continuation following the 2026-03-20 federal indictment of co-founder Yin-Shyan Liaw for smuggling $2.5 billion worth of Nvidia GPUs to China. The -1.07% gap reflects continued but lighter selling pressure compared to the initial -26.86% drop.
+
 ## Ticker: PL Date: 2026-03-20
 ### Big Picture
 
