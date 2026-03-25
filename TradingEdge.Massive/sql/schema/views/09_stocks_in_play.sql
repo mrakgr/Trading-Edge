@@ -4,7 +4,9 @@ DROP MACRO IF EXISTS stocks_in_play;
 CREATE MACRO stocks_in_play(
     min_rvol := 3,
     min_gap_pct := 0.05,
-    min_avg_dollar_volume := 100000000
+    min_avg_dollar_volume := 100000000,
+    rvol_weight := 0.95,
+    gap_weight := 0.05
 ) AS TABLE
 WITH daily_metrics AS (
     SELECT
@@ -38,8 +40,8 @@ WITH daily_metrics AS (
 ranked AS (
     SELECT
         *,
-        -- Composite score: weight RVOL and absolute gap
-        (rvol * 0.5 + ABS(gap_pct) * 100 * 0.5) AS in_play_score,
+        -- Composite score: weighted combination of RVOL and absolute gap
+        (rvol * rvol_weight + ABS(gap_pct) * 100 * gap_weight) AS in_play_score,
         ROW_NUMBER() OVER (PARTITION BY date ORDER BY in_play_score DESC) AS rank
     FROM daily_metrics
     WHERE rvol >= min_rvol
