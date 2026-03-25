@@ -3,16 +3,11 @@
 A few commands to get started for myself.
 
 ```
-dotnet run --project TradingEdge.Massive -- download-bulk -s 2003-09-10
-dotnet run --project TradingEdge.Massive -- download-splits -s 2003-09-10
+dotnet run --project TradingEdge.Massive -- download-bulk
+dotnet run --project TradingEdge.Massive -- download-splits
+dotnet run --project TradingEdge.Massive -- download-dividends
 dotnet run --project TradingEdge.Massive -- ingest-data
-```
-
-Here is a command to plot the DOM.
-
-```
-dotnet run --project TradingEdge.Massive -- plot-chart -t SPY
-dotnet run --project TradingEdge.Massive -- plot-dom -t SPY
+dotnet run --project TradingEdge.Massive -- stocks-in-play
 ```
 
 Here is how to get trades data

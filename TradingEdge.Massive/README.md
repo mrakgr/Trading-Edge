@@ -160,6 +160,7 @@ dotnet run --project TradingEdge.Massive -- download-trades [options]
 - `-e, --end-date <yyyy-MM-dd>` - End date. If omitted, only start date is downloaded
 - `-o, --output-dir <path>` - Output directory (default: data/trades)
 - `-p, --parallelism <int>` - Max parallel downloads (default: 5)
+- `--pretty` - Output JSON with indentation (pretty print)
 
 **Examples:**
 
