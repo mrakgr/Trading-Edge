@@ -176,7 +176,7 @@ if __name__ == '__main__':
     if date_str:
         gap_data = get_gap_and_premarket(ticker, date_str)
         if gap_data['gap_pct'] is not None:
-            print(f"Gap %: {gap_data['gap_pct']:.2f}%")
+            print(f"Gap %: {gap_data['gap_pct']:.2f}")
         else:
             print("Gap %: Unable to calculate")
 

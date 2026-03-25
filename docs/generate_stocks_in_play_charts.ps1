@@ -23,9 +23,9 @@ $Files = @(
     # @{Ticker = "CF"; Date = "2026-03-12"; VolumePerBar = 5000; Float = "152m"}
     # @{Ticker = "ORCL"; Date = "2026-03-11"; VolumePerBar = 25000; Float = "1.71b"}
     @{Ticker = "BNTX"; Date = "2026-03-10"; Float = "250m"; Short = 14.8}
-    # @{Ticker = "CRSP"; Date = "2026-03-10"; Float = "89m"; Short = 21.2}
-    # @{Ticker = "NIO"; Date = "2026-03-10"; Float = "2.08b"; Short = 20.8}
-    # @{Ticker = "HIMS"; Date = "2026-03-10"; Float = "207m"; Short = 31.1}
+    @{Ticker = "CRSP"; Date = "2026-03-10"; Float = "89m"; Short = 21.2}
+    @{Ticker = "NIO"; Date = "2026-03-10"; Float = "2.08b"; Short = 20.8}
+    @{Ticker = "HIMS"; Date = "2026-03-10"; Float = "207m"; Short = 31.1}
 )
 
 $showExtended = "true"

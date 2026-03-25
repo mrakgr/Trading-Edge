@@ -54,9 +54,9 @@ Market Momentum: Neutral
 
 Float: 136.8m
 Avg. Volume: 1.2m
-Gap %: -14.39%
+Gap %: -14.39
 Premarket volume: 338.0k (27% avg, 0.2% float)
-Short %: 15.3%
+Short %: 15.3
 Catalyst: Earnings Surprise
 
 ### Technical Analysis
@@ -81,9 +81,9 @@ Market Momentum: Neutral
 
 Float: 202.8m
 Avg. Volume: 11.1m
-Gap %: 51.73%
+Gap %: 51.73
 Premarket volume: 7.9m (71% avg, 3.9% float)
-Short %: 22.3%
+Short %: 22.3
 Catalyst: Major Deal
 
 ### Technical Analysis
@@ -108,9 +108,9 @@ Market Momentum: Neutral
 
 Float: 202.8m
 Avg. Volume: 14.5m
-Gap %: -4.26%
+Gap %: -4.26
 Premarket volume: 3.9m (27% avg, 1.9% float)
-Short %: 7.5%
+Short %: 7.5
 Catalyst: Major Deal
 
 ### Technical Analysis
@@ -136,9 +136,9 @@ Market Momentum: Neutral
 
 Float: 313.4m
 Avg. Volume: 30.3m
-Gap %: 13.04%
+Gap %: 13.04
 Premarket volume: 7.4m (24% avg, 2.4% float)
-Short %: 17.8%
+Short %: 17.8
 Catalyst: Short Report
 
 ### Technical Analysis
@@ -163,9 +163,9 @@ Market Momentum: Neutral
 
 Float: 793.0m
 Avg. Volume: 395.5m
-Gap %: 29.86%
+Gap %: 29.86
 Premarket volume: 77.0m (19% avg, 9.7% float)
-Short %: 19.5%
+Short %: 19.5
 Catalyst: Deal
 
 ### Technical Analysis
@@ -190,9 +190,9 @@ Market Momentum: Negative
 
 Float: 514.0m
 Avg. Volume: 24.6m
-Gap %: -26.86%
+Gap %: -26.86
 Premarket volume: 32.5m (132% avg, 6.3% float)
-Short %: 15.8%
+Short %: 15.8
 Catalyst: Federal Indictment 
 
 ### Technical Analysis
@@ -217,9 +217,9 @@ Market Momentum: Negative
 
 Float: 514.0m
 Avg. Volume: 35.4m
-Gap %: -1.07%
+Gap %: -1.07
 Premarket volume: 7.7m (22% avg, 1.5% float)
-Short %: 17.9%
+Short %: 17.9
 Catalyst: Federal Indictment 
 
 ### Technical Analysis
@@ -244,9 +244,9 @@ Market Momentum: Negative
 
 Float: 260.0m
 Avg. Volume: 10.7m
-Gap %: 24.44%
+Gap %: 24.44
 Premarket volume: 3.1m (29% avg, 1.2% float)
-Short %: 13.2%
+Short %: 13.2
 Catalyst: Strong Earnings Surprise
 
 ### Technical Analysis
@@ -271,9 +271,9 @@ Market Momentum: Negative
 
 Float: 218.0m
 Avg. Volume: 1.8m
-Gap %: 6.94%
+Gap %: 6.94
 Premarket volume: 216.9k (12% avg, 0.1% float)
-Short %: 9.1%
+Short %: 9.1
 Catalyst: Earnings Surprise
 
 ### Technical Analysis
@@ -298,9 +298,9 @@ Market Momentum: Negative
 
 Float: 1.1b
 Avg. Volume: 3.9m
-Gap %: 5.45%
+Gap %: 5.45
 Premarket volume: 246.5k (6% avg, 0.0% float)
-Short %: 20.6%
+Short %: 20.6
 Catalyst: Analyst Upgrade
 
 ### Technical Analysis
@@ -325,9 +325,9 @@ Market Momentum: Negative
 
 Float: 477.0m
 Avg. Volume: 24.1m
-Gap %: 6.06%
+Gap %: 6.06
 Premarket volume: 3.7m (16% avg, 0.8% float)
-Short %: 20.9%
+Short %: 20.9
 Catalyst: Breakout
 
 ### Technical Analysis
@@ -352,9 +352,9 @@ Market Momentum: Neutral
 
 Float: 202.0m
 Avg. Volume: 13.4m
-Gap %: 10.45%
+Gap %: 10.45
 Premarket volume: 3.7m (28% avg, 1.8% float)
-Short %: 17.2%
+Short %: 17.2
 Catalyst: Major Deal
 
 ### Technical Analysis
@@ -379,9 +379,9 @@ Market Momentum: Neutral
 
 Float: 202.0m
 Avg. Volume: 14.1m
-Gap %: -7.32%
+Gap %: -7.32
 Premarket volume: 3.4m (24% avg, 1.7% float)
-Short %: 17.2%
+Short %: 17.2
 Catalyst: Major Deal
 
 ### Technical Analysis
@@ -406,9 +406,9 @@ Market Momentum: Neutral
 
 Float: 575.0m
 Avg. Volume: 6.1m
-Gap %: -15.35%
+Gap %: -15.35
 Premarket volume: 1.7m (28% avg, 0.3% float)
-Short %: 23.3%
+Short %: 23.3
 Catalyst: Earnings Surprise
 
 ### Technical Analysis
@@ -433,9 +433,9 @@ Market Momentum: Neutral
 
 Float: 575.0m
 Avg. Volume: 9.2m
-Gap %: -0.18%
+Gap %: -0.18
 Premarket volume: 799.0k (9% avg, 0.1% float)
-Short %: 40.2%
+Short %: 40.2
 Catalyst: Earnings Surprise
 
 ### Technical Analysis
@@ -460,9 +460,9 @@ Market Momentum: Neutral
 
 Float: 44.2m
 Avg. Volume: 549.5k
-Gap %: -9.35%
+Gap %: -9.35
 Premarket volume: 45.6k (8% avg, 0.1% float)
-Short %: 20.3%
+Short %: 20.3
 Catalyst: Earnings Surprise
 
 ### Technical Analysis
@@ -487,9 +487,9 @@ Market Momentum: Neutral
 
 Float: 44.2m
 Avg. Volume: 660.3k
-Gap %: -0.52%
+Gap %: -0.52
 Premarket volume: 28.7k (4% avg, 0.1% float)
-Short %: 24.8%
+Short %: 24.8
 Catalyst: Earnings Surprise
 
 ### Technical Analysis
@@ -514,9 +514,9 @@ Market Momentum: Neutral
 
 Float: 438.0m
 Avg. Volume: 57.4m
-Gap %: 57.99%
+Gap %: 57.99
 Premarket volume: 178.0m (310% avg, 40.6% float)
-Short %: 38.6%
+Short %: 38.6
 Catalyst: Short Squeeze
 
 ### Technical Analysis
@@ -542,9 +542,9 @@ Market Momentum: Neutral
 
 Float: 438.0m
 Avg. Volume: 117.5m
-Gap %: 57.14%
+Gap %: 57.14
 Premarket volume: 244.4m (208% avg, 55.8% float)
-Short %: 22.1%
+Short %: 22.1
 Catalyst: Short Squeeze
 
 ### Technical Analysis
@@ -570,9 +570,9 @@ Market Momentum: Neutral
 
 Float: 438.0m
 Avg. Volume: 220.9m
-Gap %: 70.44%
+Gap %: 70.44
 Premarket volume: 501.9m (227% avg, 114.6% float)
-Short %: 26.2%
+Short %: 26.2
 Catalyst: Short Squeeze
 
 ### Technical Analysis
@@ -599,9 +599,9 @@ Market Momentum: Neutral
 
 Float: 316.0m
 Avg. Volume: 8.0m
-Gap %: 6.57%
+Gap %: 6.57
 Premarket volume: 737.4k (9% avg, 0.2% float)
-Short %: 17.9%
+Short %: 17.9
 Catalyst: Deal 
 
 ### Technical Analysis
@@ -628,9 +628,9 @@ Market Momentum: Neutral
 
 Float: 152.0m
 Avg. Volume: 4.3m
-Gap %: 6.57%
+Gap %: 6.57
 Premarket volume: 195.0k (5% avg, 0.1% float)
-Short %: 29.8%
+Short %: 29.8
 Catalyst: Breakout
 
 ### Technical Analysis
@@ -657,9 +657,9 @@ Market Momentum: Neutral
 
 Float: 1.7b
 Avg. Volume: 26.4m
-Gap %: 11.40%
+Gap %: 11.40
 Premarket volume: 5.2m (20% avg, 0.3% float)
-Short %: 15.4%
+Short %: 15.4
 Catalyst: Earnings Surprise
 
 ### Technical Analysis
@@ -675,3 +675,111 @@ Play: Changing Fundamentals
 ### News Summary
 
 ORCL surged 10% after beating Q3 earnings with EPS of $1.79 (vs $1.70 consensus) and revenue of $17.19B (+22% YoY). Cloud revenue grew 44% with infrastructure up 84%, driven by AI demand. The company reported a massive $553B backlog including a $300B OpenAI contract and raised FY2027 revenue guidance to $90B. JPMorgan upgraded the stock citing proof of AI strategy success.
+
+## Ticker: BNTX Date: 2026-03-10
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 250.0m
+Avg. Volume: 620.0k
+Gap %: -18.94
+Premarket volume: 1.4m (232% avg, 0.6% float)
+Short %: 14.8
+Catalyst: 
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/BNTX_2026-03-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: 
+Play: 
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/BNTX_2026-03-10.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+## Ticker: CRSP Date: 2026-03-10
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 89.0m
+Avg. Volume: 1.5m
+Gap %: -8.23
+Premarket volume: 140.8k (9% avg, 0.2% float)
+Short %: 21.2
+Catalyst: 
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/CRSP_2026-03-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: 
+Play: 
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/CRSP_2026-03-10.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+## Ticker: NIO Date: 2026-03-10
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 2.1b
+Avg. Volume: 36.4m
+Gap %: 6.48
+Premarket volume: 10.5m (29% avg, 0.5% float)
+Short %: 20.8
+Catalyst: 
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/NIO_2026-03-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: 
+Play: 
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/NIO_2026-03-10.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+## Ticker: HIMS Date: 2026-03-10
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 207.0m
+Avg. Volume: 44.0m
+Gap %: 8.30
+Premarket volume: 5.9m (13% avg, 2.8% float)
+Short %: 31.1
+Catalyst: 
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/HIMS_2026-03-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: 
+Play: 
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/HIMS_2026-03-10.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
