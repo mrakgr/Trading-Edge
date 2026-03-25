@@ -689,19 +689,21 @@ Avg. Volume: 620.0k
 Gap %: -18.94
 Premarket volume: 1.4m (232% avg, 0.6% float)
 Short %: 14.8
-Catalyst: 
+Catalyst: Earnings Surprise
 
 ### Technical Analysis
 
 <div class="chart-placeholder" data-src="charts/BNTX_2026-03-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: 
-Play: 
+Overall Pattern: Battleground
+Play: Changing Fundamentals
 
 ### Orderflow Analysis
 <div class="chart-placeholder" data-src="charts/BNTX_2026-03-10.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
+
+BNTX plunged 17-19% after co-founders Ugur Sahin and Özlem Türeci announced plans to exit by end of 2026 to launch a new mRNA venture. The company also lowered 2026 revenue guidance to $2.33-$2.68B (vs $3.12B consensus) due to declining COVID-19 vaccine demand and reported a €305M net loss in Q4 2025. Despite maintaining €16B in cash, investors are concerned about leadership continuity and the multi-year capital-intensive transition to oncology.
 
 ## Ticker: BNTX Date: 2026-03-11
 
@@ -716,20 +718,21 @@ Avg. Volume: 1.2m
 Gap %: 2.85
 Premarket volume: 316.0k (26% avg, 0.1% float)
 Short %: 15
-Catalyst: 
+Catalyst: Earnings Surprise
 
 ### Technical Analysis
 
 <div class="chart-placeholder" data-src="charts/BNTX_2026-03-11_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: 
-Play: 
+Overall Pattern: Battleground
+Play: Second Day
 
 ### Orderflow Analysis
 <div class="chart-placeholder" data-src="charts/BNTX_2026-03-11.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
+No new catalyst. Second day continuation following the previous day's 17-19% selloff on co-founder departure and weak guidance. The +2.85% gap reflects a modest bounce as traders assess the oversold conditions.
 
 ## Ticker: CRSP Date: 2026-03-10
 
@@ -744,19 +747,21 @@ Avg. Volume: 1.5m
 Gap %: -8.23
 Premarket volume: 140.8k (9% avg, 0.2% float)
 Short %: 21.2
-Catalyst: 
+Catalyst: Offering
 
 ### Technical Analysis
 
 <div class="chart-placeholder" data-src="charts/CRSP_2026-03-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: 
-Play: 
+Overall Pattern: Neutral
+Play: Changing Fundamentals
 
 ### Orderflow Analysis
 <div class="chart-placeholder" data-src="charts/CRSP_2026-03-10.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
+
+CRSP fell 12% after announcing a $350M convertible debt offering to fund drug development. The market reacted negatively to potential shareholder dilution, though analysts maintain a bullish $81.21 price target (50% upside). The company has successful gene therapy approvals and five ongoing clinical trials, suggesting the capital raise was anticipated and the decline may be an overreaction.
 
 ## Ticker: NIO Date: 2026-03-10
 
@@ -771,19 +776,50 @@ Avg. Volume: 36.4m
 Gap %: 6.48
 Premarket volume: 10.5m (29% avg, 0.5% float)
 Short %: 20.8
-Catalyst: 
+Catalyst: Strong Earnings Surprise
 
 ### Technical Analysis
 
 <div class="chart-placeholder" data-src="charts/NIO_2026-03-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: 
-Play: 
+Overall Pattern: Neutral
+Play: Changing Fundamentals
 
 ### Orderflow Analysis
 <div class="chart-placeholder" data-src="charts/NIO_2026-03-10.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
+
+NIO surged 10% after reporting its first-ever quarterly net profit of $40.4M in Q4, exceeding guidance. The Chinese EV maker posted record quarterly revenue of 34.6B yuan and provided strong Q1 guidance with expected revenue doubling YoY and vehicle deliveries increasing over 90%. Expanding gross margins and declining battery costs support the bullish outlook, though investors should monitor a $1.2B stock incentive plan for CEO William Li.
+
+## Ticker: NIO Date: 2026-03-11
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 2.1b
+Avg. Volume: 41.5m
+Gap %: -0.18
+Premarket volume: 3.8m (9% avg, 0.2% float)
+Short %: 16.4
+Catalyst: Strong Earnings Surprise
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/NIO_2026-03-11_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Neutral
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/NIO_2026-03-11.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Second day continuation following the previous day's 10% surge on first quarterly profit announcement. The -0.18% gap reflects consolidation after the strong earnings-driven rally.
 
 ## Ticker: HIMS Date: 2026-03-09
 
@@ -798,20 +834,21 @@ Avg. Volume: 37.6m
 Gap %: 47.49
 Premarket volume: 24.9m (66% avg, 12.0% float)
 Short %: 14.1
-Catalyst: 
+Catalyst: Deal
 
 ### Technical Analysis
 
 <div class="chart-placeholder" data-src="charts/HIMS_2026-03-09_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: 
-Play: 
+Overall Pattern: Strong Negative Momentum
+Play: Changing Fundamentals
 
 ### Orderflow Analysis
 <div class="chart-placeholder" data-src="charts/HIMS_2026-03-09.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
+HIMS surged 48-49% after resolving its legal dispute with Novo Nordisk and announcing a partnership to sell Wegovy pills and Ozempic injections through its telehealth platform. The company also beat earnings expectations with 8 cents EPS vs 3 cents estimated. The deal removes major legal uncertainty and provides significant revenue growth opportunities, though Q1 and 2026 revenue guidance fell short of analyst estimates. The stock remains attractively valued at under 20x forward P/E.
 
 ## Ticker: HIMS Date: 2026-03-10
 
@@ -826,16 +863,18 @@ Avg. Volume: 44.0m
 Gap %: 8.30
 Premarket volume: 5.9m (13% avg, 2.8% float)
 Short %: 31.1
-Catalyst: 
+Catalyst: Deal
 
 ### Technical Analysis
 
 <div class="chart-placeholder" data-src="charts/HIMS_2026-03-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: 
-Play: 
+Overall Pattern: Strong Negative Momentum
+Play: Second Day
 
 ### Orderflow Analysis
 <div class="chart-placeholder" data-src="charts/HIMS_2026-03-10.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
+
+No new catalyst. Second day continuation following the previous day's 48-49% surge on the Novo Nordisk partnership announcement. The +8.30% gap reflects continued buying momentum.

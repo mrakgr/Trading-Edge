@@ -26,7 +26,8 @@ $Files = @(
     # @{Ticker = "BNTX"; Date = "2026-03-11"; Float = "250m"; Short = 15}
     # @{Ticker = "CRSP"; Date = "2026-03-10"; Float = "89m"; Short = 21.2}
     # @{Ticker = "NIO"; Date = "2026-03-10"; Float = "2.08b"; Short = 20.8}
-    @{Ticker = "HIMS"; Date = "2026-03-09"; Float = "207m"; Short = 14.1}
+    @{Ticker = "NIO"; Date = "2026-03-11"; Float = "2.08b"; Short = 16.4}
+    # @{Ticker = "HIMS"; Date = "2026-03-09"; Float = "207m"; Short = 14.1}
     # @{Ticker = "HIMS"; Date = "2026-03-10"; Float = "207m"; Short = 31.1}
 )
 
