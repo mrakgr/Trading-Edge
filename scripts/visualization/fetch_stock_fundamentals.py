@@ -154,7 +154,7 @@ if __name__ == '__main__':
     date_str = sys.argv[2] if len(sys.argv) > 2 else None
     manual_float = parse_number(sys.argv[3]) if len(sys.argv) > 3 else None
 
-    print(f"Fetching fundamentals for {ticker}...")
+    # print(f"Fetching fundamentals for {ticker}...")
 
     # Get ticker details (use manual float if provided)
     if manual_float:

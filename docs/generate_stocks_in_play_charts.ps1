@@ -19,7 +19,9 @@ $Files = @(
     # @{Ticker = "BYND"; Date = "2025-10-20"; VolumePerBar = 600000; SecondsPerBar = 60; Float = "438m"}
     # @{Ticker = "BYND"; Date = "2025-10-21"; VolumePerBar = 600000; SecondsPerBar = 60; Float = "438m"}
     # @{Ticker = "BYND"; Date = "2025-10-22"; VolumePerBar = 600000; SecondsPerBar = 60; Float = "438m"}
-    @{Ticker = "MOS"; Date = "2026-03-12"; VolumePerBar = 5000; Float = "316m"}
+    # @{Ticker = "MOS"; Date = "2026-03-12"; VolumePerBar = 5000; Float = "316m"}
+    # @{Ticker = "CF"; Date = "2026-03-12"; VolumePerBar = 5000; Float = "152m"}
+    @{Ticker = "ORCL"; Date = "2026-03-11"; VolumePerBar = 25000; Float = "1.71b"}
 )
 
 $showExtended = "true"
@@ -77,16 +79,16 @@ foreach ($file in $Files) {
         Write-Host ""
         Write-Host "### Technical Analysis"
         Write-Host ""
-        Write-Host "<iframe src=""charts/${basename}_daily.html"" width=""100%"" height=""100%"" style=""border: 1px solid #ccc;""></iframe>"
+        Write-Host "<iframe loading=""lazy"" src=""charts/${basename}_daily.html"" width=""100%"" height=""100%"" style=""border: 1px solid #ccc;""></iframe>"
         if ($file.SecondsPerBar) {
-            Write-Host "<iframe src=""charts/${basename}_intraday_candle.html"" width=""100%"" height=""100%"" style=""border: 1px solid #ccc;""></iframe>"
+            Write-Host "<iframe loading=""lazy"" src=""charts/${basename}_intraday_candle.html"" width=""100%"" height=""100%"" style=""border: 1px solid #ccc;""></iframe>"
         }
         Write-Host ""
         Write-Host "Overall Pattern: "
         Write-Host "Play: "
         Write-Host ""
         Write-Host "### Orderflow Analysis"
-        Write-Host "<iframe src=""charts/$basename.html"" width=""100%"" height=""100%"" style=""border: 1px solid #ccc;""></iframe>"
+        Write-Host "<iframe loading=""lazy"" src=""charts/$basename.html"" width=""100%"" height=""100%"" style=""border: 1px solid #ccc;""></iframe>"
         Write-Host ""
         Write-Host "### News Summary"
         Write-Host ""
