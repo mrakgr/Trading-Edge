@@ -703,6 +703,34 @@ Play:
 
 ### News Summary
 
+## Ticker: BNTX Date: 2026-03-11
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 250.0m
+Avg. Volume: 1.2m
+Gap %: 2.85
+Premarket volume: 316.0k (26% avg, 0.1% float)
+Short %: 15
+Catalyst: 
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/BNTX_2026-03-11_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: 
+Play: 
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/BNTX_2026-03-11.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+
 ## Ticker: CRSP Date: 2026-03-10
 
 ### Big Picture
@@ -756,6 +784,34 @@ Play:
 <div class="chart-placeholder" data-src="charts/NIO_2026-03-10.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
+
+## Ticker: HIMS Date: 2026-03-09
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 207.0m
+Avg. Volume: 37.6m
+Gap %: 47.49
+Premarket volume: 24.9m (66% avg, 12.0% float)
+Short %: 14.1
+Catalyst: 
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/HIMS_2026-03-09_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: 
+Play: 
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/HIMS_2026-03-09.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
 
 ## Ticker: HIMS Date: 2026-03-10
 
