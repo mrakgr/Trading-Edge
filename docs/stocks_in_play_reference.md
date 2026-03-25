@@ -660,13 +660,13 @@ Avg. Volume: 26.4m
 Gap %: 11.40%
 Premarket volume: 5.2m (20% avg, 0.3% float)
 Short %: 15.4%
-Catalyst: Strong Earnings Surprise
+Catalyst: Earnings Surprise
 
 ### Technical Analysis
 
 <div class="chart-placeholder" data-src="charts/ORCL_2026-03-11_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Negative Momentum
 Play: Changing Fundamentals 
 
 ### Orderflow Analysis

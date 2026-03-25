@@ -23,6 +23,21 @@ python3 -c &quot;import markdown; print(markdown.markdown(open('docs/stocks_in_p
 <p>Those will be up to the actual automated systems that I will create. This document is intended to be representative of the kinds of stocks I will be trading in the future. You'll note these aren't random stocks, but the most volatile opportunities on any given day.</p>
 <h1>Orderflow Analysis Chart Notes</h1>
 <p>The charts in the Orderflow Analysis section are volume charts. Unlike regular time based charts, these volume charts are built by grouping the trades into fixed size blocks and calculating their Volume Weighted Average Price and the Volume Weighted Standard Deviation. I found this to make analysis far easier than with time based charts. The bottom panel on the charts is the trade duration. When a trade goes over the block size limit, it is split and its remainder is passed into the next block. For large blocks this might entail splitting it up multiple times until the entire trade is consumed.</p>
+<script>
+// This script replaces the placeholders with charts.
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('chart-placeholder')) {
+    const src = e.target.getAttribute('data-src');
+    const iframe = document.createElement('iframe');
+    iframe.src = src;
+    iframe.width = '100%';
+    iframe.height = '100%';
+    iframe.style.border = '1px solid #ccc';
+    e.target.replaceWith(iframe);
+  }
+});
+</script>
+
 <h2>Ticker: LW Date: 2025-12-19</h2>
 <h3>Big Picture</h3>
 <p>Market Momentum: Neutral</p>
@@ -34,12 +49,12 @@ Premarket volume: 338.0k (27% avg, 0.2% float)<br />
 Short %: 15.3%<br />
 Catalyst: Earnings Surprise</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/LW_2025-12-19_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/LW_2025-12-19_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Jumpy<br />
 Play: Changing Fundamentals</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/LW_2025-12-19.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/LW_2025-12-19.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>LW plunged 26% on underwhelming Q2 earnings and weak guidance, reflecting broader consumer sector weakness amid concerns over profits and declining demand.</p>
@@ -54,12 +69,12 @@ Premarket volume: 7.9m (71% avg, 3.9% float)<br />
 Short %: 22.3%<br />
 Catalyst: Major Deal</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/NBIS_2025-09-10_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/NBIS_2025-09-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Jumpy<br />
 Play: Second Day</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/NBIS_2025-09-10.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/NBIS_2025-09-10.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>NBIS surged 136% over two days, crushing Nvidia and Palantir performance. The rally was driven by exceptional 545% revenue growth, expanding data center capacity, and strong demand for GPU-powered cloud infrastructure.</p>
@@ -74,12 +89,12 @@ Premarket volume: 3.9m (27% avg, 1.9% float)<br />
 Short %: 7.5%<br />
 Catalyst: Major Deal</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/NBIS_2025-09-09_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/NBIS_2025-09-09_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Jumpy<br />
 Play: Changing Fundamentals</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/NBIS_2025-09-09.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/NBIS_2025-09-09.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>NBIS announced a multi-billion dollar agreement with Microsoft to provide dedicated GPU infrastructure, with the deal potentially worth up to $19.4 billion over five years. Stock surged 40-50% on the news, with 97.7% net profit margin demonstrating strong business fundamentals.</p>
@@ -94,12 +109,12 @@ Premarket volume: 7.4m (24% avg, 2.4% float)<br />
 Short %: 17.8%<br />
 Catalyst: Short Report</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/MSTR_2024-11-21_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/MSTR_2024-11-21_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Strong Positive Momentum<br />
 Play: Parabolic Reversal</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/MSTR_2024-11-21.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/MSTR_2024-11-21.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>Citron Research issued a short report on MSTR, causing a 16% drop in 90 minutes. Despite congratulating CEO Michael Saylor on his "visionary Bitcoin strategy," Citron argued MSTR's trading had become "completely detached from BTC fundamentals" and disclosed a short position. The stock had been trading as a leveraged proxy for Bitcoin.</p>
@@ -114,12 +129,12 @@ Premarket volume: 77.0m (19% avg, 9.7% float)<br />
 Short %: 19.5%<br />
 Catalyst: Deal</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/OPEN_2025-09-11_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/OPEN_2025-09-11_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Strong Positive Momentum<br />
 Play: Changing Fundamentals</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/OPEN_2025-09-11.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/OPEN_2025-09-11.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>OPEN surged over 1,000% driven by meme-stock momentum and leadership changes. The company appointed Kaz Nejatian as new CEO and brought back co-founders Keith Rabois and Eric Wu to the board, signaling potential strategic shifts and positioning for potential interest rate cuts.</p>
@@ -134,12 +149,12 @@ Premarket volume: 32.5m (132% avg, 6.3% float)<br />
 Short %: 15.8%<br />
 Catalyst: Federal Indictment </p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/SMCI_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/SMCI_2026-03-20_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Battleground<br />
 Play: Changing Fundamentals</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/SMCI_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/SMCI_2026-03-20.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>SMCI plunged 28-33% after co-founder Yin-Shyan Liaw was charged with smuggling $2.5 billion worth of Nvidia GPUs to China in violation of U.S. export controls. Despite strong fundamentals (123% sales growth), the federal indictment triggered securities investigations and massive selloff.</p>
@@ -154,12 +169,12 @@ Premarket volume: 7.7m (22% avg, 1.5% float)<br />
 Short %: 17.9%<br />
 Catalyst: Federal Indictment </p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/SMCI_2026-03-23_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/SMCI_2026-03-23_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Battleground<br />
 Play: Second Day</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/SMCI_2026-03-23.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/SMCI_2026-03-23.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>No new catalyst. Second day continuation following the 2026-03-20 federal indictment of co-founder Yin-Shyan Liaw for smuggling $2.5 billion worth of Nvidia GPUs to China. The -1.07% gap reflects continued but lighter selling pressure compared to the initial -26.86% drop.</p>
@@ -174,12 +189,12 @@ Premarket volume: 3.1m (29% avg, 1.2% float)<br />
 Short %: 13.2%<br />
 Catalyst: Strong Earnings Surprise</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/PL_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/PL_2026-03-20_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Jumpy<br />
 Play: Changing Fundamentals</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/PL_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/PL_2026-03-20.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>PL rocketed 25-26% after reporting record Q4 revenue with 41% growth, achieving breakeven adjusted EPS, and issuing strong FY27 guidance of 39% sales growth. The company's 79% backlog growth and AI partnerships with Nvidia and Google drove investor optimism.</p>
@@ -194,12 +209,12 @@ Premarket volume: 216.9k (12% avg, 0.1% float)<br />
 Short %: 9.1%<br />
 Catalyst: Earnings Surprise</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/FDX_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/FDX_2026-03-20_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Strong Positive Momentum<br />
 Play: Changing Fundamentals</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/FDX_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/FDX_2026-03-20.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>FDX surged 10% after reporting better-than-expected Q3 results with EPS of $5.25 (well above $4.01 consensus) and raising FY26 adjusted EPS guidance above estimates, demonstrating strong logistics demand.</p>
@@ -214,12 +229,12 @@ Premarket volume: 246.5k (6% avg, 0.0% float)<br />
 Short %: 20.6%<br />
 Catalyst: Analyst Upgrade</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/ARM_2026-03-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/ARM_2026-03-20_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Neutral Momentum<br />
 Play: Changing Fundamentals</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/ARM_2026-03-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/ARM_2026-03-20.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>HSBC upgraded ARM from 'reduce' to 'buy' with a $205 price target (up from $90), citing ARM's undervalued position as a major beneficiary of the AI server CPU market. Citi reiterated a 'Buy' rating with $190 target, noting ARM's v9 product commands 2x the royalty rate of older technology. Stock rose 3.81% to $134.76 on the analyst upgrades.</p>
@@ -234,12 +249,12 @@ Premarket volume: 3.7m (16% avg, 0.8% float)<br />
 Short %: 20.9%<br />
 Catalyst: Breakout</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/VG_2026-03-19_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/VG_2026-03-19_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Strong Positive Momentum<br />
 Play: Second Day</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/VG_2026-03-19.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/VG_2026-03-19.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>VG traded higher driven by global LNG supply disruptions and rising energy prices following Iranian strikes on Qatari energy infrastructure. European natural gas prices surged 30% to above 70 euros per MWh, benefiting the LNG provider.</p>
@@ -254,12 +269,12 @@ Premarket volume: 3.7m (28% avg, 1.8% float)<br />
 Short %: 17.2%<br />
 Catalyst: Major Deal</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/NBIS_2026-03-16_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/NBIS_2026-03-16_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Strong Positive Momentum<br />
 Play: Changing Fundamentals</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/NBIS_2026-03-16.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/NBIS_2026-03-16.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>NBIS secured a massive $27 billion five-year agreement with Meta for AI infrastructure, with $12 billion in base commitment and up to $15 billion in additional capacity. Combined with previous Microsoft ($17.4B) and Nvidia ($2B investment) deals, NBIS now has $46 billion in total contracts. Stock surged 11-15% on the announcement.</p>
@@ -274,10 +289,10 @@ Premarket volume: 3.4m (24% avg, 1.7% float)<br />
 Short %: 17.2%<br />
 Catalyst: Major Deal</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/NBIS_2026-03-17_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/NBIS_2026-03-17_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/NBIS_2026-03-17.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/NBIS_2026-03-17.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Strong Positive Momentum<br />
 Play: Second Day</p>
@@ -294,12 +309,12 @@ Premarket volume: 1.7m (28% avg, 0.3% float)<br />
 Short %: 23.3%<br />
 Catalyst: Earnings Surprise</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/TME_2026-03-17_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/TME_2026-03-17_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Strong Negative Momentum<br />
 Play: Changing Fundamentals</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/TME_2026-03-17.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/TME_2026-03-17.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>TME tumbled despite solid Q4 earnings (15.9% revenue growth, matching EPS estimates) due to a concerning 5% decline in monthly active users to 528 million. The decline was driven by competition from short-form video platforms like ByteDance's Douyin and Qishui Music.</p>
@@ -314,12 +329,12 @@ Premarket volume: 799.0k (9% avg, 0.1% float)<br />
 Short %: 40.2%<br />
 Catalyst: Earnings Surprise</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/TME_2026-03-18_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/TME_2026-03-18_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Strong Negative Momentum<br />
 Play: Second Day</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/TME_2026-03-18.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/TME_2026-03-18.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>No new catalyst. Second day continuation following the previous day's earnings disappointment. Continued selling pressure from the 5% MAU decline reported on 2026-03-17.</p>
@@ -334,12 +349,12 @@ Premarket volume: 45.6k (8% avg, 0.1% float)<br />
 Short %: 20.3%<br />
 Catalyst: Earnings Surprise</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/ULTA_2026-03-13_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/ULTA_2026-03-13_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Strong Positive Momentum<br />
 Play: Changing Fundamentals</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/ULTA_2026-03-13.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/ULTA_2026-03-13.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>ULTA plunged 11.3% despite beating earnings estimates. The company cut FY2027 net sales growth guidance to 6%-7%, citing consumer pullback in discretionary beauty spending amid broader economic concerns.</p>
@@ -354,12 +369,12 @@ Premarket volume: 28.7k (4% avg, 0.1% float)<br />
 Short %: 24.8%<br />
 Catalyst: Earnings Surprise</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/ULTA_2026-03-16_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/ULTA_2026-03-16_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Strong Positive Momentum<br />
 Play: Second Day</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/ULTA_2026-03-16.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/ULTA_2026-03-16.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>No new catalyst. Second day continuation following the 2026-03-13 earnings selloff. Continued volatility from the weak FY2027 guidance despite earnings beat.</p>
@@ -374,13 +389,13 @@ Premarket volume: 178.0m (310% avg, 40.6% float)<br />
 Short %: 38.6%<br />
 Catalyst: Short Squeeze</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/BYND_2025-10-20_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
-<iframe loading="lazy" src="charts/BYND_2025-10-20_intraday_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-20_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-20_intraday_candle.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Pump And Dump<br />
 Play: Changing Fundamentals</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/BYND_2025-10-20.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-20.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>BYND surged 137% in 24 hours due to a coordinated short squeeze on social media platforms, triggered by a convertible notes tender offer. With 54% short interest, the stock became a prime target despite weak fundamentals: falling revenue, deep losses, and bankruptcy risk. Stock was down 99% over five years before the rally.</p>
@@ -395,13 +410,13 @@ Premarket volume: 244.4m (208% avg, 55.8% float)<br />
 Short %: 22.1%<br />
 Catalyst: Short Squeeze</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/BYND_2025-10-21_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
-<iframe loading="lazy" src="charts/BYND_2025-10-21_intraday_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-21_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-21_intraday_candle.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Pump And Dump<br />
 Play: Second Day</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/BYND_2025-10-21.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-21.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>Stock climbed another 170% over two days as part of a broader "meme stock" rally. Investors piled into unprofitable companies, showing market enthusiasm for growth potential over immediate profitability despite ongoing operational losses.</p>
@@ -416,13 +431,13 @@ Premarket volume: 501.9m (227% avg, 114.6% float)<br />
 Short %: 26.2%<br />
 Catalyst: Short Squeeze</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/BYND_2025-10-22_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
-<iframe loading="lazy" src="charts/BYND_2025-10-22_intraday_candle.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-22_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-22_intraday_candle.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Pump And Dump<br />
 Play: Parabolic Reversal</p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/BYND_2025-10-22.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-22.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>Martin Shkreli announced a short position, citing negative gross margins. Stock experienced extreme swings with over 63% of tradable shares shorted. Fundamentals deteriorated: Q2 revenue down 20%, $29.2M net loss, margins declining from 14.7% to 11.5%. Analysts bearish with $0.80 price target. Massive trading volume represented the peak of the speculative frenzy.</p>
@@ -437,12 +452,12 @@ Premarket volume: 737.4k (9% avg, 0.2% float)<br />
 Short %: 17.9%<br />
 Catalyst: Deal </p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/MOS_2026-03-12_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/MOS_2026-03-12_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Neutral<br />
 Play: Changing Fundamentals </p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/MOS_2026-03-12.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/MOS_2026-03-12.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>MOS announced a joint project development agreement with Rainbow Rare Earths Limited for the Uberaba rare earths facility in Brazil. The project aims to extract rare earth elements from phosphogypsum, with initial production targeted for 2030. Stock rose 6.50% on the announcement, supported by concerns over Strait of Hormuz closures affecting Middle East producers.</p>
@@ -457,12 +472,12 @@ Premarket volume: 195.0k (5% avg, 0.1% float)<br />
 Short %: 29.8%<br />
 Catalyst: Breakout</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/CF_2026-03-12_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/CF_2026-03-12_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <p>Overall Pattern: Positive Momentum<br />
 Play: Changing Fundamentals </p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/CF_2026-03-12.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/CF_2026-03-12.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>CF Industries rose 6.57% alongside other fertilizer stocks on concerns over Strait of Hormuz closures affecting Middle East fertilizer producers. The sector-wide move was amplified by CF's high short interest of 29.8%, with no company-specific catalyst.</p>
@@ -475,14 +490,14 @@ Avg. Volume: 26.4m<br />
 Gap %: 11.40%<br />
 Premarket volume: 5.2m (20% avg, 0.3% float)<br />
 Short %: 15.4%<br />
-Catalyst: Strong Earnings Surprise</p>
+Catalyst: Earnings Surprise</p>
 <h3>Technical Analysis</h3>
-<iframe loading="lazy" src="charts/ORCL_2026-03-11_daily.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/ORCL_2026-03-11_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-<p>Overall Pattern: Strong Positive Momentum<br />
+<p>Overall Pattern: Negative Momentum<br />
 Play: Changing Fundamentals </p>
 <h3>Orderflow Analysis</h3>
-<iframe loading="lazy" src="charts/ORCL_2026-03-11.html" width="100%" height="100%" style="border: 1px solid #ccc;"></iframe>
+<div class="chart-placeholder" data-src="charts/ORCL_2026-03-11.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 <h3>News Summary</h3>
 <p>ORCL surged 10% after beating Q3 earnings with EPS of $1.79 (vs $1.70 consensus) and revenue of $17.19B (+22% YoY). Cloud revenue grew 44% with infrastructure up 84%, driven by AI demand. The company reported a massive $553B backlog including a $300B OpenAI contract and raised FY2027 revenue guidance to $90B. JPMorgan upgraded the stock citing proof of AI strategy success.</p>
