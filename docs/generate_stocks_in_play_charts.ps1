@@ -116,7 +116,6 @@ foreach ($file in $Files) {
     Write-Host "Catalyst: "
     Write-Host ""
     Write-Host "### Technical Analysis"
-    Write-Host ""
     Write-Host "<div class=""chart-placeholder"" data-src=""charts/${basename}_daily.html"" style=""width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;"">Click to load chart</div>"
     if ($file.SecondsPerBar) {
         Write-Host "<div class=""chart-placeholder"" data-src=""charts/${basename}_intraday_candle.html"" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;"">Click to load chart</div>"

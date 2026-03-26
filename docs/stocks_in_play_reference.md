@@ -605,7 +605,6 @@ Short %: 17.9
 Catalyst: Deal 
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/MOS_2026-03-12_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Neutral
@@ -634,7 +633,6 @@ Short %: 29.8
 Catalyst: Breakout
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/CF_2026-03-12_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Positive Momentum
@@ -663,7 +661,6 @@ Short %: 15.4
 Catalyst: Earnings Surprise
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/ORCL_2026-03-11_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Negative Momentum
@@ -692,7 +689,6 @@ Short %: 14.8
 Catalyst: Earnings Surprise
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/BNTX_2026-03-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Battleground
@@ -721,7 +717,6 @@ Short %: 15
 Catalyst: Earnings Surprise
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/BNTX_2026-03-11_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Battleground
@@ -750,7 +745,6 @@ Short %: 21.2
 Catalyst: Offering
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/CRSP_2026-03-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Neutral
@@ -779,7 +773,6 @@ Short %: 20.8
 Catalyst: Strong Earnings Surprise
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/NIO_2026-03-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Neutral
@@ -808,7 +801,6 @@ Short %: 16.4
 Catalyst: Strong Earnings Surprise
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/NIO_2026-03-11_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Neutral
@@ -837,7 +829,6 @@ Short %: 14.1
 Catalyst: Deal
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/HIMS_2026-03-09_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Strong Negative Momentum
@@ -866,7 +857,6 @@ Short %: 31.1
 Catalyst: Deal
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/HIMS_2026-03-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Strong Negative Momentum
@@ -895,7 +885,6 @@ Short %: 13
 Catalyst: Major Supply Distruption
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/USO_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Neutral
@@ -926,7 +915,6 @@ Short %: 9.7
 Catalyst: Major Supply Distruption
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/USO_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Positive Momentum
@@ -955,7 +943,6 @@ Short %: 10.3
 Catalyst: Major Supply Distruption
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/USO_2026-03-04_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Positive Momentum
@@ -984,7 +971,6 @@ Short %: 7.5
 Catalyst: Major Supply Distruption
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/USO_2026-03-05_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Positive Momentum
@@ -1013,7 +999,6 @@ Short %: 13.7
 Catalyst: Major Supply Distruption
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/USO_2026-03-06_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Positive Momentum
@@ -1042,7 +1027,6 @@ Short %: 17.9
 Catalyst: Major Supply Distruption
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/USO_2026-03-09_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Strong Postive momentum
@@ -1059,7 +1043,7 @@ USO surged 9.79% as oil prices reached peak crisis levels. Brent crude hit $110.
 
 ### Big Picture
 
-Market Momentum: 
+Market Momentum: Neutral
 
 ### Intraday Fundamentals
 
@@ -1068,25 +1052,26 @@ Avg. Volume: 14.2m
 Gap %: 11.95
 Premarket volume: 2.1m (15% avg, 0.2% float)
 Short %: 11.9
-Catalyst: 
+Catalyst: Strong Earnings Surprise
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/MRVL_2026-03-06_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: 
-Play: 
+Overall Pattern: Strong Positive Momentum
+Play: Changing Fundamentals
 
 ### Orderflow Analysis
 <div class="chart-placeholder" data-src="charts/MRVL_2026-03-06.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
+MRVL surged 18.4% following exceptional Q4 FY2026 earnings reported March 5. Revenue hit $2.22B (up 22% YoY) and EPS $0.80 (up 33.3% YoY), both beating estimates. Data center business grew 47% YoY, crossing $6B driven by AI demand. The company issued aggressive guidance: FY2027 revenue ~$11B (30% growth) and FY2028 ~$15B (40% growth). Multiple analyst upgrades followed on March 6, with Benchmark upgrading to Buy ($130 target), Citigroup raising to $118, UBS to $120, and Craig-Hallum to $164. The AI data center momentum and multi-year visibility drove the rally.
+
 ## Ticker: MRVL Date: 2026-03-09
 
 ### Big Picture
 
-Market Momentum: 
+Market Momentum: Neutral
 
 ### Intraday Fundamentals
 
@@ -1095,25 +1080,26 @@ Avg. Volume: 17.8m
 Gap %: -1.84
 Premarket volume: 493.2k (3% avg, 0.1% float)
 Short %: 18
-Catalyst: 
+Catalyst: Strong Earnings Surprise
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/MRVL_2026-03-09_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: 
-Play: 
+Overall Pattern: Strong Positive Momentum
+Play: Second Day
 
 ### Orderflow Analysis
 <div class="chart-placeholder" data-src="charts/MRVL_2026-03-09.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
+No new catalyst. Second day continuation following the March 5 earnings beat and 18.4% surge on March 6. The -1.84% gap reflects modest profit-taking after the explosive rally, with traders consolidating gains while maintaining the bullish AI data center narrative.
+
 ## Ticker: TPET Date: 2026-03-02
 
 ### Big Picture
 
-Market Momentum: 
+Market Momentum: Neutral
 
 ### Intraday Fundamentals
 
@@ -1122,25 +1108,26 @@ Avg. Volume: 1.8m
 Gap %: 150.00
 Premarket volume: 117.8m (6612% avg, 471.0% float)
 Short %: 22.1
-Catalyst: 
+Catalyst: Sector Momentum
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/TPET_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: 
-Play: 
+Overall Pattern: Pump And Dump
+Play: Changing Fundamentals
 
 ### Orderflow Analysis
 <div class="chart-placeholder" data-src="charts/TPET_2026-03-02.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
+TPET exploded 150% as traders piled into small-cap oil and gas stocks following the Strait of Hormuz crisis. The US/Israeli strikes on Iran and Tehran's closure of the strait sent Brent crude toward $100/barrel, triggering massive speculation in micro-cap energy names. With only 25m float and 22.1% short interest, TPET became a momentum target despite burning cash quickly. Premarket volume hit 471% of float (117.8m shares), signaling extreme speculative frenzy rather than fundamental value.
+
 ## Ticker: TPET Date: 2026-03-03
 
 ### Big Picture
 
-Market Momentum: 
+Market Momentum: Neutral
 
 ### Intraday Fundamentals
 
@@ -1149,25 +1136,26 @@ Avg. Volume: 23.7m
 Gap %: 69.64
 Premarket volume: 74.7m (316% avg, 298.8% float)
 Short %: 22.4
-Catalyst: 
+Catalyst: Sector Momentum
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/TPET_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: 
-Play: 
+Overall Pattern: Pump And Dump
+Play: Second Day
 
 ### Orderflow Analysis
 <div class="chart-placeholder" data-src="charts/TPET_2026-03-03.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
+Second day parabolic move with another 69.64% gap as oil prices continued surging on the Strait of Hormuz closure. TPET's stock surged over 400% in the week as Brent crude approached $100/barrel. Premarket volume remained extreme at 298.8% of float. The rally was purely momentum-driven with no company-specific catalyst, riding the wave of oil price speculation and short covering in micro-cap energy stocks.
+
 ## Ticker: TPET Date: 2026-03-04
 
 ### Big Picture
 
-Market Momentum: 
+Market Momentum: Neutral
 
 ### Intraday Fundamentals
 
@@ -1176,19 +1164,20 @@ Avg. Volume: 39.0m
 Gap %: -7.69
 Premarket volume: 27.9m (71% avg, 111.5% float)
 Short %: 19.4
-Catalyst: 
+Catalyst: Sector Momentum
 
 ### Technical Analysis
-
 <div class="chart-placeholder" data-src="charts/TPET_2026-03-04_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: 
-Play: 
+Overall Pattern: Pump And Dump
+Play: Parabolic Reversal
 
 ### Orderflow Analysis
 <div class="chart-placeholder" data-src="charts/TPET_2026-03-04.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
+
+First pullback with -7.69% gap as profit-taking hit the parabolic move. TPET announced an amendment to its ATM equity offering program, increasing the maximum aggregate offering amount to $13.38M - a dilution signal that pressured the stock. Despite the pullback, premarket volume remained elevated at 111.5% of float. Analysis noted extreme volatility and rapid cash burn, warning of fundamental weakness beneath the speculative rally.
 
 ## Ticker: TPET Date: 2026-03-05
 
@@ -1202,3 +1191,158 @@ Float: 25.0m
 Avg. Volume: 44.9m
 Gap %: 17.21
 Premarket volume: 14.6m (32% avg, 58.3% float)
+Short %: 19.4
+Catalyst: Sector Momentum
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/TPET_2026-03-05_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/TPET_2026-03-05.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+TPET bounced 17.21% as oil prices continued climbing toward $100/barrel and reports emerged of attacks on US-owned tankers in the Strait of Hormuz. The stock traded 245.8% above its 20-day SMA and 157.3% above its 100-day SMA, showing extreme overextension. Despite the bounce, the ATM offering announcement from March 4 signaled management's intent to capitalize on the speculative rally by diluting shareholders. Earnings scheduled for March 17.
+
+## Ticker: TPET Date: 2026-03-06
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 25.0m
+Avg. Volume: 64.7m
+Gap %: 32.08
+Premarket volume: 53.5m (83% avg, 214.0% float)
+Short %: 30.9
+Catalyst: Sector Momentum
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/TPET_2026-03-06_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Parabolic Reversal
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/TPET_2026-03-06.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+TPET surged 32.08% on a combination of operational progress and continued oil rally momentum. The company transitioned two wells in Alberta into production with expected yield of 30-40 barrels/day and retired $1.2M in convertible notes. Filed SEC amendment making $4M of shares available, generating investor interest despite dilution concerns. Short interest spiked to 30.9% as the parabolic move attracted both momentum traders and skeptics. Premarket volume hit 214% of float as oil prices approached $100/barrel on Strait of Hormuz fears.
+
+## Ticker: TPET Date: 2026-03-09
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 25.0m
+Avg. Volume: 77.7m
+Gap %: 17.10
+Premarket volume: 25.2m (32% avg, 100.7% float)
+Short %: 22.9
+Catalyst: Sector Momentum
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/TPET_2026-03-09_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Parabolic Reversal
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/TPET_2026-03-09.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+TPET extended Friday's surge with another 17.10% gap as "Hormuz Disruption Fears" intensified. Oil prices hit peak crisis levels with Brent approaching $110/barrel. Stock opened $2.26, reached high $2.33, crashed to low $1.60, and closed $1.70 - showing extreme intraday volatility of 46%. Volume exploded to 121.6M shares as the penny stock became a speculative vehicle for oil price exposure. Listed as "penny stock to watch" despite fundamental weakness and rapid cash burn. Short interest dropped to 22.9% as shorts covered into the parabolic move.
+
+## Ticker: IOT Date: 2026-03-06
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 357.0m
+Avg. Volume: 8.7m
+Gap %: 8.82
+Premarket volume: 355.2k (4% avg, 0.1% float)
+Short %: 11.3
+Catalyst: Strong Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/IOT_2026-03-06_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/IOT_2026-03-06.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+Samsara (IOT) surged 14.5% after reporting exceptional Q4 results on March 5. Revenue hit $444.3M (up 28.3% YoY), crushing estimates, with non-GAAP EPS of $0.18 vs $0.13 consensus. The IoT solutions provider issued strong FY2027 guidance with EPS projected at $0.65-$0.69, exceeding Wall Street expectations. BMO Capital raised price target from $40 to $44, maintaining Outperform rating. Strong ARR growth and large customer acquisitions demonstrated the company's leadership in connected operations platforms for physical operations.
+
+## Ticker: IOT Date: 2026-03-09
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 357.0m
+Avg. Volume: 9.8m
+Gap %: -0.45
+Premarket volume: 62.3k (1% avg, 0.0% float)
+Short %: 21
+Catalyst: Strong Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/IOT_2026-03-09_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/IOT_2026-03-09.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Consolidation day following the March 6 earnings-driven 14.5% surge. The -0.45% gap reflects modest profit-taking after the stock rallied nearly 20% from earnings. Analysts maintained positive outlook, noting concerns about AI disruption are "overblown" for Samsara. The company's 30% ARR growth to $1.89B and second consecutive quarter of GAAP profitability continued to support the bullish narrative.
+
+## Ticker: IOT Date: 2026-03-10
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 357.0m
+Avg. Volume: 10.2m
+Gap %: -0.15
+Premarket volume: 15.0k (0% avg, 0.0% float)
+Short %: 19
+Catalyst: Product Launch
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/IOT_2026-03-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/IOT_2026-03-10.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+Samsara unveiled new automated AI coaching features to transform fleet safety: AI Role Play and AI Guided Coaching. These innovations provide personalized feedback to managers and drivers, helping reduce crashes without increasing administrative workload. The company's AI-powered dashcams are a significant revenue driver, with the platform processing over 25 trillion data points annually. The -0.15% gap reflects continued consolidation as the market digested both the strong earnings and new product announcements. Insider Dominic Phillips conducted tax-withholding transaction on vested RSUs.
