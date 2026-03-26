@@ -1,40 +1,51 @@
 $Files = @(
-    @{Ticker = 'LW';   Date = "2025-12-19"; VolumePerBar = 10000; Float = "136.76m"}
-    @{Ticker = 'NBIS'; Date = "2025-09-09"; VolumePerBar = 30000; Float = "202.8m"}
-    @{Ticker = 'NBIS'; Date = "2025-09-10"; VolumePerBar = 30000; SecondsPerBar = 60; Float = "202.8m"}
-    @{Ticker = 'MSTR'; Date = "2024-11-21"; VolumePerBar = 30000; Float = "313.41m"}
-    @{Ticker = 'OPEN'; Date = "2025-09-11"; VolumePerBar = 300000; Float = "793m"}
-    @{Ticker = "SMCI"; Date = "2026-03-20"; VolumePerBar = 60000; Float = "514m"}
-    @{Ticker = "SMCI"; Date = "2026-03-23"; VolumePerBar = 60000; Float = "514m"}
-    @{Ticker = "PL";   Date = "2026-03-20"; VolumePerBar = 20000; Float = "260m"}
-    @{Ticker = "FDX";  Date = "2026-03-20"; VolumePerBar = 2000; Float = "218m"}
-    @{Ticker = "ARM";  Date = "2026-03-20"; VolumePerBar = 4000; Float = "1.06b"}
-    @{Ticker = "VG";   Date = "2026-03-19"; VolumePerBar = 33000; Float = "477m"}
-    @{Ticker = "NBIS"; Date = "2026-03-16"; VolumePerBar = 20000; Float = "202m"}
-    @{Ticker = "NBIS"; Date = "2026-03-17"; VolumePerBar = 20000; Float = "202m"}
-    @{Ticker = "TME";  Date = "2026-03-17"; VolumePerBar = 20000; Float = "575m"}
-    @{Ticker = "TME";  Date = "2026-03-18"; VolumePerBar = 20000; Float = "575m"}
-    @{Ticker = "ULTA"; Date = "2026-03-13"; VolumePerBar = 1000; Float = "44.2m"}
-    @{Ticker = "ULTA"; Date = "2026-03-16"; VolumePerBar = 1000; Float = "44.2m"}
-    @{Ticker = "BYND"; Date = "2025-10-20"; VolumePerBar = 600000; SecondsPerBar = 60; Float = "438m"}
-    @{Ticker = "BYND"; Date = "2025-10-21"; VolumePerBar = 600000; SecondsPerBar = 60; Float = "438m"}
-    @{Ticker = "BYND"; Date = "2025-10-22"; VolumePerBar = 600000; SecondsPerBar = 60; Float = "438m"}
-    @{Ticker = "MOS"; Date = "2026-03-12"; VolumePerBar = 5000; Float = "316m"}
-    @{Ticker = "CF"; Date = "2026-03-12"; VolumePerBar = 5000; Float = "152m"}
-    @{Ticker = "ORCL"; Date = "2026-03-11"; VolumePerBar = 25000; Float = "1.71b"}
-    @{Ticker = "BNTX"; Date = "2026-03-10"; Float = "250m"; Short = 14.8}
-    @{Ticker = "BNTX"; Date = "2026-03-11"; Float = "250m"; Short = 15}
-    @{Ticker = "CRSP"; Date = "2026-03-10"; Float = "89m"; Short = 21.2}
-    @{Ticker = "NIO"; Date = "2026-03-10"; Float = "2.08b"; Short = 20.8}
-    @{Ticker = "NIO"; Date = "2026-03-11"; Float = "2.08b"; Short = 16.4}
-    @{Ticker = "HIMS"; Date = "2026-03-09"; Float = "207m"; Short = 14.1}
-    @{Ticker = "HIMS"; Date = "2026-03-10"; Float = "207m"; Short = 31.1}
-    @{Ticker = "USO"; Date = "2026-03-02"; Short = 13.0}
-    @{Ticker = "USO"; Date = "2026-03-03"; Short = 9.7}
-    @{Ticker = "USO"; Date = "2026-03-04"; Short = 10.3}
-    @{Ticker = "USO"; Date = "2026-03-05"; Short = 7.5}
-    @{Ticker = "USO"; Date = "2026-03-06"; Short = 13.7}
-    @{Ticker = "USO"; Date = "2026-03-09"; Short = 17.9}
+    # @{Ticker = 'LW';   Date = "2025-12-19"; VolumePerBar = 10000; Float = "136.76m"}
+    # @{Ticker = 'NBIS'; Date = "2025-09-09"; VolumePerBar = 30000; Float = "202.8m"}
+    # @{Ticker = 'NBIS'; Date = "2025-09-10"; VolumePerBar = 30000; SecondsPerBar = 60; Float = "202.8m"}
+    # @{Ticker = 'MSTR'; Date = "2024-11-21"; VolumePerBar = 30000; Float = "313.41m"}
+    # @{Ticker = 'OPEN'; Date = "2025-09-11"; VolumePerBar = 300000; Float = "793m"}
+    # @{Ticker = "SMCI"; Date = "2026-03-20"; VolumePerBar = 60000; Float = "514m"}
+    # @{Ticker = "SMCI"; Date = "2026-03-23"; VolumePerBar = 60000; Float = "514m"}
+    # @{Ticker = "PL";   Date = "2026-03-20"; VolumePerBar = 20000; Float = "260m"}
+    # @{Ticker = "FDX";  Date = "2026-03-20"; VolumePerBar = 2000; Float = "218m"}
+    # @{Ticker = "ARM";  Date = "2026-03-20"; VolumePerBar = 4000; Float = "1.06b"}
+    # @{Ticker = "VG";   Date = "2026-03-19"; VolumePerBar = 33000; Float = "477m"}
+    # @{Ticker = "NBIS"; Date = "2026-03-16"; VolumePerBar = 20000; Float = "202m"}
+    # @{Ticker = "NBIS"; Date = "2026-03-17"; VolumePerBar = 20000; Float = "202m"}
+    # @{Ticker = "TME";  Date = "2026-03-17"; VolumePerBar = 20000; Float = "575m"}
+    # @{Ticker = "TME";  Date = "2026-03-18"; VolumePerBar = 20000; Float = "575m"}
+    # @{Ticker = "ULTA"; Date = "2026-03-13"; VolumePerBar = 1000; Float = "44.2m"}
+    # @{Ticker = "ULTA"; Date = "2026-03-16"; VolumePerBar = 1000; Float = "44.2m"}
+    # @{Ticker = "BYND"; Date = "2025-10-20"; VolumePerBar = 600000; SecondsPerBar = 60; Float = "438m"}
+    # @{Ticker = "BYND"; Date = "2025-10-21"; VolumePerBar = 600000; SecondsPerBar = 60; Float = "438m"}
+    # @{Ticker = "BYND"; Date = "2025-10-22"; VolumePerBar = 600000; SecondsPerBar = 60; Float = "438m"}
+    # @{Ticker = "MOS"; Date = "2026-03-12"; VolumePerBar = 5000; Float = "316m"}
+    # @{Ticker = "CF"; Date = "2026-03-12"; VolumePerBar = 5000; Float = "152m"}
+    # @{Ticker = "ORCL"; Date = "2026-03-11"; VolumePerBar = 25000; Float = "1.71b"}
+    # @{Ticker = "BNTX"; Date = "2026-03-10"; Float = "250m"; Short = 14.8}
+    # @{Ticker = "BNTX"; Date = "2026-03-11"; Float = "250m"; Short = 15}
+    # @{Ticker = "CRSP"; Date = "2026-03-10"; Float = "89m"; Short = 21.2}
+    # @{Ticker = "NIO"; Date = "2026-03-10"; Float = "2.08b"; Short = 20.8}
+    # @{Ticker = "NIO"; Date = "2026-03-11"; Float = "2.08b"; Short = 16.4}
+    # @{Ticker = "HIMS"; Date = "2026-03-09"; Float = "207m"; Short = 14.1}
+    # @{Ticker = "HIMS"; Date = "2026-03-10"; Float = "207m"; Short = 31.1}
+    # @{Ticker = "USO"; Date = "2026-03-02"; Short = 13.0}
+    # @{Ticker = "USO"; Date = "2026-03-03"; Short = 9.7}
+    # @{Ticker = "USO"; Date = "2026-03-04"; Short = 10.3}
+    # @{Ticker = "USO"; Date = "2026-03-05"; Short = 7.5}
+    # @{Ticker = "USO"; Date = "2026-03-06"; Short = 13.7}
+    # @{Ticker = "USO"; Date = "2026-03-09"; Short = 17.9}
+    @{Ticker = "MRVL"; Date = "2026-03-06"; Float = "869m"; Short = 11.9}
+    @{Ticker = "MRVL"; Date = "2026-03-09"; Float = "869m"; Short = 18.0}
+    @{Ticker = "TPET"; Date = "2026-03-02"; Float = "25m"; Short = 22.1}
+    @{Ticker = "TPET"; Date = "2026-03-03"; Float = "25m"; Short = 22.4}
+    @{Ticker = "TPET"; Date = "2026-03-04"; Float = "25m"; Short = 19.4}
+    @{Ticker = "TPET"; Date = "2026-03-05"; Float = "25m"; Short = 18.5}
+    @{Ticker = "TPET"; Date = "2026-03-06"; Float = "25m"; Short = 30.9}
+    @{Ticker = "TPET"; Date = "2026-03-09"; Float = "25m"; Short = 22.9}
+    @{Ticker = "IOT"; Date = "2026-03-06"; Float = "357m"; Short = 11.3}
+    @{Ticker = "IOT"; Date = "2026-03-09"; Float = "357m"; Short = 21.0}
+    @{Ticker = "IOT"; Date = "2026-03-10"; Float = "357m"; Short = 19.0}
 )
 
 $showExtended = "true"

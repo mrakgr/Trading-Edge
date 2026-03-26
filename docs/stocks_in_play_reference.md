@@ -1054,3 +1054,151 @@ Play: Parabolic Reversal
 ### News Summary
 
 USO surged 9.79% as oil prices reached peak crisis levels. Brent crude hit $110.79/barrel (up 19.4% from prior day) while WTI reached $110.54/barrel (up 21.5%). Some intraday spikes saw WTI touch $119.48 and Brent approach $103-110 range. The EIA reported Brent settled at $94/barrel, representing a 50% increase from the beginning of the year. This marked the climax of the Strait of Hormuz crisis before the US Armed Forces began military operations on March 19 to reopen the strait.
+
+## Ticker: MRVL Date: 2026-03-06
+
+### Big Picture
+
+Market Momentum: 
+
+### Intraday Fundamentals
+
+Float: 869.0m
+Avg. Volume: 14.2m
+Gap %: 11.95
+Premarket volume: 2.1m (15% avg, 0.2% float)
+Short %: 11.9
+Catalyst: 
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/MRVL_2026-03-06_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: 
+Play: 
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/MRVL_2026-03-06.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+## Ticker: MRVL Date: 2026-03-09
+
+### Big Picture
+
+Market Momentum: 
+
+### Intraday Fundamentals
+
+Float: 869.0m
+Avg. Volume: 17.8m
+Gap %: -1.84
+Premarket volume: 493.2k (3% avg, 0.1% float)
+Short %: 18
+Catalyst: 
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/MRVL_2026-03-09_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: 
+Play: 
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/MRVL_2026-03-09.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+## Ticker: TPET Date: 2026-03-02
+
+### Big Picture
+
+Market Momentum: 
+
+### Intraday Fundamentals
+
+Float: 25.0m
+Avg. Volume: 1.8m
+Gap %: 150.00
+Premarket volume: 117.8m (6612% avg, 471.0% float)
+Short %: 22.1
+Catalyst: 
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/TPET_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: 
+Play: 
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/TPET_2026-03-02.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+## Ticker: TPET Date: 2026-03-03
+
+### Big Picture
+
+Market Momentum: 
+
+### Intraday Fundamentals
+
+Float: 25.0m
+Avg. Volume: 23.7m
+Gap %: 69.64
+Premarket volume: 74.7m (316% avg, 298.8% float)
+Short %: 22.4
+Catalyst: 
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/TPET_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: 
+Play: 
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/TPET_2026-03-03.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+## Ticker: TPET Date: 2026-03-04
+
+### Big Picture
+
+Market Momentum: 
+
+### Intraday Fundamentals
+
+Float: 25.0m
+Avg. Volume: 39.0m
+Gap %: -7.69
+Premarket volume: 27.9m (71% avg, 111.5% float)
+Short %: 19.4
+Catalyst: 
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/TPET_2026-03-04_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: 
+Play: 
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/TPET_2026-03-04.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+## Ticker: TPET Date: 2026-03-05
+
+### Big Picture
+
+Market Momentum: 
+
+### Intraday Fundamentals
+
+Float: 25.0m
+Avg. Volume: 44.9m
+Gap %: 17.21
+Premarket volume: 14.6m (32% avg, 58.3% float)
