@@ -906,6 +906,10 @@ Play: Changing Fundamentals
 
 ### News Summary
 
+USO surged 6.92% as crude oil prices jumped approximately 8% following coordinated US and Israeli military strikes on Iran over the weekend. The attacks, which included the killing of Iran's supreme leader, triggered the 2026 Strait of Hormuz crisis. Iran's IRGC warned against vessel passage through the strait, effectively halting shipping traffic and threatening 20% of global daily oil supply. WTI crude traded around $72.52/barrel and Brent at $79.04/barrel. The closure represented the largest disruption to energy supply since the 1970s energy crisis.
+
+Note that in USO specifically around 20:16 to 20:18 there was a flash crash that didn't happen in the oil futures and was a great arbitrage opportunity.
+
 ## Ticker: USO Date: 2026-03-03
 
 ### Big Picture
@@ -932,6 +936,8 @@ Play: Second Day
 <div class="chart-placeholder" data-src="charts/USO_2026-03-03.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
+
+Second day continuation of the Strait of Hormuz crisis. USO gained 7.93% as maritime transit through the strait dropped by approximately 70%, with over 150 ships anchoring outside. Oil prices continued climbing with WTI reaching $90.20 and trading between $87.33-$94.37. Iran made multiple attacks on merchant ships, and crude oil tanker rates from the Middle East to Asia reached multi-decade highs. The crisis projected a global oil supply plunge of 8 million barrels per day in March.
 
 ## Ticker: USO Date: 2026-03-04
 
@@ -960,6 +966,8 @@ Play: Second Day
 
 ### News Summary
 
+Consolidation day with minimal gap (0.02%) as the market digested the ongoing Strait of Hormuz closure. Commercial shipping through the strait remained near zero, with Iran continuing attacks on merchant vessels. Oil prices remained elevated as the crisis entered its fifth day, with Asian economies (China, India, Japan, South Korea) particularly affected due to heavy reliance on Gulf oil imports through the strait.
+
 ## Ticker: USO Date: 2026-03-05
 
 ### Big Picture
@@ -986,6 +994,8 @@ Play: Second Day
 <div class="chart-placeholder" data-src="charts/USO_2026-03-05.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
+
+USO gained 3.17% as oil prices continued climbing toward the $100/barrel milestone. The Strait of Hormuz remained effectively closed, with oil prices up more than 40% compared to pre-crisis levels. Saudi Arabia and UAE attempted to divert oil through alternative pipelines (East-West Pipeline to Yanbu, Abu Dhabi Pipeline to Fujairah), but bypass capacity was insufficient to replace the lost strait volume. OPEC+ pledged increased output to mitigate shortages.
 
 ## Ticker: USO Date: 2026-03-06
 
@@ -1014,7 +1024,7 @@ Play: Parabolic Reversal
 
 ### News Summary
 
-
+USO surged 9.42% as oil prices accelerated toward the $100/barrel breakout. Brent crude was approaching $120/barrel as the crisis intensified. The strait remained closed with commercial shipping at near-zero levels. Global energy markets experienced severe shockwaves affecting aluminum, fertilizer, and helium markets. Iran had made 21 confirmed attacks on merchant ships by this point, with no resolution in sight.
 
 ## Ticker: USO Date: 2026-03-09
 
@@ -1042,3 +1052,5 @@ Play: Parabolic Reversal
 <div class="chart-placeholder" data-src="charts/USO_2026-03-09.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
+
+USO surged 9.79% as oil prices reached peak crisis levels. Brent crude hit $110.79/barrel (up 19.4% from prior day) while WTI reached $110.54/barrel (up 21.5%). Some intraday spikes saw WTI touch $119.48 and Brent approach $103-110 range. The EIA reported Brent settled at $94/barrel, representing a 50% increase from the beginning of the year. This marked the climax of the Strait of Hormuz crisis before the US Armed Forces began military operations on March 19 to reopen the strait.
