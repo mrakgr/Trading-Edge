@@ -211,9 +211,12 @@ def plot_volume_bars_vwap(bars, output_html, all_trades=None):
     ] for b in bars]
 
     # Calculate bar heights and bases with minimum height for zero-height bars
+    # Use half of the smallest non-zero stddev as minimum height
+    non_zero_stddevs = [b['stddev'] for b in bars if b['stddev'] > 0]
+    min_height = (min(non_zero_stddevs) / 2) if non_zero_stddevs else 0.01
+
     bar_heights = []
     bar_bases = []
-    min_height = 0.01
 
     for i, (upper, lower, vwap) in enumerate(zip(upper_2sigma, lower_2sigma, vwap_vals)):
         height = upper - lower
