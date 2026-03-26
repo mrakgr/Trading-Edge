@@ -197,18 +197,57 @@ def plot_volume_bars_vwap(bars, output_html, all_trades=None):
 
             fig.update_layout(shapes=shapes)
 
-    # Plot candlesticks on main panel
-    fig.add_trace(go.Candlestick(
+    # Prepare custom data for hover template
+    customdata = [[
+        b['cumulative_volume'],
+        b['vwap'],
+        b['stddev'],
+        b['vwap'] + 2 * b['stddev'],
+        b['vwap'] - 2 * b['stddev'],
+        format_time(b['start_time']),
+        format_time(b['end_time']),
+        b['time_duration_s'],
+        b['num_trades']
+    ] for b in bars]
+
+    # Calculate bar heights and bases with minimum height for zero-height bars
+    bar_heights = []
+    bar_bases = []
+    min_height = 0.01
+
+    for i, (upper, lower, vwap) in enumerate(zip(upper_2sigma, lower_2sigma, vwap_vals)):
+        height = upper - lower
+        if height == 0:
+            # Center the minimum-height bar on the VWAP line
+            bar_heights.append(min_height)
+            bar_bases.append(vwap - min_height / 2)
+        else:
+            bar_heights.append(height)
+            bar_bases.append(lower)
+
+    # Calculate bar colors (green for up, red for down)
+    colors = ['green' if upper >= lower else 'red'
+              for upper, lower in zip(upper_2sigma, lower_2sigma)]
+
+    # Plot bars on main panel (replacing candlesticks)
+    fig.add_trace(go.Bar(
         x=x_vals,
-        open=lower_2sigma,
-        high=upper_2sigma,
-        low=lower_2sigma,
-        close=upper_2sigma,
+        y=bar_heights,
+        base=bar_bases,
         name='VWAP ±2σ',
-        increasing_line_color='green',
-        decreasing_line_color='red',
-        text=hover_text,
-        hoverinfo='text'
+        marker_color=colors,
+        marker_line_width=0,
+        width=[vol * 0.8 for vol in [bars[i]['volume'] for i in range(len(bars))]],
+        customdata=customdata,
+        hovertemplate='<b>Volume:</b> %{customdata[0]:,.0f}<br>' +
+                      '<b>VWAP:</b> %{customdata[1]:.2f}<br>' +
+                      '<b>StdDev:</b> %{customdata[2]:.4f}<br>' +
+                      '<b>+2σ:</b> %{customdata[3]:.2f}<br>' +
+                      '<b>-2σ:</b> %{customdata[4]:.2f}<br>' +
+                      '<b>Start:</b> %{customdata[5]}<br>' +
+                      '<b>End:</b> %{customdata[6]}<br>' +
+                      '<b>Duration:</b> %{customdata[7]:.3f}s<br>' +
+                      '<b>Trades:</b> %{customdata[8]}<extra></extra>'
     ), row=1, col=1)
 
     # Add VWAP line overlay
@@ -236,7 +275,7 @@ def plot_volume_bars_vwap(bars, output_html, all_trades=None):
     fig.update_layout(
         height=700,
         width=1400,
-        hovermode='x unified',
+        hovermode='closest',
         hoverdistance=100,
         xaxis2_title='Cumulative Volume',
         showlegend=False

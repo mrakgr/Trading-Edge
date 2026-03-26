@@ -878,3 +878,167 @@ Play: Second Day
 ### News Summary
 
 No new catalyst. Second day continuation following the previous day's 48-49% surge on the Novo Nordisk partnership announcement. The +8.30% gap reflects continued buying momentum.
+
+## Ticker: USO Date: 2026-03-02
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: Not available
+Avg. Volume: 9.5m
+Gap %: 6.92
+Premarket volume: 2.6m (28% avg)
+Short %: 13
+Catalyst: Major Supply Distruption
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/USO_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Neutral
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/USO_2026-03-02.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+## Ticker: USO Date: 2026-03-03
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: Not available
+Avg. Volume: 11.0m
+Gap %: 7.93
+Premarket volume: 3.5m (32% avg)
+Short %: 9.7
+Catalyst: Major Supply Distruption
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/USO_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Positive Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/USO_2026-03-03.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+## Ticker: USO Date: 2026-03-04
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: Not available
+Avg. Volume: 13.1m
+Gap %: 0.02
+Premarket volume: 2.4m (18% avg)
+Short %: 10.3
+Catalyst: Major Supply Distruption
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/USO_2026-03-04_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Positive Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/USO_2026-03-04.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+## Ticker: USO Date: 2026-03-05
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: Not available
+Avg. Volume: 14.0m
+Gap %: 3.17
+Premarket volume: 1.5m (11% avg)
+Short %: 7.5
+Catalyst: Major Supply Distruption
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/USO_2026-03-05_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Positive Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/USO_2026-03-05.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+## Ticker: USO Date: 2026-03-06
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: Not available
+Avg. Volume: 15.5m
+Gap %: 9.42
+Premarket volume: 5.4m (35% avg)
+Short %: 13.7
+Catalyst: Major Supply Distruption
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/USO_2026-03-06_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Positive Momentum
+Play: Parabolic Reversal
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/USO_2026-03-06.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+
+
+## Ticker: USO Date: 2026-03-09
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: Not available
+Avg. Volume: 18.6m
+Gap %: 9.79
+Premarket volume: 9.0m (48% avg)
+Short %: 17.9
+Catalyst: Major Supply Distruption
+
+### Technical Analysis
+
+<div class="chart-placeholder" data-src="charts/USO_2026-03-09_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Postive momentum
+Play: Parabolic Reversal
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/USO_2026-03-09.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary

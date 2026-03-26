@@ -26,9 +26,15 @@ $Files = @(
     # @{Ticker = "BNTX"; Date = "2026-03-11"; Float = "250m"; Short = 15}
     # @{Ticker = "CRSP"; Date = "2026-03-10"; Float = "89m"; Short = 21.2}
     # @{Ticker = "NIO"; Date = "2026-03-10"; Float = "2.08b"; Short = 20.8}
-    @{Ticker = "NIO"; Date = "2026-03-11"; Float = "2.08b"; Short = 16.4}
+    # @{Ticker = "NIO"; Date = "2026-03-11"; Float = "2.08b"; Short = 16.4}
     # @{Ticker = "HIMS"; Date = "2026-03-09"; Float = "207m"; Short = 14.1}
     # @{Ticker = "HIMS"; Date = "2026-03-10"; Float = "207m"; Short = 31.1}
+    @{Ticker = "USO"; Date = "2026-03-02"; Short = 13.0}
+    # @{Ticker = "USO"; Date = "2026-03-03"; Short = 9.7}
+    # @{Ticker = "USO"; Date = "2026-03-04"; Short = 10.3}
+    # @{Ticker = "USO"; Date = "2026-03-05"; Short = 7.5}
+    # @{Ticker = "USO"; Date = "2026-03-06"; Short = 13.7}
+    # @{Ticker = "USO"; Date = "2026-03-09"; Short = 17.9}
 )
 
 $showExtended = "true"
@@ -74,33 +80,35 @@ Write-Host "Done generating all charts. Moving on to reference templates..."
 foreach ($file in $Files) {
     $basename = "$($file.Ticker)_$($file.Date)"
     $jsonPath = "data/trades/$($file.Ticker)/$($file.Date).json"
+    Write-Host "## Ticker: $($file.Ticker) Date: $($file.Date)"
+    Write-Host ""
+    Write-Host "### Big Picture"
+    Write-Host ""
+    Write-Host "Market Momentum: "
+    Write-Host ""
+    Write-Host "### Intraday Fundamentals"
+    Write-Host ""
     if ($file.Float) {
-        Write-Host "## Ticker: $($file.Ticker) Date: $($file.Date)"
-        Write-Host ""
-        Write-Host "### Big Picture"
-        Write-Host ""
-        Write-Host "Market Momentum: "
-        Write-Host ""
-        Write-Host "### Intraday Fundamentals"
-        Write-Host ""
         python3 scripts/visualization/fetch_stock_fundamentals.py $file.Ticker $file.Date $file.Float
-        Write-Host "Short %: $($file.Short)"
-        Write-Host "Catalyst: "
-        Write-Host ""
-        Write-Host "### Technical Analysis"
-        Write-Host ""
-        Write-Host "<div class=""chart-placeholder"" data-src=""charts/${basename}_daily.html"" style=""width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;"">Click to load chart</div>"
-        if ($file.SecondsPerBar) {
-            Write-Host "<div class=""chart-placeholder"" data-src=""charts/${basename}_intraday_candle.html"" style=""width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;"">Click to load chart</div>"
-        }
-        Write-Host ""
-        Write-Host "Overall Pattern: "
-        Write-Host "Play: "
-        Write-Host ""
-        Write-Host "### Orderflow Analysis"
-        Write-Host "<div class=""chart-placeholder"" data-src=""charts/${basename}.html"" style=""width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;"">Click to load chart</div>"
-        Write-Host ""
-        Write-Host "### News Summary"
-        Write-Host ""
+    } else {
+        python3 scripts/visualization/fetch_stock_fundamentals.py $file.Ticker $file.Date
     }
+    Write-Host "Short %: $($file.Short)"
+    Write-Host "Catalyst: "
+    Write-Host ""
+    Write-Host "### Technical Analysis"
+    Write-Host ""
+    Write-Host "<div class=""chart-placeholder"" data-src=""charts/${basename}_daily.html"" style=""width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;"">Click to load chart</div>"
+    if ($file.SecondsPerBar) {
+        Write-Host "<div class=""chart-placeholder"" data-src=""charts/${basename}_intraday_candle.html"" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;"">Click to load chart</div>"
+    }
+    Write-Host ""
+    Write-Host "Overall Pattern: "
+    Write-Host "Play: "
+    Write-Host ""
+    Write-Host "### Orderflow Analysis"
+    Write-Host "<div class=""chart-placeholder"" data-src=""charts/${basename}.html"" style=""width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;"">Click to load chart</div>"
+    Write-Host ""
+    Write-Host "### News Summary"
+    Write-Host ""
 }

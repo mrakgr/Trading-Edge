@@ -161,12 +161,8 @@ if __name__ == '__main__':
         print(f"Float: {format_number(manual_float)}")
         details = {'float': manual_float}
     else:
-        details = get_ticker_details(ticker)
-        if details:
-            print(f"Float: {format_number(details['float'])} (shares outstanding)")
-        else:
-            print("Float: Unable to fetch")
-            details = None
+        print("Float: Not available")
+        details = None
 
     # Get average volume
     avg_vol = get_avg_volume(ticker, date_str)
