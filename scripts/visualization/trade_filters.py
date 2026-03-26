@@ -17,6 +17,7 @@ EXCLUDE_FOR_PRICE_DISCOVERY = {
     29,  # Seller (special settlement)
     32,  # Sold (Out of Sequence)
     37,  # Odd Lot Trade
+    41,  # Extended Trading Hours (Sold Out of Sequence)
     52,  # Contingent Trade
     53,  # Qualified Contingent Trade (QCT)
 }
