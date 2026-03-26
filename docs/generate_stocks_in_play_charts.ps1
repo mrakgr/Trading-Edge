@@ -49,6 +49,14 @@ function Generate {
     }
 }
 
+function ReGenerate {
+    param (
+        [string]$Path,
+        [scriptblock]$Action
+    )
+    & $Action $Path
+}
+
 foreach ($file in $Files) {
     $basename = "$($file.Ticker)_$($file.Date)"
     $jsonPath = "data/trades/$($file.Ticker)/$($file.Date).json"
