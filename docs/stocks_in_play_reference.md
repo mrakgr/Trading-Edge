@@ -1683,3 +1683,115 @@ Play: Second Day
 
 BATL announced acquisition of 7,090 net acres in Ward County, Texas from RoadRunner Resource Holding for 485,000 shares (all-stock transaction). The deal added ~30 high-quality drilling locations and expanded the Monument Draw position. Combined with the completed $15M private placement, the company executed capital raise and asset acquisition during the oil price spike. The modest 1.39% gap reflected consolidation as the speculative frenzy cooled despite the strategic acquisition.
 
+## Ticker: MOBX Date: 2026-03-03
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 86.2m
+Avg. Volume: 25.8m
+Gap %: 158.64
+Premarket volume: 167.1m (647% avg, 193.8% float)
+Short %: 30
+Catalyst: Major Deal
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/MOBX_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/MOBX_2026-03-03.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+MOBX exploded 141% (premarket gains as high as 191%) following announcement of a U.S. Navy production order for high-reliability filtering components used in Tomahawk cruise missiles. The components protect sensitive onboard electronics from electromagnetic interference. CEO Phil Sansone stated the order reflects "active and ongoing production demand" within an operational Navy weapons platform. Despite the defense contract, MOBX remained a micro-cap penny stock ($18.24M market cap) facing Nasdaq delisting by April 27 if unable to maintain $1 minimum bid. Premarket volume hit 193.8% of float (647% of average) with 30% short interest reflecting extreme skepticism about the chronically unprofitable company's fundamentals.
+
+## Ticker: MOBX Date: 2026-03-04
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 86.2m
+Avg. Volume: 94.9m
+Gap %: 8.93
+Premarket volume: 95.1m (100% avg, 110.3% float)
+Short %: 30
+Catalyst: Major Deal
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/MOBX_2026-03-04_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/MOBX_2026-03-04.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+Second day continuation following March 3 announcement of U.S. Navy production order for high-reliability filtering components used in Tomahawk cruise missiles. Stock had surged 141% on March 3 and rallied sixfold during the week. Despite the defense contract, MOBX remained a micro-cap penny stock ($18.24M market cap) with chronic unprofitability, delisting risk (must maintain $1 minimum bid by April 27), and cash burn issues. Premarket volume hit 110.3% of float with 30% short interest reflecting extreme skepticism beneath the speculative rally.
+
+## Ticker: MOBX Date: 2026-03-05
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 86.2m
+Avg. Volume: 117.5m
+Gap %: 21.95
+Premarket volume: 87.4m (74% avg, 101.4% float)
+Short %: 30.2
+Catalyst: Major Deal
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/MOBX_2026-03-05_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Parabolic Reversal
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/MOBX_2026-03-05.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+MOBX extended the parabolic move with another 21.95% gap as momentum traders piled into the Navy contract story. Premarket volume remained extreme at 101.4% of float. TipRanks' AI analyst rated MOBX as "Neutral" citing "very weak financial performance" and absence of Wall Street analyst coverage. The company faced Nasdaq delisting deadline of April 27 to maintain $1 minimum bid. Short interest held at 30.2% as skeptics bet against the fundamentally weak micro-cap despite the defense contract.
+
+## Ticker: MOBX Date: 2026-03-06
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 86.2m
+Avg. Volume: 113.7m
+Gap %: 18.95
+Premarket volume: 27.5m (24% avg, 31.9% float)
+Short %: 30.2
+Catalyst: Major Deal
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/MOBX_2026-03-06_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Parabolic Reversal
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/MOBX_2026-03-06.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+MOBX continued the speculative rally with another 18.95% gap, completing a multi-day parabolic move on the Navy Tomahawk contract. Premarket volume cooled to 31.9% of float (down from 100%+ on prior days), signaling waning momentum. The stock remained fundamentally weak with short-term obligations exceeding liquid assets and rapid cash burn. CEO Phil Sansone emphasized the order reflected "active and ongoing production demand," but analysts warned of the micro-cap's chronic unprofitability and imminent delisting risk.
+

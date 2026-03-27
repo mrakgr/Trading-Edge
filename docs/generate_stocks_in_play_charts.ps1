@@ -46,18 +46,22 @@ $Files = @(
     # @{Ticker = "IOT"; Date = "2026-03-06"; Float = "357m"; Short = 11.3}
     # @{Ticker = "IOT"; Date = "2026-03-09"; Float = "357m"; Short = 21.0}
     # @{Ticker = "IOT"; Date = "2026-03-10"; Float = "357m"; Short = 19.0}
-    @{Ticker = "TTD"; Date = "2026-03-05"; Float = "429m"; Short = 17.0}
-    @{Ticker = "TTD"; Date = "2026-03-06"; Float = "429m"; Short = 22.7}
-    @{Ticker = "VSCO"; Date = "2026-03-05"; Float = "69m"; Short = 19.2}
-    @{Ticker = "VSCO"; Date = "2026-03-06"; Float = "69m"; Short = 25.7}
-    @{Ticker = "BATL"; Date = "2026-02-27"; Float = "15.5m"; Short = 32.8}
-    @{Ticker = "BATL"; Date = "2026-03-02"; Float = "15.5m"; Short = 27.0}
-    @{Ticker = "BATL"; Date = "2026-03-03"; Float = "15.5m"; Short = 22.0}
-    @{Ticker = "BATL"; Date = "2026-03-04"; Float = "15.5m"; Short = 19.0}
-    @{Ticker = "BATL"; Date = "2026-03-05"; Float = "15.5m"; Short = 23.8}
-    @{Ticker = "BATL"; Date = "2026-03-06"; Float = "15.5m"; Short = 24.6}
-    @{Ticker = "BATL"; Date = "2026-03-09"; Float = "15.5m"; Short = 23.3}
-    @{Ticker = "BATL"; Date = "2026-03-10"; Float = "15.5m"; Short = 24.8}
+    # @{Ticker = "TTD"; Date = "2026-03-05"; Float = "429m"; Short = 17.0}
+    # @{Ticker = "TTD"; Date = "2026-03-06"; Float = "429m"; Short = 22.7}
+    # @{Ticker = "VSCO"; Date = "2026-03-05"; Float = "69m"; Short = 19.2}
+    # @{Ticker = "VSCO"; Date = "2026-03-06"; Float = "69m"; Short = 25.7}
+    # @{Ticker = "BATL"; Date = "2026-02-27"; Float = "15.5m"; Short = 32.8}
+    # @{Ticker = "BATL"; Date = "2026-03-02"; Float = "15.5m"; Short = 27.0}
+    # @{Ticker = "BATL"; Date = "2026-03-03"; Float = "15.5m"; Short = 22.0}
+    # @{Ticker = "BATL"; Date = "2026-03-04"; Float = "15.5m"; Short = 19.0}
+    # @{Ticker = "BATL"; Date = "2026-03-05"; Float = "15.5m"; Short = 23.8}
+    # @{Ticker = "BATL"; Date = "2026-03-06"; Float = "15.5m"; Short = 24.6}
+    # @{Ticker = "BATL"; Date = "2026-03-09"; Float = "15.5m"; Short = 23.3}
+    # @{Ticker = "BATL"; Date = "2026-03-10"; Float = "15.5m"; Short = 24.8}
+    # @{Ticker = "MOBX"; Date = "2026-03-03"; Float = "86.2m"; Short = 30.0}
+    # @{Ticker = "MOBX"; Date = "2026-03-04"; Float = "86.2m"; Short = 30.2}
+    # @{Ticker = "MOBX"; Date = "2026-03-05"; Float = "86.2m"; Short = 30.2}
+    # @{Ticker = "MOBX"; Date = "2026-03-06"; Float = "86.2m"; Short = 27.8}
 )
 
 $showExtended = "true"
