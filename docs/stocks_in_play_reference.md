@@ -1057,7 +1057,7 @@ Catalyst: Strong Earnings Surprise
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/MRVL_2026-03-06_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Neutral
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
@@ -1085,7 +1085,7 @@ Catalyst: Strong Earnings Surprise
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/MRVL_2026-03-09_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Neutral
 Play: Second Day
 
 ### Orderflow Analysis
@@ -1183,7 +1183,7 @@ First pullback with -7.69% gap as profit-taking hit the parabolic move. TPET ann
 
 ### Big Picture
 
-Market Momentum: 
+Market Momentum: Neutral
 
 ### Intraday Fundamentals
 
@@ -1281,7 +1281,7 @@ Catalyst: Strong Earnings Surprise
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/IOT_2026-03-06_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Negative Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
@@ -1309,7 +1309,7 @@ Catalyst: Strong Earnings Surprise
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/IOT_2026-03-09_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Negative Momentum
 Play: Second Day
 
 ### Orderflow Analysis
@@ -1337,7 +1337,7 @@ Catalyst: Product Launch
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/IOT_2026-03-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Negative Momentum
 Play: Second Day
 
 ### Orderflow Analysis
@@ -1346,3 +1346,340 @@ Play: Second Day
 ### News Summary
 
 Samsara unveiled new automated AI coaching features to transform fleet safety: AI Role Play and AI Guided Coaching. These innovations provide personalized feedback to managers and drivers, helping reduce crashes without increasing administrative workload. The company's AI-powered dashcams are a significant revenue driver, with the platform processing over 25 trillion data points annually. The -0.15% gap reflects continued consolidation as the market digested both the strong earnings and new product announcements. Insider Dominic Phillips conducted tax-withholding transaction on vested RSUs.
+
+## Ticker: TTD Date: 2026-03-05
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 429.0m
+Avg. Volume: 18.9m
+Gap %: 25.11
+Premarket volume: 5.2m (28% avg, 1.2% float)
+Short %: 17
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/TTD_2026-03-05_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/TTD_2026-03-05.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+TTD surged 25% following exceptional Q4 2025 earnings reported February 25. Revenue hit $847M (up 14% YoY, 19% excluding political ads) with adjusted EPS of $0.59 crushing the $0.34 estimate. Full year 2025 revenue reached $2.9B (up 18%). Connected TV accounted for 50% of Q4 business, demonstrating strong CTV adoption. The company maintained 95%+ customer retention and authorized $500M in additional share buybacks. Q1 2026 guidance of $678M revenue (10% growth) exceeded expectations, driving the delayed rally on March 5.
+
+## Ticker: TTD Date: 2026-03-06
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 429.0m
+Avg. Volume: 22.1m
+Gap %: -2.10
+Premarket volume: 629.6k (3% avg, 0.1% float)
+Short %: 22.7
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/TTD_2026-03-06_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/TTD_2026-03-06.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Second day continuation following the March 5 earnings-driven 25% surge. The -2.10% gap reflects modest profit-taking after the explosive rally, with short interest increasing to 22.7% as traders took positions against the extended move.
+
+## Ticker: VSCO Date: 2026-03-05
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 69.0m
+Avg. Volume: 1.7m
+Gap %: -6.02
+Premarket volume: 257.5k (15% avg, 0.4% float)
+Short %: 19.2
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/VSCO_2026-03-05_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/VSCO_2026-03-05.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+VSCO dropped 6% despite beating Q4 2025 revenue and EPS estimates. The selloff was triggered by a 4.7% decline in net income, a $116.9M impairment charge related to Adore Me assets, and announcement of a strategic review for DailyLook (non-core asset). Multiple law firms announced securities fraud investigations into the company. The market reacted negatively to the asset impairment and strategic uncertainty despite solid top-line performance.
+
+## Ticker: VSCO Date: 2026-03-06
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 69.0m
+Avg. Volume: 2.1m
+Gap %: -4.84
+Premarket volume: 8.8k (0% avg, 0.0% float)
+Short %: 25.7
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/VSCO_2026-03-06_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/VSCO_2026-03-06.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Second day continuation following the March 5 earnings disappointment. The stock dropped another 4.84% as investors continued to exit positions following the $116.9M Adore Me impairment charge and securities fraud investigation announcements. Short interest spiked to 25.7% as the two-day selloff totaled over 22%.
+
+## Ticker: BATL Date: 2026-02-27
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 15.5m
+Avg. Volume: 6.4m
+Gap %: 23.13
+Premarket volume: 9.7m (153% avg, 62.8% float)
+Short %: 32.8
+Catalyst: Major Deal
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/BATL_2026-02-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/BATL_2026-02-27.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+BATL surged 40% in premarket following announcement of a $60M asset sale that allowed the company to pay down $40M in debt and address operational bottlenecks, adding 1,200 barrels/day of production. Despite the positive news, the company remained deeply troubled with $31M quarterly loss, negative free cash flow, and $216M debt with delisting risk. The 261% YTD gain and extreme premarket volume (62.8% of float) signaled speculative frenzy rather than fundamental turnaround, with 32.8% short interest reflecting skepticism.
+
+## Ticker: BATL Date: 2026-03-02
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 15.5m
+Avg. Volume: 8.5m
+Gap %: 93.84
+Premarket volume: 15.1m (177% avg, 97.2% float)
+Short %: 27
+Catalyst: Sector Momentum
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/BATL_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/BATL_2026-03-02.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+BATL exploded 113.77% in regular session plus 32% after-hours as the Strait of Hormuz crisis sent oil prices soaring. US/Israeli strikes on Iran and Tehran's closure of the strait triggered massive speculation in micro-cap energy stocks. With only 15.5m float and premarket volume hitting 97.2% of float, BATL became a momentum target despite burning cash and carrying $216M debt. Investors bet that higher oil prices would improve cash flow and enable balance sheet repair after years of losses.
+
+## Ticker: BATL Date: 2026-03-03
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 15.5m
+Avg. Volume: 12.9m
+Gap %: 109.83
+Premarket volume: 14.5m (113% avg, 93.8% float)
+Short %: 22
+Catalyst: Offering
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/BATL_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Parabolic Reversal
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/BATL_2026-03-03.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+BATL announced a $15M private placement at $5.50/share (net proceeds $14.1M) for working capital as the parabolic move continued with another 109.83% gap. The offering announcement came as oil prices continued surging on the Strait of Hormuz closure. Premarket volume remained extreme at 93.8% of float. Short interest dropped to 22% as shorts covered into the vertical move. The capital raise signaled management's intent to capitalize on the speculative rally by diluting shareholders.
+
+## Ticker: BATL Date: 2026-03-04
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 15.5m
+Avg. Volume: 16.2m
+Gap %: -36.98
+Premarket volume: 2.9m (18% avg, 18.7% float)
+Short %: 19
+Catalyst: Offering
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/BATL_2026-03-04_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Parabolic Reversal
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/BATL_2026-03-04.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+First major pullback with -36.98% gap as the parabolic move collapsed. The $15M private placement closed on March 4, locking in dilution at $5.50/share. Profit-taking accelerated as traders who rode the 1,200%+ rally from $1 to multi-year highs began exiting. Despite the crash, premarket volume remained elevated at 18.7% of float, showing continued speculative interest.
+
+## Ticker: BATL Date: 2026-03-05
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 15.5m
+Avg. Volume: 17.6m
+Gap %: -8.89
+Premarket volume: 2.1m (12% avg, 13.3% float)
+Short %: 23.8
+Catalyst: Sector Momentum
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/BATL_2026-03-05_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Parabolic Reversal
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/BATL_2026-03-05.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+Continued selloff with -8.89% gap as the post-parabolic collapse extended. Oil prices remained elevated with the Strait of Hormuz still closed, but BATL's speculative rally had exhausted itself. Short interest increased to 23.8% as traders positioned for further downside. The stock remained highly volatile with premarket volume at 13.3% of float.
+
+## Ticker: BATL Date: 2026-03-06
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 15.5m
+Avg. Volume: 20.1m
+Gap %: 32.92
+Premarket volume: 4.4m (22% avg, 28.4% float)
+Short %: 24.6
+Catalyst: Sector Momentum
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/BATL_2026-03-06_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Parabolic Reversal
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/BATL_2026-03-06.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+BATL bounced 32.92% as oil prices accelerated toward $100/barrel and the company announced a $15M private placement closing. The stock surged 15.79% in after-hours to $22 following the broader oil sector rally from Strait of Hormuz tensions. Despite the bounce, the company's 7-day return exceeded 3x and YTD return showed extreme momentum. Market cap reached $312.67M with RSI at 69.85, signaling overbought conditions. Premarket volume hit 28.4% of float as speculation continued.
+
+## Ticker: BATL Date: 2026-03-09
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 15.5m
+Avg. Volume: 21.8m
+Gap %: 11.14
+Premarket volume: 2.6m (12% avg, 16.6% float)
+Short %: 23.3
+Catalyst: Sector Momentum
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/BATL_2026-03-09_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Parabolic Reversal
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/BATL_2026-03-09.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+BATL gained 11.14% as oil prices hit peak crisis levels with Brent approaching $110/barrel. The company completed its $15M private placement, raising capital during the speculative rally. Stock surged 130% over the week as the Strait of Hormuz crisis intensified. Despite the rally, fundamental weakness remained with negative cash flow and heavy debt load. Premarket volume at 16.6% of float showed continued speculative trading.
+
+## Ticker: BATL Date: 2026-03-10
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 15.5m
+Avg. Volume: 21.4m
+Gap %: 1.39
+Premarket volume: 1.6m (8% avg, 10.6% float)
+Short %: 24.8
+Catalyst: Deal
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/BATL_2026-03-10_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/BATL_2026-03-10.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+BATL announced acquisition of 7,090 net acres in Ward County, Texas from RoadRunner Resource Holding for 485,000 shares (all-stock transaction). The deal added ~30 high-quality drilling locations and expanded the Monument Draw position. Combined with the completed $15M private placement, the company executed capital raise and asset acquisition during the oil price spike. The modest 1.39% gap reflected consolidation as the speculative frenzy cooled despite the strategic acquisition.
+
