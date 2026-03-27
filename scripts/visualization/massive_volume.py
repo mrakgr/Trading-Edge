@@ -210,10 +210,14 @@ def plot_volume_bars_vwap(bars, output_html, all_trades=None):
         b['num_trades']
     ] for b in bars]
 
-    # Calculate bar heights and bases with minimum height of 0.01
+    # Calculate session VWAP for minimum height scaling
+    total_volume = sum(b['volume'] for b in bars)
+    session_vwap = sum(b['vwap'] * b['volume'] for b in bars) / total_volume if total_volume > 0 else 1.0
+
+    # Calculate bar heights and bases with minimum height scaled to session VWAP
     bar_heights = []
     bar_bases = []
-    min_height = 0.01
+    min_height = min(0.01, 0.001 * session_vwap)
 
     for upper, lower, vwap in zip(upper_2sigma, lower_2sigma, vwap_vals):
         height = upper - lower
