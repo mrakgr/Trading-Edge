@@ -2327,3 +2327,339 @@ Play: Second Day
 
 No new catalyst. Second day following the March 3 earnings disappointment. The -1.57% gap reflects continued selling pressure after the initial 12%+ decline. Short interest dropped to 18% (from 32.4%) as shorts covered following the extended selloff. Many analysts maintained Buy ratings, viewing the guidance miss as potentially conservative.
 
+## Ticker: AAOI Date: 2026-02-27
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 70.9m
+Avg. Volume: 5.4m
+Gap %: 22.80
+Premarket volume: 369.4k (7% avg, 0.5% float)
+Short %: 15.4
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/AAOI_2026-02-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/AAOI_2026-02-27.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+AAOI surged 44.7% following Q4 2025 earnings reported February 26. The company beat estimates with -$0.01 EPS (vs -$0.12 expected) and $134.3M revenue (+34% YoY). Strong Q1 2026 guidance of $150-165M (vs $145.6M consensus) driven by datacenter demand for 400G/800G/1.6T optical transceivers. Needham raised price target from $43 to $80, B. Riley upgraded from Sell to Neutral, reflecting optimism around AI infrastructure buildout.
+
+## Ticker: AAOI Date: 2026-03-02
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 70.9m
+Avg. Volume: 6.2m
+Gap %: 27.69
+Premarket volume: 2.1m (34% avg, 3.0% float)
+Short %: 12.8
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/AAOI_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/AAOI_2026-03-02.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+AAOI extended the parabolic move with another 27.69% gap as momentum traders piled into the AI infrastructure story. Premarket volume hit 3.0% of float (34% of average) as the stock continued rallying on datacenter demand for high-speed optical transceivers. Short interest dropped to 12.8% as shorts covered. The rally was part of broader momentum that would peak at $127.01 on March 11 before major contract announcements later in the month.
+
+## Ticker: AVAV Date: 2026-03-02
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 70.9m
+Avg. Volume: 1.1m
+Gap %: 12.68
+Premarket volume: 150.9k (13% avg, 0.2% float)
+Short %: 19.5
+Catalyst: Deal
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/AVAV_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/AVAV_2026-03-02.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+AVAV initially rallied 20.1% on weekend Iran attack news as defense stocks surged, but reversed sharply to close down 17.42% after Space News reported the Pentagon was reopening the $1.4B SCAR satellite communications program for bidding. The contract had been awarded to AVAV's BlueHalo subsidiary. Raymond James downgraded from Strong Buy to Underperform, triggering the selloff as investors feared losing the major contract.
+
+## Ticker: AVAV Date: 2026-03-03
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 70.9m
+Avg. Volume: 1.8m
+Gap %: 3.05
+Premarket volume: 177.1k (10% avg, 0.2% float)
+Short %: 26.2
+Catalyst: Deal
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/AVAV_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/AVAV_2026-03-03.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Second day following the March 2 SCAR contract reopening news and Raymond James downgrade. The modest +3.05% gap reflects consolidation after the 17.42% decline. Short interest spiked to 26.2% (from 19.5%) as traders positioned against the stock amid uncertainty over the $1.4B BlueHalo contract.
+
+## Ticker: AES Date: 2026-02-27
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 708.5m
+Avg. Volume: 9.9m
+Gap %: 5.04
+Premarket volume: 640.6k (6% avg, 0.1% float)
+Short %: 12
+Catalyst: Deal
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/AES_2026-02-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/AES_2026-02-27.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+AES surged 6.3% to a 52-week high of $17.65 on takeover speculation. Market rumors indicated interest from a consortium led by Global Infrastructure Partners (GIP) and EQT AB. Trading volume exceeded 26M shares as investors bet on a buyout premium. The company held its Q4 2025 earnings call that morning. On March 2, a definitive agreement was announced at $15.00/share to take the company private.
+
+## Ticker: KTOS Date: 2026-03-02
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 183.4m
+Avg. Volume: 3.9m
+Gap %: 7.24
+Premarket volume: 619.4k (16% avg, 0.3% float)
+Short %: 11.1
+Catalyst: Offering
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/KTOS_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/KTOS_2026-03-02.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+KTOS rallied 7.24% as the company closed its underwritten public offering of 14.3M shares at $84.00/share, raising $1.17B in net proceeds. Funds earmarked for scaling operations, National Security Systems development, acquisitions (Nomad and Orbit), and strengthening the balance sheet for contract opportunities. SSC Space deployed Kratos' OpenSpace platform for LEO missions. Defense sector momentum from Iran tensions provided additional support.
+
+## Ticker: KTOS Date: 2026-03-03
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 183.4m
+Avg. Volume: 4.7m
+Gap %: -1.67
+Premarket volume: 137.1k (3% avg, 0.1% float)
+Short %: 18
+Catalyst: Offering
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/KTOS_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/KTOS_2026-03-03.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Consolidation day following the March 2 public offering close. The -1.67% gap reflects modest profit-taking after the 7.24% rally. Short interest increased to 18% (from 11.1%) as traders positioned against the stock following the dilutive offering despite strong use of proceeds.
+
+## Ticker: RCAT Date: 2026-03-02
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 106.4m
+Avg. Volume: 9.4m
+Gap %: 8.93
+Premarket volume: 631.5k (7% avg, 0.6% float)
+Short %: 28.9
+Catalyst: Deal
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/RCAT_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/RCAT_2026-03-02.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+RCAT rallied 8.93% as the company announced Allen Control Systems (ACS) joined the "Red Cat Futures" initiative to advance autonomous counter-drone and precision defense capabilities. Defense sector momentum from Iran tensions provided additional support. Needham maintained Buy rating with $16 target, while Ladenburg Thalmann issued Buy with $20 target on March 3. High short interest of 28.9% amplified the move.
+
+## Ticker: RCAT Date: 2026-03-03
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 106.4m
+Avg. Volume: 10.8m
+Gap %: 6.88
+Premarket volume: 918.1k (8% avg, 0.9% float)
+Short %: 16.3
+Catalyst: Deal
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/RCAT_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/RCAT_2026-03-03.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+Second day continuation following the March 2 ACS partnership announcement. The stock extended gains with another 6.88% gap as Ladenburg Thalmann issued a Buy rating with $20 target. Short interest dropped to 16.3% (from 28.9%) as shorts covered into the defense sector rally driven by Iran tensions and the Red Cat Futures initiative momentum.
+
+## Ticker: LASR Date: 2026-02-27
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 51.6m
+Avg. Volume: 1.7m
+Gap %: -11.04
+Premarket volume: 20.6k (1% avg, 0.0% float)
+Short %: 27
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/LASR_2026-02-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/LASR_2026-02-27.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+LASR gapped down 11.04% despite beating Q4 2025 estimates with $0.14 EPS (vs $0.11 expected) and $81.19M revenue (vs $76.7M, +71.3% YoY). The selloff reflected concerns over negative net margins and negative ROE despite strong top-line growth. Needham raised target to $70 and Cantor Fitzgerald to $62.50, but high short interest (27%) and profitability concerns drove the decline. The company announced participation in investor events to increase visibility.
+
+## Ticker: LASR Date: 2026-03-02
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 51.6m
+Avg. Volume: 1.8m
+Gap %: 20.15
+Premarket volume: 243.5k (13% avg, 0.5% float)
+Short %: 18.3
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/LASR_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/LASR_2026-03-02.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+LASR bounced 20.15% following the February 27 earnings selloff. The sharp reversal reflected short covering (short interest dropped to 18.3% from 27%) and bargain hunting after the oversold decline. Analyst upgrades (Needham to $70, Cantor Fitzgerald to $62.50) provided support as investors focused on the strong 71.3% YoY revenue growth rather than profitability concerns.
+
+## Ticker: LASR Date: 2026-03-03
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 51.6m
+Avg. Volume: 2.0m
+Gap %: -0.07
+Premarket volume: 147.8k (7% avg, 0.3% float)
+Short %: 23.8
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/LASR_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/LASR_2026-03-03.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Consolidation day following the March 2 bounce from the earnings selloff. The flat -0.07% gap reflects stabilization after the volatile two-day swing. Short interest increased to 23.8% (from 18.3%) as traders re-established short positions following the 20% bounce, betting on continued profitability concerns despite strong revenue growth.
+
