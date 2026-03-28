@@ -2019,3 +2019,311 @@ Play: Changing Fundamentals
 
 Unity surged 12.8% after raising preliminary Q1 2026 revenue guidance to $505-508M (vs $480-490M prior) and adjusted EBITDA to $130-135M (vs $105-110M prior). The beat was driven by Unity Vector, the company's AI-powered advertising platform. Unity announced strategic streamlining: shutting down ironSource Ads Network (April 30), exploring sale of Supersonic game publishing business, and potential $1B+ sale of China division. Bank of America raised price targets following the operational simplification.
 
+## Ticker: MDB Date: 2026-03-03
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 77.8m
+Avg. Volume: 1.9m
+Gap %: -27.57
+Premarket volume: 354.2k (18% avg, 0.5% float)
+Short %: 11.9
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/MDB_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/MDB_2026-03-03.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+MDB plunged 27.57% despite beating Q4 FY2026 estimates with $1.65 EPS and $695.1M revenue (+27% YoY). Atlas revenue grew 29% and the company added 2,700 customers. The severe selloff despite strong results suggests investors reacted negatively to guidance, valuation concerns, or forward-looking commentary. Multiple analysts adjusted price targets following the volatile reaction.
+
+## Ticker: MDB Date: 2026-03-04
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 77.8m
+Avg. Volume: 2.5m
+Gap %: 1.19
+Premarket volume: 37.3k (1% avg, 0.0% float)
+Short %: 24.8
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/MDB_2026-03-04_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/MDB_2026-03-04.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Second day following the March 3 earnings-driven 27.57% selloff. The modest +1.19% gap reflects consolidation after the severe decline. Short interest spiked to 24.8% (from 11.9%) as traders positioned against the stock following the negative market reaction to earnings.
+
+## Ticker: VG Date: 2026-03-03
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 477.3m
+Avg. Volume: 11.1m
+Gap %: 16.90
+Premarket volume: 2.0m (18% avg, 0.4% float)
+Short %: 18.7
+Catalyst: Major Supply Disruption
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/VG_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/VG_2026-03-03.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+Venture Global (VG) surged 16.90% as the Strait of Hormuz crisis intensified, driving LNG prices sharply higher. With maritime transit through the strait dropping 70% and oil prices climbing toward $90-94/barrel, global LNG demand spiked as buyers sought alternative energy sources. As a major U.S. LNG producer and exporter, VG benefited directly from the supply disruption affecting Middle East energy flows.
+
+## Ticker: VG Date: 2026-03-04
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 477.3m
+Avg. Volume: 13.1m
+Gap %: -4.46
+Premarket volume: 516.5k (4% avg, 0.1% float)
+Short %: 16.6
+Catalyst: Major Supply Disruption
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/VG_2026-03-04_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/VG_2026-03-04.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Consolidation day following the March 3 LNG rally driven by the Strait of Hormuz crisis. The -4.46% gap reflects profit-taking after the 16.90% surge, though the Strait remained closed and oil prices stayed elevated. Short interest dropped to 16.6% as shorts covered into the energy sector rally.
+
+## Ticker: SE Date: 2026-03-03
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 297.2m
+Avg. Volume: 6.3m
+Gap %: -23.58
+Premarket volume: 1.3m (20% avg, 0.4% float)
+Short %: 13.8
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/SE_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/SE_2026-03-03.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+SE plunged 23.58% after reporting Q4 2025 earnings with a significant EPS miss ($0.63 vs $0.91 expected) despite beating revenue estimates ($6.85B vs $6.42B, +38.4% YoY). Full-year revenue hit $23B (+36% YoY) with $1.6B net income. The severe selloff reflected investor disappointment with profitability metrics despite strong top-line growth across Shopee, Garena, and Monee segments.
+
+## Ticker: SE Date: 2026-03-04
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 297.2m
+Avg. Volume: 7.7m
+Gap %: 0.20
+Premarket volume: 103.6k (1% avg, 0.0% float)
+Short %: 13.8
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/SE_2026-03-04_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/SE_2026-03-04.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Consolidation day following the March 3 earnings-driven 23.58% selloff. The minimal +0.20% gap reflects stabilization after the severe decline, with the stock hitting a new 52-week low. Management's FY2026 guidance targeting 25% GMV growth while maintaining EBITDA levels provided some support.
+
+## Ticker: SE Date: 2026-03-05
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 297.2m
+Avg. Volume: 7.7m
+Gap %: 1.33
+Premarket volume: 60.7k (1% avg, 0.0% float)
+Short %: 8.1
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/SE_2026-03-05_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/SE_2026-03-05.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Third day following the March 3 earnings disappointment. The modest +1.33% gap reflects continued consolidation after the two-day selloff. Short interest dropped sharply to 8.1% (from 13.8%) as shorts covered following the extended decline.
+
+## Ticker: NRG Date: 2026-03-03
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 185.2m
+Avg. Volume: 2.3m
+Gap %: -7.25
+Premarket volume: 401.6k (17% avg, 0.2% float)
+Short %: 18.5
+Catalyst: Offering
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/NRG_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/NRG_2026-03-03.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+NRG fell 7.7% after LS Power affiliates priced an upsized secondary offering of 14.3M shares at $164 (7% discount to prior close of $175.58). The shares were part of consideration from NRG's $12B acquisition of LS Power's portfolio that closed January 30. NRG announced a concurrent $300M share repurchase at the offering price to signal confidence and mitigate dilution impact.
+
+## Ticker: NRG Date: 2026-03-04
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 185.2m
+Avg. Volume: 2.8m
+Gap %: 0.01
+Premarket volume: 3.1k (0% avg, 0.0% float)
+Short %: 11.5
+Catalyst: Offering
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/NRG_2026-03-04_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/NRG_2026-03-04.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Consolidation day following the March 3 secondary offering selloff. The flat +0.01% gap reflects stabilization after the 7.7% decline. Short interest dropped to 11.5% (from 18.5%) as the offering completed and the $300M share repurchase provided support.
+
+## Ticker: ONON Date: 2026-03-03
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 220.3m
+Avg. Volume: 4.7m
+Gap %: -12.23
+Premarket volume: 392.2k (8% avg, 0.2% float)
+Short %: 32.4
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/ONON_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/ONON_2026-03-03.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+ONON plunged 12%+ after reporting Q4 2025 results with strong performance (CHF 743.8M revenue, +23% YoY, 63.9% gross margin) but disappointing FY2026 guidance. The company projected 23% net sales growth to CHF 3.44B, below consensus estimates of CHF 3.67-3.75B. Despite surpassing CHF 3B in annual sales, investors reacted negatively to signs of cooling growth momentum in the premium athletic footwear brand.
+
+## Ticker: ONON Date: 2026-03-04
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 220.3m
+Avg. Volume: 5.4m
+Gap %: -1.57
+Premarket volume: 20.8k (0% avg, 0.0% float)
+Short %: 18
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/ONON_2026-03-04_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/ONON_2026-03-04.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Second day following the March 3 earnings disappointment. The -1.57% gap reflects continued selling pressure after the initial 12%+ decline. Short interest dropped to 18% (from 32.4%) as shorts covered following the extended selloff. Many analysts maintained Buy ratings, viewing the guidance miss as potentially conservative.
+
