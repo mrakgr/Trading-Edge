@@ -2663,3 +2663,339 @@ Play: Second Day
 
 No new catalyst. Consolidation day following the March 2 bounce from the earnings selloff. The flat -0.07% gap reflects stabilization after the volatile two-day swing. Short interest increased to 23.8% (from 18.3%) as traders re-established short positions following the 20% bounce, betting on continued profitability concerns despite strong revenue growth.
 
+## Ticker: DUOL Date: 2026-02-27
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 28.9m
+Avg. Volume: 3.0m
+Gap %: -21.45
+Premarket volume: 1.4m (48% avg, 4.9% float)
+Short %: 15.7
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/DUOL_2026-02-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/DUOL_2026-02-27.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+DUOL gapped down 21.45% despite beating Q4 2025 earnings estimates. The company reported strong results but announced a strategic shift to prioritize user growth over short-term financial metrics. This pivot concerned investors focused on near-term profitability, triggering the selloff despite the earnings beat. The 48% premarket volume (4.9% of float) reflected heavy institutional repositioning ahead of the open.
+
+## Ticker: DUOL Date: 2026-03-02
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 28.9m
+Avg. Volume: 3.8m
+Gap %: -2.57
+Premarket volume: 68.3k (2% avg, 0.2% float)
+Short %: 14
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/DUOL_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/DUOL_2026-03-02.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Continued weakness following the February 27 earnings selloff. The -2.57% gap reflects ongoing selling pressure as investors digested the strategic shift toward user growth over profitability. Short interest declined slightly to 14% (from 15.7%) as some shorts took profits after the 21% initial drop.
+
+## Ticker: DELL Date: 2026-02-27
+
+### Big Picture
+
+Market Momentum: Positive
+
+### Intraday Fundamentals
+
+Float: 296.5m
+Avg. Volume: 8.1m
+Gap %: 13.18
+Premarket volume: 977.2k (12% avg, 0.3% float)
+Short %: 13.7
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/DELL_2026-02-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/DELL_2026-02-27.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+DELL surged 13.18% on Q4 FY2026 earnings beat driven by explosive AI server demand. The company reported 342% YoY growth in AI-optimized servers with a $43B AI backlog. Strong results across infrastructure and client solutions validated Dell's positioning in the AI infrastructure buildout. The 12% premarket volume reflected institutional accumulation ahead of the gap up.
+
+## Ticker: DELL Date: 2026-03-02
+
+### Big Picture
+
+Market Momentum: Positive
+
+### Intraday Fundamentals
+
+Float: 296.5m
+Avg. Volume: 9.4m
+Gap %: -0.90
+Premarket volume: 238.1k (3% avg, 0.1% float)
+Short %: 15.9
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/DELL_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/DELL_2026-03-02.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Minor consolidation following the February 27 earnings surge. The -0.90% gap reflects profit-taking after the 13% rally, but the AI server momentum story remained intact. Short interest increased to 15.9% (from 13.7%) as traders bet on a pullback after the sharp move.
+
+## Ticker: XYZ Date: 2026-02-27
+
+### Big Picture
+
+Market Momentum: Unknown
+
+### Intraday Fundamentals
+
+Float: 524.4m
+Avg. Volume: 9.7m
+Gap %: 15.70
+Premarket volume: 1.3m (13% avg, 0.2% float)
+Short %: 10.6
+Catalyst: Unknown
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/XYZ_2026-02-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Unknown
+Play: Unknown
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/XYZ_2026-02-27.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+Note: XYZ (ExamWorks) is not a valid publicly traded stock as of this date. The company was acquired by Leonard Green & Partners in 2016 and taken private. This entry may represent data quality issues or a different ticker symbol.
+
+## Ticker: XYZ Date: 2026-03-02
+
+### Big Picture
+
+Market Momentum: Unknown
+
+### Intraday Fundamentals
+
+Float: 524.4m
+Avg. Volume: 11.4m
+Gap %: -5.79
+Premarket volume: 222.3k (2% avg, 0.0% float)
+Short %: 22.9
+Catalyst: Unknown
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/XYZ_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Unknown
+Play: Unknown
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/XYZ_2026-03-02.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+Note: XYZ (ExamWorks) is not a valid publicly traded stock as of this date. The company was acquired by Leonard Green & Partners in 2016 and taken private. This entry may represent data quality issues or a different ticker symbol.
+
+## Ticker: NFLX Date: 2026-02-27
+
+### Big Picture
+
+Market Momentum: Positive
+
+### Intraday Fundamentals
+
+Float: 4.2b
+Avg. Volume: 46.3m
+Gap %: 11.47
+Premarket volume: 4.8m (10% avg, 0.1% float)
+Short %: 14.6
+Catalyst: Major Deal
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/NFLX_2026-02-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/NFLX_2026-02-27.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+NFLX surged 11.47% after walking away from its proposed acquisition of Warner Bros Discovery and collecting a $2.8B breakup fee. The market viewed this as a win-win: Netflix avoided integration risks and debt burden while gaining substantial cash. The decision signaled management discipline and strengthened the balance sheet, driving the rally.
+
+## Ticker: NFLX Date: 2026-03-02
+
+### Big Picture
+
+Market Momentum: Positive
+
+### Intraday Fundamentals
+
+Float: 4.2b
+Avg. Volume: 54.2m
+Gap %: -1.02
+Premarket volume: 1.9m (3% avg, 0.0% float)
+Short %: 19.8
+Catalyst: Major Deal
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/NFLX_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/NFLX_2026-03-02.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Minor consolidation following the February 27 breakup fee rally. The -1.02% gap reflects profit-taking after the 11% surge, but the positive sentiment around the deal termination remained. Short interest increased to 19.8% (from 14.6%) as traders bet on a pullback.
+
+## Ticker: RUN Date: 2026-02-27
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 226.0m
+Avg. Volume: 8.2m
+Gap %: -8.96
+Premarket volume: 352.3k (4% avg, 0.2% float)
+Short %: 17.9
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/RUN_2026-02-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/RUN_2026-02-27.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+RUN gapped down 8.96% despite beating Q4 2025 estimates with $1.16B revenue and $0.38 EPS. The selloff was driven by cautious 2026 guidance announcing a strategic pivot toward margin-focused growth, including plans to reduce affiliate partner volumes by over 40% and a 30% decrease in net subscriber value. The market reacted negatively to the volume reduction despite the profitability focus.
+
+## Ticker: RUN Date: 2026-03-02
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 226.0m
+Avg. Volume: 10.6m
+Gap %: -2.64
+Premarket volume: 204.1k (2% avg, 0.1% float)
+Short %: 28.5
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/RUN_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/RUN_2026-03-02.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Continued weakness following the February 27 earnings selloff. The -2.64% gap reflects ongoing concerns about the 40% reduction in affiliate partner volumes. Short interest surged to 28.5% (from 17.9%) as traders bet on further downside from the strategic pivot away from growth.
+
+## Ticker: FLUT Date: 2026-02-27
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 142.3m
+Avg. Volume: 4.8m
+Gap %: -10.63
+Premarket volume: 186.7k (4% avg, 0.1% float)
+Short %: 15.1
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/FLUT_2026-02-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/FLUT_2026-02-27.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+FLUT gapped down 10.63% after Q4 2025 earnings missed expectations with $4.74B revenue and $1.74 EPS both below analyst estimates. The company provided tempered 2026 guidance projecting $18.4B revenue and $2.97B adjusted EBITDA (at midpoints), falling short of market expectations. Management cited moderation in market growth and bookmaker-friendly sports results as headwinds despite maintaining strong U.S. market leadership with FanDuel.
+
+## Ticker: FLUT Date: 2026-03-02
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 142.3m
+Avg. Volume: 5.8m
+Gap %: -2.38
+Premarket volume: 20.6k (0% avg, 0.0% float)
+Short %: 15.9
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/FLUT_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/FLUT_2026-03-02.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+No new catalyst. Continued weakness following the February 27 earnings miss. The -2.38% gap reflects ongoing selling pressure as investors digested the disappointing Q4 results and tempered 2026 guidance. Short interest increased slightly to 15.9% (from 15.1%) as traders maintained bearish positions.
+
