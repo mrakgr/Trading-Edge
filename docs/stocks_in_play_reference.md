@@ -1795,3 +1795,227 @@ Play: Parabolic Reversal
 
 MOBX continued the speculative rally with another 18.95% gap, completing a multi-day parabolic move on the Navy Tomahawk contract. Premarket volume cooled to 31.9% of float (down from 100%+ on prior days), signaling waning momentum. The stock remained fundamentally weak with short-term obligations exceeding liquid assets and rapid cash burn. CEO Phil Sansone emphasized the order reflected "active and ongoing production demand," but analysts warned of the micro-cap's chronic unprofitability and imminent delisting risk.
 
+## Ticker: UGRO Date: 2026-03-23
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 671.0k
+Avg. Volume: 75.6k
+Gap %: 64.22
+Premarket volume: 28.1m (37106% avg, 4182.2% float)
+Short %: 19.3
+Catalyst: Merger
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/UGRO_2026-03-23_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/UGRO_2026-03-23.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+UGRO exploded 63-68% following announcement that it regained full Nasdaq compliance on March 9, removing delisting risk. The rally was amplified by the company's February merger with Flash Sports & Media, pivoting from controlled-environment agriculture to sports/media/live events in the T20 cricket ecosystem. With only 671k float after a 1-for-25 reverse stock split, premarket volume hit an astronomical 4182.2% of float (28.1M shares), signaling extreme speculative frenzy and short covering in the micro-cap name.
+
+## Ticker: UGRO Date: 2026-03-24
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 671.0k
+Avg. Volume: 8.2m
+Gap %: 31.54
+Premarket volume: 7.4m (90% avg, 1098.5% float)
+Short %: 20.5
+Catalyst: Merger
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/UGRO_2026-03-24_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Second Day
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/UGRO_2026-03-24.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+Second day parabolic move with another 31.54% gap as momentum traders continued piling into the Nasdaq compliance and Flash Sports & Media merger story. Premarket volume remained extreme at 1098.5% of float. The ultra-low 671k float amplified price movements as retail investors chased the speculative rally despite the company's negative profit margins and recent 1-for-25 reverse stock split.
+
+## Ticker: UGRO Date: 2026-03-25
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 671.0k
+Avg. Volume: 9.6m
+Gap %: 15.10
+Premarket volume: 3.4m (35% avg, 503.6% float)
+Short %: 19.6
+Catalyst: Merger
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/UGRO_2026-03-25_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Parabolic Reversal
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/UGRO_2026-03-25.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+UGRO extended the parabolic move with another 15.10% gap, though momentum was clearly slowing from prior days. Premarket volume cooled to 503.6% of float (down from 1098.5% and 4182.2% on prior days). The stock remained fundamentally weak with negative profit margins despite the strategic pivot to sports/media. The declining gap percentage and volume signaled exhaustion of the speculative rally.
+
+## Ticker: UGRO Date: 2026-03-26
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 671.0k
+Avg. Volume: 13.5m
+Gap %: -30.28
+Premarket volume: 1.2m (9% avg, 186.2% float)
+Short %: 24.6
+Catalyst: Merger
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/UGRO_2026-03-26_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Pump And Dump
+Play: Parabolic Reversal
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/UGRO_2026-03-26.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+The parabolic move collapsed with a -30.28% gap as profit-taking accelerated. Short interest spiked to 24.6% as traders positioned against the fundamentally weak micro-cap. Despite the three-day rally on Nasdaq compliance and the Flash Sports & Media merger, the company's negative profit margins and recent reverse stock split caught up with the speculative frenzy. Premarket volume remained elevated at 186.2% of float as the pump-and-dump pattern completed.
+
+## Ticker: ARM Date: 2026-03-25
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 1.1b
+Avg. Volume: 4.8m
+Gap %: 9.85
+Premarket volume: 828.3k (17% avg, 0.1% float)
+Short %: 22.1
+Catalyst: Product Launch
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/ARM_2026-03-25_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Changing Fundamentals
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/ARM_2026-03-25.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+ARM announced a major business model shift, moving beyond IP licensing to produce and sell its own AGI CPUs designed for agentic AI workloads. Meta became the first customer for the new processors, with ARM projecting $15B in annual chip revenue by fiscal 2031. The stock surged 16%+ following the announcement as analysts upgraded their outlooks, with Guggenheim raising its target to $240 and Raymond James upgrading to "outperform."
+
+## Ticker: DOCN Date: 2026-03-25
+
+### Big Picture
+
+Market Momentum: Neutral
+
+### Intraday Fundamentals
+
+Float: 67.5m
+Avg. Volume: 3.6m
+Gap %: -7.21
+Premarket volume: 386.0k (11% avg, 0.6% float)
+Short %: 29.9
+Catalyst: Offering
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/DOCN_2026-03-25_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Negative Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/DOCN_2026-03-25.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+DOCN announced an upsized public offering of 10.4M shares at $74.40, increasing the raise from $700M to $800M. The company plans to use proceeds for infrastructure capacity expansion to support AI platform demand, pay down Term Loan A debt, and general corporate purposes. The stock fell over 7% on dilution concerns before recovering to close at $87.00.
+
+## Ticker: AGX Date: 2026-03-27
+
+### Big Picture
+
+Market Momentum: Negative
+
+### Intraday Fundamentals
+
+Float: 13.3m
+Avg. Volume: 549.5k
+Gap %: 23.06
+Premarket volume: 7.4k (1% avg, 0.1% float)
+Short %: 20.8
+Catalyst: Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/AGX_2026-03-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Strong Positive Momentum
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/AGX_2026-03-27.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+AGX surged 38% to an all-time high of $566.62 after reporting Q4 FY2026 earnings of $3.47 per share, crushing the $1.99 consensus. Revenue hit $262.1M with a record $2.9B project backlog driven by data center and AI power infrastructure demand. JPMorgan upgraded the stock from Neutral to Overweight with a $550 target, citing the company's debt-free balance sheet and strong positioning in the power infrastructure buildout.
+
+## Ticker: U Date: 2026-03-27
+
+### Big Picture
+
+Market Momentum: Negative
+
+### Intraday Fundamentals
+
+Float: 348.0m
+Avg. Volume: 13.7m
+Gap %: 18.07
+Premarket volume: 1.6m (11% avg, 0.4% float)
+Short %: 7.4
+Catalyst: Strong Earnings Surprise
+
+### Technical Analysis
+<div class="chart-placeholder" data-src="charts/U_2026-03-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+Overall Pattern: Changing Fundamentals
+Play: Changing Fundamentals
+
+### Orderflow Analysis
+<div class="chart-placeholder" data-src="charts/U_2026-03-27.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+
+### News Summary
+
+Unity surged 12.8% after raising preliminary Q1 2026 revenue guidance to $505-508M (vs $480-490M prior) and adjusted EBITDA to $130-135M (vs $105-110M prior). The beat was driven by Unity Vector, the company's AI-powered advertising platform. Unity announced strategic streamlining: shutting down ironSource Ads Network (April 30), exploring sale of Supersonic game publishing business, and potential $1B+ sale of China division. Bank of America raised price targets following the operational simplification.
+
