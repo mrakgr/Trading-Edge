@@ -313,3 +313,11 @@ Database: /home/mrakgr/Trading-Edge/data/trading.db
    2. SMCI    Gap: -26.86%  RVOL:   5.1x  Score:  6.17
    3. FDX     Gap:  +6.94%  RVOL:   3.3x  Score:  3.49
    4. ARM     Gap:  +5.45%  RVOL:   3.1x  Score:  3.21
+=== 2026-03-25 ===
+   1. UGRO    Gap: +15.10%  RVOL:  14.8x  Score: 14.79
+   2. TERN    Gap:  +5.26%  RVOL:  13.6x  Score: 13.14
+   3. ARM     Gap:  +9.85%  RVOL:   5.8x  Score:  5.96
+   4. DOCN    Gap:  -7.21%  RVOL:   4.1x  Score:  4.30
+=== 2026-03-27 ===
+   1. AGX     Gap: +23.06%  RVOL:   3.8x  Score:  4.78
+   2. U       Gap: +18.07%  RVOL:   3.5x  Score:  4.18
