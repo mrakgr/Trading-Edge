@@ -105,7 +105,7 @@ $Files = @(
     # @{Ticker = "RUN"; Date = "2026-02-27"; Float = "226m"; Short = 17.9}
     # @{Ticker = "RUN"; Date = "2026-03-02"; Float = "226m"; Short = 28.5}
     # @{Ticker = "FLUT"; Date = "2026-02-27"; Float = "142.3m"; Short = 15.1}
-    @{Ticker = "FLUT"; Date = "2026-03-02"; Float = "142.3m"; Short = 15.9}
+    # @{Ticker = "FLUT"; Date = "2026-03-02"; Float = "142.3m"; Short = 15.9}
 )
 
 $showExtended = "true"

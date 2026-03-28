@@ -1799,7 +1799,7 @@ MOBX continued the speculative rally with another 18.95% gap, completing a multi
 
 ### Big Picture
 
-Market Momentum: Neutral
+Market Momentum: Negative
 
 ### Intraday Fundamentals
 
@@ -1827,7 +1827,7 @@ UGRO exploded 63-68% following announcement that it regained full Nasdaq complia
 
 ### Big Picture
 
-Market Momentum: Neutral
+Market Momentum: Negative
 
 ### Intraday Fundamentals
 
@@ -1855,7 +1855,7 @@ Second day parabolic move with another 31.54% gap as momentum traders continued 
 
 ### Big Picture
 
-Market Momentum: Neutral
+Market Momentum: Negative
 
 ### Intraday Fundamentals
 
@@ -1883,7 +1883,7 @@ UGRO extended the parabolic move with another 15.10% gap, though momentum was cl
 
 ### Big Picture
 
-Market Momentum: Neutral
+Market Momentum: Negative
 
 ### Intraday Fundamentals
 
@@ -1911,7 +1911,7 @@ The parabolic move collapsed with a -30.28% gap as profit-taking accelerated. Sh
 
 ### Big Picture
 
-Market Momentum: Neutral
+Market Momentum: Negative
 
 ### Intraday Fundamentals
 
@@ -1925,7 +1925,7 @@ Catalyst: Product Launch
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/ARM_2026-03-25_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Changing Fundamentals
+Overall Pattern: Positive Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
@@ -1939,7 +1939,7 @@ ARM announced a major business model shift, moving beyond IP licensing to produc
 
 ### Big Picture
 
-Market Momentum: Neutral
+Market Momentum: Negative
 
 ### Intraday Fundamentals
 
@@ -1953,7 +1953,7 @@ Catalyst: Offering
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/DOCN_2026-03-25_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Negative Momentum
+Overall Pattern: Strong Positive Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
@@ -1981,7 +1981,7 @@ Catalyst: Earnings Surprise
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/AGX_2026-03-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Positive Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
@@ -2009,7 +2009,7 @@ Catalyst: Strong Earnings Surprise
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/U_2026-03-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Changing Fundamentals
+Overall Pattern: Strong Negative Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
@@ -2093,7 +2093,7 @@ Catalyst: Major Supply Disruption
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/VG_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Positive Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
@@ -2121,7 +2121,7 @@ Catalyst: Major Supply Disruption
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/VG_2026-03-04_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Positive Momentum
 Play: Second Day
 
 ### Orderflow Analysis
@@ -2233,7 +2233,7 @@ Catalyst: Offering
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/NRG_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Negative Momentum
+Overall Pattern: Positive Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
@@ -2261,7 +2261,7 @@ Catalyst: Offering
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/NRG_2026-03-04_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Negative Momentum
+Overall Pattern: Positive Momentum
 Play: Second Day
 
 ### Orderflow Analysis
@@ -2289,7 +2289,7 @@ Catalyst: Earnings Surprise
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/ONON_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Negative Momentum
+Overall Pattern: Battleground
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
@@ -2317,7 +2317,7 @@ Catalyst: Earnings Surprise
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/ONON_2026-03-04_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Negative Momentum
+Overall Pattern: Battleground
 Play: Second Day
 
 ### Orderflow Analysis
@@ -2401,7 +2401,7 @@ Catalyst: Deal
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/AVAV_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Negative Momentum
+Overall Pattern: Negative Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
@@ -2429,7 +2429,7 @@ Catalyst: Deal
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/AVAV_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Negative Momentum
+Overall Pattern: Negative Momentum
 Play: Second Day
 
 ### Orderflow Analysis
@@ -2457,7 +2457,7 @@ Catalyst: Deal
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/AES_2026-02-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Positive Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
@@ -2485,7 +2485,7 @@ Catalyst: Offering
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/KTOS_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Positive Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
@@ -2513,7 +2513,7 @@ Catalyst: Offering
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/KTOS_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Positive Momentum
 Play: Second Day
 
 ### Orderflow Analysis
@@ -2541,7 +2541,7 @@ Catalyst: Deal
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/RCAT_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Positive Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
@@ -2569,7 +2569,7 @@ Catalyst: Deal
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/RCAT_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Positive Momentum
 Play: Second Day
 
 ### Orderflow Analysis
@@ -2597,7 +2597,7 @@ Catalyst: Earnings Surprise
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/LASR_2026-02-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Negative Momentum
+Overall Pattern: Strong Positive Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
@@ -2625,7 +2625,7 @@ Catalyst: Earnings Surprise
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/LASR_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Negative Momentum
+Overall Pattern: Strong Positive Momentum
 Play: Second Day
 
 ### Orderflow Analysis
@@ -2653,7 +2653,7 @@ Catalyst: Earnings Surprise
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/LASR_2026-03-03_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Negative Momentum
+Overall Pattern: Strong Positive Momentum
 Play: Second Day
 
 ### Orderflow Analysis
@@ -2737,7 +2737,7 @@ Catalyst: Earnings Surprise
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/DELL_2026-02-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Neutral
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
@@ -2765,7 +2765,7 @@ Catalyst: Earnings Surprise
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/DELL_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Neutral
 Play: Second Day
 
 ### Orderflow Analysis
@@ -2779,7 +2779,7 @@ No new catalyst. Minor consolidation following the February 27 earnings surge. T
 
 ### Big Picture
 
-Market Momentum: Unknown
+Market Momentum: Positive
 
 ### Intraday Fundamentals
 
@@ -2788,26 +2788,26 @@ Avg. Volume: 9.7m
 Gap %: 15.70
 Premarket volume: 1.3m (13% avg, 0.2% float)
 Short %: 10.6
-Catalyst: Unknown
+Catalyst: Earnings Surprise
 
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/XYZ_2026-02-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Unknown
-Play: Unknown
+Overall Pattern: Negative Momentum
+Play: Changing Fundamentals
 
 ### Orderflow Analysis
 <div class="chart-placeholder" data-src="charts/XYZ_2026-02-27.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
-Note: XYZ (ExamWorks) is not a valid publicly traded stock as of this date. The company was acquired by Leonard Green & Partners in 2016 and taken private. This entry may represent data quality issues or a different ticker symbol.
+XYZ (Block Inc.) surged 15.70% following Q4 2025 earnings released Feb 26 after market close. The company announced a major restructuring plan to reduce workforce by 40%+ (from 10,000+ to under 6,000) driven by AI integration. Strong 2026 guidance included $12.20B gross profit target (up 18% YoY) and $3.20B adjusted operating income (26% margin). Stock jumped 25%+ in after-hours trading and continued momentum through Feb 27.
 
 ## Ticker: XYZ Date: 2026-03-02
 
 ### Big Picture
 
-Market Momentum: Unknown
+Market Momentum: Neutral
 
 ### Intraday Fundamentals
 
@@ -2816,26 +2816,26 @@ Avg. Volume: 11.4m
 Gap %: -5.79
 Premarket volume: 222.3k (2% avg, 0.0% float)
 Short %: 22.9
-Catalyst: Unknown
+Catalyst: None
 
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/XYZ_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Unknown
-Play: Unknown
+Overall Pattern: Negative Momentum
+Play: Second Day
 
 ### Orderflow Analysis
 <div class="chart-placeholder" data-src="charts/XYZ_2026-03-02.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 ### News Summary
 
-Note: XYZ (ExamWorks) is not a valid publicly traded stock as of this date. The company was acquired by Leonard Green & Partners in 2016 and taken private. This entry may represent data quality issues or a different ticker symbol.
+XYZ gapped down 5.79% on profit-taking following the Feb 27 surge. Market digested concerns about the 40%+ workforce reduction announced Feb 26. BNP Paribas maintained Outperform rating but lowered price target from $83 to $79 on Mar 2. No new fundamental catalyst, just consolidation after the major restructuring announcement.
 
 ## Ticker: NFLX Date: 2026-02-27
 
 ### Big Picture
 
-Market Momentum: Positive
+Market Momentum: Neutral
 
 ### Intraday Fundamentals
 
@@ -2849,7 +2849,7 @@ Catalyst: Major Deal
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/NFLX_2026-02-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Negative Momentum
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
@@ -2863,7 +2863,7 @@ NFLX surged 11.47% after walking away from its proposed acquisition of Warner Br
 
 ### Big Picture
 
-Market Momentum: Positive
+Market Momentum: Neutral
 
 ### Intraday Fundamentals
 
@@ -2877,7 +2877,7 @@ Catalyst: Major Deal
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/NFLX_2026-03-02_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Positive Momentum
+Overall Pattern: Negative Momentum
 Play: Second Day
 
 ### Orderflow Analysis
@@ -2905,7 +2905,7 @@ Catalyst: Earnings Surprise
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/RUN_2026-02-27_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
-Overall Pattern: Strong Negative Momentum
+Overall Pattern: Neutral
 Play: Changing Fundamentals
 
 ### Orderflow Analysis
