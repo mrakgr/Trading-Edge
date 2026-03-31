@@ -178,6 +178,9 @@ let repeat (pattern: Pattern<'r>) : Pattern<'r> =
                     loop genCtx')
         loop ctx
 
+// Retargets the target to the price.
+let retarget : Pattern<'r> = fun ctx cont -> cont {ctx with StartTarget = ctx.StartPrice}
+
 // =============================================================================
 // Default Effect Handler
 // =============================================================================

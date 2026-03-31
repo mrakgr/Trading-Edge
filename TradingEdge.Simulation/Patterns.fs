@@ -34,9 +34,6 @@ let downtrendDay (baseParams: BaseParams) : Pattern<'r> =
         // Wide target sigma allows significant price movement
         let targetSigma = 50. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
         
-        // Retargets the target to the price.
-        let retarget : Pattern<'r> = fun ctx cont -> cont {ctx with StartTarget = ctx.StartPrice}
-
         // Flat drift: normal volume, no directional bias
         let driftFlat : Pattern<'r> =
             fun ctx cont ->
@@ -65,6 +62,7 @@ let downtrendDay (baseParams: BaseParams) : Pattern<'r> =
                 let looseSigma = 10. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
                 let tightSigma = 1. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
                 generateHold baseParams ["Hold"; "DowntrendDay"] volumeAbnormality (tightSigma, volumePerMove * 0.8 * 0.3) (looseSigma, volumePerMove * 0.2 * 0.3) volumePerMove false ctx cont
+                
             let release ctx cont =
                 let volumeAbnormality = 4.
                 let volumePerMove = volumePerMove baseParams ctx (1.5 * volumeUnitsPerMove)
