@@ -83,3 +83,39 @@ let downtrendDay (baseParams: BaseParams) : Pattern<'r> =
 
         // Apply repeat to each session pattern and sequence them
         sequence [repeat morning; retarget; repeat mid; retarget; repeat close] ctx cont
+
+/// Neutral day pattern: No directional bias, normal volume throughout.
+/// Models a typical day with random walk behavior and occasional small consolidations.
+let neutralDay (baseParams: BaseParams) : Pattern<'r> =
+    fun ctx cont ->
+        let volumeUnitsPerMove = 30.0 * 60.0  // Shorter moves than downtrend
+
+        // Moderate target sigma for typical price movement
+        let targetSigma = 20. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
+
+        // Random walk drift: normal volume, no directional bias
+        let driftNeutral : Pattern<'r> =
+            fun ctx cont ->
+                let volumeAbnormality = 1.
+                let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
+                let moveSigma = volumeAbnormality * baseParams.BaseVolatility * sqrt volumePerMove
+                let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, 0.0, moveSigma)
+                generateDrift baseParams ["DriftNeutral"; "NeutralDay"] volumeAbnormality target targetSigma volumePerMove true ctx cont
+
+        // Small consolidation: 2x volume, tight range
+        let smallHold : Pattern<'r> =
+            let hold ctx cont =
+                let volumeAbnormality = 2.
+                let volumePerMove = volumePerMove baseParams ctx (0.5 * volumeUnitsPerMove)
+                let tightSigma = 2. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
+                generateHold baseParams ["SmallHold"; "NeutralDay"] volumeAbnormality (tightSigma, volumePerMove * 0.9) (tightSigma * 2., volumePerMove * 0.1) volumePerMove false ctx cont
+            sequence [retarget; hold]
+
+        // Session pattern: mostly neutral drift with occasional small holds
+        let session : Pattern<'r> =
+            choice [
+                driftNeutral, 0.85
+                smallHold, 0.15
+            ]
+
+        repeat session ctx cont
