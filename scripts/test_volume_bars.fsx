@@ -15,6 +15,11 @@ let tradesPath = "data/trades/LW/2025-12-19.json"
 printfn "Loading trades..."
 let trades = loadTrades tradesPath
 
+let openingPrints = trades |> Array.filter (fun t -> t.Session = OpeningPrint)
+printfn "Found %d opening print trades" openingPrints.Length
+if openingPrints.Length > 0 then
+    printfn "First opening print at: %s" (openingPrints.[0].Timestamp.ToString("HH:mm:ss"))
+
 printfn "Getting average volume..."
 let avgVolume = getAvgVolume ticker (Some date) dbPath
 
@@ -28,20 +33,27 @@ match avgVolume with
     let bars = createVolumeBars trades barSize
     printfn "Created %d bars" bars.Length
 
+    // Find opening print bar
+    let openingPrintBar = bars |> Array.tryFindIndex (fun b -> b.VWMA > 0.0)
+    match openingPrintBar with
+    | Some idx -> printfn "Opening print starts at bar %d (time: %s)" idx (bars.[idx].StartTime.ToString("HH:mm:ss"))
+    | None -> printfn "No opening print found"
+
     // Output to CSV
     let outputPath = "data/volume_bars_LW_2025-12-19.csv"
     use writer = new StreamWriter(outputPath)
-    writer.WriteLine("cumulative_volume,vwap,stddev,volume,start_time,end_time,num_trades")
+    writer.WriteLine("cumulative_volume,vwap,stddev,volume,start_time,end_time,num_trades,vwma")
 
     for bar in bars do
-        writer.WriteLine(sprintf "%.0f,%.4f,%.6f,%.0f,%s,%s,%d"
+        writer.WriteLine(sprintf "%.0f,%.4f,%.6f,%.0f,%s,%s,%d,%.4f"
             bar.CumulativeVolume
             bar.VWAP
             bar.StdDev
             bar.Volume
             (bar.StartTime.ToString("o"))
             (bar.EndTime.ToString("o"))
-            bar.NumTrades)
+            bar.NumTrades
+            bar.VWMA)
 
     printfn "Saved to %s" outputPath
 | None ->

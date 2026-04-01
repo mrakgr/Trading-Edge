@@ -59,6 +59,7 @@ type VolumeBar = {
     StartTime: DateTime
     EndTime: DateTime
     NumTrades: int
+    VWMA: float  // Volume-weighted moving average
 }
 
 // =============================================================================
@@ -67,6 +68,15 @@ type VolumeBar = {
 
 let calculateBarSize (avgVolume: float) : float =
     avgVolume * 3.0 / 4000.0
+
+let calculateVWMA (bars: VolumeBar[]) (currentIndex: int) (startIndex: int) : float =
+    if currentIndex < startIndex then 0.0
+    else
+        let relevantBars = bars.[startIndex..currentIndex]
+        let totalVolume = relevantBars |> Array.sumBy (fun b -> b.Volume)
+        let weightedSum = relevantBars |> Array.sumBy (fun b -> b.VWAP * b.Volume)
+        weightedSum / totalVolume
+
 
 let computeBarStats (barData: ResizeArray<float * float * DateTime>) (prevCumulativeVolume: float) : VolumeBar =
     let prices = barData |> Seq.map (fun (p, _, _) -> p) |> Seq.toArray
@@ -84,7 +94,8 @@ let computeBarStats (barData: ResizeArray<float * float * DateTime>) (prevCumula
       Volume = totalVolume
       StartTime = timestamps.[0]
       EndTime = timestamps.[timestamps.Length - 1]
-      NumTrades = barData.Count }
+      NumTrades = barData.Count
+      VWMA = 0.0 }  // Will be calculated in second pass
 
 let createVolumeBars (trades: Trade[]) (volumePerBar: float) : VolumeBar[] =
     let bars = ResizeArray<VolumeBar>()
@@ -119,7 +130,28 @@ let createVolumeBars (trades: Trade[]) (volumePerBar: float) : VolumeBar[] =
         let bar = computeBarStats barData cumulativeVolume
         bars.Add(bar)
 
-    bars.ToArray()
+    let barsArray = bars.ToArray()
+
+    // Find opening print timestamp
+    let openingPrintTime =
+        trades
+        |> Array.tryFind (fun t -> t.Session = OpeningPrint)
+        |> Option.map (fun t -> t.Timestamp)
+
+    // Find the first bar at or after opening print
+    let openingPrintIndex =
+        match openingPrintTime with
+        | Some opTime ->
+            barsArray
+            |> Array.tryFindIndex (fun b -> b.EndTime >= opTime)
+            |> Option.defaultValue 0
+        | None -> 0
+
+    // Second pass: calculate VWMA from opening print onwards
+    for i in 0 .. barsArray.Length - 1 do
+        barsArray.[i] <- { barsArray.[i] with VWMA = calculateVWMA barsArray i openingPrintIndex }
+
+    barsArray
 
 
 

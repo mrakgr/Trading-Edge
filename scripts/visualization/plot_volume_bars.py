@@ -15,6 +15,13 @@ def plot_volume_bars(csv_path, output_html):
     df['end_time'] = pd.to_datetime(df['end_time'])
     df['duration_s'] = (df['end_time'] - df['start_time']).dt.total_seconds()
 
+    # Format times for display
+    df['start_time_str'] = df['start_time'].dt.strftime('%H:%M:%S.%f').str[:-3]
+    df['end_time_str'] = df['end_time'].dt.strftime('%H:%M:%S.%f').str[:-3]
+
+    # Use cumulative volume as x-axis
+    x_vals = df['cumulative_volume']
+
     # Calculate session VWAP
     session_vwap = (df['vwap'] * df['volume']).sum() / df['volume'].sum()
 
@@ -45,7 +52,7 @@ def plot_volume_bars(csv_path, output_html):
 
     # Plot bars
     fig.add_trace(go.Bar(
-        x=df['cumulative_volume'],
+        x=x_vals,
         y=bar_heights,
         base=bar_bases,
         name='VWAP ±2σ',
@@ -55,13 +62,15 @@ def plot_volume_bars(csv_path, output_html):
         hovertemplate='<b>Volume:</b> %{x:,.0f}<br>' +
                       '<b>VWAP:</b> %{customdata[0]:.2f}<br>' +
                       '<b>StdDev:</b> %{customdata[1]:.6f}<br>' +
-                      '<b>Duration:</b> %{customdata[2]:.3f}s<extra></extra>',
-        customdata=df[['vwap', 'stddev', 'duration_s']].values
+                      '<b>Start:</b> %{customdata[2]}<br>' +
+                      '<b>End:</b> %{customdata[3]}<br>' +
+                      '<b>Duration:</b> %{customdata[4]:.3f}s<extra></extra>',
+        customdata=df[['vwap', 'stddev', 'start_time_str', 'end_time_str', 'duration_s']].values
     ), row=1, col=1)
 
     # Add VWAP line
     fig.add_trace(go.Scatter(
-        x=df['cumulative_volume'],
+        x=x_vals,
         y=df['vwap'],
         mode='lines',
         name='VWAP',
@@ -69,27 +78,34 @@ def plot_volume_bars(csv_path, output_html):
         hoverinfo='skip'
     ), row=1, col=1)
 
-    # Add session VWAP line
-    fig.add_hline(y=session_vwap, line_dash="dash", line_color="orange",
-                  annotation_text=f"Session VWAP: {session_vwap:.2f}", row=1, col=1)
+    # Add VWMA line
+    fig.add_trace(go.Scatter(
+        x=x_vals,
+        y=df['vwma'],
+        mode='lines',
+        name='VWMA',
+        line=dict(color='orange', width=2),
+        hovertemplate='Time: %{x}<br>VWMA: %{y:.2f}<extra></extra>'
+    ), row=1, col=1)
+
 
     # Plot time duration
     fig.add_trace(go.Scatter(
-        x=df['cumulative_volume'],
+        x=x_vals,
         y=df['duration_s'],
         fill='tozeroy',
         mode='lines',
         name='Duration',
         line=dict(color='blue', width=1),
         fillcolor='rgba(0, 0, 255, 0.3)',
-        hovertemplate='Volume: %{x:,.0f}<br>Duration: %{y:.3f}s<extra></extra>'
+        hovertemplate='Time: %{x}<br>Duration: %{y:.3f}s<extra></extra>'
     ), row=2, col=1)
 
     fig.update_layout(
         height=700,
         width=1400,
         hovermode='closest',
-        xaxis2_title='Cumulative Volume',
+        xaxis2_title='Time',
         showlegend=False
     )
 
