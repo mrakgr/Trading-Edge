@@ -45,7 +45,6 @@ def should_exclude_trade(trade, exclude_odd_lots=True, exclude_extended_hours=Tr
 
     if not exclude_extended_hours:
         exclude_codes.discard(12)
-        exclude_codes.discard(13)
 
     return bool(conditions & exclude_codes)
 
