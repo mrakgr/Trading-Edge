@@ -29,7 +29,8 @@ type RawTrade =
         tape: int
     }
 
-    member t.TimeStamp = if t.participant_timestamp <> 0 then t.participant_timestamp else t.sip_timestamp
+let timestamp (t : RawTrade) = if t.participant_timestamp <> 0 then t.participant_timestamp else t.sip_timestamp
+let conditions (t : RawTrade) = Option.defaultValue [||] t.conditions
 
 type Trade = {
     Timestamp: DateTime
@@ -47,55 +48,60 @@ let excludeConditions = Set.ofList [
     2   // Average Price Trade
     7   // Cash Sale (special settlement)
     10  // Derivatively Priced
-    12  // Form T/Extended Hours
     13  // Extended Hours (Sold Out Of Sequence)
     20  // Next Day (special settlement)
     21  // Price Variation Trade
     22  // Prior Reference Price
     29  // Seller (special settlement)
     32  // Sold (Out of Sequence)
-    37  // Odd Lot Trade
     41  // Extended Trading Hours (Sold Out of Sequence)
     52  // Contingent Trade
     53  // Qualified Contingent Trade (QCT)
 ]
 
-let excludeForPriceDiscovery = excludeConditions - Set.ofList [37; 12] // Include odd lots and extended hour trades. Out of sequence trades always reduce the dataset quality and should be left out.
+let openingPrintConditions = Set.ofList [
+    17  // Market Center Opening Trade
+    25  // Opening Prints
+]
 
-let shouldExclude (conditions: int[] option) =
-    match conditions with
-    | None -> false
-    | Some codes -> codes |> Array.exists (fun c -> excludeForPriceDiscovery.Contains c)
+let closingPrintConditions = Set.ofList [
+    19  // Market Center Closing Trade
+    8   // Closing Prints
+]
+
+let openingAndClosingPrintConditions = openingPrintConditions + closingPrintConditions
+
+let shouldExclude (conditions: int[]) =
+    let c = Set.ofArray conditions
+    if Set.intersect c openingAndClosingPrintConditions |> Set.isEmpty |> not then false
+    else Set.intersect c excludeConditions |> Set.isEmpty |> not
 
 let detectMarketHours (rawTrades: RawTrade[]) : (int64 * int64) option =
     let mutable openTs = None
     let mutable closeTs = None
 
     for trade in rawTrades do
-        match trade.conditions with
-        | Some conditions ->
-            // 16 = Market Center Official Open
-            if Array.contains 16 conditions then
-                openTs <- Some (match openTs with | Some existing -> min existing trade.TimeStamp | None -> trade.TimeStamp)
-            // 15 = Market Center Official Close
-            if Array.contains 15 conditions then
-                closeTs <- Some (match closeTs with | Some existing -> min existing trade.TimeStamp | None -> trade.TimeStamp)
-        | None -> ()
+        let conditions = conditions trade
+        // 16 = Market Center Official Open
+        if Array.contains 16 conditions then
+            openTs <- Some (match openTs with | Some existing -> min existing (timestamp trade) | None -> timestamp trade)
+        // 15 = Market Center Official Close
+        if Array.contains 15 conditions then
+            closeTs <- Some (match closeTs with | Some existing -> min existing (timestamp trade) | None -> timestamp trade)
 
     match openTs, closeTs with
     | Some o, Some c -> Some (o, c)
     | _ -> None
 
 let classifySession (t: RawTrade) (marketHours: (int64 * int64) option) : SessionType =
-    // 25 = Opening Prints, 8 = Closing Prints
-    match t.conditions with
-    | Some codes when Array.contains 25 codes -> OpeningPrint
-    | Some codes when Array.contains 8 codes -> ClosingPrint
-    | _ ->
+    let c = conditions t |> Set.ofArray
+    if Set.intersect c openingPrintConditions |> Set.isEmpty |> not then OpeningPrint
+    elif Set.intersect c closingPrintConditions |> Set.isEmpty |> not then ClosingPrint
+    else 
         match marketHours with
         | Some (openTs, closeTs) ->
-            if t.TimeStamp < openTs then Premarket
-            elif t.TimeStamp > closeTs then Postmarket
+            if timestamp t < openTs then Premarket
+            elif timestamp t > closeTs then Postmarket
             else RegularHours
         | None -> RegularHours
 
@@ -103,17 +109,17 @@ let classifySession (t: RawTrade) (marketHours: (int64 * int64) option) : Sessio
 // Loading
 // =============================================================================
 
-let loadTrades (filePath: string) : Trade[] =
+let loadTradesTemplate (filePath: string) : Trade[] =
     let json = File.ReadAllText(filePath)
-    let options = JsonSerializerOptions(PropertyNameCaseInsensitive = true)
+    let options = JsonSerializerOptions()     
     let rawTrades = JsonSerializer.Deserialize<RawTrade[]>(json, options)
 
     let marketHours = detectMarketHours rawTrades
 
     rawTrades
-    |> Array.filter (fun t -> not (shouldExclude t.conditions))
+    |> Array.filter (fun t -> not (shouldExclude (conditions t)))
     |> Array.map (fun t ->
-        let timestamp = DateTime.UnixEpoch.AddTicks(t.TimeStamp / 100L)
+        let timestamp = DateTime.UnixEpoch.AddTicks(timestamp t / 100L)
         { Timestamp = timestamp
           Price = t.price
           Volume = t.size
