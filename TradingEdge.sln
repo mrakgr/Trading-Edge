@@ -7,6 +7,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TradingEdge.Massive", "Trad
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TradingEdge.Simulation", "TradingEdge.Simulation\TradingEdge.Simulation.fsproj", "{A6143F0F-D66A-4E8F-A936-30B518B462B2}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TradingEdge.Parsing", "TradingEdge.Parsing\TradingEdge.Parsing.fsproj", "{4272FDC7-CBFF-4065-A476-F5258D2B1AEF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +26,9 @@ Global
 		{A6143F0F-D66A-4E8F-A936-30B518B462B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A6143F0F-D66A-4E8F-A936-30B518B462B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A6143F0F-D66A-4E8F-A936-30B518B462B2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4272FDC7-CBFF-4065-A476-F5258D2B1AEF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4272FDC7-CBFF-4065-A476-F5258D2B1AEF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4272FDC7-CBFF-4065-A476-F5258D2B1AEF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4272FDC7-CBFF-4065-A476-F5258D2B1AEF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
