@@ -109,7 +109,7 @@ let classifySession (t: RawTrade) (marketHours: (int64 * int64) option) : Sessio
 // Loading
 // =============================================================================
 
-let loadTradesTemplate (filePath: string) : Trade[] =
+let loadTrades (filePath: string) : Trade[] =
     let json = File.ReadAllText(filePath)
     let options = JsonSerializerOptions()     
     let rawTrades = JsonSerializer.Deserialize<RawTrade[]>(json, options)
