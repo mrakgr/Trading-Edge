@@ -1,5 +1,5 @@
 #r "nuget: FSharp.SystemTextJson, 1.3.13"
-#r "TradingEdge.Parsing/bin/Debug/net9.0/TradingEdge.Parsing.dll"
+#r "../TradingEdge.Parsing/bin/Debug/net9.0/TradingEdge.Parsing.dll"
 
 open TradingEdge.Parsing.TradeLoader
 
