@@ -9,22 +9,33 @@ open System.Text.Json.Serialization
 // Types
 // =============================================================================
 
-type RawTrade = {
-    conditions: int[] option
-    exchange: int
-    id: string
-    participant_timestamp: int64
-    price: float
-    sequence_number: int
-    sip_timestamp: int64
-    size: float
-    tape: int
-}
+type SessionType =
+    | Premarket
+    | OpeningPrint
+    | RegularHours
+    | ClosingPrint
+    | Postmarket
+
+type RawTrade = 
+    {
+        conditions: int[] option
+        exchange: int
+        id: string
+        participant_timestamp: int64
+        price: float
+        sequence_number: int
+        sip_timestamp: int64
+        size: float
+        tape: int
+    }
+
+    member t.TimeStamp = if t.participant_timestamp <> 0 then t.participant_timestamp else t.sip_timestamp
 
 type Trade = {
     Timestamp: DateTime
     Price: float
     Volume: float
+    Session: SessionType
 }
 
 // =============================================================================
@@ -56,6 +67,38 @@ let shouldExclude (conditions: int[] option) =
     | None -> false
     | Some codes -> codes |> Array.exists (fun c -> excludeForPriceDiscovery.Contains c)
 
+let detectMarketHours (rawTrades: RawTrade[]) : (int64 * int64) option =
+    let mutable openTs = None
+    let mutable closeTs = None
+
+    for trade in rawTrades do
+        match trade.conditions with
+        | Some conditions ->
+            // 16 = Market Center Official Open
+            if Array.contains 16 conditions then
+                openTs <- Some (match openTs with | Some existing -> min existing trade.TimeStamp | None -> trade.TimeStamp)
+            // 15 = Market Center Official Close
+            if Array.contains 15 conditions then
+                closeTs <- Some (match closeTs with | Some existing -> min existing trade.TimeStamp | None -> trade.TimeStamp)
+        | None -> ()
+
+    match openTs, closeTs with
+    | Some o, Some c -> Some (o, c)
+    | _ -> None
+
+let classifySession (t: RawTrade) (marketHours: (int64 * int64) option) : SessionType =
+    // 25 = Opening Prints, 8 = Closing Prints
+    match t.conditions with
+    | Some codes when Array.contains 25 codes -> OpeningPrint
+    | Some codes when Array.contains 8 codes -> ClosingPrint
+    | _ ->
+        match marketHours with
+        | Some (openTs, closeTs) ->
+            if t.TimeStamp < openTs then Premarket
+            elif t.TimeStamp > closeTs then Postmarket
+            else RegularHours
+        | None -> RegularHours
+
 // =============================================================================
 // Loading
 // =============================================================================
@@ -63,15 +106,17 @@ let shouldExclude (conditions: int[] option) =
 let loadTrades (filePath: string) : Trade[] =
     let json = File.ReadAllText(filePath)
     let options = JsonSerializerOptions(PropertyNameCaseInsensitive = true)
-    // options.Converters.Add(JsonFSharpConverter(JsonUnionEncoding.Default))
     let rawTrades = JsonSerializer.Deserialize<RawTrade[]>(json, options)
+
+    let marketHours = detectMarketHours rawTrades
 
     rawTrades
     |> Array.filter (fun t -> not (shouldExclude t.conditions))
     |> Array.map (fun t ->
-        let ticks = t.sip_timestamp / 100L + 621355968000000000L
-        { Timestamp = DateTime(ticks, DateTimeKind.Utc)
+        let timestamp = DateTime.UnixEpoch.AddTicks(t.TimeStamp / 100L)
+        { Timestamp = timestamp
           Price = t.price
-          Volume = t.size })
+          Volume = t.size
+          Session = classifySession t marketHours })
     |> Array.sortBy (fun t -> t.Timestamp)
 
