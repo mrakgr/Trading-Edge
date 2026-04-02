@@ -146,107 +146,168 @@ let createVwapSystem () =
 // Trading Simulation
 // =============================================================================
 
-type Side = Long | Short
+type IncomingTrades =
+    | BeforeOpeningPrint of Trade
+    | AfterOpeningPrint of Trade
+    | AfterOpeningPrintAndPause of Trade
+    | BeforeClosing of Trade
+    | AfterClosing of Trade
+
+type MarketHours = {
+    openTime : DateTime
+    closeTime : DateTime
+}
+
+let segregateTrades (window : MarketHours) on_succ =
+    let mutable openingPrintTime : DateTime option = None
+    let opening_pause = 5.0
+    let closing_pause = -60.0
+    fun (trade : Trade) ->
+        match openingPrintTime with
+        | None ->
+            if trade.Session = OpeningPrint then
+                openingPrintTime <- Some trade.Timestamp
+                on_succ (AfterOpeningPrint trade)
+            else
+                on_succ (BeforeOpeningPrint trade)
+        | Some openingPrintTime ->
+            let t = trade.Timestamp
+            if t < openingPrintTime.AddSeconds(opening_pause) then
+                on_succ (AfterOpeningPrint trade)
+            elif openingPrintTime.AddSeconds(opening_pause) <= t && t < window.closeTime.AddSeconds(closing_pause) then
+                on_succ (AfterOpeningPrintAndPause trade)
+            elif window.closeTime.AddSeconds(closing_pause) <= t && t < window.closeTime then
+                on_succ (BeforeClosing trade)
+            elif window.closeTime <= t then
+                on_succ (AfterClosing trade)
+
+let track_volume_bars (vwapSystem: VwapSystemEffect) =
+    fun (trade : Trade) ->
+        vwapSystem.AddTrade trade
+
+type SimulatorState =
+    | Active of price : float * position : float
+    | Done
 
 type TradingDecision = {
     Timestamp: DateTime
     Price: float
-    Side: Side
     Shares: float
 }
+
+let make_trading_decisions (vwapSystem: VwapSystemEffect, barSize: float, positionSize: float) on_succ = 
+    let mutable state = Active(0.0, 0.0)
+    function
+    | BeforeOpeningPrint _ | AfterOpeningPrint _ | AfterClosing _ -> () // Not intended for this node.
+    | AfterOpeningPrintAndPause trade ->
+        let vwma = vwapSystem.GetVwap
+        let bars = vwapSystem.GetVolumeBars barSize
+        match state with
+        | Active(price, position) ->
+            let go_long_if_not_already() = failwith "TODO"
+            let go_short_if_not_already() = failwith "TODO"
+            if bars.IsEmpty = false then
+                let lastBar = bars.[bars.Count - 1]
+                if lastBar.VWAP > vwma then
+                    go_long_if_not_already()
+                else
+                    go_short_if_not_already()
+        | Done ->
+            ()
+    | BeforeClosing trade ->
+        match state with
+        | Active(price, position) ->
+            let go_flat() = failwith "TODO"
+            go_flat()
+        | Done ->
+            ()
 
 type TradingResult = {
     Decisions: ImmutableList<TradingDecision>
     RealizedPnL: float
 }
 
-type TradingSimulator(vwapSystem: VwapSystemEffect, barSize: float, positionSize: float, flattenTime: DateTime) =
-    let mutable decisions = ImmutableList<TradingDecision>.Empty
-    let mutable currentSide = None
-    let mutable entryPrice = 0.0
-    let mutable shares = 0.0
-    let mutable realizedPnL = 0.0
-    let mutable openingPrintTime = None
-    let mutable isFlattened = false
-    let mutable prevBarCount = 0
+// type TradingSimulator() =
+//     ()
 
-    let closePnL (exitPrice: float) =
-        match currentSide with
-        | Some Long -> (exitPrice - entryPrice) * shares
-        | Some Short -> (entryPrice - exitPrice) * shares
-        | None -> 0.0
+// type TradingSimulator(vwapSystem: VwapSystemEffect, barSize: float, positionSize: float, flattenTime: DateTime) =
+//     let mutable decisions = ImmutableList<TradingDecision>.Empty
+//     let mutable state = Startup
+//     let mutable openingPrintTime = None
+//     let mutable prevBarCount = 0
 
-    let flatten (timestamp: DateTime) (price: float) =
-        if currentSide.IsSome && not isFlattened then
-            realizedPnL <- realizedPnL + closePnL price
-            let flatSide = match currentSide.Value with Long -> Short | Short -> Long
-            decisions <- decisions.Add {
-                Timestamp = timestamp
-                Price = price
-                Side = flatSide
-                Shares = shares
-            }
-            currentSide <- None
-            shares <- 0.0
-            isFlattened <- true
+//     // let closePnL (exitPrice: float) =
+//     //     (exitPrice - entryPrice) * position
 
-    let enterPosition (side: Side) (price: float) (timestamp: DateTime) =
-        let newShares = round (positionSize / price)
-        decisions <- decisions.Add {
-            Timestamp = timestamp
-            Price = price
-            Side = side
-            Shares = newShares
-        }
-        currentSide <- Some side
-        entryPrice <- price
-        shares <- newShares
+//     // let flatten (timestamp: DateTime) (price: float) =
+//     //     if position <> 0.0 then
+//     //         realizedPnL <- realizedPnL + closePnL price
+//     //         let side = if position > 0.0 then Short else Long
+//     //         decisions <- decisions.Add {
+//     //             Timestamp = timestamp
+//     //             Price = price
+//     //             Side = side
+//     //             Shares = abs position
+//     //         }
+//     //         position <- 0.0
 
-    let processBar (bar: VolumeBar) =
-        let signal = if bar.VWAP >= bar.VWMA then Long else Short
-        match currentSide with
-        | None ->
-            enterPosition signal bar.VWAP bar.EndTime
-        | Some current when current <> signal ->
-            realizedPnL <- realizedPnL + closePnL bar.VWAP
-            enterPosition signal bar.VWAP bar.EndTime
-        | _ -> ()
+//     // let enterPosition (side: Side) (price: float) (timestamp: DateTime) =
+//     //     let newShares = round (positionSize / price)
+//     //     decisions <- decisions.Add {
+//     //         Timestamp = timestamp
+//     //         Price = price
+//     //         Side = side
+//     //         Shares = newShares
+//     //     }
+//     //     entryPrice <- price
+//     //     position <- match side with Long -> newShares | Short -> -newShares
 
-    member _.AddTrade(trade: Trade) =
-        if isFlattened then ()
-        else
+//     // let processBar (bar: VolumeBar) =
+//     //     let signal = if bar.VWAP >= bar.VWMA then Long else Short
+//     //     let isLong = position > 0.0
+//     //     let isShort = position < 0.0
+//     //     match signal with
+//     //     | Long when not isLong ->
+//     //         if isShort then realizedPnL <- realizedPnL + closePnL bar.VWAP
+//     //         enterPosition Long bar.VWAP bar.EndTime
+//     //     | Short when not isShort ->
+//     //         if isLong then realizedPnL <- realizedPnL + closePnL bar.VWAP
+//     //         enterPosition Short bar.VWAP bar.EndTime
+//     //     | _ -> ()
 
-        // Detect opening print
-        if trade.Session = OpeningPrint && openingPrintTime.IsNone then
-            openingPrintTime <- Some trade.Timestamp
+//     member _.AddTrade(trade: Trade) =
+//         // Detect opening print
+//         if openingPrintTime.IsNone && trade.Session = OpeningPrint then
+//             openingPrintTime <- Some trade.Timestamp
+//         else
+//         match state with
+//         | Startup ->
+            
+//         vwapSystem.AddTrade trade
 
-        vwapSystem.AddTrade trade
+//         // Check flatten time before processing new bars
+//         if trade.Timestamp >= flattenTime then
+//             flatten trade.Timestamp trade.Price
+//         else
 
-        // Check flatten time before processing new bars
-        if trade.Timestamp >= flattenTime then
-            flatten trade.Timestamp trade.Price
-        else
+//         // Only trade after 5s past opening print, and only if VWMA is active
+//         match openingPrintTime with
+//         | Some opTime when trade.Timestamp >= opTime.AddSeconds 5.0 ->
+//             let bars = vwapSystem.GetVolumeBars barSize
+//             let newCount = bars.Count
+//             for i in prevBarCount .. newCount - 1 do
+//                 if position <> 0.0 || decisions.Count = 0 then
+//                     processBar bars.[i]
+//             prevBarCount <- newCount
+//         | _ ->
+//             prevBarCount <- (vwapSystem.GetVolumeBars barSize).Count
 
-        // Only trade after 5s past opening print, and only if VWMA is active
-        match openingPrintTime with
-        | Some opTime when trade.Timestamp >= opTime.AddSeconds 5.0 ->
-            let bars = vwapSystem.GetVolumeBars barSize
-            let newCount = bars.Count
-            // Process any newly completed bars
-            for i in prevBarCount .. newCount - 1 do
-                if not isFlattened then
-                    processBar bars.[i]
-            prevBarCount <- newCount
-        | _ ->
-            prevBarCount <- (vwapSystem.GetVolumeBars barSize).Count
+//     member _.Result = {
+//         Decisions = decisions
+//         RealizedPnL = realizedPnL
+//     }
 
-    member _.Result = {
-        Decisions = decisions
-        RealizedPnL = realizedPnL
-    }
-
-    member _.CurrentSide = currentSide
-    member _.UnrealizedPnL =
-        match currentSide with
-        | Some _ -> closePnL (vwapSystem.GetVwap)
-        | None -> 0.0
+//     member _.Position = position
+//     member _.UnrealizedPnL =
+//         if position <> 0.0 then closePnL (vwapSystem.GetVwap)
+//         else 0.0
