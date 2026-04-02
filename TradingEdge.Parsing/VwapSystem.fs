@@ -81,44 +81,55 @@ type VolumeBarBuilder(barSize: float) =
 let barSizes = [| for i in 0..10 -> float (pown 2 i) * 1000.0 |]
 
 // =============================================================================
+// Cumulative VWMA Tracker (anchored on opening print)
+// =============================================================================
+
+type VwmaTracker() =
+    let mutable priceVolumeSum = 0.0
+    let mutable totalVolume = 0.0
+    let mutable isAfterOpen = false
+
+    member _.AddTrade(trade: Trade) =
+        match trade.Session with
+        | OpeningPrint ->
+            isAfterOpen <- true
+            priceVolumeSum <- priceVolumeSum + trade.Price * trade.Volume
+            totalVolume <- totalVolume + trade.Volume
+        | (RegularHours | ClosingPrint) when isAfterOpen ->
+            priceVolumeSum <- priceVolumeSum + trade.Price * trade.Volume
+            totalVolume <- totalVolume + trade.Volume
+        | _ -> ()
+
+    member _.IsActive = isAfterOpen
+    member _.Vwap = if totalVolume > 0.0 then priceVolumeSum / totalVolume else 0.0
+
+// =============================================================================
 // VwapSystemEffect
 // =============================================================================
 
 type VwapSystemEffect =
     abstract member AddTrade : Trade -> unit
     abstract member GetVwap : float
+    abstract member GetTotalVolume : float
     abstract member GetVolumeBars : float -> ImmutableList<VolumeBar>
 
 let createVwapSystem () =
     let builders = barSizes |> Array.map VolumeBarBuilder
-    let mutable priceVolumeSum = 0.0
+    let vwma = VwmaTracker()
     let mutable totalVolume = 0.0
-    let mutable isAfterOpen = false
 
     { new VwapSystemEffect with
         member _.AddTrade(trade) =
-            match trade.Session with
-            | OpeningPrint ->
-                isAfterOpen <- true
-                priceVolumeSum <- priceVolumeSum + trade.Price * trade.Volume
-                totalVolume <- totalVolume + trade.Volume
-                let vwap = priceVolumeSum / totalVolume
-                for b in builders do b.AddTrade(trade, vwap)
-            | RegularHours when isAfterOpen ->
-                priceVolumeSum <- priceVolumeSum + trade.Price * trade.Volume
-                totalVolume <- totalVolume + trade.Volume
-                let vwap = priceVolumeSum / totalVolume
-                for b in builders do b.AddTrade(trade, vwap)
-            | ClosingPrint when isAfterOpen ->
-                priceVolumeSum <- priceVolumeSum + trade.Price * trade.Volume
-                totalVolume <- totalVolume + trade.Volume
-                let vwap = priceVolumeSum / totalVolume
-                for b in builders do b.AddTrade(trade, vwap)
-            | _ -> () // Skip premarket and postmarket
+            // Track total volume from all sessions (including premarket)
+            totalVolume <- totalVolume + trade.Volume
+            // VWMA only uses regular hours data
+            vwma.AddTrade(trade)
+            // Volume bars built from start of day (all sessions)
+            for b in builders do b.AddTrade(trade, vwma.Vwap)
 
-        member _.GetVwap =
-            if totalVolume > 0.0 then priceVolumeSum / totalVolume
-            else 0.0
+        member _.GetVwap = vwma.Vwap
+
+        member _.GetTotalVolume = totalVolume
 
         member _.GetVolumeBars(desiredSize) =
             let mutable bestIdx = 0
