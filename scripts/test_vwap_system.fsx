@@ -14,19 +14,26 @@ printfn "Loading trades..."
 let trades = loadTrades tradesPath
 printfn "Loaded %d trades" trades.Length
 
-// Find closing print time to set flatten time (1 minute before close)
+// Derive market hours from the dataset
+let openingPrintTime =
+    trades
+    |> Array.find (fun t -> t.Session = OpeningPrint)
+    |> fun t -> t.Timestamp
+
 let closingPrintTime =
     trades
-    |> Array.tryFind (fun t -> t.Session = ClosingPrint)
-    |> Option.map (fun t -> t.Timestamp)
-    |> Option.defaultValue (DateTime(2025, 12, 19, 21, 0, 0, DateTimeKind.Utc))
+    |> Array.find (fun t -> t.Session = ClosingPrint)
+    |> fun t -> t.Timestamp
 
-let flattenTime = closingPrintTime.AddMinutes -1.0
-printfn "Closing print at: %s UTC" (closingPrintTime.ToString "HH:mm:ss")
-printfn "Flatten time: %s UTC" (flattenTime.ToString "HH:mm:ss")
+let window : MarketHours = {
+    openTime = openingPrintTime
+    closeTime = closingPrintTime
+}
 
-let system = createVwapSystem()
-let simulator = TradingSimulator(system, desiredBarSize, positionSize, flattenTime)
+printfn "Opening print at: %s UTC" (window.openTime.ToString "HH:mm:ss.fff")
+printfn "Closing print at: %s UTC" (window.closeTime.ToString "HH:mm:ss.fff")
+
+let simulator = VwapSimulator(window, desiredBarSize, positionSize)
 
 for trade in trades do
     simulator.AddTrade trade
@@ -40,5 +47,7 @@ printfn ""
 
 printfn "=== Decisions ==="
 for d in result.Decisions do
-    let side = match d.Side with Long -> "LONG" | Short -> "SHORT"
-    printfn "  %s | %-5s | %.2f x %.1f shares" (d.Timestamp.ToString "HH:mm:ss.fff") side d.Price d.Shares
+    let pos = if d.Shares > 0.0 then sprintf "LONG  %.0f" d.Shares
+              elif d.Shares < 0.0 then sprintf "SHORT %.0f" (abs d.Shares)
+              else "FLAT"
+    printfn "  %s | %s @ %.2f" (d.Timestamp.ToString "HH:mm:ss.fff") pos d.Price

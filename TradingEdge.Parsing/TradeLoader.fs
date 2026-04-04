@@ -117,7 +117,7 @@ let loadTrades (filePath: string) : Trade[] =
     let marketHours = detectMarketHours rawTrades
 
     rawTrades
-    |> Array.filter (fun t -> not (shouldExclude (conditions t)))
+    |> Array.filter (fun t -> not (shouldExclude (conditions t)) && t.size > 0)
     |> Array.map (fun t ->
         let timestamp = DateTime.UnixEpoch.AddTicks(timestamp t / 100L)
         { Timestamp = timestamp

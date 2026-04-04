@@ -194,24 +194,28 @@ type TradingDecision = {
     Shares: float
 }
 
-let make_trading_decisions (vwapSystem: VwapSystemEffect, barSize: float, positionSize: float) on_succ = 
+let make_trading_decisions (vwapSystem: VwapSystemEffect, barSize: float, positionSize: float) on_succ =
     let mutable state = Active(0.0, 0.0)
+    let mutable prevBarCount = 0
     function
     | BeforeOpeningPrint _ | AfterOpeningPrint _ | AfterClosing _ -> () // Not intended for this node.
     | AfterOpeningPrintAndPause trade ->
-        let vwma = vwapSystem.GetVwap
         let bars = vwapSystem.GetVolumeBars barSize
-        match state with
-        | Active(_, position) when not bars.IsEmpty ->
-            let lastBar = bars.[bars.Count - 1]
-            let targetShares = round (positionSize / trade.Price)
-            if lastBar.VWAP >= vwma && position <= 0.0 then
-                state <- Active(trade.Price, targetShares)
-                on_succ { Timestamp = trade.Timestamp; Price = trade.Price; Shares = targetShares }
-            elif lastBar.VWAP < vwma && position >= 0.0 then
-                state <- Active(trade.Price, -targetShares)
-                on_succ { Timestamp = trade.Timestamp; Price = trade.Price; Shares = -targetShares }
-        | _ -> ()
+        let barCount = bars.Count
+        if barCount > prevBarCount then
+            prevBarCount <- barCount
+            let vwma = vwapSystem.GetVwap
+            match state with
+            | Active(_, position) ->
+                let lastBar = bars.[barCount - 1]
+                let targetShares = round (positionSize / trade.Price)
+                if lastBar.VWAP >= vwma && position <= 0.0 then
+                    state <- Active(lastBar.VWAP, targetShares)
+                    on_succ { Timestamp = trade.Timestamp; Price = lastBar.VWAP; Shares = targetShares }
+                elif lastBar.VWAP < vwma && position >= 0.0 then
+                    state <- Active(lastBar.VWAP, -targetShares)
+                    on_succ { Timestamp = trade.Timestamp; Price = lastBar.VWAP; Shares = -targetShares }
+            | Done -> ()
     | BeforeClosing trade ->
         match state with
         | Active(_, position) when position <> 0.0 ->
