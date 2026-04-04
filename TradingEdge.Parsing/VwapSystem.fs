@@ -226,110 +226,48 @@ type TradingResult = {
 
 type DecisionTracker() =
     let mutable decisions = ImmutableList<TradingDecision>.Empty
-    member _.Add (trading_decision : TradingDecision) = decisions <- decisions.Add trading_decision
-    member _.Get () = decisions
+    let mutable realizedPnL = 0.0
+
+    member _.Add (d : TradingDecision) =
+        if decisions.Count > 0 then
+            let prev = decisions.[decisions.Count - 1]
+            realizedPnL <- realizedPnL + (d.Price - prev.Price) * prev.Shares
+        decisions <- decisions.Add d
+
+    member _.Decisions = decisions
+    member _.RealizedPnL = realizedPnL
+
+    member _.Position =
+        if decisions.Count > 0 then decisions.[decisions.Count - 1].Shares
+        else 0.0
+
+    member _.LastPrice =
+        if decisions.Count > 0 then decisions.[decisions.Count - 1].Price
+        else 0.0
 
 let splitter a b trade = a trade; b trade
 
-type VwapSimulator(barSize: float, positionSize: float) =
-    let window = {
-        openTime = failwith "TODO"
-        closeTime = failwith "TODO"
-    }
+type VwapSimulator(window : MarketHours, barSize: float, positionSize: float) =
     let decision_tracker = DecisionTracker()
-    let pipeline = 
-        let vwapSystem = createVwapSystem()
-        segregate_trades window 
-            (splitter 
+    let vwapSystem = createVwapSystem()
+    let pipeline =
+        segregate_trades window
+            (splitter
                 (track_volume_bars vwapSystem)
-                (make_trading_decisions 
+                (make_trading_decisions
                     (vwapSystem, barSize, positionSize)
                     decision_tracker.Add))
             
     member _.AddTrade(trade: Trade) = pipeline trade
-    member _.Result = failwith "TODO"
-    member _.Position = failwith "TODO"
-    member _.UnrealizedPnL = failwith "TODO"
 
+    member _.Result = {
+        Decisions = decision_tracker.Decisions
+        RealizedPnL = decision_tracker.RealizedPnL
+    }
 
-// type TradingSimulator(vwapSystem: VwapSystemEffect, barSize: float, positionSize: float, flattenTime: DateTime) =
-//     let mutable decisions = ImmutableList<TradingDecision>.Empty
-//     let mutable state = Startup
-//     let mutable openingPrintTime = None
-//     let mutable prevBarCount = 0
+    member _.Position = decision_tracker.Position
 
-//     // let closePnL (exitPrice: float) =
-//     //     (exitPrice - entryPrice) * position
-
-//     // let flatten (timestamp: DateTime) (price: float) =
-//     //     if position <> 0.0 then
-//     //         realizedPnL <- realizedPnL + closePnL price
-//     //         let side = if position > 0.0 then Short else Long
-//     //         decisions <- decisions.Add {
-//     //             Timestamp = timestamp
-//     //             Price = price
-//     //             Side = side
-//     //             Shares = abs position
-//     //         }
-//     //         position <- 0.0
-
-//     // let enterPosition (side: Side) (price: float) (timestamp: DateTime) =
-//     //     let newShares = round (positionSize / price)
-//     //     decisions <- decisions.Add {
-//     //         Timestamp = timestamp
-//     //         Price = price
-//     //         Side = side
-//     //         Shares = newShares
-//     //     }
-//     //     entryPrice <- price
-//     //     position <- match side with Long -> newShares | Short -> -newShares
-
-//     // let processBar (bar: VolumeBar) =
-//     //     let signal = if bar.VWAP >= bar.VWMA then Long else Short
-//     //     let isLong = position > 0.0
-//     //     let isShort = position < 0.0
-//     //     match signal with
-//     //     | Long when not isLong ->
-//     //         if isShort then realizedPnL <- realizedPnL + closePnL bar.VWAP
-//     //         enterPosition Long bar.VWAP bar.EndTime
-//     //     | Short when not isShort ->
-//     //         if isLong then realizedPnL <- realizedPnL + closePnL bar.VWAP
-//     //         enterPosition Short bar.VWAP bar.EndTime
-//     //     | _ -> ()
-
-//     member _.AddTrade(trade: Trade) =
-//         // Detect opening print
-//         if openingPrintTime.IsNone && trade.Session = OpeningPrint then
-//             openingPrintTime <- Some trade.Timestamp
-//         else
-//         match state with
-//         | Startup ->
-            
-//         vwapSystem.AddTrade trade
-
-//         // Check flatten time before processing new bars
-//         if trade.Timestamp >= flattenTime then
-//             flatten trade.Timestamp trade.Price
-//         else
-
-//         // Only trade after 5s past opening print, and only if VWMA is active
-//         match openingPrintTime with
-//         | Some opTime when trade.Timestamp >= opTime.AddSeconds 5.0 ->
-//             let bars = vwapSystem.GetVolumeBars barSize
-//             let newCount = bars.Count
-//             for i in prevBarCount .. newCount - 1 do
-//                 if position <> 0.0 || decisions.Count = 0 then
-//                     processBar bars.[i]
-//             prevBarCount <- newCount
-//         | _ ->
-//             prevBarCount <- (vwapSystem.GetVolumeBars barSize).Count
-
-//     member _.Result = {
-//         Decisions = decisions
-//         RealizedPnL = realizedPnL
-//     }
-
-//     member _.Position = position
-//     member _.UnrealizedPnL =
-//         if position <> 0.0 then closePnL (vwapSystem.GetVwap)
-//         else 0.0
+    member _.UnrealizedPnL =
+        if decision_tracker.Position <> 0.0 then
+            (vwapSystem.GetVwap - decision_tracker.LastPrice) * decision_tracker.Position
+        else 0.0
