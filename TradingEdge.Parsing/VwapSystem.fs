@@ -95,7 +95,7 @@ type VwmaTracker() =
             isAfterOpen <- true
             priceVolumeSum <- priceVolumeSum + trade.Price * trade.Volume
             totalVolume <- totalVolume + trade.Volume
-        | (RegularHours | ClosingPrint) when isAfterOpen ->
+        | RegularHours | ClosingPrint when isAfterOpen ->
             priceVolumeSum <- priceVolumeSum + trade.Price * trade.Volume
             totalVolume <- totalVolume + trade.Volume
         | _ -> ()
@@ -128,10 +128,8 @@ let createVwapSystem () =
             for b in builders do b.AddTrade(trade, vwma.Vwap)
 
         member _.GetVwap = vwma.Vwap
-
         member _.GetTotalVolume = totalVolume
-
-        member _.GetVolumeBars(desiredSize) =
+        member _.GetVolumeBars desiredSize =
             let mutable bestIdx = 0
             let mutable bestDist = abs (barSizes.[0] - desiredSize)
             for i in 1 .. barSizes.Length - 1 do
@@ -158,7 +156,7 @@ type MarketHours = {
     closeTime : DateTime
 }
 
-let segregateTrades (window : MarketHours) on_succ =
+let segregate_trades (window : MarketHours) on_succ =
     let mutable openingPrintTime : DateTime option = None
     let opening_pause = 5.0
     let closing_pause = -60.0
@@ -172,18 +170,19 @@ let segregateTrades (window : MarketHours) on_succ =
                 on_succ (BeforeOpeningPrint trade)
         | Some openingPrintTime ->
             let t = trade.Timestamp
-            if t < openingPrintTime.AddSeconds(opening_pause) then
+            if t < openingPrintTime.AddSeconds opening_pause then
                 on_succ (AfterOpeningPrint trade)
-            elif openingPrintTime.AddSeconds(opening_pause) <= t && t < window.closeTime.AddSeconds(closing_pause) then
+            elif openingPrintTime.AddSeconds opening_pause <= t && t < window.closeTime.AddSeconds closing_pause then
                 on_succ (AfterOpeningPrintAndPause trade)
-            elif window.closeTime.AddSeconds(closing_pause) <= t && t < window.closeTime then
+            elif window.closeTime.AddSeconds closing_pause <= t && t < window.closeTime then
                 on_succ (BeforeClosing trade)
             elif window.closeTime <= t then
                 on_succ (AfterClosing trade)
 
 let track_volume_bars (vwapSystem: VwapSystemEffect) =
-    fun (trade : Trade) ->
-        vwapSystem.AddTrade trade
+    function
+    | BeforeOpeningPrint _ -> ()
+    | AfterOpeningPrint trade | AfterOpeningPrintAndPause trade | BeforeClosing trade | AfterClosing trade -> vwapSystem.AddTrade trade
 
 type SimulatorState =
     | Active of price : float * position : float
@@ -203,32 +202,55 @@ let make_trading_decisions (vwapSystem: VwapSystemEffect, barSize: float, positi
         let vwma = vwapSystem.GetVwap
         let bars = vwapSystem.GetVolumeBars barSize
         match state with
-        | Active(price, position) ->
-            let go_long_if_not_already() = failwith "TODO"
-            let go_short_if_not_already() = failwith "TODO"
-            if bars.IsEmpty = false then
-                let lastBar = bars.[bars.Count - 1]
-                if lastBar.VWAP > vwma then
-                    go_long_if_not_already()
-                else
-                    go_short_if_not_already()
-        | Done ->
-            ()
+        | Active(_, position) when not bars.IsEmpty ->
+            let lastBar = bars.[bars.Count - 1]
+            let targetShares = round (positionSize / trade.Price)
+            if lastBar.VWAP >= vwma && position <= 0.0 then
+                state <- Active(trade.Price, targetShares)
+                on_succ { Timestamp = trade.Timestamp; Price = trade.Price; Shares = targetShares }
+            elif lastBar.VWAP < vwma && position >= 0.0 then
+                state <- Active(trade.Price, -targetShares)
+                on_succ { Timestamp = trade.Timestamp; Price = trade.Price; Shares = -targetShares }
+        | _ -> ()
     | BeforeClosing trade ->
         match state with
-        | Active(price, position) ->
-            let go_flat() = failwith "TODO"
-            go_flat()
-        | Done ->
-            ()
+        | Active(_, position) when position <> 0.0 ->
+            state <- Done
+            on_succ { Timestamp = trade.Timestamp; Price = trade.Price; Shares = 0.0 }
+        | _ -> ()
 
 type TradingResult = {
     Decisions: ImmutableList<TradingDecision>
     RealizedPnL: float
 }
 
-// type TradingSimulator() =
-//     ()
+type DecisionTracker() =
+    let mutable decisions = ImmutableList<TradingDecision>.Empty
+    member _.Add (trading_decision : TradingDecision) = decisions <- decisions.Add trading_decision
+    member _.Get () = decisions
+
+let splitter a b trade = a trade; b trade
+
+type VwapSimulator(barSize: float, positionSize: float) =
+    let window = {
+        openTime = failwith "TODO"
+        closeTime = failwith "TODO"
+    }
+    let decision_tracker = DecisionTracker()
+    let pipeline = 
+        let vwapSystem = createVwapSystem()
+        segregate_trades window 
+            (splitter 
+                (track_volume_bars vwapSystem)
+                (make_trading_decisions 
+                    (vwapSystem, barSize, positionSize)
+                    decision_tracker.Add))
+            
+    member _.AddTrade(trade: Trade) = pipeline trade
+    member _.Result = failwith "TODO"
+    member _.Position = failwith "TODO"
+    member _.UnrealizedPnL = failwith "TODO"
+
 
 // type TradingSimulator(vwapSystem: VwapSystemEffect, barSize: float, positionSize: float, flattenTime: DateTime) =
 //     let mutable decisions = ImmutableList<TradingDecision>.Empty
