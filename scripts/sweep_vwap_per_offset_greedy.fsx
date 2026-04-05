@@ -138,7 +138,9 @@ let history = ResizeArray<int[] * float * int>()  // exponents, total, evalIdx
 
 let key (v: int[]) = struct (v.[0], v.[1], v.[2], v.[3])
 
-let start = Array.zeroCreate<int> nDim
+// Resume from the previous run's local max rather than restarting at zero,
+// so this sweep extends the search outward from known-good territory.
+let start = [| -2; -5; -6; -6 |]
 let mutable bestExp : int[] = start
 let mutable bestTotal = Double.NegativeInfinity
 
@@ -161,7 +163,47 @@ printfn "[eval   0] [%s]  pcts=[%s]  total=$%9.2f  W/L/F=%3d/%3d/%3d  dec=%5d  (
     (String.Join(";", start |> Array.map (fun i -> sprintf "%.4f" (basePct * (decay ** float i)))))
     total0 w0 l0 f0 d0 e0
 
+// Two-phase neighbor sampling.
+//
+// Phase 1: single-dimension moves around bestExp. 4 dims * 8 deltas = 32
+// candidates per best point. We enumerate the unvisited ones and pick one
+// at random each iteration, so the walker exhaustively explores the local
+// axis-aligned neighborhood of every best it finds.
+//
+// Phase 2: once every single-dim neighbor of the current best has been
+// visited (without yielding a new best), switch to random perturbations
+// that change *all four* dimensions simultaneously — 8^4 = 4096 points.
+// This is how the walker escapes a local max. Any improvement found in
+// phase 2 becomes the new best and resets the search to phase 1 around
+// the new point.
+let nextSingleDimNeighbor () =
+    let candidates =
+        [| for dim in 0 .. nDim - 1 do
+             for d in deltaChoices do
+                 let c = Array.copy bestExp
+                 c.[dim] <- c.[dim] + d
+                 if c.[dim] >= minExponent && not (visited.Contains(key c)) then
+                     yield c |]
+    if candidates.Length = 0 then None
+    else Some candidates.[rng.Next candidates.Length]
+
+let nextFullPerturbation () =
+    let mutable found : int[] option = None
+    let mutable attempts = 0
+    while found.IsNone && attempts < 1024 do
+        let c = Array.copy bestExp
+        let mutable inBounds = true
+        for dim in 0 .. nDim - 1 do
+            let d = deltaChoices.[rng.Next deltaChoices.Length]
+            c.[dim] <- c.[dim] + d
+            if c.[dim] < minExponent then inBounds <- false
+        if inBounds && not (visited.Contains(key c)) then
+            found <- Some c
+        attempts <- attempts + 1
+    found
+
 let mutable evalIdx = 1
+let mutable phase1Exhausted = false
 let mutable stopped = false
 while not stopped do
     if swSweep.Elapsed >= budget then
@@ -172,21 +214,19 @@ while not stopped do
         printfn "[iter-cap] %d iterations done, stopping (smoke run)" maxIterations
         stopped <- true
     else
-        // Sample a fresh neighbor of bestExp. Retry up to 128 times if the
-        // proposal was already visited or out of bounds.
-        let mutable proposal : int[] option = None
-        let mutable attempts = 0
-        while proposal.IsNone && attempts < 128 do
-            let dim = rng.Next nDim
-            let delta = deltaChoices.[rng.Next deltaChoices.Length]
-            let cand = Array.copy bestExp
-            cand.[dim] <- cand.[dim] + delta
-            if cand.[dim] >= minExponent && not (visited.Contains(key cand)) then
-                proposal <- Some cand
-            attempts <- attempts + 1
+        let proposal, phaseTag =
+            if not phase1Exhausted then
+                match nextSingleDimNeighbor () with
+                | Some c -> Some c, "1d"
+                | None ->
+                    phase1Exhausted <- true
+                    printfn "[phase] single-dim neighborhood of best exhausted, switching to 4d perturbations"
+                    nextFullPerturbation (), "4d"
+            else
+                nextFullPerturbation (), "4d"
         match proposal with
         | None ->
-            printfn "[stuck] no fresh neighbor of best after 128 tries, stopping"
+            printfn "[stuck] no fresh 4d perturbation after 1024 tries, stopping"
             stopped <- true
         | Some cand ->
             visited.Add(key cand) |> ignore
@@ -196,10 +236,12 @@ while not stopped do
                 if total > bestTotal then
                     bestTotal <- total
                     bestExp <- Array.copy cand
+                    // New best → reset to phase 1 so we re-explore locally.
+                    phase1Exhausted <- false
                     " <-- new best"
                 else ""
-            printfn "[eval %3d] [%s]  pcts=[%s]  total=$%9.2f  W/L/F=%3d/%3d/%3d  dec=%5d  (%.1fs)%s"
-                evalIdx
+            printfn "[eval %3d %s] [%s]  pcts=[%s]  total=$%9.2f  W/L/F=%3d/%3d/%3d  dec=%5d  (%.1fs)%s"
+                evalIdx phaseTag
                 (String.Join(";", cand))
                 (String.Join(";", cand |> Array.map (fun i -> sprintf "%.4f" (basePct * (decay ** float i)))))
                 total w l f d elapsed marker
