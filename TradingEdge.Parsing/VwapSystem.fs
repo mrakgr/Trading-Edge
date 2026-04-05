@@ -196,18 +196,17 @@ type TradingDecision = {
 
 let make_trading_decisions (vwapSystem: VwapSystemEffect, barSize: float, positionSize: float) on_succ =
     let mutable state = Active(0.0, 0.0)
-    let mutable prevBarCount = 0
+    let mutable prevBars : ImmutableList<VolumeBar> = ImmutableList<VolumeBar>.Empty
     function
     | BeforeOpeningPrint _ | AfterOpeningPrint _ | AfterClosing _ -> () // Not intended for this node.
     | AfterOpeningPrintAndPause trade ->
         let bars = vwapSystem.GetVolumeBars barSize
-        let barCount = bars.Count
-        if barCount > prevBarCount then
-            prevBarCount <- barCount
+        if not (Object.ReferenceEquals(bars, prevBars)) then
+            prevBars <- bars
             let vwma = vwapSystem.GetVwap
             match state with
             | Active(_, position) ->
-                let lastBar = bars.[barCount - 1]
+                let lastBar = bars.[bars.Count - 1]
                 let targetShares = round (positionSize / trade.Price)
                 if lastBar.VWAP >= vwma && position <= 0.0 then
                     state <- Active(lastBar.VWAP, targetShares)
