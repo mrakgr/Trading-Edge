@@ -379,12 +379,38 @@ let enforce_activity_limit (maxTrades: int) on_succ =
                 if d.Shares <> 0.0 then
                     on_succ { Timestamp = d.Timestamp; Price = d.Price; Shares = 0.0 }
 
-type VwapSimulator(window : MarketHours, vwapSystem: VwapSystemEffectDynamic, positionSize: float, ?lossLimit: float, ?maxTrades: int) =
+/// Daily losing-trade limit enforcement stage. Watches the tracker's running
+/// realized P&L after each decision is forwarded — whenever it drops, that
+/// decision counts as a losing trade. Once the configured maximum is reached,
+/// injects a same-price flatten if still in position and drops everything
+/// after. Winning and flat decisions do not count against the cap: the idea
+/// is that high activity is fine as long as the system is producing profits.
+let enforce_loss_count_limit (tracker: DecisionTracker) (maxLosses: int) on_succ =
+    let mutable losses = 0
+    let mutable prevPnL = 0.0
+    let mutable tripped = false
+    fun (d: TradingDecision) ->
+        if tripped then ()
+        else
+            on_succ d
+            let newPnL = tracker.RealizedPnL
+            if newPnL < prevPnL then
+                losses <- losses + 1
+            prevPnL <- newPnL
+            if losses >= maxLosses then
+                tripped <- true
+                if d.Shares <> 0.0 then
+                    on_succ { Timestamp = d.Timestamp; Price = d.Price; Shares = 0.0 }
+
+type VwapSimulator(window : MarketHours, vwapSystem: VwapSystemEffectDynamic, positionSize: float, ?lossLimit: float, ?maxTrades: int, ?maxLosses: int) =
     let decision_tracker = DecisionTracker()
     let on_decision =
         let mutable sink : TradingDecision -> unit = decision_tracker.Add
         match lossLimit with
         | Some limit -> sink <- enforce_loss_limit decision_tracker limit sink
+        | None -> ()
+        match maxLosses with
+        | Some n -> sink <- enforce_loss_count_limit decision_tracker n sink
         | None -> ()
         match maxTrades with
         | Some n -> sink <- enforce_activity_limit n sink
