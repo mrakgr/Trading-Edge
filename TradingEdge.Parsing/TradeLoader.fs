@@ -4,6 +4,7 @@ open System
 open System.IO
 open System.Text.Json
 open System.Text.Json.Serialization
+open FSharp.Control
 
 // =============================================================================
 // Types
@@ -16,20 +17,19 @@ type SessionType =
     | ClosingPrint
     | Postmarket
 
-type RawTrade = 
+/// Trimmed raw record: only fields we actually consume. STJ ignores unknown
+/// JSON properties by default, so dropping `id`, `exchange`, `sequence_number`,
+/// `tape` saves per-trade allocation during streaming.
+type RawTrade =
     {
         conditions: int[] option
-        exchange: int
-        id: string
         participant_timestamp: int64
         price: float
-        sequence_number: int
         sip_timestamp: int64
         size: float
-        tape: int
     }
 
-let timestamp (t : RawTrade) = if t.participant_timestamp <> 0 then t.participant_timestamp else t.sip_timestamp
+let timestamp (t : RawTrade) = if t.participant_timestamp <> 0L then t.participant_timestamp else t.sip_timestamp
 let conditions (t : RawTrade) = Option.defaultValue [||] t.conditions
 
 type Trade = {
@@ -76,53 +76,105 @@ let shouldExclude (conditions: int[]) =
     if Set.intersect c openingAndClosingPrintConditions |> Set.isEmpty |> not then false
     else Set.intersect c excludeConditions |> Set.isEmpty |> not
 
-let detectMarketHours (rawTrades: RawTrade[]) : (int64 * int64) option =
-    let mutable openTs = None
-    let mutable closeTs = None
-
-    for trade in rawTrades do
-        let conditions = conditions trade
-        // 16 = Market Center Official Open
-        if Array.contains 16 conditions then
-            openTs <- Some (match openTs with | Some existing -> min existing (timestamp trade) | None -> timestamp trade)
-        // 15 = Market Center Official Close
-        if Array.contains 15 conditions then
-            closeTs <- Some (match closeTs with | Some existing -> min existing (timestamp trade) | None -> timestamp trade)
-
-    match openTs, closeTs with
-    | Some o, Some c -> Some (o, c)
-    | _ -> None
-
-let classifySession (t: RawTrade) (marketHours: (int64 * int64) option) : SessionType =
-    let c = conditions t |> Set.ofArray
-    if Set.intersect c openingPrintConditions |> Set.isEmpty |> not then OpeningPrint
-    elif Set.intersect c closingPrintConditions |> Set.isEmpty |> not then ClosingPrint
-    else 
-        match marketHours with
-        | Some (openTs, closeTs) ->
-            if timestamp t < openTs then Premarket
-            elif timestamp t > closeTs then Postmarket
-            else RegularHours
-        | None -> RegularHours
-
 // =============================================================================
-// Loading
+// Loading (streaming)
 // =============================================================================
 
+/// Compact intermediate: what we need post-filter to classify sessions and
+/// emit a Trade. Using a struct record keeps the ResizeArray contiguous and
+/// avoids per-trade reference-type allocations while we buffer the day.
+[<Struct>]
+type private TradeStaging = {
+    mutable Ts: int64
+    mutable Price: float
+    mutable Volume: float
+    mutable IsOpeningPrint: bool
+    mutable IsClosingPrint: bool
+}
+
+/// Stream the JSON array element-by-element via System.Text.Json's async
+/// enumerable API. This avoids the previous File.ReadAllText path which
+/// doubled the file size in memory as a UTF-16 string before parsing.
+///
+/// Single streaming pass:
+///   * detects official market open/close (condition codes 16 / 15)
+///   * filters out exchange-noise conditions and zero-volume prints
+///   * collects a compact struct per surviving trade
+/// Followed by an in-memory classification pass and a stable sort by time.
 let loadTrades (filePath: string) : Trade[] =
-    let json = File.ReadAllText(filePath)
-    let options = JsonSerializerOptions()     
-    let rawTrades = JsonSerializer.Deserialize<RawTrade[]>(json, options)
+    let staging = ResizeArray<TradeStaging>()
+    let mutable officialOpenNs = 0L
+    let mutable haveOfficialOpen = false
+    let mutable officialCloseNs = 0L
+    let mutable haveOfficialClose = false
 
-    let marketHours = detectMarketHours rawTrades
+    let options = JsonSerializerOptions()
+    // 64KB reads: the default is far smaller and JSON parsing is I/O bound
+    // for gigabyte-sized inputs.
+    let fsOptions = FileStreamOptions()
+    fsOptions.Mode <- FileMode.Open
+    fsOptions.Access <- FileAccess.Read
+    fsOptions.Share <- FileShare.Read
+    fsOptions.BufferSize <- 1 <<< 16
+    fsOptions.Options <- FileOptions.SequentialScan
 
-    rawTrades
-    |> Array.filter (fun t -> not (shouldExclude (conditions t)) && t.size > 0)
-    |> Array.map (fun t ->
-        let timestamp = DateTime.UnixEpoch.AddTicks(timestamp t / 100L)
-        { Timestamp = timestamp
-          Price = t.price
-          Volume = t.size
-          Session = classifySession t marketHours })
-    |> Array.sortBy (fun t -> t.Timestamp)
+    let loadTask = task {
+        use stream = new FileStream(filePath, fsOptions)
+        let enumerable =
+            JsonSerializer.DeserializeAsyncEnumerable<RawTrade>(stream, options)
+        for raw in enumerable do
+            let conds = conditions raw
+            let ts = timestamp raw
 
+            // Track official market hours (condition 16 = official open, 15 = close).
+            // Pick the earliest occurrence when multiple are tagged.
+            for i in 0 .. conds.Length - 1 do
+                let c = conds.[i]
+                if c = 16 then
+                    if not haveOfficialOpen || ts < officialOpenNs then
+                        officialOpenNs <- ts
+                        haveOfficialOpen <- true
+                elif c = 15 then
+                    if not haveOfficialClose || ts < officialCloseNs then
+                        officialCloseNs <- ts
+                        haveOfficialClose <- true
+
+            if not (shouldExclude conds) && raw.size > 0.0 then
+                let condSet = Set.ofArray conds
+                let isOpen =
+                    not (Set.intersect condSet openingPrintConditions |> Set.isEmpty)
+                let isClose =
+                    not (Set.intersect condSet closingPrintConditions |> Set.isEmpty)
+                staging.Add {
+                    Ts = ts
+                    Price = raw.price
+                    Volume = raw.size
+                    IsOpeningPrint = isOpen
+                    IsClosingPrint = isClose
+                }
+    }
+    loadTask.GetAwaiter().GetResult()
+
+    // Second pass: classify sessions using the market hours we detected,
+    // and materialize the final Trade[] in one allocation.
+    let n = staging.Count
+    let result = Array.zeroCreate<Trade> n
+    for i in 0 .. n - 1 do
+        let s = staging.[i]
+        let session =
+            if s.IsOpeningPrint then OpeningPrint
+            elif s.IsClosingPrint then ClosingPrint
+            elif haveOfficialOpen && haveOfficialClose then
+                if s.Ts < officialOpenNs then Premarket
+                elif s.Ts > officialCloseNs then Postmarket
+                else RegularHours
+            else RegularHours
+        result.[i] <- {
+            Timestamp = DateTime.UnixEpoch.AddTicks(s.Ts / 100L)
+            Price = s.Price
+            Volume = s.Volume
+            Session = session
+        }
+
+    Array.sortInPlaceBy (fun (t: Trade) -> t.Timestamp) result
+    result
