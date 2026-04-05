@@ -361,12 +361,35 @@ let enforce_loss_limit (tracker: DecisionTracker) (lossLimit: float) on_succ =
                 if d.Shares <> 0.0 then
                     on_succ { Timestamp = d.Timestamp; Price = d.Price; Shares = 0.0 }
 
-type VwapSimulator(window : MarketHours, vwapSystem: VwapSystemEffectDynamic, positionSize: float, ?lossLimit: float) =
+/// Daily activity limit enforcement stage. Forwards decisions until the
+/// configured maximum is reached, then injects a same-price flatten if a
+/// position is still open and drops everything after. The forced flatten is
+/// not counted against the cap — maxTrades represents discretionary entries
+/// and flips produced by make_trading_decisions.
+let enforce_activity_limit (maxTrades: int) on_succ =
+    let mutable count = 0
+    let mutable tripped = false
+    fun (d: TradingDecision) ->
+        if tripped then ()
+        else
+            on_succ d
+            count <- count + 1
+            if count >= maxTrades then
+                tripped <- true
+                if d.Shares <> 0.0 then
+                    on_succ { Timestamp = d.Timestamp; Price = d.Price; Shares = 0.0 }
+
+type VwapSimulator(window : MarketHours, vwapSystem: VwapSystemEffectDynamic, positionSize: float, ?lossLimit: float, ?maxTrades: int) =
     let decision_tracker = DecisionTracker()
     let on_decision =
+        let mutable sink : TradingDecision -> unit = decision_tracker.Add
         match lossLimit with
-        | Some limit -> enforce_loss_limit decision_tracker limit decision_tracker.Add
-        | None -> decision_tracker.Add
+        | Some limit -> sink <- enforce_loss_limit decision_tracker limit sink
+        | None -> ()
+        match maxTrades with
+        | Some n -> sink <- enforce_activity_limit n sink
+        | None -> ()
+        sink
     let pipeline =
         segregate_trades window
             (splitter
