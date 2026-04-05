@@ -33,7 +33,8 @@ let window : MarketHours = {
 printfn "Opening print at: %s UTC" (window.openTime.ToString "HH:mm:ss.fff")
 printfn "Closing print at: %s UTC" (window.closeTime.ToString "HH:mm:ss.fff")
 
-let simulator = VwapSimulator(window, desiredBarSize, positionSize)
+let vwapSystem = createStaticVwapSystem desiredBarSize
+let simulator = VwapSimulator(window, vwapSystem, positionSize)
 
 for trade in trades do
     simulator.AddTrade trade

@@ -141,6 +141,101 @@ let createVwapSystem () =
     }
 
 // =============================================================================
+// VwapSystemEffectDynamic — adds automatic (policy-driven) bar selection
+// =============================================================================
+
+/// Extension of VwapSystemEffect that hides the bar-size selection policy
+/// behind a single accessor. Consumers (e.g. make_trading_decisions) become
+/// agnostic to whether the bar size is fixed or chosen dynamically at runtime.
+///
+/// UpdateSelector is a premarket-only entry point: it feeds a trade into the
+/// selection policy without building volume bars or moving the VWMA. This lets
+/// the selector accumulate premarket volume so the post-open estimation marks
+/// (5s / 30s / ...) see a denominator that reflects the full day's flow so far.
+type VwapSystemEffectDynamic =
+    inherit VwapSystemEffect
+    abstract member GetVolumeBarsAutomatic : ImmutableList<VolumeBar>
+    abstract member UpdateSelector : Trade -> unit
+
+/// Snap a desired bar size to the closest power-of-2 entry in barSizes (L1).
+let snapToBarSize (desired: float) =
+    let mutable bestIdx = 0
+    let mutable bestDist = abs (barSizes.[0] - desired)
+    for i in 1 .. barSizes.Length - 1 do
+        let d = abs (barSizes.[i] - desired)
+        if d < bestDist then
+            bestIdx <- i
+            bestDist <- d
+    barSizes.[bestIdx]
+
+/// Accumulates its own running total volume from every trade fed in (via
+/// AddTrade for post-open and UpdateSelector for premarket). At estimation
+/// offset i after the opening print, picks barSize = volumePcts[i] * totalVolume,
+/// snapped to the nearest power-of-2. The per-offset pcts let the sweep tune
+/// each estimation point independently (e.g. the right fraction at 5s may
+/// differ from the right one at 12.5m once more of the day's shape is known).
+type BarSizeSelector(estimationOffsetsSec: float[], volumePcts: float[]) =
+    do
+        if estimationOffsetsSec.Length <> volumePcts.Length then
+            invalidArg "volumePcts" "volumePcts must have the same length as estimationOffsetsSec"
+    let mutable openingPrintTime : DateTime option = None
+    let mutable nextIdx = 0
+    let mutable currentBarSize = 0.0
+    let mutable totalVolume = 0.0
+
+    member _.CurrentBarSize = currentBarSize
+    member _.TotalVolume = totalVolume
+
+    member _.Update(trade: Trade) =
+        totalVolume <- totalVolume + trade.Volume
+        if openingPrintTime.IsNone && trade.Session = OpeningPrint then
+            openingPrintTime <- Some trade.Timestamp
+        match openingPrintTime with
+        | None -> ()
+        | Some ot ->
+            while nextIdx < estimationOffsetsSec.Length &&
+                  trade.Timestamp >= ot.AddSeconds estimationOffsetsSec.[nextIdx] do
+                currentBarSize <- snapToBarSize (volumePcts.[nextIdx] * totalVolume)
+                nextIdx <- nextIdx + 1
+
+let defaultEstimationOffsets = [| 5.0; 30.0; 150.0; 750.0 |]
+
+/// Static bar-size system: always exposes volume bars of a fixed size via
+/// GetVolumeBarsAutomatic. Reproduces the yesterday-style backtest shape.
+/// UpdateSelector is a no-op since bar size is fixed.
+let createStaticVwapSystem (fixedBarSize: float) =
+    let inner = createVwapSystem ()
+    { new VwapSystemEffectDynamic with
+        member _.AddTrade trade = inner.AddTrade trade
+        member _.GetVwap = inner.GetVwap
+        member _.GetTotalVolume = inner.GetTotalVolume
+        member _.GetVolumeBars desired = inner.GetVolumeBars desired
+        member _.GetVolumeBarsAutomatic = inner.GetVolumeBars fixedBarSize
+        member _.UpdateSelector _ = ()
+    }
+
+/// Dynamic bar-size system: selector accumulates volume across premarket
+/// (via UpdateSelector) and regular hours (via AddTrade), and picks a new
+/// bar size each time an estimation mark after the opening print is crossed.
+/// Before the first mark GetVolumeBarsAutomatic returns the empty singleton
+/// so downstream consumers naturally no-op until a size is chosen.
+let createDynamicVwapSystem (estimationOffsetsSec: float[], volumePcts: float[]) =
+    let inner = createVwapSystem ()
+    let selector = BarSizeSelector(estimationOffsetsSec, volumePcts)
+    { new VwapSystemEffectDynamic with
+        member _.AddTrade trade =
+            inner.AddTrade trade
+            selector.Update trade
+        member _.GetVwap = inner.GetVwap
+        member _.GetTotalVolume = inner.GetTotalVolume
+        member _.GetVolumeBars desired = inner.GetVolumeBars desired
+        member _.GetVolumeBarsAutomatic =
+            if selector.CurrentBarSize = 0.0 then ImmutableList<VolumeBar>.Empty
+            else inner.GetVolumeBars selector.CurrentBarSize
+        member _.UpdateSelector trade = selector.Update trade
+    }
+
+// =============================================================================
 // Trading Simulation
 // =============================================================================
 
@@ -179,9 +274,9 @@ let segregate_trades (window : MarketHours) on_succ =
             elif window.closeTime <= t then
                 on_succ (AfterClosing trade)
 
-let track_volume_bars (vwapSystem: VwapSystemEffect) =
+let track_volume_bars (vwapSystem: VwapSystemEffectDynamic) =
     function
-    | BeforeOpeningPrint _ -> ()
+    | BeforeOpeningPrint trade -> vwapSystem.UpdateSelector trade
     | AfterOpeningPrint trade | AfterOpeningPrintAndPause trade | BeforeClosing trade | AfterClosing trade -> vwapSystem.AddTrade trade
 
 type SimulatorState =
@@ -194,14 +289,14 @@ type TradingDecision = {
     Shares: float
 }
 
-let make_trading_decisions (vwapSystem: VwapSystemEffect, barSize: float, positionSize: float) on_succ =
+let make_trading_decisions (vwapSystem: VwapSystemEffectDynamic, positionSize: float) on_succ =
     let mutable state = Active(0.0, 0.0)
     let mutable prevBars : ImmutableList<VolumeBar> = ImmutableList<VolumeBar>.Empty
     function
     | BeforeOpeningPrint _ | AfterOpeningPrint _ | AfterClosing _ -> () // Not intended for this node.
     | AfterOpeningPrintAndPause trade ->
-        let bars = vwapSystem.GetVolumeBars barSize
-        if not (Object.ReferenceEquals(bars, prevBars)) then
+        let bars = vwapSystem.GetVolumeBarsAutomatic
+        if not (Object.ReferenceEquals(bars, prevBars)) && bars.Count > 0 then
             prevBars <- bars
             let vwma = vwapSystem.GetVwap
             match state with
@@ -250,15 +345,14 @@ type DecisionTracker() =
 
 let splitter a b trade = a trade; b trade
 
-type VwapSimulator(window : MarketHours, barSize: float, positionSize: float) =
+type VwapSimulator(window : MarketHours, vwapSystem: VwapSystemEffectDynamic, positionSize: float) =
     let decision_tracker = DecisionTracker()
-    let vwapSystem = createVwapSystem()
     let pipeline =
         segregate_trades window
             (splitter
                 (track_volume_bars vwapSystem)
                 (make_trading_decisions
-                    (vwapSystem, barSize, positionSize)
+                    (vwapSystem, positionSize)
                     decision_tracker.Add))
             
     member _.AddTrade(trade: Trade) = pipeline trade
