@@ -345,15 +345,35 @@ type DecisionTracker() =
 
 let splitter a b trade = a trade; b trade
 
-type VwapSimulator(window : MarketHours, vwapSystem: VwapSystemEffectDynamic, positionSize: float) =
+/// Daily loss limit enforcement stage. Sits between make_trading_decisions and
+/// the final decision sink. Forwards every decision through the tracker and,
+/// as soon as the tracker's running realized P&L drops below -lossLimit,
+/// injects a flatten at the same timestamp/price and then silently drops all
+/// further decisions for the rest of the day.
+let enforce_loss_limit (tracker: DecisionTracker) (lossLimit: float) on_succ =
+    let mutable tripped = false
+    fun (d: TradingDecision) ->
+        if tripped then ()
+        else
+            on_succ d
+            if tracker.RealizedPnL <= -lossLimit then
+                tripped <- true
+                if d.Shares <> 0.0 then
+                    on_succ { Timestamp = d.Timestamp; Price = d.Price; Shares = 0.0 }
+
+type VwapSimulator(window : MarketHours, vwapSystem: VwapSystemEffectDynamic, positionSize: float, ?lossLimit: float) =
     let decision_tracker = DecisionTracker()
+    let on_decision =
+        match lossLimit with
+        | Some limit -> enforce_loss_limit decision_tracker limit decision_tracker.Add
+        | None -> decision_tracker.Add
     let pipeline =
         segregate_trades window
             (splitter
                 (track_volume_bars vwapSystem)
                 (make_trading_decisions
                     (vwapSystem, positionSize)
-                    decision_tracker.Add))
+                    on_decision))
             
     member _.AddTrade(trade: Trade) = pipeline trade
 
