@@ -168,7 +168,7 @@ while not stopped do
         printfn "[budget] elapsed %.1fs >= %.0fs, stopping"
             swSweep.Elapsed.TotalSeconds budget.TotalSeconds
         stopped <- true
-    elif evalIdx >= maxIterations + 1 then
+    elif evalIdx = maxIterations then
         printfn "[iter-cap] %d iterations done, stopping (smoke run)" maxIterations
         stopped <- true
     else
