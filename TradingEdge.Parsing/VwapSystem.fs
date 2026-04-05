@@ -74,13 +74,6 @@ type VolumeBarBuilder(barSize: float) =
     member _.BarSize = barSize
 
 // =============================================================================
-// Bar Size Constants
-// =============================================================================
-
-/// Powers of 2 from 1k to 1024k: 1000, 2000, 4000, ..., 1024000
-let barSizes = [| for i in 0..10 -> float (pown 2 i) * 1000.0 |]
-
-// =============================================================================
 // Cumulative VWMA Tracker (anchored on opening print)
 // =============================================================================
 
@@ -104,41 +97,53 @@ type VwmaTracker() =
     member _.Vwap = if totalVolume > 0.0 then priceVolumeSum / totalVolume else 0.0
 
 // =============================================================================
+// Lazy bar-chart state (single chart, rebuilds on size change)
+// =============================================================================
+
+/// Buffers every trade fed in via RecordTrade and lazily produces a volume
+/// bar chart for whatever size the caller asks for. If the size matches the
+/// cached build, extends it incrementally from the trades that have arrived
+/// since the last query. If the size differs, throws the old builder away
+/// and rebuilds from scratch over the full buffered trade history — cheap
+/// enough at the 4 estimation marks of the dynamic system, and keeps the
+/// critical path (AddTrade + GetVolumeBarsAutomatic at the same size) fully
+/// incremental. The per-trade VWMA snapshot is stored alongside each trade
+/// so that rebuilds stamp historical bars with the VWMA they would have had
+/// at completion time, matching the old parallel-builders semantics exactly.
+type LazyBarState() =
+    let trades = ResizeArray<Trade>()
+    let vwmaAtTrade = ResizeArray<float>()
+    let mutable currentSize = 0.0
+    let mutable builder : VolumeBarBuilder = Unchecked.defaultof<_>
+    let mutable nextIdx = 0
+
+    member _.RecordTrade(t: Trade, vwma: float) =
+        trades.Add t
+        vwmaAtTrade.Add vwma
+
+    member _.BarsFor(size: float) =
+        if size <= 0.0 then ImmutableList<VolumeBar>.Empty
+        elif size = currentSize then
+            for i in nextIdx .. trades.Count - 1 do
+                builder.AddTrade(trades.[i], vwmaAtTrade.[i])
+            nextIdx <- trades.Count
+            builder.Bars
+        else
+            let b = VolumeBarBuilder(size)
+            for i in 0 .. trades.Count - 1 do
+                b.AddTrade(trades.[i], vwmaAtTrade.[i])
+            builder <- b
+            currentSize <- size
+            nextIdx <- trades.Count
+            b.Bars
+
+// =============================================================================
 // VwapSystemEffect
 // =============================================================================
 
 type VwapSystemEffect =
     abstract member AddTrade : Trade -> unit
     abstract member GetVwap : float
-    abstract member GetTotalVolume : float
-    abstract member GetVolumeBars : float -> ImmutableList<VolumeBar>
-
-let createVwapSystem () =
-    let builders = barSizes |> Array.map VolumeBarBuilder
-    let vwma = VwmaTracker()
-    let mutable totalVolume = 0.0
-
-    { new VwapSystemEffect with
-        member _.AddTrade(trade) =
-            // Track total volume from all sessions (including premarket)
-            totalVolume <- totalVolume + trade.Volume
-            // VWMA only uses regular hours data
-            vwma.AddTrade(trade)
-            // Volume bars built from start of day (all sessions)
-            for b in builders do b.AddTrade(trade, vwma.Vwap)
-
-        member _.GetVwap = vwma.Vwap
-        member _.GetTotalVolume = totalVolume
-        member _.GetVolumeBars desiredSize =
-            let mutable bestIdx = 0
-            let mutable bestDist = abs (barSizes.[0] - desiredSize)
-            for i in 1 .. barSizes.Length - 1 do
-                let dist = abs (barSizes.[i] - desiredSize)
-                if dist < bestDist then
-                    bestIdx <- i
-                    bestDist <- dist
-            builders.[bestIdx].Bars
-    }
 
 // =============================================================================
 // VwapSystemEffectDynamic — adds automatic (policy-driven) bar selection
@@ -157,23 +162,12 @@ type VwapSystemEffectDynamic =
     abstract member GetVolumeBarsAutomatic : ImmutableList<VolumeBar>
     abstract member UpdateSelector : Trade -> unit
 
-/// Snap a desired bar size to the closest power-of-2 entry in barSizes (L1).
-let snapToBarSize (desired: float) =
-    let mutable bestIdx = 0
-    let mutable bestDist = abs (barSizes.[0] - desired)
-    for i in 1 .. barSizes.Length - 1 do
-        let d = abs (barSizes.[i] - desired)
-        if d < bestDist then
-            bestIdx <- i
-            bestDist <- d
-    barSizes.[bestIdx]
-
 /// Accumulates its own running total volume from every trade fed in (via
 /// AddTrade for post-open and UpdateSelector for premarket). At estimation
-/// offset i after the opening print, picks barSize = volumePcts[i] * totalVolume,
-/// snapped to the nearest power-of-2. The per-offset pcts let the sweep tune
-/// each estimation point independently (e.g. the right fraction at 5s may
-/// differ from the right one at 12.5m once more of the day's shape is known).
+/// offset i after the opening print, picks barSize = volumePcts[i] * totalVolume
+/// exactly — no snap, so the sweep can explore fine-grained bar sizes. Each
+/// change triggers a full rebuild of the bar chart downstream, which is the
+/// explicit trade-off for the granularity.
 type BarSizeSelector(estimationOffsetsSec: float[], volumePcts: float[]) =
     do
         if estimationOffsetsSec.Length <> volumePcts.Length then
@@ -195,22 +189,22 @@ type BarSizeSelector(estimationOffsetsSec: float[], volumePcts: float[]) =
         | Some ot ->
             while nextIdx < estimationOffsetsSec.Length &&
                   trade.Timestamp >= ot.AddSeconds estimationOffsetsSec.[nextIdx] do
-                currentBarSize <- snapToBarSize (volumePcts.[nextIdx] * totalVolume)
+                currentBarSize <- volumePcts.[nextIdx] * totalVolume
                 nextIdx <- nextIdx + 1
 
 let defaultEstimationOffsets = [| 5.0; 30.0; 150.0; 750.0 |]
 
 /// Static bar-size system: always exposes volume bars of a fixed size via
-/// GetVolumeBarsAutomatic. Reproduces the yesterday-style backtest shape.
-/// UpdateSelector is a no-op since bar size is fixed.
+/// GetVolumeBarsAutomatic. UpdateSelector is a no-op since bar size is fixed.
 let createStaticVwapSystem (fixedBarSize: float) =
-    let inner = createVwapSystem ()
+    let state = LazyBarState()
+    let vwma = VwmaTracker()
     { new VwapSystemEffectDynamic with
-        member _.AddTrade trade = inner.AddTrade trade
-        member _.GetVwap = inner.GetVwap
-        member _.GetTotalVolume = inner.GetTotalVolume
-        member _.GetVolumeBars desired = inner.GetVolumeBars desired
-        member _.GetVolumeBarsAutomatic = inner.GetVolumeBars fixedBarSize
+        member _.AddTrade trade =
+            vwma.AddTrade trade
+            state.RecordTrade(trade, vwma.Vwap)
+        member _.GetVwap = vwma.Vwap
+        member _.GetVolumeBarsAutomatic = state.BarsFor fixedBarSize
         member _.UpdateSelector _ = ()
     }
 
@@ -220,18 +214,16 @@ let createStaticVwapSystem (fixedBarSize: float) =
 /// Before the first mark GetVolumeBarsAutomatic returns the empty singleton
 /// so downstream consumers naturally no-op until a size is chosen.
 let createDynamicVwapSystem (estimationOffsetsSec: float[], volumePcts: float[]) =
-    let inner = createVwapSystem ()
+    let state = LazyBarState()
+    let vwma = VwmaTracker()
     let selector = BarSizeSelector(estimationOffsetsSec, volumePcts)
     { new VwapSystemEffectDynamic with
         member _.AddTrade trade =
-            inner.AddTrade trade
+            vwma.AddTrade trade
+            state.RecordTrade(trade, vwma.Vwap)
             selector.Update trade
-        member _.GetVwap = inner.GetVwap
-        member _.GetTotalVolume = inner.GetTotalVolume
-        member _.GetVolumeBars desired = inner.GetVolumeBars desired
-        member _.GetVolumeBarsAutomatic =
-            if selector.CurrentBarSize = 0.0 then ImmutableList<VolumeBar>.Empty
-            else inner.GetVolumeBars selector.CurrentBarSize
+        member _.GetVwap = vwma.Vwap
+        member _.GetVolumeBarsAutomatic = state.BarsFor selector.CurrentBarSize
         member _.UpdateSelector trade = selector.Update trade
     }
 
