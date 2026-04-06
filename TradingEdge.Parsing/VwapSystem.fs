@@ -120,9 +120,32 @@ type BarBuilderInput =
 /// of the volume bars from the current trade list. Emits the rebuilt
 /// ImmutableList<VolumeBar> after each rebuild.
 let createDynamicBarBuilder (input: IObservable<BarBuilderInput>) =
-    Observable.Create<ImmutableList<VolumeBar>>(fun (observer: IObserver<ImmutableList<VolumeBar>>) ->
+    Observable.Create<_>(fun (observer: IObserver<VolumeBar list>) ->
         let mutable currentTrades = ImmutableList<Trade>.Empty
-        let mutable currentBars = ImmutableList<VolumeBar>.Empty
+        let mutable currentBars = []
+        let addBar bar = currentBars <- bar :: currentBars
+        let mutable barBuilder = barBuilderTemplate infinity addBar
+
+        input.Subscribe(function
+            | BarBuilderInput.Trade trade ->
+                currentTrades <- currentTrades.Add trade
+                let prevBars = currentBars
+                barBuilder trade
+                if prevBars <> currentBars then
+                    observer.OnNext currentBars
+            | BarBuilderInput.BarSize size ->
+                currentBars <- []
+                barBuilder <- barBuilderTemplate size addBar
+                Seq.iter barBuilder currentTrades
+                observer.OnNext currentBars
+        )
+    )
+
+// TODO: We'll try making the barBuilderTemplate that also calculates the VWMA.
+let createDynamicBarBuilder' barBuilderTemplate (input: IObservable<BarBuilderInput>) =
+    Observable.Create<_>(fun (observer: IObserver<_ ImmutableList>) ->
+        let mutable currentTrades = ImmutableList<Trade>.Empty
+        let mutable currentBars = ImmutableList.Empty
         let addBar bar = currentBars <- currentBars.Add bar
         let mutable barBuilder = barBuilderTemplate infinity addBar
 
@@ -142,6 +165,33 @@ let createDynamicBarBuilder (input: IObservable<BarBuilderInput>) =
     )
 
 let defaultEstimationOffsets = [| 5.0; 30.0; 150.0; 750.0 |]
+
+let createMemoizer () =
+    let mutable prevValue = Unchecked.defaultof<_>
+    let mutable prevKey = None
+
+    fun f key ->
+        match prevKey with
+        | Some prevKey when Object.ReferenceEquals(prevKey, key) -> prevValue
+        | _ ->
+            let value = f key
+            prevValue <- value
+            prevKey <- Some key
+            value
+
+let combineVwma (input: IObservable<VolumeBar list>) =
+    Observable.Create<_>(fun (observer: IObserver<(VolumeBar * float) list>) ->
+        let memoize = createMemoizer()
+        let rec loop l =
+            memoize (function
+                | x :: xs -> 
+                    let xs, (price, count) = loop xs
+                    let price, count = price + x.VWAP, count + 1
+                    (x, price / float count) :: xs, (price, count)
+                | [] -> [], (0.0, 0)
+            ) l
+        input.Subscribe(loop >> fst >> observer.OnNext)
+    )
 
 /// Takes all trades (premarket + post-open) and produces volume bars with
 /// dynamic bar sizing. Premarket trades contribute to total volume for bar
