@@ -1,6 +1,7 @@
 module TradingEdge.Parsing.VwapSystem
 
 open System
+open System.Reactive
 open System.Collections.Immutable
 open TradeLoader
 open VolumeBars
