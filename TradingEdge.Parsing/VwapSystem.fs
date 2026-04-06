@@ -1,6 +1,7 @@
 module TradingEdge.Parsing.VwapSystem
 
 open System
+open System.Reactive.Linq
 open System.Reactive.Subjects
 open System.Collections.Immutable
 open TradeLoader
@@ -10,22 +11,13 @@ open VolumeBars
 // Incremental Volume Bar Builder (Reactive)
 // =============================================================================
 
-/// Creates a reactive volume bar builder. Takes a bar size and returns a
-/// ReplaySubject<Trade> (input) and an IObservable<VolumeBar> (output: emits
-/// each completed volume bar individually).
-let createVolumeBarBuilder (barSize: float) =
-    let input = new ReplaySubject<Trade>()
-    let output = new ReplaySubject<VolumeBar>()
-
-    // Current in-progress bar state
+let barBuilderTemplate barSize onNext =
     let mutable currentPriceVolumeSum = 0.0
     let mutable currentPriceSquaredVolumeSum = 0.0
     let mutable currentVolumeSum = 0.0
     let mutable currentTradeCount = 0
     let mutable currentStartTime = Unchecked.defaultof<DateTime>
     let mutable hasStartTime = false
-
-    // Cumulative state across all bars
     let mutable cumulativeVolume = 0.0
 
     let finishBar (endTime: DateTime) =
@@ -33,7 +25,7 @@ let createVolumeBarBuilder (barSize: float) =
         let variance = currentPriceSquaredVolumeSum / currentVolumeSum - vwap * vwap
         let stddev = sqrt (max 0.0 variance)
         cumulativeVolume <- cumulativeVolume + currentVolumeSum
-        let bar = {
+        onNext {
             CumulativeVolume = cumulativeVolume
             VWAP = vwap
             StdDev = stddev
@@ -42,14 +34,13 @@ let createVolumeBarBuilder (barSize: float) =
             EndTime = endTime
             NumTrades = currentTradeCount
         }
-        output.OnNext(bar)
         currentPriceVolumeSum <- 0.0
         currentPriceSquaredVolumeSum <- 0.0
         currentVolumeSum <- 0.0
         currentTradeCount <- 0
         hasStartTime <- false
 
-    input.Subscribe(fun trade ->
+    fun (trade : Trade) ->
         let mutable remaining = trade.Volume
         while remaining > 0.0 do
             if not hasStartTime then
@@ -72,52 +63,162 @@ let createVolumeBarBuilder (barSize: float) =
                     remaining <- remaining - spaceLeft
                 if currentVolumeSum >= barSize then
                     finishBar trade.Timestamp
-    ) |> ignore
 
-    input, output :> IObservable<VolumeBar>
+let rebuildVolumeBars barSize (trades : Trade ImmutableList) =
+    let mutable l = ImmutableList.Empty
+    let bar_builder = barBuilderTemplate barSize (fun bar -> l <- l.Add bar)
+    Seq.iter bar_builder trades
+    l
+
+/// Creates a reactive volume bar builder. Takes a bar size and an
+/// IObservable<Trade> source. Returns an IObservable<VolumeBar> that emits
+/// each completed bar. Uses Observable.Create so that disposal propagates
+/// correctly — unsubscribing from the output unsubscribes from the input.
+/// One input trade can produce multiple output bars when it spans boundaries.
+let createVolumeBarBuilder (barSize: float) (trades: IObservable<Trade>) =
+    Observable.Create<VolumeBar>(fun (observer: IObserver<VolumeBar>) ->
+        trades.Subscribe(barBuilderTemplate barSize observer.OnNext)
+    )
 
 // =============================================================================
 // VWMA over Volume Bars (simple moving average of bar VWAPs)
 // =============================================================================
 
-/// Creates a reactive VWMA tracker over volume bars. Since all volume bars
-/// have (approximately) equal volume, the volume-weighted moving average
-/// reduces to a simple expanding average of bar VWAPs.
-/// Input: IObservable<VolumeBar>. Output: IObservable<VolumeBar * float>
-/// where the float is the cumulative VWMA up to and including that bar.
+/// Expanding average of bar VWAPs. Since volume bars have approximately equal
+/// volume, this is equivalent to a volume-weighted moving average.
 let createVwma (bars: IObservable<VolumeBar>) =
-    let output = new ReplaySubject<VolumeBar * float>()
-    let mutable vwapSum = 0.0
-    let mutable count = 0
-    bars.Subscribe(fun bar ->
-        vwapSum <- vwapSum + bar.VWAP
-        count <- count + 1
-        output.OnNext(bar, vwapSum / float count)
-    ) |> ignore
-    output :> IObservable<VolumeBar * float>
+    bars.Scan(
+        (Unchecked.defaultof<VolumeBar>, 0.0, 0),
+        fun (_, sum, count) bar -> (bar, sum + bar.VWAP, count + 1))
+        .Select(fun (bar, sum, count) -> (bar, sum / float count))
 
 // =============================================================================
-// Cumulative VWMA Tracker (anchored on opening print)
+// Dynamic Volume Bar System (bar size selection + building + VWMA)
 // =============================================================================
 
-type VwmaTracker() =
-    let mutable priceVolumeSum = 0.0
-    let mutable totalVolume = 0.0
-    let mutable isAfterOpen = false
+/// Filters a trade stream to only pass through trades at and after the
+/// opening print. Trades before the opening print are dropped.
+let filterFromOpen (trades: IObservable<Trade>) =
+    trades.SkipWhile(fun t -> t.Session <> OpeningPrint)
 
-    member _.AddTrade(trade: Trade) =
-        match trade.Session with
-        | OpeningPrint ->
-            isAfterOpen <- true
-            priceVolumeSum <- priceVolumeSum + trade.Price * trade.Volume
-            totalVolume <- totalVolume + trade.Volume
-        | RegularHours | ClosingPrint when isAfterOpen ->
-            priceVolumeSum <- priceVolumeSum + trade.Price * trade.Volume
-            totalVolume <- totalVolume + trade.Volume
-        | _ -> ()
+/// Accumulates trades into a growing immutable list. Emits the updated list
+/// on every incoming trade.
+let accumTrades (trades: IObservable<Trade>) =
+    trades.Scan(ImmutableList<Trade>.Empty, fun acc trade -> acc.Add trade).Replay(1).RefCount()
 
-    member _.IsActive = isAfterOpen
-    member _.Vwap = if totalVolume > 0.0 then priceVolumeSum / totalVolume else 0.0
+// =============================================================================
+// Dynamic Bar Builder (rebuilds on trade list or bar size change)
+// =============================================================================
+
+[<RequireQualifiedAccess>]
+type BarBuilderInput =
+    | Trade of Trade
+    | BarSize of float
+
+/// Takes a merged stream of trade-list updates and bar-size changes.
+/// Bar size starts as None; once set, every input triggers a full rebuild
+/// of the volume bars from the current trade list. Emits the rebuilt
+/// ImmutableList<VolumeBar> after each rebuild.
+let createDynamicBarBuilder (input: IObservable<BarBuilderInput>) =
+    Observable.Create<ImmutableList<VolumeBar>>(fun (observer: IObserver<ImmutableList<VolumeBar>>) ->
+        let mutable currentTrades = ImmutableList<Trade>.Empty
+        let mutable currentBars = ImmutableList<VolumeBar>.Empty
+        let addBar bar = currentBars <- currentBars.Add bar
+        let mutable barBuilder = barBuilderTemplate infinity addBar
+
+        input.Subscribe(function
+            | BarBuilderInput.Trade trade ->
+                currentTrades <- currentTrades.Add trade
+                let prevBars = currentBars
+                barBuilder trade
+                if prevBars <> currentBars then
+                    observer.OnNext currentBars
+            | BarBuilderInput.BarSize size ->
+                currentBars <- ImmutableList.Empty
+                barBuilder <- barBuilderTemplate size addBar
+                Seq.iter barBuilder currentTrades
+                observer.OnNext currentBars
+        )
+    )
+
+let defaultEstimationOffsets = [| 5.0; 30.0; 150.0; 750.0 |]
+
+/// Takes all trades (premarket + post-open) and produces volume bars with
+/// dynamic bar sizing. Premarket trades contribute to total volume for bar
+/// size estimation but are not included in the bars themselves. Bar size is
+/// chosen at each estimation offset as volumePcts[i] * totalVolume. When bar
+/// size changes, all post-open trades are replayed through a new builder.
+/// Emits (bars, vwma) on every bar completion or bar-size rebuild.
+let createDynamicVolumeBars (estimationOffsetsSec: float[]) (volumePcts: float[]) (trades: IObservable<Trade>) =
+    let trades_after_open = filterFromOpen trades
+    Observable.Create<ImmutableList<VolumeBar> * float>(fun (observer : IObserver<ImmutableList<VolumeBar> * float>) ->
+        // Bar size selection state
+        let mutable totalVolume = 0.0
+        let mutable openingPrintTime : DateTime option = None
+        let mutable selectorIdx = 0
+        let mutable currentBarSize = 0.0
+
+        // Bar building state
+        let postOpenTrades = ResizeArray<Trade>()
+        let mutable bars = ImmutableList<VolumeBar>.Empty
+        let mutable vwapSum = 0.0
+        let mutable barCount = 0
+        let mutable innerInput : Subject<Trade> = null
+        let mutable innerSub : IDisposable = null
+
+        let emit () =
+            let vwma = if barCount > 0 then vwapSum / float barCount else 0.0
+            observer.OnNext((bars, vwma))
+
+        let rebuildBars () =
+            if innerSub <> null then innerSub.Dispose()
+            bars <- ImmutableList<VolumeBar>.Empty
+            vwapSum <- 0.0
+            barCount <- 0
+            let input = new Subject<Trade>()
+            innerSub <- (createVolumeBarBuilder currentBarSize input).Subscribe(fun bar ->
+                bars <- bars.Add bar
+                vwapSum <- vwapSum + bar.VWAP
+                barCount <- barCount + 1
+                emit ()
+            )
+            innerInput <- input
+            for t in postOpenTrades do
+                input.OnNext t
+
+        let outerSub = trades.Subscribe(fun trade ->
+            totalVolume <- totalVolume + trade.Volume
+
+            if openingPrintTime.IsNone && trade.Session = OpeningPrint then
+                openingPrintTime <- Some trade.Timestamp
+
+            // Check estimation marks
+            let mutable sizeChanged = false
+            match openingPrintTime with
+            | None -> ()
+            | Some ot ->
+                while selectorIdx < estimationOffsetsSec.Length &&
+                      trade.Timestamp >= ot.AddSeconds estimationOffsetsSec.[selectorIdx] do
+                    currentBarSize <- volumePcts.[selectorIdx] * totalVolume
+                    selectorIdx <- selectorIdx + 1
+                    sizeChanged <- true
+
+            // Buffer post-open trades for rebuilds
+            if openingPrintTime.IsSome then
+                postOpenTrades.Add trade
+
+            // Rebuild on size change, otherwise feed to current builder
+            if sizeChanged then
+                rebuildBars ()
+            elif currentBarSize > 0.0 && innerInput <> null then
+                innerInput.OnNext trade
+        )
+
+        { new IDisposable with
+            member _.Dispose() =
+                outerSub.Dispose()
+                if innerSub <> null then innerSub.Dispose() }
+    )
 
 // =============================================================================
 // Lazy bar-chart state (single chart, rebuilds on size change)
@@ -130,7 +231,7 @@ type VwmaTracker() =
 type LazyBarState() =
     let trades = ResizeArray<Trade>()
     let mutable currentSize = 0.0
-    let mutable input : ReplaySubject<Trade> = Unchecked.defaultof<_>
+    let mutable input : Subject<Trade> = Unchecked.defaultof<_>
     let mutable bars = ImmutableList<VolumeBar>.Empty
     let mutable subscription : IDisposable = null
     let mutable nextIdx = 0
@@ -147,9 +248,10 @@ type LazyBarState() =
             bars
         else
             if subscription <> null then subscription.Dispose()
-            let newInput, output = createVolumeBarBuilder size
+            let newInput = new Subject<Trade>()
+            let output = createVolumeBarBuilder size newInput
             bars <- ImmutableList<VolumeBar>.Empty
-            output.Subscribe(fun bar -> bars <- bars.Add(bar)) |> fun s -> subscription <- s
+            subscription <- output.Subscribe(fun bar -> bars <- bars.Add(bar))
             input <- newInput
             for i in 0 .. trades.Count - 1 do
                 input.OnNext(trades.[i])
@@ -249,8 +351,6 @@ type BarSizeSelector(estimationOffsetsSec: float[], volumePcts: float[]) =
                   trade.Timestamp >= ot.AddSeconds estimationOffsetsSec.[nextIdx] do
                 currentBarSize <- volumePcts.[nextIdx] * totalVolume
                 nextIdx <- nextIdx + 1
-
-let defaultEstimationOffsets = [| 5.0; 30.0; 150.0; 750.0 |]
 
 /// Static bar-size system: always exposes volume bars of a fixed size via
 /// GetVolumeBarsAutomatic. UpdateSelector is a no-op since bar size is fixed.
