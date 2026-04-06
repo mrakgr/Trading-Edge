@@ -138,6 +138,40 @@ type LazyBarState() =
             b.Bars
 
 // =============================================================================
+// Pairwise bar variance (for volatility-adjusted position sizing)
+// =============================================================================
+
+/// Computes the combined variance of two Gaussians (volume bars) treated as a
+/// mixture. Each bar is N(VWAP, StdDev²) weighted by Volume.
+let pairwiseCombinedVariance (a: VolumeBar) (b: VolumeBar) =
+    let vA = a.Volume
+    let vB = b.Volume
+    let vTotal = vA + vB
+    if vTotal <= 0.0 then 0.0
+    else
+        let muCombined = (vA * a.VWAP + vB * b.VWAP) / vTotal
+        let secondMoment = (vA * (a.StdDev * a.StdDev + a.VWAP * a.VWAP) + vB * (b.StdDev * b.StdDev + b.VWAP * b.VWAP)) / vTotal
+        secondMoment - muCombined * muCombined
+
+/// Returns (sumOfVariances, pairCount) from adjacent-bar pairs in a bar list.
+let pairwiseVarianceAccum (bars: ImmutableList<VolumeBar>) =
+    let mutable sum = 0.0
+    let mutable count = 0
+    for i in 0 .. bars.Count - 2 do
+        sum <- sum + pairwiseCombinedVariance bars.[i] bars.[i + 1]
+        count <- count + 1
+    sum, count
+
+/// Computes volFactor = sqrt(average pairwise variance) from two bar sources
+/// (premarket + post-open). Returns None if fewer than 1 pair total.
+let computeVolFactor (premarketBars: ImmutableList<VolumeBar>) (postOpenBars: ImmutableList<VolumeBar>) =
+    let s1, c1 = pairwiseVarianceAccum premarketBars
+    let s2, c2 = pairwiseVarianceAccum postOpenBars
+    let totalCount = c1 + c2
+    if totalCount = 0 then None
+    else Some (sqrt ((s1 + s2) / float totalCount))
+
+// =============================================================================
 // VwapSystemEffect
 // =============================================================================
 
@@ -157,10 +191,14 @@ type VwapSystemEffect =
 /// selection policy without building volume bars or moving the VWMA. This lets
 /// the selector accumulate premarket volume so the post-open estimation marks
 /// (5s / 30s / ...) see a denominator that reflects the full day's flow so far.
+///
+/// GetVolFactor returns the current volatility scaling factor computed from
+/// premarket + post-open pairwise bar variance, or None if insufficient bars.
 type VwapSystemEffectDynamic =
     inherit VwapSystemEffect
     abstract member GetVolumeBarsAutomatic : ImmutableList<VolumeBar>
     abstract member UpdateSelector : Trade -> unit
+    abstract member GetVolFactor : float option
 
 /// Accumulates its own running total volume from every trade fed in (via
 /// AddTrade for post-open and UpdateSelector for premarket). At estimation
@@ -198,6 +236,7 @@ let defaultEstimationOffsets = [| 5.0; 30.0; 150.0; 750.0 |]
 /// GetVolumeBarsAutomatic. UpdateSelector is a no-op since bar size is fixed.
 let createStaticVwapSystem (fixedBarSize: float) =
     let state = LazyBarState()
+    let premarketState = LazyBarState()
     let vwma = VwmaTracker()
     { new VwapSystemEffectDynamic with
         member _.AddTrade trade =
@@ -205,7 +244,8 @@ let createStaticVwapSystem (fixedBarSize: float) =
             state.RecordTrade(trade, vwma.Vwap)
         member _.GetVwap = vwma.Vwap
         member _.GetVolumeBarsAutomatic = state.BarsFor fixedBarSize
-        member _.UpdateSelector _ = ()
+        member _.UpdateSelector trade = premarketState.RecordTrade(trade, 0.0)
+        member _.GetVolFactor = computeVolFactor (premarketState.BarsFor fixedBarSize) (state.BarsFor fixedBarSize)
     }
 
 /// Dynamic bar-size system: selector accumulates volume across premarket
@@ -215,6 +255,7 @@ let createStaticVwapSystem (fixedBarSize: float) =
 /// so downstream consumers naturally no-op until a size is chosen.
 let createDynamicVwapSystem (estimationOffsetsSec: float[], volumePcts: float[]) =
     let state = LazyBarState()
+    let premarketState = LazyBarState()
     let vwma = VwmaTracker()
     let selector = BarSizeSelector(estimationOffsetsSec, volumePcts)
     { new VwapSystemEffectDynamic with
@@ -224,7 +265,10 @@ let createDynamicVwapSystem (estimationOffsetsSec: float[], volumePcts: float[])
             selector.Update trade
         member _.GetVwap = vwma.Vwap
         member _.GetVolumeBarsAutomatic = state.BarsFor selector.CurrentBarSize
-        member _.UpdateSelector trade = selector.Update trade
+        member _.UpdateSelector trade =
+            selector.Update trade
+            premarketState.RecordTrade(trade, 0.0)
+        member _.GetVolFactor = computeVolFactor (premarketState.BarsFor selector.CurrentBarSize) (state.BarsFor selector.CurrentBarSize)
     }
 
 // =============================================================================
@@ -281,9 +325,16 @@ type TradingDecision = {
     Shares: float
 }
 
-let make_trading_decisions (vwapSystem: VwapSystemEffectDynamic, positionSize: float) on_succ =
+let make_trading_decisions (vwapSystem: VwapSystemEffectDynamic, positionSize: float, referenceVol: float option) on_succ =
     let mutable state = Active(0.0, 0.0)
     let mutable prevBars : ImmutableList<VolumeBar> = ImmutableList<VolumeBar>.Empty
+    let effectiveSize () =
+        match referenceVol with
+        | None -> positionSize
+        | Some refVol ->
+            match vwapSystem.GetVolFactor with
+            | None -> positionSize
+            | Some vf -> min positionSize (positionSize * refVol / vf)
     function
     | BeforeOpeningPrint _ | AfterOpeningPrint _ | AfterClosing _ -> () // Not intended for this node.
     | AfterOpeningPrintAndPause trade ->
@@ -294,7 +345,7 @@ let make_trading_decisions (vwapSystem: VwapSystemEffectDynamic, positionSize: f
             match state with
             | Active(_, position) ->
                 let lastBar = bars.[bars.Count - 1]
-                let targetShares = round (positionSize / trade.Price)
+                let targetShares = round (effectiveSize () / trade.Price)
                 if lastBar.VWAP >= vwma && position <= 0.0 then
                     state <- Active(lastBar.VWAP, targetShares)
                     on_succ { Timestamp = trade.Timestamp; Price = lastBar.VWAP; Shares = targetShares }
@@ -394,7 +445,7 @@ let enforce_loss_count_limit (tracker: DecisionTracker) (maxLosses: int) on_succ
                 if d.Shares <> 0.0 then
                     on_succ { Timestamp = d.Timestamp; Price = d.Price; Shares = 0.0 }
 
-type VwapSimulator(window : MarketHours, vwapSystem: VwapSystemEffectDynamic, positionSize: float, ?lossLimit: float, ?maxTrades: int, ?maxLosses: int) =
+type VwapSimulator(window : MarketHours, vwapSystem: VwapSystemEffectDynamic, positionSize: float, ?referenceVol: float, ?lossLimit: float, ?maxTrades: int, ?maxLosses: int) =
     let decision_tracker = DecisionTracker()
     let on_decision =
         let mutable sink : TradingDecision -> unit = decision_tracker.Add
@@ -413,7 +464,7 @@ type VwapSimulator(window : MarketHours, vwapSystem: VwapSystemEffectDynamic, po
             (splitter
                 (track_volume_bars vwapSystem)
                 (make_trading_decisions
-                    (vwapSystem, positionSize)
+                    (vwapSystem, positionSize, referenceVol)
                     on_decision))
             
     member _.AddTrade(trade: Trade) = pipeline trade
