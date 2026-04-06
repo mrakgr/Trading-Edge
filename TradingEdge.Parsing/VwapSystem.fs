@@ -1,16 +1,22 @@
 module TradingEdge.Parsing.VwapSystem
 
 open System
-open System.Reactive
+open System.Reactive.Subjects
 open System.Collections.Immutable
 open TradeLoader
 open VolumeBars
 
 // =============================================================================
-// Incremental Volume Bar Builder
+// Incremental Volume Bar Builder (Reactive)
 // =============================================================================
 
-type VolumeBarBuilder(barSize: float) =
+/// Creates a reactive volume bar builder. Takes a bar size and returns a
+/// ReplaySubject<Trade> (input) and an IObservable<VolumeBar> (output: emits
+/// each completed volume bar individually).
+let createVolumeBarBuilder (barSize: float) =
+    let input = new ReplaySubject<Trade>()
+    let output = new ReplaySubject<VolumeBar>()
+
     // Current in-progress bar state
     let mutable currentPriceVolumeSum = 0.0
     let mutable currentPriceSquaredVolumeSum = 0.0
@@ -22,10 +28,7 @@ type VolumeBarBuilder(barSize: float) =
     // Cumulative state across all bars
     let mutable cumulativeVolume = 0.0
 
-    // Completed bars
-    let mutable bars = ImmutableList<VolumeBar>.Empty
-
-    let finishBar (endTime: DateTime) (cumulativeVwap: float) =
+    let finishBar (endTime: DateTime) =
         let vwap = currentPriceVolumeSum / currentVolumeSum
         let variance = currentPriceSquaredVolumeSum / currentVolumeSum - vwap * vwap
         let stddev = sqrt (max 0.0 variance)
@@ -38,16 +41,15 @@ type VolumeBarBuilder(barSize: float) =
             StartTime = currentStartTime
             EndTime = endTime
             NumTrades = currentTradeCount
-            VWMA = cumulativeVwap
         }
-        bars <- bars.Add(bar)
+        output.OnNext(bar)
         currentPriceVolumeSum <- 0.0
         currentPriceSquaredVolumeSum <- 0.0
         currentVolumeSum <- 0.0
         currentTradeCount <- 0
         hasStartTime <- false
 
-    member _.AddTrade(trade: Trade, cumulativeVwap: float) =
+    input.Subscribe(fun trade ->
         let mutable remaining = trade.Volume
         while remaining > 0.0 do
             if not hasStartTime then
@@ -69,10 +71,10 @@ type VolumeBarBuilder(barSize: float) =
                     currentTradeCount <- currentTradeCount + 1
                     remaining <- remaining - spaceLeft
                 if currentVolumeSum >= barSize then
-                    finishBar trade.Timestamp cumulativeVwap
+                    finishBar trade.Timestamp
+    ) |> ignore
 
-    member _.Bars = bars
-    member _.BarSize = barSize
+    input, output :> IObservable<VolumeBar>
 
 // =============================================================================
 // Cumulative VWMA Tracker (anchored on opening print)
@@ -102,41 +104,38 @@ type VwmaTracker() =
 // =============================================================================
 
 /// Buffers every trade fed in via RecordTrade and lazily produces a volume
-/// bar chart for whatever size the caller asks for. If the size matches the
-/// cached build, extends it incrementally from the trades that have arrived
-/// since the last query. If the size differs, throws the old builder away
-/// and rebuilds from scratch over the full buffered trade history — cheap
-/// enough at the 4 estimation marks of the dynamic system, and keeps the
-/// critical path (AddTrade + GetVolumeBarsAutomatic at the same size) fully
-/// incremental. The per-trade VWMA snapshot is stored alongside each trade
-/// so that rebuilds stamp historical bars with the VWMA they would have had
-/// at completion time, matching the old parallel-builders semantics exactly.
+/// bar chart for whatever size the caller asks for. When the size changes,
+/// creates a new reactive volume bar builder and replays all buffered trades.
+/// Subscribes to the builder's output to keep the latest bars snapshot.
 type LazyBarState() =
     let trades = ResizeArray<Trade>()
-    let vwmaAtTrade = ResizeArray<float>()
     let mutable currentSize = 0.0
-    let mutable builder : VolumeBarBuilder = Unchecked.defaultof<_>
+    let mutable input : ReplaySubject<Trade> = Unchecked.defaultof<_>
+    let mutable bars = ImmutableList<VolumeBar>.Empty
+    let mutable subscription : IDisposable = null
     let mutable nextIdx = 0
 
-    member _.RecordTrade(t: Trade, vwma: float) =
+    member _.RecordTrade(t: Trade) =
         trades.Add t
-        vwmaAtTrade.Add vwma
 
     member _.BarsFor(size: float) =
         if size <= 0.0 then ImmutableList<VolumeBar>.Empty
         elif size = currentSize then
             for i in nextIdx .. trades.Count - 1 do
-                builder.AddTrade(trades.[i], vwmaAtTrade.[i])
+                input.OnNext(trades.[i])
             nextIdx <- trades.Count
-            builder.Bars
+            bars
         else
-            let b = VolumeBarBuilder(size)
+            if subscription <> null then subscription.Dispose()
+            let newInput, output = createVolumeBarBuilder size
+            bars <- ImmutableList<VolumeBar>.Empty
+            output.Subscribe(fun bar -> bars <- bars.Add(bar)) |> fun s -> subscription <- s
+            input <- newInput
             for i in 0 .. trades.Count - 1 do
-                b.AddTrade(trades.[i], vwmaAtTrade.[i])
-            builder <- b
+                input.OnNext(trades.[i])
             currentSize <- size
             nextIdx <- trades.Count
-            b.Bars
+            bars
 
 // =============================================================================
 // Pairwise bar variance (for volatility-adjusted position sizing)
@@ -242,10 +241,10 @@ let createStaticVwapSystem (fixedBarSize: float) =
     { new VwapSystemEffectDynamic with
         member _.AddTrade trade =
             vwma.AddTrade trade
-            state.RecordTrade(trade, vwma.Vwap)
+            state.RecordTrade(trade)
         member _.GetVwap = vwma.Vwap
         member _.GetVolumeBarsAutomatic = state.BarsFor fixedBarSize
-        member _.UpdateSelector trade = premarketState.RecordTrade(trade, 0.0)
+        member _.UpdateSelector trade = premarketState.RecordTrade(trade)
         member _.GetVolFactor = computeVolFactor (premarketState.BarsFor fixedBarSize) (state.BarsFor fixedBarSize)
     }
 
@@ -262,13 +261,13 @@ let createDynamicVwapSystem (estimationOffsetsSec: float[], volumePcts: float[])
     { new VwapSystemEffectDynamic with
         member _.AddTrade trade =
             vwma.AddTrade trade
-            state.RecordTrade(trade, vwma.Vwap)
+            state.RecordTrade(trade)
             selector.Update trade
         member _.GetVwap = vwma.Vwap
         member _.GetVolumeBarsAutomatic = state.BarsFor selector.CurrentBarSize
         member _.UpdateSelector trade =
             selector.Update trade
-            premarketState.RecordTrade(trade, 0.0)
+            premarketState.RecordTrade(trade)
         member _.GetVolFactor = computeVolFactor (premarketState.BarsFor selector.CurrentBarSize) (state.BarsFor selector.CurrentBarSize)
     }
 
