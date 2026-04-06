@@ -8,6 +8,13 @@ open System.Text.RegularExpressions
 open TradingEdge.Parsing.TradeLoader
 open TradingEdge.Parsing.VwapSystem
 
+// ----- Tee output to log file -----
+let logPath = "logs/sweep_vwap_loss_limit.log"
+Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
+let logWriter = new StreamWriter(logPath, false)
+let tee fmt =
+    Printf.kprintf (fun s -> Console.WriteLine s; logWriter.WriteLine s; logWriter.Flush()) fmt
+
 // ----- 1. Parse the authoritative stocks-in-play list -----
 let ps1Path = "docs/generate_stocks_in_play_charts.ps1"
 let entryRegex =
@@ -20,171 +27,122 @@ let entries =
     |> Seq.distinct
     |> List.ofSeq
 
-printfn "Parsed %d stocks-in-play entries from ps1" entries.Length
+tee "Parsed %d stocks-in-play entries from ps1" entries.Length
 
 let availableEntries =
     entries
     |> List.filter (fun (t, d) ->
         File.Exists (sprintf "data/trades/%s/%s.json" t d))
-printfn "Trade files present for %d of them" availableEntries.Length
+tee "Trade files present for %d of them" availableEntries.Length
 
-// ----- 2. Candidate definitions -----
-let positionSize = 1000.0
+// ----- 2. Configuration -----
+let positionSize = 30000.0
+let referenceVol = 0.0095
+let basePct = 0.005
+let decay = 0.9
+let exponents = [| -13; -5; -6; -6 |]
+let pcts = exponents |> Array.map (fun i -> basePct * (decay ** float i))
 
-type Candidate = {
-    Name: string
-    MkSystem: unit -> VwapSystemEffectDynamic
-    LossLimit: float option
-}
+tee ""
+tee "Bar exponents: [%s]" (String.Join(";", exponents))
+tee "Bar pcts:      [%s]" (String.Join(";", pcts |> Array.map (fun p -> sprintf "%.5f" p)))
+tee "Position size: $%.0f, referenceVol: %.4f" positionSize referenceVol
 
-// Base systems: narrowed to the two best statics plus the sub-1% dynamics
-let baseSystems : (string * (unit -> VwapSystemEffectDynamic))[] =
-    [|
-        "static 32k    ", (fun () -> createStaticVwapSystem 32000.0)
-        "static 64k    ", (fun () -> createStaticVwapSystem 64000.0)
-        "dyn pct=1.00% ", (fun () ->
-            createDynamicVwapSystem (defaultEstimationOffsets, Array.create defaultEstimationOffsets.Length 0.01))
-        "dyn pct=0.75% ", (fun () ->
-            createDynamicVwapSystem (defaultEstimationOffsets, Array.create defaultEstimationOffsets.Length 0.0075))
-        "dyn pct=0.50% ", (fun () ->
-            createDynamicVwapSystem (defaultEstimationOffsets, Array.create defaultEstimationOffsets.Length 0.005))
-        "dyn pct=0.25% ", (fun () ->
-            createDynamicVwapSystem (defaultEstimationOffsets, Array.create defaultEstimationOffsets.Length 0.0025))
-    |]
-
-// Daily loss limit ladder spanning the $20-$400 range, plus "no limit" as a
-// control so we can see how much the cap actually helps.
+// Daily loss limit ladder: 12000 * 0.9^i for i = 0..20, plus None
+let lossLimitBase = 12000.0
+let lossLimitDecay = 0.9
 let lossLimits : float option[] =
     [| None
-       Some 20.0
-       Some 40.0
-       Some 60.0
-       Some 80.0
-       Some 120.0
-       Some 160.0
-       Some 240.0
-       Some 400.0 |]
+       for i in 0 .. 20 do
+           Some (lossLimitBase * (lossLimitDecay ** float i)) |]
 
-let candidates =
-    [| for (baseName, mkSys) in baseSystems do
-         for ll in lossLimits do
-            let llTag =
-                match ll with
-                | None -> "no limit"
-                | Some l -> sprintf "cap $%3.0f" l
-            { Name = sprintf "%s %s" baseName llTag
-              MkSystem = mkSys
-              LossLimit = ll } |]
+tee "Loss limits: None + %d values from $%.0f down to $%.0f"
+    21 lossLimitBase (lossLimitBase * (lossLimitDecay ** 20.0))
 
-printfn "Sweep: %d candidates × %d files" candidates.Length availableEntries.Length
-printfn ""
+// ----- 3. Preload trade files -----
+tee ""
+tee "Preloading trade files..."
+let swLoad = System.Diagnostics.Stopwatch.StartNew()
+let dataset =
+    [| for (ticker, date) in availableEntries do
+        let path = sprintf "data/trades/%s/%s.json" ticker date
+        let trades =
+            try Some (loadTrades path)
+            with ex ->
+                tee "  skip %s/%s: %s" ticker date ex.Message
+                None
+        match trades with
+        | None -> ()
+        | Some trades ->
+            let op = trades |> Array.tryFind (fun tr -> tr.Session = OpeningPrint)
+            let cp = trades |> Array.tryFind (fun tr -> tr.Session = ClosingPrint)
+            match op, cp with
+            | Some o, Some c ->
+                yield ticker, date, { openTime = o.Timestamp; closeTime = c.Timestamp }, trades
+            | _ ->
+                tee "  skip %s/%s: missing open/close print" ticker date |]
+tee "Loaded %d files in %.1fs (%d MB working set)"
+    dataset.Length
+    swLoad.Elapsed.TotalSeconds
+    (int (GC.GetTotalMemory(false) / 1024L / 1024L))
 
-// ----- 3. Per-candidate accumulators -----
-let N = candidates.Length
-let totals = Array.zeroCreate<float> N
-let wins   = Array.zeroCreate<int> N
-let losses = Array.zeroCreate<int> N
-let flats  = Array.zeroCreate<int> N
-let totalDecisions = Array.zeroCreate<int> N
-let perFile = Array.init N (fun _ -> ResizeArray<string * string * float>())
+GC.Collect()
+GC.WaitForPendingFinalizers()
 
-// ----- 4. Stream over files -----
-let swAll = System.Diagnostics.Stopwatch.StartNew()
-let mutable processed = 0
-for (ticker, date) in availableEntries do
-    let path = sprintf "data/trades/%s/%s.json" ticker date
-    let trades =
-        try Some (loadTrades path)
-        with ex ->
-            printfn "  skip %s/%s: %s" ticker date ex.Message
-            None
-    match trades with
-    | None -> ()
-    | Some trades ->
-        let op = trades |> Array.tryFind (fun tr -> tr.Session = OpeningPrint)
-        let cp = trades |> Array.tryFind (fun tr -> tr.Session = ClosingPrint)
-        match op, cp with
-        | Some o, Some c ->
-            let window = { openTime = o.Timestamp; closeTime = c.Timestamp }
-            for i in 0 .. N - 1 do
-                let c = candidates.[i]
-                let sys = c.MkSystem ()
-                let sim =
-                    match c.LossLimit with
-                    | Some limit -> VwapSimulator(window, sys, positionSize, lossLimit = limit)
-                    | None -> VwapSimulator(window, sys, positionSize)
-                for tr in trades do sim.AddTrade tr
-                let r = sim.Result
-                let pnl = r.RealizedPnL
-                totals.[i] <- totals.[i] + pnl
-                totalDecisions.[i] <- totalDecisions.[i] + r.Decisions.Count
-                if pnl > 0.01 then wins.[i] <- wins.[i] + 1
-                elif pnl < -0.01 then losses.[i] <- losses.[i] + 1
-                else flats.[i] <- flats.[i] + 1
-                perFile.[i].Add(ticker, date, pnl)
-            processed <- processed + 1
-            printfn "[%3d/%d] %-6s %-12s (%d trades, %.0fs elapsed)"
-                processed availableEntries.Length ticker date
-                trades.Length swAll.Elapsed.TotalSeconds
-        | _ ->
-            printfn "  skip %s/%s: missing open/close print" ticker date
-    GC.Collect()
-    GC.WaitForPendingFinalizers()
+// ----- 4. Evaluation function -----
+let evaluate (lossLimit: float option) =
+    let sw = System.Diagnostics.Stopwatch.StartNew()
+    let mutable totalPnL = 0.0
+    let mutable wins = 0
+    let mutable losses = 0
+    let mutable decisionCount = 0
+    let allPositionSizes = ResizeArray<float>()
+    for (_, _, window, trades) in dataset do
+        let sys = createDynamicVwapSystem (defaultEstimationOffsets, pcts)
+        let sim =
+            match lossLimit with
+            | Some limit -> VwapSimulator(window, sys, positionSize, referenceVol = referenceVol, lossLimit = limit)
+            | None -> VwapSimulator(window, sys, positionSize, referenceVol = referenceVol)
+        for tr in trades do sim.AddTrade tr
+        let r = sim.Result
+        totalPnL <- totalPnL + r.RealizedPnL
+        decisionCount <- decisionCount + r.Decisions.Count
+        if r.RealizedPnL > 0.01 then wins <- wins + 1
+        elif r.RealizedPnL < -0.01 then losses <- losses + 1
+        let decs = r.Decisions
+        for i in 1 .. decs.Count - 1 do
+            let prev = decs.[i - 1]
+            allPositionSizes.Add (abs prev.Shares * prev.Price)
+    let avgPos = if allPositionSizes.Count > 0 then (allPositionSizes |> Seq.sum) / float allPositionSizes.Count else 0.0
+    let efficiency = if avgPos > 0.0 then totalPnL / avgPos else 0.0
+    totalPnL, wins, losses, decisionCount, avgPos, efficiency, sw.Elapsed.TotalSeconds
 
-printfn ""
-printfn "Sweep finished in %.1fs, processed %d files" swAll.Elapsed.TotalSeconds processed
+// ----- 5. Sweep -----
+tee ""
+tee "%-14s %10s %8s %10s %6s %6s %6s %6s"
+    "lossLimit" "totalP&L" "eff" "avgPos$" "W" "L" "dec" "sec"
+tee "%s" (String.replicate 80 "-")
 
-// ----- 5. Summary: sorted by total P&L -----
-printfn ""
-printfn "=== Candidate results (sorted by total P&L) ==="
-let denom = float (max 1 processed)
-let ranking =
-    [| for i in 0 .. N - 1 ->
-        let w, l = wins.[i], losses.[i]
-        let winRate = if w + l > 0 then 100.0 * float w / float (w + l) else 0.0
-        let meanDecisions = float totalDecisions.[i] / denom
-        i, candidates.[i].Name, totals.[i], totals.[i] / denom,
-        w, l, flats.[i], winRate, totalDecisions.[i], meanDecisions |]
-    |> Array.sortByDescending (fun (_, _, t, _, _, _, _, _, _, _) -> t)
+let results = ResizeArray<float option * float * float>()
 
-for (_, name, total, mean, w, l, f, wr, dTot, dMean) in ranking do
-    printfn "  %-28s  total $%9.2f  mean $%7.2f  W/L/F=%3d/%3d/%3d  wr=%5.1f%%  dec=%5d (%.1f/day)"
-        name total mean w l f wr dTot dMean
-
-// ----- 6. Grid view: systems × loss limits -----
-printfn ""
-printfn "=== Grid: total P&L by system × loss limit ==="
-printf "%-18s" "system"
 for ll in lossLimits do
-    match ll with
-    | None -> printf " %10s" "no limit"
-    | Some l -> printf " %10s" (sprintf "$%.0f" l)
-printfn ""
-for (baseName, _) in baseSystems do
-    printf "%-18s" (baseName.Trim())
-    for ll in lossLimits do
-        let idx =
-            candidates
-            |> Array.findIndex (fun c ->
-                c.Name.StartsWith baseName
-                && (match c.LossLimit, ll with
-                    | None, None -> true
-                    | Some a, Some b -> a = b
-                    | _ -> false))
-        printf " %10.0f" totals.[idx]
-    printfn ""
+    let total, w, l, dec, avgPos, eff, elapsed = evaluate ll
+    results.Add(ll, total, eff)
+    let label = match ll with None -> "None" | Some v -> sprintf "%.0f" v
+    tee "%-14s %10.2f %8.4f %10.2f %6d %6d %6d %6.1f"
+        label total eff avgPos w l dec elapsed
 
-// ----- 7. Best candidate breakdown -----
-let (bestIdx, bestName, _, _, _, _, _, _, _, _) = ranking.[0]
-printfn ""
-printfn "=== Best candidate: %s — per-file breakdown (top / bottom 10) ===" bestName
-let sorted =
-    perFile.[bestIdx]
-    |> Seq.sortByDescending (fun (_, _, p) -> p)
-    |> Seq.toList
-printfn "Top 10:"
-sorted |> List.truncate 10
-       |> List.iter (fun (t, d, p) -> printfn "  %-6s %-12s  $%9.2f" t d p)
-printfn "Bottom 10:"
-sorted |> List.rev |> List.truncate 10
-       |> List.iter (fun (t, d, p) -> printfn "  %-6s %-12s  $%9.2f" t d p)
+// ----- 6. Summary -----
+tee ""
+tee "=== Best by total P&L ==="
+let bestPnL = results |> Seq.maxBy (fun (_, t, _) -> t)
+let rv1, t1, e1 = bestPnL
+tee "  lossLimit=%-10s  P&L=$%.2f  eff=%.4f"
+    (match rv1 with None -> "None" | Some v -> sprintf "%.0f" v) t1 e1
+
+tee ""
+tee "=== Best by efficiency (P&L / avgPos) ==="
+let bestEff = results |> Seq.filter (fun (_, t, _) -> t > 0.0) |> Seq.maxBy (fun (_, _, e) -> e)
+let rv2, t2, e2 = bestEff
+tee "  lossLimit=%-10s  P&L=$%.2f  eff=%.4f"
+    (match rv2 with None -> "None" | Some v -> sprintf "%.0f" v) t2 e2

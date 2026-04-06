@@ -9,23 +9,26 @@ open System.Text.RegularExpressions
 open TradingEdge.Parsing.TradeLoader
 open TradingEdge.Parsing.VwapSystem
 
+// ----- Tee output to log file -----
+let logPath = "logs/sweep_vwap_per_offset_greedy.log"
+Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
+let logWriter = new StreamWriter(logPath, false)
+let tee fmt =
+    Printf.kprintf (fun s -> Console.WriteLine s; logWriter.WriteLine s; logWriter.Flush()) fmt
+
 // =============================================================================
-// Greedy per-offset bar-size-pct sweep
+// Greedy per-offset bar-size-pct sweep (1d hill-climb only)
 // =============================================================================
 //
 // 4 dimensions = the 4 estimation offsets (5s / 30s / 150s / 750s). Each
 // dimension has an integer exponent i_k; the actual volume pct at that offset
-// is pct_k = basePct * decay ** i_k. We start from i = (0,0,0,0) — i.e. all
-// 0.5 — and random-walk one dimension at a time by ±1, evaluating each
-// proposal as a full 106-file pass. Hill-climb: only accept proposals that
-// improve total P&L. Visited vectors are remembered so we don't redo work.
+// is pct_k = basePct * decay ** i_k. We enumerate single-dimension moves
+// (4 dims * 8 deltas = 32 neighbors) around the current best, picking one
+// unvisited neighbor at random each iteration. When all neighbors are visited
+// without improvement, the search terminates (local optimum found).
 //
-// The sweep runs until a wall-clock budget expires (default 2 hours). The
-// RNG seed is fixed so that re-running gives the same sequence; a future
-// resume can skip the first N draws to pick up where we left off.
-//
-// Control knobs: quickRun = true forces a 1-iteration smoke test so we can
-// verify the plumbing without burning the full budget.
+// The sweep runs until a wall-clock budget expires (default 2 hours) or the
+// neighborhood is exhausted. The RNG seed is fixed for reproducibility.
 
 let quickRun =
     fsi.CommandLineArgs
@@ -33,21 +36,16 @@ let quickRun =
     |> Array.exists (fun a -> a = "--smoke" || a = "--quick" || a = "--test")
 
 let budget =
-    if quickRun then TimeSpan.FromMinutes 10.0  // upper bound for 1 eval; won't actually be hit
+    if quickRun then TimeSpan.FromMinutes 10.0
     else TimeSpan.FromHours 2.0
 
 let rngSeed = 42
-let rngSkip = 0            // bump this if resuming from a prior run
+let rngSkip = 0
 let basePct = 0.005
 let decay = 0.9
 let maxIterations = if quickRun then 1 else Int32.MaxValue
 
-// Reject proposals whose pct exceeds 1.0 (i.e. a bar larger than the day's
-// total volume, which would never fill). 0.005 * 0.9^i <= 1.0 ⇔ i >= -50.
 let minExponent = -50
-
-// Per-step delta sampled from [-4..4] \ {0}. One dimension at a time, so
-// each iteration has 4 * 8 = 32 possible neighbors to explore.
 let deltaChoices = [| -4; -3; -2; -1; 1; 2; 3; 4 |]
 
 // ----- 1. Parse the authoritative stocks-in-play list -----
@@ -62,19 +60,17 @@ let entries =
     |> Seq.distinct
     |> List.ofSeq
 
-printfn "Parsed %d stocks-in-play entries from ps1" entries.Length
+tee "Parsed %d stocks-in-play entries from ps1" entries.Length
 
 let availableEntries =
     entries
     |> List.filter (fun (t, d) ->
         File.Exists (sprintf "data/trades/%s/%s.json" t d))
-printfn "Trade files present for %d of them" availableEntries.Length
+tee "Trade files present for %d of them" availableEntries.Length
 
 // ----- 2. Preload every trade file into memory -----
-// With the sweep doing hundreds of single-candidate passes, reloading JSON
-// each time dominates the runtime. Pay the ~1min load cost once up front.
-printfn ""
-printfn "Preloading trade files..."
+tee ""
+tee "Preloading trade files..."
 let swLoad = System.Diagnostics.Stopwatch.StartNew()
 let dataset =
     [| for (ticker, date) in availableEntries do
@@ -82,7 +78,7 @@ let dataset =
         let trades =
             try Some (loadTrades path)
             with ex ->
-                printfn "  skip %s/%s: %s" ticker date ex.Message
+                tee "  skip %s/%s: %s" ticker date ex.Message
                 None
         match trades with
         | None -> ()
@@ -93,8 +89,8 @@ let dataset =
             | Some o, Some c ->
                 yield ticker, date, { openTime = o.Timestamp; closeTime = c.Timestamp }, trades
             | _ ->
-                printfn "  skip %s/%s: missing open/close print" ticker date |]
-printfn "Loaded %d files in %.1fs (%d MB working set)"
+                tee "  skip %s/%s: missing open/close print" ticker date |]
+tee "Loaded %d files in %.1fs (%d MB working set)"
     dataset.Length
     swLoad.Elapsed.TotalSeconds
     (int (GC.GetTotalMemory(false) / 1024L / 1024L))
@@ -103,11 +99,12 @@ GC.Collect()
 GC.WaitForPendingFinalizers()
 
 // ----- 3. Evaluation function -----
-let positionSize = 1000.0
+let positionSize = 30000.0
+let referenceVol = 0.0095
 let nDim = defaultEstimationOffsets.Length
 
 /// Full pass over the preloaded dataset for a given exponent vector.
-/// Returns (totalPnL, wins, losses, flats, totalDecisions, elapsedSec).
+/// Returns (totalPnL, wins, losses, flats, totalDecisions, avgPosDollars, returnEfficiency, elapsedSec).
 let evaluate (exponents: int[]) =
     let pcts = exponents |> Array.map (fun i -> basePct * (decay ** float i))
     let sw = System.Diagnostics.Stopwatch.StartNew()
@@ -116,9 +113,10 @@ let evaluate (exponents: int[]) =
     let mutable losses = 0
     let mutable flats = 0
     let mutable decisionCount = 0
+    let allPositionSizes = ResizeArray<float>()
     for (_, _, window, trades) in dataset do
         let sys = createDynamicVwapSystem (defaultEstimationOffsets, pcts)
-        let sim = VwapSimulator(window, sys, positionSize)
+        let sim = VwapSimulator(window, sys, positionSize, referenceVol = referenceVol)
         for tr in trades do sim.AddTrade tr
         let r = sim.Result
         let pnl = r.RealizedPnL
@@ -127,55 +125,46 @@ let evaluate (exponents: int[]) =
         if pnl > 0.01 then wins <- wins + 1
         elif pnl < -0.01 then losses <- losses + 1
         else flats <- flats + 1
-    total, wins, losses, flats, decisionCount, sw.Elapsed.TotalSeconds
+        let decs = r.Decisions
+        for i in 1 .. decs.Count - 1 do
+            let prev = decs.[i - 1]
+            allPositionSizes.Add (abs prev.Shares * prev.Price)
+    let avgPos = if allPositionSizes.Count > 0 then (allPositionSizes |> Seq.sum) / float allPositionSizes.Count else 0.0
+    let efficiency = if avgPos > 0.0 then total / avgPos else 0.0
+    total, wins, losses, flats, decisionCount, avgPos, efficiency, sw.Elapsed.TotalSeconds
 
-// ----- 4. Greedy walk -----
+// ----- 4. Greedy walk (1d only) -----
 let rng = Random(rngSeed)
 for _ in 1 .. rngSkip do rng.Next() |> ignore
 
 let visited = HashSet<struct (int * int * int * int)>()
-let history = ResizeArray<int[] * float * int>()  // exponents, total, evalIdx
+let history = ResizeArray<int[] * float * float * int>()  // exponents, total, efficiency, evalIdx
 
 let key (v: int[]) = struct (v.[0], v.[1], v.[2], v.[3])
 
-// Resume from the previous run's local max rather than restarting at zero,
-// so this sweep extends the search outward from known-good territory.
 let start = [| -2; -5; -6; -6 |]
 let mutable bestExp : int[] = start
-let mutable bestTotal = Double.NegativeInfinity
+let mutable bestEfficiency = Double.NegativeInfinity
 
-printfn ""
-printfn "Greedy walk: seed=%d, budget=%s, base=%.3f, decay=%.3f"
-    rngSeed (if quickRun then "smoke (1 iter)" else "2h") basePct decay
-printfn "Start: [%s]" (String.Join(";", start))
-printfn ""
+tee ""
+tee "Greedy walk (1d): seed=%d, budget=%s, base=%.3f, decay=%.3f" rngSeed (if quickRun then "smoke (1 iter)" else "2h") basePct decay
+tee "Position size: $%.0f, referenceVol: %.4f" positionSize referenceVol
+tee "Start: [%s]" (String.Join(";", start))
+tee ""
 
 let swSweep = System.Diagnostics.Stopwatch.StartNew()
 
-// Evaluate the starting point first
-let total0, w0, l0, f0, d0, e0 = evaluate start
+// Evaluate the starting point
+let total0, w0, l0, f0, d0, avgPos0, eff0, e0 = evaluate start
 visited.Add(key start) |> ignore
-history.Add(Array.copy start, total0, 0)
+history.Add(Array.copy start, total0, eff0, 0)
 bestExp <- Array.copy start
-bestTotal <- total0
-printfn "[eval   0] [%s]  pcts=[%s]  total=$%9.2f  W/L/F=%3d/%3d/%3d  dec=%5d  (%.1fs)  <-- start"
+bestEfficiency <- eff0
+tee "[eval   0] [%s]  pcts=[%s]  total=$%9.2f  eff=%7.4f  avgPos=$%7.0f  W/L/F=%3d/%3d/%3d  dec=%5d  (%.1fs)  <-- start"
     (String.Join(";", start))
     (String.Join(";", start |> Array.map (fun i -> sprintf "%.4f" (basePct * (decay ** float i)))))
-    total0 w0 l0 f0 d0 e0
+    total0 eff0 avgPos0 w0 l0 f0 d0 e0
 
-// Two-phase neighbor sampling.
-//
-// Phase 1: single-dimension moves around bestExp. 4 dims * 8 deltas = 32
-// candidates per best point. We enumerate the unvisited ones and pick one
-// at random each iteration, so the walker exhaustively explores the local
-// axis-aligned neighborhood of every best it finds.
-//
-// Phase 2: once every single-dim neighbor of the current best has been
-// visited (without yielding a new best), switch to random perturbations
-// that change *all four* dimensions simultaneously — 8^4 = 4096 points.
-// This is how the walker escapes a local max. Any improvement found in
-// phase 2 becomes the new best and resets the search to phase 1 around
-// the new point.
 let nextSingleDimNeighbor () =
     let candidates =
         [| for dim in 0 .. nDim - 1 do
@@ -187,85 +176,55 @@ let nextSingleDimNeighbor () =
     if candidates.Length = 0 then None
     else Some candidates.[rng.Next candidates.Length]
 
-let nextFullPerturbation () =
-    let mutable found : int[] option = None
-    let mutable attempts = 0
-    while found.IsNone && attempts < 1024 do
-        let c = Array.copy bestExp
-        let mutable inBounds = true
-        for dim in 0 .. nDim - 1 do
-            let d = deltaChoices.[rng.Next deltaChoices.Length]
-            c.[dim] <- c.[dim] + d
-            if c.[dim] < minExponent then inBounds <- false
-        if inBounds && not (visited.Contains(key c)) then
-            found <- Some c
-        attempts <- attempts + 1
-    found
-
 let mutable evalIdx = 1
-let mutable phase1Exhausted = false
 let mutable stopped = false
 while not stopped do
     if swSweep.Elapsed >= budget then
-        printfn "[budget] elapsed %.1fs >= %.0fs, stopping"
-            swSweep.Elapsed.TotalSeconds budget.TotalSeconds
+        tee "[budget] elapsed %.1fs >= %.0fs, stopping" swSweep.Elapsed.TotalSeconds budget.TotalSeconds
         stopped <- true
     elif evalIdx = maxIterations then
-        printfn "[iter-cap] %d iterations done, stopping (smoke run)" maxIterations
+        tee "[iter-cap] %d iterations done, stopping (smoke run)" maxIterations
         stopped <- true
     else
-        let proposal, phaseTag =
-            if not phase1Exhausted then
-                match nextSingleDimNeighbor () with
-                | Some c -> Some c, "1d"
-                | None ->
-                    phase1Exhausted <- true
-                    printfn "[phase] single-dim neighborhood of best exhausted, switching to 4d perturbations"
-                    nextFullPerturbation (), "4d"
-            else
-                nextFullPerturbation (), "4d"
-        match proposal with
+        match nextSingleDimNeighbor () with
         | None ->
-            printfn "[stuck] no fresh 4d perturbation after 1024 tries, stopping"
+            tee "[done] all single-dim neighbors of best exhausted, local optimum found"
             stopped <- true
         | Some cand ->
             visited.Add(key cand) |> ignore
-            let total, w, l, f, d, elapsed = evaluate cand
-            history.Add(Array.copy cand, total, evalIdx)
+            let total, w, l, f, d, avgPos, eff, elapsed = evaluate cand
+            history.Add(Array.copy cand, total, eff, evalIdx)
             let marker =
-                if total > bestTotal then
-                    bestTotal <- total
+                if eff > bestEfficiency then
+                    bestEfficiency <- eff
                     bestExp <- Array.copy cand
-                    // New best → reset to phase 1 so we re-explore locally.
-                    phase1Exhausted <- false
                     " <-- new best"
                 else ""
-            printfn "[eval %3d %s] [%s]  pcts=[%s]  total=$%9.2f  W/L/F=%3d/%3d/%3d  dec=%5d  (%.1fs)%s"
-                evalIdx phaseTag
+            tee "[eval %3d] [%s]  pcts=[%s]  total=$%9.2f  eff=%7.4f  avgPos=$%7.0f  W/L/F=%3d/%3d/%3d  dec=%5d  (%.1fs)%s"
+                evalIdx
                 (String.Join(";", cand))
                 (String.Join(";", cand |> Array.map (fun i -> sprintf "%.4f" (basePct * (decay ** float i)))))
-                total w l f d elapsed marker
+                total eff avgPos w l f d elapsed marker
             evalIdx <- evalIdx + 1
 
 // ----- 5. Report -----
-printfn ""
-printfn "Sweep finished in %.1fs after %d evaluations"
-    swSweep.Elapsed.TotalSeconds evalIdx
-printfn ""
-printfn "=== Best ==="
-printfn "Exponents: [%s]" (String.Join(";", bestExp))
-printfn "Pcts:      [%s]"
-    (String.Join(";", bestExp |> Array.map (fun i -> sprintf "%.5f" (basePct * (decay ** float i)))))
-printfn "Total P&L: $%.2f" bestTotal
+tee ""
+tee "Sweep finished in %.1fs after %d evaluations" swSweep.Elapsed.TotalSeconds evalIdx
+tee ""
+tee "=== Best ==="
+tee "Exponents: [%s]" (String.Join(";", bestExp))
+tee "Pcts:      [%s]" (String.Join(";", bestExp |> Array.map (fun i -> sprintf "%.5f" (basePct * (decay ** float i)))))
+tee "Efficiency: %.4f" bestEfficiency
 
-printfn ""
-printfn "=== All evaluations sorted by total P&L (top 20) ==="
+tee ""
+tee "=== All evaluations sorted by efficiency (top 20) ==="
 history
-|> Seq.sortByDescending (fun (_, t, _) -> t)
+|> Seq.sortByDescending (fun (_, _, e, _) -> e)
 |> Seq.truncate 20
-|> Seq.iter (fun (exp, total, idx) ->
-    printfn "  #%3d  [%s]  $%9.2f  pcts=[%s]"
+|> Seq.iter (fun (exp, total, eff, idx) ->
+    tee "  #%3d  [%s]  $%9.2f  eff=%7.4f  pcts=[%s]"
         idx
         (String.Join(";", exp))
         total
+        eff
         (String.Join(";", exp |> Array.map (fun i -> sprintf "%.4f" (basePct * (decay ** float i))))))

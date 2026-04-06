@@ -346,12 +346,13 @@ let make_trading_decisions (vwapSystem: VwapSystemEffectDynamic, positionSize: f
             | Active(_, position) ->
                 let lastBar = bars.[bars.Count - 1]
                 let targetShares = round (effectiveSize () / trade.Price)
-                if lastBar.VWAP >= vwma && position <= 0.0 then
-                    state <- Active(lastBar.VWAP, targetShares)
-                    on_succ { Timestamp = trade.Timestamp; Price = lastBar.VWAP; Shares = targetShares }
-                elif lastBar.VWAP < vwma && position >= 0.0 then
-                    state <- Active(lastBar.VWAP, -targetShares)
-                    on_succ { Timestamp = trade.Timestamp; Price = lastBar.VWAP; Shares = -targetShares }
+                if targetShares > 0.0 then
+                    if lastBar.VWAP >= vwma && position <= 0.0 then
+                        state <- Active(lastBar.VWAP, targetShares)
+                        on_succ { Timestamp = trade.Timestamp; Price = lastBar.VWAP; Shares = targetShares }
+                    elif lastBar.VWAP < vwma && position >= 0.0 then
+                        state <- Active(lastBar.VWAP, -targetShares)
+                        on_succ { Timestamp = trade.Timestamp; Price = lastBar.VWAP; Shares = -targetShares }
             | Done -> ()
     | BeforeClosing trade ->
         match state with
