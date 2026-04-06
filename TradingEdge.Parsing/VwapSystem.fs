@@ -77,6 +77,26 @@ let createVolumeBarBuilder (barSize: float) =
     input, output :> IObservable<VolumeBar>
 
 // =============================================================================
+// VWMA over Volume Bars (simple moving average of bar VWAPs)
+// =============================================================================
+
+/// Creates a reactive VWMA tracker over volume bars. Since all volume bars
+/// have (approximately) equal volume, the volume-weighted moving average
+/// reduces to a simple expanding average of bar VWAPs.
+/// Input: IObservable<VolumeBar>. Output: IObservable<VolumeBar * float>
+/// where the float is the cumulative VWMA up to and including that bar.
+let createVwma (bars: IObservable<VolumeBar>) =
+    let output = new ReplaySubject<VolumeBar * float>()
+    let mutable vwapSum = 0.0
+    let mutable count = 0
+    bars.Subscribe(fun bar ->
+        vwapSum <- vwapSum + bar.VWAP
+        count <- count + 1
+        output.OnNext(bar, vwapSum / float count)
+    ) |> ignore
+    output :> IObservable<VolumeBar * float>
+
+// =============================================================================
 // Cumulative VWMA Tracker (anchored on opening print)
 // =============================================================================
 
