@@ -56,7 +56,7 @@ type DayResult = {
     Ticker: string
     Date: string
     DayPnL: float
-    TradePnLs: float[]
+    TradePnLs: (float * int)[] // (pnl, prevShares) to distinguish long/short
     AvgPositionSize: float
     NumDecisions: int
 }
@@ -75,19 +75,19 @@ let dayResults =
             match op, cp with
             | Some o, Some c ->
                 let window = { openTime = o.Timestamp; closeTime = c.Timestamp }
-                let sys = createDynamicVwapSystem (defaultEstimationOffsets, pcts)
-                let sim = VwapSimulator(window, sys, positionSize, referenceVol = referenceVol, lossLimit = lossLimit)
-                for tr in trades do sim.AddTrade tr
-                let r = sim.Result
+                let addTrade, getResult =
+                    createPipeline window pcts positionSize (Some referenceVol) (Some lossLimit) None None
+                for tr in trades do addTrade tr
+                let r = getResult()
                 let decs = r.Decisions
                 let tradePnLs =
                     [| for i in 1 .. decs.Count - 1 do
                         let prev = decs.[i - 1]
                         let curr = decs.[i]
-                        (curr.Price - prev.Price) * prev.Shares |]
+                        (curr.Price - prev.Price) * float prev.Shares, prev.Shares |]
                 let posSizes =
                     [| for i in 0 .. decs.Count - 2 do
-                        abs decs.[i].Shares * decs.[i].Price |]
+                        float (abs decs.[i].Shares) * decs.[i].Price |]
                 let avgPos = if posSizes.Length > 0 then (posSizes |> Array.sum) / float posSizes.Length else 0.0
                 yield {
                     Ticker = ticker
@@ -110,18 +110,26 @@ tee "%s" (String.replicate 90 "-")
 
 let sortedDays = dayResults |> Array.sortByDescending (fun d -> d.DayPnL)
 for d in sortedDays do
-    let wins = d.TradePnLs |> Array.filter (fun p -> p > 0.01)
-    let losses = d.TradePnLs |> Array.filter (fun p -> p < -0.01)
+    let pnls = d.TradePnLs |> Array.map fst
+    let wins = pnls |> Array.filter (fun p -> p > 0.01)
+    let losses = pnls |> Array.filter (fun p -> p < -0.01)
     let avgWin = if wins.Length > 0 then wins |> Array.average else 0.0
     let avgLoss = if losses.Length > 0 then losses |> Array.average else 0.0
     tee "%-6s %-12s %10.2f %6d %6d %6d %10.2f %10.2f %10.2f"
-        d.Ticker d.Date d.DayPnL d.TradePnLs.Length wins.Length losses.Length avgWin avgLoss d.AvgPositionSize
+        d.Ticker d.Date d.DayPnL pnls.Length wins.Length losses.Length avgWin avgLoss d.AvgPositionSize
 
 // ----- 5. Aggregate trade-level stats -----
-let allTrades = dayResults |> Array.collect (fun d -> d.TradePnLs)
+let allTradesWithSide = dayResults |> Array.collect (fun d -> d.TradePnLs)
+let allTrades = allTradesWithSide |> Array.map fst
 let winTrades = allTrades |> Array.filter (fun p -> p > 0.01)
 let lossTrades = allTrades |> Array.filter (fun p -> p < -0.01)
 let flatTrades = allTrades |> Array.filter (fun p -> abs p <= 0.01)
+
+// Long/short split
+let longTrades = allTradesWithSide |> Array.filter (fun (_, shares) -> shares > 0) |> Array.map fst
+let shortTrades = allTradesWithSide |> Array.filter (fun (_, shares) -> shares < 0) |> Array.map fst
+let longPnL = if longTrades.Length > 0 then longTrades |> Array.sum else 0.0
+let shortPnL = if shortTrades.Length > 0 then shortTrades |> Array.sum else 0.0
 
 let grossWins = winTrades |> Array.sum
 let grossLosses = lossTrades |> Array.sum |> abs
@@ -205,3 +213,11 @@ tee "Avg winning day:    $%12.2f" avgWinDay
 tee "Avg losing day:     $%12.2f" avgLossDay
 tee "Worst day:          $%12.2f" maxDrawdownDay
 tee "Best day:           $%12.2f" (if winDays.Length > 0 then winDays |> Array.maxBy (fun d -> d.DayPnL) |> fun d -> d.DayPnL else 0.0)
+tee ""
+tee "--- Long/Short Split ---"
+tee "Long trades:        %12d" longTrades.Length
+tee "Long P&L:           $%12.2f" longPnL
+tee "Avg long trade:     $%12.2f" (if longTrades.Length > 0 then longTrades |> Array.average else 0.0)
+tee "Short trades:       %12d" shortTrades.Length
+tee "Short P&L:          $%12.2f" shortPnL
+tee "Avg short trade:    $%12.2f" (if shortTrades.Length > 0 then shortTrades |> Array.average else 0.0)
