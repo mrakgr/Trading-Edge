@@ -145,6 +145,11 @@ type MarketHours = {
 
 let defaultEstimationOffsets = [| 5.0; 30.0; 150.0; 750.0 |] // Offsets after the opening print.
 
+/// Stateful continuation that classifies trades into stages and manages
+/// dynamic bar sizing. Buffers all trades with their includeInVwma flags.
+/// When an estimation offset is crossed, rebuilds the vwapSystemArgsBuilder
+/// with barSize = totalVolume * volPcts[i] and replays all buffered trades.
+/// Emits (VwapSystemBar option, TradeStage, Trade) via onNext per trade.
 let segregateTrades (window : MarketHours) (volPcts : float []) =
     let mutable trades_and_flags : (Trade * bool) ImmutableList = ImmutableList.Empty
     let mutable openingPrintTime : DateTime option = None
@@ -197,6 +202,10 @@ type TradingDecision = {
     Shares: int
 }
 
+/// Stateful continuation that makes trading decisions based on VWAP signals.
+/// Goes long when bar VWAP >= VWMA, short when below. Position size is
+/// adjusted by volFactor when referenceVol is provided. Flattens on
+/// BeforeClosing. Emits (TradingDecision option, Trade) via onNext.
 let vwapSystem (positionSize: float, referenceVol: float option) =
     let mutable state = Active(0.0, 0)
     let effectiveSize vf =
@@ -242,123 +251,93 @@ let vwapSystem (positionSize: float, referenceVol: float option) =
         |> fun tradingDecision -> 
             onNext (tradingDecision, trade)
     
-// type TradingResult = {
-//     Decisions: ImmutableList<TradingDecision>
-//     RealizedPnL: float
-// }
+type TradingResult = {
+    Decisions: ImmutableList<TradingDecision>
+    RealizedPnL: float
+}
 
-// type DecisionTracker() =
-//     let mutable decisions = ImmutableList<TradingDecision>.Empty
-//     let mutable realizedPnL = 0.0
+/// Stateful continuation that tracks trading decisions and computes running
+/// realized PnL. Returns (processor, getResult) where processor follows the
+/// standard fun onNext input -> pattern.
+let trackDecisions () =
+    let mutable decisions = ImmutableList<TradingDecision>.Empty
+    let mutable realizedPnL = 0.0
+    (fun (d: TradingDecision) ->
+        if decisions.Count > 0 then
+            let prev = decisions.[decisions.Count - 1]
+            realizedPnL <- realizedPnL + (d.Price - prev.Price) * float prev.Shares
+        decisions <- decisions.Add d),
+    (fun () -> { Decisions = decisions; RealizedPnL = realizedPnL })
 
-//     member _.Add (d : TradingDecision) =
-//         if decisions.Count > 0 then
-//             let prev = decisions.[decisions.Count - 1]
-//             realizedPnL <- realizedPnL + (d.Price - prev.Price) * prev.Shares
-//         decisions <- decisions.Add d
+/// Daily loss limit enforcement. Forwards decisions to onNext until running
+/// PnL drops below -lossLimit, then injects a flatten and suppresses all
+/// further decisions.
+let enforceLossLimit (getPnL: unit -> float) (lossLimit: float) =
+    let mutable tripped = false
+    fun onNext (d: TradingDecision) ->
+        if not tripped then
+            onNext d
+            if getPnL() <= -lossLimit then
+                tripped <- true
+                if d.Shares <> 0 then
+                    onNext { d with Shares = 0 }
 
-//     member _.Decisions = decisions
-//     member _.RealizedPnL = realizedPnL
+/// Daily activity limit enforcement. Forwards decisions until the configured
+/// maximum is reached, then injects a flatten and suppresses all further
+/// decisions.
+let enforceActivityLimit (maxTrades: int) =
+    let mutable count = 0
+    let mutable tripped = false
+    fun onNext (d: TradingDecision) ->
+        if not tripped then
+            onNext d
+            count <- count + 1
+            if count >= maxTrades then
+                tripped <- true
+                if d.Shares <> 0 then
+                    onNext { d with Shares = 0 }
 
-//     member _.Position =
-//         if decisions.Count > 0 then decisions.[decisions.Count - 1].Shares
-//         else 0.0
+/// Daily losing-trade limit enforcement. Counts decisions that cause PnL to
+/// drop. Once maxLosses is reached, injects a flatten and suppresses all
+/// further decisions. Winning/flat decisions don't count against the cap.
+let enforceLossCountLimit (getPnL: unit -> float) (maxLosses: int) =
+    let mutable losses = 0
+    let mutable prevPnL = 0.0
+    let mutable tripped = false
+    fun onNext (d: TradingDecision) ->
+        if not tripped then
+            onNext d
+            let newPnL = getPnL()
+            if newPnL < prevPnL then
+                losses <- losses + 1
+            prevPnL <- newPnL
+            if losses >= maxLosses then
+                tripped <- true
+                if d.Shares <> 0 then
+                    onNext { d with Shares = 0 }
 
-//     member _.LastPrice =
-//         if decisions.Count > 0 then decisions.[decisions.Count - 1].Price
-//         else 0.0
-
-// let splitter a b trade = a trade; b trade
-
-// /// Daily loss limit enforcement stage. Sits between make_trading_decisions and
-// /// the final decision sink. Forwards every decision through the tracker and,
-// /// as soon as the tracker's running realized P&L drops below -lossLimit,
-// /// injects a flatten at the same timestamp/price and then silently drops all
-// /// further decisions for the rest of the day.
-// let enforce_loss_limit (tracker: DecisionTracker) (lossLimit: float) on_succ =
-//     let mutable tripped = false
-//     fun (d: TradingDecision) ->
-//         if tripped then ()
-//         else
-//             on_succ d
-//             if tracker.RealizedPnL <= -lossLimit then
-//                 tripped <- true
-//                 if d.Shares <> 0.0 then
-//                     on_succ { Timestamp = d.Timestamp; Price = d.Price; Shares = 0.0 }
-
-// /// Daily activity limit enforcement stage. Forwards decisions until the
-// /// configured maximum is reached, then injects a same-price flatten if a
-// /// position is still open and drops everything after. The forced flatten is
-// /// not counted against the cap — maxTrades represents discretionary entries
-// /// and flips produced by make_trading_decisions.
-// let enforce_activity_limit (maxTrades: int) on_succ =
-//     let mutable count = 0
-//     let mutable tripped = false
-//     fun (d: TradingDecision) ->
-//         if tripped then ()
-//         else
-//             on_succ d
-//             count <- count + 1
-//             if count >= maxTrades then
-//                 tripped <- true
-//                 if d.Shares <> 0.0 then
-//                     on_succ { Timestamp = d.Timestamp; Price = d.Price; Shares = 0.0 }
-
-// /// Daily losing-trade limit enforcement stage. Watches the tracker's running
-// /// realized P&L after each decision is forwarded — whenever it drops, that
-// /// decision counts as a losing trade. Once the configured maximum is reached,
-// /// injects a same-price flatten if still in position and drops everything
-// /// after. Winning and flat decisions do not count against the cap: the idea
-// /// is that high activity is fine as long as the system is producing profits.
-// let enforce_loss_count_limit (tracker: DecisionTracker) (maxLosses: int) on_succ =
-//     let mutable losses = 0
-//     let mutable prevPnL = 0.0
-//     let mutable tripped = false
-//     fun (d: TradingDecision) ->
-//         if tripped then ()
-//         else
-//             on_succ d
-//             let newPnL = tracker.RealizedPnL
-//             if newPnL < prevPnL then
-//                 losses <- losses + 1
-//             prevPnL <- newPnL
-//             if losses >= maxLosses then
-//                 tripped <- true
-//                 if d.Shares <> 0.0 then
-//                     on_succ { Timestamp = d.Timestamp; Price = d.Price; Shares = 0.0 }
-
-// type VwapSimulator(window : MarketHours, vwapSystem: VwapSystemEffectDynamic, positionSize: float, ?referenceVol: float, ?lossLimit: float, ?maxTrades: int, ?maxLosses: int) =
-//     let decision_tracker = DecisionTracker()
-//     let on_decision =
-//         let mutable sink : TradingDecision -> unit = decision_tracker.Add
-//         match lossLimit with
-//         | Some limit -> sink <- enforce_loss_limit decision_tracker limit sink
-//         | None -> ()
-//         match maxLosses with
-//         | Some n -> sink <- enforce_loss_count_limit decision_tracker n sink
-//         | None -> ()
-//         match maxTrades with
-//         | Some n -> sink <- enforce_activity_limit n sink
-//         | None -> ()
-//         sink
-//     let pipeline =
-//         segregate_trades window
-//             (splitter
-//                 (track_volume_bars vwapSystem)
-//                 (make_trading_decisions
-//                     (vwapSystem, positionSize, referenceVol)
-//                     on_decision))
-            
-//     member _.AddTrade(trade: Trade) = pipeline trade
-
-//     member _.Result = {
-//         Decisions = decision_tracker.Decisions
-//         RealizedPnL = decision_tracker.RealizedPnL
-//     }
-
-//     member _.Position = decision_tracker.Position
-
-//     member _.UnrealizedPnL =
-//         if decision_tracker.Position <> 0.0 then
-//             (vwapSystem.GetVwap - decision_tracker.LastPrice) * decision_tracker.Position
-//         else 0.0
+/// Assembles the full VWAP trading pipeline: segregateTrades -> vwapSystem ->
+/// enforce chain -> trackDecisions. Returns (addTrade, getResult) where
+/// addTrade feeds a trade through the entire pipeline and getResult returns
+/// the accumulated decisions and realized PnL.
+let createPipeline
+    (window: MarketHours)
+    (volPcts: float[])
+    (positionSize: float)
+    (referenceVol: float option)
+    (lossLimit: float option)
+    (maxTrades: int option)
+    (maxLosses: int option) =
+    let add, getResult = trackDecisions ()
+    let getPnL () = (getResult()).RealizedPnL
+    let mutable sink = add
+    lossLimit |> Option.iter (fun limit -> sink <- enforceLossLimit getPnL limit sink)
+    maxLosses |> Option.iter (fun n -> sink <- enforceLossCountLimit getPnL n sink)
+    maxTrades |> Option.iter (fun n -> sink <- enforceActivityLimit n sink)
+    let decide = vwapSystem (positionSize, referenceVol)
+    let segregate = segregateTrades window volPcts
+    let addTrade =
+        segregate
+            (decide (fun (decision, _trade) ->
+                decision |> Option.iter sink))
+    addTrade, getResult
