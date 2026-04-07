@@ -15,7 +15,7 @@ open VolumeBars
 /// resulting VolumeBar to onNext.
 let volumeBarOfTrades () =
     let mutable cumulativeVolumeSum = 0.0
-    fun onNext (trades: ImmutableList<Trade>) ->
+    fun onNext (trades: ResizeArray<Trade>) ->
         let mutable priceVolumeSum = 0.0
         let mutable priceSquaredVolumeSum = 0.0
         let mutable volumeSum = 0.0
@@ -38,10 +38,10 @@ let volumeBarOfTrades () =
 
 /// Splits a stream of trades into fixed-volume groups. Accumulates trades
 /// (splitting individual trades at bar boundaries) until the volume sum
-/// reaches barSize, then emits the group as an ImmutableList<Trade> via
+/// reaches barSize, then emits the group as a ResizeArray<Trade> via
 /// onNext. One input trade can complete multiple groups.
 let groupTrades barSize =
-    let mutable currentTrades = ImmutableList<Trade>.Empty
+    let mutable currentTrades = ResizeArray<Trade>()
     let mutable currentVolumeSum = 0.0
 
     fun onNext (trade : Trade) ->
@@ -49,17 +49,17 @@ let groupTrades barSize =
         while remaining > 0.0 do
             let spaceLeft = barSize - currentVolumeSum
             if remaining <= spaceLeft then
-                currentTrades <- currentTrades.Add { trade with Volume = remaining }
+                currentTrades.Add { trade with Volume = remaining }
                 currentVolumeSum <- currentVolumeSum + remaining
                 remaining <- 0.0
             else
                 if spaceLeft > 0.0 then
-                    currentTrades <- currentTrades.Add { trade with Volume = spaceLeft }
+                    currentTrades.Add { trade with Volume = spaceLeft }
                     currentVolumeSum <- currentVolumeSum + spaceLeft
                     remaining <- remaining - spaceLeft
                 if currentVolumeSum >= barSize then
                     onNext currentTrades
-                    currentTrades <- ImmutableList<Trade>.Empty
+                    currentTrades <- ResizeArray<Trade>()
                     currentVolumeSum <- 0.0
 
 /// Composes groupTrades and volumeBarOfTrades into a single stateful
