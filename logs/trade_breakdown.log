@@ -3,7 +3,7 @@ Bar exponents: [-13;-5;-6;-6]  pcts: [0.01967;0.00847;0.00941;0.00941]
 Position size: $30000  referenceVol: 0.0095  lossLimit: $2550
 
 Loading trade files...
-Loaded and processed 106 days in 101.2s
+Loaded and processed 106 days in 92.4s
 
 === Per-Day Results (sorted by P&L) ===
 Ticker Date             DayP&L trades      W      L     avgWin    avgLoss    avgPos$

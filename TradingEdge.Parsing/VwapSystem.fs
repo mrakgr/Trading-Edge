@@ -15,7 +15,7 @@ open VolumeBars
 /// resulting VolumeBar to onNext.
 let volumeBarOfTrades () =
     let mutable cumulativeVolumeSum = 0.0
-    fun onNext (trades: ResizeArray<Trade>) ->
+    fun onNext (trades: ImmutableArray<Trade>) ->
         let mutable priceVolumeSum = 0.0
         let mutable priceSquaredVolumeSum = 0.0
         let mutable volumeSum = 0.0
@@ -32,8 +32,8 @@ let volumeBarOfTrades () =
             StdDev = sqrt (max 0.0 variance)
             Volume = volumeSum
             StartTime = trades.[0].Timestamp
-            EndTime = trades.[trades.Count - 1].Timestamp
-            NumTrades = trades.Count
+            EndTime = trades.[trades.Length - 1].Timestamp
+            NumTrades = trades.Length
         }
 
 /// Splits a stream of trades into fixed-volume groups. Accumulates trades
@@ -41,7 +41,7 @@ let volumeBarOfTrades () =
 /// reaches barSize, then emits the group as a ResizeArray<Trade> via
 /// onNext. One input trade can complete multiple groups.
 let groupTrades barSize =
-    let mutable currentTrades = ResizeArray<Trade>()
+    let currentTrades = ResizeArray<Trade>()
     let mutable currentVolumeSum = 0.0
 
     fun onNext (trade : Trade) ->
@@ -58,8 +58,8 @@ let groupTrades barSize =
                     currentVolumeSum <- currentVolumeSum + spaceLeft
                     remaining <- remaining - spaceLeft
                 if currentVolumeSum >= barSize then
-                    onNext currentTrades
-                    currentTrades <- ResizeArray<Trade>()
+                    onNext (currentTrades.ToImmutableArray())
+                    currentTrades.Clear()
                     currentVolumeSum <- 0.0
 
 /// Composes groupTrades and volumeBarOfTrades into a single stateful
@@ -70,12 +70,12 @@ let volumeBarBuilder barSize =
     fun onNext trade -> tradesGrouper (barBuilder onNext) trade
 
 /// Batch-builds volume bars from a complete trade list by wiring groupTrades
-/// into volumeBarOfTrades. Returns all completed bars as an ImmutableList.
-let rebuildVolumeBars barSize (trades : Trade ImmutableList) =
-    let mutable l = ImmutableList.Empty
+/// into volumeBarOfTrades. Returns all completed bars as an ImmutableArray.
+let rebuildVolumeBars barSize (trades : Trade ImmutableArray) =
+    let mutable l = ResizeArray()
     let barBuilder = volumeBarBuilder barSize
-    Seq.iter (barBuilder (fun bar -> l <- l.Add bar)) trades
-    l
+    Seq.iter (barBuilder (fun bar -> l.Add bar)) trades
+    l.ToImmutableArray()
 
 // =============================================================================
 // Pairwise bar variance (for volatility-adjusted position sizing)
@@ -151,7 +151,7 @@ let defaultEstimationOffsets = [| 5.0; 30.0; 150.0; 750.0 |] // Offsets after th
 /// with barSize = totalVolume * volPcts[i] and replays all buffered trades.
 /// Emits (VwapSystemBar option, TradeStage, Trade) via onNext per trade.
 let segregateTrades (window : MarketHours) (volPcts : float []) =
-    let mutable trades_and_flags : (Trade * bool) ImmutableList = ImmutableList.Empty
+    let mutable trades_and_flags : (Trade * bool) ResizeArray = ResizeArray()
     let mutable openingPrintTime : DateTime option = None
     let mutable vwapSystemArgs = None
     let mutable volPctsOffset = None
@@ -182,7 +182,7 @@ let segregateTrades (window : MarketHours) (volPcts : float []) =
                 BeforeOpeningPrint
         |> fun stage ->
             let trade_and_flag = trade, stage <> BeforeOpeningPrint
-            trades_and_flags <- trades_and_flags.Add trade_and_flag
+            trades_and_flags.Add trade_and_flag
             match vwapSystemArgs with
             | Some vwapSystem -> vwapSystem (fun bar -> finalBar <- Some bar) trade_and_flag
             | None -> ()
@@ -321,13 +321,13 @@ let enforceLossCountLimit (getPnL: unit -> float) (maxLosses: int) =
 /// addTrade feeds a trade through the entire pipeline and getResult returns
 /// the accumulated decisions and realized PnL.
 let createPipeline
-    (window: MarketHours)
-    (volPcts: float[])
-    (positionSize: float)
-    (referenceVol: float option)
-    (lossLimit: float option)
-    (maxTrades: int option)
-    (maxLosses: int option) =
+        (window: MarketHours)
+        (volPcts: float[])
+        (positionSize: float)
+        (referenceVol: float option)
+        (lossLimit: float option)
+        (maxTrades: int option)
+        (maxLosses: int option) =
     let add, getResult = trackDecisions ()
     let getPnL () = (getResult()).RealizedPnL
     let mutable sink = add
