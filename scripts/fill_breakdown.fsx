@@ -35,7 +35,7 @@ let availableEntries =
 
 // ----- 2. Configuration -----
 let positionSize = 30000.0
-let referenceVol = 0.0095
+let referenceVol = 3.85e-4 // 3.85 basis points
 let lossLimit = positionSize * 0.085
 let basePct = 0.005
 let decay = 0.9
@@ -127,6 +127,7 @@ type DayResult = {
     RoundTrips: RoundTrip[]
     TotalCommission: float
     NumFills: int
+    AvgPositionSize: float
 }
 
 let dayResults =
@@ -143,11 +144,18 @@ let dayResults =
             match op, cp with
             | Some o, Some c ->
                 let window = { openTime = o.Timestamp; closeTime = c.Timestamp }
-                let addTrade, _, getFillResult =
+                let addTrade, getDecisionResult, getFillResult =
                     createPipeline window pcts positionSize (Some referenceVol) (Some lossLimit) None None (Some fillParams)
                 for tr in trades do addTrade tr
                 let fr = getFillResult()
+                let dr = getDecisionResult()
+                let decs = dr.Decisions
                 let roundTrips = extractRoundTrips (fr.Fills |> Seq.toArray) fillParams.CommissionPerShare
+                let posSizes =
+                    [| for i in 0 .. decs.Count - 2 do
+                        if decs.[i].Shares <> 0 then
+                            float (abs decs.[i].Shares) * decs.[i].Price |]
+                let avgPos = if posSizes.Length > 0 then (posSizes |> Array.sum) / float posSizes.Length else 0.0
                 yield {
                     Ticker = ticker
                     Date = date
@@ -155,6 +163,7 @@ let dayResults =
                     RoundTrips = roundTrips
                     TotalCommission = fr.Commissions
                     NumFills = fr.Fills.Length
+                    AvgPositionSize = avgPos
                 }
             | _ -> () |]
 
@@ -163,9 +172,9 @@ tee ""
 
 // ----- 5. Per-day breakdown -----
 tee "=== Per-Day Results (sorted by P&L) ==="
-tee "%-6s %-12s %10s %6s %6s %6s %10s %10s %10s"
-    "Ticker" "Date" "DayP&L" "trips" "W" "L" "avgWin" "avgLoss" "commiss"
-tee "%s" (String.replicate 90 "-")
+tee "%-6s %-12s %10s %6s %6s %6s %10s %10s %10s %10s"
+    "Ticker" "Date" "DayP&L" "trips" "W" "L" "avgWin" "avgLoss" "commiss" "avgPos$"
+tee "%s" (String.replicate 100 "-")
 
 let sortedDays = dayResults |> Array.sortByDescending (fun d -> d.DayPnL)
 for d in sortedDays do
@@ -174,8 +183,8 @@ for d in sortedDays do
     let losses = pnls |> Array.filter (fun p -> p < -0.01)
     let avgWin = if wins.Length > 0 then wins |> Array.average else 0.0
     let avgLoss = if losses.Length > 0 then losses |> Array.average else 0.0
-    tee "%-6s %-12s %10.2f %6d %6d %6d %10.2f %10.2f %10.2f"
-        d.Ticker d.Date d.DayPnL d.RoundTrips.Length wins.Length losses.Length avgWin avgLoss d.TotalCommission
+    tee "%-6s %-12s %10.2f %6d %6d %6d %10.2f %10.2f %10.2f %10.2f"
+        d.Ticker d.Date d.DayPnL d.RoundTrips.Length wins.Length losses.Length avgWin avgLoss d.TotalCommission d.AvgPositionSize
 
 // ----- 6. Aggregate trade-level stats -----
 let allTrips = dayResults |> Array.collect (fun d -> d.RoundTrips)
@@ -230,6 +239,7 @@ let maxDrawdownDay = if lossDays.Length > 0 then lossDays |> Array.minBy (fun d 
 let totalPnL = dayResults |> Array.sumBy (fun d -> d.DayPnL)
 let totalCommissions = dayResults |> Array.sumBy (fun d -> d.TotalCommission)
 let totalFills = dayResults |> Array.sumBy (fun d -> d.NumFills)
+let avgPosOverall = if dayResults.Length > 0 then (dayResults |> Array.sumBy (fun d -> d.AvgPositionSize)) / float dayResults.Length else 0.0
 
 tee ""
 tee "=== Aggregate Statistics ==="
@@ -241,6 +251,7 @@ tee "Total days:         %12d" dayResults.Length
 tee "Total round trips:  %12d" allTrips.Length
 tee "Total fills:        %12d" totalFills
 tee "Avg trips/day:      %12.1f" (float allTrips.Length / float dayResults.Length)
+tee "Avg position size:  $%12.2f" avgPosOverall
 tee ""
 tee "--- Round-Trip Level ---"
 tee "Win trades:         %12d" winTrips.Length

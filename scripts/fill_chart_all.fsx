@@ -12,7 +12,7 @@ open TradingEdge.Parsing.VwapSystem
 
 // ----- Configuration -----
 let positionSize = 30000.0
-let referenceVol = 0.0095
+let referenceVol = 3.85e-4 // 3.85 basis points
 let lossLimit = positionSize * 0.085
 let basePct = 0.005
 let decay = 0.9
