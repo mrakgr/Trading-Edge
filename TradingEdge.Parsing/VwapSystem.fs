@@ -362,54 +362,83 @@ type FillSimulatorResult = {
 /// price, not the trade price. Partial fills are tracked.
 ///
 /// Returns (processor, getResult).
-let fillSimulator (percentile: float) =
-    let mutable orderPrice = 0.0
-    let mutable orderRemaining = 0
+///
+/// Models order modification delays realistically: when a new order or price
+/// change is submitted, it enters a pending state. The old active order remains
+/// live and can still fill during the delay. Once the delay elapses, the
+/// pending order becomes active with remaining = target - filledPosition,
+/// accounting for any fills that occurred on the old order in the interim.
+let fillSimulator (percentile: float) (delayMs: float) =
+    // Active order: what's currently live on the exchange
+    let mutable activePrice = 0.0
+    let mutable activeRemaining = 0
+    let mutable hasActive = false
+    // Pending modification: submitted but not yet confirmed
+    let mutable pendingPrice = 0.0
+    let mutable pendingTarget = 0
+    let mutable pendingActiveTime = DateTime.MaxValue
+    let mutable hasPending = false
+    // Position tracking
+    let mutable targetPosition = 0
     let mutable filledPosition = 0
     let mutable lastDigest : MergingDigest option = None
+    let delay = TimeSpan.FromMilliseconds delayMs
     let fills = ResizeArray<Fill>()
 
     let computePrice (digest: MergingDigest) (isBuy: bool) =
         digest.Quantile(if isBuy then percentile else 1.0 - percentile)
 
-    let updateOrderPrice () =
+    let submitOrder (now: DateTime) =
+        let remaining = targetPosition - filledPosition
         match lastDigest with
-        | Some digest when orderRemaining > 0 ->
-            orderPrice <- computePrice digest true
-        | Some digest when orderRemaining < 0 ->
-            orderPrice <- computePrice digest false
+        | Some digest when remaining <> 0 ->
+            pendingPrice <- computePrice digest (remaining > 0)
+            pendingTarget <- targetPosition
+            pendingActiveTime <- now + delay
+            hasPending <- true
         | _ -> ()
 
     (fun (bar: VwapSystemBar option, decision: TradingDecision option, trade: Trade) ->
-        // 1. New bar: rebuild t-digest and recompute limit price
+        // 1. Activate pending order if delay has elapsed
+        if hasPending && trade.Timestamp >= pendingActiveTime then
+            activePrice <- pendingPrice
+            activeRemaining <- pendingTarget - filledPosition
+            hasActive <- activeRemaining <> 0
+            hasPending <- false
+
+        // 2. New bar: rebuild t-digest and submit repriced order
         match bar with
         | Some b ->
             let digest = MergingDigest(100.0)
             for t in b.Bar.Trades do
                 digest.Add(t.Price, int t.Volume)
             lastDigest <- Some digest
-            updateOrderPrice ()
+            if targetPosition <> filledPosition then
+                submitOrder trade.Timestamp
         | None -> ()
 
-        // 2. New decision: update target position and outstanding order
+        // 3. New decision: update target and submit order modification
         match decision with
         | Some d ->
-            orderRemaining <- d.Shares - filledPosition
-            updateOrderPrice ()
+            targetPosition <- d.Shares
+            submitOrder trade.Timestamp
         | None -> ()
 
-        // 3. Check for fills against the current trade
-        let tradeShares = int trade.Volume
-        if orderRemaining > 0 && trade.Price <= orderPrice then
-            let fillQty = min orderRemaining tradeShares
-            fills.Add { Timestamp = trade.Timestamp; Price = orderPrice; Quantity = fillQty }
-            orderRemaining <- orderRemaining - fillQty
-            filledPosition <- filledPosition + fillQty
-        elif orderRemaining < 0 && trade.Price >= orderPrice then
-            let fillQty = -(min -orderRemaining tradeShares)
-            fills.Add { Timestamp = trade.Timestamp; Price = orderPrice; Quantity = fillQty }
-            orderRemaining <- orderRemaining - fillQty
-            filledPosition <- filledPosition + fillQty
+        // 4. Check fills against the active order
+        if hasActive then
+            let tradeShares = int trade.Volume
+            if activeRemaining > 0 && trade.Price <= activePrice then
+                let fillQty = min activeRemaining tradeShares
+                fills.Add { Timestamp = trade.Timestamp; Price = activePrice; Quantity = fillQty }
+                activeRemaining <- activeRemaining - fillQty
+                filledPosition <- filledPosition + fillQty
+                if activeRemaining = 0 then hasActive <- false
+            elif activeRemaining < 0 && trade.Price >= activePrice then
+                let fillQty = -(min -activeRemaining tradeShares)
+                fills.Add { Timestamp = trade.Timestamp; Price = activePrice; Quantity = fillQty }
+                activeRemaining <- activeRemaining - fillQty
+                filledPosition <- filledPosition + fillQty
+                if activeRemaining = 0 then hasActive <- false
     ),
     (fun () -> { Fills = fills.ToImmutableArray() })
 
