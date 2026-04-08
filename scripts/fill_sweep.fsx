@@ -44,8 +44,9 @@ let pcts = exponents |> Array.map (fun i -> basePct * (decay ** float i))
 let commissionPerShare = 0.0035
 let delayMs = 100.0
 
-// Percentiles to sweep
-let percentiles = [| 0.50; 0.45; 0.40; 0.35; 0.30; 0.25; 0.20; 0.15; 0.10; 0.05 |]
+// Percentiles to sweep: exponential interpolation over [0.01, 0.15]
+let numPoints = 40
+let percentiles = [| for i in 0 .. numPoints - 1 -> 0.01 * 15.0 ** (float i / float (numPoints - 1)) |]
 
 tee "=== Fill Simulator Parameter Sweep ==="
 tee "Bar exponents: [%s]  pcts: [%s]"
@@ -53,7 +54,7 @@ tee "Bar exponents: [%s]  pcts: [%s]"
     (String.Join(";", pcts |> Array.map (fun p -> sprintf "%.5f" p)))
 tee "Position size: $%.0f  referenceVol: %.4f  lossLimit: $%.0f" positionSize referenceVol lossLimit
 tee "Commission: $%.4f/share  Delay: %.0fms" commissionPerShare delayMs
-tee "Percentiles: [%s]" (String.Join("; ", percentiles |> Array.map (fun p -> sprintf "%.2f" p)))
+tee "Percentiles: [%s]" (String.Join("; ", percentiles |> Array.map (fun p -> sprintf "%.4f" p)))
 tee "Available days: %d" availableEntries.Length
 tee ""
 
@@ -126,9 +127,9 @@ type SweepResult = {
 }
 
 tee "=== Percentile Sweep Results ==="
-tee "%-10s %12s %12s %12s %8s %8s %10s %12s"
+tee "%-12s %12s %12s %12s %8s %8s %10s %12s"
     "Pctile" "GrossPnL" "Commission" "NetPnL" "WinDays" "LossDays" "Fills" "AvgDayPnL"
-tee "%s" (String.replicate 95 "-")
+tee "%s" (String.replicate 97 "-")
 
 let sweepResults =
     [| for pctile in percentiles do
@@ -156,7 +157,7 @@ let sweepResults =
 
         let netPnL = totalPnL - totalCommissions
         let avgDay = netPnL / float dayData.Length
-        tee "%-10.2f %12.2f %12.2f %12.2f %8d %8d %10d %12.2f"
+        tee "%-12.4f %12.2f %12.2f %12.2f %8d %8d %10d %12.2f"
             pctile totalPnL totalCommissions netPnL winDays lossDays totalFills avgDay
 
         yield {
@@ -175,7 +176,7 @@ tee ""
 // ----- 5. Best result summary -----
 let best = sweepResults |> Array.maxBy (fun r -> r.NetPnL)
 tee "=== Best Percentile ==="
-tee "Percentile:    %10.2f" best.Percentile
+tee "Percentile:    %10.4f" best.Percentile
 tee "Gross P&L:    $%10.2f" best.TotalPnL
 tee "Commissions:  $%10.2f" best.TotalCommissions
 tee "Net P&L:      $%10.2f" best.NetPnL
