@@ -93,7 +93,9 @@ let pairwiseCombinedVariance (a: VolumeBar) (b: VolumeBar) =
     else
         let muCombined = (vA * a.VWAP + vB * b.VWAP) / vTotal
         let secondMoment = (vA * (a.StdDev * a.StdDev + a.VWAP * a.VWAP) + vB * (b.StdDev * b.StdDev + b.VWAP * b.VWAP)) / vTotal
-        secondMoment - muCombined * muCombined
+        let absoluteVariance = secondMoment - muCombined * muCombined
+        if muCombined > 0.0 then absoluteVariance / (muCombined * muCombined)
+        else 0.0
 
 type VwapSystemBar = {
     Bar : VolumeBar
