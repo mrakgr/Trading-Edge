@@ -348,97 +348,204 @@ type Fill = {
     Quantity: int
 }
 
+type LimitOrder = {
+    /// (price, activationTime) pairs, newest first. On reprice, a new entry
+    /// is prepended; older entries remain active until the newer one activates.
+    Prices: (float * DateTime) list
+    Quantity: int
+    CancellationTime: DateTime option
+}
+
 type FillSimulatorResult = {
     Fills: ImmutableArray<Fill>
 }
 
 /// Stateful continuation that simulates limit-order execution against the
-/// trade stream. Builds a t-digest from each volume bar's trades to determine
-/// the limit price at the given percentile. Buy orders use percentile directly
-/// (lower = more aggressive), sell orders use 1 - percentile.
+/// trade stream. Manages explicit buy/sell limit orders with activation and
+/// cancellation delays. Only one side (buy or sell) can be active at a time.
+///
+/// On a flip: cancels the current side (cancellation confirms after delay),
+/// then places the new side only once cancellation is confirmed (placement
+/// also takes a delay to activate).
 ///
 /// Fill rule: a buy order at price P is filled by any trade printed at <= P,
 /// and a sell order at P by any trade at >= P. Fills are recorded at the limit
 /// price, not the trade price. Partial fills are tracked.
 ///
 /// Returns (processor, getResult).
-///
-/// Models order modification delays realistically: when a new order or price
-/// change is submitted, it enters a pending state. The old active order remains
-/// live and can still fill during the delay. Once the delay elapses, the
-/// pending order becomes active with remaining = target - filledPosition,
-/// accounting for any fills that occurred on the old order in the interim.
 let fillSimulator (percentile: float) (delayMs: float) =
-    // Active order: what's currently live on the exchange
-    let mutable activePrice = 0.0
-    let mutable activeRemaining = 0
-    let mutable hasActive = false
-    // Pending modification: submitted but not yet confirmed
-    let mutable pendingPrice = 0.0
-    let mutable pendingTarget = 0
-    let mutable pendingActiveTime = DateTime.MaxValue
-    let mutable hasPending = false
-    // Position tracking
+    let mutable buyOrder : LimitOrder option = None
+    let mutable sellOrder : LimitOrder option = None
     let mutable targetPosition = 0
     let mutable filledPosition = 0
     let mutable lastDigest : MergingDigest option = None
+    // When we're waiting for a cancellation before flipping, store the
+    // target we need to submit once the cancel confirms.
+    let mutable pendingFlipTarget : int option = None
     let delay = TimeSpan.FromMilliseconds delayMs
     let fills = ResizeArray<Fill>()
 
     let computePrice (digest: MergingDigest) (isBuy: bool) =
         digest.Quantile(if isBuy then percentile else 1.0 - percentile)
 
-    let submitOrder (now: DateTime) =
-        let remaining = targetPosition - filledPosition
+    let placeOrder (now: DateTime) =
+        let needed = targetPosition - filledPosition
         match lastDigest with
-        | Some digest when remaining <> 0 ->
-            pendingPrice <- computePrice digest (remaining > 0)
-            pendingTarget <- targetPosition
-            pendingActiveTime <- now + delay
-            hasPending <- true
+        | Some digest when needed > 0 ->
+            assert (sellOrder.IsNone)
+            buyOrder <- Some {
+                Prices = [computePrice digest true, now + delay]
+                Quantity = needed
+                CancellationTime = None
+            }
+        | Some digest when needed < 0 ->
+            assert (buyOrder.IsNone)
+            sellOrder <- Some {
+                Prices = [computePrice digest false, now + delay]
+                Quantity = -needed
+                CancellationTime = None
+            }
+        | _ -> ()
+
+    let cancelBuyOrder (now: DateTime) =
+        match buyOrder with
+        | Some order when order.CancellationTime.IsNone ->
+            buyOrder <- Some { order with CancellationTime = Some (now + delay) }
+        | _ -> ()
+
+    let cancelSellOrder (now: DateTime) =
+        match sellOrder with
+        | Some order when order.CancellationTime.IsNone ->
+            sellOrder <- Some { order with CancellationTime = Some (now + delay) }
+        | _ -> ()
+
+    /// Find the latest active price from the list (newest first; first one
+    /// whose activationTime <= now).
+    let activePrice (now: DateTime) (prices: (float * DateTime) list) =
+        prices |> List.tryFind (fun (_, activationTime) -> now >= activationTime)
+               |> Option.map fst
+
+    let isCancelled (now: DateTime) (order: LimitOrder) =
+        match order.CancellationTime with
+        | Some cancelTime -> now >= cancelTime
+        | None -> false
+
+    let tryFillBuy (trade: Trade) =
+        match buyOrder with
+        | Some order when not (isCancelled trade.Timestamp order) ->
+            match activePrice trade.Timestamp order.Prices with
+            | Some price when trade.Price <= price ->
+                let fillQty = min order.Quantity (int trade.Volume)
+                if fillQty > 0 then
+                    fills.Add { Timestamp = trade.Timestamp; Price = price; Quantity = fillQty }
+                    filledPosition <- filledPosition + fillQty
+                    let remaining = order.Quantity - fillQty
+                    if remaining = 0 then buyOrder <- None
+                    else buyOrder <- Some { order with Quantity = remaining }
+            | _ -> ()
+        | _ -> ()
+
+    let tryFillSell (trade: Trade) =
+        match sellOrder with
+        | Some order when not (isCancelled trade.Timestamp order) ->
+            match activePrice trade.Timestamp order.Prices with
+            | Some price when trade.Price >= price ->
+                let fillQty = min order.Quantity (int trade.Volume)
+                if fillQty > 0 then
+                    fills.Add { Timestamp = trade.Timestamp; Price = price; Quantity = -fillQty }
+                    filledPosition <- filledPosition - fillQty
+                    let remaining = order.Quantity - fillQty
+                    if remaining = 0 then sellOrder <- None
+                    else sellOrder <- Some { order with Quantity = remaining }
+            | _ -> ()
+        | _ -> ()
+
+    let processCancellations (now: DateTime) =
+        // Check if buy cancellation has confirmed
+        match buyOrder with
+        | Some order ->
+            match order.CancellationTime with
+            | Some cancelTime when now >= cancelTime -> buyOrder <- None
+            | _ -> ()
+        | None -> ()
+        // Check if sell cancellation has confirmed
+        match sellOrder with
+        | Some order ->
+            match order.CancellationTime with
+            | Some cancelTime when now >= cancelTime -> sellOrder <- None
+            | _ -> ()
+        | None -> ()
+        // If we were waiting for a cancellation to flip, check if we can now place
+        match pendingFlipTarget with
+        | Some _ when buyOrder.IsNone && sellOrder.IsNone ->
+            pendingFlipTarget <- None
+            placeOrder now
         | _ -> ()
 
     (fun (bar: VwapSystemBar option, decision: TradingDecision option, trade: Trade) ->
-        // 1. Activate pending order if delay has elapsed
-        if hasPending && trade.Timestamp >= pendingActiveTime then
-            activePrice <- pendingPrice
-            activeRemaining <- pendingTarget - filledPosition
-            hasActive <- activeRemaining <> 0
-            hasPending <- false
+        // 1. Process cancellations and pending flips
+        processCancellations trade.Timestamp
 
-        // 2. New bar: rebuild t-digest and submit repriced order
+        // 2. New bar: rebuild t-digest and reprice the active order
         match bar with
         | Some b ->
             let digest = MergingDigest(100.0)
             for t in b.Bar.Trades do
                 digest.Add(t.Price, int t.Volume)
             lastDigest <- Some digest
-            if targetPosition <> filledPosition then
-                submitOrder trade.Timestamp
+            // Reprice active order: prepend new price with activation delay
+            match buyOrder with
+            | Some order when order.CancellationTime.IsNone ->
+                let newPrice = computePrice digest true, trade.Timestamp + delay
+                buyOrder <- Some { order with Prices = newPrice :: order.Prices }
+            | _ -> ()
+            match sellOrder with
+            | Some order when order.CancellationTime.IsNone ->
+                let newPrice = computePrice digest false, trade.Timestamp + delay
+                sellOrder <- Some { order with Prices = newPrice :: order.Prices }
+            | _ -> ()
         | None -> ()
 
-        // 3. New decision: update target and submit order modification
+        // 3. New decision: determine if we need to flip sides or adjust quantity
         match decision with
         | Some d ->
             targetPosition <- d.Shares
-            submitOrder trade.Timestamp
+            let needed = targetPosition - filledPosition
+            if needed > 0 then
+                // Need to buy
+                if sellOrder.IsSome then
+                    cancelSellOrder trade.Timestamp
+                    pendingFlipTarget <- Some targetPosition
+                elif buyOrder.IsNone then
+                    placeOrder trade.Timestamp
+                else
+                    // Already have a buy order, update quantity
+                    match buyOrder with
+                    | Some order when order.CancellationTime.IsNone ->
+                        buyOrder <- Some { order with Quantity = needed }
+                    | _ -> ()
+            elif needed < 0 then
+                // Need to sell
+                if buyOrder.IsSome then
+                    cancelBuyOrder trade.Timestamp
+                    pendingFlipTarget <- Some targetPosition
+                elif sellOrder.IsNone then
+                    placeOrder trade.Timestamp
+                else
+                    // Already have a sell order, update quantity
+                    match sellOrder with
+                    | Some order when order.CancellationTime.IsNone ->
+                        sellOrder <- Some { order with Quantity = -needed }
+                    | _ -> ()
+            else
+                // Target reached, cancel any outstanding
+                cancelBuyOrder trade.Timestamp
+                cancelSellOrder trade.Timestamp
         | None -> ()
 
-        // 4. Check fills against the active order
-        if hasActive then
-            let tradeShares = int trade.Volume
-            if activeRemaining > 0 && trade.Price <= activePrice then
-                let fillQty = min activeRemaining tradeShares
-                fills.Add { Timestamp = trade.Timestamp; Price = activePrice; Quantity = fillQty }
-                activeRemaining <- activeRemaining - fillQty
-                filledPosition <- filledPosition + fillQty
-                if activeRemaining = 0 then hasActive <- false
-            elif activeRemaining < 0 && trade.Price >= activePrice then
-                let fillQty = -(min -activeRemaining tradeShares)
-                fills.Add { Timestamp = trade.Timestamp; Price = activePrice; Quantity = fillQty }
-                activeRemaining <- activeRemaining - fillQty
-                filledPosition <- filledPosition + fillQty
-                if activeRemaining = 0 then hasActive <- false
+        // 4. Check fills
+        tryFillBuy trade
+        tryFillSell trade
     ),
     (fun () -> { Fills = fills.ToImmutableArray() })
 
