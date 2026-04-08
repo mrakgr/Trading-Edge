@@ -2,6 +2,7 @@ module TradingEdge.Parsing.VwapSystem
 
 open System
 open System.Collections.Immutable
+open TDigest
 open TradeLoader
 open VolumeBars
 
@@ -336,6 +337,81 @@ let enforceLossCountLimit (getPnL: unit -> float) (maxLosses: int) =
                     if d.Shares <> 0 then
                         onNext (bar, Some { d with Shares = 0 }, trade)
             | None -> ()
+
+// =============================================================================
+// Fill Simulator
+// =============================================================================
+
+type Fill = {
+    Timestamp: DateTime
+    Price: float
+    Quantity: int
+}
+
+type FillSimulatorResult = {
+    Fills: ImmutableArray<Fill>
+}
+
+/// Stateful continuation that simulates limit-order execution against the
+/// trade stream. Builds a t-digest from each volume bar's trades to determine
+/// the limit price at the given percentile. Buy orders use percentile directly
+/// (lower = more aggressive), sell orders use 1 - percentile.
+///
+/// Fill rule: a buy order at price P is filled by any trade printed at <= P,
+/// and a sell order at P by any trade at >= P. Fills are recorded at the limit
+/// price, not the trade price. Partial fills are tracked.
+///
+/// Returns (processor, getResult).
+let fillSimulator (percentile: float) =
+    let mutable orderPrice = 0.0
+    let mutable orderRemaining = 0
+    let mutable filledPosition = 0
+    let mutable lastDigest : MergingDigest option = None
+    let fills = ResizeArray<Fill>()
+
+    let computePrice (digest: MergingDigest) (isBuy: bool) =
+        digest.Quantile(if isBuy then percentile else 1.0 - percentile)
+
+    let updateOrderPrice () =
+        match lastDigest with
+        | Some digest when orderRemaining > 0 ->
+            orderPrice <- computePrice digest true
+        | Some digest when orderRemaining < 0 ->
+            orderPrice <- computePrice digest false
+        | _ -> ()
+
+    (fun (bar: VwapSystemBar option, decision: TradingDecision option, trade: Trade) ->
+        // 1. New bar: rebuild t-digest and recompute limit price
+        match bar with
+        | Some b ->
+            let digest = MergingDigest(100.0)
+            for t in b.Bar.Trades do
+                digest.Add(t.Price, int t.Volume)
+            lastDigest <- Some digest
+            updateOrderPrice ()
+        | None -> ()
+
+        // 2. New decision: update target position and outstanding order
+        match decision with
+        | Some d ->
+            orderRemaining <- d.Shares - filledPosition
+            updateOrderPrice ()
+        | None -> ()
+
+        // 3. Check for fills against the current trade
+        let tradeShares = int trade.Volume
+        if orderRemaining > 0 && trade.Price <= orderPrice then
+            let fillQty = min orderRemaining tradeShares
+            fills.Add { Timestamp = trade.Timestamp; Price = orderPrice; Quantity = fillQty }
+            orderRemaining <- orderRemaining - fillQty
+            filledPosition <- filledPosition + fillQty
+        elif orderRemaining < 0 && trade.Price >= orderPrice then
+            let fillQty = -(min -orderRemaining tradeShares)
+            fills.Add { Timestamp = trade.Timestamp; Price = orderPrice; Quantity = fillQty }
+            orderRemaining <- orderRemaining - fillQty
+            filledPosition <- filledPosition + fillQty
+    ),
+    (fun () -> { Fills = fills.ToImmutableArray() })
 
 /// Assembles the full VWAP trading pipeline: segregateTrades -> vwapSystem ->
 /// enforce chain -> trackDecisions. Returns (addTrade, getResult) where
