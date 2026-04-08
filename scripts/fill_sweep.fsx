@@ -44,21 +44,60 @@ let pcts = exponents |> Array.map (fun i -> basePct * (decay ** float i))
 let commissionPerShare = 0.0035
 let delayMs = 100.0
 
-// Percentiles to sweep: exponential interpolation over [0.01, 0.15]
+// Percentiles to sweep: exponential interpolation over [0.05, 0.5]
 let numPoints = 40
-let percentiles = [| for i in 0 .. numPoints - 1 -> 0.01 * 15.0 ** (float i / float (numPoints - 1)) |]
+let percentiles = [| for i in 0 .. numPoints - 1 -> 0.05 * 10.0 ** (float i / float (numPoints - 1)) |]
 
-tee "=== Fill Simulator Parameter Sweep ==="
+tee "=== Fill Simulator Percentile Sweep (Profit Factor) ==="
 tee "Bar exponents: [%s]  pcts: [%s]"
     (String.Join(";", exponents))
     (String.Join(";", pcts |> Array.map (fun p -> sprintf "%.5f" p)))
 tee "Position size: $%.0f  referenceVol: %.4f  lossLimit: $%.0f" positionSize referenceVol lossLimit
 tee "Commission: $%.4f/share  Delay: %.0fms" commissionPerShare delayMs
-tee "Percentiles: [%s]" (String.Join("; ", percentiles |> Array.map (fun p -> sprintf "%.4f" p)))
 tee "Available days: %d" availableEntries.Length
 tee ""
 
-// ----- 3. Preload all trade data -----
+// ----- 3. Round-trip extraction (same as fill_breakdown) -----
+let extractRoundTrips (fills: Fill array) (commPerShare: float) =
+    let trips = ResizeArray<float>() // just PnLs
+    let mutable position = 0
+    let mutable avgCost = 0.0
+    let mutable entryCommission = 0.0
+
+    for f in fills do
+        let qty = f.Quantity
+        let commission = float (abs qty) * commPerShare
+
+        if position = 0 then
+            avgCost <- f.Price
+            position <- qty
+            entryCommission <- commission
+        elif sign qty = sign position then
+            let totalQty = position + qty
+            avgCost <- (avgCost * float (abs position) + f.Price * float (abs qty)) / float (abs totalQty)
+            position <- totalQty
+            entryCommission <- entryCommission + commission
+        else
+            let closingQty = min (abs qty) (abs position)
+            let pnl = float (sign position) * (f.Price - avgCost) * float closingQty
+            let totalCommission = entryCommission * (float closingQty / float (abs position)) + commission
+            trips.Add(pnl - totalCommission)
+            let remaining = position + qty
+            if remaining = 0 then
+                position <- 0
+                avgCost <- 0.0
+                entryCommission <- 0.0
+            elif sign remaining <> sign position then
+                entryCommission <- float (abs remaining) * commPerShare
+                avgCost <- f.Price
+                position <- remaining
+            else
+                entryCommission <- entryCommission * (1.0 - float closingQty / float (abs position))
+                position <- remaining
+
+    trips.ToArray()
+
+// ----- 4. Preload all trade data -----
 tee "Loading trade files..."
 let swLoad = System.Diagnostics.Stopwatch.StartNew()
 
@@ -93,98 +132,95 @@ let dayData =
 tee "Loaded %d days in %.1fs" dayData.Length swLoad.Elapsed.TotalSeconds
 tee ""
 
-// ----- 4. Run sweep -----
-// First, run idealized (no fill sim) as baseline
-let idealizedResults =
-    [| for d in dayData do
-        let addTrade, getResult, _ =
-            createPipeline d.Window pcts positionSize (Some referenceVol) (Some lossLimit) None None None
-        for tr in d.Trades do addTrade tr
-        let r = getResult()
-        yield d.Ticker, d.Date, r.RealizedPnL |]
-
-let idealizedTotal = idealizedResults |> Array.sumBy (fun (_, _, pnl) -> pnl)
-let idealizedWinDays = idealizedResults |> Array.filter (fun (_, _, pnl) -> pnl > 0.01) |> Array.length
-let idealizedLossDays = idealizedResults |> Array.filter (fun (_, _, pnl) -> pnl < -0.01) |> Array.length
-
-tee "=== Baseline (Idealized, No Fill Sim) ==="
-tee "Total P&L:    $%10.2f" idealizedTotal
-tee "Win days:      %10d" idealizedWinDays
-tee "Loss days:     %10d" idealizedLossDays
-tee "Avg day P&L:  $%10.2f" (idealizedTotal / float dayData.Length)
-tee ""
-
-// Sweep percentiles
+// ----- 5. Sweep -----
 type SweepResult = {
     Percentile: float
-    TotalPnL: float
-    TotalCommissions: float
     NetPnL: float
+    GrossWins: float
+    GrossLosses: float
+    ProfitFactor: float
+    WinRate: float
+    Expectancy: float
     WinDays: int
     LossDays: int
+    RoundTrips: int
     TotalFills: int
-    AvgDayPnL: float
 }
 
 tee "=== Percentile Sweep Results ==="
-tee "%-12s %12s %12s %12s %8s %8s %10s %12s"
-    "Pctile" "GrossPnL" "Commission" "NetPnL" "WinDays" "LossDays" "Fills" "AvgDayPnL"
-tee "%s" (String.replicate 97 "-")
+tee "%-12s %12s %12s %12s %10s %8s %12s %8s %8s %8s"
+    "Pctile" "NetPnL" "GrossWins" "GrossLoss" "ProfFactor" "WinRate" "Expectancy" "WinDays" "LossDays" "Trips"
+tee "%s" (String.replicate 115 "-")
 
 let sweepResults =
     [| for pctile in percentiles do
-        let sw = System.Diagnostics.Stopwatch.StartNew()
         let fp = { Percentile = pctile; DelayMs = delayMs; CommissionPerShare = commissionPerShare }
-        let mutable totalPnL = 0.0
-        let mutable totalCommissions = 0.0
-        let mutable totalFills = 0
+        let mutable allTripPnLs = ResizeArray<float>()
         let mutable winDays = 0
         let mutable lossDays = 0
-        let dayPnLs = ResizeArray<float>()
+        let mutable totalFills = 0
+        let mutable netPnL = 0.0
 
         for d in dayData do
             let addTrade, _, getFillResult =
                 createPipeline d.Window pcts positionSize (Some referenceVol) (Some lossLimit) None None (Some fp)
             for tr in d.Trades do addTrade tr
             let fr = getFillResult()
-            let netPnL = fr.RealizedPnL
-            totalPnL <- totalPnL + fr.RealizedPnL + fr.Commissions // gross (add back commissions)
-            totalCommissions <- totalCommissions + fr.Commissions
+            netPnL <- netPnL + fr.RealizedPnL
             totalFills <- totalFills + fr.Fills.Length
-            dayPnLs.Add netPnL
-            if netPnL > 0.01 then winDays <- winDays + 1
-            elif netPnL < -0.01 then lossDays <- lossDays + 1
+            if fr.RealizedPnL > 0.01 then winDays <- winDays + 1
+            elif fr.RealizedPnL < -0.01 then lossDays <- lossDays + 1
+            let trips = extractRoundTrips (fr.Fills |> Seq.toArray) commissionPerShare
+            allTripPnLs.AddRange trips
 
-        let netPnL = totalPnL - totalCommissions
-        let avgDay = netPnL / float dayData.Length
-        tee "%-12.4f %12.2f %12.2f %12.2f %8d %8d %10d %12.2f"
-            pctile totalPnL totalCommissions netPnL winDays lossDays totalFills avgDay
+        let wins = allTripPnLs |> Seq.filter (fun p -> p > 0.01) |> Seq.sum
+        let losses = allTripPnLs |> Seq.filter (fun p -> p < -0.01) |> Seq.sum |> abs
+        let profitFactor = if losses > 0.0 then wins / losses else infinity
+        let winCount = allTripPnLs |> Seq.filter (fun p -> p > 0.01) |> Seq.length
+        let lossCount = allTripPnLs |> Seq.filter (fun p -> p < -0.01) |> Seq.length
+        let winRate = if winCount + lossCount > 0 then 100.0 * float winCount / float (winCount + lossCount) else 0.0
+        let avgWin = if winCount > 0 then wins / float winCount else 0.0
+        let avgLoss = if lossCount > 0 then -(losses / float lossCount) else 0.0
+        let expectancy = if winCount + lossCount > 0 then (winRate / 100.0) * avgWin + (1.0 - winRate / 100.0) * avgLoss else 0.0
+
+        tee "%-12.4f %12.2f %12.2f %12.2f %10.2f %7.1f%% %12.2f %8d %8d %8d"
+            pctile netPnL wins losses profitFactor winRate expectancy winDays lossDays allTripPnLs.Count
 
         yield {
             Percentile = pctile
-            TotalPnL = totalPnL
-            TotalCommissions = totalCommissions
             NetPnL = netPnL
+            GrossWins = wins
+            GrossLosses = losses
+            ProfitFactor = profitFactor
+            WinRate = winRate
+            Expectancy = expectancy
             WinDays = winDays
             LossDays = lossDays
+            RoundTrips = allTripPnLs.Count
             TotalFills = totalFills
-            AvgDayPnL = avgDay
         } |]
 
 tee ""
 
-// ----- 5. Best result summary -----
-let best = sweepResults |> Array.maxBy (fun r -> r.NetPnL)
-tee "=== Best Percentile ==="
-tee "Percentile:    %10.4f" best.Percentile
-tee "Gross P&L:    $%10.2f" best.TotalPnL
-tee "Commissions:  $%10.2f" best.TotalCommissions
-tee "Net P&L:      $%10.2f" best.NetPnL
-tee "Win days:      %10d" best.WinDays
-tee "Loss days:     %10d" best.LossDays
-tee "Total fills:   %10d" best.TotalFills
-tee "Avg day P&L:  $%10.2f" best.AvgDayPnL
+// ----- 6. Best results -----
+let bestPF = sweepResults |> Array.maxBy (fun r -> r.ProfitFactor)
+let bestPnL = sweepResults |> Array.maxBy (fun r -> r.NetPnL)
+
+tee "=== Best by Profit Factor ==="
+tee "Percentile:    %10.4f" bestPF.Percentile
+tee "Net P&L:      $%10.2f" bestPF.NetPnL
+tee "Profit factor: %10.2f" bestPF.ProfitFactor
+tee "Win rate:      %10.1f%%" bestPF.WinRate
+tee "Expectancy:   $%10.2f" bestPF.Expectancy
+tee "Round trips:   %10d" bestPF.RoundTrips
 tee ""
-tee "Edge retained: %.1f%% of idealized P&L" (100.0 * best.NetPnL / idealizedTotal)
+
+tee "=== Best by Net P&L ==="
+tee "Percentile:    %10.4f" bestPnL.Percentile
+tee "Net P&L:      $%10.2f" bestPnL.NetPnL
+tee "Profit factor: %10.2f" bestPnL.ProfitFactor
+tee "Win rate:      %10.1f%%" bestPnL.WinRate
+tee "Expectancy:   $%10.2f" bestPnL.Expectancy
+tee "Round trips:   %10d" bestPnL.RoundTrips
 
 logWriter.Close()
