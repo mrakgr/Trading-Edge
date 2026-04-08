@@ -1,7 +1,9 @@
 module TradingEdge.Parsing.VolumeBars
 
 open System
+open System.Collections.Immutable
 open DuckDB.NET.Data
+open TradeLoader
 
 // =============================================================================
 // Database Access
@@ -58,4 +60,5 @@ type VolumeBar = {
     StartTime: DateTime
     EndTime: DateTime
     NumTrades: int
+    Trades: ImmutableArray<Trade>
 }

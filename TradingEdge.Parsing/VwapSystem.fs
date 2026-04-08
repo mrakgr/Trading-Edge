@@ -34,6 +34,7 @@ let volumeBarOfTrades () =
             StartTime = trades.[0].Timestamp
             EndTime = trades.[trades.Length - 1].Timestamp
             NumTrades = trades.Length
+            Trades = trades
         }
 
 /// Splits a stream of trades into fixed-volume groups. Accumulates trades
@@ -205,7 +206,8 @@ type TradingDecision = {
 /// Stateful continuation that makes trading decisions based on VWAP signals.
 /// Goes long when bar VWAP >= VWMA, short when below. Position size is
 /// adjusted by volFactor when referenceVol is provided. Flattens on
-/// BeforeClosing. Emits (TradingDecision option, Trade) via onNext.
+/// BeforeClosing. Emits (VwapSystemBar option, TradingDecision option, Trade)
+/// via onNext.
 let vwapSystem (positionSize: float, referenceVol: float option) =
     let mutable state = Active(0.0, 0)
     let effectiveSize vf =
@@ -248,8 +250,8 @@ let vwapSystem (positionSize: float, referenceVol: float option) =
                 state <- Done
                 Some { Timestamp = trade.Timestamp; Price = trade.Price; Shares = 0 }
             | _ -> None
-        |> fun tradingDecision -> 
-            onNext (tradingDecision, trade)
+        |> fun tradingDecision ->
+            onNext (bar, tradingDecision, trade)
     
 type TradingResult = {
     Decisions: ImmutableList<TradingDecision>
@@ -258,63 +260,82 @@ type TradingResult = {
 
 /// Stateful continuation that tracks trading decisions and computes running
 /// realized PnL. Returns (processor, getResult) where processor follows the
-/// standard fun onNext input -> pattern.
+/// standard fun onNext input -> pattern, forwarding the full tuple downstream.
 let trackDecisions () =
     let mutable decisions = ImmutableList<TradingDecision>.Empty
     let mutable realizedPnL = 0.0
-    (fun (d: TradingDecision) ->
-        if decisions.Count > 0 then
-            let prev = decisions.[decisions.Count - 1]
-            realizedPnL <- realizedPnL + (d.Price - prev.Price) * float prev.Shares
-        decisions <- decisions.Add d),
+    (fun onNext (bar: VwapSystemBar option, decision: TradingDecision option, trade: Trade) ->
+        match decision with
+        | Some d ->
+            if decisions.Count > 0 then
+                let prev = decisions.[decisions.Count - 1]
+                realizedPnL <- realizedPnL + (d.Price - prev.Price) * float prev.Shares
+            decisions <- decisions.Add d
+        | None -> ()
+        onNext (bar, decision, trade)),
     (fun () -> { Decisions = decisions; RealizedPnL = realizedPnL })
 
 /// Daily loss limit enforcement. Forwards decisions to onNext until running
 /// PnL drops below -lossLimit, then injects a flatten and suppresses all
-/// further decisions.
+/// further decisions. Bar and trade data always flows through.
 let enforceLossLimit (getPnL: unit -> float) (lossLimit: float) =
     let mutable tripped = false
-    fun onNext (d: TradingDecision) ->
-        if not tripped then
-            onNext d
-            if getPnL() <= -lossLimit then
+    fun onNext (bar: VwapSystemBar option, decision: TradingDecision option, trade: Trade) ->
+        if tripped then
+            onNext (bar, None, trade)
+        else
+            onNext (bar, decision, trade)
+            match decision with
+            | Some d when getPnL() <= -lossLimit ->
                 tripped <- true
                 if d.Shares <> 0 then
-                    onNext { d with Shares = 0 }
+                    onNext (bar, Some { d with Shares = 0 }, trade)
+            | _ -> ()
 
 /// Daily activity limit enforcement. Forwards decisions until the configured
 /// maximum is reached, then injects a flatten and suppresses all further
-/// decisions.
+/// decisions. Bar and trade data always flows through.
 let enforceActivityLimit (maxTrades: int) =
     let mutable count = 0
     let mutable tripped = false
-    fun onNext (d: TradingDecision) ->
-        if not tripped then
-            onNext d
-            count <- count + 1
-            if count >= maxTrades then
-                tripped <- true
-                if d.Shares <> 0 then
-                    onNext { d with Shares = 0 }
+    fun onNext (bar: VwapSystemBar option, decision: TradingDecision option, trade: Trade) ->
+        if tripped then
+            onNext (bar, None, trade)
+        else
+            onNext (bar, decision, trade)
+            match decision with
+            | Some d ->
+                count <- count + 1
+                if count >= maxTrades then
+                    tripped <- true
+                    if d.Shares <> 0 then
+                        onNext (bar, Some { d with Shares = 0 }, trade)
+            | None -> ()
 
 /// Daily losing-trade limit enforcement. Counts decisions that cause PnL to
 /// drop. Once maxLosses is reached, injects a flatten and suppresses all
 /// further decisions. Winning/flat decisions don't count against the cap.
+/// Bar and trade data always flows through.
 let enforceLossCountLimit (getPnL: unit -> float) (maxLosses: int) =
     let mutable losses = 0
     let mutable prevPnL = 0.0
     let mutable tripped = false
-    fun onNext (d: TradingDecision) ->
-        if not tripped then
-            onNext d
-            let newPnL = getPnL()
-            if newPnL < prevPnL then
-                losses <- losses + 1
-            prevPnL <- newPnL
-            if losses >= maxLosses then
-                tripped <- true
-                if d.Shares <> 0 then
-                    onNext { d with Shares = 0 }
+    fun onNext (bar: VwapSystemBar option, decision: TradingDecision option, trade: Trade) ->
+        if tripped then
+            onNext (bar, None, trade)
+        else
+            onNext (bar, decision, trade)
+            match decision with
+            | Some d ->
+                let newPnL = getPnL()
+                if newPnL < prevPnL then
+                    losses <- losses + 1
+                prevPnL <- newPnL
+                if losses >= maxLosses then
+                    tripped <- true
+                    if d.Shares <> 0 then
+                        onNext (bar, Some { d with Shares = 0 }, trade)
+            | None -> ()
 
 /// Assembles the full VWAP trading pipeline: segregateTrades -> vwapSystem ->
 /// enforce chain -> trackDecisions. Returns (addTrade, getResult) where
@@ -328,16 +349,14 @@ let createPipeline
         (lossLimit: float option)
         (maxTrades: int option)
         (maxLosses: int option) =
-    let add, getResult = trackDecisions ()
+    let track, getResult = trackDecisions ()
     let getPnL () = (getResult()).RealizedPnL
-    let mutable sink = add
-    lossLimit |> Option.iter (fun limit -> sink <- enforceLossLimit getPnL limit sink)
-    maxLosses |> Option.iter (fun n -> sink <- enforceLossCountLimit getPnL n sink)
-    maxTrades |> Option.iter (fun n -> sink <- enforceActivityLimit n sink)
+    let terminal = fun (_bar: VwapSystemBar option, _decision: TradingDecision option, _trade: Trade) -> ()
+    let mutable chain = track terminal
+    lossLimit |> Option.iter (fun limit -> chain <- enforceLossLimit getPnL limit chain)
+    maxLosses |> Option.iter (fun n -> chain <- enforceLossCountLimit getPnL n chain)
+    maxTrades |> Option.iter (fun n -> chain <- enforceActivityLimit n chain)
     let decide = vwapSystem (positionSize, referenceVol)
     let segregate = segregateTrades window volPcts
-    let addTrade =
-        segregate
-            (decide (fun (decision, _trade) ->
-                decision |> Option.iter sink))
+    let addTrade = segregate (decide chain)
     addTrade, getResult
