@@ -75,8 +75,8 @@ let dayResults =
             match op, cp with
             | Some o, Some c ->
                 let window = { openTime = o.Timestamp; closeTime = c.Timestamp }
-                let addTrade, getResult =
-                    createPipeline window pcts positionSize (Some referenceVol) (Some lossLimit) None None
+                let addTrade, getResult, _ =
+                    createPipeline window pcts positionSize (Some referenceVol) (Some lossLimit) None None None
                 for tr in trades do addTrade tr
                 let r = getResult()
                 let decs = r.Decisions

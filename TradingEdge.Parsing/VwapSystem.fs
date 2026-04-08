@@ -360,8 +360,10 @@ type LimitOrder = {
     CancellationTime: DateTime option
 }
 
-type FillSimulatorResult = {
+type FillResult = {
     Fills: ImmutableArray<Fill>
+    RealizedPnL: float
+    Commissions: float
 }
 
 /// Stateful continuation that simulates limit-order execution against the
@@ -505,7 +507,7 @@ let fillSimulator (percentile: float) (delayMs: float) =
             placeOrder now
         | _ -> ()
 
-    (fun (bar: VwapSystemBar option, decision: TradingDecision option, trade: Trade) ->
+    (fun onNext (bar: VwapSystemBar option, decision: TradingDecision option, trade: Trade) ->
         // 1. Process cancellations
         processCancellations trade.Timestamp
 
@@ -570,18 +572,62 @@ let fillSimulator (percentile: float) (delayMs: float) =
         | None -> ()
 
         // 4. Check fills
+        let prevFillCount = fills.Count
         tryFillBuy trade
         tryFillSell trade
+        for i in prevFillCount .. fills.Count - 1 do
+            onNext fills.[i]
 
         // 5. Process pending orders
         processPending trade.Timestamp
     ),
-    (fun () -> { Fills = fills.ToImmutableArray() })
+    (fun () -> fills.ToImmutableArray())
+
+/// Stateful component that tracks fill-based realized PnL with commissions.
+/// Returns (processor, getResult) where processor accepts fills via onNext.
+let trackFills (commissionPerShare: float) =
+    let mutable realizedPnL = 0.0
+    let mutable commissions = 0.0
+    let mutable avgCost = 0.0
+    let mutable currentPosition = 0
+    let fills = ResizeArray<Fill>()
+    (fun (fill: Fill) ->
+        fills.Add fill
+        let qty = fill.Quantity
+        let commission = float (abs qty) * commissionPerShare
+        commissions <- commissions + commission
+        if currentPosition = 0 then
+            avgCost <- fill.Price
+            currentPosition <- qty
+        elif sign qty = sign currentPosition then
+            let totalQty = currentPosition + qty
+            avgCost <- (avgCost * float currentPosition + fill.Price * float qty) / float totalQty
+            currentPosition <- totalQty
+        else
+            let closingQty = min (abs qty) (abs currentPosition)
+            let pnl = float (sign currentPosition) * (fill.Price - avgCost) * float closingQty
+            realizedPnL <- realizedPnL + pnl - commission
+            let remaining = currentPosition + qty
+            if remaining = 0 then
+                currentPosition <- 0
+                avgCost <- 0.0
+            elif sign remaining <> sign currentPosition then
+                avgCost <- fill.Price
+                currentPosition <- remaining
+            else
+                currentPosition <- remaining
+            commissions <- commissions - commission),
+    (fun () -> { Fills = fills.ToImmutableArray(); RealizedPnL = realizedPnL; Commissions = commissions })
+
+type FillParams = {
+    Percentile: float
+    DelayMs: float
+    CommissionPerShare: float
+}
 
 /// Assembles the full VWAP trading pipeline: segregateTrades -> vwapSystem ->
-/// enforce chain -> trackDecisions. Returns (addTrade, getResult) where
-/// addTrade feeds a trade through the entire pipeline and getResult returns
-/// the accumulated decisions and realized PnL.
+/// enforce chain -> trackDecisions -> fillSimulator -> trackFills.
+/// Returns (addTrade, getDecisionResult, getFillResult).
 let createPipeline
         (window: MarketHours)
         (volPcts: float[])
@@ -589,15 +635,23 @@ let createPipeline
         (referenceVol: float option)
         (lossLimit: float option)
         (maxTrades: int option)
-        (maxLosses: int option) =
-    let track, getResult = trackDecisions ()
-    let getPnL () = (getResult()).RealizedPnL
-    let terminal = fun (_bar: VwapSystemBar option, _decision: TradingDecision option, _trade: Trade) -> ()
-    let mutable chain = track terminal
+        (maxLosses: int option)
+        (fillParams: FillParams option) =
+    let track, getDecisionResult = trackDecisions ()
+    let getPnL () = (getDecisionResult()).RealizedPnL
+    let recordFill, getFillResult =
+        match fillParams with
+        | Some fp -> trackFills fp.CommissionPerShare
+        | None -> (fun _ -> ()), (fun () -> { Fills = ImmutableArray.Empty; RealizedPnL = 0.0; Commissions = 0.0 })
+    let fillSim =
+        match fillParams with
+        | Some fp -> fillSimulator fp.Percentile fp.DelayMs |> fun (proc, _) -> proc recordFill
+        | None -> fun _ -> ()
+    let mutable chain = track fillSim
     lossLimit |> Option.iter (fun limit -> chain <- enforceLossLimit getPnL limit chain)
     maxLosses |> Option.iter (fun n -> chain <- enforceLossCountLimit getPnL n chain)
     maxTrades |> Option.iter (fun n -> chain <- enforceActivityLimit n chain)
     let decide = vwapSystem (positionSize, referenceVol)
     let segregate = segregateTrades window volPcts
     let addTrade = segregate (decide chain)
-    addTrade, getResult
+    addTrade, getDecisionResult, getFillResult
