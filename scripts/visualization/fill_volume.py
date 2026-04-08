@@ -233,23 +233,50 @@ def plot_fill_chart(bars, fills, decisions, output_html, title):
     fig.write_html(output_html, config=config, post_script=post_script)
     print(f'Saved to {output_html}')
 
-if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print("Usage: python fill_volume.py <data_dir> [output.html]")
-        print("  data_dir should contain bars.csv, fills.csv, decisions.csv")
-        sys.exit(1)
+def process_dir(data_dir):
+    """Generate chart for a single data directory if needed."""
+    bars_path = os.path.join(data_dir, 'bars.csv')
+    fills_path = os.path.join(data_dir, 'fills.csv')
+    decisions_path = os.path.join(data_dir, 'decisions.csv')
+    output_html = os.path.join(data_dir, 'fill_chart.html')
 
-    data_dir = sys.argv[1]
-    bars = load_bars(os.path.join(data_dir, 'bars.csv'))
-    fills = load_fills(os.path.join(data_dir, 'fills.csv'))
-    decisions = load_decisions(os.path.join(data_dir, 'decisions.csv'))
+    if not all(os.path.exists(p) for p in [bars_path, fills_path, decisions_path]):
+        return False
 
+    # Skip if chart is newer than all source CSVs
+    if os.path.exists(output_html):
+        chart_mtime = os.path.getmtime(output_html)
+        source_mtime = max(os.path.getmtime(p) for p in [bars_path, fills_path, decisions_path])
+        if chart_mtime >= source_mtime:
+            return False
+
+    bars = load_bars(bars_path)
+    fills = load_fills(fills_path)
+    decisions = load_decisions(decisions_path)
     title = os.path.basename(data_dir).replace('_', ' ')
 
-    if len(sys.argv) > 2:
-        output_html = sys.argv[2]
-    else:
-        output_html = os.path.join(data_dir, 'fill_chart.html')
-
-    print(f'Bars: {len(bars)}, Fills: {len(fills)}, Decisions: {len(decisions)}')
+    print(f'{title}: {len(bars)} bars, {len(fills)} fills, {len(decisions)} decisions')
     plot_fill_chart(bars, fills, decisions, output_html, title)
+    return True
+
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        # Scan all subdirectories under data/charts/fills/
+        base_dir = 'data/charts/fills'
+        if not os.path.isdir(base_dir):
+            print(f"No directory found at {base_dir}")
+            sys.exit(1)
+        generated = 0
+        skipped = 0
+        for entry in sorted(os.listdir(base_dir)):
+            data_dir = os.path.join(base_dir, entry)
+            if os.path.isdir(data_dir):
+                if process_dir(data_dir):
+                    generated += 1
+                else:
+                    skipped += 1
+        print(f'Done. Generated: {generated}, Skipped (up to date): {skipped}')
+    else:
+        data_dir = sys.argv[1]
+        if not process_dir(data_dir):
+            print(f'Chart already up to date for {data_dir}')
