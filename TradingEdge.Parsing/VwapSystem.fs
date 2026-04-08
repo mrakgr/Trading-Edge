@@ -115,19 +115,18 @@ let vwapSystemArgsBuilder barSize =
     let mutable varianceSum = 0.0
     let mutable pairCount = 0
     let mutable prevBar = ValueOption<VolumeBar>.None
-    fun onNext (trade, includeInVwma, includeInVolFactor) ->
+    fun onNext (trade, includeInVwma) ->
         inner (fun bar ->
             if includeInVwma then
                 vwapSum <- vwapSum + bar.VWAP
                 barCount <- barCount + 1
-            if includeInVolFactor then
-                match prevBar with
-                | ValueSome prev ->
-                    varianceSum <- varianceSum + pairwiseCombinedVariance prev bar
-                    pairCount <- pairCount + 1
-                | ValueNone -> ()
-            prevBar <- ValueSome bar
             let vwma = if barCount > 0 then vwapSum / float barCount else 0.0
+            match prevBar with
+            | ValueSome prev ->
+                varianceSum <- varianceSum + pairwiseCombinedVariance prev bar
+                pairCount <- pairCount + 1
+            | ValueNone -> ()
+            prevBar <- ValueSome bar
             let volFactor = if pairCount > 0 then sqrt (varianceSum / float pairCount) else 0.0
             onNext {
                 Bar = bar
@@ -154,7 +153,7 @@ let defaultEstimationOffsets = [| 5.0; 30.0; 150.0; 750.0 |] // Offsets after th
 /// with barSize = totalVolume * volPcts[i] and replays all buffered trades.
 /// Emits (VwapSystemBar option, TradeStage, Trade) via onNext per trade.
 let segregateTrades (window : MarketHours) (volPcts : float []) =
-    let mutable trades_and_flags : (Trade * bool * bool) ResizeArray = ResizeArray()
+    let mutable trades_and_flags : (Trade * bool) ResizeArray = ResizeArray()
     let mutable openingPrintTime : DateTime option = None
     let mutable vwapSystemArgs = None
     let mutable volPctsOffset = None
@@ -171,7 +170,7 @@ let segregateTrades (window : MarketHours) (volPcts : float []) =
                 if volPctsOffset <> i then
                     volPctsOffset <- i
                     volPctsOffset |> Option.iter (fun volPctsOffset ->
-                        let totalVolume = trades_and_flags |> Seq.sumBy (fun (t, _, _) -> t.Volume)
+                        let totalVolume = trades_and_flags |> Seq.sumBy (fst >> _.Volume)
                         let newVwapArgsSystem = vwapSystemArgsBuilder (totalVolume * volPcts.[volPctsOffset])
                         for tf in trades_and_flags do newVwapArgsSystem (fun bar -> finalBar <- Some bar) tf
                         vwapSystemArgs <- Some newVwapArgsSystem
@@ -184,16 +183,10 @@ let segregateTrades (window : MarketHours) (volPcts : float []) =
             else
                 BeforeOpeningPrint
         |> fun stage ->
-            let includeInVwma = stage <> BeforeOpeningPrint
-            let includeInVolFactor =
-                includeInVwma &&
-                match openingPrintTime with
-                | Some opt -> (trade.Timestamp - opt).TotalMilliseconds >= 10.0
-                | None -> false
-            let trade_and_flags = trade, includeInVwma, includeInVolFactor
-            trades_and_flags.Add trade_and_flags
+            let trade_and_flag = trade, stage <> BeforeOpeningPrint
+            trades_and_flags.Add trade_and_flag
             match vwapSystemArgs with
-            | Some vwapSystem -> vwapSystem (fun bar -> finalBar <- Some bar) trade_and_flags
+            | Some vwapSystem -> vwapSystem (fun bar -> finalBar <- Some bar) trade_and_flag
             | None -> ()
             onNext (finalBar, stage, trade)
                 
