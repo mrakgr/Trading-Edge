@@ -39,15 +39,16 @@ let referenceVol = 3.85e-4 // 3.85 basis points
 let lossLimit = positionSize * 0.085
 let basePct = 0.005
 let decay = 0.9
-let exponents = [| -13; -5; -6; -6 |]
+let bandVol = 0.6
+let exponents = [| -14; -2; -9; -18 |]
 let pcts = exponents |> Array.map (fun i -> basePct * (decay ** float i))
-let fillParams = { Percentile = 0.099; DelayMs = 100.0; CommissionPerShare = 0.0035 }
+let fillParams = { Percentile = 0.1; DelayMs = 100.0; CommissionPerShare = 0.0035 }
 
 tee "=== VWAP System Fill Breakdown ==="
 tee "Bar exponents: [%s]  pcts: [%s]"
     (String.Join(";", exponents))
     (String.Join(";", pcts |> Array.map (fun p -> sprintf "%.5f" p)))
-tee "Position size: $%.0f  referenceVol: %.4f  lossLimit: $%.0f" positionSize referenceVol lossLimit
+tee "Position size: $%.0f  referenceVol: %.4f  bandVol: %.1f  lossLimit: $%.0f" positionSize referenceVol bandVol lossLimit
 tee "Fill sim: pctile=%.3f, delay=%.0fms, commission=$%.4f/share"
     fillParams.Percentile fillParams.DelayMs fillParams.CommissionPerShare
 tee ""
@@ -145,7 +146,7 @@ let dayResults =
             | Some o, Some c ->
                 let window = { openTime = o.Timestamp; closeTime = c.Timestamp }
                 let addTrade, getDecisionResult, getFillResult =
-                    createPipeline window pcts positionSize (Some referenceVol) (Some lossLimit) None None (Some fillParams)
+                    createPipeline window pcts positionSize (Some referenceVol) bandVol (Some lossLimit) None None (Some fillParams)
                 for tr in trades do addTrade tr
                 let fr = getFillResult()
                 let dr = getDecisionResult()

@@ -38,14 +38,15 @@ let referenceVol = 3.85e-4 // 3.85 basis points
 let lossLimit = positionSize * 0.085
 let basePct = 0.005
 let decay = 0.9
-let exponents = [| -13; -5; -6; -6 |]
+let bandVol = 0.6
+let exponents = [| -14; -2; -9; -18 |]
 let pcts = exponents |> Array.map (fun i -> basePct * (decay ** float i))
 
 tee "=== VWAP System Trade Breakdown ==="
 tee "Bar exponents: [%s]  pcts: [%s]"
     (String.Join(";", exponents))
     (String.Join(";", pcts |> Array.map (fun p -> sprintf "%.5f" p)))
-tee "Position size: $%.0f  referenceVol: %.4f  lossLimit: $%.0f" positionSize referenceVol lossLimit
+tee "Position size: $%.0f  referenceVol: %.4f  bandVol: %.1f  lossLimit: $%.0f" positionSize referenceVol bandVol lossLimit
 tee ""
 
 // ----- 3. Load and run -----
@@ -76,7 +77,7 @@ let dayResults =
             | Some o, Some c ->
                 let window = { openTime = o.Timestamp; closeTime = c.Timestamp }
                 let addTrade, getResult, _ =
-                    createPipeline window pcts positionSize (Some referenceVol) (Some lossLimit) None None None
+                    createPipeline window pcts positionSize (Some referenceVol) bandVol (Some lossLimit) None None None
                 for tr in trades do addTrade tr
                 let r = getResult()
                 let decs = r.Decisions

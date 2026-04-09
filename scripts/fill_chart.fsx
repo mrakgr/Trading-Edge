@@ -40,7 +40,7 @@ let window = { openTime = op.Value.Timestamp; closeTime = cp.Value.Timestamp }
 
 // ----- Run pipeline to get fills and decisions -----
 let addTrade, getDecisionResult, getFillResult =
-    createPipeline window pcts positionSize (Some referenceVol) (Some lossLimit) None None (Some fillParams)
+    createPipeline window pcts positionSize (Some referenceVol) 0.0 (Some lossLimit) None None (Some fillParams)
 
 for tr in trades do addTrade tr
 

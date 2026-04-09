@@ -211,7 +211,7 @@ type TradingDecision = {
 /// adjusted by volFactor when referenceVol is provided. Flattens on
 /// BeforeClosing. Emits (VwapSystemBar option, TradingDecision option, Trade)
 /// via onNext.
-let vwapSystem (positionSize: float, referenceVol: float option) =
+let vwapSystem (positionSize: float, referenceVol: float option, bandVol: float) =
     let mutable state = Active(0.0, 0)
     let effectiveSize vf =
         match referenceVol with
@@ -228,12 +228,18 @@ let vwapSystem (positionSize: float, referenceVol: float option) =
                     let lastBar = bar.Bar
                     let targetShares = round (effectiveSize bar.VolFactor / trade.Price) |> int
                     if targetShares > 0 then
-                        if lastBar.VWAP >= bar.Vwma && position <= 0 then
+                        if lastBar.VWAP + bandVol * bar.VolFactor >= bar.Vwma && position <= 0 then
                             state <- Active(lastBar.VWAP, targetShares)
                             Some { Timestamp = trade.Timestamp; Price = lastBar.VWAP; Shares = targetShares }
-                        elif lastBar.VWAP < bar.Vwma && position >= 0 then
+                        elif lastBar.VWAP - bandVol * bar.VolFactor < bar.Vwma && position >= 0 then
                             state <- Active(lastBar.VWAP, -targetShares)
                             Some { Timestamp = trade.Timestamp; Price = lastBar.VWAP; Shares = -targetShares }
+                        elif lastBar.VWAP >= bar.Vwma && position <= 0 then
+                            state <- Active(lastBar.VWAP, targetShares)
+                            Some { Timestamp = trade.Timestamp; Price = lastBar.VWAP; Shares = 0 }
+                        elif lastBar.VWAP < bar.Vwma && position >= 0 then
+                            state <- Active(lastBar.VWAP, -targetShares)
+                            Some { Timestamp = trade.Timestamp; Price = lastBar.VWAP; Shares = 0 }
                         else
                             None
                     else
@@ -635,6 +641,7 @@ let createPipeline
         (volPcts: float[])
         (positionSize: float)
         (referenceVol: float option)
+        (bandVol: float)
         (lossLimit: float option)
         (maxTrades: int option)
         (maxLosses: int option)
@@ -653,7 +660,7 @@ let createPipeline
     lossLimit |> Option.iter (fun limit -> chain <- enforceLossLimit getPnL limit chain)
     maxLosses |> Option.iter (fun n -> chain <- enforceLossCountLimit getPnL n chain)
     maxTrades |> Option.iter (fun n -> chain <- enforceActivityLimit n chain)
-    let decide = vwapSystem (positionSize, referenceVol)
+    let decide = vwapSystem (positionSize, referenceVol, bandVol)
     let segregate = segregateTrades window volPcts
     let addTrade = segregate (decide chain)
     addTrade, getDecisionResult, getFillResult

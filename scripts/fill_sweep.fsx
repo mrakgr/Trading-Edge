@@ -163,7 +163,7 @@ let sweepResults =
 
         for d in dayData do
             let addTrade, _, getFillResult =
-                createPipeline d.Window pcts positionSize (Some referenceVol) (Some lossLimit) None None (Some fp)
+                createPipeline d.Window pcts positionSize (Some referenceVol) 0.0 (Some lossLimit) None None (Some fp)
             for tr in d.Trades do addTrade tr
             let fr = getFillResult()
             netPnL <- netPnL + fr.RealizedPnL

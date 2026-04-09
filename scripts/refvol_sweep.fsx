@@ -159,7 +159,7 @@ let sweepResults =
 
         for d in dayData do
             let addTrade, getDecisionResult, getFillResult =
-                createPipeline d.Window pcts positionSize (Some refVol) (Some lossLimit) None None (Some fp)
+                createPipeline d.Window pcts positionSize (Some refVol) 0.0 (Some lossLimit) None None (Some fp)
             for tr in d.Trades do addTrade tr
             let fr = getFillResult()
             let dr = getDecisionResult()
