@@ -136,7 +136,7 @@ let vwapSystemArgsBuilder barSize =
                     pairCount <- pairCount + 1
             | ValueNone -> ()
             prevBar <- ValueSome bar
-            let volFactor = if pairCount > 0 then sqrt (varianceSum / float pairCount) else 0.0
+            let volFactor = if pairCount > 0 then exp (sqrt (varianceSum / float pairCount)) - 1.0 else 0.0
             onNext {
                 Bar = bar
                 Vwma = vwma
