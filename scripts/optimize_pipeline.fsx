@@ -71,7 +71,7 @@ tee ""
 
 // ----- 3. Fixed configuration -----
 let positionSize = 30000.0
-let referenceVol = 3.85e-4
+let referenceVol = 2.25e-6
 let lossLimit = positionSize * 0.085
 let basePct = 0.005
 let decay = 0.9

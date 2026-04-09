@@ -19,10 +19,9 @@ let tee fmt =
 // Sweep over referenceVol for volatility-adjusted position sizing
 // =============================================================================
 //
-// Fixed bar-size exponents at the known optimum [-2;-5;-6;-6].
-// Sweeps referenceVol from None (baseline) through a range of values.
-// Reports: total P&L, per-trade variance, avg position size,
-//          and the risk-adjusted metric (variance / avg position size).
+// Uses createPipeline with current best exponents and bandVol.
+// Sweeps referenceVol through a range to find the value that gives
+// ~$5k average position size while maintaining good profit factor.
 
 // ----- 1. Parse the authoritative stocks-in-play list -----
 let ps1Path = "docs/generate_stocks_in_play_charts.ps1"
@@ -48,6 +47,14 @@ tee "Trade files present for %d of them" availableEntries.Length
 tee ""
 tee "Preloading trade files..."
 let swLoad = System.Diagnostics.Stopwatch.StartNew()
+
+type DayData = {
+    Ticker: string
+    Date: string
+    Trades: Trade[]
+    Window: MarketHours
+}
+
 let dataset =
     [| for (ticker, date) in availableEntries do
         let path = sprintf "data/trades/%s/%s.json" ticker date
@@ -63,7 +70,12 @@ let dataset =
             let cp = trades |> Array.tryFind (fun tr -> tr.Session = ClosingPrint)
             match op, cp with
             | Some o, Some c ->
-                yield ticker, date, { openTime = o.Timestamp; closeTime = c.Timestamp }, trades
+                yield {
+                    Ticker = ticker
+                    Date = date
+                    Trades = trades
+                    Window = { openTime = o.Timestamp; closeTime = c.Timestamp }
+                }
             | _ ->
                 tee "  skip %s/%s: missing open/close print" ticker date |]
 tee "Loaded %d files in %.1fs (%d MB working set)"
@@ -76,94 +88,88 @@ GC.WaitForPendingFinalizers()
 
 // ----- 3. Configuration -----
 let positionSize = 30000.0
+let bandVol = 0.6
+let lossLimit = positionSize * 0.085
 let basePct = 0.005
 let decay = 0.9
-let exponents = [| -2; -5; -6; -6 |]
+let exponents = [| -14; -2; -9; -18 |]
 let pcts = exponents |> Array.map (fun i -> basePct * (decay ** float i))
 
 tee ""
 tee "Bar exponents: [%s]" (String.Join(";", exponents))
 tee "Bar pcts:      [%s]" (String.Join(";", pcts |> Array.map (fun p -> sprintf "%.5f" p)))
-tee "Position size: $%.0f" positionSize
+tee "Position size: $%.0f  bandVol: %.1f  lossLimit: $%.0f" positionSize bandVol lossLimit
 
 // ----- 4. Evaluation function -----
 
-/// Runs the full dataset for a given referenceVol (None = no vol adjustment).
-/// Returns: totalPnL, perTradePnLVariance, avgPositionSize, riskMetric, totalDecisions, elapsed
-let evaluate (refVol: float option) =
+/// Runs the full dataset for a given referenceVol.
+/// Returns: totalPnL, profitFactor, avgPositionSize, wins, losses, totalTrades, elapsed
+let evaluate (refVol: float) =
     let sw = System.Diagnostics.Stopwatch.StartNew()
     let mutable totalPnL = 0.0
     let mutable wins = 0
     let mutable losses = 0
     let allTradePnLs = ResizeArray<float>()
     let allPositionSizes = ResizeArray<float>()
-    for (_, _, window, trades) in dataset do
-        let sys = createDynamicVwapSystem (defaultEstimationOffsets, pcts)
-        let sim = VwapSimulator(window, sys, positionSize, ?referenceVol = refVol)
-        for tr in trades do sim.AddTrade tr
-        let r = sim.Result
+    for d in dataset do
+        let addTrade, getResult, _ =
+            createPipeline d.Window pcts positionSize (Some refVol) bandVol (Some lossLimit) None None None
+        for tr in d.Trades do addTrade tr
+        let r = getResult()
         totalPnL <- totalPnL + r.RealizedPnL
         if r.RealizedPnL > 0.01 then wins <- wins + 1
         elif r.RealizedPnL < -0.01 then losses <- losses + 1
-        // Collect per-trade P&L and position sizes
         let decs = r.Decisions
         for i in 1 .. decs.Count - 1 do
             let prev = decs.[i - 1]
             let curr = decs.[i]
-            let tradePnL = (curr.Price - prev.Price) * prev.Shares
-            allTradePnLs.Add tradePnL
-            allPositionSizes.Add (abs prev.Shares * prev.Price)
-    // Compute variance of per-trade P&L
-    let n = float allTradePnLs.Count
-    let meanPnL = if n > 0.0 then (allTradePnLs |> Seq.sum) / n else 0.0
-    let variancePnL =
-        if n > 1.0 then
-            let mutable s = 0.0
-            for p in allTradePnLs do
-                let d = p - meanPnL
-                s <- s + d * d
-            s / (n - 1.0)
-        else 0.0
+            allTradePnLs.Add((curr.Price - prev.Price) * float prev.Shares)
+            if prev.Shares <> 0 then
+                allPositionSizes.Add(float (abs prev.Shares) * prev.Price)
+    let grossWins = allTradePnLs |> Seq.filter (fun p -> p > 0.01) |> Seq.sum
+    let grossLosses = allTradePnLs |> Seq.filter (fun p -> p < -0.01) |> Seq.sum |> abs
+    let profitFactor = if grossLosses > 0.0 then grossWins / grossLosses else infinity
     let avgPosSizeDollars =
         if allPositionSizes.Count > 0 then (allPositionSizes |> Seq.sum) / float allPositionSizes.Count
         else 0.0
-    let riskMetric = if avgPosSizeDollars > 0.0 then totalPnL / avgPosSizeDollars else 0.0
-    totalPnL, variancePnL, avgPosSizeDollars, riskMetric, wins, losses, allTradePnLs.Count, sw.Elapsed.TotalSeconds
+    totalPnL, profitFactor, avgPosSizeDollars, wins, losses, allTradePnLs.Count, sw.Elapsed.TotalSeconds
 
 // ----- 5. Sweep -----
-// Test None (baseline) plus a range of referenceVol values
-let refVolBase = 0.012
-let refVolDecay = 1.005
-let refVolCandidates : float option list =
-    [ None
-      for i in 0 .. -1 .. -80 do
-          Some (refVolBase * (refVolDecay ** float i)) ]
+// Logarithmic sweep: each step is 1.5x the previous (50% increments)
+let refVolCandidates =
+    [| for i in -20 .. 20 ->
+        1.0e-6 * (1.5 ** float i) |]
 
 tee ""
-tee "%-12s %10s %12s %10s %10s %6s %6s %6s %6s"
-    "refVol" "totalP&L" "variance" "avgPos$" "risk" "W" "L" "trades" "sec"
-tee "%s" (String.replicate 90 "-")
+tee "%-14s %10s %10s %10s %6s %6s %6s %6s"
+    "refVol" "totalP&L" "ProfFact" "avgPos$" "W" "L" "trades" "sec"
+tee "%s" (String.replicate 80 "-")
 
-let results = ResizeArray<float option * float * float * float * float>()
+let results = ResizeArray<float * float * float * float>()
 
 for rv in refVolCandidates do
-    let total, var, avgPos, risk, w, l, trades, elapsed = evaluate rv
-    results.Add(rv, total, var, avgPos, risk)
-    let label = match rv with None -> "None" | Some v -> sprintf "%.6f" v
-    tee "%-12s %10.2f %12.4f %10.2f %10.6f %6d %6d %6d %6.1f"
-        label total var avgPos risk w l trades elapsed
+    let total, pf, avgPos, w, l, trades, elapsed = evaluate rv
+    results.Add(rv, total, pf, avgPos)
+    tee "%-14.8f %10.2f %10.4f %10.2f %6d %6d %6d %6.1f"
+        rv total pf avgPos w l trades elapsed
 
 // ----- 6. Summary -----
 tee ""
-tee "=== Best by total P&L ==="
-let bestPnL = results |> Seq.maxBy (fun (_, t, _, _, _) -> t)
-let rv1, t1, v1, a1, r1 = bestPnL
-tee "  refVol=%-10s  P&L=$%.2f  var=%.4f  avgPos=$%.2f  risk=%.6f"
-    (match rv1 with None -> "None" | Some v -> sprintf "%.4f" v) t1 v1 a1 r1
+tee "=== Best by Profit Factor ==="
+let bestPF = results |> Seq.maxBy (fun (_, _, pf, _) -> pf)
+let rv1, t1, pf1, a1 = bestPF
+tee "  refVol=%.8f  P&L=$%.2f  PF=%.4f  avgPos=$%.2f" rv1 t1 pf1 a1
 
 tee ""
-tee "=== Best by return efficiency (totalP&L / avgPos, higher is better) ==="
-let bestRisk = results |> Seq.filter (fun (_, t, _, _, _) -> t > 0.0) |> Seq.maxBy (fun (_, _, _, _, r) -> r)
-let rv2, t2, v2, a2, r2 = bestRisk
-tee "  refVol=%-10s  P&L=$%.2f  var=%.4f  avgPos=$%.2f  risk=%.6f"
-    (match rv2 with None -> "None" | Some v -> sprintf "%.4f" v) t2 v2 a2 r2
+tee "=== Closest to $5000 avg position ==="
+let closest5k = results |> Seq.minBy (fun (_, _, _, avgPos) -> abs (avgPos - 5000.0))
+let rv2, t2, pf2, a2 = closest5k
+tee "  refVol=%.8f  P&L=$%.2f  PF=%.4f  avgPos=$%.2f" rv2 t2 pf2 a2
+
+tee ""
+tee "=== Best by total P&L ==="
+let bestPnL = results |> Seq.maxBy (fun (_, t, _, _) -> t)
+let rv3, t3, pf3, a3 = bestPnL
+tee "  refVol=%.8f  P&L=$%.2f  PF=%.4f  avgPos=$%.2f" rv3 t3 pf3 a3
+
+logWriter.Close()
