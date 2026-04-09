@@ -132,9 +132,11 @@ def run_stage1(config, args):
     best_pcts = exponents_to_pcts(best_exponents, base_pct, decay)
 
     print(f"\nStage 1 result ({total_evals} evals):")
-    exp_str = ", ".join(f"{e:.2f}" for e in best_exponents)
+    exp_str = ", ".join(f"{e!r}" for e in best_exponents)
+    pcts_str = ", ".join(f"{p!r}" for p in best_pcts)
     print(f"  exponents = [{exp_str}]")
-    print(f"  bandVol   = {best_band_vol:.4f}")
+    print(f"  pcts      = [{pcts_str}]")
+    print(f"  bandVol   = {best_band_vol!r}")
     print(f"  PF        = {best_pf:.4f}")
 
     return best_exponents, best_band_vol, best_pcts
@@ -171,12 +173,12 @@ def run_stage2(config, best_exponents, best_band_vol, args):
     best_pcts = exponents_to_pcts(best_exponents, base_pct, decay)
 
     print(f"\nStage 2 result ({total_evals} evals):")
-    exp_str = ", ".join(f"{e:.2f}" for e in best_exponents)
-    pcts_str = ", ".join(f"{p:.5f}" for p in best_pcts)
+    exp_str = ", ".join(f"{e!r}" for e in best_exponents)
+    pcts_str = ", ".join(f"{p!r}" for p in best_pcts)
     print(f"  exponents  = [{exp_str}]")
     print(f"  pcts       = [{pcts_str}]")
-    print(f"  bandVol    = {best_band_vol:.4f}")
-    print(f"  percentile = {best_percentile:.4f}")
+    print(f"  bandVol    = {best_band_vol!r}")
+    print(f"  percentile = {best_percentile!r}")
     print(f"  PF         = {best_pf:.4f}")
 
     return best_exponents, best_band_vol, best_percentile, best_pcts
@@ -241,13 +243,13 @@ def main():
     print(f"\n{'='*60}")
     print(f"FINAL RESULTS")
     print(f"{'='*60}")
-    exp_str = ", ".join(f"{e:.2f}" for e in best_exponents)
-    pcts_str = ", ".join(f"{p:.5f}" for p in best_pcts)
+    exp_str = ", ".join(f"{e!r}" for e in best_exponents)
+    pcts_str = ", ".join(f"{p!r}" for p in best_pcts)
     print(f"  exponents  = [{exp_str}]")
     print(f"  pcts       = [{pcts_str}]")
-    print(f"  bandVol    = {best_band_vol:.4f}")
+    print(f"  bandVol    = {best_band_vol!r}")
     if args.stage in ("2", "both"):
-        print(f"  percentile = {best_percentile:.4f}")
+        print(f"  percentile = {best_percentile!r}")
 
     log_file.close()
 

@@ -1,0 +1,61 @@
+CMA-ES Optimization
+Server: http://127.0.0.1:8085
+Config: {
+  "basePct": 0.005,
+  "commissionPerShare": 0.0035,
+  "decay": 0.9,
+  "delayMs": 100,
+  "lossLimitPct": 0.085,
+  "numDays": 106,
+  "positionSize": 30000,
+  "referenceVol": 0.000582
+}
+
+============================================================
+STAGE 2: CMA-ES on exponents + bandVol + percentile (with fill sim)
+  x0 = [-14.00, -2.00, -9.00, -18.00, 0.20, 0.30]
+  sigma0 = 2.50, popsize = 14, maxiter = 100
+============================================================
+
+  [stage2] gen   1 (  14 evals): exponents=[-12.3, -0.3, -8.9, -17.4] bandVol=0.008 pctile=0.254 PF=1.2240 <-- new best
+  [stage2] gen   2 (  28 evals): exponents=[-14.8, -1.6, -9.2, -16.4] bandVol=0.048 pctile=0.070 PF=1.4112 <-- new best
+  [stage2] gen   3 (  42 evals): exponents=[-13.3, -0.2, -10.0, -18.0] bandVol=0.018 pctile=0.079 PF=1.4594 <-- new best
+  [stage2] gen   5 (  70 evals): exponents=[-11.9, -1.7, -9.4, -17.9] bandVol=0.180 pctile=0.088 PF=1.3027
+  [stage2] gen  10 ( 140 evals): exponents=[-10.8, -3.3, -11.6, -17.8] bandVol=0.021 pctile=0.055 PF=1.5270 <-- new best
+  [stage2] gen  15 ( 210 evals): exponents=[-11.8, -3.7, -13.8, -15.5] bandVol=0.000 pctile=0.052 PF=1.5738 <-- new best
+  [stage2] gen  17 ( 238 evals): exponents=[-9.2, -2.3, -14.0, -16.5] bandVol=0.031 pctile=0.050 PF=1.5997 <-- new best
+  [stage2] gen  18 ( 252 evals): exponents=[-7.6, -1.4, -12.3, -17.4] bandVol=0.029 pctile=0.053 PF=1.6178 <-- new best
+  [stage2] gen  20 ( 280 evals): exponents=[-7.2, -2.9, -12.7, -18.3] bandVol=0.120 pctile=0.050 PF=1.5852
+  [stage2] gen  25 ( 350 evals): exponents=[-8.4, -0.6, -14.9, -14.5] bandVol=0.002 pctile=0.053 PF=1.5561
+  [stage2] gen  30 ( 420 evals): exponents=[-8.7, -1.3, -16.0, -16.0] bandVol=0.012 pctile=0.050 PF=1.5625
+  [stage2] gen  34 ( 476 evals): exponents=[-7.9, -1.3, -16.0, -17.8] bandVol=0.045 pctile=0.050 PF=1.6295 <-- new best
+  [stage2] gen  35 ( 490 evals): exponents=[-8.6, -0.4, -15.9, -17.8] bandVol=0.003 pctile=0.052 PF=1.5620
+  [stage2] gen  40 ( 560 evals): exponents=[-8.7, -0.8, -15.9, -17.1] bandVol=0.002 pctile=0.050 PF=1.6430 <-- new best
+  [stage2] gen  45 ( 630 evals): exponents=[-8.2, -0.7, -16.3, -16.7] bandVol=0.003 pctile=0.052 PF=1.5888
+  [stage2] gen  50 ( 700 evals): exponents=[-9.5, -1.7, -15.5, -17.5] bandVol=0.000 pctile=0.052 PF=1.5387
+  [stage2] gen  55 ( 770 evals): exponents=[-8.4, -2.2, -15.2, -17.2] bandVol=0.004 pctile=0.050 PF=1.6025
+  [stage2] gen  60 ( 840 evals): exponents=[-8.5, -1.7, -15.9, -16.4] bandVol=0.006 pctile=0.051 PF=1.5567
+  [stage2] gen  65 ( 910 evals): exponents=[-8.3, -2.0, -15.8, -17.2] bandVol=0.005 pctile=0.050 PF=1.5753
+  [stage2] gen  70 ( 980 evals): exponents=[-8.5, -1.9, -16.0, -16.8] bandVol=0.004 pctile=0.050 PF=1.5515
+  [stage2] gen  75 (1050 evals): exponents=[-8.8, -1.6, -15.9, -17.2] bandVol=0.001 pctile=0.050 PF=1.5802
+  [stage2] gen  80 (1120 evals): exponents=[-8.8, -2.0, -15.9, -17.1] bandVol=0.001 pctile=0.050 PF=1.5786
+  [stage2] gen  85 (1190 evals): exponents=[-8.9, -1.7, -16.0, -16.9] bandVol=0.001 pctile=0.050 PF=1.5888
+  [stage2] gen  87 (1218 evals): exponents=[-8.7, -1.1, -16.3, -16.7] bandVol=0.000 pctile=0.050 PF=1.6744 <-- new best
+  [stage2] gen  90 (1260 evals): exponents=[-8.9, -1.7, -16.0, -17.0] bandVol=0.000 pctile=0.050 PF=1.5876
+  [stage2] gen  95 (1330 evals): exponents=[-8.5, -0.7, -16.5, -16.2] bandVol=0.001 pctile=0.052 PF=1.5565
+  [stage2] gen 100 (1400 evals): exponents=[-8.6, -1.5, -16.2, -16.6] bandVol=0.002 pctile=0.050 PF=1.5916
+
+Stage 2 result (1400 evals):
+  exponents  = [-8.69, -1.10, -16.27, -16.73]
+  pcts       = [0.01249, 0.00562, 0.02776, 0.02913]
+  bandVol    = 0.0000
+  percentile = 0.0502
+  PF         = 1.6744
+
+============================================================
+FINAL RESULTS
+============================================================
+  exponents  = [-8.69, -1.10, -16.27, -16.73]
+  pcts       = [0.01249, 0.00562, 0.02776, 0.02913]
+  bandVol    = 0.0000
+  percentile = 0.0502
