@@ -87,13 +87,8 @@ GC.Collect()
 GC.WaitForPendingFinalizers()
 
 // ----- 3. Configuration -----
-let positionSize = 30000.0
-let bandVol = 0.6
-let lossLimit = positionSize * 0.085
-let basePct = 0.005
-let decay = 0.9
-let exponents = [| -14; -2; -9; -18 |]
-let pcts = exponents |> Array.map (fun i -> basePct * (decay ** float i))
+#load "config.fsx"
+open Config
 
 tee ""
 tee "Bar exponents: [%s]" (String.Join(";", exponents))
@@ -137,8 +132,8 @@ let evaluate (refVol: float) =
 // ----- 5. Sweep -----
 // Logarithmic sweep: each step is 1.5x the previous (50% increments)
 let refVolCandidates =
-    [| for i in -20 .. 20 ->
-        1.0e-6 * (1.5 ** float i) |]
+    [| for i in -10 .. 10 ->
+        1.0e-3 * (1.5 ** float i) |]
 
 tee ""
 tee "%-14s %10s %10s %10s %6s %6s %6s %6s"
@@ -150,7 +145,7 @@ let results = ResizeArray<float * float * float * float>()
 for rv in refVolCandidates do
     let total, pf, avgPos, w, l, trades, elapsed = evaluate rv
     results.Add(rv, total, pf, avgPos)
-    tee "%-14.8f %10.2f %10.4f %10.2f %6d %6d %6d %6.1f"
+    tee "%-14.2e %10.2f %10.4f %10.2f %6d %6d %6d %6.1f"
         rv total pf avgPos w l trades elapsed
 
 // ----- 6. Summary -----

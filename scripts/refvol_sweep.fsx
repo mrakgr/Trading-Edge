@@ -34,15 +34,8 @@ let availableEntries =
         File.Exists (sprintf "data/trades/%s/%s.json" t d))
 
 // ----- 2. Configuration -----
-let positionSize = 30000.0
-let lossLimitPct = 0.085
-let basePct = 0.005
-let decay = 0.9
-let exponents = [| -13; -5; -6; -6 |]
-let pcts = exponents |> Array.map (fun i -> basePct * (decay ** float i))
-let commissionPerShare = 0.0035
-let delayMs = 100.0
-let percentile = 0.0756
+#load "config.fsx"
+open Config
 
 // referenceVol sweep: exponential interpolation over [0.0005, 0.005]
 let numPoints = 30
@@ -149,7 +142,6 @@ type SweepResult = {
 let sweepResults =
     [| for refVol in refVols do
         let fp = { Percentile = percentile; DelayMs = delayMs; CommissionPerShare = commissionPerShare }
-        let lossLimit = positionSize * lossLimitPct
         let mutable allTripPnLs = ResizeArray<float>()
         let mutable winDays = 0
         let mutable lossDays = 0

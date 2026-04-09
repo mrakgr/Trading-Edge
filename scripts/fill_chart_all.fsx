@@ -11,14 +11,8 @@ open TradingEdge.Parsing.TradeLoader
 open TradingEdge.Parsing.VwapSystem
 
 // ----- Configuration -----
-let positionSize = 30000.0
-let referenceVol = 1.125e-6
-let lossLimit = positionSize * 0.085
-let basePct = 0.005
-let decay = 0.9
-let exponents = [| -13; -5; -6; -6 |]
-let pcts = exponents |> Array.map (fun i -> basePct * (decay ** float i))
-let fillParams = { Percentile = 0.099; DelayMs = 100.0; CommissionPerShare = 0.0035 }
+#load "config.fsx"
+open Config
 
 // ----- Parse stocks-in-play list -----
 let ps1Path = "docs/generate_stocks_in_play_charts.ps1"

@@ -34,15 +34,8 @@ let availableEntries =
         File.Exists (sprintf "data/trades/%s/%s.json" t d))
 
 // ----- 2. Configuration -----
-let positionSize = 30000.0
-let referenceVol = 1.125e-6
-let lossLimit = positionSize * 0.085
-let basePct = 0.005
-let decay = 0.9
-let exponents = [| -13; -5; -6; -6 |]
-let pcts = exponents |> Array.map (fun i -> basePct * (decay ** float i))
-let commissionPerShare = 0.0035
-let delayMs = 100.0
+#load "config.fsx"
+open Config
 
 // Percentiles to sweep: exponential interpolation over [0.05, 0.5]
 let numPoints = 40

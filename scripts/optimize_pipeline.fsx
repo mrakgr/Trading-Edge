@@ -70,13 +70,8 @@ tee "Loaded %d days in %.1fs" dayData.Length swLoad.Elapsed.TotalSeconds
 tee ""
 
 // ----- 3. Fixed configuration -----
-let positionSize = 30000.0
-let referenceVol = 1.125e-6
-let lossLimit = positionSize * 0.085
-let basePct = 0.005
-let decay = 0.9
-let commissionPerShare = 0.0035
-let delayMs = 100.0
+#load "config.fsx"
+open Config
 
 // ----- 4. Round-trip extraction -----
 let extractRoundTrips (fills: Fill array) (commPerShare: float) =
@@ -206,8 +201,8 @@ tee "STAGE 1: Sweep bandVol in [0.0, 2.0] step 0.1 (no fill sim)"
 tee "============================================================"
 tee ""
 
-let startExponents = [| -14; -2; -9; -18 |]
-let startPcts = startExponents |> Array.map (fun i -> basePct * (decay ** float i))
+let startExponents = exponents
+let startPcts = pcts
 
 let bandVolCandidates = [| for i in 0 .. 20 -> float i * 0.1 |]
 

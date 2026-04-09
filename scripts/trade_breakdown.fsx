@@ -33,14 +33,8 @@ let availableEntries =
         File.Exists (sprintf "data/trades/%s/%s.json" t d))
 
 // ----- 2. Configuration -----
-let positionSize = 30000.0
-let referenceVol = 1.125e-6
-let lossLimit = positionSize * 0.085
-let basePct = 0.005
-let decay = 0.9
-let bandVol = 0.6
-let exponents = [| -14; -2; -9; -18 |]
-let pcts = exponents |> Array.map (fun i -> basePct * (decay ** float i))
+#load "config.fsx"
+open Config
 
 tee "=== VWAP System Trade Breakdown ==="
 tee "Bar exponents: [%s]  pcts: [%s]"
