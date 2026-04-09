@@ -14,7 +14,7 @@ let ticker = fsi.CommandLineArgs.[1]
 let date = fsi.CommandLineArgs.[2]
 
 let positionSize = 30000.0
-let referenceVol = 2.25e-6
+let referenceVol = 1.125e-6
 let lossLimit = positionSize * 0.085
 let basePct = 0.005
 let decay = 0.9

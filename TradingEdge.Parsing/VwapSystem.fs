@@ -97,6 +97,28 @@ let pairwiseCombinedVariance (a: VolumeBar) (b: VolumeBar) =
         if muCombined > 0.0 then absoluteVariance / (muCombined * muCombined)
         else 0.0
 
+/// Stateful component that computes expanding pairwise relative variance
+/// using volume bars of size 1. This gives a bar-size-independent
+/// volatility measure. Returns a function that accepts a trade and
+/// returns the current volFactor (sqrt of average pairwise relative variance).
+let tradeVolatilityTracker () =
+    let barBuilder = volumeBarBuilder 1.0
+    let mutable prevBar = ValueOption<VolumeBar>.None
+    let mutable varianceSum = 0.0
+    let mutable pairCount = 0
+    let mutable currentVolFactor = 0.0
+    fun (trade: Trade) ->
+        barBuilder (fun bar ->
+            match prevBar with
+            | ValueSome prev ->
+                varianceSum <- varianceSum + pairwiseCombinedVariance prev bar
+                pairCount <- pairCount + 1
+            | ValueNone -> ()
+            prevBar <- ValueSome bar
+            currentVolFactor <- if pairCount > 0 then sqrt (varianceSum / float pairCount) else 0.0
+        ) trade
+        currentVolFactor
+
 type VwapSystemBar = {
     Bar : VolumeBar
     Vwma : float
@@ -129,12 +151,12 @@ let vwapSystemArgsBuilder barSize =
                 pairCount <- pairCount + 1
             | ValueNone -> ()
             prevBar <- ValueSome bar
-            let volFactor = if pairCount > 0 then sqrt (varianceSum / float pairCount / barSize) else 0.0
+            let volFactor = if pairCount > 0 then sqrt (varianceSum / float pairCount) else 0.0
             onNext {
                 Bar = bar
                 Vwma = vwma
                 VolFactor = volFactor
-            } 
+            }
         ) trade
 
 type TradeStage =
@@ -227,11 +249,12 @@ let vwapSystem (positionSize: float, referenceVol: float option, bandVol: float)
                 | Active(_, position) ->
                     let lastBar = bar.Bar
                     let targetShares = round (effectiveSize bar.VolFactor / trade.Price) |> int
+                    let band = bandVol * bar.VolFactor * lastBar.VWAP * sqrt lastBar.Volume
                     if targetShares > 0 then
-                        if lastBar.VWAP + bandVol * bar.VolFactor >= bar.Vwma && position <= 0 then
+                        if lastBar.VWAP + band >= bar.Vwma && position <= 0 then
                             state <- Active(lastBar.VWAP, targetShares)
                             Some { Timestamp = trade.Timestamp; Price = lastBar.VWAP; Shares = targetShares }
-                        elif lastBar.VWAP - bandVol * bar.VolFactor < bar.Vwma && position >= 0 then
+                        elif lastBar.VWAP - band < bar.Vwma && position >= 0 then
                             state <- Active(lastBar.VWAP, -targetShares)
                             Some { Timestamp = trade.Timestamp; Price = lastBar.VWAP; Shares = -targetShares }
                         elif lastBar.VWAP >= bar.Vwma && position <= 0 then
@@ -662,5 +685,11 @@ let createPipeline
     maxTrades |> Option.iter (fun n -> chain <- enforceActivityLimit n chain)
     let decide = vwapSystem (positionSize, referenceVol, bandVol)
     let segregate = segregateTrades window volPcts
-    let addTrade = segregate (decide chain)
+    let volTracker = tradeVolatilityTracker ()
+    let addTrade (trade: TradeLoader.Trade) =
+        let vf = volTracker trade
+        segregate (fun (bar, stage, t) ->
+            let bar' = bar |> Option.map (fun b -> { b with VolFactor = vf })
+            decide chain (bar', stage, t)
+        ) trade
     addTrade, getDecisionResult, getFillResult

@@ -71,7 +71,7 @@ tee ""
 
 // ----- 3. Fixed configuration -----
 let positionSize = 30000.0
-let referenceVol = 2.25e-6
+let referenceVol = 1.125e-6
 let lossLimit = positionSize * 0.085
 let basePct = 0.005
 let decay = 0.9
@@ -206,7 +206,7 @@ tee "STAGE 1: Sweep bandVol in [0.0, 2.0] step 0.1 (no fill sim)"
 tee "============================================================"
 tee ""
 
-let startExponents = [| -13; -5; -6; -6 |]
+let startExponents = [| -14; -2; -9; -18 |]
 let startPcts = startExponents |> Array.map (fun i -> basePct * (decay ** float i))
 
 let bandVolCandidates = [| for i in 0 .. 20 -> float i * 0.1 |]
