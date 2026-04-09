@@ -43,7 +43,8 @@ let volumeBarOfTrades () =
 /// reaches barSize, then emits the group as a ResizeArray<Trade> via
 /// onNext. One input trade can complete multiple groups.
 let groupTrades barSize =
-    let currentTrades = ResizeArray<Trade>()
+    let currentTrades = ImmutableArray.CreateBuilder<Trade>()
+    
     let mutable currentVolumeSum = 0.0
 
     fun onNext (trade : Trade) ->
@@ -97,27 +98,10 @@ let pairwiseCombinedVariance (a: VolumeBar) (b: VolumeBar) =
         if muCombined > 0.0 then absoluteVariance / (muCombined * muCombined)
         else 0.0
 
-/// Stateful component that computes expanding pairwise relative variance
-/// using volume bars of size 1. This gives a bar-size-independent
-/// volatility measure. Returns a function that accepts a trade and
-/// returns the current volFactor (sqrt of average pairwise relative variance).
-let tradeVolatilityTracker () =
-    let barBuilder = volumeBarBuilder 1.0
-    let mutable prevBar = ValueOption<VolumeBar>.None
-    let mutable varianceSum = 0.0
-    let mutable pairCount = 0
-    let mutable currentVolFactor = 0.0
-    fun (trade: Trade) ->
-        barBuilder (fun bar ->
-            match prevBar with
-            | ValueSome prev ->
-                varianceSum <- varianceSum + pairwiseCombinedVariance prev bar
-                pairCount <- pairCount + 1
-            | ValueNone -> ()
-            prevBar <- ValueSome bar
-            currentVolFactor <- if pairCount > 0 then sqrt (varianceSum / float pairCount) else 0.0
-        ) trade
-        currentVolFactor
+let pairwiseRealizedVariance (a: VolumeBar) (b: VolumeBar) =
+    assert (a.Volume = b.Volume)
+    log (a.VWAP / b.VWAP) ** 2
+
 
 type VwapSystemBar = {
     Bar : VolumeBar
@@ -134,21 +118,22 @@ type VwapSystemBar = {
 /// premarket trades that should contribute to volatility estimation only.
 let vwapSystemArgsBuilder barSize =
     let inner = volumeBarBuilder barSize
-    let mutable vwapSum = 0.0
+    let mutable logVwapSum = 0.0
     let mutable barCount = 0
     let mutable varianceSum = 0.0
     let mutable pairCount = 0
     let mutable prevBar = ValueOption<VolumeBar>.None
-    fun onNext (trade, includeInVwma) ->
+    fun onNext (trade, includeInVwma, includeInVol) ->
         inner (fun bar ->
             if includeInVwma then
-                vwapSum <- vwapSum + bar.VWAP
+                logVwapSum <- logVwapSum + log bar.VWAP
                 barCount <- barCount + 1
-            let vwma = if barCount > 0 then vwapSum / float barCount else 0.0
+            let vwma = if barCount > 0 then exp (logVwapSum / float barCount) else 0.0
             match prevBar with
             | ValueSome prev ->
-                varianceSum <- varianceSum + pairwiseCombinedVariance prev bar
-                pairCount <- pairCount + 1
+                if includeInVol then
+                    varianceSum <- varianceSum + pairwiseRealizedVariance prev bar
+                    pairCount <- pairCount + 1
             | ValueNone -> ()
             prevBar <- ValueSome bar
             let volFactor = if pairCount > 0 then sqrt (varianceSum / float pairCount) else 0.0
@@ -160,7 +145,8 @@ let vwapSystemArgsBuilder barSize =
         ) trade
 
 type TradeStage =
-    | BeforeOpeningPrint
+    | EarlyPremarket
+    | LatePremarket
     | AfterOpeningPrint
     | BeforeClosing
 
@@ -177,7 +163,7 @@ let defaultEstimationOffsets = [| 5.0; 30.0; 150.0; 750.0 |] // Offsets after th
 /// with barSize = totalVolume * volPcts[i] and replays all buffered trades.
 /// Emits (VwapSystemBar option, TradeStage, Trade) via onNext per trade.
 let segregateTrades (window : MarketHours) (volPcts : float []) =
-    let mutable trades_and_flags : (Trade * bool) ResizeArray = ResizeArray()
+    let mutable trades_and_flags : (Trade * bool * bool) ResizeArray = ResizeArray()
     let mutable openingPrintTime : DateTime option = None
     let mutable vwapSystemArgs = None
     let mutable volPctsOffset = None
@@ -194,7 +180,7 @@ let segregateTrades (window : MarketHours) (volPcts : float []) =
                 if volPctsOffset <> i then
                     volPctsOffset <- i
                     volPctsOffset |> Option.iter (fun volPctsOffset ->
-                        let totalVolume = trades_and_flags |> Seq.sumBy (fst >> _.Volume)
+                        let totalVolume = trades_and_flags |> Seq.sumBy (fun (t, _, _) -> t.Volume)
                         let newVwapArgsSystem = vwapSystemArgsBuilder (totalVolume * volPcts.[volPctsOffset])
                         for tf in trades_and_flags do newVwapArgsSystem (fun bar -> finalBar <- Some bar) tf
                         vwapSystemArgs <- Some newVwapArgsSystem
@@ -204,10 +190,20 @@ let segregateTrades (window : MarketHours) (volPcts : float []) =
             if trade.Session = OpeningPrint then
                 openingPrintTime <- Some trade.Timestamp
                 AfterOpeningPrint
+            elif window.openTime.AddHours(-1.0) <= trade.Timestamp then
+                LatePremarket
             else
-                BeforeOpeningPrint
+                EarlyPremarket
         |> fun stage ->
-            let trade_and_flag = trade, stage <> BeforeOpeningPrint
+            let includeInVwma =
+                match stage with
+                | AfterOpeningPrint | BeforeClosing -> true
+                | _ -> false
+            let includeInVol =
+                match stage with
+                | LatePremarket | AfterOpeningPrint | BeforeClosing -> true
+                | _ -> false
+            let trade_and_flag = trade, includeInVwma, includeInVol
             trades_and_flags.Add trade_and_flag
             match vwapSystemArgs with
             | Some vwapSystem -> vwapSystem (fun bar -> finalBar <- Some bar) trade_and_flag
@@ -241,7 +237,7 @@ let vwapSystem (positionSize: float, referenceVol: float option, bandVol: float)
         | Some refVol -> min positionSize (positionSize * refVol / vf)
     fun onNext (bar : option<VwapSystemBar>, stage : TradeStage, trade : Trade) ->
         match stage with
-        | BeforeOpeningPrint -> None
+        | EarlyPremarket | LatePremarket -> None
         | AfterOpeningPrint ->
             match bar with
             | Some bar ->
@@ -249,7 +245,7 @@ let vwapSystem (positionSize: float, referenceVol: float option, bandVol: float)
                 | Active(_, position) ->
                     let lastBar = bar.Bar
                     let targetShares = round (effectiveSize bar.VolFactor / trade.Price) |> int
-                    let band = bandVol * bar.VolFactor * lastBar.VWAP * sqrt lastBar.Volume
+                    let band = bandVol * bar.VolFactor * lastBar.VWAP
                     if targetShares > 0 then
                         if lastBar.VWAP + band >= bar.Vwma && position <= 0 then
                             state <- Active(lastBar.VWAP, targetShares)
@@ -685,11 +681,6 @@ let createPipeline
     maxTrades |> Option.iter (fun n -> chain <- enforceActivityLimit n chain)
     let decide = vwapSystem (positionSize, referenceVol, bandVol)
     let segregate = segregateTrades window volPcts
-    let volTracker = tradeVolatilityTracker ()
     let addTrade (trade: TradeLoader.Trade) =
-        let vf = volTracker trade
-        segregate (fun (bar, stage, t) ->
-            let bar' = bar |> Option.map (fun b -> { b with VolFactor = vf })
-            decide chain (bar', stage, t)
-        ) trade
+        segregate (fun (bar, stage, t) -> decide chain (bar, stage, t)) trade
     addTrade, getDecisionResult, getFillResult
