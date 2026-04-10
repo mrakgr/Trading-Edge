@@ -1,7 +1,7 @@
 #r "nuget: Suave, 2.7.0"
 #r "nuget: FSharp.SystemTextJson, 1.3.13"
 #r "nuget: DuckDB.NET.Data.Full, 1.1.3"
-#r "nuget: T-Digest, 1.0.0"
+#r "../TradingEdge.Parsing/bin/Debug/net10.0/TDigest.dll"
 #r "../TradingEdge.Parsing/bin/Debug/net10.0/TradingEdge.Parsing.dll"
 
 open System
@@ -130,7 +130,7 @@ let profitFactorFromDecisions (pcts: float[]) (bandVol: float) =
     if losses > 0.0 then wins / losses else infinity
 
 let profitFactorFromFills (pcts: float[]) (bandVol: float) (percentile: float) =
-    let fp = { Percentile = percentile; DelayMs = delayMs; CommissionPerShare = commissionPerShare }
+    let fp = { Percentile = percentile; DelayMs = delayMs; CommissionPerShare = commissionPerShare; RejectionRate = rejectionRate; Rng = None }
     let allTripPnLs = ResizeArray<float>()
     for d in dayData do
         let addTrade, _, getFillResult =

@@ -13,4 +13,5 @@ let bandVol = 0.0
 let commissionPerShare = 0.0035
 let delayMs = 100.0
 let percentile = 0.05
-let fillParams = { Percentile = percentile; DelayMs = delayMs; CommissionPerShare = commissionPerShare }
+let rejectionRate = 0.30
+let fillParams = { Percentile = percentile; DelayMs = delayMs; CommissionPerShare = commissionPerShare; RejectionRate = rejectionRate; Rng = None }

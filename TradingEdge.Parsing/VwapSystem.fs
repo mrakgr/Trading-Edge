@@ -406,7 +406,7 @@ type FillResult = {
 /// price, not the trade price. Partial fills are tracked.
 ///
 /// Returns (processor, getResult).
-let fillSimulator (percentile: float) (delayMs: float) =
+let fillSimulator (percentile: float) (delayMs: float) (rejectionRate: float) (rngOpt: Random option) =
     let mutable buyOrder : LimitOrder option = None
     let mutable sellOrder : LimitOrder option = None
     let mutable targetPosition = 0
@@ -417,6 +417,12 @@ let fillSimulator (percentile: float) (delayMs: float) =
     let mutable pendingTarget : int option = None
     let delay = TimeSpan.FromMilliseconds delayMs
     let fills = ResizeArray<Fill>()
+    // Pessimistic fill model: a fraction of would-be fills are rejected to
+    // account for queue position, venue fragmentation (Reg NMS), hidden/iceberg
+    // liquidity, and sub-penny internalization. Even trades that print through
+    // our price may not reach our order if they're filled on other venues or
+    // absorbed by orders ahead of us in the queue.
+    let rng = rngOpt |> Option.defaultWith (fun () -> Random(12345))
 
     let computePrice (digest: MergingDigest) (isBuy: bool) =
         digest.Quantile(if isBuy then percentile else 1.0 - percentile)
@@ -472,7 +478,7 @@ let fillSimulator (percentile: float) (delayMs: float) =
             match activeValue trade.Timestamp order.Prices, activeValue trade.Timestamp order.Quantities with
             | Some price, Some qty when trade.Price <= price ->
                 let remaining = qty - order.FilledQuantity
-                if remaining > 0 then
+                if remaining > 0 && (rejectionRate = 0.0 || rng.NextDouble() >= rejectionRate) then
                     let fillQty = min remaining (int trade.Volume)
                     if fillQty > 0 then
                         fills.Add { Timestamp = trade.Timestamp; Price = price; Quantity = fillQty }
@@ -487,7 +493,7 @@ let fillSimulator (percentile: float) (delayMs: float) =
             match activeValue trade.Timestamp order.Prices, activeValue trade.Timestamp order.Quantities with
             | Some price, Some qty when trade.Price >= price ->
                 let remaining = qty - order.FilledQuantity
-                if remaining > 0 then
+                if remaining > 0 && (rejectionRate = 0.0 || rng.NextDouble() >= rejectionRate) then
                     let fillQty = min remaining (int trade.Volume)
                     if fillQty > 0 then
                         fills.Add { Timestamp = trade.Timestamp; Price = price; Quantity = -fillQty }
@@ -541,7 +547,16 @@ let fillSimulator (percentile: float) (delayMs: float) =
         // 2. New bar: rebuild t-digest and reprice the active order
         match bar with
         | Some b ->
-            let digest = MergingDigest(100.0)
+            // Pass the fill simulator's Random to the digest so its QuickSort
+            // pivot selection is deterministic when a user-supplied seed is
+            // in use. When rngOpt is None the digest falls back to a thread-
+            // local default (thread-safe but non-deterministic).
+            // Note that even if the rejection rate is 0, there will still be 
+            // noise due to the MergingDigest's internal use of QuickSort.
+            let digest =
+                match rngOpt with
+                | Some r -> MergingDigest(100.0, sortRng = r)
+                | None -> MergingDigest(100.0)
             for t in b.Bar.Trades do
                 digest.Add(t.Price, int t.Volume)
             lastDigest <- Some digest
@@ -650,6 +665,8 @@ type FillParams = {
     Percentile: float
     DelayMs: float
     CommissionPerShare: float
+    RejectionRate: float
+    Rng: Random option
 }
 
 /// Assembles the full VWAP trading pipeline: segregateTrades -> vwapSystem ->
@@ -673,7 +690,7 @@ let createPipeline
         | None -> (fun _ -> ()), (fun () -> { Fills = ImmutableArray.Empty; RealizedPnL = 0.0; Commissions = 0.0 })
     let fillSim =
         match fillParams with
-        | Some fp -> fillSimulator fp.Percentile fp.DelayMs |> fun (proc, _) -> proc recordFill
+        | Some fp -> fillSimulator fp.Percentile fp.DelayMs fp.RejectionRate fp.Rng |> fun (proc, _) -> proc recordFill
         | None -> fun _ -> ()
     let mutable chain = track fillSim
     lossLimit |> Option.iter (fun limit -> chain <- enforceLossLimit getPnL limit chain)

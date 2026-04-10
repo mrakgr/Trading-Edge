@@ -1,6 +1,6 @@
 #r "nuget: FSharp.SystemTextJson, 1.3.13"
 #r "nuget: DuckDB.NET.Data.Full, 1.1.3"
-#r "nuget: T-Digest, 1.0.0"
+#r "../TradingEdge.Parsing/bin/Debug/net10.0/TDigest.dll"
 #r "../TradingEdge.Parsing/bin/Debug/net10.0/TradingEdge.Parsing.dll"
 
 open System
@@ -42,8 +42,8 @@ tee "Bar exponents: [%s]  pcts: [%s]"
     (String.Join(";", exponents))
     (String.Join(";", pcts |> Array.map (fun p -> sprintf "%.5f" p)))
 tee "Position size: $%.0f  referenceVol: %.4f  bandVol: %.1f  lossLimit: $%.0f" positionSize referenceVol bandVol lossLimit
-tee "Fill sim: pctile=%.3f, delay=%.0fms, commission=$%.4f/share"
-    fillParams.Percentile fillParams.DelayMs fillParams.CommissionPerShare
+tee "Fill sim: pctile=%.3f, delay=%.0fms, commission=$%.4f/share, rejection=%.0f%%"
+    fillParams.Percentile fillParams.DelayMs fillParams.CommissionPerShare (fillParams.RejectionRate * 100.0)
 tee ""
 
 // ----- 3. Round-trip extraction from fills -----

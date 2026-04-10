@@ -1,6 +1,6 @@
 #r "nuget: FSharp.SystemTextJson, 1.3.13"
 #r "nuget: DuckDB.NET.Data.Full, 1.1.3"
-#r "nuget: T-Digest, 1.0.0"
+#r "../TradingEdge.Parsing/bin/Debug/net10.0/TDigest.dll"
 #r "../TradingEdge.Parsing/bin/Debug/net10.0/TradingEdge.Parsing.dll"
 
 open System
@@ -141,7 +141,7 @@ type SweepResult = {
 
 let sweepResults =
     [| for refVol in refVols do
-        let fp = { Percentile = percentile; DelayMs = delayMs; CommissionPerShare = commissionPerShare }
+        let fp = { Percentile = percentile; DelayMs = delayMs; CommissionPerShare = commissionPerShare; RejectionRate = rejectionRate; Rng = None }
         let mutable allTripPnLs = ResizeArray<float>()
         let mutable winDays = 0
         let mutable lossDays = 0
