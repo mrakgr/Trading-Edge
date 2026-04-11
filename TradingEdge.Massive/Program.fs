@@ -192,7 +192,6 @@ type DownloadTradesArgs =
     | [<AltCommandLine("-e")>] End_Date of string
     | [<AltCommandLine("-o")>] Output_Dir of string
     | [<AltCommandLine("-p")>] Parallelism of int
-    | Pretty
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -202,7 +201,6 @@ type DownloadTradesArgs =
             | End_Date _ -> "End date (yyyy-MM-dd). If omitted, only start date is downloaded"
             | Output_Dir _ -> "Output directory for downloaded data (default: data/trades)"
             | Parallelism _ -> "Max parallel downloads (default: 5)"
-            | Pretty -> "Output JSON with indentation (pretty print)"
 
 type DownloadQuotesArgs =
     | [<AltCommandLine("-t")>] Ticker of string
@@ -250,25 +248,13 @@ type IngestIntradayArgs =
             | Input_Dir _ -> "Input directory for intraday data (default: data/intraday)"
             | Timespan _ -> "Filter by timespan: 'minute', 'second', or 'all' (default: all)"
 
-type IngestTradesArgs =
-    | [<AltCommandLine("-d")>] Database of string
+type ConvertTradesToParquetArgs =
     | [<AltCommandLine("-i")>] Input_Dir of string
 
     interface IArgParserTemplate with
         member this.Usage =
             match this with
-            | Database _ -> "DuckDB database path (default: data/trading.db)"
-            | Input_Dir _ -> "Input directory for trades data (default: data/trades)"
-
-type IngestQuotesArgs =
-    | [<AltCommandLine("-d")>] Database of string
-    | [<AltCommandLine("-i")>] Input_Dir of string
-
-    interface IArgParserTemplate with
-        member this.Usage =
-            match this with
-            | Database _ -> "DuckDB database path (default: data/trading.db)"
-            | Input_Dir _ -> "Input directory for quotes data (default: data/quotes)"
+            | Input_Dir _ -> "Directory containing ticker subfolders with .json trades (default: data/trades)"
 
 type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Download_Bulk of ParseResults<DownloadBulkArgs>
@@ -280,12 +266,11 @@ type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Download_News of ParseResults<DownloadNewsArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Data of ParseResults<IngestDataArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Intraday of ParseResults<IngestIntradayArgs>
-    | [<CliPrefix(CliPrefix.None)>] Ingest_Trades of ParseResults<IngestTradesArgs>
-    | [<CliPrefix(CliPrefix.None)>] Ingest_Quotes of ParseResults<IngestQuotesArgs>
     | [<CliPrefix(CliPrefix.None)>] Stocks_In_Play of ParseResults<StocksInPlayArgs>
     | [<CliPrefix(CliPrefix.None)>] Continuation_Plays of ParseResults<ContinuationPlaysArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Tickers of ParseResults<DownloadTickersArgs>
     | [<CliPrefix(CliPrefix.None)>] Refresh_Views of ParseResults<RefreshViewsArgs>
+    | [<CliPrefix(CliPrefix.None)>] Convert_Trades_To_Parquet of ParseResults<ConvertTradesToParquetArgs>
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -299,12 +284,11 @@ type Arguments =
             | Download_News _ -> "Download news articles for a ticker"
             | Ingest_Data _ -> "Ingest daily data into DuckDB database"
             | Ingest_Intraday _ -> "Ingest intraday data into DuckDB database"
-            | Ingest_Trades _ -> "Ingest trades data into DuckDB database"
-            | Ingest_Quotes _ -> "Ingest quotes data into DuckDB database"
             | Stocks_In_Play _ -> "List top stocks in play for a date range"
             | Continuation_Plays _ -> "List breakouts and their continuation chains (sustained-volume follow-through days)"
             | Download_Tickers _ -> "Download ETF/ETN ticker reference data from Polygon"
             | Refresh_Views _ -> "Refresh views only (fast, no table rematerialization)"
+            | Convert_Trades_To_Parquet _ -> "One-shot migration: convert data/trades/*/*.json to zstd-compressed Parquet and delete the JSON originals"
 
 let private ensureDataDir () =
     Directory.CreateDirectory("data") |> ignore
@@ -867,7 +851,6 @@ let private handleDownloadTrades (config: MassiveConfig) (args: ParseResults<Dow
         |> Option.defaultValue "data/trades"
 
     let parallelism = args.GetResult(DownloadTradesArgs.Parallelism, defaultValue = 5)
-    let prettyPrint = args.Contains DownloadTradesArgs.Pretty
 
     let days = getTradingDays startDate endDate
     let tickerDates = days |> List.map (fun d -> (ticker, d))
@@ -879,7 +862,6 @@ let private handleDownloadTrades (config: MassiveConfig) (args: ParseResults<Dow
         printfn "Date range: %s to %s (%d days)" (formatDate startDate) (formatDate endDate) tickerDates.Length
         printfn "Output directory: %s" (Path.GetFullPath outputDir)
         printfn "Parallelism: %d" parallelism
-        if prettyPrint then printfn "Pretty print: enabled"
         printfn ""
 
         Directory.CreateDirectory(outputDir) |> ignore
@@ -888,7 +870,7 @@ let private handleDownloadTrades (config: MassiveConfig) (args: ParseResults<Dow
         use cts = new CancellationTokenSource()
 
         let results =
-            downloadTradesBatch httpClient config.ApiKey outputDir tickerDates prettyPrint parallelism (Some TradesDownload.consoleProgress) cts.Token
+            downloadTradesBatch httpClient config.ApiKey outputDir tickerDates parallelism (Some TradesDownload.consoleProgress) cts.Token
             |> Async.RunSynchronously
 
         let downloaded = results |> List.filter (function TradesDownloaded _ -> true | _ -> false) |> List.length
@@ -1057,73 +1039,109 @@ let private handleIngestIntraday (args: ParseResults<IngestIntradayArgs>) =
     printfn ""
     printfn "Intraday ingestion complete."
 
-let private handleIngestTrades (args: ParseResults<IngestTradesArgs>) =
-    let dbPath =
-        args.TryGetResult IngestTradesArgs.Database
-        |> Option.defaultValue "data/trading.db"
-
+/// One-shot migration: walk data/trades/*/*.json, rewrite each file as a
+/// zstd-compressed Parquet sibling, then delete the source JSON on success.
+/// Idempotent: files with a matching .parquet are skipped, so interrupted
+/// runs can simply be re-invoked. Uses DuckDB's native read_json -> COPY
+/// TO Parquet path, which is the fastest JSON->Parquet pipeline available
+/// and sidesteps .NET's 2GB string limit on the large files (e.g. BATL,
+/// BYND) that wouldn't round-trip through System.Text.Json.
+let private handleConvertTradesToParquet (args: ParseResults<ConvertTradesToParquetArgs>) =
     let inputDir =
-        args.TryGetResult IngestTradesArgs.Input_Dir
+        args.TryGetResult ConvertTradesToParquetArgs.Input_Dir
         |> Option.defaultValue "data/trades"
 
-    printfn "Ingesting trades data..."
-    printfn "Database: %s" (Path.GetFullPath dbPath)
-    printfn "Input directory: %s" (Path.GetFullPath inputDir)
-    printfn ""
-
-    use connection = openConnection dbPath
-    initializeSchema connection
-
-    if Directory.Exists inputDir then
-        let globPattern = Path.Combine(inputDir, "*/*.json")
-        let countBefore = getTradesCount connection
-        printfn "Trades before: %d" countBefore
-
-        let inserted = ingestTradesFromGlob connection globPattern
-        printfn "Rows processed: %d" inserted
-
-        let countAfter = getTradesCount connection
-        printfn "Trades after: %d" countAfter
-        printfn "New trades added: %d" (countAfter - countBefore)
-    else
+    if not (Directory.Exists inputDir) then
         printfn "Directory not found: %s" inputDir
-
-    printfn ""
-    printfn "Trades ingestion complete."
-
-let private handleIngestQuotes (args: ParseResults<IngestQuotesArgs>) =
-    let dbPath =
-        args.TryGetResult IngestQuotesArgs.Database
-        |> Option.defaultValue "data/trading.db"
-
-    let inputDir =
-        args.TryGetResult IngestQuotesArgs.Input_Dir
-        |> Option.defaultValue "data/quotes"
-
-    printfn "Ingesting quotes data..."
-    printfn "Database: %s" (Path.GetFullPath dbPath)
-    printfn "Input directory: %s" (Path.GetFullPath inputDir)
-    printfn ""
-
-    use connection = openConnection dbPath
-    initializeSchema connection
-
-    if Directory.Exists inputDir then
-        let globPattern = Path.Combine(inputDir, "*/*.json")
-        let countBefore = getQuotesCount connection
-        printfn "Quotes before: %d" countBefore
-
-        let inserted = ingestQuotesFromGlob connection globPattern
-        printfn "Rows processed: %d" inserted
-
-        let countAfter = getQuotesCount connection
-        printfn "Quotes after: %d" countAfter
-        printfn "New quotes added: %d" (countAfter - countBefore)
     else
-        printfn "Directory not found: %s" inputDir
+        let jsonFiles =
+            Directory.EnumerateFiles(inputDir, "*.json", SearchOption.AllDirectories)
+            |> Seq.sort
+            |> Seq.toArray
+        let total = jsonFiles.Length
+        printfn "Found %d .json files under %s" total (Path.GetFullPath inputDir)
+        if total = 0 then
+            printfn "Nothing to convert."
+        else
+            use connection = new DuckDB.NET.Data.DuckDBConnection("Data Source=:memory:")
+            connection.Open()
 
-    printfn ""
-    printfn "Quotes ingestion complete."
+            let mutable converted = 0
+            let mutable skipped = 0
+            let mutable failed = 0
+            let mutable bytesBefore = 0L
+            let mutable bytesAfter = 0L
+
+            for i in 0 .. total - 1 do
+                let jsonPath = jsonFiles.[i]
+                let parquetPath = Path.ChangeExtension(jsonPath, ".parquet")
+
+                if File.Exists parquetPath then
+                    skipped <- skipped + 1
+                    printfn "[%d/%d] SKIP  %s (parquet already exists)" (i + 1) total jsonPath
+                else
+                    try
+                        let jsonSize = (FileInfo jsonPath).Length
+                        // DuckDB string literals: escape single quotes by
+                        // doubling. Paths must use forward slashes regardless
+                        // of platform for DuckDB's globbing path resolver.
+                        let escape (p: string) = p.Replace('\\', '/').Replace("'", "''")
+                        let jsonEsc = escape jsonPath
+                        let parquetEsc = escape parquetPath
+
+                        // Cast size/conditions so the resulting Parquet has
+                        // the exact same schema as files produced by the
+                        // live download path (TradesDownload.writeTradesToParquet).
+                        // Mixed schemas would break F# readers that do
+                        // GetDouble on a BIGINT column.
+                        use cmd = connection.CreateCommand()
+                        cmd.CommandText <-
+                            sprintf
+                                "COPY (
+                                    SELECT
+                                        CAST(participant_timestamp AS BIGINT) AS participant_timestamp,
+                                        CAST(sip_timestamp AS BIGINT) AS sip_timestamp,
+                                        CAST(price AS DOUBLE) AS price,
+                                        CAST(size AS DOUBLE) AS size,
+                                        CAST(conditions AS INTEGER[]) AS conditions
+                                    FROM read_json('%s')
+                                 ) TO '%s' (FORMAT PARQUET, COMPRESSION 'zstd', COMPRESSION_LEVEL 3)"
+                                jsonEsc parquetEsc
+                        cmd.ExecuteNonQuery() |> ignore
+
+                        let parquetSize = (FileInfo parquetPath).Length
+                        bytesBefore <- bytesBefore + jsonSize
+                        bytesAfter <- bytesAfter + parquetSize
+
+                        File.Delete jsonPath
+                        converted <- converted + 1
+
+                        let ratio =
+                            if jsonSize > 0L then
+                                100.0 * float parquetSize / float jsonSize
+                            else 0.0
+                        printfn
+                            "[%d/%d] CONV  %s  (%s -> %s, %.1f%%)"
+                            (i + 1) total jsonPath
+                            (sprintf "%.1f MB" (float jsonSize / 1024.0 / 1024.0))
+                            (sprintf "%.1f MB" (float parquetSize / 1024.0 / 1024.0))
+                            ratio
+                    with ex ->
+                        failed <- failed + 1
+                        printfn "[%d/%d] FAIL  %s: %s" (i + 1) total jsonPath ex.Message
+                        // Clean up any half-written Parquet so re-runs retry.
+                        if File.Exists parquetPath then
+                            try File.Delete parquetPath with _ -> ()
+
+            printfn ""
+            printfn "Convert complete: %d converted, %d skipped, %d failed" converted skipped failed
+            if converted > 0 then
+                let ratio = 100.0 * float bytesAfter / float bytesBefore
+                printfn
+                    "Size: %.2f GB -> %.2f GB (%.1f%% of original)"
+                    (float bytesBefore / 1024.0 / 1024.0 / 1024.0)
+                    (float bytesAfter / 1024.0 / 1024.0 / 1024.0)
+                    ratio
 
 [<EntryPoint>]
 let main argv =
@@ -1161,10 +1179,6 @@ let main argv =
                 handleIngestData args
             | Ingest_Intraday args ->
                 handleIngestIntraday args
-            | Ingest_Trades args ->
-                handleIngestTrades args
-            | Ingest_Quotes args ->
-                handleIngestQuotes args
             | Refresh_Views args ->
                 handleRefreshViews args
             | Stocks_In_Play args ->
@@ -1174,6 +1188,8 @@ let main argv =
             | Download_Tickers args ->
                 let config = loadConfigOrFail configPath
                 handleDownloadTickers config args
+            | Convert_Trades_To_Parquet args ->
+                handleConvertTradesToParquet args
 
         0
     with

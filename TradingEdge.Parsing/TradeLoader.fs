@@ -1,10 +1,8 @@
 module TradingEdge.Parsing.TradeLoader
 
 open System
-open System.IO
-open System.Text.Json
-open System.Text.Json.Serialization
-open FSharp.Control
+open System.Collections.Generic
+open DuckDB.NET.Data
 
 // =============================================================================
 // Types
@@ -17,12 +15,11 @@ type SessionType =
     | ClosingPrint
     | Postmarket
 
-/// Trimmed raw record: only fields we actually consume. STJ ignores unknown
-/// JSON properties by default, so dropping `id`, `exchange`, `sequence_number`,
-/// `tape` saves per-trade allocation during streaming.
+/// Trimmed raw record: the five fields persisted to Parquet. Populated by the
+/// DuckDB reader below, then filtered/classified in-process.
 type RawTrade =
     {
-        conditions: int[] option
+        conditions: int[]
         participant_timestamp: int64
         price: float
         sip_timestamp: int64
@@ -30,7 +27,7 @@ type RawTrade =
     }
 
 let timestamp (t : RawTrade) = if t.participant_timestamp <> 0L then t.participant_timestamp else t.sip_timestamp
-let conditions (t : RawTrade) = Option.defaultValue [||] t.conditions
+let conditions (t : RawTrade) = t.conditions
 
 type Trade = {
     Timestamp: DateTime
@@ -92,68 +89,106 @@ type private TradeStaging = {
     mutable IsClosingPrint: bool
 }
 
-/// Stream the JSON array element-by-element via System.Text.Json's async
-/// enumerable API. This avoids the previous File.ReadAllText path which
-/// doubled the file size in memory as a UTF-16 string before parsing.
-///
-/// Single streaming pass:
-///   * detects official market open/close (condition codes 16 / 15)
-///   * filters out exchange-noise conditions and zero-volume prints
-///   * collects a compact struct per surviving trade
-/// Followed by an in-memory classification pass and a stable sort by time.
+// =============================================================================
+// Parquet reader (low-level)
+// =============================================================================
+
+/// Read all rows from a trades Parquet file into a flat RawTrade[]. The
+/// Parquet schema drops `id`, `exchange`, `sequence_number`, `tape` — those
+/// are Polygon wire fields that no downstream consumer reads. Rows are
+/// returned in file order (DuckDB does not guarantee ordering; the caller
+/// sorts by timestamp afterwards).
+let loadRawTrades (filePath: string) : RawTrade[] =
+    // Double up any single-quotes in the path so the SQL literal stays safe.
+    let escaped = filePath.Replace("'", "''")
+
+    use connection = new DuckDBConnection("Data Source=:memory:")
+    connection.Open()
+
+    use cmd = connection.CreateCommand()
+    cmd.CommandText <-
+        sprintf
+            "SELECT participant_timestamp, sip_timestamp, price, size, conditions \
+             FROM read_parquet('%s')"
+            escaped
+
+    use reader = cmd.ExecuteReader()
+    let result = ResizeArray<RawTrade>()
+    while reader.Read() do
+        let partTs =
+            if reader.IsDBNull(0) then 0L else reader.GetInt64(0)
+        let sipTs =
+            if reader.IsDBNull(1) then 0L else reader.GetInt64(1)
+        let price = reader.GetDouble(2)
+        let size = reader.GetDouble(3)
+        let conds =
+            if reader.IsDBNull(4) then
+                Array.empty
+            else
+                // DuckDB returns list columns as a generic List; materialize
+                // once to avoid per-row LINQ allocation.
+                let raw = reader.GetValue(4) :?> IList<int>
+                let arr = Array.zeroCreate<int> raw.Count
+                for i in 0 .. raw.Count - 1 do arr.[i] <- raw.[i]
+                arr
+        result.Add {
+            conditions = conds
+            participant_timestamp = partTs
+            price = price
+            sip_timestamp = sipTs
+            size = size
+        }
+    result.ToArray()
+
+// =============================================================================
+// Loading (public entry point)
+// =============================================================================
+
+/// Load and classify trades from a per-ticker-day Parquet file. Two passes:
+///   * first pass detects official market open/close (condition codes 16/15)
+///     and filters out exchange-noise conditions + zero-volume prints;
+///   * second pass assigns a SessionType to each surviving row using the
+///     detected market hours and materializes the final Trade[].
+/// Output is sorted by timestamp (stable).
 let loadTrades (filePath: string) : Trade[] =
-    let staging = ResizeArray<TradeStaging>()
+    let raws = loadRawTrades filePath
+
+    let staging = ResizeArray<TradeStaging>(raws.Length)
     let mutable officialOpenNs = 0L
     let mutable haveOfficialOpen = false
     let mutable officialCloseNs = 0L
     let mutable haveOfficialClose = false
 
-    let options = JsonSerializerOptions()
-    // 64KB reads: the default is far smaller and JSON parsing is I/O bound
-    // for gigabyte-sized inputs.
-    let fsOptions = FileStreamOptions()
-    fsOptions.Mode <- FileMode.Open
-    fsOptions.Access <- FileAccess.Read
-    fsOptions.Share <- FileShare.Read
-    fsOptions.BufferSize <- 1 <<< 16
-    fsOptions.Options <- FileOptions.SequentialScan
+    for raw in raws do
+        let conds = conditions raw
+        let ts = timestamp raw
 
-    let loadTask = task {
-        use stream = new FileStream(filePath, fsOptions)
-        let enumerable =
-            JsonSerializer.DeserializeAsyncEnumerable<RawTrade>(stream, options)
-        for raw in enumerable do
-            let conds = conditions raw
-            let ts = timestamp raw
+        // Track official market hours (condition 16 = official open, 15 = close).
+        // Pick the earliest occurrence when multiple are tagged.
+        for i in 0 .. conds.Length - 1 do
+            let c = conds.[i]
+            if c = 16 then
+                if not haveOfficialOpen || ts < officialOpenNs then
+                    officialOpenNs <- ts
+                    haveOfficialOpen <- true
+            elif c = 15 then
+                if not haveOfficialClose || ts < officialCloseNs then
+                    officialCloseNs <- ts
+                    haveOfficialClose <- true
 
-            // Track official market hours (condition 16 = official open, 15 = close).
-            // Pick the earliest occurrence when multiple are tagged.
-            for i in 0 .. conds.Length - 1 do
-                let c = conds.[i]
-                if c = 16 then
-                    if not haveOfficialOpen || ts < officialOpenNs then
-                        officialOpenNs <- ts
-                        haveOfficialOpen <- true
-                elif c = 15 then
-                    if not haveOfficialClose || ts < officialCloseNs then
-                        officialCloseNs <- ts
-                        haveOfficialClose <- true
-
-            if not (shouldExclude conds) && raw.size > 0.0 then
-                let condSet = Set.ofArray conds
-                let isOpen =
-                    not (Set.intersect condSet openingPrintConditions |> Set.isEmpty)
-                let isClose =
-                    not (Set.intersect condSet closingPrintConditions |> Set.isEmpty)
-                staging.Add {
-                    Ts = ts
-                    Price = raw.price
-                    Volume = raw.size
-                    IsOpeningPrint = isOpen
-                    IsClosingPrint = isClose
-                }
-    }
-    loadTask.GetAwaiter().GetResult()
+        if not (shouldExclude conds) && raw.size > 0.0 then
+            let condSet = Set.ofArray conds
+            let isOpen =
+                not (Set.intersect condSet openingPrintConditions |> Set.isEmpty)
+            let isClose =
+                not (Set.intersect condSet closingPrintConditions |> Set.isEmpty)
+            staging.Add {
+                Ts = ts
+                Price = raw.price
+                Volume = raw.size
+                IsOpeningPrint = isOpen
+                IsClosingPrint = isClose
+            }
 
     // Second pass: classify sessions using the market hours we detected,
     // and materialize the final Trade[] in one allocation.

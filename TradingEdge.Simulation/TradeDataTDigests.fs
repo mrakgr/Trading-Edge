@@ -2,9 +2,11 @@ module TradingEdge.Simulation.TradeDataTDigests
 
 open System
 open System.IO
-open System.Text.Json
 open TDigest
+open TradingEdge.Parsing.TradeLoader
 
+/// Lightweight trade record used for digest construction. Mirrors the shape
+/// of the old JSON-backed type so the rest of this module is unchanged.
 type JsonTrade = {
     participant_timestamp: int64
     price: float
@@ -39,10 +41,18 @@ let mergeTradesWithinThreshold (trades: JsonTrade[]) (thresholdNs: int64) : Json
         merged.Add({ participant_timestamp = group.[0].participant_timestamp; price = vwap; size = totalSize })
         merged.ToArray()
 
-let buildTDigestsFromJson (jsonPath: string) (compression: float) (mergeThresholdNs: int64) (marketOpen: float) (marketClose: float) : TradeDataDigests =
-    printfn "Building t-digests from %s..." jsonPath
-    let json = File.ReadAllText(jsonPath)
-    let trades = JsonSerializer.Deserialize<JsonTrade[]>(json)
+/// Build t-digests for trade size and inter-trade gap distributions from a
+/// per-ticker-day Parquet file. Uses TradeLoader.loadRawTrades for the I/O so
+/// the Parquet schema stays single-sourced.
+let buildTDigestsFromTrades (tradesPath: string) (compression: float) (mergeThresholdNs: int64) (marketOpen: float) (marketClose: float) : TradeDataDigests =
+    printfn "Building t-digests from %s..." tradesPath
+    let raws = loadRawTrades tradesPath
+    // Collapse to the struct shape the rest of this module expects.
+    let trades =
+        raws
+        |> Array.map (fun r ->
+            let ts = if r.participant_timestamp <> 0L then r.participant_timestamp else r.sip_timestamp
+            { participant_timestamp = ts; price = r.price; size = int r.size })
     printfn "  Loaded %d trades" trades.Length
 
     let filtered = trades |> Array.filter (fun t -> t.size > 0)

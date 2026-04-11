@@ -7,6 +7,7 @@ open System.Net.Http
 open System.Text.Json
 open System.Text.Json.Serialization
 open System.Threading
+open DuckDB.NET.Data
 
 /// A single trade from the Polygon API
 [<CLIMutable>]
@@ -70,18 +71,70 @@ let private jsonOptions =
     options.PropertyNameCaseInsensitive <- true
     options
 
-let private jsonOptionsPretty =
-    let options = JsonSerializerOptions()
-    options.PropertyNameCaseInsensitive <- true
-    options.WriteIndented <- true
-    options
-
 /// Generate output file path for trades data
 let private getOutputPath (outputDir: string) (ticker: string) (date: DateTime) : string =
     let dateStr = date.ToString("yyyy-MM-dd")
     let dir = Path.Combine(outputDir, ticker)
     Directory.CreateDirectory(dir) |> ignore
-    Path.Combine(dir, $"{dateStr}.json")
+    Path.Combine(dir, $"{dateStr}.parquet")
+
+// =============================================================================
+// Parquet writer
+// =============================================================================
+//
+// Schema (drops Polygon fields never read downstream: id, exchange,
+// sequence_number, tape):
+//
+//   participant_timestamp BIGINT   (nanoseconds since Unix epoch; may be 0)
+//   sip_timestamp         BIGINT   (nanoseconds since Unix epoch)
+//   price                 DOUBLE
+//   size                  DOUBLE
+//   conditions            INTEGER[]  -- nullable, Polygon omits on some trades
+//
+// We build an in-memory DuckDB table via the appender API, then COPY ... TO
+// Parquet. COPY+appender is the fastest .NET->Parquet path available in
+// DuckDB.NET. zstd level 3 is the sweet spot for ratio vs CPU.
+
+let private writeTradesToParquet (outputPath: string) (trades: Trade[]) : unit =
+    // DuckDB file paths use forward slashes in the SQL literal; keep it simple
+    // by normalizing on the way in.
+    let normalized = outputPath.Replace('\\', '/')
+    // Quote any single-quotes in the path to avoid breaking the SQL string.
+    let escaped = normalized.Replace("'", "''")
+
+    use connection = new DuckDBConnection("Data Source=:memory:")
+    connection.Open()
+
+    use createCmd = connection.CreateCommand()
+    createCmd.CommandText <-
+        "CREATE TABLE trades (
+            participant_timestamp BIGINT,
+            sip_timestamp BIGINT,
+            price DOUBLE,
+            size DOUBLE,
+            conditions INTEGER[]
+         )"
+    createCmd.ExecuteNonQuery() |> ignore
+
+    use appender = connection.CreateAppender("trades")
+    for t in trades do
+        let row = appender.CreateRow()
+        row.AppendValue(Nullable t.ParticipantTimestamp) |> ignore
+        row.AppendValue(Nullable t.SipTimestamp) |> ignore
+        row.AppendValue(Nullable t.Price) |> ignore
+        row.AppendValue(Nullable t.Size) |> ignore
+        match t.Conditions with
+        | Some arr when not (isNull arr) ->
+            row.AppendValue<int>(arr :> System.Collections.Generic.IEnumerable<int>) |> ignore
+        | _ ->
+            row.AppendNullValue() |> ignore
+        row.EndRow()
+    appender.Close()
+
+    use copyCmd = connection.CreateCommand()
+    copyCmd.CommandText <-
+        sprintf "COPY trades TO '%s' (FORMAT PARQUET, COMPRESSION 'zstd', COMPRESSION_LEVEL 3)" escaped
+    copyCmd.ExecuteNonQuery() |> ignore
 
 /// Download all trades for a single ticker and date (handles pagination)
 let downloadTrades
@@ -153,7 +206,6 @@ let downloadAndSaveTrades
     (outputDir: string)
     (ticker: string)
     (date: DateTime)
-    (prettyPrint: bool)
     (ct: CancellationToken)
     : Async<TradesDownloadResult> =
     async {
@@ -170,12 +222,9 @@ let downloadAndSaveTrades
                 return TradesFailed(ticker, date, msg)
             | Ok trades ->
                 let tradeCount = trades.Length
-                printfn "Downloaded %d trades, streaming to disk..." tradeCount
+                printfn "Downloaded %d trades, writing Parquet..." tradeCount
 
-                // Stream JSON directly to file to avoid 2GB string limit
-                use fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize = 65536, useAsync = true)
-                let serializerOptions = if prettyPrint then jsonOptionsPretty else jsonOptions
-                do! JsonSerializer.SerializeAsync(fileStream, trades, serializerOptions, ct) |> Async.AwaitTask
+                writeTradesToParquet outputPath trades
                 printfn "Successfully saved to %s" outputPath
 
                 return TradesDownloaded(ticker, date, tradeCount)
@@ -190,7 +239,6 @@ let downloadTradesBatch
     (apiKey: string)
     (outputDir: string)
     (tickerDates: (string * DateTime) list)
-    (prettyPrint: bool)
     (maxParallelism: int)
     (progress: TradesProgressCallback option)
     (ct: CancellationToken)
@@ -211,7 +259,7 @@ let downloadTradesBatch
             async {
                 do! semaphore.WaitAsync(ct) |> Async.AwaitTask
                 try
-                    let! result = downloadAndSaveTrades httpClient apiKey outputDir ticker date prettyPrint ct
+                    let! result = downloadAndSaveTrades httpClient apiKey outputDir ticker date ct
                     reportProgress result
                     return result
                 finally

@@ -21,7 +21,7 @@ $showExtended = "true"
 
 foreach ($file in $Files) {
     $basename = "$($file.Ticker)_$($file.Date)"
-    $path = "data/trades/$($file.Ticker)/$($file.Date).json"
+    $path = "data/trades/$($file.Ticker)/$($file.Date).parquet"
     if (-not (Test-Path $path)) {
         Write-Host "Downloading data for $basename..."
         dotnet run --project TradingEdge.Massive -- download-trades -t $file.Ticker -s $file.Date

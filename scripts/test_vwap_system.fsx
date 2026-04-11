@@ -1,12 +1,12 @@
 #r "nuget: FSharp.SystemTextJson, 1.3.13"
-#r "nuget: DuckDB.NET.Data.Full, 1.1.3"
+#r "nuget: DuckDB.NET.Data.Full, 1.5.0"
 #r "../TradingEdge.Parsing/bin/Debug/net10.0/TradingEdge.Parsing.dll"
 
 open System
 open TradingEdge.Parsing.TradeLoader
 open TradingEdge.Parsing.VwapSystem
 
-let tradesPath = "data/trades/LW/2025-12-19.json"
+let tradesPath = "data/trades/LW/2025-12-19.parquet"
 let desiredBarSize = 8000.0
 let positionSize = 1000.0
 

@@ -98,13 +98,13 @@ def get_gap_and_premarket(ticker, date_str):
     if prev_close and open_price:
         gap_pct = ((open_price - prev_close) / prev_close) * 100
 
-    # Get premarket volume from trades JSON
-    trades_path = f'data/trades/{ticker}/{date_str}.json'
+    # Get premarket volume from trades Parquet
+    trades_path = f'data/trades/{ticker}/{date_str}.parquet'
     premarket_volume = 0
 
     if os.path.exists(trades_path):
-        with open(trades_path) as f:
-            trades = json.load(f)
+        from trade_io import load_trades as _load_parquet_trades
+        trades = _load_parquet_trades(trades_path)
 
         # Filter trades first
         trades = filter_trades(trades, exclude_odd_lots=False, exclude_extended_hours=False)

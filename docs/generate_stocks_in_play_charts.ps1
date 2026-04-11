@@ -129,7 +129,7 @@ function ReGenerate {
 
 foreach ($file in $Files) {
     $basename = "$($file.Ticker)_$($file.Date)"
-    $jsonPath = "data/trades/$($file.Ticker)/$($file.Date).json"
+    $jsonPath = "data/trades/$($file.Ticker)/$($file.Date).parquet"
     Generate -Path $jsonPath -Action {param ($outputPath)
         Write-Host "Downloading data for $basename..."
         dotnet run --project TradingEdge.Massive -- download-trades -t $file.Ticker -s $file.Date
@@ -157,7 +157,7 @@ Write-Host "Done generating all charts. Moving on to reference templates..."
 
 foreach ($file in $Files) {
     $basename = "$($file.Ticker)_$($file.Date)"
-    $jsonPath = "data/trades/$($file.Ticker)/$($file.Date).json"
+    $jsonPath = "data/trades/$($file.Ticker)/$($file.Date).parquet"
     Write-Host "## Ticker: $($file.Ticker) Date: $($file.Date)"
     Write-Host ""
     Write-Host "### Big Picture"

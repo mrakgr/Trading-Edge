@@ -1,4 +1,3 @@
-import json
 import sys
 import os
 import numpy as np
@@ -7,17 +6,13 @@ from tdigest import TDigest
 from datetime import datetime, timezone
 from market_hours import get_market_hours_bounds
 from trade_filters import filter_trades
+from trade_io import load_trades as _load_parquet_trades
 
-def load_trades(json_path):
-    with open(json_path) as f:
-        trades = json.load(f)
-
-    # OTC stocks have participant_timestamp=0; fall back to sip_timestamp
+def load_trades(trades_path):
+    trades = _load_parquet_trades(trades_path)
     for t in trades:
         if t['participant_timestamp'] == 0:
             t['participant_timestamp'] = t['sip_timestamp']
-
-    trades.sort(key=lambda t: t['participant_timestamp'])
     return trades
 
 def create_volume_bars(trades, volume_per_bar):
@@ -153,7 +148,7 @@ def plot_tdigest(json_path, output_html, volume_per_bar, show_extended_hours=Tru
     print(f"P95: {digest.percentile(95):.4f}s")
 
 if __name__ == '__main__':
-    json_path = sys.argv[1] if len(sys.argv) > 1 else 'data/trades/LW/2025-12-19.json'
+    json_path = sys.argv[1] if len(sys.argv) > 1 else 'data/trades/LW/2025-12-19.parquet'
     volume_per_bar = int(sys.argv[2]) if len(sys.argv) > 2 else 1000
 
     if len(sys.argv) > 3 and sys.argv[3]:

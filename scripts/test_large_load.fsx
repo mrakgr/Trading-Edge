@@ -1,11 +1,11 @@
 #r "nuget: FSharp.SystemTextJson, 1.3.13"
-#r "nuget: DuckDB.NET.Data.Full, 1.1.3"
+#r "nuget: DuckDB.NET.Data.Full, 1.5.0"
 #r "../TradingEdge.Parsing/bin/Debug/net10.0/TradingEdge.Parsing.dll"
 
 open System
 open TradingEdge.Parsing.TradeLoader
 
-let path = "data/trades/BYND/2025-10-22.json"
+let path = "data/trades/BYND/2025-10-22.parquet"
 printfn "Loading %s..." path
 let sw = System.Diagnostics.Stopwatch.StartNew()
 let trades = loadTrades path

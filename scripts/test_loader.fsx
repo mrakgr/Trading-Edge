@@ -3,7 +3,7 @@
 
 open TradingEdge.Parsing.TradeLoader
 
-let trades = loadTrades "data/trades/LW/2025-12-19.json"
+let trades = loadTrades "data/trades/LW/2025-12-19.parquet"
 
 printfn "Loaded %d trades" trades.Length
 

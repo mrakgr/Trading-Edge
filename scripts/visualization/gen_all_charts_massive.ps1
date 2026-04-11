@@ -1,7 +1,7 @@
 param(
     [string[]]$Files = @(
-        'data/trades/LW/2025-12-19.json'
-        'data/trades/QNCCF/2025-01-02.json'
+        'data/trades/LW/2025-12-19.parquet'
+        'data/trades/QNCCF/2025-01-02.parquet'
         ),
     [int]$SecondsPerBar = 60,
     [int]$VolumePerBar = 30000,

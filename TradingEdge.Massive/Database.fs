@@ -76,7 +76,17 @@ let initializeSchema (connection: IDbConnection) : unit =
             use reader = new StreamReader(stream)
             let sql = reader.ReadToEnd()
             connection.Execute(sql) |> ignore
-    
+
+    // Drop deprecated objects that used to store tick/quote data in the DB.
+    // Trades now live on disk as Parquet (data/trades/{ticker}/{date}.parquet);
+    // quotes are no longer ingested into the DB. These DROPs reclaim space in
+    // existing databases that were populated before this migration.
+    connection.Execute("DROP VIEW IF EXISTS trades_with_quotes") |> ignore
+    connection.Execute("DROP TYPE IF EXISTS trade_side") |> ignore
+    connection.Execute("DROP TABLE IF EXISTS trades") |> ignore
+    connection.Execute("DROP SEQUENCE IF EXISTS trades_id_seq") |> ignore
+    connection.Execute("DROP TABLE IF EXISTS quotes") |> ignore
+
     // Execute all table schemas (base tables only)
     executeSql "sql.schema.tables"
 
@@ -779,58 +789,3 @@ let getIntradaySecondByTickerDate (connection: IDbConnection) (ticker: string) (
         {| ticker = ticker; date = date.ToString("yyyy-MM-dd") |})
     |> Seq.toArray
 
-// --- Trades ---
-
-/// Bulk ingest trades from JSON files using glob pattern
-/// Extracts ticker from file path (expects data/trades/{ticker}/{date}.json)
-let ingestTradesFromGlob (connection: IDbConnection) (globPattern: string) : int64 =
-    let sql = $"""
-        INSERT INTO trades (ticker, session_date, sip_timestamp, participant_timestamp, sequence_number, price, size, exchange, conditions, tape)
-        SELECT
-            split_part(filename, '/', -2) as ticker,
-            CAST((make_timestamp_ns(participant_timestamp) AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York') AS DATE) as session_date,
-            make_timestamp_ns(sip_timestamp),
-            make_timestamp_ns(participant_timestamp),
-            sequence_number,
-            price,
-            size,
-            exchange,
-            conditions,
-            tape
-        FROM read_json('{globPattern}', filename=true)
-    """
-    connection.Execute(sql) |> int64
-
-/// Get count of trades in database
-let getTradesCount (connection: IDbConnection) : int64 =
-    connection.ExecuteScalar<int64>("SELECT COUNT(*) FROM trades")
-
-// --- Quotes ---
-
-/// Bulk ingest quotes from JSON files using glob pattern
-/// Extracts ticker from file path (expects data/quotes/{ticker}/{date}.json)
-let ingestQuotesFromGlob (connection: IDbConnection) (globPattern: string) : int64 =
-    let sql = $"""
-        INSERT INTO quotes (ticker, session_date, sip_timestamp, participant_timestamp, sequence_number, bid_price, bid_size, bid_exchange, ask_price, ask_size, ask_exchange, conditions, indicators, tape)
-        SELECT
-            split_part(filename, '/', -2) as ticker,
-            CAST((make_timestamp_ns(participant_timestamp) AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York') AS DATE) as session_date,
-            make_timestamp_ns(sip_timestamp),
-            make_timestamp_ns(participant_timestamp),
-            sequence_number,
-            bid_price,
-            bid_size,
-            bid_exchange,
-            ask_price,
-            ask_size,
-            ask_exchange,
-            conditions,
-            indicators,
-            tape
-        FROM read_json('{globPattern}', filename=true)
-    """
-    connection.Execute(sql) |> int64
-
-/// Get count of quotes in database
-let getQuotesCount (connection: IDbConnection) : int64 =
-    connection.ExecuteScalar<int64>("SELECT COUNT(*) FROM quotes")

@@ -168,7 +168,7 @@ let runBuildDigests (args: ParseResults<BuildDigestsArgs>) =
     let threshold = args.GetResult(BuildDigestsArgs.Threshold, 100000L)
     let marketOpen = args.GetResult(BuildDigestsArgs.Market_Open, 14.5)
     let marketClose = args.GetResult(BuildDigestsArgs.Market_Close, 21.0)
-    let digests = TradingEdge.Simulation.TradeDataTDigests.buildTDigestsFromJson input compression threshold marketOpen marketClose
+    let digests = TradingEdge.Simulation.TradeDataTDigests.buildTDigestsFromTrades input compression threshold marketOpen marketClose
     TradingEdge.Simulation.TradeDataTDigests.saveTDigests digests output
 
 let runDumpTrades (args: ParseResults<DumpTradesArgs>) =

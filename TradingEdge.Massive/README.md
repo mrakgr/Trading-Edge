@@ -148,7 +148,17 @@ Output: `data/intraday/{timespan}/{ticker}/{date}.json`
 
 ### Download Trades Data
 
-Downloads tick-level trades data for a specific ticker via the Polygon REST API. Each trade record includes price, size, exchange, conditions, and precise timestamps.
+Downloads tick-level trades data for a specific ticker via the Polygon REST API and writes them as zstd-compressed Parquet. The on-disk schema keeps only the five columns that are read downstream:
+
+```
+participant_timestamp BIGINT       -- nanoseconds since Unix epoch (0 for OTC)
+sip_timestamp         BIGINT       -- nanoseconds since Unix epoch
+price                 DOUBLE
+size                  DOUBLE
+conditions            INTEGER[]    -- nullable
+```
+
+Polygon fields `id`, `exchange`, `sequence_number`, `tape` are dropped because no reader consumes them. Typical compression over the source JSON is ~20x.
 
 ```bash
 dotnet run --project TradingEdge.Massive -- download-trades [options]
@@ -160,7 +170,6 @@ dotnet run --project TradingEdge.Massive -- download-trades [options]
 - `-e, --end-date <yyyy-MM-dd>` - End date. If omitted, only start date is downloaded
 - `-o, --output-dir <path>` - Output directory (default: data/trades)
 - `-p, --parallelism <int>` - Max parallel downloads (default: 5)
-- `--pretty` - Output JSON with indentation (pretty print)
 
 **Examples:**
 
@@ -175,7 +184,17 @@ dotnet run --project TradingEdge.Massive -- download-trades -t NVDA -s 2024-12-1
 dotnet run --project TradingEdge.Massive -- download-trades -t AAPL -s 2024-12-20 -o data/my_trades
 ```
 
-Output: `data/trades/{ticker}/{date}.json`
+Output: `data/trades/{ticker}/{date}.parquet`
+
+### Convert Trades to Parquet (one-shot migration)
+
+Converts pre-existing `data/trades/{ticker}/{date}.json` files to the new Parquet format in place and deletes each JSON on success. Idempotent -- files that already have a matching `.parquet` are skipped -- so an interrupted run can simply be re-invoked.
+
+```bash
+dotnet run --project TradingEdge.Massive -- convert-trades-to-parquet [-i <input-dir>]
+```
+
+Only needed once to migrate legacy data; new downloads already use Parquet directly.
 
 ### Download Quotes Data
 
@@ -493,13 +512,12 @@ TradingEdge/
 │       │   └── 04_stock_volume_4w.sql
 │       └── views/               # Views/macros (fast to refresh)
 │           ├── 09_stocks_in_play.sql
-│           ├── 10_trades_with_quotes.sql
 │           └── 11_continuation_plays.sql
 ├── api_key.json                 # API credentials (not in git)
 └── data/                        # Downloaded data
     ├── daily_aggregates/        # Daily OHLCV CSV files
     ├── intraday/                # Intraday data (minute/second JSON)
-    ├── trades/                  # Tick-level trades data (JSON)
+    ├── trades/                  # Tick-level trades data (zstd Parquet)
     ├── quotes/                  # NBBO quotes data (JSON)
     ├── news/                    # News articles (JSON)
     ├── splits.csv               # Splits data

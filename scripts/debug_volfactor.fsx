@@ -1,12 +1,12 @@
 #r "nuget: FSharp.SystemTextJson, 1.3.13"
-#r "nuget: DuckDB.NET.Data.Full, 1.1.3"
+#r "nuget: DuckDB.NET.Data.Full, 1.5.0"
 #r "../TradingEdge.Parsing/bin/Debug/net10.0/TradingEdge.Parsing.dll"
 
 open TradingEdge.Parsing.TradeLoader
 open TradingEdge.Parsing.VwapSystem
 
 let run ticker date =
-    let path = sprintf "data/trades/%s/%s.json" ticker date
+    let path = sprintf "data/trades/%s/%s.parquet" ticker date
     let trades = loadTrades path
     let op = trades |> Array.tryFind (fun tr -> tr.Session = OpeningPrint)
     let cp = trades |> Array.tryFind (fun tr -> tr.Session = ClosingPrint)

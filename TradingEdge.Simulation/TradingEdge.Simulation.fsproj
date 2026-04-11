@@ -27,4 +27,8 @@
     <PackageReference Include="T-Digest" Version="1.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\TradingEdge.Parsing\TradingEdge.Parsing.fsproj" />
+  </ItemGroup>
+
 </Project>

@@ -1,4 +1,3 @@
-import json
 import sys
 import os
 import argparse
@@ -8,18 +7,14 @@ from plotly.subplots import make_subplots
 from datetime import datetime, timezone
 from trade_filters import filter_trades
 from market_hours import get_market_hours_bounds
+from trade_io import load_trades as _load_parquet_trades
 
-def load_trades(json_path):
-    """Load trades from Massive JSON file."""
-    with open(json_path) as f:
-        trades = json.load(f)
-
-    # OTC stocks have participant_timestamp=0; fall back to sip_timestamp
+def load_trades(trades_path):
+    """Load trades from the per-ticker-day Parquet file."""
+    trades = _load_parquet_trades(trades_path)
     for t in trades:
         if t['participant_timestamp'] == 0:
             t['participant_timestamp'] = t['sip_timestamp']
-
-    trades.sort(key=lambda t: t['participant_timestamp'])
     return trades
 
 def create_volume_bars_vwap(trades, volume_per_bar):

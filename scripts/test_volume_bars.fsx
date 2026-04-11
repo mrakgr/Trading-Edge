@@ -1,5 +1,5 @@
 #r "nuget: FSharp.SystemTextJson, 1.3.13"
-#r "nuget: DuckDB.NET.Data.Full, 1.1.3"
+#r "nuget: DuckDB.NET.Data.Full, 1.5.0"
 #r "../TradingEdge.Parsing/bin/Debug/net9.0/TradingEdge.Parsing.dll"
 
 open System
@@ -10,7 +10,7 @@ open TradingEdge.Parsing.VolumeBars
 let ticker = "LW"
 let date = DateTime(2025, 12, 19)
 let dbPath = "data/trading.db"
-let tradesPath = "data/trades/LW/2025-12-19.json"
+let tradesPath = "data/trades/LW/2025-12-19.parquet"
 
 printfn "Loading trades..."
 let trades = loadTrades tradesPath

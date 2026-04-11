@@ -1,5 +1,5 @@
 #r "nuget: FSharp.SystemTextJson, 1.3.13"
-#r "nuget: DuckDB.NET.Data.Full, 1.1.3"
+#r "nuget: DuckDB.NET.Data.Full, 1.5.0"
 #r "../TradingEdge.Parsing/bin/Debug/net10.0/TradingEdge.Parsing.dll"
 
 open System
@@ -25,7 +25,7 @@ printfn "Parsed %d stocks-in-play entries from ps1" entries.Length
 let availableEntries =
     entries
     |> List.filter (fun (t, d) ->
-        File.Exists (sprintf "data/trades/%s/%s.json" t d))
+        File.Exists (sprintf "data/trades/%s/%s.parquet" t d))
 printfn "Trade files present for %d of them" availableEntries.Length
 
 // ----- 2. Candidate definitions -----
@@ -69,7 +69,7 @@ let perFile = Array.init N (fun _ -> ResizeArray<string * string * float>())
 let swAll = System.Diagnostics.Stopwatch.StartNew()
 let mutable processed = 0
 for (ticker, date) in availableEntries do
-    let path = sprintf "data/trades/%s/%s.json" ticker date
+    let path = sprintf "data/trades/%s/%s.parquet" ticker date
     let trades =
         try Some (loadTrades path)
         with ex ->

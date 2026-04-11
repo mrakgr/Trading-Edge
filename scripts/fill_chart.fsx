@@ -1,5 +1,5 @@
 #r "nuget: FSharp.SystemTextJson, 1.3.13"
-#r "nuget: DuckDB.NET.Data.Full, 1.1.3"
+#r "nuget: DuckDB.NET.Data.Full, 1.5.0"
 #r "../TradingEdge.Parsing/bin/Debug/net10.0/TDigest.dll"
 #r "../TradingEdge.Parsing/bin/Debug/net10.0/TradingEdge.Parsing.dll"
 
@@ -17,7 +17,7 @@ let date = fsi.CommandLineArgs.[2]
 open Config
 
 // ----- Load trades -----
-let path = sprintf "data/trades/%s/%s.json" ticker date
+let path = sprintf "data/trades/%s/%s.parquet" ticker date
 printfn "Loading %s..." path
 let trades = loadTrades path
 

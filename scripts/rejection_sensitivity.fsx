@@ -1,5 +1,5 @@
 #r "nuget: FSharp.SystemTextJson, 1.3.13"
-#r "nuget: DuckDB.NET.Data.Full, 1.1.3"
+#r "nuget: DuckDB.NET.Data.Full, 1.5.0"
 #r "../TradingEdge.Parsing/bin/Debug/net10.0/TDigest.dll"
 #r "../TradingEdge.Parsing/bin/Debug/net10.0/TradingEdge.Parsing.dll"
 
@@ -31,7 +31,7 @@ let entries =
 let availableEntries =
     entries
     |> List.filter (fun (t, d) ->
-        File.Exists (sprintf "data/trades/%s/%s.json" t d))
+        File.Exists (sprintf "data/trades/%s/%s.parquet" t d))
 
 // ----- 2. Configuration -----
 #load "config.fsx"
@@ -66,7 +66,7 @@ type DayData = {
 
 let dayData =
     [| for (ticker, date) in availableEntries do
-        let path = sprintf "data/trades/%s/%s.json" ticker date
+        let path = sprintf "data/trades/%s/%s.parquet" ticker date
         let trades =
             try Some (loadTrades path)
             with _ -> None
