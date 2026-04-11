@@ -16,6 +16,7 @@
     <Compile Include="TradesDownload.fs" />
     <Compile Include="QuotesDownload.fs" />
     <Compile Include="NewsDownload.fs" />
+    <Compile Include="TickersDownload.fs" />
     <Compile Include="Database.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

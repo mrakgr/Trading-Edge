@@ -12,6 +12,7 @@ open TradingEdge.IntradayDownload
 open TradingEdge.TradesDownload
 open TradingEdge.QuotesDownload
 open TradingEdge.NewsDownload
+open TradingEdge.TickersDownload
 open TradingEdge.Database
 
 let private formatDate (d: DateTime) = d.ToString("yyyy-MM-dd")
@@ -71,6 +72,11 @@ type StocksInPlayArgs =
     | [<AltCommandLine("-v")>] Min_Dollar_Volume of float
     | [<AltCommandLine("-rw")>] Rvol_Weight of float
     | [<AltCommandLine("-gw")>] Gap_Weight of float
+    | Include_Etfs
+    | Pre_Window_Days of int
+    | Post_Window_Days of int
+    | Min_Range_Ratio of float
+    | Json
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -83,6 +89,19 @@ type StocksInPlayArgs =
             | Min_Dollar_Volume _ -> "Minimum avg dollar volume in millions (default: 100)"
             | Rvol_Weight _ -> "Weight for RVOL in scoring (default: 0.95)"
             | Gap_Weight _ -> "Weight for gap in scoring (default: 0.05)"
+            | Include_Etfs -> "Do not exclude ETFs/ETNs (default: excluded via ticker_reference)"
+            | Pre_Window_Days _ -> "Days before breakout for range baseline (default: 20)"
+            | Post_Window_Days _ -> "Days after breakout for range comparison (default: 5)"
+            | Min_Range_Ratio _ -> "Min post/pre daily-range ratio (buyout filter, default: 0.5; 0 disables)"
+            | Json -> "Emit JSON to stdout instead of the human-readable table"
+
+type DownloadTickersArgs =
+    | [<AltCommandLine("-d")>] Database of string
+
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Database _ -> "DuckDB database path (default: data/trading.db)"
 
 type RefreshViewsArgs =
     | [<AltCommandLine("-d")>] Database of string
@@ -217,6 +236,7 @@ type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Ingest_Trades of ParseResults<IngestTradesArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Quotes of ParseResults<IngestQuotesArgs>
     | [<CliPrefix(CliPrefix.None)>] Stocks_In_Play of ParseResults<StocksInPlayArgs>
+    | [<CliPrefix(CliPrefix.None)>] Download_Tickers of ParseResults<DownloadTickersArgs>
     | [<CliPrefix(CliPrefix.None)>] Refresh_Views of ParseResults<RefreshViewsArgs>
 
     interface IArgParserTemplate with
@@ -234,6 +254,7 @@ type Arguments =
             | Ingest_Trades _ -> "Ingest trades data into DuckDB database"
             | Ingest_Quotes _ -> "Ingest quotes data into DuckDB database"
             | Stocks_In_Play _ -> "List top stocks in play for a date range"
+            | Download_Tickers _ -> "Download ETF/ETN ticker reference data from Polygon"
             | Refresh_Views _ -> "Refresh views only (fast, no table rematerialization)"
 
 let private ensureDataDir () =
@@ -484,25 +505,86 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
     let minDollarVolume = args.GetResult(StocksInPlayArgs.Min_Dollar_Volume, defaultValue = 100.0) * 1_000_000.0
     let rvolWeight = args.GetResult(StocksInPlayArgs.Rvol_Weight, defaultValue = 0.95)
     let gapWeight = args.GetResult(StocksInPlayArgs.Gap_Weight, defaultValue = 0.05)
+    let excludeEtfs = not (args.Contains StocksInPlayArgs.Include_Etfs)
+    let preWindowDays = args.GetResult(StocksInPlayArgs.Pre_Window_Days, defaultValue = 20)
+    let postWindowDays = args.GetResult(StocksInPlayArgs.Post_Window_Days, defaultValue = 5)
+    let minRangeRatio = args.GetResult(StocksInPlayArgs.Min_Range_Ratio, defaultValue = 0.5)
+    let jsonMode = args.Contains StocksInPlayArgs.Json
 
-    printfn "Stocks In Play from %s to %s" (formatDate startDate) (formatDate endDate)
-    printfn "Filters: RVOL >= %.1fx, Gap >= %.1f%%, Avg Dollar Volume >= $%.0fM" minRvol (minGapPct * 100.0) (minDollarVolume / 1_000_000.0)
-    printfn "Database: %s" (Path.GetFullPath dbPath)
-    printfn ""
+    if not jsonMode then
+        printfn "Stocks In Play from %s to %s" (formatDate startDate) (formatDate endDate)
+        printfn "Filters: RVOL >= %.1fx, Gap >= %.1f%%, Avg Dollar Volume >= $%.0fM" minRvol (minGapPct * 100.0) (minDollarVolume / 1_000_000.0)
+        printfn "ETF exclusion: %b   Pre/post window: %d/%d   Min range ratio: %.2f" excludeEtfs preWindowDays postWindowDays minRangeRatio
+        printfn "Database: %s" (Path.GetFullPath dbPath)
+        printfn ""
 
     use connection = openConnection dbPath
-    let stocks = getStocksInPlay connection startDate endDate minRvol minGapPct minDollarVolume rvolWeight gapWeight
+    let stocks =
+        getStocksInPlay
+            connection startDate endDate minRvol minGapPct minDollarVolume
+            rvolWeight gapWeight excludeEtfs preWindowDays postWindowDays minRangeRatio
 
-    if stocks.Length = 0 then
-        printfn "No stocks in play found for the given date range."
-    else
-        let mutable currentDate = DateOnly.MinValue
+    if jsonMode then
+        // Emit a JSON array of {ticker, date, avg_dollar_volume_4w} objects.
+        let sb = System.Text.StringBuilder()
+        sb.Append("[") |> ignore
+        let mutable first = true
         for stock in stocks do
-            if stock.date <> currentDate then
-                currentDate <- stock.date
-                printfn "=== %s ===" (currentDate.ToString("yyyy-MM-dd"))
-            printfn "  %2d. %-6s  Gap: %+6.2f%%  RVOL: %5.1fx  Score: %5.2f"
-                stock.rank stock.ticker (stock.gap_pct * 100.0) stock.rvol stock.in_play_score
+            if not first then sb.Append(",") |> ignore
+            first <- false
+            sb.AppendFormat(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "\n  {{\"ticker\": \"{0}\", \"date\": \"{1}\", \"avg_dollar_volume_4w\": {2}}}",
+                stock.ticker,
+                stock.date.ToString("yyyy-MM-dd"),
+                stock.avg_dollar_volume_4w) |> ignore
+        if not first then sb.Append("\n") |> ignore
+        sb.Append("]") |> ignore
+        printfn "%s" (sb.ToString())
+    else
+        if stocks.Length = 0 then
+            printfn "No stocks in play found for the given date range."
+        else
+            let mutable currentDate = DateOnly.MinValue
+            for stock in stocks do
+                if stock.date <> currentDate then
+                    currentDate <- stock.date
+                    printfn "=== %s ===" (currentDate.ToString("yyyy-MM-dd"))
+                let ratioStr =
+                    if stock.range_ratio.HasValue then sprintf "%5.2f" stock.range_ratio.Value
+                    else "  n/a"
+                printfn "  %2d. %-6s  Gap: %+6.2f%%  RVOL: %5.1fx  Score: %5.2f  RangeRatio: %s"
+                    stock.rank stock.ticker (stock.gap_pct * 100.0) stock.rvol stock.in_play_score ratioStr
+
+let private handleDownloadTickers (config: MassiveConfig) (args: ParseResults<DownloadTickersArgs>) =
+    let dbPath =
+        args.TryGetResult DownloadTickersArgs.Database
+        |> Option.defaultValue "data/trading.db"
+
+    printfn "Downloading ETF/ETN ticker reference from Polygon..."
+    printfn "Database: %s" (Path.GetFullPath dbPath)
+
+    use httpClient = new HttpClient()
+    use cts = new CancellationTokenSource()
+
+    let result =
+        downloadAllEtfTickers httpClient config.ApiKey cts.Token
+        |> Async.RunSynchronously
+
+    match result with
+    | Ok rows ->
+        printfn ""
+        printfn "Downloaded %d ETF-like tickers" rows.Length
+
+        use connection = openConnection dbPath
+        initializeSchema connection
+        let inserted = replaceTickerReference connection rows
+        let total = getTickerReferenceCount connection
+        printfn "Inserted %d rows; ticker_reference now contains %d rows." inserted total
+
+    | Error msg ->
+        eprintfn "Error downloading tickers: %s" msg
+        exit 1
 
 let private handleRefreshViews (args: ParseResults<RefreshViewsArgs>) =
     let dbPath =
@@ -513,6 +595,9 @@ let private handleRefreshViews (args: ParseResults<RefreshViewsArgs>) =
     printfn "Database: %s" (Path.GetFullPath dbPath)
 
     use connection = openConnection dbPath
+    // Make sure base tables (e.g. ticker_reference) exist before installing views
+    // that reference them.
+    initializeSchema connection
     let sw = System.Diagnostics.Stopwatch.StartNew()
     refreshViews connection
     sw.Stop()
@@ -567,10 +652,13 @@ let private handleDownloadIntraday (config: MassiveConfig) (args: ParseResults<D
             printfn "SIP Filters: RVOL >= %.1fx, Gap >= %.1f%%, Avg Dollar Volume >= $%.0fM" minRvol (minGapPct * 100.0) (minDollarVolume / 1_000_000.0)
 
             use connection = openConnection dbPath
-            let stocks = getStocksInPlay connection startDate endDate minRvol minGapPct minDollarVolume 0.95 0.05
+            let stocks =
+                getStocksInPlay
+                    connection startDate endDate minRvol minGapPct minDollarVolume
+                    0.95 0.05 true 20 5 0.5
 
             stocks
-            |> Array.map (fun s -> (s.ticker, s.date.ToDateTime(TimeOnly.MinValue)))
+            |> Array.map (fun (s: StockInPlayRow) -> (s.ticker, s.date.ToDateTime(TimeOnly.MinValue)))
             |> Array.toList
 
         | None ->
@@ -926,6 +1014,9 @@ let main argv =
                 handleRefreshViews args
             | Stocks_In_Play args ->
                 handleStocksInPlay args
+            | Download_Tickers args ->
+                let config = loadConfigOrFail configPath
+                handleDownloadTickers config args
 
         0
     with
