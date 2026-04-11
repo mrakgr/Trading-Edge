@@ -21,7 +21,7 @@ CREATE MACRO stocks_in_play(
     exclude_etfs := true,
     pre_window_days := 20,
     post_window_days := 5,
-    min_range_ratio := 0.5
+    min_range_ratio := 0.55
 ) AS TABLE
 WITH daily_metrics AS (
     SELECT

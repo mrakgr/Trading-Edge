@@ -92,7 +92,7 @@ type StocksInPlayArgs =
             | Include_Etfs -> "Do not exclude ETFs/ETNs (default: excluded via ticker_reference)"
             | Pre_Window_Days _ -> "Days before breakout for range baseline (default: 20)"
             | Post_Window_Days _ -> "Days after breakout for range comparison (default: 5)"
-            | Min_Range_Ratio _ -> "Min post/pre daily-range ratio (buyout filter, default: 0.5; 0 disables)"
+            | Min_Range_Ratio _ -> "Min post/pre daily-range ratio (buyout filter, default: 0.55; 0 disables)"
             | Json -> "Emit JSON to stdout instead of the human-readable table"
 
 type DownloadTickersArgs =
@@ -508,7 +508,7 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
     let excludeEtfs = not (args.Contains StocksInPlayArgs.Include_Etfs)
     let preWindowDays = args.GetResult(StocksInPlayArgs.Pre_Window_Days, defaultValue = 20)
     let postWindowDays = args.GetResult(StocksInPlayArgs.Post_Window_Days, defaultValue = 5)
-    let minRangeRatio = args.GetResult(StocksInPlayArgs.Min_Range_Ratio, defaultValue = 0.5)
+    let minRangeRatio = args.GetResult(StocksInPlayArgs.Min_Range_Ratio, defaultValue = 0.55)
     let jsonMode = args.Contains StocksInPlayArgs.Json
 
     if not jsonMode then
