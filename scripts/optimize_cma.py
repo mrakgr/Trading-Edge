@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
 CMA-ES optimizer for the VWAP trading system.
-Requires the F# evaluation server running: dotnet fsi scripts/optimize_server.fsx
+
+Requires the TradingEdge.Optimize evaluation server running:
+    dotnet run --project TradingEdge.Optimize -c Release
 
 Uses the /eval/batch endpoint to evaluate the entire CMA-ES population in parallel
 on the server side (Array.Parallel.map).
@@ -23,7 +25,7 @@ def check_server():
         r.raise_for_status()
     except Exception:
         print(f"ERROR: Cannot reach server at {SERVER}")
-        print(f"Start it first: dotnet fsi scripts/optimize_server.fsx")
+        print(f"Start it first: dotnet run --project TradingEdge.Optimize -c Release")
         sys.exit(1)
 
     config = requests.get(f"{SERVER}/config").json()

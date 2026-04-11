@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- Server GC: this is a long-lived process doing heavy parallel
+         allocation inside /eval/batch. Workstation GC (the default for
+         client apps) uses a single shared heap and tunes for low pause
+         times on one core, which throttles Array.Parallel.map throughput.
+         Server GC allocates a per-core heap and parallelizes collections,
+         which is the right tradeoff here. Background (concurrent) Gen2
+         collection is already the default on top of either mode, so we
+         don't need to set ConcurrentGarbageCollection explicitly. -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Config.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Suave" Version="3.2.3" />
+    <PackageReference Include="FSharp.SystemTextJson" Version="1.4.36" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TradingEdge.Parsing\TradingEdge.Parsing.fsproj" />
+  </ItemGroup>
+
+</Project>
