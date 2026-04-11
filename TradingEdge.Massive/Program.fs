@@ -708,13 +708,14 @@ let private handleContinuationPlays (args: ParseResults<ContinuationPlaysArgs>) 
             first <- false
             sb.AppendFormat(
                 System.Globalization.CultureInfo.InvariantCulture,
-                "\n  {{\"ticker\": \"{0}\", \"breakout_date\": \"{1}\", \"date\": \"{2}\", \"number_of_days_since_breakout\": {3}, \"rvol\": {4}, \"breakout_rvol\": {5}, \"volume\": {6}, \"avg_volume_4w\": {7}, \"avg_dollar_volume_4w\": {8}}}",
+                "\n  {{\"ticker\": \"{0}\", \"breakout_date\": \"{1}\", \"date\": \"{2}\", \"max_rvol_day\": \"{3}\", \"max_rvol\": {4}, \"days_since_max_rvol_day\": {5}, \"rvol\": {6}, \"volume\": {7}, \"avg_volume_4w\": {8}, \"avg_dollar_volume_4w\": {9}}}",
                 p.ticker,
                 p.breakout_date.ToString("yyyy-MM-dd"),
                 p.date.ToString("yyyy-MM-dd"),
-                p.number_of_days_since_breakout,
+                p.max_rvol_day.ToString("yyyy-MM-dd"),
+                p.max_rvol,
+                p.days_since_max_rvol_day,
                 p.rvol,
-                p.breakout_rvol,
                 p.volume,
                 p.avg_volume_4w,
                 p.avg_dollar_volume_4w) |> ignore
@@ -731,11 +732,13 @@ let private handleContinuationPlays (args: ParseResults<ContinuationPlaysArgs>) 
                 let key = (p.ticker, p.breakout_date)
                 if key <> currentKey then
                     currentKey <- key
-                    printfn "=== %s breakout %s (rvol %.2fx) ===" p.ticker (p.breakout_date.ToString("yyyy-MM-dd")) p.breakout_rvol
-                printfn "  +%d  %s  rvol %5.2fx  vol %12d"
-                    p.number_of_days_since_breakout
+                    printfn "=== %s breakout %s ===" p.ticker (p.breakout_date.ToString("yyyy-MM-dd"))
+                printfn "  +%d  %s  rvol %5.2fx  max %5.2fx @ %s  vol %12d"
+                    p.days_since_max_rvol_day
                     (p.date.ToString("yyyy-MM-dd"))
                     p.rvol
+                    p.max_rvol
+                    (p.max_rvol_day.ToString("yyyy-MM-dd"))
                     p.volume
 
 let private handleRefreshViews (args: ParseResults<RefreshViewsArgs>) =

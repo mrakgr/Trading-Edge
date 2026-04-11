@@ -539,24 +539,100 @@ let getStocksInPlay
 
 // --- Continuation Plays ---
 
+/// One row returned from the continuation_plays SQL macro BEFORE F# chain
+/// construction. One row per (SIP breakout, candidate day) pair. All chain
+/// logic (rolling max, stop rule, dedup) runs in F# on these raw rows.
+[<CLIMutable>]
+type private ContinuationPlayRawRow = {
+    sip_ticker: string
+    sip_breakout_date: DateOnly
+    day_date: DateOnly
+    day_volume: int64
+    day_avg_volume_4w: float
+    day_avg_dollar_volume_4w: float
+    day_rvol: float
+}
+
 [<CLIMutable>]
 type ContinuationPlayRow = {
     ticker: string
     breakout_date: DateOnly
-    breakout_rvol: float
     date: DateOnly
-    number_of_days_since_breakout: int64
+    max_rvol_day: DateOnly
+    max_rvol: float
+    days_since_max_rvol_day: int64
     rvol: float
     volume: int64
     avg_volume_4w: float
     avg_dollar_volume_4w: float
 }
 
-/// For each breakout in the SIP query window, walk forward day by day and
-/// return all subsequent trading days whose RVOL stays above
-/// `minRvolFraction * breakout_rvol`. Stops at the first failing day.
-/// All SIP filters are forwarded so the underlying breakout source matches
-/// the `getStocksInPlay` output exactly.
+/// Walk a single pre-sorted chain (one SIP breakout's 15-day forward window)
+/// and emit continuation rows using the rolling-max rule. State = (runningMax,
+/// runningMaxDate, daysSince, stopped). A new max resets daysSince to 0; a
+/// non-max day increments it. The chain terminates after the first day whose
+/// rvol drops below `minRvolFraction * runningMax` (that day is included).
+let private buildChain
+    (minRvolFraction: float)
+    (rawChain: ContinuationPlayRawRow array)
+    : ContinuationPlayRow array =
+    // Using mapFold with Option results so stopped days are dropped cleanly.
+    let mapped, _ =
+        rawChain
+        |> Array.mapFold
+            (fun (runningMax: float, runningMaxDate: DateOnly, daysSince: int, stopped: bool) raw ->
+                if stopped then
+                    None, (runningMax, runningMaxDate, daysSince, stopped)
+                else
+                    // First row always acts as a new max (it's the SIP breakout day).
+                    let isFirst = runningMax = System.Double.NegativeInfinity
+                    let isNewMax = isFirst || raw.day_rvol > runningMax
+                    let newMax = if isNewMax then raw.day_rvol else runningMax
+                    let newMaxDate = if isNewMax then raw.day_date else runningMaxDate
+                    let newDaysSince = if isNewMax then 0 else daysSince + 1
+                    let fails = not isNewMax && raw.day_rvol < minRvolFraction * runningMax
+                    let row = {
+                        ticker = raw.sip_ticker
+                        breakout_date = raw.sip_breakout_date
+                        date = raw.day_date
+                        max_rvol_day = newMaxDate
+                        max_rvol = newMax
+                        days_since_max_rvol_day = int64 newDaysSince
+                        rvol = raw.day_rvol
+                        volume = raw.day_volume
+                        avg_volume_4w = raw.day_avg_volume_4w
+                        avg_dollar_volume_4w = raw.day_avg_dollar_volume_4w
+                    }
+                    Some row, (newMax, newMaxDate, newDaysSince, fails))
+            (System.Double.NegativeInfinity, DateOnly.MinValue, 0, false)
+    mapped |> Array.choose id
+
+/// Build per-ticker-per-day continuation rows from raw SQL rows. Steps:
+///   1. Group by (sip_ticker, sip_breakout_date) to get per-chain candidate lists.
+///   2. Run the rolling-max + stop-rule fold per chain.
+///   3. Dedup across chains: for each (ticker, date), keep the row whose source
+///      chain has the EARLIEST breakout_date among chains that reached that day.
+///   4. Sort deterministically by (breakout_date, ticker, date).
+let private buildContinuationChains
+    (minRvolFraction: float)
+    (raws: ContinuationPlayRawRow array)
+    : ContinuationPlayRow array =
+    raws
+    |> Array.groupBy (fun r -> (r.sip_ticker, r.sip_breakout_date))
+    |> Array.collect (fun (_, group) ->
+        // Group is already sorted by day_date because the SQL ORDER BY matches.
+        buildChain minRvolFraction group)
+    |> Array.groupBy (fun r -> (r.ticker, r.date))
+    |> Array.map (fun (_, rows) ->
+        rows |> Array.minBy (fun r -> r.breakout_date))
+    |> Array.sortBy (fun r -> (r.breakout_date, r.ticker, r.date))
+
+/// For each breakout in the SIP query window, return continuation chain rows
+/// using the rolling-max rule. Chain walks forward up to `maxHorizonDays`
+/// calendar days from the breakout; a new max resets `days_since_max_rvol_day`
+/// to 0; the chain stops after the first day whose RVOL drops below
+/// `minRvolFraction * running_max`. Duplicate `(ticker, date)` rows across
+/// overlapping chains are collapsed to the earliest-breakout source.
 let getContinuationPlays
     (connection: IDbConnection)
     (startDate: DateTime)
@@ -573,36 +649,36 @@ let getContinuationPlays
     (minRvolFraction: float)
     (maxHorizonDays: int)
     : ContinuationPlayRow array =
-    connection.Query<ContinuationPlayRow>(
-        "SELECT * FROM continuation_plays(" +
-        "start_date := $startDate::DATE, " +
-        "end_date := $endDate::DATE, " +
-        "min_rvol := $minRvol, " +
-        "min_gap_pct := $minGapPct, " +
-        "min_avg_dollar_volume := $minAvgDollarVolume, " +
-        "rvol_weight := $rvolWeight, " +
-        "gap_weight := $gapWeight, " +
-        "exclude_etfs := $excludeEtfs, " +
-        "pre_window_days := $preWindowDays, " +
-        "post_window_days := $postWindowDays, " +
-        "min_atr_ratio := $minAtrRatio, " +
-        "min_rvol_fraction := $minRvolFraction, " +
-        "max_horizon_days := $maxHorizonDays" +
-        ") ORDER BY breakout_date, ticker, date",
-        {| startDate = startDate.ToString("yyyy-MM-dd")
-           endDate = endDate.ToString("yyyy-MM-dd")
-           minRvol = minRvol
-           minGapPct = minGapPct
-           minAvgDollarVolume = minAvgDollarVolume
-           rvolWeight = rvolWeight
-           gapWeight = gapWeight
-           excludeEtfs = excludeEtfs
-           preWindowDays = preWindowDays
-           postWindowDays = postWindowDays
-           minAtrRatio = minAtrRatio
-           minRvolFraction = minRvolFraction
-           maxHorizonDays = maxHorizonDays |})
-    |> Seq.toArray
+    let raws =
+        connection.Query<ContinuationPlayRawRow>(
+            "SELECT * FROM continuation_plays(" +
+            "start_date := $startDate::DATE, " +
+            "end_date := $endDate::DATE, " +
+            "min_rvol := $minRvol, " +
+            "min_gap_pct := $minGapPct, " +
+            "min_avg_dollar_volume := $minAvgDollarVolume, " +
+            "rvol_weight := $rvolWeight, " +
+            "gap_weight := $gapWeight, " +
+            "exclude_etfs := $excludeEtfs, " +
+            "pre_window_days := $preWindowDays, " +
+            "post_window_days := $postWindowDays, " +
+            "min_atr_ratio := $minAtrRatio, " +
+            "max_horizon_days := $maxHorizonDays" +
+            ") ORDER BY sip_ticker, sip_breakout_date, day_date",
+            {| startDate = startDate.ToString("yyyy-MM-dd")
+               endDate = endDate.ToString("yyyy-MM-dd")
+               minRvol = minRvol
+               minGapPct = minGapPct
+               minAvgDollarVolume = minAvgDollarVolume
+               rvolWeight = rvolWeight
+               gapWeight = gapWeight
+               excludeEtfs = excludeEtfs
+               preWindowDays = preWindowDays
+               postWindowDays = postWindowDays
+               minAtrRatio = minAtrRatio
+               maxHorizonDays = maxHorizonDays |})
+        |> Seq.toArray
+    buildContinuationChains minRvolFraction raws
 
 // --- Intraday Prices ---
 
