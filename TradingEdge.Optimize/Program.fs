@@ -44,26 +44,51 @@ type DayData = {
 }
 
 let private preloadDayData (entries: (string * string) list) : DayData[] =
-    [| for (ticker, date) in entries do
+    // Filter to the subset that actually has Parquet on disk up front so
+    // the progress counter matches the work actually being done (some
+    // entries in docs/generate_stocks_in_play_charts.ps1 may be commented
+    // out or have no downloaded data).
+    let onDisk =
+        entries
+        |> List.filter (fun (t, d) ->
+            File.Exists (sprintf "data/trades/%s/%s.parquet" t d))
+    let total = onDisk.Length
+    printfn "  %d of %d entries have Parquet files on disk" total entries.Length
+
+    // Straight-line loop so we can print per-file progress; the original
+    // list-comprehension version was terser but gave no feedback during
+    // the ~44s load.
+    let result = ResizeArray<DayData>(total)
+    let mutable index = 0
+    for (ticker, date) in onDisk do
+        index <- index + 1
         let path = sprintf "data/trades/%s/%s.parquet" ticker date
-        if File.Exists path then
-            let trades =
-                try Some (loadTrades path)
-                with _ -> None
-            match trades with
-            | None -> ()
-            | Some trades ->
-                let op = trades |> Array.tryFind (fun tr -> tr.Session = OpeningPrint)
-                let cp = trades |> Array.tryFind (fun tr -> tr.Session = ClosingPrint)
-                match op, cp with
-                | Some o, Some c ->
-                    yield {
-                        Ticker = ticker
-                        Date = date
-                        Trades = trades
-                        Window = { openTime = o.Timestamp; closeTime = c.Timestamp }
-                    }
-                | _ -> () |]
+        let trades =
+            try Some (loadTrades path)
+            with ex ->
+                printfn "  [%d/%d] FAIL  %s/%s  %s" index total ticker date ex.Message
+                None
+        match trades with
+        | None -> ()
+        | Some trades ->
+            let op = trades |> Array.tryFind (fun tr -> tr.Session = OpeningPrint)
+            let cp = trades |> Array.tryFind (fun tr -> tr.Session = ClosingPrint)
+            match op, cp with
+            | Some o, Some c ->
+                result.Add {
+                    Ticker = ticker
+                    Date = date
+                    Trades = trades
+                    Window = { openTime = o.Timestamp; closeTime = c.Timestamp }
+                }
+            | _ ->
+                printfn "  [%d/%d] SKIP  %s/%s  (missing OpeningPrint or ClosingPrint)" index total ticker date
+
+        // Every 10 files or on the last file, print a progress line.
+        if index % 10 = 0 || index = total then
+            printfn "  [%d/%d] loaded %d days so far" index total result.Count
+
+    result.ToArray()
 
 // =============================================================================
 // 3. Round-trip extraction from a fill stream
@@ -217,19 +242,35 @@ let private buildRoutes (dayData: DayData[]) =
         jsonResponse {| profitFactor = pf |}
 
     // Batch: parallel fitness evaluation for a whole CMA-ES population.
-    // Array.Parallel.map uses the ThreadPool, so server GC (enabled via
-    // runtimeconfig) is what makes this actually scale across cores.
+    //
+    // IMPORTANT: every item's parameters are extracted into a plain F#
+    // record BEFORE the parallel map. If we left the JsonElement structs
+    // in place and called .GetProperty inside the parallel worker, each
+    // worker would walk the same JsonDocument backing buffer
+    // concurrently. JsonDocument is thread-safe for read but that just
+    // means "doesn't crash" -- empirically the read path serializes
+    // under contention (~4 cores effective instead of 14 on a 14-item
+    // batch). Extracting to records first avoids the shared-document
+    // bottleneck entirely.
     let evalBatch (req: HttpRequest) =
         let body = readBody req |> JsonDocument.Parse
         let root = body.RootElement
-        let items = root.GetProperty("items").EnumerateArray() |> Array.ofSeq
-        let results =
-            items
-            |> Array.Parallel.map (fun item ->
+        let items =
+            root.GetProperty("items").EnumerateArray()
+            |> Seq.map (fun item ->
                 let pcts = item.GetProperty("pcts") |> doublesOfArray
                 let bandVol = item.GetProperty("bandVol").GetDouble()
-                match tryGetProperty "percentile" item with
-                | Some p -> profitFactorFromFills dayData pcts bandVol (p.GetDouble())
+                let percentile =
+                    match tryGetProperty "percentile" item with
+                    | Some p -> Some (p.GetDouble())
+                    | None -> None
+                struct (pcts, bandVol, percentile))
+            |> Array.ofSeq
+        let results =
+            items
+            |> Array.Parallel.map (fun struct (pcts, bandVol, percentile) ->
+                match percentile with
+                | Some pctile -> profitFactorFromFills dayData pcts bandVol pctile
                 | None -> profitFactorFromDecisions dayData pcts bandVol)
         jsonResponse {| profitFactors = results |}
 
