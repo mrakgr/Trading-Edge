@@ -362,39 +362,27 @@ let getDividendCount (connection: IDbConnection) : int64 =
 
 // --- Ticker Reference (ETF list) ---
 
-/// Replace the entire ticker_reference table contents with the given (ticker, name, type) rows.
-/// We do a full replace because the Polygon ETF universe is small (~5k rows) and changes
-/// only when funds launch or close.
-let replaceTickerReference (connection: IDbConnection) (rows: (string * string * string) seq) : int =
-    let duckDbConn = connection :?> DuckDBConnection
-    use transaction = duckDbConn.BeginTransaction()
-    use truncateCmd = duckDbConn.CreateCommand()
-    truncateCmd.Transaction <- transaction
-    truncateCmd.CommandText <- "DELETE FROM ticker_reference"
-    truncateCmd.ExecuteNonQuery() |> ignore
-
-    use insertCmd = duckDbConn.CreateCommand()
-    insertCmd.Transaction <- transaction
-    insertCmd.CommandText <-
-        "INSERT INTO ticker_reference (ticker, name, type) VALUES ($ticker, $name, $type) " +
-        "ON CONFLICT(ticker, type) DO UPDATE SET name = excluded.name"
-
-    let pTicker = new DuckDBParameter("ticker", null)
-    let pName = new DuckDBParameter("name", null)
-    let pType = new DuckDBParameter("type", null)
-    insertCmd.Parameters.Add(pTicker) |> ignore
-    insertCmd.Parameters.Add(pName) |> ignore
-    insertCmd.Parameters.Add(pType) |> ignore
-
-    let mutable count = 0
-    for (ticker, name, typ) in rows do
-        pTicker.Value <- ticker
-        pName.Value <- (if isNull name then "" else name)
-        pType.Value <- typ
-        count <- count + insertCmd.ExecuteNonQuery()
-
-    transaction.Commit()
-    count
+/// Bulk ingest the ETF/ETN reference list from a CSV file using DuckDB's
+/// native read_csv. The CSV is RFC-4180-quoted (ETF names can contain commas).
+/// Existing rows are upserted on conflict so re-running is idempotent.
+let ingestTickersFromCsv (connection: IDbConnection) (filePath: string) : int64 =
+    let sql = $"""
+        INSERT INTO ticker_reference (ticker, name, type)
+        SELECT ticker, name, type
+        FROM read_csv('{filePath}',
+            columns = {{
+                'ticker': 'VARCHAR',
+                'name': 'VARCHAR',
+                'type': 'VARCHAR'
+            }},
+            header = true,
+            quote = '"',
+            escape = '"'
+        )
+        ON CONFLICT(ticker, type) DO UPDATE SET
+            name = excluded.name
+    """
+    connection.Execute(sql) |> int64
 
 /// Get count of rows in ticker_reference
 let getTickerReferenceCount (connection: IDbConnection) : int64 =

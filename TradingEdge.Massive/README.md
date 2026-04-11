@@ -240,29 +240,32 @@ Output: `data/news/{ticker}/{date}.json`
 
 ### Download Tickers (ETF Reference List)
 
-Downloads the universe of exchange-traded products (ETFs, ETNs, ETVs, ETSs) from Polygon's `/v3/reference/tickers` endpoint and writes them **directly into the DuckDB database** — no separate ingest step is needed. The full table is replaced atomically each time the command runs, so it's safe to re-run.
+Downloads the universe of exchange-traded products (ETFs, ETNs, ETVs, ETSs) from Polygon's `/v3/reference/tickers` endpoint and saves them to a CSV file. Like splits and dividends, the data is then loaded into the DuckDB database via `ingest-data`.
 
-This populates the `ticker_reference` table that `stocks-in-play` uses to filter ETFs out of breakout candidates by default.
+The resulting `ticker_reference` table is what `stocks-in-play` uses to filter ETFs out of breakout candidates by default.
 
 ```bash
 dotnet run --project TradingEdge.Massive -- download-tickers [options]
 ```
 
 **Options:**
-- `-d, --database <path>` - DuckDB database path (default: data/trading.db)
+- `-o, --output-file <path>` - Output CSV path (default: data/tickers.csv)
 
 **Example:**
 
 ```bash
 # Refresh the ETF list (typical run takes a few seconds; produces ~5k rows)
 dotnet run --project TradingEdge.Massive -- download-tickers
+
+# Then ingest into the database (along with any other refreshed sources)
+dotnet run --project TradingEdge.Massive -- ingest-data
 ```
 
-The ETF universe changes slowly — once a quarter is plenty. Run it once before your first `stocks-in-play` query so the ETF filter has data to match against.
+The ETF universe changes slowly — once a quarter is plenty. Run it once (followed by `ingest-data`) before your first `stocks-in-play` query so the ETF filter has data to match against.
 
 ### Ingest Data
 
-Ingests downloaded CSV files, splits, and dividends into a DuckDB database.
+Ingests downloaded daily aggregates, splits, dividends, and the ETF ticker reference into a DuckDB database. Each source is independently gated by file existence, so you can re-run after refreshing only one of them.
 
 ```bash
 dotnet run --project TradingEdge.Massive -- ingest-data [options]
@@ -273,6 +276,7 @@ dotnet run --project TradingEdge.Massive -- ingest-data [options]
 - `-c, --csv-dir <path>` - Directory containing .csv.gz files (default: data/daily_aggregates)
 - `-s, --splits-file <path>` - CSV file containing splits (default: data/splits.csv)
 - `--dividends-file <path>` - CSV file containing dividends (default: data/dividends.csv)
+- `--tickers-file <path>` - CSV file containing the ETF/ETN ticker reference (default: data/tickers.csv)
 
 **Examples:**
 
@@ -286,7 +290,7 @@ dotnet run --project TradingEdge.Massive -- ingest-data -d /path/to/custom.db
 
 **Features:**
 - Uses DuckDB's native CSV reader for fast bulk ingestion
-- Upserts splits and dividends (inserts new, updates existing) on each run
+- Upserts splits, dividends, and tickers (inserts new, updates existing) on each run
 - Materializes derived tables (split-and-dividend-adjusted prices, momentum rankings, etc.)
 
 ### Ingest Intraday Data
@@ -399,7 +403,7 @@ dotnet run --project TradingEdge.Massive -- stocks-in-play -s 2024-04-11 -e 2026
 - Liquidity: $100M+ average daily dollar volume (4-week)
 - Relative Volume (RVOL): >= 3x normal volume
 - Opening Gap: >= 5% from previous close
-- ETFs/ETNs excluded (run `download-tickers` first to populate the reference table)
+- ETFs/ETNs excluded (run `download-tickers` then `ingest-data` first to populate the reference table)
 - Buyouts excluded: rows whose 5-day post-event ATR collapses to <= 55% of the 20-day pre-event ATR
 - Ranked by composite score (95% RVOL weight, 5% gap weight)
 - Top 10 stocks per day

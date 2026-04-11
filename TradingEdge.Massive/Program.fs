@@ -17,6 +17,15 @@ open TradingEdge.Database
 
 let private formatDate (d: DateTime) = d.ToString("yyyy-MM-dd")
 
+/// RFC 4180 CSV field quoting: wrap in quotes if the field contains a comma,
+/// quote, or newline; double up any embedded quotes.
+let private csvQuote (s: string) : string =
+    let s = if isNull s then "" else s
+    if s.IndexOfAny([| ','; '"'; '\n'; '\r' |]) >= 0 then
+        "\"" + s.Replace("\"", "\"\"") + "\""
+    else
+        s
+
 type DownloadBulkArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
     | [<AltCommandLine("-e")>] End_Date of string
@@ -54,6 +63,7 @@ type IngestDataArgs =
     | [<AltCommandLine("-c")>] Csv_Dir of string
     | [<AltCommandLine("-s")>] Splits_File of string
     | Dividends_File of string
+    | Tickers_File of string
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -62,6 +72,7 @@ type IngestDataArgs =
             | Csv_Dir _ -> "Directory containing .csv.gz files (default: data/daily_aggregates)"
             | Splits_File _ -> "CSV file containing splits (default: data/splits.csv)"
             | Dividends_File _ -> "CSV file containing dividends (default: data/dividends.csv)"
+            | Tickers_File _ -> "CSV file containing ETF/ETN ticker reference (default: data/tickers.csv)"
 
 type StocksInPlayArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
@@ -96,12 +107,12 @@ type StocksInPlayArgs =
             | Json -> "Emit JSON to stdout instead of the human-readable table"
 
 type DownloadTickersArgs =
-    | [<AltCommandLine("-d")>] Database of string
+    | [<AltCommandLine("-o")>] Output_File of string
 
     interface IArgParserTemplate with
         member this.Usage =
             match this with
-            | Database _ -> "DuckDB database path (default: data/trading.db)"
+            | Output_File _ -> "Output CSV path (default: data/tickers.csv)"
 
 type ContinuationPlaysArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
@@ -440,10 +451,15 @@ let private handleIngestData (args: ParseResults<IngestDataArgs>) =
         args.TryGetResult IngestDataArgs.Dividends_File
         |> Option.defaultValue "data/dividends.csv"
 
+    let tickersFile =
+        args.TryGetResult IngestDataArgs.Tickers_File
+        |> Option.defaultValue "data/tickers.csv"
+
     printfn "Database: %s" (Path.GetFullPath dbPath)
     printfn "CSV directory: %s" (Path.GetFullPath csvDir)
     printfn "Splits file: %s" (Path.GetFullPath splitsFile)
     printfn "Dividends file: %s" (Path.GetFullPath dividendsFile)
+    printfn "Tickers file: %s" (Path.GetFullPath tickersFile)
     printfn ""
 
     use connection = openConnection dbPath
@@ -492,6 +508,18 @@ let private handleIngestData (args: ParseResults<IngestDataArgs>) =
         printfn "Ingested %d new dividends (total: %d) in %.2fs" newDividends countAfter sw.Elapsed.TotalSeconds
     else
         printfn "Dividends file not found: %s" dividendsFile
+
+    // Ingest ETF/ETN ticker reference from CSV file
+    if File.Exists tickersFile then
+        let sw = System.Diagnostics.Stopwatch.StartNew()
+        let countBefore = getTickerReferenceCount connection
+        let _ = ingestTickersFromCsv connection tickersFile
+        let countAfter = getTickerReferenceCount connection
+        let newTickers = countAfter - countBefore
+        sw.Stop()
+        printfn "Ingested %d new tickers (total: %d) in %.2fs" newTickers countAfter sw.Elapsed.TotalSeconds
+    else
+        printfn "Tickers file not found: %s" tickersFile
 
     printfn "Data ingestion complete."
 
@@ -596,12 +624,13 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
                     stock.rank stock.ticker (stock.gap_pct * 100.0) stock.rvol stock.in_play_score ratioStr
 
 let private handleDownloadTickers (config: MassiveConfig) (args: ParseResults<DownloadTickersArgs>) =
-    let dbPath =
-        args.TryGetResult DownloadTickersArgs.Database
-        |> Option.defaultValue "data/trading.db"
+    ensureDataDir ()
+
+    let outputPath =
+        args.TryGetResult DownloadTickersArgs.Output_File
+        |> Option.defaultValue "data/tickers.csv"
 
     printfn "Downloading ETF/ETN ticker reference from Polygon..."
-    printfn "Database: %s" (Path.GetFullPath dbPath)
 
     use httpClient = new HttpClient()
     use cts = new CancellationTokenSource()
@@ -615,11 +644,13 @@ let private handleDownloadTickers (config: MassiveConfig) (args: ParseResults<Do
         printfn ""
         printfn "Downloaded %d ETF-like tickers" rows.Length
 
-        use connection = openConnection dbPath
-        initializeSchema connection
-        let inserted = replaceTickerReference connection rows
-        let total = getTickerReferenceCount connection
-        printfn "Inserted %d rows; ticker_reference now contains %d rows." inserted total
+        // Save to CSV for fast DuckDB ingestion via `ingest-data`.
+        // Names may contain commas, so we RFC-4180-quote them.
+        use writer = new StreamWriter(outputPath)
+        writer.WriteLine("ticker,name,type")
+        for (ticker, name, typ) in rows do
+            writer.WriteLine($"{csvQuote ticker},{csvQuote name},{csvQuote typ}")
+        printfn "Saved tickers to %s" (Path.GetFullPath outputPath)
 
     | Error msg ->
         eprintfn "Error downloading tickers: %s" msg
