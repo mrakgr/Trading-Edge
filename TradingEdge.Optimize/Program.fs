@@ -310,6 +310,19 @@ let main _argv =
     let dayData = preloadDayData entries
     printfn "Loaded %d days in %.1fs" dayData.Length swLoad.Elapsed.TotalSeconds
 
+    // Total trade count across all loaded days — used to size a custom
+    // uncompressed (price, size, time) format. 16 bytes/trade × N tells us
+    // the memory ceiling before we commit to streaming.
+    let totalTrades =
+        dayData |> Array.sumBy (fun d -> int64 d.Trades.Length)
+    let bytesPerTrade = 16L  // float64 price + int32 size + int64 ns timestamp
+    let estBytes = totalTrades * bytesPerTrade
+    printfn "Total trades across %d days: %s (%.2f GB at %d bytes/trade)"
+        dayData.Length
+        (totalTrades.ToString("N0"))
+        (float estBytes / 1e9)
+        (int bytesPerTrade)
+
     let port = 8085us
     let config =
         { defaultConfig with
