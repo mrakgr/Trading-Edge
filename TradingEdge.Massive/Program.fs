@@ -525,7 +525,7 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
             rvolWeight gapWeight excludeEtfs preWindowDays postWindowDays minAtrRatio
 
     if jsonMode then
-        // Emit a JSON array of {ticker, date, avg_dollar_volume_4w} objects.
+        // Emit a JSON array of {ticker, date, volume, avg_volume_4w} objects.
         let sb = System.Text.StringBuilder()
         sb.Append("[") |> ignore
         let mutable first = true
@@ -534,10 +534,11 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
             first <- false
             sb.AppendFormat(
                 System.Globalization.CultureInfo.InvariantCulture,
-                "\n  {{\"ticker\": \"{0}\", \"date\": \"{1}\", \"avg_dollar_volume_4w\": {2}}}",
+                "\n  {{\"ticker\": \"{0}\", \"date\": \"{1}\", \"volume\": {2}, \"avg_volume_4w\": {3}}}",
                 stock.ticker,
                 stock.date.ToString("yyyy-MM-dd"),
-                stock.avg_dollar_volume_4w) |> ignore
+                stock.volume,
+                stock.avg_volume_4w) |> ignore
         if not first then sb.Append("\n") |> ignore
         sb.Append("]") |> ignore
         printfn "%s" (sb.ToString())

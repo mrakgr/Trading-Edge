@@ -393,7 +393,7 @@ TradingEdge/
 │       ├── materialized/        # Materialized tables (slow to rebuild)
 │       │   ├── 01_split_adjusted_prices.sql  # Split + dividend adjusted
 │       │   ├── 02_trading_calendar.sql
-│       │   └── 04_stock_dollar_volume_4w.sql
+│       │   └── 04_stock_volume_4w.sql
 │       └── views/               # Views/macros (fast to refresh)
 │           ├── 09_stocks_in_play.sql
 │           └── 10_trades_with_quotes.sql

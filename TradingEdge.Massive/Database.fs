@@ -494,6 +494,8 @@ type StockInPlayRow = {
     range_pct: float
     rvol: float
     avg_dollar_volume_4w: float
+    volume: int64
+    avg_volume_4w: float
     pre_atr_pct: System.Nullable<float>
     post_atr_pct: System.Nullable<float>
     atr_ratio: System.Nullable<float>

@@ -36,6 +36,7 @@ WITH daily_metrics AS (
         p.adj_close,
         p.adj_volume,
         p_prev.adj_close AS prev_close,
+        v.avg_volume_4w,
         v.avg_dollar_volume_4w,
         -- Opening gap: % change from previous close to today's open
         (p.adj_open - p_prev.adj_close) / p_prev.adj_close AS gap_pct,
@@ -50,7 +51,7 @@ WITH daily_metrics AS (
     JOIN split_adjusted_prices p_prev
         ON p_prev.ticker = p.ticker
         AND p_prev.date = tc.date_prev
-    JOIN stock_dollar_volume_4w v
+    JOIN stock_volume_4w v
         ON v.ticker = p.ticker
         AND v.date = p.date
     WHERE v.avg_dollar_volume_4w >= min_avg_dollar_volume
@@ -152,20 +153,22 @@ ranked AS (
     )
 )
 SELECT
-    ticker,
-    date,
-    adj_open,
-    adj_close,
-    prev_close,
-    gap_pct,
-    range_pct,
-    rvol,
-    avg_dollar_volume_4w,
-    pre_atr_pct,
-    post_atr_pct,
-    atr_ratio,
-    in_play_score,
-    rank
-FROM ranked
-WHERE rank <= 10
-ORDER BY date, rank;
+    r.ticker,
+    r.date,
+    r.adj_open,
+    r.adj_close,
+    r.prev_close,
+    r.gap_pct,
+    r.range_pct,
+    r.rvol,
+    r.adj_volume AS volume,
+    r.avg_volume_4w,
+    r.avg_dollar_volume_4w,
+    r.pre_atr_pct,
+    r.post_atr_pct,
+    r.atr_ratio,
+    r.in_play_score,
+    r.rank
+FROM ranked r
+WHERE r.rank <= 10
+ORDER BY r.date, r.rank;
