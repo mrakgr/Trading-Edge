@@ -324,7 +324,7 @@ dotnet run --project TradingEdge.Massive -- refresh-views -d /path/to/custom.db
 
 ### Stocks In Play
 
-Lists top stocks in play for a date range based on relative volume, opening gap, and liquidity.
+Lists top stocks in play for a date range based on relative volume, opening gap, and liquidity. ETFs are excluded by default (via the `ticker_reference` table populated by `download-tickers`), and rows whose post-event ATR collapses below half their pre-event ATR are filtered out as likely buyouts.
 
 ```bash
 dotnet run --project TradingEdge.Massive -- stocks-in-play [options]
@@ -339,6 +339,11 @@ dotnet run --project TradingEdge.Massive -- stocks-in-play [options]
 - `-v, --min-dollar-volume <float>` - Minimum avg dollar volume in millions (default: 100)
 - `-rw, --rvol-weight <float>` - Weight for RVOL in scoring (default: 0.95)
 - `-gw, --gap-weight <float>` - Weight for gap in scoring (default: 0.05)
+- `--include-etfs` - Do not exclude ETFs/ETNs (default: excluded via `ticker_reference`)
+- `--pre-window-days <int>` - Days before breakout for ATR baseline (default: 20)
+- `--post-window-days <int>` - Days after breakout for ATR comparison (default: 5)
+- `--min-atr-ratio <float>` - Min post/pre ATR ratio (buyout filter, default: 0.55; 0 disables)
+- `--json` - Emit JSON to stdout instead of the human-readable table
 
 **Examples:**
 
@@ -360,14 +365,78 @@ dotnet run --project TradingEdge.Massive -- stocks-in-play -r 2 -g 0.03 -v 25
 
 # Use balanced weighting (50% RVOL, 50% gap) instead of volume-focused default
 dotnet run --project TradingEdge.Massive -- stocks-in-play -rw 0.5 -gw 0.5
+
+# Disable the buyout filter to see ALL surviving SIP rows
+dotnet run --project TradingEdge.Massive -- stocks-in-play --min-atr-ratio 0
+
+# Dump 2 years of breakouts to JSON
+dotnet run --project TradingEdge.Massive -- stocks-in-play -s 2024-04-11 -e 2026-04-11 --json > data/stocks_in_play.json
 ```
 
 **Default Criteria:**
 - Liquidity: $100M+ average daily dollar volume (4-week)
 - Relative Volume (RVOL): >= 3x normal volume
 - Opening Gap: >= 5% from previous close
+- ETFs/ETNs excluded (run `download-tickers` first to populate the reference table)
+- Buyouts excluded: rows whose 5-day post-event ATR collapses to <= 55% of the 20-day pre-event ATR
 - Ranked by composite score (95% RVOL weight, 5% gap weight)
 - Top 10 stocks per day
+
+### Continuation Plays
+
+For each breakout in `stocks-in-play`, walks forward day-by-day and emits a row for every trading day whose RVOL stays above half the breakout day's RVOL. The chain stops at the first failing day, which is also included so callers can see where the chain died.
+
+The output is a single unified list. Each row carries `number_of_days_since_breakout` (0 for the breakout itself, 1+ for follow-through days) so downstream consumers can filter breakouts vs continuations from a single file.
+
+```bash
+dotnet run --project TradingEdge.Massive -- continuation-plays [options]
+```
+
+**Options:**
+
+All `stocks-in-play` filter options are forwarded (same defaults), plus:
+- `--min-rvol-fraction <float>` - Min fraction of breakout RVOL to keep the chain alive (default: 0.5)
+- `--max-horizon-days <int>` - Safety cap on chain length in calendar days (default: 30)
+- `--json` - Emit JSON to stdout instead of the human-readable table
+
+**Examples:**
+
+```bash
+# List continuation chains for the past month
+dotnet run --project TradingEdge.Massive -- continuation-plays -s 2026-03-11 -e 2026-04-11
+
+# Dump 2 years of breakouts + continuations to JSON for downstream processing
+dotnet run --project TradingEdge.Massive -- continuation-plays -s 2024-04-11 -e 2026-04-11 --json > data/continuation_plays.json
+
+# Stricter chain rule: only continue if RVOL stays above 70% of breakout day
+dotnet run --project TradingEdge.Massive -- continuation-plays --min-rvol-fraction 0.7
+```
+
+**Output shape (JSON):**
+
+```json
+[
+  {
+    "ticker": "ARM",
+    "breakout_date": "2026-03-20",
+    "date": "2026-03-20",
+    "number_of_days_since_breakout": 0,
+    "rvol": 3.09,
+    "breakout_rvol": 3.09,
+    "volume": 12450804,
+    "avg_volume_4w": 4030000.5
+  },
+  {
+    "ticker": "ARM",
+    "breakout_date": "2026-03-20",
+    "date": "2026-03-23",
+    "number_of_days_since_breakout": 1,
+    "rvol": 1.94,
+    "breakout_rvol": 3.09,
+    ...
+  }
+]
+```
 
 ## Project Structure
 
@@ -383,20 +452,23 @@ TradingEdge/
 │   ├── TradesDownload.fs        # Trades API client (tick-level data)
 │   ├── QuotesDownload.fs        # Quotes API client (NBBO data)
 │   ├── NewsDownload.fs          # News API client (articles with sentiment)
+│   ├── TickersDownload.fs       # Reference tickers API client (ETF list)
 │   ├── Database.fs              # DuckDB database operations
 │   ├── Program.fs               # CLI application
 │   └── sql/schema/              # SQL schema files
 │       ├── tables/              # Base tables
 │       │   ├── daily_prices.sql
 │       │   ├── splits.sql
-│       │   └── dividends.sql
+│       │   ├── dividends.sql
+│       │   └── ticker_reference.sql
 │       ├── materialized/        # Materialized tables (slow to rebuild)
 │       │   ├── 01_split_adjusted_prices.sql  # Split + dividend adjusted
 │       │   ├── 02_trading_calendar.sql
 │       │   └── 04_stock_volume_4w.sql
 │       └── views/               # Views/macros (fast to refresh)
 │           ├── 09_stocks_in_play.sql
-│           └── 10_trades_with_quotes.sql
+│           ├── 10_trades_with_quotes.sql
+│           └── 11_continuation_plays.sql
 ├── api_key.json                 # API credentials (not in git)
 └── data/                        # Downloaded data
     ├── daily_aggregates/        # Daily OHLCV CSV files
