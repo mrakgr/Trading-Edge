@@ -591,7 +591,7 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
             rvolWeight gapWeight excludeEtfs preWindowDays postWindowDays minAtrRatio
 
     if jsonMode then
-        // Emit a JSON array of {ticker, date, volume, avg_volume_4w} objects.
+        // Emit a JSON array of {ticker, date, volume, avg_volume_4w, avg_dollar_volume_4w} objects.
         let sb = System.Text.StringBuilder()
         sb.Append("[") |> ignore
         let mutable first = true
@@ -600,11 +600,12 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
             first <- false
             sb.AppendFormat(
                 System.Globalization.CultureInfo.InvariantCulture,
-                "\n  {{\"ticker\": \"{0}\", \"date\": \"{1}\", \"volume\": {2}, \"avg_volume_4w\": {3}}}",
+                "\n  {{\"ticker\": \"{0}\", \"date\": \"{1}\", \"volume\": {2}, \"avg_volume_4w\": {3}, \"avg_dollar_volume_4w\": {4}}}",
                 stock.ticker,
                 stock.date.ToString("yyyy-MM-dd"),
                 stock.volume,
-                stock.avg_volume_4w) |> ignore
+                stock.avg_volume_4w,
+                stock.avg_dollar_volume_4w) |> ignore
         if not first then sb.Append("\n") |> ignore
         sb.Append("]") |> ignore
         printfn "%s" (sb.ToString())
@@ -707,7 +708,7 @@ let private handleContinuationPlays (args: ParseResults<ContinuationPlaysArgs>) 
             first <- false
             sb.AppendFormat(
                 System.Globalization.CultureInfo.InvariantCulture,
-                "\n  {{\"ticker\": \"{0}\", \"breakout_date\": \"{1}\", \"date\": \"{2}\", \"number_of_days_since_breakout\": {3}, \"rvol\": {4}, \"breakout_rvol\": {5}, \"volume\": {6}, \"avg_volume_4w\": {7}}}",
+                "\n  {{\"ticker\": \"{0}\", \"breakout_date\": \"{1}\", \"date\": \"{2}\", \"number_of_days_since_breakout\": {3}, \"rvol\": {4}, \"breakout_rvol\": {5}, \"volume\": {6}, \"avg_volume_4w\": {7}, \"avg_dollar_volume_4w\": {8}}}",
                 p.ticker,
                 p.breakout_date.ToString("yyyy-MM-dd"),
                 p.date.ToString("yyyy-MM-dd"),
@@ -715,7 +716,8 @@ let private handleContinuationPlays (args: ParseResults<ContinuationPlaysArgs>) 
                 p.rvol,
                 p.breakout_rvol,
                 p.volume,
-                p.avg_volume_4w) |> ignore
+                p.avg_volume_4w,
+                p.avg_dollar_volume_4w) |> ignore
         if not first then sb.Append("\n") |> ignore
         sb.Append("]") |> ignore
         printfn "%s" (sb.ToString())
