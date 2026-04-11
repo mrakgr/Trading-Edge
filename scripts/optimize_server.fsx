@@ -1,6 +1,6 @@
 #r "nuget: Suave, 2.7.0"
 #r "nuget: FSharp.SystemTextJson, 1.3.13"
-#r "nuget: DuckDB.NET.Data.Full, 1.5.0"
+#r "nuget: DuckDB.NET.Data.Full, 1.4.4"
 #r "../TradingEdge.Parsing/bin/Debug/net10.0/TDigest.dll"
 #r "../TradingEdge.Parsing/bin/Debug/net10.0/TradingEdge.Parsing.dll"
 

@@ -1,5 +1,5 @@
 #r "nuget: FSharp.SystemTextJson, 1.3.13"
-#r "nuget: DuckDB.NET.Data.Full, 1.5.0"
+#r "nuget: DuckDB.NET.Data.Full, 1.4.4"
 #r "../TradingEdge.Parsing/bin/Debug/net10.0/TradingEdge.Parsing.dll"
 
 open TradingEdge.Parsing.TradeLoader
