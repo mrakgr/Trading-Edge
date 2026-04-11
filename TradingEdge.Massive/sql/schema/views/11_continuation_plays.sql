@@ -19,7 +19,7 @@ CREATE MACRO continuation_plays(
     end_date := DATE '2999-12-31',
     min_rvol := 3,
     min_gap_pct := 0.05,
-    min_avg_dollar_volume := 100000000,
+    min_avg_dollar_volume := 25000000,
     rvol_weight := 0.95,
     gap_weight := 0.05,
     exclude_etfs := true,

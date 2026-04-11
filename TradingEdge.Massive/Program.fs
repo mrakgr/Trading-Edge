@@ -97,7 +97,7 @@ type StocksInPlayArgs =
             | Database _ -> "DuckDB database path (default: data/trading.db)"
             | Min_Rvol _ -> "Minimum relative volume (default: 3)"
             | Min_Gap_Pct _ -> "Minimum gap percentage as decimal, e.g. 0.05 for 5% (default: 0.05)"
-            | Min_Dollar_Volume _ -> "Minimum avg dollar volume in millions (default: 100)"
+            | Min_Dollar_Volume _ -> "Minimum avg dollar volume in millions (default: 25)"
             | Rvol_Weight _ -> "Weight for RVOL in scoring (default: 0.95)"
             | Gap_Weight _ -> "Weight for gap in scoring (default: 0.05)"
             | Include_Etfs -> "Do not exclude ETFs/ETNs (default: excluded via ticker_reference)"
@@ -139,7 +139,7 @@ type ContinuationPlaysArgs =
             | Database _ -> "DuckDB database path (default: data/trading.db)"
             | Min_Rvol _ -> "Minimum relative volume for breakout (default: 3)"
             | Min_Gap_Pct _ -> "Minimum gap percentage as decimal for breakout (default: 0.05)"
-            | Min_Dollar_Volume _ -> "Minimum avg dollar volume in millions (default: 100)"
+            | Min_Dollar_Volume _ -> "Minimum avg dollar volume in millions (default: 25)"
             | Rvol_Weight _ -> "Weight for RVOL in scoring (default: 0.95)"
             | Gap_Weight _ -> "Weight for gap in scoring (default: 0.05)"
             | Include_Etfs -> "Do not exclude ETFs/ETNs (default: excluded)"
@@ -184,7 +184,7 @@ type DownloadIntradayArgs =
             | From_Sip -> "Download intraday data for stocks in play from the database"
             | Min_Rvol _ -> "Min RVOL filter for SIP lookup (default: 3)"
             | Min_Gap_Pct _ -> "Min gap % filter for SIP lookup (default: 0.05)"
-            | Min_Dollar_Volume _ -> "Min avg dollar volume in millions for SIP lookup (default: 100)"
+            | Min_Dollar_Volume _ -> "Min avg dollar volume in millions for SIP lookup (default: 25)"
 
 type DownloadTradesArgs =
     | [<AltCommandLine("-t")>] Ticker of string
@@ -568,7 +568,7 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
 
     let minRvol = args.GetResult(StocksInPlayArgs.Min_Rvol, defaultValue = 3.0)
     let minGapPct = args.GetResult(StocksInPlayArgs.Min_Gap_Pct, defaultValue = 0.05)
-    let minDollarVolume = args.GetResult(StocksInPlayArgs.Min_Dollar_Volume, defaultValue = 100.0) * 1_000_000.0
+    let minDollarVolume = args.GetResult(StocksInPlayArgs.Min_Dollar_Volume, defaultValue = 25.0) * 1_000_000.0
     let rvolWeight = args.GetResult(StocksInPlayArgs.Rvol_Weight, defaultValue = 0.95)
     let gapWeight = args.GetResult(StocksInPlayArgs.Gap_Weight, defaultValue = 0.05)
     let excludeEtfs = not (args.Contains StocksInPlayArgs.Include_Etfs)
@@ -673,7 +673,7 @@ let private handleContinuationPlays (args: ParseResults<ContinuationPlaysArgs>) 
 
     let minRvol = args.GetResult(ContinuationPlaysArgs.Min_Rvol, defaultValue = 3.0)
     let minGapPct = args.GetResult(ContinuationPlaysArgs.Min_Gap_Pct, defaultValue = 0.05)
-    let minDollarVolume = args.GetResult(ContinuationPlaysArgs.Min_Dollar_Volume, defaultValue = 100.0) * 1_000_000.0
+    let minDollarVolume = args.GetResult(ContinuationPlaysArgs.Min_Dollar_Volume, defaultValue = 25.0) * 1_000_000.0
     let rvolWeight = args.GetResult(ContinuationPlaysArgs.Rvol_Weight, defaultValue = 0.95)
     let gapWeight = args.GetResult(ContinuationPlaysArgs.Gap_Weight, defaultValue = 0.05)
     let excludeEtfs = not (args.Contains ContinuationPlaysArgs.Include_Etfs)
@@ -795,7 +795,7 @@ let private handleDownloadIntraday (config: MassiveConfig) (args: ParseResults<D
 
             let minRvol = args.GetResult(DownloadIntradayArgs.Min_Rvol, defaultValue = 3.0)
             let minGapPct = args.GetResult(DownloadIntradayArgs.Min_Gap_Pct, defaultValue = 0.05)
-            let minDollarVolume = args.GetResult(DownloadIntradayArgs.Min_Dollar_Volume, defaultValue = 100.0) * 1_000_000.0
+            let minDollarVolume = args.GetResult(DownloadIntradayArgs.Min_Dollar_Volume, defaultValue = 25.0) * 1_000_000.0
 
             printfn "Querying stocks in play from database..."
             printfn "Database: %s" (Path.GetFullPath dbPath)

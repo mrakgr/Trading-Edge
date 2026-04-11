@@ -126,7 +126,7 @@ dotnet run --project TradingEdge.Massive -- download-intraday [options]
 - `--from-sip` - Download for all stocks in play from database
 - `-r, --min-rvol <float>` - Min RVOL filter for SIP (default: 3)
 - `-g, --min-gap-pct <float>` - Min gap % for SIP (default: 0.05)
-- `-v, --min-dollar-volume <float>` - Min avg dollar volume in millions for SIP (default: 100)
+- `-v, --min-dollar-volume <float>` - Min avg dollar volume in millions for SIP (default: 25)
 
 **Examples:**
 
@@ -362,7 +362,7 @@ dotnet run --project TradingEdge.Massive -- stocks-in-play [options]
 - `-d, --database <path>` - DuckDB database path (default: data/trading.db)
 - `-r, --min-rvol <float>` - Minimum relative volume (default: 3)
 - `-g, --min-gap-pct <float>` - Minimum gap percentage as decimal (default: 0.05 for 5%)
-- `-v, --min-dollar-volume <float>` - Minimum avg dollar volume in millions (default: 100)
+- `-v, --min-dollar-volume <float>` - Minimum avg dollar volume in millions (default: 25)
 - `-rw, --rvol-weight <float>` - Weight for RVOL in scoring (default: 0.95)
 - `-gw, --gap-weight <float>` - Weight for gap in scoring (default: 0.05)
 - `--include-etfs` - Do not exclude ETFs/ETNs (default: excluded via `ticker_reference`)
@@ -383,11 +383,11 @@ dotnet run --project TradingEdge.Massive -- stocks-in-play -s 2024-12-01 -e 2024
 # Find stocks with higher volatility (5x RVOL, 10% gap)
 dotnet run --project TradingEdge.Massive -- stocks-in-play -r 5 -g 0.10
 
-# Include smaller-cap stocks ($50M+ avg volume instead of $100M)
-dotnet run --project TradingEdge.Massive -- stocks-in-play -v 50
+# Restrict to large-cap stocks only ($100M+ avg volume instead of $25M)
+dotnet run --project TradingEdge.Massive -- stocks-in-play -v 100
 
 # Combine all filters: aggressive settings for small caps
-dotnet run --project TradingEdge.Massive -- stocks-in-play -r 2 -g 0.03 -v 25
+dotnet run --project TradingEdge.Massive -- stocks-in-play -r 2 -g 0.03 -v 10
 
 # Use balanced weighting (50% RVOL, 50% gap) instead of volume-focused default
 dotnet run --project TradingEdge.Massive -- stocks-in-play -rw 0.5 -gw 0.5
@@ -400,7 +400,7 @@ dotnet run --project TradingEdge.Massive -- stocks-in-play -s 2024-04-11 -e 2026
 ```
 
 **Default Criteria:**
-- Liquidity: $100M+ average daily dollar volume (4-week)
+- Liquidity: $25M+ average daily dollar volume (4-week, prior days only — today's spike is not counted)
 - Relative Volume (RVOL): >= 3x normal volume
 - Opening Gap: >= 5% from previous close
 - ETFs/ETNs excluded (run `download-tickers` then `ingest-data` first to populate the reference table)
