@@ -4,10 +4,13 @@
 --   1. RVOL, gap, dollar-volume thresholds (the original SIP definition)
 --   2. ETF exclusion via LEFT ANTI JOIN against ticker_reference (if exclude_etfs = true
 --      and the table is non-empty)
---   3. Buyout filter: a stock whose post-event daily-range-% drops to <= min_range_ratio
---      of its pre-event daily-range-% is treated as acquired/dead and excluded.
+--   3. Buyout filter: a stock whose post-event ATR collapses is treated as acquired/dead
+--      and excluded. ATR = mean of true_range / close over the window, where
+--      true_range = max(high-low, abs(high-prev_close), abs(low-prev_close)).
+--      The breakout day is excluded from both windows -- pre = [date-N, date-1],
+--      post = [date+1, date+M] -- so the gap event itself doesn't pollute either side.
 --
--- The pre/post range columns are returned in the result set so callers can inspect
+-- The pre/post ATR columns are returned in the result set so callers can inspect
 -- and tune the threshold.
 DROP MACRO IF EXISTS stocks_in_play;
 CREATE MACRO stocks_in_play(
@@ -21,7 +24,7 @@ CREATE MACRO stocks_in_play(
     exclude_etfs := true,
     pre_window_days := 20,
     post_window_days := 5,
-    min_range_ratio := 0.55
+    min_atr_ratio := 0.55
 ) AS TABLE
 WITH daily_metrics AS (
     SELECT
@@ -67,34 +70,70 @@ filtered AS (
           )
       )
 ),
--- Pre/post range averages computed only for the (small) filtered set
-with_ranges AS (
+-- Pre/post ATR averages computed only for the (small) filtered set.
+-- ATR = mean of true_range / close, where true_range needs the previous day's close.
+-- We get prev_close via a join through trading_calendar so that gaps over weekends/
+-- holidays are handled correctly.
+--
+-- Pre window:  [date - pre_window_days, date - 2] -- excludes the breakout day AND
+--              the day before it. The day-before is excluded because any pre-event
+--              rumor leakage (premarket positioning, options activity) tends to
+--              distort that day's range and would pollute the "normal" baseline.
+-- Post window: [date + 1, date + post_window_days] -- excludes the breakout day
+--              itself, since that's the gap event we're measuring against.
+with_atrs AS (
     SELECT
         f.*,
         (
-            SELECT AVG((p.adj_high - p.adj_low) / NULLIF(p.adj_low, 0))
+            SELECT AVG(
+                GREATEST(
+                    p.adj_high - p.adj_low,
+                    ABS(p.adj_high - p_prev.adj_close),
+                    ABS(p.adj_low - p_prev.adj_close)
+                ) / NULLIF(p.adj_close, 0)
+            )
             FROM split_adjusted_prices p
+            JOIN trading_calendar tc
+                ON tc.current_date = p.date
+            JOIN split_adjusted_prices p_prev
+                ON p_prev.ticker = p.ticker
+                AND p_prev.date = tc.date_prev
             WHERE p.ticker = f.ticker
               AND p.date >= f.date - INTERVAL (pre_window_days) DAY
-              AND p.date < f.date
-        ) AS pre_range_pct,
+              -- Exclude the breakout day AND the trading day immediately prior.
+              -- Look up the prior trading day via trading_calendar so weekends and
+              -- holidays don't accidentally exclude an extra day or fail to exclude
+              -- when the breakout falls on a Monday.
+              AND p.date < (SELECT date_prev FROM trading_calendar WHERE current_date = f.date)
+        ) AS pre_atr_pct,
         (
-            SELECT AVG((p.adj_high - p.adj_low) / NULLIF(p.adj_low, 0))
+            SELECT AVG(
+                GREATEST(
+                    p.adj_high - p.adj_low,
+                    ABS(p.adj_high - p_prev.adj_close),
+                    ABS(p.adj_low - p_prev.adj_close)
+                ) / NULLIF(p.adj_close, 0)
+            )
             FROM split_adjusted_prices p
+            JOIN trading_calendar tc
+                ON tc.current_date = p.date
+            JOIN split_adjusted_prices p_prev
+                ON p_prev.ticker = p.ticker
+                AND p_prev.date = tc.date_prev
             WHERE p.ticker = f.ticker
-              AND p.date >= f.date
+              AND p.date > f.date
               AND p.date <= f.date + INTERVAL (post_window_days) DAY
-        ) AS post_range_pct
+        ) AS post_atr_pct
     FROM filtered f
 ),
 with_ratio AS (
     SELECT
         *,
         CASE
-            WHEN pre_range_pct IS NULL OR pre_range_pct = 0 THEN NULL
-            ELSE post_range_pct / pre_range_pct
-        END AS range_ratio
-    FROM with_ranges
+            WHEN pre_atr_pct IS NULL OR pre_atr_pct = 0 THEN NULL
+            ELSE post_atr_pct / pre_atr_pct
+        END AS atr_ratio
+    FROM with_atrs
 ),
 ranked AS (
     SELECT
@@ -103,12 +142,13 @@ ranked AS (
         (rvol * rvol_weight + ABS(gap_pct) * 100 * gap_weight) AS in_play_score,
         ROW_NUMBER() OVER (PARTITION BY date ORDER BY (rvol * rvol_weight + ABS(gap_pct) * 100 * gap_weight) DESC) AS rank
     FROM with_ratio
-    -- Buyout filter: drop rows whose post-range collapsed to <= min_range_ratio of pre-range.
-    -- NULL ratios pass through (e.g. brand-new tickers with no pre-window data).
+    -- Buyout filter: drop rows whose post-event ATR collapsed to <= min_atr_ratio
+    -- of pre-event ATR. NULL ratios pass through (e.g. brand-new tickers with no
+    -- pre-window data, or breakouts where the post-window has no data).
     WHERE (
-        min_range_ratio <= 0.0
-        OR range_ratio IS NULL
-        OR range_ratio > min_range_ratio
+        min_atr_ratio <= 0.0
+        OR atr_ratio IS NULL
+        OR atr_ratio > min_atr_ratio
     )
 )
 SELECT
@@ -121,9 +161,9 @@ SELECT
     range_pct,
     rvol,
     avg_dollar_volume_4w,
-    pre_range_pct,
-    post_range_pct,
-    range_ratio,
+    pre_atr_pct,
+    post_atr_pct,
+    atr_ratio,
     in_play_score,
     rank
 FROM ranked

@@ -494,17 +494,18 @@ type StockInPlayRow = {
     range_pct: float
     rvol: float
     avg_dollar_volume_4w: float
-    pre_range_pct: System.Nullable<float>
-    post_range_pct: System.Nullable<float>
-    range_ratio: System.Nullable<float>
+    pre_atr_pct: System.Nullable<float>
+    post_atr_pct: System.Nullable<float>
+    atr_ratio: System.Nullable<float>
     in_play_score: float
     rank: int64
 }
 
 /// Get stocks in play for a date range with customizable filters.
 /// `excludeEtfs` filters out tickers present in ticker_reference (ETFs/ETNs).
-/// `minRangeRatio` excludes rows where post-event daily range collapses to that fraction
-/// of pre-event daily range or less (buyout filter). Pass 0.0 to disable.
+/// `minAtrRatio` excludes rows where post-event ATR (mean true range / close)
+/// collapses to that fraction of pre-event ATR or less (buyout filter).
+/// Pass 0.0 to disable.
 let getStocksInPlay
     (connection: IDbConnection)
     (startDate: DateTime)
@@ -517,7 +518,7 @@ let getStocksInPlay
     (excludeEtfs: bool)
     (preWindowDays: int)
     (postWindowDays: int)
-    (minRangeRatio: float)
+    (minAtrRatio: float)
     : StockInPlayRow array =
     connection.Query<StockInPlayRow>(
         "SELECT * FROM stocks_in_play(" +
@@ -531,7 +532,7 @@ let getStocksInPlay
         "exclude_etfs := $excludeEtfs, " +
         "pre_window_days := $preWindowDays, " +
         "post_window_days := $postWindowDays, " +
-        "min_range_ratio := $minRangeRatio" +
+        "min_atr_ratio := $minAtrRatio" +
         ") ORDER BY date, rank",
         {| startDate = startDate.ToString("yyyy-MM-dd")
            endDate = endDate.ToString("yyyy-MM-dd")
@@ -543,7 +544,7 @@ let getStocksInPlay
            excludeEtfs = excludeEtfs
            preWindowDays = preWindowDays
            postWindowDays = postWindowDays
-           minRangeRatio = minRangeRatio |})
+           minAtrRatio = minAtrRatio |})
     |> Seq.toArray
 
 // --- Intraday Prices ---

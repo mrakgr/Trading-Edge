@@ -75,7 +75,7 @@ type StocksInPlayArgs =
     | Include_Etfs
     | Pre_Window_Days of int
     | Post_Window_Days of int
-    | Min_Range_Ratio of float
+    | Min_Atr_Ratio of float
     | Json
 
     interface IArgParserTemplate with
@@ -90,9 +90,9 @@ type StocksInPlayArgs =
             | Rvol_Weight _ -> "Weight for RVOL in scoring (default: 0.95)"
             | Gap_Weight _ -> "Weight for gap in scoring (default: 0.05)"
             | Include_Etfs -> "Do not exclude ETFs/ETNs (default: excluded via ticker_reference)"
-            | Pre_Window_Days _ -> "Days before breakout for range baseline (default: 20)"
-            | Post_Window_Days _ -> "Days after breakout for range comparison (default: 5)"
-            | Min_Range_Ratio _ -> "Min post/pre daily-range ratio (buyout filter, default: 0.55; 0 disables)"
+            | Pre_Window_Days _ -> "Days before breakout for ATR baseline (default: 20)"
+            | Post_Window_Days _ -> "Days after breakout for ATR comparison (default: 5)"
+            | Min_Atr_Ratio _ -> "Min post/pre ATR ratio (buyout filter, default: 0.55; 0 disables)"
             | Json -> "Emit JSON to stdout instead of the human-readable table"
 
 type DownloadTickersArgs =
@@ -508,13 +508,13 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
     let excludeEtfs = not (args.Contains StocksInPlayArgs.Include_Etfs)
     let preWindowDays = args.GetResult(StocksInPlayArgs.Pre_Window_Days, defaultValue = 20)
     let postWindowDays = args.GetResult(StocksInPlayArgs.Post_Window_Days, defaultValue = 5)
-    let minRangeRatio = args.GetResult(StocksInPlayArgs.Min_Range_Ratio, defaultValue = 0.55)
+    let minAtrRatio = args.GetResult(StocksInPlayArgs.Min_Atr_Ratio, defaultValue = 0.55)
     let jsonMode = args.Contains StocksInPlayArgs.Json
 
     if not jsonMode then
         printfn "Stocks In Play from %s to %s" (formatDate startDate) (formatDate endDate)
         printfn "Filters: RVOL >= %.1fx, Gap >= %.1f%%, Avg Dollar Volume >= $%.0fM" minRvol (minGapPct * 100.0) (minDollarVolume / 1_000_000.0)
-        printfn "ETF exclusion: %b   Pre/post window: %d/%d   Min range ratio: %.2f" excludeEtfs preWindowDays postWindowDays minRangeRatio
+        printfn "ETF exclusion: %b   Pre/post window: %d/%d   Min ATR ratio: %.2f" excludeEtfs preWindowDays postWindowDays minAtrRatio
         printfn "Database: %s" (Path.GetFullPath dbPath)
         printfn ""
 
@@ -522,7 +522,7 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
     let stocks =
         getStocksInPlay
             connection startDate endDate minRvol minGapPct minDollarVolume
-            rvolWeight gapWeight excludeEtfs preWindowDays postWindowDays minRangeRatio
+            rvolWeight gapWeight excludeEtfs preWindowDays postWindowDays minAtrRatio
 
     if jsonMode then
         // Emit a JSON array of {ticker, date, avg_dollar_volume_4w} objects.
@@ -551,9 +551,9 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
                     currentDate <- stock.date
                     printfn "=== %s ===" (currentDate.ToString("yyyy-MM-dd"))
                 let ratioStr =
-                    if stock.range_ratio.HasValue then sprintf "%5.2f" stock.range_ratio.Value
+                    if stock.atr_ratio.HasValue then sprintf "%5.2f" stock.atr_ratio.Value
                     else "  n/a"
-                printfn "  %2d. %-6s  Gap: %+6.2f%%  RVOL: %5.1fx  Score: %5.2f  RangeRatio: %s"
+                printfn "  %2d. %-6s  Gap: %+6.2f%%  RVOL: %5.1fx  Score: %5.2f  AtrRatio: %s"
                     stock.rank stock.ticker (stock.gap_pct * 100.0) stock.rvol stock.in_play_score ratioStr
 
 let private handleDownloadTickers (config: MassiveConfig) (args: ParseResults<DownloadTickersArgs>) =
