@@ -611,10 +611,7 @@ let private buildChain
 ///   1. Group by (sip_ticker, sip_breakout_date) to get per-chain candidate lists.
 ///   2. Run the rolling-max + stop-rule fold per chain.
 ///   3. Dedup across chains: for each (ticker, date), keep the row whose source
-///      chain has the LATEST breakout_date among chains that reached that day.
-///      A later breakout "resets the clock" on its own day, so days inside
-///      multiple overlapping chains are labeled relative to the most recent
-///      breakout event.
+///      chain has the EARLIEST breakout_date among chains that reached that day.
 ///   4. Sort deterministically by (breakout_date, ticker, date).
 let private buildContinuationChains
     (minRvolFraction: float)
@@ -627,7 +624,7 @@ let private buildContinuationChains
         buildChain minRvolFraction group)
     |> Array.groupBy (fun r -> (r.ticker, r.date))
     |> Array.map (fun (_, rows) ->
-        rows |> Array.maxBy (fun r -> r.breakout_date))
+        rows |> Array.minBy (fun r -> r.breakout_date))
     |> Array.sortBy (fun r -> (r.breakout_date, r.ticker, r.date))
 
 /// For each breakout in the SIP query window, return continuation chain rows
@@ -635,8 +632,7 @@ let private buildContinuationChains
 /// calendar days from the breakout; a new max resets `days_since_max_rvol_day`
 /// to 0; the chain stops after the first day whose RVOL drops below
 /// `minRvolFraction * running_max`. Duplicate `(ticker, date)` rows across
-/// overlapping chains are collapsed to the LATEST-breakout source (later
-/// breakouts reset the attention cycle on their own day).
+/// overlapping chains are collapsed to the earliest-breakout source.
 let getContinuationPlays
     (connection: IDbConnection)
     (startDate: DateTime)
