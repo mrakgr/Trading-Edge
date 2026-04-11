@@ -29,6 +29,7 @@ type RawTrade =
 let timestamp (t : RawTrade) = if t.participant_timestamp <> 0L then t.participant_timestamp else t.sip_timestamp
 let conditions (t : RawTrade) = t.conditions
 
+[<Struct>]
 type Trade = {
     Timestamp: DateTime
     Price: float
