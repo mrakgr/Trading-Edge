@@ -549,6 +549,73 @@ let getStocksInPlay
            minAtrRatio = minAtrRatio |})
     |> Seq.toArray
 
+// --- Continuation Plays ---
+
+[<CLIMutable>]
+type ContinuationPlayRow = {
+    ticker: string
+    breakout_date: DateOnly
+    breakout_rvol: float
+    date: DateOnly
+    number_of_days_since_breakout: int64
+    rvol: float
+    volume: int64
+    avg_volume_4w: float
+    avg_dollar_volume_4w: float
+}
+
+/// For each breakout in the SIP query window, walk forward day by day and
+/// return all subsequent trading days whose RVOL stays above
+/// `minRvolFraction * breakout_rvol`. Stops at the first failing day.
+/// All SIP filters are forwarded so the underlying breakout source matches
+/// the `getStocksInPlay` output exactly.
+let getContinuationPlays
+    (connection: IDbConnection)
+    (startDate: DateTime)
+    (endDate: DateTime)
+    (minRvol: float)
+    (minGapPct: float)
+    (minAvgDollarVolume: float)
+    (rvolWeight: float)
+    (gapWeight: float)
+    (excludeEtfs: bool)
+    (preWindowDays: int)
+    (postWindowDays: int)
+    (minAtrRatio: float)
+    (minRvolFraction: float)
+    (maxHorizonDays: int)
+    : ContinuationPlayRow array =
+    connection.Query<ContinuationPlayRow>(
+        "SELECT * FROM continuation_plays(" +
+        "start_date := $startDate::DATE, " +
+        "end_date := $endDate::DATE, " +
+        "min_rvol := $minRvol, " +
+        "min_gap_pct := $minGapPct, " +
+        "min_avg_dollar_volume := $minAvgDollarVolume, " +
+        "rvol_weight := $rvolWeight, " +
+        "gap_weight := $gapWeight, " +
+        "exclude_etfs := $excludeEtfs, " +
+        "pre_window_days := $preWindowDays, " +
+        "post_window_days := $postWindowDays, " +
+        "min_atr_ratio := $minAtrRatio, " +
+        "min_rvol_fraction := $minRvolFraction, " +
+        "max_horizon_days := $maxHorizonDays" +
+        ") ORDER BY breakout_date, ticker, date",
+        {| startDate = startDate.ToString("yyyy-MM-dd")
+           endDate = endDate.ToString("yyyy-MM-dd")
+           minRvol = minRvol
+           minGapPct = minGapPct
+           minAvgDollarVolume = minAvgDollarVolume
+           rvolWeight = rvolWeight
+           gapWeight = gapWeight
+           excludeEtfs = excludeEtfs
+           preWindowDays = preWindowDays
+           postWindowDays = postWindowDays
+           minAtrRatio = minAtrRatio
+           minRvolFraction = minRvolFraction
+           maxHorizonDays = maxHorizonDays |})
+    |> Seq.toArray
+
 // --- Intraday Prices ---
 
 /// Bulk ingest minute-level intraday prices from JSON files using glob pattern

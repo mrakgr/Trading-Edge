@@ -103,6 +103,42 @@ type DownloadTickersArgs =
             match this with
             | Database _ -> "DuckDB database path (default: data/trading.db)"
 
+type ContinuationPlaysArgs =
+    | [<AltCommandLine("-s")>] Start_Date of string
+    | [<AltCommandLine("-e")>] End_Date of string
+    | [<AltCommandLine("-d")>] Database of string
+    | [<AltCommandLine("-r")>] Min_Rvol of float
+    | [<AltCommandLine("-g")>] Min_Gap_Pct of float
+    | [<AltCommandLine("-v")>] Min_Dollar_Volume of float
+    | [<AltCommandLine("-rw")>] Rvol_Weight of float
+    | [<AltCommandLine("-gw")>] Gap_Weight of float
+    | Include_Etfs
+    | Pre_Window_Days of int
+    | Post_Window_Days of int
+    | Min_Atr_Ratio of float
+    | Min_Rvol_Fraction of float
+    | Max_Horizon_Days of int
+    | Json
+
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Start_Date _ -> "Start date (yyyy-MM-dd). Default: 1 week ago"
+            | End_Date _ -> "End date (yyyy-MM-dd). Default: today"
+            | Database _ -> "DuckDB database path (default: data/trading.db)"
+            | Min_Rvol _ -> "Minimum relative volume for breakout (default: 3)"
+            | Min_Gap_Pct _ -> "Minimum gap percentage as decimal for breakout (default: 0.05)"
+            | Min_Dollar_Volume _ -> "Minimum avg dollar volume in millions (default: 100)"
+            | Rvol_Weight _ -> "Weight for RVOL in scoring (default: 0.95)"
+            | Gap_Weight _ -> "Weight for gap in scoring (default: 0.05)"
+            | Include_Etfs -> "Do not exclude ETFs/ETNs (default: excluded)"
+            | Pre_Window_Days _ -> "Days before breakout for ATR baseline (default: 20)"
+            | Post_Window_Days _ -> "Days after breakout for ATR comparison (default: 5)"
+            | Min_Atr_Ratio _ -> "Min post/pre ATR ratio for breakout (default: 0.55)"
+            | Min_Rvol_Fraction _ -> "Min fraction of breakout RVOL to keep continuation chain alive (default: 0.5)"
+            | Max_Horizon_Days _ -> "Max calendar days to walk forward from each breakout (default: 30)"
+            | Json -> "Emit JSON to stdout instead of the human-readable table"
+
 type RefreshViewsArgs =
     | [<AltCommandLine("-d")>] Database of string
 
@@ -236,6 +272,7 @@ type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Ingest_Trades of ParseResults<IngestTradesArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Quotes of ParseResults<IngestQuotesArgs>
     | [<CliPrefix(CliPrefix.None)>] Stocks_In_Play of ParseResults<StocksInPlayArgs>
+    | [<CliPrefix(CliPrefix.None)>] Continuation_Plays of ParseResults<ContinuationPlaysArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Tickers of ParseResults<DownloadTickersArgs>
     | [<CliPrefix(CliPrefix.None)>] Refresh_Views of ParseResults<RefreshViewsArgs>
 
@@ -254,6 +291,7 @@ type Arguments =
             | Ingest_Trades _ -> "Ingest trades data into DuckDB database"
             | Ingest_Quotes _ -> "Ingest quotes data into DuckDB database"
             | Stocks_In_Play _ -> "List top stocks in play for a date range"
+            | Continuation_Plays _ -> "List breakouts and their continuation chains (sustained-volume follow-through days)"
             | Download_Tickers _ -> "Download ETF/ETN ticker reference data from Polygon"
             | Refresh_Views _ -> "Refresh views only (fast, no table rematerialization)"
 
@@ -586,6 +624,86 @@ let private handleDownloadTickers (config: MassiveConfig) (args: ParseResults<Do
     | Error msg ->
         eprintfn "Error downloading tickers: %s" msg
         exit 1
+
+let private handleContinuationPlays (args: ParseResults<ContinuationPlaysArgs>) =
+    let endDate =
+        args.TryGetResult ContinuationPlaysArgs.End_Date
+        |> Option.map DateTime.Parse
+        |> Option.defaultValue DateTime.Now
+
+    let startDate =
+        args.TryGetResult ContinuationPlaysArgs.Start_Date
+        |> Option.map DateTime.Parse
+        |> Option.defaultValue (endDate.AddDays(-7))
+
+    let dbPath =
+        args.TryGetResult ContinuationPlaysArgs.Database
+        |> Option.defaultValue "data/trading.db"
+
+    let minRvol = args.GetResult(ContinuationPlaysArgs.Min_Rvol, defaultValue = 3.0)
+    let minGapPct = args.GetResult(ContinuationPlaysArgs.Min_Gap_Pct, defaultValue = 0.05)
+    let minDollarVolume = args.GetResult(ContinuationPlaysArgs.Min_Dollar_Volume, defaultValue = 100.0) * 1_000_000.0
+    let rvolWeight = args.GetResult(ContinuationPlaysArgs.Rvol_Weight, defaultValue = 0.95)
+    let gapWeight = args.GetResult(ContinuationPlaysArgs.Gap_Weight, defaultValue = 0.05)
+    let excludeEtfs = not (args.Contains ContinuationPlaysArgs.Include_Etfs)
+    let preWindowDays = args.GetResult(ContinuationPlaysArgs.Pre_Window_Days, defaultValue = 20)
+    let postWindowDays = args.GetResult(ContinuationPlaysArgs.Post_Window_Days, defaultValue = 5)
+    let minAtrRatio = args.GetResult(ContinuationPlaysArgs.Min_Atr_Ratio, defaultValue = 0.55)
+    let minRvolFraction = args.GetResult(ContinuationPlaysArgs.Min_Rvol_Fraction, defaultValue = 0.5)
+    let maxHorizonDays = args.GetResult(ContinuationPlaysArgs.Max_Horizon_Days, defaultValue = 30)
+    let jsonMode = args.Contains ContinuationPlaysArgs.Json
+
+    if not jsonMode then
+        printfn "Continuation Plays from %s to %s" (formatDate startDate) (formatDate endDate)
+        printfn "Breakout filters: RVOL >= %.1fx, Gap >= %.1f%%, Avg Dollar Volume >= $%.0fM" minRvol (minGapPct * 100.0) (minDollarVolume / 1_000_000.0)
+        printfn "ETF exclusion: %b   ATR ratio: %.2f   Min RVOL fraction: %.2f   Max horizon: %d days" excludeEtfs minAtrRatio minRvolFraction maxHorizonDays
+        printfn "Database: %s" (Path.GetFullPath dbPath)
+        printfn ""
+
+    use connection = openConnection dbPath
+    let plays =
+        getContinuationPlays
+            connection startDate endDate minRvol minGapPct minDollarVolume
+            rvolWeight gapWeight excludeEtfs preWindowDays postWindowDays minAtrRatio
+            minRvolFraction maxHorizonDays
+
+    if jsonMode then
+        let sb = System.Text.StringBuilder()
+        sb.Append("[") |> ignore
+        let mutable first = true
+        for p in plays do
+            if not first then sb.Append(",") |> ignore
+            first <- false
+            sb.AppendFormat(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "\n  {{\"ticker\": \"{0}\", \"breakout_date\": \"{1}\", \"date\": \"{2}\", \"number_of_days_since_breakout\": {3}, \"rvol\": {4}, \"breakout_rvol\": {5}, \"volume\": {6}, \"avg_volume_4w\": {7}}}",
+                p.ticker,
+                p.breakout_date.ToString("yyyy-MM-dd"),
+                p.date.ToString("yyyy-MM-dd"),
+                p.number_of_days_since_breakout,
+                p.rvol,
+                p.breakout_rvol,
+                p.volume,
+                p.avg_volume_4w) |> ignore
+        if not first then sb.Append("\n") |> ignore
+        sb.Append("]") |> ignore
+        printfn "%s" (sb.ToString())
+    else
+        if plays.Length = 0 then
+            printfn "No continuation plays found for the given date range."
+        else
+            // Group by (ticker, breakout_date) so each chain prints together.
+            let mutable currentKey = ("", DateOnly.MinValue)
+            for p in plays do
+                let key = (p.ticker, p.breakout_date)
+                if key <> currentKey then
+                    currentKey <- key
+                    printfn "=== %s breakout %s (rvol %.2fx) ===" p.ticker (p.breakout_date.ToString("yyyy-MM-dd")) p.breakout_rvol
+                printfn "  +%d  %s  rvol %5.2fx  vol %12d"
+                    p.number_of_days_since_breakout
+                    (p.date.ToString("yyyy-MM-dd"))
+                    p.rvol
+                    p.volume
 
 let private handleRefreshViews (args: ParseResults<RefreshViewsArgs>) =
     let dbPath =
@@ -1015,6 +1133,8 @@ let main argv =
                 handleRefreshViews args
             | Stocks_In_Play args ->
                 handleStocksInPlay args
+            | Continuation_Plays args ->
+                handleContinuationPlays args
             | Download_Tickers args ->
                 let config = loadConfigOrFail configPath
                 handleDownloadTickers config args
