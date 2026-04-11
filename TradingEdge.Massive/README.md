@@ -238,6 +238,28 @@ dotnet run --project TradingEdge.Massive -- download-news -t BYND -e 2025-10-22
 
 Output: `data/news/{ticker}/{date}.json`
 
+### Download Tickers (ETF Reference List)
+
+Downloads the universe of exchange-traded products (ETFs, ETNs, ETVs, ETSs) from Polygon's `/v3/reference/tickers` endpoint and writes them **directly into the DuckDB database** — no separate ingest step is needed. The full table is replaced atomically each time the command runs, so it's safe to re-run.
+
+This populates the `ticker_reference` table that `stocks-in-play` uses to filter ETFs out of breakout candidates by default.
+
+```bash
+dotnet run --project TradingEdge.Massive -- download-tickers [options]
+```
+
+**Options:**
+- `-d, --database <path>` - DuckDB database path (default: data/trading.db)
+
+**Example:**
+
+```bash
+# Refresh the ETF list (typical run takes a few seconds; produces ~5k rows)
+dotnet run --project TradingEdge.Massive -- download-tickers
+```
+
+The ETF universe changes slowly — once a quarter is plenty. Run it once before your first `stocks-in-play` query so the ETF filter has data to match against.
+
 ### Ingest Data
 
 Ingests downloaded CSV files, splits, and dividends into a DuckDB database.
