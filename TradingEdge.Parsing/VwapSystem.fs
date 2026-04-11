@@ -14,7 +14,7 @@ open VolumeBars
 /// Maintains a running cumulative volume across successive calls. Each
 /// invocation computes VWAP and StdDev from the trades and passes the
 /// resulting VolumeBar to onNext.
-let volumeBarOfTrades () =
+let inline volumeBarOfTrades () =
     let mutable cumulativeVolumeSum = 0.0
     fun onNext (trades: ImmutableArray<Trade>) ->
         let mutable priceVolumeSum = 0.0
@@ -42,7 +42,7 @@ let volumeBarOfTrades () =
 /// (splitting individual trades at bar boundaries) until the volume sum
 /// reaches barSize, then emits the group as a ResizeArray<Trade> via
 /// onNext. One input trade can complete multiple groups.
-let groupTrades barSize =
+let inline groupTrades barSize =
     let currentTrades = ImmutableArray.CreateBuilder<Trade>()
     
     let mutable currentVolumeSum = 0.0
@@ -67,7 +67,7 @@ let groupTrades barSize =
 
 /// Composes groupTrades and volumeBarOfTrades into a single stateful
 /// continuation: Trade -> VolumeBar via onNext.
-let volumeBarBuilder barSize =
+let inline volumeBarBuilder barSize =
     let tradesGrouper = groupTrades barSize 
     let barBuilder = volumeBarOfTrades ()
     fun onNext trade -> tradesGrouper (barBuilder onNext) trade
@@ -116,7 +116,7 @@ type VwapSystemBar = {
 /// When includeInVwma is false, the trade still produces volume bars (and
 /// updates the vol factor) but does not affect the VWMA — useful for
 /// premarket trades that should contribute to volatility estimation only.
-let vwapSystemArgsBuilder barSize =
+let inline vwapSystemArgsBuilder barSize =
     let inner = volumeBarBuilder barSize
     let mutable logVwapSum = 0.0
     let mutable barCount = 0
@@ -162,7 +162,7 @@ let defaultEstimationOffsets = [| 5.0; 30.0; 150.0; 750.0 |] // Offsets after th
 /// When an estimation offset is crossed, rebuilds the vwapSystemArgsBuilder
 /// with barSize = totalVolume * volPcts[i] and replays all buffered trades.
 /// Emits (VwapSystemBar option, TradeStage, Trade) via onNext per trade.
-let segregateTrades (window : MarketHours) (volPcts : float []) =
+let inline segregateTrades (window : MarketHours) (volPcts : float []) =
     let mutable trades_and_flags : (Trade * bool * bool) ResizeArray = ResizeArray()
     let mutable openingPrintTime : DateTime option = None
     let mutable vwapSystemArgs = None
@@ -229,7 +229,7 @@ type TradingDecision = {
 /// adjusted by volFactor when referenceVol is provided. Flattens on
 /// BeforeClosing. Emits (VwapSystemBar option, TradingDecision option, Trade)
 /// via onNext.
-let vwapSystem (positionSize: float, referenceVol: float option, bandVol: float) =
+let inline vwapSystem (positionSize: float, referenceVol: float option, bandVol: float) =
     let mutable state = Active(0.0, 0)
     let effectiveSize vf =
         match referenceVol with
@@ -289,7 +289,7 @@ type TradingResult = {
 /// Stateful continuation that tracks trading decisions and computes running
 /// realized PnL. Returns (processor, getResult) where processor follows the
 /// standard fun onNext input -> pattern, forwarding the full tuple downstream.
-let trackDecisions () =
+let inline trackDecisions () =
     let mutable decisions = ImmutableList<TradingDecision>.Empty
     let mutable realizedPnL = 0.0
     (fun onNext (bar: VwapSystemBar option, decision: TradingDecision option, trade: Trade) ->
@@ -406,7 +406,7 @@ type FillResult = {
 /// price, not the trade price. Partial fills are tracked.
 ///
 /// Returns (processor, getResult).
-let fillSimulator (percentile: float) (delayMs: float) (rejectionRate: float) (rngOpt: Random option) =
+let inline fillSimulator (percentile: float) (delayMs: float) (rejectionRate: float) (rngOpt: Random option) =
     let mutable buyOrder : LimitOrder option = None
     let mutable sellOrder : LimitOrder option = None
     let mutable targetPosition = 0
@@ -627,7 +627,7 @@ let fillSimulator (percentile: float) (delayMs: float) (rejectionRate: float) (r
 
 /// Stateful component that tracks fill-based realized PnL with commissions.
 /// Returns (processor, getResult) where processor accepts fills via onNext.
-let trackFills (commissionPerShare: float) =
+let inline trackFills (commissionPerShare: float) =
     let mutable realizedPnL = 0.0
     let mutable commissions = 0.0
     let mutable avgCost = 0.0
