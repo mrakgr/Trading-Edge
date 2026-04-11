@@ -14,6 +14,13 @@ let basePct = 0.005
 let decay = 0.9
 
 /// Baseline exponents / pcts used when a client doesn't provide its own.
+// TODO: drop the exponent parameterization entirely and work with raw pcts
+// directly. The `basePct * decay ** exponent` scheme was originally useful
+// for CMA-ES to explore an exponentially-spaced region, but it's indirect
+// and now just obscures what the actual percentages are. A direct pcts
+// bounds list (e.g. [0.005..0.05]) with CMA-ES operating in log space
+// would be cleaner. Applies here AND in optimize_cma.py (exponents_to_pcts,
+// start-exponents CLI flag) AND in the /eval/exponents server endpoint.
 let exponents = [| -8.69; -1.10; -16.27; -16.73 |]
 let pcts = exponents |> Array.map (fun i -> basePct * (decay ** i))
 
