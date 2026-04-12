@@ -52,13 +52,15 @@ let getAvgVolume (ticker: string) (date: DateTime option) (dbPath: string) : flo
 // Volume Bar Types
 // =============================================================================
 
-type VolumeBar = {
-    CumulativeVolume: float
-    VWAP: float
-    StdDev: float
-    Volume: float
-    StartTime: DateTime
-    EndTime: DateTime
-    NumTrades: int
-    Trades: ImmutableArray<Trade>
-}
+type VolumeBar = 
+    {
+        CumulativeVolume: float
+        VWAP: float
+        StdDev: float
+        Volume: float
+        Trades: ImmutableArray<Trade>
+    }
+
+    member self.StartTime = self.Trades.[0].Timestamp
+    member self.EndTime = self.Trades.[self.Trades.Length - 1].Timestamp
+    member self.NumTrades = self.Trades.Length

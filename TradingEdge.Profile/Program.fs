@@ -32,9 +32,6 @@ type VolumeBarOfTrades() =
             VWAP = vwap
             StdDev = sqrt (max 0.0 variance)
             Volume = volumeSum
-            StartTime = trades.[0].Timestamp
-            EndTime = trades.[trades.Length - 1].Timestamp
-            NumTrades = trades.Length
             Trades = trades
         }
 
