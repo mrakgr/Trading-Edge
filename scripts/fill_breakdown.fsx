@@ -1,7 +1,7 @@
 #r "nuget: FSharp.SystemTextJson, 1.3.13"
 #r "nuget: DuckDB.NET.Data.Full, 1.4.4"
-#r "../TradingEdge.Parsing/bin/Debug/net10.0/TDigest.dll"
 #r "../TradingEdge.Parsing/bin/Debug/net10.0/TradingEdge.Parsing.dll"
+#r "../TradingEdge.Optimize/bin/Debug/net10.0/TradingEdge.Optimize.dll"
 
 open System
 open System.IO
@@ -34,8 +34,7 @@ let availableEntries =
         File.Exists (sprintf "data/trades/%s/%s.parquet" t d))
 
 // ----- 2. Configuration -----
-#load "config.fsx"
-open Config
+open TradingEdge.Optimize.Config
 
 tee "=== VWAP System Fill Breakdown ==="
 tee "Bar exponents: [%s]  pcts: [%s]"
