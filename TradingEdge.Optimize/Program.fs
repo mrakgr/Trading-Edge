@@ -9,6 +9,7 @@ open Suave.Filters
 open Suave.Operators
 open Suave.Successful
 open TradingEdge.Parsing.TradeLoader
+open TradingEdge.Parsing.TradeBinary
 open TradingEdge.Parsing.VwapSystem
 open TradingEdge.Optimize.Config
 
@@ -48,23 +49,30 @@ let private preloadDayData (entries: (string * string) list) : DayData[] =
     // the progress counter matches the work actually being done (some
     // entries in docs/generate_stocks_in_play_charts.ps1 may be commented
     // out or have no downloaded data).
+    // Prefer binary files; fall back to Parquet if binary isn't available.
     let onDisk =
         entries
-        |> List.filter (fun (t, d) ->
-            File.Exists (sprintf "data/trades/%s/%s.parquet" t d))
+        |> List.choose (fun (t, d) ->
+            let binPath = sprintf "data/trades_bin/%s/%s.bin" t d
+            let parquetPath = sprintf "data/trades/%s/%s.parquet" t d
+            if File.Exists binPath then Some (t, d, binPath, true)
+            elif File.Exists parquetPath then Some (t, d, parquetPath, false)
+            else None)
     let total = onDisk.Length
-    printfn "  %d of %d entries have Parquet files on disk" total entries.Length
+    let binCount = onDisk |> List.filter (fun (_, _, _, isBin) -> isBin) |> List.length
+    printfn "  %d of %d entries on disk (%d binary, %d parquet)" total entries.Length binCount (total - binCount)
 
-    // Straight-line loop so we can print per-file progress; the original
-    // list-comprehension version was terser but gave no feedback during
-    // the ~44s load.
     let result = ResizeArray<DayData>(total)
     let mutable index = 0
-    for (ticker, date) in onDisk do
+    for (ticker, date, path, isBin) in onDisk do
         index <- index + 1
-        let path = sprintf "data/trades/%s/%s.parquet" ticker date
         let trades =
-            try Some (loadTrades path)
+            try
+                if isBin then
+                    let _, trades = loadDay path
+                    Some trades
+                else
+                    Some (loadTrades path)
             with ex ->
                 printfn "  [%d/%d] FAIL  %s/%s  %s" index total ticker date ex.Message
                 None
@@ -84,7 +92,6 @@ let private preloadDayData (entries: (string * string) list) : DayData[] =
             | _ ->
                 printfn "  [%d/%d] SKIP  %s/%s  (missing OpeningPrint or ClosingPrint)" index total ticker date
 
-        // Every 10 files or on the last file, print a progress line.
         if index % 10 = 0 || index = total then
             printfn "  [%d/%d] loaded %d days so far" index total result.Count
 
