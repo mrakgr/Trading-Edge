@@ -139,15 +139,16 @@ type MarketHours = {
 let defaultEstimationOffsets = [| 5.0; 30.0; 150.0; 750.0 |]
 
 type SegregateTrades(volPcts: float[]) =
-    let mutable volPctsOffset = ValueNone
-    let closing_pause = -60.0
-
+    member val VolPctsOffset = ValueNone with get, set
+    member val VwapSystem : VwapSystemArgsBuilder option = None with get, set
+    member val ClosingPause = -60.0
     member val OpenTime = DateTime.MaxValue with get, set
     member val CloseTime = DateTime.MaxValue with get, set
+    member val LastBar = ValueOption<VwapSystemBar>.None with get, set
 
     member self.TradeStage(trade: Trade) =
         if self.OpenTime <= trade.Timestamp then
-            if self.CloseTime.AddSeconds closing_pause <= trade.Timestamp then
+            if self.CloseTime.AddSeconds self.ClosingPause <= trade.Timestamp then
                 BeforeClosing
             else
                 AfterOpeningPrint
@@ -159,7 +160,7 @@ type SegregateTrades(volPcts: float[]) =
             else
                 EarlyPremarket
 
-    member inline self.CalculateFlags(stage: TradeStage) =
+    member self.CalculateFlags(stage: TradeStage) =
         let includeInVwma =
             match stage with
             | AfterOpeningPrint | BeforeClosing -> true
@@ -173,6 +174,7 @@ type SegregateTrades(volPcts: float[]) =
     member self.Process(trades: ReadOnlySpan<Trade>) : TradeStage =
         let trade = trades.[trades.Length - 1]
         let stage = self.TradeStage trade
+        self.LastBar <- ValueNone
         match stage with
         | AfterOpeningPrint ->
             let currentOffset = (trade.Timestamp - self.OpenTime).TotalSeconds
@@ -182,19 +184,37 @@ type SegregateTrades(volPcts: float[]) =
                 if defaultEstimationOffsets.[k] <= currentOffset then
                     i <- ValueSome k
                 k <- k - 1
-            if volPctsOffset <> i then
-                volPctsOffset <- i
-                match volPctsOffset with
+            if self.VolPctsOffset <> i then
+                self.VolPctsOffset <- i
+                match self.VolPctsOffset with
                 | ValueSome vpIdx ->
                     let mutable totalVolume = 0.0
                     for j in 0 .. trades.Length - 1 do
                         totalVolume <- totalVolume + trades.[j].Volume
-                    // TODO: replay through VolumeBarBuilder
-                    let _barSize = totalVolume * volPcts.[vpIdx]
-                    ()
+                    let barSize = totalVolume * volPcts.[vpIdx]
+                    let newSystem = VwapSystemArgsBuilder(barSize)
+                    // Replay all trades through the new builder
+                    for j in 0 .. trades.Length - 1 do
+                        let t = trades.[j]
+                        let s = self.TradeStage t
+                        let struct (inclVwma, inclVol) = self.CalculateFlags s
+                        newSystem.Process((fun bar -> self.LastBar <- ValueSome bar), t, inclVwma, inclVol)
+                    self.VwapSystem <- Some newSystem
                 | ValueNone -> ()
+            else
+                // Feed current trade through existing builder
+                match self.VwapSystem with
+                | Some sys ->
+                    let struct (inclVwma, inclVol) = self.CalculateFlags stage
+                    sys.Process((fun bar -> self.LastBar <- ValueSome bar), trade, inclVwma, inclVol)
+                | None -> ()
         | _ ->
-            ()
+            // Feed through existing builder (premarket/closing trades contribute to vol)
+            match self.VwapSystem with
+            | Some sys ->
+                let struct (inclVwma, inclVol) = self.CalculateFlags stage
+                sys.Process((fun bar -> self.LastBar <- ValueSome bar), trade, inclVwma, inclVol)
+            | None -> ()
         stage
 
 // ============================================================================
@@ -230,23 +250,36 @@ let main argv =
     let totalTrades = dayData |> Array.sumBy (fun d -> int64 d.Trades.Length)
     printfn "Loaded %d days (%s trades) in %.3fs\n" dayData.Length (totalTrades.ToString("N0")) swLoad.Elapsed.TotalSeconds
 
-    let barSize = 5000.0
+    let pcts =
+        let basePct = 0.005
+        let decay = 0.9
+        [| -8.69; -1.10; -16.27; -16.73 |] |> Array.map (fun i -> basePct * (decay ** i))
 
     // Warm up
     printfn "Warming up..."
     for d in dayData.[..2] do
-        let builder = VolumeBarBuilder(barSize)
-        for tr in d.Trades do builder.Process((fun _ -> ()), tr)
+        let struct (openTime, closeTime) = d.Window
+        let seg = SegregateTrades(pcts)
+        seg.OpenTime <- openTime
+        seg.CloseTime <- closeTime
+        for i in 0 .. d.Trades.Length - 1 do
+            seg.Process(ReadOnlySpan(d.Trades, 0, i + 1)) |> ignore
 
     // Benchmark
-    printfn "=== VolumeBarBuilder (member inline) ==="
+    printfn "=== SegregateTrades (full pipeline) ==="
     let mutable barCount = 0
     let mutable sink = 0.0
     let sw = Stopwatch.StartNew()
     for d in dayData do
-        let builder = VolumeBarBuilder(barSize)
-        for tr in d.Trades do
-            builder.Process((fun bar -> barCount <- barCount + 1; sink <- sink + bar.VWAP), tr)
+        let struct (openTime, closeTime) = d.Window
+        let seg = SegregateTrades(pcts)
+        seg.OpenTime <- openTime
+        seg.CloseTime <- closeTime
+        for i in 0 .. d.Trades.Length - 1 do
+            seg.Process(ReadOnlySpan(d.Trades, 0, i + 1)) |> ignore
+            match seg.LastBar with
+            | ValueSome bar -> barCount <- barCount + 1; sink <- sink + bar.Bar.VWAP
+            | ValueNone -> ()
     sw.Stop()
     printfn "  Time: %.3fs  Bars: %d  Sink: %.2f  Trades/sec: %s" sw.Elapsed.TotalSeconds barCount sink ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
     0
