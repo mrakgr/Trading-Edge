@@ -33,27 +33,29 @@ let [<Literal>] AbsentIndex = UInt32.MaxValue
 /// 48-byte on-disk header. Layout matches the file format exactly so it can
 /// be read/written via MemoryMarshal in a single call.
 [<Struct; StructLayout(LayoutKind.Sequential, Pack = 1)>]
-type DayHeader =
-    val mutable Magic: uint32
-    val mutable Version: uint16
-    val mutable Reserved: uint16
-    val mutable TradeCount: uint32
-    val mutable OpeningPrintIndex: uint32
-    val mutable ClosingPrintIndex: uint32
-    val mutable Padding: uint32
-    val mutable BaseTicks: int64
-    val mutable SessionOpenTicks: int64
-    val mutable SessionCloseTicks: int64
+type DayHeader = {
+    Magic: uint32
+    Version: uint16
+    Reserved: uint16
+    TradeCount: uint32
+    OpeningPrintIndex: uint32
+    ClosingPrintIndex: uint32
+    Padding: uint32
+    BaseTicks: int64
+    SessionOpenTicks: int64
+    SessionCloseTicks: int64
+}
 
 let HeaderSize = Marshal.SizeOf<DayHeader>()
 
 /// 16-byte packed trade record. Naturally aligned on x86-64:
 /// 4 trades per 64-byte cache line.
 [<Struct; StructLayout(LayoutKind.Sequential, Pack = 1)>]
-type TradeRecord =
-    val mutable Price: float
-    val mutable Size: int32
-    val mutable TimeDeci: int32
+type TradeRecord = {
+    Price: float
+    Size: int32
+    TimeDeci: int32
+}
 
 let RecordSize = Marshal.SizeOf<TradeRecord>()
 
@@ -84,28 +86,29 @@ let writeDay (path: string) (trades: Trade[]) =
         if closeIdx <> AbsentIndex then trades.[int closeIdx].Timestamp.Ticks else 0L
 
     // Build header
-    let mutable header = DayHeader()
-    header.Magic <- Magic
-    header.Version <- Version
-    header.Reserved <- 0us
-    header.TradeCount <- uint32 trades.Length
-    header.OpeningPrintIndex <- openIdx
-    header.ClosingPrintIndex <- closeIdx
-    header.Padding <- 0u
-    header.BaseTicks <- baseTicks
-    header.SessionOpenTicks <- sessionOpenTicks
-    header.SessionCloseTicks <- sessionCloseTicks
+    let header = {
+        Magic = Magic
+        Version = Version
+        Reserved = 0us
+        TradeCount = uint32 trades.Length
+        OpeningPrintIndex = openIdx
+        ClosingPrintIndex = closeIdx
+        Padding = 0u
+        BaseTicks = baseTicks
+        SessionOpenTicks = sessionOpenTicks
+        SessionCloseTicks = sessionCloseTicks
+    }
 
     // Build record array
     let records = Array.zeroCreate<TradeRecord> trades.Length
     for i in 0 .. trades.Length - 1 do
         let t = trades.[i]
         let deltaTicks = t.Timestamp.Ticks - baseTicks
-        let mutable r = TradeRecord()
-        r.Price <- t.Price
-        r.Size <- int32 t.Volume
-        r.TimeDeci <- int (deltaTicks / 1000L)
-        records.[i] <- r
+        records.[i] <- {
+            Price = t.Price
+            Size = int32 t.Volume
+            TimeDeci = int (deltaTicks / 1000L)
+        }
 
     Directory.CreateDirectory(Path.GetDirectoryName path) |> ignore
 
@@ -148,23 +151,17 @@ let loadDay (path: string) : DayHeader * Trade[] =
     let tradeCount = int header.TradeCount
     let records = MemoryMarshal.Cast<byte, TradeRecord>(ReadOnlySpan(bytes, HeaderSize, tradeCount * RecordSize))
 
-    let openIdx = header.OpeningPrintIndex
-    let closeIdx = header.ClosingPrintIndex
-    let baseTicks = header.BaseTicks
-    let sessionOpenTicks = header.SessionOpenTicks
-    let sessionCloseTicks = header.SessionCloseTicks
-
     let trades = Array.zeroCreate<Trade> tradeCount
     for i in 0 .. tradeCount - 1 do
         let r = records.[i]
-        let ticks = baseTicks + int64 r.TimeDeci * 1000L
+        let ticks = header.BaseTicks + int64 r.TimeDeci * 1000L
         let session =
             let idx = uint32 i
-            if idx = openIdx then OpeningPrint
-            elif idx = closeIdx then ClosingPrint
-            elif sessionOpenTicks > 0L && sessionCloseTicks > 0L then
-                if ticks < sessionOpenTicks then Premarket
-                elif ticks > sessionCloseTicks then Postmarket
+            if idx = header.OpeningPrintIndex then OpeningPrint
+            elif idx = header.ClosingPrintIndex then ClosingPrint
+            elif header.SessionOpenTicks > 0L && header.SessionCloseTicks > 0L then
+                if ticks < header.SessionOpenTicks then Premarket
+                elif ticks > header.SessionCloseTicks then Postmarket
                 else RegularHours
             else RegularHours
         trades.[i] <- {
