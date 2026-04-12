@@ -8,9 +8,6 @@
     <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.4" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\t-digest-csharp\TDigest\TDigest.csproj" />
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="TradeLoader.fs" />
     <Compile Include="VolumeBars.fs" />
     <Compile Include="VwapSystem.fs" />

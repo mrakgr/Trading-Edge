@@ -2,7 +2,6 @@ module TradingEdge.Parsing.VwapSystem
 
 open System
 open System.Collections.Immutable
-open TDigest
 open TradeLoader
 open VolumeBars
 
@@ -393,6 +392,50 @@ type FillResult = {
     Commissions: float
 }
 
+/// Weighted average price of trades in the quantile band [q_lo, q_hi].
+/// Sorts the input by (price, volume), walks cumulative weight and takes
+/// fractional overlaps at band edges.
+let inline bandPrice (prices_and_volumes : struct (float * float) []) (q_lo: float) (q_hi: float) : float =
+    let n = prices_and_volumes.Length
+    let inline structFst struct (x,_) = x
+    if n = 0 then nan
+    elif n = 1 then prices_and_volumes.[0] |> structFst
+    else
+        let prices_and_volumes = Array.sort prices_and_volumes
+        let totalWeight = prices_and_volumes |> Array.sumBy (fun struct (_,b) -> b)
+        let w_lo = q_lo * totalWeight
+        let w_hi = q_hi * totalWeight
+        if w_lo < w_hi then
+            let mutable cumWeight = 0.0
+            let mutable sumPriceWeight = 0.0
+            let mutable sumWeight = 0.0
+            for i in 0 .. n - 1 do
+                let struct (price, volume) = prices_and_volumes.[i]
+                let nextCum = cumWeight + volume
+                let overlapStart = max cumWeight w_lo
+                let overlapEnd = min nextCum w_hi
+                if overlapEnd > overlapStart then
+                    let fraction = overlapEnd - overlapStart
+                    sumPriceWeight <- sumPriceWeight + price * fraction
+                    sumWeight <- sumWeight + fraction
+                cumWeight <- nextCum
+            if sumPriceWeight > 0.0 then sumPriceWeight / sumWeight else failwith "sumPriceWeight > 0.0 check failed"
+        elif w_lo = w_hi then
+            // Zero-width band (q_lo = q_hi): find the trade containing this
+            // exact weight point and return its price.
+            let target = w_lo
+            let mutable cum = 0.0
+            let mutable i = 0
+            let mutable found = ValueNone
+            while i < n && found.IsNone do
+                let struct (price, volume) = prices_and_volumes.[i]
+                cum <- cum + volume
+                if cum >= target then
+                    found <- ValueSome struct (price, volume)
+                i <- i + 1
+            found.Value |> structFst
+        else failwith "w_lo sholdn't be higher than w_hi."
+
 /// Stateful continuation that simulates limit-order execution against the
 /// trade stream. Manages explicit buy/sell limit orders with activation and
 /// cancellation delays. Only one side (buy or sell) can be active at a time.
@@ -411,7 +454,7 @@ let inline fillSimulator (percentile: float) (delayMs: float) (rejectionRate: fl
     let mutable sellOrder : LimitOrder option = None
     let mutable targetPosition = 0
     let mutable filledPosition = 0
-    let mutable lastDigest : MergingDigest option = None
+    let mutable lastPricesAndVolumes : struct (float * float) [] = Array.empty
     // When we're waiting for a cancellation before flipping, store the
     // target we need to submit once the cancel confirms.
     let mutable pendingTarget : int option = None
@@ -423,31 +466,32 @@ let inline fillSimulator (percentile: float) (delayMs: float) (rejectionRate: fl
     // our price may not reach our order if they're filled on other venues or
     // absorbed by orders ahead of us in the queue.
     let rng = rngOpt |> Option.defaultWith (fun () -> Random(12345))
+    let compression = 100.0
 
-    let computePrice (digest: MergingDigest) (isBuy: bool) =
-        digest.Quantile(if isBuy then percentile else 1.0 - percentile)
+    let computePrice (isBuy: bool) =
+        let q = max 0.0 (min 1.0 (if isBuy then percentile else 1.0 - percentile))
+        let hw = q * (1.0 - q) / compression
+        bandPrice lastPricesAndVolumes (q - hw) (q + hw)
 
     let placeOrder (now: DateTime) =
         let needed = targetPosition - filledPosition
         let activationTime = now + delay
-        match lastDigest with
-        | Some digest when needed > 0 ->
+        if lastPricesAndVolumes.Length > 0 && needed > 0 then
             assert (sellOrder.IsNone)
             buyOrder <- Some {
-                Prices = [computePrice digest true, activationTime]
+                Prices = [computePrice true, activationTime]
                 Quantities = [needed, activationTime]
                 FilledQuantity = 0
                 CancellationTime = None
             }
-        | Some digest when needed < 0 ->
+        elif lastPricesAndVolumes.Length > 0 && needed < 0 then
             assert (buyOrder.IsNone)
             sellOrder <- Some {
-                Prices = [computePrice digest false, activationTime]
+                Prices = [computePrice false, activationTime]
                 Quantities = [-needed, activationTime]
                 FilledQuantity = 0
                 CancellationTime = None
             }
-        | _ -> ()
 
     let cancelBuyOrder (now: DateTime) =
         match buyOrder with
@@ -544,31 +588,22 @@ let inline fillSimulator (percentile: float) (delayMs: float) (rejectionRate: fl
         // 1. Process cancellations
         processCancellations trade.Timestamp
 
-        // 2. New bar: rebuild t-digest and reprice the active order
+        // 2. New bar: build sorted price/volume array and reprice the active order
         match bar with
         | Some b ->
-            // Pass the fill simulator's Random to the digest so its QuickSort
-            // pivot selection is deterministic when a user-supplied seed is
-            // in use. When rngOpt is None the digest falls back to a thread-
-            // local default (thread-safe but non-deterministic).
-            // Note that even if the rejection rate is 0, there will still be 
-            // noise due to the MergingDigest's internal use of QuickSort.
-            let digest =
-                match rngOpt with
-                | Some r -> MergingDigest(100.0, sortRng = r)
-                | None -> MergingDigest(100.0)
-            for t in b.Bar.Trades do
-                digest.Add(t.Price, int t.Volume)
-            lastDigest <- Some digest
+            let pv = Array.init b.Bar.Trades.Length (fun i ->
+                let t = b.Bar.Trades.[i]
+                struct (t.Price, t.Volume))
+            lastPricesAndVolumes <- pv
             // Reprice active order: prepend new price with activation delay
             match buyOrder with
             | Some order when order.CancellationTime.IsNone ->
-                let newPrice = computePrice digest true, trade.Timestamp + delay
+                let newPrice = computePrice true, trade.Timestamp + delay
                 buyOrder <- Some { order with Prices = newPrice :: order.Prices }
             | _ -> ()
             match sellOrder with
             | Some order when order.CancellationTime.IsNone ->
-                let newPrice = computePrice digest false, trade.Timestamp + delay
+                let newPrice = computePrice false, trade.Timestamp + delay
                 sellOrder <- Some { order with Prices = newPrice :: order.Prices }
             | _ -> ()
         | None -> ()
