@@ -74,7 +74,7 @@ let inline volumeBarBuilder barSize =
 /// Batch-builds volume bars from a complete trade list by wiring groupTrades
 /// into volumeBarOfTrades. Returns all completed bars as an ImmutableArray.
 let rebuildVolumeBars barSize (trades : Trade ImmutableArray) =
-    let mutable l = ResizeArray()
+    let mutable l = ImmutableArray.CreateBuilder()
     let barBuilder = volumeBarBuilder barSize
     Seq.iter (barBuilder (fun bar -> l.Add bar)) trades
     l.ToImmutableArray()
@@ -100,7 +100,6 @@ let pairwiseCombinedVariance (a: VolumeBar) (b: VolumeBar) =
 let pairwiseRealizedVariance (a: VolumeBar) (b: VolumeBar) =
     assert (a.Volume = b.Volume)
     log (a.VWAP / b.VWAP) ** 2
-
 
 type VwapSystemBar = {
     Bar : VolumeBar
