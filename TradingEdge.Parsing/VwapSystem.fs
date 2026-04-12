@@ -121,7 +121,7 @@ let inline vwapSystemArgsBuilder barSize =
     let mutable varianceSum = 0.0
     let mutable pairCount = 0
     let mutable prevBar = ValueOption<VolumeBar>.None
-    fun onNext (trade, includeInVwma, includeInVol) ->
+    fun onNext struct (trade, includeInVwma, includeInVol) ->
         inner (fun bar ->
             if includeInVwma then
                 logVwapSum <- logVwapSum + log bar.VWAP
@@ -161,7 +161,7 @@ let defaultEstimationOffsets = [| 5.0; 30.0; 150.0; 750.0 |] // Offsets after th
 /// with barSize = totalVolume * volPcts[i] and replays all buffered trades.
 /// Emits (VwapSystemBar option, TradeStage, Trade) via onNext per trade.
 let inline segregateTrades (window : MarketHours) (volPcts : float []) =
-    let mutable trades_and_flags : (Trade * bool * bool) ResizeArray = ResizeArray()
+    let mutable trades_and_flags : struct (Trade * bool * bool) ResizeArray = ResizeArray()
     let mutable openingPrintTime : DateTime option = None
     let mutable vwapSystemArgs = None
     let mutable volPctsOffset = None
@@ -178,7 +178,7 @@ let inline segregateTrades (window : MarketHours) (volPcts : float []) =
                 if volPctsOffset <> i then
                     volPctsOffset <- i
                     volPctsOffset |> Option.iter (fun volPctsOffset ->
-                        let totalVolume = trades_and_flags |> Seq.sumBy (fun (t, _, _) -> t.Volume)
+                        let totalVolume = trades_and_flags |> Seq.sumBy (fun struct (t, _, _) -> t.Volume)
                         let newVwapArgsSystem = vwapSystemArgsBuilder (totalVolume * volPcts.[volPctsOffset])
                         for tf in trades_and_flags do newVwapArgsSystem (fun bar -> finalBar <- Some bar) tf
                         vwapSystemArgs <- Some newVwapArgsSystem
@@ -201,7 +201,7 @@ let inline segregateTrades (window : MarketHours) (volPcts : float []) =
                 match stage with
                 | LatePremarket | AfterOpeningPrint | BeforeClosing -> true
                 | _ -> false
-            let trade_and_flag = trade, includeInVwma, includeInVol
+            let trade_and_flag = struct (trade, includeInVwma, includeInVol)
             trades_and_flags.Add trade_and_flag
             match vwapSystemArgs with
             | Some vwapSystem -> vwapSystem (fun bar -> finalBar <- Some bar) trade_and_flag
