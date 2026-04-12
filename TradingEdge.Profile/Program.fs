@@ -7,7 +7,60 @@ open System.Text.RegularExpressions
 open System.Diagnostics
 open TradingEdge.Parsing.TradeLoader
 open TradingEdge.Parsing.TradeBinary
-open TradingEdge.Parsing.VolumeBars
+// ============================================================================
+// VolumeBar — trades + cumulative volume; derived fields computed on demand
+// ============================================================================
+
+type VolumeBar(trades: ImmutableArray<Trade>, cumulativeVolume: float) =
+    let mutable cachedVwap = ValueNone
+    let mutable cachedStdDev = ValueNone
+    let mutable cachedVolume = ValueNone
+
+    member _.Trades = trades
+    member _.CumulativeVolume = cumulativeVolume
+    member _.NumTrades = trades.Length
+    member _.StartTime = trades.[0].Timestamp
+    member _.EndTime = trades.[trades.Length - 1].Timestamp
+
+    member self.Volume =
+        match cachedVolume with
+        | ValueSome v -> v
+        | ValueNone ->
+            let mutable sum = 0.0
+            for t in trades do sum <- sum + t.Volume
+            cachedVolume <- ValueSome sum
+            sum
+
+    member self.VWAP =
+        match cachedVwap with
+        | ValueSome v -> v
+        | ValueNone ->
+            let mutable pvSum = 0.0
+            let mutable vSum = 0.0
+            for t in trades do
+                pvSum <- pvSum + t.Price * t.Volume
+                vSum <- vSum + t.Volume
+            let vwap = pvSum / vSum
+            cachedVwap <- ValueSome vwap
+            vwap
+
+    member self.StdDev =
+        match cachedStdDev with
+        | ValueSome v -> v
+        | ValueNone ->
+            let mutable pvSum = 0.0
+            let mutable pv2Sum = 0.0
+            let mutable vSum = 0.0
+            for t in trades do
+                pvSum <- pvSum + t.Price * t.Volume
+                pv2Sum <- pv2Sum + t.Price * t.Price * t.Volume
+                vSum <- vSum + t.Volume
+            let vwap = pvSum / vSum
+            let variance = pv2Sum / vSum - vwap * vwap
+            let sd = sqrt (max 0.0 variance)
+            cachedStdDev <- ValueSome sd
+            cachedVwap <- ValueSome vwap  // compute VWAP as a side effect
+            sd
 
 // ============================================================================
 // Class-based pipeline (separate classes with member inline onNext)
@@ -17,26 +70,11 @@ type VolumeBarOfTrades() =
     member val CumulativeVolumeSum = 0.0 with get, set
 
     member inline self.Process(onNext, trades: ImmutableArray<Trade>) =
-        let mutable priceVolumeSum = 0.0
-        let mutable priceSquaredVolumeSum = 0.0
         let mutable volumeSum = 0.0
         for t in trades do
-            priceVolumeSum <- priceVolumeSum + t.Price * t.Volume
-            priceSquaredVolumeSum <- priceSquaredVolumeSum + t.Price * t.Price * t.Volume
             volumeSum <- volumeSum + t.Volume
-        let vwap = priceVolumeSum / volumeSum
-        let variance = priceSquaredVolumeSum / volumeSum - vwap * vwap
         self.CumulativeVolumeSum <- self.CumulativeVolumeSum + volumeSum
-        onNext {
-            CumulativeVolume = self.CumulativeVolumeSum
-            VWAP = vwap
-            StdDev = sqrt (max 0.0 variance)
-            Volume = volumeSum
-            StartTime = trades.[0].Timestamp
-            EndTime = trades.[trades.Length - 1].Timestamp
-            NumTrades = trades.Length
-            Trades = trades
-        }
+        onNext (VolumeBar(trades, self.CumulativeVolumeSum))
 
 type GroupTrades(barSize: float) =
     member val BarSize = barSize
