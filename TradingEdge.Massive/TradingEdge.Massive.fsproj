@@ -28,6 +28,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\TradingEdge.Parsing\TradingEdge.Parsing.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Argu" Version="6.2.5" />
     <PackageReference Include="AWSSDK.S3" Version="4.0.14.2" />
     <PackageReference Include="Dapper" Version="2.1.66" />

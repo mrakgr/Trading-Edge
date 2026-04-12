@@ -256,6 +256,16 @@ type ConvertTradesToParquetArgs =
             match this with
             | Input_Dir _ -> "Directory containing ticker subfolders with .json trades (default: data/trades)"
 
+type BuildTradeBinariesArgs =
+    | [<AltCommandLine("-i")>] Input_Dir of string
+    | [<AltCommandLine("-o")>] Output_Dir of string
+
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Input_Dir _ -> "Directory containing ticker subfolders with .parquet trades (default: data/trades)"
+            | Output_Dir _ -> "Output directory for .bin files (default: data/trades_bin)"
+
 type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Download_Bulk of ParseResults<DownloadBulkArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Splits of ParseResults<DownloadSplitsArgs>
@@ -271,6 +281,7 @@ type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Download_Tickers of ParseResults<DownloadTickersArgs>
     | [<CliPrefix(CliPrefix.None)>] Refresh_Views of ParseResults<RefreshViewsArgs>
     | [<CliPrefix(CliPrefix.None)>] Convert_Trades_To_Parquet of ParseResults<ConvertTradesToParquetArgs>
+    | [<CliPrefix(CliPrefix.None)>] Build_Trade_Binaries of ParseResults<BuildTradeBinariesArgs>
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -289,6 +300,7 @@ type Arguments =
             | Download_Tickers _ -> "Download ETF/ETN ticker reference data from Polygon"
             | Refresh_Views _ -> "Refresh views only (fast, no table rematerialization)"
             | Convert_Trades_To_Parquet _ -> "One-shot migration: convert data/trades/*/*.json to zstd-compressed Parquet and delete the JSON originals"
+            | Build_Trade_Binaries _ -> "Build 16-byte packed binary trade files from Parquet sources"
 
 let private ensureDataDir () =
     Directory.CreateDirectory("data") |> ignore
@@ -1143,6 +1155,68 @@ let private handleConvertTradesToParquet (args: ParseResults<ConvertTradesToParq
                     (float bytesAfter / 1024.0 / 1024.0 / 1024.0)
                     ratio
 
+open TradingEdge.Parsing
+
+let private handleBuildTradeBinaries (args: ParseResults<BuildTradeBinariesArgs>) =
+    let inputDir =
+        args.TryGetResult BuildTradeBinariesArgs.Input_Dir
+        |> Option.defaultValue "data/trades"
+    let outputDir =
+        args.TryGetResult BuildTradeBinariesArgs.Output_Dir
+        |> Option.defaultValue "data/trades_bin"
+
+    if not (Directory.Exists inputDir) then
+        printfn "Directory not found: %s" inputDir
+    else
+        let parquetFiles =
+            Directory.EnumerateFiles(inputDir, "*.parquet", SearchOption.AllDirectories)
+            |> Seq.sort
+            |> Seq.toArray
+        let total = parquetFiles.Length
+        printfn "Found %d .parquet files under %s" total (Path.GetFullPath inputDir)
+        if total = 0 then
+            printfn "Nothing to convert."
+        else
+            let mutable converted = 0
+            let mutable skipped = 0
+            let mutable failed = 0
+            let sw = System.Diagnostics.Stopwatch.StartNew()
+
+            for i in 0 .. total - 1 do
+                let parquetPath = parquetFiles.[i]
+                // Mirror directory structure: data/trades/AAOI/2026-02-27.parquet
+                // → data/trades_bin/AAOI/2026-02-27.bin
+                let rel = Path.GetRelativePath(inputDir, parquetPath)
+                let binPath = Path.Combine(outputDir, Path.ChangeExtension(rel, ".bin"))
+
+                if File.Exists binPath then
+                    skipped <- skipped + 1
+                    if (i + 1) % 20 = 0 || i = total - 1 then
+                        printfn "[%d/%d] %d converted, %d skipped so far..." (i + 1) total converted skipped
+                else
+                    try
+                        let trades = TradeLoader.loadTrades parquetPath
+                        if trades.Length > 0 then
+                            TradeBinary.writeDay binPath trades
+                            converted <- converted + 1
+                            let expectedSize = int64 TradeBinary.HeaderSize + int64 trades.Length * int64 TradeBinary.RecordSize
+                            let actualSize = (FileInfo binPath).Length
+                            if actualSize <> expectedSize then
+                                printfn "[%d/%d] WARN  %s: size mismatch (expected %d, got %d)" (i + 1) total binPath expectedSize actualSize
+                            if (i + 1) % 10 = 0 || i = total - 1 then
+                                printfn "[%d/%d] CONV  %s (%d trades)" (i + 1) total binPath trades.Length
+                        else
+                            skipped <- skipped + 1
+                            printfn "[%d/%d] SKIP  %s (no trades)" (i + 1) total parquetPath
+                    with ex ->
+                        failed <- failed + 1
+                        printfn "[%d/%d] FAIL  %s: %s" (i + 1) total parquetPath ex.Message
+                        if File.Exists binPath then
+                            try File.Delete binPath with _ -> ()
+
+            printfn ""
+            printfn "Build complete in %.1fs: %d converted, %d skipped, %d failed" sw.Elapsed.TotalSeconds converted skipped failed
+
 [<EntryPoint>]
 let main argv =
     let parser = ArgumentParser.Create<Arguments>(programName = "TradingEdge")
@@ -1190,6 +1264,8 @@ let main argv =
                 handleDownloadTickers config args
             | Convert_Trades_To_Parquet args ->
                 handleConvertTradesToParquet args
+            | Build_Trade_Binaries args ->
+                handleBuildTradeBinaries args
 
         0
     with

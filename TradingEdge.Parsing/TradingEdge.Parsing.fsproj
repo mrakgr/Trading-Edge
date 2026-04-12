@@ -10,6 +10,7 @@
   <ItemGroup>
     <Compile Include="TradeLoader.fs" />
     <Compile Include="VolumeBars.fs" />
+    <Compile Include="TradeBinary.fs" />
     <Compile Include="VwapSystem.fs" />
   </ItemGroup>
 </Project>
