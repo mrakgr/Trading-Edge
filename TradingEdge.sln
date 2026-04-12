@@ -11,6 +11,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TradingEdge.Parsing", "Trad
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TradingEdge.Optimize", "TradingEdge.Optimize\TradingEdge.Optimize.fsproj", "{98A5C550-8ED8-4293-9487-F83C3F3DE71D}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TradingEdge.Profile", "TradingEdge.Profile\TradingEdge.Profile.fsproj", "{D3709C0C-6816-4A5E-8412-1124D70E3902}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,6 +71,18 @@ Global
 		{98A5C550-8ED8-4293-9487-F83C3F3DE71D}.Release|x64.Build.0 = Release|Any CPU
 		{98A5C550-8ED8-4293-9487-F83C3F3DE71D}.Release|x86.ActiveCfg = Release|Any CPU
 		{98A5C550-8ED8-4293-9487-F83C3F3DE71D}.Release|x86.Build.0 = Release|Any CPU
+		{D3709C0C-6816-4A5E-8412-1124D70E3902}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D3709C0C-6816-4A5E-8412-1124D70E3902}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D3709C0C-6816-4A5E-8412-1124D70E3902}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D3709C0C-6816-4A5E-8412-1124D70E3902}.Debug|x64.Build.0 = Debug|Any CPU
+		{D3709C0C-6816-4A5E-8412-1124D70E3902}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D3709C0C-6816-4A5E-8412-1124D70E3902}.Debug|x86.Build.0 = Debug|Any CPU
+		{D3709C0C-6816-4A5E-8412-1124D70E3902}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D3709C0C-6816-4A5E-8412-1124D70E3902}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D3709C0C-6816-4A5E-8412-1124D70E3902}.Release|x64.ActiveCfg = Release|Any CPU
+		{D3709C0C-6816-4A5E-8412-1124D70E3902}.Release|x64.Build.0 = Release|Any CPU
+		{D3709C0C-6816-4A5E-8412-1124D70E3902}.Release|x86.ActiveCfg = Release|Any CPU
+		{D3709C0C-6816-4A5E-8412-1124D70E3902}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
