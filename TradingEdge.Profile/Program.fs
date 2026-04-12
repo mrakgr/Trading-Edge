@@ -70,6 +70,134 @@ type VolumeBarBuilder(barSize: float) =
         self.Grouper.Process((fun trades -> self.BarBuilder.Process(onNext, trades)), trade)
 
 // ============================================================================
+// Pairwise bar variance
+// ============================================================================
+
+let pairwiseRealizedVariance (a: VolumeBar) (b: VolumeBar) =
+    assert (a.Volume = b.Volume)
+    log (a.VWAP / b.VWAP) ** 2
+
+type VwapSystemBar = {
+    Bar : VolumeBar
+    Vwma : float
+    VolFactor : float
+}
+
+// ============================================================================
+// VWAP system args builder
+// ============================================================================
+
+type VwapSystemArgsBuilder(barSize: float) =
+    member val Inner = VolumeBarBuilder(barSize)
+    member val LogVwapSum = 0.0 with get, set
+    member val BarCount = 0 with get, set
+    member val VarianceSum = 0.0 with get, set
+    member val PairCount = 0 with get, set
+    member val PrevBar = ValueOption<VolumeBar>.None with get, set
+
+    member inline self.Process(onNext, trade: Trade, includeInVwma: bool, includeInVol: bool) =
+        self.Inner.Process(
+            (fun bar ->
+                if includeInVwma then
+                    self.LogVwapSum <- self.LogVwapSum + log bar.VWAP
+                    self.BarCount <- self.BarCount + 1
+                let vwma = if self.BarCount > 0 then exp (self.LogVwapSum / float self.BarCount) else 0.0
+                match self.PrevBar with
+                | ValueSome prev ->
+                    if includeInVol then
+                        self.VarianceSum <- self.VarianceSum + pairwiseRealizedVariance prev bar
+                        self.PairCount <- self.PairCount + 1
+                | ValueNone -> ()
+                self.PrevBar <- ValueSome bar
+                let volFactor = if self.PairCount > 0 then exp (sqrt (self.VarianceSum / float self.PairCount)) - 1.0 else 0.0
+                onNext {
+                    Bar = bar
+                    Vwma = vwma
+                    VolFactor = volFactor
+                }
+            ),
+            trade
+        )
+
+// ============================================================================
+// Trade segregator
+// ============================================================================
+
+[<Struct>]
+type TradeStage =
+    | EarlyPremarket
+    | LatePremarket
+    | AfterOpeningPrint
+    | BeforeClosing
+
+[<Struct>]
+type MarketHours = {
+    openTime : DateTime
+    closeTime : DateTime
+}
+
+let defaultEstimationOffsets = [| 5.0; 30.0; 150.0; 750.0 |]
+
+type SegregateTrades(volPcts: float[]) =
+    let mutable volPctsOffset = ValueNone
+    let closing_pause = -60.0
+
+    member val OpenTime = DateTime.MaxValue with get, set
+    member val CloseTime = DateTime.MaxValue with get, set
+
+    member self.TradeStage(trade: Trade) =
+        if self.OpenTime <= trade.Timestamp then
+            if self.CloseTime.AddSeconds closing_pause <= trade.Timestamp then
+                BeforeClosing
+            else
+                AfterOpeningPrint
+        else
+            if trade.Session = OpeningPrint then
+                AfterOpeningPrint
+            elif self.OpenTime.AddHours(-1.0) <= trade.Timestamp then
+                LatePremarket
+            else
+                EarlyPremarket
+
+    member inline self.CalculateFlags(stage: TradeStage) =
+        let includeInVwma =
+            match stage with
+            | AfterOpeningPrint | BeforeClosing -> true
+            | _ -> false
+        let includeInVol =
+            match stage with
+            | LatePremarket | AfterOpeningPrint | BeforeClosing -> true
+            | _ -> false
+        struct (includeInVwma, includeInVol)
+
+    member self.Process(trades: ReadOnlySpan<Trade>) : TradeStage =
+        let trade = trades.[trades.Length - 1]
+        let stage = self.TradeStage trade
+        match stage with
+        | AfterOpeningPrint ->
+            let currentOffset = (trade.Timestamp - self.OpenTime).TotalSeconds
+            let mutable i = ValueNone
+            let mutable k = defaultEstimationOffsets.Length - 1
+            while k >= 0 && i.IsNone do
+                if defaultEstimationOffsets.[k] <= currentOffset then
+                    i <- ValueSome k
+                k <- k - 1
+            if volPctsOffset <> i then
+                volPctsOffset <- i
+                match volPctsOffset with
+                | ValueSome vpIdx ->
+                    let mutable totalVolume = 0.0
+                    for j in 0 .. trades.Length - 1 do
+                        totalVolume <- totalVolume + trades.[j].Volume
+                    // TODO: replay through VolumeBarBuilder
+                    let _barSize = totalVolume * volPcts.[vpIdx]
+                    ()
+                | ValueNone -> ()
+        | _ ->
+            ()
+        stage
+
+// ============================================================================
 // Benchmark harness
 // ============================================================================
 
