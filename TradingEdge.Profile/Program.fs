@@ -150,7 +150,7 @@ type SegregateTrades(volPcts: float[]) =
     member val ClosingPause = -60.0
     member val OpenTime = DateTime.MaxValue with get, set
     member val CloseTime = DateTime.MaxValue with get, set
-    member val LastBar = ValueOption<VwapSystemBar>.None with get, set
+    member val LastBar : VwapSystemBar voption = ValueNone with get, set
 
     member self.TradeStage(trade: Trade) =
         if self.OpenTime <= trade.Timestamp then
