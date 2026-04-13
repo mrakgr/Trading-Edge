@@ -757,9 +757,8 @@ let configureWith (header: DayHeader) (pcts: float[]) =
     seg.BaseTicks <- header.BaseTicks
     seg.OpeningPrintIdx <- int header.OpeningPrintIndex
     seg.ClosingPrintIdx <- int header.ClosingPrintIndex
-    let truncate ticks = header.BaseTicks + ((ticks - header.BaseTicks) / 1000L) * 1000L
-    seg.OpenTime <- DateTime(truncate header.SessionOpenTicks)
-    seg.CloseTime <- DateTime(truncate header.SessionCloseTicks)
+    seg.OpenTime <- DateTime(header.SessionOpenTicks)
+    seg.CloseTime <- DateTime(header.SessionCloseTicks)
     let vs = VwapSystem(positionSize, referenceVol, bandVol)
     let td = TrackDecisions()
     let tf = TrackFills(commissionPerShare)
