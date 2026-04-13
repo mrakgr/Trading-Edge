@@ -714,8 +714,8 @@ let main argv =
         let vs = VwapSystem(positionSize, referenceVol, bandVol)
         let td = TrackDecisions()
         let tf = TrackFills(0.0035)
-        let ell = EnforceLossLimit((fun () -> tf.NetPnL), 0.085 * positionSize)
-        let fs = FillSimulator(0.5, 100.0, 0.0, ValueNone)
+        let ell = EnforceLossLimit((fun () -> tf.NetPnL), infinity)
+        let fs = FillSimulator(0.05, 100.0, 0.0, ValueNone)
         fs.BaseTicks <- header.BaseTicks
         seg, vs, td, ell, fs, tf
 
@@ -747,6 +747,7 @@ let main argv =
                         bar, stage, trade, seg.Timestamp trade)),
                 ReadOnlySpan(d.Trades, 0, i + 1)) |> ignore
         ctx.Sink <- ctx.Sink + td.RealizedPnL + tf.GrossPnL - tf.Commissions
+        printfn "  %s %s  NetPnL: %.2f  Gross: %.2f  Commissions: %.2f  Fills: %d  Decisions: %d" d.Ticker d.Date tf.NetPnL tf.GrossPnL tf.Commissions tf.Fills.Count td.Decisions.Count
 
     // Warm up
     printfn "Warming up..."
