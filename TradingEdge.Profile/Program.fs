@@ -7,9 +7,6 @@ open System.Runtime.InteropServices
 open System.Text.RegularExpressions
 open System.Diagnostics
 open TradingEdge.Parsing.TradeBinary
-open TradingEdge.Parsing.TradeLoader
-open TradingEdge.Parsing.VolumeBars
-open TradingEdge.Parsing.VwapSystem
 
 // ============================================================================
 // Local VolumeBar over TradeRecord (Profile-scoped; replaces the shared one)
@@ -661,6 +658,64 @@ let loadDayRecords (path: string) : DayHeader * TradeRecord[] =
     header, records
 
 // ============================================================================
+// Round-trip extraction (mirrors scripts/fill_breakdown.fsx)
+// ============================================================================
+
+type RoundTrip = {
+    PnL: float
+    Commission: float
+    Side: int  // +1 long, -1 short
+    EntryPrice: float
+    ExitPrice: float
+    Shares: int
+}
+
+let extractRoundTrips (fills: ResizeArray<Fill>) (commissionPerShare: float) =
+    let trips = ResizeArray<RoundTrip>()
+    let mutable position = 0
+    let mutable avgCost = 0.0
+    let mutable entryCommission = 0.0
+
+    for f in fills do
+        let qty = f.Quantity
+        let commission = float (abs qty) * commissionPerShare
+
+        if position = 0 then
+            avgCost <- f.Price
+            position <- qty
+            entryCommission <- commission
+        elif sign qty = sign position then
+            let totalQty = position + qty
+            avgCost <- (avgCost * float (abs position) + f.Price * float (abs qty)) / float (abs totalQty)
+            position <- totalQty
+            entryCommission <- entryCommission + commission
+        else
+            let closingQty = min (abs qty) (abs position)
+            let pnl = float (sign position) * (f.Price - avgCost) * float closingQty
+            let totalCommission = entryCommission * (float closingQty / float (abs position)) + commission
+            trips.Add {
+                PnL = pnl - totalCommission
+                Commission = totalCommission
+                Side = sign position
+                EntryPrice = avgCost
+                ExitPrice = f.Price
+                Shares = closingQty
+            }
+            let remaining = position + qty
+            if remaining = 0 then
+                position <- 0
+                avgCost <- 0.0
+                entryCommission <- 0.0
+            elif sign remaining <> sign position then
+                entryCommission <- float (abs remaining) * commissionPerShare
+                avgCost <- f.Price
+                position <- remaining
+            else
+                entryCommission <- entryCommission * (1.0 - float closingQty / float (abs position))
+                position <- remaining
+    trips.ToArray()
+
+// ============================================================================
 // Benchmark harness
 // ============================================================================
 
@@ -669,6 +724,16 @@ type SinkContext = {
     mutable DecisionCount: int
     mutable FillCount: int
     mutable Sink : float
+}
+
+type DayResult = {
+    Ticker: string
+    Date: string
+    DayPnL: float
+    RoundTrips: RoundTrip[]
+    TotalCommission: float
+    NumFills: int
+    AvgPositionSize: float
 }
 
 [<EntryPoint>]
@@ -751,7 +816,6 @@ let main argv =
                         bar, stage, trade, seg.Timestamp trade)),
                 ReadOnlySpan(d.Trades, 0, i + 1)) |> ignore
         ctx.Sink <- ctx.Sink + td.RealizedPnL + tf.GrossPnL - tf.Commissions
-        printfn "  %s %s  NetPnL: %.2f  Gross: %.2f  Commissions: %.2f  Fills: %d  Decisions: %d" d.Ticker d.Date tf.NetPnL tf.GrossPnL tf.Commissions tf.Fills.Count td.Decisions.Count
 
     // Warm up
     printfn "Warming up..."
@@ -769,144 +833,170 @@ let main argv =
     printfn "  Time: %.3fs  Bars: %d  Decisions: %d  Fills: %d  Sink: %.2f  Trades/sec: %s" sw.Elapsed.TotalSeconds ctx.BarCount ctx.DecisionCount ctx.FillCount ctx.Sink ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
 
     // ================================================================
-    // Decision-stream verification: new (class) vs old (closure) on one day
+    // Fill breakdown — per-day round trips + aggregate stats
     // ================================================================
-    let targetTicker = "UGRO"
-    let targetDate = "2026-03-25"
-    printfn "\n=== Decision diff: %s %s ===" targetTicker targetDate
+    let logPath = "logs/fill_breakdown_new.log"
+    Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
+    use logWriter = new StreamWriter(logPath, false)
+    let tee fmt =
+        Printf.kprintf (fun s -> Console.WriteLine s; logWriter.WriteLine s; logWriter.Flush()) fmt
 
-    let binPath = sprintf "data/trades_bin/%s/%s.bin" targetTicker targetDate
-    let header, records = loadDayRecords binPath
-    let _, oldTrades = loadDay binPath  // same data, Trade[] with DateTime
+    tee "=== VWAP System Fill Breakdown (new class-based pipeline) ==="
+    tee "Bar exponents: [-8.69;-1.10;-16.27;-16.73]  pcts: [%s]"
+        (String.Join(";", pcts |> Array.map (fun p -> sprintf "%.5f" p)))
+    tee "Position size: $%.0f  referenceVol: %.4g  bandVol: %.1f  lossLimit: infinity" positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0) bandVol
+    tee "Fill sim: pctile=%.3f, delay=%.0fms, commission=$%.4f/share, rejection=%.0f%%" 0.05 100.0 0.0035 30.0
+    tee ""
 
-    // Sanity: both arrays should have identical volumes in identical order.
-    printfn "records.Length=%d  oldTrades.Length=%d" records.Length oldTrades.Length
-    let cpIdx = int header.ClosingPrintIndex
-    printfn "Closing print [%d]: price=%.4f size=%d ts=%s"
-        cpIdx oldTrades.[cpIdx].Price (int oldTrades.[cpIdx].Volume) (oldTrades.[cpIdx].Timestamp.ToString("HH:mm:ss.fff"))
-    printfn "Last 5 regular-hours trades:"
-    let mutable shown = 0
-    let mutable i = records.Length - 1
-    while i >= 0 && shown < 5 do
-        let t = oldTrades.[i]
-        if t.Session = RegularHours || t.Session = ClosingPrint then
-            printfn "  [%d] %s  %.4f x %d  Session=%A" i (t.Timestamp.ToString("HH:mm:ss.fff")) t.Price (int t.Volume) t.Session
-            shown <- shown + 1
-        i <- i - 1
-    // Min/max of all regular-hours prices
-    let mutable minP = infinity
-    let mutable maxP = 0.0
-    for j in 0 .. oldTrades.Length - 1 do
-        if oldTrades.[j].Session = RegularHours then
-            minP <- min minP oldTrades.[j].Price
-            maxP <- max maxP oldTrades.[j].Price
-    printfn "Regular-hours price range: [%.4f, %.4f]" minP maxP
-    let mutable volDiffCount = 0
-    let mutable sumNew = 0.0
-    let mutable sumOld = 0.0
-    for i in 0 .. records.Length - 1 do
-        let vNew = float records.[i].Size
-        let vOld = oldTrades.[i].Volume
-        sumNew <- sumNew + vNew
-        sumOld <- sumOld + vOld
-        if vNew <> vOld && volDiffCount < 5 then
-            printfn "  trade[%d] vol diff: new=%.4f old=%.4f  price new=%.4f old=%.4f" i vNew vOld records.[i].Price oldTrades.[i].Price
-            volDiffCount <- volDiffCount + 1
-    printfn "total vol  new=%.4f  old=%.4f  diff=%.4f" sumNew sumOld (sumNew - sumOld)
+    let dayResults =
+        [| for d in dayData do
+            let seg, vs, td, ell, fs, tf = configure d.Header
+            let onFillSink (_: Fill) = ()
+            let onFill (fill: Fill) = tf.Process(onFillSink, fill)
+            let onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord) =
+                fs.Process(onFill, decision, bar, stage, trade)
+                stage
+            for i in 0 .. d.Trades.Length - 1 do
+                seg.Process(
+                    (fun (bar, stage, trade) ->
+                        vs.Process(
+                            (fun (decision, bar, stage, trade) ->
+                                ell.Process(
+                                    (fun (decision, bar, stage, trade) ->
+                                        td.Process(onTracked, decision, bar, stage, trade)),
+                                    decision, bar, stage, trade)),
+                            bar, stage, trade, seg.Timestamp trade)),
+                    ReadOnlySpan(d.Trades, 0, i + 1)) |> ignore
+            let roundTrips = extractRoundTrips tf.Fills 0.0035
+            let posSizes =
+                [| for i in 0 .. td.Decisions.Count - 2 do
+                    if td.Decisions.[i].Shares <> 0 then
+                        float (abs td.Decisions.[i].Shares) * td.Decisions.[i].Price |]
+            let avgPos = if posSizes.Length > 0 then (posSizes |> Array.sum) / float posSizes.Length else 0.0
+            yield {
+                Ticker = d.Ticker
+                Date = d.Date
+                DayPnL = tf.NetPnL
+                RoundTrips = roundTrips
+                TotalCommission = tf.Commissions
+                NumFills = tf.Fills.Count
+                AvgPositionSize = avgPos
+            } |]
 
-    // --- New pipeline: class-based, capture decisions + bars ---
-    let newDecisions = ResizeArray<DateTime * int * float>()
-    let newBars = ResizeArray<int * DateTime * float * float>()  // (tickIdx, barTime, barVWAP, barVolume)
-    let seg = SegregateTrades(pcts)
-    seg.BaseTicks <- header.BaseTicks
-    seg.OpeningPrintIdx <- int header.OpeningPrintIndex
-    seg.ClosingPrintIdx <- int header.ClosingPrintIndex
-    let truncate ticks = header.BaseTicks + ((ticks - header.BaseTicks) / 1000L) * 1000L
-    seg.OpenTime <- DateTime(truncate header.SessionOpenTicks)
-    seg.CloseTime <- DateTime(truncate header.SessionCloseTicks)
-    let vs = VwapSystem(positionSize, referenceVol, bandVol)
-    for i in 0 .. records.Length - 1 do
-        seg.Process(
-            (fun (bar, stage, trade) ->
-                match bar with
-                | ValueSome b -> newBars.Add(i, seg.Timestamp trade, b.Bar.VWAP, b.Bar.Volume)
-                | ValueNone -> ()
-                vs.Process(
-                    (fun (decision, _, stage, _) ->
-                        match decision with
-                        | ValueSome d -> newDecisions.Add(d.Timestamp, d.Shares, d.Price)
-                        | ValueNone -> ()
-                        stage),
-                    bar, stage, trade, seg.Timestamp trade)),
-            ReadOnlySpan(records, 0, i + 1)) |> ignore
+    tee "=== Per-Day Results (sorted by P&L) ==="
+    tee "%-6s %-12s %10s %6s %6s %6s %10s %10s %10s %10s"
+        "Ticker" "Date" "DayP&L" "trips" "W" "L" "avgWin" "avgLoss" "commiss" "avgPos$"
+    tee "%s" (String.replicate 100 "-")
+    let sortedDays = dayResults |> Array.sortByDescending (fun d -> d.DayPnL)
+    for d in sortedDays do
+        let pnls = d.RoundTrips |> Array.map (fun rt -> rt.PnL)
+        let wins = pnls |> Array.filter (fun p -> p > 0.01)
+        let losses = pnls |> Array.filter (fun p -> p < -0.01)
+        let avgWin = if wins.Length > 0 then wins |> Array.average else 0.0
+        let avgLoss = if losses.Length > 0 then losses |> Array.average else 0.0
+        tee "%-6s %-12s %10.2f %6d %6d %6d %10.2f %10.2f %10.2f %10.2f"
+            d.Ticker d.Date d.DayPnL d.RoundTrips.Length wins.Length losses.Length avgWin avgLoss d.TotalCommission d.AvgPositionSize
 
-    // --- Old pipeline: closure-based, capture decisions + bars ---
-    let oldDecisions = ResizeArray<DateTime * int * float>()
-    let oldBars = ResizeArray<int * DateTime * float * float>()
-    let openT =
-        oldTrades |> Array.find (fun (t: Trade) -> t.Session = OpeningPrint) |> fun t -> t.Timestamp
-    let closeT =
-        oldTrades |> Array.find (fun (t: Trade) -> t.Session = ClosingPrint) |> fun t -> t.Timestamp
-    let window : TradingEdge.Parsing.VwapSystem.MarketHours = { openTime = openT; closeTime = closeT }
-    let segregate = TradingEdge.Parsing.VwapSystem.segregateTrades window pcts
-    let decide = TradingEdge.Parsing.VwapSystem.vwapSystem (positionSize, (match referenceVol with ValueSome v -> Some v | _ -> None), bandVol)
-    let sink (_: TradingEdge.Parsing.VwapSystem.VwapSystemBar option, decision: TradingEdge.Parsing.VwapSystem.TradingDecision option, _: Trade) =
-        match decision with
-        | Some d -> oldDecisions.Add(d.Timestamp, d.Shares, d.Price)
-        | None -> ()
-    let mutable tickIdx = 0
-    for t in oldTrades do
-        segregate
-            (fun (bar, stage, trade) ->
-                match bar with
-                | Some b -> oldBars.Add(tickIdx, trade.Timestamp, b.Bar.VWAP, b.Bar.Volume)
-                | None -> ()
-                decide sink (bar, stage, trade))
-            t
-        tickIdx <- tickIdx + 1
+    let allTrips = dayResults |> Array.collect (fun d -> d.RoundTrips)
+    let allPnLs = allTrips |> Array.map (fun rt -> rt.PnL)
+    let winTrips = allPnLs |> Array.filter (fun p -> p > 0.01)
+    let lossTrips = allPnLs |> Array.filter (fun p -> p < -0.01)
+    let flatTrips = allPnLs |> Array.filter (fun p -> abs p <= 0.01)
+    let longTrips = allTrips |> Array.filter (fun rt -> rt.Side > 0)
+    let shortTrips = allTrips |> Array.filter (fun rt -> rt.Side < 0)
+    let longPnL = longTrips |> Array.sumBy (fun rt -> rt.PnL)
+    let shortPnL = shortTrips |> Array.sumBy (fun rt -> rt.PnL)
+    let grossWins = winTrips |> Array.sum
+    let grossLosses = lossTrips |> Array.sum |> abs
+    let profitFactor = if grossLosses > 0.0 then grossWins / grossLosses else infinity
+    let avgWin = if winTrips.Length > 0 then winTrips |> Array.average else 0.0
+    let avgLoss = if lossTrips.Length > 0 then lossTrips |> Array.average else 0.0
+    let avgTrade = if allPnLs.Length > 0 then allPnLs |> Array.average else 0.0
+    let winRate =
+        if winTrips.Length + lossTrips.Length > 0 then
+            100.0 * float winTrips.Length / float (winTrips.Length + lossTrips.Length)
+        else 0.0
+    let expectancy =
+        if winTrips.Length + lossTrips.Length > 0 then
+            (winRate / 100.0) * avgWin + (1.0 - winRate / 100.0) * avgLoss
+        else 0.0
+    let maxWin = if winTrips.Length > 0 then winTrips |> Array.max else 0.0
+    let maxLoss = if lossTrips.Length > 0 then lossTrips |> Array.min else 0.0
+    let medianWin =
+        if winTrips.Length > 0 then
+            let s = winTrips |> Array.sort
+            s.[s.Length / 2]
+        else 0.0
+    let medianLoss =
+        if lossTrips.Length > 0 then
+            let s = lossTrips |> Array.sort
+            s.[s.Length / 2]
+        else 0.0
 
-    printfn "bars new: %d  old: %d" newBars.Count oldBars.Count
-    let barN = min newBars.Count oldBars.Count
-    let mutable barFirstDiff = -1
-    for i in 0 .. barN - 1 do
-        let (ni, nt, nv, nq) = newBars.[i]
-        let (oi, ot, ov, oq) = oldBars.[i]
-        if ni <> oi || nt <> ot || abs (nv - ov) > 1e-9 || abs (nq - oq) > 1e-9 then
-            if barFirstDiff < 0 then barFirstDiff <- i
-    if barFirstDiff >= 0 then
-        let lo = max 0 (barFirstDiff - 2)
-        let hi = min (barN - 1) (barFirstDiff + 5)
-        printfn "first bar divergence at index %d:" barFirstDiff
-        for i in lo .. hi do
-            let (ni, nt, nv, nq) = newBars.[i]
-            let (oi, ot, ov, oq) = oldBars.[i]
-            let marker = if ni = oi && nt = ot && abs (nv - ov) < 1e-9 && abs (nq - oq) < 1e-9 then "  " else "**"
-            printfn "  [%3d] %s tick new:%-5d old:%-5d  time new:%s old:%s  vwap new:%.6f old:%.6f  vol new:%.2f old:%.2f"
-                i marker ni oi (nt.ToString("HH:mm:ss.fff")) (ot.ToString("HH:mm:ss.fff")) nv ov nq oq
-    else
-        printfn "All matched bars identical."
-    printfn "new count: %d    old count: %d" newDecisions.Count oldDecisions.Count
-    let n = max newDecisions.Count oldDecisions.Count
-    let mutable firstDiff = -1
-    for i in 0 .. n - 1 do
-        let newStr =
-            if i < newDecisions.Count then
-                let (ts, sh, pr) = newDecisions.[i]
-                sprintf "%s %+5d %.4f" (ts.ToString("HH:mm:ss.fff")) sh pr
-            else "                       "
-        let oldStr =
-            if i < oldDecisions.Count then
-                let (ts, sh, pr) = oldDecisions.[i]
-                sprintf "%s %+5d %.4f" (ts.ToString("HH:mm:ss.fff")) sh pr
-            else "                       "
-        let marker =
-            if i < newDecisions.Count && i < oldDecisions.Count && newDecisions.[i] = oldDecisions.[i] then "  "
-            else
-                if firstDiff < 0 then firstDiff <- i
-                "**"
-        printfn "  [%3d] %s  new: %s  | old: %s" i marker newStr oldStr
-    if firstDiff >= 0 then
-        printfn "First divergence at index %d" firstDiff
-    else
-        printfn "Decision streams are identical."
+    let winDays = dayResults |> Array.filter (fun d -> d.DayPnL > 0.01)
+    let lossDays = dayResults |> Array.filter (fun d -> d.DayPnL < -0.01)
+    let flatDays = dayResults |> Array.filter (fun d -> abs d.DayPnL <= 0.01)
+    let dayWinRate =
+        if winDays.Length + lossDays.Length > 0 then
+            100.0 * float winDays.Length / float (winDays.Length + lossDays.Length)
+        else 0.0
+    let avgWinDay = if winDays.Length > 0 then (winDays |> Array.sumBy (fun d -> d.DayPnL)) / float winDays.Length else 0.0
+    let avgLossDay = if lossDays.Length > 0 then (lossDays |> Array.sumBy (fun d -> d.DayPnL)) / float lossDays.Length else 0.0
+    let worstDay = if lossDays.Length > 0 then lossDays |> Array.minBy (fun d -> d.DayPnL) |> fun d -> d.DayPnL else 0.0
+    let bestDay = if winDays.Length > 0 then winDays |> Array.maxBy (fun d -> d.DayPnL) |> fun d -> d.DayPnL else 0.0
+
+    let totalPnL = dayResults |> Array.sumBy (fun d -> d.DayPnL)
+    let totalCommissions = dayResults |> Array.sumBy (fun d -> d.TotalCommission)
+    let totalFillsCount = dayResults |> Array.sumBy (fun d -> d.NumFills)
+    let avgPosOverall =
+        if dayResults.Length > 0 then
+            (dayResults |> Array.sumBy (fun d -> d.AvgPositionSize)) / float dayResults.Length
+        else 0.0
+
+    tee ""
+    tee "=== Aggregate Statistics ==="
+    tee ""
+    tee "--- Overall ---"
+    tee "Total P&L:         $%12.2f" totalPnL
+    tee "Total commissions: $%12.2f" totalCommissions
+    tee "Total days:         %12d" dayResults.Length
+    tee "Total round trips:  %12d" allTrips.Length
+    tee "Total fills:        %12d" totalFillsCount
+    tee "Avg trips/day:      %12.1f" (float allTrips.Length / float dayResults.Length)
+    tee "Avg position size:  $%12.2f" avgPosOverall
+    tee ""
+    tee "--- Round-Trip Level ---"
+    tee "Win trades:         %12d" winTrips.Length
+    tee "Loss trades:        %12d" lossTrips.Length
+    tee "Flat trades:        %12d" flatTrips.Length
+    tee "Win rate:           %12.1f%%" winRate
+    tee "Avg winner:         $%12.2f" avgWin
+    tee "Avg loser:          $%12.2f" avgLoss
+    tee "Median winner:      $%12.2f" medianWin
+    tee "Median loser:       $%12.2f" medianLoss
+    tee "Largest winner:     $%12.2f" maxWin
+    tee "Largest loser:      $%12.2f" maxLoss
+    tee "Avg trade:          $%12.2f" avgTrade
+    tee "Expectancy:         $%12.2f" expectancy
+    tee "Gross wins:         $%12.2f" grossWins
+    tee "Gross losses:       $%12.2f" grossLosses
+    tee "Profit factor:      %12.2f" profitFactor
+    tee ""
+    tee "--- Day-Level ---"
+    tee "Winning days:       %12d" winDays.Length
+    tee "Losing days:        %12d" lossDays.Length
+    tee "Flat days:          %12d" flatDays.Length
+    tee "Day win rate:       %12.1f%%" dayWinRate
+    tee "Avg winning day:    $%12.2f" avgWinDay
+    tee "Avg losing day:     $%12.2f" avgLossDay
+    tee "Worst day:          $%12.2f" worstDay
+    tee "Best day:           $%12.2f" bestDay
+    tee ""
+    tee "--- Long/Short Split ---"
+    tee "Long trades:        %12d" longTrips.Length
+    tee "Long P&L:           $%12.2f" longPnL
+    tee "Avg long trade:     $%12.2f" (if longTrips.Length > 0 then longPnL / float longTrips.Length else 0.0)
+    tee "Short trades:       %12d" shortTrips.Length
+    tee "Short P&L:          $%12.2f" shortPnL
+    tee "Avg short trade:    $%12.2f" (if shortTrips.Length > 0 then shortPnL / float shortTrips.Length else 0.0)
     0
