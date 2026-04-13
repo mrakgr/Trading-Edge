@@ -337,6 +337,278 @@ type EnforceLossLimit(tracker: TrackDecisions, lossLimit: float) =
         onNext (decision, bar, stage, trade)
 
 // ============================================================================
+// Fill simulator
+// ============================================================================
+
+[<Struct>]
+type Fill = {
+    Timestamp: DateTime
+    Price: float
+    Quantity: int
+}
+
+type LimitOrder = {
+    Prices: struct (float * DateTime) list
+    Quantities: struct (int * DateTime) list
+    FilledQuantity: int
+    CancellationTime: DateTime voption
+}
+
+let inline tryFindV ([<InlineIfLambda>] pred: 'a -> bool) (xs: 'a list) : 'a voption =
+    let mutable cur = xs
+    let mutable result = ValueNone
+    while result.IsNone && not cur.IsEmpty do
+        let h = cur.Head
+        if pred h then result <- ValueSome h
+        else cur <- cur.Tail
+    result
+
+/// Weighted average price of trades in the quantile band [q_lo, q_hi].
+/// Sorts the input by (price, volume), walks cumulative weight and takes
+/// fractional overlaps at band edges.
+let inline bandPrice (prices_and_volumes: struct (float * float)[]) (q_lo: float) (q_hi: float) : float =
+    let n = prices_and_volumes.Length
+    let inline structFst struct (x, _) = x
+    if n = 0 then nan
+    elif n = 1 then prices_and_volumes.[0] |> structFst
+    else
+        let prices_and_volumes = Array.sort prices_and_volumes
+        let totalWeight = prices_and_volumes |> Array.sumBy (fun struct (_, b) -> b)
+        let w_lo = q_lo * totalWeight
+        let w_hi = q_hi * totalWeight
+        if w_lo < w_hi then
+            let mutable cumWeight = 0.0
+            let mutable sumPriceWeight = 0.0
+            let mutable sumWeight = 0.0
+            for i in 0 .. n - 1 do
+                let struct (price, volume) = prices_and_volumes.[i]
+                let nextCum = cumWeight + volume
+                let overlapStart = max cumWeight w_lo
+                let overlapEnd = min nextCum w_hi
+                if overlapEnd > overlapStart then
+                    let fraction = overlapEnd - overlapStart
+                    sumPriceWeight <- sumPriceWeight + price * fraction
+                    sumWeight <- sumWeight + fraction
+                cumWeight <- nextCum
+            if sumPriceWeight > 0.0 then sumPriceWeight / sumWeight else failwith "sumPriceWeight > 0.0 check failed"
+        elif w_lo = w_hi then
+            let target = w_lo
+            let mutable cum = 0.0
+            let mutable i = 0
+            let mutable found = ValueNone
+            while i < n && found.IsNone do
+                let struct (price, volume) = prices_and_volumes.[i]
+                cum <- cum + volume
+                if cum >= target then
+                    found <- ValueSome struct (price, volume)
+                i <- i + 1
+            found.Value |> structFst
+        else failwith "w_lo shouldn't be higher than w_hi."
+
+type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngOpt: Random voption) =
+    let compression = 100.0
+
+    member val Percentile = percentile
+    member val Delay = TimeSpan.FromMilliseconds delayMs
+    member val RejectionRate = rejectionRate
+    member val Rng =
+        match rngOpt with
+        | ValueSome r -> r
+        | ValueNone -> Random(12345)
+
+    member val BaseTicks = 0L with get, set
+    member val Fills = ResizeArray<Fill>()
+    member val BuyOrder : LimitOrder voption = ValueNone with get, set
+    member val SellOrder : LimitOrder voption = ValueNone with get, set
+    member val TargetPosition = 0 with get, set
+    member val FilledPosition = 0 with get, set
+    member val LastPricesAndVolumes : struct (float * float)[] = Array.empty with get, set
+    member val PendingTarget : int voption = ValueNone with get, set
+
+    member inline self.Timestamp(trade: TradeRecord) =
+        DateTime(self.BaseTicks + int64 trade.TimeDeci * 1000L)
+
+    member self.ComputePrice(isBuy: bool) =
+        let q = max 0.0 (min 1.0 (if isBuy then percentile else 1.0 - percentile))
+        let hw = q * (1.0 - q) / compression
+        bandPrice self.LastPricesAndVolumes (q - hw) (q + hw)
+
+    member self.PlaceOrder(now: DateTime) =
+        let needed = self.TargetPosition - self.FilledPosition
+        let activationTime = now + self.Delay
+        if self.LastPricesAndVolumes.Length > 0 && needed > 0 then
+            assert self.SellOrder.IsNone
+            self.BuyOrder <- ValueSome {
+                Prices = [struct (self.ComputePrice true, activationTime)]
+                Quantities = [struct (needed, activationTime)]
+                FilledQuantity = 0
+                CancellationTime = ValueNone
+            }
+        elif self.LastPricesAndVolumes.Length > 0 && needed < 0 then
+            assert self.BuyOrder.IsNone
+            self.SellOrder <- ValueSome {
+                Prices = [struct (self.ComputePrice false, activationTime)]
+                Quantities = [struct (-needed, activationTime)]
+                FilledQuantity = 0
+                CancellationTime = ValueNone
+            }
+
+    member self.CancelBuyOrder(now: DateTime) =
+        match self.BuyOrder with
+        | ValueSome order when order.CancellationTime.IsNone ->
+            self.BuyOrder <- ValueSome { order with CancellationTime = ValueSome (now + self.Delay) }
+        | _ -> ()
+
+    member self.CancelSellOrder(now: DateTime) =
+        match self.SellOrder with
+        | ValueSome order when order.CancellationTime.IsNone ->
+            self.SellOrder <- ValueSome { order with CancellationTime = ValueSome (now + self.Delay) }
+        | _ -> ()
+
+    member self.IsCancelled(now: DateTime, order: LimitOrder) =
+        match order.CancellationTime with
+        | ValueSome cancelTime -> now >= cancelTime
+        | ValueNone -> false
+
+    member self.TryFillBuy(trade: TradeRecord, now: DateTime) =
+        match self.BuyOrder with
+        | ValueSome order when not (self.IsCancelled(now, order)) ->
+            let priceOpt = order.Prices |> tryFindV (fun struct (_, at) -> now >= at)
+            let qtyOpt = order.Quantities |> tryFindV (fun struct (_, at) -> now >= at)
+            match priceOpt, qtyOpt with
+            | ValueSome (struct (price, _)), ValueSome (struct (qty, _)) when trade.Price <= price ->
+                let remaining = qty - order.FilledQuantity
+                if remaining > 0 && (self.RejectionRate = 0.0 || self.Rng.NextDouble() >= self.RejectionRate) then
+                    let fillQty = min remaining trade.Size
+                    if fillQty > 0 then
+                        self.Fills.Add { Timestamp = now; Price = price; Quantity = fillQty }
+                        self.FilledPosition <- self.FilledPosition + fillQty
+                        self.BuyOrder <- ValueSome { order with FilledQuantity = order.FilledQuantity + fillQty }
+            | _ -> ()
+        | _ -> ()
+
+    member self.TryFillSell(trade: TradeRecord, now: DateTime) =
+        match self.SellOrder with
+        | ValueSome order when not (self.IsCancelled(now, order)) ->
+            let priceOpt = order.Prices |> tryFindV (fun struct (_, at) -> now >= at)
+            let qtyOpt = order.Quantities |> tryFindV (fun struct (_, at) -> now >= at)
+            match priceOpt, qtyOpt with
+            | ValueSome (struct (price, _)), ValueSome (struct (qty, _)) when trade.Price >= price ->
+                let remaining = qty - order.FilledQuantity
+                if remaining > 0 && (self.RejectionRate = 0.0 || self.Rng.NextDouble() >= self.RejectionRate) then
+                    let fillQty = min remaining trade.Size
+                    if fillQty > 0 then
+                        self.Fills.Add { Timestamp = now; Price = price; Quantity = -fillQty }
+                        self.FilledPosition <- self.FilledPosition - fillQty
+                        self.SellOrder <- ValueSome { order with FilledQuantity = order.FilledQuantity + fillQty }
+            | _ -> ()
+        | _ -> ()
+
+    member self.ProcessCancellations(now: DateTime) =
+        match self.BuyOrder with
+        | ValueSome order ->
+            match order.CancellationTime with
+            | ValueSome cancelTime when now >= cancelTime -> self.BuyOrder <- ValueNone
+            | _ -> ()
+        | ValueNone -> ()
+        match self.SellOrder with
+        | ValueSome order ->
+            match order.CancellationTime with
+            | ValueSome cancelTime when now >= cancelTime -> self.SellOrder <- ValueNone
+            | _ -> ()
+        | ValueNone -> ()
+        match self.BuyOrder with
+        | ValueSome order ->
+            let struct (newestQty, activationTime) = order.Quantities.Head
+            if now >= activationTime && newestQty <= order.FilledQuantity then
+                self.BuyOrder <- ValueNone
+        | ValueNone -> ()
+        match self.SellOrder with
+        | ValueSome order ->
+            let struct (newestQty, activationTime) = order.Quantities.Head
+            if now >= activationTime && newestQty <= order.FilledQuantity then
+                self.SellOrder <- ValueNone
+        | ValueNone -> ()
+
+    member self.ProcessPending(now: DateTime) =
+        match self.PendingTarget with
+        | ValueSome _ when self.BuyOrder.IsNone && self.SellOrder.IsNone ->
+            self.PendingTarget <- ValueNone
+            self.PlaceOrder now
+        | _ -> ()
+
+    member inline self.Process(onNext, decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord) =
+        let now = self.Timestamp trade
+
+        // 1. Process cancellations
+        self.ProcessCancellations now
+
+        // 2. New bar: build price/volume array and reprice active orders
+        match bar with
+        | ValueSome b ->
+            let trades = b.Bar.Trades
+            let pv = Array.init trades.Length (fun i ->
+                let t = trades.[i]
+                struct (t.Price, float t.Size))
+            self.LastPricesAndVolumes <- pv
+            match self.BuyOrder with
+            | ValueSome order when order.CancellationTime.IsNone ->
+                let newPrice = struct (self.ComputePrice true, now + self.Delay)
+                self.BuyOrder <- ValueSome { order with Prices = newPrice :: order.Prices }
+            | _ -> ()
+            match self.SellOrder with
+            | ValueSome order when order.CancellationTime.IsNone ->
+                let newPrice = struct (self.ComputePrice false, now + self.Delay)
+                self.SellOrder <- ValueSome { order with Prices = newPrice :: order.Prices }
+            | _ -> ()
+        | ValueNone -> ()
+
+        // 3. New decision: flip / adjust / cancel
+        match decision with
+        | ValueSome d ->
+            self.TargetPosition <- d.Shares
+            let needed = self.TargetPosition - self.FilledPosition
+            let activationTime = now + self.Delay
+            if needed > 0 then
+                if self.SellOrder.IsSome then
+                    self.CancelSellOrder now
+                    self.PendingTarget <- ValueSome self.TargetPosition
+                elif self.BuyOrder.IsNone then
+                    self.PendingTarget <- ValueSome self.TargetPosition
+                else
+                    match self.BuyOrder with
+                    | ValueSome order when order.CancellationTime.IsNone ->
+                        let newQty = struct (needed, activationTime)
+                        self.BuyOrder <- ValueSome { order with Quantities = newQty :: order.Quantities }
+                    | _ -> ()
+            elif needed < 0 then
+                if self.BuyOrder.IsSome then
+                    self.CancelBuyOrder now
+                    self.PendingTarget <- ValueSome self.TargetPosition
+                elif self.SellOrder.IsNone then
+                    self.PendingTarget <- ValueSome self.TargetPosition
+                else
+                    match self.SellOrder with
+                    | ValueSome order when order.CancellationTime.IsNone ->
+                        let newQty = struct (-needed, activationTime)
+                        self.SellOrder <- ValueSome { order with Quantities = newQty :: order.Quantities }
+                    | _ -> ()
+            else
+                self.CancelBuyOrder now
+                self.CancelSellOrder now
+        | ValueNone -> ()
+
+        // 4. Check fills — emit each new fill via onNext
+        let prevFillCount = self.Fills.Count
+        self.TryFillBuy(trade, now)
+        self.TryFillSell(trade, now)
+        for i in prevFillCount .. self.Fills.Count - 1 do
+            onNext self.Fills.[i]
+
+        // 5. Process pending orders
+        self.ProcessPending now
+
+// ============================================================================
 // Binary loading (TradeRecord-native, no Trade conversion)
 // ============================================================================
 
@@ -354,6 +626,7 @@ let loadDayRecords (path: string) : DayHeader * TradeRecord[] =
 type SinkContext = {
     mutable BarCount: int
     mutable DecisionCount: int
+    mutable FillCount: int
     mutable Sink : float
 }
 
@@ -401,18 +674,24 @@ let main argv =
         let vs = VwapSystem(positionSize, referenceVol, bandVol)
         let td = TrackDecisions()
         let ell = EnforceLossLimit(td, 1000.0)
-        seg, vs, td, ell
+        let fs = FillSimulator(0.5, 100.0, 0.0, ValueNone)
+        fs.BaseTicks <- header.BaseTicks
+        seg, vs, td, ell, fs
 
 
     let bench(d : {| Date: string; Header: DayHeader; Ticker: string; Trades: array<TradeRecord> |}, ctx : SinkContext) =
-        let seg, vs, td, ell = configure d.Header
-        let inline onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, _: TradeRecord) =
+        let seg, vs, td, ell, fs = configure d.Header
+        let inline onFill (fill: Fill) =
+            ctx.FillCount <- ctx.FillCount + 1
+            ctx.Sink <- ctx.Sink + fill.Price
+        let inline onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord) =
             match bar with
             | ValueSome b -> ctx.BarCount <- ctx.BarCount + 1; ctx.Sink <- ctx.Sink + b.Bar.VWAP
             | ValueNone -> ()
             match decision with
             | ValueSome dd -> ctx.DecisionCount <- ctx.DecisionCount + 1; ctx.Sink <- ctx.Sink + dd.Price
             | ValueNone -> ()
+            fs.Process(onFill, decision, bar, stage, trade)
             stage
         for i in 0 .. d.Trades.Length - 1 do
             seg.Process(
@@ -429,16 +708,16 @@ let main argv =
 
     // Warm up
     printfn "Warming up..."
-    let warmup_ctx = {BarCount = 0; DecisionCount = 0; Sink = 0.0}
+    let warmup_ctx = {BarCount = 0; DecisionCount = 0; FillCount = 0; Sink = 0.0}
     for d in dayData.[..2] do
         bench(d, warmup_ctx)
 
     // Benchmark
     printfn "=== VwapSystem (full pipeline) ==="
     let sw = Stopwatch.StartNew()
-    let ctx = {BarCount = 0; DecisionCount = 0; Sink = 0.0}
+    let ctx = {BarCount = 0; DecisionCount = 0; FillCount = 0; Sink = 0.0}
     for d in dayData do
         bench(d, ctx)
     sw.Stop()
-    printfn "  Time: %.3fs  Bars: %d  Decisions: %d  Sink: %.2f  Trades/sec: %s" sw.Elapsed.TotalSeconds ctx.BarCount ctx.DecisionCount ctx.Sink ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
+    printfn "  Time: %.3fs  Bars: %d  Decisions: %d  Fills: %d  Sink: %.2f  Trades/sec: %s" sw.Elapsed.TotalSeconds ctx.BarCount ctx.DecisionCount ctx.FillCount ctx.Sink ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
     0
