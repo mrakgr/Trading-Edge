@@ -202,6 +202,18 @@ type DownloadTradesArgs =
             | Output_Dir _ -> "Output directory for downloaded data (default: data/trades)"
             | Parallelism _ -> "Max parallel downloads (default: 5)"
 
+type DownloadTradesFromJsonArgs =
+    | [<AltCommandLine("-i")>] Input_File of string
+    | [<AltCommandLine("-o")>] Output_Dir of string
+    | [<AltCommandLine("-p")>] Parallelism of int
+
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Input_File _ -> "JSON file: array of objects with 'ticker' and 'date' fields (required)"
+            | Output_Dir _ -> "Output directory for downloaded data (default: data/trades)"
+            | Parallelism _ -> "Max parallel downloads (default: 10)"
+
 type DownloadQuotesArgs =
     | [<AltCommandLine("-t")>] Ticker of string
     | [<AltCommandLine("-s")>] Start_Date of string
@@ -272,6 +284,7 @@ type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Download_Dividends of ParseResults<DownloadDividendsArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Intraday of ParseResults<DownloadIntradayArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Trades of ParseResults<DownloadTradesArgs>
+    | [<CliPrefix(CliPrefix.None)>] Download_Trades_From_Json of ParseResults<DownloadTradesFromJsonArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Quotes of ParseResults<DownloadQuotesArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_News of ParseResults<DownloadNewsArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Data of ParseResults<IngestDataArgs>
@@ -291,6 +304,7 @@ type Arguments =
             | Download_Dividends _ -> "Download dividends from Polygon API"
             | Download_Intraday _ -> "Download intraday (minute/second) data for tickers"
             | Download_Trades _ -> "Download tick-level trades data for a ticker"
+            | Download_Trades_From_Json _ -> "Download trades for (ticker, date) pairs listed in a JSON file"
             | Download_Quotes _ -> "Download NBBO quotes data for a ticker"
             | Download_News _ -> "Download news articles for a ticker"
             | Ingest_Data _ -> "Ingest daily data into DuckDB database"
@@ -892,6 +906,65 @@ let private handleDownloadTrades (config: MassiveConfig) (args: ParseResults<Dow
         printfn ""
         printfn "Download complete: %d downloaded, %d skipped, %d failed" downloaded skipped failed
 
+let private handleDownloadTradesFromJson (config: MassiveConfig) (args: ParseResults<DownloadTradesFromJsonArgs>) =
+    let inputFile =
+        match args.TryGetResult DownloadTradesFromJsonArgs.Input_File with
+        | Some p -> p
+        | None -> failwith "Input file is required. Use -i or --input-file to specify."
+
+    let outputDir =
+        args.TryGetResult DownloadTradesFromJsonArgs.Output_Dir
+        |> Option.defaultValue "data/trades"
+
+    let parallelism = args.GetResult(DownloadTradesFromJsonArgs.Parallelism, defaultValue = 10)
+
+    if not (File.Exists inputFile) then
+        failwithf "Input file does not exist: %s" inputFile
+
+    let jsonText = File.ReadAllText inputFile
+    let doc = System.Text.Json.JsonDocument.Parse(jsonText)
+
+    let pairs =
+        [ for el in doc.RootElement.EnumerateArray() do
+            let ticker = el.GetProperty("ticker").GetString().ToUpperInvariant()
+            let dateStr = el.GetProperty("date").GetString()
+            let date = DateTime.Parse(dateStr)
+            yield ticker, date ]
+        |> List.distinct
+        // Most recent first
+        |> List.sortByDescending snd
+
+    let existing, toDownload =
+        pairs
+        |> List.partition (fun (ticker, date) ->
+            let path = Path.Combine(outputDir, ticker, date.ToString("yyyy-MM-dd") + ".parquet")
+            File.Exists path)
+
+    printfn "Input file: %s" inputFile
+    printfn "Output directory: %s" (Path.GetFullPath outputDir)
+    printfn "Parallelism: %d" parallelism
+    printfn "Total pairs: %d (already downloaded: %d, to download: %d)"
+        pairs.Length existing.Length toDownload.Length
+    printfn ""
+
+    if toDownload.IsEmpty then
+        printfn "Nothing to download."
+    else
+        Directory.CreateDirectory(outputDir) |> ignore
+        use httpClient = new HttpClient()
+        use cts = new CancellationTokenSource()
+
+        let results =
+            downloadTradesBatch httpClient config.ApiKey outputDir toDownload parallelism (Some TradesDownload.consoleProgress) cts.Token
+            |> Async.RunSynchronously
+
+        let downloaded = results |> List.filter (function TradesDownloaded _ -> true | _ -> false) |> List.length
+        let skipped = results |> List.filter (function TradesSkipped _ -> true | _ -> false) |> List.length
+        let failed = results |> List.filter (function TradesFailed _ -> true | _ -> false) |> List.length
+
+        printfn ""
+        printfn "Download complete: %d downloaded, %d skipped, %d failed" downloaded skipped failed
+
 let private handleDownloadQuotes (config: MassiveConfig) (args: ParseResults<DownloadQuotesArgs>) =
     let ticker =
         match args.TryGetResult DownloadQuotesArgs.Ticker with
@@ -1243,6 +1316,9 @@ let main argv =
             | Download_Trades args ->
                 let config = loadConfigOrFail configPath
                 handleDownloadTrades config args
+            | Download_Trades_From_Json args ->
+                let config = loadConfigOrFail configPath
+                handleDownloadTradesFromJson config args
             | Download_Quotes args ->
                 let config = loadConfigOrFail configPath
                 handleDownloadQuotes config args

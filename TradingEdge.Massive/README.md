@@ -186,6 +186,36 @@ dotnet run --project TradingEdge.Massive -- download-trades -t AAPL -s 2024-12-2
 
 Output: `data/trades/{ticker}/{date}.parquet`
 
+### Download Trades from JSON List
+
+Batch-downloads trades for many `(ticker, date)` pairs listed in a JSON file. Pairs are processed most-recent date first, deduplicated, and any pair whose `.parquet` already exists on disk is skipped. Useful for pulling the full set of breakout/continuation plays in one shot.
+
+```bash
+dotnet run --project TradingEdge.Massive -- download-trades-from-json [options]
+```
+
+**Options:**
+- `-i, --input-file <path>` - JSON file: array of objects with `ticker` and `date` fields (required)
+- `-o, --output-dir <path>` - Output directory (default: data/trades)
+- `-p, --parallelism <int>` - Max parallel downloads (default: 10)
+
+The input JSON can have extra fields; only `ticker` (string) and `date` (yyyy-MM-dd string) are read. Example format:
+
+```json
+[
+  {"ticker": "NVDA", "date": "2024-12-20"},
+  {"ticker": "AAPL", "date": "2024-12-19"}
+]
+```
+
+**Example:**
+
+```bash
+dotnet run --project TradingEdge.Massive -- download-trades-from-json -i data/continuation_plays.json
+```
+
+Output: `data/trades/{ticker}/{date}.parquet` (same layout as `download-trades`).
+
 ### Convert Trades to Parquet (one-shot migration)
 
 Converts pre-existing `data/trades/{ticker}/{date}.json` files to the new Parquet format in place and deletes each JSON on success. Idempotent -- files that already have a matching `.parquet` are skipped -- so an interrupted run can simply be re-invoked.
