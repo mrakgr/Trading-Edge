@@ -757,8 +757,9 @@ let configureWith (header: DayHeader) (pcts: float[]) =
     seg.BaseTicks <- header.BaseTicks
     seg.OpeningPrintIdx <- int header.OpeningPrintIndex
     seg.ClosingPrintIdx <- int header.ClosingPrintIndex
-    seg.OpenTime <- DateTime(header.SessionOpenTicks)
-    seg.CloseTime <- DateTime(header.SessionCloseTicks)
+    let truncate ticks = header.BaseTicks + ((ticks - header.BaseTicks) / 1000L) * 1000L
+    seg.OpenTime <- DateTime(truncate header.SessionOpenTicks)
+    seg.CloseTime <- DateTime(truncate header.SessionCloseTicks)
     let vs = VwapSystem(positionSize, referenceVol, bandVol)
     let td = TrackDecisions()
     let tf = TrackFills(commissionPerShare)
@@ -772,8 +773,12 @@ let configure (header: DayHeader) =
     seg.BaseTicks <- header.BaseTicks
     seg.OpeningPrintIdx <- int header.OpeningPrintIndex
     seg.ClosingPrintIdx <- int header.ClosingPrintIndex
-    seg.OpenTime <- DateTime(header.SessionOpenTicks)
-    seg.CloseTime <- DateTime(header.SessionCloseTicks)
+    // Truncate session-boundary ticks to 0.1ms precision so arithmetic
+    // with trade timestamps (also 0.1ms via TimeDeci) is self-consistent.
+    // It turns out this is quite significant for performance.
+    let truncate ticks = header.BaseTicks + ((ticks - header.BaseTicks) / 1000L) * 1000L
+    seg.OpenTime <- DateTime(truncate header.SessionOpenTicks)
+    seg.CloseTime <- DateTime(truncate header.SessionCloseTicks)
     let vs = VwapSystem(positionSize, referenceVol, bandVol)
     let td = TrackDecisions()
     let tf = TrackFills(commissionPerShare)
@@ -1111,6 +1116,7 @@ let runFillBreakdown (dayData: DayData[]) =
 [<EntryPoint>]
 let main argv =
     let dayData, _ = loadDayData ()
-    let configs = perturbConfigs (Random(42)) 14 0.5
-    runParallelSweep dayData configs
+    // let configs = perturbConfigs (Random(42)) 14 0.5
+    // runParallelSweep dayData configs
+    runFillBreakdown dayData
     0
