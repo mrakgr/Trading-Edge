@@ -7,6 +7,9 @@ open System.Runtime.InteropServices
 open System.Text.RegularExpressions
 open System.Diagnostics
 open TradingEdge.Parsing.TradeBinary
+open TradingEdge.Parsing.TradeLoader
+open TradingEdge.Parsing.VolumeBars
+open TradingEdge.Parsing.VwapSystem
 
 // ============================================================================
 // Local VolumeBar over TradeRecord (Profile-scoped; replaces the shared one)
@@ -18,7 +21,7 @@ type VolumeBar =
         VWAP: float
         StdDev: float
         Volume: float
-        Trades: ImmutableArray<TradeRecord>
+        Trades: ImmutableArray<struct (float * float)>
     }
 
 // ============================================================================
@@ -28,15 +31,14 @@ type VolumeBar =
 type VolumeBarOfTrades() =
     member val CumulativeVolumeSum = 0.0 with get, set
 
-    member inline self.Process(onNext, trades: ImmutableArray<TradeRecord>) =
+    member inline self.Process(onNext, trades: ImmutableArray<struct (float * float)>) =
         let mutable priceVolumeSum = 0.0
         let mutable priceSquaredVolumeSum = 0.0
         let mutable volumeSum = 0.0
-        for t in trades do
-            let v = float t.Size
-            priceVolumeSum <- priceVolumeSum + t.Price * v
-            priceSquaredVolumeSum <- priceSquaredVolumeSum + t.Price * t.Price * v
-            volumeSum <- volumeSum + v
+        for struct (price, volume) in trades do
+            priceVolumeSum <- priceVolumeSum + price * volume
+            priceSquaredVolumeSum <- priceSquaredVolumeSum + price * price * volume
+            volumeSum <- volumeSum + volume
         let vwap = priceVolumeSum / volumeSum
         let variance = priceSquaredVolumeSum / volumeSum - vwap * vwap
         self.CumulativeVolumeSum <- self.CumulativeVolumeSum + volumeSum
@@ -50,20 +52,21 @@ type VolumeBarOfTrades() =
 
 type GroupTrades(barSize: float) =
     member val BarSize = barSize
-    member val CurrentTrades = ImmutableArray.CreateBuilder<TradeRecord>()
+    member val CurrentTrades = ImmutableArray.CreateBuilder<struct (float * float)>()
     member val CurrentVolumeSum = 0.0 with get, set
 
     member inline self.Process(onNext, trade: TradeRecord) =
+        let price = trade.Price
         let mutable remaining = float trade.Size
         while remaining > 0.0 do
             let spaceLeft = self.BarSize - self.CurrentVolumeSum
             if remaining <= spaceLeft then
-                self.CurrentTrades.Add { trade with Size = int32 remaining }
+                self.CurrentTrades.Add (struct (price, remaining))
                 self.CurrentVolumeSum <- self.CurrentVolumeSum + remaining
                 remaining <- 0.0
             else
                 if spaceLeft > 0.0 then
-                    self.CurrentTrades.Add { trade with Size = int32 spaceLeft }
+                    self.CurrentTrades.Add (struct (price, spaceLeft))
                     self.CurrentVolumeSum <- self.CurrentVolumeSum + spaceLeft
                     remaining <- remaining - spaceLeft
                 if self.CurrentVolumeSum >= self.BarSize then
@@ -587,9 +590,7 @@ type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngO
         match bar with
         | ValueSome b ->
             let trades = b.Bar.Trades
-            let pv = Array.init trades.Length (fun i ->
-                let t = trades.[i]
-                struct (t.Price, float t.Size))
+            let pv = Array.init trades.Length (fun i -> trades.[i])
             self.LastPricesAndVolumes <- pv
             match self.BuyOrder with
             | ValueSome order when order.CancellationTime.IsNone ->
@@ -701,7 +702,7 @@ let main argv =
         [| -8.69; -1.10; -16.27; -16.73 |] |> Array.map (fun i -> basePct * (decay ** i))
 
     let positionSize = 30000.0
-    let referenceVol = ValueSome 0.0095
+    let referenceVol = ValueSome 5.82e-4
     let bandVol = 0.0
 
     let configure (header: DayHeader) =
@@ -709,13 +710,16 @@ let main argv =
         seg.BaseTicks <- header.BaseTicks
         seg.OpeningPrintIdx <- int header.OpeningPrintIndex
         seg.ClosingPrintIdx <- int header.ClosingPrintIndex
-        seg.OpenTime <- DateTime(header.SessionOpenTicks)
-        seg.CloseTime <- DateTime(header.SessionCloseTicks)
+        // Truncate session-boundary ticks to 0.1ms precision so arithmetic
+        // with trade timestamps (also 0.1ms via TimeDeci) is self-consistent.
+        let truncate ticks = header.BaseTicks + ((ticks - header.BaseTicks) / 1000L) * 1000L
+        seg.OpenTime <- DateTime(truncate header.SessionOpenTicks)
+        seg.CloseTime <- DateTime(truncate header.SessionCloseTicks)
         let vs = VwapSystem(positionSize, referenceVol, bandVol)
         let td = TrackDecisions()
         let tf = TrackFills(0.0035)
         let ell = EnforceLossLimit((fun () -> tf.NetPnL), infinity)
-        let fs = FillSimulator(0.05, 100.0, 0.0, ValueNone)
+        let fs = FillSimulator(0.05, 100.0, 0.30, ValueNone)
         fs.BaseTicks <- header.BaseTicks
         seg, vs, td, ell, fs, tf
 
@@ -763,4 +767,146 @@ let main argv =
         bench(d, ctx)
     sw.Stop()
     printfn "  Time: %.3fs  Bars: %d  Decisions: %d  Fills: %d  Sink: %.2f  Trades/sec: %s" sw.Elapsed.TotalSeconds ctx.BarCount ctx.DecisionCount ctx.FillCount ctx.Sink ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
+
+    // ================================================================
+    // Decision-stream verification: new (class) vs old (closure) on one day
+    // ================================================================
+    let targetTicker = "UGRO"
+    let targetDate = "2026-03-25"
+    printfn "\n=== Decision diff: %s %s ===" targetTicker targetDate
+
+    let binPath = sprintf "data/trades_bin/%s/%s.bin" targetTicker targetDate
+    let header, records = loadDayRecords binPath
+    let _, oldTrades = loadDay binPath  // same data, Trade[] with DateTime
+
+    // Sanity: both arrays should have identical volumes in identical order.
+    printfn "records.Length=%d  oldTrades.Length=%d" records.Length oldTrades.Length
+    let cpIdx = int header.ClosingPrintIndex
+    printfn "Closing print [%d]: price=%.4f size=%d ts=%s"
+        cpIdx oldTrades.[cpIdx].Price (int oldTrades.[cpIdx].Volume) (oldTrades.[cpIdx].Timestamp.ToString("HH:mm:ss.fff"))
+    printfn "Last 5 regular-hours trades:"
+    let mutable shown = 0
+    let mutable i = records.Length - 1
+    while i >= 0 && shown < 5 do
+        let t = oldTrades.[i]
+        if t.Session = RegularHours || t.Session = ClosingPrint then
+            printfn "  [%d] %s  %.4f x %d  Session=%A" i (t.Timestamp.ToString("HH:mm:ss.fff")) t.Price (int t.Volume) t.Session
+            shown <- shown + 1
+        i <- i - 1
+    // Min/max of all regular-hours prices
+    let mutable minP = infinity
+    let mutable maxP = 0.0
+    for j in 0 .. oldTrades.Length - 1 do
+        if oldTrades.[j].Session = RegularHours then
+            minP <- min minP oldTrades.[j].Price
+            maxP <- max maxP oldTrades.[j].Price
+    printfn "Regular-hours price range: [%.4f, %.4f]" minP maxP
+    let mutable volDiffCount = 0
+    let mutable sumNew = 0.0
+    let mutable sumOld = 0.0
+    for i in 0 .. records.Length - 1 do
+        let vNew = float records.[i].Size
+        let vOld = oldTrades.[i].Volume
+        sumNew <- sumNew + vNew
+        sumOld <- sumOld + vOld
+        if vNew <> vOld && volDiffCount < 5 then
+            printfn "  trade[%d] vol diff: new=%.4f old=%.4f  price new=%.4f old=%.4f" i vNew vOld records.[i].Price oldTrades.[i].Price
+            volDiffCount <- volDiffCount + 1
+    printfn "total vol  new=%.4f  old=%.4f  diff=%.4f" sumNew sumOld (sumNew - sumOld)
+
+    // --- New pipeline: class-based, capture decisions + bars ---
+    let newDecisions = ResizeArray<DateTime * int * float>()
+    let newBars = ResizeArray<int * DateTime * float * float>()  // (tickIdx, barTime, barVWAP, barVolume)
+    let seg = SegregateTrades(pcts)
+    seg.BaseTicks <- header.BaseTicks
+    seg.OpeningPrintIdx <- int header.OpeningPrintIndex
+    seg.ClosingPrintIdx <- int header.ClosingPrintIndex
+    let truncate ticks = header.BaseTicks + ((ticks - header.BaseTicks) / 1000L) * 1000L
+    seg.OpenTime <- DateTime(truncate header.SessionOpenTicks)
+    seg.CloseTime <- DateTime(truncate header.SessionCloseTicks)
+    let vs = VwapSystem(positionSize, referenceVol, bandVol)
+    for i in 0 .. records.Length - 1 do
+        seg.Process(
+            (fun (bar, stage, trade) ->
+                match bar with
+                | ValueSome b -> newBars.Add(i, seg.Timestamp trade, b.Bar.VWAP, b.Bar.Volume)
+                | ValueNone -> ()
+                vs.Process(
+                    (fun (decision, _, stage, _) ->
+                        match decision with
+                        | ValueSome d -> newDecisions.Add(d.Timestamp, d.Shares, d.Price)
+                        | ValueNone -> ()
+                        stage),
+                    bar, stage, trade, seg.Timestamp trade)),
+            ReadOnlySpan(records, 0, i + 1)) |> ignore
+
+    // --- Old pipeline: closure-based, capture decisions + bars ---
+    let oldDecisions = ResizeArray<DateTime * int * float>()
+    let oldBars = ResizeArray<int * DateTime * float * float>()
+    let openT =
+        oldTrades |> Array.find (fun (t: Trade) -> t.Session = OpeningPrint) |> fun t -> t.Timestamp
+    let closeT =
+        oldTrades |> Array.find (fun (t: Trade) -> t.Session = ClosingPrint) |> fun t -> t.Timestamp
+    let window : TradingEdge.Parsing.VwapSystem.MarketHours = { openTime = openT; closeTime = closeT }
+    let segregate = TradingEdge.Parsing.VwapSystem.segregateTrades window pcts
+    let decide = TradingEdge.Parsing.VwapSystem.vwapSystem (positionSize, (match referenceVol with ValueSome v -> Some v | _ -> None), bandVol)
+    let sink (_: TradingEdge.Parsing.VwapSystem.VwapSystemBar option, decision: TradingEdge.Parsing.VwapSystem.TradingDecision option, _: Trade) =
+        match decision with
+        | Some d -> oldDecisions.Add(d.Timestamp, d.Shares, d.Price)
+        | None -> ()
+    let mutable tickIdx = 0
+    for t in oldTrades do
+        segregate
+            (fun (bar, stage, trade) ->
+                match bar with
+                | Some b -> oldBars.Add(tickIdx, trade.Timestamp, b.Bar.VWAP, b.Bar.Volume)
+                | None -> ()
+                decide sink (bar, stage, trade))
+            t
+        tickIdx <- tickIdx + 1
+
+    printfn "bars new: %d  old: %d" newBars.Count oldBars.Count
+    let barN = min newBars.Count oldBars.Count
+    let mutable barFirstDiff = -1
+    for i in 0 .. barN - 1 do
+        let (ni, nt, nv, nq) = newBars.[i]
+        let (oi, ot, ov, oq) = oldBars.[i]
+        if ni <> oi || nt <> ot || abs (nv - ov) > 1e-9 || abs (nq - oq) > 1e-9 then
+            if barFirstDiff < 0 then barFirstDiff <- i
+    if barFirstDiff >= 0 then
+        let lo = max 0 (barFirstDiff - 2)
+        let hi = min (barN - 1) (barFirstDiff + 5)
+        printfn "first bar divergence at index %d:" barFirstDiff
+        for i in lo .. hi do
+            let (ni, nt, nv, nq) = newBars.[i]
+            let (oi, ot, ov, oq) = oldBars.[i]
+            let marker = if ni = oi && nt = ot && abs (nv - ov) < 1e-9 && abs (nq - oq) < 1e-9 then "  " else "**"
+            printfn "  [%3d] %s tick new:%-5d old:%-5d  time new:%s old:%s  vwap new:%.6f old:%.6f  vol new:%.2f old:%.2f"
+                i marker ni oi (nt.ToString("HH:mm:ss.fff")) (ot.ToString("HH:mm:ss.fff")) nv ov nq oq
+    else
+        printfn "All matched bars identical."
+    printfn "new count: %d    old count: %d" newDecisions.Count oldDecisions.Count
+    let n = max newDecisions.Count oldDecisions.Count
+    let mutable firstDiff = -1
+    for i in 0 .. n - 1 do
+        let newStr =
+            if i < newDecisions.Count then
+                let (ts, sh, pr) = newDecisions.[i]
+                sprintf "%s %+5d %.4f" (ts.ToString("HH:mm:ss.fff")) sh pr
+            else "                       "
+        let oldStr =
+            if i < oldDecisions.Count then
+                let (ts, sh, pr) = oldDecisions.[i]
+                sprintf "%s %+5d %.4f" (ts.ToString("HH:mm:ss.fff")) sh pr
+            else "                       "
+        let marker =
+            if i < newDecisions.Count && i < oldDecisions.Count && newDecisions.[i] = oldDecisions.[i] then "  "
+            else
+                if firstDiff < 0 then firstDiff <- i
+                "**"
+        printfn "  [%3d] %s  new: %s  | old: %s" i marker newStr oldStr
+    if firstDiff >= 0 then
+        printfn "First divergence at index %d" firstDiff
+    else
+        printfn "Decision streams are identical."
     0
