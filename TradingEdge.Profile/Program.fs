@@ -3,11 +3,23 @@ module TradingEdge.Profile.Program
 open System
 open System.IO
 open System.Collections.Immutable
+open System.Runtime.InteropServices
 open System.Text.RegularExpressions
 open System.Diagnostics
-open TradingEdge.Parsing.TradeLoader
 open TradingEdge.Parsing.TradeBinary
-open TradingEdge.Parsing.VolumeBars
+
+// ============================================================================
+// Local VolumeBar over TradeRecord (Profile-scoped; replaces the shared one)
+// ============================================================================
+
+type VolumeBar =
+    {
+        CumulativeVolume: float
+        VWAP: float
+        StdDev: float
+        Volume: float
+        Trades: ImmutableArray<TradeRecord>
+    }
 
 // ============================================================================
 // Class-based pipeline (separate classes with member inline onNext)
@@ -16,14 +28,15 @@ open TradingEdge.Parsing.VolumeBars
 type VolumeBarOfTrades() =
     member val CumulativeVolumeSum = 0.0 with get, set
 
-    member inline self.Process(onNext, trades: ImmutableArray<Trade>) =
+    member inline self.Process(onNext, trades: ImmutableArray<TradeRecord>) =
         let mutable priceVolumeSum = 0.0
         let mutable priceSquaredVolumeSum = 0.0
         let mutable volumeSum = 0.0
         for t in trades do
-            priceVolumeSum <- priceVolumeSum + t.Price * t.Volume
-            priceSquaredVolumeSum <- priceSquaredVolumeSum + t.Price * t.Price * t.Volume
-            volumeSum <- volumeSum + t.Volume
+            let v = float t.Size
+            priceVolumeSum <- priceVolumeSum + t.Price * v
+            priceSquaredVolumeSum <- priceSquaredVolumeSum + t.Price * t.Price * v
+            volumeSum <- volumeSum + v
         let vwap = priceVolumeSum / volumeSum
         let variance = priceSquaredVolumeSum / volumeSum - vwap * vwap
         self.CumulativeVolumeSum <- self.CumulativeVolumeSum + volumeSum
@@ -37,20 +50,20 @@ type VolumeBarOfTrades() =
 
 type GroupTrades(barSize: float) =
     member val BarSize = barSize
-    member val CurrentTrades = ImmutableArray.CreateBuilder<Trade>()
+    member val CurrentTrades = ImmutableArray.CreateBuilder<TradeRecord>()
     member val CurrentVolumeSum = 0.0 with get, set
 
-    member inline self.Process(onNext, trade: Trade) =
-        let mutable remaining = trade.Volume
+    member inline self.Process(onNext, trade: TradeRecord) =
+        let mutable remaining = float trade.Size
         while remaining > 0.0 do
             let spaceLeft = self.BarSize - self.CurrentVolumeSum
             if remaining <= spaceLeft then
-                self.CurrentTrades.Add { trade with Volume = remaining }
+                self.CurrentTrades.Add { trade with Size = int32 remaining }
                 self.CurrentVolumeSum <- self.CurrentVolumeSum + remaining
                 remaining <- 0.0
             else
                 if spaceLeft > 0.0 then
-                    self.CurrentTrades.Add { trade with Volume = spaceLeft }
+                    self.CurrentTrades.Add { trade with Size = int32 spaceLeft }
                     self.CurrentVolumeSum <- self.CurrentVolumeSum + spaceLeft
                     remaining <- remaining - spaceLeft
                 if self.CurrentVolumeSum >= self.BarSize then
@@ -63,7 +76,7 @@ type VolumeBarBuilder(barSize: float) =
     member val Grouper = GroupTrades(barSize)
     member val BarBuilder = VolumeBarOfTrades()
 
-    member inline self.Process(onNext, trade: Trade) =
+    member inline self.Process(onNext, trade: TradeRecord) =
         self.Grouper.Process((fun trades -> self.BarBuilder.Process(onNext, trades)), trade)
 
 // ============================================================================
@@ -92,7 +105,7 @@ type VwapSystemArgsBuilder(barSize: float) =
     member val PairCount = 0 with get, set
     member val PrevBar = ValueOption<VolumeBar>.None with get, set
 
-    member inline self.Process(onNext, trade: Trade, includeInVwma: bool, includeInVol: bool) =
+    member inline self.Process(onNext, trade: TradeRecord, includeInVwma: bool, includeInVol: bool) =
         self.Inner.Process(
             (fun bar ->
                 if includeInVwma then
@@ -127,12 +140,6 @@ type TradeStage =
     | AfterOpeningPrint
     | BeforeClosing
 
-[<Struct>]
-type MarketHours = {
-    openTime : DateTime
-    closeTime : DateTime
-}
-
 let defaultEstimationOffsets = [| 5.0; 30.0; 150.0; 750.0 |]
 
 let findEstimationOffset (currentOffset: float) : int voption =
@@ -148,20 +155,27 @@ type SegregateTrades(volPcts: float[]) =
     member val VolPctsOffset = ValueNone with get, set
     member val VwapSystem : VwapSystemArgsBuilder voption = ValueNone with get, set
     member val ClosingPause = -60.0
+    member val BaseTicks = 0L with get, set
+    member val OpeningPrintIdx = ValueNone : int voption with get, set
+    member val ClosingPrintIdx = ValueNone : int voption with get, set
     member val OpenTime = DateTime.MaxValue with get, set
     member val CloseTime = DateTime.MaxValue with get, set
     member val LastBar : VwapSystemBar voption = ValueNone with get, set
 
-    member self.TradeStage(trade: Trade) =
-        if self.OpenTime <= trade.Timestamp then
-            if self.CloseTime.AddSeconds self.ClosingPause <= trade.Timestamp then
+    member inline self.Timestamp(trade: TradeRecord) =
+        DateTime(self.BaseTicks + int64 trade.TimeDeci * 1000L)
+
+    member self.TradeStage(trade: TradeRecord, index: int) =
+        let ts = self.Timestamp trade
+        if self.OpenTime <= ts then
+            if self.CloseTime.AddSeconds self.ClosingPause <= ts then
                 BeforeClosing
             else
                 AfterOpeningPrint
         else
-            if trade.Session = OpeningPrint then
+            if self.OpeningPrintIdx = ValueSome index then
                 AfterOpeningPrint
-            elif self.OpenTime.AddHours(-1.0) <= trade.Timestamp then
+            elif self.OpenTime.AddHours(-1.0) <= ts then
                 LatePremarket
             else
                 EarlyPremarket
@@ -177,20 +191,21 @@ type SegregateTrades(volPcts: float[]) =
             | _ -> false
         struct (includeInVwma, includeInVol)
 
-    member self.FeedTrade(stage: TradeStage, trade: Trade) =
+    member self.FeedTrade(stage: TradeStage, trade: TradeRecord) =
         match self.VwapSystem with
         | ValueSome sys ->
             let struct (inclVwma, inclVol) = self.CalculateFlags stage
             sys.Process((fun bar -> self.LastBar <- ValueSome bar), trade, inclVwma, inclVol)
         | ValueNone -> ()
 
-    member self.Process(trades: ReadOnlySpan<Trade>) : TradeStage =
-        let trade = trades.[trades.Length - 1]
-        let stage = self.TradeStage trade
+    member self.Process(trades: ReadOnlySpan<TradeRecord>) : TradeStage =
+        let lastIdx = trades.Length - 1
+        let trade = trades.[lastIdx]
+        let stage = self.TradeStage(trade, lastIdx)
         self.LastBar <- ValueNone
         match stage with
         | AfterOpeningPrint ->
-            let currentOffset = (trade.Timestamp - self.OpenTime).TotalSeconds
+            let currentOffset = (self.Timestamp trade - self.OpenTime).TotalSeconds
             let i = findEstimationOffset currentOffset
             if self.VolPctsOffset <> i then
                 self.VolPctsOffset <- i
@@ -198,19 +213,30 @@ type SegregateTrades(volPcts: float[]) =
                 | ValueSome vpIdx ->
                     let mutable totalVolume = 0.0
                     for j in 0 .. trades.Length - 1 do
-                        totalVolume <- totalVolume + trades.[j].Volume
+                        totalVolume <- totalVolume + float trades.[j].Size
                     let barSize = totalVolume * volPcts.[vpIdx]
                     let newSystem = VwapSystemArgsBuilder(barSize)
                     self.VwapSystem <- ValueSome newSystem
                     for j in 0 .. trades.Length - 1 do
                         let t = trades.[j]
-                        self.FeedTrade(self.TradeStage t, t)
+                        self.FeedTrade(self.TradeStage(t, j), t)
                 | ValueNone -> ()
             else
                 self.FeedTrade(stage, trade)
         | _ ->
             self.FeedTrade(stage, trade)
         stage
+
+// ============================================================================
+// Binary loading (TradeRecord-native, no Trade conversion)
+// ============================================================================
+
+let loadDayRecords (path: string) : DayHeader * TradeRecord[] =
+    let bytes = File.ReadAllBytes(path)
+    let header = MemoryMarshal.Read<DayHeader>(ReadOnlySpan(bytes, 0, HeaderSize))
+    let tradeCount = int header.TradeCount
+    let records = MemoryMarshal.Cast<byte, TradeRecord>(ReadOnlySpan(bytes, HeaderSize, tradeCount * RecordSize)).ToArray()
+    header, records
 
 // ============================================================================
 // Benchmark harness
@@ -233,14 +259,10 @@ let main argv =
     let dayData =
         [| for (ticker, date) in entries do
             let path = sprintf "data/trades_bin/%s/%s.bin" ticker date
-            let _, trades = loadDay path
-            let op = trades |> Array.tryFind (fun tr -> tr.Session = OpeningPrint)
-            let cp = trades |> Array.tryFind (fun tr -> tr.Session = ClosingPrint)
-            match op, cp with
-            | Some o, Some c ->
-                yield {| Ticker = ticker; Date = date; Trades = trades
-                         Window = struct (o.Timestamp, c.Timestamp) |}
-            | _ -> () |]
+            let header, trades = loadDayRecords path
+            if header.OpeningPrintIndex <> AbsentIndex && header.ClosingPrintIndex <> AbsentIndex then
+                yield {| Ticker = ticker; Date = date
+                         Header = header; Trades = trades |} |]
     swLoad.Stop()
     let totalTrades = dayData |> Array.sumBy (fun d -> int64 d.Trades.Length)
     printfn "Loaded %d days (%s trades) in %.3fs\n" dayData.Length (totalTrades.ToString("N0")) swLoad.Elapsed.TotalSeconds
@@ -250,13 +272,21 @@ let main argv =
         let decay = 0.9
         [| -8.69; -1.10; -16.27; -16.73 |] |> Array.map (fun i -> basePct * (decay ** i))
 
+    let configureSeg (header: DayHeader) =
+        let seg = SegregateTrades(pcts)
+        seg.BaseTicks <- header.BaseTicks
+        seg.OpeningPrintIdx <-
+            if header.OpeningPrintIndex = AbsentIndex then ValueNone else ValueSome (int header.OpeningPrintIndex)
+        seg.ClosingPrintIdx <-
+            if header.ClosingPrintIndex = AbsentIndex then ValueNone else ValueSome (int header.ClosingPrintIndex)
+        seg.OpenTime <- DateTime(header.SessionOpenTicks)
+        seg.CloseTime <- DateTime(header.SessionCloseTicks)
+        seg
+
     // Warm up
     printfn "Warming up..."
     for d in dayData.[..2] do
-        let struct (openTime, closeTime) = d.Window
-        let seg = SegregateTrades(pcts)
-        seg.OpenTime <- openTime
-        seg.CloseTime <- closeTime
+        let seg = configureSeg d.Header
         for i in 0 .. d.Trades.Length - 1 do
             seg.Process(ReadOnlySpan(d.Trades, 0, i + 1)) |> ignore
 
@@ -266,10 +296,7 @@ let main argv =
     let mutable sink = 0.0
     let sw = Stopwatch.StartNew()
     for d in dayData do
-        let struct (openTime, closeTime) = d.Window
-        let seg = SegregateTrades(pcts)
-        seg.OpenTime <- openTime
-        seg.CloseTime <- closeTime
+        let seg = configureSeg d.Header
         for i in 0 .. d.Trades.Length - 1 do
             seg.Process(ReadOnlySpan(d.Trades, 0, i + 1)) |> ignore
             match seg.LastBar with
