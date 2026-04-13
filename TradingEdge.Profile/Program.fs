@@ -315,6 +315,28 @@ type TrackDecisions() =
         onNext (decision, bar, stage, trade)
 
 // ============================================================================
+// Daily loss limit enforcement
+// ============================================================================
+
+type EnforceLossLimit(tracker: TrackDecisions, lossLimit: float) =
+    member val Tracker = tracker
+    member val LossLimit = lossLimit
+    member val Tripped = false with get, set
+
+    member inline self.Process(onNext, decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord) =
+        let decision =
+            match decision with
+            | ValueSome d -> 
+                if self.Tripped then ValueNone
+                else
+                    if self.Tracker.RealizedPnL <= -self.LossLimit then 
+                        self.Tripped <- true
+                        ValueSome { d with Shares = 0 }
+                    else ValueSome d
+            | ValueNone -> ValueNone
+        onNext (decision, bar, stage, trade)
+
+// ============================================================================
 // Binary loading (TradeRecord-native, no Trade conversion)
 // ============================================================================
 
@@ -378,11 +400,12 @@ let main argv =
         seg.CloseTime <- DateTime(header.SessionCloseTicks)
         let vs = VwapSystem(positionSize, referenceVol, bandVol)
         let td = TrackDecisions()
-        seg, vs, td
+        let ell = EnforceLossLimit(td, 1000.0)
+        seg, vs, td, ell
 
 
     let bench(d : {| Date: string; Header: DayHeader; Ticker: string; Trades: array<TradeRecord> |}, ctx : SinkContext) =
-        let seg, vs, td = configure d.Header
+        let seg, vs, td, ell = configure d.Header
         let inline onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, _: TradeRecord) =
             match bar with
             | ValueSome b -> ctx.BarCount <- ctx.BarCount + 1; ctx.Sink <- ctx.Sink + b.Bar.VWAP
@@ -396,7 +419,10 @@ let main argv =
                 (fun (bar, stage, trade) ->
                     vs.Process(
                         (fun (decision, bar, stage, trade) ->
-                            td.Process(onTracked, decision, bar, stage, trade)),
+                            ell.Process(
+                                (fun (decision, bar, stage, trade) ->
+                                    td.Process(onTracked, decision, bar, stage, trade)),
+                                decision, bar, stage, trade)),
                         bar, stage, trade, seg.Timestamp trade)),
                 ReadOnlySpan(d.Trades, 0, i + 1)) |> ignore
         ctx.Sink <- ctx.Sink + td.RealizedPnL
