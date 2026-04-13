@@ -417,7 +417,7 @@ type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngO
         | ValueNone -> Random(12345)
 
     member val BaseTicks = 0L with get, set
-    member val Fills = ResizeArray<Fill>()
+    member val Fills = ResizeArray<Fill>(256)
     member val BuyOrder : LimitOrder voption = ValueNone with get, set
     member val SellOrder : LimitOrder voption = ValueNone with get, set
     member val TargetPosition = 0 with get, set
