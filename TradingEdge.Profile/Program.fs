@@ -409,13 +409,15 @@ let inline tryFindV ([<InlineIfLambda>] pred: 'a -> bool) (xs: 'a list) : 'a vop
 /// Weighted average price of trades in the quantile band [q_lo, q_hi].
 /// Sorts the input by (price, volume), walks cumulative weight and takes
 /// fractional overlaps at band edges.
-let inline bandPrice (prices_and_volumes: struct (float * float)[]) (q_lo: float) (q_hi: float) : float =
+let inline bandPrice (prices_and_volumes: ImmutableArray<struct (float * float)>) (q_lo: float) (q_hi: float) : float =
     let n = prices_and_volumes.Length
     let inline structFst struct (x, _) = x
     if n = 0 then nan
     elif n = 1 then prices_and_volumes.[0] |> structFst
     else
-        let prices_and_volumes = Array.sort prices_and_volumes
+        // AsArray exposes the backing store so Array.sort can work against it
+        // without copying. Callers must not mutate the returned array elsewhere.
+        let prices_and_volumes = Array.sort (ImmutableCollectionsMarshal.AsArray prices_and_volumes)
         let totalWeight = prices_and_volumes |> Array.sumBy (fun struct (_, b) -> b)
         let w_lo = q_lo * totalWeight
         let w_hi = q_hi * totalWeight
@@ -465,7 +467,7 @@ type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngO
     member val SellOrder : LimitOrder voption = ValueNone with get, set
     member val TargetPosition = 0 with get, set
     member val FilledPosition = 0 with get, set
-    member val LastPricesAndVolumes : struct (float * float)[] = Array.empty with get, set
+    member val LastPricesAndVolumes : ImmutableArray<struct (float * float)> = ImmutableArray.Empty with get, set
     member val PendingTarget : int voption = ValueNone with get, set
 
     member inline self.Timestamp(trade: TradeRecord) =
@@ -589,9 +591,7 @@ type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngO
         // 2. New bar: build price/volume array and reprice active orders
         match bar with
         | ValueSome b ->
-            let trades = b.Bar.Trades
-            let pv = Array.init trades.Length (fun i -> trades.[i])
-            self.LastPricesAndVolumes <- pv
+            self.LastPricesAndVolumes <- b.Bar.Trades
             match self.BuyOrder with
             | ValueSome order when order.CancellationTime.IsNone ->
                 let newPrice = struct (self.ComputePrice true, now + self.Delay)
