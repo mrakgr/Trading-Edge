@@ -152,15 +152,15 @@ let findEstimationOffset (currentOffset: float) : int voption =
     result
 
 type SegregateTrades(volPcts: float[]) =
+    member val VolPcts = volPcts
     member val VolPctsOffset = ValueNone with get, set
-    member val VwapSystem : VwapSystemArgsBuilder voption = ValueNone with get, set
+    member val ArgsBuilder : VwapSystemArgsBuilder voption = ValueNone with get, set
     member val ClosingPause = -60.0
     member val BaseTicks = 0L with get, set
     member val OpeningPrintIdx = int AbsentIndex : int with get, set
     member val ClosingPrintIdx = int AbsentIndex : int with get, set
     member val OpenTime = DateTime.MaxValue with get, set
     member val CloseTime = DateTime.MaxValue with get, set
-    member val LastBar : VwapSystemBar voption = ValueNone with get, set
 
     member inline self.Timestamp(trade: TradeRecord) =
         DateTime(self.BaseTicks + int64 trade.TimeDeci * 1000L)
@@ -191,18 +191,18 @@ type SegregateTrades(volPcts: float[]) =
             | _ -> false
         struct (includeInVwma, includeInVol)
 
-    member self.FeedTrade(stage: TradeStage, trade: TradeRecord) =
-        match self.VwapSystem with
-        | ValueSome sys ->
-            let struct (inclVwma, inclVol) = self.CalculateFlags stage
-            sys.Process((fun bar -> self.LastBar <- ValueSome bar), trade, inclVwma, inclVol)
-        | ValueNone -> ()
 
-    member self.Process(trades: ReadOnlySpan<TradeRecord>) : TradeStage =
+    member inline self.Process(onNext, trades: ReadOnlySpan<TradeRecord>) : TradeStage =
         let lastIdx = trades.Length - 1
         let trade = trades.[lastIdx]
         let stage = self.TradeStage(trade, lastIdx)
-        self.LastBar <- ValueNone
+        let mutable lastBar = ValueNone
+        let feedTrade(stage: TradeStage, trade: TradeRecord) =
+            match self.ArgsBuilder with
+            | ValueSome sys ->
+                let struct (inclVwma, inclVol) = self.CalculateFlags stage
+                sys.Process((fun bar -> lastBar <- ValueSome bar), trade, inclVwma, inclVol)
+            | ValueNone -> ()
         match stage with
         | AfterOpeningPrint ->
             let currentOffset = (self.Timestamp trade - self.OpenTime).TotalSeconds
@@ -214,18 +214,87 @@ type SegregateTrades(volPcts: float[]) =
                     let mutable totalVolume = 0.0
                     for j in 0 .. trades.Length - 1 do
                         totalVolume <- totalVolume + float trades.[j].Size
-                    let barSize = totalVolume * volPcts.[vpIdx]
+                    let barSize = totalVolume * self.VolPcts.[vpIdx]
                     let newSystem = VwapSystemArgsBuilder(barSize)
-                    self.VwapSystem <- ValueSome newSystem
+                    self.ArgsBuilder <- ValueSome newSystem
                     for j in 0 .. trades.Length - 1 do
                         let t = trades.[j]
-                        self.FeedTrade(self.TradeStage(t, j), t)
+                        feedTrade(self.TradeStage(t, j), t)
                 | ValueNone -> ()
             else
-                self.FeedTrade(stage, trade)
+                feedTrade(stage, trade)
         | _ ->
-            self.FeedTrade(stage, trade)
-        stage
+            feedTrade(stage, trade)
+        onNext (lastBar, stage, trade)
+
+// ============================================================================
+// VWAP trading system (decisions from bars)
+// ============================================================================
+
+[<Struct>]
+type TradingDecision = {
+    Timestamp: DateTime
+    Price: float
+    Shares: int
+}
+
+[<Struct>]
+type SimulatorState =
+    | Active of price: float * position: int
+    | Done
+
+type VwapSystem(positionSize: float, referenceVol: float voption, bandVol: float) =
+    member val PositionSize = positionSize
+    member val ReferenceVol = referenceVol
+    member val BandVol = bandVol
+    member val State = Active(0.0, 0) with get, set
+
+    member inline self.EffectiveSize(vf: float) =
+        match self.ReferenceVol with
+        | ValueNone -> self.PositionSize
+        | ValueSome refVol -> min self.PositionSize (self.PositionSize * refVol / vf)
+
+    member inline self.Process(onNext, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord, tradeTs: DateTime) =
+        let mutable decision = ValueNone
+        match stage with
+        | EarlyPremarket | LatePremarket -> ()
+        | AfterOpeningPrint ->
+            match bar with
+            | ValueSome b ->
+                match self.State with
+                | Active(_, position) ->
+                    let lastBar = b.Bar
+                    let targetShares = round (self.EffectiveSize b.VolFactor / trade.Price) |> int
+                    let band = self.BandVol * b.VolFactor * lastBar.VWAP
+                    if targetShares > 0 then
+                        if lastBar.VWAP + band >= b.Vwma && position <= 0 then
+                            self.State <- Active(lastBar.VWAP, targetShares)
+                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = targetShares }
+                        elif lastBar.VWAP - band < b.Vwma && position >= 0 then
+                            self.State <- Active(lastBar.VWAP, -targetShares)
+                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = -targetShares }
+                        elif lastBar.VWAP >= b.Vwma && position <= 0 then
+                            self.State <- Active(lastBar.VWAP, targetShares)
+                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = 0 }
+                        elif lastBar.VWAP < b.Vwma && position >= 0 then
+                            self.State <- Active(lastBar.VWAP, -targetShares)
+                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = 0 }
+                    else
+                        if lastBar.VWAP >= b.Vwma && position < 0 then
+                            self.State <- Active(lastBar.VWAP, 0)
+                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = 0 }
+                        elif lastBar.VWAP < b.Vwma && position > 0 then
+                            self.State <- Active(lastBar.VWAP, 0)
+                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = 0 }
+                | Done -> ()
+            | ValueNone -> ()
+        | BeforeClosing ->
+            match self.State with
+            | Active(_, position) when position <> 0 ->
+                self.State <- Done
+                decision <- ValueSome { Timestamp = tradeTs; Price = trade.Price; Shares = 0 }
+            | _ -> ()
+        onNext (decision, bar, stage, trade)
 
 // ============================================================================
 // Binary loading (TradeRecord-native, no Trade conversion)
@@ -241,6 +310,12 @@ let loadDayRecords (path: string) : DayHeader * TradeRecord[] =
 // ============================================================================
 // Benchmark harness
 // ============================================================================
+
+type SinkContext = {
+    mutable BarCount: int
+    mutable DecisionCount: int
+    mutable Sink : float
+}
 
 [<EntryPoint>]
 let main argv =
@@ -272,34 +347,49 @@ let main argv =
         let decay = 0.9
         [| -8.69; -1.10; -16.27; -16.73 |] |> Array.map (fun i -> basePct * (decay ** i))
 
-    let configureSeg (header: DayHeader) =
+    let positionSize = 30000.0
+    let referenceVol = ValueSome 0.0095
+    let bandVol = 0.0
+
+    let configure (header: DayHeader) =
         let seg = SegregateTrades(pcts)
         seg.BaseTicks <- header.BaseTicks
         seg.OpeningPrintIdx <- int header.OpeningPrintIndex
         seg.ClosingPrintIdx <- int header.ClosingPrintIndex
         seg.OpenTime <- DateTime(header.SessionOpenTicks)
         seg.CloseTime <- DateTime(header.SessionCloseTicks)
-        seg
+        let vs = VwapSystem(positionSize, referenceVol, bandVol)
+        seg, vs
+
+
+    let bench(d : {| Date: string; Header: DayHeader; Ticker: string; Trades: array<TradeRecord> |}, ctx : SinkContext) =
+        let seg, vs = configure d.Header
+        let onDecision (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, _: TradeRecord) =
+            match bar with
+            | ValueSome b -> ctx.BarCount <- ctx.BarCount + 1; ctx.Sink <- ctx.Sink + b.Bar.VWAP
+            | ValueNone -> ()
+            match decision with
+            | ValueSome dd -> ctx.DecisionCount <- ctx.DecisionCount + 1; ctx.Sink <- ctx.Sink + dd.Price
+            | ValueNone -> ()
+            stage
+        for i in 0 .. d.Trades.Length - 1 do
+            seg.Process(
+                (fun (bar, stage, trade) ->
+                    vs.Process(onDecision, bar, stage, trade, seg.Timestamp trade)),
+                ReadOnlySpan(d.Trades, 0, i + 1)) |> ignore
 
     // Warm up
     printfn "Warming up..."
+    let warmup_ctx = {BarCount = 0; DecisionCount = 0; Sink = 0.0}
     for d in dayData.[..2] do
-        let seg = configureSeg d.Header
-        for i in 0 .. d.Trades.Length - 1 do
-            seg.Process(ReadOnlySpan(d.Trades, 0, i + 1)) |> ignore
+        bench(d, warmup_ctx)
 
     // Benchmark
-    printfn "=== SegregateTrades (full pipeline) ==="
-    let mutable barCount = 0
-    let mutable sink = 0.0
+    printfn "=== VwapSystem (full pipeline) ==="
     let sw = Stopwatch.StartNew()
+    let ctx = {BarCount = 0; DecisionCount = 0; Sink = 0.0}
     for d in dayData do
-        let seg = configureSeg d.Header
-        for i in 0 .. d.Trades.Length - 1 do
-            seg.Process(ReadOnlySpan(d.Trades, 0, i + 1)) |> ignore
-            match seg.LastBar with
-            | ValueSome bar -> barCount <- barCount + 1; sink <- sink + bar.Bar.VWAP
-            | ValueNone -> ()
+        bench(d, ctx)
     sw.Stop()
-    printfn "  Time: %.3fs  Bars: %d  Sink: %.2f  Trades/sec: %s" sw.Elapsed.TotalSeconds barCount sink ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
+    printfn "  Time: %.3fs  Bars: %d  Decisions: %d  Sink: %.2f  Trades/sec: %s" sw.Elapsed.TotalSeconds ctx.BarCount ctx.DecisionCount ctx.Sink ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
     0
