@@ -10,6 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
     <ProjectReference Include="..\TradingEdge.Parsing\TradingEdge.Parsing.fsproj" />
     <ProjectReference Include="..\TradingEdge.Optimize\TradingEdge.Optimize.fsproj" />
   </ItemGroup>

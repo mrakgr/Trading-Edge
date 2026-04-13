@@ -7,6 +7,7 @@ open System.Runtime.InteropServices
 open System.Text.RegularExpressions
 open System.Diagnostics
 open TradingEdge.Parsing.TradeBinary
+open MathNet.Numerics.Distributions
 
 // ============================================================================
 // Local VolumeBar over TradeRecord (Profile-scoped; replaces the shared one)
@@ -751,6 +752,22 @@ let fillPercentile = 0.05
 let fillDelayMs = 100.0
 let fillRejectionRate = 0.30
 
+let configureWith (header: DayHeader) (pcts: float[]) =
+    let seg = SegregateTrades(pcts)
+    seg.BaseTicks <- header.BaseTicks
+    seg.OpeningPrintIdx <- int header.OpeningPrintIndex
+    seg.ClosingPrintIdx <- int header.ClosingPrintIndex
+    let truncate ticks = header.BaseTicks + ((ticks - header.BaseTicks) / 1000L) * 1000L
+    seg.OpenTime <- DateTime(truncate header.SessionOpenTicks)
+    seg.CloseTime <- DateTime(truncate header.SessionCloseTicks)
+    let vs = VwapSystem(positionSize, referenceVol, bandVol)
+    let td = TrackDecisions()
+    let tf = TrackFills(commissionPerShare)
+    let ell = EnforceLossLimit((fun () -> tf.NetPnL), infinity)
+    let fs = FillSimulator(fillPercentile, fillDelayMs, fillRejectionRate, ValueNone)
+    fs.BaseTicks <- header.BaseTicks
+    seg, vs, td, ell, fs, tf
+
 let configure (header: DayHeader) =
     let seg = SegregateTrades(pcts)
     seg.BaseTicks <- header.BaseTicks
@@ -793,6 +810,99 @@ let loadDayData () =
     let totalTrades = dayData |> Array.sumBy (fun d -> int64 d.Trades.Length)
     printfn "Loaded %d days (%s trades) in %.3fs\n" dayData.Length (totalTrades.ToString("N0")) swLoad.Elapsed.TotalSeconds
     dayData, totalTrades
+
+/// Run the full pipeline for one day with the given pcts and return NetPnL.
+let evaluateDay (d: DayData) (pcts: float[]) : float =
+    let seg, vs, td, ell, fs, tf = configureWith d.Header pcts
+    let onFillSink (_: Fill) = ()
+    let onFill (fill: Fill) = tf.Process(onFillSink, fill)
+    let onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord) =
+        fs.Process(onFill, decision, bar, stage, trade)
+    for i in 0 .. d.Trades.Length - 1 do
+        seg.Process(
+            (fun (bar, stage, trade) ->
+                vs.Process(
+                    (fun (decision, bar, stage, trade) ->
+                        ell.Process(
+                            (fun (decision, bar, stage, trade) ->
+                                td.Process(onTracked, decision, bar, stage, trade)),
+                            decision, bar, stage, trade)),
+                    bar, stage, trade, seg.Timestamp trade)),
+            ReadOnlySpan(d.Trades, 0, i + 1))
+    tf.NetPnL
+
+/// Build N perturbed copies of the base pcts by adding gaussian noise to
+/// the underlying exponents (so the parameter shape stays in the same
+/// log-spaced family the optimizer naturally explores).
+let perturbConfigs (rng: Random) (n: int) (sigma: float) : float[][] =
+    let baseExps = [| -8.69; -1.10; -16.27; -16.73 |]
+    let basePct = 0.005
+    let decay = 0.9
+    let toPcts (exps: float[]) = exps |> Array.map (fun i -> basePct * (decay ** i))
+    [| for _ in 1 .. n ->
+        let exps = baseExps |> Array.map (fun e -> e + Normal.Sample(rng, 0.0, sigma))
+        toPcts exps |]
+
+/// Sequential vs parallel sweep over (config, day) pairs. Returns
+/// per-config total NetPnL summed across days.
+let runParallelSweep (dayData: DayData[]) (configs: float[][]) =
+    printfn "=== Parallel sweep: %d configs x %d days = %d tasks (cores=%d) ==="
+        configs.Length dayData.Length (configs.Length * dayData.Length) Environment.ProcessorCount
+
+    // Warm up: run one (config, day) once to JIT the pipeline.
+    evaluateDay dayData.[0] configs.[0] |> ignore
+
+    // Per-config sums, indexed [configIdx]. Concurrent updates protected
+    // via Interlocked-style: aggregate per task into a thread-local slot,
+    // then sum at the end. Easiest: use a 2D array [configIdx, dayIdx].
+    let results = Array2D.zeroCreate<float> configs.Length dayData.Length
+
+    // ----- Sequential baseline -----
+    let swSeq = Stopwatch.StartNew()
+    for ci in 0 .. configs.Length - 1 do
+        for di in 0 .. dayData.Length - 1 do
+            results.[ci, di] <- evaluateDay dayData.[di] configs.[ci]
+    swSeq.Stop()
+    let seqTime = swSeq.Elapsed.TotalSeconds
+    printfn "  Sequential: %.3fs" seqTime
+
+    // Sanity: sum of NetPnL across all (config, day) pairs (sink against optimizer-eliminated work)
+    let mutable seqSink = 0.0
+    for ci in 0 .. configs.Length - 1 do
+        for di in 0 .. dayData.Length - 1 do
+            seqSink <- seqSink + results.[ci, di]
+    printfn "  Sequential sink: %.2f" seqSink
+
+    // ----- Parallel -----
+    let pairs =
+        [| for ci in 0 .. configs.Length - 1 do
+            for di in 0 .. dayData.Length - 1 do
+                yield struct (ci, di) |]
+
+    let parResults = Array2D.zeroCreate<float> configs.Length dayData.Length
+    let swPar = Stopwatch.StartNew()
+    System.Threading.Tasks.Parallel.ForEach(
+        pairs,
+        fun (struct (ci, di)) ->
+            parResults.[ci, di] <- evaluateDay dayData.[di] configs.[ci]
+    ) |> ignore
+    swPar.Stop()
+    let parTime = swPar.Elapsed.TotalSeconds
+
+    let mutable parSink = 0.0
+    for ci in 0 .. configs.Length - 1 do
+        for di in 0 .. dayData.Length - 1 do
+            parSink <- parSink + parResults.[ci, di]
+    printfn "  Parallel:   %.3fs   speedup: %.2fx (ideal: %dx)   sink: %.2f"
+        parTime (seqTime / parTime) Environment.ProcessorCount parSink
+
+    // Per-config totals
+    printfn "  Per-config NetPnL:"
+    for ci in 0 .. configs.Length - 1 do
+        let mutable s = 0.0
+        for di in 0 .. dayData.Length - 1 do s <- s + parResults.[ci, di]
+        printfn "    [%2d] %s   total: %.2f" ci
+            (configs.[ci] |> Array.map (sprintf "%.5f") |> String.concat " ") s
 
 let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
     let bench(d : DayData, ctx : SinkContext) =
@@ -1006,6 +1116,7 @@ let runFillBreakdown (dayData: DayData[]) =
 
 [<EntryPoint>]
 let main argv =
-    let dayData, totalTrades = loadDayData ()
-    runBenchmark dayData totalTrades
+    let dayData, _ = loadDayData ()
+    let configs = perturbConfigs (Random(42)) 14 0.5
+    runParallelSweep dayData configs
     0
