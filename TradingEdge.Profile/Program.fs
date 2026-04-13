@@ -156,8 +156,8 @@ type SegregateTrades(volPcts: float[]) =
     member val VwapSystem : VwapSystemArgsBuilder voption = ValueNone with get, set
     member val ClosingPause = -60.0
     member val BaseTicks = 0L with get, set
-    member val OpeningPrintIdx = ValueNone : int voption with get, set
-    member val ClosingPrintIdx = ValueNone : int voption with get, set
+    member val OpeningPrintIdx = int AbsentIndex : int with get, set
+    member val ClosingPrintIdx = int AbsentIndex : int with get, set
     member val OpenTime = DateTime.MaxValue with get, set
     member val CloseTime = DateTime.MaxValue with get, set
     member val LastBar : VwapSystemBar voption = ValueNone with get, set
@@ -173,7 +173,7 @@ type SegregateTrades(volPcts: float[]) =
             else
                 AfterOpeningPrint
         else
-            if self.OpeningPrintIdx = ValueSome index then
+            if self.OpeningPrintIdx = index then
                 AfterOpeningPrint
             elif self.OpenTime.AddHours(-1.0) <= ts then
                 LatePremarket
@@ -275,10 +275,8 @@ let main argv =
     let configureSeg (header: DayHeader) =
         let seg = SegregateTrades(pcts)
         seg.BaseTicks <- header.BaseTicks
-        seg.OpeningPrintIdx <-
-            if header.OpeningPrintIndex = AbsentIndex then ValueNone else ValueSome (int header.OpeningPrintIndex)
-        seg.ClosingPrintIdx <-
-            if header.ClosingPrintIndex = AbsentIndex then ValueNone else ValueSome (int header.ClosingPrintIndex)
+        seg.OpeningPrintIdx <- int header.OpeningPrintIndex
+        seg.ClosingPrintIdx <- int header.ClosingPrintIndex
         seg.OpenTime <- DateTime(header.SessionOpenTicks)
         seg.CloseTime <- DateTime(header.SessionCloseTicks)
         seg
