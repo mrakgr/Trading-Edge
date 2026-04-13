@@ -318,18 +318,18 @@ type TrackDecisions() =
 // Daily loss limit enforcement
 // ============================================================================
 
-type EnforceLossLimit(tracker: TrackDecisions, lossLimit: float) =
-    member val Tracker = tracker
+type EnforceLossLimit(getPnL: unit -> float, lossLimit: float) =
+    member val GetPnL = getPnL
     member val LossLimit = lossLimit
     member val Tripped = false with get, set
 
     member inline self.Process(onNext, decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord) =
         let decision =
             match decision with
-            | ValueSome d -> 
+            | ValueSome d ->
                 if self.Tripped then ValueNone
                 else
-                    if self.Tracker.RealizedPnL <= -self.LossLimit then 
+                    if self.GetPnL() <= -self.LossLimit then
                         self.Tripped <- true
                         ValueSome { d with Shares = 0 }
                     else ValueSome d
@@ -337,7 +337,7 @@ type EnforceLossLimit(tracker: TrackDecisions, lossLimit: float) =
         onNext (decision, bar, stage, trade)
 
 // ============================================================================
-// Fill simulator
+// Fill struct + fill tracker
 // ============================================================================
 
 [<Struct>]
@@ -346,6 +346,46 @@ type Fill = {
     Price: float
     Quantity: int
 }
+
+type TrackFills(commissionPerShare: float) =
+    member val CommissionPerShare = commissionPerShare
+    member val Fills = ResizeArray<Fill>(256)
+    /// Excludes comissions.
+    member val GrossPnL = 0.0 with get, set
+    member val Commissions = 0.0 with get, set
+    member self.NetPnL = self.GrossPnL - self.Commissions
+    member val AvgCost = 0.0 with get, set
+    member val CurrentPosition = 0 with get, set
+
+    member inline self.Process(onNext, fill: Fill) =
+        self.Fills.Add fill
+        let qty = fill.Quantity
+        self.Commissions <- self.Commissions + float (abs qty) * self.CommissionPerShare
+        if self.CurrentPosition = 0 then
+            self.AvgCost <- fill.Price
+            self.CurrentPosition <- qty
+        elif sign qty = sign self.CurrentPosition then
+            let totalQty = self.CurrentPosition + qty
+            self.AvgCost <- (self.AvgCost * float self.CurrentPosition + fill.Price * float qty) / float totalQty
+            self.CurrentPosition <- totalQty
+        else
+            let closingQty = min (abs qty) (abs self.CurrentPosition)
+            let pnl = float (sign self.CurrentPosition) * (fill.Price - self.AvgCost) * float closingQty
+            self.GrossPnL <- self.GrossPnL + pnl
+            let remaining = self.CurrentPosition + qty
+            if remaining = 0 then
+                self.CurrentPosition <- 0
+                self.AvgCost <- 0.0
+            elif sign remaining <> sign self.CurrentPosition then
+                self.AvgCost <- fill.Price
+                self.CurrentPosition <- remaining
+            else
+                self.CurrentPosition <- remaining
+        onNext fill
+
+// ============================================================================
+// Fill simulator
+// ============================================================================
 
 type LimitOrder = {
     Prices: struct (float * DateTime) list
@@ -609,46 +649,6 @@ type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngO
         self.ProcessPending now
 
 // ============================================================================
-// Fill tracker (fill-based realized PnL with commissions)
-// ============================================================================
-
-type TrackFills(commissionPerShare: float) =
-    member val CommissionPerShare = commissionPerShare
-    member val Fills = ResizeArray<Fill>(256)
-    member val RealizedPnL = 0.0 with get, set
-    member val Commissions = 0.0 with get, set
-    member val AvgCost = 0.0 with get, set
-    member val CurrentPosition = 0 with get, set
-
-    member inline self.Process(onNext, fill: Fill) =
-        self.Fills.Add fill
-        let qty = fill.Quantity
-        let commission = float (abs qty) * self.CommissionPerShare
-        self.Commissions <- self.Commissions + commission
-        if self.CurrentPosition = 0 then
-            self.AvgCost <- fill.Price
-            self.CurrentPosition <- qty
-        elif sign qty = sign self.CurrentPosition then
-            let totalQty = self.CurrentPosition + qty
-            self.AvgCost <- (self.AvgCost * float self.CurrentPosition + fill.Price * float qty) / float totalQty
-            self.CurrentPosition <- totalQty
-        else
-            let closingQty = min (abs qty) (abs self.CurrentPosition)
-            let pnl = float (sign self.CurrentPosition) * (fill.Price - self.AvgCost) * float closingQty
-            self.RealizedPnL <- self.RealizedPnL + pnl - commission
-            let remaining = self.CurrentPosition + qty
-            if remaining = 0 then
-                self.CurrentPosition <- 0
-                self.AvgCost <- 0.0
-            elif sign remaining <> sign self.CurrentPosition then
-                self.AvgCost <- fill.Price
-                self.CurrentPosition <- remaining
-            else
-                self.CurrentPosition <- remaining
-            self.Commissions <- self.Commissions - commission
-        onNext fill
-
-// ============================================================================
 // Binary loading (TradeRecord-native, no Trade conversion)
 // ============================================================================
 
@@ -713,10 +713,10 @@ let main argv =
         seg.CloseTime <- DateTime(header.SessionCloseTicks)
         let vs = VwapSystem(positionSize, referenceVol, bandVol)
         let td = TrackDecisions()
-        let ell = EnforceLossLimit(td, 1000.0)
+        let tf = TrackFills(0.0035)
+        let ell = EnforceLossLimit((fun () -> tf.NetPnL), 0.085 * positionSize)
         let fs = FillSimulator(0.5, 100.0, 0.0, ValueNone)
         fs.BaseTicks <- header.BaseTicks
-        let tf = TrackFills(0.0035)
         seg, vs, td, ell, fs, tf
 
 
@@ -746,7 +746,7 @@ let main argv =
                                 decision, bar, stage, trade)),
                         bar, stage, trade, seg.Timestamp trade)),
                 ReadOnlySpan(d.Trades, 0, i + 1)) |> ignore
-        ctx.Sink <- ctx.Sink + td.RealizedPnL + tf.RealizedPnL + tf.Commissions
+        ctx.Sink <- ctx.Sink + td.RealizedPnL + tf.GrossPnL - tf.Commissions
 
     // Warm up
     printfn "Warming up..."
