@@ -873,19 +873,17 @@ let runParallelSweep (dayData: DayData[]) (configs: float[][]) =
             seqSink <- seqSink + results.[ci, di]
     printfn "  Sequential sink: %.2f" seqSink
 
-    // ----- Parallel -----
-    let pairs =
-        [| for ci in 0 .. configs.Length - 1 do
-            for di in 0 .. dayData.Length - 1 do
-                yield struct (ci, di) |]
-
+    // ----- Parallel: days sequential outer, configs parallel inner -----
+    // Each tick all threads work on the same day's TradeRecord[] so the
+    // hot data lives in shared L2/L3 cache rather than thrashing across
+    // unrelated days.
     let parResults = Array2D.zeroCreate<float> configs.Length dayData.Length
     let swPar = Stopwatch.StartNew()
-    System.Threading.Tasks.Parallel.ForEach(
-        pairs,
-        fun (struct (ci, di)) ->
-            parResults.[ci, di] <- evaluateDay dayData.[di] configs.[ci]
-    ) |> ignore
+    for di in 0 .. dayData.Length - 1 do
+        let d = dayData.[di]
+        System.Threading.Tasks.Parallel.For(0, configs.Length, fun ci ->
+            parResults.[ci, di] <- evaluateDay d configs.[ci]
+        ) |> ignore
     swPar.Stop()
     let parTime = swPar.Elapsed.TotalSeconds
 
