@@ -192,7 +192,7 @@ type SegregateTrades(volPcts: float[]) =
         struct (includeInVwma, includeInVol)
 
 
-    member inline self.Process(onNext, trades: ReadOnlySpan<TradeRecord>) : TradeStage =
+    member inline self.Process(onNext, trades: ReadOnlySpan<TradeRecord>) =
         let lastIdx = trades.Length - 1
         let trade = trades.[lastIdx]
         let stage = self.TradeStage(trade, lastIdx)
@@ -736,8 +736,40 @@ type DayResult = {
     AvgPositionSize: float
 }
 
-[<EntryPoint>]
-let main argv =
+type DayData = {| Date: string; Header: DayHeader; Ticker: string; Trades: TradeRecord[] |}
+
+let pcts =
+    let basePct = 0.005
+    let decay = 0.9
+    [| -8.69; -1.10; -16.27; -16.73 |] |> Array.map (fun i -> basePct * (decay ** i))
+
+let positionSize = 30000.0
+let referenceVol = ValueSome 5.82e-4
+let bandVol = 0.0
+let commissionPerShare = 0.0035
+let fillPercentile = 0.05
+let fillDelayMs = 100.0
+let fillRejectionRate = 0.30
+
+let configure (header: DayHeader) =
+    let seg = SegregateTrades(pcts)
+    seg.BaseTicks <- header.BaseTicks
+    seg.OpeningPrintIdx <- int header.OpeningPrintIndex
+    seg.ClosingPrintIdx <- int header.ClosingPrintIndex
+    // Truncate session-boundary ticks to 0.1ms precision so arithmetic
+    // with trade timestamps (also 0.1ms via TimeDeci) is self-consistent.
+    let truncate ticks = header.BaseTicks + ((ticks - header.BaseTicks) / 1000L) * 1000L
+    seg.OpenTime <- DateTime(truncate header.SessionOpenTicks)
+    seg.CloseTime <- DateTime(truncate header.SessionCloseTicks)
+    let vs = VwapSystem(positionSize, referenceVol, bandVol)
+    let td = TrackDecisions()
+    let tf = TrackFills(commissionPerShare)
+    let ell = EnforceLossLimit((fun () -> tf.NetPnL), infinity)
+    let fs = FillSimulator(fillPercentile, fillDelayMs, fillRejectionRate, ValueNone)
+    fs.BaseTicks <- header.BaseTicks
+    seg, vs, td, ell, fs, tf
+
+let loadDayData () =
     let ps1Path = "docs/generate_stocks_in_play_charts.ps1"
     let entryRegex = Regex("""Ticker\s*=\s*['"]([^'"]+)['"][^}]*Date\s*=\s*['"]([^'"]+)['"]""")
     let entries =
@@ -750,7 +782,7 @@ let main argv =
 
     printfn "Loading %d days from binary files..." entries.Length
     let swLoad = Stopwatch.StartNew()
-    let dayData =
+    let dayData : DayData[] =
         [| for (ticker, date) in entries do
             let path = sprintf "data/trades_bin/%s/%s.bin" ticker date
             let header, trades = loadDayRecords path
@@ -760,36 +792,10 @@ let main argv =
     swLoad.Stop()
     let totalTrades = dayData |> Array.sumBy (fun d -> int64 d.Trades.Length)
     printfn "Loaded %d days (%s trades) in %.3fs\n" dayData.Length (totalTrades.ToString("N0")) swLoad.Elapsed.TotalSeconds
+    dayData, totalTrades
 
-    let pcts =
-        let basePct = 0.005
-        let decay = 0.9
-        [| -8.69; -1.10; -16.27; -16.73 |] |> Array.map (fun i -> basePct * (decay ** i))
-
-    let positionSize = 30000.0
-    let referenceVol = ValueSome 5.82e-4
-    let bandVol = 0.0
-
-    let configure (header: DayHeader) =
-        let seg = SegregateTrades(pcts)
-        seg.BaseTicks <- header.BaseTicks
-        seg.OpeningPrintIdx <- int header.OpeningPrintIndex
-        seg.ClosingPrintIdx <- int header.ClosingPrintIndex
-        // Truncate session-boundary ticks to 0.1ms precision so arithmetic
-        // with trade timestamps (also 0.1ms via TimeDeci) is self-consistent.
-        let truncate ticks = header.BaseTicks + ((ticks - header.BaseTicks) / 1000L) * 1000L
-        seg.OpenTime <- DateTime(truncate header.SessionOpenTicks)
-        seg.CloseTime <- DateTime(truncate header.SessionCloseTicks)
-        let vs = VwapSystem(positionSize, referenceVol, bandVol)
-        let td = TrackDecisions()
-        let tf = TrackFills(0.0035)
-        let ell = EnforceLossLimit((fun () -> tf.NetPnL), infinity)
-        let fs = FillSimulator(0.05, 100.0, 0.30, ValueNone)
-        fs.BaseTicks <- header.BaseTicks
-        seg, vs, td, ell, fs, tf
-
-
-    let bench(d : {| Date: string; Header: DayHeader; Ticker: string; Trades: array<TradeRecord> |}, ctx : SinkContext) =
+let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
+    let bench(d : DayData, ctx : SinkContext) =
         let seg, vs, td, ell, fs, tf = configure d.Header
         let inline onFillSink (fill: Fill) =
             ctx.FillCount <- ctx.FillCount + 1
@@ -803,7 +809,6 @@ let main argv =
             | ValueSome dd -> ctx.DecisionCount <- ctx.DecisionCount + 1; ctx.Sink <- ctx.Sink + dd.Price
             | ValueNone -> ()
             fs.Process(onFill, decision, bar, stage, trade)
-            stage
         for i in 0 .. d.Trades.Length - 1 do
             seg.Process(
                 (fun (bar, stage, trade) ->
@@ -814,27 +819,25 @@ let main argv =
                                     td.Process(onTracked, decision, bar, stage, trade)),
                                 decision, bar, stage, trade)),
                         bar, stage, trade, seg.Timestamp trade)),
-                ReadOnlySpan(d.Trades, 0, i + 1)) |> ignore
+                ReadOnlySpan(d.Trades, 0, i + 1))
         ctx.Sink <- ctx.Sink + td.RealizedPnL + tf.GrossPnL - tf.Commissions
 
-    // Warm up
     printfn "Warming up..."
     let warmup_ctx = {BarCount = 0; DecisionCount = 0; FillCount = 0; Sink = 0.0}
     for d in dayData.[..2] do
         bench(d, warmup_ctx)
 
-    // Benchmark
     printfn "=== VwapSystem (full pipeline) ==="
     let sw = Stopwatch.StartNew()
     let ctx = {BarCount = 0; DecisionCount = 0; FillCount = 0; Sink = 0.0}
     for d in dayData do
         bench(d, ctx)
     sw.Stop()
-    printfn "  Time: %.3fs  Bars: %d  Decisions: %d  Fills: %d  Sink: %.2f  Trades/sec: %s" sw.Elapsed.TotalSeconds ctx.BarCount ctx.DecisionCount ctx.FillCount ctx.Sink ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
+    printfn "  Time: %.3fs  Bars: %d  Decisions: %d  Fills: %d  Sink: %.2f  Trades/sec: %s"
+        sw.Elapsed.TotalSeconds ctx.BarCount ctx.DecisionCount ctx.FillCount ctx.Sink
+        ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
 
-    // ================================================================
-    // Fill breakdown — per-day round trips + aggregate stats
-    // ================================================================
+let runFillBreakdown (dayData: DayData[]) =
     let logPath = "logs/fill_breakdown_new.log"
     Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
     use logWriter = new StreamWriter(logPath, false)
@@ -844,8 +847,10 @@ let main argv =
     tee "=== VWAP System Fill Breakdown (new class-based pipeline) ==="
     tee "Bar exponents: [-8.69;-1.10;-16.27;-16.73]  pcts: [%s]"
         (String.Join(";", pcts |> Array.map (fun p -> sprintf "%.5f" p)))
-    tee "Position size: $%.0f  referenceVol: %.4g  bandVol: %.1f  lossLimit: infinity" positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0) bandVol
-    tee "Fill sim: pctile=%.3f, delay=%.0fms, commission=$%.4f/share, rejection=%.0f%%" 0.05 100.0 0.0035 30.0
+    tee "Position size: $%.0f  referenceVol: %.4g  bandVol: %.1f  lossLimit: infinity"
+        positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0) bandVol
+    tee "Fill sim: pctile=%.3f, delay=%.0fms, commission=$%.4f/share, rejection=%.0f%%"
+        fillPercentile fillDelayMs commissionPerShare (fillRejectionRate * 100.0)
     tee ""
 
     let dayResults =
@@ -855,7 +860,6 @@ let main argv =
             let onFill (fill: Fill) = tf.Process(onFillSink, fill)
             let onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord) =
                 fs.Process(onFill, decision, bar, stage, trade)
-                stage
             for i in 0 .. d.Trades.Length - 1 do
                 seg.Process(
                     (fun (bar, stage, trade) ->
@@ -866,8 +870,8 @@ let main argv =
                                         td.Process(onTracked, decision, bar, stage, trade)),
                                     decision, bar, stage, trade)),
                             bar, stage, trade, seg.Timestamp trade)),
-                    ReadOnlySpan(d.Trades, 0, i + 1)) |> ignore
-            let roundTrips = extractRoundTrips tf.Fills 0.0035
+                    ReadOnlySpan(d.Trades, 0, i + 1))
+            let roundTrips = extractRoundTrips tf.Fills commissionPerShare
             let posSizes =
                 [| for i in 0 .. td.Decisions.Count - 2 do
                     if td.Decisions.[i].Shares <> 0 then
@@ -999,4 +1003,9 @@ let main argv =
     tee "Short trades:       %12d" shortTrips.Length
     tee "Short P&L:          $%12.2f" shortPnL
     tee "Avg short trade:    $%12.2f" (if shortTrips.Length > 0 then shortPnL / float shortTrips.Length else 0.0)
+
+[<EntryPoint>]
+let main argv =
+    let dayData, totalTrades = loadDayData ()
+    runBenchmark dayData totalTrades
     0
