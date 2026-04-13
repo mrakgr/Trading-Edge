@@ -609,6 +609,46 @@ type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngO
         self.ProcessPending now
 
 // ============================================================================
+// Fill tracker (fill-based realized PnL with commissions)
+// ============================================================================
+
+type TrackFills(commissionPerShare: float) =
+    member val CommissionPerShare = commissionPerShare
+    member val Fills = ResizeArray<Fill>(256)
+    member val RealizedPnL = 0.0 with get, set
+    member val Commissions = 0.0 with get, set
+    member val AvgCost = 0.0 with get, set
+    member val CurrentPosition = 0 with get, set
+
+    member inline self.Process(onNext, fill: Fill) =
+        self.Fills.Add fill
+        let qty = fill.Quantity
+        let commission = float (abs qty) * self.CommissionPerShare
+        self.Commissions <- self.Commissions + commission
+        if self.CurrentPosition = 0 then
+            self.AvgCost <- fill.Price
+            self.CurrentPosition <- qty
+        elif sign qty = sign self.CurrentPosition then
+            let totalQty = self.CurrentPosition + qty
+            self.AvgCost <- (self.AvgCost * float self.CurrentPosition + fill.Price * float qty) / float totalQty
+            self.CurrentPosition <- totalQty
+        else
+            let closingQty = min (abs qty) (abs self.CurrentPosition)
+            let pnl = float (sign self.CurrentPosition) * (fill.Price - self.AvgCost) * float closingQty
+            self.RealizedPnL <- self.RealizedPnL + pnl - commission
+            let remaining = self.CurrentPosition + qty
+            if remaining = 0 then
+                self.CurrentPosition <- 0
+                self.AvgCost <- 0.0
+            elif sign remaining <> sign self.CurrentPosition then
+                self.AvgCost <- fill.Price
+                self.CurrentPosition <- remaining
+            else
+                self.CurrentPosition <- remaining
+            self.Commissions <- self.Commissions - commission
+        onNext fill
+
+// ============================================================================
 // Binary loading (TradeRecord-native, no Trade conversion)
 // ============================================================================
 
@@ -676,14 +716,16 @@ let main argv =
         let ell = EnforceLossLimit(td, 1000.0)
         let fs = FillSimulator(0.5, 100.0, 0.0, ValueNone)
         fs.BaseTicks <- header.BaseTicks
-        seg, vs, td, ell, fs
+        let tf = TrackFills(0.0035)
+        seg, vs, td, ell, fs, tf
 
 
     let bench(d : {| Date: string; Header: DayHeader; Ticker: string; Trades: array<TradeRecord> |}, ctx : SinkContext) =
-        let seg, vs, td, ell, fs = configure d.Header
-        let inline onFill (fill: Fill) =
+        let seg, vs, td, ell, fs, tf = configure d.Header
+        let inline onFillSink (fill: Fill) =
             ctx.FillCount <- ctx.FillCount + 1
             ctx.Sink <- ctx.Sink + fill.Price
+        let inline onFill (fill: Fill) = tf.Process(onFillSink, fill)
         let inline onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord) =
             match bar with
             | ValueSome b -> ctx.BarCount <- ctx.BarCount + 1; ctx.Sink <- ctx.Sink + b.Bar.VWAP
@@ -704,7 +746,7 @@ let main argv =
                                 decision, bar, stage, trade)),
                         bar, stage, trade, seg.Timestamp trade)),
                 ReadOnlySpan(d.Trades, 0, i + 1)) |> ignore
-        ctx.Sink <- ctx.Sink + td.RealizedPnL
+        ctx.Sink <- ctx.Sink + td.RealizedPnL + tf.RealizedPnL + tf.Commissions
 
     // Warm up
     printfn "Warming up..."
