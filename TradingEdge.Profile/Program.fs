@@ -297,6 +297,24 @@ type VwapSystem(positionSize: float, referenceVol: float voption, bandVol: float
         onNext (decision, bar, stage, trade)
 
 // ============================================================================
+// Decision tracker (running realized PnL)
+// ============================================================================
+
+type TrackDecisions() =
+    member val Decisions = ResizeArray<TradingDecision>(32)
+    member val RealizedPnL = 0.0 with get, set
+
+    member inline self.Process(onNext, decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord) =
+        match decision with
+        | ValueSome d ->
+            if self.Decisions.Count > 0 then
+                let prev = self.Decisions.[self.Decisions.Count - 1]
+                self.RealizedPnL <- self.RealizedPnL + (d.Price - prev.Price) * float prev.Shares
+            self.Decisions.Add d
+        | ValueNone -> ()
+        onNext (decision, bar, stage, trade)
+
+// ============================================================================
 // Binary loading (TradeRecord-native, no Trade conversion)
 // ============================================================================
 
@@ -359,12 +377,13 @@ let main argv =
         seg.OpenTime <- DateTime(header.SessionOpenTicks)
         seg.CloseTime <- DateTime(header.SessionCloseTicks)
         let vs = VwapSystem(positionSize, referenceVol, bandVol)
-        seg, vs
+        let td = TrackDecisions()
+        seg, vs, td
 
 
     let bench(d : {| Date: string; Header: DayHeader; Ticker: string; Trades: array<TradeRecord> |}, ctx : SinkContext) =
-        let seg, vs = configure d.Header
-        let onDecision (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, _: TradeRecord) =
+        let seg, vs, td = configure d.Header
+        let inline onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, _: TradeRecord) =
             match bar with
             | ValueSome b -> ctx.BarCount <- ctx.BarCount + 1; ctx.Sink <- ctx.Sink + b.Bar.VWAP
             | ValueNone -> ()
@@ -375,8 +394,12 @@ let main argv =
         for i in 0 .. d.Trades.Length - 1 do
             seg.Process(
                 (fun (bar, stage, trade) ->
-                    vs.Process(onDecision, bar, stage, trade, seg.Timestamp trade)),
+                    vs.Process(
+                        (fun (decision, bar, stage, trade) ->
+                            td.Process(onTracked, decision, bar, stage, trade)),
+                        bar, stage, trade, seg.Timestamp trade)),
                 ReadOnlySpan(d.Trades, 0, i + 1)) |> ignore
+        ctx.Sink <- ctx.Sink + td.RealizedPnL
 
     // Warm up
     printfn "Warming up..."
