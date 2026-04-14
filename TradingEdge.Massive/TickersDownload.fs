@@ -49,24 +49,27 @@ let private baseUrl = "https://api.polygon.io/v3/reference/tickers"
 let private maxRetries = 5
 let private baseDelayMs = 200
 
-/// Download all tickers of a given Polygon `type` (e.g. "ETF", "ETN", "ETV", "ETS")
-/// Returns (ticker, name, type) triples for *active* securities only.
+/// Download all tickers of a given Polygon `type` (e.g. "CS", "ADRC", "ETF").
+/// Pass `active=true` for currently-listed, `active=false` for delisted/historical.
+/// Returns (ticker, name, type) triples.
 let downloadTickersOfType
     (httpClient: HttpClient)
     (apiKey: string)
     (tickerType: string)
+    (active: bool)
     (progress: (int -> int -> unit) option)
     (ct: CancellationToken)
     : Async<Result<(string * string * string) list, string>> =
     async {
         let allTickers = ResizeArray<string * string * string>()
+        let activeStr = if active then "true" else "false"
 
         let buildUrl (nextUrl: string option) =
             match nextUrl with
             | Some n when n.Contains("apiKey=") -> n
             | Some n -> $"{n}&apiKey={apiKey}"
             | None ->
-                $"{baseUrl}?type={tickerType}&market=stocks&active=true&limit=1000&apiKey={apiKey}"
+                $"{baseUrl}?type={tickerType}&market=stocks&active={activeStr}&limit=1000&apiKey={apiKey}"
 
         let rec fetchPage (nextUrl: string option) (pageCount: int) : Async<Result<unit, string>> =
             async {
@@ -133,31 +136,37 @@ let downloadTickersOfType
         | Ok () -> return Ok (allTickers |> Seq.toList)
     }
 
-/// Download all ETF-like security types from Polygon (ETF + ETN + ETV + ETS).
-/// These are the four "exchange-traded product" type codes Polygon emits.
-let downloadAllEtfTickers
+/// Download all reference-ticker security types we classify on:
+///   CS   — common stock
+///   ADRC — American Depositary Receipt (Common)
+///   ETF, ETN, ETV, ETS — exchange-traded products
+/// For each type we fetch both active=true (currently listed) and active=false
+/// (delisted/acquired/merged) so that historical backtests can still classify
+/// tickers that no longer trade. These populate `ticker_reference(ticker, type)`.
+/// Downstream filters (e.g. stocks_in_play) select on `type IN ('CS', 'ADRC')`.
+let downloadAllReferenceTickers
     (httpClient: HttpClient)
     (apiKey: string)
     (ct: CancellationToken)
     : Async<Result<(string * string * string) list, string>> =
     async {
-        // Polygon returns separate type codes for funds, notes, vehicles and structured.
-        // We treat them all as "ETF-like" for filtering purposes.
-        let etfTypes = [ "ETF"; "ETN"; "ETV"; "ETS" ]
+        let tickerTypes = [ "CS"; "ADRC"; "ETF"; "ETN"; "ETV"; "ETS" ]
         let all = ResizeArray<string * string * string>()
         let mutable error : string option = None
 
-        for tickerType in etfTypes do
-            if error.IsNone then
-                let progress page total =
-                    printfn "  [%s] page %d, total %d" tickerType page total
-                let! result = downloadTickersOfType httpClient apiKey tickerType (Some progress) ct
-                match result with
-                | Ok rows ->
-                    printfn "  [%s] downloaded %d tickers" tickerType rows.Length
-                    all.AddRange(rows)
-                | Error msg ->
-                    error <- Some $"Failed to download type {tickerType}: {msg}"
+        for tickerType in tickerTypes do
+            for active in [ true; false ] do
+                if error.IsNone then
+                    let activeLabel = if active then "active" else "inactive"
+                    let progress page total =
+                        printfn "  [%s %s] page %d, total %d" tickerType activeLabel page total
+                    let! result = downloadTickersOfType httpClient apiKey tickerType active (Some progress) ct
+                    match result with
+                    | Ok rows ->
+                        printfn "  [%s %s] downloaded %d tickers" tickerType activeLabel rows.Length
+                        all.AddRange(rows)
+                    | Error msg ->
+                        error <- Some $"Failed to download type {tickerType} ({activeLabel}): {msg}"
 
         match error with
         | Some msg -> return Error msg

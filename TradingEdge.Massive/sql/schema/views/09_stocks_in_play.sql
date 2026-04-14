@@ -2,8 +2,11 @@
 --
 -- Filters applied (in order):
 --   1. RVOL, gap, dollar-volume thresholds (the original SIP definition)
---   2. ETF exclusion via LEFT ANTI JOIN against ticker_reference (if exclude_etfs = true
---      and the table is non-empty)
+--   2. Tradable-universe filter (positive whitelist): keep only tickers whose
+--      ticker_reference.type is CS (common stock) or ADRC (American Depositary
+--      Receipt). Everything else -- preferreds, warrants, rights, units, SPAC
+--      trusts, ETFs/ETNs/ETVs/ETSs -- is excluded. Gated by `tradable_only`
+--      (default true); set false to disable the filter entirely.
 --   3. Buyout filter: a stock whose post-event ATR collapses is treated as acquired/dead
 --      and excluded. ATR = mean of true_range / close over the window, where
 --      true_range = max(high-low, abs(high-prev_close), abs(low-prev_close)).
@@ -21,7 +24,7 @@ CREATE MACRO stocks_in_play(
     min_avg_dollar_volume := 25000000,
     rvol_weight := 0.95,
     gap_weight := 0.05,
-    exclude_etfs := true,
+    tradable_only := true,
     pre_window_days := 20,
     post_window_days := 5,
     min_atr_ratio := 0.55
@@ -63,11 +66,13 @@ filtered AS (
     FROM daily_metrics dm
     WHERE dm.rvol >= min_rvol
       AND ABS(dm.gap_pct) >= min_gap_pct
-      -- ETF exclusion: keep only tickers NOT in ticker_reference (when enabled)
+      -- Tradable universe: keep only tickers classified as common stock or ADR.
+      -- ticker_reference is populated by `download-tickers` + `ingest-data`.
       AND (
-          NOT exclude_etfs
-          OR NOT EXISTS (
-              SELECT 1 FROM ticker_reference tr WHERE tr.ticker = dm.ticker
+          NOT tradable_only
+          OR EXISTS (
+              SELECT 1 FROM ticker_reference tr
+              WHERE tr.ticker = dm.ticker AND tr.type IN ('CS', 'ADRC')
           )
       )
 ),

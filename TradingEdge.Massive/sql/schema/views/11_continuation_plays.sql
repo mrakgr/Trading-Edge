@@ -15,7 +15,7 @@ CREATE MACRO continuation_plays(
     min_avg_dollar_volume := 25000000,
     rvol_weight := 0.95,
     gap_weight := 0.05,
-    exclude_etfs := true,
+    tradable_only := true,
     pre_window_days := 20,
     post_window_days := 5,
     min_atr_ratio := 0.55,
@@ -33,7 +33,7 @@ WITH breakouts AS (
         min_avg_dollar_volume := min_avg_dollar_volume,
         rvol_weight := rvol_weight,
         gap_weight := gap_weight,
-        exclude_etfs := exclude_etfs,
+        tradable_only := tradable_only,
         pre_window_days := pre_window_days,
         post_window_days := post_window_days,
         min_atr_ratio := min_atr_ratio

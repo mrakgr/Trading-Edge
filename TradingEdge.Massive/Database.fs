@@ -502,7 +502,9 @@ type StockInPlayRow = {
 }
 
 /// Get stocks in play for a date range with customizable filters.
-/// `excludeEtfs` filters out tickers present in ticker_reference (ETFs/ETNs).
+/// `tradableOnly` keeps only tickers whose ticker_reference.type is CS (common
+/// stock) or ADRC (American Depositary Receipt). Pass false to include all
+/// security types (preferreds, warrants, units, ETFs, etc.).
 /// `minAtrRatio` excludes rows where post-event ATR (mean true range / close)
 /// collapses to that fraction of pre-event ATR or less (buyout filter).
 /// Pass 0.0 to disable.
@@ -515,7 +517,7 @@ let getStocksInPlay
     (minAvgDollarVolume: float)
     (rvolWeight: float)
     (gapWeight: float)
-    (excludeEtfs: bool)
+    (tradableOnly: bool)
     (preWindowDays: int)
     (postWindowDays: int)
     (minAtrRatio: float)
@@ -529,7 +531,7 @@ let getStocksInPlay
         "min_avg_dollar_volume := $minAvgDollarVolume, " +
         "rvol_weight := $rvolWeight, " +
         "gap_weight := $gapWeight, " +
-        "exclude_etfs := $excludeEtfs, " +
+        "tradable_only := $tradableOnly, " +
         "pre_window_days := $preWindowDays, " +
         "post_window_days := $postWindowDays, " +
         "min_atr_ratio := $minAtrRatio" +
@@ -541,7 +543,7 @@ let getStocksInPlay
            minAvgDollarVolume = minAvgDollarVolume
            rvolWeight = rvolWeight
            gapWeight = gapWeight
-           excludeEtfs = excludeEtfs
+           tradableOnly = tradableOnly
            preWindowDays = preWindowDays
            postWindowDays = postWindowDays
            minAtrRatio = minAtrRatio |})
@@ -656,7 +658,7 @@ let getContinuationPlays
     (minAvgDollarVolume: float)
     (rvolWeight: float)
     (gapWeight: float)
-    (excludeEtfs: bool)
+    (tradableOnly: bool)
     (preWindowDays: int)
     (postWindowDays: int)
     (minAtrRatio: float)
@@ -673,7 +675,7 @@ let getContinuationPlays
             "min_avg_dollar_volume := $minAvgDollarVolume, " +
             "rvol_weight := $rvolWeight, " +
             "gap_weight := $gapWeight, " +
-            "exclude_etfs := $excludeEtfs, " +
+            "tradable_only := $tradableOnly, " +
             "pre_window_days := $preWindowDays, " +
             "post_window_days := $postWindowDays, " +
             "min_atr_ratio := $minAtrRatio, " +
@@ -686,7 +688,7 @@ let getContinuationPlays
                minAvgDollarVolume = minAvgDollarVolume
                rvolWeight = rvolWeight
                gapWeight = gapWeight
-               excludeEtfs = excludeEtfs
+               tradableOnly = tradableOnly
                preWindowDays = preWindowDays
                postWindowDays = postWindowDays
                minAtrRatio = minAtrRatio

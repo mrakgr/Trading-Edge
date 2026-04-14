@@ -83,7 +83,7 @@ type StocksInPlayArgs =
     | [<AltCommandLine("-v")>] Min_Dollar_Volume of float
     | [<AltCommandLine("-rw")>] Rvol_Weight of float
     | [<AltCommandLine("-gw")>] Gap_Weight of float
-    | Include_Etfs
+    | All_Types
     | Pre_Window_Days of int
     | Post_Window_Days of int
     | Min_Atr_Ratio of float
@@ -100,7 +100,7 @@ type StocksInPlayArgs =
             | Min_Dollar_Volume _ -> "Minimum avg dollar volume in millions (default: 25)"
             | Rvol_Weight _ -> "Weight for RVOL in scoring (default: 0.95)"
             | Gap_Weight _ -> "Weight for gap in scoring (default: 0.05)"
-            | Include_Etfs -> "Do not exclude ETFs/ETNs (default: excluded via ticker_reference)"
+            | All_Types -> "Disable the tradable-universe filter (default: keep only CS + ADRC)"
             | Pre_Window_Days _ -> "Days before breakout for ATR baseline (default: 20)"
             | Post_Window_Days _ -> "Days after breakout for ATR comparison (default: 5)"
             | Min_Atr_Ratio _ -> "Min post/pre ATR ratio (buyout filter, default: 0.55; 0 disables)"
@@ -123,7 +123,7 @@ type ContinuationPlaysArgs =
     | [<AltCommandLine("-v")>] Min_Dollar_Volume of float
     | [<AltCommandLine("-rw")>] Rvol_Weight of float
     | [<AltCommandLine("-gw")>] Gap_Weight of float
-    | Include_Etfs
+    | All_Types
     | Pre_Window_Days of int
     | Post_Window_Days of int
     | Min_Atr_Ratio of float
@@ -142,7 +142,7 @@ type ContinuationPlaysArgs =
             | Min_Dollar_Volume _ -> "Minimum avg dollar volume in millions (default: 25)"
             | Rvol_Weight _ -> "Weight for RVOL in scoring (default: 0.95)"
             | Gap_Weight _ -> "Weight for gap in scoring (default: 0.05)"
-            | Include_Etfs -> "Do not exclude ETFs/ETNs (default: excluded)"
+            | All_Types -> "Disable the tradable-universe filter (default: keep only CS + ADRC)"
             | Pre_Window_Days _ -> "Days before breakout for ATR baseline (default: 20)"
             | Post_Window_Days _ -> "Days after breakout for ATR comparison (default: 5)"
             | Min_Atr_Ratio _ -> "Min post/pre ATR ratio for breakout (default: 0.55)"
@@ -581,7 +581,7 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
     let minDollarVolume = args.GetResult(StocksInPlayArgs.Min_Dollar_Volume, defaultValue = 25.0) * 1_000_000.0
     let rvolWeight = args.GetResult(StocksInPlayArgs.Rvol_Weight, defaultValue = 0.95)
     let gapWeight = args.GetResult(StocksInPlayArgs.Gap_Weight, defaultValue = 0.05)
-    let excludeEtfs = not (args.Contains StocksInPlayArgs.Include_Etfs)
+    let tradableOnly = not (args.Contains StocksInPlayArgs.All_Types)
     let preWindowDays = args.GetResult(StocksInPlayArgs.Pre_Window_Days, defaultValue = 20)
     let postWindowDays = args.GetResult(StocksInPlayArgs.Post_Window_Days, defaultValue = 5)
     let minAtrRatio = args.GetResult(StocksInPlayArgs.Min_Atr_Ratio, defaultValue = 0.55)
@@ -590,7 +590,7 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
     if not jsonMode then
         printfn "Stocks In Play from %s to %s" (formatDate startDate) (formatDate endDate)
         printfn "Filters: RVOL >= %.1fx, Gap >= %.1f%%, Avg Dollar Volume >= $%.0fM" minRvol (minGapPct * 100.0) (minDollarVolume / 1_000_000.0)
-        printfn "ETF exclusion: %b   Pre/post window: %d/%d   Min ATR ratio: %.2f" excludeEtfs preWindowDays postWindowDays minAtrRatio
+        printfn "Tradable-only (CS+ADRC): %b   Pre/post window: %d/%d   Min ATR ratio: %.2f" tradableOnly preWindowDays postWindowDays minAtrRatio
         printfn "Database: %s" (Path.GetFullPath dbPath)
         printfn ""
 
@@ -598,7 +598,7 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
     let stocks =
         getStocksInPlay
             connection startDate endDate minRvol minGapPct minDollarVolume
-            rvolWeight gapWeight excludeEtfs preWindowDays postWindowDays minAtrRatio
+            rvolWeight gapWeight tradableOnly preWindowDays postWindowDays minAtrRatio
 
     if jsonMode then
         // Emit a JSON array of {ticker, date, volume, avg_volume_4w, avg_dollar_volume_4w} objects.
@@ -641,19 +641,19 @@ let private handleDownloadTickers (config: MassiveConfig) (args: ParseResults<Do
         args.TryGetResult DownloadTickersArgs.Output_File
         |> Option.defaultValue "data/tickers.csv"
 
-    printfn "Downloading ETF/ETN ticker reference from Polygon..."
+    printfn "Downloading reference tickers from Polygon (CS, ADRC, ETF, ETN, ETV, ETS)..."
 
     use httpClient = new HttpClient()
     use cts = new CancellationTokenSource()
 
     let result =
-        downloadAllEtfTickers httpClient config.ApiKey cts.Token
+        downloadAllReferenceTickers httpClient config.ApiKey cts.Token
         |> Async.RunSynchronously
 
     match result with
     | Ok rows ->
         printfn ""
-        printfn "Downloaded %d ETF-like tickers" rows.Length
+        printfn "Downloaded %d reference tickers" rows.Length
 
         // Save to CSV for fast DuckDB ingestion via `ingest-data`.
         // Names may contain commas, so we RFC-4180-quote them.
@@ -687,7 +687,7 @@ let private handleContinuationPlays (args: ParseResults<ContinuationPlaysArgs>) 
     let minDollarVolume = args.GetResult(ContinuationPlaysArgs.Min_Dollar_Volume, defaultValue = 25.0) * 1_000_000.0
     let rvolWeight = args.GetResult(ContinuationPlaysArgs.Rvol_Weight, defaultValue = 0.95)
     let gapWeight = args.GetResult(ContinuationPlaysArgs.Gap_Weight, defaultValue = 0.05)
-    let excludeEtfs = not (args.Contains ContinuationPlaysArgs.Include_Etfs)
+    let tradableOnly = not (args.Contains ContinuationPlaysArgs.All_Types)
     let preWindowDays = args.GetResult(ContinuationPlaysArgs.Pre_Window_Days, defaultValue = 20)
     let postWindowDays = args.GetResult(ContinuationPlaysArgs.Post_Window_Days, defaultValue = 5)
     let minAtrRatio = args.GetResult(ContinuationPlaysArgs.Min_Atr_Ratio, defaultValue = 0.55)
@@ -698,7 +698,7 @@ let private handleContinuationPlays (args: ParseResults<ContinuationPlaysArgs>) 
     if not jsonMode then
         printfn "Continuation Plays from %s to %s" (formatDate startDate) (formatDate endDate)
         printfn "Breakout filters: RVOL >= %.1fx, Gap >= %.1f%%, Avg Dollar Volume >= $%.0fM" minRvol (minGapPct * 100.0) (minDollarVolume / 1_000_000.0)
-        printfn "ETF exclusion: %b   ATR ratio: %.2f   Min RVOL fraction: %.2f   Max horizon: %d days" excludeEtfs minAtrRatio minRvolFraction maxHorizonDays
+        printfn "Tradable-only (CS+ADRC): %b   ATR ratio: %.2f   Min RVOL fraction: %.2f   Max horizon: %d days" tradableOnly minAtrRatio minRvolFraction maxHorizonDays
         printfn "Database: %s" (Path.GetFullPath dbPath)
         printfn ""
 
@@ -706,7 +706,7 @@ let private handleContinuationPlays (args: ParseResults<ContinuationPlaysArgs>) 
     let plays =
         getContinuationPlays
             connection startDate endDate minRvol minGapPct minDollarVolume
-            rvolWeight gapWeight excludeEtfs preWindowDays postWindowDays minAtrRatio
+            rvolWeight gapWeight tradableOnly preWindowDays postWindowDays minAtrRatio
             minRvolFraction maxHorizonDays
 
     if jsonMode then
