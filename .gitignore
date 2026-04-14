@@ -13,7 +13,8 @@
 .vscode/
 
 # Data
-data/
+**/data/*
+!data/early_closes.json
 papers/
 *.db
 *.db-shm
