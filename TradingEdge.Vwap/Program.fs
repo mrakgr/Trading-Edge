@@ -755,18 +755,10 @@ let configure (header: DayHeader) =
     let fs = FillSimulator(fillPercentile, fillDelayMs, fillRejectionRate, ValueNone, DateTime header.BaseTicks)
     seg, vs, td, ell, fs, tf
 
-let loadDayData () =
-    let ps1Path = "docs/generate_stocks_in_play_charts.ps1"
-    let entryRegex = Regex("""Ticker\s*=\s*['"]([^'"]+)['"][^}]*Date\s*=\s*['"]([^'"]+)['"]""")
-    let entries =
-        File.ReadAllText ps1Path
-        |> entryRegex.Matches
-        |> Seq.map (fun m -> m.Groups.[1].Value, m.Groups.[2].Value)
-        |> Seq.distinct
-        |> Seq.filter (fun (t, d) -> File.Exists (sprintf "data/trades_bin/%s/%s.bin" t d))
-        |> Seq.toArray
+let loadDayData (jsonPath: string) =
+    let entries = Convert.loadPlays jsonPath
 
-    printfn "Loading %d days from binary files..." entries.Length
+    printfn "Loading %d days from %s ..." entries.Length jsonPath
     let swLoad = Stopwatch.StartNew()
     let dayData : DayData[] =
         [| for ticker, date in entries do
@@ -1096,31 +1088,31 @@ type ConvertArgs =
             | Output _ -> "Output binary directory (default: data/trades_bin)"
 
 type BreakdownArgs =
-    | [<AltCommandLine("-d")>] Bin_Dir of string
+    | [<Mandatory; AltCommandLine("-i")>] Input of string
     interface IArgParserTemplate with
         member this.Usage =
             match this with
-            | Bin_Dir _ -> "Binary trade directory (default: data/trades_bin)"
+            | Input _ -> "Input JSON with [{ticker, date}] entries (e.g. data/breakdown_2k.json)"
 
 type SweepArgs =
-    | [<AltCommandLine("-d")>] Bin_Dir of string
+    | [<Mandatory; AltCommandLine("-i")>] Input of string
     | [<AltCommandLine("-n")>] Configs of int
     | [<AltCommandLine("-s")>] Seed of int
     | [<AltCommandLine("-g")>] Sigma of float
     interface IArgParserTemplate with
         member this.Usage =
             match this with
-            | Bin_Dir _ -> "Binary trade directory (default: data/trades_bin)"
+            | Input _ -> "Input JSON with [{ticker, date}] entries"
             | Configs _ -> "Number of perturbed configs (default: 14)"
             | Seed _ -> "RNG seed (default: 42)"
             | Sigma _ -> "Perturbation sigma (default: 0.5)"
 
 type BenchmarkArgs =
-    | [<AltCommandLine("-d")>] Bin_Dir of string
+    | [<Mandatory; AltCommandLine("-i")>] Input of string
     interface IArgParserTemplate with
         member this.Usage =
             match this with
-            | Bin_Dir _ -> "Binary trade directory (default: data/trades_bin)"
+            | Input _ -> "Input JSON with [{ticker, date}] entries"
 
 type Command =
     | [<CliPrefix(CliPrefix.None)>] Convert of ParseResults<ConvertArgs>
@@ -1148,18 +1140,21 @@ let main argv =
         let results = parser.ParseCommandLine(inputs = argv, raiseOnUsage = true)
         match results.GetSubCommand() with
         | Convert args -> runConvert args
-        | Breakdown _ ->
-            let dayData, _ = loadDayData ()
+        | Breakdown args ->
+            let input = args.GetResult <@ BreakdownArgs.Input @>
+            let dayData, _ = loadDayData input
             runFillBreakdown dayData
         | Sweep args ->
-            let n = args.GetResult(SweepArgs.Configs, 14)
-            let seed = args.GetResult(SweepArgs.Seed, 42)
-            let sigma = args.GetResult(SweepArgs.Sigma, 0.5)
-            let dayData, _ = loadDayData ()
+            let input = args.GetResult <@ SweepArgs.Input @>
+            let n = args.GetResult(<@ SweepArgs.Configs @>, 14)
+            let seed = args.GetResult(<@ SweepArgs.Seed @>, 42)
+            let sigma = args.GetResult(<@ SweepArgs.Sigma @>, 0.5)
+            let dayData, _ = loadDayData input
             let configs = perturbConfigs (Random(seed)) n sigma
             runParallelSweep dayData configs
-        | Benchmark _ ->
-            let dayData, totalTrades = loadDayData ()
+        | Benchmark args ->
+            let input = args.GetResult <@ BenchmarkArgs.Input @>
+            let dayData, totalTrades = loadDayData input
             runBenchmark dayData totalTrades
         0
     with
