@@ -1,4 +1,4 @@
-module TradingEdge.Profile.Program
+module TradingEdge.Vwap.Program
 
 open System
 open System.IO
@@ -6,8 +6,9 @@ open System.Collections.Immutable
 open System.Runtime.InteropServices
 open System.Text.RegularExpressions
 open System.Diagnostics
-open TradingEdge.Parsing.TradeBinary
 open MathNet.Numerics.Distributions
+open TradeLoader
+open TradeBinary
 
 // ============================================================================
 // Local VolumeBar over TradeRecord (Profile-scoped; replaces the shared one)
@@ -15,7 +16,6 @@ open MathNet.Numerics.Distributions
 
 type VolumeBar =
     {
-        CumulativeVolume: float
         VWAP: float
         StdDev: float
         Volume: float
@@ -27,8 +27,6 @@ type VolumeBar =
 // ============================================================================
 
 type VolumeBarOfTrades() =
-    member val CumulativeVolumeSum = 0.0 with get, set
-
     member inline self.Process(onNext, trades: ImmutableArray<struct (float * float)>) =
         let mutable priceVolumeSum = 0.0
         let mutable priceSquaredVolumeSum = 0.0
@@ -39,9 +37,7 @@ type VolumeBarOfTrades() =
             volumeSum <- volumeSum + volume
         let vwap = priceVolumeSum / volumeSum
         let variance = priceSquaredVolumeSum / volumeSum - vwap * vwap
-        self.CumulativeVolumeSum <- self.CumulativeVolumeSum + volumeSum
         onNext {
-            CumulativeVolume = self.CumulativeVolumeSum
             VWAP = vwap
             StdDev = sqrt (max 0.0 variance)
             Volume = volumeSum
@@ -53,9 +49,9 @@ type GroupTrades(barSize: float) =
     member val CurrentTrades = ImmutableArray.CreateBuilder<struct (float * float)>()
     member val CurrentVolumeSum = 0.0 with get, set
 
-    member inline self.Process(onNext, trade: TradeRecord) =
+    member inline self.Process(onNext, trade: Trade) =
         let price = trade.Price
-        let mutable remaining = float trade.Size
+        let mutable remaining = float trade.Volume
         while remaining > 0.0 do
             let spaceLeft = self.BarSize - self.CurrentVolumeSum
             if remaining <= spaceLeft then
@@ -77,7 +73,7 @@ type VolumeBarBuilder(barSize: float) =
     member val Grouper = GroupTrades(barSize)
     member val BarBuilder = VolumeBarOfTrades()
 
-    member inline self.Process(onNext, trade: TradeRecord) =
+    member inline self.Process(onNext, trade: Trade) =
         self.Grouper.Process((fun trades -> self.BarBuilder.Process(onNext, trades)), trade)
 
 // ============================================================================
@@ -106,7 +102,7 @@ type VwapSystemArgsBuilder(barSize: float) =
     member val PairCount = 0 with get, set
     member val PrevBar = ValueOption<VolumeBar>.None with get, set
 
-    member inline self.Process(onNext, trade: TradeRecord, includeInVwma: bool, includeInVol: bool) =
+    member inline self.Process(onNext, trade: Trade, includeInVwma: bool, includeInVol: bool) =
         self.Inner.Process(
             (fun bar ->
                 if includeInVwma then
@@ -152,21 +148,19 @@ let findEstimationOffset (currentOffset: float) : int voption =
         k <- k - 1
     result
 
-type SegregateTrades(volPcts: float[]) =
+type SegregateTrades(volPcts: float[], baseTime) =
     member val VolPcts = volPcts
     member val VolPctsOffset = ValueNone with get, set
     member val ArgsBuilder : VwapSystemArgsBuilder voption = ValueNone with get, set
     member val ClosingPause = -60.0
-    member val BaseTicks = 0L with get, set
-    member val OpeningPrintIdx = int AbsentIndex : int with get, set
-    member val ClosingPrintIdx = int AbsentIndex : int with get, set
-    member val OpenTime = DateTime.MaxValue with get, set
-    member val CloseTime = DateTime.MaxValue with get, set
+    member val BaseTime = baseTime : DateTime
+    member val OpeningPrintIdx = ValueNone : int voption with get, set
+    member val OpenTime = baseTime.AddHours(5.5)
+    member val CloseTime = if Timezone.early_closes.Contains(DateOnly.FromDateTime baseTime) then baseTime.AddHours(9) else baseTime.AddHours(12)
 
-    member inline self.Timestamp(trade: TradeRecord) =
-        DateTime(self.BaseTicks + int64 trade.TimeDeci * 1000L)
+    member inline self.Timestamp(trade: Trade) = self.BaseTime.AddTicks trade.TicksFromBase
 
-    member self.TradeStage(trade: TradeRecord, index: int) =
+    member self.TradeStage(trade: Trade, index: int) =
         let ts = self.Timestamp trade
         if self.OpenTime <= ts then
             if self.CloseTime.AddSeconds self.ClosingPause <= ts then
@@ -174,7 +168,7 @@ type SegregateTrades(volPcts: float[]) =
             else
                 AfterOpeningPrint
         else
-            if self.OpeningPrintIdx = index then
+            if self.OpeningPrintIdx = ValueSome index then
                 AfterOpeningPrint
             elif self.OpenTime.AddHours(-1.0) <= ts then
                 LatePremarket
@@ -193,12 +187,12 @@ type SegregateTrades(volPcts: float[]) =
         struct (includeInVwma, includeInVol)
 
 
-    member inline self.Process(onNext, trades: ReadOnlySpan<TradeRecord>) =
+    member inline self.Process(onNext, trades: ReadOnlySpan<Trade>) =
         let lastIdx = trades.Length - 1
         let trade = trades.[lastIdx]
         let stage = self.TradeStage(trade, lastIdx)
         let mutable lastBar = ValueNone
-        let feedTrade(stage: TradeStage, trade: TradeRecord) =
+        let feedTrade(stage: TradeStage, trade: Trade) =
             match self.ArgsBuilder with
             | ValueSome sys ->
                 let struct (inclVwma, inclVol) = self.CalculateFlags stage
@@ -214,7 +208,7 @@ type SegregateTrades(volPcts: float[]) =
                 | ValueSome vpIdx ->
                     let mutable totalVolume = 0.0
                     for j in 0 .. trades.Length - 1 do
-                        totalVolume <- totalVolume + float trades.[j].Size
+                        totalVolume <- totalVolume + float trades.[j].Volume
                     let barSize = totalVolume * self.VolPcts.[vpIdx]
                     let newSystem = VwapSystemArgsBuilder(barSize)
                     self.ArgsBuilder <- ValueSome newSystem
@@ -255,7 +249,7 @@ type VwapSystem(positionSize: float, referenceVol: float voption, bandVol: float
         | ValueNone -> self.PositionSize
         | ValueSome refVol -> min self.PositionSize (self.PositionSize * refVol / vf)
 
-    member inline self.Process(onNext, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord, tradeTs: DateTime) =
+    member inline self.Process(onNext, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade, tradeTs: DateTime) =
         let mutable decision = ValueNone
         match stage with
         | EarlyPremarket | LatePremarket -> ()
@@ -305,7 +299,7 @@ type TrackDecisions() =
     member val Decisions = ResizeArray<TradingDecision>(32)
     member val RealizedPnL = 0.0 with get, set
 
-    member inline self.Process(onNext, decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord) =
+    member inline self.Process(onNext, decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
         match decision with
         | ValueSome d ->
             if self.Decisions.Count > 0 then
@@ -324,7 +318,7 @@ type EnforceLossLimit(getPnL: unit -> float, lossLimit: float) =
     member val LossLimit = lossLimit
     member val Tripped = false with get, set
 
-    member inline self.Process(onNext, decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord) =
+    member inline self.Process(onNext, decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
         let decision =
             match decision with
             | ValueSome d ->
@@ -448,7 +442,7 @@ let inline bandPrice (prices_and_volumes: ImmutableArray<struct (float * float)>
             found.Value |> structFst
         else failwith "w_lo shouldn't be higher than w_hi."
 
-type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngOpt: Random voption) =
+type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngOpt: Random voption, baseTime : DateTime) =
     let compression = 100.0
 
     member val Percentile = percentile
@@ -459,7 +453,7 @@ type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngO
         | ValueSome r -> r
         | ValueNone -> Random(12345)
 
-    member val BaseTicks = 0L with get, set
+    member val BaseTime = baseTime : DateTime
     member val Fills = ResizeArray<Fill>(256)
     member val BuyOrder : LimitOrder voption = ValueNone with get, set
     member val SellOrder : LimitOrder voption = ValueNone with get, set
@@ -468,8 +462,7 @@ type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngO
     member val LastPricesAndVolumes : ImmutableArray<struct (float * float)> = ImmutableArray.Empty with get, set
     member val PendingTarget : int voption = ValueNone with get, set
 
-    member inline self.Timestamp(trade: TradeRecord) =
-        DateTime(self.BaseTicks + int64 trade.TimeDeci * 1000L)
+    member inline self.Timestamp(trade: Trade) = self.BaseTime.AddTicks trade.TicksFromBase
 
     member self.ComputePrice(isBuy: bool) =
         let q = max 0.0 (min 1.0 (if isBuy then percentile else 1.0 - percentile))
@@ -513,7 +506,7 @@ type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngO
         | ValueSome cancelTime -> now >= cancelTime
         | ValueNone -> false
 
-    member self.TryFillBuy(trade: TradeRecord, now: DateTime) =
+    member self.TryFillBuy(trade: Trade, now: DateTime) =
         match self.BuyOrder with
         | ValueSome order when not (self.IsCancelled(now, order)) ->
             let priceOpt = order.Prices |> tryFindV (fun struct (_, at) -> now >= at)
@@ -522,7 +515,7 @@ type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngO
             | ValueSome (struct (price, _)), ValueSome (struct (qty, _)) when trade.Price <= price ->
                 let remaining = qty - order.FilledQuantity
                 if remaining > 0 && (self.RejectionRate = 0.0 || self.Rng.NextDouble() >= self.RejectionRate) then
-                    let fillQty = min remaining trade.Size
+                    let fillQty = min remaining (int trade.Volume)
                     if fillQty > 0 then
                         self.Fills.Add { Timestamp = now; Price = price; Quantity = fillQty }
                         self.FilledPosition <- self.FilledPosition + fillQty
@@ -530,7 +523,7 @@ type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngO
             | _ -> ()
         | _ -> ()
 
-    member self.TryFillSell(trade: TradeRecord, now: DateTime) =
+    member self.TryFillSell(trade: Trade, now: DateTime) =
         match self.SellOrder with
         | ValueSome order when not (self.IsCancelled(now, order)) ->
             let priceOpt = order.Prices |> tryFindV (fun struct (_, at) -> now >= at)
@@ -539,7 +532,7 @@ type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngO
             | ValueSome (struct (price, _)), ValueSome (struct (qty, _)) when trade.Price >= price ->
                 let remaining = qty - order.FilledQuantity
                 if remaining > 0 && (self.RejectionRate = 0.0 || self.Rng.NextDouble() >= self.RejectionRate) then
-                    let fillQty = min remaining trade.Size
+                    let fillQty = min remaining (int trade.Volume)
                     if fillQty > 0 then
                         self.Fills.Add { Timestamp = now; Price = price; Quantity = -fillQty }
                         self.FilledPosition <- self.FilledPosition - fillQty
@@ -580,7 +573,7 @@ type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngO
             self.PlaceOrder now
         | _ -> ()
 
-    member inline self.Process(onNext, decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord) =
+    member inline self.Process(onNext, decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
         let now = self.Timestamp trade
 
         // 1. Process cancellations
@@ -646,17 +639,6 @@ type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngO
 
         // 5. Process pending orders
         self.ProcessPending now
-
-// ============================================================================
-// Binary loading (TradeRecord-native, no Trade conversion)
-// ============================================================================
-
-let loadDayRecords (path: string) : DayHeader * TradeRecord[] =
-    let bytes = File.ReadAllBytes(path)
-    let header = MemoryMarshal.Read<DayHeader>(ReadOnlySpan(bytes, 0, HeaderSize))
-    let tradeCount = int header.TradeCount
-    let records = MemoryMarshal.Cast<byte, TradeRecord>(ReadOnlySpan(bytes, HeaderSize, tradeCount * RecordSize)).ToArray()
-    header, records
 
 // ============================================================================
 // Round-trip extraction (mirrors scripts/fill_breakdown.fsx)
@@ -737,7 +719,7 @@ type DayResult = {
     AvgPositionSize: float
 }
 
-type DayData = {| Date: string; Header: DayHeader; Ticker: string; Trades: TradeRecord[] |}
+type DayData = { Date: string; Header: DayHeader; Ticker: string; Trades: Trade[] }
 
 let pcts =
     let basePct = 0.005
@@ -753,38 +735,23 @@ let fillDelayMs = 100.0
 let fillRejectionRate = 0.30
 
 let configureWith (header: DayHeader) (pcts: float[]) =
-    let seg = SegregateTrades(pcts)
-    seg.BaseTicks <- header.BaseTicks
-    seg.OpeningPrintIdx <- int header.OpeningPrintIndex
-    seg.ClosingPrintIdx <- int header.ClosingPrintIndex
-    let truncate ticks = header.BaseTicks + ((ticks - header.BaseTicks) / 1000L) * 1000L
-    seg.OpenTime <- DateTime(truncate header.SessionOpenTicks)
-    seg.CloseTime <- DateTime(truncate header.SessionCloseTicks)
+    let seg = SegregateTrades(pcts, DateTime header.BaseTicks)
+    seg.OpeningPrintIdx <- header.OpeningPrintIndex
     let vs = VwapSystem(positionSize, referenceVol, bandVol)
     let td = TrackDecisions()
     let tf = TrackFills(commissionPerShare)
     let ell = EnforceLossLimit((fun () -> tf.NetPnL), infinity)
-    let fs = FillSimulator(fillPercentile, fillDelayMs, fillRejectionRate, ValueNone)
-    fs.BaseTicks <- header.BaseTicks
+    let fs = FillSimulator(fillPercentile, fillDelayMs, fillRejectionRate, ValueNone, DateTime header.BaseTicks)
     seg, vs, td, ell, fs, tf
 
 let configure (header: DayHeader) =
-    let seg = SegregateTrades(pcts)
-    seg.BaseTicks <- header.BaseTicks
-    seg.OpeningPrintIdx <- int header.OpeningPrintIndex
-    seg.ClosingPrintIdx <- int header.ClosingPrintIndex
-    // Truncate session-boundary ticks to 0.1ms precision so arithmetic
-    // with trade timestamps (also 0.1ms via TimeDeci) is self-consistent.
-    // It turns out this is quite significant for performance.
-    let truncate ticks = header.BaseTicks + ((ticks - header.BaseTicks) / 1000L) * 1000L
-    seg.OpenTime <- DateTime(truncate header.SessionOpenTicks)
-    seg.CloseTime <- DateTime(truncate header.SessionCloseTicks)
+    let seg = SegregateTrades(pcts, DateTime header.BaseTicks)
+    seg.OpeningPrintIdx <- header.OpeningPrintIndex
     let vs = VwapSystem(positionSize, referenceVol, bandVol)
     let td = TrackDecisions()
     let tf = TrackFills(commissionPerShare)
     let ell = EnforceLossLimit((fun () -> tf.NetPnL), infinity)
-    let fs = FillSimulator(fillPercentile, fillDelayMs, fillRejectionRate, ValueNone)
-    fs.BaseTicks <- header.BaseTicks
+    let fs = FillSimulator(fillPercentile, fillDelayMs, fillRejectionRate, ValueNone, DateTime header.BaseTicks)
     seg, vs, td, ell, fs, tf
 
 let loadDayData () =
@@ -801,12 +768,11 @@ let loadDayData () =
     printfn "Loading %d days from binary files..." entries.Length
     let swLoad = Stopwatch.StartNew()
     let dayData : DayData[] =
-        [| for (ticker, date) in entries do
-            let path = sprintf "data/trades_bin/%s/%s.bin" ticker date
-            let header, trades = loadDayRecords path
-            if header.OpeningPrintIndex <> AbsentIndex && header.ClosingPrintIndex <> AbsentIndex then
-                yield {| Ticker = ticker; Date = date
-                         Header = header; Trades = trades |} |]
+        [| for ticker, date in entries do
+            let header, trades = loadDay {Directory = "data/trades_bin"; Ticker = ticker; Date = date}
+            if header.OpeningPrintIndex <> ValueNone then
+                yield { Ticker = ticker; Date = date
+                        Header = header; Trades = trades } |]
     swLoad.Stop()
     let totalTrades = dayData |> Array.sumBy (fun d -> int64 d.Trades.Length)
     printfn "Loaded %d days (%s trades) in %.3fs\n" dayData.Length (totalTrades.ToString("N0")) swLoad.Elapsed.TotalSeconds
@@ -817,7 +783,7 @@ let evaluateDay (d: DayData) (pcts: float[]) : float =
     let seg, vs, td, ell, fs, tf = configureWith d.Header pcts
     let onFillSink (_: Fill) = ()
     let onFill (fill: Fill) = tf.Process(onFillSink, fill)
-    let onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord) =
+    let onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
         fs.Process(onFill, decision, bar, stage, trade)
     for i in 0 .. d.Trades.Length - 1 do
         seg.Process(
@@ -910,7 +876,7 @@ let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
             ctx.FillCount <- ctx.FillCount + 1
             ctx.Sink <- ctx.Sink + fill.Price
         let inline onFill (fill: Fill) = tf.Process(onFillSink, fill)
-        let inline onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord) =
+        let inline onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
             match bar with
             | ValueSome b -> ctx.BarCount <- ctx.BarCount + 1; ctx.Sink <- ctx.Sink + b.Bar.VWAP
             | ValueNone -> ()
@@ -967,7 +933,7 @@ let runFillBreakdown (dayData: DayData[]) =
             let seg, vs, td, ell, fs, tf = configure d.Header
             let onFillSink (_: Fill) = ()
             let onFill (fill: Fill) = tf.Process(onFillSink, fill)
-            let onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: TradeRecord) =
+            let onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
                 fs.Process(onFill, decision, bar, stage, trade)
             for i in 0 .. d.Trades.Length - 1 do
                 seg.Process(

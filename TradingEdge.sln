@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -11,7 +11,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TradingEdge.Parsing", "Trad
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TradingEdge.Optimize", "TradingEdge.Optimize\TradingEdge.Optimize.fsproj", "{98A5C550-8ED8-4293-9487-F83C3F3DE71D}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TradingEdge.Profile", "TradingEdge.Profile\TradingEdge.Profile.fsproj", "{D3709C0C-6816-4A5E-8412-1124D70E3902}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TradingEdge.Vwap", "TradingEdge.Profile\TradingEdge.Vwap.fsproj", "{D3709C0C-6816-4A5E-8412-1124D70E3902}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
