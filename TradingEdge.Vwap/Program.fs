@@ -227,11 +227,11 @@ type SegregateTrades(volPcts: float[], baseTime) =
 // VWAP trading system (decisions from bars)
 // ============================================================================
 
-[<Struct>]
 type TradingDecision = {
     Timestamp: DateTime
     Price: float
     Shares: int
+    BarSize: float
 }
 
 [<Struct>]
@@ -262,33 +262,34 @@ type VwapSystem(positionSize: float, referenceVol: float voption, bandVol: float
                     let lastBar = b.Bar
                     let targetShares = round (self.EffectiveSize b.VolFactor / trade.Price) |> int
                     let band = self.BandVol * b.VolFactor * lastBar.VWAP
+                    let barSize = lastBar.Volume
                     if targetShares > 0 then
                         if lastBar.VWAP + band >= b.Vwma && position <= 0 then
                             self.State <- Active(lastBar.VWAP, targetShares)
-                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = targetShares }
+                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = targetShares; BarSize = barSize }
                         elif lastBar.VWAP - band < b.Vwma && position >= 0 then
                             self.State <- Active(lastBar.VWAP, -targetShares)
-                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = -targetShares }
+                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = -targetShares; BarSize = barSize }
                         elif lastBar.VWAP >= b.Vwma && position <= 0 then
                             self.State <- Active(lastBar.VWAP, targetShares)
-                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = 0 }
+                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = 0; BarSize = barSize }
                         elif lastBar.VWAP < b.Vwma && position >= 0 then
                             self.State <- Active(lastBar.VWAP, -targetShares)
-                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = 0 }
+                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = 0; BarSize = barSize }
                     else
                         if lastBar.VWAP >= b.Vwma && position < 0 then
                             self.State <- Active(lastBar.VWAP, 0)
-                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = 0 }
+                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = 0; BarSize = barSize }
                         elif lastBar.VWAP < b.Vwma && position > 0 then
                             self.State <- Active(lastBar.VWAP, 0)
-                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = 0 }
+                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = 0; BarSize = barSize }
                 | Done -> ()
             | ValueNone -> ()
         | BeforeClosing ->
             match self.State with
             | Active(_, position) when position <> 0 ->
                 self.State <- Done
-                decision <- ValueSome { Timestamp = tradeTs; Price = trade.Price; Shares = 0 }
+                decision <- ValueSome { Timestamp = tradeTs; Price = trade.Price; Shares = 0; BarSize = 0.0 }
             | _ -> ()
         onNext (decision, bar, stage, trade)
 

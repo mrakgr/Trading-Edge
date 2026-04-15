@@ -296,7 +296,7 @@ def plot_volume_bars_vwap(bars, output_html, all_trades=None):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate volume-based VWAP charts from trade data')
-    parser.add_argument('input_json', help='Path to trades JSON file')
+    parser.add_argument('input_parquet', help='Path to trades Parquet file (e.g. data/trades/TICKER/DATE.parquet)')
     parser.add_argument('-v', '--volume-per-bar', type=int, default=None, help='Volume per bar (auto-calculated if not specified)')
     parser.add_argument('-o', '--output', help='Output HTML file path')
     parser.add_argument('--show-extended-hours', action='store_true', default=True, help='Show extended hours (default: True)')
@@ -304,21 +304,21 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    input_json = args.input_json
+    input_parquet = args.input_parquet
     volume_per_bar = args.volume_per_bar
     show_extended_hours = args.show_extended_hours
 
     if args.output:
         output_html = args.output
     else:
-        ticker = os.path.basename(os.path.dirname(input_json))
-        date = os.path.splitext(os.path.basename(input_json))[0]
+        ticker = os.path.basename(os.path.dirname(input_parquet))
+        date = os.path.splitext(os.path.basename(input_parquet))[0]
         output_dir = f'data/charts/massive/{ticker}_{date}'
         os.makedirs(output_dir, exist_ok=True)
         output_html = f'{output_dir}/volume.html'
 
-    print(f'Loading trades from {input_json}...')
-    all_trades = load_trades(input_json)
+    print(f'Loading trades from {input_parquet}...')
+    all_trades = load_trades(input_parquet)
     print(f'Loaded {len(all_trades)} trades')
 
     # Filter out special trade types
