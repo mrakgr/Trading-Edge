@@ -34,9 +34,11 @@ type TickerInfo = {
 // Writer
 // =============================================================================
 
-let infoPath (info: TickerInfo) = 
-    let dir = Directory.CreateDirectory (Path.Combine(info.Directory, info.Ticker, info.Date))
-    $"{dir.FullName}.bin"
+let infoPath (info: TickerInfo) =
+    Path.Combine(info.Directory, info.Ticker, $"{info.Date}.bin")
+
+let ensureInfoDir (info: TickerInfo) =
+    Directory.CreateDirectory (Path.Combine(info.Directory, info.Ticker)) |> ignore
 
 /// Convert a Trade[] (from TradeLoader.loadTrades) into binary format and write
 /// to disk. The input must already be sorted by Timestamp.
@@ -50,6 +52,7 @@ let writeDay (info: TickerInfo) (trades: TradesStaging) =
         BaseTicks = baseTime.Ticks
     }
 
+    ensureInfoDir info
     use stream = File.Create(infoPath info)
     // Write header as raw bytes
     let headerBytes = MemoryMarshal.AsBytes(ReadOnlySpan [| header |])

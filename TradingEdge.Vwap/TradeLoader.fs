@@ -83,16 +83,26 @@ type TradesStaging =
 type TradesStagingBuilder() =
     member val private Trades = ImmutableArray.CreateBuilder(1 <<< 18)
     member val private OpeningPrintIndex = ValueNone with get, set
+    member val private BaseTime : DateTime voption = ValueNone with get, set
 
     member self.AddTrade(trade : RawTrade) =
         let conds = trade.conditions |> Set.ofArray
         if self.OpeningPrintIndex.IsNone && not (Set.intersect conds openingPrintConditions).IsEmpty then
             self.OpeningPrintIndex <- ValueSome self.Trades.Count
         if trade.size > 0 && not (shouldExclude conds) then
-            let baseTime = Timezone.baseTimeFromTicks(timestamp trade)
+            let ts = timestamp trade
+            let baseTime =
+                match self.BaseTime with
+                | ValueSome bt -> bt
+                | ValueNone ->
+                    let bt = Timezone.baseTimeFromTicks ts
+                    self.BaseTime <- ValueSome bt
+                    bt
+            let delta = ts - baseTime.Ticks
+            if delta < 0L then failwithf "Trade timestamp %d precedes baseTime %d (delta=%d)" ts baseTime.Ticks delta
             self.Trades.Add {
                 Price = trade.price
-                KiloTicksFromBase = (timestamp trade - baseTime.Ticks) / 1000L |> uint
+                KiloTicksFromBase = delta / 1000L |> uint
                 Volume = uint trade.size
             }
 
