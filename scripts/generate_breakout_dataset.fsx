@@ -10,9 +10,10 @@ let binDir = "data/trades_bin"
 let input = "data/continuation_plays.json"
 
 // Edit these to re-target the dataset.
-let output = "data/breakouts_last_6w.json"
+let output = "data/breakouts_rvol3plus.json"
+let minRvol : float voption = ValueSome 3.0
 let dollarVolCap : float voption = ValueNone   // e.g. ValueSome 100_000_000.0
-let minDate : string voption = ValueSome "2026-02-27"  // inclusive; ValueNone = no floor
+let minDate : string voption = ValueNone
 
 let entries =
     let bytes = File.ReadAllBytes input
@@ -22,6 +23,7 @@ let entries =
             ticker = el.GetProperty("ticker").GetString()
             date = el.GetProperty("date").GetString()
             daysSince = el.GetProperty("days_since_max_rvol_day").GetInt32()
+            rvol = el.GetProperty("rvol").GetDouble()
             avgDollarVol = el.GetProperty("avg_dollar_volume_4w").GetDouble()
         |} |]
 
@@ -30,11 +32,21 @@ printfn "Total entries:        %d" entries.Length
 let breakouts = entries |> Array.filter (fun e -> e.daysSince = 0)
 printfn "Breakouts only:       %d" breakouts.Length
 
+let afterRvol =
+    match minRvol with
+    | ValueSome r -> breakouts |> Array.filter (fun e -> e.rvol >= r)
+    | ValueNone -> breakouts
+match minRvol with
+| ValueSome r -> printfn "RVOL >= %.1f:          %d" r afterRvol.Length
+| ValueNone -> ()
+
 let afterDate =
     match minDate with
-    | ValueSome d -> breakouts |> Array.filter (fun e -> e.date >= d)
-    | ValueNone -> breakouts
-printfn "After %-14s %d" (defaultArg (minDate |> ValueOption.toOption) "(none)" + ":") afterDate.Length
+    | ValueSome d -> afterRvol |> Array.filter (fun e -> e.date >= d)
+    | ValueNone -> afterRvol
+match minDate with
+| ValueSome d -> printfn "After %s:      %d" d afterDate.Length
+| ValueNone -> ()
 
 let underCap =
     match dollarVolCap with

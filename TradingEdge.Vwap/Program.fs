@@ -138,24 +138,16 @@ type TradeStage =
     | AfterOpeningPrint
     | BeforeClosing
 
-let defaultEstimationOffsets = [| 5.0; 30.0; 150.0; 750.0 |]
+/// Delay between the opening print and when the system is allowed to trade.
+/// 5s replaces the first estimation offset from the old per-offset system.
+let entryDelaySeconds = 5.0
 
-let findEstimationOffset (currentOffset: float) : int voption =
-    let mutable result = ValueNone
-    let mutable k = defaultEstimationOffsets.Length - 1
-    while k >= 0 && result.IsNone do
-        if defaultEstimationOffsets.[k] <= currentOffset then
-            result <- ValueSome k
-        k <- k - 1
-    result
-
-type SegregateTrades(volPcts: float[], baseTime) =
-    member val VolPcts = volPcts
-    member val VolPctsOffset = ValueNone with get, set
-    member val ArgsBuilder : VwapSystemArgsBuilder voption = ValueNone with get, set
+type SegregateTrades(barSize: float, baseTime) =
+    member val ArgsBuilder = VwapSystemArgsBuilder(barSize)
     member val ClosingPause = -60.0
     member val BaseTime = baseTime : DateTime
     member val OpeningPrintIdx = ValueNone : int voption with get, set
+    member val OpeningPrintTs : DateTime voption = ValueNone with get, set
     member val OpenTime = baseTime.AddHours(9.5)
     member val CloseTime = if Timezone.early_closes.Contains(DateOnly.FromDateTime baseTime) then baseTime.AddHours(13) else baseTime.AddHours(16)
 
@@ -163,11 +155,19 @@ type SegregateTrades(volPcts: float[], baseTime) =
 
     member self.TradeStage(trade: Trade, index: int) =
         let ts = self.Timestamp trade
+        if self.OpeningPrintIdx = ValueSome index then
+            self.OpeningPrintTs <- ValueSome ts
         if self.OpenTime <= ts then
             if self.CloseTime.AddSeconds self.ClosingPause <= ts then
                 BeforeClosing
             else
-                AfterOpeningPrint
+                // Gate entry until entryDelaySeconds after the opening print.
+                let readyTime =
+                    match self.OpeningPrintTs with
+                    | ValueSome op -> op.AddSeconds entryDelaySeconds
+                    | ValueNone -> self.OpenTime
+                if ts >= readyTime then AfterOpeningPrint
+                else LatePremarket
         else
             if self.OpeningPrintIdx = ValueSome index then
                 AfterOpeningPrint
@@ -188,40 +188,29 @@ type SegregateTrades(volPcts: float[], baseTime) =
         struct (includeInVwma, includeInVol)
 
 
-    member inline self.Process(onNext, trades: ReadOnlySpan<Trade>) =
-        let lastIdx = trades.Length - 1
-        let trade = trades.[lastIdx]
-        let stage = self.TradeStage(trade, lastIdx)
+    member inline self.Process(onNext, trade: Trade, index: int) =
+        let stage = self.TradeStage(trade, index)
         let mutable lastBar = ValueNone
-        let feedTrade(stage: TradeStage, trade: Trade) =
-            match self.ArgsBuilder with
-            | ValueSome sys ->
-                let struct (inclVwma, inclVol) = self.CalculateFlags stage
-                sys.Process((fun bar -> lastBar <- ValueSome bar), trade, inclVwma, inclVol)
-            | ValueNone -> ()
-        match stage with
-        | AfterOpeningPrint ->
-            let currentOffset = (self.Timestamp trade - self.OpenTime).TotalSeconds
-            let i = findEstimationOffset currentOffset
-            if self.VolPctsOffset <> i then
-                self.VolPctsOffset <- i
-                match self.VolPctsOffset with
-                | ValueSome vpIdx ->
-                    let mutable totalVolume = 0.0
-                    for j in 0 .. trades.Length - 1 do
-                        totalVolume <- totalVolume + float trades.[j].Volume
-                    let barSize = totalVolume * self.VolPcts.[vpIdx]
-                    let newSystem = VwapSystemArgsBuilder(barSize)
-                    self.ArgsBuilder <- ValueSome newSystem
-                    for j in 0 .. trades.Length - 1 do
-                        let t = trades.[j]
-                        feedTrade(self.TradeStage(t, j), t)
-                | ValueNone -> ()
-            else
-                feedTrade(stage, trade)
-        | _ ->
-            feedTrade(stage, trade)
+        let struct (inclVwma, inclVol) = self.CalculateFlags stage
+        self.ArgsBuilder.Process((fun bar -> lastBar <- ValueSome bar), trade, inclVwma, inclVol)
         onNext (lastBar, stage, trade)
+
+/// Compute the RTH volume target (9:30 ET → scheduled close) from the day's
+/// filtered trades, then divide by `divisor` to get the per-bar target.
+let computeBarSize (header: DayHeader) (trades: Trade[]) (divisor: float) : float =
+    let baseTime = DateTime header.BaseTicks
+    let openTicks = baseTime.AddHours(9.5).Ticks
+    let closeTicks =
+        if Timezone.early_closes.Contains(DateOnly.FromDateTime baseTime) then
+            baseTime.AddHours(13).Ticks
+        else
+            baseTime.AddHours(16).Ticks
+    let mutable total = 0.0
+    for t in trades do
+        let ts = baseTime.AddTicks(t.TicksFromBase).Ticks
+        if ts >= openTicks && ts <= closeTicks then
+            total <- total + float t.Volume
+    total / divisor
 
 // ============================================================================
 // VWAP trading system (decisions from bars)
@@ -723,10 +712,11 @@ type DayResult = {
 
 type DayData = { Date: string; Header: DayHeader; Ticker: string; Trades: Trade[] }
 
-let pcts =
-    let basePct = 0.005
-    let decay = 0.9
-    [| -8.69; -1.10; -16.27; -16.73 |] |> Array.map (fun i -> basePct * (decay ** i))
+/// Divide the day's 9:30 ET → close filtered volume by this to get the bar size.
+/// Uses lookahead (whole-day volume known at t=0); intentional — we're
+/// measuring whether a VWAP-reversion system is viable in principle before
+/// building an online estimator for it.
+let barDivisor = 3000.0
 
 let positionSize = 30000.0
 let referenceVol = ValueSome 5.82e-4
@@ -736,8 +726,9 @@ let fillPercentile = 0.05
 let fillDelayMs = 100.0
 let fillRejectionRate = 0.30
 
-let configureWith (header: DayHeader) (pcts: float[]) =
-    let seg = SegregateTrades(pcts, DateTime header.BaseTicks)
+let configureWith (header: DayHeader) (trades: Trade[]) (divisor: float) =
+    let barSize = computeBarSize header trades divisor
+    let seg = SegregateTrades(barSize, DateTime header.BaseTicks)
     seg.OpeningPrintIdx <- header.OpeningPrintIndex
     let vs = VwapSystem(positionSize, referenceVol, bandVol)
     let td = TrackDecisions()
@@ -746,15 +737,8 @@ let configureWith (header: DayHeader) (pcts: float[]) =
     let fs = FillSimulator(fillPercentile, fillDelayMs, fillRejectionRate, ValueNone, DateTime header.BaseTicks)
     seg, vs, td, ell, fs, tf
 
-let configure (header: DayHeader) =
-    let seg = SegregateTrades(pcts, DateTime header.BaseTicks)
-    seg.OpeningPrintIdx <- header.OpeningPrintIndex
-    let vs = VwapSystem(positionSize, referenceVol, bandVol)
-    let td = TrackDecisions()
-    let tf = TrackFills(commissionPerShare)
-    let ell = EnforceLossLimit((fun () -> tf.NetPnL), infinity)
-    let fs = FillSimulator(fillPercentile, fillDelayMs, fillRejectionRate, ValueNone, DateTime header.BaseTicks)
-    seg, vs, td, ell, fs, tf
+let configure (header: DayHeader) (trades: Trade[]) =
+    configureWith header trades barDivisor
 
 let loadDayData (jsonPath: string) =
     let entries = Convert.loadPlays jsonPath
@@ -773,8 +757,15 @@ let loadDayData (jsonPath: string) =
     dayData, totalTrades
 
 /// Run the full pipeline for one day with the given pcts and return NetPnL.
-let evaluateDay (d: DayData) (pcts: float[]) : float =
-    let seg, vs, td, ell, fs, tf = configureWith d.Header pcts
+[<Struct>]
+type DaySummary = {
+    NetPnL: float
+    GrossWins: float
+    GrossLosses: float   // absolute value
+}
+
+let evaluateDay (d: DayData) (divisor: float) : DaySummary =
+    let seg, vs, td, ell, fs, tf = configureWith d.Header d.Trades divisor
     let onFillSink (_: Fill) = ()
     let onFill (fill: Fill) = tf.Process(onFillSink, fill)
     let onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
@@ -789,83 +780,59 @@ let evaluateDay (d: DayData) (pcts: float[]) : float =
                                 td.Process(onTracked, decision, bar, stage, trade)),
                             decision, bar, stage, trade)),
                     bar, stage, trade, seg.Timestamp trade)),
-            ReadOnlySpan(d.Trades, 0, i + 1))
-    tf.NetPnL
+            d.Trades.[i], i)
+    let trips = extractRoundTrips tf.Fills commissionPerShare
+    let mutable gw = 0.0
+    let mutable gl = 0.0
+    for rt in trips do
+        if rt.PnL > 0.0 then gw <- gw + rt.PnL
+        elif rt.PnL < 0.0 then gl <- gl + (-rt.PnL)
+    { NetPnL = tf.NetPnL; GrossWins = gw; GrossLosses = gl }
 
-/// Build N perturbed copies of the base pcts by adding gaussian noise to
-/// the underlying exponents (so the parameter shape stays in the same
-/// log-spaced family the optimizer naturally explores).
-let perturbConfigs (rng: Random) (n: int) (sigma: float) : float[][] =
-    let baseExps = [| -8.69; -1.10; -16.27; -16.73 |]
-    let basePct = 0.005
-    let decay = 0.9
-    let toPcts (exps: float[]) = exps |> Array.map (fun i -> basePct * (decay ** i))
-    [| for _ in 1 .. n ->
-        let exps = baseExps |> Array.map (fun e -> e + Normal.Sample(rng, 0.0, sigma))
-        toPcts exps |]
+/// Build N bar-size divisors log-spaced in [lo, hi].
+let logSpacedDivisors (n: int) (lo: float) (hi: float) : float[] =
+    if n <= 1 then [| lo |]
+    else
+        let logLo = log lo
+        let logHi = log hi
+        [| for k in 0 .. n - 1 ->
+            exp (logLo + (logHi - logLo) * float k / float (n - 1)) |]
 
-/// Sequential vs parallel sweep over (config, day) pairs. Returns
-/// per-config total NetPnL summed across days.
-let runParallelSweep (dayData: DayData[]) (configs: float[][]) =
-    printfn "=== Parallel sweep: %d configs x %d days = %d tasks (cores=%d) ==="
-        configs.Length dayData.Length (configs.Length * dayData.Length) Environment.ProcessorCount
+/// Sequential vs parallel sweep over (divisor, day) pairs.
+let runParallelSweep (dayData: DayData[]) (divisors: float[]) =
+    printfn "=== Parallel sweep: %d divisors x %d days = %d tasks (cores=%d) ==="
+        divisors.Length dayData.Length (divisors.Length * dayData.Length) Environment.ProcessorCount
 
-    // Warm up: run one (config, day) once to JIT the pipeline.
-    evaluateDay dayData.[0] configs.[0] |> ignore
+    evaluateDay dayData.[0] divisors.[0] |> ignore
 
-    // Per-config sums, indexed [configIdx]. Concurrent updates protected
-    // via Interlocked-style: aggregate per task into a thread-local slot,
-    // then sum at the end. Easiest: use a 2D array [configIdx, dayIdx].
-    let results = Array2D.zeroCreate<float> configs.Length dayData.Length
-
-    // ----- Sequential baseline -----
-    let swSeq = Stopwatch.StartNew()
-    for ci in 0 .. configs.Length - 1 do
-        for di in 0 .. dayData.Length - 1 do
-            results.[ci, di] <- evaluateDay dayData.[di] configs.[ci]
-    swSeq.Stop()
-    let seqTime = swSeq.Elapsed.TotalSeconds
-    printfn "  Sequential: %.3fs" seqTime
-
-    // Sanity: sum of NetPnL across all (config, day) pairs (sink against optimizer-eliminated work)
-    let mutable seqSink = 0.0
-    for ci in 0 .. configs.Length - 1 do
-        for di in 0 .. dayData.Length - 1 do
-            seqSink <- seqSink + results.[ci, di]
-    printfn "  Sequential sink: %.2f" seqSink
-
-    // ----- Parallel: days sequential outer, configs parallel inner -----
-    // Each tick all threads work on the same day's TradeRecord[] so the
-    // hot data lives in shared L2/L3 cache rather than thrashing across
-    // unrelated days.
-    let parResults = Array2D.zeroCreate<float> configs.Length dayData.Length
+    let parResults = Array2D.zeroCreate<DaySummary> divisors.Length dayData.Length
     let swPar = Stopwatch.StartNew()
     for di in 0 .. dayData.Length - 1 do
         let d = dayData.[di]
-        System.Threading.Tasks.Parallel.For(0, configs.Length, fun ci ->
-            parResults.[ci, di] <- evaluateDay d configs.[ci]
+        System.Threading.Tasks.Parallel.For(0, divisors.Length, fun ci ->
+            parResults.[ci, di] <- evaluateDay d divisors.[ci]
         ) |> ignore
     swPar.Stop()
-    let parTime = swPar.Elapsed.TotalSeconds
+    printfn "  Parallel:   %.3fs" swPar.Elapsed.TotalSeconds
 
-    let mutable parSink = 0.0
-    for ci in 0 .. configs.Length - 1 do
+    printfn "  Per-divisor results:"
+    printfn "    %-4s %8s  %14s  %14s  %14s  %8s" "#" "divisor" "NetPnL" "grossWins" "grossLosses" "PF"
+    for ci in 0 .. divisors.Length - 1 do
+        let mutable net = 0.0
+        let mutable gw = 0.0
+        let mutable gl = 0.0
         for di in 0 .. dayData.Length - 1 do
-            parSink <- parSink + parResults.[ci, di]
-    printfn "  Parallel:   %.3fs   speedup: %.2fx (ideal: %dx)   sink: %.2f"
-        parTime (seqTime / parTime) Environment.ProcessorCount parSink
-
-    // Per-config totals
-    printfn "  Per-config NetPnL:"
-    for ci in 0 .. configs.Length - 1 do
-        let mutable s = 0.0
-        for di in 0 .. dayData.Length - 1 do s <- s + parResults.[ci, di]
-        printfn "    [%2d] %s   total: %.2f" ci
-            (configs.[ci] |> Array.map (sprintf "%.5f") |> String.concat " ") s
+            let r = parResults.[ci, di]
+            net <- net + r.NetPnL
+            gw <- gw + r.GrossWins
+            gl <- gl + r.GrossLosses
+        let pf = if gl > 0.0 then gw / gl else infinity
+        printfn "    [%2d] %8.1f  $%13.2f  $%13.2f  $%13.2f  %8.3f"
+            ci divisors.[ci] net gw gl pf
 
 let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
     let bench(d : DayData, ctx : SinkContext) =
-        let seg, vs, td, ell, fs, tf = configure d.Header
+        let seg, vs, td, ell, fs, tf = configure d.Header d.Trades
         let inline onFillSink (fill: Fill) =
             ctx.FillCount <- ctx.FillCount + 1
             ctx.Sink <- ctx.Sink + fill.Price
@@ -888,7 +855,7 @@ let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
                                     td.Process(onTracked, decision, bar, stage, trade)),
                                 decision, bar, stage, trade)),
                         bar, stage, trade, seg.Timestamp trade)),
-                ReadOnlySpan(d.Trades, 0, i + 1))
+                d.Trades.[i], i)
         ctx.Sink <- ctx.Sink + td.RealizedPnL + tf.GrossPnL - tf.Commissions
 
     printfn "Warming up..."
@@ -913,9 +880,8 @@ let runFillBreakdown (dayData: DayData[]) =
     let tee fmt =
         Printf.kprintf (fun s -> Console.WriteLine s; logWriter.WriteLine s; logWriter.Flush()) fmt
 
-    tee "=== VWAP System Fill Breakdown (new class-based pipeline) ==="
-    tee "Bar exponents: [-8.69;-1.10;-16.27;-16.73]  pcts: [%s]"
-        (String.Join(";", pcts |> Array.map (fun p -> sprintf "%.5f" p)))
+    tee "=== VWAP System Fill Breakdown (single bar size, lookahead) ==="
+    tee "barDivisor: %.1f  entryDelay: %.1fs" barDivisor entryDelaySeconds
     tee "Position size: $%.0f  referenceVol: %.4g  bandVol: %.1f  lossLimit: infinity"
         positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0) bandVol
     tee "Fill sim: pctile=%.3f, delay=%.0fms, commission=$%.4f/share, rejection=%.0f%%"
@@ -924,7 +890,7 @@ let runFillBreakdown (dayData: DayData[]) =
 
     let dayResults =
         [| for d in dayData do
-            let seg, vs, td, ell, fs, tf = configure d.Header
+            let seg, vs, td, ell, fs, tf = configure d.Header d.Trades
             let onFillSink (_: Fill) = ()
             let onFill (fill: Fill) = tf.Process(onFillSink, fill)
             let onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
@@ -939,7 +905,7 @@ let runFillBreakdown (dayData: DayData[]) =
                                         td.Process(onTracked, decision, bar, stage, trade)),
                                     decision, bar, stage, trade)),
                             bar, stage, trade, seg.Timestamp trade)),
-                    ReadOnlySpan(d.Trades, 0, i + 1))
+                    d.Trades.[i], i)
             let roundTrips = extractRoundTrips tf.Fills commissionPerShare
             let posSizes =
                 [| for i in 0 .. td.Decisions.Count - 2 do
@@ -1094,14 +1060,15 @@ let runTradeBreakdown (dayData: DayData[]) =
         Printf.kprintf (fun s -> Console.WriteLine s; logWriter.WriteLine s; logWriter.Flush()) fmt
 
     tee "=== VWAP System Trade Breakdown (decision-level, no fill sim) ==="
-    tee "pcts: [%s]" (String.Join(";", pcts |> Array.map (fun p -> sprintf "%.5f" p)))
+    tee "barDivisor: %.1f  entryDelay: %.1fs" barDivisor entryDelaySeconds
     tee "Position size: $%.0f  referenceVol: %.4g  bandVol: %.1f  lossLimit: infinity"
         positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0) bandVol
     tee ""
 
     let dayResults =
         [| for d in dayData do
-            let seg = SegregateTrades(pcts, DateTime d.Header.BaseTicks)
+            let barSize = computeBarSize d.Header d.Trades barDivisor
+            let seg = SegregateTrades(barSize, DateTime d.Header.BaseTicks)
             seg.OpeningPrintIdx <- d.Header.OpeningPrintIndex
             let vs = VwapSystem(positionSize, referenceVol, bandVol)
             let td = TrackDecisions()
@@ -1117,7 +1084,7 @@ let runTradeBreakdown (dayData: DayData[]) =
                                         td.Process(onTracked, decision, bar, stage, trade)),
                                     decision, bar, stage, trade)),
                             bar, stage, trade, seg.Timestamp trade)),
-                    ReadOnlySpan(d.Trades, 0, i + 1))
+                    d.Trades.[i], i)
             let decs = td.Decisions
             let tradePnLs =
                 [| for i in 1 .. decs.Count - 1 do
@@ -1275,16 +1242,16 @@ type BreakdownArgs =
 
 type SweepArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
-    | [<AltCommandLine("-n")>] Configs of int
-    | [<AltCommandLine("-s")>] Seed of int
-    | [<AltCommandLine("-g")>] Sigma of float
+    | [<AltCommandLine("-n")>] Steps of int
+    | [<AltCommandLine("-l")>] Lo of float
+    | [<AltCommandLine("-u")>] Hi of float
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | Input _ -> "Input JSON with [{ticker, date}] entries"
-            | Configs _ -> "Number of perturbed configs (default: 14)"
-            | Seed _ -> "RNG seed (default: 42)"
-            | Sigma _ -> "Perturbation sigma (default: 0.5)"
+            | Steps _ -> "Number of log-spaced divisor steps (default: 10)"
+            | Lo _ -> "Lower divisor (default: 1000)"
+            | Hi _ -> "Upper divisor (default: 5000)"
 
 type BenchmarkArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
@@ -1331,12 +1298,12 @@ let main argv =
             runTradeBreakdown dayData
         | Sweep args ->
             let input = args.GetResult <@ SweepArgs.Input @>
-            let n = args.GetResult(<@ SweepArgs.Configs @>, 14)
-            let seed = args.GetResult(<@ SweepArgs.Seed @>, 42)
-            let sigma = args.GetResult(<@ SweepArgs.Sigma @>, 0.5)
+            let n = args.GetResult(<@ SweepArgs.Steps @>, 10)
+            let lo = args.GetResult(<@ SweepArgs.Lo @>, 1000.0)
+            let hi = args.GetResult(<@ SweepArgs.Hi @>, 5000.0)
             let dayData, _ = loadDayData input
-            let configs = perturbConfigs (Random(seed)) n sigma
-            runParallelSweep dayData configs
+            let divisors = logSpacedDivisors n lo hi
+            runParallelSweep dayData divisors
         | Benchmark args ->
             let input = args.GetResult <@ BenchmarkArgs.Input @>
             let dayData, totalTrades = loadDayData input
