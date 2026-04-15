@@ -726,7 +726,7 @@ let fillPercentile = 0.05
 let fillDelayMs = 100.0
 let fillRejectionRate = 0.30
 
-let configureWith (header: DayHeader) (trades: Trade[]) (divisor: float) =
+let configureWith (header: DayHeader) (trades: Trade[]) (divisor: float) fillPercentile =
     let barSize = computeBarSize header trades divisor
     let seg = SegregateTrades(barSize, DateTime header.BaseTicks)
     seg.OpeningPrintIdx <- header.OpeningPrintIndex
@@ -737,8 +737,8 @@ let configureWith (header: DayHeader) (trades: Trade[]) (divisor: float) =
     let fs = FillSimulator(fillPercentile, fillDelayMs, fillRejectionRate, ValueNone, DateTime header.BaseTicks)
     seg, vs, td, ell, fs, tf
 
-let configure (header: DayHeader) (trades: Trade[]) bars =
-    configureWith header trades bars
+let configure (header: DayHeader) (trades: Trade[]) bars fillPercentile =
+    configureWith header trades bars fillPercentile
 
 let loadDayData (jsonPath: string) =
     let entries = Convert.loadPlays jsonPath
@@ -764,8 +764,8 @@ type DaySummary = {
     GrossLosses: float   // absolute value
 }
 
-let evaluateDay (d: DayData) (divisor: float) : DaySummary =
-    let seg, vs, td, ell, fs, tf = configureWith d.Header d.Trades divisor
+let evaluateDay (d: DayData) (divisor: float) fillPercentile : DaySummary =
+    let seg, vs, td, ell, fs, tf = configureWith d.Header d.Trades divisor fillPercentile
     let onFillSink (_: Fill) = ()
     let onFill (fill: Fill) = tf.Process(onFillSink, fill)
     let onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
@@ -810,7 +810,7 @@ let runParallelSweep (dayData: DayData[]) (divisors: float[]) =
     for di in 0 .. dayData.Length - 1 do
         let d = dayData.[di]
         System.Threading.Tasks.Parallel.For(0, divisors.Length, fun ci ->
-            parResults.[ci, di] <- evaluateDay d divisors.[ci]
+            parResults.[ci, di] <- evaluateDay d divisors.[ci] fillPercentile
         ) |> ignore
     swPar.Stop()
     printfn "  Parallel:   %.3fs" swPar.Elapsed.TotalSeconds
@@ -832,7 +832,7 @@ let runParallelSweep (dayData: DayData[]) (divisors: float[]) =
 
 let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
     let bench(d : DayData, ctx : SinkContext) =
-        let seg, vs, td, ell, fs, tf = configure d.Header d.Trades barDivisor
+        let seg, vs, td, ell, fs, tf = configure d.Header d.Trades barDivisor fillPercentile
         let inline onFillSink (fill: Fill) =
             ctx.FillCount <- ctx.FillCount + 1
             ctx.Sink <- ctx.Sink + fill.Price
@@ -873,7 +873,7 @@ let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
         sw.Elapsed.TotalSeconds ctx.BarCount ctx.DecisionCount ctx.FillCount ctx.Sink
         ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
 
-let runFillBreakdown (dayData: DayData[]) bars =
+let runFillBreakdown (dayData: DayData[]) bars fillPercentile =
     let logPath = "logs/fill_breakdown.log"
     Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
     use logWriter = new StreamWriter(logPath, false)
@@ -890,7 +890,7 @@ let runFillBreakdown (dayData: DayData[]) bars =
 
     let dayResults =
         [| for d in dayData do
-            let seg, vs, td, ell, fs, tf = configure d.Header d.Trades bars
+            let seg, vs, td, ell, fs, tf = configure d.Header d.Trades bars fillPercentile
             let onFillSink (_: Fill) = ()
             let onFill (fill: Fill) = tf.Process(onFillSink, fill)
             let onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
@@ -1236,12 +1236,14 @@ type ConvertArgs =
 type BreakdownArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
     | [<AltCommandLine("-b")>] Bars of int
+    | [<AltCommandLine("-p")>] Percentile of float
 
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | Input _ -> "Input JSON with [{ticker, date}] entries (e.g. data/breakdown_2k.json)"
             | Bars _ -> "The target number of bars per session (e.g. 3000)"
+            | Percentile _ -> "The target percentile to buy down in a bar (e.g. 0.05)"
 
 type SweepArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
@@ -1294,8 +1296,9 @@ let main argv =
         | Breakdown args ->
             let input = args.GetResult <@ BreakdownArgs.Input @>
             let bars = args.TryGetResult <@ BreakdownArgs.Bars @> |> Option.map float |> Option.defaultValue barDivisor
+            let percentile = args.TryGetResult <@ BreakdownArgs.Percentile @> |> Option.map float |> Option.defaultValue fillPercentile
             let dayData, _ = loadDayData input
-            runFillBreakdown dayData bars
+            runFillBreakdown dayData bars percentile
         | Trade_Breakdown args ->
             let input = args.GetResult <@ BreakdownArgs.Input @>
             let bars = args.TryGetResult <@ BreakdownArgs.Bars @> |> Option.map float |> Option.defaultValue barDivisor
