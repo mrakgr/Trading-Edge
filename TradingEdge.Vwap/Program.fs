@@ -737,8 +737,8 @@ let configureWith (header: DayHeader) (trades: Trade[]) (divisor: float) =
     let fs = FillSimulator(fillPercentile, fillDelayMs, fillRejectionRate, ValueNone, DateTime header.BaseTicks)
     seg, vs, td, ell, fs, tf
 
-let configure (header: DayHeader) (trades: Trade[]) =
-    configureWith header trades barDivisor
+let configure (header: DayHeader) (trades: Trade[]) bars =
+    configureWith header trades bars
 
 let loadDayData (jsonPath: string) =
     let entries = Convert.loadPlays jsonPath
@@ -832,7 +832,7 @@ let runParallelSweep (dayData: DayData[]) (divisors: float[]) =
 
 let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
     let bench(d : DayData, ctx : SinkContext) =
-        let seg, vs, td, ell, fs, tf = configure d.Header d.Trades
+        let seg, vs, td, ell, fs, tf = configure d.Header d.Trades barDivisor
         let inline onFillSink (fill: Fill) =
             ctx.FillCount <- ctx.FillCount + 1
             ctx.Sink <- ctx.Sink + fill.Price
@@ -873,7 +873,7 @@ let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
         sw.Elapsed.TotalSeconds ctx.BarCount ctx.DecisionCount ctx.FillCount ctx.Sink
         ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
 
-let runFillBreakdown (dayData: DayData[]) =
+let runFillBreakdown (dayData: DayData[]) bars =
     let logPath = "logs/fill_breakdown.log"
     Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
     use logWriter = new StreamWriter(logPath, false)
@@ -890,7 +890,7 @@ let runFillBreakdown (dayData: DayData[]) =
 
     let dayResults =
         [| for d in dayData do
-            let seg, vs, td, ell, fs, tf = configure d.Header d.Trades
+            let seg, vs, td, ell, fs, tf = configure d.Header d.Trades bars
             let onFillSink (_: Fill) = ()
             let onFill (fill: Fill) = tf.Process(onFillSink, fill)
             let onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
@@ -1052,7 +1052,7 @@ type TradeBreakdownDay = {
     NumDecisions: int
 }
 
-let runTradeBreakdown (dayData: DayData[]) =
+let runTradeBreakdown (dayData: DayData[]) bars =
     let logPath = "logs/trade_breakdown.log"
     Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
     use logWriter = new StreamWriter(logPath, false)
@@ -1067,7 +1067,7 @@ let runTradeBreakdown (dayData: DayData[]) =
 
     let dayResults =
         [| for d in dayData do
-            let barSize = computeBarSize d.Header d.Trades barDivisor
+            let barSize = computeBarSize d.Header d.Trades bars
             let seg = SegregateTrades(barSize, DateTime d.Header.BaseTicks)
             seg.OpeningPrintIdx <- d.Header.OpeningPrintIndex
             let vs = VwapSystem(positionSize, referenceVol, bandVol)
@@ -1235,10 +1235,13 @@ type ConvertArgs =
 
 type BreakdownArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
+    | [<AltCommandLine("-b")>] Bars of int
+
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | Input _ -> "Input JSON with [{ticker, date}] entries (e.g. data/breakdown_2k.json)"
+            | Bars _ -> "The target number of bars per session (e.g. 3000)"
 
 type SweepArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
@@ -1290,12 +1293,14 @@ let main argv =
         | Convert args -> runConvert args
         | Breakdown args ->
             let input = args.GetResult <@ BreakdownArgs.Input @>
+            let bars = args.TryGetResult <@ BreakdownArgs.Bars @> |> Option.map float |> Option.defaultValue barDivisor
             let dayData, _ = loadDayData input
-            runFillBreakdown dayData
+            runFillBreakdown dayData bars
         | Trade_Breakdown args ->
             let input = args.GetResult <@ BreakdownArgs.Input @>
+            let bars = args.TryGetResult <@ BreakdownArgs.Bars @> |> Option.map float |> Option.defaultValue barDivisor
             let dayData, _ = loadDayData input
-            runTradeBreakdown dayData
+            runTradeBreakdown dayData bars
         | Sweep args ->
             let input = args.GetResult <@ SweepArgs.Input @>
             let n = args.GetResult(<@ SweepArgs.Steps @>, 10)
