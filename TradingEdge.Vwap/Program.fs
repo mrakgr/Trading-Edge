@@ -1074,6 +1074,184 @@ let runFillBreakdown (dayData: DayData[]) =
     tee "Avg short trade:    $%12.2f" (if shortTrips.Length > 0 then shortPnL / float shortTrips.Length else 0.0)
 
 // ============================================================================
+// Decision-level (no fill sim) breakdown
+// ============================================================================
+
+type TradeBreakdownDay = {
+    Ticker: string
+    Date: string
+    DayPnL: float
+    TradePnLs: (float * int)[]  // (pnl, prevShares)
+    AvgPositionSize: float
+    NumDecisions: int
+}
+
+let runTradeBreakdown (dayData: DayData[]) =
+    let logPath = "logs/trade_breakdown.log"
+    Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
+    use logWriter = new StreamWriter(logPath, false)
+    let tee fmt =
+        Printf.kprintf (fun s -> Console.WriteLine s; logWriter.WriteLine s; logWriter.Flush()) fmt
+
+    tee "=== VWAP System Trade Breakdown (decision-level, no fill sim) ==="
+    tee "pcts: [%s]" (String.Join(";", pcts |> Array.map (fun p -> sprintf "%.5f" p)))
+    tee "Position size: $%.0f  referenceVol: %.4g  bandVol: %.1f  lossLimit: infinity"
+        positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0) bandVol
+    tee ""
+
+    let dayResults =
+        [| for d in dayData do
+            let seg = SegregateTrades(pcts, DateTime d.Header.BaseTicks)
+            seg.OpeningPrintIdx <- d.Header.OpeningPrintIndex
+            let vs = VwapSystem(positionSize, referenceVol, bandVol)
+            let td = TrackDecisions()
+            let ell = EnforceLossLimit((fun () -> td.RealizedPnL), infinity)
+            let onTracked (_decision, _bar, _stage, _trade) = ()
+            for i in 0 .. d.Trades.Length - 1 do
+                seg.Process(
+                    (fun (bar, stage, trade) ->
+                        vs.Process(
+                            (fun (decision, bar, stage, trade) ->
+                                ell.Process(
+                                    (fun (decision, bar, stage, trade) ->
+                                        td.Process(onTracked, decision, bar, stage, trade)),
+                                    decision, bar, stage, trade)),
+                            bar, stage, trade, seg.Timestamp trade)),
+                    ReadOnlySpan(d.Trades, 0, i + 1))
+            let decs = td.Decisions
+            let tradePnLs =
+                [| for i in 1 .. decs.Count - 1 do
+                    let prev = decs.[i - 1]
+                    let curr = decs.[i]
+                    (curr.Price - prev.Price) * float prev.Shares, prev.Shares |]
+            let posSizes =
+                [| for i in 0 .. decs.Count - 2 do
+                    if decs.[i].Shares <> 0 then
+                        float (abs decs.[i].Shares) * decs.[i].Price |]
+            let avgPos = if posSizes.Length > 0 then (posSizes |> Array.sum) / float posSizes.Length else 0.0
+            yield {
+                Ticker = d.Ticker
+                Date = d.Date
+                DayPnL = td.RealizedPnL
+                TradePnLs = tradePnLs
+                AvgPositionSize = avgPos
+                NumDecisions = decs.Count
+            } |]
+
+    tee "=== Per-Day Results (sorted by P&L) ==="
+    tee "%-6s %-12s %10s %6s %6s %6s %10s %10s %10s"
+        "Ticker" "Date" "DayP&L" "trades" "W" "L" "avgWin" "avgLoss" "avgPos$"
+    tee "%s" (String.replicate 90 "-")
+    let sortedDays = dayResults |> Array.sortByDescending (fun d -> d.DayPnL)
+    for d in sortedDays do
+        let pnls = d.TradePnLs |> Array.map fst
+        let wins = pnls |> Array.filter (fun p -> p > 0.01)
+        let losses = pnls |> Array.filter (fun p -> p < -0.01)
+        let avgWin = if wins.Length > 0 then wins |> Array.average else 0.0
+        let avgLoss = if losses.Length > 0 then losses |> Array.average else 0.0
+        tee "%-6s %-12s %10.2f %6d %6d %6d %10.2f %10.2f %10.2f"
+            d.Ticker d.Date d.DayPnL pnls.Length wins.Length losses.Length avgWin avgLoss d.AvgPositionSize
+
+    let allTradesWithSide = dayResults |> Array.collect (fun d -> d.TradePnLs)
+    let allTrades = allTradesWithSide |> Array.map fst
+    let winTrades = allTrades |> Array.filter (fun p -> p > 0.01)
+    let lossTrades = allTrades |> Array.filter (fun p -> p < -0.01)
+    let flatTrades = allTrades |> Array.filter (fun p -> abs p <= 0.01)
+    let longTrades = allTradesWithSide |> Array.filter (fun (_, s) -> s > 0) |> Array.map fst
+    let shortTrades = allTradesWithSide |> Array.filter (fun (_, s) -> s < 0) |> Array.map fst
+    let longPnL = if longTrades.Length > 0 then longTrades |> Array.sum else 0.0
+    let shortPnL = if shortTrades.Length > 0 then shortTrades |> Array.sum else 0.0
+    let grossWins = winTrades |> Array.sum
+    let grossLosses = lossTrades |> Array.sum |> abs
+    let profitFactor = if grossLosses > 0.0 then grossWins / grossLosses else infinity
+    let avgWin = if winTrades.Length > 0 then winTrades |> Array.average else 0.0
+    let avgLoss = if lossTrades.Length > 0 then lossTrades |> Array.average else 0.0
+    let avgTrade = if allTrades.Length > 0 then allTrades |> Array.average else 0.0
+    let winRate =
+        if winTrades.Length + lossTrades.Length > 0 then
+            100.0 * float winTrades.Length / float (winTrades.Length + lossTrades.Length)
+        else 0.0
+    let expectancy =
+        if winTrades.Length + lossTrades.Length > 0 then
+            (winRate / 100.0) * avgWin + (1.0 - winRate / 100.0) * avgLoss
+        else 0.0
+    let maxWin = if winTrades.Length > 0 then winTrades |> Array.max else 0.0
+    let maxLoss = if lossTrades.Length > 0 then lossTrades |> Array.min else 0.0
+    let medianWin =
+        if winTrades.Length > 0 then
+            let s = winTrades |> Array.sort
+            s.[s.Length / 2]
+        else 0.0
+    let medianLoss =
+        if lossTrades.Length > 0 then
+            let s = lossTrades |> Array.sort
+            s.[s.Length / 2]
+        else 0.0
+
+    let winDays = dayResults |> Array.filter (fun d -> d.DayPnL > 0.01)
+    let lossDays = dayResults |> Array.filter (fun d -> d.DayPnL < -0.01)
+    let flatDays = dayResults |> Array.filter (fun d -> abs d.DayPnL <= 0.01)
+    let dayWinRate =
+        if winDays.Length + lossDays.Length > 0 then
+            100.0 * float winDays.Length / float (winDays.Length + lossDays.Length)
+        else 0.0
+    let avgWinDay = if winDays.Length > 0 then (winDays |> Array.sumBy (fun d -> d.DayPnL)) / float winDays.Length else 0.0
+    let avgLossDay = if lossDays.Length > 0 then (lossDays |> Array.sumBy (fun d -> d.DayPnL)) / float lossDays.Length else 0.0
+    let worstDay = if lossDays.Length > 0 then lossDays |> Array.minBy (fun d -> d.DayPnL) |> fun d -> d.DayPnL else 0.0
+    let bestDay = if winDays.Length > 0 then winDays |> Array.maxBy (fun d -> d.DayPnL) |> fun d -> d.DayPnL else 0.0
+
+    let totalPnL = dayResults |> Array.sumBy (fun d -> d.DayPnL)
+    let avgPosOverall =
+        if dayResults.Length > 0 then
+            (dayResults |> Array.sumBy (fun d -> d.AvgPositionSize)) / float dayResults.Length
+        else 0.0
+
+    tee ""
+    tee "=== Aggregate Statistics ==="
+    tee ""
+    tee "--- Overall ---"
+    tee "Total P&L:         $%12.2f" totalPnL
+    tee "Total days:         %12d" dayResults.Length
+    tee "Total trades:       %12d" allTrades.Length
+    tee "Avg trades/day:     %12.1f" (float allTrades.Length / float (max 1 dayResults.Length))
+    tee "Avg position size:  $%12.2f" avgPosOverall
+    tee ""
+    tee "--- Trade-Level ---"
+    tee "Win trades:         %12d" winTrades.Length
+    tee "Loss trades:        %12d" lossTrades.Length
+    tee "Flat trades:        %12d" flatTrades.Length
+    tee "Win rate:           %12.1f%%" winRate
+    tee "Avg winner:         $%12.2f" avgWin
+    tee "Avg loser:          $%12.2f" avgLoss
+    tee "Median winner:      $%12.2f" medianWin
+    tee "Median loser:       $%12.2f" medianLoss
+    tee "Largest winner:     $%12.2f" maxWin
+    tee "Largest loser:      $%12.2f" maxLoss
+    tee "Avg trade:          $%12.2f" avgTrade
+    tee "Expectancy:         $%12.2f" expectancy
+    tee "Gross wins:         $%12.2f" grossWins
+    tee "Gross losses:       $%12.2f" grossLosses
+    tee "Profit factor:      %12.2f" profitFactor
+    tee ""
+    tee "--- Day-Level ---"
+    tee "Winning days:       %12d" winDays.Length
+    tee "Losing days:        %12d" lossDays.Length
+    tee "Flat days:          %12d" flatDays.Length
+    tee "Day win rate:       %12.1f%%" dayWinRate
+    tee "Avg winning day:    $%12.2f" avgWinDay
+    tee "Avg losing day:     $%12.2f" avgLossDay
+    tee "Worst day:          $%12.2f" worstDay
+    tee "Best day:           $%12.2f" bestDay
+    tee ""
+    tee "--- Long/Short Split ---"
+    tee "Long trades:        %12d" longTrades.Length
+    tee "Long P&L:           $%12.2f" longPnL
+    tee "Avg long trade:     $%12.2f" (if longTrades.Length > 0 then longPnL / float longTrades.Length else 0.0)
+    tee "Short trades:       %12d" shortTrades.Length
+    tee "Short P&L:          $%12.2f" shortPnL
+    tee "Avg short trade:    $%12.2f" (if shortTrades.Length > 0 then shortPnL / float shortTrades.Length else 0.0)
+
+// ============================================================================
 // CLI
 // ============================================================================
 
@@ -1118,13 +1296,15 @@ type BenchmarkArgs =
 type Command =
     | [<CliPrefix(CliPrefix.None)>] Convert of ParseResults<ConvertArgs>
     | [<CliPrefix(CliPrefix.None)>] Breakdown of ParseResults<BreakdownArgs>
+    | [<CliPrefix(CliPrefix.None)>] Trade_Breakdown of ParseResults<BreakdownArgs>
     | [<CliPrefix(CliPrefix.None)>] Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Benchmark of ParseResults<BenchmarkArgs>
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | Convert _ -> "Convert parquet trade files to the v2 binary format"
-            | Breakdown _ -> "Run the full pipeline and print fill breakdown stats"
+            | Breakdown _ -> "Run the full pipeline with fills and print fill-level breakdown"
+            | Trade_Breakdown _ -> "Run decisions-only (no fill sim) and print decision-level breakdown"
             | Sweep _ -> "Run a parallel parameter sweep"
             | Benchmark _ -> "Benchmark the pipeline (throughput)"
 
@@ -1145,6 +1325,10 @@ let main argv =
             let input = args.GetResult <@ BreakdownArgs.Input @>
             let dayData, _ = loadDayData input
             runFillBreakdown dayData
+        | Trade_Breakdown args ->
+            let input = args.GetResult <@ BreakdownArgs.Input @>
+            let dayData, _ = loadDayData input
+            runTradeBreakdown dayData
         | Sweep args ->
             let input = args.GetResult <@ SweepArgs.Input @>
             let n = args.GetResult(<@ SweepArgs.Configs @>, 14)
