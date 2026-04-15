@@ -6,6 +6,7 @@ open System.Collections.Immutable
 open System.Runtime.InteropServices
 open System.Text.RegularExpressions
 open System.Diagnostics
+open Argu
 open MathNet.Numerics.Distributions
 open TradeLoader
 open TradeBinary
@@ -155,8 +156,8 @@ type SegregateTrades(volPcts: float[], baseTime) =
     member val ClosingPause = -60.0
     member val BaseTime = baseTime : DateTime
     member val OpeningPrintIdx = ValueNone : int voption with get, set
-    member val OpenTime = baseTime.AddHours(5.5)
-    member val CloseTime = if Timezone.early_closes.Contains(DateOnly.FromDateTime baseTime) then baseTime.AddHours(9) else baseTime.AddHours(12)
+    member val OpenTime = baseTime.AddHours(9.5)
+    member val CloseTime = if Timezone.early_closes.Contains(DateOnly.FromDateTime baseTime) then baseTime.AddHours(13) else baseTime.AddHours(16)
 
     member inline self.Timestamp(trade: Trade) = self.BaseTime.AddTicks trade.TicksFromBase
 
@@ -1079,10 +1080,89 @@ let runFillBreakdown (dayData: DayData[]) =
     tee "Short P&L:          $%12.2f" shortPnL
     tee "Avg short trade:    $%12.2f" (if shortTrips.Length > 0 then shortPnL / float shortTrips.Length else 0.0)
 
+// ============================================================================
+// CLI
+// ============================================================================
+
+type ConvertArgs =
+    | [<Mandatory; AltCommandLine("-i")>] Input of string
+    | [<AltCommandLine("-t")>] Trades_Dir of string
+    | [<AltCommandLine("-o")>] Output of string
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Input _ -> "Input plays JSON (e.g. data/continuation_plays.json)"
+            | Trades_Dir _ -> "Parquet root (default: data/trades)"
+            | Output _ -> "Output binary directory (default: data/trades_bin)"
+
+type BreakdownArgs =
+    | [<AltCommandLine("-d")>] Bin_Dir of string
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Bin_Dir _ -> "Binary trade directory (default: data/trades_bin)"
+
+type SweepArgs =
+    | [<AltCommandLine("-d")>] Bin_Dir of string
+    | [<AltCommandLine("-n")>] Configs of int
+    | [<AltCommandLine("-s")>] Seed of int
+    | [<AltCommandLine("-g")>] Sigma of float
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Bin_Dir _ -> "Binary trade directory (default: data/trades_bin)"
+            | Configs _ -> "Number of perturbed configs (default: 14)"
+            | Seed _ -> "RNG seed (default: 42)"
+            | Sigma _ -> "Perturbation sigma (default: 0.5)"
+
+type BenchmarkArgs =
+    | [<AltCommandLine("-d")>] Bin_Dir of string
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Bin_Dir _ -> "Binary trade directory (default: data/trades_bin)"
+
+type Command =
+    | [<CliPrefix(CliPrefix.None)>] Convert of ParseResults<ConvertArgs>
+    | [<CliPrefix(CliPrefix.None)>] Breakdown of ParseResults<BreakdownArgs>
+    | [<CliPrefix(CliPrefix.None)>] Sweep of ParseResults<SweepArgs>
+    | [<CliPrefix(CliPrefix.None)>] Benchmark of ParseResults<BenchmarkArgs>
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Convert _ -> "Convert parquet trade files to the v2 binary format"
+            | Breakdown _ -> "Run the full pipeline and print fill breakdown stats"
+            | Sweep _ -> "Run a parallel parameter sweep"
+            | Benchmark _ -> "Benchmark the pipeline (throughput)"
+
+let runConvert (args: ParseResults<ConvertArgs>) =
+    let input = args.GetResult ConvertArgs.Input
+    let tradesDir = args.GetResult(ConvertArgs.Trades_Dir, "data/trades")
+    let outDir = args.GetResult(ConvertArgs.Output, "data/trades_bin")
+    Convert.convertPlays input tradesDir outDir
+
 [<EntryPoint>]
 let main argv =
-    let dayData, _ = loadDayData ()
-    // let configs = perturbConfigs (Random(42)) 14 0.5
-    // runParallelSweep dayData configs
-    runFillBreakdown dayData
-    0
+    let parser = ArgumentParser.Create<Command>(programName = "TradingEdge.Vwap")
+    try
+        let results = parser.ParseCommandLine(inputs = argv, raiseOnUsage = true)
+        match results.GetSubCommand() with
+        | Convert args -> runConvert args
+        | Breakdown _ ->
+            let dayData, _ = loadDayData ()
+            runFillBreakdown dayData
+        | Sweep args ->
+            let n = args.GetResult(SweepArgs.Configs, 14)
+            let seed = args.GetResult(SweepArgs.Seed, 42)
+            let sigma = args.GetResult(SweepArgs.Sigma, 0.5)
+            let dayData, _ = loadDayData ()
+            let configs = perturbConfigs (Random(seed)) n sigma
+            runParallelSweep dayData configs
+        | Benchmark _ ->
+            let dayData, totalTrades = loadDayData ()
+            runBenchmark dayData totalTrades
+        0
+    with
+    | :? ArguParseException as e ->
+        eprintfn "%s" e.Message
+        1

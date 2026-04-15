@@ -9,8 +9,8 @@ let easternTz =
     with _ -> TimeZoneInfo.FindSystemTimeZoneById "Eastern Standard Time"
 
 let baseTimeFromDate (d : DateOnly) =
-    // 04:00 local Eastern, unspecified kind so ConvertTimeToUtc treats it as local-in-tz
-    let local = DateTime(d, TimeOnly(4, 0, 0), DateTimeKind.Unspecified)
+    // 00:00 local Eastern, unspecified kind so ConvertTimeToUtc treats it as local-in-tz
+    let local = DateTime(d, TimeOnly(0, 0, 0), DateTimeKind.Unspecified)
     TimeZoneInfo.ConvertTimeToUtc(local, easternTz)
 
 let baseTimeFromTicks (ticks : int64) = DateTime(ticks) |> DateOnly.FromDateTime |> baseTimeFromDate

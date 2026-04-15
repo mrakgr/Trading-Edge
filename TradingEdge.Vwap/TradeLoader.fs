@@ -22,7 +22,10 @@ type RawTrade =
     }
 
     member self.Timestamp = if self.participant_timestamp <> 0L then self.participant_timestamp else self.sip_timestamp
-    member self.Ticks = self.Timestamp / 100L
+    // Polygon stores nanoseconds since Unix epoch (1970-01-01). .NET Ticks are
+    // 100-ns units since 0001-01-01 — so divide by 100 and add the epoch offset.
+    static member val UnixEpochTicks = System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc).Ticks
+    member self.Ticks = self.Timestamp / 100L + RawTrade.UnixEpochTicks
 
 [<Struct; StructLayout(LayoutKind.Sequential)>]
 type Trade = 
@@ -133,7 +136,8 @@ let loadRawTrades (filePath: string) : RawTrade[] =
     cmd.CommandText <-
         sprintf
             "SELECT participant_timestamp, sip_timestamp, price, size, conditions \
-             FROM read_parquet('%s') ORDER BY participant_timestamp, rowid ASC"
+             FROM (SELECT *, ROW_NUMBER() OVER () AS _row FROM read_parquet('%s')) \
+             ORDER BY participant_timestamp, _row"
             escaped
 
     use reader = cmd.ExecuteReader()
