@@ -914,7 +914,7 @@ let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
         ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
 
 let runFillBreakdown (dayData: DayData[]) =
-    let logPath = "logs/fill_breakdown_new.log"
+    let logPath = "logs/fill_breakdown.log"
     Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
     use logWriter = new StreamWriter(logPath, false)
     let tee fmt =
