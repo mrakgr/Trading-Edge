@@ -873,7 +873,7 @@ let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
         sw.Elapsed.TotalSeconds ctx.BarCount ctx.DecisionCount ctx.FillCount ctx.Sink
         ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
 
-let runFillBreakdown (dayData: DayData[]) bars fillPercentile =
+let runFillBreakdown (dayData: DayData[]) barDivisor fillPercentile =
     let logPath = "logs/fill_breakdown.log"
     Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
     use logWriter = new StreamWriter(logPath, false)
@@ -890,7 +890,7 @@ let runFillBreakdown (dayData: DayData[]) bars fillPercentile =
 
     let dayResults =
         [| for d in dayData do
-            let seg, vs, td, ell, fs, tf = configure d.Header d.Trades bars fillPercentile
+            let seg, vs, td, ell, fs, tf = configure d.Header d.Trades barDivisor fillPercentile
             let onFillSink (_: Fill) = ()
             let onFill (fill: Fill) = tf.Process(onFillSink, fill)
             let onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
