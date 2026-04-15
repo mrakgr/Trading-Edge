@@ -21,8 +21,8 @@ type RawTrade =
         size: float
     }
 
-let timestamp (t : RawTrade) = if t.participant_timestamp <> 0L then t.participant_timestamp else t.sip_timestamp
-let conditions (t : RawTrade) = t.conditions
+    member self.Timestamp = if self.participant_timestamp <> 0L then self.participant_timestamp else self.sip_timestamp
+    member self.Ticks = self.Timestamp / 100L
 
 [<Struct; StructLayout(LayoutKind.Sequential)>]
 type Trade = 
@@ -90,16 +90,16 @@ type TradesStagingBuilder() =
         if self.OpeningPrintIndex.IsNone && not (Set.intersect conds openingPrintConditions).IsEmpty then
             self.OpeningPrintIndex <- ValueSome self.Trades.Count
         if trade.size > 0 && not (shouldExclude conds) then
-            let ts = timestamp trade
+            let tradeTicks = trade.Ticks
             let baseTime =
                 match self.BaseTime with
                 | ValueSome bt -> bt
                 | ValueNone ->
-                    let bt = Timezone.baseTimeFromTicks ts
+                    let bt = Timezone.baseTimeFromTicks tradeTicks
                     self.BaseTime <- ValueSome bt
                     bt
-            let delta = ts - baseTime.Ticks
-            if delta < 0L then failwithf "Trade timestamp %d precedes baseTime %d (delta=%d)" ts baseTime.Ticks delta
+            let delta = tradeTicks - baseTime.Ticks
+            if delta < 0L then failwithf "Trade timestamp %d precedes baseTime %d (delta=%d)" tradeTicks baseTime.Ticks delta
             self.Trades.Add {
                 Price = trade.price
                 KiloTicksFromBase = delta / 1000L |> uint
