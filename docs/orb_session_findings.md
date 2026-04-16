@@ -313,121 +313,83 @@ Extension of section 16 — same RVOL thresholds, split by gap direction, long a
 
 **Practical implication: scale position size with RVOL rather than filtering.** A simple `size ∝ min(RVOL / 3, cap)` captures the edge progression without cliffs. Below RVOL 3, probably just sit out. Above RVOL 5, full size on gap-up longs and (for gap-down days) split long and short based on the 2x2 per-cell PF.
 
-## 18. Overnight hold analysis — strong closers fade overnight
+## 18. Overnight and next-day returns by gap direction × CIR bucket
 
-With `next_open_vs_close_pct` and `next_close_vs_close_pct` added to the augmented dataset, we can directly answer "should the ORB position be held overnight?"
+With `next_open_vs_close_pct` and `next_close_vs_close_pct` in the augmented dataset, we can directly measure post-close behavior. All tables below are on day-0 RVOL≥3 entries. CIR bins are disjoint 20%-wide buckets. Returns are reported as-is (positive = stock went up), so a long holder wants positive and a short holder wants negative.
 
-**Long-side cohort (day 0, CIR ≥ 0.80 — stock closed in top 20% of daily range):**
+Three return windows:
+- **Overnight**: close → next day's open (what you capture if you hold overnight and sell at next-day open).
+- **Next-day intraday**: next day's open → next day's close (if you bought at next-day open and held through next-day close).
+- **Full next day**: close → next day's close (overnight + next-day intraday combined; what you capture if you hold through the entire next trading day).
 
-| RVOL min | n | Close → next open (overnight) | Close → next close (full day+1) | Overnight hit rate |
+### Gap-up breakouts (gap_pct > 0)
+
+| CIR bin | n | Overnight | Next-day intraday | Full next day |
 |---|---|---|---|---|
-| 3 | 820 | **+0.16%** | -0.45% | 48.4% |
-| 4 | 648 | +0.04% | -0.55% | 47.9% |
-| 5 | 464 | -0.16% | -0.75% | 48.5% |
-| 6 | 330 | -0.25% | -0.83% | 47.5% |
-| 7 | 232 | **-0.42%** | -1.03% | 50.2% |
-| 10 | 95 | **-0.78%** | -0.91% | 47.9% |
+| [0.00, 0.20) | 418 | +0.58%  (58% hit) | -0.62%  (45% hit) | -0.17%  (47% hit) |
+| [0.20, 0.40) | 376 | +0.46%  (54% hit) | +0.45%  (49% hit) | +0.98%  (48% hit) |
+| [0.40, 0.60) | 387 | +0.32%  (55% hit) | -1.37%  (43% hit) | -1.17%  (43% hit) |
+| [0.60, 0.80) | 435 | **+1.55%**  (49% hit) | -1.03%  (48% hit) | +0.51%  (45% hit) |
+| [0.80, 1.00) | 574 | +0.34%  (50% hit) | -0.66%  (46% hit) | -0.35%  (46% hit) |
 
-**Don't hold overnight.** Three striking observations:
+### Gap-down breakouts (gap_pct < 0)
 
-1. **Overnight expected return is barely positive at RVOL 3 (+0.16%), turns negative as RVOL rises** (-0.78% at RVOL≥10). Hit rate hovers at 47-50% — no edge in direction, negative in magnitude.
-2. **Full next-day hold is negative at every threshold** (-0.45% to -1.03%). The next trading day systematically gives back part of the breakout.
-3. **The worse, the higher the RVOL** — the very breakouts that produced the highest intraday PF (RVOL≥10, PF 3.5) also fade the hardest overnight and next-day. Institutional profit-taking on strong closers.
-
-**The edge is intraday-only.** Flatten at close. This matches section 13's finding that day-1 continuations without volume lose money — together they confirm: **don't hold the catalyst stock past the day of the catalyst, unless fresh volume shows up on the next day.**
-
-## 19. Overnight across CIR bands — long side
-
-Relaxing the "top 20% of range" filter and scanning CIR thresholds from ≥0.80 down to ≥0.20 (RVOL ≥ 3):
-
-| CIR floor | n | Overnight mean | Next-day mean | Overnight hit rate |
+| CIR bin | n | Overnight | Next-day intraday | Full next day |
 |---|---|---|---|---|
-| ≥ 0.80 | 822 | +0.16% | -0.45% | 48.4% |
-| ≥ 0.60 | 1,480 | **+0.58%** | -0.17% | 50.7% |
-| ≥ 0.40 | 2,092 | +0.47% | -0.38% | 51.5% |
-| ≥ 0.20 | 2,735 | +0.43% | -0.17% | 52.5% |
+| [0.00, 0.20) | 354 | **+0.91%**  (**67% hit**) | -0.68%  (46% hit) | +0.13%  (54% hit) |
+| [0.20, 0.40) | 266 | +0.04%  (59% hit) | -0.15%  (49% hit) | -0.11%  (50% hit) |
+| [0.40, 0.60) | 225 | +0.04%  (51% hit) | -0.34%  (50% hit) | -0.33%  (50% hit) |
+| [0.60, 0.80) | 222 | +0.18%  (62% hit) | -0.65%  (43% hit) | -0.48%  (45% hit) |
+| [0.80, 1.00) | 247 | -0.24%  (46% hit) | -0.46%  (45% hit) | -0.69%  (42% hit) |
 
-**The top-20% closers are the *worst* overnight — relaxing the CIR filter actually improves overnight returns.** The strongest closes (CIR ≥ 0.80) get hit the hardest by profit-taking; moderate closes (CIR 0.60-0.80) are less obvious and less crowded.
+### What this tells us
 
-The sweet spot is **CIR ≥ 0.60** — overnight mean jumps to +0.58% (vs +0.16% at ≥0.80), hit rate crosses 50%, and sample size nearly doubles. Still not enough to be confident in a pure overnight long, but it's positive expected value where the strong-close version wasn't.
+**Long-side overnight hold** (buy at day-0 close, sell at next-day open):
 
-Full next-day is still negative at every band. The overnight gap is positive; the subsequent trading session is negative. If you did hold, exit at next-day open.
+- **Gap-up + CIR 60-80%: +1.55% mean** is the single best cell in the matrix. Strong-ish closes that haven't hit the "everyone sees the perfect chart" zone.
+- **Gap-down + CIR 0-20%: +0.91% mean, 67% hit rate** — the highest hit rate in any cell. These are stocks that gapped down *and* closed weak; bottom-fishers pile in overnight.
+- **Gap-down + CIR 60-80%: +0.18% mean but 62% hit rate** — a high-frequency, low-magnitude bounce play. The stock rejected the gap-down to close strong, and that rejection continues overnight more often than not.
+- **Gap-up + CIR 80-100%** (the "perfect continuation chart"): only +0.34%, 50% hit. Profit-taking on the strongest closers keeps the overnight gain muted.
+- **Gap-down + CIR 80-100%** (the "gap-down that fully recovered"): **-0.24% overnight, 46% hit — losing**. Stocks that reversed a gap-down all the way up to close at the high give back overnight.
 
-## 20. Overnight across CIR bands — short side
+**Short-side overnight hold**:
 
-Same analysis for short-side candidates (RVOL ≥ 3, CIR ≤ some threshold — stock closed in the bottom N% of its range). Returns are negated for readability (positive = good for short holder):
+- Every cell in both tables has **positive** overnight mean (except gap-down CIR 80-100% at -0.24%), meaning every cell is a *loss* for a short holder. Short overnight is not tradeable on this universe.
 
-| CIR ceiling | n | Overnight mean (negated) | Next-day mean (negated) | Overnight hit |
-|---|---|---|---|---|
-| ≤ 0.20 | 772 | **-0.73%** | +0.04% | 38.2% |
-| ≤ 0.40 | 1,415 | -0.52% | -0.20% | 40.9% |
-| ≤ 0.60 | 2,028 | -0.43% | +0.13% | 42.7% |
-| ≤ 0.80 | 2,686 | -0.60% | +0.05% | 43.6% |
+**Next-day intraday** (buy at next-day open, sell at next-day close):
 
-**Short-side overnight is terrible across all bands.** Every row has negative overnight expected return (remember: negated, so negative = loss for the short holder). Hit rates are 38-44% — consistently below coin-flip.
+- Negative in 9 of 10 cells. The only positive is gap-up CIR 20-40% (+0.45%, 49% hit), which is thin.
+- The negativity is strongest on the "extended" cells (gap-up + strong close, gap-down + strong reversal).
 
-Interpretation: stocks that closed weak on day 0 tend to *gap up* the next morning (short holders get hurt at the open). This is the mirror of the long-side profit-taking phenomenon — weak closes attract bottom-fishers overnight.
+**Full next day** (close-to-close):
 
-Next-day returns (negated) are flipping near zero — a mix of intraday reversion and continuation.
+- Only two cells are clearly positive: gap-up + CIR 20-40% (+0.98%) and gap-up + CIR 60-80% (+0.51%).
+- Gap-up + CIR 40-60% is the worst close-to-close cell (-1.17%) — a "middling close after a gap-up" gets faded hard.
+- Gap-down + CIR 0-20% is roughly flat close-to-close (+0.13%) despite the strong overnight (+0.91%) because the next-day intraday fades (-0.68%). The bounce is real but short-lived.
 
-**Short rule: don't hold short overnight on any weak-close band.** The short edge is intraday only; the overnight fade that hurt long-side strong-closers actively *helps* the same stocks on the short side (and vice versa).
+### Tradeable overnight setups
 
-## 21. Disjoint CIR buckets — two distinct overnight regimes
+All assume exiting at next-day open.
 
-Sections 19–20 used cumulative CIR thresholds (`≥ 0.80`, `≥ 0.60`, etc.), which obscured where the edge actually lives. Re-running with 5 disjoint 20%-wide buckets (RVOL ≥ 3, day 0) makes the picture much clearer:
+1. **Gap-up, CIR 60-80%**: +1.55% mean, 49% hit. Highest expected return.
+2. **Gap-down, CIR 0-20%**: +0.91% mean, 67% hit. Highest hit rate. Oversold-bounce play.
+3. **Gap-down, CIR 60-80%** (optional): +0.18% mean, 62% hit. Small expected return but frequent; better as a size-up signal than a standalone trade.
 
-| CIR bucket | n | Overnight mean | Overnight hit rate | Next-day close-to-close |
-|---|---|---|---|---|
-| [0.00, 0.20) | 772 | **+0.73%** | **61.8%** | -0.04% |
-| [0.20, 0.40) | 643 | +0.28% | 55.8% | +0.48% |
-| [0.40, 0.60) | 612 | +0.22% | 53.5% | -0.86% |
-| [0.60, 0.80) | 658 | **+1.10%** | 53.6% | +0.18% |
-| [0.80, 1.00) | 822 | +0.16% | 48.4% | -0.45% |
+### Cells to avoid
 
-**Two non-overlapping sweet spots, not one:**
+- **Gap-up, CIR 80-100%**: +0.34%, 50% hit. Looks obvious but isn't — profit-taking kills it.
+- **Gap-down, CIR 80-100%**: -0.24%, 46% hit. "Full rejection" closes *lose* overnight.
+- Any short overnight, any bucket.
+- Any full-next-day hold (intraday grind is consistently negative).
 
-1. **Weak closes (CIR 0-20%): +0.73% overnight, 62% hit rate.** Stocks that closed at their lows bounce overnight — oversold bottom-fishing. This is the single *highest hit rate* in any overnight bucket we've tested. The overnight gap even offsets a weak next-day intraday (-0.65%) for a near-zero close-to-close.
+## Summary
 
-2. **Moderate-strong closes (CIR 60-80%): +1.10% overnight, 53.6% hit rate.** Highest mean in any bucket. These stocks closed well but not at the absolute high — still in the "continuation looks real" zone for overnight traders, and hasn't yet been crushed by profit-taking.
-
-**CIR [0.80, 1.00) is the worst overnight bucket** at just +0.16%, 48% hit rate. The perfect-close stocks that look best intraday are exactly the ones that attract the most institutional profit-taking overnight. Consistent with section 18.
-
-### Decomposition: overnight-gap vs next-day-intraday
-
-| CIR bucket | Overnight gap | Next-day intraday (open→close) |
-|---|---|---|
-| [0.00, 0.20) | +0.73% | -0.65% |
-| [0.20, 0.40) | +0.28% | +0.16% |
-| [0.40, 0.60) | +0.22% | -0.99% |
-| [0.60, 0.80) | +1.10% | -0.91% |
-| [0.80, 1.00) | +0.16% | -0.60% |
-
-**Next-day intraday is negative in every bucket except 20-40%.** The overnight gap is the only reliable edge; staying in through the next day's intraday wipes it out and then some.
-
-### Practical rules
-
-**Long overnight hold (exit at next-day open):**
-- **CIR 0-20%** — bounce play on oversold high-RVOL names, +0.73%, 62% hit.
-- **CIR 60-80%** — continuation-flavor carry, +1.10%, 54% hit.
-- Skip CIR 0.80+ (profit-taking crushes it) and CIR 20-60% (no clear signal).
-
-**Short overnight hold:** don't. Every bucket is positive overnight, meaning short holders lose across the board.
-
-**Next-day hold:** don't, unless fresh volume shows up on day 1 (section 14's finding).
-
-This supersedes the CIR ≥ 0.60 recommendation in section 19 — the disjoint view makes clear the edge lives in two specific bands with a dead zone in between, not a smooth gradient.
-
-## Summary of overnight findings (sections 18–21)
-
-Combined with the intraday matrices earlier:
+Combining the intraday matrices (sections 16-17) with the overnight analysis (section 18):
 
 1. **Intraday ORB long** on high-RVOL breakouts: PF 2.5–3.7, tradeable.
 2. **Intraday ORB short** on gap-downs: PF 1.3–1.7, tradeable but smaller universe.
-3. **Overnight long hold** — two sweet spots:
-   - CIR 0-20% bucket: +0.73%, 62% hit rate (oversold bounce).
-   - CIR 60-80% bucket: +1.10%, 54% hit rate (moderate continuation).
-   - CIR 80%+: barely positive, avoid (profit-taking crushes it).
-4. **Overnight short hold**: negative expectancy across every CIR band.
-5. **Next-day hold** (either side, without fresh volume): negative expectancy.
+3. **Overnight long hold** (exit at next-day open): two tradeable cells — gap-up CIR 60-80% (+1.55%) and gap-down CIR 0-20% (+0.91%).
+4. **Overnight short hold**: never — the universe is systematically positive overnight.
+5. **Full next-day hold**: don't, unless fresh volume shows up on day 1 (section 14).
 
-The system: **day-0 ORB, flatten at close.** Separately, consider a long overnight book on the two identified CIR buckets, exiting at next-day open — this is outside the ORB scope but uses the same universe.
+The core system remains: **day-0 ORB, flatten at close.** Overnight long book is a separate strategy that runs on top of the same pre-market screening infrastructure.
