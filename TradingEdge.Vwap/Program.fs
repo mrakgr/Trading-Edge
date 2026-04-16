@@ -816,8 +816,8 @@ let fillDelayMs = 100.0
 let fillRejectionRate = 0.30
 /// Default VWMA-distance filter (vol units). 0.0 = unfiltered.
 let minVwmaDist = 0.0
-/// Default stop mode.
-let stopMode = StopAtVol 3.0
+/// Default stop mode. rangeLo matches widest-vol-stop PF (~1.70) without tuning.
+let stopMode = StopAtRange
 
 let configureWith (header: DayHeader) (trades: Trade[]) (divisor: float) fillPercentile minVwmaDist stopMode =
     let barSize = computeBarSize header trades divisor
