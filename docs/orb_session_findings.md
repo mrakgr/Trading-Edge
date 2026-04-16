@@ -179,3 +179,51 @@ Combined long-gap-up + short-gap-down: PF **1.68**, NetPnL **+$313k**, direction
 Before this session, the plan was to move to generative approaches after eliminating ORB. That's now deprioritized. The pre-market feature space — gap %, RVOL, catalyst type, premarket volume curve, float, sector — evidently contains most of the signal. A supervised predictor of "will this stock close above its open" trained on pre-9:30 features should be worth more than any intraday system refinement, because intraday would just be decorating an already-present edge.
 
 The immediate next step is augmenting continuation_plays with same-day close metrics (close %, close % within daily range) so we can begin studying what pre-market configurations predict strong closes — and, downstream, build a stock-selection model for live trading.
+
+## 13. Day-1 continuations after strong closes — all four quadrants losing
+
+With the augmented continuation_plays dataset (gap_pct, close_vs_open_pct, close_in_range_pct), we tested whether the breakout-day bias carries into day 1.
+
+Cohorts (day 1 after a RVOL≥3 breakout):
+- **Bullish continuations (n=500):** breakout gapped up (median +9.9%) and closed in the top 20% of its daily range (median CIR 90.4%)
+- **Bearish continuations (n=344):** breakout gapped down (median -10.7%) and closed in the bottom 20% of its daily range (median CIR 8.9%)
+
+Fill-sim ORB on day 1:
+
+| | Bullish cont. (n=500) | Bearish cont. (n=344) |
+|---|---|---|
+| **Long ORB** | PF 0.77, -$20.5k | PF 0.90, -$5.6k |
+| **Short ORB** | PF 0.97, -$2.7k | PF 0.89, -$7.7k |
+
+**All four quadrants are losing.** The breakout-day bias does not persist into day 1 in this dataset. The edge was entirely on day 0 — the day of the catalyst, high RVOL, and range expansion. By day 1:
+
+- No fresh catalyst to drive volume
+- The move has already happened — the stock is well-extended
+- Other participants have had time to position against it
+- RVOL is definitionally lower (day 0 was max-RVOL)
+
+The naive "strong breakout → next day continues" thesis is not supported. Short-on-bullish-cont comes closest to break-even (-$5/day), hinting at a tiny mean-reversion tendency, but not tradeable.
+
+This is an important negative result: it narrows the live-tradable universe to **breakout days themselves**, not their continuations, and reinforces the selection-based framing from section 12.
+
+## 14. Day-1 continuations with a volume filter — the bias does persist
+
+Re-running section 13 but requiring the **continuation day itself** to have RVOL ≥ 3:
+
+- Bullish-cont + day-1 RVOL≥3: n=100 (out of 500)
+- Bearish-cont + day-1 RVOL≥3: n=43 (out of 344)
+
+| | Bullish cont. + RVOL≥3 (n=100) | Bearish cont. + RVOL≥3 (n=43) |
+|---|---|---|
+| **Long ORB** | PF **1.99**, +$14.1k | PF 1.07, +$0.5k |
+| **Short ORB** | PF 0.70, -$5.7k | PF **1.42**, +$3.4k |
+
+**Volume is the necessary condition.** Without it (section 13), all four quadrants lose. With it, the breakout-day bias reasserts itself cleanly:
+
+- Long-on-bullish-cont PF **1.99** — essentially matching the day-0 decision-level PF 1.95.
+- Short-on-bearish-cont PF **1.42** — meaningful edge, asymmetric to the long side (consistent with borrow/execution realities).
+- Wrong-direction quadrants are flat-to-losing, confirming the signal is real.
+
+The intuition holds: a breakout's directional signature only matters on day 1 if participants show up to continue the move. No volume → no continuation → no edge. This re-opens the door to multi-day continuation trading, but gated on live volume confirmation (which you can only assess intraday, not from pre-market alone).
+
+Small-sample caveat: n=100 and n=43. The long-bullish result is strong enough to be meaningful; the short-bearish result is consistent with section 12's long-only dominance but warrants more data before building a shippable system.
