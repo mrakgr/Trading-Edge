@@ -271,22 +271,11 @@ type SegregateTrades(barSize: float, baseTime) =
         self.ArgsBuilder.Process((fun bar -> lastBar <- ValueSome bar), trade, inclVwma, inclVol, inclRange)
         onNext (lastBar, stage, trade)
 
-/// Compute the RTH volume target (9:30 ET → scheduled close) from the day's
-/// filtered trades, then divide by `divisor` to get the per-bar target.
-let computeBarSize (header: DayHeader) (trades: Trade[]) (divisor: float) : float =
-    let baseTime = DateTime header.BaseTicks
-    let openTicks = baseTime.AddHours(9.5).Ticks
-    let closeTicks =
-        if Timezone.early_closes.Contains(DateOnly.FromDateTime baseTime) then
-            baseTime.AddHours(13).Ticks
-        else
-            baseTime.AddHours(16).Ticks
-    let mutable total = 0.0
-    for t in trades do
-        let ts = baseTime.AddTicks(t.TicksFromBase).Ticks
-        if ts >= openTicks && ts <= closeTicks then
-            total <- total + float t.Volume
-    total / divisor
+/// Compute bar size from the 4-week historical average daily volume.
+/// On a typical day this gives ~divisor bars; on an RVOL=3 day we get ~3x as many.
+/// No lookahead — `avgVolume4w` is known at t=0 from stock_volume_4w.
+let computeBarSize (avgVolume4w: float) (divisor: float) : float =
+    avgVolume4w / divisor
 
 // ============================================================================
 // VWAP trading system (decisions from bars)
@@ -848,12 +837,10 @@ type DayResult = {
     AvgPositionSize: float
 }
 
-type DayData = { Date: string; Header: DayHeader; Ticker: string; Trades: Trade[] }
+type DayData = { Date: string; Header: DayHeader; Ticker: string; Trades: Trade[]; AvgVolume4w: float }
 
-/// Divide the day's 9:30 ET → close filtered volume by this to get the bar size.
-/// Uses lookahead (whole-day volume known at t=0); intentional — we're
-/// measuring whether a VWAP-reversion system is viable in principle before
-/// building an online estimator for it.
+/// Bar size = avg_volume_4w / barDivisor. Tuned manually (changing it rescales
+/// realized volatility so a naive profit-factor sweep can mislead).
 let barDivisor = 3000.0
 
 let positionSize = 30000.0
@@ -867,8 +854,8 @@ let minVwmaDist = 0.0
 /// Default stop mode. rangeLo matches widest-vol-stop PF (~1.70) without tuning.
 let stopMode = StopAtRange
 
-let configureWith (header: DayHeader) (trades: Trade[]) (divisor: float) fillPercentile minVwmaDist stopMode =
-    let barSize = computeBarSize header trades divisor
+let configureWith (header: DayHeader) (avgVolume4w: float) (divisor: float) fillPercentile minVwmaDist stopMode =
+    let barSize = computeBarSize avgVolume4w divisor
     let seg = SegregateTrades(barSize, DateTime header.BaseTicks)
     seg.OpeningPrintIdx <- header.OpeningPrintIndex
     let vs = OrbSystem(positionSize, referenceVol, minVwmaDist, stopMode)
@@ -878,23 +865,45 @@ let configureWith (header: DayHeader) (trades: Trade[]) (divisor: float) fillPer
     let fs = FillSimulator(fillPercentile, fillDelayMs, fillRejectionRate, ValueNone, DateTime header.BaseTicks)
     seg, vs, td, ell, fs, tf
 
-let configure (header: DayHeader) (trades: Trade[]) bars fillPercentile minVwmaDist stopMode =
-    configureWith header trades bars fillPercentile minVwmaDist stopMode
+let configure (header: DayHeader) (avgVolume4w: float) bars fillPercentile minVwmaDist stopMode =
+    configureWith header avgVolume4w bars fillPercentile minVwmaDist stopMode
+
+/// Load (ticker, date) -> avg_volume_4w from the augmented continuation plays JSON.
+/// Every experiment JSON is a subset of continuation_plays, so this covers all the
+/// days we might encounter.
+let private loadAvgVolumes () =
+    let path = "data/continuation_plays_augmented.json"
+    let bytes = File.ReadAllBytes path
+    use doc = System.Text.Json.JsonDocument.Parse(ReadOnlyMemory bytes)
+    let d = System.Collections.Generic.Dictionary<struct (string * string), float>()
+    for el in doc.RootElement.EnumerateArray() do
+        let ticker = el.GetProperty("ticker").GetString()
+        let date = el.GetProperty("date").GetString()
+        let avgVol = el.GetProperty("avg_volume_4w").GetDouble()
+        if avgVol > 0.0 then d.[struct (ticker, date)] <- avgVol
+    d
 
 let loadDayData (jsonPath: string) =
     let entries = Convert.loadPlays jsonPath
 
     printfn "Loading %d days from %s ..." entries.Length jsonPath
     let swLoad = Stopwatch.StartNew()
+    let avgVols = loadAvgVolumes ()
+    let mutable skippedNoVol = 0
     let dayData : DayData[] =
         [| for ticker, date in entries do
             let header, trades = loadDay {Directory = "data/trades_bin"; Ticker = ticker; Date = date}
             if header.OpeningPrintIndex <> ValueNone then
-                yield { Ticker = ticker; Date = date
-                        Header = header; Trades = trades } |]
+                match avgVols.TryGetValue(struct (ticker, date)) with
+                | true, avgVol when avgVol > 0.0 ->
+                    yield { Ticker = ticker; Date = date
+                            Header = header; Trades = trades; AvgVolume4w = avgVol }
+                | _ ->
+                    skippedNoVol <- skippedNoVol + 1 |]
     swLoad.Stop()
     let totalTrades = dayData |> Array.sumBy (fun d -> int64 d.Trades.Length)
-    printfn "Loaded %d days (%s trades) in %.3fs\n" dayData.Length (totalTrades.ToString("N0")) swLoad.Elapsed.TotalSeconds
+    printfn "Loaded %d days (%s trades) in %.3fs (skipped %d for missing avg_volume_4w)\n"
+        dayData.Length (totalTrades.ToString("N0")) swLoad.Elapsed.TotalSeconds skippedNoVol
     dayData, totalTrades
 
 /// Run the full pipeline for one day with the given pcts and return NetPnL.
@@ -906,7 +915,7 @@ type DaySummary = {
 }
 
 let evaluateDay (d: DayData) (divisor: float) fillPercentile (minVwmaDist: float) (stopMode: StopMode) : DaySummary =
-    let seg, vs, td, ell, fs, tf = configureWith d.Header d.Trades divisor fillPercentile minVwmaDist stopMode
+    let seg, vs, td, ell, fs, tf = configureWith d.Header d.AvgVolume4w divisor fillPercentile minVwmaDist stopMode
     let onFillSink (_: Fill) = ()
     let onFill (fill: Fill) = tf.Process(onFillSink, fill)
     let onTracked (decision: TradingDecision voption, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade) =
@@ -1008,7 +1017,7 @@ let runParallelSweep (dayData: DayData[]) (minDists: float[]) (stopModes: StopMo
 
 let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
     let bench(d : DayData, ctx : SinkContext) =
-        let seg, vs, td, ell, fs, tf = configure d.Header d.Trades barDivisor fillPercentile minVwmaDist stopMode
+        let seg, vs, td, ell, fs, tf = configure d.Header d.AvgVolume4w barDivisor fillPercentile minVwmaDist stopMode
         let inline onFillSink (fill: Fill) =
             ctx.FillCount <- ctx.FillCount + 1
             ctx.Sink <- ctx.Sink + fill.Price
@@ -1067,7 +1076,7 @@ let runFillBreakdown (dayData: DayData[]) barDivisor fillPercentile (entryMode: 
 
     let dayResults =
         [| for d in dayData do
-            let seg, vs, td, ell, fs, tf = configure d.Header d.Trades barDivisor fillPercentile minVwmaDist stopMode
+            let seg, vs, td, ell, fs, tf = configure d.Header d.AvgVolume4w barDivisor fillPercentile minVwmaDist stopMode
             vs.EntryMode <- entryMode
             vs.Direction <- direction
             let onFillSink (_: Fill) = ()
@@ -1247,7 +1256,7 @@ let runTradeBreakdown (dayData: DayData[]) bars (entryMode: EntryMode) (stopMode
 
     let dayResults =
         [| for d in dayData do
-            let barSize = computeBarSize d.Header d.Trades bars
+            let barSize = computeBarSize d.AvgVolume4w bars
             let seg = SegregateTrades(barSize, DateTime d.Header.BaseTicks)
             seg.OpeningPrintIdx <- d.Header.OpeningPrintIndex
             let vs = OrbSystem(positionSize, referenceVol, minVwmaDist, stopMode)
