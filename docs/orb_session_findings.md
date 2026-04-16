@@ -372,14 +372,62 @@ Next-day returns (negated) are flipping near zero — a mix of intraday reversio
 
 **Short rule: don't hold short overnight on any weak-close band.** The short edge is intraday only; the overnight fade that hurt long-side strong-closers actively *helps* the same stocks on the short side (and vice versa).
 
-## Summary of overnight findings (sections 18–20)
+## 21. Disjoint CIR buckets — two distinct overnight regimes
+
+Sections 19–20 used cumulative CIR thresholds (`≥ 0.80`, `≥ 0.60`, etc.), which obscured where the edge actually lives. Re-running with 5 disjoint 20%-wide buckets (RVOL ≥ 3, day 0) makes the picture much clearer:
+
+| CIR bucket | n | Overnight mean | Overnight hit rate | Next-day close-to-close |
+|---|---|---|---|---|
+| [0.00, 0.20) | 772 | **+0.73%** | **61.8%** | -0.04% |
+| [0.20, 0.40) | 643 | +0.28% | 55.8% | +0.48% |
+| [0.40, 0.60) | 612 | +0.22% | 53.5% | -0.86% |
+| [0.60, 0.80) | 658 | **+1.10%** | 53.6% | +0.18% |
+| [0.80, 1.00) | 822 | +0.16% | 48.4% | -0.45% |
+
+**Two non-overlapping sweet spots, not one:**
+
+1. **Weak closes (CIR 0-20%): +0.73% overnight, 62% hit rate.** Stocks that closed at their lows bounce overnight — oversold bottom-fishing. This is the single *highest hit rate* in any overnight bucket we've tested. The overnight gap even offsets a weak next-day intraday (-0.65%) for a near-zero close-to-close.
+
+2. **Moderate-strong closes (CIR 60-80%): +1.10% overnight, 53.6% hit rate.** Highest mean in any bucket. These stocks closed well but not at the absolute high — still in the "continuation looks real" zone for overnight traders, and hasn't yet been crushed by profit-taking.
+
+**CIR [0.80, 1.00) is the worst overnight bucket** at just +0.16%, 48% hit rate. The perfect-close stocks that look best intraday are exactly the ones that attract the most institutional profit-taking overnight. Consistent with section 18.
+
+### Decomposition: overnight-gap vs next-day-intraday
+
+| CIR bucket | Overnight gap | Next-day intraday (open→close) |
+|---|---|---|
+| [0.00, 0.20) | +0.73% | -0.65% |
+| [0.20, 0.40) | +0.28% | +0.16% |
+| [0.40, 0.60) | +0.22% | -0.99% |
+| [0.60, 0.80) | +1.10% | -0.91% |
+| [0.80, 1.00) | +0.16% | -0.60% |
+
+**Next-day intraday is negative in every bucket except 20-40%.** The overnight gap is the only reliable edge; staying in through the next day's intraday wipes it out and then some.
+
+### Practical rules
+
+**Long overnight hold (exit at next-day open):**
+- **CIR 0-20%** — bounce play on oversold high-RVOL names, +0.73%, 62% hit.
+- **CIR 60-80%** — continuation-flavor carry, +1.10%, 54% hit.
+- Skip CIR 0.80+ (profit-taking crushes it) and CIR 20-60% (no clear signal).
+
+**Short overnight hold:** don't. Every bucket is positive overnight, meaning short holders lose across the board.
+
+**Next-day hold:** don't, unless fresh volume shows up on day 1 (section 14's finding).
+
+This supersedes the CIR ≥ 0.60 recommendation in section 19 — the disjoint view makes clear the edge lives in two specific bands with a dead zone in between, not a smooth gradient.
+
+## Summary of overnight findings (sections 18–21)
 
 Combined with the intraday matrices earlier:
 
 1. **Intraday ORB long** on high-RVOL breakouts: PF 2.5–3.7, tradeable.
 2. **Intraday ORB short** on gap-downs: PF 1.3–1.7, tradeable but smaller universe.
-3. **Overnight long hold** on CIR ≥ 0.60 closers: positive expectancy (~+0.58%), marginal.
-4. **Overnight short hold**: negative expectancy across all CIR bands.
+3. **Overnight long hold** — two sweet spots:
+   - CIR 0-20% bucket: +0.73%, 62% hit rate (oversold bounce).
+   - CIR 60-80% bucket: +1.10%, 54% hit rate (moderate continuation).
+   - CIR 80%+: barely positive, avoid (profit-taking crushes it).
+4. **Overnight short hold**: negative expectancy across every CIR band.
 5. **Next-day hold** (either side, without fresh volume): negative expectancy.
 
-The system remains: **day-0 ORB, flatten at close, don't hold overnight** — except possibly a small overnight long book on moderate bullish closes (CIR 0.40-0.60) as a separate strategy, which is outside the current ORB scope.
+The system: **day-0 ORB, flatten at close.** Separately, consider a long overnight book on the two identified CIR buckets, exiting at next-day open — this is outside the ORB scope but uses the same universe.
