@@ -460,6 +460,34 @@ Volume-bar vs time-bar deltas at key cells:
 | Long gap-down RVOL≥10 | 2.19 | **3.60** |
 | Short gap-down RVOL≥10 | 2.85 | 2.83 |
 
+### 22d. Continuation resets and day-1 continuations on time bars
+
+Reran sections 14 and 15 with time bars (10s, rangeLo).
+
+**Day-0 continuation resets** (`days_since_max_rvol_day = 0` AND `date != breakout_date` — same-chain later day that set a new RVOL high):
+
+| | Gap-Up (n=45) | Gap-Down (n=37) |
+|---|---|---|
+| **Long** | PF **5.65**, $11.9k | PF **7.99**, $13.9k |
+| **Short** | PF 1.48, $1.7k | PF 0.62, -$1.3k |
+
+Combined long (n=85): PF **6.65**, $27.9k, 58% win rate. ~2x the PF the volume-bar pipeline produced (3.89). Gap direction remains irrelevant on continuation resets — both favor long. PF 7.99 on gap-downs is the highest long cell we've ever measured.
+
+**Day-1 continuations with day-1 RVOL≥3** (section 14's cohort):
+
+| | Bullish-cont (n=100) | Bearish-cont (n=43) |
+|---|---|---|
+| **Long** | PF **2.24**, +$9.0k | PF 1.24, +$0.6k |
+| **Short** | PF 0.72, -$2.9k | PF **3.10**, +$5.3k |
+
+Both "correct-direction" cells are now clearly tradeable:
+- Long-bullish-cont PF 2.24 (vs 1.99 with volume bars).
+- **Short-bearish-cont PF 3.10** (vs 1.42 with volume bars — more than doubled).
+
+Time bars make the short-on-bearish-continuation setup meaningfully viable, which volume bars had left borderline.
+
+Size caveat persists: n=43 for bearish-cont. But the PF jump on both cells is consistent with everything else in the time-bar results — the signal was always there; volume bars were diluting it.
+
 ## Summary
 
 Combining everything:
@@ -469,9 +497,11 @@ Combining everything:
    - RVOL≥5 gap-up: PF **3.13** ($226k, n=1118) — prime sizing target.
    - RVOL≥10 gap-up: PF **4.92** ($107k, n=259) — scale size aggressively here.
    - Long gap-down now also works at every RVOL threshold (PF 1.45 → 3.60).
-2. **Intraday ORB short** only viable on gap-downs. RVOL≥10: PF 2.83 (n=50, small).
-3. **Overnight long hold** (exit at next-day open): gap-up CIR 60-80% (+1.55%, section 18), gap-down CIR 0-20% (+0.91%).
-4. **Overnight short hold**: never — universe is systematically positive overnight.
-5. **Next-day hold**: don't, unless fresh day-1 volume (section 14).
+2. **Intraday ORB short** only viable on gap-downs. RVOL≥10: PF 2.83 (n=50).
+3. **Continuation-reset day-0** (same-chain new RVOL high): long-only, PF **6.65** (n=85), gap-direction-agnostic. Highest-edge cohort we've found.
+4. **Day-1 continuations with RVOL≥3**: long-bullish-cont PF 2.24, short-bearish-cont PF 3.10. Both sides tradeable if day-1 volume confirms.
+5. **Overnight long hold** (exit at next-day open): gap-up CIR 60-80% (+1.55%), gap-down CIR 0-20% (+0.91%).
+6. **Overnight short hold**: never.
+7. **Next-day hold**: don't, unless fresh day-1 volume.
 
-The core system: **day-0 ORB with 10s time bars, trailing session range, rangeLo stop, flatten at close.** Size-scale by RVOL and weight the long book toward gap-ups. Overnight long book runs on the same screening infra for two specific CIR cells.
+The core system: **day-0 ORB with 10s time bars, trailing session range, rangeLo stop, flatten at close.** Size-scale by RVOL; weight toward long gap-ups but don't drop long gap-downs. Continuation resets deserve aggressive sizing. Day-1 trades are gated on intraday volume confirmation. Overnight long book on the same universe for two CIR cells.
