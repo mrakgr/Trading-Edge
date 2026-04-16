@@ -315,14 +315,31 @@ type StopMode =
     /// Use rangeLo unless it's further than `capVol` vol units; then cap at the vol distance.
     /// i.e. stopDist = min(price - rangeLo, capVol * price * VolFactor).
     | StopAtRangeVolCapped of capVol: float
+    /// No stop — only the BeforeClosing flatten exits the position.
+    | StopNever
+
+[<Struct>]
+type EntryMode =
+    /// Enter long when price > RangeHigh (and passes MinVwmaDist filter).
+    | RangeBreakout
+    /// Enter long on the first AfterOpeningPrint bar (no range/VWMA gate).
+    /// For measuring directional bias of the dataset.
+    | BuyAtOpen
+
+[<Struct>]
+type Direction =
+    | Long
+    | Short
 
 type OrbSystem(positionSize: float, referenceVol: float voption, minVwmaDist: float, stopMode: StopMode) =
     member val PositionSize = positionSize
     member val ReferenceVol = referenceVol
-    /// Minimum required distance from the 64-bar VWMA at entry, measured in vol units
-    /// (`(price - vwma) / (price * VolFactor)`). `0.0` disables the filter.
+    /// Minimum required distance from the 64-bar VWMA at entry, measured in vol units.
+    /// For longs: `(price - vwma) / (price * VolFactor)`. For shorts: negated. 0.0 disables the filter.
     member val MinVwmaDist = minVwmaDist
     member val StopMode = stopMode
+    member val EntryMode = RangeBreakout with get, set
+    member val Direction = Long with get, set
     member val State = Active(0.0, 0, 0.0) with get, set
 
     member inline self.EffectiveSize(vf: float) =
@@ -343,24 +360,48 @@ type OrbSystem(positionSize: float, referenceVol: float voption, minVwmaDist: fl
                     let price = lastBar.VWAP
                     let targetShares = round (self.EffectiveSize b.VolFactor / trade.Price) |> int
                     let barSize = lastBar.Volume
+                    // Direction-aware distance: positive if price has moved FAVORABLY away from VWMA.
+                    // Long wants price above VWMA; short wants price below.
+                    let vwmaDist =
+                        if b.VolFactor > 0.0 then
+                            match self.Direction with
+                            | Long -> (price - b.Vwma64) / (price * b.VolFactor)
+                            | Short -> (b.Vwma64 - price) / (price * b.VolFactor)
+                        else 0.0
+                    let shouldEnter =
+                        match self.EntryMode with
+                        | RangeBreakout ->
+                            match self.Direction with
+                            | Long -> price > b.RangeHigh
+                            | Short -> price < b.RangeLow
+                            |> fun breakout -> breakout && vwmaDist >= self.MinVwmaDist
+                        | BuyAtOpen -> true
                     if position = 0 then
-                        if targetShares > 0 then
-                            // Longs only — shorts lose money after borrow/execution costs on this dataset.
-                            let vwmaDist =
-                                if b.VolFactor > 0.0 then (price - b.Vwma64) / (price * b.VolFactor)
-                                else 0.0
-                            if price > b.RangeHigh && vwmaDist >= self.MinVwmaDist then
-                                let stopLevel =
-                                    match self.StopMode with
-                                    | StopAtVwma64 -> b.Vwma64
-                                    | StopAtVol stopVol -> price - stopVol * price * b.VolFactor
-                                    | StopAtRange -> b.RangeLow
-                                    | StopAtRangeVolCapped capVol ->
-                                        let rangeDist = price - b.RangeLow
-                                        let volDist = capVol * price * b.VolFactor
-                                        price - min rangeDist volDist
-                                self.State <- Active(price, targetShares, stopLevel)
-                                decision <- ValueSome { Timestamp = tradeTs; Price = price; Shares = targetShares; BarSize = barSize }
+                        if targetShares > 0 && shouldEnter then
+                            // Stop levels mirror by direction. For longs: stop below; for shorts: stop above.
+                            let stopLevel =
+                                match self.Direction, self.StopMode with
+                                | _, StopAtVwma64 -> b.Vwma64
+                                | Long, StopAtVol stopVol -> price - stopVol * price * b.VolFactor
+                                | Short, StopAtVol stopVol -> price + stopVol * price * b.VolFactor
+                                | Long, StopAtRange -> b.RangeLow
+                                | Short, StopAtRange -> b.RangeHigh
+                                | Long, StopAtRangeVolCapped capVol ->
+                                    let rangeDist = price - b.RangeLow
+                                    let volDist = capVol * price * b.VolFactor
+                                    price - min rangeDist volDist
+                                | Short, StopAtRangeVolCapped capVol ->
+                                    let rangeDist = b.RangeHigh - price
+                                    let volDist = capVol * price * b.VolFactor
+                                    price + min rangeDist volDist
+                                | Long, StopNever -> System.Double.NegativeInfinity
+                                | Short, StopNever -> System.Double.PositiveInfinity
+                            let signedShares =
+                                match self.Direction with
+                                | Long -> targetShares
+                                | Short -> -targetShares
+                            self.State <- Active(price, signedShares, stopLevel)
+                            decision <- ValueSome { Timestamp = tradeTs; Price = price; Shares = signedShares; BarSize = barSize }
                     elif position > 0 then
                         if price < stop then
                             self.State <- Active(price, 0, 0.0)
@@ -904,6 +945,7 @@ let stopModeLabel (sm: StopMode) =
     | StopAtVol v -> sprintf "vol=%.2f" v
     | StopAtRange -> "rangeLo"
     | StopAtRangeVolCapped v -> sprintf "capped=%.2f" v
+    | StopNever -> "none"
 
 /// 2D sweep over (minVwmaDist, stopMode) at a fixed bar divisor.
 let runParallelSweep (dayData: DayData[]) (minDists: float[]) (stopModes: StopMode[]) =
@@ -1007,7 +1049,7 @@ let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
         sw.Elapsed.TotalSeconds ctx.BarCount ctx.DecisionCount ctx.FillCount ctx.Sink
         ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
 
-let runFillBreakdown (dayData: DayData[]) barDivisor fillPercentile =
+let runFillBreakdown (dayData: DayData[]) barDivisor fillPercentile (entryMode: EntryMode) (stopMode: StopMode) (direction: Direction) =
     let logPath = "logs/fill_breakdown.log"
     Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
     use logWriter = new StreamWriter(logPath, false)
@@ -1015,6 +1057,7 @@ let runFillBreakdown (dayData: DayData[]) barDivisor fillPercentile =
         Printf.kprintf (fun s -> Console.WriteLine s; logWriter.WriteLine s; logWriter.Flush()) fmt
 
     tee "=== ORB System Fill Breakdown (single bar size, lookahead) ==="
+    tee "direction: %A  entryMode: %A  stopMode: %s" direction entryMode (stopModeLabel stopMode)
     tee "barDivisor: %.1f  entryDelay: %.1fs" barDivisor entryDelaySeconds
     tee "Position size: $%.0f  referenceVol: %.4g  lossLimit: infinity"
         positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0)
@@ -1025,6 +1068,8 @@ let runFillBreakdown (dayData: DayData[]) barDivisor fillPercentile =
     let dayResults =
         [| for d in dayData do
             let seg, vs, td, ell, fs, tf = configure d.Header d.Trades barDivisor fillPercentile minVwmaDist stopMode
+            vs.EntryMode <- entryMode
+            vs.Direction <- direction
             let onFillSink (_: Fill) = ()
             let onFill (fill: Fill) = tf.Process(onFillSink, fill)
             let onTracked (decision: TradingDecision voption, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade) =
@@ -1186,7 +1231,7 @@ type TradeBreakdownDay = {
     NumDecisions: int
 }
 
-let runTradeBreakdown (dayData: DayData[]) bars =
+let runTradeBreakdown (dayData: DayData[]) bars (entryMode: EntryMode) (stopMode: StopMode) (direction: Direction) =
     let logPath = "logs/trade_breakdown.log"
     Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
     use logWriter = new StreamWriter(logPath, false)
@@ -1194,6 +1239,7 @@ let runTradeBreakdown (dayData: DayData[]) bars =
         Printf.kprintf (fun s -> Console.WriteLine s; logWriter.WriteLine s; logWriter.Flush()) fmt
 
     tee "=== ORB System Trade Breakdown (decision-level, no fill sim) ==="
+    tee "direction: %A  entryMode: %A  stopMode: %s" direction entryMode (stopModeLabel stopMode)
     tee "barDivisor: %.1f  entryDelay: %.1fs" barDivisor entryDelaySeconds
     tee "Position size: $%.0f  referenceVol: %.4g  lossLimit: infinity"
         positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0)
@@ -1205,6 +1251,8 @@ let runTradeBreakdown (dayData: DayData[]) bars =
             let seg = SegregateTrades(barSize, DateTime d.Header.BaseTicks)
             seg.OpeningPrintIdx <- d.Header.OpeningPrintIndex
             let vs = OrbSystem(positionSize, referenceVol, minVwmaDist, stopMode)
+            vs.EntryMode <- entryMode
+            vs.Direction <- direction
             let td = TrackDecisions()
             let ell = EnforceLossLimit((fun () -> td.RealizedPnL), infinity)
             let onTracked (_decision, _bar, _stage, _trade) = ()
@@ -1371,6 +1419,8 @@ type BreakdownArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
     | [<AltCommandLine("-b")>] Bars of int
     | [<AltCommandLine("-p")>] Percentile of float
+    | Buy_At_Open
+    | Short
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -1378,6 +1428,8 @@ type BreakdownArgs =
             | Input _ -> "Input JSON with [{ticker, date}] entries (e.g. data/breakdown_2k.json)"
             | Bars _ -> "The target number of bars per session (e.g. 3000)"
             | Percentile _ -> "The target percentile to buy down in a bar (e.g. 0.05)"
+            | Buy_At_Open -> "Baseline: enter on first AfterOpeningPrint bar with StopNever (measures dataset directional bias)"
+            | Short -> "Short-side mirror: enter on range-low break, stop at range-high"
 
 type SweepArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
@@ -1437,13 +1489,21 @@ let main argv =
             let input = args.GetResult <@ BreakdownArgs.Input @>
             let bars = args.TryGetResult <@ BreakdownArgs.Bars @> |> Option.map float |> Option.defaultValue barDivisor
             let percentile = args.TryGetResult <@ BreakdownArgs.Percentile @> |> Option.map float |> Option.defaultValue fillPercentile
+            let entryMode, stopMode =
+                if args.Contains <@ BreakdownArgs.Buy_At_Open @> then BuyAtOpen, StopNever
+                else RangeBreakout, stopMode
+            let direction = if args.Contains <@ BreakdownArgs.Short @> then Direction.Short else Direction.Long
             let dayData, _ = loadDayData input
-            runFillBreakdown dayData bars percentile
+            runFillBreakdown dayData bars percentile entryMode stopMode direction
         | Trade_Breakdown args ->
             let input = args.GetResult <@ BreakdownArgs.Input @>
             let bars = args.TryGetResult <@ BreakdownArgs.Bars @> |> Option.map float |> Option.defaultValue barDivisor
+            let entryMode, stopMode =
+                if args.Contains <@ BreakdownArgs.Buy_At_Open @> then BuyAtOpen, StopNever
+                else RangeBreakout, stopMode
+            let direction = if args.Contains <@ BreakdownArgs.Short @> then Direction.Short else Direction.Long
             let dayData, _ = loadDayData input
-            runTradeBreakdown dayData bars
+            runTradeBreakdown dayData bars entryMode stopMode direction
         | Sweep args ->
             let input = args.GetResult <@ SweepArgs.Input @>
             let n = args.GetResult(<@ SweepArgs.Steps @>, 10)
