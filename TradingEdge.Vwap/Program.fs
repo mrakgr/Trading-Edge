@@ -85,76 +85,12 @@ let pairwiseRealizedVariance (a: VolumeBar) (b: VolumeBar) =
     assert (a.Volume = b.Volume)
     log (a.VWAP / b.VWAP) ** 2
 
-type VwapSystemBar = {
-    Bar : VolumeBar
-    Vwma : float
-    VolFactor : float
-}
-
 // ============================================================================
-// VWAP system args builder
-// ============================================================================
-
-type VwapSystemArgsBuilder(barSize: float) =
-    member val Inner = VolumeBarBuilder(barSize)
-    member val LogVwapSum = 0.0 with get, set
-    member val BarCount = 0 with get, set
-    member val VarianceSum = 0.0 with get, set
-    member val PairCount = 0 with get, set
-    member val PrevBar = ValueOption<VolumeBar>.None with get, set
-
-    member inline self.Process(onNext, trade: Trade, includeInVwma: bool, includeInVol: bool) =
-        self.Inner.Process(
-            (fun bar ->
-                if includeInVwma then
-                    self.LogVwapSum <- self.LogVwapSum + log bar.VWAP
-                    self.BarCount <- self.BarCount + 1
-                let vwma = if self.BarCount > 0 then exp (self.LogVwapSum / float self.BarCount) else 0.0
-                match self.PrevBar with
-                | ValueSome prev ->
-                    if includeInVol then
-                        self.VarianceSum <- self.VarianceSum + pairwiseRealizedVariance prev bar
-                        self.PairCount <- self.PairCount + 1
-                | ValueNone -> ()
-                self.PrevBar <- ValueSome bar
-                let volFactor = if self.PairCount > 0 then exp (sqrt (self.VarianceSum / float self.PairCount)) - 1.0 else 0.0
-                onNext {
-                    Bar = bar
-                    Vwma = vwma
-                    VolFactor = volFactor
-                }
-            ),
-            trade
-        )
-
-// ============================================================================
-// VWMA accumulator (rolling over last N bars, or cumulative if window=Int32.MaxValue)
-// ============================================================================
-
-type VwmaAccumulator(window: int) =
-    member val Window = window
-    member val LogVwapSum = 0.0 with get, set
-    member val Queue = System.Collections.Generic.Queue<float>()
-
-    member self.Update(vwap: float) =
-        let lv = log vwap
-        self.Queue.Enqueue lv
-        self.LogVwapSum <- self.LogVwapSum + lv
-        if self.Queue.Count > self.Window then
-            self.LogVwapSum <- self.LogVwapSum - self.Queue.Dequeue()
-
-    member self.Value =
-        if self.Queue.Count = 0 then 0.0
-        else exp (self.LogVwapSum / float self.Queue.Count)
-
-// ============================================================================
-// ORB system bar + args builder (rolling-64 VWMA + session VWMA + range)
+// ORB system bar + args builder (realized-vol + opening range)
 // ============================================================================
 
 type OrbSystemBar = {
     Bar : VolumeBar
-    Vwma64 : float
-    VwmaSession : float
     VolFactor : float
     RangeHigh : float
     RangeLow : float
@@ -162,20 +98,15 @@ type OrbSystemBar = {
 
 type OrbSystemArgsBuilder(barSize: float) =
     member val Inner = VolumeBarBuilder(barSize)
-    member val Vwma64 = VwmaAccumulator(64)
-    member val VwmaSession = VwmaAccumulator(Int32.MaxValue)
     member val VarianceSum = 0.0 with get, set
     member val PairCount = 0 with get, set
     member val PrevBar = ValueOption<VolumeBar>.None with get, set
     member val RangeHigh = Double.NegativeInfinity with get, set
     member val RangeLow = Double.PositiveInfinity with get, set
 
-    member inline self.Process(onNext, trade: Trade, includeInVwma: bool, includeInVol: bool, includeInRange: bool) =
+    member inline self.Process(onNext, trade: Trade, includeInVol: bool, includeInRange: bool) =
         self.Inner.Process(
             (fun bar ->
-                if includeInVwma then
-                    self.Vwma64.Update bar.VWAP
-                    self.VwmaSession.Update bar.VWAP
                 match self.PrevBar with
                 | ValueSome prev ->
                     if includeInVol then
@@ -189,8 +120,6 @@ type OrbSystemArgsBuilder(barSize: float) =
                 let volFactor = if self.PairCount > 0 then exp (sqrt (self.VarianceSum / float self.PairCount)) - 1.0 else 0.0
                 onNext {
                     Bar = bar
-                    Vwma64 = self.Vwma64.Value
-                    VwmaSession = self.VwmaSession.Value
                     VolFactor = volFactor
                     RangeHigh = self.RangeHigh
                     RangeLow = self.RangeLow
@@ -249,10 +178,6 @@ type SegregateTrades(barSize: float, baseTime) =
                 EarlyPremarket
 
     member self.CalculateFlags(stage: TradeStage) =
-        let includeInVwma =
-            match stage with
-            | AfterOpeningPrint | BeforeClosing -> true
-            | _ -> false
         let includeInVol =
             match stage with
             | LatePremarket | AfterOpeningPrint | BeforeClosing -> true
@@ -261,21 +186,24 @@ type SegregateTrades(barSize: float, baseTime) =
             match stage with
             | LatePremarket -> true
             | _ -> false
-        struct (includeInVwma, includeInVol, includeInRange)
-
+        struct (includeInVol, includeInRange)
 
     member inline self.Process(onNext, trade: Trade, index: int) =
         let stage = self.TradeStage(trade, index)
         let mutable lastBar = ValueNone
-        let struct (inclVwma, inclVol, inclRange) = self.CalculateFlags stage
-        self.ArgsBuilder.Process((fun bar -> lastBar <- ValueSome bar), trade, inclVwma, inclVol, inclRange)
+        let struct (inclVol, inclRange) = self.CalculateFlags stage
+        self.ArgsBuilder.Process((fun bar -> lastBar <- ValueSome bar), trade, inclVol, inclRange)
         onNext (lastBar, stage, trade)
+
+/// Minimum bar size in shares. Prevents tiny-float stocks from exploding bar counts
+/// when `avg_volume_4w` is very small.
+let minBarSize = 1000.0
 
 /// Compute bar size from the 4-week historical average daily volume.
 /// On a typical day this gives ~divisor bars; on an RVOL=3 day we get ~3x as many.
-/// No lookahead — `avgVolume4w` is known at t=0 from stock_volume_4w.
+/// No lookahead — `avgVolume4w` is known at t=0.
 let computeBarSize (avgVolume4w: float) (divisor: float) : float =
-    avgVolume4w / divisor
+    max minBarSize (avgVolume4w / divisor)
 
 // ============================================================================
 // VWAP trading system (decisions from bars)
@@ -295,23 +223,20 @@ type SimulatorState =
 
 [<Struct>]
 type StopMode =
-    /// Stop at the 64-bar VWMA at entry time.
-    | StopAtVwma64
-    /// Stop `stopVol * price * VolFactor` below entry price.
+    /// Stop `stopVol * price * VolFactor` below/above entry price.
     | StopAtVol of stopVol: float
-    /// Stop at the opposite end of the opening range (b.RangeLow for longs).
+    /// Stop at the opposite end of the opening range (b.RangeLow for longs, b.RangeHigh for shorts).
     | StopAtRange
-    /// Use rangeLo unless it's further than `capVol` vol units; then cap at the vol distance.
-    /// i.e. stopDist = min(price - rangeLo, capVol * price * VolFactor).
+    /// Use range stop unless it's further than `capVol` vol units; then cap at the vol distance.
     | StopAtRangeVolCapped of capVol: float
     /// No stop — only the BeforeClosing flatten exits the position.
     | StopNever
 
 [<Struct>]
 type EntryMode =
-    /// Enter long when price > RangeHigh (and passes MinVwmaDist filter).
+    /// Enter when price > RangeHigh (long) or price < RangeLow (short).
     | RangeBreakout
-    /// Enter long on the first AfterOpeningPrint bar (no range/VWMA gate).
+    /// Enter on the first AfterOpeningPrint bar (no range gate).
     /// For measuring directional bias of the dataset.
     | BuyAtOpen
 
@@ -320,12 +245,9 @@ type Direction =
     | Long
     | Short
 
-type OrbSystem(positionSize: float, referenceVol: float voption, minVwmaDist: float, stopMode: StopMode) =
+type OrbSystem(positionSize: float, referenceVol: float voption, stopMode: StopMode) =
     member val PositionSize = positionSize
     member val ReferenceVol = referenceVol
-    /// Minimum required distance from the 64-bar VWMA at entry, measured in vol units.
-    /// For longs: `(price - vwma) / (price * VolFactor)`. For shorts: negated. 0.0 disables the filter.
-    member val MinVwmaDist = minVwmaDist
     member val StopMode = stopMode
     member val EntryMode = RangeBreakout with get, set
     member val Direction = Long with get, set
@@ -349,28 +271,18 @@ type OrbSystem(positionSize: float, referenceVol: float voption, minVwmaDist: fl
                     let price = lastBar.VWAP
                     let targetShares = round (self.EffectiveSize b.VolFactor / trade.Price) |> int
                     let barSize = lastBar.Volume
-                    // Direction-aware distance: positive if price has moved FAVORABLY away from VWMA.
-                    // Long wants price above VWMA; short wants price below.
-                    let vwmaDist =
-                        if b.VolFactor > 0.0 then
-                            match self.Direction with
-                            | Long -> (price - b.Vwma64) / (price * b.VolFactor)
-                            | Short -> (b.Vwma64 - price) / (price * b.VolFactor)
-                        else 0.0
                     let shouldEnter =
                         match self.EntryMode with
                         | RangeBreakout ->
                             match self.Direction with
                             | Long -> price > b.RangeHigh
                             | Short -> price < b.RangeLow
-                            |> fun breakout -> breakout && vwmaDist >= self.MinVwmaDist
                         | BuyAtOpen -> true
                     if position = 0 then
                         if targetShares > 0 && shouldEnter then
                             // Stop levels mirror by direction. For longs: stop below; for shorts: stop above.
                             let stopLevel =
                                 match self.Direction, self.StopMode with
-                                | _, StopAtVwma64 -> b.Vwma64
                                 | Long, StopAtVol stopVol -> price - stopVol * price * b.VolFactor
                                 | Short, StopAtVol stopVol -> price + stopVol * price * b.VolFactor
                                 | Long, StopAtRange -> b.RangeLow
@@ -841,7 +753,8 @@ type DayData = { Date: string; Header: DayHeader; Ticker: string; Trades: Trade[
 
 /// Bar size = avg_volume_4w / barDivisor. Tuned manually (changing it rescales
 /// realized volatility so a naive profit-factor sweep can mislead).
-let barDivisor = 3000.0
+/// Divisor 1000 → ~1000 bars on a typical-volume day, ~3000 on an RVOL=3 day.
+let barDivisor = 1000.0
 
 let positionSize = 30000.0
 let referenceVol = ValueSome 5.82e-4
@@ -849,24 +762,22 @@ let commissionPerShare = 0.0035
 let fillPercentile = 0.05
 let fillDelayMs = 100.0
 let fillRejectionRate = 0.30
-/// Default VWMA-distance filter (vol units). 0.0 = unfiltered.
-let minVwmaDist = 0.0
 /// Default stop mode. rangeLo matches widest-vol-stop PF (~1.70) without tuning.
 let stopMode = StopAtRange
 
-let configureWith (header: DayHeader) (avgVolume4w: float) (divisor: float) fillPercentile minVwmaDist stopMode =
+let configureWith (header: DayHeader) (avgVolume4w: float) (divisor: float) fillPercentile stopMode =
     let barSize = computeBarSize avgVolume4w divisor
     let seg = SegregateTrades(barSize, DateTime header.BaseTicks)
     seg.OpeningPrintIdx <- header.OpeningPrintIndex
-    let vs = OrbSystem(positionSize, referenceVol, minVwmaDist, stopMode)
+    let vs = OrbSystem(positionSize, referenceVol, stopMode)
     let td = TrackDecisions()
     let tf = TrackFills(commissionPerShare)
     let ell = EnforceLossLimit((fun () -> tf.NetPnL), infinity)
     let fs = FillSimulator(fillPercentile, fillDelayMs, fillRejectionRate, ValueNone, DateTime header.BaseTicks)
     seg, vs, td, ell, fs, tf
 
-let configure (header: DayHeader) (avgVolume4w: float) bars fillPercentile minVwmaDist stopMode =
-    configureWith header avgVolume4w bars fillPercentile minVwmaDist stopMode
+let configure (header: DayHeader) (avgVolume4w: float) bars fillPercentile stopMode =
+    configureWith header avgVolume4w bars fillPercentile stopMode
 
 /// Load (ticker, date) -> avg_volume_4w from the augmented continuation plays JSON.
 /// Every experiment JSON is a subset of continuation_plays, so this covers all the
@@ -914,8 +825,8 @@ type DaySummary = {
     GrossLosses: float   // absolute value
 }
 
-let evaluateDay (d: DayData) (divisor: float) fillPercentile (minVwmaDist: float) (stopMode: StopMode) : DaySummary =
-    let seg, vs, td, ell, fs, tf = configureWith d.Header d.AvgVolume4w divisor fillPercentile minVwmaDist stopMode
+let evaluateDay (d: DayData) (divisor: float) fillPercentile (stopMode: StopMode) : DaySummary =
+    let seg, vs, td, ell, fs, tf = configureWith d.Header d.AvgVolume4w divisor fillPercentile stopMode
     let onFillSink (_: Fill) = ()
     let onFill (fill: Fill) = tf.Process(onFillSink, fill)
     let onTracked (decision: TradingDecision voption, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade) =
@@ -950,74 +861,47 @@ let logSpaced (n: int) (lo: float) (hi: float) : float[] =
 
 let stopModeLabel (sm: StopMode) =
     match sm with
-    | StopAtVwma64 -> "vwma64"
     | StopAtVol v -> sprintf "vol=%.2f" v
     | StopAtRange -> "rangeLo"
     | StopAtRangeVolCapped v -> sprintf "capped=%.2f" v
     | StopNever -> "none"
 
-/// 2D sweep over (minVwmaDist, stopMode) at a fixed bar divisor.
-let runParallelSweep (dayData: DayData[]) (minDists: float[]) (stopModes: StopMode[]) =
-    let nm = minDists.Length
+/// Sweep over stopMode at a fixed bar divisor.
+let runParallelSweep (dayData: DayData[]) (stopModes: StopMode[]) =
     let ns = stopModes.Length
-    let nConfigs = nm * ns
-    printfn "=== Parallel sweep: %d minDist x %d stopMode x %d days = %d tasks (cores=%d) ==="
-        nm ns dayData.Length (nConfigs * dayData.Length) Environment.ProcessorCount
+    printfn "=== Parallel sweep: %d stopMode x %d days = %d tasks (cores=%d) ==="
+        ns dayData.Length (ns * dayData.Length) Environment.ProcessorCount
 
-    evaluateDay dayData.[0] barDivisor fillPercentile minDists.[0] stopModes.[0] |> ignore
+    evaluateDay dayData.[0] barDivisor fillPercentile stopModes.[0] |> ignore
 
-    let parResults = Array2D.zeroCreate<DaySummary> nConfigs dayData.Length
+    let parResults = Array2D.zeroCreate<DaySummary> ns dayData.Length
     let swPar = Stopwatch.StartNew()
     for di in 0 .. dayData.Length - 1 do
         let d = dayData.[di]
-        System.Threading.Tasks.Parallel.For(0, nConfigs, fun ci ->
-            let mi = ci / ns
-            let si = ci % ns
-            parResults.[ci, di] <- evaluateDay d barDivisor fillPercentile minDists.[mi] stopModes.[si]
+        System.Threading.Tasks.Parallel.For(0, ns, fun si ->
+            parResults.[si, di] <- evaluateDay d barDivisor fillPercentile stopModes.[si]
         ) |> ignore
     swPar.Stop()
     printfn "  Parallel:   %.3fs" swPar.Elapsed.TotalSeconds
 
-    printfn "  Per-config results:"
-    printfn "    %-4s %10s %10s  %14s  %14s  %14s  %8s" "#" "minDist" "stopMode" "NetPnL" "grossWins" "grossLosses" "PF"
-    for ci in 0 .. nConfigs - 1 do
-        let mi = ci / ns
-        let si = ci % ns
+    printfn "  Per-stopMode results:"
+    printfn "    %-4s %10s  %14s  %14s  %14s  %8s" "#" "stopMode" "NetPnL" "grossWins" "grossLosses" "PF"
+    for si in 0 .. ns - 1 do
         let mutable net = 0.0
         let mutable gw = 0.0
         let mutable gl = 0.0
         for di in 0 .. dayData.Length - 1 do
-            let r = parResults.[ci, di]
+            let r = parResults.[si, di]
             net <- net + r.NetPnL
             gw <- gw + r.GrossWins
             gl <- gl + r.GrossLosses
         let pf = if gl > 0.0 then gw / gl else infinity
-        printfn "    [%2d] %10.3f %10s  $%13.2f  $%13.2f  $%13.2f  %8.3f"
-            ci minDists.[mi] (stopModeLabel stopModes.[si]) net gw gl pf
-
-    // PF matrix: rows = minDist, cols = stopMode.
-    printfn ""
-    printfn "  PF matrix (rows=minDist, cols=stopMode):"
-    printf "    %10s" ""
-    for si in 0 .. ns - 1 do printf " %10s" (stopModeLabel stopModes.[si])
-    printfn ""
-    for mi in 0 .. nm - 1 do
-        printf "    %10.3f" minDists.[mi]
-        for si in 0 .. ns - 1 do
-            let ci = mi * ns + si
-            let mutable gw = 0.0
-            let mutable gl = 0.0
-            for di in 0 .. dayData.Length - 1 do
-                let r = parResults.[ci, di]
-                gw <- gw + r.GrossWins
-                gl <- gl + r.GrossLosses
-            let pf = if gl > 0.0 then gw / gl else infinity
-            printf " %10.3f" pf
-        printfn ""
+        printfn "    [%2d] %10s  $%13.2f  $%13.2f  $%13.2f  %8.3f"
+            si (stopModeLabel stopModes.[si]) net gw gl pf
 
 let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
     let bench(d : DayData, ctx : SinkContext) =
-        let seg, vs, td, ell, fs, tf = configure d.Header d.AvgVolume4w barDivisor fillPercentile minVwmaDist stopMode
+        let seg, vs, td, ell, fs, tf = configure d.Header d.AvgVolume4w barDivisor fillPercentile stopMode
         let inline onFillSink (fill: Fill) =
             ctx.FillCount <- ctx.FillCount + 1
             ctx.Sink <- ctx.Sink + fill.Price
@@ -1076,7 +960,7 @@ let runFillBreakdown (dayData: DayData[]) barDivisor fillPercentile (entryMode: 
 
     let dayResults =
         [| for d in dayData do
-            let seg, vs, td, ell, fs, tf = configure d.Header d.AvgVolume4w barDivisor fillPercentile minVwmaDist stopMode
+            let seg, vs, td, ell, fs, tf = configure d.Header d.AvgVolume4w barDivisor fillPercentile stopMode
             vs.EntryMode <- entryMode
             vs.Direction <- direction
             let onFillSink (_: Fill) = ()
@@ -1259,7 +1143,7 @@ let runTradeBreakdown (dayData: DayData[]) bars (entryMode: EntryMode) (stopMode
             let barSize = computeBarSize d.AvgVolume4w bars
             let seg = SegregateTrades(barSize, DateTime d.Header.BaseTicks)
             seg.OpeningPrintIdx <- d.Header.OpeningPrintIndex
-            let vs = OrbSystem(positionSize, referenceVol, minVwmaDist, stopMode)
+            let vs = OrbSystem(positionSize, referenceVol, stopMode)
             vs.EntryMode <- entryMode
             vs.Direction <- direction
             let td = TrackDecisions()
@@ -1442,19 +1326,13 @@ type BreakdownArgs =
 
 type SweepArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
-    | [<AltCommandLine("-n")>] Steps of int
-    | [<AltCommandLine("-l")>] Lo of float
-    | [<AltCommandLine("-u")>] Hi of float
-    | Stop_Steps of int
-    | Stop_Lo of float
-    | Stop_Hi of float
+    | [<AltCommandLine("-n")>] Stop_Steps of int
+    | [<AltCommandLine("-l")>] Stop_Lo of float
+    | [<AltCommandLine("-u")>] Stop_Hi of float
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | Input _ -> "Input JSON with [{ticker, date}] entries"
-            | Steps _ -> "Number of log-spaced minVwmaDist steps (default: 10). If lo<=0, step 0 is 0.0 and remaining n-1 are log-spaced in [0.1, hi]."
-            | Lo _ -> "Lower minVwmaDist in vol units (default: 0.0 = unfiltered baseline)"
-            | Hi _ -> "Upper minVwmaDist in vol units (default: 20)"
             | Stop_Steps _ -> "Number of log-spaced stopVol steps (default: 5)"
             | Stop_Lo _ -> "Lower stopVol in vol units (default: 1.0)"
             | Stop_Hi _ -> "Upper stopVol in vol units (default: 10.0)"
@@ -1515,20 +1393,15 @@ let main argv =
             runTradeBreakdown dayData bars entryMode stopMode direction
         | Sweep args ->
             let input = args.GetResult <@ SweepArgs.Input @>
-            let n = args.GetResult(<@ SweepArgs.Steps @>, 10)
-            let lo = args.GetResult(<@ SweepArgs.Lo @>, 0.0)
-            let hi = args.GetResult(<@ SweepArgs.Hi @>, 20.0)
             let sn = args.GetResult(<@ SweepArgs.Stop_Steps @>, 5)
             let slo = args.GetResult(<@ SweepArgs.Stop_Lo @>, 1.0)
             let shi = args.GetResult(<@ SweepArgs.Stop_Hi @>, 10.0)
             let dayData, _ = loadDayData input
-            let minDists =
-                if lo <= 0.0 then Array.append [| 0.0 |] (logSpaced (n - 1) 0.1 hi)
-                else logSpaced n lo hi
-            // Build stopMode column: [rangeLo baseline; capped-range steps...; vwma64 baseline].
+            // Build stopMode list: [rangeLo baseline; vol-stop steps...; capped-range steps...].
+            let volModes = logSpaced sn slo shi |> Array.map StopAtVol
             let cappedModes = logSpaced sn slo shi |> Array.map StopAtRangeVolCapped
-            let stopModes = Array.concat [| [| StopAtRange |]; cappedModes; [| StopAtVwma64 |] |]
-            runParallelSweep dayData minDists stopModes
+            let stopModes = Array.concat [| [| StopAtRange |]; volModes; cappedModes |]
+            runParallelSweep dayData stopModes
         | Benchmark args ->
             let input = args.GetResult <@ BenchmarkArgs.Input @>
             let dayData, totalTrades = loadDayData input
