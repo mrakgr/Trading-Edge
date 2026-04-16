@@ -114,15 +114,20 @@ type OrbSystemArgsBuilder(barSize: float) =
                         self.PairCount <- self.PairCount + 1
                 | ValueNone -> ()
                 self.PrevBar <- ValueSome bar
+                let volFactor = if self.PairCount > 0 then exp (sqrt (self.VarianceSum / float self.PairCount)) - 1.0 else 0.0
+                // Emit the bar with the range as it stood BEFORE this bar contributed,
+                // so the entry check `price > RangeHigh` can fire on a fresh breakout.
+                // Then update the range to include this bar for future bars.
+                let emittedHigh = self.RangeHigh
+                let emittedLow = self.RangeLow
                 if includeInRange then
                     if bar.VWAP > self.RangeHigh then self.RangeHigh <- bar.VWAP
                     if bar.VWAP < self.RangeLow then self.RangeLow <- bar.VWAP
-                let volFactor = if self.PairCount > 0 then exp (sqrt (self.VarianceSum / float self.PairCount)) - 1.0 else 0.0
                 onNext {
                     Bar = bar
                     VolFactor = volFactor
-                    RangeHigh = self.RangeHigh
-                    RangeLow = self.RangeLow
+                    RangeHigh = emittedHigh
+                    RangeLow = emittedLow
                 }
             ),
             trade
@@ -182,9 +187,11 @@ type SegregateTrades(barSize: float, baseTime) =
             match stage with
             | LatePremarket | AfterOpeningPrint | BeforeClosing -> true
             | _ -> false
+        // Track the session range from 8:30 ET all the way through the close.
+        // Entries fire when price breaks above/below the running session high/low.
         let includeInRange =
             match stage with
-            | LatePremarket -> true
+            | LatePremarket | AfterOpeningPrint | BeforeClosing -> true
             | _ -> false
         struct (includeInVol, includeInRange)
 
