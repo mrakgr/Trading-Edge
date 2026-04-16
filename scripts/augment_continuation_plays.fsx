@@ -31,7 +31,7 @@ let neededTickers =
 
 printfn "Distinct tickers: %d" neededTickers.Length
 
-// 3. Query daily_prices with LAG for prev_close.
+// 3. Query daily_prices with LAG for prev_close and LEAD for next_open / next_close.
 let loadDaily () =
     let tickerList = neededTickers |> Array.map (fun t -> "'" + t + "'") |> String.concat ","
     let template = "
@@ -43,11 +43,13 @@ WITH daily AS (
         high,
         low,
         close,
-        LAG(close) OVER (PARTITION BY ticker ORDER BY date) AS prev_close
+        LAG(close) OVER (PARTITION BY ticker ORDER BY date) AS prev_close,
+        LEAD(open) OVER (PARTITION BY ticker ORDER BY date) AS next_open,
+        LEAD(close) OVER (PARTITION BY ticker ORDER BY date) AS next_close
     FROM daily_prices
     WHERE ticker IN (__TICKERS__)
 )
-SELECT ticker, day, open, high, low, close, prev_close FROM daily
+SELECT ticker, day, open, high, low, close, prev_close, next_open, next_close FROM daily
 "
     let query = template.Replace("__TICKERS__", tickerList)
     use conn = new DuckDBConnection(sprintf "Data Source=%s;ACCESS_MODE=READ_ONLY" db)
@@ -55,7 +57,10 @@ SELECT ticker, day, open, high, low, close, prev_close FROM daily
     use cmd = conn.CreateCommand()
     cmd.CommandText <- query
     use reader = cmd.ExecuteReader()
-    let dict = System.Collections.Generic.Dictionary<struct (string * string), struct (float * float * float * float * float voption)>()
+    let dict =
+        System.Collections.Generic.Dictionary<
+            struct (string * string),
+            struct (float * float * float * float * float voption * float voption * float voption)>()
     while reader.Read() do
         let ticker = reader.GetString 0
         let day = reader.GetString 1
@@ -66,7 +71,13 @@ SELECT ticker, day, open, high, low, close, prev_close FROM daily
         let prevClose =
             if reader.IsDBNull 6 then ValueNone
             else ValueSome (reader.GetDouble 6)
-        dict.[struct (ticker, day)] <- struct (openP, high, low, closeP, prevClose)
+        let nextOpen =
+            if reader.IsDBNull 7 then ValueNone
+            else ValueSome (reader.GetDouble 7)
+        let nextClose =
+            if reader.IsDBNull 8 then ValueNone
+            else ValueSome (reader.GetDouble 8)
+        dict.[struct (ticker, day)] <- struct (openP, high, low, closeP, prevClose, nextOpen, nextClose)
     dict
 
 printfn "Querying daily_prices ..."
@@ -87,12 +98,12 @@ let augmented =
     |> Array.map (fun props ->
         let ticker = props.["ticker"].GetString()
         let date = props.["date"].GetString()
-        let gapPct, closeOverOpen, closeInRange =
+        let gapPct, closeOverOpen, closeInRange, nextOpenVsClose, nextCloseVsClose =
             match dailyByKey.TryGetValue (struct (ticker, date)) with
             | false, _ ->
                 nNoDaily <- nNoDaily + 1
-                ValueNone, ValueNone, ValueNone
-            | true, struct (openP, high, low, closeP, prevClose) ->
+                ValueNone, ValueNone, ValueNone, ValueNone, ValueNone
+            | true, struct (openP, high, low, closeP, prevClose, nextOpen, nextClose) ->
                 nFound <- nFound + 1
                 let gap =
                     match prevClose with
@@ -105,9 +116,17 @@ let augmented =
                     if high > low then ValueSome ((closeP - low) / (high - low))
                     else
                         nFlatRange <- nFlatRange + 1
-                        ValueNone  // degenerate (e.g. halted all day, one trade)
-                gap, cvo, cir
-        props, gapPct, closeOverOpen, closeInRange)
+                        ValueNone
+                let novc =
+                    match nextOpen with
+                    | ValueSome no when closeP > 0.0 -> ValueSome (no / closeP - 1.0)
+                    | _ -> ValueNone
+                let ncvc =
+                    match nextClose with
+                    | ValueSome nc when closeP > 0.0 -> ValueSome (nc / closeP - 1.0)
+                    | _ -> ValueNone
+                gap, cvo, cir, novc, ncvc
+        props, gapPct, closeOverOpen, closeInRange, nextOpenVsClose, nextCloseVsClose)
 
 printfn "Augmentation: %d found, %d missing daily, %d missing prev-close, %d flat-range" nFound nNoDaily nNoPrev nFlatRange
 
@@ -122,9 +141,11 @@ let stats (name: string) (vs: float voption[]) =
 
 printfn ""
 printfn "Field distributions (all continuation_plays rows, not just breakouts):"
-stats "gap_pct" (augmented |> Array.map (fun (_, g, _, _) -> g))
-stats "close_vs_open_pct" (augmented |> Array.map (fun (_, _, c, _) -> c))
-stats "close_in_range_pct" (augmented |> Array.map (fun (_, _, _, r) -> r))
+stats "gap_pct" (augmented |> Array.map (fun (_, g, _, _, _, _) -> g))
+stats "close_vs_open_pct" (augmented |> Array.map (fun (_, _, c, _, _, _) -> c))
+stats "close_in_range_pct" (augmented |> Array.map (fun (_, _, _, r, _, _) -> r))
+stats "next_open_vs_close_pct" (augmented |> Array.map (fun (_, _, _, _, n, _) -> n))
+stats "next_close_vs_close_pct" (augmented |> Array.map (fun (_, _, _, _, _, n) -> n))
 
 // 6. Emit as JSON. Preserve original field order via the dictionary we captured.
 // For each row, we write out the original fields first (in insertion order), then
@@ -141,7 +162,7 @@ let writeDouble (sb: StringBuilder) (v: float voption) =
 let sb = StringBuilder()
 sb.Append "[\n" |> ignore
 augmented
-|> Array.iteri (fun i (props, gap, cvo, cir) ->
+|> Array.iteri (fun i (props, gap, cvo, cir, novc, ncvc) ->
     sb.Append "  {" |> ignore
     let mutable first = true
     for kv in props do
@@ -156,6 +177,10 @@ augmented
     writeDouble sb cvo
     sb.Append ", \"close_in_range_pct\": " |> ignore
     writeDouble sb cir
+    sb.Append ", \"next_open_vs_close_pct\": " |> ignore
+    writeDouble sb novc
+    sb.Append ", \"next_close_vs_close_pct\": " |> ignore
+    writeDouble sb ncvc
     sb.Append "}" |> ignore
     if i < augmented.Length - 1 then sb.Append "," |> ignore
     sb.Append "\n" |> ignore)
