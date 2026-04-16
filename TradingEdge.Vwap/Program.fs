@@ -312,6 +312,9 @@ type StopMode =
     | StopAtVol of stopVol: float
     /// Stop at the opposite end of the opening range (b.RangeLow for longs).
     | StopAtRange
+    /// Use rangeLo unless it's further than `capVol` vol units; then cap at the vol distance.
+    /// i.e. stopDist = min(price - rangeLo, capVol * price * VolFactor).
+    | StopAtRangeVolCapped of capVol: float
 
 type OrbSystem(positionSize: float, referenceVol: float voption, minVwmaDist: float, stopMode: StopMode) =
     member val PositionSize = positionSize
@@ -352,6 +355,10 @@ type OrbSystem(positionSize: float, referenceVol: float voption, minVwmaDist: fl
                                     | StopAtVwma64 -> b.Vwma64
                                     | StopAtVol stopVol -> price - stopVol * price * b.VolFactor
                                     | StopAtRange -> b.RangeLow
+                                    | StopAtRangeVolCapped capVol ->
+                                        let rangeDist = price - b.RangeLow
+                                        let volDist = capVol * price * b.VolFactor
+                                        price - min rangeDist volDist
                                 self.State <- Active(price, targetShares, stopLevel)
                                 decision <- ValueSome { Timestamp = tradeTs; Price = price; Shares = targetShares; BarSize = barSize }
                     elif position > 0 then
@@ -896,6 +903,7 @@ let stopModeLabel (sm: StopMode) =
     | StopAtVwma64 -> "vwma64"
     | StopAtVol v -> sprintf "vol=%.2f" v
     | StopAtRange -> "rangeLo"
+    | StopAtRangeVolCapped v -> sprintf "capped=%.2f" v
 
 /// 2D sweep over (minVwmaDist, stopMode) at a fixed bar divisor.
 let runParallelSweep (dayData: DayData[]) (minDists: float[]) (stopModes: StopMode[]) =
@@ -1448,9 +1456,9 @@ let main argv =
             let minDists =
                 if lo <= 0.0 then Array.append [| 0.0 |] (logSpaced (n - 1) 0.1 hi)
                 else logSpaced n lo hi
-            // Build stopMode column: [vwma64; vol-steps...; rangeLo] so we can compare all three in one run.
-            let volModes = logSpaced sn slo shi |> Array.map StopAtVol
-            let stopModes = Array.concat [| [| StopAtVwma64 |]; volModes; [| StopAtRange |] |]
+            // Build stopMode column: [rangeLo baseline; capped-range steps...; vwma64 baseline].
+            let cappedModes = logSpaced sn slo shi |> Array.map StopAtRangeVolCapped
+            let stopModes = Array.concat [| [| StopAtRange |]; cappedModes; [| StopAtVwma64 |] |]
             runParallelSweep dayData minDists stopModes
         | Benchmark args ->
             let input = args.GetResult <@ BenchmarkArgs.Input @>
