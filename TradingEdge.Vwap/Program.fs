@@ -304,9 +304,14 @@ type SimulatorState =
     | Active of price: float * position: int * stop: float
     | Done
 
-type OrbSystem(positionSize: float, referenceVol: float voption) =
+type OrbSystem(positionSize: float, referenceVol: float voption, minVwmaDist: float, stopVol: float) =
     member val PositionSize = positionSize
     member val ReferenceVol = referenceVol
+    /// Minimum required distance from the 64-bar VWMA at entry, measured in vol units
+    /// (`(price - vwma) / (price * VolFactor)`). `0.0` disables the filter.
+    member val MinVwmaDist = minVwmaDist
+    /// Stop distance below entry in vol units: stopLevel = price - stopVol * price * VolFactor.
+    member val StopVol = stopVol
     member val State = Active(0.0, 0, 0.0) with get, set
 
     member inline self.EffectiveSize(vf: float) =
@@ -329,10 +334,14 @@ type OrbSystem(positionSize: float, referenceVol: float voption) =
                     let barSize = lastBar.Volume
                     if position = 0 then
                         if targetShares > 0 then
-                            // Freeze stop at entry: the current 64-bar VWMA becomes the fixed exit level.
+                            // Freeze a vol-based stop at entry: stopLevel = price - stopVol * price * VolFactor.
                             // Longs only — shorts lose money after borrow/execution costs on this dataset.
-                            if price > b.RangeHigh then
-                                self.State <- Active(price, targetShares, b.Vwma64)
+                            let vwmaDist =
+                                if b.VolFactor > 0.0 then (price - b.Vwma64) / (price * b.VolFactor)
+                                else 0.0
+                            if price > b.RangeHigh && vwmaDist >= self.MinVwmaDist then
+                                let stopLevel = price - self.StopVol * price * b.VolFactor
+                                self.State <- Active(price, targetShares, stopLevel)
                                 decision <- ValueSome { Timestamp = tradeTs; Price = price; Shares = targetShares; BarSize = barSize }
                     elif position > 0 then
                         if price < stop then
@@ -794,20 +803,24 @@ let commissionPerShare = 0.0035
 let fillPercentile = 0.05
 let fillDelayMs = 100.0
 let fillRejectionRate = 0.30
+/// Default VWMA-distance filter (vol units). 0.0 = unfiltered.
+let minVwmaDist = 0.0
+/// Default stop distance below entry in vol units.
+let stopVol = 3.0
 
-let configureWith (header: DayHeader) (trades: Trade[]) (divisor: float) fillPercentile =
+let configureWith (header: DayHeader) (trades: Trade[]) (divisor: float) fillPercentile minVwmaDist stopVol =
     let barSize = computeBarSize header trades divisor
     let seg = SegregateTrades(barSize, DateTime header.BaseTicks)
     seg.OpeningPrintIdx <- header.OpeningPrintIndex
-    let vs = OrbSystem(positionSize, referenceVol)
+    let vs = OrbSystem(positionSize, referenceVol, minVwmaDist, stopVol)
     let td = TrackDecisions()
     let tf = TrackFills(commissionPerShare)
     let ell = EnforceLossLimit((fun () -> tf.NetPnL), infinity)
     let fs = FillSimulator(fillPercentile, fillDelayMs, fillRejectionRate, ValueNone, DateTime header.BaseTicks)
     seg, vs, td, ell, fs, tf
 
-let configure (header: DayHeader) (trades: Trade[]) bars fillPercentile =
-    configureWith header trades bars fillPercentile
+let configure (header: DayHeader) (trades: Trade[]) bars fillPercentile minVwmaDist stopVol =
+    configureWith header trades bars fillPercentile minVwmaDist stopVol
 
 let loadDayData (jsonPath: string) =
     let entries = Convert.loadPlays jsonPath
@@ -833,8 +846,8 @@ type DaySummary = {
     GrossLosses: float   // absolute value
 }
 
-let evaluateDay (d: DayData) (divisor: float) fillPercentile : DaySummary =
-    let seg, vs, td, ell, fs, tf = configureWith d.Header d.Trades divisor fillPercentile
+let evaluateDay (d: DayData) (divisor: float) fillPercentile (minVwmaDist: float) (stopVol: float) : DaySummary =
+    let seg, vs, td, ell, fs, tf = configureWith d.Header d.Trades divisor fillPercentile minVwmaDist stopVol
     let onFillSink (_: Fill) = ()
     let onFill (fill: Fill) = tf.Process(onFillSink, fill)
     let onTracked (decision: TradingDecision voption, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade) =
@@ -858,8 +871,8 @@ let evaluateDay (d: DayData) (divisor: float) fillPercentile : DaySummary =
         elif rt.PnL < 0.0 then gl <- gl + (-rt.PnL)
     { NetPnL = tf.NetPnL; GrossWins = gw; GrossLosses = gl }
 
-/// Build N bar-size divisors log-spaced in [lo, hi].
-let logSpacedDivisors (n: int) (lo: float) (hi: float) : float[] =
+/// Build N values log-spaced in [lo, hi].
+let logSpaced (n: int) (lo: float) (hi: float) : float[] =
     if n <= 1 then [| lo |]
     else
         let logLo = log lo
@@ -867,26 +880,33 @@ let logSpacedDivisors (n: int) (lo: float) (hi: float) : float[] =
         [| for k in 0 .. n - 1 ->
             exp (logLo + (logHi - logLo) * float k / float (n - 1)) |]
 
-/// Sequential vs parallel sweep over (divisor, day) pairs.
-let runParallelSweep (dayData: DayData[]) (divisors: float[]) =
-    printfn "=== Parallel sweep: %d divisors x %d days = %d tasks (cores=%d) ==="
-        divisors.Length dayData.Length (divisors.Length * dayData.Length) Environment.ProcessorCount
+/// 2D sweep over (minVwmaDist, stopVol) at a fixed bar divisor.
+let runParallelSweep (dayData: DayData[]) (minDists: float[]) (stopVols: float[]) =
+    let nm = minDists.Length
+    let ns = stopVols.Length
+    let nConfigs = nm * ns
+    printfn "=== Parallel sweep: %d minDist x %d stopVol x %d days = %d tasks (cores=%d) ==="
+        nm ns dayData.Length (nConfigs * dayData.Length) Environment.ProcessorCount
 
-    evaluateDay dayData.[0] divisors.[0] |> ignore
+    evaluateDay dayData.[0] barDivisor fillPercentile minDists.[0] stopVols.[0] |> ignore
 
-    let parResults = Array2D.zeroCreate<DaySummary> divisors.Length dayData.Length
+    let parResults = Array2D.zeroCreate<DaySummary> nConfigs dayData.Length
     let swPar = Stopwatch.StartNew()
     for di in 0 .. dayData.Length - 1 do
         let d = dayData.[di]
-        System.Threading.Tasks.Parallel.For(0, divisors.Length, fun ci ->
-            parResults.[ci, di] <- evaluateDay d divisors.[ci] fillPercentile
+        System.Threading.Tasks.Parallel.For(0, nConfigs, fun ci ->
+            let mi = ci / ns
+            let si = ci % ns
+            parResults.[ci, di] <- evaluateDay d barDivisor fillPercentile minDists.[mi] stopVols.[si]
         ) |> ignore
     swPar.Stop()
     printfn "  Parallel:   %.3fs" swPar.Elapsed.TotalSeconds
 
-    printfn "  Per-divisor results:"
-    printfn "    %-4s %8s  %14s  %14s  %14s  %8s" "#" "divisor" "NetPnL" "grossWins" "grossLosses" "PF"
-    for ci in 0 .. divisors.Length - 1 do
+    printfn "  Per-config results:"
+    printfn "    %-4s %10s %10s  %14s  %14s  %14s  %8s" "#" "minDist" "stopVol" "NetPnL" "grossWins" "grossLosses" "PF"
+    for ci in 0 .. nConfigs - 1 do
+        let mi = ci / ns
+        let si = ci % ns
         let mutable net = 0.0
         let mutable gw = 0.0
         let mutable gl = 0.0
@@ -896,12 +916,32 @@ let runParallelSweep (dayData: DayData[]) (divisors: float[]) =
             gw <- gw + r.GrossWins
             gl <- gl + r.GrossLosses
         let pf = if gl > 0.0 then gw / gl else infinity
-        printfn "    [%2d] %8.1f  $%13.2f  $%13.2f  $%13.2f  %8.3f"
-            ci divisors.[ci] net gw gl pf
+        printfn "    [%2d] %10.3f %10.3f  $%13.2f  $%13.2f  $%13.2f  %8.3f"
+            ci minDists.[mi] stopVols.[si] net gw gl pf
+
+    // PF matrix: rows = minDist, cols = stopVol.
+    printfn ""
+    printfn "  PF matrix (rows=minDist, cols=stopVol):"
+    printf "    %10s" ""
+    for si in 0 .. ns - 1 do printf " %8.2f" stopVols.[si]
+    printfn ""
+    for mi in 0 .. nm - 1 do
+        printf "    %10.3f" minDists.[mi]
+        for si in 0 .. ns - 1 do
+            let ci = mi * ns + si
+            let mutable gw = 0.0
+            let mutable gl = 0.0
+            for di in 0 .. dayData.Length - 1 do
+                let r = parResults.[ci, di]
+                gw <- gw + r.GrossWins
+                gl <- gl + r.GrossLosses
+            let pf = if gl > 0.0 then gw / gl else infinity
+            printf " %8.3f" pf
+        printfn ""
 
 let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
     let bench(d : DayData, ctx : SinkContext) =
-        let seg, vs, td, ell, fs, tf = configure d.Header d.Trades barDivisor fillPercentile
+        let seg, vs, td, ell, fs, tf = configure d.Header d.Trades barDivisor fillPercentile minVwmaDist stopVol
         let inline onFillSink (fill: Fill) =
             ctx.FillCount <- ctx.FillCount + 1
             ctx.Sink <- ctx.Sink + fill.Price
@@ -959,7 +999,7 @@ let runFillBreakdown (dayData: DayData[]) barDivisor fillPercentile =
 
     let dayResults =
         [| for d in dayData do
-            let seg, vs, td, ell, fs, tf = configure d.Header d.Trades barDivisor fillPercentile
+            let seg, vs, td, ell, fs, tf = configure d.Header d.Trades barDivisor fillPercentile minVwmaDist stopVol
             let onFillSink (_: Fill) = ()
             let onFill (fill: Fill) = tf.Process(onFillSink, fill)
             let onTracked (decision: TradingDecision voption, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade) =
@@ -1139,7 +1179,7 @@ let runTradeBreakdown (dayData: DayData[]) bars =
             let barSize = computeBarSize d.Header d.Trades bars
             let seg = SegregateTrades(barSize, DateTime d.Header.BaseTicks)
             seg.OpeningPrintIdx <- d.Header.OpeningPrintIndex
-            let vs = OrbSystem(positionSize, referenceVol)
+            let vs = OrbSystem(positionSize, referenceVol, minVwmaDist, stopVol)
             let td = TrackDecisions()
             let ell = EnforceLossLimit((fun () -> td.RealizedPnL), infinity)
             let onTracked (_decision, _bar, _stage, _trade) = ()
@@ -1319,13 +1359,19 @@ type SweepArgs =
     | [<AltCommandLine("-n")>] Steps of int
     | [<AltCommandLine("-l")>] Lo of float
     | [<AltCommandLine("-u")>] Hi of float
+    | Stop_Steps of int
+    | Stop_Lo of float
+    | Stop_Hi of float
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | Input _ -> "Input JSON with [{ticker, date}] entries"
-            | Steps _ -> "Number of log-spaced divisor steps (default: 10)"
-            | Lo _ -> "Lower divisor (default: 1000)"
-            | Hi _ -> "Upper divisor (default: 5000)"
+            | Steps _ -> "Number of log-spaced minVwmaDist steps (default: 10). If lo<=0, step 0 is 0.0 and remaining n-1 are log-spaced in [0.1, hi]."
+            | Lo _ -> "Lower minVwmaDist in vol units (default: 0.0 = unfiltered baseline)"
+            | Hi _ -> "Upper minVwmaDist in vol units (default: 20)"
+            | Stop_Steps _ -> "Number of log-spaced stopVol steps (default: 5)"
+            | Stop_Lo _ -> "Lower stopVol in vol units (default: 1.0)"
+            | Stop_Hi _ -> "Upper stopVol in vol units (default: 10.0)"
 
 type BenchmarkArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
@@ -1376,11 +1422,17 @@ let main argv =
         | Sweep args ->
             let input = args.GetResult <@ SweepArgs.Input @>
             let n = args.GetResult(<@ SweepArgs.Steps @>, 10)
-            let lo = args.GetResult(<@ SweepArgs.Lo @>, 1000.0)
-            let hi = args.GetResult(<@ SweepArgs.Hi @>, 5000.0)
+            let lo = args.GetResult(<@ SweepArgs.Lo @>, 0.0)
+            let hi = args.GetResult(<@ SweepArgs.Hi @>, 20.0)
+            let sn = args.GetResult(<@ SweepArgs.Stop_Steps @>, 5)
+            let slo = args.GetResult(<@ SweepArgs.Stop_Lo @>, 1.0)
+            let shi = args.GetResult(<@ SweepArgs.Stop_Hi @>, 10.0)
             let dayData, _ = loadDayData input
-            let divisors = logSpacedDivisors n lo hi
-            runParallelSweep dayData divisors
+            let minDists =
+                if lo <= 0.0 then Array.append [| 0.0 |] (logSpaced (n - 1) 0.1 hi)
+                else logSpaced n lo hi
+            let stopVols = logSpaced sn slo shi
+            runParallelSweep dayData minDists stopVols
         | Benchmark args ->
             let input = args.GetResult <@ BenchmarkArgs.Input @>
             let dayData, totalTrades = loadDayData input
