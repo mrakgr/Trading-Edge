@@ -210,24 +210,26 @@ type BarSizeMode =
 /// Compute bar size. Historical divides avg_volume_4w; lookahead divides the day's
 /// actual 9:30 ET -> close volume, computed from the trade array.
 let computeBarSize (mode: BarSizeMode) (header: DayHeader) (trades: Trade[]) (avgVolume4w: float) (divisor: float) : float =
-    let raw =
-        match mode with
-        | Historical -> avgVolume4w / divisor
-        | Lookahead ->
-            let baseTime = DateTime header.BaseTicks
-            let openTicks = baseTime.AddHours(9.5).Ticks
-            let closeTicks =
-                if Timezone.early_closes.Contains(DateOnly.FromDateTime baseTime) then
-                    baseTime.AddHours(13).Ticks
-                else
-                    baseTime.AddHours(16).Ticks
-            let mutable total = 0.0
-            for t in trades do
-                let ts = baseTime.AddTicks(t.TicksFromBase).Ticks
-                if ts >= openTicks && ts <= closeTicks then
-                    total <- total + float t.Volume
-            total / divisor
-    max minBarSize raw
+    match mode with
+    | Historical ->
+        // Clamp so tiny-float stocks with low avg_volume_4w don't explode bar counts
+        // on high-RVOL days.
+        max minBarSize (avgVolume4w / divisor)
+    | Lookahead ->
+        // No clamp — we trust the actual RTH volume to scale bar counts sensibly.
+        let baseTime = DateTime header.BaseTicks
+        let openTicks = baseTime.AddHours(9.5).Ticks
+        let closeTicks =
+            if Timezone.early_closes.Contains(DateOnly.FromDateTime baseTime) then
+                baseTime.AddHours(13).Ticks
+            else
+                baseTime.AddHours(16).Ticks
+        let mutable total = 0.0
+        for t in trades do
+            let ts = baseTime.AddTicks(t.TicksFromBase).Ticks
+            if ts >= openTicks && ts <= closeTicks then
+                total <- total + float t.Volume
+        total / divisor
 
 // ============================================================================
 // VWAP trading system (decisions from bars)
