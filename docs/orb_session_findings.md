@@ -382,14 +382,96 @@ All assume exiting at next-day open.
 - Any short overnight, any bucket.
 - Any full-next-day hold (intraday grind is consistently negative).
 
+## 22. Two structural fixes, then time bars — PF 2.07 baseline
+
+After the overnight analysis, we revisited the core bar construction and found two more things that had been silently biasing results.
+
+### 22a. Session range should track through RTH, not just pre-market
+
+`CalculateFlags` had `includeInRange = true` only during `LatePremarket`. This meant the "opening range" was frozen at op+60s and never updated — so `price > RangeHigh` could fire multiple times as price whipped around any level above the pre-market range. Extending `includeInRange` through `AfterOpeningPrint` + `BeforeClosing` (so the range tracks running session highs/lows) and emitting each bar with the range *before* its own contribution (so a bar that sets a new high can itself trigger an entry):
+
+- PF: 1.72 → **1.79** (volume bars, RVOL≥3, fill-sim).
+- Worst day cut in half: -$10.3k → -$4.9k.
+- Round trips down 14%, win rate up to 51.4%.
+
+Late re-entries into already-mature moves got gated out. The "trailing session range" is now our canonical entry signal.
+
+### 22b. Time bars instead of volume bars
+
+Volume bars were contaminating position sizing. `VolFactor` is a per-bar realized-vol estimate, but with volume bars one bar represents wildly different amounts of wall-clock time depending on how fast volume is flowing. Sizing scales inversely with `VolFactor`, so on high-RVOL days (dense bars, small per-bar variance) position size exploded; on quiet stocks (sparse bars, big per-bar variance) it collapsed.
+
+Replaced the `VolumeBarBuilder` path with a `TimeBarBuilder` that buckets trades into fixed-length time windows (aligned to midnight ET). Empty buckets are skipped — no bar is emitted for a time window with zero trades. `VolFactor` now measures per-N-seconds realized variance, which is consistent across stocks and regimes.
+
+**Time-bar sweep (1s → 60s on RVOL≥3 breakouts, long ORB with rangeLo stop):**
+
+| bucket | PF | NetPnL |
+|---|---|---|
+| 1s | 1.94 | $373k |
+| 3s | 2.01 | $349k |
+| 6s | 2.03 | $315k |
+| 10s | 2.07 | $290k |
+| 12s | 2.08 | $278k |
+| 15s | **2.11** | $266k |
+| 20s | 2.09 | $240k |
+| 30s | 2.07 | $211k |
+| 60s | 2.06 | $166k |
+
+PF rises monotonically from 1s to ~15s (noise reduction), plateaus 15-30s, and loses consistency above 30s. NetPnL declines monotonically because smaller bars give smaller per-bar VolFactor → larger EffectiveSize → bigger gross PnL on both sides (ratio is the honest metric).
+
+**10s chosen as default** — PF 2.07 with meaningful NetPnL retention, well away from the 30s+ noise region.
+
+### 22c. Full RVOL × gap matrix on time bars
+
+Re-ran section 17's matrix with time bars (10s, rangeLo):
+
+**Long PF:**
+
+| RVOL min | Gap-Up | Gap-Down |
+|---|---|---|
+| 3 | 2.27 ($258k, n=2108) | 1.45 ($30k, n=1298) |
+| 4 | 2.63 ($249k, n=1566) | 1.73 ($35k, n=944) |
+| 5 | 3.13 ($226k, n=1118) | 1.95 ($29k, n=591) |
+| 6 | 3.01 ($201k, n=795) | 2.39 ($27k, n=362) |
+| 7 | 3.82 ($165k, n=567) | 3.01 ($25k, n=211) |
+| 8 | 3.85 ($129k, n=418) | 2.67 ($17k, n=129) |
+| 10 | **4.92** ($107k, n=259) | **3.60** ($12k, n=50) |
+
+**Short PF:**
+
+| RVOL min | Gap-Up | Gap-Down |
+|---|---|---|
+| 3 | 0.63 (-$81k) | 1.30 ($30k) |
+| 4 | 0.53 (-$80k) | 1.39 ($29k) |
+| 5 | 0.48 (-$68k) | 1.54 ($25k) |
+| 6 | 0.42 (-$57k) | 1.64 ($18k) |
+| 7 | 0.41 (-$46k) | 1.62 ($11k) |
+| 8 | 0.37 (-$39k) | 1.64 ($8k) |
+| 10 | 0.32 (-$28k) | **2.83** ($6k) |
+
+**Every long cell improved vs volume bars; short side is roughly unchanged.** The RVOL≥10 gap-up long hits PF 4.92 at 72% win rate (n=259). The monotonic climb 2.27 → 2.63 → 3.13 → 3.01 → 3.82 → 3.85 → 4.92 for long gap-ups strongly supports the "size-scale-with-RVOL" approach.
+
+Volume-bar vs time-bar deltas at key cells:
+
+| | Volume bars | Time bars |
+|---|---|---|
+| Long gap-up RVOL≥5 | 2.71 | **3.13** |
+| Long gap-up RVOL≥10 | 3.66 | **4.92** |
+| Long gap-down RVOL≥7 | 2.18 | **3.01** |
+| Long gap-down RVOL≥10 | 2.19 | **3.60** |
+| Short gap-down RVOL≥10 | 2.85 | 2.83 |
+
 ## Summary
 
-Combining the intraday matrices (sections 16-17) with the overnight analysis (section 18):
+Combining everything:
 
-1. **Intraday ORB long** on high-RVOL breakouts: PF 2.5–3.7, tradeable.
-2. **Intraday ORB short** on gap-downs: PF 1.3–1.7, tradeable but smaller universe.
-3. **Overnight long hold** (exit at next-day open): two tradeable cells — gap-up CIR 60-80% (+1.55%) and gap-down CIR 0-20% (+0.91%).
-4. **Overnight short hold**: never — the universe is systematically positive overnight.
-5. **Full next-day hold**: don't, unless fresh volume shows up on day 1 (section 14).
+1. **Intraday ORB long** on high-RVOL breakouts, time bars, rangeLo stop:
+   - RVOL≥3 baseline: PF **2.07** ($290k).
+   - RVOL≥5 gap-up: PF **3.13** ($226k, n=1118) — prime sizing target.
+   - RVOL≥10 gap-up: PF **4.92** ($107k, n=259) — scale size aggressively here.
+   - Long gap-down now also works at every RVOL threshold (PF 1.45 → 3.60).
+2. **Intraday ORB short** only viable on gap-downs. RVOL≥10: PF 2.83 (n=50, small).
+3. **Overnight long hold** (exit at next-day open): gap-up CIR 60-80% (+1.55%, section 18), gap-down CIR 0-20% (+0.91%).
+4. **Overnight short hold**: never — universe is systematically positive overnight.
+5. **Next-day hold**: don't, unless fresh day-1 volume (section 14).
 
-The core system remains: **day-0 ORB, flatten at close.** Overnight long book is a separate strategy that runs on top of the same pre-market screening infrastructure.
+The core system: **day-0 ORB with 10s time bars, trailing session range, rangeLo stop, flatten at close.** Size-scale by RVOL and weight the long book toward gap-ups. Overnight long book runs on the same screening infra for two specific CIR cells.
