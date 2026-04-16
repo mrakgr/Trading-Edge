@@ -128,6 +128,78 @@ type VwapSystemArgsBuilder(barSize: float) =
         )
 
 // ============================================================================
+// VWMA accumulator (rolling over last N bars, or cumulative if window=Int32.MaxValue)
+// ============================================================================
+
+type VwmaAccumulator(window: int) =
+    member val Window = window
+    member val LogVwapSum = 0.0 with get, set
+    member val Queue = System.Collections.Generic.Queue<float>()
+
+    member self.Update(vwap: float) =
+        let lv = log vwap
+        self.Queue.Enqueue lv
+        self.LogVwapSum <- self.LogVwapSum + lv
+        if self.Queue.Count > self.Window then
+            self.LogVwapSum <- self.LogVwapSum - self.Queue.Dequeue()
+
+    member self.Value =
+        if self.Queue.Count = 0 then 0.0
+        else exp (self.LogVwapSum / float self.Queue.Count)
+
+// ============================================================================
+// ORB system bar + args builder (rolling-64 VWMA + session VWMA + range)
+// ============================================================================
+
+type OrbSystemBar = {
+    Bar : VolumeBar
+    Vwma64 : float
+    VwmaSession : float
+    VolFactor : float
+    RangeHigh : float
+    RangeLow : float
+}
+
+type OrbSystemArgsBuilder(barSize: float) =
+    member val Inner = VolumeBarBuilder(barSize)
+    member val Vwma64 = VwmaAccumulator(64)
+    member val VwmaSession = VwmaAccumulator(Int32.MaxValue)
+    member val VarianceSum = 0.0 with get, set
+    member val PairCount = 0 with get, set
+    member val PrevBar = ValueOption<VolumeBar>.None with get, set
+    member val RangeHigh = Double.NegativeInfinity with get, set
+    member val RangeLow = Double.PositiveInfinity with get, set
+
+    member inline self.Process(onNext, trade: Trade, includeInVwma: bool, includeInVol: bool, includeInRange: bool) =
+        self.Inner.Process(
+            (fun bar ->
+                if includeInVwma then
+                    self.Vwma64.Update bar.VWAP
+                    self.VwmaSession.Update bar.VWAP
+                match self.PrevBar with
+                | ValueSome prev ->
+                    if includeInVol then
+                        self.VarianceSum <- self.VarianceSum + pairwiseRealizedVariance prev bar
+                        self.PairCount <- self.PairCount + 1
+                | ValueNone -> ()
+                self.PrevBar <- ValueSome bar
+                if includeInRange then
+                    if bar.VWAP > self.RangeHigh then self.RangeHigh <- bar.VWAP
+                    if bar.VWAP < self.RangeLow then self.RangeLow <- bar.VWAP
+                let volFactor = if self.PairCount > 0 then exp (sqrt (self.VarianceSum / float self.PairCount)) - 1.0 else 0.0
+                onNext {
+                    Bar = bar
+                    Vwma64 = self.Vwma64.Value
+                    VwmaSession = self.VwmaSession.Value
+                    VolFactor = volFactor
+                    RangeHigh = self.RangeHigh
+                    RangeLow = self.RangeLow
+                }
+            ),
+            trade
+        )
+
+// ============================================================================
 // Trade segregator
 // ============================================================================
 
@@ -139,11 +211,11 @@ type TradeStage =
     | BeforeClosing
 
 /// Delay between the opening print and when the system is allowed to trade.
-/// 5s replaces the first estimation offset from the old per-offset system.
-let entryDelaySeconds = 5.0
+/// 60s gives the ORB opening range its window (8:30 ET -> op+60s) before entries begin.
+let entryDelaySeconds = 60.0
 
 type SegregateTrades(barSize: float, baseTime) =
-    member val ArgsBuilder = VwapSystemArgsBuilder(barSize)
+    member val ArgsBuilder = OrbSystemArgsBuilder(barSize)
     member val ClosingPause = -60.0
     member val BaseTime = baseTime : DateTime
     member val OpeningPrintIdx = ValueNone : int voption with get, set
@@ -185,14 +257,18 @@ type SegregateTrades(barSize: float, baseTime) =
             match stage with
             | LatePremarket | AfterOpeningPrint | BeforeClosing -> true
             | _ -> false
-        struct (includeInVwma, includeInVol)
+        let includeInRange =
+            match stage with
+            | LatePremarket -> true
+            | _ -> false
+        struct (includeInVwma, includeInVol, includeInRange)
 
 
     member inline self.Process(onNext, trade: Trade, index: int) =
         let stage = self.TradeStage(trade, index)
         let mutable lastBar = ValueNone
-        let struct (inclVwma, inclVol) = self.CalculateFlags stage
-        self.ArgsBuilder.Process((fun bar -> lastBar <- ValueSome bar), trade, inclVwma, inclVol)
+        let struct (inclVwma, inclVol, inclRange) = self.CalculateFlags stage
+        self.ArgsBuilder.Process((fun bar -> lastBar <- ValueSome bar), trade, inclVwma, inclVol, inclRange)
         onNext (lastBar, stage, trade)
 
 /// Compute the RTH volume target (9:30 ET → scheduled close) from the day's
@@ -228,10 +304,9 @@ type SimulatorState =
     | Active of price: float * position: int
     | Done
 
-type VwapSystem(positionSize: float, referenceVol: float voption, bandVol: float) =
+type OrbSystem(positionSize: float, referenceVol: float voption) =
     member val PositionSize = positionSize
     member val ReferenceVol = referenceVol
-    member val BandVol = bandVol
     member val State = Active(0.0, 0) with get, set
 
     member inline self.EffectiveSize(vf: float) =
@@ -239,7 +314,7 @@ type VwapSystem(positionSize: float, referenceVol: float voption, bandVol: float
         | ValueNone -> self.PositionSize
         | ValueSome refVol -> min self.PositionSize (self.PositionSize * refVol / vf)
 
-    member inline self.Process(onNext, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade, tradeTs: DateTime) =
+    member inline self.Process(onNext, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade, tradeTs: DateTime) =
         let mutable decision = ValueNone
         match stage with
         | EarlyPremarket | LatePremarket -> ()
@@ -249,29 +324,26 @@ type VwapSystem(positionSize: float, referenceVol: float voption, bandVol: float
                 match self.State with
                 | Active(_, position) ->
                     let lastBar = b.Bar
+                    let price = lastBar.VWAP
+                    let vwma = b.Vwma64
                     let targetShares = round (self.EffectiveSize b.VolFactor / trade.Price) |> int
-                    let band = self.BandVol * b.VolFactor * lastBar.VWAP
                     let barSize = lastBar.Volume
-                    if targetShares > 0 then
-                        if lastBar.VWAP + band >= b.Vwma && position <= 0 then
-                            self.State <- Active(lastBar.VWAP, targetShares)
-                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = targetShares; BarSize = barSize }
-                        elif lastBar.VWAP - band < b.Vwma && position >= 0 then
-                            self.State <- Active(lastBar.VWAP, -targetShares)
-                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = -targetShares; BarSize = barSize }
-                        elif lastBar.VWAP >= b.Vwma && position <= 0 then
-                            self.State <- Active(lastBar.VWAP, targetShares)
-                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = 0; BarSize = barSize }
-                        elif lastBar.VWAP < b.Vwma && position >= 0 then
-                            self.State <- Active(lastBar.VWAP, -targetShares)
-                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = 0; BarSize = barSize }
+                    if position = 0 then
+                        if targetShares > 0 then
+                            if price > b.RangeHigh then
+                                self.State <- Active(price, targetShares)
+                                decision <- ValueSome { Timestamp = tradeTs; Price = price; Shares = targetShares; BarSize = barSize }
+                            elif price < b.RangeLow then
+                                self.State <- Active(price, -targetShares)
+                                decision <- ValueSome { Timestamp = tradeTs; Price = price; Shares = -targetShares; BarSize = barSize }
+                    elif position > 0 then
+                        if price < vwma then
+                            self.State <- Active(price, 0)
+                            decision <- ValueSome { Timestamp = tradeTs; Price = price; Shares = 0; BarSize = barSize }
                     else
-                        if lastBar.VWAP >= b.Vwma && position < 0 then
-                            self.State <- Active(lastBar.VWAP, 0)
-                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = 0; BarSize = barSize }
-                        elif lastBar.VWAP < b.Vwma && position > 0 then
-                            self.State <- Active(lastBar.VWAP, 0)
-                            decision <- ValueSome { Timestamp = tradeTs; Price = lastBar.VWAP; Shares = 0; BarSize = barSize }
+                        if price > vwma then
+                            self.State <- Active(price, 0)
+                            decision <- ValueSome { Timestamp = tradeTs; Price = price; Shares = 0; BarSize = barSize }
                 | Done -> ()
             | ValueNone -> ()
         | BeforeClosing ->
@@ -290,7 +362,7 @@ type TrackDecisions() =
     member val Decisions = ResizeArray<TradingDecision>(32)
     member val RealizedPnL = 0.0 with get, set
 
-    member inline self.Process(onNext, decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
+    member inline self.Process(onNext, decision: TradingDecision voption, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade) =
         match decision with
         | ValueSome d ->
             if self.Decisions.Count > 0 then
@@ -309,7 +381,7 @@ type EnforceLossLimit(getPnL: unit -> float, lossLimit: float) =
     member val LossLimit = lossLimit
     member val Tripped = false with get, set
 
-    member inline self.Process(onNext, decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
+    member inline self.Process(onNext, decision: TradingDecision voption, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade) =
         let decision =
             match decision with
             | ValueSome d ->
@@ -564,7 +636,7 @@ type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngO
             self.PlaceOrder now
         | _ -> ()
 
-    member inline self.Process(onNext, decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
+    member inline self.Process(onNext, decision: TradingDecision voption, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade) =
         let now = self.Timestamp trade
 
         // 1. Process cancellations
@@ -720,7 +792,6 @@ let barDivisor = 3000.0
 
 let positionSize = 30000.0
 let referenceVol = ValueSome 5.82e-4
-let bandVol = 0.0
 let commissionPerShare = 0.0035
 let fillPercentile = 0.05
 let fillDelayMs = 100.0
@@ -730,7 +801,7 @@ let configureWith (header: DayHeader) (trades: Trade[]) (divisor: float) fillPer
     let barSize = computeBarSize header trades divisor
     let seg = SegregateTrades(barSize, DateTime header.BaseTicks)
     seg.OpeningPrintIdx <- header.OpeningPrintIndex
-    let vs = VwapSystem(positionSize, referenceVol, bandVol)
+    let vs = OrbSystem(positionSize, referenceVol)
     let td = TrackDecisions()
     let tf = TrackFills(commissionPerShare)
     let ell = EnforceLossLimit((fun () -> tf.NetPnL), infinity)
@@ -768,7 +839,7 @@ let evaluateDay (d: DayData) (divisor: float) fillPercentile : DaySummary =
     let seg, vs, td, ell, fs, tf = configureWith d.Header d.Trades divisor fillPercentile
     let onFillSink (_: Fill) = ()
     let onFill (fill: Fill) = tf.Process(onFillSink, fill)
-    let onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
+    let onTracked (decision: TradingDecision voption, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade) =
         fs.Process(onFill, decision, bar, stage, trade)
     for i in 0 .. d.Trades.Length - 1 do
         seg.Process(
@@ -837,7 +908,7 @@ let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
             ctx.FillCount <- ctx.FillCount + 1
             ctx.Sink <- ctx.Sink + fill.Price
         let inline onFill (fill: Fill) = tf.Process(onFillSink, fill)
-        let inline onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
+        let inline onTracked (decision: TradingDecision voption, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade) =
             match bar with
             | ValueSome b -> ctx.BarCount <- ctx.BarCount + 1; ctx.Sink <- ctx.Sink + b.Bar.VWAP
             | ValueNone -> ()
@@ -863,7 +934,7 @@ let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
     for d in dayData.[..2] do
         bench(d, warmup_ctx)
 
-    printfn "=== VwapSystem (full pipeline) ==="
+    printfn "=== OrbSystem (full pipeline) ==="
     let sw = Stopwatch.StartNew()
     let ctx = {BarCount = 0; DecisionCount = 0; FillCount = 0; Sink = 0.0}
     for d in dayData do
@@ -880,10 +951,10 @@ let runFillBreakdown (dayData: DayData[]) barDivisor fillPercentile =
     let tee fmt =
         Printf.kprintf (fun s -> Console.WriteLine s; logWriter.WriteLine s; logWriter.Flush()) fmt
 
-    tee "=== VWAP System Fill Breakdown (single bar size, lookahead) ==="
+    tee "=== ORB System Fill Breakdown (single bar size, lookahead) ==="
     tee "barDivisor: %.1f  entryDelay: %.1fs" barDivisor entryDelaySeconds
-    tee "Position size: $%.0f  referenceVol: %.4g  bandVol: %.1f  lossLimit: infinity"
-        positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0) bandVol
+    tee "Position size: $%.0f  referenceVol: %.4g  lossLimit: infinity"
+        positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0)
     tee "Fill sim: pctile=%.3f, delay=%.0fms, commission=$%.4f/share, rejection=%.0f%%"
         fillPercentile fillDelayMs commissionPerShare (fillRejectionRate * 100.0)
     tee ""
@@ -893,7 +964,7 @@ let runFillBreakdown (dayData: DayData[]) barDivisor fillPercentile =
             let seg, vs, td, ell, fs, tf = configure d.Header d.Trades barDivisor fillPercentile
             let onFillSink (_: Fill) = ()
             let onFill (fill: Fill) = tf.Process(onFillSink, fill)
-            let onTracked (decision: TradingDecision voption, bar: VwapSystemBar voption, stage: TradeStage, trade: Trade) =
+            let onTracked (decision: TradingDecision voption, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade) =
                 fs.Process(onFill, decision, bar, stage, trade)
             for i in 0 .. d.Trades.Length - 1 do
                 seg.Process(
@@ -1059,10 +1130,10 @@ let runTradeBreakdown (dayData: DayData[]) bars =
     let tee fmt =
         Printf.kprintf (fun s -> Console.WriteLine s; logWriter.WriteLine s; logWriter.Flush()) fmt
 
-    tee "=== VWAP System Trade Breakdown (decision-level, no fill sim) ==="
+    tee "=== ORB System Trade Breakdown (decision-level, no fill sim) ==="
     tee "barDivisor: %.1f  entryDelay: %.1fs" barDivisor entryDelaySeconds
-    tee "Position size: $%.0f  referenceVol: %.4g  bandVol: %.1f  lossLimit: infinity"
-        positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0) bandVol
+    tee "Position size: $%.0f  referenceVol: %.4g  lossLimit: infinity"
+        positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0)
     tee ""
 
     let dayResults =
@@ -1070,7 +1141,7 @@ let runTradeBreakdown (dayData: DayData[]) bars =
             let barSize = computeBarSize d.Header d.Trades bars
             let seg = SegregateTrades(barSize, DateTime d.Header.BaseTicks)
             seg.OpeningPrintIdx <- d.Header.OpeningPrintIndex
-            let vs = VwapSystem(positionSize, referenceVol, bandVol)
+            let vs = OrbSystem(positionSize, referenceVol)
             let td = TrackDecisions()
             let ell = EnforceLossLimit((fun () -> td.RealizedPnL), infinity)
             let onTracked (_decision, _bar, _stage, _trade) = ()
