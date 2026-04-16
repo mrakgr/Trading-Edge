@@ -78,11 +78,45 @@ type VolumeBarBuilder(barSize: float) =
         self.Grouper.Process((fun trades -> self.BarBuilder.Process(onNext, trades)), trade)
 
 // ============================================================================
+// Time bars
+// ============================================================================
+
+/// Groups trades into fixed time buckets aligned to `baseTime` (typically midnight ET).
+/// The bucket index for a trade is `floor((trade_ticks - baseTime) / bucketTicks)`.
+/// A trade whose bucket index exceeds the current bucket flushes the current bucket
+/// (emitting a VolumeBar) and opens a new one. Empty buckets are skipped entirely —
+/// no bar is emitted for a time window with zero trades.
+type TimeBarBuilder(baseTime: DateTime, bucketSpan: TimeSpan) =
+    let bucketTicks = bucketSpan.Ticks
+    member val BaseTime = baseTime
+    member val BucketTicks = bucketTicks
+    member val BarBuilder = VolumeBarOfTrades()
+    member val CurrentBucket = -1L with get, set
+    member val CurrentTrades = ImmutableArray.CreateBuilder<struct (float * float)>()
+
+    member inline self.Flush(onNext) =
+        if self.CurrentTrades.Count > 0 then
+            self.BarBuilder.Process(onNext, self.CurrentTrades.ToImmutableArray())
+            self.CurrentTrades.Clear()
+
+    member inline self.Process(onNext, trade: Trade) =
+        let tradeTicks = trade.TicksFromBase
+        let bucket = tradeTicks / self.BucketTicks
+        if self.CurrentBucket = -1L then
+            self.CurrentBucket <- bucket
+        elif bucket <> self.CurrentBucket then
+            self.Flush onNext
+            self.CurrentBucket <- bucket
+        self.CurrentTrades.Add (struct (trade.Price, float trade.Volume))
+
+// ============================================================================
 // Pairwise bar variance
 // ============================================================================
 
+/// Log-return squared between consecutive bar VWAPs. Works for both volume bars
+/// (where adjacent bars have equal volume by construction) and time bars
+/// (where bar volume varies freely).
 let pairwiseRealizedVariance (a: VolumeBar) (b: VolumeBar) =
-    assert (a.Volume = b.Volume)
     log (a.VWAP / b.VWAP) ** 2
 
 // ============================================================================
@@ -96,42 +130,60 @@ type OrbSystemBar = {
     RangeLow : float
 }
 
-type OrbSystemArgsBuilder(barSize: float) =
-    member val Inner = VolumeBarBuilder(barSize)
+[<Struct>]
+type BarKind =
+    | VolumeBars of barSize: float
+    | TimeBars of bucketSpan: TimeSpan
+
+type OrbSystemArgsBuilder(kind: BarKind, baseTime: DateTime) =
+    member val Kind = kind
+    member val VolBuilder =
+        match kind with
+        | VolumeBars bs -> ValueSome (VolumeBarBuilder(bs))
+        | TimeBars _ -> ValueNone
+    member val TimeBuilder =
+        match kind with
+        | TimeBars span -> ValueSome (TimeBarBuilder(baseTime, span))
+        | VolumeBars _ -> ValueNone
     member val VarianceSum = 0.0 with get, set
     member val PairCount = 0 with get, set
     member val PrevBar = ValueOption<VolumeBar>.None with get, set
     member val RangeHigh = Double.NegativeInfinity with get, set
     member val RangeLow = Double.PositiveInfinity with get, set
 
+    member inline self.OnBar(onNext, bar: VolumeBar, includeInVol: bool, includeInRange: bool) =
+        match self.PrevBar with
+        | ValueSome prev ->
+            if includeInVol then
+                self.VarianceSum <- self.VarianceSum + pairwiseRealizedVariance prev bar
+                self.PairCount <- self.PairCount + 1
+        | ValueNone -> ()
+        self.PrevBar <- ValueSome bar
+        let volFactor = if self.PairCount > 0 then exp (sqrt (self.VarianceSum / float self.PairCount)) - 1.0 else 0.0
+        // Emit the bar with the range as it stood BEFORE this bar contributed,
+        // so the entry check `price > RangeHigh` can fire on a fresh breakout.
+        // Then update the range to include this bar for future bars.
+        let emittedHigh = self.RangeHigh
+        let emittedLow = self.RangeLow
+        if includeInRange then
+            if bar.VWAP > self.RangeHigh then self.RangeHigh <- bar.VWAP
+            if bar.VWAP < self.RangeLow then self.RangeLow <- bar.VWAP
+        onNext {
+            Bar = bar
+            VolFactor = volFactor
+            RangeHigh = emittedHigh
+            RangeLow = emittedLow
+        }
+
     member inline self.Process(onNext, trade: Trade, includeInVol: bool, includeInRange: bool) =
-        self.Inner.Process(
-            (fun bar ->
-                match self.PrevBar with
-                | ValueSome prev ->
-                    if includeInVol then
-                        self.VarianceSum <- self.VarianceSum + pairwiseRealizedVariance prev bar
-                        self.PairCount <- self.PairCount + 1
-                | ValueNone -> ()
-                self.PrevBar <- ValueSome bar
-                let volFactor = if self.PairCount > 0 then exp (sqrt (self.VarianceSum / float self.PairCount)) - 1.0 else 0.0
-                // Emit the bar with the range as it stood BEFORE this bar contributed,
-                // so the entry check `price > RangeHigh` can fire on a fresh breakout.
-                // Then update the range to include this bar for future bars.
-                let emittedHigh = self.RangeHigh
-                let emittedLow = self.RangeLow
-                if includeInRange then
-                    if bar.VWAP > self.RangeHigh then self.RangeHigh <- bar.VWAP
-                    if bar.VWAP < self.RangeLow then self.RangeLow <- bar.VWAP
-                onNext {
-                    Bar = bar
-                    VolFactor = volFactor
-                    RangeHigh = emittedHigh
-                    RangeLow = emittedLow
-                }
-            ),
-            trade
-        )
+        match self.VolBuilder with
+        | ValueSome vb ->
+            vb.Process((fun bar -> self.OnBar(onNext, bar, includeInVol, includeInRange)), trade)
+        | ValueNone ->
+            match self.TimeBuilder with
+            | ValueSome tb ->
+                tb.Process((fun bar -> self.OnBar(onNext, bar, includeInVol, includeInRange)), trade)
+            | ValueNone -> ()
 
 // ============================================================================
 // Trade segregator
@@ -148,8 +200,8 @@ type TradeStage =
 /// 60s gives the ORB opening range its window (8:30 ET -> op+60s) before entries begin.
 let entryDelaySeconds = 60.0
 
-type SegregateTrades(barSize: float, baseTime) =
-    member val ArgsBuilder = OrbSystemArgsBuilder(barSize)
+type SegregateTrades(kind: BarKind, baseTime) =
+    member val ArgsBuilder = OrbSystemArgsBuilder(kind, baseTime)
     member val ClosingPause = -60.0
     member val BaseTime = baseTime : DateTime
     member val OpeningPrintIdx = ValueNone : int voption with get, set
@@ -208,22 +260,21 @@ let minBarSize = 1000.0
 
 [<Struct>]
 type BarSizeMode =
-    /// Bar size = avg_volume_4w / divisor. No lookahead.
+    /// Volume bars sized as avg_volume_4w / divisor. No lookahead.
     | Historical
-    /// Bar size = (actual RTH volume) / divisor. Uses lookahead — only for
-    /// apples-to-apples comparison / idealised upper bound.
+    /// Volume bars sized as (actual RTH volume) / divisor. Lookahead — for comparison.
     | Lookahead
+    /// Fixed time bars; the "divisor" value is reinterpreted as bucket length in seconds.
+    | Time
 
-/// Compute bar size. Historical divides avg_volume_4w; lookahead divides the day's
-/// actual 9:30 ET -> close volume, computed from the trade array.
-let computeBarSize (mode: BarSizeMode) (header: DayHeader) (trades: Trade[]) (avgVolume4w: float) (divisor: float) : float =
+/// Compute the BarKind + a scalar "barSize" for display. For volume modes the scalar
+/// is shares-per-bar. For time mode it's seconds-per-bucket.
+let computeBarKind (mode: BarSizeMode) (header: DayHeader) (trades: Trade[]) (avgVolume4w: float) (divisor: float) : BarKind * float =
     match mode with
     | Historical ->
-        // Clamp so tiny-float stocks with low avg_volume_4w don't explode bar counts
-        // on high-RVOL days.
-        max minBarSize (avgVolume4w / divisor)
+        let bs = max minBarSize (avgVolume4w / divisor)
+        VolumeBars bs, bs
     | Lookahead ->
-        // No clamp — we trust the actual RTH volume to scale bar counts sensibly.
         let baseTime = DateTime header.BaseTicks
         let openTicks = baseTime.AddHours(9.5).Ticks
         let closeTicks =
@@ -236,7 +287,12 @@ let computeBarSize (mode: BarSizeMode) (header: DayHeader) (trades: Trade[]) (av
             let ts = baseTime.AddTicks(t.TicksFromBase).Ticks
             if ts >= openTicks && ts <= closeTicks then
                 total <- total + float t.Volume
-        total / divisor
+        let bs = total / divisor
+        VolumeBars bs, bs
+    | Time ->
+        // Here `divisor` is bucket length in seconds.
+        let seconds = divisor
+        TimeBars (TimeSpan.FromSeconds seconds), seconds
 
 // ============================================================================
 // VWAP trading system (decisions from bars)
@@ -785,10 +841,18 @@ type DayResult = {
 
 type DayData = { Date: string; Header: DayHeader; Ticker: string; Trades: Trade[]; AvgVolume4w: float }
 
-/// Bar size = avg_volume_4w / barDivisor. Tuned manually (changing it rescales
-/// realized volatility so a naive profit-factor sweep can mislead).
-/// Divisor 1000 → ~1000 bars on a typical-volume day, ~3000 on an RVOL=3 day.
-let barDivisor = 1000.0
+/// Default divisor per bar mode: bucket seconds for Time, target-bar-count for volume modes.
+let defaultDivisor (mode: BarSizeMode) =
+    match mode with
+    | Time -> 10.0
+    | Historical | Lookahead -> 1000.0
+
+/// Default bar-size mode. Time is the new winner (PF ~2 with 10s buckets).
+let barSizeMode = Time
+
+/// Legacy single value — used by a couple of sites that don't yet know the mode.
+/// New code paths should call `defaultDivisor mode` instead.
+let barDivisor = defaultDivisor barSizeMode
 
 let positionSize = 30000.0
 let referenceVol = ValueSome 5.82e-4
@@ -798,12 +862,10 @@ let fillDelayMs = 100.0
 let fillRejectionRate = 0.30
 /// Default stop mode. rangeLo matches widest-vol-stop PF (~1.70) without tuning.
 let stopMode = StopAtRange
-/// Default bar-size mode. Historical avoids lookahead; Lookahead is for comparison.
-let barSizeMode = Historical
 
 let configureWith (barMode: BarSizeMode) (header: DayHeader) (trades: Trade[]) (avgVolume4w: float) (divisor: float) fillPercentile stopMode =
-    let barSize = computeBarSize barMode header trades avgVolume4w divisor
-    let seg = SegregateTrades(barSize, DateTime header.BaseTicks)
+    let barKind, barSize = computeBarKind barMode header trades avgVolume4w divisor
+    let seg = SegregateTrades(barKind, DateTime header.BaseTicks)
     seg.OpeningPrintIdx <- header.OpeningPrintIndex
     let vs = OrbSystem(positionSize, referenceVol, stopMode)
     let td = TrackDecisions()
@@ -901,6 +963,39 @@ let stopModeLabel (sm: StopMode) =
     | StopAtRange -> "rangeLo"
     | StopAtRangeVolCapped v -> sprintf "capped=%.2f" v
     | StopNever -> "none"
+
+/// Parallel sweep over time-bar bucket sizes (seconds) at fixed stop mode.
+let runTimeBarSweep (dayData: DayData[]) (seconds: float[]) =
+    let ns = seconds.Length
+    printfn "=== Time-bar sweep: %d bucket sizes x %d days = %d tasks (cores=%d) ==="
+        ns dayData.Length (ns * dayData.Length) Environment.ProcessorCount
+
+    evaluateDay BarSizeMode.Time dayData.[0] seconds.[0] fillPercentile stopMode |> ignore
+
+    let parResults = Array2D.zeroCreate<DaySummary> ns dayData.Length
+    let swPar = Stopwatch.StartNew()
+    for di in 0 .. dayData.Length - 1 do
+        let d = dayData.[di]
+        System.Threading.Tasks.Parallel.For(0, ns, fun si ->
+            parResults.[si, di] <- evaluateDay BarSizeMode.Time d seconds.[si] fillPercentile stopMode
+        ) |> ignore
+    swPar.Stop()
+    printfn "  Parallel:   %.3fs" swPar.Elapsed.TotalSeconds
+
+    printfn "  Per-bucket-size results:"
+    printfn "    %-4s %10s  %14s  %14s  %14s  %8s" "#" "seconds" "NetPnL" "grossWins" "grossLosses" "PF"
+    for si in 0 .. ns - 1 do
+        let mutable net = 0.0
+        let mutable gw = 0.0
+        let mutable gl = 0.0
+        for di in 0 .. dayData.Length - 1 do
+            let r = parResults.[si, di]
+            net <- net + r.NetPnL
+            gw <- gw + r.GrossWins
+            gl <- gl + r.GrossLosses
+        let pf = if gl > 0.0 then gw / gl else infinity
+        printfn "    [%2d] %10.2f  $%13.2f  $%13.2f  $%13.2f  %8.3f"
+            si seconds.[si] net gw gl pf
 
 /// Sweep over stopMode at a fixed bar divisor.
 let runParallelSweep (dayData: DayData[]) (stopModes: StopMode[]) =
@@ -1178,8 +1273,8 @@ let runTradeBreakdown (barMode: BarSizeMode) (dayData: DayData[]) bars (entryMod
 
     let dayResults =
         [| for d in dayData do
-            let barSize = computeBarSize barMode d.Header d.Trades d.AvgVolume4w bars
-            let seg = SegregateTrades(barSize, DateTime d.Header.BaseTicks)
+            let barKind, barSize = computeBarKind barMode d.Header d.Trades d.AvgVolume4w bars
+            let seg = SegregateTrades(barKind, DateTime d.Header.BaseTicks)
             seg.OpeningPrintIdx <- d.Header.OpeningPrintIndex
             let vs = OrbSystem(positionSize, referenceVol, stopMode)
             vs.EntryMode <- entryMode
@@ -1354,6 +1449,7 @@ type BreakdownArgs =
     | Buy_At_Open
     | Short
     | Lookahead
+    | Time_Bars of float
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -1364,12 +1460,16 @@ type BreakdownArgs =
             | Buy_At_Open -> "Baseline: enter on first AfterOpeningPrint bar with StopNever (measures dataset directional bias)"
             | Short -> "Short-side mirror: enter on range-low break, stop at range-high"
             | Lookahead -> "Use actual RTH volume for bar sizing (lookahead) instead of avg_volume_4w"
+            | Time_Bars _ -> "Use fixed time bars of the given number of seconds (e.g. 6)"
 
 type SweepArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
     | [<AltCommandLine("-n")>] Stop_Steps of int
     | [<AltCommandLine("-l")>] Stop_Lo of float
     | [<AltCommandLine("-u")>] Stop_Hi of float
+    | Time_Sweep_Lo of float
+    | Time_Sweep_Hi of float
+    | Time_Sweep_Step of float
     interface IArgParserTemplate with
         member this.Usage =
             match this with
@@ -1377,6 +1477,9 @@ type SweepArgs =
             | Stop_Steps _ -> "Number of log-spaced stopVol steps (default: 5)"
             | Stop_Lo _ -> "Lower stopVol in vol units (default: 1.0)"
             | Stop_Hi _ -> "Upper stopVol in vol units (default: 10.0)"
+            | Time_Sweep_Lo _ -> "If set along with --time-sweep-hi, runs a time-bar sweep (seconds) instead of the stop sweep."
+            | Time_Sweep_Hi _ -> "Upper time-bucket in seconds."
+            | Time_Sweep_Step _ -> "Step in seconds (default: 1.0)."
 
 type BenchmarkArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
@@ -1415,36 +1518,61 @@ let main argv =
         | Convert args -> runConvert args
         | Breakdown args ->
             let input = args.GetResult <@ BreakdownArgs.Input @>
-            let bars = args.TryGetResult <@ BreakdownArgs.Bars @> |> Option.map float |> Option.defaultValue barDivisor
             let percentile = args.TryGetResult <@ BreakdownArgs.Percentile @> |> Option.map float |> Option.defaultValue fillPercentile
             let entryMode, stopMode =
                 if args.Contains <@ BreakdownArgs.Buy_At_Open @> then BuyAtOpen, StopNever
                 else RangeBreakout, stopMode
             let direction = if args.Contains <@ BreakdownArgs.Short @> then Direction.Short else Direction.Long
-            let barMode = if args.Contains <@ BreakdownArgs.Lookahead @> then BarSizeMode.Lookahead else Historical
+            let barMode, barsParam =
+                match args.TryGetResult <@ BreakdownArgs.Time_Bars @> with
+                | Some seconds -> BarSizeMode.Time, seconds
+                | None ->
+                    let mode =
+                        if args.Contains <@ BreakdownArgs.Lookahead @> then BarSizeMode.Lookahead
+                        else barSizeMode
+                    let bars = args.TryGetResult <@ BreakdownArgs.Bars @> |> Option.map float |> Option.defaultValue (defaultDivisor mode)
+                    mode, bars
             let dayData, _ = loadDayData input
-            runFillBreakdown barMode dayData bars percentile entryMode stopMode direction
+            runFillBreakdown barMode dayData barsParam percentile entryMode stopMode direction
         | Trade_Breakdown args ->
             let input = args.GetResult <@ BreakdownArgs.Input @>
-            let bars = args.TryGetResult <@ BreakdownArgs.Bars @> |> Option.map float |> Option.defaultValue barDivisor
             let entryMode, stopMode =
                 if args.Contains <@ BreakdownArgs.Buy_At_Open @> then BuyAtOpen, StopNever
                 else RangeBreakout, stopMode
             let direction = if args.Contains <@ BreakdownArgs.Short @> then Direction.Short else Direction.Long
-            let barMode = if args.Contains <@ BreakdownArgs.Lookahead @> then BarSizeMode.Lookahead else Historical
+            let barMode, barsParam =
+                match args.TryGetResult <@ BreakdownArgs.Time_Bars @> with
+                | Some seconds -> BarSizeMode.Time, seconds
+                | None ->
+                    let mode =
+                        if args.Contains <@ BreakdownArgs.Lookahead @> then BarSizeMode.Lookahead
+                        else barSizeMode
+                    let bars = args.TryGetResult <@ BreakdownArgs.Bars @> |> Option.map float |> Option.defaultValue (defaultDivisor mode)
+                    mode, bars
             let dayData, _ = loadDayData input
-            runTradeBreakdown barMode dayData bars entryMode stopMode direction
+            runTradeBreakdown barMode dayData barsParam entryMode stopMode direction
         | Sweep args ->
             let input = args.GetResult <@ SweepArgs.Input @>
-            let sn = args.GetResult(<@ SweepArgs.Stop_Steps @>, 5)
-            let slo = args.GetResult(<@ SweepArgs.Stop_Lo @>, 1.0)
-            let shi = args.GetResult(<@ SweepArgs.Stop_Hi @>, 10.0)
             let dayData, _ = loadDayData input
-            // Build stopMode list: [rangeLo baseline; vol-stop steps...; capped-range steps...].
-            let volModes = logSpaced sn slo shi |> Array.map StopAtVol
-            let cappedModes = logSpaced sn slo shi |> Array.map StopAtRangeVolCapped
-            let stopModes = Array.concat [| [| StopAtRange |]; volModes; cappedModes |]
-            runParallelSweep dayData stopModes
+            match args.TryGetResult <@ SweepArgs.Time_Sweep_Lo @>,
+                  args.TryGetResult <@ SweepArgs.Time_Sweep_Hi @> with
+            | Some lo, Some hi ->
+                let step = args.GetResult(<@ SweepArgs.Time_Sweep_Step @>, 1.0)
+                let seconds =
+                    [| let mutable s = lo
+                       while s <= hi + 1e-9 do
+                           yield s
+                           s <- s + step |]
+                runTimeBarSweep dayData seconds
+            | _ ->
+                let sn = args.GetResult(<@ SweepArgs.Stop_Steps @>, 5)
+                let slo = args.GetResult(<@ SweepArgs.Stop_Lo @>, 1.0)
+                let shi = args.GetResult(<@ SweepArgs.Stop_Hi @>, 10.0)
+                // Build stopMode list: [rangeLo baseline; vol-stop steps...; capped-range steps...].
+                let volModes = logSpaced sn slo shi |> Array.map StopAtVol
+                let cappedModes = logSpaced sn slo shi |> Array.map StopAtRangeVolCapped
+                let stopModes = Array.concat [| [| StopAtRange |]; volModes; cappedModes |]
+                runParallelSweep dayData stopModes
         | Benchmark args ->
             let input = args.GetResult <@ BenchmarkArgs.Input @>
             let dayData, totalTrades = loadDayData input
