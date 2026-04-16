@@ -254,3 +254,26 @@ The continuation-reset subset is tiny (85 days) but qualitatively distinct: the 
 Practical implication: **continuation resets are the highest-edge subset** we've found. The SIP-screen pre-selection (catalyst quality) plus the re-breakout (catalyst still working) combine multiplicatively. PF ~4 is in a different regime from the ~1.7–1.9 we saw on initial breakouts.
 
 Caveat: n=85 total, n=45 and n=37 per gap bucket. The effect is large enough to be real but the strategy needs more data before live deployment — the universe of "stocks that set a new RVOL high shortly after a prior RVOL≥3 event" is narrow (~25/year).
+
+## 16. RVOL threshold sweep (long ORB, all day-0 breakouts)
+
+Tested the long ORB across progressively higher RVOL minimums on all day-0 entries (initial + continuation resets combined):
+
+| RVOL min | n | PF | NetPnL | Win rate | $/day |
+|---|---|---|---|---|---|
+| 3 (baseline) | 3,409 | 1.69 | $293k | 47.4% | $86 |
+| 4 | 2,513 | **1.97** | $297k | 49.7% | $118 |
+| 5 | 1,710 | **2.47** | $281k | 55.4% | $165 |
+| 6 | 1,158 | **2.82** | $239k | 58.5% | $206 |
+| 7 | 779 | 3.11 | $193k | 58.2% | $248 |
+| 8 | 547 | 3.11 | $146k | 57.3% | $267 |
+| 10 | 309 | **3.47** | $104k | 57.6% | $337 |
+
+**PF scales almost linearly with RVOL minimum** up to ~7, then plateaus around 3.1–3.5.
+
+Practical takeaways:
+- **RVOL≥5 is an excellent operating point**: PF 2.47, $281k NetPnL (essentially matching the RVOL≥3 baseline in total dollars), win rate jumps from 47.4% → 55.4%, $/day improves 2x.
+- **Total NetPnL starts declining above RVOL≥5** because the selectivity trade-off kicks in (fewer trades, higher PF per trade, but eventually you give up too many days).
+- **Plateau around RVOL 7–10** suggests there's a regime boundary at ~5-7x RVOL — below that you're picking up "medium-interest" stocks that dilute the edge; above it you're in the "real catalyst" zone where most trades work.
+
+The win-rate shift from 47% to 55-58% as RVOL rises is the cleanest signal that higher-RVOL days are qualitatively different — not just more of the same stuff, but a distinct population where the directional signal gets cleaner.
