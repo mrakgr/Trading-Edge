@@ -199,11 +199,35 @@ type SegregateTrades(barSize: float, baseTime) =
 /// when `avg_volume_4w` is very small.
 let minBarSize = 1000.0
 
-/// Compute bar size from the 4-week historical average daily volume.
-/// On a typical day this gives ~divisor bars; on an RVOL=3 day we get ~3x as many.
-/// No lookahead — `avgVolume4w` is known at t=0.
-let computeBarSize (avgVolume4w: float) (divisor: float) : float =
-    max minBarSize (avgVolume4w / divisor)
+[<Struct>]
+type BarSizeMode =
+    /// Bar size = avg_volume_4w / divisor. No lookahead.
+    | Historical
+    /// Bar size = (actual RTH volume) / divisor. Uses lookahead — only for
+    /// apples-to-apples comparison / idealised upper bound.
+    | Lookahead
+
+/// Compute bar size. Historical divides avg_volume_4w; lookahead divides the day's
+/// actual 9:30 ET -> close volume, computed from the trade array.
+let computeBarSize (mode: BarSizeMode) (header: DayHeader) (trades: Trade[]) (avgVolume4w: float) (divisor: float) : float =
+    let raw =
+        match mode with
+        | Historical -> avgVolume4w / divisor
+        | Lookahead ->
+            let baseTime = DateTime header.BaseTicks
+            let openTicks = baseTime.AddHours(9.5).Ticks
+            let closeTicks =
+                if Timezone.early_closes.Contains(DateOnly.FromDateTime baseTime) then
+                    baseTime.AddHours(13).Ticks
+                else
+                    baseTime.AddHours(16).Ticks
+            let mutable total = 0.0
+            for t in trades do
+                let ts = baseTime.AddTicks(t.TicksFromBase).Ticks
+                if ts >= openTicks && ts <= closeTicks then
+                    total <- total + float t.Volume
+            total / divisor
+    max minBarSize raw
 
 // ============================================================================
 // VWAP trading system (decisions from bars)
@@ -747,6 +771,7 @@ type DayResult = {
     TotalCommission: float
     NumFills: int
     AvgPositionSize: float
+    BarSize: float
 }
 
 type DayData = { Date: string; Header: DayHeader; Ticker: string; Trades: Trade[]; AvgVolume4w: float }
@@ -764,9 +789,11 @@ let fillDelayMs = 100.0
 let fillRejectionRate = 0.30
 /// Default stop mode. rangeLo matches widest-vol-stop PF (~1.70) without tuning.
 let stopMode = StopAtRange
+/// Default bar-size mode. Historical avoids lookahead; Lookahead is for comparison.
+let barSizeMode = Historical
 
-let configureWith (header: DayHeader) (avgVolume4w: float) (divisor: float) fillPercentile stopMode =
-    let barSize = computeBarSize avgVolume4w divisor
+let configureWith (barMode: BarSizeMode) (header: DayHeader) (trades: Trade[]) (avgVolume4w: float) (divisor: float) fillPercentile stopMode =
+    let barSize = computeBarSize barMode header trades avgVolume4w divisor
     let seg = SegregateTrades(barSize, DateTime header.BaseTicks)
     seg.OpeningPrintIdx <- header.OpeningPrintIndex
     let vs = OrbSystem(positionSize, referenceVol, stopMode)
@@ -774,10 +801,10 @@ let configureWith (header: DayHeader) (avgVolume4w: float) (divisor: float) fill
     let tf = TrackFills(commissionPerShare)
     let ell = EnforceLossLimit((fun () -> tf.NetPnL), infinity)
     let fs = FillSimulator(fillPercentile, fillDelayMs, fillRejectionRate, ValueNone, DateTime header.BaseTicks)
-    seg, vs, td, ell, fs, tf
+    seg, vs, td, ell, fs, tf, barSize
 
-let configure (header: DayHeader) (avgVolume4w: float) bars fillPercentile stopMode =
-    configureWith header avgVolume4w bars fillPercentile stopMode
+let configure (barMode: BarSizeMode) (header: DayHeader) (trades: Trade[]) (avgVolume4w: float) bars fillPercentile stopMode =
+    configureWith barMode header trades avgVolume4w bars fillPercentile stopMode
 
 /// Load (ticker, date) -> avg_volume_4w from the augmented continuation plays JSON.
 /// Every experiment JSON is a subset of continuation_plays, so this covers all the
@@ -825,8 +852,8 @@ type DaySummary = {
     GrossLosses: float   // absolute value
 }
 
-let evaluateDay (d: DayData) (divisor: float) fillPercentile (stopMode: StopMode) : DaySummary =
-    let seg, vs, td, ell, fs, tf = configureWith d.Header d.AvgVolume4w divisor fillPercentile stopMode
+let evaluateDay (barMode: BarSizeMode) (d: DayData) (divisor: float) fillPercentile (stopMode: StopMode) : DaySummary =
+    let seg, vs, td, ell, fs, tf, _ = configureWith barMode d.Header d.Trades d.AvgVolume4w divisor fillPercentile stopMode
     let onFillSink (_: Fill) = ()
     let onFill (fill: Fill) = tf.Process(onFillSink, fill)
     let onTracked (decision: TradingDecision voption, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade) =
@@ -872,14 +899,14 @@ let runParallelSweep (dayData: DayData[]) (stopModes: StopMode[]) =
     printfn "=== Parallel sweep: %d stopMode x %d days = %d tasks (cores=%d) ==="
         ns dayData.Length (ns * dayData.Length) Environment.ProcessorCount
 
-    evaluateDay dayData.[0] barDivisor fillPercentile stopModes.[0] |> ignore
+    evaluateDay barSizeMode dayData.[0] barDivisor fillPercentile stopModes.[0] |> ignore
 
     let parResults = Array2D.zeroCreate<DaySummary> ns dayData.Length
     let swPar = Stopwatch.StartNew()
     for di in 0 .. dayData.Length - 1 do
         let d = dayData.[di]
         System.Threading.Tasks.Parallel.For(0, ns, fun si ->
-            parResults.[si, di] <- evaluateDay d barDivisor fillPercentile stopModes.[si]
+            parResults.[si, di] <- evaluateDay barSizeMode d barDivisor fillPercentile stopModes.[si]
         ) |> ignore
     swPar.Stop()
     printfn "  Parallel:   %.3fs" swPar.Elapsed.TotalSeconds
@@ -901,7 +928,7 @@ let runParallelSweep (dayData: DayData[]) (stopModes: StopMode[]) =
 
 let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
     let bench(d : DayData, ctx : SinkContext) =
-        let seg, vs, td, ell, fs, tf = configure d.Header d.AvgVolume4w barDivisor fillPercentile stopMode
+        let seg, vs, td, ell, fs, tf, _ = configure barSizeMode d.Header d.Trades d.AvgVolume4w barDivisor fillPercentile stopMode
         let inline onFillSink (fill: Fill) =
             ctx.FillCount <- ctx.FillCount + 1
             ctx.Sink <- ctx.Sink + fill.Price
@@ -942,16 +969,16 @@ let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
         sw.Elapsed.TotalSeconds ctx.BarCount ctx.DecisionCount ctx.FillCount ctx.Sink
         ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
 
-let runFillBreakdown (dayData: DayData[]) barDivisor fillPercentile (entryMode: EntryMode) (stopMode: StopMode) (direction: Direction) =
+let runFillBreakdown (barMode: BarSizeMode) (dayData: DayData[]) barDivisor fillPercentile (entryMode: EntryMode) (stopMode: StopMode) (direction: Direction) =
     let logPath = "logs/fill_breakdown.log"
     Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
     use logWriter = new StreamWriter(logPath, false)
     let tee fmt =
         Printf.kprintf (fun s -> Console.WriteLine s; logWriter.WriteLine s; logWriter.Flush()) fmt
 
-    tee "=== ORB System Fill Breakdown (single bar size, lookahead) ==="
-    tee "direction: %A  entryMode: %A  stopMode: %s" direction entryMode (stopModeLabel stopMode)
-    tee "barDivisor: %.1f  entryDelay: %.1fs" barDivisor entryDelaySeconds
+    tee "=== ORB System Fill Breakdown ==="
+    tee "direction: %A  entryMode: %A  stopMode: %s  barMode: %A" direction entryMode (stopModeLabel stopMode) barMode
+    tee "barDivisor: %.1f  minBarSize: %.0f  entryDelay: %.1fs" barDivisor minBarSize entryDelaySeconds
     tee "Position size: $%.0f  referenceVol: %.4g  lossLimit: infinity"
         positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0)
     tee "Fill sim: pctile=%.3f, delay=%.0fms, commission=$%.4f/share, rejection=%.0f%%"
@@ -960,7 +987,7 @@ let runFillBreakdown (dayData: DayData[]) barDivisor fillPercentile (entryMode: 
 
     let dayResults =
         [| for d in dayData do
-            let seg, vs, td, ell, fs, tf = configure d.Header d.AvgVolume4w barDivisor fillPercentile stopMode
+            let seg, vs, td, ell, fs, tf, barSize = configure barMode d.Header d.Trades d.AvgVolume4w barDivisor fillPercentile stopMode
             vs.EntryMode <- entryMode
             vs.Direction <- direction
             let onFillSink (_: Fill) = ()
@@ -992,12 +1019,13 @@ let runFillBreakdown (dayData: DayData[]) barDivisor fillPercentile (entryMode: 
                 TotalCommission = tf.Commissions
                 NumFills = tf.Fills.Count
                 AvgPositionSize = avgPos
+                BarSize = barSize
             } |]
 
     tee "=== Per-Day Results (sorted by P&L) ==="
-    tee "%-6s %-12s %10s %6s %6s %6s %10s %10s %10s %10s"
-        "Ticker" "Date" "DayP&L" "trips" "W" "L" "avgWin" "avgLoss" "commiss" "avgPos$"
-    tee "%s" (String.replicate 100 "-")
+    tee "%-6s %-12s %10s %6s %6s %6s %10s %10s %10s %10s %10s"
+        "Ticker" "Date" "DayP&L" "trips" "W" "L" "avgWin" "avgLoss" "commiss" "avgPos$" "barSz"
+    tee "%s" (String.replicate 111 "-")
     let sortedDays = dayResults |> Array.sortByDescending (fun d -> d.DayPnL)
     for d in sortedDays do
         let pnls = d.RoundTrips |> Array.map (fun rt -> rt.PnL)
@@ -1005,8 +1033,8 @@ let runFillBreakdown (dayData: DayData[]) barDivisor fillPercentile (entryMode: 
         let losses = pnls |> Array.filter (fun p -> p < -0.01)
         let avgWin = if wins.Length > 0 then wins |> Array.average else 0.0
         let avgLoss = if losses.Length > 0 then losses |> Array.average else 0.0
-        tee "%-6s %-12s %10.2f %6d %6d %6d %10.2f %10.2f %10.2f %10.2f"
-            d.Ticker d.Date d.DayPnL d.RoundTrips.Length wins.Length losses.Length avgWin avgLoss d.TotalCommission d.AvgPositionSize
+        tee "%-6s %-12s %10.2f %6d %6d %6d %10.2f %10.2f %10.2f %10.2f %10.0f"
+            d.Ticker d.Date d.DayPnL d.RoundTrips.Length wins.Length losses.Length avgWin avgLoss d.TotalCommission d.AvgPositionSize d.BarSize
 
     let allTrips = dayResults |> Array.collect (fun d -> d.RoundTrips)
     let allPnLs = allTrips |> Array.map (fun rt -> rt.PnL)
@@ -1122,9 +1150,10 @@ type TradeBreakdownDay = {
     TradePnLs: (float * int)[]  // (pnl, prevShares)
     AvgPositionSize: float
     NumDecisions: int
+    BarSize: float
 }
 
-let runTradeBreakdown (dayData: DayData[]) bars (entryMode: EntryMode) (stopMode: StopMode) (direction: Direction) =
+let runTradeBreakdown (barMode: BarSizeMode) (dayData: DayData[]) bars (entryMode: EntryMode) (stopMode: StopMode) (direction: Direction) =
     let logPath = "logs/trade_breakdown.log"
     Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
     use logWriter = new StreamWriter(logPath, false)
@@ -1132,15 +1161,15 @@ let runTradeBreakdown (dayData: DayData[]) bars (entryMode: EntryMode) (stopMode
         Printf.kprintf (fun s -> Console.WriteLine s; logWriter.WriteLine s; logWriter.Flush()) fmt
 
     tee "=== ORB System Trade Breakdown (decision-level, no fill sim) ==="
-    tee "direction: %A  entryMode: %A  stopMode: %s" direction entryMode (stopModeLabel stopMode)
-    tee "barDivisor: %.1f  entryDelay: %.1fs" barDivisor entryDelaySeconds
+    tee "direction: %A  entryMode: %A  stopMode: %s  barMode: %A" direction entryMode (stopModeLabel stopMode) barMode
+    tee "barDivisor: %.1f  minBarSize: %.0f  entryDelay: %.1fs" barDivisor minBarSize entryDelaySeconds
     tee "Position size: $%.0f  referenceVol: %.4g  lossLimit: infinity"
         positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0)
     tee ""
 
     let dayResults =
         [| for d in dayData do
-            let barSize = computeBarSize d.AvgVolume4w bars
+            let barSize = computeBarSize barMode d.Header d.Trades d.AvgVolume4w bars
             let seg = SegregateTrades(barSize, DateTime d.Header.BaseTicks)
             seg.OpeningPrintIdx <- d.Header.OpeningPrintIndex
             let vs = OrbSystem(positionSize, referenceVol, stopMode)
@@ -1178,12 +1207,13 @@ let runTradeBreakdown (dayData: DayData[]) bars (entryMode: EntryMode) (stopMode
                 TradePnLs = tradePnLs
                 AvgPositionSize = avgPos
                 NumDecisions = decs.Count
+                BarSize = barSize
             } |]
 
     tee "=== Per-Day Results (sorted by P&L) ==="
-    tee "%-6s %-12s %10s %6s %6s %6s %10s %10s %10s"
-        "Ticker" "Date" "DayP&L" "trades" "W" "L" "avgWin" "avgLoss" "avgPos$"
-    tee "%s" (String.replicate 90 "-")
+    tee "%-6s %-12s %10s %6s %6s %6s %10s %10s %10s %10s"
+        "Ticker" "Date" "DayP&L" "trades" "W" "L" "avgWin" "avgLoss" "avgPos$" "barSz"
+    tee "%s" (String.replicate 101 "-")
     let sortedDays = dayResults |> Array.sortByDescending (fun d -> d.DayPnL)
     for d in sortedDays do
         let pnls = d.TradePnLs |> Array.map fst
@@ -1314,6 +1344,7 @@ type BreakdownArgs =
     | [<AltCommandLine("-p")>] Percentile of float
     | Buy_At_Open
     | Short
+    | Lookahead
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -1323,6 +1354,7 @@ type BreakdownArgs =
             | Percentile _ -> "The target percentile to buy down in a bar (e.g. 0.05)"
             | Buy_At_Open -> "Baseline: enter on first AfterOpeningPrint bar with StopNever (measures dataset directional bias)"
             | Short -> "Short-side mirror: enter on range-low break, stop at range-high"
+            | Lookahead -> "Use actual RTH volume for bar sizing (lookahead) instead of avg_volume_4w"
 
 type SweepArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
@@ -1380,8 +1412,9 @@ let main argv =
                 if args.Contains <@ BreakdownArgs.Buy_At_Open @> then BuyAtOpen, StopNever
                 else RangeBreakout, stopMode
             let direction = if args.Contains <@ BreakdownArgs.Short @> then Direction.Short else Direction.Long
+            let barMode = if args.Contains <@ BreakdownArgs.Lookahead @> then BarSizeMode.Lookahead else Historical
             let dayData, _ = loadDayData input
-            runFillBreakdown dayData bars percentile entryMode stopMode direction
+            runFillBreakdown barMode dayData bars percentile entryMode stopMode direction
         | Trade_Breakdown args ->
             let input = args.GetResult <@ BreakdownArgs.Input @>
             let bars = args.TryGetResult <@ BreakdownArgs.Bars @> |> Option.map float |> Option.defaultValue barDivisor
@@ -1389,8 +1422,9 @@ let main argv =
                 if args.Contains <@ BreakdownArgs.Buy_At_Open @> then BuyAtOpen, StopNever
                 else RangeBreakout, stopMode
             let direction = if args.Contains <@ BreakdownArgs.Short @> then Direction.Short else Direction.Long
+            let barMode = if args.Contains <@ BreakdownArgs.Lookahead @> then BarSizeMode.Lookahead else Historical
             let dayData, _ = loadDayData input
-            runTradeBreakdown dayData bars entryMode stopMode direction
+            runTradeBreakdown barMode dayData bars entryMode stopMode direction
         | Sweep args ->
             let input = args.GetResult <@ SweepArgs.Input @>
             let sn = args.GetResult(<@ SweepArgs.Stop_Steps @>, 5)
