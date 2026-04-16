@@ -6,7 +6,7 @@
 
 ## Preface
 
-This session started as a follow-up to the VWAP mean-reversion system, which had collapsed from a decision-level PF of ~1.9 to a fill-sim PF of ~0.85 — a failure attributed to 4-parameter `volPcts` overfitting via lookahead that wasn't realistically available. The plan was to try an opening-range breakout (ORB) as an elimination test before moving to generative approaches.
+This session started as a follow-up to the VWAP continuation / trend-following system, which had collapsed from a decision-level PF of ~1.9 to a fill-sim PF of ~0.85 — a failure attributed to 4-parameter `volPcts` overfitting via lookahead that wasn't realistically available. The plan was to try an opening-range breakout (ORB) as an elimination test before moving to generative approaches.
 
 The session ended up being productive well beyond that scope. The rest of this document is the chronological trail of what we tried and what we learned.
 
