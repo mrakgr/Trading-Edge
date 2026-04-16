@@ -301,13 +301,13 @@ type TradingDecision = {
 
 [<Struct>]
 type SimulatorState =
-    | Active of price: float * position: int
+    | Active of price: float * position: int * stop: float
     | Done
 
 type OrbSystem(positionSize: float, referenceVol: float voption) =
     member val PositionSize = positionSize
     member val ReferenceVol = referenceVol
-    member val State = Active(0.0, 0) with get, set
+    member val State = Active(0.0, 0, 0.0) with get, set
 
     member inline self.EffectiveSize(vf: float) =
         match self.ReferenceVol with
@@ -322,33 +322,31 @@ type OrbSystem(positionSize: float, referenceVol: float voption) =
             match bar with
             | ValueSome b ->
                 match self.State with
-                | Active(_, position) ->
+                | Active(_, position, stop) ->
                     let lastBar = b.Bar
                     let price = lastBar.VWAP
-                    let vwma = b.Vwma64
                     let targetShares = round (self.EffectiveSize b.VolFactor / trade.Price) |> int
                     let barSize = lastBar.Volume
                     if position = 0 then
                         if targetShares > 0 then
+                            // Freeze stop at entry: the current 64-bar VWMA becomes the fixed exit level.
+                            // Longs only — shorts lose money after borrow/execution costs on this dataset.
                             if price > b.RangeHigh then
-                                self.State <- Active(price, targetShares)
+                                self.State <- Active(price, targetShares, b.Vwma64)
                                 decision <- ValueSome { Timestamp = tradeTs; Price = price; Shares = targetShares; BarSize = barSize }
-                            elif price < b.RangeLow then
-                                self.State <- Active(price, -targetShares)
-                                decision <- ValueSome { Timestamp = tradeTs; Price = price; Shares = -targetShares; BarSize = barSize }
                     elif position > 0 then
-                        if price < vwma then
-                            self.State <- Active(price, 0)
+                        if price < stop then
+                            self.State <- Active(price, 0, 0.0)
                             decision <- ValueSome { Timestamp = tradeTs; Price = price; Shares = 0; BarSize = barSize }
                     else
-                        if price > vwma then
-                            self.State <- Active(price, 0)
+                        if price > stop then
+                            self.State <- Active(price, 0, 0.0)
                             decision <- ValueSome { Timestamp = tradeTs; Price = price; Shares = 0; BarSize = barSize }
                 | Done -> ()
             | ValueNone -> ()
         | BeforeClosing ->
             match self.State with
-            | Active(_, position) when position <> 0 ->
+            | Active(_, position, _) when position <> 0 ->
                 self.State <- Done
                 decision <- ValueSome { Timestamp = tradeTs; Price = trade.Price; Shares = 0; BarSize = 0.0 }
             | _ -> ()
