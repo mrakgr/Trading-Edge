@@ -227,3 +227,30 @@ Re-running section 13 but requiring the **continuation day itself** to have RVOL
 The intuition holds: a breakout's directional signature only matters on day 1 if participants show up to continue the move. No volume → no continuation → no edge. This re-opens the door to multi-day continuation trading, but gated on live volume confirmation (which you can only assess intraday, not from pre-market alone).
 
 Small-sample caveat: n=100 and n=43. The long-bullish result is strong enough to be meaningful; the short-bearish result is consistent with section 12's long-only dominance but warrants more data before building a shippable system.
+
+## 15. Separating initial SIP breakouts from continuation-reset day-0s
+
+The 3,409-day `breakouts_rvol3plus.json` file was a mix of two populations:
+
+- **Initial SIP breakouts** (n=3,324): `date == breakout_date` — the first RVOL≥3 day in a chain.
+- **Continuation resets** (n=85): `date != breakout_date` but `days_since_max_rvol == 0` — a *later* day in an existing chain that set a new RVOL high.
+
+The continuation-reset subset is tiny (85 days) but qualitatively distinct: the stock already had a prior RVOL≥3 breakout within ~15 days, and the catalyst is re-igniting with fresh volume.
+
+**Continuation-reset day-0 results:**
+
+- **Long ORB: PF 3.89, +$30.3k, 65.7% day win rate** ($356/day)
+- Short ORB: PF 0.83, -$2.5k
+
+**Gap-split on continuation resets:**
+
+| | Gap-up cont-reset (n=45) | Gap-down cont-reset (n=37) |
+|---|---|---|
+| **Long ORB** | PF **4.03**, +$17.6k | PF **4.02**, +$11.5k |
+| **Short ORB** | PF 1.17, +$1.2k | PF 0.61, -$2.3k |
+
+**Long dominates regardless of gap direction** on continuation resets — totally different from initial breakouts where the gap split cleanly flipped long/short favorability. Interpretation: when a stock sets a new RVOL high after already having a prior RVOL≥3 breakout in the chain, the directional signature is overwhelmingly bullish. Gap-downs appear to be pullbacks that get bought back, not genuine reversals.
+
+Practical implication: **continuation resets are the highest-edge subset** we've found. The SIP-screen pre-selection (catalyst quality) plus the re-breakout (catalyst still working) combine multiplicatively. PF ~4 is in a different regime from the ~1.7–1.9 we saw on initial breakouts.
+
+Caveat: n=85 total, n=45 and n=37 per gap bucket. The effect is large enough to be real but the strategy needs more data before live deployment — the universe of "stocks that set a new RVOL high shortly after a prior RVOL≥3 event" is narrow (~25/year).
