@@ -1,4 +1,4 @@
-module TradingEdge.Vwap.TradeLoader
+module TradingEdge.Orb.TradeLoader
 
 open System
 open System.Collections.Generic

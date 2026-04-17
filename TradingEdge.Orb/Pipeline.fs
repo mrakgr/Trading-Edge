@@ -1,4 +1,4 @@
-module TradingEdge.Vwap.Pipeline
+module TradingEdge.Orb.Pipeline
 
 open System
 open System.Collections.Immutable

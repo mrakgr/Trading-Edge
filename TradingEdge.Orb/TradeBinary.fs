@@ -1,4 +1,4 @@
-module TradingEdge.Vwap.TradeBinary
+module TradingEdge.Orb.TradeBinary
 
 open System
 open System.IO

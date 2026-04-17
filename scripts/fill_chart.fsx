@@ -1,10 +1,10 @@
-#r "../TradingEdge.Vwap/bin/Debug/net10.0/TradingEdge.Vwap.dll"
+#r "../TradingEdge.Orb/bin/Debug/net10.0/TradingEdge.Orb.dll"
 
 open System
 open System.IO
-open TradingEdge.Vwap.TradeLoader
-open TradingEdge.Vwap.TradeBinary
-open TradingEdge.Vwap.Program
+open TradingEdge.Orb.TradeLoader
+open TradingEdge.Orb.TradeBinary
+open TradingEdge.Orb.Program
 
 // ----- CLI -----
 let ticker = fsi.CommandLineArgs.[1]

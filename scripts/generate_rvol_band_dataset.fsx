@@ -1,10 +1,10 @@
-#r "../TradingEdge.Vwap/bin/Debug/net10.0/TradingEdge.Vwap.dll"
+#r "../TradingEdge.Orb/bin/Debug/net10.0/TradingEdge.Orb.dll"
 
 open System
 open System.IO
 open System.Text
 open System.Text.Json
-open TradingEdge.Vwap.TradeBinary
+open TradingEdge.Orb.TradeBinary
 
 let input = "data/continuation_plays_augmented.json"
 let binDir = "data/trades_bin"

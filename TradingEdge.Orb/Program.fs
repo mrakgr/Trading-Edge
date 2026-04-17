@@ -1,4 +1,4 @@
-module TradingEdge.Vwap.Program
+module TradingEdge.Orb.Program
 
 open System
 open System.IO
@@ -679,7 +679,7 @@ let runConvert (args: ParseResults<ConvertArgs>) =
 
 [<EntryPoint>]
 let main argv =
-    let parser = ArgumentParser.Create<Command>(programName = "TradingEdge.Vwap")
+    let parser = ArgumentParser.Create<Command>(programName = "TradingEdge.Orb")
     try
         let results = parser.ParseCommandLine(inputs = argv, raiseOnUsage = true)
         match results.GetSubCommand() with

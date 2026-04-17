@@ -1,4 +1,4 @@
-#r "../TradingEdge.Vwap/bin/Debug/net10.0/TradingEdge.Vwap.dll"
+#r "../TradingEdge.Orb/bin/Debug/net10.0/TradingEdge.Orb.dll"
 #r "nuget: DuckDB.NET.Data.Full, 1.4.4"
 
 open System
@@ -6,7 +6,7 @@ open System.IO
 open System.Text
 open System.Text.Json
 open DuckDB.NET.Data
-open TradingEdge.Vwap.TradeBinary
+open TradingEdge.Orb.TradeBinary
 
 let binDir = "data/trades_bin"
 let input = "data/continuation_plays.json"

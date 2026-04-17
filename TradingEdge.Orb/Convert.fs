@@ -1,4 +1,4 @@
-module TradingEdge.Vwap.Convert
+module TradingEdge.Orb.Convert
 
 open System
 open System.IO

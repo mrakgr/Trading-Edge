@@ -1,4 +1,4 @@
-module TradingEdge.Vwap.Timezone
+module TradingEdge.Orb.Timezone
 
 open System
 open System.Collections.Generic
