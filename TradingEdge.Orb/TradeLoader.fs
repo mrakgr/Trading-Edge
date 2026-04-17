@@ -41,7 +41,10 @@ type Trade =
 // Filtering
 // =============================================================================
 
-// Condition codes to exclude for price discovery analysis
+// Condition codes to exclude for price discovery analysis.
+// Codes 12 (Form T) and 37 (Odd Lot) intentionally kept in: 99%+ of premarket
+// trades carry 12, and odd lots make up a large share of modern volume. Late
+// prints inside those groups are caught by the SIP-delta filter below instead.
 let excludeConditions = Set.ofList [
     2   // Average Price Trade
     7   // Cash Sale (special settlement)
@@ -52,10 +55,15 @@ let excludeConditions = Set.ofList [
     22  // Prior Reference Price
     29  // Seller (special settlement)
     32  // Sold (Out of Sequence)
-    41  // Extended Trading Hours (Sold Out of Sequence)
     52  // Contingent Trade
     53  // Qualified Contingent Trade (QCT)
 ]
+
+/// Drop trades whose SIP timestamp lags the participant timestamp by more than
+/// this many ticks (100-ns units). 50ms catches the late-reported Form T prints
+/// that show up 10%+ off-market (e.g. MSTR 2024-11-21 08:47:45 $473.83 vs. $537
+/// contemporaneous market), while the healthy tail stays well under 10ms.
+let maxSipDeltaTicks = 50L * TimeSpan.TicksPerMillisecond
 
 let openingPrintConditions = Set.ofList [
     17  // Market Center Opening Trade
@@ -92,7 +100,14 @@ type TradesStagingBuilder() =
         let conds = trade.conditions |> Set.ofArray
         if self.OpeningPrintIndex.IsNone && not (Set.intersect conds openingPrintConditions).IsEmpty then
             self.OpeningPrintIndex <- ValueSome self.Trades.Count
-        if trade.size > 0 && not (shouldExclude conds) then
+        // SIP timestamps measure when the SIP *reported* the trade; participant_timestamp
+        // is when the venue booked it. A large positive delta means a late print — often
+        // a stale extended-hours price arriving after the market has moved.
+        let sipDeltaTicks =
+            if trade.participant_timestamp <> 0L && trade.sip_timestamp <> 0L then
+                (trade.sip_timestamp - trade.participant_timestamp) / 100L
+            else 0L
+        if trade.size > 0 && not (shouldExclude conds) && sipDeltaTicks <= maxSipDeltaTicks then
             let tradeTicks = trade.Ticks
             let baseTime =
                 match self.BaseTime with

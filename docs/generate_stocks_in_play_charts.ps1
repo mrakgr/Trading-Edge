@@ -2,7 +2,7 @@ $Files = @(
     # @{Ticker = 'LW';   Date = "2025-12-19"; VolumePerBar = 10000; Float = "136.76m"}
     # @{Ticker = 'NBIS'; Date = "2025-09-09"; VolumePerBar = 30000; Float = "202.8m"}
     # @{Ticker = 'NBIS'; Date = "2025-09-10"; VolumePerBar = 30000; SecondsPerBar = 60; Float = "202.8m"}
-    # @{Ticker = 'MSTR'; Date = "2024-11-21"; VolumePerBar = 30000; Float = "313.41m"}
+    @{Ticker = 'MSTR'; Date = "2024-11-21"; VolumePerBar = 30000; Float = "313.41m"}
     # @{Ticker = 'OPEN'; Date = "2025-09-11"; VolumePerBar = 300000; Float = "793m"}
     # @{Ticker = "SMCI"; Date = "2026-03-20"; VolumePerBar = 60000; Float = "514m"}
     # @{Ticker = "SMCI"; Date = "2026-03-23"; VolumePerBar = 60000; Float = "514m"}
@@ -146,9 +146,11 @@ foreach ($file in $Files) {
         python3 scripts/visualization/daily_chart.py $file.Ticker $file.Date $outputPath
     }
     if ($file.SecondsPerBar) {
-        Generate -Path "docs/charts/${basename}_intraday_candle.html" -Action {param ($outputPath) 
-            Write-Host "Generating intraday candlestick chart for $basename..."
-            python3 scripts/visualization/massive_candle.py $jsonPath $file.SecondsPerBar $outputPath $showExtended
+        Generate -Path "docs/charts/${basename}_intraday_timebar.html" -Action {param ($outputPath)
+            Write-Host "Generating intraday time-bar chart for $basename..."
+            $timebarArgs = @($jsonPath, "-s", $file.SecondsPerBar, "-o", $outputPath)
+            if ($showExtended -eq "false") { $timebarArgs += "--no-extended-hours" }
+            python3 scripts/visualization/massive_timebar.py @timebarArgs
         }
     }
 }

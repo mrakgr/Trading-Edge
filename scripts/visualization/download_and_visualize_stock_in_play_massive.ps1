@@ -31,8 +31,10 @@ foreach ($file in $Files) {
         if ($showExtended -eq "false") { $pythonArgs += "--no-extended-hours" }
         python3 scripts/visualization/massive_volume.py @pythonArgs
         if ($file.SecondsPerBar) {
-            Write-Host "Generating intraday candlestick chart for $basename..."
-            python3 scripts/visualization/massive_candle.py $file.Path $file.SecondsPerBar "" $showExtended
+            Write-Host "Generating intraday time-bar chart for $basename..."
+            $timebarArgs = @($file.Path, "-s", $file.SecondsPerBar)
+            if ($showExtended -eq "false") { $timebarArgs += "--no-extended-hours" }
+            python3 scripts/visualization/massive_timebar.py @timebarArgs
         }
     }
 }

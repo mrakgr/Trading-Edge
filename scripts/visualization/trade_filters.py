@@ -17,7 +17,6 @@ EXCLUDE_FOR_PRICE_DISCOVERY = {
     29,  # Seller (special settlement)
     32,  # Sold (Out of Sequence)
     37,  # Odd Lot Trade
-    41,  # Extended Trading Hours (Sold Out of Sequence)
     52,  # Contingent Trade
     53,  # Qualified Contingent Trade (QCT)
 }
@@ -61,3 +60,33 @@ def filter_trades(trades, exclude_odd_lots=True, exclude_extended_hours=True):
         Filtered list of trades
     """
     return [t for t in trades if not should_exclude_trade(t, exclude_odd_lots, exclude_extended_hours)]
+
+# Drop trades whose SIP timestamp lags the participant timestamp by more than
+# this many nanoseconds. Participant timestamp is when the venue booked the
+# trade; SIP timestamp is when the SIP reported it. A large positive delta
+# means a late print — often a stale extended-hours price arriving after the
+# market has moved (e.g. MSTR 2024-11-21 08:47:45 $473.83 vs. ~$537
+# contemporaneous market, reported 1018ms late). Healthy trades cluster
+# well under 10ms; the late-report tail starts in the tens of ms.
+DEFAULT_MAX_SIP_DELTA_NS = 50 * 1_000_000  # 50ms
+
+def filter_by_sip_delta(trades, max_sip_delta_ns=DEFAULT_MAX_SIP_DELTA_NS):
+    """
+    Drop trades whose SIP timestamp lags the participant timestamp by more
+    than `max_sip_delta_ns`. Trades missing either timestamp are kept.
+
+    Args:
+        trades: List of trade dicts with 'participant_timestamp' and
+                'sip_timestamp' fields (nanoseconds since Unix epoch)
+        max_sip_delta_ns: Maximum allowed delta in nanoseconds (default 50ms)
+
+    Returns:
+        Filtered list of trades
+    """
+    kept = []
+    for t in trades:
+        pt = t.get('participant_timestamp') or 0
+        st = t.get('sip_timestamp') or 0
+        if pt == 0 or st == 0 or (st - pt) <= max_sip_delta_ns:
+            kept.append(t)
+    return kept
