@@ -656,12 +656,24 @@ type BenchmarkArgs =
             match this with
             | Input _ -> "Input JSON with [{ticker, date}] entries"
 
+type ProfileArgs =
+    | [<Mandatory; AltCommandLine("-i")>] Input of string
+    | [<Mandatory; AltCommandLine("-o")>] Output of string
+    | [<AltCommandLine("-s")>] Seconds of float
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Input _ -> "Input plays JSON (e.g. data/continuation_plays_augmented.json)"
+            | Output _ -> "Output profile JSON path"
+            | Seconds _ -> sprintf "Bucket length in seconds (default: %.1f)" defaultBucketSeconds
+
 type Command =
     | [<CliPrefix(CliPrefix.None)>] Convert of ParseResults<ConvertArgs>
     | [<CliPrefix(CliPrefix.None)>] Breakdown of ParseResults<BreakdownArgs>
     | [<CliPrefix(CliPrefix.None)>] Trade_Breakdown of ParseResults<BreakdownArgs>
     | [<CliPrefix(CliPrefix.None)>] Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Benchmark of ParseResults<BenchmarkArgs>
+    | [<CliPrefix(CliPrefix.None)>] Profile of ParseResults<ProfileArgs>
     interface IArgParserTemplate with
         member this.Usage =
             match this with
@@ -670,6 +682,7 @@ type Command =
             | Trade_Breakdown _ -> "Run decisions-only (no fill sim) and print decision-level breakdown"
             | Sweep _ -> "Run a parallel parameter sweep"
             | Benchmark _ -> "Benchmark the pipeline (throughput)"
+            | Profile _ -> "Build an intraday cumulative-volume-fraction profile"
 
 let runConvert (args: ParseResults<ConvertArgs>) =
     let input = args.GetResult ConvertArgs.Input
@@ -729,6 +742,11 @@ let main argv =
             let input = args.GetResult <@ BenchmarkArgs.Input @>
             let dayData, totalTrades = loadDayData input
             runBenchmark dayData totalTrades
+        | Profile args ->
+            let input = args.GetResult <@ ProfileArgs.Input @>
+            let output = args.GetResult <@ ProfileArgs.Output @>
+            let seconds = args.TryGetResult <@ ProfileArgs.Seconds @> |> Option.defaultValue defaultBucketSeconds
+            VolumeProfile.run input output seconds
         0
     with
     | :? ArguParseException as e ->

@@ -706,7 +706,7 @@ let private handleContinuationPlays (args: ParseResults<ContinuationPlaysArgs>) 
             first <- false
             sb.AppendFormat(
                 System.Globalization.CultureInfo.InvariantCulture,
-                "\n  {{\"ticker\": \"{0}\", \"breakout_date\": \"{1}\", \"date\": \"{2}\", \"max_rvol_day\": \"{3}\", \"max_rvol\": {4}, \"days_since_max_rvol_day\": {5}, \"rvol\": {6}, \"volume\": {7}, \"avg_volume_4w\": {8}, \"avg_dollar_volume_4w\": {9}}}",
+                "\n  {{\"ticker\": \"{0}\", \"breakout_date\": \"{1}\", \"date\": \"{2}\", \"max_rvol_day\": \"{3}\", \"max_rvol\": {4}, \"days_since_max_rvol_day\": {5}, \"rvol\": {6}, \"volume\": {7}, \"raw_volume\": {8}, \"avg_volume_4w\": {9}, \"avg_dollar_volume_4w\": {10}}}",
                 p.ticker,
                 p.breakout_date.ToString("yyyy-MM-dd"),
                 p.date.ToString("yyyy-MM-dd"),
@@ -715,6 +715,7 @@ let private handleContinuationPlays (args: ParseResults<ContinuationPlaysArgs>) 
                 p.days_since_max_rvol_day,
                 p.rvol,
                 p.volume,
+                p.raw_volume,
                 p.avg_volume_4w,
                 p.avg_dollar_volume_4w) |> ignore
         if not first then sb.Append("\n") |> ignore

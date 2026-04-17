@@ -65,7 +65,8 @@ SELECT
     ps.high / ps.split_adj_factor - COALESCE(dc.cum_future_dividends, 0.0) AS adj_high,
     ps.low / ps.split_adj_factor - COALESCE(dc.cum_future_dividends, 0.0) AS adj_low,
     ps.close / ps.split_adj_factor - COALESCE(dc.cum_future_dividends, 0.0) AS adj_close,
-    CAST(ps.volume * ps.split_adj_factor AS BIGINT) AS adj_volume
+    CAST(ps.volume * ps.split_adj_factor AS BIGINT) AS adj_volume,
+    ps.volume AS raw_volume
 FROM price_with_splits ps
 ASOF LEFT JOIN div_cumulative dc
     ON ps.ticker = dc.ticker

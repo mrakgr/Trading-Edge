@@ -44,6 +44,7 @@ SELECT
     b.sip_breakout_date,
     p.date AS day_date,
     p.adj_volume AS day_volume,
+    p.raw_volume AS day_raw_volume,
     v.avg_volume_4w AS day_avg_volume_4w,
     v.avg_dollar_volume_4w AS day_avg_dollar_volume_4w,
     (p.adj_close * p.adj_volume) / NULLIF(v.avg_dollar_volume_4w, 0) AS day_rvol

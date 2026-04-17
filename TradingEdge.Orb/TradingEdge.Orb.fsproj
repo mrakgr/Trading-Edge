@@ -9,6 +9,7 @@
     <Compile Include="TradeBinary.fs" />
     <Compile Include="Convert.fs" />
     <Compile Include="Pipeline.fs" />
+    <Compile Include="VolumeProfile.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

@@ -58,11 +58,16 @@ let private getEmbeddedSqlFromFolder (folderName: string) : string array =
     |> Array.filter (fun n -> n.Contains(folderName) && n.EndsWith(".sql"))
     |> Array.sort
 
-/// Create and open a DuckDB connection
+/// Create and open a DuckDB connection.
+/// Caps memory at 6GB so the engine spills to disk rather than letting the OS OOM-kill
+/// the process on heavy materializations (e.g. split_adjusted_prices).
 let openConnection (dbPath: string) : DuckDBConnection =
     let connectionString = $"Data Source={dbPath}"
     let connection = new DuckDBConnection(connectionString)
     connection.Open()
+    use cmd = connection.CreateCommand()
+    cmd.CommandText <- "PRAGMA memory_limit='6GB'"
+    cmd.ExecuteNonQuery() |> ignore
     connection
 
 /// Initialize the base database schema (tables only)
@@ -560,6 +565,7 @@ type private ContinuationPlayRawRow = {
     sip_breakout_date: DateOnly
     day_date: DateOnly
     day_volume: int64
+    day_raw_volume: int64
     day_avg_volume_4w: float
     day_avg_dollar_volume_4w: float
     day_rvol: float
@@ -575,6 +581,7 @@ type ContinuationPlayRow = {
     days_since_max_rvol_day: int64
     rvol: float
     volume: int64
+    raw_volume: int64
     avg_volume_4w: float
     avg_dollar_volume_4w: float
 }
@@ -612,6 +619,7 @@ let private buildChain
                         days_since_max_rvol_day = int64 newDaysSince
                         rvol = raw.day_rvol
                         volume = raw.day_volume
+                        raw_volume = raw.day_raw_volume
                         avg_volume_4w = raw.day_avg_volume_4w
                         avg_dollar_volume_4w = raw.day_avg_dollar_volume_4w
                     }
