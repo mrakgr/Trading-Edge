@@ -276,7 +276,7 @@ let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
 /// Build a per-day VolumeGate from a loaded profile, or ValueNone to skip gating.
 /// rawAvg4w recovers raw-share 4w average from split-adjusted avg_volume_4w via
 /// the per-day split factor (raw_volume / volume). See plan §4.
-let private buildGate (profile: VolumeProfile.LoadedProfile voption) (rvolThreshold: float) (bucketSeconds: float) (d: DayData) : VolumeGate voption =
+let private buildGate (profile: VolumeProfile.LoadedProfile voption) (entryThreshold: float) (exitThreshold: float voption) (d: DayData) : VolumeGate voption =
     match profile with
     | ValueNone -> ValueNone
     | ValueSome p ->
@@ -292,10 +292,11 @@ let private buildGate (profile: VolumeProfile.LoadedProfile voption) (rvolThresh
             StartTicks = startTicks
             BucketTicks = bucketTicks
             RawAvg4w = rawAvg4w
-            RvolThreshold = rvolThreshold
+            EntryThreshold = entryThreshold
+            ExitThreshold = exitThreshold
         }
 
-let runFillBreakdown (dayData: DayData[]) (bucketSeconds: float) fillPercentile (entryMode: EntryMode) (stopMode: StopMode) (direction: Direction) (profile: VolumeProfile.LoadedProfile voption) (rvolThreshold: float) =
+let runFillBreakdown (dayData: DayData[]) (bucketSeconds: float) fillPercentile (entryMode: EntryMode) (stopMode: StopMode) (direction: Direction) (profile: VolumeProfile.LoadedProfile voption) (entryThreshold: float) (exitThreshold: float voption) =
     let logPath = "logs/fill_breakdown.log"
     Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
     use logWriter = new StreamWriter(logPath, false)
@@ -310,13 +311,16 @@ let runFillBreakdown (dayData: DayData[]) (bucketSeconds: float) fillPercentile 
     tee "Fill sim: pctile=%.3f, delay=%.0fms, commission=$%.4f/share, rejection=%.0f%%"
         fillPercentile fillDelayMs commissionPerShare (fillRejectionRate * 100.0)
     match profile with
-    | ValueSome _ -> tee "RVOL gate: ENABLED (threshold >= %.2fx)" rvolThreshold
+    | ValueSome _ ->
+        match exitThreshold with
+        | ValueSome xt -> tee "RVOL gate: ENABLED (entry >= %.2fx, exit < %.2fx)" entryThreshold xt
+        | ValueNone -> tee "RVOL gate: ENABLED (entry >= %.2fx, no volume-fade exit)" entryThreshold
     | ValueNone -> tee "RVOL gate: disabled"
     tee ""
 
     let dayResults =
         [| for d in dayData do
-            let gate = buildGate profile rvolThreshold bucketSeconds d
+            let gate = buildGate profile entryThreshold exitThreshold d
             let seg, vs, td, ell, fs, tf = configure d.Header bucketSeconds fillPercentile stopMode gate
             vs.EntryMode <- entryMode
             vs.Direction <- direction
@@ -481,7 +485,7 @@ type TradeBreakdownDay = {
     NumDecisions: int
 }
 
-let runTradeBreakdown (dayData: DayData[]) (bucketSeconds: float) (entryMode: EntryMode) (stopMode: StopMode) (direction: Direction) (profile: VolumeProfile.LoadedProfile voption) (rvolThreshold: float) =
+let runTradeBreakdown (dayData: DayData[]) (bucketSeconds: float) (entryMode: EntryMode) (stopMode: StopMode) (direction: Direction) (profile: VolumeProfile.LoadedProfile voption) (entryThreshold: float) (exitThreshold: float voption) =
     let logPath = "logs/trade_breakdown.log"
     Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
     use logWriter = new StreamWriter(logPath, false)
@@ -494,13 +498,16 @@ let runTradeBreakdown (dayData: DayData[]) (bucketSeconds: float) (entryMode: En
     tee "Position size: $%.0f  referenceVol: %.4g  lossLimit: infinity"
         positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0)
     match profile with
-    | ValueSome _ -> tee "RVOL gate: ENABLED (threshold >= %.2fx)" rvolThreshold
+    | ValueSome _ ->
+        match exitThreshold with
+        | ValueSome xt -> tee "RVOL gate: ENABLED (entry >= %.2fx, exit < %.2fx)" entryThreshold xt
+        | ValueNone -> tee "RVOL gate: ENABLED (entry >= %.2fx, no volume-fade exit)" entryThreshold
     | ValueNone -> tee "RVOL gate: disabled"
     tee ""
 
     let dayResults =
         [| for d in dayData do
-            let gate = buildGate profile rvolThreshold bucketSeconds d
+            let gate = buildGate profile entryThreshold exitThreshold d
             let seg = SegregateTrades(TimeSpan.FromSeconds bucketSeconds, DateTime d.Header.BaseTicks)
             seg.OpeningPrintIdx <- d.Header.OpeningPrintIndex
             let vs = OrbSystem(positionSize, referenceVol, stopMode, gate)
@@ -676,6 +683,7 @@ type BreakdownArgs =
     | Short
     | [<AltCommandLine("-P")>] Profile of string
     | [<AltCommandLine("-r")>] Rvol_Threshold of float
+    | Rvol_Exit_Threshold of float
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -687,6 +695,7 @@ type BreakdownArgs =
             | Short -> "Short-side mirror: enter on range-low break, stop at range-high"
             | Profile _ -> "Path to a volume_profile.json produced by `profile`. When provided, gates entries on predicted RVOL."
             | Rvol_Threshold _ -> "Minimum predicted RVOL to allow an entry (default: 3.0). Only effective when --profile is set."
+            | Rvol_Exit_Threshold _ -> "If set and --profile is provided, flatten an open position when predicted RVOL drops below this value (volume-fade exit). Default: no exit."
 
 type SweepArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
@@ -767,9 +776,10 @@ let main argv =
                 args.TryGetResult <@ BreakdownArgs.Profile @>
                 |> Option.map VolumeProfile.load
                 |> ValueOption.ofOption
-            let rvolThreshold = args.TryGetResult <@ BreakdownArgs.Rvol_Threshold @> |> Option.defaultValue 3.0
+            let entryThreshold = args.TryGetResult <@ BreakdownArgs.Rvol_Threshold @> |> Option.defaultValue 3.0
+            let exitThreshold = args.TryGetResult <@ BreakdownArgs.Rvol_Exit_Threshold @> |> ValueOption.ofOption
             let dayData, _ = loadDayData input
-            runFillBreakdown dayData bucketSeconds percentile entryMode stopMode direction profile rvolThreshold
+            runFillBreakdown dayData bucketSeconds percentile entryMode stopMode direction profile entryThreshold exitThreshold
         | Trade_Breakdown args ->
             let input = args.GetResult <@ BreakdownArgs.Input @>
             let entryMode, stopMode =
@@ -781,9 +791,10 @@ let main argv =
                 args.TryGetResult <@ BreakdownArgs.Profile @>
                 |> Option.map VolumeProfile.load
                 |> ValueOption.ofOption
-            let rvolThreshold = args.TryGetResult <@ BreakdownArgs.Rvol_Threshold @> |> Option.defaultValue 3.0
+            let entryThreshold = args.TryGetResult <@ BreakdownArgs.Rvol_Threshold @> |> Option.defaultValue 3.0
+            let exitThreshold = args.TryGetResult <@ BreakdownArgs.Rvol_Exit_Threshold @> |> ValueOption.ofOption
             let dayData, _ = loadDayData input
-            runTradeBreakdown dayData bucketSeconds entryMode stopMode direction profile rvolThreshold
+            runTradeBreakdown dayData bucketSeconds entryMode stopMode direction profile entryThreshold exitThreshold
         | Sweep args ->
             let input = args.GetResult <@ SweepArgs.Input @>
             let dayData, _ = loadDayData input
