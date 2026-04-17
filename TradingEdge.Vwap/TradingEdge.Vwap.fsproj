@@ -8,6 +8,7 @@
     <Compile Include="TradeLoader.fs" />
     <Compile Include="TradeBinary.fs" />
     <Compile Include="Convert.fs" />
+    <Compile Include="Pipeline.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
