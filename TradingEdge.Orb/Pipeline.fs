@@ -652,7 +652,7 @@ type FillSimulator(percentile: float, delayMs: float, rejectionRate: float, rngO
         self.ProcessPending now
 
 // ============================================================================
-// Round-trip extraction (mirrors scripts/fill_breakdown.fsx)
+// Round-trip extraction
 // ============================================================================
 
 type RoundTrip = {
