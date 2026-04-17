@@ -17,7 +17,7 @@ When writing concurrent F# code in this project:
 ## Visualization
 
 - **PowerShell scripts in `scripts/visualization/`** are used for chart generation
-- Run `pwsh scripts/visualization/gen_all_charts_sim.ps1` to regenerate simulation charts
+- Run `pwsh scripts/visualization/gen_all_charts_massive.ps1` to regenerate per-day charts (tick, time-bar VWAP, volume-bar VWAP)
 
 ## Git Commits
 
