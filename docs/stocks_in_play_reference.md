@@ -521,7 +521,7 @@ Catalyst: Short Squeeze
 
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/BYND_2025-10-20_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
-<div class="chart-placeholder" data-src="charts/BYND_2025-10-20_intraday_candle.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-20_intraday_timebar.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Pump And Dump
 Play: Changing Fundamentals
@@ -549,7 +549,7 @@ Catalyst: Short Squeeze
 
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/BYND_2025-10-21_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
-<div class="chart-placeholder" data-src="charts/BYND_2025-10-21_intraday_candle.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-21_intraday_timebar.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Pump And Dump
 Play: Second Day
@@ -577,7 +577,7 @@ Catalyst: Short Squeeze
 
 ### Technical Analysis
 <div class="chart-placeholder" data-src="charts/BYND_2025-10-22_daily.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
-<div class="chart-placeholder" data-src="charts/BYND_2025-10-22_intraday_candle.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
+<div class="chart-placeholder" data-src="charts/BYND_2025-10-22_intraday_timebar.html" style="width:100%; height:600px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f5f5f5;">Click to load chart</div>
 
 Overall Pattern: Pump And Dump
 Play: Parabolic Reversal
