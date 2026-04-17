@@ -92,6 +92,41 @@ let regularCloseHoursFromBase = 16.0
 let earlyCloseHoursFromBase = 13.0
 
 // ============================================================================
+// Loaded profile (for reading back a profile JSON at breakdown time)
+// ============================================================================
+
+type SessionProfile = {
+    CloseTimeEt: string
+    BucketCount: int
+    DaysUsed: int
+    Profile: float[]
+}
+
+type LoadedProfile = {
+    SecondsPerBar: float
+    StartTimeEt: string
+    RegularClose: SessionProfile
+    EarlyClose: SessionProfile
+}
+
+let private readSessionProfile (el: JsonElement) : SessionProfile =
+    let profile =
+        [| for x in el.GetProperty("profile").EnumerateArray() -> x.GetDouble() |]
+    { CloseTimeEt = el.GetProperty("close_time_et").GetString()
+      BucketCount = el.GetProperty("bucket_count").GetInt32()
+      DaysUsed    = el.GetProperty("days_used").GetInt32()
+      Profile     = profile }
+
+let load (path: string) : LoadedProfile =
+    let bytes = File.ReadAllBytes path
+    use doc = JsonDocument.Parse(ReadOnlyMemory bytes)
+    let root = doc.RootElement
+    { SecondsPerBar = root.GetProperty("seconds_per_bar").GetDouble()
+      StartTimeEt   = root.GetProperty("start_time_et").GetString()
+      RegularClose  = readSessionProfile (root.GetProperty("regular_close"))
+      EarlyClose    = readSessionProfile (root.GetProperty("early_close")) }
+
+// ============================================================================
 // Output JSON
 // ============================================================================
 

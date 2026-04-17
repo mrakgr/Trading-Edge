@@ -29,7 +29,19 @@ type DayResult = {
     AvgPositionSize: float
 }
 
-type DayData = { Date: string; Header: DayHeader; Ticker: string; Trades: Trade[]; AvgVolume4w: float }
+type DayData = {
+    Date: string
+    Header: DayHeader
+    Ticker: string
+    Trades: Trade[]
+    AvgVolume4w: float
+    /// Split-adjusted daily volume (Polygon adj_volume). Together with RawVolume
+    /// lets us recover the per-day split factor at inference for the RVOL gate.
+    Volume: float
+    /// Raw daily volume (Polygon daily_prices.volume, unadjusted). Matches the
+    /// share counts in the filtered binary trade stream.
+    RawVolume: float
+}
 
 /// Default time-bar bucket length in seconds. 10s gives PF ~2 on the current dataset.
 let defaultBucketSeconds = 10.0
@@ -43,29 +55,40 @@ let fillRejectionRate = 0.30
 /// Default stop mode. rangeLo matches widest-vol-stop PF (~1.70) without tuning.
 let stopMode = StopAtRange
 
-let configure (header: DayHeader) (bucketSeconds: float) fillPercentile stopMode =
+let configure (header: DayHeader) (bucketSeconds: float) fillPercentile stopMode (gate: VolumeGate voption) =
     let seg = SegregateTrades(TimeSpan.FromSeconds bucketSeconds, DateTime header.BaseTicks)
     seg.OpeningPrintIdx <- header.OpeningPrintIndex
-    let vs = OrbSystem(positionSize, referenceVol, stopMode)
+    let vs = OrbSystem(positionSize, referenceVol, stopMode, gate)
     let td = TrackDecisions()
     let tf = TrackFills(commissionPerShare)
     let ell = EnforceLossLimit((fun () -> tf.NetPnL), infinity)
     let fs = FillSimulator(fillPercentile, fillDelayMs, fillRejectionRate, ValueNone, DateTime header.BaseTicks)
     seg, vs, td, ell, fs, tf
 
-/// Load (ticker, date) -> avg_volume_4w from the augmented continuation plays JSON.
-/// Every experiment JSON is a subset of continuation_plays, so this covers all the
-/// days we might encounter.
-let private loadAvgVolumes () =
+/// Per-day metadata loaded from the augmented continuation plays JSON:
+/// avg_volume_4w (split-adjusted) plus volume + raw_volume so we can recover
+/// the split factor at inference time. Throws if `raw_volume` is missing from
+/// any row — regenerate the plays JSON with the post-78ba29d `continuation-plays`
+/// command.
+type private PlayMeta = { AvgVolume4w: float; Volume: float; RawVolume: float }
+let private loadPlaysMeta () =
     let path = "data/continuation_plays_augmented.json"
     let bytes = File.ReadAllBytes path
     use doc = System.Text.Json.JsonDocument.Parse(ReadOnlyMemory bytes)
-    let d = System.Collections.Generic.Dictionary<struct (string * string), float>()
+    let d = System.Collections.Generic.Dictionary<struct (string * string), PlayMeta>()
     for el in doc.RootElement.EnumerateArray() do
         let ticker = el.GetProperty("ticker").GetString()
         let date = el.GetProperty("date").GetString()
         let avgVol = el.GetProperty("avg_volume_4w").GetDouble()
-        if avgVol > 0.0 then d.[struct (ticker, date)] <- avgVol
+        let volume = el.GetProperty("volume").GetDouble()
+        let rawVolume =
+            match el.TryGetProperty("raw_volume") with
+            | true, v -> v.GetDouble()
+            | _ ->
+                failwithf "continuation_plays_augmented.json is missing 'raw_volume' on %s %s — regenerate with `dotnet run --project TradingEdge.Massive -- continuation-plays -s <start> -e <end> --json > data/continuation_plays.json` then re-run `augment_continuation_plays.fsx` (requires commit 78ba29d or later)."
+                    ticker date
+        if avgVol > 0.0 then
+            d.[struct (ticker, date)] <- { AvgVolume4w = avgVol; Volume = volume; RawVolume = rawVolume }
     d
 
 let loadDayData (jsonPath: string) =
@@ -73,16 +96,17 @@ let loadDayData (jsonPath: string) =
 
     printfn "Loading %d days from %s ..." entries.Length jsonPath
     let swLoad = Stopwatch.StartNew()
-    let avgVols = loadAvgVolumes ()
+    let meta = loadPlaysMeta ()
     let mutable skippedNoVol = 0
     let dayData : DayData[] =
         [| for ticker, date in entries do
             let header, trades = loadDay {Directory = "data/trades_bin"; Ticker = ticker; Date = date}
             if header.OpeningPrintIndex <> ValueNone then
-                match avgVols.TryGetValue(struct (ticker, date)) with
-                | true, avgVol when avgVol > 0.0 ->
+                match meta.TryGetValue(struct (ticker, date)) with
+                | true, m when m.AvgVolume4w > 0.0 ->
                     yield { Ticker = ticker; Date = date
-                            Header = header; Trades = trades; AvgVolume4w = avgVol }
+                            Header = header; Trades = trades
+                            AvgVolume4w = m.AvgVolume4w; Volume = m.Volume; RawVolume = m.RawVolume }
                 | _ ->
                     skippedNoVol <- skippedNoVol + 1 |]
     swLoad.Stop()
@@ -100,7 +124,7 @@ type DaySummary = {
 }
 
 let evaluateDay (d: DayData) (bucketSeconds: float) fillPercentile (stopMode: StopMode) : DaySummary =
-    let seg, vs, td, ell, fs, tf = configure d.Header bucketSeconds fillPercentile stopMode
+    let seg, vs, td, ell, fs, tf = configure d.Header bucketSeconds fillPercentile stopMode ValueNone
     let onFillSink (_: Fill) = ()
     let onFill (fill: Fill) = tf.Process(onFillSink, fill)
     let onTracked (decision: TradingDecision voption, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade) =
@@ -208,7 +232,7 @@ let runParallelSweep (dayData: DayData[]) (stopModes: StopMode[]) =
 
 let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
     let bench(d : DayData, ctx : SinkContext) =
-        let seg, vs, td, ell, fs, tf = configure d.Header defaultBucketSeconds fillPercentile stopMode
+        let seg, vs, td, ell, fs, tf = configure d.Header defaultBucketSeconds fillPercentile stopMode ValueNone
         let inline onFillSink (fill: Fill) =
             ctx.FillCount <- ctx.FillCount + 1
             ctx.Sink <- ctx.Sink + fill.Price
@@ -249,7 +273,29 @@ let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
         sw.Elapsed.TotalSeconds ctx.BarCount ctx.DecisionCount ctx.FillCount ctx.Sink
         ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
 
-let runFillBreakdown (dayData: DayData[]) (bucketSeconds: float) fillPercentile (entryMode: EntryMode) (stopMode: StopMode) (direction: Direction) =
+/// Build a per-day VolumeGate from a loaded profile, or ValueNone to skip gating.
+/// rawAvg4w recovers raw-share 4w average from split-adjusted avg_volume_4w via
+/// the per-day split factor (raw_volume / volume). See plan §4.
+let private buildGate (profile: VolumeProfile.LoadedProfile voption) (rvolThreshold: float) (bucketSeconds: float) (d: DayData) : VolumeGate voption =
+    match profile with
+    | ValueNone -> ValueNone
+    | ValueSome p ->
+        let baseTime = DateTime d.Header.BaseTicks
+        let isEarly = Timezone.early_closes.Contains(DateOnly.FromDateTime baseTime)
+        let sessionProfile = if isEarly then p.EarlyClose else p.RegularClose
+        let startTicks = baseTime.AddHours(VolumeProfile.startHoursFromBase).Ticks
+        let bucketTicks = int64 (p.SecondsPerBar * float TimeSpan.TicksPerSecond)
+        let splitFactor = if d.Volume > 0.0 then d.RawVolume / d.Volume else 1.0
+        let rawAvg4w = d.AvgVolume4w * splitFactor
+        ValueSome {
+            Profile = sessionProfile
+            StartTicks = startTicks
+            BucketTicks = bucketTicks
+            RawAvg4w = rawAvg4w
+            RvolThreshold = rvolThreshold
+        }
+
+let runFillBreakdown (dayData: DayData[]) (bucketSeconds: float) fillPercentile (entryMode: EntryMode) (stopMode: StopMode) (direction: Direction) (profile: VolumeProfile.LoadedProfile voption) (rvolThreshold: float) =
     let logPath = "logs/fill_breakdown.log"
     Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
     use logWriter = new StreamWriter(logPath, false)
@@ -263,11 +309,15 @@ let runFillBreakdown (dayData: DayData[]) (bucketSeconds: float) fillPercentile 
         positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0)
     tee "Fill sim: pctile=%.3f, delay=%.0fms, commission=$%.4f/share, rejection=%.0f%%"
         fillPercentile fillDelayMs commissionPerShare (fillRejectionRate * 100.0)
+    match profile with
+    | ValueSome _ -> tee "RVOL gate: ENABLED (threshold >= %.2fx)" rvolThreshold
+    | ValueNone -> tee "RVOL gate: disabled"
     tee ""
 
     let dayResults =
         [| for d in dayData do
-            let seg, vs, td, ell, fs, tf = configure d.Header bucketSeconds fillPercentile stopMode
+            let gate = buildGate profile rvolThreshold bucketSeconds d
+            let seg, vs, td, ell, fs, tf = configure d.Header bucketSeconds fillPercentile stopMode gate
             vs.EntryMode <- entryMode
             vs.Direction <- direction
             let onFillSink (_: Fill) = ()
@@ -431,7 +481,7 @@ type TradeBreakdownDay = {
     NumDecisions: int
 }
 
-let runTradeBreakdown (dayData: DayData[]) (bucketSeconds: float) (entryMode: EntryMode) (stopMode: StopMode) (direction: Direction) =
+let runTradeBreakdown (dayData: DayData[]) (bucketSeconds: float) (entryMode: EntryMode) (stopMode: StopMode) (direction: Direction) (profile: VolumeProfile.LoadedProfile voption) (rvolThreshold: float) =
     let logPath = "logs/trade_breakdown.log"
     Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
     use logWriter = new StreamWriter(logPath, false)
@@ -443,13 +493,17 @@ let runTradeBreakdown (dayData: DayData[]) (bucketSeconds: float) (entryMode: En
     tee "bucketSeconds: %.2f  entryDelay: %.1fs" bucketSeconds entryDelaySeconds
     tee "Position size: $%.0f  referenceVol: %.4g  lossLimit: infinity"
         positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0)
+    match profile with
+    | ValueSome _ -> tee "RVOL gate: ENABLED (threshold >= %.2fx)" rvolThreshold
+    | ValueNone -> tee "RVOL gate: disabled"
     tee ""
 
     let dayResults =
         [| for d in dayData do
+            let gate = buildGate profile rvolThreshold bucketSeconds d
             let seg = SegregateTrades(TimeSpan.FromSeconds bucketSeconds, DateTime d.Header.BaseTicks)
             seg.OpeningPrintIdx <- d.Header.OpeningPrintIndex
-            let vs = OrbSystem(positionSize, referenceVol, stopMode)
+            let vs = OrbSystem(positionSize, referenceVol, stopMode, gate)
             vs.EntryMode <- entryMode
             vs.Direction <- direction
             let td = TrackDecisions()
@@ -620,6 +674,8 @@ type BreakdownArgs =
     | [<AltCommandLine("-p")>] Percentile of float
     | Buy_At_Open
     | Short
+    | [<AltCommandLine("-P")>] Profile of string
+    | [<AltCommandLine("-r")>] Rvol_Threshold of float
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -629,6 +685,8 @@ type BreakdownArgs =
             | Percentile _ -> "The target percentile to buy down in a bar (e.g. 0.05)"
             | Buy_At_Open -> "Baseline: enter on first AfterOpeningPrint bar with StopNever (measures dataset directional bias)"
             | Short -> "Short-side mirror: enter on range-low break, stop at range-high"
+            | Profile _ -> "Path to a volume_profile.json produced by `profile`. When provided, gates entries on predicted RVOL."
+            | Rvol_Threshold _ -> "Minimum predicted RVOL to allow an entry (default: 3.0). Only effective when --profile is set."
 
 type SweepArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
@@ -705,8 +763,13 @@ let main argv =
                 else RangeBreakout, stopMode
             let direction = if args.Contains <@ BreakdownArgs.Short @> then Direction.Short else Direction.Long
             let bucketSeconds = args.TryGetResult <@ BreakdownArgs.Seconds @> |> Option.defaultValue defaultBucketSeconds
+            let profile =
+                args.TryGetResult <@ BreakdownArgs.Profile @>
+                |> Option.map VolumeProfile.load
+                |> ValueOption.ofOption
+            let rvolThreshold = args.TryGetResult <@ BreakdownArgs.Rvol_Threshold @> |> Option.defaultValue 3.0
             let dayData, _ = loadDayData input
-            runFillBreakdown dayData bucketSeconds percentile entryMode stopMode direction
+            runFillBreakdown dayData bucketSeconds percentile entryMode stopMode direction profile rvolThreshold
         | Trade_Breakdown args ->
             let input = args.GetResult <@ BreakdownArgs.Input @>
             let entryMode, stopMode =
@@ -714,8 +777,13 @@ let main argv =
                 else RangeBreakout, stopMode
             let direction = if args.Contains <@ BreakdownArgs.Short @> then Direction.Short else Direction.Long
             let bucketSeconds = args.TryGetResult <@ BreakdownArgs.Seconds @> |> Option.defaultValue defaultBucketSeconds
+            let profile =
+                args.TryGetResult <@ BreakdownArgs.Profile @>
+                |> Option.map VolumeProfile.load
+                |> ValueOption.ofOption
+            let rvolThreshold = args.TryGetResult <@ BreakdownArgs.Rvol_Threshold @> |> Option.defaultValue 3.0
             let dayData, _ = loadDayData input
-            runTradeBreakdown dayData bucketSeconds entryMode stopMode direction
+            runTradeBreakdown dayData bucketSeconds entryMode stopMode direction profile rvolThreshold
         | Sweep args ->
             let input = args.GetResult <@ SweepArgs.Input @>
             let dayData, _ = loadDayData input

@@ -80,6 +80,7 @@ type OrbSystemBar = {
     VolFactor : float
     RangeHigh : float
     RangeLow : float
+    SessionCumVolume : float
 }
 
 type OrbSystemArgsBuilder(bucketSpan: TimeSpan) =
@@ -89,6 +90,7 @@ type OrbSystemArgsBuilder(bucketSpan: TimeSpan) =
     member val PrevBar = ValueOption<Bar>.None with get, set
     member val RangeHigh = Double.NegativeInfinity with get, set
     member val RangeLow = Double.PositiveInfinity with get, set
+    member val SessionCumVolume = 0.0 with get, set
 
     member inline self.OnBar(onNext, bar: Bar, includeInVol: bool, includeInRange: bool) =
         match self.PrevBar with
@@ -107,11 +109,13 @@ type OrbSystemArgsBuilder(bucketSpan: TimeSpan) =
         if includeInRange then
             if bar.VWAP > self.RangeHigh then self.RangeHigh <- bar.VWAP
             if bar.VWAP < self.RangeLow then self.RangeLow <- bar.VWAP
+            self.SessionCumVolume <- self.SessionCumVolume + bar.Volume
         onNext {
             Bar = bar
             VolFactor = volFactor
             RangeHigh = emittedHigh
             RangeLow = emittedLow
+            SessionCumVolume = self.SessionCumVolume
         }
 
     member inline self.Process(onNext, trade: Trade, includeInVol: bool, includeInRange: bool) =
@@ -226,10 +230,23 @@ type Direction =
     | Long
     | Short
 
-type OrbSystem(positionSize: float, referenceVol: float voption, stopMode: StopMode) =
+/// Optional predicted-RVOL gate. When present, OrbSystem rejects entries
+/// unless the profile-derived RVOL forecast at the current bar is at least
+/// `RvolThreshold`. Built once per day in Program.fs; the session profile
+/// (regular vs. early close) is pre-selected there.
+type VolumeGate = {
+    Profile: VolumeProfile.SessionProfile
+    StartTicks: int64
+    BucketTicks: int64
+    RawAvg4w: float
+    RvolThreshold: float
+}
+
+type OrbSystem(positionSize: float, referenceVol: float voption, stopMode: StopMode, gate: VolumeGate voption) =
     member val PositionSize = positionSize
     member val ReferenceVol = referenceVol
     member val StopMode = stopMode
+    member val Gate = gate
     member val EntryMode = RangeBreakout with get, set
     member val Direction = Long with get, set
     member val State = Active(0.0, 0, 0.0) with get, set
@@ -238,6 +255,26 @@ type OrbSystem(positionSize: float, referenceVol: float voption, stopMode: StopM
         match self.ReferenceVol with
         | ValueNone -> self.PositionSize
         | ValueSome refVol -> min self.PositionSize (self.PositionSize * refVol / vf)
+
+    /// Returns true when the profile-derived predicted RVOL clears the threshold
+    /// (or the gate is absent). Uses the bar's cumulative session volume divided
+    /// by the per-bucket profile fraction to estimate the full day's volume, then
+    /// normalises by the split-adjusted-back-to-raw 4-week average.
+    member inline self.PassesGate(b: OrbSystemBar, tradeTs: DateTime) =
+        match self.Gate with
+        | ValueNone -> true
+        | ValueSome g ->
+            let bucket = int ((tradeTs.Ticks - g.StartTicks) / g.BucketTicks)
+            if bucket < 0 || bucket >= g.Profile.BucketCount then true
+            else
+                let profileFrac = g.Profile.Profile.[bucket]
+                // Earliest buckets on low-activity days have fraction ~0; avoid divide-by-zero
+                // by passing through (conservative: the gate is a reject filter, not an accept filter).
+                if profileFrac <= 0.0 then true
+                else
+                    let predictedDaily = b.SessionCumVolume / profileFrac
+                    let predictedRvol = predictedDaily / g.RawAvg4w
+                    predictedRvol >= g.RvolThreshold
 
     member inline self.Process(onNext, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade, tradeTs: DateTime) =
         let mutable decision = ValueNone
@@ -260,7 +297,7 @@ type OrbSystem(positionSize: float, referenceVol: float voption, stopMode: StopM
                             | Short -> price < b.RangeLow
                         | BuyAtOpen -> true
                     if position = 0 then
-                        if targetShares > 0 && shouldEnter then
+                        if targetShares > 0 && shouldEnter && self.PassesGate(b, tradeTs) then
                             // Stop levels mirror by direction. For longs: stop below; for shorts: stop above.
                             let stopLevel =
                                 match self.Direction, self.StopMode with
