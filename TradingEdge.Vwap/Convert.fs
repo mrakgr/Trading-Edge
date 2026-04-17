@@ -11,6 +11,8 @@ type PlayEntry = {
     date: string
 }
 
+/// Read a plays JSON file and return the deduplicated (ticker, date) pairs.
+/// Same (ticker, date) may appear multiple times across plays — dedup avoids redundant conversion work.
 let loadPlays (jsonPath: string) : (string * string)[] =
     let bytes = File.ReadAllBytes jsonPath
     use doc = JsonDocument.Parse(ReadOnlyMemory bytes)
@@ -18,6 +20,8 @@ let loadPlays (jsonPath: string) : (string * string)[] =
         el.GetProperty("ticker").GetString(), el.GetProperty("date").GetString() |]
     |> Array.distinct
 
+/// Convert a single day's parquet trades file to the project's binary format.
+/// Missing parquet is logged but non-fatal so a bulk run completes instead of aborting mid-way.
 let convertOne (tradesDir: string) (outDir: string) (ticker: string, date: string) =
     let parquetPath = Path.Combine(tradesDir, ticker, $"{date}.parquet")
     if not (File.Exists parquetPath) then
@@ -27,6 +31,8 @@ let convertOne (tradesDir: string) (outDir: string) (ticker: string, date: strin
         let info = { Directory = outDir; Ticker = ticker; Date = date }
         writeDay info staging
 
+/// Convert every (ticker, date) pair from a plays JSON file in parallel.
+/// Uses Parallel.ForEach because conversion is CPU/IO bound per file and trivially independent across pairs.
 let convertPlays (jsonPath: string) (tradesDir: string) (outDir: string) =
     let pairs = loadPlays jsonPath
     printfn "Converting %d (ticker, date) pairs from %s" pairs.Length jsonPath

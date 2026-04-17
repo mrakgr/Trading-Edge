@@ -15,7 +15,7 @@ open TradeBinary
 // Local VolumeBar over TradeRecord (Profile-scoped; replaces the shared one)
 // ============================================================================
 
-type VolumeBar =
+type Bar =
     {
         VWAP: float
         StdDev: float
@@ -27,7 +27,7 @@ type VolumeBar =
 // Class-based pipeline (separate classes with member inline onNext)
 // ============================================================================
 
-type VolumeBarOfTrades() =
+type TradesToBarBuilder() =
     member inline self.Process(onNext, trades: ImmutableArray<struct (float * float)>) =
         let mutable priceVolumeSum = 0.0
         let mutable priceSquaredVolumeSum = 0.0
@@ -45,7 +45,7 @@ type VolumeBarOfTrades() =
             Trades = trades
         }
 
-type GroupTrades(barSize: float) =
+type GroupIntoVolumeChunksBuilder(barSize: float) =
     member val BarSize = barSize
     member val CurrentTrades = ImmutableArray.CreateBuilder<struct (float * float)>()
     member val CurrentVolumeSum = 0.0 with get, set
@@ -71,8 +71,8 @@ type GroupTrades(barSize: float) =
 
 type VolumeBarBuilder(barSize: float) =
     member val BarSize = barSize
-    member val Grouper = GroupTrades(barSize)
-    member val BarBuilder = VolumeBarOfTrades()
+    member val Grouper = GroupIntoVolumeChunksBuilder(barSize)
+    member val BarBuilder = TradesToBarBuilder()
 
     member inline self.Process(onNext, trade: Trade) =
         self.Grouper.Process((fun trades -> self.BarBuilder.Process(onNext, trades)), trade)
@@ -84,14 +84,12 @@ type VolumeBarBuilder(barSize: float) =
 /// Groups trades into fixed time buckets aligned to `baseTime` (typically midnight ET).
 /// The bucket index for a trade is `floor((trade_ticks - baseTime) / bucketTicks)`.
 /// A trade whose bucket index exceeds the current bucket flushes the current bucket
-/// (emitting a VolumeBar) and opens a new one. Empty buckets are skipped entirely —
+/// (emitting a Bar) and opens a new one. Empty buckets are skipped entirely —
 /// no bar is emitted for a time window with zero trades.
-type TimeBarBuilder(baseTime: DateTime, bucketSpan: TimeSpan) =
-    let bucketTicks = bucketSpan.Ticks
-    member val BaseTime = baseTime
-    member val BucketTicks = bucketTicks
-    member val BarBuilder = VolumeBarOfTrades()
-    member val CurrentBucket = -1L with get, set
+type TimeBarBuilder(bucketSpan: TimeSpan) =
+    member val BucketTicks = bucketSpan.Ticks
+    member val BarBuilder = TradesToBarBuilder()
+    member val CurrentBucket = Int64.MinValue with get, set
     member val CurrentTrades = ImmutableArray.CreateBuilder<struct (float * float)>()
 
     member inline self.Flush(onNext) =
@@ -102,9 +100,7 @@ type TimeBarBuilder(baseTime: DateTime, bucketSpan: TimeSpan) =
     member inline self.Process(onNext, trade: Trade) =
         let tradeTicks = trade.TicksFromBase
         let bucket = tradeTicks / self.BucketTicks
-        if self.CurrentBucket = -1L then
-            self.CurrentBucket <- bucket
-        elif bucket <> self.CurrentBucket then
+        if bucket > self.CurrentBucket then
             self.Flush onNext
             self.CurrentBucket <- bucket
         self.CurrentTrades.Add (struct (trade.Price, float trade.Volume))
@@ -116,7 +112,7 @@ type TimeBarBuilder(baseTime: DateTime, bucketSpan: TimeSpan) =
 /// Log-return squared between consecutive bar VWAPs. Works for both volume bars
 /// (where adjacent bars have equal volume by construction) and time bars
 /// (where bar volume varies freely).
-let pairwiseRealizedVariance (a: VolumeBar) (b: VolumeBar) =
+let pairwiseRealizedVariance (a: Bar) (b: Bar) =
     log (a.VWAP / b.VWAP) ** 2
 
 // ============================================================================
@@ -124,7 +120,7 @@ let pairwiseRealizedVariance (a: VolumeBar) (b: VolumeBar) =
 // ============================================================================
 
 type OrbSystemBar = {
-    Bar : VolumeBar
+    Bar : Bar
     VolFactor : float
     RangeHigh : float
     RangeLow : float
@@ -143,15 +139,15 @@ type OrbSystemArgsBuilder(kind: BarKind, baseTime: DateTime) =
         | TimeBars _ -> ValueNone
     member val TimeBuilder =
         match kind with
-        | TimeBars span -> ValueSome (TimeBarBuilder(baseTime, span))
+        | TimeBars span -> ValueSome (TimeBarBuilder(span))
         | VolumeBars _ -> ValueNone
     member val VarianceSum = 0.0 with get, set
     member val PairCount = 0 with get, set
-    member val PrevBar = ValueOption<VolumeBar>.None with get, set
+    member val PrevBar = ValueOption<Bar>.None with get, set
     member val RangeHigh = Double.NegativeInfinity with get, set
     member val RangeLow = Double.PositiveInfinity with get, set
 
-    member inline self.OnBar(onNext, bar: VolumeBar, includeInVol: bool, includeInRange: bool) =
+    member inline self.OnBar(onNext, bar: Bar, includeInVol: bool, includeInRange: bool) =
         match self.PrevBar with
         | ValueSome prev ->
             if includeInVol then
