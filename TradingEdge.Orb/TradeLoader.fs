@@ -21,7 +21,11 @@ type RawTrade =
         size: float
     }
 
-    member self.Timestamp = if self.participant_timestamp <> 0L then self.participant_timestamp else self.sip_timestamp
+    // Use the SIP timestamp for ordering and bar bucketing — it's when the trade
+    // was reported on the consolidated tape, which is what a live system would
+    // actually see. participant_timestamp is the venue's booking time and can
+    // sit on a late print for many ms before the SIP releases it.
+    member self.Timestamp = if self.sip_timestamp <> 0L then self.sip_timestamp else self.participant_timestamp
     // Polygon stores nanoseconds since Unix epoch (1970-01-01). .NET Ticks are
     // 100-ns units since 0001-01-01 — so divide by 100 and add the epoch offset.
     static member val UnixEpochTicks = System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc).Ticks
@@ -152,7 +156,7 @@ let loadRawTrades (filePath: string) : RawTrade[] =
         sprintf
             "SELECT participant_timestamp, sip_timestamp, price, size, conditions \
              FROM (SELECT *, ROW_NUMBER() OVER () AS _row FROM read_parquet('%s')) \
-             ORDER BY participant_timestamp, _row"
+             ORDER BY sip_timestamp, _row"
             escaped
 
     use reader = cmd.ExecuteReader()
