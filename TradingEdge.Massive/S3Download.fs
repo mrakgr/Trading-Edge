@@ -6,6 +6,7 @@ open System.Net
 open System.Threading
 open Amazon.S3
 open Amazon.S3.Model
+open DuckDB.NET.Data
 
 /// S3 configuration for Massive
 let private bucketName = "flatfiles"
@@ -152,3 +153,138 @@ let consoleProgress (completed: int) (total: int) (result: DownloadResult) : uni
         | Failed (date, error) -> $"Failed ({error})", date.ToString("yyyy-MM-dd")
 
     printfn "[%d/%d] %s: %s" completed total dateStr status
+
+// ============================================================================
+// Minute aggregates (market-wide, flat-file bulk)
+// ============================================================================
+
+/// Generate the S3 key for a minute aggregate file. Parallel to `getS3Key`
+/// but points at the minute_aggs_v1 prefix.
+let private getS3KeyMinute (date: DateTime) : string =
+    let dateStr = date.ToString("yyyy-MM-dd")
+    let year = date.Year.ToString()
+    let month = date.Month.ToString("00")
+    $"us_stocks_sip/minute_aggs_v1/{year}/{month}/{dateStr}.csv.gz"
+
+/// Convert a downloaded minute-aggs .csv.gz to zstd-compressed Parquet, then
+/// delete the .csv.gz. Uses DuckDB's native gzip CSV reader. Schema is:
+/// ticker VARCHAR, volume BIGINT, open DOUBLE, close DOUBLE, high DOUBLE,
+/// low DOUBLE, window_start BIGINT, transactions BIGINT.
+let private convertCsvGzToParquet (csvGzPath: string) (parquetPath: string) : unit =
+    // In-memory DuckDB per call — avoids cross-thread contention when called
+    // from parallel workers.
+    use conn = new DuckDBConnection("DataSource=:memory:")
+    conn.Open()
+    use cmd = conn.CreateCommand()
+    let csvEscaped = csvGzPath.Replace("'", "''")
+    let parquetEscaped = parquetPath.Replace("'", "''")
+    cmd.CommandText <-
+        sprintf
+            "COPY (SELECT * FROM read_csv_auto('%s', compression='gzip')) TO '%s' (FORMAT PARQUET, COMPRESSION 'zstd', COMPRESSION_LEVEL 3)"
+            csvEscaped parquetEscaped
+    cmd.ExecuteNonQuery() |> ignore
+
+/// Download a single day's minute aggregates from S3, convert to Parquet, and
+/// delete the intermediate .csv.gz. Skips the day if the Parquet output
+/// already exists (so the command is resumable).
+let private downloadSingleDayMinute
+    (client: AmazonS3Client)
+    (outputDir: string)
+    (date: DateTime)
+    (ct: CancellationToken)
+    : Async<DownloadResult> =
+    async {
+        let dateStr = date.ToString("yyyy-MM-dd")
+        let s3Key = getS3KeyMinute date
+        let parquetPath = Path.Combine(outputDir, $"{dateStr}.parquet")
+        let csvGzPath = Path.Combine(outputDir, $"{dateStr}.csv.gz")
+
+        if File.Exists parquetPath then
+            return Skipped date
+        else
+            let rec retry attempt =
+                async {
+                    try
+                        let request = GetObjectRequest(BucketName = bucketName, Key = s3Key)
+                        let! response = client.GetObjectAsync(request, ct) |> Async.AwaitTask
+                        use responseStream = response.ResponseStream
+                        use fileStream = File.Create(csvGzPath)
+                        do! responseStream.CopyToAsync(fileStream, ct) |> Async.AwaitTask
+                        fileStream.Close()
+                        responseStream.Close()
+
+                        // Convert to Parquet, then clean up the .csv.gz. If
+                        // conversion fails, leave the .csv.gz behind so the next
+                        // run can re-try without re-downloading.
+                        convertCsvGzToParquet csvGzPath parquetPath
+                        File.Delete csvGzPath
+
+                        return Downloaded date
+                    with
+                    | :? AmazonS3Exception as ex
+                        when (ex.StatusCode = HttpStatusCode.ServiceUnavailable
+                              || ex.StatusCode = HttpStatusCode.TooManyRequests
+                              || ex.ErrorCode.Contains "TooManyRequests"
+                              || ex.ErrorCode.Contains "SlowDown")
+                              && attempt < maxRetries ->
+                        let delay = pown 2 attempt * 1000
+                        do! Async.Sleep delay
+                        return! retry (attempt + 1)
+
+                    | :? AmazonS3Exception as ex when attempt >= maxRetries ->
+                        return Failed(date, $"S3 Error (MAX RETRIES): {ex.StatusCode} - {ex.Message}")
+
+                    | :? AmazonS3Exception as ex ->
+                        return Failed(date, $"S3 Error: {ex.StatusCode} - {ex.Message}")
+
+                    | ex ->
+                        return Failed(date, ex.Message)
+                }
+            return! retry 1
+    }
+
+/// Download market-wide minute aggregates for a date range and convert each
+/// day's file to zstd-compressed Parquet. Output: one file per trading day at
+/// `{outputDir}/{yyyy-MM-dd}.parquet`.
+let downloadMinuteAggregates
+    (client: AmazonS3Client)
+    (startDate: DateTime)
+    (endDate: DateTime)
+    (outputDir: string)
+    (maxParallelism: int)
+    (progress: ProgressCallback option)
+    (ct: CancellationToken)
+    : Async<DownloadResult list> =
+    async {
+        Directory.CreateDirectory(outputDir) |> ignore
+
+        let dates = getTradingDays startDate endDate
+        let total = dates.Length
+        let completed = ref 0
+
+        let reportProgress result =
+            let c = Interlocked.Increment(completed)
+            match progress with
+            | Some callback -> callback c total result
+            | None -> ()
+
+        use semaphore = new SemaphoreSlim(maxParallelism, maxParallelism)
+
+        let downloadWithSemaphore date =
+            async {
+                do! semaphore.WaitAsync(ct) |> Async.AwaitTask
+                try
+                    let! result = downloadSingleDayMinute client outputDir date ct
+                    reportProgress result
+                    return result
+                finally
+                    semaphore.Release() |> ignore
+            }
+
+        let! results =
+            dates
+            |> List.map downloadWithSemaphore
+            |> Async.Parallel
+
+        return results |> Array.toList
+    }
