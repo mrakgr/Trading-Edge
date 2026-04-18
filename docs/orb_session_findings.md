@@ -505,3 +505,43 @@ Combining everything:
 7. **Next-day hold**: don't, unless fresh day-1 volume.
 
 The core system: **day-0 ORB with 10s time bars, trailing session range, rangeLo stop, flatten at close.** Size-scale by RVOL; weight toward long gap-ups but don't drop long gap-downs. Continuation resets deserve aggressive sizing. Day-1 trades are gated on intraday volume confirmation. Overnight long book on the same universe for two CIR cells.
+
+## 23. Predicted-RVOL gate on the full continuation universe (2026-04-18)
+
+With the volume-profile gate shipped (`--profile data/volume_profile.json --rvol-threshold N`), we tested it on the complementary side of the "breakout" dataset: every row in `continuation_plays_augmented.json` whose `date != breakout_date`. That keeps both the day-N tails of each pump and the 85 continuation resets, any RVOL — **4,063 tradable days** written to `data/breakouts_continuations.json` via `scripts/generate_continuation_dataset.fsx`.
+
+### 23a. Gate threshold sweep on continuations
+
+Long-only ORB, 10s time bars, rangeLo stop, fill-sim:
+
+Out of 4,063 total days:
+
+| Setting | Total P&L | Round trips | Win rate | PF | Active days | Active % | Worst day |
+|---|---|---|---|---|---|---|---|
+| Ungated | -$46,681 | 15,587 | 36.3% | 0.87 | 2,805 | 69.0% | -$1,670 |
+| Gated @3x | -$12,711 | 1,966 | 37.2% | 0.83 | 418 | 10.3% | -$1,670 |
+| Gated @4x | -$3,640 | 793 | 40.9% | 0.88 | 168 | 4.1% | -$1,003 |
+| Gated @5x | **+$2,804** | 300 | 49.3% | **1.28** | 70 | 1.7% | -$843 |
+| Gated @6x | +$2,289 | 153 | 55.6% | **1.46** | 36 | 0.9% | -$873 |
+| Gated @7x | +$2,463 | 77 | 71.4% | **2.29** | 18 | 0.4% | -$659 |
+
+**PF climbs monotonically with the threshold**, win rate monotonically, and the dataset becomes profitable at the 5x rung. At 7x the PF matches the day-0 RVOL≥3 breakout baseline (PF 2.07) but on only ~2% of days — roughly one trade every two weeks over a 2-year window.
+
+### 23b. False-positive inspection (gated @3x)
+
+Picked the 5 biggest single-day losers from the gated @3x run and exported per-bar diagnostics (`scripts/export_false_positive_diagnostics.fsx` → `scripts/visualization/false_positive_chart.py`):
+
+1. SERV 2025-10-10 (-$1,670)
+2. BIVI 2024-10-23 (-$1,073)
+3. SRFM 2025-06-27 (-$1,003)
+4. USAR 2026-01-27 (-$884)
+5. DXST 2026-03-11 (-$876)
+
+The user's read of the charts: none of these failures are attributable to the profiler itself. The predicted-RVOL curves behave as designed on those days — they simply identified genuinely high-RVOL sessions that happened to whipsaw through the opening range. The profile gate is doing volume forecasting well; the losses are about intraday behavior the ORB entry logic can't distinguish from real continuations.
+
+### 23c. Takeaways
+
+- **The profile gate's edge on continuations lives above 5x predicted RVOL** — below that it's flat-to-negative, and @3x (the default on breakouts) actively underperforms ungated. Threshold matters a lot more here than on breakouts.
+- **The breakout universe and the continuation universe respond differently to the same gate.** At 3x the gate trims PF slightly on breakouts (2.06 → 1.49) and roughly preserves PnL; on continuations it barely changes PF but shrinks exposure ~87%. The continuations need a higher bar because their baseline is PF < 1 and the gate has to clear that floor before any volume-proxy signal shows up.
+- **Monotonicity across 5 rungs is the encouraging signal for the HMM regime work.** There's a real predicted-RVOL gradient on continuations, just shifted higher than on breakouts. "High RVOL day" evidently means something different on a continuation — it has to be very high before the intraday behavior rhymes with a fresh-breakout day.
+- **The false-positive chart tool is a reusable investigation harness.** Per-bar VWAP ±2σ, predicted RVOL with gate threshold, bar volume, and observed-vs-profile cumulative fraction. Reused for any (ticker, date) list we want to inspect.
