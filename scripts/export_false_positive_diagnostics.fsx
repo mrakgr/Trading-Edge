@@ -109,7 +109,6 @@ let exportOne (ticker: string) (date: string) =
                 BucketTicks = bucketTicks
                 RawAvg4w = rawAvg4w
                 EntryThreshold = rvolThreshold
-                ExitThreshold = ValueNone
             }
 
             let seg = SegregateTrades(TimeSpan.FromSeconds loadedProfile.SecondsPerBar, baseTime)

@@ -516,14 +516,16 @@ Long-only ORB, 10s time bars, rangeLo stop, fill-sim:
 
 Out of 4,063 total days:
 
-| Setting | Total P&L | Round trips | Win rate | PF | Active days | Active % | Worst day |
+| Setting | Total P&L | Entries | Win rate | PF | Active days | Active % | Worst day |
 |---|---|---|---|---|---|---|---|
-| Ungated | -$46,681 | 15,587 | 36.3% | 0.87 | 2,805 | 69.0% | -$1,670 |
-| Gated @3x | -$12,711 | 1,966 | 37.2% | 0.83 | 418 | 10.3% | -$1,670 |
-| Gated @4x | -$3,640 | 793 | 40.9% | 0.88 | 168 | 4.1% | -$1,003 |
-| Gated @5x | **+$2,804** | 300 | 49.3% | **1.28** | 70 | 1.7% | -$843 |
-| Gated @6x | +$2,289 | 153 | 55.6% | **1.46** | 36 | 0.9% | -$873 |
-| Gated @7x | +$2,463 | 77 | 71.4% | **2.29** | 18 | 0.4% | -$659 |
+| Ungated | -$46,681 | 3,188 | 36.3% | 0.87 | 2,805 | 69.0% | -$1,670 |
+| Gated @3x | -$12,711 | 431 | 37.2% | 0.83 | 418 | 10.3% | -$1,670 |
+| Gated @4x | -$3,640 | 172 | 40.9% | 0.88 | 168 | 4.1% | -$1,003 |
+| Gated @5x | **+$2,804** | 70 | 49.3% | **1.28** | 70 | 1.7% | -$843 |
+| Gated @6x | +$2,289 | 36 | 55.6% | **1.46** | 36 | 0.9% | -$873 |
+| Gated @7x | +$2,463 | 18 | 71.4% | **2.29** | 18 | 0.4% | -$659 |
+
+Entry counts come from the decision stream (one per trade taken), not round trips — the latter inflates by partial fills (e.g. 300 trips vs 70 entries at 5x). From 5x upward, entries and active days match exactly — the gate lets at most one trade fire per day in that regime.
 
 **PF climbs monotonically with the threshold**, win rate monotonically, and the dataset becomes profitable at the 5x rung. At 7x the PF matches the day-0 RVOL≥3 breakout baseline (PF 2.07) but on only ~2% of days — roughly one trade every two weeks over a 2-year window.
 

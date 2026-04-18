@@ -230,20 +230,15 @@ type Direction =
     | Long
     | Short
 
-/// Optional predicted-RVOL gate. When present:
-///   - Entries are rejected unless predicted RVOL >= `EntryThreshold`.
-///   - When `ExitThreshold` is ValueSome x, an open position is flattened on
-///     the first bar where predicted RVOL drops below x. This catches days that
-///     looked hot early but faded, rather than waiting for the stop to trigger.
-/// Built once per day in Program.fs; the session profile (regular vs. early
-/// close) is pre-selected there.
+/// Optional predicted-RVOL gate. When present, entries are rejected unless
+/// predicted RVOL >= `EntryThreshold`. Built once per day in Program.fs; the
+/// session profile (regular vs. early close) is pre-selected there.
 type VolumeGate = {
     Profile: VolumeProfile.SessionProfile
     StartTicks: int64
     BucketTicks: int64
     RawAvg4w: float
     EntryThreshold: float
-    ExitThreshold: float voption
 }
 
 type OrbSystem(positionSize: float, referenceVol: float voption, stopMode: StopMode, gate: VolumeGate voption) =
@@ -286,19 +281,6 @@ type OrbSystem(positionSize: float, referenceVol: float voption, stopMode: StopM
             match self.PredictedRvol(b, tradeTs) with
             | ValueNone -> true
             | ValueSome rvol -> rvol >= g.EntryThreshold
-
-    /// Volume-fade exit: true when an exit threshold is configured AND we have a
-    /// confident predicted RVOL below it. Called on every bar while a position is open.
-    member inline self.ShouldVolumeFadeExit(b: OrbSystemBar, tradeTs: DateTime) =
-        match self.Gate with
-        | ValueNone -> false
-        | ValueSome g ->
-            match g.ExitThreshold with
-            | ValueNone -> false
-            | ValueSome exitThreshold ->
-                match self.PredictedRvol(b, tradeTs) with
-                | ValueNone -> false
-                | ValueSome rvol -> rvol < exitThreshold
 
     member inline self.Process(onNext, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade, tradeTs: DateTime) =
         let mutable decision = ValueNone
@@ -346,13 +328,11 @@ type OrbSystem(positionSize: float, referenceVol: float voption, stopMode: StopM
                             self.State <- Active(price, signedShares, stopLevel)
                             decision <- ValueSome { Timestamp = tradeTs; Price = price; Shares = signedShares; BarSize = barSize }
                     elif position > 0 then
-                        let fadeExit = self.ShouldVolumeFadeExit(b, tradeTs)
-                        if price < stop || fadeExit then
+                        if price < stop then
                             self.State <- Active(price, 0, 0.0)
                             decision <- ValueSome { Timestamp = tradeTs; Price = price; Shares = 0; BarSize = barSize }
                     else
-                        let fadeExit = self.ShouldVolumeFadeExit(b, tradeTs)
-                        if price > stop || fadeExit then
+                        if price > stop then
                             self.State <- Active(price, 0, 0.0)
                             decision <- ValueSome { Timestamp = tradeTs; Price = price; Shares = 0; BarSize = barSize }
                 | Done -> ()
