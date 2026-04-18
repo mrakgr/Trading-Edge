@@ -18,6 +18,7 @@ When writing concurrent F# code in this project:
 
 - **PowerShell scripts in `scripts/visualization/`** are used for chart generation
 - Run `pwsh scripts/visualization/gen_all_charts_massive.ps1` to regenerate per-day charts (tick, time-bar VWAP, volume-bar VWAP)
+- **Always inject `scripts/visualization/chart_controls.js` as the plotly `post_script`** when writing any new chart script. It provides middle-click pan/zoom toggle and `a`/`s`/`d` dragmode shortcuts that the user relies on. See `massive_timebar.py` for the pattern (`fig.write_html(..., post_script=post_script)`).
 
 ## Git Commits
 
