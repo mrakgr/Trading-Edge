@@ -19,6 +19,10 @@ papers/
 *.db-shm
 *.db-wal
 
+# MiniZinc build artifacts
+*.fzn
+*.ozn
+
 # Config
 api_key.json
 

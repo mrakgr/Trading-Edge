@@ -3,21 +3,25 @@
 
 // For every (ticker, date) in the tradable universe (CS/ADRC, avg_dollar_volume_4w >= $25M)
 // over the minute-aggs window, compute cumulative volume and cumulative transactions at
-// the four checkpoints 09:31, 09:35, 09:45, 10:00 ET (bucket indices 61, 65, 75, 90 with
+// each checkpoint (09:31, 09:35, 09:45, 10:00 ET — bucket indices 61, 65, 75, 90 with
 // buckets numbered from 08:30 ET = 0). Join session_volume_4w for the 4w averages and the
-// end-of-day session-scoped RVOL. Write one JSON row per (ticker, date).
+// end-of-day session-scoped volume RVOL (the ground truth MiniZinc will gate on).
 //
-// Output shape (per row):
+// Output: one flat JSON file per checkpoint under data/minizinc/. Each row contains only
+// the fields needed to evaluate a single checkpoint — no nested structure. This keeps the
+// per-file size small enough for MiniZinc to ingest one bucket at a time.
+//
+//   data/minizinc/checkpoint_b61.json   -- 09:31 ET
+//   data/minizinc/checkpoint_b65.json   -- 09:35 ET
+//   data/minizinc/checkpoint_b75.json   -- 09:45 ET
+//   data/minizinc/checkpoint_b90.json   -- 10:00 ET
+//
+// Row shape:
 //   { "ticker": "ORCL", "date": "2025-06-12",
-//     "avg_session_adj_volume_4w": 9324811.3, "avg_session_transactions_4w": 92311.4,
-//     "session_raw_volume": 68_300_000, "session_adj_volume": 68_300_000,
-//     "session_transactions": 441_000,
-//     "session_volume_rvol_final": 7.33, "session_transaction_rvol_final": 4.81,
-//     "cum_at_checkpoints": [
-//       { "bucket": 61, "et": "09:31", "cum_raw_volume": 1050000, "cum_transactions": 8400 },
-//       { "bucket": 65, "et": "09:35", "cum_raw_volume": 2200000, "cum_transactions": 16200 },
-//       { "bucket": 75, "et": "09:45", "cum_raw_volume": 4100000, "cum_transactions": 27800 },
-//       { "bucket": 90, "et": "10:00", "cum_raw_volume": 6800000, "cum_transactions": 41500 } ] }
+//     "cum_volume": 1050000, "cum_transactions": 8400,
+//     "avg_session_adj_volume_4w": 9324811.3,
+//     "avg_session_transactions_4w": 92311.4,
+//     "session_volume_rvol_final": 7.33 }
 
 open System
 open System.IO
@@ -29,14 +33,16 @@ open TradingEdge.Orb.VolumeProfile
 
 // ----- Config -----
 let db = "data/trading.db"
-let output = "data/checkpoint_cumulatives.json"
+let outputDir = "data/minizinc"
 let minAdv = 25_000_000.0
 // Checkpoint bucket indices, relative to 08:30 ET = bucket 0, one bucket per minute.
-// 09:31 ET = 60 + 1 = 61; 09:35 = 65; 09:45 = 75; 10:00 = 90.
+// 09:31 ET = 61; 09:35 = 65; 09:45 = 75; 10:00 = 90.
 let checkpoints = [| 61; 65; 75; 90 |]
 
 let secondsPerBar = 60.0
 let bucketNs = int64 (secondsPerBar * 1e9)
+
+Directory.CreateDirectory outputDir |> ignore
 
 let conn = new DuckDBConnection(sprintf "Data Source=%s;ACCESS_MODE=READ_ONLY" db)
 conn.Open()
@@ -46,7 +52,20 @@ let bucketToEt (bucket: int) =
     let mm = (30 + bucket) % 60
     sprintf "%02d:%02d" hh mm
 
-let checkpointEt = checkpoints |> Array.map bucketToEt
+// One output file per checkpoint. We stream rows straight to disk as we process
+// each date so memory stays flat regardless of how many (ticker, date) rows the
+// universe yields.
+let writers =
+    checkpoints
+    |> Array.map (fun bkt ->
+        let path = Path.Combine(outputDir, sprintf "checkpoint_b%d.json" bkt)
+        let sw = new StreamWriter(path)
+        sw.Write "[\n"
+        bkt, path, sw)
+
+// Track first-row-per-file to get comma placement right.
+let firstRow = Array.create checkpoints.Length true
+let mutable rowsPerCheckpoint = Array.create checkpoints.Length 0L
 
 let dateFiles =
     Directory.GetFiles("data/minute_aggs", "*.parquet")
@@ -56,14 +75,9 @@ let dateFiles =
         d, p)
 
 printfn "Found %d minute-aggs parquet files" dateFiles.Length
-printfn "Checkpoints: %s"
-    (String.Join(", ", Array.map2 (fun b et -> sprintf "b%d=%s" b et) checkpoints checkpointEt))
-
-let sb = StringBuilder()
-sb.Append "[\n" |> ignore
-let mutable firstRow = true
-let mutable rowsWritten = 0L
-let sw = Diagnostics.Stopwatch.StartNew()
+printfn "Checkpoints:"
+for (bkt, path, _) in writers do
+    printfn "  %s -> %s" (bucketToEt bkt) path
 
 let checkpointValues =
     let b = StringBuilder()
@@ -74,27 +88,18 @@ let checkpointValues =
 
 let maxBucket = Array.max checkpoints
 
-for (date, parquet) in dateFiles do
-    let isEarly = Timezone.early_closes.Contains(DateOnly.ParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture))
-    // Skip early-close days only if their close is earlier than our latest checkpoint.
-    // Latest checkpoint is 10:00 ET; early-close is 13:00 ET, so it's fine.
-    ignore isEarly
+let sw = Diagnostics.Stopwatch.StartNew()
 
+for (date, parquet) in dateFiles do
     let baseTime = Timezone.baseTimeFromDateString date
     let startUtc = baseTime.AddHours(VolumeProfile.startHoursFromBase)
     let toUnixNs (dt: DateTime) = (dt.Ticks - DateTime(1970,1,1,0,0,0,DateTimeKind.Utc).Ticks) * 100L
     let startNs = toUnixNs startUtc
-    // Stop scanning once we're past the last checkpoint bar.
     let endBucketExclusive = maxBucket + 1
     let endNs = startNs + int64 endBucketExclusive * bucketNs
 
-    // For each (ticker, checkpoint), compute cumulative raw volume and cumulative
-    // transactions from 08:30 ET (bucket 0) through the checkpoint bucket
-    // inclusive. We filter to the tradable universe on this date.
-    //
-    // Note: endpoint `bucket <= checkpoint` is intentional. Bucket 61 covers the
-    // 09:31-09:32 ET minute; "cumulative at 09:31 ET" includes that bar because
-    // by the time we evaluate the rule at 09:32 the 09:31 minute has completed.
+    // Pivoted: one row per ticker, one column per (checkpoint × (cum_vol, cum_txn)).
+    // We then fan this out to four files below.
     let sql = $"""
 WITH checkpoints(bucket) AS (
     VALUES {checkpointValues}
@@ -151,18 +156,17 @@ pivoted AS (
 SELECT
     p.ticker,
     p.cv0, p.ct0, p.cv1, p.ct1, p.cv2, p.ct2, p.cv3, p.ct3,
-    sv.session_raw_volume,
-    sv.session_adj_volume,
-    sv.session_transactions,
     sv.avg_session_adj_volume_4w,
     sv.avg_session_transactions_4w,
     sv.session_volume_rvol,
-    sv.session_transaction_rvol
+    sv.session_adj_volume::DOUBLE / NULLIF(sv.session_raw_volume, 0) AS split_factor_today
 FROM pivoted p
 JOIN session_volume_4w sv
     ON sv.ticker = p.ticker AND sv.date = DATE '{date}'
 WHERE sv.avg_session_adj_volume_4w IS NOT NULL
   AND sv.avg_session_transactions_4w IS NOT NULL
+  AND sv.session_volume_rvol IS NOT NULL
+  AND sv.session_raw_volume > 0
 ORDER BY p.ticker
 """
 
@@ -174,39 +178,33 @@ ORDER BY p.ticker
         let ticker = reader.GetString 0
         let cv = Array.init 4 (fun i -> reader.GetInt64(1 + i*2))
         let ct = Array.init 4 (fun i -> reader.GetInt64(2 + i*2))
-        let sessionRaw = reader.GetInt64 9
-        let sessionAdj = reader.GetInt64 10
-        let sessionTxn = reader.GetInt64 11
-        let avgAdjVol4w = reader.GetDouble 12
-        let avgTxn4w = reader.GetDouble 13
-        let volRvolFinal = reader.GetDouble 14
-        let txnRvolFinal = reader.GetDouble 15
+        let avgAdjVol4w = reader.GetDouble 9
+        let avgTxn4w = reader.GetDouble 10
+        let volRvolFinal = reader.GetDouble 11
+        let splitFactorToday = reader.GetDouble 12
 
-        // Build cum_at_checkpoints array
-        let cpSb = StringBuilder()
-        cpSb.Append "[" |> ignore
         for i = 0 to checkpoints.Length - 1 do
-            if i > 0 then cpSb.Append ", " |> ignore
-            cpSb.AppendFormat(CultureInfo.InvariantCulture,
-                "{{\"bucket\": {0}, \"et\": \"{1}\", \"cum_raw_volume\": {2}, \"cum_transactions\": {3}}}",
-                checkpoints.[i], checkpointEt.[i], cv.[i], ct.[i]) |> ignore
-        cpSb.Append "]" |> ignore
-
-        if not firstRow then sb.Append ",\n" |> ignore
-        firstRow <- false
-        sb.AppendFormat(CultureInfo.InvariantCulture,
-            "  {{\"ticker\": \"{0}\", \"date\": \"{1}\", \"session_raw_volume\": {2}, \"session_adj_volume\": {3}, \"session_transactions\": {4}, \"avg_session_adj_volume_4w\": {5:F3}, \"avg_session_transactions_4w\": {6:F3}, \"session_volume_rvol_final\": {7:F6}, \"session_transaction_rvol_final\": {8:F6}, \"cum_at_checkpoints\": {9}}}",
-            ticker, date, sessionRaw, sessionAdj, sessionTxn,
-            avgAdjVol4w, avgTxn4w, volRvolFinal, txnRvolFinal, cpSb.ToString()) |> ignore
-        rowsWritten <- rowsWritten + 1L
+            let _, _, w = writers.[i]
+            if not firstRow.[i] then w.Write ",\n" else firstRow.[i] <- false
+            w.Write(
+                String.Format(
+                    CultureInfo.InvariantCulture,
+                    "  {{\"ticker\": \"{0}\", \"date\": \"{1}\", \"cum_volume\": {2}, \"cum_transactions\": {3}, \"avg_session_adj_volume_4w\": {4:F3}, \"avg_session_transactions_4w\": {5:F3}, \"session_volume_rvol_final\": {6:F6}, \"split_factor_today\": {7:F6}}}",
+                    ticker, date, cv.[i], ct.[i], avgAdjVol4w, avgTxn4w, volRvolFinal, splitFactorToday))
+            rowsPerCheckpoint.[i] <- rowsPerCheckpoint.[i] + 1L
 
     if (Array.findIndex (fun (d,_) -> d = date) dateFiles) % 25 = 0 then
-        printfn "[%s] rows=%d elapsed=%.1fs" date rowsWritten sw.Elapsed.TotalSeconds
+        printfn "[%s] rows/cp=%d elapsed=%.1fs" date rowsPerCheckpoint.[0] sw.Elapsed.TotalSeconds
 
-sb.Append "\n]\n" |> ignore
-File.WriteAllText(output, sb.ToString())
+for (_, _, w) in writers do
+    w.Write "\n]\n"
+    w.Flush()
+    w.Close()
+
 sw.Stop()
 printfn ""
-printfn "Wrote %d rows to %s in %.1fs (%.1f MB)"
-    rowsWritten output sw.Elapsed.TotalSeconds
-    (float (FileInfo(output).Length) / 1024.0 / 1024.0)
+for i = 0 to checkpoints.Length - 1 do
+    let bkt, path, _ = writers.[i]
+    let size = FileInfo(path).Length
+    printfn "  %s (%s): %d rows, %.1f MB" (bucketToEt bkt) path rowsPerCheckpoint.[i] (float size / 1024.0 / 1024.0)
+printfn "Done in %.1fs" sw.Elapsed.TotalSeconds
