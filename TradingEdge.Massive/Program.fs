@@ -52,6 +52,20 @@ type DownloadBulkMinuteArgs =
             | Parallelism _ -> "Max parallel downloads. Default: 10"
             | Output_Dir _ -> "Output directory (default: data/minute_aggs)"
 
+type DownloadBulkTradesArgs =
+    | [<AltCommandLine("-s")>] Start_Date of string
+    | [<AltCommandLine("-e")>] End_Date of string
+    | [<AltCommandLine("-p")>] Parallelism of int
+    | [<AltCommandLine("-o")>] Output_Dir of string
+
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Start_Date _ -> "Start date (yyyy-MM-dd). Default: 2024-04-01"
+            | End_Date _ -> "End date (yyyy-MM-dd). Default: today"
+            | Parallelism _ -> "Max parallel downloads (files are multi-GB; keep low). Default: 4"
+            | Output_Dir _ -> "Output directory (default: data/bulk/trades)"
+
 type DownloadSplitsArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
     | [<AltCommandLine("-e")>] End_Date of string
@@ -285,6 +299,7 @@ type ConvertTradesToParquetArgs =
 type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Download_Bulk of ParseResults<DownloadBulkArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Bulk_Minute of ParseResults<DownloadBulkMinuteArgs>
+    | [<CliPrefix(CliPrefix.None)>] Download_Bulk_Trades of ParseResults<DownloadBulkTradesArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Splits of ParseResults<DownloadSplitsArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Dividends of ParseResults<DownloadDividendsArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Intraday of ParseResults<DownloadIntradayArgs>
@@ -305,6 +320,7 @@ type Arguments =
             match this with
             | Download_Bulk _ -> "Download daily aggregate files from Massive S3"
             | Download_Bulk_Minute _ -> "Download market-wide minute aggregate files from Massive S3 (zstd-compressed Parquet output)"
+            | Download_Bulk_Trades _ -> "Download market-wide trades flat files from Massive S3 (zstd-compressed Parquet output)"
             | Download_Splits _ -> "Download stock splits from Massive API"
             | Download_Dividends _ -> "Download dividends from Polygon API"
             | Download_Intraday _ -> "Download intraday (minute/second) data for tickers"
@@ -383,6 +399,40 @@ let private handleDownloadBulkMinute (config: MassiveConfig) (args: ParseResults
 
     let results =
         downloadMinuteAggregates client startDate endDate outputDir parallelism (Some S3Download.consoleProgress) cts.Token
+        |> Async.RunSynchronously
+
+    let downloaded = results |> List.filter (function Downloaded _ -> true | _ -> false) |> List.length
+    let skipped = results |> List.filter (function Skipped _ -> true | _ -> false) |> List.length
+    let failed = results |> List.filter (function Failed _ -> true | _ -> false) |> List.length
+
+    printfn ""
+    printfn "Download complete: %d downloaded, %d skipped, %d failed" downloaded skipped failed
+
+let private handleDownloadBulkTrades (config: MassiveConfig) (args: ParseResults<DownloadBulkTradesArgs>) =
+    ensureDataDir ()
+
+    let endDate =
+        args.TryGetResult DownloadBulkTradesArgs.End_Date
+        |> Option.map DateTime.Parse
+        |> Option.defaultValue DateTime.Now
+
+    let startDate =
+        args.TryGetResult DownloadBulkTradesArgs.Start_Date
+        |> Option.map DateTime.Parse
+        |> Option.defaultValue (DateTime(2024, 4, 1))
+
+    let parallelism = args.GetResult(DownloadBulkTradesArgs.Parallelism, defaultValue = 4)
+    let outputDir = args.GetResult(DownloadBulkTradesArgs.Output_Dir, defaultValue = "data/bulk/trades")
+
+    printfn "Downloading trades from %s to %s" (formatDate startDate) (formatDate endDate)
+    printfn "Output directory: %s" (Path.GetFullPath outputDir)
+    printfn "Parallelism: %d" parallelism
+
+    use client = createS3Client config.S3AccessKey config.S3SecretKey
+    use cts = new CancellationTokenSource()
+
+    let results =
+        S3Download.downloadTrades client startDate endDate outputDir parallelism (Some S3Download.consoleProgress) cts.Token
         |> Async.RunSynchronously
 
     let downloaded = results |> List.filter (function Downloaded _ -> true | _ -> false) |> List.length
@@ -1284,6 +1334,9 @@ let main argv =
             | Download_Bulk_Minute args ->
                 let config = loadConfigOrFail configPath
                 handleDownloadBulkMinute config args
+            | Download_Bulk_Trades args ->
+                let config = loadConfigOrFail configPath
+                handleDownloadBulkTrades config args
             | Download_Splits args ->
                 let config = loadConfigOrFail configPath
                 handleDownloadSplits config args
