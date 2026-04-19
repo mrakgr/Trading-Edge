@@ -1,8 +1,9 @@
 #r "nuget: FSharp.SystemTextJson, 1.4.36"
 
 // Reads data/minizinc/checkpoint_b{N}.json (array-of-records) and writes
-// data/minizinc/checkpoint_b{N}.dzn with integer-scaled vr_milli, tr_milli,
-// and hit arrays ready for stock_in_play_threshold_int.mzn (CP-SAT).
+// data/minizinc/checkpoint_b{N}.dzn with float vr, tr, and
+// session_volume_rvol_final arrays ready for stock_in_play_threshold_int.mzn.
+// The model handles the scaling to integer RVOL units internally.
 //
 // Usage:
 //   dotnet fsi scripts/convert_checkpoint_to_dzn.fsx [bucket] [n_sample]
@@ -10,15 +11,13 @@
 // Default: emits all 877k rows for the given bucket. Pass a smaller n_sample
 // (e.g. 10000) to generate a subsampled test set — sampling is uniform
 // (every k-th row) for determinism.
-//
-// RVOL values are scaled to "milli-RVOLs" (1000 * rvol). Thresholds in the
-// model are quantized to 0.001 precision accordingly.
 
 open System
 open System.IO
 open System.Text
 open System.Text.Json
 open System.Text.Json.Serialization
+open System.Globalization
 
 type Row = {
     [<JsonPropertyName "ticker">] Ticker: string
@@ -31,8 +30,11 @@ type Row = {
     [<JsonPropertyName "split_factor_today">] SplitFactorToday: double
 }
 
-let args = System.Environment.GetCommandLineArgs()
-let scriptArgs = args |> Array.skipWhile (fun a -> not (a.EndsWith ".fsx")) |> Array.skip 1
+let scriptArgs =
+    Environment.GetCommandLineArgs()
+    |> Array.skipWhile (fun a -> not (a.EndsWith ".fsx"))
+    |> Array.skip 1
+
 let bucket =
     match scriptArgs with
     | [||] -> 61
@@ -42,7 +44,6 @@ let nTakeOpt =
     | [| _; n |] -> Some (int n)
     | _ -> None
 
-let rvolThreshold = 3.0
 let inPath = sprintf "data/minizinc/checkpoint_b%d.json" bucket
 let outPath =
     match nTakeOpt with
@@ -67,44 +68,32 @@ let sample =
         |> Array.map snd
 printfn "  selecting %d rows" sample.Length
 
-// Scale rvol to milli units. Cap at 1e9 to stay inside int32 range; real
-// rvol values rarely exceed 1000 so this never clamps in practice.
-let scaleMilli (x: double) =
-    let v = x * 1000.0
-    if v < 0.0 then 0
-    elif v > 1e9 then 1_000_000_000
-    else int v
-
+let inv = CultureInfo.InvariantCulture
 let sb = StringBuilder()
 sb.Append (sprintf "n = %d;\n" sample.Length) |> ignore
 
-sb.Append "vr_milli = [" |> ignore
-for i = 0 to sample.Length - 1 do
-    let r = sample.[i]
-    let vr =
-        if r.AvgSessionAdjVolume4w > 0.0 && r.SplitFactorToday > 0.0 then
-            double r.CumVolume / (r.AvgSessionAdjVolume4w / r.SplitFactorToday)
-        else 0.0
-    sb.Append (string (scaleMilli vr)) |> ignore
-    if i < sample.Length - 1 then sb.Append "," |> ignore
-sb.Append "];\n" |> ignore
+let appendFloatArray (name: string) (proj: Row -> double) =
+    sb.Append (name + " = [") |> ignore
+    for i = 0 to sample.Length - 1 do
+        sb.AppendFormat(inv, "{0:F6}", proj sample.[i]) |> ignore
+        if i < sample.Length - 1 then sb.Append "," |> ignore
+    sb.Append "];\n" |> ignore
 
-sb.Append "tr_milli = [" |> ignore
-for i = 0 to sample.Length - 1 do
-    let r = sample.[i]
-    let tr =
-        if r.AvgSessionTransactions4w > 0.0 then
-            double r.CumTransactions / r.AvgSessionTransactions4w
-        else 0.0
-    sb.Append (string (scaleMilli tr)) |> ignore
-    if i < sample.Length - 1 then sb.Append "," |> ignore
-sb.Append "];\n" |> ignore
+// Split-safe raw-basis volume RVOL: cum_volume / (avg_session_adj_volume_4w / split_factor_today).
+appendFloatArray "vr" (fun r ->
+    if r.AvgSessionAdjVolume4w > 0.0 && r.SplitFactorToday > 0.0 then
+        double r.CumVolume / (r.AvgSessionAdjVolume4w / r.SplitFactorToday)
+    else 0.0)
 
-sb.Append "hit = [" |> ignore
-for i = 0 to sample.Length - 1 do
-    sb.Append (if sample.[i].SessionVolumeRvolFinal >= rvolThreshold then "true" else "false") |> ignore
-    if i < sample.Length - 1 then sb.Append "," |> ignore
-sb.Append "];\n" |> ignore
+// Transaction RVOL: counts are split-invariant, so direct ratio.
+appendFloatArray "tr" (fun r ->
+    if r.AvgSessionTransactions4w > 0.0 then
+        double r.CumTransactions / r.AvgSessionTransactions4w
+    else 0.0)
+
+// End-of-day session volume RVOL (ground truth). The model derives `hit` from
+// this via `session_volume_rvol_final >= target_rvol`.
+appendFloatArray "session_volume_rvol_final" (fun r -> r.SessionVolumeRvolFinal)
 
 File.WriteAllText(outPath, sb.ToString())
 printfn "Wrote %s (%.2f MB)" outPath (float (FileInfo(outPath).Length) / 1024.0 / 1024.0)
