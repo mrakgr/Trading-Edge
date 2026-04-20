@@ -63,7 +63,31 @@ var int: n_hit   = sum(i in 1..n)(hit[i] /\ fired[i]);
 constraint n_fired >= 1;
 constraint 100 * n_hit >= precision_pct * n_fired;
 
-solve maximize n_fired;
+% Lexicographic objective: maximize n_fired, then (among tied solutions)
+% maximize Ta_int, then Tv_int. Without this the solver picks arbitrarily
+% among (Tv, Ta) pairs that give the same n_fired, which makes Ta jump
+% around from run to run and across neighboring bucket/target cells.
+%
+% Implementation: weighted sum with W1 >> W2 >> 1. Because Tv_int and
+% Ta_int are in [0, Tv_int_max] and [0, Ta_int_max], choosing
+%   W1 = (Ta_int_max + 1) * (Tv_int_max + 1)
+%   W2 = (Tv_int_max + 1)
+% guarantees one more fired trade always beats any possible tie-break gain
+% and one extra Ta_int unit always beats any Tv_int gain. With threshold_scale
+% = 1024 and target_rvol ≤ 5, W1 ~= 25M; W1*n_fired_max (~1000) fits in int64.
+int: W_fired = (Ta_int_max + 1) * (Tv_int_max + 1);
+int: W_ta    = Tv_int_max + 1;
+% Overflow guard. CP-SAT uses int64 internally (int64 max = 9,223,372,036,854,775,807
+% ~= 9.2e18). Max possible objective = W_fired * n + W_ta * Ta_int_max + Tv_int_max.
+% Since the tie-break terms are bounded by W_fired - 1 by construction, the
+% entire objective is <= W_fired * (n + 1). We require that to stay under 1e15,
+% keeping a ~9000x safety margin. For threshold_scale=1024, target_rvol<=10,
+% this allows n up to ~9e6 — far beyond any realistic bucket.
+constraint assert(W_fired * (n + 1) <= 1000000000000000,
+    "Objective weights may overflow int64. Reduce threshold_scale or target_rvol.");
+var int: objective = W_fired * n_fired + W_ta * Ta_int + Tv_int;
+
+solve maximize objective;
 
 output [
     "{\n",

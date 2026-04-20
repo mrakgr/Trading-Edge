@@ -1,0 +1,5 @@
+[
+  {"bucket": 366, "et": "09:31", "precision_pct": 70, "Tv": 0.172852, "Ta": 0.036133, "n_fired": 530, "n_hit": 371, "precision_actual": 70.00, "solve_time_s": 5.93, "n_rows": 61632, "status": "OPTIMAL"},
+  {"bucket": 366, "et": "09:31", "precision_pct": 80, "Tv": 0.202148, "Ta": 0.048828, "n_fired": 382, "n_hit": 306, "precision_actual": 80.10, "solve_time_s": 3.46, "n_rows": 61632, "status": "OPTIMAL"},
+  {"bucket": 366, "et": "09:31", "precision_pct": 90, "Tv": 0.228516, "Ta": 0.090820, "n_fired": 252, "n_hit": 227, "precision_actual": 90.08, "solve_time_s": 2.56, "n_rows": 61632, "status": "OPTIMAL"}
+]
