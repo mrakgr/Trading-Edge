@@ -81,6 +81,11 @@ type OrbSystemBar = {
     RangeHigh : float
     RangeLow : float
     SessionCumVolume : float
+    /// Running count of filtered trades in-session so far. Mirror of
+    /// SessionCumVolume but for transaction count — used by the per-bucket
+    /// (Tv, Ta) ThresholdGate to evaluate the transaction-rvol side of the
+    /// "stock in play" filter.
+    SessionCumTrades : int
 }
 
 type OrbSystemArgsBuilder(bucketSpan: TimeSpan) =
@@ -91,6 +96,7 @@ type OrbSystemArgsBuilder(bucketSpan: TimeSpan) =
     member val RangeHigh = Double.NegativeInfinity with get, set
     member val RangeLow = Double.PositiveInfinity with get, set
     member val SessionCumVolume = 0.0 with get, set
+    member val SessionCumTrades = 0 with get, set
 
     member inline self.OnBar(onNext, bar: Bar, includeInVol: bool, includeInRange: bool) =
         match self.PrevBar with
@@ -110,12 +116,14 @@ type OrbSystemArgsBuilder(bucketSpan: TimeSpan) =
             if bar.VWAP > self.RangeHigh then self.RangeHigh <- bar.VWAP
             if bar.VWAP < self.RangeLow then self.RangeLow <- bar.VWAP
             self.SessionCumVolume <- self.SessionCumVolume + bar.Volume
+            self.SessionCumTrades <- self.SessionCumTrades + bar.Trades.Length
         onNext {
             Bar = bar
             VolFactor = volFactor
             RangeHigh = emittedHigh
             RangeLow = emittedLow
             SessionCumVolume = self.SessionCumVolume
+            SessionCumTrades = self.SessionCumTrades
         }
 
     member inline self.Process(onNext, trade: Trade, includeInVol: bool, includeInRange: bool) =
@@ -208,13 +216,10 @@ type SimulatorState =
 
 [<Struct>]
 type StopMode =
-    /// Stop `stopVol * price * VolFactor` below/above entry price.
-    | StopAtVol of stopVol: float
     /// Stop at the opposite end of the opening range (b.RangeLow for longs, b.RangeHigh for shorts).
     | StopAtRange
-    /// Use range stop unless it's further than `capVol` vol units; then cap at the vol distance.
-    | StopAtRangeVolCapped of capVol: float
-    /// No stop — only the BeforeClosing flatten exits the position.
+    /// No stop — only the BeforeClosing flatten exits the position. Used by the
+    /// --buy-at-open directional-bias baseline in TradingEdge.Orb's Breakdown.
     | StopNever
 
 [<Struct>]
@@ -230,18 +235,31 @@ type Direction =
     | Long
     | Short
 
-/// Optional predicted-RVOL gate. When present, entries are rejected unless
-/// predicted RVOL >= `EntryThreshold`. Built once per day in Program.fs; the
-/// session profile (regular vs. early close) is pre-selected there.
-type VolumeGate = {
-    Profile: VolumeProfile.SessionProfile
-    StartTicks: int64
+/// Session-wide per-bucket (Tv, Ta) schedule — built once from the MiniZinc
+/// sweep output and shared by every (ticker, date) replay. Tv and Ta are
+/// expressed as percentages of the 4w averages (matching the solver output):
+///   vr = cum_volume / raw_avg_4w    must be >= Tv
+///   tr = cum_trades / txn_avg_4w    must be >= Ta
+/// NaN entries mark undefined buckets (the solver skipped them) and pass
+/// through. BucketTicks is fixed once (e.g. 10s) since the schedule was
+/// calibrated at a specific bucket size.
+type ThresholdSchedule = {
     BucketTicks: int64
-    RawAvg4w: float
-    EntryThreshold: float
+    /// Indexed by bucket. NaN values mark undefined buckets.
+    Thresholds: struct (float * float)[]
 }
 
-type OrbSystem(positionSize: float, referenceVol: float voption, stopMode: StopMode, gate: VolumeGate voption) =
+/// Per-day gate — pairs the shared ThresholdSchedule with the day-specific
+/// start time and 4w averages. Constructed once per (ticker, date) in the
+/// caller; the schedule reference stays the same across all days.
+type ThresholdGate = {
+    Schedule: ThresholdSchedule
+    StartTicks: int64
+    RawAvg4w: float
+    TxnAvg4w: float
+}
+
+type OrbSystem(positionSize: float, referenceVol: float voption, stopMode: StopMode, gate: ThresholdGate voption) =
     member val PositionSize = positionSize
     member val ReferenceVol = referenceVol
     member val StopMode = stopMode
@@ -255,32 +273,22 @@ type OrbSystem(positionSize: float, referenceVol: float voption, stopMode: StopM
         | ValueNone -> self.PositionSize
         | ValueSome refVol -> min self.PositionSize (self.PositionSize * refVol / vf)
 
-    /// Returns the profile-derived predicted RVOL at this bar, or ValueNone when
-    /// no gate is configured or the bucket/profile-fraction is out-of-range
-    /// (earliest premarket buckets have fraction ~0 → divide-by-zero). Consumers
-    /// treat ValueNone as "no opinion" — entries pass, open positions are not
-    /// forced out.
-    member inline self.PredictedRvol(b: OrbSystemBar, tradeTs: DateTime) : float voption =
-        match self.Gate with
-        | ValueNone -> ValueNone
-        | ValueSome g ->
-            let bucket = int ((tradeTs.Ticks - g.StartTicks) / g.BucketTicks)
-            if bucket < 0 || bucket >= g.Profile.BucketCount then ValueNone
-            else
-                let profileFrac = g.Profile.Profile.[bucket]
-                if profileFrac <= 0.0 then ValueNone
-                else
-                    let predictedDaily = b.SessionCumVolume / profileFrac
-                    ValueSome (predictedDaily / g.RawAvg4w)
-
-    /// Entry gate: pass if no gate is configured, or predicted RVOL >= entry threshold.
+    /// Entry gate: pass if no gate is configured. Otherwise at the trade's
+    /// bucket, require cum_volume/RawAvg4w >= Tv AND cum_trades/TxnAvg4w >= Ta.
+    /// Out-of-range bucket or NaN threshold = pass.
     member inline self.PassesEntryGate(b: OrbSystemBar, tradeTs: DateTime) =
         match self.Gate with
         | ValueNone -> true
         | ValueSome g ->
-            match self.PredictedRvol(b, tradeTs) with
-            | ValueNone -> true
-            | ValueSome rvol -> rvol >= g.EntryThreshold
+            let bucket = int ((tradeTs.Ticks - g.StartTicks) / g.Schedule.BucketTicks)
+            if bucket < 0 || bucket >= g.Schedule.Thresholds.Length then true
+            else
+                let struct (tv, ta) = g.Schedule.Thresholds.[bucket]
+                if Double.IsNaN tv || Double.IsNaN ta then true
+                else
+                    let vr = b.SessionCumVolume / g.RawAvg4w
+                    let tr = float b.SessionCumTrades / g.TxnAvg4w
+                    vr >= tv && tr >= ta
 
     member inline self.Process(onNext, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade, tradeTs: DateTime) =
         let mutable decision = ValueNone
@@ -307,18 +315,8 @@ type OrbSystem(positionSize: float, referenceVol: float voption, stopMode: StopM
                             // Stop levels mirror by direction. For longs: stop below; for shorts: stop above.
                             let stopLevel =
                                 match self.Direction, self.StopMode with
-                                | Long, StopAtVol stopVol -> price - stopVol * price * b.VolFactor
-                                | Short, StopAtVol stopVol -> price + stopVol * price * b.VolFactor
                                 | Long, StopAtRange -> b.RangeLow
                                 | Short, StopAtRange -> b.RangeHigh
-                                | Long, StopAtRangeVolCapped capVol ->
-                                    let rangeDist = price - b.RangeLow
-                                    let volDist = capVol * price * b.VolFactor
-                                    price - min rangeDist volDist
-                                | Short, StopAtRangeVolCapped capVol ->
-                                    let rangeDist = b.RangeHigh - price
-                                    let volDist = capVol * price * b.VolFactor
-                                    price + min rangeDist volDist
                                 | Long, StopNever -> System.Double.NegativeInfinity
                                 | Short, StopNever -> System.Double.PositiveInfinity
                             let signedShares =

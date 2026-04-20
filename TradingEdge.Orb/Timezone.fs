@@ -15,8 +15,13 @@ let baseTimeFromDate (d : DateOnly) =
 
 let baseTimeFromTicks (ticks : int64) = DateTime(ticks) |> DateOnly.FromDateTime |> baseTimeFromDate
 
+/// Offset in hours from baseTimeFromDate (midnight ET) to the start of the
+/// premarket session window (08:30 ET). Used by the 10s bar builder and the
+/// exporter to compute the UTC ns of bucket 0.
+let startHoursFromBase = 8.5
+
 /// Given a yyyy-MM-dd date string, produce the UTC DateTime corresponding
-/// to 04:00:00 Eastern on that date. Handles DST automatically.
+/// to 00:00:00 Eastern on that date. Handles DST automatically.
 let baseTimeFromDateString (date: string) : DateTime = DateOnly.ParseExact(date, "yyyy-MM-dd", Globalization.CultureInfo.InvariantCulture) |> baseTimeFromDate
 
 let early_closes : DateOnly HashSet = 

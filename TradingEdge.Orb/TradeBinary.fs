@@ -9,16 +9,33 @@ open TradeLoader
 // On-disk format
 // =============================================================================
 
-let [<Literal>] Magic = 0x54454443u
+// Magic bumped when the on-disk header layout changes. Any new field here
+// requires a new magic — readers refuse to open files with the wrong magic.
+let [<Literal>] Magic = 0x54454444u
 
-/// 48-byte on-disk header. Layout matches the file format exactly so it can
-/// be read/written via MemoryMarshal in a single call.
+/// On-disk header. Layout matches the file format exactly so it can be
+/// read/written via MemoryMarshal in a single call.
+///
+/// RawAvg4w / TxnAvg4w / SplitFactorToday are the per-day context needed by
+/// the ThresholdGate at replay time. Storing them in the header lets the
+/// gap-up backtest avoid a DuckDB round-trip per (ticker, date). They come
+/// from session_volume_4w at convert time and reflect:
+///   RawAvg4w       = avg_session_adj_volume_4w / split_factor_today
+///                    (split-safe 4w avg volume in raw share units for today)
+///   TxnAvg4w       = avg_session_transactions_4w
+///   SplitFactorToday = session_adj_volume / session_raw_volume
+///                      (kept for audit / to reconstruct the adj avg)
+/// All three are NaN when session_volume_4w lacked a valid row (e.g. ticker
+/// has < 16 trading days of history). Callers should skip those days.
 [<Struct; StructLayout(LayoutKind.Sequential)>]
 type DayHeader = {
     Magic: uint32
     TradeCount: int
     OpeningPrintIndex: int voption
     BaseTicks: int64
+    RawAvg4w: double
+    TxnAvg4w: double
+    SplitFactorToday: double
 }
 
 let HeaderSize = Marshal.SizeOf<DayHeader>()
@@ -40,9 +57,20 @@ let infoPath (info: TickerInfo) =
 let ensureInfoDir (info: TickerInfo) =
     Directory.CreateDirectory (Path.Combine(info.Directory, info.Ticker)) |> ignore
 
+/// Day-level context stored alongside the trades. Callers that don't have
+/// valid 4w data (e.g. ticker history < 16 days) should pass Double.NaN for
+/// the affected fields — PassesEntryGate treats NaN as pass-through.
+type DayMeta = {
+    RawAvg4w: double
+    TxnAvg4w: double
+    SplitFactorToday: double
+}
+
+let DayMetaNaN = { RawAvg4w = nan; TxnAvg4w = nan; SplitFactorToday = nan }
+
 /// Convert a Trade[] (from TradeLoader.loadTrades) into binary format and write
 /// to disk. The input must already be sorted by Timestamp.
-let writeDay (info: TickerInfo) (trades: TradesStaging) =
+let writeDay (info: TickerInfo) (meta: DayMeta) (trades: TradesStaging) =
     let baseTime = Timezone.baseTimeFromDateString(info.Date)
     // Build header
     let header = {
@@ -50,6 +78,9 @@ let writeDay (info: TickerInfo) (trades: TradesStaging) =
         TradeCount = trades.Trades.Length
         OpeningPrintIndex = trades.OpeningPrintIndex
         BaseTicks = baseTime.Ticks
+        RawAvg4w = meta.RawAvg4w
+        TxnAvg4w = meta.TxnAvg4w
+        SplitFactorToday = meta.SplitFactorToday
     }
 
     ensureInfoDir info

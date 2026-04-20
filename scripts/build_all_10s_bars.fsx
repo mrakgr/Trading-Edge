@@ -83,7 +83,7 @@ let buildOne (date: string) : double =
     let maxBucket = maxBucketFor (if isEarly then earlyEnd else regularEnd)
 
     let baseUtc =
-        Timezone.baseTimeFromDateString(date).AddHours(VolumeProfile.startHoursFromBase)
+        Timezone.baseTimeFromDateString(date).AddHours(Timezone.startHoursFromBase)
     let baseNs = (baseUtc - DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).Ticks * 100L
     let endNsExclusive = baseNs + int64 (maxBucket + 1) * bucketNs
 
