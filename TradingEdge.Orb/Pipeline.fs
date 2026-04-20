@@ -276,19 +276,19 @@ type OrbSystem(positionSize: float, referenceVol: float voption, stopMode: StopM
     /// Entry gate: pass if no gate is configured. Otherwise at the trade's
     /// bucket, require cum_volume/RawAvg4w >= Tv AND cum_trades/TxnAvg4w >= Ta.
     /// Out-of-range bucket or NaN threshold = pass.
-    member inline self.PassesEntryGate(b: OrbSystemBar, tradeTs: DateTime) =
+    member inline self.PassesEntryGate(bar: OrbSystemBar, tradeTs: DateTime) =
         match self.Gate with
         | ValueNone -> true
-        | ValueSome g ->
-            let bucket = int ((tradeTs.Ticks - g.StartTicks) / g.Schedule.BucketTicks)
-            if bucket < 0 || bucket >= g.Schedule.Thresholds.Length then true
+        | ValueSome gate ->
+            let bucket = int ((tradeTs.Ticks - gate.StartTicks) / gate.Schedule.BucketTicks)
+            if bucket < 0 || bucket >= gate.Schedule.Thresholds.Length then true
             else
-                let struct (tv, ta) = g.Schedule.Thresholds.[bucket]
-                if Double.IsNaN tv || Double.IsNaN ta then true
+                let struct (volThreshold, txnThreshold) = gate.Schedule.Thresholds.[bucket]
+                if Double.IsNaN volThreshold || Double.IsNaN txnThreshold then true
                 else
-                    let vr = b.SessionCumVolume / g.RawAvg4w
-                    let tr = float b.SessionCumTrades / g.TxnAvg4w
-                    vr >= tv && tr >= ta
+                    let volRvol = bar.SessionCumVolume / gate.RawAvg4w
+                    let txnRvol = float bar.SessionCumTrades / gate.TxnAvg4w
+                    volRvol >= volThreshold && txnRvol >= txnThreshold
 
     member inline self.Process(onNext, bar: OrbSystemBar voption, stage: TradeStage, trade: Trade, tradeTs: DateTime) =
         let mutable decision = ValueNone
