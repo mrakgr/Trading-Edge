@@ -38,7 +38,7 @@ type CliArgs =
         member this.Usage =
             match this with
             | Start_Bucket _ -> "First bucket index (inclusive). Default: 366 (09:31 ET)"
-            | End_Bucket _ -> "Last bucket index (inclusive). Default: 2748 (15:58 ET)"
+            | End_Bucket _ -> "Last bucket index (inclusive). Default: 2688 (15:58:00 ET, start of the last full-minute bar before close)"
             | Step _ -> "Bucket step. Default: 6 (one minute of 10s buckets)"
             | Precisions _ -> "Comma-separated precision percentages. Default: 70,80,90"
             | Output_File _ -> "Results file (resume-aware). Default: minizinc/thresholds_10s.json"
@@ -69,7 +69,7 @@ let solver = parsed.GetResult(Solver, defaultValue = "cp-sat")
 let solveTimeoutMs = parsed.GetResult(Solve_Timeout_S, defaultValue = 600) * 1000
 
 let startB = parsed.GetResult(Start_Bucket, defaultValue = 366)
-let endB = parsed.GetResult(End_Bucket, defaultValue = 2748)
+let endB = parsed.GetResult(End_Bucket, defaultValue = 2688)
 let step = parsed.GetResult(Step, defaultValue = 6)
 let precisions =
     match parsed.TryGetResult Precisions with

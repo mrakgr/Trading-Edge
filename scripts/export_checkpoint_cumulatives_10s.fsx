@@ -15,8 +15,9 @@
 //     "session_volume_rvol_final": 7.33,
 //     "split_factor_today": 1.0 }
 //
-// Default step is 6 (one minute of 10s buckets) — gives ~397 files over the trading day.
-// 366 = 09:31 ET (first minute after the open); 2748 = 15:58 ET (last session bucket).
+// Default step is 6 (one minute of 10s buckets) — gives ~388 files over the trading day.
+// 366 = 09:31 ET (first minute after the open); 2688 = 15:58 ET (start of the last
+// full minute bar before the close).
 
 open System
 open System.IO
@@ -37,7 +38,7 @@ type CliArgs =
         member this.Usage =
             match this with
             | Start_Bucket _ -> "First bucket index (inclusive). Default: 366 (09:31 ET)"
-            | End_Bucket _ -> "Last bucket index (inclusive). Default: 2748 (15:58 ET)"
+            | End_Bucket _ -> "Last bucket index (inclusive). Default: 2688 (15:58:00 ET, start of the last full-minute bar before close)"
             | Step _ -> "Bucket step. Default: 6 (one minute of 10s buckets)"
             | Bucket _ -> "Single bucket shortcut — equivalent to -s N -e N -k 1"
             | Output_Dir _ -> "Output directory. Default: data/minizinc/10s"
@@ -61,7 +62,7 @@ let startB, endB, step =
     | Some b -> b, b, 1
     | None ->
         parsed.GetResult(Start_Bucket, defaultValue = 366),
-        parsed.GetResult(End_Bucket, defaultValue = 2748),
+        parsed.GetResult(End_Bucket, defaultValue = 2688),
         parsed.GetResult(Step, defaultValue = 6)
 
 let buckets = [| for b in startB .. step .. endB -> b |]

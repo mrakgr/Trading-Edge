@@ -1,20 +1,20 @@
 -- Per-(ticker, date) session volume + transaction totals, aggregated from
--- our filtered 10s bars (intraday_10s_cum, file 03). The bar builder
--- (scripts/build_10s_bars.fsx) already restricts to the session window and
--- applies the ORB filter (size>0, SIP-delta<=50ms, condition-code filter),
--- so a single GROUP BY per (ticker, date) gives us the totals. Equivalently,
--- the final (max-bucket) cum_volume/cum_trade_count row per (ticker, date)
--- in intraday_10s_cum is the same total; we use SUM for clarity and because
--- the per-bucket `volume`/`trade_count` columns are directly in the table.
+-- our filtered 10s bars under data/bulk/intraday_10s/. The bar builder
+-- (scripts/build_all_10s_bars.fsx) already restricts to the session window
+-- and applies the ORB live-system trade filter (size>0, SIP-delta<=50ms,
+-- condition-code filter), so a single GROUP BY per (ticker, date) gives us
+-- the totals.
 --
--- Session window (baked into the bar file at build time):
---   * Regular-close days: 08:30 ET inclusive through 15:58 ET inclusive
---     (buckets 0..2748, 10s each).
---   * Early-close days: 08:30 ET inclusive through 12:58 ET inclusive
---     (buckets 0..1608).
--- The final bar of the session is deliberately dropped to avoid the closing
--- auction's lumpy print — same rationale as omitting the premarket from the
--- volume profile. See scripts/build_10s_bars.fsx for the source of truth.
+-- We read the raw per-bar parquets directly rather than the intraday_10s_cum
+-- view because materialized tables are executed before views, and reading
+-- the same files twice is cheap (~a few seconds per 70-day aggregate).
+--
+-- Session window (baked into the bar file at build time, see
+-- scripts/build_all_10s_bars.fsx):
+--   * Regular-close days: [08:30, 15:59) ET  (buckets 0..2693)
+--   * Early-close days:   [08:30, 12:59) ET  (buckets 0..1613)
+-- The closing-auction minute (15:59 / 12:59) is deliberately dropped to
+-- avoid the auction's lumpy print distorting downstream RVOLs.
 --
 -- Split-adjustment convention:
 --   `volume` is the raw share count — we sum unchanged. Split adjustment
@@ -31,5 +31,5 @@ SELECT
     date,
     SUM(volume)::BIGINT      AS session_raw_volume,
     SUM(trade_count)::BIGINT AS session_transactions
-FROM intraday_10s_cum
+FROM read_parquet('data/bulk/intraday_10s/*.parquet')
 GROUP BY ticker, date;
