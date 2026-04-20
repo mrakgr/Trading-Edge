@@ -14,6 +14,15 @@
 -- The 4w window excludes the current day
 -- (RANGE BETWEEN INTERVAL 28 DAYS PRECEDING AND INTERVAL 1 DAY PRECEDING)
 -- to match the no-leakage convention established in 04_stock_volume_4w.sql.
+--
+-- Minimum-sample guard: a 28-day calendar window nominally contains 20 US
+-- trading days, but holidays reduce that — e.g. the window ending the day
+-- before a Thursday following Thanksgiving + an early close + MLK day can
+-- drop to 17. We require at least 16 observed trading days in the window
+-- before publishing an average/RVOL; below that, the columns are NULL and
+-- downstream consumers (the stocks-in-play filter, the MiniZinc exporter)
+-- drop the row. This guards against one-off flukes on early-history days
+-- where a brand-new ticker has only a handful of samples in its lookback.
 DROP TABLE IF EXISTS session_volume_4w;
 CREATE TABLE session_volume_4w AS
 WITH split_boundaries AS (
@@ -41,6 +50,23 @@ adj AS (
     ASOF LEFT JOIN split_boundaries sb
         ON sdt.ticker = sb.ticker
         AND sdt.date  < sb.execution_date
+),
+rolled AS (
+    SELECT
+        ticker,
+        date,
+        session_raw_volume,
+        session_adj_volume,
+        session_transactions,
+        COUNT(*)                                  OVER w AS n_days_4w,
+        AVG(session_adj_volume::DOUBLE)           OVER w AS raw_avg_vol_4w,
+        AVG(session_transactions::DOUBLE)         OVER w AS raw_avg_txn_4w
+    FROM adj
+    WINDOW w AS (
+        PARTITION BY ticker
+        ORDER BY date
+        RANGE BETWEEN INTERVAL 28 DAYS PRECEDING AND INTERVAL 1 DAY PRECEDING
+    )
 )
 SELECT
     ticker,
@@ -48,15 +74,13 @@ SELECT
     session_raw_volume,
     session_adj_volume,
     session_transactions,
-    AVG(session_adj_volume::DOUBLE) OVER w    AS avg_session_adj_volume_4w,
-    AVG(session_transactions::DOUBLE) OVER w  AS avg_session_transactions_4w,
-    session_adj_volume::DOUBLE
-        / NULLIF(AVG(session_adj_volume::DOUBLE) OVER w, 0)    AS session_volume_rvol,
-    session_transactions::DOUBLE
-        / NULLIF(AVG(session_transactions::DOUBLE) OVER w, 0)  AS session_transaction_rvol
-FROM adj
-WINDOW w AS (
-    PARTITION BY ticker
-    ORDER BY date
-    RANGE BETWEEN INTERVAL 28 DAYS PRECEDING AND INTERVAL 1 DAY PRECEDING
-);
+    CASE WHEN n_days_4w >= 16 THEN raw_avg_vol_4w END AS avg_session_adj_volume_4w,
+    CASE WHEN n_days_4w >= 16 THEN raw_avg_txn_4w END AS avg_session_transactions_4w,
+    CASE WHEN n_days_4w >= 16
+         THEN session_adj_volume::DOUBLE / NULLIF(raw_avg_vol_4w, 0)
+    END AS session_volume_rvol,
+    CASE WHEN n_days_4w >= 16
+         THEN session_transactions::DOUBLE / NULLIF(raw_avg_txn_4w, 0)
+    END AS session_transaction_rvol,
+    n_days_4w
+FROM rolled;

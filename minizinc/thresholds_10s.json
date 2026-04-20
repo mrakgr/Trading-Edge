@@ -1,0 +1,10 @@
+[
+  {"bucket": 366, "et": "09:31", "precision_pct": 80, "Tv": 0.206055, "Ta": 0.102539, "n_fired": 23, "n_hit": 19, "precision_actual": 82.61, "solve_time_s": 0.61, "n_rows": 10341, "status": "OPTIMAL"},
+  {"bucket": 366, "et": "09:31", "precision_pct": 90, "Tv": 0.216797, "Ta": 0.102539, "n_fired": 20, "n_hit": 18, "precision_actual": 90.00, "solve_time_s": 0.54, "n_rows": 10341, "status": "OPTIMAL"},
+  {"bucket": 426, "et": "09:41", "precision_pct": 80, "Tv": 0.455078, "Ta": 0.072266, "n_fired": 50, "n_hit": 40, "precision_actual": 80.00, "solve_time_s": 0.94, "n_rows": 11191, "status": "OPTIMAL"},
+  {"bucket": 426, "et": "09:41", "precision_pct": 90, "Tv": 0.519531, "Ta": 0.231445, "n_fired": 34, "n_hit": 31, "precision_actual": 91.18, "solve_time_s": 0.80, "n_rows": 11191, "status": "OPTIMAL"},
+  {"bucket": 486, "et": "09:51", "precision_pct": 80, "Tv": 0.580078, "Ta": 0.292969, "n_fired": 52, "n_hit": 42, "precision_actual": 80.77, "solve_time_s": 1.03, "n_rows": 11036, "status": "OPTIMAL"},
+  {"bucket": 486, "et": "09:51", "precision_pct": 90, "Tv": 0.611328, "Ta": 0.323242, "n_fired": 42, "n_hit": 38, "precision_actual": 90.48, "solve_time_s": 1.18, "n_rows": 11036, "status": "OPTIMAL"},
+  {"bucket": 546, "et": "10:01", "precision_pct": 80, "Tv": 0.656250, "Ta": 0.333984, "n_fired": 57, "n_hit": 46, "precision_actual": 80.70, "solve_time_s": 1.45, "n_rows": 11561, "status": "OPTIMAL"},
+  {"bucket": 546, "et": "10:01", "precision_pct": 90, "Tv": 0.876953, "Ta": 0.147461, "n_fired": 37, "n_hit": 34, "precision_actual": 91.89, "solve_time_s": 1.21, "n_rows": 11561, "status": "OPTIMAL"}
+]

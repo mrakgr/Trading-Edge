@@ -1,16 +1,15 @@
 #r "nuget: FSharp.SystemTextJson, 1.4.36"
+#r "nuget: Argu, 6.2.5"
 
 // Reads data/minizinc/checkpoint_b{N}.json (array-of-records) and writes
 // data/minizinc/checkpoint_b{N}.dzn with float vr, tr, and
 // session_volume_rvol_final arrays ready for stock_in_play_threshold_int.mzn.
 // The model handles the scaling to integer RVOL units internally.
 //
-// Usage:
-//   dotnet fsi scripts/convert_checkpoint_to_dzn.fsx [bucket] [n_sample]
-//
-// Default: emits all 877k rows for the given bucket. Pass a smaller n_sample
-// (e.g. 10000) to generate a subsampled test set — sampling is uniform
-// (every k-th row) for determinism.
+// Default: emits all rows for the given bucket from data/minizinc/. Pass
+// --n-sample N to generate a subsampled test set — sampling is uniform
+// (every k-th row) for determinism. Pass --dir PATH to read from a different
+// input directory (e.g. the 10s sweep output).
 
 open System
 open System.IO
@@ -18,6 +17,7 @@ open System.Text
 open System.Text.Json
 open System.Text.Json.Serialization
 open System.Globalization
+open Argu
 
 type Row = {
     [<JsonPropertyName "ticker">] Ticker: string
@@ -30,25 +30,38 @@ type Row = {
     [<JsonPropertyName "split_factor_today">] SplitFactorToday: double
 }
 
-let scriptArgs =
+type CliArgs =
+    | [<AltCommandLine("-b")>] Bucket of int
+    | [<AltCommandLine("-d")>] Dir of string
+    | [<AltCommandLine("-n")>] N_Sample of int
+
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Bucket _ -> "Bucket index to convert. Default: 61"
+            | Dir _ -> "Input/output directory. Default: data/minizinc"
+            | N_Sample _ -> "Optional uniform subsample size for testing. Omit for full dataset"
+
+let parser = ArgumentParser.Create<CliArgs>(programName = "convert_checkpoint_to_dzn.fsx")
+let cliArgs =
     Environment.GetCommandLineArgs()
     |> Array.skipWhile (fun a -> not (a.EndsWith ".fsx"))
     |> Array.skip 1
+let parsed =
+    try parser.Parse(cliArgs, raiseOnUsage = true)
+    with :? ArguParseException as ex ->
+        eprintfn "%s" ex.Message
+        exit 1
 
-let bucket =
-    match scriptArgs with
-    | [||] -> 61
-    | a -> int a.[0]
-let nTakeOpt =
-    match scriptArgs with
-    | [| _; n |] -> Some (int n)
-    | _ -> None
+let dirArg = parsed.GetResult(Dir, defaultValue = "data/minizinc")
+let bucket = parsed.GetResult(Bucket, defaultValue = 61)
+let nTakeOpt = parsed.TryGetResult N_Sample
 
-let inPath = sprintf "data/minizinc/checkpoint_b%d.json" bucket
+let inPath = Path.Combine(dirArg, sprintf "checkpoint_b%d.json" bucket)
 let outPath =
     match nTakeOpt with
-    | Some n -> sprintf "data/minizinc/checkpoint_b%d_n%d.dzn" bucket n
-    | None   -> sprintf "data/minizinc/checkpoint_b%d.dzn" bucket
+    | Some n -> Path.Combine(dirArg, sprintf "checkpoint_b%d_n%d.dzn" bucket n)
+    | None   -> Path.Combine(dirArg, sprintf "checkpoint_b%d.dzn" bucket)
 
 printfn "Reading %s..." inPath
 let fs = File.OpenRead(inPath)

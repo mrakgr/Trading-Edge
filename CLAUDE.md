@@ -10,6 +10,11 @@ When writing concurrent F# code in this project:
 4. **FSharp.Control.TaskSeq** is available for `IAsyncEnumerable` support in `task {}` blocks
 5. **`open FSharp.Control`** is required to use `for ... in` with `IAsyncEnumerable` inside `task {}` - without it you get a type mismatch error about `IAsyncEnumerable` not being compatible with `seq`
 
+## Command-Line Argument Parsing
+
+- **Use Argu, not manual parsing**, for any F# script or program that takes CLI args. Define an `IArgParserTemplate` discriminated union, parse via `ArgumentParser.Create<_>().Parse(...)`, and pull values with `GetResult` / `TryGetResult`. Manual `Array.skip`/positional matching is hard to read and easy to get wrong.
+- In `.fsx` scripts, add `#r "nuget: Argu, 6.2.5"` and get script args via `fsi.CommandLineArgs |> Array.skip 1`. When invoking a script as a subprocess with `dotnet fsi script.fsx`, pass a literal `--` between the script path and the script's own flags so dotnet doesn't intercept them.
+
 ## MathNet.Numerics Usage
 
 - **Prefer MathNet distributions over manual calculations** - use `Normal.PDFLn`, `Exponential.Sample`, `Categorical.Sample`, etc. from `MathNet.Numerics.Distributions` instead of hand-rolling equivalent math.
