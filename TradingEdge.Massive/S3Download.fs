@@ -14,6 +14,20 @@ let private bucketName = "flatfiles"
 let private serviceUrl = "https://files.massive.com"
 let private maxRetries = 5
 
+/// Walk an exception's inner chain looking for an AmazonS3Exception with a
+/// 404 status. Async.AwaitTask wraps faulted-task exceptions inside an
+/// AggregateException, so a plain `:? AmazonS3Exception` match misses the
+/// 404 we actually care about.
+let private isS3NotFound (ex: exn) : bool =
+    let rec walk (e: exn) =
+        match e with
+        | null -> false
+        | :? AmazonS3Exception as s3 when s3.StatusCode = HttpStatusCode.NotFound -> true
+        | :? AggregateException as agg ->
+            agg.InnerExceptions |> Seq.exists walk
+        | _ -> walk e.InnerException
+    walk ex
+
 /// Create an S3 client configured for Massive
 let createS3Client (accessKey: string) (secretKey: string) : AmazonS3Client =
     let config = AmazonS3Config(
@@ -74,6 +88,11 @@ let private downloadSingleDay
 
                         return Downloaded date
                     with
+                    // 404 = no flat-file for this date (US market holiday).
+                    | ex when isS3NotFound ex ->
+                        try File.Delete localPath with _ -> ()
+                        return Skipped date
+
                     | :? AmazonS3Exception as ex
                         when (ex.StatusCode = HttpStatusCode.ServiceUnavailable
                               || ex.StatusCode = HttpStatusCode.TooManyRequests
@@ -222,6 +241,12 @@ let private downloadSingleDayMinute
 
                         return Downloaded date
                     with
+                    // 404 = no flat-file for this date (US market holiday).
+                    // Skip without retrying.
+                    | ex when isS3NotFound ex ->
+                        try File.Delete csvGzPath with _ -> ()
+                        return Skipped date
+
                     | :? AmazonS3Exception as ex
                         when (ex.StatusCode = HttpStatusCode.ServiceUnavailable
                               || ex.StatusCode = HttpStatusCode.TooManyRequests
@@ -436,6 +461,16 @@ let private downloadSingleDayTrades
 
                         return Downloaded date
                     with
+                    // 404 means Polygon has no flat-file for this date — almost
+                    // always a US market holiday (Good Friday, Thanksgiving, etc.).
+                    // Don't retry; treat it as a skip so the run doesn't flag
+                    // these as failures. The AWS SDK may wrap the exception
+                    // inside an AggregateException via Async.AwaitTask, so we
+                    // check the inner chain too.
+                    | ex when isS3NotFound ex ->
+                        try File.Delete csvGzPath with _ -> ()
+                        return Skipped date
+
                     | :? AmazonS3Exception as ex
                         when (ex.StatusCode = HttpStatusCode.ServiceUnavailable
                               || ex.StatusCode = HttpStatusCode.TooManyRequests
