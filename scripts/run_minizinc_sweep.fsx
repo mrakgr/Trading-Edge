@@ -4,12 +4,11 @@
 // Batch runner for the 10s-bar (Tv, Ta) threshold sweep.
 //
 // For each (bucket, precision) in the requested ranges:
-//   1. Ensure data/minizinc/10s/checkpoint_b{N}.json exists (produced by
-//      scripts/export_checkpoint_cumulatives_10s.fsx). If not, skip with a note.
-//   2. Convert to .dzn via scripts/convert_checkpoint_to_dzn.fsx (idempotent).
-//   3. Invoke `minizinc --solver cp-sat minizinc/stock_in_play_threshold_int.mzn`
-//      with var_scale=threshold_scale=1024, target_rvol=3.0, precision_pct=P.
-//   4. Parse the JSON output, append to minizinc/thresholds_10s.json.
+//   1. Ensure data/minizinc/10s/checkpoint_b{N}.dzn exists (produced by
+//      scripts/export_checkpoints_dzn.fsx). If not, skip with a note.
+//   2. Invoke `minizinc --solver cp-sat minizinc/stock_in_play_threshold.mzn`
+//      with int_scale=1024, target_rvol=3.0, precision_pct=P.
+//   3. Parse the JSON output, append a row to minizinc/thresholds_10s.csv.
 //
 // Resume-aware: skips (bucket, P) pairs already present in the output file.
 
@@ -18,6 +17,8 @@ open System.IO
 open System.Diagnostics
 open System.Text.Json
 open System.Globalization
+open System.Threading
+open System.Threading.Tasks
 open Argu
 
 type CliArgs =
@@ -29,26 +30,28 @@ type CliArgs =
     | Checkpoints_Dir of string
     | Model of string
     | Target_Rvol of float
-    | Var_Scale of int
-    | Threshold_Scale of int
+    | Int_Scale of int
     | Solver of string
     | Solve_Timeout_S of int
+    | [<AltCommandLine("-j")>] Jobs of int
+    | Cp_Sat_Parallel of int
 
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | Start_Bucket _ -> "First bucket index (inclusive). Default: 366 (09:31 ET)"
             | End_Bucket _ -> "Last bucket index (inclusive). Default: 2688 (15:58:00 ET, start of the last full-minute bar before close)"
-            | Step _ -> "Bucket step. Default: 6 (one minute of 10s buckets)"
+            | Step _ -> "Bucket step. Default: 1 (every 10s bucket)"
             | Precisions _ -> "Comma-separated precision percentages. Default: 70,80,90"
-            | Output_File _ -> "Results file (resume-aware). Default: minizinc/thresholds_10s.json"
-            | Checkpoints_Dir _ -> "Directory with checkpoint_b{N}.json inputs. Default: data/minizinc/10s"
-            | Model _ -> "MiniZinc model path. Default: minizinc/stock_in_play_threshold_int.mzn"
+            | Output_File _ -> "Results CSV (resume-aware; one row appended per solved task). Default: minizinc/thresholds_10s.csv"
+            | Checkpoints_Dir _ -> "Directory with checkpoint_b{N}.dzn inputs. Default: data/minizinc/10s"
+            | Model _ -> "MiniZinc model path. Default: minizinc/stock_in_play_threshold.mzn"
             | Target_Rvol _ -> "Target end-of-day session RVOL for hit labeling. Default: 3.0"
-            | Var_Scale _ -> "Model var_scale. Default: 1024"
-            | Threshold_Scale _ -> "Model threshold_scale. Default: 1024"
+            | Int_Scale _ -> "Model int_scale. Default: 1024"
             | Solver _ -> "MiniZinc solver id. Default: cp-sat"
             | Solve_Timeout_S _ -> "Per-problem solve timeout (seconds). Default: 600"
+            | Jobs _ -> "Parallel MiniZinc processes. Default: 6"
+            | Cp_Sat_Parallel _ -> "CP-SAT worker threads per process (passed as -p). Default: 2"
 
 let parser = ArgumentParser.Create<CliArgs>(programName = "run_minizinc_sweep.fsx")
 let cliArgs = fsi.CommandLineArgs |> Array.skip 1
@@ -60,17 +63,18 @@ let parsed =
 
 // ----- Config -----
 let checkpointsDir = parsed.GetResult(Checkpoints_Dir, defaultValue = "data/minizinc/10s")
-let outPath = parsed.GetResult(Output_File, defaultValue = "minizinc/thresholds_10s.json")
-let modelPath = parsed.GetResult(Model, defaultValue = "minizinc/stock_in_play_threshold_int.mzn")
+let csvPath = parsed.GetResult(Output_File, defaultValue = "minizinc/thresholds_10s.csv")
+let modelPath = parsed.GetResult(Model, defaultValue = "minizinc/stock_in_play_threshold.mzn")
 let targetRvol = parsed.GetResult(Target_Rvol, defaultValue = 3.0)
-let varScale = parsed.GetResult(Var_Scale, defaultValue = 1024)
-let thresholdScale = parsed.GetResult(Threshold_Scale, defaultValue = 1024)
+let intScale = parsed.GetResult(Int_Scale, defaultValue = 1024)
 let solver = parsed.GetResult(Solver, defaultValue = "cp-sat")
 let solveTimeoutMs = parsed.GetResult(Solve_Timeout_S, defaultValue = 600) * 1000
+let jobs = parsed.GetResult(Jobs, defaultValue = 6)
+let cpSatParallel = parsed.GetResult(Cp_Sat_Parallel, defaultValue = 2)
 
 let startB = parsed.GetResult(Start_Bucket, defaultValue = 366)
 let endB = parsed.GetResult(End_Bucket, defaultValue = 2688)
-let step = parsed.GetResult(Step, defaultValue = 6)
+let step = parsed.GetResult(Step, defaultValue = 1)
 let precisions =
     match parsed.TryGetResult Precisions with
     | Some s -> s.Split ',' |> Array.map int
@@ -102,29 +106,36 @@ type Row = {
 
 let inv = CultureInfo.InvariantCulture
 
-let existing =
-    if File.Exists outPath then
+// Streaming CSV: one row appended per solved task, flushed immediately. On
+// resume, we read the CSV to rebuild the seen-set and skip already-done
+// (bucket, P) pairs.
+let csvHeader = "bucket,et,precision_pct,Tv,Ta,n_fired,n_hit,precision_actual,solve_time_s,n_rows,status"
+
+let parseCsvRow (line: string) : Row option =
+    let parts = line.Split ','
+    if parts.Length <> 11 then None
+    else
         try
-            use fs = File.OpenRead outPath
-            let doc = JsonDocument.Parse(fs)
-            [| for el in doc.RootElement.EnumerateArray() ->
-                let getInt (name: string) = el.GetProperty(name).GetInt32()
-                let getDbl (name: string) = el.GetProperty(name).GetDouble()
-                let getStr (name: string) = el.GetProperty(name).GetString()
-                { bucket = getInt "bucket"
-                  et = getStr "et"
-                  precision_pct = getInt "precision_pct"
-                  Tv = getDbl "Tv"
-                  Ta = getDbl "Ta"
-                  n_fired = getInt "n_fired"
-                  n_hit = getInt "n_hit"
-                  precision_actual = getDbl "precision_actual"
-                  solve_time_s = getDbl "solve_time_s"
-                  n_rows = (try getInt "n_rows" with _ -> 0)
-                  status = (try getStr "status" with _ -> "OPTIMAL") } |]
-        with ex ->
-            eprintfn "Could not parse existing %s: %s — starting fresh" outPath ex.Message
-            [||]
+            Some {
+                bucket = Int32.Parse(parts.[0], inv)
+                et = parts.[1]
+                precision_pct = Int32.Parse(parts.[2], inv)
+                Tv = Double.Parse(parts.[3], inv)
+                Ta = Double.Parse(parts.[4], inv)
+                n_fired = Int32.Parse(parts.[5], inv)
+                n_hit = Int32.Parse(parts.[6], inv)
+                precision_actual = Double.Parse(parts.[7], inv)
+                solve_time_s = Double.Parse(parts.[8], inv)
+                n_rows = Int32.Parse(parts.[9], inv)
+                status = parts.[10]
+            }
+        with _ -> None
+
+let existing =
+    if File.Exists csvPath then
+        File.ReadAllLines csvPath
+        |> Array.skip 1
+        |> Array.choose parseCsvRow
     else [||]
 
 let results = ResizeArray<Row>(existing)
@@ -133,8 +144,25 @@ let seen =
     |> Array.map (fun r -> r.bucket, r.precision_pct)
     |> Set.ofArray
 
+// Open the CSV in append mode. Write header if the file is new.
+let csvDir = Path.GetDirectoryName csvPath
+if not (String.IsNullOrEmpty csvDir) then Directory.CreateDirectory csvDir |> ignore
+let csvNew = not (File.Exists csvPath)
+let csvStream = new FileStream(csvPath, FileMode.Append, FileAccess.Write, FileShare.Read)
+let csvWriter = new StreamWriter(csvStream)
+csvWriter.AutoFlush <- true
+if csvNew then csvWriter.WriteLine csvHeader
+
+let appendCsvRow (r: Row) =
+    csvWriter.WriteLine(
+        String.Format(inv,
+            "{0},{1},{2},{3:F6},{4:F6},{5},{6},{7:F2},{8:F2},{9},{10}",
+            r.bucket, r.et, r.precision_pct, r.Tv, r.Ta,
+            r.n_fired, r.n_hit, r.precision_actual, r.solve_time_s,
+            r.n_rows, r.status))
+
 printfn "Sweep %d buckets [%d..%d step %d] × precisions %A" buckets.Length startB endB step precisions
-printfn "Resume: %d existing results loaded" existing.Length
+printfn "Resume: %d existing rows loaded from %s" existing.Length csvPath
 
 // ----- Helpers -----
 
@@ -154,32 +182,19 @@ let runProcess (exe: string) (args: string) (timeoutMs: int) =
         p.WaitForExit()
         stdoutTask.Result, stderrTask.Result, p.ExitCode
 
-let ensureDzn (bucket: int) : bool =
-    let jsonPath = Path.Combine(checkpointsDir, sprintf "checkpoint_b%d.json" bucket)
+let dznExists (bucket: int) : bool =
     let dznPath = Path.Combine(checkpointsDir, sprintf "checkpoint_b%d.dzn" bucket)
-    if not (File.Exists jsonPath) then
-        false
-    elif File.Exists dznPath &&
-         File.GetLastWriteTimeUtc(dznPath) >= File.GetLastWriteTimeUtc(jsonPath) then
-        true
-    else
-        let stdout, stderr, code =
-            runProcess "dotnet"
-                (sprintf "fsi scripts/convert_checkpoint_to_dzn.fsx -- --bucket %d --dir %s"
-                    bucket checkpointsDir)
-                120_000
-        if code <> 0 then
-            eprintfn "  [b%d] dzn conversion failed (exit %d): %s" bucket code stderr
-            false
-        else true
+    File.Exists dznPath
 
 let parseSolverJson (text: string) =
     // MiniZinc prints the output block between solution separators. The last
     // balanced {...} in stdout (before ---------- / ==========) is our JSON.
     let trimmed = text.Replace("==========", "").Replace("----------", "").Trim()
     let last = trimmed.LastIndexOf '}'
+    if last < 0 then None
+    else
     let first = trimmed.LastIndexOf('{', last)
-    if first < 0 || last < 0 || last <= first then None
+    if first < 0 || last <= first then None
     else
         let json = trimmed.Substring(first, last - first + 1)
         try
@@ -193,82 +208,97 @@ let parseSolverJson (text: string) =
             Some (tv, ta, nf, nh, nr)
         with _ -> None
 
-let writeResults () =
-    let sb = System.Text.StringBuilder()
-    sb.Append "[\n" |> ignore
-    let sorted =
-        results.ToArray()
-        |> Array.sortBy (fun r -> r.bucket, r.precision_pct)
-    for i = 0 to sorted.Length - 1 do
-        let r = sorted.[i]
-        if i > 0 then sb.Append ",\n" |> ignore
-        sb.AppendFormat(inv,
-            """  {{"bucket": {0}, "et": "{1}", "precision_pct": {2}, "Tv": {3:F6}, "Ta": {4:F6}, "n_fired": {5}, "n_hit": {6}, "precision_actual": {7:F2}, "solve_time_s": {8:F2}, "n_rows": {9}, "status": "{10}"}}""",
-            r.bucket, r.et, r.precision_pct, r.Tv, r.Ta, r.n_fired, r.n_hit, r.precision_actual, r.solve_time_s, r.n_rows, r.status)
-        |> ignore
-    sb.Append "\n]\n" |> ignore
-    Directory.CreateDirectory(Path.GetDirectoryName outPath) |> ignore
-    File.WriteAllText(outPath, sb.ToString())
-
 // ----- Main loop -----
 
+// Build the task list up front: one entry per (bucket, P) that needs solving.
+// Missing-DZN and resume-seen tasks are filtered here so the parallel loop
+// only sees real work.
+let tasks =
+    [| for bucket in buckets do
+         if dznExists bucket then
+             for P in precisions do
+                 if not (seen.Contains (bucket, P)) then
+                     yield (bucket, P) |]
+
+let nMissingBuckets =
+    buckets |> Array.filter (fun b -> not (dznExists b)) |> Array.length
+let nSkipped = (buckets.Length * precisions.Length) - tasks.Length - nMissingBuckets * precisions.Length
+
+printfn "Parallel sweep: %d tasks, jobs=%d, cp-sat-parallel=%d (tasks skipped=%d missing-dzn-buckets=%d)"
+    tasks.Length jobs cpSatParallel nSkipped nMissingBuckets
+
 let overallSw = Stopwatch.StartNew()
-let mutable nRan = 0
-let mutable nSkipped = 0
-let mutable nMissing = 0
+let resultsLock = obj()
+let logLock = obj()
+let mutable nDone = 0
 let mutable nFailed = 0
 
-for bucket in buckets do
-    let dznOk = ensureDzn bucket
-    if not dznOk then
-        nMissing <- nMissing + 1
-        if nMissing <= 5 then
-            printfn "  [b%d] skip — no checkpoint JSON" bucket
-    else
-        let dznPath = Path.Combine(checkpointsDir, sprintf "checkpoint_b%d.dzn" bucket)
-        for P in precisions do
-            if seen.Contains (bucket, P) then
-                nSkipped <- nSkipped + 1
-            else
-                let args =
-                    sprintf "--solver %s %s %s -D \"precision_pct=%d\" -D \"var_scale=%d\" -D \"threshold_scale=%d\" -D \"target_rvol=%s\""
-                        solver modelPath dznPath P varScale thresholdScale
-                        (targetRvol.ToString("F1", inv))
-                let sw = Stopwatch.StartNew()
-                let stdout, stderr, code = runProcess "minizinc" args solveTimeoutMs
-                sw.Stop()
-                let elapsed = sw.Elapsed.TotalSeconds
-                match code, parseSolverJson stdout with
-                | 0, Some (tv, ta, nf, nh, nr) when nf > 0 ->
-                    let isOptimal = stdout.Contains "=========="
-                    let status = if isOptimal then "OPTIMAL" else "FEASIBLE"
-                    let precAct = if nf = 0 then 0.0 else 100.0 * double nh / double nf
-                    let row = {
-                        bucket = bucket
-                        et = bucketToEt bucket
-                        precision_pct = P
-                        Tv = tv; Ta = ta
-                        n_fired = nf; n_hit = nh
-                        precision_actual = precAct
-                        solve_time_s = elapsed
-                        n_rows = nr
-                        status = status
-                    }
-                    results.Add row
-                    nRan <- nRan + 1
-                    printfn "  [b%d P=%d] fired=%d hit=%d prec=%.1f%% Tv=%.3f Ta=%.3f %.1fs %s"
-                        bucket P nf nh precAct tv ta elapsed status
-                    if nRan % 20 = 0 then writeResults ()
-                | _ ->
-                    nFailed <- nFailed + 1
-                    eprintfn "  [b%d P=%d] FAILED (code %d) after %.1fs" bucket P code elapsed
-                    if nFailed <= 3 then
-                        if stderr.Length > 0 then eprintfn "    stderr: %s" (stderr.Substring(0, min 300 stderr.Length))
-                        if stdout.Length > 0 then eprintfn "    stdout tail: %s" (stdout.Substring(max 0 (stdout.Length - 300)))
+let runOne (bucket: int, P: int) =
+  try
+    let dznPath = Path.Combine(checkpointsDir, sprintf "checkpoint_b%d.dzn" bucket)
+    let args =
+        sprintf "--solver %s -p %d %s %s -D \"precision_pct=%d\" -D \"int_scale=%d\" -D \"target_rvol=%s\""
+            solver cpSatParallel modelPath dznPath P intScale
+            (targetRvol.ToString("F1", inv))
+    let sw = Stopwatch.StartNew()
+    let stdout, stderr, code = runProcess "minizinc" args solveTimeoutMs
+    sw.Stop()
+    let elapsed = sw.Elapsed.TotalSeconds
+    match code, parseSolverJson stdout with
+    | 0, Some (tv, ta, nf, nh, nr) when nf > 0 ->
+        let isOptimal = stdout.Contains "=========="
+        let status = if isOptimal then "OPTIMAL" else "FEASIBLE"
+        let precAct = if nf = 0 then 0.0 else 100.0 * double nh / double nf
+        let row = {
+            bucket = bucket
+            et = bucketToEt bucket
+            precision_pct = P
+            Tv = tv; Ta = ta
+            n_fired = nf; n_hit = nh
+            precision_actual = precAct
+            solve_time_s = elapsed
+            n_rows = nr
+            status = status
+        }
+        let doneNow =
+            lock resultsLock (fun () ->
+                results.Add row
+                appendCsvRow row
+                nDone <- nDone + 1
+                nDone)
+        lock logLock (fun () ->
+            let totalElapsed = overallSw.Elapsed.TotalSeconds
+            let avgWall = totalElapsed / float (max doneNow 1)
+            let remain = tasks.Length - doneNow
+            let etaMin = avgWall * float remain / 60.0
+            printfn "  [%d/%d] b%d P=%d fired=%d hit=%d prec=%.1f%% Tv=%.3f Ta=%.3f %.1fs %s | elapsed=%.1fm eta=%.1fm"
+                doneNow tasks.Length bucket P nf nh precAct tv ta elapsed status
+                (totalElapsed / 60.0) etaMin)
+    | _ ->
+        lock resultsLock (fun () ->
+            nFailed <- nFailed + 1
+            nDone <- nDone + 1)
+        lock logLock (fun () ->
+            eprintfn "  [b%d P=%d] FAILED (code %d) after %.1fs" bucket P code elapsed
+            if nFailed <= 3 then
+                if stderr.Length > 0 then eprintfn "    stderr: %s" (stderr.Substring(0, min 300 stderr.Length))
+                if stdout.Length > 0 then eprintfn "    stdout tail: %s" (stdout.Substring(max 0 (stdout.Length - 300))))
+  with ex ->
+    // Don't let one task kill the whole Parallel.ForEach. Log and count as failed.
+    lock resultsLock (fun () ->
+        nFailed <- nFailed + 1
+        nDone <- nDone + 1)
+    lock logLock (fun () ->
+        eprintfn "  [b%d P=%d] EXCEPTION: %s" bucket P ex.Message)
 
-writeResults ()
+let parallelOpts = ParallelOptions(MaxDegreeOfParallelism = jobs)
+Parallel.ForEach(tasks, parallelOpts, System.Action<int*int>(runOne)) |> ignore
+
+csvWriter.Dispose()
+csvStream.Dispose()
 
 overallSw.Stop()
 printfn ""
-printfn "Done. ran=%d skipped=%d missing=%d failed=%d in %.1fs" nRan nSkipped nMissing nFailed overallSw.Elapsed.TotalSeconds
-printfn "Results: %s (%d total rows)" outPath results.Count
+printfn "Done. ran=%d skipped=%d missing-buckets=%d failed=%d in %.1fs"
+    (nDone - nFailed) nSkipped nMissingBuckets nFailed overallSw.Elapsed.TotalSeconds
+printfn "Results: %s (%d total rows)" csvPath results.Count

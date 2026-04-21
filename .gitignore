@@ -30,3 +30,5 @@ api_key.json
 chat.md
 **/__pycache__
 .claude/scheduled_tasks.lock
+minizinc/*.csv
+minizinc/*.json

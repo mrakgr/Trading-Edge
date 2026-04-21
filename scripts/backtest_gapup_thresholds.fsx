@@ -8,7 +8,7 @@
 //
 // Consumes:
 //   * data/gap_up_universe.json        — array of {ticker, date, gap_pct, ...}
-//   * minizinc/thresholds_p80_t30.json — per-bucket (Tv, Ta) for gated runs
+//   * minizinc/thresholds_10s.csv — per-(bucket,precision) (Tv, Ta) for gated runs
 //   * data/trades_bin/{ticker}/{date}.bin — binary trade stream; RawAvg4w /
 //     TxnAvg4w / SplitFactorToday come from the header (written by
 //     TradingEdge.Orb.Convert from the plays JSON).
@@ -44,7 +44,7 @@ type CliArgs =
             match this with
             | Config _ -> "Configuration name: 'baseline' or e.g. 'p80_t30'. Drives output path and gate selection."
             | Universe _ -> "Setup list JSON. Default: data/gap_up_universe.json"
-            | Thresholds _ -> "Per-bucket thresholds JSON (ignored for baseline). Default: minizinc/thresholds_p80_t30.json"
+            | Thresholds _ -> "Per-bucket thresholds CSV from run_minizinc_sweep (ignored for baseline). Default: minizinc/thresholds_10s.csv"
             | Trades_Bin _ -> "Binary trade root. Default: data/trades_bin"
             | Output _ -> "Output JSON. Default: minizinc/backtest_{config}.json"
 
@@ -57,7 +57,13 @@ let parsed =
 
 let configName = parsed.GetResult Config
 let universePath = parsed.GetResult(Universe, defaultValue = "data/gap_up_universe.json")
-let thresholdsPath = parsed.GetResult(Thresholds, defaultValue = "minizinc/thresholds_p80_t30.json")
+let thresholdsPath = parsed.GetResult(Thresholds, defaultValue = "minizinc/thresholds_10s.csv")
+
+// Extract the precision percentage to select from the CSV. Config names like
+// "p80_t30" imply precision 80. The user can override via --precision-pct.
+let precisionPct =
+    let m = System.Text.RegularExpressions.Regex.Match(configName, @"^p(\d+)")
+    if m.Success then Int32.Parse(m.Groups.[1].Value) else 80
 let tradesBinRoot = parsed.GetResult(Trades_Bin, defaultValue = "data/trades_bin")
 let outPath = parsed.GetResult(Output, defaultValue = sprintf "minizinc/backtest_%s.json" configName)
 
@@ -76,33 +82,32 @@ let setups =
 printfn "Universe: %d rows from %s" setups.Length universePath
 
 // ----- Threshold load -----
-type ThrRow = {
-    [<JsonPropertyName "bucket">] Bucket: int
-    [<JsonPropertyName "Tv">] Tv: double
-    [<JsonPropertyName "Ta">] Ta: double
-    [<JsonPropertyName "status">] Status: string
-}
-
-// Build the ThresholdSchedule once — it's shared by every (ticker, date)
-// replay, so we pay the JSON-parse cost only once.
+// CSV schema: bucket,et,precision_pct,Tv,Ta,n_fired,n_hit,precision_actual,solve_time_s,n_rows,status
+// We only need bucket/precision_pct/Tv/Ta. Rows with other precisions are
+// filtered out.
 let bucketSeconds = 10.0
 let schedule : ThresholdSchedule =
     if not isGated then
         { BucketTicks = int64 (TimeSpan.FromSeconds(bucketSeconds).Ticks)
           Thresholds = [||] }
     else
-        let bytes = File.ReadAllBytes thresholdsPath
-        let rows = JsonSerializer.Deserialize<ThrRow[]>(bytes, JsonSerializerOptions())
-        // Size the array to cover every bucket index we might see at 10s
-        // spacing: 0..2699 for regular days (2700), 0..2099 for early closes
-        // (shorter). Safe max is 2700.
+        let inv = CultureInfo.InvariantCulture
         let maxBucket = 2700
         let arr = Array.create maxBucket (struct (Double.NaN, Double.NaN))
-        for r in rows do
-            if r.Bucket >= 0 && r.Bucket < maxBucket then
-                arr.[r.Bucket] <- struct (r.Tv, r.Ta)
-        printfn "Thresholds: %d rows from %s (filled %d / %d buckets)"
-            rows.Length thresholdsPath rows.Length maxBucket
+        let mutable nMatched = 0
+        let lines = File.ReadAllLines thresholdsPath
+        for i = 1 to lines.Length - 1 do  // skip header
+            let parts = lines.[i].Split ','
+            if parts.Length >= 5 then
+                let bucket = Int32.Parse(parts.[0], inv)
+                let pct = Int32.Parse(parts.[2], inv)
+                if pct = precisionPct && bucket >= 0 && bucket < maxBucket then
+                    let tv = Double.Parse(parts.[3], inv)
+                    let ta = Double.Parse(parts.[4], inv)
+                    arr.[bucket] <- struct (tv, ta)
+                    nMatched <- nMatched + 1
+        printfn "Thresholds: %d rows (precision_pct=%d) from %s"
+            nMatched precisionPct thresholdsPath
         { BucketTicks = int64 (TimeSpan.FromSeconds(bucketSeconds).Ticks)
           Thresholds = arr }
 

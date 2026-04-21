@@ -1,23 +1,21 @@
 #r "nuget: DuckDB.NET.Data.Full, 1.4.4"
 #r "nuget: Argu, 6.2.5"
 
-// Direct DuckDB -> .dzn exporter, bypassing the per-bucket JSON intermediate.
+// Direct DuckDB -> .dzn exporter.
 //
-// The old pipeline was: (export_checkpoint_cumulatives_10s.fsx → JSON per bucket)
-// then (convert_checkpoint_to_dzn.fsx → DZN per bucket). Both scripts walked
-// every bucket with a fresh SQL statement: 2*2323 statements, each with its
-// own join cost. Slow and redundant.
+// Strategy: CHUNKED streaming scans. Opening one writer per bucket for all
+// 2323 buckets OOM'd with 16 GB of FileStream buffers. Instead we scan one
+// chunk of buckets at a time (default 256), keeping at most ~256 writers
+// live. Each chunk is one DuckDB query with WHERE bucket BETWEEN cLo AND cHi;
+// the parquet zone maps mean DuckDB only reads the relevant row groups from
+// each day file.
 //
-// This script does it in one pass. The intraday_10s_cum view is physically
-// sorted by (bucket, ticker, date) inside each per-day parquet so filtering
-// WHERE bucket BETWEEN ... yields a contiguous range scan. We compute the
-// RVOL ratios in SQL (vr = cum_volume / raw_avg_4w, tr = cum_trades /
-// txn_avg_4w) and stream rows in bucket-major order. One DZN file per bucket
-// is produced as we pass each boundary.
+// Data shape: the MZN model takes `data: array of tuple(float, float, float)`.
+// One tuple per row → one writer per bucket, zero buffering. DZN is an
+// order-independent assignment list, so we write `data = [...];` first then
+// append `n = <count>;` after the row loop closes.
 
-open System
 open System.IO
-open System.Text
 open System.Globalization
 open System.Diagnostics
 open Argu
@@ -30,6 +28,7 @@ type CliArgs =
     | [<AltCommandLine("-k")>] Step of int
     | [<AltCommandLine("-b")>] Bucket of int
     | [<AltCommandLine("-o")>] Output_Dir of string
+    | [<AltCommandLine("-c")>] Chunk_Size of int
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -39,7 +38,8 @@ type CliArgs =
             | End_Bucket _ -> "Last bucket (inclusive). Default: 2688 (15:58:00 ET)"
             | Step _ -> "Bucket step. Default: 1 (every bucket)"
             | Bucket _ -> "Single bucket shortcut (equivalent to -s N -e N -k 1)"
-            | Output_Dir _ -> "Output dir. Default: data/minizinc/10s"
+            | Output_Dir _ -> "Output dir for .dzn files. Default: data/minizinc/10s"
+            | Chunk_Size _ -> "Buckets per streaming scan. Default: 256"
 
 let parser = ArgumentParser.Create<CliArgs>(programName = "export_checkpoints_dzn.fsx")
 let parsed =
@@ -50,6 +50,7 @@ let parsed =
 
 let db = parsed.GetResult(Database, defaultValue = "data/trading.db")
 let outputDir = parsed.GetResult(Output_Dir, defaultValue = "data/minizinc/10s")
+let chunkSize = parsed.GetResult(Chunk_Size, defaultValue = 256)
 let minAdv = 25_000_000.0
 
 let startB, endB, step =
@@ -60,31 +61,40 @@ let startB, endB, step =
         parsed.GetResult(End_Bucket, defaultValue = 2688),
         parsed.GetResult(Step, defaultValue = 1)
 
-let bucketToEt (bucket: int) =
-    let totalSeconds = 30 * 60 + bucket * 10
-    let hh = 8 + totalSeconds / 3600
-    let mm = (totalSeconds % 3600) / 60
-    let ss = totalSeconds % 60
-    sprintf "%02d:%02d:%02d" hh mm ss
-
-// Which buckets to emit — if step > 1, filter the contiguous scan to just
-// the target indices.
-let targetBuckets =
-    System.Collections.Generic.HashSet<int>(
-        seq { for b in startB .. step .. endB -> b })
+let targetBuckets = [| for b in startB .. step .. endB -> b |]
 
 Directory.CreateDirectory outputDir |> ignore
 
+type DznWriter = {
+    W : StreamWriter
+    mutable N : int
+}
+
+let inv = CultureInfo.InvariantCulture
 let conn = new DuckDBConnection(sprintf "Data Source=%s;ACCESS_MODE=READ_ONLY" db)
 conn.Open()
 
-// One giant scan, ordered by bucket then ticker/date. Selecting pre-computed
-// RVOL ratios directly:
-//   vr = cum_volume / (avg_session_adj_volume_4w / split_factor_today)
-//   tr = cum_trades / avg_session_transactions_4w
-// We clamp vr, tr to NaN when their inputs are null/zero and drop those rows,
-// same as the old exporter did via the WHERE clause.
-let sql = $"""
+printfn "DB->DZN chunked: buckets %d..%d step %d (%d target files), chunk=%d"
+    startB endB step targetBuckets.Length chunkSize
+printfn "Output dir: %s" outputDir
+
+let totalSw = Stopwatch.StartNew()
+let mutable filesWritten = 0
+let mutable totalRows = 0L
+
+let processChunk (chunkBuckets: int[]) =
+    let cLo = chunkBuckets.[0]
+    let cHi = chunkBuckets.[chunkBuckets.Length - 1]
+
+    let writers = System.Collections.Generic.Dictionary<int, DznWriter>(chunkBuckets.Length)
+    for b in chunkBuckets do
+        let path = Path.Combine(outputDir, sprintf "checkpoint_b%d.dzn" b)
+        let fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, 1 <<< 15)
+        let w = new StreamWriter(fs)
+        w.Write "data = ["
+        writers.[b] <- { W = w; N = 0 }
+
+    let sql = sprintf """
 SELECT
     c.bucket,
     c.cum_volume::DOUBLE
@@ -97,74 +107,72 @@ FROM intraday_10s_cum c
 JOIN session_volume_4w sv ON sv.ticker = c.ticker AND sv.date = c.date
 JOIN ticker_reference tr ON tr.ticker = c.ticker AND tr.type IN ('CS','ADRC')
 JOIN stock_volume_4w sd ON sd.ticker = c.ticker AND sd.date = c.date
-WHERE c.bucket BETWEEN {startB} AND {endB}
-  AND sd.avg_dollar_volume_4w >= {minAdv}
+WHERE c.bucket BETWEEN %d AND %d
+  AND sd.avg_dollar_volume_4w >= %f
   AND sd.avg_volume_4w > 0
   AND sv.avg_session_adj_volume_4w IS NOT NULL
   AND sv.avg_session_transactions_4w IS NOT NULL
   AND sv.session_volume_rvol IS NOT NULL
-  AND sv.session_raw_volume > 0
-"""
+  AND sv.session_raw_volume > 0""" cLo cHi minAdv
 
-printfn "DB→DZN direct: buckets %d..%d step %d (%d target files)"
-    startB endB step targetBuckets.Count
-printfn "Output dir: %s" outputDir
+    let scanSw = Stopwatch.StartNew()
+    let mutable chunkRows = 0L
+    do
+        use cmd = conn.CreateCommand()
+        cmd.CommandText <- sql
+        cmd.CommandTimeout <- 0
+        use reader = cmd.ExecuteReader()
+        while reader.Read() do
+            if reader.IsDBNull 1 || reader.IsDBNull 2 || reader.IsDBNull 3 then () else
+            let bucket = reader.GetInt32 0
+            match writers.TryGetValue bucket with
+            | false, _ -> ()
+            | true, dw ->
+                let vr = reader.GetDouble 1
+                let tr = reader.GetDouble 2
+                let rvol = reader.GetDouble 3
+                if dw.N > 0 then dw.W.Write ','
+                dw.W.Write '('
+                dw.W.Write (vr.ToString("F6", inv))
+                dw.W.Write ','
+                dw.W.Write (tr.ToString("F6", inv))
+                dw.W.Write ','
+                dw.W.Write (rvol.ToString("F6", inv))
+                dw.W.Write ')'
+                dw.N <- dw.N + 1
+                chunkRows <- chunkRows + 1L
+    scanSw.Stop()
+    totalRows <- totalRows + chunkRows
 
-let inv = CultureInfo.InvariantCulture
-let sw = Stopwatch.StartNew()
-let mutable filesWritten = 0
+    let wrapSw = Stopwatch.StartNew()
+    let mutable chunkFiles = 0
+    for bucket in chunkBuckets do
+        let dw = writers.[bucket]
+        if dw.N > 0 then
+            dw.W.Write "];\n"
+            dw.W.Write (sprintf "n = %d;\n" dw.N)
+            dw.W.Dispose()
+            chunkFiles <- chunkFiles + 1
+        else
+            dw.W.Dispose()
+            let path = Path.Combine(outputDir, sprintf "checkpoint_b%d.dzn" bucket)
+            try File.Delete path with _ -> ()
+    wrapSw.Stop()
+    filesWritten <- filesWritten + chunkFiles
 
-use cmd = conn.CreateCommand()
-cmd.CommandText <- sql
-cmd.CommandTimeout <- 0
-use reader = cmd.ExecuteReader()
+    printfn "  chunk [%d..%d]: %d rows scan=%.1fs, wrap=%d files %.1fs | total elapsed %.1fs"
+        cLo cHi chunkRows scanSw.Elapsed.TotalSeconds chunkFiles wrapSw.Elapsed.TotalSeconds
+        totalSw.Elapsed.TotalSeconds
 
-// Per-bucket accumulators. We don't ORDER BY bucket in SQL because the sort
-// forces DuckDB to materialize the full result set, which is slow; without
-// the ORDER BY, rows stream in whatever natural order the join produces. We
-// keep one StringBuilder triple per target bucket and look up on each row.
-type BucketBufs = {
-    Vr : StringBuilder
-    Tr : StringBuilder
-    Rvol : StringBuilder
-    mutable N : int
-}
-let bufs = System.Collections.Generic.Dictionary<int, BucketBufs>()
-for b in targetBuckets do
-    bufs.[b] <- { Vr = StringBuilder(); Tr = StringBuilder(); Rvol = StringBuilder(); N = 0 }
+let mutable idx = 0
+while idx < targetBuckets.Length do
+    let take = min chunkSize (targetBuckets.Length - idx)
+    let chunk = targetBuckets.[idx .. idx + take - 1]
+    processChunk chunk
+    idx <- idx + take
 
-while reader.Read() do
-    let bucket = reader.GetInt32 0
-    match bufs.TryGetValue bucket with
-    | false, _ -> ()   // outside the target set (shouldn't happen with BETWEEN + step=1)
-    | true, b ->
-        if not (reader.IsDBNull 1) && not (reader.IsDBNull 2) && not (reader.IsDBNull 3) then
-            let vr = reader.GetDouble 1
-            let tr = reader.GetDouble 2
-            let rvol = reader.GetDouble 3
-            if b.N > 0 then
-                b.Vr.Append ',' |> ignore
-                b.Tr.Append ',' |> ignore
-                b.Rvol.Append ',' |> ignore
-            b.Vr.AppendFormat(inv, "{0:F6}", vr) |> ignore
-            b.Tr.AppendFormat(inv, "{0:F6}", tr) |> ignore
-            b.Rvol.AppendFormat(inv, "{0:F6}", rvol) |> ignore
-            b.N <- b.N + 1
-
-for KeyValue(bucket, b) in bufs do
-    if b.N > 0 then
-        let path = Path.Combine(outputDir, sprintf "checkpoint_b%d.dzn" bucket)
-        use w = new StreamWriter(path)
-        w.Write (sprintf "n = %d;\nvr = [" b.N)
-        w.Write (b.Vr.ToString())
-        w.Write "];\ntr = ["
-        w.Write (b.Tr.ToString())
-        w.Write "];\nsession_volume_rvol_final = ["
-        w.Write (b.Rvol.ToString())
-        w.Write "];\n"
-        filesWritten <- filesWritten + 1
-
-sw.Stop()
+totalSw.Stop()
 printfn ""
-printfn "Done. wrote %d DZN files in %.1fs (avg %.1f ms/file)"
-    filesWritten sw.Elapsed.TotalSeconds (1000.0 * sw.Elapsed.TotalSeconds / float filesWritten)
+printfn "Done. %d files, %d rows in %.1fs (%.1f ms/file)"
+    filesWritten totalRows totalSw.Elapsed.TotalSeconds
+    (1000.0 * totalSw.Elapsed.TotalSeconds / float (max filesWritten 1))
