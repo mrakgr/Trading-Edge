@@ -154,16 +154,12 @@ let runOne (s: Setup) : DayOutcome =
           NumTrips = 0; Trips = [||]; SkipReason = "no_bin" }
     else
         let header, trades = loadDay { Directory = tradesBinRoot; Ticker = s.Ticker; Date = s.Date }
-        if header.OpeningPrintIndex.IsNone then
-            { Ticker = s.Ticker; Date = s.Date; NetPnL = 0.0; Commission = 0.0
-              NumTrips = 0; Trips = [||]; SkipReason = "no_opening_print" }
-        elif isGated && (Double.IsNaN header.RawAvg4w || Double.IsNaN header.TxnAvg4w) then
+        if isGated && (Double.IsNaN header.RawAvg4w || Double.IsNaN header.TxnAvg4w) then
             { Ticker = s.Ticker; Date = s.Date; NetPnL = 0.0; Commission = 0.0
               NumTrips = 0; Trips = [||]; SkipReason = "no_4w_meta" }
         else
             let gate = buildGate header
             let seg = SegregateTrades(TimeSpan.FromSeconds bucketSeconds, DateTime header.BaseTicks)
-            seg.OpeningPrintIdx <- header.OpeningPrintIndex
             let vs = OrbSystem(positionSize, referenceVol, stopMode, gate)
             let td = TrackDecisions()
             let tf = TrackFills(commissionPerShare)
@@ -185,7 +181,7 @@ let runOne (s: Setup) : DayOutcome =
                                         td.Process(onTracked, decision, bar, stage, trade)),
                                     decision, bar, stage, trade)),
                             bar, stage, trade, seg.Timestamp trade)),
-                    trades.[i], i)
+                    trades.[i])
 
             let trips = extractRoundTrips tf.Fills commissionPerShare |> Array.ofSeq
             { Ticker = s.Ticker; Date = s.Date

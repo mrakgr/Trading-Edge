@@ -140,40 +140,32 @@ type TradeStage =
     | AfterOpeningPrint
     | BeforeClosing
 
-/// Delay between the opening print and when the system is allowed to trade.
-/// 60s gives the ORB opening range its window (8:30 ET -> op+60s) before entries begin.
+/// Delay between the 09:30 ET open and when the system is allowed to trade.
+/// 60s gives the ORB opening range its first-minute window before entries begin.
 let entryDelaySeconds = 60.0
 
 type SegregateTrades(bucketSpan: TimeSpan, baseTime) =
     member val ArgsBuilder = OrbSystemArgsBuilder(bucketSpan)
     member val ClosingPause = -60.0
     member val BaseTime = baseTime : DateTime
-    member val OpeningPrintIdx = ValueNone : int voption with get, set
-    member val OpeningPrintTs : DateTime voption = ValueNone with get, set
     member val OpenTime = baseTime.AddHours(9.5)
     member val CloseTime = if Timezone.early_closes.Contains(DateOnly.FromDateTime baseTime) then baseTime.AddHours(13) else baseTime.AddHours(16)
 
     member inline self.Timestamp(trade: Trade) = self.BaseTime.AddTicks trade.TicksFromBase
 
-    member self.TradeStage(trade: Trade, index: int) =
+    member self.TradeStage(trade: Trade) =
         let ts = self.Timestamp trade
-        if self.OpeningPrintIdx = ValueSome index then
-            self.OpeningPrintTs <- ValueSome ts
         if self.OpenTime <= ts then
             if self.CloseTime.AddSeconds self.ClosingPause <= ts then
                 BeforeClosing
             else
-                // Gate entry until entryDelaySeconds after the opening print.
-                let readyTime =
-                    match self.OpeningPrintTs with
-                    | ValueSome op -> op.AddSeconds entryDelaySeconds
-                    | ValueNone -> self.OpenTime
+                // Entries become active at OpenTime + entryDelaySeconds (09:31 ET),
+                // regardless of whether the opening print has occurred yet.
+                let readyTime = self.OpenTime.AddSeconds entryDelaySeconds
                 if ts >= readyTime then AfterOpeningPrint
                 else LatePremarket
         else
-            if self.OpeningPrintIdx = ValueSome index then
-                AfterOpeningPrint
-            elif self.OpenTime.AddHours(-1.0) <= ts then
+            if self.OpenTime.AddHours(-1.0) <= ts then
                 LatePremarket
             else
                 EarlyPremarket
@@ -191,8 +183,8 @@ type SegregateTrades(bucketSpan: TimeSpan, baseTime) =
             | _ -> false
         struct (includeInVol, includeInRange)
 
-    member inline self.Process(onNext, trade: Trade, index: int) =
-        let stage = self.TradeStage(trade, index)
+    member inline self.Process(onNext, trade: Trade) =
+        let stage = self.TradeStage trade
         let mutable lastBar = ValueNone
         let struct (inclVol, inclRange) = self.CalculateFlags stage
         self.ArgsBuilder.Process((fun bar -> lastBar <- ValueSome bar), trade, inclVol, inclRange)

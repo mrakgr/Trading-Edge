@@ -56,7 +56,6 @@ let stopMode = StopAtRange
 
 let configure (header: DayHeader) (bucketSeconds: float) fillPercentile stopMode (gate: ThresholdGate voption) =
     let seg = SegregateTrades(TimeSpan.FromSeconds bucketSeconds, DateTime header.BaseTicks)
-    seg.OpeningPrintIdx <- header.OpeningPrintIndex
     let vs = OrbSystem(positionSize, referenceVol, stopMode, gate)
     let td = TrackDecisions()
     let tf = TrackFills(commissionPerShare)
@@ -69,18 +68,14 @@ let loadDayData (jsonPath: string) =
 
     printfn "Loading %d days from %s ..." entries.Length jsonPath
     let swLoad = Stopwatch.StartNew()
-    let mutable skippedNoOpen = 0
     let dayData : DayData[] =
         [| for e in entries do
             let header, trades = loadDay {Directory = "data/trades_bin"; Ticker = e.Ticker; Date = e.Date}
-            if header.OpeningPrintIndex <> ValueNone then
-                yield { Ticker = e.Ticker; Date = e.Date; Header = header; Trades = trades }
-            else
-                skippedNoOpen <- skippedNoOpen + 1 |]
+            yield { Ticker = e.Ticker; Date = e.Date; Header = header; Trades = trades } |]
     swLoad.Stop()
     let totalTrades = dayData |> Array.sumBy (fun d -> int64 d.Trades.Length)
-    printfn "Loaded %d days (%s trades) in %.3fs (skipped %d for no opening print)\n"
-        dayData.Length (totalTrades.ToString("N0")) swLoad.Elapsed.TotalSeconds skippedNoOpen
+    printfn "Loaded %d days (%s trades) in %.3fs\n"
+        dayData.Length (totalTrades.ToString("N0")) swLoad.Elapsed.TotalSeconds
     dayData, totalTrades
 
 /// Run the full pipeline for one day with the given pcts and return NetPnL.
@@ -107,7 +102,7 @@ let evaluateDay (d: DayData) (bucketSeconds: float) fillPercentile (stopMode: St
                                 td.Process(onTracked, decision, bar, stage, trade)),
                             decision, bar, stage, trade)),
                     bar, stage, trade, seg.Timestamp trade)),
-            d.Trades.[i], i)
+            d.Trades.[i])
     let trips = extractRoundTrips tf.Fills commissionPerShare
     let mutable gw = 0.0
     let mutable gl = 0.0
@@ -146,7 +141,7 @@ let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
                                     td.Process(onTracked, decision, bar, stage, trade)),
                                 decision, bar, stage, trade)),
                         bar, stage, trade, seg.Timestamp trade)),
-                d.Trades.[i], i)
+                d.Trades.[i])
         ctx.Sink <- ctx.Sink + td.RealizedPnL + tf.GrossPnL - tf.Commissions
 
     printfn "Warming up..."
@@ -199,7 +194,7 @@ let runFillBreakdown (dayData: DayData[]) (bucketSeconds: float) fillPercentile 
                                         td.Process(onTracked, decision, bar, stage, trade)),
                                     decision, bar, stage, trade)),
                             bar, stage, trade, seg.Timestamp trade)),
-                    d.Trades.[i], i)
+                    d.Trades.[i])
             let roundTrips = extractRoundTrips tf.Fills commissionPerShare
             let posSizes =
                 [| for i in 0 .. td.Decisions.Count - 2 do
@@ -375,7 +370,6 @@ let runTradeBreakdown (dayData: DayData[]) (bucketSeconds: float) (entryMode: En
     let dayResults =
         [| for d in dayData do
             let seg = SegregateTrades(TimeSpan.FromSeconds bucketSeconds, DateTime d.Header.BaseTicks)
-            seg.OpeningPrintIdx <- d.Header.OpeningPrintIndex
             let vs = OrbSystem(positionSize, referenceVol, stopMode, ValueNone)
             vs.EntryMode <- entryMode
             vs.Direction <- direction
@@ -392,7 +386,7 @@ let runTradeBreakdown (dayData: DayData[]) (bucketSeconds: float) (entryMode: En
                                         td.Process(onTracked, decision, bar, stage, trade)),
                                     decision, bar, stage, trade)),
                             bar, stage, trade, seg.Timestamp trade)),
-                    d.Trades.[i], i)
+                    d.Trades.[i])
             let decs = td.Decisions
             let tradePnLs =
                 [| for i in 1 .. decs.Count - 1 do
