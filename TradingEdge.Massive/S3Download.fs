@@ -410,8 +410,9 @@ let private downloadSingleDayTrades
                         fileStream.Close()
                         responseStream.Close()
 
-                        convertTradesCsvGzToParquet csvGzPath parquetPath
-                        File.Delete csvGzPath
+                        if not skipConvert then
+                            convertTradesCsvGzToParquet csvGzPath parquetPath
+                            File.Delete csvGzPath
 
                         return Downloaded date
                     with
