@@ -57,6 +57,7 @@ type DownloadBulkTradesArgs =
     | [<AltCommandLine("-e")>] End_Date of string
     | [<AltCommandLine("-p")>] Parallelism of int
     | [<AltCommandLine("-o")>] Output_Dir of string
+    | No_Convert
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -65,6 +66,7 @@ type DownloadBulkTradesArgs =
             | End_Date _ -> "End date (yyyy-MM-dd). Default: today"
             | Parallelism _ -> "Max parallel downloads (files are multi-GB; keep low). Default: 4"
             | Output_Dir _ -> "Output directory (default: data/bulk/trades)"
+            | No_Convert -> "Skip parquet conversion; leave .csv.gz files on disk."
 
 type DownloadSplitsArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
@@ -423,16 +425,18 @@ let private handleDownloadBulkTrades (config: MassiveConfig) (args: ParseResults
 
     let parallelism = args.GetResult(DownloadBulkTradesArgs.Parallelism, defaultValue = 4)
     let outputDir = args.GetResult(DownloadBulkTradesArgs.Output_Dir, defaultValue = "data/bulk/trades")
+    let skipConvert = args.Contains DownloadBulkTradesArgs.No_Convert
 
     printfn "Downloading trades from %s to %s" (formatDate startDate) (formatDate endDate)
     printfn "Output directory: %s" (Path.GetFullPath outputDir)
     printfn "Parallelism: %d" parallelism
+    if skipConvert then printfn "Convert to parquet: DISABLED (.csv.gz kept as-is)"
 
     use client = createS3Client config.S3AccessKey config.S3SecretKey
     use cts = new CancellationTokenSource()
 
     let results =
-        S3Download.downloadTrades client startDate endDate outputDir parallelism (Some S3Download.consoleProgress) cts.Token
+        S3Download.downloadTrades client startDate endDate outputDir parallelism skipConvert (Some S3Download.consoleProgress) cts.Token
         |> Async.RunSynchronously
 
     let downloaded = results |> List.filter (function Downloaded _ -> true | _ -> false) |> List.length

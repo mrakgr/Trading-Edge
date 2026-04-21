@@ -324,9 +324,20 @@ let private getS3KeyTrades (date: DateTime) : string =
 let private convertTradesCsvGzToParquet (csvGzPath: string) (parquetPath: string) : unit =
     use conn = new DuckDBConnection("DataSource=:memory:")
     conn.Open()
+    // Cap memory and give DuckDB a spill directory so it can stream large
+    // files to disk instead of OOMing. 2026-era trades CSVs hit ~3 GB
+    // compressed / ~12 GB decoded; the full result set cannot stay resident
+    // on a 16 GB box while N parallel workers also run.
+    use setMem = conn.CreateCommand()
+    setMem.CommandText <- "SET memory_limit='6GB'; SET preserve_insertion_order=false; SET threads=2;"
+    setMem.ExecuteNonQuery() |> ignore
+
     use cmd = conn.CreateCommand()
     let csvEscaped = csvGzPath.Replace("'", "''")
     let parquetEscaped = parquetPath.Replace("'", "''")
+    // ROW_GROUP_SIZE bounds the parquet writer's in-memory buffer; combined
+    // with preserve_insertion_order=false, DuckDB emits row groups as they
+    // fill instead of staging the whole file.
     cmd.CommandText <-
         sprintf
             """COPY (
@@ -341,15 +352,20 @@ let private convertTradesCsvGzToParquet (csvGzPath: string) (parquetPath: string
                     compression='gzip',
                     types={'conditions': 'VARCHAR'}
                 )
-            ) TO '%s' (FORMAT PARQUET, COMPRESSION 'zstd', COMPRESSION_LEVEL 3)"""
+            ) TO '%s' (FORMAT PARQUET, COMPRESSION 'zstd', COMPRESSION_LEVEL 3, ROW_GROUP_SIZE 122880)"""
             csvEscaped parquetEscaped
     cmd.ExecuteNonQuery() |> ignore
 
-/// Download a single day's trades from S3, convert to Parquet, and delete the
-/// intermediate .csv.gz. Skips if the Parquet output already exists.
+/// Download a single day's trades from S3, optionally convert to Parquet, and
+/// delete the intermediate .csv.gz. Skips if the Parquet output already
+/// exists. If a .csv.gz is already present but no .parquet (e.g. previous
+/// run crashed mid-conversion), we skip the download and jump straight to
+/// conversion. When `skipConvert = true`, we download only and treat an
+/// existing .csv.gz as already-done.
 let private downloadSingleDayTrades
     (client: AmazonS3Client)
     (outputDir: string)
+    (skipConvert: bool)
     (date: DateTime)
     (ct: CancellationToken)
     : Async<DownloadResult> =
@@ -359,7 +375,28 @@ let private downloadSingleDayTrades
         let parquetPath = Path.Combine(outputDir, $"{dateStr}.parquet")
         let csvGzPath = Path.Combine(outputDir, $"{dateStr}.csv.gz")
 
-        if File.Exists parquetPath then
+        // Download-only mode: the .csv.gz itself is the final artifact.
+        if skipConvert && File.Exists csvGzPath then
+            return Skipped date
+        // If both csv.gz and parquet coexist, the previous run likely crashed
+        // mid-conversion leaving a partial parquet. Treat the csv.gz as
+        // authoritative and redo the conversion.
+        elif File.Exists csvGzPath && not skipConvert then
+            if File.Exists parquetPath then
+                try File.Delete parquetPath with _ -> ()
+            try
+                convertTradesCsvGzToParquet csvGzPath parquetPath
+                File.Delete csvGzPath
+                return Downloaded date
+            with ex ->
+                // The csv.gz is probably truncated. Remove it and fall
+                // through to a fresh download by returning Failed (the outer
+                // retry machinery doesn't re-enter this function; the next
+                // run will re-download).
+                try File.Delete csvGzPath with _ -> ()
+                try File.Delete parquetPath with _ -> ()
+                return Failed(date, $"Convert failed on existing csv.gz, deleted for retry: {ex.Message}")
+        elif File.Exists parquetPath then
             return Skipped date
         else
             let rec retry attempt =
@@ -412,6 +449,10 @@ let private downloadSingleDayTrades
 /// zstd-compressed Parquet. Output: one file per trading day at
 /// `{outputDir}/{yyyy-MM-dd}.parquet`.
 ///
+/// When `skipConvert = true`, the .csv.gz itself is the final artifact and
+/// conversion is deferred. Useful when the converter is too memory-hungry to
+/// run alongside other workloads.
+///
 /// Files are large (multi-GB uncompressed). Keep parallelism modest (≤4) to
 /// avoid saturating the uplink and triggering SlowDown retries.
 let downloadTrades
@@ -420,6 +461,7 @@ let downloadTrades
     (endDate: DateTime)
     (outputDir: string)
     (maxParallelism: int)
+    (skipConvert: bool)
     (progress: ProgressCallback option)
     (ct: CancellationToken)
     : Async<DownloadResult list> =
@@ -442,7 +484,7 @@ let downloadTrades
             async {
                 do! semaphore.WaitAsync(ct) |> Async.AwaitTask
                 try
-                    let! result = downloadSingleDayTrades client outputDir date ct
+                    let! result = downloadSingleDayTrades client outputDir skipConvert date ct
                     reportProgress result
                     return result
                 finally
