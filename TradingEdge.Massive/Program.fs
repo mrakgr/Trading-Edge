@@ -64,7 +64,7 @@ type DownloadBulkTradesArgs =
             match this with
             | Start_Date _ -> "Start date (yyyy-MM-dd). Default: 2024-04-01"
             | End_Date _ -> "End date (yyyy-MM-dd). Default: today"
-            | Parallelism _ -> "Max parallel downloads (files are multi-GB; keep low). Default: 4"
+            | Parallelism _ -> "Max parallel downloads+converts. Convert is streamed through zcat|duckdb so each worker peaks around ~200 MB RAM. Default: 4"
             | Output_Dir _ -> "Output directory (default: data/bulk/trades)"
             | No_Convert -> "Skip parquet conversion; leave .csv.gz files on disk."
 

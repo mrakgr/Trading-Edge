@@ -1,6 +1,7 @@
 module TradingEdge.S3Download
 
 open System
+open System.Diagnostics
 open System.IO
 open System.Net
 open System.Threading
@@ -321,24 +322,15 @@ let private getS3KeyTrades (date: DateTime) : string =
 /// UTINYINT enforces that invariant and keeps in-memory representation small.
 /// On disk, zstd compresses UTINYINT[] and INTEGER[] to essentially the same
 /// size, so the storage win is negligible — this is about query-time memory.
+/// The in-process DuckDB.NET `read_csv_auto(compression='gzip')` path buffers
+/// the whole intermediate result set on these 3 GB compressed files and OOMs
+/// even with memory_limit=6GB. Piping `zcat` -> `duckdb` CLI via stdin forces
+/// DuckDB to treat the input as a non-seekable stream, which it handles
+/// row-by-row. Peak RSS ~190 MB, output size matches the native DuckDB file
+/// path version.
 let private convertTradesCsvGzToParquet (csvGzPath: string) (parquetPath: string) : unit =
-    use conn = new DuckDBConnection("DataSource=:memory:")
-    conn.Open()
-    // Cap memory and give DuckDB a spill directory so it can stream large
-    // files to disk instead of OOMing. 2026-era trades CSVs hit ~3 GB
-    // compressed / ~12 GB decoded; the full result set cannot stay resident
-    // on a 16 GB box while N parallel workers also run.
-    use setMem = conn.CreateCommand()
-    setMem.CommandText <- "SET memory_limit='6GB'; SET preserve_insertion_order=false; SET threads=2;"
-    setMem.ExecuteNonQuery() |> ignore
-
-    use cmd = conn.CreateCommand()
-    let csvEscaped = csvGzPath.Replace("'", "''")
     let parquetEscaped = parquetPath.Replace("'", "''")
-    // ROW_GROUP_SIZE bounds the parquet writer's in-memory buffer; combined
-    // with preserve_insertion_order=false, DuckDB emits row groups as they
-    // fill instead of staging the whole file.
-    cmd.CommandText <-
+    let sql =
         sprintf
             """COPY (
                 SELECT
@@ -347,14 +339,42 @@ let private convertTradesCsvGzToParquet (csvGzPath: string) (parquetPath: string
                         WHEN conditions IS NULL OR conditions = '' THEN []::UTINYINT[]
                         ELSE CAST(string_split(conditions, ',') AS UTINYINT[])
                     END AS conditions
-                FROM read_csv_auto(
-                    '%s',
-                    compression='gzip',
-                    types={'conditions': 'VARCHAR'}
-                )
+                FROM read_csv('/dev/stdin', types={'conditions': 'VARCHAR'})
             ) TO '%s' (FORMAT PARQUET, COMPRESSION 'zstd', COMPRESSION_LEVEL 3, ROW_GROUP_SIZE 122880)"""
-            csvEscaped parquetEscaped
-    cmd.ExecuteNonQuery() |> ignore
+            parquetEscaped
+
+    // Spawn zcat and duckdb, wire zcat.stdout -> duckdb.stdin.
+    let zcatPsi = ProcessStartInfo("zcat", sprintf "\"%s\"" csvGzPath)
+    zcatPsi.RedirectStandardOutput <- true
+    zcatPsi.UseShellExecute <- false
+    let duckPsi = ProcessStartInfo("duckdb", sprintf "-c \"%s\"" (sql.Replace("\"", "\\\"")))
+    duckPsi.RedirectStandardInput <- true
+    duckPsi.RedirectStandardError <- true
+    duckPsi.UseShellExecute <- false
+
+    use zcat = Process.Start zcatPsi
+    use duck = Process.Start duckPsi
+
+    // Pump zcat's stdout into duckdb's stdin on a background task so both
+    // processes make progress concurrently.
+    let pumpTask =
+        System.Threading.Tasks.Task.Run(fun () ->
+            try
+                zcat.StandardOutput.BaseStream.CopyTo(duck.StandardInput.BaseStream)
+            finally
+                duck.StandardInput.Close())
+
+    let stderrTask = duck.StandardError.ReadToEndAsync()
+
+    zcat.WaitForExit()
+    pumpTask.Wait()
+    duck.WaitForExit()
+    let err = stderrTask.Result
+
+    if zcat.ExitCode <> 0 then
+        failwithf "zcat failed (exit %d) on %s" zcat.ExitCode csvGzPath
+    if duck.ExitCode <> 0 then
+        failwithf "duckdb failed (exit %d) on %s: %s" duck.ExitCode csvGzPath err
 
 /// Download a single day's trades from S3, optionally convert to Parquet, and
 /// delete the intermediate .csv.gz. Skips if the Parquet output already
