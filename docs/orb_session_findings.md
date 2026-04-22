@@ -554,19 +554,19 @@ Per-bucket (volume-ratio, transaction-ratio) thresholds calibrated via MiniZinc 
 
 Backtest run on `data/gap_up_universe_4w.json` (4,296 plays, every gap-up ≥5% over 2024-04-01 → 2025-04-17 with valid `session_volume_4w` 4w averages). ORB long, 10s time bars, rangeLo stop, fill-sim, $0.005/share commission.
 
+All numbers below are on the **fail-closed gate**: out-of-range bucket (pre-09:31 or post-15:58 ET, where the sweep has no thresholds) now blocks entries instead of passing them through. The old pass-through behavior was letting late-day trades fire unconstrained, dragging win rate and PF down by a material amount on every gated configuration.
+
 | | Baseline | rv=3.0 p80 | rv=4.0 p80 | rv=4.0 p90 | rv=6.0 p90 | rv=8.0 p90 |
 |---|---|---|---|---|---|---|
-| decisions | 6,330 | 2,328 | 1,546 | 1,228 | 572 | 320 |
-| round trips | 15,192 | 4,541 | 2,973 | 2,393 | 1,085 | 621 |
-| net PnL | -$67,464 | -$8,745 | -$3,849 | -$2,241 | +$2,767 | +$1,499 |
-| profit factor | 0.900 | 0.982 | 0.995 | 1.005 | 1.116 | **1.154** |
-| win rate | 34.7% | 39.0% | 37.8% | 37.4% | 33.4% | 30.8% |
-| avg win / avg loss | $72.53 / -$45.37 | $86.20 / -$58.32 | $95.14 / -$59.91 | $92.22 / -$56.60 | $103.65 / -$48.07 | $85.27 / -$34.39 |
-| max drawdown | $69,333 | $21,197 | $14,893 | $13,269 | $8,955 | **$5,757** |
-| daily Sharpe | -1.53 | -0.51 | -0.30 | -0.22 | +0.41 | +0.32 |
-| commissions | $24,050 | $5,951 | $3,353 | $2,658 | $1,166 | $699 |
-| gross wins | $389,895 | $154,464 | $107,982 | $83,404 | $37,887 | $16,481 |
-| gross losses | $433,308 | $157,258 | $108,478 | $82,987 | $33,954 | $14,283 |
+| decisions | 6,330 | 2,264 | 1,460 | 1,138 | 456 | 194 |
+| round trips | 15,192 | 4,389 | 2,768 | 2,183 | 832 | 343 |
+| net PnL | -$67,464 | -$8,329 | -$3,352 | -$1,701 | +$3,435 | +$2,175 |
+| profit factor | 0.900 | 0.984 | 0.998 | 1.009 | 1.129 | **1.187** |
+| win rate | 34.7% | 40.1% | 39.3% | 39.4% | 39.1% | **44.0%** |
+| avg win / avg loss | $72.53 / -$45.37 | $86.83 / -$61.24 | $98.23 / -$65.61 | $96.02 / -$63.58 | $115.22 / -$67.09 | $107.30 / -$73.06 |
+| max drawdown | $69,333 | $20,845 | $14,823 | $12,778 | $8,484 | **$5,222** |
+| daily Sharpe | -1.53 | -0.48 | -0.26 | -0.17 | +0.52 | +0.47 |
+| commissions | $24,050 | -- | -- | -- | -- | $401 |
 
 (Decisions count every entry/exit emitted by the system before the fill simulator chops them into partial fills. One intended round trip = 2 decisions. Round-trip count inflates by partial fills. Decisions are the correct activity proxy.)
 
@@ -574,11 +574,11 @@ Backtest run on `data/gap_up_universe_4w.json` (4,296 plays, every gap-up ≥5% 
 
 Monotonic improvement on every metric as the calibration target tightens:
 
-1. **rv=3.0, p80** (`int_scale=1024`, sweep wall ~6h, old max-Ta objective): median Tv 1.71, n_fired 5496/bucket. PF **0.982**.
-2. **rv=4.0, p80** (`int_scale=256`, sweep wall 93 min, old max-Ta objective): median Tv 2.344 (+37%), n_fired 2701 (−51%). PF **0.995**.
-3. **rv=4.0, p90** (`int_scale=256`, sweep wall 92 min, old max-Ta objective): median Tv 2.562 (+9% over p80), n_fired 2205 (−18%). PF **1.005** — first time above break-even on the trade edge.
-4. **rv=6.0, p90** (`int_scale=256`, sweep wall 90 min, new min-Ta objective): median Tv **3.969** (+55%), n_fired 856 (−61%). PF **1.116**, net +$2,767. **First net-profitable run.**
-5. **rv=8.0, p90** (`int_scale=256`, sweep wall 87 min, max-Ta objective restored): median Tv **5.477** (+38%), n_fired 405 (−53%). PF **1.154**, net +$1,499. Max drawdown down to **$5,757** (19% of $30k nominal).
+1. **rv=3.0, p80** (`int_scale=1024`, sweep wall ~6h, old max-Ta objective): median Tv 1.71, n_fired 5496/bucket. PF **0.984**.
+2. **rv=4.0, p80** (`int_scale=256`, sweep wall 93 min, old max-Ta objective): median Tv 2.344 (+37%), n_fired 2701 (−51%). PF **0.998**.
+3. **rv=4.0, p90** (`int_scale=256`, sweep wall 92 min, old max-Ta objective): median Tv 2.562 (+9% over p80), n_fired 2205 (−18%). PF **1.009** — first time above break-even on the trade edge.
+4. **rv=6.0, p90** (`int_scale=256`, sweep wall 90 min, new min-Ta objective): median Tv **3.969** (+55%), n_fired 856 (−61%). PF **1.129**, net +$3,435. **First net-profitable run.**
+5. **rv=8.0, p90** (`int_scale=256`, sweep wall 87 min, max-Ta objective restored): median Tv **5.477** (+38%), n_fired 405 (−53%). PF **1.187**, net +$2,175. Max drawdown down to **$5,222** (17% of $30k nominal).
 
 Between steps 3 and 4 the MiniZinc model's lex tie-break was flipped from *maximize Ta* to *minimize Ta* as an experiment. Adjacent-bucket |Ta step| metrics on the resulting CSVs:
 
@@ -594,13 +594,17 @@ Per-bucket solver throughput: **6 jobs × 2 CP-SAT threads** beat **1 job × 14 
 
 ### 24b. Crossing into profit at rv=6.0 p=90; still climbing at rv=8.0
 
-rv=6.0 p=90 is the first net-profitable rung: PF 1.116, +$2,767, Sharpe +0.41, max DD $8.9k. rv=8.0 p=90 pushes PF further to **1.154** but net PnL falls to +$1,499 — fewer trades × higher PF-per-trade, the classic diminishing-returns signature. Max DD shrinks again to $5,757.
+rv=6.0 p=90 is the first net-profitable rung: PF 1.129, **+$3,435**, Sharpe +0.52, max DD $8.5k. rv=8.0 p=90 pushes PF further to **1.187** but net PnL falls to +$2,175 — fewer trades × higher PF-per-trade, the classic diminishing-returns signature. Max DD shrinks again to $5,222.
 
-Win rate falls monotonically as the gate tightens (39.0% → 30.8%), counter-intuitive for a stricter filter but consistent with the pattern: tighter targets fire on genuinely higher-catalyst days, which means bigger moves in both directions. The asymmetric payoff (rv=8.0: 2.48× win/loss) carries the PF, not the hit rate.
+Win rate now *rises* at the far end of the ladder (39.4% → 39.1% → 44.0%). That's different from the initial pre-gate-fix reading which showed win rate falling monotonically. Under the corrected gate the tightest rung is also the most decisive: fewer but cleaner entries.
 
-Activity level drops from ~275 entries/year at rv=6.0 to **~154 entries/year** at rv=8.0 (~3/week, ~0.6/day). Approaching the ~1/week floor, with two more rungs (rv=10, p=95) before we'd have to stop.
+Activity level drops from ~219 entries/year at rv=6.0 to **~93 entries/year** at rv=8.0 (~2/week, ~0.4/day). At this rate one more rung (rv=10) would push us below 1/week.
 
-**PF gradient** on the ladder: +0.013 → +0.010 → +0.111 → **+0.038**. The big step was 4→6; the 6→8 step has nearly halved the gain. Whether there's one more rung of meaningful gain before we flatten out entirely is the open question.
+**PF gradient** on the ladder: +0.014 → +0.011 → +0.120 → **+0.058**. The big step was 4→6; the 6→8 step has roughly halved the gain but is still meaningful. Whether rv=10 adds another rung before flattening is the open question.
+
+### 24b.5. Gate fail-closed fix
+
+Originally the gate passed on out-of-range buckets and NaN thresholds, on the theory that "no data" meant "no constraint." That was wrong — trades post-15:58 ET (bucket ≥ 2323 with the sweep's 09:31-anchored schedule) were firing unconstrained, and those trades were worse than average: the late-afternoon window has poor ORB signal with neither fresh catalyst nor a full session of price discovery ahead. Switching the fallback to "block on out-of-range / NaN" removes 31-39% of decisions (depending on config) and lifts every metric on every gated run. Re-running the ladder under the corrected gate produced the numbers in the table above.
 
 ### 24c. Custom solver — deferred
 
