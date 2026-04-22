@@ -8,7 +8,7 @@
 -- a true 10x day computes as ~7.6x).
 --
 -- Brand-new tickers with fewer than 1 prior trading day get NULL averages,
--- which propagate to NULL rvol and are filtered out by stocks_in_play's
+-- which propagate to NULL rvol and are filtered out by gap_play's
 -- `rvol >= min_rvol` predicate. That's the correct behavior -- a stock
 -- with no baseline shouldn't be flagged as "in play".
 DROP TABLE IF EXISTS stock_dollar_volume_4w;

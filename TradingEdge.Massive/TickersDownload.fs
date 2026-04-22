@@ -143,7 +143,7 @@ let downloadTickersOfType
 /// For each type we fetch both active=true (currently listed) and active=false
 /// (delisted/acquired/merged) so that historical backtests can still classify
 /// tickers that no longer trade. These populate `ticker_reference(ticker, type)`.
-/// Downstream filters (e.g. stocks_in_play) select on `type IN ('CS', 'ADRC')`.
+/// Downstream filters (e.g. gap_play) select on `type IN ('CS', 'ADRC')`.
 let downloadAllReferenceTickers
     (httpClient: HttpClient)
     (apiKey: string)

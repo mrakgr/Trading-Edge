@@ -104,7 +104,7 @@ type IngestDataArgs =
             | Dividends_File _ -> "CSV file containing dividends (default: data/dividends.csv)"
             | Tickers_File _ -> "CSV file containing ETF/ETN ticker reference (default: data/tickers.csv)"
 
-type StocksInPlayArgs =
+type GapPlayArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
     | [<AltCommandLine("-e")>] End_Date of string
     | [<AltCommandLine("-d")>] Database of string
@@ -311,7 +311,7 @@ type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Download_News of ParseResults<DownloadNewsArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Data of ParseResults<IngestDataArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Intraday of ParseResults<IngestIntradayArgs>
-    | [<CliPrefix(CliPrefix.None)>] Stocks_In_Play of ParseResults<StocksInPlayArgs>
+    | [<CliPrefix(CliPrefix.None)>] Gap_Play of ParseResults<GapPlayArgs>
     | [<CliPrefix(CliPrefix.None)>] Continuation_Plays of ParseResults<ContinuationPlaysArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Tickers of ParseResults<DownloadTickersArgs>
     | [<CliPrefix(CliPrefix.None)>] Refresh_Views of ParseResults<RefreshViewsArgs>
@@ -332,7 +332,7 @@ type Arguments =
             | Download_News _ -> "Download news articles for a ticker"
             | Ingest_Data _ -> "Ingest daily data into DuckDB database"
             | Ingest_Intraday _ -> "Ingest intraday data into DuckDB database"
-            | Stocks_In_Play _ -> "List top stocks in play for a date range"
+            | Gap_Play _ -> "List top gap plays for a date range"
             | Continuation_Plays _ -> "List breakouts and their continuation chains (sustained-volume follow-through days)"
             | Download_Tickers _ -> "Download ETF/ETN ticker reference data from Polygon"
             | Refresh_Views _ -> "Refresh views only (fast, no table rematerialization)"
@@ -653,34 +653,34 @@ let private handleIngestData (args: ParseResults<IngestDataArgs>) =
     | None ->
         printfn "  Date range: (no data)"
 
-let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
+let private handleGapPlay (args: ParseResults<GapPlayArgs>) =
     let endDate =
-        args.TryGetResult StocksInPlayArgs.End_Date
+        args.TryGetResult GapPlayArgs.End_Date
         |> Option.map DateTime.Parse
         |> Option.defaultValue DateTime.Now
 
     let startDate =
-        args.TryGetResult StocksInPlayArgs.Start_Date
+        args.TryGetResult GapPlayArgs.Start_Date
         |> Option.map DateTime.Parse
         |> Option.defaultValue (endDate.AddDays(-7))
 
     let dbPath =
-        args.TryGetResult StocksInPlayArgs.Database
+        args.TryGetResult GapPlayArgs.Database
         |> Option.defaultValue "data/trading.db"
 
-    let minRvol = args.GetResult(StocksInPlayArgs.Min_Rvol, defaultValue = 3.0)
-    let minGapPct = args.GetResult(StocksInPlayArgs.Min_Gap_Pct, defaultValue = 0.05)
-    let minDollarVolume = args.GetResult(StocksInPlayArgs.Min_Dollar_Volume, defaultValue = 25.0) * 1_000_000.0
-    let rvolWeight = args.GetResult(StocksInPlayArgs.Rvol_Weight, defaultValue = 0.95)
-    let gapWeight = args.GetResult(StocksInPlayArgs.Gap_Weight, defaultValue = 0.05)
-    let tradableOnly = not (args.Contains StocksInPlayArgs.All_Types)
-    let preWindowDays = args.GetResult(StocksInPlayArgs.Pre_Window_Days, defaultValue = 20)
-    let postWindowDays = args.GetResult(StocksInPlayArgs.Post_Window_Days, defaultValue = 5)
-    let minAtrRatio = args.GetResult(StocksInPlayArgs.Min_Atr_Ratio, defaultValue = 0.55)
-    let jsonMode = args.Contains StocksInPlayArgs.Json
+    let minRvol = args.GetResult(GapPlayArgs.Min_Rvol, defaultValue = 3.0)
+    let minGapPct = args.GetResult(GapPlayArgs.Min_Gap_Pct, defaultValue = 0.05)
+    let minDollarVolume = args.GetResult(GapPlayArgs.Min_Dollar_Volume, defaultValue = 25.0) * 1_000_000.0
+    let rvolWeight = args.GetResult(GapPlayArgs.Rvol_Weight, defaultValue = 0.95)
+    let gapWeight = args.GetResult(GapPlayArgs.Gap_Weight, defaultValue = 0.05)
+    let tradableOnly = not (args.Contains GapPlayArgs.All_Types)
+    let preWindowDays = args.GetResult(GapPlayArgs.Pre_Window_Days, defaultValue = 20)
+    let postWindowDays = args.GetResult(GapPlayArgs.Post_Window_Days, defaultValue = 5)
+    let minAtrRatio = args.GetResult(GapPlayArgs.Min_Atr_Ratio, defaultValue = 0.55)
+    let jsonMode = args.Contains GapPlayArgs.Json
 
     if not jsonMode then
-        printfn "Stocks In Play from %s to %s" (formatDate startDate) (formatDate endDate)
+        printfn "Gap Play from %s to %s" (formatDate startDate) (formatDate endDate)
         printfn "Filters: RVOL >= %.1fx, Gap >= %.1f%%, Avg Dollar Volume >= $%.0fM" minRvol (minGapPct * 100.0) (minDollarVolume / 1_000_000.0)
         printfn "Tradable-only (CS+ADRC): %b   Pre/post window: %d/%d   Min ATR ratio: %.2f" tradableOnly preWindowDays postWindowDays minAtrRatio
         printfn "Database: %s" (Path.GetFullPath dbPath)
@@ -688,7 +688,7 @@ let private handleStocksInPlay (args: ParseResults<StocksInPlayArgs>) =
 
     use connection = openConnection dbPath
     let stocks =
-        getStocksInPlay
+        getGapPlay
             connection startDate endDate minRvol minGapPct minDollarVolume
             rvolWeight gapWeight tradableOnly preWindowDays postWindowDays minAtrRatio
 
@@ -911,12 +911,12 @@ let private handleDownloadIntraday (config: MassiveConfig) (args: ParseResults<D
 
             use connection = openConnection dbPath
             let stocks =
-                getStocksInPlay
+                getGapPlay
                     connection startDate endDate minRvol minGapPct minDollarVolume
                     0.95 0.05 true 20 5 0.5
 
             stocks
-            |> Array.map (fun (s: StockInPlayRow) -> (s.ticker, s.date.ToDateTime(TimeOnly.MinValue)))
+            |> Array.map (fun (s: GapPlayRow) -> (s.ticker, s.date.ToDateTime(TimeOnly.MinValue)))
             |> Array.toList
 
         | None ->
@@ -1368,8 +1368,8 @@ let main argv =
                 handleIngestIntraday args
             | Refresh_Views args ->
                 handleRefreshViews args
-            | Stocks_In_Play args ->
-                handleStocksInPlay args
+            | Gap_Play args ->
+                handleGapPlay args
             | Continuation_Plays args ->
                 handleContinuationPlays args
             | Download_Tickers args ->

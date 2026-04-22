@@ -484,10 +484,10 @@ let getDomIndicator (connection: IDbConnection) : DomIndicatorRow array =
     connection.Query<DomIndicatorRow>("SELECT * FROM dom_indicator ORDER BY date")
     |> Seq.toArray
 
-// --- Stocks In Play ---
+// --- Gap Play ---
 
 [<CLIMutable>]
-type StockInPlayRow = {
+type GapPlayRow = {
     ticker: string
     date: DateOnly
     adj_open: float
@@ -513,7 +513,7 @@ type StockInPlayRow = {
 /// `minAtrRatio` excludes rows where post-event ATR (mean true range / close)
 /// collapses to that fraction of pre-event ATR or less (buyout filter).
 /// Pass 0.0 to disable.
-let getStocksInPlay
+let getGapPlay
     (connection: IDbConnection)
     (startDate: DateTime)
     (endDate: DateTime)
@@ -526,9 +526,9 @@ let getStocksInPlay
     (preWindowDays: int)
     (postWindowDays: int)
     (minAtrRatio: float)
-    : StockInPlayRow array =
-    connection.Query<StockInPlayRow>(
-        "SELECT * FROM stocks_in_play(" +
+    : GapPlayRow array =
+    connection.Query<GapPlayRow>(
+        "SELECT * FROM gap_play(" +
         "start_date := $startDate::DATE, " +
         "end_date := $endDate::DATE, " +
         "min_rvol := $minRvol, " +

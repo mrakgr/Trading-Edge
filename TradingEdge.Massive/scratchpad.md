@@ -7,7 +7,7 @@ dotnet run --project TradingEdge.Massive -- download-bulk
 dotnet run --project TradingEdge.Massive -- download-splits
 dotnet run --project TradingEdge.Massive -- download-dividends
 dotnet run --project TradingEdge.Massive -- ingest-data
-dotnet run --project TradingEdge.Massive -- stocks-in-play
+dotnet run --project TradingEdge.Massive -- gap-play
 ```
 
 Here is how to get trades data

@@ -3,7 +3,7 @@
 -- This is a thin data-fetch macro -- ALL chain logic (rolling max, stop rule,
 -- dedup) is done in F# after the round trip.
 --
--- All stocks_in_play parameters are forwarded so the same filters apply to
+-- All gap_play parameters are forwarded so the same filters apply to
 -- the underlying breakout source. The only continuation-specific param here
 -- is `max_horizon_days` (the forward window).
 DROP MACRO IF EXISTS continuation_plays;
@@ -25,7 +25,7 @@ WITH breakouts AS (
     SELECT
         ticker AS sip_ticker,
         date AS sip_breakout_date
-    FROM stocks_in_play(
+    FROM gap_play(
         start_date := start_date,
         end_date := end_date,
         min_rvol := min_rvol,

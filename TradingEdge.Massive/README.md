@@ -291,7 +291,7 @@ Output: `data/news/{ticker}/{date}.json`
 
 Downloads the universe of exchange-traded products (ETFs, ETNs, ETVs, ETSs) from Polygon's `/v3/reference/tickers` endpoint and saves them to a CSV file. Like splits and dividends, the data is then loaded into the DuckDB database via `ingest-data`.
 
-The resulting `ticker_reference` table is what `stocks-in-play` uses to filter ETFs out of breakout candidates by default.
+The resulting `ticker_reference` table is what `gap-play` uses to filter ETFs out of breakout candidates by default.
 
 ```bash
 dotnet run --project TradingEdge.Massive -- download-tickers [options]
@@ -310,7 +310,7 @@ dotnet run --project TradingEdge.Massive -- download-tickers
 dotnet run --project TradingEdge.Massive -- ingest-data
 ```
 
-The ETF universe changes slowly — once a quarter is plenty. Run it once (followed by `ingest-data`) before your first `stocks-in-play` query so the ETF filter has data to match against.
+The ETF universe changes slowly — once a quarter is plenty. Run it once (followed by `ingest-data`) before your first `gap-play` query so the ETF filter has data to match against.
 
 ### Ingest Data
 
@@ -397,12 +397,12 @@ dotnet run --project TradingEdge.Massive -- refresh-views
 dotnet run --project TradingEdge.Massive -- refresh-views -d /path/to/custom.db
 ```
 
-### Stocks In Play
+### Gap Play
 
-Lists top stocks in play for a date range based on relative volume, opening gap, and liquidity. ETFs are excluded by default (via the `ticker_reference` table populated by `download-tickers`), and rows whose post-event ATR collapses below half their pre-event ATR are filtered out as likely buyouts.
+Lists top gap plays for a date range based on relative volume, opening gap, and liquidity. ETFs are excluded by default (via the `ticker_reference` table populated by `download-tickers`), and rows whose post-event ATR collapses below half their pre-event ATR are filtered out as likely buyouts.
 
 ```bash
-dotnet run --project TradingEdge.Massive -- stocks-in-play [options]
+dotnet run --project TradingEdge.Massive -- gap-play [options]
 ```
 
 **Options:**
@@ -423,29 +423,29 @@ dotnet run --project TradingEdge.Massive -- stocks-in-play [options]
 **Examples:**
 
 ```bash
-# List stocks in play for the past week (default filters)
-dotnet run --project TradingEdge.Massive -- stocks-in-play
+# List gap plays for the past week (default filters)
+dotnet run --project TradingEdge.Massive -- gap-play
 
-# List stocks in play for a specific date range
-dotnet run --project TradingEdge.Massive -- stocks-in-play -s 2024-12-01 -e 2024-12-11
+# List gap plays for a specific date range
+dotnet run --project TradingEdge.Massive -- gap-play -s 2024-12-01 -e 2024-12-11
 
 # Find stocks with higher volatility (5x RVOL, 10% gap)
-dotnet run --project TradingEdge.Massive -- stocks-in-play -r 5 -g 0.10
+dotnet run --project TradingEdge.Massive -- gap-play -r 5 -g 0.10
 
 # Restrict to large-cap stocks only ($100M+ avg volume instead of $25M)
-dotnet run --project TradingEdge.Massive -- stocks-in-play -v 100
+dotnet run --project TradingEdge.Massive -- gap-play -v 100
 
 # Combine all filters: aggressive settings for small caps
-dotnet run --project TradingEdge.Massive -- stocks-in-play -r 2 -g 0.03 -v 10
+dotnet run --project TradingEdge.Massive -- gap-play -r 2 -g 0.03 -v 10
 
 # Use balanced weighting (50% RVOL, 50% gap) instead of volume-focused default
-dotnet run --project TradingEdge.Massive -- stocks-in-play -rw 0.5 -gw 0.5
+dotnet run --project TradingEdge.Massive -- gap-play -rw 0.5 -gw 0.5
 
-# Disable the buyout filter to see ALL surviving SIP rows
-dotnet run --project TradingEdge.Massive -- stocks-in-play --min-atr-ratio 0
+# Disable the buyout filter to see ALL surviving rows
+dotnet run --project TradingEdge.Massive -- gap-play --min-atr-ratio 0
 
 # Dump 2 years of breakouts to JSON
-dotnet run --project TradingEdge.Massive -- stocks-in-play -s 2024-04-11 -e 2026-04-11 --json > data/stocks_in_play.json
+dotnet run --project TradingEdge.Massive -- gap-play -s 2024-04-11 -e 2026-04-11 --json > data/gap_play.json
 ```
 
 **Default Criteria:**
@@ -459,7 +459,7 @@ dotnet run --project TradingEdge.Massive -- stocks-in-play -s 2024-04-11 -e 2026
 
 ### Continuation Plays
 
-For each breakout in `stocks-in-play`, walks forward day-by-day and emits a row for every trading day whose RVOL stays above half the breakout day's RVOL. The chain stops at the first failing day, which is also included so callers can see where the chain died.
+For each breakout in `gap-play`, walks forward day-by-day and emits a row for every trading day whose RVOL stays above half the breakout day's RVOL. The chain stops at the first failing day, which is also included so callers can see where the chain died.
 
 The output is a single unified list. Each row carries `number_of_days_since_breakout` (0 for the breakout itself, 1+ for follow-through days) so downstream consumers can filter breakouts vs continuations from a single file.
 
@@ -469,7 +469,7 @@ dotnet run --project TradingEdge.Massive -- continuation-plays [options]
 
 **Options:**
 
-All `stocks-in-play` filter options are forwarded (same defaults), plus:
+All `gap-play` filter options are forwarded (same defaults), plus:
 - `--min-rvol-fraction <float>` - Min fraction of breakout RVOL to keep the chain alive (default: 0.5)
 - `--max-horizon-days <int>` - Safety cap on chain length in calendar days (default: 30)
 - `--json` - Emit JSON to stdout instead of the human-readable table
@@ -541,7 +541,7 @@ TradingEdge/
 │       │   ├── 02_trading_calendar.sql
 │       │   └── 04_stock_volume_4w.sql
 │       └── views/               # Views/macros (fast to refresh)
-│           ├── 09_stocks_in_play.sql
+│           ├── 09_gap_play.sql
 │           └── 11_continuation_plays.sql
 ├── api_key.json                 # API credentials (not in git)
 └── data/                        # Downloaded data

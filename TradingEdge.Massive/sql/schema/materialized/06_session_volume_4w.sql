@@ -20,7 +20,7 @@
 -- before a Thursday following Thanksgiving + an early close + MLK day can
 -- drop to 17. We require at least 16 observed trading days in the window
 -- before publishing an average/RVOL; below that, the columns are NULL and
--- downstream consumers (the stocks-in-play filter, the MiniZinc exporter)
+-- downstream consumers (the gap-play filter, the MiniZinc exporter)
 -- drop the row. This guards against one-off flukes on early-history days
 -- where a brand-new ticker has only a handful of samples in its lookback.
 DROP TABLE IF EXISTS session_volume_4w;

@@ -1,10 +1,10 @@
 # Overview
 
-The reference document for the stocks in play that will serve as the basis for the generative models. Here is a quick conversion script that should be run from the parent directory in order to convert this markdown file into .html for viewing in the browser.
+The reference document for the gap plays that will serve as the basis for the generative models. Here is a quick conversion script that should be run from the parent directory in order to convert this markdown file into .html for viewing in the browser.
 
 ```bash
 pip install markdown
-python3 -c "import markdown; print(markdown.markdown(open('docs/stocks_in_play_reference.md').read(), extensions=['extra', 'nl2br']))" > docs/stocks_in_play_reference.html
+python3 -c "import markdown; print(markdown.markdown(open('docs/gap_play_reference.md').read(), extensions=['extra', 'nl2br']))" > docs/gap_play_reference.html
 ```
 
 ## What it has (reference characteristics):

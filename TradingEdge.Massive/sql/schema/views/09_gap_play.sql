@@ -1,7 +1,7 @@
--- Stocks In Play: Top 10 stocks per day based on relative volume, gap, and liquidity
+-- Gap Play: Top 10 stocks per day based on relative volume, gap, and liquidity
 --
 -- Filters applied (in order):
---   1. RVOL, gap, dollar-volume thresholds (the original SIP definition)
+--   1. RVOL, gap, dollar-volume thresholds
 --   2. Tradable-universe filter (positive whitelist): keep only tickers whose
 --      ticker_reference.type is CS (common stock) or ADRC (American Depositary
 --      Receipt). Everything else -- preferreds, warrants, rights, units, SPAC
@@ -16,7 +16,8 @@
 -- The pre/post ATR columns are returned in the result set so callers can inspect
 -- and tune the threshold.
 DROP MACRO IF EXISTS stocks_in_play;
-CREATE MACRO stocks_in_play(
+DROP MACRO IF EXISTS gap_play;
+CREATE MACRO gap_play(
     start_date := DATE '1900-01-01',
     end_date := DATE '2999-12-31',
     min_rvol := 3,
