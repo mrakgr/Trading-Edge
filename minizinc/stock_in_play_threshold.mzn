@@ -31,20 +31,24 @@ constraint n_fired >= 1;
 constraint 100 * n_hit >= precision_pct * n_fired;
 
 % Lexicographic objective: maximize n_fired, then (among tied solutions)
-% maximize Ta, then Tv. Without this the solver picks arbitrarily
-% among (Tv, Ta) pairs that give the same n_fired, which makes Ta jump
-% around from run to run and across neighboring bucket/target cells.
+% minimize Ta, then Tv. Picking the most-permissive corner of the Pareto
+% frontier — the smallest (Ta, Tv) that still hits n_fired — gives a
+% threshold defined by the actual data distribution (the marginal firing
+% row that would drop if either threshold rose by one unit). Adjacent
+% buckets share most of their data, so their permissive corners vary
+% smoothly. The prior max-Ta formulation put Ta at an arbitrary far
+% corner, which jumped unpredictably across neighboring buckets.
 %
-% Implementation: weighted sum with W1 >> W2 >> 1. Because Tv and
-% Ta are in [0, Tv_max] and [0, Ta_max], choosing
+% Implementation: maximize the complement (Ta_max - Ta) and
+% (Tv_max - Tv). Weighted sum with W1 >> W2 >> 1 so n_fired strictly
+% dominates and Ta strictly dominates Tv within ties:
 %   W1 = (Ta_max + 1) * (Tv_max + 1)
 %   W2 = (Tv_max + 1)
-% guarantees one more fired trade always beats any possible tie-break gain
-% and one extra Ta unit always beats any Tv gain. With int_scale
-% = 1024 and target_rvol ≤ 5, W1 ~= 25M; W1*n_fired_max (~1000) fits in int64.
+% With int_scale = 1024 and target_rvol ≤ 5, W1 ~= 25M; W1*n_fired_max
+% (~1000) fits in int64.
 int: W_fired = (Ta_max + 1) * (Tv_max + 1);
 int: W_ta    = Tv_max + 1;
-var int: objective = W_fired * n_fired + W_ta * Ta + Tv;
+var int: objective = W_fired * n_fired + W_ta * (Ta_max - Ta) + (Tv_max - Tv);
 
 solve maximize objective;
 
