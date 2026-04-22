@@ -267,16 +267,16 @@ type OrbSystem(positionSize: float, referenceVol: float voption, stopMode: StopM
 
     /// Entry gate: pass if no gate is configured. Otherwise at the trade's
     /// bucket, require cum_volume/RawAvg4w >= Tv AND cum_trades/TxnAvg4w >= Ta.
-    /// Out-of-range bucket or NaN threshold = pass.
+    /// Out-of-range bucket or NaN threshold = block (no entry).
     member inline self.PassesEntryGate(bar: OrbSystemBar, tradeTs: DateTime) =
         match self.Gate with
         | ValueNone -> true
         | ValueSome gate ->
             let bucket = int ((tradeTs.Ticks - gate.StartTicks) / gate.Schedule.BucketTicks)
-            if bucket < 0 || bucket >= gate.Schedule.Thresholds.Length then true
+            if bucket < 0 || bucket >= gate.Schedule.Thresholds.Length then false
             else
                 let struct (volThreshold, txnThreshold) = gate.Schedule.Thresholds.[bucket]
-                if Double.IsNaN volThreshold || Double.IsNaN txnThreshold then true
+                if Double.IsNaN volThreshold || Double.IsNaN txnThreshold then false
                 else
                     let volRvol = bar.SessionCumVolume / gate.RawAvg4w
                     let txnRvol = float bar.SessionCumTrades / gate.TxnAvg4w
