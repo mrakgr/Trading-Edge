@@ -31,24 +31,27 @@ constraint n_fired >= 1;
 constraint 100 * n_hit >= precision_pct * n_fired;
 
 % Lexicographic objective: maximize n_fired, then (among tied solutions)
-% minimize Ta, then Tv. Picking the most-permissive corner of the Pareto
-% frontier — the smallest (Ta, Tv) that still hits n_fired — gives a
-% threshold defined by the actual data distribution (the marginal firing
-% row that would drop if either threshold rose by one unit). Adjacent
-% buckets share most of their data, so their permissive corners vary
-% smoothly. The prior max-Ta formulation put Ta at an arbitrary far
-% corner, which jumped unpredictably across neighboring buckets.
+% maximize Ta, then Tv. Picking the restrictive corner of the Pareto
+% frontier produces an in-sample series of Ta across adjacent buckets
+% that is smoother than the permissive-corner choice: adjacent buckets
+% share most of their data, so their max-Ta corners tend to land in the
+% same region, whereas the permissive corner flips discretely between
+% Ta=0 and Ta>0 based on which rows are marginal. Empirically (rv=6.0
+% p=90 trial), the permissive-corner variant produced median adjacent-
+% bucket |Ta step| 0.14 vs 0.06 for max-Ta. Smoother Ta is expected to
+% generalize better out of sample.
 %
-% Implementation: maximize the complement (Ta_max - Ta) and
-% (Tv_max - Tv). Weighted sum with W1 >> W2 >> 1 so n_fired strictly
-% dominates and Ta strictly dominates Tv within ties:
+% Implementation: weighted sum with W1 >> W2 >> 1. Because Tv and
+% Ta are in [0, Tv_max] and [0, Ta_max], choosing
 %   W1 = (Ta_max + 1) * (Tv_max + 1)
 %   W2 = (Tv_max + 1)
-% With int_scale = 1024 and target_rvol ≤ 5, W1 ~= 25M; W1*n_fired_max
-% (~1000) fits in int64.
+% guarantees one more fired trade always beats any possible tie-break
+% gain and one extra Ta unit always beats any Tv gain. With int_scale
+% = 1024 and target_rvol ≤ 5, W1 ~= 25M; W1*n_fired_max (~1000) fits
+% in int64.
 int: W_fired = (Ta_max + 1) * (Tv_max + 1);
 int: W_ta    = Tv_max + 1;
-var int: objective = W_fired * n_fired + W_ta * (Ta_max - Ta) + (Tv_max - Tv);
+var int: objective = W_fired * n_fired + W_ta * Ta + Tv;
 
 solve maximize objective;
 
