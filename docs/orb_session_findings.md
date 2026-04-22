@@ -556,6 +556,7 @@ Backtest run on `data/gap_up_universe_4w.json` (4,296 plays, every gap-up ≥5% 
 
 | | Baseline (no gate) | Gated (p80_t30) |
 |---|---|---|
+| decisions | 6,330 | 2,328 |
 | round trips | 15,192 | 4,541 |
 | net PnL | -$67,464 | -$8,745 |
 | profit factor | 0.900 | 0.982 |
@@ -564,6 +565,8 @@ Backtest run on `data/gap_up_universe_4w.json` (4,296 plays, every gap-up ≥5% 
 | max drawdown | $69,333 | $21,197 |
 | daily Sharpe | -1.53 | -0.51 |
 | commissions | $24,050 | $5,951 |
+
+(Decisions count every entry/exit emitted by the system before the fill simulator chops them into partial fills. One intended round trip = 2 decisions. Round-trip count inflates by partial fills — each pair of matched fills counts — so `round_trips / decisions` varies by fill regime: 2.40 baseline vs 1.95 gated. Decisions are the correct activity proxy.)
 
 ### 24a. The gate works directionally but doesn't clear break-even
 

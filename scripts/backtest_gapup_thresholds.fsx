@@ -131,6 +131,7 @@ type DayOutcome = {
     Date: string
     NetPnL: float
     Commission: float
+    NumDecisions: int
     NumTrips: int
     Trips: RoundTrip[]
     SkipReason: string    // "" if ran
@@ -151,12 +152,12 @@ let runOne (s: Setup) : DayOutcome =
     let binPath = Path.Combine(tradesBinRoot, s.Ticker, sprintf "%s.bin" s.Date)
     if not (File.Exists binPath) then
         { Ticker = s.Ticker; Date = s.Date; NetPnL = 0.0; Commission = 0.0
-          NumTrips = 0; Trips = [||]; SkipReason = "no_bin" }
+          NumDecisions = 0; NumTrips = 0; Trips = [||]; SkipReason = "no_bin" }
     else
         let header, trades = loadDay { Directory = tradesBinRoot; Ticker = s.Ticker; Date = s.Date }
         if isGated && (Double.IsNaN header.RawAvg4w || Double.IsNaN header.TxnAvg4w) then
             { Ticker = s.Ticker; Date = s.Date; NetPnL = 0.0; Commission = 0.0
-              NumTrips = 0; Trips = [||]; SkipReason = "no_4w_meta" }
+              NumDecisions = 0; NumTrips = 0; Trips = [||]; SkipReason = "no_4w_meta" }
         else
             let gate = buildGate header
             let seg = SegregateTrades(TimeSpan.FromSeconds bucketSeconds, DateTime header.BaseTicks)
@@ -187,6 +188,7 @@ let runOne (s: Setup) : DayOutcome =
             { Ticker = s.Ticker; Date = s.Date
               NetPnL = tf.NetPnL
               Commission = trips |> Array.sumBy (fun t -> t.Commission)
+              NumDecisions = td.Decisions.Count
               NumTrips = trips.Length
               Trips = trips
               SkipReason = "" }
@@ -210,6 +212,7 @@ swOverall.Stop()
 // ----- Aggregate -----
 let ran = outcomes |> Seq.filter (fun o -> o.SkipReason = "") |> Array.ofSeq
 let allTrips = ran |> Array.collect (fun o -> o.Trips)
+let totalDecisions = ran |> Array.sumBy (fun o -> o.NumDecisions)
 let skipReasons =
     outcomes
     |> Seq.filter (fun o -> o.SkipReason <> "")
@@ -259,6 +262,7 @@ printfn "=== %s summary ===" configName
 printfn "  days ran:        %d" ran.Length
 for r, n in skipReasons do
     printfn "  skip:%-15s %d" r n
+printfn "  decisions:       %d" totalDecisions
 printfn "  round trips:     %d" allTrips.Length
 printfn "  net PnL:         $%.2f" net
 printfn "  commissions:     $%.2f" totalCommission
@@ -278,6 +282,7 @@ let sb = StringBuilder()
 sb.Append "{\n" |> ignore
 sb.AppendFormat(inv, "  \"config\": \"{0}\",\n", configName) |> ignore
 sb.AppendFormat(inv, "  \"days_ran\": {0},\n", ran.Length) |> ignore
+sb.AppendFormat(inv, "  \"decisions\": {0},\n", totalDecisions) |> ignore
 sb.AppendFormat(inv, "  \"round_trips\": {0},\n", allTrips.Length) |> ignore
 sb.AppendFormat(inv, "  \"net_pnl\": {0:F2},\n", net) |> ignore
 sb.AppendFormat(inv, "  \"commission\": {0:F2},\n", totalCommission) |> ignore
@@ -294,8 +299,8 @@ for i = 0 to ran.Length - 1 do
     let o = ran.[i]
     if i > 0 then sb.Append ",\n" |> ignore
     sb.AppendFormat(inv,
-        "    {{\"ticker\": \"{0}\", \"date\": \"{1}\", \"net_pnl\": {2:F2}, \"n_trips\": {3}}}",
-        o.Ticker, o.Date, o.NetPnL, o.NumTrips)
+        "    {{\"ticker\": \"{0}\", \"date\": \"{1}\", \"net_pnl\": {2:F2}, \"n_decisions\": {3}, \"n_trips\": {4}}}",
+        o.Ticker, o.Date, o.NetPnL, o.NumDecisions, o.NumTrips)
     |> ignore
 sb.Append "\n  ]\n}\n" |> ignore
 Directory.CreateDirectory(Path.GetDirectoryName outPath) |> ignore
