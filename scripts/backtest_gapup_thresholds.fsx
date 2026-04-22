@@ -38,6 +38,7 @@ type CliArgs =
     | [<AltCommandLine("-t")>] Thresholds of string
     | [<AltCommandLine("-b")>] Trades_Bin of string
     | [<AltCommandLine("-o")>] Output of string
+    | Start_Et of string
     | End_Et of string
 
     interface IArgParserTemplate with
@@ -48,6 +49,7 @@ type CliArgs =
             | Thresholds _ -> "Per-bucket thresholds CSV from run_minizinc_sweep (ignored for baseline). Default: minizinc/thresholds_10s.csv"
             | Trades_Bin _ -> "Binary trade root. Default: data/trades_bin"
             | Output _ -> "Output JSON. Default: minizinc/backtest_{config}.json"
+            | Start_Et _ -> "Optional HH:MM ET cutoff. Entries before this time are blocked (NaN'd in the threshold array). Example: --start-et 09:50"
             | End_Et _ -> "Optional HH:MM ET cutoff. Entries at or after this time are blocked (NaN'd in the threshold array). Example: --end-et 10:30"
 
 let parser = ArgumentParser.Create<CliArgs>(programName = "backtest_gapup_thresholds.fsx")
@@ -69,13 +71,14 @@ let precisionPct =
 let tradesBinRoot = parsed.GetResult(Trades_Bin, defaultValue = "data/trades_bin")
 let outPath = parsed.GetResult(Output, defaultValue = sprintf "minizinc/backtest_%s.json" configName)
 
-// Optional HH:MM ET cutoff. Parsed via TimeSpan.ParseExact and compared
-// against the CSV's `et` column directly — rows at or after this time get
-// NaN thresholds so the Pipeline gate blocks entries past the cutoff.
+// Optional HH:MM ET cutoffs. Parsed via TimeSpan.ParseExact and compared
+// against the CSV's `et` column directly. Entries before startEt or at/after
+// endEt get NaN thresholds so the Pipeline gate blocks them.
+let parseEt (s: string) = TimeSpan.ParseExact(s, @"h\:mm", CultureInfo.InvariantCulture)
+let startEtOpt : TimeSpan voption =
+    parsed.TryGetResult Start_Et |> Option.map parseEt |> Option.toValueOption
 let endEtOpt : TimeSpan voption =
-    match parsed.TryGetResult End_Et with
-    | None -> ValueNone
-    | Some s -> ValueSome (TimeSpan.ParseExact(s, @"h\:mm", CultureInfo.InvariantCulture))
+    parsed.TryGetResult End_Et |> Option.map parseEt |> Option.toValueOption
 
 let isGated = configName <> "baseline"
 
@@ -105,6 +108,7 @@ let schedule : ThresholdSchedule =
         let maxBucket = 2700
         let arr = Array.create maxBucket (struct (Double.NaN, Double.NaN))
         let mutable nMatched = 0
+        let mutable nMaskedByStartEt = 0
         let mutable nMaskedByEndEt = 0
         let lines = File.ReadAllLines thresholdsPath
         for i = 1 to lines.Length - 1 do  // skip header
@@ -114,11 +118,17 @@ let schedule : ThresholdSchedule =
                 let et = TimeSpan.ParseExact(parts.[1], @"h\:mm", inv)
                 let pct = Int32.Parse(parts.[2], inv)
                 if pct = precisionPct && bucket >= 0 && bucket < maxBucket then
+                    let blockedByStartEt =
+                        match startEtOpt with
+                        | ValueSome startEt -> et < startEt
+                        | ValueNone -> false
                     let blockedByEndEt =
                         match endEtOpt with
                         | ValueSome endEt -> et >= endEt
                         | ValueNone -> false
-                    if blockedByEndEt then
+                    if blockedByStartEt then
+                        nMaskedByStartEt <- nMaskedByStartEt + 1
+                    elif blockedByEndEt then
                         nMaskedByEndEt <- nMaskedByEndEt + 1
                     else
                         let tv = Double.Parse(parts.[3], inv)
@@ -127,6 +137,9 @@ let schedule : ThresholdSchedule =
                         nMatched <- nMatched + 1
         printfn "Thresholds: %d rows (precision_pct=%d) from %s"
             nMatched precisionPct thresholdsPath
+        match startEtOpt with
+        | ValueSome startEt -> printfn "Start-ET cutoff: %O — masked %d rows before that time" startEt nMaskedByStartEt
+        | ValueNone -> ()
         match endEtOpt with
         | ValueSome endEt -> printfn "End-ET cutoff: %O — masked %d rows at/after that time" endEt nMaskedByEndEt
         | ValueNone -> ()
