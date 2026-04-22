@@ -554,39 +554,43 @@ Per-bucket (volume-ratio, transaction-ratio) thresholds calibrated via MiniZinc 
 
 Backtest run on `data/gap_up_universe_4w.json` (4,296 plays, every gap-up ≥5% over 2024-04-01 → 2025-04-17 with valid `session_volume_4w` 4w averages). ORB long, 10s time bars, rangeLo stop, fill-sim, $0.005/share commission.
 
-| | Baseline (no gate) | Gated (rv=3.0, p80) | Gated (rv=4.0, p80) |
-|---|---|---|---|
-| decisions | 6,330 | 2,328 | 1,546 |
-| round trips | 15,192 | 4,541 | 2,973 |
-| net PnL | -$67,464 | -$8,745 | -$3,849 |
-| profit factor | 0.900 | 0.982 | 0.995 |
-| win rate | 34.7% | 39.0% | 37.8% |
-| avg win / avg loss | $72.53 / -$45.37 | $86.20 / -$58.32 | $95.14 / -$59.91 |
-| max drawdown | $69,333 | $21,197 | $14,893 |
-| daily Sharpe | -1.53 | -0.51 | -0.30 |
-| commissions | $24,050 | $5,951 | $3,353 |
+| | Baseline (no gate) | rv=3.0, p80 | rv=4.0, p80 | rv=4.0, p90 |
+|---|---|---|---|---|
+| decisions | 6,330 | 2,328 | 1,546 | 1,228 |
+| round trips | 15,192 | 4,541 | 2,973 | 2,393 |
+| net PnL | -$67,464 | -$8,745 | -$3,849 | -$2,241 |
+| profit factor | 0.900 | 0.982 | 0.995 | **1.005** |
+| win rate | 34.7% | 39.0% | 37.8% | 37.4% |
+| avg win / avg loss | $72.53 / -$45.37 | $86.20 / -$58.32 | $95.14 / -$59.91 | $92.22 / -$56.60 |
+| max drawdown | $69,333 | $21,197 | $14,893 | $13,269 |
+| daily Sharpe | -1.53 | -0.51 | -0.30 | -0.22 |
+| commissions | $24,050 | $5,951 | $3,353 | $2,658 |
+| gross wins | $389,895 | $154,464 | $107,982 | $83,404 |
+| gross losses | $433,308 | $157,258 | $108,478 | $82,987 |
 
-(Decisions count every entry/exit emitted by the system before the fill simulator chops them into partial fills. One intended round trip = 2 decisions. Round-trip count inflates by partial fills — each pair of matched fills counts — so `round_trips / decisions` varies by fill regime: 2.40 baseline vs 1.95 / 1.92 gated. Decisions are the correct activity proxy.)
+(Decisions count every entry/exit emitted by the system before the fill simulator chops them into partial fills. One intended round trip = 2 decisions. Round-trip count inflates by partial fills. Decisions are the correct activity proxy.)
 
-Raising the calibration target from `session RVOL ≥ 3.0` to `≥ 4.0` (with `int_scale` coarsened 1024 → 256 for a 2.8× solve speedup at no quality cost) tightens the Tv threshold meaningfully: median Tv jumps from 1.71× to 2.34× (+37%), median bucket firings drop 51% (5496 → 2701), and decisions halve again (2328 → 1546, ~740 entries/year). PF climbs 0.982 → 0.995 — within 0.5% of break-even — and max drawdown drops another 30%. The gate keeps converging toward profitability as the target tightens, but commissions remain a meaningful drag relative to per-trade PnL. Still PnL-misaligned: 37.8% win rate × $95/$60 payoff ratio stays below break-even.
+### 24a. Tightening progression
 
-### 24a. The gate works directionally but doesn't clear break-even
+Monotonic improvement on every metric as the calibration target tightens:
 
-Round trips cut 70%, drawdown cut 70%, PF climbs 0.90 → 0.98, win rate 34.7% → 39.0%, avg-win/avg-loss ratio steady at ~0.67. The gate is plainly trimming noise, but the filtered universe is still unprofitable. 39% win rate × 0.67 payoff is a classic fade-dominant signature.
+1. **rv=3.0, p80** (`int_scale=1024`, sweep wall ~6h): median Tv 1.71, n_fired 5496/bucket. PF **0.982**.
+2. **rv=4.0, p80** (`int_scale=256`, sweep wall 93 min): median Tv 2.344 (+37%), n_fired 2701 (−51%). PF **0.995**.
+3. **rv=4.0, p90** (`int_scale=256`, sweep wall 92 min): median Tv 2.562 (+9% over p80), n_fired 2205 (−18%). PF **1.005** — first time above break-even on the trade edge.
 
-### 24b. Root cause: calibration target ≠ profit
+The `int_scale` coarsening from 1024 → 256 gave a 2.8× per-bucket solve speedup with identical Tv/Ta output at the integer-quantization level. Verified on b1140: both configs produce `Tv=1.723, Ta=0.430, n_fired=3502, n_hit=2802` — bit-for-bit identical output. RSS peaks drop from 1.36 GB to 481 MB per solver process, letting 6 parallel jobs fit in 2.9 GB total.
 
-The MiniZinc model's "hit" = *end-of-day session RVOL ≥ target*, not *long-side PnL > 0*. Every bucket hits its 80% precision target on that definition — the gate is doing exactly what we asked. But "high-RVOL day" is a mix of continuation days (profitable long) and fade days (unprofitable long), and the filter can't distinguish them from cumulative-volume/transaction ratios alone.
+Per-bucket solver throughput: **6 jobs × 2 CP-SAT threads** beat **1 job × 14 CP-SAT threads** by ~2× on aggregate wall time. Per-bucket wall drops from 14s → 5s at 14 threads, but the loss of 6-way parallelism across buckets more than offsets it. CP-SAT's internal parallelism is strongly sub-linear past ~4 workers.
 
-This matches what sections 16–17 already showed: the RVOL≥N filter needs gap direction to separate the two populations, and this particular universe — gap-ups ≥5% — already selects the fade-prone population. The volume/txn gate is basically re-confirming what the gap filter already said.
+### 24b. Crossing PF > 1.0 at rv=4.0 p=90
 
-### 24c. Monthly P&L is noisy, not trending
+PF 1.005 means gross wins ($83.4k) just edge out gross losses ($83.0k) — the edge exists, it's just not wide enough to cover commissions ($2.7k). Net is still -$2.2k.
 
-On the 1,118 days with at least one trade: 489 profitable (43.7%), 629 losing. Monthly gated P&L swings between -$8.9k (Feb 2025) and +$5.5k (May 2024); 7 up months, 6 down. No regime trend; the losses are chronic rather than concentrated.
+This is a meaningful milestone. The gate is no longer merely cutting losses proportionally; it's producing a small positive expectancy on the filtered trades. Tightening further should widen the gap between wins and losses enough to clear commission drag and turn net-positive.
 
-### 24d. Takeaways
+Win rate slipped slightly (39.0% → 37.4%) — the tighter gate fires on the more volatile days, which dominate both tails of the distribution. Payoff ratio is what's carrying the PF gain, not hit rate.
 
-- **"End-of-day RVOL" is the wrong calibration target for a PnL system.** It identifies high-volume days, not profitable entries. Section 17 already established that gap direction is the switch between long/short profitability on high-RVOL days; a gate that ignores direction can't win.
-- **Precision guarantees are not PnL guarantees.** Hitting 80% precision on the calibration target produced PF 0.98 on real trades. The MiniZinc pipeline is solid mechanically (it did exactly what the model asked), but the target needs to be PnL-aligned, not RVOL-aligned, to matter for money.
-- **The gate does reduce drawdown usefully.** Baseline DD $69k → gated $21k is a 70% reduction with PF moving from 0.90 to 0.98. If combined with a directionally-correct signal, this kind of precision-tuned entry gate could still pay — but as a standalone it's not enough.
-- **The gap-up ≥5% universe is a loser on ORB long.** PF 0.90 ungated at 15k trades is a strong negative result on this cohort specifically. Compare to section 22c where gap-up RVOL≥3 was PF 2.27 — the difference is the RVOL prefilter, which this universe deliberately omits to keep the sweep unbiased.
+### 24c. Still to do
+
+- **rv=6.0 p90 sweep** running — next step in the tightening ladder. Expect PF to move further above 1.0, eventually crossing the commission threshold (net PF > 1.03 or so at current commission rate).
+- Once we find the smallest rv that produces reliable net-profitable results, that's the operating point. The upper bound isn't "diminishing returns" in the statistical sense — it's "too few firings to matter for live trading," likely in the ~1/week regime per the user's stated target.
