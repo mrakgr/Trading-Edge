@@ -547,3 +547,41 @@ The user's read of the charts: none of these failures are attributable to the pr
 - **The breakout universe and the continuation universe respond differently to the same gate.** At 3x the gate trims PF slightly on breakouts (2.06 → 1.49) and roughly preserves PnL; on continuations it barely changes PF but shrinks exposure ~87%. The continuations need a higher bar because their baseline is PF < 1 and the gate has to clear that floor before any volume-proxy signal shows up.
 - **Monotonicity across 5 rungs is the encouraging signal for the HMM regime work.** There's a real predicted-RVOL gradient on continuations, just shifted higher than on breakouts. "High RVOL day" evidently means something different on a continuation — it has to be very high before the intraday behavior rhymes with a fresh-breakout day.
 - **The false-positive chart tool is a reusable investigation harness.** Per-bar VWAP ±2σ, predicted RVOL with gate threshold, bar volume, and observed-vs-profile cumulative fraction. Reused for any (ticker, date) list we want to inspect.
+
+## 24. MiniZinc-calibrated (Tv, Ta) threshold gate on the gap-up universe (2026-04-22)
+
+Per-bucket (volume-ratio, transaction-ratio) thresholds calibrated via MiniZinc CP-SAT. Target: "end-of-day session RVOL ≥ target_rvol" at ≥80% precision with ≥30 firings per bucket. 2323 buckets (09:31 → 16:00 ET at 10s resolution) solved OPTIMAL; every bucket achieved precision_actual ≥ 80.00 in-sample.
+
+Backtest run on `data/gap_up_universe_4w.json` (4,296 plays, every gap-up ≥5% over 2024-04-01 → 2025-04-17 with valid `session_volume_4w` 4w averages). ORB long, 10s time bars, rangeLo stop, fill-sim, $0.005/share commission.
+
+| | Baseline (no gate) | Gated (p80_t30) |
+|---|---|---|
+| round trips | 15,192 | 4,541 |
+| net PnL | -$67,464 | -$8,745 |
+| profit factor | 0.900 | 0.982 |
+| win rate | 34.7% | 39.0% |
+| avg win / avg loss | $72.53 / -$45.37 | $86.20 / -$58.32 |
+| max drawdown | $69,333 | $21,197 |
+| daily Sharpe | -1.53 | -0.51 |
+| commissions | $24,050 | $5,951 |
+
+### 24a. The gate works directionally but doesn't clear break-even
+
+Round trips cut 70%, drawdown cut 70%, PF climbs 0.90 → 0.98, win rate 34.7% → 39.0%, avg-win/avg-loss ratio steady at ~0.67. The gate is plainly trimming noise, but the filtered universe is still unprofitable. 39% win rate × 0.67 payoff is a classic fade-dominant signature.
+
+### 24b. Root cause: calibration target ≠ profit
+
+The MiniZinc model's "hit" = *end-of-day session RVOL ≥ target*, not *long-side PnL > 0*. Every bucket hits its 80% precision target on that definition — the gate is doing exactly what we asked. But "high-RVOL day" is a mix of continuation days (profitable long) and fade days (unprofitable long), and the filter can't distinguish them from cumulative-volume/transaction ratios alone.
+
+This matches what sections 16–17 already showed: the RVOL≥N filter needs gap direction to separate the two populations, and this particular universe — gap-ups ≥5% — already selects the fade-prone population. The volume/txn gate is basically re-confirming what the gap filter already said.
+
+### 24c. Monthly P&L is noisy, not trending
+
+On the 1,118 days with at least one trade: 489 profitable (43.7%), 629 losing. Monthly gated P&L swings between -$8.9k (Feb 2025) and +$5.5k (May 2024); 7 up months, 6 down. No regime trend; the losses are chronic rather than concentrated.
+
+### 24d. Takeaways
+
+- **"End-of-day RVOL" is the wrong calibration target for a PnL system.** It identifies high-volume days, not profitable entries. Section 17 already established that gap direction is the switch between long/short profitability on high-RVOL days; a gate that ignores direction can't win.
+- **Precision guarantees are not PnL guarantees.** Hitting 80% precision on the calibration target produced PF 0.98 on real trades. The MiniZinc pipeline is solid mechanically (it did exactly what the model asked), but the target needs to be PnL-aligned, not RVOL-aligned, to matter for money.
+- **The gate does reduce drawdown usefully.** Baseline DD $69k → gated $21k is a 70% reduction with PF moving from 0.90 to 0.98. If combined with a directionally-correct signal, this kind of precision-tuned entry gate could still pay — but as a standalone it's not enough.
+- **The gap-up ≥5% universe is a loser on ORB long.** PF 0.90 ungated at 15k trades is a strong negative result on this cohort specifically. Compare to section 22c where gap-up RVOL≥3 was PF 2.27 — the difference is the RVOL prefilter, which this universe deliberately omits to keep the sweep unbiased.
