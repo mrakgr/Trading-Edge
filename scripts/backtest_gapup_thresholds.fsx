@@ -38,6 +38,7 @@ type CliArgs =
     | [<AltCommandLine("-t")>] Thresholds of string
     | [<AltCommandLine("-b")>] Trades_Bin of string
     | [<AltCommandLine("-o")>] Output of string
+    | End_Et of string
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -47,6 +48,7 @@ type CliArgs =
             | Thresholds _ -> "Per-bucket thresholds CSV from run_minizinc_sweep (ignored for baseline). Default: minizinc/thresholds_10s.csv"
             | Trades_Bin _ -> "Binary trade root. Default: data/trades_bin"
             | Output _ -> "Output JSON. Default: minizinc/backtest_{config}.json"
+            | End_Et _ -> "Optional HH:MM ET cutoff. Entries at or after this time are blocked (NaN'd in the threshold array). Example: --end-et 10:30"
 
 let parser = ArgumentParser.Create<CliArgs>(programName = "backtest_gapup_thresholds.fsx")
 let parsed =
@@ -66,6 +68,14 @@ let precisionPct =
     if m.Success then Int32.Parse(m.Groups.[1].Value) else 80
 let tradesBinRoot = parsed.GetResult(Trades_Bin, defaultValue = "data/trades_bin")
 let outPath = parsed.GetResult(Output, defaultValue = sprintf "minizinc/backtest_%s.json" configName)
+
+// Optional HH:MM ET cutoff. Parsed via TimeSpan.ParseExact and compared
+// against the CSV's `et` column directly — rows at or after this time get
+// NaN thresholds so the Pipeline gate blocks entries past the cutoff.
+let endEtOpt : TimeSpan voption =
+    match parsed.TryGetResult End_Et with
+    | None -> ValueNone
+    | Some s -> ValueSome (TimeSpan.ParseExact(s, @"h\:mm", CultureInfo.InvariantCulture))
 
 let isGated = configName <> "baseline"
 
@@ -95,19 +105,31 @@ let schedule : ThresholdSchedule =
         let maxBucket = 2700
         let arr = Array.create maxBucket (struct (Double.NaN, Double.NaN))
         let mutable nMatched = 0
+        let mutable nMaskedByEndEt = 0
         let lines = File.ReadAllLines thresholdsPath
         for i = 1 to lines.Length - 1 do  // skip header
             let parts = lines.[i].Split ','
             if parts.Length >= 5 then
                 let bucket = Int32.Parse(parts.[0], inv)
+                let et = TimeSpan.ParseExact(parts.[1], @"h\:mm", inv)
                 let pct = Int32.Parse(parts.[2], inv)
                 if pct = precisionPct && bucket >= 0 && bucket < maxBucket then
-                    let tv = Double.Parse(parts.[3], inv)
-                    let ta = Double.Parse(parts.[4], inv)
-                    arr.[bucket] <- struct (tv, ta)
-                    nMatched <- nMatched + 1
+                    let blockedByEndEt =
+                        match endEtOpt with
+                        | ValueSome endEt -> et >= endEt
+                        | ValueNone -> false
+                    if blockedByEndEt then
+                        nMaskedByEndEt <- nMaskedByEndEt + 1
+                    else
+                        let tv = Double.Parse(parts.[3], inv)
+                        let ta = Double.Parse(parts.[4], inv)
+                        arr.[bucket] <- struct (tv, ta)
+                        nMatched <- nMatched + 1
         printfn "Thresholds: %d rows (precision_pct=%d) from %s"
             nMatched precisionPct thresholdsPath
+        match endEtOpt with
+        | ValueSome endEt -> printfn "End-ET cutoff: %O — masked %d rows at/after that time" endEt nMaskedByEndEt
+        | ValueNone -> ()
         { BucketTicks = int64 (TimeSpan.FromSeconds(bucketSeconds).Ticks)
           Thresholds = arr }
 
@@ -221,16 +243,24 @@ let skipReasons =
     |> Seq.sortBy fst
     |> Array.ofSeq
 
+// All trade-level metrics are computed on NET PnL (after commissions) to match
+// the convention in TradingEdge.Orb.Program.fs's breakdown command. With this
+// choice PF, win_rate, and avg_win/avg_loss tie out exactly:
+//   PF = wr * avg_win / ((1 - wr) * |avg_loss|).
 let net = allTrips |> Array.sumBy (fun t -> t.PnL)
-let grossWins = allTrips |> Array.sumBy (fun t -> if t.PnL > 0.0 then t.PnL + t.Commission else 0.0)
-let grossLosses = allTrips |> Array.sumBy (fun t -> if t.PnL < 0.0 then -(t.PnL + t.Commission) else 0.0)
 let wins = allTrips |> Array.filter (fun t -> t.PnL > 0.0)
 let losses = allTrips |> Array.filter (fun t -> t.PnL < 0.0)
 let totalCommission = allTrips |> Array.sumBy (fun t -> t.Commission)
-let pf = if grossLosses > 0.0 then grossWins / grossLosses else infinity
+let sumWinsNet = wins |> Array.sumBy (fun t -> t.PnL)
+let sumLossesNet = losses |> Array.sumBy (fun t -> t.PnL) |> abs
+let pf = if sumLossesNet > 0.0 then sumWinsNet / sumLossesNet else infinity
 let winRate = if allTrips.Length > 0 then float wins.Length / float allTrips.Length else 0.0
-let avgWin = if wins.Length > 0 then (wins |> Array.sumBy (fun t -> t.PnL)) / float wins.Length else 0.0
-let avgLoss = if losses.Length > 0 then (losses |> Array.sumBy (fun t -> t.PnL)) / float losses.Length else 0.0
+let avgWin = if wins.Length > 0 then sumWinsNet / float wins.Length else 0.0
+let avgLoss = if losses.Length > 0 then -sumLossesNet / float losses.Length else 0.0
+// Keep gross_wins / gross_losses exposed in the JSON for comparison with
+// prior runs and for gross-PF calculation if ever needed.
+let grossWins = allTrips |> Array.sumBy (fun t -> if t.PnL > 0.0 then t.PnL + t.Commission else 0.0)
+let grossLosses = allTrips |> Array.sumBy (fun t -> if t.PnL < 0.0 then -(t.PnL + t.Commission) else 0.0)
 
 // Daily PnL series for Sharpe + DD
 let dailyPnL =

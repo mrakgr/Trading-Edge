@@ -556,17 +556,44 @@ Backtest run on `data/gap_up_universe_4w.json` (4,296 plays, every gap-up ≥5% 
 
 All numbers below are on the **fail-closed gate**: out-of-range bucket (pre-09:31 or post-15:58 ET, where the sweep has no thresholds) now blocks entries instead of passing them through. The old pass-through behavior was letting late-day trades fire unconstrained, dragging win rate and PF down by a material amount on every gated configuration.
 
-| | Baseline | rv=3.0 p80 | rv=4.0 p80 | rv=4.0 p90 | rv=6.0 p90 | rv=8.0 p90 |
+All trade-level metrics (PF, win_rate, avg_win/avg_loss) are computed on **net PnL** (after commissions), matching the convention in `TradingEdge.Orb.Program.fs`'s `breakdown` command. Under this convention `PF = win_rate × avg_win / ((1 − win_rate) × |avg_loss|)` holds exactly. Historical rows from the initial runs used a gross PF with net avg_win/avg_loss which didn't tie out — those numbers are superseded by the tables below.
+
+**Full-day window (09:31 → 15:58 ET):**
+
+| | Baseline | rv=3.0 p80 | rv=4.0 p80 | rv=4.0 p90 | rv=6.0 p90 | rv=8.0 p90 | mean rv=4.0 bp=10 |
+|---|---|---|---|---|---|---|---|
+| decisions | 6,330 | 2,264 | 1,460 | 1,138 | 456 | 194 | 262 |
+| round trips | 15,192 | 4,389 | 2,768 | 2,183 | 832 | 343 | 463 |
+| net PnL | -$67,464 | -$8,329 | -$3,352 | -$1,701 | **+$3,435** | +$2,175 | -$538 |
+| profit factor | 0.900 | 0.984 | 0.998 | 1.009 | 1.129 | **1.187** | 1.002 |
+| win rate | 34.7% | 40.1% | 39.3% | 39.4% | 39.1% | **44.0%** | 41.9% |
+| avg win / avg loss | — | $87.79 / -$59.69 | $99.16 / -$64.36 | $96.99 / -$62.39 | $116.23 / -$65.99 | $108.32 / -$71.77 | $113.80 / -$81.94 |
+| max drawdown | $69,333 | $20,845 | $14,823 | $12,778 | $8,484 | **$5,222** | $7,661 |
+| daily Sharpe | -1.53 | -0.48 | -0.26 | -0.17 | +0.52 | +0.47 | -0.10 |
+
+**Window capped at 10:30 ET (09:31 → 10:29):**
+
+| | rv=3.0 p80 | rv=4.0 p80 | rv=4.0 p90 | rv=6.0 p90 | rv=8.0 p90 | mean rv=4.0 bp=10 |
 |---|---|---|---|---|---|---|
-| decisions | 6,330 | 2,264 | 1,460 | 1,138 | 456 | 194 |
-| round trips | 15,192 | 4,389 | 2,768 | 2,183 | 832 | 343 |
-| net PnL | -$67,464 | -$8,329 | -$3,352 | -$1,701 | +$3,435 | +$2,175 |
-| profit factor | 0.900 | 0.984 | 0.998 | 1.009 | 1.129 | **1.187** |
-| win rate | 34.7% | 40.1% | 39.3% | 39.4% | 39.1% | **44.0%** |
-| avg win / avg loss | $72.53 / -$45.37 | $86.83 / -$61.24 | $98.23 / -$65.61 | $96.02 / -$63.58 | $115.22 / -$67.09 | $107.30 / -$73.06 |
-| max drawdown | $69,333 | $20,845 | $14,823 | $12,778 | $8,484 | **$5,222** |
-| daily Sharpe | -1.53 | -0.48 | -0.26 | -0.17 | +0.52 | +0.47 |
-| commissions | $24,050 | -- | -- | -- | -- | $401 |
+| decisions | 1,758 | 1,102 | 772 | 312 | 120 | 222 |
+| net PnL | -$11,553 | -$12,075 | -$8,890 | -$3,186 | -$1,078 | -$4,279 |
+| profit factor | 0.940 | 0.894 | 0.887 | 0.904 | 0.910 | 0.812 |
+| win rate | 38.8% | 35.7% | 35.9% | 35.1% | 33.2% | 34.3% |
+| avg win / avg loss | $101.89 / -$68.75 | $118.34 / -$73.59 | $121.20 / -$76.39 | $135.19 / -$80.90 | $139.73 / -$76.16 | $131.57 / -$84.72 |
+| max drawdown | $20,934 | $19,170 | $15,401 | $9,500 | $4,528 | $8,468 |
+| daily Sharpe | -0.80 | -1.00 | -0.95 | -0.55 | -0.26 | -0.83 |
+
+**Window capped at 10:00 ET (09:31 → 09:59):**
+
+| | rv=3.0 p80 | rv=4.0 p80 | rv=4.0 p90 | rv=6.0 p90 | rv=8.0 p90 | mean rv=4.0 bp=10 |
+|---|---|---|---|---|---|---|
+| decisions | 1,520 | 932 | 652 | 270 | 78 | 178 |
+| net PnL | -$11,237 | -$9,953 | -$10,956 | -$1,638 | +$206 | -$3,921 |
+| profit factor | 0.931 | 0.898 | 0.834 | 0.949 | 1.049 | 0.773 |
+| win rate | 38.6% | 36.3% | 35.1% | 37.3% | 36.8% | 32.3% |
+| avg win / avg loss | $105.44 / -$71.08 | $120.78 / -$76.55 | $124.62 / -$80.90 | $139.14 / -$87.03 | $159.39 / -$88.31 | $145.52 / -$89.69 |
+| max drawdown | $18,654 | $18,568 | $15,135 | $7,661 | $2,858 | $5,483 |
+| daily Sharpe | -0.84 | -0.91 | -1.27 | -0.30 | +0.06 | -0.85 |
 
 (Decisions count every entry/exit emitted by the system before the fill simulator chops them into partial fills. One intended round trip = 2 decisions. Round-trip count inflates by partial fills. Decisions are the correct activity proxy.)
 
@@ -604,7 +631,22 @@ Activity level drops from ~219 entries/year at rv=6.0 to **~93 entries/year** at
 
 ### 24b.5. Gate fail-closed fix
 
-Originally the gate passed on out-of-range buckets and NaN thresholds, on the theory that "no data" meant "no constraint." That was wrong — trades post-15:58 ET (bucket ≥ 2323 with the sweep's 09:31-anchored schedule) were firing unconstrained, and those trades were worse than average: the late-afternoon window has poor ORB signal with neither fresh catalyst nor a full session of price discovery ahead. Switching the fallback to "block on out-of-range / NaN" removes 31-39% of decisions (depending on config) and lifts every metric on every gated run. Re-running the ladder under the corrected gate produced the numbers in the table above.
+Originally the gate passed on out-of-range buckets and NaN thresholds, on the theory that "no data" meant "no constraint." That was wrong — trades post-15:58 ET (bucket ≥ 2323 with the sweep's 09:31-anchored schedule) were firing unconstrained, and those trades were worse than average: the late-afternoon window has poor ORB signal with neither fresh catalyst nor a full session of price discovery ahead. Switching the fallback to "block on out-of-range / NaN" removes 31-39% of decisions (depending on config) and lifts every metric on every gated run. Re-running the ladder under the corrected gate produced the numbers in the tables above.
+
+### 24b.6. The "first hour is where the edge lives" hypothesis is false
+
+The expectation going in was that ORB edge concentrates in the opening hour — whip volatility, fresh catalyst reaction, retail order flow. Capping the trading window at 10:30 or 10:00 ET should have preserved most of the edge at a fraction of the exposure. **Every config got worse under both cutoffs.** For the two profitable rungs:
+
+- **rv=6.0 p=90**: PF 1.129 → 0.904 (10:30) → 0.949 (10:00); net +$3,435 → −$3,186 → −$1,638.
+- **rv=8.0 p=90**: PF 1.187 → 0.910 (10:30) → 1.049 (10:00); net +$2,175 → −$1,078 → +$206.
+
+The 74 rv=8.0 decisions between 10:30 and 15:58 contributed **+$3,253** net on their own (the full-day result minus the 10:30 result). They were not just carrying weight — they were carrying the *system*.
+
+Mechanism hypothesis (to verify later): on gap-up days the first hour is dominated by two competing flows — algorithmic VWAP reversion against the gap, and retail catalyst-chase buying. Those forces cancel and the range is whippy. By 10:30 the VWAP pressure exhausts (institutional positions set for the day) and whichever side has catalyst backing gets room to run. High-rvol gates, by construction, pick days with real catalyst backing — so their post-10:30 firings catch the clean leg.
+
+This contradicts common retail wisdom ("trade the open") but is consistent with sections 22 and 23 (post-open continuation systems with volume confirmation have strong edges). The calibration universe for this section is gap-ups ≥5%, which is a directionally-biased population to begin with — the gate is finding the subset where bias wins, and that win plays out *after* the whipsaw.
+
+Practical implication: **do not constrain the active window for this gate**. The whole session matters. If anything, a 10:30 *start* might be worth testing (block the whipsaw, keep the continuation) — left as a future experiment.
 
 ### 24c. Custom solver — deferred
 

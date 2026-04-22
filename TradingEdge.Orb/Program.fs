@@ -116,6 +116,43 @@ let stopModeLabel (sm: StopMode) =
     | StopAtRange -> "rangeLo"
     | StopNever -> "none"
 
+/// Load a (Tv, Ta) threshold schedule from a sweep CSV. Picks whichever
+/// precision_pct is in the first data row and uses only rows matching it
+/// (every sweep CSV we produce currently has one precision per file).
+let loadSchedule (csvPath: string) (bucketSeconds: float) : ThresholdSchedule =
+    let inv = Globalization.CultureInfo.InvariantCulture
+    let maxBucket = 2700
+    let arr = Array.create maxBucket (struct (Double.NaN, Double.NaN))
+    let lines = File.ReadAllLines csvPath
+    if lines.Length < 2 then failwithf "loadSchedule: %s has no data rows" csvPath
+    let firstPct = Int32.Parse((lines.[1].Split ',').[2], inv)
+    let mutable nMatched = 0
+    for i = 1 to lines.Length - 1 do
+        let parts = lines.[i].Split ','
+        if parts.Length >= 5 then
+            let bucket = Int32.Parse(parts.[0], inv)
+            let pct = Int32.Parse(parts.[2], inv)
+            if pct = firstPct && bucket >= 0 && bucket < maxBucket then
+                let tv = Double.Parse(parts.[3], inv)
+                let ta = Double.Parse(parts.[4], inv)
+                arr.[bucket] <- struct (tv, ta)
+                nMatched <- nMatched + 1
+    printfn "Thresholds: %d rows (precision_pct=%d) from %s" nMatched firstPct csvPath
+    { BucketTicks = int64 (TimeSpan.FromSeconds(bucketSeconds).Ticks); Thresholds = arr }
+
+/// Build a per-day ThresholdGate. Returns ValueNone if the header lacks 4w
+/// meta (those days must be skipped in a gated run to match what would
+/// happen live).
+let buildGate (schedule: ThresholdSchedule) (header: DayHeader) : ThresholdGate voption =
+    if System.Double.IsNaN header.RawAvg4w || System.Double.IsNaN header.TxnAvg4w then ValueNone
+    else
+        ValueSome {
+            Schedule = schedule
+            StartTicks = header.BaseTicks + int64 (TimeSpan.FromHours(Timezone.startHoursFromBase).Ticks)
+            RawAvg4w = header.RawAvg4w
+            TxnAvg4w = header.TxnAvg4w
+        }
+
 let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
     let bench(d : DayData, ctx : SinkContext) =
         let seg, vs, td, ell, fs, tf = configure d.Header defaultBucketSeconds fillPercentile stopMode ValueNone
@@ -159,7 +196,7 @@ let runBenchmark (dayData: DayData[]) (totalTrades: int64) =
         sw.Elapsed.TotalSeconds ctx.BarCount ctx.DecisionCount ctx.FillCount ctx.Sink
         ((float totalTrades / sw.Elapsed.TotalSeconds).ToString("N0"))
 
-let runFillBreakdown (dayData: DayData[]) (bucketSeconds: float) fillPercentile (entryMode: EntryMode) (stopMode: StopMode) (direction: Direction) =
+let runFillBreakdown (dayData: DayData[]) (bucketSeconds: float) fillPercentile (entryMode: EntryMode) (stopMode: StopMode) (direction: Direction) (schedule: ThresholdSchedule voption) =
     let logPath = "logs/fill_breakdown.log"
     Directory.CreateDirectory(Path.GetDirectoryName logPath) |> ignore
     use logWriter = new StreamWriter(logPath, false)
@@ -168,6 +205,7 @@ let runFillBreakdown (dayData: DayData[]) (bucketSeconds: float) fillPercentile 
 
     tee "=== ORB System Fill Breakdown ==="
     tee "direction: %A  entryMode: %A  stopMode: %s" direction entryMode (stopModeLabel stopMode)
+    tee "gate: %s" (match schedule with ValueSome _ -> "ThresholdSchedule (see above)" | ValueNone -> "none")
     tee "bucketSeconds: %.2f  entryDelay: %.1fs" bucketSeconds entryDelaySeconds
     tee "Position size: $%.0f  referenceVol: %.4g  lossLimit: infinity"
         positionSize (match referenceVol with ValueSome v -> v | _ -> 0.0)
@@ -177,7 +215,11 @@ let runFillBreakdown (dayData: DayData[]) (bucketSeconds: float) fillPercentile 
 
     let dayResults =
         [| for d in dayData do
-            let seg, vs, td, ell, fs, tf = configure d.Header bucketSeconds fillPercentile stopMode ValueNone
+            let gate =
+                match schedule with
+                | ValueSome sch -> buildGate sch d.Header
+                | ValueNone -> ValueNone
+            let seg, vs, td, ell, fs, tf = configure d.Header bucketSeconds fillPercentile stopMode gate
             vs.EntryMode <- entryMode
             vs.Direction <- direction
             let onFillSink (_: Fill) = ()
@@ -539,6 +581,7 @@ type BreakdownArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
     | [<AltCommandLine("-s")>] Seconds of float
     | [<AltCommandLine("-p")>] Percentile of float
+    | [<AltCommandLine("-t")>] Thresholds of string
     | Buy_At_Open
     | Short
 
@@ -548,6 +591,7 @@ type BreakdownArgs =
             | Input _ -> "Input JSON with [{ticker, date}] entries (e.g. data/breakdown_2k.json)"
             | Seconds _ -> sprintf "Time-bar bucket length in seconds (default: %.1f)" defaultBucketSeconds
             | Percentile _ -> "The target percentile to buy down in a bar (e.g. 0.05)"
+            | Thresholds _ -> "Optional per-bucket (Tv, Ta) CSV from run_minizinc_sweep. If omitted the system runs ungated."
             | Buy_At_Open -> "Baseline: enter on first AfterOpeningPrint bar with StopNever (measures dataset directional bias)"
             | Short -> "Short-side mirror: enter on range-low break, stop at range-high"
 
@@ -592,8 +636,12 @@ let main argv =
                 else RangeBreakout, stopMode
             let direction = if args.Contains <@ BreakdownArgs.Short @> then Direction.Short else Direction.Long
             let bucketSeconds = args.TryGetResult <@ BreakdownArgs.Seconds @> |> Option.defaultValue defaultBucketSeconds
+            let schedule =
+                match args.TryGetResult <@ BreakdownArgs.Thresholds @> with
+                | Some csv -> ValueSome (loadSchedule csv bucketSeconds)
+                | None -> ValueNone
             let dayData, _ = loadDayData input
-            runFillBreakdown dayData bucketSeconds percentile entryMode stopMode direction
+            runFillBreakdown dayData bucketSeconds percentile entryMode stopMode direction schedule
         | Trade_Breakdown args ->
             let input = args.GetResult <@ BreakdownArgs.Input @>
             let entryMode, stopMode =
