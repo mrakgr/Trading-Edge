@@ -554,19 +554,21 @@ Per-bucket (volume-ratio, transaction-ratio) thresholds calibrated via MiniZinc 
 
 Backtest run on `data/gap_up_universe_4w.json` (4,296 plays, every gap-up ≥5% over 2024-04-01 → 2025-04-17 with valid `session_volume_4w` 4w averages). ORB long, 10s time bars, rangeLo stop, fill-sim, $0.005/share commission.
 
-| | Baseline (no gate) | Gated (p80_t30) |
-|---|---|---|
-| decisions | 6,330 | 2,328 |
-| round trips | 15,192 | 4,541 |
-| net PnL | -$67,464 | -$8,745 |
-| profit factor | 0.900 | 0.982 |
-| win rate | 34.7% | 39.0% |
-| avg win / avg loss | $72.53 / -$45.37 | $86.20 / -$58.32 |
-| max drawdown | $69,333 | $21,197 |
-| daily Sharpe | -1.53 | -0.51 |
-| commissions | $24,050 | $5,951 |
+| | Baseline (no gate) | Gated (rv=3.0, p80) | Gated (rv=4.0, p80) |
+|---|---|---|---|
+| decisions | 6,330 | 2,328 | 1,546 |
+| round trips | 15,192 | 4,541 | 2,973 |
+| net PnL | -$67,464 | -$8,745 | -$3,849 |
+| profit factor | 0.900 | 0.982 | 0.995 |
+| win rate | 34.7% | 39.0% | 37.8% |
+| avg win / avg loss | $72.53 / -$45.37 | $86.20 / -$58.32 | $95.14 / -$59.91 |
+| max drawdown | $69,333 | $21,197 | $14,893 |
+| daily Sharpe | -1.53 | -0.51 | -0.30 |
+| commissions | $24,050 | $5,951 | $3,353 |
 
-(Decisions count every entry/exit emitted by the system before the fill simulator chops them into partial fills. One intended round trip = 2 decisions. Round-trip count inflates by partial fills — each pair of matched fills counts — so `round_trips / decisions` varies by fill regime: 2.40 baseline vs 1.95 gated. Decisions are the correct activity proxy.)
+(Decisions count every entry/exit emitted by the system before the fill simulator chops them into partial fills. One intended round trip = 2 decisions. Round-trip count inflates by partial fills — each pair of matched fills counts — so `round_trips / decisions` varies by fill regime: 2.40 baseline vs 1.95 / 1.92 gated. Decisions are the correct activity proxy.)
+
+Raising the calibration target from `session RVOL ≥ 3.0` to `≥ 4.0` (with `int_scale` coarsened 1024 → 256 for a 2.8× solve speedup at no quality cost) tightens the Tv threshold meaningfully: median Tv jumps from 1.71× to 2.34× (+37%), median bucket firings drop 51% (5496 → 2701), and decisions halve again (2328 → 1546, ~740 entries/year). PF climbs 0.982 → 0.995 — within 0.5% of break-even — and max drawdown drops another 30%. The gate keeps converging toward profitability as the target tightens, but commissions remain a meaningful drag relative to per-trade PnL. Still PnL-misaligned: 37.8% win rate × $95/$60 payoff ratio stays below break-even.
 
 ### 24a. The gate works directionally but doesn't clear break-even
 
