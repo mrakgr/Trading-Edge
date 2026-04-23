@@ -124,27 +124,32 @@ COPY (
         sw.Stop()
         struct (tickers.Length, nWritten, nSkipped, sw.Elapsed.TotalSeconds)
 
+printfn "Parallelism: %d" parallelism
+
 let overallSw = Diagnostics.Stopwatch.StartNew()
+let nDates = byDate.Length
+let mutable nDone = 0
+let mutable totalNeeded = 0
+let mutable totalWritten = 0
+let mutable totalSkipped = 0
+let logLock = obj()
 
-let results =
-    byDate
-    |> Array.Parallel.map (fun (date, xs) ->
-        let tickers =
-            xs
-            |> Array.map (fun s -> s.Ticker)
-            |> Array.distinct
-        let struct (nNeeded, nWritten, nSkipped, elapsed) = shardOneDate date tickers
-        date, nNeeded, nWritten, nSkipped, elapsed)
-
-let totalNeeded = results |> Array.sumBy (fun (_, n, _, _, _) -> n)
-let totalWritten = results |> Array.sumBy (fun (_, _, w, _, _) -> w)
-let totalSkipped = results |> Array.sumBy (fun (_, _, _, s, _) -> s)
+let opts = System.Threading.Tasks.ParallelOptions(MaxDegreeOfParallelism = parallelism)
+System.Threading.Tasks.Parallel.ForEach(byDate, opts, fun (date, xs) ->
+    let tickers = xs |> Array.map (fun s -> s.Ticker) |> Array.distinct
+    let struct (nNeeded, nWritten, nSkipped, elapsed) = shardOneDate date tickers
+    lock logLock (fun () ->
+        nDone <- nDone + 1
+        totalNeeded <- totalNeeded + nNeeded
+        totalWritten <- totalWritten + nWritten
+        totalSkipped <- totalSkipped + nSkipped
+        let wall = overallSw.Elapsed.TotalSeconds
+        let eta = wall * float (nDates - nDone) / float (max 1 nDone)
+        printfn "[%d/%d] %s  %3d tickers (%3d written, %3d skipped)  %.1fs  | wall=%.0fs eta=%.0fs"
+            nDone nDates date nNeeded nWritten nSkipped elapsed wall eta)
+) |> ignore
 
 overallSw.Stop()
-printfn ""
-for (date, n, w, s, elapsed) in results do
-    if w > 0 then
-        printfn "  %s  %3d tickers  (%3d written, %3d skipped)  %.1fs" date n w s elapsed
 printfn ""
 printfn "Done. needed=%d written=%d skipped=%d in %.1fs"
     totalNeeded totalWritten totalSkipped overallSw.Elapsed.TotalSeconds
