@@ -29,6 +29,8 @@ type CliArgs =
     | [<AltCommandLine("-d")>] Database of string
     | [<AltCommandLine("-o")>] Output of string
     | [<AltCommandLine("-g")>] Min_Gap_Pct of float
+    | [<AltCommandLine("-s")>] Start_Date of string
+    | [<AltCommandLine("-e")>] End_Date of string
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -36,6 +38,8 @@ type CliArgs =
             | Database _ -> "DuckDB path. Default: data/trading.db"
             | Output _ -> "Output JSON path. Default: data/gap_up_universe.json"
             | Min_Gap_Pct _ -> "Minimum gap_pct as a decimal (e.g. 0.05 = 5%). Default: 0.05"
+            | Start_Date _ -> "First date (yyyy-MM-dd, inclusive). Default: min date in session_daily_totals."
+            | End_Date _ -> "Last date (yyyy-MM-dd, inclusive). Default: max date in session_daily_totals."
 
 let parser = ArgumentParser.Create<CliArgs>(programName = "generate_gap_up_universe.fsx")
 let parsed =
@@ -47,11 +51,27 @@ let parsed =
 let db = parsed.GetResult(Database, defaultValue = "data/trading.db")
 let outPath = parsed.GetResult(Output, defaultValue = "data/gap_up_universe.json")
 let minGapPct = parsed.GetResult(Min_Gap_Pct, defaultValue = 0.05)
+let startDateOpt = parsed.TryGetResult Start_Date
+let endDateOpt = parsed.TryGetResult End_Date
 
 let conn = new DuckDBConnection(sprintf "Data Source=%s;ACCESS_MODE=READ_ONLY" db)
 conn.Open()
 
 let minGapStr = minGapPct.ToString("R", CultureInfo.InvariantCulture)
+
+// Start/end bounds default to the full session_daily_totals range; when the
+// caller supplies either one we override the corresponding edge. Interpolated
+// as DATE literals directly into SQL — we control the input shape, and
+// DuckDB's DATE parser rejects anything malformed.
+let startBoundSql =
+    match startDateOpt with
+    | Some s -> $"DATE '{s}'"
+    | None -> "(SELECT MIN(date) FROM session_daily_totals)"
+let endBoundSql =
+    match endDateOpt with
+    | Some e -> $"DATE '{e}'"
+    | None -> "(SELECT MAX(date) FROM session_daily_totals)"
+
 // Emits the 4w metadata needed by the binary header writer
 // (TradingEdge.Orb.Convert): raw_avg_4w = avg_session_adj_volume_4w /
 // split_factor_today, txn_avg_4w = avg_session_transactions_4w, and
@@ -65,9 +85,6 @@ WITH priced AS (
         ticker, date, open,
         LAG(close) OVER (PARTITION BY ticker ORDER BY date) AS prior_close
     FROM daily_prices
-),
-date_range AS (
-    SELECT MIN(date) AS min_d, MAX(date) AS max_d FROM session_daily_totals
 )
 SELECT
     p.ticker,
@@ -81,13 +98,17 @@ FROM priced p
 JOIN ticker_reference tr ON tr.ticker = p.ticker AND tr.type IN ('CS', 'ADRC')
 JOIN stock_volume_4w sd ON sd.ticker = p.ticker AND sd.date = p.date
 LEFT JOIN session_volume_4w sv ON sv.ticker = p.ticker AND sv.date = p.date
-CROSS JOIN date_range d
 WHERE p.prior_close > 0
   AND p.open / p.prior_close - 1.0 >= {minGapStr}
   AND sd.avg_dollar_volume_4w >= 25000000.0
-  AND p.date >= d.min_d AND p.date <= d.max_d
+  AND p.date >= {startBoundSql}
+  AND p.date <= {endBoundSql}
 ORDER BY p.date, p.ticker
 """
+
+printfn "Date range: %s .. %s"
+    (startDateOpt |> Option.defaultValue "(min session_daily_totals)")
+    (endDateOpt |> Option.defaultValue "(max session_daily_totals)")
 
 printfn "Querying gap-up universe..."
 let sw = Diagnostics.Stopwatch.StartNew()

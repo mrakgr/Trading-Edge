@@ -654,7 +654,46 @@ A hand-rolled iterated local search solver at [scripts/sweep_thresholds_local.fs
 
 Spot check on b1140: matched MiniZinc's n_fired exactly (2038) and found a *better* (smaller) Ta than MZ's old max-Ta output (Ta=0 vs Ta=0.207). Full sweep at default `moveScale=Tmax/16=64` missed optima on 472 / 2323 buckets (typical miss 5 rows = 0.24% of n_fired) — local minima at the Ta=0 axis because the better corner was `(Tv-7, Ta+110)` and +110 exceeds the 64-radius neighbourhood. `moveScale=256 (Tmax/4)` fixes it at ~6s per bucket (vs 0.22s at radius 64, 14s for MiniZinc) — still ~2.5× faster than MiniZinc. Deferred for now; ready to use when we want more iteration velocity on the gate experiments.
 
-### 24d. Still to do
+## 25. Drop MiniZinc — compute (Tv, Ta) by upper-tail quantiles of (vr, tr) directly (2026-04-23)
 
-- Tighter ladder: rv=10 next (likely flattening but one more rung is cheap to try).
-- Once we find the operating point, union the universe with continuation plays (close-up ≥5% on rvol ≥ 3 seeds, volume-80% chain rule) to raise opportunity count.
+The MiniZinc calibration pipeline is solving a picking problem — given a precision target, find the loosest thresholds that hit it. But the precision target is a proxy: we want thresholds that are tight enough that the remaining rows are atypical (real conviction), and loose enough to fire on enough days to matter. That's a *quantile* question, not an *optimization* question. Writing it as a CP-SAT problem makes the grid sweep cost hours to explore a handful of cells; a direct quantile computation covers 2,323 buckets × 36 cells in 48 seconds.
+
+Implementation at [scripts/sweep_thresholds_quantile.fsx](scripts/sweep_thresholds_quantile.fsx). For each bucket's DZN file, sort vr and tr descending, pick `Tv = vr[floor(X · n)]` and `Ta = tr[floor(Y · n)]`, then count fires and hits exactly the way the MiniZinc model does. Grid: `X ∈ {0.01%, 0.02%, 0.05%, 0.1%, 0.2%, 0.5%, 1%, 2%, 5%}` (9 cells, ~2× steps) × `Y ∈ {1%, 2.5%, 5%, 10%}` (4 cells). `precision_pct` in the output CSV encodes the cell as `Xbp·1000 + Ybp` so the backtest script reads it unchanged.
+
+### 25a. Full grid on the gap-up universe (training, 2024-04-01 → 2025-04-17)
+
+| X (vol tail) | Y=1% | Y=2.5% | Y=5% | Y=10% |
+|---|---|---|---|---|
+| 5%   (500bp) | PF 0.927 / −$13,521 / 2180 dec | PF 0.964 / −$8,809 / 3302 dec | PF 0.957 / −$11,448 / 3726 dec | PF 0.966 / −$9,125 / 3858 dec |
+| 2%   (200bp) | PF 0.946 / −$8,522 / 1946 dec | PF 0.943 / −$10,495 / 2536 dec | PF 0.941 / −$10,995 / 2604 dec | PF 0.939 / −$11,371 / 2608 dec |
+| 1%   (100bp) | PF 0.992 / −$958 / 1534 dec | PF 1.007 / +$884 / 1698 dec | PF 1.006 / +$700 / 1704 dec | PF 1.007 / +$851 / 1704 dec |
+| 0.5% (50bp)  | PF 0.951 / −$3,799 / 992 dec | PF 0.946 / −$4,210 / 1004 dec | PF 0.941 / −$4,644 / 1008 dec | PF 0.941 / −$4,635 / 1008 dec |
+| 0.2% (20bp)  | **PF 1.156 / +$5,175 / 438 dec** | **PF 1.157 / +$5,214 / 440 dec** | **PF 1.157 / +$5,214 / 440 dec** | **PF 1.157 / +$5,214 / 440 dec** |
+| 0.1% (10bp)  | PF 0.935 / −$1,253 / 232 dec | PF 0.935 / −$1,253 / 232 dec | PF 0.935 / −$1,253 / 232 dec | PF 0.935 / −$1,253 / 232 dec |
+| 0.05% (5bp)  | PF 1.062 / +$582 / 106 dec | PF 1.062 / +$582 / 106 dec | PF 1.062 / +$582 / 106 dec | PF 1.062 / +$582 / 106 dec |
+| 0.02% (2bp)  | PF 1.393 / +$1,070 / 42 dec | PF 1.393 / +$1,070 / 42 dec | PF 1.393 / +$1,070 / 42 dec | PF 1.393 / +$1,070 / 42 dec |
+| 0.01% (1bp)  | PF 2.054 / +$1,258 / 20 dec | PF 2.054 / +$1,258 / 20 dec | PF 2.054 / +$1,258 / 20 dec | PF 2.054 / +$1,258 / 20 dec |
+
+### 25b. The Y dimension collapses at X ≤ 0.1%
+
+Below X=0.1% the Y dimension is inert — all four Y values produce identical decision counts. At those tight volume cuts the surviving rows already satisfy any reasonable transaction threshold, so Ta isn't binding. The volume tail *is* the signal.
+
+### 25c. Only one cell has real, non-tiny edge
+
+The sweep produces exactly one operating point with both a material PF and a non-tiny sample: **X=0.2% (20bp)** — PF 1.157, +$5,214 net, 440 decisions, win rate 39.7%. For comparison, the best MiniZinc calibration (`rv=8.0 p=90` full-day) was PF 1.187 on 194 decisions for +$2,175 net. The 20bp quantile cell has **comparable PF on 2.3× the decisions and 2.4× the net dollars** — a better operating point.
+
+The very-tight cells (X ≤ 0.05%) show higher PF (1.4–2.1), but on 20–106 decisions over a three-year training window — roughly ten trades per year at X=0.01%. PF is sample-size-sensitive at that count and the dollar profit doesn't justify the infrastructure. These are not tradeable edges, they're curiosities.
+
+### 25d. The X=0.1% inversion is suspicious
+
+Between X=0.05% (PF 1.062, 106 dec) and X=0.2% (PF 1.157, 440 dec), X=0.1% comes in at PF 0.935 on 232 decisions. That's a sample-size-driven dip, not a structural property — doubling from 106 to 232 adds 126 decisions that happened to be net losers during this window. Noise, not signal. Called out so we don't over-read the pattern.
+
+### 25e. Does gap-up trading have edge?
+
+The full grid's answer is: marginally, in a narrow pocket. X=0.2% fires ~150 times/year and produces ~$1,700/year net at $30K per position. That's real edge but shallow — roughly 5.7% annualized return on capital deployed (ignoring idle cash), not enough to run a system on its own. The tight cells have better PF but ~10 trades/year, which isn't statistically testable and isn't economically meaningful.
+
+Before drawing harder conclusions, the 20bp cell needs to be validated on out-of-sample data. If PF 1.16 survives validation, it's a real (if small) edge. If it collapses, gap-up-only is dead and the path forward is continuations.
+
+### 25f. Next: validation
+
+Both the surviving 20bp quantile cell and the best MiniZinc calibrations (`rv=6.0 p=90`, `rv=8.0 p=90`) need to be tested on held-out data (2025-04-18 → 2026-04-17). That requires building the validation set — see [docs/bulk_to_binary_pipeline.md](bulk_to_binary_pipeline.md) for the conversion chain.

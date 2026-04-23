@@ -121,7 +121,9 @@ into `data/trades/{Ticker}/{Date}.parquet` — the narrow per-ticker format
 that `TradingEdge.Orb.TradeLoader` expects.
 
 ```bash
-# 1. Generate the setup list (reads the DB, emits JSON)
+# 1. Generate the setup list (reads the DB, emits JSON).
+#    --start-date / --end-date clip to a sub-window; omit them for the full
+#    session_daily_totals range.
 dotnet fsi scripts/generate_gap_up_universe.fsx -- \
     -o data/gap_up_universe.json
 
@@ -165,8 +167,9 @@ dotnet fsi scripts/conversion/build_10s_cum.fsx -- \
 # 3. Make sure daily_prices / splits / tickers cover the window, then rematerialize
 dotnet run --project TradingEdge.Massive -- ingest-data
 
-# 4. Emit the validation setup list
+# 4. Emit the validation setup list (clipped to the validation window)
 dotnet fsi scripts/generate_gap_up_universe.fsx -- \
+    --start-date $WINDOW_START --end-date $WINDOW_END \
     -o data/gap_up_universe_validation.json
 
 # 5. Shard + convert
