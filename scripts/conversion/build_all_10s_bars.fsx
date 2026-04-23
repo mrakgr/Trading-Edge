@@ -1,4 +1,4 @@
-#r "../TradingEdge.Orb/bin/Release/net10.0/TradingEdge.Orb.dll"
+#r "../../TradingEdge.Orb/bin/Release/net10.0/TradingEdge.Orb.dll"
 #r "nuget: DuckDB.NET.Data.Full, 1.4.4"
 #r "nuget: Argu, 6.2.5"
 
