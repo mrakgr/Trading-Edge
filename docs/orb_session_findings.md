@@ -697,3 +697,49 @@ Before drawing harder conclusions, the 20bp cell needs to be validated on out-of
 ### 25f. Next: validation
 
 Both the surviving 20bp quantile cell and the best MiniZinc calibrations (`rv=6.0 p=90`, `rv=8.0 p=90`) need to be tested on held-out data (2025-04-18 → 2026-04-17). That requires building the validation set — see [docs/bulk_to_binary_pipeline.md](bulk_to_binary_pipeline.md) for the conversion chain.
+
+## 26. Validation run — the gap-up edge does not survive out of sample (2026-04-23)
+
+Validation universe: 6128 gap-up plays over 2025-04-18 → 2026-04-17 (250 trading days, ~25/day median — roughly 45% more setups per day than training, partly from three broad-market shock days of 500/422/237 gap-ups and partly from a genuine baseline regime shift). Same gate on entry, same fill sim, same $0.005/share commission. Pipeline build documented in [docs/bulk_to_binary_pipeline.md](bulk_to_binary_pipeline.md).
+
+### 26a. Comparison table (training ← → validation)
+
+Quantile configs run at Y=2.5% (the Y dimension collapses at tight X, so Y choice is inert). MiniZinc configs use the existing tightening ladder.
+
+| Config | Train PF | Train net | Train dec | **Val PF** | **Val net** | **Val dec** | Verdict |
+|---|---|---|---|---|---|---|---|
+| q20bp / Y=2.5% | 1.157 | +$5,214 | 440 | **1.015** | **+$562** | 484 | Edge gone |
+| q10bp / Y=2.5% | 0.935 | −$1,253 | 232 | 0.859 | −$3,000 | 248 | Still bad |
+| q5bp / Y=2.5% | 1.062 | +$582 | 106 | 1.138 | +$1,200 | 110 | Held, but 110 dec/yr is underpowered |
+| q2bp / Y=2.5% | 1.393 | +$1,070 | 42 | 0.882 | −$341 | 52 | Reverted to noise |
+| q1bp / Y=2.5% | 2.054 | +$1,258 | 20 | 0.521 | −$1,580 | 32 | Reverted to noise |
+| MZ rv=6.0 p=90 | 1.129 | +$3,435 | 378 | 1.010 | +$378 | 512 | Edge gone |
+| MZ rv=8.0 p=90 | **1.187** | +$2,175 | 194 | **1.094** | **+$1,415** | 222 | Partial hold |
+
+### 26b. The flagship 20bp cell collapsed
+
+Training's best "real" operating point (PF 1.157, +$5,214 net on 440 decisions) came back at PF 1.015, +$562 net on 484 decisions. That's not "slight degradation" — that's commissions eating the entire edge. The sample size even increased (validation is more gap-up-dense), so this is not a statistical artifact. The 20bp cut-off was overfit to training — tight enough to look profitable on 440 specific days, not structural enough to generalize.
+
+### 26c. MiniZinc rv=8.0 p=90 held up best
+
+Of the seven configs tested, only `mz_rv80_p90` posted a validation PF above 1.05 on a sample size that isn't tiny. Drop from training PF 1.187 → 1.094 is real (≈8% PF compression) but it survived. At 222 decisions/year and +$1,415 net, that's ~$1,400/year on $30K position — call it 4–5% annualized on capital-at-work, ignoring idle.
+
+Hypothesis for why MiniZinc generalized slightly better than quantiles: the precision target acts as a regularizer. The 90th-percentile constraint forces the thresholds to be loose enough that many independent days contribute to the "hit" count, which is a mild smoothness penalty. A pure quantile cut has no such constraint — the 20bp picks whatever the single tightest cut is in each bucket, which is easier to overfit to local noise.
+
+### 26d. The X=5bp quantile was the surprise
+
+It went from PF 1.062 (training) to PF 1.138 (validation), *improving* out of sample. That's the opposite pattern of every other cell and should be treated with suspicion. Most likely explanation: 106 → 110 decisions is so few trades that PF is dominated by 2–3 big days. Not a trustworthy signal — treat it as noise unless a much larger sample ever agrees.
+
+### 26e. Conclusion: gap-up ORB as a standalone system is dead
+
+The honest read of the validation table:
+
+- No config with a meaningful decision count (> 200/year) posted a validation PF above 1.10.
+- The best survivor (`rv=8.0 p=90`) nets $1,400/year — a hobby, not a system.
+- "Going tighter" (higher rvol, stricter quantile) doesn't rescue this — the tight-tail cells (2bp, 1bp, plus rv=8.0 at 222 dec) show the same PF-fade-with-sample-growth pattern that the training set hinted at: the edge is a mirage that thins as you average over more data.
+
+What does this tell us? Gap-up ≥5% is not, on its own, a structural edge under ORB. The population has too much noise and too little systematic bias once you get past the survivorship filter of a manual chart review.
+
+### 26f. Next: move to HMM / regime detection
+
+Rather than hunt for a narrower setup population under the same ORB trigger (e.g. continuations — close-up ≥5% on rvol ≥3 seeds with the 80% volume-chain rule), the conclusion from this line of work is that the ORB trigger itself is underpowered as a standalone edge source on any breakout-family population we've tested. Tightening the setup funnel does not rescue a weak trigger. Future work moves to regime/state-based approaches (HMMs) — a structurally different model of when the market offers edge, not another variation on the same threshold-calibration theme.
