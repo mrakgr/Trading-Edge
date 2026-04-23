@@ -32,6 +32,7 @@ type CliArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
     | [<AltCommandLine("-e")>] End_Date of string
     | [<AltCommandLine("-n")>] Limit of int
+    | [<AltCommandLine("-j")>] Parallelism of int
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -39,6 +40,7 @@ type CliArgs =
             | Start_Date _ -> "First date to build (yyyy-MM-dd, inclusive). Default: earliest available trades file."
             | End_Date _ -> "Last date to build (yyyy-MM-dd, inclusive). Default: latest available trades file."
             | Limit _ -> "Cap on the number of days built this run (applied after date filter). Default: no cap."
+            | Parallelism _ -> "Number of days to process in parallel. Each inner DuckDB scan is multithreaded too — oversubscribing slows total throughput on /mnt/d. Default: 2."
 
 let parser = ArgumentParser.Create<CliArgs>(programName = "build_all_10s_bars.fsx")
 let cliArgs = fsi.CommandLineArgs |> Array.skip 1
@@ -51,6 +53,7 @@ let parsed =
 let startDateOpt = parsed.TryGetResult Start_Date
 let endDateOpt = parsed.TryGetResult End_Date
 let limitOpt = parsed.TryGetResult Limit
+let parallelism = parsed.GetResult(Parallelism, defaultValue = 2)
 
 let tradesDir = "data/bulk/trades"
 let outDir = "data/bulk/intraday_10s"
@@ -178,19 +181,27 @@ printfn "to process this run:       %d" todo.Length
 if todo.Length = 0 then
     printfn "Nothing to do."
 else
+    printfn "parallelism:               %d" parallelism
     let outerSw = Diagnostics.Stopwatch.StartNew()
     let mutable totalSeconds = 0.0
-    for i = 0 to todo.Length - 1 do
-        let date = todo.[i]
+    let mutable doneCount = 0
+    let logLock = obj()
+    let opts = System.Threading.Tasks.ParallelOptions(MaxDegreeOfParallelism = parallelism)
+    System.Threading.Tasks.Parallel.ForEach(todo, opts, fun (date: string) ->
         try
             let elapsed = buildOne date
-            totalSeconds <- totalSeconds + elapsed
             let outSize = FileInfo(Path.Combine(outDir, $"{date}.parquet")).Length
-            printfn "[%d/%d] %s  %.1fs  out=%.1f MB"
-                (i + 1) todo.Length date elapsed (float outSize / 1e6)
+            lock logLock (fun () ->
+                doneCount <- doneCount + 1
+                totalSeconds <- totalSeconds + elapsed
+                printfn "[%d/%d] %s  %.1fs  out=%.1f MB"
+                    doneCount todo.Length date elapsed (float outSize / 1e6))
         with ex ->
-            printfn "[%d/%d] %s  FAILED: %s" (i + 1) todo.Length date ex.Message
+            lock logLock (fun () ->
+                doneCount <- doneCount + 1
+                printfn "[%d/%d] %s  FAILED: %s" doneCount todo.Length date ex.Message)
+    ) |> ignore
     outerSw.Stop()
     printfn ""
-    printfn "Processed %d days in %.1fs (avg %.2fs/day)"
-        todo.Length totalSeconds (totalSeconds / float todo.Length)
+    printfn "Processed %d days in %.1fs wall (%.1fs CPU, avg %.2fs/day CPU)"
+        todo.Length outerSw.Elapsed.TotalSeconds totalSeconds (totalSeconds / float todo.Length)
