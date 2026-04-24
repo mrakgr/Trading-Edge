@@ -179,15 +179,6 @@ dotnet run --project TradingEdge.Orb -- convert \
     -i data/gap_up_universe_validation.json
 ```
 
-Then backtest:
-
-```bash
-dotnet fsi scripts/backtest_gapup_thresholds.fsx -- \
-    -c <config> \
-    -u data/gap_up_universe_validation.json \
-    -t <thresholds.csv>
-```
-
 ## Sanity checks
 
 - `scripts/conversion/verify_bin_conversion.fsx` — spot-checks that a

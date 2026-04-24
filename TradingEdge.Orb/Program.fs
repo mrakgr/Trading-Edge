@@ -591,7 +591,7 @@ type BreakdownArgs =
             | Input _ -> "Input JSON with [{ticker, date}] entries (e.g. data/breakdown_2k.json)"
             | Seconds _ -> sprintf "Time-bar bucket length in seconds (default: %.1f)" defaultBucketSeconds
             | Percentile _ -> "The target percentile to buy down in a bar (e.g. 0.05)"
-            | Thresholds _ -> "Optional per-bucket (Tv, Ta) CSV from run_minizinc_sweep. If omitted the system runs ungated."
+            | Thresholds _ -> "Optional per-bucket (Tv, Ta) CSV. If omitted the system runs ungated."
             | Buy_At_Open -> "Baseline: enter on first AfterOpeningPrint bar with StopNever (measures dataset directional bias)"
             | Short -> "Short-side mirror: enter on range-low break, stop at range-high"
 
