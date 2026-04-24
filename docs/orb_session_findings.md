@@ -508,7 +508,7 @@ The core system: **day-0 ORB with 10s time bars, trailing session range, rangeLo
 
 ## 23. Predicted-RVOL gate on the full continuation universe (2026-04-18)
 
-With the volume-profile gate shipped (`--profile data/volume_profile.json --rvol-threshold N`), we tested it on the complementary side of the "breakout" dataset: every row in `continuation_plays_augmented.json` whose `date != breakout_date`. That keeps both the day-N tails of each pump and the 85 continuation resets, any RVOL — **4,063 tradable days** written to `data/breakouts_continuations.json` via `scripts/generate_continuation_dataset.fsx`.
+With the volume-profile gate shipped (`--profile data/volume_profile.json --rvol-threshold N`), we tested it on the complementary side of the "breakout" dataset: every row in `continuation_plays_augmented.json` whose `date != breakout_date`. That keeps both the day-N tails of each pump and the 85 continuation resets, any RVOL — **4,063 tradable days** written to `data/breakouts_continuations.json` via `scripts/dataset_generation/generate_continuation_dataset.fsx`.
 
 ### 23a. Gate threshold sweep on continuations
 

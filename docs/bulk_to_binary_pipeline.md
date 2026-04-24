@@ -23,7 +23,7 @@ data/bulk/intraday_10s_cum/{date}.parquet    (running sums, sorted by bucket)
         ▼
 DuckDB: session_daily_totals, session_volume_4w, intraday_10s_cum view
         │
-        │  scripts/generate_gap_up_universe.fsx  (or any setup-list emitter)
+        │  scripts/dataset_generation/generate_gap_up_universe.fsx  (or any setup-list emitter)
         ▼
 data/gap_up_universe.json    (setup list with raw_avg_4w / txn_avg_4w / split_factor_today)
         │
@@ -124,7 +124,7 @@ that `TradingEdge.Orb.TradeLoader` expects.
 # 1. Generate the setup list (reads the DB, emits JSON).
 #    --start-date / --end-date clip to a sub-window; omit them for the full
 #    session_daily_totals range.
-dotnet fsi scripts/generate_gap_up_universe.fsx -- \
+dotnet fsi scripts/dataset_generation/generate_gap_up_universe.fsx -- \
     -o data/gap_up_universe.json
 
 # 2. Shard
@@ -168,7 +168,7 @@ dotnet fsi scripts/conversion/build_10s_cum.fsx -- \
 dotnet run --project TradingEdge.Massive -- ingest-data
 
 # 4. Emit the validation setup list (clipped to the validation window)
-dotnet fsi scripts/generate_gap_up_universe.fsx -- \
+dotnet fsi scripts/dataset_generation/generate_gap_up_universe.fsx -- \
     --start-date $WINDOW_START --end-date $WINDOW_END \
     -o data/gap_up_universe_validation.json
 
