@@ -1,9 +1,7 @@
 module TradingEdge.Hmm.Tests
 
 open System
-open MathNet.Numerics.Distributions
 open MathNet.Numerics.LinearAlgebra
-open MathNet.Numerics.LinearAlgebra.Double
 open TradingEdge.Hmm.ForwardBackward
 open TradingEdge.Hmm.Ctmc
 open TradingEdge.Hmm.Emission
@@ -18,7 +16,7 @@ let private argmaxCol (m: Matrix<float>) (col: int) =
             bestV <- m.[i, col]
     best
 
-/// Check: for every column t, Σ_j exp(gamma[j, t]) = 1.
+/// Σ_j exp(γ[j, t]) = 1 at every t (in non-log space).
 let private assertPosteriorNormalized (gamma: Matrix<float>) =
     let buf = Array.zeroCreate gamma.RowCount
     for t in 0 .. gamma.ColumnCount - 1 do
@@ -27,8 +25,8 @@ let private assertPosteriorNormalized (gamma: Matrix<float>) =
         if abs s > 1e-9 then
             failwithf "posterior at t=%d does not normalize: logsumexp = %g" t s
 
-/// Check: log-likelihood read from alpha_T-1 equals the "beta-mediated" one
-/// at step 0.  log p(x) = logsumexp_j( logPi[j] + logEmission[j,0] + beta[j,0] ).
+/// Loglik computed at step T-1 (forward) should equal the loglik computed at
+/// step 0 using the backward β values (the "alternate route").
 let private assertLogLikConsistent (inp: Inputs) (out: Output) =
     let k = inp.LogPi.Length
     let buf = Array.zeroCreate k
@@ -38,7 +36,7 @@ let private assertLogLikConsistent (inp: Inputs) (out: Output) =
     if abs (alt - out.LogLikelihood) > 1e-6 then
         failwithf "loglik inconsistent: forward=%g backward-at-0=%g" out.LogLikelihood alt
 
-/// Sample a discrete distribution given log-probabilities.
+/// Sample a category from a row of log-probabilities.
 let private sampleLog (rng: Random) (logp: float[]) =
     let m = Array.max logp
     let probs = logp |> Array.map (fun x -> exp (x - m))
@@ -52,57 +50,67 @@ let private sampleLog (rng: Random) (logp: float[]) =
         if u <= acc then found <- true else idx <- idx + 1
     min idx (probs.Length - 1)
 
-/// Synthetic 2-state test: well-separated volume-scaled Gaussians, constant
-/// Δt = 1s, CTMC with ~60s dwell. Recover >90% of the true states via the
-/// posterior argmax.
-let runSyntheticTwoStateTest () =
+/// Synthetic 3-state test: Up / Consol / Down with the Bernoulli-on-sign
+/// emission. We generate a sequence by sampling state transitions according
+/// to a CTMC (constant Δt = 1s), then for each state sample a sign with
+/// probability σ(D · λ · v). Recovery is measured against the true state
+/// sequence on the directional steps only — because Consol's sign is
+/// uniform ±1, no inference can distinguish Consol from "wrong call" on a
+/// per-trade basis. Aggregate accuracy across the whole sequence is the
+/// metric: we want > 70% of state labels recovered (random would give
+/// ~33%).
+let runSyntheticBernoulliTest () =
     let rng = Random(42)
+    let lambda = 1.0
     let trueParams = [|
-        { Mu =  0.0004; Sigma = 0.0008 }   // "up"
-        { Mu = -0.0004; Sigma = 0.0008 }   // "down"
+        { D = +1.0 }   // Up
+        { D =  0.0 }   // Consol
+        { D = -1.0 }   // Down
     |]
-    let offDiag = Array2D.init 2 2 (fun i j -> if i = j then 0.0 else 1.0 / 60.0)
+    // 60-second mean dwell, equally split between two destination states.
+    let leaveRate = 1.0 / 60.0
+    let offDiag = Array2D.init 3 3 (fun i j -> if i = j then 0.0 else leaveRate / 2.0)
     let rm = fromOffDiagonals offDiag
     let dt = 1.0
     let trans = transitionMatrix rm dt
     let logTrans = trans.PointwiseLog()
 
-    let n = 2000
+    let n = 3000
     let trueStates = Array.zeroCreate<int> n
-    let dlogps = Array.zeroCreate<float> n
-    let volumes = Array.init n (fun _ -> 100.0 + rng.NextDouble() * 900.0)
+    let signs = Array.zeroCreate<float> n
+    let volumes = Array.init n (fun _ -> 1.0 + rng.NextDouble() * 5.0)   // 1-6 BTC
 
-    // Sample ground truth sequence.
-    trueStates.[0] <- if rng.NextDouble() < 0.5 then 0 else 1
+    // Sample state sequence from the CTMC.
+    let logPi = [| log (1.0 / 3.0); log (1.0 / 3.0); log (1.0 / 3.0) |]
+    trueStates.[0] <- sampleLog rng logPi
     for t in 1 .. n - 1 do
         let prev = trueStates.[t - 1]
-        let row = [| log trans.[prev, 0]; log trans.[prev, 1] |]
+        let row = [| log trans.[prev, 0]; log trans.[prev, 1]; log trans.[prev, 2] |]
         trueStates.[t] <- sampleLog rng row
+
+    // Sample signs from the Bernoulli emission.
     for t in 0 .. n - 1 do
         let s = trueStates.[t]
         let v = volumes.[t]
-        let mean = trueParams.[s].Mu * v
-        let std = trueParams.[s].Sigma * sqrt v
-        dlogps.[t] <- Normal.Sample(rng, mean, std)
+        let pPlus = 1.0 / (1.0 + exp (-(trueParams.[s].D * lambda * v)))
+        signs.[t] <- if rng.NextDouble() < pPlus then +1.0 else -1.0
 
     // Run inference with the true parameters.
-    let k = 2
+    let k = 3
     let emissionMat = Matrix<float>.Build.Dense(k, n)
     for t in 0 .. n - 1 do
         for j in 0 .. k - 1 do
-            emissionMat.[j, t] <- logEmission trueParams.[j] volumes.[t] dlogps.[t]
+            emissionMat.[j, t] <- logEmission trueParams.[j] lambda volumes.[t] signs.[t]
 
-    let logPi = [| log 0.5; log 0.5 |]
     let logTransArr = Array.create (n - 1) logTrans
-
     let inp = {
         LogPi = logPi
         LogTrans = logTransArr
         LogEmission = emissionMat
     }
     let out = run inp
-
     assertPosteriorNormalized out.LogGamma
+    assertPosteriorNormalized out.LogGammaFiltered
     assertLogLikConsistent inp out
 
     let mutable matched = 0
@@ -110,7 +118,7 @@ let runSyntheticTwoStateTest () =
         if argmaxCol out.LogGamma t = trueStates.[t] then
             matched <- matched + 1
     let accuracy = float matched / float n
-    printfn "[test] 2-state synthetic: %d / %d states recovered (%.3f), loglik = %g"
+    printfn "[test] 3-state Bernoulli: %d / %d recovered (%.3f), loglik = %g"
         matched n accuracy out.LogLikelihood
-    if accuracy < 0.90 then
+    if accuracy < 0.70 then
         failwithf "recovery accuracy too low: %.3f" accuracy

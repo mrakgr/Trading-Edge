@@ -19,11 +19,17 @@ type Inputs = {
 }
 
 /// Forward messages (log-alpha) and backward messages (log-beta), each K×T.
-/// Posterior gamma.[j, t] = P( s_t = j | x_{1:T} ) in log-space.
+/// LogGamma is the smoothed posterior γ[j, t] = P( s_t = j | x_{1:T} ) in
+/// log-space. LogGammaFiltered is the filtered posterior
+/// P( s_t = j | x_{1:t} ) — uses only past evidence, derived by normalizing
+/// each column of α. The smoothed posterior cheats with future evidence and
+/// is the right answer for analysis; the filtered posterior is what a
+/// real-time system would actually see.
 type Output = {
     LogAlpha: Matrix<float>
     LogBeta: Matrix<float>
     LogGamma: Matrix<float>
+    LogGammaFiltered: Matrix<float>
     LogLikelihood: float
 }
 
@@ -84,9 +90,19 @@ let run (inp: Inputs) : Output =
         for j in 0 .. k - 1 do
             gamma.[j, step] <- alpha.[j, step] + beta.[j, step] - logLik
 
+    // Filtered posterior: each column is α normalized to sum to 1 in
+    // probability space, i.e. log-space subtraction of the column's logsumexp.
+    let gammaFilt = Matrix<float>.Build.Dense(k, t)
+    for step in 0 .. t - 1 do
+        for j in 0 .. k - 1 do colBuf.[j] <- alpha.[j, step]
+        let lse = logSumExp colBuf
+        for j in 0 .. k - 1 do
+            gammaFilt.[j, step] <- alpha.[j, step] - lse
+
     {
         LogAlpha = alpha
         LogBeta = beta
         LogGamma = gamma
+        LogGammaFiltered = gammaFilt
         LogLikelihood = logLik
     }

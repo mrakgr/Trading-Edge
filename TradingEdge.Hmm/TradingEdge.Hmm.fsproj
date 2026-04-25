@@ -8,7 +8,8 @@
     <Compile Include="Ctmc.fs" />
     <Compile Include="Emission.fs" />
     <Compile Include="ForwardBackward.fs" />
-    <Compile Include="LwModel.fs" />
+    <Compile Include="BinanceLoader.fs" />
+    <Compile Include="BtcModel.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
@@ -16,8 +17,5 @@
     <PackageReference Include="Argu" Version="6.2.5" />
     <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
     <PackageReference Include="MathNet.Numerics.FSharp" Version="5.0.0" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\TradingEdge.Orb\TradingEdge.Orb.fsproj" />
   </ItemGroup>
 </Project>
