@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"name": "Trading-Edge: before_delete",
+			"path": "../../Trading-Edge.worktrees/before_delete"
+		}
+	],
+	"settings": {}
+}
