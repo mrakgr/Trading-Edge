@@ -2,6 +2,7 @@ module TradingEdge.Hmm.BinanceLoader
 
 open System
 open System.IO
+open System.Runtime.InteropServices
 
 /// Per-trade record extracted from Binance public trade data
 /// (https://data.binance.vision). The schema of the source CSV is:
@@ -13,7 +14,11 @@ open System.IO
 /// isBuyerMaker. isBuyerMaker = True means the buyer was the resting order
 /// (passive), so the seller was the aggressor → sign = -1. The reverse maps
 /// to sign = +1.
-[<Struct>]
+///
+/// StructLayout(Sequential) pins the in-memory layout to match the on-disk
+/// binary format (see writeBinary / loadBinary), so we can ship the array
+/// to/from disk via MemoryMarshal in a single call.
+[<Struct; StructLayout(LayoutKind.Sequential)>]
 type Trade = {
     Price: float
     Quantity: float
@@ -24,7 +29,7 @@ type Trade = {
 /// Stream a Binance trade CSV (no header) and return the parsed Trade[].
 /// Parses ~15M rows per run on BTCUSDT for a busy day; uses Span-based
 /// integer/double parsing to avoid string allocations for the hot fields.
-let load (path: string) : Trade[] =
+let loadCsv (path: string) : Trade[] =
     use stream = File.OpenRead path
     use reader = new StreamReader(stream)
     let result = ResizeArray<Trade>(capacity = 4_000_000)
@@ -54,3 +59,61 @@ let load (path: string) : Trade[] =
         result.Add trade
         line <- reader.ReadLine()
     result.ToArray()
+
+// =============================================================================
+// Binary IO
+// =============================================================================
+//
+// Format:
+//   header (16 bytes):
+//     magic   : uint32   = 0x42494E54  ('BINT')
+//     version : uint32   = 1
+//     count   : int64    number of trade records
+//   records (32 bytes each):
+//     Trade struct, raw bytes — relies on Sequential layout above.
+//
+// Bumping `version` invalidates older files; readers reject mismatches.
+
+[<Literal>]
+let private Magic = 0x42494E54u
+[<Literal>]
+let private Version = 1u
+
+[<Struct; StructLayout(LayoutKind.Sequential)>]
+type private Header = {
+    Magic: uint32
+    Version: uint32
+    Count: int64
+}
+
+let private headerSize = Marshal.SizeOf<Header>()
+let private recordSize = Marshal.SizeOf<Trade>()
+
+/// Write a Trade[] to disk as a packed binary file.
+let writeBinary (path: string) (trades: Trade[]) =
+    use stream = File.Create path
+    let header = { Magic = Magic; Version = Version; Count = int64 trades.Length }
+    let headerBytes = MemoryMarshal.AsBytes(ReadOnlySpan [| header |])
+    stream.Write headerBytes
+    let bodyBytes = MemoryMarshal.AsBytes(ReadOnlySpan trades)
+    stream.Write bodyBytes
+
+/// Read a Trade[] from a packed binary file.
+let loadBinary (path: string) : Trade[] =
+    let bytes = File.ReadAllBytes path
+    let header = MemoryMarshal.Read<Header>(ReadOnlySpan(bytes, 0, headerSize))
+    if header.Magic <> Magic then
+        failwithf "loadBinary: bad magic 0x%08X in %s" header.Magic path
+    if header.Version <> Version then
+        failwithf "loadBinary: unsupported version %u in %s (expected %u)"
+            header.Version path Version
+    let count = int header.Count
+    let records =
+        MemoryMarshal.Cast<byte, Trade>(
+            ReadOnlySpan(bytes, headerSize, count * recordSize))
+    records.ToArray()
+
+/// Auto-dispatch on file extension: .bin → binary, anything else → CSV.
+let load (path: string) : Trade[] =
+    if path.EndsWith(".bin", StringComparison.OrdinalIgnoreCase) then loadBinary path
+    else loadCsv path

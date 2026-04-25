@@ -13,9 +13,18 @@ type InferArgs =
     interface IArgParserTemplate with
         member this.Usage =
             match this with
-            | Input _ -> "Path to a Binance trade CSV (e.g. BTCUSDT-trades-2026-02-05.csv)"
+            | Input _ -> "Path to a Binance trade file (.csv or .bin)"
             | Output _ -> "Output CSV path (default: logs/<input-base>_hmm.csv)"
             | Lambda _ -> "Per-unit-volume log-odds weight (overrides default)"
+
+type ConvertArgs =
+    | [<Mandatory; AltCommandLine("-i")>] Input of string
+    | [<AltCommandLine("-o")>] Output of string
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Input _ -> "Path to a Binance trade CSV"
+            | Output _ -> "Output binary path (default: same dir, .bin extension)"
 
 type TestArgs =
     | Placeholder
@@ -25,16 +34,18 @@ type TestArgs =
 type Args =
     | [<CliPrefix(CliPrefix.None)>] Test of ParseResults<TestArgs>
     | [<CliPrefix(CliPrefix.None)>] Infer of ParseResults<InferArgs>
+    | [<CliPrefix(CliPrefix.None)>] Convert of ParseResults<ConvertArgs>
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | Test _ -> "Run synthetic-data unit tests"
-            | Infer _ -> "Run forward-backward on a Binance trade CSV"
+            | Infer _ -> "Run forward-backward on a Binance trade file"
+            | Convert _ -> "Convert a Binance trade CSV to packed binary"
 
 let runInfer (args: ParseResults<InferArgs>) =
-    let inputPath = args.GetResult Input
-    let baseName = Path.GetFileNameWithoutExtension inputPath
-    let outPath = args.GetResult(Output, defaultValue = sprintf "logs/%s_hmm.csv" baseName)
+    let inputPath = args.GetResult <@ InferArgs.Input @>
+    let baseName = Path.GetFileNameWithoutExtension(inputPath: string)
+    let outPath = args.GetResult(<@ InferArgs.Output @>, defaultValue = sprintf "logs/%s_hmm.csv" baseName)
 
     printfn "loading %s ..." inputPath
     let swLoad = System.Diagnostics.Stopwatch.StartNew()
@@ -77,6 +88,26 @@ let runInfer (args: ParseResults<InferArgs>) =
     printfn "wrote %s" outPath
     0
 
+let runConvert (args: ParseResults<ConvertArgs>) =
+    let inputPath = args.GetResult <@ ConvertArgs.Input @>
+    let defaultOut = Path.ChangeExtension(inputPath, ".bin")
+    let outPath = args.GetResult(<@ ConvertArgs.Output @>, defaultValue = defaultOut)
+
+    printfn "loading %s ..." inputPath
+    let swLoad = System.Diagnostics.Stopwatch.StartNew()
+    let trades = loadCsv inputPath
+    swLoad.Stop()
+    printfn "  %d trades loaded in %d ms" trades.Length swLoad.ElapsedMilliseconds
+
+    Directory.CreateDirectory(Path.GetDirectoryName(outPath: string)) |> ignore
+    let swWrite = System.Diagnostics.Stopwatch.StartNew()
+    writeBinary outPath trades
+    swWrite.Stop()
+    let info = FileInfo outPath
+    printfn "wrote %s (%.1f MB) in %d ms"
+        outPath (float info.Length / 1.0e6) swWrite.ElapsedMilliseconds
+    0
+
 [<EntryPoint>]
 let main argv =
     let parser = ArgumentParser.Create<Args>(programName = "TradingEdge.Hmm")
@@ -88,6 +119,7 @@ let main argv =
             printfn "all tests passed."
             0
         | Infer args -> runInfer args
+        | Convert args -> runConvert args
     with
     | :? ArguException as e ->
         printfn "%s" e.Message

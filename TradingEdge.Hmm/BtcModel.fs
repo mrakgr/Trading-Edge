@@ -22,17 +22,14 @@ type Params = {
 }
 
 let defaultParams : Params =
-    // λ = 0.7 means roughly: 1.0 BTC of net signed volume produces 2:1 odds
-    // (log 2) between Up and Down. Tune from a directional minute of tape.
-    let lambda = 0.7
+    let lambda = 0.15
     let emission = [|
         { D = +1.0 }   // Up
         { D =  0.0 }   // Consol
         { D = -1.0 }   // Down
     |]
-    // 5-minute mean dwell across all three states. Off-diagonals: rate to
-    // leave is 1/300 /sec, split evenly between the two destination states.
-    let meanDwellSec = 300.0
+    // 2-minute mean dwell across all three states.
+    let meanDwellSec = 120.0
     let leaveRate = 1.0 / meanDwellSec
     let offDiag =
         Array2D.init K K (fun i j ->
