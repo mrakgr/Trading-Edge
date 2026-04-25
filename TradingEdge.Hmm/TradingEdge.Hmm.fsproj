@@ -9,7 +9,10 @@
     <Compile Include="Emission.fs" />
     <Compile Include="ForwardBackward.fs" />
     <Compile Include="BinanceLoader.fs" />
+    <Compile Include="VolumeBar.fs" />
     <Compile Include="BtcModel.fs" />
+    <Compile Include="HoldEmission.fs" />
+    <Compile Include="HoldModel.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
