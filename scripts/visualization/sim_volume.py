@@ -25,6 +25,12 @@ def create_volume_bars(trades, volume_per_bar):
     """
     Group trades into fixed volume chunks with trade splitting.
     Computes VWAP with stddev per bar.
+
+    Note: no trade_count tracked here. If added, count each trade exactly once
+    against the bar where its first fragment lands — spillover bars get count
+    0. Without that, a single large print is indistinguishable from a hold
+    that fills the same number of bars. See TradingEdge.Simulation/VolumeBar.fs
+    for the same rule applied to the F# builder used for training data.
     """
     bars = []
     current_volume = 0

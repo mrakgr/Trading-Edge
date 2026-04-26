@@ -47,6 +47,11 @@ type TradesToBarBuilder() =
 /// StdDev / Volume stay exact at the bar boundary. Reuses TradesToBarBuilder
 /// for the closed-bar reduction so volume bars and time bars share the same
 /// VWAP/stddev arithmetic.
+///
+/// Note: this Bar type has no trade_count field. If you add one, count each
+/// trade exactly once against the bar where its first fragment lands —
+/// spillover bars get count 0. Without that rule a single large print and a
+/// real hold are indistinguishable per-bar; see VolumeBar.fs for context.
 type VolumeBarBuilder(barSize: float) =
     member val BarSize = barSize
     member val CurrentTrades = ImmutableArray.CreateBuilder<struct (float * float)>()
