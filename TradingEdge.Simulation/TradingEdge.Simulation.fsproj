@@ -18,6 +18,8 @@
     <Compile Include="TDigestProcessing.fs" />
     <Compile Include="BinanceLoader.fs" />
     <Compile Include="VolumeBar.fs" />
+    <Compile Include="HoldDataset.fs" />
+    <Compile Include="HoldDigests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

@@ -41,23 +41,6 @@ type BuildDigestsArgs =
             | Market_Open _ -> "Market open hour in UTC (default: 14.5)"
             | Market_Close _ -> "Market close hour in UTC (default: 21.0)"
 
-type GenerateDatasetArgs =
-    | [<AltCommandLine("-s")>] Seed of int
-    | [<AltCommandLine("-n")>] Days of int
-    | [<AltCommandLine("-o")>] Output of string
-    | [<AltCommandLine("-p")>] Price of float
-    | [<AltCommandLine("-i")>] Iterations of int
-    | [<Mandatory; AltCommandLine("-d")>] Digests of string
-    interface IArgParserTemplate with
-        member this.Usage =
-            match this with
-            | Seed _ -> "Random seed for generation"
-            | Days _ -> "Number of days to generate"
-            | Output _ -> "Output parquet file path"
-            | Price _ -> "Starting price (default: 100.0)"
-            | Iterations _ -> "MCMC iterations per level"
-            | Digests _ -> "T-digests file path for trade sizes and gaps"
-
 type PreprocessArgs =
     | [<AltCommandLine("-i")>] Input of string
     | [<AltCommandLine("-o")>] Output of string
@@ -100,12 +83,74 @@ type TestNestedArgs =
             match this with
             | Dummy -> ""
 
+// =============================================================================
+// Hold-detector pipeline subcommands
+// =============================================================================
+
+type BtcBarsArgs =
+    | [<Mandatory; AltCommandLine("-i")>] Input of string
+    | [<Mandatory; AltCommandLine("-o")>] Output of string
+    | [<AltCommandLine("-v")>] Bar_Volume of float
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Input _ -> "Path to a Binance trades file (.bin or .csv)"
+            | Output _ -> "Output parquet path (one row group per day)"
+            | Bar_Volume _ -> "Volume per bar in BTC (default: 18.0)"
+
+type GenerateDatasetArgs =
+    | [<AltCommandLine("-s")>] Seed of int
+    | [<AltCommandLine("-n")>] Days of int
+    | [<Mandatory; AltCommandLine("-o")>] Output of string
+    | [<AltCommandLine("-p")>] Price of float
+    | [<AltCommandLine("-v")>] Bar_Volume of float
+    | [<AltCommandLine("-w")>] Workers of int
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Seed _ -> "Base RNG seed; per-day seed = base + day_id (default: 42)"
+            | Days _ -> "Number of synthetic days to generate (default: 10000)"
+            | Output _ -> "Output parquet path"
+            | Price _ -> "Starting price (default: 100.0)"
+            | Bar_Volume _ -> "Volume per bar (default: 10000.0)"
+            | Workers _ -> "Generator worker count (default: ProcessorCount)"
+
+type BuildHoldDigestsArgs =
+    | [<Mandatory; AltCommandLine("-i")>] Input of string
+    | [<Mandatory; AltCommandLine("-o")>] Output of string
+    | [<AltCommandLine("-c")>] Compression of float
+    | [<AltCommandLine("-w")>] Workers of int
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Input _ -> "Hold-dataset parquet to fit digests on (typically real BTC bars)"
+            | Output _ -> "Output digests binary path"
+            | Compression _ -> "T-digest compression factor (default: 4096)"
+            | Workers _ -> "Worker count (default: ProcessorCount)"
+
+type ApplyHoldCdfArgs =
+    | [<Mandatory; AltCommandLine("-i")>] Input of string
+    | [<Mandatory; AltCommandLine("-d")>] Digests of string
+    | [<Mandatory; AltCommandLine("-o")>] Output of string
+    | [<AltCommandLine("-w")>] Workers of int
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Input _ -> "Hold-dataset parquet to transform"
+            | Digests _ -> "Digests binary path (from build-hold-digests)"
+            | Output _ -> "Output CDF-transformed parquet path"
+            | Workers _ -> "Worker count (default: ProcessorCount)"
+
 type Command =
     | [<CliPrefix(CliPrefix.None)>] Order_Book of ParseResults<OrderBookArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Digests of ParseResults<BuildDigestsArgs>
     | [<CliPrefix(CliPrefix.None)>] Preprocess of ParseResults<PreprocessArgs>
     | [<CliPrefix(CliPrefix.None)>] Dump_Trades of ParseResults<DumpTradesArgs>
     | [<CliPrefix(CliPrefix.None)>] Test_Nested of ParseResults<TestNestedArgs>
+    | [<CliPrefix(CliPrefix.None)>] Btc_Bars of ParseResults<BtcBarsArgs>
+    | [<CliPrefix(CliPrefix.None)>] Generate_Dataset of ParseResults<GenerateDatasetArgs>
+    | [<CliPrefix(CliPrefix.None)>] Build_Hold_Digests of ParseResults<BuildHoldDigestsArgs>
+    | [<CliPrefix(CliPrefix.None)>] Apply_Hold_Cdf of ParseResults<ApplyHoldCdfArgs>
     interface IArgParserTemplate with
         member this.Usage =
             match this with
@@ -114,6 +159,10 @@ type Command =
             | Preprocess _ -> "Apply t-digest CDF transform to raw dataset"
             | Dump_Trades _ -> "Dump raw trade data for a single day as CSV"
             | Test_Nested _ -> "Test nested episode generation"
+            | Btc_Bars _ -> "Build hold-dataset volume bars from Binance trade data"
+            | Generate_Dataset _ -> "Generate N synthetic days as a hold-dataset parquet"
+            | Build_Hold_Digests _ -> "Fit per-feature t-digests from a hold-dataset parquet"
+            | Apply_Hold_Cdf _ -> "Apply CDF transform to a hold-dataset parquet"
 
 let runOrderBook (args: ParseResults<OrderBookArgs>) =
     let seed = args.GetResult(OrderBookArgs.Seed, 42)
@@ -250,6 +299,37 @@ let runPreprocess (args: ParseResults<PreprocessArgs>) =
 //     printBetaDigestDiagnostics digests
 //     printExponentialTiltDiagnostics digests
 
+let runBtcBars (args: ParseResults<BtcBarsArgs>) =
+    let input = args.GetResult(BtcBarsArgs.Input)
+    let output = args.GetResult(BtcBarsArgs.Output)
+    let barVolume = args.GetResult(BtcBarsArgs.Bar_Volume, 18.0)
+    (TradingEdge.Simulation.HoldDataset.buildBtcBars input barVolume output).Wait()
+
+let runGenerateDataset (args: ParseResults<GenerateDatasetArgs>) =
+    let seed = args.GetResult(GenerateDatasetArgs.Seed, 42)
+    let days = args.GetResult(GenerateDatasetArgs.Days, 10000)
+    let output = args.GetResult(GenerateDatasetArgs.Output)
+    let price = args.GetResult(GenerateDatasetArgs.Price, 100.0)
+    let barVolume = args.GetResult(GenerateDatasetArgs.Bar_Volume, 10000.0)
+    let workers = args.GetResult(GenerateDatasetArgs.Workers, Environment.ProcessorCount)
+    (TradingEdge.Simulation.HoldDataset.generateSynthDataset seed days price barVolume output workers).Wait()
+
+let runBuildHoldDigests (args: ParseResults<BuildHoldDigestsArgs>) =
+    let input = args.GetResult(BuildHoldDigestsArgs.Input)
+    let output = args.GetResult(BuildHoldDigestsArgs.Output)
+    let compression = args.GetResult(BuildHoldDigestsArgs.Compression, TradingEdge.Simulation.HoldDigests.defaultCompression)
+    let workers = args.GetResult(BuildHoldDigestsArgs.Workers, Environment.ProcessorCount)
+    let digests = (TradingEdge.Simulation.HoldDigests.buildDigests input compression workers).Result
+    TradingEdge.Simulation.HoldDigests.printDigestsSketch digests
+    TradingEdge.Simulation.HoldDigests.saveDigests digests output
+
+let runApplyHoldCdf (args: ParseResults<ApplyHoldCdfArgs>) =
+    let input = args.GetResult(ApplyHoldCdfArgs.Input)
+    let digests = args.GetResult(ApplyHoldCdfArgs.Digests)
+    let output = args.GetResult(ApplyHoldCdfArgs.Output)
+    let workers = args.GetResult(ApplyHoldCdfArgs.Workers, Environment.ProcessorCount)
+    (TradingEdge.Simulation.HoldDigests.applyCdfTransform input digests output workers).Wait()
+
 [<EntryPoint>]
 let main argv =
     let parser = ArgumentParser.Create<Command>(programName = "TradingEdge.Simulation")
@@ -263,6 +343,10 @@ let main argv =
         | Preprocess args -> runPreprocess args
         | Dump_Trades args -> runDumpTrades args
         | Test_Nested _ -> printfn "Test_Nested command not implemented"
+        | Btc_Bars args -> runBtcBars args
+        | Generate_Dataset args -> runGenerateDataset args
+        | Build_Hold_Digests args -> runBuildHoldDigests args
+        | Apply_Hold_Cdf args -> runApplyHoldCdf args
 
         0
     with
