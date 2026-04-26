@@ -201,7 +201,7 @@ let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
     }
 
     let ctx = makeDefaultContext rng simParams
-    let pattern = downtrendDay baseParams
+    let pattern = trendDay None baseParams
     let trades = pattern ctx (fun _ -> ctx.Effects.OnDone ctx)
 
     let writer : System.IO.TextWriter =

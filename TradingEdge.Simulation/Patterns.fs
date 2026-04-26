@@ -24,98 +24,101 @@ let volumePerMove (baseParams: BaseParams) (ctx : GenerationContext<'r>) (volume
 // Many patterns here are using `volumeUnitsPerMove` rather than total volume. Volume units act as a pseudo duration. Assuming that volume abnormality is 1,
 // each volume unit will be 1s on average. 
 
-/// Downtrend day pattern: Morning and Close sessions drift down with occasional holds,
-/// Mid session maintains flat drift. Uses abnormal volume (3x) for trending moves.
-/// Uses wide long drifting moves.
-let downtrendDay (baseParams: BaseParams) : Pattern<'r> =
+type TrendDayType =
+    | UptrendDay
+    | DowntrendDay
+
+let sampleVolumeAbnormality (ctx : _ GenerationContext) n =
+    sampleLogNormal ctx.Effects.Rng (n * 0.9) n
+
+/// Trend day pattern (up or down): Morning and Close sessions drift in the
+/// chosen direction with occasional holds; Mid session maintains flat drift.
+/// Holds in the morning/close can flip the day's trend direction with 10%
+/// probability, modeling a regime change at consolidation. If
+/// `initialTrendDayType` is None, the direction is chosen 50/50 at start.
+let trendDay (initialTrendDayType : TrendDayType option) (baseParams: BaseParams) : Pattern<'r> =
     fun ctx cont ->
+        let trendDayType =
+            initialTrendDayType
+            |> Option.defaultWith (fun () ->
+                if ctx.Effects.Rng.NextDouble() <= 0.5 then UptrendDay else DowntrendDay)
+            |> ref
+        // Re-read on every call so that flips by `flippingHold` are reflected
+        // in subsequent labels — do not hoist into a `let baseLabel = ...`.
+        let baseLabel() = [string trendDayType.Value]
+
         let volumeUnitsPerMove = 50.0 * 60.0  // Multiply by 60 since rate is in trades per second
 
         // Wide target sigma allows significant price movement
         let targetSigma = 50. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
-        
+
         // Flat drift: normal volume, no directional bias
         let driftFlat : Pattern<'r> =
             fun ctx cont ->
-                let volumeAbnormality = 1.
+                let volumeAbnormality = sampleVolumeAbnormality ctx 1.0
                 let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
                 let moveSigma = volumeAbnormality * baseParams.BaseVolatility * sqrt volumePerMove
                 let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, 0.0, moveSigma)
-                generateDrift baseParams ["DriftFlat"; "DowntrendDay"] volumeAbnormality target targetSigma volumePerMove true ctx cont // (fun ctx -> cont {ctx with StartTarget = ctx.StartPrice})
+                generateDrift baseParams ("DriftFlat" :: baseLabel()) volumeAbnormality target targetSigma volumePerMove true ctx cont
 
-        // Downward drift: 3x abnormal volume, target biased -0.3 sigma below current
-        let driftDown : Pattern<'r> =
+        // Trending drift: 3x abnormal volume, target biased ±0.3 sigma in the
+        // direction of the current day type.
+        let driftTrending : Pattern<'r> =
             fun ctx cont ->
-                let volumeAbnormality = 3.
+                let volumeAbnormality = sampleVolumeAbnormality ctx 3.0
                 let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
                 let moveSigma = volumeAbnormality * baseParams.BaseVolatility * sqrt volumePerMove
-                let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, -0.3 * moveSigma, moveSigma)
-                generateDrift baseParams ["DriftDown"; "DowntrendDay"] volumeAbnormality target targetSigma volumePerMove true ctx cont // (fun ctx -> cont {ctx with StartTarget = ctx.StartPrice})
+                let c, label =
+                    match trendDayType.Value with
+                    | DowntrendDay -> -0.3, "DriftDown"
+                    | UptrendDay -> 0.3, "DriftUp"
+                let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, c * moveSigma, moveSigma)
+                generateDrift baseParams (label :: baseLabel()) volumeAbnormality target targetSigma volumePerMove true ctx cont
 
-        // Hold pattern: 7.5x abnormal volume, alternates between loose and tight consolidation, followed by a release that has 4x abnormal volume and -1.5 sigma target below current.
+        // Hold pattern: 9x abnormal volume (mean), alternates between loose and tight consolidation,
+        // followed by a release that has 4.5x abnormal volume (mean) and ±1.5 sigma target in the
+        // direction of the current day type.
         let hold : Pattern<'r> =
             let hold ctx cont =
-                let volumeAbnormality = 7.5
+                let volumeAbnormality = sampleVolumeAbnormality ctx 9.0
                 let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
                 let moveSigma = 0.5 * baseParams.BaseVolatility * sqrt volumePerMove
                 let ctx = {ctx with StartTarget = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, 0.0, moveSigma)}
                 let looseSigma = 10. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
                 let tightSigma = 1. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
-                generateHold baseParams ["Hold"; "DowntrendDay"] volumeAbnormality (tightSigma, volumePerMove * 0.8 * 0.3) (looseSigma, volumePerMove * 0.2 * 0.3) volumePerMove false ctx cont
-                
+                generateHold baseParams ("Hold" :: baseLabel()) volumeAbnormality (tightSigma, volumePerMove * 0.8 * 0.3) (looseSigma, volumePerMove * 0.2 * 0.3) volumePerMove false ctx cont
+
             let release ctx cont =
-                let volumeAbnormality = 4.
+                let volumeAbnormality = sampleVolumeAbnormality ctx 4.5
                 let volumePerMove = volumePerMove baseParams ctx (1.5 * volumeUnitsPerMove)
                 let moveSigma = volumeAbnormality * baseParams.BaseVolatility * sqrt volumePerMove
-                let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, -1.5 * moveSigma, moveSigma)
-                let ctx = {ctx with StartTarget = ctx.StartTarget - 0.7 * targetSigma}
-                generateDrift baseParams ["HoldRelease"; "DowntrendDay"] volumeAbnormality target targetSigma volumePerMove false ctx cont
+                let c =
+                    match trendDayType.Value with
+                    | DowntrendDay -> -1.5
+                    | UptrendDay -> 1.5
+                let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, c * moveSigma, moveSigma)
+                generateDrift baseParams ("HoldRelease" :: baseLabel()) volumeAbnormality target targetSigma volumePerMove false ctx cont
             sequence [retarget; hold; release]
 
         // Session-specific patterns
         let morning : Pattern<'r> =
+            // The flip happens in the continuation, so the hold itself completes
+            // under the old regime and the next pattern (driftTrending) runs
+            // under the new one — i.e. regime change AT the consolidation.
+            let flippingHold ctx cont =
+                hold ctx (fun x ->
+                    if ctx.Effects.Rng.NextDouble() <= 0.1 then
+                        trendDayType.Value <-
+                            match trendDayType.Value with
+                            | UptrendDay -> DowntrendDay
+                            | DowntrendDay -> UptrendDay
+                    cont x)
             choice [
-                driftDown, 0.9
-                hold, 0.1
+                driftTrending, 0.9
+                flippingHold, 0.1
             ]
         let mid : Pattern<'r> = driftFlat
         let close : Pattern<'r> = morning
 
         // Apply repeat to each session pattern and sequence them
         sequence [repeat morning; retarget; repeat mid; retarget; repeat close] ctx cont
-
-/// Neutral day pattern: No directional bias, normal volume throughout.
-/// Models a typical day with random walk behavior and occasional small consolidations.
-let neutralDay (baseParams: BaseParams) : Pattern<'r> =
-    fun ctx cont ->
-        let volumeUnitsPerMove = 30.0 * 60.0  // Shorter moves than downtrend
-
-        // Moderate target sigma for typical price movement
-        let targetSigma = 20. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
-
-        // Random walk drift: normal volume, no directional bias
-        let driftNeutral : Pattern<'r> =
-            fun ctx cont ->
-                let volumeAbnormality = 1.
-                let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
-                let moveSigma = volumeAbnormality * baseParams.BaseVolatility * sqrt volumePerMove
-                let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, 0.0, moveSigma)
-                generateDrift baseParams ["DriftNeutral"; "NeutralDay"] volumeAbnormality target targetSigma volumePerMove true ctx cont
-
-        // Small consolidation: 2x volume, tight range
-        let smallHold : Pattern<'r> =
-            let hold ctx cont =
-                let volumeAbnormality = 2.
-                let volumePerMove = volumePerMove baseParams ctx (0.5 * volumeUnitsPerMove)
-                let tightSigma = 2. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
-                generateHold baseParams ["SmallHold"; "NeutralDay"] volumeAbnormality (tightSigma, volumePerMove * 0.9) (tightSigma * 2., volumePerMove * 0.1) volumePerMove false ctx cont
-            sequence [retarget; hold]
-
-        // Session pattern: mostly neutral drift with occasional small holds
-        let session : Pattern<'r> =
-            choice [
-                driftNeutral, 0.85
-                smallHold, 0.15
-            ]
-
-        repeat session ctx cont
