@@ -38,6 +38,48 @@ type TradesToBarBuilder() =
         }
 
 // ============================================================================
+// Volume bars
+// ============================================================================
+
+/// Accumulate trades into fixed-volume buckets, emitting a Bar each time the
+/// running volume sum hits BarSize. When a trade overflows the remaining bar
+/// capacity, the volume is *split* between the current and next bar so VWAP /
+/// StdDev / Volume stay exact at the bar boundary. Reuses TradesToBarBuilder
+/// for the closed-bar reduction so volume bars and time bars share the same
+/// VWAP/stddev arithmetic.
+type VolumeBarBuilder(barSize: float) =
+    member val BarSize = barSize
+    member val CurrentTrades = ImmutableArray.CreateBuilder<struct (float * float)>()
+    member val CurrentVolumeSum = 0.0 with get, set
+    member val BarBuilder = TradesToBarBuilder()
+
+    member inline self.Flush(onNext, trades : (struct (float * float)) ImmutableArray) =
+        self.BarBuilder.Process(onNext, trades)
+        self.CurrentTrades.Clear()
+        self.CurrentVolumeSum <- 0.0
+
+    member inline self.Process(onNext, trade: Trade) =
+        let price = trade.Price
+        let mutable remaining = float trade.Volume
+        // Loop because a single oversized trade can fill the current bar AND
+        // spill enough volume to close one or more additional bars.
+        while remaining > 0.0 do
+            let spaceLeft = self.BarSize - self.CurrentVolumeSum
+            if remaining <= spaceLeft then
+                self.CurrentTrades.Add (struct (price, remaining))
+                self.CurrentVolumeSum <- self.CurrentVolumeSum + remaining
+                remaining <- 0.0
+            else
+                // Trade overflows the bar: take exactly spaceLeft into this
+                // bar, leave the rest for the next iteration.
+                if spaceLeft > 0.0 then
+                    self.CurrentTrades.Add (struct (price, spaceLeft))
+                    self.CurrentVolumeSum <- self.CurrentVolumeSum + spaceLeft
+                    remaining <- remaining - spaceLeft
+                if self.CurrentVolumeSum >= self.BarSize then
+                    self.Flush(onNext, self.CurrentTrades.ToImmutableArray())
+
+// ============================================================================
 // Time bars
 // ============================================================================
 
