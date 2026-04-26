@@ -2,14 +2,6 @@
 	"folders": [
 		{
 			"path": ".."
-		},
-		{
-			"name": "Trading-Edge: before_delete",
-			"path": "../../Trading-Edge.worktrees/before_delete"
-		},
-		{
-			"name": "Trading-Edge: vwap_system_performance_optimization",
-			"path": "../../Trading-Edge.worktrees/vwap_system_performance_optimization"
 		}
 	],
 	"settings": {}
