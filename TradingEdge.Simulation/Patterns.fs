@@ -88,8 +88,6 @@ let trendDay (initialTrendDayType : TrendDayType option) (baseParams: BaseParams
             let hold ctx cont =
                 let volumeAbnormality = sampleVolumeAbnormality ctx 9.0
                 let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
-                let moveSigma = 0.5 * targetVol * sqrt volumePerMove
-                let ctx = {ctx with StartTarget = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, 0.0, moveSigma)}
                 let looseSigma = 10. * targetVol * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
                 let tightSigma = 0.5 * targetVol * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
                 generateHold baseParams ("Hold" :: baseLabel()) volumeAbnormality (tightSigma, volumePerMove * 0.8 * 0.3) (looseSigma, volumePerMove * 0.2 * 0.3) volumePerMove false ctx cont
