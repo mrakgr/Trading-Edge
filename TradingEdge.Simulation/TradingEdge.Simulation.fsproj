@@ -16,6 +16,8 @@
     <Compile Include="Patterns.fs" />
     <Compile Include="DatasetGeneration.fs" />
     <Compile Include="TDigestProcessing.fs" />
+    <Compile Include="BinanceLoader.fs" />
+    <Compile Include="VolumeBar.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

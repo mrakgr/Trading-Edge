@@ -1,7 +1,18 @@
-module TradingEdge.Hmm.VolumeBar
+module TradingEdge.Simulation.VolumeBar
 
 open System.Collections.Immutable
-open TradingEdge.Hmm.BinanceLoader
+open TradingEdge.Simulation.BinanceLoader
+
+// Trade-counting rule (load-bearing for the hold detector): a trade is
+// counted exactly once, against the bar where its FIRST fragment lands.
+// Spillover bars created by an oversized trade get TradeCount = 0. This
+// distinguishes "a true hold of N small trades" from "a single large print
+// that spanned N bars" — both produce N bars filled to BarSize, but the
+// hold has TradeCount > 0 per bar while the print has TradeCount = 0 on
+// every spillover bar. Without this, the two are indistinguishable from
+// per-bar features alone, and the NN would learn to call large prints holds.
+// If TradeCount is ever added to Orb's Pipeline.fs or to the Python
+// sim_volume.py, the same rule must apply there.
 
 /// One volume bar: a fixed-volume slice of the trade tape. VWAP and StdDev
 /// are volume-weighted; TradeCount / BuyCount are whole-trade counts (not

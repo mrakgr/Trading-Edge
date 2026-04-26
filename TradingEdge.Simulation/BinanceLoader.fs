@@ -1,4 +1,4 @@
-module TradingEdge.Hmm.BinanceLoader
+module TradingEdge.Simulation.BinanceLoader
 
 open System
 open System.IO
