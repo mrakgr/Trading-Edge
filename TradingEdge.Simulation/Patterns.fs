@@ -47,17 +47,23 @@ let trendDay (initialTrendDayType : TrendDayType option) (baseParams: BaseParams
         // in subsequent labels — do not hoist into a `let baseLabel = ...`.
         let baseLabel() = [string trendDayType.Value]
 
-        let volumeUnitsPerMove = 50.0 * 60.0  // Multiply by 60 since rate is in trades per second
+        let volumeUnitsPerMove = 30.0 * 60.0  // Multiply by 60 since rate is in trades per second
+
+        // Target-side volatility is scaled down vs BaseVolatility so the per-trade
+        // proposal vol (which still uses BaseVolatility downstream in generateDrift)
+        // dominates targets by ~43%. Tightens target movement and target spread
+        // without touching the trade-level noise.
+        let targetVol = 0.7 * baseParams.BaseVolatility
 
         // Wide target sigma allows significant price movement
-        let targetSigma = 50. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
+        let targetSigma = 50. * targetVol * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
 
         // Flat drift: normal volume, no directional bias
         let driftFlat : Pattern<'r> =
             fun ctx cont ->
                 let volumeAbnormality = sampleVolumeAbnormality ctx 1.0
                 let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
-                let moveSigma = volumeAbnormality * baseParams.BaseVolatility * sqrt volumePerMove
+                let moveSigma = volumeAbnormality * targetVol * sqrt volumePerMove
                 let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, 0.0, moveSigma)
                 generateDrift baseParams ("DriftFlat" :: baseLabel()) volumeAbnormality target targetSigma volumePerMove true ctx cont
 
@@ -67,7 +73,7 @@ let trendDay (initialTrendDayType : TrendDayType option) (baseParams: BaseParams
             fun ctx cont ->
                 let volumeAbnormality = sampleVolumeAbnormality ctx 3.0
                 let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
-                let moveSigma = volumeAbnormality * baseParams.BaseVolatility * sqrt volumePerMove
+                let moveSigma = volumeAbnormality * targetVol * sqrt volumePerMove
                 let c, label =
                     match trendDayType.Value with
                     | DowntrendDay -> -0.3, "DriftDown"
@@ -82,16 +88,16 @@ let trendDay (initialTrendDayType : TrendDayType option) (baseParams: BaseParams
             let hold ctx cont =
                 let volumeAbnormality = sampleVolumeAbnormality ctx 9.0
                 let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
-                let moveSigma = 0.5 * baseParams.BaseVolatility * sqrt volumePerMove
+                let moveSigma = 0.5 * targetVol * sqrt volumePerMove
                 let ctx = {ctx with StartTarget = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, 0.0, moveSigma)}
-                let looseSigma = 10. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
-                let tightSigma = 1. * baseParams.BaseVolatility * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
+                let looseSigma = 10. * targetVol * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
+                let tightSigma = 0.5 * targetVol * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
                 generateHold baseParams ("Hold" :: baseLabel()) volumeAbnormality (tightSigma, volumePerMove * 0.8 * 0.3) (looseSigma, volumePerMove * 0.2 * 0.3) volumePerMove false ctx cont
 
             let release ctx cont =
                 let volumeAbnormality = sampleVolumeAbnormality ctx 4.5
                 let volumePerMove = volumePerMove baseParams ctx (1.5 * volumeUnitsPerMove)
-                let moveSigma = volumeAbnormality * baseParams.BaseVolatility * sqrt volumePerMove
+                let moveSigma = volumeAbnormality * targetVol * sqrt volumePerMove
                 let c =
                     match trendDayType.Value with
                     | DowntrendDay -> -1.5
@@ -114,8 +120,8 @@ let trendDay (initialTrendDayType : TrendDayType option) (baseParams: BaseParams
                             | DowntrendDay -> UptrendDay
                     cont x)
             choice [
-                driftTrending, 0.9
-                flippingHold, 0.1
+                driftTrending, 0.8
+                flippingHold, 0.2
             ]
         let mid : Pattern<'r> = driftFlat
         let close : Pattern<'r> = morning
