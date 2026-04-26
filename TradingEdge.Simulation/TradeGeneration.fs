@@ -282,7 +282,10 @@ let generateHold (baseParams: BaseParams) (labels: string list) (volumeAbnormali
                 List.rev acc
             else
                 let useTight = rng.NextDouble() < 0.5
-                let sigma, chunkVolumeMean = if useTight then tightSigma, tightVolume else looseSigma, looseVolume
+                let sigmaMean, chunkVolumeMean = if useTight then tightSigma, tightVolume else looseSigma, looseVolume
+                // Per-chunk lognormal jitter on sigma so consecutive tight (or loose)
+                // chunks within a hold don't all have identical tightness.
+                let sigma = sampleLogNormal rng (sigmaMean * 0.9) sigmaMean
                 let chunkVolume = sampleLogNormal rng (chunkVolumeMean * 0.75) chunkVolumeMean
                 let actualVolume = min chunkVolume volumeRemaining
                 let pattern = generateBreakout baseParams labels volumeAbnormality sigma actualVolume respectSessionBoundaries
