@@ -233,12 +233,6 @@ let runPreprocess (args: ParseResults<PreprocessArgs>) =
 
     (TradingEdge.Simulation.TDigestProcessing.transformParquetWithCdf input tds output numWorkers).Wait()
 
-// let runDiagnoseDigests (args: ParseResults<DiagnoseDigestsArgs>) =
-//     let digestsPath = args.GetResult(DiagnoseDigestsArgs.Digests)
-//     let digests = TradingEdge.Simulation.TradeDataTDigests.loadTDigests digestsPath
-//     printBetaDigestDiagnostics digests
-//     printExponentialTiltDiagnostics digests
-
 let runBtcBars (args: ParseResults<BtcBarsArgs>) =
     let input = args.GetResult(BtcBarsArgs.Input)
     let output = args.GetResult(BtcBarsArgs.Output)
