@@ -28,6 +28,7 @@
     <PackageReference Include="FSharp.Control.TaskSeq" Version="0.4.0" />
     <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
     <PackageReference Include="Parquet.Net" Version="5.4.0" />
+    <PackageReference Include="Sylvan.Data.Csv" Version="1.4.2" />
     <ProjectReference Include="..\t-digest-csharp\TDigest\TDigest.csproj" />
   </ItemGroup>
 
