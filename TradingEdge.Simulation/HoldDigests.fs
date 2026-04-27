@@ -203,5 +203,15 @@ let applyCdfTransform (inputPath: string) (outputPath: string) (compression: flo
 
     do! producer
     do! workersDone
+
+    // Sidecar JSON ride-along: if the input parquet has a <basename>.labels.json
+    // next to it, copy it to <output basename>.labels.json so the Python side
+    // can find class names without the user manually copying.
+    let inSidecar = Path.ChangeExtension(inputPath, ".labels.json")
+    let outSidecar = Path.ChangeExtension(outputPath, ".labels.json")
+    if File.Exists inSidecar then
+        File.Copy(inSidecar, outSidecar, overwrite = true)
+        printfn "Copied label sidecar: %s -> %s" inSidecar outSidecar
+
     printfn "Done. Wrote %d row groups to %s" rgCount outputPath
 }
