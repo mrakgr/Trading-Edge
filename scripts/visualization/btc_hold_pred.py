@@ -112,13 +112,14 @@ def plot(bars, pred, output_html, title: str):
     ])
 
     fig = make_subplots(
-        rows=2, cols=1,
+        rows=3, cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.05,
-        row_heights=[0.7, 0.3],
+        vertical_spacing=0.04,
+        row_heights=[0.55, 0.25, 0.20],
         subplot_titles=[
             "Price (log-cum) ±2σ — color = P(Hold) + P(Fakeout)",
             "Hold (red) + Fakeout (orange) probability",
+            "Bar duration (seconds, axis reversed)",
         ],
     )
 
@@ -166,14 +167,27 @@ def plot(bars, pred, output_html, title: str):
     ), row=2, col=1)
     fig.add_hline(y=0.5, line=dict(color="gray", width=1, dash="dash"), row=2, col=1)
 
+    # Bottom panel: per-bar duration. Y-axis is reversed (matches sim_volume.py)
+    # so denser activity reads as taller bars and quiet stretches dip toward
+    # the bottom — the visual cue for hold-vs-drift discrimination.
+    durations = df["duration_sec"].fillna(0.0).to_numpy()
+    fig.add_trace(go.Scatter(
+        x=x_vals, y=durations, mode="lines", fill="tozeroy",
+        line=dict(color="steelblue", width=1),
+        fillcolor="rgba(70, 130, 180, 0.4)",
+        name="duration",
+        hovertemplate="bar %{x}: duration=%{y:.3f}s<extra></extra>",
+    ), row=3, col=1)
+
     fig.update_layout(
-        title=title, height=900, width=1500,
+        title=title, height=1100, width=1500,
         hovermode="closest", showlegend=True,
     )
     fig.update_xaxes(rangeslider_visible=False, row=1, col=1)
-    fig.update_xaxes(title_text="bar_idx", row=2, col=1)
+    fig.update_xaxes(title_text="bar_idx", row=3, col=1)
     fig.update_yaxes(title_text="rel_price", row=1, col=1)
     fig.update_yaxes(title_text="probability", range=[0, 1], row=2, col=1)
+    fig.update_yaxes(title_text="seconds", row=3, col=1, autorange="reversed")
 
     config = {"scrollZoom": True, "displayModeBar": True}
     script_dir = os.path.dirname(os.path.abspath(__file__))
