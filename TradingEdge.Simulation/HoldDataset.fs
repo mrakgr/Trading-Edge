@@ -293,6 +293,8 @@ let generateSynthDataset (baseSeed: int) (numDays: int) (startPrice: float) (bar
     let pending = Collections.Generic.Dictionary<int, DayBars>()
     let mutable nextToWrite = 0
     let mutable written = 0
+    let progressEvery = max 1 (numDays / 200)
+    let sw = System.Diagnostics.Stopwatch.StartNew()
 
     for d in channel.Reader.ReadAllAsync() do
         pending.[d.DayId] <- d
@@ -302,11 +304,16 @@ let generateSynthDataset (baseSeed: int) (numDays: int) (startPrice: float) (bar
             do! writeRowGroup writer day
             nextToWrite <- nextToWrite + 1
             written <- written + 1
-            if written % 100 = 0 then
-                printfn "  Wrote %d / %d days" written numDays
+            if written % progressEvery = 0 || written = numDays then
+                let elapsed = sw.Elapsed.TotalSeconds
+                let rate = float written / max 1e-9 elapsed
+                let etaSec = float (numDays - written) / max 1e-9 rate
+                printfn "  %d / %d days  (%.0f%%, %.1f days/s, ETA %.0fs)"
+                    written numDays (100.0 * float written / float numDays) rate etaSec
+                System.Console.Out.Flush()
 
     do! workersDone
-    printfn "Done. Wrote %d days to %s" numDays outputPath
+    printfn "Done. Wrote %d days to %s in %.1fs" numDays outputPath sw.Elapsed.TotalSeconds
 }
 
 // =============================================================================
