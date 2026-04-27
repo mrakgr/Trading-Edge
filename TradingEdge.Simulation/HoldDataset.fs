@@ -72,11 +72,13 @@ let toDayBars (dayId: int) (bars: VolumeBar[]) (isHold: int[]) : DayBars =
     let relStdDev = Array.init n (fun i ->
         let b = bars.[i]
         if b.VWAP > 0.0 then b.StdDev / b.VWAP else 0.0)
+    // Log returns: log(VWAP / prev_VWAP). Symmetric in profit/loss space
+    // (+100% and -50% both have |log r| = log 2), centered on 0 for no-change.
     let ret = Array.init n (fun i ->
-        if i = 0 then 1.0
+        if i = 0 then 0.0
         else
             let prev = bars.[i - 1].VWAP
-            if prev > 0.0 then bars.[i].VWAP / prev else 1.0)
+            if prev > 0.0 && bars.[i].VWAP > 0.0 then log (bars.[i].VWAP / prev) else 0.0)
     let durationSec = Array.init n (fun i ->
         let b = bars.[i]
         float (b.EndUs - b.StartUs) / 1e6)
@@ -185,14 +187,26 @@ let defaultSimParams (startPrice: float) : SimulationParams =
         BaseVolatility = bp.BaseVolatility
     }
 
+/// Convert one trade from log-space (as the simulator emits) to real-space.
+/// Price/TargetMean exp directly; TargetSigma uses the exact lognormal stddev
+/// since the band is drawn around TargetMean on charts and must be in price
+/// units, not log units.
+let expTrade (t: Trade) : Trade =
+    { t with
+        Price = exp t.Price
+        TargetMean = exp t.TargetMean
+        TargetSigma = MathNet.Numerics.Distributions.LogNormal(t.TargetMean, t.TargetSigma).StdDev }
+
 /// Generate one synthetic day's bars + labels.
 let generateSynthDay (dayId: int) (seed: int) (startPrice: float) (barVolume: float) : DayBars =
     let rng = Random(seed)
     let baseParams = defaultBaseParams ()
-    let simParams = defaultSimParams startPrice
+    let simParams = defaultSimParams (log startPrice)
     let ctx = makeDefaultContext rng simParams
     let pattern = trendDay None baseParams
-    let trades = pattern ctx (fun _ -> ctx.Effects.OnDone ctx)
+    let trades =
+        pattern ctx (fun _ -> ctx.Effects.OnDone ctx)
+        |> Array.map expTrade
     let bars, isHold = barsAndLabelsFromSynth barVolume trades
     toDayBars dayId bars isHold
 

@@ -240,10 +240,13 @@ let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
         BaseVolatility = normalizedBaseVol
     }
 
+    // Simulator runs in log-space; expTrade below converts emitted trades back
+    // to real prices for the CSV/chart pipeline.
+    let logStart = log startPrice
     let simParams = {
         TotalDuration = dayDuration
-        StartPrice = startPrice
-        StartTarget = startPrice
+        StartPrice = logStart
+        StartTarget = logStart
         BaseVolume = dayVolume
         BaseRate = dayRate
         BaseVolatility = normalizedBaseVol
@@ -251,7 +254,9 @@ let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
 
     let ctx = makeDefaultContext rng simParams
     let pattern = trendDay None baseParams
-    let trades = pattern ctx (fun _ -> ctx.Effects.OnDone ctx)
+    let trades =
+        pattern ctx (fun _ -> ctx.Effects.OnDone ctx)
+        |> Array.map TradingEdge.Simulation.HoldDataset.expTrade
 
     let writer : System.IO.TextWriter =
         match outputPath with
