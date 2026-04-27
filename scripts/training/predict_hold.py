@@ -4,9 +4,12 @@ hold probabilities back as a parquet alongside `day_id` / `bar_idx` so it can
 be joined onto the original bar data for visualization.
 
 Each emitted bar's probability comes from the window centered on it (or
-wherever the checkpoint's `target_offset` lands the prediction). Bars at the
-day boundaries — within the first `target_offset` or the last
-`window_size - target_offset - 1` — get NaN since no full window is available.
+wherever the checkpoint's `target_offset` lands the prediction). With
+bilateral zero-padding every bar in the day is a valid target, so the output
+covers the entire day; bars near the boundary just see partially-padded
+windows and the model relies on the mask channel to tell real from padded.
+
+Stride > 1 leaves NaN at non-stride positions (we don't fill them).
 """
 
 from __future__ import annotations
@@ -21,7 +24,7 @@ import pyarrow.parquet as pq
 import torch
 from torch.utils.data import DataLoader
 
-from hold_dataset import FEATURE_COLUMNS, HoldDataset, RowGroupSampler
+from hold_dataset import HoldDataset, RowGroupSampler
 from train_hold_gmlp import HoldGMLP
 
 
@@ -52,18 +55,16 @@ def predict(model: HoldGMLP, dataset: HoldDataset, batch_size: int, device: torc
     sampler = RowGroupSampler(dataset, shuffle=False)
     loader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=0)
 
-    target_offset = dataset.target_offset
-    window = dataset.window_size
-
-    # Pre-allocate per-group prob arrays filled with NaN.
+    # Pre-allocate per-group prob arrays filled with NaN. Bars at non-stride
+    # positions stay NaN since the dataset doesn't emit windows for them.
     probs_by_group: dict[int, np.ndarray] = {
         gi: np.full(n_bars, np.nan, dtype=np.float32)
         for gi, n_bars in zip(dataset.row_groups, dataset.bars_per_group)
     }
 
-    # Walk the sampler in lockstep with the DataLoader to know which (group, pos)
-    # each prediction corresponds to. The sampler yields global window indices
-    # in row-group-major order; we map them back via dataset._locate.
+    # Walk the sampler in lockstep with the DataLoader to know which target bar
+    # each prediction corresponds to. _locate returns the target bar position
+    # directly (bilateral padding makes every bar a valid target).
     iter_indices = iter(sampler)
     start = time.time()
     n_done = 0
@@ -74,8 +75,8 @@ def predict(model: HoldGMLP, dataset: HoldDataset, batch_size: int, device: torc
         probs = torch.sigmoid(logits).cpu().numpy()
         for prob in probs:
             flat_idx = next(iter_indices)
-            gi, pos = dataset._locate(flat_idx)
-            probs_by_group[gi][pos + target_offset] = prob
+            gi, target_pos = dataset._locate(flat_idx)
+            probs_by_group[gi][target_pos] = prob
         n_done += len(probs)
         if n_done % (batch_size * 50) == 0:
             elapsed = time.time() - start

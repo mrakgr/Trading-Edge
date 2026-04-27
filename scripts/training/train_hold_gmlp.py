@@ -23,7 +23,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from hold_dataset import FEATURE_COLUMNS, HoldDataset, RowGroupSampler
+from hold_dataset import NUM_INPUT_CHANNELS, HoldDataset, RowGroupSampler
 
 
 # =============================================================================
@@ -70,8 +70,8 @@ class HoldGMLP(nn.Module):
 
     def __init__(
         self,
-        seq_len: int = 60,
-        input_channels: int = len(FEATURE_COLUMNS),
+        seq_len: int = 256,
+        input_channels: int = NUM_INPUT_CHANNELS,
         hidden_dim: int = 128,
         ffn_dim: int = 512,
         num_layers: int = 4,
@@ -202,9 +202,9 @@ def main():
     p.add_argument("--test", required=True, help="Test parquet")
     p.add_argument("--train-days", default=None, help="Day range 'lo:hi' (half-open) for train")
     p.add_argument("--test-days", default=None, help="Day range 'lo:hi' (half-open) for test")
-    p.add_argument("--window-size", type=int, default=60)
+    p.add_argument("--window-size", type=int, default=256)
     p.add_argument("--target-offset", type=int, default=None, help="Bar within window to predict (default: middle)")
-    p.add_argument("--stride", type=int, default=1)
+    p.add_argument("--stride", type=int, default=4)
     p.add_argument("--batch-size", type=int, default=256)
     p.add_argument("--epochs", type=int, default=5)
     p.add_argument("--lr", type=float, default=1e-3)
@@ -265,7 +265,7 @@ def main():
         "state_dict": model.state_dict(),
         "config": {
             "seq_len": args.window_size,
-            "input_channels": len(FEATURE_COLUMNS),
+            "input_channels": NUM_INPUT_CHANNELS,
             "hidden_dim": model.hidden_dim,
             "ffn_dim": model.ffn_dim,
             "num_layers": model.num_layers,

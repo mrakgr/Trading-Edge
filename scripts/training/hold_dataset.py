@@ -2,8 +2,9 @@
 
 Reads CDF-transformed hold-dataset parquets (one row group per day, variable
 bars per day) produced by `dotnet ... apply-hold-cdf`. Each sample is a
-`window_size`-bar window of the four CDF features; the label is the `is_hold`
-flag of the bar at `pos + target_offset` within the window.
+`window_size`-bar window of the four CDF features plus a 5th mask channel
+indicating which positions are real bars vs. zero-padded; the label is the
+`is_hold` flag of the bar at `pos + target_offset` within the window.
 
 Companion to TradingEdge.Simulation/HoldDigests.fs (cdfSchema):
 
@@ -11,6 +12,11 @@ Companion to TradingEdge.Simulation/HoldDigests.fs (cdfSchema):
   cdf_rel_stddev: float, cdf_ret: float, cdf_duration: float,
   cdf_trade_count: float,
   is_hold: int
+
+Day boundaries are bilateral-padded so every bar in the day is a valid target.
+A window centered near the start of a day gets zeros on the left with mask=0
+there; same on the right at the day's end. The model sees an extra channel
+that's 1 for real bars and 0 for padded ones.
 
 The original scripts/training/dataset.py pulled three resolutions of CDF'd
 OHLC features at a fixed 23,400 bars/day. This dataset is the simpler
@@ -28,16 +34,20 @@ import torch
 from torch.utils.data import Dataset, Sampler
 
 
-FEATURE_COLUMNS = (
+# Raw feature columns in the parquet. The dataset returns these plus a 5th
+# generated `mask` channel (1 for real, 0 for padded), in this order:
+#   (rel_stddev, ret, duration, trade_count, mask).
+RAW_FEATURE_COLUMNS = (
     "cdf_rel_stddev",
     "cdf_ret",
     "cdf_duration",
     "cdf_trade_count",
 )
+NUM_INPUT_CHANNELS = len(RAW_FEATURE_COLUMNS) + 1  # +1 for the mask
 
 
 class HoldDataset(Dataset):
-    """Windowed bar sequences from a CDF-transformed hold-dataset parquet.
+    """Windowed bar sequences with bilateral zero-padding at day boundaries.
 
     Args:
         parquet_path: path to a parquet written by HoldDigests.cdfSchema.
@@ -45,7 +55,7 @@ class HoldDataset(Dataset):
         target_offset: index within the window whose `is_hold` becomes the
             label. Defaults to the middle of the window — non-causal, fine
             for offline mining (use window_size - 1 for live).
-        stride: step between window starts. 1 = every bar.
+        stride: step between target-bar positions within a day. 1 = every bar.
         day_filter: optional (lo, hi) day_id range, half-open [lo, hi). Use
             for train/test splits without writing two parquets.
     """
@@ -53,9 +63,9 @@ class HoldDataset(Dataset):
     def __init__(
         self,
         parquet_path: str,
-        window_size: int = 60,
+        window_size: int = 256,
         target_offset: Optional[int] = None,
-        stride: int = 1,
+        stride: int = 4,
         day_filter: Optional[tuple[int, int]] = None,
     ):
         if target_offset is None:
@@ -81,25 +91,24 @@ class HoldDataset(Dataset):
             md = self.pf.metadata.row_group(gi)
             n_bars = md.num_rows
             if day_filter is not None:
-                # Cheaper than reading the whole group: read just the first row
-                # of day_id from this group's column statistics.
                 day_col_idx = self.pf.schema_arrow.get_field_index("day_id")
                 stats = md.column(day_col_idx).statistics
                 first_day = int(stats.min) if stats and stats.has_min_max else None
                 if first_day is None:
-                    # Fallback: read the column.
                     first_day = int(self.pf.read_row_group(gi, columns=["day_id"]).column("day_id")[0].as_py())
                 lo, hi = day_filter
                 if not (lo <= first_day < hi):
                     continue
-            n_windows = max(0, (n_bars - window_size) // stride + 1)
+            # Bilateral padding: every bar is a valid target. Stride along
+            # target positions: ceil(n_bars / stride).
+            n_windows = (n_bars + stride - 1) // stride
             if n_windows == 0:
                 continue
             self.row_groups.append(gi)
             self.bars_per_group.append(n_bars)
             self.windows_per_group.append(n_windows)
 
-        # Cumulative window counts for fast (idx -> group, offset) mapping.
+        # Cumulative window counts for fast (idx -> group, target_pos) mapping.
         self.cum_windows = np.cumsum(self.windows_per_group).tolist()
         self._total_windows = self.cum_windows[-1] if self.cum_windows else 0
 
@@ -112,7 +121,7 @@ class HoldDataset(Dataset):
         return self._total_windows
 
     def _locate(self, idx: int) -> tuple[int, int]:
-        """Map a flat sample index to (row_group, window_offset)."""
+        """Map a flat sample index to (row_group, target_bar_position)."""
         if not (0 <= idx < self._total_windows):
             raise IndexError(idx)
         gi = bisect.bisect_right(self.cum_windows, idx)
@@ -122,22 +131,36 @@ class HoldDataset(Dataset):
 
     def _load_group(self, group_idx: int) -> dict[str, np.ndarray]:
         if self._cache_idx != group_idx:
-            tbl = self.pf.read_row_group(group_idx, columns=list(FEATURE_COLUMNS) + ["is_hold"])
+            tbl = self.pf.read_row_group(group_idx, columns=list(RAW_FEATURE_COLUMNS) + ["is_hold"])
             self._cache_arrays = {
                 name: tbl.column(name).to_numpy(zero_copy_only=False)
-                for name in FEATURE_COLUMNS + ("is_hold",)
+                for name in RAW_FEATURE_COLUMNS + ("is_hold",)
             }
             self._cache_idx = group_idx
         return self._cache_arrays
 
     def __getitem__(self, idx: int) -> dict:
-        group_idx, pos = self._locate(idx)
+        group_idx, target_pos = self._locate(idx)
         arrs = self._load_group(group_idx)
-        end = pos + self.window_size
+        n_bars = len(arrs["is_hold"])
 
-        # Stack the four feature columns into a (window_size, 4) tensor.
-        features = np.stack([arrs[c][pos:end] for c in FEATURE_COLUMNS], axis=1).astype(np.float32, copy=False)
-        label = int(arrs["is_hold"][pos + self.target_offset])
+        # Window spans bar indices [start, end) in day coordinates. Clip to
+        # [0, n_bars) and zero-pad the rest. Mask=1 where real, 0 where padded.
+        start = target_pos - self.target_offset
+        end = start + self.window_size
+        clip_lo = max(0, start)
+        clip_hi = min(n_bars, end)
+        # Position within the window where real data lands.
+        win_lo = clip_lo - start
+        win_hi = clip_hi - start
+
+        features = np.zeros((self.window_size, NUM_INPUT_CHANNELS), dtype=np.float32)
+        if win_hi > win_lo:
+            for fi, name in enumerate(RAW_FEATURE_COLUMNS):
+                features[win_lo:win_hi, fi] = arrs[name][clip_lo:clip_hi]
+            features[win_lo:win_hi, -1] = 1.0  # mask channel
+
+        label = int(arrs["is_hold"][target_pos])
         return {
             "features": torch.from_numpy(features),
             "label": torch.tensor(label, dtype=torch.float32),
