@@ -274,7 +274,7 @@ let generateBreakout (baseParams: BaseParams) (labels: string list) (volumeAbnor
     fun ctx cont ->
         generateDrift baseParams labels volumeAbnormality ctx.StartTarget targetSigma volumeLimit respectSessionBoundaries ctx cont
 
-let generateHold (baseParams: BaseParams) (labels: string list) (volumeAbnormality : float) (looseSigma : float, looseVolume : float) (tightSigma : float, tightVolume : float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
+let generateHold (baseParams: BaseParams) (labels: string list) (volumeAbnormality : float) (tightSigma : float, tightVolume : float) (looseSigma : float, looseVolume : float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
         let rng = ctx.Effects.Rng
         let rec buildPatterns volumeRemaining acc =
