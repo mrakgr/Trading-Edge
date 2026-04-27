@@ -115,7 +115,7 @@ type GenerateDatasetArgs =
             | Bar_Volume _ -> "Volume per bar (default: 10000.0)"
             | Workers _ -> "Generator worker count (default: ProcessorCount)"
 
-type BuildHoldDigestsArgs =
+type ApplyHoldCdfArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
     | [<Mandatory; AltCommandLine("-o")>] Output of string
     | [<AltCommandLine("-c")>] Compression of float
@@ -123,22 +123,9 @@ type BuildHoldDigestsArgs =
     interface IArgParserTemplate with
         member this.Usage =
             match this with
-            | Input _ -> "Hold-dataset parquet to fit digests on (typically real BTC bars)"
-            | Output _ -> "Output digests binary path"
-            | Compression _ -> "T-digest compression factor (default: 4096)"
-            | Workers _ -> "Worker count (default: ProcessorCount)"
-
-type ApplyHoldCdfArgs =
-    | [<Mandatory; AltCommandLine("-i")>] Input of string
-    | [<Mandatory; AltCommandLine("-d")>] Digests of string
-    | [<Mandatory; AltCommandLine("-o")>] Output of string
-    | [<AltCommandLine("-w")>] Workers of int
-    interface IArgParserTemplate with
-        member this.Usage =
-            match this with
-            | Input _ -> "Hold-dataset parquet to transform"
-            | Digests _ -> "Digests binary path (from build-hold-digests)"
+            | Input _ -> "Hold-dataset parquet to transform (per-day fit-and-transform)"
             | Output _ -> "Output CDF-transformed parquet path"
+            | Compression _ -> "T-digest compression factor (default: 4096)"
             | Workers _ -> "Worker count (default: ProcessorCount)"
 
 type Command =
@@ -149,7 +136,6 @@ type Command =
     | [<CliPrefix(CliPrefix.None)>] Test_Nested of ParseResults<TestNestedArgs>
     | [<CliPrefix(CliPrefix.None)>] Btc_Bars of ParseResults<BtcBarsArgs>
     | [<CliPrefix(CliPrefix.None)>] Generate_Dataset of ParseResults<GenerateDatasetArgs>
-    | [<CliPrefix(CliPrefix.None)>] Build_Hold_Digests of ParseResults<BuildHoldDigestsArgs>
     | [<CliPrefix(CliPrefix.None)>] Apply_Hold_Cdf of ParseResults<ApplyHoldCdfArgs>
     interface IArgParserTemplate with
         member this.Usage =
@@ -161,8 +147,7 @@ type Command =
             | Test_Nested _ -> "Test nested episode generation"
             | Btc_Bars _ -> "Build hold-dataset volume bars from Binance trade data"
             | Generate_Dataset _ -> "Generate N synthetic days as a hold-dataset parquet"
-            | Build_Hold_Digests _ -> "Fit per-feature t-digests from a hold-dataset parquet"
-            | Apply_Hold_Cdf _ -> "Apply CDF transform to a hold-dataset parquet"
+            | Apply_Hold_Cdf _ -> "Per-day fit-and-CDF-transform a hold-dataset parquet"
 
 let runOrderBook (args: ParseResults<OrderBookArgs>) =
     let seed = args.GetResult(OrderBookArgs.Seed, 42)
@@ -319,21 +304,12 @@ let runGenerateDataset (args: ParseResults<GenerateDatasetArgs>) =
     let workers = args.GetResult(GenerateDatasetArgs.Workers, Environment.ProcessorCount)
     (TradingEdge.Simulation.HoldDataset.generateSynthDataset seed days price barVolume output workers).Wait()
 
-let runBuildHoldDigests (args: ParseResults<BuildHoldDigestsArgs>) =
-    let input = args.GetResult(BuildHoldDigestsArgs.Input)
-    let output = args.GetResult(BuildHoldDigestsArgs.Output)
-    let compression = args.GetResult(BuildHoldDigestsArgs.Compression, TradingEdge.Simulation.HoldDigests.defaultCompression)
-    let workers = args.GetResult(BuildHoldDigestsArgs.Workers, Environment.ProcessorCount)
-    let digests = (TradingEdge.Simulation.HoldDigests.buildDigests input compression workers).Result
-    TradingEdge.Simulation.HoldDigests.printDigestsSketch digests
-    TradingEdge.Simulation.HoldDigests.saveDigests digests output
-
 let runApplyHoldCdf (args: ParseResults<ApplyHoldCdfArgs>) =
     let input = args.GetResult(ApplyHoldCdfArgs.Input)
-    let digests = args.GetResult(ApplyHoldCdfArgs.Digests)
     let output = args.GetResult(ApplyHoldCdfArgs.Output)
+    let compression = args.GetResult(ApplyHoldCdfArgs.Compression, TradingEdge.Simulation.HoldDigests.defaultCompression)
     let workers = args.GetResult(ApplyHoldCdfArgs.Workers, Environment.ProcessorCount)
-    (TradingEdge.Simulation.HoldDigests.applyCdfTransform input digests output workers).Wait()
+    (TradingEdge.Simulation.HoldDigests.applyCdfTransform input output compression workers).Wait()
 
 [<EntryPoint>]
 let main argv =
@@ -350,7 +326,6 @@ let main argv =
         | Test_Nested _ -> printfn "Test_Nested command not implemented"
         | Btc_Bars args -> runBtcBars args
         | Generate_Dataset args -> runGenerateDataset args
-        | Build_Hold_Digests args -> runBuildHoldDigests args
         | Apply_Hold_Cdf args -> runApplyHoldCdf args
 
         0

@@ -1,11 +1,11 @@
 module TradingEdge.Simulation.HoldDigests
 
-// Per-feature t-digests + CDF transform for the hold-detector pipeline.
-// Fits one MergingDigest per feature against a parquet of hold-dataset bars
-// (typically real BTC bars, since the NN sees synthetic inputs in real-data
-// coordinates) and provides an apply-CDF step that reads any hold-dataset
-// parquet (synthetic or real) and writes a parquet with each feature mapped
-// to [-1, 1] via piecewise-linear CDF lookup tables.
+// Per-day (per-row-group) t-digest fit + CDF transform for the hold-detector
+// pipeline. Each row group corresponds to one day's bars; we fit four marginals
+// (one per feature) on just that day's bars and immediately CDF-transform them.
+// Patterns are relative to the surrounding regime, so a day-local digest gives
+// the NN inputs that capture "tight relative to today" rather than "tight
+// relative to global BTC". No global digest file exists.
 //
 // Reuses CdfLookupTable / createCdfLookup / lookupValue / applyCdf from
 // TradingEdge.Simulation.TDigestProcessing — only the schema and the per-row
@@ -23,21 +23,6 @@ open TDigest
 open FSharp.Control
 open TradingEdge.Simulation.TDigestProcessing
 open TradingEdge.Simulation.HoldDataset
-
-// =============================================================================
-// Digests bundle
-// =============================================================================
-//
-// Four marginals — one per feature column written by HoldDataset. trade_count
-// is integer in the parquet but t-digested as float (categorical-int features
-// are uncommon and the TDigest API is float-only).
-
-type HoldDigests = {
-    RelStdDev: MergingDigest
-    Ret: MergingDigest
-    Duration: MergingDigest
-    TradeCount: MergingDigest
-}
 
 let defaultCompression = 4096.0
 
@@ -82,123 +67,7 @@ let private readRowGroup (rg: ParquetRowGroupReader) (schema: ParquetSchema) (rg
 }
 
 // =============================================================================
-// Build digests
-// =============================================================================
-//
-// Streams row groups through a bounded channel to a pool of workers; each
-// worker maintains private digests, then we merge at the end. MergingDigest
-// is not thread-safe so per-worker locality is required.
-
-let private addFinite (td: MergingDigest) (v: float) =
-    if Double.IsFinite v then td.Add v
-
-let private addRow (td: HoldDigests) (rg: RawRowGroup) =
-    for i in 0 .. rg.RelStdDev.Length - 1 do
-        addFinite td.RelStdDev rg.RelStdDev.[i]
-        addFinite td.Ret rg.Ret.[i]
-        addFinite td.Duration rg.DurationSec.[i]
-        addFinite td.TradeCount (float rg.TradeCount.[i])
-
-let buildDigests (inputPath: string) (compression: float) (numWorkers: int) = task {
-    printfn "Building hold-feature t-digests from %s..." inputPath
-    use stream = File.OpenRead(inputPath)
-    let! reader = ParquetReader.CreateAsync(stream)
-    use reader = reader
-    let rgCount = reader.RowGroupCount
-    let schema = reader.Schema
-    printfn "  %d row groups, %d workers" rgCount numWorkers
-
-    let channel = Channel.CreateBounded<RawRowGroup>(BoundedChannelOptions(numWorkers * 2))
-    let mutable processed = 0
-
-    let producer = task {
-        for i in 0 .. rgCount - 1 do
-            use rg = reader.OpenRowGroupReader(i)
-            let! data = readRowGroup rg schema i
-            do! channel.Writer.WriteAsync(data)
-        channel.Writer.Complete()
-    }
-
-    let workers = [|
-        for _ in 0 .. numWorkers - 1 ->
-            task {
-                let local = {
-                    RelStdDev = MergingDigest(compression)
-                    Ret = MergingDigest(compression)
-                    Duration = MergingDigest(compression)
-                    TradeCount = MergingDigest(compression)
-                }
-                for rg in channel.Reader.ReadAllAsync() do
-                    addRow local rg
-                    let n = Interlocked.Increment(&processed)
-                    if n % 100 = 0 then printfn "  Processed %d / %d row groups" n rgCount
-                return local
-            }
-    |]
-
-    do! producer
-    let! results = Task.WhenAll(workers)
-
-    let merge (digests: MergingDigest seq) =
-        let merged = MergingDigest(compression)
-        merged.Add(digests |> Seq.cast<Digest>)
-        merged
-
-    printfn "Done. Processed %d row groups." rgCount
-    return {
-        RelStdDev = merge (results |> Seq.map (fun d -> d.RelStdDev))
-        Ret = merge (results |> Seq.map (fun d -> d.Ret))
-        Duration = merge (results |> Seq.map (fun d -> d.Duration))
-        TradeCount = merge (results |> Seq.map (fun d -> d.TradeCount))
-    }
-}
-
-// =============================================================================
-// Save / load (binary, four MergingDigest blobs concatenated)
-// =============================================================================
-
-let saveDigests (digests: HoldDigests) (outputPath: string) =
-    let dir = Path.GetDirectoryName(outputPath)
-    if not (String.IsNullOrEmpty dir) && not (Directory.Exists dir) then
-        Directory.CreateDirectory dir |> ignore
-    use stream = File.Create(outputPath)
-    use writer = new BinaryWriter(stream)
-    digests.RelStdDev.AsBytes(writer)
-    digests.Ret.AsBytes(writer)
-    digests.Duration.AsBytes(writer)
-    digests.TradeCount.AsBytes(writer)
-    printfn "Saved hold-feature t-digests to %s" outputPath
-
-let loadDigests (inputPath: string) : HoldDigests =
-    use stream = File.OpenRead(inputPath)
-    use reader = new BinaryReader(stream)
-    {
-        RelStdDev = MergingDigest.FromBytes(reader)
-        Ret = MergingDigest.FromBytes(reader)
-        Duration = MergingDigest.FromBytes(reader)
-        TradeCount = MergingDigest.FromBytes(reader)
-    }
-
-// =============================================================================
-// Diagnostics — print quantile sketch so we can sanity-check the digest
-// =============================================================================
-
-let printDigestSketch (name: string) (td: MergingDigest) =
-    let qs = [| 0.001; 0.01; 0.1; 0.5; 0.9; 0.99; 0.999 |]
-    printf "  %-12s  min=%.6g" name (td.GetMin())
-    for q in qs do
-        printf "  q%-5.3f=%.6g" q (td.Quantile(q))
-    printfn "  max=%.6g" (td.GetMax())
-
-let printDigestsSketch (digests: HoldDigests) =
-    printfn "Hold-feature digests:"
-    printDigestSketch "rel_stddev" digests.RelStdDev
-    printDigestSketch "ret" digests.Ret
-    printDigestSketch "duration" digests.Duration
-    printDigestSketch "trade_count" digests.TradeCount
-
-// =============================================================================
-// CDF transform: read hold-dataset parquet -> write CDF'd hold-dataset parquet
+// CDF transform: read raw hold-dataset parquet -> write per-day-CDF'd parquet
 // =============================================================================
 //
 // Output schema preserves day_id / bar_idx / is_hold (Python-side metadata)
@@ -239,24 +108,51 @@ let private writeCdfRowGroup (writer: ParquetWriter) (d: CdfRowGroup) = task {
     do! rg.WriteColumnAsync(DataColumn(f.[6], d.IsHold))
 }
 
-let applyCdfTransform (inputPath: string) (digestsPath: string) (outputPath: string) (numWorkers: int) = task {
-    printfn "Applying CDF transform: %s -> %s" inputPath outputPath
-    let digests = loadDigests digestsPath
+let private addFinite (td: MergingDigest) (v: float) =
+    if Double.IsFinite v then td.Add v
 
-    // Pre-build piecewise-linear lookup tables once. 2^17 buckets matches the
-    // resolution used in TDigestProcessing.fs:253.
-    let numBuckets = 1 <<< 17
-    let relLookup = createCdfLookup digests.RelStdDev numBuckets
-    let retLookup = createCdfLookup digests.Ret numBuckets
-    let durLookup = createCdfLookup digests.Duration numBuckets
-    let tcLookup = createCdfLookup digests.TradeCount numBuckets
+/// Fit one MergingDigest per feature on this row group's bars, then CDF the
+/// same bars through the per-day digests. Each row group gets its own digests;
+/// nothing is shared across days.
+let private fitAndTransform (compression: float) (numBuckets: int) (rg: RawRowGroup) : CdfRowGroup =
+    let relTd = MergingDigest(compression)
+    let retTd = MergingDigest(compression)
+    let durTd = MergingDigest(compression)
+    let tcTd = MergingDigest(compression)
+    for i in 0 .. rg.RelStdDev.Length - 1 do
+        addFinite relTd rg.RelStdDev.[i]
+        addFinite retTd rg.Ret.[i]
+        addFinite durTd rg.DurationSec.[i]
+        addFinite tcTd (float rg.TradeCount.[i])
+    let relLookup = createCdfLookup relTd numBuckets
+    let retLookup = createCdfLookup retTd numBuckets
+    let durLookup = createCdfLookup durTd numBuckets
+    let tcLookup = createCdfLookup tcTd numBuckets
+    {
+        Index = rg.Index
+        DayIds = rg.DayIds
+        BarIdx = rg.BarIdx
+        CdfRelStdDev = applyCdf relLookup rg.RelStdDev
+        CdfRet = applyCdf retLookup rg.Ret
+        CdfDuration = applyCdf durLookup rg.DurationSec
+        CdfTradeCount = applyCdfInt tcLookup rg.TradeCount
+        IsHold = rg.IsHold
+    }
+
+let applyCdfTransform (inputPath: string) (outputPath: string) (compression: float) (numWorkers: int) = task {
+    printfn "Per-day CDF transform: %s -> %s" inputPath outputPath
+
+    // Bucket count for the piecewise-linear lookup. With per-day digests the
+    // input population is small (~2-6k bars) so we don't need 2^17 buckets;
+    // 2^12 is plenty and keeps the per-day fit fast.
+    let numBuckets = 1 <<< 12
 
     use inStream = File.OpenRead(inputPath)
     let! reader = ParquetReader.CreateAsync(inStream)
     use reader = reader
     let rgCount = reader.RowGroupCount
     let schema = reader.Schema
-    printfn "  %d row groups, %d workers" rgCount numWorkers
+    printfn "  %d row groups, %d workers, compression=%g, buckets=%d" rgCount numWorkers compression numBuckets
 
     let readChannel = Channel.CreateBounded<RawRowGroup>(BoundedChannelOptions(numWorkers * 2))
     let writeChannel = Channel.CreateBounded<CdfRowGroup>(BoundedChannelOptions(numWorkers * 2))
@@ -270,23 +166,11 @@ let applyCdfTransform (inputPath: string) (digestsPath: string) (outputPath: str
         readChannel.Writer.Complete()
     }
 
-    let transform (rg: RawRowGroup) : CdfRowGroup =
-        {
-            Index = rg.Index
-            DayIds = rg.DayIds
-            BarIdx = rg.BarIdx
-            CdfRelStdDev = applyCdf relLookup rg.RelStdDev
-            CdfRet = applyCdf retLookup rg.Ret
-            CdfDuration = applyCdf durLookup rg.DurationSec
-            CdfTradeCount = applyCdfInt tcLookup rg.TradeCount
-            IsHold = rg.IsHold
-        }
-
     let workers = [|
         for _ in 0 .. numWorkers - 1 ->
             task {
                 for rg in readChannel.Reader.ReadAllAsync() do
-                    let cdf = transform rg
+                    let cdf = fitAndTransform compression numBuckets rg
                     do! writeChannel.Writer.WriteAsync(cdf)
                     let n = Interlocked.Increment(&processed)
                     if n % 100 = 0 then printfn "  Transformed %d / %d row groups" n rgCount
