@@ -211,31 +211,11 @@ let runDumpTrades (args: ParseResults<DumpTradesArgs>) =
     let outputPath = args.TryGetResult(DumpTradesArgs.Output)
     let rng = Random(seed)
 
-    let dayVolume = 100.0
-    let dayRate = 10.
-    let dayDuration = 390.0
-    let baseVolBps = 15.0 * bps
-
-    // Normalize base volatility by sqrt(mean rate * mean volume)
-    let normalizedBaseVol = baseVolBps / sqrt(dayRate * dayVolume)
-
-    let baseParams = {
-        BaseVolume = dayVolume
-        BaseRate = dayRate
-        BaseVolatility = normalizedBaseVol
-    }
-
-    // Simulator runs in log-space; expTrade below converts emitted trades back
-    // to real prices for the CSV/chart pipeline.
-    let logStart = log startPrice
-    let simParams = {
-        TotalDuration = dayDuration
-        StartPrice = logStart
-        StartTarget = logStart
-        BaseVolume = dayVolume
-        BaseRate = dayRate
-        BaseVolatility = normalizedBaseVol
-    }
+    // Match generateSynthDay: per-day lognormal-sampled BaseVolume/BaseRate,
+    // log-space simulation with expTrade post-pass.
+    let baseParams = TradingEdge.Simulation.HoldDataset.sampleBaseParams rng
+    let simParams = TradingEdge.Simulation.HoldDataset.simParamsOf (log startPrice) baseParams
+    printfn "  dayVolume=%.2f  dayRate=%.2f" baseParams.BaseVolume baseParams.BaseRate
 
     let ctx = makeDefaultContext rng simParams
     let pattern = trendDay None baseParams
