@@ -1,21 +1,27 @@
-"""BTC volume-bar chart with hold-detector posterior overlay.
+"""BTC volume-bar chart with multi-class hold-detector posterior overlay.
 
 Reads:
   - BTC bars parquet (raw schema from `dotnet ... btc-bars`):
-      day_id, bar_idx, rel_stddev, ret, duration_sec, trade_count, is_hold
+      day_id, bar_idx, rel_stddev, ret, duration_sec, trade_count, label
     Note: there's no VWAP column in this schema. We approximate per-bar price
     by integrating the log-returns: price_i = exp(cumsum(ret)) * start_price.
     Without a known starting price we just plot the rel-price curve normalized
     to start at 1.0; the y-axis is unitless but the relative shape matches the
     real BTC tape.
   - Predictions parquet (from predict_hold.py):
-      day_id, bar_idx, hold_prob
+      day_id, bar_idx, pred_label, prob_0, prob_1, ..., prob_<n-1>
 
-Plots:
-  Top:  rel-price line, with bar widths = rel_stddev (visualizing the hold
-        signal). Bars colored on a green-to-red gradient by hold_prob, so
-        high-prob clusters jump out visually.
-  Bot:  hold_prob over the same x-axis (bar index).
+Composite hold score = P(Hold|Up) + P(Hold|Down) + P(Fakeout|Up) + P(Fakeout|Down)
+— "what fraction of mass does the model put on the consolidation zone?". The
+top panel colors bars green→yellow→red on this composite, so high-confidence
+holds and fakeouts both pop out. The bottom panel splits the composite into
+its Hold (firebrick) and Fakeout (orange) components stacked, so you can see
+which part is driving the call.
+
+Class indices come from the simulator's labelToInt mapping
+(TradingEdge.Simulation.HoldDataset.labelNames):
+    5 = Hold|UptrendDay,    6 = Hold|DowntrendDay,
+    7 = Fakeout|UptrendDay, 8 = Fakeout|DowntrendDay.
 
 Usage:
     python scripts/visualization/btc_hold_pred.py \
@@ -35,54 +41,62 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 
+HOLD_CLASSES = (5, 6)         # Hold | UpDay, Hold | DownDay
+FAKEOUT_CLASSES = (7, 8)      # Fakeout | UpDay, Fakeout | DownDay
+
+
 def load_bars(path: str):
-    t = pq.read_table(path).to_pandas()
-    return t
+    return pq.read_table(path).to_pandas()
 
 
 def load_pred(path: str):
-    t = pq.read_table(path).to_pandas()
-    return t
+    return pq.read_table(path).to_pandas()
 
 
 def viridis_color(p: float) -> str:
     """Map p in [0, 1] to a green-low / red-high RGB string."""
     p = max(0.0, min(1.0, float(p)))
-    # Lerp green -> yellow -> red.
     if p < 0.5:
-        # green to yellow
         t = p / 0.5
         r, g, b = int(t * 255), 200, 0
     else:
-        # yellow to red
         t = (p - 0.5) / 0.5
         r, g, b = 255, int(200 * (1 - t)), 0
     return f"rgb({r},{g},{b})"
 
 
 def plot(bars, pred, output_html, title: str):
-    # Align by bar_idx (bars + pred should already share day_id). Use bar_idx
-    # as the x-axis directly — uniform spacing keeps adjacent bars rendering
-    # as integer columns.
-    df = bars.merge(pred[["bar_idx", "hold_prob"]], on="bar_idx", how="left")
+    df = bars.merge(pred, on="bar_idx", how="left", suffixes=("", "_pred"))
     n = len(df)
-    print(f"Bars: {n}, predictions matched: {df['hold_prob'].notna().sum()}")
 
-    # Approximate price curve from log-returns. Start at 1.0 (relative).
+    prob_cols = [c for c in pred.columns if c.startswith("prob_")]
+    assert prob_cols, "no prob_<i> columns in predictions parquet"
+
+    def safe(col: str) -> np.ndarray:
+        return df[col].fillna(0.0).to_numpy() if col in df else np.zeros(n)
+
+    hold_score = sum(safe(f"prob_{c}") for c in HOLD_CLASSES)
+    fakeout_score = sum(safe(f"prob_{c}") for c in FAKEOUT_CLASSES)
+    composite = hold_score + fakeout_score
+
+    print(f"Bars: {n}, predictions matched: {df[prob_cols[0]].notna().sum()}")
+    print(f"Composite hold+fakeout score: p50={np.median(composite):.4f}, "
+          f"p90={np.percentile(composite, 90):.4f}, "
+          f">0.5: {(composite > 0.5).sum()}  ({(composite > 0.5).mean()*100:.1f}%)")
+
     log_rets = df["ret"].to_numpy()
-    log_rets[0] = 0.0  # first bar's ret is 0 by convention
+    log_rets[0] = 0.0
     rel_price = np.exp(np.cumsum(log_rets))
 
     rel_stddev = df["rel_stddev"].to_numpy()
-    # Bar height is ±2σ around the price, where σ here is rel_stddev * price.
     bar_half = 2.0 * rel_stddev * rel_price
     bar_height = 2.0 * bar_half
     bar_base = rel_price - bar_half
 
-    probs = df["hold_prob"].fillna(0.0).to_numpy()
-    colors = [viridis_color(p) for p in probs]
-
+    colors = [viridis_color(s) for s in composite]
     x_vals = np.arange(n, dtype=np.float64)
+
+    pred_label = df["pred_label"].fillna(-1).to_numpy().astype(int)
 
     customdata = np.column_stack([
         df["bar_idx"].to_numpy(),
@@ -91,7 +105,10 @@ def plot(bars, pred, output_html, title: str):
         df["ret"].to_numpy(),
         df["duration_sec"].to_numpy(),
         df["trade_count"].to_numpy(),
-        probs,
+        composite,
+        hold_score,
+        fakeout_score,
+        pred_label,
     ])
 
     fig = make_subplots(
@@ -99,7 +116,10 @@ def plot(bars, pred, output_html, title: str):
         shared_xaxes=True,
         vertical_spacing=0.05,
         row_heights=[0.7, 0.3],
-        subplot_titles=["Price (log-cum) ±2σ — color = hold_prob", "Hold probability"],
+        subplot_titles=[
+            "Price (log-cum) ±2σ — color = P(Hold) + P(Fakeout)",
+            "Hold (red) + Fakeout (orange) probability",
+        ],
     )
 
     fig.add_trace(go.Bar(
@@ -114,36 +134,46 @@ def plot(bars, pred, output_html, title: str):
             "<b>log_ret:</b> %{customdata[3]:+.6f}<br>"
             "<b>dur:</b> %{customdata[4]:.2f}s<br>"
             "<b>trades:</b> %{customdata[5]}<br>"
-            "<b>hold_prob:</b> %{customdata[6]:.4f}<extra></extra>"
+            "<b>composite:</b> %{customdata[6]:.4f} "
+            "(hold=%{customdata[7]:.3f}, fakeout=%{customdata[8]:.3f})<br>"
+            "<b>argmax:</b> class %{customdata[9]}<extra></extra>"
         ),
         name="bars",
     ), row=1, col=1)
 
-    # Price line on top of the bars for orientation.
     fig.add_trace(go.Scatter(
         x=x_vals, y=rel_price, mode="lines",
         line=dict(color="black", width=1),
         name="rel_price", hoverinfo="skip",
     ), row=1, col=1)
 
-    # hold_prob area chart in bottom panel.
+    # Bottom panel: stacked Hold + Fakeout. Hold gets the firebrick color
+    # (matches the previous binary chart) and stacks first; Fakeout sits
+    # on top in orange. Stack heights add to the composite score.
     fig.add_trace(go.Scatter(
-        x=x_vals, y=probs, mode="lines", fill="tozeroy",
+        x=x_vals, y=hold_score, mode="lines", fill="tozeroy",
         line=dict(color="firebrick", width=1),
-        fillcolor="rgba(178, 34, 34, 0.4)",
-        name="hold_prob",
-        hovertemplate="bar %{x}: prob=%{y:.4f}<extra></extra>",
+        fillcolor="rgba(178, 34, 34, 0.5)",
+        name="hold",
+        hovertemplate="bar %{x}: hold=%{y:.4f}<extra></extra>",
+    ), row=2, col=1)
+    fig.add_trace(go.Scatter(
+        x=x_vals, y=hold_score + fakeout_score, mode="lines", fill="tonexty",
+        line=dict(color="orange", width=1),
+        fillcolor="rgba(255, 165, 0, 0.5)",
+        name="fakeout",
+        hovertemplate="bar %{x}: composite=%{y:.4f}<extra></extra>",
     ), row=2, col=1)
     fig.add_hline(y=0.5, line=dict(color="gray", width=1, dash="dash"), row=2, col=1)
 
     fig.update_layout(
         title=title, height=900, width=1500,
-        hovermode="closest", showlegend=False,
+        hovermode="closest", showlegend=True,
     )
     fig.update_xaxes(rangeslider_visible=False, row=1, col=1)
     fig.update_xaxes(title_text="bar_idx", row=2, col=1)
     fig.update_yaxes(title_text="rel_price", row=1, col=1)
-    fig.update_yaxes(title_text="P(hold)", range=[0, 1], row=2, col=1)
+    fig.update_yaxes(title_text="probability", range=[0, 1], row=2, col=1)
 
     config = {"scrollZoom": True, "displayModeBar": True}
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -158,7 +188,7 @@ def plot(bars, pred, output_html, title: str):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--bars", required=True, help="BTC bars parquet (raw schema)")
-    ap.add_argument("--pred", required=True, help="Hold predictions parquet")
+    ap.add_argument("--pred", required=True, help="Hold predictions parquet (multi-class prob_<i>)")
     ap.add_argument("--output", required=True, help="Output HTML path")
     ap.add_argument("--title", default=None)
     args = ap.parse_args()
