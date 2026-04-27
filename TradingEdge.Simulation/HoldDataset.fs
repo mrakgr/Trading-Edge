@@ -33,8 +33,10 @@ open TradingEdge.Simulation.Patterns
 //   ret           : log(VWAP / prev_VWAP) (=0.0 for the first bar)
 //   duration_sec  : (EndUs - StartUs) / 1e6
 //   trade_count   : VolumeBar.TradeCount
-//   is_hold       : 1 if the bar's first trade was labeled "Hold", else 0.
-//                   Always 0 for real (BTC) data — column reserved for synthetic.
+//   label         : integer index into a sidecar JSON map (label_index ->
+//                   string). Per-bar string is the bar's first trade's label
+//                   list joined with '|', e.g. "Hold|UptrendDay" or
+//                   "DriftFlat|DowntrendDay". Always 0 (= "") for real data.
 
 let datasetSchema = ParquetSchema(
     DataField<int>("day_id"),
@@ -43,7 +45,7 @@ let datasetSchema = ParquetSchema(
     DataField<float>("ret"),
     DataField<float>("duration_sec"),
     DataField<int>("trade_count"),
-    DataField<int>("is_hold")
+    DataField<int>("label")
 )
 
 /// Per-bar row laid out as parallel arrays for parquet column writes.
@@ -54,20 +56,63 @@ type DayBars = {
     Ret: float[]
     DurationSec: float[]
     TradeCount: int[]
-    IsHold: int[]
+    Label: int[]
 }
+
+// =============================================================================
+// Label taxonomy
+// =============================================================================
+//
+// The simulator emits a fixed, finite set of trade-label combinations. We map
+// each combination directly to an integer class index. Index 0 is reserved
+// for the empty label (used for unlabeled real data). Adding a new pattern
+// in the simulator requires extending labelNames AND labelToInt — and the
+// match throws on any combination it doesn't recognize, so missing entries
+// fail loud rather than silently lumping into a default class.
+
+let labelNames : string[] = [|
+    ""                              // 0  — empty / unlabeled (real data)
+    "DriftFlat|UptrendDay"          // 1
+    "DriftFlat|DowntrendDay"        // 2
+    "DriftUp|UptrendDay"            // 3
+    "DriftDown|DowntrendDay"        // 4
+    "Hold|UptrendDay"               // 5
+    "Hold|DowntrendDay"             // 6
+    "Fakeout|UptrendDay"            // 7
+    "Fakeout|DowntrendDay"          // 8
+    "HoldRelease|UptrendDay"        // 9
+    "HoldRelease|DowntrendDay"      // 10
+|]
+
+let numLabels = labelNames.Length
+
+let labelToInt (label: string list) : int =
+    match label with
+    | [] -> 0
+    | ["DriftFlat"; "UptrendDay"] -> 1
+    | ["DriftFlat"; "DowntrendDay"] -> 2
+    | ["DriftUp"; "UptrendDay"] -> 3
+    | ["DriftDown"; "DowntrendDay"] -> 4
+    | ["Hold"; "UptrendDay"] -> 5
+    | ["Hold"; "DowntrendDay"] -> 6
+    | ["Fakeout"; "UptrendDay"] -> 7
+    | ["Fakeout"; "DowntrendDay"] -> 8
+    | ["HoldRelease"; "UptrendDay"] -> 9
+    | ["HoldRelease"; "DowntrendDay"] -> 10
+    | other ->
+        invalidArg "label" (sprintf "Unrecognized label combination: %A" other)
 
 // =============================================================================
 // Bar -> features
 // =============================================================================
 
-/// Extract per-bar features from an array of VolumeBars + their per-bar Hold
-/// labels. `isHold` must be parallel to `bars` (same length); pass `[||]` of
-/// the right length filled with zeros for unlabeled (real) data.
-let toDayBars (dayId: int) (bars: VolumeBar[]) (isHold: int[]) : DayBars =
+/// Extract per-bar features from an array of VolumeBars + their per-bar
+/// label index. `label` must be parallel to `bars` (same length); pass `[||]`
+/// of the right length filled with zeros for unlabeled (real) data.
+let toDayBars (dayId: int) (bars: VolumeBar[]) (label: int[]) : DayBars =
     let n = bars.Length
-    if isHold.Length <> n then
-        failwithf "toDayBars: bars (%d) and isHold (%d) must have same length" n isHold.Length
+    if label.Length <> n then
+        failwithf "toDayBars: bars (%d) and label (%d) must have same length" n label.Length
     let barIdx = Array.init n id
     let relStdDev = Array.init n (fun i ->
         let b = bars.[i]
@@ -90,7 +135,7 @@ let toDayBars (dayId: int) (bars: VolumeBar[]) (isHold: int[]) : DayBars =
         Ret = ret
         DurationSec = durationSec
         TradeCount = tradeCount
-        IsHold = isHold
+        Label = label
     }
 
 // =============================================================================
@@ -102,18 +147,19 @@ let barsFromBtcTrades (barVolume: float) (trades: BinanceLoader.Trade[]) : Volum
     buildBars barVolume trades
 
 /// Build bars from synthetic simulator trades, carrying through a per-bar
-/// Hold label derived from the FIRST trade fragment that lands in each bar
+/// label derived from the FIRST trade fragment that lands in each bar
 /// (matches the convention used by scripts/visualization/sim_volume.py).
 ///
 /// Each synthetic Trade carries a Label like ["Hold"; "UptrendDay"] or
-/// ["DriftFlat"; "UptrendDay"] — we test whether the head segment is "Hold".
+/// ["DriftFlat"; "UptrendDay"]; we map directly to a class index via
+/// labelToInt (which throws on unrecognized combinations).
 ///
 /// Synthetic trades have no Sign (the simulator wasn't designed with buy/sell
 /// aggression in mind), so we feed Sign=+1 throughout. trade_count is what
 /// matters; buy_count is unused downstream.
 ///
-/// Pairs each emitted bar with the Hold-or-not label of the synthetic trade
-/// whose fragment opened that bar. Implemented as a wrapper around the Hmm
+/// Pairs each emitted bar with the label index of the synthetic trade whose
+/// fragment opened that bar. Implemented as a wrapper around the Hmm
 /// VolumeBarBuilder: between calls to builder.Process, the current bar is
 /// either non-empty (we already know its first label) or empty (the next
 /// trade's label will become the next bar's first label). Tracking this with
@@ -122,7 +168,7 @@ let barsFromBtcTrades (barVolume: float) (trades: BinanceLoader.Trade[]) : Volum
 /// internals.
 let barsAndLabelsFromSynth (barVolume: float) (trades: Trade[]) : VolumeBar[] * int[] =
     let bars = ResizeArray<VolumeBar>()
-    let isHold = ResizeArray<int>()
+    let labels = ResizeArray<int>()
     let builder = VolumeBarBuilder(barVolume)
 
     // Label of the trade that opened the current (in-progress) bar. None when
@@ -136,7 +182,7 @@ let barsAndLabelsFromSynth (barVolume: float) (trades: Trade[]) : VolumeBar[] * 
     let onBar (bar: VolumeBar) =
         bars.Add bar
         let label = barFirstLabel |> Option.defaultValue []
-        isHold.Add (match label with "Hold" :: _ -> 1 | _ -> 0)
+        labels.Add (labelToInt label)
         // The trade that just emitted this bar may still have remainder; if
         // so, the remainder lands in the next bar, whose first label is this
         // same trade's label. If there's no remainder, the next trade will
@@ -157,7 +203,7 @@ let barsAndLabelsFromSynth (barVolume: float) (trades: Trade[]) : VolumeBar[] * 
         }
         builder.Process(onBar, btcTrade)
 
-    bars.ToArray(), isHold.ToArray()
+    bars.ToArray(), labels.ToArray()
 
 // =============================================================================
 // Synthetic day generation
@@ -225,8 +271,8 @@ let generateSynthDay (dayId: int) (seed: int) (startPrice: float) (barsPerDay: i
         |> Array.map expTrade
     let totalVolume = trades |> Array.sumBy (fun t -> float t.Size)
     let barVolume = totalVolume / float barsPerDay
-    let bars, isHold = barsAndLabelsFromSynth barVolume trades
-    toDayBars dayId bars isHold
+    let bars, label = barsAndLabelsFromSynth barVolume trades
+    toDayBars dayId bars label
 
 // =============================================================================
 // Parquet writer: one row group per day
@@ -243,7 +289,7 @@ let writeRowGroup (writer: ParquetWriter) (d: DayBars) = task {
     do! rg.WriteColumnAsync(DataColumn(f.[3], d.Ret))
     do! rg.WriteColumnAsync(DataColumn(f.[4], d.DurationSec))
     do! rg.WriteColumnAsync(DataColumn(f.[5], d.TradeCount))
-    do! rg.WriteColumnAsync(DataColumn(f.[6], d.IsHold))
+    do! rg.WriteColumnAsync(DataColumn(f.[6], d.Label))
 }
 
 let writeOneDayParquet (outputPath: string) (d: DayBars) = task {
@@ -313,6 +359,16 @@ let generateSynthDataset (baseSeed: int) (numDays: int) (startPrice: float) (bar
                 System.Console.Out.Flush()
 
     do! workersDone
+
+    // Sidecar JSON: maps the integer label column back to its semantic name.
+    // Python-side training/visualization reads this to render class probabilities.
+    let labelsPath = Path.ChangeExtension(outputPath, ".labels.json")
+    let json =
+        labelNames
+        |> Array.mapi (fun i name -> sprintf "  \"%d\": \"%s\"" i name)
+        |> String.concat ",\n"
+    File.WriteAllText(labelsPath, "{\n" + json + "\n}\n")
+    printfn "Wrote %d label names to %s" numLabels labelsPath
     printfn "Done. Wrote %d days to %s in %.1fs" numDays outputPath sw.Elapsed.TotalSeconds
 }
 
@@ -329,10 +385,10 @@ let buildBtcBars (inputPath: string) (barsPerDay: int) (outputPath: string) = ta
     printfn "  Total volume %g; barsPerDay %d -> barVolume %g" totalVolume barsPerDay barVolume
     let bars = barsFromBtcTrades barVolume trades
     printfn "  Built %d volume bars" bars.Length
-    let isHold = Array.zeroCreate bars.Length
+    let label = Array.zeroCreate bars.Length
     // Use day_id = 0 for a single-day BTC parquet. When we accumulate multiple
     // days later we'll bump this to the date's ordinal.
-    let day = toDayBars 0 bars isHold
+    let day = toDayBars 0 bars label
     do! writeOneDayParquet outputPath day
     printfn "Wrote BTC bars to %s" outputPath
 }

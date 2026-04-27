@@ -32,7 +32,7 @@ let defaultCompression = 4096.0
 //
 // Mirrors the column order in HoldDataset.datasetSchema:
 //   0=day_id, 1=bar_idx, 2=rel_stddev, 3=ret, 4=duration_sec,
-//   5=trade_count, 6=is_hold
+//   5=trade_count, 6=label
 
 type private RawRowGroup = {
     Index: int
@@ -42,7 +42,7 @@ type private RawRowGroup = {
     Ret: float[]
     DurationSec: float[]
     TradeCount: int[]
-    IsHold: int[]
+    Label: int[]
 }
 
 let private readRowGroup (rg: ParquetRowGroupReader) (schema: ParquetSchema) (rgIndex: int) = task {
@@ -53,7 +53,7 @@ let private readRowGroup (rg: ParquetRowGroupReader) (schema: ParquetSchema) (rg
     let! ret = rg.ReadColumnAsync(f.[3])
     let! dur = rg.ReadColumnAsync(f.[4])
     let! tc = rg.ReadColumnAsync(f.[5])
-    let! isHold = rg.ReadColumnAsync(f.[6])
+    let! label = rg.ReadColumnAsync(f.[6])
     return {
         Index = rgIndex
         DayIds = dayIds.Data :?> int[]
@@ -62,7 +62,7 @@ let private readRowGroup (rg: ParquetRowGroupReader) (schema: ParquetSchema) (rg
         Ret = ret.Data :?> float[]
         DurationSec = dur.Data :?> float[]
         TradeCount = tc.Data :?> int[]
-        IsHold = isHold.Data :?> int[]
+        Label = label.Data :?> int[]
     }
 }
 
@@ -70,7 +70,7 @@ let private readRowGroup (rg: ParquetRowGroupReader) (schema: ParquetSchema) (rg
 // CDF transform: read raw hold-dataset parquet -> write per-day-CDF'd parquet
 // =============================================================================
 //
-// Output schema preserves day_id / bar_idx / is_hold (Python-side metadata)
+// Output schema preserves day_id / bar_idx / label (Python-side metadata)
 // and replaces the four float feature columns with their CDF'd versions in
 // [-1, 1]. trade_count's int column becomes float to share the column type
 // with the others post-CDF.
@@ -82,7 +82,7 @@ let cdfSchema = ParquetSchema(
     DataField<float>("cdf_ret"),
     DataField<float>("cdf_duration"),
     DataField<float>("cdf_trade_count"),
-    DataField<int>("is_hold")
+    DataField<int>("label")
 )
 
 type private CdfRowGroup = {
@@ -93,7 +93,7 @@ type private CdfRowGroup = {
     CdfRet: float[]
     CdfDuration: float[]
     CdfTradeCount: float[]
-    IsHold: int[]
+    Label: int[]
 }
 
 let private writeCdfRowGroup (writer: ParquetWriter) (d: CdfRowGroup) = task {
@@ -105,7 +105,7 @@ let private writeCdfRowGroup (writer: ParquetWriter) (d: CdfRowGroup) = task {
     do! rg.WriteColumnAsync(DataColumn(f.[3], d.CdfRet))
     do! rg.WriteColumnAsync(DataColumn(f.[4], d.CdfDuration))
     do! rg.WriteColumnAsync(DataColumn(f.[5], d.CdfTradeCount))
-    do! rg.WriteColumnAsync(DataColumn(f.[6], d.IsHold))
+    do! rg.WriteColumnAsync(DataColumn(f.[6], d.Label))
 }
 
 let private addFinite (td: MergingDigest) (v: float) =
@@ -136,7 +136,7 @@ let private fitAndTransform (compression: float) (numBuckets: int) (rg: RawRowGr
         CdfRet = applyCdf retLookup rg.Ret
         CdfDuration = applyCdf durLookup rg.DurationSec
         CdfTradeCount = applyCdfInt tcLookup rg.TradeCount
-        IsHold = rg.IsHold
+        Label = rg.Label
     }
 
 let applyCdfTransform (inputPath: string) (outputPath: string) (compression: float) (numWorkers: int) = task {
