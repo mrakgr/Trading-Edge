@@ -83,15 +83,26 @@ let trendDay (initialTrendDayType : TrendDayType option) (baseParams: BaseParams
 
         // Hold pattern: 9x abnormal volume (mean), alternates between loose and tight consolidation,
         // followed by a release that has 4.5x abnormal volume (mean) and ±1.5 sigma target in the
-        // direction of the current day type.
-        let hold ctx cont =
+        // direction of the current day type. The duration multiplier scales how
+        // much volume the hold consumes (Short / Mid / Long) and the EV of the release.
+        let durationLabel mult =
+            match mult with
+            | 0.5 -> "Short"
+            | 1.0 -> "Mid"
+            | 2.0 -> "Long"
+            | other -> failwithf "Unrecognized hold duration multiplier: %g" other
+
+        let hold volumePerMoveMult ctx cont =
             let volumeAbnormality = sampleVolumeAbnormality ctx 9.0
             let volumePerMove = volumePerMove baseParams ctx volumeUnitsPerMove
             let looseSigma = 10. * targetVol * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
             let tightSigma = 0.5 * targetVol * sqrt (baseParams.BaseVolume * baseParams.BaseRate)
-            generateHold baseParams (baseLabel()) volumeAbnormality (tightSigma, volumePerMove * 0.8 * 0.3) (looseSigma, volumePerMove * 0.2 * 0.3) volumePerMove false ctx cont
+            generateHold baseParams (durationLabel volumePerMoveMult :: baseLabel()) volumeAbnormality
+                (tightSigma, volumePerMove * 0.8 * 0.3)
+                (looseSigma, volumePerMove * 0.2 * 0.3)
+                (volumePerMove * volumePerMoveMult) false ctx cont
 
-        let release ctx cont =
+        let release volumePerMoveMult ctx cont =
             let volumeAbnormality = sampleVolumeAbnormality ctx 4.5
             let volumePerMove = volumePerMove baseParams ctx (1.5 * volumeUnitsPerMove)
             let moveSigma = volumeAbnormality * targetVol * sqrt volumePerMove
@@ -99,10 +110,10 @@ let trendDay (initialTrendDayType : TrendDayType option) (baseParams: BaseParams
                 match trendDayType.Value with
                 | DowntrendDay -> -1.5
                 | UptrendDay -> 1.5
-            let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, c * moveSigma, moveSigma)
-            generateDrift baseParams ("HoldRelease" :: baseLabel()) volumeAbnormality target targetSigma volumePerMove false ctx cont
+            let target = ctx.StartTarget + Normal.Sample(ctx.Effects.Rng, volumePerMoveMult * c * moveSigma, moveSigma)
+            generateDrift baseParams ("HoldRelease" :: durationLabel volumePerMoveMult :: baseLabel()) volumeAbnormality target targetSigma volumePerMove false ctx cont
             
-        let holdSeq : Pattern<'r> = sequence [retarget; hold; release]
+        let holdSeq volumePerMoveMult : Pattern<'r> = sequence [retarget; hold volumePerMoveMult; release volumePerMoveMult]
 
         // Flips the day's trend type.
         let flip ctx cont =
@@ -112,14 +123,17 @@ let trendDay (initialTrendDayType : TrendDayType option) (baseParams: BaseParams
                 | DowntrendDay -> UptrendDay
             cont ctx
 
-        let flippingHoldSeq : Pattern<'r> = sequence [retarget; hold; flip; release]
+        let flippingHoldSeq volumePerMoveMult : Pattern<'r> = sequence [retarget; hold volumePerMoveMult; flip; release volumePerMoveMult]
 
         // Session-specific patterns
         let morning : Pattern<'r> =
             choice [
                 driftTrending, 0.8
-                holdSeq, 0.18
-                flippingHoldSeq, 0.02
+                choice [
+                    for volumePerMoveMult in [0.5; 1.0; 2.0] do
+                        holdSeq volumePerMoveMult, 0.9 / volumePerMoveMult
+                        flippingHoldSeq volumePerMoveMult, 0.1 / volumePerMoveMult
+                ], 0.2
             ]
         let mid : Pattern<'r> = driftFlat
         let close : Pattern<'r> = morning

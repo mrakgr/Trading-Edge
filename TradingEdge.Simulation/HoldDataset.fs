@@ -69,19 +69,25 @@ type DayBars = {
 // in the simulator requires extending labelNames AND labelToInt — and the
 // match throws on any combination it doesn't recognize, so missing entries
 // fail loud rather than silently lumping into a default class.
+//
+// Direction folding: Up/Down trend day suffixes collapse for hold-related
+// classes (we're a hold detector, not a trend detector). Drift classes keep
+// their direction split since DriftUp / DriftDown / DriftFlat are themselves
+// behaviorally different patterns. Fakeout collapses both direction and
+// duration — it's the loose-chunk signal regardless of host hold's length.
 
 let labelNames : string[] = [|
     ""                              // 0  — empty / unlabeled (real data)
-    "DriftFlat|UptrendDay"          // 1
-    "DriftFlat|DowntrendDay"        // 2
-    "DriftUp|UptrendDay"            // 3
-    "DriftDown|DowntrendDay"        // 4
-    "Hold|UptrendDay"               // 5
-    "Hold|DowntrendDay"             // 6
-    "Fakeout|UptrendDay"            // 7
-    "Fakeout|DowntrendDay"          // 8
-    "HoldRelease|UptrendDay"        // 9
-    "HoldRelease|DowntrendDay"      // 10
+    "DriftFlat"                     // 1
+    "DriftUp"                       // 2
+    "DriftDown"                     // 3
+    "ShortHold"                     // 4  — Hold tight chunks inside a 0.5x duration
+    "Hold"                          // 5  — 1x (mid) duration
+    "LongHold"                      // 6  — 2x duration
+    "Fakeout"                       // 7  — loose chunks, all durations + directions
+    "ShortHoldRelease"              // 8
+    "HoldRelease"                   // 9
+    "LongHoldRelease"               // 10
 |]
 
 let numLabels = labelNames.Length
@@ -89,16 +95,16 @@ let numLabels = labelNames.Length
 let labelToInt (label: string list) : int =
     match label with
     | [] -> 0
-    | ["DriftFlat"; "UptrendDay"] -> 1
-    | ["DriftFlat"; "DowntrendDay"] -> 2
-    | ["DriftUp"; "UptrendDay"] -> 3
-    | ["DriftDown"; "DowntrendDay"] -> 4
-    | ["Hold"; "UptrendDay"] -> 5
-    | ["Hold"; "DowntrendDay"] -> 6
-    | ["Fakeout"; "UptrendDay"] -> 7
-    | ["Fakeout"; "DowntrendDay"] -> 8
-    | ["HoldRelease"; "UptrendDay"] -> 9
-    | ["HoldRelease"; "DowntrendDay"] -> 10
+    | ["DriftFlat"; ("UptrendDay" | "DowntrendDay")] -> 1
+    | ["DriftUp"; ("UptrendDay" | "DowntrendDay")] -> 2
+    | ["DriftDown"; ("UptrendDay" | "DowntrendDay")] -> 3
+    | ["Hold"; "Short"; ("UptrendDay" | "DowntrendDay")] -> 4
+    | ["Hold"; "Mid"; ("UptrendDay" | "DowntrendDay")] -> 5
+    | ["Hold"; "Long"; ("UptrendDay" | "DowntrendDay")] -> 6
+    | ["Fakeout"; ("Short" | "Mid" | "Long"); ("UptrendDay" | "DowntrendDay")] -> 7
+    | ["HoldRelease"; "Short"; ("UptrendDay" | "DowntrendDay")] -> 8
+    | ["HoldRelease"; "Mid"; ("UptrendDay" | "DowntrendDay")] -> 9
+    | ["HoldRelease"; "Long"; ("UptrendDay" | "DowntrendDay")] -> 10
     | other ->
         invalidArg "label" (sprintf "Unrecognized label combination: %A" other)
 
