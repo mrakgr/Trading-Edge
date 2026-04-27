@@ -2,7 +2,7 @@
 """gMLP training for the binary hold-vs-not detector.
 
 Reuses SpatialGatingUnit / GMLPBlock from train_gmlp.py (the multi-resolution
-session/trend classifier) — only the input shape (60 patches × 4 features) and
+session/trend classifier) — only the input shape (256 patches × 5 features) and
 the head (single binary logit, BCE) are new for this task.
 
 Run end-to-end:
