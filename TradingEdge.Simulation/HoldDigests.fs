@@ -111,21 +111,39 @@ let private writeCdfRowGroup (writer: ParquetWriter) (d: CdfRowGroup) = task {
 let private addFinite (td: MergingDigest) (v: float) =
     if Double.IsFinite v then td.Add v
 
-/// Fit one MergingDigest per feature on this row group's bars, then CDF the
-/// same bars through the per-day digests. Each row group gets its own digests;
-/// nothing is shared across days.
+/// Standard-normal CDF mapped to [-1, 1]. Used to project z-scored log
+/// returns into the same range as the per-day rank-CDF features. Zero z
+/// maps to 0; ±∞ maps to ±1.
+let private normalCdfSigned (z: float) : float =
+    // 2 * Φ(z) - 1 = erf(z / sqrt(2))
+    MathNet.Numerics.SpecialFunctions.Erf(z / sqrt 2.0)
+
+/// Fit one MergingDigest per feature on this row group's bars (rel_stddev,
+/// duration, trade_count), then CDF the same bars through the per-day
+/// digests. Log return uses a fixed-mean (=0) z-score and the analytic
+/// standard-normal CDF instead — the rank-only treatment was discarding the
+/// magnitude information needed to tell holds (returns reverting to zero)
+/// from drifts (returns of similar rank but accumulating directionally).
 let private fitAndTransform (compression: float) (numBuckets: int) (rg: RawRowGroup) : CdfRowGroup =
     let relTd = MergingDigest(compression)
-    let retTd = MergingDigest(compression)
     let durTd = MergingDigest(compression)
     let tcTd = MergingDigest(compression)
+    let mutable retSqSum = 0.0
+    let mutable retCount = 0
     for i in 0 .. rg.RelStdDev.Length - 1 do
         addFinite relTd rg.RelStdDev.[i]
-        addFinite retTd rg.Ret.[i]
         addFinite durTd rg.DurationSec.[i]
         addFinite tcTd (float rg.TradeCount.[i])
+        let r = rg.Ret.[i]
+        if Double.IsFinite r then
+            retSqSum <- retSqSum + r * r
+            retCount <- retCount + 1
+    // Mean is fixed at 0; std is the RMS over the day's log returns.
+    let retStd =
+        if retCount > 0 then sqrt (retSqSum / float retCount) else 1.0
+    let retScale = if retStd > 0.0 then retStd else 1.0
+    let cdfRet = Array.map (fun r -> normalCdfSigned (r / retScale)) rg.Ret
     let relLookup = createCdfLookup relTd numBuckets
-    let retLookup = createCdfLookup retTd numBuckets
     let durLookup = createCdfLookup durTd numBuckets
     let tcLookup = createCdfLookup tcTd numBuckets
     {
@@ -133,7 +151,7 @@ let private fitAndTransform (compression: float) (numBuckets: int) (rg: RawRowGr
         DayIds = rg.DayIds
         BarIdx = rg.BarIdx
         CdfRelStdDev = applyCdf relLookup rg.RelStdDev
-        CdfRet = applyCdf retLookup rg.Ret
+        CdfRet = cdfRet
         CdfDuration = applyCdf durLookup rg.DurationSec
         CdfTradeCount = applyCdfInt tcLookup rg.TradeCount
         Label = rg.Label
