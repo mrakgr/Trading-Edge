@@ -165,36 +165,6 @@ let runOrderBook (args: ParseResults<OrderBookArgs>) =
     let book = generate config rng
     print book
 
-// let runGenerateDay (args: ParseResults<GenerateDayArgs>) =
-//     let seed = args.GetResult(GenerateDayArgs.Seed, 42)
-//     let runs = args.GetResult(GenerateDayArgs.Runs, 1)
-//     let iterations = args.GetResult(GenerateDayArgs.Iterations, 10000)
-//     let rng = Random(seed)
-
-//     let mcmcConfig = { MCMC.Iterations = iterations }
-//     let sessionConfig = SessionLevel.defaultConfig
-//     let trendConfig = TrendLevel.defaultConfig
-
-//     printfn "Day Generation (MCMC iterations=%d)" iterations
-//     printfn ""
-
-//     for i in 1 .. runs do
-//         if runs > 1 then printfn "=== Day %d ===" i
-//         let result = generateDay sessionConfig trendConfig mcmcConfig rng 390.0
-//         printDayResult result
-//         if i < runs then printfn "---"
-//         printfn ""
-
-// let runGenerateDataset (args: ParseResults<GenerateDatasetArgs>) =
-//     let seed = args.GetResult(GenerateDatasetArgs.Seed, 42)
-//     let numDays = args.GetResult(GenerateDatasetArgs.Days, 1000)
-//     let output = args.GetResult(GenerateDatasetArgs.Output, "data/dataset.parquet")
-//     let startPrice = args.GetResult(GenerateDatasetArgs.Price, 100.0)
-//     let iterations = args.GetResult(GenerateDatasetArgs.Iterations, 10000)
-//     let digestsPath = args.GetResult(GenerateDatasetArgs.Digests)
-//     let mcmcConfig = { MCMC.Iterations = iterations }
-//     generateDataset seed numDays output mcmcConfig SessionLevel.defaultConfig TrendLevel.defaultConfig startPrice digestsPath
-
 let runBuildDigests (args: ParseResults<BuildDigestsArgs>) =
     let input = args.GetResult(BuildDigestsArgs.Input)
     let output = args.GetResult(BuildDigestsArgs.Output)
