@@ -133,7 +133,6 @@ type Command =
     | [<CliPrefix(CliPrefix.None)>] Build_Digests of ParseResults<BuildDigestsArgs>
     | [<CliPrefix(CliPrefix.None)>] Preprocess of ParseResults<PreprocessArgs>
     | [<CliPrefix(CliPrefix.None)>] Dump_Trades of ParseResults<DumpTradesArgs>
-    | [<CliPrefix(CliPrefix.None)>] Test_Nested of ParseResults<TestNestedArgs>
     | [<CliPrefix(CliPrefix.None)>] Btc_Bars of ParseResults<BtcBarsArgs>
     | [<CliPrefix(CliPrefix.None)>] Generate_Dataset of ParseResults<GenerateDatasetArgs>
     | [<CliPrefix(CliPrefix.None)>] Apply_Hold_Cdf of ParseResults<ApplyHoldCdfArgs>
@@ -144,7 +143,6 @@ type Command =
             | Build_Digests _ -> "Build t-digests from JSON trade data"
             | Preprocess _ -> "Apply t-digest CDF transform to raw dataset"
             | Dump_Trades _ -> "Dump raw trade data for a single day as CSV"
-            | Test_Nested _ -> "Test nested episode generation"
             | Btc_Bars _ -> "Build hold-dataset volume bars from Binance trade data"
             | Generate_Dataset _ -> "Generate N synthetic days as a hold-dataset parquet"
             | Apply_Hold_Cdf _ -> "Per-day fit-and-CDF-transform a hold-dataset parquet"
@@ -267,7 +265,6 @@ let main argv =
         | Build_Digests args -> runBuildDigests args
         | Preprocess args -> runPreprocess args
         | Dump_Trades args -> runDumpTrades args
-        | Test_Nested _ -> printfn "Test_Nested command not implemented"
         | Btc_Bars args -> runBtcBars args
         | Generate_Dataset args -> runGenerateDataset args
         | Apply_Hold_Cdf args -> runApplyHoldCdf args
