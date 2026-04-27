@@ -163,21 +163,31 @@ let barsAndLabelsFromSynth (barVolume: float) (trades: Trade[]) : VolumeBar[] * 
 // Synthetic day generation
 // =============================================================================
 
-/// Default base parameters mirror runDumpTrades in Program.fs so synthetic
-/// generation here matches what we've been visualizing.
-let defaultBaseParams () : BaseParams =
-    let dayVolume = 100.0
-    let dayRate = 10.0
-    let baseVolBps = 15.0 * bps
-    let normalizedBaseVol = baseVolBps / sqrt (dayRate * dayVolume)
+/// Mean values for the per-day BaseVolume / BaseRate priors. Per-day samples
+/// are lognormal with median = 0.7 × mean, giving heavy-tailed, asymmetric
+/// variation (mostly normal-ish days, occasional outliers).
+[<Literal>]
+let dayVolumeMean = 100.0
+[<Literal>]
+let dayRateMean = 10.0
+[<Literal>]
+let baseVolBpsConst = 15.0 * bps
+
+/// Sample one day's BaseParams from lognormal priors over BaseVolume and
+/// BaseRate (median = 0.7 × mean). BaseVolatility is then re-normalized
+/// against the realized day-level volume×rate so the per-trade proposal
+/// stays calibrated.
+let sampleBaseParams (rng: Random) : BaseParams =
+    let dayVolume = sampleLogNormal rng (dayVolumeMean * 0.7) dayVolumeMean
+    let dayRate = sampleLogNormal rng (dayRateMean * 0.7) dayRateMean
+    let normalizedBaseVol = baseVolBpsConst / sqrt (dayRate * dayVolume)
     {
         BaseVolume = dayVolume
         BaseRate = dayRate
         BaseVolatility = normalizedBaseVol
     }
 
-let defaultSimParams (startPrice: float) : SimulationParams =
-    let bp = defaultBaseParams ()
+let simParamsOf (startPrice: float) (bp: BaseParams) : SimulationParams =
     {
         TotalDuration = 390.0
         StartPrice = startPrice
@@ -198,15 +208,23 @@ let expTrade (t: Trade) : Trade =
         TargetSigma = MathNet.Numerics.Distributions.LogNormal(t.TargetMean, t.TargetSigma).StdDev }
 
 /// Generate one synthetic day's bars + labels.
-let generateSynthDay (dayId: int) (seed: int) (startPrice: float) (barVolume: float) : DayBars =
+///
+/// Two-pass bar sizing: first emit all trades to know the day's realized
+/// total volume, then bucket into `barsPerDay` equal-volume bars. Bar volume
+/// = totalVolume / barsPerDay. This keeps bars-per-day roughly constant
+/// across days even though day-level volume varies by ~3-4× from the
+/// lognormal BaseVolume×BaseRate sampling.
+let generateSynthDay (dayId: int) (seed: int) (startPrice: float) (barsPerDay: int) : DayBars =
     let rng = Random(seed)
-    let baseParams = defaultBaseParams ()
-    let simParams = defaultSimParams (log startPrice)
+    let baseParams = sampleBaseParams rng
+    let simParams = simParamsOf (log startPrice) baseParams
     let ctx = makeDefaultContext rng simParams
     let pattern = trendDay None baseParams
     let trades =
         pattern ctx (fun _ -> ctx.Effects.OnDone ctx)
         |> Array.map expTrade
+    let totalVolume = trades |> Array.sumBy (fun t -> float t.Size)
+    let barVolume = totalVolume / float barsPerDay
     let bars, isHold = barsAndLabelsFromSynth barVolume trades
     toDayBars dayId bars isHold
 
@@ -242,7 +260,7 @@ let writeOneDayParquet (outputPath: string) (d: DayBars) = task {
 /// to a single parquet file in day_id order. Workers generate concurrently;
 /// the writer pulls from a bounded channel and reorders via a small pending
 /// dictionary so row groups land in monotonic day_id order.
-let generateSynthDataset (baseSeed: int) (numDays: int) (startPrice: float) (barVolume: float) (outputPath: string) (numWorkers: int) = task {
+let generateSynthDataset (baseSeed: int) (numDays: int) (startPrice: float) (barsPerDay: int) (outputPath: string) (numWorkers: int) = task {
     printfn "Generating %d synthetic days with %d workers..." numDays numWorkers
     let dir = Path.GetDirectoryName(outputPath)
     if not (String.IsNullOrEmpty dir) && not (Directory.Exists dir) then
@@ -256,7 +274,7 @@ let generateSynthDataset (baseSeed: int) (numDays: int) (startPrice: float) (bar
             Task.Run(Func<Task>(fun () -> task {
                 let mutable dayId = w
                 while dayId < numDays do
-                    let day = generateSynthDay dayId (baseSeed + dayId) startPrice barVolume
+                    let day = generateSynthDay dayId (baseSeed + dayId) startPrice barsPerDay
                     do! channel.Writer.WriteAsync(day)
                     dayId <- dayId + numWorkers
             })) |]
@@ -295,12 +313,15 @@ let generateSynthDataset (baseSeed: int) (numDays: int) (startPrice: float) (bar
 // BTC bar builder
 // =============================================================================
 
-let buildBtcBars (inputPath: string) (barVolume: float) (outputPath: string) = task {
+let buildBtcBars (inputPath: string) (barsPerDay: int) (outputPath: string) = task {
     printfn "Loading BTC trades from %s..." inputPath
     let trades = BinanceLoader.load inputPath
     printfn "  Loaded %d trades" trades.Length
+    let totalVolume = trades |> Array.sumBy (fun t -> t.Quantity)
+    let barVolume = totalVolume / float barsPerDay
+    printfn "  Total volume %g; barsPerDay %d -> barVolume %g" totalVolume barsPerDay barVolume
     let bars = barsFromBtcTrades barVolume trades
-    printfn "  Built %d volume bars (barVolume=%g)" bars.Length barVolume
+    printfn "  Built %d volume bars" bars.Length
     let isHold = Array.zeroCreate bars.Length
     // Use day_id = 0 for a single-day BTC parquet. When we accumulate multiple
     // days later we'll bump this to the date's ordinal.

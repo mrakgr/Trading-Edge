@@ -90,20 +90,20 @@ type TestNestedArgs =
 type BtcBarsArgs =
     | [<Mandatory; AltCommandLine("-i")>] Input of string
     | [<Mandatory; AltCommandLine("-o")>] Output of string
-    | [<AltCommandLine("-v")>] Bar_Volume of float
+    | [<AltCommandLine("-b")>] Bars_Per_Day of int
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | Input _ -> "Path to a Binance trades file (.bin or .csv)"
             | Output _ -> "Output parquet path (one row group per day)"
-            | Bar_Volume _ -> "Volume per bar in BTC (default: 18.0)"
+            | Bars_Per_Day _ -> "Target bars per day; bar volume = totalVolume / barsPerDay (default: 6000)"
 
 type GenerateDatasetArgs =
     | [<AltCommandLine("-s")>] Seed of int
     | [<AltCommandLine("-n")>] Days of int
     | [<Mandatory; AltCommandLine("-o")>] Output of string
     | [<AltCommandLine("-p")>] Price of float
-    | [<AltCommandLine("-v")>] Bar_Volume of float
+    | [<AltCommandLine("-b")>] Bars_Per_Day of int
     | [<AltCommandLine("-w")>] Workers of int
     interface IArgParserTemplate with
         member this.Usage =
@@ -112,7 +112,7 @@ type GenerateDatasetArgs =
             | Days _ -> "Number of synthetic days to generate (default: 10000)"
             | Output _ -> "Output parquet path"
             | Price _ -> "Starting price (default: 100.0)"
-            | Bar_Volume _ -> "Volume per bar (default: 10000.0)"
+            | Bars_Per_Day _ -> "Target bars per day; bar volume = totalVolume / barsPerDay (default: 3000)"
             | Workers _ -> "Generator worker count (default: ProcessorCount)"
 
 type ApplyHoldCdfArgs =
@@ -292,17 +292,17 @@ let runPreprocess (args: ParseResults<PreprocessArgs>) =
 let runBtcBars (args: ParseResults<BtcBarsArgs>) =
     let input = args.GetResult(BtcBarsArgs.Input)
     let output = args.GetResult(BtcBarsArgs.Output)
-    let barVolume = args.GetResult(BtcBarsArgs.Bar_Volume, 18.0)
-    (TradingEdge.Simulation.HoldDataset.buildBtcBars input barVolume output).Wait()
+    let barsPerDay = args.GetResult(BtcBarsArgs.Bars_Per_Day, 6000)
+    (TradingEdge.Simulation.HoldDataset.buildBtcBars input barsPerDay output).Wait()
 
 let runGenerateDataset (args: ParseResults<GenerateDatasetArgs>) =
     let seed = args.GetResult(GenerateDatasetArgs.Seed, 42)
     let days = args.GetResult(GenerateDatasetArgs.Days, 10000)
     let output = args.GetResult(GenerateDatasetArgs.Output)
     let price = args.GetResult(GenerateDatasetArgs.Price, 100.0)
-    let barVolume = args.GetResult(GenerateDatasetArgs.Bar_Volume, 10000.0)
+    let barsPerDay = args.GetResult(GenerateDatasetArgs.Bars_Per_Day, 3000)
     let workers = args.GetResult(GenerateDatasetArgs.Workers, Environment.ProcessorCount)
-    (TradingEdge.Simulation.HoldDataset.generateSynthDataset seed days price barVolume output workers).Wait()
+    (TradingEdge.Simulation.HoldDataset.generateSynthDataset seed days price barsPerDay output workers).Wait()
 
 let runApplyHoldCdf (args: ParseResults<ApplyHoldCdfArgs>) =
     let input = args.GetResult(ApplyHoldCdfArgs.Input)
