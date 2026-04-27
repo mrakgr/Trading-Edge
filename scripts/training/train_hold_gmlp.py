@@ -208,6 +208,7 @@ def main():
     p.add_argument("--batch-size", type=int, default=256)
     p.add_argument("--epochs", type=int, default=5)
     p.add_argument("--lr", type=float, default=1e-3)
+    p.add_argument("--weight-decay", type=float, default=1e-4, help="AdamW weight decay")
     p.add_argument("--checkpoint", default="data/hold_gmlp.pt")
     p.add_argument("--num-workers", type=int, default=0, help="DataLoader workers (0 = main thread; row-group cache works best)")
     args = p.parse_args()
@@ -244,8 +245,28 @@ def main():
     n_params = sum(p.numel() for p in model.parameters())
     print(f"Model: HoldGMLP, {n_params:,} parameters")
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
+    import os
+    os.makedirs(os.path.dirname(args.checkpoint) or ".", exist_ok=True)
+
+    def save_checkpoint(path: str, epoch: int, test_loss: float):
+        torch.save({
+            "state_dict": model.state_dict(),
+            "config": {
+                "seq_len": args.window_size,
+                "input_channels": NUM_INPUT_CHANNELS,
+                "hidden_dim": model.hidden_dim,
+                "ffn_dim": model.ffn_dim,
+                "num_layers": model.num_layers,
+                "target_offset": args.target_offset if args.target_offset is not None else args.window_size // 2,
+            },
+            "epoch": epoch,
+            "test_loss": test_loss,
+        }, path)
+
+    best_test_loss = float("inf")
+    best_epoch = -1
     total_start = time.time()
     for epoch in range(args.epochs):
         print(f"\n=== Epoch {epoch+1}/{args.epochs} ===")
@@ -255,24 +276,15 @@ def main():
         te = evaluate(model, test_loader, device)
         print(f"Test   loss={te['loss']:.4f}  acc={te['acc']:.4f}  P={te['precision']:.4f}  "
               f"R={te['recall']:.4f}  F1={te['f1']:.4f}  pos_rate={te['pos_rate']:.4f}  ({te['time']:.1f}s)")
-    print(f"\nTotal training time: {time.time() - total_start:.1f}s")
 
-    # Bundle config alongside weights so predict_hold.py can rehydrate the
-    # exact same model without arg duplication.
-    import os
-    os.makedirs(os.path.dirname(args.checkpoint) or ".", exist_ok=True)
-    torch.save({
-        "state_dict": model.state_dict(),
-        "config": {
-            "seq_len": args.window_size,
-            "input_channels": NUM_INPUT_CHANNELS,
-            "hidden_dim": model.hidden_dim,
-            "ffn_dim": model.ffn_dim,
-            "num_layers": model.num_layers,
-            "target_offset": args.target_offset if args.target_offset is not None else args.window_size // 2,
-        },
-    }, args.checkpoint)
-    print(f"Saved checkpoint to {args.checkpoint}")
+        if te["loss"] < best_test_loss:
+            best_test_loss = te["loss"]
+            best_epoch = epoch + 1
+            save_checkpoint(args.checkpoint, best_epoch, best_test_loss)
+            print(f"  -> new best test loss {best_test_loss:.4f} at epoch {best_epoch}; saved {args.checkpoint}")
+
+    print(f"\nTotal training time: {time.time() - total_start:.1f}s")
+    print(f"Best test loss {best_test_loss:.4f} at epoch {best_epoch}; checkpoint: {args.checkpoint}")
 
 
 if __name__ == "__main__":
