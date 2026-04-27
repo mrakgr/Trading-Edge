@@ -271,13 +271,13 @@ let generateSynthDataset (baseSeed: int) (numDays: int) (startPrice: float) (bar
     // Producer workers: round-robin day assignment by (workerId, numWorkers).
     let workers =
         [| for w in 0 .. numWorkers - 1 ->
-            Task.Run(Func<Task>(fun () -> task {
+            task {
                 let mutable dayId = w
                 while dayId < numDays do
                     let day = generateSynthDay dayId (baseSeed + dayId) startPrice barsPerDay
                     do! channel.Writer.WriteAsync(day)
                     dayId <- dayId + numWorkers
-            })) |]
+            } |]
 
     let workersDone = task {
         let! _ = Task.WhenAll(workers)
