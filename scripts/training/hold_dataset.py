@@ -4,14 +4,17 @@ Reads CDF-transformed hold-dataset parquets (one row group per day, variable
 bars per day) produced by `dotnet ... apply-hold-cdf`. Each sample is a
 `window_size`-bar window of the four CDF features plus a 5th mask channel
 indicating which positions are real bars vs. zero-padded; the label is the
-`is_hold` flag of the bar at `pos + target_offset` within the window.
+integer `label` class id of the bar at `pos + target_offset` within the window.
 
 Companion to TradingEdge.Simulation/HoldDigests.fs (cdfSchema):
 
   day_id: int, bar_idx: int,
   cdf_rel_stddev: float, cdf_ret: float, cdf_duration: float,
   cdf_trade_count: float,
-  is_hold: int
+  label: int
+
+Class id meanings live in <parquet>.labels.json (a sidecar emitted by
+generate-dataset). 0 is reserved for the empty/unlabeled class (real BTC).
 
 Day boundaries are bilateral-padded so every bar in the day is a valid target.
 A window centered near the start of a day gets zeros on the left with mask=0
@@ -26,12 +29,31 @@ single-resolution / variable-length analogue for v0.
 from __future__ import annotations
 
 import bisect
+import json
+import os
 from typing import Optional
 
 import numpy as np
 import pyarrow.parquet as pq
 import torch
 from torch.utils.data import Dataset, Sampler
+
+
+def load_label_names(parquet_path: str) -> list[str]:
+    """Load the sidecar <parquet_basename>.labels.json next to the parquet,
+    returning a list ordered by class id. Returns an empty list if the sidecar
+    isn't present (e.g. real BTC parquets that have no labels)."""
+    base, _ = os.path.splitext(parquet_path)
+    sidecar = base + ".labels.json"
+    if not os.path.exists(sidecar):
+        return []
+    with open(sidecar) as f:
+        m = json.load(f)
+    n = max(int(k) for k in m.keys()) + 1
+    out = [""] * n
+    for k, v in m.items():
+        out[int(k)] = v
+    return out
 
 
 # Raw feature columns in the parquet. The dataset returns these plus a 5th
@@ -131,10 +153,10 @@ class HoldDataset(Dataset):
 
     def _load_group(self, group_idx: int) -> dict[str, np.ndarray]:
         if self._cache_idx != group_idx:
-            tbl = self.pf.read_row_group(group_idx, columns=list(RAW_FEATURE_COLUMNS) + ["is_hold"])
+            tbl = self.pf.read_row_group(group_idx, columns=list(RAW_FEATURE_COLUMNS) + ["label"])
             self._cache_arrays = {
                 name: tbl.column(name).to_numpy(zero_copy_only=False)
-                for name in RAW_FEATURE_COLUMNS + ("is_hold",)
+                for name in RAW_FEATURE_COLUMNS + ("label",)
             }
             self._cache_idx = group_idx
         return self._cache_arrays
@@ -142,7 +164,7 @@ class HoldDataset(Dataset):
     def __getitem__(self, idx: int) -> dict:
         group_idx, target_pos = self._locate(idx)
         arrs = self._load_group(group_idx)
-        n_bars = len(arrs["is_hold"])
+        n_bars = len(arrs["label"])
 
         # Window spans bar indices [start, end) in day coordinates. Clip to
         # [0, n_bars) and zero-pad the rest. Mask=1 where real, 0 where padded.
@@ -160,10 +182,10 @@ class HoldDataset(Dataset):
                 features[win_lo:win_hi, fi] = arrs[name][clip_lo:clip_hi]
             features[win_lo:win_hi, -1] = 1.0  # mask channel
 
-        label = int(arrs["is_hold"][target_pos])
+        label = int(arrs["label"][target_pos])
         return {
             "features": torch.from_numpy(features),
-            "label": torch.tensor(label, dtype=torch.float32),
+            "label": torch.tensor(label, dtype=torch.long),
         }
 
 

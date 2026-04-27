@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""gMLP training for the binary hold-vs-not detector.
+"""gMLP training for the multi-class bar-state classifier.
 
 Reuses SpatialGatingUnit / GMLPBlock from train_gmlp.py (the multi-resolution
 session/trend classifier) — only the input shape (256 patches × 5 features) and
-the head (single binary logit, BCE) are new for this task.
+the head (`num_classes` logits, CE) are bespoke to this task.
+
+Class taxonomy is recorded in <parquet>.labels.json (sidecar emitted by
+`generate-dataset`). Default: 11 classes covering DriftFlat / DriftUp /
+DriftDown / Hold / Fakeout / HoldRelease × Up/Down day, plus 0='' (unlabeled).
 
 Run end-to-end:
 
     python scripts/training/train_hold_gmlp.py \
         --train data/synth_cdf.parquet --train-days 0:9000 \
         --test  data/synth_cdf.parquet --test-days 9000:10000 \
-        --epochs 5 --checkpoint data/hold_gmlp.pt
+        --epochs 1 --checkpoint data/hold_gmlp.pt
 """
 
 from __future__ import annotations
@@ -23,7 +27,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from hold_dataset import NUM_INPUT_CHANNELS, HoldDataset, RowGroupSampler
+from hold_dataset import NUM_INPUT_CHANNELS, HoldDataset, RowGroupSampler, load_label_names
 
 
 # =============================================================================
@@ -65,8 +69,9 @@ class GMLPBlock(nn.Module):
 
 
 class HoldGMLP(nn.Module):
-    """Single-resolution binary classifier. Predicts hold-or-not on the bar
-    at `target_offset` of the input window (HoldDataset handles the labeling)."""
+    """Single-resolution multi-class classifier. Predicts the bar-state class
+    of the bar at `target_offset` of the input window (HoldDataset labels it).
+    Class id 0 is the empty/unlabeled class; meaningful classes start at 1."""
 
     def __init__(
         self,
@@ -75,6 +80,7 @@ class HoldGMLP(nn.Module):
         hidden_dim: int = 128,
         ffn_dim: int = 512,
         num_layers: int = 4,
+        num_classes: int = 11,
     ):
         super().__init__()
         self.seq_len = seq_len
@@ -82,17 +88,18 @@ class HoldGMLP(nn.Module):
         self.hidden_dim = hidden_dim
         self.ffn_dim = ffn_dim
         self.num_layers = num_layers
+        self.num_classes = num_classes
 
         self.embed = nn.Linear(input_channels, hidden_dim)
         self.blocks = nn.Sequential(*[GMLPBlock(hidden_dim, ffn_dim, seq_len) for _ in range(num_layers)])
         self.norm = nn.LayerNorm(hidden_dim)
-        self.head = nn.Linear(hidden_dim, 1)
+        self.head = nn.Linear(hidden_dim, num_classes)
 
     def forward(self, x):  # x: (batch, seq_len, input_channels)
         x = self.embed(x)
         x = self.blocks(x)
         x = self.norm(x.mean(dim=1))
-        return self.head(x).squeeze(-1)  # (batch,)
+        return self.head(x)  # (batch, num_classes)
 
 
 # =============================================================================
@@ -100,32 +107,57 @@ class HoldGMLP(nn.Module):
 # =============================================================================
 
 
-def _confusion(logits: torch.Tensor, labels: torch.Tensor, threshold: float = 0.0):
-    """Return (tp, fp, fn, tn) at the given logit threshold (default 0 = p>0.5)."""
-    pred = (logits > threshold).int()
-    label = labels.int()
-    tp = ((pred == 1) & (label == 1)).sum().item()
-    fp = ((pred == 1) & (label == 0)).sum().item()
-    fn = ((pred == 0) & (label == 1)).sum().item()
-    tn = ((pred == 0) & (label == 0)).sum().item()
-    return tp, fp, fn, tn
+def _accumulate_confusion(conf: torch.Tensor, logits: torch.Tensor, labels: torch.Tensor):
+    """Update an in-place (num_classes, num_classes) confusion matrix.
+    conf[true, pred] += 1."""
+    pred = logits.argmax(dim=-1)
+    n = conf.shape[0]
+    flat = labels * n + pred
+    binc = torch.bincount(flat, minlength=n * n)
+    conf += binc.view(n, n)
 
 
-def _metrics(tp: int, fp: int, fn: int, tn: int):
-    total = tp + fp + fn + tn
-    acc = (tp + tn) / total if total else 0.0
-    precision = tp / (tp + fp) if (tp + fp) else 0.0
-    recall = tp / (tp + fn) if (tp + fn) else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
-    return acc, precision, recall, f1
+def _summarize(conf: torch.Tensor):
+    """From an (n, n) confusion matrix return overall acc + per-class P/R/F1
+    arrays. Class 0 is included; caller can ignore it if it's the empty class."""
+    n = conf.shape[0]
+    total = conf.sum().item()
+    diag = conf.diag().float()
+    correct = diag.sum().item()
+    acc = correct / total if total else 0.0
+    row_sums = conf.sum(dim=1).float()       # true counts per class
+    col_sums = conf.sum(dim=0).float()       # predicted counts per class
+    precision = torch.where(col_sums > 0, diag / col_sums.clamp(min=1), torch.zeros_like(diag))
+    recall = torch.where(row_sums > 0, diag / row_sums.clamp(min=1), torch.zeros_like(diag))
+    denom = (precision + recall).clamp(min=1e-9)
+    f1 = 2 * precision * recall / denom
+    return {
+        "total": int(total),
+        "acc": acc,
+        "support": row_sums.cpu().numpy().astype(int),
+        "precision": precision.cpu().numpy(),
+        "recall": recall.cpu().numpy(),
+        "f1": f1.cpu().numpy(),
+    }
 
 
-def train_epoch(model, loader, optimizer, device, log_every: int = 100):
+def _print_per_class(name: str, summary: dict, label_names: list[str]):
+    print(f"  {name}  acc={summary['acc']:.4f}  total={summary['total']:,}")
+    for i, ln in enumerate(label_names):
+        sup = summary["support"][i]
+        if sup == 0:
+            continue
+        p, r, f = summary["precision"][i], summary["recall"][i], summary["f1"][i]
+        print(f"    [{i:2d}] {ln:30s}  sup={sup:7d}  P={p:.4f}  R={r:.4f}  F1={f:.4f}")
+
+
+def train_epoch(model, loader, optimizer, device, num_classes: int, log_every: int = 100):
     model.train()
-    criterion = nn.BCEWithLogitsLoss()
-    tp = fp = fn = tn = 0
+    criterion = nn.CrossEntropyLoss()
+    conf = torch.zeros((num_classes, num_classes), dtype=torch.long, device=device)
     total_loss = 0.0
     n_batches = 0
+    n_seen = 0
     start = time.time()
 
     for batch_idx, batch in enumerate(loader):
@@ -139,29 +171,25 @@ def train_epoch(model, loader, optimizer, device, log_every: int = 100):
 
         total_loss += loss.item()
         n_batches += 1
-        b_tp, b_fp, b_fn, b_tn = _confusion(logits.detach(), y)
-        tp += b_tp; fp += b_fp; fn += b_fn; tn += b_tn
+        _accumulate_confusion(conf, logits.detach(), y)
+        n_seen += y.shape[0]
 
         if batch_idx % log_every == 0:
             elapsed = time.time() - start
-            samples = (tp + fp + fn + tn)
-            sps = samples / elapsed if elapsed > 0 else 0
+            sps = n_seen / elapsed if elapsed > 0 else 0
             print(f"  Batch {batch_idx}: loss={loss.item():.4f}, {sps:.0f} samples/sec")
 
-    acc, p, r, f1 = _metrics(tp, fp, fn, tn)
-    return {
-        "loss": total_loss / max(1, n_batches),
-        "acc": acc, "precision": p, "recall": r, "f1": f1,
-        "pos_rate": (tp + fn) / max(1, tp + fp + fn + tn),
-        "time": time.time() - start,
-    }
+    s = _summarize(conf)
+    s["loss"] = total_loss / max(1, n_batches)
+    s["time"] = time.time() - start
+    return s
 
 
 @torch.no_grad()
-def evaluate(model, loader, device):
+def evaluate(model, loader, device, num_classes: int):
     model.eval()
-    criterion = nn.BCEWithLogitsLoss()
-    tp = fp = fn = tn = 0
+    criterion = nn.CrossEntropyLoss()
+    conf = torch.zeros((num_classes, num_classes), dtype=torch.long, device=device)
     total_loss = 0.0
     n_batches = 0
     start = time.time()
@@ -171,15 +199,11 @@ def evaluate(model, loader, device):
         logits = model(x)
         loss = criterion(logits, y)
         total_loss += loss.item(); n_batches += 1
-        b_tp, b_fp, b_fn, b_tn = _confusion(logits, y)
-        tp += b_tp; fp += b_fp; fn += b_fn; tn += b_tn
-    acc, p, r, f1 = _metrics(tp, fp, fn, tn)
-    return {
-        "loss": total_loss / max(1, n_batches),
-        "acc": acc, "precision": p, "recall": r, "f1": f1,
-        "pos_rate": (tp + fn) / max(1, tp + fp + fn + tn),
-        "time": time.time() - start,
-    }
+        _accumulate_confusion(conf, logits, y)
+    s = _summarize(conf)
+    s["loss"] = total_loss / max(1, n_batches)
+    s["time"] = time.time() - start
+    return s
 
 
 # =============================================================================
@@ -219,6 +243,12 @@ def main():
     train_filter = _parse_day_range(args.train_days)
     test_filter = _parse_day_range(args.test_days)
 
+    label_names = load_label_names(args.train)
+    if not label_names:
+        raise SystemExit(f"Could not find label sidecar for {args.train}; expected <basename>.labels.json")
+    num_classes = len(label_names)
+    print(f"Classes ({num_classes}): " + ", ".join(f"[{i}]{n}" for i, n in enumerate(label_names) if n))
+
     train_ds = HoldDataset(
         args.train, window_size=args.window_size, target_offset=args.target_offset,
         stride=args.stride, day_filter=train_filter,
@@ -241,7 +271,7 @@ def main():
         num_workers=args.num_workers,
     )
 
-    model = HoldGMLP(seq_len=args.window_size).to(device)
+    model = HoldGMLP(seq_len=args.window_size, num_classes=num_classes).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     print(f"Model: HoldGMLP, {n_params:,} parameters")
 
@@ -259,8 +289,10 @@ def main():
                 "hidden_dim": model.hidden_dim,
                 "ffn_dim": model.ffn_dim,
                 "num_layers": model.num_layers,
+                "num_classes": num_classes,
                 "target_offset": args.target_offset if args.target_offset is not None else args.window_size // 2,
             },
+            "label_names": label_names,
             "epoch": epoch,
             "test_loss": test_loss,
         }, path)
@@ -270,12 +302,12 @@ def main():
     total_start = time.time()
     for epoch in range(args.epochs):
         print(f"\n=== Epoch {epoch+1}/{args.epochs} ===")
-        tr = train_epoch(model, train_loader, optimizer, device)
-        print(f"Train  loss={tr['loss']:.4f}  acc={tr['acc']:.4f}  P={tr['precision']:.4f}  "
-              f"R={tr['recall']:.4f}  F1={tr['f1']:.4f}  pos_rate={tr['pos_rate']:.4f}  ({tr['time']:.1f}s)")
-        te = evaluate(model, test_loader, device)
-        print(f"Test   loss={te['loss']:.4f}  acc={te['acc']:.4f}  P={te['precision']:.4f}  "
-              f"R={te['recall']:.4f}  F1={te['f1']:.4f}  pos_rate={te['pos_rate']:.4f}  ({te['time']:.1f}s)")
+        tr = train_epoch(model, train_loader, optimizer, device, num_classes)
+        print(f"Train  loss={tr['loss']:.4f}  ({tr['time']:.1f}s)")
+        _print_per_class("Train", tr, label_names)
+        te = evaluate(model, test_loader, device, num_classes)
+        print(f"Test   loss={te['loss']:.4f}  ({te['time']:.1f}s)")
+        _print_per_class("Test", te, label_names)
 
         if te["loss"] < best_test_loss:
             best_test_loss = te["loss"]
