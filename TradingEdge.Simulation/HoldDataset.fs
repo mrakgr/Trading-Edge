@@ -30,7 +30,7 @@ open TradingEdge.Simulation.Patterns
 //   day_id        : day index, contiguous 0..N-1
 //   bar_idx       : bar position within the day, 0..bars_in_day-1
 //   rel_stddev    : VolumeBar.StdDev / VolumeBar.VWAP — scale-invariant tightness
-//   ret           : VolumeBar.VWAP / prev_VWAP (=1.0 for the first bar)
+//   ret           : log(VWAP / prev_VWAP) (=0.0 for the first bar)
 //   duration_sec  : (EndUs - StartUs) / 1e6
 //   trade_count   : VolumeBar.TradeCount
 //   is_hold       : 1 if the bar's first trade was labeled "Hold", else 0.
