@@ -2,18 +2,23 @@
 
 Reads:
   - BTC bars parquet (raw schema from `dotnet ... btc-bars`):
-      day_id, bar_idx, rel_stddev, ret, duration_sec, trade_count, label
+      day_id, bar_idx, rel_stddev, ret, duration_sec, trade_count, buy_count,
+      label
   - Predictions parquet (from predict_hold.py):
       day_id, bar_idx, pred_label, prob_0, prob_1, ..., prob_<n-1>
 
-Layout (3 panels):
+Layout (4 panels):
   1. Price ±2σ bars colored by argmax class with intensity = max-prob:
        gray  = drift (any direction)
        blues = ShortHold / Hold / LongHold (light -> medium -> dark)
        orange = Fakeout
        teal/cyan/blue-green = HoldRelease variants
   2. Stacked area chart of all class probabilities, same colors as panel 1.
-  3. Bar duration (axis reversed, blue area).
+  3. Per-bar sidedness: (2 * buy_count / trade_count - 1) ∈ [-1, +1].
+     +1 = all buyer-aggressive, -1 = all seller-aggressive, 0 = balanced.
+     Useful for sanity-checking weak-hold candidates (low aggression should
+     show sidedness near zero, releases/fakeouts should skew strongly).
+  4. Bar duration (axis reversed, blue area).
 
 Class indices (matches simulator's labelToInt order):
     1 DriftFlat,  2 DriftUp,  3 DriftDown,
@@ -149,13 +154,14 @@ def plot(bars, pred, output_html, title: str, label_names: list[str] | None = No
     customdata_obj = np.column_stack([customdata, pred_class_name])
 
     fig = make_subplots(
-        rows=3, cols=1,
+        rows=4, cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.04,
-        row_heights=[0.55, 0.25, 0.20],
+        vertical_spacing=0.035,
+        row_heights=[0.45, 0.22, 0.18, 0.15],
         subplot_titles=[
             "Price (log-cum) ±2σ — color = argmax class, intensity = confidence",
             "Class probabilities (stacked)",
+            "Sidedness (2·buy/trade − 1) — green = buy-aggression, red = sell",
             "Bar duration (seconds, axis reversed)",
         ],
     )
@@ -213,7 +219,29 @@ def plot(bars, pred, output_html, title: str, label_names: list[str] | None = No
 
     fig.add_hline(y=0.5, line=dict(color="gray", width=1, dash="dash"), row=2, col=1)
 
-    # Bottom panel: per-bar duration.
+    # Panel 3: sidedness. (2 * buy_count / trade_count - 1) ∈ [-1, +1].
+    # Bars where trade_count = 0 (rare, only on overflow spillover from a
+    # single huge print straddling many bars) get sidedness = 0.
+    trade_count = df["trade_count"].fillna(0).to_numpy()
+    buy_count = df["buy_count"].fillna(0).to_numpy()
+    safe_n = np.where(trade_count > 0, trade_count, 1)
+    sidedness = np.where(trade_count > 0, 2.0 * buy_count / safe_n - 1.0, 0.0)
+    side_colors = ["rgba(0, 160, 0, 0.7)" if s >= 0 else "rgba(200, 30, 30, 0.7)" for s in sidedness]
+    fig.add_trace(go.Bar(
+        x=x_vals, y=sidedness,
+        marker_color=side_colors, marker_line_width=0,
+        width=0.9,
+        name="sidedness",
+        showlegend=False,
+        hovertemplate=(
+            "bar %{x}: sidedness=%{y:+.3f}"
+            "<br>buys=%{customdata[0]} / trades=%{customdata[1]}<extra></extra>"
+        ),
+        customdata=np.column_stack([buy_count.astype(int), trade_count.astype(int)]),
+    ), row=3, col=1)
+    fig.add_hline(y=0.0, line=dict(color="gray", width=1), row=3, col=1)
+
+    # Panel 4: per-bar duration.
     durations = df["duration_sec"].fillna(0.0).to_numpy()
     fig.add_trace(go.Scatter(
         x=x_vals, y=durations, mode="lines", fill="tozeroy",
@@ -222,18 +250,19 @@ def plot(bars, pred, output_html, title: str, label_names: list[str] | None = No
         name="duration",
         hovertemplate="bar %{x}: duration=%{y:.3f}s<extra></extra>",
         showlegend=False,
-    ), row=3, col=1)
+    ), row=4, col=1)
 
     fig.update_layout(
-        title=title, height=1100, width=1500,
+        title=title, height=1300, width=1500,
         hovermode="closest", showlegend=True,
         legend=dict(orientation="v", x=1.02, y=1.0, xanchor="left"),
     )
     fig.update_xaxes(rangeslider_visible=False, row=1, col=1)
-    fig.update_xaxes(title_text="bar_idx", row=3, col=1)
+    fig.update_xaxes(title_text="bar_idx", row=4, col=1)
     fig.update_yaxes(title_text="rel_price", row=1, col=1)
     fig.update_yaxes(title_text="cum prob", range=[0, 1], row=2, col=1)
-    fig.update_yaxes(title_text="seconds", row=3, col=1, autorange="reversed")
+    fig.update_yaxes(title_text="sidedness", range=[-1, 1], row=3, col=1)
+    fig.update_yaxes(title_text="seconds", row=4, col=1, autorange="reversed")
 
     config = {"scrollZoom": True, "displayModeBar": True}
     script_dir = os.path.dirname(os.path.abspath(__file__))

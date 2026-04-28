@@ -33,6 +33,10 @@ open TradingEdge.Simulation.Patterns
 //   ret           : log(VWAP / prev_VWAP) (=0.0 for the first bar)
 //   duration_sec  : (EndUs - StartUs) / 1e6
 //   trade_count   : VolumeBar.TradeCount
+//   buy_count     : VolumeBar.BuyCount (count of buyer-aggressive trades).
+//                   For synth bars this equals trade_count (sim has no
+//                   sidedness). Used by the chart for an aggression panel; the
+//                   trainer ignores it.
 //   label         : integer index into a sidecar JSON map (label_index ->
 //                   string). Per-bar string is the bar's first trade's label
 //                   list joined with '|', e.g. "Hold|UptrendDay" or
@@ -45,6 +49,7 @@ let datasetSchema = ParquetSchema(
     DataField<float>("ret"),
     DataField<float>("duration_sec"),
     DataField<int>("trade_count"),
+    DataField<int>("buy_count"),
     DataField<int>("label")
 )
 
@@ -56,6 +61,7 @@ type DayBars = {
     Ret: float[]
     DurationSec: float[]
     TradeCount: int[]
+    BuyCount: int[]
     Label: int[]
 }
 
@@ -134,6 +140,7 @@ let toDayBars (dayId: int) (bars: VolumeBar[]) (label: int[]) : DayBars =
         let b = bars.[i]
         float (b.EndUs - b.StartUs) / 1e6)
     let tradeCount = Array.init n (fun i -> bars.[i].TradeCount)
+    let buyCount = Array.init n (fun i -> bars.[i].BuyCount)
     {
         DayId = dayId
         BarIdx = barIdx
@@ -141,6 +148,7 @@ let toDayBars (dayId: int) (bars: VolumeBar[]) (label: int[]) : DayBars =
         Ret = ret
         DurationSec = durationSec
         TradeCount = tradeCount
+        BuyCount = buyCount
         Label = label
     }
 
@@ -295,7 +303,8 @@ let writeRowGroup (writer: ParquetWriter) (d: DayBars) = task {
     do! rg.WriteColumnAsync(DataColumn(f.[3], d.Ret))
     do! rg.WriteColumnAsync(DataColumn(f.[4], d.DurationSec))
     do! rg.WriteColumnAsync(DataColumn(f.[5], d.TradeCount))
-    do! rg.WriteColumnAsync(DataColumn(f.[6], d.Label))
+    do! rg.WriteColumnAsync(DataColumn(f.[6], d.BuyCount))
+    do! rg.WriteColumnAsync(DataColumn(f.[7], d.Label))
 }
 
 let writeOneDayParquet (outputPath: string) (d: DayBars) = task {

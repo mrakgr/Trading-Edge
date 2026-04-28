@@ -32,7 +32,9 @@ let defaultCompression = 4096.0
 //
 // Mirrors the column order in HoldDataset.datasetSchema:
 //   0=day_id, 1=bar_idx, 2=rel_stddev, 3=ret, 4=duration_sec,
-//   5=trade_count, 6=label
+//   5=trade_count, 6=buy_count, 7=label
+// buy_count is read so it survives a copy/inspection round trip but the CDF
+// transform itself only needs trade_count for normalization.
 
 type private RawRowGroup = {
     Index: int
@@ -53,7 +55,8 @@ let private readRowGroup (rg: ParquetRowGroupReader) (schema: ParquetSchema) (rg
     let! ret = rg.ReadColumnAsync(f.[3])
     let! dur = rg.ReadColumnAsync(f.[4])
     let! tc = rg.ReadColumnAsync(f.[5])
-    let! label = rg.ReadColumnAsync(f.[6])
+    // f.[6] = buy_count (chart-only; CDF stage doesn't use it)
+    let! label = rg.ReadColumnAsync(f.[7])
     return {
         Index = rgIndex
         DayIds = dayIds.Data :?> int[]
