@@ -58,6 +58,9 @@ CLASS_COLORS: dict[int, tuple[int, int, int]] = {
     8: ( 64, 224, 208),    # ShortHoldRelease — turquoise
     9: ( 32, 178, 170),    # HoldRelease — light sea green
     10: (  0, 128, 128),   # LongHoldRelease — teal
+    11: (218, 112, 214),   # WeakHoldUp      — orchid
+    12: (199,  21, 133),   # WeakHoldDown    — medium violet red
+    13: (255, 105, 180),   # WeakHoldFakeout — hot pink (loose burst inside weak hold)
 }
 
 CLASS_NAMES_FALLBACK = [
@@ -65,6 +68,7 @@ CLASS_NAMES_FALLBACK = [
     "ShortHold", "Hold", "LongHold",
     "Fakeout",
     "ShortHoldRelease", "HoldRelease", "LongHoldRelease",
+    "WeakHoldUp", "WeakHoldDown", "WeakHoldFakeout",
 ]
 
 

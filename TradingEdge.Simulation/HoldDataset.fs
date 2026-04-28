@@ -94,6 +94,9 @@ let labelNames : string[] = [|
     "ShortHoldRelease"              // 8
     "HoldRelease"                   // 9
     "LongHoldRelease"               // 10
+    "WeakHoldUp"                    // 11 — tight chunks of a directional weak hold (up)
+    "WeakHoldDown"                  // 12 — tight chunks of a directional weak hold (down)
+    "WeakHoldFakeout"               // 13 — loose chunks inside a weak hold (any direction)
 |]
 
 let numLabels = labelNames.Length
@@ -111,6 +114,9 @@ let labelToInt (label: string list) : int =
     | ["HoldRelease"; "Short"; ("UptrendDay" | "DowntrendDay")] -> 8
     | ["HoldRelease"; "Mid"; ("UptrendDay" | "DowntrendDay")] -> 9
     | ["HoldRelease"; "Long"; ("UptrendDay" | "DowntrendDay")] -> 10
+    | ["WeakHoldDrift"; "Up"; ("UptrendDay" | "DowntrendDay")] -> 11
+    | ["WeakHoldDrift"; "Down"; ("UptrendDay" | "DowntrendDay")] -> 12
+    | ["WeakHoldFakeout"; ("Up" | "Down"); ("UptrendDay" | "DowntrendDay")] -> 13
     | other ->
         invalidArg "label" (sprintf "Unrecognized label combination: %A" other)
 

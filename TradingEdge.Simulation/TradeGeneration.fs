@@ -227,7 +227,10 @@ let makeDefaultContext
 // Trade Generation
 // =============================================================================
 
-let generateDrift (baseParams: BaseParams) (labels: string list) (volumeAbnormality : float) (endTarget: float) (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
+let generateDrift (baseParams: BaseParams) (labels: string list) (volumeAbnormality : float) 
+        (endTarget: float) (targetSigma: float) 
+        (volumeLimit: float) (totalVolume: float) 
+        (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
         let proposalVol = baseParams.BaseVolatility
         let sqrtVolumeAbnormality = sqrt volumeAbnormality
@@ -237,11 +240,11 @@ let generateDrift (baseParams: BaseParams) (labels: string list) (volumeAbnormal
         let gapMedian = gapMean / 4.0
 
         let rec loop price time volumeConsumed =
+            let progress = min volumeLimit volumeConsumed / totalVolume
+            let currentTarget = ctx.StartTarget + (endTarget - ctx.StartTarget) * progress
             if volumeConsumed >= volumeLimit then
-                cont { ctx with StartPrice = price; StartTime = time; StartTarget = endTarget }
+                cont { ctx with StartPrice = price; StartTime = time; StartTarget = currentTarget }
             else
-                let progress = volumeConsumed / volumeLimit
-                let currentTarget = ctx.StartTarget + (endTarget - ctx.StartTarget) * progress
                 let rng = ctx.Effects.Rng
                 let gap = sampleGap rng gapMedian gapMean
                 let newTime = time + gap
@@ -270,11 +273,13 @@ let generateDrift (baseParams: BaseParams) (labels: string list) (volumeAbnormal
 
         loop ctx.StartPrice ctx.StartTime 0.0
 
-let generateBreakout (baseParams: BaseParams) (labels: string list) (volumeAbnormality : float) (targetSigma: float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
+let generateBreakout (baseParams: BaseParams) (labels: string list) (volumeAbnormality : float) (targetSigma: float) (totalVolume: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
-        generateDrift baseParams labels volumeAbnormality ctx.StartTarget targetSigma volumeLimit respectSessionBoundaries ctx cont
+        generateDrift baseParams labels volumeAbnormality ctx.StartTarget targetSigma totalVolume totalVolume respectSessionBoundaries ctx cont
 
-let generateHold (baseParams: BaseParams) (labels: string list) (volumeAbnormality : float) (tightSigma : float, tightVolume : float) (looseSigma : float, looseVolume : float) (volumeLimit: float) (respectSessionBoundaries: bool) : Pattern<'r> =
+let generateHold (baseParams: BaseParams) (labels: string list) (volumeAbnormality : float) 
+        (tightSigma : float, tightVolume : float) (looseSigma : float, looseVolume : float) 
+        (totalVolume: float) (respectSessionBoundaries: bool) : Pattern<'r> =
     fun ctx cont ->
         let rng = ctx.Effects.Rng
         let rec buildPatterns volumeRemaining acc =
@@ -291,6 +296,32 @@ let generateHold (baseParams: BaseParams) (labels: string list) (volumeAbnormali
                 let pattern = generateBreakout baseParams (holdLabel :: labels) volumeAbnormality sigma actualVolume respectSessionBoundaries
                 buildPatterns (volumeRemaining - actualVolume) (pattern :: acc)
 
-        let patterns = buildPatterns volumeLimit []
+        let patterns = buildPatterns totalVolume []
         let sequencer = if respectSessionBoundaries then sequenceAtomic else sequence
         sequencer patterns ctx cont
+
+let generateWeakHold (baseParams: BaseParams) (labels: string list) (volumeAbnormality : float) 
+        (tightSigma : float, tightVolume : float)
+        (looseSigma : float, looseVolume : float) 
+        target targetSigma
+        (totalVolume: float) (respectSessionBoundaries: bool) : Pattern<'r> =
+    fun ctx cont ->
+        let rng = ctx.Effects.Rng
+        let rec buildPatterns volumeRemaining acc =
+            if volumeRemaining <= 0.0 then
+                List.rev acc
+            else
+                let useTight = rng.NextDouble() < 0.5
+                let sigmaMean, chunkVolumeMean, holdLabel = if useTight then tightSigma, tightVolume, "WeakHoldDrift" else looseSigma, looseVolume, "WeakHoldFakeout"
+                // Per-chunk lognormal jitter on sigma so consecutive tight (or loose)
+                // chunks within a weak hold don't all have identical volatility.
+                let sigma = sampleLogNormal rng (sigmaMean * 0.9) sigmaMean
+                let chunkVolume = sampleLogNormal rng (chunkVolumeMean * 0.75) chunkVolumeMean
+                let actualVolume = min chunkVolume volumeRemaining
+                let pattern = generateDrift {baseParams with BaseVolatility = sigma} (holdLabel :: labels) volumeAbnormality target targetSigma actualVolume volumeRemaining respectSessionBoundaries
+                buildPatterns (volumeRemaining - actualVolume) (pattern :: acc)
+
+        let patterns = buildPatterns totalVolume []
+        let sequencer = if respectSessionBoundaries then sequenceAtomic else sequence
+        sequencer patterns ctx cont
+
