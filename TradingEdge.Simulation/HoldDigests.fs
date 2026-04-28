@@ -160,12 +160,57 @@ let private fitAndTransform (compression: float) (numBuckets: int) (rg: RawRowGr
         Label = rg.Label
     }
 
-let applyCdfTransform (inputPath: string) (outputPath: string) (compression: float) (numWorkers: int) = task {
-    printfn "Per-day CDF transform: %s -> %s" inputPath outputPath
+/// Causal expanding-window variant: at bar i, fit a digest on bars [0..i] and
+/// look up bar i's value against it (similarly an online RMS for the log return
+/// z-score). Used for live-style BTC inference where future bars are not
+/// available; the per-day fitAndTransform above is fine for synth data where
+/// the model trains on fully-known days.
+let private fitAndTransformCausal (compression: float) (rg: RawRowGroup) : CdfRowGroup =
+    let n = rg.RelStdDev.Length
+    let relTd = MergingDigest(compression)
+    let durTd = MergingDigest(compression)
+    let tcTd = MergingDigest(compression)
+    let cdfRel = Array.zeroCreate n
+    let cdfDur = Array.zeroCreate n
+    let cdfTc = Array.zeroCreate n
+    let cdfRet = Array.zeroCreate n
+    let mutable retSqSum = 0.0
+    let mutable retCount = 0
+    let toSigned (cdf: float) = cdf * 2.0 - 1.0
+    for i in 0 .. n - 1 do
+        addFinite relTd rg.RelStdDev.[i]
+        addFinite durTd rg.DurationSec.[i]
+        addFinite tcTd (float rg.TradeCount.[i])
+        cdfRel.[i] <- toSigned (relTd.Cdf rg.RelStdDev.[i])
+        cdfDur.[i] <- toSigned (durTd.Cdf rg.DurationSec.[i])
+        cdfTc.[i] <- toSigned (tcTd.Cdf (float rg.TradeCount.[i]))
+        let r = rg.Ret.[i]
+        if Double.IsFinite r then
+            retSqSum <- retSqSum + r * r
+            retCount <- retCount + 1
+        let retStd =
+            if retCount > 0 then sqrt (retSqSum / float retCount) else 1.0
+        let retScale = if retStd > 0.0 then retStd else 1.0
+        cdfRet.[i] <- normalCdfSigned (r / retScale)
+    {
+        Index = rg.Index
+        DayIds = rg.DayIds
+        BarIdx = rg.BarIdx
+        CdfRelStdDev = cdfRel
+        CdfRet = cdfRet
+        CdfDuration = cdfDur
+        CdfTradeCount = cdfTc
+        Label = rg.Label
+    }
 
-    // Bucket count for the piecewise-linear lookup. With per-day digests the
-    // input population is small (~2-6k bars) so we don't need 2^17 buckets;
-    // 2^12 is plenty and keeps the per-day fit fast.
+let applyCdfTransform (inputPath: string) (outputPath: string) (compression: float) (numWorkers: int) (causal: bool) = task {
+    let mode = if causal then "causal expanding-window" else "per-day"
+    printfn "%s CDF transform: %s -> %s" mode inputPath outputPath
+
+    // Bucket count for the piecewise-linear lookup (per-day path only). With
+    // per-day digests the input population is small (~2-6k bars) so we don't
+    // need 2^17 buckets; 2^12 is plenty and keeps the per-day fit fast. The
+    // causal path skips this and queries the digest directly per bar.
     let numBuckets = 1 <<< 12
 
     use inStream = File.OpenRead(inputPath)
@@ -187,11 +232,15 @@ let applyCdfTransform (inputPath: string) (outputPath: string) (compression: flo
         readChannel.Writer.Complete()
     }
 
+    let transform =
+        if causal then fitAndTransformCausal compression
+        else fitAndTransform compression numBuckets
+
     let workers = [|
         for _ in 0 .. numWorkers - 1 ->
             task {
                 for rg in readChannel.Reader.ReadAllAsync() do
-                    let cdf = fitAndTransform compression numBuckets rg
+                    let cdf = transform rg
                     do! writeChannel.Writer.WriteAsync(cdf)
                     let n = Interlocked.Increment(&processed)
                     if n % 100 = 0 then printfn "  Transformed %d / %d row groups" n rgCount

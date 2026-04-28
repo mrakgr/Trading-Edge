@@ -120,6 +120,7 @@ type ApplyHoldCdfArgs =
     | [<Mandatory; AltCommandLine("-o")>] Output of string
     | [<AltCommandLine("-c")>] Compression of float
     | [<AltCommandLine("-w")>] Workers of int
+    | Causal
     interface IArgParserTemplate with
         member this.Usage =
             match this with
@@ -127,6 +128,7 @@ type ApplyHoldCdfArgs =
             | Output _ -> "Output CDF-transformed parquet path"
             | Compression _ -> "T-digest compression factor (default: 4096)"
             | Workers _ -> "Worker count (default: ProcessorCount)"
+            | Causal -> "Use expanding-window causal CDF (no future-info leakage); for live-style BTC inference"
 
 type Command =
     | [<CliPrefix(CliPrefix.None)>] Order_Book of ParseResults<OrderBookArgs>
@@ -251,7 +253,8 @@ let runApplyHoldCdf (args: ParseResults<ApplyHoldCdfArgs>) =
     let output = args.GetResult(ApplyHoldCdfArgs.Output)
     let compression = args.GetResult(ApplyHoldCdfArgs.Compression, TradingEdge.Simulation.HoldDigests.defaultCompression)
     let workers = args.GetResult(ApplyHoldCdfArgs.Workers, Environment.ProcessorCount)
-    (TradingEdge.Simulation.HoldDigests.applyCdfTransform input output compression workers).Wait()
+    let causal = args.Contains(ApplyHoldCdfArgs.Causal)
+    (TradingEdge.Simulation.HoldDigests.applyCdfTransform input output compression workers causal).Wait()
 
 [<EntryPoint>]
 let main argv =
