@@ -16,7 +16,15 @@
 // size dramatically (from 220k to 4.5k pairs at 262 days) and keeps only
 // setups a discretionary trader would consider tradable.
 //
-// Output row shape: {"ticker": "AAPL", "date": "2024-06-12", "gap_pct": 0.0523}
+// Output row shape: {"ticker": "AAPL", "date": "2024-06-12", "gap_pct": 0.0523,
+//                    "raw_avg_4w": 12345678.9, "txn_avg_4w": 1234.5,
+//                    "split_factor_today": 1.0,
+//                    "session_raw_volume": 23456789, "rvol": 1.9}
+//
+// raw_avg_4w / txn_avg_4w / split_factor_today feed the binary header writer
+// for the breakout pipeline. session_raw_volume / rvol carry the actual
+// session-volume figures from session_volume_4w so downstream studies don't
+// need a second DB round-trip to bucket setups by RVOL.
 
 open System
 open System.IO
@@ -93,7 +101,9 @@ SELECT
     sv.avg_session_transactions_4w                                   AS txn_avg_4w,
     sv.session_adj_volume::DOUBLE / NULLIF(sv.session_raw_volume, 0)::DOUBLE AS split_factor_today,
     sv.avg_session_adj_volume_4w
-      / NULLIF(sv.session_adj_volume::DOUBLE / NULLIF(sv.session_raw_volume, 0)::DOUBLE, 0) AS raw_avg_4w
+      / NULLIF(sv.session_adj_volume::DOUBLE / NULLIF(sv.session_raw_volume, 0)::DOUBLE, 0) AS raw_avg_4w,
+    sv.session_raw_volume::DOUBLE                                    AS session_raw_volume,
+    sv.session_volume_rvol::DOUBLE                                   AS rvol
 FROM priced p
 JOIN ticker_reference tr ON tr.ticker = p.ticker AND tr.type IN ('CS', 'ADRC')
 JOIN stock_volume_4w sd ON sd.ticker = p.ticker AND sd.date = p.date
@@ -142,10 +152,12 @@ while reader.Read() do
     let txnAvg4w = fmtOrNull (reader.GetValue 3)
     let splitFactor = fmtOrNull (reader.GetValue 4)
     let rawAvg4w = fmtOrNull (reader.GetValue 5)
+    let sessionRawVolume = fmtOrNull (reader.GetValue 6)
+    let rvol = fmtOrNull (reader.GetValue 7)
     if not first then w.Write ",\n" else first <- false
     w.Write(String.Format(inv,
-        "  {{\"ticker\": \"{0}\", \"date\": \"{1}\", \"gap_pct\": {2:F6}, \"raw_avg_4w\": {3}, \"txn_avg_4w\": {4}, \"split_factor_today\": {5}}}",
-        ticker, date, gapPct, rawAvg4w, txnAvg4w, splitFactor))
+        "  {{\"ticker\": \"{0}\", \"date\": \"{1}\", \"gap_pct\": {2:F6}, \"raw_avg_4w\": {3}, \"txn_avg_4w\": {4}, \"split_factor_today\": {5}, \"session_raw_volume\": {6}, \"rvol\": {7}}}",
+        ticker, date, gapPct, rawAvg4w, txnAvg4w, splitFactor, sessionRawVolume, rvol))
     n <- n + 1L
     tickerCounts.[ticker] <- (if tickerCounts.ContainsKey ticker then tickerCounts.[ticker] + 1 else 1)
     dateCounts.[date] <- (if dateCounts.ContainsKey date then dateCounts.[date] + 1 else 1)
