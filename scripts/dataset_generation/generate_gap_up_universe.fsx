@@ -37,6 +37,8 @@ type CliArgs =
     | [<AltCommandLine("-d")>] Database of string
     | [<AltCommandLine("-o")>] Output of string
     | [<AltCommandLine("-g")>] Min_Gap_Pct of float
+    | [<AltCommandLine("-v")>] Min_Dollar_Volume of float
+    | Require_52w_Breakout
     | [<AltCommandLine("-s")>] Start_Date of string
     | [<AltCommandLine("-e")>] End_Date of string
 
@@ -46,6 +48,8 @@ type CliArgs =
             | Database _ -> "DuckDB path. Default: data/trading.db"
             | Output _ -> "Output JSON path. Default: data/gap_up_universe.json"
             | Min_Gap_Pct _ -> "Minimum gap_pct as a decimal (e.g. 0.05 = 5%). Default: 0.05"
+            | Min_Dollar_Volume _ -> "Minimum 4w avg dollar volume in dollars (e.g. 100000000 = 100M). Default: 25000000"
+            | Require_52w_Breakout -> "Only emit setups whose adj_open exceeds the trailing 252 trading-day adj_high (split-adjusted)."
             | Start_Date _ -> "First date (yyyy-MM-dd, inclusive). Default: min date in session_daily_totals."
             | End_Date _ -> "Last date (yyyy-MM-dd, inclusive). Default: max date in session_daily_totals."
 
@@ -59,6 +63,8 @@ let parsed =
 let db = parsed.GetResult(Database, defaultValue = "data/trading.db")
 let outPath = parsed.GetResult(Output, defaultValue = "data/gap_up_universe.json")
 let minGapPct = parsed.GetResult(Min_Gap_Pct, defaultValue = 0.05)
+let minDollarVolume = parsed.GetResult(Min_Dollar_Volume, defaultValue = 25_000_000.0)
+let require52wBreakout = parsed.Contains Require_52w_Breakout
 let startDateOpt = parsed.TryGetResult Start_Date
 let endDateOpt = parsed.TryGetResult End_Date
 
@@ -66,6 +72,7 @@ let conn = new DuckDBConnection(sprintf "Data Source=%s;ACCESS_MODE=READ_ONLY" d
 conn.Open()
 
 let minGapStr = minGapPct.ToString("R", CultureInfo.InvariantCulture)
+let minDollarVolumeStr = minDollarVolume.ToString("R", CultureInfo.InvariantCulture)
 
 // Start/end bounds default to the full session_daily_totals range; when the
 // caller supplies either one we override the corresponding edge. Interpolated
@@ -87,13 +94,41 @@ let endBoundSql =
 // session_volume_4w row is missing (< 16 trading days of history), fields
 // default to NULL and Convert writes NaN, so the gate treats the day as
 // pass-through.
+// 52w-breakout gate: today's adj_open exceeds the trailing 252 trading-day
+// adj_high. ROWS BETWEEN 252 PRECEDING AND 1 PRECEDING excludes the current
+// row, so we're comparing against the strict prior-year peak. Using
+// split_adjusted_prices keeps both sides of the comparison on the same scale
+// regardless of intervening splits.
+//
+// Stocks with less than 252 days of history get a partial-window MAX (or NULL
+// on day 1 of trading). This is by design: a young stock with no overhead
+// resistance is exactly the kind of breakout setup we want to catch, so we
+// admit them rather than requiring a full year of prior price action.
+let breakoutCte =
+    if require52wBreakout then """
+, breakout AS (
+    SELECT
+        ticker, date, adj_open,
+        MAX(adj_high) OVER (
+            PARTITION BY ticker ORDER BY date
+            ROWS BETWEEN 252 PRECEDING AND 1 PRECEDING
+        ) AS prior_252d_adj_high
+    FROM split_adjusted_prices
+)"""
+    else ""
+
+let breakoutJoin =
+    if require52wBreakout then
+        "JOIN breakout b ON b.ticker = p.ticker AND b.date = p.date AND b.prior_252d_adj_high IS NOT NULL AND b.adj_open > b.prior_252d_adj_high"
+    else ""
+
 let sql = $"""
 WITH priced AS (
     SELECT
         ticker, date, open,
         LAG(close) OVER (PARTITION BY ticker ORDER BY date) AS prior_close
     FROM daily_prices
-)
+){breakoutCte}
 SELECT
     p.ticker,
     strftime(p.date, '%%Y-%%m-%%d') AS date_str,
@@ -108,9 +143,10 @@ FROM priced p
 JOIN ticker_reference tr ON tr.ticker = p.ticker AND tr.type IN ('CS', 'ADRC')
 JOIN stock_volume_4w sd ON sd.ticker = p.ticker AND sd.date = p.date
 LEFT JOIN session_volume_4w sv ON sv.ticker = p.ticker AND sv.date = p.date
+{breakoutJoin}
 WHERE p.prior_close > 0
   AND p.open / p.prior_close - 1.0 >= {minGapStr}
-  AND sd.avg_dollar_volume_4w >= 25000000.0
+  AND sd.avg_dollar_volume_4w >= {minDollarVolumeStr}
   AND p.date >= {startBoundSql}
   AND p.date <= {endBoundSql}
 ORDER BY p.date, p.ticker

@@ -39,9 +39,28 @@ import argparse
 import os
 
 import numpy as np
+import pandas as pd
 import pyarrow.parquet as pq
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+
+def _format_et_times(start_us: np.ndarray, end_us: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Convert microsecond UTC timestamps to America/New_York HH:MM:SS strings.
+
+    Synth bars use seconds-from-day-start packed into start_us so values are
+    tiny (under a year of microseconds); we detect that case (any value below
+    ~1e15) and emit empty strings instead of nonsensical 1970-era dates.
+    """
+    finite_mask = (start_us > 0) & (end_us > 0)
+    if not finite_mask.any() or start_us[finite_mask].min() < 1e15:
+        empty = np.full(start_us.shape, '', dtype=object)
+        return empty, empty
+    start_dt = pd.to_datetime(start_us, unit='us', utc=True).tz_convert('America/New_York')
+    end_dt = pd.to_datetime(end_us, unit='us', utc=True).tz_convert('America/New_York')
+    fmt = '%H:%M:%S'
+    return (np.array([t.strftime(fmt) for t in start_dt], dtype=object),
+            np.array([t.strftime(fmt) for t in end_dt], dtype=object))
 
 
 # Color per class. Tuples are (R, G, B). Reused by both the top-panel bar
@@ -138,6 +157,10 @@ def plot(bars, pred, output_html, title: str, label_names: list[str] | None = No
 
     x_vals = np.arange(n, dtype=np.float64)
 
+    if "volume" in df.columns:
+        bar_volume = df["volume"].to_numpy()
+    else:
+        bar_volume = np.full(n, np.nan)
     customdata = np.column_stack([
         df["bar_idx"].to_numpy(),
         rel_price,
@@ -147,6 +170,7 @@ def plot(bars, pred, output_html, title: str, label_names: list[str] | None = No
         df["trade_count"].to_numpy(),
         max_prob,
         pred_label,
+        bar_volume,
     ])
 
     # Build hovertemplate with the predicted class name pulled from the
@@ -155,7 +179,13 @@ def plot(bars, pred, output_html, title: str, label_names: list[str] | None = No
         label_names[c] if 0 <= c < len(label_names) else f"class_{c}"
         for c in pred_label
     ])
-    customdata_obj = np.column_stack([customdata, pred_class_name])
+    if {"start_us", "end_us"}.issubset(df.columns):
+        start_et, end_et = _format_et_times(
+            df["start_us"].to_numpy(), df["end_us"].to_numpy())
+    else:
+        start_et = np.full(n, '', dtype=object)
+        end_et = np.full(n, '', dtype=object)
+    customdata_obj = np.column_stack([customdata, pred_class_name, start_et, end_et])
 
     fig = make_subplots(
         rows=4, cols=1,
@@ -177,13 +207,15 @@ def plot(bars, pred, output_html, title: str, label_names: list[str] | None = No
         customdata=customdata_obj,
         hovertemplate=(
             "<b>bar:</b> %{customdata[0]}<br>"
+            "<b>ET:</b> %{customdata[10]} → %{customdata[11]}<br>"
             "<b>rel_price:</b> %{customdata[1]:.6f}<br>"
             "<b>rel_stddev:</b> %{customdata[2]:.6f}<br>"
             "<b>log_ret:</b> %{customdata[3]:+.6f}<br>"
             "<b>dur:</b> %{customdata[4]:.2f}s<br>"
             "<b>trades:</b> %{customdata[5]}<br>"
+            "<b>volume:</b> %{customdata[8]:,.0f}<br>"
             "<b>argmax prob:</b> %{customdata[6]:.4f}<br>"
-            "<b>argmax class:</b> %{customdata[7]} (%{customdata[8]})<extra></extra>"
+            "<b>argmax class:</b> %{customdata[7]} (%{customdata[9]})<extra></extra>"
         ),
         name="bars",
         showlegend=False,

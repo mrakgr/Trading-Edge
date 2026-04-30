@@ -50,6 +50,9 @@ def build_bars(trades, bar_volume):
     ret_arr = []
     duration_sec_arr = []
     trade_count_arr = []
+    volume_arr = []
+    start_us_arr = []
+    end_us_arr = []
     prev_vwap = None
 
     cur_prices = []
@@ -75,6 +78,9 @@ def build_bars(trades, bar_volume):
             ret_arr.append(float(np.log(vwap / prev_vwap)))
         duration_sec_arr.append((cur_end_us - cur_start_us) / 1e6)
         trade_count_arr.append(cur_trade_count)
+        volume_arr.append(float(v_sum))
+        start_us_arr.append(cur_start_us)
+        end_us_arr.append(cur_end_us)
         prev_vwap = vwap
 
     for t in trades:
@@ -121,6 +127,9 @@ def build_bars(trades, bar_volume):
         # Stocks have no aggression flag in the tape; mirror trade_count so
         # the chart's sidedness panel reads as constant +1 instead of NaN.
         'buy_count': np.asarray(trade_count_arr, dtype=np.int32),
+        'volume': np.asarray(volume_arr, dtype=np.float64),
+        'start_us': np.asarray(start_us_arr, dtype=np.int64),
+        'end_us': np.asarray(end_us_arr, dtype=np.int64),
         'label': np.zeros(n, dtype=np.int32),
     }
 
@@ -176,6 +185,9 @@ def main():
         pa.field('duration_sec', pa.float64(), nullable=False),
         pa.field('trade_count', pa.int32(), nullable=False),
         pa.field('buy_count', pa.int32(), nullable=False),
+        pa.field('volume', pa.float64(), nullable=False),
+        pa.field('start_us', pa.int64(), nullable=False),
+        pa.field('end_us', pa.int64(), nullable=False),
         pa.field('label', pa.int32(), nullable=False),
     ])
     table = pa.table({k: pa.array(v) for k, v in bars.items()}, schema=schema)

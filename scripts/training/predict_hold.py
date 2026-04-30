@@ -114,16 +114,32 @@ def main():
     probs_by_group = predict(model, ds, args.batch_size, device, num_classes)
 
     pf = pq.ParquetFile(args.input)
+    schema_names = set(pf.schema_arrow.names)
+    have_ts = {"start_us", "end_us"}.issubset(schema_names)
+    have_vol = "volume" in schema_names
+    base_cols = ["day_id", "bar_idx"]
+    if have_ts:
+        base_cols += ["start_us", "end_us"]
+    if have_vol:
+        base_cols += ["volume"]
     day_ids_out: list[int] = []
     bar_idx_out: list[int] = []
+    start_us_out: list[int] = []
+    end_us_out: list[int] = []
+    volume_out: list[float] = []
     pred_label_out: list[int] = []
     prob_cols: list[list[float]] = [[] for _ in range(num_classes)]
     for gi in ds.row_groups:
-        keys = pf.read_row_group(gi, columns=["day_id", "bar_idx"]).to_pandas()
+        keys = pf.read_row_group(gi, columns=base_cols).to_pandas()
         probs = probs_by_group[gi]                     # (n_bars, num_classes)
         argmax = np.where(np.isnan(probs[:, 0]), -1, np.nanargmax(probs, axis=1))
         day_ids_out.extend(keys["day_id"].tolist())
         bar_idx_out.extend(keys["bar_idx"].tolist())
+        if have_ts:
+            start_us_out.extend(keys["start_us"].tolist())
+            end_us_out.extend(keys["end_us"].tolist())
+        if have_vol:
+            volume_out.extend(keys["volume"].tolist())
         pred_label_out.extend(argmax.astype(np.int32).tolist())
         for c in range(num_classes):
             prob_cols[c].extend(probs[:, c].tolist())
@@ -133,6 +149,11 @@ def main():
         "bar_idx": pa.array(bar_idx_out, type=pa.int32()),
         "pred_label": pa.array(pred_label_out, type=pa.int32()),
     }
+    if have_ts:
+        table_dict["start_us"] = pa.array(start_us_out, type=pa.int64())
+        table_dict["end_us"] = pa.array(end_us_out, type=pa.int64())
+    if have_vol:
+        table_dict["volume"] = pa.array(volume_out, type=pa.float64())
     for c in range(num_classes):
         table_dict[f"prob_{c}"] = pa.array(prob_cols[c], type=pa.float32())
     table = pa.table(table_dict)

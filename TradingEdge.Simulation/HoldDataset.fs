@@ -50,6 +50,9 @@ let datasetSchema = ParquetSchema(
     DataField<float>("duration_sec"),
     DataField<int>("trade_count"),
     DataField<int>("buy_count"),
+    DataField<float>("volume"),
+    DataField<int64>("start_us"),
+    DataField<int64>("end_us"),
     DataField<int>("label")
 )
 
@@ -62,6 +65,9 @@ type DayBars = {
     DurationSec: float[]
     TradeCount: int[]
     BuyCount: int[]
+    Volume: float[]
+    StartUs: int64[]
+    EndUs: int64[]
     Label: int[]
 }
 
@@ -147,6 +153,9 @@ let toDayBars (dayId: int) (bars: VolumeBar[]) (label: int[]) : DayBars =
         float (b.EndUs - b.StartUs) / 1e6)
     let tradeCount = Array.init n (fun i -> bars.[i].TradeCount)
     let buyCount = Array.init n (fun i -> bars.[i].BuyCount)
+    let volume = Array.init n (fun i -> bars.[i].Volume)
+    let startUs = Array.init n (fun i -> bars.[i].StartUs)
+    let endUs = Array.init n (fun i -> bars.[i].EndUs)
     {
         DayId = dayId
         BarIdx = barIdx
@@ -155,6 +164,9 @@ let toDayBars (dayId: int) (bars: VolumeBar[]) (label: int[]) : DayBars =
         DurationSec = durationSec
         TradeCount = tradeCount
         BuyCount = buyCount
+        Volume = volume
+        StartUs = startUs
+        EndUs = endUs
         Label = label
     }
 
@@ -310,7 +322,10 @@ let writeRowGroup (writer: ParquetWriter) (d: DayBars) = task {
     do! rg.WriteColumnAsync(DataColumn(f.[4], d.DurationSec))
     do! rg.WriteColumnAsync(DataColumn(f.[5], d.TradeCount))
     do! rg.WriteColumnAsync(DataColumn(f.[6], d.BuyCount))
-    do! rg.WriteColumnAsync(DataColumn(f.[7], d.Label))
+    do! rg.WriteColumnAsync(DataColumn(f.[7], d.Volume))
+    do! rg.WriteColumnAsync(DataColumn(f.[8], d.StartUs))
+    do! rg.WriteColumnAsync(DataColumn(f.[9], d.EndUs))
+    do! rg.WriteColumnAsync(DataColumn(f.[10], d.Label))
 }
 
 let writeOneDayParquet (outputPath: string) (d: DayBars) = task {

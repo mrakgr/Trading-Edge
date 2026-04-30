@@ -32,9 +32,10 @@ let defaultCompression = 4096.0
 //
 // Mirrors the column order in HoldDataset.datasetSchema:
 //   0=day_id, 1=bar_idx, 2=rel_stddev, 3=ret, 4=duration_sec,
-//   5=trade_count, 6=buy_count, 7=label
-// buy_count is read so it survives a copy/inspection round trip but the CDF
-// transform itself only needs trade_count for normalization.
+//   5=trade_count, 6=buy_count, 7=volume, 8=start_us, 9=end_us, 10=label
+// volume / start_us / end_us / buy_count are read here so they survive the
+// copy and the chart can show per-bar volume + ET clock times in hover; the
+// CDF transform itself only needs trade_count for normalization.
 
 type private RawRowGroup = {
     Index: int
@@ -44,6 +45,9 @@ type private RawRowGroup = {
     Ret: float[]
     DurationSec: float[]
     TradeCount: int[]
+    Volume: float[]
+    StartUs: int64[]
+    EndUs: int64[]
     Label: int[]
 }
 
@@ -56,7 +60,10 @@ let private readRowGroup (rg: ParquetRowGroupReader) (schema: ParquetSchema) (rg
     let! dur = rg.ReadColumnAsync(f.[4])
     let! tc = rg.ReadColumnAsync(f.[5])
     // f.[6] = buy_count (chart-only; CDF stage doesn't use it)
-    let! label = rg.ReadColumnAsync(f.[7])
+    let! volume = rg.ReadColumnAsync(f.[7])
+    let! startUs = rg.ReadColumnAsync(f.[8])
+    let! endUs = rg.ReadColumnAsync(f.[9])
+    let! label = rg.ReadColumnAsync(f.[10])
     return {
         Index = rgIndex
         DayIds = dayIds.Data :?> int[]
@@ -65,6 +72,9 @@ let private readRowGroup (rg: ParquetRowGroupReader) (schema: ParquetSchema) (rg
         Ret = ret.Data :?> float[]
         DurationSec = dur.Data :?> float[]
         TradeCount = tc.Data :?> int[]
+        Volume = volume.Data :?> float[]
+        StartUs = startUs.Data :?> int64[]
+        EndUs = endUs.Data :?> int64[]
         Label = label.Data :?> int[]
     }
 }
@@ -85,6 +95,9 @@ let cdfSchema = ParquetSchema(
     DataField<float>("cdf_ret"),
     DataField<float>("cdf_duration"),
     DataField<float>("cdf_trade_count"),
+    DataField<float>("volume"),
+    DataField<int64>("start_us"),
+    DataField<int64>("end_us"),
     DataField<int>("label")
 )
 
@@ -96,6 +109,9 @@ type private CdfRowGroup = {
     CdfRet: float[]
     CdfDuration: float[]
     CdfTradeCount: float[]
+    Volume: float[]
+    StartUs: int64[]
+    EndUs: int64[]
     Label: int[]
 }
 
@@ -108,7 +124,10 @@ let private writeCdfRowGroup (writer: ParquetWriter) (d: CdfRowGroup) = task {
     do! rg.WriteColumnAsync(DataColumn(f.[3], d.CdfRet))
     do! rg.WriteColumnAsync(DataColumn(f.[4], d.CdfDuration))
     do! rg.WriteColumnAsync(DataColumn(f.[5], d.CdfTradeCount))
-    do! rg.WriteColumnAsync(DataColumn(f.[6], d.Label))
+    do! rg.WriteColumnAsync(DataColumn(f.[6], d.Volume))
+    do! rg.WriteColumnAsync(DataColumn(f.[7], d.StartUs))
+    do! rg.WriteColumnAsync(DataColumn(f.[8], d.EndUs))
+    do! rg.WriteColumnAsync(DataColumn(f.[9], d.Label))
 }
 
 let private addFinite (td: MergingDigest) (v: float) =
@@ -157,6 +176,9 @@ let private fitAndTransform (compression: float) (numBuckets: int) (rg: RawRowGr
         CdfRet = cdfRet
         CdfDuration = applyCdf durLookup rg.DurationSec
         CdfTradeCount = applyCdfInt tcLookup rg.TradeCount
+        Volume = rg.Volume
+        StartUs = rg.StartUs
+        EndUs = rg.EndUs
         Label = rg.Label
     }
 
@@ -200,6 +222,9 @@ let private fitAndTransformCausal (compression: float) (rg: RawRowGroup) : CdfRo
         CdfRet = cdfRet
         CdfDuration = cdfDur
         CdfTradeCount = cdfTc
+        Volume = rg.Volume
+        StartUs = rg.StartUs
+        EndUs = rg.EndUs
         Label = rg.Label
     }
 
