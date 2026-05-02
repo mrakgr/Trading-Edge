@@ -294,17 +294,51 @@ let private writeMonthlyParquets
 // Job-level dispatch
 // -----------------------------------------------------------------------------
 
-/// True when a monthly's per-day parquets are all already on disk — short-
-/// circuit the download entirely.
+/// Path to the per-monthly completion sentinel. Zero-byte file written
+/// after a successful monthly finalization. Its presence means: "we already
+/// downloaded this monthly archive in full; don't re-fetch."
+///
+/// Why a sentinel and not just `monthlyAllSkipped` (the old "all expected
+/// per-day parquets present" check):
+///   - A monthly archive's actual contents can be a strict subset of
+///     `[YYYY-MM-01, YYYY-MM-DaysInMonth]`. New listings span only
+///     `[listing_day, EoM]`; delistings span `[1, delisting_day]`.
+///   - In those cases the per-day check sees the missing days at the edges
+///     and reports "not skipped", triggering a redundant re-download. The
+///     rotation loop then sees every contained day as already-on-disk,
+///     finalizes nothing, and reports `0 trades / 0 days` — wasted bandwidth.
+///   - The sentinel records the truth ("we processed this archive end-to-
+///     end") rather than guessing it from the per-day file presence.
+let private monthlyCompleteSentinelPath (outputDir: string) (m: MonthlyEntry) : string =
+    let dir = Path.Combine(outputDir, m.Symbol)
+    Path.Combine(dir, sprintf ".complete-%04d-%02d" m.Year m.Month)
+
+let private writeMonthlySentinel (outputDir: string) (m: MonthlyEntry) : unit =
+    let path = monthlyCompleteSentinelPath outputDir m
+    Directory.CreateDirectory(Path.GetDirectoryName path) |> ignore
+    if not (File.Exists path) then
+        // Empty file; the existence is the signal.
+        File.WriteAllBytes(path, [||])
+
+/// True when this monthly should be short-circuited. Two sources of truth:
+///   1. Sentinel file exists — definitive, set after a clean finalization.
+///   2. All `[YYYY-MM-01, EoM]` per-day parquets present — heuristic legacy
+///      check, kept as a fallback for monthlies completed before sentinels
+///      existed. When this fallback fires, also write the sentinel so we
+///      don't fall through to it again next time.
 let private monthlyAllSkipped (outputDir: string) (m: MonthlyEntry) : bool =
-    let n = daysInMonth m.Year m.Month
-    let mutable all = true
-    let mutable d = 1
-    while all && d <= n do
-        let path = dailyOutputPath outputDir m.Symbol (DateTime(m.Year, m.Month, d))
-        if not (File.Exists path) then all <- false
-        d <- d + 1
-    all
+    let sentinel = monthlyCompleteSentinelPath outputDir m
+    if File.Exists sentinel then true
+    else
+        let n = daysInMonth m.Year m.Month
+        let mutable all = true
+        let mutable d = 1
+        while all && d <= n do
+            let path = dailyOutputPath outputDir m.Symbol (DateTime(m.Year, m.Month, d))
+            if not (File.Exists path) then all <- false
+            d <- d + 1
+        if all then writeMonthlySentinel outputDir m
+        all
 
 /// Stream the response body to a temp file on disk, then invoke `f` with the
 /// path. ZipArchive(stream, Read) requires a seekable stream — handing it
@@ -314,6 +348,19 @@ let private monthlyAllSkipped (outputDir: string) (m: MonthlyEntry) : bool =
 /// internal CSV decompresses to 10+ GB. Disk-backed temp avoids the cap and
 /// lets us reuse the ZIP in case of a retry. Temp lives next to the eventual
 /// parquet so it's on the same volume as the final output.
+// Per-chunk idle deadline for the body copy. HttpClient.Timeout is ignored
+// once HttpCompletionOption.ResponseHeadersRead returns control, so a server
+// that stops sending mid-stream would otherwise hang the read forever (we
+// observed a 5-hour silent stall on PARTIUSDT 2026-04). We hand-roll the
+// copy so the deadline resets on every successful chunk: while bytes flow
+// the timer keeps getting refreshed; only true silence for `idleDeadline`
+// trips it. 15s is comfortably past normal TCP/DNS hiccups but converts an
+// indefinite hang into a fast retry. Combined with maxRetries/backoff the
+// worst-case stall budget per job is small, while legitimate multi-GB
+// downloads progressing at any reasonable rate are unaffected.
+let private idleDeadline = TimeSpan.FromSeconds 15.0
+let private copyBufferSize = 1 <<< 20  // 1 MiB
+
 let private downloadToFile
     (response: HttpResponseMessage)
     (tempZipPath: string)
@@ -324,9 +371,38 @@ let private downloadToFile
             if File.Exists tempZipPath then File.Delete tempZipPath
             Directory.CreateDirectory(Path.GetDirectoryName tempZipPath) |> ignore
             use! body = response.Content.ReadAsStreamAsync(ct) |> Async.AwaitTask
-            use fs = new FileStream(tempZipPath, FileMode.Create, FileAccess.Write, FileShare.None, 1 <<< 20)
-            do! body.CopyToAsync(fs, ct) |> Async.AwaitTask
-            return Ok ()
+            use fs = new FileStream(tempZipPath, FileMode.Create, FileAccess.Write, FileShare.None, copyBufferSize)
+            let buf = Array.zeroCreate<byte> copyBufferSize
+            // One linked CTS for the whole copy; we re-arm its deadline at
+            // the start of each chunk by calling CancelAfter again. Once a
+            // chunk lands successfully the timer hasn't fired, so the next
+            // CancelAfter just refreshes it. If a chunk truly stalls past
+            // idleDeadline, the token cancels and ReadAsync throws.
+            use cts = CancellationTokenSource.CreateLinkedTokenSource ct
+            let mutable bytesThisChunk = 1
+            let mutable stalled = false
+            try
+                while bytesThisChunk > 0 && not stalled do
+                    cts.CancelAfter idleDeadline
+                    try
+                        let! n =
+                            body.ReadAsync(buf, 0, buf.Length, cts.Token)
+                            |> Async.AwaitTask
+                        bytesThisChunk <- n
+                        if n > 0 then
+                            do! fs.WriteAsync(buf, 0, n, ct) |> Async.AwaitTask
+                    with
+                    | :? OperationCanceledException when not ct.IsCancellationRequested ->
+                        // Our idle deadline fired — no bytes for idleDeadline.
+                        stalled <- true
+                if stalled then
+                    try File.Delete tempZipPath with _ -> ()
+                    return Error (sprintf "download stalled: no bytes received for %.0fs" idleDeadline.TotalSeconds)
+                else
+                    return Ok ()
+            with ex ->
+                try File.Delete tempZipPath with _ -> ()
+                return Error (sprintf "download: %s" ex.Message)
         with ex ->
             try File.Delete tempZipPath with _ -> ()
             return Error (sprintf "download: %s" ex.Message)
@@ -339,24 +415,39 @@ let private withDownloadedZip
     (ct: CancellationToken)
     (f: string -> Async<'a>)
     : Async<Result<'a, string>> =
-    async {
-        let! resp = fetchWithRetry http url ct
-        match resp with
-        | Error msg -> return Error msg
-        | Ok response ->
-            use response = response
-            let! dl = downloadToFile response tempZipPath ct
-            match dl with
+    // Retries cover the whole fetch+body-copy as one unit. fetchWithRetry
+    // already retries the GET (header phase) on TooManyRequests / 5xx; what
+    // this wrapper adds is retry on body-copy stalls (the 20-min deadline
+    // firing) — a 200 OK whose body times out should not fail the job.
+    // The conversion `f` is deterministic local work; not retried.
+    let rec attempt n delayMs =
+        async {
+            let! resp = fetchWithRetry http url ct
+            match resp with
             | Error msg -> return Error msg
-            | Ok () ->
-                // The ZIP is the throwaway artifact; the parquet is durable.
-                // finally{} guarantees cleanup even on f's exception path.
-                try
-                    let! result = f tempZipPath
-                    return Ok result
-                finally
-                    try File.Delete tempZipPath with _ -> ()
-    }
+            | Ok response ->
+                use response = response
+                let! dl = downloadToFile response tempZipPath ct
+                match dl with
+                | Error msg ->
+                    // 404s already short-circuit inside fetchWithRetry; here
+                    // we're seeing post-200 failures (stall or network drop).
+                    // Retry up to maxRetries with backoff.
+                    if n >= maxRetries then return Error msg
+                    else
+                        let jitter = Random.Shared.Next(50, 250)
+                        do! Async.Sleep(delayMs + jitter)
+                        return! attempt (n + 1) (delayMs * 2)
+                | Ok () ->
+                    // Body fully on disk. Run the conversion; success or
+                    // failure, drop the .zip.tmp afterward.
+                    try
+                        let! result = f tempZipPath
+                        return Ok result
+                    finally
+                        try File.Delete tempZipPath with _ -> ()
+        }
+    attempt 0 1000
 
 let runJob
     (http: HttpClient)
@@ -430,6 +521,12 @@ let runJob
                 | Error msg -> return Failed(job.Key, msg)
                 | Ok (Error inner) -> return Failed(job.Key, inner)
                 | Ok (Ok (totalRows, daysWritten)) ->
+                    // Mark the monthly complete so future runs skip without
+                    // re-downloading. We commit the sentinel even if
+                    // daysWritten=0 (the all-days-already-on-disk redundancy
+                    // case): the source archive has been processed end-to-end,
+                    // and that's what the sentinel records.
+                    writeMonthlySentinel outputDir m
                     return MonthlyDownloaded(m.Symbol, m.Year, m.Month, totalRows, daysWritten, m.SizeBytes)
     }
 
@@ -489,8 +586,15 @@ let consoleProgress (completed: int) (total: int) (result: JobResult) : unit =
             sprintf "OK   day  %s %s  %d trades, %.1f MB"
                 s (d.ToString("yyyy-MM-dd")) n (float fileSize / 1.0e6)
         | MonthlyDownloaded(s, y, mo, n, days, totalBytes) ->
-            sprintf "OK   mo   %s %04d-%02d  %d trades / %d days, %.1f MB src"
-                s y mo n days (float totalBytes / 1.0e6)
+            // daysWritten=0 means every day in the source archive was already
+            // on disk from a prior run — the redundant-download case. We still
+            // report "OK" because the work succeeded and the sentinel is now
+            // written; tag it so the log is honest about what happened.
+            let suffix =
+                if days = 0 then " (all days already on disk; sentinel written)"
+                else ""
+            sprintf "OK   mo   %s %04d-%02d  %d trades / %d days, %.1f MB src%s"
+                s y mo n days (float totalBytes / 1.0e6) suffix
         | Skipped key ->
             sprintf "skip %s" key
         | Failed(key, err) ->
