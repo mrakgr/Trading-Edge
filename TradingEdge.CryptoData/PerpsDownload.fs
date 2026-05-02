@@ -306,6 +306,58 @@ let private monthlyAllSkipped (outputDir: string) (m: MonthlyEntry) : bool =
         d <- d + 1
     all
 
+/// Stream the response body to a temp file on disk, then invoke `f` with the
+/// path. ZipArchive(stream, Read) requires a seekable stream — handing it
+/// HttpClient's non-seekable response stream forces an internal buffer-into-
+/// MemoryStream which throws "Stream was too long" past 2 GB. Big monthly
+/// archives (ETH, DOGE in volatile months) easily blow that cap when their
+/// internal CSV decompresses to 10+ GB. Disk-backed temp avoids the cap and
+/// lets us reuse the ZIP in case of a retry. Temp lives next to the eventual
+/// parquet so it's on the same volume as the final output.
+let private downloadToFile
+    (response: HttpResponseMessage)
+    (tempZipPath: string)
+    (ct: CancellationToken)
+    : Async<Result<unit, string>> =
+    async {
+        try
+            if File.Exists tempZipPath then File.Delete tempZipPath
+            Directory.CreateDirectory(Path.GetDirectoryName tempZipPath) |> ignore
+            use! body = response.Content.ReadAsStreamAsync(ct) |> Async.AwaitTask
+            use fs = new FileStream(tempZipPath, FileMode.Create, FileAccess.Write, FileShare.None, 1 <<< 20)
+            do! body.CopyToAsync(fs, ct) |> Async.AwaitTask
+            return Ok ()
+        with ex ->
+            try File.Delete tempZipPath with _ -> ()
+            return Error (sprintf "download: %s" ex.Message)
+    }
+
+let private withDownloadedZip
+    (http: HttpClient)
+    (url: string)
+    (tempZipPath: string)
+    (ct: CancellationToken)
+    (f: string -> Async<'a>)
+    : Async<Result<'a, string>> =
+    async {
+        let! resp = fetchWithRetry http url ct
+        match resp with
+        | Error msg -> return Error msg
+        | Ok response ->
+            use response = response
+            let! dl = downloadToFile response tempZipPath ct
+            match dl with
+            | Error msg -> return Error msg
+            | Ok () ->
+                // The ZIP is the throwaway artifact; the parquet is durable.
+                // finally{} guarantees cleanup even on f's exception path.
+                try
+                    let! result = f tempZipPath
+                    return Ok result
+                finally
+                    try File.Delete tempZipPath with _ -> ()
+    }
+
 let runJob
     (http: HttpClient)
     (outputDir: string)
@@ -319,59 +371,66 @@ let runJob
             if File.Exists outPath then return Skipped job.Key
             else
                 let url = archiveUrl job.Key
-                let! resp = fetchWithRetry http url ct
-                match resp with
+                let tempZip = outPath + ".zip.tmp"
+                let! result =
+                    withDownloadedZip http url tempZip ct (fun zipPath ->
+                        async {
+                            try
+                                use fs = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 <<< 20)
+                                use archive = new ZipArchive(fs, ZipArchiveMode.Read)
+                                let entry =
+                                    archive.Entries
+                                    |> Seq.tryFind (fun e -> e.FullName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+                                match entry with
+                                | None -> return Error "ZIP contained no .csv entry"
+                                | Some entry ->
+                                    use stream = entry.Open()
+                                    use sr = new StreamReader(stream)
+                                    let n = writeSingleDayParquet sr outPath
+                                    let fi = FileInfo outPath
+                                    return Ok (n, fi.Length)
+                            with ex ->
+                                try File.Delete (outPath + ".tmp") with _ -> ()
+                                return Error (sprintf "convert: %s" ex.Message)
+                        })
+                match result with
                 | Error msg -> return Failed(job.Key, msg)
-                | Ok response ->
-                    use response = response
-                    try
-                        use! body = response.Content.ReadAsStreamAsync(ct) |> Async.AwaitTask
-                        use archive = new ZipArchive(body, ZipArchiveMode.Read)
-                        let entry =
-                            archive.Entries
-                            |> Seq.tryFind (fun e -> e.FullName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
-                        match entry with
-                        | None -> return Failed(job.Key, "ZIP contained no .csv entry")
-                        | Some entry ->
-                            use stream = entry.Open()
-                            use sr = new StreamReader(stream)
-                            let n = writeSingleDayParquet sr outPath
-                            let fi = FileInfo outPath
-                            return DailyDownloaded(d.Symbol, d.Date, n, fi.Length)
-                    with ex ->
-                        try File.Delete (outPath + ".tmp") with _ -> ()
-                        return Failed(job.Key, sprintf "convert: %s" ex.Message)
+                | Ok (Error inner) -> return Failed(job.Key, inner)
+                | Ok (Ok (n, sz)) -> return DailyDownloaded(d.Symbol, d.Date, n, sz)
 
         | MonthlyJob m ->
             if monthlyAllSkipped outputDir m then return Skipped job.Key
             else
                 let url = archiveUrl job.Key
-                let! resp = fetchWithRetry http url ct
-                match resp with
+                // Park the temp under the symbol directory; on the same volume
+                // as the final parquets so we don't cross filesystems.
+                let symbolDir = Path.Combine(outputDir, m.Symbol)
+                let tempZip = Path.Combine(symbolDir, sprintf "%s-trades-%04d-%02d.zip.tmp" m.Symbol m.Year m.Month)
+                let! result =
+                    withDownloadedZip http url tempZip ct (fun zipPath ->
+                        async {
+                            try
+                                use fs = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 <<< 20)
+                                use archive = new ZipArchive(fs, ZipArchiveMode.Read)
+                                let entry =
+                                    archive.Entries
+                                    |> Seq.tryFind (fun e -> e.FullName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+                                match entry with
+                                | None -> return Error "ZIP contained no .csv entry"
+                                | Some entry ->
+                                    use stream = entry.Open()
+                                    use sr = new StreamReader(stream)
+                                    let pathOf (date: DateTime) = dailyOutputPath outputDir m.Symbol date
+                                    let totalRows, daysWritten = writeMonthlyParquets sr pathOf
+                                    return Ok (totalRows, daysWritten)
+                            with ex ->
+                                return Error (sprintf "convert: %s" ex.Message)
+                        })
+                match result with
                 | Error msg -> return Failed(job.Key, msg)
-                | Ok response ->
-                    use response = response
-                    try
-                        use! body = response.Content.ReadAsStreamAsync(ct) |> Async.AwaitTask
-                        use archive = new ZipArchive(body, ZipArchiveMode.Read)
-                        let entry =
-                            archive.Entries
-                            |> Seq.tryFind (fun e -> e.FullName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
-                        match entry with
-                        | None -> return Failed(job.Key, "ZIP contained no .csv entry")
-                        | Some entry ->
-                            use stream = entry.Open()
-                            use sr = new StreamReader(stream)
-                            let pathOf (date: DateTime) = dailyOutputPath outputDir m.Symbol date
-                            let totalRows, daysWritten = writeMonthlyParquets sr pathOf
-                            // FileInfo on the source zip isn't possible (streamed),
-                            // so use the manifested size as a fair approximation
-                            // for telemetry.
-                            return MonthlyDownloaded(m.Symbol, m.Year, m.Month, totalRows, daysWritten, m.SizeBytes)
-                    with ex ->
-                        // Per-day .tmps are cleaned by writeMonthlyParquets's
-                        // catch; nothing global to undo here.
-                        return Failed(job.Key, sprintf "convert: %s" ex.Message)
+                | Ok (Error inner) -> return Failed(job.Key, inner)
+                | Ok (Ok (totalRows, daysWritten)) ->
+                    return MonthlyDownloaded(m.Symbol, m.Year, m.Month, totalRows, daysWritten, m.SizeBytes)
     }
 
 // -----------------------------------------------------------------------------
