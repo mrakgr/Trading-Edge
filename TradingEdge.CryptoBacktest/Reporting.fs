@@ -141,7 +141,7 @@ let writeSummary (path: string) (rows: SummaryRow[]) =
     writeAtomic path lines
 
 let tripsHeader =
-    "symbol,timeframe,ma_length,allow_short,entry_us,exit_us,side,entry_price,exit_price,net_pnl,fees,bars_held,mfe,mae,ratio_at_entry,effective_notional"
+    "symbol,timeframe,ma_length,allow_short,entry_us,exit_us,side,entry_price,exit_price,net_pnl,fees,bars_held,mfe,mae,ratio_at_entry,effective_notional,funding_pnl"
 
 let private sideStr =
     function
@@ -167,6 +167,7 @@ let private tripRow (symbol: string) (timeframe: string) (cfg: StrategyConfig) (
         fmt t.MaxAdverseExcursion
         fmt t.RatioAtEntry
         fmt t.EffectiveNotional
+        fmt t.FundingPnL
     ]
 
 let writeTrips (path: string) (symbol: string) (timeframe: string) (cfg: StrategyConfig) (trips: RoundTrip[]) =

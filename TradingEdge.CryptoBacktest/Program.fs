@@ -11,6 +11,7 @@ open TradingEdge.CryptoBacktest.Reporting
 
 let defaultDataRoot = "/mnt/d/trading-edge-bulk/crypto/binance/perps"
 let defaultBarsRoot = "/mnt/d/trading-edge-bulk/crypto/binance/perps_bars"
+let defaultFundingRoot = "/mnt/d/trading-edge-bulk/crypto/binance/perps_funding"
 let defaultStart = DateTime(2024, 5, 1)
 let defaultEnd   = DateTime(2026, 4, 30)
 let defaultResultsCsv = "data/crypto/backtest_results.csv"
@@ -67,6 +68,8 @@ type SweepArgs =
     | Min_Daily_Volume of float
     | Max_Adverse_Pct of float
     | Reference_Vol_Pct of float
+    | Funding_Root of string
+    | No_Funding
     | Results_Csv of string
     | Summary_Csv of string
     | [<AltCommandLine "-p">] Parallelism of int
@@ -87,6 +90,8 @@ type SweepArgs =
             | Min_Daily_Volume _ -> "Minimum average daily quote-volume (USDT) for a symbol-timeframe to be included. Default 500000 (skip cells where a $1000 taker order is unrealistic)."
             | Max_Adverse_Pct _ -> "Stop-loss as percent of notional (e.g. 10.0 = stop at -10% MAE). Default 0 (disabled)."
             | Reference_Vol_Pct _ -> "Reference per-bar log-return std as percent (e.g. 1.0 = 1%/bar). Drives vol-based position sizing: high-vol entries are downsized, low-vol entries get full notional. Set per timeframe (1h~1.0, 2h~1.4, 4h~2.0). Default 0 (disabled)."
+            | Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
+            | No_Funding -> "Disable funding-rate accounting even if data is available."
             | Results_Csv _ -> "Per-(symbol,timeframe,ma) results CSV path."
             | Summary_Csv _ -> "Aggregate per-(timeframe,ma) summary CSV path."
             | Parallelism _ -> "Max symbols processed concurrently. Default 4."
@@ -138,7 +143,10 @@ let cmdRun (args: ParseResults<RunArgs>) : int =
     let metrics, trips =
         if useBarPath then
             let cell = Cell(symbol, timeframe, cfg)
-            let metrics = runCellsFromBars barsRoot symbol startDate endDate [| cell |]
+            // run subcommand always reads funding when available; pass --use-trades
+            // to disable both the bar path and funding accounting.
+            let fundingRoot = Some defaultFundingRoot
+            let metrics = runCellsFromBars barsRoot symbol startDate endDate [| cell |] fundingRoot
             metrics.[0], cell.Trips
         else
             let inp = {
@@ -218,6 +226,9 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     let minDailyVolume = args.GetResult(Min_Daily_Volume, defaultValue = 500_000.0)
     let maxAdversePct = args.GetResult(Max_Adverse_Pct, defaultValue = 0.0)
     let referenceVolPct = args.GetResult(Reference_Vol_Pct, defaultValue = 0.0)
+    let fundingRoot =
+        if args.Contains No_Funding then None
+        else Some (args.GetResult(Funding_Root, defaultValue = defaultFundingRoot))
     let resultsCsv = args.GetResult(Results_Csv, defaultValue = defaultResultsCsv)
     let summaryCsv = args.GetResult(Summary_Csv, defaultValue = defaultSummaryCsv)
     let parallelism = args.GetResult(Parallelism, defaultValue = 4)
@@ -294,7 +305,7 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
                                         swSym.Elapsed.TotalSeconds)
                         runCells dataRoot symbol startDate endDate cells (Some onDay)
                     else
-                        runCellsFromBars barsRoot symbol startDate endDate cells
+                        runCellsFromBars barsRoot symbol startDate endDate cells fundingRoot
                 let nonEmpty = metrics |> Array.filter (fun m -> m.BarsTotal > 0)
                 if nonEmpty.Length = 0 then
                     lock writeLock (fun () ->

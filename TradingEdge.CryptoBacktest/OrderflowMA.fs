@@ -110,6 +110,12 @@ type RoundTrip = {
     /// cfg.Notional when vol-sizing is disabled, or scaled down when the
     /// realized vol at entry exceeds cfg.ReferenceVol.
     EffectiveNotional: float
+    /// Accumulated funding payments over the trade. For longs this is
+    /// `-Σ(rate × notional)` (longs PAY positive funding), for shorts
+    /// it's `+Σ(rate × notional)` (shorts RECEIVE positive funding).
+    /// Zero if no funding events fired during the holding window or if
+    /// funding data wasn't loaded for this run.
+    FundingPnL: float
 }
 
 let private feeFor (notional: float) (takerFee: float) : float = notional * takerFee
@@ -155,14 +161,23 @@ type Engine(cfg: StrategyConfig) =
     // position was alive through. mfeUsd / maeUsd are the running maxima of
     // favorable / adverse unrealized P&L, in quote currency, derived from
     // each bar's High/Low. ratioAtEntry is the orderflow ratio that
-    // produced the entry signal.
+    // produced the entry signal. fundingPnl accumulates funding payments
+    // received (positive) or paid (negative) over the trade.
     let mutable barsHeld = 0
     let mutable mfeUsd = 0.0
     let mutable maeUsd = 0.0
     let mutable ratioAtEntry = 0.0
+    let mutable fundingPnl = 0.0
 
     let mutable lastClose = 0.0
     let mutable lastUs = 0L
+
+    // Funding event feed. Set via SetFundingEvents (typically once when the
+    // Cell is initialized), then consumed by ProcessBar. The pointer
+    // advances monotonically with bar timestamps. When no funding data is
+    // configured, the array stays empty and fundingPtr never advances.
+    let mutable fundingEvents : (int64 * float)[] = [||]
+    let mutable fundingPtr = 0
 
     let trips = ResizeArray<RoundTrip>()
 
@@ -202,6 +217,7 @@ type Engine(cfg: StrategyConfig) =
         mfeUsd <- 0.0
         maeUsd <- 0.0
         ratioAtEntry <- ratio
+        fundingPnl <- 0.0
 
     let closePos (fillPrice: float) (fillUs: int64) =
         let gross = grossPnL side entryPrice fillPrice effectiveNotional
@@ -212,13 +228,14 @@ type Engine(cfg: StrategyConfig) =
             Side = side
             EntryPrice = entryPrice
             ExitPrice = fillPrice
-            NetPnL = gross - fees
+            NetPnL = gross - fees + fundingPnl
             Fees = fees
             BarsHeld = barsHeld
             MaxFavorableExcursion = mfeUsd
             MaxAdverseExcursion = maeUsd
             RatioAtEntry = ratioAtEntry
             EffectiveNotional = effectiveNotional
+            FundingPnL = fundingPnl
         }
         side <- Flat
         entryPrice <- 0.0
@@ -228,6 +245,28 @@ type Engine(cfg: StrategyConfig) =
         mfeUsd <- 0.0
         maeUsd <- 0.0
         ratioAtEntry <- 0.0
+        fundingPnl <- 0.0
+
+    /// Advance the funding pointer through events whose timestamp is at
+    /// or before the current bar's end. For each event that fires while a
+    /// position is open, accumulate funding P&L. Sign convention:
+    ///   positive rate → longs PAY (pnl is negative for longs)
+    ///   positive rate → shorts RECEIVE (pnl is positive for shorts)
+    /// Events at exactly entryUs are excluded — we entered AT the bar
+    /// close after the funding moment passed.
+    let applyFunding (bar: SignedBar) =
+        while fundingPtr < fundingEvents.Length
+              && (fst fundingEvents.[fundingPtr]) <= bar.EndUs do
+            let ts, rate = fundingEvents.[fundingPtr]
+            if side <> Flat && ts > entryUs then
+                let payment = effectiveNotional * rate
+                let signed =
+                    match side with
+                    | Long  -> -payment
+                    | Short -> +payment
+                    | Flat  -> 0.0
+                fundingPnl <- fundingPnl + signed
+            fundingPtr <- fundingPtr + 1
 
     // Update MAE/MFE for the bar just observed, given that the position is
     // still open at this point. For longs, the bar's High is the most-
@@ -288,7 +327,19 @@ type Engine(cfg: StrategyConfig) =
     member _.BarsSeen = barsSeen
     member _.Trips = trips :> seq<RoundTrip>
 
+    /// Provide funding events for this engine, sorted by timestamp. Caller
+    /// is responsible for filtering to the engine's date window. Pass an
+    /// empty array (the default) to disable funding accounting.
+    member _.SetFundingEvents(events: (int64 * float)[]) =
+        fundingEvents <- events
+        fundingPtr <- 0
+
     member _.ProcessBar(bar: SignedBar) =
+        // Step 0: apply any funding events that fired up to and including
+        // this bar's end. Done before excursion / stop / signal so funding
+        // P&L is reflected if a stop fires this bar.
+        applyFunding bar
+
         // Step 1: update excursion tracking on this bar BEFORE any close.
         // The position was alive through this entire bar (we entered at the
         // PREVIOUS bar's close, or earlier), so this bar's High/Low contribute.

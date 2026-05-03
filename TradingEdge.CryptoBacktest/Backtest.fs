@@ -195,6 +195,11 @@ type Cell(symbol: string, timeframe: string, cfg: StrategyConfig) =
     member _.Timeframe = timeframe
     member _.Config = cfg
 
+    /// Provide funding events to the engine before bar processing begins.
+    /// Empty / not called → funding P&L is zero in every trip.
+    member _.SetFundingEvents(events: (int64 * float)[]) =
+        engine.SetFundingEvents events
+
     /// Trade-stream input: feed each trade through the in-memory bar builder,
     /// which fires onBar at every bar close and pushes the bar to the engine.
     /// Used when reading from per-day trade parquets directly.
@@ -287,6 +292,7 @@ let runCellsFromBars
     (startDate: System.DateTime)
     (endDate: System.DateTime)
     (cells: Cell[])
+    (fundingRoot: string option)
     : Metrics[] =
     // Group cells by timeframe so each timeframe's bar parquet is loaded
     // exactly once. Inside a timeframe group, we only need to scan the bar
@@ -295,6 +301,19 @@ let runCellsFromBars
     //
     // Liquidity is gated per-bar inside OrderflowMA.Engine (entries only)
     // when StrategyConfig.MinDailyQuoteVolume > 0.
+    //
+    // Funding events (when fundingRoot is Some) are loaded once per symbol
+    // and shared across all timeframes/cells — funding is wall-clock-anchored
+    // (00:00, 08:00, 16:00 UTC) so the same event list applies to every cell.
+    let fundingEvents =
+        match fundingRoot with
+        | Some root when FundingLoader.exists root symbol ->
+            FundingLoader.loadByDate root symbol startDate endDate
+            |> Array.map (fun e -> e.TimestampUs, e.Rate)
+        | _ -> [||]
+    if fundingEvents.Length > 0 then
+        for cell in cells do
+            cell.SetFundingEvents fundingEvents
     let byTf =
         cells
         |> Array.groupBy (fun c -> c.Timeframe)
