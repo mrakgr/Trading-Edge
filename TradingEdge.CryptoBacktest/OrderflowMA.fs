@@ -1,5 +1,6 @@
 module TradingEdge.CryptoBacktest.OrderflowMA
 
+open System.Collections.Generic
 open TradingEdge.CryptoBacktest.SignedBar
 
 // =============================================================================
@@ -75,6 +76,13 @@ type StrategyConfig = {
     /// Minimum trailing-90d ADV (USDT/day) required for a short entry.
     /// Same semantics as MinLongAdv. Set to 0 to disable.
     MinShortAdv: float
+    /// Vol-window length in DAYS for the rolling log-return std used by
+    /// vol-based position sizing. Decoupled from MaLength because the
+    /// signal window (days) and risk-measurement window are conceptually
+    /// independent. The engine converts days → bars using BucketUs.
+    /// Default 90 days (matches the ADV window). Set lower (e.g. 7) for
+    /// a more responsive vol estimate that tracks recent regime shifts.
+    VolWindowDays: int
 }
 
 let defaultConfig (maLength: int) : StrategyConfig =
@@ -87,7 +95,8 @@ let defaultConfig (maLength: int) : StrategyConfig =
       MaxAdverseFraction = 0.0
       ReferenceVol = 0.0
       MinLongAdv = 0.0
-      MinShortAdv = 0.0 }
+      MinShortAdv = 0.0
+      VolWindowDays = 90 }
 
 type RoundTrip = {
     EntryUs: int64
@@ -160,29 +169,48 @@ let private grossPnL (side: Side) (entry: float) (exit: float) (notional: float)
 
 type Engine(cfg: StrategyConfig) =
     let n = cfg.MaLength
-    let buyBuf = Array.zeroCreate<float> n
-    let sellBuf = Array.zeroCreate<float> n
-    // Rolling buffer of bar-to-bar log returns over the same N-bar window.
-    // Used to compute realized vol at entry for size scaling.
-    let retBuf = Array.zeroCreate<float> n
-    let mutable retCount = 0
-    let mutable prevClose = 0.0
-    let mutable barsSeen = 0
+    // Rolling N-bar buy/sell dollar-volume queues. Each ProcessBar enqueues
+    // the new bar's value and dequeues the oldest once the window is full;
+    // sumBuy / sumSell are kept in sync incrementally so the orderflow
+    // ratio is O(1) per bar.
+    let buyQ = Queue<float>(n)
+    let sellQ = Queue<float>(n)
     let mutable sumBuy = 0.0
     let mutable sumSell = 0.0
 
-    // Rolling 90-day window of (buy + sell) dollar volume — used to stamp
-    // each trade with a leak-free ADV at entry. K = 90 days × bars-per-day.
-    // Falls back to a small window when bucketUs isn't set (which would be
-    // odd, but the math doesn't blow up).
-    let advWindowBars =
+    let mutable prevClose = 0.0
+    let mutable barsSeen = 0
+
+    // Days → bars conversion. Falls back to a 1h-equivalent count when
+    // BucketUs isn't set (which would be unusual but not fatal).
+    let daysToBars (days: int) : int =
         if cfg.BucketUs > 0L then
-            int (90L * 86_400_000_000L / cfg.BucketUs)
+            int (int64 days * 86_400_000_000L / cfg.BucketUs)
         else
-            2160 // 90 days × 24 = default for 1h
-    let advBuf = Array.zeroCreate<float> advWindowBars
-    let mutable advCount = 0
+            days * 24
+
+    // ADV window — fixed at 90 days. Slow-moving baseline used to gate
+    // entries by symbol-level liquidity at fire time.
+    let advWindowBars = daysToBars 90
+
+    // Vol window — configurable, decoupled from MaLength. The signal
+    // window (days of orderflow) and the risk-measurement window are
+    // conceptually independent: vol wants to track the regime we're
+    // about to trade IN, not necessarily the regime that produced the
+    // signal. Default 90 days; 7 days has shown to be more responsive
+    // when symbols shift regime quickly.
+    let volWindowBars = daysToBars (max 1 cfg.VolWindowDays)
+
+    // Rolling 90-day window of (buy + sell) dollar volume — used to stamp
+    // each trade with a leak-free ADV at entry.
+    let advQ = Queue<float>(advWindowBars)
     let mutable advSum = 0.0
+
+    // Rolling vol-window of bar-to-bar log returns. Maintains sumX and
+    // sumX² in lockstep with the queue so currentVolStd() is O(1) per call.
+    let retQ = Queue<float>(volWindowBars)
+    let mutable retSum = 0.0
+    let mutable retSumSq = 0.0
 
     let mutable side = Flat
     // Last regime target (Long/Short/Flat) we acted on. Drives the
@@ -227,17 +255,15 @@ type Engine(cfg: StrategyConfig) =
     /// returns observed yet — the caller treats that as "no scaling info,
     /// use full notional."
     let currentVolStd () : float =
-        let m = min retCount n
+        let m = retQ.Count
         if m < 2 then 0.0
         else
-            let mutable s = 0.0
-            for i in 0 .. m - 1 do s <- s + retBuf.[i]
-            let mean = s / float m
-            let mutable sq = 0.0
-            for i in 0 .. m - 1 do
-                let d = retBuf.[i] - mean
-                sq <- sq + d * d
-            sqrt (sq / float (m - 1))
+            let mean = retSum / float m
+            // Sample variance from rolling sums:
+            //   var = (sumSq − m·mean²) / (m − 1)
+            // Floors at 0 to swallow tiny negative values from float drift.
+            let v = (retSumSq - float m * mean * mean) / float (m - 1)
+            if v <= 0.0 then 0.0 else sqrt v
 
     /// Compute the effective notional for an entry given the current vol.
     /// Disabled (returns cfg.Notional) when ReferenceVol = 0 or when we
@@ -253,7 +279,7 @@ type Engine(cfg: StrategyConfig) =
     /// Uses whatever bars are in the buffer so far (partial during warmup);
     /// the caller can treat 0 as "no data yet". Days = bars / barsPerDay.
     let currentAdv () : float =
-        let m = min advCount advWindowBars
+        let m = advQ.Count
         if m = 0 || cfg.BucketUs <= 0L then 0.0
         else
             let barsPerDay = 86_400_000_000.0 / float cfg.BucketUs
@@ -415,33 +441,36 @@ type Engine(cfg: StrategyConfig) =
         | Some stopPx -> closePos stopPx bar.EndUs
         | None -> ()
 
-        let slot = barsSeen % n
-        if barsSeen >= n then
-            sumBuy <- sumBuy - buyBuf.[slot]
-            sumSell <- sumSell - sellBuf.[slot]
-        buyBuf.[slot] <- bar.BuyDollarVolume
-        sellBuf.[slot] <- bar.SellDollarVolume
+        // Roll the orderflow signal queues forward by one bar. Once full,
+        // each Enqueue is paired with a Dequeue so the queue length stays
+        // at n; the running sums are kept in lockstep.
+        if buyQ.Count = n then sumBuy <- sumBuy - buyQ.Dequeue()
+        buyQ.Enqueue bar.BuyDollarVolume
         sumBuy <- sumBuy + bar.BuyDollarVolume
+        if sellQ.Count = n then sumSell <- sumSell - sellQ.Dequeue()
+        sellQ.Enqueue bar.SellDollarVolume
         sumSell <- sumSell + bar.SellDollarVolume
 
-        // Bar-to-bar log return for the rolling vol buffer. Skip the first
+        // Bar-to-bar log return for the rolling vol queue. Skip the first
         // bar (no previous close yet) and any bar where prices look broken.
+        // Maintains sumX / sumX² so currentVolStd() is O(1).
         if prevClose > 0.0 && bar.Close > 0.0 then
             let lr = log (bar.Close / prevClose)
-            retBuf.[retCount % n] <- lr
-            retCount <- retCount + 1
+            if retQ.Count = volWindowBars then
+                let evicted = retQ.Dequeue()
+                retSum   <- retSum   - evicted
+                retSumSq <- retSumSq - evicted * evicted
+            retQ.Enqueue lr
+            retSum   <- retSum   + lr
+            retSumSq <- retSumSq + lr * lr
         prevClose <- bar.Close
 
-        // Rolling 90-day ADV buffer. Slot evicts the oldest bar's volume
-        // when the buffer is full; sum stays current. currentAdv() reads
-        // this directly when an entry fires later in this same ProcessBar.
-        let advSlot = advCount % advWindowBars
-        if advCount >= advWindowBars then
-            advSum <- advSum - advBuf.[advSlot]
+        // Rolling 90-day ADV queue. currentAdv() reads advSum / advQ.Count
+        // when an entry fires later in this same ProcessBar.
         let barDV = bar.BuyDollarVolume + bar.SellDollarVolume
-        advBuf.[advSlot] <- barDV
+        if advQ.Count = advWindowBars then advSum <- advSum - advQ.Dequeue()
+        advQ.Enqueue barDV
         advSum <- advSum + barDV
-        advCount <- advCount + 1
 
         barsSeen <- barsSeen + 1
         lastClose <- bar.Close

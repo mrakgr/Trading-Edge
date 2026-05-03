@@ -70,6 +70,7 @@ type SweepArgs =
     | Reference_Vol_Pct of float
     | Min_Long_Adv of float
     | Min_Short_Adv of float
+    | Vol_Window_Days of int
     | Funding_Root of string
     | No_Funding
     | Results_Csv of string
@@ -94,6 +95,7 @@ type SweepArgs =
             | Reference_Vol_Pct _ -> "Reference per-bar log-return std as percent (e.g. 1.0 = 1%/bar). Drives vol-based position sizing: high-vol entries are downsized, low-vol entries get full notional. Set per timeframe (1h~1.0, 2h~1.4, 4h~2.0). Default 0 (disabled)."
             | Min_Long_Adv _  -> "Minimum trailing-90d ADV (USDT/day) required for a long entry. Evaluated at signal-fire time using the engine's leak-free rolling window. Below threshold the signal is consumed (no retry on next bar) and the engine stays flat. Default 0 (disabled)."
             | Min_Short_Adv _ -> "Minimum trailing-90d ADV (USDT/day) required for a short entry. Same semantics as --min-long-adv. Default 0 (disabled)."
+            | Vol_Window_Days _ -> "Vol-window length in days for the rolling log-return std used by vol-based position sizing. Independent of --ma-lengths. Default 90; lower values (e.g. 7) make the vol estimate more responsive to recent regime shifts."
             | Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
             | No_Funding -> "Disable funding-rate accounting even if data is available."
             | Results_Csv _ -> "Per-(symbol,timeframe,ma) results CSV path."
@@ -232,6 +234,7 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     let referenceVolPct = args.GetResult(Reference_Vol_Pct, defaultValue = 0.0)
     let minLongAdv = args.GetResult(Min_Long_Adv, defaultValue = 0.0)
     let minShortAdv = args.GetResult(Min_Short_Adv, defaultValue = 0.0)
+    let volWindowDays = args.GetResult(Vol_Window_Days, defaultValue = 90)
     let fundingRoot =
         if args.Contains No_Funding then None
         else Some (args.GetResult(Funding_Root, defaultValue = defaultFundingRoot))
@@ -239,7 +242,7 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     let summaryCsv = args.GetResult(Summary_Csv, defaultValue = defaultSummaryCsv)
     let parallelism = args.GetResult(Parallelism, defaultValue = 4)
 
-    printfn "[sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s minDailyVol=$%s maxAdversePct=%g referenceVolPct=%g minLongAdv=$%s minShortAdv=$%s"
+    printfn "[sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s minDailyVol=$%s maxAdversePct=%g referenceVolPct=%g minLongAdv=$%s minShortAdv=$%s volWindowDays=%d"
         symbols.Length
         (String.concat "," timeframes)
         (String.concat "," (maLengths |> Array.map string))
@@ -252,6 +255,7 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
         referenceVolPct
         (minLongAdv.ToString("N0"))
         (minShortAdv.ToString("N0"))
+        volWindowDays
 
     // Stream results: one row per (symbol, timeframe, ma) appended as it
     // finishes, so a partial run still leaves a usable file. Header is
@@ -303,7 +307,8 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
                                     MaxAdverseFraction = maxAdversePct / 100.0
                                     ReferenceVol = referenceVolPct / 100.0
                                     MinLongAdv = minLongAdv
-                                    MinShortAdv = minShortAdv }
+                                    MinShortAdv = minShortAdv
+                                    VolWindowDays = volWindowDays }
                             yield Cell(symbol, tf, cfg) |]
                 let metrics, adv =
                     if useTrades then
