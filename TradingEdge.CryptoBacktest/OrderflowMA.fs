@@ -1,6 +1,5 @@
 module TradingEdge.CryptoBacktest.OrderflowMA
 
-open TradingEdge.Simulation.BinanceLoader
 open TradingEdge.CryptoBacktest.SignedBar
 
 // =============================================================================
@@ -21,11 +20,12 @@ open TradingEdge.CryptoBacktest.SignedBar
 //   ratio > 1  →  long
 //   ratio < 1  →  flat (default) or short (configurable)
 //
-// Fill model: decision at the close of bar i. We then fill at the very next
-// trade, at that trade's actual price. This is the most realistic model of
-// a market taker order placed the instant the signal fires — better than
-// using the next bar's VWAP, which would average over price action that
-// happens *after* we'd already have been filled.
+// Fill model: decide at bar i close, fill at bar i's close price. The bar's
+// trades have already happened in the past (we observed them to compute the
+// ratio), so trading at the close price models a market order placed at the
+// instant the bar closes. On hourly+ timeframes the difference between this
+// bar's close and the next bar's open is noise; we use bar.Close so we can
+// run on pre-aggregated bar parquets without needing the trade tape.
 
 [<Struct>]
 type Side = Flat | Long | Short
@@ -38,8 +38,7 @@ type StrategyConfig = {
     /// Per-fill taker fee fraction. 4 bps default = 0.0004.
     TakerFee: float
     /// If true, take a short position when ratio < 1; otherwise stay flat
-    /// on the bear signal. The pure long/flat variant is the headline test;
-    /// long/short is a stress test of the asymmetry.
+    /// on the bear signal.
     AllowShort: bool
 }
 
@@ -72,27 +71,17 @@ let private grossPnL (side: Side) (entry: float) (exit: float) (notional: float)
     | Flat  -> 0.0
 
 // =============================================================================
-// Streaming engine
+// Streaming engine — bar-only path
 // =============================================================================
 //
-// Two interleaved feeds:
-//   ProcessBar — at every bar close, update rolling sums; if a side change
-//                is warranted, set pendingTarget so the *next* trade fills it.
-//   ProcessTrade — every raw trade. If a pendingTarget is set, execute the
-//                  side change at this trade's price, then clear pending.
-//
-// The Cell driver wires this up so that for each trade T:
-//     builder.Process(t)        — may emit a bar; if it does, our
-//                                 ProcessBar callback runs and may set
-//                                 pendingTarget.
-//     engine.ProcessTrade(t)    — if pendingTarget is set, fill happens at
-//                                 t.Price. Note T is the first trade of the
-//                                 new bucket — exactly the price you'd pay
-//                                 sending a market order at signal time.
+// State machine, on each ProcessBar(bar):
+//   1. Slide the rolling window forward by one bar (add this bar, drop the
+//      oldest if window is full).
+//   2. If the window is full, compute the ratio and target side. If the
+//      target differs from the current side, execute the change at bar.Close.
 //
 // At end of stream, Flush() force-closes any open position at the last
-// trade's price (or last bar VWAP as a fallback if no trades have been seen
-// since the last close, which can't happen in our pipeline but is harmless).
+// observed close price.
 
 type Engine(cfg: StrategyConfig) =
     let n = cfg.MaLength
@@ -106,13 +95,8 @@ type Engine(cfg: StrategyConfig) =
     let mutable entryPrice = 0.0
     let mutable entryUs = 0L
 
-    // Pending side change: target side after the most recent bar close. If
-    // hasPending, the next trade fills at trade.Price.
-    let mutable hasPending = false
-    let mutable pendingTarget = Flat
-
-    let mutable lastTradePrice = 0.0
-    let mutable lastTradeUs = 0L
+    let mutable lastClose = 0.0
+    let mutable lastUs = 0L
 
     let trips = ResizeArray<RoundTrip>()
 
@@ -140,8 +124,6 @@ type Engine(cfg: StrategyConfig) =
     member _.BarsSeen = barsSeen
     member _.Trips = trips :> seq<RoundTrip>
 
-    /// Update rolling sums with the just-closed bar; compute ratio; if a
-    /// side change is warranted, mark hasPending so the next trade fills.
     member _.ProcessBar(bar: SignedBar) =
         let slot = barsSeen % n
         if barsSeen >= n then
@@ -152,6 +134,8 @@ type Engine(cfg: StrategyConfig) =
         sumBuy <- sumBuy + bar.BuyDollarVolume
         sumSell <- sumSell + bar.SellDollarVolume
         barsSeen <- barsSeen + 1
+        lastClose <- bar.Close
+        lastUs <- bar.EndUs
 
         if barsSeen >= n then
             let ratio = if sumSell > 0.0 then sumBuy / sumSell else infinity
@@ -162,24 +146,18 @@ type Engine(cfg: StrategyConfig) =
                 elif bearish && cfg.AllowShort then Short
                 else Flat
             if target <> side then
-                pendingTarget <- target
-                hasPending <- true
+                if side <> Flat then closePos bar.Close bar.EndUs
+                if target <> Flat then openPos target bar.Close bar.EndUs
 
-    /// Every raw trade. If a pending side change is set, execute at this
-    /// trade's price.
-    member _.ProcessTrade(trade: Trade) =
-        lastTradePrice <- trade.Price
-        lastTradeUs <- trade.TimestampUs
-        if hasPending then
-            if pendingTarget <> side then
-                if side <> Flat then closePos trade.Price trade.TimestampUs
-                if pendingTarget <> Flat then openPos pendingTarget trade.Price trade.TimestampUs
-            hasPending <- false
-
-    /// Force-close any open position at the last trade's price. Pending
-    /// signal is dropped — it would have been executed against a trade that
-    /// never arrived. Idempotent.
+    /// Force-close any open position at the last seen bar's close.
     member _.Flush() =
-        if side <> Flat && lastTradePrice > 0.0 then
-            closePos lastTradePrice lastTradeUs
-        hasPending <- false
+        if side <> Flat && lastClose > 0.0 then
+            closePos lastClose lastUs
+
+/// Convenience runner over a precomputed bar array.
+let run (cfg: StrategyConfig) (bars: SignedBar[]) : RoundTrip[] =
+    let eng = Engine(cfg)
+    for bar in bars do
+        eng.ProcessBar bar
+    eng.Flush()
+    eng.Trips |> Seq.toArray

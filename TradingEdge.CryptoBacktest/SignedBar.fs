@@ -18,6 +18,11 @@ open TradingEdge.Simulation.BinanceLoader
 type SignedBar = {
     StartUs: int64
     EndUs: int64
+    Open: float
+    High: float
+    Low: float
+    Close: float
+    Volume: float
     VWAP: float
     /// sqrt(max 0 (Σ(p²·v)/Σv − vwap²)). Volume-weighted std of trade prices
     /// within the bar; useful as a per-bar volatility proxy.
@@ -40,6 +45,10 @@ type TimeBarBuilder(bucketUs: int64) =
     let mutable curIdx = 0L
     let mutable startUs = 0L
     let mutable endUs = 0L
+    let mutable openP = 0.0
+    let mutable highP = 0.0
+    let mutable lowP = 0.0
+    let mutable closeP = 0.0
     let mutable sumVol = 0.0
     let mutable sumPV = 0.0
     let mutable sumPPV = 0.0
@@ -48,10 +57,14 @@ type TimeBarBuilder(bucketUs: int64) =
     let mutable tradeCount = 0
 
 
-    let resetTo (idx: int64) (ts: int64) =
+    let resetTo (idx: int64) (ts: int64) (price: float) =
         curIdx <- idx
         startUs <- idx * bucketUs
         endUs <- ts
+        openP <- price
+        highP <- price
+        lowP <- price
+        closeP <- price
         sumVol <- 0.0
         sumPV <- 0.0
         sumPPV <- 0.0
@@ -67,6 +80,11 @@ type TimeBarBuilder(bucketUs: int64) =
         onNext {
             StartUs = startUs
             EndUs = endUs
+            Open = openP
+            High = highP
+            Low = lowP
+            Close = closeP
+            Volume = sumVol
             VWAP = vwap
             VolWeightedStdDev = sqrt variance
             BuyDollarVolume = buyDV
@@ -80,14 +98,14 @@ type TimeBarBuilder(bucketUs: int64) =
         let idx = trade.TimestampUs / bucketUs
         if not hasOpen then
             hasOpen <- true
-            resetTo idx trade.TimestampUs
+            resetTo idx trade.TimestampUs trade.Price
         elif idx <> curIdx then
             // Time bars are anchored to wall-clock buckets, so a gap with no
             // trades simply means we skip emitting empty bars — the strategy
             // sees the next populated bar with its true timestamp. We do not
             // synthesize zero-volume placeholders.
             self.Emit onNext
-            resetTo idx trade.TimestampUs
+            resetTo idx trade.TimestampUs trade.Price
         let p = trade.Price
         let v = trade.Quantity
         let pv = p * v
@@ -97,6 +115,9 @@ type TimeBarBuilder(bucketUs: int64) =
         if trade.Sign > 0.0 then buyDV <- buyDV + pv
         else sellDV <- sellDV + pv
         tradeCount <- tradeCount + 1
+        if p > highP then highP <- p
+        if p < lowP then lowP <- p
+        closeP <- p
         endUs <- trade.TimestampUs
 
     /// Emit the currently-open bar (if any). Call this once after the last

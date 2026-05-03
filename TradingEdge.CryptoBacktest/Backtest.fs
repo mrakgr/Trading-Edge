@@ -180,16 +180,19 @@ type Cell(symbol: string, timeframe: string, cfg: StrategyConfig) =
     member _.Timeframe = timeframe
     member _.Config = cfg
 
+    /// Trade-stream input: feed each trade through the in-memory bar builder,
+    /// which fires onBar at every bar close and pushes the bar to the engine.
+    /// Used when reading from per-day trade parquets directly.
     member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
-        // Per trade: feed the bar builder first (so any newly-closed bar's
-        // signal is computed and may set hasPending on the engine), then
-        // push the trade itself to the engine. If a bar just closed and set
-        // a pending side change, this trade — the first trade of the new
-        // bucket — fills at its actual price, modeling a realistic taker
-        // market order placed at the moment of signal.
         for t in trades do
             builder.Process(onBar, t)
-            engine.ProcessTrade t
+
+    /// Pre-aggregated bar input: when bars have been preprocessed via
+    /// CryptoData/build-bars, push them straight into the engine. Bypasses
+    /// the in-memory TimeBarBuilder entirely.
+    member _.PushBars(bars: SignedBar[]) =
+        for b in bars do
+            onBar b
 
     /// Close the trailing partial bar (if any) and force-exit any open
     /// position. Must be called once per cell at end-of-stream.
@@ -246,10 +249,41 @@ let runCells
         cell.Close()
     cells |> Array.map (fun c -> c.BuildMetrics())
 
-/// Streaming single-cell run: load each day's parquet in turn, push the
-/// trades into one Cell, discard the trades, repeat. Memory usage is bounded
-/// by the largest single day plus the rolling-window state.
+/// Streaming single-cell run from trades: load each day's trade parquet in
+/// turn, push the trades into one Cell, discard the trades, repeat. Memory
+/// usage is bounded by the largest single day plus the rolling-window state.
 let runOne (inp: RunInputs) (onDay: (DateTime -> int -> unit) option) : Metrics * RoundTrip[] =
     let cell = Cell(inp.Symbol, inp.Timeframe, inp.Config)
     let metrics = runCells inp.DataRoot inp.Symbol inp.StartDate inp.EndDate [| cell |] onDay
     metrics.[0], cell.Trips
+
+// =============================================================================
+// Pre-aggregated bar path
+// =============================================================================
+//
+// When CryptoData/build-bars has produced per-(symbol, timeframe) bar
+// parquets, the backtester loads ~17k bars per cell instead of streaming
+// millions of trades per day. This is the fast path used by the sweep when
+// --bars-root is set.
+
+let runCellsFromBars
+    (barsRoot: string)
+    (symbol: string)
+    (startDate: System.DateTime)
+    (endDate: System.DateTime)
+    (cells: Cell[])
+    : Metrics[] =
+    // Group cells by timeframe so each timeframe's bar parquet is loaded
+    // exactly once. Inside a timeframe group, we only need to scan the bar
+    // array once if we duplicate it — but cells already share the same input,
+    // and pushing into N engines one-by-one is cheap. Keep it simple.
+    let byTf =
+        cells
+        |> Array.groupBy (fun c -> c.Timeframe)
+    for (tf, group) in byTf do
+        let bars = BarLoader.loadByDate barsRoot tf symbol startDate endDate
+        for cell in group do
+            cell.PushBars bars
+    for cell in cells do
+        cell.Close()
+    cells |> Array.map (fun c -> c.BuildMetrics())

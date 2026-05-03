@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="TradeLoader.fs" />
     <Compile Include="SignedBar.fs" />
+    <Compile Include="BarLoader.fs" />
     <Compile Include="OrderflowMA.fs" />
     <Compile Include="Backtest.fs" />
     <Compile Include="Reporting.fs" />

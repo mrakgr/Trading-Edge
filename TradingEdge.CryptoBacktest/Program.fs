@@ -10,6 +10,7 @@ open TradingEdge.CryptoBacktest.TradeLoader
 open TradingEdge.CryptoBacktest.Reporting
 
 let defaultDataRoot = "/mnt/d/trading-edge-bulk/crypto/binance/perps"
+let defaultBarsRoot = "/mnt/d/trading-edge-bulk/crypto/binance/perps_bars"
 let defaultStart = DateTime(2024, 5, 1)
 let defaultEnd   = DateTime(2026, 4, 30)
 let defaultResultsCsv = "data/crypto/backtest_results.csv"
@@ -27,11 +28,13 @@ type RunArgs =
     | [<Mandatory; AltCommandLine "-m">] Ma_Length of int
     | [<AltCommandLine "-s">] Symbol of string
     | [<AltCommandLine "-d">] Data_Root of string
+    | [<AltCommandLine "-b">] Bars_Root of string
     | Start_Date of string
     | End_Date of string
     | Notional of float
     | Taker_Fee of float
     | Allow_Short
+    | Use_Trades
     | Trips_Dir of string
     interface IArgParserTemplate with
         member s.Usage =
@@ -39,16 +42,19 @@ type RunArgs =
             | Timeframe _   -> "Bar timeframe (e.g. 1m, 5m, 15m, 1h, 4h)."
             | Ma_Length _   -> "Rolling-sum window length, in bars."
             | Symbol _      -> "Symbol to backtest. Defaults to BTCUSDT."
-            | Data_Root _   -> "Per-symbol parquet root. Default: " + defaultDataRoot
+            | Data_Root _   -> "Trade-parquet root. Default: " + defaultDataRoot
+            | Bars_Root _   -> "Pre-aggregated bar-parquet root. Default: " + defaultBarsRoot
             | Start_Date _  -> "Inclusive start date YYYY-MM-DD."
             | End_Date _    -> "Inclusive end date YYYY-MM-DD."
             | Notional _    -> "Per-trade notional in quote currency. Default 1000."
             | Taker_Fee _   -> "Per-fill taker fee fraction. Default 0.0004 (4 bps)."
             | Allow_Short   -> "When set, take a short on bear signal instead of going flat."
+            | Use_Trades    -> "Force the trade-stream backtest path even if pre-aggregated bars exist."
             | Trips_Dir _   -> "If set, write per-trade round-trips CSV to this directory."
 
 type SweepArgs =
     | [<AltCommandLine "-d">] Data_Root of string
+    | [<AltCommandLine "-b">] Bars_Root of string
     | [<AltCommandLine "-s">] Symbol of string
     | Start_Date of string
     | End_Date of string
@@ -57,14 +63,16 @@ type SweepArgs =
     | Notional of float
     | Taker_Fee of float
     | Allow_Short
+    | Use_Trades
     | Results_Csv of string
     | Summary_Csv of string
     | [<AltCommandLine "-p">] Parallelism of int
     interface IArgParserTemplate with
         member s.Usage =
             match s with
-            | Data_Root _   -> "Per-symbol parquet root. Default: " + defaultDataRoot
-            | Symbol _      -> "Restrict sweep to a comma-separated symbol list (default: all in data root)."
+            | Data_Root _   -> "Trade-parquet root. Default: " + defaultDataRoot
+            | Bars_Root _   -> "Pre-aggregated bar-parquet root. Default: " + defaultBarsRoot
+            | Symbol _      -> "Restrict sweep to a comma-separated symbol list (default: all symbols with bar parquets)."
             | Start_Date _  -> "Inclusive start date YYYY-MM-DD. Default 2024-05-01."
             | End_Date _    -> "Inclusive end date YYYY-MM-DD. Default 2026-04-30."
             | Timeframes _  -> "Comma-separated timeframes. Default 1m,5m,15m,1h,4h."
@@ -72,6 +80,7 @@ type SweepArgs =
             | Notional _    -> "Per-trade notional. Default 1000."
             | Taker_Fee _   -> "Per-fill taker fee fraction. Default 0.0004."
             | Allow_Short   -> "When set, sweep includes short legs."
+            | Use_Trades    -> "Force the trade-stream backtest path even if pre-aggregated bars exist."
             | Results_Csv _ -> "Per-(symbol,timeframe,ma) results CSV path."
             | Summary_Csv _ -> "Aggregate per-(timeframe,ma) summary CSV path."
             | Parallelism _ -> "Max symbols processed concurrently. Default 4."
@@ -104,6 +113,8 @@ let cmdRun (args: ParseResults<RunArgs>) : int =
     let maLength = args.GetResult Ma_Length
     let symbol = args.GetResult(RunArgs.Symbol, defaultValue = "BTCUSDT")
     let dataRoot = args.GetResult(RunArgs.Data_Root, defaultValue = defaultDataRoot)
+    let barsRoot = args.GetResult(RunArgs.Bars_Root, defaultValue = defaultBarsRoot)
+    let useTrades = args.Contains RunArgs.Use_Trades
     let startDate = args.TryGetResult RunArgs.Start_Date |> Option.map parseDate |> Option.defaultValue defaultStart
     let endDate   = args.TryGetResult RunArgs.End_Date   |> Option.map parseDate |> Option.defaultValue defaultEnd
     let cfg =
@@ -111,31 +122,39 @@ let cmdRun (args: ParseResults<RunArgs>) : int =
             Notional = args.GetResult(RunArgs.Notional, defaultValue = 1000.0)
             TakerFee = args.GetResult(RunArgs.Taker_Fee, defaultValue = 0.0004)
             AllowShort = args.Contains RunArgs.Allow_Short }
-    let inp = {
-        DataRoot = dataRoot
-        Symbol = symbol
-        Timeframe = timeframe
-        StartDate = startDate
-        EndDate = endDate
-        Config = cfg
-    }
-    printfn "[run] symbol=%s timeframe=%s ma=%d short=%b range=%s..%s notional=%g fee=%g"
+    let useBarPath = not useTrades && BarLoader.exists barsRoot timeframe symbol
+    let pathLabel = if useBarPath then "bars" else "trades"
+    printfn "[run] symbol=%s timeframe=%s ma=%d short=%b range=%s..%s notional=%g fee=%g path=%s"
         symbol timeframe maLength cfg.AllowShort
         (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
-        cfg.Notional cfg.TakerFee
+        cfg.Notional cfg.TakerFee pathLabel
     let sw = Stopwatch.StartNew()
-    let mutable daysSeen = 0
-    let mutable tradesAccum = 0L
-    let progressEveryDays = 30
-    let onDay (d: DateTime) (n: int) =
-        daysSeen <- daysSeen + 1
-        tradesAccum <- tradesAccum + int64 n
-        if daysSeen % progressEveryDays = 0 then
-            printfn "[run] %s @ %s: %d days, %s trades, %.1fs"
-                symbol (d.ToString "yyyy-MM-dd")
-                daysSeen (tradesAccum.ToString "N0")
-                sw.Elapsed.TotalSeconds
-    let metrics, trips = runOne inp (Some onDay)
+    let metrics, trips =
+        if useBarPath then
+            let cell = Cell(symbol, timeframe, cfg)
+            let metrics = runCellsFromBars barsRoot symbol startDate endDate [| cell |]
+            metrics.[0], cell.Trips
+        else
+            let inp = {
+                DataRoot = dataRoot
+                Symbol = symbol
+                Timeframe = timeframe
+                StartDate = startDate
+                EndDate = endDate
+                Config = cfg
+            }
+            let mutable daysSeen = 0
+            let mutable tradesAccum = 0L
+            let progressEveryDays = 30
+            let onDay (d: DateTime) (n: int) =
+                daysSeen <- daysSeen + 1
+                tradesAccum <- tradesAccum + int64 n
+                if daysSeen % progressEveryDays = 0 then
+                    printfn "[run] %s @ %s: %d days, %s trades, %.1fs"
+                        symbol (d.ToString "yyyy-MM-dd")
+                        daysSeen (tradesAccum.ToString "N0")
+                        sw.Elapsed.TotalSeconds
+            runOne inp (Some onDay)
     sw.Stop()
     printfn "[run] bars=%d trades=%d win_rate=%.3f pf=%.3f net_pnl=%.2f sharpe=%.3f maxDD=%.2f wall=%.1fs"
         metrics.BarsTotal metrics.Trades metrics.WinRate
@@ -159,6 +178,8 @@ let cmdRun (args: ParseResults<RunArgs>) : int =
 
 let cmdSweep (args: ParseResults<SweepArgs>) : int =
     let dataRoot = args.GetResult(SweepArgs.Data_Root, defaultValue = defaultDataRoot)
+    let barsRoot = args.GetResult(SweepArgs.Bars_Root, defaultValue = defaultBarsRoot)
+    let useTrades = args.Contains SweepArgs.Use_Trades
     let startDate = args.TryGetResult SweepArgs.Start_Date |> Option.map parseDate |> Option.defaultValue defaultStart
     let endDate   = args.TryGetResult SweepArgs.End_Date   |> Option.map parseDate |> Option.defaultValue defaultEnd
     let timeframes =
@@ -173,7 +194,18 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     let symbols =
         match args.TryGetResult SweepArgs.Symbol with
         | Some s -> parseList ',' s
-        | None -> listSymbols dataRoot
+        | None ->
+            // If we're going through bars, list bar symbols (intersection of
+            // all requested timeframes); otherwise fall back to trade symbols.
+            if useTrades then listSymbols dataRoot
+            else
+                let perTf = timeframes |> Array.map (fun tf -> Set.ofArray (BarLoader.listSymbols barsRoot tf))
+                if perTf.Length = 0 then [||]
+                else
+                    perTf
+                    |> Array.reduce Set.intersect
+                    |> Set.toArray
+                    |> Array.sort
     let notional = args.GetResult(SweepArgs.Notional, defaultValue = 1000.0)
     let takerFee = args.GetResult(SweepArgs.Taker_Fee, defaultValue = 0.0004)
     let allowShort = args.Contains SweepArgs.Allow_Short
@@ -181,13 +213,14 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     let summaryCsv = args.GetResult(Summary_Csv, defaultValue = defaultSummaryCsv)
     let parallelism = args.GetResult(Parallelism, defaultValue = 4)
 
-    printfn "[sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d"
+    printfn "[sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s"
         symbols.Length
         (String.concat "," timeframes)
         (String.concat "," (maLengths |> Array.map string))
         allowShort
         (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
         parallelism
+        (if useTrades then "trades" else "bars")
 
     // Stream results: one row per (symbol, timeframe, ma) appended as it
     // finishes, so a partial run still leaves a usable file. Header is
@@ -217,22 +250,26 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
                                     TakerFee = takerFee
                                     AllowShort = allowShort }
                             yield Cell(symbol, tf, cfg) |]
-                let mutable daysSeen = 0
-                let mutable tradesAccum = 0L
-                let onDay (d: DateTime) (n: int) =
-                    daysSeen <- daysSeen + 1
-                    tradesAccum <- tradesAccum + int64 n
-                    if daysSeen % progressEveryDays = 0 then
-                        lock writeLock (fun () ->
-                            printfn "[sweep] %s @ %s: %d days, %s trades, %.1fs"
-                                symbol (d.ToString "yyyy-MM-dd")
-                                daysSeen (tradesAccum.ToString "N0")
-                                swSym.Elapsed.TotalSeconds)
-                let metrics = runCells dataRoot symbol startDate endDate cells (Some onDay)
+                let metrics =
+                    if useTrades then
+                        let mutable daysSeen = 0
+                        let mutable tradesAccum = 0L
+                        let onDay (d: DateTime) (n: int) =
+                            daysSeen <- daysSeen + 1
+                            tradesAccum <- tradesAccum + int64 n
+                            if daysSeen % progressEveryDays = 0 then
+                                lock writeLock (fun () ->
+                                    printfn "[sweep] %s @ %s: %d days, %s trades, %.1fs"
+                                        symbol (d.ToString "yyyy-MM-dd")
+                                        daysSeen (tradesAccum.ToString "N0")
+                                        swSym.Elapsed.TotalSeconds)
+                        runCells dataRoot symbol startDate endDate cells (Some onDay)
+                    else
+                        runCellsFromBars barsRoot symbol startDate endDate cells
                 let nonEmpty = metrics |> Array.filter (fun m -> m.BarsTotal > 0)
                 if nonEmpty.Length = 0 then
                     lock writeLock (fun () ->
-                        printfn "[sweep] %s: no trades in window" symbol)
+                        printfn "[sweep] %s: no bars in window" symbol)
                 else
                     lock writeLock (fun () ->
                         appendResults resultsCsv metrics
@@ -240,9 +277,8 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
                         doneCells <- doneCells + metrics.Length)
                     swSym.Stop()
                     lock writeLock (fun () ->
-                        printfn "[sweep] %s done in %.1fs (%d/%d cells, %s trades)"
-                            symbol swSym.Elapsed.TotalSeconds doneCells totalCells
-                            (tradesAccum.ToString "N0"))
+                        printfn "[sweep] %s done in %.1fs (%d/%d cells)"
+                            symbol swSym.Elapsed.TotalSeconds doneCells totalCells)
             with ex ->
                 lock writeLock (fun () ->
                     eprintfn "[sweep] %s FAILED: %s" symbol ex.Message
