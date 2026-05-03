@@ -6,13 +6,13 @@ open TradingEdge.CryptoBacktest.OrderflowMA
 open TradingEdge.CryptoBacktest.TradeLoader
 
 // =============================================================================
-// Per-(symbol, timeframe, MA-length) runner + metrics
+// Per-(symbol, timeframe, MA-hours) runner + metrics
 // =============================================================================
 
 type Metrics = {
     Symbol: string
     Timeframe: string
-    MaLength: int
+    MaWindowHours: int
     AllowShort: bool
     BarsTotal: int
     Trades: int
@@ -134,7 +134,7 @@ let buildMetrics
     {
         Symbol = symbol
         Timeframe = timeframe
-        MaLength = cfg.MaLength
+        MaWindowHours = cfg.MaWindowHours
         AllowShort = cfg.AllowShort
         BarsTotal = barsTotal
         Trades = trips.Length
@@ -166,7 +166,7 @@ let buildMetrics
 // One Cell = a single (timeframe, ma) backtest. It owns a TimeBarBuilder
 // and an OrderflowMA.Engine. Trades are fed in via PushTrades; bars emitted
 // by the builder are pushed to the engine on the fly. Memory footprint is
-// O(MaLength) — independent of the input length.
+// O(window-bars) — independent of the input length.
 //
 // The bar count is tracked here (not via a held bars[] array) so we never
 // materialize the full bar history.

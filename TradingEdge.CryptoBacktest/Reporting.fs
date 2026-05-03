@@ -22,13 +22,13 @@ let private writeAtomic (path: string) (lines: seq<string>) =
     File.Move(tmp, path)
 
 let resultsHeader =
-    "symbol,timeframe,ma_length,allow_short,bars_total,trades,wins,win_rate,profit_factor,net_pnl,gross_wins,gross_losses,sharpe,max_drawdown,total_return_pct,long_trades,long_wins,long_net_pnl,long_profit_factor,short_trades,short_wins,short_net_pnl,short_profit_factor,start_us,end_us"
+    "symbol,timeframe,ma_hours,allow_short,bars_total,trades,wins,win_rate,profit_factor,net_pnl,gross_wins,gross_losses,sharpe,max_drawdown,total_return_pct,long_trades,long_wins,long_net_pnl,long_profit_factor,short_trades,short_wins,short_net_pnl,short_profit_factor,start_us,end_us"
 
 let private resultsRow (m: Metrics) : string =
     String.concat "," [
         m.Symbol
         m.Timeframe
-        string m.MaLength
+        string m.MaWindowHours
         (if m.AllowShort then "1" else "0")
         string m.BarsTotal
         string m.Trades
@@ -79,12 +79,12 @@ let private mean (xs: float[]) =
     if xs.Length = 0 then 0.0
     else (Array.sum xs) / float xs.Length
 
-/// Aggregate per-(timeframe, ma_length) across symbols. Reported separately
+/// Aggregate per-(timeframe, ma_hours) across symbols. Reported separately
 /// per AllowShort mode so the long-only and long/short cells don't get
 /// pooled into one summary row.
 type SummaryRow = {
     Timeframe: string
-    MaLength: int
+    MaWindowHours: int
     AllowShort: bool
     Symbols: int
     MedianSharpe: float
@@ -97,7 +97,7 @@ type SummaryRow = {
 
 let summarize (rows: Metrics[]) : SummaryRow[] =
     rows
-    |> Array.groupBy (fun m -> m.Timeframe, m.MaLength, m.AllowShort)
+    |> Array.groupBy (fun m -> m.Timeframe, m.MaWindowHours, m.AllowShort)
     |> Array.map (fun ((tf, ma, sh), grp) ->
         let validGrp = grp |> Array.filter (fun m -> m.Trades > 0)
         let sharpes = validGrp |> Array.map (fun m -> m.Sharpe)
@@ -107,7 +107,7 @@ let summarize (rows: Metrics[]) : SummaryRow[] =
         let denom = max 1 validGrp.Length
         {
             Timeframe = tf
-            MaLength = ma
+            MaWindowHours = ma
             AllowShort = sh
             Symbols = validGrp.Length
             MedianSharpe = median sharpes
@@ -119,7 +119,7 @@ let summarize (rows: Metrics[]) : SummaryRow[] =
         })
 
 let summaryHeader =
-    "timeframe,ma_length,allow_short,symbols,median_sharpe,mean_sharpe,pct_profitable,pct_profit_factor_gt1,median_total_return_pct,mean_total_return_pct"
+    "timeframe,ma_hours,allow_short,symbols,median_sharpe,mean_sharpe,pct_profitable,pct_profit_factor_gt1,median_total_return_pct,mean_total_return_pct"
 
 let writeSummary (path: string) (rows: SummaryRow[]) =
     let lines = seq {
@@ -127,7 +127,7 @@ let writeSummary (path: string) (rows: SummaryRow[]) =
         for r in rows ->
             String.concat "," [
                 r.Timeframe
-                string r.MaLength
+                string r.MaWindowHours
                 (if r.AllowShort then "1" else "0")
                 string r.Symbols
                 fmt r.MedianSharpe
@@ -141,7 +141,7 @@ let writeSummary (path: string) (rows: SummaryRow[]) =
     writeAtomic path lines
 
 let tripsHeader =
-    "symbol,timeframe,ma_length,allow_short,entry_us,exit_us,side,entry_price,exit_price,net_pnl,fees,bars_held,mfe,mae,ratio_at_entry,effective_notional,funding_pnl,adv_at_entry"
+    "symbol,timeframe,ma_hours,allow_short,entry_us,exit_us,side,entry_price,exit_price,net_pnl,fees,bars_held,mfe,mae,ratio_at_entry,effective_notional,funding_pnl,adv_at_entry"
 
 let private sideStr =
     function
@@ -153,7 +153,7 @@ let private tripRow (symbol: string) (timeframe: string) (cfg: StrategyConfig) (
     String.concat "," [
         symbol
         timeframe
-        string cfg.MaLength
+        string cfg.MaWindowHours
         (if cfg.AllowShort then "1" else "0")
         string t.EntryUs
         string t.ExitUs
@@ -201,7 +201,7 @@ let appendTrips
 // =============================================================================
 //
 // Three sections, mirroring TradingEdge.Orb's breakdown:
-//   1. Per-cell table — one row per (symbol) inside a (timeframe, ma_length)
+//   1. Per-cell table — one row per (symbol) inside a (timeframe, ma_hours)
 //      group. Sorted by net P&L. Top + bottom rows printed to console; full
 //      table written to CSV.
 //   2. Aggregate stats over pooled round-trips across all symbols in that
@@ -209,7 +209,7 @@ let appendTrips
 //      cell-level metrics (Sharpe / PF distribution across symbols).
 //   3. Long/short split — pooled long P&L vs short P&L.
 //
-// One report per (timeframe, ma_length, allow_short) group.
+// One report per (timeframe, ma_hours, allow_short) group.
 
 let private percentile (xs: float[]) (p: float) =
     if xs.Length = 0 then 0.0
@@ -218,14 +218,14 @@ let private percentile (xs: float[]) (p: float) =
         let i = int (p * float (s.Length - 1) + 0.5)
         s.[max 0 (min (s.Length - 1) i)]
 
-/// Print a per-cell breakdown for one (timeframe, ma_length, allow_short)
+/// Print a per-cell breakdown for one (timeframe, ma_hours, allow_short)
 /// group. Trips are pooled across symbols. The metrics array gives per-symbol
 /// stats so we can stratify and emit top/bottom symbols by net P&L.
 let printGroupBreakdown
     (logWrite: string -> unit)
     (consoleWrite: string -> unit)
     (timeframe: string)
-    (maLength: int)
+    (maWindowHours: int)
     (allowShort: bool)
     (notional: float)
     (cellMetrics: Metrics[])
@@ -238,7 +238,7 @@ let printGroupBreakdown
     let plnf fmt = Printf.kprintf pln fmt
 
     plnf ""
-    plnf "=== Breakdown: timeframe=%s ma=%d short=%b ===" timeframe maLength allowShort
+    plnf "=== Breakdown: timeframe=%s ma=%dh short=%b ===" timeframe maWindowHours allowShort
     plnf ""
 
     // ----- Per-cell table (top/bottom by net P&L) -----

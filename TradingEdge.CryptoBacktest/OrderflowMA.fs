@@ -32,8 +32,12 @@ open TradingEdge.CryptoBacktest.SignedBar
 type Side = Flat | Long | Short
 
 type StrategyConfig = {
-    /// Rolling-sum window length, in bars.
-    MaLength: int
+    /// Rolling-sum signal window length, in HOURS. Independent of the
+    /// bar timeframe — the engine converts to bars using BucketUs. A
+    /// 240h window is the same wall-clock span at every timeframe
+    /// (240 bars at 1h, 60 bars at 4h, etc.), which makes parameter
+    /// values directly comparable across timeframes.
+    MaWindowHours: int
     /// Notional per trade, in quote currency (USDT). Default $1000.
     Notional: float
     /// Per-fill taker fee fraction. 4 bps default = 0.0004.
@@ -85,8 +89,8 @@ type StrategyConfig = {
     VolWindowDays: int
 }
 
-let defaultConfig (maLength: int) : StrategyConfig =
-    { MaLength = maLength
+let defaultConfig (maWindowHours: int) : StrategyConfig =
+    { MaWindowHours = maWindowHours
       Notional = 1000.0
       TakerFee = 0.0004
       AllowShort = false
@@ -219,29 +223,35 @@ type StdMa(windowSize) =
 // observed close price.
 
 type Engine(cfg: StrategyConfig) =
-    let n = cfg.MaLength
+    let mutable prevClose = 0.0
+    let mutable barsSeen = 0
+
+    // Hours → bars conversion. Falls back to 1-bar-per-hour when BucketUs
+    // isn't set (unusual but not fatal).
+    let hoursToBars (hours: int) : int =
+        if cfg.BucketUs > 0L then
+            max 1 (int (int64 hours * 3_600_000_000L / cfg.BucketUs))
+        else
+            max 1 hours
+
+    // Days → bars conversion (used for vol/ADV windows).
+    let daysToBars (days: int) : int =
+        hoursToBars (24 * days)
+
+    // Signal window — converted from cfg.MaWindowHours so the parameter
+    // is timeframe-independent (240h = same wall-clock span at 1h or 4h).
+    let n = hoursToBars (max 1 cfg.MaWindowHours)
     // Rolling N-bar buy/sell dollar-volume sums. Read via .State; the
     // orderflow ratio is buyMa.State / sellMa.State at signal time.
     let buyMa  = SumMa(n)
     let sellMa = SumMa(n)
 
-    let mutable prevClose = 0.0
-    let mutable barsSeen = 0
-
-    // Days → bars conversion. Falls back to a 1h-equivalent count when
-    // BucketUs isn't set (which would be unusual but not fatal).
-    let daysToBars (days: int) : int =
-        if cfg.BucketUs > 0L then
-            int (int64 days * 86_400_000_000L / cfg.BucketUs)
-        else
-            days * 24
-
     // ADV window — fixed at 90 days. Slow-moving baseline used to gate
     // entries by symbol-level liquidity at fire time.
     let advWindowBars = daysToBars 90
 
-    // Vol window — configurable, decoupled from MaLength. The signal
-    // window (days of orderflow) and the risk-measurement window are
+    // Vol window — configurable, decoupled from MaWindowHours. The signal
+    // window (hours of orderflow) and the risk-measurement window are
     // conceptually independent: vol wants to track the regime we're
     // about to trade IN, not necessarily the regime that produced the
     // signal. Default 90 days; 7 days has shown to be more responsive

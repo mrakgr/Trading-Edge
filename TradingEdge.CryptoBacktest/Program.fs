@@ -18,7 +18,8 @@ let defaultResultsCsv = "data/crypto/backtest_results.csv"
 let defaultSummaryCsv = "data/crypto/backtest_summary.csv"
 
 let defaultTimeframes = [| "1m"; "5m"; "15m"; "1h"; "4h" |]
-let defaultMaLengths  = [| 20; 50; 100; 200 |]
+// Default MA windows in hours. 24h = 1 day; 240h = 10 days.
+let defaultMaHours    = [| 24; 72; 168; 240 |]
 
 // =============================================================================
 // Argu DU
@@ -26,7 +27,7 @@ let defaultMaLengths  = [| 20; 50; 100; 200 |]
 
 type RunArgs =
     | [<Mandatory; AltCommandLine "-t">] Timeframe of string
-    | [<Mandatory; AltCommandLine "-m">] Ma_Length of int
+    | [<Mandatory; AltCommandLine "-m">] Ma_Hours of int
     | [<AltCommandLine "-s">] Symbol of string
     | [<AltCommandLine "-d">] Data_Root of string
     | [<AltCommandLine "-b">] Bars_Root of string
@@ -41,7 +42,7 @@ type RunArgs =
         member s.Usage =
             match s with
             | Timeframe _   -> "Bar timeframe (e.g. 1m, 5m, 15m, 1h, 4h)."
-            | Ma_Length _   -> "Rolling-sum window length, in bars."
+            | Ma_Hours _    -> "Rolling-sum signal window length, in HOURS. Timeframe-independent (240h = same span at 1h or 4h)."
             | Symbol _      -> "Symbol to backtest. Defaults to BTCUSDT."
             | Data_Root _   -> "Trade-parquet root. Default: " + defaultDataRoot
             | Bars_Root _   -> "Pre-aggregated bar-parquet root. Default: " + defaultBarsRoot
@@ -60,7 +61,7 @@ type SweepArgs =
     | Start_Date of string
     | End_Date of string
     | Timeframes of string
-    | Ma_Lengths of string
+    | Ma_Hours of string
     | Notional of float
     | Taker_Fee of float
     | Allow_Short
@@ -85,7 +86,7 @@ type SweepArgs =
             | Start_Date _  -> "Inclusive start date YYYY-MM-DD. Default 2024-05-01."
             | End_Date _    -> "Inclusive end date YYYY-MM-DD. Default 2026-04-30."
             | Timeframes _  -> "Comma-separated timeframes. Default 1m,5m,15m,1h,4h."
-            | Ma_Lengths _  -> "Comma-separated MA window lengths. Default 20,50,100,200."
+            | SweepArgs.Ma_Hours _ -> "Comma-separated MA signal-window lengths in HOURS. Default 24,72,168,240 (=1d, 3d, 7d, 10d). Independent of timeframe."
             | Notional _    -> "Per-trade notional. Default 1000."
             | Taker_Fee _   -> "Per-fill taker fee fraction. Default 0.0004."
             | Allow_Short   -> "When set, sweep includes short legs."
@@ -95,7 +96,7 @@ type SweepArgs =
             | Reference_Vol_Pct _ -> "Reference per-bar log-return std as percent (e.g. 1.0 = 1%/bar). Drives vol-based position sizing: high-vol entries are downsized, low-vol entries get full notional. Set per timeframe (1h~1.0, 2h~1.4, 4h~2.0). Default 0 (disabled)."
             | Min_Long_Adv _  -> "Minimum trailing-90d ADV (USDT/day) required for a long entry. Evaluated at signal-fire time using the engine's leak-free rolling window. Below threshold the signal is consumed (no retry on next bar) and the engine stays flat. Default 0 (disabled)."
             | Min_Short_Adv _ -> "Minimum trailing-90d ADV (USDT/day) required for a short entry. Same semantics as --min-long-adv. Default 0 (disabled)."
-            | Vol_Window_Days _ -> "Vol-window length in days for the rolling log-return std used by vol-based position sizing. Independent of --ma-lengths. Default 90; lower values (e.g. 7) make the vol estimate more responsive to recent regime shifts."
+            | Vol_Window_Days _ -> "Vol-window length in days for the rolling log-return std used by vol-based position sizing. Independent of --ma-hours. Default 90; lower values (e.g. 7) make the vol estimate more responsive to recent regime shifts."
             | Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
             | No_Funding -> "Disable funding-rate accounting even if data is available."
             | Results_Csv _ -> "Per-(symbol,timeframe,ma) results CSV path."
@@ -109,7 +110,7 @@ type CliArgs =
         member s.Usage =
             match s with
             | Run _   -> "Run one (symbol, timeframe, ma) configuration."
-            | Sweep _ -> "Run the full grid: timeframes × MA lengths × symbols."
+            | Sweep _ -> "Run the full grid: timeframes × MA hours × symbols."
 
 // =============================================================================
 // Helpers
@@ -127,7 +128,7 @@ let parseList (sep: char) (s: string) : string[] =
 
 let cmdRun (args: ParseResults<RunArgs>) : int =
     let timeframe = args.GetResult Timeframe
-    let maLength = args.GetResult Ma_Length
+    let maHours = args.GetResult RunArgs.Ma_Hours
     let symbol = args.GetResult(RunArgs.Symbol, defaultValue = "BTCUSDT")
     let dataRoot = args.GetResult(RunArgs.Data_Root, defaultValue = defaultDataRoot)
     let barsRoot = args.GetResult(RunArgs.Bars_Root, defaultValue = defaultBarsRoot)
@@ -135,14 +136,14 @@ let cmdRun (args: ParseResults<RunArgs>) : int =
     let startDate = args.TryGetResult RunArgs.Start_Date |> Option.map parseDate |> Option.defaultValue defaultStart
     let endDate   = args.TryGetResult RunArgs.End_Date   |> Option.map parseDate |> Option.defaultValue defaultEnd
     let cfg =
-        { defaultConfig maLength with
+        { defaultConfig maHours with
             Notional = args.GetResult(RunArgs.Notional, defaultValue = 1000.0)
             TakerFee = args.GetResult(RunArgs.Taker_Fee, defaultValue = 0.0004)
             AllowShort = args.Contains RunArgs.Allow_Short }
     let useBarPath = not useTrades && BarLoader.exists barsRoot timeframe symbol
     let pathLabel = if useBarPath then "bars" else "trades"
-    printfn "[run] symbol=%s timeframe=%s ma=%d short=%b range=%s..%s notional=%g fee=%g path=%s"
-        symbol timeframe maLength cfg.AllowShort
+    printfn "[run] symbol=%s timeframe=%s ma=%dh short=%b range=%s..%s notional=%g fee=%g path=%s"
+        symbol timeframe maHours cfg.AllowShort
         (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
         cfg.Notional cfg.TakerFee pathLabel
     let sw = Stopwatch.StartNew()
@@ -185,8 +186,8 @@ let cmdRun (args: ParseResults<RunArgs>) : int =
         let path =
             Path.Combine(
                 dir,
-                sprintf "%s-%s-ma%d%s.csv"
-                    symbol timeframe maLength (if cfg.AllowShort then "-short" else ""))
+                sprintf "%s-%s-ma%dh%s.csv"
+                    symbol timeframe maHours (if cfg.AllowShort then "-short" else ""))
         writeTrips path symbol timeframe cfg trips
         printfn "[run] wrote %d trips to %s" trips.Length path
     | None -> ()
@@ -206,11 +207,11 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
         args.TryGetResult SweepArgs.Timeframes
         |> Option.map (parseList ',')
         |> Option.defaultValue defaultTimeframes
-    let maLengths =
-        args.TryGetResult SweepArgs.Ma_Lengths
+    let maHoursList =
+        args.TryGetResult SweepArgs.Ma_Hours
         |> Option.map (parseList ',')
         |> Option.map (Array.map Int32.Parse)
-        |> Option.defaultValue defaultMaLengths
+        |> Option.defaultValue defaultMaHours
     let symbols =
         match args.TryGetResult SweepArgs.Symbol with
         | Some s -> parseList ',' s
@@ -245,7 +246,7 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     printfn "[sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s minDailyVol=$%s maxAdversePct=%g referenceVolPct=%g minLongAdv=$%s minShortAdv=$%s volWindowDays=%d"
         symbols.Length
         (String.concat "," timeframes)
-        (String.concat "," (maLengths |> Array.map string))
+        (String.concat "," (maHoursList |> Array.map string))
         allowShort
         (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
         parallelism
@@ -270,7 +271,7 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
             File.Delete f
 
     let allMetrics = System.Collections.Concurrent.ConcurrentBag<Metrics>()
-    // Round-trips are captured per (timeframe, ma_length, allow_short) so the
+    // Round-trips are captured per (timeframe, ma_hours, allow_short) so the
     // breakdown report can pool them within each cell-config without mixing
     // across configs.
     let allTripsByGroup =
@@ -283,7 +284,7 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     let advBySymbol =
         System.Collections.Concurrent.ConcurrentDictionary<string, float>()
     let writeLock = obj()
-    let totalCells = symbols.Length * timeframes.Length * maLengths.Length
+    let totalCells = symbols.Length * timeframes.Length * maHoursList.Length
     let mutable doneCells = 0
 
     let swAll = Stopwatch.StartNew()
@@ -297,9 +298,9 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
             try
                 let cells =
                     [| for tf in timeframes do
-                        for ma in maLengths do
+                        for maHours in maHoursList do
                             let cfg =
-                                { defaultConfig ma with
+                                { defaultConfig maHours with
                                     Notional = notional
                                     TakerFee = takerFee
                                     AllowShort = allowShort
@@ -339,18 +340,18 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
                     // breakdown can pool them later. Cells are 1:1 with metrics.
                     for cell in cells do
                         let trips = cell.Trips
-                        let bag = getTripBag cell.Timeframe cell.Config.MaLength cell.Config.AllowShort
+                        let bag = getTripBag cell.Timeframe cell.Config.MaWindowHours cell.Config.AllowShort
                         for t in trips do bag.Add t
                         // Also stream this cell's trips to a per-cell-config CSV
-                        // (one file per (timeframe, ma_length, allow_short)).
+                        // (one file per (timeframe, ma_hours, allow_short)).
                         if trips.Length > 0 then
                             let tripsPath =
                                 let dir = Path.GetDirectoryName resultsCsv
                                 let stem = Path.GetFileNameWithoutExtension resultsCsv
                                 let shortTag = if cell.Config.AllowShort then "ls" else "long"
                                 Path.Combine(dir,
-                                    sprintf "%s_trips_%s_ma%d_%s.csv"
-                                        stem cell.Timeframe cell.Config.MaLength shortTag)
+                                    sprintf "%s_trips_%s_ma%dh_%s.csv"
+                                        stem cell.Timeframe cell.Config.MaWindowHours shortTag)
                             lock writeLock (fun () ->
                                 appendTrips tripsPath cell.Symbol cell.Timeframe cell.Config trips)
                     lock writeLock (fun () ->
@@ -376,7 +377,7 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     printfn "[sweep] wrote %d result rows -> %s" metricsArr.Length resultsCsv
     printfn "[sweep] wrote %d summary rows -> %s" summarySorted.Length summaryCsv
 
-    // Orb-style breakdown — one section per (timeframe, ma_length, allow_short)
+    // Orb-style breakdown — one section per (timeframe, ma_hours, allow_short)
     // group, written to both stdout and a log file alongside the CSVs.
     let breakdownLogPath =
         let dir = Path.GetDirectoryName resultsCsv
@@ -395,13 +396,13 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
         let cellMetrics =
             metricsArr
             |> Array.filter (fun m ->
-                m.Timeframe = s.Timeframe && m.MaLength = s.MaLength && m.AllowShort = s.AllowShort
+                m.Timeframe = s.Timeframe && m.MaWindowHours = s.MaWindowHours && m.AllowShort = s.AllowShort
                 && m.BarsTotal > 0)
         let trips =
-            match allTripsByGroup.TryGetValue((s.Timeframe, s.MaLength, s.AllowShort)) with
+            match allTripsByGroup.TryGetValue((s.Timeframe, s.MaWindowHours, s.AllowShort)) with
             | true, bag -> bag.ToArray()
             | _ -> [||]
-        printGroupBreakdown logWrite consoleWrite s.Timeframe s.MaLength s.AllowShort notional cellMetrics trips advBySymbol
+        printGroupBreakdown logWrite consoleWrite s.Timeframe s.MaWindowHours s.AllowShort notional cellMetrics trips advBySymbol
 
     printfn ""
     printfn "[sweep] breakdown -> %s" breakdownLogPath
