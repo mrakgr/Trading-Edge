@@ -141,7 +141,7 @@ let writeSummary (path: string) (rows: SummaryRow[]) =
     writeAtomic path lines
 
 let tripsHeader =
-    "symbol,timeframe,ma_length,allow_short,entry_us,exit_us,side,entry_price,exit_price,net_pnl,fees,bars_held,mfe,mae,ratio_at_entry,effective_notional,funding_pnl"
+    "symbol,timeframe,ma_length,allow_short,entry_us,exit_us,side,entry_price,exit_price,net_pnl,fees,bars_held,mfe,mae,ratio_at_entry,effective_notional,funding_pnl,adv_at_entry"
 
 let private sideStr =
     function
@@ -168,6 +168,7 @@ let private tripRow (symbol: string) (timeframe: string) (cfg: StrategyConfig) (
         fmt t.RatioAtEntry
         fmt t.EffectiveNotional
         fmt t.FundingPnL
+        fmt t.AvgDailyVolumeAtEntry
     ]
 
 let writeTrips (path: string) (symbol: string) (timeframe: string) (cfg: StrategyConfig) (trips: RoundTrip[]) =
@@ -451,85 +452,54 @@ let printGroupBreakdown
                     label inBucket.Length nWin wr avg total
         plnf ""
 
-    // ----- Volume-decile stratification -----
-    // Tests the "big = long edge, small = short edge" thesis: rank symbols
-    // by average daily quote volume (USDT/day), bin into 10 deciles, then
-    // report per-decile long PF and short PF. If the thesis holds, long PF
-    // should rise monotonically with decile (decile 10 = biggest) and
-    // short PF should fall.
-    let symbolsWithAdv =
-        cellMetrics
-        |> Array.choose (fun m ->
-            match advBySymbol.TryGetValue m.Symbol with
-            | true, v when v > 0.0 -> Some (m.Symbol, v)
-            | _ -> None)
-        |> Array.distinctBy fst
-    if symbolsWithAdv.Length >= 10 then
-        plnf "--- Volume Decile Stratification (avg daily USDT volume) ---"
-        // Rank symbols by ADV ascending so decile 1 = smallest, 10 = biggest.
-        let ranked = symbolsWithAdv |> Array.sortBy snd
+    // ----- Volume-decile stratification (per-trade, leak-free) -----
+    // Tests the "big = long edge, small = short edge" thesis WITHOUT
+    // contamination from future volume. Each round-trip carries the
+    // symbol's trailing-90d average daily quote volume AT THE TIME OF
+    // ENTRY (RoundTrip.AvgDailyVolumeAtEntry). We rank trips by ADV-at-
+    // entry, bin into 10 deciles, and report per-decile long/short PF and
+    // P&L. Same symbol can contribute trips to different deciles over
+    // time as its liquidity regime changes — which is exactly the right
+    // thing for testing the thesis.
+    //
+    // Trips opened during the warmup window (before the rolling buffer
+    // accumulated meaningful history) get ADV = 0. We exclude those from
+    // the decile bins entirely (would otherwise dominate decile 1).
+    ignore advBySymbol
+    let tripsWithAdv =
+        allTrips |> Array.filter (fun t -> t.AvgDailyVolumeAtEntry > 0.0)
+    if tripsWithAdv.Length >= 100 then
+        plnf "--- Volume Decile Stratification (per-trade, trailing 90d ADV at entry) ---"
+        let ranked = tripsWithAdv |> Array.sortBy (fun t -> t.AvgDailyVolumeAtEntry)
         let n = ranked.Length
-        // Per-decile bounds (inclusive). Symbol i goes into decile
-        // (i * 10 / n) + 1, clamped to [1, 10].
-        let decileOf (i: int) = min 10 (max 1 ((i * 10) / n + 1))
-        let symbolDecile =
-            ranked
-            |> Array.mapi (fun i (sym, _) -> sym, decileOf i)
-            |> dict
-        let advByDecile =
-            ranked
-            |> Array.mapi (fun i (_, adv) -> decileOf i, adv)
-            |> Array.groupBy fst
-            |> Array.map (fun (d, xs) ->
-                let advs = xs |> Array.map snd
-                let lo = Array.min advs
-                let hi = Array.max advs
-                d, lo, hi, advs.Length)
-            |> Array.sortBy (fun (d, _, _, _) -> d)
-        // Aggregate per-decile via cellMetrics (each metric carries the
-        // symbol). The pooled allTrips bag drops symbol identity, so we
-        // can't bin individual trips directly — but cellMetrics carries
-        // pre-aggregated long/short P&L per symbol, which is exactly what
-        // we need to compute decile-level totals and ratios.
-        plnf "  %-7s %12s %12s %8s %10s %10s %10s %10s %10s"
-            "decile" "advLo$" "advHi$" "symbols"
-            "longTrades" "longPnL$" "longPF" "shortPnL$" "shortPF"
         let pfRatio (gw: float) (gl: float) =
             if gl > 0.0 then sprintf "%.3f" (gw / gl)
             elif gw > 0.0 then "inf"
             else "0.000"
-        for (d, lo, hi, nSyms) in advByDecile do
-            let inDecile =
-                cellMetrics
-                |> Array.filter (fun m ->
-                    match symbolDecile.TryGetValue m.Symbol with
-                    | true, di -> di = d
-                    | _ -> false)
-            let longN = inDecile |> Array.sumBy (fun m -> m.LongTrades)
-            let longPnL = inDecile |> Array.sumBy (fun m -> m.LongNetPnL)
-            let shortN = inDecile |> Array.sumBy (fun m -> m.ShortTrades)
-            let shortPnL = inDecile |> Array.sumBy (fun m -> m.ShortNetPnL)
-            // PF here uses cell-level long/short net P&L: for each symbol,
-            // contribute m.LongNetPnL to either gross-wins or gross-losses
-            // depending on sign. This isn't the same as trade-level PF (which
-            // looks at every individual trade), but symbol-level PF is what
-            // tells us whether the strategy works on most symbols within
-            // the decile. The thesis is about consistency across symbols
-            // in a tier, not about every trade — so symbol-level is right.
-            let longGwPos =
-                inDecile |> Array.sumBy (fun m -> if m.LongNetPnL > 0.0 then m.LongNetPnL else 0.0)
-            let longGwNeg =
-                inDecile |> Array.sumBy (fun m -> if m.LongNetPnL < 0.0 then -m.LongNetPnL else 0.0)
-            let shortGwPos =
-                inDecile |> Array.sumBy (fun m -> if m.ShortNetPnL > 0.0 then m.ShortNetPnL else 0.0)
-            let shortGwNeg =
-                inDecile |> Array.sumBy (fun m -> if m.ShortNetPnL < 0.0 then -m.ShortNetPnL else 0.0)
-            plnf "  %-7d %12s %12s %8d %10d %10.0f %10s %10.0f %10s"
-                d
-                (lo.ToString "N0") (hi.ToString "N0") nSyms
-                longN longPnL (pfRatio longGwPos longGwNeg)
-                shortPnL (pfRatio shortGwPos shortGwNeg)
+        plnf "  %-7s %12s %12s %8s %10s %10s %10s %10s %10s"
+            "decile" "advLo$" "advHi$" "trips" "longTrades" "longPnL$" "longPF" "shortPnL$" "shortPF"
+        // Group ranked trips into 10 chunks of equal size.
+        for d in 1 .. 10 do
+            let lo = ((d - 1) * n) / 10
+            let hi = (d * n) / 10  // exclusive
+            if hi > lo then
+                let chunk = ranked.[lo .. hi - 1]
+                let advLo = chunk.[0].AvgDailyVolumeAtEntry
+                let advHi = chunk.[chunk.Length - 1].AvgDailyVolumeAtEntry
+                let longs = chunk |> Array.filter (fun t -> t.Side = Long)
+                let shorts = chunk |> Array.filter (fun t -> t.Side = Short)
+                let longGw = longs |> Array.sumBy (fun t -> if t.NetPnL > 0.0 then t.NetPnL else 0.0)
+                let longGl = longs |> Array.sumBy (fun t -> if t.NetPnL < 0.0 then -t.NetPnL else 0.0)
+                let shortGw = shorts |> Array.sumBy (fun t -> if t.NetPnL > 0.0 then t.NetPnL else 0.0)
+                let shortGl = shorts |> Array.sumBy (fun t -> if t.NetPnL < 0.0 then -t.NetPnL else 0.0)
+                let longPnl = longs |> Array.sumBy (fun t -> t.NetPnL)
+                let shortPnl = shorts |> Array.sumBy (fun t -> t.NetPnL)
+                plnf "  %-7d %12s %12s %8d %10d %10.0f %10s %10.0f %10s"
+                    d
+                    (advLo.ToString "N0") (advHi.ToString "N0") chunk.Length
+                    longs.Length longPnl (pfRatio longGw longGl)
+                    shortPnl (pfRatio shortGw shortGl)
+        let warmupTrips = allTrips.Length - tripsWithAdv.Length
+        if warmupTrips > 0 then
+            plnf "  (excluded %d trips with no ADV-at-entry — opened in warmup window)" warmupTrips
         plnf ""
-    else
-        // Skip section if too few symbols to bin meaningfully.
-        ()

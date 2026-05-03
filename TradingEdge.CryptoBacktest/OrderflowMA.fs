@@ -116,6 +116,13 @@ type RoundTrip = {
     /// Zero if no funding events fired during the holding window or if
     /// funding data wasn't loaded for this run.
     FundingPnL: float
+    /// Average daily quote volume over the trailing ~90 days at entry,
+    /// in USDT/day. Computed from the bar series leading up to (but not
+    /// including) the entry bar's close — leak-free. Used by the breakdown
+    /// to bin trades into liquidity deciles WITHOUT contamination from
+    /// the symbol's future. Falls back to whatever partial-window data
+    /// is available during the first 90 days of a symbol's history.
+    AvgDailyVolumeAtEntry: float
 }
 
 let private feeFor (notional: float) (takerFee: float) : float = notional * takerFee
@@ -153,6 +160,19 @@ type Engine(cfg: StrategyConfig) =
     let mutable sumBuy = 0.0
     let mutable sumSell = 0.0
 
+    // Rolling 90-day window of (buy + sell) dollar volume — used to stamp
+    // each trade with a leak-free ADV at entry. K = 90 days × bars-per-day.
+    // Falls back to a small window when bucketUs isn't set (which would be
+    // odd, but the math doesn't blow up).
+    let advWindowBars =
+        if cfg.BucketUs > 0L then
+            int (90L * 86_400_000_000L / cfg.BucketUs)
+        else
+            2160 // 90 days × 24 = default for 1h
+    let advBuf = Array.zeroCreate<float> advWindowBars
+    let mutable advCount = 0
+    let mutable advSum = 0.0
+
     let mutable side = Flat
     let mutable entryPrice = 0.0
     let mutable entryUs = 0L
@@ -168,6 +188,7 @@ type Engine(cfg: StrategyConfig) =
     let mutable maeUsd = 0.0
     let mutable ratioAtEntry = 0.0
     let mutable fundingPnl = 0.0
+    let mutable advAtEntry = 0.0
 
     let mutable lastClose = 0.0
     let mutable lastUs = 0L
@@ -208,6 +229,17 @@ type Engine(cfg: StrategyConfig) =
             if vol <= 0.0 then cfg.Notional
             else min cfg.Notional (cfg.Notional * cfg.ReferenceVol / vol)
 
+    /// Average daily quote volume from the trailing rolling window.
+    /// Uses whatever bars are in the buffer so far (partial during warmup);
+    /// the caller can treat 0 as "no data yet". Days = bars / barsPerDay.
+    let currentAdv () : float =
+        let m = min advCount advWindowBars
+        if m = 0 || cfg.BucketUs <= 0L then 0.0
+        else
+            let barsPerDay = 86_400_000_000.0 / float cfg.BucketUs
+            let days = float m / barsPerDay
+            if days > 0.0 then advSum / days else 0.0
+
     let openPos (newSide: Side) (fillPrice: float) (fillUs: int64) (ratio: float) =
         side <- newSide
         entryPrice <- fillPrice
@@ -218,6 +250,7 @@ type Engine(cfg: StrategyConfig) =
         maeUsd <- 0.0
         ratioAtEntry <- ratio
         fundingPnl <- 0.0
+        advAtEntry <- currentAdv ()
 
     let closePos (fillPrice: float) (fillUs: int64) =
         let gross = grossPnL side entryPrice fillPrice effectiveNotional
@@ -236,6 +269,7 @@ type Engine(cfg: StrategyConfig) =
             RatioAtEntry = ratioAtEntry
             EffectiveNotional = effectiveNotional
             FundingPnL = fundingPnl
+            AvgDailyVolumeAtEntry = advAtEntry
         }
         side <- Flat
         entryPrice <- 0.0
@@ -246,6 +280,7 @@ type Engine(cfg: StrategyConfig) =
         maeUsd <- 0.0
         ratioAtEntry <- 0.0
         fundingPnl <- 0.0
+        advAtEntry <- 0.0
 
     /// Advance the funding pointer through events whose timestamp is at
     /// or before the current bar's end. For each event that fires while a
@@ -376,6 +411,17 @@ type Engine(cfg: StrategyConfig) =
             retBuf.[retCount % n] <- lr
             retCount <- retCount + 1
         prevClose <- bar.Close
+
+        // Rolling 90-day ADV buffer. Slot evicts the oldest bar's volume
+        // when the buffer is full; sum stays current. currentAdv() reads
+        // this directly when an entry fires later in this same ProcessBar.
+        let advSlot = advCount % advWindowBars
+        if advCount >= advWindowBars then
+            advSum <- advSum - advBuf.[advSlot]
+        let barDV = bar.BuyDollarVolume + bar.SellDollarVolume
+        advBuf.[advSlot] <- barDV
+        advSum <- advSum + barDV
+        advCount <- advCount + 1
 
         barsSeen <- barsSeen + 1
         lastClose <- bar.Close
