@@ -66,6 +66,15 @@ type StrategyConfig = {
     /// capped at full notional. Same formula as TradingEdge.Orb.
     /// Set to 0 to disable (everything sizes at full notional).
     ReferenceVol: float
+    /// Minimum trailing-90d ADV (USDT/day) required for a long entry.
+    /// Evaluated at signal-fire time using the engine's rolling 90-day
+    /// quote-volume window. Below threshold → entry is suppressed AND
+    /// the signal is consumed (no retry on subsequent bars while the
+    /// signal persists). Set to 0 to disable.
+    MinLongAdv: float
+    /// Minimum trailing-90d ADV (USDT/day) required for a short entry.
+    /// Same semantics as MinLongAdv. Set to 0 to disable.
+    MinShortAdv: float
 }
 
 let defaultConfig (maLength: int) : StrategyConfig =
@@ -76,7 +85,9 @@ let defaultConfig (maLength: int) : StrategyConfig =
       MinDailyQuoteVolume = 0.0
       BucketUs = 0L
       MaxAdverseFraction = 0.0
-      ReferenceVol = 0.0 }
+      ReferenceVol = 0.0
+      MinLongAdv = 0.0
+      MinShortAdv = 0.0 }
 
 type RoundTrip = {
     EntryUs: int64
@@ -174,6 +185,15 @@ type Engine(cfg: StrategyConfig) =
     let mutable advSum = 0.0
 
     let mutable side = Flat
+    // Last regime target (Long/Short/Flat) we acted on. Drives the
+    // "consume the signal at fire time" rule: the engine reacts only when
+    // the orderflow target FLIPS from its prior value, not whenever it
+    // happens to disagree with the current position. Without this, an
+    // entry that was suppressed by an ADV / liquidity gate would re-fire
+    // on every subsequent bar that still has the same target — i.e. the
+    // strategy would chase, entering whenever the gate later relaxed
+    // even though that bar isn't the actual signal bar.
+    let mutable lastTarget = Flat
     let mutable entryPrice = 0.0
     let mutable entryUs = 0L
     let mutable effectiveNotional = 0.0
@@ -435,16 +455,31 @@ type Engine(cfg: StrategyConfig) =
                 if bullish then Long
                 elif bearish && cfg.AllowShort then Short
                 else Flat
-            if target <> side then
+            // Fire only on regime CHANGE (target <> lastTarget), not on
+            // (target <> side). Once we evaluate this bar's signal, we
+            // commit lastTarget to it regardless of whether the entry
+            // actually fired — that way a gated entry doesn't retry on
+            // the next bar that happens to share the same target. The
+            // signal is consumed at fire time.
+            if target <> lastTarget then
                 // Exits always fire — once we're in a position, we want out
                 // regardless of current bar liquidity. (In live trading we'd
                 // take whatever fill we can get; this matches that behavior.)
                 if side <> Flat then closePos bar.Close bar.EndUs
-                // Entries are gated: if liquidity is insufficient, suppress
-                // the entry but stay flat. The next bar with a fresh signal
-                // and adequate liquidity will pick the trade back up.
+                // Entries are gated by both per-bar liquidity and by the
+                // side-specific trailing-90d ADV thresholds. If either
+                // gate fails, we stay flat AND consume the signal — no
+                // retry until the orderflow regime flips again.
                 if target <> Flat && entryAllowed bar then
-                    openPos target bar.Close bar.EndUs ratio
+                    let adv = currentAdv ()
+                    let advGate =
+                        match target with
+                        | Long  -> cfg.MinLongAdv  <= 0.0 || adv >= cfg.MinLongAdv
+                        | Short -> cfg.MinShortAdv <= 0.0 || adv >= cfg.MinShortAdv
+                        | Flat  -> true
+                    if advGate then
+                        openPos target bar.Close bar.EndUs ratio
+                lastTarget <- target
 
     /// Force-close any open position at the last seen bar's close.
     member _.Flush() =

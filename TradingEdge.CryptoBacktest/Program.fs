@@ -68,6 +68,8 @@ type SweepArgs =
     | Min_Daily_Volume of float
     | Max_Adverse_Pct of float
     | Reference_Vol_Pct of float
+    | Min_Long_Adv of float
+    | Min_Short_Adv of float
     | Funding_Root of string
     | No_Funding
     | Results_Csv of string
@@ -90,6 +92,8 @@ type SweepArgs =
             | Min_Daily_Volume _ -> "Minimum average daily quote-volume (USDT) for a symbol-timeframe to be included. Default 500000 (skip cells where a $1000 taker order is unrealistic)."
             | Max_Adverse_Pct _ -> "Stop-loss as percent of notional (e.g. 10.0 = stop at -10% MAE). Default 0 (disabled)."
             | Reference_Vol_Pct _ -> "Reference per-bar log-return std as percent (e.g. 1.0 = 1%/bar). Drives vol-based position sizing: high-vol entries are downsized, low-vol entries get full notional. Set per timeframe (1h~1.0, 2h~1.4, 4h~2.0). Default 0 (disabled)."
+            | Min_Long_Adv _  -> "Minimum trailing-90d ADV (USDT/day) required for a long entry. Evaluated at signal-fire time using the engine's leak-free rolling window. Below threshold the signal is consumed (no retry on next bar) and the engine stays flat. Default 0 (disabled)."
+            | Min_Short_Adv _ -> "Minimum trailing-90d ADV (USDT/day) required for a short entry. Same semantics as --min-long-adv. Default 0 (disabled)."
             | Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
             | No_Funding -> "Disable funding-rate accounting even if data is available."
             | Results_Csv _ -> "Per-(symbol,timeframe,ma) results CSV path."
@@ -226,6 +230,8 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     let minDailyVolume = args.GetResult(Min_Daily_Volume, defaultValue = 500_000.0)
     let maxAdversePct = args.GetResult(Max_Adverse_Pct, defaultValue = 0.0)
     let referenceVolPct = args.GetResult(Reference_Vol_Pct, defaultValue = 0.0)
+    let minLongAdv = args.GetResult(Min_Long_Adv, defaultValue = 0.0)
+    let minShortAdv = args.GetResult(Min_Short_Adv, defaultValue = 0.0)
     let fundingRoot =
         if args.Contains No_Funding then None
         else Some (args.GetResult(Funding_Root, defaultValue = defaultFundingRoot))
@@ -233,7 +239,7 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     let summaryCsv = args.GetResult(Summary_Csv, defaultValue = defaultSummaryCsv)
     let parallelism = args.GetResult(Parallelism, defaultValue = 4)
 
-    printfn "[sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s minDailyVol=$%s maxAdversePct=%g referenceVolPct=%g"
+    printfn "[sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s minDailyVol=$%s maxAdversePct=%g referenceVolPct=%g minLongAdv=$%s minShortAdv=$%s"
         symbols.Length
         (String.concat "," timeframes)
         (String.concat "," (maLengths |> Array.map string))
@@ -244,6 +250,8 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
         (minDailyVolume.ToString("N0"))
         maxAdversePct
         referenceVolPct
+        (minLongAdv.ToString("N0"))
+        (minShortAdv.ToString("N0"))
 
     // Stream results: one row per (symbol, timeframe, ma) appended as it
     // finishes, so a partial run still leaves a usable file. Header is
@@ -293,7 +301,9 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
                                     AllowShort = allowShort
                                     MinDailyQuoteVolume = minDailyVolume
                                     MaxAdverseFraction = maxAdversePct / 100.0
-                                    ReferenceVol = referenceVolPct / 100.0 }
+                                    ReferenceVol = referenceVolPct / 100.0
+                                    MinLongAdv = minLongAdv
+                                    MinShortAdv = minShortAdv }
                             yield Cell(symbol, tf, cfg) |]
                 let metrics, adv =
                     if useTrades then
