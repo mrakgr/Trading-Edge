@@ -104,7 +104,19 @@ let buildMetrics
     let grossL = losses |> Array.sumBy (fun p -> -p)
     let pf = profitFactor pnls
     let netPnL = pnls |> Array.sumBy id
-    let returns = pnls |> Array.map (fun p -> p / cfg.Notional)
+    // With vol-based sizing, each trip deploys a different notional. Per-trip
+    // returns must divide by the trip's effective notional, not the nominal
+    // cfg.Notional. Falls back to cfg.Notional when ReferenceVol is disabled
+    // (in which case EffectiveNotional == cfg.Notional anyway).
+    let returns =
+        trips |> Array.map (fun t ->
+            let denom = if t.EffectiveNotional > 0.0 then t.EffectiveNotional else cfg.Notional
+            t.NetPnL / denom)
+    let totalDeployed =
+        let s =
+            trips |> Array.sumBy (fun t ->
+                if t.EffectiveNotional > 0.0 then t.EffectiveNotional else cfg.Notional)
+        if s > 0.0 then s else cfg.Notional
     let years =
         if endUs > startUs then float (endUs - startUs) / (365.25 * 86400.0 * 1_000_000.0)
         else 0.0
@@ -134,7 +146,7 @@ let buildMetrics
         GrossLosses = grossL
         Sharpe = sharpe
         MaxDrawdown = maxDrawdown pnls
-        TotalReturnPct = netPnL / cfg.Notional
+        TotalReturnPct = netPnL / totalDeployed
         LongTrades = longTrips.Length
         LongWins = longPnls |> Array.filter (fun p -> p > 0.0) |> Array.length
         LongNetPnL = Array.sum longPnls

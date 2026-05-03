@@ -66,6 +66,7 @@ type SweepArgs =
     | Use_Trades
     | Min_Daily_Volume of float
     | Max_Adverse_Pct of float
+    | Reference_Vol_Pct of float
     | Results_Csv of string
     | Summary_Csv of string
     | [<AltCommandLine "-p">] Parallelism of int
@@ -85,6 +86,7 @@ type SweepArgs =
             | Use_Trades    -> "Force the trade-stream backtest path even if pre-aggregated bars exist."
             | Min_Daily_Volume _ -> "Minimum average daily quote-volume (USDT) for a symbol-timeframe to be included. Default 500000 (skip cells where a $1000 taker order is unrealistic)."
             | Max_Adverse_Pct _ -> "Stop-loss as percent of notional (e.g. 10.0 = stop at -10% MAE). Default 0 (disabled)."
+            | Reference_Vol_Pct _ -> "Reference per-bar log-return std as percent (e.g. 1.0 = 1%/bar). Drives vol-based position sizing: high-vol entries are downsized, low-vol entries get full notional. Set per timeframe (1h~1.0, 2h~1.4, 4h~2.0). Default 0 (disabled)."
             | Results_Csv _ -> "Per-(symbol,timeframe,ma) results CSV path."
             | Summary_Csv _ -> "Aggregate per-(timeframe,ma) summary CSV path."
             | Parallelism _ -> "Max symbols processed concurrently. Default 4."
@@ -215,11 +217,12 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     let allowShort = args.Contains SweepArgs.Allow_Short
     let minDailyVolume = args.GetResult(Min_Daily_Volume, defaultValue = 500_000.0)
     let maxAdversePct = args.GetResult(Max_Adverse_Pct, defaultValue = 0.0)
+    let referenceVolPct = args.GetResult(Reference_Vol_Pct, defaultValue = 0.0)
     let resultsCsv = args.GetResult(Results_Csv, defaultValue = defaultResultsCsv)
     let summaryCsv = args.GetResult(Summary_Csv, defaultValue = defaultSummaryCsv)
     let parallelism = args.GetResult(Parallelism, defaultValue = 4)
 
-    printfn "[sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s minDailyVol=$%s maxAdversePct=%g"
+    printfn "[sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s minDailyVol=$%s maxAdversePct=%g referenceVolPct=%g"
         symbols.Length
         (String.concat "," timeframes)
         (String.concat "," (maLengths |> Array.map string))
@@ -229,6 +232,7 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
         (if useTrades then "trades" else "bars")
         (minDailyVolume.ToString("N0"))
         maxAdversePct
+        referenceVolPct
 
     // Stream results: one row per (symbol, timeframe, ma) appended as it
     // finishes, so a partial run still leaves a usable file. Header is
@@ -272,7 +276,8 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
                                     TakerFee = takerFee
                                     AllowShort = allowShort
                                     MinDailyQuoteVolume = minDailyVolume
-                                    MaxAdverseFraction = maxAdversePct / 100.0 }
+                                    MaxAdverseFraction = maxAdversePct / 100.0
+                                    ReferenceVol = referenceVolPct / 100.0 }
                             yield Cell(symbol, tf, cfg) |]
                 let metrics =
                     if useTrades then

@@ -141,7 +141,7 @@ let writeSummary (path: string) (rows: SummaryRow[]) =
     writeAtomic path lines
 
 let tripsHeader =
-    "symbol,timeframe,ma_length,allow_short,entry_us,exit_us,side,entry_price,exit_price,net_pnl,fees,bars_held,mfe,mae,ratio_at_entry"
+    "symbol,timeframe,ma_length,allow_short,entry_us,exit_us,side,entry_price,exit_price,net_pnl,fees,bars_held,mfe,mae,ratio_at_entry,effective_notional"
 
 let private sideStr =
     function
@@ -166,6 +166,7 @@ let private tripRow (symbol: string) (timeframe: string) (cfg: StrategyConfig) (
         fmt t.MaxFavorableExcursion
         fmt t.MaxAdverseExcursion
         fmt t.RatioAtEntry
+        fmt t.EffectiveNotional
     ]
 
 let writeTrips (path: string) (symbol: string) (timeframe: string) (cfg: StrategyConfig) (trips: RoundTrip[]) =
@@ -380,11 +381,14 @@ let printGroupBreakdown
     // is closing shorts before they get squeezed; a fat tail (worst case
     // -50%+) means many shorts sit through painful rebounds.
     let pnlPct (t: RoundTrip) =
-        // Express MFE/MAE as % of notional. With fixed $1000 notional this
-        // is simply value/10. Keep the explicit form so it stays correct
-        // if notional ever varies.
-        100.0 * t.MaxFavorableExcursion / notional,
-        100.0 * t.MaxAdverseExcursion / notional
+        // Express MFE/MAE as % of the trip's effective notional. With
+        // vol-based sizing, EffectiveNotional varies per trade — falling
+        // back to cfg.Notional when sizing is disabled (or when an older
+        // RoundTrip without the field is encountered, which is = 0).
+        let denom =
+            if t.EffectiveNotional > 0.0 then t.EffectiveNotional else notional
+        100.0 * t.MaxFavorableExcursion / denom,
+        100.0 * t.MaxAdverseExcursion / denom
 
     let excursionStats label (tps: RoundTrip[]) =
         if tps.Length = 0 then

@@ -58,6 +58,14 @@ type StrategyConfig = {
     /// is optimistic on gap-throughs but matches a stop-limit order's
     /// best case. Set to 0 to disable.
     MaxAdverseFraction: float
+    /// Reference per-bar log-return std (e.g. 0.01 = 1%/bar). When
+    /// non-zero, position size at entry scales as
+    ///     effectiveNotional = min(notional, notional * referenceVol / barVol)
+    /// where barVol is the realized rolling-window log-return std at
+    /// signal time. High-vol entries get downsized; low-vol entries are
+    /// capped at full notional. Same formula as TradingEdge.Orb.
+    /// Set to 0 to disable (everything sizes at full notional).
+    ReferenceVol: float
 }
 
 let defaultConfig (maLength: int) : StrategyConfig =
@@ -67,7 +75,8 @@ let defaultConfig (maLength: int) : StrategyConfig =
       AllowShort = false
       MinDailyQuoteVolume = 0.0
       BucketUs = 0L
-      MaxAdverseFraction = 0.0 }
+      MaxAdverseFraction = 0.0
+      ReferenceVol = 0.0 }
 
 type RoundTrip = {
     EntryUs: int64
@@ -97,10 +106,13 @@ type RoundTrip = {
     /// The orderflow ratio (sumBuy / sumSell) at the close of the
     /// signal-producing bar — i.e. what triggered the entry.
     RatioAtEntry: float
+    /// Effective notional used for this trade, in quote currency. Equals
+    /// cfg.Notional when vol-sizing is disabled, or scaled down when the
+    /// realized vol at entry exceeds cfg.ReferenceVol.
+    EffectiveNotional: float
 }
 
-let private feeOnFill (cfg: StrategyConfig) : float =
-    cfg.Notional * cfg.TakerFee
+let private feeFor (notional: float) (takerFee: float) : float = notional * takerFee
 
 let private grossPnL (side: Side) (entry: float) (exit: float) (notional: float) : float =
     let qty = notional / entry
@@ -126,6 +138,11 @@ type Engine(cfg: StrategyConfig) =
     let n = cfg.MaLength
     let buyBuf = Array.zeroCreate<float> n
     let sellBuf = Array.zeroCreate<float> n
+    // Rolling buffer of bar-to-bar log returns over the same N-bar window.
+    // Used to compute realized vol at entry for size scaling.
+    let retBuf = Array.zeroCreate<float> n
+    let mutable retCount = 0
+    let mutable prevClose = 0.0
     let mutable barsSeen = 0
     let mutable sumBuy = 0.0
     let mutable sumSell = 0.0
@@ -133,6 +150,7 @@ type Engine(cfg: StrategyConfig) =
     let mutable side = Flat
     let mutable entryPrice = 0.0
     let mutable entryUs = 0L
+    let mutable effectiveNotional = 0.0
     // Per-trade tracking: barsHeld counts the entry bar plus every bar the
     // position was alive through. mfeUsd / maeUsd are the running maxima of
     // favorable / adverse unrealized P&L, in quote currency, derived from
@@ -148,18 +166,46 @@ type Engine(cfg: StrategyConfig) =
 
     let trips = ResizeArray<RoundTrip>()
 
+    /// Compute the std of bar-to-bar log returns over the rolling window.
+    /// Uses sample std (n-1 denominator). Returns 0 if fewer than 2
+    /// returns observed yet — the caller treats that as "no scaling info,
+    /// use full notional."
+    let currentVolStd () : float =
+        let m = min retCount n
+        if m < 2 then 0.0
+        else
+            let mutable s = 0.0
+            for i in 0 .. m - 1 do s <- s + retBuf.[i]
+            let mean = s / float m
+            let mutable sq = 0.0
+            for i in 0 .. m - 1 do
+                let d = retBuf.[i] - mean
+                sq <- sq + d * d
+            sqrt (sq / float (m - 1))
+
+    /// Compute the effective notional for an entry given the current vol.
+    /// Disabled (returns cfg.Notional) when ReferenceVol = 0 or when we
+    /// don't have enough returns to estimate vol yet.
+    let computeEffectiveNotional () : float =
+        if cfg.ReferenceVol <= 0.0 then cfg.Notional
+        else
+            let vol = currentVolStd ()
+            if vol <= 0.0 then cfg.Notional
+            else min cfg.Notional (cfg.Notional * cfg.ReferenceVol / vol)
+
     let openPos (newSide: Side) (fillPrice: float) (fillUs: int64) (ratio: float) =
         side <- newSide
         entryPrice <- fillPrice
         entryUs <- fillUs
+        effectiveNotional <- computeEffectiveNotional ()
         barsHeld <- 1
         mfeUsd <- 0.0
         maeUsd <- 0.0
         ratioAtEntry <- ratio
 
     let closePos (fillPrice: float) (fillUs: int64) =
-        let gross = grossPnL side entryPrice fillPrice cfg.Notional
-        let fees = 2.0 * feeOnFill cfg
+        let gross = grossPnL side entryPrice fillPrice effectiveNotional
+        let fees = 2.0 * feeFor effectiveNotional cfg.TakerFee
         trips.Add {
             EntryUs = entryUs
             ExitUs = fillUs
@@ -172,10 +218,12 @@ type Engine(cfg: StrategyConfig) =
             MaxFavorableExcursion = mfeUsd
             MaxAdverseExcursion = maeUsd
             RatioAtEntry = ratioAtEntry
+            EffectiveNotional = effectiveNotional
         }
         side <- Flat
         entryPrice <- 0.0
         entryUs <- 0L
+        effectiveNotional <- 0.0
         barsHeld <- 0
         mfeUsd <- 0.0
         maeUsd <- 0.0
@@ -188,7 +236,7 @@ type Engine(cfg: StrategyConfig) =
     let updateExcursion (bar: SignedBar) =
         if side = Flat then ()
         else
-            let qty = cfg.Notional / entryPrice
+            let qty = effectiveNotional / entryPrice
             let favorPrice, adversePrice =
                 match side with
                 | Long  -> bar.High, bar.Low
@@ -224,8 +272,8 @@ type Engine(cfg: StrategyConfig) =
     let stopPriceIfHit (bar: SignedBar) : float option =
         if cfg.MaxAdverseFraction <= 0.0 || side = Flat then None
         else
-            let qty = cfg.Notional / entryPrice
-            let lossLimit = cfg.MaxAdverseFraction * cfg.Notional
+            let qty = effectiveNotional / entryPrice
+            let lossLimit = cfg.MaxAdverseFraction * effectiveNotional
             // Stop price: the price at which unrealized P&L = -lossLimit.
             // For long: entry - lossLimit/qty. For short: entry + lossLimit/qty.
             match side with
@@ -269,6 +317,15 @@ type Engine(cfg: StrategyConfig) =
         sellBuf.[slot] <- bar.SellDollarVolume
         sumBuy <- sumBuy + bar.BuyDollarVolume
         sumSell <- sumSell + bar.SellDollarVolume
+
+        // Bar-to-bar log return for the rolling vol buffer. Skip the first
+        // bar (no previous close yet) and any bar where prices look broken.
+        if prevClose > 0.0 && bar.Close > 0.0 then
+            let lr = log (bar.Close / prevClose)
+            retBuf.[retCount % n] <- lr
+            retCount <- retCount + 1
+        prevClose <- bar.Close
+
         barsSeen <- barsSeen + 1
         lastClose <- bar.Close
         lastUs <- bar.EndUs
