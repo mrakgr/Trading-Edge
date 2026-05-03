@@ -64,6 +64,7 @@ type SweepArgs =
     | Taker_Fee of float
     | Allow_Short
     | Use_Trades
+    | Min_Daily_Volume of float
     | Results_Csv of string
     | Summary_Csv of string
     | [<AltCommandLine "-p">] Parallelism of int
@@ -81,6 +82,7 @@ type SweepArgs =
             | Taker_Fee _   -> "Per-fill taker fee fraction. Default 0.0004."
             | Allow_Short   -> "When set, sweep includes short legs."
             | Use_Trades    -> "Force the trade-stream backtest path even if pre-aggregated bars exist."
+            | Min_Daily_Volume _ -> "Minimum average daily quote-volume (USDT) for a symbol-timeframe to be included. Default 500000 (skip cells where a $1000 taker order is unrealistic)."
             | Results_Csv _ -> "Per-(symbol,timeframe,ma) results CSV path."
             | Summary_Csv _ -> "Aggregate per-(timeframe,ma) summary CSV path."
             | Parallelism _ -> "Max symbols processed concurrently. Default 4."
@@ -209,11 +211,12 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     let notional = args.GetResult(SweepArgs.Notional, defaultValue = 1000.0)
     let takerFee = args.GetResult(SweepArgs.Taker_Fee, defaultValue = 0.0004)
     let allowShort = args.Contains SweepArgs.Allow_Short
+    let minDailyVolume = args.GetResult(Min_Daily_Volume, defaultValue = 500_000.0)
     let resultsCsv = args.GetResult(Results_Csv, defaultValue = defaultResultsCsv)
     let summaryCsv = args.GetResult(Summary_Csv, defaultValue = defaultSummaryCsv)
     let parallelism = args.GetResult(Parallelism, defaultValue = 4)
 
-    printfn "[sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s"
+    printfn "[sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s minDailyVol=$%s"
         symbols.Length
         (String.concat "," timeframes)
         (String.concat "," (maLengths |> Array.map string))
@@ -221,6 +224,7 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
         (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
         parallelism
         (if useTrades then "trades" else "bars")
+        (minDailyVolume.ToString("N0"))
 
     // Stream results: one row per (symbol, timeframe, ma) appended as it
     // finishes, so a partial run still leaves a usable file. Header is
@@ -228,6 +232,13 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     if File.Exists resultsCsv then File.Delete resultsCsv
 
     let allMetrics = System.Collections.Concurrent.ConcurrentBag<Metrics>()
+    // Round-trips are captured per (timeframe, ma_length, allow_short) so the
+    // breakdown report can pool them within each cell-config without mixing
+    // across configs.
+    let allTripsByGroup =
+        System.Collections.Concurrent.ConcurrentDictionary<string * int * bool, System.Collections.Concurrent.ConcurrentBag<RoundTrip>>()
+    let getTripBag (tf: string) (ma: int) (sh: bool) =
+        allTripsByGroup.GetOrAdd((tf, ma, sh), fun _ -> System.Collections.Concurrent.ConcurrentBag<RoundTrip>())
     let writeLock = obj()
     let totalCells = symbols.Length * timeframes.Length * maLengths.Length
     let mutable doneCells = 0
@@ -248,7 +259,8 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
                                 { defaultConfig ma with
                                     Notional = notional
                                     TakerFee = takerFee
-                                    AllowShort = allowShort }
+                                    AllowShort = allowShort
+                                    MinDailyQuoteVolume = minDailyVolume }
                             yield Cell(symbol, tf, cfg) |]
                 let metrics =
                     if useTrades then
@@ -271,6 +283,11 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
                     lock writeLock (fun () ->
                         printfn "[sweep] %s: no bars in window" symbol)
                 else
+                    // Capture round-trips per (tf, ma, allowShort) bucket so the
+                    // breakdown can pool them later. Cells are 1:1 with metrics.
+                    for cell in cells do
+                        let bag = getTripBag cell.Timeframe cell.Config.MaLength cell.Config.AllowShort
+                        for t in cell.Trips do bag.Add t
                     lock writeLock (fun () ->
                         appendResults resultsCsv metrics
                         for m in metrics do allMetrics.Add m
@@ -293,27 +310,36 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     writeSummary summaryCsv summarySorted
     printfn "[sweep] wrote %d result rows -> %s" metricsArr.Length resultsCsv
     printfn "[sweep] wrote %d summary rows -> %s" summarySorted.Length summaryCsv
-    printfn "[sweep] top 5 cells by median Sharpe:"
-    for s in summarySorted |> Array.truncate 5 do
-        printfn "  tf=%s ma=%d short=%b symbols=%d medSharpe=%.3f meanSharpe=%.3f pctProf=%.2f"
-            s.Timeframe s.MaLength s.AllowShort s.Symbols
-            s.MedianSharpe s.MeanSharpe s.PctProfitable
-    // Per-cell long/short breakdown — helps tell directional bias from real
-    // orderflow edge. If allow_short=false the short side reports as 0/0,
-    // but the long-side numbers still let us compare to buy-and-hold.
-    printfn "[sweep] per-cell long/short breakdown:"
-    let sortedMetrics =
-        metricsArr |> Array.sortBy (fun m -> m.Symbol, m.Timeframe, m.MaLength, m.AllowShort)
-    for m in sortedMetrics do
-        let pctLong =
-            if m.LongTrades > 0 then float m.LongWins / float m.LongTrades else 0.0
-        let pctShort =
-            if m.ShortTrades > 0 then float m.ShortWins / float m.ShortTrades else 0.0
-        printfn "  %s %s ma=%d short=%b | trades=%d sharpe=%.3f net=%.2f | LONG: n=%d wr=%.2f pf=%.2f net=%.2f | SHORT: n=%d wr=%.2f pf=%.2f net=%.2f"
-            m.Symbol m.Timeframe m.MaLength m.AllowShort
-            m.Trades m.Sharpe m.NetPnL
-            m.LongTrades pctLong m.LongProfitFactor m.LongNetPnL
-            m.ShortTrades pctShort m.ShortProfitFactor m.ShortNetPnL
+
+    // Orb-style breakdown — one section per (timeframe, ma_length, allow_short)
+    // group, written to both stdout and a log file alongside the CSVs.
+    let breakdownLogPath =
+        let dir = Path.GetDirectoryName resultsCsv
+        let stem = Path.GetFileNameWithoutExtension resultsCsv
+        Path.Combine(dir, sprintf "%s_breakdown.log" stem)
+    Directory.CreateDirectory(Path.GetDirectoryName breakdownLogPath) |> ignore
+    use logWriter = new StreamWriter(breakdownLogPath, false)
+    let logWrite (s: string) =
+        logWriter.WriteLine s
+        logWriter.Flush()
+    let consoleWrite (s: string) = Console.WriteLine s
+
+    // Sort groups by their summary order so the most interesting cells come
+    // first when scrolling through.
+    for s in summarySorted do
+        let cellMetrics =
+            metricsArr
+            |> Array.filter (fun m ->
+                m.Timeframe = s.Timeframe && m.MaLength = s.MaLength && m.AllowShort = s.AllowShort
+                && m.BarsTotal > 0)
+        let trips =
+            match allTripsByGroup.TryGetValue((s.Timeframe, s.MaLength, s.AllowShort)) with
+            | true, bag -> bag.ToArray()
+            | _ -> [||]
+        printGroupBreakdown logWrite consoleWrite s.Timeframe s.MaLength s.AllowShort notional cellMetrics trips
+
+    printfn ""
+    printfn "[sweep] breakdown -> %s" breakdownLogPath
     printfn "[sweep] total wall %.1fs" swAll.Elapsed.TotalSeconds
     0
 

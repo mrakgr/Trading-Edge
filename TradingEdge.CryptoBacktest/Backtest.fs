@@ -162,7 +162,10 @@ let buildMetrics
 type Cell(symbol: string, timeframe: string, cfg: StrategyConfig) =
     let bucketUs = bucketUsOfTimeframe timeframe
     let builder = TimeBarBuilder(bucketUs)
-    let engine = Engine(cfg)
+    // Inject the actual bucket length into the config so the engine's
+    // liquidity gate can scale per-bar volume to a daily figure.
+    let cfgWithBucket = { cfg with BucketUs = bucketUs }
+    let engine = Engine(cfgWithBucket)
     let mutable barCount = 0
     let mutable startUs = 0L
     let mutable endUs = 0L
@@ -277,6 +280,9 @@ let runCellsFromBars
     // exactly once. Inside a timeframe group, we only need to scan the bar
     // array once if we duplicate it — but cells already share the same input,
     // and pushing into N engines one-by-one is cheap. Keep it simple.
+    //
+    // Liquidity is gated per-bar inside OrderflowMA.Engine (entries only)
+    // when StrategyConfig.MinDailyQuoteVolume > 0.
     let byTf =
         cells
         |> Array.groupBy (fun c -> c.Timeframe)

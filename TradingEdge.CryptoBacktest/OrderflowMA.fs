@@ -40,13 +40,26 @@ type StrategyConfig = {
     /// If true, take a short position when ratio < 1; otherwise stay flat
     /// on the bear signal.
     AllowShort: bool
+    /// Liquidity gate (entries only): the bar at signal time must have
+    /// quote volume × bars-per-day ≥ this threshold (USDT). Models the
+    /// requirement that current liquidity support a market-taker fill.
+    /// Existing positions are NOT subject to this gate — exits always fire.
+    /// Set to 0 to disable.
+    MinDailyQuoteVolume: float
+    /// Microseconds per bar at this strategy's timeframe — needed to
+    /// extrapolate per-bar volume to a daily figure for the gate. The
+    /// engine receives a per-bar volume of (buyDV + sellDV); to compare
+    /// across timeframes we scale by (1 day / bucketUs).
+    BucketUs: int64
 }
 
 let defaultConfig (maLength: int) : StrategyConfig =
     { MaLength = maLength
       Notional = 1000.0
       TakerFee = 0.0004
-      AllowShort = false }
+      AllowShort = false
+      MinDailyQuoteVolume = 0.0
+      BucketUs = 0L }
 
 type RoundTrip = {
     EntryUs: int64
@@ -121,6 +134,16 @@ type Engine(cfg: StrategyConfig) =
         entryPrice <- 0.0
         entryUs <- 0L
 
+    // Liquidity gate (entries only). If MinDailyQuoteVolume = 0 the gate is
+    // disabled. Otherwise compare this bar's implied daily quote volume
+    // (= per-bar volume × bars-per-day) against the threshold.
+    let entryAllowed (bar: SignedBar) =
+        if cfg.MinDailyQuoteVolume <= 0.0 || cfg.BucketUs <= 0L then true
+        else
+            let dvThisBar = bar.BuyDollarVolume + bar.SellDollarVolume
+            let barsPerDay = 86_400_000_000.0 / float cfg.BucketUs
+            dvThisBar * barsPerDay >= cfg.MinDailyQuoteVolume
+
     member _.BarsSeen = barsSeen
     member _.Trips = trips :> seq<RoundTrip>
 
@@ -146,8 +169,15 @@ type Engine(cfg: StrategyConfig) =
                 elif bearish && cfg.AllowShort then Short
                 else Flat
             if target <> side then
+                // Exits always fire — once we're in a position, we want out
+                // regardless of current bar liquidity. (In live trading we'd
+                // take whatever fill we can get; this matches that behavior.)
                 if side <> Flat then closePos bar.Close bar.EndUs
-                if target <> Flat then openPos target bar.Close bar.EndUs
+                // Entries are gated: if liquidity is insufficient, suppress
+                // the entry but stay flat. The next bar with a fresh signal
+                // and adequate liquidity will pick the trade back up.
+                if target <> Flat && entryAllowed bar then
+                    openPos target bar.Close bar.EndUs
 
     /// Force-close any open position at the last seen bar's close.
     member _.Flush() =
