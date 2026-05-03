@@ -230,6 +230,13 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     // finishes, so a partial run still leaves a usable file. Header is
     // written once on first append.
     if File.Exists resultsCsv then File.Delete resultsCsv
+    // Clear any per-cell-config trips files from a prior run so this run
+    // starts fresh. Pattern: {results-stem}_trips_{tf}_ma{N}_{ls|long}.csv
+    let resultsDir = Path.GetDirectoryName resultsCsv
+    let resultsStem = Path.GetFileNameWithoutExtension resultsCsv
+    if Directory.Exists resultsDir then
+        for f in Directory.EnumerateFiles(resultsDir, sprintf "%s_trips_*.csv" resultsStem) do
+            File.Delete f
 
     let allMetrics = System.Collections.Concurrent.ConcurrentBag<Metrics>()
     // Round-trips are captured per (timeframe, ma_length, allow_short) so the
@@ -286,8 +293,21 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
                     // Capture round-trips per (tf, ma, allowShort) bucket so the
                     // breakdown can pool them later. Cells are 1:1 with metrics.
                     for cell in cells do
+                        let trips = cell.Trips
                         let bag = getTripBag cell.Timeframe cell.Config.MaLength cell.Config.AllowShort
-                        for t in cell.Trips do bag.Add t
+                        for t in trips do bag.Add t
+                        // Also stream this cell's trips to a per-cell-config CSV
+                        // (one file per (timeframe, ma_length, allow_short)).
+                        if trips.Length > 0 then
+                            let tripsPath =
+                                let dir = Path.GetDirectoryName resultsCsv
+                                let stem = Path.GetFileNameWithoutExtension resultsCsv
+                                let shortTag = if cell.Config.AllowShort then "ls" else "long"
+                                Path.Combine(dir,
+                                    sprintf "%s_trips_%s_ma%d_%s.csv"
+                                        stem cell.Timeframe cell.Config.MaLength shortTag)
+                            lock writeLock (fun () ->
+                                appendTrips tripsPath cell.Symbol cell.Timeframe cell.Config trips)
                     lock writeLock (fun () ->
                         appendResults resultsCsv metrics
                         for m in metrics do allMetrics.Add m

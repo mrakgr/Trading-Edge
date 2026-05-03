@@ -141,32 +141,57 @@ let writeSummary (path: string) (rows: SummaryRow[]) =
     writeAtomic path lines
 
 let tripsHeader =
-    "symbol,timeframe,ma_length,allow_short,entry_us,exit_us,side,entry_price,exit_price,net_pnl,fees"
+    "symbol,timeframe,ma_length,allow_short,entry_us,exit_us,side,entry_price,exit_price,net_pnl,fees,bars_held,mfe,mae,ratio_at_entry"
+
+let private sideStr =
+    function
+    | Flat -> "flat"
+    | Long -> "long"
+    | Short -> "short"
+
+let private tripRow (symbol: string) (timeframe: string) (cfg: StrategyConfig) (t: RoundTrip) : string =
+    String.concat "," [
+        symbol
+        timeframe
+        string cfg.MaLength
+        (if cfg.AllowShort then "1" else "0")
+        string t.EntryUs
+        string t.ExitUs
+        sideStr t.Side
+        fmt t.EntryPrice
+        fmt t.ExitPrice
+        fmt t.NetPnL
+        fmt t.Fees
+        string t.BarsHeld
+        fmt t.MaxFavorableExcursion
+        fmt t.MaxAdverseExcursion
+        fmt t.RatioAtEntry
+    ]
 
 let writeTrips (path: string) (symbol: string) (timeframe: string) (cfg: StrategyConfig) (trips: RoundTrip[]) =
-    let sideStr =
-        function
-        | Flat -> "flat"
-        | Long -> "long"
-        | Short -> "short"
     let lines = seq {
         yield tripsHeader
         for t in trips ->
-            String.concat "," [
-                symbol
-                timeframe
-                string cfg.MaLength
-                (if cfg.AllowShort then "1" else "0")
-                string t.EntryUs
-                string t.ExitUs
-                sideStr t.Side
-                fmt t.EntryPrice
-                fmt t.ExitPrice
-                fmt t.NetPnL
-                fmt t.Fees
-            ]
+            tripRow symbol timeframe cfg t
     }
     writeAtomic path lines
+
+/// Append a batch of trips for one (symbol, timeframe, ma) cell to a single
+/// shared CSV. Header is written on first append; subsequent appends just add
+/// rows. Used by the sweep to build a per-cell-config trips file containing
+/// every symbol's round-trips for that (timeframe, ma) combination.
+let appendTrips
+    (path: string)
+    (symbol: string)
+    (timeframe: string)
+    (cfg: StrategyConfig)
+    (trips: RoundTrip[])
+    : unit =
+    Directory.CreateDirectory(Path.GetDirectoryName path) |> ignore
+    let exists = File.Exists path
+    use sw = new StreamWriter(path, append = true)
+    if not exists then sw.WriteLine tripsHeader
+    for t in trips do sw.WriteLine(tripRow symbol timeframe cfg t)
 
 // =============================================================================
 // Orb-style breakdown report
@@ -346,5 +371,76 @@ let printGroupBreakdown
     plnf "  Short net P&L:      $%.2f" shortPnL
     plnf "  Short avg trade:    $%.4f" avgShort
     plnf "  Short profit factor: %s" (if Double.IsPositiveInfinity shortPF then "inf" else sprintf "%.3f" shortPF)
-    // Suppress notional (always 1000) — doesn't add information.
-    ignore notional
+    plnf ""
+
+    // ----- Excursion (MFE / MAE) and holding-period analysis -----
+    //
+    // MAE distribution on the SHORT side is the squeeze metric: a tight
+    // distribution (worst case ~ -5% to -10% of notional) means the system
+    // is closing shorts before they get squeezed; a fat tail (worst case
+    // -50%+) means many shorts sit through painful rebounds.
+    let pnlPct (t: RoundTrip) =
+        // Express MFE/MAE as % of notional. With fixed $1000 notional this
+        // is simply value/10. Keep the explicit form so it stays correct
+        // if notional ever varies.
+        100.0 * t.MaxFavorableExcursion / notional,
+        100.0 * t.MaxAdverseExcursion / notional
+
+    let excursionStats label (tps: RoundTrip[]) =
+        if tps.Length = 0 then
+            plnf "  %-18s (no trades)" label
+        else
+            let mfes = tps |> Array.map (fun t -> fst (pnlPct t))
+            let maes = tps |> Array.map (fun t -> snd (pnlPct t))
+            let bars = tps |> Array.map (fun t -> float t.BarsHeld)
+            let ratios = tps |> Array.map (fun t -> t.RatioAtEntry)
+            plnf "  %s" label
+            plnf "    MFE %% (favorable): p5=%.2f  p25=%.2f  med=%.2f  p75=%.2f  p95=%.2f  mean=%.2f"
+                (percentile mfes 0.05) (percentile mfes 0.25) (percentile mfes 0.5)
+                (percentile mfes 0.75) (percentile mfes 0.95) (Array.average mfes)
+            plnf "    MAE %% (adverse):   p5=%.2f  p25=%.2f  med=%.2f  p75=%.2f  p95=%.2f  mean=%.2f"
+                (percentile maes 0.05) (percentile maes 0.25) (percentile maes 0.5)
+                (percentile maes 0.75) (percentile maes 0.95) (Array.average maes)
+            plnf "    Bars held:         p5=%.0f  p25=%.0f  med=%.0f  p75=%.0f  p95=%.0f  mean=%.1f"
+                (percentile bars 0.05) (percentile bars 0.25) (percentile bars 0.5)
+                (percentile bars 0.75) (percentile bars 0.95) (Array.average bars)
+            plnf "    Ratio at entry:    p5=%.3f  p25=%.3f  med=%.3f  p75=%.3f  p95=%.3f  mean=%.3f"
+                (percentile ratios 0.05) (percentile ratios 0.25) (percentile ratios 0.5)
+                (percentile ratios 0.75) (percentile ratios 0.95) (Array.average ratios)
+
+    plnf "--- Excursion + Holding (per-trade) ---"
+    excursionStats "All trades:" allTrips
+    excursionStats "Long trades:" longTrips
+    excursionStats "Short trades:" shortTrips
+    plnf ""
+
+    // ----- Squeeze-survival breakdown (shorts only) -----
+    // Bucket short trades by their MAE depth and report win rate / avg P&L
+    // within each bucket. Tells us whether shorts that dipped deep into the
+    // red still recovered (would surprise us — usually deep MAE = stop-out
+    // territory) or whether the system effectively avoids that scenario.
+    if shortTrips.Length > 0 then
+        plnf "--- Short Squeeze-Survival (by MAE %% of notional) ---"
+        let buckets =
+            [| "MAE > -2%",       (fun (mae: float) -> mae > -2.0)
+               "MAE -2% to -5%",  (fun mae -> mae <= -2.0 && mae > -5.0)
+               "MAE -5% to -10%", (fun mae -> mae <= -5.0 && mae > -10.0)
+               "MAE -10% to -20%",(fun mae -> mae <= -10.0 && mae > -20.0)
+               "MAE -20% to -50%",(fun mae -> mae <= -20.0 && mae > -50.0)
+               "MAE <= -50%",     (fun mae -> mae <= -50.0) |]
+        plnf "  %-22s %8s %8s %10s %10s %10s"
+            "bucket" "trades" "wins" "winRate" "avgPnL$" "totalPnL$"
+        for (label, pred) in buckets do
+            let inBucket =
+                shortTrips
+                |> Array.filter (fun t ->
+                    let _, maePct = pnlPct t
+                    pred maePct)
+            if inBucket.Length > 0 then
+                let nWin = inBucket |> Array.filter (fun t -> t.NetPnL > 0.0) |> Array.length
+                let total = inBucket |> Array.sumBy (fun t -> t.NetPnL)
+                let avg = total / float inBucket.Length
+                let wr = 100.0 * float nWin / float inBucket.Length
+                plnf "  %-22s %8d %8d %9.1f%% %10.2f %10.2f"
+                    label inBucket.Length nWin wr avg total
+        plnf ""

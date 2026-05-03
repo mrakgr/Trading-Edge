@@ -71,6 +71,24 @@ type RoundTrip = {
     NetPnL: float
     /// Total fees paid on this round-trip (entry + exit), in quote currency.
     Fees: float
+    /// Number of bars the position was held (entry bar through exit bar
+    /// inclusive). 1 means entered and exited on consecutive bars.
+    BarsHeld: int
+    /// Maximum favorable excursion: the most-positive unrealized P&L
+    /// during the trade, in quote currency. For longs computed against
+    /// each bar's High; for shorts against each bar's Low. Excludes fees.
+    /// 0 if the position was always offside.
+    MaxFavorableExcursion: float
+    /// Maximum adverse excursion: the most-negative unrealized P&L during
+    /// the trade, in quote currency (so a value of -50 means we were down
+    /// $50 at the worst point). For longs computed against each bar's Low;
+    /// for shorts against each bar's High. Excludes fees. 0 if the
+    /// position was always green.
+    /// **The squeeze metric for shorts.**
+    MaxAdverseExcursion: float
+    /// The orderflow ratio (sumBuy / sumSell) at the close of the
+    /// signal-producing bar — i.e. what triggered the entry.
+    RatioAtEntry: float
 }
 
 let private feeOnFill (cfg: StrategyConfig) : float =
@@ -107,16 +125,29 @@ type Engine(cfg: StrategyConfig) =
     let mutable side = Flat
     let mutable entryPrice = 0.0
     let mutable entryUs = 0L
+    // Per-trade tracking: barsHeld counts the entry bar plus every bar the
+    // position was alive through. mfeUsd / maeUsd are the running maxima of
+    // favorable / adverse unrealized P&L, in quote currency, derived from
+    // each bar's High/Low. ratioAtEntry is the orderflow ratio that
+    // produced the entry signal.
+    let mutable barsHeld = 0
+    let mutable mfeUsd = 0.0
+    let mutable maeUsd = 0.0
+    let mutable ratioAtEntry = 0.0
 
     let mutable lastClose = 0.0
     let mutable lastUs = 0L
 
     let trips = ResizeArray<RoundTrip>()
 
-    let openPos (newSide: Side) (fillPrice: float) (fillUs: int64) =
+    let openPos (newSide: Side) (fillPrice: float) (fillUs: int64) (ratio: float) =
         side <- newSide
         entryPrice <- fillPrice
         entryUs <- fillUs
+        barsHeld <- 1
+        mfeUsd <- 0.0
+        maeUsd <- 0.0
+        ratioAtEntry <- ratio
 
     let closePos (fillPrice: float) (fillUs: int64) =
         let gross = grossPnL side entryPrice fillPrice cfg.Notional
@@ -129,10 +160,44 @@ type Engine(cfg: StrategyConfig) =
             ExitPrice = fillPrice
             NetPnL = gross - fees
             Fees = fees
+            BarsHeld = barsHeld
+            MaxFavorableExcursion = mfeUsd
+            MaxAdverseExcursion = maeUsd
+            RatioAtEntry = ratioAtEntry
         }
         side <- Flat
         entryPrice <- 0.0
         entryUs <- 0L
+        barsHeld <- 0
+        mfeUsd <- 0.0
+        maeUsd <- 0.0
+        ratioAtEntry <- 0.0
+
+    // Update MAE/MFE for the bar just observed, given that the position is
+    // still open at this point. For longs, the bar's High is the most-
+    // favorable price reached and the Low is the most-adverse. For shorts,
+    // it's mirrored. Excludes fees — the running unrealized P&L is gross.
+    let updateExcursion (bar: SignedBar) =
+        if side = Flat then ()
+        else
+            let qty = cfg.Notional / entryPrice
+            let favorPrice, adversePrice =
+                match side with
+                | Long  -> bar.High, bar.Low
+                | Short -> bar.Low,  bar.High
+                | Flat  -> 0.0, 0.0  // unreachable, we checked above
+            let favorPnl =
+                match side with
+                | Long  -> (favorPrice - entryPrice) * qty
+                | Short -> (entryPrice - favorPrice) * qty
+                | Flat  -> 0.0
+            let advPnl =
+                match side with
+                | Long  -> (adversePrice - entryPrice) * qty
+                | Short -> (entryPrice - adversePrice) * qty
+                | Flat  -> 0.0
+            if favorPnl > mfeUsd then mfeUsd <- favorPnl
+            if advPnl < maeUsd then maeUsd <- advPnl
 
     // Liquidity gate (entries only). If MinDailyQuoteVolume = 0 the gate is
     // disabled. Otherwise compare this bar's implied daily quote volume
@@ -148,6 +213,16 @@ type Engine(cfg: StrategyConfig) =
     member _.Trips = trips :> seq<RoundTrip>
 
     member _.ProcessBar(bar: SignedBar) =
+        // Step 1: update excursion tracking on this bar BEFORE any close.
+        // The position was alive through this entire bar (we entered at the
+        // PREVIOUS bar's close, or earlier), so this bar's High/Low contribute.
+        // For the entry bar itself, barsHeld was set to 1 at open and we
+        // skip excursion tracking on it (the high/low were already established
+        // when we opened, so they don't count).
+        if side <> Flat && barsHeld > 0 then
+            updateExcursion bar
+            barsHeld <- barsHeld + 1
+
         let slot = barsSeen % n
         if barsSeen >= n then
             sumBuy <- sumBuy - buyBuf.[slot]
@@ -177,7 +252,7 @@ type Engine(cfg: StrategyConfig) =
                 // the entry but stay flat. The next bar with a fresh signal
                 // and adequate liquidity will pick the trade back up.
                 if target <> Flat && entryAllowed bar then
-                    openPos target bar.Close bar.EndUs
+                    openPos target bar.Close bar.EndUs ratio
 
     /// Force-close any open position at the last seen bar's close.
     member _.Flush() =
