@@ -146,7 +146,7 @@ let cmdRun (args: ParseResults<RunArgs>) : int =
             // run subcommand always reads funding when available; pass --use-trades
             // to disable both the bar path and funding accounting.
             let fundingRoot = Some defaultFundingRoot
-            let metrics = runCellsFromBars barsRoot symbol startDate endDate [| cell |] fundingRoot
+            let metrics, _adv = runCellsFromBars barsRoot symbol startDate endDate [| cell |] fundingRoot
             metrics.[0], cell.Trips
         else
             let inp = {
@@ -265,6 +265,11 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
         System.Collections.Concurrent.ConcurrentDictionary<string * int * bool, System.Collections.Concurrent.ConcurrentBag<RoundTrip>>()
     let getTripBag (tf: string) (ma: int) (sh: bool) =
         allTripsByGroup.GetOrAdd((tf, ma, sh), fun _ -> System.Collections.Concurrent.ConcurrentBag<RoundTrip>())
+    // Per-symbol average daily quote volume (USDT). Computed once per symbol
+    // during runCellsFromBars and kept here for the breakdown's volume-decile
+    // stratification.
+    let advBySymbol =
+        System.Collections.Concurrent.ConcurrentDictionary<string, float>()
     let writeLock = obj()
     let totalCells = symbols.Length * timeframes.Length * maLengths.Length
     let mutable doneCells = 0
@@ -290,7 +295,7 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
                                     MaxAdverseFraction = maxAdversePct / 100.0
                                     ReferenceVol = referenceVolPct / 100.0 }
                             yield Cell(symbol, tf, cfg) |]
-                let metrics =
+                let metrics, adv =
                     if useTrades then
                         let mutable daysSeen = 0
                         let mutable tradesAccum = 0L
@@ -303,7 +308,10 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
                                         symbol (d.ToString "yyyy-MM-dd")
                                         daysSeen (tradesAccum.ToString "N0")
                                         swSym.Elapsed.TotalSeconds)
-                        runCells dataRoot symbol startDate endDate cells (Some onDay)
+                        // Trades path doesn't compute ADV (would require a
+                        // separate pass); leave it 0 and the breakdown will
+                        // see all symbols in the bottom decile.
+                        runCells dataRoot symbol startDate endDate cells (Some onDay), 0.0
                     else
                         runCellsFromBars barsRoot symbol startDate endDate cells fundingRoot
                 let nonEmpty = metrics |> Array.filter (fun m -> m.BarsTotal > 0)
@@ -311,6 +319,7 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
                     lock writeLock (fun () ->
                         printfn "[sweep] %s: no bars in window" symbol)
                 else
+                    if adv > 0.0 then advBySymbol.[symbol] <- adv
                     // Capture round-trips per (tf, ma, allowShort) bucket so the
                     // breakdown can pool them later. Cells are 1:1 with metrics.
                     for cell in cells do
@@ -377,7 +386,7 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
             match allTripsByGroup.TryGetValue((s.Timeframe, s.MaLength, s.AllowShort)) with
             | true, bag -> bag.ToArray()
             | _ -> [||]
-        printGroupBreakdown logWrite consoleWrite s.Timeframe s.MaLength s.AllowShort notional cellMetrics trips
+        printGroupBreakdown logWrite consoleWrite s.Timeframe s.MaLength s.AllowShort notional cellMetrics trips advBySymbol
 
     printfn ""
     printfn "[sweep] breakdown -> %s" breakdownLogPath

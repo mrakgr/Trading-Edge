@@ -286,6 +286,20 @@ let runOne (inp: RunInputs) (onDay: (DateTime -> int -> unit) option) : Metrics 
 // millions of trades per day. This is the fast path used by the sweep when
 // --bars-root is set.
 
+/// Average daily quote-volume of a bar series, in USDT. Sums per-bar
+/// (buy + sell) dollar volume and divides by the number of days actually
+/// covered using the bars' first and last timestamps. Returns 0 when fewer
+/// than 2 bars or zero days span.
+let avgDailyVolume (bars: SignedBar[]) : float =
+    if bars.Length < 2 then 0.0
+    else
+        let totalDV =
+            bars |> Array.sumBy (fun b -> b.BuyDollarVolume + b.SellDollarVolume)
+        let firstUs = bars.[0].StartUs
+        let lastUs = bars.[bars.Length - 1].EndUs
+        let days = float (lastUs - firstUs) / (86400.0 * 1_000_000.0)
+        if days > 0.0 then totalDV / days else 0.0
+
 let runCellsFromBars
     (barsRoot: string)
     (symbol: string)
@@ -293,7 +307,7 @@ let runCellsFromBars
     (endDate: System.DateTime)
     (cells: Cell[])
     (fundingRoot: string option)
-    : Metrics[] =
+    : Metrics[] * float =
     // Group cells by timeframe so each timeframe's bar parquet is loaded
     // exactly once. Inside a timeframe group, we only need to scan the bar
     // array once if we duplicate it — but cells already share the same input,
@@ -305,6 +319,11 @@ let runCellsFromBars
     // Funding events (when fundingRoot is Some) are loaded once per symbol
     // and shared across all timeframes/cells — funding is wall-clock-anchored
     // (00:00, 08:00, 16:00 UTC) so the same event list applies to every cell.
+    //
+    // Returns (Metrics[], avgDailyVolume) — the ADV is computed from the
+    // FIRST timeframe's bars and is timeframe-invariant, so we just pass
+    // it back so the caller (sweep) can stratify symbols by liquidity tier
+    // in the breakdown.
     let fundingEvents =
         match fundingRoot with
         | Some root when FundingLoader.exists root symbol ->
@@ -317,10 +336,16 @@ let runCellsFromBars
     let byTf =
         cells
         |> Array.groupBy (fun c -> c.Timeframe)
+    let mutable adv = 0.0
+    let mutable advSet = false
     for (tf, group) in byTf do
         let bars = BarLoader.loadByDate barsRoot tf symbol startDate endDate
+        if not advSet && bars.Length > 0 then
+            adv <- avgDailyVolume bars
+            advSet <- true
         for cell in group do
             cell.PushBars bars
     for cell in cells do
         cell.Close()
-    cells |> Array.map (fun c -> c.BuildMetrics())
+    let metrics = cells |> Array.map (fun c -> c.BuildMetrics())
+    metrics, adv

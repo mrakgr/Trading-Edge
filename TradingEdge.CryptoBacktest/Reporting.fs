@@ -229,6 +229,7 @@ let printGroupBreakdown
     (notional: float)
     (cellMetrics: Metrics[])
     (allTrips: RoundTrip[])
+    (advBySymbol: System.Collections.Generic.IDictionary<string, float>)
     : unit =
     let pln (s: string) =
         consoleWrite s
@@ -449,3 +450,86 @@ let printGroupBreakdown
                 plnf "  %-22s %8d %8d %9.1f%% %10.2f %10.2f"
                     label inBucket.Length nWin wr avg total
         plnf ""
+
+    // ----- Volume-decile stratification -----
+    // Tests the "big = long edge, small = short edge" thesis: rank symbols
+    // by average daily quote volume (USDT/day), bin into 10 deciles, then
+    // report per-decile long PF and short PF. If the thesis holds, long PF
+    // should rise monotonically with decile (decile 10 = biggest) and
+    // short PF should fall.
+    let symbolsWithAdv =
+        cellMetrics
+        |> Array.choose (fun m ->
+            match advBySymbol.TryGetValue m.Symbol with
+            | true, v when v > 0.0 -> Some (m.Symbol, v)
+            | _ -> None)
+        |> Array.distinctBy fst
+    if symbolsWithAdv.Length >= 10 then
+        plnf "--- Volume Decile Stratification (avg daily USDT volume) ---"
+        // Rank symbols by ADV ascending so decile 1 = smallest, 10 = biggest.
+        let ranked = symbolsWithAdv |> Array.sortBy snd
+        let n = ranked.Length
+        // Per-decile bounds (inclusive). Symbol i goes into decile
+        // (i * 10 / n) + 1, clamped to [1, 10].
+        let decileOf (i: int) = min 10 (max 1 ((i * 10) / n + 1))
+        let symbolDecile =
+            ranked
+            |> Array.mapi (fun i (sym, _) -> sym, decileOf i)
+            |> dict
+        let advByDecile =
+            ranked
+            |> Array.mapi (fun i (_, adv) -> decileOf i, adv)
+            |> Array.groupBy fst
+            |> Array.map (fun (d, xs) ->
+                let advs = xs |> Array.map snd
+                let lo = Array.min advs
+                let hi = Array.max advs
+                d, lo, hi, advs.Length)
+            |> Array.sortBy (fun (d, _, _, _) -> d)
+        // Aggregate per-decile via cellMetrics (each metric carries the
+        // symbol). The pooled allTrips bag drops symbol identity, so we
+        // can't bin individual trips directly — but cellMetrics carries
+        // pre-aggregated long/short P&L per symbol, which is exactly what
+        // we need to compute decile-level totals and ratios.
+        plnf "  %-7s %12s %12s %8s %10s %10s %10s %10s %10s"
+            "decile" "advLo$" "advHi$" "symbols"
+            "longTrades" "longPnL$" "longPF" "shortPnL$" "shortPF"
+        let pfRatio (gw: float) (gl: float) =
+            if gl > 0.0 then sprintf "%.3f" (gw / gl)
+            elif gw > 0.0 then "inf"
+            else "0.000"
+        for (d, lo, hi, nSyms) in advByDecile do
+            let inDecile =
+                cellMetrics
+                |> Array.filter (fun m ->
+                    match symbolDecile.TryGetValue m.Symbol with
+                    | true, di -> di = d
+                    | _ -> false)
+            let longN = inDecile |> Array.sumBy (fun m -> m.LongTrades)
+            let longPnL = inDecile |> Array.sumBy (fun m -> m.LongNetPnL)
+            let shortN = inDecile |> Array.sumBy (fun m -> m.ShortTrades)
+            let shortPnL = inDecile |> Array.sumBy (fun m -> m.ShortNetPnL)
+            // PF here uses cell-level long/short net P&L: for each symbol,
+            // contribute m.LongNetPnL to either gross-wins or gross-losses
+            // depending on sign. This isn't the same as trade-level PF (which
+            // looks at every individual trade), but symbol-level PF is what
+            // tells us whether the strategy works on most symbols within
+            // the decile. The thesis is about consistency across symbols
+            // in a tier, not about every trade — so symbol-level is right.
+            let longGwPos =
+                inDecile |> Array.sumBy (fun m -> if m.LongNetPnL > 0.0 then m.LongNetPnL else 0.0)
+            let longGwNeg =
+                inDecile |> Array.sumBy (fun m -> if m.LongNetPnL < 0.0 then -m.LongNetPnL else 0.0)
+            let shortGwPos =
+                inDecile |> Array.sumBy (fun m -> if m.ShortNetPnL > 0.0 then m.ShortNetPnL else 0.0)
+            let shortGwNeg =
+                inDecile |> Array.sumBy (fun m -> if m.ShortNetPnL < 0.0 then -m.ShortNetPnL else 0.0)
+            plnf "  %-7d %12s %12s %8d %10d %10.0f %10s %10.0f %10s"
+                d
+                (lo.ToString "N0") (hi.ToString "N0") nSyms
+                longN longPnL (pfRatio longGwPos longGwNeg)
+                shortPnL (pfRatio shortGwPos shortGwNeg)
+        plnf ""
+    else
+        // Skip section if too few symbols to bin meaningfully.
+        ()
