@@ -22,7 +22,7 @@ let private writeAtomic (path: string) (lines: seq<string>) =
     File.Move(tmp, path)
 
 let resultsHeader =
-    "symbol,timeframe,ma_length,allow_short,bars_total,trades,wins,win_rate,profit_factor,net_pnl,gross_wins,gross_losses,sharpe,max_drawdown,total_return_pct,start_us,end_us"
+    "symbol,timeframe,ma_length,allow_short,bars_total,trades,wins,win_rate,profit_factor,net_pnl,gross_wins,gross_losses,sharpe,max_drawdown,total_return_pct,long_trades,long_wins,long_net_pnl,long_profit_factor,short_trades,short_wins,short_net_pnl,short_profit_factor,start_us,end_us"
 
 let private resultsRow (m: Metrics) : string =
     String.concat "," [
@@ -41,6 +41,14 @@ let private resultsRow (m: Metrics) : string =
         fmt m.Sharpe
         fmt m.MaxDrawdown
         fmt m.TotalReturnPct
+        string m.LongTrades
+        string m.LongWins
+        fmt m.LongNetPnL
+        fmt m.LongProfitFactor
+        string m.ShortTrades
+        string m.ShortWins
+        fmt m.ShortNetPnL
+        fmt m.ShortProfitFactor
         string m.StartUs
         string m.EndUs
     ]

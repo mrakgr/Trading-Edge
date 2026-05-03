@@ -262,6 +262,22 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
         printfn "  tf=%s ma=%d short=%b symbols=%d medSharpe=%.3f meanSharpe=%.3f pctProf=%.2f"
             s.Timeframe s.MaLength s.AllowShort s.Symbols
             s.MedianSharpe s.MeanSharpe s.PctProfitable
+    // Per-cell long/short breakdown — helps tell directional bias from real
+    // orderflow edge. If allow_short=false the short side reports as 0/0,
+    // but the long-side numbers still let us compare to buy-and-hold.
+    printfn "[sweep] per-cell long/short breakdown:"
+    let sortedMetrics =
+        metricsArr |> Array.sortBy (fun m -> m.Symbol, m.Timeframe, m.MaLength, m.AllowShort)
+    for m in sortedMetrics do
+        let pctLong =
+            if m.LongTrades > 0 then float m.LongWins / float m.LongTrades else 0.0
+        let pctShort =
+            if m.ShortTrades > 0 then float m.ShortWins / float m.ShortTrades else 0.0
+        printfn "  %s %s ma=%d short=%b | trades=%d sharpe=%.3f net=%.2f | LONG: n=%d wr=%.2f pf=%.2f net=%.2f | SHORT: n=%d wr=%.2f pf=%.2f net=%.2f"
+            m.Symbol m.Timeframe m.MaLength m.AllowShort
+            m.Trades m.Sharpe m.NetPnL
+            m.LongTrades pctLong m.LongProfitFactor m.LongNetPnL
+            m.ShortTrades pctShort m.ShortProfitFactor m.ShortNetPnL
     printfn "[sweep] total wall %.1fs" swAll.Elapsed.TotalSeconds
     0
 

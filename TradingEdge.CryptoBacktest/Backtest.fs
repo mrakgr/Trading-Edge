@@ -32,6 +32,18 @@ type Metrics = {
     /// NetPnL / Notional. Per-trade dollar return scaled to a 1-unit notional
     /// for cross-symbol comparison.
     TotalReturnPct: float
+    // Per-side breakdown — important for telling whether long-only profit
+    // is genuine signal or just trend-capture in a rising market. If the
+    // long side carries the entire result and shorts are flat or losing
+    // 1-for-1, the signal is mostly directional bias, not orderflow edge.
+    LongTrades: int
+    LongWins: int
+    LongNetPnL: float
+    LongProfitFactor: float
+    ShortTrades: int
+    ShortWins: int
+    ShortNetPnL: float
+    ShortProfitFactor: float
     StartUs: int64
     EndUs: int64
 }
@@ -69,6 +81,13 @@ let private maxDrawdown (pnls: float[]) : float =
 /// Build Metrics from already-aggregated state. Caller supplies the bar
 /// count, trip array, and the start/end timestamp range — none of which
 /// require keeping the bar array around in memory.
+let private profitFactor (pnls: float[]) : float =
+    let gw = pnls |> Array.sumBy (fun p -> if p > 0.0 then p else 0.0)
+    let gl = pnls |> Array.sumBy (fun p -> if p < 0.0 then -p else 0.0)
+    if gl > 0.0 then gw / gl
+    elif gw > 0.0 then infinity
+    else 0.0
+
 let buildMetrics
     (symbol: string)
     (timeframe: string)
@@ -83,10 +102,7 @@ let buildMetrics
     let losses = pnls |> Array.filter (fun p -> p < 0.0)
     let grossW = wins |> Array.sumBy id
     let grossL = losses |> Array.sumBy (fun p -> -p)
-    let pf =
-        if grossL > 0.0 then grossW / grossL
-        elif grossW > 0.0 then infinity
-        else 0.0
+    let pf = profitFactor pnls
     let netPnL = pnls |> Array.sumBy id
     let returns = pnls |> Array.map (fun p -> p / cfg.Notional)
     let years =
@@ -99,6 +115,10 @@ let buildMetrics
             let tradesPerYear = float returns.Length / years
             (m / s) * sqrt tradesPerYear
         else 0.0
+    let longTrips = trips |> Array.filter (fun t -> t.Side = Long)
+    let shortTrips = trips |> Array.filter (fun t -> t.Side = Short)
+    let longPnls = longTrips |> Array.map (fun t -> t.NetPnL)
+    let shortPnls = shortTrips |> Array.map (fun t -> t.NetPnL)
     {
         Symbol = symbol
         Timeframe = timeframe
@@ -115,6 +135,14 @@ let buildMetrics
         Sharpe = sharpe
         MaxDrawdown = maxDrawdown pnls
         TotalReturnPct = netPnL / cfg.Notional
+        LongTrades = longTrips.Length
+        LongWins = longPnls |> Array.filter (fun p -> p > 0.0) |> Array.length
+        LongNetPnL = Array.sum longPnls
+        LongProfitFactor = profitFactor longPnls
+        ShortTrades = shortTrips.Length
+        ShortWins = shortPnls |> Array.filter (fun p -> p > 0.0) |> Array.length
+        ShortNetPnL = Array.sum shortPnls
+        ShortProfitFactor = profitFactor shortPnls
         StartUs = startUs
         EndUs = endUs
     }
