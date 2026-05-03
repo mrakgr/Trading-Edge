@@ -20,9 +20,8 @@ open TradingEdge.CryptoBacktest.SignedBar
 //   ratio > 1  →  long
 //   ratio < 1  →  flat (default) or short (configurable)
 //
-// Entry/exit happens at the close of the bar that crossed the threshold; the
-// fill price is the next bar's VWAP. We size to a fixed dollar notional
-// regardless of price so cross-symbol P&L numbers are comparable.
+// Fill model: decision at the close of bar i (using bars [i-N+1 .. i]),
+// position taken at bar (i+1)'s VWAP. We never see the bar we trade on.
 
 [<Struct>]
 type Side = Flat | Long | Short
@@ -62,55 +61,68 @@ let private feeOnFill (cfg: StrategyConfig) : float =
     cfg.Notional * cfg.TakerFee
 
 let private grossPnL (side: Side) (entry: float) (exit: float) (notional: float) : float =
-    // Quantity inferred from notional / entry price; long earns (exit/entry - 1) * notional.
     let qty = notional / entry
     match side with
     | Long  -> (exit - entry) * qty
     | Short -> (entry - exit) * qty
     | Flat  -> 0.0
 
-/// Run the strategy over a precomputed bar stream and return the closed
-/// round-trips. Open positions at end-of-data are forced-closed at the last
-/// bar's VWAP so the P&L curve isn't biased by un-realized exposure.
-///
-/// Signal lag: the rolling sum window includes the just-closed bar i, so the
-/// signal direction at time-of-decision uses bars [i - N + 1 .. i]. The fill
-/// happens at bar i+1's VWAP — i.e. we never see the bar we trade on, which
-/// is the standard "no peeking" requirement for a backtest.
-let run (cfg: StrategyConfig) (bars: SignedBar[]) : RoundTrip[] =
-    let n = bars.Length
-    let results = ResizeArray<RoundTrip>()
-    if n < cfg.MaLength + 2 then results.ToArray()
-    else
+// =============================================================================
+// Streaming engine
+// =============================================================================
+//
+// Drive bars in via Process. The previous bar is held back so that when the
+// next bar arrives we can act on the previous bar's signal at the new bar's
+// VWAP — that's the "decide at close, fill at next open" rule. The new bar
+// is what the position is opened/closed at, and only after that do we advance
+// the rolling window.
+//
+// State machine, on each Process(bar):
+//   1. If we have a pendingSignal from the previous bar, execute it at
+//      bar.VWAP (open / close / flip the position).
+//   2. Add bar's contribution to the rolling sums; drop the oldest if window
+//      is full.
+//   3. If window is full, compute ratio and store the resulting target side
+//      as the new pendingSignal. (Won't be acted on until next Process.)
+//
+// Final position is closed via Flush at the symbol's last bar.
 
+type Engine(cfg: StrategyConfig) =
+    let n = cfg.MaLength
+    let buyBuf = Array.zeroCreate<float> n
+    let sellBuf = Array.zeroCreate<float> n
+    let mutable barsSeen = 0
     let mutable sumBuy = 0.0
     let mutable sumSell = 0.0
-    // Prime the rolling window with the first MaLength bars.
-    for i in 0 .. cfg.MaLength - 1 do
-        sumBuy <- sumBuy + bars.[i].BuyDollarVolume
-        sumSell <- sumSell + bars.[i].SellDollarVolume
 
     let mutable side = Flat
     let mutable entryPrice = 0.0
     let mutable entryUs = 0L
 
-    let openPosition (newSide: Side) (fillBarIdx: int) =
-        let bar = bars.[fillBarIdx]
-        side <- newSide
-        entryPrice <- bar.VWAP
-        entryUs <- bar.StartUs
+    // Pending signal: target side computed from the last closed bar, to be
+    // executed at the next bar's VWAP.
+    let mutable hasPending = false
+    let mutable pendingTarget = Flat
 
-    let closePosition (fillBarIdx: int) =
-        let bar = bars.[fillBarIdx]
-        let exitPrice = bar.VWAP
-        let gross = grossPnL side entryPrice exitPrice cfg.Notional
+    let mutable lastBarVwap = 0.0
+    let mutable lastBarStart = 0L
+
+    let trips = ResizeArray<RoundTrip>()
+
+    let openPos (newSide: Side) (fillVwap: float) (fillUs: int64) =
+        side <- newSide
+        entryPrice <- fillVwap
+        entryUs <- fillUs
+
+    let closePos (fillVwap: float) (fillUs: int64) =
+        let gross = grossPnL side entryPrice fillVwap cfg.Notional
         let fees = 2.0 * feeOnFill cfg
-        results.Add {
+        trips.Add {
             EntryUs = entryUs
-            ExitUs = bar.StartUs
+            ExitUs = fillUs
             Side = side
             EntryPrice = entryPrice
-            ExitPrice = exitPrice
+            ExitPrice = fillVwap
             NetPnL = gross - fees
             Fees = fees
         }
@@ -118,44 +130,57 @@ let run (cfg: StrategyConfig) (bars: SignedBar[]) : RoundTrip[] =
         entryPrice <- 0.0
         entryUs <- 0L
 
-    // Decision happens at the close of bar i (i = MaLength - 1 is the first
-    // bar with a full window); fill happens at bar i+1's VWAP. So we walk
-    // i from MaLength - 1 to n - 2.
-    let mutable i = cfg.MaLength - 1
-    while i < n - 1 do
-        let ratio = if sumSell > 0.0 then sumBuy / sumSell else infinity
-        let bullish = ratio > 1.0
-        let bearish = ratio < 1.0
-        let target =
-            if bullish then Long
-            elif bearish && cfg.AllowShort then Short
-            else Flat
+    member _.BarsSeen = barsSeen
+    member _.Trips = trips :> seq<RoundTrip>
 
-        if target <> side then
-            if side <> Flat then closePosition (i + 1)
-            if target <> Flat then openPosition target (i + 1)
+    member _.Process(bar: SignedBar) =
+        // 1. Execute pending signal (if any) at this bar's VWAP.
+        if hasPending then
+            if pendingTarget <> side then
+                if side <> Flat then closePos bar.VWAP bar.StartUs
+                if pendingTarget <> Flat then openPos pendingTarget bar.VWAP bar.StartUs
+            hasPending <- false
 
-        // Slide the rolling window forward by one bar: drop bar i - MaLength + 1, add bar i + 1.
-        let dropIdx = i - cfg.MaLength + 1
-        sumBuy <- sumBuy - bars.[dropIdx].BuyDollarVolume + bars.[i + 1].BuyDollarVolume
-        sumSell <- sumSell - bars.[dropIdx].SellDollarVolume + bars.[i + 1].SellDollarVolume
-        i <- i + 1
+        // 2. Slide the rolling window forward by one bar. Once the buffer is
+        //    full (barsSeen >= n), the oldest entry gets evicted from the sum.
+        let slot = barsSeen % n
+        if barsSeen >= n then
+            sumBuy <- sumBuy - buyBuf.[slot]
+            sumSell <- sumSell - sellBuf.[slot]
+        buyBuf.[slot] <- bar.BuyDollarVolume
+        sellBuf.[slot] <- bar.SellDollarVolume
+        sumBuy <- sumBuy + bar.BuyDollarVolume
+        sumSell <- sumSell + bar.SellDollarVolume
+        barsSeen <- barsSeen + 1
 
-    // Force-close any open position at the last bar's VWAP. This avoids
-    // letting an open trade silently inflate or deflate reported P&L.
-    if side <> Flat then
-        let bar = bars.[n - 1]
-        let exitPrice = bar.VWAP
-        let gross = grossPnL side entryPrice exitPrice cfg.Notional
-        let fees = 2.0 * feeOnFill cfg
-        results.Add {
-            EntryUs = entryUs
-            ExitUs = bar.StartUs
-            Side = side
-            EntryPrice = entryPrice
-            ExitPrice = exitPrice
-            NetPnL = gross - fees
-            Fees = fees
-        }
+        // 3. Once window is full, compute ratio and set next bar's target.
+        if barsSeen >= n then
+            let ratio = if sumSell > 0.0 then sumBuy / sumSell else infinity
+            let bullish = ratio > 1.0
+            let bearish = ratio < 1.0
+            pendingTarget <-
+                if bullish then Long
+                elif bearish && cfg.AllowShort then Short
+                else Flat
+            hasPending <- true
 
-    results.ToArray()
+        lastBarVwap <- bar.VWAP
+        lastBarStart <- bar.StartUs
+
+    /// Force-close any open position at the last bar's VWAP. The pending
+    /// signal is dropped — it would have been executed against a bar that
+    /// never arrived. Idempotent.
+    member _.Flush() =
+        if side <> Flat && lastBarVwap > 0.0 then
+            closePos lastBarVwap lastBarStart
+        hasPending <- false
+
+/// Convenience wrapper: drive a precomputed bar array through the streaming
+/// engine and return the closed round-trips. Behaves identically to the
+/// streaming path used in production.
+let run (cfg: StrategyConfig) (bars: SignedBar[]) : RoundTrip[] =
+    let eng = Engine(cfg)
+    for bar in bars do
+        eng.Process bar
+    eng.Flush()
+    eng.Trips |> Seq.toArray

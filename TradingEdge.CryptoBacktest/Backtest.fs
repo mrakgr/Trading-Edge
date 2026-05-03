@@ -66,11 +66,16 @@ let private maxDrawdown (pnls: float[]) : float =
             if drop > dd then dd <- drop
         dd
 
-let computeMetrics
+/// Build Metrics from already-aggregated state. Caller supplies the bar
+/// count, trip array, and the start/end timestamp range — none of which
+/// require keeping the bar array around in memory.
+let buildMetrics
     (symbol: string)
     (timeframe: string)
     (cfg: StrategyConfig)
-    (bars: SignedBar[])
+    (barsTotal: int)
+    (startUs: int64)
+    (endUs: int64)
     (trips: RoundTrip[])
     : Metrics =
     let pnls = trips |> Array.map (fun t -> t.NetPnL)
@@ -84,10 +89,6 @@ let computeMetrics
         else 0.0
     let netPnL = pnls |> Array.sumBy id
     let returns = pnls |> Array.map (fun p -> p / cfg.Notional)
-    // Annualize trade-level Sharpe by sqrt(trades_per_year). Estimate
-    // trades_per_year from the actual round-trip cadence: trades / years.
-    let startUs = if bars.Length > 0 then bars.[0].StartUs else 0L
-    let endUs = if bars.Length > 0 then bars.[bars.Length - 1].EndUs else 0L
     let years =
         if endUs > startUs then float (endUs - startUs) / (365.25 * 86400.0 * 1_000_000.0)
         else 0.0
@@ -103,7 +104,7 @@ let computeMetrics
         Timeframe = timeframe
         MaLength = cfg.MaLength
         AllowShort = cfg.AllowShort
-        BarsTotal = bars.Length
+        BarsTotal = barsTotal
         Trades = trips.Length
         Wins = wins.Length
         WinRate = if pnls.Length > 0 then float wins.Length / float pnls.Length else 0.0
@@ -118,6 +119,59 @@ let computeMetrics
         EndUs = endUs
     }
 
+// =============================================================================
+// Streaming per-cell driver
+// =============================================================================
+//
+// One Cell = a single (timeframe, ma) backtest. It owns a TimeBarBuilder
+// and an OrderflowMA.Engine. Trades are fed in via PushTrades; bars emitted
+// by the builder are pushed to the engine on the fly. Memory footprint is
+// O(MaLength) — independent of the input length.
+//
+// The bar count is tracked here (not via a held bars[] array) so we never
+// materialize the full bar history.
+
+type Cell(symbol: string, timeframe: string, cfg: StrategyConfig) =
+    let bucketUs = bucketUsOfTimeframe timeframe
+    let builder = TimeBarBuilder(bucketUs)
+    let engine = Engine(cfg)
+    let mutable barCount = 0
+    let mutable startUs = 0L
+    let mutable endUs = 0L
+    let mutable hasAny = false
+
+    let onBar (bar: SignedBar) =
+        if not hasAny then
+            startUs <- bar.StartUs
+            hasAny <- true
+        endUs <- bar.EndUs
+        barCount <- barCount + 1
+        engine.Process bar
+
+    member _.Symbol = symbol
+    member _.Timeframe = timeframe
+    member _.Config = cfg
+
+    member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+        for t in trades do
+            builder.Process(onBar, t)
+
+    /// Close the trailing partial bar (if any) and force-exit any open
+    /// position. Must be called once per cell at end-of-stream.
+    member _.Close() =
+        builder.Flush onBar
+        engine.Flush()
+
+    member _.BuildMetrics() =
+        let trips = engine.Trips |> Seq.toArray
+        buildMetrics symbol timeframe cfg barCount startUs endUs trips
+
+    member _.Trips = engine.Trips |> Seq.toArray
+
+// =============================================================================
+// Symbol-level streaming driver
+// =============================================================================
+
 type RunInputs = {
     DataRoot: string
     Symbol: string
@@ -127,14 +181,40 @@ type RunInputs = {
     Config: StrategyConfig
 }
 
-let runOne (inp: RunInputs) : Metrics * RoundTrip[] =
-    let trades = loadRange inp.DataRoot inp.Symbol inp.StartDate inp.EndDate
-    if trades.Length = 0 then
-        let empty = computeMetrics inp.Symbol inp.Timeframe inp.Config [||] [||]
-        empty, [||]
-    else
-        let bucketUs = bucketUsOfTimeframe inp.Timeframe
-        let bars = buildBars bucketUs trades
-        let trips = OrderflowMA.run inp.Config bars
-        let metrics = computeMetrics inp.Symbol inp.Timeframe inp.Config bars trips
-        metrics, trips
+/// Streaming multi-cell run: feeds the same trade stream through every
+/// (timeframe, ma) cell. Loads each day's parquet exactly once regardless
+/// of how many cells exist — that's the whole point of the day-by-day
+/// streaming refactor.
+///
+/// onDay (when not None) fires once per processed day with (date, tradeCount).
+/// Use it for progress reporting; days with no parquet still fire with
+/// tradeCount = 0 so the caller sees forward motion through gaps.
+let runCells
+    (dataRoot: string)
+    (symbol: string)
+    (startDate: DateTime)
+    (endDate: DateTime)
+    (cells: Cell[])
+    (onDay: (DateTime -> int -> unit) option)
+    : Metrics[] =
+    let mutable d = startDate.Date
+    while d <= endDate.Date do
+        let trades = loadDay dataRoot symbol d
+        if trades.Length > 0 then
+            for cell in cells do
+                cell.PushTrades trades
+        match onDay with
+        | Some f -> f d trades.Length
+        | None -> ()
+        d <- d.AddDays 1.0
+    for cell in cells do
+        cell.Close()
+    cells |> Array.map (fun c -> c.BuildMetrics())
+
+/// Streaming single-cell run: load each day's parquet in turn, push the
+/// trades into one Cell, discard the trades, repeat. Memory usage is bounded
+/// by the largest single day plus the rolling-window state.
+let runOne (inp: RunInputs) (onDay: (DateTime -> int -> unit) option) : Metrics * RoundTrip[] =
+    let cell = Cell(inp.Symbol, inp.Timeframe, inp.Config)
+    let metrics = runCells inp.DataRoot inp.Symbol inp.StartDate inp.EndDate [| cell |] onDay
+    metrics.[0], cell.Trips

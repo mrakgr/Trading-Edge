@@ -124,7 +124,18 @@ let cmdRun (args: ParseResults<RunArgs>) : int =
         (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
         cfg.Notional cfg.TakerFee
     let sw = Stopwatch.StartNew()
-    let metrics, trips = runOne inp
+    let mutable daysSeen = 0
+    let mutable tradesAccum = 0L
+    let progressEveryDays = 30
+    let onDay (d: DateTime) (n: int) =
+        daysSeen <- daysSeen + 1
+        tradesAccum <- tradesAccum + int64 n
+        if daysSeen % progressEveryDays = 0 then
+            printfn "[run] %s @ %s: %d days, %s trades, %.1fs"
+                symbol (d.ToString "yyyy-MM-dd")
+                daysSeen (tradesAccum.ToString "N0")
+                sw.Elapsed.TotalSeconds
+    let metrics, trips = runOne inp (Some onDay)
     sw.Stop()
     printfn "[run] bars=%d trades=%d win_rate=%.3f pf=%.3f net_pnl=%.2f sharpe=%.3f maxDD=%.2f wall=%.1fs"
         metrics.BarsTotal metrics.Trades metrics.WinRate
@@ -190,39 +201,52 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
 
     let swAll = Stopwatch.StartNew()
     let opts = System.Threading.Tasks.ParallelOptions(MaxDegreeOfParallelism = parallelism)
+    let progressEveryDays = 30
     System.Threading.Tasks.Parallel.ForEach(
         symbols,
         opts,
         fun symbol ->
             let swSym = Stopwatch.StartNew()
             try
-                let trades = loadRange dataRoot symbol startDate endDate
-                if trades.Length = 0 then
-                    lock writeLock (fun () ->
-                        printfn "[sweep] %s: no trades in window" symbol)
-                else
-                    for tf in timeframes do
-                        let bucketUs = SignedBar.bucketUsOfTimeframe tf
-                        let bars = SignedBar.buildBars bucketUs trades
+                let cells =
+                    [| for tf in timeframes do
                         for ma in maLengths do
                             let cfg =
                                 { defaultConfig ma with
                                     Notional = notional
                                     TakerFee = takerFee
                                     AllowShort = allowShort }
-                            let trips = OrderflowMA.run cfg bars
-                            let m = computeMetrics symbol tf cfg bars trips
-                            allMetrics.Add m
-                            lock writeLock (fun () ->
-                                appendResults resultsCsv [| m |]
-                                doneCells <- doneCells + 1)
+                            yield Cell(symbol, tf, cfg) |]
+                let mutable daysSeen = 0
+                let mutable tradesAccum = 0L
+                let onDay (d: DateTime) (n: int) =
+                    daysSeen <- daysSeen + 1
+                    tradesAccum <- tradesAccum + int64 n
+                    if daysSeen % progressEveryDays = 0 then
+                        lock writeLock (fun () ->
+                            printfn "[sweep] %s @ %s: %d days, %s trades, %.1fs"
+                                symbol (d.ToString "yyyy-MM-dd")
+                                daysSeen (tradesAccum.ToString "N0")
+                                swSym.Elapsed.TotalSeconds)
+                let metrics = runCells dataRoot symbol startDate endDate cells (Some onDay)
+                let nonEmpty = metrics |> Array.filter (fun m -> m.BarsTotal > 0)
+                if nonEmpty.Length = 0 then
+                    lock writeLock (fun () ->
+                        printfn "[sweep] %s: no trades in window" symbol)
+                else
+                    lock writeLock (fun () ->
+                        appendResults resultsCsv metrics
+                        for m in metrics do allMetrics.Add m
+                        doneCells <- doneCells + metrics.Length)
                     swSym.Stop()
                     lock writeLock (fun () ->
-                        printfn "[sweep] %s done in %.1fs (%d/%d cells)"
-                            symbol swSym.Elapsed.TotalSeconds doneCells totalCells)
+                        printfn "[sweep] %s done in %.1fs (%d/%d cells, %s trades)"
+                            symbol swSym.Elapsed.TotalSeconds doneCells totalCells
+                            (tradesAccum.ToString "N0"))
             with ex ->
                 lock writeLock (fun () ->
-                    eprintfn "[sweep] %s FAILED: %s" symbol ex.Message))
+                    eprintfn "[sweep] %s FAILED: %s" symbol ex.Message
+                    eprintfn "%s" ex.StackTrace))
     |> ignore
     swAll.Stop()
 
