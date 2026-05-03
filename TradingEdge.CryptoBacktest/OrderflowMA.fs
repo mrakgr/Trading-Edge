@@ -51,6 +51,15 @@ type StrategyConfig = {
     /// Existing positions are NOT subject to this gate — exits always fire.
     /// Set to 0 to disable.
     MinDailyQuoteVolume: float
+    /// Per-bar absolute liquidity floor (USDT, entries only). The bar
+    /// at signal time must itself have >= this much quote volume. Catches
+    /// stub-data bars (e.g. a redenomination's pre-event tail where a
+    /// symbol traded $5–30 of dollar volume per hour for days before
+    /// gapping by orders of magnitude when relisted). The trailing-90d
+    /// ADV gate is too slow to react: it integrates over old, normal
+    /// trading and stays high while the recent days are pathological.
+    /// This raw per-bar floor closes that hole. Set to 0 to disable.
+    MinBarQuoteVolume: float
     /// Microseconds per bar at this strategy's timeframe — needed to
     /// extrapolate per-bar volume to a daily figure for the gate. The
     /// engine receives a per-bar volume of (buyDV + sellDV); to compare
@@ -95,6 +104,7 @@ let defaultConfig (maWindowHours: int) : StrategyConfig =
       TakerFee = 0.0004
       AllowShort = false
       MinDailyQuoteVolume = 0.0
+      MinBarQuoteVolume = 0.0
       BucketUs = 0L
       MaxAdverseFraction = 0.0
       ReferenceVol = 0.0
@@ -414,15 +424,24 @@ type Engine(cfg: StrategyConfig) =
             if favorPnl > mfeUsd then mfeUsd <- favorPnl
             if advPnl < maeUsd then maeUsd <- advPnl
 
-    // Liquidity gate (entries only). If MinDailyQuoteVolume = 0 the gate is
-    // disabled. Otherwise compare this bar's implied daily quote volume
-    // (= per-bar volume × bars-per-day) against the threshold.
+    // Per-bar liquidity gate (entries only). Two independent floors:
+    //   1. Implied daily volume floor — bar's volume × bars-per-day must
+    //      reach MinDailyQuoteVolume. Disabled when MinDailyQuoteVolume = 0.
+    //   2. Raw per-bar floor — bar's volume itself must reach MinBarQuoteVolume.
+    //      Catches stub-data bars (e.g. pre-redenomination tail where a
+    //      symbol traded $5-30/hour for days before gapping orders of
+    //      magnitude). Disabled when MinBarQuoteVolume = 0.
+    // Both must pass.
     let entryAllowed (bar: SignedBar) =
-        if cfg.MinDailyQuoteVolume <= 0.0 || cfg.BucketUs <= 0L then true
-        else
-            let dvThisBar = bar.BuyDollarVolume + bar.SellDollarVolume
-            let barsPerDay = 86_400_000_000.0 / float cfg.BucketUs
-            dvThisBar * barsPerDay >= cfg.MinDailyQuoteVolume
+        let dvThisBar = bar.BuyDollarVolume + bar.SellDollarVolume
+        let dailyOk =
+            if cfg.MinDailyQuoteVolume <= 0.0 || cfg.BucketUs <= 0L then true
+            else
+                let barsPerDay = 86_400_000_000.0 / float cfg.BucketUs
+                dvThisBar * barsPerDay >= cfg.MinDailyQuoteVolume
+        let barOk =
+            cfg.MinBarQuoteVolume <= 0.0 || dvThisBar >= cfg.MinBarQuoteVolume
+        dailyOk && barOk
 
     // Stop-loss check. Returns Some stopPrice if this bar's adverse extreme
     // breached the implied stop level, otherwise None. Exits fill at the stop
