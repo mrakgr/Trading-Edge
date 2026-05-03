@@ -51,6 +51,13 @@ type StrategyConfig = {
     /// engine receives a per-bar volume of (buyDV + sellDV); to compare
     /// across timeframes we scale by (1 day / bucketUs).
     BucketUs: int64
+    /// Stop-loss as fraction of notional (e.g. 0.10 = stop out when
+    /// unrealized P&L hits -10% of notional). Fires when the bar's
+    /// adverse extreme (Low for longs, High for shorts) breaches the
+    /// implied stop price. Exit fills at the stop price exactly — this
+    /// is optimistic on gap-throughs but matches a stop-limit order's
+    /// best case. Set to 0 to disable.
+    MaxAdverseFraction: float
 }
 
 let defaultConfig (maLength: int) : StrategyConfig =
@@ -59,7 +66,8 @@ let defaultConfig (maLength: int) : StrategyConfig =
       TakerFee = 0.0004
       AllowShort = false
       MinDailyQuoteVolume = 0.0
-      BucketUs = 0L }
+      BucketUs = 0L
+      MaxAdverseFraction = 0.0 }
 
 type RoundTrip = {
     EntryUs: int64
@@ -209,6 +217,26 @@ type Engine(cfg: StrategyConfig) =
             let barsPerDay = 86_400_000_000.0 / float cfg.BucketUs
             dvThisBar * barsPerDay >= cfg.MinDailyQuoteVolume
 
+    // Stop-loss check. Returns Some stopPrice if this bar's adverse extreme
+    // breached the implied stop level, otherwise None. Exits fill at the stop
+    // price exactly — optimistic on gap-throughs, but a useful upper bound on
+    // the stop's value before refining.
+    let stopPriceIfHit (bar: SignedBar) : float option =
+        if cfg.MaxAdverseFraction <= 0.0 || side = Flat then None
+        else
+            let qty = cfg.Notional / entryPrice
+            let lossLimit = cfg.MaxAdverseFraction * cfg.Notional
+            // Stop price: the price at which unrealized P&L = -lossLimit.
+            // For long: entry - lossLimit/qty. For short: entry + lossLimit/qty.
+            match side with
+            | Long ->
+                let stopPx = entryPrice - lossLimit / qty
+                if bar.Low <= stopPx then Some stopPx else None
+            | Short ->
+                let stopPx = entryPrice + lossLimit / qty
+                if bar.High >= stopPx then Some stopPx else None
+            | Flat -> None
+
     member _.BarsSeen = barsSeen
     member _.Trips = trips :> seq<RoundTrip>
 
@@ -222,6 +250,16 @@ type Engine(cfg: StrategyConfig) =
         if side <> Flat && barsHeld > 0 then
             updateExcursion bar
             barsHeld <- barsHeld + 1
+
+        // Step 2: stop-loss check. If the bar breached the stop, close at
+        // the stop price (which is more favorable than bar.Close for trades
+        // that kept moving against us within the bar, but identical or worse
+        // for the bar that printed a Low ≤ stopPx then bounced). This runs
+        // BEFORE signal evaluation so a stopped-out trade goes flat for the
+        // remainder of this bar's logic.
+        match stopPriceIfHit bar with
+        | Some stopPx -> closePos stopPx bar.EndUs
+        | None -> ()
 
         let slot = barsSeen % n
         if barsSeen >= n then
