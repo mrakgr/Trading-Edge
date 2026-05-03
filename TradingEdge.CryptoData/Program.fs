@@ -9,10 +9,12 @@ open TradingEdge.CryptoData.Universe
 open TradingEdge.CryptoData.Manifest
 open TradingEdge.CryptoData.PerpsDownload
 open TradingEdge.CryptoData.BarPreprocess
+open TradingEdge.CryptoData.FundingDownload
 
 let private defaultUniversePath = "data/crypto/perps_universe.json"
 let private defaultOutputDir = "/mnt/d/trading-edge-bulk/crypto/binance/perps"
 let private defaultBarsDir = "/mnt/d/trading-edge-bulk/crypto/binance/perps_bars"
+let private defaultFundingDir = "/mnt/d/trading-edge-bulk/crypto/binance/perps_funding"
 let private defaultParallelism = 4
 
 // =============================================================================
@@ -356,6 +358,96 @@ let runBuildBars (args: ParseResults<BuildBarsArgs>) : int =
     if failCount > 0 then 1 else 0
 
 // =============================================================================
+// download-funding — bulk-download funding rate archives, write per-symbol parquet
+// =============================================================================
+
+type DownloadFundingArgs =
+    | [<AltCommandLine("-t")>] Symbol of string
+    | [<AltCommandLine("-o")>] Output_Dir of string
+    | [<AltCommandLine("-u")>] Universe_File of string
+    | [<AltCommandLine("-p")>] Parallelism of int
+    | Active_Only
+    | Overwrite
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Symbol _ -> "Symbol (repeatable). Default: every symbol in the universe file."
+            | Output_Dir _ -> sprintf "Funding-parquet root. Default: %s" defaultFundingDir
+            | Universe_File _ -> sprintf "Universe JSON. Default: %s" defaultUniversePath
+            | Parallelism _ -> "Max symbols downloaded concurrently. Default: 8 (funding archives are tiny)."
+            | Active_Only -> "Skip symbols tagged delisted_or_archived."
+            | Overwrite -> "Re-download even if a sentinel says we already have this symbol."
+
+let runDownloadFunding (args: ParseResults<DownloadFundingArgs>) : Async<int> =
+    async {
+        let outputDir = args.GetResult(DownloadFundingArgs.Output_Dir, defaultValue = defaultFundingDir)
+        let universeFile = args.GetResult(DownloadFundingArgs.Universe_File, defaultValue = defaultUniversePath)
+        let parallelism = args.GetResult(DownloadFundingArgs.Parallelism, defaultValue = 8)
+        let activeOnly = args.Contains DownloadFundingArgs.Active_Only
+        let overwrite = args.Contains DownloadFundingArgs.Overwrite
+        let symbols = resolveSymbols universeFile (args.GetResults DownloadFundingArgs.Symbol) activeOnly
+        Directory.CreateDirectory outputDir |> ignore
+
+        printfn "Downloading funding for %d symbols" symbols.Length
+        printfn "  output: %s" outputDir
+        printfn "  parallel: %d" parallelism
+        printfn ""
+
+        use http = new HttpClient(Timeout = TimeSpan.FromMinutes 5.0)
+        let writeLock = obj()
+        let mutable nDone = 0
+        let mutable nSkip = 0
+        let mutable nNoData = 0
+        let mutable nFail = 0
+        let mutable nRows = 0
+
+        let sw = Diagnostics.Stopwatch.StartNew()
+        use sem = new SemaphoreSlim(parallelism)
+        let total = symbols.Length
+        let tasks =
+            symbols
+            |> Array.map (fun symbol ->
+                async {
+                    do! sem.WaitAsync() |> Async.AwaitTask
+                    try
+                        let symSw = Diagnostics.Stopwatch.StartNew()
+                        let! result =
+                            downloadSymbol http outputDir symbol overwrite CancellationToken.None
+                        lock writeLock (fun () ->
+                            match result with
+                            | DownloadedFunding(s, m, n) ->
+                                nDone <- nDone + 1
+                                nRows <- nRows + n
+                                printfn "[funding] %4d/%-4d %-20s %d months, %d rows, %.1fs"
+                                    (nDone + nSkip + nNoData + nFail) total s m n
+                                    symSw.Elapsed.TotalSeconds
+                            | SkippedFunding s ->
+                                nSkip <- nSkip + 1
+                                printfn "[funding] %4d/%-4d %-20s SKIP (cached)"
+                                    (nDone + nSkip + nNoData + nFail) total s
+                            | NoFundingData s ->
+                                nNoData <- nNoData + 1
+                                printfn "[funding] %4d/%-4d %-20s no funding data"
+                                    (nDone + nSkip + nNoData + nFail) total s
+                            | FailedFunding(s, err) ->
+                                nFail <- nFail + 1
+                                eprintfn "[funding] %-20s FAIL: %s" s err)
+                    finally
+                        sem.Release() |> ignore
+                })
+        let! _ = tasks |> Async.Parallel
+        sw.Stop()
+        printfn ""
+        printfn "Done in %.0fs:" sw.Elapsed.TotalSeconds
+        printfn "  downloaded:    %d" nDone
+        printfn "  skipped:       %d" nSkip
+        printfn "  no funding:    %d" nNoData
+        printfn "  failed:        %d" nFail
+        printfn "  rows total:    %s" (nRows.ToString("N0"))
+        return if nFail > 0 then 1 else 0
+    }
+
+// =============================================================================
 // CLI dispatcher
 // =============================================================================
 
@@ -365,6 +457,7 @@ type Command =
     | [<CliPrefix(CliPrefix.None)>] Download_Perps of ParseResults<DownloadPerpsArgs>
     | [<CliPrefix(CliPrefix.None)>] Verify_Perps of ParseResults<VerifyPerpsArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Bars of ParseResults<BuildBarsArgs>
+    | [<CliPrefix(CliPrefix.None)>] Download_Funding of ParseResults<DownloadFundingArgs>
     interface IArgParserTemplate with
         member this.Usage =
             match this with
@@ -373,6 +466,7 @@ type Command =
             | Download_Perps _ -> "Bulk-download trade archives via the S3-listing manifest, convert to per-day parquet."
             | Verify_Perps _ -> "Per-symbol coverage report against on-disk parquets."
             | Build_Bars _ -> "Aggregate per-day trade parquets into per-(symbol, timeframe) OHLCV bar parquets."
+            | Download_Funding _ -> "Bulk-download monthly funding-rate archives, write per-symbol parquet."
 
 [<EntryPoint>]
 let main argv =
@@ -385,6 +479,7 @@ let main argv =
         | Download_Perps a -> runDownloadPerps a |> Async.RunSynchronously
         | Verify_Perps a -> runVerifyPerps a
         | Build_Bars a -> runBuildBars a
+        | Download_Funding a -> runDownloadFunding a |> Async.RunSynchronously
     with
     | :? ArguParseException as ex ->
         eprintfn "%s" ex.Message
