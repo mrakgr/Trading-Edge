@@ -155,6 +155,57 @@ let private grossPnL (side: Side) (entry: float) (exit: float) (notional: float)
     | Flat  -> 0.0
 
 // =============================================================================
+// Rolling-window aggregates
+// =============================================================================
+//
+// One queue + one running aggregate. Subclasses describe the aggregate as
+// pure (input, oldState) -> newState functions; the base owns the queue
+// and the eviction. State is read via the .State member; subclasses can
+// add derived readers (e.g. StdMa.SampleStd) when the raw state needs a
+// non-trivial transform.
+
+[<AbstractClass>]
+type RollingMa<'Bar, 'State>(initState: 'State, windowSize: int) =
+    let q = Queue<'Bar>(windowSize)
+    let mutable state = initState
+    abstract member Add    : 'Bar * 'State -> 'State
+    abstract member Remove : 'Bar * 'State -> 'State
+    member _.Count = q.Count
+    member _.WindowSize = windowSize
+    member _.State = state
+    member this.Push (x: 'Bar) =
+        if q.Count = windowSize then
+            state <- this.Remove (q.Dequeue(), state)
+        q.Enqueue x
+        state <- this.Add (x, state)
+
+/// Rolling sum over a fixed-length window of floats. State IS the sum.
+[<Sealed>]
+type SumMa(windowSize) =
+    inherit RollingMa<float, float>(0.0, windowSize)
+    override _.Add    (v, s) = s + v
+    override _.Remove (v, s) = s - v
+
+/// Rolling sample-std over a fixed-length window of floats. State holds
+/// (ΣX, ΣX²) as a struct tuple to avoid heap allocation per Push. The
+/// SampleStd reader collapses that into the sample standard deviation
+/// using Welford's algebraic identity:
+///     var = (ΣX² − m·mean²) / (m − 1)
+[<Sealed>]
+type StdMa(windowSize) =
+    inherit RollingMa<float, struct (float * float)>(struct (0.0, 0.0), windowSize)
+    override _.Add    (v, struct (sx, sx2)) = struct (sx + v, sx2 + v * v)
+    override _.Remove (v, struct (sx, sx2)) = struct (sx - v, sx2 - v * v)
+    member this.SampleStd =
+        let m = this.Count
+        if m < 2 then 0.0
+        else
+            let struct (sumX, sumX2) = this.State
+            let mean = sumX / float m
+            let v = (sumX2 - float m * mean * mean) / float (m - 1)
+            if v <= 0.0 then 0.0 else sqrt v
+
+// =============================================================================
 // Streaming engine — bar-only path
 // =============================================================================
 //
@@ -169,14 +220,10 @@ let private grossPnL (side: Side) (entry: float) (exit: float) (notional: float)
 
 type Engine(cfg: StrategyConfig) =
     let n = cfg.MaLength
-    // Rolling N-bar buy/sell dollar-volume queues. Each ProcessBar enqueues
-    // the new bar's value and dequeues the oldest once the window is full;
-    // sumBuy / sumSell are kept in sync incrementally so the orderflow
-    // ratio is O(1) per bar.
-    let buyQ = Queue<float>(n)
-    let sellQ = Queue<float>(n)
-    let mutable sumBuy = 0.0
-    let mutable sumSell = 0.0
+    // Rolling N-bar buy/sell dollar-volume sums. Read via .State; the
+    // orderflow ratio is buyMa.State / sellMa.State at signal time.
+    let buyMa  = SumMa(n)
+    let sellMa = SumMa(n)
 
     let mutable prevClose = 0.0
     let mutable barsSeen = 0
@@ -202,15 +249,12 @@ type Engine(cfg: StrategyConfig) =
     let volWindowBars = daysToBars (max 1 cfg.VolWindowDays)
 
     // Rolling 90-day window of (buy + sell) dollar volume — used to stamp
-    // each trade with a leak-free ADV at entry.
-    let advQ = Queue<float>(advWindowBars)
-    let mutable advSum = 0.0
+    // each trade with a leak-free ADV at entry. State is the rolling sum;
+    // currentAdv() divides by days to get the per-day average.
+    let advMa = SumMa(advWindowBars)
 
-    // Rolling vol-window of bar-to-bar log returns. Maintains sumX and
-    // sumX² in lockstep with the queue so currentVolStd() is O(1) per call.
-    let retQ = Queue<float>(volWindowBars)
-    let mutable retSum = 0.0
-    let mutable retSumSq = 0.0
+    // Rolling vol-window of bar-to-bar log returns. SampleStd is O(1).
+    let volMa = StdMa(volWindowBars)
 
     let mutable side = Flat
     // Last regime target (Long/Short/Flat) we acted on. Drives the
@@ -250,28 +294,13 @@ type Engine(cfg: StrategyConfig) =
 
     let trips = ResizeArray<RoundTrip>()
 
-    /// Compute the std of bar-to-bar log returns over the rolling window.
-    /// Uses sample std (n-1 denominator). Returns 0 if fewer than 2
-    /// returns observed yet — the caller treats that as "no scaling info,
-    /// use full notional."
-    let currentVolStd () : float =
-        let m = retQ.Count
-        if m < 2 then 0.0
-        else
-            let mean = retSum / float m
-            // Sample variance from rolling sums:
-            //   var = (sumSq − m·mean²) / (m − 1)
-            // Floors at 0 to swallow tiny negative values from float drift.
-            let v = (retSumSq - float m * mean * mean) / float (m - 1)
-            if v <= 0.0 then 0.0 else sqrt v
-
     /// Compute the effective notional for an entry given the current vol.
     /// Disabled (returns cfg.Notional) when ReferenceVol = 0 or when we
     /// don't have enough returns to estimate vol yet.
     let computeEffectiveNotional () : float =
         if cfg.ReferenceVol <= 0.0 then cfg.Notional
         else
-            let vol = currentVolStd ()
+            let vol = volMa.SampleStd
             if vol <= 0.0 then cfg.Notional
             else min cfg.Notional (cfg.Notional * cfg.ReferenceVol / vol)
 
@@ -279,12 +308,12 @@ type Engine(cfg: StrategyConfig) =
     /// Uses whatever bars are in the buffer so far (partial during warmup);
     /// the caller can treat 0 as "no data yet". Days = bars / barsPerDay.
     let currentAdv () : float =
-        let m = advQ.Count
+        let m = advMa.Count
         if m = 0 || cfg.BucketUs <= 0L then 0.0
         else
             let barsPerDay = 86_400_000_000.0 / float cfg.BucketUs
             let days = float m / barsPerDay
-            if days > 0.0 then advSum / days else 0.0
+            if days > 0.0 then advMa.State / days else 0.0
 
     let openPos (newSide: Side) (fillPrice: float) (fillUs: int64) (ratio: float) =
         side <- newSide
@@ -441,43 +470,26 @@ type Engine(cfg: StrategyConfig) =
         | Some stopPx -> closePos stopPx bar.EndUs
         | None -> ()
 
-        // Roll the orderflow signal queues forward by one bar. Once full,
-        // each Enqueue is paired with a Dequeue so the queue length stays
-        // at n; the running sums are kept in lockstep.
-        if buyQ.Count = n then sumBuy <- sumBuy - buyQ.Dequeue()
-        buyQ.Enqueue bar.BuyDollarVolume
-        sumBuy <- sumBuy + bar.BuyDollarVolume
-        if sellQ.Count = n then sumSell <- sumSell - sellQ.Dequeue()
-        sellQ.Enqueue bar.SellDollarVolume
-        sumSell <- sumSell + bar.SellDollarVolume
+        // Roll the orderflow signal MAs forward by one bar.
+        buyMa.Push  bar.BuyDollarVolume
+        sellMa.Push bar.SellDollarVolume
 
-        // Bar-to-bar log return for the rolling vol queue. Skip the first
-        // bar (no previous close yet) and any bar where prices look broken.
-        // Maintains sumX / sumX² so currentVolStd() is O(1).
+        // Bar-to-bar log return for the rolling vol MA. Skip the first bar
+        // (no previous close yet) and any bar where prices look broken.
         if prevClose > 0.0 && bar.Close > 0.0 then
-            let lr = log (bar.Close / prevClose)
-            if retQ.Count = volWindowBars then
-                let evicted = retQ.Dequeue()
-                retSum   <- retSum   - evicted
-                retSumSq <- retSumSq - evicted * evicted
-            retQ.Enqueue lr
-            retSum   <- retSum   + lr
-            retSumSq <- retSumSq + lr * lr
+            volMa.Push (log (bar.Close / prevClose))
         prevClose <- bar.Close
 
-        // Rolling 90-day ADV queue. currentAdv() reads advSum / advQ.Count
+        // Rolling 90-day ADV MA. currentAdv() reads advMa.State / advMa.Count
         // when an entry fires later in this same ProcessBar.
-        let barDV = bar.BuyDollarVolume + bar.SellDollarVolume
-        if advQ.Count = advWindowBars then advSum <- advSum - advQ.Dequeue()
-        advQ.Enqueue barDV
-        advSum <- advSum + barDV
+        advMa.Push (bar.BuyDollarVolume + bar.SellDollarVolume)
 
         barsSeen <- barsSeen + 1
         lastClose <- bar.Close
         lastUs <- bar.EndUs
 
         if barsSeen >= n then
-            let ratio = if sumSell > 0.0 then sumBuy / sumSell else infinity
+            let ratio = if sellMa.State > 0.0 then buyMa.State / sellMa.State else infinity
             let bullish = ratio > 1.0
             let bearish = ratio < 1.0
             let target =
