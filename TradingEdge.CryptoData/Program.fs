@@ -8,9 +8,11 @@ open Argu
 open TradingEdge.CryptoData.Universe
 open TradingEdge.CryptoData.Manifest
 open TradingEdge.CryptoData.PerpsDownload
+open TradingEdge.CryptoData.BarPreprocess
 
 let private defaultUniversePath = "data/crypto/perps_universe.json"
 let private defaultOutputDir = "/mnt/d/trading-edge-bulk/crypto/binance/perps"
+let private defaultBarsDir = "/mnt/d/trading-edge-bulk/crypto/binance/perps_bars"
 let private defaultParallelism = 4
 
 // =============================================================================
@@ -270,6 +272,90 @@ let runVerifyPerps (args: ParseResults<VerifyPerpsArgs>) : int =
     0
 
 // =============================================================================
+// build-bars — preprocess per-day trade parquets into per-(symbol, tf) OHLCV bars
+// =============================================================================
+
+type BuildBarsArgs =
+    | [<AltCommandLine("-t")>] Symbol of string
+    | [<AltCommandLine("-f")>] Timeframe of string
+    | [<AltCommandLine("-i")>] Trades_Dir of string
+    | [<AltCommandLine("-o")>] Output_Dir of string
+    | [<AltCommandLine("-u")>] Universe_File of string
+    | [<AltCommandLine("-p")>] Parallelism of int
+    | Active_Only
+    | Overwrite
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Symbol _ -> "Symbol (repeatable). Default: every symbol in the universe file."
+            | Timeframe _ -> "Timeframe (repeatable, e.g. 1h 2h 4h). Default: 1h, 2h, 4h."
+            | Trades_Dir _ -> sprintf "Trade-parquet root. Default: %s" defaultOutputDir
+            | Output_Dir _ -> sprintf "Bar-parquet root. Default: %s" defaultBarsDir
+            | Universe_File _ -> sprintf "Universe JSON. Default: %s" defaultUniversePath
+            | Parallelism _ -> "Max symbols processed concurrently. Default: 4."
+            | Active_Only -> "Skip symbols tagged delisted_or_archived."
+            | Overwrite -> "Re-build even if all output parquets exist."
+
+let runBuildBars (args: ParseResults<BuildBarsArgs>) : int =
+    let tradesDir = args.GetResult(Trades_Dir, defaultValue = defaultOutputDir)
+    let barsDir = args.GetResult(BuildBarsArgs.Output_Dir, defaultValue = defaultBarsDir)
+    let universeFile = args.GetResult(BuildBarsArgs.Universe_File, defaultValue = defaultUniversePath)
+    let parallelism = args.GetResult(BuildBarsArgs.Parallelism, defaultValue = defaultParallelism)
+    let activeOnly = args.Contains BuildBarsArgs.Active_Only
+    let overwrite = args.Contains Overwrite
+    let timeframes =
+        match args.GetResults BuildBarsArgs.Timeframe with
+        | [] -> [| "1h"; "2h"; "4h" |]
+        | xs -> xs |> List.toArray
+    let symbols = resolveSymbols universeFile (args.GetResults BuildBarsArgs.Symbol) activeOnly
+    Directory.CreateDirectory barsDir |> ignore
+
+    printfn "Building %d-symbol × %d-timeframe bar parquets" symbols.Length timeframes.Length
+    printfn "  trades: %s" tradesDir
+    printfn "  bars:   %s" barsDir
+    printfn "  parallel: %d" parallelism
+    printfn "  timeframes: %s" (String.concat "," timeframes)
+    printfn ""
+
+    let writeLock = obj()
+    let mutable doneCount = 0
+    let mutable failCount = 0
+    let mutable totalTrades = 0L
+    let total = symbols.Length
+
+    let sw = Diagnostics.Stopwatch.StartNew()
+    let opts = Tasks.ParallelOptions(MaxDegreeOfParallelism = parallelism)
+    Tasks.Parallel.ForEach(
+        symbols,
+        opts,
+        fun symbol ->
+            let symSw = Diagnostics.Stopwatch.StartNew()
+            match buildSymbol tradesDir barsDir symbol timeframes overwrite with
+            | Ok (n, counts) ->
+                lock writeLock (fun () ->
+                    doneCount <- doneCount + 1
+                    totalTrades <- totalTrades + n
+                    let countsStr =
+                        Array.zip timeframes counts
+                        |> Array.map (fun (tf, c) -> sprintf "%s=%d" tf c)
+                        |> String.concat " "
+                    printfn "[bars] %4d/%-4d %-20s %s trades, %s bars, %.1fs"
+                        doneCount total symbol (n.ToString("N0")) countsStr
+                        symSw.Elapsed.TotalSeconds)
+            | Error msg ->
+                lock writeLock (fun () ->
+                    failCount <- failCount + 1
+                    eprintfn "[bars] FAIL %s: %s" symbol msg))
+    |> ignore
+    sw.Stop()
+    printfn ""
+    printfn "Done in %.0fs:" sw.Elapsed.TotalSeconds
+    printfn "  symbols ok:    %d" doneCount
+    printfn "  symbols fail:  %d" failCount
+    printfn "  trades read:   %s" (totalTrades.ToString("N0"))
+    if failCount > 0 then 1 else 0
+
+// =============================================================================
 // CLI dispatcher
 // =============================================================================
 
@@ -278,6 +364,7 @@ type Command =
     | [<CliPrefix(CliPrefix.None)>] Estimate_Size of ParseResults<EstimateSizeArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Perps of ParseResults<DownloadPerpsArgs>
     | [<CliPrefix(CliPrefix.None)>] Verify_Perps of ParseResults<VerifyPerpsArgs>
+    | [<CliPrefix(CliPrefix.None)>] Build_Bars of ParseResults<BuildBarsArgs>
     interface IArgParserTemplate with
         member this.Usage =
             match this with
@@ -285,6 +372,7 @@ type Command =
             | Estimate_Size _ -> "Build the manifest from S3 listings and report total bytes — no data fetched."
             | Download_Perps _ -> "Bulk-download trade archives via the S3-listing manifest, convert to per-day parquet."
             | Verify_Perps _ -> "Per-symbol coverage report against on-disk parquets."
+            | Build_Bars _ -> "Aggregate per-day trade parquets into per-(symbol, timeframe) OHLCV bar parquets."
 
 [<EntryPoint>]
 let main argv =
@@ -296,6 +384,7 @@ let main argv =
         | Estimate_Size a -> runEstimateSize a |> Async.RunSynchronously
         | Download_Perps a -> runDownloadPerps a |> Async.RunSynchronously
         | Verify_Perps a -> runVerifyPerps a
+        | Build_Bars a -> runBuildBars a
     with
     | :? ArguParseException as ex ->
         eprintfn "%s" ex.Message

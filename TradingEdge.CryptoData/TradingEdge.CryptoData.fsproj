@@ -9,6 +9,7 @@
     <Compile Include="Universe.fs" />
     <Compile Include="Manifest.fs" />
     <Compile Include="PerpsDownload.fs" />
+    <Compile Include="BarPreprocess.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
