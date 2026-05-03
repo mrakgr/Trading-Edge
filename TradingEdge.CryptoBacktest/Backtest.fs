@@ -146,15 +146,22 @@ type Cell(symbol: string, timeframe: string, cfg: StrategyConfig) =
             hasAny <- true
         endUs <- bar.EndUs
         barCount <- barCount + 1
-        engine.Process bar
+        engine.ProcessBar bar
 
     member _.Symbol = symbol
     member _.Timeframe = timeframe
     member _.Config = cfg
 
     member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+        // Per trade: feed the bar builder first (so any newly-closed bar's
+        // signal is computed and may set hasPending on the engine), then
+        // push the trade itself to the engine. If a bar just closed and set
+        // a pending side change, this trade — the first trade of the new
+        // bucket — fills at its actual price, modeling a realistic taker
+        // market order placed at the moment of signal.
         for t in trades do
             builder.Process(onBar, t)
+            engine.ProcessTrade t
 
     /// Close the trailing partial bar (if any) and force-exit any open
     /// position. Must be called once per cell at end-of-stream.

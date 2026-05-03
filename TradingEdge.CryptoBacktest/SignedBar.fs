@@ -47,7 +47,19 @@ type TimeBarBuilder(bucketUs: int64) =
     let mutable sellDV = 0.0
     let mutable tradeCount = 0
 
-    let emit (onNext: SignedBar -> unit) =
+
+    let resetTo (idx: int64) (ts: int64) =
+        curIdx <- idx
+        startUs <- idx * bucketUs
+        endUs <- ts
+        sumVol <- 0.0
+        sumPV <- 0.0
+        sumPPV <- 0.0
+        buyDV <- 0.0
+        sellDV <- 0.0
+        tradeCount <- 0
+
+    member self.Emit (onNext: SignedBar -> unit) =
         let vwap = if sumVol > 0.0 then sumPV / sumVol else 0.0
         let variance =
             if sumVol > 0.0 then max 0.0 (sumPPV / sumVol - vwap * vwap)
@@ -62,20 +74,9 @@ type TimeBarBuilder(bucketUs: int64) =
             TradeCount = tradeCount
         }
 
-    let resetTo (idx: int64) (ts: int64) =
-        curIdx <- idx
-        startUs <- idx * bucketUs
-        endUs <- ts
-        sumVol <- 0.0
-        sumPV <- 0.0
-        sumPPV <- 0.0
-        buyDV <- 0.0
-        sellDV <- 0.0
-        tradeCount <- 0
-
     member _.BucketUs = bucketUs
 
-    member _.Process(onNext: SignedBar -> unit, trade: Trade) =
+    member self.Process(onNext: SignedBar -> unit, trade: Trade) =
         let idx = trade.TimestampUs / bucketUs
         if not hasOpen then
             hasOpen <- true
@@ -85,7 +86,7 @@ type TimeBarBuilder(bucketUs: int64) =
             // trades simply means we skip emitting empty bars — the strategy
             // sees the next populated bar with its true timestamp. We do not
             // synthesize zero-volume placeholders.
-            emit onNext
+            self.Emit onNext
             resetTo idx trade.TimestampUs
         let p = trade.Price
         let v = trade.Quantity
@@ -100,9 +101,9 @@ type TimeBarBuilder(bucketUs: int64) =
 
     /// Emit the currently-open bar (if any). Call this once after the last
     /// trade if you want the trailing partial bar to appear in the output.
-    member _.Flush(onNext: SignedBar -> unit) =
+    member self.Flush(onNext: SignedBar -> unit) =
         if hasOpen then
-            emit onNext
+            self.Emit onNext
             hasOpen <- false
 
 /// Convenience: build the full bar array from a Trade[] in timestamp order.
