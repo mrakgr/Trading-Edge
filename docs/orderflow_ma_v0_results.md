@@ -266,3 +266,69 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- sweep \
     --min-daily-volume 0 \
     --min-bar-quote-volume 5000
 ```
+
+## Sanity check — VWMA crossover
+
+To verify that the orderflow ratio is doing real work and we're not just
+benefiting from "any signal + the ADV gates + vol sizing", we ran a
+research-only baseline that swaps the orderflow signal for a close-vs-VWMA
+crossover (long when `close > vwma_N`, short when `close < vwma_N`),
+keeping every other knob — universe, gates, vol sizing, per-bar floor,
+funding accounting, signal-consume rule — identical. Implementation lives
+in `TradingEdge.CryptoBacktest/VwmaCross.fs` with a `vwma-sweep`
+subcommand; the file is self-contained and intended to be deleted once
+the question is answered.
+
+Same 1h timeframe, 200h window, 643 covered symbols:
+
+| Metric | Orderflow-MA v0 | VWMA crossover |
+| --- | ---: | ---: |
+| Total round trips | 20,016 | 140,563 (**7×**) |
+| Profit factor | **1.490** | 1.083 |
+| Long net P&L | $18,774 | **−$38,064** |
+| Long PF | 1.236 | 0.924 |
+| Short net P&L | $202,546 | $159,121 |
+| Short PF | 1.544 | 1.166 |
+| % cells PF > 1 | ~70% | 57.9% |
+| Win rate | n/a (longer holds) | 14.7% |
+
+What this confirms:
+
+- **The orderflow ratio is the binding signal.** With it removed, PF
+  collapses from 1.49 to 1.08 even though everything that filters trades
+  (ADV gates, bar floor, vol sizing) is unchanged. The gates clean up the
+  edge; they don't create it.
+- **Longs go *negative* on VWMA.** Buying every time price prints above
+  the VWMA is textbook noise-chasing: ~140k crossings per 2 years across
+  the universe, each paying entry+exit fees on what is mostly mean-
+  reversion. Orderflow's long edge survives because the buy/sell ratio
+  only flips when there's *actual aggressor imbalance* — far fewer
+  signals, and each one has economic content.
+- **Shorts still profitable on VWMA, but smaller.** Bearish-tape edge in
+  USDT-perps is robust enough to show through almost any directional
+  filter (PF 1.166 with no orderflow input), but orderflow extracts
+  meaningfully more of it ($202k vs $159k).
+- **Trade-count blowup is the smoking gun.** 7× the trips for ~75% of
+  the net P&L means the median trade contributes far less, and fees
+  eat far more. Crossover-style signals on a slow underlying are
+  structurally a fee-loser.
+
+Output files: `data/crypto/vwma/backtest_results.csv`,
+`backtest_summary.csv`, `backtest_results_breakdown.log` (the breakdown
+includes the same per-decile / per-symbol / squeeze-survival sections as
+the orderflow run).
+
+Reproduce:
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- vwma-sweep \
+    --timeframes 1h \
+    --ma-hours 200 \
+    --allow-short \
+    --reference-vol-pct 1.0 \
+    --vol-window-days 7 \
+    --min-long-adv 28800000 \
+    --min-short-adv 8000000 \
+    --min-daily-volume 0 \
+    --min-bar-quote-volume 5000
+```
