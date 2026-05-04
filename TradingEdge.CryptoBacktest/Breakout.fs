@@ -1,83 +1,60 @@
-module TradingEdge.CryptoBacktest.VwmaCross
+module TradingEdge.CryptoBacktest.Breakout
 
 open System.Collections.Generic
 open TradingEdge.CryptoBacktest.SignedBar
 open TradingEdge.CryptoBacktest.OrderflowMA
 
 // =============================================================================
-// VWMA-crossover strategy (research baseline, NOT production)
+// VWAP-breakout strategy (research baseline)
 // =============================================================================
 //
-// One-off research duplicate of OrderflowMA, swapping the signal for a
-// volume-weighted moving average crossover. We keep this in its own file
-// (rather than as a flag inside OrderflowMA) so that it can be deleted
-// without disturbing the production engine.
+// Symmetric breakout/breakdown on the per-bar VWAP series (price chosen
+// over close because intra-bar VWAP is more stable on thin bars):
 //
-// Signal:
-//     vwma_t  = Σ_{i in last N bars} close_i · volume_i  /  Σ volume_i
-//   close_t > vwma_t  →  long
-//   close_t < vwma_t  →  flat (default) or short (configurable)
+//     prevMaxVwap_t  =  max over the previous N bars (excluding bar t)
+//     prevMinVwap_t  =  min over the previous N bars (excluding bar t)
 //
-// All gating (per-bar liquidity floor, side-specific trailing-90d ADV,
-// vol-based position sizing, stop-loss, funding accounting) and the
-// regime-change "consume the signal" rule are identical to OrderflowMA so
-// that VWMA-vs-orderflow is an apples-to-apples comparison — only the
-// signal is swapped.
+//   bar.VWAP > prevMaxVwap  →  Long  (new N-hour high)
+//   bar.VWAP < prevMinVwap  →  Short (new N-hour low)  [if AllowShort]
+//   neither                 →  hold previous target  (this is the key
+//                              difference from a level-driven signal: a
+//                              breakout fires ONCE, then the target persists
+//                              until the opposite breakout fires).
 //
-// We reuse OrderflowMA's StrategyConfig, Side, and RoundTrip types verbatim
-// so Reporting / Backtest don't need to know which engine produced the
-// trips. RatioAtEntry on the trip carries (close / vwma) at entry — same
-// "above/below 1.0" semantics as the orderflow buy/sell ratio, which makes
-// the breakdown's ratio-at-entry distribution comparable between the two.
+// The "consume the signal at fire time" rule from OrderflowMA still applies:
+// we act only when `target ≠ lastTarget`. A breakout that gets gated does
+// not retry — the next break must come from the OPPOSITE side.
+//
+// Reuses StrategyConfig / Side / RoundTrip from OrderflowMA so the rest of
+// the pipeline (Cell wrapper, metrics, breakdown report) is unchanged.
+// MaWindowHours plays the role of the breakout-lookback in hours.
 
-[<AbstractClass>]
-type RollingMa<'Bar, 'State>(initState: 'State, windowSize: int) =
-    let q = Queue<'Bar>(windowSize)
-    let mutable state = initState
-    abstract member Add    : 'Bar * 'State -> 'State
-    abstract member Remove : 'Bar * 'State -> 'State
-    member _.Count = q.Count
-    member _.WindowSize = windowSize
-    member _.State = state
-    member this.Push (x: 'Bar) =
-        if q.Count = windowSize then
-            state <- this.Remove (q.Dequeue(), state)
-        q.Enqueue x
-        state <- this.Add (x, state)
+// =============================================================================
+// Rolling max / min on top of OrderflowMA.RollingWindow
+// =============================================================================
+//
+// RollingWindow<'Bar,'State>.Update gets handed the entire current window
+// as an IReadOnlyCollection on every Push, so max/min reduces to a one-
+// pass scan over the contents. O(n) per push (vs O(1) amortized for a
+// monotonic deque), but n ≤ 480 here and we're not the bottleneck.
+//
+// Primed semantics: we want "max/min over the previous N bars EXCLUDING
+// the current bar", so the engine reads .Current BEFORE it pushes the
+// new bar. .Primed becomes true only once the window is fully populated
+// — same threshold as OrderflowMA's `barsSeen >= n`.
 
-/// Rolling sum over a fixed-length window of floats.
 [<Sealed>]
-type SumMa(windowSize) =
-    inherit RollingMa<float, float>(0.0, windowSize)
-    override _.Add    (v, s) = s + v
-    override _.Remove (v, s) = s - v
-
-/// Rolling VWMA over a fixed-length window of (close, volume) bars. State
-/// holds (Σ close·volume, Σ volume) as a struct tuple to avoid allocation
-/// per Push. Vwma reads as Σpv/Σv when Σv > 0.
-[<Sealed>]
-type VwmaMa(windowSize) =
-    inherit RollingMa<struct (float * float), struct (float * float)>(struct (0.0, 0.0), windowSize)
-    override _.Add    (struct (p, v), struct (spv, sv)) = struct (spv + p * v, sv + v)
-    override _.Remove (struct (p, v), struct (spv, sv)) = struct (spv - p * v, sv - v)
-    member this.Vwma =
-        let struct (sumPV, sumV) = this.State
-        if sumV > 0.0 then sumPV / sumV else 0.0
-
-/// Rolling sample-std of a stream of floats (used for vol-based sizing).
-[<Sealed>]
-type StdMa(windowSize) =
-    inherit RollingMa<float, struct (float * float)>(struct (0.0, 0.0), windowSize)
-    override _.Add    (v, struct (sx, sx2)) = struct (sx + v, sx2 + v * v)
-    override _.Remove (v, struct (sx, sx2)) = struct (sx - v, sx2 - v * v)
-    member this.SampleStd =
-        let m = this.Count
-        if m < 2 then 0.0
-        else
-            let struct (sumX, sumX2) = this.State
-            let mean = sumX / float m
-            let v = (sumX2 - float m * mean * mean) / float (m - 1)
-            if v <= 0.0 then 0.0 else sqrt v
+type RollingExtreme(windowSize: int, isMax: bool) =
+    inherit RollingWindow<float, float>(nan, windowSize)
+    override _.Update (window: IReadOnlyCollection<float>) =
+        let mutable best = nan
+        for v in window do
+            if System.Double.IsNaN best then best <- v
+            elif isMax then (if v > best then best <- v)
+            else (if v < best then best <- v)
+        best
+    member this.Current = this.State
+    member this.Primed = this.Count >= windowSize
 
 // =============================================================================
 // Streaming engine — bar-only path
@@ -96,10 +73,14 @@ type Engine(cfg: StrategyConfig) =
     let daysToBars (days: int) : int =
         hoursToBars (24 * days)
 
-    // VWMA window — matches OrderflowMA's MaWindowHours so the same parameter
-    // means the same wall-clock span at every timeframe.
+    // Breakout-lookback window.
     let n = hoursToBars (max 1 cfg.MaWindowHours)
-    let vwmaMa = VwmaMa(n)
+    // Track the rolling max / min of bar VWAPs OVER THE PREVIOUS n BARS.
+    // We push the bar's VWAP only AFTER comparing it to the current
+    // extreme — that way "bar.VWAP > rolling.Current" is comparing the
+    // current bar's VWAP to the maximum of the previous n bars (exclusive).
+    let rollMax = RollingExtreme(n, true)
+    let rollMin = RollingExtreme(n, false)
 
     let advWindowBars = daysToBars 90
     let volWindowBars = daysToBars (max 1 cfg.VolWindowDays)
@@ -109,6 +90,9 @@ type Engine(cfg: StrategyConfig) =
     let mutable side = Flat
     let mutable lastTarget = Flat
     // Signal lockout after a gap fires — see OrderflowMA for rationale.
+    // Especially important for breakouts: the rolling max/min over VWAP
+    // would otherwise hold pre-gap extremes that no post-gap bar can
+    // reach, locking in a stale price-level reference.
     let mutable signalLockoutUntil = 0
     let mutable entryPrice = 0.0
     let mutable entryUs = 0L
@@ -291,36 +275,29 @@ type Engine(cfg: StrategyConfig) =
         | Some stopPx -> closePos stopPx bar.EndUs
         | None -> ()
 
-        // Roll the VWMA window. We feed (close, volume) so the rolling
-        // weighted mean is anchored to base-asset volume — same denominator
-        // a real VWMA uses. Per-bar quote volume (BuyDollarVolume + Sell)
-        // would also work and mostly tracks Volume·Close, but Volume is the
-        // textbook choice.
-        vwmaMa.Push (struct (bar.Close, bar.Volume))
-
-        if prevClose > 0.0 && bar.Close > 0.0 then
-            volMa.Push (log (bar.Close / prevClose))
-        prevClose <- bar.Close
-
-        advMa.Push (bar.BuyDollarVolume + bar.SellDollarVolume)
-
-        barsSeen <- barsSeen + 1
-        lastClose <- bar.Close
-        lastUs <- bar.EndUs
-
-        if barsSeen >= n && barsSeen >= signalLockoutUntil then
-            let vwma = vwmaMa.Vwma
-            // Ratio = close / vwma. This makes the fired-trip's RatioAtEntry
-            // directly comparable to OrderflowMA's buy/sell ratio: > 1 means
-            // the bullish target fired, < 1 means bearish, regardless of
-            // engine.
-            let ratio = if vwma > 0.0 then bar.Close / vwma else 0.0
-            let bullish = ratio > 1.0 && vwma > 0.0
-            let bearish = ratio < 1.0 && vwma > 0.0
+        // ---- Signal evaluation BEFORE pushing this bar's VWAP into the
+        // rolling extremes. That way rollMax.Current and rollMin.Current
+        // are the strict max/min over the PREVIOUS n bars (exclusive of
+        // the current bar) — so "bar.VWAP > prevMax" is a real new high.
+        // Skip bars with no VWAP (zero-volume / synthetic), they can't
+        // produce a meaningful signal.
+        if rollMax.Primed && bar.VWAP > 0.0 && barsSeen >= signalLockoutUntil then
+            let prevMax = rollMax.Current
+            let prevMin = rollMin.Current
+            // ratio = bar.VWAP / midpoint. Stamps the trip with a measure of
+            // "how big a break was this" — comparable to OrderflowMA's
+            // RatioAtEntry semantics: > 1 ↔ bull, < 1 ↔ bear, magnitude
+            // tells you how far past the level it cracked.
+            let ratio =
+                let mid = 0.5 * (prevMax + prevMin)
+                if mid > 0.0 then bar.VWAP / mid else 0.0
+            let bullish = bar.VWAP > prevMax
+            let bearish = bar.VWAP < prevMin
             let target =
                 if bullish then Long
                 elif bearish && cfg.AllowShort then Short
-                else Flat
+                else lastTarget   // breakout signal is event-based: hold
+                                  // the prior regime when no break fires.
             if target <> lastTarget then
                 if side <> Flat then closePos bar.Close bar.EndUs
                 if target <> Flat && entryAllowed bar then
@@ -333,6 +310,23 @@ type Engine(cfg: StrategyConfig) =
                     if advGate then
                         openPos target bar.Close bar.EndUs ratio
                 lastTarget <- target
+
+        // Push VWAP into the rolling extremes AFTER signal evaluation. We
+        // skip zero-VWAP bars (no trades) so they don't pollute the max/min
+        // with a stale 0.0.
+        if bar.VWAP > 0.0 then
+            rollMax.Push bar.VWAP
+            rollMin.Push bar.VWAP
+
+        if prevClose > 0.0 && bar.Close > 0.0 then
+            volMa.Push (log (bar.Close / prevClose))
+        prevClose <- bar.Close
+
+        advMa.Push (bar.BuyDollarVolume + bar.SellDollarVolume)
+
+        barsSeen <- barsSeen + 1
+        lastClose <- bar.Close
+        lastUs <- bar.EndUs
 
     member _.Flush() =
         if side <> Flat && lastClose > 0.0 then

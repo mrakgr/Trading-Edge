@@ -39,17 +39,18 @@ window-invariant in the 200h–480h band.
 
 ## Bar-window sweep — the headline curve
 
-1h timeframe, all 643 covered symbols, identical gates. Sorted by `--ma-hours`:
+1h timeframe, all 643 covered symbols, identical gates, gap detector ON
+(`--max-bar-price-ratio 3.0` — see Lesson 7). Sorted by `--ma-hours`:
 
 | `--ma-hours` | Total PF | Trips | Long PF | Long Net P&L | Short PF | Short Net P&L | Largest Loser |
 | :---: | :---: | ---: | :---: | ---: | :---: | ---: | ---: |
-| 144 | 1.312 | 30,861 | 1.123 | $14,424 | 1.356 | $182,016 | $4,744 |
-| 168 | 1.392 | 25,253 | 1.201 | $19,737 | 1.434 | $192,099 | $3,637 |
-| 200 | 1.490 | 20,016 | 1.236 | $18,774 | 1.544 | $202,546 | $3,599 |
-| 240 | 1.521 | 16,351 | 1.134 | $9,421 | 1.606 | $193,920 | $4,474 |
-| 288 | 1.617 | 13,045 | 1.197 | $11,551 | 1.708 | $192,069 | $4,566 |
-| 360 | 1.760 | 9,688 | 1.136 | $6,407 | 1.893 | $197,435 | $4,766 |
-| 480 | 1.826 | 6,828 | 1.123 | $4,666 | 1.967 | $182,221 | $14,258 |
+| 144 | 1.323 | 30,835 | 1.136 | $15,822 | 1.366 | $185,429 | $3,483 |
+| 168 | 1.384 | 25,243 | 1.217 | $21,066 | 1.421 | $187,517 | $3,637 |
+| 200 | 1.490 | 20,006 | 1.257 | $20,175 | 1.540 | $200,685 | $3,599 |
+| 240 | 1.520 | 16,336 | 1.162 | $11,200 | 1.598 | $191,544 | $4,474 |
+| 288 | 1.624 | 13,031 | 1.225 | $12,947 | 1.709 | $191,825 | $4,566 |
+| 360 | 1.786 | 9,681 | 1.171 | $7,864 | 1.916 | $199,918 | $4,766 |
+| 480 | 1.814 | 6,826 | 1.143 | $5,338 | 1.946 | $179,262 | $14,258 |
 
 The structure is clean:
 
@@ -203,6 +204,58 @@ Pure update functions on the abstract members `Add`/`Remove`; mutation hidden
 in the base. Verified zero behavior change: the queue-based sweep and the
 abstracted sweep produce byte-identical breakdown CSVs.
 
+### Lesson 7 — In-trade gap detector + signal lockout
+
+The per-bar liquidity floor in Lesson 4 catches redenomination *entries*
+(stub-data bars at fire time), but not redenomination events that happen
+*while a position is open*. Orderflow shrugged this off in practice
+because its median hold is only ~22 bars — the chance of a redenomination
+firing during a held trade is low. But the breakout sanity check
+(median hold ~400 bars) revealed how dangerous unprotected long holds
+are: a single GALAUSDT short held across a 1:96 redenomination took a
+$94,887 loss on $1000 notional — i.e. the strategy claimed to short and
+ride the position through a 96× upward gap, and the backtest believed it.
+
+The fix has two parts:
+
+1. **Bidirectional bar-to-bar gap detector.** While a position is open,
+   if `bar.Close / prevClose > MaxBarPriceRatio` *or*
+   `prevClose / bar.Close > MaxBarPriceRatio`, force-close at *prevClose*
+   with the previous bar's `EndUs` and **drop the gap bar entirely** —
+   no MA push, no excursion update, nothing. Models a venue circuit-
+   breaker / suspended-symbol detection: in live trading we'd be flat
+   before the relisting prints. Threshold of 3.0 (≥200% per-bar move)
+   was picked from a survey of actual Binance redenomination ratios:
+   the smallest known case is MANTRA at 1:4; the next-smallest is
+   STRAX/SONM/GXS at 1:10. A 3.0 threshold catches every known case
+   including MANTRA while staying well above any legitimate single-bar
+   move on hourly+ bars.
+
+2. **Signal lockout for one full window.** A gap doesn't just
+   contaminate the gap bar — it contaminates the rolling state for
+   `windowSize` bars afterward. The orderflow signal MAs hold pre-gap
+   dollar volumes; the breakout's rolling max/min holds pre-gap VWAP
+   extremes. After firing the detector, set `signalLockoutUntil =
+   barsSeen + n` and refuse to evaluate the signal for the next `n`
+   bars. The rolling state still gets pushed during lockout, so by the
+   time it expires the entire window is post-gap data. Also reset
+   `lastTarget = Flat` so the signal-consume rule lets the first
+   post-lockout signal fire normally.
+
+Effect on the v0 orderflow sweep was small (median hold is short, so
+contamination was rare) — the 200h cell PF stayed at 1.490, and the only
+material change was that PUMPBTCUSDT's 480h $14k loss survived (real
+~15× pump over 77 days, not a redenomination — the bar-to-bar log return
+never breached 3.0). Effect on breakout was decisive: largest loser
+$94,887 → ~$1,300 across every window, total PF flipped from below 1.0
+to above 1.0 everywhere. Effect on VWMA was modest in PF terms (1.083
+→ 1.087) but cleaned up the largest loser ($94,887 → $802) — VWMA's
+churn-and-pay-fees structure means redenomination was never its
+dominant problem.
+
+CLI flag: `--max-bar-price-ratio` (0 = disabled, recommended 3.0). On
+by default in v0 from this point on.
+
 ## What we deliberately did not pursue
 
 - **MAE-fraction stops** were tested and hurt overall PF when the data was
@@ -239,7 +292,7 @@ squeeze-survival buckets, and the per-trade ADV decile stratification.
 
 ```
 --timeframes 1h
---ma-hours 200          # picked: ~$202k net P&L, 20k trips, PF 1.49.
+--ma-hours 200          # picked: ~$201k net P&L, 20k trips, PF 1.49.
                         # Higher-PF cells exist at 240–480h with similar net dollars
                         # but fewer trips per symbol; 200h gives more breathing room
                         # for per-symbol statistical significance.
@@ -250,6 +303,7 @@ squeeze-survival buckets, and the per-trade ADV decile stratification.
 --min-short-adv 8000000
 --min-bar-quote-volume 5000
 --min-daily-volume 0    # superseded by the trailing-ADV gates + bar floor
+--max-bar-price-ratio 3.0  # in-trade redenomination guard; see Lesson 7
 ```
 
 Reproduce:
@@ -264,7 +318,8 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- sweep \
     --min-long-adv 28800000 \
     --min-short-adv 8000000 \
     --min-daily-volume 0 \
-    --min-bar-quote-volume 5000
+    --min-bar-quote-volume 5000 \
+    --max-bar-price-ratio 3.0
 ```
 
 ## Sanity check — VWMA crossover
@@ -279,18 +334,19 @@ in `TradingEdge.CryptoBacktest/VwmaCross.fs` with a `vwma-sweep`
 subcommand; the file is self-contained and intended to be deleted once
 the question is answered.
 
-Same 1h timeframe, 200h window, 643 covered symbols:
+Same 1h timeframe, 200h window, 643 covered symbols, gap detector ON
+(`--max-bar-price-ratio 3.0` — see Lesson 7):
 
 | Metric | Orderflow-MA v0 | VWMA crossover |
 | --- | ---: | ---: |
-| Total round trips | 20,016 | 140,563 (**7×**) |
-| Profit factor | **1.490** | 1.083 |
-| Long net P&L | $18,774 | **−$38,064** |
-| Long PF | 1.236 | 0.924 |
-| Short net P&L | $202,546 | $159,121 |
-| Short PF | 1.544 | 1.166 |
-| % cells PF > 1 | ~70% | 57.9% |
-| Win rate | n/a (longer holds) | 14.7% |
+| Total round trips | 20,006 | 140,511 (**7×**) |
+| Profit factor | **1.490** | 1.087 |
+| Long net P&L | $20,175 | **−$36,738** |
+| Long PF | **1.257** | **0.926** |
+| Short net P&L | $200,685 | $162,740 |
+| Short PF | **1.540** | **1.171** |
+| Largest loser | $3,599 | $802 |
+| % cells PF > 1 | 72.5% | 58.3% |
 
 What this confirms:
 
@@ -330,5 +386,72 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- vwma-sweep \
     --min-long-adv 28800000 \
     --min-short-adv 8000000 \
     --min-daily-volume 0 \
-    --min-bar-quote-volume 5000
+    --min-bar-quote-volume 5000 \
+    --max-bar-price-ratio 3.0
+```
+
+## Sanity check — VWAP N-hour breakout
+
+The next research question: would a Donchian-style breakout do better than
+the orderflow ratio? Hypothesis: probably worse on longs (buying every
+new high is textbook noise-chasing) but maybe competitive on shorts (a
+new N-hour low is informationally similar to a sustained negative
+orderflow ratio). Symmetric: long on a new N-hour high, short on a new
+N-hour low. Highs/lows computed off **per-bar VWAP** (not Close — closes
+are noisier on thin bars). Same gates and sizing as v0, gap detector ON.
+Implementation in `TradingEdge.CryptoBacktest/Breakout.fs` with a
+`breakout-sweep` subcommand; same self-contained shape as VWMA.
+
+Sweep across the same window grid as orderflow:
+
+| `--ma-hours` | Trips | Total PF | Long PF | Long Net P&L | Short PF | Short Net P&L | Largest loser |
+| :---: | ---: | :---: | :---: | ---: | :---: | ---: | ---: |
+| 200 | 12,833 | 1.088 | 0.790 | −$62,283 | 1.299 | $125,528 | $1,301 |
+| 240 | 10,865 | 1.077 | 0.741 | −$71,268 | 1.316 | $121,983 | $1,301 |
+| 288 | 8,926 | 1.130 | 0.748 | −$60,857 | 1.390 | $138,141 | $1,301 |
+| 360 | 7,115 | 1.144 | 0.736 | −$56,207 | 1.412 | $133,898 | $1,301 |
+| 480 | 5,080 | 1.225 | 0.888 | −$18,616 | 1.421 | $120,701 | $1,438 |
+
+What this confirms:
+
+- **Buying every new N-hour high is anti-edge.** Long PF is below 1.0
+  at every window (0.74–0.89). Long net P&L is **negative at every
+  window** (−$18k to −$71k). The pattern "price prints above where it's
+  been for the last 200 hours → buy" loses money systematically. The
+  longer the window, the smaller the loss — at 480h the long side only
+  drops $18k vs $71k at 240h — but it never crosses into profit.
+- **Shorts on N-hour-low are real edge, just smaller than orderflow's.**
+  Short PF 1.30–1.42 vs orderflow's 1.54–1.95 at the same windows. The
+  bearish-tape signal in USDT-perps is robust enough to show through
+  any reasonable bear filter; orderflow extracts more of it because it
+  has signed-volume information that breakouts don't.
+- **Same window-curve shape as orderflow** — total PF rises with
+  window length (1.09 → 1.23 across 200h–480h). The longer-is-better
+  story isn't unique to orderflow; it shows up in any signal that
+  benefits from filtering out short-term noise.
+- **Without the gap detector, this whole sweep is contaminated.**
+  Pre-fix, every window had largest loser $94,887 (a single GALAUSDT
+  short held through a 1:96 redenomination), and total PF was below 1.0
+  everywhere. With `--max-bar-price-ratio 3.0` the same trade still
+  fires but exits cleanly before the gap, capping loss at ~$1.3k. The
+  4× change in headline numbers from this single fix is what made us
+  add the detector to the production engine.
+
+Output files: `data/crypto/breakout/backtest_results.csv`,
+`backtest_summary.csv`, `backtest_results_breakdown.log`.
+
+Reproduce:
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- breakout-sweep \
+    --timeframes 1h \
+    --ma-hours 200,240,288,360,480 \
+    --allow-short \
+    --reference-vol-pct 1.0 \
+    --vol-window-days 7 \
+    --min-long-adv 28800000 \
+    --min-short-adv 8000000 \
+    --min-daily-volume 0 \
+    --min-bar-quote-volume 5000 \
+    --max-bar-price-ratio 3.0
 ```

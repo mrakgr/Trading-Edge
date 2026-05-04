@@ -96,6 +96,24 @@ type StrategyConfig = {
     /// Default 90 days (matches the ADV window). Set lower (e.g. 7) for
     /// a more responsive vol estimate that tracks recent regime shifts.
     VolWindowDays: int
+    /// Bidirectional per-bar gap detector for redenomination / relisting
+    /// events. While a position is open, if
+    ///   bar.Close / prevClose > MaxBarPriceRatio   (gap up)
+    /// or
+    ///   prevClose / bar.Close > MaxBarPriceRatio   (gap down)
+    /// the engine force-closes the position at the PREVIOUS bar's close
+    /// (which is the last fair price before the gap fires). Models
+    /// "venue circuit-breaker / suspended-symbol detection": in live
+    /// trading we'd have been flat before the redenomination's relisting
+    /// printed.
+    ///
+    /// Empirical Binance redenomination ratios on the v0 universe range
+    /// from MANTRA's 1:4 (smallest known) up to QuickSwap's 1:1000.
+    /// A threshold of 3.0 (i.e. ≥200% per-bar move triggers) catches
+    /// every known case INCLUDING MANTRA, while staying well above
+    /// any legitimate single-bar move on hourly+ bars in this universe.
+    /// Set to 0 to disable.
+    MaxBarPriceRatio: float
 }
 
 let defaultConfig (maWindowHours: int) : StrategyConfig =
@@ -110,7 +128,8 @@ let defaultConfig (maWindowHours: int) : StrategyConfig =
       ReferenceVol = 0.0
       MinLongAdv = 0.0
       MinShortAdv = 0.0
-      VolWindowDays = 90 }
+      VolWindowDays = 90
+      MaxBarPriceRatio = 0.0 }
 
 type RoundTrip = {
     EntryUs: int64
@@ -171,7 +190,20 @@ let private grossPnL (side: Side) (entry: float) (exit: float) (notional: float)
 // =============================================================================
 // Rolling-window aggregates
 // =============================================================================
-//
+
+[<AbstractClass>]
+type RollingWindow<'Bar, 'State>(initState: 'State, windowSize: int) =
+    let q = Queue<'Bar>(windowSize)
+    let mutable state = initState
+    abstract member Update : 'Bar IReadOnlyCollection -> 'State
+    member _.Count = q.Count
+    member _.WindowSize = windowSize
+    member _.State = state
+    member this.Push (x: 'Bar) =
+        if q.Count = windowSize then q.Dequeue() |> ignore
+        q.Enqueue x
+        state <- this.Update q
+
 // One queue + one running aggregate. Subclasses describe the aggregate as
 // pure (input, oldState) -> newState functions; the base owns the queue
 // and the eviction. State is read via the .State member; subclasses can
@@ -286,6 +318,14 @@ type Engine(cfg: StrategyConfig) =
     // strategy would chase, entering whenever the gate later relaxed
     // even though that bar isn't the actual signal bar.
     let mutable lastTarget = Flat
+    // Signal lockout — set after the gap detector fires so the engine
+    // refuses to evaluate the signal for one full window's worth of bars.
+    // The rolling buy/sell sums (and the vol/ADV windows) still get
+    // populated during the lockout, so by the time it expires the entire
+    // signal window has been refilled with post-gap bars and the rolling
+    // state no longer mixes pre-gap and post-gap regimes. Stored as a
+    // bar-index threshold: signal fires only when barsSeen >= this value.
+    let mutable signalLockoutUntil = 0
     let mutable entryPrice = 0.0
     let mutable entryUs = 0L
     let mutable effectiveNotional = 0.0
@@ -443,6 +483,22 @@ type Engine(cfg: StrategyConfig) =
             cfg.MinBarQuoteVolume <= 0.0 || dvThisBar >= cfg.MinBarQuoteVolume
         dailyOk && barOk
 
+    // Bidirectional bar-to-bar gap detector. Fires only while a position
+    // is open. Returns true if the bar prints a price ratio (either
+    // direction) above MaxBarPriceRatio versus the previous bar's close
+    // — i.e. the symbol moved through a gap big enough to be a
+    // redenomination / relisting event. Caller force-closes at prevClose
+    // / prevBar.EndUs (= lastClose / lastUs at this point in ProcessBar)
+    // BEFORE pushing this bar's price into the engine's rolling state,
+    // so contaminated bars don't leak into the signal MAs.
+    let priceGapHit (bar: SignedBar) : bool =
+        if cfg.MaxBarPriceRatio <= 0.0 || side = Flat then false
+        elif prevClose <= 0.0 || bar.Close <= 0.0 then false
+        else
+            let upGap   = bar.Close / prevClose
+            let downGap = prevClose / bar.Close
+            upGap > cfg.MaxBarPriceRatio || downGap > cfg.MaxBarPriceRatio
+
     // Stop-loss check. Returns Some stopPrice if this bar's adverse extreme
     // breached the implied stop level, otherwise None. Exits fill at the stop
     // price exactly — optimistic on gap-throughs, but a useful upper bound on
@@ -479,7 +535,31 @@ type Engine(cfg: StrategyConfig) =
         // P&L is reflected if a stop fires this bar.
         applyFunding bar
 
-        // Step 1: update excursion tracking on this bar BEFORE any close.
+        // Step 1: redenomination / relisting gap detector. Fires before any
+        // other per-bar logic — if the price ratio between this bar and
+        // the previous one exceeds MaxBarPriceRatio (in either direction)
+        // and we're holding a position, force-close at the PREVIOUS bar's
+        // close before the gap eats the position. The contaminated bar
+        // is then dropped: we skip excursion / stop / signal logic AND
+        // we don't push the bar's price into the rolling MAs. We also
+        // intentionally do NOT update prevClose / lastClose / lastUs —
+        // the post-gap "fair" price level becomes whatever the next
+        // legitimate bar prints, and `prevClose` carries the pre-gap
+        // value forward only until the next bar arrives. Since
+        // priceGapHit requires `side <> Flat`, a flat engine after the
+        // gap won't re-trigger on the recovery bar.
+        let gapFired = priceGapHit bar
+        if gapFired then
+            closePos lastClose lastUs
+            // Lock out signal evaluation for one full window so the
+            // rolling sums refresh before we trade against them again.
+            // Reset lastTarget so the first post-lockout signal can fire
+            // (otherwise it would be compared against a pre-gap target).
+            signalLockoutUntil <- barsSeen + n
+            lastTarget <- Flat
+        if gapFired then () else
+
+        // Step 2: update excursion tracking on this bar BEFORE any close.
         // The position was alive through this entire bar (we entered at the
         // PREVIOUS bar's close, or earlier), so this bar's High/Low contribute.
         // For the entry bar itself, barsHeld was set to 1 at open and we
@@ -489,7 +569,7 @@ type Engine(cfg: StrategyConfig) =
             updateExcursion bar
             barsHeld <- barsHeld + 1
 
-        // Step 2: stop-loss check. If the bar breached the stop, close at
+        // Step 3: stop-loss check. If the bar breached the stop, close at
         // the stop price (which is more favorable than bar.Close for trades
         // that kept moving against us within the bar, but identical or worse
         // for the bar that printed a Low ≤ stopPx then bounced). This runs
@@ -517,7 +597,7 @@ type Engine(cfg: StrategyConfig) =
         lastClose <- bar.Close
         lastUs <- bar.EndUs
 
-        if barsSeen >= n then
+        if barsSeen >= n && barsSeen >= signalLockoutUntil then
             let ratio = if sellMa.State > 0.0 then buyMa.State / sellMa.State else infinity
             let bullish = ratio > 1.0
             let bearish = ratio < 1.0

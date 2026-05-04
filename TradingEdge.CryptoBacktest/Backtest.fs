@@ -279,6 +279,57 @@ type VwmaCell(symbol: string, timeframe: string, cfg: StrategyConfig) =
     member _.Trips = engine.Trips |> Seq.toArray
 
 // =============================================================================
+// VWAP-breakout cell (research duplicate)
+// =============================================================================
+//
+// Same surface as Cell / VwmaCell, but instantiates Breakout.Engine. Same
+// shared StrategyConfig / RoundTrip / Side so the metrics + reporting
+// pipeline is unchanged.
+
+type BreakoutCell(symbol: string, timeframe: string, cfg: StrategyConfig) =
+    let bucketUs = bucketUsOfTimeframe timeframe
+    let builder = TimeBarBuilder(bucketUs)
+    let cfgWithBucket = { cfg with BucketUs = bucketUs }
+    let engine = Breakout.Engine(cfgWithBucket)
+    let mutable barCount = 0
+    let mutable startUs = 0L
+    let mutable endUs = 0L
+    let mutable hasAny = false
+
+    let onBar (bar: SignedBar) =
+        if not hasAny then
+            startUs <- bar.StartUs
+            hasAny <- true
+        endUs <- bar.EndUs
+        barCount <- barCount + 1
+        engine.ProcessBar bar
+
+    member _.Symbol = symbol
+    member _.Timeframe = timeframe
+    member _.Config = cfg
+
+    member _.SetFundingEvents(events: (int64 * float)[]) =
+        engine.SetFundingEvents events
+
+    member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+        for t in trades do
+            builder.Process(onBar, t)
+
+    member _.PushBars(bars: SignedBar[]) =
+        for b in bars do
+            onBar b
+
+    member _.Close() =
+        builder.Flush onBar
+        engine.Flush()
+
+    member _.BuildMetrics() =
+        let trips = engine.Trips |> Seq.toArray
+        buildMetrics symbol timeframe cfg barCount startUs endUs trips
+
+    member _.Trips = engine.Trips |> Seq.toArray
+
+// =============================================================================
 // Symbol-level streaming driver
 // =============================================================================
 

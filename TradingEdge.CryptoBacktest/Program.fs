@@ -73,6 +73,7 @@ type SweepArgs =
     | Min_Long_Adv of float
     | Min_Short_Adv of float
     | Vol_Window_Days of int
+    | Max_Bar_Price_Ratio of float
     | Funding_Root of string
     | No_Funding
     | Results_Csv of string
@@ -99,6 +100,7 @@ type SweepArgs =
             | Min_Long_Adv _  -> "Minimum trailing-90d ADV (USDT/day) required for a long entry. Evaluated at signal-fire time using the engine's leak-free rolling window. Below threshold the signal is consumed (no retry on next bar) and the engine stays flat. Default 0 (disabled)."
             | Min_Short_Adv _ -> "Minimum trailing-90d ADV (USDT/day) required for a short entry. Same semantics as --min-long-adv. Default 0 (disabled)."
             | Vol_Window_Days _ -> "Vol-window length in days for the rolling log-return std used by vol-based position sizing. Independent of --ma-hours. Default 90; lower values (e.g. 7) make the vol estimate more responsive to recent regime shifts."
+            | Max_Bar_Price_Ratio _ -> "Bidirectional bar-to-bar price-ratio gap detector for redenomination / relisting events. While a position is open, if bar.Close/prevClose or its inverse exceeds this ratio, the engine force-closes at the previous bar's close, drops the gap bar, AND locks out new entries for one full signal-window period so the rolling state can refresh. Default 0 (disabled). Recommended 3.0 (catches all known Binance redenominations down to MANTRA's 1:4)."
             | Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
             | No_Funding -> "Disable funding-rate accounting even if data is available."
             | Results_Csv _ -> "Per-(symbol,timeframe,ma) results CSV path."
@@ -109,12 +111,14 @@ type CliArgs =
     | [<CliPrefix(CliPrefix.None)>] Run of ParseResults<RunArgs>
     | [<CliPrefix(CliPrefix.None)>] Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Vwma_Sweep of ParseResults<SweepArgs>
+    | [<CliPrefix(CliPrefix.None)>] Breakout_Sweep of ParseResults<SweepArgs>
     interface IArgParserTemplate with
         member s.Usage =
             match s with
-            | Run _        -> "Run one (symbol, timeframe, ma) configuration."
-            | Sweep _      -> "Run the full grid: timeframes × MA hours × symbols."
-            | Vwma_Sweep _ -> "Research baseline: same grid, but signal is close-vs-VWMA crossover instead of orderflow ratio."
+            | Run _            -> "Run one (symbol, timeframe, ma) configuration."
+            | Sweep _          -> "Run the full grid: timeframes × MA hours × symbols."
+            | Vwma_Sweep _     -> "Research baseline: same grid, but signal is close-vs-VWMA crossover instead of orderflow ratio."
+            | Breakout_Sweep _ -> "Research baseline: same grid, but signal is symmetric N-hour VWAP-breakout/breakdown instead of orderflow ratio."
 
 // =============================================================================
 // Helpers
@@ -241,6 +245,7 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     let minLongAdv = args.GetResult(Min_Long_Adv, defaultValue = 0.0)
     let minShortAdv = args.GetResult(Min_Short_Adv, defaultValue = 0.0)
     let volWindowDays = args.GetResult(Vol_Window_Days, defaultValue = 90)
+    let maxBarPriceRatio = args.GetResult(Max_Bar_Price_Ratio, defaultValue = 0.0)
     let fundingRoot =
         if args.Contains No_Funding then None
         else Some (args.GetResult(Funding_Root, defaultValue = defaultFundingRoot))
@@ -316,7 +321,8 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
                                     ReferenceVol = referenceVolPct / 100.0
                                     MinLongAdv = minLongAdv
                                     MinShortAdv = minShortAdv
-                                    VolWindowDays = volWindowDays }
+                                    VolWindowDays = volWindowDays
+                                    MaxBarPriceRatio = maxBarPriceRatio }
                             yield Cell(symbol, tf, cfg) |]
                 let metrics, adv =
                     if useTrades then
@@ -468,6 +474,7 @@ let cmdVwmaSweep (args: ParseResults<SweepArgs>) : int =
     let minLongAdv = args.GetResult(Min_Long_Adv, defaultValue = 0.0)
     let minShortAdv = args.GetResult(Min_Short_Adv, defaultValue = 0.0)
     let volWindowDays = args.GetResult(Vol_Window_Days, defaultValue = 90)
+    let maxBarPriceRatio = args.GetResult(Max_Bar_Price_Ratio, defaultValue = 0.0)
     let fundingRoot =
         if args.Contains No_Funding then None
         else Some (args.GetResult(Funding_Root, defaultValue = defaultFundingRoot))
@@ -561,7 +568,8 @@ let cmdVwmaSweep (args: ParseResults<SweepArgs>) : int =
                                     ReferenceVol = referenceVolPct / 100.0
                                     MinLongAdv = minLongAdv
                                     MinShortAdv = minShortAdv
-                                    VolWindowDays = volWindowDays }
+                                    VolWindowDays = volWindowDays
+                                    MaxBarPriceRatio = maxBarPriceRatio }
                             yield VwmaCell(symbol, tf, cfg) |]
                 let metrics, adv =
                     if useTrades then
@@ -643,6 +651,218 @@ let cmdVwmaSweep (args: ParseResults<SweepArgs>) : int =
     0
 
 // =============================================================================
+// breakout-sweep — research baseline (VWAP N-hour breakout signal)
+// =============================================================================
+//
+// Same flags as `sweep` and `vwma-sweep`. Default output paths under
+// `data/crypto/breakout/`. Wraps `Backtest.BreakoutCell`.
+
+let cmdBreakoutSweep (args: ParseResults<SweepArgs>) : int =
+    let dataRoot = args.GetResult(SweepArgs.Data_Root, defaultValue = defaultDataRoot)
+    let barsRoot = args.GetResult(SweepArgs.Bars_Root, defaultValue = defaultBarsRoot)
+    let useTrades = args.Contains SweepArgs.Use_Trades
+    let startDate = args.TryGetResult SweepArgs.Start_Date |> Option.map parseDate |> Option.defaultValue defaultStart
+    let endDate   = args.TryGetResult SweepArgs.End_Date   |> Option.map parseDate |> Option.defaultValue defaultEnd
+    let timeframes =
+        args.TryGetResult SweepArgs.Timeframes
+        |> Option.map (parseList ',')
+        |> Option.defaultValue defaultTimeframes
+    let maHoursList =
+        args.TryGetResult SweepArgs.Ma_Hours
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map Int32.Parse)
+        |> Option.defaultValue defaultMaHours
+    let symbols =
+        match args.TryGetResult SweepArgs.Symbol with
+        | Some s -> parseList ',' s
+        | None ->
+            if useTrades then listSymbols dataRoot
+            else
+                let perTf = timeframes |> Array.map (fun tf -> Set.ofArray (BarLoader.listSymbols barsRoot tf))
+                if perTf.Length = 0 then [||]
+                else
+                    perTf
+                    |> Array.reduce Set.intersect
+                    |> Set.toArray
+                    |> Array.sort
+    let notional = args.GetResult(SweepArgs.Notional, defaultValue = 1000.0)
+    let takerFee = args.GetResult(SweepArgs.Taker_Fee, defaultValue = 0.0004)
+    let allowShort = args.Contains SweepArgs.Allow_Short
+    let minDailyVolume = args.GetResult(Min_Daily_Volume, defaultValue = 500_000.0)
+    let minBarQuoteVolume = args.GetResult(Min_Bar_Quote_Volume, defaultValue = 0.0)
+    let maxAdversePct = args.GetResult(Max_Adverse_Pct, defaultValue = 0.0)
+    let referenceVolPct = args.GetResult(Reference_Vol_Pct, defaultValue = 0.0)
+    let minLongAdv = args.GetResult(Min_Long_Adv, defaultValue = 0.0)
+    let minShortAdv = args.GetResult(Min_Short_Adv, defaultValue = 0.0)
+    let volWindowDays = args.GetResult(Vol_Window_Days, defaultValue = 90)
+    let maxBarPriceRatio = args.GetResult(Max_Bar_Price_Ratio, defaultValue = 0.0)
+    let fundingRoot =
+        if args.Contains No_Funding then None
+        else Some (args.GetResult(Funding_Root, defaultValue = defaultFundingRoot))
+    let resultsCsv = args.GetResult(Results_Csv, defaultValue = "data/crypto/breakout/backtest_results.csv")
+    let summaryCsv = args.GetResult(Summary_Csv, defaultValue = "data/crypto/breakout/backtest_summary.csv")
+    let parallelism = args.GetResult(Parallelism, defaultValue = 4)
+
+    printfn "[breakout-sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s minDailyVol=$%s minBarQVol=$%s maxAdversePct=%g referenceVolPct=%g minLongAdv=$%s minShortAdv=$%s volWindowDays=%d"
+        symbols.Length
+        (String.concat "," timeframes)
+        (String.concat "," (maHoursList |> Array.map string))
+        allowShort
+        (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
+        parallelism
+        (if useTrades then "trades" else "bars")
+        (minDailyVolume.ToString("N0"))
+        (minBarQuoteVolume.ToString("N0"))
+        maxAdversePct
+        referenceVolPct
+        (minLongAdv.ToString("N0"))
+        (minShortAdv.ToString("N0"))
+        volWindowDays
+
+    if File.Exists resultsCsv then File.Delete resultsCsv
+    let resultsDir = Path.GetDirectoryName resultsCsv
+    let resultsStem = Path.GetFileNameWithoutExtension resultsCsv
+    if Directory.Exists resultsDir then
+        for f in Directory.EnumerateFiles(resultsDir, sprintf "%s_trips_*.csv" resultsStem) do
+            File.Delete f
+
+    let allMetrics = System.Collections.Concurrent.ConcurrentBag<Metrics>()
+    let allTripsByGroup =
+        System.Collections.Concurrent.ConcurrentDictionary<string * int * bool, System.Collections.Concurrent.ConcurrentBag<RoundTrip>>()
+    let getTripBag (tf: string) (ma: int) (sh: bool) =
+        allTripsByGroup.GetOrAdd((tf, ma, sh), fun _ -> System.Collections.Concurrent.ConcurrentBag<RoundTrip>())
+    let advBySymbol =
+        System.Collections.Concurrent.ConcurrentDictionary<string, float>()
+    let writeLock = obj()
+    let totalCells = symbols.Length * timeframes.Length * maHoursList.Length
+    let mutable doneCells = 0
+
+    let runBreakoutCellsFromBars
+        (symbol: string)
+        (cells: BreakoutCell[])
+        : Metrics[] * float =
+        let fundingEvents =
+            match fundingRoot with
+            | Some root when FundingLoader.exists root symbol ->
+                FundingLoader.loadByDate root symbol startDate endDate
+                |> Array.map (fun e -> e.TimestampUs, e.Rate)
+            | _ -> [||]
+        if fundingEvents.Length > 0 then
+            for cell in cells do
+                cell.SetFundingEvents fundingEvents
+        let byTf = cells |> Array.groupBy (fun c -> c.Timeframe)
+        let mutable adv = 0.0
+        let mutable advSet = false
+        for (tf, group) in byTf do
+            let bars = BarLoader.loadByDate barsRoot tf symbol startDate endDate
+            if not advSet && bars.Length > 0 then
+                adv <- avgDailyVolume bars
+                advSet <- true
+            for cell in group do
+                cell.PushBars bars
+        for cell in cells do
+            cell.Close()
+        let metrics = cells |> Array.map (fun c -> c.BuildMetrics())
+        metrics, adv
+
+    let swAll = Stopwatch.StartNew()
+    let opts = System.Threading.Tasks.ParallelOptions(MaxDegreeOfParallelism = parallelism)
+    System.Threading.Tasks.Parallel.ForEach(
+        symbols,
+        opts,
+        fun symbol ->
+            let swSym = Stopwatch.StartNew()
+            try
+                let cells =
+                    [| for tf in timeframes do
+                        for maHours in maHoursList do
+                            let cfg =
+                                { defaultConfig maHours with
+                                    Notional = notional
+                                    TakerFee = takerFee
+                                    AllowShort = allowShort
+                                    MinDailyQuoteVolume = minDailyVolume
+                                    MinBarQuoteVolume = minBarQuoteVolume
+                                    MaxAdverseFraction = maxAdversePct / 100.0
+                                    ReferenceVol = referenceVolPct / 100.0
+                                    MinLongAdv = minLongAdv
+                                    MinShortAdv = minShortAdv
+                                    VolWindowDays = volWindowDays
+                                    MaxBarPriceRatio = maxBarPriceRatio }
+                            yield BreakoutCell(symbol, tf, cfg) |]
+                let metrics, adv = runBreakoutCellsFromBars symbol cells
+                let nonEmpty = metrics |> Array.filter (fun m -> m.BarsTotal > 0)
+                if nonEmpty.Length = 0 then
+                    lock writeLock (fun () ->
+                        printfn "[breakout-sweep] %s: no bars in window" symbol)
+                else
+                    if adv > 0.0 then advBySymbol.[symbol] <- adv
+                    for cell in cells do
+                        let trips = cell.Trips
+                        let bag = getTripBag cell.Timeframe cell.Config.MaWindowHours cell.Config.AllowShort
+                        for t in trips do bag.Add t
+                        if trips.Length > 0 then
+                            let tripsPath =
+                                let dir = Path.GetDirectoryName resultsCsv
+                                let stem = Path.GetFileNameWithoutExtension resultsCsv
+                                let shortTag = if cell.Config.AllowShort then "ls" else "long"
+                                Path.Combine(dir,
+                                    sprintf "%s_trips_%s_ma%dh_%s.csv"
+                                        stem cell.Timeframe cell.Config.MaWindowHours shortTag)
+                            lock writeLock (fun () ->
+                                appendTrips tripsPath cell.Symbol cell.Timeframe cell.Config trips)
+                    lock writeLock (fun () ->
+                        appendResults resultsCsv metrics
+                        for m in metrics do allMetrics.Add m
+                        doneCells <- doneCells + metrics.Length)
+                    swSym.Stop()
+                    lock writeLock (fun () ->
+                        printfn "[breakout-sweep] %s done in %.1fs (%d/%d cells)"
+                            symbol swSym.Elapsed.TotalSeconds doneCells totalCells)
+            with ex ->
+                lock writeLock (fun () ->
+                    eprintfn "[breakout-sweep] %s FAILED: %s" symbol ex.Message
+                    eprintfn "%s" ex.StackTrace))
+    |> ignore
+    swAll.Stop()
+
+    let metricsArr = allMetrics.ToArray()
+    let summary = summarize metricsArr
+    let summarySorted =
+        summary |> Array.sortByDescending (fun s -> s.MedianSharpe)
+    writeSummary summaryCsv summarySorted
+    printfn "[breakout-sweep] wrote %d result rows -> %s" metricsArr.Length resultsCsv
+    printfn "[breakout-sweep] wrote %d summary rows -> %s" summarySorted.Length summaryCsv
+
+    let breakdownLogPath =
+        let dir = Path.GetDirectoryName resultsCsv
+        let stem = Path.GetFileNameWithoutExtension resultsCsv
+        Path.Combine(dir, sprintf "%s_breakdown.log" stem)
+    Directory.CreateDirectory(Path.GetDirectoryName breakdownLogPath) |> ignore
+    use logWriter = new StreamWriter(breakdownLogPath, false)
+    let logWrite (s: string) =
+        logWriter.WriteLine s
+        logWriter.Flush()
+    let consoleWrite (s: string) = Console.WriteLine s
+
+    for s in summarySorted do
+        let cellMetrics =
+            metricsArr
+            |> Array.filter (fun m ->
+                m.Timeframe = s.Timeframe && m.MaWindowHours = s.MaWindowHours && m.AllowShort = s.AllowShort
+                && m.BarsTotal > 0)
+        let trips =
+            match allTripsByGroup.TryGetValue((s.Timeframe, s.MaWindowHours, s.AllowShort)) with
+            | true, bag -> bag.ToArray()
+            | _ -> [||]
+        printGroupBreakdown logWrite consoleWrite s.Timeframe s.MaWindowHours s.AllowShort notional cellMetrics trips advBySymbol
+
+    printfn ""
+    printfn "[breakout-sweep] breakdown -> %s" breakdownLogPath
+    printfn "[breakout-sweep] total wall %.1fs" swAll.Elapsed.TotalSeconds
+    0
+
+// =============================================================================
 // Entry point
 // =============================================================================
 
@@ -655,6 +875,7 @@ let main argv =
         | Run a -> cmdRun a
         | Sweep a -> cmdSweep a
         | Vwma_Sweep a -> cmdVwmaSweep a
+        | Breakout_Sweep a -> cmdBreakoutSweep a
     with
     | :? ArguParseException as ex ->
         eprintfn "%s" ex.Message
