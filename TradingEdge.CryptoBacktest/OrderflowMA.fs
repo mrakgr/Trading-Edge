@@ -318,6 +318,13 @@ type Engine(cfg: StrategyConfig) =
     // strategy would chase, entering whenever the gate later relaxed
     // even though that bar isn't the actual signal bar.
     let mutable lastTarget = Flat
+    // Latest *evaluated* target — what the signal block at the bottom of
+    // ProcessBar computed for the most-recently-seen bar. Distinct from
+    // lastTarget (which only updates on regime change). Stays Flat during
+    // pre-fill (window not full) and during lockout. Read by Breadth tooling
+    // that wants the persistent regime view, not the regime-change fire view.
+    let mutable lastEvaluatedTarget = Flat
+    let mutable lastEvaluatedRatio = nan
     // Signal lockout — set after the gap detector fires so the engine
     // refuses to evaluate the signal for one full window's worth of bars.
     // The rolling buy/sell sums (and the vol/ADV windows) still get
@@ -605,6 +612,13 @@ type Engine(cfg: StrategyConfig) =
                 if bullish then Long
                 elif bearish && cfg.AllowShort then Short
                 else Flat
+            // Persist the *evaluated* target & ratio for breadth-style consumers
+            // (see Breadth.fs). Assigned here so the value is written every bar
+            // in which the engine evaluates the signal, regardless of whether
+            // a fire (regime change) happens. ADV/liquidity gates further down
+            // gate trade firing only — they don't affect this regime view.
+            lastEvaluatedTarget <- target
+            lastEvaluatedRatio <- ratio
             // Fire only on regime CHANGE (target <> lastTarget), not on
             // (target <> side). Once we evaluate this bar's signal, we
             // commit lastTarget to it regardless of whether the entry
@@ -635,6 +649,20 @@ type Engine(cfg: StrategyConfig) =
     member _.Flush() =
         if side <> Flat && lastClose > 0.0 then
             closePos lastClose lastUs
+
+    /// Latest evaluated target — the local `target` from the signal block,
+    /// updated on every bar in which the engine evaluates (post-window-fill,
+    /// post-lockout). Stays `Flat` during pre-fill and lockout. Distinct from
+    /// the private regime-change-fire target: this one updates every bar.
+    member _.LastEvaluatedTarget : Side = lastEvaluatedTarget
+
+    /// Latest evaluated ratio (buyMa.State / sellMa.State); `nan` when the
+    /// engine has not yet evaluated (pre-fill or lockout). For diagnostics.
+    member _.LastEvaluatedRatio : float = lastEvaluatedRatio
+
+    /// True if the engine currently has an open position (Long or Short).
+    /// Useful as a diagnostic column in breadth panels.
+    member _.InTrade : bool = side <> Flat
 
 /// Convenience runner over a precomputed bar array.
 let run (cfg: StrategyConfig) (bars: SignedBar[]) : RoundTrip[] =

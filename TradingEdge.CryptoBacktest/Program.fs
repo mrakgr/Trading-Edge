@@ -107,11 +107,49 @@ type SweepArgs =
             | Summary_Csv _ -> "Aggregate per-(timeframe,ma) summary CSV path."
             | Parallelism _ -> "Max symbols processed concurrently. Default 4."
 
+type BuildBreadthArgs =
+    | [<AltCommandLine "-b">] Bars_Root of string
+    | [<AltCommandLine "-s">] Symbol of string
+    | Start_Date of string
+    | End_Date of string
+    | Timeframe of string
+    | Ma_Hours of int
+    | Allow_Short
+    | Min_Daily_Volume of float
+    | Min_Bar_Quote_Volume of float
+    | Min_Long_Adv of float
+    | Min_Short_Adv of float
+    | Vol_Window_Days of int
+    | Max_Bar_Price_Ratio of float
+    | Per_Symbol_Hour_Out of string
+    | Per_Hour_Out of string
+    | [<AltCommandLine "-p">] Parallelism of int
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Bars_Root _ -> "Pre-aggregated bar-parquet root. Default: " + defaultBarsRoot
+            | Symbol _ -> "Restrict to a comma-separated symbol list (default: every symbol with bars at this timeframe)."
+            | Start_Date _ -> "Inclusive start date YYYY-MM-DD. Default 2024-05-01."
+            | End_Date _ -> "Inclusive end date YYYY-MM-DD. Default 2026-04-30."
+            | Timeframe _ -> "Bar timeframe. Default 1h (matches the v0 backtest)."
+            | BuildBreadthArgs.Ma_Hours _ -> "Rolling-sum signal window length, in HOURS. Default 200 (v0 pinned)."
+            | BuildBreadthArgs.Allow_Short -> "When set, the engine emits Short on bear regime (else Flat). Default off; v0 uses --allow-short."
+            | BuildBreadthArgs.Min_Daily_Volume _ -> "Minimum daily quote volume gate (USDT) for trade fires. Does not affect the breadth target view (LastEvaluatedTarget is updated regardless). Pass-through to the engine for parity with v0."
+            | BuildBreadthArgs.Min_Bar_Quote_Volume _ -> "Per-bar absolute liquidity floor (USDT). Same engine-pass-through semantics as --min-daily-volume."
+            | BuildBreadthArgs.Min_Long_Adv _ -> "Minimum trailing-90d ADV gate for long trade fires. Default 0 (disabled); v0 uses 28800000."
+            | BuildBreadthArgs.Min_Short_Adv _ -> "Minimum trailing-90d ADV gate for short trade fires. Default 0; v0 uses 8000000."
+            | BuildBreadthArgs.Vol_Window_Days _ -> "Vol-window in days. Default 90; v0 uses 7."
+            | BuildBreadthArgs.Max_Bar_Price_Ratio _ -> "Bar-to-bar price-ratio gap detector. Default 0; v0 uses 3.0."
+            | Per_Symbol_Hour_Out _ -> "Per-(symbol, hour) parquet output. Default /mnt/d/trading-edge-bulk/crypto/binance/breadth/per_symbol_hour.parquet"
+            | Per_Hour_Out _ -> "Per-hour aggregate parquet output. Default /mnt/d/trading-edge-bulk/crypto/binance/breadth/per_hour.parquet"
+            | BuildBreadthArgs.Parallelism _ -> "Max symbols processed concurrently. Default 4."
+
 type CliArgs =
     | [<CliPrefix(CliPrefix.None)>] Run of ParseResults<RunArgs>
     | [<CliPrefix(CliPrefix.None)>] Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Vwma_Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Breakout_Sweep of ParseResults<SweepArgs>
+    | [<CliPrefix(CliPrefix.None)>] Build_Breadth of ParseResults<BuildBreadthArgs>
     interface IArgParserTemplate with
         member s.Usage =
             match s with
@@ -119,6 +157,7 @@ type CliArgs =
             | Sweep _          -> "Run the full grid: timeframes × MA hours × symbols."
             | Vwma_Sweep _     -> "Research baseline: same grid, but signal is close-vs-VWMA crossover instead of orderflow ratio."
             | Breakout_Sweep _ -> "Research baseline: same grid, but signal is symmetric N-hour VWAP-breakout/breakdown instead of orderflow ratio."
+            | Build_Breadth _  -> "Build the universe-wide breadth panel: per-(symbol, hour) signal trace plus per-hour aggregates with composite signed-volume t-digest rank."
 
 // =============================================================================
 // Helpers
@@ -135,7 +174,7 @@ let parseList (sep: char) (s: string) : string[] =
 // =============================================================================
 
 let cmdRun (args: ParseResults<RunArgs>) : int =
-    let timeframe = args.GetResult Timeframe
+    let timeframe = args.GetResult RunArgs.Timeframe
     let maHours = args.GetResult RunArgs.Ma_Hours
     let symbol = args.GetResult(RunArgs.Symbol, defaultValue = "BTCUSDT")
     let dataRoot = args.GetResult(RunArgs.Data_Root, defaultValue = defaultDataRoot)
@@ -238,20 +277,20 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     let notional = args.GetResult(SweepArgs.Notional, defaultValue = 1000.0)
     let takerFee = args.GetResult(SweepArgs.Taker_Fee, defaultValue = 0.0004)
     let allowShort = args.Contains SweepArgs.Allow_Short
-    let minDailyVolume = args.GetResult(Min_Daily_Volume, defaultValue = 500_000.0)
-    let minBarQuoteVolume = args.GetResult(Min_Bar_Quote_Volume, defaultValue = 0.0)
+    let minDailyVolume = args.GetResult(SweepArgs.Min_Daily_Volume, defaultValue = 500_000.0)
+    let minBarQuoteVolume = args.GetResult(SweepArgs.Min_Bar_Quote_Volume, defaultValue = 0.0)
     let maxAdversePct = args.GetResult(Max_Adverse_Pct, defaultValue = 0.0)
     let referenceVolPct = args.GetResult(Reference_Vol_Pct, defaultValue = 0.0)
-    let minLongAdv = args.GetResult(Min_Long_Adv, defaultValue = 0.0)
-    let minShortAdv = args.GetResult(Min_Short_Adv, defaultValue = 0.0)
-    let volWindowDays = args.GetResult(Vol_Window_Days, defaultValue = 90)
-    let maxBarPriceRatio = args.GetResult(Max_Bar_Price_Ratio, defaultValue = 0.0)
+    let minLongAdv = args.GetResult(SweepArgs.Min_Long_Adv, defaultValue = 0.0)
+    let minShortAdv = args.GetResult(SweepArgs.Min_Short_Adv, defaultValue = 0.0)
+    let volWindowDays = args.GetResult(SweepArgs.Vol_Window_Days, defaultValue = 90)
+    let maxBarPriceRatio = args.GetResult(SweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
     let fundingRoot =
         if args.Contains No_Funding then None
         else Some (args.GetResult(Funding_Root, defaultValue = defaultFundingRoot))
     let resultsCsv = args.GetResult(Results_Csv, defaultValue = defaultResultsCsv)
     let summaryCsv = args.GetResult(Summary_Csv, defaultValue = defaultSummaryCsv)
-    let parallelism = args.GetResult(Parallelism, defaultValue = 4)
+    let parallelism = args.GetResult(SweepArgs.Parallelism, defaultValue = 4)
 
     printfn "[sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s minDailyVol=$%s minBarQVol=$%s maxAdversePct=%g referenceVolPct=%g minLongAdv=$%s minShortAdv=$%s volWindowDays=%d"
         symbols.Length
@@ -467,20 +506,20 @@ let cmdVwmaSweep (args: ParseResults<SweepArgs>) : int =
     let notional = args.GetResult(SweepArgs.Notional, defaultValue = 1000.0)
     let takerFee = args.GetResult(SweepArgs.Taker_Fee, defaultValue = 0.0004)
     let allowShort = args.Contains SweepArgs.Allow_Short
-    let minDailyVolume = args.GetResult(Min_Daily_Volume, defaultValue = 500_000.0)
-    let minBarQuoteVolume = args.GetResult(Min_Bar_Quote_Volume, defaultValue = 0.0)
+    let minDailyVolume = args.GetResult(SweepArgs.Min_Daily_Volume, defaultValue = 500_000.0)
+    let minBarQuoteVolume = args.GetResult(SweepArgs.Min_Bar_Quote_Volume, defaultValue = 0.0)
     let maxAdversePct = args.GetResult(Max_Adverse_Pct, defaultValue = 0.0)
     let referenceVolPct = args.GetResult(Reference_Vol_Pct, defaultValue = 0.0)
-    let minLongAdv = args.GetResult(Min_Long_Adv, defaultValue = 0.0)
-    let minShortAdv = args.GetResult(Min_Short_Adv, defaultValue = 0.0)
-    let volWindowDays = args.GetResult(Vol_Window_Days, defaultValue = 90)
-    let maxBarPriceRatio = args.GetResult(Max_Bar_Price_Ratio, defaultValue = 0.0)
+    let minLongAdv = args.GetResult(SweepArgs.Min_Long_Adv, defaultValue = 0.0)
+    let minShortAdv = args.GetResult(SweepArgs.Min_Short_Adv, defaultValue = 0.0)
+    let volWindowDays = args.GetResult(SweepArgs.Vol_Window_Days, defaultValue = 90)
+    let maxBarPriceRatio = args.GetResult(SweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
     let fundingRoot =
         if args.Contains No_Funding then None
         else Some (args.GetResult(Funding_Root, defaultValue = defaultFundingRoot))
     let resultsCsv = args.GetResult(Results_Csv, defaultValue = "data/crypto/vwma/backtest_results.csv")
     let summaryCsv = args.GetResult(Summary_Csv, defaultValue = "data/crypto/vwma/backtest_summary.csv")
-    let parallelism = args.GetResult(Parallelism, defaultValue = 4)
+    let parallelism = args.GetResult(SweepArgs.Parallelism, defaultValue = 4)
 
     printfn "[vwma-sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s minDailyVol=$%s minBarQVol=$%s maxAdversePct=%g referenceVolPct=%g minLongAdv=$%s minShortAdv=$%s volWindowDays=%d"
         symbols.Length
@@ -688,20 +727,20 @@ let cmdBreakoutSweep (args: ParseResults<SweepArgs>) : int =
     let notional = args.GetResult(SweepArgs.Notional, defaultValue = 1000.0)
     let takerFee = args.GetResult(SweepArgs.Taker_Fee, defaultValue = 0.0004)
     let allowShort = args.Contains SweepArgs.Allow_Short
-    let minDailyVolume = args.GetResult(Min_Daily_Volume, defaultValue = 500_000.0)
-    let minBarQuoteVolume = args.GetResult(Min_Bar_Quote_Volume, defaultValue = 0.0)
+    let minDailyVolume = args.GetResult(SweepArgs.Min_Daily_Volume, defaultValue = 500_000.0)
+    let minBarQuoteVolume = args.GetResult(SweepArgs.Min_Bar_Quote_Volume, defaultValue = 0.0)
     let maxAdversePct = args.GetResult(Max_Adverse_Pct, defaultValue = 0.0)
     let referenceVolPct = args.GetResult(Reference_Vol_Pct, defaultValue = 0.0)
-    let minLongAdv = args.GetResult(Min_Long_Adv, defaultValue = 0.0)
-    let minShortAdv = args.GetResult(Min_Short_Adv, defaultValue = 0.0)
-    let volWindowDays = args.GetResult(Vol_Window_Days, defaultValue = 90)
-    let maxBarPriceRatio = args.GetResult(Max_Bar_Price_Ratio, defaultValue = 0.0)
+    let minLongAdv = args.GetResult(SweepArgs.Min_Long_Adv, defaultValue = 0.0)
+    let minShortAdv = args.GetResult(SweepArgs.Min_Short_Adv, defaultValue = 0.0)
+    let volWindowDays = args.GetResult(SweepArgs.Vol_Window_Days, defaultValue = 90)
+    let maxBarPriceRatio = args.GetResult(SweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
     let fundingRoot =
         if args.Contains No_Funding then None
         else Some (args.GetResult(Funding_Root, defaultValue = defaultFundingRoot))
     let resultsCsv = args.GetResult(Results_Csv, defaultValue = "data/crypto/breakout/backtest_results.csv")
     let summaryCsv = args.GetResult(Summary_Csv, defaultValue = "data/crypto/breakout/backtest_summary.csv")
-    let parallelism = args.GetResult(Parallelism, defaultValue = 4)
+    let parallelism = args.GetResult(SweepArgs.Parallelism, defaultValue = 4)
 
     printfn "[breakout-sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s minDailyVol=$%s minBarQVol=$%s maxAdversePct=%g referenceVolPct=%g minLongAdv=$%s minShortAdv=$%s volWindowDays=%d"
         symbols.Length
@@ -863,6 +902,139 @@ let cmdBreakoutSweep (args: ParseResults<SweepArgs>) : int =
     0
 
 // =============================================================================
+// build-breadth
+// =============================================================================
+
+let cmdBuildBreadth (args: ParseResults<BuildBreadthArgs>) : int =
+    let barsRoot = args.GetResult(BuildBreadthArgs.Bars_Root, defaultValue = defaultBarsRoot)
+    let timeframe = args.GetResult(BuildBreadthArgs.Timeframe, defaultValue = "1h")
+    let maHours = args.GetResult(BuildBreadthArgs.Ma_Hours, defaultValue = 200)
+    let allowShort = args.Contains BuildBreadthArgs.Allow_Short
+    let minDailyVolume = args.GetResult(BuildBreadthArgs.Min_Daily_Volume, defaultValue = 0.0)
+    let minBarQuoteVolume = args.GetResult(BuildBreadthArgs.Min_Bar_Quote_Volume, defaultValue = 0.0)
+    let minLongAdv = args.GetResult(BuildBreadthArgs.Min_Long_Adv, defaultValue = 0.0)
+    let minShortAdv = args.GetResult(BuildBreadthArgs.Min_Short_Adv, defaultValue = 0.0)
+    let volWindowDays = args.GetResult(BuildBreadthArgs.Vol_Window_Days, defaultValue = 90)
+    let maxBarPriceRatio = args.GetResult(BuildBreadthArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
+    let parallelism = args.GetResult(BuildBreadthArgs.Parallelism, defaultValue = 4)
+    let startDate = args.TryGetResult BuildBreadthArgs.Start_Date |> Option.map parseDate |> Option.defaultValue defaultStart
+    let endDate = args.TryGetResult BuildBreadthArgs.End_Date |> Option.map parseDate |> Option.defaultValue defaultEnd
+    let perSymHourOut =
+        args.GetResult(Per_Symbol_Hour_Out,
+            defaultValue = "/mnt/d/trading-edge-bulk/crypto/binance/breadth/per_symbol_hour.parquet")
+    let perHourOut =
+        args.GetResult(Per_Hour_Out,
+            defaultValue = "/mnt/d/trading-edge-bulk/crypto/binance/breadth/per_hour.parquet")
+    let symbols =
+        match args.TryGetResult BuildBreadthArgs.Symbol with
+        | Some s -> parseList ',' s
+        | None -> BarLoader.listSymbols barsRoot timeframe
+    if symbols.Length = 0 then
+        eprintfn "[build-breadth] No symbols found at %s/%s. Did you run `build-bars`?" barsRoot timeframe
+        1
+    else
+
+    let bucketUs = SignedBar.bucketUsOfTimeframe timeframe
+    let cfg =
+        { defaultConfig maHours with
+            BucketUs = bucketUs
+            AllowShort = allowShort
+            MinDailyQuoteVolume = minDailyVolume
+            MinBarQuoteVolume = minBarQuoteVolume
+            MinLongAdv = minLongAdv
+            MinShortAdv = minShortAdv
+            VolWindowDays = volWindowDays
+            MaxBarPriceRatio = maxBarPriceRatio }
+
+    printfn "[build-breadth] symbols=%d timeframe=%s ma-hours=%d allow-short=%b range=%s..%s parallelism=%d"
+        symbols.Length timeframe maHours allowShort
+        (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
+        parallelism
+    printfn "[build-breadth] gates: minLongAdv=$%s minShortAdv=$%s minBarQVol=$%s maxBarRatio=%g"
+        (minLongAdv.ToString "N0")
+        (minShortAdv.ToString "N0")
+        (minBarQuoteVolume.ToString "N0")
+        maxBarPriceRatio
+
+    // Streaming pipeline: each worker thread loads its symbol's bars, runs
+    // OrderflowMA, and emits each row twice — once into the per-symbol-hour
+    // parquet writer (DuckDB-buffered, columnar; fits 7M rows easily), and
+    // once into the per-hour aggregator (folds into per-hour totals only,
+    // O(hours) not O(rows)). No managed-heap row list; peak RSS stays bounded.
+    Directory.CreateDirectory(Path.GetDirectoryName perSymHourOut) |> ignore
+    Directory.CreateDirectory(Path.GetDirectoryName perHourOut) |> ignore
+    use perSymWriter = new Breadth.PerSymbolHourWriter(perSymHourOut)
+    let aggregator = Breadth.PerHourAggregator()
+    let emit (r: Breadth.BreadthRow) =
+        perSymWriter.Add r
+        aggregator.Push r
+
+    let progressLock = obj()
+    let mutable doneCount = 0
+    let mutable failCount = 0
+    let mutable totalRows = 0L
+    let total = symbols.Length
+
+    let swAll = Stopwatch.StartNew()
+    let opts = System.Threading.Tasks.ParallelOptions(MaxDegreeOfParallelism = parallelism)
+    System.Threading.Tasks.Parallel.ForEach(
+        symbols,
+        opts,
+        fun symbol ->
+            try
+                let bars = BarLoader.loadByDate barsRoot timeframe symbol startDate endDate
+                if bars.Length = 0 then
+                    lock progressLock (fun () ->
+                        doneCount <- doneCount + 1
+                        printfn "[build-breadth] %4d/%-4d %-20s no bars" doneCount total symbol)
+                else
+                    let n = Breadth.runSymbolStreaming symbol cfg bars emit
+                    lock progressLock (fun () ->
+                        doneCount <- doneCount + 1
+                        totalRows <- totalRows + int64 n
+                        if doneCount % 10 = 0 || doneCount = total then
+                            printfn "[build-breadth] %4d/%-4d %-20s %d rows (total %s, %.1fs)"
+                                doneCount total symbol n
+                                (totalRows.ToString "N0") swAll.Elapsed.TotalSeconds)
+            with ex ->
+                lock progressLock (fun () ->
+                    failCount <- failCount + 1
+                    eprintfn "[build-breadth] %s FAILED: %s" symbol ex.Message))
+    |> ignore
+    swAll.Stop()
+
+    printfn ""
+    printfn "[build-breadth] processed %d symbols (%d failed), %s rows in %.1fs"
+        doneCount failCount (totalRows.ToString "N0") swAll.Elapsed.TotalSeconds
+
+    if perSymWriter.RowCount = 0 then
+        eprintfn "[build-breadth] no rows produced; nothing to write"
+        if failCount > 0 then 1 else 0
+    else
+
+    printfn "[build-breadth] writing per-(symbol, hour) parquet -> %s" perSymHourOut
+    let swWrite1 = Stopwatch.StartNew()
+    perSymWriter.Close()
+    swWrite1.Stop()
+    printfn "[build-breadth]   %s rows in %.1fs"
+        (perSymWriter.RowCount.ToString "N0") swWrite1.Elapsed.TotalSeconds
+
+    printfn "[build-breadth] finalising per-hour aggregator..."
+    let swAgg = Stopwatch.StartNew()
+    let perHour = aggregator.Finalize()
+    swAgg.Stop()
+    printfn "[build-breadth]   %d hours in %.1fs"
+        perHour.Length swAgg.Elapsed.TotalSeconds
+
+    printfn "[build-breadth] writing per-hour parquet -> %s" perHourOut
+    let swWrite2 = Stopwatch.StartNew()
+    let nPerHour = Breadth.writePerHourParquet perHour perHourOut
+    swWrite2.Stop()
+    printfn "[build-breadth]   %d rows in %.1fs"
+        nPerHour swWrite2.Elapsed.TotalSeconds
+    if failCount > 0 then 1 else 0
+
+// =============================================================================
 // Entry point
 // =============================================================================
 
@@ -876,6 +1048,7 @@ let main argv =
         | Sweep a -> cmdSweep a
         | Vwma_Sweep a -> cmdVwmaSweep a
         | Breakout_Sweep a -> cmdBreakoutSweep a
+        | Build_Breadth a -> cmdBuildBreadth a
     with
     | :? ArguParseException as ex ->
         eprintfn "%s" ex.Message

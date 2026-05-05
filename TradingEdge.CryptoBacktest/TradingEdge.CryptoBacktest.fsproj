@@ -13,6 +13,7 @@
     <Compile Include="OrderflowMA.fs" />
     <Compile Include="VwmaCross.fs" />
     <Compile Include="Breakout.fs" />
+    <Compile Include="Breadth.fs" />
     <Compile Include="Backtest.fs" />
     <Compile Include="Reporting.fs" />
     <Compile Include="Program.fs" />
