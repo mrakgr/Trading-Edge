@@ -600,82 +600,96 @@ trade's specific symbol was paying at entry.
 trips, 14,047 short trips, 100% join rate (every trade matched a funding
 event for its symbol).
 
-**Methodology note.** 5 fixed cutpoints — same regime cuts as the
-universe-funding section (negative / sub-baseline / =baseline / mildly
-elevated / strongly elevated), with the sub-baseline range further split
-into negative funding (< 0) and 0 to +0.5 bps separately. The universe
-panel doesn't need this split (its median almost never goes negative);
-the per-ticker rates do, since individual symbols can have sustained
-negative funding when shorts pay longs. Funding rates in **bps per
-funding interval** (1 bps = 0.0001 decimal); Binance baseline is
-+0.5 bps; 1 bps/interval ≈ 11% annualised.
+**Methodology note.** 6 fixed cutpoints, splitting the negative-funding
+range into "strongly negative" (< −0.5 bps) and "mildly negative"
+(−0.5 to 0 bps) on top of the universe panel's regime cuts. Per-ticker
+rates can sustain large negatives (individual symbols see shorts paying
+longs when there's heavy bear-leveraged positioning); the universe
+median almost never does. Funding in **bps per funding interval**
+(1 bps = 0.0001 decimal); Binance baseline is +0.5 bps; 1 bps/interval
+≈ 11% annualised.
 
 ### Long-side regime breakdown
 
 ```
-bucket  fr_bps             trades  win_rate  PF      sumPnl$
-0       < 0 bps             1635   0.392    1.335    +7205
-1       0 to +0.5 bps        716   0.390    1.342    +2395
-2       =+0.5 bps           1824   0.376    1.043    +1157
-3       +0.5 to +1.0 bps     409   0.352    1.162     +669
-4       ≥ +1.0 bps          1375   0.361    1.461    +8750
+bucket  fr_bps              trades  win_rate  PF      sumPnl$
+0       < -0.5 bps           1217   0.404    1.427    +6889
+1       -0.5 to 0 bps         418   0.356    1.059     +316
+2       0 to +0.5 bps         716   0.390    1.342    +2395
+3       =+0.5 bps            1824   0.376    1.043    +1157
+4       +0.5 to +1.0 bps      409   0.352    1.162     +669
+5       ≥ +1.0 bps           1375   0.361    1.461    +8750
 ```
 
-The two sub-baseline buckets (0 and 1) come out nearly identical in PF
-(1.335 vs 1.342) — for longs the negative-vs-positive-but-sub-baseline
-split doesn't matter; both are mean-reversion regimes that work.
+**Pattern: longs work at the extremes, struggle in the middle.** Bucket 0
+(strongly negative funding, < −0.5 bps) is one of the two best long
+buckets (PF 1.43); the mean-reversion-against-bear-leverage thesis only
+holds when funding is *meaningfully* negative. Bucket 5 (≥ +1.0 bps,
+strong long-leverage) is the other strong bucket (PF 1.46) — momentum
+continuation. Buckets 1–4 (everything from −0.5 bps through +1 bps)
+all run at PF 1.04–1.34, weak edge.
 
 ### Short-side regime breakdown
 
 ```
-bucket  fr_bps             trades  win_rate  PF      sumPnl$
-0       < 0 bps             4054   0.422    1.237   +24849
-1       0 to +0.5 bps       1323   0.423    1.577   +16884
-2       =+0.5 bps           4584   0.458    1.743   +90534
-3       +0.5 to +1.0 bps     664   0.408    1.652    +9567
-4       ≥ +1.0 bps          3422   0.432    1.581   +58852
+bucket  fr_bps              trades  win_rate  PF      sumPnl$
+0       < -0.5 bps           3179   0.425    1.192   +16237
+1       -0.5 to 0 bps         875   0.408    1.427    +8612
+2       0 to +0.5 bps        1323   0.423    1.577   +16884
+3       =+0.5 bps            4584   0.458    1.743   +90534
+4       +0.5 to +1.0 bps      664   0.408    1.652    +9567
+5       ≥ +1.0 bps           3422   0.432    1.581   +58852
 ```
 
-**Pattern: shorts grade monotonically up across the lower buckets.** PF
-rises 1.24 → 1.58 → 1.74 as funding climbs from genuinely-negative
-(shorts paying longs) through sub-baseline-positive into baseline. The
-negative-funding bucket isn't a hard dead zone (PF 1.24 is still positive
-edge), but it's the weakest part of the per-ticker space for shorts —
-about $4 of edge per trade vs $20 at the baseline bucket. Theory aligns:
-shorts paying longs is structural pressure against the position, even if
-v0 short signals still find some edge there on average.
+**Pattern: shorts grade monotonically up across the lower buckets, then
+plateau at elevated funding.** PF rises 1.19 → 1.43 → 1.58 → 1.74 as
+funding climbs from strongly-negative (shorts paying longs) through
+sub-baseline into baseline, then settles around 1.6 across the elevated
+regime. The strongly-negative bucket is the weakest part of the
+per-ticker space for shorts — $5 of edge per trade vs $20 at baseline,
+about a 4× degradation — but still positive PF, not a true dead zone.
 
-### Verdict — and a partial inversion of the earlier conclusion
+### Verdict
 
-**Per-ticker funding has no hard dead zones**, but it does have **graded
-structure on the short side**: the negative-funding bucket runs at
-roughly 70 % the edge of the baseline bucket. Useful as a sizing factor
-or a soft filter, not as a hard skip rule.
+**Per-ticker funding has graded structure on both sides:**
+- **Longs work at the extremes only.** The negative-funding-with-magnitude
+  regime (< −0.5 bps) and the strongly-elevated regime (≥ +1 bps) both
+  hit PF ≈ 1.43–1.46. The middle band is a wash.
+- **Shorts grade monotonically up** from negative funding (PF 1.19) to
+  baseline (PF 1.74) and plateau there. Negative funding is the weakest
+  part of the short space; baseline-and-above is uniformly strong.
+
+The signal is real but soft — no PF goes below 1.0. Useful as a
+**position-sizing modulator** (downsize negative-funding shorts; upsize
+extreme-funding longs at either end), not as a hard skip rule.
 
 **Compare to the universe-funding panel** (next section), where the same
-cuts applied to the universe-wide median produce sharp dead zones:
-- Universe long ≥ +1.0 bps: **PF 0.59** (vs per-ticker bucket 4: PF 1.46).
-- Universe short < +0.5 bps: **PF 0.85** (vs per-ticker buckets 0 and 1
-  combined: PF ≈ 1.32).
+direction-of-effect applies but with much sharper magnitude:
+- Universe long ≥ +1.0 bps: **PF 0.59** (vs per-ticker bucket 5: PF 1.46
+  — opposite signs!).
+- Universe short < +0.5 bps: **PF 0.85** (vs per-ticker buckets 0–2
+  combined: PF 1.36).
 
-**The strong regime signal lives at the universe level, not the
-per-ticker level.** The per-ticker grading is real but small; the
-universe-level effect is large. The universe panel is the one to plumb
-as a hard filter. Per-ticker funding earns a possible role as a
-sizing factor for shorts (smaller size when fr < 0), but a wash on
-longs.
+The opposite sign on the long side is striking: per-ticker elevated
+funding helps longs (momentum continuation on the trade's own symbol);
+universe-wide elevated funding hurts longs (broad-market top-sign).
+Different signals, both real.
+
+**The strong dead-zone signal lives at the universe level. Per-ticker
+funding is a softer modulator that complements but doesn't dominate.**
 
 ### How to reproduce
 
 ```bash
-# Per-trip funding stratification with 5 regime cutpoints. The extra
-# cutpoint at 0 splits the sub-baseline range into truly-negative (shorts
-# paying longs) and merely-below-baseline. The universe panel doesn't need
-# this split since its median almost never goes negative.
+# Per-trip funding stratification with 6 regime cutpoints. The negative
+# range is split into strongly-negative (< -0.5 bps) and mildly-negative
+# (-0.5 to 0 bps) — the long-side mean-reversion edge requires meaningfully
+# negative funding, the mildly-negative band is a wash. Universe panel
+# doesn't need this split since its median almost never goes negative.
 dotnet run --project TradingEdge.CryptoBacktest -c Release -- funding-stratify \
     --trips /tmp/v0/results_trips_1h_ma200h_ls.csv \
     --bucket-by cutpoints \
-    --value-cutpoints "0.0,0.00005,0.0000501,0.0001" \
+    --value-cutpoints "-0.00005,0.0,0.00005,0.0000501,0.0001" \
     --output /tmp/v0/funding_decile_breakdown.csv
 
 # Universe-wide funding breadth panel (built separately for visual / future
@@ -799,17 +813,19 @@ of effects**:
 In aggregate: drop the bottom-bucket shorts and the top-bucket longs,
 save ~$7k in losses, no opportunity cost on the winning side.
 
-**Comparison with per-symbol funding filter.** When similar cutpoints
-are applied to the trade's own symbol's funding rate (see the per-trip
-section above), there are **no hard dead zones** — every bucket has
-PF ≥ 1.04 — but there's **graded structure** on the short side: the
-truly-negative-funding bucket runs at PF 1.24 vs PF 1.74 at the baseline
-bucket, about 70 % the per-trade edge.
+**Comparison with per-symbol funding filter.** Similar cutpoints applied
+to the trade's own symbol's funding rate (see the per-trip section above)
+show **graded structure but no hard dead zones**:
+- Per-ticker shorts grade monotonically up from PF 1.19 at strongly-
+  negative funding to PF 1.74 at baseline, then plateau ~1.6 at elevated.
+- Per-ticker longs work only at the extremes (PF 1.43 at < −0.5 bps and
+  PF 1.46 at ≥ +1.0 bps); the middle band is a wash.
 
-So the strong regime signal is **at the universe level** (clean dead
-zones at PF 0.85 and 0.59); the per-ticker version is a softer modulation
-that might earn a role as a position-sizing factor for shorts but
-doesn't justify a hard skip rule on its own.
+The strong dead-zone signal is **at the universe level** (PF 0.85 and
+0.59); per-ticker is a softer modulation. Notably, **the long-side effect
+flips sign between the two scales**: per-ticker elevated funding helps
+longs (momentum on the symbol's own tape), but universe-wide elevated
+funding hurts longs (broad-market top-sign). Different signals, both real.
 
 **Methodology lesson worth flagging.** An earlier 10-decile rank breakdown
 of this same data made bucket 6 (rank 0.60-0.70) look like a 3.81 PF
