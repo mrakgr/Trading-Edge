@@ -157,6 +157,34 @@ type BreadthStratifyArgs =
             | Buckets _ -> "Number of rank buckets (deciles, ventiles, etc.). Default 10."
             | Output _ -> "Optional CSV output path for the breakdown. Default prints to stdout only."
 
+type FundingStratifyArgs =
+    | [<Mandatory; AltCommandLine "-t">] Trips of string
+    | Funding_Root of string
+    | [<AltCommandLine "-n">] Buckets of int
+    | [<AltCommandLine "-o">] Output of string
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | FundingStratifyArgs.Trips _ -> "Path to a trips CSV from a prior `sweep` run."
+            | FundingStratifyArgs.Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
+            | FundingStratifyArgs.Buckets _ -> "Number of buckets. Default 10."
+            | FundingStratifyArgs.Output _ -> "Optional CSV output path for the breakdown."
+
+type BuildFundingBreadthArgs =
+    | Funding_Root of string
+    | Per_Symbol_Hour of string
+    | [<AltCommandLine "-o">] Output of string
+    | Extreme_Positive of float
+    | Extreme_Negative of float
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | BuildFundingBreadthArgs.Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
+            | Per_Symbol_Hour _ -> "Per-(symbol, hour) parquet from build-breadth. Used to determine which symbols are active in each hour. Default: /mnt/d/trading-edge-bulk/crypto/binance/breadth/per_symbol_hour.parquet"
+            | BuildFundingBreadthArgs.Output _ -> "Output parquet path. Default: /mnt/d/trading-edge-bulk/crypto/binance/breadth/funding_per_hour.parquet"
+            | Extreme_Positive _ -> "Threshold for 'extreme positive funding' bin (default 0.0001 = 0.01% per interval = ~3.6× the +0.005% baseline)."
+            | Extreme_Negative _ -> "Threshold for 'extreme negative funding' bin (default -0.0001)."
+
 type CliArgs =
     | [<CliPrefix(CliPrefix.None)>] Run of ParseResults<RunArgs>
     | [<CliPrefix(CliPrefix.None)>] Sweep of ParseResults<SweepArgs>
@@ -164,6 +192,8 @@ type CliArgs =
     | [<CliPrefix(CliPrefix.None)>] Breakout_Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Breadth of ParseResults<BuildBreadthArgs>
     | [<CliPrefix(CliPrefix.None)>] Breadth_Stratify of ParseResults<BreadthStratifyArgs>
+    | [<CliPrefix(CliPrefix.None)>] Funding_Stratify of ParseResults<FundingStratifyArgs>
+    | [<CliPrefix(CliPrefix.None)>] Build_Funding_Breadth of ParseResults<BuildFundingBreadthArgs>
     interface IArgParserTemplate with
         member s.Usage =
             match s with
@@ -173,6 +203,8 @@ type CliArgs =
             | Breakout_Sweep _ -> "Research baseline: same grid, but signal is symmetric N-hour VWAP-breakout/breakdown instead of orderflow ratio."
             | Build_Breadth _  -> "Build the universe-wide breadth panel: per-(symbol, hour) signal trace plus per-hour aggregates with composite signed-volume t-digest rank."
             | Breadth_Stratify _ -> "Stratify a trips CSV by composite_signed_rank_ma200 at entry; per-side per-decile PF / win-rate / P&L breakdown."
+            | Funding_Stratify _ -> "Stratify a trips CSV by per-symbol funding rate at entry; per-side per-decile PF / win-rate / P&L breakdown."
+            | Build_Funding_Breadth _ -> "Build the universe-wide funding-rate breadth panel: per-hour mean/median/quantile of funding rates across active symbols, plus a t-digest rank of the median."
 
 // =============================================================================
 // Helpers
@@ -302,7 +334,7 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     let maxBarPriceRatio = args.GetResult(SweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
     let fundingRoot =
         if args.Contains No_Funding then None
-        else Some (args.GetResult(Funding_Root, defaultValue = defaultFundingRoot))
+        else Some (args.GetResult(SweepArgs.Funding_Root, defaultValue = defaultFundingRoot))
     let resultsCsv = args.GetResult(Results_Csv, defaultValue = defaultResultsCsv)
     let summaryCsv = args.GetResult(Summary_Csv, defaultValue = defaultSummaryCsv)
     let parallelism = args.GetResult(SweepArgs.Parallelism, defaultValue = 4)
@@ -531,7 +563,7 @@ let cmdVwmaSweep (args: ParseResults<SweepArgs>) : int =
     let maxBarPriceRatio = args.GetResult(SweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
     let fundingRoot =
         if args.Contains No_Funding then None
-        else Some (args.GetResult(Funding_Root, defaultValue = defaultFundingRoot))
+        else Some (args.GetResult(SweepArgs.Funding_Root, defaultValue = defaultFundingRoot))
     let resultsCsv = args.GetResult(Results_Csv, defaultValue = "data/crypto/vwma/backtest_results.csv")
     let summaryCsv = args.GetResult(Summary_Csv, defaultValue = "data/crypto/vwma/backtest_summary.csv")
     let parallelism = args.GetResult(SweepArgs.Parallelism, defaultValue = 4)
@@ -752,7 +784,7 @@ let cmdBreakoutSweep (args: ParseResults<SweepArgs>) : int =
     let maxBarPriceRatio = args.GetResult(SweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
     let fundingRoot =
         if args.Contains No_Funding then None
-        else Some (args.GetResult(Funding_Root, defaultValue = defaultFundingRoot))
+        else Some (args.GetResult(SweepArgs.Funding_Root, defaultValue = defaultFundingRoot))
     let resultsCsv = args.GetResult(Results_Csv, defaultValue = "data/crypto/breakout/backtest_results.csv")
     let summaryCsv = args.GetResult(Summary_Csv, defaultValue = "data/crypto/breakout/backtest_summary.csv")
     let parallelism = args.GetResult(SweepArgs.Parallelism, defaultValue = 4)
@@ -1054,11 +1086,11 @@ let cmdBuildBreadth (args: ParseResults<BuildBreadthArgs>) : int =
 // =============================================================================
 
 let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
-    let tripsPath = args.GetResult Trips
+    let tripsPath = args.GetResult BreadthStratifyArgs.Trips
     let perHourPath =
         args.GetResult(Per_Hour,
             defaultValue = "/mnt/d/trading-edge-bulk/crypto/binance/breadth/per_hour.parquet")
-    let nBuckets = args.GetResult(Buckets, defaultValue = 10)
+    let nBuckets = args.GetResult(BreadthStratifyArgs.Buckets, defaultValue = 10)
     let outputPath = args.TryGetResult BreadthStratifyArgs.Output
 
     if not (File.Exists tripsPath) then
@@ -1173,6 +1205,318 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
     0
 
 // =============================================================================
+// funding-stratify: pair trips with funding rate at entry, decile breakdown
+// =============================================================================
+//
+// Symmetric to breadth-stratify. For each trade with (symbol, entry_us), we
+// look up the most recent funding event for that symbol whose calc_time_us
+// is ≤ entry_us, via DuckDB's per-symbol ASOF JOIN. Bucketing is by funding
+// rate value (NOT by rank within the symbol) — the absolute scale of funding
+// is meaningful: +1% per 8h is "longs paying shorts heavily, top sign,"
+// −0.1% is "structural alt-perp baseline." A uniform-ranked-percentile bucket
+// would lose that interpretability.
+//
+// Bucket boundaries: NTILE over the joined data so each bucket has roughly
+// equal trade count. We report rank_lo/rank_hi as the actual funding-rate
+// range in each bucket so the result is interpretable.
+
+let cmdFundingStratify (args: ParseResults<FundingStratifyArgs>) : int =
+    let tripsPath = args.GetResult FundingStratifyArgs.Trips
+    let fundingRoot =
+        args.GetResult(FundingStratifyArgs.Funding_Root, defaultValue = defaultFundingRoot)
+    let nBuckets = args.GetResult(FundingStratifyArgs.Buckets, defaultValue = 10)
+    let outputPath = args.TryGetResult FundingStratifyArgs.Output
+
+    if not (File.Exists tripsPath) then
+        eprintfn "[funding-stratify] trips file not found: %s" tripsPath
+        exit 1
+    if not (Directory.Exists fundingRoot) then
+        eprintfn "[funding-stratify] funding root not found: %s" fundingRoot
+        exit 1
+
+    printfn "[funding-stratify] trips:   %s" tripsPath
+    printfn "[funding-stratify] funding: %s" fundingRoot
+    printfn "[funding-stratify] buckets: %d" nBuckets
+    printfn ""
+
+    use conn = new DuckDB.NET.Data.DuckDBConnection("Data Source=:memory:")
+    conn.Open()
+
+    let fundingGlob = Path.Combine(fundingRoot, "*.parquet")
+    let q =
+        sprintf """
+        WITH trips AS (
+          SELECT symbol, side, entry_us, net_pnl
+          FROM read_csv_auto('%s')
+        ),
+        funding_all AS (
+          SELECT
+            regexp_extract(filename, '([^/]+)\.parquet$', 1) AS symbol,
+            calc_time_us,
+            funding_rate
+          FROM read_parquet('%s', filename = true)
+        ),
+        joined AS (
+          SELECT t.symbol, t.side, t.entry_us, t.net_pnl, f.funding_rate AS fr
+          FROM trips t
+          ASOF JOIN funding_all f
+            ON t.symbol = f.symbol AND t.entry_us >= f.calc_time_us
+          WHERE f.funding_rate IS NOT NULL
+        ),
+        bucketed AS (
+          SELECT side, net_pnl, fr,
+                 NTILE(%d) OVER (PARTITION BY side ORDER BY fr) - 1 AS bucket
+          FROM joined
+        )
+        SELECT
+          side,
+          bucket,
+          COUNT(*) AS trades,
+          SUM(CASE WHEN net_pnl > 0 THEN 1 ELSE 0 END) AS wins,
+          AVG(CASE WHEN net_pnl > 0 THEN 1.0 ELSE 0.0 END) AS win_rate,
+          SUM(CASE WHEN net_pnl > 0 THEN net_pnl ELSE 0 END) AS gross_wins,
+          SUM(CASE WHEN net_pnl < 0 THEN -net_pnl ELSE 0 END) AS gross_losses,
+          SUM(net_pnl) AS sum_pnl,
+          AVG(net_pnl) AS avg_pnl,
+          MIN(fr) AS fr_lo,
+          MAX(fr) AS fr_hi
+        FROM bucketed
+        GROUP BY side, bucket
+        ORDER BY side, bucket
+        """
+            (tripsPath.Replace("'", "''"))
+            (fundingGlob.Replace("'", "''"))
+            nBuckets
+
+    use cmd = conn.CreateCommand()
+    cmd.CommandText <- q
+    use reader = cmd.ExecuteReader()
+
+    let rows = ResizeArray<string * int * int * int * float * float * float * float * float * float * float>()
+    while reader.Read() do
+        let side = reader.GetString 0
+        let bucket = reader.GetInt32 1
+        let trades = reader.GetInt32 2
+        let wins = reader.GetInt64 3 |> int
+        let winRate = reader.GetDouble 4
+        let grossW = reader.GetDouble 5
+        let grossL = reader.GetDouble 6
+        let sumPnl = reader.GetDouble 7
+        let avgPnl = reader.GetDouble 8
+        let frLo = reader.GetDouble 9
+        let frHi = reader.GetDouble 10
+        rows.Add(side, bucket, trades, wins, winRate, grossW, grossL, sumPnl, avgPnl, frLo, frHi)
+
+    let printSection (side: string) =
+        printfn ""
+        printfn "--- %s side: funding-rate decile breakdown (rate is per funding interval, not annualised) ---" side
+        printfn "  %-7s %-13s %-13s %-7s %-7s %-9s %11s %11s %11s %11s %11s"
+            "bucket" "fr_lo" "fr_hi"
+            "trades" "wins" "win_rate"
+            "grossW$" "grossL$" "PF" "sumPnl$" "avgPnl$"
+        for s, b, n, w, wr, gw, gl, sp, ap, fl, fh in rows do
+            if s = side then
+                let pf = if gl > 0.0 then gw / gl else nan
+                printfn "  %-7d %-13.6f %-13.6f %-7d %-7d %-9.3f %11.0f %11.0f %11.3f %11.0f %11.2f"
+                    b fl fh n w wr gw gl pf sp ap
+
+    printSection "long"
+    printSection "short"
+
+    match outputPath with
+    | Some path ->
+        Directory.CreateDirectory(Path.GetDirectoryName path) |> ignore
+        use sw = new StreamWriter(path)
+        sw.WriteLine "side,bucket,fr_lo,fr_hi,trades,wins,win_rate,gross_wins,gross_losses,profit_factor,sum_pnl,avg_pnl"
+        for s, b, n, w, wr, gw, gl, sp, ap, fl, fh in rows do
+            let pf = if gl > 0.0 then gw / gl else System.Double.NaN
+            sw.WriteLine(
+                sprintf "%s,%d,%g,%g,%d,%d,%g,%g,%g,%g,%g,%g"
+                    s b fl fh n w wr gw gl pf sp ap)
+        printfn ""
+        printfn "[funding-stratify] wrote %s" path
+    | None -> ()
+    0
+
+// =============================================================================
+// build-funding-breadth: per-hour universe-wide funding aggregates
+// =============================================================================
+//
+// Funding events fire at 4–8 h cadence per symbol. To get a per-hour panel
+// we forward-fill: at any 1h bucket, each symbol carries the most recent
+// funding rate whose calc_time_us ≤ bucket. We restrict to (symbol, hour)
+// pairs that have a bar in per_symbol_hour.parquet — that's the natural
+// "is this symbol active right now" filter (built by `build-breadth`).
+//
+// Output columns:
+//   hour_us BIGINT
+//   n_active_symbols INTEGER
+//   avg_funding DOUBLE         -- mean across active symbols
+//   median_funding DOUBLE      -- median (robust to outliers)
+//   pct_positive DOUBLE        -- fraction with funding > 0
+//   pct_extreme_positive DOUBLE
+//   pct_extreme_negative DOUBLE
+//   median_funding_rank DOUBLE -- t-digest CDF over time-ordered medians
+
+let cmdBuildFundingBreadth (args: ParseResults<BuildFundingBreadthArgs>) : int =
+    let fundingRoot =
+        args.GetResult(BuildFundingBreadthArgs.Funding_Root,
+            defaultValue = defaultFundingRoot)
+    let perSymHour =
+        args.GetResult(Per_Symbol_Hour,
+            defaultValue = "/mnt/d/trading-edge-bulk/crypto/binance/breadth/per_symbol_hour.parquet")
+    let out =
+        args.GetResult(BuildFundingBreadthArgs.Output,
+            defaultValue = "/mnt/d/trading-edge-bulk/crypto/binance/breadth/funding_per_hour.parquet")
+    let extPos = args.GetResult(Extreme_Positive, defaultValue = 0.0001)
+    let extNeg = args.GetResult(Extreme_Negative, defaultValue = -0.0001)
+
+    if not (Directory.Exists fundingRoot) then
+        eprintfn "[build-funding-breadth] funding root not found: %s" fundingRoot
+        exit 1
+    if not (File.Exists perSymHour) then
+        eprintfn "[build-funding-breadth] per-symbol-hour parquet not found: %s" perSymHour
+        eprintfn "  Run `build-breadth` first to produce it."
+        exit 1
+
+    printfn "[build-funding-breadth] funding-root: %s" fundingRoot
+    printfn "[build-funding-breadth] per-symbol-hour: %s" perSymHour
+    printfn "[build-funding-breadth] output: %s" out
+    printfn "[build-funding-breadth] extreme-positive: %g, extreme-negative: %g" extPos extNeg
+    printfn ""
+
+    Directory.CreateDirectory(Path.GetDirectoryName out) |> ignore
+    let tmp = out + ".tmp"
+    if File.Exists tmp then File.Delete tmp
+
+    use conn = new DuckDB.NET.Data.DuckDBConnection("Data Source=:memory:")
+    conn.Open()
+
+    let fundingGlob = Path.Combine(fundingRoot, "*.parquet")
+    let sw = Stopwatch.StartNew()
+
+    // Pipeline:
+    //  1. activity = (symbol, hour_us) pairs with a bar (from per_symbol_hour).
+    //  2. funding_all = (symbol, calc_time_us, funding_rate) over the full universe.
+    //  3. forward_filled = ASOF LEFT JOIN activity to funding_all on
+    //     (symbol, hour_us >= calc_time_us). Each (symbol, hour) gets the most
+    //     recent funding rate; symbols with no funding event yet get NULL.
+    //  4. per_hour = aggregate forward_filled by hour_us.
+    //  5. Walk the rows in time order, feed median_funding into a t-digest, query
+    //     CDF after add. (Doable in pure SQL? Probably not cleanly — use a SQL
+    //     window-pass + post-process in F#.)
+    let qAggregate =
+        sprintf """
+        WITH activity AS (
+          SELECT symbol, start_us AS hour_us
+          FROM read_parquet('%s')
+        ),
+        funding_all AS (
+          SELECT
+            regexp_extract(filename, '([^/]+)\.parquet$', 1) AS symbol,
+            calc_time_us,
+            funding_rate
+          FROM read_parquet('%s', filename = true)
+        ),
+        ffilled AS (
+          SELECT a.hour_us, a.symbol, f.funding_rate
+          FROM activity a
+          ASOF LEFT JOIN funding_all f
+            ON a.symbol = f.symbol AND a.hour_us >= f.calc_time_us
+        )
+        SELECT
+          hour_us,
+          COUNT(*) FILTER (WHERE funding_rate IS NOT NULL) AS n_active_symbols,
+          AVG(funding_rate) FILTER (WHERE funding_rate IS NOT NULL) AS avg_funding,
+          MEDIAN(funding_rate) FILTER (WHERE funding_rate IS NOT NULL) AS median_funding,
+          AVG(CASE WHEN funding_rate > 0 THEN 1.0 ELSE 0.0 END)
+            FILTER (WHERE funding_rate IS NOT NULL) AS pct_positive,
+          AVG(CASE WHEN funding_rate > %g THEN 1.0 ELSE 0.0 END)
+            FILTER (WHERE funding_rate IS NOT NULL) AS pct_extreme_positive,
+          AVG(CASE WHEN funding_rate < %g THEN 1.0 ELSE 0.0 END)
+            FILTER (WHERE funding_rate IS NOT NULL) AS pct_extreme_negative
+        FROM ffilled
+        GROUP BY hour_us
+        ORDER BY hour_us
+        """
+            (perSymHour.Replace("'", "''"))
+            (fundingGlob.Replace("'", "''"))
+            extPos extNeg
+
+    printfn "[build-funding-breadth] aggregating per-hour..."
+    use cmd = conn.CreateCommand()
+    cmd.CommandText <- qAggregate
+    use reader = cmd.ExecuteReader()
+
+    // Pull rows in time order, feed median into t-digest, append rank column.
+    let rows = ResizeArray<int64 * int * float * float * float * float * float * float>()
+    let digest = TDigest.MergingDigest(200.0)
+    while reader.Read() do
+        let hourUs = reader.GetInt64 0
+        let nActive = reader.GetInt32 1
+        let avgF =
+            if reader.IsDBNull 2 then nan else reader.GetDouble 2
+        let medF =
+            if reader.IsDBNull 3 then nan else reader.GetDouble 3
+        let pctPos =
+            if reader.IsDBNull 4 then nan else reader.GetDouble 4
+        let pctEPos =
+            if reader.IsDBNull 5 then nan else reader.GetDouble 5
+        let pctENeg =
+            if reader.IsDBNull 6 then nan else reader.GetDouble 6
+        let rank =
+            if System.Double.IsNaN medF then nan
+            else
+                digest.Add medF
+                digest.Cdf medF
+        rows.Add(hourUs, nActive, avgF, medF, pctPos, pctEPos, pctENeg, rank)
+    reader.Close()
+    sw.Stop()
+    printfn "[build-funding-breadth]   %d hours in %.1fs" rows.Count sw.Elapsed.TotalSeconds
+
+    // Write the parquet via a fresh appender table.
+    let swWrite = Stopwatch.StartNew()
+    use cmdSchema = conn.CreateCommand()
+    cmdSchema.CommandText <- "
+        CREATE TABLE funding_per_hour (
+            hour_us BIGINT,
+            n_active_symbols INTEGER,
+            avg_funding DOUBLE,
+            median_funding DOUBLE,
+            pct_positive DOUBLE,
+            pct_extreme_positive DOUBLE,
+            pct_extreme_negative DOUBLE,
+            median_funding_rank DOUBLE
+        )"
+    cmdSchema.ExecuteNonQuery() |> ignore
+    use appender = conn.CreateAppender("funding_per_hour")
+    for hourUs, nActive, avgF, medF, pctPos, pctEPos, pctENeg, rank in rows do
+        let row = appender.CreateRow()
+        row.AppendValue(Nullable hourUs) |> ignore
+        row.AppendValue(Nullable nActive) |> ignore
+        row.AppendValue(Nullable avgF) |> ignore
+        row.AppendValue(Nullable medF) |> ignore
+        row.AppendValue(Nullable pctPos) |> ignore
+        row.AppendValue(Nullable pctEPos) |> ignore
+        row.AppendValue(Nullable pctENeg) |> ignore
+        row.AppendValue(Nullable rank) |> ignore
+        row.EndRow()
+    appender.Close()
+
+    let normalized = tmp.Replace('\\', '/').Replace("'", "''")
+    use copyCmd = conn.CreateCommand()
+    copyCmd.CommandText <-
+        sprintf "COPY funding_per_hour TO '%s' (FORMAT PARQUET, COMPRESSION 'zstd', COMPRESSION_LEVEL 3)"
+            normalized
+    copyCmd.ExecuteNonQuery() |> ignore
+    if File.Exists out then File.Delete out
+    File.Move(tmp, out)
+    swWrite.Stop()
+    printfn "[build-funding-breadth] wrote %d rows -> %s in %.1fs"
+        rows.Count out swWrite.Elapsed.TotalSeconds
+    0
+
+// =============================================================================
 // Entry point
 // =============================================================================
 
@@ -1188,6 +1532,8 @@ let main argv =
         | Breakout_Sweep a -> cmdBreakoutSweep a
         | Build_Breadth a -> cmdBuildBreadth a
         | Breadth_Stratify a -> cmdBreadthStratify a
+        | Funding_Stratify a -> cmdFundingStratify a
+        | Build_Funding_Breadth a -> cmdBuildFundingBreadth a
     with
     | :? ArguParseException as ex ->
         eprintfn "%s" ex.Message

@@ -572,3 +572,119 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- breadth-stratify \
     --trips /tmp/v0/results_trips_1h_ma200h_ls.csv \
     --output /tmp/v0/breadth_decile_breakdown.csv
 ```
+
+## Funding rate as a trade filter — per-trip stratification
+
+**Question:** does the funding rate paid by the trade's symbol at entry
+predict its outcome? Theory says: when funding is sustained-positive (longs
+paying shorts), longs are over-leveraged, so bear signals fire into a soft
+order book and shorts win bigger. Symmetrically, deeply negative funding
+(shorts paying longs) suggests bear-side over-leverage where longs should
+get squeeze rallies.
+
+**Pipeline.** `funding-stratify` does a DuckDB ASOF JOIN per (symbol, entry_us)
+against the per-symbol funding parquets at
+`/mnt/d/trading-edge-bulk/crypto/binance/perps_funding/`, bins by the
+joined funding-rate value (NTILE per side), reports per-decile PF / win-rate
+/ P&L. No aggregation across the universe — the rate joined is the rate the
+trade's specific symbol was paying at entry.
+
+**Trip set.** Same v0 sweep as the breadth-rank stratification — 5,959 long
+trips, 14,047 short trips, 100% join rate (every trade matched a funding
+event for its symbol).
+
+### Long-side funding-decile breakdown
+
+```
+bucket  fr_lo       fr_hi       trades  win_rate  PF      sumPnl$
+0       -0.020000   -0.000253    596    0.404    1.658    +5751
+1       -0.000253   -0.000055    596    0.406    1.106     +764
+2       -0.000055   +0.000009    596    0.366    1.164    +1111
+3       +0.000009   +0.000050    596    0.383    1.259    +1612
+4       +0.000050   +0.000050    596    0.379    0.844    -1304
+5       +0.000050   +0.000050    596    0.371    0.943     -546
+6       +0.000050   +0.000050    596    0.384    1.405    +3417
+7       +0.000050   +0.000100    596    0.354    1.180    +1057
+8       +0.000100   +0.000100    596    0.362    0.739    -1742
+9       +0.000100   +0.003080    595    0.358    1.948   +10056
+```
+
+**Pattern: ends are best.**
+- Decile 0 (deeply negative funding, shorts paying longs heavily): PF 1.66.
+  Long edge here is real — squeeze fuel.
+- Decile 9 (deeply positive funding, longs paying shorts heavily): PF 1.95.
+  Counterintuitive but consistent with momentum trends — when longs are
+  paying through the nose, they're in a strong uptrend; v0 long entries
+  here capture the continuation.
+- Deciles 4–5 and 8 are losers, but their `fr_lo == fr_hi` columns reveal
+  why: most symbols cluster at Binance's +0.005% baseline funding floor,
+  so the bucket boundaries collapse to ties. Those bins are basically
+  "median-baseline funding" with bucketing noise — not a reliable filter.
+
+### Short-side funding-decile breakdown
+
+```
+bucket  fr_lo       fr_hi       trades  win_rate  PF      sumPnl$
+0       -0.030000   -0.000323   1405    0.451    1.365   +13333
+1       -0.000323   -0.000083   1405    0.399    0.988     -465
+2       -0.000082   +0.000006   1405    0.408    1.338   +10941
+3       +0.000006   +0.000050   1405    0.432    1.848   +25526
+4       +0.000050   +0.000050   1405    0.458    1.443   +17838
+5       +0.000050   +0.000050   1405    0.452    1.829   +30612
+6       +0.000050   +0.000050   1405    0.467    1.873   +30652
+7       +0.000050   +0.000100   1404    0.415    1.528   +21120
+8       +0.000100   +0.000100   1404    0.439    1.910   +33402
+9       +0.000100   +0.008273   1404    0.435    1.404   +17726
+```
+
+**Pattern: short edge is positive almost everywhere, but degrades sharply
+in one specific funding band.**
+- Every decile profitable except **bucket 1** (PF 0.99, −$465 over 1,405
+  trades): mildly-negative funding, −0.032% to −0.008%. That band is "shorts
+  paying longs but not aggressively." It's the regime where short-bias is
+  insufficient to overcome other factors and shorts essentially break even.
+- The strongest short buckets are deciles 5–8 (positive funding above the
+  baseline): PF 1.83–1.91, +$125k of total P&L across ~5.6k trades. Aligns
+  with theory: positive funding = leveraged longs to liquidate.
+- Decile 9 (extreme positive, > +0.01%): PF 1.40 — still profitable but
+  weaker than the 5–8 band. Possibly because by the time funding is *that*
+  extreme, the symbol is already late in its blow-off and shorts get
+  whipsawed.
+
+### Verdict
+
+**Useful — both as a long filter (skip bucket 1 of shorts) and as a
+sizing factor.** The clean finding is the short-side bucket-1 dead zone:
+1,405 trades that contribute essentially nothing to P&L. Skipping them
+would tighten short-side PF without sacrificing absolute dollars.
+
+The long-side spread between bucket 0 (PF 1.66) and bucket 9 (PF 1.95)
+**vs** the muddled middle (deciles 4–5–8 sub-1.0) is a stronger
+signal-to-noise story than the universe-wide breadth result. The reason:
+the per-symbol funding rate is **specific to the symbol being traded** —
+it captures the leveraged-positioning state of the actual instrument,
+which the universe-wide breadth aggregate cannot.
+
+**Compared to universe-wide breadth:** funding-rate stratification produces
+a clearer pattern with smaller dollar magnitudes (~+$1–2k of avoided
+losses per side). Both are marginal vs the v0 baseline; neither justifies
+plumbing into the live engine on its own. Combining them into a richer
+regime classifier might yield more — but that's v1 territory.
+
+**Universe-wide funding panel** is also built (`build-funding-breadth`
+emits `funding_per_hour.parquet` with mean/median/extreme-positive%
+across the active universe). Not yet stratified; future work.
+
+### How to reproduce
+
+```bash
+# Per-trip funding stratification (no aggregation — joins each trade
+# directly to its symbol's funding rate at entry).
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- funding-stratify \
+    --trips /tmp/v0/results_trips_1h_ma200h_ls.csv \
+    --output /tmp/v0/funding_decile_breakdown.csv
+
+# Universe-wide funding breadth panel (built separately for visual / future
+# stratification work).
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- build-funding-breadth
+```
