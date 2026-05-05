@@ -175,7 +175,6 @@ let writePerSymbolHourParquet (rows: seq<BreadthRow>) (outputPath: string) : int
 // Per-hour aggregator
 // -----------------------------------------------------------------------------
 
-[<Struct>]
 type PerHour = {
     HourUs: int64
     NSymbols: int
@@ -184,10 +183,28 @@ type PerHour = {
     NFlat: int
     PctLong: float
     PctShort: float
+    /// Σ buy_dollar_volume across the universe in this hour (raw, no smoothing).
     CompositeBuyVolume: float
+    /// Σ sell_dollar_volume across the universe in this hour (raw).
     CompositeSellVolume: float
+    /// CompositeBuyVolume - CompositeSellVolume (raw).
     CompositeSignedVolume: float
+    /// T-digest CDF of CompositeSignedVolume against past+present hours.
+    /// Empirically very noisy at 1h cadence — see CompositeSignedRankMa200
+    /// for the smoothed view.
     CompositeSignedRank: float
+    /// 200h trailing sum of CompositeBuyVolume. nan until the window has filled.
+    CompositeBuyVolumeMa200: float
+    /// 200h trailing sum of CompositeSellVolume. nan until filled.
+    CompositeSellVolumeMa200: float
+    /// CompositeBuyVolumeMa200 - CompositeSellVolumeMa200. The smoothed
+    /// universe-wide net taker flow at the same 200h horizon as the
+    /// orderflow signal that drives the per-symbol target. nan until filled.
+    CompositeSignedVolumeMa200: float
+    /// T-digest CDF of CompositeSignedVolumeMa200 against past+present
+    /// (smoothed) values. The leak-free regime signal we actually want for
+    /// chart overlay. nan until the window has filled.
+    CompositeSignedRankMa200: float
 }
 
 // Per-hour mutable accumulator — one entry per (hour) in a thread-safe
@@ -216,8 +233,9 @@ type private MutableHour() =
 /// any order; the aggregator folds each into a per-hour bucket. After all
 /// rows are pushed, call `Finalize` to walk the buckets in EndUs order,
 /// stream them through a single MergingDigest, and emit PerHour records.
-type PerHourAggregator() =
+type PerHourAggregator(?maWindow: int) =
     let buckets = ConcurrentDictionary<int64, MutableHour>()
+    let maWindow = defaultArg maWindow 200
 
     /// Add one row to the bucket for its hour. Thread-safe. Key is
     /// `r.StartUs` (the bar bucket-start), which is identical across all
@@ -228,21 +246,44 @@ type PerHourAggregator() =
             buckets.GetOrAdd(r.StartUs, fun _ -> MutableHour())
         bucket.Add(r.Target, r.BuyDollarVolume, r.SellDollarVolume)
 
-    /// Walk all hours in ascending EndUs order, compute composite signed
-    /// volume per hour, feed it through the t-digest in time order, and
-    /// emit the per-hour PerHour record. Leak-free: each hour's rank is
-    /// the CDF *after* its own value is added, so only past+present data
-    /// contribute.
+    /// Walk all hours in ascending order, compute the per-hour composite
+    /// volumes, fold them through `maWindow`-hour rolling sums, and feed the
+    /// smoothed signed-volume series through a separate t-digest. Two ranks
+    /// are emitted: the raw single-hour rank (kept for diagnostics; user
+    /// confirmed it's too noisy to be useful) and the smoothed rank against
+    /// the MA-windowed series (the actual regime signal).
+    ///
+    /// Leak-free: t-digests are fed in time order, each hour's rank is the
+    /// CDF *after* that hour's value has been added.
     member _.Finalize() : PerHour[] =
         let hours = buckets.Keys |> Seq.toArray
         Array.sortInPlace hours
-        let digest = MergingDigest(200.0)
+        let rawDigest = MergingDigest(200.0)
+        let smoothedDigest = MergingDigest(200.0)
+        let buyMa = SumMa(maWindow)
+        let sellMa = SumMa(maWindow)
         [| for hourUs in hours ->
             let nLong, nShort, nFlat, buyV, sellV = buckets.[hourUs].Snapshot()
             let nSymbols = nLong + nShort + nFlat
             let signedV = buyV - sellV
-            digest.Add signedV
-            let rank = digest.Cdf signedV
+            rawDigest.Add signedV
+            let rawRank = rawDigest.Cdf signedV
+
+            buyMa.Push buyV
+            sellMa.Push sellV
+            let buyMaState = buyMa.State
+            let sellMaState = sellMa.State
+            let signedMa = buyMaState - sellMaState
+            let smoothedRank =
+                if buyMa.Count >= maWindow then
+                    smoothedDigest.Add signedMa
+                    smoothedDigest.Cdf signedMa
+                else
+                    nan
+            let buyMa200 = if buyMa.Count >= maWindow then buyMaState else nan
+            let sellMa200 = if sellMa.Count >= maWindow then sellMaState else nan
+            let signedMa200 = if buyMa.Count >= maWindow then signedMa else nan
+
             {
                 HourUs = hourUs
                 NSymbols = nSymbols
@@ -254,7 +295,11 @@ type PerHourAggregator() =
                 CompositeBuyVolume = buyV
                 CompositeSellVolume = sellV
                 CompositeSignedVolume = signedV
-                CompositeSignedRank = rank
+                CompositeSignedRank = rawRank
+                CompositeBuyVolumeMa200 = buyMa200
+                CompositeSellVolumeMa200 = sellMa200
+                CompositeSignedVolumeMa200 = signedMa200
+                CompositeSignedRankMa200 = smoothedRank
             } |]
 
 /// Eager batch wrapper (kept for the small smoke-test path).
@@ -284,7 +329,11 @@ let writePerHourParquet (hours: PerHour[]) (outputPath: string) : int =
                 composite_buy_volume DOUBLE,
                 composite_sell_volume DOUBLE,
                 composite_signed_volume DOUBLE,
-                composite_signed_rank DOUBLE
+                composite_signed_rank DOUBLE,
+                composite_buy_volume_ma200 DOUBLE,
+                composite_sell_volume_ma200 DOUBLE,
+                composite_signed_volume_ma200 DOUBLE,
+                composite_signed_rank_ma200 DOUBLE
             )"
         cmd.ExecuteNonQuery() |> ignore
     use appender = conn.CreateAppender("breadth_hours")
@@ -301,6 +350,10 @@ let writePerHourParquet (hours: PerHour[]) (outputPath: string) : int =
         row.AppendValue(Nullable h.CompositeSellVolume) |> ignore
         row.AppendValue(Nullable h.CompositeSignedVolume) |> ignore
         row.AppendValue(Nullable h.CompositeSignedRank) |> ignore
+        row.AppendValue(Nullable h.CompositeBuyVolumeMa200) |> ignore
+        row.AppendValue(Nullable h.CompositeSellVolumeMa200) |> ignore
+        row.AppendValue(Nullable h.CompositeSignedVolumeMa200) |> ignore
+        row.AppendValue(Nullable h.CompositeSignedRankMa200) |> ignore
         row.EndRow()
     appender.Close()
     let normalized = tmpPath.Replace('\\', '/').Replace("'", "''")

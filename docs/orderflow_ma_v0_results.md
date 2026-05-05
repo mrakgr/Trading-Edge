@@ -455,3 +455,120 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- breakout-sweep \
     --min-bar-quote-volume 5000 \
     --max-bar-price-ratio 3.0
 ```
+
+## Universe-wide breadth as a regime filter — qualitative result
+
+**Question:** can the universe-wide orderflow signal — i.e. the t-digest rank of
+the 200h-MA-smoothed `Σ(buy_dollar_volume) − Σ(sell_dollar_volume)` across the
+whole 669-symbol universe — improve the v0 trade decision when used as a
+regime filter? The intuition: when *everything* is taker-selling hard, longs
+should fail more; when *everything* is taker-buying, shorts should get
+squeezed.
+
+**Pipeline.** `build-breadth` emits a per-hour parquet with
+`composite_signed_rank_ma200 ∈ [0,1]` (leak-free, t-digest CDF over past +
+present hours of the smoothed series). `breadth-stratify` joins each v0 trade
+to the breadth row at `entry_us` via DuckDB ASOF JOIN, bins by rank decile,
+reports per-(side, decile) PF / win-rate / P&L. See
+`scripts/crypto/breadth_chart.py` for the visual overlay.
+
+**Trip set.** Fresh full-universe v0 sweep with the pinned config, 18 s wall.
+5,959 long trips, 14,047 short trips. The first 199 hours of breadth panel
+are NaN (200h MA warmup) and excluded from the join.
+
+### Long-side decile breakdown
+
+```
+bucket  rank_lo  rank_hi  trades  win_rate  PF      sumPnl$
+0       0.0001   0.0995    168    0.310    0.676      -966
+1       0.1007   0.1996    399    0.424    1.917     +4888
+2       0.2006   0.2994    439    0.387    1.289     +2135
+3       0.3000   0.3993    401    0.327    0.970      -204
+4       0.4003   0.5000    342    0.406    1.538     +2635
+5       0.5000   0.6000    372    0.349    0.723     -1792
+6       0.6002   0.6996    439    0.362    1.011       +67
+7       0.7000   0.7999    657    0.373    1.035      +306
+8       0.8001   0.8999    921    0.351    1.314     +3499
+9       0.9001   1.0000   1821    0.399    1.510     +9608
+```
+
+**Pattern: U-shape, with the bottom decile the only true loser.**
+- Decile 0 (rank < 0.10, "extreme universe-wide net selling") is the only
+  losing bucket: PF 0.68, −$966 over 168 trades.
+- Decile 5 also dips to PF 0.72 — but only −$1,792 over 372 trades, and
+  surrounded by profitable bins on either side. Likely noise.
+- The right tail (deciles 8–9) is solid but not exceptional: +$13,107 over
+  2,742 trades, PF 1.31–1.51.
+
+### Short-side decile breakdown
+
+```
+bucket  rank_lo  rank_hi  trades  win_rate  PF      sumPnl$
+0       0.0001   0.0999    445    0.443    1.602     +9118
+1       0.1000   0.2000    843    0.499    1.905    +18554
+2       0.2003   0.3000   1109    0.462    1.678    +17066
+3       0.3000   0.4000   1021    0.476    2.057    +24219
+4       0.4001   0.4999    805    0.427    1.488     +9233
+5       0.5000   0.5998   1080    0.505    2.572    +60766
+6       0.6002   0.6998    978    0.426    1.698    +13343
+7       0.7004   0.7999   1371    0.430    1.485    +15782
+8       0.8001   0.8999   2197    0.452    1.532    +28872
+9       0.9001   1.0000   4198    0.384    1.030     +3734
+```
+
+**Pattern: monotonic-ish degradation toward the right tail.**
+- Every decile has PF ≥ 1.0 — there's no bucket where shorts collectively
+  lose money.
+- The right tail (decile 9, "extreme universe-wide net buying") is the
+  weakest at PF 1.03 / 30% of all short trades / +$3.7k. Marginal.
+- Decile 5 is suspiciously strong (PF 2.57, +$60.7k) — anomaly worth flagging
+  but not actionable as a filter without more digging.
+
+### Verdict
+
+**The universe-wide breadth filter would add about $1k of avoided losses per
+v0 cycle** (skip long-decile-0 trades, possibly skip short-decile-9 trades).
+That's not enough to justify the architectural cost of plumbing a regime
+filter into the live engine.
+
+The likely reason: **the v0 per-symbol orderflow signal already captures
+most of what universe-wide orderflow rank tells us.** When BTC is trending
+hard, individual symbols' buy/sell ratios already reflect that — the signal
+is already breadth-aware at the symbol level. Aggregating to the universe
+adds little.
+
+The result is also consistent with the lesson that **crypto breadth is not
+equity breadth**: in equities, breadth divergence (price up, breadth down)
+flags distribution because individual stocks have independent fundamentals.
+In crypto perps everything correlates with BTC, so breadth measures mostly
+re-derive what BTC's own price action shows.
+
+**Useful by-product:** the 1-decile long-side filter (`rank > 0.10` for long
+entries) is a defensible config tweak if we re-cut v0 numbers later. Not in
+the pinned v0 config because the dollar impact is small.
+
+### How to reproduce
+
+```bash
+# 1. Generate a fresh v0 trip CSV.
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- sweep \
+    --timeframes 1h --ma-hours 200 --allow-short \
+    --reference-vol-pct 1.0 --vol-window-days 7 \
+    --min-long-adv 28800000 --min-short-adv 8000000 \
+    --min-bar-quote-volume 5000 --max-bar-price-ratio 3.0 \
+    --results-csv /tmp/v0/results.csv \
+    --summary-csv /tmp/v0/summary.csv \
+    --parallelism 8
+
+# 2. Generate the per-hour breadth parquet (single fast pass; cached afterward).
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- build-breadth \
+    --timeframe 1h --ma-hours 200 --allow-short \
+    --min-long-adv 28800000 --min-short-adv 8000000 \
+    --min-bar-quote-volume 5000 --max-bar-price-ratio 3.0 \
+    --vol-window-days 7 --parallelism 8
+
+# 3. Stratify the trips by breadth rank at entry.
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- breadth-stratify \
+    --trips /tmp/v0/results_trips_1h_ma200h_ls.csv \
+    --output /tmp/v0/breadth_decile_breakdown.csv
+```

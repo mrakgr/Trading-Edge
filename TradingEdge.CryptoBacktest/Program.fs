@@ -144,12 +144,26 @@ type BuildBreadthArgs =
             | Per_Hour_Out _ -> "Per-hour aggregate parquet output. Default /mnt/d/trading-edge-bulk/crypto/binance/breadth/per_hour.parquet"
             | BuildBreadthArgs.Parallelism _ -> "Max symbols processed concurrently. Default 4."
 
+type BreadthStratifyArgs =
+    | [<Mandatory; AltCommandLine "-t">] Trips of string
+    | Per_Hour of string
+    | [<AltCommandLine "-n">] Buckets of int
+    | [<AltCommandLine "-o">] Output of string
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Trips _ -> "Path to a trips CSV from a prior `sweep` run (e.g. /tmp/.../results_trips_1h_ma200h_ls.csv)."
+            | Per_Hour _ -> "Per-hour breadth parquet from `build-breadth`. Default: /mnt/d/trading-edge-bulk/crypto/binance/breadth/per_hour.parquet"
+            | Buckets _ -> "Number of rank buckets (deciles, ventiles, etc.). Default 10."
+            | Output _ -> "Optional CSV output path for the breakdown. Default prints to stdout only."
+
 type CliArgs =
     | [<CliPrefix(CliPrefix.None)>] Run of ParseResults<RunArgs>
     | [<CliPrefix(CliPrefix.None)>] Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Vwma_Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Breakout_Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Breadth of ParseResults<BuildBreadthArgs>
+    | [<CliPrefix(CliPrefix.None)>] Breadth_Stratify of ParseResults<BreadthStratifyArgs>
     interface IArgParserTemplate with
         member s.Usage =
             match s with
@@ -158,6 +172,7 @@ type CliArgs =
             | Vwma_Sweep _     -> "Research baseline: same grid, but signal is close-vs-VWMA crossover instead of orderflow ratio."
             | Breakout_Sweep _ -> "Research baseline: same grid, but signal is symmetric N-hour VWAP-breakout/breakdown instead of orderflow ratio."
             | Build_Breadth _  -> "Build the universe-wide breadth panel: per-(symbol, hour) signal trace plus per-hour aggregates with composite signed-volume t-digest rank."
+            | Breadth_Stratify _ -> "Stratify a trips CSV by composite_signed_rank_ma200 at entry; per-side per-decile PF / win-rate / P&L breakdown."
 
 // =============================================================================
 // Helpers
@@ -1035,6 +1050,129 @@ let cmdBuildBreadth (args: ParseResults<BuildBreadthArgs>) : int =
     if failCount > 0 then 1 else 0
 
 // =============================================================================
+// breadth-stratify: pair trips with breadth rank at entry, decile breakdown
+// =============================================================================
+
+let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
+    let tripsPath = args.GetResult Trips
+    let perHourPath =
+        args.GetResult(Per_Hour,
+            defaultValue = "/mnt/d/trading-edge-bulk/crypto/binance/breadth/per_hour.parquet")
+    let nBuckets = args.GetResult(Buckets, defaultValue = 10)
+    let outputPath = args.TryGetResult BreadthStratifyArgs.Output
+
+    if not (File.Exists tripsPath) then
+        eprintfn "[breadth-stratify] trips file not found: %s" tripsPath
+        exit 1
+    if not (File.Exists perHourPath) then
+        eprintfn "[breadth-stratify] per-hour parquet not found: %s" perHourPath
+        exit 1
+
+    printfn "[breadth-stratify] trips:    %s" tripsPath
+    printfn "[breadth-stratify] breadth:  %s" perHourPath
+    printfn "[breadth-stratify] buckets:  %d" nBuckets
+    printfn ""
+
+    use conn = new DuckDB.NET.Data.DuckDBConnection("Data Source=:memory:")
+    conn.Open()
+
+    // ASOF JOIN: each trip gets the breadth rank at the latest hour ≤ entry_us.
+    // Filter out warmup rows where the rank is NaN.
+    let q =
+        sprintf """
+        WITH trips AS (
+          SELECT side, entry_us, net_pnl
+          FROM read_csv_auto('%s')
+        ),
+        breadth AS (
+          SELECT hour_us, composite_signed_rank_ma200 AS rank
+          FROM read_parquet('%s')
+          WHERE composite_signed_rank_ma200 IS NOT NULL
+            AND NOT isnan(composite_signed_rank_ma200)
+        ),
+        joined AS (
+          SELECT t.side, t.entry_us, t.net_pnl, b.rank
+          FROM trips t
+          ASOF JOIN breadth b ON t.entry_us >= b.hour_us
+          WHERE b.rank IS NOT NULL
+        ),
+        bucketed AS (
+          SELECT side, net_pnl, rank,
+                 CAST(FLOOR(rank * %d) AS INTEGER) AS bucket_raw,
+                 LEAST(CAST(FLOOR(rank * %d) AS INTEGER), %d) AS bucket
+          FROM joined
+        )
+        SELECT
+          side,
+          bucket,
+          COUNT(*) AS trades,
+          SUM(CASE WHEN net_pnl > 0 THEN 1 ELSE 0 END) AS wins,
+          AVG(CASE WHEN net_pnl > 0 THEN 1.0 ELSE 0.0 END) AS win_rate,
+          SUM(CASE WHEN net_pnl > 0 THEN net_pnl ELSE 0 END) AS gross_wins,
+          SUM(CASE WHEN net_pnl < 0 THEN -net_pnl ELSE 0 END) AS gross_losses,
+          SUM(net_pnl) AS sum_pnl,
+          AVG(net_pnl) AS avg_pnl,
+          MIN(rank) AS rank_lo,
+          MAX(rank) AS rank_hi
+        FROM bucketed
+        GROUP BY side, bucket
+        ORDER BY side, bucket
+        """
+            (tripsPath.Replace("'", "''"))
+            (perHourPath.Replace("'", "''"))
+            nBuckets nBuckets (nBuckets - 1)
+
+    use cmd = conn.CreateCommand()
+    cmd.CommandText <- q
+    use reader = cmd.ExecuteReader()
+
+    let rows = ResizeArray<string * int * int * int * float * float * float * float * float * float * float>()
+    while reader.Read() do
+        let side = reader.GetString 0
+        let bucket = reader.GetInt32 1
+        let trades = reader.GetInt32 2          // COUNT(*) -> int32
+        let wins = reader.GetInt64 3 |> int     // SUM CASE -> int64
+        let winRate = reader.GetDouble 4
+        let grossW = reader.GetDouble 5
+        let grossL = reader.GetDouble 6
+        let sumPnl = reader.GetDouble 7
+        let avgPnl = reader.GetDouble 8
+        let rankLo = reader.GetDouble 9
+        let rankHi = reader.GetDouble 10
+        rows.Add(side, bucket, trades, wins, winRate, grossW, grossL, sumPnl, avgPnl, rankLo, rankHi)
+
+    let printSection (side: string) =
+        printfn ""
+        printfn "--- %s side: rank-decile breakdown ---" side
+        printfn "  %-7s %-12s %-12s %-7s %-7s %-9s %11s %11s %11s %11s %11s"
+            "bucket" "rank_lo" "rank_hi"
+            "trades" "wins" "win_rate"
+            "grossW$" "grossL$" "PF" "sumPnl$" "avgPnl$"
+        for s, b, n, w, wr, gw, gl, sp, ap, rl, rh in rows do
+            if s = side then
+                let pf = if gl > 0.0 then gw / gl else nan
+                printfn "  %-7d %-12.4f %-12.4f %-7d %-7d %-9.3f %11.0f %11.0f %11.3f %11.0f %11.2f"
+                    b rl rh n w wr gw gl pf sp ap
+
+    printSection "long"
+    printSection "short"
+
+    match outputPath with
+    | Some path ->
+        Directory.CreateDirectory(Path.GetDirectoryName path) |> ignore
+        use sw = new StreamWriter(path)
+        sw.WriteLine "side,bucket,rank_lo,rank_hi,trades,wins,win_rate,gross_wins,gross_losses,profit_factor,sum_pnl,avg_pnl"
+        for s, b, n, w, wr, gw, gl, sp, ap, rl, rh in rows do
+            let pf = if gl > 0.0 then gw / gl else System.Double.NaN
+            sw.WriteLine(
+                sprintf "%s,%d,%g,%g,%d,%d,%g,%g,%g,%g,%g,%g"
+                    s b rl rh n w wr gw gl pf sp ap)
+        printfn ""
+        printfn "[breadth-stratify] wrote %s" path
+    | None -> ()
+    0
+
+// =============================================================================
 // Entry point
 // =============================================================================
 
@@ -1049,6 +1187,7 @@ let main argv =
         | Vwma_Sweep a -> cmdVwmaSweep a
         | Breakout_Sweep a -> cmdBreakoutSweep a
         | Build_Breadth a -> cmdBuildBreadth a
+        | Breadth_Stratify a -> cmdBreadthStratify a
     with
     | :? ArguParseException as ex ->
         eprintfn "%s" ex.Message
