@@ -148,6 +148,9 @@ type BreadthStratifyArgs =
     | [<Mandatory; AltCommandLine "-t">] Trips of string
     | Per_Hour of string
     | Rank_Column of string
+    | Value_Column of string
+    | Value_Scale of float
+    | Value_Label of string
     | [<AltCommandLine "-n">] Buckets of int
     | [<AltCommandLine "-o">] Output of string
     interface IArgParserTemplate with
@@ -155,7 +158,10 @@ type BreadthStratifyArgs =
             match s with
             | Trips _ -> "Path to a trips CSV from a prior `sweep` run (e.g. /tmp/.../results_trips_1h_ma200h_ls.csv)."
             | Per_Hour _ -> "Per-hour breadth parquet (must contain hour_us and the rank column). Default: /mnt/d/trading-edge-bulk/crypto/binance/breadth/per_hour.parquet"
-            | Rank_Column _ -> "Column name in the per-hour parquet to use as the join key. Default: composite_signed_rank_ma200 (orderflow). For funding-rate breadth, pass --rank-column median_funding_rank --per-hour /mnt/d/.../funding_per_hour.parquet."
+            | Rank_Column _ -> "Column name in the per-hour parquet to use as the join key (still drives bucketing). Default: composite_signed_rank_ma200. For funding-rate breadth, pass --rank-column median_funding_rank --per-hour /mnt/d/.../funding_per_hour.parquet."
+            | Value_Column _ -> "Optional second column from the per-hour parquet whose raw value is reported per bucket (so the table shows e.g. funding bps instead of just rank in [0,1]). Bucketing is still by --rank-column."
+            | Value_Scale _ -> "Multiplier applied to --value-column for display only. Default 1.0. Pass 10000 to display funding rates as bps/interval."
+            | Value_Label _ -> "Header label for the value column. Default 'value'."
             | Buckets _ -> "Number of rank buckets (deciles, ventiles, etc.). Default 10."
             | Output _ -> "Optional CSV output path for the breakdown. Default prints to stdout only."
 
@@ -1094,6 +1100,9 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
             defaultValue = "/mnt/d/trading-edge-bulk/crypto/binance/breadth/per_hour.parquet")
     let rankColumn =
         args.GetResult(Rank_Column, defaultValue = "composite_signed_rank_ma200")
+    let valueColumn = args.TryGetResult Value_Column
+    let valueScale = args.GetResult(Value_Scale, defaultValue = 1.0)
+    let valueLabel = args.GetResult(Value_Label, defaultValue = "value")
     let nBuckets = args.GetResult(BreadthStratifyArgs.Buckets, defaultValue = 10)
     let outputPath = args.TryGetResult BreadthStratifyArgs.Output
 
@@ -1107,19 +1116,34 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
     printfn "[breadth-stratify] trips:    %s" tripsPath
     printfn "[breadth-stratify] breadth:  %s" perHourPath
     printfn "[breadth-stratify] rank-col: %s" rankColumn
+    match valueColumn with
+    | Some v -> printfn "[breadth-stratify] value-col: %s (scale=%g, label=%s)" v valueScale valueLabel
+    | None -> ()
     printfn "[breadth-stratify] buckets:  %d" nBuckets
     printfn ""
 
     // Defence against bad column names — only allow alphanumeric + underscore.
-    if not (System.Text.RegularExpressions.Regex.IsMatch(rankColumn, @"^[A-Za-z_][A-Za-z0-9_]*$")) then
+    let validColumn (c: string) =
+        System.Text.RegularExpressions.Regex.IsMatch(c, @"^[A-Za-z_][A-Za-z0-9_]*$")
+    if not (validColumn rankColumn) then
         eprintfn "[breadth-stratify] invalid --rank-column: %s" rankColumn
         exit 1
+    match valueColumn with
+    | Some v when not (validColumn v) ->
+        eprintfn "[breadth-stratify] invalid --value-column: %s" v
+        exit 1
+    | _ -> ()
 
     use conn = new DuckDB.NET.Data.DuckDBConnection("Data Source=:memory:")
     conn.Open()
 
     // ASOF JOIN: each trip gets the breadth rank at the latest hour ≤ entry_us.
-    // Filter out warmup rows where the rank is NaN.
+    // Filter out warmup rows where the rank is NaN. When a value column is
+    // also requested, it travels alongside the rank for per-bucket reporting.
+    let valueSelect =
+        match valueColumn with
+        | Some v -> sprintf ", %s AS value" v
+        | None -> ", CAST(NULL AS DOUBLE) AS value"
     let q =
         sprintf """
         WITH trips AS (
@@ -1127,19 +1151,19 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
           FROM read_csv_auto('%s')
         ),
         breadth AS (
-          SELECT hour_us, %s AS rank
+          SELECT hour_us, %s AS rank %s
           FROM read_parquet('%s')
           WHERE %s IS NOT NULL
             AND NOT isnan(%s)
         ),
         joined AS (
-          SELECT t.side, t.entry_us, t.net_pnl, b.rank
+          SELECT t.side, t.entry_us, t.net_pnl, b.rank, b.value
           FROM trips t
           ASOF JOIN breadth b ON t.entry_us >= b.hour_us
           WHERE b.rank IS NOT NULL
         ),
         bucketed AS (
-          SELECT side, net_pnl, rank,
+          SELECT side, net_pnl, rank, value,
                  CAST(FLOOR(rank * %d) AS INTEGER) AS bucket_raw,
                  LEAST(CAST(FLOOR(rank * %d) AS INTEGER), %d) AS bucket
           FROM joined
@@ -1155,13 +1179,16 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
           SUM(net_pnl) AS sum_pnl,
           AVG(net_pnl) AS avg_pnl,
           MIN(rank) AS rank_lo,
-          MAX(rank) AS rank_hi
+          MAX(rank) AS rank_hi,
+          MIN(value) AS value_lo,
+          MAX(value) AS value_hi,
+          AVG(value) AS value_avg
         FROM bucketed
         GROUP BY side, bucket
         ORDER BY side, bucket
         """
             (tripsPath.Replace("'", "''"))
-            rankColumn
+            rankColumn valueSelect
             (perHourPath.Replace("'", "''"))
             rankColumn rankColumn
             nBuckets nBuckets (nBuckets - 1)
@@ -1170,12 +1197,14 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
     cmd.CommandText <- q
     use reader = cmd.ExecuteReader()
 
-    let rows = ResizeArray<string * int * int * int * float * float * float * float * float * float * float>()
+    // (side, bucket, trades, wins, win_rate, grossW, grossL, sumPnl, avgPnl,
+    //  rankLo, rankHi, valueLo, valueHi, valueAvg)
+    let rows = ResizeArray<string * int * int * int * float * float * float * float * float * float * float * float * float * float>()
     while reader.Read() do
         let side = reader.GetString 0
         let bucket = reader.GetInt32 1
-        let trades = reader.GetInt32 2          // COUNT(*) -> int32
-        let wins = reader.GetInt64 3 |> int     // SUM CASE -> int64
+        let trades = reader.GetInt32 2
+        let wins = reader.GetInt64 3 |> int
         let winRate = reader.GetDouble 4
         let grossW = reader.GetDouble 5
         let grossL = reader.GetDouble 6
@@ -1183,20 +1212,39 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
         let avgPnl = reader.GetDouble 8
         let rankLo = reader.GetDouble 9
         let rankHi = reader.GetDouble 10
-        rows.Add(side, bucket, trades, wins, winRate, grossW, grossL, sumPnl, avgPnl, rankLo, rankHi)
+        let valueLo = if reader.IsDBNull 11 then nan else reader.GetDouble 11
+        let valueHi = if reader.IsDBNull 12 then nan else reader.GetDouble 12
+        let valueAvg = if reader.IsDBNull 13 then nan else reader.GetDouble 13
+        rows.Add(side, bucket, trades, wins, winRate, grossW, grossL, sumPnl, avgPnl,
+                 rankLo, rankHi, valueLo, valueHi, valueAvg)
+
+    let hasValue = valueColumn.IsSome
 
     let printSection (side: string) =
         printfn ""
-        printfn "--- %s side: rank-decile breakdown ---" side
-        printfn "  %-7s %-12s %-12s %-7s %-7s %-9s %11s %11s %11s %11s %11s"
-            "bucket" "rank_lo" "rank_hi"
-            "trades" "wins" "win_rate"
-            "grossW$" "grossL$" "PF" "sumPnl$" "avgPnl$"
-        for s, b, n, w, wr, gw, gl, sp, ap, rl, rh in rows do
+        if hasValue then
+            printfn "--- %s side: rank-decile breakdown (%s scaled by %g) ---"
+                side valueLabel valueScale
+            printfn "  %-7s %-10s %-10s %-12s %-12s %-7s %-7s %-9s %11s %11s %11s %11s %11s"
+                "bucket" "rank_lo" "rank_hi"
+                (sprintf "%s_lo" valueLabel) (sprintf "%s_hi" valueLabel)
+                "trades" "wins" "win_rate"
+                "grossW$" "grossL$" "PF" "sumPnl$" "avgPnl$"
+        else
+            printfn "--- %s side: rank-decile breakdown ---" side
+            printfn "  %-7s %-12s %-12s %-7s %-7s %-9s %11s %11s %11s %11s %11s"
+                "bucket" "rank_lo" "rank_hi"
+                "trades" "wins" "win_rate"
+                "grossW$" "grossL$" "PF" "sumPnl$" "avgPnl$"
+        for s, b, n, w, wr, gw, gl, sp, ap, rl, rh, vl, vh, _ in rows do
             if s = side then
                 let pf = if gl > 0.0 then gw / gl else nan
-                printfn "  %-7d %-12.4f %-12.4f %-7d %-7d %-9.3f %11.0f %11.0f %11.3f %11.0f %11.2f"
-                    b rl rh n w wr gw gl pf sp ap
+                if hasValue then
+                    printfn "  %-7d %-10.4f %-10.4f %-12.3f %-12.3f %-7d %-7d %-9.3f %11.0f %11.0f %11.3f %11.0f %11.2f"
+                        b rl rh (vl * valueScale) (vh * valueScale) n w wr gw gl pf sp ap
+                else
+                    printfn "  %-7d %-12.4f %-12.4f %-7d %-7d %-9.3f %11.0f %11.0f %11.3f %11.0f %11.2f"
+                        b rl rh n w wr gw gl pf sp ap
 
     printSection "long"
     printSection "short"
@@ -1205,12 +1253,23 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
     | Some path ->
         Directory.CreateDirectory(Path.GetDirectoryName path) |> ignore
         use sw = new StreamWriter(path)
-        sw.WriteLine "side,bucket,rank_lo,rank_hi,trades,wins,win_rate,gross_wins,gross_losses,profit_factor,sum_pnl,avg_pnl"
-        for s, b, n, w, wr, gw, gl, sp, ap, rl, rh in rows do
-            let pf = if gl > 0.0 then gw / gl else System.Double.NaN
+        if hasValue then
             sw.WriteLine(
-                sprintf "%s,%d,%g,%g,%d,%d,%g,%g,%g,%g,%g,%g"
-                    s b rl rh n w wr gw gl pf sp ap)
+                sprintf "side,bucket,rank_lo,rank_hi,%s_lo,%s_hi,%s_avg,trades,wins,win_rate,gross_wins,gross_losses,profit_factor,sum_pnl,avg_pnl"
+                    valueLabel valueLabel valueLabel)
+        else
+            sw.WriteLine "side,bucket,rank_lo,rank_hi,trades,wins,win_rate,gross_wins,gross_losses,profit_factor,sum_pnl,avg_pnl"
+        for s, b, n, w, wr, gw, gl, sp, ap, rl, rh, vl, vh, va in rows do
+            let pf = if gl > 0.0 then gw / gl else System.Double.NaN
+            if hasValue then
+                sw.WriteLine(
+                    sprintf "%s,%d,%g,%g,%g,%g,%g,%d,%d,%g,%g,%g,%g,%g,%g"
+                        s b rl rh (vl * valueScale) (vh * valueScale) (va * valueScale)
+                        n w wr gw gl pf sp ap)
+            else
+                sw.WriteLine(
+                    sprintf "%s,%d,%g,%g,%d,%d,%g,%g,%g,%g,%g,%g"
+                        s b rl rh n w wr gw gl pf sp ap)
         printfn ""
         printfn "[breadth-stratify] wrote %s" path
     | None -> ()

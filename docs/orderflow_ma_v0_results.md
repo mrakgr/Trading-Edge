@@ -476,51 +476,60 @@ reports per-(side, decile) PF / win-rate / P&L. See
 5,959 long trips, 14,047 short trips. The first 199 hours of breadth panel
 are NaN (200h MA warmup) and excluded from the join.
 
+**Units note.** Tables include the **raw smoothed signed-volume range per
+bucket** alongside the rank, scaled to billions of USDT. The signal is
+`Σ_universe (buy_dollar_volume_h − sell_dollar_volume_h)` smoothed over
+200h. The universe sits net-selling nearly all the time — every bucket
+below decile 9 has a negative range; only the top decile reaches positive
+territory at all.
+
 ### Long-side decile breakdown
 
 ```
-bucket  rank_lo  rank_hi  trades  win_rate  PF      sumPnl$
-0       0.0001   0.0995    168    0.310    0.676      -966
-1       0.1007   0.1996    399    0.424    1.917     +4888
-2       0.2006   0.2994    439    0.387    1.289     +2135
-3       0.3000   0.3993    401    0.327    0.970      -204
-4       0.4003   0.5000    342    0.406    1.538     +2635
-5       0.5000   0.6000    372    0.349    0.723     -1792
-6       0.6002   0.6996    439    0.362    1.011       +67
-7       0.7000   0.7999    657    0.373    1.035      +306
-8       0.8001   0.8999    921    0.351    1.314     +3499
-9       0.9001   1.0000   1821    0.399    1.510     +9608
+bucket  rank_lo  rank_hi  signedV_Bn_lo  signedV_Bn_hi  trades  win_rate  PF      sumPnl$
+0       0.0001   0.0995   -33.98         -3.70           168    0.310    0.676      -966
+1       0.1007   0.1996   -20.02         -3.68           399    0.424    1.917     +4888
+2       0.2006   0.2994   -13.71         -3.40           439    0.387    1.289     +2135
+3       0.3000   0.3993    -9.54         -3.62           401    0.327    0.970      -204
+4       0.4003   0.5000    -7.69         -3.46           342    0.406    1.538     +2635
+5       0.5000   0.6000    -6.27         -3.50           372    0.349    0.723     -1792
+6       0.6002   0.6996    -5.21         -2.08           439    0.362    1.011       +67
+7       0.7000   0.7999    -4.24         -1.48           657    0.373    1.035      +306
+8       0.8001   0.8999    -3.60         -0.13           921    0.351    1.314     +3499
+9       0.9001   1.0000    -3.31         +7.47          1821    0.399    1.510     +9608
 ```
 
 **Pattern: U-shape, with the bottom decile the only true loser.**
-- Decile 0 (rank < 0.10, "extreme universe-wide net selling") is the only
-  losing bucket: PF 0.68, −$966 over 168 trades.
-- Decile 5 also dips to PF 0.72 — but only −$1,792 over 372 trades, and
-  surrounded by profitable bins on either side. Likely noise.
-- The right tail (deciles 8–9) is solid but not exceptional: +$13,107 over
-  2,742 trades, PF 1.31–1.51.
+- Decile 0 (raw smoothed flow −$34B to −$3.7B, "extreme universe-wide net
+  selling"): PF 0.68, −$966 over 168 trades. The only consistently losing
+  bucket.
+- Decile 5 dips to PF 0.72 but only −$1,792 over 372 trades, surrounded by
+  profitable bins on either side. Likely noise.
+- The right tail (deciles 8–9, smoothed flow approaching zero or net-buying):
+  +$13,107 over 2,742 trades, PF 1.31–1.51. Solid but not exceptional.
 
 ### Short-side decile breakdown
 
 ```
-bucket  rank_lo  rank_hi  trades  win_rate  PF      sumPnl$
-0       0.0001   0.0999    445    0.443    1.602     +9118
-1       0.1000   0.2000    843    0.499    1.905    +18554
-2       0.2003   0.3000   1109    0.462    1.678    +17066
-3       0.3000   0.4000   1021    0.476    2.057    +24219
-4       0.4001   0.4999    805    0.427    1.488     +9233
-5       0.5000   0.5998   1080    0.505    2.572    +60766
-6       0.6002   0.6998    978    0.426    1.698    +13343
-7       0.7004   0.7999   1371    0.430    1.485    +15782
-8       0.8001   0.8999   2197    0.452    1.532    +28872
-9       0.9001   1.0000   4198    0.384    1.030     +3734
+bucket  rank_lo  rank_hi  signedV_Bn_lo  signedV_Bn_hi  trades  win_rate  PF      sumPnl$
+0       0.0001   0.0999   -32.09         -3.73            445   0.443    1.602     +9118
+1       0.1000   0.2000   -20.05         -3.62            843   0.499    1.905    +18554
+2       0.2003   0.3000   -13.57         -2.78           1109   0.462    1.678    +17066
+3       0.3000   0.4000    -9.59         -3.61           1021   0.476    2.057    +24219
+4       0.4001   0.4999    -7.74         -3.06            805   0.427    1.488     +9233
+5       0.5000   0.5998    -6.45         -2.71           1080   0.505    2.572    +60766
+6       0.6002   0.6998    -5.24         -1.80            978   0.426    1.698    +13343
+7       0.7004   0.7999    -4.24         -1.46           1371   0.430    1.485    +15782
+8       0.8001   0.8999    -3.52         -0.21           2197   0.452    1.532    +28872
+9       0.9001   1.0000    -2.33         +7.47           4198   0.384    1.030     +3734
 ```
 
 **Pattern: monotonic-ish degradation toward the right tail.**
 - Every decile has PF ≥ 1.0 — there's no bucket where shorts collectively
   lose money.
-- The right tail (decile 9, "extreme universe-wide net buying") is the
-  weakest at PF 1.03 / 30% of all short trades / +$3.7k. Marginal.
+- The right tail (decile 9, raw signedV ranging from −$2.3B all the way up
+  to the rare +$7.5B "universe-wide net buying" regime): weakest at PF
+  1.03 / 30% of all short trades / +$3.7k. Marginal.
 - Decile 5 is suspiciously strong (PF 2.57, +$60.7k) — anomaly worth flagging
   but not actionable as a filter without more digging.
 
@@ -567,9 +576,12 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- build-breadth \
     --min-bar-quote-volume 5000 --max-bar-price-ratio 3.0 \
     --vol-window-days 7 --parallelism 8
 
-# 3. Stratify the trips by breadth rank at entry.
+# 3. Stratify the trips by breadth rank at entry. --value-column shows the
+#    raw smoothed signed-volume range per bucket alongside the rank.
 dotnet run --project TradingEdge.CryptoBacktest -c Release -- breadth-stratify \
     --trips /tmp/v0/results_trips_1h_ma200h_ls.csv \
+    --value-column composite_signed_volume_ma200 \
+    --value-scale 1.0e-9 --value-label signedV_Bn \
     --output /tmp/v0/breadth_decile_breakdown.csv
 ```
 
@@ -712,6 +724,8 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- breadth-stratify \
     --trips /tmp/v0/results_trips_1h_ma200h_ls.csv \
     --per-hour /mnt/d/.../funding_per_hour.parquet \
     --rank-column median_funding_rank \
+    --value-column median_funding \
+    --value-scale 10000 --value-label fr_bps \
     --output /tmp/v0/funding_breadth_decile_breakdown.csv
 ```
 
@@ -720,36 +734,42 @@ median funding rate across active symbols at each hour. Median was chosen
 over mean because a handful of alts at any moment have wildly extreme
 funding (−2% / +0.8% per interval) which would drag a mean.
 
+**Units note.** Tables include the **raw universe median funding rate per
+bucket** in bps/interval alongside the rank. The Binance default-baseline
+floor of +0.5 bps means most ranks 0.10–0.50 collapse to "median pinned at
++0.5 bps" — only the rank tells those apart. The extreme buckets (0 and 9)
+are where the median actually moves.
+
 ### Long-side breakdown
 
 ```
-bucket  rank_lo  rank_hi  trades  win_rate  PF      sumPnl$
-0       0.0001   0.0972    614    0.423    1.544    +4875
-1       0.1000   0.1991    119    0.336    0.516     -814
-2       0.2000   0.2999    894    0.379    0.993      -82
-3       0.3000   0.3999   1942    0.386    1.732   +17093
-4       0.4010   0.4939   1919    0.357    1.047    +1215
-5       0.5033   0.5964     68    0.485    1.377     +340
-6       0.6029   0.6964    108    0.343    0.631     -743
-7       0.7148   0.7970     87    0.333    0.716     -399
-8       0.8017   0.8821    187    0.358    0.519   -1073
-9       0.9537   0.9988     21    0.190    0.294     -238
+bucket  rank_lo  rank_hi  fr_bps_lo  fr_bps_hi  trades  win_rate  PF      sumPnl$
+0       0.0001   0.0972    -0.524     +0.500     614    0.423    1.544    +4875
+1       0.1000   0.1991    +0.500     +0.500     119    0.336    0.516     -814
+2       0.2000   0.2999    +0.500     +0.923     894    0.379    0.993      -82
+3       0.3000   0.3999    +0.500     +0.991    1942    0.386    1.732   +17093
+4       0.4010   0.4939    +0.500     +0.973    1919    0.357    1.047    +1215
+5       0.5033   0.5964    +0.548     +0.987      68    0.485    1.377     +340
+6       0.6029   0.6964    +0.747     +1.000     108    0.343    0.631     -743
+7       0.7148   0.7970    +1.000     +1.000      87    0.333    0.716     -399
+8       0.8017   0.8821    +1.000     +1.000     187    0.358    0.519   -1073
+9       0.9537   0.9988    +1.094     +3.609      21    0.190    0.294     -238
 ```
 
 ### Short-side breakdown
 
 ```
-bucket  rank_lo  rank_hi  trades  win_rate  PF      sumPnl$
-0       0.0001   0.0994   1282    0.392    0.851    -4756
-1       0.1012   0.1997    251    0.422    2.027    +5051
-2       0.2026   0.3000   1804    0.468    1.485   +24783
-3       0.3000   0.3998   4591    0.416    1.371   +50614
-4       0.4000   0.4973   4889    0.438    1.430   +44674
-5       0.5033   0.5965    123    0.455    1.859    +3621
-6       0.6018   0.6964    435    0.566    3.810   +51807
-7       0.7016   0.7994    211    0.521    4.532   +13089
-8       0.8000   0.8790    390    0.433    1.529    +7698
-9       0.9587   0.9999     71    0.493    2.467    +4106
+bucket  rank_lo  rank_hi  fr_bps_lo  fr_bps_hi  trades  win_rate  PF      sumPnl$
+0       0.0001   0.0994    -0.524     +0.500    1282    0.392    0.851    -4756
+1       0.1012   0.1997    +0.500     +0.500     251    0.422    2.027    +5051
+2       0.2026   0.3000    +0.500     +0.923    1804    0.468    1.485   +24783
+3       0.3000   0.3998    +0.500     +0.994    4591    0.416    1.371   +50614
+4       0.4000   0.4973    +0.500     +0.973    4889    0.438    1.430   +44674
+5       0.5033   0.5965    +0.539     +0.999     123    0.455    1.859    +3621
+6       0.6018   0.6964    +0.776     +1.000     435    0.566    3.810   +51807
+7       0.7016   0.7994    +1.000     +1.000     211    0.521    4.532   +13089
+8       0.8000   0.8790    +1.000     +1.000     390    0.433    1.529    +7698
+9       0.9587   0.9999    +1.022     +4.704      71    0.493    2.467    +4106
 ```
 
 ### Key observations and caveats
