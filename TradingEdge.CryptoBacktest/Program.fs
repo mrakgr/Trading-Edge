@@ -151,6 +151,8 @@ type BreadthStratifyArgs =
     | Value_Column of string
     | Value_Scale of float
     | Value_Label of string
+    | Bucket_By of string
+    | Value_Cutpoints of string
     | [<AltCommandLine "-n">] Buckets of int
     | [<AltCommandLine "-o">] Output of string
     interface IArgParserTemplate with
@@ -158,11 +160,13 @@ type BreadthStratifyArgs =
             match s with
             | Trips _ -> "Path to a trips CSV from a prior `sweep` run (e.g. /tmp/.../results_trips_1h_ma200h_ls.csv)."
             | Per_Hour _ -> "Per-hour breadth parquet (must contain hour_us and the rank column). Default: /mnt/d/trading-edge-bulk/crypto/binance/breadth/per_hour.parquet"
-            | Rank_Column _ -> "Column name in the per-hour parquet to use as the join key (still drives bucketing). Default: composite_signed_rank_ma200. For funding-rate breadth, pass --rank-column median_funding_rank --per-hour /mnt/d/.../funding_per_hour.parquet."
-            | Value_Column _ -> "Optional second column from the per-hour parquet whose raw value is reported per bucket (so the table shows e.g. funding bps instead of just rank in [0,1]). Bucketing is still by --rank-column."
+            | Rank_Column _ -> "Column name in the per-hour parquet whose at-trip-entry value drives the join. Default: composite_signed_rank_ma200. For funding-rate breadth, pass --rank-column median_funding_rank --per-hour /mnt/d/.../funding_per_hour.parquet."
+            | Value_Column _ -> "Optional second column from the per-hour parquet whose raw value is reported per bucket (so the table shows e.g. funding bps instead of just rank in [0,1])."
             | Value_Scale _ -> "Multiplier applied to --value-column for display only. Default 1.0. Pass 10000 to display funding rates as bps/interval."
             | Value_Label _ -> "Header label for the value column. Default 'value'."
-            | Buckets _ -> "Number of rank buckets (deciles, ventiles, etc.). Default 10."
+            | Bucket_By _ -> "What to bucket by: 'rank' uses --rank-column directly via FLOOR(rank * N), giving leak-free time-ordered buckets but possibly non-monotonic raw-value ranges. 'value' uses NTILE(N) over --value-column for equal-count buckets — fails when the value distribution has point masses (e.g. funding floors). 'cutpoints' uses --value-cutpoints for fixed boundaries on the value column. Default 'rank'."
+            | Value_Cutpoints _ -> "Comma-separated value cutpoints (in raw units, BEFORE --value-scale) for --bucket-by cutpoints. E.g. '0.0,0.00005,0.0001' produces 4 buckets: <0, [0,0.5bps), [0.5,1bps), >=1bps."
+            | Buckets _ -> "Number of buckets when --bucket-by ∈ {rank, value}. Ignored when --bucket-by cutpoints. Default 10."
             | Output _ -> "Optional CSV output path for the breakdown. Default prints to stdout only."
 
 type FundingStratifyArgs =
@@ -1103,8 +1107,28 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
     let valueColumn = args.TryGetResult Value_Column
     let valueScale = args.GetResult(Value_Scale, defaultValue = 1.0)
     let valueLabel = args.GetResult(Value_Label, defaultValue = "value")
+    let bucketBy = args.GetResult(Bucket_By, defaultValue = "rank")
+    let valueCutpointsStr = args.TryGetResult Value_Cutpoints
     let nBuckets = args.GetResult(BreadthStratifyArgs.Buckets, defaultValue = 10)
     let outputPath = args.TryGetResult BreadthStratifyArgs.Output
+
+    if bucketBy <> "rank" && bucketBy <> "value" && bucketBy <> "cutpoints" then
+        eprintfn "[breadth-stratify] --bucket-by must be 'rank', 'value', or 'cutpoints', got: %s" bucketBy
+        exit 1
+    if bucketBy <> "rank" && valueColumn.IsNone then
+        eprintfn "[breadth-stratify] --bucket-by %s requires --value-column to be set" bucketBy
+        exit 1
+    if bucketBy = "cutpoints" && valueCutpointsStr.IsNone then
+        eprintfn "[breadth-stratify] --bucket-by cutpoints requires --value-cutpoints"
+        exit 1
+
+    let valueCutpoints =
+        match valueCutpointsStr with
+        | Some s ->
+            s.Split ',' |> Array.map (fun x ->
+                System.Double.Parse(x.Trim(), System.Globalization.CultureInfo.InvariantCulture))
+            |> Array.sort
+        | None -> [||]
 
     if not (File.Exists tripsPath) then
         eprintfn "[breadth-stratify] trips file not found: %s" tripsPath
@@ -1113,13 +1137,14 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
         eprintfn "[breadth-stratify] per-hour parquet not found: %s" perHourPath
         exit 1
 
-    printfn "[breadth-stratify] trips:    %s" tripsPath
-    printfn "[breadth-stratify] breadth:  %s" perHourPath
-    printfn "[breadth-stratify] rank-col: %s" rankColumn
+    printfn "[breadth-stratify] trips:     %s" tripsPath
+    printfn "[breadth-stratify] breadth:   %s" perHourPath
+    printfn "[breadth-stratify] rank-col:  %s" rankColumn
     match valueColumn with
     | Some v -> printfn "[breadth-stratify] value-col: %s (scale=%g, label=%s)" v valueScale valueLabel
     | None -> ()
-    printfn "[breadth-stratify] buckets:  %d" nBuckets
+    printfn "[breadth-stratify] bucket-by: %s" bucketBy
+    printfn "[breadth-stratify] buckets:   %d" nBuckets
     printfn ""
 
     // Defence against bad column names — only allow alphanumeric + underscore.
@@ -1140,10 +1165,55 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
     // ASOF JOIN: each trip gets the breadth rank at the latest hour ≤ entry_us.
     // Filter out warmup rows where the rank is NaN. When a value column is
     // also requested, it travels alongside the rank for per-bucket reporting.
+    //
+    // Bucketing semantics (--bucket-by):
+    //   "rank"  — FLOOR(rank * N): leak-free time-ordered buckets, faithful
+    //             to what a backtest filter would see. Per-bucket raw-value
+    //             ranges may overlap because rank ≠ value order (the rank
+    //             is a running CDF, so the same value can land in different
+    //             buckets depending on when it arrived).
+    //   "value" — NTILE(N) over the value column: clean monotonic value
+    //             boundaries by construction, equal trade counts. Uses the
+    //             full distribution after the join is done — so this is
+    //             retrospective, not leak-free.
     let valueSelect =
         match valueColumn with
         | Some v -> sprintf ", %s AS value" v
         | None -> ", CAST(NULL AS DOUBLE) AS value"
+    let bucketingCte =
+        match bucketBy with
+        | "rank" ->
+            sprintf """bucketed AS (
+          SELECT side, net_pnl, rank, value,
+                 LEAST(CAST(FLOOR(rank * %d) AS INTEGER), %d) AS bucket
+          FROM joined
+        )"""
+                nBuckets (nBuckets - 1)
+        | "value" ->
+            sprintf """bucketed AS (
+          SELECT side, net_pnl, rank, value,
+                 NTILE(%d) OVER (PARTITION BY side ORDER BY value) - 1 AS bucket
+          FROM joined
+          WHERE value IS NOT NULL AND NOT isnan(value)
+        )"""
+                nBuckets
+        | _ ->  // "cutpoints"
+            // Build a CASE chain: bucket = number of cutpoints the value is ≥.
+            // E.g. cutpoints [a,b,c] (sorted) → 4 buckets: <a, [a,b), [b,c), ≥c.
+            let inv = System.Globalization.CultureInfo.InvariantCulture
+            let cases =
+                valueCutpoints
+                |> Array.mapi (fun i cp ->
+                    sprintf "WHEN value < %s THEN %d" (cp.ToString("R", inv)) i)
+                |> String.concat " "
+            let elseBucket = valueCutpoints.Length
+            sprintf """bucketed AS (
+          SELECT side, net_pnl, rank, value,
+                 CASE %s ELSE %d END AS bucket
+          FROM joined
+          WHERE value IS NOT NULL AND NOT isnan(value)
+        )"""
+                cases elseBucket
     let q =
         sprintf """
         WITH trips AS (
@@ -1162,12 +1232,7 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
           ASOF JOIN breadth b ON t.entry_us >= b.hour_us
           WHERE b.rank IS NOT NULL
         ),
-        bucketed AS (
-          SELECT side, net_pnl, rank, value,
-                 CAST(FLOOR(rank * %d) AS INTEGER) AS bucket_raw,
-                 LEAST(CAST(FLOOR(rank * %d) AS INTEGER), %d) AS bucket
-          FROM joined
-        )
+        %s
         SELECT
           side,
           bucket,
@@ -1191,7 +1256,7 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
             rankColumn valueSelect
             (perHourPath.Replace("'", "''"))
             rankColumn rankColumn
-            nBuckets nBuckets (nBuckets - 1)
+            bucketingCte
 
     use cmd = conn.CreateCommand()
     cmd.CommandText <- q

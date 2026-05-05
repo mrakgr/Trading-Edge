@@ -476,85 +476,80 @@ reports per-(side, decile) PF / win-rate / P&L. See
 5,959 long trips, 14,047 short trips. The first 199 hours of breadth panel
 are NaN (200h MA warmup) and excluded from the join.
 
-**Units note.** Tables include the **raw smoothed signed-volume range per
-bucket** alongside the rank, scaled to billions of USDT. The signal is
-`Σ_universe (buy_dollar_volume_h − sell_dollar_volume_h)` smoothed over
-200h. The universe sits net-selling nearly all the time — every bucket
-below decile 9 has a negative range; only the top decile reaches positive
-territory at all.
+**Methodology note.** Equal-count rank-decile bucketing produced overlapping
+raw-value ranges (the running CDF means the same value can land in
+different buckets depending on when it arrived). Switched to **fixed
+cutpoints on the raw smoothed signed-volume**, scaled to billions of USDT.
+Cutpoints at `-$10B, -$5B, -$2B, $0` give 5 regime buckets that map to
+intuitive states: deep net-selling, heavy net-selling, moderate
+net-selling, near-neutral, net-buying.
 
-### Long-side decile breakdown
+The signal is `Σ_universe (buy_dollar_volume_h − sell_dollar_volume_h)`
+smoothed over 200h.
 
-```
-bucket  rank_lo  rank_hi  signedV_Bn_lo  signedV_Bn_hi  trades  win_rate  PF      sumPnl$
-0       0.0001   0.0995   -33.98         -3.70           168    0.310    0.676      -966
-1       0.1007   0.1996   -20.02         -3.68           399    0.424    1.917     +4888
-2       0.2006   0.2994   -13.71         -3.40           439    0.387    1.289     +2135
-3       0.3000   0.3993    -9.54         -3.62           401    0.327    0.970      -204
-4       0.4003   0.5000    -7.69         -3.46           342    0.406    1.538     +2635
-5       0.5000   0.6000    -6.27         -3.50           372    0.349    0.723     -1792
-6       0.6002   0.6996    -5.21         -2.08           439    0.362    1.011       +67
-7       0.7000   0.7999    -4.24         -1.48           657    0.373    1.035      +306
-8       0.8001   0.8999    -3.60         -0.13           921    0.351    1.314     +3499
-9       0.9001   1.0000    -3.31         +7.47          1821    0.399    1.510     +9608
-```
-
-**Pattern: U-shape, with the bottom decile the only true loser.**
-- Decile 0 (raw smoothed flow −$34B to −$3.7B, "extreme universe-wide net
-  selling"): PF 0.68, −$966 over 168 trades. The only consistently losing
-  bucket.
-- Decile 5 dips to PF 0.72 but only −$1,792 over 372 trades, surrounded by
-  profitable bins on either side. Likely noise.
-- The right tail (deciles 8–9, smoothed flow approaching zero or net-buying):
-  +$13,107 over 2,742 trades, PF 1.31–1.51. Solid but not exceptional.
-
-### Short-side decile breakdown
+### Long-side regime breakdown
 
 ```
-bucket  rank_lo  rank_hi  signedV_Bn_lo  signedV_Bn_hi  trades  win_rate  PF      sumPnl$
-0       0.0001   0.0999   -32.09         -3.73            445   0.443    1.602     +9118
-1       0.1000   0.2000   -20.05         -3.62            843   0.499    1.905    +18554
-2       0.2003   0.3000   -13.57         -2.78           1109   0.462    1.678    +17066
-3       0.3000   0.4000    -9.59         -3.61           1021   0.476    2.057    +24219
-4       0.4001   0.4999    -7.74         -3.06            805   0.427    1.488     +9233
-5       0.5000   0.5998    -6.45         -2.71           1080   0.505    2.572    +60766
-6       0.6002   0.6998    -5.24         -1.80            978   0.426    1.698    +13343
-7       0.7004   0.7999    -4.24         -1.46           1371   0.430    1.485    +15782
-8       0.8001   0.8999    -3.52         -0.21           2197   0.452    1.532    +28872
-9       0.9001   1.0000    -2.33         +7.47           4198   0.384    1.030     +3734
+bucket  signedV_Bn         trades  win_rate  PF      sumPnl$
+0       <-$10B               710   0.394    1.849    +8096
+1       -$10B to -$5B       1265   0.368    0.981     -409
+2       -$5B to -$2B        1554   0.355    1.081    +1671
+3       -$2B to $0          1406   0.371    1.348    +5638
+4       ≥ $0                1024   0.417    1.501    +5180
 ```
 
-**Pattern: monotonic-ish degradation toward the right tail.**
-- Every decile has PF ≥ 1.0 — there's no bucket where shorts collectively
-  lose money.
-- The right tail (decile 9, raw signedV ranging from −$2.3B all the way up
-  to the rare +$7.5B "universe-wide net buying" regime): weakest at PF
-  1.03 / 30% of all short trades / +$3.7k. Marginal.
-- Decile 5 is suspiciously strong (PF 2.57, +$60.7k) — anomaly worth flagging
-  but not actionable as a filter without more digging.
+**Pattern: U-shape, with bucket 1 (-$10B to -$5B) the only true loser.**
+- Bucket 0 (deep net-selling, < -$10B) is surprisingly the best long bucket:
+  PF 1.85, +$8,096 over 710 trades. Likely the "max-pain mean-reversion"
+  regime.
+- Bucket 1 is the dead zone: heavy-but-not-extreme net-selling, PF 0.98.
+- Buckets 2–4 trend up monotonically as the universe moves toward
+  neutral/buying.
+
+### Short-side regime breakdown
+
+```
+bucket  signedV_Bn         trades  win_rate  PF      sumPnl$
+0       <-$10B              1663   0.475    1.607   +26341
+1       -$10B to -$5B       3119   0.455    1.937   +64849
+2       -$5B to -$2B        3607   0.462    1.915   +90151
+3       -$2B to $0          3182   0.413    1.328   +27995
+4       ≥ $0                2476   0.376    0.885    -8650
+```
+
+**Pattern: clean monotonic degradation as the universe shifts from
+net-selling to net-buying.**
+- Buckets 0–2 (any net-selling state): PF 1.6–1.94, contributes the bulk of
+  the +$181k short-side P&L.
+- Bucket 3 (near-neutral): PF 1.33 — still profitable but degrading.
+- **Bucket 4 (net-buying, ≥ $0): PF 0.89, −$8,650 over 2,476 trades.** Clear
+  short dead zone. When the smoothed universe orderflow flips positive,
+  shorts stop working.
 
 ### Verdict
 
-**The universe-wide breadth filter would add about $1k of avoided losses per
-v0 cycle** (skip long-decile-0 trades, possibly skip short-decile-9 trades).
-That's not enough to justify the architectural cost of plumbing a regime
-filter into the live engine.
+The earlier rank-decile view suggested a small ~$1k filter effect. The
+**cutpoint view changes the picture** — the regime structure is much
+clearer when looked at by raw smoothed signed-volume, and there's a clean
+short-side dead zone:
 
-The likely reason: **the v0 per-symbol orderflow signal already captures
-most of what universe-wide orderflow rank tells us.** When BTC is trending
-hard, individual symbols' buy/sell ratios already reflect that — the signal
-is already breadth-aware at the symbol level. Aggregating to the universe
-adds little.
+- **Short-side dead zone: skip shorts when smoothed universe flow ≥ $0
+  (regime "net buying").** Bucket 4: PF 0.89, **−$8,650 over 2,476 trades**.
+  17.6% of all short trades, no edge.
+- **Long-side: cleanly graded — best when universe is at extremes (deep
+  net-selling for mean-reversion longs, or rare net-buying for momentum
+  longs); worst in the heavy-but-not-extreme bear regime (bucket 1, PF 0.98).**
+
+The ~$8.6k savings on shorts alone is **substantial vs the ~$200k baseline
+short P&L** — about 4% of short-side dollars. That's worth plumbing into a
+filter.
 
 The result is also consistent with the lesson that **crypto breadth is not
 equity breadth**: in equities, breadth divergence (price up, breadth down)
 flags distribution because individual stocks have independent fundamentals.
 In crypto perps everything correlates with BTC, so breadth measures mostly
-re-derive what BTC's own price action shows.
-
-**Useful by-product:** the 1-decile long-side filter (`rank > 0.10` for long
-entries) is a defensible config tweak if we re-cut v0 numbers later. Not in
-the pinned v0 config because the dollar impact is small.
+re-derive what BTC's own price action shows. The signal here works
+*because* of that correlation, not despite it.
 
 ### How to reproduce
 
@@ -576,13 +571,13 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- build-breadth \
     --min-bar-quote-volume 5000 --max-bar-price-ratio 3.0 \
     --vol-window-days 7 --parallelism 8
 
-# 3. Stratify the trips by breadth rank at entry. --value-column shows the
-#    raw smoothed signed-volume range per bucket alongside the rank.
+# 3. Stratify the trips by smoothed signed-volume regime (cutpoints in $).
 dotnet run --project TradingEdge.CryptoBacktest -c Release -- breadth-stratify \
     --trips /tmp/v0/results_trips_1h_ma200h_ls.csv \
     --value-column composite_signed_volume_ma200 \
     --value-scale 1.0e-9 --value-label signedV_Bn \
-    --output /tmp/v0/breadth_decile_breakdown.csv
+    --bucket-by cutpoints --value-cutpoints "-10e9,-5e9,-2e9,0" \
+    --output /tmp/v0/breadth_cutpoints_breakdown.csv
 ```
 
 ## Funding rate as a trade filter — per-trip stratification
@@ -720,13 +715,17 @@ so the same join logic can target any per-hour rank parquet. We point it at
 the funding-breadth panel built by `build-funding-breadth`:
 
 ```bash
+# Cutpoints isolate the regime structure: sub-baseline / =baseline /
+# mildly elevated / strongly elevated. The 0.0000501 cutpoint is a hack
+# to isolate the exact +0.5 bps Binance baseline floor as its own bucket.
 dotnet run --project TradingEdge.CryptoBacktest -c Release -- breadth-stratify \
     --trips /tmp/v0/results_trips_1h_ma200h_ls.csv \
     --per-hour /mnt/d/.../funding_per_hour.parquet \
     --rank-column median_funding_rank \
     --value-column median_funding \
     --value-scale 10000 --value-label fr_bps \
-    --output /tmp/v0/funding_breadth_decile_breakdown.csv
+    --bucket-by cutpoints --value-cutpoints "0.00005,0.0000501,0.0001" \
+    --output /tmp/v0/funding_breadth_cutpoints.csv
 ```
 
 The rank is the t-digest CDF (in time order, leak-free) of the universe-wide
@@ -734,43 +733,51 @@ median funding rate across active symbols at each hour. Median was chosen
 over mean because a handful of alts at any moment have wildly extreme
 funding (−2% / +0.8% per interval) which would drag a mean.
 
-**Units note.** Tables include the **raw universe median funding rate per
-bucket** in bps/interval alongside the rank. The Binance default-baseline
-floor of +0.5 bps means most ranks 0.10–0.50 collapse to "median pinned at
-+0.5 bps" — only the rank tells those apart. The extreme buckets (0 and 9)
-are where the median actually moves.
+**Methodology note.** The universe-median funding rate has a huge point
+mass at exactly +0.5 bps (Binance's default-baseline floor for
+low-volume perps). Equal-count NTILE bucketing splits across the floor
+itself — even at 3 buckets, two of them collapse to identical
+`fr_bps_hi == fr_bps_lo == +0.500`. Switched to **fixed cutpoints** at
+the natural regime boundaries (sub-baseline, baseline, mildly elevated,
+strongly elevated). 4 regime buckets:
+- 0: median funding < +0.5 bps (universe-wide shorts paying longs)
+- 1: median = +0.5 bps exactly (the dominant regime — Binance baseline)
+- 2: +0.5 to +1.0 bps (mildly elevated long-leverage)
+- 3: ≥ +1.0 bps (strong long-leverage; rare regime)
 
-### Long-side breakdown
-
-```
-bucket  rank_lo  rank_hi  fr_bps_lo  fr_bps_hi  trades  win_rate  PF      sumPnl$
-0       0.0001   0.0972    -0.524     +0.500     614    0.423    1.544    +4875
-1       0.1000   0.1991    +0.500     +0.500     119    0.336    0.516     -814
-2       0.2000   0.2999    +0.500     +0.923     894    0.379    0.993      -82
-3       0.3000   0.3999    +0.500     +0.991    1942    0.386    1.732   +17093
-4       0.4010   0.4939    +0.500     +0.973    1919    0.357    1.047    +1215
-5       0.5033   0.5964    +0.548     +0.987      68    0.485    1.377     +340
-6       0.6029   0.6964    +0.747     +1.000     108    0.343    0.631     -743
-7       0.7148   0.7970    +1.000     +1.000      87    0.333    0.716     -399
-8       0.8017   0.8821    +1.000     +1.000     187    0.358    0.519   -1073
-9       0.9537   0.9988    +1.094     +3.609      21    0.190    0.294     -238
-```
-
-### Short-side breakdown
+### Long-side regime breakdown
 
 ```
-bucket  rank_lo  rank_hi  fr_bps_lo  fr_bps_hi  trades  win_rate  PF      sumPnl$
-0       0.0001   0.0994    -0.524     +0.500    1282    0.392    0.851    -4756
-1       0.1012   0.1997    +0.500     +0.500     251    0.422    2.027    +5051
-2       0.2026   0.3000    +0.500     +0.923    1804    0.468    1.485   +24783
-3       0.3000   0.3998    +0.500     +0.994    4591    0.416    1.371   +50614
-4       0.4000   0.4973    +0.500     +0.973    4889    0.438    1.430   +44674
-5       0.5033   0.5965    +0.539     +0.999     123    0.455    1.859    +3621
-6       0.6018   0.6964    +0.776     +1.000     435    0.566    3.810   +51807
-7       0.7016   0.7994    +1.000     +1.000     211    0.521    4.532   +13089
-8       0.8000   0.8790    +1.000     +1.000     390    0.433    1.529    +7698
-9       0.9587   0.9999    +1.022     +4.704      71    0.493    2.467    +4106
+bucket  fr_bps             trades  win_rate  PF      sumPnl$
+0       <+0.5 bps             601   0.426    1.645    +5423
+1       =+0.5 bps            4734   0.374    1.287   +17531
+2       +0.5 to +1.0 bps      270   0.367    0.827     -650
+3       ≥ +1.0 bps            354   0.336    0.592    -2129
 ```
+
+**Pattern: longs degrade monotonically as the universe gets more
+long-leveraged.** Best when sub-baseline (PF 1.65); fine at baseline
+(PF 1.29); break-even when mildly elevated (PF 0.83); losing when
+strongly elevated (PF 0.59).
+
+### Short-side regime breakdown
+
+```
+bucket  fr_bps             trades  win_rate  PF      sumPnl$
+0       <+0.5 bps            1260   0.393    0.846    -4832
+1       =+0.5 bps           11193   0.433    1.395  +114724
+2       +0.5 to +1.0 bps      766   0.505    3.369   +61023
+3       ≥ +1.0 bps            828   0.475    2.239   +29770
+```
+
+**Pattern: monotonic-up; shorts get *better* as the universe gets more
+long-leveraged, mirroring the long-side degradation.** Sub-baseline is the
+dead zone (PF 0.85). At baseline shorts are merely OK (PF 1.40). Mildly
+elevated funding produces the best short edge (PF 3.37) — that's the
+"longs stretched but not yet capitulating" regime where v0 short signals
+fire into oversupply of leveraged longs to liquidate. Strongly-elevated
+also strong (PF 2.24) but with marginally lower edge — by then, some
+longs have already been flushed.
 
 ### Key observations and caveats
 
@@ -796,37 +803,34 @@ shorts collectively lose money. When the universe is paying longs heavily
 (very negative funding rank), the v0 short signal fires into the wrong
 positioning.
 
-### Comparison with per-symbol funding filter
-
-The two filters are **complementary, not redundant.** Cross-tabulating:
-
-| | uni_rank ≥ 0.10 | uni_rank < 0.10 |
-|---|---|---|
-| sym_rate not in [-0.032%, -0.008%] | 11,586 trades, +$205,658 | 1,063 trades, −$4,564 |
-| sym_rate in [-0.032%, -0.008%] | 1,179 trades, −$216 | 219 trades, −$193 |
-
-Of the 1,282 short trades caught by `uni_rank < 0.10`, only 219 are also
-flagged by the per-symbol filter. They're catching **different bad trades**.
-
-A combined OR-filter — skip a short if either `uni_rank < 0.10` OR
-`sym_rate ∈ [-0.032%, -0.008%]` — drops 2,461 of the 14,047 shorts (~17.5%)
-for a P&L cost of −$4,972 (i.e. these are net-losing trades; removing them
-*improves* the system). The unfiltered 11,586 shorts earn the +$205k.
-
 ### Verdict
 
-Per-symbol funding still produces the **cleaner** filter (the −0.032% to
-−0.008% dead zone is broader and has zero overfitting risk; it's purely
-about the symbol's own state). Universe-wide funding rank adds a **second,
-complementary** filter that catches a different slice of bad trades —
-specifically when the broad market is paying longs.
+The cutpoint view of universe funding produces a **strong symmetric pair
+of effects**:
 
-**Combined effect (both short-side filters applied):** drop 17.5% of short
-trades, save ~$5k in losses, no opportunity cost on the winning side.
-Still small relative to the v0 baseline, but the two filters together get
-us closer to a real regime classifier than either alone.
+- **Short-side: bucket 0 (universe-median funding < +0.5 bps) is a clean
+  dead zone**, PF 0.85 / −$4,832 over 1,260 trades. Buckets 2–3 (universe
+  long-leveraged): PF 2.2–3.4, +$90.8k pooled — these are the regimes
+  where shorts have something to feed on.
+- **Long-side: bucket 3 (universe-median ≥ +1.0 bps) is a clean dead
+  zone**, PF 0.59 / −$2,129 over 354 trades. Bucket 0 (sub-baseline) is
+  the best long bucket: PF 1.65, +$5,423.
 
-The May 2024 anomaly in bucket 6 is the cautionary tale: with this many
-buckets and this much heterogeneity in the dataset, individual cells will
-look great by accident. **Always check time distribution before declaring
-a finding.**
+In aggregate: drop the bottom-bucket shorts and the top-bucket longs,
+save ~$7k in losses, no opportunity cost on the winning side.
+
+**Comparison with per-symbol funding filter.** The two filters catch
+different bad trades. The per-symbol filter targets a narrow band of
+mildly-negative funding on the trade's specific symbol; the universe-wide
+filter targets the broad-market regime. Together they form a richer
+regime classifier, but the cutpoint view above is already the cleaner
+of the two for stand-alone use.
+
+**Methodology lesson worth flagging.** An earlier 10-decile rank breakdown
+of this same data made bucket 6 (rank 0.60-0.70) look like a 3.81 PF
+goldmine for shorts (+$51,807). When time-distributed, **75% of those
+trades came from May 2024 alone** — the rank-decile cut had hidden a
+single-month artefact behind apparently broad numbers. Cutpoint
+bucketing on raw values doesn't avoid the issue automatically (you'd
+still want a time-distribution check on any "great" bucket), but it
+makes the structure easier to reason about.
