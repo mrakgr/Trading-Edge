@@ -593,63 +593,70 @@ trade's specific symbol was paying at entry.
 trips, 14,047 short trips, 100% join rate (every trade matched a funding
 event for its symbol).
 
+**Units note.** Tables below report funding rates in **basis points per
+funding interval** (1 bps = 0.0001 decimal = 0.01%). Funding fires every
+4–8 hours per symbol. Binance's default-baseline funding rate for
+low-volume perps is **+0.5 bps/interval**, which is why several middle
+buckets below collapse to ties at exactly +0.5 bps. With 8h intervals,
+1 bps/interval ≈ 11% annualised funding cost.
+
 ### Long-side funding-decile breakdown
 
 ```
-bucket  fr_lo       fr_hi       trades  win_rate  PF      sumPnl$
-0       -0.020000   -0.000253    596    0.404    1.658    +5751
-1       -0.000253   -0.000055    596    0.406    1.106     +764
-2       -0.000055   +0.000009    596    0.366    1.164    +1111
-3       +0.000009   +0.000050    596    0.383    1.259    +1612
-4       +0.000050   +0.000050    596    0.379    0.844    -1304
-5       +0.000050   +0.000050    596    0.371    0.943     -546
-6       +0.000050   +0.000050    596    0.384    1.405    +3417
-7       +0.000050   +0.000100    596    0.354    1.180    +1057
-8       +0.000100   +0.000100    596    0.362    0.739    -1742
-9       +0.000100   +0.003080    595    0.358    1.948   +10056
+bucket  fr_lo_bps  fr_hi_bps  trades  win_rate  PF      sumPnl$
+0       -200.000   -2.532       596   0.404    1.658    +5751
+1         -2.527   -0.552       596   0.406    1.106     +764
+2         -0.551   +0.089       596   0.366    1.164    +1111
+3         +0.090   +0.500       596   0.383    1.259    +1612
+4         +0.500   +0.500       596   0.379    0.844    -1304
+5         +0.500   +0.500       596   0.371    0.943     -546
+6         +0.500   +0.500       596   0.384    1.405    +3417
+7         +0.500   +1.000       596   0.354    1.180    +1057
+8         +1.000   +1.000       596   0.362    0.739    -1742
+9         +1.000  +30.800       595   0.358    1.948   +10056
 ```
 
 **Pattern: ends are best.**
-- Decile 0 (deeply negative funding, shorts paying longs heavily): PF 1.66.
-  Long edge here is real — squeeze fuel.
-- Decile 9 (deeply positive funding, longs paying shorts heavily): PF 1.95.
-  Counterintuitive but consistent with momentum trends — when longs are
-  paying through the nose, they're in a strong uptrend; v0 long entries
-  here capture the continuation.
+- Decile 0 (deeply negative funding, −200 to −2.5 bps — shorts paying longs
+  heavily): PF 1.66. Long edge here is real — squeeze fuel.
+- Decile 9 (elevated positive funding, +1 to +31 bps — longs paying shorts
+  through the nose): PF 1.95. Counterintuitive but consistent with momentum
+  trends; v0 long entries here capture continuations on hot symbols.
 - Deciles 4–5 and 8 are losers, but their `fr_lo == fr_hi` columns reveal
-  why: most symbols cluster at Binance's +0.005% baseline funding floor,
-  so the bucket boundaries collapse to ties. Those bins are basically
-  "median-baseline funding" with bucketing noise — not a reliable filter.
+  why: most symbols cluster at the +0.5 bps Binance baseline floor, so the
+  bucket boundaries collapse to ties. Those bins are basically
+  "baseline-funding" with bucketing noise, not a reliable filter.
 
 ### Short-side funding-decile breakdown
 
 ```
-bucket  fr_lo       fr_hi       trades  win_rate  PF      sumPnl$
-0       -0.030000   -0.000323   1405    0.451    1.365   +13333
-1       -0.000323   -0.000083   1405    0.399    0.988     -465
-2       -0.000082   +0.000006   1405    0.408    1.338   +10941
-3       +0.000006   +0.000050   1405    0.432    1.848   +25526
-4       +0.000050   +0.000050   1405    0.458    1.443   +17838
-5       +0.000050   +0.000050   1405    0.452    1.829   +30612
-6       +0.000050   +0.000050   1405    0.467    1.873   +30652
-7       +0.000050   +0.000100   1404    0.415    1.528   +21120
-8       +0.000100   +0.000100   1404    0.439    1.910   +33402
-9       +0.000100   +0.008273   1404    0.435    1.404   +17726
+bucket  fr_lo_bps  fr_hi_bps  trades  win_rate  PF      sumPnl$
+0       -300.000   -3.229     1405    0.451    1.365   +13333
+1         -3.226   -0.826     1405    0.399    0.988     -465
+2         -0.825   +0.056     1405    0.408    1.338   +10941
+3         +0.057   +0.500     1405    0.432    1.848   +25526
+4         +0.500   +0.500     1405    0.458    1.443   +17838
+5         +0.500   +0.500     1405    0.452    1.829   +30612
+6         +0.500   +0.500     1405    0.467    1.873   +30652
+7         +0.500   +1.000     1404    0.415    1.528   +21120
+8         +1.000   +1.000     1404    0.439    1.910   +33402
+9         +1.000  +82.733     1404    0.435    1.404   +17726
 ```
 
 **Pattern: short edge is positive almost everywhere, but degrades sharply
 in one specific funding band.**
 - Every decile profitable except **bucket 1** (PF 0.99, −$465 over 1,405
-  trades): mildly-negative funding, −0.032% to −0.008%. That band is "shorts
-  paying longs but not aggressively." It's the regime where short-bias is
-  insufficient to overcome other factors and shorts essentially break even.
+  trades): mildly-negative funding, −3.2 to −0.8 bps/interval. That band is
+  "shorts paying longs but not aggressively". The regime where short-bias
+  is insufficient to overcome other factors; shorts essentially break even.
 - The strongest short buckets are deciles 5–8 (positive funding above the
-  baseline): PF 1.83–1.91, +$125k of total P&L across ~5.6k trades. Aligns
-  with theory: positive funding = leveraged longs to liquidate.
-- Decile 9 (extreme positive, > +0.01%): PF 1.40 — still profitable but
-  weaker than the 5–8 band. Possibly because by the time funding is *that*
-  extreme, the symbol is already late in its blow-off and shorts get
-  whipsawed.
+  baseline, +0.5 to +1 bps/interval): PF 1.83–1.91, +$125k pooled across
+  ~5.6k trades. Aligns with theory: positive funding = leveraged longs to
+  liquidate.
+- Decile 9 (extreme positive, +1 to +82.7 bps — annualised up to ~900%):
+  PF 1.40 — still profitable but **weaker than the 5–8 band**. Possibly
+  because by the time funding is *that* extreme, the symbol is already
+  late in its blow-off and shorts get whipsawed.
 
 ### Verdict
 

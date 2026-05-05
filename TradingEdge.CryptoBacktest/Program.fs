@@ -1319,18 +1319,24 @@ let cmdFundingStratify (args: ParseResults<FundingStratifyArgs>) : int =
         let frHi = reader.GetDouble 10
         rows.Add(side, bucket, trades, wins, winRate, grossW, grossL, sumPnl, avgPnl, frLo, frHi)
 
+    // Funding rates are reported in bps per interval (1 bps = 0.0001 decimal,
+    // i.e. fr * 10_000). Per-interval rates of 0.5–10 bps are typical; the
+    // Binance default-baseline floor sits at 0.5 bps. With 8h intervals
+    // 1 bps/interval ≈ 1095 bps/year ≈ 11% annualised funding cost.
+    let toBps (x: float) = x * 10_000.0
+
     let printSection (side: string) =
         printfn ""
-        printfn "--- %s side: funding-rate decile breakdown (rate is per funding interval, not annualised) ---" side
-        printfn "  %-7s %-13s %-13s %-7s %-7s %-9s %11s %11s %11s %11s %11s"
-            "bucket" "fr_lo" "fr_hi"
+        printfn "--- %s side: funding-rate decile breakdown (bps per funding interval) ---" side
+        printfn "  %-7s %-12s %-12s %-7s %-7s %-9s %11s %11s %11s %11s %11s"
+            "bucket" "fr_lo_bps" "fr_hi_bps"
             "trades" "wins" "win_rate"
             "grossW$" "grossL$" "PF" "sumPnl$" "avgPnl$"
         for s, b, n, w, wr, gw, gl, sp, ap, fl, fh in rows do
             if s = side then
                 let pf = if gl > 0.0 then gw / gl else nan
-                printfn "  %-7d %-13.6f %-13.6f %-7d %-7d %-9.3f %11.0f %11.0f %11.3f %11.0f %11.2f"
-                    b fl fh n w wr gw gl pf sp ap
+                printfn "  %-7d %-12.3f %-12.3f %-7d %-7d %-9.3f %11.0f %11.0f %11.3f %11.0f %11.2f"
+                    b (toBps fl) (toBps fh) n w wr gw gl pf sp ap
 
     printSection "long"
     printSection "short"
@@ -1339,12 +1345,12 @@ let cmdFundingStratify (args: ParseResults<FundingStratifyArgs>) : int =
     | Some path ->
         Directory.CreateDirectory(Path.GetDirectoryName path) |> ignore
         use sw = new StreamWriter(path)
-        sw.WriteLine "side,bucket,fr_lo,fr_hi,trades,wins,win_rate,gross_wins,gross_losses,profit_factor,sum_pnl,avg_pnl"
+        sw.WriteLine "side,bucket,fr_lo_bps,fr_hi_bps,trades,wins,win_rate,gross_wins,gross_losses,profit_factor,sum_pnl,avg_pnl"
         for s, b, n, w, wr, gw, gl, sp, ap, fl, fh in rows do
             let pf = if gl > 0.0 then gw / gl else System.Double.NaN
             sw.WriteLine(
                 sprintf "%s,%d,%g,%g,%d,%d,%g,%g,%g,%g,%g,%g"
-                    s b fl fh n w wr gw gl pf sp ap)
+                    s b (toBps fl) (toBps fh) n w wr gw gl pf sp ap)
         printfn ""
         printfn "[funding-stratify] wrote %s" path
     | None -> ()
