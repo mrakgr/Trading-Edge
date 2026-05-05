@@ -600,102 +600,70 @@ trade's specific symbol was paying at entry.
 trips, 14,047 short trips, 100% join rate (every trade matched a funding
 event for its symbol).
 
-**Units note.** Tables below report funding rates in **basis points per
-funding interval** (1 bps = 0.0001 decimal = 0.01%). Funding fires every
-4–8 hours per symbol. Binance's default-baseline funding rate for
-low-volume perps is **+0.5 bps/interval**, which is why several middle
-buckets below collapse to ties at exactly +0.5 bps. With 8h intervals,
-1 bps/interval ≈ 11% annualised funding cost.
+**Methodology note.** Same fixed cutpoints as the universe-funding section
+(below): sub-baseline / =baseline / mildly elevated / strongly elevated.
+Funding rates reported in **basis points per funding interval** (1 bps =
+0.0001 decimal = 0.01%). Binance's default-baseline rate is +0.5 bps/interval;
+1 bps/interval ≈ 11% annualised. The earlier 10-decile NTILE view
+overlapped at the +0.5 bps point mass, masking the real structure — these
+4 regime buckets are the same cuts used for the universe panel so the two
+tables are directly comparable.
 
-### Long-side funding-decile breakdown
-
-```
-bucket  fr_lo_bps  fr_hi_bps  trades  win_rate  PF      sumPnl$
-0       -200.000   -2.532       596   0.404    1.658    +5751
-1         -2.527   -0.552       596   0.406    1.106     +764
-2         -0.551   +0.089       596   0.366    1.164    +1111
-3         +0.090   +0.500       596   0.383    1.259    +1612
-4         +0.500   +0.500       596   0.379    0.844    -1304
-5         +0.500   +0.500       596   0.371    0.943     -546
-6         +0.500   +0.500       596   0.384    1.405    +3417
-7         +0.500   +1.000       596   0.354    1.180    +1057
-8         +1.000   +1.000       596   0.362    0.739    -1742
-9         +1.000  +30.800       595   0.358    1.948   +10056
-```
-
-**Pattern: ends are best.**
-- Decile 0 (deeply negative funding, −200 to −2.5 bps — shorts paying longs
-  heavily): PF 1.66. Long edge here is real — squeeze fuel.
-- Decile 9 (elevated positive funding, +1 to +31 bps — longs paying shorts
-  through the nose): PF 1.95. Counterintuitive but consistent with momentum
-  trends; v0 long entries here capture continuations on hot symbols.
-- Deciles 4–5 and 8 are losers, but their `fr_lo == fr_hi` columns reveal
-  why: most symbols cluster at the +0.5 bps Binance baseline floor, so the
-  bucket boundaries collapse to ties. Those bins are basically
-  "baseline-funding" with bucketing noise, not a reliable filter.
-
-### Short-side funding-decile breakdown
+### Long-side regime breakdown
 
 ```
-bucket  fr_lo_bps  fr_hi_bps  trades  win_rate  PF      sumPnl$
-0       -300.000   -3.229     1405    0.451    1.365   +13333
-1         -3.226   -0.826     1405    0.399    0.988     -465
-2         -0.825   +0.056     1405    0.408    1.338   +10941
-3         +0.057   +0.500     1405    0.432    1.848   +25526
-4         +0.500   +0.500     1405    0.458    1.443   +17838
-5         +0.500   +0.500     1405    0.452    1.829   +30612
-6         +0.500   +0.500     1405    0.467    1.873   +30652
-7         +0.500   +1.000     1404    0.415    1.528   +21120
-8         +1.000   +1.000     1404    0.439    1.910   +33402
-9         +1.000  +82.733     1404    0.435    1.404   +17726
+bucket  fr_bps             trades  win_rate  PF      sumPnl$
+0       <+0.5 bps           2351   0.391    1.337    +9600
+1       =+0.5 bps           1824   0.376    1.043    +1157
+2       +0.5 to +1.0 bps     409   0.352    1.162     +669
+3       ≥ +1.0 bps          1375   0.361    1.461    +8750
 ```
 
-**Pattern: short edge is positive almost everywhere, but degrades sharply
-in one specific funding band.**
-- Every decile profitable except **bucket 1** (PF 0.99, −$465 over 1,405
-  trades): mildly-negative funding, −3.2 to −0.8 bps/interval. That band is
-  "shorts paying longs but not aggressively". The regime where short-bias
-  is insufficient to overcome other factors; shorts essentially break even.
-- The strongest short buckets are deciles 5–8 (positive funding above the
-  baseline, +0.5 to +1 bps/interval): PF 1.83–1.91, +$125k pooled across
-  ~5.6k trades. Aligns with theory: positive funding = leveraged longs to
-  liquidate.
-- Decile 9 (extreme positive, +1 to +82.7 bps — annualised up to ~900%):
-  PF 1.40 — still profitable but **weaker than the 5–8 band**. Possibly
-  because by the time funding is *that* extreme, the symbol is already
-  late in its blow-off and shorts get whipsawed.
+### Short-side regime breakdown
 
-### Verdict
+```
+bucket  fr_bps             trades  win_rate  PF      sumPnl$
+0       <+0.5 bps           5377   0.422    1.311   +41733
+1       =+0.5 bps           4584   0.458    1.743   +90534
+2       +0.5 to +1.0 bps     664   0.408    1.652    +9567
+3       ≥ +1.0 bps          3422   0.432    1.581   +58852
+```
 
-**Useful — both as a long filter (skip bucket 1 of shorts) and as a
-sizing factor.** The clean finding is the short-side bucket-1 dead zone:
-1,405 trades that contribute essentially nothing to P&L. Skipping them
-would tighten short-side PF without sacrificing absolute dollars.
+### Verdict — and an inversion of the earlier conclusion
 
-The long-side spread between bucket 0 (PF 1.66) and bucket 9 (PF 1.95)
-**vs** the muddled middle (deciles 4–5–8 sub-1.0) is a stronger
-signal-to-noise story than the universe-wide breadth result. The reason:
-the per-symbol funding rate is **specific to the symbol being traded** —
-it captures the leveraged-positioning state of the actual instrument,
-which the universe-wide breadth aggregate cannot.
+**Per-ticker funding has no dead zones.** Every bucket on every side has
+PF ≥ 1.04. The earlier "decile 1 dead zone" finding (PF 0.99 in the
+−3 to −1 bps range) was an NTILE-bucketing artefact: cutting the
+sub-baseline funding range at the wrong boundary happened to land on a
+localised slump that doesn't survive a sharper regime cut.
 
-**Compared to universe-wide breadth:** funding-rate stratification produces
-a clearer pattern with smaller dollar magnitudes (~+$1–2k of avoided
-losses per side). Both are marginal vs the v0 baseline; neither justifies
-plumbing into the live engine on its own. Combining them into a richer
-regime classifier might yield more — but that's v1 territory.
+**Compare to the universe-funding panel** (next section), where the same
+4 cutpoints applied to the universe-wide median produce sharp dead zones:
+- Universe long bucket 3 (≥+1.0 bps): **PF 0.59**, vs per-ticker bucket
+  3: PF 1.46.
+- Universe short bucket 0 (<+0.5 bps): **PF 0.85**, vs per-ticker bucket
+  0: PF 1.31.
 
-**Universe-wide funding panel** is also built (`build-funding-breadth`
-emits `funding_per_hour.parquet` with mean/median/extreme-positive%
-across the active universe). Not yet stratified; future work.
+**The regime signal lives at the universe level, not the per-ticker
+level.** This inverts the earlier NTILE-based reading. Two interpretations:
+1. The trade's own symbol's funding rate is mostly already captured by v0's
+   per-symbol orderflow signal, so it adds no marginal information at entry
+   time.
+2. The universe-wide funding median tells you something the per-ticker rate
+   does not: the broad-market regime / leveraged-positioning state.
+
+Either way, **only the universe panel is worth wiring as a regime filter.
+Per-ticker funding can be retired as a feature candidate.**
 
 ### How to reproduce
 
 ```bash
-# Per-trip funding stratification (no aggregation — joins each trade
-# directly to its symbol's funding rate at entry).
+# Per-trip funding stratification with the same regime cutpoints as the
+# universe-funding section (sub-baseline / =baseline / mildly elevated /
+# strongly elevated).
 dotnet run --project TradingEdge.CryptoBacktest -c Release -- funding-stratify \
     --trips /tmp/v0/results_trips_1h_ma200h_ls.csv \
+    --bucket-by cutpoints --value-cutpoints "0.00005,0.0000501,0.0001" \
     --output /tmp/v0/funding_decile_breakdown.csv
 
 # Universe-wide funding breadth panel (built separately for visual / future
@@ -819,12 +787,15 @@ of effects**:
 In aggregate: drop the bottom-bucket shorts and the top-bucket longs,
 save ~$7k in losses, no opportunity cost on the winning side.
 
-**Comparison with per-symbol funding filter.** The two filters catch
-different bad trades. The per-symbol filter targets a narrow band of
-mildly-negative funding on the trade's specific symbol; the universe-wide
-filter targets the broad-market regime. Together they form a richer
-regime classifier, but the cutpoint view above is already the cleaner
-of the two for stand-alone use.
+**Comparison with per-symbol funding filter.** When the same cutpoints
+are applied to the trade's own symbol's funding rate (see the per-trip
+section above), every bucket on every side has PF ≥ 1.04 — i.e. **no
+dead zones at all**. The earlier "per-ticker bucket-1 dead zone" finding
+was an NTILE-bucketing artefact that doesn't survive a sharper cut.
+
+So the regime signal is **only at the universe level**. Per-ticker
+funding can be retired as a feature candidate; the universe-wide median
+is the one to plumb.
 
 **Methodology lesson worth flagging.** An earlier 10-decile rank breakdown
 of this same data made bucket 6 (rank 0.60-0.70) look like a 3.81 PF

@@ -172,6 +172,8 @@ type BreadthStratifyArgs =
 type FundingStratifyArgs =
     | [<Mandatory; AltCommandLine "-t">] Trips of string
     | Funding_Root of string
+    | Bucket_By of string
+    | Value_Cutpoints of string
     | [<AltCommandLine "-n">] Buckets of int
     | [<AltCommandLine "-o">] Output of string
     interface IArgParserTemplate with
@@ -179,7 +181,9 @@ type FundingStratifyArgs =
             match s with
             | FundingStratifyArgs.Trips _ -> "Path to a trips CSV from a prior `sweep` run."
             | FundingStratifyArgs.Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
-            | FundingStratifyArgs.Buckets _ -> "Number of buckets. Default 10."
+            | FundingStratifyArgs.Bucket_By _ -> "'value' uses NTILE(N) over per-symbol funding (equal-count, default). 'cutpoints' uses --value-cutpoints for fixed boundaries on the raw funding rate."
+            | FundingStratifyArgs.Value_Cutpoints _ -> "Comma-separated cutpoints in raw decimal units (BEFORE bps scaling) for --bucket-by cutpoints. To match the universe-funding regime cuts, pass '0.00005,0.0000501,0.0001' (sub-baseline / =baseline / mildly elevated / strongly elevated)."
+            | FundingStratifyArgs.Buckets _ -> "Number of NTILE buckets when --bucket-by value. Ignored under cutpoints. Default 10."
             | FundingStratifyArgs.Output _ -> "Optional CSV output path for the breakdown."
 
 type BuildFundingBreadthArgs =
@@ -1107,8 +1111,8 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
     let valueColumn = args.TryGetResult Value_Column
     let valueScale = args.GetResult(Value_Scale, defaultValue = 1.0)
     let valueLabel = args.GetResult(Value_Label, defaultValue = "value")
-    let bucketBy = args.GetResult(Bucket_By, defaultValue = "rank")
-    let valueCutpointsStr = args.TryGetResult Value_Cutpoints
+    let bucketBy = args.GetResult(BreadthStratifyArgs.Bucket_By, defaultValue = "rank")
+    let valueCutpointsStr = args.TryGetResult BreadthStratifyArgs.Value_Cutpoints
     let nBuckets = args.GetResult(BreadthStratifyArgs.Buckets, defaultValue = 10)
     let outputPath = args.TryGetResult BreadthStratifyArgs.Output
 
@@ -1360,8 +1364,25 @@ let cmdFundingStratify (args: ParseResults<FundingStratifyArgs>) : int =
     let tripsPath = args.GetResult FundingStratifyArgs.Trips
     let fundingRoot =
         args.GetResult(FundingStratifyArgs.Funding_Root, defaultValue = defaultFundingRoot)
+    let bucketBy = args.GetResult(FundingStratifyArgs.Bucket_By, defaultValue = "value")
+    let valueCutpointsStr = args.TryGetResult FundingStratifyArgs.Value_Cutpoints
     let nBuckets = args.GetResult(FundingStratifyArgs.Buckets, defaultValue = 10)
     let outputPath = args.TryGetResult FundingStratifyArgs.Output
+
+    if bucketBy <> "value" && bucketBy <> "cutpoints" then
+        eprintfn "[funding-stratify] --bucket-by must be 'value' or 'cutpoints', got: %s" bucketBy
+        exit 1
+    if bucketBy = "cutpoints" && valueCutpointsStr.IsNone then
+        eprintfn "[funding-stratify] --bucket-by cutpoints requires --value-cutpoints"
+        exit 1
+
+    let valueCutpoints =
+        match valueCutpointsStr with
+        | Some s ->
+            s.Split ',' |> Array.map (fun x ->
+                System.Double.Parse(x.Trim(), System.Globalization.CultureInfo.InvariantCulture))
+            |> Array.sort
+        | None -> [||]
 
     if not (File.Exists tripsPath) then
         eprintfn "[funding-stratify] trips file not found: %s" tripsPath
@@ -1370,13 +1391,38 @@ let cmdFundingStratify (args: ParseResults<FundingStratifyArgs>) : int =
         eprintfn "[funding-stratify] funding root not found: %s" fundingRoot
         exit 1
 
-    printfn "[funding-stratify] trips:   %s" tripsPath
-    printfn "[funding-stratify] funding: %s" fundingRoot
-    printfn "[funding-stratify] buckets: %d" nBuckets
+    printfn "[funding-stratify] trips:     %s" tripsPath
+    printfn "[funding-stratify] funding:   %s" fundingRoot
+    printfn "[funding-stratify] bucket-by: %s" bucketBy
+    printfn "[funding-stratify] buckets:   %d" nBuckets
     printfn ""
 
     use conn = new DuckDB.NET.Data.DuckDBConnection("Data Source=:memory:")
     conn.Open()
+
+    let bucketingCte =
+        match bucketBy with
+        | "value" ->
+            sprintf """bucketed AS (
+          SELECT side, net_pnl, fr,
+                 NTILE(%d) OVER (PARTITION BY side ORDER BY fr) - 1 AS bucket
+          FROM joined
+        )"""
+                nBuckets
+        | _ ->  // "cutpoints"
+            let inv = System.Globalization.CultureInfo.InvariantCulture
+            let cases =
+                valueCutpoints
+                |> Array.mapi (fun i cp ->
+                    sprintf "WHEN fr < %s THEN %d" (cp.ToString("R", inv)) i)
+                |> String.concat " "
+            let elseBucket = valueCutpoints.Length
+            sprintf """bucketed AS (
+          SELECT side, net_pnl, fr,
+                 CASE %s ELSE %d END AS bucket
+          FROM joined
+        )"""
+                cases elseBucket
 
     let fundingGlob = Path.Combine(fundingRoot, "*.parquet")
     let q =
@@ -1399,11 +1445,7 @@ let cmdFundingStratify (args: ParseResults<FundingStratifyArgs>) : int =
             ON t.symbol = f.symbol AND t.entry_us >= f.calc_time_us
           WHERE f.funding_rate IS NOT NULL
         ),
-        bucketed AS (
-          SELECT side, net_pnl, fr,
-                 NTILE(%d) OVER (PARTITION BY side ORDER BY fr) - 1 AS bucket
-          FROM joined
-        )
+        %s
         SELECT
           side,
           bucket,
@@ -1422,7 +1464,7 @@ let cmdFundingStratify (args: ParseResults<FundingStratifyArgs>) : int =
         """
             (tripsPath.Replace("'", "''"))
             (fundingGlob.Replace("'", "''"))
-            nBuckets
+            bucketingCte
 
     use cmd = conn.CreateCommand()
     cmd.CommandText <- q
