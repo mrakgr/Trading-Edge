@@ -688,3 +688,118 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- funding-stratify \
 # stratification work).
 dotnet run --project TradingEdge.CryptoBacktest -c Release -- build-funding-breadth
 ```
+
+## Funding-breadth rank as a trade filter — universe stratification
+
+**Question:** does the universe-wide median funding rank do better than
+per-symbol funding for filtering trades? Per-symbol captures the leveraged
+positioning of the specific instrument; universe-wide captures the broader
+market-wide tilt. They could be redundant or complementary.
+
+**Pipeline.** `breadth-stratify` was generalised with a `--rank-column` flag
+so the same join logic can target any per-hour rank parquet. We point it at
+the funding-breadth panel built by `build-funding-breadth`:
+
+```bash
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- breadth-stratify \
+    --trips /tmp/v0/results_trips_1h_ma200h_ls.csv \
+    --per-hour /mnt/d/.../funding_per_hour.parquet \
+    --rank-column median_funding_rank \
+    --output /tmp/v0/funding_breadth_decile_breakdown.csv
+```
+
+The rank is the t-digest CDF (in time order, leak-free) of the universe-wide
+median funding rate across active symbols at each hour. Median was chosen
+over mean because a handful of alts at any moment have wildly extreme
+funding (−2% / +0.8% per interval) which would drag a mean.
+
+### Long-side breakdown
+
+```
+bucket  rank_lo  rank_hi  trades  win_rate  PF      sumPnl$
+0       0.0001   0.0972    614    0.423    1.544    +4875
+1       0.1000   0.1991    119    0.336    0.516     -814
+2       0.2000   0.2999    894    0.379    0.993      -82
+3       0.3000   0.3999   1942    0.386    1.732   +17093
+4       0.4010   0.4939   1919    0.357    1.047    +1215
+5       0.5033   0.5964     68    0.485    1.377     +340
+6       0.6029   0.6964    108    0.343    0.631     -743
+7       0.7148   0.7970     87    0.333    0.716     -399
+8       0.8017   0.8821    187    0.358    0.519   -1073
+9       0.9537   0.9988     21    0.190    0.294     -238
+```
+
+### Short-side breakdown
+
+```
+bucket  rank_lo  rank_hi  trades  win_rate  PF      sumPnl$
+0       0.0001   0.0994   1282    0.392    0.851    -4756
+1       0.1012   0.1997    251    0.422    2.027    +5051
+2       0.2026   0.3000   1804    0.468    1.485   +24783
+3       0.3000   0.3998   4591    0.416    1.371   +50614
+4       0.4000   0.4973   4889    0.438    1.430   +44674
+5       0.5033   0.5965    123    0.455    1.859    +3621
+6       0.6018   0.6964    435    0.566    3.810   +51807
+7       0.7016   0.7994    211    0.521    4.532   +13089
+8       0.8000   0.8790    390    0.433    1.529    +7698
+9       0.9587   0.9999     71    0.493    2.467    +4106
+```
+
+### Key observations and caveats
+
+**Trade counts are highly uneven across buckets.** The rank cuts are
+value-based (`FLOOR(rank * 10)`), not quantile-based, and the median funding
+rate clusters tightly around the +0.005% Binance baseline so most ranks land
+in deciles 3–4. Bucket 9 (rank > 0.95) holds only 21 long trades — anything
+that bucket says is noise. Bucket 6 short side holds 435 trades; that's
+real.
+
+**The standout: short side bucket 6 (PF 3.81, +$51,807).** That's $119/trade,
+~5× the average short P&L. Initially looks like a strong regime signal.
+**But:** when broken out by month, **323 of those 435 trades came from May
+2024 alone, contributing $53k of the $52k bucket P&L.** The remaining
+months contribute small amounts that mostly net to zero. So bucket 6 is
+"May 2024 was a great month for shorts when funding was elevated" — one
+specific event, not a generalisable pattern. Same caveat applies (less
+strongly) to bucket 7 (211 trades, $13k).
+
+**The actionable filter: short side bucket 0 (rank < 0.10): PF 0.85,
+−$4,756 over 1,282 trades.** That's a clean broad-market dead zone where
+shorts collectively lose money. When the universe is paying longs heavily
+(very negative funding rank), the v0 short signal fires into the wrong
+positioning.
+
+### Comparison with per-symbol funding filter
+
+The two filters are **complementary, not redundant.** Cross-tabulating:
+
+| | uni_rank ≥ 0.10 | uni_rank < 0.10 |
+|---|---|---|
+| sym_rate not in [-0.032%, -0.008%] | 11,586 trades, +$205,658 | 1,063 trades, −$4,564 |
+| sym_rate in [-0.032%, -0.008%] | 1,179 trades, −$216 | 219 trades, −$193 |
+
+Of the 1,282 short trades caught by `uni_rank < 0.10`, only 219 are also
+flagged by the per-symbol filter. They're catching **different bad trades**.
+
+A combined OR-filter — skip a short if either `uni_rank < 0.10` OR
+`sym_rate ∈ [-0.032%, -0.008%]` — drops 2,461 of the 14,047 shorts (~17.5%)
+for a P&L cost of −$4,972 (i.e. these are net-losing trades; removing them
+*improves* the system). The unfiltered 11,586 shorts earn the +$205k.
+
+### Verdict
+
+Per-symbol funding still produces the **cleaner** filter (the −0.032% to
+−0.008% dead zone is broader and has zero overfitting risk; it's purely
+about the symbol's own state). Universe-wide funding rank adds a **second,
+complementary** filter that catches a different slice of bad trades —
+specifically when the broad market is paying longs.
+
+**Combined effect (both short-side filters applied):** drop 17.5% of short
+trades, save ~$5k in losses, no opportunity cost on the winning side.
+Still small relative to the v0 baseline, but the two filters together get
+us closer to a real regime classifier than either alone.
+
+The May 2024 anomaly in bucket 6 is the cautionary tale: with this many
+buckets and this much heterogeneity in the dataset, individual cells will
+look great by accident. **Always check time distribution before declaring
+a finding.**

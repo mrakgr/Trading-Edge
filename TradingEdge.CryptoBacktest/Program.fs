@@ -147,13 +147,15 @@ type BuildBreadthArgs =
 type BreadthStratifyArgs =
     | [<Mandatory; AltCommandLine "-t">] Trips of string
     | Per_Hour of string
+    | Rank_Column of string
     | [<AltCommandLine "-n">] Buckets of int
     | [<AltCommandLine "-o">] Output of string
     interface IArgParserTemplate with
         member s.Usage =
             match s with
             | Trips _ -> "Path to a trips CSV from a prior `sweep` run (e.g. /tmp/.../results_trips_1h_ma200h_ls.csv)."
-            | Per_Hour _ -> "Per-hour breadth parquet from `build-breadth`. Default: /mnt/d/trading-edge-bulk/crypto/binance/breadth/per_hour.parquet"
+            | Per_Hour _ -> "Per-hour breadth parquet (must contain hour_us and the rank column). Default: /mnt/d/trading-edge-bulk/crypto/binance/breadth/per_hour.parquet"
+            | Rank_Column _ -> "Column name in the per-hour parquet to use as the join key. Default: composite_signed_rank_ma200 (orderflow). For funding-rate breadth, pass --rank-column median_funding_rank --per-hour /mnt/d/.../funding_per_hour.parquet."
             | Buckets _ -> "Number of rank buckets (deciles, ventiles, etc.). Default 10."
             | Output _ -> "Optional CSV output path for the breakdown. Default prints to stdout only."
 
@@ -1090,6 +1092,8 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
     let perHourPath =
         args.GetResult(Per_Hour,
             defaultValue = "/mnt/d/trading-edge-bulk/crypto/binance/breadth/per_hour.parquet")
+    let rankColumn =
+        args.GetResult(Rank_Column, defaultValue = "composite_signed_rank_ma200")
     let nBuckets = args.GetResult(BreadthStratifyArgs.Buckets, defaultValue = 10)
     let outputPath = args.TryGetResult BreadthStratifyArgs.Output
 
@@ -1102,8 +1106,14 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
 
     printfn "[breadth-stratify] trips:    %s" tripsPath
     printfn "[breadth-stratify] breadth:  %s" perHourPath
+    printfn "[breadth-stratify] rank-col: %s" rankColumn
     printfn "[breadth-stratify] buckets:  %d" nBuckets
     printfn ""
+
+    // Defence against bad column names — only allow alphanumeric + underscore.
+    if not (System.Text.RegularExpressions.Regex.IsMatch(rankColumn, @"^[A-Za-z_][A-Za-z0-9_]*$")) then
+        eprintfn "[breadth-stratify] invalid --rank-column: %s" rankColumn
+        exit 1
 
     use conn = new DuckDB.NET.Data.DuckDBConnection("Data Source=:memory:")
     conn.Open()
@@ -1117,10 +1127,10 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
           FROM read_csv_auto('%s')
         ),
         breadth AS (
-          SELECT hour_us, composite_signed_rank_ma200 AS rank
+          SELECT hour_us, %s AS rank
           FROM read_parquet('%s')
-          WHERE composite_signed_rank_ma200 IS NOT NULL
-            AND NOT isnan(composite_signed_rank_ma200)
+          WHERE %s IS NOT NULL
+            AND NOT isnan(%s)
         ),
         joined AS (
           SELECT t.side, t.entry_us, t.net_pnl, b.rank
@@ -1151,7 +1161,9 @@ let cmdBreadthStratify (args: ParseResults<BreadthStratifyArgs>) : int =
         ORDER BY side, bucket
         """
             (tripsPath.Replace("'", "''"))
+            rankColumn
             (perHourPath.Replace("'", "''"))
+            rankColumn rankColumn
             nBuckets nBuckets (nBuckets - 1)
 
     use cmd = conn.CreateCommand()
