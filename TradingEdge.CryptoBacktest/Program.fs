@@ -10,7 +10,7 @@ open TradingEdge.CryptoBacktest.TradeLoader
 open TradingEdge.CryptoBacktest.Reporting
 
 let defaultDataRoot = "/mnt/d/trading-edge-bulk/crypto/binance/perps"
-let defaultBarsRoot = "/mnt/d/trading-edge-bulk/crypto/binance/perps_bars"
+let defaultBarsRoot = "data/crypto/perps_bars"
 let defaultFundingRoot = "/mnt/d/trading-edge-bulk/crypto/binance/perps_funding"
 let defaultStart = DateTime(2024, 5, 1)
 let defaultEnd   = DateTime(2026, 4, 30)
@@ -106,6 +106,57 @@ type SweepArgs =
             | Results_Csv _ -> "Per-(symbol,timeframe,ma) results CSV path."
             | Summary_Csv _ -> "Aggregate per-(timeframe,ma) summary CSV path."
             | Parallelism _ -> "Max symbols processed concurrently. Default 4."
+
+type CumsumSweepArgs =
+    | [<AltCommandLine "-d">] Data_Root of string
+    | [<AltCommandLine "-b">] Bars_Root of string
+    | [<AltCommandLine "-s">] Symbol of string
+    | Start_Date of string
+    | End_Date of string
+    | Timeframes of string
+    | Cumsum_Thresholds of string
+    | Ma_Hours of string
+    | Notional of float
+    | Taker_Fee of float
+    | Allow_Short
+    | Use_Trades
+    | Max_Adverse_Pct of float
+    | Reference_Vol_Pct of float
+    | Min_Long_Adv of float
+    | Min_Short_Adv of float
+    | Vol_Window_Days of int
+    | Max_Bar_Price_Ratio of float
+    | Funding_Root of string
+    | No_Funding
+    | Results_Csv of string
+    | Summary_Csv of string
+    | [<AltCommandLine "-p">] Parallelism of int
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Data_Root _ -> "Trade-parquet root. Default: " + defaultDataRoot
+            | Bars_Root _ -> "Pre-aggregated bar-parquet root. Default: " + defaultBarsRoot
+            | Symbol _ -> "Restrict sweep to a comma-separated symbol list (default: all symbols with bar parquets)."
+            | Start_Date _ -> "Inclusive start date YYYY-MM-DD. Default 2024-05-01."
+            | End_Date _ -> "Inclusive end date YYYY-MM-DD. Default 2026-04-30."
+            | Timeframes _ -> "Comma-separated timeframes. Default 1m. (Cumsum is designed for 1m; other tfs work but the threshold-as-vote-count semantics shift.)"
+            | Cumsum_Thresholds _ -> "Comma-separated cumsum clamp magnitudes. Default 60. Long fires at +threshold, short at -threshold; exit on opposite extreme."
+            | CumsumSweepArgs.Ma_Hours _ -> "Comma-separated MA window lengths in HOURS for the inner v0 orderflow signal. The cumsum votes on the sign of (buyMa - sellMa) over this window. Default 200 (matches v0)."
+            | CumsumSweepArgs.Notional _ -> "Per-trade notional. Default 1000."
+            | Taker_Fee _ -> "Per-fill taker fee fraction. Default 0.0004."
+            | CumsumSweepArgs.Allow_Short -> "When set, sweep includes short legs."
+            | Use_Trades -> "Force the trade-stream backtest path even if pre-aggregated bars exist."
+            | Max_Adverse_Pct _ -> "Stop-loss as percent of notional. Default 0 (disabled)."
+            | Reference_Vol_Pct _ -> "Reference per-bar log-return std as percent. Default 0 (disabled)."
+            | CumsumSweepArgs.Min_Long_Adv _ -> "Minimum trailing-90d ADV (USDT/day) for a long entry. Default 0 (disabled)."
+            | CumsumSweepArgs.Min_Short_Adv _ -> "Minimum trailing-90d ADV (USDT/day) for a short entry. Default 0."
+            | CumsumSweepArgs.Vol_Window_Days _ -> "Vol-window length in days. Default 90."
+            | CumsumSweepArgs.Max_Bar_Price_Ratio _ -> "Bar-to-bar price-ratio gap detector. Default 0 (disabled). Recommended 3.0."
+            | CumsumSweepArgs.Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
+            | No_Funding -> "Disable funding-rate accounting even if data is available."
+            | Results_Csv _ -> "Per-(symbol,timeframe,threshold) results CSV path."
+            | Summary_Csv _ -> "Aggregate per-(timeframe,threshold) summary CSV path."
+            | CumsumSweepArgs.Parallelism _ -> "Max symbols processed concurrently. Default 4."
 
 type BuildBreadthArgs =
     | [<AltCommandLine "-b">] Bars_Root of string
@@ -204,6 +255,7 @@ type BuildFundingBreadthArgs =
 type CliArgs =
     | [<CliPrefix(CliPrefix.None)>] Run of ParseResults<RunArgs>
     | [<CliPrefix(CliPrefix.None)>] Sweep of ParseResults<SweepArgs>
+    | [<CliPrefix(CliPrefix.None)>] Cumsum_Sweep of ParseResults<CumsumSweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Vwma_Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Breakout_Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Breadth of ParseResults<BuildBreadthArgs>
@@ -215,6 +267,7 @@ type CliArgs =
             match s with
             | Run _            -> "Run one (symbol, timeframe, ma) configuration."
             | Sweep _          -> "Run the full grid: timeframes × MA hours × symbols."
+            | Cumsum_Sweep _   -> "Clamped-cumsum 1m successor to the orderflow-MA system: per-bar +/-1 vote on buy/sell sign, cumsum clamped to [-threshold, +threshold]; long fires at +threshold, short at -threshold, exit on opposite extreme."
             | Vwma_Sweep _     -> "Research baseline: same grid, but signal is close-vs-VWMA crossover instead of orderflow ratio."
             | Breakout_Sweep _ -> "Research baseline: same grid, but signal is symmetric N-hour VWAP-breakout/breakdown instead of orderflow ratio."
             | Build_Breadth _  -> "Build the universe-wide breadth panel: per-(symbol, hour) signal trace plus per-hour aggregates with composite signed-volume t-digest rank."
@@ -342,17 +395,17 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     let allowShort = args.Contains SweepArgs.Allow_Short
     let minDailyVolume = args.GetResult(SweepArgs.Min_Daily_Volume, defaultValue = 500_000.0)
     let minBarQuoteVolume = args.GetResult(SweepArgs.Min_Bar_Quote_Volume, defaultValue = 0.0)
-    let maxAdversePct = args.GetResult(Max_Adverse_Pct, defaultValue = 0.0)
-    let referenceVolPct = args.GetResult(Reference_Vol_Pct, defaultValue = 0.0)
+    let maxAdversePct = args.GetResult(SweepArgs.Max_Adverse_Pct, defaultValue = 0.0)
+    let referenceVolPct = args.GetResult(SweepArgs.Reference_Vol_Pct, defaultValue = 0.0)
     let minLongAdv = args.GetResult(SweepArgs.Min_Long_Adv, defaultValue = 0.0)
     let minShortAdv = args.GetResult(SweepArgs.Min_Short_Adv, defaultValue = 0.0)
     let volWindowDays = args.GetResult(SweepArgs.Vol_Window_Days, defaultValue = 90)
     let maxBarPriceRatio = args.GetResult(SweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
     let fundingRoot =
-        if args.Contains No_Funding then None
+        if args.Contains SweepArgs.No_Funding then None
         else Some (args.GetResult(SweepArgs.Funding_Root, defaultValue = defaultFundingRoot))
-    let resultsCsv = args.GetResult(Results_Csv, defaultValue = defaultResultsCsv)
-    let summaryCsv = args.GetResult(Summary_Csv, defaultValue = defaultSummaryCsv)
+    let resultsCsv = args.GetResult(SweepArgs.Results_Csv, defaultValue = defaultResultsCsv)
+    let summaryCsv = args.GetResult(SweepArgs.Summary_Csv, defaultValue = defaultSummaryCsv)
     let parallelism = args.GetResult(SweepArgs.Parallelism, defaultValue = 4)
 
     printfn "[sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s minDailyVol=$%s minBarQVol=$%s maxAdversePct=%g referenceVolPct=%g minLongAdv=$%s minShortAdv=$%s volWindowDays=%d"
@@ -525,6 +578,199 @@ let cmdSweep (args: ParseResults<SweepArgs>) : int =
     0
 
 // =============================================================================
+// cumsum-sweep — clamped-cumsum 1m-bar successor to the orderflow-MA system
+// =============================================================================
+//
+// Runs OrderflowCumsum.Engine over 1m bars across the universe. Same
+// reporting / breakdown / trips-CSV pipeline as `cmdSweep`. CumsumCell
+// surfaces a synthetic StrategyConfig where MaWindowHours stores the
+// cumsum threshold so the existing reporting layer just works.
+
+let cmdCumsumSweep (args: ParseResults<CumsumSweepArgs>) : int =
+    let dataRoot = args.GetResult(CumsumSweepArgs.Data_Root, defaultValue = defaultDataRoot)
+    let barsRoot = args.GetResult(CumsumSweepArgs.Bars_Root, defaultValue = defaultBarsRoot)
+    let useTrades = args.Contains CumsumSweepArgs.Use_Trades
+    let startDate = args.TryGetResult CumsumSweepArgs.Start_Date |> Option.map parseDate |> Option.defaultValue defaultStart
+    let endDate   = args.TryGetResult CumsumSweepArgs.End_Date   |> Option.map parseDate |> Option.defaultValue defaultEnd
+    let timeframes =
+        args.TryGetResult CumsumSweepArgs.Timeframes
+        |> Option.map (parseList ',')
+        |> Option.defaultValue [| "1m" |]
+    let thresholds =
+        args.TryGetResult Cumsum_Thresholds
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map Int32.Parse)
+        |> Option.defaultValue [| 60 |]
+    let maHoursList =
+        args.TryGetResult CumsumSweepArgs.Ma_Hours
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map Int32.Parse)
+        |> Option.defaultValue [| 200 |]
+    let symbols =
+        match args.TryGetResult CumsumSweepArgs.Symbol with
+        | Some s -> parseList ',' s
+        | None ->
+            if useTrades then listSymbols dataRoot
+            else
+                let perTf = timeframes |> Array.map (fun tf -> Set.ofArray (BarLoader.listSymbols barsRoot tf))
+                if perTf.Length = 0 then [||]
+                else
+                    perTf
+                    |> Array.reduce Set.intersect
+                    |> Set.toArray
+                    |> Array.sort
+    let notional = args.GetResult(CumsumSweepArgs.Notional, defaultValue = 1000.0)
+    let takerFee = args.GetResult(CumsumSweepArgs.Taker_Fee, defaultValue = 0.0004)
+    let allowShort = args.Contains CumsumSweepArgs.Allow_Short
+    let maxAdversePct = args.GetResult(CumsumSweepArgs.Max_Adverse_Pct, defaultValue = 0.0)
+    let referenceVolPct = args.GetResult(CumsumSweepArgs.Reference_Vol_Pct, defaultValue = 0.0)
+    let minLongAdv = args.GetResult(CumsumSweepArgs.Min_Long_Adv, defaultValue = 0.0)
+    let minShortAdv = args.GetResult(CumsumSweepArgs.Min_Short_Adv, defaultValue = 0.0)
+    let volWindowDays = args.GetResult(CumsumSweepArgs.Vol_Window_Days, defaultValue = 90)
+    let maxBarPriceRatio = args.GetResult(CumsumSweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
+    let fundingRoot =
+        if args.Contains CumsumSweepArgs.No_Funding then None
+        else Some (args.GetResult(CumsumSweepArgs.Funding_Root, defaultValue = defaultFundingRoot))
+    let resultsCsv = args.GetResult(CumsumSweepArgs.Results_Csv, defaultValue = "data/crypto/cumsum/backtest_results.csv")
+    let summaryCsv = args.GetResult(CumsumSweepArgs.Summary_Csv, defaultValue = "data/crypto/cumsum/backtest_summary.csv")
+    let parallelism = args.GetResult(CumsumSweepArgs.Parallelism, defaultValue = 4)
+
+    if useTrades then
+        eprintfn "[cumsum-sweep] --use-trades is not supported; cumsum runs from pre-aggregated bars."
+        2
+    else
+
+    printfn "[cumsum-sweep] symbols=%d timeframes=[%s] thresholds=[%s] maHours=[%s] short=%b range=%s..%s parallelism=%d minLongAdv=$%s minShortAdv=$%s volWindowDays=%d maxBarPriceRatio=%g"
+        symbols.Length
+        (String.concat "," timeframes)
+        (String.concat "," (thresholds |> Array.map string))
+        (String.concat "," (maHoursList |> Array.map string))
+        allowShort
+        (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
+        parallelism
+        (minLongAdv.ToString("N0"))
+        (minShortAdv.ToString("N0"))
+        volWindowDays
+        maxBarPriceRatio
+
+    Directory.CreateDirectory(Path.GetDirectoryName resultsCsv) |> ignore
+    if File.Exists resultsCsv then File.Delete resultsCsv
+    let resultsDir = Path.GetDirectoryName resultsCsv
+    let resultsStem = Path.GetFileNameWithoutExtension resultsCsv
+    if Directory.Exists resultsDir then
+        for f in Directory.EnumerateFiles(resultsDir, sprintf "%s_trips_*.csv" resultsStem) do
+            File.Delete f
+
+    let allMetrics = System.Collections.Concurrent.ConcurrentBag<Metrics>()
+    let allTripsByGroup =
+        System.Collections.Concurrent.ConcurrentDictionary<string * int * bool, System.Collections.Concurrent.ConcurrentBag<RoundTrip>>()
+    let getTripBag (tf: string) (th: int) (sh: bool) =
+        allTripsByGroup.GetOrAdd((tf, th, sh), fun _ -> System.Collections.Concurrent.ConcurrentBag<RoundTrip>())
+    let advBySymbol =
+        System.Collections.Concurrent.ConcurrentDictionary<string, float>()
+    let writeLock = obj()
+    let totalCells = symbols.Length * timeframes.Length * thresholds.Length * maHoursList.Length
+    let mutable doneCells = 0
+
+    let swAll = Stopwatch.StartNew()
+    let opts = System.Threading.Tasks.ParallelOptions(MaxDegreeOfParallelism = parallelism)
+    System.Threading.Tasks.Parallel.ForEach(
+        symbols,
+        opts,
+        fun symbol ->
+            let swSym = Stopwatch.StartNew()
+            try
+                let cells =
+                    [| for tf in timeframes do
+                        for th in thresholds do
+                            for ma in maHoursList do
+                                let cfg : OrderflowCumsum.CumsumConfig =
+                                    { OrderflowCumsum.defaultCumsumConfig th with
+                                        MaWindowHours = ma
+                                        Notional = notional
+                                        TakerFee = takerFee
+                                        AllowShort = allowShort
+                                        MaxAdverseFraction = maxAdversePct / 100.0
+                                        ReferenceVol = referenceVolPct / 100.0
+                                        MinLongAdv = minLongAdv
+                                        MinShortAdv = minShortAdv
+                                        VolWindowDays = volWindowDays
+                                        MaxBarPriceRatio = maxBarPriceRatio }
+                                yield CumsumCell(symbol, tf, cfg) |]
+                let metrics, adv =
+                    runCumsumCellsFromBars barsRoot symbol startDate endDate cells fundingRoot
+                let nonEmpty = metrics |> Array.filter (fun m -> m.BarsTotal > 0)
+                if nonEmpty.Length = 0 then
+                    lock writeLock (fun () ->
+                        printfn "[cumsum-sweep] %s: no bars in window" symbol)
+                else
+                    if adv > 0.0 then advBySymbol.[symbol] <- adv
+                    for cell in cells do
+                        let trips = cell.Trips
+                        let bag = getTripBag cell.Timeframe cell.CumsumConfig.CumsumThreshold cell.CumsumConfig.AllowShort
+                        for t in trips do bag.Add t
+                        if trips.Length > 0 then
+                            let tripsPath =
+                                let dir = Path.GetDirectoryName resultsCsv
+                                let stem = Path.GetFileNameWithoutExtension resultsCsv
+                                let shortTag = if cell.CumsumConfig.AllowShort then "ls" else "long"
+                                Path.Combine(dir,
+                                    sprintf "%s_trips_%s_th%d_%s.csv"
+                                        stem cell.Timeframe cell.CumsumConfig.CumsumThreshold shortTag)
+                            lock writeLock (fun () ->
+                                appendTrips tripsPath cell.Symbol cell.Timeframe cell.Config trips)
+                    lock writeLock (fun () ->
+                        appendResults resultsCsv metrics
+                        for m in metrics do allMetrics.Add m
+                        doneCells <- doneCells + metrics.Length)
+                    swSym.Stop()
+                    lock writeLock (fun () ->
+                        printfn "[cumsum-sweep] %s done in %.1fs (%d/%d cells)"
+                            symbol swSym.Elapsed.TotalSeconds doneCells totalCells)
+            with ex ->
+                lock writeLock (fun () ->
+                    eprintfn "[cumsum-sweep] %s FAILED: %s" symbol ex.Message
+                    eprintfn "%s" ex.StackTrace))
+    |> ignore
+    swAll.Stop()
+
+    let metricsArr = allMetrics.ToArray()
+    let summary = summarize metricsArr
+    let summarySorted =
+        summary |> Array.sortByDescending (fun s -> s.MedianSharpe)
+    writeSummary summaryCsv summarySorted
+    printfn "[cumsum-sweep] wrote %d result rows -> %s" metricsArr.Length resultsCsv
+    printfn "[cumsum-sweep] wrote %d summary rows -> %s" summarySorted.Length summaryCsv
+
+    let breakdownLogPath =
+        let dir = Path.GetDirectoryName resultsCsv
+        let stem = Path.GetFileNameWithoutExtension resultsCsv
+        Path.Combine(dir, sprintf "%s_breakdown.log" stem)
+    Directory.CreateDirectory(Path.GetDirectoryName breakdownLogPath) |> ignore
+    use logWriter = new StreamWriter(breakdownLogPath, false)
+    let logWrite (s: string) =
+        logWriter.WriteLine s
+        logWriter.Flush()
+    let consoleWrite (s: string) = Console.WriteLine s
+
+    for s in summarySorted do
+        let cellMetrics =
+            metricsArr
+            |> Array.filter (fun m ->
+                m.Timeframe = s.Timeframe && m.MaWindowHours = s.MaWindowHours && m.AllowShort = s.AllowShort
+                && m.BarsTotal > 0)
+        let trips =
+            match allTripsByGroup.TryGetValue((s.Timeframe, s.MaWindowHours, s.AllowShort)) with
+            | true, bag -> bag.ToArray()
+            | _ -> [||]
+        printGroupBreakdown logWrite consoleWrite s.Timeframe s.MaWindowHours s.AllowShort notional cellMetrics trips advBySymbol
+
+    printfn ""
+    printfn "[cumsum-sweep] breakdown -> %s" breakdownLogPath
+    printfn "[cumsum-sweep] total wall %.1fs" swAll.Elapsed.TotalSeconds
+    0
+
+// =============================================================================
 // vwma-sweep — research baseline (close-vs-VWMA crossover signal)
 // =============================================================================
 //
@@ -571,17 +817,17 @@ let cmdVwmaSweep (args: ParseResults<SweepArgs>) : int =
     let allowShort = args.Contains SweepArgs.Allow_Short
     let minDailyVolume = args.GetResult(SweepArgs.Min_Daily_Volume, defaultValue = 500_000.0)
     let minBarQuoteVolume = args.GetResult(SweepArgs.Min_Bar_Quote_Volume, defaultValue = 0.0)
-    let maxAdversePct = args.GetResult(Max_Adverse_Pct, defaultValue = 0.0)
-    let referenceVolPct = args.GetResult(Reference_Vol_Pct, defaultValue = 0.0)
+    let maxAdversePct = args.GetResult(SweepArgs.Max_Adverse_Pct, defaultValue = 0.0)
+    let referenceVolPct = args.GetResult(SweepArgs.Reference_Vol_Pct, defaultValue = 0.0)
     let minLongAdv = args.GetResult(SweepArgs.Min_Long_Adv, defaultValue = 0.0)
     let minShortAdv = args.GetResult(SweepArgs.Min_Short_Adv, defaultValue = 0.0)
     let volWindowDays = args.GetResult(SweepArgs.Vol_Window_Days, defaultValue = 90)
     let maxBarPriceRatio = args.GetResult(SweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
     let fundingRoot =
-        if args.Contains No_Funding then None
+        if args.Contains SweepArgs.No_Funding then None
         else Some (args.GetResult(SweepArgs.Funding_Root, defaultValue = defaultFundingRoot))
-    let resultsCsv = args.GetResult(Results_Csv, defaultValue = "data/crypto/vwma/backtest_results.csv")
-    let summaryCsv = args.GetResult(Summary_Csv, defaultValue = "data/crypto/vwma/backtest_summary.csv")
+    let resultsCsv = args.GetResult(SweepArgs.Results_Csv, defaultValue = "data/crypto/vwma/backtest_results.csv")
+    let summaryCsv = args.GetResult(SweepArgs.Summary_Csv, defaultValue = "data/crypto/vwma/backtest_summary.csv")
     let parallelism = args.GetResult(SweepArgs.Parallelism, defaultValue = 4)
 
     printfn "[vwma-sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s minDailyVol=$%s minBarQVol=$%s maxAdversePct=%g referenceVolPct=%g minLongAdv=$%s minShortAdv=$%s volWindowDays=%d"
@@ -792,17 +1038,17 @@ let cmdBreakoutSweep (args: ParseResults<SweepArgs>) : int =
     let allowShort = args.Contains SweepArgs.Allow_Short
     let minDailyVolume = args.GetResult(SweepArgs.Min_Daily_Volume, defaultValue = 500_000.0)
     let minBarQuoteVolume = args.GetResult(SweepArgs.Min_Bar_Quote_Volume, defaultValue = 0.0)
-    let maxAdversePct = args.GetResult(Max_Adverse_Pct, defaultValue = 0.0)
-    let referenceVolPct = args.GetResult(Reference_Vol_Pct, defaultValue = 0.0)
+    let maxAdversePct = args.GetResult(SweepArgs.Max_Adverse_Pct, defaultValue = 0.0)
+    let referenceVolPct = args.GetResult(SweepArgs.Reference_Vol_Pct, defaultValue = 0.0)
     let minLongAdv = args.GetResult(SweepArgs.Min_Long_Adv, defaultValue = 0.0)
     let minShortAdv = args.GetResult(SweepArgs.Min_Short_Adv, defaultValue = 0.0)
     let volWindowDays = args.GetResult(SweepArgs.Vol_Window_Days, defaultValue = 90)
     let maxBarPriceRatio = args.GetResult(SweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
     let fundingRoot =
-        if args.Contains No_Funding then None
+        if args.Contains SweepArgs.No_Funding then None
         else Some (args.GetResult(SweepArgs.Funding_Root, defaultValue = defaultFundingRoot))
-    let resultsCsv = args.GetResult(Results_Csv, defaultValue = "data/crypto/breakout/backtest_results.csv")
-    let summaryCsv = args.GetResult(Summary_Csv, defaultValue = "data/crypto/breakout/backtest_summary.csv")
+    let resultsCsv = args.GetResult(SweepArgs.Results_Csv, defaultValue = "data/crypto/breakout/backtest_results.csv")
+    let summaryCsv = args.GetResult(SweepArgs.Summary_Csv, defaultValue = "data/crypto/breakout/backtest_summary.csv")
     let parallelism = args.GetResult(SweepArgs.Parallelism, defaultValue = 4)
 
     printfn "[breakout-sweep] symbols=%d timeframes=[%s] mas=[%s] short=%b range=%s..%s parallelism=%d path=%s minDailyVol=$%s minBarQVol=$%s maxAdversePct=%g referenceVolPct=%g minLongAdv=$%s minShortAdv=$%s volWindowDays=%d"
@@ -1712,6 +1958,7 @@ let main argv =
         match res.GetSubCommand() with
         | Run a -> cmdRun a
         | Sweep a -> cmdSweep a
+        | Cumsum_Sweep a -> cmdCumsumSweep a
         | Vwma_Sweep a -> cmdVwmaSweep a
         | Breakout_Sweep a -> cmdBreakoutSweep a
         | Build_Breadth a -> cmdBuildBreadth a

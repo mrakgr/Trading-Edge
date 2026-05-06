@@ -330,6 +330,75 @@ type BreakoutCell(symbol: string, timeframe: string, cfg: StrategyConfig) =
     member _.Trips = engine.Trips |> Seq.toArray
 
 // =============================================================================
+// Cumsum cell (1m successor to OrderflowMA's Cell)
+// =============================================================================
+//
+// Wraps OrderflowCumsum.Engine. Reuses the existing Metrics / RoundTrip /
+// Reporting pipeline by surfacing a synthetic StrategyConfig where
+// MaWindowHours carries the cumsum threshold (so reports label it as e.g.
+// "ma=60h" — read it as "threshold=60 votes" when interpreting cumsum runs).
+
+type CumsumCell(symbol: string, timeframe: string, cfg: OrderflowCumsum.CumsumConfig) =
+    let bucketUs = bucketUsOfTimeframe timeframe
+    let builder = TimeBarBuilder(bucketUs)
+    let cfgWithBucket = { cfg with OrderflowCumsum.CumsumConfig.BucketUs = bucketUs }
+    let engine = OrderflowCumsum.Engine(cfgWithBucket)
+    let mutable barCount = 0
+    let mutable startUs = 0L
+    let mutable endUs = 0L
+    let mutable hasAny = false
+
+    // Synthetic StrategyConfig for reporting/breakdown layers that consume
+    // OrderflowMA.StrategyConfig directly. CumsumThreshold goes into the
+    // MaWindowHours slot so the breakdown grouping key carries it.
+    let reportingCfg =
+        { defaultConfig cfg.CumsumThreshold with
+            Notional = cfg.Notional
+            TakerFee = cfg.TakerFee
+            AllowShort = cfg.AllowShort
+            BucketUs = bucketUs
+            MaxAdverseFraction = cfg.MaxAdverseFraction
+            ReferenceVol = cfg.ReferenceVol
+            MinLongAdv = cfg.MinLongAdv
+            MinShortAdv = cfg.MinShortAdv
+            VolWindowDays = cfg.VolWindowDays
+            MaxBarPriceRatio = cfg.MaxBarPriceRatio }
+
+    let onBar (bar: SignedBar) =
+        if not hasAny then
+            startUs <- bar.StartUs
+            hasAny <- true
+        endUs <- bar.EndUs
+        barCount <- barCount + 1
+        engine.ProcessBar bar
+
+    member _.Symbol = symbol
+    member _.Timeframe = timeframe
+    member _.Config = reportingCfg
+    member _.CumsumConfig = cfg
+
+    member _.SetFundingEvents(events: (int64 * float)[]) =
+        engine.SetFundingEvents events
+
+    member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+        for t in trades do
+            builder.Process(onBar, t)
+
+    member _.PushBars(bars: SignedBar[]) =
+        for b in bars do
+            onBar b
+
+    member _.Close() =
+        builder.Flush onBar
+        engine.Flush()
+
+    member _.BuildMetrics() =
+        let trips = engine.Trips |> Seq.toArray
+        buildMetrics symbol timeframe reportingCfg barCount startUs endUs trips
+
+    member _.Trips = engine.Trips |> Seq.toArray
+
+// =============================================================================
 // Symbol-level streaming driver
 // =============================================================================
 
@@ -402,6 +471,40 @@ let avgDailyVolume (bars: SignedBar[]) : float =
         let lastUs = bars.[bars.Length - 1].EndUs
         let days = float (lastUs - firstUs) / (86400.0 * 1_000_000.0)
         if days > 0.0 then totalDV / days else 0.0
+
+let runCumsumCellsFromBars
+    (barsRoot: string)
+    (symbol: string)
+    (startDate: System.DateTime)
+    (endDate: System.DateTime)
+    (cells: CumsumCell[])
+    (fundingRoot: string option)
+    : Metrics[] * float =
+    let fundingEvents =
+        match fundingRoot with
+        | Some root when FundingLoader.exists root symbol ->
+            FundingLoader.loadByDate root symbol startDate endDate
+            |> Array.map (fun e -> e.TimestampUs, e.Rate)
+        | _ -> [||]
+    if fundingEvents.Length > 0 then
+        for cell in cells do
+            cell.SetFundingEvents fundingEvents
+    let byTf =
+        cells
+        |> Array.groupBy (fun c -> c.Timeframe)
+    let mutable adv = 0.0
+    let mutable advSet = false
+    for (tf, group) in byTf do
+        let bars = BarLoader.loadByDate barsRoot tf symbol startDate endDate
+        if not advSet && bars.Length > 0 then
+            adv <- avgDailyVolume bars
+            advSet <- true
+        for cell in group do
+            cell.PushBars bars
+    for cell in cells do
+        cell.Close()
+    let metrics = cells |> Array.map (fun c -> c.BuildMetrics())
+    metrics, adv
 
 let runCellsFromBars
     (barsRoot: string)
