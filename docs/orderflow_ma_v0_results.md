@@ -1194,8 +1194,10 @@ Sweep at threshold=15, persistence-exit on, `--vwap-stop-hours 200`:
 | Total PF | 1.690 | 1.246 |
 | Long PF | 1.311 | **1.346** |
 | Long net | $15,441 | $17,667 |
+| Long trades | 1,828 | 2,447 |
 | Short PF | 1.777 | 1.238 |
 | Short net | $168,098 | $160,938 |
+| **Short trades** | **4,387** | **44,180** (×10) |
 | **Total net** | **$184K** | $178K |
 | **Largest loss** | −$3,427 | **−$695** |
 | Largest winner | $3,788 | $3,788 |
