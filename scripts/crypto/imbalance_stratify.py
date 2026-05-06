@@ -155,6 +155,53 @@ def print_table(df: pd.DataFrame, label: str, side_str: str):
           f"{pf:>6.2f}  {total_pnl:>+11,.0f}  {sub['net_pnl'].mean():>+9,.2f}")
 
 
+def print_decile_table(df: pd.DataFrame, label: str, side_str: str, n_buckets: int = 10):
+    """Decile-by-imbalance breakdown — equal-count slices over the imb_<label>
+    column, restricted to one trade side. Prints the imbalance range per
+    decile so the per-side regimes are readable."""
+    sub = df[df["side"] == side_str].dropna(subset=[f"imb_{label}"]).copy()
+    if len(sub) == 0:
+        return
+    # NTILE-equivalent: rank, then bucket via (rank-1)*n_buckets//len.
+    sub = sub.sort_values(f"imb_{label}").reset_index(drop=True)
+    sub["bucket"] = (sub.index * n_buckets // len(sub))
+
+    side_print = "LONG" if side_str == "long" else "SHORT"
+    print(f"--- {side_print} ({len(sub):,} trades) ---")
+    print(f"  {'decile':>6s}  {'imb_lo':>8s}  {'imb_hi':>8s}  "
+          f"{'trades':>7s}  {'win%':>6s}  {'PF':>6s}  "
+          f"{'net_pnl$':>11s}  {'avg_pnl$':>9s}")
+    print("  " + "-" * 76)
+    for i in range(n_buckets):
+        b = sub[sub["bucket"] == i]
+        if len(b) == 0:
+            continue
+        imb_lo = b[f"imb_{label}"].min() * 100.0
+        imb_hi = b[f"imb_{label}"].max() * 100.0
+        wins = (b["net_pnl"] > 0).sum()
+        losses_sum = -b.loc[b["net_pnl"] < 0, "net_pnl"].sum()
+        wins_sum = b.loc[b["net_pnl"] > 0, "net_pnl"].sum()
+        pf = (wins_sum / losses_sum) if losses_sum > 0 \
+             else float("inf") if wins_sum > 0 else 0.0
+        avg_pnl = b["net_pnl"].mean()
+        net_pnl = b["net_pnl"].sum()
+        wr = 100.0 * wins / len(b)
+        pf_s = f"{pf:>6.2f}" if pf != float("inf") else "   inf"
+        print(f"  {i+1:>6d}  {imb_lo:>+7.2f}%  {imb_hi:>+7.2f}%  "
+              f"{len(b):>7d}  {wr:>5.1f}%  {pf_s}  "
+              f"{net_pnl:>+11,.0f}  {avg_pnl:>+9,.2f}")
+    total_pnl = sub["net_pnl"].sum()
+    total_wins = (sub["net_pnl"] > 0).sum()
+    wins_sum = sub.loc[sub["net_pnl"] > 0, "net_pnl"].sum()
+    losses_sum = -sub.loc[sub["net_pnl"] < 0, "net_pnl"].sum()
+    pf = (wins_sum / losses_sum) if losses_sum > 0 else 0.0
+    wr = 100.0 * total_wins / len(sub)
+    print("  " + "-" * 76)
+    print(f"  {'TOTAL':>6s}  {'':>8s}  {'':>8s}  "
+          f"{len(sub):>7d}  {wr:>5.1f}%  {pf:>6.2f}  "
+          f"{total_pnl:>+11,.0f}  {sub['net_pnl'].mean():>+9,.2f}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -163,6 +210,13 @@ def main():
     ap.add_argument("--windows", nargs="+",
                     default=["30d", "200h", "24h", "16h", "8h"],
                     help="List of trailing-window tokens (e.g. 30d 200h 24h).")
+    ap.add_argument("--deciles", action="store_true",
+                    help="Use NTILE(10) per-side equal-count buckets instead "
+                         "of fixed-cutpoint buckets. Useful when most trades "
+                         "concentrate near zero and the cutpoint buckets get "
+                         "tiny extreme-bucket samples.")
+    ap.add_argument("--n-buckets", type=int, default=10,
+                    help="Number of buckets when --deciles. Default: 10.")
     args = ap.parse_args()
 
     repo_root = os.path.abspath(os.path.join(
@@ -203,9 +257,14 @@ def main():
         n_kept = df[f"imb_{label}"].notna().sum()
         print(f"=== Window: {label}  ({n_kept:,} of {len(df):,} trades) ===")
         print()
-        print_table(df, label, "long")
-        print()
-        print_table(df, label, "short")
+        if args.deciles:
+            print_decile_table(df, label, "long", args.n_buckets)
+            print()
+            print_decile_table(df, label, "short", args.n_buckets)
+        else:
+            print_table(df, label, "long")
+            print()
+            print_table(df, label, "short")
         print()
 
 
