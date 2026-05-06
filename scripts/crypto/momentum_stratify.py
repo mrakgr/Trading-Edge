@@ -56,35 +56,45 @@ def bucket_idx(p: float) -> int:
 
 
 def per_symbol_pct_change(con, bars_path: str, trips_for_sym: pd.DataFrame,
-                          lookback_us: int) -> pd.DataFrame:
+                          lookback_us: int, weighted: bool) -> pd.DataFrame:
     """Return a DataFrame with the original trip rows plus pct_change and
     lookback_days columns, computed against the symbol's 1m bar parquet.
 
-    The 60d VWMA is computed via a windowed cumulative-sum approach:
-      cum_pv = running sum of (vwap * volume)
-      cum_v  = running sum of volume
-    The 60d VWMA at any timestamp = (cum_pv_at_t - cum_pv_at_t_minus_60d)
-                                    / (cum_v_at_t - cum_v_at_t_minus_60d).
-    For each trip's entry_us, an ASOF JOIN finds the cum_pv/cum_v at-or-before
-    entry_us (so we don't peek into bars that close at-or-after entry_us).
-    A second ASOF JOIN finds cum_pv/cum_v at-or-before (entry_us - 60d).
-    Subtraction gives the 60-day window aggregate. If no second-ASOF row
-    exists (symbol younger than 60d at entry), the second values are 0,
-    which means we use the full available history.
+    The reference price is computed via a windowed cumulative-sum approach:
+      VWMA: ref = sum(vwap*volume) / sum(volume)  over the trailing 60d
+      MA:   ref = avg(vwap)                       over the trailing 60d
+
+    Cumulative sums let us evaluate the windowed aggregate as
+        (cum_at_t - cum_at_(t-60d)) / (cum_count_at_t - cum_count_at_(t-60d))
+    via two ASOF joins (one at the entry timestamp, one 60 days earlier).
+    If the second ASOF returns nothing (symbol younger than 60d at entry),
+    its sums default to 0 — the formula then reads off the symbol's full
+    available history before the entry, which matches the spec.
     """
     # Load and pre-aggregate the symbol's bars in DuckDB.
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE bars AS
-        SELECT
-            start_us,
-            vwap, volume,
-            vwap * volume                                 AS pv,
-            SUM(vwap * volume) OVER (ORDER BY start_us)   AS cum_pv,
-            SUM(volume)        OVER (ORDER BY start_us)   AS cum_v
-        FROM read_parquet('{bars_path}')
-        WHERE volume > 0 AND vwap > 0
-        ORDER BY start_us;
-    """)
+    if weighted:
+        con.execute(f"""
+            CREATE OR REPLACE TEMP TABLE bars AS
+            SELECT
+                start_us,
+                SUM(vwap * volume) OVER (ORDER BY start_us)   AS cum_num,
+                SUM(volume)        OVER (ORDER BY start_us)   AS cum_den
+            FROM read_parquet('{bars_path}')
+            WHERE volume > 0 AND vwap > 0
+            ORDER BY start_us;
+        """)
+    else:
+        # Unweighted moving average over bar VWAP.
+        con.execute(f"""
+            CREATE OR REPLACE TEMP TABLE bars AS
+            SELECT
+                start_us,
+                SUM(vwap)          OVER (ORDER BY start_us)   AS cum_num,
+                ROW_NUMBER()       OVER (ORDER BY start_us)   AS cum_den
+            FROM read_parquet('{bars_path}')
+            WHERE volume > 0 AND vwap > 0
+            ORDER BY start_us;
+        """)
     # Trip entry timestamps for this symbol.
     con.register("trips_sym", trips_for_sym[["entry_us"]])
     con.execute("""
@@ -96,12 +106,12 @@ def per_symbol_pct_change(con, bars_path: str, trips_for_sym: pd.DataFrame,
         FROM trips_sym;
     """, [lookback_us])
 
-    # ASOF LEFT JOIN: pull cum_pv / cum_v at-or-before each timestamp.
+    # ASOF LEFT JOIN: pull cum_num / cum_den at-or-before each timestamp.
     df = con.execute("""
         WITH at_entry AS (
             SELECT t.entry_us,
-                   b.cum_pv AS cum_pv_now,
-                   b.cum_v  AS cum_v_now,
+                   b.cum_num AS cum_num_now,
+                   b.cum_den AS cum_den_now,
                    b.start_us AS bar_us_now
             FROM trip_targets t
             ASOF LEFT JOIN bars b
@@ -109,8 +119,8 @@ def per_symbol_pct_change(con, bars_path: str, trips_for_sym: pd.DataFrame,
         ),
         at_lookback AS (
             SELECT t.entry_us,
-                   b.cum_pv AS cum_pv_lb,
-                   b.cum_v  AS cum_v_lb,
+                   b.cum_num AS cum_num_lb,
+                   b.cum_den AS cum_den_lb,
                    b.start_us AS bar_us_lb
             FROM trip_targets t
             ASOF LEFT JOIN bars b
@@ -118,26 +128,23 @@ def per_symbol_pct_change(con, bars_path: str, trips_for_sym: pd.DataFrame,
         )
         SELECT
             ae.entry_us,
-            ae.cum_pv_now,
-            ae.cum_v_now,
+            ae.cum_num_now,
+            ae.cum_den_now,
             ae.bar_us_now,
-            COALESCE(al.cum_pv_lb, 0.0) AS cum_pv_lb,
-            COALESCE(al.cum_v_lb,  0.0) AS cum_v_lb,
+            COALESCE(al.cum_num_lb, 0.0) AS cum_num_lb,
+            COALESCE(al.cum_den_lb, 0.0) AS cum_den_lb,
             al.bar_us_lb
         FROM at_entry ae
         LEFT JOIN at_lookback al USING (entry_us)
     """).fetchdf()
 
-    # Compute the windowed VWMA = (cum_pv_now - cum_pv_lb) / (cum_v_now - cum_v_lb).
+    # Windowed reference = (cum_num_now - cum_num_lb) / (cum_den_now - cum_den_lb).
     # When the lookback ASOF found nothing (symbol younger than 60d), the lb
-    # values are 0 and we get the cumulative VWMA over all available history.
-    cum_pv_diff = df["cum_pv_now"] - df["cum_pv_lb"]
-    cum_v_diff = df["cum_v_now"] - df["cum_v_lb"]
-
-    # When the symbol has no bars at all before entry (cum_v_now is NaN/0),
-    # we cannot compute a VWMA. Mark those as NaN.
-    df["vwma_60d"] = cum_pv_diff / cum_v_diff
-    df.loc[(cum_v_diff <= 0) | df["cum_v_now"].isna(), "vwma_60d"] = pd.NA
+    # values are 0 and we get the cumulative aggregate over all available history.
+    num_diff = df["cum_num_now"] - df["cum_num_lb"]
+    den_diff = df["cum_den_now"] - df["cum_den_lb"]
+    df["ref_price"] = num_diff / den_diff
+    df.loc[(den_diff <= 0) | df["cum_num_now"].isna(), "ref_price"] = pd.NA
 
     # Lookback days actually used: from the first bar in the window to entry.
     # If the lookback ASOF returned a bar, the window starts there; otherwise
@@ -149,9 +156,9 @@ def per_symbol_pct_change(con, bars_path: str, trips_for_sym: pd.DataFrame,
     df["lookback_days"] = (df["entry_us"] - window_start) / US_PER_DAY
 
     # Merge back onto the original trips_for_sym dataframe.
-    out = trips_for_sym.merge(df[["entry_us", "vwma_60d", "lookback_days"]],
+    out = trips_for_sym.merge(df[["entry_us", "ref_price", "lookback_days"]],
                               on="entry_us", how="left")
-    out["pct_change"] = (out["entry_price"] / out["vwma_60d"]) - 1.0
+    out["pct_change"] = (out["entry_price"] / out["ref_price"]) - 1.0
     return out
 
 
@@ -163,7 +170,11 @@ def main():
     ap.add_argument("--bars-root", default=DEFAULT_BARS_ROOT,
                     help=f"1m bar-parquet root. Default: {DEFAULT_BARS_ROOT}")
     ap.add_argument("--lookback-days", type=int, default=LOOKBACK_DAYS,
-                    help=f"VWMA window in days. Default: {LOOKBACK_DAYS}")
+                    help=f"Reference-price window in days. Default: {LOOKBACK_DAYS}")
+    ap.add_argument("--unweighted", action="store_true",
+                    help="Use a plain mean of bar VWAP instead of a volume-"
+                         "weighted moving average. Useful for sanity-checking "
+                         "whether volume weighting is biasing the reference.")
     args = ap.parse_args()
 
     repo_root = os.path.abspath(os.path.join(
@@ -172,6 +183,8 @@ def main():
     bars_root = os.path.join(repo_root, args.bars_root)
     lookback_us = args.lookback_days * US_PER_DAY
 
+    mode = "MA (unweighted mean of VWAP)" if args.unweighted else "VWMA (volume-weighted)"
+    print(f"Reference-price mode: {mode}, lookback {args.lookback_days}d")
     trips = pd.read_csv(trips_path)
     print(f"Loaded {len(trips):,} trips from {args.trips}")
 
@@ -188,7 +201,8 @@ def main():
         if not os.path.exists(bars_path):
             n_missing += 1
             continue
-        result = per_symbol_pct_change(con, bars_path, sub, lookback_us)
+        result = per_symbol_pct_change(con, bars_path, sub, lookback_us,
+                                       weighted=not args.unweighted)
         pieces.append(result)
         if i % 50 == 0 or i == len(by_symbol):
             print(f"  [{i:>4d}/{len(by_symbol)}] processed", file=sys.stderr)
