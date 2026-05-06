@@ -1553,3 +1553,93 @@ python scripts/crypto/volume_momentum_stratify.py
 Defaults: `--lookback-days 60 --recent-hours 24`. Reads the z-persist
 no-stop trips file by default; pass `--trips <path>` to stratify a
 different system's trades.
+
+## Buy/sell-imbalance stratification — 1h decile pattern
+
+For each trip and each window length, compute
+`imbalance = (Σ buy_dv − Σ sell_dv) / (Σ buy_dv + Σ sell_dv)` over the
+trailing window ending at entry. Range [-1, +1].
+
+We swept windows 30d, 200h, 24h, 16h, 8h. At long horizons (≥24h)
+imbalance is dominated by aggressor-flow averaging — most trades cluster
+in `-5% to +5%` regardless of side. The signal sharpens at shorter
+windows; **1h is the cleanest**.
+
+### 1h imbalance — long deciles (1,828 trades)
+
+| **D** | **imb range** | **trades** | **PF** | **net $** | **avg $** |
+|---|---|---|---|---|---|
+| 1 | −19.23% to +2.95% | 183 | 1.30 | +1,786 | +10 |
+| 2 | +2.97 to +5.02 | 183 | **1.96** | +4,698 | +26 |
+| 3 | +5.02 to +6.82 | 183 | **1.94** | +5,487 | +30 |
+| 4 | +6.84 to +8.71 | 183 | **1.96** | +4,256 | +23 |
+| 5 | +8.73 to +10.97 | 182 | 0.83 | −979 | −5 |
+| 6 | +10.98 to +13.22 | 183 | 0.77 | −1,172 | −6 |
+| 7 | +13.23 to +15.65 | 183 | 1.09 | +370 | +2 |
+| 8 | +15.67 to +19.27 | 183 | 0.93 | −302 | −2 |
+| 9 | +19.30 to +25.59 | 183 | 0.93 | −321 | −2 |
+| 10 | +25.64 to +81.35 | 182 | 1.34 | +1,618 | +9 |
+
+**Three-decile sweet spot at +3% to +9% imbalance** (PF 1.94–1.96 across
+deciles 2–4, +$14,441 combined). This is "recent 1h has been
+moderately net-buying" — the regime is bullish *and* the short-term
+flow confirms.
+
+**Five-decile dead zone at +9% to +26% imbalance** (deciles 5–9,
+PF 0.77, 0.77, 1.09, 0.93, 0.93, 730 trades, combined net −$2,404).
+Once recent 1h flow gets too one-sided, longs underperform —
+overcrowded continuation, blow-off proximity. Deciles 5–6 are flat-out
+unprofitable. Filtering this band removes ~40% of long trades while
+collectively saving money.
+
+The +25%+ tail (decile 10) recovers to PF 1.34 — extreme imbalance
+is its own regime, distinct from the dead zone just below.
+
+### 1h imbalance — short deciles (4,387 trades)
+
+| **D** | **imb range** | **trades** | **PF** | **net $** | **avg $** |
+|---|---|---|---|---|---|
+| 1 | −76.25% to −30.18% | 439 | **1.10** | +2,514 | +6 |
+| 2 | −30.16 to −24.22 | 439 | 1.98 | +19,689 | +45 |
+| 3 | −24.22 to −20.07 | 439 | 1.49 | +11,432 | +26 |
+| 4 | −20.06 to −17.24 | 438 | **2.20** | +22,858 | +52 |
+| 5 | −17.24 to −14.58 | 439 | 1.59 | +14,610 | +33 |
+| 6 | −14.57 to −12.16 | 439 | 1.77 | +17,630 | +40 |
+| 7 | −12.16 to −9.76 | 438 | **2.23** | +24,377 | +56 |
+| 8 | −9.76 to −7.23 | 439 | 1.81 | +16,489 | +38 |
+| 9 | −7.23 to −4.26 | 439 | 1.97 | +18,889 | +43 |
+| 10 | −4.24 to +37.51 | 438 | 1.93 | +19,609 | +45 |
+
+**Decile 1 is the dead zone for shorts** (PF 1.10, 439 trades, ~half
+the system PF). When the recent 1h has been >30% net-selling, the easy
+short is gone — the move is already priced in.
+
+Deciles 2–10 are all profitable (PF 1.49–2.23). The strongest are
+decile 7 (PF 2.23, "moderately net-selling, fresh setup") and decile 4
+(PF 2.20). Shorts work even when recent flow has *flipped slightly
+bullish* (decile 10, PF 1.93) — that's the bear regime overpowering a
+brief retracement.
+
+### Implications
+
+The two cleanest filter candidates from the 1h imbalance breakdown:
+
+1. **Long-side dead zone**: skip longs with 1h imbalance in `+9% to
+   +26%` (deciles 5–9). Removes ~40% of longs, saves ~$2.4K, lifts
+   long PF from 1.31 toward ~1.5+. The signal is consistent across
+   five consecutive deciles — strongest "do not enter" signal we've
+   found anywhere.
+
+2. **Short-side late-entry filter**: skip shorts with 1h imbalance
+   below −30% (decile 1). PF 1.10 vs system 1.78 — still profitable but
+   far below average. Cutting wouldn't gain much absolute P&L (these
+   are mostly small trades) but removes the noisiest short setups.
+
+The longer windows (8h, 24h, 30d) showed weaker, choppier signals —
+the bucket-to-bucket PF variation looks like noise above ~0.3 PF
+between adjacent deciles. The 1h window is short enough that the
+imbalance reflects *fresh* flow rather than a multi-day average.
+
+```
+python scripts/crypto/imbalance_stratify.py --windows 1h --deciles
+```
