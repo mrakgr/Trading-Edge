@@ -1389,7 +1389,7 @@ upward. **Volume-weighted references are a bad fit for measuring
 distance-from-typical-price** when the trading distribution shifts during
 a regime change.
 
-### Z-score mode is the cleanest cut
+### Z-score mode
 
 Standardizing by per-symbol 60d std normalizes BTC's ±5% range and WIF's
 ±50% range onto the same axis. Z-bucket cutpoints: <-3, -3 to -2, -2 to -1,
@@ -1401,64 +1401,58 @@ Standardizing by per-symbol 60d std normalizes BTC's ±5% range and WIF's
 |---|---|---|---|---|
 | <-3 | 1 | (n/a) | −6 | −5.88 |
 | -3 to -2 | 19 | 1.30 | +151 | +7.96 |
-| **-2 to -1** | 337 | **1.69** | +4,386 | +13.01 |
+| -2 to -1 | 337 | 1.69 | +4,386 | +13.01 |
 | -1 to 0 | 527 | 1.11 | +1,518 | +2.88 |
 | 0 to +1 | 343 | 1.19 | +1,833 | +5.34 |
 | +1 to +2 | 254 | 1.37 | +2,725 | +10.73 |
-| **+2 to +3** | 162 | 1.53 | +2,678 | +16.53 |
+| +2 to +3 | 162 | 1.53 | +2,678 | +16.53 |
 | ≥+3 | 185 | 1.30 | +2,155 | +11.65 |
-
-The long side has a **U-shape in PF**: 1.69 at -2σ (mean-reversion
-buying), dips to 1.11–1.19 around the mean (the noisy middle), and
-climbs back to 1.53 at +2σ. The right tail (≥+3σ) is still profitable
-(PF 1.30) — coins multiple-σ above normal can keep extending. The
-weakest band is -1 to +1σ which carries 47.5% of long trades but only
-22% of long net P&L.
 
 **SHORT side (4,387 trades, total PF 1.78):**
 
 | **z-bucket** | **trades** | **PF** | **net $** | **avg $** |
 |---|---|---|---|---|
-| <-3 | 31 | **2.18** | +1,362 | +43.92 |
+| <-3 | 31 | 2.18 | +1,362 | +43.92 |
 | -3 to -2 | 93 | 1.31 | +1,655 | +17.80 |
 | -2 to -1 | 1,082 | 1.78 | +39,720 | +36.71 |
-| **-1 to 0** | 1,368 | **1.86** | +56,026 | +40.95 |
+| -1 to 0 | 1,368 | 1.86 | +56,026 | +40.95 |
 | 0 to +1 | 878 | 1.77 | +36,575 | +41.66 |
 | +1 to +2 | 550 | 1.51 | +16,108 | +29.29 |
 | +2 to +3 | 250 | 2.01 | +10,173 | +40.69 |
-| **≥+3** | 135 | **2.37** | +6,480 | +48.00 |
+| ≥+3 | 135 | 2.37 | +6,480 | +48.00 |
 
-**Every short bucket is profitable.** The strongest are -1 to 0σ
-(PF 1.86, 1,368 trades, $56K net — the bulk of the short edge) and the
-extremes: ≥+3σ (PF 2.37, the highest PF anywhere) and <-3σ (PF 2.18).
-The weakest is +1 to +2σ (PF 1.51) — moderately-elevated coins where
-momentum continuation is most likely to keep going up.
+### Read: price-momentum is mostly noise on this system
 
-The shape is **roughly symmetric around the mean**: shorts work in both
-directions if the deviation is large enough. Mid-rally fades (+1 to +2σ)
-are the riskiest because that's where momentum continuation kicks in,
-but past +2σ the snap-back probability rises again.
+On a careful re-read these tables don't show a real signal:
 
-### Implications for entry filtering
+- **No mean-reversion gradient.** If mean-reversion were operative,
+  shorts in the deeply-negative z-buckets (price already well below the
+  60d MA, expected to revert *up* against the short) should be the
+  weakest, and shorts at deeply-positive z-buckets (expected to revert
+  *down* with the short) the strongest. We see neither — `<-3σ` shorts
+  are PF 2.18 (n=31, small sample), `-3 to -2σ` shorts are PF 1.31
+  (the weakest legitimate-sample bucket), and `≥+3σ` is the strongest
+  at PF 2.37. Both extremes are strong, both adjacent middles are
+  weaker. That's not a gradient — it's bucket-to-bucket noise centered
+  on the system's overall ~1.78 short PF.
+- **Same for the longs.** The "U-shape" claim was overcalled —
+  PF 1.69 at -2σ vs 1.11-1.19 in the -1 to +1σ middle is a 0.5 PF
+  swing across adjacent buckets, well within the noise band we
+  observed in the 1h imbalance deciles.
+- **Every bucket above 1.0 is the system itself.** All eight short
+  z-buckets are PF ≥ 1.31. That's not because z-score discriminates
+  PF — it's because the underlying short side has PF 1.78 *regardless
+  of z-bucket*, so any partition of it gives a row of 1.30+ buckets.
 
-The natural follow-ups (not yet implemented):
+The earlier "shorts work across the entire z-distribution" framing was
+misleading. The right reading is: **price-momentum at the 60d horizon
+doesn't discriminate trade quality on this system**.
 
-1. **Long-side dead zone**: -1 to +1σ for longs is PF 1.15 over 870
-   trades. If this band signals weak edge, an entry filter dropping
-   long fires there would remove ~48% of long trades while keeping ~78%
-   of long P&L. Net per remaining long trade roughly doubles.
-
-2. **Short-side mid-rally caution**: +1 to +2σ shorts (PF 1.51, 550 trades)
-   are the weakest short band. Skipping them sacrifices $16K of net but
-   keeps the system at PF >1.7 across remaining short fires.
-
-3. **Z-score as a sizing modulator instead of a filter**: scale notional
-   up at high-PF z-buckets (-2σ longs, ≥+3σ shorts), down at low-PF
-   buckets. Implements "bet bigger when conviction is stronger" without
-   removing trades.
-
-For now this is purely a stratification finding — the system itself
-remains unchanged.
+In contrast, the buy/sell-imbalance deciles at 1h *do* show a real
+discriminating effect (5 contiguous loser deciles for longs at +9 to
++26%, plus a clean PF 1.10 dead-zone decile for shorts at <-30%).
+Imbalance is the price-side stratification that works; raw-price
+momentum is not.
 
 ```
 # Three modes:
