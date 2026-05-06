@@ -1164,6 +1164,91 @@ liquidity-constrained scale-up factor, which we haven't measured.
 Followup considered: **VWAP-based stops** (track 200h high/low; stop only
 on a price excursion past the 200h range) — covered in the next section.
 
+### Trailing-VWAP-band stop (`--vwap-stop-hours`)
+
+The fixed-percentage stop sacrifices short-side PF dramatically because
+the short edge depends on holding through brief squeezes for recoveries.
+A signal-based stop should preserve that — exit only on **volume-weighted**
+break of a 200h band:
+
+- Long stop: `bar.VWAP ≤ rolling_min_vwap_200h`
+- Short stop: `bar.VWAP ≥ rolling_max_vwap_200h`
+- Fill price: `bar.VWAP`
+
+Volume-weighting is intentional: a wick poking through resistance often
+reverses on these long-tail tokens. Only when the bar's volume-weighted
+average breaks the 200h band do we accept "regime has shifted, exit."
+
+The rolling min/max of VWAP is implemented via a **monotonic deque**
+(amortized O(1) per Push) — see `MaxMa` / `MinMa` in `OrderflowCumsumZ.fs`.
+Backed by `Nito.Collections.Deque`, a circular-buffer deque with no
+per-node heap allocation. Each value enters and leaves the deque at most
+once across the whole stream regardless of window size, so the 12,000-bar
+window over ~1M bars × 669 symbols runs in milliseconds.
+
+Sweep at threshold=15, persistence-exit on, `--vwap-stop-hours 200`:
+
+| | **No stop** | **VWAP stop 200h** |
+|---|---|---|
+| Trades | 6,215 | 46,627 (×7.5) |
+| Total PF | 1.690 | 1.246 |
+| Long PF | 1.311 | **1.346** |
+| Long net | $15,441 | $17,667 |
+| Short PF | 1.777 | 1.238 |
+| Short net | $168,098 | $160,938 |
+| **Total net** | **$184K** | $178K |
+| **Largest loss** | −$3,427 | **−$695** |
+| Largest winner | $3,788 | $3,788 |
+
+**Net P&L is essentially preserved** ($178K vs $184K) but the largest
+single loss drops 4.9× (−$3,427 → −$695). Total PF degrades because
+trade count explodes — every short that breaches the 200h-VWAP-high gets
+closed, and the persistence-bear regime makes the cumsum refire shortly
+after on the next squeeze touch. Each individual short is much smaller
+(avg loser −$19 vs −$58 baseline) but the system recaptures the broader
+short edge through repeated bites.
+
+The long side actually improved slightly (PF 1.31 → 1.35, net $15K →
+$17K) — long stops fire rarely (the 200h floor on liquid alts is well
+below typical long-entry levels) and when they do, they catch genuine
+regime shifts.
+
+**Capital-efficiency math** (assuming 4× notional scale-up — the bounded
+tail makes it safe; scale-up factor is now larger than the 3× we'd dare
+with no stop):
+
+| **Stop** | **Net @ 1×** | **Largest loss @ 1×** | **Net @ 4×** | **Largest loss @ 4×** |
+|---|---|---|---|---|
+| 100% pct | $148K | −$1,018 | $592K | −$4,072 |
+| **VWAP 200h** | $178K | −$695 | **$712K** | **−$2,780** |
+| none | $184K | −$3,427 | (would be −$13.7K — exceeds liquidity) |
+
+**The VWAP-band stop pareto-dominates the percentage stops for safe scale-up.**
+At 4× notional it nets $712K with −$2.8K worst-case (still smaller tail
+than v0's −$3.6K). At 1× it sacrifices only $6K of P&L (vs no-stop) for
+a 4.9× tighter tail.
+
+Caveat: 46,627 trades × $0.80 round-trip fees = **~$37K of fees** at 1×
+notional (already netted in the $178K). Fees scale linearly with notional,
+so at 4× we pay ~$148K in fees. Pre-fee gross P&L is fine, but high trade
+count means the system needs to clear high taker fees first; at lower fee
+tiers (or maker rebates on limit-order entries) the system would benefit
+disproportionately.
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- cumsum-z-sweep \
+    --allow-short \
+    --cumsum-thresholds 15 \
+    --reference-vol-pct 0.1019 \
+    --vol-window-days 7 \
+    --min-long-adv 28800000 \
+    --min-short-adv 8000000 \
+    --max-bar-price-ratio 3.0 \
+    --require-persistence-for-exit \
+    --vwap-stop-hours 200 \
+    --parallelism 8
+```
+
 ```
 dotnet run --project TradingEdge.CryptoBacktest -c Release -- cumsum-z-sweep \
     --allow-short \

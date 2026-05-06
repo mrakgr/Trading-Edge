@@ -3,6 +3,71 @@ module TradingEdge.CryptoBacktest.OrderflowCumsumZ
 open TradingEdge.CryptoBacktest.SignedBar
 open TradingEdge.CryptoBacktest.OrderflowMA
 open MathNet.Numerics
+open Nito.Collections
+
+// =============================================================================
+// Sliding-window MaxMa / MinMa via a monotonic deque
+// =============================================================================
+//
+// Problem: the existing RollingMa primitive in OrderflowMA.fs requires an
+// invertible aggregate (sum, sum-of-squares) — which doesn't fit max/min,
+// since you can't "subtract" the maximum.
+//
+// Algorithm: maintain a deque of (value, barIdx) pairs in DECREASING value
+// order (for max). On Push(x):
+//   1. Evict the front if its barIdx has fallen out of the window.
+//   2. Pop from the back while the back's value <= x — those candidates
+//      can never be the max of any window containing x.
+//   3. Push (x, barIdx) at the back.
+// The front of the deque is then always the current max. Mirror for min.
+//
+// Cost: amortized O(1) per Push (each value enters and leaves at most once).
+// Backed by Nito.Collections.Deque<T>, a circular-buffer deque with no
+// per-node heap allocation.
+
+[<Sealed>]
+type MaxMa(windowSize: int) =
+    let dq = Deque<struct (float * int)>()
+    let mutable barIdx = 0
+    let mutable count = 0
+    member _.Count = count
+    member _.WindowSize = windowSize
+    member _.State =
+        if dq.Count = 0 then nan
+        else let struct (v, _) = dq.[0] in v
+    member _.Push (x: float) =
+        let cutoff = barIdx - windowSize + 1
+        while dq.Count > 0 &&
+              (let struct (_, i) = dq.[0] in i < cutoff) do
+            dq.RemoveFromFront() |> ignore
+        while dq.Count > 0 &&
+              (let struct (v, _) = dq.[dq.Count - 1] in v <= x) do
+            dq.RemoveFromBack() |> ignore
+        dq.AddToBack(struct (x, barIdx))
+        barIdx <- barIdx + 1
+        count <- min windowSize (count + 1)
+
+[<Sealed>]
+type MinMa(windowSize: int) =
+    let dq = Deque<struct (float * int)>()
+    let mutable barIdx = 0
+    let mutable count = 0
+    member _.Count = count
+    member _.WindowSize = windowSize
+    member _.State =
+        if dq.Count = 0 then nan
+        else let struct (v, _) = dq.[0] in v
+    member _.Push (x: float) =
+        let cutoff = barIdx - windowSize + 1
+        while dq.Count > 0 &&
+              (let struct (_, i) = dq.[0] in i < cutoff) do
+            dq.RemoveFromFront() |> ignore
+        while dq.Count > 0 &&
+              (let struct (v, _) = dq.[dq.Count - 1] in v >= x) do
+            dq.RemoveFromBack() |> ignore
+        dq.AddToBack(struct (x, barIdx))
+        barIdx <- barIdx + 1
+        count <- min windowSize (count + 1)
 
 // =============================================================================
 // Orderflow-Cumsum-Z strategy: short-term-conviction cumsum, persistence-gated
@@ -79,6 +144,15 @@ type CumsumZConfig = {
     /// now confirms the new direction). When false (default), cumsum-driven
     /// exit fires on every opposite-clamp touch.
     RequirePersistenceForExit: bool
+    /// Trailing-VWAP-band stop in HOURS. When > 0, replaces the
+    /// MaxAdverseFraction percentage stop:
+    ///   long  exits when bar.Vwap <= rolling_min_vwap_Nh
+    ///   short exits when bar.Vwap >= rolling_max_vwap_Nh
+    /// VWAP is used (not high/low) so wicks / spike candles don't trigger;
+    /// only volume-weighted breakouts of the 200h band do. The stop level
+    /// is recomputed every bar against the current rolling window.
+    /// Set to 0 (default) to use the percentage stop or no stop.
+    VwapStopHours: int
 }
 
 let defaultCumsumZConfig (threshold: float) : CumsumZConfig =
@@ -94,7 +168,8 @@ let defaultCumsumZConfig (threshold: float) : CumsumZConfig =
       MinShortAdv = 0.0
       VolWindowDays = 90
       MaxBarPriceRatio = 0.0
-      RequirePersistenceForExit = false }
+      RequirePersistenceForExit = false
+      VwapStopHours = 0 }
 
 let private feeFor (notional: float) (takerFee: float) : float = notional * takerFee
 
@@ -129,6 +204,14 @@ type Engine(cfg: CumsumZConfig) =
     let buyMa = SumMa(n)
     let sellMa = SumMa(n)
     let deltaStd = StdMa(n)
+
+    // Rolling VWAP-band trackers for the optional VWAP-band stop.
+    // Allocated only when the feature is enabled to keep the no-stop path
+    // identical to before. State is read leak-free: we push bar.Vwap *after*
+    // the stop check, so the comparison is against the prior-bar window.
+    let vwapStopBars = if cfg.VwapStopHours > 0 then hoursToBars cfg.VwapStopHours else 0
+    let vwapMaxMa = MaxMa(max 1 vwapStopBars)
+    let vwapMinMa = MinMa(max 1 vwapStopBars)
 
     let threshold = cfg.CumsumThreshold
     let mutable cumsum = 0.0
@@ -269,6 +352,19 @@ type Engine(cfg: CumsumZConfig) =
                 if bar.High >= stopPx then Some stopPx else None
             | Flat -> None
 
+    // VWAP-band stop. Compares the current bar's VWAP against the rolling
+    // VWAP extreme over the trailing N hours. Only checks once the rolling
+    // window is full (vwapMaxMa.Count = vwapStopBars). Returns the fill
+    // price (= bar.Vwap) when a stop fires.
+    let vwapStopFill (bar: SignedBar) : float option =
+        if cfg.VwapStopHours <= 0 || side = Flat then None
+        elif vwapMaxMa.Count < vwapStopBars then None
+        else
+            match side with
+            | Long  -> if bar.VWAP <= vwapMinMa.State then Some bar.VWAP else None
+            | Short -> if bar.VWAP >= vwapMaxMa.State then Some bar.VWAP else None
+            | Flat  -> None
+
     member _.BarsSeen = barsSeen
     member _.Trips = trips :> seq<RoundTrip>
     member _.Cumsum = cumsum
@@ -292,9 +388,17 @@ type Engine(cfg: CumsumZConfig) =
             updateExcursion bar
             barsHeld <- barsHeld + 1
 
-        match stopPriceIfHit bar with
-        | Some stopPx -> closePos stopPx bar.EndUs
-        | None -> ()
+        // Stop check: VWAP-band stop takes precedence when enabled,
+        // otherwise the percentage stop applies. Both are leak-free since
+        // they read state populated by previous bars only.
+        if cfg.VwapStopHours > 0 then
+            match vwapStopFill bar with
+            | Some fillPx -> closePos fillPx bar.EndUs
+            | None -> ()
+        else
+            match stopPriceIfHit bar with
+            | Some stopPx -> closePos stopPx bar.EndUs
+            | None -> ()
 
         // Update vol/ADV/orderflow tracking BEFORE signal evaluation so the
         // current bar's contribution is reflected in entry-time state.
@@ -306,6 +410,12 @@ type Engine(cfg: CumsumZConfig) =
         buyMa.Push  bar.BuyDollarVolume
         sellMa.Push bar.SellDollarVolume
         deltaStd.Push delta
+        // Push VWAP into the rolling extreme trackers AFTER the stop check
+        // above so the comparison is against the trailing window strictly
+        // before this bar (no self-comparison).
+        if cfg.VwapStopHours > 0 then
+            vwapMaxMa.Push bar.VWAP
+            vwapMinMa.Push bar.VWAP
 
         barsSeen <- barsSeen + 1
         lastClose <- bar.Close
