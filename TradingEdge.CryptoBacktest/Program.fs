@@ -158,6 +158,57 @@ type CumsumSweepArgs =
             | Summary_Csv _ -> "Aggregate per-(timeframe,threshold) summary CSV path."
             | CumsumSweepArgs.Parallelism _ -> "Max symbols processed concurrently. Default 4."
 
+type CumsumZSweepArgs =
+    | [<AltCommandLine "-d">] Data_Root of string
+    | [<AltCommandLine "-b">] Bars_Root of string
+    | [<AltCommandLine "-s">] Symbol of string
+    | Start_Date of string
+    | End_Date of string
+    | Timeframes of string
+    | Cumsum_Thresholds of string
+    | Ma_Hours of string
+    | Notional of float
+    | Taker_Fee of float
+    | Allow_Short
+    | Use_Trades
+    | Max_Adverse_Pct of float
+    | Reference_Vol_Pct of float
+    | Min_Long_Adv of float
+    | Min_Short_Adv of float
+    | Vol_Window_Days of int
+    | Max_Bar_Price_Ratio of float
+    | Funding_Root of string
+    | No_Funding
+    | Results_Csv of string
+    | Summary_Csv of string
+    | [<AltCommandLine "-p">] Parallelism of int
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Data_Root _ -> "Trade-parquet root. Default: " + defaultDataRoot
+            | Bars_Root _ -> "Pre-aggregated bar-parquet root. Default: " + defaultBarsRoot
+            | Symbol _ -> "Restrict sweep to a comma-separated symbol list."
+            | Start_Date _ -> "Inclusive start date YYYY-MM-DD. Default 2024-05-01."
+            | End_Date _ -> "Inclusive end date YYYY-MM-DD. Default 2026-04-30."
+            | Timeframes _ -> "Comma-separated timeframes. Default 1m."
+            | Cumsum_Thresholds _ -> "Comma-separated z-cumsum clamp magnitudes (float). Default 10. Per-bar magnitude is erf(z/sqrt 2) ∈ (-1,+1) so threshold is much smaller than the ±1-vote cumsum."
+            | CumsumZSweepArgs.Ma_Hours _ -> "Comma-separated MA window lengths in HOURS for both the std-of-delta normalizer and the buy/sell persistence gate. Default 200."
+            | CumsumZSweepArgs.Notional _ -> "Per-trade notional. Default 1000."
+            | Taker_Fee _ -> "Per-fill taker fee fraction. Default 0.0004."
+            | CumsumZSweepArgs.Allow_Short -> "When set, sweep includes short legs."
+            | Use_Trades -> "Force the trade-stream backtest path."
+            | Max_Adverse_Pct _ -> "Stop-loss as percent of notional. Default 0 (disabled)."
+            | Reference_Vol_Pct _ -> "Reference per-bar log-return std as percent. Default 0 (disabled). Recommended 0.1019 for 1m."
+            | CumsumZSweepArgs.Min_Long_Adv _ -> "Minimum trailing-90d ADV (USDT/day) for a long entry."
+            | CumsumZSweepArgs.Min_Short_Adv _ -> "Minimum trailing-90d ADV (USDT/day) for a short entry."
+            | CumsumZSweepArgs.Vol_Window_Days _ -> "Vol-window length in days. Default 90."
+            | CumsumZSweepArgs.Max_Bar_Price_Ratio _ -> "Bar-to-bar price-ratio gap detector. Default 0. Recommended 3.0."
+            | CumsumZSweepArgs.Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
+            | No_Funding -> "Disable funding-rate accounting."
+            | Results_Csv _ -> "Per-cell results CSV path."
+            | Summary_Csv _ -> "Aggregate summary CSV path."
+            | CumsumZSweepArgs.Parallelism _ -> "Max symbols processed concurrently. Default 4."
+
 type BuildBreadthArgs =
     | [<AltCommandLine "-b">] Bars_Root of string
     | [<AltCommandLine "-s">] Symbol of string
@@ -256,6 +307,7 @@ type CliArgs =
     | [<CliPrefix(CliPrefix.None)>] Run of ParseResults<RunArgs>
     | [<CliPrefix(CliPrefix.None)>] Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Cumsum_Sweep of ParseResults<CumsumSweepArgs>
+    | [<CliPrefix(CliPrefix.None)>] Cumsum_Z_Sweep of ParseResults<CumsumZSweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Vwma_Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Breakout_Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Breadth of ParseResults<BuildBreadthArgs>
@@ -268,6 +320,7 @@ type CliArgs =
             | Run _            -> "Run one (symbol, timeframe, ma) configuration."
             | Sweep _          -> "Run the full grid: timeframes × MA hours × symbols."
             | Cumsum_Sweep _   -> "Clamped-cumsum 1m successor to the orderflow-MA system: per-bar +/-1 vote on buy/sell sign, cumsum clamped to [-threshold, +threshold]; long fires at +threshold, short at -threshold, exit on opposite extreme."
+            | Cumsum_Z_Sweep _ -> "Z-cumsum variant: per-bar magnitude is erf(z/sqrt 2) where z = (buyDV-sellDV)/std200h(buyDV-sellDV). Persistence-gated: long fires at +threshold AND buyMa>sellMa, short symmetric. Exit on opposite clamp; flip only if persistence confirms."
             | Vwma_Sweep _     -> "Research baseline: same grid, but signal is close-vs-VWMA crossover instead of orderflow ratio."
             | Breakout_Sweep _ -> "Research baseline: same grid, but signal is symmetric N-hour VWAP-breakout/breakdown instead of orderflow ratio."
             | Build_Breadth _  -> "Build the universe-wide breadth panel: per-(symbol, hour) signal trace plus per-hour aggregates with composite signed-volume t-digest rank."
@@ -597,7 +650,7 @@ let cmdCumsumSweep (args: ParseResults<CumsumSweepArgs>) : int =
         |> Option.map (parseList ',')
         |> Option.defaultValue [| "1m" |]
     let thresholds =
-        args.TryGetResult Cumsum_Thresholds
+        args.TryGetResult CumsumSweepArgs.Cumsum_Thresholds
         |> Option.map (parseList ',')
         |> Option.map (Array.map Int32.Parse)
         |> Option.defaultValue [| 60 |]
@@ -768,6 +821,203 @@ let cmdCumsumSweep (args: ParseResults<CumsumSweepArgs>) : int =
     printfn ""
     printfn "[cumsum-sweep] breakdown -> %s" breakdownLogPath
     printfn "[cumsum-sweep] total wall %.1fs" swAll.Elapsed.TotalSeconds
+    0
+
+// =============================================================================
+// cumsum-z-sweep — short-term-conviction z-cumsum with persistence gate
+// =============================================================================
+//
+// Per-bar magnitude vote = erf(z / sqrt 2) where z = (buyDV - sellDV) /
+// std200h(buyDV - sellDV). Cumsum clamped to [-threshold, +threshold] (float).
+// Long fires only when cumsum hits +threshold AND buyMa_200h > sellMa_200h
+// (persistence gate); short fires symmetrically. Exits on opposite-clamp
+// touch regardless of persistence; flip only if persistence confirms the new
+// direction, otherwise stay flat.
+
+let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
+    let dataRoot = args.GetResult(CumsumZSweepArgs.Data_Root, defaultValue = defaultDataRoot)
+    let barsRoot = args.GetResult(CumsumZSweepArgs.Bars_Root, defaultValue = defaultBarsRoot)
+    let useTrades = args.Contains CumsumZSweepArgs.Use_Trades
+    let startDate = args.TryGetResult CumsumZSweepArgs.Start_Date |> Option.map parseDate |> Option.defaultValue defaultStart
+    let endDate   = args.TryGetResult CumsumZSweepArgs.End_Date   |> Option.map parseDate |> Option.defaultValue defaultEnd
+    let timeframes =
+        args.TryGetResult CumsumZSweepArgs.Timeframes
+        |> Option.map (parseList ',')
+        |> Option.defaultValue [| "1m" |]
+    let thresholds =
+        args.TryGetResult CumsumZSweepArgs.Cumsum_Thresholds
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map (fun s -> Double.Parse(s, System.Globalization.CultureInfo.InvariantCulture)))
+        |> Option.defaultValue [| 10.0 |]
+    let maHoursList =
+        args.TryGetResult CumsumZSweepArgs.Ma_Hours
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map Int32.Parse)
+        |> Option.defaultValue [| 200 |]
+    let symbols =
+        match args.TryGetResult CumsumZSweepArgs.Symbol with
+        | Some s -> parseList ',' s
+        | None ->
+            if useTrades then listSymbols dataRoot
+            else
+                let perTf = timeframes |> Array.map (fun tf -> Set.ofArray (BarLoader.listSymbols barsRoot tf))
+                if perTf.Length = 0 then [||]
+                else
+                    perTf
+                    |> Array.reduce Set.intersect
+                    |> Set.toArray
+                    |> Array.sort
+    let notional = args.GetResult(CumsumZSweepArgs.Notional, defaultValue = 1000.0)
+    let takerFee = args.GetResult(CumsumZSweepArgs.Taker_Fee, defaultValue = 0.0004)
+    let allowShort = args.Contains CumsumZSweepArgs.Allow_Short
+    let maxAdversePct = args.GetResult(CumsumZSweepArgs.Max_Adverse_Pct, defaultValue = 0.0)
+    let referenceVolPct = args.GetResult(CumsumZSweepArgs.Reference_Vol_Pct, defaultValue = 0.0)
+    let minLongAdv = args.GetResult(CumsumZSweepArgs.Min_Long_Adv, defaultValue = 0.0)
+    let minShortAdv = args.GetResult(CumsumZSweepArgs.Min_Short_Adv, defaultValue = 0.0)
+    let volWindowDays = args.GetResult(CumsumZSweepArgs.Vol_Window_Days, defaultValue = 90)
+    let maxBarPriceRatio = args.GetResult(CumsumZSweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
+    let fundingRoot =
+        if args.Contains CumsumZSweepArgs.No_Funding then None
+        else Some (args.GetResult(CumsumZSweepArgs.Funding_Root, defaultValue = defaultFundingRoot))
+    let resultsCsv = args.GetResult(CumsumZSweepArgs.Results_Csv, defaultValue = "data/crypto/cumsum_z/backtest_results.csv")
+    let summaryCsv = args.GetResult(CumsumZSweepArgs.Summary_Csv, defaultValue = "data/crypto/cumsum_z/backtest_summary.csv")
+    let parallelism = args.GetResult(CumsumZSweepArgs.Parallelism, defaultValue = 4)
+
+    if useTrades then
+        eprintfn "[cumsum-z-sweep] --use-trades is not supported; runs from pre-aggregated bars."
+        2
+    else
+
+    printfn "[cumsum-z-sweep] symbols=%d timeframes=[%s] thresholds=[%s] maHours=[%s] short=%b range=%s..%s parallelism=%d minLongAdv=$%s minShortAdv=$%s volWindowDays=%d maxBarPriceRatio=%g referenceVolPct=%g"
+        symbols.Length
+        (String.concat "," timeframes)
+        (String.concat "," (thresholds |> Array.map (sprintf "%g")))
+        (String.concat "," (maHoursList |> Array.map string))
+        allowShort
+        (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
+        parallelism
+        (minLongAdv.ToString("N0"))
+        (minShortAdv.ToString("N0"))
+        volWindowDays
+        maxBarPriceRatio
+        referenceVolPct
+
+    Directory.CreateDirectory(Path.GetDirectoryName resultsCsv) |> ignore
+    if File.Exists resultsCsv then File.Delete resultsCsv
+    let resultsDir = Path.GetDirectoryName resultsCsv
+    let resultsStem = Path.GetFileNameWithoutExtension resultsCsv
+    if Directory.Exists resultsDir then
+        for f in Directory.EnumerateFiles(resultsDir, sprintf "%s_trips_*.csv" resultsStem) do
+            File.Delete f
+
+    let allMetrics = System.Collections.Concurrent.ConcurrentBag<Metrics>()
+    let allTripsByGroup =
+        System.Collections.Concurrent.ConcurrentDictionary<string * int * bool, System.Collections.Concurrent.ConcurrentBag<RoundTrip>>()
+    let getTripBag (tf: string) (th: int) (sh: bool) =
+        allTripsByGroup.GetOrAdd((tf, th, sh), fun _ -> System.Collections.Concurrent.ConcurrentBag<RoundTrip>())
+    let advBySymbol =
+        System.Collections.Concurrent.ConcurrentDictionary<string, float>()
+    let writeLock = obj()
+    let totalCells = symbols.Length * timeframes.Length * thresholds.Length * maHoursList.Length
+    let mutable doneCells = 0
+
+    let swAll = Stopwatch.StartNew()
+    let opts = System.Threading.Tasks.ParallelOptions(MaxDegreeOfParallelism = parallelism)
+    System.Threading.Tasks.Parallel.ForEach(
+        symbols,
+        opts,
+        fun symbol ->
+            let swSym = Stopwatch.StartNew()
+            try
+                let cells =
+                    [| for tf in timeframes do
+                        for th in thresholds do
+                            for ma in maHoursList do
+                                let cfg : OrderflowCumsumZ.CumsumZConfig =
+                                    { OrderflowCumsumZ.defaultCumsumZConfig th with
+                                        MaWindowHours = ma
+                                        Notional = notional
+                                        TakerFee = takerFee
+                                        AllowShort = allowShort
+                                        MaxAdverseFraction = maxAdversePct / 100.0
+                                        ReferenceVol = referenceVolPct / 100.0
+                                        MinLongAdv = minLongAdv
+                                        MinShortAdv = minShortAdv
+                                        VolWindowDays = volWindowDays
+                                        MaxBarPriceRatio = maxBarPriceRatio }
+                                yield CumsumZCell(symbol, tf, cfg) |]
+                let metrics, adv =
+                    runCumsumZCellsFromBars barsRoot symbol startDate endDate cells fundingRoot
+                let nonEmpty = metrics |> Array.filter (fun m -> m.BarsTotal > 0)
+                if nonEmpty.Length = 0 then
+                    lock writeLock (fun () ->
+                        printfn "[cumsum-z-sweep] %s: no bars in window" symbol)
+                else
+                    if adv > 0.0 then advBySymbol.[symbol] <- adv
+                    for cell in cells do
+                        let trips = cell.Trips
+                        let thInt = int (round cell.CumsumZConfig.CumsumThreshold)
+                        let bag = getTripBag cell.Timeframe thInt cell.CumsumZConfig.AllowShort
+                        for t in trips do bag.Add t
+                        if trips.Length > 0 then
+                            let tripsPath =
+                                let dir = Path.GetDirectoryName resultsCsv
+                                let stem = Path.GetFileNameWithoutExtension resultsCsv
+                                let shortTag = if cell.CumsumZConfig.AllowShort then "ls" else "long"
+                                Path.Combine(dir,
+                                    sprintf "%s_trips_%s_th%g_%s.csv"
+                                        stem cell.Timeframe cell.CumsumZConfig.CumsumThreshold shortTag)
+                            lock writeLock (fun () ->
+                                appendTrips tripsPath cell.Symbol cell.Timeframe cell.Config trips)
+                    lock writeLock (fun () ->
+                        appendResults resultsCsv metrics
+                        for m in metrics do allMetrics.Add m
+                        doneCells <- doneCells + metrics.Length)
+                    swSym.Stop()
+                    lock writeLock (fun () ->
+                        printfn "[cumsum-z-sweep] %s done in %.1fs (%d/%d cells)"
+                            symbol swSym.Elapsed.TotalSeconds doneCells totalCells)
+            with ex ->
+                lock writeLock (fun () ->
+                    eprintfn "[cumsum-z-sweep] %s FAILED: %s" symbol ex.Message
+                    eprintfn "%s" ex.StackTrace))
+    |> ignore
+    swAll.Stop()
+
+    let metricsArr = allMetrics.ToArray()
+    let summary = summarize metricsArr
+    let summarySorted =
+        summary |> Array.sortByDescending (fun s -> s.MedianSharpe)
+    writeSummary summaryCsv summarySorted
+    printfn "[cumsum-z-sweep] wrote %d result rows -> %s" metricsArr.Length resultsCsv
+    printfn "[cumsum-z-sweep] wrote %d summary rows -> %s" summarySorted.Length summaryCsv
+
+    let breakdownLogPath =
+        let dir = Path.GetDirectoryName resultsCsv
+        let stem = Path.GetFileNameWithoutExtension resultsCsv
+        Path.Combine(dir, sprintf "%s_breakdown.log" stem)
+    Directory.CreateDirectory(Path.GetDirectoryName breakdownLogPath) |> ignore
+    use logWriter = new StreamWriter(breakdownLogPath, false)
+    let logWrite (s: string) =
+        logWriter.WriteLine s
+        logWriter.Flush()
+    let consoleWrite (s: string) = Console.WriteLine s
+
+    for s in summarySorted do
+        let cellMetrics =
+            metricsArr
+            |> Array.filter (fun m ->
+                m.Timeframe = s.Timeframe && m.MaWindowHours = s.MaWindowHours && m.AllowShort = s.AllowShort
+                && m.BarsTotal > 0)
+        let trips =
+            match allTripsByGroup.TryGetValue((s.Timeframe, s.MaWindowHours, s.AllowShort)) with
+            | true, bag -> bag.ToArray()
+            | _ -> [||]
+        printGroupBreakdown logWrite consoleWrite s.Timeframe s.MaWindowHours s.AllowShort notional cellMetrics trips advBySymbol
+
+    printfn ""
+    printfn "[cumsum-z-sweep] breakdown -> %s" breakdownLogPath
+    printfn "[cumsum-z-sweep] total wall %.1fs" swAll.Elapsed.TotalSeconds
     0
 
 // =============================================================================
@@ -1959,6 +2209,7 @@ let main argv =
         | Run a -> cmdRun a
         | Sweep a -> cmdSweep a
         | Cumsum_Sweep a -> cmdCumsumSweep a
+        | Cumsum_Z_Sweep a -> cmdCumsumZSweep a
         | Vwma_Sweep a -> cmdVwmaSweep a
         | Breakout_Sweep a -> cmdBreakoutSweep a
         | Build_Breadth a -> cmdBuildBreadth a

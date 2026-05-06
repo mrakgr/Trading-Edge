@@ -12,6 +12,7 @@
     <Compile Include="FundingLoader.fs" />
     <Compile Include="OrderflowMA.fs" />
     <Compile Include="OrderflowCumsum.fs" />
+    <Compile Include="OrderflowCumsumZ.fs" />
     <Compile Include="VwmaCross.fs" />
     <Compile Include="Breakout.fs" />
     <Compile Include="Breadth.fs" />
