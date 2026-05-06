@@ -1454,6 +1454,197 @@ discriminating effect (5 contiguous loser deciles for longs at +9 to
 Imbalance is the price-side stratification that works; raw-price
 momentum is not.
 
+## Time-of-day stratification — entry-hour effects
+
+Bucketed each trip by its UTC entry hour (and weekday). Trade is
+attributed to the hour it *fires*, not when it exits.
+
+Session anchors (UTC):
+
+- **00:00** — Asia open (Tokyo 09:00, HK/Singapore 08:00 local)
+- **07:00–08:00** — Europe / London open
+- **13:00–14:00** — US equity open (NY 09:30 ET = 13:30 UTC, bucketed at 13)
+- **20:00–21:00** — US equity close (NY 16:00 ET)
+
+### LONG side by entry hour (1,828 trades, total PF 1.31)
+
+| **hour UTC** | **session** | **trades** | **PF** | **net $** | **avg $** |
+|---|---|---|---|---|---|
+| 00:00 | **Asia open** | 84 | 2.08 | +1,901 | +23 |
+| 01:00 | | 81 | 1.46 | +1,037 | +13 |
+| 02:00 | | 58 | 1.19 | +263 | +5 |
+| 03:00 | | 72 | 1.79 | +1,127 | +16 |
+| 04:00 | | 62 | **0.34** | **−1,320** | **−21** |
+| 05:00 | | 69 | 1.27 | +567 | +8 |
+| 06:00 | | 70 | 1.31 | +545 | +8 |
+| 07:00 | **EU open** | 79 | 1.17 | +408 | +5 |
+| 08:00 | **EU open** | 70 | 2.15 | +2,651 | +38 |
+| 09:00 | | 72 | 1.21 | +365 | +5 |
+| 10:00 | | 65 | 0.89 | −232 | −4 |
+| 11:00 | | 80 | **0.71** | **−670** | **−8** |
+| 12:00 | | 79 | 1.46 | +1,101 | +14 |
+| 13:00 | **US open** | 90 | **0.68** | **−979** | **−11** |
+| 14:00 | **US open** | 82 | 0.79 | −658 | −8 |
+| 15:00 | post-US-open | 97 | **3.03** | **+3,611** | +37 |
+| 16:00 | | 87 | 1.08 | +180 | +2 |
+| 17:00 | | 85 | 1.03 | +63 | +1 |
+| 18:00 | | 83 | **2.60** | **+3,890** | +47 |
+| 19:00 | | 80 | 1.16 | +334 | +4 |
+| 20:00 | **US close** | 56 | 1.48 | +653 | +12 |
+| 21:00 | **US close** | 68 | 0.96 | −74 | −1 |
+| 22:00 | | 69 | 1.01 | +12 | +0 |
+| 23:00 | | 90 | 1.37 | +666 | +7 |
+
+**Long-side pattern**:
+
+- **Best hours**: 15:00 UTC (PF 3.03, post-US-open momentum) and
+  18:00 UTC (PF 2.60, US afternoon).
+- **Worst hours**: 04:00 (PF 0.34, n=62 small sample), 11:00 (PF 0.71)
+  and 13:00 (PF 0.68) — pre-US-open and right at the open.
+- Counter-intuitive: longs fired *at* the US open (13:00, 14:00) are
+  net-negative; longs fired *after* the open settles (15:00) are the
+  best of the day. Suggests waiting through the opening volatility
+  before going long.
+- Asia open (00:00) is reliably profitable (PF 2.08); Europe open
+  (08:00) too (PF 2.15).
+
+### SHORT side by entry hour (4,387 trades, total PF 1.78)
+
+| **hour UTC** | **session** | **trades** | **PF** | **net $** | **avg $** |
+|---|---|---|---|---|---|
+| 00:00 | **Asia open** | 213 | 1.95 | +8,267 | +39 |
+| 01:00 | | 183 | 1.79 | +6,630 | +36 |
+| 02:00 | | 145 | 1.65 | +5,207 | +36 |
+| 03:00 | | 162 | **2.56** | +8,913 | +55 |
+| 04:00 | | 157 | 1.33 | +2,685 | +17 |
+| 05:00 | | 152 | 1.76 | +6,123 | +40 |
+| 06:00 | | 185 | **2.34** | +9,495 | +51 |
+| 07:00 | **EU open** | 180 | 1.78 | +6,420 | +36 |
+| 08:00 | **EU open** | 193 | **2.23** | +9,265 | +48 |
+| 09:00 | | 177 | 1.46 | +4,805 | +27 |
+| 10:00 | | 212 | 1.65 | +7,450 | +35 |
+| 11:00 | | 171 | 1.40 | +4,366 | +26 |
+| 12:00 | | 222 | 1.46 | +6,043 | +27 |
+| 13:00 | **US open** | 243 | 1.77 | +9,854 | +41 |
+| 14:00 | **US open** | 283 | **2.40** | **+17,467** | +62 |
+| 15:00 | post-US-open | 231 | 1.69 | +7,401 | +32 |
+| 16:00 | | 218 | **2.21** | +10,519 | +48 |
+| 17:00 | | 190 | **2.98** | **+14,028** | +74 |
+| 18:00 | | 149 | 1.67 | +4,751 | +32 |
+| 19:00 | | 150 | 1.11 | +1,267 | +8 |
+| 20:00 | **US close** | 145 | 1.11 | +1,300 | +9 |
+| 21:00 | **US close** | 146 | **2.13** | +6,075 | +42 |
+| 22:00 | | 124 | 1.85 | +4,710 | +38 |
+| 23:00 | | 156 | 1.63 | +5,056 | +32 |
+
+**Short-side pattern**:
+
+- **Every hour profitable** — no dead zones (lowest PF is 1.11 at
+  19:00–20:00 UTC).
+- **Strongest hours**: 17:00 (PF 2.98, US afternoon) and 14:00
+  (PF 2.40, $17.5K — the single biggest hour for short net P&L).
+- The **session-open hours** (00:00, 08:00, 13:00, 14:00) are all
+  profitable for shorts but the post-open hours (14:00–17:00)
+  carry the highest PF and largest dollar amounts.
+- Shorts work all day; longs need session momentum to fire well.
+
+### Day of week (UTC)
+
+| **dow** | **long PF** | **long net** | **short PF** | **short net** |
+|---|---|---|---|---|
+| Mon | 1.13 | +921 | 1.50 | +17,806 |
+| **Tue** | **0.90** | **−813** | 1.70 | +16,501 |
+| Wed | 1.52 | +4,039 | 1.54 | +17,468 |
+| Thu | 1.39 | +2,577 | **2.39** | **+38,303** |
+| Fri | 1.22 | +1,782 | **2.52** | **+47,157** |
+| Sat | 1.28 | +1,425 | 1.54 | +16,008 |
+| Sun | **1.81** | **+5,510** | 1.40 | +14,855 |
+
+**Patterns**:
+
+- **Tuesday is the only unprofitable long-side day** (PF 0.90, −$813).
+- **Sunday is the strongest long-side day** (PF 1.81) — light-volume
+  weekend trading apparently favors mean-reversion longs.
+- **Thursday + Friday carry 51% of all short net P&L** ($85K of $168K).
+  Short side performance is very weekday-skewed; weekends and early
+  week are weaker.
+
+### Implications
+
+- **Hour-of-day is a real but moderate signal.** Long-side has 4
+  unprofitable hours (04:00, 11:00, 13:00, 14:00) accounting for
+  −$3,627 net across 313 trades — filtering them removes ~17% of
+  longs and recovers ~$3.6K. Modest improvement.
+- **Short-side has no dead hours** and a clean concentration in 14:00,
+  17:00, 21:00 — these are the highest-edge windows but every hour
+  works. Suggests a sizing modulator (boost shorts in high-PF hours)
+  more than a filter.
+- **Day-of-week patterns are stronger** than hour-of-day in absolute
+  P&L terms. Cutting Tuesday longs entirely would cost $-813 (i.e.,
+  *gain* $813). Concentrating short exposure on Thu+Fri would lift
+  per-trade-dollar P&L significantly.
+
+```
+python scripts/crypto/time_of_day_stratify.py
+```
+
+## Long/short book correlation diagnostic
+
+For the cross-strategy diversification question we computed the daily
+P&L of the long book and the short book separately and measured their
+correlation across the 700 trading days in the backtest.
+
+| **Metric** | **Long book** | **Short book** |
+|---|---|---|
+| n trading days | 700 | 700 |
+| Mean daily P&L | +$22.06 | +$240.14 |
+| Daily P&L std | $260.34 | $1,157.79 |
+| Daily Sharpe (annualized, √252) | **1.35** | **3.29** |
+| Mean / std (per-day Sharpe) | 0.085 | 0.207 |
+
+| **Joint distribution** | **% of days** |
+|---|---|
+| Both books up | 16.6% |
+| Both books down | 18.1% |
+| Long up, short down | 15.1% |
+| Long down, short up | **28.7%** |
+
+**Pearson correlation: ρ = 0.0165 — essentially zero.**
+
+The long and short books are statistically independent. The 28.7%
+"long down, short up" days are particularly noteworthy — they are the
+days the short book *rescues* the long book.
+
+**Combined-book Sharpe**: with ρ ≈ 0:
+
+```
+σ_combined ≈ sqrt(σ_L² + σ_S²) = sqrt(260² + 1158²) ≈ $1,187
+μ_combined = 22 + 240 = $262
+Sharpe_combined ≈ 262 × sqrt(252) / 1187 ≈ 3.50
+```
+
+That's a ~6% Sharpe lift over shorts-only (3.29 → 3.50). Modest in
+absolute terms because the short book dominates so heavily in
+P&L magnitude — the long book contributes diversification but only
+~9% of the P&L.
+
+**Implications**:
+
+1. **Run long and short as separable books.** Independent capital
+   allocations are fully justified — no correlation penalty.
+2. **The short book is the engine; long is the diversifier.** Per
+   dollar of daily-volatility risk, shorts deliver 2.4× the
+   Sharpe-per-day of longs (0.207 vs 0.085). Allocating more
+   *capital* to shorts is correct; the long book is mostly there to
+   smooth the curve.
+3. **Independence enables Kelly-style sizing per book.** With
+   uncorrelated returns, optimal weights scale with μ/σ² per book.
+   Long: 22/67k ≈ 3.3e-4. Short: 240/1.34M ≈ 1.79e-4. So the
+   *capital efficiency* of the long book per dollar at risk is 1.84×
+   the short book — meaning longs deserve relatively more capital
+   weight than their P&L share suggests, because they're so much
+   tighter on a risk basis.
+
 ```
 # Three modes:
 python scripts/crypto/momentum_stratify.py            # VWMA (default)
