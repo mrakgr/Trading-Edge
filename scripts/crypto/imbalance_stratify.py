@@ -29,6 +29,7 @@ DEFAULT_TRIPS = "data/crypto/cumsum_z_persistexit/backtest_results_trips_1m_th15
 DEFAULT_BARS_ROOT = "data/crypto/perps_bars/1m"
 US_PER_DAY = 86_400_000_000
 US_PER_HOUR = 3_600_000_000
+US_PER_MIN = 60_000_000
 
 CUTPOINTS = [-0.5, -0.2, -0.05, +0.05, +0.2, +0.5]
 BUCKET_LABELS = [
@@ -41,20 +42,22 @@ BUCKET_LABELS = [
     ">=+50%",
 ]
 
-# Tokens accepted by --windows: integer + 'd' or 'h'.
-_WINDOW_RE = re.compile(r"^(\d+)([dh])$")
+# Tokens accepted by --windows: integer + 'd', 'h', or 'm'.
+_WINDOW_RE = re.compile(r"^(\d+)([dhm])$")
 
 
 def parse_window(s: str) -> tuple[str, int]:
-    """Return (label, microseconds) for a token like '30d' or '8h'."""
+    """Return (label, microseconds) for a token like '30d' / '8h' / '15m'."""
     m = _WINDOW_RE.match(s.strip().lower())
     if not m:
-        raise ValueError(f"Bad window token {s!r}; expected e.g. '30d' or '8h'.")
+        raise ValueError(f"Bad window token {s!r}; expected e.g. '30d', '8h', '15m'.")
     n, unit = int(m.group(1)), m.group(2)
     if unit == "d":
         return s, n * US_PER_DAY
-    else:
+    elif unit == "h":
         return s, n * US_PER_HOUR
+    else:
+        return s, n * US_PER_MIN
 
 
 def bucket_idx(p: float, cutpoints) -> int:
