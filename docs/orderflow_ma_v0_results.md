@@ -1528,6 +1528,94 @@ hypothesis: when a long-tail token is trading 5×+ its typical volume,
 it's almost certainly in a squeeze or a blowoff and the short edge
 maximizes there.
 
+### Window-length sweep — robustness check
+
+To verify the 60d/24h finding wasn't a single-window artifact, we
+swept lookback ∈ {30d, 45d, 60d} × recent ∈ {8h, 16h, 24h} = 9 cells.
+Same trips file, same buckets, same per-symbol streaming.
+
+The pattern is robust: short PF climbs monotone-ish into the high-volume
+buckets in every cell, peaking at PF 3.20–4.62 somewhere in the 3–5×
+or 5–10× zone. The lookback shifts where the peak lands (shorter
+lookback → lower baseline → more trades classified as 5–10× → peak
+shifts left to 3–5×; longer lookback → higher baseline → peak shifts
+right to 5–10×). The recent-window length controls how acute the
+volume burst needs to be: shorter recent (8h) is more sensitive to
+intraday spikes; longer recent (24h) smooths.
+
+**SHORT-side PF by bucket, all 9 cells** (peak in **bold**):
+
+| **lb / recent** | <0.5× | 0.5–1× | 1–1.5× | 1.5–2× | 2–3× | 3–5× | 5–10× | ≥10× |
+|---|---|---|---|---|---|---|---|---|
+| 30d / 8h | 1.27 | 1.49 | 1.71 | 2.24 | 2.44 | **3.41** | 2.37 | 1.61 |
+| 30d / 16h | 1.17 | 1.53 | 1.94 | 1.78 | 2.63 | **3.46** | 2.17 | 1.77 |
+| 30d / 24h | 1.29 | 1.44 | 1.99 | 1.83 | 2.34 | **3.20** | 2.74 | 1.59 |
+| 45d / 8h | 1.10 | 1.62 | 1.80 | 1.70 | 2.72 | 2.29 | **4.62** | 1.67 |
+| 45d / 16h | 1.08 | 1.66 | 1.46 | 2.75 | 1.71 | 3.18 | **3.43** | 2.07 |
+| 45d / 24h | 1.12 | 1.59 | 1.75 | 1.65 | 2.05 | 2.98 | **3.69** | 1.75 |
+| 60d / 8h | 1.08 | 1.79 | 1.31 | 2.60 | 1.97 | 2.54 | **3.50** | 2.22 |
+| 60d / 16h | 1.09 | 1.73 | 1.49 | 2.03 | 1.72 | 2.49 | **3.54** | 2.47 |
+| 60d / 24h | 1.14 | 1.65 | 1.59 | 1.50 | 2.01 | 2.52 | **3.54** | 2.46 |
+
+**LONG-side PF by bucket, same 9 cells**:
+
+| **lb / recent** | <0.5× | 0.5–1× | 1–1.5× | 1.5–2× | 2–3× | 3–5× | 5–10× | ≥10× |
+|---|---|---|---|---|---|---|---|---|
+| 30d / 8h | 1.19 | 1.22 | 0.67 | 2.87 | 0.98 | 1.16 | 1.66 | 1.49 |
+| 30d / 16h | 1.17 | 1.13 | 1.61 | 1.08 | 1.33 | 1.74 | 1.20 | 1.42 |
+| 30d / 24h | 1.30 | 1.20 | 1.34 | 1.21 | 2.37 | 0.88 | 1.19 | 1.39 |
+| 45d / 8h | 1.14 | 1.07 | 1.25 | 2.39 | 0.97 | 1.23 | 1.22 | 1.65 |
+| 45d / 16h | 1.01 | 1.74 | 1.09 | 1.07 | 1.22 | 0.92 | 1.48 | 1.57 |
+| 45d / 24h | 1.31 | 1.45 | 0.91 | 1.24 | 1.32 | 1.64 | 1.21 | 1.34 |
+| 60d / 8h | 1.18 | 1.19 | 1.09 | 2.62 | 1.08 | 1.20 | 0.91 | 1.65 |
+| 60d / 16h | 1.07 | 1.64 | 1.21 | 1.54 | 1.26 | 0.63 | 2.08 | 1.14 |
+| 60d / 24h | 1.04 | 1.94 | 0.58 | 1.37 | 1.87 | 0.82 | 1.60 | 1.27 |
+
+The long-side zigzag persists across every (lookback, recent) pair —
+no monotone signal at any window. The volume-momentum signal works for
+**shorts only**.
+
+### The cleanest cell — 30d / 8h
+
+The 30d/8h cell is the most monotone. Both sides rise then fall in
+a clean dome shape:
+
+**SHORT (4,387 trades, 30d/8h):**
+
+| **ratio** | **trades** | **PF** | **net $** | **avg $** |
+|---|---|---|---|---|
+| <0.5× | 884 | 1.27 | +13,060 | +15 |
+| 0.5 to 1× | 1,284 | 1.49 | +34,439 | +27 |
+| 1 to 1.5× | 651 | 1.71 | +21,886 | +34 |
+| 1.5 to 2× | 380 | 2.24 | +19,580 | +52 |
+| 2 to 3× | 452 | 2.44 | +32,493 | +72 |
+| **3 to 5×** | 321 | **3.41** | +29,162 | +91 |
+| 5 to 10× | 240 | 2.37 | +12,935 | +54 |
+| ≥10× | 175 | 1.61 | +4,541 | +26 |
+
+PF climbs from 1.27 → 1.49 → 1.71 → 2.24 → 2.44 → **3.41** then falls
+back to 2.37 → 1.61. Six of seven inter-bucket transitions are in the
+"correct" direction (rising up to peak, falling after). The peak sits
+at 3–5× volume.
+
+**LONG (1,828 trades, 30d/8h):**
+
+| **ratio** | **trades** | **PF** | **net $** | **avg $** |
+|---|---|---|---|---|
+| <0.5× | 260 | 1.19 | +1,297 | +5 |
+| 0.5 to 1× | 476 | 1.22 | +2,295 | +5 |
+| 1 to 1.5× | 298 | 0.67 | −2,790 | −9 |
+| **1.5 to 2×** | 168 | **2.87** | +7,438 | +44 |
+| 2 to 3× | 164 | 0.98 | −74 | 0 |
+| 3 to 5× | 149 | 1.16 | +751 | +5 |
+| 5 to 10× | 149 | 1.66 | +3,409 | +23 |
+| ≥10× | 164 | 1.49 | +3,114 | +19 |
+
+The long side stays noisy even in this cell — the 1.5–2× bucket
+spikes to PF 2.87 (168 trades, +$7,438 net, +$44 avg, the cell's best
+long bucket) but adjacent buckets drop to 0.67 and 0.98. The volume
+signal genuinely doesn't hold for longs at any window.
+
 ### Implications
 
 This is the cleanest size-up modulator we've found. Concretely:
