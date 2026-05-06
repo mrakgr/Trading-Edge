@@ -1466,3 +1466,90 @@ python scripts/crypto/momentum_stratify.py            # VWMA (default)
 python scripts/crypto/momentum_stratify.py --mode ma
 python scripts/crypto/momentum_stratify.py --mode zscore
 ```
+
+## Volume-momentum stratification — recent vs trailing volume
+
+The price-momentum z-score didn't produce a clean monotonic signal — long
+PF zigzags between buckets, and short PF is roughly flat across most of
+the distribution. Volume is a different story.
+
+For each trip, compute:
+
+```
+recent_vol   = sum(bar_volume) over (entry_us - 24h, entry_us]
+baseline_vol = avg-per-24h volume over the trailing 60d ending at (entry_us - 24h)
+ratio        = recent_vol / baseline_vol
+```
+
+The baseline excludes the recent window itself so an active recent period
+doesn't inflate the denominator.
+
+**LONG side (1,828 trades, total PF 1.31):**
+
+| **ratio** | **trades** | **PF** | **net $** | **avg $** |
+|---|---|---|---|---|
+| <0.5× | 354 | 1.04 | +458 | +1 |
+| **0.5 to 1×** | 527 | **1.94** | +9,651 | +18 |
+| **1 to 1.5×** | 248 | **0.58** | −3,168 | −13 |
+| 1.5 to 2× | 113 | 1.37 | +1,107 | +10 |
+| 2 to 3× | 153 | 1.87 | +3,545 | +23 |
+| 3 to 5× | 122 | 0.82 | −690 | −6 |
+| 5 to 10× | 148 | 1.60 | +3,004 | +20 |
+| ≥10× | 163 | 1.27 | +1,534 | +9 |
+
+The long side zigzags. The **0.5 to 1× bucket** (coins trading *below*
+typical volume) is the strongest long PF (1.94, +$18 avg). The **1 to
+1.5× bucket** (coins trading at modestly elevated volume) is the worst
+long PF (0.58, −$13 avg). No monotonic pattern beyond that. Consistent
+with "longs work in calm continuation regimes, not in chaos."
+
+**SHORT side (4,386 trades, total PF 1.78):** monotone in volume.
+
+| **ratio** | **trades** | **PF** | **net $** | **avg $** |
+|---|---|---|---|---|
+| <0.5× | 888 | 1.14 | +7,506 | +8 |
+| 0.5 to 1× | 1,187 | 1.65 | +37,944 | +32 |
+| 1 to 1.5× | 608 | 1.59 | +17,407 | +29 |
+| 1.5 to 2× | 311 | 1.50 | +8,886 | +29 |
+| 2 to 3× | 341 | 2.01 | +14,082 | +41 |
+| 3 to 5× | 402 | 2.52 | +27,738 | +69 |
+| **5 to 10×** | 400 | **3.54** | +40,697 | +102 |
+| ≥10× | 249 | 2.46 | +13,754 | +55 |
+
+PF climbs cleanly from 1.14 (quiet coins) through 1.50–1.65 (normal
+volume) to **3.54 at 5–10× typical volume** — the highest PF we've
+seen on any stratification anywhere on the system. The ≥10× bucket
+(extreme blowoff) dips slightly to PF 2.46 but stays strongly
+profitable.
+
+The 5–10× short bucket is **400 trades, 64.2% win rate, $40,697 net,
++$101.74 avg** — a quarter of all short profit on 9% of trades. The
+hypothesis: when a long-tail token is trading 5×+ its typical volume,
+it's almost certainly in a squeeze or a blowoff and the short edge
+maximizes there.
+
+### Implications
+
+This is the cleanest size-up modulator we've found. Concretely:
+
+- **Short notional should scale with volume ratio.** A 1× short and a
+  5× short have radically different expected returns — sizing them
+  identically leaves money on the table. Even a coarse step function
+  (1× notional below 2×, 2× notional 2–5×, 3× notional 5–10×) would
+  redistribute capital toward the high-edge buckets.
+- **Long notional has no clean signal here.** The zigzag pattern
+  suggests random allocation noise within the long side. Volume-based
+  sizing would not help longs and might hurt by underfunding the 0.5–1×
+  bucket.
+- **Volume is more useful than price-momentum** for sizing. The price
+  z-score table had alternating PF (1.69, 1.11, 1.19, 1.37, 1.53, ...);
+  the volume table has a monotone short side. We should focus follow-up
+  work on volume-based size modulation, not on price-momentum filters.
+
+```
+python scripts/crypto/volume_momentum_stratify.py
+```
+
+Defaults: `--lookback-days 60 --recent-hours 24`. Reads the z-persist
+no-stop trips file by default; pass `--trips <path>` to stratify a
+different system's trades.
