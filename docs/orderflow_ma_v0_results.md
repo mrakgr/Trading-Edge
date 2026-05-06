@@ -1093,6 +1093,77 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- cumsum-z-sweep \
     --parallelism 8
 ```
 
+### Vol-window-days scan — confirmed not load-bearing
+
+7d (the v0 default we inherited) was the starting choice. Swept 1, 2, 3, 5, 7
+days at threshold=15 with persistence-exit. **Trade count is identical
+across all 5 windows (6,215)** — the vol window only affects per-trade
+notional via vol-sizing, not which trades fire.
+
+| **vw** | **Total PF** | **Long PF** | **Long net** | **Short PF** | **Short net** | **Total net** |
+|---|---|---|---|---|---|---|
+| 1d | 1.693 | 1.288 | $12,809 | 1.775 | $170,086 | $182,895 |
+| 2d | 1.697 | 1.294 | $13,594 | 1.783 | $169,343 | $182,937 |
+| 3d | 1.696 | 1.307 | $14,497 | 1.781 | $169,074 | $183,571 |
+| 5d | 1.691 | **1.329** | **$15,967** | 1.771 | $167,927 | **$183,894** |
+| 7d | 1.690 | 1.311 | $15,441 | 1.777 | $168,098 | $183,538 |
+
+All windows fall within a tight band (PF 1.69–1.70, net $182.9K–$183.9K).
+5d marginally improves longs (PF 1.33 vs 1.31, +$526 net) — within noise.
+**Verdict: keep 7d.** Vol-sizing window length is not where the edge lives.
+
+### Stop-loss scan
+
+The earlier system's lesson — *stops hurt performance* — reproduces here,
+but with a twist when paired with **scale-up considerations**.
+
+The catastrophic-loss tail in the no-stop config (−$3,427 single trade,
+−$56K bucket from MAE ≤−50%) is a capital-efficiency problem: it limits
+the max safe notional. A counterfactual analysis confirmed that **no
+fixed-percentage stop beats no-stop on raw P&L** — even a 100% stop costs
+~$36K vs no-stop. But the bounded tail enables larger position sizing.
+
+Sweep at threshold=15 with `--require-persistence-for-exit`:
+
+| **Stop** | **Trades** | **Total PF** | **Long PF** | **Long net** | **Short PF** | **Short net** | **Total net** | **Largest loss** |
+|---|---|---|---|---|---|---|---|---|
+| 25% | 8,106 | 1.310 | 1.285 | $15,008 | 1.314 | $98,899 | $113,907 | **−$279** |
+| 30% | 7,642 | 1.335 | 1.292 | $14,993 | 1.342 | $104,360 | $119,353 | −$339 |
+| 40% | 7,122 | 1.355 | 1.300 | $15,279 | 1.365 | $107,585 | $122,864 | −$422 |
+| 50% | 6,838 | 1.381 | 1.316 | $15,894 | 1.393 | $112,269 | $128,163 | −$517 |
+| 75% | 6,530 | 1.425 | 1.315 | $15,673 | 1.445 | $121,973 | $137,646 | −$767 |
+| 100% | 6,386 | 1.484 | 1.311 | $15,441 | 1.518 | $133,050 | $148,491 | −$1,018 |
+| **none** | **6,215** | **1.690** | 1.317 | $15,441 | **1.777** | **$168,098** | **$183,538** | −$3,427 |
+
+**The damage is entirely on shorts.** Long PF holds at ~1.31 across every
+stop level — long entries never have catastrophic MAE because vol-sizing
+already downsizes high-vol entries. Short PF degrades from 1.78 → 1.31 as
+stops tighten. This makes intuitive sense: shorting these long-tail
+altcoins relies on holding through squeezes for recoveries; 40%+ of
+shorts that touched ≤−50% MAE eventually exit profitable. A fixed stop
+removes both halves indiscriminately.
+
+**Capital-efficiency math** (assuming 3× notional scale-up is feasible at
+each stop level — the bounded loss makes it safe):
+
+| **Stop** | **Net @ 1×** | **Largest loss @ 1×** | **Net @ 3×** | **Largest loss @ 3×** |
+|---|---|---|---|---|
+| 50% | $128K | −$517 | $385K | −$1,551 |
+| 100% | $148K | −$1,018 | $446K | −$3,054 |
+| none | $184K | −$3,427 | (would be −$10,281 — likely exceeds liquidity) |
+
+**Decision: the 100% stop pareto-dominates for safe scale-up.** At 3× it
+nets $446K with −$3,054 worst-case (still smaller tail than v0's −$3,599),
+beating both v0 ($221K at 1×) and the no-stop baseline ($184K at 1×). At
+1× it sacrifices $36K of P&L (vs no-stop) for a 3.4× tighter tail.
+
+The 50% stop is a more conservative choice — sacrifice $56K of P&L in
+exchange for a 6.6× tighter tail. The right pick depends on the actual
+liquidity-constrained scale-up factor, which we haven't measured.
+
+Followup considered: **VWAP-based stops** (track 200h high/low; stop only
+on a price excursion past the 200h range) — covered in the next section.
+
 ```
 dotnet run --project TradingEdge.CryptoBacktest -c Release -- cumsum-z-sweep \
     --allow-short \
