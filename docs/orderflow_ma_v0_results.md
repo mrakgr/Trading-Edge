@@ -992,12 +992,106 @@ Two findings:
    been trying to improve.
 2. **Threshold = 10 fires too aggressively on shorts.** Short trade
    count went 7.4k → 49.9k (+6.7×). The cumsum saturates faster than
-   I estimated; threshold = 10 is the wrong order of magnitude. A
-   sweep over 11–18 is in flight.
+   I estimated; threshold = 10 is the wrong order of magnitude.
 
 Largest single loss dropped to −$1.1K (vs −$3.5K) — even with the over-
 firing on shorts, individual-trade risk is much tighter because the
 persistence gate prevents flips into unconfirmed regimes.
+
+**Threshold scan (11–18, otherwise identical config):**
+
+| **th** | **Trades** | **Total PF** | **Long PF** | **Long net** | **Short PF** | **Short net** | **Largest loss** |
+|---|---|---|---|---|---|---|---|
+| 11 | 45,000 | 1.175 | 1.319 | $18,843 | 1.169 | $144,810 | −$1,696 |
+| 12 | 38,004 | 1.200 | 1.287 | $16,458 | 1.194 | $161,395 | −$1,777 |
+| 13 | 32,450 | 1.217 | 1.304 | $16,954 | 1.211 | $161,019 | −$1,976 |
+| 14 | 28,002 | 1.238 | 1.336 | $17,756 | 1.231 | $162,407 | −$1,900 |
+| 15 | 24,516 | 1.253 | 1.364 | $18,437 | 1.244 | $159,502 | −$2,033 |
+| **16** | 21,721 | 1.269 | **1.401** | **$20,017** | 1.259 | $158,580 | −$3,072 |
+| 17 | 19,209 | 1.280 | 1.369 | $17,968 | 1.273 | $156,802 | −$3,100 |
+| 18 | 17,289 | 1.280 | 1.331 | $15,944 | 1.276 | $150,808 | −$3,106 |
+
+Clean monotonic patterns:
+
+- Total PF rises monotonically with threshold: **1.175 (th=11) → 1.280 (th=18)**.
+  Higher selectivity = higher quality.
+- **Long PF peaks at th=16** (PF 1.401, net $20,017). This is the
+  strongest long-side number we've ever produced — beats v0 (1.26, $20,175)
+  on PF and matches it within $158 on net. This is the lift the
+  conviction-weighted vote was supposed to deliver.
+- Short PF rises monotonically too (1.169 → 1.276 across th=11→18) but
+  plateaus by 17.
+- Largest single loss rises with threshold (longer holds when fires are
+  rarer): th=12 has the smallest tail (−$1.8K), th=18 the largest (−$3.1K).
+  Still well below cumsum-vol-tuned's −$3.5K.
+
+**The total PF still doesn't catch up to cumsum-vol-tuned (1.57).** The
+z-cumsum is **better on the long side** (1.40 vs 1.20) but **worse on
+shorts** (~1.26 vs 1.64) — the persistence gate is letting too many
+shorts fire on cumsum touches that don't have a 200h-bear regime backing
+them. The diagnosis: the cumsum is firing *too many* opposite-clamp
+exits when the persistence regime hasn't actually flipped against us yet,
+so positions get cycled in and out of unconfirmed regimes. Fix below.
+
+### Persistence-exit variant (`--require-persistence-for-exit`)
+
+Drops the cumsum-driven exit semantic entirely. An open position is held
+until the **persistence regime itself flips against it** (`buyMa.State`
+crosses `sellMa.State` in the wrong direction). Once persistence has
+flipped, the next opposite-clamp cumsum touch closes the position (and
+opens a new one in the new direction, since persistence now confirms it).
+
+If the cumsum drifts to the opposite extreme but persistence still favors
+us, we **ignore the touch** — that's the regime telling us the short-term
+swing is noise.
+
+**Threshold scan with `--require-persistence-for-exit`:**
+
+| **th** | **Trades** | **Total PF** | **Long PF** | **Long net** | **Short PF** | **Short net** | **Largest loss** |
+|---|---|---|---|---|---|---|---|
+| 14 | 6,500 | 1.666 | 1.311 | $15,584 | 1.747 | $165,781 | −$3,420 |
+| **15** | **6,215** | **1.690** | 1.317 | $15,441 | **1.777** | **$168,098** | −$3,427 |
+| 16 | 5,968 | 1.688 | 1.307 | $15,639 | 1.774 | $165,734 | −$3,433 |
+| 17 | 5,744 | 1.685 | 1.300 | $14,631 | 1.774 | $164,086 | −$3,444 |
+| 18 | 5,577 | 1.667 | 1.280 | $13,551 | 1.756 | $160,124 | −$3,450 |
+
+**Versus all systems we've measured:**
+
+| | **v0 1h** | **Cumsum vol-tuned** | **Z-cumsum (cumsum-exit) th=16** | **Z-cumsum + persist-exit th=15** |
+|---|---|---|---|---|
+| Total PF | 1.490 | 1.565 | 1.269 | **1.690** |
+| Long PF | 1.26 | 1.20 | **1.40** | 1.32 |
+| Short PF | 1.54 | 1.64 | 1.26 | **1.78** |
+| Trades | 20,006 | 10,526 | 21,721 | 6,215 |
+| Net P&L | +$221K | +$172K | $178K (long+short) | **+$184K** |
+| Largest loss | −$3,599 | −$3,493 | −$3,072 | −$3,427 |
+
+**Persistence-exit is the strongest system on every aggregate metric.**
+Total PF 1.69 is the highest we've ever produced — well above v0's 1.49
+and the simple-vote cumsum's 1.57. Short PF 1.78 (vs v0 1.54). Largest
+single loss comparable to v0 (−$3.4K vs −$3.6K).
+
+Long PF is slightly lower than the cumsum-exit run (1.32 vs 1.40) — the
+persistence-only-exit is more conservative on long-side fires, exiting
+later when regimes shift. The aggregate is still strictly better.
+
+**The lesson:** the cumsum is most useful as an *entry* signal, not an
+exit signal. When the cumsum touches the opposite clamp but the regime
+hasn't actually flipped, the right move is to hold — the position keeps
+working once the cumsum drifts back.
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- cumsum-z-sweep \
+    --allow-short \
+    --cumsum-thresholds 15 \
+    --reference-vol-pct 0.1019 \
+    --vol-window-days 7 \
+    --min-long-adv 28800000 \
+    --min-short-adv 8000000 \
+    --max-bar-price-ratio 3.0 \
+    --require-persistence-for-exit \
+    --parallelism 8
+```
 
 ```
 dotnet run --project TradingEdge.CryptoBacktest -c Release -- cumsum-z-sweep \

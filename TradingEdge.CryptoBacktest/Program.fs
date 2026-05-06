@@ -179,6 +179,7 @@ type CumsumZSweepArgs =
     | Max_Bar_Price_Ratio of float
     | Funding_Root of string
     | No_Funding
+    | Require_Persistence_For_Exit
     | Results_Csv of string
     | Summary_Csv of string
     | [<AltCommandLine "-p">] Parallelism of int
@@ -205,6 +206,7 @@ type CumsumZSweepArgs =
             | CumsumZSweepArgs.Max_Bar_Price_Ratio _ -> "Bar-to-bar price-ratio gap detector. Default 0. Recommended 3.0."
             | CumsumZSweepArgs.Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
             | No_Funding -> "Disable funding-rate accounting."
+            | Require_Persistence_For_Exit -> "When set, opposite-clamp cumsum touches do NOT exit by themselves; positions are held until the 200h persistence regime flips against them. Default off (cumsum-driven exit)."
             | Results_Csv _ -> "Per-cell results CSV path."
             | Summary_Csv _ -> "Aggregate summary CSV path."
             | CumsumZSweepArgs.Parallelism _ -> "Max symbols processed concurrently. Default 4."
@@ -876,6 +878,7 @@ let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
     let minShortAdv = args.GetResult(CumsumZSweepArgs.Min_Short_Adv, defaultValue = 0.0)
     let volWindowDays = args.GetResult(CumsumZSweepArgs.Vol_Window_Days, defaultValue = 90)
     let maxBarPriceRatio = args.GetResult(CumsumZSweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
+    let requirePersistenceForExit = args.Contains CumsumZSweepArgs.Require_Persistence_For_Exit
     let fundingRoot =
         if args.Contains CumsumZSweepArgs.No_Funding then None
         else Some (args.GetResult(CumsumZSweepArgs.Funding_Root, defaultValue = defaultFundingRoot))
@@ -888,7 +891,7 @@ let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
         2
     else
 
-    printfn "[cumsum-z-sweep] symbols=%d timeframes=[%s] thresholds=[%s] maHours=[%s] short=%b range=%s..%s parallelism=%d minLongAdv=$%s minShortAdv=$%s volWindowDays=%d maxBarPriceRatio=%g referenceVolPct=%g"
+    printfn "[cumsum-z-sweep] symbols=%d timeframes=[%s] thresholds=[%s] maHours=[%s] short=%b range=%s..%s parallelism=%d minLongAdv=$%s minShortAdv=$%s volWindowDays=%d maxBarPriceRatio=%g referenceVolPct=%g requirePersistenceForExit=%b"
         symbols.Length
         (String.concat "," timeframes)
         (String.concat "," (thresholds |> Array.map (sprintf "%g")))
@@ -901,6 +904,7 @@ let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
         volWindowDays
         maxBarPriceRatio
         referenceVolPct
+        requirePersistenceForExit
 
     Directory.CreateDirectory(Path.GetDirectoryName resultsCsv) |> ignore
     if File.Exists resultsCsv then File.Delete resultsCsv
@@ -944,7 +948,8 @@ let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
                                         MinLongAdv = minLongAdv
                                         MinShortAdv = minShortAdv
                                         VolWindowDays = volWindowDays
-                                        MaxBarPriceRatio = maxBarPriceRatio }
+                                        MaxBarPriceRatio = maxBarPriceRatio
+                                        RequirePersistenceForExit = requirePersistenceForExit }
                                 yield CumsumZCell(symbol, tf, cfg) |]
                 let metrics, adv =
                     runCumsumZCellsFromBars barsRoot symbol startDate endDate cells fundingRoot

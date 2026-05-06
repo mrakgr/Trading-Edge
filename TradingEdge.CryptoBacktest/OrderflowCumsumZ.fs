@@ -31,13 +31,23 @@ open MathNet.Numerics
 // strongly bullish"; the persistence gate says "the 200h regime is also
 // bullish" — both must agree.
 //
-// EXIT semantics:
-//   - When cumsum touches the OPPOSITE clamp from inside, close the open
-//     position regardless of the persistence gate at that moment.
-//   - On the same bar, if the persistence gate CONFIRMS the new direction
-//     (e.g. cumsum hit +threshold AND buyMa > sellMa for a short → long
-//     flip), open the new position. If it does NOT confirm, stay flat
-//     until the next clamp touch.
+// EXIT semantics — controlled by `RequirePersistenceForExit`:
+//
+//   default (false): cumsum-driven exit
+//     When cumsum touches the OPPOSITE clamp from inside, close the open
+//     position regardless of the persistence gate at that moment. On the
+//     same bar, if the persistence gate CONFIRMS the new direction, open
+//     the new position; otherwise stay flat.
+//
+//   true: persistence-only exit
+//     Cumsum touching the opposite clamp does NOT close the position by
+//     itself — the position is held until the persistence regime flips
+//     against us (i.e. for an open long, sellMa > buyMa). Once persistence
+//     has flipped, an opposite-clamp cumsum touch triggers the close (and
+//     a flip into the new side, since persistence now confirms it). This
+//     is the "ignore cumsum going to the other side until regime confirms"
+//     variant — useful when the persistence gate carries more conviction
+//     than the short-term cumsum signal.
 //
 // Pre-fill: during the first MaWindowHours of bars, the rolling windows
 // (StdMa, buyMa, sellMa) aren't full. Vote 0 — cumsum stays at 0 until
@@ -62,6 +72,13 @@ type CumsumZConfig = {
     MinShortAdv: float
     VolWindowDays: int
     MaxBarPriceRatio: float
+    /// When true, cumsum touching the opposite clamp does NOT exit by
+    /// itself — the position is held until the 200h persistence regime
+    /// (sign of buyMa - sellMa) flips against us. Once flipped, the next
+    /// opposite-clamp touch triggers exit (and flip, since persistence
+    /// now confirms the new direction). When false (default), cumsum-driven
+    /// exit fires on every opposite-clamp touch.
+    RequirePersistenceForExit: bool
 }
 
 let defaultCumsumZConfig (threshold: float) : CumsumZConfig =
@@ -76,7 +93,8 @@ let defaultCumsumZConfig (threshold: float) : CumsumZConfig =
       MinLongAdv = 0.0
       MinShortAdv = 0.0
       VolWindowDays = 90
-      MaxBarPriceRatio = 0.0 }
+      MaxBarPriceRatio = 0.0
+      RequirePersistenceForExit = false }
 
 let private feeFor (notional: float) (takerFee: float) : float = notional * takerFee
 
@@ -325,19 +343,27 @@ type Engine(cfg: CumsumZConfig) =
             let regimeBull = buyMa.State > sellMa.State
             let regimeBear = sellMa.State > buyMa.State
 
+            // Exit gating: in `RequirePersistenceForExit` mode an open
+            // position is only closed when persistence has flipped against
+            // it. Without that mode, opposite-clamp touches always close.
+            let canCloseShort =
+                if cfg.RequirePersistenceForExit then regimeBull else true
+            let canCloseLong =
+                if cfg.RequirePersistenceForExit then regimeBear else true
+
             if hitTop then
-                // Top clamp: exit any open short, then potentially flip long
-                // (only if regime confirms; otherwise stay flat).
-                if side = Short then closePos bar.Close bar.EndUs
+                // Top clamp: close an open short only if exit-gate allows;
+                // then potentially open long if persistence confirms.
+                if side = Short && canCloseShort then closePos bar.Close bar.EndUs
                 if side = Flat && regimeBull then
                     let adv = currentAdv ()
                     let advGate = cfg.MinLongAdv <= 0.0 || adv >= cfg.MinLongAdv
                     if advGate then
                         openPos Long bar.Close bar.EndUs cumsum
             elif hitBottom then
-                // Bottom clamp: exit any open long, then potentially flip
-                // short (only if shorting allowed AND regime confirms).
-                if side = Long then closePos bar.Close bar.EndUs
+                // Bottom clamp: close an open long only if exit-gate allows;
+                // then potentially open short if shorting + persistence confirm.
+                if side = Long && canCloseLong then closePos bar.Close bar.EndUs
                 if side = Flat && cfg.AllowShort && regimeBear then
                     let adv = currentAdv ()
                     let advGate = cfg.MinShortAdv <= 0.0 || adv >= cfg.MinShortAdv
