@@ -1251,6 +1251,90 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- cumsum-z-sweep \
     --parallelism 8
 ```
 
+### Vol-multiplier stop (`--vol-stop-multiplier`)
+
+The trade-count explosion from VWAP-band stops would translate to real
+market impact and fees in live trading. A vol-based stop is more
+selective: stop only on a move proportional to the symbol's *own*
+realized volatility:
+
+```
+volAtEntry = volMa.SampleStd_at_entry             (snapshotted, log-return units)
+stopRet    = M * volAtEntry                       (log-return distance)
+long  exit when bar.Low  <= entry * exp(-stopRet)
+short exit when bar.High >= entry * exp(+stopRet)
+```
+
+The multiplier is in log-return units (same as `--reference-vol-pct`).
+For BTC at ~6 bps/min vol, M=100 ≈ 60% of `entry`, M=400 ≈ 240%; for
+WIF at ~18 bps/min, M=100 ≈ 18%, M=400 ≈ 70%. Per-symbol vol
+heterogeneity means the **same M produces different price-distance
+stops on different coins**, which is exactly what we want — tight
+where the symbol moves slowly, loose where it moves fast.
+
+Sweep at threshold=15, persistence-exit on:
+
+| **M** | **Trades** | **Total PF** | **Long PF** | **Long net** | **Short PF** | **Short net** | **Total net** | **Largest loss** |
+|---|---|---|---|---|---|---|---|---|
+| **50** | 11,998 | 1.282 | 1.312 | $16,691 | 1.277 | $93,050 | $109,740 | **−$160** |
+| **100** | 8,405 | 1.313 | 1.302 | $15,704 | 1.315 | $99,258 | $114,962 | **−$205** |
+| 200 | 6,879 | 1.366 | 1.314 | $15,829 | 1.375 | $107,674 | $123,503 | −$940 |
+| 400 | 6,378 | 1.488 | 1.315 | $15,614 | 1.522 | $132,954 | $148,568 | −$1,354 |
+| 600 | 6,283 | 1.553 | 1.311 | $15,442 | 1.603 | $145,067 | $160,509 | −$1,149 |
+| 1000 | 6,230 | 1.652 | 1.311 | $15,441 | 1.728 | $162,410 | $177,851 | −$2,106 |
+| no-stop | 6,215 | 1.690 | 1.311 | $15,441 | 1.777 | $168,098 | $184K | −$3,427 |
+
+**Trade-count blowup is gone.** M=1000 fires on 6,230 trades (vs 6,215
+baseline) — only the worst 15 trades hit the stop. Compare to the VWAP
+200h stop which fired ~40,000 extra trades. M=100 still only fires 35%
+more often despite capping losses 17× tighter.
+
+**Long side completely unaffected** at every M ≥ 200 (PF 1.31, $15.4K net).
+The ADV-gate-filtered long entries don't reach a 200×-vol stop distance.
+
+**Short PF is the full degradation surface**: at M=1000 it's 1.73 (close
+to baseline 1.78); at M=50 it's 1.28. Tighter stops trade short edge for
+tail bounding.
+
+**Capital-efficiency math** — with a properly bounded tail, you can size
+up. Pick the comfort level:
+
+| **Stop** | **Net @ 1×** | **Largest loss @ 1×** | **Comfortable scale** | **Net @ scale** | **Largest loss @ scale** |
+|---|---|---|---|---|---|
+| **Vol M=100** | $115K | −$205 | **17×** | **$1.95M** | **−$3,485** |
+| Vol M=600 | $161K | −$1,149 | 3× | $483K | −$3,447 |
+| Vol M=1000 | $178K | −$2,106 | 1.6× | $285K | −$3,370 |
+| VWAP 200h | $178K | −$695 | 5× | $890K | −$3,475 |
+| 100% pct | $148K | −$1,018 | 3.4× | $503K | −$3,461 |
+| no stop | $184K | −$3,427 | 1× | $184K | −$3,427 |
+
+**M=100 is the standout for aggressive scale-up.** Caps the worst
+single-trade loss at −$205 with only 35% more trades than baseline.
+Sized to match v0/baseline's tail (~−$3.5K), it deploys 17× the
+notional and produces a projected $1.95M net P&L — an order of
+magnitude beyond any other configuration. The PF is only 1.31 (vs
+baseline 1.69), but at 17× scale that PF still produces 10×+ the
+absolute dollars.
+
+Caveat: the scale factors above are per-trade-tail comfort, not
+liquidity-constrained scale. Real scale-up is bounded by the universe's
+ADV — a $17K notional × 8K trades a year on a $28.8M ADV gate is
+plausible, but slippage modeling would tighten the actual number.
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- cumsum-z-sweep \
+    --allow-short \
+    --cumsum-thresholds 15 \
+    --reference-vol-pct 0.1019 \
+    --vol-window-days 7 \
+    --min-long-adv 28800000 \
+    --min-short-adv 8000000 \
+    --max-bar-price-ratio 3.0 \
+    --require-persistence-for-exit \
+    --vol-stop-multiplier 100 \
+    --parallelism 8
+```
+
 ```
 dotnet run --project TradingEdge.CryptoBacktest -c Release -- cumsum-z-sweep \
     --allow-short \

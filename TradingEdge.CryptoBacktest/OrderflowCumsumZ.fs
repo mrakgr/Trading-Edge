@@ -153,6 +153,17 @@ type CumsumZConfig = {
     /// is recomputed every bar against the current rolling window.
     /// Set to 0 (default) to use the percentage stop or no stop.
     VwapStopHours: int
+    /// Vol-based stop in log-return multiples of the symbol's own
+    /// realized bar vol (volMa.SampleStd, computed at entry time and
+    /// held fixed for the trade). When > 0, replaces both
+    /// MaxAdverseFraction and VwapStopHours stops:
+    ///   stopRet = M * volMa.SampleStd_at_entry      (log-return distance)
+    ///   long  exits when bar.Low  <= entry * exp(-stopRet)
+    ///   short exits when bar.High >= entry * exp(+stopRet)
+    /// Adapts the stop band to per-symbol volatility: tight on BTC, loose
+    /// on high-vol meme coins, but with the same statistical-significance
+    /// threshold across the universe. Set to 0 (default) to disable.
+    VolStopMultiplier: float
 }
 
 let defaultCumsumZConfig (threshold: float) : CumsumZConfig =
@@ -169,7 +180,8 @@ let defaultCumsumZConfig (threshold: float) : CumsumZConfig =
       VolWindowDays = 90
       MaxBarPriceRatio = 0.0
       RequirePersistenceForExit = false
-      VwapStopHours = 0 }
+      VwapStopHours = 0
+      VolStopMultiplier = 0.0 }
 
 let private feeFor (notional: float) (takerFee: float) : float = notional * takerFee
 
@@ -226,6 +238,10 @@ type Engine(cfg: CumsumZConfig) =
     let mutable ratioAtEntry = 0.0
     let mutable fundingPnl = 0.0
     let mutable advAtEntry = 0.0
+    // Vol-stop: snapshot of volMa.SampleStd at entry, in log-return units.
+    // Held fixed for the trade so the stop band doesn't loosen as vol rises
+    // during a squeeze. 0 when vol-stop is disabled or vol wasn't computable.
+    let mutable volAtEntry = 0.0
 
     let mutable lastClose = 0.0
     let mutable lastUs = 0L
@@ -263,6 +279,7 @@ type Engine(cfg: CumsumZConfig) =
         ratioAtEntry <- cumAtFire
         fundingPnl <- 0.0
         advAtEntry <- currentAdv ()
+        volAtEntry <- volMa.SampleStd
 
     let closePos (fillPrice: float) (fillUs: int64) =
         let gross = grossPnL side entryPrice fillPrice effectiveNotional
@@ -293,6 +310,7 @@ type Engine(cfg: CumsumZConfig) =
         ratioAtEntry <- 0.0
         fundingPnl <- 0.0
         advAtEntry <- 0.0
+        volAtEntry <- 0.0
 
     let applyFunding (bar: SignedBar) =
         while fundingPtr < fundingEvents.Length
@@ -352,6 +370,23 @@ type Engine(cfg: CumsumZConfig) =
                 if bar.High >= stopPx then Some stopPx else None
             | Flat -> None
 
+    // Vol-based stop: stops at a multiple of the symbol's own realized
+    // vol (snapshotted at entry, fixed for the trade). The stop distance
+    // in log-return units is M * volAtEntry; converted to a price level
+    // via exp. Adapts the stop band to per-symbol volatility.
+    let volStopPriceIfHit (bar: SignedBar) : float option =
+        if cfg.VolStopMultiplier <= 0.0 || side = Flat || volAtEntry <= 0.0 then None
+        else
+            let stopRet = cfg.VolStopMultiplier * volAtEntry
+            match side with
+            | Long ->
+                let stopPx = entryPrice * exp (-stopRet)
+                if bar.Low <= stopPx then Some stopPx else None
+            | Short ->
+                let stopPx = entryPrice * exp (+stopRet)
+                if bar.High >= stopPx then Some stopPx else None
+            | Flat -> None
+
     // VWAP-band stop. Compares the current bar's VWAP against the rolling
     // VWAP extreme over the trailing N hours. Only checks once the rolling
     // window is full (vwapMaxMa.Count = vwapStopBars). Returns the fill
@@ -388,10 +423,14 @@ type Engine(cfg: CumsumZConfig) =
             updateExcursion bar
             barsHeld <- barsHeld + 1
 
-        // Stop check: VWAP-band stop takes precedence when enabled,
-        // otherwise the percentage stop applies. Both are leak-free since
-        // they read state populated by previous bars only.
-        if cfg.VwapStopHours > 0 then
+        // Stop check, in precedence order: vol-multiplier stop, then VWAP-band
+        // stop, then the percentage stop. All are leak-free since they read
+        // state populated by previous bars only.
+        if cfg.VolStopMultiplier > 0.0 then
+            match volStopPriceIfHit bar with
+            | Some stopPx -> closePos stopPx bar.EndUs
+            | None -> ()
+        elif cfg.VwapStopHours > 0 then
             match vwapStopFill bar with
             | Some fillPx -> closePos fillPx bar.EndUs
             | None -> ()

@@ -181,6 +181,7 @@ type CumsumZSweepArgs =
     | No_Funding
     | Require_Persistence_For_Exit
     | Vwap_Stop_Hours of int
+    | Vol_Stop_Multiplier of float
     | Results_Csv of string
     | Summary_Csv of string
     | [<AltCommandLine "-p">] Parallelism of int
@@ -209,6 +210,7 @@ type CumsumZSweepArgs =
             | No_Funding -> "Disable funding-rate accounting."
             | Require_Persistence_For_Exit -> "When set, opposite-clamp cumsum touches do NOT exit by themselves; positions are held until the 200h persistence regime flips against them. Default off (cumsum-driven exit)."
             | Vwap_Stop_Hours _ -> "Trailing-VWAP-band stop in HOURS. When N>0, exits a long if bar.VWAP <= rolling_min_vwap_Nh, exits a short if bar.VWAP >= rolling_max_vwap_Nh. Volume-weighted so wicks/spikes don't trigger. Replaces --max-adverse-pct when set. Default 0 (disabled)."
+            | Vol_Stop_Multiplier _ -> "Vol-based stop in log-return multiples of the symbol's own realized vol (volMa.SampleStd at entry, fixed for the trade). Stop distance = M * volAtEntry; long exits when price drops M*sigma against entry, short symmetric. Adapts to per-symbol vol. Takes precedence over --vwap-stop-hours and --max-adverse-pct. Default 0 (disabled). Try 50, 100, 200, 400, 600, 1000."
             | Results_Csv _ -> "Per-cell results CSV path."
             | Summary_Csv _ -> "Aggregate summary CSV path."
             | CumsumZSweepArgs.Parallelism _ -> "Max symbols processed concurrently. Default 4."
@@ -882,6 +884,7 @@ let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
     let maxBarPriceRatio = args.GetResult(CumsumZSweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
     let requirePersistenceForExit = args.Contains CumsumZSweepArgs.Require_Persistence_For_Exit
     let vwapStopHours = args.GetResult(CumsumZSweepArgs.Vwap_Stop_Hours, defaultValue = 0)
+    let volStopMultiplier = args.GetResult(CumsumZSweepArgs.Vol_Stop_Multiplier, defaultValue = 0.0)
     let fundingRoot =
         if args.Contains CumsumZSweepArgs.No_Funding then None
         else Some (args.GetResult(CumsumZSweepArgs.Funding_Root, defaultValue = defaultFundingRoot))
@@ -894,7 +897,7 @@ let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
         2
     else
 
-    printfn "[cumsum-z-sweep] symbols=%d timeframes=[%s] thresholds=[%s] maHours=[%s] short=%b range=%s..%s parallelism=%d minLongAdv=$%s minShortAdv=$%s volWindowDays=%d maxBarPriceRatio=%g referenceVolPct=%g requirePersistenceForExit=%b vwapStopHours=%d"
+    printfn "[cumsum-z-sweep] symbols=%d timeframes=[%s] thresholds=[%s] maHours=[%s] short=%b range=%s..%s parallelism=%d minLongAdv=$%s minShortAdv=$%s volWindowDays=%d maxBarPriceRatio=%g referenceVolPct=%g requirePersistenceForExit=%b vwapStopHours=%d volStopMultiplier=%g"
         symbols.Length
         (String.concat "," timeframes)
         (String.concat "," (thresholds |> Array.map (sprintf "%g")))
@@ -909,6 +912,7 @@ let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
         referenceVolPct
         requirePersistenceForExit
         vwapStopHours
+        volStopMultiplier
 
     Directory.CreateDirectory(Path.GetDirectoryName resultsCsv) |> ignore
     if File.Exists resultsCsv then File.Delete resultsCsv
@@ -954,7 +958,8 @@ let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
                                         VolWindowDays = volWindowDays
                                         MaxBarPriceRatio = maxBarPriceRatio
                                         RequirePersistenceForExit = requirePersistenceForExit
-                                        VwapStopHours = vwapStopHours }
+                                        VwapStopHours = vwapStopHours
+                                        VolStopMultiplier = volStopMultiplier }
                                 yield CumsumZCell(symbol, tf, cfg) |]
                 let metrics, adv =
                     runCumsumZCellsFromBars barsRoot symbol startDate endDate cells fundingRoot
