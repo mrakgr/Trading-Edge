@@ -835,3 +835,180 @@ single-month artefact behind apparently broad numbers. Cutpoint
 bucketing on raw values doesn't avoid the issue automatically (you'd
 still want a time-distribution check on any "great" bucket), but it
 makes the structure easier to reason about.
+
+## 1m successor — clamped-cumsum engine (`OrderflowCumsum`)
+
+We re-ran the orderflow thesis from scratch on **1m bars** with a
+window-boundary-independent engine. The motivation: v0 fires only on the
+1h bar boundary (the rolling-sum ratio crosses 1.0), which makes the
+result implementation-coupled to the choice of timeframe. A regime-flip
+on a 1m bar shouldn't have to wait for the next hour to print.
+
+### Engine
+
+Each 1m bar votes ±1 on the sign of `buyMa_200h.State − sellMa_200h.State`
+(v0's inner signal — same 200h rolling sum). Votes accumulate into a
+clamped cumsum `c ∈ [−60, +60]`. Long fires when `c` first touches +60
+from below, short at −60. Exit is on the **opposite extreme**: a long is
+held until `c` re-touches −60 (full regime reversal). Pre-fill votes 0
+during the first 200h, identical to v0's window-fill semantics.
+
+The earlier per-bar version (vote on `sign(buyDV_t − sellDV_t)` of just
+the current bar) was tested first and produced **PF 0.97 — breakeven**.
+Voting on the *smoothed 200h sum* instead of the per-bar sign is the
+unlock. The cumsum then becomes a regime-persistence detector layered on
+top of the v0 signal, not a noise smoother.
+
+Other v0 mechanics — gap detector at 3.0×, stop-loss, vol-sizing, ADV
+gate, funding accounting — are preserved verbatim. The per-bar liquidity
+gates (`MinDailyQuoteVolume`, `MinBarQuoteVolume`) are dropped since the
+gap detector subsumes them at 1m.
+
+### Vol rescaling — required when porting 1h → 1m
+
+`--reference-vol-pct` controls vol-based position sizing:
+
+```
+effectiveNotional = min(notional, notional * referenceVol / barVol)
+```
+
+v0 used `referenceVol = 1.0` (1%) at 1h, which roughly matched the pooled
+1h log-return std. At 1m the pooled log-return std is much smaller — the
+empirical median 7-day rolling std across a basket of 11 representative
+symbols is **10.2 bps/min = 0.10%**:
+
+```
+$ python scripts/crypto/measure_1m_vol.py
+symbol             n_bars        p10        p25        med        p75        p90
+BTCUSDT         1,051,165      4.34b      5.05b      6.07b      7.32b      9.20b
+ETHUSDT         1,051,165      6.51b      7.29b      8.84b     10.48b     13.07b
+SOLUSDT         1,051,164      8.07b      9.04b     10.56b     12.55b     15.93b
+WIFUSDT         1,051,164     12.46b     14.83b     17.93b     21.42b     24.84b
+...
+POOLED         10,511,645      6.07b      7.94b     10.19b     13.44b     18.79b
+```
+
+Without rescaling (using `referenceVol = 1.0`), `referenceVol/barVol > 7`
+on every 1m bar — the `min` clamp kicks in, every entry deploys full
+notional, no vol-sizing happens. With `referenceVol = 0.1019` (the pooled
+1m median), high-vol meme-coin entries get downsized exactly the way v0
+intended for 1h. The rescaling is a **factor-of-10 difference** in
+behavior, not a hyperparameter to tune.
+
+### Universe sweep results
+
+Universe (643 symbols with bars over 2024-05-01 .. 2026-04-30),
+allow-short, v0 ADV gates, gap detector at 3.0×, vol-tuned at 0.1019:
+
+| | **v0 1h orderflow-MA** | **Cumsum 1m + v0 gates + vol-tuned** |
+|---|---|---|
+| Trades | 20,006 | 10,526 |
+| Total PF | 1.490 | **1.565** |
+| Win rate | 41.8% | 46.9% |
+| Net P&L | +$221K | +$172K |
+| Profitable cells | 72.5% | 73.3% |
+| Median Sharpe | 0.50 | 0.52 |
+| Long PF | 1.26 | 1.20 |
+| Long net P&L | +$20K | +$11K |
+| Short PF | 1.54 | 1.64 |
+| Short net P&L | +$201K | +$161K |
+| Largest single winner | $4,004 | $3,502 |
+| **Largest single loss** | **−$3,599** | **−$3,493** |
+| MAE ≤−50% bucket | −$72K | −$58K |
+| Median bars held | 7 (~7h) | 1,566 (~26h) |
+
+The 1m cumsum **matches v0 PF (1.57 vs 1.49) with a slightly cleaner risk
+profile**. Trade count is half (~10.5k vs 20k) — the system is more
+selective by construction (one fire per regime persistence cycle, vs v0's
+fire on every ratio-crossing).
+
+Net P&L is lower because the trade count is lower; per-trade expectancy
+is higher ($16.3 vs $11.0). Median Sharpe is essentially tied.
+
+The **vol-rescaling step** is what closes the catastrophic-loss tail.
+Without it, the largest single loss was −$13.2K (vs v0's −$3.6K) — the
+meme-coin tail was being traded at full notional during high-vol bursts.
+With `referenceVol = 0.1019`, the largest loss drops to −$3.5K (below
+v0's worst trade) and the MAE ≤−50% bucket roughly halves.
+
+### Reproduce
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- cumsum-sweep \
+    --allow-short \
+    --reference-vol-pct 0.1019 \
+    --vol-window-days 7 \
+    --min-long-adv 28800000 \
+    --min-short-adv 8000000 \
+    --max-bar-price-ratio 3.0 \
+    --parallelism 8
+```
+
+Default `--cumsum-thresholds 60 --ma-hours 200`. Outputs land in
+`data/crypto/cumsum/`. SSD bar-cache (`data/crypto/perps_bars/1m/`)
+makes the sweep complete in ~70 seconds vs ~5 minutes off the HDD.
+
+## Z-cumsum variant — short-term-conviction signal (`OrderflowCumsumZ`)
+
+Follow-up engine. Replaces the ±1 vote with a continuous magnitude:
+
+```
+delta_t      = bar.BuyDollarVolume − bar.SellDollarVolume
+sigma_t      = StdMa_200h(delta).SampleStd
+z_t          = delta_t / sigma_t
+magnitude_t  = erf(z_t / sqrt 2.0)            ∈ (−1, +1)
+cumsum_t     = clamp(cumsum_{t−1} + magnitude_t, [−threshold, +threshold])
+```
+
+The cumsum + erf encoding makes the per-bar contribution **proportional to
+how unusual the bar is**: a typical bar contributes near 0; a several-sigma
+outlier saturates at ±1. This is "short-term conviction" — the simple-vote
+cumsum measures regime persistence; this version layers conviction
+intensity on top.
+
+**Persistence gate at fire time.** Long fires require both
+`cumsum = +threshold` AND `buyMa_200h > sellMa_200h` (the v0 inner signal
+agrees). Short symmetric. Exits on opposite-clamp touch close any open
+position regardless of persistence; flip into a new position only if
+persistence confirms the new direction, otherwise stay flat.
+
+**Initial sweep at threshold = 10:**
+
+| | **Cumsum vol-tuned** | **Z-cumsum th=10** |
+|---|---|---|
+| Trades | 10,526 | **54,061** |
+| Total PF | 1.565 | 1.153 |
+| Long PF | 1.20 | **1.31** |
+| Long trades | 3,116 | 4,167 |
+| Short PF | 1.64 | 1.14 |
+| Short trades | 7,410 | 49,894 |
+| Largest single loss | −$3,493 | **−$1,092** |
+
+Two findings:
+
+1. **Long-side improvement is real.** Long PF 1.31 vs 1.20 — the
+   conviction-weighted vote captures stronger long signals than the
+   ±1 vote does. This is a +9 PF basis points lift on the side we've
+   been trying to improve.
+2. **Threshold = 10 fires too aggressively on shorts.** Short trade
+   count went 7.4k → 49.9k (+6.7×). The cumsum saturates faster than
+   I estimated; threshold = 10 is the wrong order of magnitude. A
+   sweep over 11–18 is in flight.
+
+Largest single loss dropped to −$1.1K (vs −$3.5K) — even with the over-
+firing on shorts, individual-trade risk is much tighter because the
+persistence gate prevents flips into unconfirmed regimes.
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- cumsum-z-sweep \
+    --allow-short \
+    --reference-vol-pct 0.1019 \
+    --vol-window-days 7 \
+    --min-long-adv 28800000 \
+    --min-short-adv 8000000 \
+    --max-bar-price-ratio 3.0 \
+    --parallelism 8
+```
+
+Default `--cumsum-thresholds 10 --ma-hours 200`. Outputs land in
+`data/crypto/cumsum_z/`.
