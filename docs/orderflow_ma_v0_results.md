@@ -1348,3 +1348,121 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- cumsum-z-sweep \
 
 Default `--cumsum-thresholds 10 --ma-hours 200`. Outputs land in
 `data/crypto/cumsum_z/`.
+
+## Momentum stratification — 60d trailing reference price
+
+Once we had a stable backtested system (z-cumsum + persist, no stop —
+$184K net, PF 1.69, 6,215 trips), we asked: **does the 60d-trailing
+momentum at entry predict trade outcome?** The hypothesis was that
+sharply-up coins would be losing longs (mean-reversion / blow-off
+tops) and good shorts (squeeze recovery), in line with equity-market
+intuition.
+
+We swept three reference-price modes via `scripts/crypto/momentum_stratify.py`:
+
+1. **VWMA**: 60d volume-weighted moving average of bar VWAP.
+2. **MA**: 60d unweighted mean of bar VWAP.
+3. **Z-score**: `(entry - MA_60d) / std_60d` in price-units σ — per-symbol
+   standardized so BTC and meme coins share an axis.
+
+For symbols with <60 days of bars at entry, we use whatever's available.
+
+### What VWMA gets wrong
+
+The first cut was VWMA. It produced a strong-looking long mean-reversion
+bucket (-50 to -20%, PF 1.43) and an apparent "don't short coins up
+>+50%" rule (PF 0.57-0.84 in the +50% to +200% buckets). **Neither
+finding survived a sanity check.**
+
+Switching to unweighted MA (same data, same trips):
+- Long -50 to -20% bucket: **PF 1.43 → PF 2.11** (much stronger)
+- Short +50 to +100%: **PF 1.15 → PF 1.56**
+- Short +100 to +200%: **PF 0.57 → PF 1.73** (flips from loser to winner!)
+- Short ≥+200%: **PF 0.77 → PF 2.02**
+
+The volume-weighting was over-weighting the elevated trading during the
+recent up-leg, which pulled the VWMA toward the entry price and made
+the entry look closer to its reference than it really was. Coins that
+had genuinely run up by +200% from a normal price level were getting
+classified as "+30% from VWMA" because the VWMA had ridden the rally
+upward. **Volume-weighted references are a bad fit for measuring
+distance-from-typical-price** when the trading distribution shifts during
+a regime change.
+
+### Z-score mode is the cleanest cut
+
+Standardizing by per-symbol 60d std normalizes BTC's ±5% range and WIF's
+±50% range onto the same axis. Z-bucket cutpoints: <-3, -3 to -2, -2 to -1,
+-1 to 0, 0 to +1, +1 to +2, +2 to +3, ≥+3.
+
+**LONG side (1,828 trades, total PF 1.31):**
+
+| **z-bucket** | **trades** | **PF** | **net $** | **avg $** |
+|---|---|---|---|---|
+| <-3 | 1 | (n/a) | −6 | −5.88 |
+| -3 to -2 | 19 | 1.30 | +151 | +7.96 |
+| **-2 to -1** | 337 | **1.69** | +4,386 | +13.01 |
+| -1 to 0 | 527 | 1.11 | +1,518 | +2.88 |
+| 0 to +1 | 343 | 1.19 | +1,833 | +5.34 |
+| +1 to +2 | 254 | 1.37 | +2,725 | +10.73 |
+| **+2 to +3** | 162 | 1.53 | +2,678 | +16.53 |
+| ≥+3 | 185 | 1.30 | +2,155 | +11.65 |
+
+The long side has a **U-shape in PF**: 1.69 at -2σ (mean-reversion
+buying), dips to 1.11–1.19 around the mean (the noisy middle), and
+climbs back to 1.53 at +2σ. The right tail (≥+3σ) is still profitable
+(PF 1.30) — coins multiple-σ above normal can keep extending. The
+weakest band is -1 to +1σ which carries 47.5% of long trades but only
+22% of long net P&L.
+
+**SHORT side (4,387 trades, total PF 1.78):**
+
+| **z-bucket** | **trades** | **PF** | **net $** | **avg $** |
+|---|---|---|---|---|
+| <-3 | 31 | **2.18** | +1,362 | +43.92 |
+| -3 to -2 | 93 | 1.31 | +1,655 | +17.80 |
+| -2 to -1 | 1,082 | 1.78 | +39,720 | +36.71 |
+| **-1 to 0** | 1,368 | **1.86** | +56,026 | +40.95 |
+| 0 to +1 | 878 | 1.77 | +36,575 | +41.66 |
+| +1 to +2 | 550 | 1.51 | +16,108 | +29.29 |
+| +2 to +3 | 250 | 2.01 | +10,173 | +40.69 |
+| **≥+3** | 135 | **2.37** | +6,480 | +48.00 |
+
+**Every short bucket is profitable.** The strongest are -1 to 0σ
+(PF 1.86, 1,368 trades, $56K net — the bulk of the short edge) and the
+extremes: ≥+3σ (PF 2.37, the highest PF anywhere) and <-3σ (PF 2.18).
+The weakest is +1 to +2σ (PF 1.51) — moderately-elevated coins where
+momentum continuation is most likely to keep going up.
+
+The shape is **roughly symmetric around the mean**: shorts work in both
+directions if the deviation is large enough. Mid-rally fades (+1 to +2σ)
+are the riskiest because that's where momentum continuation kicks in,
+but past +2σ the snap-back probability rises again.
+
+### Implications for entry filtering
+
+The natural follow-ups (not yet implemented):
+
+1. **Long-side dead zone**: -1 to +1σ for longs is PF 1.15 over 870
+   trades. If this band signals weak edge, an entry filter dropping
+   long fires there would remove ~48% of long trades while keeping ~78%
+   of long P&L. Net per remaining long trade roughly doubles.
+
+2. **Short-side mid-rally caution**: +1 to +2σ shorts (PF 1.51, 550 trades)
+   are the weakest short band. Skipping them sacrifices $16K of net but
+   keeps the system at PF >1.7 across remaining short fires.
+
+3. **Z-score as a sizing modulator instead of a filter**: scale notional
+   up at high-PF z-buckets (-2σ longs, ≥+3σ shorts), down at low-PF
+   buckets. Implements "bet bigger when conviction is stronger" without
+   removing trades.
+
+For now this is purely a stratification finding — the system itself
+remains unchanged.
+
+```
+# Three modes:
+python scripts/crypto/momentum_stratify.py            # VWMA (default)
+python scripts/crypto/momentum_stratify.py --mode ma
+python scripts/crypto/momentum_stratify.py --mode zscore
+```

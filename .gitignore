@@ -31,3 +31,4 @@ chat.md
 **/__pycache__
 .claude/scheduled_tasks.lock
 logs/*
+.tmp/

@@ -47,22 +47,42 @@ BUCKET_LABELS = [
     ">=+200%",
 ]
 
+# Z-score cutpoints (used when --zscore). Roughly equal-density slices
+# under a normal distribution; gives 8 buckets.
+Z_CUTPOINTS = [-3.0, -2.0, -1.0, 0.0, +1.0, +2.0, +3.0]
+Z_BUCKET_LABELS = [
+    "<-3",
+    "-3 to -2",
+    "-2 to -1",
+    "-1 to 0",
+    "0 to +1",
+    "+1 to +2",
+    "+2 to +3",
+    ">=+3",
+]
 
-def bucket_idx(p: float) -> int:
-    for i, c in enumerate(CUTPOINTS):
+
+def bucket_idx(p: float, cutpoints) -> int:
+    for i, c in enumerate(cutpoints):
         if p < c:
             return i
-    return len(CUTPOINTS)
+    return len(cutpoints)
 
 
 def per_symbol_pct_change(con, bars_path: str, trips_for_sym: pd.DataFrame,
-                          lookback_us: int, weighted: bool) -> pd.DataFrame:
-    """Return a DataFrame with the original trip rows plus pct_change and
-    lookback_days columns, computed against the symbol's 1m bar parquet.
+                          lookback_us: int, mode: str) -> pd.DataFrame:
+    """Return a DataFrame with the original trip rows plus pct_change/zscore
+    and lookback_days columns, computed against the symbol's 1m bar parquet.
 
-    The reference price is computed via a windowed cumulative-sum approach:
-      VWMA: ref = sum(vwap*volume) / sum(volume)  over the trailing 60d
-      MA:   ref = avg(vwap)                       over the trailing 60d
+    Modes:
+      vwma:    ref = sum(vwap*volume) / sum(volume)  over the trailing 60d
+               metric = entry_price / ref - 1                            (% change)
+      ma:      ref = avg(vwap)                       over the trailing 60d
+               metric = entry_price / ref - 1                            (% change)
+      zscore:  ref = avg(vwap), std = stddev_samp(vwap)  over the trailing 60d
+               metric = (entry_price - ref) / ref / pct_std              (z-score
+               in units of the per-bar log-return-equivalent std).
+               Actually we use price-units std: z = (entry - mean) / std.
 
     Cumulative sums let us evaluate the windowed aggregate as
         (cum_at_t - cum_at_(t-60d)) / (cum_count_at_t - cum_count_at_(t-60d))
@@ -70,27 +90,34 @@ def per_symbol_pct_change(con, bars_path: str, trips_for_sym: pd.DataFrame,
     If the second ASOF returns nothing (symbol younger than 60d at entry),
     its sums default to 0 — the formula then reads off the symbol's full
     available history before the entry, which matches the spec.
+
+    For z-score mode we also keep cum_sumsq (running sum of vwap²) so we
+    can compute the windowed sample-variance via Welford's algebraic
+    identity: var = (sumsq_diff - n * mean²) / (n - 1).
     """
     # Load and pre-aggregate the symbol's bars in DuckDB.
-    if weighted:
+    if mode == "vwma":
         con.execute(f"""
             CREATE OR REPLACE TEMP TABLE bars AS
             SELECT
                 start_us,
                 SUM(vwap * volume) OVER (ORDER BY start_us)   AS cum_num,
-                SUM(volume)        OVER (ORDER BY start_us)   AS cum_den
+                SUM(volume)        OVER (ORDER BY start_us)   AS cum_den,
+                CAST(NULL AS DOUBLE)                          AS cum_sumsq
             FROM read_parquet('{bars_path}')
             WHERE volume > 0 AND vwap > 0
             ORDER BY start_us;
         """)
     else:
-        # Unweighted moving average over bar VWAP.
+        # Unweighted MA / z-score: cum_num is sum of vwap, cum_den is bar count.
+        # Always compute cum_sumsq (sum of vwap²) so the same path serves both modes.
         con.execute(f"""
             CREATE OR REPLACE TEMP TABLE bars AS
             SELECT
                 start_us,
                 SUM(vwap)          OVER (ORDER BY start_us)   AS cum_num,
-                ROW_NUMBER()       OVER (ORDER BY start_us)   AS cum_den
+                ROW_NUMBER()       OVER (ORDER BY start_us)   AS cum_den,
+                SUM(vwap * vwap)   OVER (ORDER BY start_us)   AS cum_sumsq
             FROM read_parquet('{bars_path}')
             WHERE volume > 0 AND vwap > 0
             ORDER BY start_us;
@@ -106,12 +133,13 @@ def per_symbol_pct_change(con, bars_path: str, trips_for_sym: pd.DataFrame,
         FROM trips_sym;
     """, [lookback_us])
 
-    # ASOF LEFT JOIN: pull cum_num / cum_den at-or-before each timestamp.
+    # ASOF LEFT JOIN: pull cum_num / cum_den / cum_sumsq at-or-before each timestamp.
     df = con.execute("""
         WITH at_entry AS (
             SELECT t.entry_us,
                    b.cum_num AS cum_num_now,
                    b.cum_den AS cum_den_now,
+                   b.cum_sumsq AS cum_sumsq_now,
                    b.start_us AS bar_us_now
             FROM trip_targets t
             ASOF LEFT JOIN bars b
@@ -121,6 +149,7 @@ def per_symbol_pct_change(con, bars_path: str, trips_for_sym: pd.DataFrame,
             SELECT t.entry_us,
                    b.cum_num AS cum_num_lb,
                    b.cum_den AS cum_den_lb,
+                   b.cum_sumsq AS cum_sumsq_lb,
                    b.start_us AS bar_us_lb
             FROM trip_targets t
             ASOF LEFT JOIN bars b
@@ -130,9 +159,11 @@ def per_symbol_pct_change(con, bars_path: str, trips_for_sym: pd.DataFrame,
             ae.entry_us,
             ae.cum_num_now,
             ae.cum_den_now,
+            ae.cum_sumsq_now,
             ae.bar_us_now,
             COALESCE(al.cum_num_lb, 0.0) AS cum_num_lb,
             COALESCE(al.cum_den_lb, 0.0) AS cum_den_lb,
+            COALESCE(al.cum_sumsq_lb, 0.0) AS cum_sumsq_lb,
             al.bar_us_lb
         FROM at_entry ae
         LEFT JOIN at_lookback al USING (entry_us)
@@ -146,6 +177,19 @@ def per_symbol_pct_change(con, bars_path: str, trips_for_sym: pd.DataFrame,
     df["ref_price"] = num_diff / den_diff
     df.loc[(den_diff <= 0) | df["cum_num_now"].isna(), "ref_price"] = pd.NA
 
+    if mode == "zscore":
+        # Windowed sample variance via Welford identity:
+        #   var = (sumsq_diff - n * mean²) / (n - 1)
+        sumsq_diff = df["cum_sumsq_now"] - df["cum_sumsq_lb"]
+        n = den_diff
+        mean = df["ref_price"]
+        # Avoid division by zero for symbols with only a single bar in window.
+        var = (sumsq_diff - n * mean * mean) / (n - 1)
+        var = var.clip(lower=0.0)  # numeric safety
+        std = var ** 0.5
+        df["ref_std"] = std
+        df.loc[(n <= 1) | std.isna() | (std <= 0), "ref_std"] = pd.NA
+
     # Lookback days actually used: from the first bar in the window to entry.
     # If the lookback ASOF returned a bar, the window starts there; otherwise
     # the window starts at the symbol's first bar.
@@ -156,9 +200,16 @@ def per_symbol_pct_change(con, bars_path: str, trips_for_sym: pd.DataFrame,
     df["lookback_days"] = (df["entry_us"] - window_start) / US_PER_DAY
 
     # Merge back onto the original trips_for_sym dataframe.
-    out = trips_for_sym.merge(df[["entry_us", "ref_price", "lookback_days"]],
-                              on="entry_us", how="left")
-    out["pct_change"] = (out["entry_price"] / out["ref_price"]) - 1.0
+    if mode == "zscore":
+        out = trips_for_sym.merge(
+            df[["entry_us", "ref_price", "ref_std", "lookback_days"]],
+            on="entry_us", how="left")
+        out["pct_change"] = (out["entry_price"] - out["ref_price"]) / out["ref_std"]
+    else:
+        out = trips_for_sym.merge(
+            df[["entry_us", "ref_price", "lookback_days"]],
+            on="entry_us", how="left")
+        out["pct_change"] = (out["entry_price"] / out["ref_price"]) - 1.0
     return out
 
 
@@ -171,11 +222,17 @@ def main():
                     help=f"1m bar-parquet root. Default: {DEFAULT_BARS_ROOT}")
     ap.add_argument("--lookback-days", type=int, default=LOOKBACK_DAYS,
                     help=f"Reference-price window in days. Default: {LOOKBACK_DAYS}")
+    ap.add_argument("--mode", choices=["vwma", "ma", "zscore"], default="vwma",
+                    help="Reference-price computation mode. "
+                         "vwma = volume-weighted moving average (default). "
+                         "ma = unweighted mean of bar VWAP. "
+                         "zscore = (entry - unweighted_mean) / unweighted_std, "
+                         "in price-units σ.")
     ap.add_argument("--unweighted", action="store_true",
-                    help="Use a plain mean of bar VWAP instead of a volume-"
-                         "weighted moving average. Useful for sanity-checking "
-                         "whether volume weighting is biasing the reference.")
+                    help="Shortcut for --mode ma (kept for backwards compat).")
     args = ap.parse_args()
+    if args.unweighted and args.mode == "vwma":
+        args.mode = "ma"
 
     repo_root = os.path.abspath(os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "..", ".."))
@@ -183,8 +240,12 @@ def main():
     bars_root = os.path.join(repo_root, args.bars_root)
     lookback_us = args.lookback_days * US_PER_DAY
 
-    mode = "MA (unweighted mean of VWAP)" if args.unweighted else "VWMA (volume-weighted)"
-    print(f"Reference-price mode: {mode}, lookback {args.lookback_days}d")
+    mode_desc = {
+        "vwma": "VWMA (volume-weighted)",
+        "ma": "MA (unweighted mean of VWAP)",
+        "zscore": "Z-score (entry - unweighted_mean) / unweighted_std",
+    }[args.mode]
+    print(f"Reference-price mode: {mode_desc}, lookback {args.lookback_days}d")
     trips = pd.read_csv(trips_path)
     print(f"Loaded {len(trips):,} trips from {args.trips}")
 
@@ -202,7 +263,7 @@ def main():
             n_missing += 1
             continue
         result = per_symbol_pct_change(con, bars_path, sub, lookback_us,
-                                       weighted=not args.unweighted)
+                                       mode=args.mode)
         pieces.append(result)
         if i % 50 == 0 or i == len(by_symbol):
             print(f"  [{i:>4d}/{len(by_symbol)}] processed", file=sys.stderr)
@@ -224,7 +285,9 @@ def main():
     print(f"  {n_short:,} trips ({100.0*n_short/len(df):.1f}%) had <{args.lookback_days}d available")
     print()
 
-    df["bucket"] = df["pct_change"].apply(bucket_idx)
+    cutpoints = Z_CUTPOINTS if args.mode == "zscore" else CUTPOINTS
+    bucket_labels = Z_BUCKET_LABELS if args.mode == "zscore" else BUCKET_LABELS
+    df["bucket"] = df["pct_change"].apply(lambda p: bucket_idx(p, cutpoints))
 
     for side_label, side_str in [("LONG", "long"), ("SHORT", "short")]:
         sub = df[df["side"] == side_str]
@@ -235,7 +298,7 @@ def main():
               f"{'PF':>6s}  {'net_pnl$':>11s}  {'avg_pnl$':>9s}  "
               f"{'med_lookback':>14s}")
         print("  " + "-" * 80)
-        for i, label in enumerate(BUCKET_LABELS):
+        for i, label in enumerate(bucket_labels):
             b = sub[sub["bucket"] == i]
             if len(b) == 0:
                 continue
