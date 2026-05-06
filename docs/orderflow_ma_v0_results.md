@@ -1643,3 +1643,55 @@ imbalance reflects *fresh* flow rather than a multi-day average.
 ```
 python scripts/crypto/imbalance_stratify.py --windows 1h --deciles
 ```
+
+### Window-length cross-check — 15m, 30m, 90m, 8h
+
+To verify the 1h finding wasn't a single-window artifact, we ran the
+decile breakdown at 15m, 30m, 90m, and 8h. The same dead-zone-and-
+sweet-spot **shape** appears across the 30m–90m band; below 30m and
+above 8h it dissolves.
+
+**LONG-side decile PF across windows** (peak in **bold**, dead zone
+italicized):
+
+| **D** | **15m** | **30m** | **1h** | **90m** | **8h** |
+|---|---|---|---|---|---|
+| 1 | 1.56 | _0.91_ | 1.30 | 1.44 | _0.94_ |
+| 2 | 1.24 | **2.32** | **1.96** | 1.68 | 1.22 |
+| 3 | **1.96** | 1.55 | **1.94** | **1.96** | 1.40 |
+| 4 | _0.92_ | 1.67 | **1.96** | 1.43 | 1.26 |
+| 5 | 1.52 | 1.40 | _0.83_ | _1.01_ | 1.60 |
+| 6 | 1.27 | 1.13 | _0.77_ | _0.85_ | _0.87_ |
+| 7 | 1.09 | 1.07 | _1.09_ | _0.91_ | **2.10** |
+| 8 | 1.37 | 1.17 | _0.93_ | 1.05 | 1.28 |
+| 9 | 1.04 | _0.88_ | _0.93_ | 1.19 | 1.34 |
+| 10 | _0.89_ | _0.96_ | 1.34 | 1.39 | 1.20 |
+
+The 1h pattern (sweet spot D2–4, dead zone D5–9) is the cleanest
+single-window result. **90m has the same pattern with a narrower
+dead zone (D5–7)** and a slightly later center. **30m has the
+same direction but more bucket-to-bucket noise** — D6–10 average
+PF ~1.04, D2–5 average PF ~1.74, so the upper-half-vs-lower-half
+split survives even though no individual decile stands out cleanly.
+15m and 8h dissolve the pattern — too noisy below, too averaged
+above.
+
+**SHORT-side decile 1 PF across windows** — the late-short dead zone:
+
+| **window** | **D1 imb range** | **D1 PF** | **system PF** |
+|---|---|---|---|
+| 15m | −99.67 to −47.54% | 1.30 | 1.78 |
+| 30m | −92.49 to −38.63% | 1.18 | 1.78 |
+| **1h** | **−76.25 to −30.18%** | **1.10** | 1.78 |
+| 90m | −78.36 to −26.08% | 1.32 | 1.78 |
+| 8h | −76.96 to −12.46% | 1.43 | 1.78 |
+
+The "shorts fired into already-net-selling 1h flow are late entries"
+effect is **most pronounced at 1h** (PF 1.10, vs 1.18–1.43 at adjacent
+windows). 1h captures the right horizon: aggregated enough to smooth
+trade-by-trade noise, fresh enough to reflect *current* regime tilt.
+
+**Conclusion**: 1h is the unique discriminative window for buy/sell
+imbalance on this system. The dead-zone effect persists from 30m to
+90m at lower magnitude — useful as a sanity check that the 1h finding
+isn't artifact, less useful as alternative filter horizons.
