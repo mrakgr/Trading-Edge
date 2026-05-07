@@ -217,6 +217,73 @@ type CumsumZSweepArgs =
             | Summary_Csv _ -> "Aggregate summary CSV path."
             | CumsumZSweepArgs.Parallelism _ -> "Max symbols processed concurrently. Default 4."
 
+type ExtremeRvolSweepArgs =
+    | [<AltCommandLine "-d">] Data_Root of string
+    | [<AltCommandLine "-b">] Bars_Root of string
+    | [<AltCommandLine "-s">] Symbol of string
+    | Start_Date of string
+    | End_Date of string
+    | Timeframes of string
+    | Rvol_Entry_Thresholds of string
+    | Rvol_Exit_Threshold of float
+    | Price_Rise_Thresholds of string
+    | Entry_Rvol_Hours of int
+    | Exit_Rvol_Hours of int
+    | Recent_Hours of int
+    | Lookback_Days of int
+    | Lag_Hours of int
+    | Cvd_Hours of int
+    | Stop_High_Window_Minutes of int
+    | Time_Stop_Minutes of string
+    | Time_Stop_Mode of string
+    | Notional of float
+    | Taker_Fee of float
+    | Use_Trades
+    | Max_Adverse_Pct of float
+    | Reference_Vol_Pct of float
+    | Min_Short_Adv of float
+    | Vol_Window_Days of int
+    | Max_Bar_Price_Ratio of float
+    | Funding_Root of string
+    | No_Funding
+    | Results_Csv of string
+    | Summary_Csv of string
+    | [<AltCommandLine "-p">] Parallelism of int
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Data_Root _ -> "Trade-parquet root. Default: " + defaultDataRoot
+            | Bars_Root _ -> "Pre-aggregated bar-parquet root. Default: " + defaultBarsRoot
+            | Symbol _ -> "Restrict sweep to a comma-separated symbol list."
+            | Start_Date _ -> "Inclusive start date YYYY-MM-DD. Default 2024-05-01."
+            | End_Date _ -> "Inclusive end date YYYY-MM-DD. Default 2026-04-30."
+            | Timeframes _ -> "Comma-separated timeframes. Default 1m."
+            | Rvol_Entry_Thresholds _ -> "Comma-separated rvol entry thresholds (mean-recent / mean-baseline volume ratio). Default '8,10,12,15'. Entry requires this AND the price-rise gate AND a 1h-CVD cross."
+            | Rvol_Exit_Threshold _ -> "Cover when rvol-exit falls below this. Default 2.0. Must be < entry."
+            | Price_Rise_Thresholds _ -> "Comma-separated price-rise thresholds (fractional). Default '0.05,0.10,0.15'. Entry requires close >= (1+threshold) * 8h-MA-lagged-16h."
+            | Entry_Rvol_Hours _ -> "Entry-rvol numerator window in HOURS. Default 1. Short window so a single hot hour fires the entry gate before the slower 8h cover frame catches up."
+            | Exit_Rvol_Hours _ -> "Cover-rvol numerator window in HOURS. Default 1 — book as soon as a single hour normalises below the cover threshold."
+            | Recent_Hours _ -> "Recent-window hours for the lagged-MA derivation (the '8h' in 8h-MA-lagged-16h). Default 8."
+            | Lookback_Days _ -> "Baseline-window days for the rvol denominator (shared by entry and cover gates). Default 30."
+            | Lag_Hours _ -> "Lag (hours) for the lagged-MA. Default 16. Two trailing MAs are over (RecentHours+LagHours)=24h and LagHours=16h."
+            | Cvd_Hours _ -> "Trailing-CVD window hours for the entry trigger. Default 1."
+            | Stop_High_Window_Minutes _ -> "High-stop window (minutes) for the trailing-MaxMa of bar.High snapshotted at entry. Default 20."
+            | Time_Stop_Minutes _ -> "Comma-separated time-stop windows in MINUTES. When >0, close the trade after this many minutes per --time-stop-mode. Default '90' (chart-review-validated). Pass '0' to disable. Example: '0,30,60,90,120'."
+            | Time_Stop_Mode _ -> "Time-stop semantics: 'hard' closes unconditionally at the timer; 'conditional' closes only if the trade isn't currently profitable. Default 'conditional'."
+            | ExtremeRvolSweepArgs.Notional _ -> "Per-trade notional. Default 1000."
+            | Taker_Fee _ -> "Per-fill taker fee fraction. Default 0.0004."
+            | Use_Trades -> "Force the trade-stream backtest path (currently not supported; runs from pre-aggregated bars)."
+            | Max_Adverse_Pct _ -> "Optional fixed-fraction stop on top of the VWAP stop. Default 0 (disabled)."
+            | Reference_Vol_Pct _ -> "Reference per-bar log-return std as percent. Default 0 (disabled). Recommended 0.1019 for 1m."
+            | ExtremeRvolSweepArgs.Min_Short_Adv _ -> "Minimum trailing-90d ADV (USDT/day) for a short entry. Default 0."
+            | ExtremeRvolSweepArgs.Vol_Window_Days _ -> "Vol-window length in days. Default 90."
+            | ExtremeRvolSweepArgs.Max_Bar_Price_Ratio _ -> "Bar-to-bar price-ratio gap detector. Default 0. Recommended 3.0."
+            | ExtremeRvolSweepArgs.Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
+            | No_Funding -> "Disable funding-rate accounting."
+            | ExtremeRvolSweepArgs.Results_Csv _ -> "Per-cell results CSV path."
+            | ExtremeRvolSweepArgs.Summary_Csv _ -> "Aggregate summary CSV path."
+            | ExtremeRvolSweepArgs.Parallelism _ -> "Max symbols processed concurrently. Default 4."
+
 type BuildBreadthArgs =
     | [<AltCommandLine "-b">] Bars_Root of string
     | [<AltCommandLine "-s">] Symbol of string
@@ -316,6 +383,7 @@ type CliArgs =
     | [<CliPrefix(CliPrefix.None)>] Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Cumsum_Sweep of ParseResults<CumsumSweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Cumsum_Z_Sweep of ParseResults<CumsumZSweepArgs>
+    | [<CliPrefix(CliPrefix.None)>] Extreme_Rvol_Sweep of ParseResults<ExtremeRvolSweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Vwma_Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Breakout_Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Breadth of ParseResults<BuildBreadthArgs>
@@ -329,6 +397,7 @@ type CliArgs =
             | Sweep _          -> "Run the full grid: timeframes × MA hours × symbols."
             | Cumsum_Sweep _   -> "Clamped-cumsum 1m successor to the orderflow-MA system: per-bar +/-1 vote on buy/sell sign, cumsum clamped to [-threshold, +threshold]; long fires at +threshold, short at -threshold, exit on opposite extreme."
             | Cumsum_Z_Sweep _ -> "Z-cumsum variant: per-bar magnitude is erf(z/sqrt 2) where z = (buyDV-sellDV)/std200h(buyDV-sellDV). Persistence-gated: long fires at +threshold AND buyMa>sellMa, short symmetric. Exit on opposite clamp; flip only if persistence confirms."
+            | Extreme_Rvol_Sweep _ -> "Extreme-rvol blowoff short engine (chart-review-derived): enter short when 8h-mean volume >= Nx 30d-mean AND close >= 1.10 * 8h-MA-lagged-16h AND 1h CVD just turned negative. Stop at trailing-8h-MaxVWAP snapshotted at entry. Cover when rvol < 2x. Short-only by design."
             | Vwma_Sweep _     -> "Research baseline: same grid, but signal is close-vs-VWMA crossover instead of orderflow ratio."
             | Breakout_Sweep _ -> "Research baseline: same grid, but signal is symmetric N-hour VWAP-breakout/breakdown instead of orderflow ratio."
             | Build_Breadth _  -> "Build the universe-wide breadth panel: per-(symbol, hour) signal trace plus per-hour aggregates with composite signed-volume t-digest rank."
@@ -1049,6 +1118,250 @@ let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
     printfn ""
     printfn "[cumsum-z-sweep] breakdown -> %s" breakdownLogPath
     printfn "[cumsum-z-sweep] total wall %.1fs" swAll.Elapsed.TotalSeconds
+    0
+
+// =============================================================================
+// extreme-rvol-sweep — chart-review-derived blowoff short engine
+// =============================================================================
+//
+// Sweeps (rvol entry threshold × price-rise threshold) cells. Always
+// short-only. Output paths default under data/crypto/extreme_rvol/.
+// Reuses Reporting.appendTrips / appendResults / printGroupBreakdown so
+// downstream stratify scripts (volume_momentum_stratify.py etc.) work
+// unchanged on the new trip CSVs.
+
+let cmdExtremeRvolSweep (args: ParseResults<ExtremeRvolSweepArgs>) : int =
+    let dataRoot = args.GetResult(ExtremeRvolSweepArgs.Data_Root, defaultValue = defaultDataRoot)
+    let barsRoot = args.GetResult(ExtremeRvolSweepArgs.Bars_Root, defaultValue = defaultBarsRoot)
+    let useTrades = args.Contains ExtremeRvolSweepArgs.Use_Trades
+    let startDate = args.TryGetResult ExtremeRvolSweepArgs.Start_Date |> Option.map parseDate |> Option.defaultValue defaultStart
+    let endDate   = args.TryGetResult ExtremeRvolSweepArgs.End_Date   |> Option.map parseDate |> Option.defaultValue defaultEnd
+    let timeframes =
+        args.TryGetResult ExtremeRvolSweepArgs.Timeframes
+        |> Option.map (parseList ',')
+        |> Option.defaultValue [| "1m" |]
+    let rvolEntryThresholds =
+        args.TryGetResult ExtremeRvolSweepArgs.Rvol_Entry_Thresholds
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map (fun s -> Double.Parse(s, System.Globalization.CultureInfo.InvariantCulture)))
+        |> Option.defaultValue [| 8.0; 10.0; 12.0; 15.0 |]
+    let priceRiseThresholds =
+        args.TryGetResult ExtremeRvolSweepArgs.Price_Rise_Thresholds
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map (fun s -> Double.Parse(s, System.Globalization.CultureInfo.InvariantCulture)))
+        |> Option.defaultValue [| 0.05; 0.10; 0.15 |]
+    let rvolExitThreshold = args.GetResult(ExtremeRvolSweepArgs.Rvol_Exit_Threshold, defaultValue = 2.0)
+    let entryRvolHours = args.GetResult(ExtremeRvolSweepArgs.Entry_Rvol_Hours, defaultValue = 1)
+    let exitRvolHours = args.GetResult(ExtremeRvolSweepArgs.Exit_Rvol_Hours, defaultValue = 1)
+    let recentHours = args.GetResult(ExtremeRvolSweepArgs.Recent_Hours, defaultValue = 8)
+    let lookbackDays = args.GetResult(ExtremeRvolSweepArgs.Lookback_Days, defaultValue = 30)
+    let lagHours = args.GetResult(ExtremeRvolSweepArgs.Lag_Hours, defaultValue = 16)
+    let cvdHours = args.GetResult(ExtremeRvolSweepArgs.Cvd_Hours, defaultValue = 1)
+    let stopHighWindowMinutes = args.GetResult(ExtremeRvolSweepArgs.Stop_High_Window_Minutes, defaultValue = 20)
+    let timeStopMinutesList =
+        args.TryGetResult ExtremeRvolSweepArgs.Time_Stop_Minutes
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map Int32.Parse)
+        |> Option.defaultValue [| 90 |]
+    let timeStopMode =
+        let raw = args.GetResult(ExtremeRvolSweepArgs.Time_Stop_Mode, defaultValue = "conditional")
+        match raw.ToLowerInvariant() with
+        | "hard" -> OrderflowExtremeRvol.Hard
+        | "conditional" | "cond" -> OrderflowExtremeRvol.Conditional
+        | other ->
+            eprintfn "[extreme-rvol-sweep] unknown --time-stop-mode '%s' (expected hard|conditional); using conditional" other
+            OrderflowExtremeRvol.Conditional
+    let symbols =
+        match args.TryGetResult ExtremeRvolSweepArgs.Symbol with
+        | Some s -> parseList ',' s
+        | None ->
+            if useTrades then listSymbols dataRoot
+            else
+                let perTf = timeframes |> Array.map (fun tf -> Set.ofArray (BarLoader.listSymbols barsRoot tf))
+                if perTf.Length = 0 then [||]
+                else
+                    perTf
+                    |> Array.reduce Set.intersect
+                    |> Set.toArray
+                    |> Array.sort
+    let notional = args.GetResult(ExtremeRvolSweepArgs.Notional, defaultValue = 1000.0)
+    let takerFee = args.GetResult(ExtremeRvolSweepArgs.Taker_Fee, defaultValue = 0.0004)
+    let maxAdversePct = args.GetResult(ExtremeRvolSweepArgs.Max_Adverse_Pct, defaultValue = 0.0)
+    let referenceVolPct = args.GetResult(ExtremeRvolSweepArgs.Reference_Vol_Pct, defaultValue = 0.0)
+    let minShortAdv = args.GetResult(ExtremeRvolSweepArgs.Min_Short_Adv, defaultValue = 0.0)
+    let volWindowDays = args.GetResult(ExtremeRvolSweepArgs.Vol_Window_Days, defaultValue = 90)
+    let maxBarPriceRatio = args.GetResult(ExtremeRvolSweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
+    let fundingRoot =
+        if args.Contains ExtremeRvolSweepArgs.No_Funding then None
+        else Some (args.GetResult(ExtremeRvolSweepArgs.Funding_Root, defaultValue = defaultFundingRoot))
+    let resultsCsv = args.GetResult(ExtremeRvolSweepArgs.Results_Csv, defaultValue = "data/crypto/extreme_rvol/backtest_results.csv")
+    let summaryCsv = args.GetResult(ExtremeRvolSweepArgs.Summary_Csv, defaultValue = "data/crypto/extreme_rvol/backtest_summary.csv")
+    let parallelism = args.GetResult(ExtremeRvolSweepArgs.Parallelism, defaultValue = 4)
+
+    if useTrades then
+        eprintfn "[extreme-rvol-sweep] --use-trades is not supported; runs from pre-aggregated bars."
+        2
+    else
+
+    let timeStopModeStr =
+        match timeStopMode with
+        | OrderflowExtremeRvol.Hard -> "hard"
+        | OrderflowExtremeRvol.Conditional -> "conditional"
+    printfn "[extreme-rvol-sweep] symbols=%d timeframes=[%s] rvolEntry=[%s] rvolExit=%g priceRise=[%s] entryRvolH=%d exitRvolH=%d recentH=%d lookbackD=%d lagH=%d cvdH=%d stopHighM=%d timeStopMin=[%s] timeStopMode=%s range=%s..%s parallelism=%d minShortAdv=$%s volWindowDays=%d maxBarPriceRatio=%g referenceVolPct=%g"
+        symbols.Length
+        (String.concat "," timeframes)
+        (String.concat "," (rvolEntryThresholds |> Array.map (sprintf "%g")))
+        rvolExitThreshold
+        (String.concat "," (priceRiseThresholds |> Array.map (sprintf "%g")))
+        entryRvolHours exitRvolHours recentHours lookbackDays lagHours cvdHours stopHighWindowMinutes
+        (String.concat "," (timeStopMinutesList |> Array.map string))
+        timeStopModeStr
+        (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
+        parallelism
+        (minShortAdv.ToString("N0"))
+        volWindowDays
+        maxBarPriceRatio
+        referenceVolPct
+
+    Directory.CreateDirectory(Path.GetDirectoryName resultsCsv) |> ignore
+    if File.Exists resultsCsv then File.Delete resultsCsv
+    let resultsDir = Path.GetDirectoryName resultsCsv
+    let resultsStem = Path.GetFileNameWithoutExtension resultsCsv
+    if Directory.Exists resultsDir then
+        for f in Directory.EnumerateFiles(resultsDir, sprintf "%s_trips_*.csv" resultsStem) do
+            File.Delete f
+
+    let allMetrics = System.Collections.Concurrent.ConcurrentBag<Metrics>()
+    // Trip-bag key: (timeframe, rvolEntry*10 as int, allowShort=true). The
+    // *10 lets a 10x threshold round-trip through the existing
+    // MaWindowHours-as-int reporting field without losing precision for
+    // typical fractional thresholds (e.g. 12.5 -> 125).
+    let allTripsByGroup =
+        System.Collections.Concurrent.ConcurrentDictionary<string * int * bool, System.Collections.Concurrent.ConcurrentBag<RoundTrip>>()
+    let getTripBag (tf: string) (th: int) (sh: bool) =
+        allTripsByGroup.GetOrAdd((tf, th, sh), fun _ -> System.Collections.Concurrent.ConcurrentBag<RoundTrip>())
+    let advBySymbol =
+        System.Collections.Concurrent.ConcurrentDictionary<string, float>()
+    let writeLock = obj()
+    let totalCells =
+        symbols.Length * timeframes.Length
+        * rvolEntryThresholds.Length * priceRiseThresholds.Length
+        * timeStopMinutesList.Length
+    let mutable doneCells = 0
+
+    let swAll = Stopwatch.StartNew()
+    let opts = System.Threading.Tasks.ParallelOptions(MaxDegreeOfParallelism = parallelism)
+    System.Threading.Tasks.Parallel.ForEach(
+        symbols,
+        opts,
+        fun symbol ->
+            let swSym = Stopwatch.StartNew()
+            try
+                let cells =
+                    [| for tf in timeframes do
+                        for rvolEntry in rvolEntryThresholds do
+                            for priceRise in priceRiseThresholds do
+                                for timeStop in timeStopMinutesList do
+                                    let cfg : OrderflowExtremeRvol.ExtremeRvolConfig =
+                                        { OrderflowExtremeRvol.defaultExtremeRvolConfig () with
+                                            RvolEntryThreshold = rvolEntry
+                                            RvolExitThreshold = rvolExitThreshold
+                                            PriceRiseThreshold = priceRise
+                                            EntryRvolHours = entryRvolHours
+                                            ExitRvolHours = exitRvolHours
+                                            RecentHours = recentHours
+                                            LookbackDays = lookbackDays
+                                            LagHours = lagHours
+                                            CvdHours = cvdHours
+                                            StopHighWindowMinutes = stopHighWindowMinutes
+                                            TimeStopMinutes = timeStop
+                                            TimeStopMode = timeStopMode
+                                            Notional = notional
+                                            TakerFee = takerFee
+                                            MaxAdverseFraction = maxAdversePct / 100.0
+                                            ReferenceVol = referenceVolPct / 100.0
+                                            MinShortAdv = minShortAdv
+                                            VolWindowDays = volWindowDays
+                                            MaxBarPriceRatio = maxBarPriceRatio }
+                                    yield ExtremeRvolCell(symbol, tf, cfg) |]
+                let metrics, adv =
+                    runExtremeRvolCellsFromBars barsRoot symbol startDate endDate cells fundingRoot
+                let nonEmpty = metrics |> Array.filter (fun m -> m.BarsTotal > 0)
+                if nonEmpty.Length = 0 then
+                    lock writeLock (fun () ->
+                        printfn "[extreme-rvol-sweep] %s: no bars in window" symbol)
+                else
+                    if adv > 0.0 then advBySymbol.[symbol] <- adv
+                    for cell in cells do
+                        let trips = cell.Trips
+                        let rvolKey = int (round (cell.ExtremeRvolConfig.RvolEntryThreshold * 10.0))
+                        let bag = getTripBag cell.Timeframe rvolKey cell.ExtremeRvolConfig.AllowShort
+                        for t in trips do bag.Add t
+                        if trips.Length > 0 then
+                            let tripsPath =
+                                let dir = Path.GetDirectoryName resultsCsv
+                                let stem = Path.GetFileNameWithoutExtension resultsCsv
+                                let tsTag =
+                                    if cell.ExtremeRvolConfig.TimeStopMinutes > 0
+                                    then sprintf "_ts%dm" cell.ExtremeRvolConfig.TimeStopMinutes
+                                    else ""
+                                Path.Combine(dir,
+                                    sprintf "%s_trips_%s_rvol%g_pr%g%s_short.csv"
+                                        stem cell.Timeframe
+                                        cell.ExtremeRvolConfig.RvolEntryThreshold
+                                        cell.ExtremeRvolConfig.PriceRiseThreshold
+                                        tsTag)
+                            lock writeLock (fun () ->
+                                appendTrips tripsPath cell.Symbol cell.Timeframe cell.Config trips)
+                    lock writeLock (fun () ->
+                        appendResults resultsCsv metrics
+                        for m in metrics do allMetrics.Add m
+                        doneCells <- doneCells + metrics.Length)
+                    swSym.Stop()
+                    lock writeLock (fun () ->
+                        printfn "[extreme-rvol-sweep] %s done in %.1fs (%d/%d cells)"
+                            symbol swSym.Elapsed.TotalSeconds doneCells totalCells)
+            with ex ->
+                lock writeLock (fun () ->
+                    eprintfn "[extreme-rvol-sweep] %s FAILED: %s" symbol ex.Message
+                    eprintfn "%s" ex.StackTrace))
+    |> ignore
+    swAll.Stop()
+
+    let metricsArr = allMetrics.ToArray()
+    let summary = summarize metricsArr
+    let summarySorted =
+        summary |> Array.sortByDescending (fun s -> s.MedianSharpe)
+    writeSummary summaryCsv summarySorted
+    printfn "[extreme-rvol-sweep] wrote %d result rows -> %s" metricsArr.Length resultsCsv
+    printfn "[extreme-rvol-sweep] wrote %d summary rows -> %s" summarySorted.Length summaryCsv
+
+    let breakdownLogPath =
+        let dir = Path.GetDirectoryName resultsCsv
+        let stem = Path.GetFileNameWithoutExtension resultsCsv
+        Path.Combine(dir, sprintf "%s_breakdown.log" stem)
+    Directory.CreateDirectory(Path.GetDirectoryName breakdownLogPath) |> ignore
+    use logWriter = new StreamWriter(breakdownLogPath, false)
+    let logWrite (s: string) =
+        logWriter.WriteLine s
+        logWriter.Flush()
+    let consoleWrite (s: string) = Console.WriteLine s
+
+    for s in summarySorted do
+        let cellMetrics =
+            metricsArr
+            |> Array.filter (fun m ->
+                m.Timeframe = s.Timeframe && m.MaWindowHours = s.MaWindowHours && m.AllowShort = s.AllowShort
+                && m.BarsTotal > 0)
+        let trips =
+            match allTripsByGroup.TryGetValue((s.Timeframe, s.MaWindowHours, s.AllowShort)) with
+            | true, bag -> bag.ToArray()
+            | _ -> [||]
+        printGroupBreakdown logWrite consoleWrite s.Timeframe s.MaWindowHours s.AllowShort notional cellMetrics trips advBySymbol
+
+    printfn ""
+    printfn "[extreme-rvol-sweep] breakdown -> %s" breakdownLogPath
+    printfn "[extreme-rvol-sweep] total wall %.1fs" swAll.Elapsed.TotalSeconds
     0
 
 // =============================================================================
@@ -2241,6 +2554,7 @@ let main argv =
         | Sweep a -> cmdSweep a
         | Cumsum_Sweep a -> cmdCumsumSweep a
         | Cumsum_Z_Sweep a -> cmdCumsumZSweep a
+        | Extreme_Rvol_Sweep a -> cmdExtremeRvolSweep a
         | Vwma_Sweep a -> cmdVwmaSweep a
         | Breakout_Sweep a -> cmdBreakoutSweep a
         | Build_Breadth a -> cmdBuildBreadth a

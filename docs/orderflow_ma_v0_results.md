@@ -2214,3 +2214,209 @@ for th in 15 25 50 100; do
     > data/crypto/cumsum_z_rawz/rawz_th${th}_volratio_30d8h.txt
 done
 ```
+
+## Extreme-rvol blowoff short engine — `OrderflowExtremeRvol`
+
+Even after the raw-z fix, the `>=10x` rvol bucket remained the
+weakest short-side cell (PF 1.78 at threshold 100). The chart
+review of 175 high-rvol trades revealed why: the cumsum-z system
+holds tens of thousands of bars per trade, so on extreme-rvol
+blowoffs it catches only the back half of moves that have
+already mostly happened. A faster, dedicated engine targeting
+this regime specifically was the next step.
+
+This section walks through the v0 → v4 design iterations of
+[`OrderflowExtremeRvol`](../TradingEdge.CryptoBacktest/OrderflowExtremeRvol.fs).
+Each step is one discrete design decision, motivated either by
+a chart observation or a sweep result. CLI lives at
+`extreme-rvol-sweep`. Trip CSVs are compatible with the existing
+`volume_momentum_stratify.py` / `inspect_high_rvol_shorts.py`
+pipeline.
+
+### Engine concept
+
+Per-bar gates on 1m bars:
+
+  - **rvol**: `mean-recent-volume / mean-30d-volume`. Two parallel
+    instances — one fast for entry (1h numerator), one for cover
+    (1h numerator, separate config knob).
+  - **price-rise**: `bar.Close / laggedMean` where `laggedMean` is
+    an 8h-MA-of-close lagged 16h, derived as the difference of
+    two trailing MAs over 24h and 16h with no new primitive
+    needed: `(Σ24h − Σ16h) / (n24h − n16h)`.
+  - **CVD**: trailing 1h sum of `buy_dv − sell_dv`. Entry trigger
+    is the bar where it crosses from non-negative to negative.
+
+Entry — flat AND short-allowed AND `rvolEntry >= threshold` AND
+`priceRise >= 1 + threshold` AND CVD just turned negative AND
+ADV gate AND 200h warm-up. The 30d baseline doesn't need to be
+full; we divide by `volBaseline.Count` so recently-listed
+symbols can trade against whatever's accumulated (same
+convention as `volume_momentum_stratify.py`).
+
+Stop — trailing-N-minute MaxMa of `bar.High`, snapshotted at
+entry and held fixed. Trigger is `bar.VWAP >= stopLevel` (volume-
+weighted, so wicks alone don't fire); fill is `bar.Close`.
+
+Cover — `rvolExit < threshold`. Default 1h frame, threshold 2.
+
+Time-stop — optional. After N minutes, close per the configured
+mode: `Hard` always, `Conditional` only if not profitable.
+
+### Iteration trail
+
+**v0 (8h-rvol entry, 8h-VWAP stop, 8h-rvol cover).** Faithful
+implementation of the chart-review sketch. Pooled across the full
+4×3 (rvolEntry × priceRise) grid: PF rises monotonically with
+both gates, peaking at PF 1.271 at rvol=15/pr=15% with 1,898
+trips. Largest single loss bounded at ~$480 (vs $3,427 for
+cumsum-z), confirming the VWAP-snapshot stop does its job.
+Visual review of the canonical (rvol=10, pr=10%) cell showed
+many entries firing hours after the move had topped — the 8h
+gate is too slow on these short-cycle blowoffs.
+
+**v1 (1h-rvol entry, 20m high-stop).** The user's call: faster
+entry signal (1h-mean / 30d-mean rvol), much tighter stop
+(20-minute trailing max-High instead of 8h trailing max-VWAP).
+Trip count tripled at the canonical cell (3,767 → 10,212). PF
+fell from 1.171 to 1.052 — faster firing also catches more
+false starts. Largest loss tightened from −$469 to −$220.
+
+**v2 (VWAP-trigger fix on the high-stop).** Visual review caught
+LRCUSDT 2025-12-11 stopping out on a wick despite never closing
+above the level. Changed the stop trigger from `bar.High >= stop`
+to `bar.VWAP >= stop` (volume-weighted, wick-resistant). Fill
+from `stopLevel` to `bar.Close` (a confirmed VWAP breach means
+we're filling at end-of-bar, not at the level). Trip count
+dropped slightly (9,127), PF fell to 1.036, worst loss widened
+to −$643. Net P&L cost: ~$1,400. The change is correct on
+principle (fewer wick-stops on trades that go on to work — see
+LRCUSDT 2024-11-18 turning −$8 → +$73), but the cap on tail
+loss softens because we're filling at close after VWAP confirms.
+
+**v3 (1h cover instead of 8h).** Insight: the 8h cover gate was
+holding losers way past the natural unwind point, since 8 hours
+of accumulated normal-volume bars are needed to drag the rolling
+mean below 2×. Switched the cover-rvol numerator to 1h, matching
+the entry frame. Trip count essentially unchanged (9,127 →
+9,203); PF rose 1.036 → 1.069; **net P&L jumped from $4,206
+to $7,560** at the canonical cell (+80%). Across the full grid,
+PF improved on every cell. Median holding period at the
+canonical cell dropped from many hours to ~1.6h.
+
+**v4 (conditional time-stop, default 90m).** Visual review of v3
+showed many losers were trades that wandered sideways for hours
+without ever showing profit. Added an optional time-stop with
+two modes: `Hard` (close unconditionally at the timer) and
+`Conditional` (close only if `bar.Close >= entryPrice` —
+unprofitable shorts get cut, profitable ones run). Swept
+(rvol × priceRise × {30, 60, 90, 120}m × {hard, conditional}).
+
+### Time-stop sweep — full grid (v4)
+
+Grid-wide pooled metrics, **conditional 90m** vs baseline (no
+time-stop) and hard 90m:
+
+| **rvolE** | **pr** | **trips_base** | **PF_base** | **trips_c90** | **PF_c90** | **trips_h90** | **PF_h90** |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 8 | 5% | 14,817 | 1.042 | 16,791 | 1.046 | 20,378 | 1.025 |
+| 8 | 10% | 11,885 | 1.041 | 13,620 | 1.053 | 16,755 | 1.030 |
+| 8 | 15% | 8,959 | 1.059 | 10,367 | 1.071 | 12,934 | 1.046 |
+| 10 | 5% | 11,040 | 1.067 | 12,504 | 1.073 | 15,098 | 1.052 |
+| 10 | 10% | 9,203 | 1.069 | 10,512 | **1.081** | 12,824 | 1.060 |
+| 10 | 15% | 7,173 | 1.089 | 8,288 | 1.094 | 10,240 | 1.065 |
+| 12 | 5% | 8,657 | 1.104 | 9,757 | 1.120 | 11,666 | 1.100 |
+| 12 | 10% | 7,434 | 1.091 | 8,428 | 1.108 | 10,169 | 1.091 |
+| 12 | 15% | 5,959 | 1.100 | 6,811 | 1.103 | 8,320 | 1.086 |
+| 15 | 5% | 6,461 | 1.129 | 7,207 | **1.157** | 8,446 | 1.113 |
+| 15 | 10% | 5,715 | 1.120 | 6,399 | 1.144 | 7,534 | 1.103 |
+| 15 | 15% | 4,719 | 1.131 | 5,325 | 1.139 | 6,332 | 1.095 |
+
+**Conditional 90m beats baseline on PF in every single cell
+(12/12).** Trade count rises 12–15% per cell because the time-
+stop frees up capital to take new entries earlier; the closed
+loser is replaced by the next setup. Tail loss bounds tighten
+from the cumsum-z baseline's −$240/−$643 to about −$140/−$266.
+
+**Hard mode hurts at every cell.** Cutting profitable trades
+short loses more edge than it saves on the losers. The asymmetry
+is largest at loose entries (rvol=8, pr=5%): hard 30m goes
+**net unprofitable** (PF 0.994), while conditional 30m holds at
+PF 1.028. The "let the winner run" semantics are doing real
+work.
+
+**Time-stop window sensitivity** at the canonical cell (rvol=10,
+pr=10%):
+
+| **mode** | **timeStop** | **trips** | **netPnL** | **PF** | **worstLoss** | **medBars** |
+|---|---:|---:|---:|---:|---:|---:|
+| baseline | — | 9,203 | $7,560 | 1.069 | −$643 | 97 |
+| conditional | 30m | 12,207 | $5,885 | 1.074 | **−$116** | 30 |
+| conditional | 60m | 11,035 | $6,656 | 1.076 | −$140 | 60 |
+| **conditional** | **90m** | **10,512** | **$7,313** | **1.081** | **−$140** | **90** |
+| conditional | 120m | 10,207 | $7,371 | 1.079 | −$140 | 97 |
+| hard | 30m | 15,803 | $2,184 | 1.026 | −$116 | 30 |
+| hard | 60m | 13,800 | $5,337 | 1.056 | −$140 | 60 |
+| hard | 90m | 12,824 | $5,951 | 1.060 | −$140 | 90 |
+| hard | 120m | 12,151 | $7,190 | 1.072 | −$140 | 94 |
+
+Conditional 60m / 90m / 120m are all close on PF (1.076–1.081).
+**90m is the new engine default** — middle of the plateau, slightly
+edges the others. Worst-case loss collapses from −$643 to ~−$140
+(4.6× tighter) with any time-stop, since the time-stop catches
+the wandering trades that would otherwise drift to the worst
+end of the loss distribution.
+
+### v4 vs cumsum-z baseline (high-rvol bucket)
+
+Compared against the cumsum-z RawZ-100 short-side `>=10x` bucket
+(PF 1.78, n=229) — the bucket this engine was built to target:
+
+| | RawZ-100 | ExtremeRvol v4 (rvol=10, pr=10%, ts=90m) |
+|---|---:|---:|
+| Engine | cumsum-z, raw-z magnitude, threshold 100 | dedicated blowoff fader |
+| Trips | 229 | 10,512 |
+| Pooled PF | 1.78 | 1.081 |
+| Largest loss | −$2,973 | **−$140** |
+
+Different shape entirely. RawZ-100 is a once-in-a-while
+strict-conviction signal; ExtremeRvol-v4 is a high-frequency,
+small-edge fader with much tighter risk control per trade. They
+target the same regime but represent different points on the
+trip-count-vs-PF frontier. Both should run as separate books.
+
+### Defaults
+
+`OrderflowExtremeRvol.defaultExtremeRvolConfig()` ships with:
+
+  - `RvolEntryThreshold = 10.0`
+  - `RvolExitThreshold = 2.0`
+  - `PriceRiseThreshold = 0.10`
+  - `EntryRvolHours = 1`, `ExitRvolHours = 1`
+  - `RecentHours = 8`, `LagHours = 16`, `CvdHours = 1`
+  - `LookbackDays = 30`
+  - `StopHighWindowMinutes = 20`
+  - `TimeStopMinutes = 90`, `TimeStopMode = Conditional`
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- extreme-rvol-sweep \
+    --rvol-entry-thresholds 8,10,12,15 \
+    --price-rise-thresholds 0.05,0.10,0.15 \
+    --max-bar-price-ratio 3 \
+    --reference-vol-pct 0.1019 \
+    --min-short-adv 8000000 \
+    --results-csv data/crypto/extreme_rvol/results.csv \
+    --summary-csv data/crypto/extreme_rvol/summary.csv
+```
+
+To sweep the time-stop:
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- extreme-rvol-sweep \
+    --rvol-entry-thresholds 10 --price-rise-thresholds 0.10 \
+    --time-stop-minutes 0,30,60,90,120 \
+    --time-stop-mode conditional \
+    --min-short-adv 8000000 --max-bar-price-ratio 3 --reference-vol-pct 0.1019 \
+    --results-csv data/crypto/extreme_rvol_ts_sweep/results.csv \
+    --summary-csv data/crypto/extreme_rvol_ts_sweep/summary.csv
+```

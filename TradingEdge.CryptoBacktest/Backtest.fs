@@ -465,6 +465,72 @@ type CumsumZCell(symbol: string, timeframe: string, cfg: OrderflowCumsumZ.Cumsum
     member _.Trips = engine.Trips |> Seq.toArray
 
 // =============================================================================
+// Extreme-rvol cell wrapper — chart-review-derived blowoff short engine
+// =============================================================================
+//
+// Same wrapper pattern as CumsumZCell. The reportingCfg synthesises a
+// StrategyConfig so the existing breakdown/metrics layers consume an
+// ExtremeRvol cell uniformly. MaWindowHours is repurposed to carry
+// the rvol entry threshold (×10) so per-cell breakdown groups by
+// the entry threshold dimension when sweeping.
+
+type ExtremeRvolCell(symbol: string, timeframe: string, cfg: OrderflowExtremeRvol.ExtremeRvolConfig) =
+    let bucketUs = bucketUsOfTimeframe timeframe
+    let builder = TimeBarBuilder(bucketUs)
+    let cfgWithBucket = { cfg with OrderflowExtremeRvol.ExtremeRvolConfig.BucketUs = bucketUs }
+    let engine = OrderflowExtremeRvol.Engine(cfgWithBucket)
+    let mutable barCount = 0
+    let mutable startUs = 0L
+    let mutable endUs = 0L
+    let mutable hasAny = false
+
+    let reportingCfg =
+        { defaultConfig (int (round (cfg.RvolEntryThreshold * 10.0))) with
+            Notional = cfg.Notional
+            TakerFee = cfg.TakerFee
+            AllowShort = cfg.AllowShort
+            BucketUs = bucketUs
+            MaxAdverseFraction = cfg.MaxAdverseFraction
+            ReferenceVol = cfg.ReferenceVol
+            MinShortAdv = cfg.MinShortAdv
+            VolWindowDays = cfg.VolWindowDays
+            MaxBarPriceRatio = cfg.MaxBarPriceRatio }
+
+    let onBar (bar: SignedBar) =
+        if not hasAny then
+            startUs <- bar.StartUs
+            hasAny <- true
+        endUs <- bar.EndUs
+        barCount <- barCount + 1
+        engine.ProcessBar bar
+
+    member _.Symbol = symbol
+    member _.Timeframe = timeframe
+    member _.Config = reportingCfg
+    member _.ExtremeRvolConfig = cfg
+
+    member _.SetFundingEvents(events: (int64 * float)[]) =
+        engine.SetFundingEvents events
+
+    member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+        for t in trades do
+            builder.Process(onBar, t)
+
+    member _.PushBars(bars: SignedBar[]) =
+        for b in bars do
+            onBar b
+
+    member _.Close() =
+        builder.Flush onBar
+        engine.Flush()
+
+    member _.BuildMetrics() =
+        let trips = engine.Trips |> Seq.toArray
+        buildMetrics symbol timeframe reportingCfg barCount startUs endUs trips
+
+    member _.Trips = engine.Trips |> Seq.toArray
+
+// =============================================================================
 // Symbol-level streaming driver
 // =============================================================================
 
@@ -544,6 +610,40 @@ let runCumsumZCellsFromBars
     (startDate: System.DateTime)
     (endDate: System.DateTime)
     (cells: CumsumZCell[])
+    (fundingRoot: string option)
+    : Metrics[] * float =
+    let fundingEvents =
+        match fundingRoot with
+        | Some root when FundingLoader.exists root symbol ->
+            FundingLoader.loadByDate root symbol startDate endDate
+            |> Array.map (fun e -> e.TimestampUs, e.Rate)
+        | _ -> [||]
+    if fundingEvents.Length > 0 then
+        for cell in cells do
+            cell.SetFundingEvents fundingEvents
+    let byTf =
+        cells
+        |> Array.groupBy (fun c -> c.Timeframe)
+    let mutable adv = 0.0
+    let mutable advSet = false
+    for (tf, group) in byTf do
+        let bars = BarLoader.loadByDate barsRoot tf symbol startDate endDate
+        if not advSet && bars.Length > 0 then
+            adv <- avgDailyVolume bars
+            advSet <- true
+        for cell in group do
+            cell.PushBars bars
+    for cell in cells do
+        cell.Close()
+    let metrics = cells |> Array.map (fun c -> c.BuildMetrics())
+    metrics, adv
+
+let runExtremeRvolCellsFromBars
+    (barsRoot: string)
+    (symbol: string)
+    (startDate: System.DateTime)
+    (endDate: System.DateTime)
+    (cells: ExtremeRvolCell[])
     (fundingRoot: string option)
     : Metrics[] * float =
     let fundingEvents =
