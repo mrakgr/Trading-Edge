@@ -1968,3 +1968,137 @@ trade-by-trade noise, fresh enough to reflect *current* regime tilt.
 imbalance on this system. The dead-zone effect persists from 30m to
 90m at lower magnitude — useful as a sanity check that the 1h finding
 isn't artifact, less useful as alternative filter horizons.
+
+## Qualitative trade review — high-rvol shorts
+
+**Open question from prior session.** The 30d/8h volume-momentum
+short PF curve was monotone up to PF 3.41 at 3–5×, then dropped
+to 2.37 at 5–10× and 1.61 at ≥10×. We hypothesized that extreme
+volume regimes need a faster system to capture them; this section
+inspects the actual trades to see what's happening.
+
+Per-trade ratios were dumped via
+`scripts/crypto/trades_with_volratio.py` (writes
+`data/crypto/cumsum_z_persistexit/trips_th15_volratio_30d8h.csv`).
+Bucket inspection by `scripts/crypto/inspect_high_rvol_shorts.py`
+and `scripts/crypto/inspect_high_rvol_extras.py`.
+
+### MFE/MAE asymmetry — losers are quick, winners get smaller
+
+Median per-trade excursion at exit:
+
+| **bucket** | **n** | **PF** | **WR** | **winner MFE** | **loser MFE** | **loser MAE** | **winner bars** | **loser bars** |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 3–5× | 321 | 3.41 | 63.2% | +230 bp | +40 bp | −117 bp | 84,433 | 10,686 |
+| 5–10× | 240 | 2.37 | 58.8% | +220 bp | +57 bp | −99 bp | 64,213 | 19,846 |
+| ≥10× | 175 | 1.61 | 61.7% | +143 bp | +46 bp | −136 bp | 65,643 | 13,172 |
+
+The PF drop at high rvol **isn't from worse losers** — loser-side
+MAE actually shrinks at 5–10× (−99 bp vs −117 at 3–5×). The drop
+is from **smaller winners**: median winner MFE compresses from
++230 bp → +220 bp → +143 bp, and at ≥10× the right tail almost
+disappears (max MFE only +677 bp vs +840 at 3–5×).
+
+Read: extreme rvol shorts often *bottom out faster*, leaving less
+trend left to capture by a system that holds for tens of thousands
+of bars. The ≥10× bucket is the bucket where the move *already
+happened* by the time we entered.
+
+### MFE-bucket P&L decomposition — almost all the edge sits at MFE > 200bp
+
+| **bucket** | **MFE bin** | **n** | **WR** | **net P&L** | **avg/trade** |
+|---|---|---:|---:|---:|---:|
+| 5–10× | <50 bp | 60 | 21.7% | −3,887 | −64.79 |
+| 5–10× | 50–100 bp | 42 | 38.1% | −2,139 | −50.92 |
+| 5–10× | 100–200 bp | 49 | 69.4% | +825 | +16.83 |
+| 5–10× | 200–400 bp | 67 | 86.6% | +10,440 | +155.82 |
+| 5–10× | ≥400 bp | 22 | 90.9% | +7,696 | +349.82 |
+| ≥10× | <50 bp | 48 | 25.0% | −3,231 | −67.31 |
+| ≥10× | 50–100 bp | 44 | 52.3% | −1,589 | −36.11 |
+| ≥10× | 100–200 bp | 46 | 80.4% | +1,904 | +41.39 |
+| ≥10× | 200–400 bp | 28 | 96.4% | +4,442 | +158.65 |
+| ≥10× | ≥400 bp | 9 | 100.0% | +3,015 | +334.95 |
+
+Trades that never reach +100 bp MFE bleed money in both buckets.
+Trades that do reach +200 bp MFE win 86–96% of the time. The
+"never gets going" trades are the ones to cut.
+
+The signal is testable: **if a short hasn't reached at least +100 bp
+MFE within ~N bars, kill it.** The aggregate exposure under that
+filter would drop, but the loser pile (102 trades returning −6,026
+in the 5–10× bucket; 92 trades returning −4,820 in the ≥10×) would
+shrink dramatically. We'd lose some of the +100–200 bp marginal-winner
+trades too, but those bins are near break-even.
+
+### Repeat-count cut — single-shot symbols vs frequent firers
+
+Repeat-count = number of times the symbol fired a short at ≥5×
+rvol across the whole dataset. Single-shots are usually
+just-listed alts that pumped once. Frequent firers are
+established symbols whose volume regime keeps tripping the
+filter:
+
+| **bucket** | **rep_count** | **n** | **WR** | **PF** | **net P&L** | **avg** |
+|---|---|---:|---:|---:|---:|---:|
+| 5–10× | 1 trade | 106 | 63.2% | 2.88 | +7,285 | +68.73 |
+| 5–10× | 2 trades | 60 | 65.0% | 2.45 | +3,729 | +62.15 |
+| 5–10× | 3–5 | 63 | 54.0% | 2.26 | +2,736 | +43.44 |
+| 5–10× | ≥6 | 11 | 9.1% | **0.05** | −816 | −74.16 |
+| ≥10× | 1 trade | 70 | 68.6% | 2.93 | +3,934 | +56.20 |
+| ≥10× | 2 trades | 54 | 59.3% | 1.06 | +157 | +2.90 |
+| ≥10× | 3–5 | 50 | 56.0% | 1.19 | +482 | +9.64 |
+| ≥10× | ≥6 | 1 | 0.0% | 0.00 | −32 | −31.63 |
+
+**Symbols that repeatedly trigger ≥5× rvol shorts collapse to
+PF 0.05 in the 5–10× bucket** (11 trades, 1 winner). These look
+like high-vol degenerates where every trip is just another spike
+in the chop, not a parabolic top to fade. By contrast, the
+single-shot symbols — the cleanest "this token is having its
+moment" pattern — book PF 2.88–2.93 across both buckets.
+
+A simple repeat-count filter (skip if the symbol has fired ≥6
+shorts at ≥5× rvol historically) would have removed 12 trades
+returning −848 from the high-rvol pool with no loss of
+single-shot edge. Small absolute saving, but the PF gradient is
+striking and points at a real structural distinction.
+
+### Quarterly P&L — no obvious regime issue, but 2026Q2 thin
+
+Quarterly PF stays mostly above 1.0 in both buckets, with weakest
+quarters being 2024Q3 (5–10×: PF 1.01) and 2025Q2 (≥10×: PF 0.46,
+13 trades). The ≥10× bucket has more cross-quarter noise — n=7
+to n=35 per quarter — so individual quarters are not load-bearing.
+
+### Symbol concentration — winners are diverse, losers are scattered
+
+182 distinct symbols in the 5–10× bucket and 138 in ≥10×. No
+single symbol dominates the winner side: top winners are
+ILVUSDT (+1,064), ACEUSDT (+916), PORTALUSDT (+665) in 5–10×;
+SSVUSDT (+694), EULUSDT (+536), MAGICUSDT (+497) in ≥10×.
+Losers are equally scattered (BANK, STORJ, ALICE in 5–10×;
+MOODENG, AUCTION, MERL in ≥10×). Nothing here suggests a
+single symbol is corrupting the bucket.
+
+### Implications
+
+Three actionable filters fall out:
+
+1. **MFE-progression timeout.** Cut shorts that haven't reached
+   +100 bp MFE within some window (need to grid-search the
+   bar threshold). The lower-MFE bins net **−6,026 in 5–10×**
+   and **−4,820 in ≥10×** — that's the entire PF gap to the
+   3–5× bucket.
+2. **Repeat-count filter.** Skip shorts on symbols that have
+   already fired ≥6 high-rvol shorts. Tiny in trade count
+   (12 trades) but the PF (0.05) is a clear regime signal.
+3. **Size by bucket, not equally.** The 3–5× bucket is the
+   sweet spot at PF 3.41. Even after MFE/repeat-count cleanup
+   the 5–10× and ≥10× buckets won't catch up — the medium-rvol
+   regime is structurally favored.
+
+```
+python scripts/crypto/trades_with_volratio.py \
+    --out data/crypto/cumsum_z_persistexit/trips_th15_volratio_30d8h.csv
+python scripts/crypto/inspect_high_rvol_shorts.py
+python scripts/crypto/inspect_high_rvol_extras.py
+```
