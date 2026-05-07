@@ -135,13 +135,20 @@ def chart_one(row: pd.Series, bars_root: str, out_dir: str,
         row_heights=[0.65, 0.35], vertical_spacing=0.05,
         specs=[[{}], [{"secondary_y": True}]],
         subplot_titles=(
-            f"{sym} short — entry {entry_dt:%Y-%m-%d %H:%M}  "
-            f"({bar_minutes}m bars, ±{hours_before:.0f}/{hours_after:.0f}h)  "
-            f"rvol={row.ratio:.2f}  "
-            f"net_pnl=${row.net_pnl:+.0f}  "
-            f"mfe={row.mfe:+.0f}bp  mae={row.mae:+.0f}bp  "
-            f"bars_held(1m)={int(row.bars_held)} "
-            f"({row.bucket}, {row.reason})",
+            (
+                f"{sym} short — entry {entry_dt:%Y-%m-%d %H:%M}  "
+                f"({bar_minutes}m bars, ±{hours_before:.0f}/{hours_after:.0f}h)  "
+                + (f"rvol={row.ratio:.2f}  " if "ratio" in row.index and pd.notna(row.ratio) else "")
+                + f"net_pnl=${row.net_pnl:+.0f}  "
+                f"mfe={row.mfe:+.0f}bp  mae={row.mae:+.0f}bp  "
+                f"bars_held(1m)={int(row.bars_held)}"
+                + (
+                    f" ({row.bucket}"
+                    + (f", {row.reason}" if "reason" in row.index and pd.notna(row.reason) else "")
+                    + ")"
+                    if "bucket" in row.index and pd.notna(row.bucket) else ""
+                )
+            ),
             "buy / sell $vol  +  imbalance MA (1h, 10h)",
         ),
     )
