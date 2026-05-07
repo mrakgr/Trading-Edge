@@ -236,6 +236,8 @@ type ExtremeRvolSweepArgs =
     | Stop_High_Window_Minutes of int
     | Time_Stop_Minutes of string
     | Time_Stop_Mode of string
+    | Entry_Distance_Max_Pct of string
+    | Entry_Distance_Ref of string
     | Notional of float
     | Taker_Fee of float
     | Use_Trades
@@ -270,6 +272,8 @@ type ExtremeRvolSweepArgs =
             | Stop_High_Window_Minutes _ -> "High-stop window (minutes) for the trailing-MaxMa of bar.High snapshotted at entry. Default 20."
             | Time_Stop_Minutes _ -> "Comma-separated time-stop windows in MINUTES. When >0, close the trade after this many minutes per --time-stop-mode. Default '90' (chart-review-validated). Pass '0' to disable. Example: '0,30,60,90,120'."
             | Time_Stop_Mode _ -> "Time-stop semantics: 'hard' closes unconditionally at the timer; 'conditional' closes only if the trade isn't currently profitable. Default 'conditional'."
+            | Entry_Distance_Max_Pct _ -> "Comma-separated max fractional distance (0-1) from --entry-distance-ref to bar.Close at entry. Reject when (refHigh - close) / refHigh > value. Default '0.20' (sweep-validated). Pass '0' to disable. Example: '0,0.05,0.10,0.15,0.20'. Filters late entries where the flush has already started."
+            | Entry_Distance_Ref _ -> "Reference high for the entry-distance gate: 'stop20m' (the 20m trailing max-High, same surface as the stop) or 'high8h' (separate trailing 8h max-High). Default 'high8h' — sweep-validated; the 8h frame is a 'where was the actual peak' indicator, while stop20m is a risk-management level."
             | ExtremeRvolSweepArgs.Notional _ -> "Per-trade notional. Default 1000."
             | Taker_Fee _ -> "Per-fill taker fee fraction. Default 0.0004."
             | Use_Trades -> "Force the trade-stream backtest path (currently not supported; runs from pre-aggregated bars)."
@@ -1171,6 +1175,19 @@ let cmdExtremeRvolSweep (args: ParseResults<ExtremeRvolSweepArgs>) : int =
         | other ->
             eprintfn "[extreme-rvol-sweep] unknown --time-stop-mode '%s' (expected hard|conditional); using conditional" other
             OrderflowExtremeRvol.Conditional
+    let entryDistanceMaxPctList =
+        args.TryGetResult ExtremeRvolSweepArgs.Entry_Distance_Max_Pct
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map (fun s -> Double.Parse(s, System.Globalization.CultureInfo.InvariantCulture)))
+        |> Option.defaultValue [| 0.20 |]
+    let entryDistanceRef =
+        let raw = args.GetResult(ExtremeRvolSweepArgs.Entry_Distance_Ref, defaultValue = "high8h")
+        match raw.ToLowerInvariant() with
+        | "stop20m" | "stop" -> OrderflowExtremeRvol.Stop20m
+        | "high8h" | "8h" -> OrderflowExtremeRvol.High8h
+        | other ->
+            eprintfn "[extreme-rvol-sweep] unknown --entry-distance-ref '%s' (expected stop20m|high8h); using stop20m" other
+            OrderflowExtremeRvol.Stop20m
     let symbols =
         match args.TryGetResult ExtremeRvolSweepArgs.Symbol with
         | Some s -> parseList ',' s
@@ -1207,7 +1224,11 @@ let cmdExtremeRvolSweep (args: ParseResults<ExtremeRvolSweepArgs>) : int =
         match timeStopMode with
         | OrderflowExtremeRvol.Hard -> "hard"
         | OrderflowExtremeRvol.Conditional -> "conditional"
-    printfn "[extreme-rvol-sweep] symbols=%d timeframes=[%s] rvolEntry=[%s] rvolExit=%g priceRise=[%s] entryRvolH=%d exitRvolH=%d recentH=%d lookbackD=%d lagH=%d cvdH=%d stopHighM=%d timeStopMin=[%s] timeStopMode=%s range=%s..%s parallelism=%d minShortAdv=$%s volWindowDays=%d maxBarPriceRatio=%g referenceVolPct=%g"
+    let entryDistanceRefStr =
+        match entryDistanceRef with
+        | OrderflowExtremeRvol.Stop20m -> "stop20m"
+        | OrderflowExtremeRvol.High8h  -> "high8h"
+    printfn "[extreme-rvol-sweep] symbols=%d timeframes=[%s] rvolEntry=[%s] rvolExit=%g priceRise=[%s] entryRvolH=%d exitRvolH=%d recentH=%d lookbackD=%d lagH=%d cvdH=%d stopHighM=%d timeStopMin=[%s] timeStopMode=%s entryDistMaxPct=[%s] entryDistRef=%s range=%s..%s parallelism=%d minShortAdv=$%s volWindowDays=%d maxBarPriceRatio=%g referenceVolPct=%g"
         symbols.Length
         (String.concat "," timeframes)
         (String.concat "," (rvolEntryThresholds |> Array.map (sprintf "%g")))
@@ -1216,6 +1237,8 @@ let cmdExtremeRvolSweep (args: ParseResults<ExtremeRvolSweepArgs>) : int =
         entryRvolHours exitRvolHours recentHours lookbackDays lagHours cvdHours stopHighWindowMinutes
         (String.concat "," (timeStopMinutesList |> Array.map string))
         timeStopModeStr
+        (String.concat "," (entryDistanceMaxPctList |> Array.map (sprintf "%g")))
+        entryDistanceRefStr
         (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
         parallelism
         (minShortAdv.ToString("N0"))
@@ -1247,6 +1270,7 @@ let cmdExtremeRvolSweep (args: ParseResults<ExtremeRvolSweepArgs>) : int =
         symbols.Length * timeframes.Length
         * rvolEntryThresholds.Length * priceRiseThresholds.Length
         * timeStopMinutesList.Length
+        * entryDistanceMaxPctList.Length
     let mutable doneCells = 0
 
     let swAll = Stopwatch.StartNew()
@@ -1262,28 +1286,31 @@ let cmdExtremeRvolSweep (args: ParseResults<ExtremeRvolSweepArgs>) : int =
                         for rvolEntry in rvolEntryThresholds do
                             for priceRise in priceRiseThresholds do
                                 for timeStop in timeStopMinutesList do
-                                    let cfg : OrderflowExtremeRvol.ExtremeRvolConfig =
-                                        { OrderflowExtremeRvol.defaultExtremeRvolConfig () with
-                                            RvolEntryThreshold = rvolEntry
-                                            RvolExitThreshold = rvolExitThreshold
-                                            PriceRiseThreshold = priceRise
-                                            EntryRvolHours = entryRvolHours
-                                            ExitRvolHours = exitRvolHours
-                                            RecentHours = recentHours
-                                            LookbackDays = lookbackDays
-                                            LagHours = lagHours
-                                            CvdHours = cvdHours
-                                            StopHighWindowMinutes = stopHighWindowMinutes
-                                            TimeStopMinutes = timeStop
-                                            TimeStopMode = timeStopMode
-                                            Notional = notional
-                                            TakerFee = takerFee
-                                            MaxAdverseFraction = maxAdversePct / 100.0
-                                            ReferenceVol = referenceVolPct / 100.0
-                                            MinShortAdv = minShortAdv
-                                            VolWindowDays = volWindowDays
-                                            MaxBarPriceRatio = maxBarPriceRatio }
-                                    yield ExtremeRvolCell(symbol, tf, cfg) |]
+                                    for entryDistMaxPct in entryDistanceMaxPctList do
+                                        let cfg : OrderflowExtremeRvol.ExtremeRvolConfig =
+                                            { OrderflowExtremeRvol.defaultExtremeRvolConfig () with
+                                                RvolEntryThreshold = rvolEntry
+                                                RvolExitThreshold = rvolExitThreshold
+                                                PriceRiseThreshold = priceRise
+                                                EntryRvolHours = entryRvolHours
+                                                ExitRvolHours = exitRvolHours
+                                                RecentHours = recentHours
+                                                LookbackDays = lookbackDays
+                                                LagHours = lagHours
+                                                CvdHours = cvdHours
+                                                StopHighWindowMinutes = stopHighWindowMinutes
+                                                TimeStopMinutes = timeStop
+                                                TimeStopMode = timeStopMode
+                                                EntryDistanceMaxPct = entryDistMaxPct
+                                                EntryDistanceRef = entryDistanceRef
+                                                Notional = notional
+                                                TakerFee = takerFee
+                                                MaxAdverseFraction = maxAdversePct / 100.0
+                                                ReferenceVol = referenceVolPct / 100.0
+                                                MinShortAdv = minShortAdv
+                                                VolWindowDays = volWindowDays
+                                                MaxBarPriceRatio = maxBarPriceRatio }
+                                        yield ExtremeRvolCell(symbol, tf, cfg) |]
                 let metrics, adv =
                     runExtremeRvolCellsFromBars barsRoot symbol startDate endDate cells fundingRoot
                 let nonEmpty = metrics |> Array.filter (fun m -> m.BarsTotal > 0)
@@ -1305,12 +1332,17 @@ let cmdExtremeRvolSweep (args: ParseResults<ExtremeRvolSweepArgs>) : int =
                                     if cell.ExtremeRvolConfig.TimeStopMinutes > 0
                                     then sprintf "_ts%dm" cell.ExtremeRvolConfig.TimeStopMinutes
                                     else ""
+                                let edTag =
+                                    if cell.ExtremeRvolConfig.EntryDistanceMaxPct > 0.0
+                                    then sprintf "_ed%g" cell.ExtremeRvolConfig.EntryDistanceMaxPct
+                                    else ""
                                 Path.Combine(dir,
-                                    sprintf "%s_trips_%s_rvol%g_pr%g%s_short.csv"
+                                    sprintf "%s_trips_%s_rvol%g_pr%g%s%s_short.csv"
                                         stem cell.Timeframe
                                         cell.ExtremeRvolConfig.RvolEntryThreshold
                                         cell.ExtremeRvolConfig.PriceRiseThreshold
-                                        tsTag)
+                                        tsTag
+                                        edTag)
                             lock writeLock (fun () ->
                                 appendTrips tripsPath cell.Symbol cell.Timeframe cell.Config trips)
                     lock writeLock (fun () ->

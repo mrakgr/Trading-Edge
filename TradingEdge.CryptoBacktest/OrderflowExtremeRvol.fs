@@ -36,6 +36,10 @@ open TradingEdge.CryptoBacktest.OrderflowMA
 //   - priceRise   >= 1 + cfg.PriceRiseThreshold (default 1.10)
 //   - prevCvd     >= 0  AND  cvd < 0            (1h CVD just crossed)
 //   - ADV gate    (cfg.MinShortAdv)
+//   - distance gate (when cfg.EntryDistanceMaxPct > 0): bar.Close must be
+//     within EntryDistanceMaxPct of the reference high (Stop20m or
+//     High8h per cfg.EntryDistanceRef). Filters out late entries where
+//     the flush has already started.
 //   - 200h warm-up: barsSeen >= 200h, and the short rolling windows
 //     (rvol numerators, lagged-MA, CVD, high-stop) are all full. The 30d
 //     baseline window is NOT required to be full — we divide by
@@ -68,6 +72,17 @@ open TradingEdge.CryptoBacktest.OrderflowMA
 type TimeStopMode =
     | Hard
     | Conditional
+
+/// Reference surface for the entry-distance gate. The gate rejects entries
+/// where bar.Close has already drifted too far below this surface — the
+/// idea is to short *near* the top, not after the flush has begun.
+///   Stop20m  — the 20m trailing max-High (same surface as the stop). Tight:
+///              the move must have peaked in the last 20 minutes.
+///   High8h   — a separate trailing 8h max-High. Looser: the actual blowoff
+///              peak just has to have happened recently in 8h.
+type EntryDistanceRef =
+    | Stop20m
+    | High8h
 
 type ExtremeRvolConfig = {
     /// Entry rvol gate: trailing-EntryRvolHours-mean / LookbackDays-mean
@@ -114,6 +129,15 @@ type ExtremeRvolConfig = {
     /// (bar.Close >= entryPrice for a short). Conditional gives winners
     /// room to run. Only active when TimeStopMinutes > 0.
     TimeStopMode: TimeStopMode
+    /// Entry-distance gate: max fractional distance from EntryDistanceRef
+    /// to bar.Close at entry. Default 0 (disabled). Reject entry when
+    /// (referenceHigh - bar.Close) / referenceHigh > EntryDistanceMaxPct.
+    /// Filters out late entries where the flush has already started.
+    /// Typical sweep range 0.05–0.20.
+    EntryDistanceMaxPct: float
+    /// Which surface to measure entry distance against. See
+    /// EntryDistanceRef. Default Stop20m.
+    EntryDistanceRef: EntryDistanceRef
     Notional: float
     TakerFee: float
     /// Always true for this engine; flag exists for parity with the
@@ -141,6 +165,8 @@ let defaultExtremeRvolConfig () : ExtremeRvolConfig =
       StopHighWindowMinutes = 20
       TimeStopMinutes = 90
       TimeStopMode = Conditional
+      EntryDistanceMaxPct = 0.20
+      EntryDistanceRef = High8h
       Notional = 1000.0
       TakerFee = 0.0004
       AllowShort = true
@@ -212,6 +238,11 @@ type Engine(cfg: ExtremeRvolConfig) =
     // Trailing 20m max-High for the entry stop. Snapshotted at entry and
     // held fixed for the trade.
     let highMaxMa = MaxMa(nStopHigh)
+    // Trailing 8h max-High used by the optional entry-distance gate when
+    // EntryDistanceRef = High8h. Allocated unconditionally — it's a
+    // single monotonic-deque with amortized O(1) per-bar updates, cheap.
+    let nHigh8h     = hoursToBars 8
+    let high8hMaxMa = MaxMa(nHigh8h)
 
     // Position state.
     let mutable side = Flat
@@ -418,6 +449,7 @@ type Engine(cfg: ExtremeRvolConfig) =
         closeLag.Push    bar.Close
         cvdMa.Push (bar.BuyDollarVolume - bar.SellDollarVolume)
         highMaxMa.Push bar.High
+        high8hMaxMa.Push bar.High
 
         barsSeen <- barsSeen + 1
         lastClose <- bar.Close
@@ -477,11 +509,28 @@ type Engine(cfg: ExtremeRvolConfig) =
             let stopLevel = highMaxMa.State
             let stopAboveClose = stopLevel > bar.Close
 
+            // Entry-distance gate: reject entries where bar.Close has
+            // already drifted too far below the reference high. The
+            // edge is in fading near the peak; once the flush has
+            // started we're chasing. Disabled when threshold is 0.
+            let distanceGate =
+                if cfg.EntryDistanceMaxPct <= 0.0 then true
+                else
+                    let refHigh =
+                        match cfg.EntryDistanceRef with
+                        | Stop20m -> stopLevel
+                        | High8h  -> high8hMaxMa.State
+                    if refHigh <= 0.0 then false
+                    else
+                        let distance = (refHigh - bar.Close) / refHigh
+                        distance <= cfg.EntryDistanceMaxPct
+
             if rvolEntry   >= cfg.RvolEntryThreshold
                && priceRise >= 1.0 + cfg.PriceRiseThreshold
                && cvdCross
                && advGate
-               && stopAboveClose then
+               && stopAboveClose
+               && distanceGate then
                 openShort bar.Close bar.EndUs rvolEntry stopLevel
 
         // Exit checks while holding a short. Two independent triggers:

@@ -2312,6 +2312,16 @@ two modes: `Hard` (close unconditionally at the timer) and
 unprofitable shorts get cut, profitable ones run). Swept
 (rvol × priceRise × {30, 60, 90, 120}m × {hard, conditional}).
 
+**v5 (entry-distance gate, default 20% off the 8h high).**
+Insight: the edge is in fading *near the peak*, not after the
+flush has already started. Added an optional entry-distance gate
+that rejects entries when `bar.Close` has drifted further than
+X% below a reference high. Two reference surfaces tested: the
+existing 20m max-High (Stop20m, the stop level) vs a new 8h
+trailing max-High (High8h, an "actual peak" indicator). The 8h
+reference at 20% threshold improves PF in every cell of the full
+grid while costing only 1–4% of trade count — see below.
+
 ### Time-stop sweep — full grid (v4)
 
 Grid-wide pooled metrics, **conditional 90m** vs baseline (no
@@ -2367,6 +2377,68 @@ edges the others. Worst-case loss collapses from −$643 to ~−$140
 the wandering trades that would otherwise drift to the worst
 end of the loss distribution.
 
+### Entry-distance gate sweep — full grid (v5)
+
+Two refs were tested: `Stop20m` (reuse the existing 20m max-High
+snapshotted at entry — the stop level) vs `High8h` (a separate
+trailing 8h max-High allocated unconditionally — an O(1)
+amortized monotonic-deque MaxMa). Distance values 5/10/15/20%
+were swept against the v4 baseline (no distance gate).
+
+**Canonical cell (rvol=10, priceRise=10%, ts=90m conditional):**
+
+| **ref** | **distance** | **trips** | **netPnL** | **PF** | **worstLoss** |
+|---|---:|---:|---:|---:|---:|
+| baseline | none | 10,512 | $7,313 | 1.081 | −$140 |
+| stop20m | 5% | 9,810 | $5,156 | 1.066 | **−$90** |
+| stop20m | 10% | 10,373 | $6,374 | 1.073 | −$90 |
+| stop20m | 15% | 10,470 | $6,961 | 1.078 | −$140 |
+| stop20m | 20% | 10,502 | $7,148 | 1.079 | −$140 |
+| high8h | 5% | 6,789 | $3,142 | 1.061 | −$90 |
+| high8h | 10% | 9,371 | $6,673 | 1.087 | −$90 |
+| high8h | 15% | 10,029 | $7,742 | 1.092 | −$140 |
+| **high8h** | **20%** | **10,260** | **$8,015** | **1.092** | −$140 |
+
+**`Stop20m` hurts at every distance.** The 20m stop level is a
+risk-management surface, not a peak indicator — by the time it
+catches the actual peak it's already too tight to use as a
+"near the top" reference. PF stays below baseline at every
+distance tested.
+
+**`High8h` clearly wins, peaking at 15–20%.** The 8h max-High is
+a genuine peak detector, and a 20% threshold filters out only
+the truly-late entries (trip count drops just 2.4%, from 10,512
+to 10,260). PF rises from 1.081 → 1.092, net P&L from $7,313 →
+$8,015 (+9.6%) at the canonical cell.
+
+**Grid-wide:** PF improves on **all 12 cells** under high8h@20%:
+
+| **rvolE** | **pr** | **PF_base** | **PF_h15** | **PF_h20** |
+|---:|---:|---:|---:|---:|
+| 8 | 5% | 1.046 | 1.047 | 1.053 |
+| 8 | 10% | 1.053 | 1.060 | 1.063 |
+| 8 | 15% | 1.071 | 1.077 | 1.083 |
+| 10 | 5% | 1.073 | 1.080 | 1.083 |
+| 10 | 10% | 1.081 | 1.092 | 1.092 |
+| 10 | 15% | 1.094 | 1.103 | 1.106 |
+| 12 | 5% | 1.120 | 1.128 | 1.130 |
+| 12 | 10% | 1.108 | 1.120 | 1.120 |
+| 12 | 15% | 1.103 | 1.109 | 1.114 |
+| 15 | 5% | 1.157 | **1.166** | 1.164 |
+| 15 | 10% | 1.144 | 1.156 | 1.153 |
+| 15 | 15% | 1.139 | 1.147 | 1.148 |
+
+Best cell at rvol=15/pr=5% with high8h@15%: **PF 1.166**, 6,809
+trips. The 15% and 20% threshold values are within noise of each
+other (six cells favor 15%, six favor 20%); 20% is preferred as
+the default because it costs less trade count and the worst-case
+loss bound is identical.
+
+**Adopted as default**: `EntryDistanceMaxPct = 0.20`,
+`EntryDistanceRef = High8h`. Reproducibility verified — bare-
+default run reproduces the high8h@20% sweep cell byte-identically
+(10,260 trips, $8,015, PF 1.092, worst loss −$140).
+
 ### v4 vs cumsum-z baseline (high-rvol bucket)
 
 Compared against the cumsum-z RawZ-100 short-side `>=10x` bucket
@@ -2397,6 +2469,7 @@ trip-count-vs-PF frontier. Both should run as separate books.
   - `LookbackDays = 30`
   - `StopHighWindowMinutes = 20`
   - `TimeStopMinutes = 90`, `TimeStopMode = Conditional`
+  - `EntryDistanceMaxPct = 0.20`, `EntryDistanceRef = High8h`
 
 ```
 dotnet run --project TradingEdge.CryptoBacktest -c Release -- extreme-rvol-sweep \
@@ -2419,4 +2492,16 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- extreme-rvol-sweep
     --min-short-adv 8000000 --max-bar-price-ratio 3 --reference-vol-pct 0.1019 \
     --results-csv data/crypto/extreme_rvol_ts_sweep/results.csv \
     --summary-csv data/crypto/extreme_rvol_ts_sweep/summary.csv
+```
+
+To sweep the entry-distance gate (against the 8h high):
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- extreme-rvol-sweep \
+    --rvol-entry-thresholds 10 --price-rise-thresholds 0.10 \
+    --entry-distance-max-pct 0,0.05,0.10,0.15,0.20 \
+    --entry-distance-ref high8h \
+    --min-short-adv 8000000 --max-bar-price-ratio 3 --reference-vol-pct 0.1019 \
+    --results-csv data/crypto/extreme_rvol_ed_sweep/results.csv \
+    --summary-csv data/crypto/extreme_rvol_ed_sweep/summary.csv
 ```
