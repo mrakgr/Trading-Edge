@@ -85,9 +85,13 @@ def resample_to(bars: pd.DataFrame, bar_minutes: int) -> pd.DataFrame:
     return out.reset_index(drop=True)
 
 
+MA_LINE_COLORS = ["#1f77b4", "#9467bd", "#ff7f0e", "#2ca02c", "#d62728"]
+
+
 def chart_one(row: pd.Series, bars_root: str, out_dir: str,
               hours_before: float, hours_after: float,
               bar_minutes: int,
+              ma_windows_h: list[float],
               post_script: str) -> str | None:
     sym = row.symbol
     bars_path = os.path.join(bars_root, f"{sym}.parquet")
@@ -98,22 +102,25 @@ def chart_one(row: pd.Series, bars_root: str, out_dir: str,
     exit_us = int(row.exit_us)
     display_lo = entry_us - int(hours_before * US_PER_HOUR)
     t_hi = entry_us + int(hours_after * US_PER_HOUR)
-    # Load 10h of pre-roll so the 10h imbalance MA is fully warmed up
-    # by the left edge of the display window.
-    fetch_lo = display_lo - 10 * US_PER_HOUR
+    # Load enough pre-roll for the longest MA window to be fully warmed
+    # up by the left edge of the display window.
+    max_ma_h = max(ma_windows_h) if ma_windows_h else 0.0
+    fetch_lo = display_lo - int(max_ma_h * US_PER_HOUR)
 
     bars_1m = load_window(bars_path, fetch_lo, t_hi)
     if bars_1m.empty:
         return None
     bars_full = resample_to(bars_1m, bar_minutes)
-    # Trailing imbalance MAs over the full fetched range, slice to
-    # display window afterwards. Window length is converted from
-    # minutes to bar counts so it stays at 1h / 10h regardless of
-    # bar_minutes.
-    n_1h  = max(1, 60  // bar_minutes)
-    n_10h = max(1, 600 // bar_minutes)
-    bars_full["imb_1h"]  = imbalance_ma(bars_full, n_1h)
-    bars_full["imb_10h"] = imbalance_ma(bars_full, n_10h)
+    # Compute trailing imbalance MAs over the full fetched range, slice
+    # to display window afterwards. Window length is converted from
+    # hours to bar counts so it stays at the requested wall-clock
+    # horizon regardless of bar_minutes.
+    ma_col_names: list[tuple[float, str]] = []
+    for w_h in ma_windows_h:
+        n_bars = max(1, int(round(w_h * 60 / bar_minutes)))
+        col = f"imb_{w_h:g}h"
+        bars_full[col] = imbalance_ma(bars_full, n_bars)
+        ma_col_names.append((w_h, col))
     bars = bars_full.loc[bars_full.start_us >= display_lo].reset_index(drop=True)
     if bars.empty:
         return None
@@ -179,18 +186,16 @@ def chart_one(row: pd.Series, bars_root: str, out_dir: str,
         row=2, col=1, secondary_y=False,
     )
     # Imbalance moving averages on secondary y-axis ([-1, +1]).
-    fig.add_trace(
-        go.Scatter(x=t, y=bars.imb_1h, name="imb 1h",
-                   line=dict(color="#1f77b4", width=1.4),
-                   mode="lines"),
-        row=2, col=1, secondary_y=True,
-    )
-    fig.add_trace(
-        go.Scatter(x=t, y=bars.imb_10h, name="imb 10h",
-                   line=dict(color="#9467bd", width=1.8),
-                   mode="lines"),
-        row=2, col=1, secondary_y=True,
-    )
+    for i, (w_h, col) in enumerate(ma_col_names):
+        color = MA_LINE_COLORS[i % len(MA_LINE_COLORS)]
+        # Make later (longer) windows visually heavier.
+        width = 1.2 + 0.4 * i
+        fig.add_trace(
+            go.Scatter(x=t, y=bars[col], name=f"imb {w_h:g}h",
+                       line=dict(color=color, width=width),
+                       mode="lines"),
+            row=2, col=1, secondary_y=True,
+        )
 
     fig.update_layout(
         height=720,
@@ -239,6 +244,9 @@ def main() -> int:
     ap.add_argument("--hours-after",  type=float, default=60.0)
     ap.add_argument("--bar-minutes",  type=int, default=5,
                     help="Aggregate 1m bars into this size for charting. Default 5.")
+    ap.add_argument("--ma-windows", default="1,200",
+                    help="Comma-separated trailing-imbalance MA windows in HOURS. "
+                         "Default '1,200' — the production cumsum-z engine uses 200h.")
     ap.add_argument("--filter-bucket", default=None,
                     help="If set (e.g. '>=10x'), keep only rows with that bucket.")
     ap.add_argument("--filter-side", default=None,
@@ -251,6 +259,7 @@ def main() -> int:
     trips_path = args.trips if os.path.isabs(args.trips) else os.path.join(repo, args.trips)
     bars_root = args.bars_root if os.path.isabs(args.bars_root) else os.path.join(repo, args.bars_root)
     out_dir = args.out_dir if os.path.isabs(args.out_dir) else os.path.join(repo, args.out_dir)
+    ma_windows_h = [float(s.strip()) for s in args.ma_windows.split(",") if s.strip()]
 
     trips = pd.read_csv(trips_path)
     if args.filter_bucket and "bucket" in trips.columns:
@@ -272,7 +281,7 @@ def main() -> int:
     for i, row in enumerate(trips.itertuples(index=False), start=1):
         out = chart_one(pd.Series(row._asdict()), bars_root, out_dir,
                         args.hours_before, args.hours_after,
-                        args.bar_minutes, post_script)
+                        args.bar_minutes, ma_windows_h, post_script)
         if out is None:
             n_missing += 1
         else:

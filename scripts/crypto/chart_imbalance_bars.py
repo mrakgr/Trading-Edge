@@ -285,13 +285,35 @@ def parse_entry_us(entry_str: str) -> int:
     raise ValueError(f"Could not parse entry timestamp: {entry_str!r}")
 
 
-def plot(bars: list[dict], symbol: str, entry_us: int, trip: Optional[pd.Series],
+MA_LINE_COLORS = ["#1f77b4", "#9467bd", "#ff7f0e", "#2ca02c", "#d62728"]
+
+
+def plot(bars_full: list[dict], display_lo_us: int,
+         symbol: str, entry_us: int, trip: Optional[pd.Series],
          threshold: float, hours_before: float, hours_after: float,
+         ma_windows_h: list[float],
          out_path: str, post_script: str) -> None:
-    if not bars:
+    if not bars_full:
         raise RuntimeError("no bars in window")
 
-    cum_dv = np.array([b["cum_dv"] for b in bars])
+    # MAs run over the full fetched range so trailing windows are warmed
+    # up by pre-roll bars before the display window starts.
+    imb_full: list[tuple[float, np.ndarray]] = []
+    for w_h in ma_windows_h:
+        imb_full.append(
+            (w_h, time_anchored_imbalance_ma(bars_full, int(w_h * US_PER_HOUR))))
+
+    end_us_full = np.array([b["end_us"] for b in bars_full], dtype=np.int64)
+    first_idx = int(np.searchsorted(end_us_full, display_lo_us, side="left"))
+    bars = bars_full[first_idx:]
+    if not bars:
+        raise RuntimeError("display window contains no bars")
+    imb_arrays = [(w, arr[first_idx:]) for (w, arr) in imb_full]
+
+    # Re-base cum_dv to start at 0 within the display slice.
+    cum_dv_raw = np.array([b["cum_dv"] for b in bars])
+    base_cum = cum_dv_raw[0] - bars[0]["dv"]
+    cum_dv = cum_dv_raw - base_cum
     vwap = np.array([b["vwap"] for b in bars])
     durations = np.array([b["duration_s"] for b in bars])
     buy_dv = np.array([b["buy_dv"] for b in bars])
@@ -301,9 +323,6 @@ def plot(bars: list[dict], symbol: str, entry_us: int, trip: Optional[pd.Series]
     end_us = np.array([b["end_us"] for b in bars], dtype=np.int64)
     bar_colors = np.where(bar_sign > 0, "#26a69a", "#ef5350")
     widths = total_dv * 0.8
-
-    imb_1h = time_anchored_imbalance_ma(bars, 1 * US_PER_HOUR)
-    imb_10h = time_anchored_imbalance_ma(bars, 10 * US_PER_HOUR)
 
     # Per-bar tooltip metadata, attached to all primary traces so any
     # pane shows the same rich context. Imbalance bars carry an extra
@@ -354,7 +373,7 @@ def plot(bars: list[dict], symbol: str, entry_us: int, trip: Optional[pd.Series]
         if idx >= len(bars):
             return None
         b = bars[idx]
-        return b["cum_dv"] - b["dv"]
+        return (b["cum_dv"] - b["dv"]) - base_cum
 
     entry_x = cum_at(entry_us)
     exit_x = cum_at(int(trip.exit_us)) if trip is not None else None
@@ -378,7 +397,8 @@ def plot(bars: list[dict], symbol: str, entry_us: int, trip: Optional[pd.Series]
         subplot_titles=(
             title,
             f"total $vol per bar (colored by bar sign)",
-            "buy / sell $vol  +  imbalance MA (1h, 10h)",
+            ("buy / sell $vol  +  imbalance MA ("
+             + ", ".join(f"{w:g}h" for w in ma_windows_h) + ")"),
             "duration per bar (s)",
         ),
     )
@@ -434,18 +454,15 @@ def plot(bars: list[dict], symbol: str, entry_us: int, trip: Optional[pd.Series]
                customdata=customdata, hovertemplate=bar_hover),
         row=3, col=1, secondary_y=False,
     )
-    fig.add_trace(
-        go.Scatter(x=cum_dv, y=imb_1h, name="imb 1h",
-                   line=dict(color="#1f77b4", width=1.3), mode="lines",
-                   hovertemplate="imb 1h: %{y:+.3f}<extra></extra>"),
-        row=3, col=1, secondary_y=True,
-    )
-    fig.add_trace(
-        go.Scatter(x=cum_dv, y=imb_10h, name="imb 10h",
-                   line=dict(color="#9467bd", width=1.7), mode="lines",
-                   hovertemplate="imb 10h: %{y:+.3f}<extra></extra>"),
-        row=3, col=1, secondary_y=True,
-    )
+    for i, (w_h, imb_arr) in enumerate(imb_arrays):
+        color = MA_LINE_COLORS[i % len(MA_LINE_COLORS)]
+        width = 1.2 + 0.4 * i
+        fig.add_trace(
+            go.Scatter(x=cum_dv, y=imb_arr, name=f"imb {w_h:g}h",
+                       line=dict(color=color, width=width), mode="lines",
+                       hovertemplate=f"imb {w_h:g}h: %{{y:+.3f}}<extra></extra>"),
+            row=3, col=1, secondary_y=True,
+        )
     if entry_x is not None:
         fig.add_vline(x=entry_x, line=dict(color="orange", width=1.5, dash="dash"),
                       row=3, col=1)
@@ -507,6 +524,9 @@ def main() -> int:
                          "the largest power-of-2 such that bars >= --min-bars.")
     ap.add_argument("--min-bars", type=int, default=1000,
                     help="Auto-threshold target. Default 1000.")
+    ap.add_argument("--ma-windows", default="1,200",
+                    help="Comma-separated trailing-imbalance MA windows in HOURS. "
+                         "Default '1,200' — the production cumsum-z engine uses 200h.")
     ap.add_argument("--tape-root", default=DEFAULT_TAPE_ROOT)
     ap.add_argument("--trips", default=DEFAULT_TRIPS)
     ap.add_argument("--out-dir", default=DEFAULT_OUT_DIR)
@@ -517,33 +537,45 @@ def main() -> int:
     out_dir = args.out_dir if os.path.isabs(args.out_dir) else os.path.join(repo, args.out_dir)
     os.makedirs(out_dir, exist_ok=True)
 
+    ma_windows_h = [float(s.strip()) for s in args.ma_windows.split(",") if s.strip()]
+    max_ma_h = max(ma_windows_h) if ma_windows_h else 0.0
+
     entry_us = parse_entry_us(args.entry)
-    t_lo = entry_us - int(args.hours_before * US_PER_HOUR)
+    display_lo = entry_us - int(args.hours_before * US_PER_HOUR)
     t_hi = entry_us + int(args.hours_after * US_PER_HOUR)
+    fetch_lo = display_lo - int(max_ma_h * US_PER_HOUR)
     print(f"Loading {args.symbol} tape over "
-          f"{datetime.fromtimestamp(t_lo/1e6, timezone.utc):%Y-%m-%d %H:%M} → "
-          f"{datetime.fromtimestamp(t_hi/1e6, timezone.utc):%Y-%m-%d %H:%M} UTC")
-    df = load_tape_window(args.tape_root, args.symbol, t_lo, t_hi)
-    print(f"  loaded {len(df):,} trades")
+          f"{datetime.fromtimestamp(fetch_lo/1e6, timezone.utc):%Y-%m-%d %H:%M} → "
+          f"{datetime.fromtimestamp(t_hi/1e6, timezone.utc):%Y-%m-%d %H:%M} UTC "
+          f"(includes {max_ma_h:g}h of pre-roll for MA warm-up)")
+    df = load_tape_window(args.tape_root, args.symbol, fetch_lo, t_hi)
+    print(f"  loaded {len(df):,} trades (full fetch incl. pre-roll)")
     if len(df) == 0:
         print("  no trades; aborting", file=sys.stderr)
         return 1
 
     if args.threshold is None:
-        threshold = auto_threshold(df, args.min_bars)
+        # Auto-threshold against the display-window trades only — we want
+        # ~min_bars bars *in the display*, not in the full pre-rolled set.
+        df_display = df.loc[df.timestamp_us >= display_lo]
+        threshold = auto_threshold(df_display, args.min_bars)
         print(f"  auto-threshold = ${threshold:,.0f} "
-              f"(target ≥ {args.min_bars} bars)")
+              f"(target ≥ {args.min_bars} bars in display window)")
     else:
         threshold = args.threshold
         print(f"  threshold = ${threshold:,.0f}")
 
-    bars = build_imbalance_bars(df, threshold)
-    n_buy = sum(1 for b in bars if b["bar_sign"] > 0)
-    n_sell = len(bars) - n_buy
-    total_dv = sum(b["dv"] for b in bars)
-    print(f"  built {len(bars):,} bars  "
+    bars_full = build_imbalance_bars(df, threshold)
+    end_us_full = np.array([b["end_us"] for b in bars_full], dtype=np.int64)
+    first_idx = int(np.searchsorted(end_us_full, display_lo, side="left"))
+    bars_display = bars_full[first_idx:]
+    n_buy = sum(1 for b in bars_display if b["bar_sign"] > 0)
+    n_sell = len(bars_display) - n_buy
+    total_dv = sum(b["dv"] for b in bars_display)
+    print(f"  built {len(bars_full):,} bars total, "
+          f"{len(bars_display):,} in display "
           f"({n_buy:,} buy / {n_sell:,} sell)  "
-          f"total ${total_dv:,.0f}")
+          f"total displayed ${total_dv:,.0f}")
 
     trip = lookup_trip(trips_path, args.symbol, entry_us)
     if trip is None:
@@ -556,8 +588,10 @@ def main() -> int:
     entry_dt = datetime.fromtimestamp(entry_us / 1e6, timezone.utc)
     fname = f"{entry_dt:%Y%m%dT%H%M}_{args.symbol}_imbalbars.html"
     out = os.path.join(out_dir, fname)
-    plot(bars, args.symbol, entry_us, trip, threshold,
-         args.hours_before, args.hours_after, out, post_script)
+    plot(bars_full, display_lo,
+         args.symbol, entry_us, trip, threshold,
+         args.hours_before, args.hours_after,
+         ma_windows_h, out, post_script)
     print(f"Saved to {out}")
     return 0
 
