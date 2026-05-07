@@ -1,7 +1,7 @@
 module TradingEdge.CryptoBacktest.Breakout
 
-open System.Collections.Generic
 open TradingEdge.CryptoBacktest.SignedBar
+open TradingEdge.CryptoBacktest.RollingMa
 open TradingEdge.CryptoBacktest.OrderflowMA
 
 // =============================================================================
@@ -30,35 +30,14 @@ open TradingEdge.CryptoBacktest.OrderflowMA
 // MaWindowHours plays the role of the breakout-lookback in hours.
 
 // =============================================================================
-// Rolling max / min on top of OrderflowMA.RollingWindow
-// =============================================================================
-//
-// RollingWindow<'Bar,'State>.Update gets handed the entire current window
-// as an IReadOnlyCollection on every Push, so max/min reduces to a one-
-// pass scan over the contents. O(n) per push (vs O(1) amortized for a
-// monotonic deque), but n ≤ 480 here and we're not the bottleneck.
-//
-// Primed semantics: we want "max/min over the previous N bars EXCLUDING
-// the current bar", so the engine reads .Current BEFORE it pushes the
-// new bar. .Primed becomes true only once the window is fully populated
-// — same threshold as OrderflowMA's `barsSeen >= n`.
-
-[<Sealed>]
-type RollingExtreme(windowSize: int, isMax: bool) =
-    inherit RollingWindow<float, float>(nan, windowSize)
-    override _.Update (window: IReadOnlyCollection<float>) =
-        let mutable best = nan
-        for v in window do
-            if System.Double.IsNaN best then best <- v
-            elif isMax then (if v > best then best <- v)
-            else (if v < best then best <- v)
-        best
-    member this.Current = this.State
-    member this.Primed = this.Count >= windowSize
-
-// =============================================================================
 // Streaming engine — bar-only path
 // =============================================================================
+//
+// Rolling max / min over VWAP use the shared MaxMa / MinMa primitives
+// (RollingMa.fs). The engine reads .State BEFORE pushing the bar's VWAP
+// so the comparison is against the previous N bars exclusive. The window
+// is "primed" once .Count >= WindowSize — same threshold as OrderflowMA's
+// `barsSeen >= n`.
 
 type Engine(cfg: StrategyConfig) =
     let mutable prevClose = 0.0
@@ -77,10 +56,10 @@ type Engine(cfg: StrategyConfig) =
     let n = hoursToBars (max 1 cfg.MaWindowHours)
     // Track the rolling max / min of bar VWAPs OVER THE PREVIOUS n BARS.
     // We push the bar's VWAP only AFTER comparing it to the current
-    // extreme — that way "bar.VWAP > rolling.Current" is comparing the
+    // extreme — that way "bar.VWAP > rollMax.State" is comparing the
     // current bar's VWAP to the maximum of the previous n bars (exclusive).
-    let rollMax = RollingExtreme(n, true)
-    let rollMin = RollingExtreme(n, false)
+    let rollMax = MaxMa(n)
+    let rollMin = MinMa(n)
 
     let advWindowBars = daysToBars 90
     let volWindowBars = daysToBars (max 1 cfg.VolWindowDays)
@@ -276,14 +255,14 @@ type Engine(cfg: StrategyConfig) =
         | None -> ()
 
         // ---- Signal evaluation BEFORE pushing this bar's VWAP into the
-        // rolling extremes. That way rollMax.Current and rollMin.Current
-        // are the strict max/min over the PREVIOUS n bars (exclusive of
-        // the current bar) — so "bar.VWAP > prevMax" is a real new high.
+        // rolling extremes. That way rollMax.State and rollMin.State are
+        // the strict max/min over the PREVIOUS n bars (exclusive of the
+        // current bar) — so "bar.VWAP > prevMax" is a real new high.
         // Skip bars with no VWAP (zero-volume / synthetic), they can't
         // produce a meaningful signal.
-        if rollMax.Primed && bar.VWAP > 0.0 && barsSeen >= signalLockoutUntil then
-            let prevMax = rollMax.Current
-            let prevMin = rollMin.Current
+        if rollMax.Count >= n && bar.VWAP > 0.0 && barsSeen >= signalLockoutUntil then
+            let prevMax = rollMax.State
+            let prevMin = rollMin.State
             // ratio = bar.VWAP / midpoint. Stamps the trip with a measure of
             // "how big a break was this" — comparable to OrderflowMA's
             // RatioAtEntry semantics: > 1 ↔ bull, < 1 ↔ bear, magnitude

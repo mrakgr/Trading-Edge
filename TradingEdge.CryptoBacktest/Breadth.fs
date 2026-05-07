@@ -6,6 +6,7 @@ open System.Collections.Concurrent
 open DuckDB.NET.Data
 open TDigest
 open TradingEdge.CryptoBacktest.SignedBar
+open TradingEdge.CryptoBacktest.RollingMa
 open TradingEdge.CryptoBacktest.OrderflowMA
 
 // =============================================================================

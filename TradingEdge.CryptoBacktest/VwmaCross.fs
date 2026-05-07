@@ -1,7 +1,7 @@
 module TradingEdge.CryptoBacktest.VwmaCross
 
-open System.Collections.Generic
 open TradingEdge.CryptoBacktest.SignedBar
+open TradingEdge.CryptoBacktest.RollingMa
 open TradingEdge.CryptoBacktest.OrderflowMA
 
 // =============================================================================
@@ -30,28 +30,6 @@ open TradingEdge.CryptoBacktest.OrderflowMA
 // "above/below 1.0" semantics as the orderflow buy/sell ratio, which makes
 // the breakdown's ratio-at-entry distribution comparable between the two.
 
-[<AbstractClass>]
-type RollingMa<'Bar, 'State>(initState: 'State, windowSize: int) =
-    let q = Queue<'Bar>(windowSize)
-    let mutable state = initState
-    abstract member Add    : 'Bar * 'State -> 'State
-    abstract member Remove : 'Bar * 'State -> 'State
-    member _.Count = q.Count
-    member _.WindowSize = windowSize
-    member _.State = state
-    member this.Push (x: 'Bar) =
-        if q.Count = windowSize then
-            state <- this.Remove (q.Dequeue(), state)
-        q.Enqueue x
-        state <- this.Add (x, state)
-
-/// Rolling sum over a fixed-length window of floats.
-[<Sealed>]
-type SumMa(windowSize) =
-    inherit RollingMa<float, float>(0.0, windowSize)
-    override _.Add    (v, s) = s + v
-    override _.Remove (v, s) = s - v
-
 /// Rolling VWMA over a fixed-length window of (close, volume) bars. State
 /// holds (Σ close·volume, Σ volume) as a struct tuple to avoid allocation
 /// per Push. Vwma reads as Σpv/Σv when Σv > 0.
@@ -63,21 +41,6 @@ type VwmaMa(windowSize) =
     member this.Vwma =
         let struct (sumPV, sumV) = this.State
         if sumV > 0.0 then sumPV / sumV else 0.0
-
-/// Rolling sample-std of a stream of floats (used for vol-based sizing).
-[<Sealed>]
-type StdMa(windowSize) =
-    inherit RollingMa<float, struct (float * float)>(struct (0.0, 0.0), windowSize)
-    override _.Add    (v, struct (sx, sx2)) = struct (sx + v, sx2 + v * v)
-    override _.Remove (v, struct (sx, sx2)) = struct (sx - v, sx2 - v * v)
-    member this.SampleStd =
-        let m = this.Count
-        if m < 2 then 0.0
-        else
-            let struct (sumX, sumX2) = this.State
-            let mean = sumX / float m
-            let v = (sumX2 - float m * mean * mean) / float (m - 1)
-            if v <= 0.0 then 0.0 else sqrt v
 
 // =============================================================================
 // Streaming engine — bar-only path

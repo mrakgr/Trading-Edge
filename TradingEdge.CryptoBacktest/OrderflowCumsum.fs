@@ -1,6 +1,7 @@
 module TradingEdge.CryptoBacktest.OrderflowCumsum
 
 open TradingEdge.CryptoBacktest.SignedBar
+open TradingEdge.CryptoBacktest.RollingMa
 open TradingEdge.CryptoBacktest.OrderflowMA
 
 // =============================================================================

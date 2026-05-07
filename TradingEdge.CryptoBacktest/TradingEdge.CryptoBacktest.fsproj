@@ -10,6 +10,7 @@
     <Compile Include="SignedBar.fs" />
     <Compile Include="BarLoader.fs" />
     <Compile Include="FundingLoader.fs" />
+    <Compile Include="RollingMa.fs" />
     <Compile Include="OrderflowMA.fs" />
     <Compile Include="OrderflowCumsum.fs" />
     <Compile Include="OrderflowCumsumZ.fs" />

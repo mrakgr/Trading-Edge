@@ -1,7 +1,7 @@
 module TradingEdge.CryptoBacktest.OrderflowMA
 
-open System.Collections.Generic
 open TradingEdge.CryptoBacktest.SignedBar
+open TradingEdge.CryptoBacktest.RollingMa
 
 // =============================================================================
 // Orderflow-MA strategy: rolling-sum ratio of buy / sell taker dollar volume
@@ -186,70 +186,6 @@ let private grossPnL (side: Side) (entry: float) (exit: float) (notional: float)
     | Long  -> (exit - entry) * qty
     | Short -> (entry - exit) * qty
     | Flat  -> 0.0
-
-// =============================================================================
-// Rolling-window aggregates
-// =============================================================================
-
-[<AbstractClass>]
-type RollingWindow<'Bar, 'State>(initState: 'State, windowSize: int) =
-    let q = Queue<'Bar>(windowSize)
-    let mutable state = initState
-    abstract member Update : 'Bar IReadOnlyCollection -> 'State
-    member _.Count = q.Count
-    member _.WindowSize = windowSize
-    member _.State = state
-    member this.Push (x: 'Bar) =
-        if q.Count = windowSize then q.Dequeue() |> ignore
-        q.Enqueue x
-        state <- this.Update q
-
-// One queue + one running aggregate. Subclasses describe the aggregate as
-// pure (input, oldState) -> newState functions; the base owns the queue
-// and the eviction. State is read via the .State member; subclasses can
-// add derived readers (e.g. StdMa.SampleStd) when the raw state needs a
-// non-trivial transform.
-
-[<AbstractClass>]
-type RollingMa<'Bar, 'State>(initState: 'State, windowSize: int) =
-    let q = Queue<'Bar>(windowSize)
-    let mutable state = initState
-    abstract member Add    : 'Bar * 'State -> 'State
-    abstract member Remove : 'Bar * 'State -> 'State
-    member _.Count = q.Count
-    member _.WindowSize = windowSize
-    member _.State = state
-    member this.Push (x: 'Bar) =
-        if q.Count = windowSize then
-            state <- this.Remove (q.Dequeue(), state)
-        q.Enqueue x
-        state <- this.Add (x, state)
-
-/// Rolling sum over a fixed-length window of floats. State IS the sum.
-[<Sealed>]
-type SumMa(windowSize) =
-    inherit RollingMa<float, float>(0.0, windowSize)
-    override _.Add    (v, s) = s + v
-    override _.Remove (v, s) = s - v
-
-/// Rolling sample-std over a fixed-length window of floats. State holds
-/// (ΣX, ΣX²) as a struct tuple to avoid heap allocation per Push. The
-/// SampleStd reader collapses that into the sample standard deviation
-/// using Welford's algebraic identity:
-///     var = (ΣX² − m·mean²) / (m − 1)
-[<Sealed>]
-type StdMa(windowSize) =
-    inherit RollingMa<float, struct (float * float)>(struct (0.0, 0.0), windowSize)
-    override _.Add    (v, struct (sx, sx2)) = struct (sx + v, sx2 + v * v)
-    override _.Remove (v, struct (sx, sx2)) = struct (sx - v, sx2 - v * v)
-    member this.SampleStd =
-        let m = this.Count
-        if m < 2 then 0.0
-        else
-            let struct (sumX, sumX2) = this.State
-            let mean = sumX / float m
-            let v = (sumX2 - float m * mean * mean) / float (m - 1)
-            if v <= 0.0 then 0.0 else sqrt v
 
 // =============================================================================
 // Streaming engine — bar-only path

@@ -1,73 +1,9 @@
 module TradingEdge.CryptoBacktest.OrderflowCumsumZ
 
 open TradingEdge.CryptoBacktest.SignedBar
+open TradingEdge.CryptoBacktest.RollingMa
 open TradingEdge.CryptoBacktest.OrderflowMA
 open MathNet.Numerics
-open Nito.Collections
-
-// =============================================================================
-// Sliding-window MaxMa / MinMa via a monotonic deque
-// =============================================================================
-//
-// Problem: the existing RollingMa primitive in OrderflowMA.fs requires an
-// invertible aggregate (sum, sum-of-squares) — which doesn't fit max/min,
-// since you can't "subtract" the maximum.
-//
-// Algorithm: maintain a deque of (value, barIdx) pairs in DECREASING value
-// order (for max). On Push(x):
-//   1. Evict the front if its barIdx has fallen out of the window.
-//   2. Pop from the back while the back's value <= x — those candidates
-//      can never be the max of any window containing x.
-//   3. Push (x, barIdx) at the back.
-// The front of the deque is then always the current max. Mirror for min.
-//
-// Cost: amortized O(1) per Push (each value enters and leaves at most once).
-// Backed by Nito.Collections.Deque<T>, a circular-buffer deque with no
-// per-node heap allocation.
-
-[<Sealed>]
-type MaxMa(windowSize: int) =
-    let dq = Deque<struct (float * int)>()
-    let mutable barIdx = 0
-    let mutable count = 0
-    member _.Count = count
-    member _.WindowSize = windowSize
-    member _.State =
-        if dq.Count = 0 then nan
-        else let struct (v, _) = dq.[0] in v
-    member _.Push (x: float) =
-        let cutoff = barIdx - windowSize + 1
-        while dq.Count > 0 &&
-              (let struct (_, i) = dq.[0] in i < cutoff) do
-            dq.RemoveFromFront() |> ignore
-        while dq.Count > 0 &&
-              (let struct (v, _) = dq.[dq.Count - 1] in v <= x) do
-            dq.RemoveFromBack() |> ignore
-        dq.AddToBack(struct (x, barIdx))
-        barIdx <- barIdx + 1
-        count <- min windowSize (count + 1)
-
-[<Sealed>]
-type MinMa(windowSize: int) =
-    let dq = Deque<struct (float * int)>()
-    let mutable barIdx = 0
-    let mutable count = 0
-    member _.Count = count
-    member _.WindowSize = windowSize
-    member _.State =
-        if dq.Count = 0 then nan
-        else let struct (v, _) = dq.[0] in v
-    member _.Push (x: float) =
-        let cutoff = barIdx - windowSize + 1
-        while dq.Count > 0 &&
-              (let struct (_, i) = dq.[0] in i < cutoff) do
-            dq.RemoveFromFront() |> ignore
-        while dq.Count > 0 &&
-              (let struct (v, _) = dq.[dq.Count - 1] in v >= x) do
-            dq.RemoveFromBack() |> ignore
-        dq.AddToBack(struct (x, barIdx))
-        barIdx <- barIdx + 1
-        count <- min windowSize (count + 1)
 
 // =============================================================================
 // Orderflow-Cumsum-Z strategy: short-term-conviction cumsum, persistence-gated
