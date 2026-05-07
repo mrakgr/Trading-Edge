@@ -74,19 +74,25 @@ type MinMa(windowSize: int) =
 // =============================================================================
 //
 // Per-bar update: standardize the bar's net flow against its own 200h
-// distribution and accumulate the standard-normal-CDF score (folded to
-// [-1, +1] via erf) into a clamped cumsum.
+// distribution and accumulate the standardized score (optionally folded
+// to [-1, +1] via erf) into a clamped cumsum.
 //
 //   delta_t        = bar.BuyDollarVolume - bar.SellDollarVolume
 //   sigma_t        = StdMa_200h(delta).SampleStd  (sample std, leak-free-ish)
 //   z_t            = delta_t / sigma_t
-//   magnitude_t    = erf(z_t / sqrt 2.0)            ∈ (-1, +1)
+//   magnitude_t    = erf(z_t / sqrt 2.0)            ∈ (-1, +1)    (Erf mode)
+//                  | z_t                             unbounded     (RawZ mode)
 //   cumsum_t       = clamp(cumsum_{t-1} + magnitude_t, [-threshold, +threshold])
 //
-// The cumsum + erf encoding is "short-term conviction": each bar contributes
-// almost nothing if its delta is typical for the symbol, and saturates
-// toward ±1 only when the per-bar net flow is many sigmas from the local
-// mean.
+// Erf mode is "short-term conviction": each bar contributes almost
+// nothing if its delta is typical for the symbol, and saturates toward
+// ±1 only when the per-bar net flow is many sigmas from the local mean.
+// Tail-heavy bars get capped.
+//
+// RawZ mode lets a single multi-sigma bar move the cumsum by its full
+// z-score (e.g. a 3σ bar contributes 3.0 instead of erf(3/√2) ≈ 0.997).
+// Faster to fire on extreme bars; threshold needs to scale up
+// accordingly.
 //
 // Persistence gate (the v0 inner signal): track 200h rolling sums of buy
 // and sell dollar volume separately. A long FIRE requires:
@@ -118,12 +124,23 @@ type MinMa(windowSize: int) =
 // (StdMa, buyMa, sellMa) aren't full. Vote 0 — cumsum stays at 0 until
 // the window has filled.
 
+type MagnitudeMode =
+    /// Per-bar contribution = erf(z / sqrt 2) ∈ (-1, +1). Bounded; threshold
+    /// in the 10-25 range. Original mode.
+    | Erf
+    /// Per-bar contribution = z (raw z-score, unbounded). Single high-z
+    /// bars can move cumsum by their full z-score. Threshold needs to
+    /// scale up; suggested range 25-200.
+    | RawZ
+
 type CumsumZConfig = {
     /// Clamp magnitude. Long fires at +CumsumThreshold, short at -CumsumThreshold.
-    /// Lower than the ±1 cumsum because per-bar magnitudes are bounded in
-    /// (-1, +1) and average much smaller than 1 in normal conditions. 10
-    /// is a starting guess.
+    /// In Erf mode per-bar magnitudes are bounded in (-1, +1) so threshold
+    /// is small (~10-25). In RawZ mode each bar contributes its full z-score
+    /// so threshold should scale up (~25-200).
     CumsumThreshold: float
+    /// Per-bar magnitude encoding. See MagnitudeMode. Default Erf.
+    MagnitudeMode: MagnitudeMode
     /// Rolling-window length in HOURS for both the std-of-delta normalizer
     /// and the persistence-gate buy/sell sums.
     MaWindowHours: int
@@ -168,6 +185,7 @@ type CumsumZConfig = {
 
 let defaultCumsumZConfig (threshold: float) : CumsumZConfig =
     { CumsumThreshold = threshold
+      MagnitudeMode = Erf
       MaWindowHours = 200
       Notional = 1000.0
       TakerFee = 0.0004
@@ -460,10 +478,11 @@ type Engine(cfg: CumsumZConfig) =
         lastClose <- bar.Close
         lastUs <- bar.EndUs
 
-        // Per-bar magnitude: erf(z / sqrt 2). Pre-fill (rolling window not
-        // full) votes 0. Also vote 0 if the running std is degenerate
-        // (zero or tiny) — avoids divide-by-zero when a symbol has been
-        // perfectly balanced in its window.
+        // Per-bar magnitude. Pre-fill (rolling window not full) votes 0.
+        // Also vote 0 if the running std is degenerate (zero or tiny) —
+        // avoids divide-by-zero when a symbol has been perfectly balanced
+        // in its window. In Erf mode the contribution is squashed to
+        // (-1, +1); in RawZ mode the full z-score passes through.
         let magnitude =
             if barsSeen < n then 0.0
             else
@@ -471,7 +490,9 @@ type Engine(cfg: CumsumZConfig) =
                 if sigma <= 0.0 then 0.0
                 else
                     let z = delta / sigma
-                    SpecialFunctions.Erf(z / sqrt 2.0)
+                    match cfg.MagnitudeMode with
+                    | Erf  -> SpecialFunctions.Erf(z / sqrt 2.0)
+                    | RawZ -> z
 
         let prevCumsum = cumsum
         let next = cumsum + magnitude

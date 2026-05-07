@@ -2102,3 +2102,115 @@ python scripts/crypto/trades_with_volratio.py \
 python scripts/crypto/inspect_high_rvol_shorts.py
 python scripts/crypto/inspect_high_rvol_extras.py
 ```
+
+## Raw-z magnitude variant — fixing the high-rvol PF drop
+
+**Motivating observation from the chart review.** Watching individual
+trades on 5m bars + raw-tape volume bars + López de Prado dollar-
+imbalance bars showed entries firing **hours after** the 200h sign-
+imbalance MA had already turned. The cumsum's per-bar contribution
+is `erf(z / √2)`, bounded in (−1, +1), which means a 3σ flow bar
+contributes only ≈ +0.997 to the cumsum — barely distinguishable
+from a 1σ bar's +0.683. On extreme-rvol blowoffs the squashing
+discards exactly the information we need: a 3–5σ aggressor burst
+should move the signal *fast*, but erf flattens it.
+
+### The fix — push raw z into the cumsum
+
+`magnitude_t = z_t` instead of `erf(z_t / √2)`. A 3σ bar now
+contributes 3.0 instead of 0.997. Threshold scales up to compensate;
+since E|N(0,1)| = √(2/π) ≈ 0.798, the average |contribution| is
+roughly the same as erf's, but the **tails diverge**: a single
+multi-sigma bar can fire on its own under raw-z.
+
+Implemented as `--magnitude-mode raw-z` in `cumsum-z-sweep`
+(default `erf`). Engine change is the one-line branch in
+`OrderflowCumsumZ.fs:ProcessBar`. The Erf path is byte-identical
+to before — verified by re-running the persist-exit th=15
+reference config and matching the prior breakdown to the trip
+(6,215 trips, win rate 52.50%, total PF 1.690).
+
+### Headline pooled metrics
+
+Same flags as the persist-exit reference (200h MA, allow-short,
+require-persistence-for-exit, ADV-gated, 7d vol window with
+0.1019% reference, max-bar-price-ratio=3, no stop):
+
+| **mode** | **threshold** | **trips** | **pooled PF** | **long PF** | **short PF** | **largest loss** |
+|---|---:|---:|---:|---:|---:|---:|
+| Erf (ref) | 15 | 6,215 | 1.690 | ~1.31 | ~1.79 | −$3,427 |
+| Raw-z | 15 | 12,542 | 1.523 | 1.237 | 1.584 | −$3,577 |
+| Raw-z | 25 | 9,322 | 1.585 | 1.307 | 1.641 | −$3,577 |
+| Raw-z | 50 | 5,980 | 1.681 | 1.334 | 1.753 | −$3,380 |
+| **Raw-z** | **100** | **3,427** | **1.864** | **1.365** | **1.976** | **−$2,973** |
+
+PF rises monotonically with raw-z threshold; trip count drops
+from 12.5K → 3.4K. Raw-z 100 fires roughly half as often as the
+Erf-15 reference yet beats it on every aggregate (pooled PF 1.86
+vs 1.69, short PF 1.98 vs 1.79, largest loss bounded tighter).
+
+### Rvol-bucket breakdown — the high-rvol drop is gone
+
+Short-side PF by 30d/8h volume-momentum bucket — the same
+bucketing that motivated this whole investigation:
+
+| **rvol bucket** | **Erf-15** | **Raw-z 50** | **Raw-z 100** |
+|---|---:|---:|---:|
+| <0.5× | — | 1.29 | 1.26 |
+| 0.5–1× | — | 1.39 | 1.88 |
+| 1–1.5× | — | 1.97 | 1.83 |
+| 1.5–2× | — | 2.18 | 2.11 |
+| 2–3× | — | 2.37 | 2.83 |
+| **3–5×** | **3.41** | 2.37 | **4.45** |
+| **5–10×** | **2.37** | 2.48 | **3.14** |
+| **≥10×** | **1.61** | 1.46 | **1.78** |
+| **ALL** | 1.79 | 1.75 | **1.97** |
+
+Raw-z at threshold 100 **beats Erf-15 on every high-rvol bucket**.
+The 3–5× bucket goes from PF 3.41 → 4.45 (+30%); 5–10× from
+2.37 → 3.14 (+33%); ≥10× from 1.61 → 1.78 (+11%). The win-rate
+shifts are large too: at raw-z 100 the 3–5× short bucket wins
+71.4% of the time (vs 58.8% at Erf-15), and the 5–10× bucket
+wins 67.7% (vs 58.8%).
+
+### Interpretation
+
+- **The squashing was a tax on tail bars.** Erf flattens any
+  bar past z ≈ 2 to ~+1; raw-z lets a 3–5σ aggressor flush move
+  the cumsum by its full size. On extreme-rvol blowoffs that's
+  exactly when the signal should accelerate, not saturate.
+- **Higher threshold + raw-z = stricter entry filter.** At
+  threshold 100, accumulating to fire requires either one
+  extreme bar (10σ+, rare) or several confirming multi-sigma
+  bars in agreement. The trades that survive this filter are
+  cleaner: fewer chop-driven entries, more genuine regime
+  flips.
+- **The ≥10× bucket is still the weakest** (PF 1.78 even
+  under raw-z 100), but the gap to 3–10× has narrowed sharply.
+  The "extreme rvol needs a different system" hypothesis from
+  the chart review is partially satisfied by raw-z; what's
+  left of the degradation is the *very* extreme tail (≥10×
+  for 8h vol vs 30d), where moves are mostly already over by
+  the time we'd enter.
+
+The raw-z + threshold-100 config is the new candidate baseline.
+At fewer than half the trip count of the Erf-15 reference but a
+healthier short-side PF (1.98 vs 1.79), it scales up better
+under fixed slippage assumptions.
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- cumsum-z-sweep \
+    --cumsum-thresholds 15,25,50,100 \
+    --ma-hours 200 --magnitude-mode raw-z \
+    --allow-short --min-long-adv 28800000 --min-short-adv 8000000 \
+    --vol-window-days 7 --max-bar-price-ratio 3 --reference-vol-pct 0.1019 \
+    --require-persistence-for-exit \
+    --results-csv data/crypto/cumsum_z_rawz/rawz_results.csv \
+    --summary-csv data/crypto/cumsum_z_rawz/rawz_summary.csv
+for th in 15 25 50 100; do
+  python scripts/crypto/volume_momentum_stratify.py \
+    --trips data/crypto/cumsum_z_rawz/rawz_results_trips_1m_th${th}_ls.csv \
+    --lookback-days 30 --recent-hours 8 \
+    > data/crypto/cumsum_z_rawz/rawz_th${th}_volratio_30d8h.txt
+done
+```

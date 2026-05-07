@@ -167,6 +167,7 @@ type CumsumZSweepArgs =
     | Timeframes of string
     | Cumsum_Thresholds of string
     | Ma_Hours of string
+    | Magnitude_Mode of string
     | Notional of float
     | Taker_Fee of float
     | Allow_Short
@@ -194,7 +195,8 @@ type CumsumZSweepArgs =
             | Start_Date _ -> "Inclusive start date YYYY-MM-DD. Default 2024-05-01."
             | End_Date _ -> "Inclusive end date YYYY-MM-DD. Default 2026-04-30."
             | Timeframes _ -> "Comma-separated timeframes. Default 1m."
-            | Cumsum_Thresholds _ -> "Comma-separated z-cumsum clamp magnitudes (float). Default 10. Per-bar magnitude is erf(z/sqrt 2) ∈ (-1,+1) so threshold is much smaller than the ±1-vote cumsum."
+            | Cumsum_Thresholds _ -> "Comma-separated z-cumsum clamp magnitudes (float). Default 10. In erf mode per-bar magnitude is erf(z/sqrt 2) ∈ (-1,+1) so threshold is small (~10-25). In raw-z mode contribution is unbounded; threshold should scale up (~25-200)."
+            | Magnitude_Mode _ -> "Per-bar magnitude encoding: 'erf' (default; bounded ∈ (-1,+1)) or 'raw-z' (unbounded; full z-score per bar). Raw-z lets a single multi-sigma bar fire faster but needs a larger threshold."
             | CumsumZSweepArgs.Ma_Hours _ -> "Comma-separated MA window lengths in HOURS for both the std-of-delta normalizer and the buy/sell persistence gate. Default 200."
             | CumsumZSweepArgs.Notional _ -> "Per-trade notional. Default 1000."
             | Taker_Fee _ -> "Per-fill taker fee fraction. Default 0.0004."
@@ -885,6 +887,14 @@ let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
     let requirePersistenceForExit = args.Contains CumsumZSweepArgs.Require_Persistence_For_Exit
     let vwapStopHours = args.GetResult(CumsumZSweepArgs.Vwap_Stop_Hours, defaultValue = 0)
     let volStopMultiplier = args.GetResult(CumsumZSweepArgs.Vol_Stop_Multiplier, defaultValue = 0.0)
+    let magnitudeMode =
+        let raw = args.GetResult(CumsumZSweepArgs.Magnitude_Mode, defaultValue = "erf")
+        match raw.ToLowerInvariant() with
+        | "erf" -> OrderflowCumsumZ.Erf
+        | "raw-z" | "rawz" | "raw_z" -> OrderflowCumsumZ.RawZ
+        | other ->
+            eprintfn "[cumsum-z-sweep] unknown --magnitude-mode '%s' (expected erf|raw-z); using erf" other
+            OrderflowCumsumZ.Erf
     let fundingRoot =
         if args.Contains CumsumZSweepArgs.No_Funding then None
         else Some (args.GetResult(CumsumZSweepArgs.Funding_Root, defaultValue = defaultFundingRoot))
@@ -897,11 +907,16 @@ let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
         2
     else
 
-    printfn "[cumsum-z-sweep] symbols=%d timeframes=[%s] thresholds=[%s] maHours=[%s] short=%b range=%s..%s parallelism=%d minLongAdv=$%s minShortAdv=$%s volWindowDays=%d maxBarPriceRatio=%g referenceVolPct=%g requirePersistenceForExit=%b vwapStopHours=%d volStopMultiplier=%g"
+    let magnitudeModeStr =
+        match magnitudeMode with
+        | OrderflowCumsumZ.Erf  -> "erf"
+        | OrderflowCumsumZ.RawZ -> "raw-z"
+    printfn "[cumsum-z-sweep] symbols=%d timeframes=[%s] thresholds=[%s] maHours=[%s] magnitudeMode=%s short=%b range=%s..%s parallelism=%d minLongAdv=$%s minShortAdv=$%s volWindowDays=%d maxBarPriceRatio=%g referenceVolPct=%g requirePersistenceForExit=%b vwapStopHours=%d volStopMultiplier=%g"
         symbols.Length
         (String.concat "," timeframes)
         (String.concat "," (thresholds |> Array.map (sprintf "%g")))
         (String.concat "," (maHoursList |> Array.map string))
+        magnitudeModeStr
         allowShort
         (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
         parallelism
@@ -947,6 +962,7 @@ let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
                             for ma in maHoursList do
                                 let cfg : OrderflowCumsumZ.CumsumZConfig =
                                     { OrderflowCumsumZ.defaultCumsumZConfig th with
+                                        MagnitudeMode = magnitudeMode
                                         MaWindowHours = ma
                                         Notional = notional
                                         TakerFee = takerFee
