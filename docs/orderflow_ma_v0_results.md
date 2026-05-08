@@ -3951,3 +3951,128 @@ The `--rvol-exit-threshold` flag stays in the engine as a verified
 non-viable variant for shorts, alongside `--long-cvd-minutes 0` (MA
 touch). Both are kept testable so future hypotheses can re-validate
 against them, but neither should be used in production for shorts.
+
+## Workstream summary — three shipped engines (2026-05-08)
+
+The crypto-perps research workstream now has three engines with
+shipped, validated defaults. The sections above capture each one in
+detail; this is a one-page recap.
+
+### 1. `OrderflowLongFadeMA` — long-side regime-aware mean reversion
+
+**Defaults:** `pd=0.14, cvd=4h, cover=72h MA-touch, rvol≥0.75, no
+stops, distance≤0.20× from 8h-low, vol-targeted, ADV-gated,
+gap-detector on`.
+
+**Headline at default config:** **PF 3.50, ~4,591 trips, +$120,118
+netPnL** over 2024-05 to 2026-04 (1m bars, full universe, the
+gap-detector-fixed re-run). The earlier published v10d ship was PF
+3.44 / 3,914 trips because the gap-detector reset wasn't yet wired
+in; adding it (commit 4818b89) lifted PF and trip count uniformly.
+
+**Mechanism:** enter long when `bar.Close ≤ (1−0.14) × 72h-MA` AND
+prevCvd ≤ 0 < cvd (4h CVD positive cross), provided rvol ≥ 0.75 and
+the entry is within 20% of the trailing 8h low. Cover when
+`bar.Close ≥ 72h-MA` (single-reference design — same MA gates
+the entry distance and triggers the cover, eliminating the
+stale-reference fee-burn problem).
+
+**Edge profile:** capitulation declines reliably revert to the 72h
+MA on crypto-fade timeframes. PF is monotone in entry rvol (Q1=1.83
+→ Q4=4.09); avgPnL climbs across all 5 quintiles. Funding helps
+(longs collect when funding < 0 during sell pressure).
+
+### 2. `OrderflowShortFadeMA` — short-side regime trader
+
+**Defaults:** `pr=0.05, cvd=4h, longCvd=200h, dual-CVD cover,
+rvol≥3.0, no stops, distance≤0.20× from 8h-high, vol-targeted,
+ADV-gated, gap-detector on`.
+
+**Headline at default config:** **PF 1.98, 3,306 trips, +$128,248
+netPnL** over 2024-05 to 2026-04. Selected as the highest-PF cell
+in the 7×7 (rvol × pr) grid that clears the 3,000-trip volume floor.
+
+**Mechanism:** enter short when `bar.Close ≥ 1.05 × 72h-MA` AND
+prevCvd ≥ 0 > cvd (4h CVD negative cross) AND `200h-CVD < 0` (the
+"dual-CVD" regime gate — sustained selling pressure across a
+multi-day window, not just the 4h trigger). Cover when **both** the
+4h and 200h CVDs flip non-negative (the regime that gated entry has
+cleared). The 200h-CVD overlay is the load-bearing change vs the
+symmetric mirror that failed at PF 0.95.
+
+**Edge profile:** crypto blowoff rises do **not** reliably revert to
+a 72h MA on fade timeframes. The MA-touch and volume-cover variants
+both fail (PF 0.90 and 0.97 respectively). Only the dual-CVD cover
+works because it holds the trade through to regime-flip rather than
+to mean-reversion. medBars 12.8 days; ~34% of trips hold > 30 days
+and account for ~125% of pnl (short-hold buckets <30d collectively
+lose, compensated by the long-tail).
+
+**Asymmetry vs longs:** longs work as MA-mean-reversion fades because
+declines revert; shorts work as regime trades because rises persist.
+
+### 3. `OrderflowExtremeRvol` — short-term extreme-rvol blowoff fader
+
+**Defaults:** `rvol_entry≥24, pr≥0.10, time-stop=90m conditional,
+entry-distance≤0.20× from 8h-high, ADV-gated, vol-targeted, recent=8h
+/ baseline=30d`.
+
+**Headline at default config:** **PF 1.282, 2,749 trips, +$8,300
+netPnL** over the same window. Lower per-trade edge than the regime
+shorts but the trade horizon is completely different — medBars 90
+(~1.5 hours).
+
+**Mechanism:** enter short when 8h volume / 30d baseline ≥ 24× AND
+price is ≥ 10% above the 8h-MA-lagged-16h AND 1h CVD just turned
+negative AND entry is within 20% of the trailing 8h high. Cover
+when 1h volume / 30d baseline drops below 2.0 (volume-normalize
+exit) or 90 minutes elapse with the trade unprofitable.
+
+**Edge profile:** chart-review derived — fades the visible blowoff
+top, holds until the volume burst dies. Deliberately fast horizon:
+the 90m time-stop is the dominant exit at the rvol≥24 (Q5) gate.
+Shipped as a research baseline; the rvol≥10 sweep peaks at PF 1.28
+which extends to ~7k trips at the broader gate.
+
+### Combining the books
+
+These three engines target complementary horizons:
+
+| engine | side | medBars | trip horizon |
+|---|---|---|---|
+| LongFadeMA | long | ~1.8d | days-to-week |
+| ShortFadeMA dual-CVD | short | ~12.8d | weeks |
+| ExtremeRvol | short | ~1.5h | intraday |
+
+Long/short book correlation is ~0.016 (per session 2026-05-06
+diagnostic), so they should be run as separate books with
+independent capital. The two shorts target different regimes — fast
+blowoff fades vs slow regime compounding — and should not be mixed
+with each other on the same symbol simultaneously, but together they
+span both ends of the short-trade-duration distribution.
+
+### Cross-engine principles established
+
+1. **Standard flag set is non-negotiable.** Every backtest must pass
+   `--reference-vol-pct 0.1019 --max-bar-price-ratio 3
+   --min-(short|long)-adv` or the numbers are systematically
+   distorted. CLI defaults are off; the engines themselves don't
+   self-correct.
+2. **Gap-detector reset belongs in every engine.** Without
+   `signalLockoutUntil = barsSeen + warmupBars` after a price-gap
+   close, the engine fires entries on stale post-gap rolling state.
+   Now wired in to all four cumsum/MA engines.
+3. **rvol convention matters.** The doc table's stratify-style rvol
+   (nominal-Count denominator) inflates rvol on symbol-young trips
+   relative to the engine's per-Count convention. Both are valid;
+   they answer different questions. Use the engine convention for
+   live sizing decisions.
+4. **Entry filters and sizing decisions are separate concerns.** The
+   `OrderflowMAv1` engine encodes this — sizing buckets affect
+   notional, not which trades fire — so different size schedules can
+   be compared on identical trade-event streams. Hard rvol entry
+   gates are still useful when the bucket is unconditionally zero,
+   but otherwise sizing is the cleaner mechanism.
+5. **Long/short asymmetry is real.** Capitulation declines revert;
+   blowoff rises don't. MA-touch covers work for longs and fail for
+   shorts. Only dual-CVD-style regime covers work for shorts.
