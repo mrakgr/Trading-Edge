@@ -25,7 +25,7 @@ open TradingEdge.CryptoBacktest.OrderflowMA
 // Entry — ALL must hold simultaneously:
 //   - flat
 //   - cfg.AllowShort
-//   - priceRise >= cfg.PriceRiseThreshold     (default 0.14; close >= (1 + th) * coverMa)
+//   - priceRise >= cfg.PriceRiseThreshold     (default 0.10; close >= (1 + th) * coverMa)
 //   - prevCvd >= 0 AND cvd < 0                (CVD just turned negative)
 //   - ADV gate (cfg.MinShortAdv)
 //   - distance gate: bar.Close within EntryDistanceMaxPct ABOVE the
@@ -57,7 +57,7 @@ type EntryDistanceRef =
 
 type ShortFadeMAConfig = {
     /// Fractional price-rise gate against the cover MA.
-    /// Default 0.14 → entry requires bar.Close >= 1.14 × coverMa.
+    /// Default 0.10 → entry requires bar.Close >= 1.10 × coverMa.
     /// Same MA is used for the gate and the exit (single-reference design).
     PriceRiseThreshold: float
     /// Cover MA window in HOURS. Default 72. Cover when bar.Close <=
@@ -103,10 +103,12 @@ type ShortFadeMAConfig = {
     /// guarantees coverMa < close.
     MinRewardRiskRatio: float
     /// Minimum rvol at entry (computed over the CvdMinutes horizon).
-    /// Reject trades with `rvolEntry < this`. Default 0.75 — picked to
-    /// match the v10d long-mirror finding that filtering the lowest rvol
-    /// quintile lifts aggregate PF cleanly. Pass 0 to disable; v10d-style
-    /// quintile sweep will validate or replace this default.
+    /// Reject trades with `rvolEntry < this`. Default 1.5 — chosen as
+    /// the netPnL-champion cell of the 7×7 rvol×pr sweep
+    /// (rvol≥1.5 / pr=0.10 → PF 1.93, +$120,495 over 3,256 trips).
+    /// The 2D sweep showed pr is the dominant gate; rvol effect is
+    /// weak above 1.5, so this is the lowest sensible floor that keeps
+    /// the netPnL near maximum. Pass 0 to disable.
     RvolEntryThreshold: float
     Notional: float
     TakerFee: float
@@ -121,7 +123,7 @@ type ShortFadeMAConfig = {
 }
 
 let defaultShortFadeMAConfig () : ShortFadeMAConfig =
-    { PriceRiseThreshold = 0.14
+    { PriceRiseThreshold = 0.10
       CoverMaHours = 72
       RecentHours = 8
       LagHours = 16
@@ -133,7 +135,7 @@ let defaultShortFadeMAConfig () : ShortFadeMAConfig =
       EntryDistanceMaxPct = 0.20
       EntryDistanceRef = High8h
       MinRewardRiskRatio = 0.0
-      RvolEntryThreshold = 0.75
+      RvolEntryThreshold = 1.5
       Notional = 1000.0
       TakerFee = 0.0004
       AllowShort = true
@@ -481,7 +483,7 @@ type Engine(cfg: ShortFadeMAConfig) =
 
             // Rvol at entry — same-horizon as CvdMinutes / 30d baseline.
             // Surfaced on the trip record as RatioAtEntry and gated by
-            // cfg.RvolEntryThreshold (default 0.75 — mirror of long).
+            // cfg.RvolEntryThreshold (default 1.5 — netPnL champion in the 7x7 rvol×pr sweep).
             let rvolAtEntry =
                 let entryMean = volEntry.State / float nRvolEntry
                 let baselineMean =
