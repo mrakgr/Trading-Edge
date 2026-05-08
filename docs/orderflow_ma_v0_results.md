@@ -3744,3 +3744,102 @@ done; done; wait
 ```
 
 Then bucket each cell's `_trips_1m_th100_ls.csv` by `ratio_at_entry`.
+
+## ShortFadeMA — 2D rvol × pr sweep (2026-05-08)
+
+The earlier ShortFadeMA section established a single PF baseline at
+defaults (pr=0.14, rvol≥1.0, dual-CVD, vol-targeted, ADV-gated):
+PF 2.036 / 2,550 trips / +$109,086. Open question: how does the
+edge respond to varying both gates jointly?
+
+Single-sweep 7×7 grid: `--price-rise-thresholds 0.05,0.07,0.10,0.14,0.20,0.30,0.50`
+× `--rvol-entry-thresholds 0.5,1.0,1.5,2.0,3.0,5.0,10.0`. Standard
+flag set. 49 cells, 5.6 minutes wall.
+
+### Table 1 — PF by rvol-floor (rows) × pr-threshold (cols)
+
+| **rvol \ pr** | 0.05 | 0.07 | 0.10 | 0.14 | 0.20 | 0.30 | 0.50 |
+|---|---|---|---|---|---|---|---|
+| **≥0.5** | 1.77 | 1.79 | 1.84 | 2.02 | 2.16 | 2.19 | 2.11 |
+| **≥1** | 1.82 | 1.79 | 1.87 | 2.04 | 2.18 | 2.21 | 2.11 |
+| **≥1.5** | 1.86 | 1.82 | 1.93 | 2.09 | 2.24 | 2.25 | 2.12 |
+| **≥2** | 1.92 | 1.89 | 2.01 | 2.17 | 2.26 | 2.25 | 2.15 |
+| **≥3** | 1.98 | 1.97 | 2.06 | 2.19 | 2.25 | **2.34** | 2.31 |
+| **≥5** | 1.99 | 2.00 | 2.02 | 2.06 | 2.14 | 2.28 | 2.23 |
+| **≥10** | 2.00 | 2.04 | 2.10 | 2.03 | 1.98 | 2.06 | 1.78 |
+
+### Table 2 — Trip count
+
+| **rvol \ pr** | 0.05 | 0.07 | 0.10 | 0.14 | 0.20 | 0.30 | 0.50 |
+|---|---|---|---|---|---|---|---|
+| **≥0.5** | 5,929 | 4,910 | 3,676 | 2,635 | 1,716 | 840 | 241 |
+| **≥1** | 5,271 | 4,500 | 3,479 | 2,550 | 1,684 | 831 | 238 |
+| **≥1.5** | 4,647 | 4,073 | 3,256 | 2,453 | 1,638 | 814 | 237 |
+| **≥2** | 4,073 | 3,652 | 2,990 | 2,314 | 1,569 | 793 | 234 |
+| **≥3** | 3,306 | 3,051 | 2,611 | 2,074 | 1,451 | 750 | 222 |
+| **≥5** | 2,370 | 2,240 | 1,997 | 1,658 | 1,218 | 663 | 201 |
+| **≥10** | 1,389 | 1,325 | 1,231 | 1,069 | 835 | 506 | 158 |
+
+### Table 3 — netPnL
+
+| **rvol \ pr** | 0.05 | 0.07 | 0.10 | 0.14 | 0.20 | 0.30 | 0.50 |
+|---|---|---|---|---|---|---|---|
+| **≥0.5** | $+149,425 | $+137,344 | $+119,643 | $+110,129 | $+82,814 | $+41,705 | $+12,359 |
+| **≥1** | $+148,462 | $+131,894 | $+120,072 | $+109,086 | $+82,826 | $+41,698 | $+12,272 |
+| **≥1.5** | $+143,672 | $+127,504 | **$+120,495** | $+110,005 | $+83,499 | $+42,011 | $+12,262 |
+| **≥2** | $+140,208 | $+127,809 | $+122,094 | $+111,399 | $+81,800 | $+40,947 | $+12,355 |
+| **≥3** | $+128,248 | $+120,271 | $+114,622 | $+104,649 | $+76,243 | $+40,600 | $+12,632 |
+| **≥5** | $+101,423 | $+97,318 | $+91,544 | $+79,559 | $+61,080 | $+35,445 | $+11,202 |
+| **≥10** | $+58,757 | $+58,029 | $+56,740 | $+47,458 | $+34,787 | $+23,452 | $+6,819 |
+
+### Table 4 — pr-only effect at rvol ≥ 1.0 (fixed)
+
+| **pr** | trips | PF | netPnL | medBars |
+|---|---|---|---|---|
+| 0.05 | 5,271 | 1.816 | $+148,462 | 11,371 |
+| 0.07 | 4,500 | 1.794 | $+131,894 | 13,735 |
+| 0.10 | 3,479 | 1.873 | $+120,072 | 18,049 |
+| 0.14 | 2,550 | 2.036 | $+109,086 | 21,776 |
+| 0.20 | 1,684 | 2.183 | $+82,826 | 20,644 |
+| 0.30 | 831 | **2.208** | $+41,698 | 21,144 |
+| 0.50 | 238 | 2.111 | $+12,272 | 25,063 |
+
+### Findings
+
+1. **PR is the dominant gate.** Holding rvol fixed at 1.0, PF rises
+   monotonically from 1.82 (pr=0.05) to 2.21 (pr=0.30). Beyond pr=0.30
+   PF tapers slightly. PR is filtering quality, not just trip count.
+2. **Rvol effect is weak above ~1.5.** At any fixed pr, moving rvol from
+   1.5 → 10 changes PF by only 0.05–0.2. The rvol axis is mostly
+   trimming dollar volume, not improving per-trade PF.
+3. **The rvol floor IS load-bearing at low pr.** At pr=0.05, rvol≥10
+   gives PF 2.00 vs rvol≥0.5's PF 1.77 — at the loosest pr filter,
+   rvol becomes the only differentiator. As pr tightens, rvol matters
+   less.
+4. **Best per-trade PF: rvol≥3 / pr=0.30** at PF 2.34, 750 trips,
+   +$40,600. But trip count is small.
+5. **netPnL champion: rvol≥1.5 / pr=0.10** at PF 1.93, 3,256 trips,
+   +$120,495. Loosest viable gate combination produces the most
+   dollars; tighter gates trade dollars for per-trade PF.
+6. **rvol≥10 underperforms at high pr** (pr=0.50 row: rvol≥10 PF
+   1.78 vs rvol≥3 PF 2.31). Extreme rvol AND extreme pr together
+   over-filter — the surviving entries are too rare to maintain
+   statistical reliability.
+7. **The medBars column tells the regime-trader story again**:
+   pr=0.05 cells hold ~11k bars (~7.9d), pr=0.50 cells hold ~25k
+   bars (~17.4d). Stricter pr → trades hold longer to regime-flip,
+   probably because they enter further from the cover MA.
+
+The current shipped defaults (pr=0.14, rvol≥0.75) sit in a reasonable
+middle of this surface but aren't optimal for either PF or netPnL.
+
+### Reproducer
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- short-fade-ma-sweep \
+    --price-rise-thresholds 0.05,0.07,0.10,0.14,0.20,0.30,0.50 \
+    --rvol-entry-thresholds 0.5,1.0,1.5,2.0,3.0,5.0,10.0 \
+    --reference-vol-pct 0.1019 --max-bar-price-ratio 3 --min-short-adv 8000000 \
+    --results-csv data/crypto/sfma_rvol_pr_2d/results.csv \
+    --summary-csv data/crypto/sfma_rvol_pr_2d/summary.csv
+```
