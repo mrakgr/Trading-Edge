@@ -4076,3 +4076,105 @@ span both ends of the short-trade-duration distribution.
 5. **Long/short asymmetry is real.** Capitulation declines revert;
    blowoff rises don't. MA-touch covers work for longs and fail for
    shorts. Only dual-CVD-style regime covers work for shorts.
+
+## Universe-wide median funding-rate finding (highlighted)
+
+The funding-breadth-rank section above (line 700) deserves to be
+called out as a top-level finding alongside the engines: **the
+universe-wide median funding rate has clean dead zones on both
+sides** that any of the shipped engines should respect.
+
+### The finding in one paragraph
+
+For each hour, we compute the *median* funding rate across all
+active Binance perp symbols, then bucket every backtest trip by the
+universe regime at its entry hour. The boundaries are natural
+cutpoints, not quantiles, because the median sits on a point mass at
+exactly +0.5 bps (Binance's default-baseline floor for low-volume
+perps): 4 buckets are `<+0.5 / =+0.5 / +0.5–1.0 / ≥+1.0` bps. Median
+was chosen over mean because a few alts at any moment have wildly
+extreme funding (−2% or +0.8% per interval) that would drag a mean.
+
+### Long-side dead zone
+
+```
+bucket  fr_bps             trades  PF      sumPnl$
+0       <+0.5 bps             601  1.645    +5423
+1       =+0.5 bps            4734  1.287   +17531
+2       +0.5 to +1.0 bps      270  0.827     -650
+3       ≥ +1.0 bps            354  0.592    -2129
+```
+
+**Longs degrade monotonically as the universe gets more
+long-leveraged.** Bucket 3 (≥ +1.0 bps) is a clean dead zone — PF
+0.59 / −$2,129 over 354 trades. The mechanism is intuitive: when the
+whole universe is paying longs heavily, you're catching a top.
+
+### Short-side dead zone
+
+```
+bucket  fr_bps             trades  PF      sumPnl$
+0       <+0.5 bps            1260  0.846    -4832
+1       =+0.5 bps           11193  1.395  +114724
+2       +0.5 to +1.0 bps      766  3.369   +61023
+3       ≥ +1.0 bps            828  2.239   +29770
+```
+
+**Shorts get progressively better as the universe gets more
+long-leveraged**, mirroring the long-side degradation. Bucket 0
+(< +0.5 bps; universe shorts paying longs) is a clean dead zone — PF
+0.85 / −$4,832 over 1,260 trades. Buckets 2–3 (mildly to strongly
+long-leveraged) post PF 2.2–3.4 with +$90.8k pooled — the "longs
+stretched but not yet capitulating" regime is exactly when short
+signals fire into oversupply of leveraged longs ripe for
+liquidation.
+
+### Why this matters for the engines
+
+**Drop the bottom-bucket shorts and top-bucket longs**, save ~$7k
+in losses on the v0 trip set, no opportunity cost on the winning
+side. Symmetric pair of regime filters that should layer cleanly on
+top of any of the three shipped engines (LongFadeMA, ShortFadeMA
+dual-CVD, ExtremeRvol).
+
+It's worth contrasting with **per-symbol funding** (the other
+funding stratification in the doc). Per-symbol grading is *softer* —
+it modulates PF but doesn't produce hard dead zones. And critically,
+**the long-side effect flips sign between scales**: a symbol's own
+elevated funding helps longs (momentum on its own tape), but
+universe-wide elevated funding hurts longs (broad-market top
+signal). Both signals are real and capture different things.
+
+### Methodology lesson — equal-count NTILE bucketing was misleading
+
+The earlier 10-decile NTILE rank breakdown of the same data showed a
+"goldmine" — bucket 6 (rank 0.60–0.70) at PF 3.81 / +$51,807 for
+shorts. Time-distributing those trades revealed **75% came from May
+2024 alone**: a single-month artefact dressed up as a generalisable
+pattern. Cutpoint bucketing on raw values doesn't immediately make
+this go away (any "great" bucket still warrants a
+time-distribution check), but it does make the structure easier to
+reason about because the boundaries are natural regimes rather than
+arbitrary deciles.
+
+The cleanest implementation: build the universe-wide funding panel
+once (`build-funding-breadth`), and run any post-trade stratification
+through `breadth-stratify --rank-column median_funding_rank
+--bucket-by cutpoints`. Pipeline lives in the engine, output is a
+2-line filter rule per side.
+
+### Reproducer
+
+```
+# Build the funding panel (once)
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- build-funding-breadth
+
+# Stratify any trip set
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- breadth-stratify \
+    --trips data/.../results_trips_1m_*.csv \
+    --per-hour /mnt/d/.../funding_per_hour.parquet \
+    --rank-column median_funding_rank \
+    --value-column median_funding \
+    --value-scale 10000 --value-label fr_bps \
+    --bucket-by cutpoints --value-cutpoints "0.00005,0.0000501,0.0001"
+```
