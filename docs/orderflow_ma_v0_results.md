@@ -3602,3 +3602,94 @@ long-mirror exit) actually works in the post-fixes regime — it failed
 catastrophically pre-overlay, but that was un-vol-targeted, with a
 wider rvol entry net, and pre-gap-detector. The clean comparison with
 the standard flag set on hasn't been done.
+
+### Regression: MA-touch cover with standard flags
+
+The dual-CVD cover replaced the MA-touch cover when the symmetric mirror
+collapsed at PF 0.95 in the un-vol-targeted, no-gap-detector regime.
+Open question carried into this section: does the MA-touch cover work
+once the standard-flag set is on (vol-targeting + ADV gate + gap
+detector)?
+
+Re-run with `--long-cvd-minutes 0` (disables the dual-CVD overlay,
+routes the cover to the legacy MA-touch fallback `bar.Close ≤ coverMa`),
+otherwise identical flags to the PF-2.036 dual-CVD baseline:
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- short-fade-ma-sweep \
+    --price-rise-thresholds 0.14 --rvol-entry-threshold 1.0 \
+    --long-cvd-minutes 0 \
+    --reference-vol-pct 0.1019 --max-bar-price-ratio 3 \
+    --min-short-adv 8000000 \
+    --results-csv data/crypto/short_fade_ma_pr14_rvol1_macover/results.csv \
+    --summary-csv data/crypto/short_fade_ma_pr14_rvol1_macover/summary.csv
+```
+
+**Aggregate**:
+
+| trips | PF | avgPnL | netPnL | fund | fees | medBars |
+|------:|---:|-------:|-------:|-----:|-----:|--------:|
+| 5,452 | **0.903** | -$2.79 | **-$15,200** | -$13,209 | $2,023 | 2,487 (~1.7d) |
+
+PF crashes from 2.036 → 0.903; netPnL flips from +$109k → -$15k. Trip
+count more than doubles (2,550 → 5,452) because the MA-touch cover
+fires fast and frees the engine to re-enter; medBars collapses from
+~15d to ~1.7d.
+
+**Rvol breakdown** also collapses across the board:
+
+| bucket | trips | PF | avgPnL | netPnL |
+|--------|------:|------:|-------:|---------:|
+| 1–1.5 | 974 | 0.745 | -$6.9 | -$6,703 |
+| 1.5–2 | 748 | 0.495 | -$21.1 | -$15,776 |
+| 2–3 | 978 | 1.130 | $2.6 | +$2,587 |
+| 3–5 | 1,052 | 1.064 | $1.6 | +$1,657 |
+| 5–10 | 879 | 0.916 | -$2.7 | -$2,362 |
+| ≥10 | 821 | 1.208 | $6.6 | +$5,398 |
+
+Every bucket is below its dual-CVD counterpart. The hump shape is
+gone — flat near-breakeven across rvol with no clean peak.
+
+**Hold-bucket — the smoking gun**:
+
+| hold | trips | PF | avgPnL | netPnL |
+|------|------:|------:|-------:|---------:|
+| <1d | 1,200 | **579.2** | +$49.5 | +$59,341 |
+| 1–3d | 3,448 | 2.28 | +$13.3 | +$45,951 |
+| **3–10d** | **803** | **0.006** | **-$149.8** | **-$120,269** |
+| 10–30d | 1 | – | – | – |
+
+The <1d bucket has PF 579 — fast cover-touches at small profit, with
+no losers because shorts that didn't reach coverMa within 1 day are
+still open. The 1–3d bucket also looks great. Then 3–10d is a
+catastrophic cluster of "stuck short waiting for mean reversion that
+never came" trades that lose -$120k by themselves, more than wiping
+out the easy wins.
+
+### Findings — MA-touch cover is wrong for shorts
+
+The collapse is **not** explained by the un-vol-targeted regime, the
+absent gap detector, the rvol gate width, or symmetric-mirror tuning:
+all of those are now correct. The MA-touch cover is mechanically
+inappropriate for shorts in this universe:
+
+  - **Crypto blowoff rises do not reliably revert to a 72h MA on
+    crypto-fade timeframes.** The dual-CVD result (which holds to
+    regime-flip, ~15d median) showed shorts compound across multi-week
+    holds — same pattern as RawZ-100. The MA-touch cover forces 1.7d
+    median holds, missing that.
+  - **Selection bias in the <1d bucket masks the failure.** Quick
+    cover-touches all look like wins (price came back to the MA, take
+    the small profit). The cost of this exit only shows up on shorts
+    that *don't* immediately revert — and those are exactly the trades
+    where the regime is bear-trending and the short would have been a
+    big regime winner had it been allowed to hold.
+  - **Long-side asymmetry confirmed**: capitulation declines reliably
+    revert to a 72h MA (LongFadeMA PF 3.50 with this same cover).
+    Blowoff rises do not.
+
+The MA-touch cover stays in the engine as the `LongCvdMinutes = 0`
+fallback because it makes the long mirror legible (and lets the engine
+be tested against the failing variant), but it should never be used
+for shorts in production. Default config keeps the dual-CVD overlay
+on (`LongCvdMinutes = 12_000`) for that reason.
