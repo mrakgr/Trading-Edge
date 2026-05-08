@@ -361,6 +361,71 @@ type ExtremeRvolLongSweepArgs =
             | ExtremeRvolLongSweepArgs.Summary_Csv _ -> "Aggregate summary CSV path."
             | ExtremeRvolLongSweepArgs.Parallelism _ -> "Max symbols processed concurrently. Default 4."
 
+type LongFadeMASweepArgs =
+    | [<AltCommandLine "-d">] Data_Root of string
+    | [<AltCommandLine "-b">] Bars_Root of string
+    | [<AltCommandLine "-s">] Symbol of string
+    | Start_Date of string
+    | End_Date of string
+    | Timeframes of string
+    | Price_Decline_Thresholds of string
+    | Cover_Ma_Hours of string
+    | Recent_Hours of int
+    | Lag_Hours of int
+    | Cvd_Minutes of int
+    | Stop_Low_Window_Minutes of int
+    | Time_Stop_Minutes of string
+    | Time_Stop_Mode of string
+    | Entry_Distance_Max_Pct of string
+    | Entry_Distance_Ref of string
+    | Min_Reward_Risk_Ratio of float
+    | Notional of float
+    | Taker_Fee of float
+    | Use_Trades
+    | Max_Adverse_Pct of float
+    | Reference_Vol_Pct of float
+    | Min_Long_Adv of float
+    | Vol_Window_Days of int
+    | Max_Bar_Price_Ratio of float
+    | Funding_Root of string
+    | No_Funding
+    | Results_Csv of string
+    | Summary_Csv of string
+    | [<AltCommandLine "-p">] Parallelism of int
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Data_Root _ -> "Trade-parquet root. Default: " + defaultDataRoot
+            | Bars_Root _ -> "Pre-aggregated bar-parquet root. Default: " + defaultBarsRoot
+            | Symbol _ -> "Restrict sweep to a comma-separated symbol list."
+            | Start_Date _ -> "Inclusive start date YYYY-MM-DD. Default 2024-05-01."
+            | End_Date _ -> "Inclusive end date YYYY-MM-DD. Default 2026-04-30."
+            | Timeframes _ -> "Comma-separated timeframes. Default 1m."
+            | Price_Decline_Thresholds _ -> "Comma-separated price-decline thresholds (fractional). Default '0.166'. Entry requires close <= (1 - threshold) * coverMa."
+            | Cover_Ma_Hours _ -> "Comma-separated cover-MA windows in HOURS. Default '72'. Cover when bar.Close >= trailing-N-hour MA of close. Same MA is used for the decline gate (single-reference design)."
+            | Min_Reward_Risk_Ratio _ -> "Minimum reward:risk at entry. Reward = coverMA - close; risk = close - stop. Reject when reward/risk < this. Default 0.0 (disabled). Pass >0 to enforce a floor."
+            | Recent_Hours _ -> "Recent-window hours for the lagged-MA. Default 8."
+            | Lag_Hours _ -> "Lag (hours) for the lagged-MA. Default 16."
+            | Cvd_Minutes _ -> "Trailing-CVD window in MINUTES. Default 75."
+            | Stop_Low_Window_Minutes _ -> "Low-stop window (minutes). Default 0 (disabled — the no-stop variant is the v9 winner). Pass >0 to re-enable a trailing-MinLow VWAP stop snapshotted at entry."
+            | Time_Stop_Minutes _ -> "Comma-separated time-stop windows in MINUTES. Default '0' (disabled). Any time-stop shorter than the cover-MA hurts mean-reversion edge."
+            | Time_Stop_Mode _ -> "Time-stop semantics: 'hard' or 'conditional'. Default 'conditional'."
+            | Entry_Distance_Max_Pct _ -> "Comma-separated max fractional distance from --entry-distance-ref to bar.Close. Default '0.20'. Pass '0' to disable."
+            | Entry_Distance_Ref _ -> "Reference low for the entry-distance gate: 'stop20m' or 'low8h'. Default 'low8h'."
+            | LongFadeMASweepArgs.Notional _ -> "Per-trade notional. Default 1000."
+            | Taker_Fee _ -> "Per-fill taker fee fraction. Default 0.0004."
+            | Use_Trades -> "Force the trade-stream backtest path (currently unsupported)."
+            | Max_Adverse_Pct _ -> "Optional fixed-fraction stop. Default 0 (disabled)."
+            | Reference_Vol_Pct _ -> "Reference per-bar log-return std as percent. Recommended 0.1019 for 1m."
+            | LongFadeMASweepArgs.Min_Long_Adv _ -> "Minimum trailing-90d ADV (USDT/day) for a long entry. Default 0."
+            | LongFadeMASweepArgs.Vol_Window_Days _ -> "Vol-window length in days. Default 90."
+            | LongFadeMASweepArgs.Max_Bar_Price_Ratio _ -> "Bar-to-bar price-ratio gap detector. Default 0. Recommended 3.0."
+            | LongFadeMASweepArgs.Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
+            | No_Funding -> "Disable funding-rate accounting."
+            | LongFadeMASweepArgs.Results_Csv _ -> "Per-cell results CSV path."
+            | LongFadeMASweepArgs.Summary_Csv _ -> "Aggregate summary CSV path."
+            | LongFadeMASweepArgs.Parallelism _ -> "Max symbols processed concurrently. Default 4."
+
 type BuildBreadthArgs =
     | [<AltCommandLine "-b">] Bars_Root of string
     | [<AltCommandLine "-s">] Symbol of string
@@ -462,6 +527,7 @@ type CliArgs =
     | [<CliPrefix(CliPrefix.None)>] Cumsum_Z_Sweep of ParseResults<CumsumZSweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Extreme_Rvol_Sweep of ParseResults<ExtremeRvolSweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Extreme_Rvol_Long_Sweep of ParseResults<ExtremeRvolLongSweepArgs>
+    | [<CliPrefix(CliPrefix.None)>] Long_Fade_Ma_Sweep of ParseResults<LongFadeMASweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Vwma_Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Breakout_Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Breadth of ParseResults<BuildBreadthArgs>
@@ -477,6 +543,7 @@ type CliArgs =
             | Cumsum_Z_Sweep _ -> "Z-cumsum variant: per-bar magnitude is erf(z/sqrt 2) where z = (buyDV-sellDV)/std200h(buyDV-sellDV). Persistence-gated: long fires at +threshold AND buyMa>sellMa, short symmetric. Exit on opposite clamp; flip only if persistence confirms."
             | Extreme_Rvol_Sweep _ -> "Extreme-rvol blowoff short engine (chart-review-derived): enter short when 8h-mean volume >= Nx 30d-mean AND close >= 1.10 * 8h-MA-lagged-16h AND 1h CVD just turned negative. Stop at trailing-8h-MaxVWAP snapshotted at entry. Cover when rvol < 2x. Short-only by design."
             | Extreme_Rvol_Long_Sweep _ -> "Extreme-rvol long fade engine (mirror of --extreme-rvol-sweep): enter long when 1h-mean volume >= Nx 30d-mean AND close <= (1 - threshold) * 8h-MA-lagged-16h AND 75m CVD just turned positive. Stop at trailing-20m-MinLow snapshotted at entry. Cover when rvol < 2x. Long-only by design."
+            | Long_Fade_Ma_Sweep _ -> "Long fade engine with mean-reversion-to-MA cover: enter long on price decline + CVD positive cross (no rvol gate); cover when bar.Close >= trailing 24h MA. Long-only by design."
             | Vwma_Sweep _     -> "Research baseline: same grid, but signal is close-vs-VWMA crossover instead of orderflow ratio."
             | Breakout_Sweep _ -> "Research baseline: same grid, but signal is symmetric N-hour VWAP-breakout/breakdown instead of orderflow ratio."
             | Build_Breadth _  -> "Build the universe-wide breadth panel: per-(symbol, hour) signal trace plus per-hour aggregates with composite signed-volume t-digest rank."
@@ -1753,6 +1820,263 @@ let cmdExtremeRvolLongSweep (args: ParseResults<ExtremeRvolLongSweepArgs>) : int
     0
 
 // =============================================================================
+// long-fade-ma-sweep — long fade with MA-touch cover (no rvol gate)
+// =============================================================================
+//
+// Mirror of extreme-rvol-long-sweep but with the volume-normalisation cover
+// replaced by a cover-MA-touch rule. Output paths default under
+// data/crypto/long_fade_ma/. Trip CSV stem suffix is `_long.csv`.
+
+let cmdLongFadeMaSweep (args: ParseResults<LongFadeMASweepArgs>) : int =
+    let dataRoot = args.GetResult(LongFadeMASweepArgs.Data_Root, defaultValue = defaultDataRoot)
+    let barsRoot = args.GetResult(LongFadeMASweepArgs.Bars_Root, defaultValue = defaultBarsRoot)
+    let useTrades = args.Contains LongFadeMASweepArgs.Use_Trades
+    let startDate = args.TryGetResult LongFadeMASweepArgs.Start_Date |> Option.map parseDate |> Option.defaultValue defaultStart
+    let endDate   = args.TryGetResult LongFadeMASweepArgs.End_Date   |> Option.map parseDate |> Option.defaultValue defaultEnd
+    let timeframes =
+        args.TryGetResult LongFadeMASweepArgs.Timeframes
+        |> Option.map (parseList ',')
+        |> Option.defaultValue [| "1m" |]
+    let priceDeclineThresholds =
+        args.TryGetResult LongFadeMASweepArgs.Price_Decline_Thresholds
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map (fun s -> Double.Parse(s, System.Globalization.CultureInfo.InvariantCulture)))
+        |> Option.defaultValue [| 0.166 |]
+    let coverMaHoursList =
+        args.TryGetResult LongFadeMASweepArgs.Cover_Ma_Hours
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map Int32.Parse)
+        |> Option.defaultValue [| 72 |]
+    let recentHours = args.GetResult(LongFadeMASweepArgs.Recent_Hours, defaultValue = 8)
+    let lagHours = args.GetResult(LongFadeMASweepArgs.Lag_Hours, defaultValue = 16)
+    let cvdMinutes = args.GetResult(LongFadeMASweepArgs.Cvd_Minutes, defaultValue = 75)
+    let stopLowWindowMinutes = args.GetResult(LongFadeMASweepArgs.Stop_Low_Window_Minutes, defaultValue = 0)
+    let timeStopMinutesList =
+        args.TryGetResult LongFadeMASweepArgs.Time_Stop_Minutes
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map Int32.Parse)
+        |> Option.defaultValue [| 0 |]
+    let timeStopMode =
+        let raw = args.GetResult(LongFadeMASweepArgs.Time_Stop_Mode, defaultValue = "conditional")
+        match raw.ToLowerInvariant() with
+        | "hard" -> OrderflowLongFadeMA.Hard
+        | "conditional" | "cond" -> OrderflowLongFadeMA.Conditional
+        | other ->
+            eprintfn "[long-fade-ma-sweep] unknown --time-stop-mode '%s'; using conditional" other
+            OrderflowLongFadeMA.Conditional
+    let entryDistanceMaxPctList =
+        args.TryGetResult LongFadeMASweepArgs.Entry_Distance_Max_Pct
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map (fun s -> Double.Parse(s, System.Globalization.CultureInfo.InvariantCulture)))
+        |> Option.defaultValue [| 0.20 |]
+    let entryDistanceRef =
+        let raw = args.GetResult(LongFadeMASweepArgs.Entry_Distance_Ref, defaultValue = "low8h")
+        match raw.ToLowerInvariant() with
+        | "stop20m" | "stop" -> OrderflowLongFadeMA.Stop20m
+        | "low8h" | "8h" -> OrderflowLongFadeMA.Low8h
+        | other ->
+            eprintfn "[long-fade-ma-sweep] unknown --entry-distance-ref '%s'; using low8h" other
+            OrderflowLongFadeMA.Low8h
+    let minRewardRiskRatio = args.GetResult(LongFadeMASweepArgs.Min_Reward_Risk_Ratio, defaultValue = 0.0)
+    let symbols =
+        match args.TryGetResult LongFadeMASweepArgs.Symbol with
+        | Some s -> parseList ',' s
+        | None ->
+            if useTrades then listSymbols dataRoot
+            else
+                let perTf = timeframes |> Array.map (fun tf -> Set.ofArray (BarLoader.listSymbols barsRoot tf))
+                if perTf.Length = 0 then [||]
+                else
+                    perTf
+                    |> Array.reduce Set.intersect
+                    |> Set.toArray
+                    |> Array.sort
+    let notional = args.GetResult(LongFadeMASweepArgs.Notional, defaultValue = 1000.0)
+    let takerFee = args.GetResult(LongFadeMASweepArgs.Taker_Fee, defaultValue = 0.0004)
+    let maxAdversePct = args.GetResult(LongFadeMASweepArgs.Max_Adverse_Pct, defaultValue = 0.0)
+    let referenceVolPct = args.GetResult(LongFadeMASweepArgs.Reference_Vol_Pct, defaultValue = 0.0)
+    let minLongAdv = args.GetResult(LongFadeMASweepArgs.Min_Long_Adv, defaultValue = 0.0)
+    let volWindowDays = args.GetResult(LongFadeMASweepArgs.Vol_Window_Days, defaultValue = 90)
+    let maxBarPriceRatio = args.GetResult(LongFadeMASweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
+    let fundingRoot =
+        if args.Contains LongFadeMASweepArgs.No_Funding then None
+        else Some (args.GetResult(LongFadeMASweepArgs.Funding_Root, defaultValue = defaultFundingRoot))
+    let resultsCsv = args.GetResult(LongFadeMASweepArgs.Results_Csv, defaultValue = "data/crypto/long_fade_ma/backtest_results.csv")
+    let summaryCsv = args.GetResult(LongFadeMASweepArgs.Summary_Csv, defaultValue = "data/crypto/long_fade_ma/backtest_summary.csv")
+    let parallelism = args.GetResult(LongFadeMASweepArgs.Parallelism, defaultValue = 4)
+
+    if useTrades then
+        eprintfn "[long-fade-ma-sweep] --use-trades is not supported; runs from pre-aggregated bars."
+        2
+    else
+
+    let timeStopModeStr =
+        match timeStopMode with
+        | OrderflowLongFadeMA.Hard -> "hard"
+        | OrderflowLongFadeMA.Conditional -> "conditional"
+    let entryDistanceRefStr =
+        match entryDistanceRef with
+        | OrderflowLongFadeMA.Stop20m -> "stop20m"
+        | OrderflowLongFadeMA.Low8h   -> "low8h"
+    printfn "[long-fade-ma-sweep] symbols=%d timeframes=[%s] priceDecline=[%s] coverMaH=[%s] cvdM=%d stopLowM=%d timeStopMin=[%s] timeStopMode=%s entryDistMaxPct=[%s] entryDistRef=%s range=%s..%s parallelism=%d minLongAdv=$%s maxBarPriceRatio=%g referenceVolPct=%g"
+        symbols.Length
+        (String.concat "," timeframes)
+        (String.concat "," (priceDeclineThresholds |> Array.map (sprintf "%g")))
+        (String.concat "," (coverMaHoursList |> Array.map string))
+        cvdMinutes stopLowWindowMinutes
+        (String.concat "," (timeStopMinutesList |> Array.map string))
+        timeStopModeStr
+        (String.concat "," (entryDistanceMaxPctList |> Array.map (sprintf "%g")))
+        entryDistanceRefStr
+        (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
+        parallelism
+        (minLongAdv.ToString("N0"))
+        maxBarPriceRatio
+        referenceVolPct
+
+    Directory.CreateDirectory(Path.GetDirectoryName resultsCsv) |> ignore
+    if File.Exists resultsCsv then File.Delete resultsCsv
+    let resultsDir = Path.GetDirectoryName resultsCsv
+    let resultsStem = Path.GetFileNameWithoutExtension resultsCsv
+    if Directory.Exists resultsDir then
+        for f in Directory.EnumerateFiles(resultsDir, sprintf "%s_trips_*.csv" resultsStem) do
+            File.Delete f
+
+    let allMetrics = System.Collections.Concurrent.ConcurrentBag<Metrics>()
+    let allTripsByGroup =
+        System.Collections.Concurrent.ConcurrentDictionary<string * int * bool, System.Collections.Concurrent.ConcurrentBag<RoundTrip>>()
+    let getTripBag (tf: string) (th: int) (sh: bool) =
+        allTripsByGroup.GetOrAdd((tf, th, sh), fun _ -> System.Collections.Concurrent.ConcurrentBag<RoundTrip>())
+    let advBySymbol =
+        System.Collections.Concurrent.ConcurrentDictionary<string, float>()
+    let writeLock = obj()
+    let totalCells =
+        symbols.Length * timeframes.Length
+        * priceDeclineThresholds.Length * coverMaHoursList.Length
+        * timeStopMinutesList.Length
+        * entryDistanceMaxPctList.Length
+    let mutable doneCells = 0
+
+    let swAll = Stopwatch.StartNew()
+    let opts = System.Threading.Tasks.ParallelOptions(MaxDegreeOfParallelism = parallelism)
+    System.Threading.Tasks.Parallel.ForEach(
+        symbols,
+        opts,
+        fun symbol ->
+            let swSym = Stopwatch.StartNew()
+            try
+                let cells =
+                    [| for tf in timeframes do
+                        for priceDecline in priceDeclineThresholds do
+                            for coverMaHours in coverMaHoursList do
+                                for timeStop in timeStopMinutesList do
+                                    for entryDistMaxPct in entryDistanceMaxPctList do
+                                        let cfg : OrderflowLongFadeMA.LongFadeMAConfig =
+                                            { OrderflowLongFadeMA.defaultLongFadeMAConfig () with
+                                                PriceDeclineThreshold = priceDecline
+                                                CoverMaHours = coverMaHours
+                                                RecentHours = recentHours
+                                                LagHours = lagHours
+                                                CvdMinutes = cvdMinutes
+                                                StopLowWindowMinutes = stopLowWindowMinutes
+                                                TimeStopMinutes = timeStop
+                                                TimeStopMode = timeStopMode
+                                                EntryDistanceMaxPct = entryDistMaxPct
+                                                EntryDistanceRef = entryDistanceRef
+                                                MinRewardRiskRatio = minRewardRiskRatio
+                                                Notional = notional
+                                                TakerFee = takerFee
+                                                MaxAdverseFraction = maxAdversePct / 100.0
+                                                ReferenceVol = referenceVolPct / 100.0
+                                                MinLongAdv = minLongAdv
+                                                VolWindowDays = volWindowDays
+                                                MaxBarPriceRatio = maxBarPriceRatio }
+                                        yield LongFadeMACell(symbol, tf, cfg) |]
+                let metrics, adv =
+                    runLongFadeMACellsFromBars barsRoot symbol startDate endDate cells fundingRoot
+                let nonEmpty = metrics |> Array.filter (fun m -> m.BarsTotal > 0)
+                if nonEmpty.Length = 0 then
+                    lock writeLock (fun () ->
+                        printfn "[long-fade-ma-sweep] %s: no bars in window" symbol)
+                else
+                    if adv > 0.0 then advBySymbol.[symbol] <- adv
+                    for cell in cells do
+                        let trips = cell.Trips
+                        let bag = getTripBag cell.Timeframe cell.LongFadeMAConfig.CoverMaHours false
+                        for t in trips do bag.Add t
+                        if trips.Length > 0 then
+                            let tripsPath =
+                                let dir = Path.GetDirectoryName resultsCsv
+                                let stem = Path.GetFileNameWithoutExtension resultsCsv
+                                let tsTag =
+                                    if cell.LongFadeMAConfig.TimeStopMinutes > 0
+                                    then sprintf "_ts%dm" cell.LongFadeMAConfig.TimeStopMinutes
+                                    else ""
+                                let edTag =
+                                    if cell.LongFadeMAConfig.EntryDistanceMaxPct > 0.0
+                                    then sprintf "_ed%g" cell.LongFadeMAConfig.EntryDistanceMaxPct
+                                    else ""
+                                Path.Combine(dir,
+                                    sprintf "%s_trips_%s_pd%g_ma%dh%s%s_long.csv"
+                                        stem cell.Timeframe
+                                        cell.LongFadeMAConfig.PriceDeclineThreshold
+                                        cell.LongFadeMAConfig.CoverMaHours
+                                        tsTag
+                                        edTag)
+                            lock writeLock (fun () ->
+                                appendTrips tripsPath cell.Symbol cell.Timeframe cell.Config trips)
+                    lock writeLock (fun () ->
+                        appendResults resultsCsv metrics
+                        for m in metrics do allMetrics.Add m
+                        doneCells <- doneCells + metrics.Length)
+                    swSym.Stop()
+                    lock writeLock (fun () ->
+                        printfn "[long-fade-ma-sweep] %s done in %.1fs (%d/%d cells)"
+                            symbol swSym.Elapsed.TotalSeconds doneCells totalCells)
+            with ex ->
+                lock writeLock (fun () ->
+                    eprintfn "[long-fade-ma-sweep] %s FAILED: %s" symbol ex.Message
+                    eprintfn "%s" ex.StackTrace))
+    |> ignore
+    swAll.Stop()
+
+    let metricsArr = allMetrics.ToArray()
+    let summary = summarize metricsArr
+    let summarySorted =
+        summary |> Array.sortByDescending (fun s -> s.MedianSharpe)
+    writeSummary summaryCsv summarySorted
+    printfn "[long-fade-ma-sweep] wrote %d result rows -> %s" metricsArr.Length resultsCsv
+    printfn "[long-fade-ma-sweep] wrote %d summary rows -> %s" summarySorted.Length summaryCsv
+
+    let breakdownLogPath =
+        let dir = Path.GetDirectoryName resultsCsv
+        let stem = Path.GetFileNameWithoutExtension resultsCsv
+        Path.Combine(dir, sprintf "%s_breakdown.log" stem)
+    Directory.CreateDirectory(Path.GetDirectoryName breakdownLogPath) |> ignore
+    use logWriter = new StreamWriter(breakdownLogPath, false)
+    let logWrite (s: string) =
+        logWriter.WriteLine s
+        logWriter.Flush()
+    let consoleWrite (s: string) = Console.WriteLine s
+
+    for s in summarySorted do
+        let cellMetrics =
+            metricsArr
+            |> Array.filter (fun m ->
+                m.Timeframe = s.Timeframe && m.MaWindowHours = s.MaWindowHours && m.AllowShort = s.AllowShort
+                && m.BarsTotal > 0)
+        let trips =
+            match allTripsByGroup.TryGetValue((s.Timeframe, s.MaWindowHours, s.AllowShort)) with
+            | true, bag -> bag.ToArray()
+            | _ -> [||]
+        printGroupBreakdown logWrite consoleWrite s.Timeframe s.MaWindowHours s.AllowShort notional cellMetrics trips advBySymbol
+
+    printfn ""
+    printfn "[long-fade-ma-sweep] breakdown -> %s" breakdownLogPath
+    printfn "[long-fade-ma-sweep] total wall %.1fs" swAll.Elapsed.TotalSeconds
+    0
+
+// =============================================================================
 // vwma-sweep — research baseline (close-vs-VWMA crossover signal)
 // =============================================================================
 //
@@ -2944,6 +3268,7 @@ let main argv =
         | Cumsum_Z_Sweep a -> cmdCumsumZSweep a
         | Extreme_Rvol_Sweep a -> cmdExtremeRvolSweep a
         | Extreme_Rvol_Long_Sweep a -> cmdExtremeRvolLongSweep a
+        | Long_Fade_Ma_Sweep a -> cmdLongFadeMaSweep a
         | Vwma_Sweep a -> cmdVwmaSweep a
         | Breakout_Sweep a -> cmdBreakoutSweep a
         | Build_Breadth a -> cmdBuildBreadth a

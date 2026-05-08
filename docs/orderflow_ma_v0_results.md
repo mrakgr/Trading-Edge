@@ -2876,3 +2876,266 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- extreme-rvol-long-
 python scripts/crypto/quintile_bin_extreme_rvol.py \
     data/crypto/extreme_rvol_long_quintile/results_trips_1m_rvol8_pd0.05_ts90m_ed0.2_long.csv
 ```
+
+## Long fade — MA-target exit (v9, 2026-05-08): `OrderflowLongFadeMA`
+
+The v8 ExtremeRvolLong sweep showed long-side rvol is non-monotonic and
+mostly noise. We tried lifting the rvol gate entirely; the volume-
+normalize cover then fell apart (the "exit when activity normalises"
+rule was implicitly the same regime filter as the entry rvol gate). To
+escape that coupling, we built a sibling engine that exits on a
+**bar-close ≥ trailing-N-hour MA** instead. Same direction (long),
+same CVD positive-cross trigger, same 8h-MA-lagged-16h reference for
+the price-decline gate, same 20m min-Low VWAP stop, same 90m
+conditional time-stop, same `Low8h` entry-distance gate. **No rvol
+gate, no rvol cover.**
+
+New invariants this engine adds:
+
+- `MinRewardRiskRatio` gate at entry: reward = `coverMa - close`,
+  risk = `close - stopLevel`; reject if `reward / risk < threshold`.
+  Default 1.0 — never take a trade whose upside doesn't at least match
+  its downside. Subsumes the "MA above entry" guard since any positive
+  RR already requires the MA above the close.
+- `CoverMaHours` config — straight time-based MA of `bar.Close`.
+  Cover when `bar.Close >= meanMa`. No VWAP filter; close-vs-MA is
+  the cleanest "we got our reversion" check.
+
+### Loose-gate baseline — `pd≥10%`, 24h cover, no rvol
+
+71,697 trips, aggregate **PF 0.97** (losing). Decline-quintile
+breakdown showed only Q5 (>16.6% decline) was profitable: 14,340
+trips, PF 1.19, +$10.6k netPnL. Q1–Q4 lost a combined −$18.6k.
+
+**Conclusion:** removing the rvol gate kills the strategy in
+aggregate. The vol-normalize cover wasn't useless — it was implicitly
+filtering for the regime where the long-fade thesis holds. Setting
+`PriceDeclineThreshold = 0.166` (Q5 floor) is the obvious next step.
+
+### Cover-MA window sweep — `pd≥16.6%`, RR ≥ 0.5
+
+| MA hours | trips | PF | avgPnL | netPnL | medBars |
+|---------:|------:|------:|-------:|-------:|--------:|
+| 4h | 13,386 | 0.87 | −$0.41 | −$5,484 | 15 |
+| 6h | 13,995 | 0.92 | −$0.26 | −$3,627 | 20 |
+| 8h | 14,126 | 0.94 | −$0.22 | −$3,043 | 24 |
+| 12h | 14,446 | 1.02 | $0.09 | $1,293 | 30 |
+| 16h | 14,678 | 1.11 | $0.40 | $5,906 | 35 |
+| 20h | 14,849 | 1.11 | $0.43 | $6,348 | 40 |
+| 24h | 14,835 | 1.17 | $0.67 | $9,920 | 42 |
+| 36h | 14,810 | 1.30 | $1.16 | $17,141 | 42 |
+| **48h** | 14,655 | **1.39** | $1.49 | **$21,772** | 41 |
+| **72h** | 14,096 | **1.40** | $1.54 | $21,755 | 40 |
+| 96h | 13,626 | 1.32 | $1.25 | $17,094 | 40 |
+
+**Findings:**
+
+- The 24h MA we initially shipped was leaving most of the edge on the
+  table. **PF jumps from 1.17 (24h) → 1.39 (48h) → 1.40 (72h)** before
+  regressing to 1.32 at 96h. The 48–72h band is the sweet spot.
+- 96h regression suggests the cover MA is moving past mean-reversion
+  and into trend territory.
+- Cover-MA windows shorter than the 75m CVD trigger window (the 4h /
+  6h cells are still at 4× CVD width but barely) are structurally
+  bad: the trade is being asked to revert inside the same horizon
+  that fired it.
+
+### Quintile-by-decline — within each cover-MA window
+
+PF cells:
+
+| MA | Q1 (16.6–17.6%) | Q2 (17.6–19.2%) | Q3 (19.2–21.9%) | Q4 (21.9–27.0%) | Q5 (>27%) | Total |
+|---:|---:|---:|---:|---:|---:|---:|
+| 4h | 0.85 | 0.84 | 0.87 | 0.87 | 0.91 | 0.87 |
+| 6h | 0.81 | 0.84 | 0.90 | 0.97 | **1.06** | 0.92 |
+| 8h | 0.81 | 0.80 | 0.85 | 1.02 | **1.16** | 0.94 |
+| 12h | 0.92 | 0.82 | 0.85 | 1.17 | **1.31** | 1.02 |
+| 16h | 0.99 | 0.90 | 0.95 | 1.24 | **1.39** | 1.11 |
+| 20h | 1.00 | 0.93 | 0.97 | 1.21 | 1.38 | 1.11 |
+| 24h | 1.05 | 0.96 | 1.01 | 1.30 | 1.48 | 1.17 |
+| 36h | 1.18 | 0.99 | 1.08 | 1.51 | 1.65 | 1.30 |
+| 48h | 1.27 | 1.09 | 1.12 | **1.65** | **1.72** | 1.39 |
+| 72h | 1.33 | 1.10 | 1.24 | **1.66** | 1.62 | 1.40 |
+| 96h | 1.30 | 1.05 | 1.32 | 1.56 | 1.38 | 1.32 |
+
+netPnL cells (USDT, $1k notional):
+
+| MA | Q1 | Q2 | Q3 | Q4 | Q5 | Total |
+|---:|---:|---:|---:|---:|---:|---:|
+| 4h | −1,166 | −1,251 | −1,104 | −1,049 | −913 | −5,484 |
+| 6h | −1,688 | −1,389 | −931 | −319 | +699 | −3,627 |
+| 8h | −1,731 | −1,949 | −1,496 | +232 | +1,901 | −3,043 |
+| 12h | −784 | −1,855 | −1,621 | +1,687 | +3,867 | +1,293 |
+| 16h | −89 | −1,042 | −552 | +2,563 | +5,027 | +5,906 |
+| 20h | +14 | −793 | −307 | +2,368 | +5,066 | +6,348 |
+| 24h | +487 | −490 | +92 | +3,392 | +6,439 | +9,920 |
+| 36h | +1,844 | −74 | +883 | +5,762 | +8,726 | +17,141 |
+| 48h | +2,771 | +978 | +1,302 | +7,263 | +9,458 | +21,772 |
+| 72h | +3,214 | +1,034 | +2,582 | +6,999 | +7,925 | +21,755 |
+| 96h | +2,785 | +515 | +3,368 | +5,765 | +4,661 | +17,094 |
+
+**Findings:**
+
+- **Even the losing windows have profitable upper tails.** The 8h
+  cell (PF 0.94 overall) has Q5 at PF 1.16 / +$1,901; the 6h cell has
+  Q5 at PF 1.06 / +$699. Only the 4h cell has *no* profitable
+  quintile.
+- **Q5 alone (>27% decline) is profitable at every window 6h+.** PF
+  rises from 1.06 (6h) to 1.72 (48h), peaks 1.62–1.72 at 48–72h.
+- **Q4 (21.9–27%) is the next-best regime.** Becomes profitable at
+  8h (PF 1.02), peaks at 1.66 at 72h. Q4+Q5 combined are doing the
+  lion's share of work everywhere.
+- **Q1–Q3 are the weakest band.** Q2 in particular is consistently
+  the worst — only break-even at 48–72h. Suggests the 17.6–19.2%
+  range is a low-edge "no man's land" — too deep for intraday noise
+  but not deep enough for the deep-decline thesis.
+- **The peak migrates with magnitude:** Q1 peaks at 72h (1.33), Q4
+  at 72h (1.66), but **Q5 peaks at 48h (1.72), not 72h** —
+  counter-intuitive: deeper declines bounce faster.
+
+### Reproducer
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- long-fade-ma-sweep \
+    --price-decline-thresholds 0.166 \
+    --cover-ma-hours 4,6,8,12,16,20,24,36,48,72,96 \
+    --min-reward-risk-ratio 0.5 \
+    --max-bar-price-ratio 3 --reference-vol-pct 0.1019 --min-long-adv 8000000 \
+    --results-csv data/crypto/long_fade_ma_window/results.csv \
+    --summary-csv data/crypto/long_fade_ma_window/summary.csv
+
+python /tmp/bin_long_fade_ma_all_quintiles.py
+```
+
+### Outcome
+
+Two viable defaults:
+- **48h cover, pd ≥ 0.22 (Q4 floor)** — captures the Q4+Q5 PF-peak
+  regime; ~5,600 trips, PF ~1.69, +$16.7k netPnL.
+- **72h cover, pd ≥ 0.166 (loose floor)** — keeps the marginal Q1–Q3
+  trades for free trade-volume; 14,096 trips, PF 1.40, +$21.8k netPnL.
+
+Next thread: drop the stop entirely and exit only at the MA, since
+deeper declines benefit from longer covers and the 20m MinLow stop
+might be cutting reversions short.
+
+## Long fade — no-stop + fixed reference (v10, 2026-05-08)
+
+Two follow-up changes from v9. Both lifted PF substantially.
+
+### Change 1 — drop the stops
+
+Sweeping the no-stop variant (`StopLowWindowMinutes = 0`,
+`TimeStopMinutes = 0`, `MinRewardRiskRatio = 0`) at pd≥16.6% across
+the same 4..96h cover-MA range:
+
+| MA hours | trips | PF | netPnL |
+|---------:|------:|------:|-------:|
+| 24h | 3,861 | 1.83 | $32,343 |
+| 48h | 4,175 | 2.66 | $64,214 |
+| **72h** | 5,368 | **2.90** | **$78,961** |
+| 96h | 6,239 | 2.73 | $78,961 |
+
+vs v9 with the 20m MinLow stop on at the same 72h cover: PF 1.40,
++$21,755. **Removing the stop nearly doubled PF.** The stop was cutting
+reversions short — many trades stopped out were ultimately winners if
+allowed to ride to the MA.
+
+A time-stop sweep `{6,12,24,48,72,96}h × {48,72}h cover` confirmed the
+finding: any time-stop *shorter than the cover-MA* costs edge (a 6h
+time-stop crashes the 72h cover from PF 2.90 → 1.80). Time-stops ≥
+cover-MA hours are no-ops.
+
+### Change 2 — fix the decline reference
+
+The v9 decline gate measured `bar.Close vs 8h-MA-lagged-16h` —
+inherited from the short engine where it makes sense (rise vs lagged
+peak). For the long-fade thesis it's wrong: a "16.6% decline" against
+a 12-hours-old reference can mean the *current* trailing 72h MA has
+already drifted below entry. Diagnostic on the 72h baseline showed
+**1,947 of 5,368 trades (36%) exiting in <1h** — fee-burn 1-bar
+exits where the cover MA was already at/below entry.
+
+Fix: use the cover MA itself as the decline reference. `priceDecline =
+1 - bar.Close / coverMa`. Single-reference design — decline is "% below
+the very level the trade is targeting".
+
+### Re-run with both fixes — pd≥16.6% vs cover MA, no stops
+
+| MA hours | trips | PF | avgPnL | netPnL | medBars | <1h% |
+|---------:|------:|------:|-------:|-------:|--------:|-----:|
+| 4h | 284 | 1.02 | $0.22 | $63 | 169 | 4.2% |
+| 6h | 430 | 1.12 | $1.77 | $759 | 260 | 1.9% |
+| 8h | 519 | 1.15 | $2.20 | $1,144 | 366 | 1.9% |
+| 12h | 723 | 1.38 | $5.58 | $4,034 | 538 | 1.0% |
+| 16h | 977 | 1.64 | $8.73 | $8,527 | 689 | 0.5% |
+| 20h | 1,230 | 1.87 | $11.06 | $13,599 | 800 | 0.6% |
+| 24h | 1,465 | 2.11 | $14.05 | $20,588 | 953 | 0.5% |
+| 36h | 2,133 | 2.47 | $16.49 | $35,177 | 1,394 | 0.5% |
+| 48h | 2,767 | 3.14 | $21.97 | $60,803 | 1,846 | 0.4% |
+| **72h** | **3,721** | **3.22** | **$25.08** | **$93,302** | 2,621 | 0.2% |
+| 96h | 4,332 | 2.64 | $22.10 | $95,756 | 3,702 | 0.2% |
+
+### Quintile-by-decline grid (per cover-MA window)
+
+PF cells:
+
+| MA | Q1 (lo) | Q2 | Q3 | Q4 | Q5 (hi) | Total |
+|---:|--------:|---:|---:|---:|--------:|------:|
+| 4h | 1.08 | 1.69 | 0.85 | 1.12 | 0.72 | 1.02 |
+| 6h | 1.52 | 0.98 | 1.36 | 2.41 | 0.61 | 1.12 |
+| 8h | 1.75 | 1.15 | 1.00 | 2.19 | 0.65 | 1.15 |
+| 12h | 1.73 | 2.25 | 1.52 | 1.47 | 0.77 | 1.38 |
+| 16h | 1.72 | 2.59 | 1.60 | 2.10 | 1.02 | 1.64 |
+| 20h | 1.93 | 2.04 | 2.53 | 2.03 | 1.32 | 1.87 |
+| 24h | 3.34 | 2.20 | 2.33 | 2.15 | 1.53 | 2.11 |
+| 36h | 2.68 | 3.32 | 3.09 | 2.25 | 1.81 | 2.47 |
+| 48h | **3.75** | 3.00 | **4.67** | 3.47 | 2.06 | 3.14 |
+| **72h** | 2.71 | 3.19 | 3.72 | **4.43** | 2.61 | **3.22** |
+| 96h | 2.65 | 2.34 | 2.30 | 2.98 | 2.91 | 2.64 |
+
+72h decline cutoffs: 16.6% → 17.0% → 17.7% → 18.8% → 21.3% → max
+
+### Findings
+
+- **PF curve is monotonic and clean from 4h → 72h.** The fixed
+  reference removes the 36% fee-burn spike (now 0.2% at 72h). Median
+  hold at 72h is 2,621 bars (~44h), longer than 48h's 1,846 (~31h) —
+  the natural ordering is restored.
+- **72h is now a clean winner: PF 3.22 / +$93,302 / 3,721 trips /
+  $25.08 avgPnL.** Up from PF 2.90 / +$78,961 with the lagged
+  reference.
+- **96h gets higher netPnL ($95,756) but lower PF (2.64).** The extra
+  trades are lower-quality. 72h is the cleaner choice.
+- **Quintile pattern is monotonic at 72h** — Q1 2.71 → Q4 4.43 (peak)
+  → Q5 2.61. The Q4 sweet spot (decline 18.8–21.3%) yields PF 4.43 /
+  +$23,242 / 745 trips. Past 21.3% the trade is fighting trend.
+- **Trade count dropped 31% vs old reference** (3,721 vs 5,368 at 72h)
+  — exactly the bars where the cover MA was already at/below entry.
+  Those *should* be filtered.
+- **The peak migrates with quintile:** 48h cover wins at Q1 (PF 3.75)
+  and Q3 (4.67); 72h wins at Q4 (4.43); 96h wins at Q5 (2.91).
+
+### New defaults
+
+`OrderflowLongFadeMA.defaultLongFadeMAConfig()` now ships with:
+
+  - `PriceDeclineThreshold = 0.166`
+  - `CoverMaHours = 72`
+  - `StopLowWindowMinutes = 0` (no stop)
+  - `TimeStopMinutes = 0` (no time-stop)
+  - `MinRewardRiskRatio = 0.0` (no RR floor — was the v9 default; the
+    fixed-reference design makes it structurally redundant since pd >
+    0 already guarantees coverMa > close)
+  - `EntryDistanceMaxPct = 0.20`, `EntryDistanceRef = Low8h` (kept)
+  - `CvdMinutes = 75` (kept)
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- long-fade-ma-sweep \
+    --price-decline-thresholds 0.166 \
+    --cover-ma-hours 4,6,8,12,16,20,24,36,48,72,96 \
+    --stop-low-window-minutes 0 --time-stop-minutes 0 --min-reward-risk-ratio 0 \
+    --max-bar-price-ratio 3 --reference-vol-pct 0.1019 --min-long-adv 8000000 \
+    --results-csv data/crypto/long_fade_ma_nostop/results.csv \
+    --summary-csv data/crypto/long_fade_ma_nostop/summary.csv
+```
