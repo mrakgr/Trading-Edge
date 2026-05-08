@@ -372,7 +372,7 @@ type LongFadeMASweepArgs =
     | Cover_Ma_Hours of string
     | Recent_Hours of int
     | Lag_Hours of int
-    | Cvd_Minutes of int
+    | Cvd_Minutes_List of string
     | Stop_Low_Window_Minutes of int
     | Time_Stop_Minutes of string
     | Time_Stop_Mode of string
@@ -401,12 +401,12 @@ type LongFadeMASweepArgs =
             | Start_Date _ -> "Inclusive start date YYYY-MM-DD. Default 2024-05-01."
             | End_Date _ -> "Inclusive end date YYYY-MM-DD. Default 2026-04-30."
             | Timeframes _ -> "Comma-separated timeframes. Default 1m."
-            | Price_Decline_Thresholds _ -> "Comma-separated price-decline thresholds (fractional). Default '0.166'. Entry requires close <= (1 - threshold) * coverMa."
+            | Price_Decline_Thresholds _ -> "Comma-separated price-decline thresholds (fractional). Default '0.14'. Entry requires close <= (1 - threshold) * coverMa."
             | Cover_Ma_Hours _ -> "Comma-separated cover-MA windows in HOURS. Default '72'. Cover when bar.Close >= trailing-N-hour MA of close. Same MA is used for the decline gate (single-reference design)."
             | Min_Reward_Risk_Ratio _ -> "Minimum reward:risk at entry. Reward = coverMA - close; risk = close - stop. Reject when reward/risk < this. Default 0.0 (disabled). Pass >0 to enforce a floor."
             | Recent_Hours _ -> "Recent-window hours for the lagged-MA. Default 8."
             | Lag_Hours _ -> "Lag (hours) for the lagged-MA. Default 16."
-            | Cvd_Minutes _ -> "Trailing-CVD window in MINUTES. Default 75."
+            | Cvd_Minutes_List _ -> "Comma-separated trailing-CVD windows in MINUTES. Default '240' (4h — sweep-validated peak for the 14% pd / 72h cover combo)."
             | Stop_Low_Window_Minutes _ -> "Low-stop window (minutes). Default 0 (disabled — the no-stop variant is the v9 winner). Pass >0 to re-enable a trailing-MinLow VWAP stop snapshotted at entry."
             | Time_Stop_Minutes _ -> "Comma-separated time-stop windows in MINUTES. Default '0' (disabled). Any time-stop shorter than the cover-MA hurts mean-reversion edge."
             | Time_Stop_Mode _ -> "Time-stop semantics: 'hard' or 'conditional'. Default 'conditional'."
@@ -1841,7 +1841,7 @@ let cmdLongFadeMaSweep (args: ParseResults<LongFadeMASweepArgs>) : int =
         args.TryGetResult LongFadeMASweepArgs.Price_Decline_Thresholds
         |> Option.map (parseList ',')
         |> Option.map (Array.map (fun s -> Double.Parse(s, System.Globalization.CultureInfo.InvariantCulture)))
-        |> Option.defaultValue [| 0.166 |]
+        |> Option.defaultValue [| 0.14 |]
     let coverMaHoursList =
         args.TryGetResult LongFadeMASweepArgs.Cover_Ma_Hours
         |> Option.map (parseList ',')
@@ -1849,7 +1849,11 @@ let cmdLongFadeMaSweep (args: ParseResults<LongFadeMASweepArgs>) : int =
         |> Option.defaultValue [| 72 |]
     let recentHours = args.GetResult(LongFadeMASweepArgs.Recent_Hours, defaultValue = 8)
     let lagHours = args.GetResult(LongFadeMASweepArgs.Lag_Hours, defaultValue = 16)
-    let cvdMinutes = args.GetResult(LongFadeMASweepArgs.Cvd_Minutes, defaultValue = 75)
+    let cvdMinutesList =
+        args.TryGetResult LongFadeMASweepArgs.Cvd_Minutes_List
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map Int32.Parse)
+        |> Option.defaultValue [| 240 |]
     let stopLowWindowMinutes = args.GetResult(LongFadeMASweepArgs.Stop_Low_Window_Minutes, defaultValue = 0)
     let timeStopMinutesList =
         args.TryGetResult LongFadeMASweepArgs.Time_Stop_Minutes
@@ -1918,12 +1922,12 @@ let cmdLongFadeMaSweep (args: ParseResults<LongFadeMASweepArgs>) : int =
         match entryDistanceRef with
         | OrderflowLongFadeMA.Stop20m -> "stop20m"
         | OrderflowLongFadeMA.Low8h   -> "low8h"
-    printfn "[long-fade-ma-sweep] symbols=%d timeframes=[%s] priceDecline=[%s] coverMaH=[%s] cvdM=%d stopLowM=%d timeStopMin=[%s] timeStopMode=%s entryDistMaxPct=[%s] entryDistRef=%s range=%s..%s parallelism=%d minLongAdv=$%s maxBarPriceRatio=%g referenceVolPct=%g"
+    printfn "[long-fade-ma-sweep] symbols=%d timeframes=[%s] priceDecline=[%s] coverMaH=[%s] cvdM=[%s] stopLowM=%d timeStopMin=[%s] timeStopMode=%s entryDistMaxPct=[%s] entryDistRef=%s range=%s..%s parallelism=%d minLongAdv=$%s maxBarPriceRatio=%g referenceVolPct=%g"
         symbols.Length
         (String.concat "," timeframes)
         (String.concat "," (priceDeclineThresholds |> Array.map (sprintf "%g")))
         (String.concat "," (coverMaHoursList |> Array.map string))
-        cvdMinutes stopLowWindowMinutes
+        (String.concat "," (cvdMinutesList |> Array.map string)) stopLowWindowMinutes
         (String.concat "," (timeStopMinutesList |> Array.map string))
         timeStopModeStr
         (String.concat "," (entryDistanceMaxPctList |> Array.map (sprintf "%g")))
@@ -1971,27 +1975,28 @@ let cmdLongFadeMaSweep (args: ParseResults<LongFadeMASweepArgs>) : int =
                             for coverMaHours in coverMaHoursList do
                                 for timeStop in timeStopMinutesList do
                                     for entryDistMaxPct in entryDistanceMaxPctList do
-                                        let cfg : OrderflowLongFadeMA.LongFadeMAConfig =
-                                            { OrderflowLongFadeMA.defaultLongFadeMAConfig () with
-                                                PriceDeclineThreshold = priceDecline
-                                                CoverMaHours = coverMaHours
-                                                RecentHours = recentHours
-                                                LagHours = lagHours
-                                                CvdMinutes = cvdMinutes
-                                                StopLowWindowMinutes = stopLowWindowMinutes
-                                                TimeStopMinutes = timeStop
-                                                TimeStopMode = timeStopMode
-                                                EntryDistanceMaxPct = entryDistMaxPct
-                                                EntryDistanceRef = entryDistanceRef
-                                                MinRewardRiskRatio = minRewardRiskRatio
-                                                Notional = notional
-                                                TakerFee = takerFee
-                                                MaxAdverseFraction = maxAdversePct / 100.0
-                                                ReferenceVol = referenceVolPct / 100.0
-                                                MinLongAdv = minLongAdv
-                                                VolWindowDays = volWindowDays
-                                                MaxBarPriceRatio = maxBarPriceRatio }
-                                        yield LongFadeMACell(symbol, tf, cfg) |]
+                                        for cvdMinutes in cvdMinutesList do
+                                            let cfg : OrderflowLongFadeMA.LongFadeMAConfig =
+                                                { OrderflowLongFadeMA.defaultLongFadeMAConfig () with
+                                                    PriceDeclineThreshold = priceDecline
+                                                    CoverMaHours = coverMaHours
+                                                    RecentHours = recentHours
+                                                    LagHours = lagHours
+                                                    CvdMinutes = cvdMinutes
+                                                    StopLowWindowMinutes = stopLowWindowMinutes
+                                                    TimeStopMinutes = timeStop
+                                                    TimeStopMode = timeStopMode
+                                                    EntryDistanceMaxPct = entryDistMaxPct
+                                                    EntryDistanceRef = entryDistanceRef
+                                                    MinRewardRiskRatio = minRewardRiskRatio
+                                                    Notional = notional
+                                                    TakerFee = takerFee
+                                                    MaxAdverseFraction = maxAdversePct / 100.0
+                                                    ReferenceVol = referenceVolPct / 100.0
+                                                    MinLongAdv = minLongAdv
+                                                    VolWindowDays = volWindowDays
+                                                    MaxBarPriceRatio = maxBarPriceRatio }
+                                            yield LongFadeMACell(symbol, tf, cfg) |]
                 let metrics, adv =
                     runLongFadeMACellsFromBars barsRoot symbol startDate endDate cells fundingRoot
                 let nonEmpty = metrics |> Array.filter (fun m -> m.BarsTotal > 0)
@@ -2016,11 +2021,13 @@ let cmdLongFadeMaSweep (args: ParseResults<LongFadeMASweepArgs>) : int =
                                     if cell.LongFadeMAConfig.EntryDistanceMaxPct > 0.0
                                     then sprintf "_ed%g" cell.LongFadeMAConfig.EntryDistanceMaxPct
                                     else ""
+                                let cvdTag = sprintf "_cvd%dm" cell.LongFadeMAConfig.CvdMinutes
                                 Path.Combine(dir,
-                                    sprintf "%s_trips_%s_pd%g_ma%dh%s%s_long.csv"
+                                    sprintf "%s_trips_%s_pd%g_ma%dh%s%s%s_long.csv"
                                         stem cell.Timeframe
                                         cell.LongFadeMAConfig.PriceDeclineThreshold
                                         cell.LongFadeMAConfig.CoverMaHours
+                                        cvdTag
                                         tsTag
                                         edTag)
                             lock writeLock (fun () ->

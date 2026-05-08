@@ -3139,3 +3139,250 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- long-fade-ma-sweep
     --results-csv data/crypto/long_fade_ma_nostop/results.csv \
     --summary-csv data/crypto/long_fade_ma_nostop/summary.csv
 ```
+
+### v10b — pd × CVD-window joint sweep (cover 72h, no stops)
+
+After v10 shipped (PF 3.22, $93k netPnL at pd=16.6%, cvd=75m), a joint
+sweep over (pd, cvd) showed both axes have monotonic effects but they
+trade against each other on netPnL.
+
+#### PF (rows=pd, cols=CVD minutes)
+
+```
+   pd     60     75     90    105    120    135    150    165    180    195    210    225    240
+12.0%   1.94   1.92   1.93   1.97   2.05   2.09   2.15   2.19   2.21   2.25   2.34   2.33   2.34
+13.0%   2.21   2.20   2.25   2.28   2.36   2.40   2.46   2.47   2.55   2.62   2.63   2.65   2.73
+14.0%   2.50   2.49   2.55   2.52   2.63   2.67   2.72   2.74   2.82   2.91   2.96   3.03   3.14
+15.0%   2.76   2.81   2.85   2.82   2.93   2.94   3.02   3.06   3.13   3.21   3.28   3.34   3.42
+16.6%   3.16   3.22   3.17   3.19   3.36   3.38   3.42   3.44   3.54   3.63   3.63   3.70  ★3.72
+```
+
+#### netPnL (USDT)
+
+```
+   pd       60       75       90      105      120      135      150      165      180      195      210      225      240
+12.0%   99854   95724   93852   93797   97995   97761   99434  100650  100394  101013  102869   99914   99319
+13.0%  103769   99926  100037   99014  101054  100327  101063  100224  100950  102738  100460   99918  100920
+14.0% ★104649  101792  101268   96929   99384   98034   98102   97217   98189   99404   98792   97938   99602
+15.0%  102385  100306   99710   95238   96683   94654   95625   94649   94704   95935   94788   94080   93468
+16.6%   94946   93302   87884   86719   87288   85921   84907   84656   86115   85299   82902   80951   80343
+```
+
+#### Trips
+
+```
+   pd     60     75     90    105    120    135    150    165    180    195    210    225    240
+12.0%   8791   8513   8260   8083   7923   7742   7582   7421   7301   7163   7002   6882   6755
+13.0%   7306   7076   6875   6713   6567   6409   6276   6139   6006   5894   5751   5657   5550
+14.0%   6105   5915   5735   5558   5409   5289   5190   5064   4968   4844   4718   4642   4563
+15.0%   5100   4917   4771   4611   4488   4383   4283   4175   4105   4041   3909   3859   3748
+16.6%   3866   3721   3575   3471   3366   3287   3199   3132   3106   3003   2925   2839   2774
+```
+
+#### Findings
+
+- **PF rises monotonically with CVD across every pd row.** No reversal
+  in the 13 columns. The current cvd=75m default is sitting in a
+  slight valley on every row.
+- **Best PF: 16.6% × 240m = 3.72** (vs the current default at 3.22).
+  +16% edge per trade for ~25% fewer trades. But netPnL drops to
+  $80,343 from $93,302 because the trade-count loss outweighs the PF
+  gain at this pd.
+- **Best netPnL: 14% × 60m = $104,649.** The capacity champ. PF 2.50
+  is much lower but trade count is 6,105 vs 2,774 at the PF champ.
+- **netPnL ridge is flat across CVD at low pd:** pd=12% goes from
+  $99,854 (60m) to $99,319 (240m), peaking at $102,869 (210m). CVD
+  trades capacity for selectivity without changing dollar output.
+- **CVD effect inverts on netPnL at high pd:** at pd=16.6%, the
+  longer CVD *hurts* netPnL ($94,946 at 60m → $80,343 at 240m). Trip
+  loss dominates per-trade gain when the entry is already strict.
+
+#### Pareto frontier (top by metric)
+
+| pd | cvd | PF | trips | netPnL | role |
+|---:|----:|---:|------:|-------:|------|
+| 16.6% | 240m | **3.72** | 2,774 | $80,343 | highest PF |
+| 14.0% | 60m | 2.50 | 6,105 | **$104,649** | highest netPnL |
+
+The current default (16.6% × 75m, PF 3.22, $93,302) is *neither* of
+these. It's a balanced choice — moderate PF with moderate netPnL —
+but provably suboptimal on both axes.
+
+#### Reproducer
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- long-fade-ma-sweep \
+    --price-decline-thresholds 0.12,0.13,0.14,0.15,0.166 \
+    --cover-ma-hours 72 \
+    --cvd-minutes-list 60,75,90,105,120,135,150,165,180,195,210,225,240 \
+    --stop-low-window-minutes 0 --time-stop-minutes 0 --min-reward-risk-ratio 0 \
+    --max-bar-price-ratio 3 --reference-vol-pct 0.1019 --min-long-adv 8000000 \
+    --results-csv data/crypto/long_fade_ma_pd_cvd/results.csv \
+    --summary-csv data/crypto/long_fade_ma_pd_cvd/summary.csv
+```
+
+### v10c — extended CVD sweep (60m to 48h)
+
+User raised: PF is the closer-to-risk-adjusted metric (notional scales
+linearly with capital but PF doesn't); netPnL doesn't matter at fixed
+notional. Question: at ~4k trips/year capacity, what's the best PF
+achievable?
+
+Sweep extended to CVD ∈ {60m, 75m, 90m, 105m, 2h, 135m, 150m, 165m,
+3h, 195m, 210m, 225m, 4h, 6h, 8h, 12h, 16h, 20h, 24h, 32h, 40h, 48h}
+(22 cols), pd ∈ {12%, 13%, 14%, 15%, 16.6%}, cover 72h, no stops.
+
+#### PF heatmap (rows=pd, cols=CVD)
+
+```
+   pd     1h    75m    90m   105m     2h   135m   150m   165m     3h   195m   210m   225m     4h     6h     8h    12h    16h    20h    24h    32h    40h    48h
+12.0%   1.94   1.92   1.93   1.97   2.05   2.09   2.15   2.19   2.21   2.25   2.34   2.33   2.34   2.55   2.61   2.67   2.63   2.58   2.90   2.41   2.00   1.84
+13.0%   2.21   2.20   2.25   2.28   2.36   2.40   2.46   2.47   2.55   2.62   2.63   2.65   2.73   2.92   3.01   2.91   2.86   2.82   2.99   2.51   2.17   1.81
+14.0%   2.50   2.49   2.55   2.52   2.63   2.67   2.72   2.74   2.82   2.91   2.96   3.03   3.14   3.28   3.30   3.12   2.87   2.85   3.10   2.53   2.08   1.78
+15.0%   2.76   2.81   2.85   2.82   2.93   2.94   3.02   3.06   3.13   3.21   3.28   3.34   3.42   3.49   3.37   3.31   3.01   2.74   2.90   2.68   2.16   1.82
+16.6%   3.16   3.22   3.17   3.19   3.36   3.38   3.42   3.44   3.54   3.63   3.63   3.70   3.72  ★3.87   3.59   3.36   2.98   3.07   3.23   2.58   2.18   2.00
+```
+
+#### Trips (capacity context)
+
+```
+   pd     1h    75m    90m   105m     2h   135m   150m   165m     3h   195m   210m   225m     4h     6h     8h    12h    16h    20h    24h    32h    40h    48h
+12.0%   8791   8513   8260   8083   7923   7742   7582   7421   7301   7163   7002   6882   6755   5732   4894   3636   2653   1992   1562   1082    832    675
+13.0%   7306   7076   6875   6713   6567   6409   6276   6139   6006   5894   5751   5657   5550   4703   3965   2910   2111   1567   1229    880    665    534
+14.0%   6105   5915   5735   5558   5409   5289   5190   5064   4968   4844   4718   4642   4563   3858   3220   2361   1694   1252    990    712    520    433
+15.0%   5100   4917   4771   4611   4488   4383   4283   4175   4105   4041   3909   3859   3748   3173   2649   1979   1359   1026    807    576    415    368
+16.6%   3866   3721   3575   3471   3366   3287   3199   3132   3106   3003   2925   2839   2774   2322   1948   1439   1005    739    586    422    305    266
+```
+
+#### Findings
+
+- **Each pd row peaks at a different CVD, then collapses.** Peak
+  CVDs: 12%@24h (2.90), 13%@8h (3.01), 14%@8h (3.30), 15%@6h (3.49),
+  **16.6%@6h (3.87)**. Past 8–24h every row crashes; 48h is back near
+  break-even.
+- **CVD substitutes for pd, but only partly.** Lower-pd × longer-CVD
+  cells reach the same PF as higher-pd × shorter-CVD cells at matching
+  trip counts. But the PF *peak* sits at high-pd × mid-CVD: the two
+  axes are complementary, not redundant.
+- **Highest PF in the grid: 16.6% × 6h = 3.87 / 2,322 trips.** +20%
+  over the v10 default (16.6% × 75m, PF 3.22).
+- **For ~4k trips/year target: 15% × 195m = PF 3.21 / 4,041 trips.**
+  Same trip count as the v10 default but with one row lower pd and
+  longer CVD. Marginal PF gain (+0.01) but the cell sits inside a
+  flatter ridge so it's more robust to small parameter shifts.
+- **Best 4k-trips alternative: 14% × 4h = PF 3.14 / 4,563 trips.**
+  Lower PF but +14% capacity over the 4k headline cell.
+
+#### Pareto frontier (top by PF, all trip counts)
+
+| pd | cvd | PF | trips |
+|---:|----:|---:|------:|
+| 16.6% | 6h | **3.87** | 2,322 |
+| 16.6% | 4h | 3.72 | 2,774 |
+| 16.6% | 225m | 3.70 | 2,839 |
+| 16.6% | 195m | 3.63 | 3,003 |
+| 15.0% | 6h | 3.49 | 3,173 |
+
+#### Pareto frontier (top by PF, ≥4,000 trips)
+
+| pd | cvd | PF | trips | netPnL |
+|---:|----:|---:|------:|-------:|
+| **15.0%** | **195m** | **3.21** | **4,041** | **$95,935** |
+| 14.0% | 4h | 3.14 | 4,563 | $99,602 |
+| 15.0% | 3h | 3.13 | 4,105 | $94,704 |
+| 15.0% | 165m | 3.06 | 4,175 | $94,649 |
+| 14.0% | 225m | 3.03 | 4,642 | $97,938 |
+
+#### Reproducer
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- long-fade-ma-sweep \
+    --price-decline-thresholds 0.12,0.13,0.14,0.15,0.166 \
+    --cover-ma-hours 72 \
+    --cvd-minutes-list 360,480,720,960,1200,1440,1920,2400,2880 \
+    --stop-low-window-minutes 0 --time-stop-minutes 0 --min-reward-risk-ratio 0 \
+    --max-bar-price-ratio 3 --reference-vol-pct 0.1019 --min-long-adv 8000000 \
+    --results-csv data/crypto/long_fade_ma_pd_cvd_deep/results.csv \
+    --summary-csv data/crypto/long_fade_ma_pd_cvd_deep/summary.csv
+```
+
+### v10d — observational rvol + Q1 floor gate
+
+The v8 long-engine quintile sweep concluded that rvol was non-monotonic
+for long fades. With the v10 fixes (cover-MA reference, no stops) that
+finding flipped: **rvol IS monotonic for long fades, with a stronger
+spread than the short side**.
+
+#### Setup
+
+Added an observational rvol field to `OrderflowLongFadeMA`:
+- numerator window = `CvdMinutes` (4h at the new default — same horizon
+  as the entry-trigger CVD so the volume read matches the signal)
+- denominator = 30d trailing mean
+- exposed via the existing `RatioAtEntry` field on the trip record
+  (no engine restructuring needed)
+
+#### Rvol quintile breakdown — 14%/4h CVD/72h cover/no stops (4,563 trades, ungated)
+
+| qtile | trips | PF | avgPnL | netPnL | rvolMed |
+|------:|------:|------:|-------:|-------:|--------:|
+| Q1 (rvol < 0.75) | 913 | 1.83 | $8.11 | $7,403 | 0.51 |
+| Q2 (0.75–1.24) | 912 | 2.74 | $15.35 | $13,997 | 0.99 |
+| Q3 (1.24–1.91) | 913 | 3.42 | $21.04 | $19,209 | 1.54 |
+| **Q4 (1.91–3.15)** | 912 | **4.09** | $27.77 | $25,330 | 2.37 |
+| Q5 (>3.15) | 913 | 3.53 | $36.87 | $33,664 | 4.72 |
+
+**Findings:**
+
+- **Rvol IS monotonic up to Q4 (PF 4.09), then mildly regresses at Q5
+  (PF 3.53).** Same shape as the short side's "Q5 sometimes weakens"
+  pattern, but at a much higher PF baseline (4.09 vs 1.20).
+- **avgPnL is monotonic across all 5 quintiles** ($8.11 → $36.87) —
+  even Q5 makes more money per trade than Q4 because winners are
+  larger; PF dips because losers also widen.
+- **The PF spread is 3-4× the short side's** (long Q1=1.83 → Q4=4.09;
+  short Q1=0.88 → Q5=1.20).
+- **D9 of decile breakdown is the single best cell:** rvol 3.15-4.72,
+  PF 4.74, $37.56 avgPnL on 456 trades.
+
+The v8 conclusion was wrong because the v8 engine was structurally
+broken. With the lagged-decline reference and MinLow stop both gone,
+the volume signal becomes legible.
+
+#### Adding a rvol≥0.75 floor gate
+
+Q1 had PF 1.83 — well above break-even but a clear drag on aggregate
+metrics. Filtering it out:
+
+| config | trips | PF | avgPnL | netPnL |
+|--------|------:|------:|-------:|-------:|
+| ungated (v10c default) | 4,563 | 3.14 | $21.83 | $99,603 |
+| **rvol ≥ 0.75 (new v10d default)** | **3,914** | **3.44** | **$24.77** | **$96,964** |
+
+Strict improvement on PF (+9.5%), avgPnL (+13.5%), at -2.6% netPnL.
+Trip count drops 14% — still well above the 3,500-trip threshold for
+viability.
+
+#### New defaults
+
+`OrderflowLongFadeMA.defaultLongFadeMAConfig()` now ships with:
+
+  - `PriceDeclineThreshold = 0.14`
+  - `CoverMaHours = 72`
+  - `CvdMinutes = 240` (4h)
+  - `RvolEntryThreshold = 0.75` (NEW; Q1 floor from the v10d quintile)
+  - `StopLowWindowMinutes = 0`, `TimeStopMinutes = 0`,
+    `MinRewardRiskRatio = 0.0` (all kept from v10)
+  - `EntryDistanceMaxPct = 0.20`, `EntryDistanceRef = Low8h` (kept)
+
+Aggregate result at default config: PF 3.44, $25 avgPnL, 3,914 trips,
+$97k netPnL on the universe over the test window.
+
+#### Reproducer
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- long-fade-ma-sweep \
+    --max-bar-price-ratio 3 --reference-vol-pct 0.1019 --min-long-adv 8000000 \
+    --results-csv data/crypto/long_fade_ma_default_rvol075/results.csv \
+    --summary-csv data/crypto/long_fade_ma_default_rvol075/summary.csv
+```

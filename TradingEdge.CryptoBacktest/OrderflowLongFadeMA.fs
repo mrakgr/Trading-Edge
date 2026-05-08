@@ -97,10 +97,16 @@ type LongFadeMAConfig = {
     /// Minimum reward:risk ratio at entry. Risk = bar.Close - stopLevel
     /// (drop from entry to the 20m min-Low stop). Reward = coverMa -
     /// bar.Close (room to mean-revert up to the cover MA). Reject the
-    /// trade unless reward / risk >= this. Default 1.0 (1:1 RR floor).
-    /// Subsumes the "MA above entry" guard since any positive ratio
-    /// already requires coverMa > bar.Close.
+    /// trade unless reward / risk >= this. Default 0.0 (disabled). The
+    /// fixed-reference design makes this redundant since pd > 0 already
+    /// guarantees coverMa > close.
     MinRewardRiskRatio: float
+    /// Minimum rvol at entry (computed over the CvdMinutes horizon).
+    /// Reject trades with `rvolEntry < this`. Default 0.75 — the v10c
+    /// quintile breakdown showed Q1 (rvol < 0.75) had PF 1.83 vs PF
+    /// 3.14 aggregate; filtering Q1 out lifts aggregate PF cleanly.
+    /// Pass 0 to disable.
+    RvolEntryThreshold: float
     Notional: float
     TakerFee: float
     /// Always true for this engine; flag exists for parity.
@@ -114,17 +120,18 @@ type LongFadeMAConfig = {
 }
 
 let defaultLongFadeMAConfig () : LongFadeMAConfig =
-    { PriceDeclineThreshold = 0.166
+    { PriceDeclineThreshold = 0.14
       CoverMaHours = 72
       RecentHours = 8
       LagHours = 16
-      CvdMinutes = 75
+      CvdMinutes = 240
       StopLowWindowMinutes = 0
       TimeStopMinutes = 0
       TimeStopMode = Conditional
       EntryDistanceMaxPct = 0.20
       EntryDistanceRef = Low8h
       MinRewardRiskRatio = 0.0
+      RvolEntryThreshold = 0.75
       Notional = 1000.0
       TakerFee = 0.0004
       AllowLong = true
@@ -170,6 +177,13 @@ type Engine(cfg: LongFadeMAConfig) =
     let advWindowBars = daysToBars 90
     let volWindowBars = daysToBars (max 1 cfg.VolWindowDays)
     let warmupBars = hoursToBars 200
+    // Observational rvol — surfaced on the trip record as RatioAtEntry
+    // for downstream analysis (no entry gating). Numerator window
+    // matches CvdMinutes so rvol and CVD share a horizon: the volume
+    // ratio is "how much volume vs baseline traded in the same window
+    // that fired the CVD cross". 30d denominator.
+    let nRvolEntry = nCvd
+    let nRvolBase  = daysToBars 30
 
     // Close-price rolling sums for the lagged-MA derivation.
     let closeRecent = SumMa(nLagBig)
@@ -183,6 +197,9 @@ type Engine(cfg: LongFadeMAConfig) =
     let lowMinMa = MinMa(nStopLow)
     let nLow8h    = hoursToBars 8
     let low8hMinMa = MinMa(nLow8h)
+    // Observational rvol state.
+    let volEntry    = SumMa(nRvolEntry)
+    let volBaseline = SumMa(nRvolBase)
 
     // Position state.
     let mutable side = Flat
@@ -223,7 +240,7 @@ type Engine(cfg: LongFadeMAConfig) =
             let days = float m / barsPerDay
             if days > 0.0 then advMa.State / days else 0.0
 
-    let openLong (fillPrice: float) (fillUs: int64) (stopLevel: float) (declineAtFire: float) =
+    let openLong (fillPrice: float) (fillUs: int64) (stopLevel: float) (declineAtFire: float) (rvolAtFire: float) =
         side <- Long
         entryPrice <- fillPrice
         entryUs <- fillUs
@@ -231,9 +248,10 @@ type Engine(cfg: LongFadeMAConfig) =
         barsHeld <- 1
         mfeUsd <- 0.0
         maeUsd <- 0.0
-        // No rvol gate — surface 0.0 to the trip record so quintile-bin
-        // by ratio_at_entry is a degenerate axis (all zeros).
-        ratioAtEntry <- 0.0
+        // Observational only — surfaced on the trip record so the
+        // downstream analysis can quintile-bin trades by rvol without
+        // any gating happening here.
+        ratioAtEntry <- rvolAtFire
         fundingPnl <- 0.0
         advAtEntry <- currentAdv ()
         volAtEntry <- volMa.SampleStd
@@ -376,6 +394,8 @@ type Engine(cfg: LongFadeMAConfig) =
         closeLag.Push    bar.Close
         coverSum.Push    bar.Close
         cvdMa.Push (bar.BuyDollarVolume - bar.SellDollarVolume)
+        volEntry.Push    bar.Volume
+        volBaseline.Push bar.Volume
         lowMinMa.Push bar.Low
         low8hMinMa.Push bar.Low
 
@@ -438,13 +458,27 @@ type Engine(cfg: LongFadeMAConfig) =
                         let distance = (bar.Close - refLow) / refLow
                         distance <= cfg.EntryDistanceMaxPct
 
+            // Rvol at entry — same-horizon as CvdMinutes / 30d baseline.
+            // Surfaced on the trip record as RatioAtEntry and gated by
+            // cfg.RvolEntryThreshold (default 0.75 = filter Q1 of the
+            // v10c long-fade quintile breakdown).
+            let rvolAtEntry =
+                let entryMean = volEntry.State / float nRvolEntry
+                let baselineMean =
+                    if volBaseline.Count > 0
+                    then volBaseline.State / float volBaseline.Count
+                    else 0.0
+                if baselineMean > 0.0 then entryMean / baselineMean else 0.0
+            let rvolGate = cfg.RvolEntryThreshold <= 0.0 || rvolAtEntry >= cfg.RvolEntryThreshold
+
             if priceDecline >= cfg.PriceDeclineThreshold
                && cvdCross
                && advGate
                && stopBelowClose
                && rewardRiskOk
-               && distanceGate then
-                openLong bar.Close bar.EndUs stopLevel priceDecline
+               && distanceGate
+               && rvolGate then
+                openLong bar.Close bar.EndUs stopLevel priceDecline rvolAtEntry
 
         elif windowsReady && side = Long then
             let timeStopHit =
