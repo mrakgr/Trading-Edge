@@ -3952,6 +3952,97 @@ non-viable variant for shorts, alongside `--long-cvd-minutes 0` (MA
 touch). Both are kept testable so future hypotheses can re-validate
 against them, but neither should be used in production for shorts.
 
+### Post-hoc breakdown of the default trip set
+
+Bucketing the 3,306 default-config trips (pr ≥ 0.05, rvol ≥ 3,
+dual-CVD cover) by their actual rvol-at-entry and pr-at-entry:
+
+**Trip distributions:**
+
+  - rvol: min 3.00, p25 3.53, **median 4.74**, p75 8.99, p90 21.16,
+    p99 66.07 — most entries cluster just above the 3.0 floor.
+  - pr: min 0.050, p25 0.078, **median 0.121**, p75 0.199, p90 0.311,
+    p99 0.680 — broad spread across pr buckets.
+
+#### Rvol post-hoc bucketing (above the 3.0 floor)
+
+| rvol bucket | trips | PF | avgPnL | netPnL | medBars |
+|---|---|---|---|---|---|
+| 3–4 | **1,227** | **2.340** | $54.6 | **+$66,969** | 29,180 (~20d) |
+| 4–5 | 546 | 2.234 | $46.5 | +$25,375 | 19,467 |
+| 5–7 | 477 | 1.683 | $30.3 | +$14,471 | 19,881 |
+| 7–10 | 318 | 1.651 | $22.0 | +$6,990 | 7,357 |
+| 10–15 | 245 | 1.494 | $19.5 | +$4,772 | 2,687 |
+| 15–25 | 237 | 1.659 | $25.1 | +$5,952 | 4,963 |
+| ≥25 | 256 | 1.389 | $14.5 | +$3,719 | 274 (~5h) |
+
+**PF declines monotonically with rvol above the 3.0 floor.** The
+3–4× bucket carries 37% of trips at PF 2.34, and over half of the
+netPnL (+$67k of the +$128k total). Above rvol 5×, edge tapers fast
+— the engine still profits but per-trade quality drops. *Higher rvol
+does not mean higher edge in this engine* despite the rvol≥3 floor.
+The ≥25× bucket holds a median of just 5 hours at PF 1.39 — those
+are fast-blowoff fades that the `OrderflowExtremeRvol` engine
+targets directly.
+
+#### PR post-hoc bucketing (above the 0.05 floor)
+
+| pr bucket | trips | PF | avgPnL | netPnL | medBars |
+|---|---|---|---|---|---|
+| 0.05–0.07 | 608 | 2.064 | $46.7 | +$28,364 | 25,056 |
+| 0.07–0.10 | 692 | 1.849 | $38.4 | +$26,547 | 21,108 |
+| **0.10–0.14** | **641** | **2.404** | $48.3 | **+$30,952** | 23,874 |
+| 0.14–0.20 | 545 | 1.767 | $33.1 | +$18,053 | 15,624 |
+| 0.20–0.30 | 464 | 1.911 | $30.0 | +$13,935 | 8,492 |
+| 0.30–0.50 | 256 | 1.911 | $28.3 | +$7,238 | 1,226 |
+| ≥0.50 | 100 | 1.802 | $31.6 | +$3,161 | 1,775 |
+
+PR is non-monotone — 0.10–0.14 peaks at PF 2.40, with 0.05–0.07 a
+solid second at PF 2.06. The mid-range dip (pr 0.14–0.20) is real
+but small. medBars shortens as pr rises (the highest-pr trades are
+catching the tail of overextension and revert quickly).
+
+#### 2D rvol × pr — PF (trips in parens)
+
+| rvol \ pr | 0.05–0.07 | 0.07–0.10 | 0.10–0.14 | 0.14–0.20 | 0.20–0.30 | 0.30–0.50 | ≥0.50 |
+|---|---|---|---|---|---|---|---|
+| **3–4** | 2.15 (309) | 1.88 (313) | 2.74 (261) | 2.88 (177) | 2.44 (114) | 3.46 (37) | 10.84 (16) |
+| **4–5** | 3.24 (125) | 2.09 (127) | 1.99 (120) | 1.36 (92) | 3.14 (55) | 1.50 (22) | 1.06 (5) |
+| **5–7** | 1.23 (68) | 2.06 (107) | 2.30 (90) | 1.47 (97) | 1.03 (79) | 4.61 (28) | 6.20 (8) |
+| **7–10** | 1.14 (57) | 1.32 (69) | 2.05 (65) | 2.77 (54) | 1.82 (44) | 0.42 (21) | 7.34 (8) |
+| **10–15** | 0.99 (25) | 1.63 (40) | 1.75 (46) | 1.82 (46) | 1.39 (48) | 1.34 (34) | 1.63 (6) |
+| **15–25** | 2.21 (15) | 1.57 (25) | 2.96 (42) | 0.97 (46) | 3.54 (52) | 1.09 (41) | 0.84 (16) |
+| **≥25** | 3.19 (9) | 0.97 (11) | 1.72 (17) | 0.31 (33) | 1.59 (72) | 2.89 (73) | 1.55 (41) |
+
+The workhorse zone is rvol 3–4 × pr 0.05–0.20 — every cell there has
+≥100 trips and PF above 1.88, with two cells above 2.7. High-rvol ×
+low-pr cells are thin (rvol ≥ 10 / pr 0.05–0.07 has 25–57 trips per
+cell) and PF dips into 1.0–1.6 — the "extreme volume but weak rise"
+combination doesn't compound well. The eye-popping PF 10.84 in
+rvol 3–4 / pr ≥ 0.50 is 16 trips of noise.
+
+#### Implications
+
+The default-config trip set concentrates its edge in **moderate-rvol,
+moderate-pr territory** (3–4× rvol, 0.05–0.14 pr). Above rvol 5×
+the per-trade PF drops below 1.7, even though the engine's rvol
+floor is 3.0. This suggests:
+
+1. The rvol floor at 3.0 is correctly *removing* the dead zone
+   below it (the 7×7 sweep showed rvol 0.5–1 in this regime), but
+   *not* selecting the highest-PF subset — the highest-PF subset
+   (3–4×) sits just above the floor, with declining quality as rvol
+   climbs.
+2. A cap-and-floor sizing schedule (`[3, 5, 1.0]` only, zero above
+   5×) would extract per-trade PF ~2.3 at half the trip count,
+   leaving the 5×+ trades unsized and recorded for diagnostic
+   purposes. This is exactly the `OrderflowMAv1` sizing-bucket
+   mechanism applied to ShortFadeMA — a future direction.
+3. Trades with rvol ≥ 25 and short hold-time (~5 hours median) are
+   in the same regime that `OrderflowExtremeRvol` targets directly.
+   That engine's PF 1.28 / 90-bar median hold is consistent with
+   what this bucket extracts (PF 1.39 / ~300-bar median hold).
+
 ## Workstream summary — three shipped engines (2026-05-08)
 
 The crypto-perps research workstream now has three engines with
