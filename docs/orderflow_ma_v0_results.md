@@ -1713,93 +1713,6 @@ hypothesis: when a long-tail token is trading 5×+ its typical volume,
 it's almost certainly in a squeeze or a blowoff and the short edge
 maximizes there.
 
-### Window-length sweep — robustness check
-
-To verify the 60d/24h finding wasn't a single-window artifact, we
-swept lookback ∈ {30d, 45d, 60d} × recent ∈ {8h, 16h, 24h} = 9 cells.
-Same trips file, same buckets, same per-symbol streaming.
-
-The pattern is robust: short PF climbs monotone-ish into the high-volume
-buckets in every cell, peaking at PF 3.20–4.62 somewhere in the 3–5×
-or 5–10× zone. The lookback shifts where the peak lands (shorter
-lookback → lower baseline → more trades classified as 5–10× → peak
-shifts left to 3–5×; longer lookback → higher baseline → peak shifts
-right to 5–10×). The recent-window length controls how acute the
-volume burst needs to be: shorter recent (8h) is more sensitive to
-intraday spikes; longer recent (24h) smooths.
-
-**SHORT-side PF by bucket, all 9 cells** (peak in **bold**):
-
-| **lb / recent** | <0.5× | 0.5–1× | 1–1.5× | 1.5–2× | 2–3× | 3–5× | 5–10× | ≥10× |
-|---|---|---|---|---|---|---|---|---|
-| 30d / 8h | 1.27 | 1.49 | 1.71 | 2.24 | 2.44 | **3.41** | 2.37 | 1.61 |
-| 30d / 16h | 1.17 | 1.53 | 1.94 | 1.78 | 2.63 | **3.46** | 2.17 | 1.77 |
-| 30d / 24h | 1.29 | 1.44 | 1.99 | 1.83 | 2.34 | **3.20** | 2.74 | 1.59 |
-| 45d / 8h | 1.10 | 1.62 | 1.80 | 1.70 | 2.72 | 2.29 | **4.62** | 1.67 |
-| 45d / 16h | 1.08 | 1.66 | 1.46 | 2.75 | 1.71 | 3.18 | **3.43** | 2.07 |
-| 45d / 24h | 1.12 | 1.59 | 1.75 | 1.65 | 2.05 | 2.98 | **3.69** | 1.75 |
-| 60d / 8h | 1.08 | 1.79 | 1.31 | 2.60 | 1.97 | 2.54 | **3.50** | 2.22 |
-| 60d / 16h | 1.09 | 1.73 | 1.49 | 2.03 | 1.72 | 2.49 | **3.54** | 2.47 |
-| 60d / 24h | 1.14 | 1.65 | 1.59 | 1.50 | 2.01 | 2.52 | **3.54** | 2.46 |
-
-**LONG-side PF by bucket, same 9 cells**:
-
-| **lb / recent** | <0.5× | 0.5–1× | 1–1.5× | 1.5–2× | 2–3× | 3–5× | 5–10× | ≥10× |
-|---|---|---|---|---|---|---|---|---|
-| 30d / 8h | 1.19 | 1.22 | 0.67 | 2.87 | 0.98 | 1.16 | 1.66 | 1.49 |
-| 30d / 16h | 1.17 | 1.13 | 1.61 | 1.08 | 1.33 | 1.74 | 1.20 | 1.42 |
-| 30d / 24h | 1.30 | 1.20 | 1.34 | 1.21 | 2.37 | 0.88 | 1.19 | 1.39 |
-| 45d / 8h | 1.14 | 1.07 | 1.25 | 2.39 | 0.97 | 1.23 | 1.22 | 1.65 |
-| 45d / 16h | 1.01 | 1.74 | 1.09 | 1.07 | 1.22 | 0.92 | 1.48 | 1.57 |
-| 45d / 24h | 1.31 | 1.45 | 0.91 | 1.24 | 1.32 | 1.64 | 1.21 | 1.34 |
-| 60d / 8h | 1.18 | 1.19 | 1.09 | 2.62 | 1.08 | 1.20 | 0.91 | 1.65 |
-| 60d / 16h | 1.07 | 1.64 | 1.21 | 1.54 | 1.26 | 0.63 | 2.08 | 1.14 |
-| 60d / 24h | 1.04 | 1.94 | 0.58 | 1.37 | 1.87 | 0.82 | 1.60 | 1.27 |
-
-The long-side zigzag persists across every (lookback, recent) pair —
-no monotone signal at any window. The volume-momentum signal works for
-**shorts only**.
-
-### The cleanest cell — 30d / 8h
-
-The 30d/8h cell is the most monotone. Both sides rise then fall in
-a clean dome shape:
-
-**SHORT (4,387 trades, 30d/8h):**
-
-| **ratio** | **trades** | **PF** | **net $** | **avg $** |
-|---|---|---|---|---|
-| <0.5× | 884 | 1.27 | +13,060 | +15 |
-| 0.5 to 1× | 1,284 | 1.49 | +34,439 | +27 |
-| 1 to 1.5× | 651 | 1.71 | +21,886 | +34 |
-| 1.5 to 2× | 380 | 2.24 | +19,580 | +52 |
-| 2 to 3× | 452 | 2.44 | +32,493 | +72 |
-| **3 to 5×** | 321 | **3.41** | +29,162 | +91 |
-| 5 to 10× | 240 | 2.37 | +12,935 | +54 |
-| ≥10× | 175 | 1.61 | +4,541 | +26 |
-
-PF climbs from 1.27 → 1.49 → 1.71 → 2.24 → 2.44 → **3.41** then falls
-back to 2.37 → 1.61. Six of seven inter-bucket transitions are in the
-"correct" direction (rising up to peak, falling after). The peak sits
-at 3–5× volume.
-
-**LONG (1,828 trades, 30d/8h):**
-
-| **ratio** | **trades** | **PF** | **net $** | **avg $** |
-|---|---|---|---|---|
-| <0.5× | 260 | 1.19 | +1,297 | +5 |
-| 0.5 to 1× | 476 | 1.22 | +2,295 | +5 |
-| 1 to 1.5× | 298 | 0.67 | −2,790 | −9 |
-| **1.5 to 2×** | 168 | **2.87** | +7,438 | +44 |
-| 2 to 3× | 164 | 0.98 | −74 | 0 |
-| 3 to 5× | 149 | 1.16 | +751 | +5 |
-| 5 to 10× | 149 | 1.66 | +3,409 | +23 |
-| ≥10× | 164 | 1.49 | +3,114 | +19 |
-
-The long side stays noisy even in this cell — the 1.5–2× bucket
-spikes to PF 2.87 (168 trades, +$7,438 net, +$44 avg, the cell's best
-long bucket) but adjacent buckets drop to 0.67 and 0.98. The volume
-signal genuinely doesn't hold for longs at any window.
 
 ### Implications
 
@@ -3693,3 +3606,141 @@ fallback because it makes the long mirror legible (and lets the engine
 be tested against the failing variant), but it should never be used
 for shorts in production. Default config keeps the dual-CVD overlay
 on (`LongCvdMinutes = 12_000`) for that reason.
+
+## Engine-convention rvol revisitation — `OrderflowMAv1`
+
+The 9-cell PF tables above were computed by `volume_momentum_stratify.py`
+on RawZ-100 short trips. That script's rvol convention divides a
+partial-baseline-window's volume by the *nominal* `lookback / recent`
+ratio — so a symbol with only 13 days of data at entry has its 13d
+volume divided by 30 (treating the missing 17 days as zero-volume).
+This systematically inflates rvol on symbol-young trips.
+
+The OrderflowMAv1 engine computes rvol differently — it divides
+`volEntry.State / nRvolEntry` (nominal recent denominator) by
+`volBaseline.State / volBaseline.Count` (**actual** baseline denominator,
+clamped at the nominal window). Mathematically that's "how busy is the
+last 24h vs typical 24h *for this symbol given its history so far*",
+which is the right per-symbol measure for a sizing decision but
+disagrees with the stratify script on symbol-young entries.
+
+The two conventions are identical on mature (>30d) symbols and disagree
+on younger ones, sometimes by >5× on the rvol value (an INJUSDT entry
+at engine_rvol 1.21 had stratify_rvol 4.31 — same trade, different
+bucket assignment).
+
+To produce a table comparable to MAv1's actual sizing decisions, we
+re-ran the 9-cell sweep using `mav1-sweep` with both sides sized 1.0
+across all rvol (`--short-sizing-buckets "0:inf:1"
+--long-sizing-buckets "0:inf:1"`), reading rvol straight from the
+trip CSV's `ratio_at_entry` column.
+
+Trip set is identical across all 9 cells (changing the rvol windows
+doesn't affect entry decisions when nothing is bucket-gated): 2,501
+short trips at PF 1.976 / +$160,416 and 926 long trips at PF 1.365 /
++$13,451. The rvol-window choice changes only how trips bucket, not
+which trips fire.
+
+### SHORT-side PF by bucket — engine convention
+
+| **lb / recent** | <0.5× | 0.5–1× | 1–1.5× | 1.5–2× | 2–3× | 3–5× | 5–10× | ≥10× |
+|---|---|---|---|---|---|---|---|---|
+| 30d / 8h | 1.54 | 2.28 | 2.06 | 1.89 | 2.72 | **3.07** | 1.96 | 1.70 |
+| 30d / 16h | 1.40 | 2.21 | **3.06** | 1.45 | 3.00 | 2.07 | 2.42 | 1.53 |
+| 30d / 24h | 1.38 | 2.26 | **3.14** | 2.39 | 1.37 | 2.56 | 1.54 | 2.18 |
+| 45d / 8h | 1.56 | 2.36 | 1.84 | 2.42 | 2.40 | 2.35 | **2.56** | 1.56 |
+| 45d / 16h | 1.44 | 2.19 | **3.01** | 2.40 | 1.54 | 2.35 | 2.43 | 1.48 |
+| 45d / 24h | 1.40 | 2.24 | 3.14 | 2.70 | 1.17 | **3.18** | 1.50 | 1.97 |
+| 60d / 8h | 1.49 | 2.29 | 2.14 | 2.29 | 2.23 | **3.11** | 2.27 | 1.53 |
+| 60d / 16h | 1.50 | 2.23 | 2.56 | 1.77 | 2.18 | **2.64** | 1.92 | 1.93 |
+| 60d / 24h | 1.44 | 2.23 | **3.32** | 1.61 | 1.71 | 2.79 | 1.74 | 1.79 |
+
+### LONG-side PF by bucket — engine convention
+
+| **lb / recent** | <0.5× | 0.5–1× | 1–1.5× | 1.5–2× | 2–3× | 3–5× | 5–10× | ≥10× |
+|---|---|---|---|---|---|---|---|---|
+| 30d / 8h | 0.91 | 1.17 | 0.86 | **1.93** | 1.62 | 1.61 | 1.72 | 1.19 |
+| 30d / 16h | 0.92 | 1.07 | 1.70 | 1.23 | **2.15** | 1.14 | 1.40 | 1.30 |
+| 30d / 24h | 0.97 | 1.88 | 1.01 | 1.49 | 1.55 | 1.37 | 0.88 | **2.04** |
+| 45d / 8h | 0.84 | 1.27 | 1.15 | **1.96** | 1.19 | 1.61 | 1.42 | 1.48 |
+| 45d / 16h | 1.04 | **1.80** | 1.33 | 0.60 | 1.65 | 1.43 | 1.69 | 1.06 |
+| 45d / 24h | 1.20 | 1.81 | 0.88 | 1.04 | **1.87** | 1.38 | 1.05 | 1.47 |
+| 60d / 8h | 0.62 | 1.54 | **1.99** | 1.16 | 1.32 | 1.37 | 1.45 | 1.46 |
+| 60d / 16h | 0.92 | **2.07** | 1.14 | 1.04 | 1.13 | 1.94 | 1.28 | 1.25 |
+| 60d / 24h | 1.09 | 1.88 | 0.85 | 1.71 | 1.25 | **1.91** | 0.99 | 1.38 |
+
+### Detailed: 30d/8h cell — SHORT
+
+| **ratio** | **trades** | **PF** | **net $** | **avg $** |
+|---|---|---|---|---|
+| <0.5× | 662 | 1.54 | +28,303 | +42.8 |
+| 0.5–1× | 660 | 2.28 | +55,706 | +84.4 |
+| 1–1.5× | 374 | 2.06 | +27,716 | +74.1 |
+| 1.5–2× | 184 | 1.89 | +10,536 | +57.3 |
+| 2–3× | 180 | 2.72 | +14,673 | +81.5 |
+| **3–5×** | 120 | **3.07** | +10,273 | +85.6 |
+| 5–10× | 123 | 1.96 | +5,741 | +46.7 |
+| ≥10× | 198 | 1.70 | +7,467 | +37.7 |
+
+PF still hump-shaped (peak at 3–5× / 3.07) but **the lower buckets are
+much higher than under stratify**: <0.5× was 1.27 under stratify, 1.54
+here; 0.5–1× was 1.49, 2.28 here. Engine-convention rvol pushes a
+chunk of "stratify-style 3–5×" symbol-young trades down into the
+0.5–1× and 1–1.5× buckets, lifting their PFs and flattening the curve.
+
+### Detailed: 30d/8h cell — LONG
+
+| **ratio** | **trades** | **PF** | **net $** | **avg $** |
+|---|---|---|---|---|
+| <0.5× | 53 | 0.91 | -222 | -4.2 |
+| 0.5–1× | 152 | 1.17 | +886 | +5.8 |
+| 1–1.5× | 140 | 0.86 | -841 | -6.0 |
+| **1.5–2×** | 97 | **1.93** | +3,105 | +32.0 |
+| 2–3× | 115 | 1.62 | +2,972 | +25.8 |
+| 3–5× | 124 | 1.61 | +2,539 | +20.5 |
+| 5–10× | 132 | 1.72 | +3,987 | +30.2 |
+| ≥10× | 113 | 1.19 | +1,024 | +9.1 |
+
+Long side remains noisy — the 1.5–2× spike (PF 1.93) flanks dips to
+0.86 and 1.62 in adjacent buckets. The qualitative finding from the
+stratify table holds: **the volume-momentum signal works for shorts
+but not longs at any window.**
+
+### Findings
+
+1. **Peak location is unstable across rvol windows under the engine
+   convention.** The 9-cell short table jumps between peaks at 1–1.5×,
+   3–5×, and 5–10× depending on the cell. The stratify table was
+   cleaner — the engine convention's per-symbol baselining adds noise
+   in exchange for being the right thing for a live sizing decision.
+2. **The 0.5–1× bucket is consistently strong on shorts** (PF 2.19–2.36
+   across all 9 cells). Under stratify it was 1.49 — a different range
+   of trades populated that bucket because the convention shifted
+   symbol-young trips elsewhere.
+3. **Sizing buckets defined against the engine's rvol output** should
+   pay attention to: low-rvol shorts (`0.5×`–`1.5×`, PF ~2.0–3.0
+   consistently) are *not* the dead zone the stratify table suggested.
+4. **The long side has no monotone rvol signal in either convention.**
+   A separate sizing axis is needed for longs (LongFadeMA's
+   price-decline gate is the candidate).
+
+The original stratify-convention 9-cell tables have been removed from
+the doc to avoid confusion. They were correct under their own
+convention but not directly usable for sizing decisions in the engine.
+
+### Reproducer
+
+```
+for lb in 30 45 60; do for rec in 8 16 24; do
+  dotnet run --project TradingEdge.CryptoBacktest -c Release -- mav1-sweep \
+    --short-sizing-buckets "0:inf:1" --long-sizing-buckets "0:inf:1" \
+    --rvol-baseline-days $lb --rvol-recent-hours $rec \
+    --reference-vol-pct 0.1019 --max-bar-price-ratio 3 \
+    --min-long-adv 28800000 --min-short-adv 8000000 --vol-window-days 7 \
+    --results-csv data/crypto/mav1_rvol_sweep_long/lb${lb}d_rec${rec}h/results.csv \
+    --summary-csv data/crypto/mav1_rvol_sweep_long/lb${lb}d_rec${rec}h/summary.csv \
+    -p 2 &
+done; done; wait
+```
+
+Then bucket each cell's `_trips_1m_th100_ls.csv` by `ratio_at_entry`.
