@@ -179,6 +179,7 @@ type Engine(cfg: CumsumConfig) =
             EffectiveNotional = effectiveNotional
             FundingPnL = fundingPnl
             AvgDailyVolumeAtEntry = advAtEntry
+            PriceRiseAtEntry = 0.0
         }
         side <- Flat
         entryPrice <- 0.0

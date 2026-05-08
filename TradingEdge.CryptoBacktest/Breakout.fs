@@ -145,6 +145,7 @@ type Engine(cfg: StrategyConfig) =
             EffectiveNotional = effectiveNotional
             FundingPnL = fundingPnl
             AvgDailyVolumeAtEntry = advAtEntry
+            PriceRiseAtEntry = 0.0
         }
         side <- Flat
         entryPrice <- 0.0

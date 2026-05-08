@@ -176,6 +176,13 @@ type RoundTrip = {
     /// the symbol's future. Falls back to whatever partial-window data
     /// is available during the first 90 days of a symbol's history.
     AvgDailyVolumeAtEntry: float
+    /// Engine-specific price-rise gate value at the moment of entry (the
+    /// fractional excess of bar.Close over the engine's reference MA, e.g.
+    /// for ExtremeRvol: bar.Close / 8h-MA-lagged-16h - 1.0). Populated
+    /// only by engines that compute one; 0.0 elsewhere. Used by the
+    /// quintile-binning analysis to stratify trades by realized
+    /// price-rise at entry, independently of the firing threshold.
+    PriceRiseAtEntry: float
 }
 
 let private feeFor (notional: float) (takerFee: float) : float = notional * takerFee
@@ -348,6 +355,7 @@ type Engine(cfg: StrategyConfig) =
             EffectiveNotional = effectiveNotional
             FundingPnL = fundingPnl
             AvgDailyVolumeAtEntry = advAtEntry
+            PriceRiseAtEntry = 0.0
         }
         side <- Flat
         entryPrice <- 0.0

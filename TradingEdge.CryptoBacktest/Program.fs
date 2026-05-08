@@ -228,11 +228,11 @@ type ExtremeRvolSweepArgs =
     | Rvol_Exit_Threshold of float
     | Price_Rise_Thresholds of string
     | Entry_Rvol_Hours of int
-    | Exit_Rvol_Hours of int
+    | Exit_Rvol_Minutes of int
     | Recent_Hours of int
     | Lookback_Days of int
     | Lag_Hours of int
-    | Cvd_Hours of int
+    | Cvd_Minutes of int
     | Stop_High_Window_Minutes of int
     | Time_Stop_Minutes of string
     | Time_Stop_Mode of string
@@ -264,11 +264,11 @@ type ExtremeRvolSweepArgs =
             | Rvol_Exit_Threshold _ -> "Cover when rvol-exit falls below this. Default 2.0. Must be < entry."
             | Price_Rise_Thresholds _ -> "Comma-separated price-rise thresholds (fractional). Default '0.05,0.10,0.15'. Entry requires close >= (1+threshold) * 8h-MA-lagged-16h."
             | Entry_Rvol_Hours _ -> "Entry-rvol numerator window in HOURS. Default 1. Short window so a single hot hour fires the entry gate before the slower 8h cover frame catches up."
-            | Exit_Rvol_Hours _ -> "Cover-rvol numerator window in HOURS. Default 1 — book as soon as a single hour normalises below the cover threshold."
+            | Exit_Rvol_Minutes _ -> "Cover-rvol numerator window in MINUTES. Default 60 — kept identical to --cvd-minutes so the cover frame matches the entry-trigger horizon."
             | Recent_Hours _ -> "Recent-window hours for the lagged-MA derivation (the '8h' in 8h-MA-lagged-16h). Default 8."
             | Lookback_Days _ -> "Baseline-window days for the rvol denominator (shared by entry and cover gates). Default 30."
             | Lag_Hours _ -> "Lag (hours) for the lagged-MA. Default 16. Two trailing MAs are over (RecentHours+LagHours)=24h and LagHours=16h."
-            | Cvd_Hours _ -> "Trailing-CVD window hours for the entry trigger. Default 1."
+            | Cvd_Minutes _ -> "Trailing-CVD window in MINUTES for the entry trigger. Default 60 — same length as --exit-rvol-minutes so the trigger and cover MA agree on horizon."
             | Stop_High_Window_Minutes _ -> "High-stop window (minutes) for the trailing-MaxMa of bar.High snapshotted at entry. Default 20."
             | Time_Stop_Minutes _ -> "Comma-separated time-stop windows in MINUTES. When >0, close the trade after this many minutes per --time-stop-mode. Default '90' (chart-review-validated). Pass '0' to disable. Example: '0,30,60,90,120'."
             | Time_Stop_Mode _ -> "Time-stop semantics: 'hard' closes unconditionally at the timer; 'conditional' closes only if the trade isn't currently profitable. Default 'conditional'."
@@ -1156,11 +1156,11 @@ let cmdExtremeRvolSweep (args: ParseResults<ExtremeRvolSweepArgs>) : int =
         |> Option.defaultValue [| 0.05; 0.10; 0.15 |]
     let rvolExitThreshold = args.GetResult(ExtremeRvolSweepArgs.Rvol_Exit_Threshold, defaultValue = 2.0)
     let entryRvolHours = args.GetResult(ExtremeRvolSweepArgs.Entry_Rvol_Hours, defaultValue = 1)
-    let exitRvolHours = args.GetResult(ExtremeRvolSweepArgs.Exit_Rvol_Hours, defaultValue = 1)
+    let exitRvolMinutes = args.GetResult(ExtremeRvolSweepArgs.Exit_Rvol_Minutes, defaultValue = 60)
     let recentHours = args.GetResult(ExtremeRvolSweepArgs.Recent_Hours, defaultValue = 8)
     let lookbackDays = args.GetResult(ExtremeRvolSweepArgs.Lookback_Days, defaultValue = 30)
     let lagHours = args.GetResult(ExtremeRvolSweepArgs.Lag_Hours, defaultValue = 16)
-    let cvdHours = args.GetResult(ExtremeRvolSweepArgs.Cvd_Hours, defaultValue = 1)
+    let cvdMinutes = args.GetResult(ExtremeRvolSweepArgs.Cvd_Minutes, defaultValue = 60)
     let stopHighWindowMinutes = args.GetResult(ExtremeRvolSweepArgs.Stop_High_Window_Minutes, defaultValue = 20)
     let timeStopMinutesList =
         args.TryGetResult ExtremeRvolSweepArgs.Time_Stop_Minutes
@@ -1228,13 +1228,13 @@ let cmdExtremeRvolSweep (args: ParseResults<ExtremeRvolSweepArgs>) : int =
         match entryDistanceRef with
         | OrderflowExtremeRvol.Stop20m -> "stop20m"
         | OrderflowExtremeRvol.High8h  -> "high8h"
-    printfn "[extreme-rvol-sweep] symbols=%d timeframes=[%s] rvolEntry=[%s] rvolExit=%g priceRise=[%s] entryRvolH=%d exitRvolH=%d recentH=%d lookbackD=%d lagH=%d cvdH=%d stopHighM=%d timeStopMin=[%s] timeStopMode=%s entryDistMaxPct=[%s] entryDistRef=%s range=%s..%s parallelism=%d minShortAdv=$%s volWindowDays=%d maxBarPriceRatio=%g referenceVolPct=%g"
+    printfn "[extreme-rvol-sweep] symbols=%d timeframes=[%s] rvolEntry=[%s] rvolExit=%g priceRise=[%s] entryRvolH=%d exitRvolM=%d recentH=%d lookbackD=%d lagH=%d cvdM=%d stopHighM=%d timeStopMin=[%s] timeStopMode=%s entryDistMaxPct=[%s] entryDistRef=%s range=%s..%s parallelism=%d minShortAdv=$%s volWindowDays=%d maxBarPriceRatio=%g referenceVolPct=%g"
         symbols.Length
         (String.concat "," timeframes)
         (String.concat "," (rvolEntryThresholds |> Array.map (sprintf "%g")))
         rvolExitThreshold
         (String.concat "," (priceRiseThresholds |> Array.map (sprintf "%g")))
-        entryRvolHours exitRvolHours recentHours lookbackDays lagHours cvdHours stopHighWindowMinutes
+        entryRvolHours exitRvolMinutes recentHours lookbackDays lagHours cvdMinutes stopHighWindowMinutes
         (String.concat "," (timeStopMinutesList |> Array.map string))
         timeStopModeStr
         (String.concat "," (entryDistanceMaxPctList |> Array.map (sprintf "%g")))
@@ -1293,11 +1293,11 @@ let cmdExtremeRvolSweep (args: ParseResults<ExtremeRvolSweepArgs>) : int =
                                                 RvolExitThreshold = rvolExitThreshold
                                                 PriceRiseThreshold = priceRise
                                                 EntryRvolHours = entryRvolHours
-                                                ExitRvolHours = exitRvolHours
+                                                ExitRvolMinutes = exitRvolMinutes
                                                 RecentHours = recentHours
                                                 LookbackDays = lookbackDays
                                                 LagHours = lagHours
-                                                CvdHours = cvdHours
+                                                CvdMinutes = cvdMinutes
                                                 StopHighWindowMinutes = stopHighWindowMinutes
                                                 TimeStopMinutes = timeStop
                                                 TimeStopMode = timeStopMode
