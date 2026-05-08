@@ -117,6 +117,16 @@ type CumsumZConfig = {
     /// on high-vol meme coins, but with the same statistical-significance
     /// threshold across the universe. Set to 0 (default) to disable.
     VolStopMultiplier: float
+    /// Minimum rvol at entry, computed as (8h volume sum / nRecent) /
+    /// (30d volume sum / nBaseline). Reject entries with rvol < this.
+    /// Default 0.0 (disabled). Pass >0 to require a volume-burst regime
+    /// before firing — used to test whether the persistence-gated cumsum-z
+    /// edge is concentrated in higher-rvol windows.
+    RvolEntryThreshold: float
+    /// Numerator window length (hours) for the rvol gate. Default 8.
+    RvolRecentHours: int
+    /// Denominator window length (days) for the rvol gate. Default 30.
+    RvolBaselineDays: int
 }
 
 let defaultCumsumZConfig (threshold: float) : CumsumZConfig =
@@ -135,7 +145,10 @@ let defaultCumsumZConfig (threshold: float) : CumsumZConfig =
       MaxBarPriceRatio = 0.0
       RequirePersistenceForExit = false
       VwapStopHours = 0
-      VolStopMultiplier = 0.0 }
+      VolStopMultiplier = 0.0
+      RvolEntryThreshold = 0.0
+      RvolRecentHours = 8
+      RvolBaselineDays = 30 }
 
 let private feeFor (notional: float) (takerFee: float) : float = notional * takerFee
 
@@ -162,6 +175,15 @@ type Engine(cfg: CumsumZConfig) =
     let volWindowBars = daysToBars (max 1 cfg.VolWindowDays)
     let advMa = SumMa(advWindowBars)
     let volMa = StdMa(volWindowBars)
+
+    // Rvol-gate state. 8h numerator over bar.Volume / 30d denominator.
+    // Maintained unconditionally so the per-bar push path is the same
+    // whether or not the gate is enabled; the gate itself short-circuits
+    // when RvolEntryThreshold <= 0.
+    let nRvolEntry = hoursToBars (max 1 cfg.RvolRecentHours)
+    let nRvolBase  = daysToBars (max 1 cfg.RvolBaselineDays)
+    let volEntry    = SumMa(nRvolEntry)
+    let volBaseline = SumMa(nRvolBase)
 
     // 200h rolling state. buyMa/sellMa drive the persistence gate. deltaStd
     // normalizes the per-bar net flow; its state is (ΣX, ΣX²) and SampleStd
@@ -400,6 +422,8 @@ type Engine(cfg: CumsumZConfig) =
             volMa.Push (log (bar.Close / prevClose))
         prevClose <- bar.Close
         advMa.Push (bar.BuyDollarVolume + bar.SellDollarVolume)
+        volEntry.Push    bar.Volume
+        volBaseline.Push bar.Volume
         let delta = bar.BuyDollarVolume - bar.SellDollarVolume
         buyMa.Push  bar.BuyDollarVolume
         sellMa.Push bar.SellDollarVolume
@@ -458,11 +482,26 @@ type Engine(cfg: CumsumZConfig) =
             let canCloseLong =
                 if cfg.RequirePersistenceForExit then regimeBear else true
 
+            // Rvol gate — same definition as the ShortFadeMA / ExtremeRvol
+            // engines: trailing 8h-mean volume divided by trailing 30d-mean
+            // volume. Disabled when RvolEntryThreshold <= 0.
+            let rvolGate =
+                if cfg.RvolEntryThreshold <= 0.0 then true
+                else
+                    let entryMean = volEntry.State / float nRvolEntry
+                    let baselineMean =
+                        if volBaseline.Count > 0
+                        then volBaseline.State / float volBaseline.Count
+                        else 0.0
+                    if baselineMean > 0.0 then
+                        (entryMean / baselineMean) >= cfg.RvolEntryThreshold
+                    else false
+
             if hitTop then
                 // Top clamp: close an open short only if exit-gate allows;
                 // then potentially open long if persistence confirms.
                 if side = Short && canCloseShort then closePos bar.Close bar.EndUs
-                if side = Flat && regimeBull then
+                if side = Flat && regimeBull && rvolGate then
                     let adv = currentAdv ()
                     let advGate = cfg.MinLongAdv <= 0.0 || adv >= cfg.MinLongAdv
                     if advGate then
@@ -471,7 +510,7 @@ type Engine(cfg: CumsumZConfig) =
                 // Bottom clamp: close an open long only if exit-gate allows;
                 // then potentially open short if shorting + persistence confirm.
                 if side = Long && canCloseLong then closePos bar.Close bar.EndUs
-                if side = Flat && cfg.AllowShort && regimeBear then
+                if side = Flat && cfg.AllowShort && regimeBear && rvolGate then
                     let adv = currentAdv ()
                     let advGate = cfg.MinShortAdv <= 0.0 || adv >= cfg.MinShortAdv
                     if advGate then

@@ -3386,3 +3386,219 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- long-fade-ma-sweep
     --results-csv data/crypto/long_fade_ma_default_rvol075/results.csv \
     --summary-csv data/crypto/long_fade_ma_default_rvol075/summary.csv
 ```
+
+## Short fade — `OrderflowShortFadeMA` (2026-05-08 PM session)
+
+Symmetric mirror of `OrderflowLongFadeMA` for the short side, with one
+critical addition that emerged during the session: a **dual-CVD overlay**
+that turns the engine from "fade every overextension" into a regime
+trader. The short version of the v10d-style symmetric mirror failed
+catastrophically (PF 0.95) before this overlay was added.
+
+### What the engine does (current code)
+
+**Per-bar signals** (computed every bar, leak-free):
+
+  - `coverMa` = trailing `CoverMaHours` MA of `bar.Close`. Single
+    reference for both the rise gate and (when enabled) the MA-touch
+    cover.
+  - `priceRise` = `bar.Close / coverMa - 1`.
+  - `cvd` = trailing-`CvdMinutes` CVD = Σ(buy_dv − sell_dv) over the
+    short window. Default 240m (4h).
+  - `longCvd` = trailing-`LongCvdMinutes` CVD. Default 12,000m (200h).
+    Risk-management overlay; see below.
+  - `rvol` = mean(volume) over CvdMinutes / mean(volume) over 30d
+    baseline (per-bar means; partial-window denominator uses actual
+    `Count`, not nominal — diverges from the stratify-script convention
+    on symbol-young trips).
+  - 200h warmup gate plus all rolling windows must be full.
+
+**Entry — ALL must hold simultaneously:**
+
+  1. `priceRise >= cfg.PriceRiseThreshold` (default `0.14`; close
+     ≥ 1.14 × coverMa).
+  2. CVD negative cross: `prevCvd >= 0 AND cvd < 0`.
+  3. **Long-CVD regime gate**: `longCvd < 0` (when LongCvdMinutes > 0).
+     This is the dual-CVD principle: the short-side trigger fires often
+     in routine bull pullbacks; only fade when the multi-day tape is
+     also net-selling.
+  4. ADV gate (`MinShortAdv`).
+  5. Distance gate: `(refHigh - bar.Close) / refHigh ≤ EntryDistanceMaxPct`
+     where `refHigh` is `MaxMa(8h)` of `bar.High` by default.
+  6. Stop-above-close sanity (`stopLevel > bar.Close`).
+  7. RR gate (default disabled; `MinRewardRiskRatio = 0`).
+  8. `rvol >= cfg.RvolEntryThreshold` (default `0.75`, inherited from
+     the long mirror — explicitly **flagged for re-tuning** in the new
+     post-hoc breakdown below).
+
+**Exit precedence (top wins):**
+
+  1. **Time-stop**, when `TimeStopMinutes > 0` and `barsHeld` ≥ that
+     window. Hard mode closes unconditionally; Conditional mode closes
+     only if `bar.Close ≥ entryPrice` (unprofitable trade). Default
+     **disabled**.
+  2. **Dual-CVD cover** (active when `LongCvdMinutes > 0`, the default):
+     close when `cvd >= 0 AND longCvd >= 0`. Fires once both the 4h
+     trigger and the 200h regime have flipped non-negative — the
+     selling regime that gated entry has cleared.
+  3. **MA-touch cover** (fallback, only when `LongCvdMinutes = 0`):
+     close when `bar.Close <= coverMa`. This was the original
+     long-mirror exit and is what failed at PF 0.95 on the short side
+     before the dual-CVD overlay was introduced.
+  4. **Optional stops** (also leak-free, run before the cover branch
+     each bar): vol-stop > VWAP-stop > pct-stop in precedence; all
+     three default disabled. The high-stop, when enabled, snapshots
+     a trailing-N-minute MaxHigh at entry and fills at `bar.Close`
+     when `bar.VWAP >= stopLevel`.
+  5. **Gap close** (top of bar): if the bar-to-bar price ratio exceeds
+     `MaxBarPriceRatio` (recommended 3.0), close at `lastClose` and
+     set a 200h signal lockout to keep entries from firing on stale
+     post-gap rolling state. Without this gate enabled, the gap-handler
+     never engages; with it enabled, behaviour matches the v0
+     OrderflowMA convention.
+
+**Default config (`defaultShortFadeMAConfig`):**
+
+  - `PriceRiseThreshold = 0.14`
+  - `CoverMaHours = 72`
+  - `CvdMinutes = 240` (4h)
+  - `LongCvdMinutes = 12_000` (200h, dual-CVD overlay ON by default)
+  - `EntryDistanceMaxPct = 0.20`, `EntryDistanceRef = High8h`
+  - `RvolEntryThreshold = 0.75` (provisional; see below)
+  - all stops + time-stop disabled, RR-gate disabled
+
+### Discovery sequence (this session, condensed)
+
+1. **Symmetric mirror failed.** At pr=14% / cvd=240m / 72h cover / no
+   stops / rvol≥0.75 (direct mirror of LongFadeMA v10d), the short
+   engine produced PF **0.948**, n=6,846, netPnL **-$22,944**. Bumping
+   pr to 50% made it slightly worse. Both rvol and pr quintile
+   breakdowns were non-monotonic and dominated by a single
+   catastrophic-loss bucket.
+2. **Dual-CVD overlay flipped the result.** Adding the 200h CVD as
+   both an entry gate and the cover criterion (replacing the MA-touch
+   cover entirely) produced PF **1.690**, n=3,476, netPnL
+   **+$218,514** on the same default flags. Hold time jumped from
+   ~41h median to ~269h — the engine now holds to regime-flip rather
+   than to MA-touch.
+3. **Hold-bucket pattern.** Same as the RawZ-100 short-only engine:
+   short-hold buckets (<1d, 1-3d, 3-10d) all bleed money; the >30d
+   bucket carries the entire pnl with PF ~5-6. Crypto shorts are
+   regime trades, not fades — confirmed across two engines.
+4. **Flag-correctness incident.** The original 1.690-PF baseline was
+   run **without** `--reference-vol-pct 0.1019`, **without**
+   `--max-bar-price-ratio 3`, and **without** `--min-short-adv`.
+   Every single trade was sized at the full $1000 notional; the gap
+   detector was off entirely. PF was roughly notional-invariant so
+   the qualitative conclusion held, but the dollar comparisons to the
+   long side were systematically off. Fixed in the rebaseline below.
+
+### v1 baseline — vol-targeted, ADV-gated, gap-detected
+
+Re-run at default config with the standard flag set added:
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- short-fade-ma-sweep \
+    --price-rise-thresholds 0.14 --rvol-entry-threshold 1.0 \
+    --reference-vol-pct 0.1019 --max-bar-price-ratio 3 \
+    --min-short-adv 8000000 \
+    --results-csv data/crypto/short_fade_ma_pr14_rvol1_voltarget/results.csv \
+    --summary-csv data/crypto/short_fade_ma_pr14_rvol1_voltarget/summary.csv
+```
+
+(Note: `--rvol-entry-threshold 1.0` is a slight bump from the engine
+default `0.75` — picked to drop the lowest-rvol bucket so the post-hoc
+breakdown is comparable to the doc's earlier 30d/24h table.)
+
+**Aggregate**:
+
+| trips | PF | avgPnL | netPnL | fund | fees | medBars |
+|------:|---:|-------:|-------:|-----:|-----:|--------:|
+| 2,550 | **2.036** | $42.78 | **+$109,086** | -$2,990 | $992 | 21,776 (~15.1d) |
+
+PF jumped from the un-vol-targeted 1.690 baseline to **2.036** — the
+ADV gate filtered out low-liquidity symbols whose pnl variance was
+dragging the aggregate. Median trade now $478 of effective notional
+(vol-target cap is $1000 on lowest-vol coins). Trip count dropped
+from 3,476 to 2,550 (the ADV gate is doing real work).
+
+### Post-hoc rvol breakdown (doc-table buckets)
+
+| bucket | trips | PF | avgPnL | netPnL | avg_noti | medBars |
+|--------|------:|------:|-------:|---------:|---------:|--------:|
+| <0.5 | 0 | – | – | – | – | – |
+| 0.5–1 | 0 | – | – | – | – | – |
+| 1–1.5 | 356 | 1.862 | $37.7 | +$13,427 | 372 | 36,437 |
+| 1.5–2 | 292 | 2.731 | $64.4 | +$18,795 | 444 | 35,547 |
+| 2–3 | 378 | **2.868** | $57.1 | +$21,570 | 467 | 27,964 |
+| 3–5 | 456 | 2.564 | $57.3 | **+$26,127** | 499 | 23,673 |
+| 5–10 | 461 | 1.645 | $34.7 | +$16,017 | 530 | 17,884 |
+| ≥10 | 607 | 1.510 | $21.7 | +$13,150 | 542 | 1,040 |
+
+(<0.5 and 0.5–1 empty because the entry gate is rvol ≥ 1.0.)
+
+**Shape**: clear hump, peak at **2–3 (PF 2.87)**, second at 3–5 (PF
+2.56). The tails (1–1.5 and ≥10) underperform. This **agrees with the
+30d/24h short-side row of the original volume-bucket table** (peak
+3–5, PF 3.20 there) — but here against ShortFadeMA's actual entry set
+rather than RawZ-100's. The earlier "rvol monotonicity inverted" claim
+was wrong — it was an artifact of the un-vol-targeted run + a wider
+entry net (rvol≥0.75 included Q1 noise that dragged the lower buckets).
+
+**Vol-targeting × bucket interaction**: avg notional climbs
+monotonically with rvol (372 in 1–1.5 → 542 in ≥10). High-rvol entries
+sit on coins whose 1m vol is closer to the 0.1019% reference, so notional
+caps near $1000; low-rvol entries skew to calmer-name regimes where
+realized vol is higher and notional is cut. So the low-rvol PF buckets
+are doing more *per-dollar* than the raw netPnL column suggests.
+
+### Hold-bucket breakdown (regime-trader signature)
+
+| hold | trips | PF | avgPnL | netPnL |
+|------|------:|------:|-------:|---------:|
+| <1d | 824 | 0.100 | -$24.3 | -$20,058 |
+| 1–3d | 133 | 0.115 | -$77.8 | -$10,345 |
+| 3–10d | 199 | 0.329 | -$49.9 | -$9,938 |
+| 10–30d | 424 | 1.092 | +$5.3 | +$2,260 |
+| **>30d** | **970** | **5.625** | **+$151.7** | **+$147,168** |
+
+Same hold-shape as RawZ-100 short-only and the un-vol-targeted dual-CVD
+run before it: short-hold buckets bleed, the >30d bucket carries
+everything. **38% of trips hold over 30 days** and account for ~135% of
+net pnl (the short-hold buckets eat into the rest).
+
+### Findings
+
+1. **Dual-CVD overlay is load-bearing.** Without it, the symmetric
+   mirror is unprofitable. The 200h CVD operates as a regime
+   confirmation that filters out 4h CVD-flips that fire during routine
+   bull pullbacks.
+2. **PF curve is humped, not monotonic.** Peak around rvol 2–3, drops
+   off both ways. The current `RvolEntryThreshold = 0.75` default
+   includes the 1–1.5 tail (PF 1.86) but excludes the bottom buckets;
+   it's not obviously wrong, but raising to 1.5 or 2.0 would lift
+   aggregate PF.
+3. **Short edge is concentrated in long holds.** Identical pattern to
+   RawZ-100 short-only — confirmed twice across independent engines.
+   The implication: **shorts compound on regime trades, not on mean
+   reversion**. The MA-touch cover (which forces shorter holds) is the
+   wrong mechanism for shorts; the dual-CVD cover (which holds to
+   regime-flip) is the right one.
+4. **Standard-flag set is non-negotiable.** Vol-targeting, ADV gate,
+   and gap detector all materially change the result and must be on
+   for any future ShortFadeMA sweep.
+
+### Open question for next session
+
+The doc-style table peak suggests `RvolEntryThreshold = 1.5` or `2.0`
+would lift aggregate PF. But the right move here is probably to drop
+hard rvol gating in favor of **MAv1-style sizing buckets** — keep
+entries unchanged so the engine state machine is stable across size
+schedules, but assign zero notional to the 1–1.5 and ≥10 buckets and
+full notional to the 2–5 sweet spot. That work is queued under MAv1.
+
+Also queued: re-test whether the **MA-touch cover** (the original
+long-mirror exit) actually works in the post-fixes regime — it failed
+catastrophically pre-overlay, but that was un-vol-targeted, with a
+wider rvol entry net, and pre-gap-detector. The clean comparison with
+the standard flag set on hasn't been done.

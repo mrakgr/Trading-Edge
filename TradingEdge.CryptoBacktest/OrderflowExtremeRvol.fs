@@ -284,6 +284,10 @@ type Engine(cfg: ExtremeRvolConfig) =
     let mutable prevCvd = 0.0
     let mutable lastClose = 0.0
     let mutable lastUs = 0L
+    // Set to (barsSeen + warmupBars) after a price-gap close. Entries are
+    // suppressed until barsSeen catches up — pre-gap rolling state (rvol,
+    // CVD, lagged-MA, MaxVWAP) is stale in the post-gap regime.
+    let mutable signalLockoutUntil = 0
     /// End-of-bar timestamp of the most recent time-stop close. 0L when
     /// none has fired yet. Used by the re-entry cooldown to suppress new
     /// entries within ReentryTimeoutMinutes of the last time-stop.
@@ -443,6 +447,7 @@ type Engine(cfg: ExtremeRvolConfig) =
         let gapFired = priceGapHit bar
         if gapFired then
             closePos lastClose lastUs
+            signalLockoutUntil <- barsSeen + warmupBars
         if gapFired then () else
 
         if side <> Flat && barsHeld > 0 then
@@ -494,6 +499,7 @@ type Engine(cfg: ExtremeRvolConfig) =
         // volume_momentum_stratify.py.
         let windowsReady =
             barsSeen             >= warmupBars
+            && barsSeen          >= signalLockoutUntil
             && volEntry.Count    >= nEntryRvol
             && volExit.Count     >= nExitRvol
             && closeRecent.Count >= nLagBig
