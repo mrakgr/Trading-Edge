@@ -16,11 +16,11 @@ open TradingEdge.CryptoBacktest.OrderflowMA
 //
 // Two rvol frames in parallel (both share a 30d-mean denominator). The
 // entry numerator is short (default 1h) so a single hot hour fires the
-// gate; the cover numerator (default 60m) and the CVD trigger window
-// (default 60m) are kept the same length on purpose so the cover is
+// gate; the cover numerator (default 75m) and the CVD trigger window
+// (default 75m) are kept the same length on purpose so the cover is
 // logically consistent with the trigger that opened the trade.
 //   rvolEntry = trailing 1h-mean volume / 30d-mean        (entry)
-//   rvolExit  = trailing 60m-mean volume / 30d-mean       (cover)
+//   rvolExit  = trailing 75m-mean volume / 30d-mean       (cover)
 //
 // Other per-bar signals:
 //   priceRise  = bar.Close / laggedMean
@@ -29,14 +29,14 @@ open TradingEdge.CryptoBacktest.OrderflowMA
 //                  ─────────────────────── = 8h sum 16h ago / 8h bars
 //                     n24h − n16h
 //                (no new primitive needed; one subtraction per bar.)
-//   cvd        = trailing-60m CVD = Σ_{60m}(buy_dv − sell_dv)
+//   cvd        = trailing-75m CVD = Σ_{75m}(buy_dv − sell_dv)
 //
 // Entry — ALL must hold simultaneously:
 //   - flat
 //   - cfg.AllowShort  (this engine is short-only by design)
 //   - rvolEntry   >= cfg.RvolEntryThreshold     (default 10.0; 1h-mean gate)
 //   - priceRise   >= 1 + cfg.PriceRiseThreshold (default 1.10)
-//   - prevCvd     >= 0  AND  cvd < 0            (60m CVD just crossed)
+//   - prevCvd     >= 0  AND  cvd < 0            (75m CVD just crossed)
 //   - ADV gate    (cfg.MinShortAdv)
 //   - distance gate (when cfg.EntryDistanceMaxPct > 0): bar.Close must be
 //     within EntryDistanceMaxPct of the reference high (Stop20m or
@@ -58,7 +58,7 @@ open TradingEdge.CryptoBacktest.OrderflowMA
 // up after we're in.
 //
 // Cover — rvolExit < cfg.RvolExitThreshold (default 2.0). On the default
-// 60m cover window, this fires as soon as a single 60-minute slice
+// 75m cover window, this fires as soon as a single 75-minute slice
 // normalises below 2× baseline.
 //
 // Time-stop (optional) — when cfg.TimeStopMinutes > 0, close the trade
@@ -93,7 +93,7 @@ type ExtremeRvolConfig = {
     RvolEntryThreshold: float
     /// Cover gate: trailing-ExitRvolMinutes-mean / LookbackDays-mean ratio.
     /// Default 2.0. Cover when activity has normalised. The default
-    /// ExitRvolMinutes window is 60m — kept identical to CvdMinutes so
+    /// ExitRvolMinutes window is 75m — kept identical to CvdMinutes so
     /// the cover frame is logically consistent with the trigger that
     /// opened the trade.
     RvolExitThreshold: float
@@ -103,9 +103,9 @@ type ExtremeRvolConfig = {
     /// Entry rvol numerator window (hours). Default 1. Short window so a
     /// single hot hour fires the gate before the 8h frame catches up.
     EntryRvolHours: int
-    /// Exit / cover rvol numerator window (minutes). Default 60. Same
+    /// Exit / cover rvol numerator window (minutes). Default 75. Same
     /// length as CvdMinutes so cover and trigger are over the same
-    /// horizon — book as soon as a single 60m slice drops below
+    /// horizon — book as soon as a single 75m slice drops below
     /// RvolExitThreshold × baseline.
     ExitRvolMinutes: int
     /// Baseline-window length (days) for both rvol denominators.
@@ -117,7 +117,7 @@ type ExtremeRvolConfig = {
     /// Lag (hours) for the price-reference MA. Default 16 → 24h-MA,
     /// 16h-MA, derived 8h-MA-lagged-16h.
     LagHours: int
-    /// Trailing-CVD window (minutes) for the entry trigger. Default 60.
+    /// Trailing-CVD window (minutes) for the entry trigger. Default 75.
     /// Same length as ExitRvolMinutes so the trigger and the cover MA
     /// agree on horizon.
     CvdMinutes: int
@@ -163,11 +163,11 @@ let defaultExtremeRvolConfig () : ExtremeRvolConfig =
       RvolExitThreshold = 2.0
       PriceRiseThreshold = 0.10
       EntryRvolHours = 1
-      ExitRvolMinutes = 60
+      ExitRvolMinutes = 75
       LookbackDays = 30
       RecentHours = 8
       LagHours = 16
-      CvdMinutes = 60
+      CvdMinutes = 75
       StopHighWindowMinutes = 20
       TimeStopMinutes = 90
       TimeStopMode = Conditional
@@ -212,10 +212,10 @@ type Engine(cfg: ExtremeRvolConfig) =
 
     // Window sizes in bars.
     let nEntryRvol = hoursToBars   (max 1 cfg.EntryRvolHours)               // 1h (entry numerator)
-    let nExitRvol  = minutesToBars (max 1 cfg.ExitRvolMinutes)              // 60m (cover numerator)
+    let nExitRvol  = minutesToBars (max 1 cfg.ExitRvolMinutes)              // 75m (cover numerator)
     let nLag       = hoursToBars   (max 1 cfg.LagHours)                     // 16h
     let nLagBig    = hoursToBars   (max 1 (cfg.RecentHours + cfg.LagHours)) // 24h
-    let nCvd       = minutesToBars (max 1 cfg.CvdMinutes)                   // 60m
+    let nCvd       = minutesToBars (max 1 cfg.CvdMinutes)                   // 75m
     let nBaseline  = daysToBars (max 1 cfg.LookbackDays)        // 30d (cap)
     let nStopHigh  = minutesToBars (max 1 cfg.StopHighWindowMinutes)   // 20m
     let advWindowBars = daysToBars 90
@@ -228,7 +228,7 @@ type Engine(cfg: ExtremeRvolConfig) =
     // elsewhere in the project.
     let warmupBars = hoursToBars 200
 
-    // Volume rolling state. Two numerators (1h for entry, 60m for cover)
+    // Volume rolling state. Two numerators (1h for entry, 75m for cover)
     // share the same 30d denominator.
     let volEntry    = SumMa(nEntryRvol)
     let volExit     = SumMa(nExitRvol)

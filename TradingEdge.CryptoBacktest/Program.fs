@@ -264,11 +264,11 @@ type ExtremeRvolSweepArgs =
             | Rvol_Exit_Threshold _ -> "Cover when rvol-exit falls below this. Default 2.0. Must be < entry."
             | Price_Rise_Thresholds _ -> "Comma-separated price-rise thresholds (fractional). Default '0.05,0.10,0.15'. Entry requires close >= (1+threshold) * 8h-MA-lagged-16h."
             | Entry_Rvol_Hours _ -> "Entry-rvol numerator window in HOURS. Default 1. Short window so a single hot hour fires the entry gate before the slower 8h cover frame catches up."
-            | Exit_Rvol_Minutes _ -> "Cover-rvol numerator window in MINUTES. Default 60 — kept identical to --cvd-minutes so the cover frame matches the entry-trigger horizon."
+            | Exit_Rvol_Minutes _ -> "Cover-rvol numerator window in MINUTES. Default 75 — kept identical to --cvd-minutes so the cover frame matches the entry-trigger horizon."
             | Recent_Hours _ -> "Recent-window hours for the lagged-MA derivation (the '8h' in 8h-MA-lagged-16h). Default 8."
             | Lookback_Days _ -> "Baseline-window days for the rvol denominator (shared by entry and cover gates). Default 30."
             | Lag_Hours _ -> "Lag (hours) for the lagged-MA. Default 16. Two trailing MAs are over (RecentHours+LagHours)=24h and LagHours=16h."
-            | Cvd_Minutes _ -> "Trailing-CVD window in MINUTES for the entry trigger. Default 60 — same length as --exit-rvol-minutes so the trigger and cover MA agree on horizon."
+            | Cvd_Minutes _ -> "Trailing-CVD window in MINUTES for the entry trigger. Default 75 — same length as --exit-rvol-minutes so the trigger and cover MA agree on horizon."
             | Stop_High_Window_Minutes _ -> "High-stop window (minutes) for the trailing-MaxMa of bar.High snapshotted at entry. Default 20."
             | Time_Stop_Minutes _ -> "Comma-separated time-stop windows in MINUTES. When >0, close the trade after this many minutes per --time-stop-mode. Default '90' (chart-review-validated). Pass '0' to disable. Example: '0,30,60,90,120'."
             | Time_Stop_Mode _ -> "Time-stop semantics: 'hard' closes unconditionally at the timer; 'conditional' closes only if the trade isn't currently profitable. Default 'conditional'."
@@ -1156,11 +1156,11 @@ let cmdExtremeRvolSweep (args: ParseResults<ExtremeRvolSweepArgs>) : int =
         |> Option.defaultValue [| 0.05; 0.10; 0.15 |]
     let rvolExitThreshold = args.GetResult(ExtremeRvolSweepArgs.Rvol_Exit_Threshold, defaultValue = 2.0)
     let entryRvolHours = args.GetResult(ExtremeRvolSweepArgs.Entry_Rvol_Hours, defaultValue = 1)
-    let exitRvolMinutes = args.GetResult(ExtremeRvolSweepArgs.Exit_Rvol_Minutes, defaultValue = 60)
+    let exitRvolMinutes = args.GetResult(ExtremeRvolSweepArgs.Exit_Rvol_Minutes, defaultValue = 75)
     let recentHours = args.GetResult(ExtremeRvolSweepArgs.Recent_Hours, defaultValue = 8)
     let lookbackDays = args.GetResult(ExtremeRvolSweepArgs.Lookback_Days, defaultValue = 30)
     let lagHours = args.GetResult(ExtremeRvolSweepArgs.Lag_Hours, defaultValue = 16)
-    let cvdMinutes = args.GetResult(ExtremeRvolSweepArgs.Cvd_Minutes, defaultValue = 60)
+    let cvdMinutes = args.GetResult(ExtremeRvolSweepArgs.Cvd_Minutes, defaultValue = 75)
     let stopHighWindowMinutes = args.GetResult(ExtremeRvolSweepArgs.Stop_High_Window_Minutes, defaultValue = 20)
     let timeStopMinutesList =
         args.TryGetResult ExtremeRvolSweepArgs.Time_Stop_Minutes

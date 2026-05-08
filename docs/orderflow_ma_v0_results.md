@@ -2464,8 +2464,8 @@ trip-count-vs-PF frontier. Both should run as separate books.
   - `RvolEntryThreshold = 10.0`
   - `RvolExitThreshold = 2.0`
   - `PriceRiseThreshold = 0.10`
-  - `EntryRvolHours = 1`, `ExitRvolMinutes = 60`
-  - `RecentHours = 8`, `LagHours = 16`, `CvdMinutes = 60`
+  - `EntryRvolHours = 1`, `ExitRvolMinutes = 75`
+  - `RecentHours = 8`, `LagHours = 16`, `CvdMinutes = 75`
   - `LookbackDays = 30`
   - `StopHighWindowMinutes = 20`
   - `TimeStopMinutes = 90`, `TimeStopMode = Conditional`
@@ -2597,11 +2597,59 @@ Aggregate PF: 45m = 1.06, 60m = 1.10. Aggregate netPnL: 45m = +$4,934,
    exactly this regime — at low rvol, big price rises probably indicate
    *trending continuation*, not blowoff exhaustion. Worth running as a
    long engine, not a short one.
-5. **60m beats 45m on every aggregate metric.** Higher PF, higher
-   netPnL, fewer trades. Reverted the engine defaults back to 60m. The
-   morning's "merge CVD and cover into 45m" experiment was the right
-   logical fix (both MAs on the same horizon) but the wrong window
-   choice — the data prefers the longer window.
+5. **The window has a sweet spot at 75m.** After seeing 60m beat 45m
+   we extended the sweep to 75m and 90m to find the inflection point.
+
+#### Window length sweep — 45m / 60m / 75m / 90m
+
+Same loose-gate sweep, four `ExitRvolMinutes` = `CvdMinutes` settings.
+
+**Marginal PF by rvol-quintile across windows:**
+
+| rvol bin | 45m  | 60m  | 75m  | 90m  |
+|----------|------|------|------|------|
+| Q1       | 0.88 | 0.98 | 1.04 | 0.97 |
+| Q2       | 0.93 | 0.86 | 0.86 | 0.92 |
+| Q3       | 0.96 | 0.97 | 0.91 | 0.91 |
+| Q4       | 1.09 | 1.11 | 1.12 | 1.06 |
+| Q5       | 1.20 | 1.24 | 1.28 | 1.25 |
+
+**Aggregate metrics across windows:**
+
+| metric              | 45m     | 60m     | 75m     | 90m     |
+|---------------------|---------|---------|---------|---------|
+| Trips               | 19,244  | 16,505  | 14,317  | 13,203  |
+| Aggregate PF        | 1.06    | 1.10    | 1.11    | 1.07    |
+| Aggregate netPnL    | $4,934  | $6,670  | $7,513  | $4,659  |
+| rvolQ5 netPnL       | $7,860  | $8,019  | $8,442  | $7,100  |
+| Best (rvolQ5,*) cell | 1.28 (Q1) | 1.62 (Q1) | 1.40 (Q3) | 1.33 (Q1) |
+
+**Findings from the window sweep:**
+
+- **75m is the sweet spot** on aggregate netPnL ($7,513), rvolQ5
+  marginal PF (1.28), and rvolQ5 netPnL ($8,442). Aggregate PF (1.11)
+  ties with 60m for the best.
+- **PF curve flattens past 75m.** 90m loses on every aggregate metric
+  vs 75m: trips down to 13.2k, netPnL drops to $4,659, rvolQ4 PF slides
+  1.12 → 1.06. The cover MA fires too late — winning trades give back
+  gains before vol normalises below 2× baseline.
+- **60m wins on a single-cell extreme** (rvolQ5,prQ1 at PF 1.62) but
+  with only 284 trips. 75m's best (rvolQ5,prQ3) at PF 1.40 has 460
+  trips — more reliable, and the rest of the rvolQ5 row is uniformly
+  stronger at 75m than at 60m.
+- **Fade-the-fade signal decays with longer windows.** rvolQ1×prQ4
+  short PF: 0.87 (45m) → 0.99 (60m) → 1.17 (75m) → 1.18 (90m). The
+  long-flip thesis was a 45m-specific artifact; longer covers absorb
+  the move. Still worth running as a long engine on the right
+  *separate* gate — but not by simply inverting the short here.
+- **`RvolEntryThreshold = 10` still sits inside the dead zone** at all
+  four windows. Marginal Q1–Q3 stays sub-1.0 throughout. Raising the
+  default to ~15 (yesterday's intuition) is the next obvious step.
+
+**Outcome:** engine defaults updated to `ExitRvolMinutes = 75`,
+`CvdMinutes = 75`. The morning's 45m-merge experiment was the right
+logical fix (locking the cover frame to the entry-trigger horizon) but
+the wrong value — sweeping 45/60/75/90 found the optimum at 75m.
 
 ```
 dotnet run --project TradingEdge.CryptoBacktest -c Release -- extreme-rvol-sweep \
@@ -2612,4 +2660,16 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- extreme-rvol-sweep
 
 python scripts/crypto/quintile_bin_extreme_rvol.py \
     data/crypto/extreme_rvol_quintile/results_trips_1m_rvol8_pr0.05_ts90m_ed0.2_short.csv
+```
+
+To re-run any of the alternative windows:
+
+```
+# 60m
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- extreme-rvol-sweep \
+    --rvol-entry-thresholds 8 --price-rise-thresholds 0.05 \
+    --exit-rvol-minutes 60 --cvd-minutes 60 \
+    --max-bar-price-ratio 3 --reference-vol-pct 0.1019 --min-short-adv 8000000 \
+    --results-csv data/crypto/extreme_rvol_quintile_60m/results.csv \
+    --summary-csv data/crypto/extreme_rvol_quintile_60m/summary.csv
 ```
