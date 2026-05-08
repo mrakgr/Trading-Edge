@@ -34,7 +34,7 @@ open TradingEdge.CryptoBacktest.OrderflowMA
 // Entry — ALL must hold simultaneously:
 //   - flat
 //   - cfg.AllowShort  (this engine is short-only by design)
-//   - rvolEntry   >= cfg.RvolEntryThreshold     (default 10.0; 1h-mean gate)
+//   - rvolEntry   >= cfg.RvolEntryThreshold     (default 24.0; 1h-mean gate, rvol Q5 floor)
 //   - priceRise   >= 1 + cfg.PriceRiseThreshold (default 1.10)
 //   - prevCvd     >= 0  AND  cvd < 0            (75m CVD just crossed)
 //   - ADV gate    (cfg.MinShortAdv)
@@ -88,7 +88,9 @@ type EntryDistanceRef =
 
 type ExtremeRvolConfig = {
     /// Entry rvol gate: trailing-EntryRvolHours-mean / LookbackDays-mean
-    /// volume ratio. Default 10.0. Designed to fire fast on a sudden
+    /// volume ratio. Default 24.0 — the rvol-Q5 floor from the v6
+    /// quintile sweep. Below ~24× the system has no edge; above it the
+    /// PF jumps from 1.11 to 1.28. Designed to fire fast on a sudden
     /// burst of activity; the EntryRvolHours window is 1h by default.
     RvolEntryThreshold: float
     /// Cover gate: trailing-ExitRvolMinutes-mean / LookbackDays-mean ratio.
@@ -144,6 +146,14 @@ type ExtremeRvolConfig = {
     /// Which surface to measure entry distance against. See
     /// EntryDistanceRef. Default Stop20m.
     EntryDistanceRef: EntryDistanceRef
+    /// Re-entry cooldown (minutes) after a time-stop only. Default 0
+    /// (disabled). When > 0, reject new entries until this many minutes
+    /// have elapsed since the most recent time-stop on this symbol.
+    /// High-stops and cover-on-vol-normalize do NOT engage the cooldown
+    /// — only time-stops, which fire when a trade went sideways without
+    /// showing edge (so re-shorting the same regime is doubling down on
+    /// a failed read).
+    ReentryTimeoutMinutes: int
     Notional: float
     TakerFee: float
     /// Always true for this engine; flag exists for parity with the
@@ -159,7 +169,7 @@ type ExtremeRvolConfig = {
 }
 
 let defaultExtremeRvolConfig () : ExtremeRvolConfig =
-    { RvolEntryThreshold = 10.0
+    { RvolEntryThreshold = 24.0
       RvolExitThreshold = 2.0
       PriceRiseThreshold = 0.10
       EntryRvolHours = 1
@@ -173,6 +183,7 @@ let defaultExtremeRvolConfig () : ExtremeRvolConfig =
       TimeStopMode = Conditional
       EntryDistanceMaxPct = 0.20
       EntryDistanceRef = High8h
+      ReentryTimeoutMinutes = 0
       Notional = 1000.0
       TakerFee = 0.0004
       AllowShort = true
@@ -273,6 +284,10 @@ type Engine(cfg: ExtremeRvolConfig) =
     let mutable prevCvd = 0.0
     let mutable lastClose = 0.0
     let mutable lastUs = 0L
+    /// End-of-bar timestamp of the most recent time-stop close. 0L when
+    /// none has fired yet. Used by the re-entry cooldown to suppress new
+    /// entries within ReentryTimeoutMinutes of the last time-stop.
+    let mutable lastTimeStopUs = 0L
 
     let mutable fundingEvents : (int64 * float)[] = [||]
     let mutable fundingPtr = 0
@@ -539,12 +554,24 @@ type Engine(cfg: ExtremeRvolConfig) =
                         let distance = (refHigh - bar.Close) / refHigh
                         distance <= cfg.EntryDistanceMaxPct
 
+            // Re-entry cooldown after a time-stop. Time-stops fire when a
+            // trade went sideways without showing edge — re-shorting the
+            // same regime within the cooldown is doubling down on a
+            // failed read. High-stops and cover-on-vol-normalize do NOT
+            // engage the cooldown.
+            let cooldownGate =
+                if cfg.ReentryTimeoutMinutes <= 0 || lastTimeStopUs = 0L then true
+                else
+                    let cooldownUs = int64 cfg.ReentryTimeoutMinutes * 60_000_000L
+                    bar.EndUs - lastTimeStopUs >= cooldownUs
+
             if rvolEntry   >= cfg.RvolEntryThreshold
                && priceRise >= 1.0 + cfg.PriceRiseThreshold
                && cvdCross
                && advGate
                && stopAboveClose
-               && distanceGate then
+               && distanceGate
+               && cooldownGate then
                 openShort bar.Close bar.EndUs rvolEntry stopLevel (priceRise - 1.0)
 
         // Exit checks while holding a short. Two independent triggers:
@@ -568,6 +595,7 @@ type Engine(cfg: ExtremeRvolConfig) =
 
             if timeStopHit then
                 closePos bar.Close bar.EndUs
+                lastTimeStopUs <- bar.EndUs
             else
                 let exitMean = volExit.State / float nExitRvol
                 let bMean = baselineMean ()

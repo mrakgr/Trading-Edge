@@ -25,14 +25,16 @@ import pandas as pd
 
 def quintile_breakdown(trips_csv: str) -> None:
     con = duckdb.connect()
+    # abs(price_rise_at_entry) so the long engine (which writes negative
+    # values for declines) bins by magnitude alongside the short engine.
     trips = con.execute(
         f"""
         SELECT
-            ratio_at_entry      AS rvol,
-            price_rise_at_entry AS pr,
+            ratio_at_entry           AS rvol,
+            abs(price_rise_at_entry) AS pr,
             net_pnl
         FROM read_csv_auto('{trips_csv}', HEADER=TRUE)
-        WHERE side = 'short'
+        WHERE side IN ('short', 'long')
         """
     ).df()
 

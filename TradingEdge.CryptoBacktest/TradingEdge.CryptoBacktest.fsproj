@@ -15,6 +15,7 @@
     <Compile Include="OrderflowCumsum.fs" />
     <Compile Include="OrderflowCumsumZ.fs" />
     <Compile Include="OrderflowExtremeRvol.fs" />
+    <Compile Include="OrderflowExtremeRvolLong.fs" />
     <Compile Include="VwmaCross.fs" />
     <Compile Include="Breakout.fs" />
     <Compile Include="Breadth.fs" />

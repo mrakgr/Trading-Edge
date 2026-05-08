@@ -1,0 +1,524 @@
+module TradingEdge.CryptoBacktest.OrderflowExtremeRvolLong
+
+open TradingEdge.CryptoBacktest.SignedBar
+open TradingEdge.CryptoBacktest.RollingMa
+open TradingEdge.CryptoBacktest.OrderflowMA
+
+// =============================================================================
+// Extreme-rvol long fade engine — mirror of OrderflowExtremeRvol
+// =============================================================================
+//
+// Long-side companion to OrderflowExtremeRvol. The thesis is the symmetric
+// version of the short fader: when a symbol gets dumped on extreme volume
+// and the order-flow turns from selling to buying, fade the dump by going
+// long. Same regime-detection mechanics; mirrored direction, gates, stop.
+//
+// Two rvol frames in parallel (both share a 30d-mean denominator). The
+// entry numerator is short (default 1h) so a single hot hour fires the
+// gate; the cover numerator (default 75m) and the CVD trigger window
+// (default 75m) are kept the same length so the cover is logically
+// consistent with the trigger that opened the trade.
+//   rvolEntry = trailing 1h-mean volume / 30d-mean        (entry)
+//   rvolExit  = trailing 75m-mean volume / 30d-mean       (cover)
+//
+// Other per-bar signals:
+//   priceDecline = bar.Close / laggedMean        (mirror: < 1.0 means down)
+//   laggedMean   = 8h-MA-of-close lagged 16h, derived from two trailing MAs:
+//                    Σ24h.Close − Σ16h.Close
+//                    ─────────────────────── = 8h sum 16h ago / 8h bars
+//                       n24h − n16h
+//                  (no new primitive needed; one subtraction per bar.)
+//   cvd          = trailing-75m CVD = Σ_{75m}(buy_dv − sell_dv)
+//
+// Entry — ALL must hold simultaneously:
+//   - flat
+//   - cfg.AllowLong  (this engine is long-only by design)
+//   - rvolEntry      >= cfg.RvolEntryThreshold        (default 8.0; loose initial gate)
+//   - priceDecline   >= cfg.PriceDeclineThreshold     (default 0.10 → close <= 0.90 × laggedMean)
+//   - prevCvd        <= 0  AND  cvd > 0               (75m CVD just turned positive)
+//   - ADV gate       (cfg.MinLongAdv)
+//   - distance gate  (when cfg.EntryDistanceMaxPct > 0): bar.Close must be
+//     within EntryDistanceMaxPct of the reference low (Stop20m or
+//     Low8h per cfg.EntryDistanceRef). Filters out late entries where the
+//     bounce has already started.
+//   - 200h warm-up: barsSeen >= 200h, and the short rolling windows
+//     (rvol numerators, lagged-MA, CVD, low-stop) are all full. The 30d
+//     baseline window is NOT required to be full — we divide by
+//     volBaseline.Count for fairness with recently-listed symbols.
+//
+// Stop — trailing-N-minute MinMa of bar.Low, snapshotted at entry and
+// held fixed for the trade (default 20m). The level is set off bar.Low
+// (the actual flush trough) but the trigger fires off bar.VWAP <= stop
+// (so wicks alone don't fire — most of the bar's trading has to clear
+// the level). Filled at bar.Close.
+//
+// Cover — rvolExit < cfg.RvolExitThreshold (default 2.0). Symmetric to
+// the short engine's cover: book when activity has normalised, regardless
+// of direction.
+//
+// Time-stop (optional) — when cfg.TimeStopMinutes > 0, close the trade
+// after that many minutes from entry. TimeStopMode = Hard closes
+// unconditionally; Conditional closes only if the position isn't
+// profitable (bar.Close <= entryPrice for a long). Disabled by default.
+//
+// Re-entry cooldown — disabled by default (matches the v7 finding that
+// the cooldown's edge vanishes once the rvol gate is doing the filtering).
+
+/// Time-stop semantics. `Hard`: close unconditionally at the timer.
+/// `Conditional`: close only if the trade isn't currently profitable
+/// (bar.Close <= entryPrice for a long, so the position is at or below
+/// breakeven). Only active when TimeStopMinutes > 0 in the config.
+type TimeStopMode =
+    | Hard
+    | Conditional
+
+/// Reference surface for the entry-distance gate. The gate rejects entries
+/// where bar.Close has already drifted too far above this surface — the
+/// idea is to fade *near* the bottom, not after the bounce has begun.
+///   Stop20m — the 20m trailing min-Low (same surface as the stop). Tight:
+///             the move must have bottomed in the last 20 minutes.
+///   Low8h   — a separate trailing 8h min-Low. Looser: the actual flush
+///             trough just has to have happened recently in 8h.
+type EntryDistanceRef =
+    | Stop20m
+    | Low8h
+
+type ExtremeRvolLongConfig = {
+    /// Entry rvol gate: trailing-EntryRvolHours-mean / LookbackDays-mean
+    /// volume ratio. Default 8.0 — loose initial gate; sweep to find
+    /// the long-side rvol-Q5 floor empirically.
+    RvolEntryThreshold: float
+    /// Cover gate: trailing-ExitRvolMinutes-mean / LookbackDays-mean ratio.
+    /// Default 2.0. Cover when activity has normalised.
+    RvolExitThreshold: float
+    /// Fractional price-decline gate against the LagMA-lagged price.
+    /// Default 0.10 → entry requires bar.Close <= 0.90 × laggedMean.
+    /// The v8 quintile sweep showed the long-fade edge is monotonic in
+    /// decline magnitude (unlike the short side, where price-rise was
+    /// flat) — the larger the drop, the better the fade works, up to
+    /// ~28% decline.
+    PriceDeclineThreshold: float
+    /// Entry rvol numerator window (hours). Default 1.
+    EntryRvolHours: int
+    /// Exit / cover rvol numerator window (minutes). Default 75.
+    ExitRvolMinutes: int
+    /// Baseline-window length (days) for both rvol denominators.
+    /// Default 30.
+    LookbackDays: int
+    /// Recent-window length (hours) for the lagged-MA derivation.
+    /// Default 8 → 8h-MA-lagged-LagHours.
+    RecentHours: int
+    /// Lag (hours) for the price-reference MA. Default 16 → 24h-MA,
+    /// 16h-MA, derived 8h-MA-lagged-16h.
+    LagHours: int
+    /// Trailing-CVD window (minutes) for the entry trigger. Default 75.
+    CvdMinutes: int
+    /// Low-stop window (minutes): trailing-N MinMa of bar.Low,
+    /// snapshotted at entry and held fixed for the trade. Default 20.
+    StopLowWindowMinutes: int
+    /// Time-stop window (minutes). When > 0, close the trade after this
+    /// many minutes per the TimeStopMode. Default 0 (disabled).
+    TimeStopMinutes: int
+    /// Time-stop semantics. Only active when TimeStopMinutes > 0.
+    TimeStopMode: TimeStopMode
+    /// Entry-distance gate: max fractional distance from EntryDistanceRef
+    /// to bar.Close at entry. Default 0 (disabled). Reject entry when
+    /// (close - refLow) / refLow > EntryDistanceMaxPct. Filters out late
+    /// entries where the bounce has already started.
+    EntryDistanceMaxPct: float
+    /// Which surface to measure entry distance against. Default Low8h.
+    EntryDistanceRef: EntryDistanceRef
+    Notional: float
+    TakerFee: float
+    /// Always true for this engine; flag exists for parity.
+    AllowLong: bool
+    BucketUs: int64
+    MaxAdverseFraction: float
+    ReferenceVol: float
+    MinLongAdv: float
+    VolWindowDays: int
+    MaxBarPriceRatio: float
+}
+
+let defaultExtremeRvolLongConfig () : ExtremeRvolLongConfig =
+    { RvolEntryThreshold = 8.0
+      RvolExitThreshold = 2.0
+      PriceDeclineThreshold = 0.10
+      EntryRvolHours = 1
+      ExitRvolMinutes = 75
+      LookbackDays = 30
+      RecentHours = 8
+      LagHours = 16
+      CvdMinutes = 75
+      StopLowWindowMinutes = 20
+      TimeStopMinutes = 90
+      TimeStopMode = Conditional
+      EntryDistanceMaxPct = 0.20
+      EntryDistanceRef = Low8h
+      Notional = 1000.0
+      TakerFee = 0.0004
+      AllowLong = true
+      BucketUs = 0L
+      MaxAdverseFraction = 0.0
+      ReferenceVol = 0.0
+      MinLongAdv = 0.0
+      VolWindowDays = 90
+      MaxBarPriceRatio = 0.0 }
+
+let private feeFor (notional: float) (takerFee: float) : float = notional * takerFee
+
+let private grossPnL (side: Side) (entry: float) (exit: float) (notional: float) : float =
+    let qty = notional / entry
+    match side with
+    | Long  -> (exit - entry) * qty
+    | Short -> (entry - exit) * qty
+    | Flat  -> 0.0
+
+type Engine(cfg: ExtremeRvolLongConfig) =
+    let mutable prevClose = 0.0
+    let mutable barsSeen = 0
+
+    let hoursToBars (hours: int) : int =
+        if cfg.BucketUs > 0L then
+            max 1 (int (int64 hours * 3_600_000_000L / cfg.BucketUs))
+        else
+            max 1 hours
+
+    let daysToBars (days: int) : int = hoursToBars (24 * days)
+
+    let minutesToBars (minutes: int) : int =
+        if cfg.BucketUs > 0L then
+            max 1 (int (int64 minutes * 60_000_000L / cfg.BucketUs))
+        else
+            max 1 minutes
+
+    let nEntryRvol = hoursToBars   (max 1 cfg.EntryRvolHours)
+    let nExitRvol  = minutesToBars (max 1 cfg.ExitRvolMinutes)
+    let nLag       = hoursToBars   (max 1 cfg.LagHours)
+    let nLagBig    = hoursToBars   (max 1 (cfg.RecentHours + cfg.LagHours))
+    let nCvd       = minutesToBars (max 1 cfg.CvdMinutes)
+    let nBaseline  = daysToBars (max 1 cfg.LookbackDays)
+    let nStopLow   = minutesToBars (max 1 cfg.StopLowWindowMinutes)
+    let advWindowBars = daysToBars 90
+    let volWindowBars = daysToBars (max 1 cfg.VolWindowDays)
+    let warmupBars = hoursToBars 200
+
+    let volEntry    = SumMa(nEntryRvol)
+    let volExit     = SumMa(nExitRvol)
+    let volBaseline = SumMa(nBaseline)
+    let closeRecent = SumMa(nLagBig)
+    let closeLag    = SumMa(nLag)
+    let cvdMa = SumMa(nCvd)
+    let advMa = SumMa(advWindowBars)
+    let volMa = StdMa(volWindowBars)
+    // Trailing 20m min-Low for the entry stop. Snapshotted at entry and
+    // held fixed for the trade.
+    let lowMinMa = MinMa(nStopLow)
+    // Trailing 8h min-Low used by the optional entry-distance gate when
+    // EntryDistanceRef = Low8h.
+    let nLow8h    = hoursToBars 8
+    let low8hMinMa = MinMa(nLow8h)
+
+    // Position state.
+    let mutable side = Flat
+    let mutable entryPrice = 0.0
+    let mutable entryUs = 0L
+    let mutable effectiveNotional = 0.0
+    let mutable barsHeld = 0
+    let mutable mfeUsd = 0.0
+    let mutable maeUsd = 0.0
+    let mutable ratioAtEntry = 0.0
+    let mutable fundingPnl = 0.0
+    let mutable advAtEntry = 0.0
+    let mutable volAtEntry = 0.0
+    /// Snapshot of trailing-20m min-Low at entry, held fixed for the trade.
+    let mutable stopPriceAtEntry = 0.0
+    /// Realized price-decline at entry (1.0 - bar.Close / laggedMean).
+    /// Surfaced on the round-trip via PriceRiseAtEntry (negative for longs)
+    /// so quintile-binning can stratify by realized decline.
+    let mutable priceDeclineAtEntry = 0.0
+
+    let mutable prevCvd = 0.0
+    let mutable lastClose = 0.0
+    let mutable lastUs = 0L
+
+    let mutable fundingEvents : (int64 * float)[] = [||]
+    let mutable fundingPtr = 0
+
+    let trips = ResizeArray<RoundTrip>()
+
+    let computeEffectiveNotional () : float =
+        if cfg.ReferenceVol <= 0.0 then cfg.Notional
+        else
+            let vol = volMa.SampleStd
+            if vol <= 0.0 then cfg.Notional
+            else min cfg.Notional (cfg.Notional * cfg.ReferenceVol / vol)
+
+    let currentAdv () : float =
+        let m = advMa.Count
+        if m = 0 || cfg.BucketUs <= 0L then 0.0
+        else
+            let barsPerDay = 86_400_000_000.0 / float cfg.BucketUs
+            let days = float m / barsPerDay
+            if days > 0.0 then advMa.State / days else 0.0
+
+    let openLong (fillPrice: float) (fillUs: int64) (rvolAtFire: float) (stopLevel: float) (declineAtFire: float) =
+        side <- Long
+        entryPrice <- fillPrice
+        entryUs <- fillUs
+        effectiveNotional <- computeEffectiveNotional ()
+        barsHeld <- 1
+        mfeUsd <- 0.0
+        maeUsd <- 0.0
+        ratioAtEntry <- rvolAtFire
+        fundingPnl <- 0.0
+        advAtEntry <- currentAdv ()
+        volAtEntry <- volMa.SampleStd
+        stopPriceAtEntry <- stopLevel
+        priceDeclineAtEntry <- declineAtFire
+
+    let closePos (fillPrice: float) (fillUs: int64) =
+        let gross = grossPnL side entryPrice fillPrice effectiveNotional
+        let fees = 2.0 * feeFor effectiveNotional cfg.TakerFee
+        trips.Add {
+            EntryUs = entryUs
+            ExitUs = fillUs
+            Side = side
+            EntryPrice = entryPrice
+            ExitPrice = fillPrice
+            NetPnL = gross - fees + fundingPnl
+            Fees = fees
+            BarsHeld = barsHeld
+            MaxFavorableExcursion = mfeUsd
+            MaxAdverseExcursion = maeUsd
+            RatioAtEntry = ratioAtEntry
+            EffectiveNotional = effectiveNotional
+            FundingPnL = fundingPnl
+            AvgDailyVolumeAtEntry = advAtEntry
+            // Negative for longs (decline). Quintile-bin script reads abs()
+            // so the magnitude axis works the same way.
+            PriceRiseAtEntry = -priceDeclineAtEntry
+        }
+        side <- Flat
+        entryPrice <- 0.0
+        entryUs <- 0L
+        effectiveNotional <- 0.0
+        barsHeld <- 0
+        mfeUsd <- 0.0
+        maeUsd <- 0.0
+        ratioAtEntry <- 0.0
+        fundingPnl <- 0.0
+        advAtEntry <- 0.0
+        volAtEntry <- 0.0
+        stopPriceAtEntry <- 0.0
+        priceDeclineAtEntry <- 0.0
+
+    let applyFunding (bar: SignedBar) =
+        while fundingPtr < fundingEvents.Length
+              && (fst fundingEvents.[fundingPtr]) <= bar.EndUs do
+            let ts, rate = fundingEvents.[fundingPtr]
+            if side <> Flat && ts > entryUs then
+                let payment = effectiveNotional * rate
+                let signed =
+                    match side with
+                    | Long  -> -payment
+                    | Short -> +payment
+                    | Flat  -> 0.0
+                fundingPnl <- fundingPnl + signed
+            fundingPtr <- fundingPtr + 1
+
+    let updateExcursion (bar: SignedBar) =
+        if side = Flat then ()
+        else
+            let qty = effectiveNotional / entryPrice
+            let favorPrice, adversePrice =
+                match side with
+                | Long  -> bar.High, bar.Low
+                | Short -> bar.Low,  bar.High
+                | Flat  -> 0.0, 0.0
+            let favorPnl =
+                match side with
+                | Long  -> (favorPrice - entryPrice) * qty
+                | Short -> (entryPrice - favorPrice) * qty
+                | Flat  -> 0.0
+            let advPnl =
+                match side with
+                | Long  -> (adversePrice - entryPrice) * qty
+                | Short -> (entryPrice - adversePrice) * qty
+                | Flat  -> 0.0
+            if favorPnl > mfeUsd then mfeUsd <- favorPnl
+            if advPnl < maeUsd then maeUsd <- advPnl
+
+    let priceGapHit (bar: SignedBar) : bool =
+        if cfg.MaxBarPriceRatio <= 0.0 || side = Flat then false
+        elif prevClose <= 0.0 || bar.Close <= 0.0 then false
+        else
+            let upGap   = bar.Close / prevClose
+            let downGap = prevClose / bar.Close
+            upGap > cfg.MaxBarPriceRatio || downGap > cfg.MaxBarPriceRatio
+
+    let pctStopPriceIfHit (bar: SignedBar) : float option =
+        if cfg.MaxAdverseFraction <= 0.0 || side = Flat then None
+        else
+            let qty = effectiveNotional / entryPrice
+            let lossLimit = cfg.MaxAdverseFraction * effectiveNotional
+            match side with
+            | Long ->
+                let stopPx = entryPrice - lossLimit / qty
+                if bar.Low <= stopPx then Some stopPx else None
+            | Short ->
+                let stopPx = entryPrice + lossLimit / qty
+                if bar.High >= stopPx then Some stopPx else None
+            | Flat -> None
+
+    /// Mirror of OrderflowExtremeRvol.highStopFill. Fires when the bar's
+    /// VWAP prints at or below the entry-time trailing min-Low. Wicks
+    /// alone don't trigger. Fill at bar.Close.
+    let lowStopFill (bar: SignedBar) : float option =
+        if side <> Long || stopPriceAtEntry <= 0.0 then None
+        elif bar.VWAP <= stopPriceAtEntry then Some bar.Close
+        else None
+
+    member _.BarsSeen = barsSeen
+    member _.Trips = trips :> seq<RoundTrip>
+    member _.InTrade : bool = side <> Flat
+
+    member _.SetFundingEvents(events: (int64 * float)[]) =
+        fundingEvents <- events
+        fundingPtr <- 0
+
+    member _.ProcessBar(bar: SignedBar) =
+        applyFunding bar
+
+        let gapFired = priceGapHit bar
+        if gapFired then
+            closePos lastClose lastUs
+        if gapFired then () else
+
+        if side <> Flat && barsHeld > 0 then
+            updateExcursion bar
+            barsHeld <- barsHeld + 1
+
+        match lowStopFill bar with
+        | Some fillPx -> closePos fillPx bar.EndUs
+        | None ->
+            match pctStopPriceIfHit bar with
+            | Some stopPx -> closePos stopPx bar.EndUs
+            | None -> ()
+
+        if prevClose > 0.0 && bar.Close > 0.0 then
+            volMa.Push (log (bar.Close / prevClose))
+        prevClose <- bar.Close
+        let totalDv = bar.BuyDollarVolume + bar.SellDollarVolume
+        advMa.Push totalDv
+        volEntry.Push    bar.Volume
+        volExit.Push     bar.Volume
+        volBaseline.Push bar.Volume
+        closeRecent.Push bar.Close
+        closeLag.Push    bar.Close
+        cvdMa.Push (bar.BuyDollarVolume - bar.SellDollarVolume)
+        lowMinMa.Push bar.Low
+        low8hMinMa.Push bar.Low
+
+        barsSeen <- barsSeen + 1
+        lastClose <- bar.Close
+        lastUs <- bar.EndUs
+
+        let windowsReady =
+            barsSeen             >= warmupBars
+            && volEntry.Count    >= nEntryRvol
+            && volExit.Count     >= nExitRvol
+            && closeRecent.Count >= nLagBig
+            && closeLag.Count    >= nLag
+            && cvdMa.Count       >= nCvd
+            && lowMinMa.Count    >= nStopLow
+
+        let cvd = cvdMa.State
+
+        let baselineMean () =
+            if volBaseline.Count > 0
+            then volBaseline.State / float volBaseline.Count
+            else 0.0
+
+        if windowsReady && side = Flat && cfg.AllowLong then
+            let entryMean = volEntry.State / float nEntryRvol
+            let bMean = baselineMean ()
+            let rvolEntry =
+                if bMean > 0.0 then entryMean / bMean else 0.0
+
+            let lagSum  = closeRecent.State - closeLag.State
+            let lagBars = float (nLagBig - nLag)
+            let laggedMean = if lagBars > 0.0 then lagSum / lagBars else 0.0
+            let priceRatio =
+                if laggedMean > 0.0 then bar.Close / laggedMean else 0.0
+            // Decline magnitude (positive when Close < laggedMean).
+            let priceDecline = 1.0 - priceRatio
+
+            let advGate = cfg.MinLongAdv <= 0.0 || currentAdv () >= cfg.MinLongAdv
+            // Mirror of the short cross: prevCvd <= 0 and cvd > 0.
+            let cvdCross = prevCvd <= 0.0 && cvd > 0.0
+
+            // Mirror of stopAboveClose. The stop is the trailing min-Low;
+            // we want it strictly below close so the very next bar can't
+            // immediately stop us out at the same level we filled at.
+            let stopLevel = lowMinMa.State
+            let stopBelowClose = stopLevel > 0.0 && stopLevel < bar.Close
+
+            // Entry-distance gate: reject entries where bar.Close has
+            // already drifted too far above the reference low (i.e. the
+            // bounce has already happened). Disabled when threshold is 0.
+            let distanceGate =
+                if cfg.EntryDistanceMaxPct <= 0.0 then true
+                else
+                    let refLow =
+                        match cfg.EntryDistanceRef with
+                        | Stop20m -> stopLevel
+                        | Low8h   -> low8hMinMa.State
+                    if refLow <= 0.0 then false
+                    else
+                        let distance = (bar.Close - refLow) / refLow
+                        distance <= cfg.EntryDistanceMaxPct
+
+            if rvolEntry      >= cfg.RvolEntryThreshold
+               && priceDecline >= cfg.PriceDeclineThreshold
+               && cvdCross
+               && advGate
+               && stopBelowClose
+               && distanceGate then
+                openLong bar.Close bar.EndUs rvolEntry stopLevel priceDecline
+
+        elif windowsReady && side = Long then
+            let timeStopHit =
+                if cfg.TimeStopMinutes <= 0 then false
+                else
+                    let nTimeStop = minutesToBars cfg.TimeStopMinutes
+                    if barsHeld < nTimeStop then false
+                    else
+                        match cfg.TimeStopMode with
+                        | Hard -> true
+                        // Mirror of short Conditional: not profitable for
+                        // a long means bar.Close <= entryPrice.
+                        | Conditional -> bar.Close <= entryPrice
+
+            if timeStopHit then
+                closePos bar.Close bar.EndUs
+            else
+                let exitMean = volExit.State / float nExitRvol
+                let bMean = baselineMean ()
+                let rvolExit =
+                    if bMean > 0.0 then exitMean / bMean else 0.0
+                if rvolExit < cfg.RvolExitThreshold then
+                    closePos bar.Close bar.EndUs
+
+        prevCvd <- cvd
+
+    member _.Flush() =
+        if side <> Flat && lastClose > 0.0 then
+            closePos lastClose lastUs
+
+let run (cfg: ExtremeRvolLongConfig) (bars: SignedBar[]) : RoundTrip[] =
+    let eng = Engine(cfg)
+    for bar in bars do
+        eng.ProcessBar bar
+    eng.Flush()
+    eng.Trips |> Seq.toArray

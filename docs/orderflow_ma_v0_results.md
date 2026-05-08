@@ -2461,7 +2461,8 @@ trip-count-vs-PF frontier. Both should run as separate books.
 
 `OrderflowExtremeRvol.defaultExtremeRvolConfig()` ships with:
 
-  - `RvolEntryThreshold = 10.0`
+  - `RvolEntryThreshold = 24.0` (v8 default; was 10 through v7 — the
+    rvol-Q5 floor from the quintile sweep)
   - `RvolExitThreshold = 2.0`
   - `PriceRiseThreshold = 0.10`
   - `EntryRvolHours = 1`, `ExitRvolMinutes = 75`
@@ -2672,4 +2673,206 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- extreme-rvol-sweep
     --max-bar-price-ratio 3 --reference-vol-pct 0.1019 --min-short-adv 8000000 \
     --results-csv data/crypto/extreme_rvol_quintile_60m/results.csv \
     --summary-csv data/crypto/extreme_rvol_quintile_60m/summary.csv
+```
+
+### Re-entry timeout after time-stop (v7, 2026-05-08)
+
+Time-stops fire when a trade went sideways without showing edge — the
+hypothesis is that re-shorting the same regime within a short window
+is doubling down on a failed read. New `ReentryTimeoutMinutes` config
+field (CLI `--reentry-timeout-minutes`) suppresses entries for N
+minutes after a time-stop fires; high-stops and cover-on-vol-normalize
+do **not** engage the cooldown.
+
+The cooldown is symbol-local. State is a single `lastTimeStopUs`
+timestamp on the engine, stamped only inside the time-stop branch.
+Entry gate adds `bar.EndUs - lastTimeStopUs >= cooldown` as the final
+filter.
+
+#### Sweep — v5 defaults (rvol≥10, pr≥10%, 75m windows)
+
+Single (rvol_entry × price_rise) cell, varying the cooldown only:
+
+| cooldown | trips | PF    | avgPnL | netPnL  |
+|----------|-------|-------|--------|---------|
+|   0m     | 8,996 | 1.107 | $0.92  | $8,270  |
+|  15m     | 8,864 | 1.103 | $0.89  | $7,880  |
+|  30m     | 8,731 | 1.105 | $0.90  | $7,818  |
+|  60m     | 8,551 | 1.109 | $0.93  | $7,959  |
+| **120m** | **8,090** | **1.129** | **$1.10** | **$8,896** |
+
+**Findings:**
+
+- **120m wins on every metric** — PF +2.0%, avgPnL +20%, netPnL +7.6%
+  vs the 0m baseline. ~10% fewer trades.
+- **15m / 30m / 60m all *underperform* the 0m baseline.** Tiny
+  differences (PF 1.10–1.11), but no improvement. A short cooldown
+  removes some trades without selectivity.
+- **Signal is non-monotonic; the edge appears at 60→120m.** Below 60m
+  there's no meaningful change. The dropped trades in the 120m–60m
+  delta are systematically losers — the avgPnL-per-trade jump is the
+  cleanest evidence.
+- **Plausible mechanism:** time-stop fires at 90m by default. A 60m
+  cooldown after a 90m hold leaves only 30m of the post-stop blowoff
+  unblocked, which is too short to remove the regime echo. 120m
+  removes the rest.
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- extreme-rvol-sweep \
+    --rvol-entry-thresholds 10 --price-rise-thresholds 0.10 \
+    --reentry-timeout-minutes 0,15,30,60,120 \
+    --max-bar-price-ratio 3 --reference-vol-pct 0.1019 --min-short-adv 8000000 \
+    --results-csv data/crypto/extreme_rvol_reentry/results.csv \
+    --summary-csv data/crypto/extreme_rvol_reentry/summary.csv
+```
+
+Bin per cooldown (the breakdown log collapses cooldowns into one bag,
+so PF is read directly from each `_rt{N}m_short.csv` trip file):
+
+```
+python -c "
+import duckdb, pandas as pd
+con = duckdb.connect()
+for label, f in [
+    ('  0m', 'data/crypto/extreme_rvol_reentry/results_trips_1m_rvol10_pr0.1_ts90m_ed0.2_short.csv'),
+    (' 15m', 'data/crypto/extreme_rvol_reentry/results_trips_1m_rvol10_pr0.1_ts90m_ed0.2_rt15m_short.csv'),
+    (' 30m', 'data/crypto/extreme_rvol_reentry/results_trips_1m_rvol10_pr0.1_ts90m_ed0.2_rt30m_short.csv'),
+    (' 60m', 'data/crypto/extreme_rvol_reentry/results_trips_1m_rvol10_pr0.1_ts90m_ed0.2_rt60m_short.csv'),
+    ('120m', 'data/crypto/extreme_rvol_reentry/results_trips_1m_rvol10_pr0.1_ts90m_ed0.2_rt120m_short.csv'),
+]:
+    df = con.execute(f\"SELECT net_pnl FROM read_csv_auto('{f}', HEADER=TRUE) WHERE side='short'\").df()
+    gw = df.loc[df.net_pnl>0,'net_pnl'].sum(); gl = -df.loc[df.net_pnl<0,'net_pnl'].sum()
+    pf = gw/gl if gl>0 else float('inf')
+    print(f'{label}: trips={len(df)} PF={pf:.3f} netPnL={df.net_pnl.sum():.0f}')
+"
+```
+
+#### Cross-check at rvol Q5 (rvol≥24, pr≥10%, 75m windows)
+
+| cooldown | trips | PF    | avgPnL | netPnL  |
+|----------|-------|-------|--------|---------|
+|   0m     | 2,749 | 1.282 | $3.02  | $8,300  |
+|  15m     | 2,723 | 1.281 | $3.01  | $8,193  |
+|  30m     | 2,693 | 1.276 | $2.95  | $7,954  |
+|  60m     | 2,628 | 1.287 | $3.06  | $8,034  |
+| 120m     | 2,512 | 1.289 | $3.06  | $7,685  |
+
+**The 120m cooldown advantage disappears at Q5.** PF curve is flat
+(1.282 → 1.289 = noise inside one decimal); netPnL drops monotonically
+($8,300 → $7,685, −7.4%) as the cooldown removes good trades along
+with bad. avgPnL stays at ~$3.0/trade across all cooldowns.
+
+**Inverted finding:** The cooldown's PF improvement at v5 (1.107 →
+1.129) was filtering out post-time-stop *low-rvol* re-entries — the
+same trades the rvol gate already filters at Q5. Once the rvol gate
+is high enough, no cooldown is needed.
+
+The bigger lever is the rvol gate itself: **avgPnL at Q5 is ~3.3× v5**
+($3.06 vs $0.93 at the same cooldown). Updating the default:
+`RvolEntryThreshold` 10 → 24 (v8). Trade count drops ~70% but netPnL
+is essentially unchanged ($8,270 → $8,300) and PF jumps from 1.11 to
+1.28. `ReentryTimeoutMinutes` stays at 0 — no benefit at the new gate.
+
+```
+# Reproducer for the rvol-Q5 cross-check
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- extreme-rvol-sweep \
+    --rvol-entry-thresholds 24 --price-rise-thresholds 0.10 \
+    --reentry-timeout-minutes 0,15,30,60,120 \
+    --max-bar-price-ratio 3 --reference-vol-pct 0.1019 --min-short-adv 8000000 \
+    --results-csv data/crypto/extreme_rvol_reentry_q5/results.csv \
+    --summary-csv data/crypto/extreme_rvol_reentry_q5/summary.csv
+```
+
+## Long fade companion — `OrderflowExtremeRvolLong` (v8, 2026-05-08)
+
+Long-side mirror of the short engine. Same cell + sweep wiring, same
+75m windows, same 90m conditional time-stop, same 20m stop window, same
+0.20 entry-distance gate (against `Low8h` instead of `High8h`). Mirrored
+logic:
+
+- direction long, not short
+- price gate `bar.Close <= (1 - PriceDeclineThreshold) × laggedMean`
+- CVD trigger `prevCvd <= 0  AND  cvd > 0` (just turned positive)
+- stop = trailing 20m `MinMa` of `bar.Low`, snapshotted at entry, fires
+  when `bar.VWAP <= stopLevel`, fill at `bar.Close`
+- time-stop conditional flip: `bar.Close <= entryPrice` is the
+  "not profitable" check
+
+New CLI: `extreme-rvol-long-sweep`. Trip CSV stem ends in `_long.csv`.
+PriceRiseAtEntry is reused as a magnitude axis (engine writes the
+negative of the realized decline so the quintile-bin script reads
+`abs(price_rise_at_entry)` for both engines).
+
+### Quintile breakdown — loose gate (rvol≥8, decline≥5%, 75m windows)
+
+5×5 PF; 2,255 trips total (vs 19,244 on the short loose-gate). Rvol
+and decline cutoffs are empirical from the trade population.
+
+```
+         rvolQ1    rvolQ2    rvolQ3    rvolQ4    rvolQ5
+pdQ1  |   1.27     0.87     1.15     1.09     0.53
+pdQ2  |   1.26     0.93     0.97     0.89     1.34
+pdQ3  |   1.12     1.95     0.54     1.63     1.21
+pdQ4  |   0.93     1.74     1.02     1.70     1.08
+pdQ5  |   1.85     0.83     0.74     1.94     0.90
+```
+
+**Cutoffs (60m):** rvol 8.0 → 8.7 → 9.8 → 11.8 → 16.3 → 202;
+decline 5.0% → 9.1% → 13.5% → 18.3% → 27.8% → 95.4%
+
+**Marginals:**
+
+| bin | by rvol PF | rvol netPnL | by decline PF | decline netPnL |
+|-----|-----------|-------------|---------------|----------------|
+| Q1  | 1.22      | +$635       | 0.96          | −$106          |
+| Q2  | 1.29      | +$759       | 1.08          | +$247          |
+| Q3  | 0.84      | −$514       | 1.19          | +$585          |
+| Q4  | **1.45**  | **+$1,298** | **1.26**      | **+$837**      |
+| Q5  | 0.97      | −$98        | 1.15          | +$517          |
+
+**Headline comparison:**
+
+| metric | Short loose (v8 rvol≥24) | Long loose |
+|--------|--------------------------|------------|
+| Trips | 2,749 | 2,255 |
+| Aggregate PF | 1.28 | 1.13 |
+| Aggregate netPnL | $8,300 | $2,080 |
+| avgPnL/trade | $3.02 | $0.92 |
+
+**Findings:**
+
+- **rvol is NOT monotonic for longs.** Short rvol curve was clean: Q1=0.88
+  → Q5=1.20. Long curve is jagged: 1.22 → 1.29 → 0.84 → 1.45 → 0.97.
+  The Q5 collapse is the most striking — extreme-rvol *drops* aren't
+  the same regime as extreme-rvol *blowoffs*. Capitulation patterns may
+  genuinely revert less reliably than blowoffs, or the sample is too
+  thin to read.
+- **decline magnitude IS monotonic for longs** (Q1=0.96 → Q4=1.26).
+  Mirror inverted: on the short side, price-rise was a flat axis (PF
+  ~0.99–1.08 across all quintiles). On the long side, the decline gate
+  *is* informative — bigger drops = better fades, up to ~28%.
+- **Cell-level variance is huge.** Within a single rvol band, PF jumps
+  from 0.54 to 1.95. The user's read on this: the variance is the
+  market's way of saying not to trust these results yet. Same
+  intuition that emerged from the orderflow-MA v0 study, where longs
+  were unaffected by volume in a way shorts weren't.
+- **High-volume short fades remain the focus.** Both for this engine
+  and for the orderflow-MA system. Long fades work in aggregate but the
+  edge is shallow, the sample is thin (~90 trades per cell), and the
+  noise dominates the signal at quintile resolution.
+
+**Outcome:** ship the long engine with `PriceDeclineThreshold = 0.10`
+(the marginal-decline-Q3 floor where PF first crosses 1.19). Keep the
+short side as the primary book; the long engine is a low-priority
+companion until we have more data or a tighter regime filter.
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- extreme-rvol-long-sweep \
+    --rvol-entry-thresholds 8 --price-decline-thresholds 0.05 \
+    --max-bar-price-ratio 3 --reference-vol-pct 0.1019 --min-long-adv 8000000 \
+    --results-csv data/crypto/extreme_rvol_long_quintile/results.csv \
+    --summary-csv data/crypto/extreme_rvol_long_quintile/summary.csv
+
+python scripts/crypto/quintile_bin_extreme_rvol.py \
+    data/crypto/extreme_rvol_long_quintile/results_trips_1m_rvol8_pd0.05_ts90m_ed0.2_long.csv
 ```
