@@ -3843,3 +3843,111 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- short-fade-ma-swee
     --results-csv data/crypto/sfma_rvol_pr_2d/results.csv \
     --summary-csv data/crypto/sfma_rvol_pr_2d/summary.csv
 ```
+
+### Cells with ≥3,000 trips, sorted by PF
+
+Filtering the 7×7 grid above to cells with at least 3,000 trips and
+sorting by PF:
+
+| rvol | pr | trips | PF | netPnL |
+|---|---|---|---|---|
+| ≥3 | 0.05 | 3,306 | **1.98** | +$128,248 |
+| ≥1.5 | 0.10 | 3,256 | 1.93 | +$120,495 |
+| ≥2 | 0.07 | 3,652 | 1.89 | +$127,809 |
+| ≥1.5 | 0.07 | 4,073 | 1.82 | +$127,504 |
+| ≥1 | 0.05 | 5,271 | 1.82 | +$148,462 |
+| ≥0.5 | 0.07 | 4,910 | 1.79 | +$137,344 |
+| ≥1 | 0.07 | 4,500 | 1.79 | +$131,894 |
+| ≥0.5 | 0.05 | 5,929 | 1.77 | +$149,425 |
+
+Eight cells clear the 3k-trip floor, all clustering between PF 1.77
+and 1.98. The rvol≥3 / pr=0.05 cell is the highest-PF cell at this
+volume floor and was selected as the new shipped default
+(`defaultShortFadeMAConfig` 2026-05-08 PM).
+
+### Volume-cover regression — `--rvol-exit-threshold`
+
+After the MA-touch cover regression rejected price-target exits for
+shorts, an open question remained: what about exiting on volume
+normalization? The hypothesis: enter while volume is elevated
+(rvol ≥ 3 default), close when activity dies (rvol < 1).
+
+Implemented as a third cover mode in `OrderflowShortFadeMA`. Wired up
+as `--rvol-exit-threshold` in the sweep CLI. When > 0, pre-empts both
+the dual-CVD and the MA-touch covers; closes as soon as per-bar rvol
+(same numerator/denominator as the entry gate) drops below the
+threshold.
+
+Re-run at the new shipped defaults (pr=0.05, rvol≥3) with the rvol
+cover at threshold 1.0:
+
+```
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- short-fade-ma-sweep \
+    --rvol-exit-threshold 1.0 \
+    --reference-vol-pct 0.1019 --max-bar-price-ratio 3 \
+    --min-short-adv 8000000 \
+    --results-csv data/crypto/sfma_rvol_cover/results.csv \
+    --summary-csv data/crypto/sfma_rvol_cover/summary.csv
+```
+
+**Aggregate**:
+
+| variant | trips | PF | netPnL | fund | medBars |
+|---|---|---|---|---|---|
+| Dual-CVD cover (baseline) | 3,306 | **1.981** | **+$128,248** | -$2,759 | 18,444 (~12.8d) |
+| Rvol cover (rvol < 1.0) | 7,828 | **0.969** | **-$4,036** | -$7,271 | 842 (~0.6d) |
+
+PF crashed from 1.98 → 0.97; netPnL flipped from +$128k → -$4k. Trip
+count more than doubled (3,306 → 7,828) because the rvol cover fires
+fast and frees the engine to re-enter; medBars collapsed from ~13d
+to ~0.6d.
+
+**Rvol-bucket breakdown** flips on its head:
+
+| bucket | dual-CVD trips | dual-CVD PF | rvol-cover trips | rvol-cover PF |
+|---|---:|---:|---:|---:|
+| 3–5× | 1,773 | **2.31** | 4,937 | 0.87 |
+| 5–10× | 795 | 1.67 | 1,790 | 0.99 |
+| ≥10× | 738 | 1.51 | 1,101 | 1.29 |
+
+The 3–5× rvol bucket (best under dual-CVD) becomes the **worst** under
+rvol cover — same trade-event stream, but exit timing matters more
+than where the trade was caught.
+
+**Hold-bucket** — the smoking gun:
+
+| hold | dual-CVD trips / PF / netPnL | rvol-cover trips / PF / netPnL |
+|---|---|---|
+| <1d | 1,070 / 0.10 / −$23k | 5,372 / 1.17 / +$9k |
+| 1–3d | 182 / 0.14 / −$10k | 2,192 / 1.14 / +$6k |
+| 3–10d | 307 / 0.43 / −$11k | 262 / 0.31 / −$16k |
+| 10–30d | 629 / 1.33 / +$11k | 2 / – / −$4k |
+| **>30d** | **1,118 / 4.86 / +$162k** | **0 / – / –** |
+
+Same failure pattern as the MA-touch cover: a stream of small wins
+on fast covers (<1d/1–3d at PF ~1.15) collects pennies but loses the
+long-hold regime trades entirely. The >30d bucket — which carried
++$162k of pnl under the dual-CVD cover — has **zero trades** under
+the rvol cover.
+
+### Findings — only dual-CVD works for shorts
+
+Three independent cover types now tested at the same entry conditions:
+
+1. **MA-touch cover** (`--long-cvd-minutes 0`): PF 0.903, netPnL
+   −$15,200, medBars 1.7d. Failed.
+2. **Volume cover** (`--rvol-exit-threshold 1.0`): PF 0.969, netPnL
+   −$4,036, medBars 0.6d. Failed.
+3. **Dual-CVD cover** (default, 200h-CVD positive flip): PF 1.981,
+   netPnL +$128,248, medBars 12.8d. Works.
+
+Both failing covers share the hold-bucket signature: rapid
+cover-touches collect small wins (<1d/1–3d profitable) but miss the
+multi-week regime moves where the short edge actually lives. The
+asymmetry vs longs is now firmly established: **shorts compound on
+regime-trade timeframes, not on mean reversion**.
+
+The `--rvol-exit-threshold` flag stays in the engine as a verified
+non-viable variant for shorts, alongside `--long-cvd-minutes 0` (MA
+touch). Both are kept testable so future hypotheses can re-validate
+against them, but neither should be used in production for shorts.

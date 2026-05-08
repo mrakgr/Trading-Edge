@@ -108,6 +108,13 @@ type ShortFadeMAConfig = {
     /// (rvol≥3 / pr=0.05 → PF 1.98, +$128,248 over 3,306 trips).
     /// Pass 0 to disable.
     RvolEntryThreshold: float
+    /// Volume-cover mode: when > 0, an open short closes as soon as the
+    /// per-bar rvol (same numerator/denominator as the entry gate) drops
+    /// below this. Pre-empts both the dual-CVD cover and the MA-touch
+    /// fallback. Default 0 (disabled). Symmetry experiment: with
+    /// RvolEntryThreshold = 3 and RvolExitThreshold = 1, the engine
+    /// holds while volume is elevated and closes once it normalises.
+    RvolExitThreshold: float
     Notional: float
     TakerFee: float
     /// Always true for this engine; flag exists for parity.
@@ -134,6 +141,7 @@ let defaultShortFadeMAConfig () : ShortFadeMAConfig =
       EntryDistanceRef = High8h
       MinRewardRiskRatio = 0.0
       RvolEntryThreshold = 3.0
+      RvolExitThreshold = 0.0
       Notional = 1000.0
       TakerFee = 0.0004
       AllowShort = true
@@ -512,7 +520,28 @@ type Engine(cfg: ShortFadeMAConfig) =
                         | Hard -> true
                         | Conditional -> bar.Close >= entryPrice
 
+            // Rvol-cover mode (when RvolExitThreshold > 0). Computed on
+            // the same numerator/denominator as the entry gate. Pre-empts
+            // both the dual-CVD cover and the MA-touch fallback. The
+            // symmetry experiment: if entry requires rvol >= 3 and exit
+            // fires when rvol < 1, the trade is held while volume is
+            // elevated and closed once activity normalises — independent
+            // of where price has gone.
+            let rvolCoverHit =
+                if cfg.RvolExitThreshold <= 0.0 then false
+                else
+                    let entryMean = volEntry.State / float nRvolEntry
+                    let baselineMean =
+                        if volBaseline.Count > 0
+                        then volBaseline.State / float volBaseline.Count
+                        else 0.0
+                    let rvolNow =
+                        if baselineMean > 0.0 then entryMean / baselineMean else 0.0
+                    rvolNow > 0.0 && rvolNow < cfg.RvolExitThreshold
+
             if timeStopHit then
+                closePos bar.Close bar.EndUs
+            elif rvolCoverHit then
                 closePos bar.Close bar.EndUs
             elif longCvdEnabled then
                 // Dual-CVD cover: when LongCvdMinutes > 0, the cover

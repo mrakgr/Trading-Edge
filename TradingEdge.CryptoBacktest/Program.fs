@@ -442,6 +442,7 @@ type ShortFadeMASweepArgs =
     | Entry_Distance_Ref of string
     | Min_Reward_Risk_Ratio of float
     | Rvol_Entry_Thresholds of string
+    | Rvol_Exit_Threshold of float
     | Notional of float
     | Taker_Fee of float
     | Use_Trades
@@ -464,10 +465,11 @@ type ShortFadeMASweepArgs =
             | Start_Date _ -> "Inclusive start date YYYY-MM-DD. Default 2024-05-01."
             | End_Date _ -> "Inclusive end date YYYY-MM-DD. Default 2026-04-30."
             | Timeframes _ -> "Comma-separated timeframes. Default 1m."
-            | Price_Rise_Thresholds _ -> "Comma-separated price-rise thresholds (fractional). Default '0.14'. Entry requires close >= (1 + threshold) * coverMa."
+            | Price_Rise_Thresholds _ -> "Comma-separated price-rise thresholds (fractional). Default '0.05'. Entry requires close >= (1 + threshold) * coverMa."
             | Cover_Ma_Hours _ -> "Comma-separated cover-MA windows in HOURS. Default '72'. Cover when bar.Close <= trailing-N-hour MA of close. Same MA is used for the rise gate (single-reference design)."
             | Min_Reward_Risk_Ratio _ -> "Minimum reward:risk at entry. Reward = close - coverMA; risk = stop - close. Reject when reward/risk < this. Default 0.0 (disabled)."
-            | Rvol_Entry_Thresholds _ -> "Comma-separated minimum-rvol gates at entry (computed over CvdMinutes / 30d baseline). Default '0.75' — single value. Pass multiple to sweep a 2D grid with --price-rise-thresholds. Pass '0' to disable."
+            | Rvol_Entry_Thresholds _ -> "Comma-separated minimum-rvol gates at entry (computed over CvdMinutes / 30d baseline). Default '3.0' — single value. Pass multiple to sweep a 2D grid with --price-rise-thresholds. Pass '0' to disable."
+            | Rvol_Exit_Threshold _ -> "Volume-cover mode. When > 0, an open short closes as soon as per-bar rvol drops below this. Pre-empts both the dual-CVD cover and the MA-touch fallback. Default 0 (disabled). Symmetry experiment: enter at rvol >= 3, exit when rvol < 1."
             | Recent_Hours _ -> "Recent-window hours for the lagged-MA. Default 8."
             | Lag_Hours _ -> "Lag (hours) for the lagged-MA. Default 16."
             | Cvd_Minutes_List _ -> "Comma-separated trailing-CVD windows in MINUTES. Default '240' (4h — mirror of the long-side default; will be re-validated by sweeps)."
@@ -2170,7 +2172,7 @@ let cmdShortFadeMaSweep (args: ParseResults<ShortFadeMASweepArgs>) : int =
         args.TryGetResult ShortFadeMASweepArgs.Price_Rise_Thresholds
         |> Option.map (parseList ',')
         |> Option.map (Array.map (fun s -> Double.Parse(s, System.Globalization.CultureInfo.InvariantCulture)))
-        |> Option.defaultValue [| 0.14 |]
+        |> Option.defaultValue [| 0.05 |]
     let coverMaHoursList =
         args.TryGetResult ShortFadeMASweepArgs.Cover_Ma_Hours
         |> Option.map (parseList ',')
@@ -2216,7 +2218,8 @@ let cmdShortFadeMaSweep (args: ParseResults<ShortFadeMASweepArgs>) : int =
         args.TryGetResult ShortFadeMASweepArgs.Rvol_Entry_Thresholds
         |> Option.map (parseList ',')
         |> Option.map (Array.map (fun s -> Double.Parse(s, System.Globalization.CultureInfo.InvariantCulture)))
-        |> Option.defaultValue [| 0.75 |]
+        |> Option.defaultValue [| 3.0 |]
+    let rvolExitThreshold = args.GetResult(ShortFadeMASweepArgs.Rvol_Exit_Threshold, defaultValue = 0.0)
     let symbols =
         match args.TryGetResult ShortFadeMASweepArgs.Symbol with
         | Some s -> parseList ',' s
@@ -2257,7 +2260,7 @@ let cmdShortFadeMaSweep (args: ParseResults<ShortFadeMASweepArgs>) : int =
         match entryDistanceRef with
         | OrderflowShortFadeMA.Stop20m -> "stop20m"
         | OrderflowShortFadeMA.High8h  -> "high8h"
-    printfn "[short-fade-ma-sweep] symbols=%d timeframes=[%s] priceRise=[%s] coverMaH=[%s] cvdM=[%s] longCvdM=%d stopHighM=%d timeStopMin=[%s] timeStopMode=%s entryDistMaxPct=[%s] entryDistRef=%s rvolEntryTh=[%s] range=%s..%s parallelism=%d minShortAdv=$%s maxBarPriceRatio=%g referenceVolPct=%g"
+    printfn "[short-fade-ma-sweep] symbols=%d timeframes=[%s] priceRise=[%s] coverMaH=[%s] cvdM=[%s] longCvdM=%d stopHighM=%d timeStopMin=[%s] timeStopMode=%s entryDistMaxPct=[%s] entryDistRef=%s rvolEntryTh=[%s] rvolExitTh=%g range=%s..%s parallelism=%d minShortAdv=$%s maxBarPriceRatio=%g referenceVolPct=%g"
         symbols.Length
         (String.concat "," timeframes)
         (String.concat "," (priceRiseThresholds |> Array.map (sprintf "%g")))
@@ -2268,6 +2271,7 @@ let cmdShortFadeMaSweep (args: ParseResults<ShortFadeMASweepArgs>) : int =
         (String.concat "," (entryDistanceMaxPctList |> Array.map (sprintf "%g")))
         entryDistanceRefStr
         (String.concat "," (rvolEntryThresholds |> Array.map (sprintf "%g")))
+        rvolExitThreshold
         (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
         parallelism
         (minShortAdv.ToString("N0"))
@@ -2329,6 +2333,7 @@ let cmdShortFadeMaSweep (args: ParseResults<ShortFadeMASweepArgs>) : int =
                                                         EntryDistanceRef = entryDistanceRef
                                                         MinRewardRiskRatio = minRewardRiskRatio
                                                         RvolEntryThreshold = rvolEntry
+                                                        RvolExitThreshold = rvolExitThreshold
                                                         Notional = notional
                                                         TakerFee = takerFee
                                                         MaxAdverseFraction = maxAdversePct / 100.0
