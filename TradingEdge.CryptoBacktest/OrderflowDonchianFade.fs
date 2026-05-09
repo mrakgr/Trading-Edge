@@ -29,15 +29,23 @@ open TradingEdge.CryptoBacktest.OrderflowMA
 // counter checks reflect the prior window.
 
 /// Cover-rule discriminator.
-///   OppositeChannel       — original v0: cover on re-violation of the just-broken side
-///                           (ratcheted trailing stop on the prior-channel extreme).
-///   EntryChannelTarget    — short-term reversion: cover when price touches the
-///                           prior 3-bar Donchian extreme on the with-trend side.
-///                           No stops. Used in conjunction with --reverse-direction
-///                           to test the continuation-pullback hypothesis.
+///   OppositeChannel              — original v0: cover on re-violation of the
+///                                  just-broken side (ratcheted trailing stop on
+///                                  the prior-channel extreme).
+///   EntryChannelTarget           — short-term reversion: cover when price touches
+///                                  the prior 3-bar Donchian extreme on the
+///                                  with-trend side. No stops. Used with
+///                                  --reverse-direction to test continuation pullbacks.
+///   EntryChannelTargetOnBreak    — v3: position runs unhedged after entry. When
+///                                  the with-trend Donchian channel cracks (long:
+///                                  bar.Low < prevDonLow; short: bar.High > prevDonHigh),
+///                                  arm a trailing take-profit at the OPPOSITE
+///                                  channel extreme. From that point on, behaves
+///                                  identically to EntryChannelTarget.
 type CoverMode =
     | OppositeChannel
     | EntryChannelTarget
+    | EntryChannelTargetOnBreak
 
 /// Entry-trigger discriminator.
 ///   BreakTrigger          — v0/v1: entry only on the bar that pierces the opposite
@@ -108,6 +116,16 @@ type DonchianFadeConfig = {
     /// required), with-trend (uptrend → LONG, downtrend → SHORT). Re-arms
     /// after each violation that resets the counter.
     EntryMode: EntryMode
+    /// MA-side entry filter — pre-trade gate enforcing the trade is on
+    /// the mean-reverting side of the 1h MA at entry. Default 0.0:
+    ///   LONG entries fire only when pct_1h_change <= MaxPct1hChangeForLong
+    ///     (default 0.0 = entry bar's close at-or-below the 1h MA, room
+    ///     to revert UP toward the MA).
+    /// Pass +infinity to disable.
+    MaxPct1hChangeForLong: float
+    /// SHORT entries fire only when pct_1h_change >= MinPct1hChangeForShort.
+    /// Default 0.0. Pass -infinity to disable.
+    MinPct1hChangeForShort: float
     Notional: float
     TakerFee: float
     BucketUs: int64
@@ -129,6 +147,8 @@ let defaultDonchianFadeConfig () : DonchianFadeConfig =
       CoverMode = OppositeChannel
       ReverseDirection = false
       EntryMode = BreakTrigger
+      MaxPct1hChangeForLong = 0.0
+      MinPct1hChangeForShort = 0.0
       Notional = 1000.0
       TakerFee = 0.0004
       BucketUs = 0L
@@ -406,7 +426,12 @@ type Engine(cfg: DonchianFadeConfig) =
                     closePos bar.Close bar.EndUs
                 elif side = Long && trailingStop > 0.0 && bar.Low < trailingStop then
                     closePos bar.Close bar.EndUs
-            | EntryChannelTarget ->
+            | EntryChannelTarget | EntryChannelTargetOnBreak ->
+                // trailingStop > 0 gates correctly for both cases. In
+                // EntryChannelTarget it's set at entry; in
+                // EntryChannelTargetOnBreak it stays 0 until the with-trend
+                // channel cracks, at which point the post-push block below
+                // sets it to the opposite-side prevDonHigh/prevDonLow.
                 if side = Long && trailingStop > 0.0 && bar.High >= trailingStop then
                     closePos bar.Close bar.EndUs
                 elif side = Short && trailingStop > 0.0 && bar.Low <= trailingStop then
@@ -523,15 +548,34 @@ type Engine(cfg: DonchianFadeConfig) =
                         Some (Short, prevDonHigh)
                     else None
 
+            // MA-side entry filter — only fire if the entry bar's close is
+            // on the mean-reverting side of the 1h MA. Defaults are 0.0
+            // (long requires pct_1h_change <= 0; short requires >= 0).
+            // Pass +/-infinity to disable. Applied to whichever entry mode
+            // is active. Does NOT consume the TrendOnly arming — a filtered
+            // bar leaves the side armed for the next satisfying bar.
+            let maSideOk =
+                match pickedSide with
+                | Some (Long, _)  -> pct1hChange <= cfg.MaxPct1hChangeForLong
+                | Some (Short, _) -> pct1hChange >= cfg.MinPct1hChangeForShort
+                | _ -> true
+
             match pickedSide with
-            | Some (s, level) ->
-                openPos s bar.Close bar.EndUs level
+            | Some (s, level) when maSideOk ->
+                // EntryChannelTargetOnBreak runs unhedged after entry: the
+                // trailing target is armed later, when the with-trend channel
+                // cracks. Override the level to 0.0 so the cover-check reads
+                // it as unarmed until the arming block fires.
+                let entryLevel =
+                    if cfg.CoverMode = EntryChannelTargetOnBreak then 0.0
+                    else level
+                openPos s bar.Close bar.EndUs entryLevel
                     pct1hChange pct72hChange priceRatio72hOver1h volRatio1hOver72h
                 // Un-arm the side that just fired (TrendOnly only).
                 if cfg.EntryMode = TrendOnly then
                     if s = Long then armedUptrendLong <- false
                     else armedDowntrendShort <- false
-            | None -> ()
+            | _ -> ()
 
         // Update violation counters AFTER the entry check, so the entry
         // logic sees the run-length going INTO this bar. The breaking bar
@@ -548,11 +592,28 @@ type Engine(cfg: DonchianFadeConfig) =
             if bar.High > prevDonHigh then
                 barsSinceUpViolation <- 0
                 armedDowntrendShort <- true
+                // EntryChannelTargetOnBreak: while in a SHORT, an upper-channel
+                // pierce signals the downtrend has cracked. Arm the trailing
+                // take-profit at the OPPOSITE channel extreme (the lower
+                // Donchian, which is the favorable side for a short). Only
+                // arm if not already armed (trailingStop = 0).
+                if cfg.CoverMode = EntryChannelTargetOnBreak
+                   && side = Short
+                   && trailingStop = 0.0
+                   && donLowReady then
+                    trailingStop <- prevDonLow
             else barsSinceUpViolation <- barsSinceUpViolation + 1
         if donLowReady then
             if bar.Low < prevDonLow then
                 barsSinceDownViolation <- 0
                 armedUptrendLong <- true
+                // Symmetric for LONG: lower-channel pierce signals uptrend
+                // crack; arm trailing target at the upper channel.
+                if cfg.CoverMode = EntryChannelTargetOnBreak
+                   && side = Long
+                   && trailingStop = 0.0
+                   && donHighReady then
+                    trailingStop <- prevDonHigh
             else barsSinceDownViolation <- barsSinceDownViolation + 1
 
         // Push bars into all rolling MAs — last, after all entry/exit/
@@ -599,7 +660,10 @@ type Engine(cfg: DonchianFadeConfig) =
                 let newStop = donLowMa.State
                 if newStop > 0.0 && newStop > trailingStop then
                     trailingStop <- newStop
-        | EntryChannelTarget ->
+        | EntryChannelTarget | EntryChannelTargetOnBreak ->
+            // For EntryChannelTargetOnBreak, trailingStop = 0 until the
+            // channel-crack arming block above fires. Once armed, the ratchet
+            // behaves identically to EntryChannelTarget.
             if side = Long && trailingStop > 0.0 then
                 let newTarget = donHighMa.State
                 if newTarget > 0.0 && newTarget < trailingStop then
