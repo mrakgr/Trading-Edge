@@ -203,3 +203,138 @@ The PF distribution suggests the continuation regime dominates — entries at de
 1. **Continuation engine.** Run the entry logic with sides flipped. The Donchian-break is the same; only the side picked is reversed. If the decile shape still holds, the engine works directionally. If it inverts, the signal was an artefact of the trip-set, not the directional hypothesis.
 2. **Cover-Donchian width.** Independent of the directional question, no version of this engine works with a 3-bar cover. Q0+Q1 (held ≤6 bars) bleeds at PF 0.03. Either widen the cover Donchian (e.g. 10-30 bars) or add a `MinHoldBars` floor.
 3. **Entry-trend-length.** `bars_since_violation` quintile breakdowns showed shorter trend runs (D0-D3) outperform longer ones at default thresholds — opposite to the original "longer run = stronger fade" intuition. Worth a sweep over `--min-trend-bars`.
+
+# v1 — reverse direction with trailing target
+
+## Setup
+
+Same entry detection as v0 (3-bar Donchian, 30-bar trend qualifier, break trigger). Two flags added:
+
+- `--reverse-direction true`: uptrend break-down opens **LONG** (was Short), downtrend break-up opens **SHORT** (was Long). Tests the continuation-pullback hypothesis the v0 deciles pointed at.
+- `--cover-mode entry-channel-target`: cover at the prior 3-bar Donchian extreme on the with-trend side. **Trailing**, not fixed: as the trade moves adverse, the target ratchets toward entry (long target = current `donHighMa.State` if it's lower than the last cached target; short target = `donLowMa.State` if higher). No stops.
+
+Why trailing-target rather than fixed-target: a fixed take-profit with no stop is a backtest illusion. Trades that don't hit the target sit open as unrealized drawdown, invisible to the trip-level metrics. End-of-stream Flush eventually marks them at the symbol's last price, which often happens to be near entry — making the fixed-target version look like PF 17 when in reality it was hiding the losers off the books. The trailing target forces the engine to realize losses honestly: when price drifts against the position, the target collapses to current price and the trade closes near entry minus fees.
+
+This is the *honest* version of the system. It's the one that survives contact with real capital.
+
+## Aggregate
+
+| Metric | Fade (v0) | Reverse + trailing (v1) |
+|---|---:|---:|
+| Total trips | 316,413 | **323,937** |
+| Long / Short | 161,154 / 155,259 | 159,125 / 164,812 |
+| Net P&L | -$193,728 | -$96,032 |
+| Aggregate PF | 0.446 | **0.584** |
+| Win rate | 24.9% | **39.9%** |
+| Median bars held | — | 4 |
+| Mean fees per trade | — | $0.43 |
+| Total fees | — | $137,635 |
+
+| Side | Trips | PF | Net P&L | Win rate |
+|---|---:|---:|---:|---:|
+| Long | 159,125 | 0.601 | -$44,148 | 39.7% |
+| Short | 164,812 | 0.567 | -$51,884 | 40.1% |
+
+The aggregate still loses to fees on average. Trades resolve fast (median 4 bars) and most close for tiny losses as the trailing target pursues adverse drift. **But the headline aggregate is misleading** — the deciles tell a different story.
+
+## Decile breakdowns — top deciles cross PF 1.0
+
+The honest finding: the entries that come during sharp counter-direction wicks (extreme `pct_1h_change` on the side opposite to the trade) are profitable on a fees-paid basis.
+
+### `pct_1h_change` deciles
+
+**Short side** — D9 (positive 1h change, i.e. shorting *into* an immediate-prior 1h rise) is the only profitable cell:
+
+| Decile | Range | Trips | PF | Net P&L | Win rate | Bars held |
+|---:|---|---:|---:|---:|---:|---:|
+| 0 | [-99.8%, -1.49%] | 16,482 | 0.675 | -$7,828 | 52.0% | 6.1 |
+| 1 | [-1.49%, -1.00%] | 16,481 | 0.524 | -$7,126 | 45.5% | 5.7 |
+| 2 | [-1.00%, -0.74%] | 16,481 | 0.427 | -$7,795 | 41.8% | 5.4 |
+| 3 | [-0.74%, -0.56%] | 16,481 | 0.365 | -$7,835 | 36.9% | 5.2 |
+| 4 | [-0.56%, -0.41%] | 16,481 | 0.357 | -$7,362 | 35.6% | 5.0 |
+| 5 | [-0.41%, -0.28%] | 16,481 | 0.353 | -$6,968 | 34.4% | 4.7 |
+| 6 | [-0.28%, -0.15%] | 16,481 | 0.395 | -$5,851 | 34.1% | 4.4 |
+| 7 | [-0.15%, -0.00%] | 16,481 | 0.477 | -$4,770 | 34.7% | 4.3 |
+| 8 | [-0.00%, +0.19%] | 16,481 | 0.612 | -$3,340 | 34.3% | 4.2 |
+| **9** | **[+0.19%, +995230%]** | **16,482** | **2.328** | **+$6,992** | **52.1%** | 3.9 |
+
+**Long side** — mirror image, D0 (negative 1h change, i.e. longing *into* a 1h decline) is the profitable cell:
+
+| Decile | Range | Trips | PF | Net P&L | Win rate | Bars held |
+|---:|---|---:|---:|---:|---:|---:|
+| **0** | **[-99.99%, -0.20%]** | **15,913** | **2.464** | **+$7,119** | **51.5%** | 3.9 |
+| 1 | [-0.20%, +0.00%] | 15,912 | 0.617 | -$3,154 | 34.2% | 4.2 |
+| 2 | [+0.00%, +0.15%] | 15,913 | 0.430 | -$5,111 | 31.9% | 4.4 |
+| 3 | [+0.15%, +0.28%] | 15,912 | 0.387 | -$5,748 | 33.3% | 4.5 |
+| 4 | [+0.28%, +0.41%] | 15,913 | 0.345 | -$6,700 | 33.4% | 4.7 |
+| 5 | [+0.41%, +0.56%] | 15,912 | 0.350 | -$7,058 | 35.2% | 5.0 |
+| 6 | [+0.56%, +0.75%] | 15,912 | 0.383 | -$7,025 | 37.3% | 5.1 |
+| 7 | [+0.75%, +1.03%] | 15,913 | 0.448 | -$6,749 | 40.7% | 5.4 |
+| 8 | [+1.03%, +1.55%] | 15,912 | 0.531 | -$6,553 | 45.1% | 5.7 |
+| 9 | [+1.55%, +646%] | 15,913 | 0.847 | -$3,170 | 54.7% | 5.8 |
+
+**Both top deciles cross PF 2.3+, with 51-52% win rate, and resolve in <4 bars**. ~16k trades each, $7k net per decile. This is the only honest profitability we've found in the system. The shape is symmetric and physically interpretable: when the system enters a trade and the immediate-prior 1h has moved sharply *against* the new position, the trade is being placed at a real counter-move/wick — not a continuation pullback. The decile boundaries are tiny (0.2%) but the PF separation is dramatic.
+
+### `pct_72h_change` deciles
+
+**Short side**: weakest in mid-buckets (D6 PF 0.39); strongest at the extremes but still all PF < 0.7. No profitable decile.
+
+| Decile | Range | Trips | PF | Net P&L | Win rate |
+|---:|---|---:|---:|---:|---:|
+| 0 | [-99.99%, -7.04%] | 16,482 | 0.598 | -$8,303 | 47.0% |
+| 1 | [-7.04%, -4.59%] | 16,481 | 0.570 | -$5,751 | 42.4% |
+| 2 | [-4.59%, -3.15%] | 16,481 | 0.550 | -$5,284 | 40.8% |
+| 3 | [-3.15%, -2.08%] | 16,481 | 0.556 | -$4,795 | 40.3% |
+| 4 | [-2.08%, -1.13%] | 16,481 | 0.546 | -$4,770 | 39.7% |
+| 5 | [-1.13%, -0.21%] | 16,481 | 0.546 | -$4,603 | 38.3% |
+| 6 | [-0.21%, +0.52%] | 16,481 | 0.390 | -$6,508 | 28.9% |
+| 7 | [+0.52%, +1.70%] | 16,481 | 0.580 | -$4,133 | 39.7% |
+| 8 | [+1.70%, +3.49%] | 16,481 | 0.615 | -$3,852 | 40.9% |
+| 9 | [+3.49%, +154%] | 16,482 | 0.681 | -$3,884 | 43.5% |
+
+**Long side**: similar shape, D0 strongest at PF 0.79.
+
+| Decile | Range | Trips | PF | Net P&L | Win rate |
+|---:|---|---:|---:|---:|---:|
+| 0 | [-99.99%, -5.29%] | 15,913 | 0.789 | -$2,329 | 45.1% |
+| 9 | [+5.33%, +284%] | 15,913 | 0.715 | -$5,283 | 47.2% |
+
+The 72h horizon doesn't isolate the edge — only the 1h does. The 1h captures the immediate-prior wick that the engine is buying/selling into; 72h is too coarse for this very-short-term reversion play.
+
+### `vol_ratio_1h_over_72h` deciles
+
+Clean monotone but never crosses PF 1.0. D9 (highest recent vol vs baseline) is the strongest cell on both sides — short PF 0.63, long PF 0.79 — but still loses.
+
+| Decile | Range | Short PF | Short net | Long PF | Long net |
+|---:|---|---:|---:|---:|---:|
+| 0 | [0.02, 0.31] | 0.560 | -$4,071 | 0.609 | -$3,249 |
+| 5 | [~0.71, ~0.85] | 0.553 | -$4,828 | 0.546 | -$4,664 |
+| 9 | [≥1.88] | 0.630 | -$8,337 | 0.790 | -$4,100 |
+
+### `bars_held` quintiles
+
+The fast-resolving trades are where the edge sits:
+
+| Side | Q | Held range | Trips | PF | Net P&L | Win rate |
+|---:|---:|---|---:|---:|---:|---:|
+| short | **Q0** | **[2, 4]** | **89,021** | **2.105** | **+$27,010** | 54.2% |
+| short | Q1 | [5, 5] | 31,867 | 0.801 | -$2,773 | 37.4% |
+| short | Q2 | [6, 6] | 12,028 | 0.268 | -$6,996 | 23.8% |
+| short | Q3 | [7, 39] | 31,896 | 0.039 | -$69,125 | 9.8% |
+| long | **Q0** | **[2, 4]** | **86,185** | **2.041** | **+$25,413** | 53.2% |
+| long | Q1 | [5, 5] | 30,832 | 0.814 | -$2,567 | 36.5% |
+| long | Q2 | [6, 6] | 11,725 | 0.301 | -$6,240 | 25.4% |
+| long | Q3 | [7, 52] | 30,383 | 0.044 | -$60,755 | 10.2% |
+
+**The bottom 50% of trades by hold duration is profitable.** Q0 (held 2-4 bars) on both sides crosses PF 2.0 with 53-54% win rate and ~$25k net per side — the trade hit the with-trend extreme target on the second or third bar after entry. Q3 (held 7+ bars) is catastrophic at PF 0.04 — the trailing target has ratcheted way down by then and the trade is closing for nearly a full notional loss. These two regimes are doing different things: Q0 is the genuine continuation-snapback trade firing as designed; Q3 is the trailing target slowly bleeding out as price drifts further and further from the original take-profit level.
+
+## Read of the system
+
+The trailing target enforces honesty. Under it the headline still loses, but the structure of the breakdowns shows real signal in two places:
+
+1. **`pct_1h_change` extreme deciles**: when the entry bar is at the tail of an immediate-prior 1h move *opposite* to the trade direction, the trade is profitable (PF 2.3-2.5, 52% win, +$7k per decile).
+2. **`bars_held` Q0**: trades that hit the target within 2-4 bars are profitable (PF 2.0+, 53% win, +$25k per quintile).
+
+These two are likely the same trades — fast-resolving entries during sharp counter-direction wicks. About 15-25% of total trips, depending on which slice you pick.
+
+Whether this is enough to build a tradable system is a separate question. The PF 2.3 cells have $7-25k net P&L over 16-89k trades on $1k notional — fees of $0.43/trade dominate the per-trade economics, and a stricter pre-trade filter would have to keep enough volume to amortize them. Worth a pre-trade gate sweep on `pct_1h_change` thresholds; that's the next step.

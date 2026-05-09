@@ -28,6 +28,17 @@ open TradingEdge.CryptoBacktest.OrderflowMA
 // of ProcessBar, so donHighMa.State / donLowMa.State during entry/exit/
 // counter checks reflect the prior window.
 
+/// Cover-rule discriminator.
+///   OppositeChannel       — original v0: cover on re-violation of the just-broken side
+///                           (ratcheted trailing stop on the prior-channel extreme).
+///   EntryChannelTarget    — short-term reversion: cover when price touches the
+///                           prior 3-bar Donchian extreme on the with-trend side.
+///                           No stops. Used in conjunction with --reverse-direction
+///                           to test the continuation-pullback hypothesis.
+type CoverMode =
+    | OppositeChannel
+    | EntryChannelTarget
+
 type DonchianRoundTrip = {
     EntryUs: int64
     ExitUs: int64
@@ -71,6 +82,14 @@ type DonchianFadeConfig = {
     AllowLong: bool
     /// Allow short-side fades (uptrend → break-down → fade short). Default true.
     AllowShort: bool
+    /// Cover rule. Default OppositeChannel (v0 thesis).
+    /// EntryChannelTarget = short-term reversion: cover at the prior 3-bar
+    /// Donchian extreme on the with-trend side. No stops.
+    CoverMode: CoverMode
+    /// When true, the entry sides are flipped: an uptrend break-down opens
+    /// LONG (instead of SHORT), and a downtrend break-up opens SHORT.
+    /// Used to test the continuation-pullback hypothesis. Default false.
+    ReverseDirection: bool
     Notional: float
     TakerFee: float
     BucketUs: int64
@@ -89,6 +108,8 @@ let defaultDonchianFadeConfig () : DonchianFadeConfig =
       LongRefHours = 72
       AllowLong = true
       AllowShort = true
+      CoverMode = OppositeChannel
+      ReverseDirection = false
       Notional = 1000.0
       TakerFee = 0.0004
       BucketUs = 0L
@@ -342,15 +363,28 @@ type Engine(cfg: DonchianFadeConfig) =
             updateExcursion bar
             barsHeld <- barsHeld + 1
 
-        // Stop precedence: pct-stop first, then engine-specific Donchian
-        // trailing stop. Strict inequality matches the violation/entry style.
+        // Stop / cover precedence: pct-stop first, then mode-specific cover.
+        //   OppositeChannel    : ratcheted trailing stop on the just-broken
+        //                        side; cover when price re-violates it
+        //                        (short: bar.High > stop; long: bar.Low < stop).
+        //   EntryChannelTarget : fixed take-profit at the with-trend extreme
+        //                        captured at entry. No stops.
+        //                        Long target above entry → cover when bar.High >= target.
+        //                        Short target below entry → cover when bar.Low <= target.
         match pctStopPriceIfHit bar with
         | Some stopPx -> closePos stopPx bar.EndUs
         | None ->
-            if side = Short && trailingStop > 0.0 && bar.High > trailingStop then
-                closePos bar.Close bar.EndUs
-            elif side = Long && trailingStop > 0.0 && bar.Low < trailingStop then
-                closePos bar.Close bar.EndUs
+            match cfg.CoverMode with
+            | OppositeChannel ->
+                if side = Short && trailingStop > 0.0 && bar.High > trailingStop then
+                    closePos bar.Close bar.EndUs
+                elif side = Long && trailingStop > 0.0 && bar.Low < trailingStop then
+                    closePos bar.Close bar.EndUs
+            | EntryChannelTarget ->
+                if side = Long && trailingStop > 0.0 && bar.High >= trailingStop then
+                    closePos bar.Close bar.EndUs
+                elif side = Short && trailingStop > 0.0 && bar.Low <= trailingStop then
+                    closePos bar.Close bar.EndUs
 
         // Pre-push read of Donchian state — these reflect the previous nDon
         // bars (the "prior channel"). Window-readiness gates the counter
@@ -403,28 +437,45 @@ type Engine(cfg: DonchianFadeConfig) =
             let pct72hChange =
                 if closeLongMean > 0.0 then bar.Close / closeLongMean - 1.0 else 0.0
 
-            // SHORT-fade: sustained uptrend (no down-violation for
-            // MinTrendBars) AND this bar broke the prior Donchian low.
-            let canShort =
-                cfg.AllowShort
-                && barsSinceDownViolation >= nMinTrend
-                && bar.Low < prevDonLow
-                && (cfg.MinShortAdv <= 0.0 || currentAdv () >= cfg.MinShortAdv)
+            // Two break events this bar can detect:
+            //   uptrendBreakdown   = sustained uptrend + price pierces lower channel
+            //   downtrendBreakup   = sustained downtrend + price pierces upper channel
+            // In v0 (fade) mode, uptrend-breakdown opens SHORT and downtrend-breakup
+            // opens LONG. With ReverseDirection=true, the sides are flipped to test
+            // the continuation-pullback hypothesis.
+            let advLong  = cfg.MinLongAdv  <= 0.0 || currentAdv () >= cfg.MinLongAdv
+            let advShort = cfg.MinShortAdv <= 0.0 || currentAdv () >= cfg.MinShortAdv
 
-            // LONG-fade: sustained downtrend AND this bar broke the prior
-            // Donchian high.
-            let canLong =
-                cfg.AllowLong
-                && barsSinceUpViolation >= nMinTrend
-                && bar.High > prevDonHigh
-                && (cfg.MinLongAdv <= 0.0 || currentAdv () >= cfg.MinLongAdv)
+            let uptrendBreakdown =
+                barsSinceDownViolation >= nMinTrend && bar.Low < prevDonLow
+            let downtrendBreakup =
+                barsSinceUpViolation   >= nMinTrend && bar.High > prevDonHigh
 
-            if canShort then
-                openPos Short bar.Close bar.EndUs prevDonHigh
+            // (side, coverLevel) for each break:
+            //   coverLevel = prevDonHigh when side=Short (level above entry)
+            //   coverLevel = prevDonLow  when side=Long  (level below entry)
+            // In OppositeChannel mode this is the trailing stop; in
+            // EntryChannelTarget mode it's the fixed cover target.
+            let pickedSide =
+                if uptrendBreakdown then
+                    let s = if cfg.ReverseDirection then Long else Short
+                    let level = if s = Short then prevDonHigh else prevDonHigh
+                    let allowed = (s = Short && cfg.AllowShort && advShort)
+                                || (s = Long && cfg.AllowLong && advLong)
+                    if allowed then Some (s, level) else None
+                elif downtrendBreakup then
+                    let s = if cfg.ReverseDirection then Short else Long
+                    let level = if s = Short then prevDonLow else prevDonLow
+                    let allowed = (s = Short && cfg.AllowShort && advShort)
+                                || (s = Long && cfg.AllowLong && advLong)
+                    if allowed then Some (s, level) else None
+                else None
+
+            match pickedSide with
+            | Some (s, level) ->
+                openPos s bar.Close bar.EndUs level
                     pct1hChange pct72hChange priceRatio72hOver1h volRatio1hOver72h
-            elif canLong then
-                openPos Long bar.Close bar.EndUs prevDonLow
-                    pct1hChange pct72hChange priceRatio72hOver1h volRatio1hOver72h
+            | None -> ()
 
         // Update violation counters AFTER the entry check, so the entry
         // logic sees the run-length going INTO this bar. The breaking bar
@@ -451,17 +502,45 @@ type Engine(cfg: DonchianFadeConfig) =
         volShortMa.Push bar.Volume
         volLongMa.Push  bar.Volume
 
-        // Update trailing stop post-push so the freshly-included current
-        // bar is reflected in the rolling-MA state. Ratchet down only for
-        // shorts, up only for longs.
-        if side = Short && trailingStop > 0.0 then
-            let newStop = donHighMa.State
-            if newStop > 0.0 && newStop < trailingStop then
-                trailingStop <- newStop
-        elif side = Long && trailingStop > 0.0 then
-            let newStop = donLowMa.State
-            if newStop > 0.0 && newStop > trailingStop then
-                trailingStop <- newStop
+        // Ratchet the cover level. Both modes ratchet the level toward
+        // the favorable side of the trade, but they're symmetric mirrors:
+        //
+        //   OppositeChannel    : stop ratchets toward ENTRY as the trade
+        //                        moves favorable. Short stop = max-high
+        //                        of recent N bars; tighten DOWN as new
+        //                        lower highs print. Long mirror: tighten
+        //                        UP as new higher lows print.
+        //
+        //   EntryChannelTarget : target ratchets toward ENTRY as the trade
+        //                        moves ADVERSE. Long target = max-high
+        //                        of recent N bars; if a new lower max-high
+        //                        prints (price drifting down against the
+        //                        long), tighten the target DOWN so the
+        //                        trade can close sooner. Short mirror.
+        //
+        // Net effect: in both modes, the cover level converges toward the
+        // current price along the favorable axis. The difference is which
+        // axis is "favorable" — for the stop it's the direction of the
+        // trade thesis; for the target it's the direction of price drift.
+        match cfg.CoverMode with
+        | OppositeChannel ->
+            if side = Short && trailingStop > 0.0 then
+                let newStop = donHighMa.State
+                if newStop > 0.0 && newStop < trailingStop then
+                    trailingStop <- newStop
+            elif side = Long && trailingStop > 0.0 then
+                let newStop = donLowMa.State
+                if newStop > 0.0 && newStop > trailingStop then
+                    trailingStop <- newStop
+        | EntryChannelTarget ->
+            if side = Long && trailingStop > 0.0 then
+                let newTarget = donHighMa.State
+                if newTarget > 0.0 && newTarget < trailingStop then
+                    trailingStop <- newTarget
+            elif side = Short && trailingStop > 0.0 then
+                let newTarget = donLowMa.State
+                if newTarget > 0.0 && newTarget > trailingStop then
+                    trailingStop <- newTarget
 
         barsSeen <- barsSeen + 1
         lastClose <- bar.Close
