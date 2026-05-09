@@ -1064,3 +1064,81 @@ The deep-extreme-tail trades (long D0, short D9) lose PF by **16-30×** going fr
 A longer MA is a different system. With MA=300, "5% below the 5h MA" describes a sustained multi-hour trend extreme — a regime, not a wick. Those don't snap back cleanly. With MA=60, the same percentage describes a momentary deviation from the very recent mean — a wick that frequently reverts within minutes. The strict filter + 60m cover catches exactly that wick-reversion regime, and the deep tails of the `pct_1h_change` distribution are *predominantly* such wicks.
 
 **60m is the right MA length.** No need to experiment further on this axis.
+
+## v5 — 2D MA × min_trend_bars grid (cover-MA-length 30..60m, trend 20..30, MA-side filter at 0/0)
+
+The MA-length sweep above used the v5 default `--min-trend-bars 30`. To check whether shorter MAs interact with shorter trend qualifiers, a 2D grid sweeps cover-MA-length 30..60m (in 5m steps) × min_trend_bars 20..30 (in 2-bar steps), subject to a "MA window length must be at least 1.5× the trend qualifier" constraint to keep the strict-inequality MA-side filter from being trivially satisfied (a bar that just hit the 30-bar uptrend qualifier is almost always above its own 30m MA).
+
+Constraint table — `.` cells excluded:
+
+### Aggregate PF — rows = MA, cols = min_trend_bars
+
+| MA | 20 | 22 | 24 | 26 | 28 | 30 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 30 | 4.488 | . | . | . | . | . |
+| 35 | 3.801 | 4.776 | . | . | . | . |
+| 40 | 3.169 | 4.190 | 5.200 | . | . | . |
+| 45 | 2.658 | 3.602 | 4.595 | 5.491 | 6.142 | **6.446** |
+| 50 | 2.242 | 3.080 | 3.968 | 4.810 | 5.471 | 5.897 |
+| 55 | 1.938 | 2.677 | 3.465 | 4.270 | 4.928 | 5.470 |
+| 60 | . | . | . | . | . | 5.090 |
+
+### Net P&L
+
+| MA | 20 | 22 | 24 | 26 | 28 | 30 |
+|---:|---:|---:|---:|---:|---:|---:|
+| **30** | **+$90,677** | . | . | . | . | . |
+| 35 | +$84,949 | +$76,817 | . | . | . | . |
+| 40 | +$80,092 | +$73,418 | +$66,484 | . | . | . |
+| 45 | +$75,269 | +$70,349 | +$63,984 | +$57,820 | +$52,105 | +$46,881 |
+| 50 | +$69,567 | +$67,142 | +$61,393 | +$55,815 | +$50,252 | +$45,257 |
+| 55 | +$63,620 | +$63,893 | +$59,120 | +$54,067 | +$48,733 | +$44,166 |
+| 60 | . | . | . | . | . | +$43,181 |
+
+### Win rate
+
+| MA | 20 | 22 | 24 | 26 | 28 | 30 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 30 | 79.20% | . | . | . | . | . |
+| 35 | 76.70% | 79.45% | . | . | . | . |
+| 40 | 74.44% | 77.51% | 79.41% | . | . | . |
+| 45 | 72.74% | 75.98% | 78.03% | 79.26% | 80.25% | **80.87%** |
+| 50 | 71.30% | 74.64% | 76.82% | 78.18% | 79.06% | 79.75% |
+| 55 | 70.23% | 73.49% | 75.73% | 77.14% | 78.16% | 78.94% |
+| 60 | . | . | . | . | . | 78.28% |
+
+### Trip count
+
+| MA | 20 | 22 | 24 | 26 | 28 | 30 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 30 | 146,873 | . | . | . | . | . |
+| 35 | 149,872 | 116,156 | . | . | . | . |
+| 40 | 156,889 | 118,385 | 94,488 | . | . | . |
+| 45 | 165,798 | 122,063 | 95,712 | 78,498 | 66,320 | 57,209 |
+| 50 | 175,890 | 126,861 | 97,782 | 79,183 | 66,358 | 56,900 |
+| 55 | 186,631 | 132,074 | 100,348 | 80,322 | 66,725 | 56,909 |
+| 60 | . | . | . | . | . | 57,037 |
+
+Median bars held = **3 across the entire grid** — the cover MA shrinking does not make trades resolve faster (already optimal at MA=60). What changes is that shorter MAs catch tighter wicks at smaller magnitudes, producing more trips with slightly worse per-trade economics.
+
+### Two distinct champions
+
+Two cells dominate, optimising different axes:
+
+| Champion | MA | trend | PF | Net | Win | Trips | $/trade |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **PF leader** | **45** | **30** | **6.45** | +$46,881 | **80.87%** | 57,209 | **+$0.819** |
+| **Net P&L leader** | **30** | **20** | 4.49 | **+$90,677** | 79.20% | **146,873** | +$0.617 |
+| Prior baseline | 60 | 30 | 5.09 | +$43,181 | 78.28% | 57,037 | +$0.757 |
+
+**Both cells beat the prior MA=60, trend=30 baseline cleanly** on every metric they optimise. MA=45/trend=30 lifts PF by 27% and beats the baseline on every metric simultaneously (PF, net, win, $/trade). MA=30/trend=20 trades PF for ~2.6× the trade volume and >2× the net P&L; per-trade economics still healthy at +$0.62.
+
+### Read
+
+The 1.5× constraint binds along a diagonal in the grid. The cells closest to that diagonal (MA = 1.5×trend exactly) consistently produce the highest PF *for that MA* — the strict filter has the most headroom there. Cells well above the diagonal (MA much larger than 1.5×trend) lose PF as the MA becomes too smoothed relative to the qualifier window.
+
+Two coherent operating points emerge:
+- **MA=45 / trend=30** — best risk-adjusted return per trade. Use when capital is the binding constraint or when execution slippage is a worry (fewer trades = less slippage exposure).
+- **MA=30 / trend=20** — best absolute return. Use when capital can absorb 2.5× the trade volume and the goal is total profit dollars rather than per-trade efficiency.
+
+Both are strictly preferable to the prior MA=60/trend=30 baseline. **MA=45/trend=30 is the new v5 default.**

@@ -543,8 +543,8 @@ type DonchianFadeSweepArgs =
             | Cover_Mode _ -> "Cover rule. 'opposite-channel' (default, v0 fade), 'entry-channel-target' (v1: trailing target at the prior 3-bar Donchian extreme on the with-trade side from entry; no stops), 'entry-channel-target-on-break' (v3: position runs unhedged until the with-trend Donchian channel cracks, then arms a trailing target at the opposite channel extreme), or 'ma-cross-cover' (v4/v5: cover when bar.Close crosses the 1h MA from the favorable side; long covers when close>=1h MA mean, short symmetric; no stops)."
             | Reverse_Direction _ -> "Flip entry sides: uptrend break-down opens LONG (was SHORT) and downtrend break-up opens SHORT (was LONG). Tests the continuation-pullback hypothesis. Default false."
             | Entry_Mode _ -> "Entry trigger. 'break-trigger' (default, v0/v1 — fire only on the bar that breaks the opposite channel) or 'trend-only' (v2 — fire on the first bar where the 30-bar qualifier is satisfied; with-trend, ignores --reverse-direction)."
-            | Max_Pct_1h_For_Long _ -> "MA-side entry gate for LONG entries: only fire if pct_1h_change <= this. Default 0.0 (require entry bar at-or-below the 1h MA — room to revert UP). Pass a large positive value (e.g. 1e9) to disable."
-            | Min_Pct_1h_For_Short _ -> "MA-side entry gate for SHORT entries: only fire if pct_1h_change >= this. Default 0.0 (require entry bar at-or-above the 1h MA — room to revert DOWN). Pass a large negative value (e.g. -1e9) to disable."
+            | Max_Pct_1h_For_Long _ -> "MA-side entry gate for LONG entries: only fire if pct_1h_change < this. Default -0.004 (require entry bar > 40 bp below the 1h MA — covers round-trip 8 bp fees + leaves ~32 bp of mean-revert room). Pass a large positive value (e.g. 1e9) to disable."
+            | Min_Pct_1h_For_Short _ -> "MA-side entry gate for SHORT entries: only fire if pct_1h_change > this. Default 0.004 (require entry bar > 40 bp above the 1h MA). Pass a large negative value (e.g. -1e9) to disable."
             | DonchianFadeSweepArgs.Notional _ -> "Per-trade notional. Default 1000."
             | Taker_Fee _ -> "Per-fill taker fee fraction. Default 0.0004."
             | Use_Trades -> "Force the trade-stream backtest path (currently unsupported)."
@@ -2277,8 +2277,8 @@ let cmdDonchianFadeSweep (args: ParseResults<DonchianFadeSweepArgs>) : int =
         | other ->
             eprintfn "[donchian-fade-sweep] unknown --entry-mode '%s'; using break-trigger" other
             OrderflowDonchianFade.BreakTrigger
-    let maxPct1hForLong  = args.GetResult(DonchianFadeSweepArgs.Max_Pct_1h_For_Long, defaultValue = 0.0)
-    let minPct1hForShort = args.GetResult(DonchianFadeSweepArgs.Min_Pct_1h_For_Short, defaultValue = 0.0)
+    let maxPct1hForLong  = args.GetResult(DonchianFadeSweepArgs.Max_Pct_1h_For_Long, defaultValue = -0.004)
+    let minPct1hForShort = args.GetResult(DonchianFadeSweepArgs.Min_Pct_1h_For_Short, defaultValue = 0.004)
     let symbols =
         match args.TryGetResult DonchianFadeSweepArgs.Symbol with
         | Some s -> parseList ',' s
