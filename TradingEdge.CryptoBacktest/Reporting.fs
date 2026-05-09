@@ -4,6 +4,7 @@ open System
 open System.IO
 open System.Globalization
 open TradingEdge.CryptoBacktest.OrderflowMA
+open TradingEdge.CryptoBacktest.OrderflowDonchianFade
 open TradingEdge.CryptoBacktest.Backtest
 
 let private inv = CultureInfo.InvariantCulture
@@ -196,6 +197,62 @@ let appendTrips
     use sw = new StreamWriter(path, append = true)
     if not exists then sw.WriteLine tripsHeader
     for t in trips do sw.WriteLine(tripRow symbol timeframe cfg t)
+
+// =============================================================================
+// Donchian-fade trip CSV (DonchianRoundTrip — separate record from RoundTrip)
+// =============================================================================
+
+let donchianTripsHeader =
+    "symbol,timeframe,donchian_bars,min_trend_bars,allow_short,allow_long,entry_us,exit_us,side,entry_price,exit_price,net_pnl,fees,bars_held,mfe,mae,effective_notional,funding_pnl,adv_at_entry,bars_since_up_violation,bars_since_down_violation,pct_1h_change,pct_72h_change,price_ratio_72h_over_1h,vol_ratio_1h_over_72h"
+
+let private donchianTripRow
+    (symbol: string)
+    (timeframe: string)
+    (cfg: DonchianFadeConfig)
+    (t: DonchianRoundTrip) : string =
+    String.concat "," [
+        symbol
+        timeframe
+        string cfg.DonchianBars
+        string cfg.MinTrendBars
+        (if cfg.AllowShort then "1" else "0")
+        (if cfg.AllowLong  then "1" else "0")
+        string t.EntryUs
+        string t.ExitUs
+        sideStr t.Side
+        fmt t.EntryPrice
+        fmt t.ExitPrice
+        fmt t.NetPnL
+        fmt t.Fees
+        string t.BarsHeld
+        fmt t.MaxFavorableExcursion
+        fmt t.MaxAdverseExcursion
+        fmt t.EffectiveNotional
+        fmt t.FundingPnL
+        fmt t.AvgDailyVolumeAtEntry
+        string t.BarsSinceUpViolationAtEntry
+        string t.BarsSinceDownViolationAtEntry
+        fmt t.Pct1hChangeAtEntry
+        fmt t.Pct72hChangeAtEntry
+        fmt t.PriceRatio72hOver1hAtEntry
+        fmt t.VolRatio1hOver72hAtEntry
+    ]
+
+/// Append-or-create per-cell Donchian trip CSV. Mirrors `appendTrips` but
+/// writes the Donchian-specific columns instead of the shared `RoundTrip`
+/// schema.
+let appendDonchianTrips
+    (path: string)
+    (symbol: string)
+    (timeframe: string)
+    (cfg: DonchianFadeConfig)
+    (trips: DonchianRoundTrip[])
+    : unit =
+    Directory.CreateDirectory(Path.GetDirectoryName path) |> ignore
+    let exists = File.Exists path
+    use sw = new StreamWriter(path, append = true)
+    if not exists then sw.WriteLine donchianTripsHeader
+    for t in trips do sw.WriteLine(donchianTripRow symbol timeframe cfg t)
 
 // =============================================================================
 // Orb-style breakdown report

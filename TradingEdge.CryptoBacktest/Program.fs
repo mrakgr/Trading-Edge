@@ -493,6 +493,63 @@ type ShortFadeMASweepArgs =
             | ShortFadeMASweepArgs.Summary_Csv _ -> "Aggregate summary CSV path."
             | ShortFadeMASweepArgs.Parallelism _ -> "Max symbols processed concurrently. Default 4."
 
+type DonchianFadeSweepArgs =
+    | [<AltCommandLine "-d">] Data_Root of string
+    | [<AltCommandLine "-b">] Bars_Root of string
+    | [<AltCommandLine "-s">] Symbol of string
+    | Start_Date of string
+    | End_Date of string
+    | Timeframes of string
+    | Donchian_Bars of string
+    | Min_Trend_Bars of string
+    | Short_Ref_Minutes of int
+    | Long_Ref_Hours of int
+    | Allow_Short of bool
+    | Allow_Long of bool
+    | Notional of float
+    | Taker_Fee of float
+    | Use_Trades
+    | Max_Adverse_Pct of float
+    | Reference_Vol_Pct of float
+    | Min_Short_Adv of float
+    | Min_Long_Adv of float
+    | Vol_Window_Days of int
+    | Max_Bar_Price_Ratio of float
+    | Funding_Root of string
+    | No_Funding
+    | Results_Csv of string
+    | Summary_Csv of string
+    | [<AltCommandLine "-p">] Parallelism of int
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Data_Root _ -> "Trade-parquet root. Default: " + defaultDataRoot
+            | Bars_Root _ -> "Pre-aggregated bar-parquet root. Default: " + defaultBarsRoot
+            | Symbol _ -> "Restrict sweep to a comma-separated symbol list."
+            | Start_Date _ -> "Inclusive start date YYYY-MM-DD. Default 2024-05-01."
+            | End_Date _ -> "Inclusive end date YYYY-MM-DD. Default 2026-04-30."
+            | Timeframes _ -> "Comma-separated timeframes. Default 1m."
+            | Donchian_Bars _ -> "Comma-separated Donchian channel windows in bars. Default '3'."
+            | Min_Trend_Bars _ -> "Comma-separated required consecutive-bar trend run before a break is fadeable. Default '30'."
+            | Short_Ref_Minutes _ -> "Short-window reference in minutes (1h price/vol MA + 1h percent-change reference). Default 60."
+            | Long_Ref_Hours _ -> "Long-window reference in hours (72h price/vol MA — surfaced as ratios on the trip record). Default 72."
+            | Allow_Short _ -> "Allow short-fade entries (uptrend run + break-down). Default true."
+            | Allow_Long _ -> "Allow long-fade entries (downtrend run + break-up). Default true."
+            | DonchianFadeSweepArgs.Notional _ -> "Per-trade notional. Default 1000."
+            | Taker_Fee _ -> "Per-fill taker fee fraction. Default 0.0004."
+            | Use_Trades -> "Force the trade-stream backtest path (currently unsupported)."
+            | Max_Adverse_Pct _ -> "Optional fixed-fraction stop. Default 0 (disabled)."
+            | Reference_Vol_Pct _ -> "Reference per-bar log-return std as percent. Recommended 0.1019 for 1m."
+            | DonchianFadeSweepArgs.Min_Short_Adv _ -> "Minimum trailing-90d ADV (USDT/day) for a short entry. Default 0."
+            | DonchianFadeSweepArgs.Min_Long_Adv _ -> "Minimum trailing-90d ADV (USDT/day) for a long entry. Default 0."
+            | DonchianFadeSweepArgs.Vol_Window_Days _ -> "Vol-window length in days. Default 90."
+            | DonchianFadeSweepArgs.Max_Bar_Price_Ratio _ -> "Bar-to-bar price-ratio gap detector. Default 0. Recommended 3.0."
+            | DonchianFadeSweepArgs.Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
+            | No_Funding -> "Disable funding-rate accounting."
+            | DonchianFadeSweepArgs.Results_Csv _ -> "Per-cell results CSV path."
+            | DonchianFadeSweepArgs.Summary_Csv _ -> "Aggregate summary CSV path."
+            | DonchianFadeSweepArgs.Parallelism _ -> "Max symbols processed concurrently. Default 4."
+
 type BuildBreadthArgs =
     | [<AltCommandLine "-b">] Bars_Root of string
     | [<AltCommandLine "-s">] Symbol of string
@@ -596,6 +653,7 @@ type CliArgs =
     | [<CliPrefix(CliPrefix.None)>] Extreme_Rvol_Sweep of ParseResults<ExtremeRvolSweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Long_Fade_Ma_Sweep of ParseResults<LongFadeMASweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Short_Fade_Ma_Sweep of ParseResults<ShortFadeMASweepArgs>
+    | [<CliPrefix(CliPrefix.None)>] Donchian_Fade_Sweep of ParseResults<DonchianFadeSweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Vwma_Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Breakout_Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Breadth of ParseResults<BuildBreadthArgs>
@@ -613,6 +671,7 @@ type CliArgs =
             | Extreme_Rvol_Sweep _ -> "Extreme-rvol blowoff short engine (chart-review-derived): enter short when 8h-mean volume >= Nx 30d-mean AND close >= 1.10 * 8h-MA-lagged-16h AND 1h CVD just turned negative. Stop at trailing-8h-MaxVWAP snapshotted at entry. Cover when rvol < 2x. Short-only by design."
             | Long_Fade_Ma_Sweep _ -> "Long fade engine with mean-reversion-to-MA cover: enter long on price decline + CVD positive cross (no rvol gate); cover when bar.Close >= trailing 24h MA. Long-only by design."
             | Short_Fade_Ma_Sweep _ -> "Short fade engine — symmetric mirror of long-fade-ma-sweep: enter short on price rise + CVD negative cross; cover when bar.Close <= trailing-N-hour MA. Short-only by design."
+            | Donchian_Fade_Sweep _ -> "Lance-style Donchian-channel fade: short after a 30-bar uptrend run finally breaks the rolling 3-bar Donchian low (or symmetric long after a downtrend break-up); ratcheted Donchian trailing stop; cover on opposite-side re-violation."
             | Vwma_Sweep _     -> "Research baseline: same grid, but signal is close-vs-VWMA crossover instead of orderflow ratio."
             | Breakout_Sweep _ -> "Research baseline: same grid, but signal is symmetric N-hour VWAP-breakout/breakdown instead of orderflow ratio."
             | Build_Breadth _  -> "Build the universe-wide breadth panel: per-(symbol, hour) signal trace plus per-hour aggregates with composite signed-volume t-digest rank."
@@ -2151,6 +2210,187 @@ let cmdLongFadeMaSweep (args: ParseResults<LongFadeMASweepArgs>) : int =
     0
 
 // =============================================================================
+// donchian-fade-sweep — Lance-style Donchian-channel fade
+// =============================================================================
+//
+// Pure price-structure: SHORT after a 30-bar uptrend run breaks the rolling
+// 3-bar Donchian low; LONG after a downtrend run breaks the rolling 3-bar
+// Donchian high. Ratcheted Donchian trailing stop; cover on opposite-side
+// re-violation. Default output dir data/crypto/donchian_fade/.
+
+let cmdDonchianFadeSweep (args: ParseResults<DonchianFadeSweepArgs>) : int =
+    let dataRoot = args.GetResult(DonchianFadeSweepArgs.Data_Root, defaultValue = defaultDataRoot)
+    let barsRoot = args.GetResult(DonchianFadeSweepArgs.Bars_Root, defaultValue = defaultBarsRoot)
+    let useTrades = args.Contains DonchianFadeSweepArgs.Use_Trades
+    let startDate =
+        args.TryGetResult DonchianFadeSweepArgs.Start_Date
+        |> Option.map parseDate
+        |> Option.defaultValue defaultStart
+    let endDate =
+        args.TryGetResult DonchianFadeSweepArgs.End_Date
+        |> Option.map parseDate
+        |> Option.defaultValue defaultEnd
+    let timeframes =
+        args.TryGetResult DonchianFadeSweepArgs.Timeframes
+        |> Option.map (parseList ',')
+        |> Option.defaultValue [| "1m" |]
+    let donchianBarsList =
+        args.TryGetResult DonchianFadeSweepArgs.Donchian_Bars
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map Int32.Parse)
+        |> Option.defaultValue [| 3 |]
+    let minTrendBarsList =
+        args.TryGetResult DonchianFadeSweepArgs.Min_Trend_Bars
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map Int32.Parse)
+        |> Option.defaultValue [| 30 |]
+    let shortRefMinutes = args.GetResult(DonchianFadeSweepArgs.Short_Ref_Minutes, defaultValue = 60)
+    let longRefHours    = args.GetResult(DonchianFadeSweepArgs.Long_Ref_Hours, defaultValue = 72)
+    let allowShort = args.GetResult(DonchianFadeSweepArgs.Allow_Short, defaultValue = true)
+    let allowLong  = args.GetResult(DonchianFadeSweepArgs.Allow_Long, defaultValue = true)
+    let symbols =
+        match args.TryGetResult DonchianFadeSweepArgs.Symbol with
+        | Some s -> parseList ',' s
+        | None ->
+            if useTrades then listSymbols dataRoot
+            else
+                let perTf = timeframes |> Array.map (fun tf -> Set.ofArray (BarLoader.listSymbols barsRoot tf))
+                if perTf.Length = 0 then [||]
+                else
+                    perTf
+                    |> Array.reduce Set.intersect
+                    |> Set.toArray
+                    |> Array.sort
+    let notional = args.GetResult(DonchianFadeSweepArgs.Notional, defaultValue = 1000.0)
+    let takerFee = args.GetResult(DonchianFadeSweepArgs.Taker_Fee, defaultValue = 0.0004)
+    let maxAdversePct = args.GetResult(DonchianFadeSweepArgs.Max_Adverse_Pct, defaultValue = 0.0)
+    let referenceVolPct = args.GetResult(DonchianFadeSweepArgs.Reference_Vol_Pct, defaultValue = 0.0)
+    let minShortAdv = args.GetResult(DonchianFadeSweepArgs.Min_Short_Adv, defaultValue = 0.0)
+    let minLongAdv  = args.GetResult(DonchianFadeSweepArgs.Min_Long_Adv, defaultValue = 0.0)
+    let volWindowDays = args.GetResult(DonchianFadeSweepArgs.Vol_Window_Days, defaultValue = 90)
+    let maxBarPriceRatio = args.GetResult(DonchianFadeSweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
+    let fundingRoot =
+        if args.Contains DonchianFadeSweepArgs.No_Funding then None
+        else Some (args.GetResult(DonchianFadeSweepArgs.Funding_Root, defaultValue = defaultFundingRoot))
+    let resultsCsv =
+        args.GetResult(DonchianFadeSweepArgs.Results_Csv, defaultValue = "data/crypto/donchian_fade/backtest_results.csv")
+    let summaryCsv =
+        args.GetResult(DonchianFadeSweepArgs.Summary_Csv, defaultValue = "data/crypto/donchian_fade/backtest_summary.csv")
+    let parallelism = args.GetResult(DonchianFadeSweepArgs.Parallelism, defaultValue = 4)
+
+    if useTrades then
+        eprintfn "[donchian-fade-sweep] --use-trades is not supported; runs from pre-aggregated bars."
+        2
+    else
+
+    printfn "[donchian-fade-sweep] symbols=%d timeframes=[%s] donchianBars=[%s] minTrendBars=[%s] shortRefMin=%d longRefH=%d allowShort=%b allowLong=%b range=%s..%s parallelism=%d minShortAdv=$%s minLongAdv=$%s maxBarPriceRatio=%g referenceVolPct=%g"
+        symbols.Length
+        (String.concat "," timeframes)
+        (String.concat "," (donchianBarsList |> Array.map string))
+        (String.concat "," (minTrendBarsList |> Array.map string))
+        shortRefMinutes longRefHours allowShort allowLong
+        (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
+        parallelism
+        (minShortAdv.ToString("N0"))
+        (minLongAdv.ToString("N0"))
+        maxBarPriceRatio
+        referenceVolPct
+
+    Directory.CreateDirectory(Path.GetDirectoryName resultsCsv) |> ignore
+    if File.Exists resultsCsv then File.Delete resultsCsv
+    let resultsDir = Path.GetDirectoryName resultsCsv
+    let resultsStem = Path.GetFileNameWithoutExtension resultsCsv
+    if Directory.Exists resultsDir then
+        for f in Directory.EnumerateFiles(resultsDir, sprintf "%s_trips_*.csv" resultsStem) do
+            File.Delete f
+
+    let allMetrics = System.Collections.Concurrent.ConcurrentBag<Metrics>()
+    let advBySymbol =
+        System.Collections.Concurrent.ConcurrentDictionary<string, float>()
+    let writeLock = obj()
+    let totalCells =
+        symbols.Length * timeframes.Length
+        * donchianBarsList.Length * minTrendBarsList.Length
+    let mutable doneCells = 0
+
+    let swAll = Stopwatch.StartNew()
+    let opts = System.Threading.Tasks.ParallelOptions(MaxDegreeOfParallelism = parallelism)
+    System.Threading.Tasks.Parallel.ForEach(
+        symbols,
+        opts,
+        fun symbol ->
+            let swSym = Stopwatch.StartNew()
+            try
+                let cells =
+                    [| for tf in timeframes do
+                        for donBars in donchianBarsList do
+                            for minTrend in minTrendBarsList do
+                                let cfg : OrderflowDonchianFade.DonchianFadeConfig =
+                                    { OrderflowDonchianFade.defaultDonchianFadeConfig () with
+                                        DonchianBars = donBars
+                                        MinTrendBars = minTrend
+                                        ShortRefMinutes = shortRefMinutes
+                                        LongRefHours = longRefHours
+                                        AllowShort = allowShort
+                                        AllowLong = allowLong
+                                        Notional = notional
+                                        TakerFee = takerFee
+                                        MaxAdverseFraction = maxAdversePct / 100.0
+                                        ReferenceVol = referenceVolPct / 100.0
+                                        MinShortAdv = minShortAdv
+                                        MinLongAdv = minLongAdv
+                                        VolWindowDays = volWindowDays
+                                        MaxBarPriceRatio = maxBarPriceRatio }
+                                yield DonchianFadeCell(symbol, tf, cfg) |]
+                let metrics, adv =
+                    runDonchianFadeCellsFromBars barsRoot symbol startDate endDate cells fundingRoot
+                let nonEmpty = metrics |> Array.filter (fun m -> m.BarsTotal > 0)
+                if nonEmpty.Length = 0 then
+                    lock writeLock (fun () ->
+                        printfn "[donchian-fade-sweep] %s: no bars in window" symbol)
+                else
+                    if adv > 0.0 then advBySymbol.[symbol] <- adv
+                    for cell in cells do
+                        let trips = cell.Trips
+                        if trips.Length > 0 then
+                            let tripsPath =
+                                let dir = Path.GetDirectoryName resultsCsv
+                                let stem = Path.GetFileNameWithoutExtension resultsCsv
+                                Path.Combine(dir,
+                                    sprintf "%s_trips_%s_don%d_trend%d.csv"
+                                        stem cell.Timeframe
+                                        cell.DonchianFadeConfig.DonchianBars
+                                        cell.DonchianFadeConfig.MinTrendBars)
+                            lock writeLock (fun () ->
+                                appendDonchianTrips
+                                    tripsPath cell.Symbol cell.Timeframe
+                                    cell.DonchianFadeConfig trips)
+                    lock writeLock (fun () ->
+                        appendResults resultsCsv metrics
+                        for m in metrics do allMetrics.Add m
+                        doneCells <- doneCells + metrics.Length)
+                    swSym.Stop()
+                    lock writeLock (fun () ->
+                        printfn "[donchian-fade-sweep] %s done in %.1fs (%d/%d cells)"
+                            symbol swSym.Elapsed.TotalSeconds doneCells totalCells)
+            with ex ->
+                lock writeLock (fun () ->
+                    eprintfn "[donchian-fade-sweep] %s FAILED: %s" symbol ex.Message
+                    eprintfn "%s" ex.StackTrace))
+    |> ignore
+    swAll.Stop()
+
+    let metricsArr = allMetrics.ToArray()
+    let summary = summarize metricsArr
+    let summarySorted =
+        summary |> Array.sortByDescending (fun s -> s.MedianSharpe)
+    writeSummary summaryCsv summarySorted
+    printfn "[donchian-fade-sweep] wrote %d result rows -> %s" metricsArr.Length resultsCsv
+    printfn "[donchian-fade-sweep] wrote %d summary rows -> %s" summarySorted.Length summaryCsv
+    printfn "[donchian-fade-sweep] total wall %.1fs" swAll.Elapsed.TotalSeconds
+    0
+
+// =============================================================================
 // short-fade-ma-sweep — symmetric mirror of long-fade-ma-sweep
 // =============================================================================
 //
@@ -3624,6 +3864,7 @@ let main argv =
         | Extreme_Rvol_Sweep a -> cmdExtremeRvolSweep a
         | Long_Fade_Ma_Sweep a -> cmdLongFadeMaSweep a
         | Short_Fade_Ma_Sweep a -> cmdShortFadeMaSweep a
+        | Donchian_Fade_Sweep a -> cmdDonchianFadeSweep a
         | Vwma_Sweep a -> cmdVwmaSweep a
         | Breakout_Sweep a -> cmdBreakoutSweep a
         | Build_Breadth a -> cmdBuildBreadth a
