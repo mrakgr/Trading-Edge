@@ -1017,3 +1017,50 @@ The v5 trend=20 cell is already cleaner than the v3-filtered trend=30 cell: v5 t
 | **v5 (TrendOnly + MaCrossCover + filter), trend=30** | **5.09** | **Long D0 PF 21.5 / Short D9 PF 34.4** | **Yes — 57k trips +$43.2k** |
 
 v5 with the strict filter and 1h-MA cover is the strongest version found in the workstream by every measure: highest aggregate PF, highest per-trade economics, broadest profitable population, fastest resolving trades (median 3 bars), no Flush artefact. The strict-MA-side filter combined with the 1h-MA cover make it a clean mean-reversion scalp engine — enter on the wrong side of the MA after a confirmed trend run, exit when price closes back through the MA.
+
+## v5 — sweep over `--short-ref-minutes` (cover MA length)
+
+The 1h MA is fixed in v4/v5 by the `ShortRefMinutes` config field (default 60). Sweeping this from 60m → 300m tests whether a different reversion target produces more edge. Both the strict-inequality entry filter and the cover share this MA length, so the experiment is "wider/narrower reversion target" rather than "decoupled filter and cover."
+
+Trend-bars held at 30, MaCrossCover, TrendOnly entry:
+
+| MA (min) | Trips | Agg PF | Net P&L | Win | Med bars | Mean bars | Flush% | Long PF | Short PF | Per-trade |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **60** | 57,037 | **5.090** | **+$43,181** | **78.3%** | **3** | 7.9 | 0.64% | **4.96** | **5.22** | **+$0.76** |
+| 90 | 59,348 | 3.071 | +$36,607 | 75.8% | 4 | 13.4 | 0.90% | 2.89 | 3.27 | +$0.62 |
+| 120 | 62,472 | 2.358 | +$33,051 | 74.8% | 5 | 19.5 | 0.95% | 2.26 | 2.47 | +$0.53 |
+| 150 | 65,098 | 1.931 | +$29,937 | 74.7% | 6 | 26.1 | 0.94% | 1.87 | 1.99 | +$0.46 |
+| 180 | 67,607 | 1.692 | +$27,615 | 74.4% | 7 | 32.8 | 0.92% | 1.67 | 1.72 | +$0.41 |
+| 240 | 70,704 | 1.380 | +$21,575 | 74.3% | 12 | 47.6 | 0.89% | 1.37 | 1.39 | +$0.31 |
+| 300 | 72,414 | 1.243 | +$17,241 | 74.3% | 17 | 62.3 | 0.87% | 1.22 | 1.27 | +$0.24 |
+
+**60m wins every metric. PF, net P&L, win rate, and per-trade economics all peak at the shortest MA tested and decay monotonically as the MA lengthens.**
+
+Going from MA=60 to MA=300:
+- PF collapses **5.09 → 1.24** (4.1× degradation)
+- Net P&L drops **$43k → $17k** (60% drop)
+- Per-trade falls **+$0.76 → +$0.24** (3× drop)
+- Median hold goes **3 bars → 17 bars** (5.7× longer); mean **7.9 → 62.3 bars**
+- Trip count *rises* slightly (57k → 72k) because the loosened filter (longer MA = more "below MA" eligible bars) lets more borderline candidates through, but they bleed PF.
+
+Flush stays negligible at every length. Longer MAs don't trap unrealised losers — they just produce slower-resolving lower-quality trades.
+
+### Per-MA `pct_1h_change` decile shapes
+
+Where the per-cell deciles really tell the story — longer MAs collapse the extreme-tail PFs that drove v5's edge:
+
+| MA | Long D0 PF | Long D9 PF | Short D0 PF | Short D9 PF |
+|---:|---:|---:|---:|---:|
+| **60m** | **21.46** | 0.17 | 0.73 | **34.40** |
+| 90m | 2.98 | 0.41 | 0.55 | 6.87 |
+| 120m | 2.33 | 0.64 | 0.57 | 3.59 |
+| 180m | 1.80 | 0.70 | 0.67 | 1.72 |
+| 300m | 1.29 | 0.82 | 0.81 | 1.13 |
+
+The deep-extreme-tail trades (long D0, short D9) lose PF by **16-30×** going from MA=60 to MA=300. The middle of the distribution stays ~PF 1.2-1.4 throughout — but the extreme-tail trades that deliver most of v5's economics rely on the MA being a **tight, fast-moving target** that price genuinely whipsaws around on a sub-hourly horizon.
+
+### Read
+
+A longer MA is a different system. With MA=300, "5% below the 5h MA" describes a sustained multi-hour trend extreme — a regime, not a wick. Those don't snap back cleanly. With MA=60, the same percentage describes a momentary deviation from the very recent mean — a wick that frequently reverts within minutes. The strict filter + 60m cover catches exactly that wick-reversion regime, and the deep tails of the `pct_1h_change` distribution are *predominantly* such wicks.
+
+**60m is the right MA length.** No need to experiment further on this axis.
