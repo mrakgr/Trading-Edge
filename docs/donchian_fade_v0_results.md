@@ -1142,3 +1142,131 @@ Two coherent operating points emerge:
 - **MA=30 / trend=20** — best absolute return. Use when capital can absorb 2.5× the trade volume and the goal is total profit dollars rather than per-trade efficiency.
 
 Both are strictly preferable to the prior MA=60/trend=30 baseline. **MA=45/trend=30 is the new v5 default.**
+
+## v5 — 40 bp MA-side filter, expanded grid (MA 30..60 × trend 14..30)
+
+Round-trip taker fees on a $1k notional are $0.80 = 8 bp. At the 0 bp filter default, an entry placed `pct_1h_change = -0.05%` (i.e. 5 bp below the MA) needs to recover by 8 bp just to break even on fees, and the realised reversion to the MA mean is approximately `|pct_1h_change|` — so the entire fee budget is consumed before any profit registers. The 0 bp default lets in trades that have effectively zero room to be profitable.
+
+Setting the filter defaults to **+/- 40 bp** (`MaxPct1hChangeForLong = -0.004`, `MinPct1hChangeForShort = 0.004`) reserves an 8 bp fee budget plus ~32 bp of net mean-revert margin per round-trip. The strict-inequality filter then becomes "trades must be ≥ 40 bp on the mean-reverting side of the 1h MA at entry."
+
+The trend qualifier was extended down to 14 bars (the prior grid stopped at 20) since the filter now rejects most of the marginal entries that benefited from the longer qualifier. The 1.5× constraint excludes cells where MA < 1.5 × trend.
+
+### Aggregate PF — 40 bp filter — rows = MA, cols = min_trend_bars
+
+| MA | 14 | 16 | 18 | 20 | 22 | 24 | 26 | 28 | 30 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 30 | 4.841 | 10.563 | 27.466 | 50.357 | . | . | . | . | . |
+| 35 | 3.062 | 5.559 | 14.327 | 28.182 | 38.915 | . | . | . | . |
+| 40 | 2.271 | 3.622 | 8.056 | 15.624 | 24.292 | 48.324 | **67.166** | . | . |
+| 45 | 1.885 | 2.741 | 5.362 | 9.727 | 16.901 | 31.859 | 45.494 | 59.552 | 61.690 |
+| 50 | 1.584 | 2.195 | 3.727 | 6.407 | 10.336 | 18.821 | 27.105 | 37.811 | 40.821 |
+| 55 | 1.402 | 1.827 | 2.824 | 4.331 | 7.111 | 11.573 | 17.863 | 25.485 | 28.496 |
+| 60 | 1.267 | 1.560 | 2.235 | 3.284 | 5.436 | 8.321 | 11.751 | 14.825 | 19.330 |
+
+### Net P&L — 40 bp filter
+
+| MA | 14 | 16 | 18 | 20 | 22 | 24 | 26 | 28 | 30 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 30 | +$43,810 | +$35,328 | +$29,175 | +$24,429 | . | . | . | . | . |
+| 35 | +$51,086 | +$39,932 | +$32,622 | +$26,603 | +$22,536 | . | . | . | . |
+| 40 | +$56,352 | +$43,250 | +$35,699 | +$29,006 | +$24,004 | +$20,966 | +$18,567 | . | . |
+| **45** | **+$60,959** | +$46,871 | +$38,654 | +$31,247 | +$25,847 | +$22,130 | +$19,453 | +$17,207 | +$15,481 |
+| 50 | +$59,969 | +$48,735 | +$40,386 | +$33,117 | +$27,367 | +$23,401 | +$20,449 | +$17,955 | +$15,959 |
+| 55 | +$57,158 | +$48,600 | +$41,251 | +$33,764 | +$28,550 | +$24,256 | +$21,217 | +$18,532 | +$16,414 |
+| 60 | +$50,118 | +$45,311 | +$40,223 | +$33,725 | +$29,313 | +$24,933 | +$21,817 | +$18,884 | +$16,805 |
+
+### Win rate — 40 bp filter
+
+| MA | 14 | 16 | 18 | 20 | 22 | 24 | 26 | 28 | 30 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 30 | 87.92% | 93.01% | 96.00% | 96.99% | . | . | . | . | . |
+| 35 | 82.86% | 89.07% | 93.92% | 95.85% | 96.74% | . | . | . | . |
+| 40 | 78.67% | 84.80% | 90.83% | 94.08% | 95.76% | 96.93% | **97.22%** | . | . |
+| 45 | 75.78% | 81.23% | 87.64% | 91.64% | 94.20% | 95.69% | 96.40% | 97.13% | **97.64%** |
+| 50 | 73.74% | 78.61% | 84.43% | 89.03% | 92.17% | 94.47% | 95.43% | 96.44% | 97.18% |
+| 55 | 72.11% | 76.33% | 81.86% | 86.15% | 89.95% | 92.66% | 94.27% | 95.60% | 96.35% |
+| 60 | 70.93% | 74.38% | 79.43% | 83.92% | 87.94% | 91.10% | 93.05% | 94.48% | 95.53% |
+
+### Trip count — 40 bp filter
+
+| MA | 14 | 16 | 18 | 20 | 22 | 24 | 26 | 28 | 30 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 30 | 35,383 | 24,078 | 18,421 | 15,061 | . | . | . | . | . |
+| 35 | 48,098 | 29,639 | 21,310 | 16,850 | 14,077 | . | . | . | . |
+| 40 | 64,369 | 36,730 | 24,935 | 18,909 | 15,427 | 13,017 | 11,292 | . | . |
+| 45 | 84,134 | 46,069 | 29,273 | 21,261 | 16,930 | 14,101 | 12,097 | 10,494 | 9,306 |
+| 50 | 106,190 | 56,699 | 34,501 | 24,071 | 18,638 | 15,235 | 12,942 | 11,168 | 9,814 |
+| 55 | 130,518 | 68,810 | 40,463 | 27,322 | 20,520 | 16,420 | 13,717 | 11,764 | 10,304 |
+| 60 | 156,267 | 81,762 | 46,938 | 30,779 | 22,471 | 17,640 | 14,606 | 12,432 | 10,840 |
+
+### Median bars held — 40 bp filter
+
+| MA | 14 | 16 | 18 | 20 | 22 | 24 | 26 | 28 | 30 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 30 | 4 | 3 | 3 | 2 | . | . | . | . | . |
+| 40 | 8 | 6 | 4 | 3 | 3 | 3 | **2** | . | . |
+| 45 | 10 | 8 | 6 | 4 | 3 | 3 | 3 | 3 | **2** |
+| 50 | 12 | 10 | 7 | 5 | 4 | 3 | 3 | 3 | 3 |
+| 60 | 16 | 14 | 11 | 8 | 6 | 5 | 4 | 3 | 3 |
+
+### Per-trade net ($) after fees — 40 bp filter
+
+| MA | 14 | 16 | 18 | 20 | 22 | 24 | 26 | 28 | 30 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 30 | +1.238 | +1.467 | +1.584 | +1.622 | . | . | . | . | . |
+| 35 | +1.062 | +1.347 | +1.531 | +1.579 | +1.601 | . | . | . | . |
+| 40 | +0.875 | +1.178 | +1.432 | +1.534 | +1.556 | +1.611 | +1.644 | . | . |
+| **45** | +0.725 | +1.017 | +1.320 | +1.470 | +1.527 | +1.569 | +1.608 | +1.640 | **+1.664** |
+| 50 | +0.565 | +0.860 | +1.171 | +1.376 | +1.468 | +1.536 | +1.580 | +1.608 | +1.626 |
+| 55 | +0.438 | +0.706 | +1.019 | +1.236 | +1.391 | +1.477 | +1.547 | +1.575 | +1.593 |
+| 60 | +0.321 | +0.554 | +0.857 | +1.096 | +1.304 | +1.413 | +1.494 | +1.519 | +1.550 |
+
+## 0 bp vs 40 bp comparison at the prior champions
+
+| Cell | 0 bp PF | **40 bp PF** | 0 bp Net | 40 bp Net | 0 bp Trips | 40 bp Trips | 0 bp $/trade | **40 bp $/trade** |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| MA=45, trend=30 | 6.45 | **61.69** | +$46,881 | +$15,481 | 57,209 | 9,306 | +$0.82 | **+$1.66** |
+| MA=30, trend=20 | 4.49 | **50.36** | +$90,677 | +$24,429 | 146,873 | 15,061 | +$0.62 | **+$1.62** |
+| MA=60, trend=30 | 5.09 | 19.33 | +$43,181 | +$16,805 | 57,037 | 10,840 | +$0.76 | +$1.55 |
+
+The 40 bp filter strips out the marginally-profitable noise where realised reversion was barely covering fees, leaving entries where the realised mean-reversion comfortably exceeds the fee budget. PF jumps **3-10×**, per-trade economics **roughly double**, win rate climbs to **96-97%** in the high-PF cells. Trip volume falls ~75% as expected — the 40 bp threshold sits well into the body of the `pct_1h_change` distribution at qualifier-satisfying bars.
+
+## Two Pareto frontiers
+
+The 40 bp grid splits into two operating regimes that optimise different metrics:
+
+### High-PF / low-volume frontier (top-right of grid)
+
+| Cell | PF | Net | Win | Trips | $/trade | Med bars |
+|---|---:|---:|---:|---:|---:|---:|
+| MA=40, trend=26 | **67.17** | +$18,567 | 97.22% | 11,292 | +$1.64 | 2 |
+| **MA=45, trend=30** | 61.69 | +$15,481 | **97.64%** | 9,306 | **+$1.66** | 2 |
+| MA=45, trend=28 | 59.55 | +$17,207 | 97.13% | 10,494 | +$1.64 | 3 |
+| MA=30, trend=20 | 50.36 | +$24,429 | 96.99% | 15,061 | +$1.62 | 2 |
+| MA=40, trend=24 | 48.32 | +$20,966 | 96.93% | 13,017 | +$1.61 | 3 |
+
+These cells deliver near-perfect win rates with $1.6+ per trade. The natural-fit when capital is the binding constraint or when execution slippage is a worry — fewer trades = less slippage exposure, and the high PF means equity-curve drawdowns should be small.
+
+### Net-P&L / high-volume frontier (top-left of grid)
+
+| Cell | PF | Net | Win | Trips | $/trade | Med bars |
+|---|---:|---:|---:|---:|---:|---:|
+| **MA=45, trend=14** | 1.89 | **+$60,959** | 75.78% | 84,134 | +$0.73 | 10 |
+| MA=50, trend=14 | 1.58 | +$59,969 | 73.74% | 106,190 | +$0.57 | 12 |
+| MA=55, trend=14 | 1.40 | +$57,158 | 72.11% | 130,518 | +$0.44 | 14 |
+| MA=40, trend=14 | 2.27 | +$56,352 | 78.67% | 64,369 | +$0.88 | 8 |
+| MA=35, trend=14 | 3.06 | +$51,086 | 82.86% | 48,098 | +$1.06 | 6 |
+
+These cells trade per-trade margin for trip volume — short trend qualifiers fire much more often, but more entries land in the marginal "barely beat fees" zone. The natural-fit when capital can absorb 5-10× the trade volume and the goal is total dollars rather than per-trade efficiency. Median hold extends to 8-14 bars (vs 2-3 at the high-PF frontier).
+
+## Read of the 40 bp grid
+
+The 40 bp filter encodes a **fee-aware mean-reversion margin**: only fire when the realised reversion has clear room to exceed the round-trip fee. Combined with the strict trend qualifier and the 1h-MA cover, this is now a near-perfect win-rate engine in its high-PF cells.
+
+The two-frontier shape is real and sharp:
+- **The high-PF cells at MA=40-45 / trend=24-30** are the cleanest signal in the workstream: 9-15k trips at PF 48-67 with 96-97% win rate. ~20-30 trades/day universe-wide. Per-trade $1.6+.
+- **The net-P&L leaders at MA=45-55 / trend=14** chase volume: 60-130k trips at PF 1.4-2.3 with 72-83% win. ~120-260 trades/day. Per-trade $0.4-1.0.
+
+**Default change**: engine and CLI defaults updated from 0 bp to 40 bp on both `MaxPct1hChangeForLong` (default `-0.004`) and `MinPct1hChangeForShort` (default `+0.004`). Pass `--max-pct-1h-for-long 1e9 --min-pct-1h-for-short -1e9` to revert to the legacy 0 bp behaviour.
+
+**MA=45, trend=30 with 40 bp filter is the new v5 default**: PF 61.69, win 97.64%, +$1.66/trade. Cleanest signal in the entire workstream.
