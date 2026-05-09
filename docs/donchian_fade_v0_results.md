@@ -1,15 +1,32 @@
 # Donchian-fade engine — v0 research notes
 
+## Terminology
+
+Two channel-break events fire entries; each can be paired with either side of trade:
+
+- **Uptrend-breakdown**: a sustained 30-bar uptrend run (no lower-channel violations for ≥30 bars), then a bar's Low pierces the prior 3-bar Donchian low. Fade interpretation: the breakdown bar caps the uptrend.
+- **Downtrend-breakup**: a sustained 30-bar downtrend run (no upper-channel violations for ≥30 bars), then a bar's High pierces the prior 3-bar Donchian high. Fade interpretation: the breakup bar caps the downtrend.
+
+The engine has two configuration switches that determine what we do once a break event fires:
+
+- `--reverse-direction`: which side we take on each break.
+  - **v0 (fade the prior trend, `reverse=false`)**: uptrend-breakdown → SHORT, downtrend-breakup → LONG. We fade the multi-bar trend that was just broken.
+  - **v1 (fade the break itself, `reverse=true`)**: uptrend-breakdown → LONG, downtrend-breakup → SHORT. We bet the just-broken move is itself a fakeout and price snaps back into the prior channel.
+- `--cover-mode`: how we exit.
+  - **OppositeChannel** (v0): ratcheted trailing stop on the just-broken side. Cover when price re-violates that side.
+  - **EntryChannelTarget** (v1): trailing target on the with-trade side, snapshot at entry as the prior 3-bar Donchian extreme. Target ratchets toward entry on adverse moves so unrealized losers can't hide off the books. No stops.
+
+Throughout this doc, when describing a trade we'll name both the trigger and the side: e.g. "uptrend-breakdown short" (v0) versus "uptrend-breakdown long" (v1). The trip CSV `side` column records the actual fill side; the trigger event is implicit in the side once the mode is fixed (v0 short ↔ uptrend breakdown; v1 long ↔ uptrend breakdown).
+
 ## Setup
 
-Lance-style breakout-failure fade on 1-minute crypto-perps bars. The setup is pure price-structure:
+Lance-style breakout-failure 1m engine on the crypto-perps universe:
 
 - Maintain a rolling `DonchianBars` (= 3) high/low channel.
 - On every bar, increment `bars_since_up_violation` if `bar.High <= prior_donchian_high`, else reset to 0. Symmetric for `bars_since_down_violation`.
-- **Short entry**: `bars_since_down_violation >= 30` (sustained 30-bar uptrend run with no down-violations) AND the current bar's Low pierces the prior Donchian low.
-- **Long entry**: symmetric (sustained downtrend then break-up).
-- **Stop**: ratcheted Donchian-extreme trailing stop. For shorts, snapshot the prior 3-bar high at entry; on each subsequent bar, ratchet down only (`min(stop, donHighMa.State)`). Symmetric for longs.
-- **Cover**: opposite-channel re-violation. Short covers when `bar.High > trailingStop`; long covers when `bar.Low < trailingStop`. Fill at `bar.Close`.
+- v0 entry: an uptrend-breakdown opens SHORT; a downtrend-breakup opens LONG.
+- v0 stop: ratcheted Donchian-extreme trailing stop. Short stop = prior 3-bar high; ratchet down only (`min(stop, donHighMa.State)`). Long mirror.
+- v0 cover: opposite-channel re-violation. Short covers when `bar.High > stop`; long covers when `bar.Low < stop`. Fill at `bar.Close`.
 
 Standard cross-engine flags applied: `--reference-vol-pct 0.1019 --max-bar-price-ratio 3 --min-short-adv 5000000 --min-long-adv 5000000`. 1m bars, 2024-05-01 → 2026-04-30, 643 perps universe.
 
@@ -51,7 +68,7 @@ Each post-hoc field is binned into 10 equal-population deciles per side, then PF
 
 Position vs the 72h trailing MA at entry, signed.
 
-**Short side** — strongest at the extremes, dead-zone in the middle:
+**Uptrend-breakdown shorts** — strongest at the extremes, dead-zone in the middle:
 
 | Decile | Range | Trips | PF | Net P&L | Win rate |
 |---:|---|---:|---:|---:|---:|
@@ -66,7 +83,7 @@ Position vs the 72h trailing MA at entry, signed.
 | 8 | [+3.26%, +5.39%] | 15,526 | 0.455 | -$9,508 | 26.0% |
 | **9** | **[+5.39%, +284%]** | **15,526** | **0.655** | **-$7,879** | **29.8%** |
 
-**Long side** — mirror image, extreme downtrend (D0) is best:
+**Downtrend-breakup longs** — mirror image, extreme downtrend (D0) is best:
 
 | Decile | Range | Trips | PF | Net P&L | Win rate |
 |---:|---|---:|---:|---:|---:|
@@ -87,7 +104,7 @@ Both sides peak at the extreme of their *own* trend direction — short fades wo
 
 Position vs the 1h trailing MA at entry. Same shape as 72h but cleaner monotonicity:
 
-**Short side** — clean monotone, low → high PF:
+**Uptrend-breakdown shorts** — clean monotone, low → high PF:
 
 | Decile | Range | Trips | PF | Net P&L | Win rate |
 |---:|---|---:|---:|---:|---:|
@@ -102,7 +119,7 @@ Position vs the 1h trailing MA at entry. Same shape as 72h but cleaner monotonic
 | 8 | [+1.04%, +1.57%] | 15,526 | 0.549 | -$7,666 | 30.2% |
 | **9** | **[+1.57%, +84.1%]** | **15,526** | **0.647** | **-$9,195** | **30.8%** |
 
-**Long side** — clean reverse monotone, high → low:
+**Downtrend-breakup longs** — clean reverse monotone, high → low:
 
 | Decile | Range | Trips | PF | Net P&L | Win rate |
 |---:|---|---:|---:|---:|---:|
@@ -123,7 +140,7 @@ The strongest signal in the dataset. Short PF rises monotonically with `pct_1h_c
 
 Trailing 1h vol divided by trailing 72h vol — measures whether the entry bar comes during a recent volume burst or a quiet patch.
 
-**Short side** — clean monotone, low vol → high vol:
+**Uptrend-breakdown shorts** — clean monotone, low vol → high vol:
 
 | Decile | Range | Trips | PF | Net P&L | Win rate |
 |---:|---|---:|---:|---:|---:|
@@ -138,7 +155,7 @@ Trailing 1h vol divided by trailing 72h vol — measures whether the entry bar c
 | 8 | [1.28, 1.82] | 15,526 | 0.460 | -$10,049 | 26.5% |
 | **9** | **[1.82, 63.0]** | **15,526** | **0.597** | **-$10,395** | **27.4%** |
 
-**Long side** — same clean monotone:
+**Downtrend-breakup longs** — same clean monotone:
 
 | Decile | Range | Trips | PF | Net P&L | Win rate |
 |---:|---|---:|---:|---:|---:|
@@ -159,7 +176,7 @@ Both sides prefer high recent vol. Symmetric, monotone, no surprises.
 
 Not requested, but checked for sanity. Hold duration dominates everything:
 
-**Short side**:
+**Uptrend-breakdown shorts**:
 
 | Quintile | Held range | Trips | PF | Net P&L | Win rate |
 |---:|---|---:|---:|---:|---:|
@@ -169,7 +186,7 @@ Not requested, but checked for sanity. Hold duration dominates everything:
 | Q3 | [11, 17] | 27,901 | **1.259** | +$4,907 | **44.8%** |
 | Q4 | [18, 2769] | 28,948 | **1.787** | +$15,662 | **45.3%** |
 
-**Long side**:
+**Downtrend-breakup longs**:
 
 | Quintile | Held range | Trips | PF | Net P&L | Win rate |
 |---:|---|---:|---:|---:|---:|
@@ -183,20 +200,17 @@ Not requested, but checked for sanity. Hold duration dominates everything:
 
 The 3-bar Donchian cover is too tight. The cover Donchian needs to be wider than the entry Donchian, or there needs to be a min-hold-bars floor before the cover can fire.
 
-## Reverse interpretation — momentum continuation, not fade
+## Read of v0
 
-The decile breakdowns sketch a coherent picture that is the *opposite* of what was hypothesised:
+Both fade configurations lose at the headline (uptrend-breakdown shorts PF 0.43; downtrend-breakup longs PF 0.46). But the deciles show the structure of *where* the edge actually sits:
 
-- `pct_1h_change` short PF rises monotonically with the value at entry. The strongest short trades happen when price is most up-stretched at the 1h horizon.
-- `pct_1h_change` long PF falls monotonically. The strongest long trades happen when price is most down-stretched at the 1h horizon.
-- Same shape on `pct_72h_change`, slightly noisier.
-- Both sides prefer high recent vol.
+- `pct_1h_change` for uptrend-breakdown shorts: PF rises monotonically with the value. The least-bad shorts are placed when price is most up-stretched at the 1h horizon.
+- `pct_1h_change` for downtrend-breakup longs: mirror image — PF falls monotonically; the least-bad longs are placed when price is most down-stretched.
+- Both reactions favour high recent vol (`vol_ratio_1h_over_72h` D9).
 
-Read literally, the system does not benefit from fading the trend; it benefits from being *aligned with* the trend. The Donchian-break entry trigger fires in two regimes:
-1. **Exhaustion-breaks** (the original thesis): a long trend ends and the first opposite-side wick is the local pivot. Fade.
-2. **Continuation-breaks**: a long uptrend pulls back briefly, prints a low that pierces the rolling 3-bar low, and the trend resumes. Fade is wrong here; momentum is right.
+The clean monotone in opposite directions per side, and the bars_held quintile pattern (Q4 PF 1.8-2.0 — long-held trades win), suggest the v0 cover (opposite-channel re-violation on a 3-bar Donchian) is the structural problem. The breaking bar's own wick is wide enough that the next bar often re-violates the just-set trailing stop. Q0 (held 2-4 bars) PF is 0.01 with 3% win rate.
 
-The PF distribution suggests the continuation regime dominates — entries at deep `pct_1h_change` are *with* the underlying trend, not against it, and they're the ones that work. Inverting the engine (short on downtrend break-up, long on uptrend break-down) is the natural test.
+Two natural follow-ups: (1) flip the trade direction so each break is faded by its *own* break rather than the prior trend, and (2) replace the opposite-channel cover with a take-profit target. v1 does both.
 
 ## Open questions
 
@@ -208,10 +222,17 @@ The PF distribution suggests the continuation regime dominates — entries at de
 
 ## Setup
 
-Same entry detection as v0 (3-bar Donchian, 30-bar trend qualifier, break trigger). Two flags added:
+Same entry detection as v0 (3-bar Donchian, 30-bar trend qualifier, break trigger). Two flags differ:
 
-- `--reverse-direction true`: uptrend break-down opens **LONG** (was Short), downtrend break-up opens **SHORT** (was Long). Tests the continuation-pullback hypothesis the v0 deciles pointed at.
-- `--cover-mode entry-channel-target`: cover at the prior 3-bar Donchian extreme on the with-trend side. **Trailing**, not fixed: as the trade moves adverse, the target ratchets toward entry (long target = current `donHighMa.State` if it's lower than the last cached target; short target = `donLowMa.State` if higher). No stops.
+- `--reverse-direction true`: uptrend-breakdown opens **LONG** (was Short), downtrend-breakup opens **SHORT** (was Long). The trade fades the *break* itself rather than the prior trend — it bets the just-broken move is a fakeout and price snaps back into the channel.
+- `--cover-mode entry-channel-target`: cover at the prior 3-bar Donchian extreme on the *with-trade* side, snapshot at entry as the take-profit target. **Trailing**, not fixed: as the trade moves adverse, the target ratchets toward entry (long target = current `donHighMa.State` if it's lower than the last cached target; short target = `donLowMa.State` if higher). No stops.
+
+Trade-direction summary:
+
+| Trigger | v0 side | v1 side | What v1 fades |
+|---|---|---|---|
+| Uptrend-breakdown | Short | **Long** | the breakdown (price snaps back up into the channel) |
+| Downtrend-breakup | Long | **Short** | the breakup (price snaps back down into the channel) |
 
 Why trailing-target rather than fixed-target: a fixed take-profit with no stop is a backtest illusion. Trades that don't hit the target sit open as unrealized drawdown, invisible to the trip-level metrics. End-of-stream Flush eventually marks them at the symbol's last price, which often happens to be near entry — making the fixed-target version look like PF 17 when in reality it was hiding the losers off the books. The trailing target forces the engine to realize losses honestly: when price drifts against the position, the target collapses to current price and the trade closes near entry minus fees.
 
@@ -230,20 +251,20 @@ This is the *honest* version of the system. It's the one that survives contact w
 | Mean fees per trade | — | $0.43 |
 | Total fees | — | $137,635 |
 
-| Side | Trips | PF | Net P&L | Win rate |
-|---|---:|---:|---:|---:|
-| Long | 159,125 | 0.601 | -$44,148 | 39.7% |
-| Short | 164,812 | 0.567 | -$51,884 | 40.1% |
+| Trigger | Side | Trips | PF | Net P&L | Win rate |
+|---|---|---:|---:|---:|---:|
+| Uptrend-breakdown | Long | 159,125 | 0.601 | -$44,148 | 39.7% |
+| Downtrend-breakup | Short | 164,812 | 0.567 | -$51,884 | 40.1% |
 
 The aggregate still loses to fees on average. Trades resolve fast (median 4 bars) and most close for tiny losses as the trailing target pursues adverse drift. **But the headline aggregate is misleading** — the deciles tell a different story.
 
 ## Decile breakdowns — top deciles cross PF 1.0
 
-The honest finding: the entries that come during sharp counter-direction wicks (extreme `pct_1h_change` on the side opposite to the trade) are profitable on a fees-paid basis.
+The honest finding: the entries placed at the deepest `pct_1h_change` extremes on the side that fades the break are profitable on a fees-paid basis.
 
 ### `pct_1h_change` deciles
 
-**Short side** — D9 (positive 1h change, i.e. shorting *into* an immediate-prior 1h rise) is the only profitable cell:
+**Downtrend-breakup shorts** (`side=short`) — only D9 profits. These shorts are taken right when bar.High pierces the upper channel after a 30-bar downtrend; deeper-positive `pct_1h_change` means that bar's close was further above the 1h MA — i.e. a sharper upward wick within the underlying downtrend, which is exactly when the short fade pays off:
 
 | Decile | Range | Trips | PF | Net P&L | Win rate | Bars held |
 |---:|---|---:|---:|---:|---:|---:|
@@ -258,7 +279,7 @@ The honest finding: the entries that come during sharp counter-direction wicks (
 | 8 | [-0.00%, +0.19%] | 16,481 | 0.612 | -$3,340 | 34.3% | 4.2 |
 | **9** | **[+0.19%, +995230%]** | **16,482** | **2.328** | **+$6,992** | **52.1%** | 3.9 |
 
-**Long side** — mirror image, D0 (negative 1h change, i.e. longing *into* a 1h decline) is the profitable cell:
+**Uptrend-breakdown longs** (`side=long`) — mirror image, only D0 profits. These longs are taken when bar.Low pierces the lower channel after a 30-bar uptrend; deeper-negative `pct_1h_change` means that bar closed further below the 1h MA — a sharper downward wick within the underlying uptrend, where the long fade pays:
 
 | Decile | Range | Trips | PF | Net P&L | Win rate | Bars held |
 |---:|---|---:|---:|---:|---:|---:|
@@ -273,11 +294,11 @@ The honest finding: the entries that come during sharp counter-direction wicks (
 | 8 | [+1.03%, +1.55%] | 15,912 | 0.531 | -$6,553 | 45.1% | 5.7 |
 | 9 | [+1.55%, +646%] | 15,913 | 0.847 | -$3,170 | 54.7% | 5.8 |
 
-**Both top deciles cross PF 2.3+, with 51-52% win rate, and resolve in <4 bars**. ~16k trades each, $7k net per decile. This is the only honest profitability we've found in the system. The shape is symmetric and physically interpretable: when the system enters a trade and the immediate-prior 1h has moved sharply *against* the new position, the trade is being placed at a real counter-move/wick — not a continuation pullback. The decile boundaries are tiny (0.2%) but the PF separation is dramatic.
+**Both extreme deciles cross PF 2.3+, with 51-52% win rate, and resolve in <4 bars**. ~16k trades each, $7k net per decile. The shape is symmetric and physically interpretable: the deeper the wick that pierced the channel (in the direction *opposite* to the trade), the better the snapback works. Tiny decile boundaries (0.2%), dramatic PF separation.
 
 ### `pct_72h_change` deciles
 
-**Short side**: weakest in mid-buckets (D6 PF 0.39); strongest at the extremes but still all PF < 0.7. No profitable decile.
+**Downtrend-breakup shorts**: weakest in mid-buckets (D6 PF 0.39); strongest at the extremes but still all PF < 0.7. No profitable decile.
 
 | Decile | Range | Trips | PF | Net P&L | Win rate |
 |---:|---|---:|---:|---:|---:|
@@ -292,7 +313,7 @@ The honest finding: the entries that come during sharp counter-direction wicks (
 | 8 | [+1.70%, +3.49%] | 16,481 | 0.615 | -$3,852 | 40.9% |
 | 9 | [+3.49%, +154%] | 16,482 | 0.681 | -$3,884 | 43.5% |
 
-**Long side**: similar shape, D0 strongest at PF 0.79.
+**Uptrend-breakdown longs**: similar shape, D0 strongest at PF 0.79.
 
 | Decile | Range | Trips | PF | Net P&L | Win rate |
 |---:|---|---:|---:|---:|---:|
@@ -303,9 +324,9 @@ The 72h horizon doesn't isolate the edge — only the 1h does. The 1h captures t
 
 ### `vol_ratio_1h_over_72h` deciles
 
-Clean monotone but never crosses PF 1.0. D9 (highest recent vol vs baseline) is the strongest cell on both sides — short PF 0.63, long PF 0.79 — but still loses.
+Clean monotone but never crosses PF 1.0. D9 (highest recent vol vs baseline) is the strongest cell on both triggers — downtrend-breakup short PF 0.63, uptrend-breakdown long PF 0.79 — but still loses.
 
-| Decile | Range | Short PF | Short net | Long PF | Long net |
+| Decile | Range | Dn-breakup short PF | Net | Up-breakdown long PF | Net |
 |---:|---|---:|---:|---:|---:|
 | 0 | [0.02, 0.31] | 0.560 | -$4,071 | 0.609 | -$3,249 |
 | 5 | [~0.71, ~0.85] | 0.553 | -$4,828 | 0.546 | -$4,664 |
@@ -315,16 +336,16 @@ Clean monotone but never crosses PF 1.0. D9 (highest recent vol vs baseline) is 
 
 The fast-resolving trades are where the edge sits:
 
-| Side | Q | Held range | Trips | PF | Net P&L | Win rate |
-|---:|---:|---|---:|---:|---:|---:|
-| short | **Q0** | **[2, 4]** | **89,021** | **2.105** | **+$27,010** | 54.2% |
-| short | Q1 | [5, 5] | 31,867 | 0.801 | -$2,773 | 37.4% |
-| short | Q2 | [6, 6] | 12,028 | 0.268 | -$6,996 | 23.8% |
-| short | Q3 | [7, 39] | 31,896 | 0.039 | -$69,125 | 9.8% |
-| long | **Q0** | **[2, 4]** | **86,185** | **2.041** | **+$25,413** | 53.2% |
-| long | Q1 | [5, 5] | 30,832 | 0.814 | -$2,567 | 36.5% |
-| long | Q2 | [6, 6] | 11,725 | 0.301 | -$6,240 | 25.4% |
-| long | Q3 | [7, 52] | 30,383 | 0.044 | -$60,755 | 10.2% |
+| Trigger | Side | Q | Held range | Trips | PF | Net P&L | Win rate |
+|---|---|---:|---|---:|---:|---:|---:|
+| Downtrend-breakup | Short | **Q0** | **[2, 4]** | **89,021** | **2.105** | **+$27,010** | 54.2% |
+| Downtrend-breakup | Short | Q1 | [5, 5] | 31,867 | 0.801 | -$2,773 | 37.4% |
+| Downtrend-breakup | Short | Q2 | [6, 6] | 12,028 | 0.268 | -$6,996 | 23.8% |
+| Downtrend-breakup | Short | Q3 | [7, 39] | 31,896 | 0.039 | -$69,125 | 9.8% |
+| Uptrend-breakdown | Long | **Q0** | **[2, 4]** | **86,185** | **2.041** | **+$25,413** | 53.2% |
+| Uptrend-breakdown | Long | Q1 | [5, 5] | 30,832 | 0.814 | -$2,567 | 36.5% |
+| Uptrend-breakdown | Long | Q2 | [6, 6] | 11,725 | 0.301 | -$6,240 | 25.4% |
+| Uptrend-breakdown | Long | Q3 | [7, 52] | 30,383 | 0.044 | -$60,755 | 10.2% |
 
 **The bottom 50% of trades by hold duration is profitable.** Q0 (held 2-4 bars) on both sides crosses PF 2.0 with 53-54% win rate and ~$25k net per side — the trade hit the with-trend extreme target on the second or third bar after entry. Q3 (held 7+ bars) is catastrophic at PF 0.04 — the trailing target has ratcheted way down by then and the trade is closing for nearly a full notional loss. These two regimes are doing different things: Q0 is the genuine continuation-snapback trade firing as designed; Q3 is the trailing target slowly bleeding out as price drifts further and further from the original take-profit level.
 
@@ -343,7 +364,7 @@ Whether this is enough to build a tradable system is a separate question. The PF
 
 The v0 fade-mode breakdowns showed monotone improvement of PF as `pct_1h_change` moved toward the extremes (D9 for shorts, D0 for longs). Both top deciles still lost (short D9 PF 0.65, long D0 PF 0.80), but the trajectory suggested the *very* top of the distribution might cross PF 1.0. Slicing those top deciles into 10 sub-deciles each:
 
-## Short side: D9 of pct_1h_change (price most stretched up at 1h horizon)
+## v0 uptrend-breakdown shorts: D9 of pct_1h_change (price most stretched up at 1h horizon)
 
 D9 spans [+1.57%, +84.1%]. n = 15,526 trips. Sub-deciles:
 
@@ -360,9 +381,9 @@ D9 spans [+1.57%, +84.1%]. n = 15,526 trips. Sub-deciles:
 | D9.8 | [+3.32%, +4.46%] | 1,552 | 0.549 | -$1,474 | 30.9% | 6.2 |
 | **D9.9** | **[+4.46%, +84.1%]** | **1,553** | **0.929** | **-$360** | **34.4%** | 6.7 |
 
-Short side has nothing tradable. D9.9 is the strongest sub-decile but still PF 0.93 — converges toward break-even but doesn't cross it. The PF curve is flat-to-noisy across the rest of D9.
+Uptrend-breakdown shorts have nothing tradable here. D9.9 is the strongest sub-decile but still PF 0.93 — converges toward break-even but doesn't cross it. The PF curve is flat-to-noisy across the rest of D9.
 
-## Long side: D0 of pct_1h_change (price most stretched down at 1h horizon)
+## v0 downtrend-breakup longs: D0 of pct_1h_change (price most stretched down at 1h horizon)
 
 D0 spans [-99.8%, -1.50%]. n = 16,116 trips. Sub-deciles:
 
@@ -379,11 +400,11 @@ D0 spans [-99.8%, -1.50%]. n = 16,116 trips. Sub-deciles:
 | D0.8 | [-1.67%, -1.58%] | 1,611 | 0.572 | -$905 | 30.4% | 7.6 |
 | D0.9 | [-1.58%, -1.50%] | 1,612 | 0.625 | -$709 | 32.7% | 7.6 |
 
-**The only profitable cell in the entire v0 fade trip set is sub-decile D0.0** — the deepest 1% of long entries (where price is ≥ 3.86% below the 1h MA). PF 1.54, +$2,178 over 1,612 trades, 40.6% win rate. D0.1 (next 1%) sits at PF 0.98, essentially break-even. Everything else is structurally underwater.
+**The only profitable cell in the entire v0 trip set is sub-decile D0.0** — the deepest 1% of downtrend-breakup long entries (where price is ≥ 3.86% below the 1h MA when the breakup bar fires). PF 1.54, +$2,178 over 1,612 trades, 40.6% win rate. D0.1 (next 1%) sits at PF 0.98, essentially break-even. Everything else is structurally underwater.
 
-The asymmetry is consistent with the broader workstream finding: long mean-reversion has been the more reliable book on this universe (LongFadeMA PF 3.50 vs ShortFadeMA PF 1.98 with dual-CVD overlay). Capitulation declines mean-revert; blow-off rallies don't, or at least don't with this entry trigger.
+The asymmetry is consistent with the broader workstream finding: long mean-reversion has been the more reliable book on this universe (LongFadeMA PF 3.50 vs ShortFadeMA PF 1.98 with dual-CVD overlay). The downtrend-breakup-long trigger fires at exactly the right moment for mean-reversion: a sustained 30-bar downtrend just put in a fresh 3-bar high, the close is 4-10% below the 1h MA, and the system is buying the snapback.
 
-## Sub-sub-deciles — going deeper into the long side D0.0
+## Sub-sub-deciles — v0 downtrend-breakup long D0.0
 
 D0.0 itself is PF 1.54 over 1,612 trades. Slicing it into 10 sub-sub-deciles:
 
@@ -400,13 +421,13 @@ D0.0 itself is PF 1.54 over 1,612 trades. Slicing it into 10 sub-sub-deciles:
 | D0.0.8 | [-4.21%, -4.02%] | 161 | 1.299 | +$74 | 44.7% | 8.8 |
 | D0.0.9 | [-4.02%, -3.86%] | 162 | 0.919 | -$27 | 45.1% | 7.5 |
 
-**The edge concentrates in the deepest two cells: D0.0.0 and D0.0.1, both PF >3.0 with 52-53% win rate.** Combined: 323 trips, PF ~3.30, +$2,650, 53% win rate — and these are the deepest 0.2% of long entries (`pct_1h_change ≤ -8.01%`, i.e. price more than 8% below the 1h MA at entry).
+**The edge concentrates in the deepest two cells: D0.0.0 and D0.0.1, both PF >3.0 with 52-53% win rate.** Combined: 323 trips, PF ~3.30, +$2,650, 53% win rate — and these are the deepest 0.2% of downtrend-breakup long entries (`pct_1h_change ≤ -8.01%`, i.e. price more than 8% below the 1h MA when the breakup bar fires).
 
 D0.0.2 (-8% to -6.65%) is barely positive (PF 1.20). Cells D0.0.3 through D0.0.9 are mostly underwater (PF 0.5-0.9), though D0.0.8 oddly pops back to PF 1.30. That's not enough to call a regime — looks like noise inside an otherwise losing band.
 
 The shape is **bimodal-ish but dominated by a single deep regime**: extreme capitulation declines (≥ 8% below the 1h MA at entry) mean-revert reliably; less extreme declines bleed.
 
-## Sub-sub-deciles — short side D9.9 for completeness
+## Sub-sub-deciles — v0 uptrend-breakdown short D9.9
 
 D9.9 itself was PF 0.93 (already barely-not-profitable). Slicing it the same way:
 
@@ -423,7 +444,7 @@ D9.9 itself was PF 0.93 (already barely-not-profitable). Slicing it the same way
 | **D9.9.8** | **[+9.11%, +12.42%]** | **155** | **1.290** | **+$180** | **36.8%** | 6.7 |
 | **D9.9.9** | **[+12.43%, +84.1%]** | **156** | **1.201** | **+$181** | **42.3%** | 6.8 |
 
-**The short side does have an edge in the deepest cells, but it's much smaller than the long side.** D9.9.8 + D9.9.9 combined: 311 trades, PF ~1.24, +$361, 39.5% win rate. That's the deepest 0.2% of short entries (`pct_1h_change ≥ +9.11%`).
+**Uptrend-breakdown shorts do have an edge in the deepest cells, but it's much smaller than the downtrend-breakup longs.** D9.9.8 + D9.9.9 combined: 311 trades, PF ~1.24, +$361, 39.5% win rate. That's the deepest 0.2% of short entries (`pct_1h_change ≥ +9.11%`, i.e. price more than 9% above the 1h MA when the breakdown bar fires).
 
 D9.9.5 is a one-cell standout (PF 1.12, +$48) bracketed by losing cells D9.9.4 and D9.9.6 — looks like noise within an otherwise losing band, not a separate regime.
 
@@ -431,11 +452,76 @@ D9.9.5 is a one-cell standout (PF 1.12, +$48) bracketed by losing cells D9.9.4 a
 
 The deepest 0.2% on each side:
 
-| Side | Threshold (`pct_1h_change`) | Trips | PF | Net P&L | Win rate | Per-trade |
-|---|---|---:|---:|---:|---:|---:|
-| **Long** | **≤ -8.01%** | **323** | **3.30** | **+$2,650** | **53.0%** | **+$8.20** |
-| Short | ≥ +9.11% | 311 | 1.24 | +$361 | 39.5% | +$1.16 |
+| Trigger | Side | Threshold (`pct_1h_change`) | Trips | PF | Net P&L | Win rate | Per-trade |
+|---|---|---|---:|---:|---:|---:|---:|
+| **Downtrend-breakup** | **Long** | **≤ -8.01%** | **323** | **3.30** | **+$2,650** | **53.0%** | **+$8.20** |
+| Uptrend-breakdown | Short | ≥ +9.11% | 311 | 1.24 | +$361 | 39.5% | +$1.16 |
 
-Both extreme tails are profitable post-fees. The asymmetry is enormous: per-trade, the long side delivers ~7× the edge of the short side. This re-confirms the workstream's broader pattern — capitulation declines reliably mean-revert; blow-off rallies are much weaker as a fade signal.
+Both extreme tails are profitable post-fees. The asymmetry is enormous: per-trade, downtrend-breakup longs deliver ~7× the edge of uptrend-breakdown shorts. This re-confirms the workstream's broader pattern — long mean-reversion is the more reliable book on this universe. Capitulation breakups reliably mean-revert when they're already deep below the 1h MA; blow-off breakdowns from extreme above-MA stretches mean-revert weakly.
 
-The long side D0.0.0+D0.0.1 (PF 3.30, 53% win rate, 8% below the 1h MA) is the strongest pre-trade-gateable signal we've found in the Donchian engine on either side, in either direction (fade or continuation). It's a small slice — 323 trades over 2 years across 643 symbols, ~0.5 trades/day across the whole universe — but per-trade economics of $8.20 on $1k notional with $0.80 fees is a clean 0.8% net per round-trip.
+The downtrend-breakup long D0.0.0+D0.0.1 (PF 3.30, 53% win rate, 8%+ below the 1h MA) is the strongest pre-trade-gateable signal we've found in the Donchian engine on either trigger, in either v0 or v1. It's a small slice — 323 trades over 2 years across 643 symbols, ~0.5 trades/day across the whole universe — but per-trade economics of $8.20 on $1k notional with $0.80 fees is a clean 0.8% net per round-trip.
+
+# Sub-decile breakdown of v1 (reverse + trailing-target) top deciles
+
+The v1 deciles showed a much cleaner monotone in `pct_1h_change` than v0 did, with both extreme deciles cleanly profitable:
+
+- **Uptrend-breakdown longs** (`side=long`, fading the breakdown): D0 PF 2.46 / +$7,119 / 51.5% win
+- **Downtrend-breakup shorts** (`side=short`, fading the breakup): D9 PF 2.33 / +$6,992 / 52.1% win
+
+Reminder of the trigger ↔ side mapping in v1: an uptrend-breakdown opens LONG (we fade the breakdown back up into the channel); a downtrend-breakup opens SHORT (we fade the breakup back down into the channel). The `pct_1h_change` at entry measures how stretched the closing price was relative to the 1h MA at the moment the break fired:
+
+- For uptrend-breakdown longs, deeper-negative `pct_1h_change` = the breaking-down bar's close was further below the 1h MA = a sharper downward wick within an underlying uptrend = where the snapback-up plays out best.
+- For downtrend-breakup shorts, deeper-positive `pct_1h_change` = the breaking-up bar's close was further above the 1h MA = a sharper upward wick within an underlying downtrend = where the snapback-down plays out best.
+
+Slicing each extreme decile into 10 sub-deciles:
+
+## v1 uptrend-breakdown longs: D0 of pct_1h_change
+
+D0 spans [-99.99%, -0.20%]. Aggregate PF 2.46. Sub-deciles:
+
+| Sub | Range (`pct_1h_change`) | Trips | PF | Net P&L | Win rate | Bars |
+|---:|---|---:|---:|---:|---:|---:|
+| D0.0 | [-99.99%, -0.98%] | 1,592 | 4.096 | +$1,493 | 57.0% | 4.1 |
+| **D0.1** | **[-0.98%, -0.74%]** | **1,591** | **5.868** | **+$1,283** | **56.5%** | 3.9 |
+| D0.2 | [-0.74%, -0.60%] | 1,591 | 3.691 | +$973 | 53.0% | 3.9 |
+| D0.3 | [-0.60%, -0.50%] | 1,591 | 2.826 | +$821 | 53.0% | 3.8 |
+| D0.4 | [-0.50%, -0.42%] | 1,592 | 2.405 | +$688 | 52.5% | 3.8 |
+| D0.5 | [-0.42%, -0.36%] | 1,591 | 2.153 | +$568 | 50.5% | 3.8 |
+| D0.6 | [-0.36%, -0.32%] | 1,591 | 1.824 | +$456 | 48.8% | 3.8 |
+| D0.7 | [-0.32%, -0.27%] | 1,591 | 1.614 | +$354 | 49.6% | 3.9 |
+| D0.8 | [-0.27%, -0.23%] | 1,591 | 1.489 | +$281 | 48.1% | 3.9 |
+| D0.9 | [-0.23%, -0.20%] | 1,592 | 1.326 | +$202 | 45.5% | 3.9 |
+
+**Every sub-decile is profitable.** Peak is D0.1 at PF 5.87, in the band [-0.98%, -0.74%]. D0.0 (the deepest 10% of D0 — including the absurd >-10% outliers) sits at PF 4.10 — strong, but the band just above it is stronger. After D0.1 there's a clean monotone decay from PF 5.87 → 1.33 as the entry wick gets shallower.
+
+## v1 downtrend-breakup shorts: D9 of pct_1h_change
+
+D9 spans [+0.19%, +9952%]. Aggregate PF 2.33. Sub-deciles:
+
+| Sub | Range (`pct_1h_change`) | Trips | PF | Net P&L | Win rate | Bars |
+|---:|---|---:|---:|---:|---:|---:|
+| D9.0 | [+0.19%, +0.22%] | 1,649 | 1.418 | +$259 | 48.8% | 3.9 |
+| D9.1 | [+0.22%, +0.26%] | 1,648 | 1.396 | +$247 | 47.3% | 3.9 |
+| D9.2 | [+0.26%, +0.30%] | 1,648 | 1.361 | +$245 | 46.2% | 3.9 |
+| D9.3 | [+0.30%, +0.35%] | 1,648 | 1.783 | +$442 | 49.6% | 3.9 |
+| D9.4 | [+0.35%, +0.41%] | 1,648 | 2.009 | +$542 | 50.0% | 3.9 |
+| D9.5 | [+0.41%, +0.48%] | 1,648 | 2.456 | +$707 | 52.9% | 3.9 |
+| D9.6 | [+0.48%, +0.57%] | 1,648 | 2.720 | +$832 | 53.8% | 3.8 |
+| D9.7 | [+0.57%, +0.70%] | 1,648 | 3.312 | +$983 | 55.3% | 3.9 |
+| **D9.8** | **[+0.70%, +0.93%]** | **1,648** | **5.541** | **+$1,349** | **59.6%** | 3.9 |
+| D9.9 | [+0.93%, +9952%] | 1,649 | 3.517 | +$1,386 | 57.6% | 4.2 |
+
+**Every sub-decile is profitable here too.** Peak is D9.8 at PF 5.54 in the band [+0.70%, +0.93%]. D9.9 (the deepest 10%, including extreme outliers up to +995230% — almost certainly post-redenom dust trades that the `--max-bar-price-ratio 3` filter didn't catch) drops back to PF 3.52. Monotone increase from PF 1.42 (D9.0) up to D9.8, then a slight pullback at the very tail.
+
+## Combined v1 picture
+
+| Trigger | Side | Best sub-decile | Range (`pct_1h_change`) | Trips | PF | Net P&L | Win rate |
+|---|---|---|---|---:|---:|---:|---:|
+| **Uptrend-breakdown** | **Long** | **D0.1** | **[-0.98%, -0.74%]** | **1,591** | **5.87** | **+$1,283** | **56.5%** |
+| Uptrend-breakdown | Long | D0.0 | [-99.99%, -0.98%] | 1,592 | 4.10 | +$1,493 | 57.0% |
+| **Downtrend-breakup** | **Short** | **D9.8** | **[+0.70%, +0.93%]** | **1,648** | **5.54** | **+$1,349** | **59.6%** |
+| Downtrend-breakup | Short | D9.9 | [+0.93%, +9952%] | 1,649 | 3.52 | +$1,386 | 57.6% |
+
+**The v1 system has signal across the entire extreme decile on both triggers** — every sub-decile is profitable, with peaks in the second-deepest band rather than the deepest. Per-trade economics: D0.1 uptrend-breakdown long delivers ~$0.81/trade and D9.8 downtrend-breakup short ~$0.82/trade — only ~1× fees, so per-trade net is around 0.4% on $1k notional after the $0.43-0.80 round-trip cost.
+
+The story is qualitatively different from v0: v0 isolated edge in the deepest 0.2% on one trigger only (downtrend-breakup long D0.0.0+1); v1 has profitable signal across the top 10% on both triggers. Smaller per-trade economics in v1 (~$0.81 vs $8.20 in v0's flagship cell), but **ten times as many trades** in the profitable cells. Total profitable-cell P&L: v1 uptrend-breakdown longs D0 alone deliver +$7,119 across 15,913 trades, vs +$2,650 across 323 trades for v0's flagship cell. Higher gross P&L, smaller per-trade margin — a different operating regime, but a real one.
