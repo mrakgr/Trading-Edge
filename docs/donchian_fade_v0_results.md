@@ -525,3 +525,178 @@ D9 spans [+0.19%, +9952%]. Aggregate PF 2.33. Sub-deciles:
 **The v1 system has signal across the entire extreme decile on both triggers** — every sub-decile is profitable, with peaks in the second-deepest band rather than the deepest. Per-trade economics: D0.1 uptrend-breakdown long delivers ~$0.81/trade and D9.8 downtrend-breakup short ~$0.82/trade — only ~1× fees, so per-trade net is around 0.4% on $1k notional after the $0.43-0.80 round-trip cost.
 
 The story is qualitatively different from v0: v0 isolated edge in the deepest 0.2% on one trigger only (downtrend-breakup long D0.0.0+1); v1 has profitable signal across the top 10% on both triggers. Smaller per-trade economics in v1 (~$0.81 vs $8.20 in v0's flagship cell), but **ten times as many trades** in the profitable cells. Total profitable-cell P&L: v1 uptrend-breakdown longs D0 alone deliver +$7,119 across 15,913 trades, vs +$2,650 across 323 trades for v0's flagship cell. Higher gross P&L, smaller per-trade margin — a different operating regime, but a real one.
+
+# v2 — pure trend-following (TrendOnly entry, OppositeChannel cover)
+
+## Setup
+
+Same Donchian channel, same 30-bar trend qualifier, same OppositeChannel ratcheted-Donchian trailing stop as v0. The only change is the entry trigger:
+
+- `--entry-mode trend-only`: fire on the first bar where the 30-bar qualifier is satisfied (no break required). With-trend direction: a 30-bar uptrend qualifier opens **LONG**, a 30-bar downtrend qualifier opens **SHORT**. Re-arms after each violation that resets the corresponding counter.
+- `--cover-mode opposite-channel`: same trailing stop as v0 (long stop = `donLowMa.State` ratcheted up, short stop = `donHighMa.State` ratcheted down). No fixed take-profit.
+- `--reverse-direction false`: ignored in TrendOnly mode (which always goes with-trend).
+
+Trade-direction summary:
+
+| Trigger | Side | Thesis |
+|---|---|---|
+| Uptrend-qualifier (no down-violation for ≥30 bars) | Long | Ride the established uptrend |
+| Downtrend-qualifier (no up-violation for ≥30 bars) | Short | Ride the established downtrend |
+
+## Aggregate
+
+| Metric | v0 fade | v1 reverse-target | v2 trend-only |
+|---|---:|---:|---:|
+| Total trips | 316,413 | 323,937 | **269,360** |
+| Net P&L | -$193,728 | -$96,032 | **-$158,145** |
+| Aggregate PF | 0.446 | 0.584 | **0.443** |
+| Win rate | 24.9% | 39.9% | **22.2%** |
+| Median bars held | — | 4 | **7** |
+| Mean bars held | 14.0 | 4.9 | **13.4** |
+
+| Trigger | Side | Trips | PF | Net P&L | Win rate | Mean bars |
+|---|---|---:|---:|---:|---:|---:|
+| Uptrend-qualifier | Long | 131,777 | 0.449 | -$76,477 | 22.2% | 13.4 |
+| Downtrend-qualifier | Short | 137,582 | 0.438 | -$81,668 | 22.2% | 13.5 |
+
+**v2 trend-only has the same headline as v0 fade** (PF 0.44 vs 0.45) despite opposite entry theses. Both rely on the OppositeChannel ratcheted-Donchian trailing stop, and both bleed at the same rate. The Q0 disaster reproduces:
+
+| Side | Q | Held range | Trips | PF | Net | Win |
+|---|---|---|---:|---:|---:|---:|
+| Long | **Q0** | **[2, 3]** | 33,010 | **0.018** | -$45,185 | **4.16%** |
+| Long | Q1 | [4, 5] | 23,799 | 0.019 | -$34,058 | 4.18% |
+| Long | Q2 | [6, 8] | 22,962 | 0.209 | -$18,514 | 19.7% |
+| Long | Q3 | [9, 15] | 25,789 | **1.120** | +$2,176 | 40.5% |
+| Long | Q4 | [16, 2942] | 26,217 | **2.153** | +$19,104 | 45.5% |
+| Short | **Q0** | **[2, 3]** | 34,318 | **0.015** | -$47,314 | **3.65%** |
+| Short | Q1 | [4, 5] | 24,415 | 0.014 | -$36,123 | 3.87% |
+| Short | Q2 | [6, 8] | 24,041 | 0.212 | -$19,433 | 20.2% |
+| Short | Q3 | [9, 16] | 29,369 | **1.166** | +$3,340 | 41.4% |
+| Short | Q4 | [17, 2769] | 25,439 | **2.126** | +$17,862 | 44.7% |
+
+Q0 (held 2-3 bars, ~25% of trades on each side) bleeds at PF 0.02 with 4% win rate. The breaking bar's own follow-through wick re-violates the just-set trailing stop next bar. Q4 (held 17+ bars) reaches PF 2.1 — the trades that survive the noise window run profitably.
+
+**This confirms the cover is the structural problem, not the entry direction.** v0 fade and v2 trend-only have opposite entry theses but the same headline PF and the same Q0 disaster.
+
+## Decile breakdowns
+
+`pct_1h_change` deciles — flat-U on both sides, no profitable decile:
+
+**Uptrend-qualifier longs**:
+
+| Decile | Range | Trips | PF | Net | Win | Bars |
+|---:|---|---:|---:|---:|---:|---:|
+| 0 | [-99.7%, +0.01%] | 13,178 | 0.643 | -$3,379 | 23.9% | 39.2 |
+| 1 | [+0.01%, +0.18%] | 13,178 | 0.360 | -$7,611 | 19.9% | 16.1 |
+| 2 | [+0.18%, +0.30%] | 13,177 | 0.321 | -$8,532 | 19.7% | 12.8 |
+| 3 | [+0.30%, +0.43%] | 13,178 | 0.313 | -$8,965 | 19.4% | 11.8 |
+| 4 | [+0.43%, +0.56%] | 13,178 | 0.354 | -$8,482 | 20.3% | 11.1 |
+| 5 | [+0.56%, +0.71%] | 13,177 | 0.359 | -$8,465 | 20.6% | 10.3 |
+| 6 | [+0.71%, +0.91%] | 13,178 | 0.394 | -$8,156 | 21.7% | 9.6 |
+| 7 | [+0.91%, +1.20%] | 13,177 | 0.454 | -$7,701 | 23.3% | 8.8 |
+| 8 | [+1.20%, +1.78%] | 13,178 | 0.475 | -$8,151 | 24.5% | 7.6 |
+| 9 | [+1.78%, +696%] | 13,178 | 0.686 | -$7,036 | 28.7% | 6.4 |
+
+**Downtrend-qualifier shorts** (mirror image):
+
+| Decile | Range | Trips | PF | Net | Win | Bars |
+|---:|---|---:|---:|---:|---:|---:|
+| 0 | [-99.9%, -1.70%] | 13,759 | 0.608 | -$9,626 | 27.3% | 6.5 |
+| 1 | [-1.70%, -1.18%] | 13,758 | 0.450 | -$9,076 | 23.8% | 7.9 |
+| 2-7 | mid-buckets | ~13.7k each | 0.35-0.43 | -$8,400 to -$8,900 | 20-23% | 8-13 |
+| 8 | [-0.17%, -0.01%] | 13,758 | 0.383 | -$7,435 | 20.4% | 16.0 |
+| 9 | [-0.01%, +4.10%] | 13,759 | 0.624 | -$3,713 | 24.0% | 39.8 |
+
+Both sides have a flat-U: D0 and D9 outperform mid-buckets but no decile crosses PF 1.0. `pct_72h_change` and `vol_ratio_1h_over_72h` show similar shapes — best at extremes, never profitable.
+
+## Sub-decile breakdown of D0 and D9 per side
+
+The D0/D9 outperformance was strong enough to drill down. Three sub-deciles cross PF 1.0:
+
+### Uptrend-qualifier longs, D0 of pct_1h_change (deepest 1h decline at entry — buying *into* a 1h down-move while the 30-bar trend qualifier still holds up)
+
+D0 spans [-99.7%, +0.0001%]. Aggregate PF 0.64. Sub-deciles:
+
+| Sub | Range (`pct_1h_change`) | Trips | PF | Net P&L | Win rate | Bars |
+|---:|---|---:|---:|---:|---:|---:|
+| **L-D0.0** | **[-99.7%, -0.41%]** | **1,318** | **1.43** | **+$342** | **34.6%** | 39.3 |
+| **L-D0.1** | **[-0.41%, -0.26%]** | **1,318** | **1.08** | **+$65** | **32.2%** | 30.2 |
+| L-D0.2 | [-0.26%, -0.18%] | 1,318 | 0.85 | -$134 | 29.5% | 25.9 |
+| L-D0.3 | [-0.18%, -0.13%] | 1,317 | 0.76 | -$228 | 27.9% | 23.6 |
+| L-D0.4 | [-0.13%, -0.08%] | 1,318 | 0.74 | -$233 | 29.1% | 21.7 |
+| L-D0.5 | [-0.08%, -0.05%] | 1,318 | 0.62 | -$382 | 26.5% | 20.5 |
+| L-D0.6 | [-0.05%, -0.02%] | 1,317 | 0.56 | -$452 | 25.8% | 20.0 |
+| L-D0.7 | [-0.02%, ~0] | 1,318 | 0.38 | -$620 | 17.7% | 43.4 |
+| L-D0.8 | [~0, ~0] | 1,318 | **0.12** | -$883 | **6.0%** | **110.2** |
+| L-D0.9 | [~0, +0.0001%] | 1,318 | 0.18 | -$853 | 9.9% | 57.1 |
+
+L-D0.8/9 are the degenerate near-zero `pct_1h_change` cluster — entries where price sat almost exactly at the 1h MA. PF 0.12-0.18, 6-10% win rate, 57-110 mean bars held. These trades enter into low-volatility consolidation and bleed slowly to the trailing stop.
+
+### Uptrend-qualifier longs, D9 of pct_1h_change (sharpest 1h rise at entry — buying *with* a 1h up-stretch)
+
+D9 spans [+1.78%, +696%]. Aggregate PF 0.69. Sub-deciles:
+
+| Sub | Range (`pct_1h_change`) | Trips | PF | Net P&L | Win rate | Bars |
+|---:|---|---:|---:|---:|---:|---:|
+| L-D9.0 | [+1.78%, +1.88%] | 1,318 | 0.53 | -$794 | 25.0% | 6.8 |
+| L-D9.1 | [+1.88%, +2.00%] | 1,318 | 0.54 | -$846 | 25.6% | 6.3 |
+| L-D9.2 | [+2.00%, +2.14%] | 1,318 | 0.55 | -$792 | 27.2% | 6.5 |
+| L-D9.3 | [+2.14%, +2.30%] | 1,317 | 0.66 | -$598 | 28.6% | 6.7 |
+| L-D9.4 | [+2.30%, +2.51%] | 1,318 | 0.62 | -$708 | 27.7% | 6.5 |
+| L-D9.5 | [+2.51%, +2.78%] | 1,318 | 0.74 | -$502 | 28.8% | 6.5 |
+| L-D9.6 | [+2.78%, +3.17%] | 1,317 | 0.69 | -$604 | 28.0% | 6.2 |
+| L-D9.7 | [+3.17%, +3.76%] | 1,318 | 0.67 | -$747 | 30.3% | 6.3 |
+| L-D9.8 | [+3.76%, +5.02%] | 1,318 | 0.75 | -$645 | 32.4% | 6.2 |
+| L-D9.9 | [+5.02%, +696%] | 1,318 | 0.83 | -$798 | 33.4% | 6.3 |
+
+Mild monotone improvement with deeper stretches — but the entire D9 stays sub-1.0. "Buy when stretched up" doesn't beat fees in any band. Mean held drops to 6 bars (vs 39 in L-D0.0) — these trades resolve quickly through the trailing stop because the breaking-up wick gives plenty of room for the next bar to retrace and trigger the cover.
+
+### Downtrend-qualifier shorts, D0 of pct_1h_change (deepest 1h decline at entry — shorting *with* a 1h down-stretch)
+
+D0 spans [-99.9%, -1.70%]. Aggregate PF 0.61. Mirror of L-D9: monotone PF degradation as you go deeper, every sub-decile loses, mean held ~6-7 bars throughout. No profitable cell.
+
+### Downtrend-qualifier shorts, D9 of pct_1h_change (deepest 1h rise at entry — shorting *into* a 1h up-stretch while the 30-bar downtrend qualifier still holds)
+
+D9 spans [-0.0001%, +4.10%]. Aggregate PF 0.62. Sub-deciles:
+
+| Sub | Range (`pct_1h_change`) | Trips | PF | Net P&L | Win rate | Bars |
+|---:|---|---:|---:|---:|---:|---:|
+| S-D9.0 | [~0, ~0] | 1,376 | 0.22 | -$833 | **10.6%** | 64.5 |
+| S-D9.1 | [~0, ~0] | 1,376 | **0.12** | -$944 | **6.4%** | **115.9** |
+| S-D9.2 | [~0, +0.02%] | 1,376 | 0.37 | -$649 | 17.4% | 37.4 |
+| S-D9.3 | [+0.02%, +0.05%] | 1,376 | 0.50 | -$548 | 26.7% | 19.5 |
+| S-D9.4 | [+0.05%, +0.08%] | 1,376 | 0.62 | -$396 | 28.3% | 19.7 |
+| S-D9.5 | [+0.08%, +0.13%] | 1,375 | 0.64 | -$368 | 28.6% | 22.8 |
+| S-D9.6 | [+0.13%, +0.18%] | 1,376 | 0.78 | -$214 | 29.0% | 23.9 |
+| S-D9.7 | [+0.18%, +0.25%] | 1,376 | 0.76 | -$242 | 29.2% | 25.6 |
+| **S-D9.8** | **[+0.25%, +0.39%]** | **1,376** | **1.11** | **+$88** | **30.2%** | 29.4 |
+| **S-D9.9** | **[+0.39%, +4.10%]** | **1,376** | **1.54** | **+$392** | **33.5%** | 39.6 |
+
+S-D9.0/1 are again the near-zero degenerate cluster (PF 0.12-0.22, 6-11% win rate, 64-116 mean bars held). The actual edge sits in S-D9.8/9 — shorting when the entry bar's close is ≥ +0.25% above the 1h MA *during* a confirmed 30-bar downtrend.
+
+## Combined v2 profitable cells
+
+| Trigger | Side | Sub-decile | Threshold (`pct_1h_change`) | Trips | PF | Net P&L | Win | Bars |
+|---|---|---|---|---:|---:|---:|---:|---:|
+| Uptrend-qualifier | Long | L-D0.0 | ≤ -0.41% | 1,318 | 1.43 | +$342 | 34.6% | 39.3 |
+| Uptrend-qualifier | Long | L-D0.1 | [-0.41%, -0.26%] | 1,318 | 1.08 | +$65 | 32.2% | 30.2 |
+| Downtrend-qualifier | Short | S-D9.8 | [+0.25%, +0.39%] | 1,376 | 1.11 | +$88 | 30.2% | 29.4 |
+| Downtrend-qualifier | Short | S-D9.9 | ≥ +0.39% | 1,376 | 1.54 | +$392 | 33.5% | 39.6 |
+
+Total: 5,388 trades, +$887 net, ~$0.16/trade after $0.42 fees.
+
+**Counter-intuitive shape**: in TrendOnly mode the profitable longs are entered when `pct_1h_change` is *negative* (entry bar closed below the 1h MA, i.e. the immediate 1h has been falling), and the profitable shorts are entered when `pct_1h_change` is *positive* (entry bar above the 1h MA, immediate 1h rising). In other words, even within a confirmed 30-bar trend, the system works best when entered against the *short-term* 1h direction — buying the dip within the uptrend, selling the bounce within the downtrend.
+
+The bars-held jumps from ~6 in the unprofitable D9 cells (longs) / D0 cells (shorts) to ~30-40 in the profitable cells — entering against the 1h drift gives the trailing stop a wide enough cushion that the trade has room to run into the underlying multi-bar trend before getting whipsawed out.
+
+Per-trade economics are tiny (~$0.05-0.28 on $1k notional) — real edge but barely above the fee line. Compared to v1's profitable cells (~$0.81/trade across thousands of trades) v2 is the weakest of the three modes for tradable per-trade margin.
+
+## Read across all three modes
+
+| Mode | Aggregate PF | Profitable cells | Q0 (held ≤4 bars) | Hold pattern of profitable cells |
+|---|---:|---|---:|---|
+| v0 fade (BreakTrigger, OppositeChannel) | 0.45 | Downtrend-breakup long deepest 0.2%: PF 3.30, 323 trips | PF 0.013 | Q4 (≥18 bars) |
+| v1 reverse + trailing target (BreakTrigger, EntryChannelTarget) | 0.58 | Every D0/D9 sub-decile: peak PF 5.87 | (median 4.9, no whipsaw mode) | Whole D0/D9 distribution |
+| v2 trend-only (TrendOnly, OppositeChannel) | 0.44 | L-D0.0/1, S-D9.8/9: peak PF 1.54 | PF 0.018 | ~30-40 bars held |
+
+v0 and v2 share the OppositeChannel cover and share its Q0 disaster (PF 0.01-0.02). v1 swapped the cover for a trailing take-profit and avoided the whipsaw entirely. The cover, not the entry direction, is the load-bearing variable in this engine family.

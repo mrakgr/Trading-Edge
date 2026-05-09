@@ -39,6 +39,17 @@ type CoverMode =
     | OppositeChannel
     | EntryChannelTarget
 
+/// Entry-trigger discriminator.
+///   BreakTrigger          — v0/v1: entry only on the bar that pierces the opposite
+///                           channel after a sustained 30-bar trend run.
+///   TrendOnly             — v2: entry on the first bar where the trend qualifier
+///                           is satisfied (no break required). With-trend direction:
+///                           uptrend → LONG, downtrend → SHORT (independent of
+///                           ReverseDirection). Re-arms after each violation reset.
+type EntryMode =
+    | BreakTrigger
+    | TrendOnly
+
 type DonchianRoundTrip = {
     EntryUs: int64
     ExitUs: int64
@@ -89,7 +100,14 @@ type DonchianFadeConfig = {
     /// When true, the entry sides are flipped: an uptrend break-down opens
     /// LONG (instead of SHORT), and a downtrend break-up opens SHORT.
     /// Used to test the continuation-pullback hypothesis. Default false.
+    /// Ignored when EntryMode = TrendOnly (which always goes with-trend).
     ReverseDirection: bool
+    /// Entry trigger. Default BreakTrigger (v0/v1 — fire only on the bar
+    /// that breaks the opposite channel). TrendOnly fires on the first
+    /// bar where the 30-bar trend qualifier is satisfied (no break
+    /// required), with-trend (uptrend → LONG, downtrend → SHORT). Re-arms
+    /// after each violation that resets the counter.
+    EntryMode: EntryMode
     Notional: float
     TakerFee: float
     BucketUs: int64
@@ -110,6 +128,7 @@ let defaultDonchianFadeConfig () : DonchianFadeConfig =
       AllowShort = true
       CoverMode = OppositeChannel
       ReverseDirection = false
+      EntryMode = BreakTrigger
       Notional = 1000.0
       TakerFee = 0.0004
       BucketUs = 0L
@@ -169,6 +188,13 @@ type Engine(cfg: DonchianFadeConfig) =
     // Donchian state (rolling state before the current bar is pushed).
     let mutable barsSinceUpViolation   = 0
     let mutable barsSinceDownViolation = 0
+    // TrendOnly arming: each side latches "armed" when its corresponding
+    // counter resets to 0 (i.e. a fresh violation just happened) and
+    // un-latches when an entry fires from that side. This guarantees at
+    // most one TrendOnly entry per trend run, mirroring the once-per-break
+    // behaviour of BreakTrigger mode.
+    let mutable armedUptrendLong   = true
+    let mutable armedDowntrendShort = true
 
     // Position state.
     let mutable side = Flat
@@ -437,55 +463,96 @@ type Engine(cfg: DonchianFadeConfig) =
             let pct72hChange =
                 if closeLongMean > 0.0 then bar.Close / closeLongMean - 1.0 else 0.0
 
-            // Two break events this bar can detect:
-            //   uptrendBreakdown   = sustained uptrend + price pierces lower channel
-            //   downtrendBreakup   = sustained downtrend + price pierces upper channel
-            // In v0 (fade) mode, uptrend-breakdown opens SHORT and downtrend-breakup
-            // opens LONG. With ReverseDirection=true, the sides are flipped to test
-            // the continuation-pullback hypothesis.
             let advLong  = cfg.MinLongAdv  <= 0.0 || currentAdv () >= cfg.MinLongAdv
             let advShort = cfg.MinShortAdv <= 0.0 || currentAdv () >= cfg.MinShortAdv
 
-            let uptrendBreakdown =
-                barsSinceDownViolation >= nMinTrend && bar.Low < prevDonLow
-            let downtrendBreakup =
-                barsSinceUpViolation   >= nMinTrend && bar.High > prevDonHigh
-
-            // (side, coverLevel) for each break:
-            //   coverLevel = prevDonHigh when side=Short (level above entry)
-            //   coverLevel = prevDonLow  when side=Long  (level below entry)
-            // In OppositeChannel mode this is the trailing stop; in
-            // EntryChannelTarget mode it's the fixed cover target.
+            // BreakTrigger mode (v0/v1):
+            //   uptrendBreakdown   = sustained uptrend + price pierces lower channel
+            //   downtrendBreakup   = sustained downtrend + price pierces upper channel
+            // In v0 (fade) mode, uptrend-breakdown opens SHORT and downtrend-breakup
+            // opens LONG. With ReverseDirection=true, the sides are flipped to fade
+            // the break itself (uptrend-breakdown → LONG snapback).
+            //
+            // TrendOnly mode (v2): with-trend entry the moment the 30-bar qualifier
+            // is satisfied. Uptrend (no down-violation for >=N bars) → LONG. Downtrend
+            // → SHORT. Each side is armed by a fresh violation reset and un-armed by
+            // an entry, so at most one entry per trend run.
+            //
+            // (side, coverLevel) per fire — coverLevel is the prior 3-bar Donchian
+            // extreme on the opposite side from the trade. For Short trades that's
+            // prevDonHigh (above entry); for Long trades it's prevDonLow (below).
+            // In OppositeChannel cover mode this becomes the ratcheted trailing stop;
+            // in EntryChannelTarget it's the trailing take-profit.
             let pickedSide =
-                if uptrendBreakdown then
-                    let s = if cfg.ReverseDirection then Long else Short
-                    let level = if s = Short then prevDonHigh else prevDonHigh
-                    let allowed = (s = Short && cfg.AllowShort && advShort)
-                                || (s = Long && cfg.AllowLong && advLong)
-                    if allowed then Some (s, level) else None
-                elif downtrendBreakup then
-                    let s = if cfg.ReverseDirection then Short else Long
-                    let level = if s = Short then prevDonLow else prevDonLow
-                    let allowed = (s = Short && cfg.AllowShort && advShort)
-                                || (s = Long && cfg.AllowLong && advLong)
-                    if allowed then Some (s, level) else None
-                else None
+                match cfg.EntryMode with
+                | BreakTrigger ->
+                    let uptrendBreakdown =
+                        barsSinceDownViolation >= nMinTrend && bar.Low < prevDonLow
+                    let downtrendBreakup =
+                        barsSinceUpViolation   >= nMinTrend && bar.High > prevDonHigh
+                    if uptrendBreakdown then
+                        let s = if cfg.ReverseDirection then Long else Short
+                        let level = if s = Short then prevDonHigh else prevDonHigh
+                        let allowed = (s = Short && cfg.AllowShort && advShort)
+                                    || (s = Long && cfg.AllowLong && advLong)
+                        if allowed then Some (s, level) else None
+                    elif downtrendBreakup then
+                        let s = if cfg.ReverseDirection then Short else Long
+                        let level = if s = Short then prevDonLow else prevDonLow
+                        let allowed = (s = Short && cfg.AllowShort && advShort)
+                                    || (s = Long && cfg.AllowLong && advLong)
+                        if allowed then Some (s, level) else None
+                    else None
+                | TrendOnly ->
+                    // Uptrend qualifier (LONG with-trend): no down-violation for
+                    // >=N bars AND this bar didn't itself violate the down-channel.
+                    // The second clause prevents the bar that breaks the channel
+                    // (which would normally fire a BreakTrigger entry) from also
+                    // satisfying the trend qualifier.
+                    let uptrendQual =
+                        armedUptrendLong
+                        && barsSinceDownViolation >= nMinTrend
+                        && not (donLowReady && bar.Low < prevDonLow)
+                    let downtrendQual =
+                        armedDowntrendShort
+                        && barsSinceUpViolation   >= nMinTrend
+                        && not (donHighReady && bar.High > prevDonHigh)
+                    if uptrendQual && cfg.AllowLong && advLong then
+                        Some (Long, prevDonLow)
+                    elif downtrendQual && cfg.AllowShort && advShort then
+                        Some (Short, prevDonHigh)
+                    else None
 
             match pickedSide with
             | Some (s, level) ->
                 openPos s bar.Close bar.EndUs level
                     pct1hChange pct72hChange priceRatio72hOver1h volRatio1hOver72h
+                // Un-arm the side that just fired (TrendOnly only).
+                if cfg.EntryMode = TrendOnly then
+                    if s = Long then armedUptrendLong <- false
+                    else armedDowntrendShort <- false
             | None -> ()
 
         // Update violation counters AFTER the entry check, so the entry
         // logic sees the run-length going INTO this bar. The breaking bar
         // resets the counter to 0 here, but openPos has already stashed
         // the pre-reset value into barsSinceUp/DownViolationAtEntry.
+        //
+        // Each violation also re-arms the matching TrendOnly side so the
+        // engine can fire a fresh entry on the next satisfied qualifier:
+        //   - up-violation (bar.High > prevDonHigh) ends a downtrend run
+        //     and resets the downtrend-short setup → re-arm armedDowntrendShort.
+        //   - down-violation (bar.Low < prevDonLow) ends an uptrend run
+        //     → re-arm armedUptrendLong.
         if donHighReady then
-            if bar.High > prevDonHigh then barsSinceUpViolation <- 0
+            if bar.High > prevDonHigh then
+                barsSinceUpViolation <- 0
+                armedDowntrendShort <- true
             else barsSinceUpViolation <- barsSinceUpViolation + 1
         if donLowReady then
-            if bar.Low < prevDonLow then barsSinceDownViolation <- 0
+            if bar.Low < prevDonLow then
+                barsSinceDownViolation <- 0
+                armedUptrendLong <- true
             else barsSinceDownViolation <- barsSinceDownViolation + 1
 
         // Push bars into all rolling MAs — last, after all entry/exit/

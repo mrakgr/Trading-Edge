@@ -508,6 +508,7 @@ type DonchianFadeSweepArgs =
     | Allow_Long of bool
     | Cover_Mode of string
     | Reverse_Direction of bool
+    | Entry_Mode of string
     | Notional of float
     | Taker_Fee of float
     | Use_Trades
@@ -539,6 +540,7 @@ type DonchianFadeSweepArgs =
             | Allow_Long _ -> "Allow long-fade entries (downtrend run + break-up). Default true."
             | Cover_Mode _ -> "Cover rule. 'opposite-channel' (default, v0 fade) or 'entry-channel-target' (short-term reversion: cover at the prior 3-bar Donchian extreme on the with-trend side; no stops)."
             | Reverse_Direction _ -> "Flip entry sides: uptrend break-down opens LONG (was SHORT) and downtrend break-up opens SHORT (was LONG). Tests the continuation-pullback hypothesis. Default false."
+            | Entry_Mode _ -> "Entry trigger. 'break-trigger' (default, v0/v1 — fire only on the bar that breaks the opposite channel) or 'trend-only' (v2 — fire on the first bar where the 30-bar qualifier is satisfied; with-trend, ignores --reverse-direction)."
             | DonchianFadeSweepArgs.Notional _ -> "Per-trade notional. Default 1000."
             | Taker_Fee _ -> "Per-fill taker fee fraction. Default 0.0004."
             | Use_Trades -> "Force the trade-stream backtest path (currently unsupported)."
@@ -2261,6 +2263,14 @@ let cmdDonchianFadeSweep (args: ParseResults<DonchianFadeSweepArgs>) : int =
             eprintfn "[donchian-fade-sweep] unknown --cover-mode '%s'; using opposite-channel" other
             OrderflowDonchianFade.OppositeChannel
     let reverseDirection = args.GetResult(DonchianFadeSweepArgs.Reverse_Direction, defaultValue = false)
+    let entryMode =
+        let raw = args.GetResult(DonchianFadeSweepArgs.Entry_Mode, defaultValue = "break-trigger")
+        match raw.ToLowerInvariant() with
+        | "break-trigger" | "break" -> OrderflowDonchianFade.BreakTrigger
+        | "trend-only" | "trend" -> OrderflowDonchianFade.TrendOnly
+        | other ->
+            eprintfn "[donchian-fade-sweep] unknown --entry-mode '%s'; using break-trigger" other
+            OrderflowDonchianFade.BreakTrigger
     let symbols =
         match args.TryGetResult DonchianFadeSweepArgs.Symbol with
         | Some s -> parseList ',' s
@@ -2300,13 +2310,17 @@ let cmdDonchianFadeSweep (args: ParseResults<DonchianFadeSweepArgs>) : int =
         match coverMode with
         | OrderflowDonchianFade.OppositeChannel -> "opposite-channel"
         | OrderflowDonchianFade.EntryChannelTarget -> "entry-channel-target"
-    printfn "[donchian-fade-sweep] symbols=%d timeframes=[%s] donchianBars=[%s] minTrendBars=[%s] shortRefMin=%d longRefH=%d allowShort=%b allowLong=%b coverMode=%s reverseDirection=%b range=%s..%s parallelism=%d minShortAdv=$%s minLongAdv=$%s maxBarPriceRatio=%g referenceVolPct=%g"
+    let entryModeStr =
+        match entryMode with
+        | OrderflowDonchianFade.BreakTrigger -> "break-trigger"
+        | OrderflowDonchianFade.TrendOnly -> "trend-only"
+    printfn "[donchian-fade-sweep] symbols=%d timeframes=[%s] donchianBars=[%s] minTrendBars=[%s] shortRefMin=%d longRefH=%d allowShort=%b allowLong=%b entryMode=%s coverMode=%s reverseDirection=%b range=%s..%s parallelism=%d minShortAdv=$%s minLongAdv=$%s maxBarPriceRatio=%g referenceVolPct=%g"
         symbols.Length
         (String.concat "," timeframes)
         (String.concat "," (donchianBarsList |> Array.map string))
         (String.concat "," (minTrendBarsList |> Array.map string))
         shortRefMinutes longRefHours allowShort allowLong
-        coverModeStr reverseDirection
+        entryModeStr coverModeStr reverseDirection
         (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
         parallelism
         (minShortAdv.ToString("N0"))
@@ -2353,6 +2367,7 @@ let cmdDonchianFadeSweep (args: ParseResults<DonchianFadeSweepArgs>) : int =
                                         AllowLong = allowLong
                                         CoverMode = coverMode
                                         ReverseDirection = reverseDirection
+                                        EntryMode = entryMode
                                         Notional = notional
                                         TakerFee = takerFee
                                         MaxAdverseFraction = maxAdversePct / 100.0
