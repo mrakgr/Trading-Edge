@@ -338,3 +338,104 @@ The trailing target enforces honesty. Under it the headline still loses, but the
 These two are likely the same trades — fast-resolving entries during sharp counter-direction wicks. About 15-25% of total trips, depending on which slice you pick.
 
 Whether this is enough to build a tradable system is a separate question. The PF 2.3 cells have $7-25k net P&L over 16-89k trades on $1k notional — fees of $0.43/trade dominate the per-trade economics, and a stricter pre-trade filter would have to keep enough volume to amortize them. Worth a pre-trade gate sweep on `pct_1h_change` thresholds; that's the next step.
+
+# Sub-decile breakdown of fade-mode (v0) top deciles
+
+The v0 fade-mode breakdowns showed monotone improvement of PF as `pct_1h_change` moved toward the extremes (D9 for shorts, D0 for longs). Both top deciles still lost (short D9 PF 0.65, long D0 PF 0.80), but the trajectory suggested the *very* top of the distribution might cross PF 1.0. Slicing those top deciles into 10 sub-deciles each:
+
+## Short side: D9 of pct_1h_change (price most stretched up at 1h horizon)
+
+D9 spans [+1.57%, +84.1%]. n = 15,526 trips. Sub-deciles:
+
+| Sub | Range | Trips | PF | Net P&L | Win rate | Bars |
+|---:|---|---:|---:|---:|---:|---:|
+| D9.0 | [+1.57%, +1.66%] | 1,553 | 0.613 | -$728 | 30.5% | 7.6 |
+| D9.1 | [+1.66%, +1.77%] | 1,553 | 0.556 | -$878 | 30.3% | 7.0 |
+| D9.2 | [+1.77%, +1.89%] | 1,552 | 0.527 | -$992 | 29.8% | 7.4 |
+| D9.3 | [+1.89%, +2.04%] | 1,553 | 0.510 | -$1,035 | 30.5% | 6.9 |
+| D9.4 | [+2.04%, +2.23%] | 1,552 | 0.621 | -$803 | 30.4% | 7.3 |
+| D9.5 | [+2.23%, +2.46%] | 1,553 | 0.625 | -$883 | 30.2% | 6.8 |
+| D9.6 | [+2.46%, +2.78%] | 1,552 | 0.627 | -$919 | 30.8% | 6.6 |
+| D9.7 | [+2.78%, +3.32%] | 1,553 | 0.583 | -$1,122 | 29.9% | 6.8 |
+| D9.8 | [+3.32%, +4.46%] | 1,552 | 0.549 | -$1,474 | 30.9% | 6.2 |
+| **D9.9** | **[+4.46%, +84.1%]** | **1,553** | **0.929** | **-$360** | **34.4%** | 6.7 |
+
+Short side has nothing tradable. D9.9 is the strongest sub-decile but still PF 0.93 — converges toward break-even but doesn't cross it. The PF curve is flat-to-noisy across the rest of D9.
+
+## Long side: D0 of pct_1h_change (price most stretched down at 1h horizon)
+
+D0 spans [-99.8%, -1.50%]. n = 16,116 trips. Sub-deciles:
+
+| Sub | Range | Trips | PF | Net P&L | Win rate | Bars |
+|---:|---|---:|---:|---:|---:|---:|
+| **D0.0** | **[-99.8%, -3.86%]** | **1,612** | **1.536** | **+$2,178** | **40.6%** | 7.9 |
+| D0.1 | [-3.86%, -2.97%] | 1,612 | 0.979 | -$56 | 39.8% | 7.9 |
+| D0.2 | [-2.97%, -2.52%] | 1,611 | 0.671 | -$901 | 33.8% | 7.5 |
+| D0.3 | [-2.52%, -2.25%] | 1,612 | 0.619 | -$1,012 | 32.0% | 7.4 |
+| D0.4 | [-2.25%, -2.05%] | 1,611 | 0.588 | -$990 | 30.9% | 7.1 |
+| D0.5 | [-2.05%, -1.89%] | 1,612 | 0.547 | -$1,069 | 29.9% | 7.4 |
+| D0.6 | [-1.89%, -1.77%] | 1,611 | 0.584 | -$885 | 32.5% | 7.2 |
+| D0.7 | [-1.77%, -1.67%] | 1,612 | 0.713 | -$637 | 30.5% | 7.5 |
+| D0.8 | [-1.67%, -1.58%] | 1,611 | 0.572 | -$905 | 30.4% | 7.6 |
+| D0.9 | [-1.58%, -1.50%] | 1,612 | 0.625 | -$709 | 32.7% | 7.6 |
+
+**The only profitable cell in the entire v0 fade trip set is sub-decile D0.0** — the deepest 1% of long entries (where price is ≥ 3.86% below the 1h MA). PF 1.54, +$2,178 over 1,612 trades, 40.6% win rate. D0.1 (next 1%) sits at PF 0.98, essentially break-even. Everything else is structurally underwater.
+
+The asymmetry is consistent with the broader workstream finding: long mean-reversion has been the more reliable book on this universe (LongFadeMA PF 3.50 vs ShortFadeMA PF 1.98 with dual-CVD overlay). Capitulation declines mean-revert; blow-off rallies don't, or at least don't with this entry trigger.
+
+## Sub-sub-deciles — going deeper into the long side D0.0
+
+D0.0 itself is PF 1.54 over 1,612 trades. Slicing it into 10 sub-sub-deciles:
+
+| Sub-sub | Range (pct_1h_change) | Trips | PF | Net P&L | Win rate | Bars |
+|---:|---|---:|---:|---:|---:|---:|
+| **D0.0.0** | **[-99.8%, -11.10%]** | **162** | **3.530** | **+$1,712** | **52.5%** | 8.7 |
+| **D0.0.1** | **[-11.10%, -8.01%]** | **161** | **3.159** | **+$935** | **53.4%** | 9.1 |
+| D0.0.2 | [-8.01%, -6.65%] | 161 | 1.198 | +$81 | 43.5% | 8.3 |
+| D0.0.3 | [-6.64%, -5.83%] | 161 | 0.598 | -$202 | 29.2% | 6.8 |
+| D0.0.4 | [-5.82%, -5.21%] | 161 | 0.499 | -$222 | 31.1% | 6.8 |
+| D0.0.5 | [-5.21%, -4.79%] | 161 | 0.757 | -$85 | 34.2% | 7.6 |
+| D0.0.6 | [-4.78%, -4.51%] | 161 | 0.845 | -$49 | 33.5% | 7.6 |
+| D0.0.7 | [-4.51%, -4.22%] | 161 | 0.887 | -$40 | 39.1% | 7.5 |
+| D0.0.8 | [-4.21%, -4.02%] | 161 | 1.299 | +$74 | 44.7% | 8.8 |
+| D0.0.9 | [-4.02%, -3.86%] | 162 | 0.919 | -$27 | 45.1% | 7.5 |
+
+**The edge concentrates in the deepest two cells: D0.0.0 and D0.0.1, both PF >3.0 with 52-53% win rate.** Combined: 323 trips, PF ~3.30, +$2,650, 53% win rate — and these are the deepest 0.2% of long entries (`pct_1h_change ≤ -8.01%`, i.e. price more than 8% below the 1h MA at entry).
+
+D0.0.2 (-8% to -6.65%) is barely positive (PF 1.20). Cells D0.0.3 through D0.0.9 are mostly underwater (PF 0.5-0.9), though D0.0.8 oddly pops back to PF 1.30. That's not enough to call a regime — looks like noise inside an otherwise losing band.
+
+The shape is **bimodal-ish but dominated by a single deep regime**: extreme capitulation declines (≥ 8% below the 1h MA at entry) mean-revert reliably; less extreme declines bleed.
+
+## Sub-sub-deciles — short side D9.9 for completeness
+
+D9.9 itself was PF 0.93 (already barely-not-profitable). Slicing it the same way:
+
+| Sub-sub | Range (pct_1h_change) | Trips | PF | Net P&L | Win rate | Bars |
+|---:|---|---:|---:|---:|---:|---:|
+| D9.9.0 | [+4.46%, +4.66%] | 156 | 0.556 | -$149 | 30.8% | 6.5 |
+| D9.9.1 | [+4.66%, +4.92%] | 155 | 0.841 | -$61 | 34.8% | 6.5 |
+| D9.9.2 | [+4.93%, +5.24%] | 155 | 0.523 | -$208 | 27.1% | 6.4 |
+| D9.9.3 | [+5.24%, +5.60%] | 155 | 0.633 | -$156 | 30.3% | 7.0 |
+| D9.9.4 | [+5.60%, +6.04%] | 156 | 0.864 | -$58 | 35.9% | 6.6 |
+| **D9.9.5** | **[+6.04%, +6.71%]** | **155** | **1.116** | **+$48** | **36.8%** | 7.0 |
+| D9.9.6 | [+6.72%, +7.50%] | 155 | 0.866 | -$79 | 34.8% | 6.7 |
+| D9.9.7 | [+7.51%, +9.11%] | 155 | 0.893 | -$58 | 34.2% | 6.8 |
+| **D9.9.8** | **[+9.11%, +12.42%]** | **155** | **1.290** | **+$180** | **36.8%** | 6.7 |
+| **D9.9.9** | **[+12.43%, +84.1%]** | **156** | **1.201** | **+$181** | **42.3%** | 6.8 |
+
+**The short side does have an edge in the deepest cells, but it's much smaller than the long side.** D9.9.8 + D9.9.9 combined: 311 trades, PF ~1.24, +$361, 39.5% win rate. That's the deepest 0.2% of short entries (`pct_1h_change ≥ +9.11%`).
+
+D9.9.5 is a one-cell standout (PF 1.12, +$48) bracketed by losing cells D9.9.4 and D9.9.6 — looks like noise within an otherwise losing band, not a separate regime.
+
+## Combined extreme-tail summary
+
+The deepest 0.2% on each side:
+
+| Side | Threshold (`pct_1h_change`) | Trips | PF | Net P&L | Win rate | Per-trade |
+|---|---|---:|---:|---:|---:|---:|
+| **Long** | **≤ -8.01%** | **323** | **3.30** | **+$2,650** | **53.0%** | **+$8.20** |
+| Short | ≥ +9.11% | 311 | 1.24 | +$361 | 39.5% | +$1.16 |
+
+Both extreme tails are profitable post-fees. The asymmetry is enormous: per-trade, the long side delivers ~7× the edge of the short side. This re-confirms the workstream's broader pattern — capitulation declines reliably mean-revert; blow-off rallies are much weaker as a fade signal.
+
+The long side D0.0.0+D0.0.1 (PF 3.30, 53% win rate, 8% below the 1h MA) is the strongest pre-trade-gateable signal we've found in the Donchian engine on either side, in either direction (fade or continuation). It's a small slice — 323 trades over 2 years across 643 symbols, ~0.5 trades/day across the whole universe — but per-trade economics of $8.20 on $1k notional with $0.80 fees is a clean 0.8% net per round-trip.
