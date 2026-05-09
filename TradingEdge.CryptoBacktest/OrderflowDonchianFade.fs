@@ -42,10 +42,19 @@ open TradingEdge.CryptoBacktest.OrderflowMA
 ///                                  arm a trailing take-profit at the OPPOSITE
 ///                                  channel extreme. From that point on, behaves
 ///                                  identically to EntryChannelTarget.
+/// Cover-rule discriminator (additional case).
+///   MaCrossCover                 — v4/v5: cover when bar.Close crosses the 1h
+///                                  MA from the favorable side (long: close >=
+///                                  closeShortMa.mean; short: close <=).
+///                                  No stops, no time cap. Trade runs until
+///                                  the cross fires or end-of-stream Flush.
+///                                  Designed to pair with the strict MA-side
+///                                  entry filter (long below MA / short above).
 type CoverMode =
     | OppositeChannel
     | EntryChannelTarget
     | EntryChannelTargetOnBreak
+    | MaCrossCover
 
 /// Entry-trigger discriminator.
 ///   BreakTrigger          — v0/v1: entry only on the bar that pierces the opposite
@@ -118,12 +127,14 @@ type DonchianFadeConfig = {
     EntryMode: EntryMode
     /// MA-side entry filter — pre-trade gate enforcing the trade is on
     /// the mean-reverting side of the 1h MA at entry. Default 0.0:
-    ///   LONG entries fire only when pct_1h_change <= MaxPct1hChangeForLong
-    ///     (default 0.0 = entry bar's close at-or-below the 1h MA, room
-    ///     to revert UP toward the MA).
+    ///   LONG entries fire only when pct_1h_change < MaxPct1hChangeForLong
+    ///     (default 0.0 = entry bar's close STRICTLY below the 1h MA, room
+    ///     to revert UP toward the MA). Strict inequality is required for
+    ///     MaCrossCover: an entry placed exactly at the MA would otherwise
+    ///     cover instantly.
     /// Pass +infinity to disable.
     MaxPct1hChangeForLong: float
-    /// SHORT entries fire only when pct_1h_change >= MinPct1hChangeForShort.
+    /// SHORT entries fire only when pct_1h_change > MinPct1hChangeForShort.
     /// Default 0.0. Pass -infinity to disable.
     MinPct1hChangeForShort: float
     Notional: float
@@ -436,6 +447,20 @@ type Engine(cfg: DonchianFadeConfig) =
                     closePos bar.Close bar.EndUs
                 elif side = Short && trailingStop > 0.0 && bar.Low <= trailingStop then
                     closePos bar.Close bar.EndUs
+            | MaCrossCover ->
+                // v4/v5: cover when bar.Close crosses the 1h MA from the
+                // favorable side. Long covers when bar.Close >= 1h MA mean
+                // (price reverted up to / past the MA). Short symmetric.
+                // Pre-push state — closeShortMa contains the previous
+                // nShortRef closes, so the comparison is "this bar's close
+                // vs the trailing 1h mean ending the previous bar".
+                if side <> Flat && closeShortMa.Count > 0 then
+                    let maMean = closeShortMa.State / float closeShortMa.Count
+                    if maMean > 0.0 then
+                        if side = Long && bar.Close >= maMean then
+                            closePos bar.Close bar.EndUs
+                        elif side = Short && bar.Close <= maMean then
+                            closePos bar.Close bar.EndUs
 
         // Pre-push read of Donchian state — these reflect the previous nDon
         // bars (the "prior channel"). Window-readiness gates the counter
@@ -550,25 +575,31 @@ type Engine(cfg: DonchianFadeConfig) =
 
             // MA-side entry filter — only fire if the entry bar's close is
             // on the mean-reverting side of the 1h MA. Defaults are 0.0
-            // (long requires pct_1h_change <= 0; short requires >= 0).
+            // (long requires pct_1h_change < 0; short requires > 0). STRICT
+            // inequality: an entry placed exactly at the MA would otherwise
+            // cover instantly under MaCrossCover, guaranteed loser to fees.
             // Pass +/-infinity to disable. Applied to whichever entry mode
             // is active. Does NOT consume the TrendOnly arming — a filtered
             // bar leaves the side armed for the next satisfying bar.
             let maSideOk =
                 match pickedSide with
-                | Some (Long, _)  -> pct1hChange <= cfg.MaxPct1hChangeForLong
-                | Some (Short, _) -> pct1hChange >= cfg.MinPct1hChangeForShort
+                | Some (Long, _)  -> pct1hChange < cfg.MaxPct1hChangeForLong
+                | Some (Short, _) -> pct1hChange > cfg.MinPct1hChangeForShort
                 | _ -> true
 
             match pickedSide with
             | Some (s, level) when maSideOk ->
-                // EntryChannelTargetOnBreak runs unhedged after entry: the
-                // trailing target is armed later, when the with-trend channel
-                // cracks. Override the level to 0.0 so the cover-check reads
-                // it as unarmed until the arming block fires.
+                // Some cover modes don't use the prior-channel level at entry:
+                //   EntryChannelTargetOnBreak: level is set later, when the
+                //     with-trend channel cracks.
+                //   MaCrossCover: level is the live 1h MA mean, recomputed
+                //     each bar by the cover-check block.
+                // Override entryLevel to 0.0 in those cases so the unused
+                // trailingStop slot reads as "not in trailing-target territory."
                 let entryLevel =
-                    if cfg.CoverMode = EntryChannelTargetOnBreak then 0.0
-                    else level
+                    match cfg.CoverMode with
+                    | EntryChannelTargetOnBreak | MaCrossCover -> 0.0
+                    | _ -> level
                 openPos s bar.Close bar.EndUs entryLevel
                     pct1hChange pct72hChange priceRatio72hOver1h volRatio1hOver72h
                 // Un-arm the side that just fired (TrendOnly only).
@@ -672,6 +703,10 @@ type Engine(cfg: DonchianFadeConfig) =
                 let newTarget = donLowMa.State
                 if newTarget > 0.0 && newTarget > trailingStop then
                     trailingStop <- newTarget
+        | MaCrossCover ->
+            // No ratcheting — the cover level is the live 1h MA mean and is
+            // recomputed each bar by the cover-check block above.
+            ()
 
         barsSeen <- barsSeen + 1
         lastClose <- bar.Close

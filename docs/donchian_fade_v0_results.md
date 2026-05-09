@@ -893,3 +893,127 @@ Per-decile PF, both sides, all trend-bar thresholds. Cells profitable at PF ≥ 
 **Practical implication**: v1 isolates a small set of high-edge trades; v3 captures a much larger volume of moderate-edge trades. Choice depends on operating constraints — capital efficiency favors v1 (fewer trades, more concentrated edge per round-trip); diversification favors v3 (larger profitable population, less per-symbol concentration risk).
 
 **Trend-bar takeaway**: 30 is a clean default but **24-28 are also viable**, especially if trade volume matters. v1 trend=24 has +$595 / 128k trips at PF 1.01 — barely positive but ten thousand more profitable trades than trend=30. Below 24 the aggregate is loss-making for both modes, even with the filter on. The 30-bar threshold is the cleanest *single* sweet spot, but the engine has a useful operating band from 24 → 30 with smooth tradeoffs.
+
+# v4 / v5 — 1h-MA cover
+
+## Setup
+
+The decile breakdowns of every prior mode pointed at the same underlying signal: profitable trades sit on the mean-reverting side of the 1h MA at entry, and price tends to revisit the 1h MA on a sub-hour horizon. v4/v5 make the 1h MA the *cover target* directly.
+
+- `--cover-mode ma-cross-cover`: cover when bar.Close crosses the 1h MA from the favorable side. Long covers when `bar.Close >= closeShortMa.mean`; short covers when `bar.Close <= closeShortMa.mean`. No stops, no time cap. Trade runs until the cross fires (or end-of-stream Flush, but that's <1% in practice — price reliably revisits the 1h MA).
+
+The two variants pair MaCrossCover with each entry mode:
+
+| Mode | Entry | Cover | What's faded |
+|---|---|---|---|
+| v4 | BreakTrigger + ReverseDirection (= v1's entry) | MaCrossCover | the just-broken bar; target is the 1h MA |
+| v5 | TrendOnly (= v3's entry) | MaCrossCover | the trend's stretch above/below the 1h MA |
+
+**Strict-inequality MA-side filter** (engine-wide change): `MaxPct1hChangeForLong` / `MinPct1hChangeForShort` defaults stay at 0.0 but the comparison is now strict (`<` for longs, `>` for shorts) instead of non-strict (`<=` / `>=`). Required because under MaCrossCover, an entry placed exactly on the MA would cover instantly on the next bar's MA-cross check, guaranteed loser to fees. The strict change is global (also applies to v1/v3-filtered) but produces no measurable difference on those modes since `pct_1h_change` exactly equal to 0.0 is measure-zero in continuous data.
+
+## Universe sweep — both modes across min_trend_bars 20..30
+
+### v4 (BreakTrigger + ReverseDirection + MaCrossCover + strict filter)
+
+| min_trend_bars | Trips | Agg PF | Net P&L | Win rate | Med bars | Flush% | Long PF | Short PF |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 20 | 267,074 | 1.292 | +$43,942 | 68.4% | 7 | 0.24% | 1.242 | 1.348 |
+| 22 | 177,617 | 1.634 | **+$54,680** | 70.9% | 6 | 0.36% | 1.571 | 1.703 |
+| 24 | 125,719 | 2.056 | +$55,597 | 73.0% | 6 | 0.50% | 2.005 | 2.111 |
+| 26 | 95,136 | 2.510 | +$53,021 | 74.6% | 6 | 0.65% | 2.458 | 2.565 |
+| 28 | 75,766 | 2.856 | +$47,974 | 75.5% | 6 | 0.77% | 2.792 | 2.923 |
+| **30** | **62,003** | **3.190** | **+$43,273** | **75.9%** | 6 | 0.82% | **3.196** | **3.184** |
+
+### v5 (TrendOnly + MaCrossCover + strict filter)
+
+| min_trend_bars | Trips | Agg PF | Net P&L | Win rate | Med bars | Flush% | Long PF | Short PF |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 20 | 197,638 | 1.739 | +$58,688 | 69.5% | 4 | 0.32% | 1.664 | 1.826 |
+| 22 | 137,611 | 2.367 | **+$60,607** | 72.6% | 4 | 0.46% | 2.259 | 2.489 |
+| 24 | 103,001 | 3.107 | +$57,226 | 74.9% | 3 | 0.60% | 2.956 | 3.276 |
+| 26 | 81,619 | 3.864 | +$52,650 | 76.4% | 3 | 0.70% | 3.767 | 3.966 |
+| 28 | 67,253 | 4.558 | +$47,710 | 77.5% | 3 | 0.71% | 4.389 | 4.739 |
+| **30** | **57,037** | **5.090** | **+$43,181** | **78.3%** | 3 | 0.64% | **4.963** | **5.221** |
+
+**Key findings:**
+
+1. **Both modes profitable at every trend-bar threshold from 20 onward.** v1/v3-filtered required trend≥24 to cross PF 1.0; v4/v5 already cross PF 1.3 (v4) / 1.7 (v5) at trend=20.
+2. **Net P&L peaks at trend=22** (~$55-60k) for both modes; PF keeps rising monotonically to trend=30. Trade-volume drop outweighs PF gain past 22 bars on the *net* axis. PF gains are still useful for the per-trade economics.
+3. **Flush artefact is negligible** (<1%). Concerns about unrealised losers don't bite — price revisits the 1h MA on a sub-hour horizon, so the cover triggers for >99% of trades.
+4. **v5 dominates v4** at every threshold: PF, win rate, and per-trade economics. v5 trend=30 PF 5.09 vs v4 trend=30 PF 3.19. Median 3-4 bars (v5) vs 6-7 (v4). Both deliver near-identical net P&L (~$43k) at trend=30 because v5's higher PF offsets v4's slightly larger trip count.
+
+## 4-mode comparison at trend=30 (filter on)
+
+| Mode | Trips | Agg PF | Net | Win | Per-trade | Median bars |
+|---|---:|---:|---:|---:|---:|---:|
+| v1-filtered (BreakTrigger + EntryChannelTarget + reverse) | 63,143 | 1.33 | +$8,607 | 43.9% | +$0.14 | 4 |
+| v3-filtered (TrendOnly + EntryChannelTargetOnBreak) | 45,496 | 1.41 | +$10,180 | 39.5% | +$0.22 | 19 |
+| **v4 (BreakTrigger + MaCrossCover + reverse)** | **62,003** | **3.19** | **+$43,273** | **75.9%** | **+$0.70** | 6 |
+| **v5 (TrendOnly + MaCrossCover)** | **57,037** | **5.09** | **+$43,181** | **78.3%** | **+$0.76** | 3 |
+
+**The 1h MA is the right reversion target for this engine family.** At the same trip volume:
+- ~3.5-5× the PF
+- ~5× the net P&L
+- ~2× the win rate
+- 3× the per-trade economics (after fees)
+
+The intuition: v1/v3 used the *prior 3-bar Donchian extreme* as the target — too tight on short-stretch entries (target is just above/below entry by a few bars' range). v4/v5 use the *trailing 1h mean* — wide enough that there's room for price to actually revert toward it, narrow enough that the cross fires quickly when it does.
+
+## Decile shapes — pct_1h_change PFs per side, per trend-bar cell
+
+### v4
+
+| trend | side | D0 | D1 | D2 | D3 | D4 | D5 | D6 | D7 | D8 | D9 |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 20 | long | **2.18** | **1.96** | **1.53** | **1.31** | **1.13** | 0.96 | 0.80 | 0.71 | 0.60 | 0.35 |
+| 20 | short | 0.39 | 0.62 | 0.71 | 0.92 | **1.05** | **1.25** | **1.36** | **1.69** | **2.05** | **2.65** |
+| 22 | long | **3.05** | **2.69** | **2.07** | **1.66** | **1.47** | **1.13** | **1.03** | 0.88 | 0.72 | 0.37 |
+| 22 | short | 0.39 | 0.73 | 0.91 | **1.22** | **1.31** | **1.62** | **1.82** | **2.23** | **2.79** | **3.66** |
+| 24 | long | **4.43** | **3.82** | **2.98** | **2.08** | **1.92** | **1.57** | **1.27** | **1.15** | 0.86 | 0.35 |
+| 24 | short | 0.39 | 0.97 | **1.18** | **1.44** | **1.58** | **2.27** | **2.21** | **3.05** | **3.54** | **4.82** |
+| 26 | long | **5.55** | **5.32** | **3.62** | **2.77** | **2.47** | **2.16** | **1.44** | **1.43** | **1.12** | 0.34 |
+| 26 | short | 0.37 | **1.20** | **1.49** | **1.86** | **2.30** | **2.82** | **2.79** | **3.81** | **4.26** | **5.96** |
+| 28 | long | **5.68** | **6.31** | **4.36** | **2.96** | **3.32** | **2.76** | **1.99** | **1.61** | **1.29** | 0.29 |
+| 28 | short | 0.33 | **1.41** | **1.70** | **2.25** | **3.10** | **2.86** | **3.60** | **4.58** | **4.94** | **7.22** |
+| 30 | long | **6.30** | **6.50** | **6.22** | **3.78** | **3.32** | **3.53** | **2.49** | **2.21** | **1.46** | 0.24 |
+| 30 | short | 0.29 | **1.38** | **2.22** | **2.52** | **3.78** | **3.25** | **4.14** | **4.79** | **5.20** | **8.55** |
+
+### v5
+
+| trend | side | D0 | D1 | D2 | D3 | D4 | D5 | D6 | D7 | D8 | D9 |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 20 | long | **2.88** | **2.28** | **2.10** | **1.86** | **1.41** | **1.33** | **1.28** | **1.02** | **1.12** | 0.57 |
+| 20 | short | 0.73 | **1.01** | **1.20** | **1.28** | **1.57** | **1.65** | **2.06** | **2.31** | **2.80** | **3.50** |
+| 22 | long | **4.76** | **4.14** | **2.98** | **2.40** | **2.14** | **1.88** | **1.62** | **1.41** | **1.48** | 0.50 |
+| 22 | short | 0.76 | **1.40** | **1.62** | **1.91** | **2.30** | **2.23** | **2.92** | **3.28** | **4.08** | **5.76** |
+| 24 | long | **8.94** | **6.52** | **4.18** | **3.07** | **3.19** | **2.67** | **1.93** | **2.23** | **1.81** | 0.42 |
+| 24 | short | 0.72 | **1.92** | **2.01** | **2.48** | **2.75** | **3.55** | **4.00** | **4.82** | **7.21** | **9.20** |
+| 26 | long | **16.33** | **7.46** | **7.08** | **5.05** | **4.35** | **3.58** | **2.56** | **2.83** | **2.26** | 0.33 |
+| 26 | short | 0.65 | **1.78** | **2.90** | **3.18** | **3.96** | **4.66** | **4.83** | **5.46** | **15.24** | **13.67** |
+| 28 | long | **15.74** | **9.60** | **8.84** | **6.75** | **6.16** | **4.92** | **3.48** | **4.02** | **2.52** | 0.25 |
+| 28 | short | 0.68 | **1.55** | **3.82** | **4.26** | **5.60** | **5.38** | **6.67** | **9.94** | **13.93** | **25.19** |
+| 30 | long | **21.46** | **14.31** | **12.73** | **6.58** | **8.41** | **6.69** | **5.49** | **4.56** | **2.36** | 0.17 |
+| 30 | short | 0.73 | **1.14** | **4.59** | **4.73** | **6.25** | **6.53** | **9.08** | **16.31** | **18.25** | **34.40** |
+
+## Read of v4/v5
+
+**v4** has the same monotone-diagonal shape as v1-filtered but with PFs lifted ~3-4× across the board. Long D0 → D9 declines from PF 6.30 (deepest 1h decline) to 0.24 (degenerate near-zero). Short D9 PF 8.55 at trend=30. 9 of 10 long deciles profitable, 9 of 10 short deciles profitable.
+
+**v5** has an even steeper shape with extraordinary extreme-tail PFs. At trend=30, long D0 PF **21.5** and short D9 PF **34.4** — one to two orders of magnitude higher than the v3-filtered equivalents (PF 2.18 / 2.80 at the same threshold). The profitable population is essentially the entire decile space minus the degenerate near-zero cluster: 9 of 10 long deciles profitable, 9 of 10 short deciles profitable, with no decile underperforming PF 1.0 except the long-D9 / short-D0 cluster where price sat almost exactly at the 1h MA at entry.
+
+The v5 trend=20 cell is already cleaner than the v3-filtered trend=30 cell: v5 trend=20 has 18 of 20 deciles profitable; v3-filtered trend=30 has 18 of 20 deciles profitable. v5 produces this performance with a *looser* trend qualifier — meaning v5 trend=20 generates more trades AND has a higher PF than v3-filtered trend=30.
+
+## 5-mode summary across the workstream
+
+| Mode | Aggregate PF | Best cell | Production-ready? |
+|---|---:|---|---|
+| v0 fade (BreakTrigger + OppositeChannel) | 0.45 | Downtrend-breakup long deepest 0.2%: PF 3.30 (323 trips) | No — Q0 whipsaw |
+| v1 reverse-target (BreakTrigger + reverse + EntryChannelTarget) | 0.58 | D0/D9 sub-deciles all profitable; peak PF 5.87 | Honest mode but PF still <1.0 aggregate |
+| v2 trend-only (TrendOnly + OppositeChannel) | 0.44 | L-D0.0/1, S-D9.8/9: peak PF 1.54 | No — same Q0 whipsaw as v0 |
+| v3 trend-target-on-break (TrendOnly + EntryChannelTargetOnBreak) | 0.59 | Q4 PF 1.6 across both sides (~50k trips) | Aggregate PF still <1.0 |
+| v1-filtered, trend=30 | **1.33** | Long D0 PF 4.75 / Short D9 PF 4.21 | Yes — 63k trips +$8.6k |
+| v3-filtered, trend=30 | **1.41** | 9 of 10 long + 9 of 10 short deciles profitable | Yes — 45k trips +$10.2k |
+| **v4 (BreakTrigger + reverse + MaCrossCover + filter), trend=30** | **3.19** | **Long D0 PF 6.30 / Short D9 PF 8.55** | **Yes — 62k trips +$43.3k** |
+| **v5 (TrendOnly + MaCrossCover + filter), trend=30** | **5.09** | **Long D0 PF 21.5 / Short D9 PF 34.4** | **Yes — 57k trips +$43.2k** |
+
+v5 with the strict filter and 1h-MA cover is the strongest version found in the workstream by every measure: highest aggregate PF, highest per-trade economics, broadest profitable population, fastest resolving trades (median 3 bars), no Flush artefact. The strict-MA-side filter combined with the 1h-MA cover make it a clean mean-reversion scalp engine — enter on the wrong side of the MA after a confirmed trend run, exit when price closes back through the MA.

@@ -540,7 +540,7 @@ type DonchianFadeSweepArgs =
             | Long_Ref_Hours _ -> "Long-window reference in hours (72h price/vol MA — surfaced as ratios on the trip record). Default 72."
             | Allow_Short _ -> "Allow short-fade entries (uptrend run + break-down). Default true."
             | Allow_Long _ -> "Allow long-fade entries (downtrend run + break-up). Default true."
-            | Cover_Mode _ -> "Cover rule. 'opposite-channel' (default, v0 fade), 'entry-channel-target' (short-term reversion: trailing target at the prior 3-bar Donchian extreme on the with-trade side from entry; no stops), or 'entry-channel-target-on-break' (v3: position runs unhedged until the with-trend Donchian channel cracks, at which point a trailing target is armed at the OPPOSITE channel extreme)."
+            | Cover_Mode _ -> "Cover rule. 'opposite-channel' (default, v0 fade), 'entry-channel-target' (v1: trailing target at the prior 3-bar Donchian extreme on the with-trade side from entry; no stops), 'entry-channel-target-on-break' (v3: position runs unhedged until the with-trend Donchian channel cracks, then arms a trailing target at the opposite channel extreme), or 'ma-cross-cover' (v4/v5: cover when bar.Close crosses the 1h MA from the favorable side; long covers when close>=1h MA mean, short symmetric; no stops)."
             | Reverse_Direction _ -> "Flip entry sides: uptrend break-down opens LONG (was SHORT) and downtrend break-up opens SHORT (was LONG). Tests the continuation-pullback hypothesis. Default false."
             | Entry_Mode _ -> "Entry trigger. 'break-trigger' (default, v0/v1 — fire only on the bar that breaks the opposite channel) or 'trend-only' (v2 — fire on the first bar where the 30-bar qualifier is satisfied; with-trend, ignores --reverse-direction)."
             | Max_Pct_1h_For_Long _ -> "MA-side entry gate for LONG entries: only fire if pct_1h_change <= this. Default 0.0 (require entry bar at-or-below the 1h MA — room to revert UP). Pass a large positive value (e.g. 1e9) to disable."
@@ -2264,6 +2264,7 @@ let cmdDonchianFadeSweep (args: ParseResults<DonchianFadeSweepArgs>) : int =
         | "opposite-channel" | "opposite" -> OrderflowDonchianFade.OppositeChannel
         | "entry-channel-target" | "entry-target" | "target" -> OrderflowDonchianFade.EntryChannelTarget
         | "entry-channel-target-on-break" | "target-on-break" | "on-break" -> OrderflowDonchianFade.EntryChannelTargetOnBreak
+        | "ma-cross-cover" | "ma-cross" | "ma" -> OrderflowDonchianFade.MaCrossCover
         | other ->
             eprintfn "[donchian-fade-sweep] unknown --cover-mode '%s'; using opposite-channel" other
             OrderflowDonchianFade.OppositeChannel
@@ -2318,6 +2319,7 @@ let cmdDonchianFadeSweep (args: ParseResults<DonchianFadeSweepArgs>) : int =
         | OrderflowDonchianFade.OppositeChannel -> "opposite-channel"
         | OrderflowDonchianFade.EntryChannelTarget -> "entry-channel-target"
         | OrderflowDonchianFade.EntryChannelTargetOnBreak -> "entry-channel-target-on-break"
+        | OrderflowDonchianFade.MaCrossCover -> "ma-cross-cover"
     let entryModeStr =
         match entryMode with
         | OrderflowDonchianFade.BreakTrigger -> "break-trigger"
