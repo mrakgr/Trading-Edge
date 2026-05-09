@@ -19,6 +19,7 @@
     <Compile Include="OrderflowShortFadeMA.fs" />
     <Compile Include="OrderflowMAv1.fs" />
     <Compile Include="OrderflowDonchianFade.fs" />
+    <Compile Include="OrderflowConsolBreakout.fs" />
     <Compile Include="VwmaCross.fs" />
     <Compile Include="Breakout.fs" />
     <Compile Include="Breadth.fs" />

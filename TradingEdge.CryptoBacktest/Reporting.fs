@@ -5,6 +5,7 @@ open System.IO
 open System.Globalization
 open TradingEdge.CryptoBacktest.OrderflowMA
 open TradingEdge.CryptoBacktest.OrderflowDonchianFade
+open TradingEdge.CryptoBacktest.OrderflowConsolBreakout
 open TradingEdge.CryptoBacktest.Backtest
 
 let private inv = CultureInfo.InvariantCulture
@@ -253,6 +254,63 @@ let appendDonchianTrips
     use sw = new StreamWriter(path, append = true)
     if not exists then sw.WriteLine donchianTripsHeader
     for t in trips do sw.WriteLine(donchianTripRow symbol timeframe cfg t)
+
+// =============================================================================
+// Consolidation-breakout trip CSV (ConsolBreakoutRoundTrip)
+// =============================================================================
+
+let consolBreakoutTripsHeader =
+    "symbol,timeframe,consol_minutes,vol_compression_max_ratio,vol_rvol_min,bar_vol_min_multiple,cover_mode,allow_short,allow_long,entry_us,exit_us,side,entry_price,exit_price,net_pnl,fees,bars_held,mfe,mae,effective_notional,funding_pnl,adv_at_entry,vol_compression_ratio_at_entry,vol_rvol_at_entry,bar_vol_multiple_at_entry,range_width_pct_at_entry,pct_1h_change_at_entry,pct_24h_change_at_entry"
+
+let private consolBreakoutTripRow
+    (symbol: string)
+    (timeframe: string)
+    (cfg: ConsolBreakoutConfig)
+    (t: ConsolBreakoutRoundTrip) : string =
+    String.concat "," [
+        symbol
+        timeframe
+        string cfg.ConsolMinutes
+        fmt cfg.VolCompressionMaxRatio
+        fmt cfg.VolRvolMin
+        fmt cfg.BarVolMinMultiple
+        t.CoverModeStr
+        (if cfg.AllowShort then "1" else "0")
+        (if cfg.AllowLong  then "1" else "0")
+        string t.EntryUs
+        string t.ExitUs
+        sideStr t.Side
+        fmt t.EntryPrice
+        fmt t.ExitPrice
+        fmt t.NetPnL
+        fmt t.Fees
+        string t.BarsHeld
+        fmt t.MaxFavorableExcursion
+        fmt t.MaxAdverseExcursion
+        fmt t.EffectiveNotional
+        fmt t.FundingPnL
+        fmt t.AvgDailyVolumeAtEntry
+        fmt t.VolCompressionRatioAtEntry
+        fmt t.VolRvolAtEntry
+        fmt t.BarVolMultipleAtEntry
+        fmt t.RangeWidthPctAtEntry
+        fmt t.Pct1hChangeAtEntry
+        fmt t.Pct24hChangeAtEntry
+    ]
+
+/// Append-or-create per-cell ConsolBreakout trip CSV.
+let appendConsolBreakoutTrips
+    (path: string)
+    (symbol: string)
+    (timeframe: string)
+    (cfg: ConsolBreakoutConfig)
+    (trips: ConsolBreakoutRoundTrip[])
+    : unit =
+    Directory.CreateDirectory(Path.GetDirectoryName path) |> ignore
+    let exists = File.Exists path
+    use sw = new StreamWriter(path, append = true)
+    if not exists then sw.WriteLine consolBreakoutTripsHeader
+    for t in trips do sw.WriteLine(consolBreakoutTripRow symbol timeframe cfg t)
 
 // =============================================================================
 // Orb-style breakdown report

@@ -1166,3 +1166,129 @@ let runDonchianFadeCellsFromBars
         cell.Close()
     let metrics = cells |> Array.map (fun c -> c.BuildMetrics())
     metrics, adv
+
+// =============================================================================
+// Consolidation-breakout cell + runner
+// =============================================================================
+//
+// Same standalone-trip-record + mapping-shim pattern as DonchianFadeCell:
+// the engine emits ConsolBreakoutRoundTrip records, BuildMetrics maps them
+// to a minimal RoundTrip[] for shared metrics computation, and `Trips`
+// returns the engine-specific records for the per-cell trip CSV writer.
+
+type ConsolBreakoutCell(symbol: string, timeframe: string, cfg: OrderflowConsolBreakout.ConsolBreakoutConfig) =
+    let bucketUs = bucketUsOfTimeframe timeframe
+    let builder = TimeBarBuilder(bucketUs)
+    let cfgWithBucket =
+        { cfg with OrderflowConsolBreakout.ConsolBreakoutConfig.BucketUs = bucketUs }
+    let engine = OrderflowConsolBreakout.Engine(cfgWithBucket)
+    let mutable barCount = 0
+    let mutable startUs = 0L
+    let mutable endUs = 0L
+    let mutable hasAny = false
+
+    // MaWindowHours field repurposed to carry ConsolMinutes (in hours,
+    // rounded down to at least 1) so the per-cell results row is
+    // identifiable by a stable integer.
+    let reportingCfg =
+        { defaultConfig (max 1 (cfg.ConsolMinutes / 60)) with
+            Notional = cfg.Notional
+            TakerFee = cfg.TakerFee
+            AllowShort = cfg.AllowShort
+            BucketUs = bucketUs
+            MaxAdverseFraction = cfg.MaxAdverseFraction
+            ReferenceVol = cfg.ReferenceVol
+            MinShortAdv = cfg.MinShortAdv
+            MinLongAdv = cfg.MinLongAdv
+            VolWindowDays = cfg.VolWindowDays
+            MaxBarPriceRatio = cfg.MaxBarPriceRatio }
+
+    let onBar (bar: SignedBar) =
+        if not hasAny then
+            startUs <- bar.StartUs
+            hasAny <- true
+        endUs <- bar.EndUs
+        barCount <- barCount + 1
+        engine.ProcessBar bar
+
+    member _.Symbol = symbol
+    member _.Timeframe = timeframe
+    member _.Config = reportingCfg
+    member _.ConsolBreakoutConfig = cfg
+
+    member _.SetFundingEvents(events: (int64 * float)[]) =
+        engine.SetFundingEvents events
+
+    member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+        for t in trades do
+            builder.Process(onBar, t)
+
+    member _.PushBars(bars: SignedBar[]) =
+        for b in bars do
+            onBar b
+
+    member _.Close() =
+        builder.Flush onBar
+        engine.Flush()
+
+    /// Map ConsolBreakoutRoundTrip -> RoundTrip for shared-metrics reuse.
+    member _.BuildMetrics() =
+        let cbTrips = engine.Trips |> Seq.toArray
+        let trips =
+            cbTrips
+            |> Array.map (fun (t: OrderflowConsolBreakout.ConsolBreakoutRoundTrip) ->
+                {
+                    EntryUs = t.EntryUs
+                    ExitUs = t.ExitUs
+                    Side = t.Side
+                    EntryPrice = t.EntryPrice
+                    ExitPrice = t.ExitPrice
+                    NetPnL = t.NetPnL
+                    Fees = t.Fees
+                    BarsHeld = t.BarsHeld
+                    MaxFavorableExcursion = t.MaxFavorableExcursion
+                    MaxAdverseExcursion = t.MaxAdverseExcursion
+                    RatioAtEntry = 0.0
+                    EffectiveNotional = t.EffectiveNotional
+                    FundingPnL = t.FundingPnL
+                    AvgDailyVolumeAtEntry = t.AvgDailyVolumeAtEntry
+                    PriceRiseAtEntry = 0.0
+                })
+        buildMetrics symbol timeframe reportingCfg barCount startUs endUs trips
+
+    /// Engine-specific trip records (used by appendConsolBreakoutTrips).
+    member _.Trips = engine.Trips |> Seq.toArray
+
+let runConsolBreakoutCellsFromBars
+    (barsRoot: string)
+    (symbol: string)
+    (startDate: System.DateTime)
+    (endDate: System.DateTime)
+    (cells: ConsolBreakoutCell[])
+    (fundingRoot: string option)
+    : Metrics[] * float =
+    let fundingEvents =
+        match fundingRoot with
+        | Some root when FundingLoader.exists root symbol ->
+            FundingLoader.loadByDate root symbol startDate endDate
+            |> Array.map (fun e -> e.TimestampUs, e.Rate)
+        | _ -> [||]
+    if fundingEvents.Length > 0 then
+        for cell in cells do
+            cell.SetFundingEvents fundingEvents
+    let byTf =
+        cells
+        |> Array.groupBy (fun c -> c.Timeframe)
+    let mutable adv = 0.0
+    let mutable advSet = false
+    for (tf, group) in byTf do
+        let bars = BarLoader.loadByDate barsRoot tf symbol startDate endDate
+        if not advSet && bars.Length > 0 then
+            adv <- avgDailyVolume bars
+            advSet <- true
+        for cell in group do
+            cell.PushBars bars
+    for cell in cells do
+        cell.Close()
+    let metrics = cells |> Array.map (fun c -> c.BuildMetrics())
+    metrics, adv

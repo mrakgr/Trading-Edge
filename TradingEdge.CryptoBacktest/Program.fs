@@ -560,6 +560,75 @@ type DonchianFadeSweepArgs =
             | DonchianFadeSweepArgs.Summary_Csv _ -> "Aggregate summary CSV path."
             | DonchianFadeSweepArgs.Parallelism _ -> "Max symbols processed concurrently. Default 4."
 
+type ConsolBreakoutSweepArgs =
+    | [<AltCommandLine "-d">] Data_Root of string
+    | [<AltCommandLine "-b">] Bars_Root of string
+    | [<AltCommandLine "-s">] Symbol of string
+    | Start_Date of string
+    | End_Date of string
+    | Timeframes of string
+    | Consol_Minutes of string
+    | Vol_Compression_Max_Ratio of string
+    | Vol_Rvol_Min of string
+    | Bar_Vol_Min_Multiple of string
+    | Cover_Mode of string
+    | Stop_Donchian_Bars of int
+    | Cvd_Minutes of int
+    | Rvol_Denom_Days of int
+    | Short_Ref_Minutes of int
+    | Day_Ref_Hours of int
+    | Allow_Short of bool
+    | Allow_Long of bool
+    | Notional of float
+    | Taker_Fee of float
+    | Use_Trades
+    | Max_Adverse_Pct of float
+    | Reference_Vol_Pct of float
+    | Min_Short_Adv of float
+    | Min_Long_Adv of float
+    | Vol_Window_Days of int
+    | Max_Bar_Price_Ratio of float
+    | Funding_Root of string
+    | No_Funding
+    | Results_Csv of string
+    | Summary_Csv of string
+    | [<AltCommandLine "-p">] Parallelism of int
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Data_Root _ -> "Trade-parquet root. Default: " + defaultDataRoot
+            | Bars_Root _ -> "Pre-aggregated bar-parquet root. Default: " + defaultBarsRoot
+            | Symbol _ -> "Restrict sweep to a comma-separated symbol list."
+            | Start_Date _ -> "Inclusive start date YYYY-MM-DD. Default 2024-05-01."
+            | End_Date _ -> "Inclusive end date YYYY-MM-DD. Default 2026-04-30."
+            | Timeframes _ -> "Comma-separated timeframes. Default 1m."
+            | Consol_Minutes _ -> "Comma-separated consolidation/break window in MINUTES. Default '180' (3h)."
+            | Vol_Compression_Max_Ratio _ -> "Comma-separated max compression ratios (std(log close)/std(log returns) over the consol window must be < this). Random walk gives ~sqrt(N/3) (~7.75 at N=180); 1..5 is consolidation territory. Default '1'."
+            | Vol_Rvol_Min _ -> "Comma-separated min volume rvol (consol-window mean / RvolDenomDays mean). Default '3'."
+            | Bar_Vol_Min_Multiple _ -> "Comma-separated min bar.Volume / consol-window vol mean for the entry bar. Default '2'."
+            | Cover_Mode _ -> "Cover rule. 'donchian-stop' (default — ratcheted N-bar trailing Donchian on the with-trade side) or 'cvd-flip' (cover when 1h CVD crosses to the unfavourable sign)."
+            | Stop_Donchian_Bars _ -> "Donchian-stop window in bars (only used when --cover-mode donchian-stop). Default 3."
+            | Cvd_Minutes _ -> "CVD horizon in minutes (only used when --cover-mode cvd-flip). Default 60."
+            | Rvol_Denom_Days _ -> "Volume-rvol denominator window in days. Default 30."
+            | Short_Ref_Minutes _ -> "1h MA window in minutes (for the post-hoc Pct1hChangeAtEntry field). Default 60."
+            | Day_Ref_Hours _ -> "24h MA window in hours (for the post-hoc Pct24hChangeAtEntry field). Default 24."
+            | Allow_Short _ -> "Allow short-break entries. Default true."
+            | Allow_Long _ -> "Allow long-break entries. Default true."
+            | ConsolBreakoutSweepArgs.Notional _ -> "Per-trade notional. Default 1000."
+            | Taker_Fee _ -> "Per-fill taker fee fraction. Default 0.0004."
+            | Use_Trades -> "Force the trade-stream backtest path (currently unsupported)."
+            | Max_Adverse_Pct _ -> "Optional fixed-fraction stop. Default 0 (disabled)."
+            | Reference_Vol_Pct _ -> "Reference per-bar log-return std as percent. Recommended 0.1019 for 1m."
+            | ConsolBreakoutSweepArgs.Min_Short_Adv _ -> "Minimum trailing-90d ADV (USDT/day) for a short entry. Default 0."
+            | ConsolBreakoutSweepArgs.Min_Long_Adv _ -> "Minimum trailing-90d ADV (USDT/day) for a long entry. Default 0."
+            | ConsolBreakoutSweepArgs.Vol_Window_Days _ -> "Vol-window length in days. Default 90."
+            | ConsolBreakoutSweepArgs.Max_Bar_Price_Ratio _ -> "Bar-to-bar price-ratio gap detector. Default 0. Recommended 3.0."
+            | ConsolBreakoutSweepArgs.Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
+            | No_Funding -> "Disable funding-rate accounting."
+            | ConsolBreakoutSweepArgs.Results_Csv _ -> "Per-cell results CSV path."
+            | ConsolBreakoutSweepArgs.Summary_Csv _ -> "Aggregate summary CSV path."
+            | ConsolBreakoutSweepArgs.Parallelism _ -> "Max symbols processed concurrently. Default 4."
+
 type BuildBreadthArgs =
     | [<AltCommandLine "-b">] Bars_Root of string
     | [<AltCommandLine "-s">] Symbol of string
@@ -664,6 +733,7 @@ type CliArgs =
     | [<CliPrefix(CliPrefix.None)>] Long_Fade_Ma_Sweep of ParseResults<LongFadeMASweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Short_Fade_Ma_Sweep of ParseResults<ShortFadeMASweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Donchian_Fade_Sweep of ParseResults<DonchianFadeSweepArgs>
+    | [<CliPrefix(CliPrefix.None)>] Consol_Breakout_Sweep of ParseResults<ConsolBreakoutSweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Vwma_Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Breakout_Sweep of ParseResults<SweepArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Breadth of ParseResults<BuildBreadthArgs>
@@ -682,6 +752,7 @@ type CliArgs =
             | Long_Fade_Ma_Sweep _ -> "Long fade engine with mean-reversion-to-MA cover: enter long on price decline + CVD positive cross (no rvol gate); cover when bar.Close >= trailing 24h MA. Long-only by design."
             | Short_Fade_Ma_Sweep _ -> "Short fade engine — symmetric mirror of long-fade-ma-sweep: enter short on price rise + CVD negative cross; cover when bar.Close <= trailing-N-hour MA. Short-only by design."
             | Donchian_Fade_Sweep _ -> "Lance-style Donchian-channel fade: short after a 30-bar uptrend run finally breaks the rolling 3-bar Donchian low (or symmetric long after a downtrend break-up); ratcheted Donchian trailing stop; cover on opposite-side re-violation."
+            | Consol_Breakout_Sweep _ -> "Volatility-compression breakout engine: enter WITH the direction of the first range break after a 3h consolidation window where price wandered tightly relative to bar-to-bar noise (std(log close)/std(log returns) below threshold) AND volume rvol was elevated; cover via ratcheted Donchian stop or 1h CVD flip."
             | Vwma_Sweep _     -> "Research baseline: same grid, but signal is close-vs-VWMA crossover instead of orderflow ratio."
             | Breakout_Sweep _ -> "Research baseline: same grid, but signal is symmetric N-hour VWAP-breakout/breakdown instead of orderflow ratio."
             | Build_Breadth _  -> "Build the universe-wide breadth panel: per-(symbol, hour) signal trace plus per-hour aggregates with composite signed-volume t-digest rank."
@@ -2439,6 +2510,223 @@ let cmdDonchianFadeSweep (args: ParseResults<DonchianFadeSweepArgs>) : int =
     0
 
 // =============================================================================
+// consol-breakout-sweep — volatility-compression breakout engine
+// =============================================================================
+//
+// Single-bar consolidation+breakout check. Default output dir
+// data/crypto/consol_breakout/.
+
+let cmdConsolBreakoutSweep (args: ParseResults<ConsolBreakoutSweepArgs>) : int =
+    let dataRoot = args.GetResult(ConsolBreakoutSweepArgs.Data_Root, defaultValue = defaultDataRoot)
+    let barsRoot = args.GetResult(ConsolBreakoutSweepArgs.Bars_Root, defaultValue = defaultBarsRoot)
+    let useTrades = args.Contains ConsolBreakoutSweepArgs.Use_Trades
+    let startDate =
+        args.TryGetResult ConsolBreakoutSweepArgs.Start_Date
+        |> Option.map parseDate
+        |> Option.defaultValue defaultStart
+    let endDate =
+        args.TryGetResult ConsolBreakoutSweepArgs.End_Date
+        |> Option.map parseDate
+        |> Option.defaultValue defaultEnd
+    let timeframes =
+        args.TryGetResult ConsolBreakoutSweepArgs.Timeframes
+        |> Option.map (parseList ',')
+        |> Option.defaultValue [| "1m" |]
+    let consolMinutesList =
+        args.TryGetResult ConsolBreakoutSweepArgs.Consol_Minutes
+        |> Option.map (parseList ',')
+        |> Option.map (Array.map Int32.Parse)
+        |> Option.defaultValue [| 180 |]
+    let parseFloatList (s: string) =
+        parseList ',' s
+        |> Array.map (fun x -> Double.Parse(x, System.Globalization.CultureInfo.InvariantCulture))
+    let volCompressionMaxRatioList =
+        args.TryGetResult ConsolBreakoutSweepArgs.Vol_Compression_Max_Ratio
+        |> Option.map parseFloatList
+        |> Option.defaultValue [| 1.0 |]
+    let volRvolMinList =
+        args.TryGetResult ConsolBreakoutSweepArgs.Vol_Rvol_Min
+        |> Option.map parseFloatList
+        |> Option.defaultValue [| 3.0 |]
+    let barVolMinMultipleList =
+        args.TryGetResult ConsolBreakoutSweepArgs.Bar_Vol_Min_Multiple
+        |> Option.map parseFloatList
+        |> Option.defaultValue [| 2.0 |]
+    let coverMode =
+        let raw = args.GetResult(ConsolBreakoutSweepArgs.Cover_Mode, defaultValue = "donchian-stop")
+        match raw.ToLowerInvariant() with
+        | "donchian-stop" | "donchian" | "stop" -> OrderflowConsolBreakout.DonchianStop
+        | "cvd-flip" | "cvd" | "flip" -> OrderflowConsolBreakout.CvdFlip
+        | other ->
+            eprintfn "[consol-breakout-sweep] unknown --cover-mode '%s'; using donchian-stop" other
+            OrderflowConsolBreakout.DonchianStop
+    let stopDonchianBars = args.GetResult(ConsolBreakoutSweepArgs.Stop_Donchian_Bars, defaultValue = 3)
+    let cvdMinutes = args.GetResult(ConsolBreakoutSweepArgs.Cvd_Minutes, defaultValue = 60)
+    let rvolDenomDays = args.GetResult(ConsolBreakoutSweepArgs.Rvol_Denom_Days, defaultValue = 30)
+    let shortRefMinutes = args.GetResult(ConsolBreakoutSweepArgs.Short_Ref_Minutes, defaultValue = 60)
+    let dayRefHours = args.GetResult(ConsolBreakoutSweepArgs.Day_Ref_Hours, defaultValue = 24)
+    let allowShort = args.GetResult(ConsolBreakoutSweepArgs.Allow_Short, defaultValue = true)
+    let allowLong  = args.GetResult(ConsolBreakoutSweepArgs.Allow_Long, defaultValue = true)
+    let symbols =
+        match args.TryGetResult ConsolBreakoutSweepArgs.Symbol with
+        | Some s -> parseList ',' s
+        | None ->
+            if useTrades then listSymbols dataRoot
+            else
+                let perTf = timeframes |> Array.map (fun tf -> Set.ofArray (BarLoader.listSymbols barsRoot tf))
+                if perTf.Length = 0 then [||]
+                else
+                    perTf
+                    |> Array.reduce Set.intersect
+                    |> Set.toArray
+                    |> Array.sort
+    let notional = args.GetResult(ConsolBreakoutSweepArgs.Notional, defaultValue = 1000.0)
+    let takerFee = args.GetResult(ConsolBreakoutSweepArgs.Taker_Fee, defaultValue = 0.0004)
+    let maxAdversePct = args.GetResult(ConsolBreakoutSweepArgs.Max_Adverse_Pct, defaultValue = 0.0)
+    let referenceVolPct = args.GetResult(ConsolBreakoutSweepArgs.Reference_Vol_Pct, defaultValue = 0.0)
+    let minShortAdv = args.GetResult(ConsolBreakoutSweepArgs.Min_Short_Adv, defaultValue = 0.0)
+    let minLongAdv  = args.GetResult(ConsolBreakoutSweepArgs.Min_Long_Adv, defaultValue = 0.0)
+    let volWindowDays = args.GetResult(ConsolBreakoutSweepArgs.Vol_Window_Days, defaultValue = 90)
+    let maxBarPriceRatio = args.GetResult(ConsolBreakoutSweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
+    let fundingRoot =
+        if args.Contains ConsolBreakoutSweepArgs.No_Funding then None
+        else Some (args.GetResult(ConsolBreakoutSweepArgs.Funding_Root, defaultValue = defaultFundingRoot))
+    let resultsCsv =
+        args.GetResult(ConsolBreakoutSweepArgs.Results_Csv, defaultValue = "data/crypto/consol_breakout/backtest_results.csv")
+    let summaryCsv =
+        args.GetResult(ConsolBreakoutSweepArgs.Summary_Csv, defaultValue = "data/crypto/consol_breakout/backtest_summary.csv")
+    let parallelism = args.GetResult(ConsolBreakoutSweepArgs.Parallelism, defaultValue = 4)
+
+    if useTrades then
+        eprintfn "[consol-breakout-sweep] --use-trades is not supported; runs from pre-aggregated bars."
+        2
+    else
+
+    let coverModeStr = OrderflowConsolBreakout.coverModeStr coverMode
+    printfn "[consol-breakout-sweep] symbols=%d timeframes=[%s] consolMinutes=[%s] volCompMaxRatio=[%s] volRvolMin=[%s] barVolMinMult=[%s] coverMode=%s stopDonBars=%d cvdMin=%d rvolDenomD=%d shortRefMin=%d dayRefH=%d allowShort=%b allowLong=%b range=%s..%s parallelism=%d minShortAdv=$%s minLongAdv=$%s maxBarPriceRatio=%g referenceVolPct=%g"
+        symbols.Length
+        (String.concat "," timeframes)
+        (String.concat "," (consolMinutesList |> Array.map string))
+        (String.concat "," (volCompressionMaxRatioList |> Array.map (fun x -> x.ToString("R", System.Globalization.CultureInfo.InvariantCulture))))
+        (String.concat "," (volRvolMinList |> Array.map (fun x -> x.ToString("R", System.Globalization.CultureInfo.InvariantCulture))))
+        (String.concat "," (barVolMinMultipleList |> Array.map (fun x -> x.ToString("R", System.Globalization.CultureInfo.InvariantCulture))))
+        coverModeStr stopDonchianBars cvdMinutes rvolDenomDays shortRefMinutes dayRefHours
+        allowShort allowLong
+        (startDate.ToString "yyyy-MM-dd") (endDate.ToString "yyyy-MM-dd")
+        parallelism
+        (minShortAdv.ToString("N0"))
+        (minLongAdv.ToString("N0"))
+        maxBarPriceRatio
+        referenceVolPct
+
+    Directory.CreateDirectory(Path.GetDirectoryName resultsCsv) |> ignore
+    if File.Exists resultsCsv then File.Delete resultsCsv
+    let resultsDir = Path.GetDirectoryName resultsCsv
+    let resultsStem = Path.GetFileNameWithoutExtension resultsCsv
+    if Directory.Exists resultsDir then
+        for f in Directory.EnumerateFiles(resultsDir, sprintf "%s_trips_*.csv" resultsStem) do
+            File.Delete f
+
+    let allMetrics = System.Collections.Concurrent.ConcurrentBag<Metrics>()
+    let advBySymbol =
+        System.Collections.Concurrent.ConcurrentDictionary<string, float>()
+    let writeLock = obj()
+    let totalCells =
+        symbols.Length * timeframes.Length
+        * consolMinutesList.Length
+        * volCompressionMaxRatioList.Length
+        * volRvolMinList.Length
+        * barVolMinMultipleList.Length
+    let mutable doneCells = 0
+
+    let swAll = Stopwatch.StartNew()
+    let opts = System.Threading.Tasks.ParallelOptions(MaxDegreeOfParallelism = parallelism)
+    System.Threading.Tasks.Parallel.ForEach(
+        symbols,
+        opts,
+        fun symbol ->
+            let swSym = Stopwatch.StartNew()
+            try
+                let cells =
+                    [| for tf in timeframes do
+                        for consolMin in consolMinutesList do
+                            for volCompMax in volCompressionMaxRatioList do
+                                for volRvol in volRvolMinList do
+                                    for barVolMult in barVolMinMultipleList do
+                                        let cfg : OrderflowConsolBreakout.ConsolBreakoutConfig =
+                                            { OrderflowConsolBreakout.defaultConsolBreakoutConfig () with
+                                                ConsolMinutes = consolMin
+                                                VolCompressionMaxRatio = volCompMax
+                                                VolRvolMin = volRvol
+                                                BarVolMinMultiple = barVolMult
+                                                RvolDenomDays = rvolDenomDays
+                                                ShortRefMinutes = shortRefMinutes
+                                                DayRefHours = dayRefHours
+                                                CoverMode = coverMode
+                                                StopDonchianBars = stopDonchianBars
+                                                CvdMinutes = cvdMinutes
+                                                AllowLong = allowLong
+                                                AllowShort = allowShort
+                                                Notional = notional
+                                                TakerFee = takerFee
+                                                MaxAdverseFraction = maxAdversePct / 100.0
+                                                ReferenceVol = referenceVolPct / 100.0
+                                                MinShortAdv = minShortAdv
+                                                MinLongAdv = minLongAdv
+                                                VolWindowDays = volWindowDays
+                                                MaxBarPriceRatio = maxBarPriceRatio }
+                                        yield ConsolBreakoutCell(symbol, tf, cfg) |]
+                let metrics, adv =
+                    runConsolBreakoutCellsFromBars barsRoot symbol startDate endDate cells fundingRoot
+                let nonEmpty = metrics |> Array.filter (fun m -> m.BarsTotal > 0)
+                if nonEmpty.Length = 0 then
+                    lock writeLock (fun () ->
+                        printfn "[consol-breakout-sweep] %s: no bars in window" symbol)
+                else
+                    if adv > 0.0 then advBySymbol.[symbol] <- adv
+                    for cell in cells do
+                        let trips = cell.Trips
+                        if trips.Length > 0 then
+                            let tripsPath =
+                                let dir = Path.GetDirectoryName resultsCsv
+                                let stem = Path.GetFileNameWithoutExtension resultsCsv
+                                Path.Combine(dir,
+                                    sprintf "%s_trips_%s_consol%d_vc%g_rv%g_bv%g.csv"
+                                        stem cell.Timeframe
+                                        cell.ConsolBreakoutConfig.ConsolMinutes
+                                        cell.ConsolBreakoutConfig.VolCompressionMaxRatio
+                                        cell.ConsolBreakoutConfig.VolRvolMin
+                                        cell.ConsolBreakoutConfig.BarVolMinMultiple)
+                            lock writeLock (fun () ->
+                                appendConsolBreakoutTrips
+                                    tripsPath cell.Symbol cell.Timeframe
+                                    cell.ConsolBreakoutConfig trips)
+                    lock writeLock (fun () ->
+                        appendResults resultsCsv metrics
+                        for m in metrics do allMetrics.Add m
+                        doneCells <- doneCells + metrics.Length)
+                    swSym.Stop()
+                    lock writeLock (fun () ->
+                        printfn "[consol-breakout-sweep] %s done in %.1fs (%d/%d cells)"
+                            symbol swSym.Elapsed.TotalSeconds doneCells totalCells)
+            with ex ->
+                lock writeLock (fun () ->
+                    eprintfn "[consol-breakout-sweep] %s FAILED: %s" symbol ex.Message
+                    eprintfn "%s" ex.StackTrace))
+    |> ignore
+    swAll.Stop()
+
+    let metricsArr = allMetrics.ToArray()
+    let summary = summarize metricsArr
+    let summarySorted =
+        summary |> Array.sortByDescending (fun s -> s.MedianSharpe)
+    writeSummary summaryCsv summarySorted
+    printfn "[consol-breakout-sweep] wrote %d result rows -> %s" metricsArr.Length resultsCsv
+    printfn "[consol-breakout-sweep] wrote %d summary rows -> %s" summarySorted.Length summaryCsv
+    printfn "[consol-breakout-sweep] total wall %.1fs" swAll.Elapsed.TotalSeconds
+    0
+
+// =============================================================================
 // short-fade-ma-sweep — symmetric mirror of long-fade-ma-sweep
 // =============================================================================
 //
@@ -3913,6 +4201,7 @@ let main argv =
         | Long_Fade_Ma_Sweep a -> cmdLongFadeMaSweep a
         | Short_Fade_Ma_Sweep a -> cmdShortFadeMaSweep a
         | Donchian_Fade_Sweep a -> cmdDonchianFadeSweep a
+        | Consol_Breakout_Sweep a -> cmdConsolBreakoutSweep a
         | Vwma_Sweep a -> cmdVwmaSweep a
         | Breakout_Sweep a -> cmdBreakoutSweep a
         | Build_Breadth a -> cmdBuildBreadth a
