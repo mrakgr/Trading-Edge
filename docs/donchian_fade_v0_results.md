@@ -1547,3 +1547,86 @@ The ratchet experiment is closed: **don't use ratchet for fade-style mean-revers
 
 - **FlowSwing (LongFadeMA)** audit run separately on the same day; results in [docs/donchian_fade_v0_results.md](docs/donchian_fade_v0_results.md) under the FlowSwing section (or a separate doc). Headline: 11.4% October attribution (vs DonchianScalp's 82%), PF 3.33 ex-October — the production strategy.
 - **Regime detector** for DonchianScalp. If we can build a pre-event signal — e.g. cross-universe simultaneous-drop + funding-rate dislocation — the strategy becomes "fire only when regime is on" and may yet be deployable. Not pursued in this audit. The user's plan is forward-collection of L2 data on cloud VMs, replaying once we have a month of book history; book imbalance is the natural feature for that signal.
+
+---
+
+# 2D PF surface — bars_since × abs(pct_1h_change), MA=60 / dv≥$1M
+
+For dynamic-sizing in a live system, we need PF as a function of the entry's signal characteristics — primarily `bars_since_violation` (the trend-run length) and `abs(pct_1h_change)` (distance from the 1h MA). The live system would observe both at signal time, look up the PF cell, and size proportionally — skip cells with PF < 1, size up cells with PF >> 1.
+
+## Sweep design
+
+To populate every (bars_since, abs_pct_bp) cell with non-overlapping data, we ran [donchian-fade-sweep](../TradingEdge.CryptoBacktest/Program.fs) at `MA=60 / trend ∈ {10..30} step 1` and pooled the trips by extracting only rows where `bars_since == trend_floor` from each trend-N CSV. This isolates the population that fired at exactly bars_since = N (rather than the rare leftovers from filtered-out lower-trend triggers), giving a unique-per-event distribution across the full bs range without double-counting.
+
+Filter: `dollar_volume_1h_at_entry >= $1M` (production liquidity floor). Pool: 21 trend values × ~600 symbols × 2 years.
+
+Source CSVs: `data/crypto/donchian_v5_liq_ma60_trend10to40/backtest_results_trips_1m_don3_trend{10..40}.csv`. Pooled output: `data/crypto/donchian_v5_liq_ma60_trend10to40/2d_pf_pooled_dv1m.csv`.
+
+## Trip count matrix
+
+```
+                   abs(pct_1h_change) [bp]
+bars_since   40-50  50-70  70-100 100-150 150-250  250+
+10-11        92727 120022   91534   61915   35780  19776
+12-13        44590  55054   40794   27401   15302   8846
+14-16        25689  31463   22024   13940    7981   4765
+17-20        10067  11351    7403    4391    2407   1528
+21-25         3555   3683    2085    1109     468    405
+26-30         1328   1199     553     285      92     94
+```
+
+## PF matrix (engine market-fill)
+
+```
+                   abs(pct_1h_change) [bp]
+bars_since   40-50  50-70  70-100 100-150 150-250  250+
+10-11         0.78   0.81   0.85    0.82    0.89   1.60   ← floor row mostly negative
+12-13         0.79   0.82   0.81    0.79    0.92   2.58
+14-16         0.89   0.91   0.85    0.79    0.96   4.38
+17-20         1.03   1.04   0.94    1.07    1.25   6.26
+21-25         2.24   1.76   1.56    1.87    1.49   7.63
+26-30         4.59   4.26   5.62    7.60    3.30   2.68   ← top corner unstable due to small N
+```
+
+## Avg P&L per trade matrix ($, on $1k notional)
+
+```
+                   abs(pct_1h_change) [bp]
+bars_since   40-50  50-70  70-100 100-150 150-250  250+
+10-11        -0.31  -0.31  -0.29   -0.45   -0.31   2.96
+12-13        -0.29  -0.29  -0.37   -0.52   -0.21   6.58
+14-16        -0.13  -0.13  -0.28   -0.51   -0.10  12.00
+17-20         0.03   0.05  -0.09    0.11    0.48  15.94
+21-25         0.65   0.56   0.54    0.90    0.81  16.71
+26-30         1.02   1.12   1.46    2.00    2.08   8.11
+```
+
+## Reading the surface
+
+**Two separate edges combine:**
+
+1. **Distance from MA carries an edge even at the trigger floor**. The bs=10-11 / 250+bp cell is **PF 1.60** with avg +$2.96/trade on **19,776 trips**. A live system firing only when both conditions are met (bars_since at minimum AND distance from MA > 250bp) would have a real edge from the lowest possible trigger.
+2. **Bars_since dominates at moderate distances**. At 50-70bp, going from bs=10-11 (PF 0.81) to bs=21-25 (PF 1.76) is a 2× PF improvement. The strategy effectively wants either a very-extended trend OR a far-from-MA entry; both at once is the strongest signal.
+
+**The losing cells are concentrated in the bottom-left**: bs=10-16 with abs_pct < 150bp. These represent ~80% of all signal events under the trend=10 floor and are where the engine's broad-aggregate PF drag comes from. A live system that **skips this region entirely** and only fires the positive-PF cells would dramatically improve the apparent strategy quality — at the cost of trip volume.
+
+**The top-right corner (bs=21-30 / abs_pct > 100bp) is the goldmine**. Cells like bs=21-25 / 250+bp at PF 7.63 (405 trips, +$16.71/trade) and bs=26-30 / 100-150bp at PF 7.60 (285 trips, +$2.00/trade) are the cells worth size-multiplying in a live system.
+
+**The top-row 250+bp cell (PF 2.68, only 94 trips) is unstable** — too few losers to compute a stable PF. Don't read too much into the very-high-bars / very-far-from-MA corner without more data.
+
+## How to apply for live sizing
+
+Production rule: at signal time, observe `bars_since` and `abs(pct_1h_change)` for the candidate trade, look up the PF cell:
+
+- **PF < 1.0**: skip. Per-trade EV is negative; not worth the spread cost.
+- **PF 1.0-1.5**: minimum size. Edge exists but small.
+- **PF 1.5-3.0**: standard size.
+- **PF > 3.0**: scale up. These are the cells where the strategy historically delivered the bulk of per-trade payoff.
+
+The 3rd dimension (`dollar_volume_1h_at_entry` decile) was deferred from this 2D table for readability but exists in the raw trip data for the eventual live-system 3D sizing function. The pooled CSV at `data/crypto/donchian_v5_liq_ma60_trend10to40/2d_pf_pooled_dv1m.csv` contains the cube data.
+
+## Caveats
+
+- **bs=26-30 / 250+bp is small (94 trips)** — PF 2.68 is unstable. Either need more data or accept the cell will down-size in production until it has more samples.
+- **The 2D table is built on engine market-fill PF**, not limit-fill. Per the limit-fill audit above, DonchianScalp loses substantially under maker execution (PF 1.25 overall vs 1.57 engine, with shorts losing money). The PF cells in this table need to be re-derived under the limit-fill simulator before the sizing function is final. The 2D structure (bottom-left bad, top-right good) is expected to survive the transformation, but the absolute PF values will compress.
+- **MA=60 here**, not the v5-champion MA=45. The v5 champion was tuned for the high-PF / low-volume Pareto endpoint, which this 2D surface dilutes by including the much larger bs=10 floor population. A separate 2D table at MA=45 would be slightly different but the qualitative shape should hold.

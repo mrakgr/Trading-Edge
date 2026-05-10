@@ -211,3 +211,78 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- limit-fill-sim \
 ```
 
 Output CSV has the original FlowSwing columns plus 16 limit-fill columns: `target_qty`, `entry_fill_qty`, `entry_fill_fraction`, `entry_first_fill_us`, `entry_last_fill_us`, `entry_avg_fill_price`, `exit_fill_qty`, `exit_first_fill_us`, `exit_last_fill_us`, `exit_avg_fill_price`, `residual_qty`, `residual_mark_price`, `limit_realized_pnl`, `limit_residual_pnl`, `limit_net_pnl`, `limit_seconds_held`.
+
+## 2D PF surface — price_decline × ratio_at_entry
+
+For dynamic-sizing in a live system. Same template as the DonchianScalp 2D table in [docs/donchian_fade_v0_results.md](donchian_fade_v0_results.md), but on FlowSwing's two natural signal axes:
+
+- **`price_decline`** = `abs(price_rise_at_entry)` × 100 — % decline from the trailing 72h MA at entry. Engine's `pd=14%` floor means all trips are at least 14%.
+- **`ratio_at_entry`** = the rvol-weighted CVD signal magnitude. Engine's `rvol≥0.75` floor means all trips have ratio ≥ 0.75.
+
+3,914 trips on the production-config trip CSV.
+
+### Trip count matrix
+
+```
+                  ratio_at_entry
+price_decline  0.75-1.0  1.0-1.5  1.5-2.5  2.5-4.0  4.0-7.0  7.0+
+14-15           234       352      354      161      73       28
+15-17           172       257      297      180      91       37
+17-20           118       160      204      133      95       30
+20-25            64        81      169      100      87       41
+25-35            25        46       78       75      36       39
+35+               8         6       11       16      20       36
+```
+
+### PF matrix (engine market-fill)
+
+```
+                  ratio_at_entry
+price_decline  0.75-1.0  1.0-1.5  1.5-2.5  2.5-4.0  4.0-7.0  7.0+
+14-15           2.34      2.41     2.94     3.86     7.77    1.72
+15-17           2.95      2.60     2.77     3.33     4.09    1.82
+17-20           3.02      5.52     6.60     5.08    10.22    3.54
+20-25           3.31      8.86     3.69     5.24    11.88    1.38
+25-35           7.92      6.03     6.47     4.92     4.77    1.31
+35+             1.43      0.03     2.40     0.98     2.06    1.07
+```
+
+### Avg P&L per trade matrix ($, $1k notional)
+
+```
+                  ratio_at_entry
+price_decline  0.75-1.0  1.0-1.5  1.5-2.5  2.5-4.0  4.0-7.0  7.0+
+14-15          11.07     12.64    19.15    24.88    45.39   16.08
+15-17          15.43     15.55    19.51    25.55    41.43   17.73
+17-20          18.31     25.87    33.70    40.60    57.47   49.75
+20-25          19.72     32.33    24.45    37.67    64.40   13.68
+25-35          30.31     32.67    36.03    33.33    46.58   11.06
+35+             5.66    -32.01    20.24    -0.61    28.96    2.98
+```
+
+### Reading the surface
+
+**Every well-populated cell has PF > 2.** Even the engine's lowest-signal floor (14-15% decline, 0.75-1.0 rvol) is PF 2.34 — there's no "PF < 1 throwaway zone" the way DonchianScalp's bs=10/low-pct corner is. FlowSwing's signal is structurally cleaner.
+
+**The 4.0-7.0 rvol column is the goldmine**: PF 7.77-11.88 across the 14-25% decline rows. These cells combine moderate price-decline with high CVD-flip strength — the textbook capitulation pattern.
+
+**The 7.0+ rvol column drops back to PF 1.4-3.5.** Extreme rvol entries are likely to coincide with capitulations that turn into real downtrends rather than reverts. Same failure mechanism as the 2025-09 down-month: once rvol gets really extreme, you're catching the start of bear moves rather than fading panic.
+
+**The 35+% decline row has unstable cells with negative PF**: PF 0.03 (only 6 trips), PF 0.98 (16 trips). Symbols that have already dropped 35% from MA are often in genuine downtrends. Position-sizing the 35+% row at minimum is the right call.
+
+### How to apply for live sizing
+
+Same shape as the DonchianScalp recommendation:
+
+- **PF < 1.5**: minimum size or skip. Mostly the 35+% / mid-rvol cells and the 7.0+ rvol top corner.
+- **PF 1.5-3.0**: standard size. The bottom-left workhorses (14-17% / 0.75-1.5 rvol) live here.
+- **PF 3.0-6.0**: scale up. Most of the 17-25% / 1.5-4.0 rvol cells.
+- **PF > 6.0**: scale up further. The 4.0-7.0 rvol column at 17-25% decline.
+
+Per-trade payoff in the goldmine cells is **$45-65/trade** vs the engine baseline $24.77 — sizing into those cells preferentially could double the per-trade payoff.
+
+### Caveats
+
+- **Ratio_at_entry interpretation**: this is the engine's internal CVD-weighted rvol signal, not raw rvol. Documented in `OrderflowLongFadeMA.fs`. The exact functional form matters when a live system reproduces the signal in real-time.
+- **35+% decline row is sparse** (8-36 trips per cell). The negative cells there are noise; treat the whole row as "minimum size" until it has more data.
+- **Limit-fill version preserves this surface**. Per the audit above, FlowSwing limit-fill captures 96.8% of engine market-fill P&L; the 2D PF surface should compress slightly under maker fees + rejection but the qualitative shape (small-decline-mid-rvol = workhorse, mid-decline-high-rvol = goldmine, extreme-rvol = unstable) holds.
