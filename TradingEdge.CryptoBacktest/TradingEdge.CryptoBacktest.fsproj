@@ -25,6 +25,7 @@
     <Compile Include="Breadth.fs" />
     <Compile Include="Backtest.fs" />
     <Compile Include="Reporting.fs" />
+    <Compile Include="LimitFillSim.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

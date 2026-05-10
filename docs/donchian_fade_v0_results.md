@@ -1425,3 +1425,99 @@ The trend=20 variant (PF 9.73, 21k trips, 470 active symbols) is the **middle Pa
 - `donchianTripsHeader` extended with `dollar_volume_1h_at_entry,trade_count_1h_at_entry`.
 
 Trip CSVs from prior sweeps lack these fields. To regenerate, re-run the sweep with the same flags — engine logic is unchanged so trip counts match (`MA=45 / trend=20`: 21,261 trips both before and after instrumentation).
+
+---
+
+# Limit-fill simulator audit + 2025-10 attribution — 2026-05-10 PM
+
+The square-root market-impact estimate said DonchianScalp would not survive market-order execution at any meaningful notional. The natural response was to test limit-order execution: **post a maker limit at the trip's recorded EntryPrice, trail per a 1-second-bar rule, replay against the trade tape**. New module: [LimitFillSim.fs](../TradingEdge.CryptoBacktest/LimitFillSim.fs). New CLI: `limit-fill-sim`. Architectural reference is the Orb [FillSimulator](../TradingEdge.Orb/Pipeline.fs) (lines 536-732) — three-phase per-trip state machine (entry-trail / passive-hold / exit-trail), latency-deferred price/qty updates via a Nito Deque, partial-fill accumulation, queue-position rejection, maker fees.
+
+## Configuration used
+
+| dial | value |
+|---|---|
+| trail mode | RePeg (limit follows each closed 1s bar's Low for buy-limits / High for sell-limits; can move adverse) |
+| maker fee | 0.0002 (= 2 bp = Binance USDT-perps base tier, per side) |
+| rejection rate | 0.30 (queue-position proxy: ~30% of crossing trades go to makers ahead of us) |
+| latency | 100 ms per placement / repricing |
+
+## Run target
+
+The trend=14 / dv≥$1M cell from the robustness audit above — the cell that looked like the deployable production target. 25,887 trips, 624 active symbols. Sim wall: 41 min @ -p 8.
+
+## Fill quality
+
+| metric | value |
+|---|---|
+| trips | 25,887 |
+| no-fill | 8 (0.03%) |
+| partial fill | 153 (0.6%) |
+| full fill | 25,726 (99.4%) |
+| avg entry fraction | 99.66% |
+| avg held seconds | 977 (~16 min) |
+| trips with residual | 2 |
+
+The dv≥$1M floor is liquid enough that fills are not the binding constraint. Almost every trip filled fully on both sides.
+
+## Headline result — engine market-fill vs limit-fill
+
+| metric | engine | limit-fill |
+|---|---:|---:|
+| trips | 25,887 | 25,887 |
+| net P&L | $20,227 | $9,611 |
+| avg / trade | $0.78 | $0.37 |
+| PF | 1.57 | 1.25 |
+
+**Limit-fill captures 47.5% of engine P&L while keeping PF at 1.25.** That's much better than the square-root market-impact estimate predicted — the limit-fill strategy is genuinely a maker edge, not a fee-and-impact-eating market chase.
+
+## Per-side asymmetry — the first warning sign
+
+| side | trips | engine net | limit net | PF (limit) | retention |
+|---|---:|---:|---:|---:|---:|
+| long | 14,578 | $18,383 | $12,074 | 1.55 | 65.7% |
+| short | 11,309 | $1,844 | -$2,464 | 0.85 | -134% |
+
+**The short side destroys $4,308 of P&L vs engine baseline.** The pattern is adverse selection on the maker side: when our short-side limit at the engine's EntryPrice gets filled, price tends to keep running up afterward. The engine's market-fill avoided this because it filled at bar.Close before price could run; the limit waits, RePeg moves the limit upward chasing the bar's High, and we end up entering at progressively worse prices precisely when the move is genuinely against us.
+
+The natural remedy is **`--trail-mode ratchet`** (limit only moves favorable). Tested separately; even so, the short side stays structurally weak under maker execution.
+
+## Long-only at higher dv floors
+
+| slice | trips | engine | limit | retention | lim_avg | lim_pf |
+|---|---:|---:|---:|---:|---:|---:|
+| all sides, no floor | 25,887 | $20,227 | $9,611 | 47.5% | $0.37 | 1.25 |
+| long, dv≥$1M | 14,578 | $18,383 | $12,074 | 65.7% | $0.83 | 1.55 |
+| long, dv≥$2M | 9,196 | $16,967 | $14,129 | 83.3% | $1.54 | 1.94 |
+| **long, dv≥$5M** | **4,580** | **$12,510** | **$11,753** | **94.0%** | **$2.57** | **2.39** |
+| long, dv≥$10M | 2,469 | $6,621 | $6,406 | 96.8% | $2.60 | 2.23 |
+
+At dv≥$5M long-only, limit-fill captures 94% of engine P&L with PF 2.39 / $2.57 per trade. By the surface metrics this is a deployable cell.
+
+## The 2025-10 single-month attribution — the deal-breaker
+
+October 2025 contributed:
+
+| slice | total | October | rest |
+|---|---:|---:|---:|
+| **engine net** | $20,227 | $16,597 (82.1%) | $3,630 (PF 1.11) |
+| **limit net** | $9,611 | $15,786 (164.3%) | -$6,176 (PF 0.83) |
+| **long, dv≥$2M, limit** | $14,129 | $16,412 (116%) | -$2,283 (PF 0.84) |
+
+**The strategy's reported P&L is overwhelmingly a single calendar month.** Even at the engine's market-fill version, ex-October PF is 1.11 — barely above break-even and well below any execution-drag survival threshold. Under limit-fill, ex-October P&L is **negative**.
+
+Per user knowledge: October 2025 had a market-wide liquidation event where most altcoins flushed ~50% in half an hour and recovered almost immediately. **DonchianScalp is structurally a vol-flush fade engine** — it fades extreme channel breaks and catches the rebound to MA. Of course it printed money during a universal liquidation event; the rest of the time those setups don't fire as cleanly because the moves don't follow the same path.
+
+## Reclassification
+
+DonchianScalp is **not** a daily-bread mean-reversion strategy. It is a **rare-vol-event fade engine** of the same family as `OrderflowExtremeRvol`. The 2-year backtest looked smooth because the universe-wide trip aggregation hid the regime concentration; the month-by-month and per-symbol audits make it visible.
+
+This means:
+- The earlier "production candidate: trend=14 / dv≥$1M / 40 bp filter" recommendation **is withdrawn**. Headline metrics on that cell are 80%+ October 2025.
+- The strategy stays in the codebase as an event-fader, alongside ExtremeRvol. Rule of engagement: only fire when universe-wide vol expansion + cross-symbol drawdown signal indicates a flush is in progress. Such a regime detector does not yet exist.
+- The mean-reversion thesis remains correct — channel breaks during vol flushes do revert to MA. The thesis just doesn't apply to ordinary days.
+
+## What this audit does NOT close
+
+- **FlowSwing (LongFadeMA)** has not been put through this audit yet. It might be similarly 2025-10-dependent (it's also a mean-reversion engine on the same universe) or might be regime-independent (different trigger: CVD flip + price decline, not Donchian channel break). This is the next priority.
+- **Regime detector**. If we can build a pre-event signal — e.g. cross-universe simultaneous-drop + funding-rate dislocation — the strategy becomes "fire only when regime is on" and may yet be deployable. Not pursued in this audit.
+- **Ratchet trail mode** is being run for completeness but is not expected to fix the regime-concentration issue (it's an execution refinement, not a signal change).

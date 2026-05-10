@@ -723,6 +723,29 @@ type BuildFundingBreadthArgs =
             | Extreme_Positive _ -> "Threshold for 'extreme positive funding' bin (default 0.0001 = 0.01% per interval = ~3.6× the +0.005% baseline)."
             | Extreme_Negative _ -> "Threshold for 'extreme negative funding' bin (default -0.0001)."
 
+type LimitFillSimArgs =
+    | [<Mandatory; AltCommandLine "-t">] Trips_Csv of string
+    | [<Mandatory; AltCommandLine "-o">] Output_Csv of string
+    | [<AltCommandLine "-d">] Data_Root of string
+    | Trail_Mode of string
+    | Maker_Fee of float
+    | Rejection_Rate of float
+    | Latency_Ms of int
+    | Seed of int
+    | [<AltCommandLine "-p">] Parallelism of int
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Trips_Csv _ -> "Input trips CSV (donchian-fade-sweep schema)."
+            | Output_Csv _ -> "Output CSV path. Original columns + 16 limit-fill columns appended."
+            | Data_Root _ -> "Trade-parquet root (per-symbol per-day). Default: " + defaultDataRoot
+            | Trail_Mode _ -> "Trail rule: 're-peg' (default, follows bar.Low/High each second; can move adverse) or 'ratchet' (only moves favorable)."
+            | Maker_Fee _ -> "Maker fee per side as fraction. Default 0.0002 (= 2 bp = Binance USDT-perps base tier)."
+            | Rejection_Rate _ -> "Probability per crossing trade that our resting order is skipped (queue-position proxy). Default 0.30."
+            | Latency_Ms _ -> "Order placement / repricing latency in milliseconds. Default 100."
+            | Seed _ -> "PRNG seed for rejection sampling. Default 12345."
+            | Parallelism _ -> "Max (symbol, date) groups processed concurrently. Default 4."
+
 type CliArgs =
     | [<CliPrefix(CliPrefix.None)>] Run of ParseResults<RunArgs>
     | [<CliPrefix(CliPrefix.None)>] Sweep of ParseResults<SweepArgs>
@@ -740,6 +763,7 @@ type CliArgs =
     | [<CliPrefix(CliPrefix.None)>] Breadth_Stratify of ParseResults<BreadthStratifyArgs>
     | [<CliPrefix(CliPrefix.None)>] Funding_Stratify of ParseResults<FundingStratifyArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Funding_Breadth of ParseResults<BuildFundingBreadthArgs>
+    | [<CliPrefix(CliPrefix.None)>] Limit_Fill_Sim of ParseResults<LimitFillSimArgs>
     interface IArgParserTemplate with
         member s.Usage =
             match s with
@@ -759,6 +783,7 @@ type CliArgs =
             | Breadth_Stratify _ -> "Stratify a trips CSV by composite_signed_rank_ma200 at entry; per-side per-decile PF / win-rate / P&L breakdown."
             | Funding_Stratify _ -> "Stratify a trips CSV by per-symbol funding rate at entry; per-side per-decile PF / win-rate / P&L breakdown."
             | Build_Funding_Breadth _ -> "Build the universe-wide funding-rate breadth panel: per-hour mean/median/quantile of funding rates across active symbols, plus a t-digest rank of the median."
+            | Limit_Fill_Sim _ -> "Post-hoc limit-order fill simulator over a DonchianFade trips CSV: replays trade-by-trade against 1s time bars, posts a maker limit at the trip's EntryPrice, trails per --trail-mode, accumulates partial fills with rejection rate + latency, mirrors trail on exit starting at the engine's recorded ExitUs. Produces a CSV with 16 fill-quality columns appended."
 
 // =============================================================================
 // Helpers
@@ -4183,6 +4208,49 @@ let cmdBuildFundingBreadth (args: ParseResults<BuildFundingBreadthArgs>) : int =
     0
 
 // =============================================================================
+// limit-fill-sim — post-hoc limit-order fill simulator on a trips CSV
+// =============================================================================
+
+let cmdLimitFillSim (args: ParseResults<LimitFillSimArgs>) : int =
+    let tripsCsv = args.GetResult LimitFillSimArgs.Trips_Csv
+    let outputCsv = args.GetResult LimitFillSimArgs.Output_Csv
+    let dataRoot = args.GetResult(LimitFillSimArgs.Data_Root, defaultValue = defaultDataRoot)
+    let trailMode =
+        let raw = args.GetResult(LimitFillSimArgs.Trail_Mode, defaultValue = "re-peg")
+        match raw.ToLowerInvariant() with
+        | "re-peg" | "repeg" | "rp" -> LimitFillSim.RePeg
+        | "ratchet" | "r" -> LimitFillSim.Ratchet
+        | other ->
+            eprintfn "[limit-fill-sim] unknown --trail-mode '%s'; using re-peg" other
+            LimitFillSim.RePeg
+    let makerFee = args.GetResult(LimitFillSimArgs.Maker_Fee, defaultValue = 0.0002)
+    let rejectionRate = args.GetResult(LimitFillSimArgs.Rejection_Rate, defaultValue = 0.30)
+    let latencyMs = args.GetResult(LimitFillSimArgs.Latency_Ms, defaultValue = 100)
+    let seed = args.GetResult(LimitFillSimArgs.Seed, defaultValue = 12345)
+    let parallelism = args.GetResult(LimitFillSimArgs.Parallelism, defaultValue = 4)
+
+    let cfg : LimitFillSim.LimitFillConfig = {
+        TrailMode = trailMode
+        MakerFee = makerFee
+        RejectionRate = rejectionRate
+        LatencyUs = int64 latencyMs * 1000L
+        Seed = seed
+    }
+    let trailModeStr =
+        match trailMode with
+        | LimitFillSim.RePeg -> "re-peg"
+        | LimitFillSim.Ratchet -> "ratchet"
+    printfn "[limit-fill-sim] trail=%s maker_fee=%g rejection=%g latency=%dms seed=%d parallelism=%d"
+        trailModeStr makerFee rejectionRate latencyMs seed parallelism
+    printfn "[limit-fill-sim] %s -> %s" tripsCsv outputCsv
+
+    let sw = Stopwatch.StartNew()
+    LimitFillSim.runFillSim cfg dataRoot tripsCsv outputCsv parallelism
+    sw.Stop()
+    printfn "[limit-fill-sim] total wall %.1fs" sw.Elapsed.TotalSeconds
+    0
+
+// =============================================================================
 // Entry point
 // =============================================================================
 
@@ -4208,6 +4276,7 @@ let main argv =
         | Breadth_Stratify a -> cmdBreadthStratify a
         | Funding_Stratify a -> cmdFundingStratify a
         | Build_Funding_Breadth a -> cmdBuildFundingBreadth a
+        | Limit_Fill_Sim a -> cmdLimitFillSim a
     with
     | :? ArguParseException as ex ->
         eprintfn "%s" ex.Message
