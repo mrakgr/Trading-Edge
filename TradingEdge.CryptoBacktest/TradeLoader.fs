@@ -36,7 +36,11 @@ let loadDay (rootDir: string) (symbol: string) (date: DateTime) : Trade[] =
                 "SELECT price, quantity, timestamp_us, sign FROM read_parquet('%s') ORDER BY timestamp_us"
                 (path.Replace("'", "''"))
         use reader = cmd.ExecuteReader()
-        let result = ResizeArray<Trade>(capacity = 4_000_000)
+        // Capacity grows amortized-doubling. Fixed 4M preallocation was causing
+        // OOM in the limit-fill simulator when loading 7d windows in parallel
+        // per (symbol, date) group — most days have far fewer than 4M trades,
+        // and the upfront 128 MB per call accumulates across workers.
+        let result = ResizeArray<Trade>(capacity = 256_000)
         while reader.Read() do
             result.Add {
                 Price = reader.GetDouble 0

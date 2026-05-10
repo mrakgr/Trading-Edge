@@ -67,6 +67,13 @@ type LimitFillConfig = {
     LatencyUs: int64
     /// PRNG seed for rejection sampling.
     Seed: int
+    /// Number of trade-parquet days to load past the entry day, to give the
+    /// exit trail room when trips hold across multiple days. Total load is
+    /// (1 + LookaheadDays) days per (symbol, entry-date) group.
+    /// Default 1 (sufficient for DonchianScalp's ~1h holds). FlowSwing's
+    /// median 1.77d / p95 4.5d / max 16d holds need a larger value — pass
+    /// --lookahead-days 6 (covers p95+) or 18 (covers max).
+    LookaheadDays: int
 }
 
 let defaultConfig () : LimitFillConfig =
@@ -74,7 +81,8 @@ let defaultConfig () : LimitFillConfig =
       MakerFee = 0.0002
       RejectionRate = 0.30
       LatencyUs = 100_000L
-      Seed = 12345 }
+      Seed = 12345
+      LookaheadDays = 1 }
 
 // -----------------------------------------------------------------------------
 // Latency-deferred price/qty register
@@ -230,17 +238,6 @@ let private emptyOutcome (target: float) (markPrice: float) : LimitFillOutcome =
 // Single-trip simulation
 // -----------------------------------------------------------------------------
 
-/// Find the index in `trades` of the first trade with timestamp >= targetUs,
-/// using binary search. If no such trade exists, returns `trades.Length`.
-let private lowerBound (trades: Trade[]) (targetUs: int64) : int =
-    let mutable lo = 0
-    let mutable hi = trades.Length
-    while lo < hi do
-        let mid = (lo + hi) >>> 1
-        if trades.[mid].TimestampUs < targetUs then lo <- mid + 1
-        else hi <- mid
-    lo
-
 /// Compute the new trail price after a 1s bar closes, given the trail rule,
 /// the trip side (so we know which axis of the bar to use), and the phase.
 let private newTrailPrice
@@ -290,24 +287,86 @@ let private tryFill
             acc.Add(limitPrice, fillQty, trade.TimestampUs)
         acc.IsDone
 
-/// Simulate a single trip's entry+exit fills against a chronologically-ordered
-/// trade slice. `trades` should cover at least [trip.EntryUs, trip.ExitUs +
-/// reasonable_exit_window]. The exit phase walks until full fill or end-of-slice;
-/// any unexited residual is marked at the last trade's price.
+/// Lazy day-by-day trade stream. Holds at most one day's Trade[] in memory at
+/// a time; when the current day is exhausted, drops the reference (lets the GC
+/// reclaim the array) and loads the next day via `loadDay`. The caller passes
+/// in `loadDay(dayOffset)` which returns the trades for the day at offset
+/// dayOffset from the entry-date (0 = entry day, 1 = entry day + 1, ...).
+/// Returning [||] from loadDay means "no more days" — the stream terminates.
+///
+/// The motivation for this design over loading all days upfront: FlowSwing's
+/// p95 hold is 4.5 days, so a 6-day load buffer per (symbol, date) group at any
+/// parallelism level multiplies memory by 6. With heavy mid-cap symbols having
+/// hundreds of MB of trades per day, the working set easily exceeds 13 GB and
+/// triggers the OOM-killer. Day-by-day streaming caps per-trip memory at a
+/// single day's worth of trades.
+[<Sealed>]
+type TradeStream(loadDay: int -> Trade[], maxDays: int) =
+    let mutable curDay : Trade[] = loadDay 0
+    let mutable curIdx = 0
+    let mutable nextDayIdx = 1
+    let mutable lastPrice = if curDay.Length > 0 then curDay.[curDay.Length - 1].Price else nan
+    let mutable totalSeen = curDay.Length
+
+    /// Advance to the first trade whose TimestampUs >= targetUs. Skips entire
+    /// days if their last trade is older than targetUs.
+    member self.SeekTo(targetUs: int64) =
+        // Within current day: binary-search if useful, otherwise linear forward.
+        while curIdx < curDay.Length && curDay.[curIdx].TimestampUs < targetUs do
+            curIdx <- curIdx + 1
+        // If we exhausted current day, advance days until target found or stream done.
+        while curIdx >= curDay.Length && nextDayIdx < maxDays do
+            curDay <- loadDay nextDayIdx
+            nextDayIdx <- nextDayIdx + 1
+            curIdx <- 0
+            totalSeen <- totalSeen + curDay.Length
+            if curDay.Length > 0 then
+                lastPrice <- curDay.[curDay.Length - 1].Price
+            // skip into the new day if needed
+            while curIdx < curDay.Length && curDay.[curIdx].TimestampUs < targetUs do
+                curIdx <- curIdx + 1
+
+    /// Pull the next trade. Returns ValueNone when stream is exhausted.
+    member self.TryNext() : Trade voption =
+        // Advance days until we have a trade or exhaust all.
+        while curIdx >= curDay.Length && nextDayIdx < maxDays do
+            curDay <- loadDay nextDayIdx
+            nextDayIdx <- nextDayIdx + 1
+            curIdx <- 0
+            totalSeen <- totalSeen + curDay.Length
+            if curDay.Length > 0 then
+                lastPrice <- curDay.[curDay.Length - 1].Price
+        if curIdx < curDay.Length then
+            let t = curDay.[curIdx]
+            curIdx <- curIdx + 1
+            ValueSome t
+        else
+            ValueNone
+
+    /// Last trade price seen so far (for residual mark when stream exhausts).
+    /// NaN if no trade has been seen yet.
+    member _.LastPrice = lastPrice
+
+    /// Total trades seen across all loaded days (informational only).
+    member _.TotalSeen = totalSeen
+
+/// Simulate a single trip's entry+exit fills against a streaming trade source.
+/// `stream` covers at least the trip's [EntryUs, ExitUs + exit-trail window].
+/// The exit phase walks until full fill or end-of-stream; any unexited residual
+/// is marked at the last trade's price.
 let simulateTrip
     (cfg: LimitFillConfig)
     (trip: DonchianRoundTrip)
-    (trades: Trade[])
+    (stream: TradeStream)
     : LimitFillOutcome =
     let rng = Random(cfg.Seed)
     let target =
         if trip.EntryPrice > 0.0 then trip.EffectiveNotional / trip.EntryPrice
         else 0.0
-    let lastMark =
-        if trades.Length > 0 then trades.[trades.Length - 1].Price
-        else trip.EntryPrice
 
-    if target <= 0.0 || trip.Side = Flat then emptyOutcome target lastMark
+    if target <= 0.0 || trip.Side = Flat then
+        let mark = if Double.IsNaN stream.LastPrice then trip.EntryPrice else stream.LastPrice
+        emptyOutcome target mark
     else
 
     let entryAcc = FillAccumulator()
@@ -318,28 +377,29 @@ let simulateTrip
     let entryBuilder = TimeBarBuilder(1_000_000L)
     // Closed-bar callback: compute next trail price from the bar that just
     // closed and push onto the latency register with activation = bar.EndUs +
-    // LatencyUs. We use a mutable cell because TimeBarBuilder.Process expects
-    // an `onNext: SignedBar -> unit` lambda.
+    // LatencyUs.
     let onEntryBarClose (bar: SignedBar) =
         let active = entryReg.ActiveAt(bar.EndUs)
         let next = newTrailPrice cfg trip.Side true active bar
         entryReg.Push(next, bar.EndUs + cfg.LatencyUs)
 
+    // Seek the stream to EntryUs.
+    stream.SeekTo trip.EntryUs
+
     // Phase A — entry fill, walk trades in [EntryUs, ExitUs].
-    let startIdx = lowerBound trades trip.EntryUs
-    let mutable idx = startIdx
     let mutable phaseADone = false
-    while not phaseADone && idx < trades.Length do
-        let t = trades.[idx]
-        if t.TimestampUs > trip.ExitUs then
+    let mutable carryover : Trade voption = ValueNone
+    while not phaseADone do
+        match stream.TryNext() with
+        | ValueNone -> phaseADone <- true
+        | ValueSome t when t.TimestampUs > trip.ExitUs ->
+            // Past the entry-phase cap. Stash this trade so Phase C can
+            // observe it (otherwise we'd skip a trade just past the boundary).
+            carryover <- ValueSome t
             phaseADone <- true
-        else
-            // Push the trade through the bar builder FIRST so that the
-            // closed-bar callback (if this trade closes a 1s bar by being
-            // in a later bucket) has a chance to update the trail price
-            // BEFORE we evaluate the fill against this trade. This matches
-            // Orb's "new bar → reprice → then check fills" ordering at
-            // lines 673-687.
+        | ValueSome t ->
+            // Push the trade through the bar builder FIRST so the closed-bar
+            // callback updates the trail price BEFORE we evaluate the fill.
             entryBuilder.Process(onEntryBarClose, t)
             let active = entryReg.ActiveAt(t.TimestampUs)
             let crosses =
@@ -352,20 +412,18 @@ let simulateTrip
             if crosses then
                 let fullyFilled = tryFill entryAcc rng cfg active t
                 if fullyFilled then phaseADone <- true
-            idx <- idx + 1
 
     // If nothing filled, emit empty outcome.
     if entryAcc.Filled <= 0.0 then
-        let mark = if trades.Length > 0 then trades.[idx |> min (trades.Length - 1)].Price else trip.EntryPrice
+        let mark = if Double.IsNaN stream.LastPrice then trip.EntryPrice else stream.LastPrice
         emptyOutcome target mark
     else
 
     // Phase B — passive hold from entryAcc.LastFillUs through trip.ExitUs.
-    // We just need to advance idx so the trade index lines up with
-    // trip.ExitUs for Phase C. (We could also skip-walk via lowerBound; both
-    // are equivalent given the cap.)
-    let exitStartIdx = lowerBound trades trip.ExitUs
-    if idx < exitStartIdx then idx <- exitStartIdx
+    // The carryover trade (if any) is already past ExitUs and is the first
+    // candidate for Phase C. If no carryover, seek the stream to ExitUs.
+    if carryover.IsNone then
+        stream.SeekTo trip.ExitUs
 
     // Phase C — exit fill, target qty = entryAcc.Filled (whatever we got).
     let exitAcc = FillAccumulator()
@@ -379,9 +437,8 @@ let simulateTrip
         let next = newTrailPrice cfg trip.Side false active bar
         exitReg.Push(next, bar.EndUs + cfg.LatencyUs)
 
-    let mutable phaseCDone = false
-    while not phaseCDone && idx < trades.Length do
-        let t = trades.[idx]
+    // Helper to evaluate one trade against the exit accumulator.
+    let evalExitTrade (t: Trade) : bool =
         exitBuilder.Process(onExitBarClose, t)
         let active = exitReg.ActiveAt(t.TimestampUs)
         // Exit side is OPPOSITE of position direction:
@@ -394,10 +451,18 @@ let simulateTrip
                 | Long  -> t.Price >= active
                 | Short -> t.Price <= active
                 | Flat  -> false
-        if crosses then
-            let fullyFilled = tryFill exitAcc rng cfg active t
-            if fullyFilled then phaseCDone <- true
-        idx <- idx + 1
+        if crosses then tryFill exitAcc rng cfg active t else false
+
+    let mutable phaseCDone = false
+    // First, consume the carryover (if any) — it's the first trade past ExitUs.
+    match carryover with
+    | ValueSome t -> if evalExitTrade t then phaseCDone <- true
+    | ValueNone -> ()
+
+    while not phaseCDone do
+        match stream.TryNext() with
+        | ValueNone -> phaseCDone <- true
+        | ValueSome t -> if evalExitTrade t then phaseCDone <- true
 
     // -------------------------------------------------------------------------
     // P&L reduction
@@ -408,8 +473,7 @@ let simulateTrip
     let exitFilled = exitAcc.Filled
     let residualQty = entryFilled - exitFilled
     let residualMark =
-        if trades.Length > 0 then trades.[trades.Length - 1].Price
-        else trip.EntryPrice
+        if Double.IsNaN stream.LastPrice then trip.EntryPrice else stream.LastPrice
 
     let signMult =
         match trip.Side with
@@ -446,7 +510,6 @@ let simulateTrip
     let secondsHeld =
         let endUs =
             if exitAcc.LastFillUs > 0L then exitAcc.LastFillUs
-            elif trades.Length > 0 then trades.[trades.Length - 1].TimestampUs
             else entryAcc.LastFillUs
         if entryAcc.FirstFillUs > 0L then int ((endUs - entryAcc.FirstFillUs) / 1_000_000L)
         else 0
@@ -618,59 +681,79 @@ let runFillSim
         opts,
         fun ((symbol: string), (date: DateTime), (group: (int * TripRow)[])) ->
             try
-                // Load this day + next 1 day to give the exit trail room past
-                // midnight. (Engine cover times are typically <8h so 1 spare
-                // day is plenty.)
-                let day0 = TradeLoader.loadDay dataRoot symbol date
-                let day1 = TradeLoader.loadDay dataRoot symbol (date.AddDays 1.0)
-                let trades =
-                    if day1.Length = 0 then day0
-                    else
-                        let combined = Array.zeroCreate (day0.Length + day1.Length)
-                        Array.blit day0 0 combined 0 day0.Length
-                        Array.blit day1 0 combined day0.Length day1.Length
-                        combined
-                if trades.Length = 0 then
-                    lock writeLock (fun () ->
-                        eprintfn "[limit-fill-sim] %s %s: no trades on disk, skipping %d trips"
-                            symbol (date.ToString "yyyy-MM-dd") group.Length)
-                else
-                    let lines = ResizeArray<int * string>(group.Length)
-                    for (origIdx, trip) in group do
-                        // Convert TripRow to DonchianRoundTrip for simulateTrip's signature.
-                        // Only the seven fields used by the simulator need real values; the
-                        // rest are zero-filled (simulateTrip ignores them).
-                        let donTrip : DonchianRoundTrip = {
-                            EntryUs = trip.EntryUs
-                            ExitUs = trip.ExitUs
-                            Side = trip.Side
-                            EntryPrice = trip.EntryPrice
-                            ExitPrice = trip.ExitPrice
-                            NetPnL = 0.0
-                            Fees = 0.0
-                            BarsHeld = 0
-                            MaxFavorableExcursion = 0.0
-                            MaxAdverseExcursion = 0.0
-                            EffectiveNotional = trip.EffectiveNotional
-                            FundingPnL = 0.0
-                            AvgDailyVolumeAtEntry = 0.0
-                            BarsSinceUpViolationAtEntry = 0
-                            BarsSinceDownViolationAtEntry = 0
-                            Pct1hChangeAtEntry = 0.0
-                            Pct72hChangeAtEntry = 0.0
-                            PriceRatio72hOver1hAtEntry = 0.0
-                            VolRatio1hOver72hAtEntry = 0.0
-                            DollarVolume1hAtEntry = 0.0
-                            TradeCount1hAtEntry = 0.0
-                        }
-                        let outcome = simulateTrip cfg donTrip trades
-                        lines.Add(origIdx, trip.OriginalLine + "," + outcomeRow outcome)
-                    lock writeLock (fun () ->
-                        for (_, line) in lines do
-                            writer.WriteLine line
-                        processed <- processed + group.Length
-                        if processed % 1000 = 0 || processed = total then
-                            printfn "[limit-fill-sim] %d/%d trips" processed total)
+                // Per-group day cache: Dictionary<dayOffset, Trade[]>. Each
+                // trip's TradeStream pulls days through this cache so multiple
+                // trips in the same group don't reload day 0 from parquet.
+                // Pruned aggressively after each trip — when the next trip's
+                // EntryUs is in day-offset N+, evict all entries < N+.
+                let dayCache = Dictionary<int, Trade[]>()
+                let getDay (dayOffset: int) : Trade[] =
+                    match dayCache.TryGetValue dayOffset with
+                    | true, arr -> arr
+                    | false, _ ->
+                        let arr = TradeLoader.loadDay dataRoot symbol (date.AddDays(float dayOffset))
+                        dayCache.[dayOffset] <- arr
+                        arr
+                // The maxDays passed to TradeStream caps how far it'll try to
+                // pull past the entry day. Use 1 + LookaheadDays as the upper
+                // bound; the stream will still terminate naturally when an
+                // empty Trade[] is returned (a missing day-parquet beyond
+                // the symbol's listing/delisting window).
+                let maxDays = 1 + cfg.LookaheadDays
+
+                let lines = ResizeArray<int * string>(group.Length)
+                for (origIdx, trip) in group do
+                    // Compute this trip's "anchor" day-offset: which day of the
+                    // group's date axis does the trip's entry fall on? For a
+                    // trip whose entry_us is on the same UTC date as the group
+                    // anchor, anchor=0. The stream's loadDay callback is then
+                    // (\i -> getDay (anchor + i)) so the stream's relative
+                    // day-indexing maps to the absolute group-day axis.
+                    let dateUs = DateTimeOffset(date, TimeSpan.Zero).ToUnixTimeMilliseconds() * 1000L
+                    let microsPerDay = 86_400_000_000L
+                    let anchor = int ((trip.EntryUs - dateUs) / microsPerDay)
+                    let stream = TradeStream((fun i -> getDay (anchor + i)), maxDays)
+
+                    let donTrip : DonchianRoundTrip = {
+                        EntryUs = trip.EntryUs
+                        ExitUs = trip.ExitUs
+                        Side = trip.Side
+                        EntryPrice = trip.EntryPrice
+                        ExitPrice = trip.ExitPrice
+                        NetPnL = 0.0
+                        Fees = 0.0
+                        BarsHeld = 0
+                        MaxFavorableExcursion = 0.0
+                        MaxAdverseExcursion = 0.0
+                        EffectiveNotional = trip.EffectiveNotional
+                        FundingPnL = 0.0
+                        AvgDailyVolumeAtEntry = 0.0
+                        BarsSinceUpViolationAtEntry = 0
+                        BarsSinceDownViolationAtEntry = 0
+                        Pct1hChangeAtEntry = 0.0
+                        Pct72hChangeAtEntry = 0.0
+                        PriceRatio72hOver1hAtEntry = 0.0
+                        VolRatio1hOver72hAtEntry = 0.0
+                        DollarVolume1hAtEntry = 0.0
+                        TradeCount1hAtEntry = 0.0
+                    }
+                    let outcome = simulateTrip cfg donTrip stream
+                    lines.Add(origIdx, trip.OriginalLine + "," + outcomeRow outcome)
+
+                    // Prune dayCache: drop entries with offset < anchor (we
+                    // know subsequent trips have entry_us >= this trip's, so
+                    // no future trip needs days before its own anchor).
+                    let toRemove =
+                        dayCache.Keys
+                        |> Seq.filter (fun k -> k < anchor)
+                        |> Seq.toArray
+                    for k in toRemove do dayCache.Remove(k) |> ignore
+                lock writeLock (fun () ->
+                    for (_, line) in lines do
+                        writer.WriteLine line
+                    processed <- processed + group.Length
+                    if processed % 1000 = 0 || processed = total then
+                        printfn "[limit-fill-sim] %d/%d trips" processed total)
             with ex ->
                 lock writeLock (fun () ->
                     eprintfn "[limit-fill-sim] %s %s FAILED: %s"

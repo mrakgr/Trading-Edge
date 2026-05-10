@@ -1516,8 +1516,34 @@ This means:
 - The strategy stays in the codebase as an event-fader, alongside ExtremeRvol. Rule of engagement: only fire when universe-wide vol expansion + cross-symbol drawdown signal indicates a flush is in progress. Such a regime detector does not yet exist.
 - The mean-reversion thesis remains correct — channel breaks during vol flushes do revert to MA. The thesis just doesn't apply to ordinary days.
 
+## Ratchet trail mode — conclusively worse than RePeg
+
+For completeness, the same 25,887 trips were re-run with `--trail-mode ratchet` (limit only moves favorable). The hypothesis was that ratchet would mitigate the adverse-selection drag visible on shorts under RePeg. **It did the opposite.**
+
+| variant | total P&L | per-trade | PF |
+|---|---:|---:|---:|
+| engine | $20,227 | $0.78 | 1.574 |
+| limit RePeg | $9,611 | $0.37 | 1.251 |
+| **limit Ratchet** | **$5,431** | **$0.21** | **1.135** |
+
+| ex-October | total P&L | per-trade | PF |
+|---|---:|---:|---:|
+| engine | $3,630 | $0.15 | 1.112 |
+| limit RePeg | -$6,176 | -$0.25 | 0.826 |
+| **limit Ratchet** | **-$10,018** | **-$0.41** | **0.732** |
+
+Ratchet loses an extra $4.2k overall vs RePeg, and another $3.8k ex-October. Both sides:
+
+| side | RePeg | Ratchet |
+|---|---:|---:|
+| long | PF 1.55 / +$12,074 | PF 1.42 / +$9,569 |
+| short | PF 0.85 / -$2,464 | PF 0.76 / -$4,138 |
+
+**Mechanism**: this is a mean-reversion fade. When long, we want price to come back up — the bar.Low rising means the rebound is starting. RePeg follows the rebound; Ratchet refuses to lift the limit and waits for an even lower price that may never come. Net result: ratchet captures less of the rebound and exits later at worse prices on average. RePeg is the correct rule for this strategy.
+
+The ratchet experiment is closed: **don't use ratchet for fade-style mean-reversion**. RePeg is the right default.
+
 ## What this audit does NOT close
 
-- **FlowSwing (LongFadeMA)** has not been put through this audit yet. It might be similarly 2025-10-dependent (it's also a mean-reversion engine on the same universe) or might be regime-independent (different trigger: CVD flip + price decline, not Donchian channel break). This is the next priority.
-- **Regime detector**. If we can build a pre-event signal — e.g. cross-universe simultaneous-drop + funding-rate dislocation — the strategy becomes "fire only when regime is on" and may yet be deployable. Not pursued in this audit.
-- **Ratchet trail mode** is being run for completeness but is not expected to fix the regime-concentration issue (it's an execution refinement, not a signal change).
+- **FlowSwing (LongFadeMA)** audit run separately on the same day; results in [docs/donchian_fade_v0_results.md](docs/donchian_fade_v0_results.md) under the FlowSwing section (or a separate doc). Headline: 11.4% October attribution (vs DonchianScalp's 82%), PF 3.33 ex-October — the production strategy.
+- **Regime detector** for DonchianScalp. If we can build a pre-event signal — e.g. cross-universe simultaneous-drop + funding-rate dislocation — the strategy becomes "fire only when regime is on" and may yet be deployable. Not pursued in this audit. The user's plan is forward-collection of L2 data on cloud VMs, replaying once we have a month of book history; book imbalance is the natural feature for that signal.

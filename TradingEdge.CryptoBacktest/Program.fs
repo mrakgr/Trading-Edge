@@ -731,18 +731,20 @@ type LimitFillSimArgs =
     | Maker_Fee of float
     | Rejection_Rate of float
     | Latency_Ms of int
+    | Lookahead_Days of int
     | Seed of int
     | [<AltCommandLine "-p">] Parallelism of int
     interface IArgParserTemplate with
         member s.Usage =
             match s with
-            | Trips_Csv _ -> "Input trips CSV (donchian-fade-sweep schema)."
+            | Trips_Csv _ -> "Input trips CSV (donchian-fade-sweep or long-fade-ma-sweep schema)."
             | Output_Csv _ -> "Output CSV path. Original columns + 16 limit-fill columns appended."
             | Data_Root _ -> "Trade-parquet root (per-symbol per-day). Default: " + defaultDataRoot
             | Trail_Mode _ -> "Trail rule: 're-peg' (default, follows bar.Low/High each second; can move adverse) or 'ratchet' (only moves favorable)."
             | Maker_Fee _ -> "Maker fee per side as fraction. Default 0.0002 (= 2 bp = Binance USDT-perps base tier)."
             | Rejection_Rate _ -> "Probability per crossing trade that our resting order is skipped (queue-position proxy). Default 0.30."
             | Latency_Ms _ -> "Order placement / repricing latency in milliseconds. Default 100."
+            | Lookahead_Days _ -> "Number of trade-parquet days to load past the entry day. Default 1 (sufficient for ~1h holds like DonchianScalp). Use 6 for FlowSwing's median 1.77d / p95 4.5d holds; 18 to cover the 16d max."
             | Seed _ -> "PRNG seed for rejection sampling. Default 12345."
             | Parallelism _ -> "Max (symbol, date) groups processed concurrently. Default 4."
 
@@ -4226,6 +4228,7 @@ let cmdLimitFillSim (args: ParseResults<LimitFillSimArgs>) : int =
     let makerFee = args.GetResult(LimitFillSimArgs.Maker_Fee, defaultValue = 0.0002)
     let rejectionRate = args.GetResult(LimitFillSimArgs.Rejection_Rate, defaultValue = 0.30)
     let latencyMs = args.GetResult(LimitFillSimArgs.Latency_Ms, defaultValue = 100)
+    let lookaheadDays = args.GetResult(LimitFillSimArgs.Lookahead_Days, defaultValue = 1)
     let seed = args.GetResult(LimitFillSimArgs.Seed, defaultValue = 12345)
     let parallelism = args.GetResult(LimitFillSimArgs.Parallelism, defaultValue = 4)
 
@@ -4235,13 +4238,14 @@ let cmdLimitFillSim (args: ParseResults<LimitFillSimArgs>) : int =
         RejectionRate = rejectionRate
         LatencyUs = int64 latencyMs * 1000L
         Seed = seed
+        LookaheadDays = lookaheadDays
     }
     let trailModeStr =
         match trailMode with
         | LimitFillSim.RePeg -> "re-peg"
         | LimitFillSim.Ratchet -> "ratchet"
-    printfn "[limit-fill-sim] trail=%s maker_fee=%g rejection=%g latency=%dms seed=%d parallelism=%d"
-        trailModeStr makerFee rejectionRate latencyMs seed parallelism
+    printfn "[limit-fill-sim] trail=%s maker_fee=%g rejection=%g latency=%dms lookahead=%dd seed=%d parallelism=%d"
+        trailModeStr makerFee rejectionRate latencyMs lookaheadDays seed parallelism
     printfn "[limit-fill-sim] %s -> %s" tripsCsv outputCsv
 
     let sw = Stopwatch.StartNew()
