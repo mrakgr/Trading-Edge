@@ -88,6 +88,17 @@ type DonchianRoundTrip = {
     Pct72hChangeAtEntry: float
     PriceRatio72hOver1hAtEntry: float
     VolRatio1hOver72hAtEntry: float
+    /// Sum of bar dollar-volume (BuyDollarVolume + SellDollarVolume, in USDT)
+    /// over the trailing nShortRef bars ending the bar BEFORE entry. Pre-push
+    /// state (does not include the entry bar itself). Pairs with
+    /// TradeCount1hAtEntry to characterise actual liquidity in the 1h window
+    /// leading into the trade — independent of the trailing-90d
+    /// AvgDailyVolumeAtEntry which can be high while the immediate vicinity
+    /// is illiquid.
+    DollarVolume1hAtEntry: float
+    /// Sum of bar.TradeCount over the trailing nShortRef bars ending the bar
+    /// BEFORE entry. Recorded as float for CSV serialisation simplicity.
+    TradeCount1hAtEntry: float
 }
 
 type DonchianFadeConfig = {
@@ -211,6 +222,7 @@ type Engine(cfg: DonchianFadeConfig) =
     let closeLongMa  = SumMa(nLongRef)
     let volShortMa = SumMa(nShortRef)
     let volLongMa  = SumMa(nLongRef)
+    let tradeCountShortMa = SumMa(nShortRef)
     let advMa = SumMa(advWindowBars)
     let volMa = StdMa(volWindowBars)
 
@@ -246,6 +258,8 @@ type Engine(cfg: DonchianFadeConfig) =
     let mutable pct72hChangeAtEntry = 0.0
     let mutable priceRatio72hOver1hAtEntry = 0.0
     let mutable volRatio1hOver72hAtEntry = 0.0
+    let mutable dollarVolume1hAtEntry = 0.0
+    let mutable tradeCount1hAtEntry = 0.0
 
     let mutable lastClose = 0.0
     let mutable lastUs = 0L
@@ -282,7 +296,9 @@ type Engine(cfg: DonchianFadeConfig) =
         (pct1hChange: float)
         (pct72hChange: float)
         (priceRatio: float)
-        (volRatio: float) =
+        (volRatio: float)
+        (dollarVolume1h: float)
+        (tradeCount1h: float) =
         side <- newSide
         entryPrice <- fillPrice
         entryUs <- fillUs
@@ -299,6 +315,8 @@ type Engine(cfg: DonchianFadeConfig) =
         pct72hChangeAtEntry <- pct72hChange
         priceRatio72hOver1hAtEntry <- priceRatio
         volRatio1hOver72hAtEntry <- volRatio
+        dollarVolume1hAtEntry <- dollarVolume1h
+        tradeCount1hAtEntry <- tradeCount1h
 
     let closePos (fillPrice: float) (fillUs: int64) =
         let gross = grossPnL side entryPrice fillPrice effectiveNotional
@@ -323,6 +341,8 @@ type Engine(cfg: DonchianFadeConfig) =
             Pct72hChangeAtEntry = pct72hChangeAtEntry
             PriceRatio72hOver1hAtEntry = priceRatio72hOver1hAtEntry
             VolRatio1hOver72hAtEntry = volRatio1hOver72hAtEntry
+            DollarVolume1hAtEntry = dollarVolume1hAtEntry
+            TradeCount1hAtEntry = tradeCount1hAtEntry
         }
         side <- Flat
         entryPrice <- 0.0
@@ -340,6 +360,8 @@ type Engine(cfg: DonchianFadeConfig) =
         pct72hChangeAtEntry <- 0.0
         priceRatio72hOver1hAtEntry <- 0.0
         volRatio1hOver72hAtEntry <- 0.0
+        dollarVolume1hAtEntry <- 0.0
+        tradeCount1hAtEntry <- 0.0
 
     let applyFunding (bar: SignedBar) =
         while fundingPtr < fundingEvents.Length
@@ -484,6 +506,16 @@ type Engine(cfg: DonchianFadeConfig) =
             && closeLongMa.Count  >= nLongRef
 
         if windowsReady && side = Flat then
+            // Pre-push trailing-1h DOLLAR volume sum + trade count. Reads
+            // BEFORE the current bar is pushed, so the snapshot reflects the
+            // 1h window ENDING with the bar before this one — the actual
+            // run-up liquidity going into the trade. volShortMa is fed
+            // BuyDollarVolume + SellDollarVolume per bar so its sum is in
+            // USDT (comparable across symbols).
+            let dollarVolume1hSum =
+                if volShortMa.Count >= nShortRef then volShortMa.State else 0.0
+            let tradeCount1hSum =
+                if tradeCountShortMa.Count >= nShortRef then tradeCountShortMa.State else 0.0
             // Post-hoc fields — same values for both sides.
             let closeShortMean =
                 if closeShortMa.Count > 0
@@ -602,6 +634,7 @@ type Engine(cfg: DonchianFadeConfig) =
                     | _ -> level
                 openPos s bar.Close bar.EndUs entryLevel
                     pct1hChange pct72hChange priceRatio72hOver1h volRatio1hOver72h
+                    dollarVolume1hSum tradeCount1hSum
                 // Un-arm the side that just fired (TrendOnly only).
                 if cfg.EntryMode = TrendOnly then
                     if s = Long then armedUptrendLong <- false
@@ -658,8 +691,14 @@ type Engine(cfg: DonchianFadeConfig) =
         donLowMa.Push  bar.Low
         closeShortMa.Push bar.Close
         closeLongMa.Push  bar.Close
-        volShortMa.Push bar.Volume
-        volLongMa.Push  bar.Volume
+        // Push DOLLAR volume into the short/long volume aggregates so the
+        // recorded `Volume1hAtEntry` is in USDT, comparable across symbols.
+        // Using BuyDollarVolume + SellDollarVolume (the same expression as
+        // advMa above) — sums tick-level price·qty so it's accurate even
+        // intra-bar, not VWAP·volume which could underweight large moves.
+        volShortMa.Push totalDv
+        volLongMa.Push  totalDv
+        tradeCountShortMa.Push (float bar.TradeCount)
 
         // Ratchet the cover level. Both modes ratchet the level toward
         // the favorable side of the trade, but they're symmetric mirrors:

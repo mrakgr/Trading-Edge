@@ -1270,3 +1270,158 @@ The two-frontier shape is real and sharp:
 **Default change**: engine and CLI defaults updated from 0 bp to 40 bp on both `MaxPct1hChangeForLong` (default `-0.004`) and `MinPct1hChangeForShort` (default `+0.004`). Pass `--max-pct-1h-for-long 1e9 --min-pct-1h-for-short -1e9` to revert to the legacy 0 bp behaviour.
 
 **MA=45, trend=30 with 40 bp filter is the new v5 default**: PF 61.69, win 97.64%, +$1.66/trade. Cleanest signal in the entire workstream.
+
+---
+
+# Robustness audit — 2026-05-10
+
+The v5 PF 61.69 headline begged for the standard cautionary checks: month-by-month stability, per-symbol concentration, and pre-entry liquidity. Each was performed on the trip CSVs from `donchian_v5_grid40bp/` (and a re-run with new fields, `donchian_v5_liq/`, after engine instrumentation). The findings reframe what "production cell" means.
+
+## 1. Symbol concentration — the trend=30 problem
+
+**MA=45 / trend=30 (the v5 champion):**
+
+| metric | value |
+|---:|---:|
+| trips | 9,306 |
+| **active symbols** | **30** (out of 643 universe symbols) |
+| top 1 sym share of P&L | 21.4% |
+| top 5 share | **81.8%** |
+| top 10 share | **96.5%** |
+| profitable / losing symbols | 24 / 6 |
+
+The headline PF is essentially the **CELOUSDT + DYDXUSDT + 1000SATSUSDT + ALICEUSDT + FLOWUSDT** show — five symbols delivering 82% of P&L. The v5 champion is a niche scalp on a small mid-cap-perp core, not a universe-wide engine.
+
+**MA=45 / trend=14 (loosened qualifier):**
+
+| metric | value |
+|---:|---:|
+| trips | 84,134 |
+| active symbols | **633** |
+| top 5 share | 47.8% |
+| top 10 share | 69.8% |
+| top 50 share | 89.1% |
+| profitable / losing symbols | 408 / 225 |
+
+Loosening the trend qualifier from 30 to 14 bars takes the engine universe-wide. PF drops 61.7 → 1.89 but trips grow 9× and 633 of 643 symbols fire. The trend=20 variant sits between (PF 9.73, 21k trips, 470 active symbols, top-5 64%).
+
+**Verdict on concentration**: trend=30's 5-symbol concentration is structural — it is what trend=30 detects, not an artifact of any other parameter. Liquidity floors don't fix it (next section).
+
+## 2. Pre-entry liquidity — engine instrumentation
+
+`OrderflowDonchianFade.fs` now records two new per-trip fields surfaced via [Reporting.fs](../TradingEdge.CryptoBacktest/Reporting.fs):
+
+- `dollar_volume_1h_at_entry` — sum of `(BuyDollarVolume + SellDollarVolume)` over the trailing `nShortRef` bars ending the bar BEFORE entry. USDT-denominated.
+- `trade_count_1h_at_entry` — sum of `bar.TradeCount` over the same window.
+
+Both are pre-push reads (do not include the entry bar itself). The 1h here is the `--short-ref-minutes` setting, defaulting to 60 (production runs use 45 for the v5 MA).
+
+### Distribution at entry (trend=20)
+
+| stat | dollar_volume_1h | trade_count_1h |
+|---:|---:|---:|
+| p5 | $21,214 | 281 |
+| p25 | $91,430 | 617 |
+| p50 | $211,060 | 1,083 |
+| p75 | $514,271 | 2,005 |
+| p95 | $2,232,639 | 7,096 |
+
+**Median dv_1h × 24 / adv_at_entry = 0.29.** The system fires into hours that are roughly **30% of typical-hour volume** — i.e. **lull windows, not spike windows.** This is the central liquidity finding: a Donchian channel break in a quiet hour means somebody actually decided to move price (no random-noise crossings), and the rebound to MA is reliable.
+
+### Decile breakdown (trend=20, by dollar_volume_1h_at_entry)
+
+| decile | dv_1h range (USDT) | win % | PF | net | avg/trade |
+|---:|---:|---:|---:|---:|---:|
+| 1 | $3 – $40k | 97.5 | **48.6** | $3,343 | $1.57 |
+| 2 | $40k – $74k | 96.0 | 44.9 | $3,250 | $1.53 |
+| 5 | $154k – $211k | 93.4 | 16.9 | $3,122 | $1.47 |
+| 7 | $291k – $419k | 91.1 | 9.5 | $2,929 | $1.38 |
+| 9 | $645k – $1.26M | 87.6 | 5.4 | $2,623 | $1.23 |
+| 10 | $1.26M – $392M | 80.1 | **3.8** | $3,771 | **$1.77** |
+
+Monotonic PF decline from quiet → busy 1h. Decile 1 has the strongest PF (clean reverts), decile 10 has the **highest avg/trade** (busier markets accept larger edges). **All deciles profitable.** The per-trade payoff stays remarkably stable around $1.4-1.8 across all 10 deciles — only the win-rate (and therefore PF) erodes with volume.
+
+### Liquidity-floor PF/concentration tradeoff
+
+**trend=20 floor cost:**
+
+| floor | trips | PF | net | top5 share |
+|---:|---:|---:|---:|---:|
+| no floor | 21,261 | 9.73 | $31,247 | 64.1% |
+| ≥ $250k | 9,540 | 5.89 | $13,653 | 63.9% |
+| ≥ $500k | 5,447 | 4.66 | $7,970 | 63.1% |
+| ≥ $1M | 2,713 | **3.81** | $4,427 | **51.6%** |
+
+The same 5 symbols dominate at every liquidity threshold. Filtering on dv_1h doesn't change which symbols carry the strategy — those symbols just have more trips. The concentration is the strategy.
+
+**trend=14 floor cost:**
+
+| floor | trips | PF | net | avg | top5 share |
+|---:|---:|---:|---:|---:|---:|
+| no floor | 84,134 | 1.89 | $60,959 | $0.72 | 47.8% |
+| ≥ $250k | 54,257 | 1.62 | $34,970 | $0.64 | 45.0% |
+| ≥ $500k | 38,974 | 1.56 | $25,896 | $0.66 | 38.5% |
+| **≥ $1M** | **25,887** | **1.57** | **$20,227** | **$0.78** | **25.5%** |
+| ≥ $2M | 16,291 | 1.69 | $17,529 | $1.08 | – |
+
+trend=14 ≥ $1M shows the textbook desired behaviour: top-5 collapses from 48% → 25.5%, top-10 from 70% → 32%, **431 of 624 active symbols are profitable** (69%). PF holds at 1.57 with avg/trade $0.78 — meaningful after fees on $1k notional.
+
+**Verdict on liquidity**: trend=14 ≥ $1M is the deployable production cell. Lower per-trade payoff than trend=20 but with a genuinely diversified symbol distribution and sufficient liquidity to size up.
+
+## 3. Sizing-signal study (trend=20)
+
+Decile-stratified by three independent variables on the same trip set; PF spread between bottom and top decile listed:
+
+| signal | bottom-decile PF | top-decile PF | spread |
+|---|---:|---:|---:|
+| `bars_since_violation` (run length) | 6.6 | **137** | **20×** |
+| `dollar_volume_1h_at_entry` (inverse) | 3.8 | 48.6 | 13× |
+| `abs(pct_1h_change)` (distance to MA) | 9.6 | 14.0 | 1.5× |
+| `trade_count_1h_at_entry` (inverse) | 2.8 | 182 | 65× |
+
+`bars_since_violation` and `trade_count_1h_at_entry` carry the strongest single-axis edge. All four are roughly monotonic and largely independent (verified via 5×5 joint cubes — bottom-right `tc_q=5 × pct_q=5` cell is PF 6.7, avg $3.49, the highest-payoff corner despite being the busiest-traffic quintile).
+
+**Production sizing implication**: a multiplicative scaler in `openPos` of the form
+
+```
+notional × f(bars_since_violation) × g(abs(pct_1h_change)) × h(dv_1h_at_entry)
+```
+
+would up-size the cleanest setups (long trend run, far from MA, in a quiet hour) and down-size the marginal ones, lifting the realised per-trade payoff materially. Order of priority: `bars_since_violation` first (20× spread), then `dv_1h_at_entry` and `trade_count_1h_at_entry` (capacity tradeoff), then `abs(pct_1h_change)` as a secondary multiplier.
+
+## 4. Month-by-month stability
+
+**trend=14:** every month from 2024-05 through 2026-04 fires 1.4k–7.5k trips across 200+ symbols. Only one losing month: **2025-06 (PF 0.81, -$710)**. Recovers immediately.
+
+**trend=20:** same shape, fewer trips per month (300–3,400). Only losing months: 2025-01 (PF 0.84, -$5) and 2025-06 (PF 0.44, -$287).
+
+**The recent ramp is real.** Trip counts at trend=20 climb 319 (2025-09) → 755 → 1,196 → 2,411 → 2,559 → 2,992 → 3,403 (2026-03). Roughly 10× growth in 6 months. PF holds high through the ramp (14.3, 24.2, 23.8). The setups are getting **more frequent AND staying high-PF** — consistent with a market regime change on Binance perps, not a parameter overfit.
+
+**The 2025-06 universal down month** appears at every trend variant (14/20/30) and warrants a focused breakdown before sizing capital — it's the one regime moment the strategy genuinely misfired. Not yet investigated.
+
+## Production recommendation revised
+
+The v5 champion (MA=45 / trend=30 / 40 bp filter, PF 61.69) **stays in the doc as the high-PF Pareto endpoint** but is no longer the recommended production cell. It works, but only on 30 symbols with 5 of them carrying 82% of P&L — that's a niche scalp, not a portfolio strategy.
+
+**Production candidate: MA=45 / trend=14 / 40 bp filter / dv_1h_at_entry ≥ $1M**:
+- 25,887 trips over 2 years (35/day across 624 active symbols)
+- PF 1.57 — modest but credible
+- avg/trade $0.78
+- top-5 share 25.5%, top-10 32% — actually diversified
+- 431 profitable / 193 losing of 624 active symbols (69% profitable)
+- liquidity at entry ≥ $1M USDT/hr — sufficient for meaningful notional
+- the three sizing signals (`bars_since_violation`, `abs(pct_1h_change)`, `dv_1h_at_entry`) are all available for dynamic notional scaling
+
+The trend=20 variant (PF 9.73, 21k trips, 470 active symbols) is the **middle Pareto cell** — accept it as a research benchmark but not a production target without explicit acceptance of the symbol concentration.
+
+## Engine changes
+
+[OrderflowDonchianFade.fs](../TradingEdge.CryptoBacktest/OrderflowDonchianFade.fs):
+- New `DonchianRoundTrip` fields: `DollarVolume1hAtEntry`, `TradeCount1hAtEntry`.
+- New rolling aggregate: `tradeCountShortMa = SumMa(nShortRef)`.
+- `volShortMa` and `volLongMa` now sum `(BuyDollarVolume + SellDollarVolume)` per bar instead of `bar.Volume` — recorded values are USDT, comparable across symbols.
+
+[Reporting.fs](../TradingEdge.CryptoBacktest/Reporting.fs):
+- `donchianTripsHeader` extended with `dollar_volume_1h_at_entry,trade_count_1h_at_entry`.
+
+Trip CSVs from prior sweeps lack these fields. To regenerate, re-run the sweep with the same flags — engine logic is unchanged so trip counts match (`MA=45 / trend=20`: 21,261 trips both before and after instrumentation).
