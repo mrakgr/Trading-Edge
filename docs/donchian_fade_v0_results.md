@@ -1883,3 +1883,17 @@ The strategy works as a **vol-flush fader** for once-or-twice-a-year systemic ev
 - trend=20 fill CSV: `/tmp/tk_v5_t20/taker_fills.csv`.
 - v8 run: `taker-fill-sim --trips-csv ... --output-csv ... --fill-mode cum-volume -p 8` (defaults: w_max=60000ms, cv=3.0, taker_fee=0.0005). 60s window, no-lookahead.
 - The cum-volume mode now always fills (when ≥1 same-side trade exists in the window); only literal zero-flow Scratched.
+
+### Last-ditch: revisit the v0 break-trigger D0.0.0/D0.0.1 sub-sub-deciles
+
+The original v0 doc identified a clean sub-sub-decile cell ("D0.0.0 + D0.0.1"): the deepest 1-2% of pct_1h_change among downtrend-breakup-long trips (break-trigger mode, MinTrendBars=30, no MA-side filter). Engine PF 3.5 / 3.1 over 324 trips combined. Worth re-checking under the v8 honest taker fill:
+
+| Cell | Trips | Filled | Engine $ | Taker $ | Taker PF |
+|---|---:|---:|---:|---:|---:|
+| D0.0.0+D0.0.1 (324) | 324 | 323 | +$2,644 | +$2,572 | **3.29** |
+| ex-Oct-10 | 318 | 317 | +$1,817 | +$1,767 | 2.60 |
+| **ex top-3 flush days** | **246** | **245** | **-$237** | **-$278** | **0.75** |
+
+323/324 trips fill cleanly under realistic taker (the deep deviation bars have huge same-side flow on the recovery), and taker captures 97% of engine P&L — so execution isn't the issue. But three days carry the entire P&L: 2024-12-09 (BTC deleveraging, +$1,830 dominant), 2025-10-10 (universal liquidation, +$805), 2025-02-03 (Trump-tariff flush, +$215). The remaining 246 trades over ~720 other days deliver -$278.
+
+Same finding as the broader v8 audit: DonchianScalp captures universal vol-flush events, with the deep-deviation sub-sub-decile being one of several lenses that surfaces this same edge. Not a daily strategy.
