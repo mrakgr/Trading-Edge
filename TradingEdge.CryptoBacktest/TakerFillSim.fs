@@ -52,12 +52,20 @@ type FillMode =
     | TimeEwma
 
 type TakerFillConfig = {
+    /// Bar bucket length in microseconds. Used to compute the bar's clock-end
+    /// boundary for date-bucketing. A trip's entry_us is the timestamp of the
+    /// bar's LAST TRADE, which may fall before the bar's actual clock-end —
+    /// when entry_us is near 23:59:xx, the order's execution window naturally
+    /// straddles midnight. Bucketing on the clock-end (next-minute boundary)
+    /// rather than entry_us ensures we load the day that actually contains the
+    /// post-bar trades. Default 60_000_000 us (1m bars).
+    BucketUs: int64
     /// Latency window before any trade can be ours. Default 200_000 us (200 ms).
     TSkipUs: int64
-    /// Hard cap on the lookahead window. Default 10_000_000 us (10 s) — longer
-    /// than v6's 3s default because the cum-volume rule needs time to
-    /// accumulate enough flow on thinner symbols (which often have the best
-    /// reversion edge).
+    /// Hard cap on the lookahead window. Default 60_000_000 us (60 s) — long
+    /// enough that even thinly-traded symbols will see *some* same-side flow,
+    /// so the no-lookahead rule (always fill at VWAP of available flow) lands
+    /// on a meaningful average instead of a degenerate single-print.
     WMaxUs: int64
     /// Fill-price computation rule. Default CumVolume.
     Mode: FillMode
@@ -77,8 +85,9 @@ type TakerFillConfig = {
 }
 
 let defaultConfig () : TakerFillConfig =
-    { TSkipUs = 200_000L
-      WMaxUs = 10_000_000L
+    { BucketUs = 60_000_000L
+      TSkipUs = 200_000L
+      WMaxUs = 60_000_000L
       Mode = CumVolume
       CvMultiplier = 3.0
       NMin = 10
@@ -218,17 +227,25 @@ let private simulateOneSideEwma
 /// Cumulative-volume fill (production default). Walks same-side trades in
 /// chronological order, accumulating BASE-asset quantity until the running
 /// total reaches `cfg.CvMultiplier × targetQty`. The fill price is the VWAP
-/// of trades up to that cutoff. Scratches if the threshold isn't met within
-/// the window.
+/// of trades up to that cutoff.
 ///
-/// CRITICAL: the threshold is base-asset qty, NOT dollar notional. The entry
-/// fills X coins; the exit must unload X coins (not X-dollars-worth, which
-/// would be a different qty if price moved). Using qty keeps the entry and
-/// exit symmetric on the actual position size.
+/// CRITICAL — no lookahead. The simulator cannot retroactively cancel a
+/// committed order. Two cases:
+///   - If the window contains enough same-side flow to meet the qty target,
+///     fill at the VWAP of trades up to the threshold (the realistic execution).
+///   - If the window does NOT contain enough flow, fill at the VWAP of EVERY
+///     same-side trade in the window — we placed the order, the tape gave us
+///     what it gave us, that's our fill. (Live, our remaining qty would have
+///     stayed open and continued chasing; the post-hoc window cap is a
+///     simplifying terminal price.)
 ///
-/// `targetQty` is `trip.EffectiveNotional / trip.EntryPrice` — the base-asset
-/// quantity the engine would have transacted at entry, and which the exit
-/// must also clear.
+/// Only Scratched outcome is when there's literally ZERO same-side flow in
+/// the entire window — no order could have filled at all.
+///
+/// CRITICAL — qty not dollar volume. The entry fills X coins; the exit must
+/// unload X coins. Using dollar volume would mismatch sides as price drifts.
+///
+/// `targetQty` is `trip.EffectiveNotional / trip.EntryPrice`.
 let private simulateOneSideCumVolume
     (cfg: TakerFillConfig)
     (takeSide: Side)
@@ -242,31 +259,31 @@ let private simulateOneSideCumVolume
     let mutable firstUs = 0L
     let mutable lastUs = 0L
     let target = cfg.CvMultiplier * targetQty
-    if target <= 0.0 then
+    // Walk the entire window; stop only once we've cleared the qty target.
+    // No mid-window scratch — if the threshold is hit we use trades up to
+    // that point; if not, we use every same-side trade in the window.
+    let mutable hit = false
+    let mutable i = 0
+    while not hit && i < windowTrades.Count do
+        let trade = windowTrades.[i]
+        let sameSide =
+            match takeSide with
+            | Long  -> trade.Sign > 0.0
+            | Short -> trade.Sign < 0.0
+            | Flat  -> false
+        if sameSide then
+            accumQty <- accumQty + trade.Quantity
+            accumNotional <- accumNotional + trade.Quantity * trade.Price
+            if n = 0 then firstUs <- trade.TimestampUs
+            lastUs <- trade.TimestampUs
+            n <- n + 1
+            if target > 0.0 && accumQty >= target then hit <- true
+        i <- i + 1
+    if accumQty <= 0.0 then
+        // No same-side flow in the window at all — order couldn't have filled.
         Scratched 0
     else
-        let mutable hit = false
-        let mutable i = 0
-        while not hit && i < windowTrades.Count do
-            let trade = windowTrades.[i]
-            let sameSide =
-                match takeSide with
-                | Long  -> trade.Sign > 0.0
-                | Short -> trade.Sign < 0.0
-                | Flat  -> false
-            if sameSide then
-                accumQty <- accumQty + trade.Quantity
-                accumNotional <- accumNotional + trade.Quantity * trade.Price
-                if n = 0 then firstUs <- trade.TimestampUs
-                lastUs <- trade.TimestampUs
-                n <- n + 1
-                if accumQty >= target then hit <- true
-            i <- i + 1
-        if not hit || accumQty <= 0.0 then
-            Scratched n
-        else
-            // VWAP = Σ(price · qty) / Σ(qty)
-            Filled (accumNotional / accumQty, n, lastUs - firstUs)
+        Filled (accumNotional / accumQty, n, lastUs - firstUs)
 
 /// Run the appropriate fill rule on a pre-filtered window slice.
 ///
@@ -509,18 +526,24 @@ let runTakerFillSim
                  TargetQty = targetQty } |])
         |> Array.concat
 
-    // A job whose window straddles midnight (window start date != end date)
-    // gets duplicated into both buckets. The duplicate produces the same
-    // outcome whichever day's trades it's evaluated against — the per-day
-    // window-trade filter naturally restricts to that day's trades, so
-    // emitting two outcomes per cross-date job and taking either is fine.
-    // But for cleanliness and to avoid duplicate rows in the side CSV, we
-    // anchor every job to the date of its WindowStartUs only (the actual
-    // signal moment + t_skip — that's the date the trade execution would
-    // happen on, even if the latest possible trade in the 3s window is the
-    // first millisecond of the next day, which is exceptionally rare for
-    // 1m-bar signals where windows are 200ms-3000ms after a minute boundary).
-    let dateOfWindow (job: SideJob) = dateOfUs job.WindowStartUs
+    // Anchor each job to its bar's CLOCK-END date, not its window-start date.
+    //
+    // The engine sets trip.entry_us / exit_us to the bar's LAST-TRADE
+    // timestamp, which may fall well inside the bar's clock window. For a
+    // 1m bar covering [23:59:00, 24:00:00) whose last trade was at
+    // 23:59:58.678, entry_us = 23:59:58.678 and the 60s fill window extends
+    // to 24:00:58.678 — across midnight. The intra-bar interval
+    // [23:59:58.678, 24:00:00) has zero trades by construction (otherwise
+    // bar.EndUs would be later). All meaningful flow in the fill window
+    // lives in the NEXT day's parquet.
+    //
+    // Therefore we bucket on the bar's clock-end (next-bucket boundary), not
+    // on signal_us. This correctly assigns near-midnight bars to the
+    // next-day file where their post-bar trade-tape actually lives.
+    let bucketEndDate (signalUs: int64) =
+        let bucketEnd = ((signalUs / cfg.BucketUs) + 1L) * cfg.BucketUs
+        dateOfUs bucketEnd
+    let dateOfWindow (job: SideJob) = bucketEndDate job.SignalUs
 
     let bucketed = Dictionary<struct(string * DateTime), ResizeArray<SideJob>>()
     for job in allJobs do

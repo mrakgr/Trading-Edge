@@ -1786,3 +1786,100 @@ This finding survives both fill modes (EWMA + CV) and both stratification fields
 - v7 fill CSV: `/tmp/tk_v5/taker_fills_cv.csv` (84,130 trips, 12 taker-fill columns appended).
 - v7 run: `taker-fill-sim --trips-csv ... --output-csv ... --fill-mode cum-volume -p 8` with all other defaults (t_skip=200ms, w_max=10s, cv=3.0, taker_fee=0.0005).
 - Stratification queries: DuckDB joins on `(symbol, entry_us)` between fill CSV and new sweep CSV.
+
+---
+
+## v8 — Lookahead-free taker fill, regime-dependence reconfirmed
+
+Run date: 2026-05-11 (same session as v6/v7).
+
+v7's `cum-volume` fill mode still scratched any signal that didn't accumulate enough same-side flow within the window — that's a **lookahead** decision. A live trader cannot un-send an order at second 4 because the next-60-second flow was insufficient. The realistic model is: place the order, take whatever VWAP the next window's same-side flow gives you, regardless of how thin that flow is.
+
+v8 changes the cum-volume mode to **always fill**: if cumulative qty hits `cv_multiplier × target_qty`, stop accumulating and fill at that point (the realistic execution); otherwise fill at the VWAP of ALL same-side trades in the window. The only Scratched outcome is now when there are literally **zero** same-side trades in the entire window — no order could have filled at all.
+
+The window default was extended from 10s → **60s** to give thin symbols enough room that "all available same-side flow" lands on a meaningful average rather than a single degenerate print. The cross-midnight bug discovered in this rewrite (a 60s window from a bar closing seconds before midnight straddles into the next-day parquet) is fixed by bucketing on the bar's **clock-end** (= signal_us ÷ bucketUs + 1, rounded up) rather than `signal_us` itself — since `bar.EndUs` is the bar's last-trade timestamp, and the [last-trade, clock-end) sub-interval has zero trades by construction, anchoring on the next-minute boundary correctly assigns the entire fill window to the day that holds the post-bar tape.
+
+### Universe-wide v8 result (MA=45, trend=14)
+
+| Version | Fills | PF | Avg/trade | Total | Note |
+|---|---:|---:|---:|---:|---|
+| Engine bar-close (v5) | 84,134 | 1.89 | $0.73 | +$60,959 | unrealistic — assumes free bar-close fills |
+| v6 EWMA (lookahead) | 5,846 | 1.77 | $1.63 | +$9,503 | `n_min=10` is a hidden lookahead gate |
+| v7 CV with scratch (lookahead) | 11,243 | 1.51 | $0.92 | +$10,295 | scratch decision uses future window flow |
+| **v8 CV, no-lookahead, 60s** | **75,148** | **0.59** | **-$0.60** | **-$45,343** | every signal must take whatever flow appears |
+
+**Unconditional v8 is a $45k LOSS over 2 years.** The previous "tradable" headlines (PF 1.5-1.8) were all selection effects from the scratch/n_min gates filtering out trips whose 60-second post-signal flow happened to be unfavorable — precisely the cases that would have been losing live trades.
+
+### Regime-dependence: the entire edge is one day
+
+Partitioning the universe-wide v8 fills by date reveals that **>100% of the strategy's total P&L (under any filter we tried) comes from a single trading day**, **2025-10-10** — the universal-liquidation flush event already documented in [project_donchianscalp_regime_dependence_2026-05-10.md](../memory/project_donchianscalp_regime_dependence_2026-05-10.md).
+
+| Filter | Trips | Total | PF | Note |
+|---|---:|---:|---:|---|
+| tc5m ≥ 1700 (whole period) | 10,090 | +$13,434 | 1.71 | apparent edge |
+| **tc5m ≥ 1700, 2025-10-10 only** | **207** | **+$14,837** | **138.7** | 2% of trips, 110% of P&L |
+| **tc5m ≥ 1700, all other days** | **9,864** | **-$1,562** | **0.92** | breakeven-to-loser ex-Oct-10 |
+
+The single-day P&L of +$14,837 on 207 trips is more than the entire 2-year P&L under any non-cherry-picked filter. The next-biggest single day is 2024-12-09 at +$873 on 166 trips — an order of magnitude smaller. **No second flush of comparable impact exists in the 2-year history.**
+
+### Inside Oct-10: the universal long-recovery cluster
+
+The Oct-10 outliers are concentrated in a 10-minute window (≈14:55–15:05 UTC) and span the entire universe simultaneously:
+
+- 1000LUNCUSDT long entered $0.0216, exited $0.0311 in 11 bars (+44%, +$268)
+- AIUSDT long $0.0477 → $0.0673 (+41%)
+- LUNA2USDT long $0.0575 → $0.0778 (+35%)
+- BANANAS31USDT long $0.0019 → $0.0028 (+50%)
+- IOUSDT long $0.1902 → $0.2843 (+50%)
+- HEIUSDT long $0.1018 → $0.1775 (+74%)
+- ... and 200+ similar trips on the same day
+
+All `exit_reason = normal` — the engine's gap-detector correctly let these through. They're real long entries fired into a universal flush, covered as price snapped back. The 99.5% win rate (216W / 1L) reflects the synchronized cross-asset recovery, not a repeatable scalp edge.
+
+### Sub-regime hunt: deeper-trend cell shows the same shape
+
+To check whether a stricter trend qualifier might reveal a sub-edge outside Oct-10, the v8 simulator was re-run on **MA=45 / trend=20** (the v5 doc's high-PF cell at engine PF 9.73):
+
+| Cell | Trips | Total | PF |
+|---|---:|---:|---:|
+| trend=20 unfiltered | 17,101 | -$25,254 | 0.13 |
+| trend=20, tc5m≥1700 | 322 | +$1,459 | 3.86 |
+| trend=20, tc5m≥1700, ex-Oct-10 | **282** | **-$115** | **0.77** |
+| trend=20, tc5m≥1700, on Oct-10 | 40 | +$1,574 | (all winners) |
+
+Same pattern, sharper: the unfiltered cell bleeds more (the deeper-trend signals are further from MA, so the engine-bar vs realistic-VWAP gap is wider), and the entire surviving edge is on Oct-10. Deeper trend doesn't unlock a new edge.
+
+### Pre-entry deviation breakdown (ex-Oct-10, tc5m ≥ 1700)
+
+Stratifying ex-Oct-10 trips by `|pct_1h_change|` (deviation from the 1h MA at entry — known at decision time):
+
+| Pre-entry deviation | Trips | Total | PF |
+|---|---:|---:|---:|
+| < 0.5% | 2,334 | -$693 | 0.78 |
+| 0.5-0.75% | 2,979 | -$1,257 | 0.76 |
+| 0.75-1% | 1,476 | -$138 | 0.95 |
+| 1-1.5% | 1,378 | +$107 | 1.04 |
+| 1.5-2% | 674 | -$2 | 1.00 |
+| 2-3% | 574 | +$404 | 1.29 |
+| 3-5% | 320 | +$177 | 1.17 |
+| ≥ 5% | 136 | -$152 | 0.86 |
+
+A faint edge appears in the 2-5% deviation band (PF 1.17-1.29) but the absolute dollars are small (+$581 on 894 trips) and don't pay for the bleed in shallower bands. The 40bp entry filter already cuts most shallow-deviation trips; pushing it deeper than 2% would cost most of the trip count without buying meaningfully more PF.
+
+### Conclusion
+
+**DonchianScalp is not a tradable daily strategy under realistic taker execution.** The taker-fill simulator independently confirms the conclusion previously drawn from the limit-fill audit (saved in memory): the engine's bar-close fills overstate edge by approximately the round-trip spread, which is significant on a 1m mean-reversion scalp. The supposed edge:
+
+1. Vanishes (PF 0.59, -$45k) when applied unconditionally with no lookahead.
+2. Reappears (PF 1.7) only after a tc5m-based filter that itself is heavily Oct-10-loaded.
+3. Vanishes again (PF ~0.9, slight loss) when the Oct-10 universal-liquidation regime is excluded.
+
+The strategy works as a **vol-flush fader** for once-or-twice-a-year systemic events — not as a continuous scalp. Live trading of this engine would require either a regime-detector that activates only during flushes (a separate research project) or acceptance that the strategy will produce small bleed in normal regimes and large positive returns in flush events. The two-year history doesn't establish a reliable cadence for the latter.
+
+### Data + reproducibility
+
+- v5 sweep trip CSV (with 5m fields): `/tmp/tk_v5_5m/results_trips_1m_don3_trend14.csv` (84,134 rows).
+- v8 fill CSV: `/tmp/tk_v5_5m/taker_fills_v8b.csv` (84,130 rows with bucketEnd date fix; v8 at `taker_fills_v8.csv` is 13 rows different due to cross-midnight artifacts, conclusions identical).
+- trend=20 fill CSV: `/tmp/tk_v5_t20/taker_fills.csv`.
+- v8 run: `taker-fill-sim --trips-csv ... --output-csv ... --fill-mode cum-volume -p 8` (defaults: w_max=60000ms, cv=3.0, taker_fee=0.0005). 60s window, no-lookahead.
+- The cum-volume mode now always fills (when ≥1 same-side trade exists in the window); only literal zero-flow Scratched.

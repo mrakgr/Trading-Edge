@@ -766,10 +766,10 @@ type TakerFillSimArgs =
             | Trips_Csv _  -> "Input trips CSV (donchian-fade-sweep schema; rows with exit_reason != 'normal' are skipped)."
             | Output_Csv _ -> "Output CSV path. Original columns + 12 taker-fill columns appended."
             | Data_Root _  -> "Trade-parquet root (per-symbol per-day). Default: " + defaultDataRoot
-            | Fill_Mode _  -> "Fill-price rule. 'cum-volume' (default): accumulate same-side trades until cumulative base-qty reaches cv-multiplier × target_qty; fill at the VWAP of those trades. 'time-ewma': exponential-time-weighted VWAP of every same-side trade in the window; requires n-min trades to fill."
-            | Cv_Multiplier _ -> "CumVolume mode: multiplier on target_qty (= effective_notional / entry_price). The window must contain that much same-side qty before the signal is fillable. Default 3.0."
+            | Fill_Mode _  -> "Fill-price rule. 'cum-volume' (default): accumulate same-side trades until cumulative base-qty reaches cv-multiplier × target_qty, then fill at the VWAP of those trades. If the window is exhausted before the threshold is met, fill at the VWAP of ALL same-side trades in the window (no lookahead — we cannot retroactively cancel a placed order). 'time-ewma': exponential-time-weighted VWAP of every same-side trade in the window; requires n-min trades to fill."
+            | Cv_Multiplier _ -> "CumVolume mode: multiplier on target_qty (= effective_notional / entry_price). The VWAP truncates as soon as that much same-side qty has been observed; if the window runs out first, all of it gets averaged. Default 3.0."
             | T_Skip_Ms _  -> "Latency-skip window in ms; trades within [signal, signal+t_skip) ignored. Default 200."
-            | W_Max_Ms _   -> "Hard cap on the fill-search window in ms. Default 10000 (10s). Longer windows let cum-volume mode capture more illiquid signals."
+            | W_Max_Ms _   -> "Hard cap on the fill-search window in ms. Default 60000 (60s). Longer windows give thin symbols a non-degenerate fill price under the no-lookahead rule."
             | N_Min _      -> "TimeEwma only: minimum same-side trade count to fill. Default 10."
             | Tau_Ms _     -> "TimeEwma only: exponential half-life in ms. Default 500."
             | Taker_Fee _  -> "Taker fee per side as a fraction. Default 0.0005 (= 5 bp = Binance USDT-perps base tier)."
@@ -4306,13 +4306,14 @@ let cmdTakerFillSim (args: ParseResults<TakerFillSimArgs>) : int =
             TakerFillSim.CumVolume
     let cvMultiplier = args.GetResult(TakerFillSimArgs.Cv_Multiplier, defaultValue = 3.0)
     let tSkipMs = args.GetResult(TakerFillSimArgs.T_Skip_Ms, defaultValue = 200)
-    let wMaxMs = args.GetResult(TakerFillSimArgs.W_Max_Ms, defaultValue = 10_000)
+    let wMaxMs = args.GetResult(TakerFillSimArgs.W_Max_Ms, defaultValue = 60_000)
     let nMin = args.GetResult(TakerFillSimArgs.N_Min, defaultValue = 10)
     let tauMs = args.GetResult(TakerFillSimArgs.Tau_Ms, defaultValue = 500)
     let takerFee = args.GetResult(TakerFillSimArgs.Taker_Fee, defaultValue = 0.0005)
     let parallelism = args.GetResult(TakerFillSimArgs.Parallelism, defaultValue = 4)
 
     let cfg : TakerFillSim.TakerFillConfig = {
+        BucketUs = 60_000_000L   // 1m bars — matches the donchian-fade-sweep default timeframe.
         TSkipUs = int64 tSkipMs * 1000L
         WMaxUs = int64 wMaxMs * 1000L
         Mode = fillMode
