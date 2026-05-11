@@ -280,6 +280,138 @@ get squeezed during universe-wide rallies (correlated tail risk).
 
 [data/crypto/long_fade_ma_default_rvol075/equity_curve.html](../data/crypto/long_fade_ma_default_rvol075/equity_curve.html)
 
+## ShortFadeMA mirror experiments — does the FlowSwing recipe transfer?
+
+After confirming FlowSwing's MTM quality, we asked: does the same setup work
+when sign-flipped? `OrderflowShortFadeMA.fs` exists but ships with a
+**dual-CVD overlay** (200h CVD must also be negative) that the long engine
+doesn't have. We tested whether the simple mirror (drop the overlay) works,
+and if not, what knobs to turn instead.
+
+### Step 1 — simple mirror at FlowSwing's exact parameters
+
+Config: `pr=0.14, ma=72h, cvd=240m, rvol=0.75, ed=0.20, high8h ref, no
+overlay, no stop`. Production defaults applied.
+
+**Result: PF 0.94, total -$11,386, Sharpe -0.36.** Doesn't work.
+
+Sweeping `pr ∈ {0.14, 0.21, 0.32, 0.47, 0.71, 1.07}`: every cell PF < 1.
+The simple mirror does not work at any rise threshold.
+
+### Step 2 — vary the cover-MA window
+
+Sweeping `pr × ma_hours` 2D grid:
+
+| pr   | ma=72h         | ma=144h        | ma=288h        | ma=576h          |
+|------|----------------|----------------|----------------|------------------|
+| 0.14 | 0.94 / -$11k   | 0.94 / -$13k   | 0.95 / -$12k   | **1.14 / +$28k** |
+| 0.21 | 0.94 / -$6k    | 0.93 / -$10k   | 0.98 / -$4k    | **1.16 / +$24k** |
+| 0.32 | 0.95 / -$3k    | 0.92 / -$6k    | 1.03 / +$3k    | **1.15 / +$15k** |
+| 0.47 | 0.87 / -$4k    | 0.82 / -$8k    | 1.08 / +$4k    | **1.17 / +$11k** |
+
+**PF rises monotonically with `ma_hours`.** The flip-to-profitable threshold
+is between 288h (12d) and 576h (24d).
+
+Extending the sweep with longer MAs:
+
+| pr   | ma=576h | ma=864h | ma=1296h | ma=1944h | ma=2916h | ma=4374h           | ma=6561h |
+|------|---------|---------|----------|----------|----------|--------------------|----------|
+| 0.14 | 1.14    | 1.28    | 1.60     | 1.84     | 2.07     | **3.34 (+$69k)**   | 3.54     |
+| 0.21 | 1.16    | 1.28    | 1.65     | 1.78     | 2.06     | **3.40 (+$63k)**   | 3.44     |
+| 0.32 | 1.15    | 1.35    | 1.73     | 1.97     | 2.30     | **3.68 (+$60k)**   | 3.33     |
+| 0.47 | 1.17    | 1.45    | 1.87     | 2.30     | 2.79     | **4.31 (+$56k)**   | 3.02     |
+
+**Optimum at ma=4374h (6 months).** Beyond 6,561h the strategy collapses
+because the 2-year backtest window can't accommodate longer warm-ups
+(trip count drops 1173 → 426 → 157 → 21 across 4374 → 6561 → 9842 → 14763).
+
+The 6-month cell at `pr=0.14 ma=4374h` matches FlowSwing's PF range:
+1,173 trips, 90.7% win rate, 22-day median hold, PF 3.34.
+
+### Step 3 — MTM exposes a single landmine
+
+Cell `pr=0.14, ma=4374h, cvd=240m`. Full MTM monthly:
+
+| Month   |   short pnl |
+|---------|------------:|
+| 2024-11 | **-46,457** |
+| 2024-12 |      49,444 |
+| 2025-01 |      10,152 |
+| 2025-02 |      16,693 |
+| (16 more positive months, all small) | |
+
+| metric | value |
+|---|---:|
+| total | $69,088 |
+| Sharpe | 0.66 |
+| max DD | **-$46,457** |
+| worst month | -$46,457 (Nov 2024) |
+
+**One month (Nov 2024) is the entire drawdown.** Ex-Nov-2024 the strategy
+would be Sharpe ~4, max DD ~$1k. The MTM view also reveals that the
+Nov 2024 hit comes from **trips entered in Nov 2024 marked-to-market at
+month end** (entry-month-bucketed view shows +$16.8k for Nov-entered
+trips because they eventually closed profitably in Dec/Jan — but the MTM
+view sees them sitting underwater on Dec 1).
+
+### Step 4 — CVD-window sweep at `pr=0.14, ma=4374h`
+
+The hypothesis was that requiring sustained negative CVD over a longer
+horizon would filter out squeeze entries. Sweeping `cvd_minutes ∈ {240,
+480, 960, 1920, 3840, 7680, 15360}` (4h to 256h, 2x geometric):
+
+| CVD window | trips | total | Sharpe (MTM) | max DD | Nov 24 MTM |
+|---:|---:|---:|---:|---:|---:|
+| 4h (240m) | 1,173 | $69,088 | 0.74 | -$46,457 | -$46,457 |
+| 32h (1920m) | 791 | $55,604 | 0.92 | -$27,711 | -$27,711 |
+| 64h (3840m) | 589 | $38,061 | 1.04 | -$18,011 | -$18,011 |
+| **128h (7680m)** | **396** | **$25,763** | **1.35** | **-$9,011** | **-$9,011** |
+| 256h (15360m) | 247 | $12,446 | 0.94 | -$5,926 | -$5,926 |
+
+**Longer CVD windows reduce Nov 2024 MTM drawdown sharply** (from -$46k
+at 4h to -$9k at 128h to -$6k at 256h) at the cost of total return.
+Risk-adjusted Sharpe peaks at 128h.
+
+### Step 5 — the combined book finally beats long-only
+
+| leg | total | max DD | wins | losses | ann Sharpe |
+|---|---:|---:|---:|---:|---:|
+| FlowSwing long | $96,964 | -$584 | 21 | 4 | 2.58 |
+| Short cvd=128h | $25,763 | -$9,011 | 15 | 5 | 1.20 |
+| **Combined** | **$122,727** | **-$7,841** | **21** | **4** | **2.64** |
+
+**This is the first time a combined long+short book beats FlowSwing
+alone on Sharpe.** The Nov 2024 hit is contained because:
+- The 128h CVD filter cuts Nov 2024 short entries (248 → 40)
+- FlowSwing made +$1.2k in Nov 2024 (one of its weakest months but not negative)
+- Combined Nov 2024 net = -$7.8k vs short-only -$9.0k
+
+Plot: [data/crypto/short_fade_ma_longma_cvd_sweep/equity_curves_long_vs_cvd128h.html](../data/crypto/short_fade_ma_longma_cvd_sweep/equity_curves_long_vs_cvd128h.html)
+
+### Asymmetry conclusion
+
+The asymmetry hypothesis (capitulations revert; rallies don't always) is
+real and required two structural fixes for the short side:
+
+1. **A much longer cover MA** (6 months vs the long-side's 3 days). Rallies
+   take longer to mean-revert.
+2. **A longer CVD trigger window** (128h ≈ 5.3 days vs the long-side's 4h).
+   Multi-day sustained selling pressure is required to enter — not just a
+   single-bar flow flip.
+
+Even with both fixes, the strategy is dramatically lower-quality than the
+long side (Sharpe 1.20 vs 2.58, max DD 35× larger). The combined book is
+useful as a **complement** to FlowSwing, not a parallel strategy.
+
+### ShortFadeMA mirror artifacts
+
+- 2D pr × ma sweep (4×4): [data/crypto/short_fade_ma_mirror_2d/](../data/crypto/short_fade_ma_mirror_2d/)
+- Long-MA sweep (4×6): [data/crypto/short_fade_ma_mirror_long/](../data/crypto/short_fade_ma_mirror_long/)
+- Very-long-MA sweep (4×4): [data/crypto/short_fade_ma_mirror_xlong/](../data/crypto/short_fade_ma_mirror_xlong/)
+- CVD sweep (1×7): [data/crypto/short_fade_ma_longma_cvd_sweep/](../data/crypto/short_fade_ma_longma_cvd_sweep/)
+- MTM SQL: [scripts/crypto/mtm_shortfade_mirror.sql](../scripts/crypto/mtm_shortfade_mirror.sql), [scripts/crypto/mtm_shortfade_longma.sql](../scripts/crypto/mtm_shortfade_longma.sql), [scripts/crypto/mtm_shortfade_cvd128h.sql](../scripts/crypto/mtm_shortfade_cvd128h.sql)
+- Combined-book plot: [scripts/crypto/plot_flowswing_vs_shortcvd128h.py](../scripts/crypto/plot_flowswing_vs_shortcvd128h.py)
+
 ## Files
 
 - Engine change: [TradingEdge.CryptoBacktest/OrderflowCumsumZ.fs](../TradingEdge.CryptoBacktest/OrderflowCumsumZ.fs) (added `RequirePersistenceForEntry` config)
