@@ -1681,3 +1681,108 @@ The next step is **live paper-trading on Binance testnet** to confirm the simula
 - Trip CSV: `/tmp/tk_v5/results_trips_1m_don3_trend14.csv` (84,134 rows including 4 non-normal exit_reason). Generated via `donchian-fade-sweep --entry-mode trend-only --cover-mode ma-cross-cover --short-ref-minutes 45 --min-trend-bars 14` with all production defaults (ADV gates, vol-target, gap detector).
 - Fill CSV: `/tmp/tk_v5/taker_fills_v2.csv` (84,130 rows after exit_reason filter, each with 12 taker-fill columns appended).
 - Run command: `taker-fill-sim --trips-csv ... --output-csv ... -p 8` with all defaults (t_skip=200ms, w_max=3s, n_min=10, tau=500ms, taker_fee=0.0005).
+
+---
+
+## v7 — Cum-volume fill mode + 5m liquidity stratification
+
+Run date: 2026-05-11 (same session as v6).
+
+The v6 time-EWMA mode has a structural flaw: the `n_min=10` gate uses trade COUNT, not VOLUME. At $1k notional on a typical mid-cap perp, our order's base-qty is a few hundred to a few thousand coins — most signals are easily covered by the first 1-3 same-side aggressive trades, but `n_min=10` forces us to wait until 10 trades have crossed, biasing the simulator toward periods of high trading activity (which aren't necessarily the periods when our order would clear). EWMA's exponential time-weighting compounds this — it averages trades that happened seconds after the moment our order would have actually filled.
+
+v7 introduces **cumulative-volume fill mode** (`--fill-mode cum-volume`, now the default). For each signal:
+
+1. Walk same-side aggressive trades chronologically.
+2. Accumulate base-asset quantity (`trade.Quantity`) — NOT dollar volume. Entry and exit on a round-trip must clear the same base qty (the engine's `effective_notional / entry_price`); using dollar volume would mismatch sides as price drifts.
+3. Stop when cumulative qty reaches `cv_multiplier × target_qty` (default `cv=3`, a 3× safety margin over the literal order size).
+4. Fill price = VWAP of those trades (`Σ price·qty / Σ qty`).
+5. SCRATCH if the threshold isn't reached within `w_max` (default extended from 3s → 10s — more headroom for thinner symbols).
+
+The window default was bumped to 10s to give cum-volume mode time to accumulate flow on slow-tape symbols where the strategy's better setups live.
+
+### v6 vs v7 universe-wide (MA=45, trend=14)
+
+| Mode | Both-filled | Avg n_trades (entry/exit) | PF | Avg/trade | Total |
+|---|---:|---:|---:|---:|---:|
+| **v6 EWMA** (3s, n_min=10, τ=500ms) | 5,846 / 6.95% | 70 / 88 | 1.77 | +$1.63 | +$9,503 |
+| **v7 CumVolume** (10s, cv=3) | 11,243 / 13.4% | 13 / 13 | 1.51 | +$0.92 | +$10,295 |
+
+CumVolume nearly doubles the fill rate (most fills clear the 3× qty threshold within 1-5 trades — the average is 13 in the wider 10s window, but the median fill happens much sooner). Headline P&L is **flat** at ~$10k, but PF compresses from 1.77 → 1.51 because the additional 5,400 filled trips are predominantly the lower-edge tail. Per-trade economics halve from $1.63 → $0.92.
+
+### Cum-volume math correctness (audit)
+
+A representative CRVUSDT short trip was traced by hand against the raw trade tape to confirm the simulator math:
+
+- Entry signal at $0.322, target_qty = $441.37 / $0.322 = 1370.7 base, cv=3 threshold = 4112 base.
+- Same-side seller-aggressive trades in the 10s window: qty 87.7 + 1799.1 + 2324.0 = **4210.8** (threshold hit on trade 3 at $0.321).
+- VWAP = $0.321. Reported entry_fill_price = $0.321. ✓
+- Symmetric exit calculation lands at $0.323 (2 trades). ✓
+- P&L with 5bp fees and `target_qty = effective_notional / entry_eff` matches reported value to 0.001. ✓
+
+The math is correct; the lower PF is a real selection-shift effect, not a bug.
+
+### 5m pre-entry liquidity stratification (the key finding)
+
+The engine was extended with two new instrumentation fields: `dollar_volume_5m_at_entry` and `trade_count_5m_at_entry` — sums over the trailing 5 bars ending the bar BEFORE entry (independent of the configurable cover-MA window).
+
+Stratifying the v7 cum-volume fill outcomes by `trade_count_5m_at_entry` quintile (universe-wide, MA=45/trend=14):
+
+| Quintile | tc5m range | Total trips | Filled | Fill % | PF | Avg/trade | Total |
+|---:|---|---:|---:|---:|---:|---:|---:|
+| 1 | 5 - 67 | 16,826 | 56 | 0.3% | 0.02 | -$0.76 | -$42 |
+| 2 | 67 - 153 | 16,826 | 109 | 0.6% | 0.23 | -$0.86 | -$94 |
+| 3 | 153 - 315 | 16,826 | 344 | 2.0% | 0.32 | -$0.77 | -$265 |
+| 4 | 316 - 856 | 16,826 | 1,140 | 6.8% | 0.54 | -$0.63 | -$719 |
+| **5** | **857 - 348,661** | **16,826** | **9,594** | **57.0%** | **1.64** | **+$1.19** | **+$11,416** |
+
+**This is a clean monotone result.** Every quintile below Q5 has PF < 1.0 — they bleed money. **Q5 alone (trade_count_5m ≥ 857) delivers 111% of cv-mode total P&L** ($11,416 vs cv-mode universe $10,295), at higher PF (1.64 vs 1.51) on 85% of cv-mode's fills.
+
+The dollar-volume stratification is similar but slightly weaker (dv5m ≥ $140k → PF 1.63 / $10,771 / 9,223 fills). Trade count is the cleaner signal.
+
+### Inside Q5: PF holds across the high-liquidity range
+
+Splitting Q5 (tc5m ≥ 857) into its own quintiles:
+
+| Q5 sub-q | Trips | Fill % | PF | Avg/trade | Total |
+|---:|---:|---:|---:|---:|---:|
+| 1 (lowest tc5m of Q5) | 3,365 | 24% | 2.30 | +$1.74 | +$1,417 |
+| 2 | 3,365 | 34% | 1.67 | +$1.01 | +$1,164 |
+| 3 | 3,365 | 49% | 1.94 | +$1.59 | +$2,626 |
+| 4 | 3,365 | 71% | 1.45 | +$0.83 | +$1,986 |
+| 5 (highest tc5m) | 3,365 | 95% | 1.51 | +$1.12 | +$3,575 |
+
+The strongest per-trade edge is **at the threshold itself** (sub-q1: PF 2.30, +$1.74/trade) — meaning trades that *just barely* qualify on liquidity behave best. PF compresses modestly toward higher liquidity. Fill rate climbs monotonically from 24% → 95%.
+
+The interpretation: once a signal passes the liquidity gate at all, more liquidity adds *fills* but doesn't add *edge per fill*. The strategy doesn't need busy tape to work — it just needs enough tape to execute.
+
+### EWMA vs CV under the 5m gate
+
+| Mode | Filter | Fills | PF | Avg/trade | Total |
+|---|---|---:|---:|---:|---:|
+| EWMA (v6) | none | 5,846 | 1.77 | +$1.63 | +$9,503 |
+| EWMA | tc5m ≥ 857 | 5,714 | 1.78 | +$1.67 | +$9,525 |
+| CV (v7) | none | 11,243 | 1.51 | +$0.92 | +$10,295 |
+| **CV** | **tc5m ≥ 857** | **9,594** | **1.64** | **+$1.19** | **+$11,416** |
+
+EWMA's own `n_min=10` requirement is already strongly correlated with high tc5m — adding the explicit filter barely changes EWMA's result (-132 fills, +$22). EWMA-mode is implicitly filtering by tc5m already, just opaquely.
+
+CV-mode + explicit tc5m filter is the cleanest production setup:
+- **All EWMA's PF discipline**, plus
+- **~68% more filled trips** (9,594 vs 5,714), and
+- **~$1,900 more total P&L** over 2 years.
+
+### Interpretation
+
+The 5m pre-entry trade count is a **fill-quality predictor** that's also computable in real time without the trade tape — it's a bar-aggregate statistic the engine has natively. A live-trading filter `tc5m ≥ 850` would:
+1. Reject ~80% of v5's headline trip count as "won't fill cleanly" before any order is placed.
+2. Among the surviving 20%, achieve **57% fill rate** and **PF 1.6+**.
+3. Capture **all the strategy's net P&L** — and then some, by avoiding the negative-edge drag from the bottom 4 quintiles.
+
+This finding survives both fill modes (EWMA + CV) and both stratification fields (dv5m, tc5m). The pattern is real.
+
+### Data + reproducibility
+
+- New sweep trip CSV (with 5m fields): `/tmp/tk_v5_5m/results_trips_1m_don3_trend14.csv`.
+- v7 fill CSV: `/tmp/tk_v5/taker_fills_cv.csv` (84,130 trips, 12 taker-fill columns appended).
+- v7 run: `taker-fill-sim --trips-csv ... --output-csv ... --fill-mode cum-volume -p 8` with all other defaults (t_skip=200ms, w_max=10s, cv=3.0, taker_fee=0.0005).
+- Stratification queries: DuckDB joins on `(symbol, entry_us)` between fill CSV and new sweep CSV.

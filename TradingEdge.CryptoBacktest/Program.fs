@@ -752,6 +752,8 @@ type TakerFillSimArgs =
     | [<Mandatory; AltCommandLine "-t">] Trips_Csv of string
     | [<Mandatory; AltCommandLine "-o">] Output_Csv of string
     | [<AltCommandLine "-d">] Data_Root of string
+    | Fill_Mode of string
+    | Cv_Multiplier of float
     | T_Skip_Ms of int
     | W_Max_Ms of int
     | N_Min of int
@@ -764,12 +766,14 @@ type TakerFillSimArgs =
             | Trips_Csv _  -> "Input trips CSV (donchian-fade-sweep schema; rows with exit_reason != 'normal' are skipped)."
             | Output_Csv _ -> "Output CSV path. Original columns + 12 taker-fill columns appended."
             | Data_Root _  -> "Trade-parquet root (per-symbol per-day). Default: " + defaultDataRoot
+            | Fill_Mode _  -> "Fill-price rule. 'cum-volume' (default): accumulate same-side trades until cumulative base-qty reaches cv-multiplier × target_qty; fill at the VWAP of those trades. 'time-ewma': exponential-time-weighted VWAP of every same-side trade in the window; requires n-min trades to fill."
+            | Cv_Multiplier _ -> "CumVolume mode: multiplier on target_qty (= effective_notional / entry_price). The window must contain that much same-side qty before the signal is fillable. Default 3.0."
             | T_Skip_Ms _  -> "Latency-skip window in ms; trades within [signal, signal+t_skip) ignored. Default 200."
-            | W_Max_Ms _   -> "Hard cap on the fill-search window in ms. Default 3000."
-            | N_Min _      -> "Minimum same-side aggressive trade count within the window for the signal to be fillable. Below this, the signal is SCRATCHED. Default 10."
-            | Tau_Ms _     -> "Exponential half-life in ms for the time-weighted VWAP. Default 500."
+            | W_Max_Ms _   -> "Hard cap on the fill-search window in ms. Default 10000 (10s). Longer windows let cum-volume mode capture more illiquid signals."
+            | N_Min _      -> "TimeEwma only: minimum same-side trade count to fill. Default 10."
+            | Tau_Ms _     -> "TimeEwma only: exponential half-life in ms. Default 500."
             | Taker_Fee _  -> "Taker fee per side as a fraction. Default 0.0005 (= 5 bp = Binance USDT-perps base tier)."
-            | Parallelism _ -> "Max symbols processed concurrently. Default 4."
+            | Parallelism _ -> "Max (symbol, date) pairs processed concurrently. Default 4."
 
 type CliArgs =
     | [<CliPrefix(CliPrefix.None)>] Run of ParseResults<RunArgs>
@@ -4292,8 +4296,17 @@ let cmdTakerFillSim (args: ParseResults<TakerFillSimArgs>) : int =
     let tripsCsv = args.GetResult TakerFillSimArgs.Trips_Csv
     let outputCsv = args.GetResult TakerFillSimArgs.Output_Csv
     let dataRoot = args.GetResult(TakerFillSimArgs.Data_Root, defaultValue = defaultDataRoot)
+    let fillModeStr = args.GetResult(TakerFillSimArgs.Fill_Mode, defaultValue = "cum-volume")
+    let fillMode =
+        match fillModeStr.ToLowerInvariant() with
+        | "cum-volume" | "cumvolume" | "cv" -> TakerFillSim.CumVolume
+        | "time-ewma" | "timeewma" | "ewma" -> TakerFillSim.TimeEwma
+        | other ->
+            eprintfn "[taker-fill-sim] unknown --fill-mode '%s'; using cum-volume" other
+            TakerFillSim.CumVolume
+    let cvMultiplier = args.GetResult(TakerFillSimArgs.Cv_Multiplier, defaultValue = 3.0)
     let tSkipMs = args.GetResult(TakerFillSimArgs.T_Skip_Ms, defaultValue = 200)
-    let wMaxMs = args.GetResult(TakerFillSimArgs.W_Max_Ms, defaultValue = 3000)
+    let wMaxMs = args.GetResult(TakerFillSimArgs.W_Max_Ms, defaultValue = 10_000)
     let nMin = args.GetResult(TakerFillSimArgs.N_Min, defaultValue = 10)
     let tauMs = args.GetResult(TakerFillSimArgs.Tau_Ms, defaultValue = 500)
     let takerFee = args.GetResult(TakerFillSimArgs.Taker_Fee, defaultValue = 0.0005)
@@ -4302,12 +4315,18 @@ let cmdTakerFillSim (args: ParseResults<TakerFillSimArgs>) : int =
     let cfg : TakerFillSim.TakerFillConfig = {
         TSkipUs = int64 tSkipMs * 1000L
         WMaxUs = int64 wMaxMs * 1000L
+        Mode = fillMode
+        CvMultiplier = cvMultiplier
         NMin = nMin
         TauUs = int64 tauMs * 1000L
         TakerFee = takerFee
     }
-    printfn "[taker-fill-sim] t_skip=%dms w_max=%dms n_min=%d tau=%dms taker_fee=%g parallelism=%d"
-        tSkipMs wMaxMs nMin tauMs takerFee parallelism
+    let modeLabel =
+        match fillMode with
+        | TakerFillSim.CumVolume -> sprintf "cum-volume(cv=%g)" cvMultiplier
+        | TakerFillSim.TimeEwma  -> sprintf "time-ewma(n_min=%d, tau=%dms)" nMin tauMs
+    printfn "[taker-fill-sim] mode=%s t_skip=%dms w_max=%dms taker_fee=%g parallelism=%d"
+        modeLabel tSkipMs wMaxMs takerFee parallelism
     printfn "[taker-fill-sim] %s -> %s" tripsCsv outputCsv
 
     let sw = Stopwatch.StartNew()

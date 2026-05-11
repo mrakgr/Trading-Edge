@@ -116,6 +116,15 @@ type DonchianRoundTrip = {
     /// Sum of bar.TradeCount over the trailing nShortRef bars ending the bar
     /// BEFORE entry. Recorded as float for CSV serialisation simplicity.
     TradeCount1hAtEntry: float
+    /// Sum of bar dollar-volume (BuyDollarVolume + SellDollarVolume) over the
+    /// FIXED 5-minute window ending the bar BEFORE entry. Surfaces the
+    /// short-horizon liquidity at the entry bar for post-hoc fill-quality
+    /// filtering. Independent of the configurable ShortRefMinutes so values
+    /// remain comparable across MA-length configs.
+    DollarVolume5mAtEntry: float
+    /// Sum of bar.TradeCount over the trailing 5m window. Companion to
+    /// DollarVolume5mAtEntry.
+    TradeCount5mAtEntry: float
     ExitReason: ExitReason
 }
 
@@ -232,6 +241,10 @@ type Engine(cfg: DonchianFadeConfig) =
     let nMinTrend  = max 1 cfg.MinTrendBars
     let nShortRef  = minutesToBars (max 1 cfg.ShortRefMinutes)
     let nLongRef   = hoursToBars   (max 1 cfg.LongRefHours)
+    // Fixed 5-minute pre-entry instrumentation window — independent of the
+    // configurable cover-MA length. Used to surface short-horizon liquidity at
+    // the entry bar for post-hoc fill-quality filtering.
+    let nInstrument5m = minutesToBars 5
     let advWindowBars = daysToBars 90
     let volWindowBars = daysToBars (max 1 cfg.VolWindowDays)
     let warmupBars = hoursToBars 200
@@ -243,6 +256,10 @@ type Engine(cfg: DonchianFadeConfig) =
     let volShortMa = SumMa(nShortRef)
     let volLongMa  = SumMa(nLongRef)
     let tradeCountShortMa = SumMa(nShortRef)
+    // 5-minute pre-entry instrumentation MAs — parallel to the configurable
+    // short-window MAs above, fixed at 5 minutes for cross-config comparability.
+    let vol5mMa = SumMa(nInstrument5m)
+    let tradeCount5mMa = SumMa(nInstrument5m)
     let advMa = SumMa(advWindowBars)
     let volMa = StdMa(volWindowBars)
 
@@ -280,6 +297,8 @@ type Engine(cfg: DonchianFadeConfig) =
     let mutable volRatio1hOver72hAtEntry = 0.0
     let mutable dollarVolume1hAtEntry = 0.0
     let mutable tradeCount1hAtEntry = 0.0
+    let mutable dollarVolume5mAtEntry = 0.0
+    let mutable tradeCount5mAtEntry = 0.0
 
     let mutable lastClose = 0.0
     let mutable lastUs = 0L
@@ -318,7 +337,9 @@ type Engine(cfg: DonchianFadeConfig) =
         (priceRatio: float)
         (volRatio: float)
         (dollarVolume1h: float)
-        (tradeCount1h: float) =
+        (tradeCount1h: float)
+        (dollarVolume5m: float)
+        (tradeCount5m: float) =
         side <- newSide
         entryPrice <- fillPrice
         entryUs <- fillUs
@@ -337,6 +358,8 @@ type Engine(cfg: DonchianFadeConfig) =
         volRatio1hOver72hAtEntry <- volRatio
         dollarVolume1hAtEntry <- dollarVolume1h
         tradeCount1hAtEntry <- tradeCount1h
+        dollarVolume5mAtEntry <- dollarVolume5m
+        tradeCount5mAtEntry <- tradeCount5m
 
     let closePos (fillPrice: float) (fillUs: int64) (reason: ExitReason) =
         let gross = grossPnL side entryPrice fillPrice effectiveNotional
@@ -363,6 +386,8 @@ type Engine(cfg: DonchianFadeConfig) =
             VolRatio1hOver72hAtEntry = volRatio1hOver72hAtEntry
             DollarVolume1hAtEntry = dollarVolume1hAtEntry
             TradeCount1hAtEntry = tradeCount1hAtEntry
+            DollarVolume5mAtEntry = dollarVolume5mAtEntry
+            TradeCount5mAtEntry = tradeCount5mAtEntry
             ExitReason = reason
         }
         side <- Flat
@@ -379,6 +404,8 @@ type Engine(cfg: DonchianFadeConfig) =
         barsSinceDownViolationAtEntry <- 0
         pct1hChangeAtEntry <- 0.0
         pct72hChangeAtEntry <- 0.0
+        dollarVolume5mAtEntry <- 0.0
+        tradeCount5mAtEntry <- 0.0
         priceRatio72hOver1hAtEntry <- 0.0
         volRatio1hOver72hAtEntry <- 0.0
         dollarVolume1hAtEntry <- 0.0
@@ -537,6 +564,11 @@ type Engine(cfg: DonchianFadeConfig) =
                 if volShortMa.Count >= nShortRef then volShortMa.State else 0.0
             let tradeCount1hSum =
                 if tradeCountShortMa.Count >= nShortRef then tradeCountShortMa.State else 0.0
+            // Fixed 5m pre-entry instrumentation — independent of cover MA.
+            let dollarVolume5mSum =
+                if vol5mMa.Count >= nInstrument5m then vol5mMa.State else 0.0
+            let tradeCount5mSum =
+                if tradeCount5mMa.Count >= nInstrument5m then tradeCount5mMa.State else 0.0
             // Post-hoc fields — same values for both sides.
             let closeShortMean =
                 if closeShortMa.Count > 0
@@ -656,6 +688,7 @@ type Engine(cfg: DonchianFadeConfig) =
                 openPos s bar.Close bar.EndUs entryLevel
                     pct1hChange pct72hChange priceRatio72hOver1h volRatio1hOver72h
                     dollarVolume1hSum tradeCount1hSum
+                    dollarVolume5mSum tradeCount5mSum
                 // Un-arm the side that just fired (TrendOnly only).
                 if cfg.EntryMode = TrendOnly then
                     if s = Long then armedUptrendLong <- false
@@ -720,6 +753,10 @@ type Engine(cfg: DonchianFadeConfig) =
         volShortMa.Push totalDv
         volLongMa.Push  totalDv
         tradeCountShortMa.Push (float bar.TradeCount)
+        // Fixed 5m instrumentation MAs — same per-bar values as the
+        // configurable short MAs; just a parallel sliding window.
+        vol5mMa.Push totalDv
+        tradeCount5mMa.Push (float bar.TradeCount)
 
         // Ratchet the cover level. Both modes ratchet the level toward
         // the favorable side of the trade, but they're symmetric mirrors:

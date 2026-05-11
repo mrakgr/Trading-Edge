@@ -35,17 +35,42 @@ open TradingEdge.CryptoBacktest.WindowLoader
 // Configuration
 // -----------------------------------------------------------------------------
 
+/// Fill-price computation rule.
+///   CumVolume — accumulate same-side trades chronologically until cumulative
+///     DOLLAR volume reaches `CvMultiplier × trip.EffectiveNotional`. Fill at
+///     the VWAP of those accumulated trades — the trades that would actually
+///     have filled our order plus a safety margin. SCRATCH if the threshold
+///     isn't reached within the window. This is the principled default: the
+///     fill price reflects only flow that genuinely could have lifted our
+///     order, and the scratch decision is based on capacity (notional we'd
+///     consume) rather than trade count.
+///   TimeEwma — exponential-time-weighted VWAP of every same-side trade in
+///     the window (per `TauUs`). Requires `NMin` same-side trades to fill.
+///     Kept for v6 reproducibility / side-by-side comparison.
+type FillMode =
+    | CumVolume
+    | TimeEwma
+
 type TakerFillConfig = {
     /// Latency window before any trade can be ours. Default 200_000 us (200 ms).
     TSkipUs: int64
-    /// Hard cap on the lookahead window. Default 3_000_000 us (3 s).
+    /// Hard cap on the lookahead window. Default 10_000_000 us (10 s) — longer
+    /// than v6's 3s default because the cum-volume rule needs time to
+    /// accumulate enough flow on thinner symbols (which often have the best
+    /// reversion edge).
     WMaxUs: int64
-    /// Minimum same-side aggressive trade count within [TSkipUs, WMaxUs] for
-    /// the signal to be tradeable. Below this, the signal is SCRATCHED.
+    /// Fill-price computation rule. Default CumVolume.
+    Mode: FillMode
+    /// CumVolume: target cumulative dollar volume is `CvMultiplier × notional`.
+    /// Default 3.0 — fill against 3× our intended order size before declaring
+    /// "we'd have been filled and out". A safety margin over the literal 1×
+    /// captures realistic queue-position friction.
+    CvMultiplier: float
+    /// TimeEwma only: minimum same-side trade count to fill. Below this, scratch.
     /// Default 10.
     NMin: int
-    /// Exponential half-life in microseconds for the time-weighted VWAP.
-    /// Default 500_000 us (500 ms). Decay rate = ln(2) / Tau.
+    /// TimeEwma only: exponential half-life in microseconds for time-weighted
+    /// VWAP. Default 500_000 us (500 ms).
     TauUs: int64
     /// Taker fee per side as a fraction. Default 0.0005 (= 5 bp).
     TakerFee: float
@@ -53,7 +78,9 @@ type TakerFillConfig = {
 
 let defaultConfig () : TakerFillConfig =
     { TSkipUs = 200_000L
-      WMaxUs = 3_000_000L
+      WMaxUs = 10_000_000L
+      Mode = CumVolume
+      CvMultiplier = 3.0
       NMin = 10
       TauUs = 500_000L
       TakerFee = 0.0005 }
@@ -151,12 +178,10 @@ type TakerFillOutcome =
     | Scratched of nTradesSameSide: int
     | Filled of fillPrice: float * nTradesSameSide: int * windowSpanUs: int64
 
-/// Run the design-doc algorithm on a pre-filtered window slice.
-///
-/// `takeSide` is the side WE'D BE TAKING — Long means we lift offers
-/// (want buyer-aggressive trades, sign > 0); Short means we hit bids
-/// (want seller-aggressive trades, sign < 0).
-let simulateOneSide
+/// Time-EWMA fill (v6 mode). Computes a size-and-time-weighted VWAP over
+/// every same-side trade in the window. Scratches when fewer than `cfg.NMin`
+/// same-side trades appear.
+let private simulateOneSideEwma
     (cfg: TakerFillConfig)
     (takeSide: Side)
     (signalUs: int64)
@@ -170,33 +195,101 @@ let simulateOneSide
     let tStart = signalUs + cfg.TSkipUs
     let tauF = float cfg.TauUs
     let ln2 = log 2.0
+    for trade in windowTrades do
+        let sameSide =
+            match takeSide with
+            | Long  -> trade.Sign > 0.0
+            | Short -> trade.Sign < 0.0
+            | Flat  -> false
+        if sameSide then
+            let tElapsed = float (trade.TimestampUs - tStart)
+            let w = exp (- tElapsed * ln2 / tauF)
+            let contribution = w * trade.Quantity
+            weightedSum <- weightedSum + contribution * trade.Price
+            weightDenom <- weightDenom + contribution
+            if n = 0 then firstUs <- trade.TimestampUs
+            lastUs <- trade.TimestampUs
+            n <- n + 1
+    if n < cfg.NMin || weightDenom <= 0.0 then
+        Scratched n
+    else
+        Filled (weightedSum / weightDenom, n, lastUs - firstUs)
 
-    if isNull (box windowTrades) then
+/// Cumulative-volume fill (production default). Walks same-side trades in
+/// chronological order, accumulating BASE-asset quantity until the running
+/// total reaches `cfg.CvMultiplier × targetQty`. The fill price is the VWAP
+/// of trades up to that cutoff. Scratches if the threshold isn't met within
+/// the window.
+///
+/// CRITICAL: the threshold is base-asset qty, NOT dollar notional. The entry
+/// fills X coins; the exit must unload X coins (not X-dollars-worth, which
+/// would be a different qty if price moved). Using qty keeps the entry and
+/// exit symmetric on the actual position size.
+///
+/// `targetQty` is `trip.EffectiveNotional / trip.EntryPrice` — the base-asset
+/// quantity the engine would have transacted at entry, and which the exit
+/// must also clear.
+let private simulateOneSideCumVolume
+    (cfg: TakerFillConfig)
+    (takeSide: Side)
+    (signalUs: int64)
+    (targetQty: float)
+    (windowTrades: ResizeArray<TradeRow>)
+    : TakerFillOutcome =
+    let mutable n = 0
+    let mutable accumQty = 0.0
+    let mutable accumNotional = 0.0
+    let mutable firstUs = 0L
+    let mutable lastUs = 0L
+    let target = cfg.CvMultiplier * targetQty
+    if target <= 0.0 then
         Scratched 0
     else
-        for trade in windowTrades do
-            // Aggressor filter:
-            //   Long takes from offers → sign > 0 (buyer-aggressive)
-            //   Short takes from bids → sign < 0 (seller-aggressive)
+        let mutable hit = false
+        let mutable i = 0
+        while not hit && i < windowTrades.Count do
+            let trade = windowTrades.[i]
             let sameSide =
                 match takeSide with
                 | Long  -> trade.Sign > 0.0
                 | Short -> trade.Sign < 0.0
                 | Flat  -> false
             if sameSide then
-                let tElapsed = float (trade.TimestampUs - tStart)
-                let w = exp (- tElapsed * ln2 / tauF)
-                let contribution = w * trade.Quantity
-                weightedSum <- weightedSum + contribution * trade.Price
-                weightDenom <- weightDenom + contribution
+                accumQty <- accumQty + trade.Quantity
+                accumNotional <- accumNotional + trade.Quantity * trade.Price
                 if n = 0 then firstUs <- trade.TimestampUs
                 lastUs <- trade.TimestampUs
                 n <- n + 1
-
-        if n < cfg.NMin || weightDenom <= 0.0 then
+                if accumQty >= target then hit <- true
+            i <- i + 1
+        if not hit || accumQty <= 0.0 then
             Scratched n
         else
-            Filled (weightedSum / weightDenom, n, lastUs - firstUs)
+            // VWAP = Σ(price · qty) / Σ(qty)
+            Filled (accumNotional / accumQty, n, lastUs - firstUs)
+
+/// Run the appropriate fill rule on a pre-filtered window slice.
+///
+/// `takeSide` is the side WE'D BE TAKING — Long means we lift offers
+/// (want buyer-aggressive trades, sign > 0); Short means we hit bids
+/// (want seller-aggressive trades, sign < 0).
+///
+/// `targetQty` is the BASE-ASSET quantity the trip would have transacted
+/// (entry: effective_notional / entry_price; exit: same qty by construction).
+/// Consulted only in CumVolume mode; EWMA ignores it.
+let simulateOneSide
+    (cfg: TakerFillConfig)
+    (takeSide: Side)
+    (signalUs: int64)
+    (targetQty: float)
+    (windowTrades: ResizeArray<TradeRow>)
+    : TakerFillOutcome =
+    if isNull (box windowTrades) || windowTrades.Count = 0 then
+        Scratched 0
+    else
+        match cfg.Mode with
+        | CumVolume -> simulateOneSideCumVolume cfg takeSide signalUs targetQty windowTrades
+        | TimeEwma  -> simulateOneSideEwma cfg takeSide signalUs windowTrades
 
 // -----------------------------------------------------------------------------
 // Per-trip outcome
@@ -229,8 +322,12 @@ let simulateTrip
     (entryWindow: ResizeArray<TradeRow>)
     (exitWindow:  ResizeArray<TradeRow>)
     : TripTakerFillOutcome =
-    let entryOutcome = simulateOneSide cfg trip.Side trip.EntryUs entryWindow
-    let exitOutcome  = simulateOneSide cfg (oppositeSide trip.Side) trip.ExitUs exitWindow
+    let targetQty =
+        if trip.EntryPrice > 0.0 then trip.EffectiveNotional / trip.EntryPrice else 0.0
+    let entryOutcome =
+        simulateOneSide cfg trip.Side trip.EntryUs targetQty entryWindow
+    let exitOutcome  =
+        simulateOneSide cfg (oppositeSide trip.Side) trip.ExitUs targetQty exitWindow
 
     let entryFilled, entryPx, entryN, entrySpan =
         match entryOutcome with
@@ -337,6 +434,7 @@ type SideJob = {
     SignalUs: int64         // EntryUs or ExitUs (not the t_skip-adjusted bound)
     WindowStartUs: int64    // SignalUs + TSkipUs
     WindowEndUs: int64      // SignalUs + WMaxUs
+    TargetQty: float        // effective_notional / entry_price; same for entry+exit
 }
 
 /// Per-side outcome emitted by phase 2. Joined back to trip-level in phase 3.
@@ -370,7 +468,8 @@ let private writeSideOutcomeRow (sw: StreamWriter) (o: SideOutcome) =
 /// Run a single SideJob against its pre-loaded window slice.
 let private simulateSideJob (cfg: TakerFillConfig) (job: SideJob)
                             (window: ResizeArray<TradeRow>) : SideOutcome =
-    let outcome = simulateOneSide cfg job.TakeSide job.SignalUs window
+    let outcome =
+        simulateOneSide cfg job.TakeSide job.SignalUs job.TargetQty window
     match outcome with
     | Filled (px, n, span) ->
         { TripIdx = job.TripIdx; SideKind = job.SideKind
@@ -394,14 +493,20 @@ let runTakerFillSim
     let allJobs =
         trips
         |> Array.mapi (fun i t ->
+            // Base-asset quantity that the engine transacted at entry and that
+            // the exit must also clear. Identical for both sides by construction.
+            let targetQty =
+                if t.EntryPrice > 0.0 then t.EffectiveNotional / t.EntryPrice else 0.0
             [| { TripIdx = i; SideKind = "entry"; Symbol = t.Symbol
                  TakeSide = t.Side; SignalUs = t.EntryUs
                  WindowStartUs = t.EntryUs + cfg.TSkipUs
-                 WindowEndUs   = t.EntryUs + cfg.WMaxUs }
+                 WindowEndUs   = t.EntryUs + cfg.WMaxUs
+                 TargetQty = targetQty }
                { TripIdx = i; SideKind = "exit"; Symbol = t.Symbol
                  TakeSide = oppositeSide t.Side; SignalUs = t.ExitUs
                  WindowStartUs = t.ExitUs + cfg.TSkipUs
-                 WindowEndUs   = t.ExitUs + cfg.WMaxUs } |])
+                 WindowEndUs   = t.ExitUs + cfg.WMaxUs
+                 TargetQty = targetQty } |])
         |> Array.concat
 
     // A job whose window straddles midnight (window start date != end date)
