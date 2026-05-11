@@ -97,6 +97,14 @@ type CumsumZConfig = {
     /// now confirms the new direction). When false (default), cumsum-driven
     /// exit fires on every opposite-clamp touch.
     RequirePersistenceForExit: bool
+    /// When true (default), entries require the 200h persistence-gate sign
+    /// to agree with the cumsum-clamp direction: long fires only when
+    /// buyMa.State > sellMa.State, short fires only when sellMa.State >
+    /// buyMa.State. When false, entries fire on cumsum-clamp touch alone.
+    /// Used to test the hypothesis that the persistence gate is redundant
+    /// once the cumsum threshold is large enough — a sufficiently
+    /// accumulated cumsum implies regime agreement by construction.
+    RequirePersistenceForEntry: bool
     /// Trailing-VWAP-band stop in HOURS. When > 0, replaces the
     /// MaxAdverseFraction percentage stop:
     ///   long  exits when bar.Vwap <= rolling_min_vwap_Nh
@@ -144,6 +152,7 @@ let defaultCumsumZConfig (threshold: float) : CumsumZConfig =
       VolWindowDays = 90
       MaxBarPriceRatio = 0.0
       RequirePersistenceForExit = false
+      RequirePersistenceForEntry = true
       VwapStopHours = 0
       VolStopMultiplier = 0.0
       RvolEntryThreshold = 0.0
@@ -470,17 +479,27 @@ type Engine(cfg: CumsumZConfig) =
             let hitBottom = prevCumsum > -threshold && cumsum <= -threshold
 
             // Persistence gate: the 200h-regime sign must agree with the
-            // direction of the cumsum-driven fire.
-            let regimeBull = buyMa.State > sellMa.State
-            let regimeBear = sellMa.State > buyMa.State
+            // direction of the cumsum-driven fire. When the entry gate is
+            // disabled (RequirePersistenceForEntry = false), both bull/bear
+            // collapse to true so the cumsum-clamp touch is the sole entry
+            // criterion. The exit-side gate keeps reading the actual regime
+            // sign so RequirePersistenceForExit semantics stay intact.
+            let regimeBullRaw = buyMa.State > sellMa.State
+            let regimeBearRaw = sellMa.State > buyMa.State
+            let regimeBull =
+                if cfg.RequirePersistenceForEntry then regimeBullRaw else true
+            let regimeBear =
+                if cfg.RequirePersistenceForEntry then regimeBearRaw else true
 
             // Exit gating: in `RequirePersistenceForExit` mode an open
             // position is only closed when persistence has flipped against
             // it. Without that mode, opposite-clamp touches always close.
+            // Reads raw regime signs so the exit gate is independent of
+            // whether the entry-side persistence gate is on or off.
             let canCloseShort =
-                if cfg.RequirePersistenceForExit then regimeBull else true
+                if cfg.RequirePersistenceForExit then regimeBullRaw else true
             let canCloseLong =
-                if cfg.RequirePersistenceForExit then regimeBear else true
+                if cfg.RequirePersistenceForExit then regimeBearRaw else true
 
             // Rvol gate — same definition as the ShortFadeMA / ExtremeRvol
             // engines: trailing 8h-mean volume divided by trailing 30d-mean

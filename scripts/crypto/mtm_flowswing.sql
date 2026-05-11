@@ -1,0 +1,68 @@
+-- Mark-to-market monthly P&L decomposition for FlowSwing (OrderflowLongFadeMA).
+-- Same algorithm as scripts/crypto/mtm_decompose.sql but for long-only trips.
+--
+-- Reconciliation: sum of monthly P&L per trip == net_pnl (verified to 0.00 error).
+--
+-- Outputs:
+--   data/crypto/long_fade_ma_default_rvol075/mtm_monthly.csv
+
+-- Reuse the anchors table that was built for cumsum-z (covers all symbols).
+CREATE OR REPLACE TEMP TABLE anchors AS
+SELECT symbol, month, anchor_close
+FROM read_parquet('data/crypto/cumsum_z_no_gate/anchors.parquet');
+
+CREATE OR REPLACE TEMP TABLE trips AS
+SELECT 'flowswing' AS variant, symbol, side, entry_price, exit_price, effective_notional, fees,
+       funding_pnl, net_pnl,
+       effective_notional / entry_price AS qty,
+       TO_TIMESTAMP(entry_us/1e6)::DATE AS entry_date,
+       TO_TIMESTAMP(exit_us/1e6)::DATE  AS exit_date,
+       DATE_TRUNC('month', TO_TIMESTAMP(entry_us/1e6))::DATE AS entry_month,
+       DATE_TRUNC('month', TO_TIMESTAMP(exit_us/1e6))::DATE  AS exit_month,
+       (TO_TIMESTAMP(exit_us/1e6)::DATE - TO_TIMESTAMP(entry_us/1e6)::DATE) + 1 AS days_held,
+       ROW_NUMBER() OVER () AS trip_id
+FROM read_csv_auto('data/crypto/long_fade_ma_default_rvol075/results_trips_1m_pd0.14_ma72h_cvd240m_ed0.2_long.csv');
+
+CREATE OR REPLACE TEMP TABLE monthly AS
+WITH e AS (
+  SELECT t.*, unnest(generate_series(t.entry_month, t.exit_month, INTERVAL 1 MONTH))::DATE AS month
+  FROM trips t
+),
+joined AS (
+  SELECT
+    e.*,
+    a_s.anchor_close AS anchor_start,
+    a_e.anchor_close AS anchor_end,
+    CASE WHEN e.month = e.entry_month THEN e.entry_date ELSE e.month END AS seg_start_date,
+    CASE WHEN e.month = e.exit_month  THEN e.exit_date
+         ELSE (e.month + INTERVAL 1 MONTH)::DATE - 1 END AS seg_end_date
+  FROM e
+  LEFT JOIN anchors a_s ON a_s.symbol=e.symbol AND a_s.month=e.month
+  LEFT JOIN anchors a_e ON a_e.symbol=e.symbol AND a_e.month=(e.month + INTERVAL 1 MONTH)::DATE
+)
+SELECT
+  variant, trip_id, symbol, month,
+  -- long: price_end - price_start (we profit when price rises)
+  (CASE WHEN month = exit_month THEN exit_price ELSE anchor_end END
+   - CASE WHEN month = entry_month THEN entry_price ELSE anchor_start END) * qty
+  - (CASE WHEN month = entry_month AND month = exit_month THEN fees
+          WHEN month = entry_month OR  month = exit_month THEN fees / 2.0
+          ELSE 0.0 END)
+  + funding_pnl * ((seg_end_date - seg_start_date + 1)::FLOAT / days_held)
+  AS month_pnl,
+  net_pnl
+FROM joined;
+
+-- Reconciliation
+SELECT 'recon' AS check,
+       ROUND(SUM(month_pnl), 2) AS mtm_sum,
+       ROUND((SELECT SUM(net_pnl) FROM trips), 2) AS net_pnl_sum,
+       ROUND(SUM(month_pnl) - (SELECT SUM(net_pnl) FROM trips), 2) AS err
+FROM monthly;
+
+COPY (
+  SELECT variant, month, ROUND(SUM(month_pnl), 2) AS pnl
+  FROM monthly
+  GROUP BY 1, 2
+  ORDER BY 1, 2
+) TO 'data/crypto/long_fade_ma_default_rvol075/mtm_monthly.csv' (HEADER, DELIMITER ',');

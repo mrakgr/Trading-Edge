@@ -181,6 +181,7 @@ type CumsumZSweepArgs =
     | Funding_Root of string
     | No_Funding
     | Require_Persistence_For_Exit
+    | No_Entry_Persistence_Gate
     | Vwap_Stop_Hours of int
     | Vol_Stop_Multiplier of float
     | Rvol_Entry_Threshold of float
@@ -214,6 +215,7 @@ type CumsumZSweepArgs =
             | CumsumZSweepArgs.Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
             | No_Funding -> "Disable funding-rate accounting."
             | Require_Persistence_For_Exit -> "When set, opposite-clamp cumsum touches do NOT exit by themselves; positions are held until the 200h persistence regime flips against them. Default off (cumsum-driven exit)."
+            | No_Entry_Persistence_Gate -> "When set, drop the 200h persistence gate at entry: longs/shorts fire on cumsum-clamp touch alone (regardless of buyMa vs sellMa sign). Default off (gate on). Use with a much larger threshold to test whether the gate is redundant once cumsum saturation alone selects regimes."
             | Vwap_Stop_Hours _ -> "Trailing-VWAP-band stop in HOURS. When N>0, exits a long if bar.VWAP <= rolling_min_vwap_Nh, exits a short if bar.VWAP >= rolling_max_vwap_Nh. Volume-weighted so wicks/spikes don't trigger. Replaces --max-adverse-pct when set. Default 0 (disabled)."
             | Vol_Stop_Multiplier _ -> "Vol-based stop in log-return multiples of the symbol's own realized vol (volMa.SampleStd at entry, fixed for the trade). Stop distance = M * volAtEntry; long exits when price drops M*sigma against entry, short symmetric. Adapts to per-symbol vol. Takes precedence over --vwap-stop-hours and --max-adverse-pct. Default 0 (disabled). Try 50, 100, 200, 400, 600, 1000."
             | Rvol_Entry_Threshold _ -> "Minimum rvol at entry (8h volume mean / 30d volume mean). Default 0 (disabled). Reject trades with rvol below this — used to test whether the persistence-gated edge concentrates in volume-burst windows."
@@ -1365,6 +1367,7 @@ let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
     let volWindowDays = args.GetResult(CumsumZSweepArgs.Vol_Window_Days, defaultValue = 90)
     let maxBarPriceRatio = args.GetResult(CumsumZSweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
     let requirePersistenceForExit = args.Contains CumsumZSweepArgs.Require_Persistence_For_Exit
+    let requirePersistenceForEntry = not (args.Contains CumsumZSweepArgs.No_Entry_Persistence_Gate)
     let vwapStopHours = args.GetResult(CumsumZSweepArgs.Vwap_Stop_Hours, defaultValue = 0)
     let volStopMultiplier = args.GetResult(CumsumZSweepArgs.Vol_Stop_Multiplier, defaultValue = 0.0)
     let magnitudeMode =
@@ -1394,7 +1397,7 @@ let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
         match magnitudeMode with
         | OrderflowCumsumZ.Erf  -> "erf"
         | OrderflowCumsumZ.RawZ -> "raw-z"
-    printfn "[cumsum-z-sweep] symbols=%d timeframes=[%s] thresholds=[%s] maHours=[%s] magnitudeMode=%s short=%b range=%s..%s parallelism=%d minLongAdv=$%s minShortAdv=$%s volWindowDays=%d maxBarPriceRatio=%g referenceVolPct=%g requirePersistenceForExit=%b vwapStopHours=%d volStopMultiplier=%g rvolEntryTh=%g rvolRecentH=%d rvolBaselineD=%d"
+    printfn "[cumsum-z-sweep] symbols=%d timeframes=[%s] thresholds=[%s] maHours=[%s] magnitudeMode=%s short=%b range=%s..%s parallelism=%d minLongAdv=$%s minShortAdv=$%s volWindowDays=%d maxBarPriceRatio=%g referenceVolPct=%g entryGate=%b requirePersistenceForExit=%b vwapStopHours=%d volStopMultiplier=%g rvolEntryTh=%g rvolRecentH=%d rvolBaselineD=%d"
         symbols.Length
         (String.concat "," timeframes)
         (String.concat "," (thresholds |> Array.map (sprintf "%g")))
@@ -1408,6 +1411,7 @@ let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
         volWindowDays
         maxBarPriceRatio
         referenceVolPct
+        requirePersistenceForEntry
         requirePersistenceForExit
         vwapStopHours
         volStopMultiplier
@@ -1460,6 +1464,7 @@ let cmdCumsumZSweep (args: ParseResults<CumsumZSweepArgs>) : int =
                                         VolWindowDays = volWindowDays
                                         MaxBarPriceRatio = maxBarPriceRatio
                                         RequirePersistenceForExit = requirePersistenceForExit
+                                        RequirePersistenceForEntry = requirePersistenceForEntry
                                         VwapStopHours = vwapStopHours
                                         VolStopMultiplier = volStopMultiplier
                                         RvolEntryThreshold = rvolEntryThreshold
