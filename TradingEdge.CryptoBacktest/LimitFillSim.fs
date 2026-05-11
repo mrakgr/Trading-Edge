@@ -736,6 +736,7 @@ let runFillSim
                         VolRatio1hOver72hAtEntry = 0.0
                         DollarVolume1hAtEntry = 0.0
                         TradeCount1hAtEntry = 0.0
+                        ExitReason = Normal
                     }
                     let outcome = simulateTrip cfg donTrip stream
                     lines.Add(origIdx, trip.OriginalLine + "," + outcomeRow outcome)

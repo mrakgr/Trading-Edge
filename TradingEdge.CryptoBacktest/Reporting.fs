@@ -204,7 +204,13 @@ let appendTrips
 // =============================================================================
 
 let donchianTripsHeader =
-    "symbol,timeframe,donchian_bars,min_trend_bars,allow_short,allow_long,entry_us,exit_us,side,entry_price,exit_price,net_pnl,fees,bars_held,mfe,mae,effective_notional,funding_pnl,adv_at_entry,bars_since_up_violation,bars_since_down_violation,pct_1h_change,pct_72h_change,price_ratio_72h_over_1h,vol_ratio_1h_over_72h,dollar_volume_1h_at_entry,trade_count_1h_at_entry"
+    "symbol,timeframe,donchian_bars,min_trend_bars,allow_short,allow_long,entry_us,exit_us,side,entry_price,exit_price,net_pnl,fees,bars_held,mfe,mae,effective_notional,funding_pnl,adv_at_entry,bars_since_up_violation,bars_since_down_violation,pct_1h_change,pct_72h_change,price_ratio_72h_over_1h,vol_ratio_1h_over_72h,dollar_volume_1h_at_entry,trade_count_1h_at_entry,exit_reason"
+
+let private exitReasonStr (r: ExitReason) =
+    match r with
+    | Normal -> "normal"
+    | Redenomination -> "redenomination"
+    | EndOfStream -> "endofstream"
 
 let private donchianTripRow
     (symbol: string)
@@ -239,6 +245,7 @@ let private donchianTripRow
         fmt t.VolRatio1hOver72hAtEntry
         fmt t.DollarVolume1hAtEntry
         fmt t.TradeCount1hAtEntry
+        exitReasonStr t.ExitReason
     ]
 
 /// Append-or-create per-cell Donchian trip CSV. Mirrors `appendTrips` but

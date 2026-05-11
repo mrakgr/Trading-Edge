@@ -67,6 +67,23 @@ type EntryMode =
     | BreakTrigger
     | TrendOnly
 
+/// Reason the round-trip exited. Tagged at closePos / Flush time so post-hoc
+/// fill simulators can exclude degenerate exits.
+///   Normal         — regular cover (MA-cross, OppositeChannel stop, take-profit,
+///                    pct-stop). The trip represents a real tradeable signal.
+///   Redenomination — exit forced by the MaxBarPriceRatio gap detector. The exit
+///                    price is the LAST PRE-GAP bar close, but the symbol just
+///                    redenominated (e.g. DYDXUSDT → 1000DYDXUSDT), so any
+///                    "real" exit at the new price scale would be a different
+///                    instrument. Exclude from fill sims.
+///   EndOfStream    — position open when the bar stream ended. The exit is the
+///                    last bar close, NOT a real cover signal. Exclude from
+///                    fill sims (the exit window doesn't have actionable trades).
+type ExitReason =
+    | Normal
+    | Redenomination
+    | EndOfStream
+
 type DonchianRoundTrip = {
     EntryUs: int64
     ExitUs: int64
@@ -99,6 +116,7 @@ type DonchianRoundTrip = {
     /// Sum of bar.TradeCount over the trailing nShortRef bars ending the bar
     /// BEFORE entry. Recorded as float for CSV serialisation simplicity.
     TradeCount1hAtEntry: float
+    ExitReason: ExitReason
 }
 
 type DonchianFadeConfig = {
@@ -175,11 +193,13 @@ let defaultDonchianFadeConfig () : DonchianFadeConfig =
       TakerFee = 0.0004
       BucketUs = 0L
       MaxAdverseFraction = 0.0
-      ReferenceVol = 0.0
-      MinShortAdv = 0.0
-      MinLongAdv = 0.0
+      // Production-safety defaults (see CLAUDE.md / memory note feedback_engine_default_flags.md):
+      // vol-target sizing + ADV gate + gap detector must be on. Pass 0 to disable.
+      ReferenceVol = 0.1019
+      MinShortAdv = 5_000_000.0
+      MinLongAdv = 5_000_000.0
       VolWindowDays = 90
-      MaxBarPriceRatio = 0.0 }
+      MaxBarPriceRatio = 3.0 }
 
 let private feeFor (notional: float) (takerFee: float) : float = notional * takerFee
 
@@ -318,7 +338,7 @@ type Engine(cfg: DonchianFadeConfig) =
         dollarVolume1hAtEntry <- dollarVolume1h
         tradeCount1hAtEntry <- tradeCount1h
 
-    let closePos (fillPrice: float) (fillUs: int64) =
+    let closePos (fillPrice: float) (fillUs: int64) (reason: ExitReason) =
         let gross = grossPnL side entryPrice fillPrice effectiveNotional
         let fees = 2.0 * feeFor effectiveNotional cfg.TakerFee
         trips.Add {
@@ -343,6 +363,7 @@ type Engine(cfg: DonchianFadeConfig) =
             VolRatio1hOver72hAtEntry = volRatio1hOver72hAtEntry
             DollarVolume1hAtEntry = dollarVolume1hAtEntry
             TradeCount1hAtEntry = tradeCount1hAtEntry
+            ExitReason = reason
         }
         side <- Flat
         entryPrice <- 0.0
@@ -434,7 +455,7 @@ type Engine(cfg: DonchianFadeConfig) =
 
         let gapFired = priceGapHit bar
         if gapFired then
-            closePos lastClose lastUs
+            closePos lastClose lastUs Redenomination
             signalLockoutUntil <- barsSeen + warmupBars
         if gapFired then () else
 
@@ -451,14 +472,14 @@ type Engine(cfg: DonchianFadeConfig) =
         //                        Long target above entry → cover when bar.High >= target.
         //                        Short target below entry → cover when bar.Low <= target.
         match pctStopPriceIfHit bar with
-        | Some stopPx -> closePos stopPx bar.EndUs
+        | Some stopPx -> closePos stopPx bar.EndUs Normal
         | None ->
             match cfg.CoverMode with
             | OppositeChannel ->
                 if side = Short && trailingStop > 0.0 && bar.High > trailingStop then
-                    closePos bar.Close bar.EndUs
+                    closePos bar.Close bar.EndUs Normal
                 elif side = Long && trailingStop > 0.0 && bar.Low < trailingStop then
-                    closePos bar.Close bar.EndUs
+                    closePos bar.Close bar.EndUs Normal
             | EntryChannelTarget | EntryChannelTargetOnBreak ->
                 // trailingStop > 0 gates correctly for both cases. In
                 // EntryChannelTarget it's set at entry; in
@@ -466,9 +487,9 @@ type Engine(cfg: DonchianFadeConfig) =
                 // channel cracks, at which point the post-push block below
                 // sets it to the opposite-side prevDonHigh/prevDonLow.
                 if side = Long && trailingStop > 0.0 && bar.High >= trailingStop then
-                    closePos bar.Close bar.EndUs
+                    closePos bar.Close bar.EndUs Normal
                 elif side = Short && trailingStop > 0.0 && bar.Low <= trailingStop then
-                    closePos bar.Close bar.EndUs
+                    closePos bar.Close bar.EndUs Normal
             | MaCrossCover ->
                 // v4/v5: cover when bar.Close crosses the 1h MA from the
                 // favorable side. Long covers when bar.Close >= 1h MA mean
@@ -480,9 +501,9 @@ type Engine(cfg: DonchianFadeConfig) =
                     let maMean = closeShortMa.State / float closeShortMa.Count
                     if maMean > 0.0 then
                         if side = Long && bar.Close >= maMean then
-                            closePos bar.Close bar.EndUs
+                            closePos bar.Close bar.EndUs Normal
                         elif side = Short && bar.Close <= maMean then
-                            closePos bar.Close bar.EndUs
+                            closePos bar.Close bar.EndUs Normal
 
         // Pre-push read of Donchian state — these reflect the previous nDon
         // bars (the "prior channel"). Window-readiness gates the counter
@@ -753,7 +774,7 @@ type Engine(cfg: DonchianFadeConfig) =
 
     member _.Flush() =
         if side <> Flat && lastClose > 0.0 then
-            closePos lastClose lastUs
+            closePos lastClose lastUs EndOfStream
 
 let run (cfg: DonchianFadeConfig) (bars: SignedBar[]) : DonchianRoundTrip[] =
     let eng = Engine(cfg)

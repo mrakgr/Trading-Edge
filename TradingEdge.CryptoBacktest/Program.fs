@@ -549,9 +549,9 @@ type DonchianFadeSweepArgs =
             | Taker_Fee _ -> "Per-fill taker fee fraction. Default 0.0004."
             | Use_Trades -> "Force the trade-stream backtest path (currently unsupported)."
             | Max_Adverse_Pct _ -> "Optional fixed-fraction stop. Default 0 (disabled)."
-            | Reference_Vol_Pct _ -> "Reference per-bar log-return std as percent. Recommended 0.1019 for 1m."
-            | DonchianFadeSweepArgs.Min_Short_Adv _ -> "Minimum trailing-90d ADV (USDT/day) for a short entry. Default 0."
-            | DonchianFadeSweepArgs.Min_Long_Adv _ -> "Minimum trailing-90d ADV (USDT/day) for a long entry. Default 0."
+            | Reference_Vol_Pct _ -> "Reference per-bar log-return std as percent. Default 0.1019 (1m σ-target sizing). Pass 0 to disable."
+            | DonchianFadeSweepArgs.Min_Short_Adv _ -> "Minimum trailing-90d ADV (USDT/day) for a short entry. Default 5,000,000."
+            | DonchianFadeSweepArgs.Min_Long_Adv _ -> "Minimum trailing-90d ADV (USDT/day) for a long entry. Default 5,000,000."
             | DonchianFadeSweepArgs.Vol_Window_Days _ -> "Vol-window length in days. Default 90."
             | DonchianFadeSweepArgs.Max_Bar_Price_Ratio _ -> "Bar-to-bar price-ratio gap detector. Default 0. Recommended 3.0."
             | DonchianFadeSweepArgs.Funding_Root _ -> sprintf "Funding-rate parquet root. Default: %s" defaultFundingRoot
@@ -748,6 +748,29 @@ type LimitFillSimArgs =
             | Seed _ -> "PRNG seed for rejection sampling. Default 12345."
             | Parallelism _ -> "Max (symbol, date) groups processed concurrently. Default 4."
 
+type TakerFillSimArgs =
+    | [<Mandatory; AltCommandLine "-t">] Trips_Csv of string
+    | [<Mandatory; AltCommandLine "-o">] Output_Csv of string
+    | [<AltCommandLine "-d">] Data_Root of string
+    | T_Skip_Ms of int
+    | W_Max_Ms of int
+    | N_Min of int
+    | Tau_Ms of int
+    | Taker_Fee of float
+    | [<AltCommandLine "-p">] Parallelism of int
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Trips_Csv _  -> "Input trips CSV (donchian-fade-sweep schema; rows with exit_reason != 'normal' are skipped)."
+            | Output_Csv _ -> "Output CSV path. Original columns + 12 taker-fill columns appended."
+            | Data_Root _  -> "Trade-parquet root (per-symbol per-day). Default: " + defaultDataRoot
+            | T_Skip_Ms _  -> "Latency-skip window in ms; trades within [signal, signal+t_skip) ignored. Default 200."
+            | W_Max_Ms _   -> "Hard cap on the fill-search window in ms. Default 3000."
+            | N_Min _      -> "Minimum same-side aggressive trade count within the window for the signal to be fillable. Below this, the signal is SCRATCHED. Default 10."
+            | Tau_Ms _     -> "Exponential half-life in ms for the time-weighted VWAP. Default 500."
+            | Taker_Fee _  -> "Taker fee per side as a fraction. Default 0.0005 (= 5 bp = Binance USDT-perps base tier)."
+            | Parallelism _ -> "Max symbols processed concurrently. Default 4."
+
 type CliArgs =
     | [<CliPrefix(CliPrefix.None)>] Run of ParseResults<RunArgs>
     | [<CliPrefix(CliPrefix.None)>] Sweep of ParseResults<SweepArgs>
@@ -766,6 +789,7 @@ type CliArgs =
     | [<CliPrefix(CliPrefix.None)>] Funding_Stratify of ParseResults<FundingStratifyArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Funding_Breadth of ParseResults<BuildFundingBreadthArgs>
     | [<CliPrefix(CliPrefix.None)>] Limit_Fill_Sim of ParseResults<LimitFillSimArgs>
+    | [<CliPrefix(CliPrefix.None)>] Taker_Fill_Sim of ParseResults<TakerFillSimArgs>
     interface IArgParserTemplate with
         member s.Usage =
             match s with
@@ -786,6 +810,7 @@ type CliArgs =
             | Funding_Stratify _ -> "Stratify a trips CSV by per-symbol funding rate at entry; per-side per-decile PF / win-rate / P&L breakdown."
             | Build_Funding_Breadth _ -> "Build the universe-wide funding-rate breadth panel: per-hour mean/median/quantile of funding rates across active symbols, plus a t-digest rank of the median."
             | Limit_Fill_Sim _ -> "Post-hoc limit-order fill simulator over a DonchianFade trips CSV: replays trade-by-trade against 1s time bars, posts a maker limit at the trip's EntryPrice, trails per --trail-mode, accumulates partial fills with rejection rate + latency, mirrors trail on exit starting at the engine's recorded ExitUs. Produces a CSV with 16 fill-quality columns appended."
+            | Taker_Fill_Sim _ -> "Post-hoc TAKER-order fill simulator over a DonchianFade trips CSV. For each trip's entry and exit signal, gathers same-side aggressive trades in [signal+t_skip, signal+w_max] (default 200ms-3s), scratches if same-side trade count < n_min, otherwise computes fill as exp-time-and-size-weighted VWAP with a 5bp taker fee. Skips rows with exit_reason != 'normal' (redenomination, endofstream). One DuckDB range-join per symbol; runs in seconds."
 
 // =============================================================================
 // Helpers
@@ -2393,11 +2418,16 @@ let cmdDonchianFadeSweep (args: ParseResults<DonchianFadeSweepArgs>) : int =
     let notional = args.GetResult(DonchianFadeSweepArgs.Notional, defaultValue = 1000.0)
     let takerFee = args.GetResult(DonchianFadeSweepArgs.Taker_Fee, defaultValue = 0.0004)
     let maxAdversePct = args.GetResult(DonchianFadeSweepArgs.Max_Adverse_Pct, defaultValue = 0.0)
-    let referenceVolPct = args.GetResult(DonchianFadeSweepArgs.Reference_Vol_Pct, defaultValue = 0.0)
-    let minShortAdv = args.GetResult(DonchianFadeSweepArgs.Min_Short_Adv, defaultValue = 0.0)
-    let minLongAdv  = args.GetResult(DonchianFadeSweepArgs.Min_Long_Adv, defaultValue = 0.0)
+    // Production defaults — these MUST be on for any meaningful crypto run:
+    //   reference-vol-pct 0.1019 → 1m σ-target sizing
+    //   min-(short|long)-adv 5_000_000 → exclude illiquid tape
+    //   max-bar-price-ratio 3.0     → redenomination / relisting gap detector
+    // Pass 0 explicitly to disable.
+    let referenceVolPct = args.GetResult(DonchianFadeSweepArgs.Reference_Vol_Pct, defaultValue = 0.1019)
+    let minShortAdv = args.GetResult(DonchianFadeSweepArgs.Min_Short_Adv, defaultValue = 5_000_000.0)
+    let minLongAdv  = args.GetResult(DonchianFadeSweepArgs.Min_Long_Adv, defaultValue = 5_000_000.0)
     let volWindowDays = args.GetResult(DonchianFadeSweepArgs.Vol_Window_Days, defaultValue = 90)
-    let maxBarPriceRatio = args.GetResult(DonchianFadeSweepArgs.Max_Bar_Price_Ratio, defaultValue = 0.0)
+    let maxBarPriceRatio = args.GetResult(DonchianFadeSweepArgs.Max_Bar_Price_Ratio, defaultValue = 3.0)
     let fundingRoot =
         if args.Contains DonchianFadeSweepArgs.No_Funding then None
         else Some (args.GetResult(DonchianFadeSweepArgs.Funding_Root, defaultValue = defaultFundingRoot))
@@ -4255,6 +4285,38 @@ let cmdLimitFillSim (args: ParseResults<LimitFillSimArgs>) : int =
     0
 
 // =============================================================================
+// taker-fill-sim — post-hoc taker-order fill simulator on a trips CSV
+// =============================================================================
+
+let cmdTakerFillSim (args: ParseResults<TakerFillSimArgs>) : int =
+    let tripsCsv = args.GetResult TakerFillSimArgs.Trips_Csv
+    let outputCsv = args.GetResult TakerFillSimArgs.Output_Csv
+    let dataRoot = args.GetResult(TakerFillSimArgs.Data_Root, defaultValue = defaultDataRoot)
+    let tSkipMs = args.GetResult(TakerFillSimArgs.T_Skip_Ms, defaultValue = 200)
+    let wMaxMs = args.GetResult(TakerFillSimArgs.W_Max_Ms, defaultValue = 3000)
+    let nMin = args.GetResult(TakerFillSimArgs.N_Min, defaultValue = 10)
+    let tauMs = args.GetResult(TakerFillSimArgs.Tau_Ms, defaultValue = 500)
+    let takerFee = args.GetResult(TakerFillSimArgs.Taker_Fee, defaultValue = 0.0005)
+    let parallelism = args.GetResult(TakerFillSimArgs.Parallelism, defaultValue = 4)
+
+    let cfg : TakerFillSim.TakerFillConfig = {
+        TSkipUs = int64 tSkipMs * 1000L
+        WMaxUs = int64 wMaxMs * 1000L
+        NMin = nMin
+        TauUs = int64 tauMs * 1000L
+        TakerFee = takerFee
+    }
+    printfn "[taker-fill-sim] t_skip=%dms w_max=%dms n_min=%d tau=%dms taker_fee=%g parallelism=%d"
+        tSkipMs wMaxMs nMin tauMs takerFee parallelism
+    printfn "[taker-fill-sim] %s -> %s" tripsCsv outputCsv
+
+    let sw = Stopwatch.StartNew()
+    TakerFillSim.runTakerFillSim cfg dataRoot tripsCsv outputCsv parallelism
+    sw.Stop()
+    printfn "[taker-fill-sim] total wall %.1fs" sw.Elapsed.TotalSeconds
+    0
+
+// =============================================================================
 // Entry point
 // =============================================================================
 
@@ -4281,6 +4343,7 @@ let main argv =
         | Funding_Stratify a -> cmdFundingStratify a
         | Build_Funding_Breadth a -> cmdBuildFundingBreadth a
         | Limit_Fill_Sim a -> cmdLimitFillSim a
+        | Taker_Fill_Sim a -> cmdTakerFillSim a
     with
     | :? ArguParseException as ex ->
         eprintfn "%s" ex.Message
