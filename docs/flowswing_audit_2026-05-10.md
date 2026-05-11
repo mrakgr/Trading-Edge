@@ -286,3 +286,62 @@ Per-trade payoff in the goldmine cells is **$45-65/trade** vs the engine baselin
 - **Ratio_at_entry interpretation**: this is the engine's internal CVD-weighted rvol signal, not raw rvol. Documented in `OrderflowLongFadeMA.fs`. The exact functional form matters when a live system reproduces the signal in real-time.
 - **35+% decline row is sparse** (8-36 trips per cell). The negative cells there are noise; treat the whole row as "minimum size" until it has more data.
 - **Limit-fill version preserves this surface**. Per the audit above, FlowSwing limit-fill captures 96.8% of engine market-fill P&L; the 2D PF surface should compress slightly under maker fees + rejection but the qualitative shape (small-decline-mid-rvol = workhorse, mid-decline-high-rvol = goldmine, extreme-rvol = unstable) holds.
+
+---
+
+## Taker-fill validation — 2026-05-11
+
+The no-lookahead taker-fill simulator ([TakerFillSim.fs](../TradingEdge.CryptoBacktest/TakerFillSim.fs)) developed for DonchianScalp was run on the same FlowSwing production trip CSV. Configuration:
+- Cum-volume fill mode: walk same-side aggressive trades, accumulate base qty until 3× target_qty (= `effective_notional / entry_price`), VWAP-price the result.
+- 60s window, no lookahead — always fill if ≥1 same-side trade exists in the window.
+- 5 bp taker fee per side. 200ms latency skip.
+- Wall: 116s on parallelism=8 (vs limit-fill's ~15 min on `-p 4`).
+
+### Headline
+
+| Cell | Trips | Total | PF |
+|---|---:|---:|---:|
+| Engine market-fill | 3,914 | +$96,964 | 3.50 |
+| Limit-fill (96.8% retention vs engine) | 3,914 | +$93,852 | 3.27 |
+| **Taker-fill, raw** | 3,884 / 99.2% filled | +$145,608 | **4.58** |
+| **Taker-fill, ex-redenom artifacts** | 3,881 | **+$94,602** | **3.34** |
+| Taker-fill, ex-redenom AND ex top-3 flush days | 3,685 | +$87,599 | 3.24 |
+
+The raw taker headline appears to *beat* the engine (+$145k vs +$97k). Three trips contaminated by the DYDXUSDT → 1000DYDXUSDT and similar redenominations contributed ~$51k of phantom P&L — same engine-side gap-detector bug flagged in [feedback_engine_gap_detector_redenom_bug.md](../memory/feedback_engine_gap_detector_redenom_bug.md). The post-hoc 20% drift filter (`ABS(exit_fill_price / exit_price - 1) > 0.20`) excludes those. After filtering: **taker-fill PF 3.34 / +$94,602**, essentially matching the limit-fill audit's PF 3.27.
+
+### Regime independence: full pass
+
+| Cell | Trips | Total | PF |
+|---|---:|---:|---:|
+| Ex-Oct-10 | 3,874 (of 3,884 raw) | +$145,384 | 4.61 |
+| **Ex top-3 flush days (Oct-10-2025, Dec-09-2024, Feb-03-2025)** | **3,688** | **+$138,605** | **4.52** |
+| October 2025 only | 359 | +$10,648 | 4.72 |
+
+The three flush days that carried 100%+ of DonchianScalp's P&L contribute roughly proportionate amounts to FlowSwing (~5% of P&L for ~5% of trips). Removing them barely moves the PF.
+
+### Why taker fill matches/exceeds limit fill on FlowSwing
+
+The same factors that made limit-fill cheap on FlowSwing apply to taker-fill:
+- **42-hour median holds** dilute per-trade execution cost. The 5 bp × 2 taker fee plus typical 3-5 bp slippage is a ~13 bp round-trip — invisible against an average $24-37/trade payoff.
+- **High win rate (74.6%) and asymmetric per-trade payoff** mean fills don't need to be precise.
+- **The 60s same-side flow window almost always contains plenty of same-direction taker activity** (99.2% of FlowSwing trips fill cleanly under cum-volume mode), because the entry condition (price has just declined sharply on positive CVD turn) is by construction a moment of high directional flow.
+
+### Why this matters
+
+Both the limit-fill audit (2026-05-10) and the no-lookahead taker-fill audit (2026-05-11) confirm the same conclusion: **FlowSwing's edge survives realistic execution.** The strategy works for the same reason both fill models capture it: holds are long enough that fill-price precision is a small effect against the underlying mean-reversion-to-MA payoff.
+
+### Reproduction
+
+```bash
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- taker-fill-sim \
+  --trips-csv data/crypto/long_fade_ma_default_rvol075/results_trips_1m_pd0.14_ma72h_cvd240m_ed0.2_long.csv \
+  --output-csv /tmp/tk_flowswing/taker_fills.csv \
+  -p 8
+# Wall: ~2 min on parallelism=8.
+```
+
+Output: `/tmp/tk_flowswing/taker_fills.csv` (3,914 rows, 12 taker-fill columns appended). Stratifications via DuckDB on the original trip CSV's `entry_us` field.
+
+### Production status
+
+**FlowSwing remains the production strategy** at the workstream's highest level of confidence. Two independent fill audits (limit + taker) both reproduce the engine's headline PF within ±10%. No regime-dependence. 22 of 24 months profitable, top-3 flush days carry 5% of P&L (not 100% like DonchianScalp).
