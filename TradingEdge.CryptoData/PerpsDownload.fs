@@ -99,196 +99,193 @@ let private fetchWithRetry
     attempt 0 500
 
 // -----------------------------------------------------------------------------
-// CSV → parquet (single-day path: one DuckDB appender, one COPY)
+// CSV → parquet (single-day path: streaming COPY via DuckDB read_csv)
 // -----------------------------------------------------------------------------
+//
+// Rewritten 2026-05-12: previous implementation built the entire table in
+// memory via a DuckDB appender, then COPYed it. With --parallelism 4 and
+// large monthly archives (BONK 2023-12 was 2.4 GB CSV decompressed) the four
+// appender buffers competed for RAM and DuckDB's native code deadlocked at
+// 0% CPU with 22 .NET threads on futex — likely an OOM that swallowed the
+// exception through P/Invoke. The new path hands DuckDB the CSV via
+// read_csv(path) so it streams rows from disk into parquet rowgroups
+// without materializing the full table. Peak memory becomes O(rowgroup),
+// not O(file).
 
-/// Drain a CSV reader into a single-day parquet. Used by the daily path.
+let private sqlEscape (s: string) : string =
+    s.Replace('\\', '/').Replace("'", "''")
+
+/// Extract the (single) .csv entry from a Binance trade-archive zip onto
+/// disk. Throws on missing entry. Used by both daily and monthly converters
+/// because DuckDB has no native zip-archive filesystem (verified DuckDB
+/// 1.4.4); feeding it a managed Stream from `entry.Open()` is also not
+/// supported by DuckDB.NET. Cost is ~3-5x the zip size in transient disk;
+/// deleted by the caller in a finally regardless of conversion outcome.
+let private extractCsvToFile (zipPath: string) (csvPath: string) : unit =
+    if File.Exists csvPath then File.Delete csvPath
+    use fs = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 <<< 20)
+    use archive = new ZipArchive(fs, ZipArchiveMode.Read)
+    let entry =
+        archive.Entries
+        |> Seq.tryFind (fun e -> e.FullName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+    match entry with
+    | None -> failwith "ZIP contained no .csv entry"
+    | Some entry -> entry.ExtractToFile csvPath
+
+/// Stream a CSV file directly to a single-day parquet via DuckDB read_csv +
+/// COPY. The CSV must already be on disk (callers extract from the zip into
+/// a temp file first). Returns the row count.
 let private writeSingleDayParquet
-    (sr: StreamReader)
+    (csvPath: string)
     (outputPath: string)
     : int =
     let tmpPath = outputPath + ".tmp"
     if File.Exists tmpPath then File.Delete tmpPath
-    let normalized = tmpPath.Replace('\\', '/').Replace("'", "''")
-    let mutable rowCount = 0
+    let csvNorm = sqlEscape csvPath
+    let outNorm = sqlEscape tmpPath
 
     use connection = new DuckDBConnection("Data Source=:memory:")
     connection.Open()
-    use createCmd = connection.CreateCommand()
-    createCmd.CommandText <-
-        "CREATE TABLE trades (
-            price DOUBLE,
-            quantity DOUBLE,
-            timestamp_us BIGINT,
-            sign DOUBLE
-         )"
-    createCmd.ExecuteNonQuery() |> ignore
 
-    use appender = connection.CreateAppender("trades")
-    let opts = CsvDataReaderOptions(HasHeaders = true)
-    use reader = CsvDataReader.Create(sr, opts)
-    while reader.Read() do
-        let price = reader.GetDouble 1
-        let qty = reader.GetDouble 2
-        let timeMs = reader.GetInt64 4
-        let bm = reader.GetFieldSpan 5
-        let isBuyerMaker = bm.Length > 0 && (bm.[0] = 't' || bm.[0] = 'T')
-        let sign = if isBuyerMaker then -1.0 else 1.0
-        let row = appender.CreateRow()
-        row.AppendValue(Nullable price) |> ignore
-        row.AppendValue(Nullable qty) |> ignore
-        row.AppendValue(Nullable (timeMs * 1000L)) |> ignore
-        row.AppendValue(Nullable sign) |> ignore
-        row.EndRow()
-        rowCount <- rowCount + 1
-    appender.Close()
+    // Stream CSV → parquet in one statement. No intermediate table.
+    // is_buyer_maker is a bool column from Binance's CSVs.
+    use copyCmd = connection.CreateCommand()
+    copyCmd.CommandText <-
+        sprintf "
+            COPY (
+                SELECT
+                    price,
+                    qty AS quantity,
+                    time * 1000 AS timestamp_us,
+                    CASE WHEN is_buyer_maker THEN -1.0 ELSE 1.0 END AS sign
+                FROM read_csv('%s', header=true)
+            ) TO '%s' (FORMAT PARQUET, COMPRESSION 'zstd', COMPRESSION_LEVEL 3)"
+            csvNorm outNorm
+    copyCmd.ExecuteNonQuery() |> ignore
+
+    // Row count via a lightweight scan of the freshly written parquet.
+    use countCmd = connection.CreateCommand()
+    countCmd.CommandText <- sprintf "SELECT COUNT(*) FROM read_parquet('%s')" outNorm
+    let n =
+        use rdr = countCmd.ExecuteReader()
+        if rdr.Read() then int (rdr.GetInt64 0) else 0
+
+    File.Move(tmpPath, outputPath, overwrite = true)
+    n
+
+// -----------------------------------------------------------------------------
+// CSV → parquet (monthly path: streaming PARTITION_BY + rename)
+// -----------------------------------------------------------------------------
+//
+// Rewritten 2026-05-12. Old design: a per-day DuckDB appender that buffered
+// rows in memory and COPYed on day-boundary. With 4 in-flight monthlies the
+// peak RAM hit DuckDB's per-:memory:-table ceiling and the native code
+// deadlocked silently (likely OOM, exception swallowed through P/Invoke).
+//
+// New design: one statement —
+//   COPY (SELECT ..., strftime(..., '%Y-%m-%d') AS date_str
+//         FROM read_csv(path)) TO partitionDir
+//   (PARTITION_BY (date_str), ...)
+// DuckDB streams rows from disk and writes one parquet per UTC day into a
+// directory tree {partitionDir}/date_str=YYYY-MM-DD/data_0.parquet. We then
+// rename each partition file into the production flat layout
+// {SYMBOL}/{SYMBOL}-trades-YYYY-MM-DD.parquet. Resume-aware: per-day target
+// already on disk → that partition's rename is skipped.
+//
+// Peak memory: O(parquet rowgroup), not O(monthly_csv_size).
+
+/// Stream a monthly CSV (already extracted to disk) into per-day parquets
+/// via PARTITION_BY, then rename each day's partition file to the
+/// production output path. Returns (totalRows, daysWritten).
+let private writeMonthlyParquets
+    (csvPath: string)
+    (dailyOutputPathOf: DateTime -> string)
+    (partitionWorkDir: string)
+    : int * int =
+    if Directory.Exists partitionWorkDir then
+        Directory.Delete(partitionWorkDir, recursive = true)
+    Directory.CreateDirectory partitionWorkDir |> ignore
+    let csvNorm = sqlEscape csvPath
+    let partNorm = sqlEscape partitionWorkDir
+
+    use connection = new DuckDBConnection("Data Source=:memory:")
+    connection.Open()
 
     use copyCmd = connection.CreateCommand()
     copyCmd.CommandText <-
-        sprintf "COPY trades TO '%s' (FORMAT PARQUET, COMPRESSION 'zstd', COMPRESSION_LEVEL 3)" normalized
+        sprintf "
+            COPY (
+                SELECT
+                    price,
+                    qty AS quantity,
+                    time * 1000 AS timestamp_us,
+                    CASE WHEN is_buyer_maker THEN -1.0 ELSE 1.0 END AS sign,
+                    strftime(make_timestamp(time * 1000), '%%Y-%%m-%%d') AS date_str
+                FROM read_csv('%s', header=true)
+            )
+            TO '%s'
+            (FORMAT PARQUET, COMPRESSION 'zstd', COMPRESSION_LEVEL 3,
+             PARTITION_BY (date_str), OVERWRITE_OR_IGNORE)"
+            csvNorm partNorm
     copyCmd.ExecuteNonQuery() |> ignore
-    File.Move(tmpPath, outputPath, overwrite = true)
-    rowCount
 
-// -----------------------------------------------------------------------------
-// CSV → parquet (monthly path: rotate appender on UTC day boundary)
-// -----------------------------------------------------------------------------
-
-/// Resources for a single per-day parquet under construction.
-type private DayWriter = {
-    OutputPath: string
-    TmpPath: string
-    Connection: DuckDBConnection
-    mutable Appender: DuckDBAppender
-    mutable RowCount: int
-}
-
-/// Open a fresh DuckDB connection + appender for one day's parquet. Each day
-/// gets its own connection — DuckDB doesn't support multiple appenders on the
-/// same table efficiently, and one-connection-per-day means we can close +
-/// COPY one day's data to disk without disturbing whatever a sibling day is
-/// doing. With the row-time-sorted invariant, only one day is ever active.
-let private openDayWriter (outputPath: string) : DayWriter =
-    let tmpPath = outputPath + ".tmp"
-    if File.Exists tmpPath then File.Delete tmpPath
-    let conn = new DuckDBConnection("Data Source=:memory:")
-    conn.Open()
-    use createCmd = conn.CreateCommand()
-    createCmd.CommandText <-
-        "CREATE TABLE trades (
-            price DOUBLE,
-            quantity DOUBLE,
-            timestamp_us BIGINT,
-            sign DOUBLE
-         )"
-    createCmd.ExecuteNonQuery() |> ignore
-    let appender = conn.CreateAppender("trades")
-    {
-        OutputPath = outputPath
-        TmpPath = tmpPath
-        Connection = conn
-        Appender = appender
-        RowCount = 0
-    }
-
-/// Flush, COPY to parquet, atomic-rename. Returns the row count for telemetry.
-let private finalizeDayWriter (w: DayWriter) : int =
-    w.Appender.Close()
-    w.Appender.Dispose()
-    let normalized = w.TmpPath.Replace('\\', '/').Replace("'", "''")
-    use copyCmd = w.Connection.CreateCommand()
-    copyCmd.CommandText <-
-        sprintf "COPY trades TO '%s' (FORMAT PARQUET, COMPRESSION 'zstd', COMPRESSION_LEVEL 3)" normalized
-    copyCmd.ExecuteNonQuery() |> ignore
-    w.Connection.Dispose()
-    File.Move(w.TmpPath, w.OutputPath, overwrite = true)
-    w.RowCount
-
-/// Best-effort cleanup if a writer is abandoned mid-stream (exception path).
-let private discardDayWriter (w: DayWriter) : unit =
-    try w.Appender.Dispose() with _ -> ()
-    try w.Connection.Dispose() with _ -> ()
-    try if File.Exists w.TmpPath then File.Delete w.TmpPath with _ -> ()
-
-/// Convert ms timestamp -> UTC date (yyyy-MM-dd). Branchless math beats
-/// allocating a DateTimeOffset per row.
-let private msToUtcDate (timeMs: int64) : DateTime =
-    DateTimeOffset.FromUnixTimeMilliseconds(timeMs).UtcDateTime.Date
-
-/// Stream a monthly CSV into per-day parquets. Returns (totalRows, daysWritten).
-/// `dailyOutputPathOf` produces the on-disk parquet path for a given UTC date.
-/// Days that already have parquets on disk are skipped — their rows are read
-/// past without being appended (a power-loss-then-resume scenario where the
-/// monthly archive contains some already-promoted days).
-let private writeMonthlyParquets
-    (sr: StreamReader)
-    (dailyOutputPathOf: DateTime -> string)
-    : int * int =
-    let opts = CsvDataReaderOptions(HasHeaders = true)
-    use reader = CsvDataReader.Create(sr, opts)
-
+    // Walk the partition directory; rename each day's file into the prod
+    // layout. Skip days already present on disk (resume case).
     let mutable totalRows = 0
     let mutable daysWritten = 0
-    let mutable currentWriter : DayWriter option = None
-    let mutable currentDate = DateTime.MinValue
-    // For days already on disk we set a "skip" marker so the rotation cost
-    // still happens once per day boundary but we don't construct a writer.
-    let mutable currentSkipDate = DateTime.MinValue
-
-    try
-        while reader.Read() do
-            let timeMs = reader.GetInt64 4
-            let date = msToUtcDate timeMs
-            if date <> currentDate then
-                // Day boundary. Flush the previous writer (if any) and decide
-                // whether to open a new one.
-                match currentWriter with
-                | Some w ->
-                    let n = finalizeDayWriter w
-                    totalRows <- totalRows + n
-                    daysWritten <- daysWritten + 1
-                    currentWriter <- None
-                | None -> ()
-                currentDate <- date
-                let outPath = dailyOutputPathOf date
-                if File.Exists outPath then
-                    // Already produced for this date in a prior run; skip the
-                    // rows but keep the date as the active "skip" date so we
-                    // don't reopen.
-                    currentSkipDate <- date
-                else
-                    currentSkipDate <- DateTime.MinValue
-                    currentWriter <- Some (openDayWriter outPath)
-            // Append the row to the active writer if there is one.
-            match currentWriter with
-            | Some w when currentSkipDate = DateTime.MinValue ->
-                let price = reader.GetDouble 1
-                let qty = reader.GetDouble 2
-                let bm = reader.GetFieldSpan 5
-                let isBuyerMaker = bm.Length > 0 && (bm.[0] = 't' || bm.[0] = 'T')
-                let sign = if isBuyerMaker then -1.0 else 1.0
-                let row = w.Appender.CreateRow()
-                row.AppendValue(Nullable price) |> ignore
-                row.AppendValue(Nullable qty) |> ignore
-                row.AppendValue(Nullable (timeMs * 1000L)) |> ignore
-                row.AppendValue(Nullable sign) |> ignore
-                row.EndRow()
-                w.RowCount <- w.RowCount + 1
-            | _ -> ()
-        // Flush the final day.
-        match currentWriter with
-        | Some w ->
-            let n = finalizeDayWriter w
-            totalRows <- totalRows + n
-            daysWritten <- daysWritten + 1
-        | None -> ()
-        totalRows, daysWritten
-    with ex ->
-        // Abandon the in-flight writer; previously promoted days survive.
-        match currentWriter with
-        | Some w -> discardDayWriter w
-        | None -> ()
-        reraise ()
+    for partDir in Directory.EnumerateDirectories partitionWorkDir do
+        let name = Path.GetFileName partDir
+        // partition dirs are "date_str=YYYY-MM-DD"
+        let dateStr =
+            if name.StartsWith "date_str=" then name.Substring 9 else name
+        let date =
+            DateTime.ParseExact(dateStr, "yyyy-MM-dd",
+                Globalization.CultureInfo.InvariantCulture)
+        let dstPath = dailyOutputPathOf date
+        if File.Exists dstPath then
+            // already promoted in a prior run; drop the temp partition
+            ()
+        else
+            // partition output is a single file (or several if rowgroup limit
+            // hits — DuckDB defaults to one per partition for our row scale).
+            let files = Directory.GetFiles(partDir, "*.parquet")
+            if files.Length = 1 then
+                let src = files.[0]
+                Directory.CreateDirectory(Path.GetDirectoryName dstPath) |> ignore
+                // Count rows BEFORE the move so we have an accurate telemetry
+                // number. Cheap — parquet metadata, not a full scan.
+                use cnt = connection.CreateCommand()
+                cnt.CommandText <-
+                    sprintf "SELECT COUNT(*) FROM read_parquet('%s')" (sqlEscape src)
+                use rdr = cnt.ExecuteReader()
+                if rdr.Read() then
+                    totalRows <- totalRows + int (rdr.GetInt64 0)
+                File.Move(src, dstPath, overwrite = true)
+                daysWritten <- daysWritten + 1
+            elif files.Length > 1 then
+                // Defensive: concatenate the partition's chunks into one
+                // parquet at the destination. Happens if a partition exceeds
+                // DuckDB's per-file limits (very large days).
+                let dstTmp = dstPath + ".tmp"
+                let srcGlob = sqlEscape (Path.Combine(partDir, "*.parquet"))
+                use copy2 = connection.CreateCommand()
+                copy2.CommandText <-
+                    sprintf "
+                        COPY (SELECT * FROM read_parquet('%s')) TO '%s'
+                        (FORMAT PARQUET, COMPRESSION 'zstd', COMPRESSION_LEVEL 3)"
+                        srcGlob (sqlEscape dstTmp)
+                copy2.ExecuteNonQuery() |> ignore
+                use cnt = connection.CreateCommand()
+                cnt.CommandText <-
+                    sprintf "SELECT COUNT(*) FROM read_parquet('%s')" (sqlEscape dstTmp)
+                use rdr = cnt.ExecuteReader()
+                if rdr.Read() then
+                    totalRows <- totalRows + int (rdr.GetInt64 0)
+                File.Move(dstTmp, dstPath, overwrite = true)
+                daysWritten <- daysWritten + 1
+    // Best-effort cleanup of the partition work dir.
+    try Directory.Delete(partitionWorkDir, recursive = true) with _ -> ()
+    totalRows, daysWritten
 
 // -----------------------------------------------------------------------------
 // Job-level dispatch
@@ -465,25 +462,28 @@ let runJob
                 let tempZip = outPath + ".zip.tmp"
                 let! result =
                     withDownloadedZip http url tempZip ct (fun zipPath ->
-                        async {
+                        // Synchronous DuckDB + extraction work on a thread-pool
+                        // worker. Two-step path: (1) extract the inner CSV to a
+                        // sibling temp file, (2) hand the path to DuckDB's
+                        // read_csv. DuckDB can't read inside a .zip directly
+                        // (verified 2026-05-12 — no native zip filesystem),
+                        // and feeding it a managed Stream isn't supported by
+                        // DuckDB.NET. The extracted CSV is deleted in the
+                        // finally regardless of outcome.
+                        Tasks.Task.Run(fun () ->
+                            let csvTemp = zipPath + ".csv"
                             try
-                                use fs = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 <<< 20)
-                                use archive = new ZipArchive(fs, ZipArchiveMode.Read)
-                                let entry =
-                                    archive.Entries
-                                    |> Seq.tryFind (fun e -> e.FullName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
-                                match entry with
-                                | None -> return Error "ZIP contained no .csv entry"
-                                | Some entry ->
-                                    use stream = entry.Open()
-                                    use sr = new StreamReader(stream)
-                                    let n = writeSingleDayParquet sr outPath
+                                try
+                                    extractCsvToFile zipPath csvTemp
+                                    let n = writeSingleDayParquet csvTemp outPath
                                     let fi = FileInfo outPath
-                                    return Ok (n, fi.Length)
-                            with ex ->
-                                try File.Delete (outPath + ".tmp") with _ -> ()
-                                return Error (sprintf "convert: %s" ex.Message)
-                        })
+                                    Ok (n, fi.Length)
+                                with ex ->
+                                    try File.Delete (outPath + ".tmp") with _ -> ()
+                                    Error (sprintf "convert: %s" ex.Message)
+                            finally
+                                try File.Delete csvTemp with _ -> ())
+                        |> Async.AwaitTask)
                 match result with
                 | Error msg -> return Failed(job.Key, msg)
                 | Ok (Error inner) -> return Failed(job.Key, inner)
@@ -499,24 +499,27 @@ let runJob
                 let tempZip = Path.Combine(symbolDir, sprintf "%s-trades-%04d-%02d.zip.tmp" m.Symbol m.Year m.Month)
                 let! result =
                     withDownloadedZip http url tempZip ct (fun zipPath ->
-                        async {
+                        Tasks.Task.Run(fun () ->
+                            let csvTemp = zipPath + ".csv"
+                            let partWork =
+                                Path.Combine(symbolDir,
+                                    sprintf ".part-%04d-%02d" m.Year m.Month)
                             try
-                                use fs = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 <<< 20)
-                                use archive = new ZipArchive(fs, ZipArchiveMode.Read)
-                                let entry =
-                                    archive.Entries
-                                    |> Seq.tryFind (fun e -> e.FullName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
-                                match entry with
-                                | None -> return Error "ZIP contained no .csv entry"
-                                | Some entry ->
-                                    use stream = entry.Open()
-                                    use sr = new StreamReader(stream)
+                                try
+                                    extractCsvToFile zipPath csvTemp
                                     let pathOf (date: DateTime) = dailyOutputPath outputDir m.Symbol date
-                                    let totalRows, daysWritten = writeMonthlyParquets sr pathOf
-                                    return Ok (totalRows, daysWritten)
-                            with ex ->
-                                return Error (sprintf "convert: %s" ex.Message)
-                        })
+                                    let totalRows, daysWritten =
+                                        writeMonthlyParquets csvTemp pathOf partWork
+                                    Ok (totalRows, daysWritten)
+                                with ex ->
+                                    Error (sprintf "convert: %s" ex.Message)
+                            finally
+                                try File.Delete csvTemp with _ -> ()
+                                try
+                                    if Directory.Exists partWork then
+                                        Directory.Delete(partWork, recursive = true)
+                                with _ -> ())
+                        |> Async.AwaitTask)
                 match result with
                 | Error msg -> return Failed(job.Key, msg)
                 | Ok (Error inner) -> return Failed(job.Key, inner)
@@ -542,7 +545,9 @@ let sweepOrphanTemps (outputDir: string) : int =
     if not (Directory.Exists outputDir) then 0
     else
         let mutable n = 0
-        for tmp in Directory.EnumerateFiles(outputDir, "*.parquet.tmp", SearchOption.AllDirectories) do
+        let patterns = [| "*.parquet.tmp"; "*.zip.tmp" |]
+        for pat in patterns do
+          for tmp in Directory.EnumerateFiles(outputDir, pat, SearchOption.AllDirectories) do
             try
                 File.Delete tmp
                 n <- n + 1

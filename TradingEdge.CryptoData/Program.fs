@@ -15,7 +15,11 @@ let private defaultUniversePath = "data/crypto/perps_universe.json"
 let private defaultOutputDir = "/mnt/d/trading-edge-bulk/crypto/binance/perps"
 let private defaultBarsDir = "/mnt/d/trading-edge-bulk/crypto/binance/perps_bars"
 let private defaultFundingDir = "/mnt/d/trading-edge-bulk/crypto/binance/perps_funding"
-let private defaultParallelism = 4
+// Default download/convert parallelism. The converter shells out to DuckDB's
+// read_csv which is multi-threaded internally; running 4 in parallel exhausts
+// memory on large monthly archives (BONK 2023-12 ~ 2.4 GB CSV). 2 is the
+// safe sweet spot — network stays saturated, DuckDB doesn't OOM.
+let private defaultParallelism = 2
 
 // =============================================================================
 // download-universe
