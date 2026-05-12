@@ -15,11 +15,16 @@ let private defaultUniversePath = "data/crypto/perps_universe.json"
 let private defaultOutputDir = "/mnt/d/trading-edge-bulk/crypto/binance/perps"
 let private defaultBarsDir = "/mnt/d/trading-edge-bulk/crypto/binance/perps_bars"
 let private defaultFundingDir = "/mnt/d/trading-edge-bulk/crypto/binance/perps_funding"
-// Default download/convert parallelism. The converter shells out to DuckDB's
-// read_csv which is multi-threaded internally; running 4 in parallel exhausts
-// memory on large monthly archives (BONK 2023-12 ~ 2.4 GB CSV). 2 is the
-// safe sweet spot — network stays saturated, DuckDB doesn't OOM.
-let private defaultParallelism = 2
+// Two-stage pipeline (2026-05-12): downloads and conversions run on
+// independent worker pools connected by an unbounded channel.
+//
+//   * Download workers: network-bound. 4 keeps a Gigabit link saturated
+//     without triggering Binance rate-limits in practice.
+//   * Convert workers: DuckDB's read_csv is multi-threaded internally, and
+//     a single monthly conversion can pull 2-3 GB of CSV through memory.
+//     Default 1 — running multiple in parallel OOMs on the largest months.
+let private defaultDownloadParallelism = 4
+let private defaultConvertParallelism = 1
 
 // =============================================================================
 // download-universe
@@ -134,7 +139,8 @@ type DownloadPerpsArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
     | [<AltCommandLine("-e")>] End_Date of string
     | [<AltCommandLine("-t")>] Symbol of string
-    | [<AltCommandLine("-p")>] Parallelism of int
+    | [<AltCommandLine("-dp")>] Download_Parallelism of int
+    | [<AltCommandLine("-cp")>] Convert_Parallelism of int
     | [<AltCommandLine("-l")>] List_Parallelism of int
     | [<AltCommandLine("-u")>] Universe_File of string
     | [<AltCommandLine("-o")>] Output_Dir of string
@@ -145,7 +151,8 @@ type DownloadPerpsArgs =
             | Start_Date _ -> "First date inclusive (yyyy-MM-dd). Default: 2 years before --end-date."
             | End_Date _ -> "Last date inclusive (yyyy-MM-dd). Default: yesterday."
             | Symbol _ -> "Symbol (repeatable). Default: every symbol in the universe file."
-            | Parallelism _ -> sprintf "Max concurrent downloads. Default: %d. Each in-flight monthly can hold ~250 MB of appender state, so 4 keeps the working set ~1 GB." defaultParallelism
+            | Download_Parallelism _ -> sprintf "Concurrent HTTP downloads. Default: %d. Network-bound; keep at 4 for a Gigabit link." defaultDownloadParallelism
+            | Convert_Parallelism _ -> sprintf "Concurrent DuckDB conversions. Default: %d. DuckDB is multi-threaded internally; multiple parallel monthly conversions OOM on the largest archives." defaultConvertParallelism
             | List_Parallelism _ -> "Max concurrent S3 listings during manifest build. Default: 16."
             | Universe_File _ -> sprintf "Universe JSON. Default: %s" defaultUniversePath
             | Output_Dir _ -> sprintf "Output root. Default: %s" defaultOutputDir
@@ -155,7 +162,8 @@ let runDownloadPerps (args: ParseResults<DownloadPerpsArgs>) : Async<int> =
     async {
         let endDate = parseDateOpt (args.TryGetResult End_Date) (fun () -> DateTime.UtcNow.Date.AddDays(-1.0))
         let startDate = parseDateOpt (args.TryGetResult Start_Date) (fun () -> endDate.AddYears(-2))
-        let parallelism = args.GetResult(Parallelism, defaultValue = defaultParallelism)
+        let downloadParallelism = args.GetResult(Download_Parallelism, defaultValue = defaultDownloadParallelism)
+        let convertParallelism = args.GetResult(Convert_Parallelism, defaultValue = defaultConvertParallelism)
         let listParallelism = args.GetResult(List_Parallelism, defaultValue = 16)
         let universeFile = args.GetResult(Universe_File, defaultValue = defaultUniversePath)
         let outputDir = args.GetResult(Output_Dir, defaultValue = defaultOutputDir)
@@ -175,11 +183,14 @@ let runDownloadPerps (args: ParseResults<DownloadPerpsArgs>) : Async<int> =
         printManifestSummary stats false
         printfn ""
         printfn "Output:     %s" outputDir
-        printfn "Parallel:   %d" parallelism
+        printfn "Download workers:  %d" downloadParallelism
+        printfn "Convert workers:   %d" convertParallelism
         printfn ""
 
         let sw = Diagnostics.Stopwatch.StartNew()
-        let! results = downloadBatch http outputDir jobs parallelism consoleProgress CancellationToken.None
+        let! results =
+            runPipeline http outputDir jobs downloadParallelism convertParallelism consoleProgress CancellationToken.None
+            |> Async.AwaitTask
         sw.Stop()
 
         let mutable nDailyOk, nMonthlyOk, nSkip, nFail = 0, 0, 0, 0
@@ -306,7 +317,7 @@ let runBuildBars (args: ParseResults<BuildBarsArgs>) : int =
     let tradesDir = args.GetResult(Trades_Dir, defaultValue = defaultOutputDir)
     let barsDir = args.GetResult(BuildBarsArgs.Output_Dir, defaultValue = defaultBarsDir)
     let universeFile = args.GetResult(BuildBarsArgs.Universe_File, defaultValue = defaultUniversePath)
-    let parallelism = args.GetResult(BuildBarsArgs.Parallelism, defaultValue = defaultParallelism)
+    let parallelism = args.GetResult(BuildBarsArgs.Parallelism, defaultValue = 4)
     let activeOnly = args.Contains BuildBarsArgs.Active_Only
     let overwrite = args.Contains Overwrite
     let timeframes =

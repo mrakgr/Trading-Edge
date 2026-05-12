@@ -10,6 +10,17 @@ When writing concurrent F# code in this project:
 4. **FSharp.Control.TaskSeq** is available for `IAsyncEnumerable` support in `task {}` blocks
 5. **`open FSharp.Control`** is required to use `for ... in` with `IAsyncEnumerable` inside `task {}` - without it you get a type mismatch error about `IAsyncEnumerable` not being compatible with `seq`
 
+## Concurrency Primitives — Prefer Channels
+
+**Always reach for `System.Threading.Channels` first** when coordinating concurrent work. Avoid `SemaphoreSlim`, `lock`, `Mutex`, `Monitor`, `Interlocked`, `ConcurrentQueue`, and other low-level primitives unless a channel-based design genuinely doesn't fit.
+
+Why:
+- A pipeline of `task { }` workers connected by `Channel.CreateUnbounded<T>()` is easier to reason about, easier to tune (parallelism per stage), and avoids the deadlock classes that bite mixed `async`/sync code (e.g. I/O completion thread starvation when a synchronous DuckDB call lands inside an `async` continuation).
+- Channels let one stage absorb tempo mismatches: e.g. fast downloads + slow conversions need a buffer between them; with an unbounded channel the downloader never blocks waiting for the converter.
+- Ownership becomes implicit: the reader of a channel is the sole mutator of whatever state it derives from the messages. No locks, no `Interlocked`.
+
+The `TradingEdge.CryptoData/PerpsDownload.fs` two-stage pipeline (manifest → download workers → unbounded channel → convert workers → reporter) is the canonical example in this codebase. Prefer mirroring that shape over wiring `Async.Parallel` + `SemaphoreSlim`.
+
 ## Command-Line Argument Parsing
 
 - **Use Argu, not manual parsing**, for any F# script or program that takes CLI args. Define an `IArgParserTemplate` discriminated union, parse via `ArgumentParser.Create<_>().Parse(...)`, and pull values with `GetResult` / `TryGetResult`. Manual `Array.skip`/positional matching is hard to read and easy to get wrong.
