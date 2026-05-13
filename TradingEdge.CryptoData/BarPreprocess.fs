@@ -239,8 +239,15 @@ let buildSymbol
             use conn = new DuckDBConnection("Data Source=:memory:")
             conn.Open()
             use cmd = conn.CreateCommand()
+            // CAST sign to DOUBLE in SQL. The historical re-download on
+            // 2026-05-12 used a new converter (DuckDB COPY ... read_csv) whose
+            // CASE WHEN ... -1.0 ELSE 1.0 expression infers as DECIMAL(2,1).
+            // The older appender path wrote sign as DOUBLE. The cast normalizes
+            // both — DOUBLE→DOUBLE is a no-op, DECIMAL→DOUBLE widens losslessly
+            // (sign only takes -1.0 / +1.0 so no precision concern). Without
+            // this, reader.GetDouble blows up on the DECIMAL parquets.
             cmd.CommandText <-
-                sprintf "SELECT price, quantity, timestamp_us, sign FROM read_parquet('%s') ORDER BY timestamp_us"
+                sprintf "SELECT price, quantity, timestamp_us, CAST(sign AS DOUBLE) AS sign FROM read_parquet('%s') ORDER BY timestamp_us"
                     normalized
             use reader = cmd.ExecuteReader()
             while reader.Read() do

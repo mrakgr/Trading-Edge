@@ -185,7 +185,7 @@ let private writeSingleDayParquet
                     price,
                     qty AS quantity,
                     time * 1000 AS timestamp_us,
-                    CASE WHEN is_buyer_maker THEN -1.0 ELSE 1.0 END AS sign
+                    CAST(CASE WHEN is_buyer_maker THEN -1.0 ELSE 1.0 END AS DOUBLE) AS sign
                 FROM %s
             ) TO '%s' (FORMAT PARQUET, COMPRESSION 'zstd', COMPRESSION_LEVEL 3)"
             readClause outNorm
@@ -226,7 +226,7 @@ let private writeMonthlyParquets
                     price,
                     qty AS quantity,
                     time * 1000 AS timestamp_us,
-                    CASE WHEN is_buyer_maker THEN -1.0 ELSE 1.0 END AS sign,
+                    CAST(CASE WHEN is_buyer_maker THEN -1.0 ELSE 1.0 END AS DOUBLE) AS sign,
                     strftime(make_timestamp(time * 1000), '%%Y-%%m-%%d') AS date_str
                 FROM %s
             )
@@ -395,24 +395,30 @@ let private downloadZipToDisk
 // Orphan-temp sweep
 // -----------------------------------------------------------------------------
 
-let sweepOrphanTemps (outputDir: string) : int =
-    if not (Directory.Exists outputDir) then 0
+let private sweepDir (root: string) : int =
+    if not (Directory.Exists root) then 0
     else
         let mutable n = 0
-        let patterns = [| "*.parquet.tmp"; "*.zip.tmp" |]
+        let patterns = [| "*.zip.tmp.csv"; "*.parquet.tmp"; "*.zip.tmp" |]
         for pat in patterns do
-          for tmp in Directory.EnumerateFiles(outputDir, pat, SearchOption.AllDirectories) do
+          for tmp in Directory.EnumerateFiles(root, pat, SearchOption.AllDirectories) do
             try
                 File.Delete tmp
                 n <- n + 1
             with _ -> ()
-        // Also sweep half-built .part-YYYY-MM/ partition dirs.
-        for partDir in Directory.EnumerateDirectories(outputDir, ".part-*", SearchOption.AllDirectories) do
+        for partDir in Directory.EnumerateDirectories(root, ".part-*", SearchOption.AllDirectories) do
             try
                 Directory.Delete(partDir, recursive = true)
                 n <- n + 1
             with _ -> ()
         n
+
+/// Sweep orphaned .tmp/.part files left by interrupted runs from BOTH the
+/// production output dir (where .parquet.tmp can live during the rename step)
+/// AND the SSD-backed temp dir (where .zip.tmp, .zip.tmp.csv, and .part-*
+/// reside for fast random I/O during conversion). Returns total swept count.
+let sweepOrphanTemps (outputDir: string) (tempDir: string) : int =
+    sweepDir outputDir + (if tempDir = outputDir then 0 else sweepDir tempDir)
 
 // -----------------------------------------------------------------------------
 // Pipeline: skip-filter, download stage, convert stage, reporter
@@ -424,19 +430,25 @@ type private DownloadedZip = {
     ZipPath: string
 }
 
-let private outputPathsForJob (outputDir: string) (job: Job) : string * string =
+/// Where the in-flight .zip.tmp lives during download. Always under tempDir
+/// (SSD-backed) so the 9p mount to the trade data drive (Windows D:\) only
+/// sees the final .parquet writes. Returns (finalOutPath, zipTmpPath); for
+/// monthlies the finalOutPath is meaningless (N per-day outputs) and the
+/// caller only uses the second slot.
+let private outputPathsForJob (outputDir: string) (tempDir: string) (job: Job) : string * string =
     match job with
     | DailyJob d ->
         let outPath = dailyOutputPath outputDir d.Symbol d.Date
-        let zipTmp = outPath + ".zip.tmp"
+        let tempSymDir = Path.Combine(tempDir, d.Symbol)
+        Directory.CreateDirectory tempSymDir |> ignore
+        let zipTmp = Path.Combine(tempSymDir,
+                        sprintf "%s-trades-%s.zip.tmp" d.Symbol (d.Date.ToString("yyyy-MM-dd")))
         outPath, zipTmp
     | MonthlyJob m ->
-        let symbolDir = Path.Combine(outputDir, m.Symbol)
-        Directory.CreateDirectory symbolDir |> ignore
-        let zipTmp = Path.Combine(symbolDir,
+        let tempSymDir = Path.Combine(tempDir, m.Symbol)
+        Directory.CreateDirectory tempSymDir |> ignore
+        let zipTmp = Path.Combine(tempSymDir,
                         sprintf "%s-trades-%04d-%02d.zip.tmp" m.Symbol m.Year m.Month)
-        // outPath isn't well-defined for monthlies (N per-day outputs), so
-        // we return zipTmp twice — only the second is used for monthlies.
         zipTmp, zipTmp
 
 /// Per-job decision: should we even attempt this job? Returns Some(Skipped)
@@ -449,7 +461,11 @@ let private trySkip (outputDir: string) (job: Job) : JobResult option =
     | MonthlyJob m ->
         if monthlyAllSkipped outputDir m then Some (Skipped job.Key) else None
 
-/// One convert-stage step. Runs synchronously on the worker's task thread.
+/// One convert-stage step. Runs synchronously on the worker's dedicated
+/// thread. The extracted .csv lives next to the .zip.tmp on the SSD
+/// (tempDir, set by the caller via item.ZipPath); the partition workspace
+/// (.part-YYYY-MM/) lives next to the final outputs on the HDD so the
+/// rename step doesn't have to cross filesystems.
 let private convertOne (outputDir: string) (item: DownloadedZip) : JobResult =
     let zipPath = item.ZipPath
     let csvTemp = zipPath + ".csv"
@@ -467,6 +483,13 @@ let private convertOne (outputDir: string) (item: DownloadedZip) : JobResult =
                     try File.Delete (outPath + ".tmp") with _ -> ()
                     Failed(item.Job.Key, sprintf "convert: %s" ex.Message)
             | MonthlyJob m ->
+                // partWork lives on the HDD next to the final outputs (NOT in
+                // tempDir). DuckDB's PARTITION_BY writes one parquet per UTC
+                // day here, and the rename step is then same-filesystem
+                // (atomic File.Move, no cross-volume copy). The per-day
+                // parquet writes are sequential ~30-50 MB each, which 9p
+                // handles fine; only the random-access scratch (.zip.tmp,
+                // extracted .csv) lives on the SSD.
                 let symbolDir = Path.Combine(outputDir, m.Symbol)
                 let partWork =
                     Path.Combine(symbolDir,
@@ -502,6 +525,7 @@ type ProgressCallback = int -> int -> JobResult -> unit
 let runPipeline
     (http: HttpClient)
     (outputDir: string)
+    (tempDir: string)
     (jobs: Job[])
     (downloadParallelism: int)
     (convertParallelism: int)
@@ -509,7 +533,8 @@ let runPipeline
     (ct: CancellationToken)
     : Task<JobResult[]> =
     task {
-        let nSwept = sweepOrphanTemps outputDir
+        Directory.CreateDirectory tempDir |> ignore
+        let nSwept = sweepOrphanTemps outputDir tempDir
         if nSwept > 0 then
             printfn "Swept %d orphaned .tmp/.part file(s) from prior run." nSwept
 
@@ -525,9 +550,20 @@ let runPipeline
         //   convert      ─┤
         //
         //   skip stage  ─> jobsCh  ─> download workers ─> downloadedCh ─> convert workers
-        //                                                  (unbounded; downloads never block on slow converters)
+        //                                                  (bounded — SSD backpressure)
+        //
+        // downloadedCh is bounded at 32. Each queued zip lives on the SSD
+        // (tempDir); cap × max-zip-size sets the SSD high-water mark. At ~2 GB
+        // per worst-case monthly, 32 × 2 GB = 64 GB, well within the ~600 GB
+        // available on /. When the converter falls behind, download workers
+        // block on WriteAsync instead of unbounded-growing the queue.
         let jobsCh = Channel.CreateUnbounded<Job>()
-        let downloadedCh = Channel.CreateUnbounded<DownloadedZip>()
+        let downloadedCh =
+            Channel.CreateBounded<DownloadedZip>(
+                BoundedChannelOptions(32,
+                    FullMode = BoundedChannelFullMode.Wait,
+                    SingleReader = false,
+                    SingleWriter = false))
         let resultsCh = Channel.CreateUnbounded<JobResult>()
 
         // --- Stage 0: skip-filter + producer ---
@@ -552,7 +588,7 @@ let runPipeline
                 let mutable job = Unchecked.defaultof<Job>
                 while! reader.WaitToReadAsync(ct) do
                     while reader.TryRead(&job) do
-                        let _, zipTmp = outputPathsForJob outputDir job
+                        let _, zipTmp = outputPathsForJob outputDir tempDir job
                         let url = archiveUrl job.Key
                         let! result = downloadZipToDisk http url zipTmp ct
                         match result with
@@ -572,20 +608,48 @@ let runPipeline
             } :> Task
 
         // --- Stage 2: convert workers ---
-        let convertWorker () : Task =
-            task {
-                let reader = downloadedCh.Reader
-                let mutable item = Unchecked.defaultof<DownloadedZip>
-                while! reader.WaitToReadAsync(ct) do
+        //
+        // Each convert worker runs on a DEDICATED long-running thread, not the
+        // .NET thread pool. convertOne does blocking I/O (read a 2 GB zip,
+        // write a 4+ GB extracted CSV, run DuckDB read_csv) that can run for
+        // minutes per archive. Putting that on the regular thread pool
+        // contends with HTTP completion callbacks (Stage 1's downloads) for
+        // the same workers and deadlocks at scale — exactly the pattern we
+        // saw with the earlier Async.Parallel design. TaskCreationOptions
+        // .LongRunning gives the runtime explicit permission to spin up a
+        // fresh thread outside the pool and dedicate it to this work.
+        let convertWorkerBody () =
+            // Synchronous body: pull items off the channel via a blocking
+            // wait (Task.Wait on the channel reader is fine here because
+            // this is OUR dedicated thread). Convert, write result, loop.
+            let reader = downloadedCh.Reader
+            let writer = resultsCh.Writer
+            let mutable item = Unchecked.defaultof<DownloadedZip>
+            let mutable keepGoing = true
+            while keepGoing do
+                // WaitToReadAsync blocks until either an item is available or
+                // the channel is completed. We can call .Result here because
+                // we are on a dedicated thread, not a thread-pool worker.
+                let ready =
+                    try reader.WaitToReadAsync(ct).AsTask().GetAwaiter().GetResult()
+                    with :? OperationCanceledException -> false
+                if not ready then
+                    keepGoing <- false
+                else
                     while reader.TryRead(&item) do
-                        // Synchronous DuckDB work on a Task.Run worker, not
-                        // the channel-reader's continuation thread.
-                        let! result = Task.Run((fun () -> convertOne outputDir item), ct)
-                        do! resultsCh.Writer.WriteAsync(result, ct)
-            } :> Task
+                        let result = convertOne outputDir item
+                        // Channel write also blocks on this dedicated thread.
+                        writer.WriteAsync(result, ct).AsTask().GetAwaiter().GetResult()
+
+        let startConvertWorker () : Task =
+            Task.Factory.StartNew(
+                Action(convertWorkerBody),
+                ct,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default)
 
         let convertWorkers =
-            [| for _ in 1 .. convertParallelism -> convertWorker () |]
+            [| for _ in 1 .. convertParallelism -> startConvertWorker () |]
 
         // When skip-producer AND all download workers are done, close
         // downloadedCh so convert workers can drain. When all convert workers
@@ -608,6 +672,13 @@ let runPipeline
         // No lock, no Interlocked — only this task touches `allResults`
         // and `completed`. F# channels deliver items in write order per
         // writer; across writers, order is whatever the scheduler picks.
+        //
+        // We flush stdout at the end of each TryRead drain (i.e. once per
+        // wake-up, NOT per line) so progress lines stream out to the log
+        // file in real time. With block-buffered stdout (redirected to a
+        // file), a tight burst of writes inside one drain still gets one
+        // flush at the end — far better than the default behavior where
+        // 4-8 KB of output accumulates before any flush.
         let reporter =
             task {
                 let allResults = ResizeArray<JobResult>(total)
@@ -619,6 +690,7 @@ let runPipeline
                         allResults.Add r
                         completed <- completed + 1
                         progress completed total r
+                    Console.Out.Flush()
                 return allResults.ToArray()
             }
 

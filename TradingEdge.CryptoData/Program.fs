@@ -15,6 +15,11 @@ let private defaultUniversePath = "data/crypto/perps_universe.json"
 let private defaultOutputDir = "/mnt/d/trading-edge-bulk/crypto/binance/perps"
 let private defaultBarsDir = "/mnt/d/trading-edge-bulk/crypto/binance/perps_bars"
 let private defaultFundingDir = "/mnt/d/trading-edge-bulk/crypto/binance/perps_funding"
+// Transient .zip.tmp + extracted .csv + .part-YYYY-MM go here. Default is
+// SSD-backed (/) to avoid 9p-mount bottlenecks on /mnt/d (Windows D:\); the
+// trade-data drive only sees final .parquet writes.
+let private defaultTempDir =
+    Path.Combine(System.Environment.GetEnvironmentVariable "HOME", ".cache", "crypto_data_tmp")
 // Two-stage pipeline (2026-05-12): downloads and conversions run on
 // independent worker pools connected by an unbounded channel.
 //
@@ -144,6 +149,7 @@ type DownloadPerpsArgs =
     | [<AltCommandLine("-l")>] List_Parallelism of int
     | [<AltCommandLine("-u")>] Universe_File of string
     | [<AltCommandLine("-o")>] Output_Dir of string
+    | [<AltCommandLine("-T")>] Temp_Dir of string
     | Active_Only
     interface IArgParserTemplate with
         member this.Usage =
@@ -155,7 +161,8 @@ type DownloadPerpsArgs =
             | Convert_Parallelism _ -> sprintf "Concurrent DuckDB conversions. Default: %d. DuckDB is multi-threaded internally; multiple parallel monthly conversions OOM on the largest archives." defaultConvertParallelism
             | List_Parallelism _ -> "Max concurrent S3 listings during manifest build. Default: 16."
             | Universe_File _ -> sprintf "Universe JSON. Default: %s" defaultUniversePath
-            | Output_Dir _ -> sprintf "Output root. Default: %s" defaultOutputDir
+            | Output_Dir _ -> sprintf "Output root for final parquets. Default: %s" defaultOutputDir
+            | Temp_Dir _ -> sprintf "Scratch dir for in-flight .zip.tmp + extracted .csv + partition trees. Should be on a fast local SSD — running this on /mnt/d (9p mount) collapses throughput to single-digit MB/s. Default: %s" defaultTempDir
             | Active_Only -> "Skip symbols tagged delisted_or_archived."
 
 let runDownloadPerps (args: ParseResults<DownloadPerpsArgs>) : Async<int> =
@@ -167,10 +174,12 @@ let runDownloadPerps (args: ParseResults<DownloadPerpsArgs>) : Async<int> =
         let listParallelism = args.GetResult(List_Parallelism, defaultValue = 16)
         let universeFile = args.GetResult(Universe_File, defaultValue = defaultUniversePath)
         let outputDir = args.GetResult(Output_Dir, defaultValue = defaultOutputDir)
+        let tempDir = args.GetResult(Temp_Dir, defaultValue = defaultTempDir)
         let activeOnly = args.Contains Active_Only
 
         let symbols = resolveSymbols universeFile (args.GetResults Symbol) activeOnly
         Directory.CreateDirectory outputDir |> ignore
+        Directory.CreateDirectory tempDir |> ignore
 
         printfn "Building manifest for %d symbols, %s .. %s..."
             symbols.Length (startDate.ToString("yyyy-MM-dd")) (endDate.ToString("yyyy-MM-dd"))
@@ -182,14 +191,15 @@ let runDownloadPerps (args: ParseResults<DownloadPerpsArgs>) : Async<int> =
         printfn "Manifest built in %.0fs" listSw.Elapsed.TotalSeconds
         printManifestSummary stats false
         printfn ""
-        printfn "Output:     %s" outputDir
+        printfn "Output:            %s" outputDir
+        printfn "Scratch (SSD):     %s" tempDir
         printfn "Download workers:  %d" downloadParallelism
         printfn "Convert workers:   %d" convertParallelism
         printfn ""
 
         let sw = Diagnostics.Stopwatch.StartNew()
         let! results =
-            runPipeline http outputDir jobs downloadParallelism convertParallelism consoleProgress CancellationToken.None
+            runPipeline http outputDir tempDir jobs downloadParallelism convertParallelism consoleProgress CancellationToken.None
             |> Async.AwaitTask
         sw.Stop()
 
