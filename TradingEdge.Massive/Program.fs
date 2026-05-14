@@ -30,6 +30,7 @@ type DownloadBulkArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
     | [<AltCommandLine("-e")>] End_Date of string
     | [<AltCommandLine("-p")>] Parallelism of int
+    | [<AltCommandLine("-T")>] Temp_Dir of string
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -37,12 +38,15 @@ type DownloadBulkArgs =
             | Start_Date _ -> "Start date (yyyy-MM-dd). Default: 5 years ago"
             | End_Date _ -> "End date (yyyy-MM-dd). Default: today"
             | Parallelism _ -> "Max parallel downloads. Default: 10"
+            | Temp_Dir _ -> "SSD-backed staging dir for in-flight .csv.gz files. Default: ~/.cache/massive_bulk_tmp"
 
 type DownloadBulkMinuteArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
     | [<AltCommandLine("-e")>] End_Date of string
     | [<AltCommandLine("-p")>] Parallelism of int
+    | [<AltCommandLine("-cp")>] Convert_Parallelism of int
     | [<AltCommandLine("-o")>] Output_Dir of string
+    | [<AltCommandLine("-T")>] Temp_Dir of string
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -50,13 +54,17 @@ type DownloadBulkMinuteArgs =
             | Start_Date _ -> "Start date (yyyy-MM-dd). Default: 2024-04-01"
             | End_Date _ -> "End date (yyyy-MM-dd). Default: today"
             | Parallelism _ -> "Max parallel downloads. Default: 10"
+            | Convert_Parallelism _ -> "Max parallel converters (zcat|duckdb). Default: 1"
             | Output_Dir _ -> "Output directory (default: data/minute_aggs)"
+            | Temp_Dir _ -> "SSD-backed staging dir for in-flight .csv.gz files. Default: ~/.cache/massive_bulk_tmp"
 
 type DownloadBulkTradesArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
     | [<AltCommandLine("-e")>] End_Date of string
     | [<AltCommandLine("-p")>] Parallelism of int
+    | [<AltCommandLine("-cp")>] Convert_Parallelism of int
     | [<AltCommandLine("-o")>] Output_Dir of string
+    | [<AltCommandLine("-T")>] Temp_Dir of string
     | No_Convert
 
     interface IArgParserTemplate with
@@ -64,9 +72,11 @@ type DownloadBulkTradesArgs =
             match this with
             | Start_Date _ -> "Start date (yyyy-MM-dd). Default: 2024-04-01"
             | End_Date _ -> "End date (yyyy-MM-dd). Default: today"
-            | Parallelism _ -> "Max parallel downloads+converts. Convert is streamed through zcat|duckdb so each worker peaks around ~200 MB RAM. Default: 4"
+            | Parallelism _ -> "Max parallel downloads. Default: 4"
+            | Convert_Parallelism _ -> "Max parallel converters (zcat|duckdb). Each converter writes 1-2 GB sequential parquet to outputDir; keep at 1 to avoid HDD write contention. Default: 1"
             | Output_Dir _ -> "Output directory (default: data/bulk/trades)"
-            | No_Convert -> "Skip parquet conversion; leave .csv.gz files on disk."
+            | Temp_Dir _ -> "SSD-backed staging dir for in-flight .csv.gz files. Default: ~/.cache/massive_bulk_tmp"
+            | No_Convert -> "Skip parquet conversion; leave .csv.gz files on disk (still SSD-staged then moved to outputDir)."
 
 type DownloadSplitsArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
@@ -342,6 +352,12 @@ let private ensureDataDir () =
     Directory.CreateDirectory("data") |> ignore
     Directory.CreateDirectory("data/daily_aggregates") |> ignore
 
+/// Default SSD-backed staging dir for the bulk pipelines. `~/.cache` is the
+/// standard cache path on Linux/WSL and lives on the local SSD by default.
+let private defaultBulkTempDir () : string =
+    let home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+    Path.Combine(home, ".cache", "massive_bulk_tmp")
+
 let private handleDownloadBulk (config: MassiveConfig) (args: ParseResults<DownloadBulkArgs>) =
     ensureDataDir ()
 
@@ -357,16 +373,19 @@ let private handleDownloadBulk (config: MassiveConfig) (args: ParseResults<Downl
 
     let parallelism = args.GetResult(DownloadBulkArgs.Parallelism, defaultValue = 10)
     let outputDir = "data/daily_aggregates"
+    let tempDir = args.GetResult(DownloadBulkArgs.Temp_Dir, defaultValue = defaultBulkTempDir ())
 
     printfn "Downloading daily aggregates from %s to %s" (formatDate startDate) (formatDate endDate)
     printfn "Output directory: %s" (Path.GetFullPath outputDir)
-    printfn "Parallelism: %d" parallelism
+    printfn "Temp staging dir:  %s" (Path.GetFullPath tempDir)
+    printfn "Download parallelism: %d" parallelism
 
     use client = createS3Client config.S3AccessKey config.S3SecretKey
     use cts = new CancellationTokenSource()
 
+    // Daily has no real conversion; one mover thread is enough.
     let results =
-        downloadDailyAggregates client startDate endDate outputDir parallelism (Some S3Download.consoleProgress) cts.Token
+        downloadDailyAggregates client startDate endDate outputDir tempDir parallelism 1 (Some S3Download.consoleProgress) cts.Token
         |> Async.RunSynchronously
 
     let downloaded = results |> List.filter (function Downloaded _ -> true | _ -> false) |> List.length
@@ -390,17 +409,20 @@ let private handleDownloadBulkMinute (config: MassiveConfig) (args: ParseResults
         |> Option.defaultValue (DateTime(2024, 4, 1))
 
     let parallelism = args.GetResult(DownloadBulkMinuteArgs.Parallelism, defaultValue = 10)
+    let convertParallelism = args.GetResult(DownloadBulkMinuteArgs.Convert_Parallelism, defaultValue = 1)
     let outputDir = args.GetResult(DownloadBulkMinuteArgs.Output_Dir, defaultValue = "data/minute_aggs")
+    let tempDir = args.GetResult(DownloadBulkMinuteArgs.Temp_Dir, defaultValue = defaultBulkTempDir ())
 
     printfn "Downloading minute aggregates from %s to %s" (formatDate startDate) (formatDate endDate)
     printfn "Output directory: %s" (Path.GetFullPath outputDir)
-    printfn "Parallelism: %d" parallelism
+    printfn "Temp staging dir:  %s" (Path.GetFullPath tempDir)
+    printfn "Download / convert parallelism: %d / %d" parallelism convertParallelism
 
     use client = createS3Client config.S3AccessKey config.S3SecretKey
     use cts = new CancellationTokenSource()
 
     let results =
-        downloadMinuteAggregates client startDate endDate outputDir parallelism (Some S3Download.consoleProgress) cts.Token
+        downloadMinuteAggregates client startDate endDate outputDir tempDir parallelism convertParallelism (Some S3Download.consoleProgress) cts.Token
         |> Async.RunSynchronously
 
     let downloaded = results |> List.filter (function Downloaded _ -> true | _ -> false) |> List.length
@@ -424,19 +446,22 @@ let private handleDownloadBulkTrades (config: MassiveConfig) (args: ParseResults
         |> Option.defaultValue (DateTime(2024, 4, 1))
 
     let parallelism = args.GetResult(DownloadBulkTradesArgs.Parallelism, defaultValue = 4)
+    let convertParallelism = args.GetResult(DownloadBulkTradesArgs.Convert_Parallelism, defaultValue = 1)
     let outputDir = args.GetResult(DownloadBulkTradesArgs.Output_Dir, defaultValue = "data/bulk/trades")
+    let tempDir = args.GetResult(DownloadBulkTradesArgs.Temp_Dir, defaultValue = defaultBulkTempDir ())
     let skipConvert = args.Contains DownloadBulkTradesArgs.No_Convert
 
     printfn "Downloading trades from %s to %s" (formatDate startDate) (formatDate endDate)
     printfn "Output directory: %s" (Path.GetFullPath outputDir)
-    printfn "Parallelism: %d" parallelism
-    if skipConvert then printfn "Convert to parquet: DISABLED (.csv.gz kept as-is)"
+    printfn "Temp staging dir:  %s" (Path.GetFullPath tempDir)
+    printfn "Download / convert parallelism: %d / %d" parallelism convertParallelism
+    if skipConvert then printfn "Convert to parquet: DISABLED (.csv.gz kept as-is on outputDir)"
 
     use client = createS3Client config.S3AccessKey config.S3SecretKey
     use cts = new CancellationTokenSource()
 
     let results =
-        S3Download.downloadTrades client startDate endDate outputDir parallelism skipConvert (Some S3Download.consoleProgress) cts.Token
+        S3Download.downloadTrades client startDate endDate outputDir tempDir parallelism convertParallelism skipConvert (Some S3Download.consoleProgress) cts.Token
         |> Async.RunSynchronously
 
     let downloaded = results |> List.filter (function Downloaded _ -> true | _ -> false) |> List.length
