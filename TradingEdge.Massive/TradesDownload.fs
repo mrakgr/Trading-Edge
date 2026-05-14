@@ -38,6 +38,19 @@ type Trade = {
 
     [<JsonPropertyName("tape")>]
     Tape: int option
+
+    /// FINRA Trade Reporting Facility ID. 0 means lit-venue print (came
+    /// straight off an exchange book). Non-zero means off-exchange print
+    /// reported through one of the TRF facilities (dark pool, internalizer,
+    /// wholesaler). Polygon omits this field on lit prints; the JSON
+    /// deserializer treats it as 0 when absent.
+    [<JsonPropertyName("trf_id")>]
+    TrfId: int
+
+    /// Nanoseconds-since-epoch of the TRF report. Only meaningful when
+    /// TrfId is non-zero. Same omission semantics as TrfId.
+    [<JsonPropertyName("trf_timestamp")>]
+    TrfTimestamp: int64
 }
 
 /// Response from the Polygon trades API
@@ -82,14 +95,22 @@ let private getOutputPath (outputDir: string) (ticker: string) (date: DateTime) 
 // Parquet writer
 // =============================================================================
 //
-// Schema (drops Polygon fields never read downstream: id, exchange,
-// sequence_number, tape):
+// Schema (drops Polygon fields never read downstream: id, sequence_number, tape):
 //
 //   participant_timestamp BIGINT   (nanoseconds since Unix epoch; may be 0)
 //   sip_timestamp         BIGINT   (nanoseconds since Unix epoch)
 //   price                 DOUBLE
 //   size                  DOUBLE
+//   exchange              INTEGER  -- Polygon exchange id (1..22, ...)
+//   trf_id                INTEGER  -- FINRA TRF id; 0 = lit print
 //   conditions            INTEGER[]  -- nullable, Polygon omits on some trades
+//
+// `exchange` and `trf_id` together identify lit vs off-exchange prints. The
+// `trf_id = 0` filter is equivalent to "lit-venue only" (verified on bulk
+// trades data 2026-05-13; see docs/equity_lit_only_filter.md). Older per-
+// ticker parquets written before 2026-05-14 lack these two columns; readers
+// that need them must source from the bulk dataset at
+// /mnt/d/trading-edge-bulk/trades/{date}.parquet filtered by ticker.
 //
 // We build an in-memory DuckDB table via the appender API, then COPY ... TO
 // Parquet. COPY+appender is the fastest .NET->Parquet path available in
@@ -112,6 +133,8 @@ let private writeTradesToParquet (outputPath: string) (trades: Trade[]) : unit =
             sip_timestamp BIGINT,
             price DOUBLE,
             size DOUBLE,
+            exchange INTEGER,
+            trf_id INTEGER,
             conditions INTEGER[]
          )"
     createCmd.ExecuteNonQuery() |> ignore
@@ -123,6 +146,8 @@ let private writeTradesToParquet (outputPath: string) (trades: Trade[]) : unit =
         row.AppendValue(Nullable t.SipTimestamp) |> ignore
         row.AppendValue(Nullable t.Price) |> ignore
         row.AppendValue(Nullable t.Size) |> ignore
+        row.AppendValue(Nullable t.Exchange) |> ignore
+        row.AppendValue(Nullable t.TrfId) |> ignore
         match t.Conditions with
         | Some arr when not (isNull arr) ->
             row.AppendValue<int>(arr :> System.Collections.Generic.IEnumerable<int>) |> ignore
