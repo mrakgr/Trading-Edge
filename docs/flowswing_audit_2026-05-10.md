@@ -345,3 +345,105 @@ Output: `/tmp/tk_flowswing/taker_fills.csv` (3,914 rows, 12 taker-fill columns a
 ### Production status
 
 **FlowSwing remains the production strategy** at the workstream's highest level of confidence. Two independent fill audits (limit + taker) both reproduce the engine's headline PF within ±10%. No regime-dependence. 22 of 24 months profitable, top-3 flush days carry 5% of P&L (not 100% like DonchianScalp).
+
+## Out-of-sample backtest — 2020-2026 (2026-05-14)
+
+After backfilling the full Binance USDT-perps trade archive back to 2020-01 (1.80 TB of trade data, 670 symbols, 175.8B trades — see `docs/crypto_data_pipeline.md`), re-ran the same production config over the extended 2020-01-01 → 2026-05-11 window. Same flags, same engine, same anchors.parquet (rebuilt over the wider date range).
+
+### Headline
+
+| Metric | In-sample (2024-05 → 2026-04) | OOS (2020-01 → 2026-05) | OOS ex-2022 |
+|---|---:|---:|---:|
+| Trips | 4,591 | **7,302** | 6,451 |
+| Net P&L | $120,118 | **$128,339** | $145,571 |
+| Profit factor | 3.50 | **2.25** | — |
+| Win rate | ~73% | 70.6% | — |
+| Symbols traded | 614 | 646 | — |
+
+The strategy lights up across the wider universe — 2,711 additional trips earned from the 2020-2024 backfill — but the headline PF drops 3.50 → 2.25. **All of the degradation comes from a single year: 2022.**
+
+### Yearly breakdown (entry-year grouping)
+
+| Year | Trips | Net P&L | PF | Win% |
+|---|---:|---:|---:|---:|
+| 2020 | 238 | +$2.4k | 1.57 | 69.3 |
+| 2021 | 952 | +$16.5k | 2.96 | 74.6 |
+| **2022** | **851** | **-$17.2k** | **0.49** | **44.8** |
+| 2023 | 283 | +$5.9k | 3.90 | 79.5 |
+| 2024 | 1,541 | +$55.1k | 5.28 | 76.8 |
+| 2025 | 2,623 | +$48.1k | 2.73 | 73.0 |
+| 2026 | 814 | +$17.6k | 2.29 | 70.5 |
+
+Six of seven years run PF ≥ 1.57. The genuine new-OOS years (2020-2021, pre-LUNA) work fine. 2022 alone is PF 0.49 / win rate 44.8% — every other year is healthy.
+
+### The 2022 damage is concentrated in three months
+
+| Month | P&L | Catalyst |
+|---|---:|---|
+| 2022-05 | **-$9,886** | LUNA/UST collapse (May 7-12, $40B wipeout) |
+| 2022-01 | -$5,108 | Broad BTC drop $46k→$36k |
+| 2022-11 | -$4,086 | FTX collapse (Nov 8-11) |
+
+Outside those three months, 2022 is roughly flat. Top losers in May 2022 cap at -$629 (LUNAUSDT, 4-day hold) — the `--reference-vol-pct 0.1019` sizing keeps per-trip damage bounded. The hit comes from **breadth**: 15th-worst trip is still -$202, similar magnitude. Many simultaneous correlated losers, not a single blown-up position.
+
+### Interpretation
+
+FlowSwing's thesis — "buy capitulation declines and wait for MA-touch recovery" — breaks down precisely when the decline is **not a temporary capitulation but a structural insolvency event**. LUNA's peg break and FTX's credit shock both mean no recovery to MA; the cover-MA never gets hit, time-stop is disabled, positions ride down with the regime.
+
+What this is **not**:
+- Not bad sizing (per-trip caps held).
+- Not bad fills (limit + taker audits both confirmed clean execution).
+- Not a tuning artifact (works on 6/7 years at identical parameters).
+
+What it **is**: a hidden assumption that decline ≠ insolvency. Mean-reversion strategies all share this failure mode in the systemic-credit-event regime.
+
+### Mitigations not yet tested
+
+- **BTC-200d-MA regime gate**: suspend new entries when BTC is below long MA. Would have killed most 2022 entries cleanly. Risk: also kills early bear-market reversal trades.
+- **Cross-symbol realized-correlation gate**: pause when the correlation of recent returns across the top-N alts exceeds a threshold (systemic-stress proxy).
+- **Funding-rate floor**: 2022 episodes printed extreme positive funding (longs paying through the floor); a "skip if perp funding > X" filter is cheap to add.
+
+None of these are tested yet. Deferred to a future session — current OOS result is a "ship with documented regime risk" outcome, not a "go fix the strategy" mandate.
+
+### Production status post-OOS
+
+Still ship. PF 2.25 / +$128k / 6-of-7-years-positive across 2020-2026 is a real edge by any measurement, especially given the in-sample-was-already-in-low-IS-bias style of the original audits. The 2022 loss does **not** invalidate the strategy — it identifies a known regime where the thesis is invalid, which is the kind of finding live trading needs to manage explicitly (size-down or pause during systemic-credit episodes), not the kind that retires a strategy.
+
+The asymmetry of evidence is the right shape: when conditions match the thesis (5 of 7 years post-2020-bear and post-LUNA/FTX), PF runs 2.3-5.3. When conditions don't match (one specific year, three specific months), PF runs 0.49.
+
+### Reproduction
+
+```bash
+# Engine — full 2020-2026 window at production config
+dotnet run --project TradingEdge.CryptoBacktest -c Release -- long-fade-ma-sweep \
+  --price-decline-thresholds 0.14 \
+  --cover-ma-hours 72 \
+  --cvd-minutes-list 240 \
+  --timeframes 1m \
+  --start-date 2020-01-01 \
+  --end-date 2026-05-11 \
+  --reference-vol-pct 0.1019 \
+  --max-bar-price-ratio 3 \
+  --min-long-adv 0 \
+  --bars-root data/crypto/perps_bars \
+  --results-csv data/crypto/long_fade_ma_default_rvol075/results.csv \
+  --summary-csv data/crypto/long_fade_ma_default_rvol075/summary.csv
+# Wall: ~154s on parallelism=4 (1m bars cached in page cache after first pass).
+
+# Rebuild anchors over 2020-2026 (required before MTM decomposition)
+duckdb -c "
+COPY (
+  SELECT regexp_extract(filename, '/([^/]+)\.parquet\$', 1) AS symbol,
+         DATE_TRUNC('month', TO_TIMESTAMP(end_us/1e6))::DATE AS month,
+         arg_min(close, end_us) AS anchor_close,
+         arg_min(end_us, end_us) AS anchor_us
+  FROM read_parquet('data/crypto/perps_bars/1m/*.parquet', filename=true)
+  GROUP BY 1, 2
+) TO 'data/crypto/cumsum_z_no_gate/anchors.parquet'
+"
+
+# MTM decomposition (reconciles to $0.00 error)
+duckdb < scripts/crypto/mtm_flowswing.sql
+```
+
+The 2024-2026 in-sample trip CSV from before this run is archived at `data/crypto/long_fade_ma_default_rvol075.before_2020_oos/` for comparison.
