@@ -32,3 +32,4 @@ chat.md
 .claude/scheduled_tasks.lock
 logs/*
 .tmp/
+*.csproj.lscache
