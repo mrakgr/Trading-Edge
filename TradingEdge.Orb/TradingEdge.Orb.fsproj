@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Timezone.fs" />
+    <Compile Include="TradeFilters.fs" />
     <Compile Include="TradeLoader.fs" />
     <Compile Include="TradeBinary.fs" />
     <Compile Include="Convert.fs" />

@@ -1,92 +1,99 @@
 """
-Trade filtering utilities for removing outliers and special trade types.
+Canonical lit-only trade filter — Python mirror of TradingEdge.Orb.TradeFilters.
 
-Based on CTA/UTP trade condition codes documented in docs/trade_conditions.md
+If either side changes, the other MUST follow. Used by visualization scripts
+that load trade dicts from JSON/parquet; the same constants are also exposed
+as SQL strings for use inside DuckDB queries.
+
+Filter semantics: keep a trade iff
+  size > 0
+  AND trf_id = 0      (lit exchange; TRFs/ADF carry nonzero trf_id)
+  AND (conditions intersects opening/closing prints
+       OR conditions does NOT intersect the exclude set)
+
+There is no SIP-delta filter. With lit-only prints the late-print pathology
+that motivated the original 50ms SIP-delta drop doesn't occur — lit venues
+report via the SIP synchronously, the off-tape latency was the TRF/dark-pool
+tail we now exclude wholesale via trf_id = 0.
+
+Based on CTA/UTP trade condition codes documented in docs/trade_conditions.md.
 """
 
-# Condition codes to exclude for price discovery analysis
+# CTA/UTP trade condition codes that disqualify a print from price discovery.
+# Codes 12 (Form T) and 37 (Odd Lot) are intentionally NOT here: 99%+ of
+# premarket trades carry 12, and odd lots make up a large share of modern
+# volume. Late prints in those groups were previously caught by the SIP-delta
+# filter — which we now drop in favor of the lit-only (trf_id = 0) filter.
 EXCLUDE_FOR_PRICE_DISCOVERY = {
     2,   # Average Price Trade
     7,   # Cash Sale (special settlement)
     10,  # Derivatively Priced
-    12,  # Form T/Extended Hours
     13,  # Extended Hours (Sold Out Of Sequence)
     20,  # Next Day (special settlement)
     21,  # Price Variation Trade
     22,  # Prior Reference Price
     29,  # Seller (special settlement)
     32,  # Sold (Out of Sequence)
-    37,  # Odd Lot Trade
     52,  # Contingent Trade
     53,  # Qualified Contingent Trade (QCT)
 }
 
-def should_exclude_trade(trade, exclude_odd_lots=True, exclude_extended_hours=True):
+OPENING_PRINTS = {
+    17,  # Market Center Opening Trade
+    25,  # Opening Prints
+}
+
+CLOSING_PRINTS = {
+    19,  # Market Center Closing Trade
+    8,   # Closing Prints
+}
+
+OPEN_CLOSE_PRINTS = OPENING_PRINTS | CLOSING_PRINTS
+
+
+def should_exclude_trade(trade):
     """
-    Determine if a trade should be excluded from price analysis.
-
-    Args:
-        trade: Trade dict with 'conditions' field
-        exclude_odd_lots: If False, don't exclude code 37 (odd lots)
-        exclude_extended_hours: If False, don't exclude codes 12, 13 (extended hours)
-
-    Returns:
-        True if trade should be excluded, False otherwise
+    True iff the trade should be dropped by the conditions filter alone
+    (does NOT check size or trf_id — use should_keep_trade for the full check).
+    Opening/closing prints override the exclude set.
     """
     if trade['conditions'] is None:
         return False
-
     conditions = set(trade['conditions'])
-    exclude_codes = EXCLUDE_FOR_PRICE_DISCOVERY.copy()
+    if conditions & OPEN_CLOSE_PRINTS:
+        return False
+    return bool(conditions & EXCLUDE_FOR_PRICE_DISCOVERY)
 
-    if not exclude_odd_lots:
-        exclude_codes.discard(37)
 
-    if not exclude_extended_hours:
-        exclude_codes.discard(12)
-
-    return bool(conditions & exclude_codes)
-
-def filter_trades(trades, exclude_odd_lots=True, exclude_extended_hours=True):
+def should_keep_trade(trade):
     """
-    Filter out trades with special conditions that don't reflect true market prices.
+    Full composite predicate: size > 0 AND trf_id = 0 AND conditions OK.
 
-    Args:
-        trades: List of trade dicts
-        exclude_odd_lots: Whether to exclude odd lot trades (code 37)
-        exclude_extended_hours: Whether to exclude extended hours trades (codes 12, 13)
-
-    Returns:
-        Filtered list of trades
+    Raises KeyError if `trf_id` is missing from the trade dict — same posture
+    as the F# side: data-integrity issues should fail loudly rather than be
+    silently treated as lit. Trades from pre-trf_id parquets need a rebuild.
     """
-    return [t for t in trades if not should_exclude_trade(t, exclude_odd_lots, exclude_extended_hours)]
+    if trade.get('size', 0) <= 0:
+        return False
+    if trade['trf_id'] != 0:
+        return False
+    return not should_exclude_trade(trade)
 
-# Drop trades whose SIP timestamp lags the participant timestamp by more than
-# this many nanoseconds. Participant timestamp is when the venue booked the
-# trade; SIP timestamp is when the SIP reported it. A large positive delta
-# means a late print — often a stale extended-hours price arriving after the
-# market has moved (e.g. MSTR 2024-11-21 08:47:45 $473.83 vs. ~$537
-# contemporaneous market, reported 1018ms late). Healthy trades cluster
-# well under 10ms; the late-report tail starts in the tens of ms.
-DEFAULT_MAX_SIP_DELTA_NS = 50 * 1_000_000  # 50ms
 
-def filter_by_sip_delta(trades, max_sip_delta_ns=DEFAULT_MAX_SIP_DELTA_NS):
-    """
-    Drop trades whose SIP timestamp lags the participant timestamp by more
-    than `max_sip_delta_ns`. Trades missing either timestamp are kept.
+def filter_trades(trades):
+    """Filter out trades failing the full lit-only predicate."""
+    return [t for t in trades if should_keep_trade(t)]
 
-    Args:
-        trades: List of trade dicts with 'participant_timestamp' and
-                'sip_timestamp' fields (nanoseconds since Unix epoch)
-        max_sip_delta_ns: Maximum allowed delta in nanoseconds (default 50ms)
 
-    Returns:
-        Filtered list of trades
-    """
-    kept = []
-    for t in trades:
-        pt = t.get('participant_timestamp') or 0
-        st = t.get('sip_timestamp') or 0
-        if pt == 0 or st == 0 or (st - pt) <= max_sip_delta_ns:
-            kept.append(t)
-    return kept
+# -----------------------------------------------------------------------------
+# SQL fragments — DuckDB-flavored. Must stay in sync with the constants above
+# AND with TradingEdge.Orb.TradeFilters in F#.
+# -----------------------------------------------------------------------------
+
+EXCLUDE_SET_SQL = "[2, 7, 10, 13, 20, 21, 22, 29, 32, 52, 53]::UTINYINT[]"
+OPEN_CLOSE_SET_SQL = "[17, 25, 19, 8]::UTINYINT[]"
+CONDITIONS_SQL_CLAUSE = (
+    f"(list_has_any(conditions, {OPEN_CLOSE_SET_SQL}) "
+    f"OR NOT list_has_any(conditions, {EXCLUDE_SET_SQL}))"
+)
+WHERE_CLAUSE_SQL = f"size > 0 AND trf_id = 0 AND {CONDITIONS_SQL_CLAUSE}"

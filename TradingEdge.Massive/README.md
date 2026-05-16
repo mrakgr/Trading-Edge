@@ -397,6 +397,37 @@ dotnet run --project TradingEdge.Massive -- refresh-views
 dotnet run --project TradingEdge.Massive -- refresh-views -d /path/to/custom.db
 ```
 
+### Build Minute Bars
+
+Builds 1-minute time-bar aggregates from the bulk trade parquets. One zstd-compressed parquet per day under `data/minute_bars_1m/{yyyy-MM-dd}.parquet`. Each row is `(ticker, bucket, start_ns, open, high, low, close, volume, dollar_volume, vwap, vwstd, trade_count)`. Buckets are 1-minute slots 04:00-20:00 ET (960 per day, DST-correct via local-ET base time + UTC conversion). Bars apply the canonical lit-only filter (`size > 0 AND trf_id = 0 AND conditions OK`) shared with `TradingEdge.Orb/TradeFilters.fs`.
+
+```bash
+dotnet run --project TradingEdge.Massive -- build-minute-bars [options]
+```
+
+**Options:**
+- `-s, --start-date <yyyy-MM-dd>` - First date inclusive (default: earliest input)
+- `-e, --end-date <yyyy-MM-dd>` - Last date inclusive (default: latest input)
+- `-i, --input-dir <path>` - Bulk trades dir (default: /mnt/d/trading-edge-bulk/trades)
+- `-o, --output-dir <path>` - Output bars dir on SSD (default: data/minute_bars_1m)
+- `-p, --parallelism <int>` - Concurrent days (default: 4)
+- `--force` - Overwrite existing per-day output parquets
+
+Idempotent — re-runs skip dates whose output parquet already exists unless `--force`. Full 2023-01-03 → 2026-05-13 backfill runs in roughly an hour at `-p 4` (~125 GB total output).
+
+### Build Premarket Volume
+
+Materializes the `premarket_volume_daily` table in the DB by aggregating buckets 0..329 (04:00-09:29 ET) of each day's 1-minute bar parquet. Each row is `(ticker, date, pm_volume, pm_dollar_volume, pm_trade_count, pm_vwap, pm_high, pm_low)` with a unique index on `(ticker, date)`. Used by `gap-play -pm/--min-pm-volume-pct` to filter for premarket-led setups.
+
+```bash
+dotnet run --project TradingEdge.Massive -- build-premarket-volume [options]
+```
+
+**Options:**
+- `-d, --database <path>` - DuckDB database path (default: data/trading.db)
+
+Runs in ~10s across the full 841-day dataset since the per-day parquets are already aggregated to bars. Also runs automatically as part of `ingest-data`'s materialization step.
+
 ### Gap Play
 
 Lists top gap plays for a date range based on relative volume, opening gap, and liquidity. ETFs are excluded by default (via the `ticker_reference` table populated by `download-tickers`), and rows whose post-event ATR collapses below half their pre-event ATR are filtered out as likely buyouts.
@@ -418,6 +449,7 @@ dotnet run --project TradingEdge.Massive -- gap-play [options]
 - `--pre-window-days <int>` - Days before breakout for ATR baseline (default: 20)
 - `--post-window-days <int>` - Days after breakout for ATR comparison (default: 5)
 - `--min-atr-ratio <float>` - Min post/pre ATR ratio (buyout filter, default: 0.55; 0 disables)
+- `-pm, --min-pm-volume-pct <float>` - Min premarket dollar volume as a fraction of 4w avg dollar volume, e.g. 0.5 for 50% (default: 0, disabled). Joins against `premarket_volume_daily` — requires the 1m bars + `build-premarket-volume` step.
 - `--json` - Emit JSON to stdout instead of the human-readable table
 
 **Examples:**
@@ -434,6 +466,11 @@ dotnet run --project TradingEdge.Massive -- gap-play -r 5 -g 0.10
 
 # Restrict to large-cap stocks only ($100M+ avg volume instead of $25M)
 dotnet run --project TradingEdge.Massive -- gap-play -v 100
+
+# Premarket-led gap plays: $100M+ ADV AND >= 50% of ADV traded in premarket.
+# These are stocks where the news/move happened before RTH open — ideal for
+# tape-reading practice on a sim like DAS.
+dotnet run --project TradingEdge.Massive -- gap-play -v 100 -pm 0.5
 
 # Combine all filters: aggressive settings for small caps
 dotnet run --project TradingEdge.Massive -- gap-play -r 2 -g 0.03 -v 10
@@ -469,7 +506,7 @@ dotnet run --project TradingEdge.Massive -- continuation-plays [options]
 
 **Options:**
 
-All `gap-play` filter options are forwarded (same defaults), plus:
+All `gap-play` filter options are forwarded (same defaults), including `-pm/--min-pm-volume-pct`, plus:
 - `--min-rvol-fraction <float>` - Min fraction of breakout RVOL to keep the chain alive (default: 0.5)
 - `--max-horizon-days <int>` - Safety cap on chain length in calendar days (default: 30)
 - `--json` - Emit JSON to stdout instead of the human-readable table

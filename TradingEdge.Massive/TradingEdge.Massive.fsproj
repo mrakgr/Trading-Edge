@@ -18,6 +18,7 @@
     <Compile Include="NewsDownload.fs" />
     <Compile Include="TickersDownload.fs" />
     <Compile Include="Database.fs" />
+    <Compile Include="MinuteBarsBuild.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
@@ -27,6 +28,10 @@
     <EmbeddedResource Include="sql/schema/views/*.sql" />
   </ItemGroup>
 
+
+  <ItemGroup>
+    <ProjectReference Include="..\TradingEdge.Orb\TradingEdge.Orb.fsproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Argu" Version="6.2.5" />

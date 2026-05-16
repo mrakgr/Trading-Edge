@@ -107,6 +107,13 @@ let private executeSqlFromFolder (connection: IDbConnection) (folderName: string
 let materializeTables (connection: IDbConnection) : unit =
     executeSqlFromFolder connection "sql.schema.materialized"
 
+/// Execute a single embedded SQL resource by its filename suffix
+/// (e.g. "07_premarket_volume_daily.sql"). Used by subcommands that
+/// rebuild just one materialized table without touching the rest.
+let executeNamedResource (connection: IDbConnection) (suffix: string) : unit =
+    let sql = loadEmbeddedSql suffix
+    connection.Execute(sql) |> ignore
+
 /// Refresh views only (fast, call when view definitions change)
 let refreshViews (connection: IDbConnection) : unit =
     executeSqlFromFolder connection "sql.schema.views"
@@ -499,6 +506,8 @@ type GapPlayRow = {
     avg_dollar_volume_4w: float
     volume: int64
     avg_volume_4w: float
+    pm_dollar_volume: System.Nullable<float>
+    pm_dollar_volume_pct: System.Nullable<float>
     pre_atr_pct: System.Nullable<float>
     post_atr_pct: System.Nullable<float>
     atr_ratio: System.Nullable<float>
@@ -526,6 +535,7 @@ let getGapPlay
     (preWindowDays: int)
     (postWindowDays: int)
     (minAtrRatio: float)
+    (minPmDollarVolumePct: float)
     : GapPlayRow array =
     connection.Query<GapPlayRow>(
         "SELECT * FROM gap_play(" +
@@ -539,7 +549,8 @@ let getGapPlay
         "tradable_only := $tradableOnly, " +
         "pre_window_days := $preWindowDays, " +
         "post_window_days := $postWindowDays, " +
-        "min_atr_ratio := $minAtrRatio" +
+        "min_atr_ratio := $minAtrRatio, " +
+        "min_pm_dollar_volume_pct := $minPmDollarVolumePct" +
         ") ORDER BY date, rank",
         {| startDate = startDate.ToString("yyyy-MM-dd")
            endDate = endDate.ToString("yyyy-MM-dd")
@@ -551,7 +562,8 @@ let getGapPlay
            tradableOnly = tradableOnly
            preWindowDays = preWindowDays
            postWindowDays = postWindowDays
-           minAtrRatio = minAtrRatio |})
+           minAtrRatio = minAtrRatio
+           minPmDollarVolumePct = minPmDollarVolumePct |})
     |> Seq.toArray
 
 // --- Continuation Plays ---
@@ -670,6 +682,7 @@ let getContinuationPlays
     (preWindowDays: int)
     (postWindowDays: int)
     (minAtrRatio: float)
+    (minPmDollarVolumePct: float)
     (minRvolFraction: float)
     (maxHorizonDays: int)
     : ContinuationPlayRow array =
@@ -687,6 +700,7 @@ let getContinuationPlays
             "pre_window_days := $preWindowDays, " +
             "post_window_days := $postWindowDays, " +
             "min_atr_ratio := $minAtrRatio, " +
+            "min_pm_dollar_volume_pct := $minPmDollarVolumePct, " +
             "max_horizon_days := $maxHorizonDays" +
             ") ORDER BY sip_ticker, sip_breakout_date, day_date",
             {| startDate = startDate.ToString("yyyy-MM-dd")
@@ -700,6 +714,7 @@ let getContinuationPlays
                preWindowDays = preWindowDays
                postWindowDays = postWindowDays
                minAtrRatio = minAtrRatio
+               minPmDollarVolumePct = minPmDollarVolumePct
                maxHorizonDays = maxHorizonDays |})
         |> Seq.toArray
     buildContinuationChains minRvolFraction raws

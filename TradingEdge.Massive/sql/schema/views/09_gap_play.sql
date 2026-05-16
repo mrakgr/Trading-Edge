@@ -28,7 +28,8 @@ CREATE MACRO gap_play(
     tradable_only := true,
     pre_window_days := 20,
     post_window_days := 5,
-    min_atr_ratio := 0.55
+    min_atr_ratio := 0.55,
+    min_pm_dollar_volume_pct := 0
 ) AS TABLE
 WITH daily_metrics AS (
     SELECT
@@ -42,6 +43,12 @@ WITH daily_metrics AS (
         p_prev.adj_close AS prev_close,
         v.avg_volume_4w,
         v.avg_dollar_volume_4w,
+        -- Premarket dollar volume (04:00-09:29 ET, lit-only). Joined LEFT so
+        -- pre-2023 days and any future days without bar parquets stay in the
+        -- result with NULL pm columns; the pm-pct filter below treats NULL as
+        -- "no premarket data, fails the threshold" when active.
+        pm.pm_dollar_volume,
+        pm.pm_dollar_volume / NULLIF(v.avg_dollar_volume_4w, 0) AS pm_dollar_volume_pct,
         -- Opening gap: % change from previous close to today's open
         (p.adj_open - p_prev.adj_close) / p_prev.adj_close AS gap_pct,
         -- Daily range as % of price
@@ -58,6 +65,9 @@ WITH daily_metrics AS (
     JOIN stock_volume_4w v
         ON v.ticker = p.ticker
         AND v.date = p.date
+    LEFT JOIN premarket_volume_daily pm
+        ON pm.ticker = p.ticker
+        AND pm.date = p.date
     WHERE v.avg_dollar_volume_4w >= min_avg_dollar_volume
       AND p.date >= start_date
       AND p.date <= end_date
@@ -67,6 +77,13 @@ filtered AS (
     FROM daily_metrics dm
     WHERE dm.rvol >= min_rvol
       AND ABS(dm.gap_pct) >= min_gap_pct
+      -- Premarket dollar volume threshold (as a fraction of 4-week ADV).
+      -- Default 0 disables the filter. When >0, NULL pm rows are rejected
+      -- (NULL comparisons return UNKNOWN, which fails WHERE).
+      AND (
+          min_pm_dollar_volume_pct <= 0.0
+          OR dm.pm_dollar_volume_pct >= min_pm_dollar_volume_pct
+      )
       -- Tradable universe: keep only tickers classified as common stock or ADR.
       -- ticker_reference is populated by `download-tickers` + `ingest-data`.
       AND (
@@ -170,6 +187,8 @@ SELECT
     r.adj_volume AS volume,
     r.avg_volume_4w,
     r.avg_dollar_volume_4w,
+    r.pm_dollar_volume,
+    r.pm_dollar_volume_pct,
     r.pre_atr_pct,
     r.post_atr_pct,
     r.atr_ratio,

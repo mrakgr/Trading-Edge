@@ -5,16 +5,13 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timezone
-from trade_filters import filter_trades, filter_by_sip_delta
+from trade_filters import filter_trades
 from market_hours import get_market_hours_bounds
 from trade_io import load_trades as _load_parquet_trades
 
 def load_trades(trades_path):
     """Load trades from the per-ticker-day Parquet file."""
     trades = _load_parquet_trades(trades_path)
-    # Apply SIP-delta filter before zeroing out missing participant timestamps,
-    # otherwise we lose the ability to distinguish late prints.
-    trades = filter_by_sip_delta(trades)
     for t in trades:
         if t['participant_timestamp'] == 0:
             t['participant_timestamp'] = t['sip_timestamp']
@@ -276,7 +273,7 @@ if __name__ == '__main__':
     print(f'Loaded {len(all_trades)} trades')
 
     # Filter out special trade types (match massive_volume.py defaults)
-    all_trades = filter_trades(all_trades, exclude_odd_lots=False, exclude_extended_hours=False)
+    all_trades = filter_trades(all_trades)
     print(f'After filtering: {len(all_trades)} trades')
 
     # Filter to regular hours if requested

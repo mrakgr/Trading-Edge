@@ -21,7 +21,7 @@ def plot_tdigest(json_path, output_html, show_extended_hours=True):
     all_trades = load_trades(json_path)
 
     # Filter out special trade types
-    all_trades = filter_trades(all_trades, exclude_odd_lots=False, exclude_extended_hours=False)
+    all_trades = filter_trades(all_trades)
 
     # Filter to regular hours if requested
     trades = all_trades

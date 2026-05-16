@@ -32,7 +32,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from trade_filters import filter_trades, filter_by_sip_delta
+from trade_filters import filter_trades
 from market_hours import get_market_hours_bounds
 from trade_io import load_trades
 
@@ -146,12 +146,11 @@ def main():
     trades = load_trades(args.input)
     print(f'  loaded {len(trades):,} trades')
 
-    trades = filter_by_sip_delta(trades)
     for t in trades:
         if t['participant_timestamp'] == 0:
             t['participant_timestamp'] = t['sip_timestamp']
 
-    trades = filter_trades(trades, exclude_odd_lots=False, exclude_extended_hours=False)
+    trades = filter_trades(trades)
     print(f'  after condition filter: {len(trades):,}')
 
     if args.regular_hours:

@@ -19,6 +19,7 @@ CREATE MACRO continuation_plays(
     pre_window_days := 20,
     post_window_days := 5,
     min_atr_ratio := 0.55,
+    min_pm_dollar_volume_pct := 0,
     max_horizon_days := 15
 ) AS TABLE
 WITH breakouts AS (
@@ -36,7 +37,8 @@ WITH breakouts AS (
         tradable_only := tradable_only,
         pre_window_days := pre_window_days,
         post_window_days := post_window_days,
-        min_atr_ratio := min_atr_ratio
+        min_atr_ratio := min_atr_ratio,
+        min_pm_dollar_volume_pct := min_pm_dollar_volume_pct
     )
 )
 SELECT

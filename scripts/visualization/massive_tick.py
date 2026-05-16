@@ -161,7 +161,7 @@ if __name__ == '__main__':
     print(f'Loaded {len(all_trades)} trades')
 
     # Filter out special trade types
-    all_trades = filter_trades(all_trades, exclude_odd_lots=False, exclude_extended_hours=False)
+    all_trades = filter_trades(all_trades)
     print(f'After filtering: {len(all_trades)} trades')
 
     print(f'Merging trades within 100 microseconds...')

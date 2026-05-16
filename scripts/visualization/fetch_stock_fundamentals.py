@@ -107,7 +107,7 @@ def get_gap_and_premarket(ticker, date_str):
         trades = _load_parquet_trades(trades_path)
 
         # Filter trades first
-        trades = filter_trades(trades, exclude_odd_lots=False, exclude_extended_hours=False)
+        trades = filter_trades(trades)
 
         # Split by market hours
         pre_market, regular, post_market = split_by_market_hours(trades)
