@@ -534,21 +534,97 @@ vol-event months where breadth-confirmed VWAP-flips happened to align
 with sustained directional moves. The OOS suggests that's not a
 generalizable edge but a regime-conditional phenomenon.
 
-### What this means for next steps
+### Attempted fix — 5-day ADR regime gate
 
-- **Do not ship this strategy as-is.** The OOS performance is
-  net-negative.
-- **Either drop the approach OR add a regime filter.** A simple test:
-  apply the gate only when realized vol over the past 20 trading
-  days exceeds, say, the median over our 2024-2026 window. This is
-  *another* in-sample decision but it's a hypothesis that could be
-  separately OOS-validated by withholding part of 2024-2026 alongside
-  2023.
-- **Don't add more parameters at once.** Each additional knob
-  multiplies the risk that 2024-2026 is an in-sample fit. We've
-  already used the 30m window choice, two gate thresholds, and
-  effectively a regime assumption — too many degrees of freedom for
-  the data.
+Hypothesis: the strategy needs daily range to commit a tradeable
+intraday trend. A quiet, grinding-up tape (most of 2023) doesn't
+give it that. So gate the strategy on the **prior 5 days' SPY ADR as
+a percentage of mean close** — only trade when range is wide enough
+to be worth playing for.
+
+Implementation: new `AdrGate.fs` module in TradingEdge.Vwap, with
+`--min-adr-pct-5d X` CLI flag. The gate is lookahead-clean (uses
+only the 5 trading days **strictly before** D, sourced from
+`split_adjusted_prices`). When the gate is off for a date, that
+whole day is skipped — no entries, no holds.
+
+Threshold sweep on both windows, same 30m breadth gate as before:
+
+| ADR thr | IS trades | IS gross | IS PF | OOS trades | OOS gross | OOS PF |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0.0 (off) | 5,971 | +$272 | 1.21 | 2,588 | +$8 | 1.02 |
+| 0.6% | 5,473 | +$212 | 1.18 | 2,516 | +$4 | 1.01 |
+| 0.7% | 4,687 | +$154 | 1.14 | 2,395 | −$1 | 1.00 |
+| 0.8% | 3,822 | +$144 | 1.15 | 2,117 | −$6 | 0.98 |
+| 0.9% | 3,074 | +$141 | 1.17 | 1,742 | −$9 | 0.97 |
+| 1.0% | 2,482 | +$133 | 1.19 | 1,455 | −$14 | 0.95 |
+| 1.2% | 1,531 | +$76 | 1.15 | 971 | −$15 | 0.92 |
+
+**The regime gate does the opposite of what was hoped.** Raising the
+ADR bar makes OOS *worse* monotonically (PF 1.02 → 0.92), and also
+costs IS gross (272 → 76). The trades kept on high-ADR-pct days in
+2023 are MORE unprofitable than the ones cut.
+
+Inspection of 2023's highest-ADR days shows why: **March 13–28 2023
+(the SVB / banking-crisis aftermath) dominates the 2023 high-ADR
+tail.** That was a mean-reversion regime — huge daily ranges, but
+intraday it was up-down-up-down on every catalyst headline. Worst
+possible conditions for a VWAP-flip-with-breadth-confirmation
+strategy: the breadth-confirmed direction would flip multiple times
+intraday, generating losers in both directions.
+
+The opposite of high vol = strong directional trend doesn't always
+hold. **Vol is not the same as committed direction.** SPY moves
+either *toward* or *away from* its session VWAP depending on the
+flavor of vol; high vol from sustained one-direction selling helps
+the strategy, high vol from churning headlines hurts it.
+
+### Why the strategy probably can't be saved with simple filters
+
+1. The relationship reverses 2024-2026 → 2023 (top-decile longs went
+   from biggest winner to losing cell; decile-2 shorts went from
+   biggest winner to losing cell). That's not a regime difference,
+   it's a sign-flip of the underlying signal.
+2. The vol regime filter we tried makes things worse, not better.
+3. The 51%-from-5-vol-event-months breakdown of the in-sample edge
+   plus the OOS sign-flip together suggest the in-sample +$272 was
+   largely **luck-of-the-window** — the right 5 months happened to
+   align with the right breadth signal during the picked window.
+4. No simple parameter knob has fixed it. We've now tried gate
+   thresholds, filter modes (entry vs always), MA windows (4/30/60m),
+   and a regime gate. None survive OOS.
+
+### Recommendation
+
+**Shelve the imbalance-filtered VWAP-flip strategy.** The
+unfiltered baseline is also fragile (positive only at the gross /
+zero-friction level; goes negative at realistic 1¢ spread). The
+filtered version's apparent edge does not generalize.
+
+The infrastructure built along the way is still useful:
+
+- `data/sp500_membership.parquet` (point-in-time, FIGI-resolved, validated)
+- `data/breadth/imbalance_vwma_{4,30,60}m.parquet` (genuinely sound breadth indicators, useful as inputs to other strategies)
+- `TradingEdge.Vwap` with --breadth + --min-adr-pct-5d flags (a clean scaffold for any future SPY-or-equivalent intraday strategy that wants regime-filtered, breadth-aware backtesting)
+
+Next directions worth trying:
+
+- Different *base strategy* (mean-reversion, breakout, opening-range
+  break) with the same breadth gate. The breadth signal may be
+  sound but VWAP-flip may not be the right transform of it.
+- Different *breadth signal* — not VWMA-based. Examples: pure
+  advance-decline by count (no dollar weighting), TICK-style
+  count of upticks vs downticks across constituents at the bar.
+- Apply this same workflow to a *different ticker* — the
+  breadth-attribution machinery is generic to ticker. QQQ would
+  use a Nasdaq-100 membership file but the methodology is identical.
+
+What we should NOT do: add more filters to this specific strategy.
+Each added parameter inflates the in-sample fit risk; this exercise
+has already revealed that with 3-4 parameters and 29 IS months we
+can produce a 1.21 PF strategy that goes flat-to-negative on a
+12-month OOS. More parameters won't reveal a real edge that isn't
+there.
 
 ## Reproduction
 

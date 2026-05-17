@@ -14,6 +14,9 @@ type BacktestArgs =
     | Long_Min_Imb of float
     | Short_Max_Imb of float
     | Filter_Mode of string
+    | Database of string
+    | Min_Adr_Pct_5d of float
+    | Regime_Ticker of string
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -27,6 +30,9 @@ type BacktestArgs =
             | Long_Min_Imb _ -> "Allow longs only when imbalance >= this value (default: 0.0). Ignored unless --breadth is set."
             | Short_Max_Imb _ -> "Allow shorts only when imbalance <= this value (default: 0.0). Ignored unless --breadth is set."
             | Filter_Mode _ -> "Filter semantics: 'entry' = gate only checked at each VWAP cross, hold through. 'always' = gate re-checked every bar, flatten when gate goes red. Default: entry."
+            | Database _ -> "DuckDB path for the regime gate (default: data/trading.db)."
+            | Min_Adr_Pct_5d _ -> "Regime gate: only trade days where the prior 5d ADR (high-low) as %% of mean close exceeds this value. 0.0 = off (default)."
+            | Regime_Ticker _ -> "Symbol used to compute the ADR regime gate (default: SPY)."
 
 type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Backtest of ParseResults<BacktestArgs>
@@ -69,11 +75,22 @@ let private handleBacktest (args: ParseResults<BacktestArgs>) : int =
         let days = bars |> Array.map (fun b -> b.Date) |> Array.distinct
         printfn "Loaded %d bars across %d trading days" bars.Length days.Length
 
+        // Build optional regime gate (ADR-based, lookahead-clean).
+        let regimeOn : DateOnly -> bool =
+            let minAdrPct = args.GetResult(BacktestArgs.Min_Adr_Pct_5d, defaultValue = 0.0)
+            if minAdrPct <= 0.0 then fun _ -> true
+            else
+                let dbPath = args.GetResult(BacktestArgs.Database, defaultValue = "data/trading.db")
+                let regimeTicker = args.GetResult(BacktestArgs.Regime_Ticker, defaultValue = "SPY")
+                printfn "Regime gate: %s 5d-ADR-pct >= %g (db=%s)" regimeTicker minAdrPct dbPath
+                let idx = AdrGate.build dbPath regimeTicker startDate endDate 5 minAdrPct
+                fun d -> idx.IsOn d
+
         // Choose strategy mode: unfiltered if --breadth not set; filtered if it is.
         let trades =
             match args.TryGetResult BacktestArgs.Breadth with
             | None ->
-                Backtest.runMany bars
+                Backtest.runManyWithRegime bars regimeOn
             | Some breadthPath ->
                 let longMin = args.GetResult(BacktestArgs.Long_Min_Imb, defaultValue = 0.0)
                 let shortMax = args.GetResult(BacktestArgs.Short_Max_Imb, defaultValue = 0.0)
@@ -88,9 +105,9 @@ let private handleBacktest (args: ParseResults<BacktestArgs>) : int =
                 let imbalanceOf d b = index.TryGet(d, b)
                 match mode with
                 | "entry" ->
-                    Backtest.runManyEntryFiltered bars imbalanceOf longGate shortGate
+                    Backtest.runManyEntryFilteredWithRegime bars imbalanceOf longGate shortGate regimeOn
                 | "always" ->
-                    Backtest.runManyFiltered bars imbalanceOf longGate shortGate
+                    Backtest.runManyFilteredWithRegime bars imbalanceOf longGate shortGate regimeOn
                 | other ->
                     failwithf "Unknown --filter-mode '%s'. Expected 'entry' or 'always'." other
         let metrics = Backtest.computeMetrics trades

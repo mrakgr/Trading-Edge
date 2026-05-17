@@ -127,23 +127,27 @@ let runDay (dayBars: Bar[]) : Trade[] =
 
         trades.ToArray()
 
-/// Run across many days. Each day is treated independently (session VWAP
-/// resets, position closes at EOD); no overnight holds.
-let runMany (bars: Bar[]) : Trade[] =
+/// Run across many days, with an optional per-date regime gate. If
+/// `regimeOn d` returns false, that whole day is skipped (no trades, no
+/// position carry — the strategy stays flat). Each kept day is treated
+/// independently (session VWAP resets, position closes at EOD).
+let runManyWithRegime (bars: Bar[]) (regimeOn: DateOnly -> bool) : Trade[] =
     if bars.Length = 0 then [||]
     else
         let trades = ResizeArray<Trade>()
-        // Partition by date. Bars are already sorted by (date, bucket).
         let mutable i = 0
         while i < bars.Length do
             let d = bars.[i].Date
             let mutable j = i
             while j < bars.Length && bars.[j].Date = d do
                 j <- j + 1
-            let dayBars = bars.[i .. j - 1]
-            trades.AddRange(runDay dayBars)
+            if regimeOn d then
+                let dayBars = bars.[i .. j - 1]
+                trades.AddRange(runDay dayBars)
             i <- j
         trades.ToArray()
+
+let runMany (bars: Bar[]) : Trade[] = runManyWithRegime bars (fun _ -> true)
 
 
 // ───────────────────── filtered (gated by breadth) ─────────────────────
@@ -265,11 +269,12 @@ let runDayFiltered
 
         trades.ToArray()
 
-let runManyFiltered
+let runManyFilteredWithRegime
     (bars: Bar[])
     (imbalanceOf: DateOnly -> int -> float option)
     (longGate: BreadthGate)
     (shortGate: BreadthGate)
+    (regimeOn: DateOnly -> bool)
     : Trade[] =
     if bars.Length = 0 then [||]
     else
@@ -280,10 +285,19 @@ let runManyFiltered
             let mutable j = i
             while j < bars.Length && bars.[j].Date = d do
                 j <- j + 1
-            let dayBars = bars.[i .. j - 1]
-            trades.AddRange(runDayFiltered dayBars imbalanceOf longGate shortGate)
+            if regimeOn d then
+                let dayBars = bars.[i .. j - 1]
+                trades.AddRange(runDayFiltered dayBars imbalanceOf longGate shortGate)
             i <- j
         trades.ToArray()
+
+let runManyFiltered
+    (bars: Bar[])
+    (imbalanceOf: DateOnly -> int -> float option)
+    (longGate: BreadthGate)
+    (shortGate: BreadthGate)
+    : Trade[] =
+    runManyFilteredWithRegime bars imbalanceOf longGate shortGate (fun _ -> true)
 
 
 // ───────────── filter-on-entry-only: gate only checked at flip ─────────────
@@ -394,11 +408,12 @@ let runDayEntryFiltered
 
         trades.ToArray()
 
-let runManyEntryFiltered
+let runManyEntryFilteredWithRegime
     (bars: Bar[])
     (imbalanceOf: DateOnly -> int -> float option)
     (longGate: BreadthGate)
     (shortGate: BreadthGate)
+    (regimeOn: DateOnly -> bool)
     : Trade[] =
     if bars.Length = 0 then [||]
     else
@@ -409,10 +424,19 @@ let runManyEntryFiltered
             let mutable j = i
             while j < bars.Length && bars.[j].Date = d do
                 j <- j + 1
-            let dayBars = bars.[i .. j - 1]
-            trades.AddRange(runDayEntryFiltered dayBars imbalanceOf longGate shortGate)
+            if regimeOn d then
+                let dayBars = bars.[i .. j - 1]
+                trades.AddRange(runDayEntryFiltered dayBars imbalanceOf longGate shortGate)
             i <- j
         trades.ToArray()
+
+let runManyEntryFiltered
+    (bars: Bar[])
+    (imbalanceOf: DateOnly -> int -> float option)
+    (longGate: BreadthGate)
+    (shortGate: BreadthGate)
+    : Trade[] =
+    runManyEntryFilteredWithRegime bars imbalanceOf longGate shortGate (fun _ -> true)
 
 
 // ───────────────────────── summary metrics ─────────────────────────
