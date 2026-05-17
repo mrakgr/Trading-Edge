@@ -405,17 +405,150 @@ short-dominant, 4 are mixed. Whichever side has the larger gain swaps
 month to month — consistent with the gate doing its job (only allowing
 each side when breadth agrees).
 
-## What still needs to be done
+## Out-of-sample test on 2023
 
-- **OOS validation** on 2025-2026 after deciles are locked from 2024
-  data only. The +$272 number is in-sample.
-- **Combined-window sweep**: use 60m for shorts (best short cell was
-  60m decile 1 narrowly), 30m for longs, to test whether a two-window
-  approach beats single-window 30m.
-- **Threshold sweep**: gate boundaries here were picked from the
-  decile edges; a more aggressive cut (e.g., longs only when
-  imb ≥ +0.30, shorts only when imb ≤ -0.30) trades less but might
-  capture more of the per-trade edge — tradeoff against trade count.
+The 2024-2026 results above are in-sample (gate thresholds were chosen
+from the same window). The cleanest OOS test we can run with our data
+is to apply the **same gate values** (long ≥ −0.012, short ≤ +0.078)
+**blindly** to 2023, where 1m bars + bulk trades are available but
+were not consulted when picking the gate.
+
+Setup: rebuilt `data/sp500_membership.parquet` and the 30m breadth
+parquet to span 2022-01-03 → 2026-05-13 (added WTW and EG manual
+overrides for two NULL-FIGI Polygon `/events` chains that affect the
+2022-2023 window). Membership validation: 100% match against bulk
+parquets on all 16 sampled dates from 2022-01-03 through 2026-05-07.
+
+Then ran two backtests for SPY 2023-01-03 → 2023-12-29 (248 days):
+
+### Headline numbers
+
+| Metric | 2023 baseline | 2023 entry-filtered (same gate) | 2024-2026 entry-filtered (reference) |
+|---|---:|---:|---:|
+| Trades | 4,261 | 2,588 | 5,971 |
+| Win rate | 16.1% | 15.7% | 16.0% |
+| Gross $/share | **+$16** | **+$8** | +$272 |
+| PF | 1.025 | 1.019 | 1.213 |
+| Max DD | −$19 | −$34 | −$43 |
+| Net @ 1¢ spread | **−$31** | **−$21** | +$206 |
+
+**The strategy does not generalize OOS.** Three things to read out:
+
+1. **2023 gross is essentially zero.** +$16/share over 248 days at the
+   baseline is ~$0.004/trade. Filtered, +$8 is $0.003/trade. Either is
+   indistinguishable from noise. At realistic 1¢ r/t spread, both are
+   meaningful losers.
+2. **The filter HURTS in 2023.** Trade count drops 40% (4,261 → 2,588)
+   but gross drops 53% ($16 → $8). The filter is identifying
+   *worse-than-baseline* trades to keep — opposite of its 2024-2026
+   behavior. Max drawdown also got worse (-$34 vs -$19 baseline).
+3. **2023 decile structure is non-monotone.** The longs top decile
+   (imb +0.76) was a **−$7 loser**, not a winner; the best cell was
+   the middle (decile 7, imb +0.25). The bottom decile (imb -0.72)
+   was the WORST at -$16 — same direction as 2024-2026, so that part
+   replicates, but the top-decile effect inverts.
+
+### What the OOS structure looks like
+
+Below is the 2023 baseline decile table, for comparison with the
+30m table further up:
+
+**2023 LONGS by imbalance at entry**:
+
+| decile | imb mean | n | mean P&L | total P&L | PF |
+|---:|---:|---:|---:|---:|---:|
+| 1 | −0.683 | 215 | −0.034 | −7.21 | 0.84 |
+| 4 | −0.069 | 215 | +0.058 | +12.40 | 1.41 |
+| 5 | +0.026 | 215 | +0.010 | +2.12 | 1.06 |
+| 7 | +0.249 | 215 | **+0.135** | **+29.10** | **2.01** |
+| 10 | +0.759 | 214 | −0.035 | **−7.48** | 0.80 |
+
+**2023 SHORTS by imbalance at entry**:
+
+| decile | imb mean | n | mean P&L | total P&L | PF |
+|---:|---:|---:|---:|---:|---:|
+| 1 | −0.767 | 212 | −0.031 | **−6.50** | 0.84 |
+| 5 | −0.127 | 211 | +0.043 | +9.15 | 1.30 |
+| 9 | +0.413 | 211 | +0.034 | +7.07 | 1.25 |
+| 10 | +0.681 | 211 | −0.000 | −0.07 | 1.00 |
+
+For shorts, the bottom 4 deciles **all lose money** in 2023, with
+cumulative −$16. The decile-2 cell that was the **biggest winner**
+in 2024-2026 (+$70 at imb −0.45) is a **−$6 loser** in 2023. This
+inversion is what kills the filter.
+
+### 2023 monthly breakdown (filtered)
+
+| Month | Trades | Gross | PF | Net @ 1¢ |
+|---|---:|---:|---:|---:|
+| 2023-01 | 175 | +10.40 | 1.27 | +8.47 |
+| 2023-02 | 218 | **−12.29** | 0.72 | −14.69 |
+| 2023-03 | 249 | −5.84 | 0.89 | −8.58 |
+| 2023-04 | 181 | +1.03 | 1.04 | −0.96 |
+| 2023-05 | 214 | **−11.32** | 0.67 | −13.67 |
+| 2023-06 | 203 | +5.22 | 1.19 | +2.99 |
+| 2023-07 | 225 | +1.19 | 1.05 | −1.29 |
+| 2023-08 | 229 | **+11.37** | 1.33 | +8.85 |
+| 2023-09 | 187 | −2.53 | 0.91 | −4.59 |
+| 2023-10 | 226 | **+11.87** | 1.29 | +9.38 |
+| 2023-11 | 260 | −7.14 | 0.77 | −10.00 |
+| 2023-12 | 221 | +5.66 | 1.22 | +3.23 |
+
+**6 positive months, 6 negative.** No vol-event months in 2023 (the
+banking crisis in March wasn't the kind of sustained directional
+breadth move the strategy needs — it was a 2-day shock then mean
+reversion). The grinding-uptrend / low-vol regime of late 2023 was
+exactly the worst case for a flip strategy.
+
+### Honest interpretation
+
+This is the OOS test working as designed. The 2024-2026 in-sample edge
+appears to be **regime-specific** to a window with multiple high-vol
+trend-confirming events (April 2025 tariff shock, Nov 2025 spike, Feb
+2025 Trump-tariff threats, Dec 2024 election aftermath, April 2024
+mid-cycle correction). 2023 had no such events: it was a slow grind
+higher punctuated by quick 2-3 day shocks (SVB, debt ceiling, October
+correction), none of which produced sustained breadth-confirmed
+direction.
+
+**Three plausible interpretations:**
+
+a) **The signal works only during high-vol trend regimes.** If true,
+   the strategy should be paired with a regime filter (e.g., trade
+   only when realized vol over the past 20 days exceeds some
+   threshold). Worth testing but adds another in-sample knob.
+
+b) **The signal is genuine but the threshold is wrong for low-vol
+   regimes.** At lower imbalance variance, the same decile boundaries
+   are more permissive in absolute terms. Maybe quantile-based gates
+   (e.g., "longs in top 60% of recent imbalance distribution")
+   generalize better than fixed thresholds.
+
+c) **The original edge was largely in-sample fit.** With 5 months
+   carrying 51% of gross P&L, removing those 5 months would have left
+   only +$133 over 24 months = ~$5.5/month — a 30m-imbalance filter
+   could plausibly extract this from chance alignment with vol events.
+
+The honest read of (c) is that the +$272 is mostly explained by a few
+vol-event months where breadth-confirmed VWAP-flips happened to align
+with sustained directional moves. The OOS suggests that's not a
+generalizable edge but a regime-conditional phenomenon.
+
+### What this means for next steps
+
+- **Do not ship this strategy as-is.** The OOS performance is
+  net-negative.
+- **Either drop the approach OR add a regime filter.** A simple test:
+  apply the gate only when realized vol over the past 20 trading
+  days exceeds, say, the median over our 2024-2026 window. This is
+  *another* in-sample decision but it's a hypothesis that could be
+  separately OOS-validated by withholding part of 2024-2026 alongside
+  2023.
+- **Don't add more parameters at once.** Each additional knob
+  multiplies the risk that 2024-2026 is an in-sample fit. We've
+  already used the 30m window choice, two gate thresholds, and
+  effectively a regime assumption — too many degrees of freedom for
+  the data.
 
 ## Reproduction
 

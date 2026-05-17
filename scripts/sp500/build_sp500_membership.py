@@ -87,6 +87,12 @@ MANUAL_OVERRIDES: dict[str, list[tuple[date, str]]] = {
     # 2025-11-10 it WAS the active symbol for company-name "Fiserv". Suppress
     # the FIGI fallback to avoid the broken Polygon chain.
     'FI':   [(date(1900, 1, 1), 'FISV'), (date(2023, 6, 7), 'FI')],
+    # Willis Towers Watson: WLTW → WTW on 2022-01-10. Polygon's /events has
+    # the chain but with NULL FIGI so the resolver can't use it. Override.
+    'WTW':  [(date(1900, 1, 1), 'WLTW'), (date(2022, 1, 10), 'WTW')],
+    # Everest Group: RE → EG on 2023-07-10. Same issue — Polygon has the
+    # chain but no FIGI to link by.
+    'EG':   [(date(1900, 1, 1), 'RE'), (date(2023, 7, 10), 'EG')],
 
     # ── Suppress junk /events chains (when-issued tickers, etc.) ──
     # Agilent has traded as "A" since 1999; Polygon records a bogus
