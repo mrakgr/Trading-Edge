@@ -344,6 +344,67 @@ baseline +$42** — about **5× the realistic-friction P&L**. Even at
 worst-case 2¢ it stays comfortably positive (+$147), which is larger
 than the baseline's *gross* P&L.
 
+## Month-by-month breakdown (entry-filtered, 30m)
+
+Each row is the calendar month containing the trade's `exit_date`. `Net @ 1¢`
+applies the 1¢ round-trip spread + IBKR-tiered commission ($0.011/share).
+
+| Month | Trades | L | S | Win% | Gross | Long P&L | Short P&L | PF | Net @ 1¢ |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2024-01 | 220 | 118 | 102 | 17.3 | +0.81 | +3.61 | −2.80 | 1.02 | −1.61 |
+| 2024-02 | 236 | 122 | 114 | 16.5 | +6.01 | +9.30 | −3.30 | 1.23 | +3.41 |
+| 2024-03 | 252 | 108 | 144 | 11.5 | +4.72 | +6.09 | −1.37 | 1.15 | +1.95 |
+| 2024-04 | 221 | 109 | 112 | 16.3 | **+21.69** | −5.73 | +27.42 | 1.52 | +19.26 |
+| 2024-05 | 243 | 112 | 131 | 13.6 | +1.60 | +3.83 | −2.23 | 1.05 | −1.07 |
+| 2024-06 | 221 | 107 | 114 | 10.0 | **−6.48** | −0.85 | −5.63 | 0.79 | −8.91 |
+| 2024-07 | 194 | 87 | 107 | 16.0 | +9.61 | +0.45 | +9.16 | 1.28 | +7.47 |
+| 2024-08 | 196 | 87 | 109 | 16.8 | +17.44 | +2.93 | +14.51 | 1.35 | +15.28 |
+| 2024-09 | 223 | 117 | 106 | 17.9 | +16.86 | +6.49 | +10.37 | 1.39 | +14.40 |
+| 2024-10 | 226 | 103 | 123 | 15.0 | +5.03 | −3.39 | +8.42 | 1.13 | +2.54 |
+| 2024-11 | 160 | 79 | 81 | 17.5 | +13.16 | +12.12 | +1.04 | 1.46 | +11.40 |
+| 2024-12 | 188 | 99 | 89 | 17.6 | **+23.04** | +7.16 | +15.88 | 1.71 | +20.97 |
+| 2025-01 | 198 | 92 | 106 | 12.6 | **−6.04** | −4.68 | −1.36 | 0.88 | −8.22 |
+| 2025-02 | 195 | 93 | 102 | 14.4 | **+27.51** | +9.14 | +18.37 | 1.73 | +25.36 |
+| 2025-03 | 207 | 104 | 103 | 16.9 | +9.52 | +4.01 | +5.51 | 1.14 | +7.25 |
+| 2025-04 | 222 | 111 | 111 | 16.7 | **+36.79** | +51.83 | −15.04 | 1.30 | +34.35 |
+| 2025-05 | 228 | 108 | 120 | 18.0 | −0.38 | +10.51 | −10.90 | 0.99 | −2.89 |
+| 2025-06 | 217 | 101 | 116 | 17.1 | +10.01 | +8.94 | +1.07 | 1.26 | +7.62 |
+| 2025-07 | 188 | 89 | 99 | 20.7 | +14.88 | +7.50 | +7.38 | 1.58 | +12.81 |
+| 2025-08 | 196 | 97 | 99 | 14.8 | +2.66 | −0.24 | +2.90 | 1.08 | +0.50 |
+| 2025-09 | 235 | 117 | 118 | 14.0 | −2.19 | +6.19 | −8.38 | 0.94 | −4.77 |
+| 2025-10 | 204 | 95 | 109 | 18.6 | +15.54 | −5.28 | +20.81 | 1.32 | +13.29 |
+| 2025-11 | 164 | 66 | 98 | 18.9 | **+30.47** | +9.26 | +21.20 | 1.61 | +28.66 |
+| 2025-12 | 234 | 117 | 117 | 16.7 | **−14.19** | −10.39 | −3.80 | 0.70 | −16.76 |
+| 2026-01 | 204 | 94 | 110 | 12.7 | −5.69 | −4.04 | −1.65 | 0.87 | −7.93 |
+| 2026-02 | 185 | 76 | 109 | 15.7 | +1.23 | −1.40 | +2.63 | 1.02 | −0.80 |
+| 2026-03 | 226 | 125 | 101 | 17.3 | +13.32 | +3.91 | +9.41 | 1.18 | +10.84 |
+| 2026-04 | 227 | 109 | 118 | 16.7 | +16.81 | +25.10 | −8.30 | 1.39 | +14.31 |
+| 2026-05† | 61 | 29 | 32 | 21.3 | +8.24 | +9.23 | −0.99 | 1.71 | +7.57 |
+| **Total** | **5,971** | **2,871** | **3,100** | **16.0** | **+271.95** | **+161.60** | **+110.35** | **1.21** | **+206.27** |
+
+† 2026-05 partial (through 2026-05-13, 9 trading days).
+
+**Aggregate over 29 months**: 23 positive months gross (79%), 20 positive
+at 1¢ friction (69%). Mean +$9.38/month gross (σ $11.86) → monthly
+Sharpe ~0.79, ≈2.7 annualized before adjusting for autocorrelation.
+
+**Concentration risk**: top 5 months (2025-04, 2025-11, 2025-02, 2024-12,
+2024-04) sum to **$139 — 51% of all gross**. Each of those is a known
+vol-event month (April 2025 tariff shock, Feb 2025 Trump-tariff threats,
+Dec 2024 election aftermath / Fed-pivot positioning, April 2024 mid-cycle
+correction). The strategy needs a tape that commits direction for 30+
+minutes; chop months underperform.
+
+**Worst stretch**: Dec 2025 → Feb 2026 was −$14, −$6, +$1 = **−$19 over
+3 months**, the deepest sustained underperformance in the window. This
+period coincided with the late-2025 / early-2026 chop regime — short
+ranges, low realized vol, lots of mid-day reversals.
+
+**No persistent side bias**: 13 months are long-dominant, 12 are
+short-dominant, 4 are mixed. Whichever side has the larger gain swaps
+month to month — consistent with the gate doing its job (only allowing
+each side when breadth agrees).
+
 ## What still needs to be done
 
 - **OOS validation** on 2025-2026 after deciles are locked from 2024
