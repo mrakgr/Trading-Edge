@@ -118,19 +118,63 @@ rule: *skip shorts when 30m breadth is meaningfully positive*.
 **Hypothetical combined filter at 30m** (counted naively, not re-run as
 a backtest — see "What still needs to be done" below):
 
-| filter | trades | gross P&L | PF est. |
+| filter | trades | gross P&L | PF |
 |---|---:|---:|---:|
 | baseline | 9,547 | +$147 | 1.07 |
 | longs ∈ deciles 5-10 | 2,874 | +$161 | — |
 | shorts ∈ deciles 1-7 | 3,332 | +$112 | — |
-| both filters applied | 6,206 | **~+$273** | — |
+| **both filters applied** | **6,206** | **+$273** | **1.21** |
 
-**~85% more gross from ~35% fewer trades.** Friction headroom improves a
-lot — at $0.005/share commission round-trip the baseline (9,547 trades)
-pays ~$48 in commissions per share-unit; the filtered version
-(~6,206 trades) pays ~$31. Slippage on SPY at 1 spread tick (~$0.01)
-flips the baseline net-negative; the filtered version stays comfortably
-positive.
+**~85% more gross from ~35% fewer trades.** The friction picture is in
+the next section.
+
+## Friction sensitivity
+
+All numbers above are **gross**. For an active SPY scalper, the realistic
+per-round-trip friction is:
+
+- **Commission** (IBKR-tiered or modern zero-commission retail like
+  Schwab/Fidelity on SPY): ~$0.0005/share × 2 sides = **$0.001 r/t**.
+- **Spread cost**: SPY trades penny-wide all RTH. **Crossing the full
+  spread on both sides = $0.02 r/t.** Sitting on the inside both sides
+  = $0.00. Realistic mixed execution = **~$0.01 r/t** assumed below.
+
+Applying a flat friction reduction to each trade's P&L:
+
+| Scenario | Trades | Net $/share | PF |
+|---|---:|---:|---:|
+| **Baseline gross** | 9,547 | +$147 | 1.073 |
+| Baseline + commission only | 9,547 | +$137 | 1.068 |
+| Baseline + commission + 1¢ spread r/t | 9,547 | **+$42** | 1.020 |
+| Baseline + commission + 2¢ spread r/t | 9,547 | **−$53** | 0.976 |
+| **30m-filtered gross** | 6,206 | +$273 | 1.206 |
+| 30m-filtered + commission only | 6,206 | +$267 | 1.201 |
+| 30m-filtered + commission + 1¢ spread r/t | 6,206 | **+$205** | 1.148 |
+| 30m-filtered + commission + 2¢ spread r/t | 6,206 | **+$143** | 1.099 |
+
+**Two findings:**
+
+1. **The baseline is fragile.** A single penny of average round-trip
+   spread takes 71% of the gross edge ($147 → $42). At full-tick crossed
+   on every side, it goes negative ($−53). Whether the unfiltered
+   strategy makes money in production depends almost entirely on
+   execution quality.
+2. **The filtered version is friction-resistant.** Even at the
+   worst-case 2¢ assumption, the 30m-filtered strategy still nets
+   **+$143/share** with PF 1.10. At realistic 1¢, it nets **+$205** —
+   roughly 5× the baseline at the same friction level.
+
+**The percentage of gross captured at 1¢ r/t spread**:
+- baseline: $42 / $147 = **29%**
+- 30m-filtered: $205 / $273 = **75%**
+
+The filter doesn't just save commission by trading less. It concentrates
+the edge into bigger-magnitude trades (mean +$0.044/trade gross vs.
++$0.015/trade for the baseline), so the per-trade friction takes a
+smaller relative bite. Trading 35% fewer times saves ~$36/share in
+total friction at 1¢ — but the filtered version nets $163 *more* than
+the baseline at the same friction, so most of the improvement is from
+the deciles themselves.
 
 ### 60-minute VWMA
 
@@ -237,18 +281,80 @@ market regime.
    momentum) may have a different breadth-window sweet spot or even
    opposite sign.
 
+## Proper filtered backtest
+
+The naive bucketing above answers *"what's the P&L of trades in
+favorable deciles?"* — but skipping a trade in an always-in-flip
+strategy has knock-on effects on subsequent trades. To validate, the
+gate was baked into the strategy itself (TradingEdge.Vwap now supports
+`--breadth` + `--long-min-imb` + `--short-max-imb` + `--filter-mode`).
+
+Two filter modes were implemented:
+
+- **`entry`** (recommended): the gate is checked **only at VWAP-cross
+  events**. If the gate refuses the new side, the cross is skipped
+  (engine goes flat or stays flat until the next cross-and-gate-passes
+  event). The gate is **not** re-checked while a position is open. This
+  faithfully implements "filter the entries" semantics.
+- **`always`** (rejected): the gate is checked every bar; positions
+  flatten when the gate goes red and re-enter when it goes green. This
+  generated ~19k trades vs. ~6k from `entry`, with avg hold dropping
+  from 25 bars to 10. Net P&L collapsed to +$50 — the gate-induced
+  flat episodes break long holds into small ones and cut off trend
+  P&L.
+
+### entry-mode results at 30m, decile-5/decile-7 gate
+
+Gate: longs allowed when `imbalance ≥ -0.012`, shorts allowed when
+`imbalance ≤ +0.078`. Run via:
+
+```bash
+dotnet run --project TradingEdge.Vwap -c Release -- backtest \
+  -t SPY -s 2024-01-01 \
+  --breadth data/breadth/imbalance_vwma_30m.parquet \
+  --long-min-imb -0.012 --short-max-imb 0.078 \
+  --filter-mode entry
+```
+
+| Metric | Baseline | Naive estimate | Entry-filtered (real) |
+|---|---:|---:|---:|
+| Trades | 9,547 | 6,206 | **5,971** |
+| Win rate | 15.7% | — | 16.0% |
+| Net $/share | +$147 | +$273 | **+$272** |
+| PF | 1.073 | — | **1.213** |
+| Max drawdown | -$63 | — | **-$43** (better) |
+| Avg bars held | 25.2 | — | 26.5 |
+
+The naive bucketing's +$273 estimate landed within $1 of the real
+backtest's +$272 — they're functionally identical, which makes sense
+because the entry-filtered strategy is exactly "skip the bad-decile
+entries, hold the rest." Drawdown is *better* than baseline (-$43 vs
+-$63), which is a bonus: the trades being skipped were not just
+low-edge but also high-volatility.
+
+### Friction sensitivity, real numbers
+
+| Strategy | Trades | Gross | + commission | + 1¢ spread | + 2¢ spread |
+|---|---:|---:|---:|---:|---:|
+| Baseline | 9,547 | +$147 | +$137 | **+$42** | **−$53** |
+| Entry-filtered 30m | 5,971 | +$272 | +$266 | **+$206** | **+$147** |
+
+At realistic 1¢ r/t spread the filtered strategy nets **+$206 vs
+baseline +$42** — about **5× the realistic-friction P&L**. Even at
+worst-case 2¢ it stays comfortably positive (+$147), which is larger
+than the baseline's *gross* P&L.
+
 ## What still needs to be done
 
-- **Real filtered backtest** at the 30m window: re-run the VWAP engine
-  with the breadth gate baked in, produce a proper equity curve, and
-  show that the filtered version's cumulative P&L curve is smoother
-  (not just larger).
 - **OOS validation** on 2025-2026 after deciles are locked from 2024
-  data only.
-- **Combined-filter sweep at 60m for shorts only** (best short cell
-  was 60m decile 1, narrowly), to test whether a two-window approach
-  beats single-window 30m.
-- **Friction model** before any claims about net edge.
+  data only. The +$272 number is in-sample.
+- **Combined-window sweep**: use 60m for shorts (best short cell was
+  60m decile 1 narrowly), 30m for longs, to test whether a two-window
+  approach beats single-window 30m.
+- **Threshold sweep**: gate boundaries here were picked from the
+  decile edges; a more aggressive cut (e.g., longs only when
+  imb ≥ +0.30, shorts only when imb ≤ -0.30) trades less but might
+  capture more of the per-trade edge — tradeoff against trade count.
 
 ## Reproduction
 
