@@ -29,21 +29,22 @@ import duckdb
 
 DEFAULT_BARS_DIR = '/home/mrakgr/Trading-Edge/data/minute_bars_1m'
 DEFAULT_MEMBERSHIP = '/home/mrakgr/Trading-Edge/data/sp500_membership.parquet'
-DEFAULT_OUT = '/home/mrakgr/Trading-Edge/data/breadth/imbalance_vwma_4m.parquet'
+DEFAULT_OUT_TEMPLATE = '/home/mrakgr/Trading-Edge/data/breadth/imbalance_vwma_{minutes}m.parquet'
+DEFAULT_WINDOW_MINUTES = 4
 
 RTH_START_BUCKET = 330
 RTH_END_BUCKET = 719  # 15:59 close inclusive
-# Pull 3 premarket bars of lookback (327, 328, 329) so the VWMA window is
-# always 4 bars wide — including for the 09:30 open bar (330). The premarket
-# 1m bars are in the same parquet (buckets 0..329) and use the same lit-only
+# The VWMA window covers `window_minutes` bars including the current one;
+# we pull `window_minutes - 1` bars of lookback from premarket (or earlier
+# RTH) so the 09:30 open bar always sees a full window. The premarket 1m
+# bars are in the same parquet (buckets 0..329) and use the same lit-only
 # filter as RTH, so they're a clean lookback source.
-VWMA_LOOKBACK_BUCKETS = 3
 
-# Day-level SQL. Computes trailing 4-bar VWMA per ticker with a window
+# Day-level SQL. Computes trailing N-bar VWMA per ticker with a window
 # function, classifies each RTH bar against its ticker's VWMA, and aggregates
-# across the per-date S&P 500 set. The window function reads 3 premarket bars
-# of lookback so the first RTH bar (330) has a full 4-bar VWMA. We then drop
-# premarket rows in the final SELECT — they were lookback only.
+# across the per-date S&P 500 set. The window function reads (N-1) bars of
+# lookback so the first RTH bar (330) has a full N-bar VWMA. We then drop
+# pre-RTH rows in the final SELECT — they were lookback only.
 DAY_SQL = """
 WITH bars AS (
     SELECT
@@ -71,7 +72,7 @@ with_vwma AS (
                 PARTITION BY ticker ORDER BY bucket
                 ROWS BETWEEN {lookback} PRECEDING AND CURRENT ROW
             ), 0
-        ) AS vwma_4m,
+        ) AS vwma,
         -- Count of bars actually in the window (after premarket-volume gaps).
         COUNT(*) OVER (
             PARTITION BY ticker ORDER BY bucket
@@ -83,12 +84,12 @@ classified AS (
     SELECT
         bucket,
         dollar_volume,
-        -- Require the full 4-bar window. If a ticker traded fewer than 4 of
-        -- the last 4 minutes (premarket gaps + 09:30), it doesn't vote.
+        -- Require the full N-bar window. If a ticker traded fewer than N
+        -- of the last N minutes (e.g., premarket gaps), it doesn't vote.
         CASE
-            WHEN window_bars < 4 OR vwma_4m IS NULL THEN 'neutral'
-            WHEN vwap > vwma_4m  THEN 'buy'
-            WHEN vwap < vwma_4m  THEN 'sell'
+            WHEN window_bars < {window_bars} OR vwma IS NULL THEN 'neutral'
+            WHEN vwap > vwma  THEN 'buy'
+            WHEN vwap < vwma  THEN 'sell'
             ELSE 'neutral'
         END AS side
     FROM with_vwma
@@ -109,19 +110,21 @@ ORDER BY bucket;
 
 
 def build_one_day(con: duckdb.DuckDBPyConnection, bars_dir: str,
-                  membership_path: str, d: date) -> bool:
+                  membership_path: str, d: date, window_minutes: int) -> bool:
     """Insert one day's breadth rows. Returns True if the parquet existed."""
     bars_path = Path(bars_dir) / f'{d.isoformat()}.parquet'
     if not bars_path.exists():
         return False
+    lookback = window_minutes - 1
     sql = DAY_SQL.format(
         bars_path=bars_path.as_posix(),
         membership_path=membership_path,
         date_str=d.isoformat(),
         rth_start=RTH_START_BUCKET,
         rth_end=RTH_END_BUCKET,
-        lookback_start=RTH_START_BUCKET - VWMA_LOOKBACK_BUCKETS,
-        lookback=VWMA_LOOKBACK_BUCKETS,
+        lookback_start=RTH_START_BUCKET - lookback,
+        lookback=lookback,
+        window_bars=window_minutes,
     )
     con.execute(f"INSERT INTO breadth {sql}")
     return True
@@ -134,8 +137,16 @@ def main() -> int:
                    help='inclusive (yyyy-mm-dd); default: latest bars parquet')
     p.add_argument('--bars-dir', default=DEFAULT_BARS_DIR)
     p.add_argument('--membership', default=DEFAULT_MEMBERSHIP)
-    p.add_argument('--out', default=DEFAULT_OUT)
+    p.add_argument('--window-minutes', type=int, default=DEFAULT_WINDOW_MINUTES,
+                   help='VWMA window length in minutes (default: 4)')
+    p.add_argument('--out', default=None,
+                   help='output path (default: data/breadth/imbalance_vwma_{N}m.parquet)')
     args = p.parse_args()
+
+    if args.window_minutes < 2:
+        print('--window-minutes must be >= 2', file=sys.stderr)
+        return 1
+    out_path_str = args.out or DEFAULT_OUT_TEMPLATE.format(minutes=args.window_minutes)
 
     start = datetime.strptime(args.start, '%Y-%m-%d').date()
     bars_files = sorted(Path(args.bars_dir).glob('*.parquet'))
@@ -146,7 +157,8 @@ def main() -> int:
     end = (datetime.strptime(args.end, '%Y-%m-%d').date()
            if args.end else latest)
 
-    print(f'Building imbalance breadth for {start}..{end}', file=sys.stderr)
+    print(f'Building {args.window_minutes}m-VWMA imbalance breadth for {start}..{end}',
+          file=sys.stderr)
 
     con = duckdb.connect(':memory:')
     # Stage table; we'll dump it to parquet at the end.
@@ -171,7 +183,7 @@ def main() -> int:
 
     started = time.time()
     for i, d in enumerate(candidates, 1):
-        build_one_day(con, args.bars_dir, args.membership, d)
+        build_one_day(con, args.bars_dir, args.membership, d, args.window_minutes)
         if i % 25 == 0 or i == len(candidates):
             elapsed = time.time() - started
             rate = i / max(elapsed, 1e-6)
@@ -181,7 +193,7 @@ def main() -> int:
                   f'{cumulative_rows:,} rows  {rate:.1f} days/s  eta={eta:.0f}s',
                   file=sys.stderr)
 
-    out_path = Path(args.out)
+    out_path = Path(out_path_str)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     # Add the imbalance column at write time so storage stays small.
     con.execute(f"""
