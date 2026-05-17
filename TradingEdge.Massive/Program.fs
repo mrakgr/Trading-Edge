@@ -156,6 +156,32 @@ type DownloadTickersArgs =
             match this with
             | Output_File _ -> "Output CSV path (default: data/tickers.csv)"
 
+type DownloadTickerEventsArgs =
+    | [<AltCommandLine("-d")>] Database of string
+    | [<AltCommandLine("-o")>] Output_Dir of string
+    | [<AltCommandLine("-p")>] Parallelism of int
+    | [<AltCommandLine("-t")>] Tickers of string
+
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Database _ -> "DuckDB database for ticker list (default: data/trading.db). Ignored if --tickers is set."
+            | Output_Dir _ -> "Output directory for per-ticker JSON files (default: data/tickers/events)"
+            | Parallelism _ -> "Concurrent requests (default: 8)"
+            | Tickers _ -> "Comma-separated tickers to download (default: every ticker in ticker_reference)"
+
+type IngestTickerEventsArgs =
+    | [<AltCommandLine("-d")>] Database of string
+    | [<AltCommandLine("-i")>] Input_Dir of string
+    | [<AltCommandLine("-o")>] Output_Parquet of string
+
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Database _ -> "DuckDB database (default: data/trading.db)"
+            | Input_Dir _ -> "Directory of per-ticker JSON files (default: data/tickers/events)"
+            | Output_Parquet _ -> "Output parquet (default: data/tickers/events.parquet)"
+
 type ContinuationPlaysArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
     | [<AltCommandLine("-e")>] End_Date of string
@@ -358,6 +384,8 @@ type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Convert_Trades_To_Parquet of ParseResults<ConvertTradesToParquetArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Minute_Bars of ParseResults<BuildMinuteBarsArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Premarket_Volume of ParseResults<BuildPremarketVolumeArgs>
+    | [<CliPrefix(CliPrefix.None)>] Download_Ticker_Events of ParseResults<DownloadTickerEventsArgs>
+    | [<CliPrefix(CliPrefix.None)>] Ingest_Ticker_Events of ParseResults<IngestTickerEventsArgs>
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -381,6 +409,8 @@ type Arguments =
             | Convert_Trades_To_Parquet _ -> "One-shot migration: convert data/trades/*/*.json to zstd-compressed Parquet and delete the JSON originals"
             | Build_Minute_Bars _ -> "Build 1m time-bar aggregates from bulk trades (lit-only, 04:00-20:00 ET, 960 buckets/day)"
             | Build_Premarket_Volume _ -> "Materialize the premarket_volume_daily table from data/minute_bars_1m/*.parquet"
+            | Download_Ticker_Events _ -> "Download ticker rename/event chains from Polygon /vX/reference/tickers/{ticker}/events"
+            | Ingest_Ticker_Events _ -> "Flatten data/tickers/events/*.json -> data/tickers/events.parquet -> ticker_events table"
 
 let private ensureDataDir () =
     Directory.CreateDirectory("data") |> ignore
@@ -829,6 +859,66 @@ let private handleDownloadTickers (config: MassiveConfig) (args: ParseResults<Do
     | Error msg ->
         eprintfn "Error downloading tickers: %s" msg
         exit 1
+
+let private handleDownloadTickerEvents (config: MassiveConfig) (args: ParseResults<DownloadTickerEventsArgs>) =
+    ensureDataDir ()
+    let outputDir =
+        args.TryGetResult DownloadTickerEventsArgs.Output_Dir
+        |> Option.defaultValue "data/tickers/events"
+    let parallelism = args.GetResult(DownloadTickerEventsArgs.Parallelism, defaultValue = 8)
+
+    let tickers =
+        match args.TryGetResult DownloadTickerEventsArgs.Tickers with
+        | Some s ->
+            s.Split(',')
+            |> Array.map (fun t -> t.Trim())
+            |> Array.filter (fun t -> t.Length > 0)
+            |> Array.toList
+        | None ->
+            let dbPath =
+                args.TryGetResult DownloadTickerEventsArgs.Database
+                |> Option.defaultValue "data/trading.db"
+            use conn = new DuckDB.NET.Data.DuckDBConnection($"Data Source={dbPath}")
+            conn.Open()
+            use cmd = conn.CreateCommand()
+            cmd.CommandText <- "SELECT DISTINCT ticker FROM ticker_reference ORDER BY ticker"
+            use rdr = cmd.ExecuteReader()
+            [ while rdr.Read() do yield rdr.GetString(0) ]
+
+    printfn "Downloading events for %d tickers (parallelism=%d) -> %s"
+        tickers.Length parallelism outputDir
+
+    use httpClient = new HttpClient()
+    httpClient.Timeout <- TimeSpan.FromSeconds(30.0)
+    use cts = new CancellationTokenSource()
+
+    let ok, notFound, failed =
+        TickerEventsDownload.downloadAll httpClient config.ApiKey tickers outputDir parallelism cts.Token
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+
+    printfn ""
+    printfn "Done. ok=%d  not_found=%d  failed=%d" ok notFound failed
+    if failed > 0 then
+        eprintfn "WARNING: %d tickers failed -- re-run to retry (idempotent; skips existing files)." failed
+
+let private handleIngestTickerEvents (args: ParseResults<IngestTickerEventsArgs>) =
+    let dbPath =
+        args.TryGetResult IngestTickerEventsArgs.Database
+        |> Option.defaultValue "data/trading.db"
+    let jsonDir =
+        args.TryGetResult IngestTickerEventsArgs.Input_Dir
+        |> Option.defaultValue "data/tickers/events"
+    let parquet =
+        args.TryGetResult IngestTickerEventsArgs.Output_Parquet
+        |> Option.defaultValue "data/tickers/events.parquet"
+
+    // Make sure the table exists before we INSERT into it.
+    do
+        use conn = new DuckDB.NET.Data.DuckDBConnection($"Data Source={dbPath}")
+        conn.Open()
+        Database.executeNamedResource conn "ticker_events.sql"
+    TickerEventsIngest.buildAndLoad jsonDir parquet dbPath
 
 let private handleContinuationPlays (args: ParseResults<ContinuationPlaysArgs>) =
     let endDate =
@@ -1491,6 +1581,11 @@ let main argv =
                 handleBuildMinuteBars args
             | Build_Premarket_Volume args ->
                 handleBuildPremarketVolume args
+            | Download_Ticker_Events args ->
+                let config = loadConfigOrFail configPath
+                handleDownloadTickerEvents config args
+            | Ingest_Ticker_Events args ->
+                handleIngestTickerEvents args
 
         0
     with

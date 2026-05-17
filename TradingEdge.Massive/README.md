@@ -312,6 +312,49 @@ dotnet run --project TradingEdge.Massive -- ingest-data
 
 The ETF universe changes slowly — once a quarter is plenty. Run it once (followed by `ingest-data`) before your first `gap-play` query so the ETF filter has data to match against.
 
+### Download Ticker Events (rename / corporate-event chains)
+
+Downloads the per-ticker event chain from Polygon's `/vX/reference/tickers/{ticker}/events` endpoint — primarily ticker-change events (e.g., FB → META, FISV → FI, PEAK → DOC). Each chain is anchored by `composite_figi` so you can link historical and current symbols for the same security.
+
+```bash
+dotnet run --project TradingEdge.Massive -- download-ticker-events [options]
+```
+
+**Options:**
+- `-d, --database <path>` - DuckDB database for ticker list (default: data/trading.db). Ignored if `--tickers` is set.
+- `-o, --output-dir <path>` - Per-ticker JSON output directory (default: data/tickers/events)
+- `-p, --parallelism <n>` - Concurrent requests (default: 8)
+- `-t, --tickers <csv>` - Comma-separated tickers to download (default: every ticker in `ticker_reference`)
+
+**Idempotent**: skips any ticker that already has a JSON on disk. 404 responses are persisted as `{"status":"NOT_FOUND",...}` so they're also skipped on re-run. Re-running only re-fetches genuine network failures.
+
+**Output:**
+- `data/tickers/events/{ticker}.json` — one file per ticker, raw API response. This is the durable copy; the DuckDB table is rebuilt from these.
+
+**Notes on the events chain:**
+- Polygon returns the chain when queried by the *originating* symbol. Querying `FISV/events` returns the full FB→META-style chain; querying `FI/events` typically returns 404.
+- The "ticker change" date can differ from the index-effective date by 1-2 days. Polygon uses the symbol-swap announcement / first-trading-day; S&P's "Selected changes" log uses the index-effective date.
+- Tickers do get recycled — e.g., `FB` is now classified as ETF after Meta dropped the symbol. The `query_ticker` + `event_date` pair is required for unambiguous identity.
+
+### Ingest Ticker Events
+
+Flattens the per-ticker JSONs into a single parquet and loads them into the `ticker_events` table.
+
+```bash
+dotnet run --project TradingEdge.Massive -- ingest-ticker-events [options]
+```
+
+**Options:**
+- `-d, --database <path>` - DuckDB database (default: data/trading.db)
+- `-i, --input-dir <path>` - Per-ticker JSON dir (default: data/tickers/events)
+- `-o, --output-parquet <path>` - Output parquet (default: data/tickers/events.parquet)
+
+**Output:**
+- `data/tickers/events.parquet` — flattened (query_ticker, figi, name, cik, event_date, event_type, event_ticker)
+- `ticker_events` table in DuckDB, loaded from that parquet (truncate-and-insert; safe to re-run)
+
+`NOT_FOUND` responses produce no rows. The parquet is the source of truth; the table is just for SQL convenience.
+
 ### Ingest Data
 
 Ingests downloaded daily aggregates, splits, dividends, and the ETF ticker reference into a DuckDB database. Each source is independently gated by file existence, so you can re-run after refreshing only one of them.
