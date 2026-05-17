@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TDigest", "t-digest-csharp\
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TradingEdge.CryptoLake", "TradingEdge.CryptoLake\TradingEdge.CryptoLake.fsproj", "{817DD82A-022B-4FB8-8463-82E462010127}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TradingEdge.Vwap", "TradingEdge.Vwap\TradingEdge.Vwap.fsproj", "{B792AE44-B090-47D5-BF81-13F162509C55}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -113,6 +115,18 @@ Global
 		{817DD82A-022B-4FB8-8463-82E462010127}.Release|x64.Build.0 = Release|Any CPU
 		{817DD82A-022B-4FB8-8463-82E462010127}.Release|x86.ActiveCfg = Release|Any CPU
 		{817DD82A-022B-4FB8-8463-82E462010127}.Release|x86.Build.0 = Release|Any CPU
+		{B792AE44-B090-47D5-BF81-13F162509C55}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B792AE44-B090-47D5-BF81-13F162509C55}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B792AE44-B090-47D5-BF81-13F162509C55}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B792AE44-B090-47D5-BF81-13F162509C55}.Debug|x64.Build.0 = Debug|Any CPU
+		{B792AE44-B090-47D5-BF81-13F162509C55}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B792AE44-B090-47D5-BF81-13F162509C55}.Debug|x86.Build.0 = Debug|Any CPU
+		{B792AE44-B090-47D5-BF81-13F162509C55}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B792AE44-B090-47D5-BF81-13F162509C55}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B792AE44-B090-47D5-BF81-13F162509C55}.Release|x64.ActiveCfg = Release|Any CPU
+		{B792AE44-B090-47D5-BF81-13F162509C55}.Release|x64.Build.0 = Release|Any CPU
+		{B792AE44-B090-47D5-BF81-13F162509C55}.Release|x86.ActiveCfg = Release|Any CPU
+		{B792AE44-B090-47D5-BF81-13F162509C55}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
