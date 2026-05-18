@@ -12,6 +12,7 @@ Fields kept in the Parquet file (and returned here):
     price                  float
     size                   float
     conditions             list[int] | None
+    trf_id                 int64   0 = lit print; non-zero = TRF/dark print
 
 Fields dropped on migration (never read downstream):
     id, exchange, sequence_number, tape
@@ -33,7 +34,7 @@ def load_trades(path: str) -> list[dict]:
     conn = duckdb.connect(":memory:")
     rows = conn.execute(
         """
-        SELECT participant_timestamp, sip_timestamp, price, size, conditions
+        SELECT participant_timestamp, sip_timestamp, price, size, conditions, trf_id
         FROM read_parquet(?)
         ORDER BY
             CASE WHEN participant_timestamp <> 0
@@ -51,6 +52,7 @@ def load_trades(path: str) -> list[dict]:
             "price": r[2],
             "size": int(r[3]),
             "conditions": list(r[4]) if r[4] is not None else None,
+            "trf_id": r[5],
         }
         for r in rows
     ]
