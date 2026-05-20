@@ -43,6 +43,28 @@ let inline readStruct<'T when 'T : (new : unit -> 'T) and 'T : struct and 'T :> 
         ArrayPool<byte>.Shared.Return(buf)
 }
 
+/// Like readStruct, but returns None on a clean EOF before any bytes of the
+/// record have arrived. A partial read mid-record propagates as
+/// EndOfStreamException from the underlying ReadExactlyAsync — i.e. the file
+/// is treated as corrupt.
+let inline tryReadStruct<'T when 'T : (new : unit -> 'T) and 'T : struct and 'T :> ValueType> (s: Stream) : 'T option Task = task {
+    let size = sizeof<'T>
+    let buf = ArrayPool<byte>.Shared.Rent(size)
+    try
+        // One ReadAsync to detect clean EOF (returns 0 with no bytes consumed).
+        let! firstByte = s.ReadAsync(Memory(buf, 0, 1))
+        if firstByte = 0 then
+            return None
+        else
+            // We have at least one byte; the rest must arrive in full or the
+            // file is truncated. ReadExactlyAsync throws EndOfStreamException
+            // on short read.
+            do! s.ReadExactlyAsync(Memory(buf, 1, size - 1))
+            return Some (MemoryMarshal.Read<'T>(ReadOnlySpan(buf, 0, size)))
+    finally
+        ArrayPool<byte>.Shared.Return(buf)
+}
+
 /// Read the 8-byte prelude. Throws if magic is wrong or version isn't in [1..3].
 let readPrelude (s: Stream) : DbnPrelude Task = task {
     let! p = readStruct<DbnPrelude> s
