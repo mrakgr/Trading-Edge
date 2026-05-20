@@ -55,3 +55,31 @@ let readMboRecords (s: Stream) : IAsyncEnumerable<MboMsg> = taskSeq {
                         RTYPE_MBO m.RType m.Sequence))
             yield m
 }
+
+/// K-way merge of a list of sorted MBO record sequences, ordered by ts_event.
+/// Each input must already be in non-decreasing ts_event order (true for raw
+/// per-venue DBN streams). Uses a min-heap keyed on ts_event.
+let mergeByTsEvent (streams: IAsyncEnumerable<MboMsg> list) : IAsyncEnumerable<MboMsg> =
+    taskSeq {
+        let enumerators =
+            streams
+            |> List.map (fun s -> s.GetAsyncEnumerator())
+        try
+            // Priority queue keyed on (ts_event, source index) so ties are stable.
+            let pq = PriorityQueue<int, struct (int64 * int)>()
+            for i in 0 .. enumerators.Length - 1 do
+                let e = enumerators.[i]
+                let! b = e.MoveNextAsync()
+                if b then
+                    pq.Enqueue(i, struct (e.Current.TsEvent, i))
+            while pq.Count > 0 do
+                let i = pq.Dequeue()
+                let e = enumerators.[i]
+                yield e.Current
+                let! b = e.MoveNextAsync()
+                if b then
+                    pq.Enqueue(i, struct (e.Current.TsEvent, i))
+        finally
+            for e in enumerators do 
+                let! _ = e.DisposeAsync() in ()
+    }
