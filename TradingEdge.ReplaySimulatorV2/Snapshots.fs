@@ -74,9 +74,9 @@ let buildAsync (merged: IAsyncEnumerable<MboMsg>) : Task<SnapshotStore> = task {
     //
     // This costs ~13M * 56 bytes = ~730MB transient for a busy day. Acceptable
     // for desktop; would need work for production.
-    let recordList = ResizeArray<MboMsg>()
+    let recordList = ImmutableArray.CreateBuilder()
     for m in merged do recordList.Add m
-    let records = ImmutableArray.CreateRange(recordList :> seq<MboMsg>)
+    let records = recordList.ToImmutableArray()
 
     if records.Length = 0 then
         return {

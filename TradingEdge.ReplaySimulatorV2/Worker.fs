@@ -54,7 +54,7 @@ let start
 
             // Emit an initial frame so the UI has something to render before Play
             // is pressed.
-            let initial = player.Play t
+            let initial : PlayResult = player.Play t
             writer.TryWrite(initial) |> ignore
 
             try
