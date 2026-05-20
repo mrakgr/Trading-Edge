@@ -74,6 +74,88 @@ let mergeByTsEvent (streams: seq<MboMsg> list) : seq<MboMsg> =
             for e in enumerators do e.Dispose()
     }
 
+/// Streaming bar builder. Feed T records one at a time; on each feed get back
+/// either:
+///   * the still-forming current bar (use it to live-update the last chart bar)
+///   * a (closed bar, new current bar) pair when a bucket boundary is crossed
+///
+/// Non-T records are ignored. Caller is responsible for skipping pre-RTH ticks
+/// from VWAP if desired — the aggregator already handles that internally.
+type FeedResult =
+    | NoChange                  // record skipped (not a T) — chart need not redraw
+    | Forming of Bar            // current bar updated, no boundary crossed
+    | Closed of closedBar: Bar * newCurrent: Bar  // bucket flipped; closed bar is final
+
+type BarAggregator() =
+    let mutable currentBucket = Int64.MinValue
+    let mutable bOpen = 0.0
+    let mutable bHigh = Double.MinValue
+    let mutable bLow = Double.MaxValue
+    let mutable bClose = 0.0
+    let mutable bVol = 0L
+    let mutable bCount = 0
+    let mutable bNotional = 0.0
+    let mutable sessNotional = 0.0
+    let mutable sessVol = 0L
+
+    let snapshot () : Bar =
+        let barVwap = if bVol > 0L then bNotional / float bVol else bClose
+        let sessVwap = if sessVol > 0L then Some (sessNotional / float sessVol) else None
+        {
+            BucketStartNs = currentBucket
+            Open = bOpen
+            High = bHigh
+            Low = bLow
+            Close = bClose
+            Volume = bVol
+            TradeCount = bCount
+            BarVwap = barVwap
+            SessionVwap = sessVwap
+        }
+
+    /// Currently-forming bar (may be a zero-trade placeholder before the first feed).
+    member _.Current : Bar option =
+        if bCount = 0 then None else Some (snapshot ())
+
+    /// Feed one MBO record. Returns a FeedResult describing what changed.
+    member _.Feed (m: MboMsg) : FeedResult =
+        if m.Action <> ACTION_T then NoChange
+        else
+            let price = priceToUsd m.Price
+            let size = int64 m.Size
+            let bucket = (m.TsEvent / BAR_NS) * BAR_NS
+            if bucket <> currentBucket then
+                // Boundary: snapshot the old bar (if any), start a new one with this trade.
+                let closed =
+                    if bCount > 0 then Some (snapshot ()) else None
+                currentBucket <- bucket
+                bOpen <- price
+                bHigh <- price
+                bLow <- price
+                bClose <- price
+                bVol <- size
+                bCount <- 1
+                bNotional <- price * float size
+                if isAtOrAfterRthOpen m.TsEvent then
+                    sessNotional <- sessNotional + bNotional
+                    sessVol <- sessVol + size
+                let newCur = snapshot ()
+                match closed with
+                | Some c -> Closed (c, newCur)
+                | None -> Forming newCur
+            else
+                if price > bHigh then bHigh <- price
+                if price < bLow then bLow <- price
+                bClose <- price
+                bVol <- bVol + size
+                bCount <- bCount + 1
+                let notional = price * float size
+                bNotional <- bNotional + notional
+                if isAtOrAfterRthOpen m.TsEvent then
+                    sessNotional <- sessNotional + notional
+                    sessVol <- sessVol + size
+                Forming (snapshot ())
+
 /// Fold a merged MBO stream into 1-minute bars. Only T records contribute.
 let aggregateBars (merged: seq<MboMsg>) : Bar list =
     let bars = ResizeArray<Bar>()

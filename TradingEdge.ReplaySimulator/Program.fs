@@ -70,19 +70,21 @@ let private runScan (target: string) =
         printfn ""
 
 let private runChart (dayDir: string) (symbol: string) (date: string) =
-    printfn "Loading %s %s from %s ..." symbol date dayDir
-    let sw = System.Diagnostics.Stopwatch.StartNew()
-    let bars, venues = Bars.loadDayBars dayDir
-    sw.Stop()
-    printfn "  %d bars built in %.2fs (across %d venues)" bars.Length sw.Elapsed.TotalSeconds venues.Length
-    if bars.IsEmpty then
-        printfn "No trades found — nothing to chart."
-        venues |> List.iter (fun v -> v.Disposable.Dispose())
+    printfn "Opening %s %s from %s ..." symbol date dayDir
+    let files =
+        Directory.GetFiles(dayDir, "*.dbn.zst")
+        |> Array.sort
+        |> Array.toList
+    if files.IsEmpty then
+        printfn "No .dbn.zst files in %s — nothing to replay." dayDir
     else
+        let venues = files |> List.map openVenue
+        let merged = Bars.mergeByTsEvent (venues |> List.map (fun v -> v.Records))
+        printfn "  %d venues opened; replay engine ready." venues.Length
         try
             let app =
                 AppBuilder
-                    .Configure<App.App>(fun () -> App.App(symbol, date, bars))
+                    .Configure<App.App>(fun () -> App.App(symbol, date, merged, venues.Length))
                     .UsePlatformDetect()
                     .LogToTrace()
             app.StartWithClassicDesktopLifetime([||]) |> ignore

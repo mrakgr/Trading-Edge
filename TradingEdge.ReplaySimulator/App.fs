@@ -4,9 +4,9 @@ open System
 open Avalonia
 open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Themes.Fluent
-open TradingEdge.ReplaySimulator.Bars
+open TradingEdge.ReplaySimulator.Dbn
 
-type App(symbol: string, date: string, bars: Bar list) =
+type App(symbol: string, date: string, mergedStream: seq<MboMsg>, totalVenues: int) =
     inherit Application()
 
     override this.Initialize() =
@@ -16,6 +16,6 @@ type App(symbol: string, date: string, bars: Bar list) =
     override this.OnFrameworkInitializationCompleted() =
         match this.ApplicationLifetime with
         | :? IClassicDesktopStyleApplicationLifetime as desktop ->
-            desktop.MainWindow <- MainWindow.create symbol date bars
+            desktop.MainWindow <- MainWindow.create symbol date mergedStream totalVenues
         | _ -> ()
         base.OnFrameworkInitializationCompleted()
