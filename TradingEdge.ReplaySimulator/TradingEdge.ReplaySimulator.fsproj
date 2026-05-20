@@ -3,16 +3,26 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
+    <RollForward>LatestMajor</RollForward>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="Dbn.fs" />
     <Compile Include="MboReader.fs" />
+    <Compile Include="Bars.fs" />
+    <Compile Include="Tooltip.fs" />
+    <Compile Include="ChartView.fs" />
+    <Compile Include="MainWindow.fs" />
+    <Compile Include="App.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
+    <PackageReference Include="Avalonia" Version="11.3.*" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.*" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.*" />
+    <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.4" />
   </ItemGroup>
 
 </Project>
