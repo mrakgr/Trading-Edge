@@ -21,6 +21,9 @@ open System.Threading.Tasks
 
 let MAGIC : byte[] = [| byte 'D'; byte 'B'; byte 'N' |]
 
+let SCHEMA_MBO  : uint16 = 0us       // Schema::Mbo in DBN enums
+let SCHEMA_NONE : uint16 = 0xFFFFus  // mixed-schema sentinel
+
 /// 8-byte file prelude.
 [<Struct; StructLayout(LayoutKind.Sequential, Pack = 1)>]
 type DbnPrelude = {
