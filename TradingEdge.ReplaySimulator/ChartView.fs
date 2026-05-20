@@ -63,11 +63,31 @@ let build (bars: Bar list) : CartesianChart =
     candleSeries.UpStroke <- mkStrokePaint upColor 1.0f
     candleSeries.DownStroke <- mkStrokePaint downColor 1.0f
     candleSeries.Name <- "OHLC"
-    // Default tooltip formatter uses arrow/dot glyphs the bundled Skia font can't
-    // render — override with plain ASCII single-line OHLC.
-    candleSeries.YToolTipLabelFormatter <- fun (cp: LiveChartsCore.Kernel.ChartPoint<FinancialPoint, _, _>) ->
-        let fp = cp.Model
-        sprintf "O %.4f  H %.4f  L %.4f  C %.4f" fp.Open fp.High fp.Low fp.Close
+    // Candle's own tooltip row would use missing-glyph chars. Suppress its row and
+    // synthesize O/H/L/C as separate invisible series below.
+    candleSeries.IsHoverable <- false
+
+    // Invisible per-field series so each OHLC value gets its own tooltip row.
+    // Stroke/fill nulled and geometry size 0 → no marker drawn or shown on hover.
+    let mkOhlcSeries (name: string) (extract: Bar -> double) =
+        let pts = ResizeArray<DateTimePoint>()
+        for b in bars do
+            pts.Add(DateTimePoint(toNyTime b.BucketStartNs, Nullable<double>(extract b)))
+        let s = LineSeries<DateTimePoint>()
+        s.Values <- pts
+        s.Stroke <- null
+        s.Fill <- null
+        s.GeometrySize <- 0.0
+        s.GeometryStroke <- null
+        s.GeometryFill <- null
+        s.Name <- name
+        s.YToolTipLabelFormatter <- fun cp ->
+            sprintf "%.4f" (cp.Model.Value.GetValueOrDefault 0.0)
+        s
+    let openSeries  = mkOhlcSeries "O" (fun b -> b.Open)
+    let highSeries  = mkOhlcSeries "H" (fun b -> b.High)
+    let lowSeries   = mkOhlcSeries "L" (fun b -> b.Low)
+    let closeSeries = mkOhlcSeries "C" (fun b -> b.Close)
 
     // ---------- VWAP line (overlaid in price pane) ----------
     let vwapPoints =
@@ -106,6 +126,10 @@ let build (bars: Bar list) : CartesianChart =
     chart.Series <- [|
         volSeries :> ISeries
         candleSeries :> ISeries
+        openSeries :> ISeries
+        highSeries :> ISeries
+        lowSeries :> ISeries
+        closeSeries :> ISeries
         vwapSeries :> ISeries
     |]
 
