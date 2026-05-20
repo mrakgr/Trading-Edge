@@ -63,6 +63,11 @@ let build (bars: Bar list) : CartesianChart =
     candleSeries.UpStroke <- mkStrokePaint upColor 1.0f
     candleSeries.DownStroke <- mkStrokePaint downColor 1.0f
     candleSeries.Name <- "OHLC"
+    // Default tooltip formatter uses arrow/dot glyphs the bundled Skia font can't
+    // render — override with plain ASCII single-line OHLC.
+    candleSeries.YToolTipLabelFormatter <- fun (cp: LiveChartsCore.Kernel.ChartPoint<FinancialPoint, _, _>) ->
+        let fp = cp.Model
+        sprintf "O %.4f  H %.4f  L %.4f  C %.4f" fp.Open fp.High fp.Low fp.Close
 
     // ---------- VWAP line (overlaid in price pane) ----------
     let vwapPoints =
@@ -145,7 +150,6 @@ let build (bars: Bar list) : CartesianChart =
     chart.TooltipPosition <- LiveChartsCore.Measure.TooltipPosition.Top
     chart.TooltipTextPaint <- mkPaint textColor
     chart.TooltipBackgroundPaint <- mkPaint gridColor
-    chart.Tooltip <- Tooltip.CandleTooltip()
 
     // Pan/zoom on the X axis only — price scaling stays automatic.
     chart.ZoomMode <- LiveChartsCore.Measure.ZoomAndPanMode.X

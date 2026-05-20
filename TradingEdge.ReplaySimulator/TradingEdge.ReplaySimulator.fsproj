@@ -10,7 +10,6 @@
     <Compile Include="Dbn.fs" />
     <Compile Include="MboReader.fs" />
     <Compile Include="Bars.fs" />
-    <Compile Include="Tooltip.fs" />
     <Compile Include="ChartView.fs" />
     <Compile Include="MainWindow.fs" />
     <Compile Include="App.fs" />
