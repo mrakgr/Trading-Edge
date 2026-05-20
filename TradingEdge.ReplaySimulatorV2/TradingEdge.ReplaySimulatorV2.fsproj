@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RollForward>LatestMajor</RollForward>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Dbn.fs" />
+    <Compile Include="MboReader.fs" />
+    <Compile Include="Trades.fs" />
+    <Compile Include="Bars.fs" />
+    <Compile Include="Book.fs" />
+    <Compile Include="Snapshots.fs" />
+    <Compile Include="Play.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.Control.TaskSeq" Version="*" />
+    <PackageReference Include="ZstdSharp.Port" Version="0.8.*" />
+  </ItemGroup>
+
+</Project>
