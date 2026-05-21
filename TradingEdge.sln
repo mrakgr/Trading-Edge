@@ -25,6 +25,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TradingEdge.ReplaySimulator
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TradingEdge.ReplaySimulatorV2", "TradingEdge.ReplaySimulatorV2\TradingEdge.ReplaySimulatorV2.fsproj", "{5011EE96-F6E6-4CC2-9E94-0F6313B31C7C}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TradingEdge.ReplaySimulatorV3", "TradingEdge.ReplaySimulatorV3\TradingEdge.ReplaySimulatorV3.fsproj", "{C429BBAB-4C75-4580-AAED-5FBC2E672F71}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -155,6 +157,18 @@ Global
 		{5011EE96-F6E6-4CC2-9E94-0F6313B31C7C}.Release|x64.Build.0 = Release|Any CPU
 		{5011EE96-F6E6-4CC2-9E94-0F6313B31C7C}.Release|x86.ActiveCfg = Release|Any CPU
 		{5011EE96-F6E6-4CC2-9E94-0F6313B31C7C}.Release|x86.Build.0 = Release|Any CPU
+		{C429BBAB-4C75-4580-AAED-5FBC2E672F71}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C429BBAB-4C75-4580-AAED-5FBC2E672F71}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C429BBAB-4C75-4580-AAED-5FBC2E672F71}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C429BBAB-4C75-4580-AAED-5FBC2E672F71}.Debug|x64.Build.0 = Debug|Any CPU
+		{C429BBAB-4C75-4580-AAED-5FBC2E672F71}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C429BBAB-4C75-4580-AAED-5FBC2E672F71}.Debug|x86.Build.0 = Debug|Any CPU
+		{C429BBAB-4C75-4580-AAED-5FBC2E672F71}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C429BBAB-4C75-4580-AAED-5FBC2E672F71}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C429BBAB-4C75-4580-AAED-5FBC2E672F71}.Release|x64.ActiveCfg = Release|Any CPU
+		{C429BBAB-4C75-4580-AAED-5FBC2E672F71}.Release|x64.Build.0 = Release|Any CPU
+		{C429BBAB-4C75-4580-AAED-5FBC2E672F71}.Release|x86.ActiveCfg = Release|Any CPU
+		{C429BBAB-4C75-4580-AAED-5FBC2E672F71}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

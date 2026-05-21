@@ -1,8 +1,12 @@
 module TradingEdge.ReplaySimulatorV2.Bars
 
-// 1-minute OHLCV+VWAP bar aggregator. Ported from v0's
-// TradingEdge.ReplaySimulator/Bars.fs:24-157. Adds freeze/hydrate so the
-// aggregator's state can be embedded in a snapshot and resumed later.
+// 1-minute OHLCV+VWAP bars. Pure functional: feed takes a bar list (head =
+// current/most-recent bar) and an MboMsg, returns a new bar list. A trade in
+// the same bucket replaces the head; a trade in a new bucket prepends a new
+// head; a non-trade record is a no-op (returns the input list unchanged).
+//
+// Session-VWAP state (running notional / volume since RTH open) lives on the
+// head bar so the list is self-contained — no auxiliary aggregator needed.
 
 open System
 open TradingEdge.ReplaySimulatorV2.MboReader
@@ -23,9 +27,16 @@ type Bar = {
     Close: float
     Volume: int64
     TradeCount: int
-    BarVwap: float
-    SessionVwap: float option   // None before RTH open
+    BarNotional: float          // running notional within this bar (price * size sum)
+    SessionNotional: float      // running notional since RTH open (cumulative across bars)
+    SessionVolume: int64        // running volume since RTH open (cumulative across bars)
 }
+
+let barVwap (b: Bar) : float =
+    if b.Volume > 0L then b.BarNotional / float b.Volume else b.Close
+
+let sessionVwap (b: Bar) : float option =
+    if b.SessionVolume > 0L then Some (b.SessionNotional / float b.SessionVolume) else None
 
 let private NY_TZ =
     try TimeZoneInfo.FindSystemTimeZoneById("America/New_York")
@@ -38,114 +49,50 @@ let isAtOrAfterRthOpen (utcNs: int64) : bool =
     let ny = TimeZoneInfo.ConvertTimeFromUtc(utc, NY_TZ)
     ny.TimeOfDay >= RTH_OPEN
 
-type FeedResult =
-    | NoChange
-    | Forming of Bar
-    | Closed of closedBar: Bar * newCurrent: Bar
-
-/// Frozen snapshot of the aggregator's mutable state. Pure value, safe to hold
-/// in an immutable snapshot.
-type BarAggregatorSnapshot = {
-    CurrentBucket: int64
-    BOpen: float
-    BHigh: float
-    BLow: float
-    BClose: float
-    BVol: int64
-    BCount: int
-    BNotional: float
-    SessNotional: float
-    SessVol: int64
-}
-
-type BarAggregator() =
-    let mutable currentBucket = Int64.MinValue
-    let mutable bOpen = 0.0
-    let mutable bHigh = Double.MinValue
-    let mutable bLow = Double.MaxValue
-    let mutable bClose = 0.0
-    let mutable bVol = 0L
-    let mutable bCount = 0
-    let mutable bNotional = 0.0
-    let mutable sessNotional = 0.0
-    let mutable sessVol = 0L
-
-    let snapshot () : Bar =
-        let barVwap = if bVol > 0L then bNotional / float bVol else bClose
-        let sessVwap = if sessVol > 0L then Some (sessNotional / float sessVol) else None
-        {
-            BucketStartNs = currentBucket
-            Open = bOpen
-            High = bHigh
-            Low = bLow
-            Close = bClose
-            Volume = bVol
-            TradeCount = bCount
-            BarVwap = barVwap
-            SessionVwap = sessVwap
-        }
-
-    member _.Current : Bar option =
-        if bCount = 0 then None else Some (snapshot ())
-
-    member _.Freeze () : BarAggregatorSnapshot =
-        {
-            CurrentBucket = currentBucket
-            BOpen = bOpen
-            BHigh = bHigh
-            BLow = bLow
-            BClose = bClose
-            BVol = bVol
-            BCount = bCount
-            BNotional = bNotional
-            SessNotional = sessNotional
-            SessVol = sessVol
-        }
-
-    member _.Hydrate (s: BarAggregatorSnapshot) =
-        currentBucket <- s.CurrentBucket
-        bOpen <- s.BOpen
-        bHigh <- s.BHigh
-        bLow <- s.BLow
-        bClose <- s.BClose
-        bVol <- s.BVol
-        bCount <- s.BCount
-        bNotional <- s.BNotional
-        sessNotional <- s.SessNotional
-        sessVol <- s.SessVol
-
-    member _.Feed (m: MboMsg) : FeedResult =
-        if m.Action <> ACTION_T then NoChange
-        else
-            let price = priceToUsd m.Price
-            let size = int64 m.Size
-            let bucket = (m.TsEvent / BAR_NS) * BAR_NS
-            if bucket <> currentBucket then
-                let closed = if bCount > 0 then Some (snapshot ()) else None
-                currentBucket <- bucket
-                bOpen <- price
-                bHigh <- price
-                bLow <- price
-                bClose <- price
-                bVol <- size
-                bCount <- 1
-                bNotional <- price * float size
-                if isAtOrAfterRthOpen m.TsEvent then
-                    sessNotional <- sessNotional + bNotional
-                    sessVol <- sessVol + size
-                let newCur = snapshot ()
-                match closed with
-                | Some c -> Closed (c, newCur)
-                | None -> Forming newCur
-            else
-                if price > bHigh then bHigh <- price
-                if price < bLow then bLow <- price
-                bClose <- price
-                bVol <- bVol + size
-                bCount <- bCount + 1
-                let notional = price * float size
-                bNotional <- bNotional + notional
-                if isAtOrAfterRthOpen m.TsEvent then
-                    sessNotional <- sessNotional + notional
-                    sessVol <- sessVol + size
-                Forming (snapshot ())
+/// Fold an MBO record into a bar list. Head = current (most-recent) bar.
+/// Non-trade records return `bars` unchanged. A trade in the head's bucket
+/// updates the head in place (cons new head, drop old head). A trade in a
+/// later bucket prepends a fresh head, leaving the prior head closed at the
+/// front of the tail.
+let feed (bars: Bar list) (m: MboMsg) : Bar list =
+    if m.Action <> ACTION_T then bars
+    else
+        let price = priceToUsd m.Price
+        let size = int64 m.Size
+        let notional = price * float size
+        let bucketStartNs = (m.TsEvent / BAR_NS) * BAR_NS
+        let rthAdd = isAtOrAfterRthOpen m.TsEvent
+        match bars with
+        | head :: tail when head.BucketStartNs = bucketStartNs ->
+            let updated = {
+                head with
+                    High = if price > head.High then price else head.High
+                    Low = if price < head.Low then price else head.Low
+                    Close = price
+                    Volume = head.Volume + size
+                    TradeCount = head.TradeCount + 1
+                    BarNotional = head.BarNotional + notional
+                    SessionNotional = if rthAdd then head.SessionNotional + notional else head.SessionNotional
+                    SessionVolume = if rthAdd then head.SessionVolume + size else head.SessionVolume
+            }
+            updated :: tail
+        | _ ->
+            // New bucket (or first bar). Carry session totals forward from the
+            // prior head, if any.
+            let priorSessNotional, priorSessVol =
+                match bars with
+                | h :: _ -> h.SessionNotional, h.SessionVolume
+                | [] -> 0.0, 0L
+            let newHead = {
+                BucketStartNs = bucketStartNs
+                Open = price
+                High = price
+                Low = price
+                Close = price
+                Volume = size
+                TradeCount = 1
+                BarNotional = notional
+                SessionNotional = if rthAdd then priorSessNotional + notional else priorSessNotional
+                SessionVolume = if rthAdd then priorSessVol + size else priorSessVol
+            }
+            newHead :: bars
