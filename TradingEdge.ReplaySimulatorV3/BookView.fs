@@ -159,10 +159,12 @@ let private mkHeaderCell (text: string) (alignment: HorizontalAlignment) =
 /// Inside each body row is a 3-column Grid. The side is parameterised by the
 /// column order — bids put Venue first, asks put Price first.
 type private SideLayout = {
-    /// Column widths in the inner 3-column row grid.
-    Col0Width: float
-    Col1Width: float
-    Col2Width: float
+    /// Column widths in the inner 3-column row grid. Venue is Auto (hugs the
+    /// 4-char venue code); Price and Size are Star-weighted so they grow when
+    /// the user drags the vertical splitter to widen the L2 panel.
+    Col0Width: GridLength
+    Col1Width: GridLength
+    Col2Width: GridLength
     /// Header labels.
     Header0: string
     Header1: string
@@ -173,34 +175,32 @@ type private SideLayout = {
     Align2: HorizontalAlignment
 }
 
-let private widths = {|
-    venue = 35.0
-    size = 70.0
-    price = 50.0
-|}
+let private venueCol = GridLength.Auto
+let private sizeCol  = GridLength(1.0, GridUnitType.Star)
+let private priceCol = GridLength(1.0, GridUnitType.Star)
 
 let private bidLayout = {
-    Col0Width = widths.venue    // Venue
-    Col1Width = widths.size     // Size
-    Col2Width = widths.price    // Price
+    Col0Width = venueCol    // Venue
+    Col1Width = sizeCol     // Size
+    Col2Width = priceCol    // Price
     Header0 = "Venue"
     Header1 = "Size"
-    Header2 = "Price"
-    Align0 = HorizontalAlignment.Left
+    Header2 = "Bid"
+    Align0 = HorizontalAlignment.Right
     Align1 = HorizontalAlignment.Right
     Align2 = HorizontalAlignment.Right
 }
 
 let private askLayout = {
-    Col0Width = widths.price    // Price
-    Col1Width = widths.size     // Size
-    Col2Width = widths.venue    // Venue
-    Header0 = "Price"
+    Col0Width = priceCol    // Price
+    Col1Width = sizeCol     // Size
+    Col2Width = venueCol    // Venue
+    Header0 = "Ask"
     Header1 = "Size"
     Header2 = "Venue"
     Align0 = HorizontalAlignment.Left
-    Align1 = HorizontalAlignment.Right
-    Align2 = HorizontalAlignment.Right
+    Align1 = HorizontalAlignment.Left
+    Align2 = HorizontalAlignment.Left
 }
 
 type private SideRow = {
@@ -212,9 +212,9 @@ type private SideRow = {
 
 let private mkRowGrid (layout: SideLayout) : SideRow * Grid =
     let g = Grid()
-    g.ColumnDefinitions.Add(ColumnDefinition(GridLength layout.Col0Width))
-    g.ColumnDefinitions.Add(ColumnDefinition(GridLength layout.Col1Width))
-    g.ColumnDefinitions.Add(ColumnDefinition(GridLength layout.Col2Width))
+    g.ColumnDefinitions.Add(ColumnDefinition(layout.Col0Width))
+    g.ColumnDefinitions.Add(ColumnDefinition(layout.Col1Width))
+    g.ColumnDefinitions.Add(ColumnDefinition(layout.Col2Width))
     let c0 = mkCell layout.Align0
     let c1 = mkCell layout.Align1
     let c2 = mkCell layout.Align2
@@ -229,9 +229,9 @@ let private mkRowGrid (layout: SideLayout) : SideRow * Grid =
 
 let private mkHeaderGrid (layout: SideLayout) : Grid =
     let g = Grid()
-    g.ColumnDefinitions.Add(ColumnDefinition(GridLength layout.Col0Width))
-    g.ColumnDefinitions.Add(ColumnDefinition(GridLength layout.Col1Width))
-    g.ColumnDefinitions.Add(ColumnDefinition(GridLength layout.Col2Width))
+    g.ColumnDefinitions.Add(ColumnDefinition(layout.Col0Width))
+    g.ColumnDefinitions.Add(ColumnDefinition(layout.Col1Width))
+    g.ColumnDefinitions.Add(ColumnDefinition(layout.Col2Width))
     let h0 = mkHeaderCell layout.Header0 layout.Align0
     let h1 = mkHeaderCell layout.Header1 layout.Align1
     let h2 = mkHeaderCell layout.Header2 layout.Align2
@@ -259,8 +259,10 @@ type BookView() =
     let outer = Grid()
     do
         outer.Background <- panelBrush
-        outer.ColumnDefinitions.Add(ColumnDefinition(GridLength.Auto))
-        outer.ColumnDefinitions.Add(ColumnDefinition(GridLength.Auto))
+        // Both sides take an equal share of the available width so dragging
+        // the vertical splitter widens Price/Size on both sides symmetrically.
+        outer.ColumnDefinitions.Add(ColumnDefinition(GridLength(1.0, GridUnitType.Star)))
+        outer.ColumnDefinitions.Add(ColumnDefinition(GridLength(1.0, GridUnitType.Star)))
 
     let bidPanel, bidRows = mkSidePanel bidLayout
     let askPanel, askRows = mkSidePanel askLayout

@@ -202,11 +202,12 @@ let create
     rightGrid.Children.Add(tapeView.Control)
 
     // Outer 2-column grid: chart-stack | (L2 + T&S). Horizontal GridSplitter
-    // lets the user resize the right panel.
+    // lets the user resize the right panel. Both columns are Star-sized so
+    // the splitter redistributes space proportionally (default 3:1).
     let outer = Grid()
-    outer.ColumnDefinitions.Add(ColumnDefinition(GridLength(1.0, GridUnitType.Star)))
+    outer.ColumnDefinitions.Add(ColumnDefinition(GridLength(3.0, GridUnitType.Star)))
     outer.ColumnDefinitions.Add(ColumnDefinition(GridLength(4.0)))
-    outer.ColumnDefinitions.Add(ColumnDefinition(GridLength(360.0)))
+    outer.ColumnDefinitions.Add(ColumnDefinition(GridLength(1.0, GridUnitType.Star)))
     let hSplitter = GridSplitter(Width = 4.0, Background = mutedBrush,
                                  VerticalAlignment = VerticalAlignment.Stretch)
     Grid.SetColumn(leftGrid, 0)
