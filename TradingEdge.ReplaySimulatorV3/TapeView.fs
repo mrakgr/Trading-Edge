@@ -1,21 +1,32 @@
 module TradingEdge.ReplaySimulatorV3.TapeView
 
 // Time & sales display. Renders Snapshot.Trades (rolling 1-minute window) as
-// a scrolling table with newest at the top. Buy/sell coloring is driven by
-// the aggressor side — for a trade with Side = 'A' (resting ask was hit) the
-// aggressor was a buyer; Side = 'B' means the aggressor was a seller.
+// a virtualized scrolling list with newest at the top. Buy/sell coloring is
+// driven by the aggressor side — for a trade with Side = 'A' (resting ask
+// was hit) the aggressor was a buyer; Side = 'B' means the aggressor was
+// a seller.
 //
-// Full rebuild per frame. The queue holds 1 minute of trades — a few hundred
-// rows on a busy minute — and Avalonia's ItemsControl handles a Reset cleanly,
-// so this is sub-millisecond. If we hit jank we can layer in a diff later.
+// Performance design:
+//   * Backing store is a BulkObservableList<TradeRow> — an ObservableCollection
+//     subclass that batches a full replacement into a single Reset event
+//     instead of N Add events.
+//   * Display is a ListBox over a VirtualizingStackPanel — only the rows
+//     currently inside the viewport are materialized as Avalonia controls.
+//     Off-screen rows live in the data layer only.
+//
+// Net effect: a few hundred trades per frame turns into one Reset event
+// and a viewport-sized re-bind (~30 rows), regardless of how many trades
+// are in the rolling window.
 
 open System
 open System.Collections.ObjectModel
+open System.Collections.Specialized
+open System.ComponentModel
 open Avalonia
 open Avalonia.Controls
 open Avalonia.Controls.Templates
-open Avalonia.Media
 open Avalonia.Layout
+open Avalonia.Media
 open TradingEdge.ReplaySimulatorV3.Time
 open TradingEdge.ReplaySimulatorV3.Snapshots
 open TradingEdge.ReplaySimulatorV3.Trades
@@ -35,7 +46,7 @@ let private SIDE_BID : byte = byte 'B'
 let private fmtTime (utcNs: int64) =
     (toNy utcNs).ToString("HH:mm:ss.fff")
 
-/// Row model exposed to the ItemsControl. Plain strings + a single brush so
+/// Row model exposed to the ListBox. Plain strings + a single brush so
 /// the template can data-bind without recomputing anything.
 type TradeRow() =
     member val Time = "" with get, set
@@ -56,44 +67,34 @@ let private toRow (t: TradeMsg) : TradeRow =
         Venue = venueCode (int t.PublisherId),
         SideBrush = brush)
 
+/// ObservableCollection that supports bulk replacement with a single
+/// Reset event. The standard ObservableCollection raises N events for an
+/// N-item refill; a ListBox subscribing to those events recomputes layout
+/// per-event. A single Reset means the ListBox re-binds its viewport once.
+type BulkObservableList<'T>() =
+    inherit ObservableCollection<'T>()
+
+    /// Clear and refill the collection with one Reset notification.
+    member this.ReplaceAll(items: seq<'T>) =
+        this.Items.Clear()
+        for x in items do this.Items.Add(x)
+        this.OnCollectionChanged(NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset))
+        this.OnPropertyChanged(PropertyChangedEventArgs("Count"))
+        this.OnPropertyChanged(PropertyChangedEventArgs("Item[]"))
+
 type TapeView() =
-    let rows = ObservableCollection<TradeRow>()
-    let items = ItemsControl()
+    let rows = BulkObservableList<TradeRow>()
+    let listBox = ListBox()
     do
-        items.ItemsSource <- rows
-        items.Background <- panelBrush
+        listBox.ItemsSource <- rows
+        listBox.Background <- panelBrush
+        listBox.BorderThickness <- Thickness(0.0)
+        // Explicit virtualization: only viewport rows are materialized.
+        listBox.ItemsPanel <-
+            FuncTemplate<Panel>(fun () -> VirtualizingStackPanel() :> Panel)
 
-    let scroll = ScrollViewer()
-    do
-        scroll.Content <- items
-        scroll.HorizontalScrollBarVisibility <- Primitives.ScrollBarVisibility.Disabled
-        scroll.VerticalScrollBarVisibility <- Primitives.ScrollBarVisibility.Auto
-        scroll.Background <- panelBrush
-
-    let panel = StackPanel(Orientation = Orientation.Vertical, Background = panelBrush)
-    do
-        let header = Grid()
-        header.ColumnDefinitions.Add(ColumnDefinition(GridLength(100.0)))
-        header.ColumnDefinitions.Add(ColumnDefinition(GridLength(80.0)))
-        header.ColumnDefinitions.Add(ColumnDefinition(GridLength(70.0)))
-        header.ColumnDefinitions.Add(ColumnDefinition(GridLength(60.0)))
-        header.Margin <- Thickness(8.0, 4.0, 8.0, 4.0)
-        let mk text col =
-            let tb = TextBlock(
-                        Text = text,
-                        Foreground = mutedBrush,
-                        FontSize = 11.0,
-                        FontWeight = FontWeight.SemiBold)
-            Grid.SetColumn(tb, col)
-            header.Children.Add(tb)
-        mk "TIME"  0
-        mk "PRICE" 1
-        mk "SIZE"  2
-        mk "VENUE" 3
-        panel.Children.Add(header)
-        panel.Children.Add(scroll)
-
-    // Row template: a 4-column Grid that picks up SideBrush as Foreground.
+    // Row template: 4-column Grid. Cells inherit the row's SideBrush for
+    // price/size; time stays muted, venue uses the default text color.
     do
         let build (row: TradeRow) (_: INameScope) : Control =
             let g = Grid()
@@ -115,15 +116,43 @@ type TapeView() =
             mk row.Size  2 row.SideBrush
             mk row.Venue 3 textBrush
             g :> Control
-        items.ItemTemplate <- FuncDataTemplate<TradeRow>(System.Func<_,_,_> build, true)
+        listBox.ItemTemplate <- FuncDataTemplate<TradeRow>(System.Func<_,_,_> build, true)
+
+    let panel = StackPanel(Orientation = Orientation.Vertical, Background = panelBrush)
+    do
+        let header = Grid()
+        header.ColumnDefinitions.Add(ColumnDefinition(GridLength 100.0))
+        header.ColumnDefinitions.Add(ColumnDefinition(GridLength 80.0))
+        header.ColumnDefinitions.Add(ColumnDefinition(GridLength 70.0))
+        header.ColumnDefinitions.Add(ColumnDefinition(GridLength 60.0))
+        header.Margin <- Thickness(8.0, 4.0, 8.0, 4.0)
+        let mk text col =
+            let tb = TextBlock(
+                        Text = text,
+                        Foreground = mutedBrush,
+                        FontSize = 11.0,
+                        FontWeight = FontWeight.SemiBold)
+            Grid.SetColumn(tb, col)
+            header.Children.Add(tb)
+        mk "TIME"  0
+        mk "PRICE" 1
+        mk "SIZE"  2
+        mk "VENUE" 3
+        panel.Children.Add(header)
+        panel.Children.Add(listBox)
+
+    // Buffer reused across frames to avoid per-frame ResizeArray allocation.
+    let buf = ResizeArray<TradeMsg>()
 
     member _.Control = panel :> Control
 
     member _.Apply(snap: Snapshot) =
-        // The queue is oldest-first; we want newest-first. Walk it once into
-        // a buffer, then push to ObservableCollection in reverse.
-        let buf = ResizeArray<TradeMsg>()
+        // Queue is oldest-first; we want newest-first in the display.
+        buf.Clear()
         for t in snap.Trades do buf.Add t
-        rows.Clear()
-        for i in buf.Count - 1 .. -1 .. 0 do
-            rows.Add(toRow buf.[i])
+        let newest =
+            seq {
+                for i in buf.Count - 1 .. -1 .. 0 do
+                    yield toRow buf.[i]
+            }
+        rows.ReplaceAll(newest)

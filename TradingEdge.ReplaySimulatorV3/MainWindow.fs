@@ -227,7 +227,7 @@ let create
                     do! Dispatcher.UIThread.InvokeAsync(fun () ->
                         chartView.ApplyDiff(lastApplied, snap)
                         bookView.Apply(snap)
-                        // tapeView.Apply(snap)
+                        tapeView.Apply(snap)
                         lastApplied <- Some snap
                         clockLabel.Text <- fmtClock snap.BucketStartNs
                         suppressSliderHandler <- true
