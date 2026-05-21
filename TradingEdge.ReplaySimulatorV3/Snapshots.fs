@@ -25,10 +25,13 @@ open TradingEdge.ReplaySimulatorV2.Book
 /// 5-minute snapshot cadence in ns.
 let BUCKET_NS : int64 = 5L * 60L * 1_000_000_000L
 
+/// Rolling-window length for the T&S queue captured in each snapshot.
+let TRADE_WINDOW_NS : int64 = 60L * 1_000_000_000L
+
 let private ACTION_T : byte = byte 'T'
 
 /// One 5-min snapshot. Captures the cumulative state AT the start of the
-/// bucket plus the trade tape THAT OCCURRED WITHIN the bucket.
+/// bucket plus a rolling 1-minute trade window ending at the bucket start.
 type Snapshot = {
     /// Wall-clock anchor for this bucket (anchor + N * BUCKET_NS, UTC ns).
     BucketStartNs: int64
@@ -40,16 +43,17 @@ type Snapshot = {
     /// Structurally shared with the prior snapshot's Bars; only the head differs
     /// when bars updated during the prior bucket.
     Bars: Bar list
-    /// Trades that occurred during this bucket [BucketStartNs, BucketStartNs+BUCKET_NS).
-    Trades: ImmutableArray<TradeMsg>
+    /// Rolling 1-minute trade window in [BucketStartNs - TRADE_WINDOW_NS, BucketStartNs).
+    /// Oldest-first (front = oldest, back = most-recent). Empty if the prior
+    /// minute saw no trades.
+    Trades: TradeMsg ImmutableQueue
 }
 
 type SnapshotStore = {
     /// UTC ns of the first bucket (typically 04:00 ET).
     SessionAnchorNs: int64
-    /// Immutable list of snapshots in time order. Indexable by
-    /// (t - SessionAnchorNs) / BUCKET_NS.
-    Snapshots: ImmutableList<Snapshot>
+    /// Snapshots in time order. Indexable by (t - SessionAnchorNs) / BUCKET_NS.
+    Snapshots: ImmutableArray<Snapshot>
     /// All MBO records sorted by ts_event, retained so play() can replay
     /// forward from a snapshot to an arbitrary t.
     Records: ImmutableArray<MboMsg>
@@ -80,7 +84,7 @@ let buildAsync (merged: IAsyncEnumerable<MboMsg>) : Task<SnapshotStore> = task {
     if records.Length = 0 then
         return {
             SessionAnchorNs = 0L
-            Snapshots = ImmutableList.Empty
+            Snapshots = ImmutableArray.Empty
             Records = records
         }
     else
@@ -97,15 +101,28 @@ let buildAsync (merged: IAsyncEnumerable<MboMsg>) : Task<SnapshotStore> = task {
         | false, _ -> Book.empty
     let mutable bars : Bar list = []
 
-    let snapshots = ImmutableList.CreateBuilder<Snapshot>()
-    let tradeBuilder = ImmutableArray.CreateBuilder<TradeMsg>()
+    let snapshots = ImmutableArray.CreateBuilder<Snapshot>()
+
+    // Live rolling 1-minute trade window. ImmutableQueue gives O(1) amortized
+    // enqueue/dequeue with structural sharing across snapshots.
+    let mutable tradeQueue : ImmutableQueue<TradeMsg> = ImmutableQueue.Create()
+
+    // Drop trades older than (asOfNs - TRADE_WINDOW_NS) from the front of the
+    // queue. Called before enqueuing a new trade and before freezing a snapshot.
+    let trimTradeQueue (asOfNs: int64) =
+        let cutoff = asOfNs - TRADE_WINDOW_NS
+        let mutable q = tradeQueue
+        while not q.IsEmpty && q.Peek().TsEvent < cutoff do
+            q <- q.Dequeue()
+        tradeQueue <- q
 
     // The snapshot for bucket N captures state AS OF the start of bucket N
-    // (before any of bucket N's records are applied) and accumulates that
-    // bucket's trades. We freeze state at boundary crossings.
+    // (before any of bucket N's records are applied). We freeze state at
+    // boundary crossings.
     let mutable currentBucketStart = anchor
     let mutable preBucketBooks : Map<int, L3Book> = Map.empty
     let mutable preBucketBars : Bar list = []
+    let mutable preBucketTrades : ImmutableQueue<TradeMsg> = ImmutableQueue.Create()
 
     let freezeBucketStart () =
         // Capture state right now, BEFORE applying the first record of the
@@ -115,16 +132,16 @@ let buildAsync (merged: IAsyncEnumerable<MboMsg>) : Task<SnapshotStore> = task {
             |> Seq.map (fun kv -> kv.Key, kv.Value)
             |> Map.ofSeq
         preBucketBars <- bars
+        trimTradeQueue currentBucketStart
+        preBucketTrades <- tradeQueue
 
     let emitSnapshot () =
-        // Flush the just-closed bucket's payload as a Snapshot.
         snapshots.Add({
             BucketStartNs = currentBucketStart
             Books = preBucketBooks
             Bars = preBucketBars
-            Trades = tradeBuilder.ToImmutable()
+            Trades = preBucketTrades
         })
-        tradeBuilder.Clear()
 
     for m in records do
         let recordBucket =
@@ -144,7 +161,8 @@ let buildAsync (merged: IAsyncEnumerable<MboMsg>) : Task<SnapshotStore> = task {
         if not (obj.ReferenceEquals(book, book')) then
             books.[publisherKey] <- book'
         if m.Action = ACTION_T then
-            tradeBuilder.Add (Trades.fromMbo m)
+            trimTradeQueue m.TsEvent
+            tradeQueue <- tradeQueue.Enqueue(Trades.fromMbo m)
         bars <- Bars.feed bars m
 
     // Final partial bucket.
