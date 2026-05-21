@@ -11,6 +11,7 @@
     <Compile Include="MboReader.fs" />
     <Compile Include="Trades.fs" />
     <Compile Include="Bars.fs" />
+    <Compile Include="Book.fs" />
   </ItemGroup>
 
   <ItemGroup>
