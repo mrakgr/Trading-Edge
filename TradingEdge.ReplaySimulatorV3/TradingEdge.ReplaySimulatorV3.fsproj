@@ -14,6 +14,7 @@
     <Compile Include="Book.fs" />
     <Compile Include="Snapshots.fs" />
     <Compile Include="Play.fs" />
+    <Compile Include="Worker.fs" />
   </ItemGroup>
 
   <ItemGroup>
