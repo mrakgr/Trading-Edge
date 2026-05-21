@@ -13,6 +13,7 @@
     <Compile Include="Bars.fs" />
     <Compile Include="Book.fs" />
     <Compile Include="Snapshots.fs" />
+    <Compile Include="Play.fs" />
   </ItemGroup>
 
   <ItemGroup>
