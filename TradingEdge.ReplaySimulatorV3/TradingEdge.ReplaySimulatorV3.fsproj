@@ -12,6 +12,7 @@
     <Compile Include="Trades.fs" />
     <Compile Include="Bars.fs" />
     <Compile Include="Book.fs" />
+    <Compile Include="Snapshots.fs" />
   </ItemGroup>
 
   <ItemGroup>
