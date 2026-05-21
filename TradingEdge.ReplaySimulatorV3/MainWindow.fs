@@ -148,16 +148,40 @@ let create
         chartView.ResumeAutoFollow ()
         refreshResumeBtn ())
 
+    // ---- scrub slider ----
+    // Drives the worker via Seek messages. Range is the loaded day's MBO
+    // span. We also sync the slider's position from each incoming Snapshot,
+    // gated by suppressSliderHandler so that echo doesn't loop back as Seek.
+    let firstTs, lastTs =
+        if store.Records.Length = 0 then 0L, 0L
+        else store.Records.[0].TsEvent, store.Records.[store.Records.Length - 1].TsEvent
+    let slider = Slider()
+    slider.Minimum <- float firstTs
+    slider.Maximum <- float (max lastTs (firstTs + 1L))
+    slider.Value <- float (max firstTs (min lastTs startCursorNs))
+    slider.IsSnapToTickEnabled <- false
+    slider.Margin <- Thickness(10.0, 0.0, 10.0, 6.0)
+    slider.Foreground <- accentBrush
+    slider.Background <- panelBrush
+    let mutable suppressSliderHandler = false
+    slider.PropertyChanged.Add(fun e ->
+        if e.Property = Slider.ValueProperty && not suppressSliderHandler then
+            let v = slider.Value
+            worker.Inbox.TryWrite(Seek (int64 v)) |> ignore)
+
     // ---- layout ----
     let grid = Grid()
+    grid.RowDefinitions.Add(RowDefinition(GridLength.Auto))
     grid.RowDefinitions.Add(RowDefinition(GridLength.Auto))
     grid.RowDefinitions.Add(RowDefinition(GridLength.Auto))
     grid.RowDefinitions.Add(RowDefinition(GridLength(1.0, GridUnitType.Star)))
     Grid.SetRow(header, 0)
     Grid.SetRow(toolbar, 1)
-    Grid.SetRow(chartView.Chart, 2)
+    Grid.SetRow(slider, 2)
+    Grid.SetRow(chartView.Chart, 3)
     grid.Children.Add(header)
     grid.Children.Add(toolbar)
+    grid.Children.Add(slider)
     grid.Children.Add(chartView.Chart)
     w.Content <- grid
 
@@ -171,6 +195,9 @@ let create
                         chartView.ApplyDiff(lastApplied, snap)
                         lastApplied <- Some snap
                         clockLabel.Text <- fmtClock snap.BucketStartNs
+                        suppressSliderHandler <- true
+                        slider.Value <- float snap.BucketStartNs
+                        suppressSliderHandler <- false
                         refreshResumeBtn ())
             with :? OperationCanceledException -> ()
         }

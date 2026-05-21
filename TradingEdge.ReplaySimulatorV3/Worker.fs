@@ -26,6 +26,7 @@ let TICK_MS : int = 15
 type WorkerMsg =
     | SetSpeed of float
     | SetPaused of bool
+    | Seek of int64
     | Tick
 
 type WorkerHandle = {
@@ -61,6 +62,13 @@ let start
     let lastTs =
         if store.Records.Length = 0 then 0L
         else store.Records.[store.Records.Length - 1].TsEvent
+    let firstTs =
+        if store.Records.Length = 0 then 0L
+        else store.Records.[0].TsEvent
+    let clampTs (t: int64) =
+        if t < firstTs then firstTs
+        elif t > lastTs then lastTs
+        else t
 
     // Timer task: posts Tick to the inbox at TICK_MS cadence. Lives until ct
     // is cancelled or the inbox is completed.
@@ -101,6 +109,10 @@ let start
                             match msg with
                             | SetSpeed v -> speed <- max 0.0 v
                             | SetPaused p -> paused <- p
+                            | Seek target ->
+                                t <- clampTs target
+                                let result = player.Play t
+                                outbox.Writer.TryWrite(result) |> ignore
                             | Tick ->
                                 if not paused then
                                     let advanceNs = int64 (speed * float TICK_MS) * 1_000_000L
