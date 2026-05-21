@@ -233,14 +233,17 @@ let buildAsync (merged: IAsyncEnumerable<MboMsg>) : Task<SnapshotStore> = task {
                 | true, v -> v
                 | false, _ -> 0UL
             volumeAtPrice <- volumeAtPrice.SetItem(m.Price, prevVol + uint64 m.Size)
-            // Per-side recent-trade accumulator. Dispatch on resting side:
-            // 'A' = ask was hit (buyer aggressor) → ask-trade dict; 'B' = bid
-            // was hit (seller aggressor) → bid-trade dict; 'N' = off-book.
+            // Per-side recent-trade accumulator. DBN's Side on a T record
+            // identifies the AGGRESSOR side, not the resting side. So
+            // Side='A' = aggressor was an ask-seller → trade-at-bid; the
+            // DOM "Bid T" column wants those. Side='B' = aggressor was a
+            // bid-buyer → trade-at-ask; the "Ask T" column. Side='N' =
+            // off-book / dark / TRF print.
             match m.Side with
             | s when s = SIDE_ASK ->
-                askTradeAtPrice <- applyTradeAtPrice askTradeAtPrice m.Price m.Size m.TsEvent
-            | s when s = SIDE_BID ->
                 bidTradeAtPrice <- applyTradeAtPrice bidTradeAtPrice m.Price m.Size m.TsEvent
+            | s when s = SIDE_BID ->
+                askTradeAtPrice <- applyTradeAtPrice askTradeAtPrice m.Price m.Size m.TsEvent
             | s when s = SIDE_NONE ->
                 midTradeAtPrice <- applyTradeAtPrice midTradeAtPrice m.Price m.Size m.TsEvent
             | _ -> ()

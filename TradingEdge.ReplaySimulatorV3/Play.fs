@@ -101,11 +101,15 @@ type Player(store: SnapshotStore) =
                     | true, v -> v
                     | false, _ -> 0UL
                 scratchVolumeAtPrice <- scratchVolumeAtPrice.SetItem(m.Price, prevVol + uint64 m.Size)
+                // See note in Snapshots.fs — DBN's Side='A' on a trade record
+                // identifies the aggressor side (ask-seller), so those go
+                // into the bid-trade dict (the "Bid T" DOM column shows
+                // seller-aggressor prints).
                 match m.Side with
                 | s when s = SIDE_ASK ->
-                    scratchAskTrade <- applyTradeAtPrice scratchAskTrade m.Price m.Size m.TsEvent
-                | s when s = SIDE_BID ->
                     scratchBidTrade <- applyTradeAtPrice scratchBidTrade m.Price m.Size m.TsEvent
+                | s when s = SIDE_BID ->
+                    scratchAskTrade <- applyTradeAtPrice scratchAskTrade m.Price m.Size m.TsEvent
                 | s when s = SIDE_NONE ->
                     scratchMidTrade <- applyTradeAtPrice scratchMidTrade m.Price m.Size m.TsEvent
                 | _ -> ()

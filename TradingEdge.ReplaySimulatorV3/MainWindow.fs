@@ -9,6 +9,8 @@ open System
 open System.Threading
 open Avalonia
 open Avalonia.Controls
+open Avalonia.Input
+open Avalonia.Interactivity
 open Avalonia.Media
 open Avalonia.Layout
 open Avalonia.Threading
@@ -35,6 +37,10 @@ let private mkButton (text: string) =
     b.Foreground <- textBrush
     b.Background <- panelBrush
     b.BorderBrush <- mutedBrush
+    // No keyboard focus on toolbar buttons. Space is reserved for play/pause
+    // and arrow keys for seeking; a focused button would consume those via
+    // its default Click-on-Space handler.
+    b.Focusable <- false
     b
 
 let create
@@ -137,10 +143,25 @@ let create
             resumeBtn.IsEnabled <- true
     refreshResumeBtn ()
 
-    playBtn.Click.Add(fun _ ->
+    let refreshRecenterBtn () =
+        if ladderView.IsAutoCenter then
+            recenterBtn.BorderBrush <- mutedBrush
+            recenterBtn.Foreground <- mutedBrush
+            recenterBtn.IsEnabled <- false
+        else
+            recenterBtn.BorderBrush <- accentBrush
+            recenterBtn.Foreground <- accentBrush
+            recenterBtn.IsEnabled <- true
+    refreshRecenterBtn ()
+    // Wire the ladder's auto-center state changes back to the button highlight.
+    ladderView.OnAutoCenterChanged(fun _ -> refreshRecenterBtn ())
+
+    let togglePlayPause () =
         uiPaused <- not uiPaused
         worker.Inbox.TryWrite(SetPaused uiPaused) |> ignore
-        refreshPlayBtn ())
+        refreshPlayBtn ()
+
+    playBtn.Click.Add(fun _ -> togglePlayPause ())
 
     for b in speedButtons do
         b.Click.Add(fun _ ->
@@ -216,12 +237,22 @@ let create
     let bookLadderTabs = TabControl()
     bookLadderTabs.Background <- bgBrush
     bookLadderTabs.Padding <- Thickness(0.0)
-    bookLadderTabs.Items.Add(bookTab) |> ignore
     bookLadderTabs.Items.Add(ladderTab) |> ignore
+    bookLadderTabs.Items.Add(bookTab) |> ignore
     bookLadderTabs.SelectedIndex <- 0
     let mutable activeTabIdx = 0
+    // Lifted out of the uiPump task closure so SelectionChanged can apply the
+    // last-known snapshot to a tab that's just become visible — otherwise the
+    // newly-visible tab would show stale or empty state until the next frame.
+    let mutable lastApplied : Snapshot option = None
+    // Tab index 0 = Ladder, 1 = L2.
     bookLadderTabs.SelectionChanged.Add(fun _ ->
-        activeTabIdx <- bookLadderTabs.SelectedIndex)
+        activeTabIdx <- bookLadderTabs.SelectedIndex
+        match lastApplied with
+        | Some s ->
+            if activeTabIdx = 0 then ladderView.Apply(s)
+            else bookView.Apply(s)
+        | None -> ())
 
     let rightGrid = Grid()
     rightGrid.RowDefinitions.Add(RowDefinition(GridLength(1.0, GridUnitType.Star)))
@@ -232,7 +263,7 @@ let create
     // lets the user resize the right panel. Both columns are Star-sized so
     // the splitter redistributes space proportionally (default 3:1).
     let outer = Grid()
-    outer.ColumnDefinitions.Add(ColumnDefinition(GridLength(3.0, GridUnitType.Star)))
+    outer.ColumnDefinitions.Add(ColumnDefinition(GridLength(2.0, GridUnitType.Star)))
     outer.ColumnDefinitions.Add(ColumnDefinition(GridLength(4.0)))
     outer.ColumnDefinitions.Add(ColumnDefinition(GridLength(1.0, GridUnitType.Star)))
     let hSplitter = GridSplitter(Width = 4.0, Background = mutedBrush,
@@ -249,15 +280,15 @@ let create
     // outbox and applies it on the UI thread via the Dispatcher.
     let _uiPump =
         task {
-            try let mutable lastApplied : Snapshot option = None
+            try
                 for snap in worker.Outbox.ReadAllAsync(cts.Token) do
                     do! Dispatcher.UIThread.InvokeAsync(fun () ->
                         chartView.ApplyDiff(lastApplied, snap)
                         // Skip the hidden tab's aggregation work — both the
                         // L2 box and the ladder walk every venue's books
                         // per Apply call and that adds up.
-                        if activeTabIdx = 0 then bookView.Apply(snap)
-                        else ladderView.Apply(snap)
+                        if activeTabIdx = 0 then ladderView.Apply(snap)
+                        else bookView.Apply(snap)
                         tapeView.Apply(snap)
                         lastApplied <- Some snap
                         clockLabel.Text <- fmtClock snap.BucketStartNs
@@ -267,6 +298,28 @@ let create
                         refreshResumeBtn ())
             with :? OperationCanceledException -> ()
         }
+
+    // ---- keyboard shortcuts ----
+    // Space toggles play/pause; Left/Right seek ±5s. We attach to the
+    // tunnel-phase KeyDown so the keys reach us even when the Slider or a
+    // Button has focus and would otherwise consume them.
+    let SEEK_NS_5S = 5L * 1_000_000_000L
+    let onKey (e: KeyEventArgs) =
+        match e.Key with
+        | Key.Space ->
+            togglePlayPause ()
+            e.Handled <- true
+        | Key.Left ->
+            slider.Value <- max slider.Minimum (slider.Value - float SEEK_NS_5S)
+            e.Handled <- true
+        | Key.Right ->
+            slider.Value <- min slider.Maximum (slider.Value + float SEEK_NS_5S)
+            e.Handled <- true
+        | _ -> ()
+    w.AddHandler(
+        InputElement.KeyDownEvent,
+        EventHandler<KeyEventArgs>(fun _ e -> onKey e),
+        RoutingStrategies.Tunnel ||| RoutingStrategies.Bubble)
 
     // ---- cleanup ----
     // Fire-and-forget cancellation. Worker and uiPump both observe the token

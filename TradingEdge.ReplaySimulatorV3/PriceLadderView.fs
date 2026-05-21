@@ -34,10 +34,13 @@ let private bgBrush      = SolidColorBrush(Color.FromRgb(0x10uy, 0x12uy, 0x18uy)
 let private panelBrush   = SolidColorBrush(Color.FromRgb(0x18uy, 0x1cuy, 0x24uy))
 let private textBrush    = SolidColorBrush(Color.FromRgb(0xc8uy, 0xccuy, 0xd6uy))
 let private mutedBrush   = SolidColorBrush(Color.FromRgb(0x78uy, 0x80uy, 0x90uy))
-let private bidBrush     = SolidColorBrush(Color.FromRgb(0x2euy, 0xb8uy, 0x88uy))
-let private askBrush     = SolidColorBrush(Color.FromRgb(0xe5uy, 0x4buy, 0x4buy))
-let private bidBandBrush = SolidColorBrush(Color.FromArgb(0x40uy, 0x2euy, 0xb8uy, 0x88uy))
-let private askBandBrush = SolidColorBrush(Color.FromArgb(0x40uy, 0xe5uy, 0x4buy, 0x4buy))
+// Futures DOM convention: bid = red (support level / downside flow), ask =
+// green (resistance / upside flow). The opposite of the equity uptick/downtick
+// convention used in TapeView.
+let private bidBrush     = SolidColorBrush(Color.FromRgb(0xe5uy, 0x4buy, 0x4buy))
+let private askBrush     = SolidColorBrush(Color.FromRgb(0x2euy, 0xb8uy, 0x88uy))
+let private bidBandBrush = SolidColorBrush(Color.FromArgb(0x40uy, 0xe5uy, 0x4buy, 0x4buy))
+let private askBandBrush = SolidColorBrush(Color.FromArgb(0x40uy, 0x2euy, 0xb8uy, 0x88uy))
 let private volBarBrush  = SolidColorBrush(Color.FromArgb(0x80uy, 0x4auy, 0x55uy, 0x68uy))
 let private midBrush     = SolidColorBrush(Color.FromRgb(0xf2uy, 0xc5uy, 0x5cuy))
 
@@ -254,6 +257,13 @@ type PriceLadderView() =
     // Last computed inside-market center, kept so Recenter() can target it
     // even when no Apply has just run.
     let mutable lastInsideCenter : int64 = 0L
+    // Last snapshot applied. Cached so the mouse-wheel handler and Recenter
+    // can re-render against the current data when the worker is paused (no
+    // new frames flowing in).
+    let mutable lastSnap : Snapshot option = None
+    // Callback to detach-state changes so MainWindow can highlight the
+    // Recenter button.
+    let mutable onDetachChanged : bool -> unit = ignore
 
     let ensureRowCount (n: int) =
         while rowPool.Count < n do
@@ -273,27 +283,10 @@ type PriceLadderView() =
         for k in askByPrice.Keys do if k < bestAsk then bestAsk <- k
         bestBid, bestAsk
 
-    // Mouse-wheel detaches and pans by N ticks per notch.
-    do
-        outerGrid.PointerWheelChanged.Add(fun e ->
-            let dy = e.Delta.Y
-            if dy <> 0.0 then
-                if autoCenter then manualCenter <- lastInsideCenter
-                let step = if dy > 0.0 then 1L else -1L
-                manualCenter <- snapToTick (manualCenter + step * TICK_NS)
-                autoCenter <- false
-                e.Handled <- true)
-
-    member _.Control = outerGrid :> Control
-
-    member _.IsAutoCenter = autoCenter
-
-    member this.Recenter() =
-        autoCenter <- true
-        manualCenter <- lastInsideCenter
-
-    member _.Apply(snap: Snapshot) =
-        // Aggregate resting books once per frame.
+    /// Render against a given snapshot. Called from Apply (worker pumps a new
+    /// frame), and from the wheel/Recenter handlers (so the view updates even
+    /// when the worker is paused).
+    let render (snap: Snapshot) =
         let bidByPrice = aggregateSide snap.Books (fun b -> b.Bids)
         let askByPrice = aggregateSide snap.Books (fun b -> b.Asks)
 
@@ -315,14 +308,6 @@ type PriceLadderView() =
         // index rowCount/2 (or one above for even rowCount).
         let half = rowCount / 2
         let cursorNs = snap.BucketStartNs
-
-        // Pre-scan to compute max-vol in view for histogram normalization.
-        let mutable maxVol = 0UL
-        for i in 0 .. rowCount - 1 do
-            let price = centerPrice + int64 (half - i) * TICK_NS
-            match snap.VolumeAtPrice.TryGetValue(price) with
-            | true, v when v > maxVol -> maxVol <- v
-            | _ -> ()
 
         for i in 0 .. rowCount - 1 do
             let price = centerPrice + int64 (half - i) * TICK_NS
@@ -358,18 +343,67 @@ type PriceLadderView() =
             row.MidTradeCell.Text <- formatSize (readTradeCell snap.MidTradeAtPrice price cursorNs)
             row.BidTradeCell.Text <- formatSize (readTradeCell snap.BidTradeAtPrice price cursorNs)
 
-            // Volume column. For v1 just the number, right-aligned; the
-            // histogram bar can come in a follow-up.
+            // Volume column. Plain text at a consistent foreground — the
+            // alpha-fade-by-frac scheme made low-volume rows nearly invisible
+            // even when they had real activity. Magnitude encoding belongs
+            // in a histogram bar (not yet implemented).
             let vol =
                 match snap.VolumeAtPrice.TryGetValue(price) with
                 | true, v -> v
                 | false, _ -> 0UL
             row.VolCell.Text <- formatSize vol
-            // Visual emphasis proportional to vol/maxVol — fade brightness
-            // for low-volume rows.
-            if maxVol > 0UL && vol > 0UL then
-                let frac = float vol / float maxVol
-                let alpha = byte (32.0 + 224.0 * frac)
-                row.VolCell.Foreground <- SolidColorBrush(Color.FromArgb(alpha, 0xc8uy, 0xccuy, 0xd6uy))
-            else
-                row.VolCell.Foreground <- mutedBrush
+            row.VolCell.Foreground <- textBrush
+
+    // First-paint problem: when the user starts on a different tab, the
+    // ladder's rowsPanel has no allocated height until the tab is first
+    // activated. At that point SelectionChanged fires Apply(lastSnap), but
+    // rowsPanel.Bounds.Height is still 0 — so rowCount comes out as 0 and
+    // nothing materializes. The next snap (when the user scrolls or plays)
+    // recovers it, but on a paused ladder you'd never see anything until
+    // then. SizeChanged fires once the tab's layout pass runs, so we
+    // re-render against the cached snap and the rows pop in.
+    do
+        rowsPanel.SizeChanged.Add(fun _ ->
+            match lastSnap with
+            | Some s -> render s
+            | None -> ())
+
+    // Mouse-wheel detaches and pans by N ticks per notch. When paused we
+    // re-render against the cached snapshot so the view tracks the pan.
+    do
+        outerGrid.PointerWheelChanged.Add(fun e ->
+            let dy = e.Delta.Y
+            if dy <> 0.0 then
+                let wasDetached = not autoCenter
+                if autoCenter then manualCenter <- lastInsideCenter
+                let step = if dy > 0.0 then 1L else -1L
+                manualCenter <- snapToTick (manualCenter + step * TICK_NS)
+                autoCenter <- false
+                if not wasDetached then onDetachChanged false
+                match lastSnap with
+                | Some s -> render s
+                | None -> ()
+                e.Handled <- true)
+
+    member _.Control = outerGrid :> Control
+
+    member _.IsAutoCenter = autoCenter
+
+    /// Wire a callback fired whenever auto-center engages/disengages. The
+    /// argument is the new IsAutoCenter value. Used by MainWindow to toggle
+    /// the Recenter button highlight.
+    member _.OnAutoCenterChanged(cb: bool -> unit) =
+        onDetachChanged <- cb
+
+    member _.Recenter() =
+        let wasDetached = not autoCenter
+        autoCenter <- true
+        manualCenter <- lastInsideCenter
+        if wasDetached then onDetachChanged true
+        match lastSnap with
+        | Some s -> render s
+        | None -> ()
+
+    member _.Apply(snap: Snapshot) =
+        lastSnap <- Some snap
+        render snap

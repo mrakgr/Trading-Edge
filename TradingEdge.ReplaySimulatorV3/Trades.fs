@@ -13,7 +13,7 @@ type TradeMsg = {
     TsEvent: int64         // ns since epoch
     Price: int64           // 1e-9 USD
     Size: uint32
-    Side: byte             // 'A' / 'B' / 'N'  (resting-book side; aggressor is the opposite)
+    Side: byte             // 'A' / 'B' / 'N'  (aggressor side; 'A' = ask-seller hit a bid, 'B' = bid-buyer hit an ask, 'N' = off-book/auction/TRF)
     PublisherId: uint16
 }
 

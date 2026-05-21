@@ -40,6 +40,9 @@ let private textBrush   = SolidColorBrush(Color.FromRgb(0xc8uy, 0xccuy, 0xd6uy))
 let private mutedBrush  = SolidColorBrush(Color.FromRgb(0x78uy, 0x80uy, 0x90uy))
 let private upBrush     = SolidColorBrush(Color.FromRgb(0x2euy, 0xb8uy, 0x88uy))
 let private downBrush   = SolidColorBrush(Color.FromRgb(0xe5uy, 0x4buy, 0x4buy))
+// Same gold used for Mid in the ladder. Off-book / dark / TRF prints get
+// this color in both views so the eye learns to flag them as "weird flow".
+let private midBrush    = SolidColorBrush(Color.FromRgb(0xf2uy, 0xc5uy, 0x5cuy))
 let private timeBrush   = SolidColorBrush(Color.FromRgb(0x5cuy, 0xa8uy, 0xd0uy))
 
 let private SIDE_ASK : byte = byte 'A'
@@ -58,10 +61,13 @@ type TradeRow() =
     member val SideBrush : IBrush = mutedBrush :> IBrush with get, set
 
 let private toRow (t: TradeMsg) : TradeRow =
+    // DBN Side is the aggressor side on a trade record. 'B' = buyer hit an
+    // ask → uptick coloring; 'A' = seller hit a bid → downtick coloring;
+    // 'N' = off-book / dark / TRF print → mid color (matches the ladder).
     let brush =
-        if t.Side = SIDE_ASK then upBrush :> IBrush
-        elif t.Side = SIDE_BID then downBrush :> IBrush
-        else mutedBrush :> IBrush
+        if t.Side = SIDE_BID then upBrush :> IBrush
+        elif t.Side = SIDE_ASK then downBrush :> IBrush
+        else midBrush :> IBrush
     TradeRow(
         Time = fmtTime t.TsEvent,
         Price = sprintf "%.4f" (priceToUsd t.Price),
