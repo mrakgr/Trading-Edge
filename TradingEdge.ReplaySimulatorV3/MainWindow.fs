@@ -60,6 +60,7 @@ let create
     let chartView = ChartView.ChartView()
     let bookView = BookView.BookView()
     let tapeView = TapeView.TapeView()
+    let ladderView = PriceLadderView.PriceLadderView()
 
     let cts = new CancellationTokenSource()
     let worker = Worker.start store startCursorNs cts.Token
@@ -89,6 +90,7 @@ let create
             b)
     let resumeBtn = mkButton "Resume Auto"
     resumeBtn.Margin <- Thickness(12.0, 2.0, 2.0, 2.0)
+    let recenterBtn = mkButton "Recenter Ladder"
 
     let clockLabel =
         TextBlock(Foreground = textBrush, FontFamily = FontFamily("monospace"),
@@ -104,6 +106,7 @@ let create
     toolbar.Children.Add(speedLabel)
     for b in speedButtons do toolbar.Children.Add(b)
     toolbar.Children.Add(resumeBtn)
+    toolbar.Children.Add(recenterBtn)
     toolbar.Children.Add(clockLabel)
     toolbar.Children.Add(statusLabel)
 
@@ -150,6 +153,8 @@ let create
         chartView.ResumeAutoFollow ()
         refreshResumeBtn ())
 
+    recenterBtn.Click.Add(fun _ -> ladderView.Recenter())
+
     // ---- scrub slider ----
     // Drives the worker via Seek messages. Range is the loaded day's MBO
     // span. We also sync the slider's position from each incoming Snapshot,
@@ -187,19 +192,41 @@ let create
     leftGrid.Children.Add(slider)
     leftGrid.Children.Add(chartView.Chart)
 
-    // Right column: L2 montage on top, T&S on bottom, GridSplitter between.
-    let rightGrid = Grid()
-    rightGrid.RowDefinitions.Add(RowDefinition(GridLength.Auto))
-    rightGrid.RowDefinitions.Add(RowDefinition(GridLength.Auto))
-    rightGrid.RowDefinitions.Add(RowDefinition(GridLength(1.0, GridUnitType.Star)))
+    // Right column is a TabControl with two tabs:
+    //   L2     — BookView (top) + GridSplitter + T&S (bottom)
+    //   Ladder — PriceLadderView fills the whole pane
+    // Putting T&S inside the L2 tab means the TabControl swap automatically
+    // removes it from the visual tree when the Ladder tab is active — no
+    // empty-space leftover and no manual visibility toggles.
+    let bookTabContent = Grid()
+    bookTabContent.RowDefinitions.Add(RowDefinition(GridLength(1.0, GridUnitType.Star)))
+    bookTabContent.RowDefinitions.Add(RowDefinition(GridLength.Auto))
+    bookTabContent.RowDefinitions.Add(RowDefinition(GridLength(1.0, GridUnitType.Star)))
     Grid.SetRow(bookView.Control, 0)
     Grid.SetRow(tapeView.Control, 2)
     let vSplitter = GridSplitter(Height = 4.0, Background = mutedBrush,
                                  HorizontalAlignment = HorizontalAlignment.Stretch)
     Grid.SetRow(vSplitter, 1)
-    rightGrid.Children.Add(bookView.Control)
-    rightGrid.Children.Add(vSplitter)
-    rightGrid.Children.Add(tapeView.Control)
+    bookTabContent.Children.Add(bookView.Control)
+    bookTabContent.Children.Add(vSplitter)
+    bookTabContent.Children.Add(tapeView.Control)
+
+    let bookTab = TabItem(Header = "L2", Content = bookTabContent)
+    let ladderTab = TabItem(Header = "Ladder", Content = ladderView.Control)
+    let bookLadderTabs = TabControl()
+    bookLadderTabs.Background <- bgBrush
+    bookLadderTabs.Padding <- Thickness(0.0)
+    bookLadderTabs.Items.Add(bookTab) |> ignore
+    bookLadderTabs.Items.Add(ladderTab) |> ignore
+    bookLadderTabs.SelectedIndex <- 0
+    let mutable activeTabIdx = 0
+    bookLadderTabs.SelectionChanged.Add(fun _ ->
+        activeTabIdx <- bookLadderTabs.SelectedIndex)
+
+    let rightGrid = Grid()
+    rightGrid.RowDefinitions.Add(RowDefinition(GridLength(1.0, GridUnitType.Star)))
+    Grid.SetRow(bookLadderTabs, 0)
+    rightGrid.Children.Add(bookLadderTabs)
 
     // Outer 2-column grid: chart-stack | (L2 + T&S). Horizontal GridSplitter
     // lets the user resize the right panel. Both columns are Star-sized so
@@ -226,7 +253,11 @@ let create
                 for snap in worker.Outbox.ReadAllAsync(cts.Token) do
                     do! Dispatcher.UIThread.InvokeAsync(fun () ->
                         chartView.ApplyDiff(lastApplied, snap)
-                        bookView.Apply(snap)
+                        // Skip the hidden tab's aggregation work — both the
+                        // L2 box and the ladder walk every venue's books
+                        // per Apply call and that adds up.
+                        if activeTabIdx = 0 then bookView.Apply(snap)
+                        else ladderView.Apply(snap)
                         tapeView.Apply(snap)
                         lastApplied <- Some snap
                         clockLabel.Text <- fmtClock snap.BucketStartNs

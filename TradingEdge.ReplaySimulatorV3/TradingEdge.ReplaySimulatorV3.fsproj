@@ -20,6 +20,7 @@
     <Compile Include="ChartView.fs" />
     <Compile Include="BookView.fs" />
     <Compile Include="TapeView.fs" />
+    <Compile Include="PriceLadderView.fs" />
     <Compile Include="MainWindow.fs" />
     <Compile Include="App.fs" />
     <Compile Include="Program.fs" />

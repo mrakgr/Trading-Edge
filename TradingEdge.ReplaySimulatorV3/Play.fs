@@ -24,14 +24,24 @@ open TradingEdge.ReplaySimulatorV3.Book
 open TradingEdge.ReplaySimulatorV3.Snapshots
 
 let private ACTION_T : byte = byte 'T'
+let private SIDE_ASK : byte = byte 'A'
+let private SIDE_BID : byte = byte 'B'
+let private SIDE_NONE : byte = byte 'N'
 
 type Player(store: SnapshotStore) =
     // Scratch state mirrors what Snapshots.buildAsync maintains: an O(1) book
-    // lookup (immutable L3Book values), an immutable Bar list, and a rolling
-    // 1m trade queue.
+    // lookup (immutable L3Book values), an immutable Bar list, a rolling 1m
+    // trade queue, and the four price-keyed accumulator dicts that feed the
+    // ladder. The dicts are immutable references — updates allocate new trie
+    // nodes only along the touched path.
     let scratchBooks = Dictionary<int, L3Book>()
     let mutable scratchBars : Bar list = []
     let mutable scratchTradeQueue : ImmutableQueue<TradeMsg> = ImmutableQueue.Create()
+    let mutable scratchVolumeAtPrice : ImmutableDictionary<int64, uint64> =
+        ImmutableDictionary.Create<int64, uint64>()
+    let mutable scratchBidTrade : TradeAtPrice = emptyTradeAtPrice
+    let mutable scratchAskTrade : TradeAtPrice = emptyTradeAtPrice
+    let mutable scratchMidTrade : TradeAtPrice = emptyTradeAtPrice
     let mutable cursor : int64 = Int64.MinValue
     let mutable recordIdx : int = 0
     let mutable currentBucketIdx : int = -1
@@ -58,6 +68,10 @@ type Player(store: SnapshotStore) =
             scratchBooks.[kv.Key] <- kv.Value
         scratchBars <- snap.Bars
         scratchTradeQueue <- snap.Trades
+        scratchVolumeAtPrice <- snap.VolumeAtPrice
+        scratchBidTrade <- snap.BidTradeAtPrice
+        scratchAskTrade <- snap.AskTradeAtPrice
+        scratchMidTrade <- snap.MidTradeAtPrice
         cursor <- snap.BucketStartNs
         currentBucketIdx <- bucketIdx
         let bucketStart = snap.BucketStartNs
@@ -82,6 +96,19 @@ type Player(store: SnapshotStore) =
             if m.Action = ACTION_T then
                 trimTradeQueue m.TsEvent
                 scratchTradeQueue <- scratchTradeQueue.Enqueue(Trades.fromMbo m)
+                let prevVol =
+                    match scratchVolumeAtPrice.TryGetValue(m.Price) with
+                    | true, v -> v
+                    | false, _ -> 0UL
+                scratchVolumeAtPrice <- scratchVolumeAtPrice.SetItem(m.Price, prevVol + uint64 m.Size)
+                match m.Side with
+                | s when s = SIDE_ASK ->
+                    scratchAskTrade <- applyTradeAtPrice scratchAskTrade m.Price m.Size m.TsEvent
+                | s when s = SIDE_BID ->
+                    scratchBidTrade <- applyTradeAtPrice scratchBidTrade m.Price m.Size m.TsEvent
+                | s when s = SIDE_NONE ->
+                    scratchMidTrade <- applyTradeAtPrice scratchMidTrade m.Price m.Size m.TsEvent
+                | _ -> ()
             scratchBars <- Bars.feed scratchBars m
             recordIdx <- recordIdx + 1
         cursor <- t
@@ -97,6 +124,10 @@ type Player(store: SnapshotStore) =
             Books = books
             Bars = scratchBars
             Trades = scratchTradeQueue
+            VolumeAtPrice = scratchVolumeAtPrice
+            BidTradeAtPrice = scratchBidTrade
+            AskTradeAtPrice = scratchAskTrade
+            MidTradeAtPrice = scratchMidTrade
         }
 
     member _.Store = store

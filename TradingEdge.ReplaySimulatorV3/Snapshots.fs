@@ -29,7 +29,37 @@ let BUCKET_NS : int64 = 5L * 60L * 1_000_000_000L
 /// Rolling-window length for the T&S queue captured in each snapshot.
 let TRADE_WINDOW_NS : int64 = 60L * 1_000_000_000L
 
+/// Inactivity threshold for the per-side trade-at-price counters. After a
+/// stretch of ≥ this duration with no trade at a given price, the next trade
+/// at that price resets the accumulated count to its own size (instead of
+/// adding to the prior count). The UI also uses this threshold to blank out
+/// stale entries that haven't been touched recently.
+let TRADE_RESET_NS : int64 = 60L * 1_000_000_000L
+
 let private ACTION_T : byte = byte 'T'
+let private SIDE_ASK : byte = byte 'A'
+let private SIDE_BID : byte = byte 'B'
+let private SIDE_NONE : byte = byte 'N'
+
+/// Recent-trade accumulator. Update with `applyTradeAtPrice`; the decay rule
+/// (resets-or-adds based on TRADE_RESET_NS gap) is applied per record.
+type TradeAtPrice = ImmutableDictionary<int64, struct (uint64 * int64)>
+
+let emptyTradeAtPrice : TradeAtPrice =
+    ImmutableDictionary.Create<int64, struct (uint64 * int64)>()
+
+let applyTradeAtPrice
+        (dict: TradeAtPrice)
+        (price: int64) (size: uint32) (tsEvent: int64)
+        : TradeAtPrice =
+    let prevSize, prevTs =
+        match dict.TryGetValue(price) with
+        | true, struct (s, t) -> s, t
+        | false, _ -> 0UL, 0L
+    let newSize =
+        if tsEvent - prevTs > TRADE_RESET_NS then uint64 size
+        else prevSize + uint64 size
+    dict.SetItem(price, struct (newSize, tsEvent))
 
 /// One 5-min snapshot. Captures the cumulative state AT the start of the
 /// bucket plus a rolling 1-minute trade window ending at the bucket start.
@@ -48,6 +78,21 @@ type Snapshot = {
     /// Oldest-first (front = oldest, back = most-recent). Empty if the prior
     /// minute saw no trades.
     Trades: TradeMsg ImmutableQueue
+    /// Session-cumulative traded volume per price tick (1e-9 USD). Grows
+    /// monotonically; structural sharing across snapshots reuses tree nodes
+    /// for untouched prices. The price ladder reads this for its volume
+    /// histogram column.
+    VolumeAtPrice: ImmutableDictionary<int64, uint64>
+    /// Recent traded size at each price for aggressor-sell trades (Side='B').
+    /// Value is struct (accumulatedSize, lastTradeTsNs). Decays under the
+    /// TRADE_RESET_NS rule on each update; UI further blanks entries whose
+    /// lastTradeTsNs is older than cursor - TRADE_RESET_NS.
+    BidTradeAtPrice: TradeAtPrice
+    /// Recent traded size at each price for aggressor-buy trades (Side='A').
+    AskTradeAtPrice: TradeAtPrice
+    /// Recent traded size at each price for off-book / dark / TRF prints
+    /// (Side='N').
+    MidTradeAtPrice: TradeAtPrice
 }
 
 type SnapshotStore = {
@@ -104,6 +149,15 @@ let buildAsync (merged: IAsyncEnumerable<MboMsg>) : Task<SnapshotStore> = task {
     // enqueue/dequeue with structural sharing across snapshots.
     let mutable tradeQueue : ImmutableQueue<TradeMsg> = ImmutableQueue.Create()
 
+    // Session-cumulative volume-at-price + per-side recent-trade accumulators.
+    // All four are ImmutableDictionary so adjacent snapshots share trie nodes
+    // for untouched prices.
+    let mutable volumeAtPrice : ImmutableDictionary<int64, uint64> =
+        ImmutableDictionary.Create<int64, uint64>()
+    let mutable bidTradeAtPrice : TradeAtPrice = emptyTradeAtPrice
+    let mutable askTradeAtPrice : TradeAtPrice = emptyTradeAtPrice
+    let mutable midTradeAtPrice : TradeAtPrice = emptyTradeAtPrice
+
     // Drop trades older than (asOfNs - TRADE_WINDOW_NS) from the front of the
     // queue. Called before enqueuing a new trade and before freezing a snapshot.
     let trimTradeQueue (asOfNs: int64) =
@@ -120,6 +174,11 @@ let buildAsync (merged: IAsyncEnumerable<MboMsg>) : Task<SnapshotStore> = task {
     let mutable preBucketBooks : Map<int, L3Book> = Map.empty
     let mutable preBucketBars : Bar list = []
     let mutable preBucketTrades : ImmutableQueue<TradeMsg> = ImmutableQueue.Create()
+    let mutable preBucketVolumeAtPrice : ImmutableDictionary<int64, uint64> =
+        ImmutableDictionary.Create<int64, uint64>()
+    let mutable preBucketBidTrade : TradeAtPrice = emptyTradeAtPrice
+    let mutable preBucketAskTrade : TradeAtPrice = emptyTradeAtPrice
+    let mutable preBucketMidTrade : TradeAtPrice = emptyTradeAtPrice
 
     let freezeBucketStart () =
         // Capture state right now, BEFORE applying the first record of the
@@ -131,6 +190,10 @@ let buildAsync (merged: IAsyncEnumerable<MboMsg>) : Task<SnapshotStore> = task {
         preBucketBars <- bars
         trimTradeQueue currentBucketStart
         preBucketTrades <- tradeQueue
+        preBucketVolumeAtPrice <- volumeAtPrice
+        preBucketBidTrade <- bidTradeAtPrice
+        preBucketAskTrade <- askTradeAtPrice
+        preBucketMidTrade <- midTradeAtPrice
 
     let emitSnapshot () =
         snapshots.Add({
@@ -138,6 +201,10 @@ let buildAsync (merged: IAsyncEnumerable<MboMsg>) : Task<SnapshotStore> = task {
             Books = preBucketBooks
             Bars = preBucketBars
             Trades = preBucketTrades
+            VolumeAtPrice = preBucketVolumeAtPrice
+            BidTradeAtPrice = preBucketBidTrade
+            AskTradeAtPrice = preBucketAskTrade
+            MidTradeAtPrice = preBucketMidTrade
         })
 
     for m in records do
@@ -160,6 +227,23 @@ let buildAsync (merged: IAsyncEnumerable<MboMsg>) : Task<SnapshotStore> = task {
         if m.Action = ACTION_T then
             trimTradeQueue m.TsEvent
             tradeQueue <- tradeQueue.Enqueue(Trades.fromMbo m)
+            // Volume-at-price: monotonic accumulator over the session.
+            let prevVol =
+                match volumeAtPrice.TryGetValue(m.Price) with
+                | true, v -> v
+                | false, _ -> 0UL
+            volumeAtPrice <- volumeAtPrice.SetItem(m.Price, prevVol + uint64 m.Size)
+            // Per-side recent-trade accumulator. Dispatch on resting side:
+            // 'A' = ask was hit (buyer aggressor) → ask-trade dict; 'B' = bid
+            // was hit (seller aggressor) → bid-trade dict; 'N' = off-book.
+            match m.Side with
+            | s when s = SIDE_ASK ->
+                askTradeAtPrice <- applyTradeAtPrice askTradeAtPrice m.Price m.Size m.TsEvent
+            | s when s = SIDE_BID ->
+                bidTradeAtPrice <- applyTradeAtPrice bidTradeAtPrice m.Price m.Size m.TsEvent
+            | s when s = SIDE_NONE ->
+                midTradeAtPrice <- applyTradeAtPrice midTradeAtPrice m.Price m.Size m.TsEvent
+            | _ -> ()
         bars <- Bars.feed bars m
 
     // Final partial bucket.
