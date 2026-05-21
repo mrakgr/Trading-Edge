@@ -10,6 +10,7 @@ module TradingEdge.ReplaySimulatorV3.Bars
 
 open System
 open TradingEdge.ReplaySimulatorV3.MboReader
+open TradingEdge.ReplaySimulatorV3.Time
 
 let private ACTION_T : byte = byte 'T'
 
@@ -38,16 +39,10 @@ let barVwap (b: Bar) : float =
 let sessionVwap (b: Bar) : float option =
     if b.SessionVolume > 0L then Some (b.SessionNotional / float b.SessionVolume) else None
 
-let private NY_TZ =
-    try TimeZoneInfo.FindSystemTimeZoneById("America/New_York")
-    with _ -> TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time")
-
 let private RTH_OPEN = TimeSpan(9, 30, 0)
 
 let isAtOrAfterRthOpen (utcNs: int64) : bool =
-    let utc = DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddTicks(utcNs / 100L)
-    let ny = TimeZoneInfo.ConvertTimeFromUtc(utc, NY_TZ)
-    ny.TimeOfDay >= RTH_OPEN
+    (toNy utcNs).TimeOfDay >= RTH_OPEN
 
 /// Fold an MBO record into a bar list. Head = current (most-recent) bar.
 /// Non-trade records return `bars` unchanged. A trade in the head's bucket

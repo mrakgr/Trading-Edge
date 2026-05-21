@@ -23,17 +23,10 @@ open LiveChartsCore.SkiaSharpView.Avalonia
 open LiveChartsCore.SkiaSharpView.Painting
 open LiveChartsCore.Defaults
 open SkiaSharp
+open TradingEdge.ReplaySimulatorV3.Time
 open TradingEdge.ReplaySimulatorV3.Bars
 open TradingEdge.ReplaySimulatorV3.Snapshots
 open System.Collections.Generic
-
-let private NY_TZ =
-    try TimeZoneInfo.FindSystemTimeZoneById("America/New_York")
-    with _ -> TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time")
-
-let private toNyTime (utcNs: int64) : DateTime =
-    let utc = DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddTicks(utcNs / 100L)
-    TimeZoneInfo.ConvertTimeFromUtc(utc, NY_TZ)
 
 // dark-theme palette
 let private bgColor    = SKColor(0x10uy, 0x12uy, 0x18uy)
@@ -188,7 +181,7 @@ type ChartView() =
 
     // ---------- per-bar projections ----------
     let barFinancial (b: Bar) =
-        FinancialPoint(toNyTime b.BucketStartNs, b.High, b.Open, b.Close, b.Low)
+        FinancialPoint(toNy b.BucketStartNs, b.High, b.Open, b.Close, b.Low)
 
     let nullableVwap (b: Bar) =
         match sessionVwap b with
@@ -196,7 +189,7 @@ type ChartView() =
         | None -> Nullable<double>()
 
     let dtPoint (b: Bar) (v: float) =
-        DateTimePoint(toNyTime b.BucketStartNs, Nullable<double>(v))
+        DateTimePoint(toNy b.BucketStartNs, Nullable<double>(v))
 
     let appendBar (b: Bar) =
         candleValues.Add(barFinancial b)
@@ -204,7 +197,7 @@ type ChartView() =
         highValues.Add(dtPoint b b.High)
         lowValues.Add(dtPoint b b.Low)
         closeValues.Add(dtPoint b b.Close)
-        vwapValues.Add(DateTimePoint(toNyTime b.BucketStartNs, nullableVwap b))
+        vwapValues.Add(DateTimePoint(toNy b.BucketStartNs, nullableVwap b))
         volValues.Add(dtPoint b (float b.Volume))
         if float b.Volume > maxVolume then maxVolume <- float b.Volume
 

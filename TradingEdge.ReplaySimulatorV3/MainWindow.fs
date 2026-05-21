@@ -13,6 +13,7 @@ open Avalonia.Media
 open Avalonia.Layout
 open Avalonia.Threading
 open FSharp.Control
+open TradingEdge.ReplaySimulatorV3.Time
 open TradingEdge.ReplaySimulatorV3.Snapshots
 open TradingEdge.ReplaySimulatorV3.Worker
 
@@ -22,17 +23,9 @@ let private textBrush   = SolidColorBrush(Color.FromRgb(0xc8uy, 0xccuy, 0xd6uy))
 let private mutedBrush  = SolidColorBrush(Color.FromRgb(0x78uy, 0x80uy, 0x90uy))
 let private accentBrush = SolidColorBrush(Color.FromRgb(0x2euy, 0xb8uy, 0x88uy))
 
-let private NY_TZ_MW =
-    try TimeZoneInfo.FindSystemTimeZoneById("America/New_York")
-    with _ -> TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time")
-
-let private nyOf (utcNs: int64) =
-    let utc = DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddTicks(utcNs / 100L)
-    TimeZoneInfo.ConvertTimeFromUtc(utc, NY_TZ_MW)
-
 let private fmtClock (utcNs: int64) =
     if utcNs = Int64.MinValue then "--:--:--"
-    else (nyOf utcNs).ToString("HH:mm:ss")
+    else (toNy utcNs).ToString("HH:mm:ss")
 
 let private mkButton (text: string) =
     let b = Button()

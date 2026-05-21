@@ -17,6 +17,7 @@ open System.Collections.Generic
 open System.Collections.Immutable
 open System.Threading.Tasks
 open FSharp.Control
+open TradingEdge.ReplaySimulatorV3.Time
 open TradingEdge.ReplaySimulatorV3.MboReader
 open TradingEdge.ReplaySimulatorV3.Trades
 open TradingEdge.ReplaySimulatorV3.Bars
@@ -62,13 +63,9 @@ type SnapshotStore = {
 /// Compute the session anchor for a day given any UTC ns within that day.
 /// Returns the UTC ns of 04:00 America/New_York on that day's NY-local date.
 let sessionAnchorForDay (utcNs: int64) : int64 =
-    let nyTz =
-        try TimeZoneInfo.FindSystemTimeZoneById("America/New_York")
-        with _ -> TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time")
-    let utc = DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddTicks(utcNs / 100L)
-    let ny = TimeZoneInfo.ConvertTimeFromUtc(utc, nyTz)
+    let ny = toNy utcNs
     let anchorNy = DateTime(ny.Year, ny.Month, ny.Day, 4, 0, 0, DateTimeKind.Unspecified)
-    let anchorUtc = TimeZoneInfo.ConvertTimeToUtc(anchorNy, nyTz)
+    let anchorUtc = TimeZoneInfo.ConvertTimeToUtc(anchorNy, NY_TZ)
     let epoch = DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)
     (anchorUtc.Ticks - epoch.Ticks) * 100L
 
