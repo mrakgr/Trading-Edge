@@ -58,6 +58,8 @@ let create
     header.Margin <- Thickness(10.0, 6.0, 10.0, 4.0)
 
     let chartView = ChartView.ChartView()
+    let bookView = BookView.BookView()
+    let tapeView = TapeView.TapeView()
 
     let cts = new CancellationTokenSource()
     let worker = Worker.start store startCursorNs cts.Token
@@ -170,29 +172,61 @@ let create
             worker.Inbox.TryWrite(Seek (int64 v)) |> ignore)
 
     // ---- layout ----
-    let grid = Grid()
-    grid.RowDefinitions.Add(RowDefinition(GridLength.Auto))
-    grid.RowDefinitions.Add(RowDefinition(GridLength.Auto))
-    grid.RowDefinitions.Add(RowDefinition(GridLength.Auto))
-    grid.RowDefinitions.Add(RowDefinition(GridLength(1.0, GridUnitType.Star)))
+    // Left column: header + toolbar + slider + chart (stacked).
+    let leftGrid = Grid()
+    leftGrid.RowDefinitions.Add(RowDefinition(GridLength.Auto))
+    leftGrid.RowDefinitions.Add(RowDefinition(GridLength.Auto))
+    leftGrid.RowDefinitions.Add(RowDefinition(GridLength.Auto))
+    leftGrid.RowDefinitions.Add(RowDefinition(GridLength(1.0, GridUnitType.Star)))
     Grid.SetRow(header, 0)
     Grid.SetRow(toolbar, 1)
     Grid.SetRow(slider, 2)
     Grid.SetRow(chartView.Chart, 3)
-    grid.Children.Add(header)
-    grid.Children.Add(toolbar)
-    grid.Children.Add(slider)
-    grid.Children.Add(chartView.Chart)
-    w.Content <- grid
+    leftGrid.Children.Add(header)
+    leftGrid.Children.Add(toolbar)
+    leftGrid.Children.Add(slider)
+    leftGrid.Children.Add(chartView.Chart)
+
+    // Right column: L2 montage on top, T&S on bottom, GridSplitter between.
+    let rightGrid = Grid()
+    rightGrid.RowDefinitions.Add(RowDefinition(GridLength.Auto))
+    rightGrid.RowDefinitions.Add(RowDefinition(GridLength.Auto))
+    rightGrid.RowDefinitions.Add(RowDefinition(GridLength(1.0, GridUnitType.Star)))
+    Grid.SetRow(bookView.Control, 0)
+    Grid.SetRow(tapeView.Control, 2)
+    let vSplitter = GridSplitter(Height = 4.0, Background = mutedBrush,
+                                 HorizontalAlignment = HorizontalAlignment.Stretch)
+    Grid.SetRow(vSplitter, 1)
+    rightGrid.Children.Add(bookView.Control)
+    rightGrid.Children.Add(vSplitter)
+    rightGrid.Children.Add(tapeView.Control)
+
+    // Outer 2-column grid: chart-stack | (L2 + T&S). Horizontal GridSplitter
+    // lets the user resize the right panel.
+    let outer = Grid()
+    outer.ColumnDefinitions.Add(ColumnDefinition(GridLength(1.0, GridUnitType.Star)))
+    outer.ColumnDefinitions.Add(ColumnDefinition(GridLength(4.0)))
+    outer.ColumnDefinitions.Add(ColumnDefinition(GridLength(360.0)))
+    let hSplitter = GridSplitter(Width = 4.0, Background = mutedBrush,
+                                 VerticalAlignment = VerticalAlignment.Stretch)
+    Grid.SetColumn(leftGrid, 0)
+    Grid.SetColumn(hSplitter, 1)
+    Grid.SetColumn(rightGrid, 2)
+    outer.Children.Add(leftGrid)
+    outer.Children.Add(hSplitter)
+    outer.Children.Add(rightGrid)
+    w.Content <- outer
 
     // ---- UI pump: a single reader task awaits each Snapshot off the worker's
     // outbox and applies it on the UI thread via the Dispatcher.
-    let uiPump =
+    let _uiPump =
         task {
             try let mutable lastApplied : Snapshot option = None
                 for snap in worker.Outbox.ReadAllAsync(cts.Token) do
                     do! Dispatcher.UIThread.InvokeAsync(fun () ->
                         chartView.ApplyDiff(lastApplied, snap)
+                        bookView.Apply(snap)
+                        // tapeView.Apply(snap)
                         lastApplied <- Some snap
                         clockLabel.Text <- fmtClock snap.BucketStartNs
                         suppressSliderHandler <- true
@@ -203,10 +237,9 @@ let create
         }
 
     // ---- cleanup ----
-    w.Closed.Add(fun _ ->
-        cts.Cancel()
-        try worker.Producer.Wait(500) |> ignore with _ -> ()
-        try uiPump.Wait(500) |> ignore with _ -> ()
-        cts.Dispose())
+    // Fire-and-forget cancellation. Worker and uiPump both observe the token
+    // and exit on their own; we don't wait on them because the window is
+    // already closing and the OS reaps the tasks.
+    w.Closed.Add(fun _ -> cts.Cancel())
 
     w

@@ -10,6 +10,7 @@
     <Compile Include="Time.fs" />
     <Compile Include="Dbn.fs" />
     <Compile Include="MboReader.fs" />
+    <Compile Include="Publishers.fs" />
     <Compile Include="Trades.fs" />
     <Compile Include="Bars.fs" />
     <Compile Include="Book.fs" />
@@ -17,6 +18,8 @@
     <Compile Include="Play.fs" />
     <Compile Include="Worker.fs" />
     <Compile Include="ChartView.fs" />
+    <Compile Include="BookView.fs" />
+    <Compile Include="TapeView.fs" />
     <Compile Include="MainWindow.fs" />
     <Compile Include="App.fs" />
     <Compile Include="Program.fs" />
