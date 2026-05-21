@@ -1,4 +1,4 @@
-module TradingEdge.ReplaySimulatorV2.Bars
+module TradingEdge.ReplaySimulatorV3.Bars
 
 // 1-minute OHLCV+VWAP bars. Pure functional: feed takes a bar list (head =
 // current/most-recent bar) and an MboMsg, returns a new bar list. A trade in
@@ -9,7 +9,7 @@ module TradingEdge.ReplaySimulatorV2.Bars
 // head bar so the list is self-contained — no auxiliary aggregator needed.
 
 open System
-open TradingEdge.ReplaySimulatorV2.MboReader
+open TradingEdge.ReplaySimulatorV3.MboReader
 
 let private ACTION_T : byte = byte 'T'
 

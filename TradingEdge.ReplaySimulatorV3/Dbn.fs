@@ -1,4 +1,4 @@
-module TradingEdge.ReplaySimulatorV2.Dbn
+module TradingEdge.ReplaySimulatorV3.Dbn
 
 // Databento Binary Encoding (DBN) — header structs only.
 //

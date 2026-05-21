@@ -16,6 +16,7 @@
     <Compile Include="Play.fs" />
     <Compile Include="Worker.fs" />
     <Compile Include="ChartView.fs" />
+    <Compile Include="MainWindow.fs" />
   </ItemGroup>
 
   <ItemGroup>

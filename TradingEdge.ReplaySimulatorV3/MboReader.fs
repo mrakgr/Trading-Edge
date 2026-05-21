@@ -1,4 +1,4 @@
-module TradingEdge.ReplaySimulatorV2.MboReader
+module TradingEdge.ReplaySimulatorV3.MboReader
 
 // Reader for MBO (Market-By-Order) records from a DBN stream. Assumes the
 // stream is positioned just past the metadata block (i.e. the caller has
@@ -12,7 +12,7 @@ open System.Collections.Generic
 open System.IO
 open System.Runtime.InteropServices
 open FSharp.Control
-open TradingEdge.ReplaySimulatorV2.Dbn
+open TradingEdge.ReplaySimulatorV3.Dbn
 
 let private RTYPE_MBO : byte = 0xA0uy
 

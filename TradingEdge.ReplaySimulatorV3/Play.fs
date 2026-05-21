@@ -1,4 +1,4 @@
-module TradingEdge.ReplaySimulatorV2.Play
+module TradingEdge.ReplaySimulatorV3.Play
 
 // play(t) — the single entry point that returns the simulator state at any
 // time t in the loaded day. Returns a Snapshot whose BucketStartNs field holds
@@ -17,11 +17,11 @@ module TradingEdge.ReplaySimulatorV2.Play
 open System
 open System.Collections.Generic
 open System.Collections.Immutable
-open TradingEdge.ReplaySimulatorV2.MboReader
-open TradingEdge.ReplaySimulatorV2.Trades
-open TradingEdge.ReplaySimulatorV2.Bars
-open TradingEdge.ReplaySimulatorV2.Book
-open TradingEdge.ReplaySimulatorV2.Snapshots
+open TradingEdge.ReplaySimulatorV3.MboReader
+open TradingEdge.ReplaySimulatorV3.Trades
+open TradingEdge.ReplaySimulatorV3.Bars
+open TradingEdge.ReplaySimulatorV3.Book
+open TradingEdge.ReplaySimulatorV3.Snapshots
 
 let private ACTION_T : byte = byte 'T'
 

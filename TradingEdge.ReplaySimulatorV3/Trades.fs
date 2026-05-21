@@ -1,4 +1,4 @@
-module TradingEdge.ReplaySimulatorV2.Trades
+module TradingEdge.ReplaySimulatorV3.Trades
 
 // Narrow projection of MboMsg for the T&S window. We don't need order_id,
 // flags, ts_recv, sequence, etc. once a trade has occurred — only the fields
@@ -6,7 +6,7 @@ module TradingEdge.ReplaySimulatorV2.Trades
 
 open System
 open System.Runtime.InteropServices
-open TradingEdge.ReplaySimulatorV2.MboReader
+open TradingEdge.ReplaySimulatorV3.MboReader
 
 [<Struct; StructLayout(LayoutKind.Sequential, Pack = 1)>]
 type TradeMsg = {

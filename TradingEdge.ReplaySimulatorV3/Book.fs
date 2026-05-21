@@ -1,4 +1,4 @@
-module TradingEdge.ReplaySimulatorV2.Book
+module TradingEdge.ReplaySimulatorV3.Book
 
 // V2: purely immutable L3 order book. Every Apply* returns a new L3Book that
 // shares all unchanged levels with the input via F# Map's structural sharing.
@@ -15,7 +15,7 @@ module TradingEdge.ReplaySimulatorV2.Book
 // Compared to V1's MutableBook: ~2× more allocations per event, but enables
 // O(1) snapshot capture (just hold the reference) with full structural sharing.
 
-open TradingEdge.ReplaySimulatorV2.MboReader
+open TradingEdge.ReplaySimulatorV3.MboReader
 
 let private SIDE_ASK : byte = byte 'A'
 let private SIDE_BID : byte = byte 'B'

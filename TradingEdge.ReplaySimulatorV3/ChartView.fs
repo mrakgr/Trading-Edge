@@ -1,4 +1,4 @@
-module TradingEdge.ReplaySimulatorV2.ChartView
+module TradingEdge.ReplaySimulatorV3.ChartView
 
 // LiveCharts2 chart for V3. Single pane, dark theme, candles + VWAP + faint
 // volume background. Series values are bound to ObservableCollection<T> so
@@ -23,8 +23,8 @@ open LiveChartsCore.SkiaSharpView.Avalonia
 open LiveChartsCore.SkiaSharpView.Painting
 open LiveChartsCore.Defaults
 open SkiaSharp
-open TradingEdge.ReplaySimulatorV2.Bars
-open TradingEdge.ReplaySimulatorV2.Snapshots
+open TradingEdge.ReplaySimulatorV3.Bars
+open TradingEdge.ReplaySimulatorV3.Snapshots
 open System.Collections.Generic
 
 let private NY_TZ =

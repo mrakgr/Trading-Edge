@@ -1,4 +1,4 @@
-module TradingEdge.ReplaySimulatorV2.Worker
+module TradingEdge.ReplaySimulatorV3.Worker
 
 // Background worker that drives the Player off the UI thread.
 //
@@ -17,8 +17,8 @@ open System
 open System.Threading
 open System.Threading.Channels
 open System.Threading.Tasks
-open TradingEdge.ReplaySimulatorV2.Snapshots
-open TradingEdge.ReplaySimulatorV2.Play
+open TradingEdge.ReplaySimulatorV3.Snapshots
+open TradingEdge.ReplaySimulatorV3.Play
 
 /// Wall-clock tick cadence in ms. ~67 FPS.
 let TICK_MS : int = 15

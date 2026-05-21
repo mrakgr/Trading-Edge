@@ -1,4 +1,4 @@
-module TradingEdge.ReplaySimulatorV2.Snapshots
+module TradingEdge.ReplaySimulatorV3.Snapshots
 
 // Eager build pass: walk the merged MBO stream once and freeze the state at
 // every 5-minute bucket boundary into an immutable SnapshotStore.
@@ -17,10 +17,10 @@ open System.Collections.Generic
 open System.Collections.Immutable
 open System.Threading.Tasks
 open FSharp.Control
-open TradingEdge.ReplaySimulatorV2.MboReader
-open TradingEdge.ReplaySimulatorV2.Trades
-open TradingEdge.ReplaySimulatorV2.Bars
-open TradingEdge.ReplaySimulatorV2.Book
+open TradingEdge.ReplaySimulatorV3.MboReader
+open TradingEdge.ReplaySimulatorV3.Trades
+open TradingEdge.ReplaySimulatorV3.Bars
+open TradingEdge.ReplaySimulatorV3.Book
 
 /// 5-minute snapshot cadence in ns.
 let BUCKET_NS : int64 = 5L * 60L * 1_000_000_000L
