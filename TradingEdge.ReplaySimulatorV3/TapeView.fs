@@ -40,6 +40,7 @@ let private textBrush   = SolidColorBrush(Color.FromRgb(0xc8uy, 0xccuy, 0xd6uy))
 let private mutedBrush  = SolidColorBrush(Color.FromRgb(0x78uy, 0x80uy, 0x90uy))
 let private upBrush     = SolidColorBrush(Color.FromRgb(0x2euy, 0xb8uy, 0x88uy))
 let private downBrush   = SolidColorBrush(Color.FromRgb(0xe5uy, 0x4buy, 0x4buy))
+let private timeBrush   = SolidColorBrush(Color.FromRgb(0x5cuy, 0xa8uy, 0xd0uy))
 
 let private SIDE_ASK : byte = byte 'A'
 let private SIDE_BID : byte = byte 'B'
@@ -63,7 +64,7 @@ let private toRow (t: TradeMsg) : TradeRow =
         else mutedBrush :> IBrush
     TradeRow(
         Time = fmtTime t.TsEvent,
-        Price = sprintf "%9.4f" (priceToUsd t.Price),
+        Price = sprintf "%.4f" (priceToUsd t.Price),
         Size = (int64 t.Size).ToString("N0"),
         Venue = venueCode (int t.PublisherId),
         SideBrush = brush)
@@ -126,19 +127,20 @@ type TapeView() =
             g.ColumnDefinitions.Add(cPrice)
             g.ColumnDefinitions.Add(cSize)
             g.ColumnDefinitions.Add(cVenue)
-            let mk (text: string) (col: int) (brush: IBrush) =
+            let mk (text: string) (col: int) (brush: IBrush) (align: TextAlignment) =
                 let tb = TextBlock(
                             Text = text,
                             Foreground = brush,
                             FontFamily = FontFamily("monospace"),
                             FontSize = 13.0,
+                            TextAlignment = align,
                             Margin = Thickness(0.0, 0.0, 8.0, 0.0))
                 Grid.SetColumn(tb, col)
                 g.Children.Add(tb)
-            mk row.Time  0 mutedBrush
-            mk row.Price 1 row.SideBrush
-            mk row.Size  2 row.SideBrush
-            mk row.Venue 3 textBrush
+            mk row.Time  0 timeBrush     TextAlignment.Left
+            mk row.Price 1 row.SideBrush TextAlignment.Right
+            mk row.Size  2 row.SideBrush TextAlignment.Right
+            mk row.Venue 3 textBrush     TextAlignment.Left
             g :> Control
         listBox.ItemTemplate <- FuncDataTemplate<TradeRow>(System.Func<_,_,_> build, true)
 
@@ -164,19 +166,24 @@ type TapeView() =
         header.ColumnDefinitions.Add(hPrice)
         header.ColumnDefinitions.Add(hSize)
         header.ColumnDefinitions.Add(hVenue)
-        header.Margin <- Thickness(8.0, 4.0, 8.0, 4.0)
-        let mk text col =
+        // Outer header Margin removed: with the ListBox at zero padding the
+        // rows start flush left, so the header must too. Per-cell right pad
+        // mirrors the row template so column edges line up.
+        let mk (text: string) (col: int) (align: TextAlignment) =
             let tb = TextBlock(
                         Text = text,
                         Foreground = mutedBrush,
+                        FontFamily = FontFamily("monospace"),
                         FontSize = 11.0,
-                        FontWeight = FontWeight.SemiBold)
+                        FontWeight = FontWeight.SemiBold,
+                        TextAlignment = align,
+                        Margin = Thickness(0.0, 2.0, 8.0, 2.0))
             Grid.SetColumn(tb, col)
             header.Children.Add(tb)
-        mk "TIME"  0
-        mk "PRICE" 1
-        mk "SIZE"  2
-        mk "VENUE" 3
+        mk "TIME"  0 TextAlignment.Left
+        mk "PRICE" 1 TextAlignment.Right
+        mk "SIZE"  2 TextAlignment.Right
+        mk "VENUE" 3 TextAlignment.Left
         Grid.SetRow(header, 0)
         Grid.SetRow(listBox, 1)
         panel.Children.Add(header)
