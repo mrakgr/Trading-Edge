@@ -24,9 +24,10 @@ open System.Collections.Specialized
 open System.ComponentModel
 open Avalonia
 open Avalonia.Controls
+open Avalonia.Controls.Primitives
 open Avalonia.Controls.Templates
-open Avalonia.Layout
 open Avalonia.Media
+open Avalonia.Styling
 open TradingEdge.ReplaySimulatorV3.Time
 open TradingEdge.ReplaySimulatorV3.Snapshots
 open TradingEdge.ReplaySimulatorV3.Trades
@@ -82,6 +83,16 @@ type BulkObservableList<'T>() =
         this.OnPropertyChanged(PropertyChangedEventArgs("Count"))
         this.OnPropertyChanged(PropertyChangedEventArgs("Item[]"))
 
+/// Style that zeros out the default Fluent-theme padding on ListBoxItem so
+/// tape rows render compactly. Selection / hover visuals are left at the
+/// theme defaults — the rows are clickable like any other ListBox.
+let private mkListBoxItemStyles () : Style[] =
+    let asListBoxItem = System.Func<Selector, Selector>(fun s -> s.OfType(typeof<ListBoxItem>))
+    let baseStyle = Style(asListBoxItem)
+    baseStyle.Setters.Add(Setter(ListBoxItem.PaddingProperty, Thickness(0.0)))
+    baseStyle.Setters.Add(Setter(ListBoxItem.MinHeightProperty, 0.0))
+    [| baseStyle |]
+
 type TapeView() =
     let rows = BulkObservableList<TradeRow>()
     let listBox = ListBox()
@@ -89,6 +100,13 @@ type TapeView() =
         listBox.ItemsSource <- rows
         listBox.Background <- panelBrush
         listBox.BorderThickness <- Thickness(0.0)
+        listBox.Padding <- Thickness(0.0)
+        // Always show the vertical scrollbar so the user can drag through
+        // the rolling window when paused.
+        ScrollViewer.SetVerticalScrollBarVisibility(listBox, ScrollBarVisibility.Visible)
+        ScrollViewer.SetHorizontalScrollBarVisibility(listBox, ScrollBarVisibility.Disabled)
+        // Compact, non-interactive rows.
+        for s in mkListBoxItemStyles () do listBox.Styles.Add(s)
         // Explicit virtualization: only viewport rows are materialized.
         listBox.ItemsPanel <-
             FuncTemplate<Panel>(fun () -> VirtualizingStackPanel() :> Panel)
@@ -98,16 +116,22 @@ type TapeView() =
     do
         let build (row: TradeRow) (_: INameScope) : Control =
             let g = Grid()
-            g.ColumnDefinitions.Add(ColumnDefinition(GridLength 100.0))
-            g.ColumnDefinitions.Add(ColumnDefinition(GridLength 80.0))
-            g.ColumnDefinitions.Add(ColumnDefinition(GridLength 70.0))
-            g.ColumnDefinitions.Add(ColumnDefinition(GridLength 60.0))
+            let cTime  = ColumnDefinition(GridLength.Auto)
+            let cPrice = ColumnDefinition(GridLength(1.0, GridUnitType.Star))
+            let cSize  = ColumnDefinition(GridLength(1.0, GridUnitType.Star))
+            let cVenue = ColumnDefinition(GridLength.Auto)
+            cTime.SharedSizeGroup <- "tape_time"
+            cVenue.SharedSizeGroup <- "tape_venue"
+            g.ColumnDefinitions.Add(cTime)
+            g.ColumnDefinitions.Add(cPrice)
+            g.ColumnDefinitions.Add(cSize)
+            g.ColumnDefinitions.Add(cVenue)
             let mk (text: string) (col: int) (brush: IBrush) =
                 let tb = TextBlock(
                             Text = text,
                             Foreground = brush,
                             FontFamily = FontFamily("monospace"),
-                            FontSize = 11.5,
+                            FontSize = 13.0,
                             Margin = Thickness(0.0, 0.0, 8.0, 0.0))
                 Grid.SetColumn(tb, col)
                 g.Children.Add(tb)
@@ -118,13 +142,28 @@ type TapeView() =
             g :> Control
         listBox.ItemTemplate <- FuncDataTemplate<TradeRow>(System.Func<_,_,_> build, true)
 
-    let panel = StackPanel(Orientation = Orientation.Vertical, Background = panelBrush)
+    // Grid (not StackPanel) so the ListBox gets a bounded height — required
+    // for virtualization to actually engage and for the scrollbar to appear.
+    let panel = Grid(Background = panelBrush)
     do
+        // SharedSizeScope lets the header Grid and the per-row Grids agree on
+        // the Time/Venue column widths via SharedSizeGroup names. Without this
+        // the header sizes its Auto columns to its own text ("TIME"/"VENUE")
+        // while rows size theirs to the trade text — misalignment.
+        Grid.SetIsSharedSizeScope(panel, true)
+        panel.RowDefinitions.Add(RowDefinition(GridLength.Auto))
+        panel.RowDefinitions.Add(RowDefinition(GridLength(1.0, GridUnitType.Star)))
         let header = Grid()
-        header.ColumnDefinitions.Add(ColumnDefinition(GridLength 100.0))
-        header.ColumnDefinitions.Add(ColumnDefinition(GridLength 80.0))
-        header.ColumnDefinitions.Add(ColumnDefinition(GridLength 70.0))
-        header.ColumnDefinitions.Add(ColumnDefinition(GridLength 60.0))
+        let hTime  = ColumnDefinition(GridLength.Auto)
+        let hPrice = ColumnDefinition(GridLength(1.0, GridUnitType.Star))
+        let hSize  = ColumnDefinition(GridLength(1.0, GridUnitType.Star))
+        let hVenue = ColumnDefinition(GridLength.Auto)
+        hTime.SharedSizeGroup <- "tape_time"
+        hVenue.SharedSizeGroup <- "tape_venue"
+        header.ColumnDefinitions.Add(hTime)
+        header.ColumnDefinitions.Add(hPrice)
+        header.ColumnDefinitions.Add(hSize)
+        header.ColumnDefinitions.Add(hVenue)
         header.Margin <- Thickness(8.0, 4.0, 8.0, 4.0)
         let mk text col =
             let tb = TextBlock(
@@ -138,6 +177,8 @@ type TapeView() =
         mk "PRICE" 1
         mk "SIZE"  2
         mk "VENUE" 3
+        Grid.SetRow(header, 0)
+        Grid.SetRow(listBox, 1)
         panel.Children.Add(header)
         panel.Children.Add(listBox)
 
