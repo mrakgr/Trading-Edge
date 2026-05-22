@@ -163,6 +163,10 @@ let create
             resumeBtn.Foreground <- accentBrush
             resumeBtn.IsEnabled <- true
     refreshResumeBtn ()
+    // Without this wire, panning while paused leaves the Resume button stuck
+    // disabled until the next snap arrives (uiPump's per-frame refresh runs
+    // only while playing).
+    chartView.OnAutoFollowChanged(fun _ -> refreshResumeBtn ())
 
     let refreshRecenterBtn () =
         if ladderView.IsAutoCenter then

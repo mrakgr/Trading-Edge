@@ -160,6 +160,15 @@ type ChartView() =
     let HEADROOM_FRAC = 0.10
     let mutable autoFollow = true
     let mutable suppressAxisChangeHandler = false
+    // Fired when autoFollow flips. MainWindow uses this to refresh the
+    // Resume button highlight — without it, panning while paused leaves the
+    // button looking disabled until the next snap arrives on play.
+    let mutable onAutoFollowChanged : bool -> unit = ignore
+
+    let setAutoFollow (v: bool) =
+        if autoFollow <> v then
+            autoFollow <- v
+            onAutoFollowChanged v
 
     let setAxisLimits (minTicks: float) (maxTicks: float) =
         suppressAxisChangeHandler <- true
@@ -175,7 +184,7 @@ type ChartView() =
 
     do
         let onAxisChanged (_: obj) (_: System.ComponentModel.PropertyChangedEventArgs) =
-            if not suppressAxisChangeHandler then autoFollow <- false
+            if not suppressAxisChangeHandler then setAutoFollow false
         (xAxis :> System.ComponentModel.INotifyPropertyChanged).PropertyChanged.AddHandler(
             System.ComponentModel.PropertyChangedEventHandler(onAxisChanged))
 
@@ -268,8 +277,12 @@ type ChartView() =
             frameToLatest latest
 
     member _.ResumeAutoFollow() =
-        autoFollow <- true
+        setAutoFollow true
         if candleValues.Count > 0 then
             frameToLatest candleValues.[candleValues.Count - 1].Date
 
     member _.IsAutoFollow = autoFollow
+
+    /// Subscribe to autoFollow flips. Callback receives the new state.
+    member _.OnAutoFollowChanged(cb: bool -> unit) =
+        onAutoFollowChanged <- cb
