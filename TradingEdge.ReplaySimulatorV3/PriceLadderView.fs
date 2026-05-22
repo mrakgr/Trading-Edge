@@ -280,11 +280,14 @@ let private formatSize (s: uint64) : string =
 let private formatPrice (p: int64) : string =
     sprintf "%.2f" (priceToUsd p)
 
-/// Look up (size, lastTs) and return (size, freshness). Freshness is 1.0 for
-/// a print that just landed and decays linearly to 0.0 at TRADE_RESET_NS; past
-/// that horizon it stays at 0.0 (invisible text), but the size is still the
-/// real accumulated value — no hard blank. The fade alone is what hides stale
-/// prints, gradually rather than with a pop.
+/// Look up (size, lastTs) and return (size, freshness). Within the
+/// TRADE_RESET_NS window the size is the real running total and freshness
+/// decays linearly from 1.0 -> 0.0 (used by fadedBrush, which floors alpha
+/// at TRADE_TEXT_MIN_ALPHA so dimmer numbers stay readable). Once age >=
+/// TRADE_RESET_NS the value is hard-blanked (0UL, 0.0) — leaving the real
+/// accumulated total there with near-invisible alpha was misleading: a fresh
+/// print resumed activity at the price would pop the number from "looks
+/// blank" to the full accumulated total, which is jarring.
 let private readTradeCell
         (dict: TradeAtPrice)
         (price: int64)
@@ -294,14 +297,21 @@ let private readTradeCell
     | true, struct (size, lastTs) ->
         let age = cursorNs - lastTs
         if age <= 0L then size, 1.0
-        elif age >= TRADE_RESET_NS then size, 0.0
+        elif age >= TRADE_RESET_NS then 0UL, 0.0
         else size, 1.0 - float age / float TRADE_RESET_NS
     | false, _ -> 0UL, 0.0
 
+/// Minimum alpha floor for the trade-text fade. Keeps dim numbers legible
+/// rather than fading them right down to invisibility (which combined with
+/// the gap-reset accumulator made stale-but-non-zero levels effectively
+/// hidden, then "snap" back to a huge number on the next print).
+let private TRADE_TEXT_MIN_ALPHA : float = 0.2
+
 let private fadedBrush (baseBrush: SolidColorBrush) (freshness: float) : IBrush =
     let f = max 0.0 (min 1.0 freshness)
+    let alpha = TRADE_TEXT_MIN_ALPHA + (1.0 - TRADE_TEXT_MIN_ALPHA) * f
     let c = baseBrush.Color
-    SolidColorBrush(Color.FromArgb(byte (f * 255.0), c.R, c.G, c.B)) :> IBrush
+    SolidColorBrush(Color.FromArgb(byte (alpha * 255.0), c.R, c.G, c.B)) :> IBrush
 
 /// Streak tint brush for a trade cell. Returns null when the cell has no
 /// recent print (or the print is older than STREAK_FADE_NS). Alpha decays
