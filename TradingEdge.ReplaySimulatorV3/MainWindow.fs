@@ -276,16 +276,23 @@ let create
     // when the ladder tab is showing we skip T&S work too — see the uiPump
     // dispatch. On every tab switch we re-render against the last snapshot so
     // the newly-visible tab is current even if it was skipped while hidden.
-    bookLadderTabs.SelectionChanged.Add(fun _ ->
-        activeTabIdx <- bookLadderTabs.SelectedIndex
-        match lastApplied with
-        | Some s ->
-            if activeTabIdx = 0 then
-                ladderView.Apply(s)
-            else
-                bookView.Apply(s)
-                tapeView.Apply(s)
-        | None -> ())
+    //
+    // SelectionChanged is a routed event that bubbles from descendant
+    // selectors (the T&S ListBox lives inside the L2 tab and raises its own
+    // SelectionChanged when ReplaceAll fires the underlying CollectionChanged
+    // Reset). Without the source guard we recurse: tapeView.Apply → Reset →
+    // bubbled SelectionChanged → tapeView.Apply → … → StackOverflow on click.
+    bookLadderTabs.SelectionChanged.Add(fun e ->
+        if obj.ReferenceEquals(e.Source, bookLadderTabs) then
+            activeTabIdx <- bookLadderTabs.SelectedIndex
+            match lastApplied with
+            | Some s ->
+                if activeTabIdx = 0 then
+                    ladderView.Apply(s)
+                else
+                    bookView.Apply(s)
+                    tapeView.Apply(s)
+            | None -> ())
 
     let rightGrid = Grid()
     rightGrid.RowDefinitions.Add(RowDefinition(GridLength(1.0, GridUnitType.Star)))
