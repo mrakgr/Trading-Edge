@@ -47,8 +47,22 @@ let private midBrush     = SolidColorBrush(Color.FromRgb(0xf2uy, 0xc5uy, 0x5cuy)
 /// Tick size: 1 cent expressed in 1e-9 USD.
 let TICK_NS : int64 = 10_000_000L
 
-/// Row pixel height — tuned to roughly match the L2 box rows.
-let private ROW_HEIGHT = 20.0
+/// Streak fade window. A trade-cell tint starts at full intensity when the
+/// print lands and linearly decays to zero over this interval. Tighter than
+/// TRADE_RESET_NS (the staleness/blanking window) because the fade is meant
+/// to convey *velocity* — what just happened in the last second — while the
+/// numeric value should stay legible for up to a minute.
+let private STREAK_FADE_NS : int64 = 1_000_000_000L
+
+/// Max alpha of the streak tint, applied at age = 0.
+let private STREAK_MAX_ALPHA : byte = 0xA0uy
+
+/// Row pixel height — tuned to comfortably hold the 14pt monospace cell text.
+let private ROW_HEIGHT = 24.0
+
+/// Cell font size. The ladder is the primary read surface during replay, so
+/// bias toward legibility over information density.
+let private CELL_FONT_SIZE = 14.0
 
 /// Snap a price to the nearest tick.
 let private snapToTick (p: int64) : int64 =
@@ -89,15 +103,21 @@ let private chooseCenter
         else defaultArg lastTradePrice 0L
     snapToTick center
 
-/// One materialized row in the ladder. Cells get mutated per frame.
+/// One materialized row in the ladder. Cells get mutated per frame. Trade
+/// cells are exposed as (border, textblock) pairs so the streak-fade can paint
+/// the full cell rect via the border while the text content/foreground stay
+/// on the textblock.
 type private LadderRow = {
     Container: Border
     VolCell: TextBlock
     PriceCell: TextBlock
     AskSizeCell: TextBlock
-    AskTradeCell: TextBlock
-    MidTradeCell: TextBlock
-    BidTradeCell: TextBlock
+    AskTradeBorder: Border
+    AskTradeText: TextBlock
+    MidTradeBorder: Border
+    MidTradeText: TextBlock
+    BidTradeBorder: Border
+    BidTradeText: TextBlock
     BidSizeCell: TextBlock
 }
 
@@ -105,43 +125,62 @@ let private mkCell (alignment: HorizontalAlignment) (brush: IBrush) =
     TextBlock(
         Foreground = brush,
         FontFamily = FontFamily("monospace"),
-        FontSize = 12.0,
+        FontSize = CELL_FONT_SIZE,
         HorizontalAlignment = alignment,
         VerticalAlignment = VerticalAlignment.Center,
         Margin = Thickness(6.0, 0.0, 6.0, 0.0),
         TextTrimming = TextTrimming.None,
         ClipToBounds = false)
 
+/// Trade cells need a Border wrapper so the streak-fade tint covers the full
+/// column slice rather than just the text glyph rect. The TextBlock inside
+/// keeps its alignment so the number sits where the eye expects.
+let private mkTradeCell (alignment: HorizontalAlignment) (brush: IBrush) =
+    let tb =
+        TextBlock(
+            Foreground = brush,
+            FontFamily = FontFamily("monospace"),
+            FontSize = CELL_FONT_SIZE,
+            HorizontalAlignment = alignment,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = Thickness(6.0, 0.0, 6.0, 0.0),
+            TextTrimming = TextTrimming.None,
+            ClipToBounds = false)
+    let border = Border(Child = tb)
+    border, tb
+
 let private mkHeaderCell (text: string) (align: HorizontalAlignment) =
     TextBlock(
         Text = text,
         Foreground = mutedBrush,
         FontFamily = FontFamily("monospace"),
-        FontSize = 11.0,
+        FontSize = 12.0,
         FontWeight = FontWeight.SemiBold,
         HorizontalAlignment = align,
         VerticalAlignment = VerticalAlignment.Center,
         Margin = Thickness(6.0, 4.0, 6.0, 4.0))
 
-/// Column-width policy for both header and data rows. Vol is Star (eats
-/// leftover horizontal space — that's where the histogram bar will live).
-/// The other six columns are Auto and participate in SharedSizeGroup so the
-/// header and all data rows agree on per-column widths. Without the groups
-/// each row's Grid sizes its Auto columns to *its own* content, drifting out
-/// of alignment with the header and adjacent rows. The SharedSizeGroup-scope
-/// is set on the outer grid (Grid.IsSharedSizeScope).
+/// Column-width policy for both header and data rows. All columns are Star-
+/// weighted so the ladder expands horizontally with the panel — drag the
+/// vertical splitter and every data column gets wider, not just Vol.
+///
+/// Sibling Grids stretched to the same parent width compute Star widths
+/// identically, so header and all data rows agree on per-column pixel widths
+/// without needing SharedSizeGroup (which only works on Auto columns anyway).
+///
+/// Star weights are tuned by hand: Vol gets a generous slice for the future
+/// histogram, Price is wide enough for "999.99", trade/size columns get ~1.2
+/// each so they comfortably fit 6-7 digit volumes on high-flow names.
 let private addColumns (g: Grid) =
-    let auto name =
-        let c = ColumnDefinition(GridLength.Auto)
-        c.SharedSizeGroup <- name
-        g.ColumnDefinitions.Add(c)
-    g.ColumnDefinitions.Add(ColumnDefinition(GridLength(1.0, GridUnitType.Star)))   // 0 Vol
-    auto "ladder_price"  // 1 Price
-    auto "ladder_bid"    // 2 BidSize
-    auto "ladder_bidT"   // 3 BidTrade
-    auto "ladder_mid"    // 4 MidTrade
-    auto "ladder_askT"   // 5 AskTrade
-    auto "ladder_ask"    // 6 AskSize
+    let star (w: float) =
+        g.ColumnDefinitions.Add(ColumnDefinition(GridLength(w, GridUnitType.Star)))
+    star 1.5  // 0 Vol
+    star 1.2  // 1 Price
+    star 1.2  // 2 BidSize
+    star 1.2  // 3 BidTrade
+    star 1.0  // 4 MidTrade
+    star 1.2  // 5 AskTrade
+    star 1.2  // 6 AskSize
 
 let private mkRow () : LadderRow =
     let g = Grid()
@@ -150,33 +189,36 @@ let private mkRow () : LadderRow =
     let cVol      = mkCell HorizontalAlignment.Right mutedBrush
     let cPrice    = mkCell HorizontalAlignment.Center textBrush
     let cAskSize  = mkCell HorizontalAlignment.Right askBrush
-    let cAskTrade = mkCell HorizontalAlignment.Right askBrush
-    let cMidTrade = mkCell HorizontalAlignment.Center midBrush
-    let cBidTrade = mkCell HorizontalAlignment.Right bidBrush
+    let askBorder, askText = mkTradeCell HorizontalAlignment.Right askBrush
+    let midBorder, midText = mkTradeCell HorizontalAlignment.Center midBrush
+    let bidBorder, bidText = mkTradeCell HorizontalAlignment.Right bidBrush
     let cBidSize  = mkCell HorizontalAlignment.Right bidBrush
     Grid.SetColumn(cVol,      0)
     Grid.SetColumn(cPrice,    1)
     Grid.SetColumn(cBidSize,  2)
-    Grid.SetColumn(cBidTrade, 3)
-    Grid.SetColumn(cMidTrade, 4)
-    Grid.SetColumn(cAskTrade, 5)
+    Grid.SetColumn(bidBorder, 3)
+    Grid.SetColumn(midBorder, 4)
+    Grid.SetColumn(askBorder, 5)
     Grid.SetColumn(cAskSize,  6)
     g.Children.Add(cVol)
     g.Children.Add(cPrice)
     g.Children.Add(cAskSize)
-    g.Children.Add(cAskTrade)
-    g.Children.Add(cMidTrade)
-    g.Children.Add(cBidTrade)
+    g.Children.Add(askBorder)
+    g.Children.Add(midBorder)
+    g.Children.Add(bidBorder)
     g.Children.Add(cBidSize)
-    let border = Border(Background = bgBrush, Child = g)
+    let outer = Border(Background = bgBrush, Child = g)
     {
-        Container = border
+        Container = outer
         VolCell = cVol
         PriceCell = cPrice
         AskSizeCell = cAskSize
-        AskTradeCell = cAskTrade
-        MidTradeCell = cMidTrade
-        BidTradeCell = cBidTrade
+        AskTradeBorder = askBorder
+        AskTradeText = askText
+        MidTradeBorder = midBorder
+        MidTradeText = midText
+        BidTradeBorder = bidBorder
+        BidTradeText = bidText
         BidSizeCell = cBidSize
     }
 
@@ -213,26 +255,53 @@ let private formatSize (s: uint64) : string =
 let private formatPrice (p: int64) : string =
     sprintf "%.2f" (priceToUsd p)
 
-/// Look up (size, lastTs) and blank if stale relative to cursorNs.
+/// Look up (size, lastTs) and return (size, freshness). Freshness is 1.0 for
+/// a print that just landed and decays linearly to 0.0 at TRADE_RESET_NS; past
+/// that horizon it stays at 0.0 (invisible text), but the size is still the
+/// real accumulated value — no hard blank. The fade alone is what hides stale
+/// prints, gradually rather than with a pop.
 let private readTradeCell
         (dict: TradeAtPrice)
         (price: int64)
         (cursorNs: int64)
-        : uint64 =
+        : uint64 * float =
     match dict.TryGetValue(price) with
     | true, struct (size, lastTs) ->
-        if cursorNs - lastTs > TRADE_RESET_NS then 0UL else size
-    | false, _ -> 0UL
+        let age = cursorNs - lastTs
+        if age <= 0L then size, 1.0
+        elif age >= TRADE_RESET_NS then size, 0.0
+        else size, 1.0 - float age / float TRADE_RESET_NS
+    | false, _ -> 0UL, 0.0
+
+let private fadedBrush (baseBrush: SolidColorBrush) (freshness: float) : IBrush =
+    let f = max 0.0 (min 1.0 freshness)
+    let c = baseBrush.Color
+    SolidColorBrush(Color.FromArgb(byte (f * 255.0), c.R, c.G, c.B)) :> IBrush
+
+/// Streak tint brush for a trade cell. Returns null when the cell has no
+/// recent print (or the print is older than STREAK_FADE_NS). Alpha decays
+/// linearly from STREAK_MAX_ALPHA at age=0 down to 0 at age=STREAK_FADE_NS.
+let private streakBrush
+        (dict: TradeAtPrice)
+        (price: int64)
+        (cursorNs: int64)
+        (r: byte) (g: byte) (b: byte)
+        : IBrush =
+    match dict.TryGetValue(price) with
+    | true, struct (_, lastTs) ->
+        let age = cursorNs - lastTs
+        if age < 0L || age >= STREAK_FADE_NS then null
+        else
+            let frac = 1.0 - float age / float STREAK_FADE_NS
+            let alpha = byte (float STREAK_MAX_ALPHA * frac)
+            SolidColorBrush(Color.FromArgb(alpha, r, g, b)) :> IBrush
+    | false, _ -> null
 
 type PriceLadderView() =
     let outerGrid = Grid(Background = panelBrush)
     do
         outerGrid.RowDefinitions.Add(RowDefinition(GridLength.Auto))             // header
         outerGrid.RowDefinitions.Add(RowDefinition(GridLength(1.0, GridUnitType.Star))) // rows
-        // Enable shared-size so the header grid and per-row grids agree on
-        // column widths across all named groups (ladder_price, ladder_ask,
-        // ladder_askT, ladder_mid, ladder_bidT, ladder_bid).
-        Grid.SetIsSharedSizeScope(outerGrid, true)
 
     let headerRow = mkHeaderRow ()
     do
@@ -338,10 +407,28 @@ type PriceLadderView() =
             row.AskSizeCell.Text <- formatSize askSz
             row.BidSizeCell.Text <- formatSize bidSz
 
-            // Recent trade columns with staleness check.
-            row.AskTradeCell.Text <- formatSize (readTradeCell snap.AskTradeAtPrice price cursorNs)
-            row.MidTradeCell.Text <- formatSize (readTradeCell snap.MidTradeAtPrice price cursorNs)
-            row.BidTradeCell.Text <- formatSize (readTradeCell snap.BidTradeAtPrice price cursorNs)
+            // Recent trade columns with staleness check + age-proportional
+            // text fade. Foreground alpha decays from full at age=0 down to
+            // TRADE_TEXT_MIN_ALPHA at age≈TRADE_RESET_NS, then the size is
+            // blanked entirely. Gives the eye a gradient of "recency" instead
+            // of a hard pop-to-zero at the 1m mark.
+            let askSize, askFresh = readTradeCell snap.AskTradeAtPrice price cursorNs
+            let midSize, midFresh = readTradeCell snap.MidTradeAtPrice price cursorNs
+            let bidSize, bidFresh = readTradeCell snap.BidTradeAtPrice price cursorNs
+            row.AskTradeText.Text <- formatSize askSize
+            row.MidTradeText.Text <- formatSize midSize
+            row.BidTradeText.Text <- formatSize bidSize
+            row.AskTradeText.Foreground <- fadedBrush askBrush askFresh
+            row.MidTradeText.Foreground <- fadedBrush midBrush midFresh
+            row.BidTradeText.Foreground <- fadedBrush bidBrush bidFresh
+
+            // Streak fade: per-cell background tint that decays linearly from
+            // full intensity to zero over STREAK_FADE_NS. The tint paints the
+            // Border (full grid-column slice) rather than the TextBlock (just
+            // the glyph rect), so the eye gets a solid color block to track.
+            row.AskTradeBorder.Background <- streakBrush snap.AskTradeAtPrice price cursorNs 0x2euy 0xb8uy 0x88uy
+            row.MidTradeBorder.Background <- streakBrush snap.MidTradeAtPrice price cursorNs 0xf2uy 0xc5uy 0x5cuy
+            row.BidTradeBorder.Background <- streakBrush snap.BidTradeAtPrice price cursorNs 0xe5uy 0x4buy 0x4buy
 
             // Volume column. Plain text at a consistent foreground — the
             // alpha-fade-by-frac scheme made low-volume rows nearly invisible
