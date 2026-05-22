@@ -280,7 +280,44 @@ let create
     outer.Children.Add(leftGrid)
     outer.Children.Add(hSplitter)
     outer.Children.Add(rightGrid)
-    w.Content <- outer
+
+    // Seek indicator: a large translucent "<<" / ">>" glyph flashed over the
+    // center of the window on Left/Right keypress. The user records the
+    // session for review and the cursor jump alone is too subtle on playback,
+    // so this gives an unmistakable visual cue of the seek direction.
+    let seekIndicator =
+        TextBlock(
+            Text = "",
+            FontFamily = FontFamily("monospace"),
+            FontSize = 120.0,
+            FontWeight = FontWeight.Bold,
+            Foreground = SolidColorBrush(Color.FromArgb(0xc0uy, 0xf0uy, 0xf4uy, 0xfauy)),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            IsHitTestVisible = false,
+            Opacity = 0.0)
+    let rootPanel = Panel()
+    rootPanel.Children.Add(outer)
+    rootPanel.Children.Add(seekIndicator)
+    w.Content <- rootPanel
+
+    // Linear fade-out via DispatcherTimer: 16ms tick, ~400ms total duration.
+    // We restart from full opacity on every press so a rapid sequence of
+    // arrow taps keeps the indicator solid until the user pauses.
+    let seekFadeStep = 16.0 / 400.0
+    let seekFadeTimer = DispatcherTimer(Interval = TimeSpan.FromMilliseconds 16.0)
+    seekFadeTimer.Tick.Add(fun _ ->
+        let next = seekIndicator.Opacity - seekFadeStep
+        if next <= 0.0 then
+            seekIndicator.Opacity <- 0.0
+            seekFadeTimer.Stop()
+        else
+            seekIndicator.Opacity <- next)
+    let flashSeekIndicator (glyph: string) =
+        seekIndicator.Text <- glyph
+        seekIndicator.Opacity <- 1.0
+        seekFadeTimer.Stop()
+        seekFadeTimer.Start()
 
     // ---- UI pump: a single reader task awaits each Snapshot off the worker's
     // outbox and applies it on the UI thread via the Dispatcher.
@@ -322,9 +359,11 @@ let create
             e.Handled <- true
         | Key.Left ->
             slider.Value <- max slider.Minimum (slider.Value - float SEEK_NS_5S)
+            flashSeekIndicator "<<"
             e.Handled <- true
         | Key.Right ->
             slider.Value <- min slider.Maximum (slider.Value + float SEEK_NS_5S)
+            flashSeekIndicator ">>"
             e.Handled <- true
         | _ -> ()
     w.AddHandler(
