@@ -156,10 +156,16 @@ let create
     // Wire the ladder's auto-center state changes back to the button highlight.
     ladderView.OnAutoCenterChanged(fun _ -> refreshRecenterBtn ())
 
+    // Forward-declared so togglePlayPause can flash the seek-indicator
+    // overlay. The actual flash function is wired up below where the overlay
+    // is created; we capture it via a ref cell.
+    let flashOverlayRef : (string -> unit) ref = ref (fun _ -> ())
+
     let togglePlayPause () =
         uiPaused <- not uiPaused
         worker.Inbox.TryWrite(SetPaused uiPaused) |> ignore
         refreshPlayBtn ()
+        flashOverlayRef.Value (if uiPaused then "||" else "▶")
 
     playBtn.Click.Add(fun _ -> togglePlayPause ())
 
@@ -318,6 +324,10 @@ let create
         seekIndicator.Opacity <- 1.0
         seekFadeTimer.Stop()
         seekFadeTimer.Start()
+    // Now that the flash function exists, bind the forward-declared ref so
+    // togglePlayPause (above) can flash ▶ / || on every toggle — from keyboard
+    // shortcut and from the toolbar button alike.
+    do flashOverlayRef.Value <- flashSeekIndicator
 
     // ---- UI pump: a single reader task awaits each Snapshot off the worker's
     // outbox and applies it on the UI thread via the Dispatcher.
