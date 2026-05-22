@@ -106,10 +106,14 @@ let private chooseCenter
 /// One materialized row in the ladder. Cells get mutated per frame. Trade
 /// cells are exposed as (border, textblock) pairs so the streak-fade can paint
 /// the full cell rect via the border while the text content/foreground stay
-/// on the textblock.
+/// on the textblock. The Vol cell is a (container, bar, text) triple: the bar
+/// is a right-anchored Border whose Width we mutate to draw the histogram,
+/// and the text overlays on top.
 type private LadderRow = {
     Container: Border
-    VolCell: TextBlock
+    VolContainer: Grid
+    VolBar: Border
+    VolText: TextBlock
     PriceCell: TextBlock
     AskSizeCell: TextBlock
     AskTradeBorder: Border
@@ -182,25 +186,44 @@ let private addColumns (g: Grid) =
     star 1.2  // 5 AskTrade
     star 1.2  // 6 AskSize
 
+/// Volume-profile histogram bar fill. Subtle slate-ish blue at moderate alpha
+/// — visible against the dark row background but not loud enough to compete
+/// with the streak tints in the trade columns.
+let private volHistBrush = SolidColorBrush(Color.FromArgb(0x70uy, 0x4auy, 0x6auy, 0x90uy))
+
 let private mkRow () : LadderRow =
     let g = Grid()
     g.Height <- ROW_HEIGHT
     addColumns g
-    let cVol      = mkCell HorizontalAlignment.Right mutedBrush
+
+    // Vol column: a stretching Grid that hosts the histogram bar (right-
+    // anchored Border whose Width we mutate to draw the proportion) and the
+    // numeric text overlaid on top.
+    let volContainer = Grid(HorizontalAlignment = HorizontalAlignment.Stretch,
+                            VerticalAlignment = VerticalAlignment.Stretch)
+    let volBar = Border(
+                    Background = volHistBrush,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Stretch,
+                    Width = 0.0)
+    let volText = mkCell HorizontalAlignment.Right mutedBrush
+    volContainer.Children.Add(volBar)
+    volContainer.Children.Add(volText)
+
     let cPrice    = mkCell HorizontalAlignment.Center textBrush
     let cAskSize  = mkCell HorizontalAlignment.Right askBrush
     let askBorder, askText = mkTradeCell HorizontalAlignment.Right askBrush
     let midBorder, midText = mkTradeCell HorizontalAlignment.Center midBrush
     let bidBorder, bidText = mkTradeCell HorizontalAlignment.Right bidBrush
     let cBidSize  = mkCell HorizontalAlignment.Right bidBrush
-    Grid.SetColumn(cVol,      0)
+    Grid.SetColumn(volContainer, 0)
     Grid.SetColumn(cPrice,    1)
     Grid.SetColumn(cBidSize,  2)
     Grid.SetColumn(bidBorder, 3)
     Grid.SetColumn(midBorder, 4)
     Grid.SetColumn(askBorder, 5)
     Grid.SetColumn(cAskSize,  6)
-    g.Children.Add(cVol)
+    g.Children.Add(volContainer)
     g.Children.Add(cPrice)
     g.Children.Add(cAskSize)
     g.Children.Add(askBorder)
@@ -210,7 +233,9 @@ let private mkRow () : LadderRow =
     let outer = Border(Background = bgBrush, Child = g)
     {
         Container = outer
-        VolCell = cVol
+        VolContainer = volContainer
+        VolBar = volBar
+        VolText = volText
         PriceCell = cPrice
         AskSizeCell = cAskSize
         AskTradeBorder = askBorder
@@ -334,9 +359,22 @@ type PriceLadderView() =
     // Recenter button.
     let mutable onDetachChanged : bool -> unit = ignore
 
+    // Forward-declared so the per-row SizeChanged handler can re-render
+    // against the cached snap once the Vol container gets a real width. The
+    // actual `render` lambda is defined below; we capture it via a ref cell.
+    let renderRef : (Snapshot -> unit) ref = ref (fun _ -> ())
+
     let ensureRowCount (n: int) =
         while rowPool.Count < n do
             let r = mkRow ()
+            // The Vol container has Bounds.Width = 0 until Avalonia's layout
+            // pass runs, which means the very first render writes a bar Width
+            // of 0. Re-render when the container's actual size lands, so the
+            // bars pop in without needing the user to scroll first.
+            r.VolContainer.SizeChanged.Add(fun _ ->
+                match lastSnap with
+                | Some s -> renderRef.Value s
+                | None -> ())
             rowPool.Add(r)
             rowsPanel.Children.Add(r.Container)
         // Hide extra rows beyond n (we keep them in the pool).
@@ -377,6 +415,15 @@ type PriceLadderView() =
         // index rowCount/2 (or one above for even rowCount).
         let half = rowCount / 2
         let cursorNs = snap.BucketStartNs
+
+        // Session-max volume across every traded tick. Used to normalize each
+        // row's histogram bar — biggest level in the session pegs the bar to
+        // the full column width; everything else scales proportionally. Stable
+        // across pans (no rescale flicker), but means an empty session starts
+        // with nothing showing, which is fine.
+        let mutable sessionMaxVol = 0UL
+        for kv in snap.VolumeAtPrice do
+            if kv.Value > sessionMaxVol then sessionMaxVol <- kv.Value
 
         for i in 0 .. rowCount - 1 do
             let price = centerPrice + int64 (half - i) * TICK_NS
@@ -430,16 +477,28 @@ type PriceLadderView() =
             row.MidTradeBorder.Background <- streakBrush snap.MidTradeAtPrice price cursorNs 0xf2uy 0xc5uy 0x5cuy
             row.BidTradeBorder.Background <- streakBrush snap.BidTradeAtPrice price cursorNs 0xe5uy 0x4buy 0x4buy
 
-            // Volume column. Plain text at a consistent foreground — the
-            // alpha-fade-by-frac scheme made low-volume rows nearly invisible
-            // even when they had real activity. Magnitude encoding belongs
-            // in a histogram bar (not yet implemented).
+            // Volume column: numeric session-cumulative VolumeAtPrice with a
+            // histogram bar behind it. The bar grows right-to-left, length
+            // proportional to vol / sessionMaxVol. Container.Bounds.Width is
+            // populated post-layout; on first paint it may be 0 and the bar
+            // will pop in on the next render cycle (SizeChanged handler).
             let vol =
                 match snap.VolumeAtPrice.TryGetValue(price) with
                 | true, v -> v
                 | false, _ -> 0UL
-            row.VolCell.Text <- formatSize vol
-            row.VolCell.Foreground <- textBrush
+            row.VolText.Text <- formatSize vol
+            row.VolText.Foreground <- textBrush
+            let containerW = row.VolContainer.Bounds.Width
+            let barW =
+                if sessionMaxVol = 0UL || containerW <= 0.0 then 0.0
+                else containerW * float vol / float sessionMaxVol
+            row.VolBar.Width <- barW
+
+    // Bind the forward-declared render ref now that render exists. The Vol-
+    // container SizeChanged handler in ensureRowCount uses it to re-render
+    // when a row's column width lands post-layout (otherwise the first paint
+    // shows zero-width bars until the user scrolls).
+    do renderRef.Value <- render
 
     // First-paint problem: when the user starts on a different tab, the
     // ladder's rowsPanel has no allocated height until the tab is first

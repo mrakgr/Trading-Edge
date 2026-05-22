@@ -245,13 +245,19 @@ let create
     // last-known snapshot to a tab that's just become visible — otherwise the
     // newly-visible tab would show stale or empty state until the next frame.
     let mutable lastApplied : Snapshot option = None
-    // Tab index 0 = Ladder, 1 = L2.
+    // Tab index 0 = Ladder, 1 = L2. The T&S panel sits inside the L2 tab, so
+    // when the ladder tab is showing we skip T&S work too — see the uiPump
+    // dispatch. On every tab switch we re-render against the last snapshot so
+    // the newly-visible tab is current even if it was skipped while hidden.
     bookLadderTabs.SelectionChanged.Add(fun _ ->
         activeTabIdx <- bookLadderTabs.SelectedIndex
         match lastApplied with
         | Some s ->
-            if activeTabIdx = 0 then ladderView.Apply(s)
-            else bookView.Apply(s)
+            if activeTabIdx = 0 then
+                ladderView.Apply(s)
+            else
+                bookView.Apply(s)
+                tapeView.Apply(s)
         | None -> ())
 
     let rightGrid = Grid()
@@ -284,12 +290,17 @@ let create
                 for snap in worker.Outbox.ReadAllAsync(cts.Token) do
                     do! Dispatcher.UIThread.InvokeAsync(fun () ->
                         chartView.ApplyDiff(lastApplied, snap)
-                        // Skip the hidden tab's aggregation work — both the
-                        // L2 box and the ladder walk every venue's books
-                        // per Apply call and that adds up.
-                        if activeTabIdx = 0 then ladderView.Apply(snap)
-                        else bookView.Apply(snap)
-                        tapeView.Apply(snap)
+                        // Skip the hidden tab's aggregation work — L2 and the
+                        // ladder both walk every venue's books per Apply, and
+                        // the tape rebuilds the visible-trades collection.
+                        // The tape lives inside the L2 tab, so it's gated on
+                        // the same condition. Tab-switch re-applies the cached
+                        // snap so a newly-visible view isn't blank.
+                        if activeTabIdx = 0 then
+                            ladderView.Apply(snap)
+                        else
+                            bookView.Apply(snap)
+                            tapeView.Apply(snap)
                         lastApplied <- Some snap
                         clockLabel.Text <- fmtClock snap.BucketStartNs
                         suppressSliderHandler <- true
