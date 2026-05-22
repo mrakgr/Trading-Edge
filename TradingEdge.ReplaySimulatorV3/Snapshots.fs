@@ -36,6 +36,18 @@ let TRADE_WINDOW_NS : int64 = 60L * 1_000_000_000L
 /// stale entries that haven't been touched recently.
 let TRADE_RESET_NS : int64 = 60L * 1_000_000_000L
 
+/// Cent in 1e-9 USD. Used to snap trade prices to the nearest tick before
+/// keying them into the per-side and volume-at-price dictionaries — the
+/// ladder reads those dicts at on-grid (cent-multiple) keys, so any sub-penny
+/// dark/auction print would otherwise be silently dropped from the display.
+let TRADE_TICK_NS : int64 = 10_000_000L
+
+let snapTradePriceToTick (p: int64) : int64 =
+    let q = p / TRADE_TICK_NS
+    let rem = p - q * TRADE_TICK_NS
+    if rem * 2L >= TRADE_TICK_NS then (q + 1L) * TRADE_TICK_NS
+    else q * TRADE_TICK_NS
+
 let private ACTION_T : byte = byte 'T'
 let private SIDE_ASK : byte = byte 'A'
 let private SIDE_BID : byte = byte 'B'
@@ -227,12 +239,16 @@ let buildAsync (merged: IAsyncEnumerable<MboMsg>) : Task<SnapshotStore> = task {
         if m.Action = ACTION_T then
             trimTradeQueue m.TsEvent
             tradeQueue <- tradeQueue.Enqueue(Trades.fromMbo m)
+            // Snap to the cent grid before keying the price-binned dicts.
+            // The ladder reads them at on-grid keys; off-grid prints (dark
+            // / auction sub-penny fills) would otherwise vanish from view.
+            let pTick = snapTradePriceToTick m.Price
             // Volume-at-price: monotonic accumulator over the session.
             let prevVol =
-                match volumeAtPrice.TryGetValue(m.Price) with
+                match volumeAtPrice.TryGetValue(pTick) with
                 | true, v -> v
                 | false, _ -> 0UL
-            volumeAtPrice <- volumeAtPrice.SetItem(m.Price, prevVol + uint64 m.Size)
+            volumeAtPrice <- volumeAtPrice.SetItem(pTick, prevVol + uint64 m.Size)
             // Per-side recent-trade accumulator. DBN's Side on a T record
             // identifies the AGGRESSOR side, not the resting side. So
             // Side='A' = aggressor was an ask-seller → trade-at-bid; the
@@ -241,11 +257,11 @@ let buildAsync (merged: IAsyncEnumerable<MboMsg>) : Task<SnapshotStore> = task {
             // off-book / dark / TRF print.
             match m.Side with
             | s when s = SIDE_ASK ->
-                bidTradeAtPrice <- applyTradeAtPrice bidTradeAtPrice m.Price m.Size m.TsEvent
+                bidTradeAtPrice <- applyTradeAtPrice bidTradeAtPrice pTick m.Size m.TsEvent
             | s when s = SIDE_BID ->
-                askTradeAtPrice <- applyTradeAtPrice askTradeAtPrice m.Price m.Size m.TsEvent
+                askTradeAtPrice <- applyTradeAtPrice askTradeAtPrice pTick m.Size m.TsEvent
             | s when s = SIDE_NONE ->
-                midTradeAtPrice <- applyTradeAtPrice midTradeAtPrice m.Price m.Size m.TsEvent
+                midTradeAtPrice <- applyTradeAtPrice midTradeAtPrice pTick m.Size m.TsEvent
             | _ -> ()
         bars <- Bars.feed bars m
 

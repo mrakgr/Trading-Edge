@@ -96,22 +96,27 @@ type Player(store: SnapshotStore) =
             if m.Action = ACTION_T then
                 trimTradeQueue m.TsEvent
                 scratchTradeQueue <- scratchTradeQueue.Enqueue(Trades.fromMbo m)
+                // Snap to the cent grid before keying the price-binned dicts,
+                // matching the eager-build pass in Snapshots.fs. Off-grid
+                // prints (dark / auction sub-penny fills) would otherwise
+                // miss the ladder's on-grid lookups.
+                let pTick = snapTradePriceToTick m.Price
                 let prevVol =
-                    match scratchVolumeAtPrice.TryGetValue(m.Price) with
+                    match scratchVolumeAtPrice.TryGetValue(pTick) with
                     | true, v -> v
                     | false, _ -> 0UL
-                scratchVolumeAtPrice <- scratchVolumeAtPrice.SetItem(m.Price, prevVol + uint64 m.Size)
+                scratchVolumeAtPrice <- scratchVolumeAtPrice.SetItem(pTick, prevVol + uint64 m.Size)
                 // See note in Snapshots.fs — DBN's Side='A' on a trade record
                 // identifies the aggressor side (ask-seller), so those go
                 // into the bid-trade dict (the "Bid T" DOM column shows
                 // seller-aggressor prints).
                 match m.Side with
                 | s when s = SIDE_ASK ->
-                    scratchBidTrade <- applyTradeAtPrice scratchBidTrade m.Price m.Size m.TsEvent
+                    scratchBidTrade <- applyTradeAtPrice scratchBidTrade pTick m.Size m.TsEvent
                 | s when s = SIDE_BID ->
-                    scratchAskTrade <- applyTradeAtPrice scratchAskTrade m.Price m.Size m.TsEvent
+                    scratchAskTrade <- applyTradeAtPrice scratchAskTrade pTick m.Size m.TsEvent
                 | s when s = SIDE_NONE ->
-                    scratchMidTrade <- applyTradeAtPrice scratchMidTrade m.Price m.Size m.TsEvent
+                    scratchMidTrade <- applyTradeAtPrice scratchMidTrade pTick m.Size m.TsEvent
                 | _ -> ()
             scratchBars <- Bars.feed scratchBars m
             recordIdx <- recordIdx + 1
