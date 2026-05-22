@@ -51,9 +51,30 @@ let create
         : Window =
     let w = Window()
     w.Title <- sprintf "ReplaySimulatorV3 — %s %s" symbol date
-    w.Width <- 1400.0
-    w.Height <- 800.0
     w.Background <- bgBrush
+    w.WindowStartupLocation <- WindowStartupLocation.Manual
+    w.Position <- PixelPoint(0, 0)
+    // Size against the primary screen at startup: full height, 60% of width.
+    // The WSLg compositor wraps the window in a translucent shadow band that
+    // makes edge-resize fiddly, so we just pick a useful default and don't
+    // ask the user to drag every time. Falls back to fixed 1400x800 if the
+    // screen list isn't populated yet.
+    w.Opened.Add(fun _ ->
+        let scr =
+            match w.Screens with
+            | null -> null
+            | ss when ss.Primary <> null -> ss.Primary
+            | ss when ss.All.Count > 0 -> ss.All.[0]
+            | _ -> null
+        if scr <> null then
+            let bounds = scr.WorkingArea
+            let scale = if scr.Scaling > 0.0 then scr.Scaling else 1.0
+            w.Width <- float bounds.Width * 0.7 / scale
+            w.Height <- float bounds.Height * 0.92 / scale
+            w.Position <- PixelPoint(bounds.X, bounds.Y)
+        else
+            w.Width <- 1400.0
+            w.Height <- 800.0)
 
     let header = TextBlock()
     header.Text <-
