@@ -207,6 +207,14 @@ let create
 
     recenterBtn.Click.Add(fun _ -> ladderView.Recenter())
 
+    // Double-click anywhere on the chart re-engages auto-follow. Same intent
+    // as the Resume button but reachable without leaving the chart surface;
+    // useful when placing limit orders (you'll often disable centering to
+    // pick a price, then want to snap back fast).
+    chartView.Chart.DoubleTapped.Add(fun _ ->
+        chartView.ResumeAutoFollow ()
+        refreshResumeBtn ())
+
     // ---- scrub slider ----
     // Drives the worker via Seek messages. Range is the loaded day's MBO
     // span. We also sync the slider's position from each incoming Snapshot,

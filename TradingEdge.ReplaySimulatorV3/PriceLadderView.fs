@@ -527,6 +527,15 @@ type PriceLadderView() =
     // Mouse-wheel detaches and pans by N ticks per notch. When paused we
     // re-render against the cached snapshot so the view tracks the pan.
     do
+        outerGrid.DoubleTapped.Add(fun _ ->
+            let wasDetached = not autoCenter
+            autoCenter <- true
+            manualCenter <- lastInsideCenter
+            if wasDetached then onDetachChanged true
+            match lastSnap with
+            | Some s -> render s
+            | None -> ())
+    do
         outerGrid.PointerWheelChanged.Add(fun e ->
             let dy = e.Delta.Y
             if dy <> 0.0 then
