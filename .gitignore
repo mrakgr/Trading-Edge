@@ -33,5 +33,5 @@ chat.md
 logs/*
 .tmp/
 *.csproj.lscache
-docs/Trading-Edge.code-workspace
+Trading-Edge.code-workspace
 tapesim
