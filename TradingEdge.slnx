@@ -8,6 +8,7 @@
     <Project Path="t-digest-csharp/TDigest/TDigest.csproj" />
   </Folder>
   <Folder Name="/tapesim/">
+    <Project Path="tapesim/TapeSim.Ui/TapeSim.Ui.fsproj" />
     <Project Path="tapesim/TapeSim/TapeSim.fsproj" />
   </Folder>
   <Project Path="TradingEdge.CryptoBacktest/TradingEdge.CryptoBacktest.fsproj" />
