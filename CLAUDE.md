@@ -5,7 +5,7 @@
 When writing concurrent F# code in this project:
 
 1. **Always use `task {}` computation expressions** for async operations
-2. **Use `ReadAllAsync()` for channel reading** - iterate with `for item in channel.Reader.ReadAllAsync() do`
+2. **Use `ReadAllAsync()` for channel reading** - iterate with `for item in channel.Reader.ReadAllAsync() do`. **Do not** hand-roll a `WaitToReadAsync` + `while TryRead` drain loop just to consume messages one-by-one — that is the same shape with more ceremony and more places to get cancellation wrong. The only valid reason to drain manually is when you genuinely need to batch every queued message at one instant (e.g. collapse multiple Tick messages into a single fold). If you're not batching, use `ReadAllAsync`.
 3. **Avoid `.Wait()` and `.Result`** inside async code - use `do!` and `let!` instead
 4. **FSharp.Control.TaskSeq** is available for `IAsyncEnumerable` support in `task {}` blocks
 5. **`open FSharp.Control`** is required to use `for ... in` with `IAsyncEnumerable` inside `task {}` - without it you get a type mismatch error about `IAsyncEnumerable` not being compatible with `seq`
