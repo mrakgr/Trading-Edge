@@ -8,6 +8,9 @@
     <Project Path="t-digest-csharp/TDigest/TDigest.csproj" />
   </Folder>
   <Folder Name="/tapesim/">
+    <Project Path="tapesim/TapeSim.Downloader.Core/TapeSim.Downloader.Core.fsproj" />
+    <Project Path="tapesim/TapeSim.Downloader/TapeSim.Downloader.fsproj" />
+    <Project Path="tapesim/TapeSim.Tests/TapeSim.Tests.fsproj" />
     <Project Path="tapesim/TapeSim.Ui/TapeSim.Ui.fsproj" />
     <Project Path="tapesim/TapeSim/TapeSim.fsproj" />
   </Folder>
