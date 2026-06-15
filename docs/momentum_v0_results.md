@@ -992,6 +992,48 @@ The 1.6-PF config is **4,264 trips over 21 years ≈ 200/year ≈ <1/day**. High
 
 **Entry:** up≥5% on ≥6× (and <20×) RVOL, into a new-or-near 52-week high (**within 5-15%**), from a **tight base (tightness<0.30, ATR<8%)**, price>$5, market breadth>0.5. (The 13w-MA filter is dropped — redundant with the 52wH band, same PF.) **Exit:** no price stop; **20-day time stop** + volatility-expansion (tightness>0.70). → **PF ~1.5-1.6, ~54% win, ~21-day hold.** Still to test: the deferred intraday-RVOL entry timing (first 5/15/30/60 min), alternate breadth periods (the 50-day breadth is close to the 8w — worth sweeping 20/50/100-day), and the Qullamaggie day-low stop as a *capital-velocity* play (frees capital faster on failures even if gross PF is a touch lower).
 
+### Yearly breakdown of the final system — 21 of 22 years positive
+
+The simplified composite — **VCP tight base (tightness<0.30, ATR<8%) + RVOL 6-20× + within 15% of the 52w-high + breadth>0.5, V1 exits (no price stop, 20-day time stop, expansion), price>$5** — by entry year (unclipped):
+
+| year | trades | win% | PF | net P&L |
+| ---- | -----: | ---: | ---: | -------: |
+| 2005 | 282 | 58.2% | 1.77 | +76,898 |
+| 2006 | 360 | 51.4% | 1.41 | +51,747 |
+| 2007 | 324 | 47.8% | 1.27 | +38,823 |
+| 2008 | 60 | 58.3% | 1.52 | +13,116 |
+| 2009 | 154 | 51.9% | 1.75 | +50,603 |
+| 2010 | 268 | 56.7% | 1.68 | +78,623 |
+| 2011 | 228 | 48.2% | 1.12 | +12,330 |
+| 2012 | 169 | 55.0% | 1.68 | +35,220 |
+| 2013 | 415 | 63.1% | 2.77 | +222,803 |
+| 2014 | 259 | 47.9% | 0.88 | −15,648 |
+| 2015 | 224 | 54.5% | 1.34 | +30,027 |
+| 2016 | 237 | 60.8% | 1.95 | +62,730 |
+| 2017 | 451 | 55.7% | 1.81 | +123,003 |
+| 2018 | 283 | 53.0% | 1.60 | +68,927 |
+| 2019 | 278 | 52.5% | 1.37 | +46,784 |
+| 2020 | 359 | 56.0% | 2.02 | +258,192 |
+| 2021 | 433 | 37.2% | 1.41 | +160,194 |
+| 2022 | 67 | 38.8% | 1.07 | +2,689 |
+| 2023 | 186 | 52.7% | 1.01 | +1,533 |
+| 2024 | 293 | 54.3% | 2.08 | +126,757 |
+| 2025 | 215 | 50.2% | 1.25 | +37,224 |
+| 2026 | 111 | 49.5% | 1.14 | +8,886 |
+
+**Total +$1,491,461, 21 of 22 years positive, worst year −$15,648 (2014, PF 0.88).** The one down year is a small chop-year loss — about 1/14th of the best year — not a drawdown event. The transformation vs the naive v0 is the headline: the years that *defined* the original system's regime risk are now neutralized —
+
+| year | naive v0 | final composite |
+| ---- | -------: | --------------: |
+| 2008 | −$218,917 | +$13,116 |
+| 2021 | −$1,143,069 | +$160,194 |
+| 2022 | −$482,904 | +$2,689 |
+| 2023 | −$544,837 | +$1,533 |
+
+The bears that cost the naive system >$2.3M combined now net roughly flat-to-positive — exactly the right behavior for a momentum book in a hostile regime: **don't make money, but don't give it back.** Three mechanisms compound to produce this: the **entry filters** (only contracted bases near highs in a positive-breadth tape), the **20-day time stop** (caps the bleed before a topped name grinds down), and **breadth>0.5** (sits out the worst stretches). Meanwhile the melt-up years are untouched (2013 PF 2.77, 2020 2.02, 2024 2.08, 2017 1.81), and **win rate is a genuine majority in most years (50-63%)** — unusual for momentum, a direct consequence of the no-price-stop regime not shaking you out.
+
+**Caveat — thin bear-year samples.** 2008 (60 trips), 2022 (67), 2023 (186) are small because breadth>0.5 + near-highs correctly *suppresses* entries in bad tapes — which is the point, but it means those years' PFs rest on few trades and shouldn't be over-read. The edge is real and consistent; the precise bear-year P&L is noisier than the trade-rich bull years. The 2014 loss and the barely-positive 2022/2023/2026 also show the system is not magic — it's a *consistent, capital-preserving* momentum edge (PF ~1.5, 21/22 green, fast ~21-day capital turnover), not a holy grail.
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.
