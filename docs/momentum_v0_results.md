@@ -1067,6 +1067,71 @@ The breadth gate so far used **% above the 50-day MA** (≈8w, close to the syst
 
 **Best practical setting: 20-day breadth.** `20d>0.5` (PF 1.64, 4,906 trips) gets most of the lift while keeping ~1,000 more trades than `50d>0.6` — a better PF-per-trade-sacrificed than the 50-day at either threshold; `20d>0.6` (PF 1.82) if you want maximum selectivity. This replaces the 50-day breadth in the converging spec. (Hold time is ~21 days across all — breadth changes *which* trades, not how long they're held.)
 
+### 20-day breadth, yearly — 22 of 22 years positive
+
+Switching the breadth gate from 50-day to 20-day eliminates the lone down year (2014). **Both thresholds are profitable in every one of the 22 years.**
+
+**20-day breadth > 0.5** (total +1,449,849, 4,906 trips, PF 1.64):
+
+| year | trades | win% | PF | net P&L |
+| ---- | -----: | ---: | ---: | -------: |
+| 2005 | 269 | 60.2% | 1.95 | +84,652 |
+| 2006 | 337 | 53.4% | 1.54 | +60,002 |
+| 2007 | 254 | 47.6% | 1.23 | +28,138 |
+| 2008 | 73 | 58.9% | 1.63 | +18,784 |
+| 2009 | 110 | 56.4% | 1.92 | +44,362 |
+| 2010 | 260 | 56.9% | 1.86 | +88,529 |
+| 2011 | 179 | 51.4% | 1.30 | +22,266 |
+| 2012 | 166 | 54.2% | 1.69 | +33,593 |
+| 2013 | 342 | 60.5% | 2.46 | +160,143 |
+| 2014 | 227 | 50.2% | 1.11 | +10,813 |
+| 2015 | 210 | 52.9% | 1.50 | +38,455 |
+| 2016 | 216 | 58.3% | 1.85 | +52,643 |
+| 2017 | 339 | 54.9% | 1.84 | +103,610 |
+| 2018 | 286 | 53.5% | 1.57 | +75,979 |
+| 2019 | 247 | 51.4% | 1.43 | +48,835 |
+| 2020 | 290 | 55.9% | 2.01 | +213,387 |
+| 2021 | 368 | 37.8% | 1.68 | +219,010 |
+| 2022 | 71 | 46.5% | 1.39 | +14,426 |
+| 2023 | 152 | 52.0% | 1.27 | +18,756 |
+| 2024 | 220 | 54.5% | 1.85 | +71,847 |
+| 2025 | 207 | 47.8% | 1.07 | +11,895 |
+| 2026 | 83 | 55.4% | 1.77 | +29,724 |
+
+**20-day breadth > 0.6** (total +1,224,992, 3,388 trips, PF 1.82):
+
+| year | trades | win% | PF | net P&L |
+| ---- | -----: | ---: | ---: | -------: |
+| 2005 | 220 | 59.1% | 1.74 | +55,049 |
+| 2006 | 244 | 53.7% | 1.56 | +43,606 |
+| 2007 | 195 | 47.2% | 1.25 | +24,752 |
+| 2008 | 42 | 59.5% | 1.33 | +6,005 |
+| 2009 | 82 | 53.7% | 1.67 | +25,903 |
+| 2010 | 223 | 56.1% | 1.81 | +72,412 |
+| 2011 | 129 | 52.7% | 1.46 | +22,476 |
+| 2012 | 116 | 60.3% | 2.21 | +36,011 |
+| 2013 | 255 | 60.0% | 2.31 | +111,404 |
+| 2014 | 181 | 50.8% | 1.18 | +12,966 |
+| 2015 | 134 | 57.5% | 1.81 | +35,061 |
+| 2016 | 166 | 59.6% | 1.98 | +44,127 |
+| 2017 | 174 | 52.3% | 1.43 | +30,205 |
+| 2018 | 157 | 52.2% | 1.40 | +34,232 |
+| 2019 | 184 | 51.1% | 1.50 | +40,040 |
+| 2020 | 212 | 61.3% | 3.77 | +260,556 |
+| 2021 | 248 | 35.5% | 2.05 | +245,399 |
+| 2022 | 52 | 50.0% | 1.77 | +18,981 |
+| 2023 | 110 | 52.7% | 1.44 | +21,121 |
+| 2024 | 111 | 60.4% | 2.05 | +44,424 |
+| 2025 | 114 | 50.9% | 1.16 | +14,326 |
+| 2026 | 39 | 61.5% | 3.21 | +25,936 |
+
+**The 2014 loss was a breadth-speed artifact.** Under 50d>0.5, 2014 was the one red year (−$16k); under 20d>0.5 it flips to **+$11k (PF 1.11)** and under 20d>0.6 to **+$13k (PF 1.18)**. 2014 had several sharp mid-year breadth dips (Jan, Jul-Aug, Oct) that the fast 20-day gate sidestepped but the slow 50-day rode straight through — the same lag lesson, now costing a whole year. With the 20-day:
+
+- **20d>0.5 — 22/22 green, worst year 2025 (+$12k, PF 1.07)**, 4,906 trips, PF 1.64. More trades / fuller deployment.
+- **20d>0.6 — 22/22 green, worst year 2008 (+$6k), no year below PF 1.16**, 3,388 trips, PF 1.82. Tighter and higher-quality, melt-ups sharper (2020 PF 3.77, 2026 3.21, 2021 2.05), but bear-year samples get thin (2008=42, 2026=39 trips — high PFs there not to be over-read).
+
+This is the milestone: a 22-year, **22-of-22-years-positive** momentum system at **PF 1.6-1.8, ~53% win, ~21-day hold** — shines in the parabolic bulls (2013/2020/2021/2024 all PF ≥1.85) and preserves capital in every bear. The threshold is a pure selectivity dial: 0.5 for more trades, 0.6 for more PF margin; both clear the bar with no losing years.
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.
