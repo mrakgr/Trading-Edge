@@ -308,7 +308,29 @@ Crossing the two volatility dimensions — ATR% tiers *inside* the tight (<0.40)
 
 ### RVOL and gap size — only useful *conditioned on* a tight base
 
-The two entry triggers themselves — RVOL (`adj_volume / avg_volume_4w`, floor 3×) and the same-day gap (`pct_up`, floor 5%) — show a striking **interaction with tightness**: on raw entries they have *no* usable edge (the big tiers are catastrophic), but on the refined tight + ATR<8% set the relationship **inverts** and bigger becomes better. (Refined set = `/tmp/base_ref.csv`, tight<0.40 AND ATR<8% + expansion-0.70 exit, 28,288 trips, +$6.18M; both tables reconcile to it.)
+The two entry triggers themselves — RVOL (`adj_volume / avg_volume_4w`, floor 3×) and the same-day gap (`pct_up`, floor 5%) — show a striking **interaction with tightness**: on raw entries they have *no* usable edge (the big tiers are catastrophic), but on the refined tight + ATR<8% set the relationship **inverts** and bigger becomes better. Both views below; the all-entries set is the trailing-stop baseline (37,309 trips, +$3.44M), the refined set is tight<0.40 AND ATR<8% + expansion-0.70 exit (28,288 trips, +$6.18M). Each pair of tables reconciles to its set.
+
+**RVOL (all entries, trailing-stop baseline):**
+
+| RVOL | trades | win% | PF | net P&L | avg/trip |
+| ---- | -----: | ---: | ---: | -------: | -------: |
+| 3-4x | 12,533 | 39.1% | 1.19 | +1,778,536 | +$142 |
+| 4-6x | 11,289 | 39.9% | 1.19 | +1,686,140 | +$149 |
+| 6-10x | 6,877 | 41.6% | 1.19 | +1,091,014 | +$159 |
+| 10-20x | 3,444 | 40.6% | **0.97** | −99,935 | −$29 |
+| 20x+ | 3,166 | 39.3% | **0.77** | −1,014,056 | −$320 |
+
+**Gap size (all entries, trailing-stop baseline):**
+
+| gap (pct_up) | trades | win% | PF | net P&L | avg/trip |
+| ------------ | -----: | ---: | ---: | -------: | -------: |
+| 5-8% | 10,526 | 41.1% | 1.28 | +1,644,864 | +$156 |
+| 8-12% | 9,251 | 40.2% | 1.28 | +1,730,149 | +$187 |
+| 12-20% | 9,267 | 40.9% | 1.22 | +1,615,076 | +$174 |
+| 20-40% | 5,593 | 39.5% | 1.12 | +786,675 | +$141 |
+| 40%+ | 2,672 | 32.4% | **0.61** | −2,335,066 | −$874 |
+
+On the raw set the pattern is flat-then-cliff: RVOL is a uniform ~1.19 up to 10x then turns **negative** (>20x PF 0.77, −$1.0M), and gap size is fine to 40% then **collapses** (40%+ PF 0.61, −$2.3M — the classic gap-and-fade). Standalone, neither has a usable monotonic edge, and their extremes are where the system bleeds.
 
 **RVOL (refined set):**
 
