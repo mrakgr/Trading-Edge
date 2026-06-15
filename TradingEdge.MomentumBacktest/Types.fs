@@ -1,6 +1,31 @@
 module TradingEdge.MomentumBacktest.Types
 
 open System
+open System.Collections.Generic
+
+/// Momentum-structure lookback periods, in trading days. Single source of truth:
+/// drives the generated SQL columns, the per-row Levels dictionary, the trip
+/// EntryLevels, and the CSV header. Each period gets 6 raw levels (see levelKinds).
+/// Single-day periods (1..5) produce degenerate hi=lo=close=ma; that's intentional
+/// (uniform loop, no special cases). 2w=10, 4w=20, 8w=40, 13w=63, 26w=126, 52w=252.
+let structurePeriods : (string * int) list =
+    [ "52w", 252; "26w", 126; "13w", 63; "8w", 40; "4w", 20; "2w", 10
+      "5d", 5; "4d", 4; "3d", 3; "2d", 2; "1d", 1 ]
+
+/// The 6 raw levels stored per period. Distances/moves are derived in SQL post-hoc
+/// (entry_close / level - 1), never stored. Column name = "{kind}_{periodLabel}".
+///   trail   = close N bars ago (LAG, window-start anchor for the trailing move)
+///   ma      = AVG(adj_close) over the window
+///   hi      = MAX(adj_high)  (high-channel top)      lo = MIN(adj_low)  (bottom)
+///   hiclose = MAX(adj_close) (close-channel top)  loclose = MIN(adj_close)(bottom)
+let levelKinds : string list = [ "trail"; "ma"; "hi"; "lo"; "hiclose"; "loclose" ]
+
+/// All structure column names, in a stable order (kind-major, period order from
+/// structurePeriods). Used by the SQL SELECT, the reader, and the CSV.
+let structureColumns : string list =
+    [ for kind in levelKinds do
+        for (label, _) in structurePeriods do
+            yield sprintf "%s_%s" kind label ]
 
 /// One row per (ticker, date) returned by the signal SQL — the full per-day
 /// split-adjusted series plus the precomputed indicator columns. The stop-walk
@@ -30,6 +55,10 @@ type SignalRow = {
     pct_up: Nullable<float>
     rvol: Nullable<float>
     is_entry: bool
+    /// Raw structure levels at this bar, keyed by structureColumns name (e.g.
+    /// "hiclose_52w"). NaN where the window has insufficient history. Populated
+    /// by the manual reader in Signals.loadTicker (not Dapper-mapped).
+    levels: IReadOnlyDictionary<string, float>
 }
 
 /// A completed (or still-open) round trip. Long-only for v0. Open trips are
@@ -53,6 +82,9 @@ type Trip = {
     Tightness14AtEntry: float
     ExitReason: string        // "stop" (15-day-low), "expansion" (tightness>thr), "mtm" (open at end)
     Open: bool
+    /// Raw structure levels at the entry bar (keyed by structureColumns name),
+    /// carried through to the trips CSV for post-hoc distance/momentum breakdowns.
+    EntryLevels: IReadOnlyDictionary<string, float>
 }
 
 /// Resolved run configuration (all Argu flags folded to concrete values).
@@ -68,6 +100,9 @@ type Config = {
     MinPriorDays: int
     MinAvgDollarVolume: float
     TradableOnly: bool        // true = CS/ADRC only
+    /// Drop the 52-week-high entry gate (adj_close >= 52w high close) so the
+    /// breakout population spans the full range (buy-strength-vs-weakness study).
+    NoFiftyTwoWeekHigh: bool
     /// Entry filters (None = off). Require the entry bar's tightness <= MaxTightness
     /// and ATR% <= MaxAtrPct. (The standalone analysis used 0.40 and 0.08.)
     MaxTightnessAtEntry: float option

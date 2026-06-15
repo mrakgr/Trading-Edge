@@ -127,6 +127,7 @@ let private walkOne
         Tightness14AtEntry = (if entry.tightness_14.HasValue then entry.tightness_14.Value else nan)
         ExitReason = exitReason
         Open = isOpen
+        EntryLevels = entry.levels
     }
 
 /// Does an entry bar pass the optional tightness/ATR entry filters? A NaN/missing

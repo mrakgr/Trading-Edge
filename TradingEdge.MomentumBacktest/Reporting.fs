@@ -27,30 +27,39 @@ let private writeAtomic (path: string) (lines: seq<string>) =
 // Trips CSV
 // ---------------------------------------------------------------------------
 
+// The 66 structure-level columns (e.g. "hiclose_52w") are appended in
+// Types.structureColumns order; distances are derived post-hoc in SQL.
 let tripsHeader =
-    "symbol,entry_date,exit_date,side,entry_price,exit_price,qty,net_pnl,bars_held,entry_adj_volume,rvol_at_entry,avg_dollar_volume_4w_at_entry,pct_up_at_entry,atr_pct_14_at_entry,range_pct_14_at_entry,tightness_14_at_entry,exit_reason,open"
+    "symbol,entry_date,exit_date,side,entry_price,exit_price,qty,net_pnl,bars_held,entry_adj_volume,rvol_at_entry,avg_dollar_volume_4w_at_entry,pct_up_at_entry,atr_pct_14_at_entry,range_pct_14_at_entry,tightness_14_at_entry,exit_reason,open,"
+    + String.concat "," Types.structureColumns
 
 let private tripRow (t: Trip) : string =
-    String.concat "," [
-        t.Symbol
-        t.EntryDate.ToString("yyyy-MM-dd")
-        t.ExitDate.ToString("yyyy-MM-dd")
-        "long"
-        fmt t.EntryPrice
-        fmt t.ExitPrice
-        fmt t.Qty
-        fmt t.NetPnL
-        string t.BarsHeld
-        string t.EntryAdjVolume
-        fmt t.RvolAtEntry
-        fmt t.AvgDollarVolume4wAtEntry
-        fmt t.PctUpAtEntry
-        fmt t.AtrPct14AtEntry
-        fmt t.RangePct14AtEntry
-        fmt t.Tightness14AtEntry
-        t.ExitReason
-        (if t.Open then "1" else "0")
-    ]
+    let baseCols =
+        [ t.Symbol
+          t.EntryDate.ToString("yyyy-MM-dd")
+          t.ExitDate.ToString("yyyy-MM-dd")
+          "long"
+          fmt t.EntryPrice
+          fmt t.ExitPrice
+          fmt t.Qty
+          fmt t.NetPnL
+          string t.BarsHeld
+          string t.EntryAdjVolume
+          fmt t.RvolAtEntry
+          fmt t.AvgDollarVolume4wAtEntry
+          fmt t.PctUpAtEntry
+          fmt t.AtrPct14AtEntry
+          fmt t.RangePct14AtEntry
+          fmt t.Tightness14AtEntry
+          t.ExitReason
+          (if t.Open then "1" else "0") ]
+    let structVals =
+        Types.structureColumns
+        |> List.map (fun c ->
+            match t.EntryLevels.TryGetValue c with
+            | true, v -> fmt v
+            | _ -> "nan")
+    String.concat "," (baseCols @ structVals)
 
 let writeTrips (path: string) (trips: Trip[]) =
     let lines = seq {

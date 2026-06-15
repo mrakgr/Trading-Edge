@@ -30,6 +30,7 @@ type Args =
     | Min_Prior_Days of int
     | Min_Avg_Dollar_Volume of float
     | All_Security_Types
+    | No_52w_High
     | Max_Tightness of float
     | Max_Atr_Pct of float
     | Expansion_Exit of float
@@ -52,6 +53,7 @@ type Args =
             | Min_Prior_Days _ -> "Minimum prior trading days before a ticker is eligible. Default 21."
             | Min_Avg_Dollar_Volume _ -> "Minimum trailing avg dollar volume (liquidity floor / mid-cap proxy). Default 1000000."
             | All_Security_Types -> "Include ALL security types (default keeps only CS/ADRC common stock + ADRs)."
+            | No_52w_High -> "Drop the 52-week-high entry gate (study the full breakout range; structure columns let you bucket by 52w-high distance post-hoc)."
             | Max_Tightness _ -> "Entry filter: only take entries whose 14-day tightness range/(14*ATR) <= this (e.g. 0.40). Off by default."
             | Max_Atr_Pct _ -> "Entry filter: only take entries whose 14-day ATR%% <= this (e.g. 0.08 = 8%%). Off by default."
             | Expansion_Exit _ -> "Volatility-expansion exit: close a held trip when its rolling 14-day tightness range/(14*ATR) rises ABOVE this threshold (exit next open). Off by default."
@@ -109,6 +111,7 @@ let main argv =
         MinPriorDays = parsed.GetResult(Min_Prior_Days, defaultValue = 21)
         MinAvgDollarVolume = parsed.GetResult(Min_Avg_Dollar_Volume, defaultValue = 1_000_000.0)
         TradableOnly = not (parsed.Contains All_Security_Types)
+        NoFiftyTwoWeekHigh = parsed.Contains No_52w_High
         MaxTightnessAtEntry = parsed.TryGetResult Max_Tightness
         MaxAtrPctAtEntry = parsed.TryGetResult Max_Atr_Pct
         ExpansionExitThreshold = parsed.TryGetResult Expansion_Exit
