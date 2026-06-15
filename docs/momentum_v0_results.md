@@ -838,6 +838,29 @@ The hard time stop beats breakeven-after in **every** drawdown year, and breakev
 
 **Verdict on the whole exit investigation:** for **max P&L**, hold the runner (baseline, +$6.18M); for **drawdown relief**, the **hard time stop at ~20 days** is the best tool (halves the bad years, beats every alternative on the drawdown years). Breakeven-after and the stall exit are both dominated — gentler on paper, worse where it counts. The expansion exit remains the single most valuable add (it owns the 2021 fix and harvests the parabolas); everything else is a consistency-vs-magnitude dial on top of it.
 
+## Momentum structure: is the 52-week-high criterion actually the edge?
+
+To test whether buying *strength* (new 52-week highs) beats buying breakouts *from weakness*, the engine now records 66 raw price-level columns per entry — 11 lookback periods (52w/26w/13w/8w/4w/2w and 5/4/3/2/1 day) × 6 levels each (trailing close, MA, high/low channel, high/low **close**-channel) — with distances derived post-hoc in SQL. Run with the **52w-high entry gate dropped** (`--no-52w-high`) on the refined set (tight<0.40 AND ATR<8%, expansion-0.70 exit): **106,522 trips** (vs 28,288 with the gate — so most up-5%/RVOL-3 tight breakouts are *not* at new highs).
+
+### ⚠️ Methodology: the raw result is a low-price artifact
+
+Bucketed naively, the distance-from-52w-high table looked spectacular for *weakness* — the "15-30% below" tier showed PF 3.49 / +$29.7M. **It is an artifact.** 84.6% of that tier's P&L was a *single trade* netting $25M on a $10k notional (a ~2,500× "return" — a split/adjustment glitch), and the deep-discount tiers are dominated by sub-$5 stocks (the >50%-below tier is 54% under $5, median price $4.22). At fixed $10k notional, a low-priced beaten-down name buys a huge share count, so one adjustment error or penny-stock pop produces enormous fake P&L. **Every P&L-weighted breakdown is exposed to this; the deep-discount/low-price cells are where it bites hardest.** The clean test applies an **entry price ≥ $5 floor** and **clips per-trip returns at +500%**.
+
+### Cleaned result — proximity to the 52-week high IS the edge
+
+| distance from 52w-high (close) | trades | win% | PF | net P&L | avg/trip |
+| ------------------------------ | -----: | ---: | ---: | -------: | -------: |
+| at/above (new high) | 24,521 | 42.0% | 1.17 | +2,608,417 | +$106 |
+| **within 5%** | 6,770 | 42.9% | **1.36** | +1,237,343 | **+$183** |
+| 5-15% below | 11,787 | 40.3% | 1.19 | +1,230,396 | +$104 |
+| 15-30% below | 13,415 | 38.2% | 1.12 | +979,027 | +$73 |
+| 30-50% below | 11,886 | 35.2% | **0.92** | −691,411 | −$58 |
+| >50% below | 9,226 | 29.5% | **0.83** | −1,792,378 | −$194 |
+
+Clean and monotonic: **the closer to the 52-week high, the better, turning net-negative beyond ~30% below.** Win rate falls monotonically with distance (43% → 30%). The nuance: the single best cell is **"within 5% of the high" (PF 1.36, $183/trip), slightly beating at/above (PF 1.17)** — buying *just into / approaching* a new high edges out buying the exact breakout, and anything within ~15% of the high is solidly positive. Breakouts from real weakness (>30% off the high) genuinely lose once the penny-stock lottery effect is stripped.
+
+**Verdict: the 52-week-high criterion is validated** — momentum wants strength, near the highs (Minervini/Qullamaggie confirmed) — with the refinement that the productive zone is **within ~15% of the 52w high**, not strictly at it. The headline lesson is also methodological: **the raw, unfiltered P&L-weighting was the *opposite* (and wrong) conclusion** — a reminder to price-floor and outlier-clip every breakdown on this dataset before trusting a P&L-weighted cell. (Remaining structure breakdowns — trailing returns and MA/channel distances across all 11 horizons, testing momentum persistence and the short-term-dip question — are next, with the same price-floor + clip discipline.)
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.
