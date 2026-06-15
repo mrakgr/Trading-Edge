@@ -1,0 +1,139 @@
+module TradingEdge.MomentumBacktest.Program
+
+open System
+open System.Diagnostics
+open Argu
+open DuckDB.NET.Data
+open TradingEdge.MomentumBacktest.Types
+open TradingEdge.MomentumBacktest.Signals
+open TradingEdge.MomentumBacktest.StopWalk
+open TradingEdge.MomentumBacktest.Reporting
+
+let defaultDbPath = "data/trading.db"
+let defaultStart = "2005-01-01"
+let defaultTripsCsv = "data/equity/momentum_v0/trips.csv"
+let defaultBreakdownLog = "data/equity/momentum_v0/breakdown.log"
+
+// =============================================================================
+// Argu DU
+// =============================================================================
+
+type Args =
+    | Db_Path of string
+    | Start_Date of string
+    | End_Date of string
+    | Notional of float
+    | Up_Threshold of float
+    | Rvol_Threshold of float
+    | Lookback_High of int
+    | Stop_Low_Window of int
+    | Min_Prior_Days of int
+    | Min_Avg_Dollar_Volume of float
+    | All_Security_Types
+    | Expansion_Exit of float
+    | Trips_Csv of string
+    | Breakdown_Log of string
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Db_Path _ -> "DuckDB database path. Default: " + defaultDbPath
+            | Start_Date _ -> "Inclusive signal-start date YYYY-MM-DD (pre-start history warms up indicators). Default 2005-01-01."
+            | End_Date _ -> "Inclusive end date YYYY-MM-DD. Default: the data's max date."
+            | Notional _ -> "Fixed dollar notional per trade. Default 10000."
+            | Up_Threshold _ -> "Minimum same-day return to qualify (fraction). Default 0.05 (5%)."
+            | Rvol_Threshold _ -> "Minimum RVOL (adj_volume / avg_volume_4w). Default 3.0."
+            | Lookback_High _ -> "52-week-high lookback in trading days. Default 252."
+            | Stop_Low_Window _ -> "Trailing-stop low window in trading days. Default 15."
+            | Min_Prior_Days _ -> "Minimum prior trading days before a ticker is eligible. Default 21."
+            | Min_Avg_Dollar_Volume _ -> "Minimum trailing avg dollar volume (liquidity floor / mid-cap proxy). Default 1000000."
+            | All_Security_Types -> "Include ALL security types (default keeps only CS/ADRC common stock + ADRs)."
+            | Expansion_Exit _ -> "Volatility-expansion exit: close a held trip when its rolling 14-day tightness range/(14*ATR) rises ABOVE this threshold (exit next open). Off by default."
+            | Trips_Csv _ -> "Output trips CSV path. Default: " + defaultTripsCsv
+            | Breakdown_Log _ -> "Output breakdown log path. Default: " + defaultBreakdownLog
+
+/// Open the shared DB READ-ONLY (the backtest never mutates it) with the same
+/// 6GB memory cap Database.openConnection uses. ACCESS_MODE=READ_ONLY guarantees
+/// no accidental DDL/DML can touch the 8.3GB file.
+let openReadOnly (dbPath: string) : DuckDBConnection =
+    let conn = new DuckDBConnection($"Data Source={dbPath};ACCESS_MODE=READ_ONLY")
+    conn.Open()
+    use cmd = conn.CreateCommand()
+    cmd.CommandText <- "PRAGMA memory_limit='6GB'"
+    cmd.ExecuteNonQuery() |> ignore
+    conn
+
+/// Resolve End_Date default to the data's max split-adjusted date.
+let private maxDataDate (conn: System.Data.IDbConnection) : DateOnly =
+    use cmd = conn.CreateCommand()
+    cmd.CommandText <- "SELECT MAX(date) FROM split_adjusted_prices"
+    match cmd.ExecuteScalar() with
+    | :? DateOnly as d -> d
+    | :? DateTime as d -> DateOnly.FromDateTime d
+    | other -> DateOnly.FromDateTime(Convert.ToDateTime other)
+
+[<EntryPoint>]
+let main argv =
+    let parser = ArgumentParser.Create<Args>(programName = "TradingEdge.MomentumBacktest")
+    let parsed = parser.Parse(argv, raiseOnUsage = true)
+
+    let dbPath = parsed.GetResult(Db_Path, defaultValue = defaultDbPath)
+    let parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
+
+    use conn = openReadOnly dbPath
+
+    let startDate = parseDate (parsed.GetResult(Start_Date, defaultValue = defaultStart))
+    let endDate =
+        match parsed.TryGetResult End_Date with
+        | Some s -> parseDate s
+        | None -> maxDataDate conn
+
+    let cfg = {
+        DbPath = dbPath
+        StartDate = startDate
+        EndDate = endDate
+        Notional = parsed.GetResult(Notional, defaultValue = 10000.0)
+        UpThreshold = parsed.GetResult(Up_Threshold, defaultValue = 0.05)
+        RvolThreshold = parsed.GetResult(Rvol_Threshold, defaultValue = 3.0)
+        LookbackHigh = parsed.GetResult(Lookback_High, defaultValue = 252)
+        StopLowWindow = parsed.GetResult(Stop_Low_Window, defaultValue = 15)
+        MinPriorDays = parsed.GetResult(Min_Prior_Days, defaultValue = 21)
+        MinAvgDollarVolume = parsed.GetResult(Min_Avg_Dollar_Volume, defaultValue = 1_000_000.0)
+        TradableOnly = not (parsed.Contains All_Security_Types)
+        ExpansionExitThreshold = parsed.TryGetResult Expansion_Exit
+        TripsCsv = parsed.GetResult(Trips_Csv, defaultValue = defaultTripsCsv)
+        BreakdownLog = parsed.GetResult(Breakdown_Log, defaultValue = defaultBreakdownLog)
+    }
+
+    let expStr = match cfg.ExpansionExitThreshold with Some t -> sprintf "tightness>%.2f" t | None -> "off"
+    printfn "momentum_v0: %s .. %s | up>=%.0f%% rvol>=%.1f %d-day-high | stop=%d-day-low | exp-exit=%s | notional=$%.0f | tradable_only=%b min_adv=%.0f"
+        (cfg.StartDate.ToString("yyyy-MM-dd")) (cfg.EndDate.ToString("yyyy-MM-dd"))
+        (cfg.UpThreshold * 100.0) cfg.RvolThreshold cfg.LookbackHigh cfg.StopLowWindow expStr
+        cfg.Notional cfg.TradableOnly cfg.MinAvgDollarVolume
+
+    let sw = Stopwatch.StartNew()
+
+    // Stream ticker-by-ticker so the .NET heap stays bounded; collect trips.
+    let tickers = eligibleTickers conn cfg.TradableOnly
+    printfn "eligible tickers: %d" tickers.Length
+
+    let allTrips = ResizeArray<Trip>()
+    let mutable processed = 0
+    for ticker in tickers do
+        let rows = loadTicker conn cfg ticker
+        if rows.Length > 0 then
+            allTrips.AddRange(tripsForTicker cfg.Notional cfg.ExpansionExitThreshold rows)
+        processed <- processed + 1
+        if processed % 1000 = 0 then
+            printfn "  ... %d/%d tickers, %d trips so far (%.0fs)"
+                processed tickers.Length allTrips.Count sw.Elapsed.TotalSeconds
+
+    let trips = allTrips.ToArray()
+    printfn "trips: %d (%.0fs)" trips.Length sw.Elapsed.TotalSeconds
+
+    writeTrips cfg.TripsCsv trips
+    printfn "wrote %s" cfg.TripsCsv
+
+    writeBreakdown cfg.BreakdownLog cfg trips
+    printfn "wrote %s" cfg.BreakdownLog
+
+    0

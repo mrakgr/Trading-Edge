@@ -18,6 +18,7 @@
   <Project Path="TradingEdge.CryptoData/TradingEdge.CryptoData.fsproj" />
   <Project Path="TradingEdge.CryptoLake/TradingEdge.CryptoLake.fsproj" />
   <Project Path="TradingEdge.Massive/TradingEdge.Massive.fsproj" />
+  <Project Path="TradingEdge.MomentumBacktest/TradingEdge.MomentumBacktest.fsproj" />
   <Project Path="TradingEdge.Orb/TradingEdge.Orb.fsproj" />
   <Project Path="TradingEdge.ReplaySimulatorV3/TradingEdge.ReplaySimulatorV3.fsproj" />
   <Project Path="TradingEdge.Simulation/TradingEdge.Simulation.fsproj" />
