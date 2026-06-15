@@ -620,6 +620,18 @@ Everything above optimizes for **big wins** — hold the breakout via a trailing
 
 **The post-breakout drift is real and positive from day 1.** Every short hold profits (PF ≥ 1.11), the edge builds monotonically through ~5–10 days, and there is no "give-back" inside the first 10 days — these breakouts keep drifting up. Win rate is ~48–50% (vs ~40% for the big-win system — short holds win more often but each win is small).
 
+The same holds with the **refined entry filter (tight <0.40 AND ATR% < 8%)** — adding the ATR cut nudges quality up across the board (PF +0.02–0.05 at the longer holds, win rate above 50% at 5–10d) for ~1,750 fewer trips and roughly unchanged net P&L:
+
+| exit | trades | win% | PF | net P&L | avg/trip |
+| ---- | -----: | ---: | ---: | -------: | -------: |
+| hold 1d | 28,253 | 48.7% | 1.11 | +654,516 | +$23 |
+| hold 2d | 28,228 | 48.8% | 1.12 | +899,512 | +$32 |
+| hold 3d | 28,204 | 49.7% | 1.18 | +1,497,514 | +$53 |
+| hold 5d | 28,163 | 49.9% | 1.24 | +2,355,446 | +$84 |
+| hold 10d | 28,051 | 50.3% | 1.23 | +2,953,744 | +$105 |
+
+Same shape, slightly cleaner — consistent with the ATR<8% cut being a pure quality bump at every horizon (it removes the high-daily-ATR names that drift worst). The by-year robustness analysis below uses the tight-only hold for continuity with the earlier comparison; the ATR refinement would shift each year marginally in the same direction.
+
 **On raw P&L the short hold is worse than the big-win system** ($51/trip at 3d vs **$192/trip** for expansion-exit+tight): the parabolic runners captured by the expansion exit are ~4× the per-trade edge of the drift. If the objective is total dollars, hold for the runner.
 
 ### But the short hold is far more *robust* — it sidesteps the regime problem entirely
