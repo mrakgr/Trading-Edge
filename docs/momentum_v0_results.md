@@ -965,6 +965,8 @@ Moving from isolated tests to a stacked system. Fixed defaults: **VCP entry (tig
 
 The five "strength" filters land at **PF ~1.30** — solid but short of the 1.5 bar, and they are **largely redundant with each other** (within-15%-of-high, above-13w-MA, and breadth all select the same "near highs in an uptrend" regime, so each adds little after the first). Note the price>$5 step *lowers* PF on the full range (it strips the artifact gains the penny names were contributing); the within-15% step is what re-establishes the real edge. Hold time holds steady at ~20 days throughout (the V1 time stop).
 
+> **The 13w-MA filter is dropped as pure redundancy.** Tested head-to-head: with the within-15%-of-52wH filter on, adding "above 13w MA" changes the count by only +376 trades (30,768 → 30,392) and PF by 0.004 (1.292 → 1.296); at the selective end the two are *identical* (PF 1.562, the no-MA version giving 39 *more* trades). Anything within 15% of its 52w high is essentially always above its 13w MA, so the condition adds nothing. **Simplified system drops it** — same PF, one fewer parameter, more robust. The remaining strength filters are just **within 15% of 52w-high + breadth>0.5.**
+
 ### The selectivity levers that reach 1.5+ (RVOL floor, tighter tightness, tighter band)
 
 The strength filters set the *regime*; pushing PF higher needs filters that *trim bad entries within it*. Within the composite, RVOL rises to a **6-20x sweet spot then collapses at ≥20x** (exhaustion), and tightness keeps paying as it gets tighter. Stacking these (unclipped):
@@ -988,7 +990,7 @@ The 1.6-PF config is **4,264 trips over 21 years ≈ 200/year ≈ <1/day**. High
 
 ### Converging spec
 
-**Entry:** up≥5% on ≥6× (and <20×) RVOL, into a new-or-near 52-week high (**within 5-15%**, above the 13w MA), from a **tight base (tightness<0.30, ATR<8%)**, price>$5, market breadth>0.5. **Exit:** no price stop; **20-day time stop** + volatility-expansion (tightness>0.70). → **PF ~1.5-1.6, ~54% win, ~21-day hold.** Still to test: the deferred intraday-RVOL entry timing (first 5/15/30/60 min), alternate breadth periods (the 50-day breadth is close to the 8w — worth sweeping 20/50/100-day), and the Qullamaggie day-low stop as a *capital-velocity* play (frees capital faster on failures even if gross PF is a touch lower).
+**Entry:** up≥5% on ≥6× (and <20×) RVOL, into a new-or-near 52-week high (**within 5-15%**), from a **tight base (tightness<0.30, ATR<8%)**, price>$5, market breadth>0.5. (The 13w-MA filter is dropped — redundant with the 52wH band, same PF.) **Exit:** no price stop; **20-day time stop** + volatility-expansion (tightness>0.70). → **PF ~1.5-1.6, ~54% win, ~21-day hold.** Still to test: the deferred intraday-RVOL entry timing (first 5/15/30/60 min), alternate breadth periods (the 50-day breadth is close to the 8w — worth sweeping 20/50/100-day), and the Qullamaggie day-low stop as a *capital-velocity* play (frees capital faster on failures even if gross PF is a touch lower).
 
 ## Caveats & known limitations
 
