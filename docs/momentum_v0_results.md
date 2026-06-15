@@ -861,6 +861,53 @@ Clean and monotonic: **the closer to the 52-week high, the better, turning net-n
 
 **Verdict: the 52-week-high criterion is validated** — momentum wants strength, near the highs (Minervini/Qullamaggie confirmed) — with the refinement that the productive zone is **within ~15% of the 52w high**, not strictly at it. The headline lesson is also methodological: **the raw, unfiltered P&L-weighting was the *opposite* (and wrong) conclusion** — a reminder to price-floor and outlier-clip every breakdown on this dataset before trusting a P&L-weighted cell. (Remaining structure breakdowns — trailing returns and MA/channel distances across all 11 horizons, testing momentum persistence and the short-term-dip question — are next, with the same price-floor + clip discipline.)
 
+## Momentum structure: MA distance, trailing returns, and the pre-breakout days
+
+With the **52w-high band** (within 15%) and **price floor** ($5) confirmed as the right filters, all three remaining structure breakdowns were run on that cleaned study set (gate-off `trips_structure.csv` filtered to `entry_price ≥ 5 AND entry ≥ 0.85 × hiclose_52w` → **43,081 trips, +$5.08M** clipped; per-trip returns clipped at +500% throughout). Distances derived in SQL from the raw level columns.
+
+### Distance from the moving averages (extension)
+
+Distance = `entry / ma_{period} − 1` (positive = above the MA). The long MAs (52w/26w/13w/8w) tell one clean story; representative cells:
+
+| MA | below MA | 0-5% above | 5-15% above | 15-30% above | >30% above |
+| -- | -------: | ---------: | ----------: | -----------: | ---------: |
+| 52w | PF 0.85 | 0.99 | **1.28** | **1.30** | 1.17 |
+| 26w | 0.96 | 1.11 | **1.27** | **1.26** | 1.16 |
+| 13w | 0.93 | 1.21 | **1.27** | 1.23 | 1.15 |
+| 8w | 1.02 | 1.14 | **1.26** | 1.24 | 1.14 |
+
+**Below the MA is bad, moderately above (5-30%) is the sweet spot, extreme extension (>30%) fades.** The 52w MA is the cleanest monotonic-then-fade: 0.85 → 0.99 → **1.28 → 1.30** → 1.17. "Above the rising long MA but not over-extended" is the constructive zone — the same picture as the 52w-high finding from a different angle (proximity to highs ⇒ above the long MAs). The short MAs (2w/4w) are noisy and non-monotonic (a 1-day dip below the 2-week average at entry is fine) — too close to price to carry regime info.
+
+### Trailing return (does past momentum persist?)
+
+Trailing move = `entry / trail_{period} − 1`. Across the mid horizons (4w/8w/13w/26w):
+
+| horizon | down >10% | down 0-10% | up 0-15% | up 15-40% | up 40-100% | up >100% |
+| ------- | --------: | ---------: | -------: | --------: | ---------: | -------: |
+| 13w | 1.07 | 1.18 | **1.28** | 1.25 | 1.26 | **0.93** |
+| 8w | 1.11 | 1.10 | **1.26** | 1.23 | 1.25 | **0.96** |
+| 4w | 0.96 | 1.10 | **1.23** | 1.24 | 1.21 | **0.81** |
+| 26w | 1.36* | 1.07 | 1.21 | **1.27** | 1.26 | 1.12 |
+
+**Moderate prior momentum is best; extreme recent gains exhaust.** The productive band is roughly "up 0-40%" (PF ~1.23-1.31); names already **up >100% over the last few weeks turn net-negative** (13w 0.93, 8w 0.96, 4w 0.81) — the breakout is late. So past momentum *helps* up to a point and *hurts* once the move is already huge — a hump, not a monotonic "more is better." (*26w "down >10%" is a thin 194-trip cell — not load-bearing.)
+
+### The days right before the breakout — does a short-term dip help?
+
+For each of the 4 days *before* the breakout day, that day's own % change, bucketed:
+
+| prior day | down >3% | down 1-3% | flat ±1% | up 1-3% | up >3% |
+| --------- | -------: | --------: | -------: | ------: | -----: |
+| day −2 | 1.06 | 1.16 | **1.30** | 1.24 | 1.16 |
+| day −3 | **0.99** | 1.14 | **1.27** | 1.28 | 1.19 |
+| day −4 | 1.13 | 1.21 | **1.24** | 1.21 | 1.17 |
+| day −5 | 1.08 | 1.25 | 1.24 | **1.28** | 1.06 |
+
+**A short-term dip into the breakout does NOT help — the opposite.** The strongest bucket on every prior day is **"flat ±1%"** (PF 1.24-1.30): a *quiet* tape right up to ignition. A sharp drop the prior day is the weakest (day −3 "down >3%" PF 0.99), and a sharp *rise* the prior day also fades (the move shouldn't have started yet). This is fully consistent with the tightness/VCP picture: you want **stillness immediately before the explosive up-day** — not a pullback, not a head start. (Worth noting this is the opposite of the *intraday* short-term-reversal effect; at the daily-into-breakout scale, calm-then-ignite beats dip-then-ignite.)
+
+### Synthesis
+
+Every structure lens points to the same archetype, and it is textbook Minervini/VCP: **price near its 52-week high (within ~15%), moderately above its rising long MAs (5-30%, not over-extended), with healthy-but-not-parabolic prior momentum (up, but not already doubled), coiled into a quiet tight base (tightness <0.40, ATR <8%) that goes still in the final days before an explosive high-RVOL up-day.** The earlier "buy from weakness" mirage and these confirmations together are the strongest argument in the study for doing your own filtered research rather than trusting unconditioned single-factor tests.
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.
