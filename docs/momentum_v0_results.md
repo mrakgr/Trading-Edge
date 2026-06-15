@@ -1342,10 +1342,21 @@ Sizing each trade by the **product of its breadth-tercile and RVOL-tercile Kelly
 
 ## Next steps (in order)
 
-1. **SPY 10/20-day MA regime filter** — gate entries on SPY being in an uptrend (10-day MA > 20-day MA, or price > both). The data/columns are structured so this slots in as one additive SQL column. Re-run and compare the bear-year bleed (2008/2021/2022/2023) head-to-head. *This is the immediate next task.*
-2. **Top-trip / concentration check** per big month, to see how much of the melt-up P&L is a few names.
-3. **Next-day-open entry variant** as a robustness check on the same-day-close optimism.
-4. **Real market-cap bucketing** once shares-outstanding is available — the trips CSV already carries `avg_dollar_volume_4w_at_entry` as the interim size proxy.
+**Immediate (next session):**
+1. **Re-run the 3×3 tercile yearly breakdown for the other two stop variants** (Variant 2 = Qullamaggie entry-day-low stop; and the baseline 15-day-low stop) — *not* just the V1 no-price-stop+time-20 used above. Motivation: in the 3×3 surface the **T2 (middle) RVOL/breadth tercile is anomalously weak** — T2 < T1 in the bottom two breadth rows, and T3-middle-row < T3-top-row. The hypothesis is that the **time stop lets large losses slip through** (a trade that's quietly bleeding sits for the full 20 days instead of being cut), and that an actual price stop (esp. the tight day-low) would clean up the T2 dip. Compare the surfaces + yearly P&L across the three stop regimes. (Engine already supports `--no-price-stop`, `--initial-stop-day-low`, and the default 15-day-low.)
+
+**Then — the v1 volatility upgrade (volume-weighted / Gaussian volatility, replacing ATR%):**
+2. Replace ATR%-based volatility with a **volume-weighted volatility** measure. For every day compute the **daily VWAP and VW-σ (volume-weighted std)** from the intraday distribution, and use those to get a per-trade "true volatility." Mapping to the current metrics:
+   - **pairwise daily Gaussians → substitute for ATR%** (the single-day volatility),
+   - **14-day Gaussian → substitute for the 14-day range / tightness.**
+   The thesis: VW-Gaussian volatility is a more accurate, less noisy volatility estimate than ATR%/range, and should reduce the noise seen in these breakdowns (possibly resolving the T2 anomaly independent of the stop question).
+   - **Versioning:** **v0 = ATR%-based volatility** (this whole document). **v1 = volume-weighted Gaussian volatility.** Build v1 *after* finishing the ATR%-based stop-variant comparison (step 1). Requires intraday data per day (the Massive subscription the user is getting for the latest daily bars; VW-σ needs intraday or at least OHLC-based proxies — confirm data granularity at v1 start).
+
+**Deferred / opportunistic:**
+3. **Recompute `breadth.parquet` through the current date** once the latest daily bars are downloaded (Massive sub) — so we know which breadth tercile (and thus live Kelly size) the market is in *today*.
+4. **Intraday-RVOL entry timing** (first 5/15/30/60 min) — earlier entry for tighter risk control; deferred, needs intraday data.
+5. **Half-Kelly + hard-cap deployable sizing** and an **annualized return-on-deployed-capital** metric (PF alone undersells the ~21-day capital turnover).
+6. **Real market-cap bucketing** once shares-outstanding is available — trips carry `avg_dollar_volume_4w_at_entry` as the interim proxy.
 
 ---
 
