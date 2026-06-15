@@ -1224,6 +1224,18 @@ The reliable signal is the **marginals** (hundreds-to-thousands of trades each):
 | 13-16 | 371 | 53% | 2.12 | 0.306 | 15.3% |
 | 16-20 | 287 | 56% | 1.99 | **0.346** | **17.3%** |
 
+The hand-picked buckets above had one suspicious kink (6-8 PF > 8-10). Re-pooling RVOL into **equal-count quintiles** removes it and locates the breakpoints more honestly:
+
+| RVOL quintile | range | win% | PF | avg ret |
+| ------------- | ----- | ---: | ---: | ------: |
+| 1 | 6.0-6.65 | 50.3% | 1.27 | 1.29% |
+| 2 | 6.65-7.58 | 53.9% | 1.58 | 2.48% |
+| 3 | 7.58-8.91 | 51.4% | 1.69 | 3.47% |
+| 4 | 8.91-11.46 | 54.2% | 1.46 | 2.21% |
+| 5 | 11.47-20 | 55.1% | **2.29** | 5.33% |
+
+The "6-8 > 8-10" inversion was indeed a bucket-edge artifact — it vanishes in quantiles (PF rises 1.27 → 1.58 → 1.69 across the bottom three). The clean reads: **the weakest cell is the 6.0-6.65 floor** (barely clearing the 6× minimum, PF 1.27), and **the top quintile, RVOL > ~11.5×, is decisively the best (PF 2.29)** — robust across quartile/tercile groupings too. One residual wrinkle that **persists across groupings** (so it's likely real, not noise): a **soft spot around 9-11× (PF 1.46)** before the top quintile takes over. Net shape: weak at the 6× floor → strong 6.7-9× → mild 9-11 dip → strongest above ~11.5×. For sizing this sharpens the A-tier breakpoint from "≥13×" to **≈11.5×**, and confirms RVOL is the steeper, more reliable lever (PF span 1.27→2.29 ≈ 1.8×, vs breadth's 1.6×).
+
 **Kelly by breadth decile** looked noisy and non-monotonic at decile resolution (Kelly 0.02 at decile 1, spiking to ~0.33 at deciles 8-9, dropping at 10) — **but that jumpiness was sampling noise.** Pooling the deciles into **quintiles** (~980 trips each) reveals a *clean monotonic* relationship:
 
 | breadth quintile | range | win% | PF | avg ret |
