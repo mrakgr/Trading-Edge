@@ -1356,7 +1356,8 @@ Sizing each trade by the **product of its breadth-tercile and RVOL-tercile Kelly
 3. **Recompute `breadth.parquet` through the current date** once the latest daily bars are downloaded (Massive sub) — so we know which breadth tercile (and thus live Kelly size) the market is in *today*.
 4. **Intraday-RVOL entry timing** (first 5/15/30/60 min) — earlier entry for tighter risk control; deferred, needs intraday data.
 5. **Half-Kelly + hard-cap deployable sizing** and an **annualized return-on-deployed-capital** metric (PF alone undersells the ~21-day capital turnover).
-6. **Real market-cap bucketing** once shares-outstanding is available — trips carry `avg_dollar_volume_4w_at_entry` as the interim proxy.
+6. **Average-daily-dollar-volume breakdown on the FINAL system** — doable now (every trip carries `avg_dollar_volume_4w_at_entry`); bucket the composite system's PF by liquidity tier to see whether the edge concentrates in a particular dollar-volume band *within* the filtered universe (the earlier ADV breakdown was on the naive v0, pre-filters), and whether ADV is a sizing/selection lever. Apply the usual $5 floor + outlier discipline.
+7. **Real market-cap bucketing** once shares-outstanding is available (Massive shares-outstanding endpoint) — pair it with the ADV breakdown above; trips carry `avg_dollar_volume_4w_at_entry` as the interim proxy until then.
 
 ---
 
