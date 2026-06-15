@@ -1259,6 +1259,29 @@ PF rises monotonically 1.32 → 1.40 → 1.49 → 1.95 → 2.09 with breadth, no
 
 **Bottom line:** the rigorous Kelly sizing is *RVOL-driven, ~2-3× span, fractioned to ~half-Kelly with hard caps* — a more conservative and more defensible version of the 5× idea. The 5× isn't "wrong" directionally; it's beyond what the variance-aware math supports, and rests partly on a few-trade tail it would over-bet.
 
+### The clean 2D surface (breadth quintile × RVOL quintile) — additive, no interaction
+
+With both axes pooled into equal-count quintiles (~196 trips/cell), the joint PF surface:
+
+| breadth Q ↓ / RVOL Q → | Q1 | Q2 | Q3 | Q4 | Q5 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 (low breadth) | 1.05 | 1.31 | 1.00 | 1.77 | 1.61 |
+| 2 | 1.16 | 1.49 | 1.19 | 1.41 | 1.91 |
+| 3 | 1.31 | 1.34 | 1.77 | 1.47 | 1.54 |
+| 4 | 1.61 | 2.10 | 2.95 | 1.21 | 1.86 |
+| 5 (high breadth) | 1.36 | 1.75 | 1.74 | 1.46 | **4.95** |
+
+The broad gradient matches both marginals (PF rises down-and-right), but at ~196 trips/cell the **individual cells are still too noisy to trust** — the lone 4.95 and 2.95 are a handful of winners, not real 3-5× edges. To test for genuine *interaction*, collapse to a robust 2×2 (top-2 quintiles = "high", ~770-1,750 trips/cell):
+
+| | low RVOL | high RVOL |
+| -- | -------: | --------: |
+| **low breadth** | PF 1.28 (avg ret 1.41%) | PF 1.61 (2.65%) |
+| **high breadth** | PF 1.93 (3.89%) | PF 2.16 (5.51%) |
+
+**The two factors are independent and additive in average return — no synergy beyond stacking them.** From the 1.41% baseline: high-RVOL adds +1.24%, high-breadth adds +2.48%; both together gives 5.51% vs the 5.13% a purely-additive model predicts — a trivial +0.38% interaction, well within noise. The high/high corner is **PF 2.16**, exactly what the two marginals predict, *not* a hidden 3-4× cell.
+
+**Implication for sizing (reassuring):** because the effects are additive and independent, you do **not** need the noisy 25-cell joint lookup. Size off the two *clean marginal* curves — breadth-quintile and RVOL-quintile Kelly fractions — combined as a product/sum. That captures essentially all the signal while avoiding the cell-level overfit, and the 2×2 confirms combining the two marginals is legitimate. This is the principled basis for the earlier "RVOL multiplier × breadth multiplier" sizing: each multiplier from its own well-sampled marginal, ~2-3× span on RVOL and ~1.6× on breadth, fractioned to half-Kelly with hard caps.
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.
