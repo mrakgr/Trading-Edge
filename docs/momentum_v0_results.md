@@ -1282,6 +1282,55 @@ The broad gradient matches both marginals (PF rises down-and-right), but at ~196
 
 **Implication for sizing (reassuring):** because the effects are additive and independent, you do **not** need the noisy 25-cell joint lookup. Size off the two *clean marginal* curves — breadth-quintile and RVOL-quintile Kelly fractions — combined as a product/sum. That captures essentially all the signal while avoiding the cell-level overfit, and the 2×2 confirms combining the two marginals is legitimate. This is the principled basis for the earlier "RVOL multiplier × breadth multiplier" sizing: each multiplier from its own well-sampled marginal, ~2-3× span on RVOL and ~1.6× on breadth, fractioned to half-Kelly with hard caps.
 
+### 3×3 surface (terciles) and the Kelly-sized yearly result
+
+The 2×2 was coarse; **terciles on each axis (~545 trips/cell)** give a clean, trustworthy joint surface:
+
+| breadth ↓ / RVOL → | T1 (6.0-7.2) | T2 (7.2-9.6) | T3 (9.6-20) |
+| --- | ---: | ---: | ---: |
+| **T1 (b 0.50-0.61)** | 1.22 | 1.14 | 1.81 |
+| **T2 (b 0.61-0.70)** | 1.36 | 1.33 | 1.61 |
+| **T3 (b 0.70-0.96)** | 1.62 | 2.01 | **2.90** |
+
+PF rises cleanly down each column (breadth) and rightward across each row (RVOL, with the known mild T2 dip). Bottom-left low/low = 1.22; top-right high/high = 2.90 — the additive stack, now smooth at this resolution.
+
+#### Kelly-sized yearly result
+
+Sizing each trade by the **product of its breadth-tercile and RVOL-tercile Kelly fractions** (justified by the additivity/independence finding), normalized to mean weight 1 (pure reallocation — average size = the flat baseline, so this measures *distribution*, not leverage). Tercile Kelly fractions: breadth 0.13 / 0.16 / 0.29, RVOL 0.14 / 0.17 / 0.29.
+
+| year | trades | PF flat | net flat | PF Kelly | net Kelly |
+| ---- | -----: | ------: | -------: | -------: | --------: |
+| 2005 | 269 | 1.95 | +84,652 | 1.92 | +87,435 |
+| 2006 | 337 | 1.54 | +60,002 | 1.64 | +65,340 |
+| 2007 | 254 | 1.23 | +28,138 | 1.67 | +83,992 |
+| 2008 | 73 | 1.63 | +18,784 | 1.74 | +17,586 |
+| 2009 | 110 | 1.92 | +44,362 | 1.69 | +40,926 |
+| 2010 | 260 | 1.86 | +88,529 | 1.85 | +105,597 |
+| 2011 | 179 | 1.30 | +22,266 | 1.24 | +17,759 |
+| 2012 | 166 | 1.69 | +33,593 | 2.15 | +49,075 |
+| 2013 | 342 | 2.46 | +160,143 | 2.29 | +151,677 |
+| 2014 | 227 | 1.11 | +10,813 | 1.23 | +21,876 |
+| 2015 | 210 | 1.50 | +38,455 | 1.91 | +54,403 |
+| 2016 | 216 | 1.85 | +52,643 | 1.87 | +51,222 |
+| 2017 | 339 | 1.84 | +103,610 | 1.82 | +91,436 |
+| 2018 | 286 | 1.57 | +75,979 | 1.51 | +59,374 |
+| 2019 | 247 | 1.43 | +48,835 | 1.46 | +53,372 |
+| 2020 | 290 | 2.01 | +213,387 | 2.72 | +336,724 |
+| 2021 | 368 | 1.68 | +219,010 | 2.35 | +464,688 |
+| 2022 | 71 | 1.39 | +14,426 | 1.82 | +31,143 |
+| 2023 | 152 | 1.27 | +18,756 | 1.29 | +22,701 |
+| 2024 | 220 | 1.85 | +71,847 | 2.13 | +67,083 |
+| 2025 | 207 | 1.07 | +11,895 | 1.16 | +23,939 |
+| 2026 | 83 | 1.77 | +29,724 | 2.28 | +32,867 |
+
+**Totals: flat PF 1.64 / ++1,449,849 → Kelly-sized PF 1.87 / ++1,930,215** — return-per-dollar 2.96% → **3.93% (+33%)**, at matched average size. Reading it:
+
+- **Still 22/22 positive** — sizing strengthened the weak years rather than risking them (2025 +$12k→+$24k, 2014 +$11k→+$22k).
+- **The big bull years amplify hardest** — 2021 +$219k → **+$465k** (PF 1.68→2.35), 2020 +$213k → **+$337k** (2.01→2.72) — exactly right, since those were high-breadth/high-RVOL years where the Kelly weights leaned in and were rewarded.
+- A few years give back slightly (2013 −$8k, 2017 −$12k, 2018 −$17k) as weight shifts away from their lower-tercile trades — a fair, expected reallocation cost. Net strongly positive across all years.
+
+**⚠️ In-sample caveat.** The tercile Kelly fractions were fit on the *same* 2005-2026 data they're then applied to, so this +33% is an optimistic, in-sample figure — the sizing edge will be smaller live. Two things mitigate (not eliminate) it: the weights use only the *coarse, well-sampled marginals* (3 terciles × 3 terciles, ~545-2000 trips each — not the noisy 25/50-cell estimates), and the product form is the additivity-justified low-parameter model. Running **half-Kelly** (halve every weight span) and **hard per-position caps** is the deployable version; the live expectation is "a meaningful but smaller sizing lift on top of the PF-1.6 base," not +33%.
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.
