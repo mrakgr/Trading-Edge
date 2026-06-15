@@ -863,7 +863,7 @@ Clean and monotonic: **the closer to the 52-week high, the better, turning net-n
 
 ## Momentum structure: MA distance, trailing returns, and the pre-breakout days
 
-With the **52w-high band** (within 15%) and **price floor** ($5) confirmed as the right filters, all three remaining structure breakdowns were run on that cleaned study set (gate-off `trips_structure.csv` filtered to `entry_price ≥ 5 AND entry ≥ 0.85 × hiclose_52w` → **43,081 trips, +$5.08M** clipped; per-trip returns clipped at +500% throughout). Distances derived in SQL from the raw level columns.
+With the **52w-high band** (within 15%) and **price floor** ($5) confirmed as the right filters, all three remaining structure breakdowns were run on that cleaned study set (gate-off `trips_structure.csv` filtered to `entry_price ≥ 5 AND entry ≥ 0.85 × hiclose_52w` → **43,081 trips, +$5.08M** clipped; per-trip returns clipped at +500% throughout). Distances derived in SQL from the raw level columns. **Note: the tightness (<0.40) and ATR (<8%) filters are already baked into this study set** (the CSV was generated with `--max-tightness 0.40 --max-atr-pct 0.08`), so every structure pattern below is *already conditioned on the contracted, low-ATR base* — these are not raw-universe results.
 
 ### Distance from the moving averages (extension)
 
