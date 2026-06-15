@@ -1,6 +1,6 @@
 # Overnight and next-day returns by gap direction × CIR bucket
 
-> Extracted from [`orb_session_findings.md`](orb_session_findings.md) (section 18). Same analysis, broken out as a standalone reference.
+> Extracted from [`orb_session_findings.md`](orb_session_findings.md) (section 18). Same analysis, broken out as a standalone reference. Unlike most of the high PF figures in the document, the results here require no lookahead info.
 
 With `next_open_vs_close_pct` and `next_close_vs_close_pct` in the augmented dataset, we can directly measure post-close behavior. All tables below are on day-0 RVOL≥3 entries. CIR bins are disjoint 20%-wide buckets. Returns are reported as-is (positive = stock went up), so a long holder wants positive and a short holder wants negative.
 
