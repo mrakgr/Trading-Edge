@@ -648,6 +648,46 @@ This is the most striking comparison in the study:
 
 **The fork is clear: the same signal supports two different systems.** Swing for the fences (hold the runner via the expansion exit) → ~4× the dollars but lumpy, regime-dependent, and 2023 stays a −$441k hole. Harvest the drift (3–5 day hold) → a quarter of the dollars per trade but **18/22 green years, a worst year 5.5× smaller, and the regime dependence largely gone** — a much higher-Sharpe, lower-magnitude book. Which to run is an objective choice (capacity/absolute return vs consistency/drawdown), and they could even be combined (drift-harvest base + a runner sleeve). All post-hoc on the existing entries — no engine change.
 
+### Drift by tightness tier — contraction matters even at 3 days
+
+The fixed-N-day results above used the tight (<0.40) universe. Breaking the **3- and 5-day drift across all tightness tiers** shows the VCP edge is, if anything, *sharper* at the short horizon than for the big-win system:
+
+| tightness | trades | win% (3d) | PF (3d) | net 3d | avg 3d | net 5d | avg 5d |
+| --------- | -----: | --------: | ------: | -----: | -----: | -----: | -----: |
+| **<0.40 tight** | 29,954 | 49.2% | **1.16** | **+1,537,823** | +$51 | +2,433,256 | +$81 |
+| 0.40-0.55 | 5,632 | 42.7% | 0.84 | −502,577 | −$89 | −563,744 | −$100 |
+| 0.55-0.70 | 1,226 | 38.7% | 0.73 | −315,943 | −$258 | −481,880 | −$395 |
+| 0.70-0.85 | 282 | 22.7% | 0.29 | −315,061 | −$1,117 | −330,223 | −$1,184 |
+| 0.85+ trend | 71 | 26.8% | 0.18 | −131,283 | −$1,849 | −150,776 | −$2,124 |
+
+**A loose-base breakout doesn't even give you a 3-day drift** — the 0.85+ tier averages −$1,849/trip over just three days. So volatility contraction is necessary even for the immediate post-breakout pop, not only for the long hold. The punchline: across **all** entries (every tightness, 37,165 trades) the 3-day drift is a negligible **+$273k (~+$7/trip)** — the tight subset (+$51/trip) carries essentially all of it while the loose tiers bleed it back. Without the contraction filter there is barely a *short-horizon* drift edge at all. (This also reinforces the short thesis: the loose/expanded breakouts are bad longs at *every* horizon → good short candidates for the reversal book.)
+
+### Breadth on the drift system — barely needed
+
+Layering the breadth50 > 0.50 regime filter onto the tight-entry drift:
+
+| config | trades | net P&L | PF | avg/trip |
+| ------ | -----: | -------: | ---: | -------: |
+| hold 3d (tight) | 29,954 | +1,537,823 | 1.16 | +$51 |
+| hold 3d + breadth50 > 0.50 | 22,808 | +1,335,638 | 1.18 | +$59 |
+| hold 5d (tight) | 29,910 | +2,433,256 | 1.21 | +$81 |
+| hold 5d + breadth50 > 0.50 | 22,769 | +2,231,434 | 1.26 | +$98 |
+
+**Breadth helps the drift far less than it helped the big-win system** (5d: 1.21 → 1.26, vs the runner's 1.27 → 1.36). That is expected: the short hold is *already* regime-robust because it never holds through a decline, so a regime filter has little left to fix. By year it is a wash — it flips the two sharp-crash years (2008 −$80k → +$25k, 2022 −$73k → −$15k) but slightly *worsens* 2023 (−$35k → −$67k) and shaves the good years, netting ~−$200k overall for a small PF bump. **The drift system's decisive filter is tightness, not regime** — the opposite weighting from the big-win system, where the regime/exit levers mattered most.
+
+### Why the original system was profitable *before* the tightness filter
+
+The near-zero 3-day drift on raw entries raises a fair question: how did the +$3.44M baseline make money at all? Two reasons, both about *horizon* and *the loose drag*:
+
+| cohort (trailing-stop hold) | trades | avg bars held | avg/trip | net P&L | PF |
+| --------------------------- | -----: | ------------: | -------: | ------: | ---: |
+| all entries | 37,309 | 28.7 | +$92 | +3,441,699 | 1.11 |
+| tight (<0.40) | 30,051 | 28.7 | +$167 | +5,008,319 | 1.22 |
+| loose (≥0.40) | 7,258 | 28.5 | −$216 | −1,566,621 | 0.84 |
+
+- **The edge was always in the long hold, not the short drift.** The baseline used the 15-day-low trailing stop, which holds ~**29 bars (weeks)** on average — not 3 days. The money is the handful of breakouts that keep running for weeks (classic fat tail), worth ~$92/trip across all entries vs only ~$7/trip at a 3-day horizon. The first three days are nearly flat; the *runners* pay.
+- **The tightness filter removed a drag, it didn't create the edge.** The baseline +$3.44M was already the tight cohort (+$5.0M) *minus* the loose-base cohort (−$1.57M, PF 0.84). The system was net-positive only because the tight winners outweighed the loose losers; filtering to tight bases just deletes the −$1.57M drag. So "the raw signal has no edge" is specifically a statement about the **3-day** horizon — at the hold-for-the-runner horizon the raw signal does earn, but entirely via the tight subset.
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.
