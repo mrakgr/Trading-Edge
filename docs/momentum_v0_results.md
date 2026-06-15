@@ -1189,6 +1189,54 @@ Independent multipliers, normalized to matched average notional (pure reallocati
 
 **⚠️ Concentration caveat.** A 5-10× single-trade weight pours capital into ~10-14% of trips, so single-name and gap risk rise sharply even as PF improves — return-per-dollar rewards concentration but does not see ruin risk. A live book needs **hard per-position caps** so one 5×-weighted A-trade gapping down can't be catastrophic (the risk-of-ruin counterpart to the short-side warning). The right *absolute* size-up (deploying more total capital in strong regimes, not just reallocating) is a portfolio-construction / Kelly-fraction question for later, bounded by those caps.
 
+### The 2D PF surface (breadth decile × RVOL) and what Kelly actually says
+
+Building the full empirical PF table — breadth split into deciles (within the >0.5 population), crossed with RVOL buckets — to size each cell by its own edge rather than ad-hoc multipliers:
+
+| breadth decile | RVOL 6-8 | RVOL 8-10 | RVOL 10-13 | RVOL 13-16 | RVOL 16-20 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 (b=0.50-.53) | 0.95 | 0.93 | 1.02 | 2.65 | 1.98 |
+| 2 (b=.53-.57) | 1.45 | 1.69 | 1.93 | 3.38 | 1.19 |
+| 3 (b=.57-.60) | 0.90 | 1.25 | 2.07 | 1.74 | 2.06 |
+| 4 (b=.60-.63) | 1.66 | 0.93 | 2.40 | 1.88 | 2.91 |
+| 5 (b=.63-.65) | 1.45 | 1.16 | 2.12 | 0.99 | 2.41 |
+| 6 (b=.65-.68) | 1.47 | 1.48 | 1.82 | 1.25 | 3.06 |
+| 7 (b=.68-.71) | 1.65 | 1.51 | 1.19 | 0.88 | 1.17 |
+| 8 (b=.71-.74) | 3.02 | 1.68 | 1.61 | 2.99 | 4.58 |
+| 9 (b=.74-.79) | 1.78 | 1.05 | 1.83 | **10.64** | **9.33** |
+| 10 (b=.79-.96) | 1.69 | 1.40 | 2.72 | 2.48 | 1.20 |
+
+The general gradient is right (RVOL columns trend up left→right; higher-breadth rows trend up), **but the individual 50 cells are noisy** — averaging ~98 trips, and the high-RVOL cells only 17-45. The decile-9 / RVOL-13-16 cell shows PF **10.64** on **30 trades**: that is one or two monster winners, not a 10× edge. **Sizing off raw per-cell PF would massively overfit the estimation noise.**
+
+#### Kelly per cell is a trap; Kelly on the robust marginals is the answer
+
+Kelly needs win rate W and the avg-win/avg-loss return ratio R: `f* = W − (1−W)/R`. Computed per cell, the high-PF cells produce absurd fractions on tiny samples — decile-9/13-16 (n=30, R=8.1) → Kelly **0.51**, decile-8/16-20 (n=30, R=3.5) → 0.44. Kelly is notoriously fragile to estimation error (it optimizes a ratio of sample means); betting 44-51% of bankroll on a 30-trade cell is how you blow up. **Do not size off per-cell Kelly.**
+
+The reliable signal is the **marginals** (hundreds-to-thousands of trades each):
+
+**Kelly by RVOL bucket:**
+
+| RVOL | n | win% | R | full-Kelly | half-Kelly |
+| ---- | --: | ---: | ---: | ---: | ---: |
+| 6-8 | 2,314 | 52% | 1.42 | 0.185 | 9.2% |
+| 8-10 | 1,139 | 51% | 1.23 | 0.115 | 5.7% |
+| 10-13 | 795 | 57% | 1.38 | 0.255 | 12.8% |
+| 13-16 | 371 | 53% | 2.12 | 0.306 | 15.3% |
+| 16-20 | 287 | 56% | 1.99 | **0.346** | **17.3%** |
+
+**Kelly by breadth decile:** noisier and weaker — decile 1 (b=0.50-.53, the marginal "just-passed" trades) Kelly ≈ **0.02** (don't bet), rising non-monotonically to ~0.30-0.33 at deciles 8-9, with decile 10 at 0.24. Breadth is a genuine but **secondary, noisier** sizing lever; RVOL is the dominant, cleaner one.
+
+**Full-sample Kelly (all 4,906 trades pooled): W=53%, R=1.44 → f* = 0.20.**
+
+#### What Kelly actually says (the practical answer)
+
+- **Top-level: ~20% full-Kelly → run quarter-to-half Kelly ≈ 5-10% of bankroll per position.** Full Kelly is far too aggressive (and these trades overlap concurrently, which Kelly's sequential-bet math ignores — another reason to fraction down).
+- **Scale by RVOL, but ~2-3×, not 5×.** Kelly on the robust RVOL marginals runs **0.12 → 0.35** (≈3× top-to-bottom; ~2× smoothing over the 8-10 dip). So the earlier 5× weighting was directionally right but **too aggressive** — the earlier reallocation test rewarded concentration without charging for variance, whereas Kelly prices the variance and lands near ~3×. **Size roughly: RVOL 8-10 ≈ 0.6×, 6-8 ≈ 1×, 10-13 ≈ 1.4×, 13-16 ≈ 1.7×, 16-20 ≈ 1.9×** (ratios of the marginal Kelly fractions).
+- **Breadth: a mild secondary tilt** (~1× at the low deciles up to ~1.7× at deciles 8-9), applied on top — but noisier, so weight it less than RVOL.
+- **Never size off the joint cells directly** — use the smooth marginal Kelly fractions (or heavily shrink the cells toward the global 0.20). And cap every position regardless, because half-Kelly on overlapping positions still concentrates risk.
+
+**Bottom line:** the rigorous Kelly sizing is *RVOL-driven, ~2-3× span, fractioned to ~half-Kelly with hard caps* — a more conservative and more defensible version of the 5× idea. The 5× isn't "wrong" directionally; it's beyond what the variance-aware math supports, and rests partly on a few-trade tail it would over-bet.
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.
