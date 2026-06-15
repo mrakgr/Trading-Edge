@@ -121,6 +121,12 @@ type Config = {
     /// floor to the entry price (stop = max(15-day-low, entry) thereafter); if it
     /// is NOT in profit at t+N, exit (laggard time-stop). None = disabled.
     BreakevenAfter: int option
+    /// Disable the price stop entirely (no 15-day-low / day-low / breakeven floor);
+    /// exits are then only the time stop, stall, and expansion exit. Variant 1.
+    NoPriceStop: bool
+    /// Floor the stop at the ENTRY-DAY low (Qullamaggie initial stop) until the
+    /// trailing 15-day-low rises above it. Variant 2.
+    InitialStopDayLow: bool
     TripsCsv: string
     BreakdownLog: string
 }

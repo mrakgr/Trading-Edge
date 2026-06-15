@@ -37,6 +37,8 @@ type Args =
     | Time_Stop of int
     | Stall of int
     | Breakeven_After of int
+    | No_Price_Stop
+    | Initial_Stop_Day_Low
     | Trips_Csv of string
     | Breakdown_Log of string
     interface IArgParserTemplate with
@@ -60,6 +62,8 @@ type Args =
             | Time_Stop _ -> "Time-stop exit: if no other exit has fired within N held bars, exit at bar T+N (next open). Off by default."
             | Stall _ -> "Stall exit: exit if K consecutive held bars pass with no new since-entry-high close. Off by default."
             | Breakeven_After _ -> "Breakeven after N bars: at bar T+N raise the stop floor to entry price IF in profit (stop = max(15-day-low, entry) thereafter); if not in profit at T+N, exit. Off by default."
+            | No_Price_Stop -> "Disable the price stop entirely (no 15-day-low). Exits become time/stall/expansion only. Variant 1."
+            | Initial_Stop_Day_Low -> "Floor the stop at the entry-day low (Qullamaggie initial stop) until the 15-day-low rises above it. Variant 2."
             | Trips_Csv _ -> "Output trips CSV path. Default: " + defaultTripsCsv
             | Breakdown_Log _ -> "Output breakdown log path. Default: " + defaultBreakdownLog
 
@@ -118,6 +122,8 @@ let main argv =
         TimeStopBars = parsed.TryGetResult Time_Stop
         StallBars = parsed.TryGetResult Stall
         BreakevenAfter = parsed.TryGetResult Breakeven_After
+        NoPriceStop = parsed.Contains No_Price_Stop
+        InitialStopDayLow = parsed.Contains Initial_Stop_Day_Low
         TripsCsv = parsed.GetResult(Trips_Csv, defaultValue = defaultTripsCsv)
         BreakdownLog = parsed.GetResult(Breakdown_Log, defaultValue = defaultBreakdownLog)
     }
@@ -129,9 +135,10 @@ let main argv =
     let timeStr = match cfg.TimeStopBars with Some n -> sprintf " time-stop=%dd" n | None -> ""
     let stallStr = match cfg.StallBars with Some k -> sprintf " stall=%dd" k | None -> ""
     let beStr = match cfg.BreakevenAfter with Some n -> sprintf " breakeven-after=%dd" n | None -> ""
-    printfn "momentum_v0: %s .. %s | up>=%.0f%% rvol>=%.1f %d-day-high%s | stop=%d-day-low%s%s%s%s | notional=$%.0f | tradable_only=%b min_adv=%.0f"
+    let stopVarStr = (if cfg.NoPriceStop then " no-price-stop" else "") + (if cfg.InitialStopDayLow then " init-stop=day-low" else "")
+    printfn "momentum_v0: %s .. %s | up>=%.0f%% rvol>=%.1f %d-day-high%s | stop=%d-day-low%s%s%s | notional=$%.0f | tradable_only=%b min_adv=%.0f"
         (cfg.StartDate.ToString("yyyy-MM-dd")) (cfg.EndDate.ToString("yyyy-MM-dd"))
-        (cfg.UpThreshold * 100.0) cfg.RvolThreshold cfg.LookbackHigh entStr cfg.StopLowWindow expStr timeStr stallStr beStr
+        (cfg.UpThreshold * 100.0) cfg.RvolThreshold cfg.LookbackHigh entStr cfg.StopLowWindow expStr timeStr (stallStr + beStr + stopVarStr)
         cfg.Notional cfg.TradableOnly cfg.MinAvgDollarVolume
 
     let sw = Stopwatch.StartNew()

@@ -23,12 +23,15 @@ let private walkOne
     (timeStopBars: int option)
     (stallBars: int option)
     (breakevenAfter: int option)
+    (noPriceStop: bool)
+    (initialStopDayLow: bool)
     (a: SignalRow[])
     (t: int)
     : Trip =
     let n = a.Length
     let entry = a.[t]
     let entryPrice = entry.adj_close
+    let entryDayLow = entry.adj_low   // Qullamaggie initial-stop floor
     let qty = notional / entryPrice
 
     // Stall state: highest close seen so far (incl. entry) and how many held bars
@@ -62,21 +65,28 @@ let private walkOne
             else beLaggardExit <- true   // not profitable by day N → exit
         | _ -> ()
 
-        // Effective stop low: the normal 15-day-low, raised to the entry price
-        // once the breakeven floor is armed.
-        let stopLevel =
-            match bar.low_15_prior with
-            | l when l.HasValue && beArmed -> Some (max l.Value entryPrice)
-            | l when l.HasValue -> Some l.Value
-            | _ -> if beArmed then Some entryPrice else None
+        // Effective stop level = the highest of the active floors:
+        //   - the trailing 15-day-low (the base stop),
+        //   - the entry-day low (Qullamaggie initial stop) when initialStopDayLow,
+        //   - the entry price once the breakeven floor is armed.
+        // Disabled entirely when noPriceStop (Variant 1: time/expansion exits only).
+        let trail = if bar.low_15_prior.HasValue then Some bar.low_15_prior.Value else None
+        let floors =
+            [ trail
+              (if initialStopDayLow then Some entryDayLow else None)
+              (if beArmed then Some entryPrice else None) ]
+            |> List.choose id
+        let stopLevel = if noPriceStop || List.isEmpty floors then None else Some (List.max floors)
         let stopHit =
             match stopLevel with
             | Some lvl -> bar.adj_low <= lvl
             | None -> false
-        // Label as "breakeven" when the entry floor (not the trailing low) is what
-        // caught it; otherwise it's the ordinary trailing stop.
+        // Label "breakeven" when the entry-price floor is the binding one (above
+        // both the trailing low and the entry-day low); else ordinary "stop".
+        let trailOrDayLow =
+            [ trail; (if initialStopDayLow then Some entryDayLow else None) ] |> List.choose id
         let stopReason =
-            if beArmed && (not (bar.low_15_prior.HasValue) || bar.low_15_prior.Value < entryPrice)
+            if beArmed && (List.isEmpty trailOrDayLow || List.max trailOrDayLow < entryPrice)
             then "breakeven" else "stop"
 
         let expansionHit =
@@ -150,4 +160,4 @@ let private passesEntryFilters (cfg: Config) (r: SignalRow) : bool =
 let tripsForTicker (cfg: Config) (rows: SignalRow[]) : Trip[] =
     [| for t in 0 .. rows.Length - 1 do
          if rows.[t].is_entry && passesEntryFilters cfg rows.[t] then
-             yield walkOne cfg.Notional cfg.ExpansionExitThreshold cfg.TimeStopBars cfg.StallBars cfg.BreakevenAfter rows t |]
+             yield walkOne cfg.Notional cfg.ExpansionExitThreshold cfg.TimeStopBars cfg.StallBars cfg.BreakevenAfter cfg.NoPriceStop cfg.InitialStopDayLow rows t |]

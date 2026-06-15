@@ -914,6 +914,41 @@ For each of the 4 days *before* the breakout day, that day's own % change, bucke
 
 Every structure lens points to the same archetype, and it is textbook Minervini/VCP: **price near its 52-week high (within ~15%), moderately above its rising long MAs (5-30%, not over-extended), with healthy-but-not-parabolic prior momentum (up, but not already doubled), coiled into a quiet tight base (tightness <0.40, ATR <8%) that goes still in the final days before an explosive high-RVOL up-day.** The earlier "buy from weakness" mirage and these confirmations together are the strongest argument in the study for doing your own filtered research rather than trusting unconditioned single-factor tests.
 
+## Stop variants: remove the price stop, or use Qullamaggie's day-low stop
+
+Mean-reversion systems often improve when you *remove* stops (the trailing stop whipsaws you out of recoveries). Does that carry to momentum? Two variants tested against the baseline 15-day-low trailing stop, all on the refined entry (tight<0.40, ATR<8%, expansion-0.70 exit), price ≥ $5:
+
+- **Baseline** — 15-day-low trailing stop + expansion exit.
+- **Variant 1** — *no price stop at all*; exits are the **time stop (20d)** + expansion only.
+- **Variant 2 (Qullamaggie)** — initial stop at the **entry-day low**, trailing up to the 15-day-low once that rises above it (tight initial risk, then normal trail) + expansion.
+
+### Results (price ≥ $5; unclipped — the honest read for a stop comparison, since stops are a bet on tails)
+
+| stop config | trades | net P&L | PF | win% | avg/trip | avg hold |
+| ----------- | -----: | -------: | ---: | ---: | -------: | -------: |
+| baseline (15-day-low) | 24,521 | **+3,447,458** | 1.229 | 42.0% | +$141 | 28d |
+| **V1: no stop + time-20** | 24,521 | +3,303,594 | **1.247** | **51.3%** | +$135 | 20d |
+| V2: Qullamaggie day-low | 24,521 | +2,873,787 | 1.245 | 35.7% | +$117 | 20d |
+
+**Both variants raise PF (better risk-adjusted return) — the standard 15-day-low stop is not optimal — but neither raises gross P&L.** The two work in opposite ways:
+
+- **V1 (no price stop) — your mean-reversion intuition carries over.** Removing the trailing stop lifts **PF 1.229 → 1.247 and win rate 42% → 51%**: you stop getting shaken out at the 15-day-low, so more trades survive to run (expansion) or get a clean 20-day look (the exit mix is ~all `time` + `expansion`). Cost: net P&L −$144k, because the stop, whipsaws aside, did cut some real losers faster than a 20-day wait. Net = **higher-PF, much-higher-win-rate, smoothest equity, marginally less gross**.
+- **V2 (Qullamaggie day-low) — the opposite shape.** The tight entry-day-low stop is hit far more often (it sits much closer than the 15-day-low), so win rate *drops* to 35.7% and gross P&L falls most (−$574k) — but the survivors are high quality (expansion sleeve +$1.66M on 704 trips), so PF still rises to 1.245. Classic Qullamaggie: **tight initial risk, many small stop-outs, fewer-but-bigger winners** — minimizes per-trade loss at the cost of total.
+
+### And — crucially — removing the stop does NOT blow up the bear years
+
+The fear with "no stops" is uncapped bleed in a downtrend. The opposite happens here, because the **20-day time stop caps the hold** instead of letting trades grind to the 15-day-low over many weeks:
+
+| year | baseline | V1 (no stop + time-20) | V2 (day-low) |
+| ---- | -------: | ---------------------: | -----------: |
+| 2021 | −244,553 | **+4,355** | −62,215 |
+| 2022 | −225,378 | **−124,743** | −165,266 |
+| 2023 | −287,283 | −214,408 | −208,913 |
+
+**Both variants improve every drawdown year**, and the standard 15-day-low stop is actually the *worst* in bears (it gives back the most). V1 is the standout overall — best win rate, best PF, best bear-year behavior — for only ~$144k less gross than baseline.
+
+**Verdict:** the 15-day-low trailing stop is not the right stop for this momentum system. **Replacing it with no-price-stop + a 20-day time exit (V1) is the best risk-adjusted choice** (higher PF, 51% win rate, smaller drawdowns); the Qullamaggie day-low stop (V2) is the choice if minimizing per-trade loss matters more than total return. This mirrors the mean-reversion finding — stops hurt — but the protection that makes "no stop" safe here is the **time stop**, not a price stop. (NB: this contrasts sharply with the short side, where stops are non-negotiable — see the short-side warning above.)
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.
