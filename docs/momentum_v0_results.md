@@ -812,6 +812,32 @@ The total hides the real benefit. By year, the remaining bad years (after the AT
 
 **So the time stop is the same consistency-vs-magnitude fork as the short hold:** baseline maximizes dollars (+$6.18M) but leaves −$200-280k drawdown years; time-stop 20d gives up ~$450k of total for **~halved drawdowns and a positive 2023-adjacent profile**. Which to run is a risk-appetite choice — and a time stop *plus* the expansion exit is a coherent "let winners run, but don't let a dead trade bleed for two months" rule. The stall exit is dominated by the time stop and not worth running.
 
+### Stop-tightening to breakeven after N days (gentler, but dominated)
+
+The hard time stop force-sells winners at day N. A gentler variant: at bar T+N, **if the trade is in profit, raise the stop floor to the entry price** (stop = max(15-day-low, entry) thereafter) so it can never give back to a loss but a winner keeps running; **if it is NOT in profit at T+N, exit** (laggard cut). Implemented as `--breakeven-after N` in [StopWalk.fs](../TradingEdge.MomentumBacktest/StopWalk.fs) (exit reasons `breakeven` / `time_be`). Swept on the same refined entry + expansion-0.70 baseline (28,288 trips, +$6.18M, PF 1.336).
+
+| third exit | net P&L | PF | avg/trip |
+| ---------- | -------: | ---: | -------: |
+| none (baseline) | +6,184,044 | 1.336 | +$219 |
+| breakeven-after 5d | +3,386,805 | 1.315 | +$120 |
+| breakeven-after 10d | +4,128,264 | 1.308 | +$146 |
+| breakeven-after 15d | +5,146,135 | 1.337 | +$182 |
+| breakeven-after 20d | +5,752,506 | 1.345 | +$203 |
+| breakeven-after 30d | +6,018,553 | 1.337 | +$213 |
+
+On total P&L it is **slightly gentler than the hard time stop** at the same N (be-20 +$5.75M vs hard-time-20 +$5.73M; be-15 +$5.15M vs +$5.05M) — confirming that *not* force-selling the winners, only flooring them, keeps a touch more upside. But it still does not beat the hold-the-runner baseline, and on the metric that motivated a time-based exit — **drawdown-year relief — it is clearly dominated by the hard time stop:**
+
+| year | baseline | breakeven-20 | hard time-20 |
+| ---- | -------: | -----------: | -----------: |
+| 2021 | −951 | +53,642 | **+230,700** |
+| 2022 | −220,507 | −180,241 | **−123,970** |
+| 2023 | −280,909 | −255,599 | **−108,848** |
+| 2025 | −141,315 | **−211,558** | **−71,766** |
+
+The hard time stop beats breakeven-after in **every** drawdown year, and breakeven-20 even makes **2025 worse** (−$141k → −$212k). The exit-reason mix shows why: the `breakeven` sleeve nets only +$339k (PF 2.15) on 3,241 trips — flooring a mediocre winner at entry recovers little, because by the time it sags back to breakeven the whole open profit is gone — and most trades never arm it (they hit the 15-day-low or expansion exit first, so the floor rarely binds). The deeper lesson: **"let the modest winners keep running" is exactly the wrong instinct in a bear.** A trade only mildly green at day 20 is, in a bad regime, more likely to roll over than continue — the hard time stop cuts those too; breakeven-after keeps them and watches them give it back.
+
+**Verdict on the whole exit investigation:** for **max P&L**, hold the runner (baseline, +$6.18M); for **drawdown relief**, the **hard time stop at ~20 days** is the best tool (halves the bad years, beats every alternative on the drawdown years). Breakeven-after and the stall exit are both dominated — gentler on paper, worse where it counts. The expansion exit remains the single most valuable add (it owns the 2021 fix and harvests the parabolas); everything else is a consistency-vs-magnitude dial on top of it.
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.

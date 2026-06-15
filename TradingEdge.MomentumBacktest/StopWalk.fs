@@ -22,6 +22,7 @@ let private walkOne
     (expansionThr: float option)
     (timeStopBars: int option)
     (stallBars: int option)
+    (breakevenAfter: int option)
     (a: SignalRow[])
     (t: int)
     : Trip =
@@ -35,6 +36,11 @@ let private walkOne
     // test, using only data up to and including bar D (no lookahead).
     let mutable highClose = entry.adj_close
     let mutable barsSinceHigh = 0
+    // Breakeven-after-N state: once armed, the stop floor includes the entry price
+    // so the trade can never give back to a loss. Arming happens at exactly bar
+    // (t+N) and only if the trade is in profit there; if it is NOT in profit at
+    // (t+N) the trade is exited (laggard time-stop), reason "time_be".
+    let mutable beArmed = false
 
     let mutable d = t + 1
     let mutable reason = ""   // "" until a trigger fires
@@ -47,8 +53,32 @@ let private walkOne
         else
             barsSinceHigh <- barsSinceHigh + 1
 
+        // Breakeven-after-N: at exactly bar t+N decide arm-or-exit (using only
+        // this bar's close — no lookahead). Once armed it stays armed.
+        let mutable beLaggardExit = false
+        match breakevenAfter with
+        | Some nbars when not beArmed && (d - t) >= nbars ->
+            if bar.adj_close > entryPrice then beArmed <- true
+            else beLaggardExit <- true   // not profitable by day N → exit
+        | _ -> ()
+
+        // Effective stop low: the normal 15-day-low, raised to the entry price
+        // once the breakeven floor is armed.
+        let stopLevel =
+            match bar.low_15_prior with
+            | l when l.HasValue && beArmed -> Some (max l.Value entryPrice)
+            | l when l.HasValue -> Some l.Value
+            | _ -> if beArmed then Some entryPrice else None
         let stopHit =
-            bar.low_15_prior.HasValue && bar.adj_low <= bar.low_15_prior.Value
+            match stopLevel with
+            | Some lvl -> bar.adj_low <= lvl
+            | None -> false
+        // Label as "breakeven" when the entry floor (not the trailing low) is what
+        // caught it; otherwise it's the ordinary trailing stop.
+        let stopReason =
+            if beArmed && (not (bar.low_15_prior.HasValue) || bar.low_15_prior.Value < entryPrice)
+            then "breakeven" else "stop"
+
         let expansionHit =
             match expansionThr with
             | Some thr -> bar.tightness_14.HasValue && bar.tightness_14.Value > thr
@@ -62,7 +92,8 @@ let private walkOne
             | Some k -> barsSinceHigh >= k
             | None -> false
 
-        if stopHit then reason <- "stop"
+        if stopHit then reason <- stopReason
+        elif beLaggardExit then reason <- "time_be"
         elif expansionHit then reason <- "expansion"
         elif timeHit then reason <- "time"
         elif stallHit then reason <- "stall"
@@ -118,4 +149,4 @@ let private passesEntryFilters (cfg: Config) (r: SignalRow) : bool =
 let tripsForTicker (cfg: Config) (rows: SignalRow[]) : Trip[] =
     [| for t in 0 .. rows.Length - 1 do
          if rows.[t].is_entry && passesEntryFilters cfg rows.[t] then
-             yield walkOne cfg.Notional cfg.ExpansionExitThreshold cfg.TimeStopBars cfg.StallBars rows t |]
+             yield walkOne cfg.Notional cfg.ExpansionExitThreshold cfg.TimeStopBars cfg.StallBars cfg.BreakevenAfter rows t |]

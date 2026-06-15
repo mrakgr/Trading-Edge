@@ -82,6 +82,10 @@ type Config = {
     /// Stall exit: exit if K consecutive held bars pass without a new
     /// since-entry-high CLOSE. None = disabled.
     StallBars: int option
+    /// Breakeven-after-N: at bar t+N, if the trade is in profit, raise the stop
+    /// floor to the entry price (stop = max(15-day-low, entry) thereafter); if it
+    /// is NOT in profit at t+N, exit (laggard time-stop). None = disabled.
+    BreakevenAfter: int option
     TripsCsv: string
     BreakdownLog: string
 }

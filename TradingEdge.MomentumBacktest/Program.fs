@@ -35,6 +35,7 @@ type Args =
     | Expansion_Exit of float
     | Time_Stop of int
     | Stall of int
+    | Breakeven_After of int
     | Trips_Csv of string
     | Breakdown_Log of string
     interface IArgParserTemplate with
@@ -56,6 +57,7 @@ type Args =
             | Expansion_Exit _ -> "Volatility-expansion exit: close a held trip when its rolling 14-day tightness range/(14*ATR) rises ABOVE this threshold (exit next open). Off by default."
             | Time_Stop _ -> "Time-stop exit: if no other exit has fired within N held bars, exit at bar T+N (next open). Off by default."
             | Stall _ -> "Stall exit: exit if K consecutive held bars pass with no new since-entry-high close. Off by default."
+            | Breakeven_After _ -> "Breakeven after N bars: at bar T+N raise the stop floor to entry price IF in profit (stop = max(15-day-low, entry) thereafter); if not in profit at T+N, exit. Off by default."
             | Trips_Csv _ -> "Output trips CSV path. Default: " + defaultTripsCsv
             | Breakdown_Log _ -> "Output breakdown log path. Default: " + defaultBreakdownLog
 
@@ -112,6 +114,7 @@ let main argv =
         ExpansionExitThreshold = parsed.TryGetResult Expansion_Exit
         TimeStopBars = parsed.TryGetResult Time_Stop
         StallBars = parsed.TryGetResult Stall
+        BreakevenAfter = parsed.TryGetResult Breakeven_After
         TripsCsv = parsed.GetResult(Trips_Csv, defaultValue = defaultTripsCsv)
         BreakdownLog = parsed.GetResult(Breakdown_Log, defaultValue = defaultBreakdownLog)
     }
@@ -122,9 +125,10 @@ let main argv =
         (match cfg.MaxAtrPctAtEntry with Some a -> sprintf " atr<=%.0f%%" (a*100.0) | None -> "")
     let timeStr = match cfg.TimeStopBars with Some n -> sprintf " time-stop=%dd" n | None -> ""
     let stallStr = match cfg.StallBars with Some k -> sprintf " stall=%dd" k | None -> ""
-    printfn "momentum_v0: %s .. %s | up>=%.0f%% rvol>=%.1f %d-day-high%s | stop=%d-day-low%s%s%s | notional=$%.0f | tradable_only=%b min_adv=%.0f"
+    let beStr = match cfg.BreakevenAfter with Some n -> sprintf " breakeven-after=%dd" n | None -> ""
+    printfn "momentum_v0: %s .. %s | up>=%.0f%% rvol>=%.1f %d-day-high%s | stop=%d-day-low%s%s%s%s | notional=$%.0f | tradable_only=%b min_adv=%.0f"
         (cfg.StartDate.ToString("yyyy-MM-dd")) (cfg.EndDate.ToString("yyyy-MM-dd"))
-        (cfg.UpThreshold * 100.0) cfg.RvolThreshold cfg.LookbackHigh entStr cfg.StopLowWindow expStr timeStr stallStr
+        (cfg.UpThreshold * 100.0) cfg.RvolThreshold cfg.LookbackHigh entStr cfg.StopLowWindow expStr timeStr stallStr beStr
         cfg.Notional cfg.TradableOnly cfg.MinAvgDollarVolume
 
     let sw = Stopwatch.StartNew()
