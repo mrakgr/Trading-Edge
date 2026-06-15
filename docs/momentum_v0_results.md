@@ -299,11 +299,12 @@ Crossing the two volatility dimensions — ATR% tiers *inside* the tight (<0.40)
 | 12-20% | 222 | 27.0% | 0.89 | −64,838 | −$292 |
 | 20%+ | 18 | 11.1% | 0.29 | −47,583 | −$2,643 |
 
-- **Applying tightness did not collapse the ATR pattern** — it is still strongly monotonic-then-cliff. The sweet spot is **3-8% ATR within tight bases** (+$3.95M of the +$5.0M tight total), and **3-5% sharpens to PF 1.37 / +$241/trip** here — *higher* than its standalone 1.29, because the tightness filter removed the losers and concentrated the edge. The two filters are complementary, not redundant.
-- **The ≥8% tiers are net-negative even inside tight bases** (8-12% PF 0.88). A *tight multi-week base that is still a high-daily-ATR name* is a worse trade — the volatility lives in the daily bar even when the range is compressed. So `tight AND ATR 3-8%` is a stricter, cleaner entry than either filter alone.
-- **The <3% tier is reliable but lower-octane** (PF 1.29, $127/trip): very calm names break out dependably, but the moves are smaller. Per-trip edge peaks at 3-5%.
+- **Applying tightness did not collapse the ATR pattern** — it is still strongly positive across all sub-8% tiers, then cliffs. The whole **<8% range works** (<3% PF 1.29, 3-5% PF 1.37, 5-8% PF 1.20); per-trip edge peaks at 3-5% (+$241) but the calm <3% names are reliably profitable too (PF 1.29, $127/trip), just lower-octane. **3-5% sharpens to PF 1.37 here vs 1.29 standalone** — the tightness filter removed losers and concentrated the edge.
+- **The ≥8% tiers are net-negative even inside tight bases** (8-12% PF 0.88). A *tight multi-week base that is still a high-daily-ATR name* is a worse trade — the volatility lives in the daily bar even when the range is compressed. So the refined entry is **tight base AND ATR% < 8%** (keep everything below the cliff), not a narrow band.
 
-The refined long entry converges on **tight base (range/14×ATR < 0.40) AND moderate daily volatility (ATR% ≈ 3-8%)** — Minervini's "constructive" profile: contracted, and not too jumpy.
+**Combined `tight AND ATR<8%`: 28,288 trips, PF 1.29, +$5,434,547, +$192/trip** — vs tight-only's 30,051 / PF 1.22 / +$5.0M / $167. Cutting just the ≥8% tail (~1,763 trips) *adds* +$426k and lifts PF and avg/trip: a pure improvement.
+
+**Why tightness did NOT subsume ATR% (the surprising part):** the two are nearly orthogonal — **correlation only +0.25**, and the ATR distribution barely shifts when you filter to tight bases (median ATR 0.037 → 0.035). The reason is that **ATR appears in both metrics, but as a ratio it cancels**: ATR% = ATR/price (absolute daily jumpiness), while tightness = 14-day range / (14 × ATR) has ATR in the *denominator*. So a stock can be **high-ATR yet tight** (big daily moves that keep cancelling → ping-pongs in a band) or **low-ATR yet loose** (small moves all pointing one way → steady trend). "Contracted" and "calm" are genuinely separate properties, which is exactly why the two filters stack instead of one absorbing the other. This is Minervini's "constructive" profile: contracted *and* not too jumpy.
 
 ## SPY regime filter (10MA vs 20MA)
 
