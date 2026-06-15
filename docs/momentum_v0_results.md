@@ -1160,20 +1160,34 @@ Volatility-parity sizing (notional ∝ 1/ATR%, target ~5% risk, clipped [0.25×,
 
 Counterintuitive but clear: within this system ATR% barely predicts *win rate* (the entry already caps ATR<8%), but it *does* scale return *magnitude* — a higher-ATR name that works makes a bigger % move. So 1/ATR sizing systematically **underweights the names that produce the fat-tail winners**, shrinking the right tail and cutting return-per-dollar by ~30%. Vol-parity equalizes dollar volatility, but this edge isn't vol-normalized — the big winners live in the higher-ATR names, so flattening them hurts. **Do not size inversely to ATR here.**
 
-### Scale-UP on high-PF conditions — CONFIRMED (free ~13% lift)
+### Scale-UP on high-PF conditions — CONFIRMED (~50% lift); RVOL/breadth are INDEPENDENT levers
 
-Allocating *more* to the conditions that are demonstrably higher-PF (and proportionally less elsewhere, same average capital):
+RVOL≥13 and breadth>0.6 first looked redundant, but the 2×2 contingency shows they are **largely independent and stack multiplicatively** — each lifts PF *within* the other's strata:
+
+| RVOL≥13 | breadth>0.6 | trades | % | PF | avg return |
+| :-----: | :---------: | -----: | --: | ---: | ---------: |
+| no | no | 1,326 | 27% | 1.22 | 1.15% |
+| no | yes | 2,922 | 60% | 1.68 | 3.05% |
+| yes | no | 192 | 4% | 1.95 | 3.80% |
+| **yes** | **yes** | **466** | **9.5%** | **2.69** | **7.18%** |
+
+The both-true "A-trade" cell is **PF 2.69 / 7.18% average return — ~6× the raw edge of the worst cell** (1.15%). High-RVOL lifts PF 1.68→2.69 within high-breadth; high-breadth lifts 1.95→2.69 within high-RVOL. They are complementary, so they deserve *independent* multipliers (the earlier "1.5×1.5 ≈ redundant" reading was an artifact of under-powering the combined weight, not real overlap).
+
+Independent multipliers, normalized to matched average notional (pure reallocation):
 
 | scheme (norm.) | return-per-$ | PF |
 | -------------- | -----------: | ---: |
 | flat | 2.96% | 1.64 |
-| 2× when breadth>0.6 | 3.23% | 1.71 |
-| **2× when RVOL ≥ 13×** | **3.34%** | **1.73** |
-| 1.5× breadth × 1.5× RVOL | 3.34% | 1.73 |
+| RVOL 2× × breadth 2× | 3.63% | 1.81 |
+| RVOL 5× only | 4.09% | 1.92 |
+| tier (A=5× / B=2× / C=1×) | 3.80% | 1.85 |
+| **RVOL 5× × breadth 2×** | **4.41%** | **2.00** |
 
-**Sizing up on the high-RVOL (≥13×) cells is the best single lever** — return-per-dollar 2.96% → 3.34% (+13%) and PF 1.64 → 1.73, *for free* (same average capital, just concentrated where the PF-2.4-2.6 edge is). **Breadth>0.6 size-up also works** (PF 1.71), confirming the original intuition that strong-breadth trades deserve bigger bets. Combining the two (1.5× each) matches RVOL-only — they're partly redundant (both select "best conditions"), so the strongest single signal captures most of it.
+**The A-trades genuinely deserve ~5× size.** Going RVOL 2×→5× (× breadth 2×) lifts return-per-dollar 3.63% → **4.41%** and PF to **2.00** — a **+49% improvement in risk-adjusted return over flat**, pure reallocation. RVOL is the dominant lever (5×-only already gets 4.09%), breadth an independent ~2× on top; the top "A" cell (both) thus carries an effective ~10× weight, justified by its 7.18%-avg-return / PF-2.69 edge.
 
-**Verdict:** keep taking every trade that meets the criteria, but **bet bigger when RVOL ≥ 13× (and/or breadth > 0.6)** — a cheap, orthogonal ~13% improvement in risk-adjusted return. The inverse-ATR idea is empirically wrong for this system. (Sizing tested as pure reallocation; an absolute leverage/size-up that *also* deploys more capital in strong regimes would compound further, subject to the usual risk-of-ruin limits — a portfolio-construction question for later.)
+**Verdict:** take every qualifying trade, but **size ~5× on RVOL≥13 and ~2× on breadth>0.6, independently** (so A-trades ≈ 10× a C-trade) — a large, free ~50% lift in risk-adjusted return. The inverse-ATR idea remains empirically wrong here.
+
+**⚠️ Concentration caveat.** A 5-10× single-trade weight pours capital into ~10-14% of trips, so single-name and gap risk rise sharply even as PF improves — return-per-dollar rewards concentration but does not see ruin risk. A live book needs **hard per-position caps** so one 5×-weighted A-trade gapping down can't be catastrophic (the risk-of-ruin counterpart to the short-side warning). The right *absolute* size-up (deploying more total capital in strong regimes, not just reallocating) is a portfolio-construction / Kelly-fraction question for later, bounded by those caps.
 
 ## Caveats & known limitations
 
