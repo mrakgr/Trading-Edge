@@ -38,8 +38,7 @@ The `TradingEdge.CryptoData/PerpsDownload.fs` two-stage pipeline (manifest → d
 
 ## Git Commits
 
-- **Do not use command substitutions (heredocs)** when creating git commits
-- Use simple `-m` flags instead: `git commit -m "Title" -m "Body"`
+- No special formatting constraints. The user manually approves each command, so heredocs / command substitution in commits are fine if convenient.
 
 ## News Search Strategy
 

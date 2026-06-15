@@ -584,6 +584,70 @@ Best configurations to date, whole-book ($100k floor) unless noted:
 
 The compounding picture: **volatility contraction (entry) → expansion (exit) → breadth (regime)** stack to PF 1.36 at +$250/trip — nearly **3× the raw baseline's $92/trip** — while keeping 23k trades and almost all the net P&L. The expansion exit is the single biggest lever (it owns the 2021 fix); breadth is the best *entry* regime filter; the tightness entry filter is the foundation. 2023 (slow grind, no parabolic blow-off, breadth near 50%) is the one regime none of these levers cleanly solves.
 
+## Short-term exits: harvest the drift instead of holding for the runner
+
+Everything above optimizes for **big wins** — hold the breakout via a trailing stop, let the parabola run, exit on volatility expansion. The opposite question: what if we just **hold a fixed 1–3 days and take the immediate post-breakout drift**, never riding for the big move? Tested post-hoc on the same tight-entry universe (`tight<0.40`, $100k floor), no stop and no expansion exit — enter at day-T close, exit at the close N trading days later.
+
+### Fixed-N-day holds (tight entries)
+
+| exit | trades | win% | PF | net P&L | avg/trip |
+| ---- | -----: | ---: | ---: | -------: | -------: |
+| hold 1d | 30,009 | 48.3% | 1.11 | +714,652 | +$24 |
+| hold 2d | 29,981 | 48.3% | 1.12 | +1,034,196 | +$35 |
+| hold 3d | 29,954 | 49.2% | 1.16 | +1,537,823 | +$51 |
+| hold 5d | 29,910 | 49.4% | 1.21 | +2,433,256 | +$81 |
+| hold 10d | 29,793 | 49.6% | 1.19 | +2,897,315 | +$97 |
+
+**The post-breakout drift is real and positive from day 1.** Every short hold profits (PF ≥ 1.11), the edge builds monotonically through ~5–10 days, and there is no "give-back" inside the first 10 days — these breakouts keep drifting up. Win rate is ~48–50% (vs ~40% for the big-win system — short holds win more often but each win is small).
+
+**On raw P&L the short hold is worse than the big-win system** ($51/trip at 3d vs **$192/trip** for expansion-exit+tight): the parabolic runners captured by the expansion exit are ~4× the per-trade edge of the drift. If the objective is total dollars, hold for the runner.
+
+### But the short hold is far more *robust* — it sidesteps the regime problem entirely
+
+Because you are out in 1–3 days, you cannot round-trip a multi-month decline. By year (entry date):
+
+| year | hold 3d | hold 5d | exp+tight (big-win) |
+| ---- | ------: | ------: | ------------------: |
+| 2005 | +17,186 | +32,530 | +272,988 |
+| 2006 | +74,944 | +92,413 | +100,603 |
+| 2007 | +69,470 | +46,745 | −54,647 |
+| 2008 | −79,830 | −64,291 | −158,813 |
+| 2009 | +200,262 | +467,103 | +472,316 |
+| 2010 | +79,425 | +120,737 | +440,576 |
+| 2011 | −16,697 | −12,135 | −88,029 |
+| 2012 | +23,124 | +46,847 | +371,626 |
+| 2013 | +199,848 | +320,834 | +1,305,227 |
+| 2014 | +187,341 | +238,542 | +153,018 |
+| 2015 | +74,645 | +57,876 | −58,479 |
+| 2016 | +107,515 | +124,361 | +373,556 |
+| 2017 | +94,676 | +132,296 | +587,330 |
+| 2018 | +103,528 | +125,387 | −4,970 |
+| 2019 | +60,513 | +221,244 | +175,919 |
+| 2020 | +140,386 | +163,120 | +2,493,687 |
+| 2021 | +96,294 | +86,183 | −65,405 |
+| 2022 | −73,010 | −97,743 | −302,383 |
+| 2023 | −35,384 | −33,454 | −441,408 |
+| 2024 | +157,731 | +269,571 | +193,551 |
+| 2025 | +2,197 | +56,054 | −272,217 |
+| 2026 | +53,660 | +39,038 | +261,976 |
+
+This is the most striking comparison in the study:
+
+- **2021 is *positive* (+$96k)** — vs −$65k for the (already-expansion-fixed) big-win system. You take the breakout drift and you are gone before the round-trip.
+- **2023 — the one year NO other lever could fix — is nearly flat (−$35k)** vs **−$441k** for the big-win system. The grinding bear that defeated breadth, health, and the expansion exit is almost neutralized just by not holding.
+- **2025 is roughly flat-to-positive** (+$2k / +$56k) vs −$272k.
+- Only **2008 and 2022** (sharp, fast crashes that gap *through* a 3-day hold) stay meaningfully negative — and even those are a fraction of the big-win losses.
+
+**Positivity / drawdown, head to head:**
+
+| metric | hold 3d | exp+tight (big-win) |
+| ------ | ------: | ------------------: |
+| years positive | **18 / 22** | 13 / 22 |
+| worst year | **−$79,830** | −$441,408 |
+| total net P&L | +$1,537,824 | +$5,756,019 |
+
+**The fork is clear: the same signal supports two different systems.** Swing for the fences (hold the runner via the expansion exit) → ~4× the dollars but lumpy, regime-dependent, and 2023 stays a −$441k hole. Harvest the drift (3–5 day hold) → a quarter of the dollars per trade but **18/22 green years, a worst year 5.5× smaller, and the regime dependence largely gone** — a much higher-Sharpe, lower-magnitude book. Which to run is an objective choice (capacity/absolute return vs consistency/drawdown), and they could even be combined (drift-harvest base + a runner sleeve). All post-hoc on the existing entries — no engine change.
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.
