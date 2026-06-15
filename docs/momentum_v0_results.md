@@ -1132,6 +1132,49 @@ Switching the breadth gate from 50-day to 20-day eliminates the lone down year (
 
 This is the milestone: a 22-year, **22-of-22-years-positive** momentum system at **PF 1.6-1.8, ~53% win, ~21-day hold** — shines in the parabolic bulls (2013/2020/2021/2024 all PF ≥1.85) and preserves capital in every bear. The threshold is a pure selectivity dial: 0.5 for more trades, 0.6 for more PF margin; both clear the bar with no losing years.
 
+## Position sizing — scale UP on strength, but inverse-ATR backfires
+
+Two sizing ideas tested post-hoc by re-weighting each trip's *return* (`exit/entry−1`) and comparing **return-per-dollar-deployed** and PF, each scheme **normalized to the flat baseline's average notional** (so it measures pure *reallocation*, not just betting more). Base = the final system at 20d-breadth>0.5.
+
+### RVOL within the 6-20× band (the sizing signal)
+
+| RVOL | trades | win% | PF | avg/trip |
+| ---- | -----: | ---: | ---: | -------: |
+| 6-8x | 2,314 | 52.2% | 1.56 | $253 |
+| 8-10x | 1,139 | 51.2% | 1.30 | $161 |
+| 10-13x | 795 | 56.9% | 1.82 | $343 |
+| **13-16x** | 371 | 52.8% | **2.39** | **$647** |
+| **16-20x** | 287 | 56.4% | **2.64** | $583 |
+
+Past ~10×, higher RVOL is monotonically better — the **13-20× cells are PF 2.4-2.6 at ~$580-650/trip** (≈2.5× the 6-8× cell). The bigger the (sub-exhaustion) volume surge, the better the trade — a strong sizing signal.
+
+### Inverse-ATR sizing — REJECTED
+
+Volatility-parity sizing (notional ∝ 1/ATR%, target ~5% risk, clipped [0.25×, 4×]) makes the system **worse**:
+
+| scheme (norm. to same avg notional) | return-per-$ | PF |
+| ----------------------------------- | -----------: | ---: |
+| flat $10k | **2.96%** | **1.64** |
+| inverse-ATR | 2.10% | 1.53 |
+| inverse-ATR × breadth>0.6 boost | 2.24% | 1.57 |
+
+Counterintuitive but clear: within this system ATR% barely predicts *win rate* (the entry already caps ATR<8%), but it *does* scale return *magnitude* — a higher-ATR name that works makes a bigger % move. So 1/ATR sizing systematically **underweights the names that produce the fat-tail winners**, shrinking the right tail and cutting return-per-dollar by ~30%. Vol-parity equalizes dollar volatility, but this edge isn't vol-normalized — the big winners live in the higher-ATR names, so flattening them hurts. **Do not size inversely to ATR here.**
+
+### Scale-UP on high-PF conditions — CONFIRMED (free ~13% lift)
+
+Allocating *more* to the conditions that are demonstrably higher-PF (and proportionally less elsewhere, same average capital):
+
+| scheme (norm.) | return-per-$ | PF |
+| -------------- | -----------: | ---: |
+| flat | 2.96% | 1.64 |
+| 2× when breadth>0.6 | 3.23% | 1.71 |
+| **2× when RVOL ≥ 13×** | **3.34%** | **1.73** |
+| 1.5× breadth × 1.5× RVOL | 3.34% | 1.73 |
+
+**Sizing up on the high-RVOL (≥13×) cells is the best single lever** — return-per-dollar 2.96% → 3.34% (+13%) and PF 1.64 → 1.73, *for free* (same average capital, just concentrated where the PF-2.4-2.6 edge is). **Breadth>0.6 size-up also works** (PF 1.71), confirming the original intuition that strong-breadth trades deserve bigger bets. Combining the two (1.5× each) matches RVOL-only — they're partly redundant (both select "best conditions"), so the strongest single signal captures most of it.
+
+**Verdict:** keep taking every trade that meets the criteria, but **bet bigger when RVOL ≥ 13× (and/or breadth > 0.6)** — a cheap, orthogonal ~13% improvement in risk-adjusted return. The inverse-ATR idea is empirically wrong for this system. (Sizing tested as pure reallocation; an absolute leverage/size-up that *also* deploys more capital in strong regimes would compound further, subject to the usual risk-of-ruin limits — a portfolio-construction question for later.)
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.
