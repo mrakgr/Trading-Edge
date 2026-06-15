@@ -720,6 +720,48 @@ The near-zero 3-day drift on raw entries raises a fair question: how did the +$3
 - **The edge was always in the long hold, not the short drift.** The baseline used the 15-day-low trailing stop, which holds ~**29 bars (weeks)** on average — not 3 days. The money is the handful of breakouts that keep running for weeks (classic fat tail), worth ~$92/trip across all entries vs only ~$7/trip at a 3-day horizon. The first three days are nearly flat; the *runners* pay.
 - **The tightness filter removed a drag, it didn't create the edge.** The baseline +$3.44M was already the tight cohort (+$5.0M) *minus* the loose-base cohort (−$1.57M, PF 0.84). The system was net-positive only because the tight winners outweighed the loose losers; filtering to tight bases just deletes the −$1.57M drag. So "the raw signal has no edge" is specifically a statement about the **3-day** horizon — at the hold-for-the-runner horizon the raw signal does earn, but entirely via the tight subset.
 
+## Time-stop and stall exits (the hybrid) — drawdown relief, not more profit
+
+Two ways to add a *third* exit on top of the stop + expansion-0.70 exit, both meant to recycle "dead money" — trades that neither run (no expansion) nor fail (no stop) but chop sideways for weeks:
+
+- **Time stop:** if no other exit has fired within N held bars, exit at bar T+N (next open).
+- **Stall exit:** exit if K consecutive held bars pass with no new *since-entry-high* close (momentum persistence broke).
+
+Both implemented in [StopWalk.fs](../TradingEdge.MomentumBacktest/StopWalk.fs) (flags `--time-stop N`, `--stall K`), swept on the refined entry (tight <0.40 AND ATR% < 8%) + expansion-0.70 exit. Baseline (no third exit): **28,288 trips, PF 1.336, +$6,184,044, +$219/trip.**
+
+### Sweep (whole book)
+
+| third exit | net P&L | PF | avg/trip |
+| ---------- | -------: | ---: | -------: |
+| **none (baseline)** | **+6,184,044** | 1.336 | +$219 |
+| time-stop 5d | +2,925,882 | 1.299 | +$103 |
+| time-stop 10d | +3,680,598 | 1.294 | +$130 |
+| time-stop 15d | +5,051,582 | 1.350 | +$179 |
+| time-stop 20d | +5,728,469 | **1.359** | +$203 |
+| time-stop 30d | +6,115,449 | 1.350 | +$216 |
+| stall 2d | +1,941,639 | 1.228 | +$69 |
+| stall 3d | +2,409,888 | 1.249 | +$85 |
+| stall 5d | +3,019,595 | 1.259 | +$107 |
+| stall 7d | +3,850,830 | 1.295 | +$136 |
+| stall 10d | +4,716,787 | 1.317 | +$167 |
+
+**On raw P&L, neither beats just holding for the runner.** Every config nets *less* than baseline; only **time-stop 20d edges PF up** (1.359 vs 1.336) at a −$450k P&L cost. The deeper reason: the expansion exit already does the smart cutting — it sells runners at the parabola and the stop catches failures, so there is little dead money left to recover, and what these exits cut is disproportionately *future winners* (a trade that pauses for a few days mid-run is exactly what the stall exit boots right before it continues). The stall exit is the worse of the two — it never beats baseline on either axis.
+
+### But the time-stop materially cuts the drawdown years
+
+The total hides the real benefit. By year, the remaining bad years (after the ATR filter + expansion exit already near-fixed 2021):
+
+| year | baseline | time-stop 20d | stall 10d |
+| ---- | -------: | ------------: | --------: |
+| 2021 | −951 | **+230,700** | +152,052 |
+| 2022 | −220,507 | **−123,970** | −150,619 |
+| 2023 | −280,909 | **−108,848** | −202,713 |
+| 2025 | −141,315 | **−71,766** | −90,658 |
+
+**Time-stop 20d roughly halves every remaining drawdown year** — 2022 −44%, **2023 −61%** (the year no other lever could fix), 2025 −49%, and flips 2021 to +$231k. Capping the hold at 20 days stops trades from grinding all the way down to the 15-day-low stop over many weeks in a bad regime. The exit-reason mix confirms the mechanism: in the baseline the *stop* sleeve is the weak link (26,659 trips, PF 1.13); time-stop 20d intercepts those trades at day 20 — the winners exit via `time` (PF 8.0) while only genuine failures fall through to `stop`.
+
+**So the time stop is the same consistency-vs-magnitude fork as the short hold:** baseline maximizes dollars (+$6.18M) but leaves −$200-280k drawdown years; time-stop 20d gives up ~$450k of total for **~halved drawdowns and a positive 2023-adjacent profile**. Which to run is a risk-appetite choice — and a time stop *plus* the expansion exit is a coherent "let winners run, but don't let a dead trade bleed for two months" rule. The stall exit is dominated by the time stop and not worth running.
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.

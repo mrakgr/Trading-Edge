@@ -68,10 +68,20 @@ type Config = {
     MinPriorDays: int
     MinAvgDollarVolume: float
     TradableOnly: bool        // true = CS/ADRC only
+    /// Entry filters (None = off). Require the entry bar's tightness <= MaxTightness
+    /// and ATR% <= MaxAtrPct. (The standalone analysis used 0.40 and 0.08.)
+    MaxTightnessAtEntry: float option
+    MaxAtrPctAtEntry: float option
     /// Volatility-expansion exit: close the trip when the held-day rolling
     /// tightness = range/(14*ATR) rises ABOVE this threshold (exit next open).
     /// None = disabled (15-day-low stop only).
     ExpansionExitThreshold: float option
+    /// Time stop: if no other exit has fired within N held bars, exit at bar T+N
+    /// (next open). None = disabled.
+    TimeStopBars: int option
+    /// Stall exit: exit if K consecutive held bars pass without a new
+    /// since-entry-high CLOSE. None = disabled.
+    StallBars: int option
     TripsCsv: string
     BreakdownLog: string
 }

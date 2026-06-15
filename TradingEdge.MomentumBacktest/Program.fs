@@ -30,7 +30,11 @@ type Args =
     | Min_Prior_Days of int
     | Min_Avg_Dollar_Volume of float
     | All_Security_Types
+    | Max_Tightness of float
+    | Max_Atr_Pct of float
     | Expansion_Exit of float
+    | Time_Stop of int
+    | Stall of int
     | Trips_Csv of string
     | Breakdown_Log of string
     interface IArgParserTemplate with
@@ -47,7 +51,11 @@ type Args =
             | Min_Prior_Days _ -> "Minimum prior trading days before a ticker is eligible. Default 21."
             | Min_Avg_Dollar_Volume _ -> "Minimum trailing avg dollar volume (liquidity floor / mid-cap proxy). Default 1000000."
             | All_Security_Types -> "Include ALL security types (default keeps only CS/ADRC common stock + ADRs)."
+            | Max_Tightness _ -> "Entry filter: only take entries whose 14-day tightness range/(14*ATR) <= this (e.g. 0.40). Off by default."
+            | Max_Atr_Pct _ -> "Entry filter: only take entries whose 14-day ATR%% <= this (e.g. 0.08 = 8%%). Off by default."
             | Expansion_Exit _ -> "Volatility-expansion exit: close a held trip when its rolling 14-day tightness range/(14*ATR) rises ABOVE this threshold (exit next open). Off by default."
+            | Time_Stop _ -> "Time-stop exit: if no other exit has fired within N held bars, exit at bar T+N (next open). Off by default."
+            | Stall _ -> "Stall exit: exit if K consecutive held bars pass with no new since-entry-high close. Off by default."
             | Trips_Csv _ -> "Output trips CSV path. Default: " + defaultTripsCsv
             | Breakdown_Log _ -> "Output breakdown log path. Default: " + defaultBreakdownLog
 
@@ -99,15 +107,24 @@ let main argv =
         MinPriorDays = parsed.GetResult(Min_Prior_Days, defaultValue = 21)
         MinAvgDollarVolume = parsed.GetResult(Min_Avg_Dollar_Volume, defaultValue = 1_000_000.0)
         TradableOnly = not (parsed.Contains All_Security_Types)
+        MaxTightnessAtEntry = parsed.TryGetResult Max_Tightness
+        MaxAtrPctAtEntry = parsed.TryGetResult Max_Atr_Pct
         ExpansionExitThreshold = parsed.TryGetResult Expansion_Exit
+        TimeStopBars = parsed.TryGetResult Time_Stop
+        StallBars = parsed.TryGetResult Stall
         TripsCsv = parsed.GetResult(Trips_Csv, defaultValue = defaultTripsCsv)
         BreakdownLog = parsed.GetResult(Breakdown_Log, defaultValue = defaultBreakdownLog)
     }
 
-    let expStr = match cfg.ExpansionExitThreshold with Some t -> sprintf "tightness>%.2f" t | None -> "off"
-    printfn "momentum_v0: %s .. %s | up>=%.0f%% rvol>=%.1f %d-day-high | stop=%d-day-low | exp-exit=%s | notional=$%.0f | tradable_only=%b min_adv=%.0f"
+    let expStr = match cfg.ExpansionExitThreshold with Some t -> sprintf " exp-exit=%.2f" t | None -> ""
+    let entStr =
+        (match cfg.MaxTightnessAtEntry with Some t -> sprintf " tight<=%.2f" t | None -> "") +
+        (match cfg.MaxAtrPctAtEntry with Some a -> sprintf " atr<=%.0f%%" (a*100.0) | None -> "")
+    let timeStr = match cfg.TimeStopBars with Some n -> sprintf " time-stop=%dd" n | None -> ""
+    let stallStr = match cfg.StallBars with Some k -> sprintf " stall=%dd" k | None -> ""
+    printfn "momentum_v0: %s .. %s | up>=%.0f%% rvol>=%.1f %d-day-high%s | stop=%d-day-low%s%s%s | notional=$%.0f | tradable_only=%b min_adv=%.0f"
         (cfg.StartDate.ToString("yyyy-MM-dd")) (cfg.EndDate.ToString("yyyy-MM-dd"))
-        (cfg.UpThreshold * 100.0) cfg.RvolThreshold cfg.LookbackHigh cfg.StopLowWindow expStr
+        (cfg.UpThreshold * 100.0) cfg.RvolThreshold cfg.LookbackHigh entStr cfg.StopLowWindow expStr timeStr stallStr
         cfg.Notional cfg.TradableOnly cfg.MinAvgDollarVolume
 
     let sw = Stopwatch.StartNew()
@@ -121,7 +138,7 @@ let main argv =
     for ticker in tickers do
         let rows = loadTicker conn cfg ticker
         if rows.Length > 0 then
-            allTrips.AddRange(tripsForTicker cfg.Notional cfg.ExpansionExitThreshold rows)
+            allTrips.AddRange(tripsForTicker cfg rows)
         processed <- processed + 1
         if processed % 1000 = 0 then
             printfn "  ... %d/%d tickers, %d trips so far (%.0fs)"
