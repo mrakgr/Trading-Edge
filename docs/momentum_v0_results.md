@@ -286,6 +286,25 @@ The **deployable core is the 0.15–0.30 band**: +$3.5M of the +$5.0M across ~20
 
 Both dimensions are now carried on every trip (`atr_pct_14_at_entry`, `range_pct_14_at_entry`, `tightness_14_at_entry`) for future cross-tabulation.
 
+### ATR% within the tight bucket (the two filters are complementary)
+
+Crossing the two volatility dimensions — ATR% tiers *inside* the tight (<0.40) base universe — confirms they are mostly independent and stack cleanly (sub-tiers reconcile to the +$5.0M / 30,051-trip tight total):
+
+| ATR% (tight <0.40) | trades | win% | PF | net P&L | avg/trip |
+| ------------------ | -----: | ---: | ---: | -------: | -------: |
+| <3% | 11,729 | 44.7% | 1.29 | +1,484,763 | +$127 |
+| **3-5%** | 10,410 | 42.1% | **1.37** | **+2,512,473** | **+$241** |
+| 5-8% | 6,149 | 36.2% | 1.20 | +1,437,311 | +$234 |
+| 8-12% | 1,523 | 28.9% | 0.88 | −313,808 | −$206 |
+| 12-20% | 222 | 27.0% | 0.89 | −64,838 | −$292 |
+| 20%+ | 18 | 11.1% | 0.29 | −47,583 | −$2,643 |
+
+- **Applying tightness did not collapse the ATR pattern** — it is still strongly monotonic-then-cliff. The sweet spot is **3-8% ATR within tight bases** (+$3.95M of the +$5.0M tight total), and **3-5% sharpens to PF 1.37 / +$241/trip** here — *higher* than its standalone 1.29, because the tightness filter removed the losers and concentrated the edge. The two filters are complementary, not redundant.
+- **The ≥8% tiers are net-negative even inside tight bases** (8-12% PF 0.88). A *tight multi-week base that is still a high-daily-ATR name* is a worse trade — the volatility lives in the daily bar even when the range is compressed. So `tight AND ATR 3-8%` is a stricter, cleaner entry than either filter alone.
+- **The <3% tier is reliable but lower-octane** (PF 1.29, $127/trip): very calm names break out dependably, but the moves are smaller. Per-trip edge peaks at 3-5%.
+
+The refined long entry converges on **tight base (range/14×ATR < 0.40) AND moderate daily volatility (ATR% ≈ 3-8%)** — Minervini's "constructive" profile: contracted, and not too jumpy.
+
 ## SPY regime filter (10MA vs 20MA)
 
 The classic momentum regime rule: **only take longs when SPY's 10-day MA is above its 20-day MA** (a fast trend-confirmation on the index). Computed post-hoc on SPY's split-adjusted close — dividends shift the MA levels in parallel, so the crossover is unaffected. Over 2005→2026, **64.5% of trading days are "bull" (10>20MA)**, 35.5% bear/neutral. Each trip's entry date is tagged with the regime in force that day; `trips_adv100k.csv` ($100k floor) is the dataset.
