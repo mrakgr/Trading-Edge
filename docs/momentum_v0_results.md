@@ -1224,7 +1224,17 @@ The reliable signal is the **marginals** (hundreds-to-thousands of trades each):
 | 13-16 | 371 | 53% | 2.12 | 0.306 | 15.3% |
 | 16-20 | 287 | 56% | 1.99 | **0.346** | **17.3%** |
 
-**Kelly by breadth decile:** noisier and weaker — decile 1 (b=0.50-.53, the marginal "just-passed" trades) Kelly ≈ **0.02** (don't bet), rising non-monotonically to ~0.30-0.33 at deciles 8-9, with decile 10 at 0.24. Breadth is a genuine but **secondary, noisier** sizing lever; RVOL is the dominant, cleaner one.
+**Kelly by breadth decile** looked noisy and non-monotonic at decile resolution (Kelly 0.02 at decile 1, spiking to ~0.33 at deciles 8-9, dropping at 10) — **but that jumpiness was sampling noise.** Pooling the deciles into **quintiles** (~980 trips each) reveals a *clean monotonic* relationship:
+
+| breadth quintile | range | win% | PF | avg ret |
+| ---------------- | ----- | ---: | ---: | ------: |
+| 1 | 0.50-0.57 | 50.9% | 1.32 | 1.50% |
+| 2 | 0.57-0.63 | 52.8% | 1.40 | 1.93% |
+| 3 | 0.63-0.68 | 54.1% | 1.49 | 2.30% |
+| 4 | 0.68-0.74 | 53.3% | 1.95 | 3.94% |
+| 5 | 0.74-0.96 | 53.8% | **2.09** | 5.11% |
+
+PF rises monotonically 1.32 → 1.40 → 1.49 → 1.95 → 2.09 with breadth, no exception (quartiles/terciles agree). **Two earlier decile-level reads were noise and are retracted:** "decile 1 (0.50-0.53) is dead at PF 1.05" — at quintile resolution that bottom bucket is a healthy **1.32**; and "the top decile fades" — the top quintile is the **best** bucket (2.09). So unlike RVOL/gap/ATR (which genuinely fade at extremes), **breadth is monotonic-more-is-better all the way up** — no rolloff. It is still a *smoother, more gradual* lever than RVOL (PF span 1.32→2.09 ≈ 1.6×), but it is clean, not noisy — the earlier "noisier/secondary" label conflated decile sampling error with the underlying signal.
 
 **Full-sample Kelly (all 4,906 trades pooled): W=53%, R=1.44 → f* = 0.20.**
 
