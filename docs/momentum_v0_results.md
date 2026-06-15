@@ -949,6 +949,47 @@ The fear with "no stops" is uncapped bleed in a downtrend. The opposite happens 
 
 **Verdict:** the 15-day-low trailing stop is not the right stop for this momentum system. **Replacing it with no-price-stop + a 20-day time exit (V1) is the best risk-adjusted choice** (higher PF, 51% win rate, smaller drawdowns); the Qullamaggie day-low stop (V2) is the choice if minimizing per-trade loss matters more than total return. This mirrors the mean-reversion finding — stops hurt — but the protection that makes "no stop" safe here is the **time stop**, not a price stop. (NB: this contrasts sharply with the short side, where stops are non-negotiable — see the short-side warning above.)
 
+## Building the composite system (toward a tradeable PF)
+
+Moving from isolated tests to a stacked system. Fixed defaults: **VCP entry (tightness<0.40, ATR<8%) + expansion-0.70 exit**, and the **V1 exit regime as the new baseline (no price stop + 20-day time stop)** — chosen for its higher PF, 51% win rate, and bounded ~20-day hold (capital recycles fast; explicitly avoiding the 3-month time-stop trap). Study set: gate-off `trips_v1_structure.csv` (106,522 trips, V1 exits, all 66 structure columns), breadth lagged 1 day. **P&L unclipped** (the $5 price floor already removes the penny-stock artifact, so the real fat tails are kept for a deployable estimate).
+
+### Filter funnel (the 5 strength filters)
+
+| step | trades | PF | win% | avg/trip | hold |
+| ---- | -----: | ---: | ---: | -------: | ---: |
+| base (VCP+exp+V1, gate-off) | 106,522 | 1.22 | 46.8% | $164 | 20d |
+| + price > $5 | 77,605 | 1.06 | 48.2% | $39 | 21d |
+| + within 15% of 52w-high | 43,081 | 1.21 | 50.9% | $109 | 20d |
+| + breadth > 0.50 | 30,768 | 1.23 | 50.6% | $122 | 20d |
+| + above 13w MA | 30,392 | 1.30 | 50.6% | $154 | 20d |
+
+The five "strength" filters land at **PF ~1.30** — solid but short of the 1.5 bar, and they are **largely redundant with each other** (within-15%-of-high, above-13w-MA, and breadth all select the same "near highs in an uptrend" regime, so each adds little after the first). Note the price>$5 step *lowers* PF on the full range (it strips the artifact gains the penny names were contributing); the within-15% step is what re-establishes the real edge. Hold time holds steady at ~20 days throughout (the V1 time stop).
+
+### The selectivity levers that reach 1.5+ (RVOL floor, tighter tightness, tighter band)
+
+The strength filters set the *regime*; pushing PF higher needs filters that *trim bad entries within it*. Within the composite, RVOL rises to a **6-20x sweet spot then collapses at ≥20x** (exhaustion), and tightness keeps paying as it gets tighter. Stacking these (unclipped):
+
+| config | trades | PF | win% | avg/trip | hold |
+| ------ | -----: | ---: | ---: | -------: | ---: |
+| composite + RVOL 4-20x | 17,420 | 1.43 | 51.4% | $213 | 21d |
+| composite + RVOL 6-20x | 7,890 | 1.46 | 52.2% | $231 | 21d |
+| + tightness < 0.30 | 5,617 | **1.56** | 52.7% | $264 | 21d |
+| + within 5% of 52w-high | 6,133 | 1.52 | 53.5% | $257 | 21d |
+| **+ both (tight<0.30 AND within 5%)** | 4,264 | **1.62** | 54.1% | $286 | 21d |
+
+**This clears the 1.5 target.** The decisive additions:
+- **An RVOL *floor* (≥6x, capped <20x)** — the weak 3-4x tier was the drag; demanding a *strong but not blow-off* volume surge lifts PF 1.30 → 1.46. (RVOL ≥20x is genuinely bad and dropped; a **gap cap was tried and rejected** — gap≥40% looks bad clipped but unclipped it holds real fat-tail winners, so capping it *lowers* deployable PF.)
+- **Tightness < 0.30** (vs <0.40) adds the most single jump (1.46 → 1.56) — the tighter-is-better sub-slice, confirmed.
+- **Both together → PF 1.62, 54% win, $286/trip**, and **hold stays ~21 days** — the selectivity comes entirely from entry quality, not from holding longer.
+
+### The cost — and the capital-velocity lens
+
+The 1.6-PF config is **4,264 trips over 21 years ≈ 200/year ≈ <1/day**. High selectivity = few signals: a discretionary single-account trader is fine with that (you can't take many concurrent names anyway), but a capital-deployment view must accept long flat stretches. Crucially, **PF is not the only metric — capital velocity matters too**: the ~21-day hold (V1's 20-day time stop) means capital turns over ~12×/year, so a PF-1.6 / 21-day system compounds far more opportunity than a higher-PF system that ties capital up for months. (This is the explicit lesson from a real 2025 episode where a ~3-month effective hold trapped capital in topped names — the short time stop is a feature, not just a number.) A future evaluation should report an annualized return-on-deployed-capital, not PF alone.
+
+### Converging spec
+
+**Entry:** up≥5% on ≥6× (and <20×) RVOL, into a new-or-near 52-week high (**within 5-15%**, above the 13w MA), from a **tight base (tightness<0.30, ATR<8%)**, price>$5, market breadth>0.5. **Exit:** no price stop; **20-day time stop** + volatility-expansion (tightness>0.70). → **PF ~1.5-1.6, ~54% win, ~21-day hold.** Still to test: the deferred intraday-RVOL entry timing (first 5/15/30/60 min), alternate breadth periods (the 50-day breadth is close to the 8w — worth sweeping 20/50/100-day), and the Qullamaggie day-low stop as a *capital-velocity* play (frees capital faster on failures even if gross PF is a touch lower).
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.
