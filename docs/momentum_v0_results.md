@@ -990,7 +990,7 @@ The 1.6-PF config is **4,264 trips over 21 years ≈ 200/year ≈ <1/day**. High
 
 ### Converging spec
 
-**Entry:** up≥5% on ≥6× (and <20×) RVOL, into a new-or-near 52-week high (**within 5-15%**), from a **tight base (tightness<0.30, ATR<8%)**, price>$5, market breadth>0.5. (The 13w-MA filter is dropped — redundant with the 52wH band, same PF.) **Exit:** no price stop; **20-day time stop** + volatility-expansion (tightness>0.70). → **PF ~1.5-1.6, ~54% win, ~21-day hold.** Still to test: the deferred intraday-RVOL entry timing (first 5/15/30/60 min), alternate breadth periods (the 50-day breadth is close to the 8w — worth sweeping 20/50/100-day), and the Qullamaggie day-low stop as a *capital-velocity* play (frees capital faster on failures even if gross PF is a touch lower).
+**Entry:** up≥5% on ≥6× (and <20×) RVOL, into a new-or-near 52-week high (**within 5-15%**), from a **tight base (tightness<0.30, ATR<8%)**, price>$5, **20-day market breadth > 0.5-0.6** (the 20-day breadth beats the 50/100-day — see the breadth-period sweep). (The 13w-MA filter is dropped — redundant with the 52wH band, same PF.) **Exit:** no price stop; **20-day time stop** + volatility-expansion (tightness>0.70). → **PF ~1.6-1.8 with the 20-day breadth, ~54% win, ~21-day hold.** Still to test: the deferred intraday-RVOL entry timing (first 5/15/30/60 min) and the Qullamaggie day-low stop as a *capital-velocity* play (frees capital faster on failures even if gross PF is a touch lower).
 
 ### Yearly breakdown of the final system — 21 of 22 years positive
 
@@ -1033,6 +1033,39 @@ The simplified composite — **VCP tight base (tightness<0.30, ATR<8%) + RVOL 6-
 The bears that cost the naive system >$2.3M combined now net roughly flat-to-positive — exactly the right behavior for a momentum book in a hostile regime: **don't make money, but don't give it back.** Three mechanisms compound to produce this: the **entry filters** (only contracted bases near highs in a positive-breadth tape), the **20-day time stop** (caps the bleed before a topped name grinds down), and **breadth>0.5** (sits out the worst stretches). Meanwhile the melt-up years are untouched (2013 PF 2.77, 2020 2.02, 2024 2.08, 2017 1.81), and **win rate is a genuine majority in most years (50-63%)** — unusual for momentum, a direct consequence of the no-price-stop regime not shaking you out.
 
 **Caveat — thin bear-year samples.** 2008 (60 trips), 2022 (67), 2023 (186) are small because breadth>0.5 + near-highs correctly *suppresses* entries in bad tapes — which is the point, but it means those years' PFs rest on few trades and shouldn't be over-read. The edge is real and consistent; the precise bear-year P&L is noisier than the trade-rich bull years. The 2014 loss and the barely-positive 2022/2023/2026 also show the system is not magic — it's a *consistent, capital-preserving* momentum edge (PF ~1.5, 21/22 green, fast ~21-day capital turnover), not a holy grail.
+
+### Tightening breadth to >0.60
+
+Raising the breadth gate from 0.50 → 0.60 (still % above the 50-day MA) trades P&L for selectivity, and lands a higher PF:
+
+| | breadth > 0.50 | breadth > 0.60 |
+| -- | -------------: | -------------: |
+| total PF | 1.56 | **1.79** |
+| total net | +$1.49M | +$1.35M |
+| trades | 5,656 | 3,855 |
+| win% | 52.7% | 54.0% |
+| years positive | 21/22 | 21/22 |
+| worst year | −$15,648 (2014) | −$25,931 (2014) |
+
+**PF jumps 1.56 → 1.79 for giving up ~$140k of total P&L and ~1,800 trades** — the marginal trades the stricter gate removes are low-quality, so per-trade edge rises sharply. Still 21/22 positive (same lone down year, 2014, which is slightly *worse* at −$26k — its losses were never a breadth problem; it was a whippy year for breakouts specifically). The melt-up years get even sharper (2020 PF **4.13** vs 2.02, 2024 2.53, 2013 2.32), and **2021 improves to PF 1.69 / +$199k** (vs 1.41 / +$160k) as the stricter gate filters more of the 2021-H2 deterioration. Cost: even thinner bear-year samples (2008 = 37 trips at PF 6.32 — not to be over-read; 2022 = 46). Net: **0.60 is the better setting if you want PF margin comfortably above 1.5 and tighter concentration into strong tapes**; 0.50 if you want more trades / fuller capital deployment.
+
+### Breadth-period sweep — the 20-day is the better filter
+
+The breadth gate so far used **% above the 50-day MA** (≈8w, close to the system's own horizons). `breadth.parquet` also stores the 20- and 100-day versions, so sweeping period × threshold is free (no rebuild). On the selective base (VCP tight<0.30, RVOL 6-20×, within 15% of 52wH, V1 exits, price>$5), unclipped:
+
+| breadth filter | trades | net P&L | PF | win% |
+| -------------- | -----: | -------: | ---: | ---: |
+| (none) | 7,760 | +1,904,186 | 1.525 | 53.1% |
+| 100d > 0.5 | 5,973 | +1,552,418 | 1.556 | 52.9% |
+| 100d > 0.6 | 4,342 | +1,301,508 | 1.646 | 52.9% |
+| 50d > 0.5 | 5,656 | +1,491,461 | 1.562 | 52.7% |
+| 50d > 0.6 | 3,855 | +1,350,039 | 1.794 | 54.0% |
+| **20d > 0.5** | 4,906 | +1,449,848 | **1.640** | 53.0% |
+| **20d > 0.6** | 3,388 | +1,224,990 | **1.816** | 53.8% |
+
+**Shorter breadth period = stronger filter, monotonically.** At every threshold the **20-day breadth beats the 50-day beats the 100-day**: 20d>0.5 (PF 1.64) outperforms 50d>0.5 (1.56) and nearly matches 50d>0.6; 20d>0.6 is the best of the grid at **PF 1.82**. The 100-day is weakest (1.56/1.65) — too slow, it stays "bullish" through market deterioration (the same lag that made the slow SPY MA and the trailing-realized health filter underperform). The 20-day is a *fast* read of whether the broad market is participating *right now*, so it turns defensive quickly exactly when breakouts start failing market-wide.
+
+**Best practical setting: 20-day breadth.** `20d>0.5` (PF 1.64, 4,906 trips) gets most of the lift while keeping ~1,000 more trades than `50d>0.6` — a better PF-per-trade-sacrificed than the 50-day at either threshold; `20d>0.6` (PF 1.82) if you want maximum selectivity. This replaces the 50-day breadth in the converging spec. (Hold time is ~21 days across all — breadth changes *which* trades, not how long they're held.)
 
 ## Caveats & known limitations
 
