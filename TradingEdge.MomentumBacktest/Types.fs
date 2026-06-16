@@ -115,6 +115,11 @@ type Config = {
     /// tightness = range/(14*ATR) rises ABOVE this threshold (exit next open).
     /// None = disabled (15-day-low stop only).
     ExpansionExitThreshold: float option
+    /// ATR%-expansion exit: close the trip when a held bar's 14-day ATR%
+    /// (atr_pct_14) rises ABOVE this threshold (exit next open). Distinct from the
+    /// tightness expansion exit — ATR% measures absolute volatility level, not
+    /// range-vs-ATR compression. None = disabled.
+    AtrExitThreshold: float option
     /// Time stop: if no other exit has fired within N held bars, exit at bar T+N
     /// (next open). None = disabled.
     TimeStopBars: int option
@@ -131,6 +136,17 @@ type Config = {
     /// Floor the stop at the ENTRY-DAY low (Qullamaggie initial stop) until the
     /// trailing 15-day-low rises above it. Variant 2.
     InitialStopDayLow: bool
+    /// Mean-reversion trailing-limit exit. When the PRICE STOP is hit on bar D
+    /// (low <= stop level), instead of selling at the next open we place a resting
+    /// SELL LIMIT at the N-day high and ratchet it DOWN-only each subsequent bar
+    /// (limit = min(limit, rolling N-day high)). A bar whose high >= limit fills at
+    /// the limit (selling into a bounce). If unfilled after TrailLimitTimeCap held
+    /// bars, exit at market (next open). None = disabled (plain next-open stop).
+    /// Only affects stop exits; time/expansion/atr/stall exits are unchanged.
+    TrailLimitHighWindow: int option
+    /// Bars to keep the trailing-limit resting before giving up and exiting at
+    /// market. Only meaningful when TrailLimitHighWindow is Some. Default 5.
+    TrailLimitTimeCap: int
     /// Skip the structure_levels JOIN and the 66-column marshalling entirely. The
     /// per-ticker query then only computes the (near-free) core indicator windows,
     /// taking a full run from ~12 min to seconds. Use for backtests that don't need
