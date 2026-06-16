@@ -1392,6 +1392,20 @@ The 3×3 joint PF grid is non-monotonic (noisy ~550-trip cells) while both *marg
 
 > **This min-bucket half-Kelly grid is the DEFAULT production system from 2026-06-16 onward.** Full per-month P&L (2005-01 … 2026-05, Kelly-weighted) lives in [momentum_v0_monthly_tables.md](momentum_v0_monthly_tables.md#final-production-system--monthly-breakdown-min-bucket-half-kelly-sized).
 
+**Monthly win/loss profile (production, Kelly-sized).** Of **241 months**: **151 winning / 90 losing → 62.7% monthly win rate**, no flat months. The asymmetry compounds the count: **avg winning month +$15,745 vs avg losing month −$7,247 (win/loss ratio 2.17)** — a *monthly* PF of ~3.6, far above the trade-level 1.77 because pooling trades into months diversifies away single-trade variance. The classic momentum profile: lose small ~4 months in 10, win ~2× as large the other 6.
+
+**Losing-month streaks.** 90 losing months fall into **51 streaks** — most are isolated: 31 single months, 8 two-month, 8 three-month, 1 four-month, 3 five-month (39 of 51 are ≤2 months; only 4 ever reached ≥4). **Crucially, the longest streaks are NOT the deepest** — depth and duration diverge:
+
+| streak (months) | occurrences | worst by $ (period → P&L) |
+| --- | --- | --- |
+| 1 | 31 | — |
+| 2 | 8 | — |
+| 3 | 8 | **2021-02→04: −$114,787** (post-parabola give-back) |
+| 4 | 1 | 2015-06→09: −$6,485 |
+| 5 | 3 | 2019-05→10: −$29,578 |
+
+So the **longest drought is 5 months** (3×, all shallow: −$30k / −$18k / −$9k), but the **deepest drawdown is a short, sharp 3-month streak — −$115k across 2021-02→04**, the parabola-peak give-back. Second-deepest is also 3 months (2024-12→2025-02, −$45k). The takeaway for a live operator: duration is mild (you rarely sit in the red more than 2 months, never more than 5), but the *dollar* pain is concentrated in a couple of sharp post-peak 3-month windows, not the long quiet droughts.
+
 **How the cell PF is computed (important — it is NOT `min` of the marginals).** The `min(breadth_t, rvol_t)` index is used *only to group the actual trades* into 3 buckets; each bucket's PF is then computed **freshly from those pooled trades' realized returns** — `sum(winning-trade returns) / |sum(losing-trade returns)|` over the trades in the bucket. It is *not* derived from the two marginal PF numbers. Evidence it's ground-truth and not a marginal lookup: the grid PFs **1.41 / 1.68 / 2.81 do not equal any `min` of the marginals** (which would give min-of {1.37,1.38}=1.37, etc., not 1.41; and min{2.13,2.07}=2.07, not 2.81). The half-Kelly fraction per cell is likewise fit from those same pooled trades' actual win-rate `W` and win/loss-ratio `R`. So both numbers in every cell are realized statistics of the bucket's real trades, with `min` serving only as the bucket-assignment rule.
 
 ### Tightness is a THRESHOLD filter, not a sizing lever (2026-06-16)
