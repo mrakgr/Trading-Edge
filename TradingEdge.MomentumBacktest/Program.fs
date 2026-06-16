@@ -30,7 +30,7 @@ type Args =
     | Min_Prior_Days of int
     | Min_Avg_Dollar_Volume of float
     | All_Security_Types
-    | No_52w_High
+    | Min_Pct_Of_52w_High of float
     | Max_Tightness of float
     | Max_Atr_Pct of float
     | Expansion_Exit of float
@@ -56,7 +56,7 @@ type Args =
             | Min_Prior_Days _ -> "Minimum prior trading days before a ticker is eligible. Default 21."
             | Min_Avg_Dollar_Volume _ -> "Minimum trailing avg dollar volume (liquidity floor / mid-cap proxy). Default 1000000."
             | All_Security_Types -> "Include ALL security types (default keeps only CS/ADRC common stock + ADRs)."
-            | No_52w_High -> "Drop the 52-week-high entry gate (study the full breakout range; structure columns let you bucket by 52w-high distance post-hoc)."
+            | Min_Pct_Of_52w_High _ -> "52-week-high proximity gate: require entry close >= X * prior-252-day-high-close. 1.0 = strict new high (default). 0.85 = within 15%% of the 52w high. Pass 0 (or <=0) to DROP the gate (full breakout range). Replaces the old --no-52w-high."
             | Max_Tightness _ -> "Entry filter: only take entries whose 14-day tightness range/(14*ATR) <= this (e.g. 0.40). Off by default."
             | Max_Atr_Pct _ -> "Entry filter: only take entries whose 14-day ATR%% <= this (e.g. 0.08 = 8%%). Off by default."
             | Expansion_Exit _ -> "Volatility-expansion exit: close a held trip when its rolling 14-day tightness range/(14*ATR) rises ABOVE this threshold (exit next open). Off by default."
@@ -117,7 +117,11 @@ let main argv =
         MinPriorDays = parsed.GetResult(Min_Prior_Days, defaultValue = 21)
         MinAvgDollarVolume = parsed.GetResult(Min_Avg_Dollar_Volume, defaultValue = 1_000_000.0)
         TradableOnly = not (parsed.Contains All_Security_Types)
-        NoFiftyTwoWeekHigh = parsed.Contains No_52w_High
+        // Default = strict new-high gate (Some 1.0). A value <= 0 drops the gate (None).
+        MinPctOf52wHigh =
+            match parsed.GetResult(Min_Pct_Of_52w_High, defaultValue = 1.0) with
+            | p when p <= 0.0 -> None
+            | p -> Some p
         MaxTightnessAtEntry = parsed.TryGetResult Max_Tightness
         MaxAtrPctAtEntry = parsed.TryGetResult Max_Atr_Pct
         ExpansionExitThreshold = parsed.TryGetResult Expansion_Exit

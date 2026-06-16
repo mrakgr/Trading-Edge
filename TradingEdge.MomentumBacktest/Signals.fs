@@ -38,7 +38,7 @@ let private structureSql () : string =
             yield sprintf "        %s AS %s_%s" (exprFor kind n) kind label ]
     |> String.concat ",\n"
 
-let private query (lookbackHigh: int) (stopLowWindow: int) (noFiftyTwoWeekHigh: bool) (noStructure: bool) : string =
+let private query (lookbackHigh: int) (stopLowWindow: int) (minPctOf52wHigh: float option) (noStructure: bool) : string =
     // Guard: only ever interpolate validated positive ints, never user strings.
     if lookbackHigh < 1 || stopLowWindow < 1 then
         invalidArg "window" "lookback/stop windows must be >= 1"
@@ -56,9 +56,13 @@ let private query (lookbackHigh: int) (stopLowWindow: int) (noFiftyTwoWeekHigh: 
     let structJoin =
         if noStructure then ""
         else "      JOIN structure_levels s ON s.ticker = p.ticker AND s.date = p.date\n"
-    // The 52-week-high gate term is dropped when noFiftyTwoWeekHigh is set, so the
-    // breakout population spans the full range (for the buy-strength-vs-weakness study).
-    let fiftyTwoTerm = if noFiftyTwoWeekHigh then "" else "          AND adj_close >= hi_252_prior\n"
+    // 52-week-high proximity gate: require adj_close >= $min52wPct * hi_252_prior.
+    // None => no gate (full breakout range). The threshold is a BOUND parameter
+    // ($min52wPct), never interpolated. 1.0 = strict new-high; 0.85 = within-15% band.
+    let fiftyTwoTerm =
+        match minPctOf52wHigh with
+        | Some _ -> "          AND adj_close >= $min52wPct * hi_252_prior\n"
+        | None -> ""
     $"""
     WITH base AS (
       SELECT
@@ -152,7 +156,7 @@ let eligibleTickers (conn: IDbConnection) (tradableOnly: bool) : string[] =
 /// Uses a manual reader (not Dapper) so the 66 generated structure columns can be
 /// folded into each row's `levels` dictionary by name rather than 66 record fields.
 let loadTicker (conn: IDbConnection) (cfg: Config) (ticker: string) : SignalRow[] =
-    let sql = query cfg.LookbackHigh cfg.StopLowWindow cfg.NoFiftyTwoWeekHigh cfg.NoStructure
+    let sql = query cfg.LookbackHigh cfg.StopLowWindow cfg.MinPctOf52wHigh cfg.NoStructure
     use cmd = conn.CreateCommand()
     cmd.CommandText <- sql
     let addParam (name: string) (value: obj) =
@@ -167,6 +171,10 @@ let loadTicker (conn: IDbConnection) (cfg: Config) (ticker: string) : SignalRow[
     addParam "minAdv" cfg.MinAvgDollarVolume
     addParam "start" (cfg.StartDate.ToString("yyyy-MM-dd"))
     addParam "end" (cfg.EndDate.ToString("yyyy-MM-dd"))
+    // Only bind $min52wPct when the gate is active (it appears in the SQL only then).
+    match cfg.MinPctOf52wHigh with
+    | Some pct -> addParam "min52wPct" pct
+    | None -> ()
 
     use reader = cmd.ExecuteReader()
     // Resolve column ordinals once.

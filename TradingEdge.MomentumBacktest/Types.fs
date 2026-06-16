@@ -100,9 +100,13 @@ type Config = {
     MinPriorDays: int
     MinAvgDollarVolume: float
     TradableOnly: bool        // true = CS/ADRC only
-    /// Drop the 52-week-high entry gate (adj_close >= 52w high close) so the
-    /// breakout population spans the full range (buy-strength-vs-weakness study).
-    NoFiftyTwoWeekHigh: bool
+    /// 52-week-high proximity gate (None = no gate). Require the entry bar's close
+    /// to be at least this fraction of the prior 252-day high CLOSE (hi_252_prior):
+    ///   1.0  = strict new-52w-high gate (the original default),
+    ///   0.85 = "within 15% of the 52w high" band (the study filter, now in-engine),
+    ///   None = no gate (full breakout range; replaces the old --no-52w-high).
+    /// Replaces the former binary NoFiftyTwoWeekHigh.
+    MinPctOf52wHigh: float option
     /// Entry filters (None = off). Require the entry bar's tightness <= MaxTightness
     /// and ATR% <= MaxAtrPct. (The standalone analysis used 0.40 and 0.08.)
     MaxTightnessAtEntry: float option
