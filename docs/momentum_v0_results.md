@@ -1390,6 +1390,8 @@ The 3×3 joint PF grid is non-monotonic (noisy ~550-trip cells) while both *marg
 
 **Only 3 distinct values, by construction.** Each cell's bucket = `min` of its two tercile *indices*, so the entire bottom-row + left-column **L-shape collapses to bucket 1** ("at least one signal is in its weak tercile"), the diagonal band is bucket 2, and **only the both-high (T3,T3) corner is bucket 3.** This is exactly the AND-gate shape: you only get the elite size (0.176) when *both* breadth and RVOL are top-tercile; any one-sided trade is pulled down to the weaker tercile's size. The bucket sample sizes are 2,753 / 1,621 / 533. *(Note: this `min`-of-tercile-**indices** grid — symmetric, well-sampled, 3 values — is the sizing basis. The 5-value `min`-of-marginal-PF-**values** ladder in the combiner table above is finer monotonicity *evidence* only; its extra granularity comes from sub-noise breadth-vs-RVOL PF gaps like 1.37 vs 1.38 and is not used for sizing.)*
 
+**How the cell PF is computed (important — it is NOT `min` of the marginals).** The `min(breadth_t, rvol_t)` index is used *only to group the actual trades* into 3 buckets; each bucket's PF is then computed **freshly from those pooled trades' realized returns** — `sum(winning-trade returns) / |sum(losing-trade returns)|` over the trades in the bucket. It is *not* derived from the two marginal PF numbers. Evidence it's ground-truth and not a marginal lookup: the grid PFs **1.41 / 1.68 / 2.81 do not equal any `min` of the marginals** (which would give min-of {1.37,1.38}=1.37, etc., not 1.41; and min{2.13,2.07}=2.07, not 2.81). The half-Kelly fraction per cell is likewise fit from those same pooled trades' actual win-rate `W` and win/loss-ratio `R`. So both numbers in every cell are realized statistics of the bucket's real trades, with `min` serving only as the bucket-assignment rule.
+
 ### Stop-variant comparison — time stop vs real price stops (2026-06-16)
 
 The original next-step hypothesis was that an *actual price stop* (especially the tight Qullamaggie entry-day-low) would clean up the T2-RVOL "anomaly" by cutting bleeding trades the 20-day time stop lets linger. Two fresh engine runs on the **identical entry population** (gate/band + VCP filters `tight<0.40, ATR<8%`, expansion-0.70 kept; only the *stop sleeve* changes), filtered to the same 5-filter final system (3,511 trips each):
@@ -1446,6 +1448,31 @@ Given how dominant the time stop is (97% of exits), we tested dropping the expan
 
 **Keep the expansion sell.** The 95 affected trips (1.9%) averaged **+44.1%** by selling at the parabola vs **+22.3%** if held to day 20 — holding would have *halved* their return. Removing the exit costs ~9 PF points (1.64→1.55) and ~0.4% avg return. The **median is unchanged** (the median trade never touches it), so this is purely a **right-tail improvement**: a rare, *late* (~9-day), net-positive tail-catcher that exits the biggest winners at the top instead of riding them back down. This also closes out the earlier worry that the exhaustion sell might fire *early* on stretched-then-contracted breakouts — it does not (only 18 trips exit it within ≤3 days, 0.4% of all; the mechanism fires late on genuine parabolas).
 
+### Annualized return on deployed capital — V1 wins outright; the capital-velocity thesis fails (2026-06-16)
+
+The stop-variant section left V1 (20d time stop, PF 1.64) vs Qulla (entry-day-low, PF 1.50) as a *PF-vs-capital-velocity* tradeoff: Qulla recycles capital faster (median 17-bar hold), so the hope was that **annualized return on deployed capital** — which PF undersells for fast turnover — would favor Qulla despite the lower PF. Computed post-hoc on the identical 5-filter population via a date-keyed concurrent-capital sweep-line (`scripts/equity/return_on_capital.py`, adapted from `scripts/crypto/notional_at_risk.py`). **Two stages** (annualization base = the ~21.35-year span):
+
+- **Stage A — return on *realized concurrent demand*** (no cap): total P&L / concurrent-notional-base / years. Capital base = peak / p99 / p95 / mean of the daily concurrent-deployed-notional series (headline p95 — robust to a few extreme 2021 cluster-days).
+- **Stage B — fixed $100k book, NON-compounding**, min-Kelly sizing (the 3-bucket 0.074/0.108/0.176 weights), hard $20k per-position cap, **drop-the-new** on overflow (no eviction). Flat yield (profits swept, not reinvested) — chosen so early-year differences don't geometrically amplify and muddy the comparison.
+
+| metric | V1 (20d time) | Qulla (day-low) |
+| --- | --- | --- |
+| filtered trips | 4,907 | 3,511 |
+| total P&L | **$1,448,869** | $709,116 |
+| PF | **1.64** | 1.50 |
+| p95 concurrent capital | $510,000 | **$400,000** |
+| peak concurrent capital | $1,110,000 | **$860,000** |
+| **ann RoC @ p95** | **13.3%** | 8.3% |
+| **ann RoC @ mean** | **31.9%** | 20.1% |
+| **Stage B ann return ($100k book)** | **17.9%** | 8.6% |
+| Stage B trade capture | 61.0% | 59.5% |
+
+**Verdict: V1 wins decisively on return-on-capital — the capital-velocity thesis is wrong.** Qulla *did* lower capital demand as predicted (p95 $400k vs $510k, ~22% less; peak $860k vs $1.11M) — but its **total P&L fell more than twice as much** ($709k vs $1.45M, −51%). The tight day-low stop doesn't just recycle capital faster; it **cuts winners short** — the same fast exits that free capital also clip trades that would have recovered and run (consistent with Qulla's −1.89% median trade: it bleeds to the tight stop constantly). So the numerator (P&L) collapses faster than the denominator (capital) shrinks, and RoC falls. Stage B confirms it from the achievable-book angle: on the *same* $100k book, V1 returns **17.9% vs Qulla's 8.6%**, with **near-identical capture** (61% vs 59.5%) — Qulla's faster recycling did **not** even let the book accept meaningfully more trades.
+
+**So V1 (20-day time stop) is the production exit:** higher PF, ~2× the P&L, and higher return on capital at every capital base. Qulla's only remaining advantage is *structural* — a hard cap on hold length (anti-bagholding insurance), a risk-management property, not a return one. The original 2025-mistake motivation (capital tied up in topped names) is better addressed by V1's 20-day time stop, which is itself a hard hold cap, than by accepting Qulla's P&L penalty.
+
+> **Reading the Stage A bases:** p95 (~$510k for V1) is the realistic "capital to rarely turn a trade away"; mean (~$213k) the average tied-up capital; peak (~$1.1M) the worst 2021 cluster day. The 13-32% ann-RoC range across bases brackets the strategy's capital efficiency. **In-sample caveat** (Stage B sizing + filters fit on this data) applies as elsewhere.
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.
@@ -1457,24 +1484,20 @@ Given how dominant the time stop is (97% of exits), we tested dropping the expan
 
 ## Next steps (in order)
 
-**✅ DONE (2026-06-16):** the stop-variant comparison, median/win-rate re-examination, time-stop sweep, and exhaustion-removal test are all complete (see the three sections above). Net conclusions: T2-RVOL "anomaly" = mean tail artifact (RVOL is cleanly monotonic; breadth is a tail/payoff lever); keep the expansion sell (dropping it costs ~9 PF points); **the live exit choice is V1 (20d time stop, PF 1.64) vs Variant B (Qullamaggie day-low, PF 1.50 but median 17-day hold = fastest capital recycling + anti-bagholding guarantee).** Engine infra done: `structure_levels` materialized + auto-rebuilt by `ingest-data`; `--no-structure` (~12→6 min); binary `--no-52w-high` replaced by numeric `--min-pct-of-52w-high`.
+**✅ DONE (2026-06-16):** the stop-variant comparison, median/win-rate re-examination, time-stop sweep, exhaustion-removal test, the `min`-of-marginals sizing, AND the annualized-return-on-capital adjudication are all complete (see the sections above). Net conclusions: T2-RVOL "anomaly" = mean tail artifact (RVOL is cleanly monotonic; breadth is a tail/payoff lever); keep the expansion sell (dropping it costs ~9 PF points); size off the `min`-of-tercile-indices 3-bucket half-Kelly grid (+19% in-sample); **and V1 (20d time stop) is the production exit — it beats Qullamaggie on PF (1.64 vs 1.50), total P&L (~2×), AND annualized return on capital (13.3% vs 8.3% @ p95; 17.9% vs 8.6% on a $100k book). The capital-velocity thesis for Qulla failed: faster recycling cut winners short, so P&L fell more than capital demand did.** Engine infra done: `structure_levels` materialized + auto-rebuilt by `ingest-data`; `--no-structure` (~12→6 min); binary `--no-52w-high` replaced by numeric `--min-pct-of-52w-high`.
 
-**Immediate (next session):**
-1. **Annualized return on deployed capital** — the one metric that adjudicates V1 vs Qullamaggie-B. PF undersells B's faster turnover (median 17-day hold vs V1's 20, and B exits to cash on failed breakouts while V1 sits to day 20). Compute per-regime: total P&L / (average capital deployed × years), accounting for concurrent-position load. V1 wins per-trade (PF 1.64 vs 1.50); B may win per-unit-time. This is the deferred-item-5 metric, now promoted to the decision-maker.
-
-**Then — the v1 volatility upgrade (volume-weighted / Gaussian volatility, replacing ATR%):**
-2. Replace ATR%-based volatility with a **volume-weighted volatility** measure. For every day compute the **daily VWAP and VW-σ (volume-weighted std)** from the intraday distribution, and use those to get a per-trade "true volatility." Mapping to the current metrics:
+**Immediate (next session) — the v1 volatility upgrade (volume-weighted / Gaussian volatility, replacing ATR%):**
+1. Replace ATR%-based volatility with a **volume-weighted volatility** measure. For every day compute the **daily VWAP and VW-σ (volume-weighted std)** from the intraday distribution, and use those to get a per-trade "true volatility." Mapping to the current metrics:
    - **pairwise daily Gaussians → substitute for ATR%** (the single-day volatility),
    - **14-day Gaussian → substitute for the 14-day range / tightness.**
    The thesis: VW-Gaussian volatility is a more accurate, less noisy volatility estimate than ATR%/range, and should reduce the noise seen in these breakdowns (possibly resolving the T2 anomaly independent of the stop question).
    - **Versioning:** **v0 = ATR%-based volatility** (this whole document). **v1 = volume-weighted Gaussian volatility.** Build v1 *after* finishing the ATR%-based stop-variant comparison (step 1). Requires intraday data per day (the Massive subscription the user is getting for the latest daily bars; VW-σ needs intraday or at least OHLC-based proxies — confirm data granularity at v1 start).
 
 **Deferred / opportunistic:**
-3. **Recompute `breadth.parquet` through the current date** once the latest daily bars are downloaded (Massive sub) — so we know which breadth tercile (and thus live Kelly size) the market is in *today*.
-4. **Intraday-RVOL entry timing** (first 5/15/30/60 min) — earlier entry for tighter risk control; deferred, needs intraday data.
-5. **Half-Kelly + hard-cap deployable sizing** and an **annualized return-on-deployed-capital** metric (PF alone undersells the ~21-day capital turnover).
-6. **Average-daily-dollar-volume breakdown on the FINAL system** — doable now (every trip carries `avg_dollar_volume_4w_at_entry`); bucket the composite system's PF by liquidity tier to see whether the edge concentrates in a particular dollar-volume band *within* the filtered universe (the earlier ADV breakdown was on the naive v0, pre-filters), and whether ADV is a sizing/selection lever. Apply the usual $5 floor + outlier discipline.
-7. **Real market-cap bucketing** once shares-outstanding is available (Massive shares-outstanding endpoint) — pair it with the ADV breakdown above; trips carry `avg_dollar_volume_4w_at_entry` as the interim proxy until then.
+2. **Recompute `breadth.parquet` through the current date** once the latest daily bars are downloaded (Massive sub) — so we know which breadth tercile (and thus live Kelly size) the market is in *today*.
+3. **Intraday-RVOL entry timing** (first 5/15/30/60 min) — earlier entry for tighter risk control; deferred, needs intraday data.
+4. **Average-daily-dollar-volume breakdown on the FINAL system** — doable now (every trip carries `avg_dollar_volume_4w_at_entry`); bucket the composite system's PF by liquidity tier to see whether the edge concentrates in a particular dollar-volume band *within* the filtered universe (the earlier ADV breakdown was on the naive v0, pre-filters), and whether ADV is a sizing/selection lever. Apply the usual $5 floor + outlier discipline.
+5. **Real market-cap bucketing** once shares-outstanding is available (Massive shares-outstanding endpoint) — pair it with the ADV breakdown above; trips carry `avg_dollar_volume_4w_at_entry` as the interim proxy until then.
 
 ---
 
