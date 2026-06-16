@@ -1410,6 +1410,24 @@ Bucket 1 decays cleanly (1.46→1.20, and Q5 is the only negative-median quintil
 
 **Conclusion: tightness behaves like a threshold (a cliff near ~0.32 above which trades degrade), not a continuous lever.** Unlike RVOL/breadth (genuine continuous gradients you size on), tightness is roughly uninformative *below* its cutoff and only bites at the loose tail. So the right use is exactly the current hard cut, and there is **no value in tightness-based position sizing** within the system. (The real degradation cliff looks closer to ~0.32-0.34 than the current 0.30, so loosening to ~0.33 would add trades at minimal PF cost — a small trade-count knob for future fine-tuning, **left at 0.30 for now**.)
 
+### Dollar-volume (ADV) on the FINAL system — a real, additive small-cap premium (2026-06-16)
+
+Re-running the avg-dollar-volume breakdown (`avg_dollar_volume_4w_at_entry`) on the *final filtered system* (vs the earlier naive pre-filter pass, which was muddied by penny-stock artifacts). The study CSV carries trips down to **$100k ADV** (the engine floor was set to $100k, not the production $1M); 28.4% of the filtered trips are sub-$1M ADV.
+
+**Pooled ADV quintiles (full population, $100k floor):** PF declines as ADV rises — **1.86 → 1.70 → 1.70 → 1.40 → 1.48** (Q1 $0.1-0.5M best). **With the $1M floor applied** (more conservative), the sweet spot is the **$2.5-5.5M band (PF 1.80)** and there's a clear **dead zone at $13-34M ADV (PF 1.11, negative median)** — mid/large breakouts are the weakest trades.
+
+**ADV is NOT redundant with RVOL — it's an additive lever.** Within every `min`-bucket, the low-ADV tercile out-performs and the **high-ADV tercile is distinctly worst** (buckets 1+2, ~90% of trades):
+
+| min-bucket / ADV tercile → | T1 (low, ~$0.1-1.5M) | T2 (mid) | T3 (high, >$10M) |
+| --- | --- | --- | --- |
+| **bucket 1** (PF) | 1.64 | 1.43 | **1.13** |
+| **bucket 2** (PF) | 1.68 | 2.09 | **1.26** |
+| **bucket 3** (PF, ~178/cell) | 2.23 | 2.02 | 4.63 (tail spike, thin) |
+
+So the **small-cap momentum premium is real and survives the breadth/RVOL stack** — large-cap breakouts fade (efficiently priced), small-cap breakouts run. This matches the original Market-Wizards "aggressive mid/small-cap breakout" thesis.
+
+**Deployment read (small account):** the low-ADV edge is *accessible*, not a hazard. On a breakout day actual volume is far above the trailing ADV — the **RVOL≥6 filter guarantees ≥6× the average**, so a $600k-ADV name trades $3.6M+ that day, plenty for a small account to fill with manageable slippage. **A small account *should* lean into these names** (the edge is strongest there and large players can't). **No ADV ceiling filter is wanted** — instead, manage the illiquid tail with *sizing*: bet less on the lowest-ADV names (dovetails with the `min`-Kelly sizing) and reserve capital for other opportunities. ADV is thus a continuous, additive dimension usable for sizing (tilt small, down-weight the least liquid), not a gate.
+
 ### Stop-variant comparison — time stop vs real price stops (2026-06-16)
 
 The original next-step hypothesis was that an *actual price stop* (especially the tight Qullamaggie entry-day-low) would clean up the T2-RVOL "anomaly" by cutting bleeding trades the 20-day time stop lets linger. Two fresh engine runs on the **identical entry population** (gate/band + VCP filters `tight<0.40, ATR<8%`, expansion-0.70 kept; only the *stop sleeve* changes), filtered to the same 5-filter final system (3,511 trips each):
