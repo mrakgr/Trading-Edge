@@ -39,6 +39,7 @@ type Args =
     | Breakeven_After of int
     | No_Price_Stop
     | Initial_Stop_Day_Low
+    | No_Structure
     | Trips_Csv of string
     | Breakdown_Log of string
     interface IArgParserTemplate with
@@ -64,6 +65,7 @@ type Args =
             | Breakeven_After _ -> "Breakeven after N bars: at bar T+N raise the stop floor to entry price IF in profit (stop = max(15-day-low, entry) thereafter); if not in profit at T+N, exit. Off by default."
             | No_Price_Stop -> "Disable the price stop entirely (no 15-day-low). Exits become time/stall/expansion only. Variant 1."
             | Initial_Stop_Day_Low -> "Floor the stop at the entry-day low (Qullamaggie initial stop) until the 15-day-low rises above it. Variant 2."
+            | No_Structure -> "Skip the structure_levels JOIN and 66-column marshalling (full run ~12 min -> seconds). Use when the run needs only core indicators (e.g. breadth x RVOL grids), not the 66 structure columns (which are left empty in the CSV)."
             | Trips_Csv _ -> "Output trips CSV path. Default: " + defaultTripsCsv
             | Breakdown_Log _ -> "Output breakdown log path. Default: " + defaultBreakdownLog
 
@@ -124,6 +126,7 @@ let main argv =
         BreakevenAfter = parsed.TryGetResult Breakeven_After
         NoPriceStop = parsed.Contains No_Price_Stop
         InitialStopDayLow = parsed.Contains Initial_Stop_Day_Low
+        NoStructure = parsed.Contains No_Structure
         TripsCsv = parsed.GetResult(Trips_Csv, defaultValue = defaultTripsCsv)
         BreakdownLog = parsed.GetResult(Breakdown_Log, defaultValue = defaultBreakdownLog)
     }

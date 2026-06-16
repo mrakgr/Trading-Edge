@@ -1331,6 +1331,39 @@ Sizing each trade by the **product of its breadth-tercile and RVOL-tercile Kelly
 
 **⚠️ In-sample caveat.** The tercile Kelly fractions were fit on the *same* 2005-2026 data they're then applied to, so this +33% is an optimistic, in-sample figure — the sizing edge will be smaller live. Two things mitigate (not eliminate) it: the weights use only the *coarse, well-sampled marginals* (3 terciles × 3 terciles, ~545-2000 trips each — not the noisy 25/50-cell estimates), and the product form is the additivity-justified low-parameter model. Running **half-Kelly** (halve every weight span) and **hard per-position caps** is the deployable version; the live expectation is "a meaningful but smaller sizing lift on top of the PF-1.6 base," not +33%.
 
+### Median & win-rate re-examination — the T2-RVOL "anomaly" is a tail artifact (2026-06-16)
+
+The 3×3 surface above is built on **profit factor** (and the Kelly work on **mean return**). Both are dominated by the right tail — a single KOSS-type +1,000% trade can carry a whole cell — so they are *noisy* estimators of "is this cell good." Re-examining the **same filtered population** (the 5-filter final system: `entry_price≥5, ≥0.85×hiclose_52w, breadth>0.5, RVOL 6-20, tightness<0.30`) through **tail-robust** lenses changes the read.
+
+**Median return per cell (V1 20-day exit):**
+
+| breadth ↓ / RVOL → | T1 | T2 | T3 |
+| --- | --- | --- | --- |
+| **T1** | 0.02 | −0.15 | 1.37 |
+| **T2** | 0.48 | 0.61 | 1.08 |
+| **T3** | 0.53 | **1.40** | 0.86 |
+
+vs the same cells' **mean** (T3×T3 = +7.56% — the apparent PF-2.90 "crown jewel"). **Key findings:**
+
+- **RVOL is cleanly monotonic by median** (marginal medians 0.39 → 0.44 → **1.18**). The much-discussed **"T2-RVOL hole" (T2<T1) does NOT exist** on the robust measure — it appears only under mean/PF because the T1 and T3 cells carry fat right tails the middle lacks. **The non-monotonicity was a tail artifact of the mean, not a real entry weakness.** (Earlier "T2-RVOL entry hole" reads are retracted.)
+- **The mean's "best cell" (T3×T3) is mediocre by median (+0.86%)** — its edge is "rarely, a moonshot," not "reliably positive." The **genuinely best cell is T3×T2** (high breadth, mid RVOL): median **+1.40%** *and* a healthy mean (+5.33%) — consistent across both lenses. This was hidden because PF spotlighted the tail-heavy T3×T3 instead.
+- **One real soft spot survives the median:** T1×T2 (low breadth, mid RVOL) is the only *negative*-median cell (−0.15%) — a genuine entry weakness, not a tail artifact.
+
+**ATR-bracket win-rate grid** (close-based resolution: target = entry + 3·ATR_abs_14, stop = entry − 1.5·ATR_abs_14; a day resolves only if its *close* crosses a bracket; 20-day cap, sign of cap-close = win/loss). Pure tail-immunity — every trade counts ±1. Overall: 33.6% target-hit, 48.7% stop, 12.4% cap-win, 5.2% cap-loss.
+
+| breadth ↓ / RVOL → (win%) | T1 | T2 | T3 |
+| --- | --- | --- | --- |
+| **T1** | 40.1 | 44.4 | **50.2** |
+| **T2** | 47.3 | 46.7 | 46.0 |
+| **T3** | 44.4 | 48.7 | 46.2 |
+
+- **RVOL win-rate marginal is monotonic** (43.8 → 46.6 → 47.5; target-hit 31.3 → 34.7 → 34.7) — *third* independent confirmation RVOL is a clean lever.
+- **Breadth nearly vanishes as a win-rate lever** (marginal 44.9 → 46.7 → 46.5 — flat after T1). **Conclusion: breadth is a payoff / right-tail lever, NOT a hit-rate lever.** It doesn't make you win *more often*; it makes your winners *bigger*. This is invisible to win-rate by construction and explains why the joint PF grid wobbles even when both marginals are clean: it crosses a *frequency* axis (RVOL) with a *payoff* axis (breadth), and the cells are tail-dominated at ~550 trips each.
+
+**Implication for sizing:** the two factors work through different channels — **RVOL** earns through hit-rate (robust, monotonic) *and* payoff; **breadth** earns purely through the right tail. Lean on RVOL for take/base-size decisions; use breadth for tail-leverage scaling. The earlier additive-marginals sizing stands, but with this mechanistic split now understood.
+
+**Time-stop horizon sweep** (pure post-hoc N-day exits on the same population, fill at open N bars after entry): PF is flat ~1.57 from 5→25 days then dips at 30 (1.52); **median return peaks at 25 days (0.82%)** and win-rate peaks at 25 (53.3%), both turning down at 30. So **~20-25 trading days is the mild optimum** — the current V1 default of 20 is well-placed; 5 days is too short (amputates the RVOL edge — its median is ~⅓ of the 20-day's at every tercile); 30 holds losers too long.
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.
@@ -1344,6 +1377,11 @@ Sizing each trade by the **product of its breadth-tercile and RVOL-tercile Kelly
 
 **Immediate (next session):**
 1. **Re-run the 3×3 tercile yearly breakdown for the other two stop variants** (Variant 2 = Qullamaggie entry-day-low stop; and the baseline 15-day-low stop) — *not* just the V1 no-price-stop+time-20 used above. Motivation: in the 3×3 surface the **T2 (middle) RVOL/breadth tercile is anomalously weak** — T2 < T1 in the bottom two breadth rows, and T3-middle-row < T3-top-row. The hypothesis is that the **time stop lets large losses slip through** (a trade that's quietly bleeding sits for the full 20 days instead of being cut), and that an actual price stop (esp. the tight day-low) would clean up the T2 dip. Compare the surfaces + yearly P&L across the three stop regimes. (Engine already supports `--no-price-stop`, `--initial-stop-day-low`, and the default 15-day-low.)
+   - **⚠️ Update (2026-06-16): the median/win-rate lens already largely DEBUNKED the T2 anomaly as a tail artifact** (see the "Median & win-rate re-examination" section). By median return AND by ATR-bracket win-rate, the **RVOL axis is cleanly monotonic** — the T2-RVOL "hole" only appears under mean/PF because the high cells carry fat right tails the middle lacks. So the stop-variant comparison is now less about "does a price stop fix non-monotonicity" (there may be little left to fix) and more about the original motivation: **capital velocity** — does the tight day-low stop recycle capital faster at comparable PF? Run it for that, with the velocity/turnover metric, not the monotonicity hunt.
+
+**Engine infra (do before / alongside the stop-variant runs):**
+- **Replace the binary `--no-52w-high` flag with a numeric `--min-pct-of-52w-high X`** (require `adj_close >= X * hi_252_prior`): `0.85` = within-15%-of-high band (currently applied post-hoc in SQL every time), `1.0` = strict new-high gate (old default), omitted = no gate (old `--no-52w-high`). Bakes the proximity band into the engine so runs don't need the post-hoc SQL filter. *Deferred from the 2026-06-16 session — the Variant A run that day still used the old flag + post-hoc band.*
+- **`structure_levels` table is now materialized** (`TradingEdge.Massive/sql/schema/materialized/08_structure_levels.sql`, ~48.7M rows / ~8 GB, auto-rebuilt by `ingest-data`); the engine JOINs it instead of recomputing 66 windows per run. **`--no-structure`** skips the JOIN+marshalling for runs that need only core indicators (breadth×RVOL grids) — ~12 min → ~6 min. Remaining bottleneck is **per-ticker .NET round-trips** (12,289 separate queries), not the SQL; batching all tickers into one query is the next speedup if needed.
 
 **Then — the v1 volatility upgrade (volume-weighted / Gaussian volatility, replacing ATR%):**
 2. Replace ATR%-based volatility with a **volume-weighted volatility** measure. For every day compute the **daily VWAP and VW-σ (volume-weighted std)** from the intraday distribution, and use those to get a per-trade "true volatility." Mapping to the current metrics:

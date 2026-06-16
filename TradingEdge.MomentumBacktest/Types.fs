@@ -127,6 +127,12 @@ type Config = {
     /// Floor the stop at the ENTRY-DAY low (Qullamaggie initial stop) until the
     /// trailing 15-day-low rises above it. Variant 2.
     InitialStopDayLow: bool
+    /// Skip the structure_levels JOIN and the 66-column marshalling entirely. The
+    /// per-ticker query then only computes the (near-free) core indicator windows,
+    /// taking a full run from ~12 min to seconds. Use for backtests that don't need
+    /// the structure columns (e.g. the breadth×RVOL grid, which uses only core
+    /// indicators). Trips CSV structure fields are left empty. Default off.
+    NoStructure: bool
     TripsCsv: string
     BreakdownLog: string
 }

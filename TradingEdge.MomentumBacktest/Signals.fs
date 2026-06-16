@@ -38,12 +38,24 @@ let private structureSql () : string =
             yield sprintf "        %s AS %s_%s" (exprFor kind n) kind label ]
     |> String.concat ",\n"
 
-let private query (lookbackHigh: int) (stopLowWindow: int) (noFiftyTwoWeekHigh: bool) : string =
+let private query (lookbackHigh: int) (stopLowWindow: int) (noFiftyTwoWeekHigh: bool) (noStructure: bool) : string =
     // Guard: only ever interpolate validated positive ints, never user strings.
     if lookbackHigh < 1 || stopLowWindow < 1 then
         invalidArg "window" "lookback/stop windows must be >= 1"
-    let structCols = structureSql ()
-    let structSelect = Types.structureColumns |> String.concat ", "
+    // Structure levels are PRECOMPUTED in the `structure_levels` table (one row per
+    // ticker/date, 66 columns) rather than recomputed as 66 window aggregates per run.
+    // When noStructure, we skip the JOIN entirely and emit NULL placeholders so the
+    // reader's ordinals still resolve — a full run then drops from ~12 min to seconds
+    // (the JOIN + 66-column marshalling is the whole cost; the core windows are ~free).
+    // `base` carries the levels as `s.<col>` (aliased to the bare name); the final
+    // SELECT reads them by bare name. Placeholders are `NULL AS <col>` in `base`.
+    let structInBase =
+        (if noStructure then Types.structureColumns |> List.map (sprintf "NULL AS %s")
+         else Types.structureColumns |> List.map (sprintf "s.%s"))
+        |> String.concat ", "
+    let structJoin =
+        if noStructure then ""
+        else "      JOIN structure_levels s ON s.ticker = p.ticker AND s.date = p.date\n"
     // The 52-week-high gate term is dropped when noFiftyTwoWeekHigh is set, so the
     // breakout population spans the full range (for the buy-strength-vs-weakness study).
     let fiftyTwoTerm = if noFiftyTwoWeekHigh then "" else "          AND adj_close >= hi_252_prior\n"
@@ -65,10 +77,10 @@ let private query (lookbackHigh: int) (stopLowWindow: int) (noFiftyTwoWeekHigh: 
             ABS(p.adj_high - LAG(p.adj_close) OVER w),
             ABS(p.adj_low  - LAG(p.adj_close) OVER w)
         )                                             AS tr,
-{structCols}
+        {structInBase}
       FROM split_adjusted_prices p
       JOIN stock_volume_4w v ON v.ticker = p.ticker AND v.date = p.date
-      WHERE p.ticker = $ticker
+{structJoin}      WHERE p.ticker = $ticker
       WINDOW w AS (PARTITION BY p.ticker ORDER BY p.date)
     ),
     windowed AS (
@@ -111,7 +123,7 @@ let private query (lookbackHigh: int) (stopLowWindow: int) (noFiftyTwoWeekHigh: 
       prev_adj_close, avg_volume_4w, avg_dollar_volume_4w, prior_idx,
       hi_252_prior, low_15_prior, atr_pct_14, range_pct_14, tightness_14,
       pct_up, rvol, is_entry,
-      {structSelect}
+      {Types.structureColumns |> String.concat ", "}
     FROM flagged
     WHERE date >= $start AND date <= $end
     ORDER BY date
@@ -140,7 +152,7 @@ let eligibleTickers (conn: IDbConnection) (tradableOnly: bool) : string[] =
 /// Uses a manual reader (not Dapper) so the 66 generated structure columns can be
 /// folded into each row's `levels` dictionary by name rather than 66 record fields.
 let loadTicker (conn: IDbConnection) (cfg: Config) (ticker: string) : SignalRow[] =
-    let sql = query cfg.LookbackHigh cfg.StopLowWindow cfg.NoFiftyTwoWeekHigh
+    let sql = query cfg.LookbackHigh cfg.StopLowWindow cfg.NoFiftyTwoWeekHigh cfg.NoStructure
     use cmd = conn.CreateCommand()
     cmd.CommandText <- sql
     let addParam (name: string) (value: obj) =
