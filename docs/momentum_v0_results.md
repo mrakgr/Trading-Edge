@@ -1392,6 +1392,24 @@ The 3×3 joint PF grid is non-monotonic (noisy ~550-trip cells) while both *marg
 
 **How the cell PF is computed (important — it is NOT `min` of the marginals).** The `min(breadth_t, rvol_t)` index is used *only to group the actual trades* into 3 buckets; each bucket's PF is then computed **freshly from those pooled trades' realized returns** — `sum(winning-trade returns) / |sum(losing-trade returns)|` over the trades in the bucket. It is *not* derived from the two marginal PF numbers. Evidence it's ground-truth and not a marginal lookup: the grid PFs **1.41 / 1.68 / 2.81 do not equal any `min` of the marginals** (which would give min-of {1.37,1.38}=1.37, etc., not 1.41; and min{2.13,2.07}=2.07, not 2.81). The half-Kelly fraction per cell is likewise fit from those same pooled trades' actual win-rate `W` and win/loss-ratio `R`. So both numbers in every cell are realized statistics of the bucket's real trades, with `min` serving only as the bucket-assignment rule.
 
+### Tightness is a THRESHOLD filter, not a sizing lever (2026-06-16)
+
+Does the tightness measure (`range/(14·ATR)`, lower = more contracted) add edge *within* the breadth/RVOL stack? Split tightness into quantiles inside each `min(breadth_t, rvol_t)` bucket, two ways:
+
+**(a) Within the filtered `<0.30` zone (quartiles):** PF is **flat-to-noisy** in every bucket — bucket 1: 1.39 / 1.67 / 1.25 / 1.37; bucket 2: 1.90 / 1.30 / 1.31 / 2.29; bucket 3 (elite, ~133/cell): 2.17 / 4.45 / 2.12 / 2.64 (the 4.45 is a 133-trade tail spike, not real). Median is flat-to-noisy too. **So *how* tight you are within the kept zone carries little extra signal.**
+
+**(b) Across the full range `0.10-0.40` (quintiles), the gradient appears** — and it's a decline from tightest → loosest, concentrated in the *loosest* tail:
+
+| min-bucket / tightness quintile → | Q1 (~0.10-0.21) | Q2 | Q3 | Q4 | Q5 (~0.32-0.40) |
+| --- | --- | --- | --- | --- | --- |
+| **bucket 1** (PF) | 1.46 | 1.45 | 1.35 | 1.32 | **1.20** |
+| **bucket 2** (PF) | 1.81 | 1.38 | 1.94 | 1.31 | **1.09** |
+| **bucket 3** (PF, ~167/cell) | 2.29 | 3.28 | 3.58 | 0.90 | 1.32 |
+
+Bucket 1 decays cleanly (1.46→1.20, and Q5 is the only negative-median quintile, −0.8%); bucket 2's loosest quintile (1.09) is clearly worst; bucket 3 is too thin (~167/cell) to read a trend.
+
+**Conclusion: tightness behaves like a threshold (a cliff near ~0.32 above which trades degrade), not a continuous lever.** Unlike RVOL/breadth (genuine continuous gradients you size on), tightness is roughly uninformative *below* its cutoff and only bites at the loose tail. So the right use is exactly the current hard cut, and there is **no value in tightness-based position sizing** within the system. (The real degradation cliff looks closer to ~0.32-0.34 than the current 0.30, so loosening to ~0.33 would add trades at minimal PF cost — a small trade-count knob for future fine-tuning, **left at 0.30 for now**.)
+
 ### Stop-variant comparison — time stop vs real price stops (2026-06-16)
 
 The original next-step hypothesis was that an *actual price stop* (especially the tight Qullamaggie entry-day-low) would clean up the T2-RVOL "anomaly" by cutting bleeding trades the 20-day time stop lets linger. Two fresh engine runs on the **identical entry population** (gate/band + VCP filters `tight<0.40, ATR<8%`, expansion-0.70 kept; only the *stop sleeve* changes), filtered to the same 5-filter final system (3,511 trips each):
@@ -1475,8 +1493,8 @@ The stop-variant section left V1 (20d time stop, PF 1.64) vs Qulla (entry-day-lo
 
 ## Caveats & known limitations
 
-- **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.
-- **No regime filter.** This is the dominant unrealized improvement — the by-month evidence (firing hardest into reversals) says a SPY 10/20-day MA gate should remove a large share of the 2008/2021/2022/2023 bleed. Deferred to v1.
+- **Same-day-close entry is realistic via MOC, not just "optimism."** The signal is defined by day T's close and we fill at that same close — achievable in practice with a **market-on-close (MOC) order**, which gets the official closing print. This is a *deliberate, defensible* choice, not a bias to apologize for: on these breakouts the **overnight gap is on average positive while the next-day intraday action is on average negative**, so entering at the close (vs the next open) is the *better*, not the more-optimistic, fill. The **exit is strictly no-lookahead** (next-day open). A "closer-to-the-open, pro-trader-style" entry is a *future* test, not a correction.
+- **Regime filtering is already present — via market breadth.** The earlier "no regime filter / add a SPY 10/20-day MA gate" caveat is **superseded**: the breadth filter (% of liquid stocks above their 20-day MA, lagged 1 day) *is* a market-regime gate, and a better one than a single SPY MA — it's the cross-sectional health of the actual tradable universe. The 22/22-years-positive result with `breadth>0.5` is the evidence it works. A separate SPY-MA gate is no longer a priority.
 - **"Mid cap" is approximated by a dollar-volume floor**, not real market cap (no shares-outstanding data yet). A true market-cap breakdown is deferred pending a Polygon shares-outstanding feed wired into `TradingEdge.Massive`.
 - **Survivorship**: the price universe is delisting-inclusive (good — no survivorship bias from prices), but `ticker_reference.type` is a *current* snapshot, so the CS/ADRC filter is approximate for delisted names.
 - **No costs modeled.** No commissions, no slippage, no borrow. At fixed $10k notional these are second-order vs the regime effect, but a realistic-execution pass should add them.
@@ -1486,12 +1504,11 @@ The stop-variant section left V1 (20d time stop, PF 1.64) vs Qulla (entry-day-lo
 
 **✅ DONE (2026-06-16):** the stop-variant comparison, median/win-rate re-examination, time-stop sweep, exhaustion-removal test, the `min`-of-marginals sizing, AND the annualized-return-on-capital adjudication are all complete (see the sections above). Net conclusions: T2-RVOL "anomaly" = mean tail artifact (RVOL is cleanly monotonic; breadth is a tail/payoff lever); keep the expansion sell (dropping it costs ~9 PF points); size off the `min`-of-tercile-indices 3-bucket half-Kelly grid (+19% in-sample); **and V1 (20d time stop) is the production exit — it beats Qullamaggie on PF (1.64 vs 1.50), total P&L (~2×), AND annualized return on capital (13.3% vs 8.3% @ p95; 17.9% vs 8.6% on a $100k book). The capital-velocity thesis for Qulla failed: faster recycling cut winners short, so P&L fell more than capital demand did.** Engine infra done: `structure_levels` materialized + auto-rebuilt by `ingest-data`; `--no-structure` (~12→6 min); binary `--no-52w-high` replaced by numeric `--min-pct-of-52w-high`.
 
-**Immediate (next session) — the v1 volatility upgrade (volume-weighted / Gaussian volatility, replacing ATR%):**
-1. Replace ATR%-based volatility with a **volume-weighted volatility** measure. For every day compute the **daily VWAP and VW-σ (volume-weighted std)** from the intraday distribution, and use those to get a per-trade "true volatility." Mapping to the current metrics:
-   - **pairwise daily Gaussians → substitute for ATR%** (the single-day volatility),
-   - **14-day Gaussian → substitute for the 14-day range / tightness.**
-   The thesis: VW-Gaussian volatility is a more accurate, less noisy volatility estimate than ATR%/range, and should reduce the noise seen in these breakdowns (possibly resolving the T2 anomaly independent of the stop question).
-   - **Versioning:** **v0 = ATR%-based volatility** (this whole document). **v1 = volume-weighted Gaussian volatility.** Build v1 *after* finishing the ATR%-based stop-variant comparison (step 1). Requires intraday data per day (the Massive subscription the user is getting for the latest daily bars; VW-σ needs intraday or at least OHLC-based proxies — confirm data granularity at v1 start).
+**Immediate — the big lever: AI-agent news/catalyst analysis (2026-06-16 reprioritization):**
+1. **Automated news-catalyst classification with AI agents.** The thesis: these breakouts are catalyst-driven, and **separating *good* catalysts from *mediocre* ones could push this method above the PF-2 range** — a bigger lever than any volatility-measure refinement. Use AI agents to classify each breakout's catalyst (earnings beat, FDA, M&A, guidance raise, sympathy/momentum-only, etc.) and grade its quality, then bucket PF by catalyst class. This is a natural, high-value agent use case. (News-gathering infra already exists — see CLAUDE.md "News Search Strategy": Polygon `download-news` + Google-News date-range supplementation.)
+
+**Deferred (de-prioritized 2026-06-16 — user decided overnight it's not a priority):**
+- **v1 volume-weighted / Gaussian volatility** replacing ATR%: per-day VWAP + VW-σ; pairwise daily Gaussians ≈ ATR%, 14-day Gaussian ≈ 14-day range/tightness. Thesis was a less-noisy volatility estimate — but the median/win-rate work already showed the "noise" (T2 anomaly) was a mean tail artifact, not a volatility-measurement problem, which weakens the motivation. Needs intraday data. **Parked.**
 
 **Deferred / opportunistic:**
 2. **Recompute `breadth.parquet` through the current date** once the latest daily bars are downloaded (Massive sub) — so we know which breadth tercile (and thus live Kelly size) the market is in *today*.
