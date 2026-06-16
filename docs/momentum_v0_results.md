@@ -1527,60 +1527,60 @@ The stop-variant section left V1 (20d time stop, PF 1.64) vs Qulla (entry-day-lo
 
 ### Mean-reversion trailing-limit exit — sell the bounce, not the stop (2026-06-16)
 
-Idea: when an exit fires (the price stop for variants A/B; the **time stop** for V1, which has no price stop), instead of dumping at the next open — often a bad print after a down-day-into-stop — rest a **sell LIMIT at the N-day high**, ratchet it DOWN-only each bar (`limit = min(limit, rolling N-day high)`), and fill on the first bar whose high reaches it (selling *into* a bounce). 5-bar time cap to market if no bounce comes. No-lookahead: a resting limit at price P fills when a later bar trades through P. New engine flags `--trail-limit-high N --trail-limit-time-cap M`; the conversion fires only on "get-me-out" exits (stop/breakeven/time), not the discretionary expansion/ATR exits. The whole sweep is on the corrected **100k ADV floor** baseline (see the ADV-regression note below); shown at both the 0.85 band and the **0.95 band** (the [proximity optimum](#cleaned-result--proximity-to-the-52-week-high-is-the-edge)).
+Idea: when an exit fires (the price stop for variants A/B; the **time stop** for V1, which has no price stop), instead of dumping at the next open — often a bad print after a down-day-into-stop — rest a **sell LIMIT at the N-day high**, ratchet it DOWN-only each bar (`limit = min(limit, rolling N-day high)`), and fill on the first bar whose high reaches it (selling *into* a bounce). 5-bar time cap to market if no bounce comes. No-lookahead: a resting limit at price P fills when a later bar trades through P. New engine flags `--trail-limit-high N --trail-limit-time-cap M`; the conversion fires only on "get-me-out" exits (stop/breakeven/time), not the discretionary expansion/ATR exits. The whole sweep is on the **full production filter set** (price≥$5, ADV≥$100k, breadth>0.5, rvol∈[6,20], tightness<0.30, **ATR%<8%**); shown at both the 0.85 band and the **0.95 band** (the [proximity optimum](#cleaned-result--proximity-to-the-52-week-high-is-the-edge)). The base column reproduces the documented PF-1.639 baseline exactly (0.85 band) — see the regression note below.
 
-**0.95 band (the production-optimum proximity filter), 3,793 trips each — exit-only difference:**
+**0.95 band (the production-optimum proximity filter), 3,671 trips each — exit-only difference. ATR%<8% cap applied (the full production filter set):**
 
 | Variant | Exit | PF | Total P&L | Median % | Win% | Fill% |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| V1 (time stop) | base | 1.577 | $1,116,672 | 0.74 | 53.4 | — |
-| V1 | **N=1** | **1.865** | **$1,522,609** | 1.47 | 56.2 | 96.9 |
-| V1 | N=2 | 1.733 | $1,360,957 | 1.19 | 55.1 | 92.9 |
-| V1 | N=3 | 1.674 | $1,288,953 | 1.16 | 54.9 | 82.5 |
-| V1 | N=4 | 1.613 | $1,205,582 | 1.07 | 54.3 | 71.4 |
-| A (15d-low) | base | 1.619 | $1,140,004 | 0.21 | 50.8 | — |
-| A | **N=1** | **2.003** | **$1,603,167** | 0.98 | 53.7 | 97.0 |
-| A | N=2 | 1.832 | $1,430,318 | 0.86 | 53.4 | 92.5 |
-| A | N=3 | 1.732 | $1,323,391 | 0.73 | 53.2 | 80.0 |
-| A | N=4 | 1.656 | $1,228,840 | 0.59 | 52.9 | 66.7 |
-| B (Qulla day-low) | base | 1.641 | $986,094 | −1.15 | 44.3 | — |
-| B | **N=1** | **2.310** | **$1,553,415** | 0.00 | 49.4 | 97.7 |
-| B | N=2 | 2.000 | $1,359,194 | 0.08 | 50.3 | 92.6 |
-| B | N=3 | 1.817 | $1,218,252 | 0.13 | 50.8 | 78.5 |
-| B | N=4 | 1.710 | $1,121,662 | 0.17 | 51.1 | 65.0 |
+| V1 (time stop) | base | 1.670 | $1,138,768 | 0.89 | 54.0 | — |
+| V1 | **N=1** | **1.988** | **$1,521,917** | 1.58 | 56.8 | 96.9 |
+| V1 | N=2 | 1.854 | $1,388,740 | 1.31 | 55.7 | 93.1 |
+| V1 | N=3 | 1.798 | $1,336,811 | 1.28 | 55.6 | 82.9 |
+| V1 | N=4 | 1.734 | $1,267,894 | 1.19 | 55.0 | 71.9 |
+| A (15d-low) | base | 1.709 | $1,150,023 | 0.30 | 51.5 | — |
+| A | **N=1** | **2.133** | **$1,583,066** | 1.11 | 54.3 | 97.0 |
+| A | N=2 | 1.945 | $1,430,589 | 0.97 | 53.9 | 92.6 |
+| A | N=3 | 1.841 | $1,343,647 | 0.88 | 53.8 | 80.3 |
+| A | N=4 | 1.758 | $1,260,208 | 0.73 | 53.6 | 67.0 |
+| B (Qulla day-low) | base | 1.711 | $986,441 | −1.02 | 44.9 | — |
+| B | **N=1** | **2.401** | **$1,505,400** | 0.00 | 49.9 | 97.7 |
+| B | N=2 | 2.080 | $1,333,163 | 0.13 | 50.7 | 92.7 |
+| B | N=3 | 1.892 | $1,208,291 | 0.19 | 51.2 | 78.7 |
+| B | N=4 | 1.800 | $1,140,836 | 0.22 | 51.6 | 65.5 |
 
-**0.85 band (the looser proximity filter), 5,074 trips each — same shape, slightly lower PF in every cell:**
+**0.85 band (the looser proximity filter), 4,907 trips each — same shape, slightly lower PF in every cell. ATR%<8% cap applied; base = the documented PF-1.639 production baseline, reproduced exactly:**
 
-| Variant | Exit | PF | Total P&L | Median % | Win% | Fill% | Timeout% |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| V1 (time stop) | base | 1.541 | $1,401,855 | 0.49 | 52.4 | — | — |
-| V1 | **N=1** | **1.825** | **$1,943,097** | 1.24 | 55.4 | 97.0 | 0.0 |
-| V1 | N=2 | 1.704 | $1,748,722 | 1.06 | 54.3 | 93.1 | 3.8 |
-| V1 | N=3 | 1.648 | $1,654,289 | 0.99 | 54.3 | 82.6 | 14.3 |
-| V1 | N=4 | 1.593 | $1,557,553 | 0.92 | 53.9 | 71.8 | 25.0 |
-| A (15d-low) | base | 1.566 | $1,401,616 | 0.00 | 49.9 | — | — |
-| A | **N=1** | **1.943** | **$2,022,233** | 0.70 | 52.9 | 97.2 | 0.0 |
-| A | N=2 | 1.781 | $1,801,518 | 0.58 | 52.4 | 92.7 | 4.4 |
-| A | N=3 | 1.696 | $1,675,761 | 0.54 | 52.5 | 80.2 | 16.9 |
-| A | N=4 | 1.626 | $1,563,615 | 0.53 | 52.5 | 67.2 | 29.8 |
-| B (Qulla day-low) | base | 1.581 | $1,199,316 | −1.32 | 43.2 | — | — |
-| B | **N=1** | **2.226** | **$1,952,780** | −0.10 | 48.8 | 97.8 | 0.0 |
-| B | N=2 | 1.925 | $1,689,524 | 0.00 | 49.5 | 92.7 | 5.0 |
-| B | N=3 | 1.757 | $1,513,823 | 0.03 | 50.1 | 78.5 | 19.1 |
-| B | N=4 | 1.659 | $1,393,721 | 0.11 | 50.7 | 65.0 | 32.6 |
+| Variant | Exit | PF | Total P&L | Median % | Win% | Fill% |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| V1 (time stop) | base | 1.639 | $1,448,869 | 0.64 | 53.0 | — |
+| V1 | **N=1** | **1.954** | **$1,957,112** | 1.41 | 56.0 | 97.0 |
+| V1 | N=2 | 1.825 | $1,786,302 | 1.16 | 54.8 | 93.3 |
+| V1 | N=3 | 1.768 | $1,714,572 | 1.14 | 54.9 | 82.9 |
+| V1 | N=4 | 1.710 | $1,633,291 | 1.08 | 54.6 | 72.3 |
+| A (15d-low) | base | 1.664 | $1,443,263 | 0.12 | 50.5 | — |
+| A | **N=1** | **2.081** | **$2,020,111** | 0.89 | 53.5 | 97.2 |
+| A | N=2 | 1.898 | $1,818,528 | 0.73 | 53.0 | 92.8 |
+| A | N=3 | 1.808 | $1,715,171 | 0.72 | 53.1 | 80.4 |
+| A | N=4 | 1.735 | $1,619,902 | 0.64 | 53.0 | 67.5 |
+| B (Qulla day-low) | base | 1.660 | $1,224,294 | −1.20 | 43.8 | — |
+| B | **N=1** | **2.333** | **$1,912,600** | −0.02 | 49.4 | 97.8 |
+| B | N=2 | 2.018 | $1,678,190 | 0.03 | 50.1 | 92.8 |
+| B | N=3 | 1.839 | $1,516,091 | 0.11 | 50.5 | 78.6 |
+| B | N=4 | 1.748 | $1,426,780 | 0.16 | 51.1 | 65.3 |
 
-The 0.95 band beats 0.85 in **every cell** (e.g. V1 N=2 1.733 vs 1.704; B N=2 2.000 vs 1.925), reconfirming the [proximity finding](#cleaned-result--proximity-to-the-52-week-high-is-the-edge) — but the trip count is lower (3,793 vs 5,074), so the 0.85 band carries more total P&L at slightly lower PF. The monotone N=2 > N=3 > N=4 > base ordering is identical in both bands.
+The 0.95 band beats 0.85 on PF in **every cell** (e.g. V1 N=1 1.988 vs 1.954; B N=1 2.401 vs 2.333), reconfirming the [proximity finding](#cleaned-result--proximity-to-the-52-week-high-is-the-edge) — but the trip count is lower (3,671 vs 4,907), so the 0.85 band carries more total P&L at slightly lower PF. The monotone N=1 > N=2 > N=3 > N=4 > base ordering is identical in both bands.
 
 **Findings:**
 - **N=1 > N=2 > N=3 > N=4 > base, monotonically, in all 6 variant×band combinations** — no exceptions. The tighter the limit-target high, the bigger the gain, and **N=1 (prior-bar high) is the optimum** — the edge keeps strengthening all the way to the tightest target. This monotone decay is the signature of a **real bounce-capture effect**, not a lucky N: a 1-2-day high sits close to current price so almost any post-stop bounce reaches it (N=1 fills ~97% with **0% timeout**, N=2 ~93%); a 4-day high is further above, so the bounce more often fails to reach it (N=4 fills only ~65-72%) and the trade falls back to the market exit (= baseline). Edge decays smoothly toward baseline as N rises.
 - **N=1 did NOT degenerate into "fills too eagerly = sells low" (the worry that motivated testing it).** The ratchet is DOWN-only and the fill requires `high ≥ limit`, so even at N=1 you sell at the *prior bar's high* — after a down-day-into-stop, that's still well above where a market-on-open exit would dump you. Eager filling just means you almost never *miss* the bounce (0% timeout, vs 25-33% at N=4); you are not selling lower, you are selling more *reliably* into the immediate rebound.
-- **Large, universal gain.** N=1 lifts PF by +0.29 (V1: 1.577→1.865), +0.38 (A: 1.619→2.003), +0.67 (B: 1.641→2.310) and total P&L by 36-58% — by far the biggest single exit improvement found.
-- **It rescues the distressed stop variants — Qulla (B) most.** B's baseline is the worst (median −1.15%, win 44%: it dumps at the panic low). N=1 makes it the **highest-PF cell of all (2.310)** by refusing to sell the bottom and instead selling the rebound. The faster/more-distressed the stop, the more the limit helps — which makes mechanistic sense.
+- **Large, universal gain.** At the 0.95 band, N=1 lifts PF by +0.32 (V1: 1.670→1.988), +0.42 (A: 1.709→2.133), +0.69 (B: 1.711→2.401) and total P&L by 34-53% — by far the biggest single exit improvement found.
+- **It rescues the distressed stop variants — Qulla (B) most.** B's baseline is the worst (median −1.02%, win 45%: it dumps at the panic low). N=1 makes it the **highest-PF cell of all (2.401)** by refusing to sell the bottom and instead selling the rebound. The faster/more-distressed the stop, the more the limit helps — which makes mechanistic sense.
 - **The whole return distribution shifts up** (median, not just mean): V1 median 0.74→1.19, B median −1.15→+0.08 at N=2. Tail-robust, so it's not a few outliers.
 
-**Caveat on magnitude — sharpest at N=1:** the limit fills "when a bar's high ≥ the N-day-high limit," assuming a resting limit catches that price intrabar. On thin small-caps the N-day high may be a single untradeable tick. At N=1 essentially the **entire population (~97%, 0% timeout) is credited a "sell at the prior-bar high" fill**, so this is the most optimistic the mechanic can get — **N=1's PF 1.87-2.31 is the upper bound of the upper bound.** The robust takeaways are (a) the **monotone shape** (tighter target = better, no exception across 8 N-values × variants × bands) and (b) that even a *conservative* version (N=3/N=4, which leave 17-33% of exits to the honest market fill) is already a large improvement. A realistic execution model (limit fills only on demonstrated intrabar liquidity, or fill at a haircut to the N-day high) is the right next refinement before banking the N=1 magnitude. The best single config is **B (or A) at N=1, 0.95 band (PF 2.31 / 2.00)**; A-vs-B turns on the capital-velocity re-rank (B recycles faster — the [RoC analysis](#annualized-return-on-deployed-capital--v1-wins-outright-the-capital-velocity-thesis-fails) should be re-run with this exit, since the limit narrowed B's P&L gap to V1 dramatically).
+**Caveat on magnitude — sharpest at N=1:** the limit fills "when a bar's high ≥ the N-day-high limit," assuming a resting limit catches that price intrabar. On thin small-caps the N-day high may be a single untradeable tick. At N=1 essentially the **entire population (~97%, 0% timeout) is credited a "sell at the prior-bar high" fill**, so this is the most optimistic the mechanic can get — **N=1's PF 1.95-2.40 is the upper bound of the upper bound.** The robust takeaways are (a) the **monotone shape** (tighter target = better, no exception across 8 N-values × variants × bands) and (b) that even a *conservative* version (N=3/N=4, which leave 17-33% of exits to the honest market fill) is already a large improvement. A realistic execution model (limit fills only on demonstrated intrabar liquidity, or fill at a haircut to the N-day high) is the right next refinement before banking the N=1 magnitude. The best single config is **B (or A) at N=1, 0.95 band (PF 2.40 / 2.13)**; A-vs-B turns on the capital-velocity re-rank (B recycles faster — the [RoC analysis](#annualized-return-on-deployed-capital--v1-wins-outright-the-capital-velocity-thesis-fails) should be re-run with this exit, since the limit narrowed B's P&L gap to V1 dramatically).
 
-> **⚠️ ADV-floor regression found & fixed (2026-06-16).** While running this sweep, the V1 baseline came in at PF 1.475 vs the documented 1.639. Root cause: the engine's `--min-avg-dollar-volume` **default had drifted to 1,000,000** (from the study's 100,000), silently rejecting ~1,400 sub-$1M-ADV breakouts — precisely the low-ADV small-caps that carry the [premium](#dollar-volume-adv-on-the-final-system--a-real-additive-small-cap-premium). Default reset to 100,000. With it fixed, the shared entries reproduce the documented numbers **bit-identically** (4,907 trips, PF 1.639, +$1.449M). A residual 167-trip / data-vintage discrepancy in exact reproduction is still under investigation (does not affect the relative results here — every cell shares one engine run).
+> **⚠️ Two filter regressions found & fixed (2026-06-16) — baseline now reproduces exactly.** While running this sweep, the V1 baseline first came in at PF 1.475 vs the documented 1.639. Two independent causes, both real: **(1) ADV floor** — the engine's `--min-avg-dollar-volume` **default had drifted to 1,000,000** (from the study's 100,000), silently rejecting ~1,400 sub-$1M-ADV breakouts, precisely the low-ADV small-caps that carry the [premium](#dollar-volume-adv-on-the-final-system--a-real-additive-small-cap-premium); default reset to 100,000. **(2) ATR% cap** — the runs omitted `--max-atr-pct 0.08`, admitting 167 high-ATR entries (every one with ATR%>8%, e.g. ZBIO at 9.4%) that blended to **PF 0.855** and dragged the system down. The ATR% and tightness filters are near-orthogonal (a stock can be a tight base *and* a jumpy high-ATR name), so tightness<0.30 does **not** subsume the ATR cap. With **both** filters applied, the baseline reproduces the documented system **to the dollar: 4,907 trips, PF 1.639, +$1,448,869.** The full production entry filter is therefore: price≥$5, ADV≥$100k, breadth>0.5, rvol∈[6,20], tightness<0.30, **ATR%<8%**, proximity band (0.85, optimum 0.95). All trailing-limit tables above already have both filters applied.
 
 ## Caveats & known limitations
 
