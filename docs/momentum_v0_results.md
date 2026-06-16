@@ -1364,6 +1364,62 @@ vs the same cells' **mean** (T3×T3 = +7.56% — the apparent PF-2.90 "crown jew
 
 **Time-stop horizon sweep** (pure post-hoc N-day exits on the same population, fill at open N bars after entry): PF is flat ~1.57 from 5→25 days then dips at 30 (1.52); **median return peaks at 25 days (0.82%)** and win-rate peaks at 25 (53.3%), both turning down at 30. So **~20-25 trading days is the mild optimum** — the current V1 default of 20 is well-placed; 5 days is too short (amputates the RVOL edge — its median is ~⅓ of the 20-day's at every tercile); 30 holds losers too long.
 
+### Stop-variant comparison — time stop vs real price stops (2026-06-16)
+
+The original next-step hypothesis was that an *actual price stop* (especially the tight Qullamaggie entry-day-low) would clean up the T2-RVOL "anomaly" by cutting bleeding trades the 20-day time stop lets linger. Two fresh engine runs on the **identical entry population** (gate/band + VCP filters `tight<0.40, ATR<8%`, expansion-0.70 kept; only the *stop sleeve* changes), filtered to the same 5-filter final system (3,511 trips each):
+
+- **V1** = no price stop + 20-day time stop + expansion 0.70 (the established baseline).
+- **Variant A** = 15-day-low trailing stop + expansion 0.70.
+- **Variant B** = Qullamaggie entry-day-low stop (floored, rising to the 15-day-low) + expansion 0.70.
+
+| metric | V1 (20d time) | A (15-day-low) | B (Qullamaggie day-low) |
+| --- | --- | --- | --- |
+| PF | **1.64** | 1.44 | 1.50 |
+| win% | **52** | 44.0 | 38.3 |
+| median return | **+0.64%** | −1.40% | −1.89% |
+| avg return | **+2.95%** | +2.29% | +2.02% |
+| avg hold (bars) | ~21 | 29.5 | **20.9** |
+| **median hold (bars)** | 20 | 24 | **17** |
+| exit mix | 97% time | 96% stop | 97% stop |
+
+**Variant A 3×3 PF grid** (med% in parens):
+
+| breadth ↓ / RVOL → | T1 | T2 | T3 |
+| --- | --- | --- | --- |
+| **T1** | 1.18 | 1.16 | 1.14 |
+| **T2** | 1.24 | 1.19 | 1.16 |
+| **T3** | 1.35 | 2.11 | **2.48** |
+
+**Variant B 3×3 PF grid:**
+
+| breadth ↓ / RVOL → | T1 | T2 | T3 |
+| --- | --- | --- | --- |
+| **T1** | 1.15 | 1.36 | 1.17 |
+| **T2** | 0.94 | 1.39 | 1.25 |
+| **T3** | 1.15 | **2.42** | **2.57** |
+
+**Findings:**
+
+1. **The price stops did NOT fix the grid — they confirm the tail-artifact read.** In *both* A and B every cell's median is **negative**; the only strong cells are the **top-right corner** (T3×T2, T3×T3). The "edge" under a price stop = "a few high-breadth/high-RVOL trades run far enough to beat the stop-out drag." The T2-RVOL "anomaly" never reappears as a real feature in any regime — **it was always a mean artifact** (consistent with the median/win-rate section above).
+2. **The original capital-velocity assumption was BACKWARDS for the trailing low.** Variant A (15-day-low) holds *longer* than V1 (median 24 vs 20 bars), because in an uptrend the trailing low rises slowly and isn't hit until a real reversal — whereas the 20-day time stop is a hard guillotine. So **the time stop is a faster capital recycler than the trailing-low stop.**
+3. **Variant B (Qullamaggie) IS the velocity play** — and the only regime that recycles faster than the time stop: median hold **17 bars**, with a structural guarantee against the months-long-bagholding trap (the tight day-low gets hit fast on failed breakouts; 97% exit via stop). This is the structural fix for the user's 2025 European-defense-stocks mistake.
+4. **But B costs per-trade economics:** PF 1.50 (vs V1 1.64), win% 38.3 (lowest), median −1.89% (most negative) — the signature of a tight stop (most trades give a small loss back; a minority of runners carry the average).
+
+**The decision is PF/win-rate (V1) vs capital velocity (Qullamaggie B), not quality-vs-quality.** PF undersells B's faster turnover; the metric that actually adjudicates is **annualized return on deployed capital** (deferred next-step). V1 wins per-trade; B may win per-unit-time.
+
+### Does removing the exhaustion (expansion) sell help in aggregate? — No, keep it (2026-06-16)
+
+Given how dominant the time stop is (97% of exits), we tested dropping the expansion exit entirely. Post-hoc counterfactual on the filtered V1 system: trips that exited via `expansion` are re-priced as if held to the 20-day time stop (open 20 bars after entry); all other trips unchanged.
+
+| | V1 (with expansion) | V1 minus expansion |
+| --- | --- | --- |
+| PF | **1.64** | 1.55 |
+| avg return | **2.95%** | 2.53% |
+| median | 0.642 | 0.654 |
+| win% | 53.0 | 53.1 |
+
+**Keep the expansion sell.** The 95 affected trips (1.9%) averaged **+44.1%** by selling at the parabola vs **+22.3%** if held to day 20 — holding would have *halved* their return. Removing the exit costs ~9 PF points (1.64→1.55) and ~0.4% avg return. The **median is unchanged** (the median trade never touches it), so this is purely a **right-tail improvement**: a rare, *late* (~9-day), net-positive tail-catcher that exits the biggest winners at the top instead of riding them back down. This also closes out the earlier worry that the exhaustion sell might fire *early* on stretched-then-contracted breakouts — it does not (only 18 trips exit it within ≤3 days, 0.4% of all; the mechanism fires late on genuine parabolas).
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is mildly optimistic (by design).** The signal is defined by day T's close and we fill at that same close — i.e. we assume we could act on the print that defines the signal. This was the user's explicit v0 choice to maximize captured move; the **exit is kept strictly no-lookahead** (next-day open) so the optimism doesn't compound. A next-day-open *entry* variant is the obvious robustness check.
@@ -1375,13 +1431,10 @@ vs the same cells' **mean** (T3×T3 = +7.56% — the apparent PF-2.90 "crown jew
 
 ## Next steps (in order)
 
-**Immediate (next session):**
-1. **Re-run the 3×3 tercile yearly breakdown for the other two stop variants** (Variant 2 = Qullamaggie entry-day-low stop; and the baseline 15-day-low stop) — *not* just the V1 no-price-stop+time-20 used above. Motivation: in the 3×3 surface the **T2 (middle) RVOL/breadth tercile is anomalously weak** — T2 < T1 in the bottom two breadth rows, and T3-middle-row < T3-top-row. The hypothesis is that the **time stop lets large losses slip through** (a trade that's quietly bleeding sits for the full 20 days instead of being cut), and that an actual price stop (esp. the tight day-low) would clean up the T2 dip. Compare the surfaces + yearly P&L across the three stop regimes. (Engine already supports `--no-price-stop`, `--initial-stop-day-low`, and the default 15-day-low.)
-   - **⚠️ Update (2026-06-16): the median/win-rate lens already largely DEBUNKED the T2 anomaly as a tail artifact** (see the "Median & win-rate re-examination" section). By median return AND by ATR-bracket win-rate, the **RVOL axis is cleanly monotonic** — the T2-RVOL "hole" only appears under mean/PF because the high cells carry fat right tails the middle lacks. So the stop-variant comparison is now less about "does a price stop fix non-monotonicity" (there may be little left to fix) and more about the original motivation: **capital velocity** — does the tight day-low stop recycle capital faster at comparable PF? Run it for that, with the velocity/turnover metric, not the monotonicity hunt.
+**✅ DONE (2026-06-16):** the stop-variant comparison, median/win-rate re-examination, time-stop sweep, and exhaustion-removal test are all complete (see the three sections above). Net conclusions: T2-RVOL "anomaly" = mean tail artifact (RVOL is cleanly monotonic; breadth is a tail/payoff lever); keep the expansion sell (dropping it costs ~9 PF points); **the live exit choice is V1 (20d time stop, PF 1.64) vs Variant B (Qullamaggie day-low, PF 1.50 but median 17-day hold = fastest capital recycling + anti-bagholding guarantee).** Engine infra done: `structure_levels` materialized + auto-rebuilt by `ingest-data`; `--no-structure` (~12→6 min); binary `--no-52w-high` replaced by numeric `--min-pct-of-52w-high`.
 
-**Engine infra (do before / alongside the stop-variant runs):**
-- **Replace the binary `--no-52w-high` flag with a numeric `--min-pct-of-52w-high X`** (require `adj_close >= X * hi_252_prior`): `0.85` = within-15%-of-high band (currently applied post-hoc in SQL every time), `1.0` = strict new-high gate (old default), omitted = no gate (old `--no-52w-high`). Bakes the proximity band into the engine so runs don't need the post-hoc SQL filter. *Deferred from the 2026-06-16 session — the Variant A run that day still used the old flag + post-hoc band.*
-- **`structure_levels` table is now materialized** (`TradingEdge.Massive/sql/schema/materialized/08_structure_levels.sql`, ~48.7M rows / ~8 GB, auto-rebuilt by `ingest-data`); the engine JOINs it instead of recomputing 66 windows per run. **`--no-structure`** skips the JOIN+marshalling for runs that need only core indicators (breadth×RVOL grids) — ~12 min → ~6 min. Remaining bottleneck is **per-ticker .NET round-trips** (12,289 separate queries), not the SQL; batching all tickers into one query is the next speedup if needed.
+**Immediate (next session):**
+1. **Annualized return on deployed capital** — the one metric that adjudicates V1 vs Qullamaggie-B. PF undersells B's faster turnover (median 17-day hold vs V1's 20, and B exits to cash on failed breakouts while V1 sits to day 20). Compute per-regime: total P&L / (average capital deployed × years), accounting for concurrent-position load. V1 wins per-trade (PF 1.64 vs 1.50); B may win per-unit-time. This is the deferred-item-5 metric, now promoted to the decision-maker.
 
 **Then — the v1 volatility upgrade (volume-weighted / Gaussian volatility, replacing ATR%):**
 2. Replace ATR%-based volatility with a **volume-weighted volatility** measure. For every day compute the **daily VWAP and VW-σ (volume-weighted std)** from the intraday distribution, and use those to get a per-trade "true volatility." Mapping to the current metrics:
