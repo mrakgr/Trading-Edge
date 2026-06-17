@@ -147,6 +147,12 @@ type Config = {
     /// Bars to keep the trailing-limit resting before giving up and exiting at
     /// market. Only meaningful when TrailLimitHighWindow is Some. Default 5.
     TrailLimitTimeCap: int
+    /// Seed the trailing limit at the trigger bar's CLOSE rather than its HIGH.
+    /// On daily bars the trigger bar's high is the most optimistic resting price
+    /// (we can't honestly fill on bar D, only D+1 onward); seeding at the close is
+    /// strictly more conservative / more fillable. Only meaningful when
+    /// TrailLimitHighWindow is Some. Default false (seed at high, the N-day high).
+    TrailLimitSeedClose: bool
     /// Skip the structure_levels JOIN and the 66-column marshalling entirely. The
     /// per-ticker query then only computes the (near-free) core indicator windows,
     /// taking a full run from ~12 min to seconds. Use for backtests that don't need

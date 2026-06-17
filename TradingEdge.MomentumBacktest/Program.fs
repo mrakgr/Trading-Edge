@@ -42,6 +42,7 @@ type Args =
     | Initial_Stop_Day_Low
     | Trail_Limit_High of int
     | Trail_Limit_Time_Cap of int
+    | Trail_Limit_Seed_Close
     | No_Structure
     | Trips_Csv of string
     | Breakdown_Log of string
@@ -71,6 +72,7 @@ type Args =
             | Initial_Stop_Day_Low -> "Floor the stop at the entry-day low (Qullamaggie initial stop) until the 15-day-low rises above it. Variant 2."
             | Trail_Limit_High _ -> "Mean-reversion exit: when a stop/time exit fires, instead of selling next open, rest a SELL LIMIT at the N-day high and ratchet it DOWN-only each bar; fill on the first bar whose high reaches it. N = this window (e.g. 5). Off by default."
             | Trail_Limit_Time_Cap _ -> "Bars to keep the trailing limit resting before bailing to market (next open). Only with --trail-limit-high. Default 5."
+            | Trail_Limit_Seed_Close -> "Seed the trailing limit at the trigger bar's CLOSE instead of its high (strictly more conservative/fillable on daily bars). Only with --trail-limit-high."
             | No_Structure -> "Skip the structure_levels JOIN and 66-column marshalling (full run ~12 min -> seconds). Use when the run needs only core indicators (e.g. breadth x RVOL grids), not the 66 structure columns (which are left empty in the CSV)."
             | Trips_Csv _ -> "Output trips CSV path. Default: " + defaultTripsCsv
             | Breakdown_Log _ -> "Output breakdown log path. Default: " + defaultBreakdownLog
@@ -139,6 +141,7 @@ let main argv =
         InitialStopDayLow = parsed.Contains Initial_Stop_Day_Low
         TrailLimitHighWindow = parsed.TryGetResult Trail_Limit_High
         TrailLimitTimeCap = parsed.GetResult(Trail_Limit_Time_Cap, defaultValue = 5)
+        TrailLimitSeedClose = parsed.Contains Trail_Limit_Seed_Close
         NoStructure = parsed.Contains No_Structure
         TripsCsv = parsed.GetResult(Trips_Csv, defaultValue = defaultTripsCsv)
         BreakdownLog = parsed.GetResult(Breakdown_Log, defaultValue = defaultBreakdownLog)
@@ -153,7 +156,7 @@ let main argv =
     let timeStr = match cfg.TimeStopBars with Some n -> sprintf " time-stop=%dd" n | None -> ""
     let stallStr = match cfg.StallBars with Some k -> sprintf " stall=%dd" k | None -> ""
     let beStr = match cfg.BreakevenAfter with Some n -> sprintf " breakeven-after=%dd" n | None -> ""
-    let trailStr = match cfg.TrailLimitHighWindow with Some w -> sprintf " trail-limit=%dd-high(cap=%dd)" w cfg.TrailLimitTimeCap | None -> ""
+    let trailStr = match cfg.TrailLimitHighWindow with Some w -> sprintf " trail-limit=%dd-%s(cap=%dd)" w (if cfg.TrailLimitSeedClose then "close" else "high") cfg.TrailLimitTimeCap | None -> ""
     let stopVarStr = (if cfg.NoPriceStop then " no-price-stop" else "") + (if cfg.InitialStopDayLow then " init-stop=day-low" else "") + trailStr
     printfn "momentum_v0: %s .. %s | up>=%.0f%% rvol>=%.1f %d-day-high%s | stop=%d-day-low%s%s%s | notional=$%.0f | tradable_only=%b min_adv=%.0f"
         (cfg.StartDate.ToString("yyyy-MM-dd")) (cfg.EndDate.ToString("yyyy-MM-dd"))

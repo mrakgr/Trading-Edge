@@ -1582,6 +1582,47 @@ The 0.95 band beats 0.85 on PF in **every cell** (e.g. V1 N=1 1.988 vs 1.954; B 
 
 > **⚠️ Two filter regressions found & fixed (2026-06-16) — baseline now reproduces exactly.** While running this sweep, the V1 baseline first came in at PF 1.475 vs the documented 1.639. Two independent causes, both real: **(1) ADV floor** — the engine's `--min-avg-dollar-volume` **default had drifted to 1,000,000** (from the study's 100,000), silently rejecting ~1,400 sub-$1M-ADV breakouts, precisely the low-ADV small-caps that carry the [premium](#dollar-volume-adv-on-the-final-system--a-real-additive-small-cap-premium); default reset to 100,000. **(2) ATR% cap** — the runs omitted `--max-atr-pct 0.08`, admitting 167 high-ATR entries (every one with ATR%>8%, e.g. ZBIO at 9.4%) that blended to **PF 0.855** and dragged the system down. The ATR% and tightness filters are near-orthogonal (a stock can be a tight base *and* a jumpy high-ATR name), so tightness<0.30 does **not** subsume the ATR cap. With **both** filters applied, the baseline reproduces the documented system **to the dollar: 4,907 trips, PF 1.639, +$1,448,869.** The full production entry filter is therefore: price≥$5, ADV≥$100k, breadth>0.5, rvol∈[6,20], tightness<0.30, **ATR%<8%**, proximity band (0.85, optimum 0.95). All trailing-limit tables above already have both filters applied.
 
+### Default system locked: Qulla + N=1, NO time stop (2026-06-17)
+
+The headline Qulla N=1 cell (PF 2.401) is now the **default production system**. One refinement: the documented run carried `--time-stop 20` (inherited from the shared `$COMMON` flag block), but it is **near-inert for Qulla** — the entry-day-low price stop and the 0.70 expansion exit almost always fire before day 20. Dropping it is a small genuine improvement:
+
+| Qulla N=1, 0.95 band | Trips | Win% | PF | Total P&L | Median hold | Fill% |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| **with `--time-stop 20`** (old default) | 3,671 | 49.9 | 2.401 | $1,505,400 | 18 | 97.7 |
+| **no time stop** (new default) | 3,671 | 46.1 | **2.426** | **$1,715,972** | 18 | 97.1 |
+
+Same 3,671 trips and same 18-day median hold (the time-stop changes only *which* exit a handful of right-tail trades take, not the population). No-time-stop earns **+$210k (+14%) and +0.025 PF** — the time-stop was clipping a few day-20 trades that would otherwise have run to bigger wins (hence higher P&L, slightly lower win-rate from the added variance). The 18-day median is the **expansion exit + price stop** naturally clustering, *not* the time-stop biting — which is why removing it leaves the median untouched. **New default = Qulla day-low stop + N=1 trailing limit + 0.70 expansion exit, no time stop.**
+
+> **Reproduction recipe (exact — so this never requires archaeology again).** The trail-limit grid is built from a broad base CSV (engine flags), then the production filter is applied **post-hoc** in SQL. The new default (Qulla N=1, no time stop) is:
+>
+> ```bash
+> # base CSV — broad rvol gate; ATR/tightness applied post-hoc (NOT in-engine)
+> dotnet run --project TradingEdge.MomentumBacktest -c Release -- \
+>   --expansion-exit 0.70 --min-pct-of-52w-high 0.85 --rvol-threshold 3 --no-structure \
+>   --initial-stop-day-low --trail-limit-high 1 --trail-limit-time-cap 5 \
+>   --trips-csv /tmp/b_n1.csv
+> # (add --time-stop 20 to reproduce the OLD default = PF 2.401 / 3,671)
+> ```
+>
+> Post-hoc filter (DuckDB, read-only `data/trading.db`), 0.95 band:
+>
+> ```sql
+> WITH b AS (SELECT date, LAG(pct_above_20) OVER (ORDER BY date) breadth_lag1
+>            FROM read_parquet('data/equity/momentum_v0/breadth.parquet'))
+> SELECT count(*), <PF/win/pnl aggregates>
+> FROM read_csv_auto('/tmp/b_n1.csv', header=true) r
+> JOIN b ON b.date = CAST(r.entry_date AS DATE)
+> JOIN structure_levels sl ON sl.ticker=r.symbol AND sl.date=CAST(r.entry_date AS DATE)
+> WHERE CAST(r.entry_price AS DOUBLE) >= 5.0
+>   AND b.breadth_lag1 > 0.5                                    -- pct_above_20, lagged 1 trading day
+>   AND CAST(r.rvol_at_entry AS DOUBLE) BETWEEN 6.0 AND 20.0
+>   AND CAST(r.tightness_14_at_entry AS DOUBLE) < 0.30
+>   AND CAST(r.atr_pct_14_at_entry AS DOUBLE) < 0.08
+>   AND CAST(r.entry_price AS DOUBLE) >= 0.95 * sl.hiclose_52w; -- 0.85 for the looser band
+> ```
+>
+> **Two gotchas that cost a session to rediscover:** (1) ATR%<8% and tightness<0.30 are applied **post-hoc**, not via `--max-atr-pct`/`--max-tightness` — putting them in-engine off a `--rvol-threshold 6` base changes the `is_entry` set and the numbers drift. (2) `breadth_lag1` is **`pct_above_20`** (fraction of stocks above their *20-day* MA), gated `> 0.5`, lagged one trading day — *not* `pct_above_50`. Both are documented above; getting either wrong reproduces a plausible-but-wrong PF (2.12–2.23 instead of 2.40).
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is realistic via MOC, not just "optimism."** The signal is defined by day T's close and we fill at that same close — achievable in practice with a **market-on-close (MOC) order**, which gets the official closing print. This is a *deliberate, defensible* choice, not a bias to apologize for: on these breakouts the **overnight gap is on average positive while the next-day intraday action is on average negative**, so entering at the close (vs the next open) is the *better*, not the more-optimistic, fill. The **exit is strictly no-lookahead** (next-day open). A "closer-to-the-open, pro-trader-style" entry is a *future* test, not a correction.

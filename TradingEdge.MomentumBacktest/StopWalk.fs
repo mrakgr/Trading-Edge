@@ -28,6 +28,7 @@ let private walkOne
     (initialStopDayLow: bool)
     (trailLimitHighWindow: int option)
     (trailLimitTimeCap: int)
+    (trailLimitSeedClose: bool)
     (a: SignalRow[])
     (t: int)
     : Trip =
@@ -137,7 +138,13 @@ let private walkOne
                 let mutable m = a.[hi].adj_high
                 for k in lo .. hi do if a.[k].adj_high > m then m <- a.[k].adj_high
                 m
-            let mutable limit = nDayHigh d
+            // Seed the resting limit. Default = the N-day high at the stop bar.
+            // With trailLimitSeedClose, cap it at the trigger bar's CLOSE — strictly
+            // more conservative (the high is the most optimistic, un-fillable-on-D
+            // price; the close is where it actually settled).
+            let mutable limit =
+                let seed = nDayHigh d
+                if trailLimitSeedClose then min seed a.[d].adj_close else seed
             let mutable e = d + 1
             let cap = d + trailLimitTimeCap          // last bar the limit may rest on
             let mutable result = None
@@ -213,4 +220,4 @@ let private passesEntryFilters (cfg: Config) (r: SignalRow) : bool =
 let tripsForTicker (cfg: Config) (rows: SignalRow[]) : Trip[] =
     [| for t in 0 .. rows.Length - 1 do
          if rows.[t].is_entry && passesEntryFilters cfg rows.[t] then
-             yield walkOne cfg.Notional cfg.ExpansionExitThreshold cfg.AtrExitThreshold cfg.TimeStopBars cfg.StallBars cfg.BreakevenAfter cfg.NoPriceStop cfg.InitialStopDayLow cfg.TrailLimitHighWindow cfg.TrailLimitTimeCap rows t |]
+             yield walkOne cfg.Notional cfg.ExpansionExitThreshold cfg.AtrExitThreshold cfg.TimeStopBars cfg.StallBars cfg.BreakevenAfter cfg.NoPriceStop cfg.InitialStopDayLow cfg.TrailLimitHighWindow cfg.TrailLimitTimeCap cfg.TrailLimitSeedClose rows t |]
