@@ -87,6 +87,36 @@ only the exit fill moves). "mo+%" = share of calendar months with positive reali
 4. **Monthly consistency tops out ~64–68%**, not the 80% v0 claimed. Higher-N exits raise win
    rate and month-positive % (more, smaller winners) but not PF.
 
+## RVOL floor — a quantity/capacity dial, NOT a quality dial
+
+The production rvol floor is 6.0. Lowering it admits more trades. Sweep at the default
+(stop-4, baseline, breadth ON, 2005+); `--rvol-min N --rvol-max 20`:
+
+| rvol ≥ | trips | flat PF | flat net | max monthly DD | half-Kelly PF | Kelly net |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 3 | 12,641 | 1.390 | +1,435,044 | −110,590 | 1.594 | +2,170,518 |
+| 4 | 7,909 | 1.545 | +1,248,676 | −44,018 | 1.724 | +1,651,796 |
+| 5 | 5,307 | 1.738 | +1,128,851 | −24,961 | 1.864 | +1,317,503 |
+| **6** | 3,671 | 1.760 | +805,994 | **−16,788** | 1.980 | +1,032,607 |
+
+More trades buy more total P&L (rvol≥3 nearly doubles flat net to $1.44M) but at lower PF and a
+**much** deeper drawdown (−$111k vs −$17k, ~6.5×).
+
+**The key finding (rvol≥5 vs ≥6): the extra trades are NOT lower quality — the deeper drawdown is
+just more exposure.** Adding ~45% more trades (3,671 → 5,307) leaves the share of profitable months
+**unchanged: 56.8% vs 56.7%.** On the 247 shared months, 214 agree on sign (90 both-red, 124
+both-green); only 33 near-zero months flip. The same months are good or bad in both — rvol≥5 simply
+sizes the bad months bigger because more positions are open into the same downturns. The tiny PF dip
+(1.74 vs 1.76) is consistent with that.
+
+This is structurally different from the stop-window dial: tightening the stop changes *per-trade*
+behavior (win rate, hold time); lowering the rvol floor just adds *more of the same edge* at higher
+capacity, preserving the monthly win/loss *pattern* and only scaling the *magnitudes*. So the
+extra-drawdown is a position-sizing/concurrent-exposure problem (cap concurrent positions, or cut
+per-trade notional), **not** signal degradation — the rvol 5–6 names carry the same edge. rvol≥5 is
+the reasonable "more size, still shallow drawdown" point; rvol≥3 maximizes raw dollars at a drawdown
+that contradicts the drawdown-conscious default.
+
 ## Working default: stop-window 4, baseline exit (cap=0)
 
 **Chosen to halve the drawdown at a small PF cost.** vs the N=1 trailing-limit exit, the baseline
