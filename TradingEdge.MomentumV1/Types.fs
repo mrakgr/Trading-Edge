@@ -36,7 +36,7 @@ type QullaSystem
     let stopLow   = MinMa(stopLowWindow)        // trailing stop: min low
     let trailHigh = MaxMa(trailWindow)          // trailing-limit exit: max high
     let hiClose   = MaxMa(hiCloseWindow)        // long-term close channel (e.g. 252d)
-    let trSum     = SumMa(atrWindow)            // Σ true range -> ATR = sum / count
+    let atr       = AvgMa(atrWindow)            // ATR = mean true range over the window
     let rangeHigh = MaxMa(tightnessWindow)      // tightness: max high
     let rangeLow  = MinMa(tightnessWindow)      // tightness: min low
     // 4-week (28-calendar-day) trailing means, v0 `stock_volume_4w` semantics.
@@ -57,11 +57,6 @@ type QullaSystem
     let mutable sRangeLow  : float voption = ValueNone
     let mutable sAvgVol    : float voption = ValueNone
     let mutable sAvgDolVol : float voption = ValueNone
-
-    /// Convert a rolling structure's reading to a voption: empty windows
-    /// report `.Count = 0` (and `.State = nan`), which becomes ValueNone.
-    let snap (count: int) (state: float) =
-        if count = 0 then ValueNone else ValueSome state
 
     member _.BarsSeen = barsSeen
 
@@ -117,25 +112,25 @@ type QullaSystem
         //    the window covers strictly-prior days within `volDays` of it.
         avgVol.Evict    bar.date
         avgDolVol.Evict bar.date
-        sAvgVol    <- snap avgVol.Count    avgVol.State
-        sAvgDolVol <- snap avgDolVol.Count avgDolVol.State
-        sStopLow   <- snap stopLow.Count   stopLow.State
-        sTrailHigh <- snap trailHigh.Count trailHigh.State
-        sHiClose   <- snap hiClose.Count   hiClose.State
-        sAtrAbs    <- if trSum.Count = 0 then ValueNone else ValueSome (trSum.State / float trSum.Count)
-        sRangeHigh <- snap rangeHigh.Count rangeHigh.State
-        sRangeLow  <- snap rangeLow.Count  rangeLow.State
+        sAvgVol    <- avgVol.State
+        sAvgDolVol <- avgDolVol.State
+        sStopLow   <- stopLow.State
+        sTrailHigh <- trailHigh.State
+        sHiClose   <- hiClose.State
+        sAtrAbs    <- atr.State
+        sRangeHigh <- rangeHigh.State
+        sRangeLow  <- rangeLow.State
 
         // 2) fold the current bar in
         match prevClose with
         | ValueSome pc ->
             // true range against the prior close
-            let tr =
-                max (bar.high - bar.low)
-                    (max (abs (bar.high - pc)) (abs (bar.low - pc)))
-            trSum.Push tr
+            bar.high - bar.low
+            |> max (abs (bar.high - pc))
+            |> max (abs (bar.low - pc))
+            |> atr.Push
         | ValueNone ->
-            // first bar has no prior close -> TR undefined; skip it from the ATR sum
+            // first bar has no prior close -> TR undefined; skip it from the ATR mean
             ()
 
         stopLow.Push   bar.low

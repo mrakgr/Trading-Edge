@@ -24,10 +24,8 @@ type RollingMa<'Bar, 'State>(initState: 'State, windowSize: int) =
     abstract member Remove : 'Bar * 'State -> 'State
     member _.Count = q.Count
     member _.WindowSize = windowSize
-    member _.State =
-        if q.Count = 0 then
-            invalidArg "State" "RollingMa.State read on an empty window"
-        state
+    /// Current aggregate, or ValueNone when the window is empty.
+    member _.State = if q.Count = 0 then ValueNone else ValueSome state
     member this.Push (x: 'Bar) =
         if q.Count = windowSize then
             state <- this.Remove (q.Dequeue(), state)
@@ -40,6 +38,15 @@ type SumMa(windowSize) =
     inherit RollingMa<float, float>(0.0, windowSize)
     override _.Add    (v, s) = s + v
     override _.Remove (v, s) = s - v
+
+/// Rolling average over a fixed-length window of floats. The base State holds
+/// the running sum; this shadows it to expose the mean instead.
+[<Sealed>]
+type AvgMa(windowSize) =
+    inherit RollingMa<float, float>(0.0, windowSize)
+    override _.Add    (v, s) = s + v
+    override _.Remove (v, s) = s - v
+    member t.State = base.State |> ValueOption.map (fun sum -> sum / float t.Count)
 
 // =============================================================================
 // Sliding-window MaxMa / MinMa via a monotonic deque
@@ -57,10 +64,10 @@ type MaxMa(windowSize: int) =
     let mutable count = 0
     member _.Count = count
     member _.WindowSize = windowSize
+    /// Current window max, or ValueNone when the window is empty.
     member _.State =
-        if dq.Count = 0 then
-            invalidArg "State" "MaxMa.State read on an empty window"
-        let struct (v, _) = dq.[0] in v
+        if dq.Count = 0 then ValueNone
+        else let struct (v, _) = dq.[0] in ValueSome v
     member _.Push (x: float) =
         let cutoff = barIdx - windowSize + 1
         while dq.Count > 0 &&
@@ -80,10 +87,10 @@ type MinMa(windowSize: int) =
     let mutable count = 0
     member _.Count = count
     member _.WindowSize = windowSize
+    /// Current window min, or ValueNone when the window is empty.
     member _.State =
-        if dq.Count = 0 then
-            invalidArg "State" "MinMa.State read on an empty window"
-        let struct (v, _) = dq.[0] in v
+        if dq.Count = 0 then ValueNone
+        else let struct (v, _) = dq.[0] in ValueSome v
     member _.Push (x: float) =
         let cutoff = barIdx - windowSize + 1
         while dq.Count > 0 &&
@@ -111,10 +118,9 @@ type CalendarMeanMa(days: int) =
     let mutable sum = 0.0
     /// Count of bars currently in the window (after the last Evict).
     member _.Count = q.Count
+    /// Current window mean, or ValueNone when the window is empty.
     member _.State =
-        if q.Count = 0 then
-            invalidArg "State" "CalendarMeanMa.State read on an empty window"
-        sum / float q.Count
+        if q.Count = 0 then ValueNone else ValueSome (sum / float q.Count)
     /// Drop bars older than `days` calendar days before `asOf` (exclusive of
     /// `asOf` itself — the current bar hasn't been pushed yet).
     member _.Evict (asOf: DateOnly) =
