@@ -1,5 +1,11 @@
 # Mid-Cap Momentum v0 — Regime-Dependent, Prints in Parabolic Bull Innings
 
+> ## ⚠️ INVALID RESULTS WARNING (2026-06-17)
+> **Everything from the [Mean-reversion trailing-limit exit](#mean-reversion-trailing-limit-exit--sell-the-bounce-not-the-stop-2026-06-16) section onward is INFLATED and must not be trusted.**
+> The N-day trailing-limit exit had a fill bug: at N=1 it filled at `min(seed, bar.high)` on the very next bar **every time** — a guaranteed sale at the recent high, which a real resting limit order cannot achieve. This top-tick credit inflated profit factor by roughly **+0.7** (e.g. the "PF 2.33" / "PF 3.0 at tight stops" / "80% of months positive" headlines).
+> The rewritten **v1 engine** (`TradingEdge.MomentumV1`) fills the limit only when price actually trades up to the *prior* bar's high. On realistic fills the true PF is **~1.7–1.8** (post-breadth), the trailing limit is a ~+1% refinement (not a major edge), and **stop-window 4 is the sweet spot, not window 1** (the "tighter is better" ordering was the artifact). See `docs/momentum_v1_results.md` for the corrected numbers.
+> The sections *before* that one (entry filters, proximity-band finding, ADV buckets) are unaffected — they don't depend on the trailing-limit exit.
+
 **Status: working signal with strong regime dependence — exactly the expected shape.** A naive high-volume breakout-to-52-week-high system, long-only, run over the full US equity daily history **2005-01-01 → 2026-05-13** (CS/ADRC universe, ≥$1M trailing dollar volume). It makes large profits in parabolic bull stretches (2020, 2013, 2009, the 2024→2026 AI run) and bleeds in bears / post-blowoff unwinds (2021, 2022, 2023, 2008). Net P&L **+$1.64M** at a fixed $10k/trade, uncapped, no compounding, across **25,799 trips**.
 
 This is **v0**: no regime filter, no market-cap bucketing, no parameter tuning. The point of this run is to characterize *when* this style works — and to see whether the current environment looks like one of its good innings (it does).
@@ -3118,6 +3124,15 @@ The stop-variant section left V1 (20d time stop, PF 1.64) vs Qulla (entry-day-lo
 > **Reading the Stage A bases:** p95 (~$510k for V1) is the realistic "capital to rarely turn a trade away"; mean (~$213k) the average tied-up capital; peak (~$1.1M) the worst 2021 cluster day. The 13-32% ann-RoC range across bases brackets the strategy's capital efficiency. **In-sample caveat** (Stage B sizing + filters fit on this data) applies as elsewhere.
 
 ### Mean-reversion trailing-limit exit — sell the bounce, not the stop (2026-06-16)
+
+> ## ⚠️ INVALID FROM HERE DOWN — top-tick fill artifact (see warning at top of doc)
+> **Every result in this section and all sections below it is inflated.** The trailing-limit
+> exit modelled here fills at the recent high essentially every time (`min(seed, bar.high)` on
+> the next bar), which is unrealistic for a resting sell-limit. Real PF on this config is
+> **~1.7–1.8**, not the 2.0–3.0 shown below; the trailing limit adds only ~+1% (it is not the
+> headline edge), and the stop-window sweep ordering is reversed (window 4 wins, not window 1).
+> Corrected, realistic-fill results live in `docs/momentum_v1_results.md`. Kept here only as a
+> record of the mistake.
 
 Idea: when an exit fires (the price stop for variants A/B; the **time stop** for V1, which has no price stop), instead of dumping at the next open — often a bad print after a down-day-into-stop — rest a **sell LIMIT at the N-day high**, ratchet it DOWN-only each bar (`limit = min(limit, rolling N-day high)`), and fill on the first bar whose high reaches it (selling *into* a bounce). 5-bar time cap to market if no bounce comes. No-lookahead: a resting limit at price P fills when a later bar trades through P. New engine flags `--trail-limit-high N --trail-limit-time-cap M`; the conversion fires only on "get-me-out" exits (stop/breakeven/time), not the discretionary expansion/ATR exits. The whole sweep is on the **full production filter set** (price≥$5, ADV≥$100k, breadth>0.5, rvol∈[6,20], tightness<0.30, **ATR%<8%**); shown at both the 0.85 band and the **0.95 band** (the [proximity optimum](#cleaned-result--proximity-to-the-52-week-high-is-the-edge)). The base column reproduces the documented PF-1.639 baseline exactly (0.85 band) — see the regression note below.
 
