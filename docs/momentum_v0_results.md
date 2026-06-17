@@ -1625,6 +1625,33 @@ Same 3,671 trips and same 18-day median hold (the time-stop changes only *which*
 >
 > **Two gotchas that cost a session to rediscover:** (1) ATR%<8% and tightness<0.30 are applied **post-hoc**, not via `--max-atr-pct`/`--max-tightness` — putting them in-engine off a `--rvol-threshold 6` base changes the `is_entry` set and the numbers drift. (2) `breadth_lag1` is **`pct_above_20`** (fraction of stocks above their *20-day* MA), gated `> 0.5`, lagged one trading day — *not* `pct_above_50`. Both are documented above; getting either wrong reproduces a plausible-but-wrong PF (2.12–2.23 instead of 2.40).
 
+### Trailing-stop window sweep — tighten to 4-day-low (2026-06-17)
+
+With the mean-reversion limit recovering the bad stop-fills, the 15-day trailing-low stop is too loose: hitting the stop no longer means dumping at a bad open, so the stop can be tightened to recycle capital faster without the old penalty. Swept `--stop-low-window` from 14→1 on the new default (Qulla day-low + N=1 limit + 0.70 expansion, no time stop, 0.95 band). Same 3,671 entries every row — the window changes only *exits*.
+
+| stop window (d) | Win% | PF | Total P&L | Median hold | Fill% |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 14 | 46.6% | 2.395 | +1,630,805 | 17 | 97.1% |
+| 13 | 47.1% | 2.439 | +1,643,317 | 16 | 97.1% |
+| 12 | 47.8% | 2.448 | +1,610,526 | 16 | 97.1% |
+| 11 | 48.2% | 2.475 | +1,581,012 | 15 | 97.4% |
+| 10 | 48.7% | 2.446 | +1,513,249 | 14 | 97.6% |
+| 9 | 49.2% | 2.508 | +1,517,491 | 13 | 97.7% |
+| 8 | 50.0% | 2.586 | +1,522,020 | 12 | 97.8% |
+| 7 | 50.8% | 2.592 | +1,455,102 | 11 | 98.0% |
+| 6 | 51.6% | 2.659 | +1,437,140 | 10 | 98.1% |
+| 5 | 52.6% | 2.741 | +1,435,900 | 9 | 98.3% |
+| 4 **(sweet spot)** | 54.2% | 2.811 | +1,387,731 | 8 | 98.5% |
+| 3 | 55.1% | 2.738 | +1,204,814 | 6 | 98.6% |
+| 2 | 56.9% | 2.899 | +1,164,409 | 5 | 98.9% |
+| 1 | 59.7% | 3.028 | +1,022,469 | 4 | 99.2% |
+
+**Findings — sweet spot is the 4-day-low stop:**
+- **PF rises monotonically as the stop tightens** (2.40 at 15d → 2.81 at 4d → 3.03 at 1d) and **win rate climbs from 47% to 60%** — the tighter stop, paired with the limit that sells the bounce, cleans up the loss side.
+- **But net P&L is a plateau-then-cliff.** It holds ~$1.39–1.52M across windows 8→4, then **falls off below 4**: $1.39M (w=4) → $1.20M (w=3) → $1.02M (w=1, −37% vs the 15d default). The tightest stops amputate the right tail — the multi-week runners that carry the strategy get whipsawed out in 4–6 days.
+- **Window 4 is the edge of the plateau:** PF 2.811, win 54.2%, $1,387,731, **8-day median hold** (vs 17 at the 15d default). It buys **+0.42 PF and ~2× faster capital turnover for only −10% P&L** — a clear return-on-capital win (the metric that matters for a real, capital-constrained account). Below 4 you trade real P&L for a higher win-rate vanity metric.
+- **New recommendation: `--stop-low-window 4`** on the Qulla N=1 no-time-stop default. The 15d default was tuned in a world where hitting the stop meant a bad market-on-open exit; the mean-reversion limit removed that penalty, so the stop should be tight.
+
 ## Caveats & known limitations
 
 - **Same-day-close entry is realistic via MOC, not just "optimism."** The signal is defined by day T's close and we fill at that same close — achievable in practice with a **market-on-close (MOC) order**, which gets the official closing print. This is a *deliberate, defensible* choice, not a bias to apologize for: on these breakouts the **overnight gap is on average positive while the next-day intraday action is on average negative**, so entering at the close (vs the next open) is the *better*, not the more-optimistic, fill. The **exit is strictly no-lookahead** (next-day open). A "closer-to-the-open, pro-trader-style" entry is a *future* test, not a correction.
