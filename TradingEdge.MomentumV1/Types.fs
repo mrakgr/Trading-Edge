@@ -13,18 +13,19 @@ type Bar =
 
 /// Life-cycle of a single trip.
 ///   - Holding: still in the trade, watching for a stop / expansion trigger.
-///   - ExitingLimit seed: a STOP fired on the prior bar; a SELL LIMIT now
-///     rests, seeded at the trigger bar's N-day high (`seed`) and ratcheting
-///     DOWN-only. At N=1 the rolling N-day high is just each bar's own high, so
-///     the limit fills on the very NEXT bar at min(seed, high). (v0 routes only
-///     stop/breakeven/time triggers through the trailing limit.)
-///   - ExitingMarket reason: a NON-stop trigger fired (expansion) on the prior
-///     bar; v0 does NOT route these through the limit — it sells at the next
-///     bar's OPEN. This state fills at the next bar's open, keeping `reason`.
+///   - ExitingLimit barsRested: a STOP fired; a SELL LIMIT now rests at the
+///     prior bar's N-day high (`TrailHigh`, excludes the current bar). It fills
+///     only when bar.high reaches that level — a real resting order that can
+///     miss. `barsRested` counts how many bars it has rested; once it reaches
+///     `exitTimeCap` without filling, the trade exits at the next bar's open
+///     (timeout). No down-only ratchet, no current-bar fill — that was the
+///     unrealistic top-tick credit.
+///   - ExitingMarket reason: sell at the next bar's OPEN (expansion exits, the
+///     cap=0 baseline stop exit, and limit timeouts all route here).
 ///   - Exited: closed for any reason; never updated again.
 type PositionState =
     | Holding
-    | ExitingLimit of seed: float
+    | ExitingLimit of barsRested: int
     | ExitingMarket of reason: string
     | Exited of exitDate: DateOnly * exitPrice: float * reason: string
 
@@ -79,6 +80,7 @@ type QullaSystem
       tightnessWindow: int,
       volDays: int,
       expansionThr: float,
+      exitTimeCap: int,
       entryCfg: EntryConfig ) =
 
     // ----- rolling structures -----
@@ -111,23 +113,14 @@ type QullaSystem
     let mutable sPrevClose : float voption = ValueNone
     let mutable sAvgVol    : float voption = ValueNone
     let mutable sAvgDolVol : float voption = ValueNone
-    // Post-push trailing high INCLUDING the current bar. v0's trailing-limit
-    // seed (`nDayHigh d`) takes the max high over a window that INCLUDES the
-    // trigger bar d, unlike the stop's `low_15_prior` (which excludes it). So
-    // the limit target reads this, while the stop reads the pre-push sTrailHigh.
-    let mutable sTrailHighIncl : float voption = ValueNone
 
     member _.BarsSeen = barsSeen
 
     /// Trailing stop reference: lowest low over the prior `stopLowWindow` bars.
     member _.StopLow = sStopLow
     /// Trailing-limit exit reference: highest high over the prior `trailWindow` bars
-    /// (pre-push, EXCLUDES the current bar).
+    /// (pre-push, EXCLUDES the current bar). The resting sell limit rests here.
     member _.TrailHigh = sTrailHigh
-    /// Trailing-limit SEED: highest high over `trailWindow` bars INCLUDING the
-    /// current bar (post-push). This is v0's `nDayHigh d` — the seed for the
-    /// mean-reversion limit when a stop fires on this bar.
-    member _.TrailHighIncl = sTrailHighIncl
     /// Long-term close channel: highest close over the prior `hiCloseWindow` bars.
     member _.HiClose = sHiClose
     /// ATR(14), absolute (mean true range over the prior `atrWindow` bars).
@@ -234,7 +227,6 @@ type QullaSystem
 
         stopLow.Push   bar.low
         trailHigh.Push bar.high
-        sTrailHighIncl <- trailHigh.State   // post-push: includes the current bar
         hiClose.Push   bar.close
         rangeHigh.Push bar.high
         rangeLow.Push  bar.low
@@ -252,15 +244,15 @@ type QullaSystem
     /// snapshots, so it must run AFTER ProcessBar(bar) for `bar`. Returns the
     /// (possibly state-changed) position; an Exited position is returned as-is.
     ///
-    /// v0 parity (the locked default: Qulla day-low stop + 0.70 expansion exit,
-    /// N=1 trailing-limit, no time stop):
     ///   - Holding: stop level = max(prior-window low, entry-day low); a stop
     ///     fires when bar.low <= that level, an expansion exit fires when
-    ///     tightness > expansionThr. The TRIGGER bar does not fill — we move to
-    ///     Exiting and rest the limit seeded at this bar's N-day high (incl).
-    ///   - Exiting seed: ratchet the limit DOWN to min(seed, bar's N-day high)
-    ///     and fill when bar.high >= limit. At N=1 the N-day high is bar.high,
-    ///     so this fills THIS bar at min(seed, bar.high).
+    ///     tightness > expansionThr. The TRIGGER bar does not fill — a stop
+    ///     moves to ExitingLimit, an expansion to ExitingMarket.
+    ///   - ExitingLimit: a SELL LIMIT rests at the PRIOR bar's N-day high
+    ///     (sTrailHigh, excludes the current bar — symmetric with the stop's
+    ///     low_15_prior). It fills only when bar.high reaches that level, so it
+    ///     can genuinely miss and roll forward — no guaranteed top-tick fill.
+    ///   - ExitingMarket: sells at the next bar's open.
     member this.Update (bar: Bar) (pos: Position) : Position =
         match pos.State with
         | Exited _ -> pos
@@ -283,43 +275,34 @@ type QullaSystem
                 match this.Tightness with
                 | ValueSome t -> t > expansionThr
                 | ValueNone -> false
-            // v0 priority: stop is checked BEFORE expansion. A stop routes
-            // through the trailing limit (ExitingLimit, seeded at this bar's
-            // N-day high incl). Expansion does NOT — v0 sells it at the next
-            // bar's open (ExitingMarket). Neither fills the trigger bar itself.
+            // Priority: stop is checked BEFORE expansion. Expansion always sells
+            // at the next bar's open. A stop, with exitTimeCap=0, also sells at
+            // the next open (the baseline — N ignored); with cap>=1 it rests a
+            // sell limit for up to `exitTimeCap` bars. Neither fills the trigger
+            // bar itself.
             if stopHit then
-                let seed = match sTrailHighIncl with ValueSome h -> h | ValueNone -> bar.high
-                { pos with State = ExitingLimit seed }
+                if exitTimeCap <= 0 then { pos with State = ExitingMarket "stop" }
+                else { pos with State = ExitingLimit 0 }
             elif expansionHit then
                 { pos with State = ExitingMarket "expansion" }
             else pos
         | ExitingMarket reason ->
-            // Sell at THIS bar's open (this is the bar after the trigger).
+            // Sell at THIS bar's open (this is the bar after the trigger / after
+            // the limit timed out).
             { pos with State = Exited (bar.date, bar.``open``, reason) }
-        | ExitingLimit seed ->
-            // Ratchet DOWN-only to the current N-day high. At N=1 that's just
-            // bar.high, so limit = min(seed, bar.high) and we always fill here.
-            // TODO(post-parity): the down-only ratchet only exists to patch a
-            // flaw in comparing the limit to the CURRENT bar's own high. If we
-            // instead treated the limit like the stop — compare the fill to the
-            // PREVIOUS bar's N-day high (exclude the current bar from its own
-            // target, sTrailHigh not sTrailHighIncl) — a stale high could no
-            // longer hold the target above current price, and the ratchet would
-            // be unnecessary. Test this once we match v0 trips.
-            let nDayHigh =
-                match sTrailHighIncl with
-                | ValueSome h -> h
-                | ValueNone   -> bar.high
-            let limit = min seed nDayHigh
-            if bar.high >= limit then
+        | ExitingLimit barsRested ->
+            // Rest a SELL LIMIT at the PRIOR bar's N-day high (sTrailHigh excludes
+            // the current bar). Fill only if this bar trades up to it. This is
+            // rest-bar number (barsRested+1) of at most `exitTimeCap`.
+            match sTrailHigh with
+            | ValueSome limit when bar.high >= limit ->
                 { pos with State = Exited (bar.date, limit, "stop_limit") }
-            else
-                // Couldn't reach the limit; keep resting at the ratcheted level.
-                // TODO(post-parity): v0 caps the resting limit at trailLimitTimeCap
-                // (default 5) bars, then sells at the next open ("stop_limit_timeout").
-                // Inert at N=1 (the limit always fills the next bar), so not modelled
-                // yet — add the cap when sweeping N>1.
-                { pos with State = ExitingLimit limit }
+            | _ when barsRested + 1 >= exitTimeCap ->
+                // Rested the full cap without filling -> exit at the next open.
+                { pos with State = ExitingMarket "stop_limit_timeout" }
+            | _ ->
+                // Still within the cap and out of reach — keep resting.
+                { pos with State = ExitingLimit (barsRested + 1) }
 
     /// Advance the whole system by one bar: fold the bar into the indicators,
     /// update every open position, and open a new trip (filled at this bar's

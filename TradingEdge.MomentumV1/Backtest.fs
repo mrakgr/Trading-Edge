@@ -15,6 +15,7 @@ type Config =
       TightnessWindow: int
       VolDays: int
       ExpansionThr: float
+      ExitTimeCap: int          // bars the sell limit may rest; 0 = exit next open (N ignored)
       Notional: float
       Entry: EntryConfig }
 
@@ -28,6 +29,7 @@ let defaultConfig =
       TightnessWindow = 14
       VolDays = 28
       ExpansionThr = 0.70
+      ExitTimeCap = 5
       Notional = 10_000.0
       Entry =
         { UpThreshold = 0.05
@@ -124,7 +126,7 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
     let newSystem () =
         QullaSystem(cfg.StopLowWindow, cfg.TrailWindow, cfg.HiCloseWindow,
                     cfg.AtrWindow, cfg.TightnessWindow, cfg.VolDays,
-                    cfg.ExpansionThr, cfg.Entry)
+                    cfg.ExpansionThr, cfg.ExitTimeCap, cfg.Entry)
 
     // Flush the just-finished ticker: MTM-close open trips, emit all trips.
     let flush () =
