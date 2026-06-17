@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="RollingMa.fs" />
     <Compile Include="Types.fs" />
+    <Compile Include="Backtest.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

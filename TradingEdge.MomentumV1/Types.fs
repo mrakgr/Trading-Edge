@@ -13,22 +13,34 @@ type Bar =
 
 /// Life-cycle of a single trip.
 ///   - Holding: still in the trade, watching for a stop / expansion trigger.
-///   - Exiting seed: a "get me out" trigger fired on the prior bar; a SELL
-///     LIMIT now rests, seeded at the trigger bar's N-day high (`seed`) and
-///     ratcheting DOWN-only. At N=1 the rolling N-day high is just each bar's
-///     own high, so the limit fills on the very NEXT bar at min(seed, high) —
-///     `seed` is the only per-position value the fill price needs.
+///   - ExitingLimit seed: a STOP fired on the prior bar; a SELL LIMIT now
+///     rests, seeded at the trigger bar's N-day high (`seed`) and ratcheting
+///     DOWN-only. At N=1 the rolling N-day high is just each bar's own high, so
+///     the limit fills on the very NEXT bar at min(seed, high). (v0 routes only
+///     stop/breakeven/time triggers through the trailing limit.)
+///   - ExitingMarket reason: a NON-stop trigger fired (expansion) on the prior
+///     bar; v0 does NOT route these through the limit — it sells at the next
+///     bar's OPEN. This state fills at the next bar's open, keeping `reason`.
 ///   - Exited: closed for any reason; never updated again.
 type PositionState =
     | Holding
-    | Exiting of seed: float
+    | ExitingLimit of seed: float
+    | ExitingMarket of reason: string
     | Exited of exitDate: DateOnly * exitPrice: float * reason: string
 
-/// One trip. EntryDate/EntryPrice are fixed at open; State carries the rest.
+/// One trip. EntryDate/EntryPrice and the *_at_entry metrics are fixed at open;
+/// State carries the rest of the life-cycle.
 type Position =
     { EntryDate: DateOnly
       EntryPrice: float
       EntryDayLow: float        // Qullamaggie initial-stop floor (entry bar's low)
+      // metrics snapshotted at the entry bar (for the trips CSV / parity diff)
+      EntryVolume: int64
+      RvolAtEntry: float
+      AvgDollarVolumeAtEntry: float
+      PctUpAtEntry: float
+      AtrPctAtEntry: float
+      TightnessAtEntry: float
       State: PositionState }
 
 /// In-engine entry filter thresholds. Mirrors v0's `is_entry` (breakout / rvol
@@ -271,15 +283,20 @@ type QullaSystem
                 match this.Tightness with
                 | ValueSome t -> t > expansionThr
                 | ValueNone -> false
-            if stopHit || expansionHit then
-                // Trigger fires on this bar; seed the resting limit at the
-                // N-day high INCLUDING this bar (v0's nDayHigh d). Don't fill
-                // the trigger bar itself.
-                match sTrailHighIncl with
-                | ValueSome seed -> { pos with State = Exiting seed }
-                | ValueNone      -> { pos with State = Exiting bar.high }
+            // v0 priority: stop is checked BEFORE expansion. A stop routes
+            // through the trailing limit (ExitingLimit, seeded at this bar's
+            // N-day high incl). Expansion does NOT — v0 sells it at the next
+            // bar's open (ExitingMarket). Neither fills the trigger bar itself.
+            if stopHit then
+                let seed = match sTrailHighIncl with ValueSome h -> h | ValueNone -> bar.high
+                { pos with State = ExitingLimit seed }
+            elif expansionHit then
+                { pos with State = ExitingMarket "expansion" }
             else pos
-        | Exiting seed ->
+        | ExitingMarket reason ->
+            // Sell at THIS bar's open (this is the bar after the trigger).
+            { pos with State = Exited (bar.date, bar.``open``, reason) }
+        | ExitingLimit seed ->
             // Ratchet DOWN-only to the current N-day high. At N=1 that's just
             // bar.high, so limit = min(seed, bar.high) and we always fill here.
             // TODO(post-parity): the down-only ratchet only exists to patch a
@@ -298,7 +315,11 @@ type QullaSystem
                 { pos with State = Exited (bar.date, limit, "stop_limit") }
             else
                 // Couldn't reach the limit; keep resting at the ratcheted level.
-                { pos with State = Exiting limit }
+                // TODO(post-parity): v0 caps the resting limit at trailLimitTimeCap
+                // (default 5) bars, then sells at the next open ("stop_limit_timeout").
+                // Inert at N=1 (the limit always fills the next bar), so not modelled
+                // yet — add the cap when sweeping N>1.
+                { pos with State = ExitingLimit limit }
 
     /// Advance the whole system by one bar: fold the bar into the indicators,
     /// update every open position, and open a new trip (filled at this bar's
@@ -315,8 +336,31 @@ type QullaSystem
             positions.[i] <- this.Update bar positions.[i]
         let breadthOk = defaultArg breadthOk true
         if breadthOk && this.ShouldEnter bar then
+            // ShouldEnter has already verified each gate's metric is ValueSome,
+            // so these reads are safe (NaN only if a metric isn't gated, which
+            // it always is here).
+            let orNan = function ValueSome v -> v | ValueNone -> nan
             positions.Add
                 { EntryDate = bar.date
                   EntryPrice = bar.close
                   EntryDayLow = bar.low
+                  EntryVolume = bar.volume
+                  RvolAtEntry = orNan (this.Rvol (float bar.volume))
+                  AvgDollarVolumeAtEntry = orNan sAvgDolVol
+                  PctUpAtEntry = orNan (this.PctUp bar.close)
+                  AtrPctAtEntry = orNan (this.AtrPct bar.close)
+                  TightnessAtEntry = orNan this.Tightness
                   State = Holding }
+
+    /// Close any still-open positions at the final bar's close, marked-to-market
+    /// (v0's "mtm" exit). Call once after the last bar of the series. Positions
+    /// still resting (ExitingLimit / ExitingMarket) are also MTM'd here — their
+    /// exit never resolved within the data.
+    member _.Finalize (lastBar: Bar) =
+        for i in 0 .. positions.Count - 1 do
+            match positions.[i].State with
+            | Exited _ -> ()
+            | Holding | ExitingLimit _ | ExitingMarket _ ->
+                positions.[i] <-
+                    { positions.[i] with
+                        State = Exited (lastBar.date, lastBar.close, "mtm") }
