@@ -16,6 +16,8 @@ type Args =
     | Stop_Low_Window of int
     | Trail_Window of int
     | Exit_Time_Cap of int
+    | Rvol_Min of float
+    | Rvol_Max of float
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -27,6 +29,8 @@ type Args =
             | Stop_Low_Window _ -> "Trailing-stop low window in bars. Default 4."
             | Trail_Window _ -> "Trailing-limit N-day-high window (the resting sell-limit reference). Default 1 (N=1)."
             | Exit_Time_Cap _ -> "Bars the sell limit may rest before exiting at the next open. Default 5. 0 = exit at next open immediately (N ignored)."
+            | Rvol_Min _ -> "Minimum relative volume at entry. Default 6.0 (production)."
+            | Rvol_Max _ -> "Maximum relative volume at entry. Default 20.0 (production)."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -44,7 +48,11 @@ let main argv =
         { defaultConfig with
             StopLowWindow = parsed.GetResult(Stop_Low_Window, defaultValue = defaultConfig.StopLowWindow)
             TrailWindow   = parsed.GetResult(Trail_Window,    defaultValue = defaultConfig.TrailWindow)
-            ExitTimeCap   = parsed.GetResult(Exit_Time_Cap,   defaultValue = defaultConfig.ExitTimeCap) }
+            ExitTimeCap   = parsed.GetResult(Exit_Time_Cap,   defaultValue = defaultConfig.ExitTimeCap)
+            Entry =
+              { defaultConfig.Entry with
+                  RvolMin = parsed.GetResult(Rvol_Min, defaultValue = defaultConfig.Entry.RvolMin)
+                  RvolMax = parsed.GetResult(Rvol_Max, defaultValue = defaultConfig.Entry.RvolMax) } }
 
     printfn "MomentumV1 backtest"
     printfn "  db        = %s" dbPath
