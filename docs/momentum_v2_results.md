@@ -1,6 +1,6 @@
 # Mid-Cap Momentum v2 — Log-Space Volatility Filters
 
-**Status: working long-only daily-momentum edge, PF ~1.76 post-breadth, on honest next-open fills.**
+**Status: working long-only daily-momentum edge, PF ~1.77 post-breadth, on honest next-open fills.**
 This is the current production system. It supersedes both `momentum_v0` (whose mean-reversion
 trailing-limit results were inflated by a fill bug) and the v1 *exit*-correction work, by re-deriving
 the **entry** filters on a log-volatility scale and dropping the trailing-limit / expansion exits in
@@ -41,13 +41,18 @@ close.
 
 | | value |
 | --- | ---: |
-| trips | 2,253 |
-| win rate | 46.1% |
-| profit factor | **1.758** |
-| net P&L | +$530,988 |
-| % months positive | 59.6% |
-| max monthly drawdown | **−$37,594** |
+| trips | 2,227 |
+| win rate | 46.4% |
+| profit factor | **1.769** |
+| net P&L | +$527,594 |
+| % months positive | 58.1% |
+| max monthly drawdown | **−$33,772** |
 | years positive | **21 / 22** |
+
+*(Headline recomputed 2026-06-18 on the dividend-adjustment-fixed `split_adjusted_prices` — see the
+data-fix note below. The change vs the pre-fix numbers was negligible: PF 1.758→1.769, DD −37.6k→
+−33.8k, 26 fewer trips — the production filters mostly exclude the low-priced dividend payers that
+the bug corrupted.)*
 
 ---
 
@@ -602,6 +607,19 @@ the CLI overrides `--max-atr-pct`, `--max-tightness`, `--expansion-thr`, `--exit
   fails the entry, matching v0's `COALESCE(..., FALSE)`.
 - **Universe** = `split_adjusted_prices` JOIN `ticker_reference` WHERE `type IN ('CS','ADRC')`,
   streamed `ORDER BY ticker, date`, flushed at ticker boundaries.
+
+## Data fix — split_adjusted_prices dividend adjustment (2026-06-18)
+
+While drilling the new-52w-low study, found stocks with impossible `pct_52w_low = −162%`, traced to a
+**negative adjusted close** (DOMH 2024-12-30: raw $0.8975 → adj −$0.0745). Root cause: the
+`split_adjusted_prices` materialization adjusted dividends **subtractively** (`adj = price − Σ
+dividend_dollars`), which on low-priced dividend payers drives the price ≤ 0. Confirmed it was
+dividends not splits (DOMH has zero splits; raw prices are clean; `raw − adj` was a constant dollar
+step per ex-date). Affected **209,701 rows across 563 tickers** (all dividend payers), and silently
+mis-scaled *every* payer's history. Fixed to the correct **multiplicative** back-adjustment
+(`f = 1 − div/close_on_exdate` per ex-date, reverse cumulative product); rebuilt → 0 non-positive
+prices. **Impact on this system was negligible** (PF 1.758→1.769) because the production filters
+exclude the low-priced names where the bug lived; the headline above is on the corrected data.
 
 ## Known TODO (in code)
 
