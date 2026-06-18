@@ -140,6 +140,53 @@ PF, consistency, worst month and drawdown all improve as the floor rises — a r
 quality *and* risk at once. **10%** is the chosen balance: PF 1.73 at meaningful trade count;
 higher floors keep paying if you want fewer/stronger trades.
 
+### Loose-base breakouts are a strong negative edge — and LINEAR tightness separates the tail better
+
+Sanity check (2026-06-18): does buying breakouts from *loose* bases (high tightness) lose money, as
+the old `momentum_v0` study found? **Yes — strongly, and v2 reproduces the old table trade-for-trade
+once the gates are matched.** v2's linear `Tightness` = `range / ATR` (drops v0's `÷14`), so
+v0_tier × 14 ≈ v2 scale.
+
+| tier (old scale) | v2 n | v2 PF | old n | old PF |
+| --- | ---: | ---: | ---: | ---: |
+| <0.40 (tight) | 30,048 | **1.218** | 30,051 | 1.22 |
+| 0.40–0.55 | 5,662 | 0.904 | 5,659 | 0.98 |
+| 0.55–0.70 | 1,241 | **0.589** | 1,242 | 0.65 |
+| 0.70–0.85 | 283 | **0.304** | 286 | 0.41 |
+| **0.85+ (trend)** | 74 | **0.252** | 71 | **0.21** |
+
+N matches to a handful of trades per tier; the loose tail collapses to PF ~0.25 (matching v0's 0.21).
+**Loose-base breakouts are a confirmed money-loser, and the v2 engine is faithful to v0.**
+
+**What had to match to reproduce it** (my first attempt diverged ~3× on N — these were the culprits):
+
+1. **rvol ≥ 3.0** — the v0 study's floor. (v2 production uses the [6,20] band; a *fully*-unbanded
+   run floods in low-rvol breakouts and ~triples N.)
+2. **52-week proximity = 1.0** — v0 required a *strict new closing high*; v2's default is 0.95
+   (within 5%), which is far more permissive. This is the biggest N lever.
+3. **No breadth filter** — the v0 tightness study was raw (no `breadth_lag1 > 0.5`). Applying
+   breadth drops N ~30% and is NOT how the old table was built.
+
+Exact reproduction command (linear tightness, 15-day stop, old gates, no breadth, 2005+ post-hoc):
+
+```bash
+dotnet run --project TradingEdge.MomentumV2 -c Release -- \
+  --start-date 2003-09-10 --end-date 2026-05-13 \
+  --stop-low-window 15 --tightness-mode linear \
+  --min-price 0 --rvol-min 3 --rvol-max 999999 --min-52w-pct 1.0 \
+  --up-threshold 0.05 --max-tightness 999999 --max-atr-pct 999999 \
+  -o /tmp/v2_oldgates.csv
+# then tier on tightness_14_at_entry with entry_date >= 2005-01-01 and NO breadth join.
+```
+
+**Linear vs log matters for the tail.** This collapse only shows up in LINEAR tightness. In LOG
+space the same trend tier reads PF ~0.97 — log *compresses* the extreme blow-out region where the
+worst losers live, masking the tail. Log and linear are functionally identical as an entry filter
+*at the `<4.0` cutoff* (where both agree) but **diverge in the loose tail; linear is the sharper
+discriminator there.** Candidate v2 improvement: the entry tightness filter may do better in linear
+space. (The earlier "ATR%-denominator artifact" theory for the tail was wrong — the v0 study
+predates the ATR filter and used a plain linear ATR.)
+
 ### Exits that *didn't* survive the realistic baseline
 
 - **Trailing limit** (sell at the prior N-day high) — a ≤+1% PF refinement under honest fills;

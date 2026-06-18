@@ -21,6 +21,8 @@ type Args =
     | Max_Tightness of float
     | Max_Atr_Pct of float
     | Up_Threshold of float
+    | Min_Price of float
+    | Min_52w_Pct of float
     | Tightness_Mode of string
     | Rvol_Min of float
     | Rvol_Max of float
@@ -39,6 +41,8 @@ type Args =
             | Max_Tightness _ -> "Max entry tightness (log scale). Default 5.0. Pass a large value to disable."
             | Max_Atr_Pct _ -> "Max entry ATR%% (log scale). Default 0.11. Pass a large value to disable."
             | Up_Threshold _ -> "Min entry-day move (close/prevClose-1). Default 0.10. The v0/old-system value was 0.05."
+            | Min_Price _ -> "Min entry close price. Default 5.0. Pass 0 to admit sub-$5 names."
+            | Min_52w_Pct _ -> "52-week-high proximity: require close >= this * prior-252d-high-close. Default 0.95. 1.0 = strict new high (the old v0 default); 0 drops the gate."
             | Tightness_Mode _ -> "Tightness measure for the entry filter + expansion exit: 'log' (default) or 'linear'. Thresholds differ between modes."
             | Rvol_Min _ -> "Minimum relative volume at entry. Default 6.0 (production)."
             | Rvol_Max _ -> "Maximum relative volume at entry. Default 20.0 (production)."
@@ -74,6 +78,8 @@ let main argv =
             Entry =
               { defaultConfig.Entry with
                   UpThreshold  = parsed.GetResult(Up_Threshold,  defaultValue = defaultConfig.Entry.UpThreshold)
+                  MinPrice     = parsed.GetResult(Min_Price,     defaultValue = defaultConfig.Entry.MinPrice)
+                  Min52wPct    = parsed.GetResult(Min_52w_Pct,   defaultValue = defaultConfig.Entry.Min52wPct)
                   MaxTightness = parsed.GetResult(Max_Tightness, defaultValue = defaultConfig.Entry.MaxTightness)
                   MaxAtrPct    = parsed.GetResult(Max_Atr_Pct,   defaultValue = defaultConfig.Entry.MaxAtrPct)
                   RvolMin = parsed.GetResult(Rvol_Min, defaultValue = defaultConfig.Entry.RvolMin)
