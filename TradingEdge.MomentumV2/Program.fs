@@ -20,6 +20,7 @@ type Args =
     | Expansion_Thr of float
     | Max_Tightness of float
     | Max_Atr_Pct of float
+    | Up_Threshold of float
     | Tightness_Mode of string
     | Rvol_Min of float
     | Rvol_Max of float
@@ -37,6 +38,7 @@ type Args =
             | Expansion_Thr _ -> "Expansion-exit threshold on the log-tightness scale (exit when tightness > this). Default +inf (off). Live tightness runs ~1.4–13."
             | Max_Tightness _ -> "Max entry tightness (log scale). Default 5.0. Pass a large value to disable."
             | Max_Atr_Pct _ -> "Max entry ATR%% (log scale). Default 0.11. Pass a large value to disable."
+            | Up_Threshold _ -> "Min entry-day move (close/prevClose-1). Default 0.10. The v0/old-system value was 0.05."
             | Tightness_Mode _ -> "Tightness measure for the entry filter + expansion exit: 'log' (default) or 'linear'. Thresholds differ between modes."
             | Rvol_Min _ -> "Minimum relative volume at entry. Default 6.0 (production)."
             | Rvol_Max _ -> "Maximum relative volume at entry. Default 20.0 (production)."
@@ -71,6 +73,7 @@ let main argv =
             TightnessMode = tightnessMode
             Entry =
               { defaultConfig.Entry with
+                  UpThreshold  = parsed.GetResult(Up_Threshold,  defaultValue = defaultConfig.Entry.UpThreshold)
                   MaxTightness = parsed.GetResult(Max_Tightness, defaultValue = defaultConfig.Entry.MaxTightness)
                   MaxAtrPct    = parsed.GetResult(Max_Atr_Pct,   defaultValue = defaultConfig.Entry.MaxAtrPct)
                   RvolMin = parsed.GetResult(Rvol_Min, defaultValue = defaultConfig.Entry.RvolMin)
