@@ -358,6 +358,76 @@ sound mechanism (participate in a live intraday breakout vs chase an already-gap
 production change** — would need an intraday/open data feed at entry time to act on live, but the
 daily `open` + reconstructed `hi_252_high` is enough to backtest it cleanly.
 
+#### ⭐ Trailing LIMIT entries rescue the dead zone — buy the pullback, not the close (2026-06-18)
+
+The natural follow-on to the reclaim finding: instead of buying the signal-bar **close**, rest a
+**buy limit at the trailing prior-window low** (the same `MinMa` the stop trails), drag it down each
+bar, and fill only on a pullback to it; if it doesn't fill within a time cap, enter at the next open
+(tagged `open_after_cap` so the forced-open fills are analyzable separately). This is a real resting
+order that can miss — the mirror of the retired trailing-limit *exit*. Implemented in the engine as a
+`PendingLimit` lifecycle (CLI: `--entry-limit --entry-trail-window N --entry-time-cap K`); the
+`*_at_entry` metrics stay fixed at the **signal** bar, `entry_date`/`entry_price`/`entry_reason`
+record the actual fill. A buy limit at `lvl` fills at `min(lvl, open)` (a gap-down opening below the
+limit fills at the open, no top-tick credit). The CSV now carries `signal_date`, `entry_date`,
+`entry_reason` (`close` | `limit` | `open_after_cap`).
+
+**On the WHOLE production system limit entries LOSE** (breadth-filtered, default up≥10%, tw=4/cap=5):
+PF **1.758 → 1.286**, and only **22%** of signals ever pulled back to the 4-day low within 5 bars —
+momentum breakouts run, they don't retrace. The 78% `open_after_cap` fills (PF 1.215) bought ~5 bars
+higher into a worse base; even the 456 genuine `limit` fills were PF 1.585, *below* the at-close
+baseline. So for **strong, near/at-high breakouts, buying the close is correct** — chasing a pullback
+either misses or buys weakness.
+
+**But in the DEAD ZONE the opposite is true.** Re-run on pure gainers (`--up-threshold 0`) and
+isolate the 0–10%-above-intraday-high band. The dead-zone **at-close** baseline is PF **1.275 /
+$149.6k** (vs 1.757 for the rest of the system). Sweeping the limit params (dead-zone PF only):
+
+| trail / cap | n | PF | net |
+| --- | ---: | ---: | ---: |
+| **at-close (up=0)** | **2284** | **1.275** | **$149.6k** |
+| tw=1 cap=2 | 2260 | 1.199 | $74k |
+| tw=1 cap=5 | 2292 | 1.326 | $109k |
+| tw=1 cap=10 | 2290 | 1.39 | $128k |
+| tw=2 cap=5 | 2232 | 1.258 | $86k |
+| **tw=2 cap=10** | 2234 | **1.457** | $139k |
+| tw=4 cap=10 | 2123 | 1.455 | $140k |
+
+A **long cap is essential** (cap=2 is strictly worse on both axes — it forces the open too fast); with
+cap=10 the dead-zone PF climbs to ~**1.45**. Unlike strong breakouts, **94.6% of dead-zone signals DO
+pull back** to the 4-day low within 10 bars (only 5.4% time out) — a 0–10%-above-resistance name with
+no big-move requirement is *exactly* the choppy, retracing kind that gives you the fill. Splitting the
+best variant (tw=2/cap=10) by fill type:
+
+| dead-zone fill | n | % | PF | net |
+| --- | ---: | ---: | ---: | ---: |
+| **limit** | 2113 | 94.6% | **1.502** | +$143k |
+| open_after_cap | 121 | 5.4% | 0.759 | −$4k |
+
+The limit fills are **PF 1.502 on the same trades** the at-close run booked at 1.275 — a genuine
++0.23 PF from entering a few % lower on the pullback. The small `open_after_cap` tail (the runaways
+that never retrace) is the only loser, and it's tiny.
+
+**Era split — robust in the right direction (the load-bearing check):**
+
+| dead zone (0–10% above high) | 2005–14 | 2015–26 |
+| --- | ---: | ---: |
+| at-close PF | 1.402 | **1.175** |
+| limit (tw=2, cap=10) PF | 1.422 | **1.493** |
+
+The dead zone's weakness was concentrated in the **modern era** (2015–26 at-close PF 1.175). The
+limit entry **lifts the modern era to 1.493** while leaving the early era ~unchanged (1.402→1.422) —
+it repairs the exact regime where the dead zone was broken, the opposite of a regime artifact. (Early-
+era P&L drops $96k→$65k because buying the close outright was already fine pre-2015; modern-era P&L is
+flat-to-up, $53k→$74k, at a far higher PF.)
+
+**Takeaway:** limit-entry is **position-dependent, mirroring everything else in this system.** For
+strong near-high breakouts, buy the close (they run). For the **0–10%-above-resistance dead zone**, a
+trailing buy limit with a *generous* cap (tw≈2, cap≈10) lifts PF from 1.275 to ~1.50 — because these
+names reliably retrace, and the dead zone's weakness was a chase-the-close problem. This is the second
+dead-zone rescue found this session (alongside the intraday reclaim); the two are complementary
+(reclaim = *which* dead-zone bars to take; limit = *how* to enter them). **Candidate refinement for
+dead-zone entries specifically — not the whole system.**
+
 #### Breakouts FAR below the high (< −15%) — positive but weaker, and the structure inverts (2026-06-18)
 
 With the quality filters MET (tightness<4, ATR%<0.11, rvol≥3) but the 52w gate OFF, what happens to

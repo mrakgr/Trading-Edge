@@ -16,6 +16,9 @@ type Config =
       VolDays: int
       ExpansionThr: float
       ExitTimeCap: int          // bars the sell limit may rest; 0 = exit next open (N ignored)
+      EntryLimitMode: bool      // true = rest a trailing buy/sell limit instead of buying the close
+      EntryTrailWindow: int     // prior-window-low window the entry buy limit rests at (drags down)
+      EntryTimeCap: int         // bars the entry limit may rest; on timeout enter at the next open
       UseEntryDayStop: bool     // true = stop floored at entry-day low (Qulla); false = trailing low only
       Side: Side                // Long (default) or Short — flips stop geometry + P&L sign
       TightnessMode: TightnessMode  // Log (default) or Linear — drives entry tightness + expansion
@@ -50,6 +53,14 @@ let defaultConfig =
       // (TrailWindow/N ignored). The trailing limit was a ≤+1% refinement, not the
       // edge, and the realistic-fill rewrite retired it as the default.
       ExitTimeCap = 0
+      // Limit-entry mode: OFF by default (production buys the signal-bar close).
+      // When on, a buy limit rests at the trailing prior-`EntryTrailWindow`-day low
+      // (drags down each bar) for up to `EntryTimeCap` bars, then enters at the
+      // next open ("open_after_cap"). EntryTrailWindow defaults to the stop window
+      // (4) so the entry pullback level is symmetric with the trailing stop.
+      EntryLimitMode = false
+      EntryTrailWindow = 4
+      EntryTimeCap = 5
       // Qulla initial stop: floor the trailing stop at the entry-day low. Default on.
       UseEntryDayStop = true
       // Trade direction. Long is the production system; Short mirrors the stop geometry
@@ -83,7 +94,9 @@ let defaultConfig =
 /// two outputs diff directly.
 type Trip =
     { Symbol: string
+      SignalDate: DateOnly
       EntryDate: DateOnly
+      EntryReason: string
       ExitDate: DateOnly
       EntryPrice: float
       ExitPrice: float
@@ -115,7 +128,9 @@ let private toTrip (symbol: string) (notional: float) (side: Side)
         // Long profits when price rises (exit−entry); Short when it falls (entry−exit).
         let dir = match side with Long -> 1.0 | Short -> -1.0
         { Symbol = symbol
+          SignalDate = p.SignalDate
           EntryDate = p.EntryDate
+          EntryReason = p.EntryReason
           ExitDate = exitDate
           EntryPrice = p.EntryPrice
           ExitPrice = exitPrice
@@ -175,14 +190,21 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
     let newSystem () =
         QullaSystem(cfg.StopLowWindow, cfg.TrailWindow, cfg.HiCloseWindow,
                     cfg.AtrWindow, cfg.TightnessWindow, cfg.VolDays,
-                    cfg.ExpansionThr, cfg.ExitTimeCap, cfg.UseEntryDayStop, cfg.Side, cfg.TightnessMode, cfg.Entry)
+                    cfg.ExpansionThr, cfg.ExitTimeCap, cfg.EntryLimitMode,
+                    cfg.EntryTrailWindow, cfg.EntryTimeCap, cfg.UseEntryDayStop,
+                    cfg.Side, cfg.TightnessMode, cfg.Entry)
 
     // Flush the just-finished ticker: MTM-close open trips, emit all trips.
     let flush () =
         if not (isNull curTicker) then
             sys.Finalize lastBar
             for p in sys.Positions do
-                trips.Add(toTrip curTicker cfg.Notional cfg.Side barIndex p)
+                // In limit-entry mode some signals never filled (the pullback never
+                // came AND the timed-open never resolved before the data ended) —
+                // those stay non-Exited after Finalize and are NOT trips. Skip them.
+                match p.State with
+                | Exited _ -> trips.Add(toTrip curTicker cfg.Notional cfg.Side barIndex p)
+                | _ -> ()
 
     use reader = cmd.ExecuteReader()
     while reader.Read() do
@@ -216,14 +238,16 @@ let private inv = CultureInfo.InvariantCulture
 let private fmt (x: float) = if Double.IsNaN x then "nan" else x.ToString("0.################", inv)
 
 let header =
-    "symbol,entry_date,exit_date,side,entry_price,exit_price,qty,net_pnl,bars_held,"
+    "symbol,signal_date,entry_date,entry_reason,exit_date,side,entry_price,exit_price,qty,net_pnl,bars_held,"
     + "entry_adj_volume,rvol_at_entry,avg_dollar_volume_4w_at_entry,pct_up_at_entry,"
     + "atr_pct_14_at_entry,range_pct_14_at_entry,tightness_14_at_entry,pct_52w_at_entry,pct_52w_high_at_entry,pct_52w_low_close_at_entry,pct_52w_low_at_entry,exit_reason,open"
 
 let private row (t: Trip) : string =
     String.concat "," [
         t.Symbol
+        t.SignalDate.ToString("yyyy-MM-dd")
         t.EntryDate.ToString("yyyy-MM-dd")
+        t.EntryReason
         t.ExitDate.ToString("yyyy-MM-dd")
         (match t.Side with Long -> "long" | Short -> "short")
         fmt t.EntryPrice

@@ -20,7 +20,15 @@ type Side =
     | Short
 
 /// Life-cycle of a single trip.
-///   - Holding: still in the trade, watching for a stop / expansion trigger.
+///   - PendingLimit barsRested: the entry signal fired on the prior bar, but
+///     instead of buying the close we rest a BUY LIMIT at the trailing prior-
+///     window low (`EntryTrailLow`, drags DOWN each bar as the window low
+///     falls). It fills only when bar.low reaches that level — a real resting
+///     order that can miss. `barsRested` counts the bars it has rested; once it
+///     reaches `entryTimeCap` without filling, the trade enters at the NEXT
+///     bar's open (timeout) tagged "open_after_cap". The signal-bar close is
+///     NOT a fill — the whole point is to test pullback entries vs at-close.
+///   - Holding: filled and in the trade, watching for a stop / expansion trigger.
 ///   - ExitingLimit barsRested: a STOP fired; a SELL LIMIT now rests at the
 ///     prior bar's N-day high (`TrailHigh`, excludes the current bar). It fills
 ///     only when bar.high reaches that level — a real resting order that can
@@ -32,18 +40,23 @@ type Side =
 ///     cap=0 baseline stop exit, and limit timeouts all route here).
 ///   - Exited: closed for any reason; never updated again.
 type PositionState =
+    | PendingLimit of barsRested: int
     | Holding
     | ExitingLimit of barsRested: int
     | ExitingMarket of reason: string
     | Exited of exitDate: DateOnly * exitPrice: float * reason: string
 
-/// One trip. EntryDate/EntryPrice and the *_at_entry metrics are fixed at open;
-/// State carries the rest of the life-cycle.
+/// One trip. The *_at_entry metrics are snapshotted at the SIGNAL bar and fixed;
+/// EntryDate/EntryPrice are the FILL values (= the signal close in the at-close
+/// baseline, or the limit / timed-open price in limit-entry mode), set when the
+/// order fills. State carries the rest of the life-cycle.
 type Position =
-    { EntryDate: DateOnly
-      EntryPrice: float
-      EntryDayStopRef: float    // Qullamaggie initial-stop reference (entry bar's low for Long, high for Short)
-      // metrics snapshotted at the entry bar (for the trips CSV / parity diff)
+    { SignalDate: DateOnly      // bar that fired the entry signal (metrics are as of here)
+      EntryDate: DateOnly       // bar the order actually FILLED (= SignalDate at-close)
+      EntryPrice: float         // fill price (signal close at-close; limit/open in limit mode)
+      EntryReason: string       // "close" | "limit" | "open_after_cap"
+      EntryDayStopRef: float    // Qullamaggie initial-stop reference (FILL bar's low for Long, high for Short)
+      // metrics snapshotted at the SIGNAL bar (for the trips CSV / parity diff)
       EntryVolume: int64
       RvolAtEntry: float
       AvgDollarVolumeAtEntry: float
@@ -104,6 +117,9 @@ type QullaSystem
       volDays: int,
       expansionThr: float,
       exitTimeCap: int,
+      entryLimitMode: bool,
+      entryTrailWindow: int,
+      entryTimeCap: int,
       useEntryDayStop: bool,
       side: Side,
       tightnessMode: TightnessMode,
@@ -111,6 +127,8 @@ type QullaSystem
 
     // ----- rolling structures -----
     let stopLow   = MinMa(stopLowWindow)        // LONG trailing stop: min low
+    let entryLow  = MinMa(entryTrailWindow)     // limit-entry: prior-window low the buy limit rests at
+    let entryHigh = MaxMa(entryTrailWindow)     // limit-entry SHORT mirror: prior-window high
     let stopHigh  = MaxMa(stopLowWindow)        // SHORT trailing stop: max high
     let trailHigh = MaxMa(trailWindow)          // trailing-limit exit: max high
     let hiClose   = MaxMa(hiCloseWindow)        // long-term close channel (e.g. 252d), over CLOSES
@@ -136,6 +154,8 @@ type QullaSystem
     //       ValueNone until the underlying window has seen ≥1 prior bar. -----
     let mutable sStopLow   : float voption = ValueNone
     let mutable sStopHigh  : float voption = ValueNone
+    let mutable sEntryLow  : float voption = ValueNone
+    let mutable sEntryHigh : float voption = ValueNone
     let mutable sTrailHigh : float voption = ValueNone
     let mutable sHiClose   : float voption = ValueNone
     let mutable sHiHigh    : float voption = ValueNone
@@ -154,6 +174,13 @@ type QullaSystem
 
     /// Trailing stop reference: lowest low over the prior `stopLowWindow` bars.
     member _.StopLow = sStopLow
+    /// Limit-ENTRY reference (Long): lowest low over the prior `entryTrailWindow`
+    /// bars (pre-push, EXCLUDES the current bar). The resting BUY limit rests here
+    /// and drags DOWN as the window low falls.
+    member _.EntryLow = sEntryLow
+    /// Limit-ENTRY reference (Short mirror): highest high over the prior
+    /// `entryTrailWindow` bars. The resting SELL limit rests here.
+    member _.EntryHigh = sEntryHigh
     /// Trailing-limit exit reference: highest high over the prior `trailWindow` bars
     /// (pre-push, EXCLUDES the current bar). The resting sell limit rests here.
     member _.TrailHigh = sTrailHigh
@@ -321,6 +348,8 @@ type QullaSystem
         sAvgDolVol <- avgDolVol.State
         sStopLow   <- stopLow.State
         sStopHigh  <- stopHigh.State
+        sEntryLow  <- entryLow.State
+        sEntryHigh <- entryHigh.State
         sTrailHigh <- trailHigh.State
         sHiClose   <- hiClose.State
         sHiHigh    <- hiHigh.State
@@ -357,6 +386,8 @@ type QullaSystem
 
         stopLow.Push   bar.low
         stopHigh.Push  bar.high
+        entryLow.Push  bar.low
+        entryHigh.Push bar.high
         trailHigh.Push bar.high
         hiClose.Push   bar.close
         hiHigh.Push    bar.high
@@ -390,6 +421,40 @@ type QullaSystem
     member this.Update (bar: Bar) (pos: Position) : Position =
         match pos.State with
         | Exited _ -> pos
+        | PendingLimit barsRested ->
+            // The signal fired on a PRIOR bar; rest a BUY LIMIT (Long) at the
+            // trailing prior-window low (sEntryLow excludes the current bar and
+            // drags DOWN as the window low falls), or a SELL LIMIT (Short) at the
+            // prior-window high. Fill only if THIS bar trades to it — a real
+            // resting order that can miss and roll forward. This is rest-bar
+            // number (barsRested+1) of at most `entryTimeCap`.
+            //
+            // Fill price models a conservative gap: a buy limit at `lvl` fills at
+            // `min(lvl, open)` (a gap-down opening below the limit fills at the
+            // open, not the better limit), symmetric for the short sell limit.
+            // Entry-day stop reference is captured at the FILL bar (its low/high).
+            let fillLong  lvl = min lvl bar.``open``
+            let fillShort lvl = max lvl bar.``open``
+            let filled =
+                match side with
+                | Long  -> match sEntryLow  with ValueSome lvl when bar.low  <= lvl -> ValueSome (fillLong lvl)  | _ -> ValueNone
+                | Short -> match sEntryHigh with ValueSome lvl when bar.high >= lvl -> ValueSome (fillShort lvl) | _ -> ValueNone
+            match filled with
+            | ValueSome px ->
+                { pos with
+                    State = Holding
+                    EntryDate = bar.date
+                    EntryPrice = px
+                    EntryReason = "limit"
+                    EntryDayStopRef = (match side with Long -> bar.low | Short -> bar.high) }
+            | ValueNone when barsRested + 1 >= entryTimeCap ->
+                // Rested the full cap unfilled -> enter at the NEXT bar's open,
+                // tagged so the open-after-cap entries can be analyzed separately.
+                // Re-use ExitingMarket as the "fill at next open" carrier with a
+                // sentinel reason that the next-bar branch recognizes for ENTRY.
+                { pos with State = ExitingMarket "__enter_open_after_cap" }
+            | ValueNone ->
+                { pos with State = PendingLimit (barsRested + 1) }
         | Holding ->
             // Stop floor: the higher of the trailing prior-window low and the
             // Qullamaggie entry-day low. (sStopLow excludes the current bar.)
@@ -440,6 +505,17 @@ type QullaSystem
             elif expansionHit then
                 { pos with State = ExitingMarket "expansion" }
             else pos
+        | ExitingMarket "__enter_open_after_cap" ->
+            // ENTRY timed-out: the buy/sell limit rested the full cap unfilled, so
+            // we take the trade at THIS bar's open (the bar after the cap elapsed),
+            // tagged "open_after_cap" so these forced-open fills can be analyzed
+            // separately from the limit fills.
+            { pos with
+                State = Holding
+                EntryDate = bar.date
+                EntryPrice = bar.``open``
+                EntryReason = "open_after_cap"
+                EntryDayStopRef = (match side with Long -> bar.low | Short -> bar.high) }
         | ExitingMarket reason ->
             // Sell at THIS bar's open (this is the bar after the trigger / after
             // the limit timed out).
@@ -477,9 +553,17 @@ type QullaSystem
             // so these reads are safe (NaN only if a metric isn't gated, which
             // it always is here).
             let orNan = function ValueSome v -> v | ValueNone -> nan
+            // At-close baseline: fill at this bar's close immediately (Holding).
+            // Limit-entry mode: queue a PendingLimit order — no fill yet; it rests
+            // a buy/sell limit at the trailing prior-window low/high for up to
+            // `entryTimeCap` bars (then takes the open). EntryDate/EntryPrice are
+            // placeholders here and are overwritten when the order actually fills.
+            // The *_at_entry metrics are fixed at THIS (the signal) bar either way.
             positions.Add
-                { EntryDate = bar.date
+                { SignalDate = bar.date
+                  EntryDate = bar.date
                   EntryPrice = bar.close
+                  EntryReason = "close"
                   EntryDayStopRef = (match side with Long -> bar.low | Short -> bar.high)
                   EntryVolume = bar.volume
                   RvolAtEntry = orNan (this.Rvol (float bar.volume))
@@ -491,7 +575,7 @@ type QullaSystem
                   Pct52wHighAtEntry = orNan (this.Pct52wHigh bar.close)
                   Pct52wLowCloseAtEntry = orNan (this.Pct52wLowClose bar.close)
                   Pct52wLowAtEntry = orNan (this.Pct52wLow bar.close)
-                  State = Holding }
+                  State = if entryLimitMode then PendingLimit 0 else Holding }
 
     /// Close any still-open positions at the final bar's close, marked-to-market
     /// (v0's "mtm" exit). Call once after the last bar of the series. Positions
@@ -501,6 +585,11 @@ type QullaSystem
         for i in 0 .. positions.Count - 1 do
             match positions.[i].State with
             | Exited _ -> ()
+            // A still-pending entry order that never filled (or whose timed-open
+            // fill never resolved within the data) is NOT a trip — leave it Pending
+            // / sentinel so the caller can drop it (see `run`'s never-filled skip).
+            | PendingLimit _ -> ()
+            | ExitingMarket "__enter_open_after_cap" -> ()
             | Holding | ExitingLimit _ | ExitingMarket _ ->
                 positions.[i] <-
                     { positions.[i] with

@@ -17,6 +17,9 @@ type Args =
     | Stop_Low_Window of int
     | Trail_Window of int
     | Exit_Time_Cap of int
+    | Entry_Limit
+    | Entry_Trail_Window of int
+    | Entry_Time_Cap of int
     | Expansion_Thr of float
     | Max_Tightness of float
     | Max_Atr_Pct of float
@@ -39,6 +42,9 @@ type Args =
             | Stop_Low_Window _ -> "Trailing-stop low window in bars. Default 4."
             | Trail_Window _ -> "Trailing-limit N-day-high window (the resting sell-limit reference). Default 1 (N=1)."
             | Exit_Time_Cap _ -> "Bars the sell limit may rest before exiting at the next open. Default 5. 0 = exit at next open immediately (N ignored)."
+            | Entry_Limit -> "Limit-ENTRY mode: instead of buying the signal-bar close, rest a buy limit at the trailing prior-window low (drags down each bar) and fill only on a pullback; on timeout enter at the next open (tagged open_after_cap). Default off (buy the close)."
+            | Entry_Trail_Window _ -> "Prior-window-low window the entry buy limit rests at (drags down). Default 4 (= stop window). Only used with --entry-limit."
+            | Entry_Time_Cap _ -> "Bars the entry limit may rest before entering at the next open. Default 5. Only used with --entry-limit."
             | Expansion_Thr _ -> "Expansion-exit threshold on the log-tightness scale (exit when tightness > this). Default +inf (off). Live tightness runs ~1.4–13."
             | Max_Tightness _ -> "Max entry tightness (log scale). Default 5.0. Pass a large value to disable."
             | Max_Atr_Pct _ -> "Max entry ATR%% (log scale). Default 0.11. Pass a large value to disable."
@@ -86,6 +92,9 @@ let main argv =
             StopLowWindow = parsed.GetResult(Stop_Low_Window, defaultValue = defaultConfig.StopLowWindow)
             TrailWindow   = parsed.GetResult(Trail_Window,    defaultValue = defaultConfig.TrailWindow)
             ExitTimeCap   = parsed.GetResult(Exit_Time_Cap,   defaultValue = defaultConfig.ExitTimeCap)
+            EntryLimitMode   = parsed.Contains Entry_Limit
+            EntryTrailWindow = parsed.GetResult(Entry_Trail_Window, defaultValue = defaultConfig.EntryTrailWindow)
+            EntryTimeCap     = parsed.GetResult(Entry_Time_Cap,     defaultValue = defaultConfig.EntryTimeCap)
             ExpansionThr  = parsed.GetResult(Expansion_Thr,   defaultValue = defaultConfig.ExpansionThr)
             UseEntryDayStop = not (parsed.Contains No_Entry_Day_Stop)
             Side = side
@@ -105,6 +114,8 @@ let main argv =
     printfn "  range     = %O .. %O" startDate endDate
     printfn "  side = %A   stop win = %d   trail N = %d   exit cap = %d   expansion = %.2f   tightness = %A"
         cfg.Side cfg.StopLowWindow cfg.TrailWindow cfg.ExitTimeCap cfg.ExpansionThr cfg.TightnessMode
+    printfn "  entry mode = %s   entry trail win = %d   entry cap = %d"
+        (if cfg.EntryLimitMode then "trailing-limit" else "at-close") cfg.EntryTrailWindow cfg.EntryTimeCap
     printfn "  entry     = up>=%.2f rvol[%.0f,%.0f] adv>=%.0f price>=%.0f 52w>=%.2f tight<%.2f atr%%<%.2f"
         cfg.Entry.UpThreshold cfg.Entry.RvolMin cfg.Entry.RvolMax cfg.Entry.MinAvgDollarVolume
         cfg.Entry.MinPrice cfg.Entry.Min52wPct cfg.Entry.MaxTightness cfg.Entry.MaxAtrPct
