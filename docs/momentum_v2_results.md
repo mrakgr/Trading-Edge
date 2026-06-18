@@ -490,6 +490,35 @@ everywhere else** — never a global default. (Aside, untested: gap-overs might 
 EARLY-in-the-day open entry — gaps come from premarket news, so waiting for the close may be wrong —
 but that needs premarket-volume data we don't have yet to model open entries.)
 
+#### Gap-over baseline in the intraday-data window (mid-2021+) — setting up the open-entry test (2026-06-18 PM)
+
+To prep the open-entry idea above we pulled the **bulk 1-minute aggregate universe** (Massive
+`download-bulk-minute`). The subscription only reaches **5 years back**, so the data starts
+**2021-06-17** (the pre-2021-06-17 dates 404/403 as out-of-window — expected, not retriable). That
+fixes the analysis window: **mid-2021 onward**. Here is the at-close baseline the open-entry test must
+beat, on the near-high universe (`pct_52w_high_at_entry ≥ 0`, pure gainers `up=0`, breadth-filtered):
+
+| mid-2021+ (near-high, at close) | n | PF | net | win% |
+| --- | ---: | ---: | ---: | ---: |
+| **gap-over** (signal-bar `adj_open ≥ hi_252_high`) | 277 | **1.09** | +$5.3k | 42.2 |
+| reclaim (open below → close above) | 336 | 1.22 | +$24.9k | 42.6 |
+
+Two takeaways for the open-entry work:
+- **Gap-overs are barely break-even at the close (PF 1.09)** in this window — a *low bar*, which is the
+  point: the thesis is that a gap's move happens premarket/at-open and fades into the close, so the
+  close is the wrong entry. Lots of headroom if entering at/near the open helps; the 277 gap-over
+  trips are the test set.
+- **Reclaims still beat gap-overs even here (1.22 vs 1.09)** — consistent with every prior split;
+  reclaim is the genuinely better near-high entry, gap-over is the suspect class the intraday data is
+  meant to rescue or kill.
+
+⚠️ **Per-year gap-over PF is pure noise** — 26–81 trades/year, PF swinging 0.66 (2025) → 2.00 (2022) →
+0.66 → 2.03 (2026) with no trend. **Pool the whole mid-2021+ window; do not slice gap-overs by year.**
+The decision rule for tomorrow: if an open / early-morning entry materially beats the 1.09 close
+baseline on these 277, gap-overs become tradeable and it's worth re-subscribing for older data;
+otherwise gap-overs stay a skip and **reclaim + dead-zone limit** remains the answer. (Minute corpus
+now on disk: `data/minute_aggs/{date}.parquet`, 2021-06-17 → 2026-04-17, 1,214 daily files.)
+
 #### Breakouts FAR below the high (< −15%) — positive but weaker, and the structure inverts (2026-06-18)
 
 With the quality filters MET (tightness<4, ATR%<0.11, rvol≥3) but the 52w gate OFF, what happens to
