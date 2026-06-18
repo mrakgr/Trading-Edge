@@ -17,6 +17,7 @@ type Config =
       ExpansionThr: float
       ExitTimeCap: int          // bars the sell limit may rest; 0 = exit next open (N ignored)
       UseEntryDayStop: bool     // true = stop floored at entry-day low (Qulla); false = trailing low only
+      Side: Side                // Long (default) or Short — flips stop geometry + P&L sign
       TightnessMode: TightnessMode  // Log (default) or Linear — drives entry tightness + expansion
       Notional: float
       Entry: EntryConfig }
@@ -51,6 +52,9 @@ let defaultConfig =
       ExitTimeCap = 0
       // Qulla initial stop: floor the trailing stop at the entry-day low. Default on.
       UseEntryDayStop = true
+      // Trade direction. Long is the production system; Short mirrors the stop geometry
+      // (trail the prior-window HIGH) and flips the P&L sign — used for the short studies.
+      Side = Long
       Notional = 10_000.0
       Entry =
           // Entry-day-move floor. Raised 0.05 → 0.10 by the post-hoc pct_up sweep:
@@ -96,24 +100,27 @@ type Trip =
       Pct52wHighAtEntry: float
       Pct52wLowCloseAtEntry: float
       Pct52wLowAtEntry: float
+      Side: Side
       ExitReason: string
       Open: bool }
 
 /// Convert a closed Position into a Trip. `barsHeld` is the number of trading
 /// bars the ticker saw between entry and exit (exit index − entry index),
 /// recovered from the per-ticker date list.
-let private toTrip (symbol: string) (notional: float)
+let private toTrip (symbol: string) (notional: float) (side: Side)
                    (barIndex: IReadOnlyDictionary<DateOnly,int>) (p: Position) : Trip =
     match p.State with
     | Exited (exitDate, exitPrice, reason) ->
         let qty = notional / p.EntryPrice
+        // Long profits when price rises (exit−entry); Short when it falls (entry−exit).
+        let dir = match side with Long -> 1.0 | Short -> -1.0
         { Symbol = symbol
           EntryDate = p.EntryDate
           ExitDate = exitDate
           EntryPrice = p.EntryPrice
           ExitPrice = exitPrice
           Qty = qty
-          NetPnL = qty * (exitPrice - p.EntryPrice)
+          NetPnL = qty * dir * (exitPrice - p.EntryPrice)
           BarsHeld = barIndex.[exitDate] - barIndex.[p.EntryDate]
           EntryVolume = p.EntryVolume
           RvolAtEntry = p.RvolAtEntry
@@ -125,6 +132,7 @@ let private toTrip (symbol: string) (notional: float)
           Pct52wHighAtEntry = p.Pct52wHighAtEntry
           Pct52wLowCloseAtEntry = p.Pct52wLowCloseAtEntry
           Pct52wLowAtEntry = p.Pct52wLowAtEntry
+          Side = side
           ExitReason = reason
           Open = (reason = "mtm") }
     | _ -> failwith "toTrip called on a non-Exited position (Finalize first)"
@@ -167,14 +175,14 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
     let newSystem () =
         QullaSystem(cfg.StopLowWindow, cfg.TrailWindow, cfg.HiCloseWindow,
                     cfg.AtrWindow, cfg.TightnessWindow, cfg.VolDays,
-                    cfg.ExpansionThr, cfg.ExitTimeCap, cfg.UseEntryDayStop, cfg.TightnessMode, cfg.Entry)
+                    cfg.ExpansionThr, cfg.ExitTimeCap, cfg.UseEntryDayStop, cfg.Side, cfg.TightnessMode, cfg.Entry)
 
     // Flush the just-finished ticker: MTM-close open trips, emit all trips.
     let flush () =
         if not (isNull curTicker) then
             sys.Finalize lastBar
             for p in sys.Positions do
-                trips.Add(toTrip curTicker cfg.Notional barIndex p)
+                trips.Add(toTrip curTicker cfg.Notional cfg.Side barIndex p)
 
     use reader = cmd.ExecuteReader()
     while reader.Read() do
@@ -217,7 +225,7 @@ let private row (t: Trip) : string =
         t.Symbol
         t.EntryDate.ToString("yyyy-MM-dd")
         t.ExitDate.ToString("yyyy-MM-dd")
-        "long"
+        (match t.Side with Long -> "long" | Short -> "short")
         fmt t.EntryPrice
         fmt t.ExitPrice
         fmt t.Qty

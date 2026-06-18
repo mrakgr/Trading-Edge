@@ -434,6 +434,33 @@ high-participation move on an unstructured (loose) base is toxic to be long of, 
 up case you avoid/fade it; for the down case you simply don't buy it. There is no symmetric "buy the
 panic" long edge here.
 
+#### …so SHORT them instead? Only the high-volume capitulation (2026-06-18)
+
+If buying the new-low loses, does *shorting* it win (trail the stop along the prior-window HIGH,
+cover on a break up — the mirror system)? Added a `Side = Long | Short` mode (`--side short`): Short
+trails the 15-day high and flips the P&L sign. On the same loose-base new-low population:
+
+**SHORT total: 1,797 trips, PF 0.914, −$115k — also a loser.** So it's *not* a simple stop-trip
+artifact (if it were, the short would profit). Both sides losing means these names **chop / mean-
+revert** — you get stopped out long on the bounces AND stopped out short on them. A no-trend regime.
+
+BUT the short edge concentrates exactly where the long was worst — **high volume** (2×2, loose-base
+new-low, short):
+
+| SHORT | rvol < 8 | rvol ≥ 8 |
+| --- | ---: | ---: |
+| big down (≤ −8%) | 0.67 (n=484) | **1.47** (n=145) |
+| mild (> −8%) | 0.99 (n=1062) | **1.51** (n=106) |
+
+**Shorting works only on a volume spike (rvol ≥ 8): PF ~1.5 in both move rows** (~250 trades, ~48%
+win) — and loses/chops on normal volume; the big-down/low-volume cell is the worst (0.67, those
+bounce and stop you out). It's **volume-gated, not move-gated**, and a modest low-frequency setup.
+
+**The symmetry (rvol is the key, both sides):** high-volume blow-offs *continue* — short the
+down ones (PF ~1.5), fade/avoid the up ones (long PF ~0.5) — while **low-volume drifts mean-revert /
+chop** and have no directional edge either way. The genuine inverse-exhaustion short edge exists but
+is narrow: loose base + new 52w low + **rvol ≥ 8**.
+
 ### Exits that *didn't* survive the realistic baseline
 
 - **Trailing limit** (sell at the prior N-day high) — a ≤+1% PF refinement under honest fills;

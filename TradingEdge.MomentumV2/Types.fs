@@ -11,6 +11,14 @@ type Bar =
       close: float
       volume: int64 }
 
+/// Trade direction. Long = buy, trail the stop along the prior-window LOW, cover
+/// (sell) when price breaks below it; P&L = exit − entry. Short = sell, trail the
+/// stop along the prior-window HIGH, cover (buy) when price breaks above it; P&L =
+/// entry − exit. The whole stop/exit geometry mirrors between the two.
+type Side =
+    | Long
+    | Short
+
 /// Life-cycle of a single trip.
 ///   - Holding: still in the trade, watching for a stop / expansion trigger.
 ///   - ExitingLimit barsRested: a STOP fired; a SELL LIMIT now rests at the
@@ -34,7 +42,7 @@ type PositionState =
 type Position =
     { EntryDate: DateOnly
       EntryPrice: float
-      EntryDayLow: float        // Qullamaggie initial-stop floor (entry bar's low)
+      EntryDayStopRef: float    // Qullamaggie initial-stop reference (entry bar's low for Long, high for Short)
       // metrics snapshotted at the entry bar (for the trips CSV / parity diff)
       EntryVolume: int64
       RvolAtEntry: float
@@ -97,11 +105,13 @@ type QullaSystem
       expansionThr: float,
       exitTimeCap: int,
       useEntryDayStop: bool,
+      side: Side,
       tightnessMode: TightnessMode,
       entryCfg: EntryConfig ) =
 
     // ----- rolling structures -----
-    let stopLow   = MinMa(stopLowWindow)        // trailing stop: min low
+    let stopLow   = MinMa(stopLowWindow)        // LONG trailing stop: min low
+    let stopHigh  = MaxMa(stopLowWindow)        // SHORT trailing stop: max high
     let trailHigh = MaxMa(trailWindow)          // trailing-limit exit: max high
     let hiClose   = MaxMa(hiCloseWindow)        // long-term close channel (e.g. 252d), over CLOSES
     let hiHigh    = MaxMa(hiCloseWindow)        // long-term HIGH channel (252d max of intraday highs)
@@ -125,6 +135,7 @@ type QullaSystem
     //       pushed, so they describe the state going into that bar.
     //       ValueNone until the underlying window has seen ≥1 prior bar. -----
     let mutable sStopLow   : float voption = ValueNone
+    let mutable sStopHigh  : float voption = ValueNone
     let mutable sTrailHigh : float voption = ValueNone
     let mutable sHiClose   : float voption = ValueNone
     let mutable sHiHigh    : float voption = ValueNone
@@ -309,6 +320,7 @@ type QullaSystem
         sAvgVol    <- avgVol.State
         sAvgDolVol <- avgDolVol.State
         sStopLow   <- stopLow.State
+        sStopHigh  <- stopHigh.State
         sTrailHigh <- trailHigh.State
         sHiClose   <- hiClose.State
         sHiHigh    <- hiHigh.State
@@ -344,6 +356,7 @@ type QullaSystem
             ()
 
         stopLow.Push   bar.low
+        stopHigh.Push  bar.high
         trailHigh.Push bar.high
         hiClose.Push   bar.close
         hiHigh.Push    bar.high
@@ -391,13 +404,23 @@ type QullaSystem
             // stop in the Position and set it to max(prev_stop, max(sStopLow,
             // entryDayLow)) so it only ever rises.
             let stopHit =
-                match sStopLow with
-                | ValueSome lo ->
-                    let stopLevel = if useEntryDayStop then max lo pos.EntryDayLow else lo
-                    bar.low <= stopLevel
-                | ValueNone ->
-                    // no trailing low yet: fall back to the entry-day low only if it's on
-                    useEntryDayStop && bar.low <= pos.EntryDayLow
+                match side with
+                | Long ->
+                    // trail the prior-window LOW (floored at the entry-day low); stop
+                    // when price breaks below it.
+                    match sStopLow with
+                    | ValueSome lo ->
+                        let lvl = if useEntryDayStop then max lo pos.EntryDayStopRef else lo
+                        bar.low <= lvl
+                    | ValueNone -> useEntryDayStop && bar.low <= pos.EntryDayStopRef
+                | Short ->
+                    // mirror: trail the prior-window HIGH (capped at the entry-day high);
+                    // cover when price breaks above it.
+                    match sStopHigh with
+                    | ValueSome hi ->
+                        let lvl = if useEntryDayStop then min hi pos.EntryDayStopRef else hi
+                        bar.high >= lvl
+                    | ValueNone -> useEntryDayStop && bar.high >= pos.EntryDayStopRef
             // Expansion exit fires on the POSITION-RELATIVE tightness (range low
             // floored at the entry price), so it grows as the name runs above our
             // entry across a multi-bar climax — unlike the plain tightness, which a
@@ -457,7 +480,7 @@ type QullaSystem
             positions.Add
                 { EntryDate = bar.date
                   EntryPrice = bar.close
-                  EntryDayLow = bar.low
+                  EntryDayStopRef = (match side with Long -> bar.low | Short -> bar.high)
                   EntryVolume = bar.volume
                   RvolAtEntry = orNan (this.Rvol (float bar.volume))
                   AvgDollarVolumeAtEntry = orNan sAvgDolVol

@@ -24,6 +24,7 @@ type Args =
     | Min_Price of float
     | Min_52w_Pct of float
     | No_Entry_Day_Stop
+    | Side of string
     | Tightness_Mode of string
     | Rvol_Min of float
     | Rvol_Max of float
@@ -45,6 +46,7 @@ type Args =
             | Min_Price _ -> "Min entry close price. Default 5.0. Pass 0 to admit sub-$5 names."
             | Min_52w_Pct _ -> "52-week-high proximity: require close >= this * prior-252d-high-close. Default 0.95. 1.0 = strict new high (the old v0 default); 0 drops the gate."
             | No_Entry_Day_Stop -> "Drop the Qulla entry-day-low stop floor; use the trailing prior-window low only (no stop until that window warms)."
+            | Side _ -> "Trade direction: 'long' (default) or 'short'. Short trails the stop along the prior-window HIGH and flips the P&L sign."
             | Tightness_Mode _ -> "Tightness measure for the entry filter + expansion exit: 'log' (default) or 'linear'. Thresholds differ between modes."
             | Rvol_Min _ -> "Minimum relative volume at entry. Default 6.0 (production)."
             | Rvol_Max _ -> "Maximum relative volume at entry. Default 20.0 (production)."
@@ -70,6 +72,15 @@ let main argv =
             | "linear" | "lin" -> Linear
             | other -> failwithf "unknown --tightness-mode '%s' (expected 'log' or 'linear')" other
 
+    let side =
+        match parsed.TryGetResult Side with
+        | None -> defaultConfig.Side
+        | Some s ->
+            match s.Trim().ToLowerInvariant() with
+            | "long" -> Types.Long
+            | "short" -> Types.Short
+            | other -> failwithf "unknown --side '%s' (expected 'long' or 'short')" other
+
     let cfg =
         { defaultConfig with
             StopLowWindow = parsed.GetResult(Stop_Low_Window, defaultValue = defaultConfig.StopLowWindow)
@@ -77,6 +88,7 @@ let main argv =
             ExitTimeCap   = parsed.GetResult(Exit_Time_Cap,   defaultValue = defaultConfig.ExitTimeCap)
             ExpansionThr  = parsed.GetResult(Expansion_Thr,   defaultValue = defaultConfig.ExpansionThr)
             UseEntryDayStop = not (parsed.Contains No_Entry_Day_Stop)
+            Side = side
             TightnessMode = tightnessMode
             Entry =
               { defaultConfig.Entry with
@@ -91,8 +103,8 @@ let main argv =
     printfn "MomentumV2 backtest"
     printfn "  db        = %s" dbPath
     printfn "  range     = %O .. %O" startDate endDate
-    printfn "  stop win  = %d   trail N = %d   exit cap = %d   expansion = %.2f   tightness = %A"
-        cfg.StopLowWindow cfg.TrailWindow cfg.ExitTimeCap cfg.ExpansionThr cfg.TightnessMode
+    printfn "  side = %A   stop win = %d   trail N = %d   exit cap = %d   expansion = %.2f   tightness = %A"
+        cfg.Side cfg.StopLowWindow cfg.TrailWindow cfg.ExitTimeCap cfg.ExpansionThr cfg.TightnessMode
     printfn "  entry     = up>=%.2f rvol[%.0f,%.0f] adv>=%.0f price>=%.0f 52w>=%.2f tight<%.2f atr%%<%.2f"
         cfg.Entry.UpThreshold cfg.Entry.RvolMin cfg.Entry.RvolMax cfg.Entry.MinAvgDollarVolume
         cfg.Entry.MinPrice cfg.Entry.Min52wPct cfg.Entry.MaxTightness cfg.Entry.MaxAtrPct
