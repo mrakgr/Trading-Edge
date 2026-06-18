@@ -51,6 +51,36 @@ dotnet run --project TradingEdge.Massive -- download-bulk -s 2024-12-01 -e 2024-
 
 Output: `data/daily_aggregates/{yyyy-MM-dd}.csv.gz`
 
+### Download Bulk Minute Aggregates
+
+Downloads 1-minute OHLCV aggregate bars for the **entire universe** from Massive S3 storage, one parquet per trading day. This is the whole-market counterpart to `download-bulk` (daily); use it when you need intraday bars across all tickers rather than the per-ticker REST `download-intraday`. A two-stage pipeline (download `.csv.gz` to an SSD staging dir → convert to parquet via `zcat | duckdb`) so downloads and conversions overlap.
+
+```bash
+dotnet run --project TradingEdge.Massive -- download-bulk-minute [options]
+```
+
+**Options:**
+- `-s, --start-date <yyyy-MM-dd>` - Start date (default: 2024-04-01). Massive's minute history goes back to **2021-01-01**.
+- `-e, --end-date <yyyy-MM-dd>` - End date (default: today)
+- `-p, --parallelism <int>` - Max parallel downloads (default: 10)
+- `-cp, --convert-parallelism <int>` - Max parallel converters (`zcat | duckdb`) (default: 1; 4 keeps up with `-p 10`)
+- `-o, --output-dir <path>` - Output directory (default: `data/minute_aggs`)
+- `-T, --temp-dir <path>` - SSD-backed staging dir for in-flight `.csv.gz` (default: `~/.cache/massive_bulk_tmp`)
+
+**Examples:**
+
+```bash
+# Extend the corpus back to the start of Massive's minute history
+dotnet run --project TradingEdge.Massive -- download-bulk-minute -s 2021-01-01 -e 2024-03-31 -p 10 -cp 4
+
+# A single month
+dotnet run --project TradingEdge.Massive -- download-bulk-minute -s 2024-04-01 -e 2024-04-30
+```
+
+Output: `data/minute_aggs/{yyyy-MM-dd}.parquet` (≈18 MB/day, ≈4.5 GB/year). Schema: `(ticker, ohlcv, window_start, transactions)`.
+
+**Idempotent / resumable:** a date whose final `.parquet` already exists is **Skipped**, so re-running the same range only fetches missing days. Market holidays (S3 404) are skipped automatically. Transient S3 `403 Forbidden` bursts can occur at the very start of a run (connection ramp); they are reported as `Failed` and simply leave those days missing — **re-run the same command to retry only the failed/missing dates.**
+
 ### Download Stock Splits
 
 Downloads stock split information from the Massive API.
