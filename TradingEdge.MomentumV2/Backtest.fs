@@ -16,6 +16,7 @@ type Config =
       VolDays: int
       ExpansionThr: float
       ExitTimeCap: int          // bars the sell limit may rest; 0 = exit next open (N ignored)
+      UseEntryDayStop: bool     // true = stop floored at entry-day low (Qulla); false = trailing low only
       TightnessMode: TightnessMode  // Log (default) or Linear — drives entry tightness + expansion
       Notional: float
       Entry: EntryConfig }
@@ -48,6 +49,8 @@ let defaultConfig =
       // (TrailWindow/N ignored). The trailing limit was a ≤+1% refinement, not the
       // edge, and the realistic-fill rewrite retired it as the default.
       ExitTimeCap = 0
+      // Qulla initial stop: floor the trailing stop at the entry-day low. Default on.
+      UseEntryDayStop = true
       Notional = 10_000.0
       Entry =
           // Entry-day-move floor. Raised 0.05 → 0.10 by the post-hoc pct_up sweep:
@@ -160,7 +163,7 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
     let newSystem () =
         QullaSystem(cfg.StopLowWindow, cfg.TrailWindow, cfg.HiCloseWindow,
                     cfg.AtrWindow, cfg.TightnessWindow, cfg.VolDays,
-                    cfg.ExpansionThr, cfg.ExitTimeCap, cfg.TightnessMode, cfg.Entry)
+                    cfg.ExpansionThr, cfg.ExitTimeCap, cfg.UseEntryDayStop, cfg.TightnessMode, cfg.Entry)
 
     // Flush the just-finished ticker: MTM-close open trips, emit all trips.
     let flush () =

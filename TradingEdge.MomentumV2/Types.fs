@@ -94,6 +94,7 @@ type QullaSystem
       volDays: int,
       expansionThr: float,
       exitTimeCap: int,
+      useEntryDayStop: bool,
       tightnessMode: TightnessMode,
       entryCfg: EntryConfig ) =
 
@@ -355,6 +356,9 @@ type QullaSystem
         | Holding ->
             // Stop floor: the higher of the trailing prior-window low and the
             // Qullamaggie entry-day low. (sStopLow excludes the current bar.)
+            // When `useEntryDayStop` is false the entry-day-low floor is dropped
+            // and the stop is JUST the trailing prior-window low (and there is no
+            // stop at all until that window has warmed, sStopLow = ValueNone).
             // TODO(post-parity): make this a HARD up-only ratchet. v0 only
             // ratchets implicitly — max(rising low_15_prior, entry-day low) —
             // so the stop can tick DOWN if a lower low slides into the trailing
@@ -362,11 +366,14 @@ type QullaSystem
             // trailing stop never loosens; once we match v0 trips, carry the
             // stop in the Position and set it to max(prev_stop, max(sStopLow,
             // entryDayLow)) so it only ever rises.
-            let stopLevel =
+            let stopHit =
                 match sStopLow with
-                | ValueSome lo -> max lo pos.EntryDayLow
-                | ValueNone -> pos.EntryDayLow
-            let stopHit = bar.low <= stopLevel
+                | ValueSome lo ->
+                    let stopLevel = if useEntryDayStop then max lo pos.EntryDayLow else lo
+                    bar.low <= stopLevel
+                | ValueNone ->
+                    // no trailing low yet: fall back to the entry-day low only if it's on
+                    useEntryDayStop && bar.low <= pos.EntryDayLow
             // Expansion exit fires on the POSITION-RELATIVE tightness (range low
             // floored at the entry price), so it grows as the name runs above our
             // entry across a multi-bar climax — unlike the plain tightness, which a

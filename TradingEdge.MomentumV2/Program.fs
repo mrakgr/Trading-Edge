@@ -23,6 +23,7 @@ type Args =
     | Up_Threshold of float
     | Min_Price of float
     | Min_52w_Pct of float
+    | No_Entry_Day_Stop
     | Tightness_Mode of string
     | Rvol_Min of float
     | Rvol_Max of float
@@ -43,6 +44,7 @@ type Args =
             | Up_Threshold _ -> "Min entry-day move (close/prevClose-1). Default 0.10. The v0/old-system value was 0.05."
             | Min_Price _ -> "Min entry close price. Default 5.0. Pass 0 to admit sub-$5 names."
             | Min_52w_Pct _ -> "52-week-high proximity: require close >= this * prior-252d-high-close. Default 0.95. 1.0 = strict new high (the old v0 default); 0 drops the gate."
+            | No_Entry_Day_Stop -> "Drop the Qulla entry-day-low stop floor; use the trailing prior-window low only (no stop until that window warms)."
             | Tightness_Mode _ -> "Tightness measure for the entry filter + expansion exit: 'log' (default) or 'linear'. Thresholds differ between modes."
             | Rvol_Min _ -> "Minimum relative volume at entry. Default 6.0 (production)."
             | Rvol_Max _ -> "Maximum relative volume at entry. Default 20.0 (production)."
@@ -74,6 +76,7 @@ let main argv =
             TrailWindow   = parsed.GetResult(Trail_Window,    defaultValue = defaultConfig.TrailWindow)
             ExitTimeCap   = parsed.GetResult(Exit_Time_Cap,   defaultValue = defaultConfig.ExitTimeCap)
             ExpansionThr  = parsed.GetResult(Expansion_Thr,   defaultValue = defaultConfig.ExpansionThr)
+            UseEntryDayStop = not (parsed.Contains No_Entry_Day_Stop)
             TightnessMode = tightnessMode
             Entry =
               { defaultConfig.Entry with

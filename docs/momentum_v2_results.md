@@ -306,6 +306,38 @@ cut. Log mode stays reachable via `--tightness-mode log` for comparison only. Th
 detail tables below were generated on the *log* default and differ by ~7 trades; the headline above
 is the current (linear) default.
 
+#### The loose-base negative edge is conditional on a VOLUME / MOVE spike (2026-06-18)
+
+The loose-base loss isn't unconditional — it's overextension **combined with a same-day volume or
+move spike**. Take *all* loose-base new-high breakouts (tightness > 7.5, new 52w close-high, every
+other filter OFF — no rvol/price/ATR/move gates, ADV≥$100k liquidity floor only; 15-day stop, **no
+entry-day stop**, breadth, 2005+) and break down by rvol and by the day's move:
+
+| rvol at entry | n | PF | net | | pct_up | n | win% | PF | net |
+| --- | ---: | ---: | ---: | --- | --- | ---: | ---: | ---: | ---: |
+| <1 | 11212 | 1.157 | +780k | | <2% | 14718 | 50.0% | **1.342** | +1.62M |
+| 1–2 | 6608 | 1.164 | +548k | | 2–5% | 4461 | 39.4% | 1.004 | +11k |
+| 2–3 | 2196 | 1.007 | +10k | | 5–10% | 1933 | 39.1% | 1.071 | +128k |
+| 3–5 | 1432 | 0.857 | −176k | | 10–20% | 980 | 33.6% | 0.808 | −272k |
+| 5–8 | 619 | 0.898 | −66k | | 20–35% | 331 | 26.6% | 0.75 | −199k |
+| 8–15 | 410 | **0.606** | −242k | | **35%+** | 343 | **19.2%** | **0.419** | −695k |
+| 15+ | 289 | **0.51** | −260k | | | | | | |
+
+**Both rvol and the daily move are monotonic killers, and the move is even cleaner.** A loose-base
+name drifting to a new high on quiet volume / a small move (<2% day, PF 1.34, 50% win) is **fine**;
+the *same* loose base ripping +35% on huge volume (rvol 15+, PF ~0.5) is the disaster — 19% win
+rate, −$695k. This is the exhaustion signature in its purest form: a loose base is only dangerous
+when it's *also* a climax spike that day. (The high-rvol/high-move negative edge holds with the
+entry-day stop dropped too, so it is a real signal, not a stop artifact — though dropping the
+entry-day stop did lift the whole population's PF 1.028 → 1.079, since the wide-range loose breakouts
+trip the tight initial stop a lot.)
+
+**Implication for exhaustion exits:** the v0 exhaustion exit fired on overextension alone, with no
+volume/move condition — so it was a blunt instrument. Adding an rvol/move condition to the exhaustion
+trigger should make it far more targeted (fade only the spike-blow-offs, not quiet drifters). This is
+the next thing to test on the exit side. *(Reproduction: the 998k-trip `--no-entry-day-stop` run
+above, tiered on `tightness_14_at_entry > 7.5` with `rvol_at_entry` / `pct_up_at_entry`.)*
+
 ### Exits that *didn't* survive the realistic baseline
 
 - **Trailing limit** (sell at the prior N-day high) — a ≤+1% PF refinement under honest fills;
