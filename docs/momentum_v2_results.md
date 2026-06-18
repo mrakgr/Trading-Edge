@@ -338,6 +338,22 @@ trigger should make it far more targeted (fade only the spike-blow-offs, not qui
 the next thing to test on the exit side. *(Reproduction: the 998k-trip `--no-entry-day-stop` run
 above, tiered on `tightness_14_at_entry > 7.5` with `rvol_at_entry` / `pct_up_at_entry`.)*
 
+**rvol vs move: only moderately correlated, and the MOVE dominates.** Within the loose-base
+population, rvol and pct_up have a **Spearman rank correlation of 0.38** (raw Pearson 0.04 is
+outlier-scrambled and misleading; log–log 0.24). So they share information but are far from
+redundant. The 2×2 shows the move is the primary signal and rvol a secondary confirmer:
+
+| (loose base) | rvol < 5 | rvol ≥ 5 |
+| --- | ---: | ---: |
+| **move < 10%** | PF 1.18 (n=20392) | PF 1.35 (n=720) |
+| **move ≥ 10%** | **0.76** (n=1056) | **0.51** (n=598) |
+
+A big move kills the edge regardless of volume (0.76 / 0.51); small-move names are fine either way —
+and *high rvol on a small move is the best cell* (1.35; high volume on a quiet day is just liquidity).
+But both together is the worst (0.51): rvol adds incremental damage *conditional on* a big move
+(0.76 → 0.51). So an exhaustion trigger should make the **daily move the primary condition with rvol
+as a sharpener**, not weight them equally.
+
 ### Exits that *didn't* survive the realistic baseline
 
 - **Trailing limit** (sell at the prior N-day high) — a ≤+1% PF refinement under honest fills;
