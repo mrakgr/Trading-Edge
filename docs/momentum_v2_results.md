@@ -309,6 +309,12 @@ close-in-range (which evaporated on pure gainers), the reclaim-vs-gap split surv
 cleanly. **This is the dead zone's actual rescue: require an intraday reclaim of the prior high, not
 a gap over it.**
 
+Not a stop artifact: a gap-over's entry-day-low stop sits relatively tighter (open far above the
+low), so the split could be stop-geometry. Re-ran with `--no-entry-day-stop` — the edge holds:
+reclaim 1.435 (vs 1.43), gap-over 1.16 (vs 1.09; the stop *was* penalizing gap-overs slightly more,
+a second-order effect), reclaim still wins both eras (1.65 / 1.29 vs 1.07 / 1.16). The reclaim
+advantage is genuine, not a consequence of the initial stop.
+
 #### Breakouts FAR below the high (< −15%) — positive but weaker, and the structure inverts (2026-06-18)
 
 With the quality filters MET (tightness<4, ATR%<0.11, rvol≥3) but the 52w gate OFF, what happens to
