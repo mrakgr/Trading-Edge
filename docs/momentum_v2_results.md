@@ -1,6 +1,6 @@
 # Mid-Cap Momentum v2 — Log-Space Volatility Filters
 
-**Status: working long-only daily-momentum edge, PF ~1.73 post-breadth, on honest next-open fills.**
+**Status: working long-only daily-momentum edge, PF ~1.76 post-breadth, on honest next-open fills.**
 This is the current production system. It supersedes both `momentum_v0` (whose mean-reversion
 trailing-limit results were inflated by a fill bug) and the v1 *exit*-correction work, by re-deriving
 the **entry** filters on a log-volatility scale and dropping the trailing-limit / expansion exits in
@@ -26,7 +26,7 @@ no lookahead):
 | entry-day move | **≥ 10%** | `close/prevClose − 1` — the breakout has to *announce itself* |
 | relative volume | **6 ≤ rvol ≤ 20** | `volume / 28-day avg volume`; band, not a floor |
 | ATR% (log) | **< 0.11** | mean log-true-range over 14 prior bars (see below) |
-| tightness (log) | **< 4.0** | `log(14d range) / logATR` — prior consolidation must be tight |
+| tightness (linear) | **< 4.0** | `(14d range) / ATR` — prior consolidation must be tight (linear default; sharper loose-tail cut than log) |
 | 52-week proximity | **close ≥ 0.95 × hi_252** | near the 1-year closing high |
 | price floor | **≥ $5** | no sub-$5 names |
 | liquidity | **avg dollar volume ≥ $100k** | 28-day average |
@@ -41,12 +41,12 @@ close.
 
 | | value |
 | --- | ---: |
-| trips | 2,260 |
-| win rate | 45.8% |
-| profit factor | **1.734** |
-| net P&L | +$520,641 |
-| % months positive | 58.7% |
-| max monthly drawdown | **−$35,807** |
+| trips | 2,253 |
+| win rate | 46.1% |
+| profit factor | **1.758** |
+| net P&L | +$530,988 |
+| % months positive | 59.6% |
+| max monthly drawdown | **−$37,594** |
 | years positive | **21 / 22** |
 
 ---
@@ -183,9 +183,15 @@ dotnet run --project TradingEdge.MomentumV2 -c Release -- \
 space the same trend tier reads PF ~0.97 — log *compresses* the extreme blow-out region where the
 worst losers live, masking the tail. Log and linear are functionally identical as an entry filter
 *at the `<4.0` cutoff* (where both agree) but **diverge in the loose tail; linear is the sharper
-discriminator there.** Candidate v2 improvement: the entry tightness filter may do better in linear
-space. (The earlier "ATR%-denominator artifact" theory for the tail was wrong — the v0 study
-predates the ATR filter and used a plain linear ATR.)
+discriminator there.** (The earlier "ATR%-denominator artifact" theory for the tail was wrong — the
+v0 study predates the ATR filter and used a plain linear ATR.)
+
+**ADOPTED (2026-06-18): linear tightness is now the v2 default** (`TightnessMode = Linear`). The
+`< 4.0` cutoff carries over essentially unchanged — linear `< 4.0` = PF 1.758 / 2,253 trips vs the
+old log default's 1.734 / 2,260, a marginal improvement with the bonus of the cleaner loose-tail
+cut. Log mode stays reachable via `--tightness-mode log` for comparison only. The yearly/monthly
+detail tables below were generated on the *log* default and differ by ~7 trades; the headline above
+is the current (linear) default.
 
 ### Exits that *didn't* survive the realistic baseline
 

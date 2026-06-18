@@ -30,17 +30,20 @@ let defaultConfig =
       AtrWindow = 14
       TightnessWindow = 14
       VolDays = 28
-      // Expansion exit threshold, on the LOG-tightness scale (live range ~1.4–13).
-      // OFF (+inf). Under the realistic next-open baseline (ExitTimeCap=0) the
-      // expansion exit only ever cuts winners early: PF climbs monotonically as the
-      // threshold loosens and converges to off by ~10, at every tightness cap. (A
-      // thr=8 "peak" appeared under the OLD trailing-limit fills (cap=5) — it was a
-      // fill artifact, gone once exits are next-open.) The old 0.70 fired every bar.
+      // Expansion exit threshold, on the tightness scale (now Linear; live range ~1.4–13).
+      // OFF (+inf). Under the realistic next-open baseline (ExitTimeCap=0) the expansion
+      // exit only ever cuts winners early: PF climbs monotonically as the threshold
+      // loosens and converges to off, in BOTH log and linear space, and even with the
+      // entry-price-floored position-relative range. It is a tested dead end (see the
+      // doc). The old 0.70 fired every bar; a thr=8 "peak" was a trailing-limit fill artifact.
       ExpansionThr = infinity
-      // Tightness measure for the entry filter AND the expansion exit. Log is the v2
-      // default (the swept ATR%/tightness/expansion results above are all Log-scale).
-      // Linear is the experiment toggle (--tightness-mode linear) — thresholds differ.
-      TightnessMode = Log
+      // Tightness measure for the entry filter AND the expansion exit. LINEAR is the
+      // default: it separates the loose-base losing tail far more cleanly than Log
+      // (log compresses the blow-out region, masking the tail — see the v0-reproduction
+      // sanity check). The <4.0 cutoff carries over from Log essentially unchanged
+      // (linear <4.0 = PF 1.758 / 2,253 trips vs log's 1.734 / 2,260). Log mode stays
+      // reachable via --tightness-mode log for comparison, but should not be the default.
+      TightnessMode = Linear
       // Baseline exit = sell at the NEXT OPEN on a stop. 0 = no trailing limit
       // (TrailWindow/N ignored). The trailing limit was a ≤+1% refinement, not the
       // edge, and the realistic-fill rewrite retired it as the default.
@@ -59,11 +62,13 @@ let defaultConfig =
           MinAvgDollarVolume = 100_000.0
           Min52wPct = 0.95
           MinPrice = 5.0
-          // LOG-space cutoffs (the rewrite moved both onto a log scale). Tuned by
-          // post-hoc SQL sweep (expansion=8): ATR% < 0.11 is clear-cut (the high-vol
-          // tail is the biggest single drag). Tightness is monotonic — tighter = higher
-          // PF + smaller drawdown; 4.0 is the drawdown/PF sweet spot (PF 1.63 / $636k,
-          // max DD −$44k, vs 5.0's −$70k), trading raw P&L (= exposure) for risk.
+          // Tuned by post-hoc SQL sweep. ATR% is LOG-space (log-true-range; < 0.11 is
+          // clear-cut — the high-vol tail is the biggest single drag). Tightness is
+          // LINEAR (TightnessMode = Linear above); it is monotonic — tighter = higher PF
+          // + smaller drawdown; 4.0 is the drawdown/PF sweet spot (linear <4.0 =
+          // PF 1.758 / 2,253 trips), trading raw P&L (= exposure) for risk. The 4.0
+          // cutoff is essentially the same value under log or linear; only the loose-tail
+          // discrimination differs (linear is sharper there).
           MaxTightness = 4.0
           MaxAtrPct = 0.11 } }
 
