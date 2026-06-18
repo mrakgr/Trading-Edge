@@ -260,29 +260,33 @@ below, not after it clears; once it poking through (0–10% above the intraday h
 dead zone, and only the well-extended 10–20% names are strong again. The close-based "fresh high"
 sweet spot was conflating these two; the intraday-high reference cleanly separates them.
 
-#### Rescuing the 0–10% dead zone with CLOSE-IN-RANGE — strong-but-not-pinned wins (2026-06-18)
+#### Rescuing the 0–10% dead zone with CLOSE-IN-RANGE — weak signal; the real effect is "don't pin the high" (2026-06-18)
 
 Can the 0–10%-above-intraday-high dead zone be salvaged by *how the entry bar closes*? Close-in-range
-`= (close − low)/(high − low)` (1.0 = closed at the day's high, 0 = at the low; computed from raw
-`daily_prices` — a within-bar ratio, so adjustment cancels). Production filters, breadth, 2005+,
-955 trips in the band (PF 1.51 — note the band is milder than the close-reference suggested):
+`= (close − low)/(high − low)` (1.0 = closed at the day's high, 0 = at the low; from raw
+`daily_prices` — a within-bar ratio, so adjustment cancels). **PURE GAINERS (up≥0)**, production
+quality filters (tight<4, ATR%<0.11, rvol[6,20]), breadth, 2005+, 2,244 trips (total PF 1.29):
 
 | close-in-range | n | PF | | era split | 2005–14 | 2015–26 |
 | --- | ---: | ---: | --- | --- | ---: | ---: |
-| 0.2–0.4 | 64 | 1.03 | | weak/mid <0.6 | 1.46 | 1.10 |
-| 0.4–0.6 (mid) | 127 | 1.23 | | **strong 0.6–0.95** | **2.12** | **1.39** |
-| 0.6–0.8 | 268 | 1.37 | | at-high 0.95+ | 2.47 | **0.77** |
-| **0.8–0.95** | 344 | **1.84** | | | | |
-| 0.95–1.0 (at high) | 116 | 1.28 | | | | |
+| 0.0–0.2 | 123 | 1.27 | | weak/mid <0.6 | 1.35 | 1.32 |
+| 0.2–0.4 | 194 | 1.51 | | strong 0.6–0.95 | 1.54 | 1.24 |
+| 0.4–0.6 (mid) | 328 | 1.26 | | **at-high 0.95+** | 1.23 | **0.65** |
+| 0.6–0.8 | 598 | 1.34 | | | | |
+| 0.8–0.95 | 676 | 1.39 | | | | |
+| **0.95–1.0 (at high)** | 325 | **0.88** | | | | |
 
-**Closing strong matters, and the sweet spot is "strong but not pinned to the tick."** The 0.8–0.95
-band is the standout (PF 1.84, the bulk of the band's P&L), and the **strong-close 0.6–0.95 group is
-robust across both eras** (2.12 → 1.39). The mid/weak closers (<0.6) are the genuinely dead part
-(fading 1.46 → 1.10). Closing at the *literal* high (0.95+) is **NOT** reliable — great pre-2015
-(2.47) but negative recently (0.77), an exhaustion/"too hot" tell (mirrors the bimodal
-distance-above-high pattern: pinned-to-the-high = no buyers left above). So the dead zone is partly
-rescuable: require a strong-but-not-extreme close (upper ~60–95% of range), avoid the mushy middle
-and the pinned-at-the-high push.
+⚠️ **Close-in-range is a WEAK signal once the move floor is removed.** An earlier cut with up≥10%
+showed strong-close at PF 1.84 — but that was **the move floor leaking back in**, not the close
+location. On *all* gainers the strong-close bands (0.6–0.95) are only ~1.34–1.39, barely above the
+weak/mid closers (1.26–1.51), and there's no clean monotonic "stronger close = better" (the 0.2–0.4
+bucket is actually the best small one). The strong-close group also fades across eras (1.54 → 1.24).
+
+**The one robust, actionable effect is the NEGATIVE one: closing at the literal high (0.95+) is bad**
+— PF 0.88 overall, and clearly era-damning (1.23 → **0.65**, net-losing recently). Pinning the close
+to the absolute high is an exhaustion tell (mirrors the bimodal distance-above-high "pinned = no
+buyers left above" pattern). So close-in-range does NOT meaningfully rescue the dead zone — the
+takeaway is to **avoid the pinned-at-the-high closes**, not to chase strong closes.
 
 #### Breakouts FAR below the high (< −15%) — positive but weaker, and the structure inverts (2026-06-18)
 
