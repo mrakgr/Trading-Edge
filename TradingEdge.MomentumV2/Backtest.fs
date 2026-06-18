@@ -89,6 +89,7 @@ type Trip =
       PctUpAtEntry: float
       AtrPctAtEntry: float
       TightnessAtEntry: float
+      Pct52wAtEntry: float
       ExitReason: string
       Open: bool }
 
@@ -114,6 +115,7 @@ let private toTrip (symbol: string) (notional: float)
           PctUpAtEntry = p.PctUpAtEntry
           AtrPctAtEntry = p.AtrPctAtEntry
           TightnessAtEntry = p.TightnessAtEntry
+          Pct52wAtEntry = p.Pct52wAtEntry
           ExitReason = reason
           Open = (reason = "mtm") }
     | _ -> failwith "toTrip called on a non-Exited position (Finalize first)"
@@ -199,7 +201,7 @@ let private fmt (x: float) = if Double.IsNaN x then "nan" else x.ToString("0.###
 let header =
     "symbol,entry_date,exit_date,side,entry_price,exit_price,qty,net_pnl,bars_held,"
     + "entry_adj_volume,rvol_at_entry,avg_dollar_volume_4w_at_entry,pct_up_at_entry,"
-    + "atr_pct_14_at_entry,range_pct_14_at_entry,tightness_14_at_entry,exit_reason,open"
+    + "atr_pct_14_at_entry,range_pct_14_at_entry,tightness_14_at_entry,pct_52w_at_entry,exit_reason,open"
 
 let private row (t: Trip) : string =
     String.concat "," [
@@ -219,6 +221,7 @@ let private row (t: Trip) : string =
         fmt t.AtrPctAtEntry
         "nan"                       // range_pct_14: not carried by v1 (post-hoc only)
         fmt t.TightnessAtEntry
+        fmt t.Pct52wAtEntry
         t.ExitReason
         (if t.Open then "1" else "0")
     ]

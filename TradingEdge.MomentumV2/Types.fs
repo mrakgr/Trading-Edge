@@ -42,6 +42,7 @@ type Position =
       PctUpAtEntry: float
       AtrPctAtEntry: float
       TightnessAtEntry: float
+      Pct52wAtEntry: float       // close / hi_252_prior - 1 (how far above the prior 252d closing high)
       State: PositionState }
 
 /// In-engine entry filter thresholds. Mirrors v0's `is_entry` (breakout / rvol
@@ -137,6 +138,13 @@ type QullaSystem
     member _.TrailHigh = sTrailHigh
     /// Long-term close channel: highest close over the prior `hiCloseWindow` bars.
     member _.HiClose = sHiClose
+    /// How far the given close sits ABOVE the prior 252d closing high:
+    /// `close / hi_252_prior - 1`. >0 = a new closing high (by that fraction);
+    /// <0 = still below the prior high. ValueNone before the channel is warm / on 0.
+    member _.Pct52w (closePrice: float) =
+        match sHiClose with
+        | ValueSome hi when hi <> 0.0 -> ValueSome (closePrice / hi - 1.0)
+        | _ -> ValueNone
     /// ATR(14) in LOG space: mean log-true-range over the prior `atrWindow` bars.
     /// Because log-true-range is itself a relative (log-return-magnitude) measure,
     /// this is directly an ATR% stand-in — no division by any close price. A big
@@ -412,6 +420,7 @@ type QullaSystem
                   PctUpAtEntry = orNan (this.PctUp bar.close)
                   AtrPctAtEntry = orNan this.AtrPct
                   TightnessAtEntry = orNan this.Tightness
+                  Pct52wAtEntry = orNan (this.Pct52w bar.close)
                   State = Holding }
 
     /// Close any still-open positions at the final bar's close, marked-to-market

@@ -140,6 +140,58 @@ PF, consistency, worst month and drawdown all improve as the floor rises — a r
 quality *and* risk at once. **10%** is the chosen balance: PF 1.73 at meaningful trade count;
 higher floors keep paying if you want fewer/stronger trades.
 
+#### …but most of the modest-move edge is really 52w-high proximity (2026-06-18)
+
+The entry-day move and the 52-week-high gate are correlated (a big up-day is often *what makes* a new
+high), so is "up≥10% > up≥5%" really a move effect, or a proxy for proximity? Test: require a **strict
+new closing high** (52w = 1.0) and drop the move floor (up≥0), then bucket by the day's move *within*
+that new-high population (15-day stop, tightness<4, rvol[6,20], breadth):
+
+| pct_up band (all at a new high) | n | PF |
+| --- | ---: | ---: |
+| <3% | 937 | 1.576 |
+| 3–5% | 330 | 1.322 |
+| 5–8% | 448 | 1.537 |
+| 8–10% | 322 | 1.158 |
+| 10–15% | 710 | 1.311 |
+| **15–20%** | 501 | **2.085** |
+| **20%+** | 729 | **1.708** |
+
+**Verdict: partly a proxy, but not entirely.** In the 3–15% range the move size barely matters once a
+new high is required (flat, choppy PF 1.16–1.58) — so much of the basic up≥10%-vs-up≥5% effect *was*
+the new-high edge. But the **explosive ≥15% moves carry real, independent signal** (PF 2.0+) even
+among new-high names. Move floor and 52w gate are complementary, not redundant: the floor earns its
+keep specifically by isolating the big-mover tail. (And with strict new-high, raising the move floor
+still lifts PF 1.58→1.83 at ≥15%, for the same reason.)
+
+#### Distance above the 52-week high — bimodal, not "closer = better" (2026-06-18)
+
+Bucketing by **how far the close sits above the prior-252d closing high** (`pct_52w_at_entry =
+close / hi_252_prior − 1`; 52w gate OFF so it spans both sides; up≥10, tightness<4, rvol[6,20],
+15-day stop, breadth):
+
+| distance vs 52w high | n | win% | PF | net |
+| --- | ---: | ---: | ---: | ---: |
+| < −15% (well below) | 2333 | 28.5% | 1.214 | +384k |
+| −15..−5% | 635 | 36.1% | 1.286 | +96k |
+| −5..0% (just under) | 313 | 42.8% | 1.706 | +86k |
+| **0..2% (fresh new high)** | 158 | 46.2% | **1.939** | +61k |
+| 2..5% (dead zone) | 266 | 38.7% | **1.184** | +22k |
+| 5..10% | 495 | 37.6% | 1.333 | +75k |
+| **10..20% (extended run)** | 756 | 43.7% | **2.014** | +330k |
+| 20%+ | 265 | 38.9% | 1.695 | +130k |
+
+The signal is **bimodal**, with two distinct sweet spots and a trough between them:
+
+1. **Right at the high (0–2%): PF 1.94** — the clean fresh breakout, highest win rate (46%).
+2. **Extended 10–20% above: PF 2.01** — names already in a confirmed strong run; biggest P&L
+   contributor ($330k).
+3. A **dead zone at 2–5% (PF 1.18)** — past the clean breakout but not yet a confirmed run.
+
+Names *well below* the high (< −15%, the early-stage breakouts) are the weakest on PF (1.21) but carry
+a lot of P&L on volume. This refines the proximity story: it is not "closer to the high is better" —
+it is "at the high OR clearly extended, but not the awkward 2–5% just-past zone."
+
 ### Loose-base breakouts are a strong negative edge — and LINEAR tightness separates the tail better
 
 Sanity check (2026-06-18): does buying breakouts from *loose* bases (high tightness) lose money, as
