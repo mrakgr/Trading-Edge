@@ -288,6 +288,27 @@ to the absolute high is an exhaustion tell (mirrors the bimodal distance-above-h
 buyers left above" pattern). So close-in-range does NOT meaningfully rescue the dead zone — the
 takeaway is to **avoid the pinned-at-the-high closes**, not to chase strong closes.
 
+#### …but the INTRADAY RECLAIM does rescue it — open below resistance, close through it (2026-06-18)
+
+The real dead-zone refinement: did the entry bar **open below** the 52w intraday high (resistance)
+and push **up through it** to close above (a live intraday reclaim), or did it **gap over** and just
+hold (already-extended, you missed the break)? Reconstruct resistance = `hi_252_high =
+entry_price/(1+pct_52w_high_at_entry)` and compare the (raw) open to it. Pure gainers, dead zone, 2,244 trips:
+
+| dead-zone entry | n | win% | PF | net | | era | 2005–14 | 2015–26 |
+| --- | ---: | ---: | ---: | ---: | --- | --- | ---: | ---: |
+| **reclaim (open below → close above)** | 1142 | 44.6% | **1.43** | +137k | | reclaim | **1.69** | **1.26** |
+| gap-over (open at/above) | 1102 | 39.4% | 1.09 | +19k | | gap-over | 1.15 | 1.04 |
+
+**The intraday reclaim is far better and era-robust** — PF 1.43 (1.69 → 1.26 across eras), higher win
+rate, and it carries essentially ALL the dead zone's P&L ($137k of $156k). The gap-over half is the
+genuinely dead part (PF 1.09, near break-even both eras). Mechanism: a name that opens below its 52w
+high and reclaims it through the session is a *live* breakout you're participating in; a gap-over is
+one that broke before the open — you're buying it already extended, after the fact. Unlike
+close-in-range (which evaporated on pure gainers), the reclaim-vs-gap split survives the era test
+cleanly. **This is the dead zone's actual rescue: require an intraday reclaim of the prior high, not
+a gap over it.**
+
 #### Breakouts FAR below the high (< −15%) — positive but weaker, and the structure inverts (2026-06-18)
 
 With the quality filters MET (tightness<4, ATR%<0.11, rvol≥3) but the 52w gate OFF, what happens to
