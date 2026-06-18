@@ -1,12 +1,12 @@
-module TradingEdge.MomentumV1.Program
+module TradingEdge.MomentumV2.Program
 
 open System
 open System.Diagnostics
 open Argu
-open TradingEdge.MomentumV1.Backtest
+open TradingEdge.MomentumV2.Backtest
 
 let private defaultDb = "/home/mrakgr/Trading-Edge/data/trading.db"
-let private defaultCsv = "/tmp/momentum_v1_trips.csv"
+let private defaultCsv = "/tmp/momentum_v2_trips.csv"
 
 type Args =
     | [<AltCommandLine("-d")>] Db_Path of string
@@ -16,6 +16,9 @@ type Args =
     | Stop_Low_Window of int
     | Trail_Window of int
     | Exit_Time_Cap of int
+    | Expansion_Thr of float
+    | Max_Tightness of float
+    | Max_Atr_Pct of float
     | Rvol_Min of float
     | Rvol_Max of float
 
@@ -25,10 +28,13 @@ type Args =
             | Db_Path _ -> "Path to trading.db (DuckDB). Default: the shared data/trading.db."
             | Start_Date _ -> "Backtest start date (yyyy-MM-dd). Default 2005-01-01."
             | End_Date _ -> "Backtest end date (yyyy-MM-dd). Default 2026-05-13 (data max)."
-            | Out _ -> "Output trips CSV path. Default /tmp/momentum_v1_trips.csv."
+            | Out _ -> "Output trips CSV path. Default /tmp/momentum_v2_trips.csv."
             | Stop_Low_Window _ -> "Trailing-stop low window in bars. Default 4."
             | Trail_Window _ -> "Trailing-limit N-day-high window (the resting sell-limit reference). Default 1 (N=1)."
             | Exit_Time_Cap _ -> "Bars the sell limit may rest before exiting at the next open. Default 5. 0 = exit at next open immediately (N ignored)."
+            | Expansion_Thr _ -> "Expansion-exit threshold on the log-tightness scale (exit when tightness > this). Default +inf (off). Live tightness runs ~1.4–13."
+            | Max_Tightness _ -> "Max entry tightness (log scale). Default 5.0. Pass a large value to disable."
+            | Max_Atr_Pct _ -> "Max entry ATR%% (log scale). Default 0.11. Pass a large value to disable."
             | Rvol_Min _ -> "Minimum relative volume at entry. Default 6.0 (production)."
             | Rvol_Max _ -> "Maximum relative volume at entry. Default 20.0 (production)."
 
@@ -36,7 +42,7 @@ let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
 [<EntryPoint>]
 let main argv =
-    let parser = ArgumentParser.Create<Args>(programName = "momentum-v1")
+    let parser = ArgumentParser.Create<Args>(programName = "momentum-v2")
     let parsed = parser.Parse argv
 
     let dbPath    = parsed.GetResult(Db_Path, defaultValue = defaultDb)
@@ -49,12 +55,15 @@ let main argv =
             StopLowWindow = parsed.GetResult(Stop_Low_Window, defaultValue = defaultConfig.StopLowWindow)
             TrailWindow   = parsed.GetResult(Trail_Window,    defaultValue = defaultConfig.TrailWindow)
             ExitTimeCap   = parsed.GetResult(Exit_Time_Cap,   defaultValue = defaultConfig.ExitTimeCap)
+            ExpansionThr  = parsed.GetResult(Expansion_Thr,   defaultValue = defaultConfig.ExpansionThr)
             Entry =
               { defaultConfig.Entry with
+                  MaxTightness = parsed.GetResult(Max_Tightness, defaultValue = defaultConfig.Entry.MaxTightness)
+                  MaxAtrPct    = parsed.GetResult(Max_Atr_Pct,   defaultValue = defaultConfig.Entry.MaxAtrPct)
                   RvolMin = parsed.GetResult(Rvol_Min, defaultValue = defaultConfig.Entry.RvolMin)
                   RvolMax = parsed.GetResult(Rvol_Max, defaultValue = defaultConfig.Entry.RvolMax) } }
 
-    printfn "MomentumV1 backtest"
+    printfn "MomentumV2 backtest"
     printfn "  db        = %s" dbPath
     printfn "  range     = %O .. %O" startDate endDate
     printfn "  stop win  = %d   trail N = %d   exit cap = %d   expansion = %.2f"

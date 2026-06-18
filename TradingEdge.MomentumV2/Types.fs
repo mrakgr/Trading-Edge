@@ -1,7 +1,7 @@
-module TradingEdge.MomentumV1.Types
+module TradingEdge.MomentumV2.Types
 
 open System
-open TradingEdge.MomentumV1.RollingMa
+open TradingEdge.MomentumV2.RollingMa
 
 type Bar =
     { date: DateOnly
@@ -69,9 +69,11 @@ type EntryConfig =
 /// Indicators carried:
 ///   - trailing stop reference     : `stopLow` = min(low) over the prior `stopLowWindow` bars
 ///   - trailing exit reference     : `trailHigh` = max(high) over the prior `trailWindow` bars
-///   - ATR(14)                     : simple mean of true range over the prior 14 bars
+///   - ATR(14)                     : simple mean of LOG true range over the prior 14
+///                                   bars — intrinsically an ATR% (no close division)
 ///   - long-term close channel     : `hiClose` = max(close) over the prior `hiCloseWindow` bars
 ///   - tightness range (14)        : max(high) and min(low) over the prior 14 bars
+///                                   (log span / logATR)
 type QullaSystem
     ( stopLowWindow: int,
       trailWindow: int,
@@ -87,7 +89,7 @@ type QullaSystem
     let stopLow   = MinMa(stopLowWindow)        // trailing stop: min low
     let trailHigh = MaxMa(trailWindow)          // trailing-limit exit: max high
     let hiClose   = MaxMa(hiCloseWindow)        // long-term close channel (e.g. 252d)
-    let atr       = AvgMa(atrWindow)            // ATR = mean true range over the window
+    let atr       = AvgMa(atrWindow)            // ATR = mean LOG true range over the window
     let rangeHigh = MaxMa(tightnessWindow)      // tightness: max high
     let rangeLow  = MinMa(tightnessWindow)      // tightness: min low
     // 4-week (28-calendar-day) trailing means, v0 `stock_volume_4w` semantics.
@@ -106,7 +108,7 @@ type QullaSystem
     let mutable sStopLow   : float voption = ValueNone
     let mutable sTrailHigh : float voption = ValueNone
     let mutable sHiClose   : float voption = ValueNone
-    let mutable sAtrAbs    : float voption = ValueNone
+    let mutable sAtrLog    : float voption = ValueNone
     let mutable sRangeHigh : float voption = ValueNone
     let mutable sRangeLow  : float voption = ValueNone
     // Prior bar's close, snapshotted before this bar is folded in (for pct_up).
@@ -123,31 +125,33 @@ type QullaSystem
     member _.TrailHigh = sTrailHigh
     /// Long-term close channel: highest close over the prior `hiCloseWindow` bars.
     member _.HiClose = sHiClose
-    /// ATR(14), absolute (mean true range over the prior `atrWindow` bars).
-    member _.AtrAbs = sAtrAbs
-    /// ATR as a fraction of the entry bar's close. ValueNone before any bar / on a 0 close.
-    // TODO(post-parity): change the ATR% denominator. v0 divides the prior-14 ATR
-    // by the CURRENT bar's close, but on a big breakout day that close jumps, which
-    // deflates ATR% even though the underlying volatility is unchanged — so a
-    // genuinely volatile name can sneak under the atr_pct < 0.08 filter purely
-    // because its trigger bar gapped/ran up. Once we match v0 trips, switch the
-    // denominator to the PREVIOUS close (or some pre-breakout reference) so ATR%
-    // reflects volatility going INTO the bar, not distorted by the breakout itself.
-    member _.AtrPct (closePrice: float) =
-        match sAtrAbs with
-        | ValueSome atr when closePrice <> 0.0 -> ValueSome (atr / closePrice)
-        | _ -> ValueNone
-    /// 14-day price span (max high - min low over the prior `tightnessWindow` bars).
-    member _.RangeAbs =
+    /// ATR(14) in LOG space: mean log-true-range over the prior `atrWindow` bars.
+    /// Because log-true-range is itself a relative (log-return-magnitude) measure,
+    /// this is directly an ATR% stand-in — no division by any close price. A big
+    /// breakout day no longer deflates the figure the way dividing prior-14 ATR by
+    /// the CURRENT (jumped) close used to: log TR measures the bar's volatility on
+    /// its own scale, regardless of where the close landed.
+    member _.AtrLog = sAtrLog
+    /// ATR% stand-in = the log ATR directly (a ~percentage of price per bar).
+    /// No close-price argument: the log-space TR already normalizes by price level.
+    member _.AtrPct = sAtrLog
+    /// 14-day LOG price span = log(max high) - log(min low) over the prior
+    /// `tightnessWindow` bars. ValueNone until both edges are available / on a
+    /// non-positive low.
+    member _.RangeLog =
         match sRangeHigh, sRangeLow with
-        | ValueSome hi, ValueSome lo -> ValueSome (hi - lo)
+        | ValueSome hi, ValueSome lo when hi > 0.0 && lo > 0.0 ->
+            ValueSome (log hi - log lo)
         | _ -> ValueNone
-    /// Consolidation tightness = range / (window * ATR). ~1 = clean trend,
-    /// well below 1 = coiled spring. ValueNone until ATR is available.
+    /// Consolidation tightness = log range / log ATR. Low = coiled spring (the
+    /// window's whole span is only a few average bars wide), high = trending /
+    /// expanding. ValueNone until ATR is available. Fully in log space, so it's
+    /// scale-free. No `* window` factor: ATR is already a per-bar average, and the
+    /// threshold is set by sweep, so the constant span factor is redundant.
     member this.Tightness =
-        match this.RangeAbs, sAtrAbs with
+        match this.RangeLog, sAtrLog with
         | ValueSome r, ValueSome atr when atr <> 0.0 ->
-            ValueSome (r / (float tightnessWindow * atr))
+            ValueSome (r / atr)
         | _ -> ValueNone
     /// 4-week trailing average share volume (v0 `avg_volume_4w`).
     member _.AvgVolume = sAvgVol
@@ -192,7 +196,7 @@ type QullaSystem
         // consolidation tightness (production)
         && gate this.Tightness (fun t -> t < entryCfg.MaxTightness)
         // ATR% cap (production)
-        && gate (this.AtrPct c) (fun a -> a < entryCfg.MaxAtrPct)
+        && gate this.AtrPct (fun a -> a < entryCfg.MaxAtrPct)
 
     /// Update every rolling structure with the most recent bar.
     /// Snapshots are taken BEFORE the push (prior-bars / no-lookahead), then
@@ -208,21 +212,29 @@ type QullaSystem
         sStopLow   <- stopLow.State
         sTrailHigh <- trailHigh.State
         sHiClose   <- hiClose.State
-        sAtrAbs    <- atr.State
+        sAtrLog    <- atr.State
         sRangeHigh <- rangeHigh.State
         sRangeLow  <- rangeLow.State
         sPrevClose <- prevClose   // prior bar's close, before this bar is folded in
 
         // 2) fold the current bar in
         match prevClose with
-        | ValueSome pc ->
-            // true range against the prior close
-            bar.high - bar.low
-            |> max (abs (bar.high - pc))
-            |> max (abs (bar.low - pc))
+        | ValueSome pc when bar.high > 0.0 && bar.low > 0.0 && pc > 0.0 ->
+            // LOG true range against the prior close. Each leg is a log-price
+            // difference, i.e. a log return magnitude, so the resulting ATR is
+            // intrinsically a percentage-of-price measure (no later division by
+            // any close needed). Equivalent legs to the absolute TR, on logs:
+            //   log(high) - log(low)
+            //   |log(high) - log(prevClose)|
+            //   |log(low)  - log(prevClose)|
+            let lh, ll, lpc = log bar.high, log bar.low, log pc
+            (lh - ll)
+            |> max (abs (lh - lpc))
+            |> max (abs (ll - lpc))
             |> atr.Push
-        | ValueNone ->
-            // first bar has no prior close -> TR undefined; skip it from the ATR mean
+        | _ ->
+            // first bar (no prior close) or a non-positive price -> log TR
+            // undefined; skip it from the ATR mean
             ()
 
         stopLow.Push   bar.low
@@ -331,7 +343,7 @@ type QullaSystem
                   RvolAtEntry = orNan (this.Rvol (float bar.volume))
                   AvgDollarVolumeAtEntry = orNan sAvgDolVol
                   PctUpAtEntry = orNan (this.PctUp bar.close)
-                  AtrPctAtEntry = orNan (this.AtrPct bar.close)
+                  AtrPctAtEntry = orNan this.AtrPct
                   TightnessAtEntry = orNan this.Tightness
                   State = Holding }
 

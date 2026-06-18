@@ -1,10 +1,10 @@
-module TradingEdge.MomentumV1.Backtest
+module TradingEdge.MomentumV2.Backtest
 
 open System
 open System.Globalization
 open System.Collections.Generic
 open DuckDB.NET.Data
-open TradingEdge.MomentumV1.Types
+open TradingEdge.MomentumV2.Types
 
 /// Full system configuration. The locked v0 default is `defaultConfig`.
 type Config =
@@ -19,8 +19,9 @@ type Config =
       Notional: float
       Entry: EntryConfig }
 
-/// The locked production default (Qulla day-low stop + N=1 trailing limit +
-/// 0.70 expansion exit, NO time stop, stop-window 4; production entry filter).
+/// The locked production default: Qulla day-low stop, stop-window 4, exit at the
+/// NEXT OPEN on a stop (ExitTimeCap=0 — no trailing limit), log-space entry filters
+/// (ATR% < 0.11, tightness < 4.0), expansion exit at 8.0 (log-tightness scale).
 let defaultConfig =
     { StopLowWindow = 4
       TrailWindow = 1
@@ -28,19 +29,38 @@ let defaultConfig =
       AtrWindow = 14
       TightnessWindow = 14
       VolDays = 28
-      ExpansionThr = 0.70
-      ExitTimeCap = 5
+      // Expansion exit threshold, on the LOG-tightness scale (live range ~1.4–13).
+      // OFF (+inf). Under the realistic next-open baseline (ExitTimeCap=0) the
+      // expansion exit only ever cuts winners early: PF climbs monotonically as the
+      // threshold loosens and converges to off by ~10, at every tightness cap. (A
+      // thr=8 "peak" appeared under the OLD trailing-limit fills (cap=5) — it was a
+      // fill artifact, gone once exits are next-open.) The old 0.70 fired every bar.
+      ExpansionThr = infinity
+      // Baseline exit = sell at the NEXT OPEN on a stop. 0 = no trailing limit
+      // (TrailWindow/N ignored). The trailing limit was a ≤+1% refinement, not the
+      // edge, and the realistic-fill rewrite retired it as the default.
+      ExitTimeCap = 0
       Notional = 10_000.0
       Entry =
-        { UpThreshold = 0.05
+          // Entry-day-move floor. Raised 0.05 → 0.10 by the post-hoc pct_up sweep:
+          // the weak band is the MODEST movers (~8–11% breakouts, PF ~1.15), not the
+          // big ones (the explosive >20% names are the strongest, PF >2). Lifting the
+          // floor improves PF, %-positive months, worst month AND max drawdown together
+          // (1.64→1.73 PF, −$41k→−$36k DD); only raw P&L drops (= less exposure).
+        { UpThreshold = 0.10
           RvolMin = 6.0
           RvolMax = 20.0
           MinPriorDays = 21
           MinAvgDollarVolume = 100_000.0
           Min52wPct = 0.95
           MinPrice = 5.0
-          MaxTightness = 0.30
-          MaxAtrPct = 0.08 } }
+          // LOG-space cutoffs (the rewrite moved both onto a log scale). Tuned by
+          // post-hoc SQL sweep (expansion=8): ATR% < 0.11 is clear-cut (the high-vol
+          // tail is the biggest single drag). Tightness is monotonic — tighter = higher
+          // PF + smaller drawdown; 4.0 is the drawdown/PF sweet spot (PF 1.63 / $636k,
+          // max DD −$44k, vs 5.0's −$70k), trading raw P&L (= exposure) for risk.
+          MaxTightness = 4.0
+          MaxAtrPct = 0.11 } }
 
 /// A finished trip, ready for the CSV. Mirrors v0's base trip columns so the
 /// two outputs diff directly.

@@ -119,6 +119,12 @@ that contradicts the drawdown-conscious default.
 
 ## Working default: stop-window 4, baseline exit (cap=0)
 
+> ⚠️ **SUPERSEDED 2026-06-18 by the log-space entry rewrite** (next section). The exit choice
+> below (stop-4, next-open baseline) still stands, but the entry filters here are the OLD
+> absolute-scale ones (ATR%<8% on a current-close denominator, tightness<0.30, up≥5%). The new
+> default re-tunes all three on a log scale and adds an entry-day-move floor. Numbers in this
+> section (PF 1.760 flat / 1.980 Kelly) are the old-entry baseline, kept for comparison.
+
 **Chosen to halve the drawdown at a small PF cost.** vs the N=1 trailing-limit exit, the baseline
 (just sell at the next open after a stop) cuts the max monthly drawdown from −$27.5k to **−$16.8k**
 (flat sizing) for a negligible PF give-up (1.776 → 1.760). Given the preference to sacrifice some

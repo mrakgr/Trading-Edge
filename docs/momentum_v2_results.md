@@ -1,0 +1,264 @@
+# Mid-Cap Momentum v2 — Log-Space Volatility Filters
+
+**Status: working long-only daily-momentum edge, PF ~1.73 post-breadth, on honest next-open fills.**
+This is the current production system. It supersedes both `momentum_v0` (whose mean-reversion
+trailing-limit results were inflated by a fill bug) and the v1 *exit*-correction work, by re-deriving
+the **entry** filters on a log-volatility scale and dropping the trailing-limit / expansion exits in
+favour of a plain next-open exit.
+
+`TradingEdge.MomentumV2` is a ground-up F# rewrite: all indicators computed in a single in-memory
+pass (no SQL window functions), one `QullaSystem` per ticker. A full 22-year scan runs in **~15s**,
+so the parameter sweeps below are minutes, not hours.
+
+---
+
+## The system in one screen
+
+Long-only daily momentum on US common stocks / ADRs (`ticker_reference.type IN ('CS','ADRC')`),
+2005–2026. One position per breakout signal, fixed $10k notional, uncapped concurrency, no
+compounding (so net P&L is a raw edge-and-breadth measure, not an achievable equity curve).
+
+**Entry** — on a daily bar, go long at the close when ALL hold (each indicator uses *prior* bars,
+no lookahead):
+
+| gate | threshold | meaning |
+| --- | --- | --- |
+| entry-day move | **≥ 10%** | `close/prevClose − 1` — the breakout has to *announce itself* |
+| relative volume | **6 ≤ rvol ≤ 20** | `volume / 28-day avg volume`; band, not a floor |
+| ATR% (log) | **< 0.11** | mean log-true-range over 14 prior bars (see below) |
+| tightness (log) | **< 4.0** | `log(14d range) / logATR` — prior consolidation must be tight |
+| 52-week proximity | **close ≥ 0.95 × hi_252** | near the 1-year closing high |
+| price floor | **≥ $5** | no sub-$5 names |
+| liquidity | **avg dollar volume ≥ $100k** | 28-day average |
+| breadth (market-wide) | **`pct_above_20` lagged 1 day > 0.5** | applied post-hoc; risk-on regime only |
+
+**Exit** — a Qullamaggie-style trailing stop: floor = `max(min-low over prior 4 bars, entry-day
+low)`. When the bar's low breaches it, **sell at the next bar's open**. No trailing limit, no
+time stop, no expansion exit. Open positions at the data's end are marked-to-market at the final
+close.
+
+**Headline (filtered: breadth + 2005-start, 21.4 trading-day-years):**
+
+| | value |
+| --- | ---: |
+| trips | 2,260 |
+| win rate | 45.8% |
+| profit factor | **1.734** |
+| net P&L | +$520,641 |
+| % months positive | 58.7% |
+| max monthly drawdown | **−$35,807** |
+| years positive | **21 / 22** |
+
+---
+
+## Why log-space ATR / tightness (the v2 change)
+
+The v0/v1 ATR% was the prior-14-day average true range divided by the **current** bar's close.
+That denominator is wrong for a momentum entry: on a big breakout day the close jumps, which
+**deflates** the ATR% — so a genuinely volatile name can slip *under* an `ATR% < 0.08` filter
+purely because its trigger bar ran up. The filter was meant to reject jumpy names and was being
+defeated by exactly the bars it should catch.
+
+**The fix:** compute true range in **log space**. Each leg becomes a log-price difference (a
+log-return magnitude):
+
+```
+logTR = max( log(high)−log(low),
+             |log(high)−log(prevClose)|,
+             |log(low) −log(prevClose)| )
+```
+
+The 14-bar average of `logTR` *is* an ATR% — intrinsically a per-bar percentage-of-price — with no
+division by any close. A breakout day no longer distorts it; it measures the bar's volatility on
+its own scale regardless of where the close landed. Tightness follows the same logic:
+`tightness = log(maxHigh/minLow) / logATR` (no `× window` factor — ATR is already a per-bar
+average and the threshold is set by sweep, so the span constant is redundant).
+
+This moved both filters onto a new numeric scale (live ATR% ≈ 0.003–0.5, median ~0.04; live
+tightness ≈ 1.4–13, median ~3.9), so every old cutoff (`0.08`, `0.30`) was meaningless and had to
+be re-swept from scratch.
+
+---
+
+## Tuning — post-hoc sweeps on the realistic (next-open) baseline
+
+All sweeps below run the engine with the relevant filter **off**, then carve thresholds in SQL off
+the trips CSV (breadth_lag1 > 0.5, entries ≥ 2005). Because the entry filters are entry-time gates,
+post-hoc cutting is exact; the exit choice (next-open) was fixed first so nothing is tuned against
+an unrealistic fill.
+
+### ATR% (log) — the single biggest lever
+
+The high-volatility tail is the drag, exactly as the broken denominator was hiding. Cutting it
+lifts PF from 1.13 → ~1.47:
+
+| ATR% cut | trips | PF | net |
+| ---: | ---: | ---: | ---: |
+| none | 6922 | 1.146 | 451,908 |
+| < 0.09 | 6033 | 1.470 | 868,426 |
+| **< 0.11** | 6331 | **1.467** | **970,707** |
+| < 0.12 | 6424 | 1.429 | 936,091 |
+| < 0.15 | — | lower | — |
+
+Flat plateau across 0.09–0.11, falling above 0.12. **0.11** sits at the top of the plateau and
+maxes P&L. Clear-cut.
+
+### Tightness (log) — monotonic; tighter = better on every axis
+
+Unlike the old absolute formula (where the relationship was muddied), log-tightness is cleanly
+monotonic. Tighter caps raise PF *and* shrink drawdown *and* lift monthly consistency — only raw
+P&L falls (fewer, better trades = less exposure):
+
+| tightness cut | trips | PF | net | % months + | worst mo | max DD |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| < 3.5 | 2342 | 1.701 | 486,592 | 59.9% | −19.0k | −32.4k |
+| **< 4.0** ⭐ | 3357 | 1.636 | 627,079 | 57.2% | −23.9k | **−40.8k** |
+| < 4.5 | 4187 | 1.575 | 705,646 | 59.0% | −25.5k | −43.8k |
+| < 5.0 | 4836 | 1.549 | 792,685 | 59.1% | −33.2k | −63.9k |
+| none | 6331 | 1.467 | 970,707 | 57.2% | −42.8k | −95.4k |
+
+**4.0** is the drawdown/PF sweet spot — it halves the max drawdown vs the loosest sane setting
+while keeping PF at 1.64 and most of the P&L. (Numbers here are at the pre-pct_up-floor stage; the
+final default adds the 10% entry-move floor on top, lifting filtered PF to 1.73.)
+
+### Entry-day move — the surprise: bigger movers are *better*
+
+Hypothesis going in was that stocks "up too much" on the day are bad. The data says the **opposite**
+— the weak band is the *modest* movers (~8–11%, PF ~1.15); the explosive ≥20% names are the
+strongest (decile 9, up 22–29%, PF **2.33**). Capping the top does nothing for PF and only discards
+P&L. **Raising the floor**, by contrast, improves everything:
+
+| move floor | trips | PF | net | % months + | worst mo | max DD |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| ≥ 5% (old) | 3357 | 1.636 | 627,079 | 57.2% | −23.9k | −40.8k |
+| ≥ 8% | 2683 | 1.660 | 553,963 | 56.7% | −24.8k | −38.9k |
+| **≥ 10%** ⭐ | 2260 | 1.734 | 520,641 | 58.7% | −24.6k | −35.8k |
+| ≥ 12% | 1897 | 1.776 | 479,246 | 58.4% | −20.8k | −28.3k |
+| ≥ 15% | 1401 | 1.858 | 420,585 | 60.1% | −18.0k | −26.4k |
+
+PF, consistency, worst month and drawdown all improve as the floor rises — a rare dial that pays on
+quality *and* risk at once. **10%** is the chosen balance: PF 1.73 at meaningful trade count;
+higher floors keep paying if you want fewer/stronger trades.
+
+### Exits that *didn't* survive the realistic baseline
+
+- **Trailing limit** (sell at the prior N-day high) — a ≤+1% PF refinement under honest fills;
+  retired. The "PF 3.0 / 80% winning months" of the v0 era was a top-tick fill artifact (the limit
+  filled at the recent high *every* bar). See the v0 doc's warning banner.
+- **Expansion exit** (sell when tightness blows out) — under the next-open baseline it only ever
+  cuts winners early: PF climbs monotonically as the threshold loosens and converges to "off" by
+  ~10 at every tightness cap. A `thr=8` "peak" appeared under the old trailing-limit fills but
+  vanished once exits are next-open — it was a fill artifact. **Off.**
+
+---
+
+## Yearly breakdown (flat $10k/trip, filtered, by entry year)
+
+| year | trips | win% | PF | net |
+| ---: | ---: | ---: | ---: | ---: |
+| 2005 | 100 | 50% | 1.38 | +9,277 |
+| 2006 | 130 | 39% | 1.61 | +17,275 |
+| 2007 | 109 | 43% | 1.87 | +24,381 |
+| 2008 | 34 | 59% | 1.73 | +8,161 |
+| 2009 | 51 | 53% | 3.71 | +27,346 |
+| 2010 | 123 | 53% | 2.37 | +41,138 |
+| 2011 | 82 | 43% | 1.42 | +9,226 |
+| 2012 | 73 | 52% | 3.19 | +29,421 |
+| 2013 | 181 | 47% | 1.69 | +34,559 |
+| 2014 | 107 | 50% | 1.65 | +18,738 |
+| 2015 | 86 | 51% | 2.45 | +27,830 |
+| 2016 | 88 | 43% | 1.81 | +11,748 |
+| 2017 | 138 | 46% | 1.35 | +13,744 |
+| 2018 | 127 | 54% | 1.73 | +23,002 |
+| 2019 | 93 | 49% | 4.80 | +103,596 |
+| 2020 | 149 | 42% | 1.81 | +57,348 |
+| 2021 | 191 | 36% | 1.09 | +9,529 |
+| 2022 | 33 | 45% | 1.34 | +5,329 |
+| 2023 | 71 | 51% | 1.59 | +12,368 |
+| 2024 | 127 | 40% | 1.21 | +9,694 |
+| 2025 | 119 | 39% | 0.97 | −1,570 |
+| 2026 | 48 | 46% | 2.75 | +28,501 |
+
+**21 of 22 years positive** (only 2025 fractionally red at −$1.6k). Crucially, the edge is now
+*spread across years* rather than concentrated: 2021's COVID-bubble names — which dominated the old
+system — are largely filtered out by the tight ATR%/tightness gates (2021 is only +$9.5k here),
+and 2020 is solidly positive (+$57k) on the next-open exits getting clear of the March crash. The
+two biggest years (2019 +$104k, 2020 +$57k) are real momentum regimes, not a single blow-off.
+
+<details>
+<summary>Full monthly breakdown — net P&L by year × month ($k), flat sizing, by entry month — click to expand</summary>
+
+| year | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec | **year** |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 2005 | 747 | -2.5k | -876 | · | 796 | 3.2k | 9.3k | 97 | 702 | -378 | -1.1k | -632 | **9.3k** |
+| 2006 | 150 | 584 | 6.0k | 2.9k | -6.4k | -1.4k | 96 | 1.5k | 49 | 2.6k | 7.0k | 4.2k | **17.3k** |
+| 2007 | 1.4k | 4.8k | 1.7k | 10.5k | -2.1k | -1.3k | -2.9k | 213 | 15.7k | -2.2k | -620 | -896 | **24.4k** |
+| 2008 | · | 969 | -1.0k | 3.0k | 10.5k | 1.7k | -2.2k | -4.6k | · | · | -429 | 246 | **8.2k** |
+| 2009 | -593 | · | · | · | 4.2k | 297 | -346 | 16.9k | 691 | 475 | 4.8k | 882 | **27.3k** |
+| 2010 | 418 | 4.9k | 13.7k | -2.4k | -1.1k | · | -94 | 2.8k | 5.5k | 145 | 13.7k | 3.6k | **41.1k** |
+| 2011 | -5 | 7.6k | -1.0k | 3.9k | -371 | · | 320 | · | -706 | · | -1.1k | 631 | **9.2k** |
+| 2012 | 6.9k | 1.8k | 3 | -3.2k | -711 | 13.7k | 266 | 6.7k | 2.5k | -616 | -105 | 2.2k | **29.4k** |
+| 2013 | -864 | 3.5k | -390 | 3.5k | 13.7k | · | 5.5k | 632 | 681 | 8.3k | -177 | 204 | **34.6k** |
+| 2014 | -1.2k | 4.3k | -1.3k | 956 | 6.4k | 7.7k | 63 | -1.4k | -1.7k | 5.1k | 2.5k | -2.7k | **18.7k** |
+| 2015 | 15.4k | 7.6k | -899 | 481 | 980 | 536 | · | -1.2k | · | 4.8k | 1.4k | -1.3k | **27.8k** |
+| 2016 | · | -36 | 15 | -559 | 837 | -594 | 4.0k | 9.4k | 474 | -1.0k | 42 | -803 | **11.7k** |
+| 2017 | -495 | 2.5k | 3.6k | 7.4k | 3.9k | 3.5k | -45 | -802 | -3.2k | 3.8k | -3.3k | -3.3k | **13.7k** |
+| 2018 | 359 | · | 277 | 4.2k | 9.2k | -3.7k | 7.0k | 7.0k | 428 | · | 1.8k | -3.6k | **23.0k** |
+| 2019 | 2.7k | 99.6k | -2.9k | 6.2k | -35 | 954 | -2.2k | · | -1.4k | -1.1k | 7.1k | -5.4k | **103.6k** |
+| 2020 | 2.7k | -12.9k | · | 1.5k | 8.6k | 4.8k | 2.3k | -9.5k | · | -280 | -354 | 60.5k | **57.3k** |
+| 2021 | 32.3k | -24.6k | -3.0k | -4.1k | 3.8k | -7.5k | -357 | 15.5k | 1.2k | -95 | -3.1k | -431 | **9.5k** |
+| 2022 | · | -665 | 2.2k | · | -1.3k | 596 | 1.0k | -338 | · | -276 | 2.6k | 1.5k | **5.3k** |
+| 2023 | -1.1k | -583 | · | 170 | 1.3k | 7.1k | -4.0k | -1.1k | 364 | · | 2.4k | 7.8k | **12.4k** |
+| 2024 | 5.1k | 3.1k | -1.4k | 3.9k | 272 | · | -744 | 51 | -1.2k | 6.0k | -3.7k | -1.6k | **9.7k** |
+| 2025 | -1.1k | -2.5k | · | 26 | 380 | 4.8k | -5.6k | -714 | 12.8k | -7.3k | -171 | -2.0k | **-1.6k** |
+| 2026 | 28.8k | -2.1k | -1.0k | 1.5k | 1.3k | · | · | · | · | · | · | · | **28.5k** |
+
+`·` = no trades that month. 135 / 230 months positive (58.7%); worst month −$24.6k (Feb 2021,
+the post-blow-off unwind); best month +$99.6k (Feb 2019). Outlier months are upside (Feb 2019,
+Dec 2020 +$60k, Jan 2021/2026 ~+$30k), not catastrophic downside — the tight entry gate keeps the
+left tail shallow.
+
+</details>
+
+---
+
+## Reproduction
+
+```bash
+# v2 default: stop-window 4, next-open exit (cap=0, no trailing limit, expansion off),
+# log-space entry filters (ATR% < 0.11, tightness < 4.0), entry-move floor 10%.
+# Run from dataset start for the 252-day warmup; filter entries to >=2005 post-hoc.
+dotnet run --project TradingEdge.MomentumV2 -c Release -- \
+  --start-date 2003-09-10 --end-date 2026-05-13 -o /tmp/v2.csv
+
+# then apply, post-hoc:
+#   breadth_lag1 > 0.5   — LAG(pct_above_20) by 1 trading day on
+#                          data/equity/momentum_v0/breadth.parquet, joined on entry_date
+#   entry_date >= 2005-01-01
+```
+
+All defaults live in `TradingEdge.MomentumV2/Backtest.fs` (`defaultConfig`). Threshold sweeps use
+the CLI overrides `--max-atr-pct`, `--max-tightness`, `--expansion-thr`, `--exit-time-cap`,
+`--stop-low-window`, `--trail-window`, `--rvol-min/--rvol-max`.
+
+---
+
+## Engine notes
+
+- **One in-memory pass.** Per ticker, a `QullaSystem` folds each bar into rolling structures
+  (monotonic-deque sliding max/min for the stop/trail/52w channels, invertible sums for the ATR and
+  volume means, a calendar-day mean for the 28-day volume window). All reads use the prior-bars
+  snapshot taken *before* the current bar is folded in — no lookahead.
+- **Indicators are `voption`** throughout; a gate whose metric is `ValueNone` (insufficient history)
+  fails the entry, matching v0's `COALESCE(..., FALSE)`.
+- **Universe** = `split_adjusted_prices` JOIN `ticker_reference` WHERE `type IN ('CS','ADRC')`,
+  streamed `ORDER BY ticker, date`, flushed at ticker boundaries.
+
+## Known TODO (in code)
+
+- **Hard up-only stop ratchet** — the stop recomputes `max(prior-window low, entry-day low)` each
+  bar and can tick *down* if a lower low slides into the window. A true Qulla trailing stop never
+  loosens. Deferred; test as a strategy change on top of this baseline.
+
+*(The old "ATR% denominator uses the current close" TODO is RESOLVED — that's exactly what the
+log-space rewrite fixed.)*
