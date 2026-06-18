@@ -513,6 +513,36 @@ forward on its own: the new-low setup is a regime bet, not a structural edge. (L
 era-split any "edge" found by pooling 20 years — full-sample PF can be the average of two opposite
 regimes.)
 
+#### Shorting TIGHT-consolidation breakdowns to new lows — does NOT work (2026-06-18)
+
+The above was all *loose*-base. Mirror thesis: a **tight** consolidation (tightness<4, ATR%<0.11 —
+the production quality filters) breaking DOWN to a new 52w low on volume should be a clean
+distribution short, the mirror of the winning long breakout. **It isn't.** Short, quality filters ON,
+new 52w close-low, down days, rvol≥3, $5, 15-day stop — every rvol×era cell is < 1.0:
+
+| rvol | SHORT 2005–14 | SHORT 2015–26 |
+| --- | ---: | ---: |
+| 3–5 | 0.97 | 0.71 |
+| 5–8 | 0.50 | 0.86 |
+| 8–15 | 0.98 | 0.65 |
+| 15+ | 0.60 | 0.96 |
+
+Total PF 0.81; **no volume band wins in either decade** (and unlike the loose-base setup it isn't
+even regime-saved — it loses both halves). Tight bases breaking to new lows **bounce, they don't
+cascade** (win rates 30–40% but net-losing — shorting into support that holds / failed breakdowns).
+
+**Tightness is a LONG-ONLY signal — the asymmetry is the point:**
+
+| base | breakout UP (long) | breakdown DOWN (short) |
+| --- | ---: | ---: |
+| **tight** | PF ~1.77 (the production edge) | **0.81 (loses both eras)** |
+| **loose** | PF ~0.4 (avoid) | regime-switching (no stable edge) |
+
+A tight consolidation is coiled-spring/accumulation structure biased to resolve UP (the whole
+momentum premise); when it breaks down instead it's often a false breakdown that snaps back. So the
+tight-base short direction is closed off — definitively (both eras), more firmly than the loose-base
+new-low setup.
+
 ### Exits that *didn't* survive the realistic baseline
 
 - **Trailing limit** (sell at the prior N-day high) — a ≤+1% PF refinement under honest fills;
