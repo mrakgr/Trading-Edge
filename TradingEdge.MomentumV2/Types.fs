@@ -59,7 +59,16 @@ type EntryConfig =
       MaxTightness: float       // tightness < this (production 0.30)
       MaxAtrPct: float }        // atr_pct(close) < this (production 0.08)
 
-/// Per-ticker rolling-indicator state for the momentum-v1 system.
+/// Which tightness measure the entry filter and the expansion exit read.
+///   - Log    : log(maxHigh/minLow) / logATR  — scale-free, the v2 default.
+///   - Linear : (maxHigh − minLow) / linearATR — a raw range/ATR ratio. A blow-off
+///     bar is a sharp LINEAR range expansion (a 30% candle) but a compressed LOG
+///     one, so linear may make the expansion exit fire on the spikes it should catch.
+type TightnessMode =
+    | Log
+    | Linear
+
+/// Per-ticker rolling-indicator state for the momentum-v2 system.
 ///
 /// All windowed structures follow the v0 "prior bars, exclude current"
 /// convention: read `.State` (or the snapshot fields below) BEFORE pushing
@@ -83,13 +92,15 @@ type QullaSystem
       volDays: int,
       expansionThr: float,
       exitTimeCap: int,
+      tightnessMode: TightnessMode,
       entryCfg: EntryConfig ) =
 
     // ----- rolling structures -----
     let stopLow   = MinMa(stopLowWindow)        // trailing stop: min low
     let trailHigh = MaxMa(trailWindow)          // trailing-limit exit: max high
     let hiClose   = MaxMa(hiCloseWindow)        // long-term close channel (e.g. 252d)
-    let atr       = AvgMa(atrWindow)            // ATR = mean LOG true range over the window
+    let atrLog    = AvgMa(atrWindow)            // ATR = mean LOG true range over the window
+    let atrLin    = AvgMa(atrWindow)            // ATR = mean ABSOLUTE true range (linear)
     let rangeHigh = MaxMa(tightnessWindow)      // tightness: max high
     let rangeLow  = MinMa(tightnessWindow)      // tightness: min low
     // 4-week (28-calendar-day) trailing means, v0 `stock_volume_4w` semantics.
@@ -109,6 +120,7 @@ type QullaSystem
     let mutable sTrailHigh : float voption = ValueNone
     let mutable sHiClose   : float voption = ValueNone
     let mutable sAtrLog    : float voption = ValueNone
+    let mutable sAtrLin    : float voption = ValueNone
     let mutable sRangeHigh : float voption = ValueNone
     let mutable sRangeLow  : float voption = ValueNone
     // Prior bar's close, snapshotted before this bar is folded in (for pct_up).
@@ -132,6 +144,9 @@ type QullaSystem
     /// the CURRENT (jumped) close used to: log TR measures the bar's volatility on
     /// its own scale, regardless of where the close landed.
     member _.AtrLog = sAtrLog
+    /// ATR(14) in LINEAR space: mean ABSOLUTE true range over the prior `atrWindow`
+    /// bars (dollars per bar). Used only for the linear tightness/expansion variant.
+    member _.AtrLin = sAtrLin
     /// ATR% stand-in = the log ATR directly (a ~percentage of price per bar).
     /// No close-price argument: the log-space TR already normalizes by price level.
     member _.AtrPct = sAtrLog
@@ -143,15 +158,59 @@ type QullaSystem
         | ValueSome hi, ValueSome lo when hi > 0.0 && lo > 0.0 ->
             ValueSome (log hi - log lo)
         | _ -> ValueNone
-    /// Consolidation tightness = log range / log ATR. Low = coiled spring (the
-    /// window's whole span is only a few average bars wide), high = trending /
-    /// expanding. ValueNone until ATR is available. Fully in log space, so it's
-    /// scale-free. No `* window` factor: ATR is already a per-bar average, and the
-    /// threshold is set by sweep, so the constant span factor is redundant.
-    member this.Tightness =
+    /// 14-day ABSOLUTE price span = max high - min low over the prior
+    /// `tightnessWindow` bars (dollars).
+    member _.RangeAbs =
+        match sRangeHigh, sRangeLow with
+        | ValueSome hi, ValueSome lo -> ValueSome (hi - lo)
+        | _ -> ValueNone
+    /// Consolidation tightness in LOG space = log range / log ATR.
+    member this.TightnessLog =
         match this.RangeLog, sAtrLog with
-        | ValueSome r, ValueSome atr when atr <> 0.0 ->
-            ValueSome (r / atr)
+        | ValueSome r, ValueSome atr when atr <> 0.0 -> ValueSome (r / atr)
+        | _ -> ValueNone
+    /// Consolidation tightness in LINEAR space = abs range / abs ATR.
+    member this.TightnessLin =
+        match this.RangeAbs, sAtrLin with
+        | ValueSome r, ValueSome atr when atr <> 0.0 -> ValueSome (r / atr)
+        | _ -> ValueNone
+    /// Consolidation tightness in the configured mode. Low = coiled spring (the
+    /// window's whole span is only a few average bars wide), high = trending /
+    /// expanding. The entry filter and the expansion exit both read this. No
+    /// `* window` factor: ATR is already a per-bar average and the threshold is set
+    /// by sweep, so the constant span factor is redundant. NOTE: Log and Linear are
+    /// on DIFFERENT numeric scales, so MaxTightness / expansionThr must be tuned per
+    /// mode (they are not interchangeable).
+    member this.Tightness =
+        match tightnessMode with
+        | Log -> this.TightnessLog
+        | Linear -> this.TightnessLin
+    /// Position-relative EXPANSION tightness for an open trade, in the configured
+    /// mode. Same range/ATR ratio as `Tightness`, but the range LOW is floored at
+    /// the trade's `entryPrice`: range = `rangeHigh − max(rangeLow, entryPrice)`.
+    ///
+    /// Why: the plain 14-day low sits below the breakout base, so a name that has
+    /// run far ABOVE our entry over a multi-bar climax still reads a normal tightness
+    /// (the climax inflates rangeHigh and ATR together). Flooring at entry makes the
+    /// numerator "how far above our entry it has stretched", which DOES grow across a
+    /// multi-bar run-up — the signal a blow-off exit actually wants. Used only by the
+    /// expansion exit; the entry filter keeps the plain (entry-independent) tightness.
+    /// ValueNone until the windows/ATR are warm; if the floored low ≥ high (price has
+    /// fallen back below entry across the whole window) the range is 0 → not expanding.
+    member _.ExpansionTightness (entryPrice: float) : float voption =
+        match sRangeHigh, sRangeLow with
+        | ValueSome hi, ValueSome lo ->
+            let lo' = max lo entryPrice
+            match tightnessMode with
+            | Linear ->
+                match sAtrLin with
+                | ValueSome atr when atr <> 0.0 -> ValueSome (max 0.0 (hi - lo') / atr)
+                | _ -> ValueNone
+            | Log ->
+                match sAtrLog with
+                | ValueSome atr when atr <> 0.0 && hi > 0.0 && lo' > 0.0 ->
+                    ValueSome (max 0.0 (log hi - log lo') / atr)
+                | _ -> ValueNone
         | _ -> ValueNone
     /// 4-week trailing average share volume (v0 `avg_volume_4w`).
     member _.AvgVolume = sAvgVol
@@ -212,29 +271,33 @@ type QullaSystem
         sStopLow   <- stopLow.State
         sTrailHigh <- trailHigh.State
         sHiClose   <- hiClose.State
-        sAtrLog    <- atr.State
+        sAtrLog    <- atrLog.State
+        sAtrLin    <- atrLin.State
         sRangeHigh <- rangeHigh.State
         sRangeLow  <- rangeLow.State
         sPrevClose <- prevClose   // prior bar's close, before this bar is folded in
 
-        // 2) fold the current bar in
+        // 2) fold the current bar in. Both the LOG and LINEAR ATRs are updated each
+        //    bar so the tightness mode is a pure read-time switch.
         match prevClose with
         | ValueSome pc when bar.high > 0.0 && bar.low > 0.0 && pc > 0.0 ->
-            // LOG true range against the prior close. Each leg is a log-price
-            // difference, i.e. a log return magnitude, so the resulting ATR is
-            // intrinsically a percentage-of-price measure (no later division by
-            // any close needed). Equivalent legs to the absolute TR, on logs:
-            //   log(high) - log(low)
-            //   |log(high) - log(prevClose)|
-            //   |log(low)  - log(prevClose)|
+            // LINEAR (absolute) true range against the prior close:
+            //   high - low , |high - prevClose| , |low - prevClose|
+            (bar.high - bar.low)
+            |> max (abs (bar.high - pc))
+            |> max (abs (bar.low - pc))
+            |> atrLin.Push
+            // LOG true range: each leg is a log-price difference, i.e. a log-return
+            // magnitude, so the resulting ATR is intrinsically a percentage-of-price
+            // measure (no later division by any close needed).
             let lh, ll, lpc = log bar.high, log bar.low, log pc
             (lh - ll)
             |> max (abs (lh - lpc))
             |> max (abs (ll - lpc))
-            |> atr.Push
+            |> atrLog.Push
         | _ ->
-            // first bar (no prior close) or a non-positive price -> log TR
-            // undefined; skip it from the ATR mean
+            // first bar (no prior close) or a non-positive price -> TR undefined;
+            // skip it from both ATR means
             ()
 
         stopLow.Push   bar.low
@@ -283,8 +346,12 @@ type QullaSystem
                 | ValueSome lo -> max lo pos.EntryDayLow
                 | ValueNone -> pos.EntryDayLow
             let stopHit = bar.low <= stopLevel
+            // Expansion exit fires on the POSITION-RELATIVE tightness (range low
+            // floored at the entry price), so it grows as the name runs above our
+            // entry across a multi-bar climax — unlike the plain tightness, which a
+            // climax bar can't move (it inflates range and ATR together).
             let expansionHit =
-                match this.Tightness with
+                match this.ExpansionTightness pos.EntryPrice with
                 | ValueSome t -> t > expansionThr
                 | ValueNone -> false
             // Priority: stop is checked BEFORE expansion. Expansion always sells

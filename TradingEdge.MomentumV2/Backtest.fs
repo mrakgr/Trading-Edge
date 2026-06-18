@@ -16,6 +16,7 @@ type Config =
       VolDays: int
       ExpansionThr: float
       ExitTimeCap: int          // bars the sell limit may rest; 0 = exit next open (N ignored)
+      TightnessMode: TightnessMode  // Log (default) or Linear — drives entry tightness + expansion
       Notional: float
       Entry: EntryConfig }
 
@@ -36,6 +37,10 @@ let defaultConfig =
       // thr=8 "peak" appeared under the OLD trailing-limit fills (cap=5) — it was a
       // fill artifact, gone once exits are next-open.) The old 0.70 fired every bar.
       ExpansionThr = infinity
+      // Tightness measure for the entry filter AND the expansion exit. Log is the v2
+      // default (the swept ATR%/tightness/expansion results above are all Log-scale).
+      // Linear is the experiment toggle (--tightness-mode linear) — thresholds differ.
+      TightnessMode = Log
       // Baseline exit = sell at the NEXT OPEN on a stop. 0 = no trailing limit
       // (TrailWindow/N ignored). The trailing limit was a ≤+1% refinement, not the
       // edge, and the realistic-fill rewrite retired it as the default.
@@ -146,7 +151,7 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
     let newSystem () =
         QullaSystem(cfg.StopLowWindow, cfg.TrailWindow, cfg.HiCloseWindow,
                     cfg.AtrWindow, cfg.TightnessWindow, cfg.VolDays,
-                    cfg.ExpansionThr, cfg.ExitTimeCap, cfg.Entry)
+                    cfg.ExpansionThr, cfg.ExitTimeCap, cfg.TightnessMode, cfg.Entry)
 
     // Flush the just-finished ticker: MTM-close open trips, emit all trips.
     let flush () =

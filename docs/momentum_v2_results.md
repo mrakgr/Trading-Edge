@@ -145,10 +145,38 @@ higher floors keep paying if you want fewer/stronger trades.
 - **Trailing limit** (sell at the prior N-day high) — a ≤+1% PF refinement under honest fills;
   retired. The "PF 3.0 / 80% winning months" of the v0 era was a top-tick fill artifact (the limit
   filled at the recent high *every* bar). See the v0 doc's warning banner.
-- **Expansion exit** (sell when tightness blows out) — under the next-open baseline it only ever
-  cuts winners early: PF climbs monotonically as the threshold loosens and converges to "off" by
-  ~10 at every tightness cap. A `thr=8` "peak" appeared under the old trailing-limit fills but
-  vanished once exits are next-open — it was a fill artifact. **Off.**
+- **Expansion exit** — sell when the name "blows off". Tested three ways (2026-06-18), all dead;
+  the trailing stop is the right exit. See the dedicated section below.
+
+### Expansion exit — a thoroughly-tested dead end (2026-06-18)
+
+The intuition is sound (take profits when a momentum name goes parabolic), but **no variant beats
+just holding to the trailing stop.** Three attempts, each with a diagnostic that explains the
+failure:
+
+1. **Tightness blow-out, LOG space** (`tightness > thr`). Under the next-open baseline PF climbs
+   monotonically as the threshold loosens and converges to "off" — every firing threshold is worse
+   than off. (A `thr=8` "peak" seen earlier was an artifact of the old trailing-limit fills; it
+   vanished at cap=0.)
+2. **Tightness blow-out, LINEAR space.** Same shape, same conclusion. The diagnostic shows *why
+   it can't work in any space*: tightness = `range₁₄ / ATR₁₄`, and a climax bar inflates the
+   14-day range AND the 14-day ATR **together**, so a +30% day reads the *same* tightness (~3.8
+   median) as a +10% day. Tightness is a **consolidation** detector, not a **spike** detector.
+   (Bonus finding: as an *entry* filter, linear vs log tightness are functionally identical —
+   PF 1.758 vs 1.734, same drawdown, same monotonic cutoff curve. The `range/ATR` ratio is nearly
+   scale-invariant because the price normalization cancels top and bottom.)
+3. **Position-relative range** (floor the range-low at the entry price:
+   `range = rangeHigh − max(rangeLow, entryPrice)`). This *does* fire on multi-bar run-ups (273
+   exits at thr=4), fixing attempt 2's blind spot. But it **only ever truncates winners**: the
+   floored range can only be large when the stock is far ABOVE entry, so the exit never touches a
+   loser. Counterfactual on the 273 fired trades: booked +$744k, would have made **+$811k** if
+   held — it left **$67k on the table**. By construction it fights the edge ("let winners run").
+
+**Conclusion:** this momentum edge is "hold to the trailing stop." Anything that exits *because* a
+name is up a lot is selling the right tail, where these names keep running more often than they
+revert. Expansion exit stays **off**. The `--tightness-mode log|linear` flag and the
+position-relative `ExpansionTightness` member remain in the engine as the substrate for the tested
+negative result (and any future single-bar exit work).
 
 ---
 
