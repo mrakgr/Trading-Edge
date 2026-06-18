@@ -315,6 +315,40 @@ reclaim 1.435 (vs 1.43), gap-over 1.16 (vs 1.09; the stop *was* penalizing gap-o
 a second-order effect), reclaim still wins both eras (1.65 / 1.29 vs 1.07 / 1.16). The reclaim
 advantage is genuine, not a consequence of the initial stop.
 
+#### ⭐ The reclaim edge GENERALIZES to the whole production system (2026-06-18)
+
+Splitting the **full production default** (not just the dead zone) by reclaim vs gap-over — open
+below the 52w intraday high and close through it, vs open already at/above it:
+
+| whole system | n | win% | PF | net | | era | 2005–14 | 2015–26 |
+| --- | ---: | ---: | ---: | ---: | --- | --- | ---: | ---: |
+| **reclaim** | 1226 | 45.8% | **1.917** | +411k | | reclaim | 1.98 | **1.89** |
+| gap-over | 1001 | 47.2% | 1.49 | +116k | | gap-over | 1.76 | **1.31** |
+
+**"Open below the prior high, close through it" is a broadly better entry than buying any close** —
+PF 1.92 vs 1.49, carrying **78% of the system's P&L** ($411k of $528k), steady across eras
+(1.98 → 1.89). The gap-over half is the weaker one and **decaying** (1.76 → 1.31 — buying breakouts
+that gapped over the high before the open has gotten worse over time, gap-and-fade / front-run).
+Note the gap-over has a slightly *higher* win rate (47.2 vs 45.8) but lower PF — its winners are
+smaller: the reclaim's edge is payoff size, consistent with entering at a better price than chasing
+an extended gap.
+
+**As a system filter (reclaim-only) it dominates the default:**
+
+| | full default | reclaim-only |
+| --- | ---: | ---: |
+| trips | 2,227 | 1,226 |
+| PF | 1.769 | **1.917** |
+| net | $528k | $411k |
+| max monthly DD | −$33.8k | **−$23.6k** |
+| % months + | 58.1% | 53.9% |
+
++0.15 PF and **−30% max drawdown** for 78% of the P&L on 55% of the trips (only cost: fewer trades →
+a few more flat months). Strongest single entry refinement found this session, era-robust, with a
+sound mechanism (participate in a live intraday breakout vs chase an already-gapped one). **Candidate
+production change** — would need an intraday/open data feed at entry time to act on live, but the
+daily `open` + reconstructed `hi_252_high` is enough to backtest it cleanly.
+
 #### Breakouts FAR below the high (< −15%) — positive but weaker, and the structure inverts (2026-06-18)
 
 With the quality filters MET (tightness<4, ATR%<0.11, rvol≥3) but the 52w gate OFF, what happens to
