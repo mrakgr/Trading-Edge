@@ -317,6 +317,15 @@ advantage is genuine, not a consequence of the initial stop.
 
 #### ⭐ The reclaim edge GENERALIZES to the whole production system (2026-06-18)
 
+> **Resistance = the prior 252-day max of INTRADAY HIGHS** (`hi_252_high`, the `hiHigh` MaxMa over
+> `bar.high`, pre-push), NOT the max of closes. So **reclaim** = entry bar's `open < hi_252_high`
+> **and** `close ≥ hi_252_high` (opened below the prior intraday high, pushed up through it during the
+> session); **gap-over** = `open ≥ hi_252_high` (opened already above it). The intraday high is the
+> real overhead level sellers defended, so a reclaim means price broke through actual supply intraday
+> — the stronger of the two possible definitions. (Distinct from the production *entry gate*
+> `Min52wPct`, which tests `close ≥ 0.95 × hi_252_CLOSE` — the close-channel. Two references, each
+> correct for its role.)
+
 Splitting the **full production default** (not just the dead zone) by reclaim vs gap-over — open
 below the 52w intraday high and close through it, vs open already at/above it:
 
