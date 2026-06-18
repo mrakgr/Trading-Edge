@@ -428,6 +428,44 @@ dead-zone rescue found this session (alongside the intraday reclaim); the two ar
 (reclaim = *which* dead-zone bars to take; limit = *how* to enter them). **Candidate refinement for
 dead-zone entries specifically — not the whole system.**
 
+**The two refinements STACK — and the limit's benefit lives entirely in the reclaim half.** Splitting
+the dead-zone limit run (tw=2/cap=10) by reclaim (signal-bar `adj_open < hi_252_high`) vs gap-over,
+against the at-close reference:
+
+| dead zone | at-close PF | limit PF |
+| --- | ---: | ---: |
+| **reclaim** (open below high) | 1.331 | **1.603** |
+| gap-over (open ≥ high) | 1.14 | 1.15 |
+
+On **reclaim** trades the limit adds a real **+0.27 PF** (1.331→1.603) at ~flat P&L — buying the
+pullback on a name that opened below resistance and reclaimed it intraday is a clean improvement. On
+**gap-over** trades the limit does nothing (1.14→1.15): a name that already gapped through resistance
+either doesn't retrace to the 4-day low or the retrace means the gap is failing. The gap-over half is
+dead weight under *both* entry methods (~$15–22k on ~870 trades). So the best dead-zone cell is
+**reclaim + limit**, and gap-overs should be dropped regardless of entry style.
+
+**DROP the timed-out (`open_after_cap`) trades — strictly dominant.** Splitting by fill type × reclaim:
+
+| dead-zone fill | n | PF | net |
+| --- | ---: | ---: | ---: |
+| limit fill — reclaim | 1284 | **1.669** | +$128.3k |
+| limit fill — gap-over | 829 | 1.158 | +$14.8k |
+| **open_after_cap — reclaim** | 78 | **0.687** | **−$4.3k** |
+| open_after_cap — gap-over | 43 | 0.987 | −$0.1k |
+
+Both timed-out cells are sub-1.0; the reclaim ones are *especially* bad (PF 0.687) — they are exactly
+the reclaim names that **failed to retrace within 10 bars** (ran away), so the cap forces you in at the
+open chasing a faded breakout. Dropping all timeouts lifts the dead-zone limit run on **both axes at
+once** — PF **1.457→1.502** AND net **$138.8k→$143.1k** (a rare no-tradeoff cut, because the dropped
+trades are net-negative). So the correct policy is **expire-on-timeout, not enter-at-the-open**: if
+the pullback doesn't come within the cap, the signal has invalidated itself.
+
+**Best dead-zone configuration found:** `--up-threshold 0` + 0–10%-above-intraday-high + **reclaim
+only** + **trailing buy limit (tw=2, cap=10) + drop timeouts** → **PF 1.669, +$128k on 1,284 trips**,
+the cleanest dead-zone cell of the session. (Engine currently enters at the open on timeout, tagged
+`open_after_cap`, so "drop timeouts" is a post-hoc filter today; an `--entry-expire-on-cap` flag would
+make it native.)
+
 #### Breakouts FAR below the high (< −15%) — positive but weaker, and the structure inverts (2026-06-18)
 
 With the quality filters MET (tightness<4, ATR%<0.11, rvol≥3) but the 52w gate OFF, what happens to
