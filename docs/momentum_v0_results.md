@@ -1,11 +1,5 @@
 # Mid-Cap Momentum v0 — Regime-Dependent, Prints in Parabolic Bull Innings
 
-> ## ⚠️ INVALID RESULTS WARNING (2026-06-17)
-> **Everything from the [Mean-reversion trailing-limit exit](#mean-reversion-trailing-limit-exit--sell-the-bounce-not-the-stop-2026-06-16) section onward is INFLATED and must not be trusted.**
-> The N-day trailing-limit exit had a fill bug: at N=1 it filled at `min(seed, bar.high)` on the very next bar **every time** — a guaranteed sale at the recent high, which a real resting limit order cannot achieve. This top-tick credit inflated profit factor by roughly **+0.7** (e.g. the "PF 2.33" / "PF 3.0 at tight stops" / "80% of months positive" headlines).
-> The rewritten **v1 engine** (`TradingEdge.MomentumV1`) fills the limit only when price actually trades up to the *prior* bar's high. On realistic fills the true PF is **~1.7–1.8** (post-breadth), the trailing limit is a ~+1% refinement (not a major edge), and **stop-window 4 is the sweet spot, not window 1** (the "tighter is better" ordering was the artifact). See `docs/momentum_v1_results.md` for the corrected numbers.
-> The sections *before* that one (entry filters, proximity-band finding, ADV buckets) are unaffected — they don't depend on the trailing-limit exit.
-
 **Status: working signal with strong regime dependence — exactly the expected shape.** A naive high-volume breakout-to-52-week-high system, long-only, run over the full US equity daily history **2005-01-01 → 2026-05-13** (CS/ADRC universe, ≥$1M trailing dollar volume). It makes large profits in parabolic bull stretches (2020, 2013, 2009, the 2024→2026 AI run) and bleeds in bears / post-blowoff unwinds (2021, 2022, 2023, 2008). Net P&L **+$1.64M** at a fixed $10k/trade, uncapped, no compounding, across **25,799 trips**.
 
 This is **v0**: no regime filter, no market-cap bucketing, no parameter tuning. The point of this run is to characterize *when* this style works — and to see whether the current environment looks like one of its good innings (it does).
