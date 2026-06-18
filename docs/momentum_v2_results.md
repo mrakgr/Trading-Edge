@@ -466,6 +466,27 @@ down ones (PF ~1.5), fade/avoid the up ones (long PF ~0.5) — while **low-volum
 chop** and have no directional edge either way. The genuine inverse-exhaustion short edge exists but
 is narrow: loose base + new 52w low + **rvol ≥ 8**.
 
+**Deep dive: the rvol 3–5 segment by move size (2026-06-18, fixed prices).** The big losing bucket
+(rvol 3–5, PF 0.74, 1,184 trades) split by the down-day magnitude looks U-shaped — profitable at the
+extremes, deeply negative in the middle:
+
+| pct_up (rvol 3–5 short) | n | PF | | era split | 2005–14 | 2015–26 |
+| --- | ---: | ---: | --- | --- | ---: | ---: |
+| < −20% (crash) | 63 | 1.36 | | crash < −12% | 0.23 | 0.79 |
+| **−20..−12%** | 111 | **0.31** | | mid −12..−1% | 0.42 | 1.06 |
+| −12..−4% | 442 | ~0.72 | | **flat −1..0%** | **1.25** | **1.51** |
+| −4..−1% | 390 | 0.80 | | | | |
+| **−1..0% (flat)** | 167 | **1.46** | | | | |
+
+⚠️ **But the era split kills most of the U-shape.** Only the **flat −1..0% quiet-drift-to-a-new-low
+is robust** (PF 1.25 then 1.51 — stable across both halves): a name barely setting a new low on
+moderate volume has no bounce energy and bleeds lower. The "crash < −20% short works" cell is an
+**era artifact** (PF 0.23 in 2005–14, only positive recently — don't trust it). The moderate-down
+middle (−20..−12% = PF 0.31, spread across many names not one outlier) is reliably bad in both eras —
+moderate down-days at a new low snap back violently. The whole rvol-3-5 segment was much worse pre-2015
+(mid-band 0.42 vs 1.06), so its negativity is partly an old-era effect. **Takeaway: within this
+segment the one trustworthy short is the near-flat quiet new low; the rest is mean-reversion or noise.**
+
 ### Exits that *didn't* survive the realistic baseline
 
 - **Trailing limit** (sell at the prior N-day high) — a ≤+1% PF refinement under honest fills;
