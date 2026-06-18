@@ -460,6 +460,8 @@ new-low, short):
 **Shorting works only on a volume spike (rvol ≥ 8): PF ~1.5 in both move rows** (~250 trades, ~48%
 win) — and loses/chops on normal volume; the big-down/low-volume cell is the worst (0.67, those
 bounce and stop you out). It's **volume-gated, not move-gated**, and a modest low-frequency setup.
+⚠️ **This full-sample short edge is a post-2015 REGIME artifact** — it lost badly pre-2015 (it's the
+short half of a regime that flipped). See the regime-switching subsection below before trusting it.
 
 **The symmetry (rvol is the key, both sides):** high-volume blow-offs *continue* — short the
 down ones (PF ~1.5), fade/avoid the up ones (long PF ~0.5) — while **low-volume drifts mean-revert /
@@ -486,6 +488,30 @@ middle (−20..−12% = PF 0.31, spread across many names not one outlier) is re
 moderate down-days at a new low snap back violently. The whole rvol-3-5 segment was much worse pre-2015
 (mid-band 0.42 vs 1.06), so its negativity is partly an old-era effect. **Takeaway: within this
 segment the one trustworthy short is the near-flat quiet new low; the rest is mean-reversion or noise.**
+
+#### ⚠️ The whole new-low setup is REGIME-SWITCHING — long↔short flipped at ~2015 (2026-06-18)
+
+Era-splitting the loose-base new-low population by rvol exposes that this setup has **no stable
+directional edge** — the two sides are near-perfect mirror images that swapped regimes mid-decade:
+
+| rvol | LONG 2005–14 | LONG 2015–26 | SHORT 2005–14 | SHORT 2015–26 |
+| --- | ---: | ---: | ---: | ---: |
+| 3–5 | **1.31** | 0.70 | 0.43 | 0.94 |
+| 5–8 | 1.15 | 0.92 | 0.59 | 1.20 |
+| 8–15 | 0.92 | 0.81 | 0.69 | 1.33 |
+| 15+ | **2.43** | 0.12 | 0.23 | **2.23** |
+
+- **2005–2014 = mean-reversion regime:** new lows BOUNCED. Buying them worked (rvol 3–5 PF 1.31,
+  rvol 15+ PF 2.43); shorting them lost (every band < 1).
+- **2015–2026 = continuation regime:** new lows kept FALLING. Shorting worked (rvol 15+ PF 2.23);
+  buying got crushed (rvol 15+ PF 0.12).
+
+So the earlier "**high-rvol capitulation short works (PF 1.5–1.7)**" conclusion was a **single-regime
+(post-2015) artifact** — full-sample PF hid that it lost badly pre-2015. Likewise the long
+mean-reversion edge exists but **only in 2005–14**, and inverted after. Neither side is tradeable
+forward on its own: the new-low setup is a regime bet, not a structural edge. (Lesson reinforced:
+era-split any "edge" found by pooling 20 years — full-sample PF can be the average of two opposite
+regimes.)
 
 ### Exits that *didn't* survive the realistic baseline
 
