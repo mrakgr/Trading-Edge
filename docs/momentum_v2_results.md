@@ -466,6 +466,30 @@ the cleanest dead-zone cell of the session. (Engine currently enters at the open
 `open_after_cap`, so "drop timeouts" is a post-hoc filter today; an `--entry-expire-on-cap` flag would
 make it native.)
 
+**The limit entry is a dead-zone-ONLY tool — it damages the rest of the universe.** Splitting the
+same up=0 runs into dead zone vs everything else (below the high, fresh 0% new highs, well-extended
+10–20%+):
+
+| up=0, breadth-filtered | at-close PF | limit PF (tw=2/cap=10) |
+| --- | ---: | ---: |
+| **dead zone (0–10% above high)** | 1.275 | **1.457** |
+| **rest of universe** | **1.757** | 1.411 |
+
+On the rest, the limit **drops PF 1.757→1.411 and net P&L $671k→$254k** — a big loss. Win rate actually
+*rises* (44%→53%) while PF *falls*: the classic "many small pullback wins, but you miss the few huge
+runners that carry the system" — the biggest winners are precisely the names that never retrace. It is
+not a timeout problem here (limit fills alone are 1.438, ~95% of rest-of-universe names do retrace);
+buying the pullback on a strong breakout is **just worse**, because the at-close entry catches the
+continuation while the pullback entry sits through a dip that, on the winners, costs the entry into
+the best part of the move.
+
+So the limit entry helps *exactly* the band where chasing the close was the problem (the dead zone)
+and hurts everywhere else — the same position-dependence that runs through this whole system. **If
+shipped it must be a CONDITIONAL entry rule: trailing limit in the dead zone, buy-the-close
+everywhere else** — never a global default. (Aside, untested: gap-overs might instead want an
+EARLY-in-the-day open entry — gaps come from premarket news, so waiting for the close may be wrong —
+but that needs premarket-volume data we don't have yet to model open entries.)
+
 #### Breakouts FAR below the high (< −15%) — positive but weaker, and the structure inverts (2026-06-18)
 
 With the quality filters MET (tightness<4, ATR%<0.11, rvol≥3) but the 52w gate OFF, what happens to
