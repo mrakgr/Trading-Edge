@@ -192,6 +192,67 @@ Names *well below* the high (< −15%, the early-stage breakouts) are the weakes
 a lot of P&L on volume. This refines the proximity story: it is not "closer to the high is better" —
 it is "at the high OR clearly extended, but not the awkward 2–5% just-past zone."
 
+#### The move × 52w-position interaction — "bigger is better" is conditional (2026-06-18, pure gainers)
+
+Re-run on **pure gainers** (up≥0, no move floor — the up≥10 default had hidden the small-mover cells)
+the bimodal 52w shape holds (peak at the new high, dead 2–10% trough, strong 10–20% extended). But
+slicing the **dead 2–10% zone by entry-day move** overturns the earlier "not rescuable by move"
+read — there IS a pattern, and it **inverts** the big-mover edge:
+
+| pct_up (within 2–10% above high) | n | PF |
+| --- | ---: | ---: |
+| 2–4% | 151 | **2.03** |
+| 4–6% | 216 | 1.372 |
+| 6–8% | 224 | 1.275 |
+| 8–10% | 271 | **1.094** |
+| 14–20% | 235 | 1.528 |
+
+The **smallest movers (2–4%) are the best** in this zone (PF 2.0), declining to a trough at 8–14%.
+Mechanism: a stock 2–10% above its high on a *2–4% day* got there by **grinding** (quiet, steady
+higher highs) — a clean continuation. A stock only 2–10% above the high on a *10%+ day* just **gapped
+up to barely clear it** — overextended intraday relative to its structure, and underperforms.
+
+So the move×position interaction is the real story (PF, cells with n≥40, pure gainers):
+
+| 52w zone \ move | <5% | 5–10% | 10–15% | 15–20% | 20%+ |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| below high | 1.53 | 1.23 | 0.81 | 1.06 | 1.64 |
+| at-high 0–2% | 1.34 | **2.05** | 1.23 | **3.20** | — |
+| dead 2–10% | **1.74** | 1.21 | 1.10 | 1.80 | 1.20 |
+| ext 10–20% | — | — | 1.83 | **2.15** | 2.00 |
+| ext 20%+ | — | — | — | — | 1.70 |
+
+**"Bigger movers are better" is conditional on position:** explosive at a *fresh* high or in a
+*confirmed run* is premium (PF 2–3); the *same* big move in the dead zone is mediocre (~1.1–1.2),
+where instead the quiet small-mover grinder wins. (Grid is noisy per-cell at these sample sizes —
+read it for the pattern, not the decimals.)
+
+#### Is the dead zone a resistance artifact? (max-CLOSE vs max-HIGH 52w reference)
+
+The 52w channel is `max(close)`, but the resistance a breakout must clear is the prior **intraday
+high** (`max(high)`), which sits above the max-close. So a name "+2–10% above its 52w *close* high"
+may still be **at/under its prior intraday high** — banging into real overhead. Added a parallel
+252d high-channel and `pct_52w_high_at_entry = close / hi_252_high − 1`. Bucketing on it (pure
+gainers, breadth, 15-day stop):
+
+| band (vs 52w INTRADAY high) | n | PF |
+| --- | ---: | ---: |
+| −15..−5% | 3618 | 1.513 |
+| **−5..0% (pressing into resistance)** | 3445 | **1.646** |
+| 0..2% (clears high) | 870 | 1.403 |
+| 2..5% | 660 | 1.351 |
+| 5..10% | 683 | 1.357 |
+| **10..20% (extended)** | 568 | **1.757** |
+
+**Partly confirmed, with a sharper read.** The median intraday-high distance is ~1.3% below the
+close-high distance, and **5.9% of trades are a new *closing* high yet still under the prior intraday
+high.** On the intraday-high reference the dead zone is milder (the close-based +2–10% trough was
+partly a resistance artifact) — but the standout flips to **−5..0%, i.e. *just below* the intraday
+high (PF 1.65).** The best fresh-breakout setup is price *pressing into* intraday resistance from
+below, not after it clears; once it poking through (0–10% above the intraday high) it enters the mild
+dead zone, and only the well-extended 10–20% names are strong again. The close-based "fresh high"
+sweet spot was conflating these two; the intraday-high reference cleanly separates them.
+
 ### Loose-base breakouts are a strong negative edge — and LINEAR tightness separates the tail better
 
 Sanity check (2026-06-18): does buying breakouts from *loose* bases (high tightness) lose money, as

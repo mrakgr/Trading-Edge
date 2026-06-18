@@ -43,6 +43,7 @@ type Position =
       AtrPctAtEntry: float
       TightnessAtEntry: float
       Pct52wAtEntry: float       // close / hi_252_prior - 1 (how far above the prior 252d closing high)
+      Pct52wHighAtEntry: float   // close / hi_252_high - 1 (above the prior 252d INTRADAY high — true resistance)
       State: PositionState }
 
 /// In-engine entry filter thresholds. Mirrors v0's `is_entry` (breakout / rvol
@@ -99,7 +100,8 @@ type QullaSystem
     // ----- rolling structures -----
     let stopLow   = MinMa(stopLowWindow)        // trailing stop: min low
     let trailHigh = MaxMa(trailWindow)          // trailing-limit exit: max high
-    let hiClose   = MaxMa(hiCloseWindow)        // long-term close channel (e.g. 252d)
+    let hiClose   = MaxMa(hiCloseWindow)        // long-term close channel (e.g. 252d), over CLOSES
+    let hiHigh    = MaxMa(hiCloseWindow)        // long-term HIGH channel (252d max of intraday highs)
     let atrLog    = AvgMa(atrWindow)            // ATR = mean LOG true range over the window
     let atrLin    = AvgMa(atrWindow)            // ATR = mean ABSOLUTE true range (linear)
     let rangeHigh = MaxMa(tightnessWindow)      // tightness: max high
@@ -120,6 +122,7 @@ type QullaSystem
     let mutable sStopLow   : float voption = ValueNone
     let mutable sTrailHigh : float voption = ValueNone
     let mutable sHiClose   : float voption = ValueNone
+    let mutable sHiHigh    : float voption = ValueNone
     let mutable sAtrLog    : float voption = ValueNone
     let mutable sAtrLin    : float voption = ValueNone
     let mutable sRangeHigh : float voption = ValueNone
@@ -143,6 +146,14 @@ type QullaSystem
     /// <0 = still below the prior high. ValueNone before the channel is warm / on 0.
     member _.Pct52w (closePrice: float) =
         match sHiClose with
+        | ValueSome hi when hi <> 0.0 -> ValueSome (closePrice / hi - 1.0)
+        | _ -> ValueNone
+    /// How far the given close sits above the prior 252d INTRADAY-high (max of highs):
+    /// `close / hi_252_high - 1`. This is the true resistance reference — clearing the
+    /// max CLOSE (Pct52w) can still leave price under the prior intraday high. ValueNone
+    /// before the channel is warm / on 0.
+    member _.Pct52wHigh (closePrice: float) =
+        match sHiHigh with
         | ValueSome hi when hi <> 0.0 -> ValueSome (closePrice / hi - 1.0)
         | _ -> ValueNone
     /// ATR(14) in LOG space: mean log-true-range over the prior `atrWindow` bars.
@@ -279,6 +290,7 @@ type QullaSystem
         sStopLow   <- stopLow.State
         sTrailHigh <- trailHigh.State
         sHiClose   <- hiClose.State
+        sHiHigh    <- hiHigh.State
         sAtrLog    <- atrLog.State
         sAtrLin    <- atrLin.State
         sRangeHigh <- rangeHigh.State
@@ -311,6 +323,7 @@ type QullaSystem
         stopLow.Push   bar.low
         trailHigh.Push bar.high
         hiClose.Push   bar.close
+        hiHigh.Push    bar.high
         rangeHigh.Push bar.high
         rangeLow.Push  bar.low
         let vol = float bar.volume
@@ -421,6 +434,7 @@ type QullaSystem
                   AtrPctAtEntry = orNan this.AtrPct
                   TightnessAtEntry = orNan this.Tightness
                   Pct52wAtEntry = orNan (this.Pct52w bar.close)
+                  Pct52wHighAtEntry = orNan (this.Pct52wHigh bar.close)
                   State = Holding }
 
     /// Close any still-open positions at the final bar's close, marked-to-market
