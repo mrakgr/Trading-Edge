@@ -405,6 +405,35 @@ But both together is the worst (0.51): rvol adds incremental damage *conditional
 (0.76 → 0.51). So an exhaustion trigger should make the **daily move the primary condition with rvol
 as a sharpener**, not weight them equally.
 
+#### The inverse — buying loose-base capitulation at new 52w LOWS does NOT work (2026-06-18)
+
+Is there a long-side mirror: buy the *down*-blowoff (loose base making a new 52w low) the way we
+*avoid* the up-blowoff? Extended the engine with 252d **low** channels (min-close and min-intraday-low,
+mirroring the high channels) and emitted `pct_52w_low_close_at_entry` / `pct_52w_low_at_entry`. Took
+loose-base (tightness>7.5) names at/below the prior 252d closing low, **down days admitted**
+(`--up-threshold -1`), rvol≥3, $5 floor, long-only, 15-day stop:
+
+**Total: 1,797 trips, PF 0.833, −$154k — a net loser.** Breakdown:
+
+| pct_up (capitulation severity) | n | PF | | rvol | n | PF |
+| --- | ---: | ---: | --- | --- | ---: | ---: |
+| < −15% | 305 | **0.69** | | 3–5 | 1195 | 0.92 |
+| −15..−8% | 324 | 0.91 | | 5–8 | 351 | 0.97 |
+| −8..−4% | 412 | 0.78 | | 8–15 | 152 | 0.74 |
+| −4..0% | 708 | 1.02 | | **15+** | 99 | **0.31** |
+
+**Capitulation is NOT the clean mirror of exhaustion.** Fading euphoria works (avoid loose-base
+up-blowoffs), but *buying* loose-base down-blowoffs loses — the deeper the down-day the worse
+(< −15% → PF 0.69), only the mild −4..0% drift is ~breakeven, and falling knives keep falling on a
+15-day hold. Breadth doesn't rescue it; it's actually **worse in risk-on regimes** (PF 0.65 vs 0.93
+risk-off) — a fresh 52w low while the market is healthy is strong relative weakness, a broken laggard.
+
+**Unifying insight:** the high-rvol cell is the worst in *both* directions (up-blowoff rvol 8+ → ~0.5;
+down-blowoff rvol 15+ → 0.31). It is not "highs good / lows bad" — it is that **a violent,
+high-participation move on an unstructured (loose) base is toxic to be long of, up OR down.** For the
+up case you avoid/fade it; for the down case you simply don't buy it. There is no symmetric "buy the
+panic" long edge here.
+
 ### Exits that *didn't* survive the realistic baseline
 
 - **Trailing limit** (sell at the prior N-day high) — a ≤+1% PF refinement under honest fills;

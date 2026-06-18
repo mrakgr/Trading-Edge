@@ -94,6 +94,8 @@ type Trip =
       TightnessAtEntry: float
       Pct52wAtEntry: float
       Pct52wHighAtEntry: float
+      Pct52wLowCloseAtEntry: float
+      Pct52wLowAtEntry: float
       ExitReason: string
       Open: bool }
 
@@ -121,6 +123,8 @@ let private toTrip (symbol: string) (notional: float)
           TightnessAtEntry = p.TightnessAtEntry
           Pct52wAtEntry = p.Pct52wAtEntry
           Pct52wHighAtEntry = p.Pct52wHighAtEntry
+          Pct52wLowCloseAtEntry = p.Pct52wLowCloseAtEntry
+          Pct52wLowAtEntry = p.Pct52wLowAtEntry
           ExitReason = reason
           Open = (reason = "mtm") }
     | _ -> failwith "toTrip called on a non-Exited position (Finalize first)"
@@ -206,7 +210,7 @@ let private fmt (x: float) = if Double.IsNaN x then "nan" else x.ToString("0.###
 let header =
     "symbol,entry_date,exit_date,side,entry_price,exit_price,qty,net_pnl,bars_held,"
     + "entry_adj_volume,rvol_at_entry,avg_dollar_volume_4w_at_entry,pct_up_at_entry,"
-    + "atr_pct_14_at_entry,range_pct_14_at_entry,tightness_14_at_entry,pct_52w_at_entry,pct_52w_high_at_entry,exit_reason,open"
+    + "atr_pct_14_at_entry,range_pct_14_at_entry,tightness_14_at_entry,pct_52w_at_entry,pct_52w_high_at_entry,pct_52w_low_close_at_entry,pct_52w_low_at_entry,exit_reason,open"
 
 let private row (t: Trip) : string =
     String.concat "," [
@@ -228,6 +232,8 @@ let private row (t: Trip) : string =
         fmt t.TightnessAtEntry
         fmt t.Pct52wAtEntry
         fmt t.Pct52wHighAtEntry
+        fmt t.Pct52wLowCloseAtEntry
+        fmt t.Pct52wLowAtEntry
         t.ExitReason
         (if t.Open then "1" else "0")
     ]

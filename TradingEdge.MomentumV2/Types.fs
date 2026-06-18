@@ -44,6 +44,8 @@ type Position =
       TightnessAtEntry: float
       Pct52wAtEntry: float       // close / hi_252_prior - 1 (how far above the prior 252d closing high)
       Pct52wHighAtEntry: float   // close / hi_252_high - 1 (above the prior 252d INTRADAY high — true resistance)
+      Pct52wLowCloseAtEntry: float // close / lo_252_close - 1 (below the prior 252d closing LOW)
+      Pct52wLowAtEntry: float    // close / lo_252_low - 1 (below the prior 252d INTRADAY low — true support)
       State: PositionState }
 
 /// In-engine entry filter thresholds. Mirrors v0's `is_entry` (breakout / rvol
@@ -103,6 +105,8 @@ type QullaSystem
     let trailHigh = MaxMa(trailWindow)          // trailing-limit exit: max high
     let hiClose   = MaxMa(hiCloseWindow)        // long-term close channel (e.g. 252d), over CLOSES
     let hiHigh    = MaxMa(hiCloseWindow)        // long-term HIGH channel (252d max of intraday highs)
+    let loClose   = MinMa(hiCloseWindow)        // long-term LOW close channel (252d min of closes)
+    let loLow     = MinMa(hiCloseWindow)        // long-term LOW channel (252d min of intraday lows)
     let atrLog    = AvgMa(atrWindow)            // ATR = mean LOG true range over the window
     let atrLin    = AvgMa(atrWindow)            // ATR = mean ABSOLUTE true range (linear)
     let rangeHigh = MaxMa(tightnessWindow)      // tightness: max high
@@ -124,6 +128,8 @@ type QullaSystem
     let mutable sTrailHigh : float voption = ValueNone
     let mutable sHiClose   : float voption = ValueNone
     let mutable sHiHigh    : float voption = ValueNone
+    let mutable sLoClose   : float voption = ValueNone
+    let mutable sLoLow     : float voption = ValueNone
     let mutable sAtrLog    : float voption = ValueNone
     let mutable sAtrLin    : float voption = ValueNone
     let mutable sRangeHigh : float voption = ValueNone
@@ -156,6 +162,20 @@ type QullaSystem
     member _.Pct52wHigh (closePrice: float) =
         match sHiHigh with
         | ValueSome hi when hi <> 0.0 -> ValueSome (closePrice / hi - 1.0)
+        | _ -> ValueNone
+    /// How far the given close sits relative to the prior 252d closing LOW:
+    /// `close / lo_252_close - 1`. <0 = a new closing low (by that fraction);
+    /// >0 = still above the prior low. ValueNone before the channel is warm / on 0.
+    member _.Pct52wLowClose (closePrice: float) =
+        match sLoClose with
+        | ValueSome lo when lo <> 0.0 -> ValueSome (closePrice / lo - 1.0)
+        | _ -> ValueNone
+    /// How far the given close sits relative to the prior 252d INTRADAY low (min of lows):
+    /// `close / lo_252_low - 1`. The true support reference — a new closing low (Pct52wLowClose<0)
+    /// can still sit above the prior intraday low. ValueNone before the channel is warm / on 0.
+    member _.Pct52wLow (closePrice: float) =
+        match sLoLow with
+        | ValueSome lo when lo <> 0.0 -> ValueSome (closePrice / lo - 1.0)
         | _ -> ValueNone
     /// ATR(14) in LOG space: mean log-true-range over the prior `atrWindow` bars.
     /// Because log-true-range is itself a relative (log-return-magnitude) measure,
@@ -292,6 +312,8 @@ type QullaSystem
         sTrailHigh <- trailHigh.State
         sHiClose   <- hiClose.State
         sHiHigh    <- hiHigh.State
+        sLoClose   <- loClose.State
+        sLoLow     <- loLow.State
         sAtrLog    <- atrLog.State
         sAtrLin    <- atrLin.State
         sRangeHigh <- rangeHigh.State
@@ -325,6 +347,8 @@ type QullaSystem
         trailHigh.Push bar.high
         hiClose.Push   bar.close
         hiHigh.Push    bar.high
+        loClose.Push   bar.close
+        loLow.Push     bar.low
         rangeHigh.Push bar.high
         rangeLow.Push  bar.low
         let vol = float bar.volume
@@ -442,6 +466,8 @@ type QullaSystem
                   TightnessAtEntry = orNan this.Tightness
                   Pct52wAtEntry = orNan (this.Pct52w bar.close)
                   Pct52wHighAtEntry = orNan (this.Pct52wHigh bar.close)
+                  Pct52wLowCloseAtEntry = orNan (this.Pct52wLowClose bar.close)
+                  Pct52wLowAtEntry = orNan (this.Pct52wLow bar.close)
                   State = Holding }
 
     /// Close any still-open positions at the final bar's close, marked-to-market
