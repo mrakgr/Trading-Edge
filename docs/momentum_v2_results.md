@@ -235,14 +235,16 @@ may still be **at/under its prior intraday high** — banging into real overhead
 252d high-channel and `pct_52w_high_at_entry = close / hi_252_high − 1`. Bucketing on it (pure
 gainers, breadth, 15-day stop):
 
-| band (vs 52w INTRADAY high) | n | PF |
-| --- | ---: | ---: |
-| −15..−5% | 3618 | 1.513 |
-| **−5..0% (pressing into resistance)** | 3445 | **1.646** |
-| 0..2% (clears high) | 870 | 1.403 |
-| 2..5% | 660 | 1.351 |
-| 5..10% | 683 | 1.357 |
-| **10..20% (extended)** | 568 | **1.757** |
+| band (vs 52w INTRADAY high) | n | PF | net |
+| --- | ---: | ---: | ---: |
+| < −15% (well below) | 7253 | 1.307 | +1.06M |
+| −15..−5% | 3618 | 1.513 | +439k |
+| **−5..0% (pressing into resistance)** | 3445 | **1.646** | +371k |
+| 0..2% (clears high) | 870 | 1.403 | +97k |
+| 2..5% | 660 | 1.351 | +86k |
+| 5..10% | 683 | 1.357 | +108k |
+| **10..20% (extended)** | 568 | **1.757** | +176k |
+| 20%+ | 182 | 1.473 | +65k |
 
 **Partly confirmed, with a sharper read.** The median intraday-high distance is ~1.3% below the
 close-high distance, and **5.9% of trades are a new *closing* high yet still under the prior intraday
@@ -252,6 +254,55 @@ high (PF 1.65).** The best fresh-breakout setup is price *pressing into* intrada
 below, not after it clears; once it poking through (0–10% above the intraday high) it enters the mild
 dead zone, and only the well-extended 10–20% names are strong again. The close-based "fresh high"
 sweet spot was conflating these two; the intraday-high reference cleanly separates them.
+
+#### Breakouts FAR below the high (< −15%) — positive but weaker, and the structure inverts (2026-06-18)
+
+With the quality filters MET (tightness<4, ATR%<0.11, rvol≥3) but the 52w gate OFF, what happens to
+breakouts in stocks **far below their 52w intraday high** (`pct_52w_high_at_entry < −15%`)? They are
+**still net positive but markedly weaker** than near-high breakouts (PF ~1.1–1.45 vs 1.5–1.8), and
+the move/volume structure **inverts** vs the near-high regime.
+
+⚠️ **Penny-stock caveat (load-bearing):** without a price floor this bucket is dominated by a sub-$1
+artifact — the <$1 band alone was PF **14.6 / +$26.5M** (≈75% of the bucket's nominal P&L), because
+fixed-$10k notional on a $0.30→$3 name books absurd P&L you could never actually deploy. **All
+numbers below apply the $5 price floor**; the far-from-high analysis is meaningless without it.
+
+| pct_up ($5+, <−15% below high) | n | PF | | rvol | n | PF |
+| --- | ---: | ---: | --- | --- | ---: | ---: |
+| <2% | 11297 | 1.365 | | 3–5 | 23453 | 1.351 |
+| **2–5%** | 8415 | **1.458** | | 5–8 | 7102 | 1.127 |
+| 5–10% | 7548 | 1.161 | | 8–15 | 3136 | 1.399 |
+| 10–20% | 5941 | 1.105 | | 15–30 | 1143 | 1.042 |
+| 20–35% | 1861 | 1.20 | | **30+** | 860 | **0.397** |
+| 35%+ | 632 | 1.13 | | | | |
+
+**The inversion:** near/at the high, explosive moves are premium; *far below* the high, the **modest
+movers (2–5%) are best** (PF 1.46) and bigger moves fade to ~1.1 — a big up-day far below the high is
+just a dead-cat bounce in a downtrend, no edge. By volume the edge is flat-positive 3–15 then the
+**extreme 30+ rvol bucket collapses to PF 0.40 (−$551k)** — the same "huge volume spike = blow-off
+loser" pattern as near the high, just at a higher rvol threshold (30+ here vs 8+ near the high).
+Position relative to the 52w high genuinely changes the breakout's character.
+
+**rvol band [5,20] does NOT help far below the high** (PF 1.228 vs ~1.27 at rvol≥3): it discards the
+**rvol 3–5 band, which is the best volume bucket here** (PF 1.35) — the opposite of the near-high
+production system where [6,20] is right. Within [5,20] the move profile is the same (2–5% best at
+1.54; the 5–20% bands go slightly negative). The rvol band is itself position-dependent.
+
+**By PRICE LEVEL the far-below-high edge is monotonic — lower is better** ($5+, rvol[5,20], <−15%):
+
+| price | n | win% | PF | net |
+| --- | ---: | ---: | ---: | ---: |
+| $5–10 | 3481 | 30.2% | **1.379** | +630k |
+| $10–20 | 3381 | 35.1% | 1.268 | +356k |
+| $20–50 | 2542 | 30.3% | 1.305 | +335k |
+| $50–100 | 713 | 28.8% | **0.882** | −44k |
+| $100+ | 739 | 23.3% | **0.72** | −144k |
+
+The $5–50 range carries the whole edge (PF 1.27–1.38); **>$50 flips negative** (a $100+ large-cap 15%
+off its high doing a one-day volume breakout is mostly noise that fades, vs a $5–20 name where an
+oversold-bounce/turnaround can run hard in % terms). So the far-below regime's profile is the
+**opposite of near-high production**: lower price ($5–50), modest move (2–5%), lower-to-moderate
+volume (rvol 3–5) — vs near-high's higher-priced, big-move, high-volume winners.
 
 ### Loose-base breakouts are a strong negative edge — and LINEAR tightness separates the tail better
 
