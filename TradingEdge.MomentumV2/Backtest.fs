@@ -99,6 +99,8 @@ type Trip =
       EntryReason: string
       ExitDate: DateOnly
       EntryPrice: float
+      EntryDayStopRef: float
+      StopLowAtEntry: float
       ExitPrice: float
       Qty: float
       NetPnL: float
@@ -133,6 +135,8 @@ let private toTrip (symbol: string) (notional: float) (side: Side)
           EntryReason = p.EntryReason
           ExitDate = exitDate
           EntryPrice = p.EntryPrice
+          EntryDayStopRef = p.EntryDayStopRef
+          StopLowAtEntry = p.StopLowAtEntry
           ExitPrice = exitPrice
           Qty = qty
           NetPnL = qty * dir * (exitPrice - p.EntryPrice)
@@ -238,7 +242,7 @@ let private inv = CultureInfo.InvariantCulture
 let private fmt (x: float) = if Double.IsNaN x then "nan" else x.ToString("0.################", inv)
 
 let header =
-    "symbol,signal_date,entry_date,entry_reason,exit_date,side,entry_price,exit_price,qty,net_pnl,bars_held,"
+    "symbol,signal_date,entry_date,entry_reason,exit_date,side,entry_price,entry_day_stop_ref,stop_low_at_entry,exit_price,qty,net_pnl,bars_held,"
     + "entry_adj_volume,rvol_at_entry,avg_dollar_volume_4w_at_entry,pct_up_at_entry,"
     + "atr_pct_14_at_entry,range_pct_14_at_entry,tightness_14_at_entry,pct_52w_at_entry,pct_52w_high_at_entry,pct_52w_low_close_at_entry,pct_52w_low_at_entry,exit_reason,open"
 
@@ -251,6 +255,8 @@ let private row (t: Trip) : string =
         t.ExitDate.ToString("yyyy-MM-dd")
         (match t.Side with Long -> "long" | Short -> "short")
         fmt t.EntryPrice
+        fmt t.EntryDayStopRef
+        fmt t.StopLowAtEntry
         fmt t.ExitPrice
         fmt t.Qty
         fmt t.NetPnL

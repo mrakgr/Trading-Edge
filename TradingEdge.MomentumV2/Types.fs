@@ -56,6 +56,7 @@ type Position =
       EntryPrice: float         // fill price (signal close at-close; limit/open in limit mode)
       EntryReason: string       // "close" | "limit" | "open_after_cap"
       EntryDayStopRef: float    // Qullamaggie initial-stop reference (FILL bar's low for Long, high for Short)
+      StopLowAtEntry: float     // trailing prior-window low/high going INTO the signal bar (the 15-day-stop ref); nan if window cold
       // metrics snapshotted at the SIGNAL bar (for the trips CSV / parity diff)
       EntryVolume: int64
       RvolAtEntry: float
@@ -565,6 +566,7 @@ type QullaSystem
                   EntryPrice = bar.close
                   EntryReason = "close"
                   EntryDayStopRef = (match side with Long -> bar.low | Short -> bar.high)
+                  StopLowAtEntry = orNan (match side with Long -> sStopLow | Short -> sStopHigh)
                   EntryVolume = bar.volume
                   RvolAtEntry = orNan (this.Rvol (float bar.volume))
                   AvgDollarVolumeAtEntry = orNan sAvgDolVol

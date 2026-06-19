@@ -840,6 +840,78 @@ revert. Expansion exit stays **off**. The `--tightness-mode log|linear` flag and
 position-relative `ExpansionTightness` member remain in the engine as the substrate for the tested
 negative result (and any future single-bar exit work).
 
+### Initial-stop distance vs risk:reward — tighter stops are NOT better (2026-06-19)
+
+Question: does the **distance from entry to the initial trailing stop** predict a trade's
+risk:reward, i.e. are trades with *tight* stops better? Tested on a deliberately **loosened** entry
+set (more samples) with both the Qulla day-low stop and the trailing prior-window low, at window 15
+**and** 4.
+
+**Test parameters (printed for the record — both runs identical except `--stop-low-window`):**
+
+| param | value |
+| --- | --- |
+| side | Long, at-close entry |
+| tightness mode | Linear |
+| up-threshold | **0.05** (loosened from prod 0.10) |
+| rvol band | **[3, ∞)** (loosened from prod [6,20]) |
+| ADV / price / 52w-prox | ≥ $100k / ≥ $5 / ≥ 0.95 |
+| tightness / ATR% | < 4.0 / < 0.11 |
+| stop-low-window | **15** and **4** (two runs) |
+| trail N / exit cap / expansion | 1 / 0 (next-open exit) / off |
+| date range | 2005-01-01 → 2026-05-13 |
+| breadth | post-hoc lag1 > 0.5 |
+
+19,701 entries per run (entry signal is identical; only the stop trail differs). Metrics:
+**R-multiple** = `(exit − entry)/(entry − stop)` (realized return in units of initial risk);
+**stop distance** = `(entry − stop)/entry`. Note the production stop-window is **4**, not 15 — the
+15-day low is the older/looser "regular" trailing stop; both are tested here.
+
+**Qulla day-low stop** (`entry_day_stop_ref`):
+
+| stop dist | n | win% | avg R | med R | PF |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| <2% | 1048 | 39.2 | 0.83 | −0.50 | 1.089 |
+| 2–4% | 1579 | 34.8 | 0.31 | −0.57 | 1.39 |
+| 4–6% | 2586 | 36.5 | 0.24 | −0.51 | 1.39 |
+| 6–9% | 3409 | 35.4 | 0.18 | −0.45 | 1.32 |
+| **9–13%** | 2151 | 37.7 | 0.35 | −0.38 | **1.68** |
+| 13–20% | 1077 | 39.8 | 0.19 | −0.28 | 1.41 |
+| 20%+ | 391 | 36.6 | 0.16 | −0.30 | 1.18 |
+
+**15-day-low stop** (structurally wide — a 15-day low sits far under a breakout):
+
+| stop dist | n | win% | avg R | med R | PF |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 4–6% | 43 | 30.2 | −0.28 | −0.43 | 0.45 |
+| 6–9% | 816 | 37.3 | 0.09 | −0.19 | 1.24 |
+| 9–13% | 2685 | 36.6 | 0.07 | −0.16 | 1.28 |
+| **13–20%** | 4578 | 35.8 | 0.10 | −0.15 | **1.45** |
+| 20%+ | 4144 | 37.9 | 0.10 | −0.11 | 1.44 |
+
+**4-day-low stop** (tighter; higher win rate ~42–44%):
+
+| stop dist | n | win% | avg R | med R | PF |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 4–6% | 154 | 46.8 | 0.07 | −0.04 | 1.24 |
+| 6–9% | 1995 | 41.7 | 0.06 | −0.10 | 1.26 |
+| 9–13% | 3634 | 41.2 | 0.03 | −0.09 | 1.12 |
+| **13–20%** | 3947 | 42.7 | 0.09 | −0.06 | **1.45** |
+| 20%+ | 2536 | 44.3 | 0.09 | −0.03 | 1.46 |
+
+**Finding: tighter stops do NOT give better risk:reward — the relationship is flat-to-inverted.**
+- The Qulla <2% bucket has the highest *avg* R (0.83) but it's a **trap**: PF only 1.09 and median R
+  −0.50, i.e. a few big-winner tails over many whipsaw losers (low win rate). High avg-R there is
+  fragile, not an edge.
+- Across all three stop definitions the genuinely best (highest-PF) cells are the **WIDE** stops
+  (9–20%, PF 1.45–1.68), not the tight ones. The 15- and 4-day stops both improve monotonically out
+  to 13–20%.
+- The 4-day stop trades a **higher win rate** (~42–44% vs ~36%) for **lower avg-R per trade**; the
+  15-day stop is wider, lower win rate, but its wide buckets carry the best PF. Neither makes tight
+  stops pay.
+- Practical read: a tight initial stop mostly buys whipsaw. The momentum edge wants **room** — the
+  best R:R lives 9–20% below entry. Don't tighten the initial stop to chase R:R.
+
 ---
 
 ## Yearly breakdown (flat $10k/trip, filtered, by entry year)
