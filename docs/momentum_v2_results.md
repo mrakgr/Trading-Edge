@@ -797,6 +797,39 @@ the non-representative right tail.** The actionable edge is on the **entry side*
 `MaxTightness`/rvol/move largely encode — or, untested, a candidate SHORT entry: −19% median / 28% up
 on 1,127 liquid occurrences is a far larger, cleaner signal than the held-exit could ever capture).
 
+###### ATR% at the exit bar IS a clean discriminator — but the held sample is still too small (2026-06-19)
+
+Can ATR% at the moment of the blow-off separate the held-exit winners from losers? Reconstructed the
+log-ATR% at each of the ~80 exhaustion-exit bars and crossed it with the 20-day-forward return:
+
+| ATR% at exit | n | avg fwd-20d | median | % up |
+| --- | ---: | ---: | ---: | ---: |
+| <5% | 12 | +5.8% | +2.3% | 67% |
+| 5–8% | 16 | +7.8% | +3.6% | 56% |
+| 8–12% | 26 | +8.2% | −4.6% | 42% |
+| **12%+** | 26 | **−11.6%** | **−25.9%** | **31%** |
+
+**ATR% is the cleanest discriminator found** — the >12%-ATR% bucket craters on *both* mean and median
+(−11.6% / −25.9%, 31% up) while low-ATR% blow-offs keep grinding up (+6–8%). And it is **orthogonal to
+gain-from-entry** (the 26 high-ATR% losers split 16 low-gain / 10 high-gain), so it catches reverting
+big-winners the gain-cap can't. Added `ExhaustionConfig.MinAtrPct` (CLI `--exhaustion-min-atr-pct`):
+firing the exit only when ATR% exceeds the floor removes the drag and finally edges past the base on
+*both* PF and P&L, **in both eras** (the only gate that does so without hurting either):
+
+| fixed 20% base | PF | net | 2005–14 PF | 2015–26 PF |
+| --- | ---: | ---: | ---: | ---: |
+| exhaustion OFF | 1.464 | $5.136M | 1.536 | 1.400 |
+| + sharp exh, no ATR gate | 1.460 | $5.071M | — | — |
+| + sharp exh, ATR%>0.15 | **1.465** | **$5.150M** | **1.538** | **1.402** |
+
+**But it is still only +0.001 PF / +$14k on $5.1M** — a rounding-error gain. ATR% *correctly* isolates
+the cratering subset (genuinely useful), but on the **held** population there are simply too few of
+these bars (the entry gate already excludes nearly all of them — see the 1,127-bar universe scan
+above). **So the conclusion stands and is now triple-confirmed (gain-cap, ATR%-floor, universe scan):
+the exhaustion signal cannot be a meaningful HELD-EXIT PF lever; its payoff is on the ENTRY side.** The
+ATR%-discriminator finding is most valuable *there* — a candidate sharper entry-avoid / short-entry
+filter (high ATR% + loose + spike = the −26%-median cohort). `--exhaustion-min-atr-pct` retained.
+
 **rvol vs move: only moderately correlated, and the MOVE dominates.** Within the loose-base
 population, rvol and pct_up have a **Spearman rank correlation of 0.38** (raw Pearson 0.04 is
 outlier-scrambled and misleading; log–log 0.24). So they share information but are far from

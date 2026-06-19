@@ -125,9 +125,12 @@ type ExhaustionConfig =
       Rvol: float               // rule A rvol gate (e.g. 3.0)
       MoveLo: float             // rule A move gate (e.g. 0.05)
       MoveHi: float             // rule B move gate, no rvol needed (e.g. 0.10)
-      MaxGain: float }          // only fire when gain-from-entry < this (e.g. 0.10); +inf = no gate.
+      MaxGain: float            // only fire when gain-from-entry < this (e.g. 0.10); +inf = no gate.
                                 // A blow-off NEAR entry is a toppy chase that reverts (−EV); the same
                                 // blow-off after a big run is a winner that continues — so cap the gain.
+      MinAtrPct: float }        // only fire when the bar's ATR%% (log-ATR) > this (e.g. 0.12); 0 = no gate.
+                                // High ATR%% at the blow-off marks the names that crater (fwd-20d −26%
+                                // median) vs low-ATR%% blow-offs that keep grinding up. Separate from gain.
 
 /// Which tightness measure the entry filter and the expansion exit read.
 ///   - Log    : log(maxHigh/minLow) / logATR  — scale-free, the v2 default.
@@ -596,6 +599,11 @@ type QullaSystem
                             | Long  -> (bar.close - pos.EntryPrice) / pos.EntryPrice
                             | Short -> (pos.EntryPrice - bar.close) / pos.EntryPrice
                  gain < exhaustionCfg.MaxGain) &&
+                // ATR%% floor: only fire when the bar's log-ATR%% exceeds the gate. High ATR%% at
+                // the blow-off marks the names that crater (fwd-20d −26% median); low-ATR%% blow-offs
+                // keep grinding up. 0 = no gate.
+                (exhaustionCfg.MinAtrPct <= 0.0
+                 || (match this.AtrPct with ValueSome a -> a > exhaustionCfg.MinAtrPct | ValueNone -> false)) &&
                 (match this.Tightness, this.Rvol (float bar.volume), this.PctUp bar.close with
                  | ValueSome tt, ValueSome rv, ValueSome mv ->
                      let move = match side with Long -> mv | Short -> -mv  // adverse-side move magnitude

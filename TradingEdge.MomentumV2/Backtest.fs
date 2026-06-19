@@ -77,7 +77,7 @@ let defaultConfig =
       // Target fill: intrabar limit by default; true = exit at next open on a target hit.
       TargetNextOpen = false
       // Conditional exhaustion exit OFF by default; thresholds from the loose-base study.
-      Exhaustion = { Enabled = false; Tightness = 7.5; Rvol = 3.0; MoveLo = 0.05; MoveHi = 0.10; MaxGain = infinity }
+      Exhaustion = { Enabled = false; Tightness = 7.5; Rvol = 3.0; MoveLo = 0.05; MoveHi = 0.10; MaxGain = infinity; MinAtrPct = 0.0 }
       // Trade direction. Long is the production system; Short mirrors the stop geometry
       // (trail the prior-window HIGH) and flips the P&L sign — used for the short studies.
       Side = Long
