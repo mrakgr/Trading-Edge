@@ -1121,6 +1121,26 @@ exactly what an open / early-morning *entry* (not a different stop) would need t
 the deferred intraday-entry test. Reclaims, separately, are the standout beneficiary of the wide
 fixed/ratchet stop (the single best dead-zone cell: up=0 reclaim + fixed 10% = PF 1.478 / $1.64M).
 
+**Follow-up: does a 20-day TIME-STOP rescue gap-overs (like it did the tight-stop bucket)? No.**
+Applied the same time-stop method (hold 20 bars, exit at the 20th bar's open, MTM if the ticker runs
+out) to the up=0 dead-zone **gap-over** universe (n=3665):
+
+| up=0 dead-zone gap-overs (n=3665) | win% | PF | net |
+| --- | ---: | ---: | ---: |
+| window-low(4) stop | 41.4 | **1.159** | $100k |
+| fixed 10% stop | 42.8 | 1.096 | $180k |
+| 20-day time stop | 53.8 | 1.125 | $156k |
+
+The time-stop lifts win rate hard (41%→54%, holding through noise instead of stopping out) and beats
+window-low on P&L, but **PF stays stuck ~1.12** — no better than the price stops, *below* window-low's
+1.159. Era-robust at that mediocre level (2005–14 1.058, 2015–26 1.198), so it's not a hidden regime.
+Contrast with yesterday's tight-stop bucket where the time-stop was a ~10× rescue (PF 1.09→1.68): there
+the trades were genuine winners being *whipsawed out*; here holding longer just converts more gap-overs
+to *small* wins — there's no large continuation to capture (the move was front-loaded overnight). So
+across window-low, fixed-%, ATR, AND time-stop the gap-over PF clusters ~1.1: **the exit/stop is not
+the lever for gap-overs.** Only an earlier (open / pre-market) *entry* could plausibly help — you'd
+have to participate before the overnight move is already priced in.
+
 ---
 
 ## Yearly breakdown (flat $10k/trip, filtered, by entry year)
