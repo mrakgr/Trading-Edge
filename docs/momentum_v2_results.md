@@ -679,6 +679,34 @@ edge.** Engine keeps `--exhaustion-exit` + thresholds as the tested-negative sub
 real use is as an **entry** filter (which production already applies via `MaxTightness`/rvol/move
 gates), not an exit. Stop hunting for a held-position exit that raises PF — **let winners run.**
 
+###### Resolving the paradox: the loose-base ENTRY really is −EV, the held-exit just never sees those names (2026-06-19)
+
+The objection was reasonable: if entering a loose-base spike is strongly −EV, exiting a held position on
+the same condition "should" help. So we tested the entry directly — admit loose bases (tightness & ATR
+gates off, 52w-high kept, up≥5% rvol≥3, window-low stop, long, breadth, 2005+) and tier:
+
+| loose-base ENTRY | n | win% | PF | net | avg ret |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| all (loose-admitting) | 25477 | 40.0 | 1.052 | +$552k | +0.2% |
+| **loose (tight>7.5)** | 1121 | 29.6 | **0.536** | −$571k | **−5.1%** |
+| loose + rvol>3 + up≥5% | 1121 | 29.6 | 0.536 | −$571k | −5.1% |
+| **loose + up≥10% (rule B)** | 710 | 26.2 | **0.419** | −$603k | **−8.5%** |
+
+**The premise is confirmed: buying the loose-base spike is a strong −EV pattern (PF 0.54 / −5%; the
+up≥10% subset PF 0.42 / −8.5%).** (Rows 2 and 3 are identical — every tight>7.5 name in this run
+already had rvol>3 & up≥5%, since the run required them to enter.) **So why doesn't the held-exit on
+the same condition help?** Because they are **disjoint populations.** The −EV entry names are loose *at
+the moment of entry* — you bought the top of someone else's run. A *held* position that trips the same
+condition was entered from a TIGHT base (production entry) and only *became* loose later — i.e. it
+already ran in your favor. Bucketing the 194 held-exit triggers by their gain when the blow-off fired:
+only **13 were at a loss**; 181 were winners (avg +6% / +18% / +56% / +500% across the 0-10 / 10-30 /
+30-100 / 100%+ buckets). **The exhaustion condition never fires on a losing held position** — a name
+blowing off on huge volume is, by construction, one that already paid you. Same `tightness+spike`
+signal, opposite sign, because the *entry price relative to the blow-off* is opposite: the −EV trader
+entered AT the blow-off; the held winner entered before it and the blow-off IS the profit. There is no
+sharpening of the held-exit criteria that fixes this — the signal is structurally an **entry** filter
+(buy the tight base, refuse the loose one), and cannot be repurposed as a profitable held exit.
+
 **rvol vs move: only moderately correlated, and the MOVE dominates.** Within the loose-base
 population, rvol and pct_up have a **Spearman rank correlation of 0.38** (raw Pearson 0.04 is
 outlier-scrambled and misleading; log–log 0.24). So they share information but are far from
