@@ -737,6 +737,35 @@ edge in this signal still lives overwhelmingly on the **entry** side (buy the ti
 loose one; production already does this via `MaxTightness`/rvol/move). `--exhaustion-max-gain` kept for
 completeness.
 
+###### Pushing the criteria HARD (tight>8, move>20% / move>10%+rvol) on the fixed-20% base — still no PF gain, and now we know WHY (2026-06-19)
+
+Sharpened the trigger as far as the thesis suggests — tightness > 8, rule B move > 20%, rule A move >
+10% with rvol > 3 — on the **fixed-20% ratchet** base (loosened set), the system that rides winners
+hardest. Result: **still a wash.** No-cap 1.460 vs base 1.464; gain-capped 1.465 (cap 5/10/30% all
++0.001). The unconditional sharp exit lifts **win% 40.9→41.0** while **PF 1.464→1.460 and P&L
+$5.14M→$5.07M** fall — the tell-tale mean-vs-median signature. The forward-20d-from-trigger study
+explains it definitively, split by gain-at-trigger:
+
+| sharp trigger, fwd-20d | n | avg | median | % up |
+| --- | ---: | ---: | ---: | ---: |
+| <5% gain | 5 | −20.1% | −10.3% | 40% |
+| 5–30% gain | 30 | −2.4% | −4.3% | 37% |
+| 30–60% gain | 21 | +0.6% | +3.1% | 62% |
+| 60–150% gain | 18 | **+13.1%** | **−10.6%** | 44% |
+| 150%+ gain | 6 | **+4.9%** | **−5.2%** | 33% |
+
+**The user's claim — "PF goes negative even for significant winners" — is half-right, and the half
+that's wrong is decisive.** For the big winners (60%+ gain) the *median* forward return DOES go
+negative (−10.6%, −5.2%) and most decline (33–44% up) — the typical extended blow-off reverts, exactly
+as hypothesized. **But the *mean* stays positive** (+13.1%, +4.9%) because a few monster continuations
+dominate the average. **PF and P&L are mean-driven, not median-driven** — so exiting the big-winner
+blow-offs improves the median trade and the win rate but *loses* on the mean, because momentum's whole
+edge is the fat right tail. There is no tightness/move/rvol/gain configuration that escapes this: the
+near-entry triggers are genuinely −EV but too few (5–35 trades) to move a 12k-trade book, and the
+extended triggers can't be cut without sacrificing the tail. **Definitive close of the exhaustion-exit
+line: it is structurally incapable of raising PF on this system — not a tuning problem.** The signal is
+an entry filter; on the exit side, manage downside + holding period only and let the tail run.
+
 **rvol vs move: only moderately correlated, and the MOVE dominates.** Within the loose-base
 population, rvol and pct_up have a **Spearman rank correlation of 0.38** (raw Pearson 0.04 is
 outlier-scrambled and misleading; log–log 0.24). So they share information but are far from
