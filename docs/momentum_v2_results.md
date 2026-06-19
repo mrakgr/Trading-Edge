@@ -1181,6 +1181,37 @@ concentrated** — 2015–26 PF 1.381 vs 2005–14 1.091 — so it's a regime-ti
 cross-era edge. Better than the ~1.1 every other stop gave, but not robust; the open-entry idea remains
 the cleaner potential fix for gap-overs.
 
+#### Fixed profit TARGETS — do not help (truncate the right tail) (2026-06-19)
+
+Added a fixed profit-target exit (`StopMode` independent; CLI `--profit-target t`): a resting sell
+limit at `entry·(1+t)`, fills **intrabar** at `max(target, open)` (gap-up through the limit fills at
+the better open, else at the limit). It wins over a same-bar stop (the stop only acts next-open).
+Swept 15/20/30/50% on the BE 10% + 20d base (loosened set):
+
+| BE 10% + 20d base | win% | PF | net |
+| --- | ---: | ---: | ---: |
+| no target | 47.2 | **1.40** | $1.89M |
+| + target 15% | 50.6 | 1.352 | $1.57M |
+| + target 20% | 49.2 | 1.380 | $1.73M |
+| + target 30% | 48.0 | 1.374 | $1.74M |
+| + target 50% | 47.5 | 1.390 | $1.83M |
+
+**Every target level lowers both PF and P&L**, monotonically worse the tighter the target (15% →
+1.352 / $1.57M); as the target widens toward "off" (50%) it converges back up to the no-target
+baseline. Win rate rises (capping books more small wins) but that's the losing trade-off — **the
+target truncates the right tail that carries a momentum system.** Same lesson as the expansion exit,
+the gap-over time-stop, and the wide-stop PF degeneracy: any rule that caps the *upside* fights the
+edge. Fixed targets are a confirmed non-starter for this system — let winners run; manage only the
+downside (stop) and the holding period (time-stop).
+
+**Fill convention doesn't matter.** Re-ran the sweep with `--target-next-open` (target hit → exit at
+the NEXT bar's open, a signal rather than an intrabar limit): PF 1.350 / 1.379 / 1.363 / 1.375 at
+15/20/30/50% — within ≤0.015 of the intrabar-limit version (1.352 / 1.380 / 1.374 / 1.390), and
+next-open marginally *worse* (you give a little back on the open). So the negative result is robust to
+how the target fills — it's the *capping*, not the fill, that costs. Both conventions stay below the
+1.40 no-target base at every level. Engine retains `--profit-target` and `--target-next-open` as the
+substrate for this tested negative result.
+
 ---
 
 ## Yearly breakdown (flat $10k/trip, filtered, by entry year)

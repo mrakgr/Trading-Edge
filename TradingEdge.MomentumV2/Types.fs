@@ -150,6 +150,8 @@ type QullaSystem
       useEntryDayStop: bool,
       stopMode: StopMode,
       maxHoldBars: int,
+      profitTarget: float,
+      targetNextOpen: bool,
       side: Side,
       tightnessMode: TightnessMode,
       entryCfg: EntryConfig ) =
@@ -572,14 +574,41 @@ type QullaSystem
             // price stop (or expansion) on the same bar exits first.
             let heldBars = pos.HoldBars + 1
             let timeStopHit = maxHoldBars > 0 && heldBars >= maxHoldBars
-            if stopHit then
-                if exitTimeCap <= 0 then { pos with State = ExitingMarket "stop" }
-                else { pos with State = ExitingLimit 0 }
-            elif expansionHit then
-                { pos with State = ExitingMarket "expansion" }
-            elif timeStopHit then
-                { pos with State = ExitingMarket "time_stop"; RatchetStop = nextRatchet; HoldBars = heldBars }
-            else { pos with RatchetStop = nextRatchet; HoldBars = heldBars }  // still holding
+            // Profit target: a resting SELL LIMIT (Long) at entry·(1+t) / BUY (Short) at
+            // entry·(1−t). It fills INTRABAR — if this bar reaches the level, we fill THIS
+            // bar at max(target, open) (a gap-up through the limit fills at the better open;
+            // otherwise at the limit, no top-tick credit). Because it's a live limit while a
+            // stop only acts at the NEXT open, the target WINS on a bar that touches both —
+            // so it is checked FIRST. 0 = off.
+            // `targetReached`: did this bar hit the target level at all? `targetFill` is the
+            // intrabar limit fill (ValueNone when `targetNextOpen` — then we route the hit to
+            // a next-open market exit instead, matching the stop's next-open convention).
+            let targetReached =
+                if profitTarget <= 0.0 then false
+                else
+                    match side with
+                    | Long  -> bar.high >= pos.EntryPrice * (1.0 + profitTarget)
+                    | Short -> bar.low  <= pos.EntryPrice * (1.0 - profitTarget)
+            let targetFill : float voption =
+                if not targetReached || targetNextOpen then ValueNone
+                else
+                    match side with
+                    | Long  -> ValueSome (max (pos.EntryPrice * (1.0 + profitTarget)) bar.``open``)
+                    | Short -> ValueSome (min (pos.EntryPrice * (1.0 - profitTarget)) bar.``open``)
+            match targetFill with
+            | ValueSome px -> { pos with State = Exited (bar.date, px, "target") }
+            | _ when targetReached && targetNextOpen ->
+                // Target hit, but exit at the NEXT bar's open (signal, not a limit).
+                { pos with State = ExitingMarket "target_next_open" }
+            | ValueNone ->
+                if stopHit then
+                    if exitTimeCap <= 0 then { pos with State = ExitingMarket "stop" }
+                    else { pos with State = ExitingLimit 0 }
+                elif expansionHit then
+                    { pos with State = ExitingMarket "expansion" }
+                elif timeStopHit then
+                    { pos with State = ExitingMarket "time_stop"; RatchetStop = nextRatchet; HoldBars = heldBars }
+                else { pos with RatchetStop = nextRatchet; HoldBars = heldBars }  // still holding
         | ExitingMarket "__enter_open_after_cap" ->
             // ENTRY timed-out: the buy/sell limit rested the full cap unfilled, so
             // we take the trade at THIS bar's open (the bar after the cap elapsed),

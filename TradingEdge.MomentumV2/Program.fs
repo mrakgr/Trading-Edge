@@ -31,6 +31,8 @@ type Args =
     | Fixed_Stop of float
     | Fixed_Stop_Be of float
     | Max_Hold_Bars of int
+    | Profit_Target of float
+    | Target_Next_Open
     | Side of string
     | Tightness_Mode of string
     | Rvol_Min of float
@@ -60,6 +62,8 @@ type Args =
             | Fixed_Stop _ -> "Use an up-only FIXED-%% ratchet trailing stop: stop = max(prev, close*(1-p)), p = this fraction (e.g. 0.15). Same trailing machinery as --atr-stop but a constant distance. Mutually exclusive with --atr-stop."
             | Fixed_Stop_Be _ -> "Fixed-%% stop CAPPED at break-even: stop = max(prev, min(close*(1-p), entry)) — starts p below entry, ratchets only up to the entry price, then locks. Pair with --max-hold-bars. Mutually exclusive with --atr-stop/--fixed-stop."
             | Max_Hold_Bars _ -> "Time-stop: exit at the next open after this many Holding bars (0 = off, default). E.g. 20."
+            | Profit_Target _ -> "Fixed profit target as a fraction above entry (0 = off). Resting sell limit, fills intrabar at max(target, open); wins over a same-bar stop (which exits next open). E.g. 0.20."
+            | Target_Next_Open -> "With --profit-target: exit at the NEXT bar's open when the target is hit (a signal), instead of the intrabar limit fill."
             | Side _ -> "Trade direction: 'long' (default) or 'short'. Short trails the stop along the prior-window HIGH and flips the P&L sign."
             | Tightness_Mode _ -> "Tightness measure for the entry filter + expansion exit: 'log' (default) or 'linear'. Thresholds differ between modes."
             | Rvol_Min _ -> "Minimum relative volume at entry. Default 6.0 (production)."
@@ -113,6 +117,8 @@ let main argv =
                  | None, None, None   -> WindowLow
                  | _ -> failwith "--atr-stop, --fixed-stop, --fixed-stop-be are mutually exclusive")
             MaxHoldBars = parsed.GetResult(Max_Hold_Bars, defaultValue = defaultConfig.MaxHoldBars)
+            ProfitTarget = parsed.GetResult(Profit_Target, defaultValue = defaultConfig.ProfitTarget)
+            TargetNextOpen = parsed.Contains Target_Next_Open
             Side = side
             TightnessMode = tightnessMode
             Entry =
@@ -140,6 +146,9 @@ let main argv =
          | FixedPctBE p -> sprintf "fixed-pct-BE p=%.3f" p)
         cfg.UseEntryDayStop
         (if cfg.MaxHoldBars > 0 then sprintf "%dd" cfg.MaxHoldBars else "off")
+    printfn "  profit target = %s%s"
+        (if cfg.ProfitTarget > 0.0 then sprintf "%.0f%%" (cfg.ProfitTarget * 100.0) else "off")
+        (if cfg.ProfitTarget > 0.0 && cfg.TargetNextOpen then " (next-open)" else "")
     printfn "  entry     = up>=%.2f rvol[%.0f,%.0f] adv>=%.0f price>=%.0f 52w>=%.2f tight<%.2f atr%%<%.2f"
         cfg.Entry.UpThreshold cfg.Entry.RvolMin cfg.Entry.RvolMax cfg.Entry.MinAvgDollarVolume
         cfg.Entry.MinPrice cfg.Entry.Min52wPct cfg.Entry.MaxTightness cfg.Entry.MaxAtrPct
