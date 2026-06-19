@@ -1013,6 +1013,42 @@ identical: **tight initial stops hurt.** The ATR ratchet's edge is that at k=4 i
 most trades in the healthy 10–20% band; where ATR is low enough to still produce a tight stop, it
 degrades exactly as the whipsaw thesis predicts.
 
+#### It's the DISTANCE, not the mechanism — the case for a fixed-% stop (2026-06-19)
+
+Running the *initial-stop-distance* R:R breakdown for **every** stop system on the loosened set (Qulla
+day-low, 4-day-low, 15-day-low, ATR-ratchet k=2/3/4/5) gives the same shape each time: low PF at tight
+distances, best PF in a 10–20%+ middle, fade at the very wide tail. The per-system tables differ in
+*where* their trades fall on the distance axis (k=1 is almost all <7%; the 4-day-low spans 4–30%; the
+15-day-low is mostly 10%+) but not in the relationship. Pooling **all six systems** and reading PF
+purely as a function of the **absolute initial stop distance** (independent of how the stop was
+derived) makes it explicit:
+
+| initial stop dist | n | win% | PF |
+| --- | ---: | ---: | ---: |
+| <4% | 4402 | 40.0 | **1.183** |
+| 4–7% | 12936 | 41.1 | 1.306 |
+| 7–10% | 15173 | 40.8 | 1.386 |
+| 10–14% | 16145 | 40.6 | 1.429 |
+| 14–20% | 13675 | 40.5 | 1.448 |
+| **20–30%** | 8234 | 40.1 | **1.472** |
+| 30%+ | 3006 | 37.9 | 1.219 |
+
+**Absolute distance predicts PF monotonically up to ~20–30%, then fades — and the mechanism washes
+out.** A trade whose stop sits ~4% away performs like every other ~4%-stop trade (PF ~1.18) whether
+that 4% came from a day-low, a window-low, or an ATR ratchet; a ~20% stop performs like every other
+~20% stop (PF ~1.47). The elaborate mechanisms are just different ways of *sampling* a distance
+distribution — the ones that look best (ATR k=4, 4-day-low's wide buckets) are simply the ones that
+tend to land stops in the 10–30% band. **This is the argument for a fixed-% stop**: if distance is
+what matters, set it directly (e.g. a ~12–20% initial stop) rather than inferring it from price
+structure and getting whipsawed whenever the structure happens to be tight.
+
+Two honest caveats: (1) this is *initial* distance vs realized P&L; post-entry trailing still differs
+by mechanism (the ATR ratchet's *up-only* trail is why it booked far more total P&L — it rides
+winners), so "fixed-% beats ATR" is **not** proven here — what's proven is "initial distance
+dominates, tight is bad." The thing to test next is a **fixed-% initial stop** (or a min-distance
+floor on the existing stops) that then trails or time-stops. (2) The 30%+ fade is partly formula
+survivorship (a 30%+ ATR stop only arises on very high-ATR, intrinsically wilder names).
+
 ---
 
 ## Yearly breakdown (flat $10k/trip, filtered, by entry year)
