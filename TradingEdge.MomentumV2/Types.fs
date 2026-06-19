@@ -57,6 +57,12 @@ type StopMode =
     //     violent snaps to the tight line off its PEAK (above the old wide line) and bites at
     //     once — no ratchet bookkeeping. Path-independent: pure f(maxClose, regime).
     | ChandelierRegime of widePct: float * tightPct: float * atrThr: float
+    //   - ChandelierLadder (tiers, baseWidth): generalization of ChandelierRegime to N ATR%
+    //     tiers. `tiers` = (atrThr, width) pairs; the width used is the FIRST tier (scanning
+    //     by DESCENDING atrThr) whose threshold the bar's ATR% meets, else `baseWidth`. Same
+    //     max-close anchoring. E.g. tiers [(0.10,0.08);(0.08,0.10);(0.06,0.12)] base 0.15 =
+    //     8% leash at ATR≥10%, 10% at ≥8%, 12% at ≥6%, 15% below 6%.
+    | ChandelierLadder of tiers: (float * float) list * baseWidth: float
     | NoStop
 
 /// Life-cycle of a single trip.
@@ -569,6 +575,28 @@ type QullaSystem
                         | Long  -> if Double.IsNaN pos.MaxClose then max pos.EntryPrice bar.close else max pos.MaxClose bar.close
                         | Short -> if Double.IsNaN pos.MaxClose then min pos.EntryPrice bar.close else min pos.MaxClose bar.close
                     hit
+                | ChandelierLadder (tiers, baseWidth) ->
+                    // N-tier generalization of ChandelierRegime. Width = first tier (by
+                    // descending atrThr) the bar's ATR% meets, else baseWidth. Cold ATR =
+                    // baseWidth (the widest/lowest-vol leash). Same max-close anchoring.
+                    let mark = if Double.IsNaN pos.MaxClose then pos.EntryPrice else pos.MaxClose
+                    let width =
+                        match sAtrLog with
+                        | ValueSome atr ->
+                            tiers
+                            |> List.sortByDescending fst
+                            |> List.tryPick (fun (thr, w) -> if atr >= thr then Some w else None)
+                            |> Option.defaultValue baseWidth
+                        | ValueNone -> baseWidth
+                    let hit =
+                        match side with
+                        | Long  -> bar.low  <= mark * (1.0 - width)
+                        | Short -> bar.high >= mark * (1.0 + width)
+                    nextMaxClose <-
+                        match side with
+                        | Long  -> if Double.IsNaN pos.MaxClose then max pos.EntryPrice bar.close else max pos.MaxClose bar.close
+                        | Short -> if Double.IsNaN pos.MaxClose then min pos.EntryPrice bar.close else min pos.MaxClose bar.close
+                    hit
                 | WindowLow ->
                     match side with
                     | Long ->
@@ -602,7 +630,7 @@ type QullaSystem
                             sAtrLog |> ValueOption.map (fun atr ->
                                 if atr <= 0.0 then 0.95
                                 else min 0.95 (w * atrRef / atr))
-                        | WindowLow | NoStop | ChandelierRegime _ -> ValueNone   // unreachable
+                        | WindowLow | NoStop | ChandelierRegime _ | ChandelierLadder _ -> ValueNone   // unreachable
                     let beCap = (match stopMode with FixedPctBE _ -> true | _ -> false)
                     let hit =
                         match side with

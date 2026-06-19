@@ -32,6 +32,7 @@ type Args =
     | Fixed_Stop_Be of float
     | Inv_Atr_Stop of float * float
     | Chandelier_Regime of float * float * float
+    | Chandelier_Ladder of string
     | No_Stop
     | Max_Hold_Bars of int
     | Profit_Target of float
@@ -73,6 +74,7 @@ type Args =
             | Fixed_Stop_Be _ -> "Fixed-%% stop CAPPED at break-even: stop = max(prev, min(close*(1-p), entry)) — starts p below entry, ratchets only up to the entry price, then locks. Pair with --max-hold-bars. Mutually exclusive with --atr-stop/--fixed-stop."
             | Inv_Atr_Stop _ -> "Up-only INVERSE-ATR%% ratchet stop: stop%% = w*(atrRef/ATR%%) — TIGHTENS as ATR%% rises, widens when quiet. Two args: w atrRef (e.g. --inv-atr-stop 0.10 0.04 = 10%% stop at 4%% ATR). Clamped to (0,0.95]. Mutually exclusive with the other stop flags."
             | Chandelier_Regime _ -> "Regime-switched CHANDELIER stop off the running max-close: width = (ATR%% >= atrThr ? tightPct : widePct), stop = maxClose*(1-width). Three args: widePct tightPct atrThr (e.g. --chandelier-regime 0.20 0.10 0.10 = 20%% leash when quiet, 10%% once ATR%% >= 10%%). Mutually exclusive with the other stop flags."
+            | Chandelier_Ladder _ -> "N-tier CHANDELIER ladder off the running max-close. Spec string: comma-separated atrThr:width tiers plus a base:width, e.g. --chandelier-ladder \"0.10:0.08,0.08:0.10,0.06:0.12,base:0.15\" = 8%% leash at ATR>=10%%, 10%% at >=8%%, 12%% at >=6%%, 15%% below 6%%. Highest matching threshold wins. Mutually exclusive with the other stop flags."
             | No_Stop -> "NO price stop at all — hold until another exit fires (exhaustion / time-stop / target) or MTM at the last bar. Diagnostic. Mutually exclusive with the other stop flags."
             | Max_Hold_Bars _ -> "Time-stop: exit at the next open after this many Holding bars (0 = off, default). E.g. 20."
             | Profit_Target _ -> "Fixed profit target as a fraction above entry (0 = off). Resting sell limit, fills intrabar at max(target, open); wins over a same-bar stop (which exits next open). E.g. 0.20."
@@ -119,6 +121,22 @@ let main argv =
             | "short" -> Types.Short
             | other -> failwithf "unknown --side '%s' (expected 'long' or 'short')" other
 
+    // Parse a chandelier-ladder spec "thr:w,thr:w,...,base:w" into (tiers, baseWidth).
+    let parseLadder (spec: string) : Types.StopMode =
+        let mutable baseW = nan
+        let tiers =
+            spec.Split(',')
+            |> Array.choose (fun part ->
+                match part.Trim().Split(':') with
+                | [| k; v |] ->
+                    let w = float (v.Trim())
+                    if k.Trim().ToLowerInvariant() = "base" then baseW <- w; None
+                    else Some (float (k.Trim()), w)
+                | _ -> failwithf "bad --chandelier-ladder tier '%s' (expected thr:width or base:width)" part)
+            |> Array.toList
+        if Double.IsNaN baseW then failwith "--chandelier-ladder must include a base:width tier"
+        Types.ChandelierLadder (tiers, baseW)
+
     let cfg =
         { defaultConfig with
             StopLowWindow = parsed.GetResult(Stop_Low_Window, defaultValue = defaultConfig.StopLowWindow)
@@ -136,12 +154,13 @@ let main argv =
                       parsed.TryGetResult Fixed_Stop_Be |> Option.map FixedPctBE
                       parsed.TryGetResult Inv_Atr_Stop  |> Option.map InvAtr
                       parsed.TryGetResult Chandelier_Regime |> Option.map ChandelierRegime
+                      parsed.TryGetResult Chandelier_Ladder |> Option.map parseLadder
                       (if parsed.Contains No_Stop then Some NoStop else None) ]
                     |> List.choose id
                  match modes with
                  | []  -> WindowLow
                  | [m] -> m
-                 | _   -> failwith "--atr-stop, --fixed-stop, --fixed-stop-be, --inv-atr-stop, --chandelier-regime, --no-stop are mutually exclusive")
+                 | _   -> failwith "--atr-stop, --fixed-stop, --fixed-stop-be, --inv-atr-stop, --chandelier-regime, --chandelier-ladder, --no-stop are mutually exclusive")
             MaxHoldBars = parsed.GetResult(Max_Hold_Bars, defaultValue = defaultConfig.MaxHoldBars)
             ProfitTarget = parsed.GetResult(Profit_Target, defaultValue = defaultConfig.ProfitTarget)
             TargetNextOpen = parsed.Contains Target_Next_Open
@@ -181,6 +200,9 @@ let main argv =
          | FixedPctBE p -> sprintf "fixed-pct-BE p=%.3f" p
          | InvAtr (w, atrRef) -> sprintf "inv-atr w=%.3f atrRef=%.3f" w atrRef
          | ChandelierRegime (wide, tight, thr) -> sprintf "chandelier-regime wide=%.3f tight=%.3f atrThr=%.3f" wide tight thr
+         | ChandelierLadder (tiers, baseW) ->
+             let ts = tiers |> List.sortByDescending fst |> List.map (fun (t,w) -> sprintf "%.2f:%.3f" t w) |> String.concat " "
+             sprintf "chandelier-ladder [%s base=%.3f]" ts baseW
          | NoStop -> "none")
         cfg.UseEntryDayStop
         (if cfg.MaxHoldBars > 0 then sprintf "%dd" cfg.MaxHoldBars else "off")

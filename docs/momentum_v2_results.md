@@ -1620,6 +1620,61 @@ rather than relying on one — the opposite of an artifact. (Without breadth: pr
 
 ---
 
+#### Chandelier LADDER (N-tier) — the high-ATR tiers calibrate; the quiet tier won't (2026-06-19)
+
+Generalized the 2-tier chandelier to an N-tier ATR% ladder (new `StopMode.ChandelierLadder`, CLI
+`--chandelier-ladder "thr:w,…,base:w"` — highest matching threshold wins; max-close anchored as before).
+Tested the user's 4-tier ladder **8% @ ATR≥10%, 10% @ ≥8%, 12% @ ≥6%, 15% @ <6%**, plus the 2-tier
+**12%/8% @ 10%** for reference.
+
+**System parameters / book results:**
+```
+--chandelier-ladder "0.10:0.08,0.08:0.10,0.06:0.12,base:0.15"
+side = long   entry-day-stop = true   time/profit/exhaustion = off
+```
+
+| stop | loose PF | loose net | prod PF | prod net |
+| --- | ---: | ---: | ---: | ---: |
+| chandelier 20/10 @10% | 1.516 | $8.18M | 1.554 | $1.60M |
+| chandelier 12/8 @10% | 1.394 | $3.96M | 1.526 | $0.98M |
+| ladder 8/10/12/15 | 1.421 | $4.95M | 1.479 | $1.02M |
+
+The narrower-base ladders (15% / 12%) sit below the 20%-base version on book PF — same "wider base leash →
+higher book PF" pattern (the wide leash lets winners run).
+
+**Breakdown by WHICH stop fired** (loosened set, fwd-20d from exit; regime reconstructed from
+ATR%-at-exit against the ladder thresholds):
+
+| which stop fired | n | avg gain@exit | avg held | ATR%@exit | fwd med | **fwd PF** |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 8% leash (ATR≥10%) | 1,001 | +9.7% | 17 | 12.2% | −4.37% | **0.946** |
+| 10% leash (ATR 8-10%) | 1,355 | +2.1% | 12 | 8.9% | −1.50% | **1.083** |
+| 12% leash (ATR 6-8%) | 2,819 | −0.5% | 25 | 6.9% | −0.76% | **1.090** |
+| 15% leash (ATR<6%) | 12,473 | +2.1% | 82 | 3.7% | +0.94% | **1.219** |
+
+(2-tier 12/8 ran the same way: TIGHT 8% → fwd-PF 0.911 / med −5.2%, n=1039; WIDE 12% → fwd-PF 1.193 /
+med +0.52%, n=16732 — same split, coarser.)
+
+**The decisive finding:** the **three high-ATR tiers are all calibrated** — fwd-PF 0.946 → 1.083 → 1.090,
+each with a *negative* forward median, i.e. they sell names that then fall (the 8% tier catches violent
+names at +9.7% avg gain right as they go negative-EV). The laddered tight side works exactly as designed,
+monotone in ATR%. **The entire residual edge-leakage AND the entire drawdown live in the low-ATR 15%
+tier**: fwd-PF **1.219**, positive median, **71% of all exits (12,473)** held a punishing **82 bars
+(~4 months)** — we're stopping quiet trenders that keep going.
+
+**This tier cannot be fixed by the price-stop width** — seen three ways now: 20% base → fwd-PF 1.19, 15%
+base → 1.219, 12% → 1.193. The quiet leash trades book-PF against this number but never gets it under
+1.1, because *any* price-pullback stop on a quiet trender sells into the bounce (the median reverts but
+the bounce tail props the PF). The 82-bar hold confirms these are sideways/up grinders that occasionally
+dip into the stop.
+
+**Architecture conclusion:** high-ATR names want a *price* stop (the ladder works); the low-ATR majority
+wants a *time/gain*-gated recycle, not a price stop. The right design is a **hybrid** — ladder price-stop
+for the volatile tiers + the ATR/gain-gated time-stop (hold while ATR% < ~8% AND gain < +60%; recycle
+otherwise) for the quiet names. That is the next build.
+
+---
+
 #### Time-stops with NO price stop — the "hold another 5 days?" map, gated on ATR% (2026-06-19)
 
 The chandelier-stop geometry got complicated and its quiet-name holds ran **9 months** (the wide leash
