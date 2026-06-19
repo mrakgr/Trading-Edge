@@ -1090,6 +1090,37 @@ slightly better than ATR k=4. Net takeaway of the whole stop investigation: **th
 edge-relevant lever, tight stops whipsaw, and a simple fixed-% ratchet in the 15–25% band is as good
 as the fancier mechanisms** — pick the width by drawdown/hold tolerance, not by maximizing PF.
 
+#### Is the dead-zone gap-over underperformance a stop-distance artifact? NO (2026-06-19)
+
+Hypothesis: yesterday's finding that **gap-over** dead-zone trades (signal-bar `adj_open ≥ hi_252_high`)
+badly underperform **reclaim** ones (`open < hi_252_high`, close above) might be entirely a *stop*
+effect — gap-overs gap up, so a structure-based stop sits at a different distance and whipsaws them.
+If so, a **uniform fixed 10% stop** on both should erase the gap. Tested on the up=0 dead zone
+(matching yesterday), window-low(4) vs fixed p=0.10:
+
+| up=0 dead zone | window-low(4) PF / net | fixed 10% PF / net |
+| --- | ---: | ---: |
+| gap-over | 1.159 / $100k | 1.096 / $180k |
+| reclaim | 1.318 / $565k | **1.478 / $1.64M** |
+| reclaim − gap-over (PF) | +0.16 | **+0.38** |
+
+**The hypothesis is refuted — the gap WIDENS under a fixed stop.** The fixed 10% helps *reclaims* a lot
+(1.318→1.478, P&L ~3×) but leaves *gap-overs* flat-to-worse (1.159→1.096). So equalizing the stop
+distance does the opposite of closing the gap. Two reasons it isn't a stop artifact:
+- Under the structure stop actually used (4-day-low), gap-overs and reclaims **already had near-
+  identical stop distances** (median 12.2% vs 13.0%) — there was no distance difference for a fixed
+  stop to neutralize. (The mechanism the hypothesis imagined IS real but for the *day-low* stop:
+  gap-overs' median day-low distance is 3.83% vs reclaims' 7.78% — gap-overs open high so the day low
+  is close. But the day-low stop wasn't the one in play here.)
+- A reclaim is a live intraday breakout that **keeps running if given room**, so a wider/up-only stop
+  captures more of the move; a gap-over has **front-loaded** its move on overnight news, so room
+  doesn't help — there's less continuation left and it often fades.
+
+So the gap-over deficit is a property of the **setup's continuation profile, not the stop.** It is
+exactly what an open / early-morning *entry* (not a different stop) would need to address — reinforcing
+the deferred intraday-entry test. Reclaims, separately, are the standout beneficiary of the wide
+fixed/ratchet stop (the single best dead-zone cell: up=0 reclaim + fixed 10% = PF 1.478 / $1.64M).
+
 ---
 
 ## Yearly breakdown (flat $10k/trip, filtered, by entry year)
