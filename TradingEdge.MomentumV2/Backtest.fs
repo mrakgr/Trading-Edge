@@ -21,6 +21,7 @@ type Config =
       EntryTimeCap: int         // bars the entry limit may rest; on timeout enter at the next open
       UseEntryDayStop: bool     // true = stop floored at entry-day low (Qulla); false = trailing low only
       StopMode: StopMode        // WindowLow (default) or AtrRatchet k — the trailing-stop mechanism
+      MaxHoldBars: int          // time-stop: exit at next open after this many Holding bars (0 = off)
       Side: Side                // Long (default) or Short — flips stop geometry + P&L sign
       TightnessMode: TightnessMode  // Log (default) or Linear — drives entry tightness + expansion
       Notional: float
@@ -66,6 +67,8 @@ let defaultConfig =
       UseEntryDayStop = true
       // Trailing-stop mechanism. Default = the legacy window-low rule.
       StopMode = WindowLow
+      // Time-stop OFF by default (0). >0 = exit at next open after that many Holding bars.
+      MaxHoldBars = 0
       // Trade direction. Long is the production system; Short mirrors the stop geometry
       // (trail the prior-window HIGH) and flips the P&L sign — used for the short studies.
       Side = Long
@@ -199,7 +202,7 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
                     cfg.AtrWindow, cfg.TightnessWindow, cfg.VolDays,
                     cfg.ExpansionThr, cfg.ExitTimeCap, cfg.EntryLimitMode,
                     cfg.EntryTrailWindow, cfg.EntryTimeCap, cfg.UseEntryDayStop,
-                    cfg.StopMode, cfg.Side, cfg.TightnessMode, cfg.Entry)
+                    cfg.StopMode, cfg.MaxHoldBars, cfg.Side, cfg.TightnessMode, cfg.Entry)
 
     // Flush the just-finished ticker: MTM-close open trips, emit all trips.
     let flush () =

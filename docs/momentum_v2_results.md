@@ -1141,6 +1141,46 @@ across window-low, fixed-%, ATR, AND time-stop the gap-over PF clusters ~1.1: **
 the lever for gap-overs.** Only an earlier (open / pre-market) *entry* could plausibly help — you'd
 have to participate before the overnight move is already priced in.
 
+#### Break-even-capped fixed stop + 20-day time-stop — and it helps gap-overs (2026-06-19)
+
+A combination stop: fixed-% initial stop that ratchets up **only to break-even** (entry), then locks,
+paired with a 20-day time-stop to harvest the winner. `StopMode = FixedPctBE p` (CLI `--fixed-stop-be`)
+= `stop = max(prev, min(close·(1−p), entry))`; `--max-hold-bars 20`. Rationale: don't give back open
+profit beyond BE (unlike the full ratchet), and don't hold past the point where momentum decays
+(time-stops >25d are known to fade). Loosened set, vs the full-ratchet comparators:
+
+| loosened set | win% | PF | net |
+| --- | ---: | ---: | ---: |
+| window-low(4) | 42.5 | 1.352 | $1.29M |
+| atr k=4 (full ratchet) | 41.6 | 1.421 | $3.82M |
+| fixed p=0.10 (full ratchet) | 42.2 | 1.329 | $2.06M |
+| **BE p=0.10 + 20d time-stop** | 47.2 | **1.40** | $1.89M |
+| BE p=0.15 + 20d time-stop | 49.7 | 1.39 | $2.06M |
+
+The combo reaches **PF ~1.40 at p=0.10** — beating the equivalent full-ratchet fixed-% (1.329) and
+window-low (1.352), and ≈ the full-ratchet ATR k=4 (1.421) — but with a much **higher win rate**
+(47–50% vs 42%) and a **modest, honest P&L** ($1.9M, not the wide-ratchet $3.8M). The lower P&L is the
+point: it's banking winners at 20 days, not riding the degenerate fat tail, so this PF doesn't depend
+on the "hold-forever" artifact that inflated the wide fixed-% sweep.
+
+**Dead-zone split — this is the FIRST treatment that helps gap-overs:**
+
+| up=0 dead zone | gap-over PF | reclaim PF |
+| --- | ---: | ---: |
+| full-ratchet fixed 10% | 1.096 | **1.478** |
+| **BE 10% + 20d time-stop** | **1.224** | 1.385 |
+| BE 15% + 20d time-stop | 1.189 | 1.432 |
+
+Capping at break-even + harvesting at 20 days lifts **gap-overs 1.096 → 1.224** (win rate 43%→52%) —
+the first thing to move them off ~1.1, because the BE cap stops them round-tripping into losers and the
+time-stop banks the front-loaded move before it fades. The trade-off is symmetric: it slightly **lowers
+reclaims** (1.478 → 1.385), which *want* room to keep running and get cut short by the BE cap + 20d
+harvest. So the two setups have **opposite stop preferences**: reclaims → wide full-ratchet (run);
+gap-overs → BE + time-stop (bank it). ⚠️ **Caveat (era split):** the gap-over lift is **modern-era
+concentrated** — 2015–26 PF 1.381 vs 2005–14 1.091 — so it's a regime-tilted improvement, not a stable
+cross-era edge. Better than the ~1.1 every other stop gave, but not robust; the open-entry idea remains
+the cleaner potential fix for gap-overs.
+
 ---
 
 ## Yearly breakdown (flat $10k/trip, filtered, by entry year)

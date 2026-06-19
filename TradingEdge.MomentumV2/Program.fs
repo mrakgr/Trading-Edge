@@ -29,6 +29,8 @@ type Args =
     | No_Entry_Day_Stop
     | Atr_Stop of float
     | Fixed_Stop of float
+    | Fixed_Stop_Be of float
+    | Max_Hold_Bars of int
     | Side of string
     | Tightness_Mode of string
     | Rvol_Min of float
@@ -56,6 +58,8 @@ type Args =
             | No_Entry_Day_Stop -> "Drop the Qulla entry-day-low stop floor; use the trailing prior-window low only (no stop until that window warms)."
             | Atr_Stop _ -> "Use an up-only ATR%%-ratchet trailing stop instead of the window-low rule: stop = max(prev, close - k*ATR%%*close), k = this value. Replaces --stop-low-window / entry-day-low geometry."
             | Fixed_Stop _ -> "Use an up-only FIXED-%% ratchet trailing stop: stop = max(prev, close*(1-p)), p = this fraction (e.g. 0.15). Same trailing machinery as --atr-stop but a constant distance. Mutually exclusive with --atr-stop."
+            | Fixed_Stop_Be _ -> "Fixed-%% stop CAPPED at break-even: stop = max(prev, min(close*(1-p), entry)) — starts p below entry, ratchets only up to the entry price, then locks. Pair with --max-hold-bars. Mutually exclusive with --atr-stop/--fixed-stop."
+            | Max_Hold_Bars _ -> "Time-stop: exit at the next open after this many Holding bars (0 = off, default). E.g. 20."
             | Side _ -> "Trade direction: 'long' (default) or 'short'. Short trails the stop along the prior-window HIGH and flips the P&L sign."
             | Tightness_Mode _ -> "Tightness measure for the entry filter + expansion exit: 'log' (default) or 'linear'. Thresholds differ between modes."
             | Rvol_Min _ -> "Minimum relative volume at entry. Default 6.0 (production)."
@@ -102,11 +106,13 @@ let main argv =
             ExpansionThr  = parsed.GetResult(Expansion_Thr,   defaultValue = defaultConfig.ExpansionThr)
             UseEntryDayStop = not (parsed.Contains No_Entry_Day_Stop)
             StopMode =
-                (match parsed.TryGetResult Atr_Stop, parsed.TryGetResult Fixed_Stop with
-                 | Some _, Some _ -> failwith "--atr-stop and --fixed-stop are mutually exclusive"
-                 | Some k, None   -> AtrRatchet k
-                 | None,   Some p -> FixedPct p
-                 | None,   None   -> WindowLow)
+                (match parsed.TryGetResult Atr_Stop, parsed.TryGetResult Fixed_Stop, parsed.TryGetResult Fixed_Stop_Be with
+                 | Some k, None, None -> AtrRatchet k
+                 | None, Some p, None -> FixedPct p
+                 | None, None, Some p -> FixedPctBE p
+                 | None, None, None   -> WindowLow
+                 | _ -> failwith "--atr-stop, --fixed-stop, --fixed-stop-be are mutually exclusive")
+            MaxHoldBars = parsed.GetResult(Max_Hold_Bars, defaultValue = defaultConfig.MaxHoldBars)
             Side = side
             TightnessMode = tightnessMode
             Entry =
@@ -126,12 +132,14 @@ let main argv =
         cfg.Side cfg.StopLowWindow cfg.TrailWindow cfg.ExitTimeCap cfg.ExpansionThr cfg.TightnessMode
     printfn "  entry mode = %s   entry trail win = %d   entry cap = %d"
         (if cfg.EntryLimitMode then "trailing-limit" else "at-close") cfg.EntryTrailWindow cfg.EntryTimeCap
-    printfn "  stop mode = %s   entry-day-stop = %b"
+    printfn "  stop mode = %s   entry-day-stop = %b   time-stop = %s"
         (match cfg.StopMode with
          | WindowLow -> sprintf "window-low(%d)" cfg.StopLowWindow
          | AtrRatchet k -> sprintf "atr-ratchet k=%.1f" k
-         | FixedPct p -> sprintf "fixed-pct p=%.3f" p)
+         | FixedPct p -> sprintf "fixed-pct p=%.3f" p
+         | FixedPctBE p -> sprintf "fixed-pct-BE p=%.3f" p)
         cfg.UseEntryDayStop
+        (if cfg.MaxHoldBars > 0 then sprintf "%dd" cfg.MaxHoldBars else "off")
     printfn "  entry     = up>=%.2f rvol[%.0f,%.0f] adv>=%.0f price>=%.0f 52w>=%.2f tight<%.2f atr%%<%.2f"
         cfg.Entry.UpThreshold cfg.Entry.RvolMin cfg.Entry.RvolMax cfg.Entry.MinAvgDollarVolume
         cfg.Entry.MinPrice cfg.Entry.Min52wPct cfg.Entry.MaxTightness cfg.Entry.MaxAtrPct

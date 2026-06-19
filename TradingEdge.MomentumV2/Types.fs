@@ -32,10 +32,16 @@ type Side =
 ///   - FixedPct p: identical up-only ratchet but with a CONSTANT fractional distance instead
 ///     of k·ATR% — candidate stop = close·(1 − p). Isolates "distance" from "mechanism": same
 ///     trailing machinery as AtrRatchet, distance set directly. Mirrored for Short (close·(1+p)).
+///   - FixedPctBE p: like FixedPct but the ratchet is CAPPED at break-even — candidate stop =
+///     min(close·(1 − p), entry). Starts at entry·(1−p), rises only up to the entry price, then
+///     locks at break-even (never gives back open profit beyond BE, never trails above entry).
+///     Intended to pair with a time-stop (`maxHoldBars`) that harvests the winner. Mirrored for
+///     Short (max(close·(1+p), entry)).
 type StopMode =
     | WindowLow
     | AtrRatchet of k: float
     | FixedPct of p: float
+    | FixedPctBE of p: float
 
 /// Life-cycle of a single trip.
 ///   - PendingLimit barsRested: the entry signal fired on the prior bar, but
@@ -76,6 +82,7 @@ type Position =
       EntryDayStopRef: float    // Qullamaggie initial-stop reference (FILL bar's low for Long, high for Short)
       StopLowAtEntry: float     // trailing prior-window low/high going INTO the signal bar (the 15-day-stop ref); nan if window cold
       RatchetStop: float        // AtrRatchet mode: the carried up-only stop level (nan until the first Holding bar sets it)
+      HoldBars: int             // # of Holding bars elapsed since fill (for the time-stop / maxHoldBars)
       // metrics snapshotted at the SIGNAL bar (for the trips CSV / parity diff)
       EntryVolume: int64
       RvolAtEntry: float
@@ -142,6 +149,7 @@ type QullaSystem
       entryTimeCap: int,
       useEntryDayStop: bool,
       stopMode: StopMode,
+      maxHoldBars: int,
       side: Side,
       tightnessMode: TightnessMode,
       entryCfg: EntryConfig ) =
@@ -514,16 +522,18 @@ type QullaSystem
                             let lvl = if useEntryDayStop then min hi pos.EntryDayStopRef else hi
                             bar.high >= lvl
                         | ValueNone -> useEntryDayStop && bar.high >= pos.EntryDayStopRef
-                | AtrRatchet _ | FixedPct _ ->
+                | AtrRatchet _ | FixedPct _ | FixedPctBE _ ->
                     // Up-only ratchet off the LATEST close. AtrRatchet uses a per-bar
                     // ATR%-based fractional distance (k·ATR%, ValueNone if ATR is cold);
-                    // FixedPct uses a constant fraction p. Otherwise identical: check this
-                    // bar against the carried level, then ratchet from this bar's close.
+                    // FixedPct/FixedPctBE use a constant fraction p. FixedPctBE additionally
+                    // CAPS the candidate at break-even (entry). Otherwise identical: check
+                    // this bar against the carried level, then ratchet from this bar's close.
                     let frac : float voption =
                         match stopMode with
                         | AtrRatchet k -> sAtrLog |> ValueOption.map (fun atr -> k * atr)
-                        | FixedPct p   -> ValueSome p
+                        | FixedPct p | FixedPctBE p -> ValueSome p
                         | WindowLow    -> ValueNone   // unreachable
+                    let beCap = (match stopMode with FixedPctBE _ -> true | _ -> false)
                     let hit =
                         match side with
                         | Long  -> not (Double.IsNaN pos.RatchetStop) && bar.low  <= pos.RatchetStop
@@ -532,8 +542,9 @@ type QullaSystem
                     | ValueSome f ->
                         let candidate =
                             match side with
-                            | Long  -> bar.close * (1.0 - f)
-                            | Short -> bar.close * (1.0 + f)
+                            // BE cap: stop may rise only up to entry (Long) / fall only to entry (Short).
+                            | Long  -> let c = bar.close * (1.0 - f) in if beCap then min c pos.EntryPrice else c
+                            | Short -> let c = bar.close * (1.0 + f) in if beCap then max c pos.EntryPrice else c
                         nextRatchet <-
                             if Double.IsNaN pos.RatchetStop then candidate
                             else match side with
@@ -554,12 +565,21 @@ type QullaSystem
             // the next open (the baseline — N ignored); with cap>=1 it rests a
             // sell limit for up to `exitTimeCap` bars. Neither fills the trigger
             // bar itself.
+            // Time-stop: if the trade has survived `maxHoldBars` Holding bars (0 = off),
+            // exit at the NEXT bar's open. Counts the bar we're about to survive, so it
+            // fires once HoldBars+1 reaches the cap and fills at bar (cap+1)'s open —
+            // i.e. "held maxHoldBars bars, then exit at next open". Lowest priority: a
+            // price stop (or expansion) on the same bar exits first.
+            let heldBars = pos.HoldBars + 1
+            let timeStopHit = maxHoldBars > 0 && heldBars >= maxHoldBars
             if stopHit then
                 if exitTimeCap <= 0 then { pos with State = ExitingMarket "stop" }
                 else { pos with State = ExitingLimit 0 }
             elif expansionHit then
                 { pos with State = ExitingMarket "expansion" }
-            else { pos with RatchetStop = nextRatchet }  // still holding — carry the ratcheted stop forward
+            elif timeStopHit then
+                { pos with State = ExitingMarket "time_stop"; RatchetStop = nextRatchet; HoldBars = heldBars }
+            else { pos with RatchetStop = nextRatchet; HoldBars = heldBars }  // still holding
         | ExitingMarket "__enter_open_after_cap" ->
             // ENTRY timed-out: the buy/sell limit rested the full cap unfilled, so
             // we take the trade at THIS bar's open (the bar after the cap elapsed),
@@ -622,6 +642,7 @@ type QullaSystem
                   EntryDayStopRef = (match side with Long -> bar.low | Short -> bar.high)
                   StopLowAtEntry = orNan (match side with Long -> sStopLow | Short -> sStopHigh)
                   RatchetStop = nan   // AtrRatchet sets this on the first Holding bar
+                  HoldBars = 0
                   EntryVolume = bar.volume
                   RvolAtEntry = orNan (this.Rvol (float bar.volume))
                   AvgDollarVolumeAtEntry = orNan sAvgDolVol
