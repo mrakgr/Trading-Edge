@@ -30,6 +30,7 @@ type Args =
     | Atr_Stop of float
     | Fixed_Stop of float
     | Fixed_Stop_Be of float
+    | No_Stop
     | Max_Hold_Bars of int
     | Profit_Target of float
     | Target_Next_Open
@@ -68,6 +69,7 @@ type Args =
             | Atr_Stop _ -> "Use an up-only ATR%%-ratchet trailing stop instead of the window-low rule: stop = max(prev, close - k*ATR%%*close), k = this value. Replaces --stop-low-window / entry-day-low geometry."
             | Fixed_Stop _ -> "Use an up-only FIXED-%% ratchet trailing stop: stop = max(prev, close*(1-p)), p = this fraction (e.g. 0.15). Same trailing machinery as --atr-stop but a constant distance. Mutually exclusive with --atr-stop."
             | Fixed_Stop_Be _ -> "Fixed-%% stop CAPPED at break-even: stop = max(prev, min(close*(1-p), entry)) — starts p below entry, ratchets only up to the entry price, then locks. Pair with --max-hold-bars. Mutually exclusive with --atr-stop/--fixed-stop."
+            | No_Stop -> "NO price stop at all — hold until another exit fires (exhaustion / time-stop / target) or MTM at the last bar. Diagnostic. Mutually exclusive with the other stop flags."
             | Max_Hold_Bars _ -> "Time-stop: exit at the next open after this many Holding bars (0 = off, default). E.g. 20."
             | Profit_Target _ -> "Fixed profit target as a fraction above entry (0 = off). Resting sell limit, fills intrabar at max(target, open); wins over a same-bar stop (which exits next open). E.g. 0.20."
             | Target_Next_Open -> "With --profit-target: exit at the NEXT bar's open when the target is hit (a signal), instead of the intrabar limit fill."
@@ -124,12 +126,13 @@ let main argv =
             ExpansionThr  = parsed.GetResult(Expansion_Thr,   defaultValue = defaultConfig.ExpansionThr)
             UseEntryDayStop = not (parsed.Contains No_Entry_Day_Stop)
             StopMode =
-                (match parsed.TryGetResult Atr_Stop, parsed.TryGetResult Fixed_Stop, parsed.TryGetResult Fixed_Stop_Be with
-                 | Some k, None, None -> AtrRatchet k
-                 | None, Some p, None -> FixedPct p
-                 | None, None, Some p -> FixedPctBE p
-                 | None, None, None   -> WindowLow
-                 | _ -> failwith "--atr-stop, --fixed-stop, --fixed-stop-be are mutually exclusive")
+                (match parsed.TryGetResult Atr_Stop, parsed.TryGetResult Fixed_Stop, parsed.TryGetResult Fixed_Stop_Be, parsed.Contains No_Stop with
+                 | Some k, None, None, false -> AtrRatchet k
+                 | None, Some p, None, false -> FixedPct p
+                 | None, None, Some p, false -> FixedPctBE p
+                 | None, None, None, true    -> NoStop
+                 | None, None, None, false   -> WindowLow
+                 | _ -> failwith "--atr-stop, --fixed-stop, --fixed-stop-be, --no-stop are mutually exclusive")
             MaxHoldBars = parsed.GetResult(Max_Hold_Bars, defaultValue = defaultConfig.MaxHoldBars)
             ProfitTarget = parsed.GetResult(Profit_Target, defaultValue = defaultConfig.ProfitTarget)
             TargetNextOpen = parsed.Contains Target_Next_Open
@@ -166,7 +169,8 @@ let main argv =
          | WindowLow -> sprintf "window-low(%d)" cfg.StopLowWindow
          | AtrRatchet k -> sprintf "atr-ratchet k=%.1f" k
          | FixedPct p -> sprintf "fixed-pct p=%.3f" p
-         | FixedPctBE p -> sprintf "fixed-pct-BE p=%.3f" p)
+         | FixedPctBE p -> sprintf "fixed-pct-BE p=%.3f" p
+         | NoStop -> "none")
         cfg.UseEntryDayStop
         (if cfg.MaxHoldBars > 0 then sprintf "%dd" cfg.MaxHoldBars else "off")
     printfn "  profit target = %s%s"

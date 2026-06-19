@@ -891,6 +891,47 @@ entry/avoid signal.** Production already avoids it via `MaxTightness 4.0` (well 
 and `MaxAtrPct 0.11` — i.e. the long system structurally never enters the loose+high-ATR cell, which is
 why holding-EV there is moot for it. The exhaustion-exit knobs are retained as the characterized
 negative-result substrate.
+
+###### NO-STOP system: exhaustion finally EARNS its keep — but a pure-ATR exit destroys the edge (2026-06-19)
+
+The reason exhaustion never helped the stopped systems is that the **stop already exits most blow-offs
+before exhaustion can fire** (they overlap). So strip the stop entirely (`StopMode.NoStop`, CLI
+`--no-stop`; equivalently `--fixed-stop 1` → stop at 0, never reached — confirmed identical) and let
+exhaustion be the *sole* exit. (Caveat: no-stop is not a usable strategy — these are 20-year holds at
+fixed $10k notional, PF ~5.5 is the degenerate buy-and-hold-survivors scale. Only the *relative* effect
+matters.) Loosened set:
+
+| no-stop (loosened) | win% | PF | net | avg hold |
+| --- | ---: | ---: | ---: | ---: |
+| no exit (MTM only) | 53.6 | 5.553 | $146.1M | 1881 |
+| **+ exhaustion (t8, atr16, mv5+rv3 / mv20)** | 53.5 | **5.642** | $147.0M | 1833 |
+| + exhaustion (t8, atr12, mv5+rv3 / mv10) | 53.1 | 5.511 | $142.0M | 1766 |
+
+**With no stop underneath, the SHARP exhaustion exit (loose + ATR>16 + spike) beats pure hold on both
+PF and P&L** (5.642 vs 5.553) while exiting ~48 bars earlier — the first time exhaustion *adds* value,
+because it's now the only thing catching the toxic loose+high-ATR bars. The looser ATR-12 version
+hurts (5.511). Confirms the whole thread: exhaustion's value is real but was masked by the stop.
+
+**But a PURE ATR%-threshold exit (hold until ATR% > x, no tightness/move condition) is a BAD exit** —
+it monotonically destroys the edge:
+
+| no-stop, exit when ATR% > x | win% | PF | net | avg hold |
+| --- | ---: | ---: | ---: | ---: |
+| 0.08 | 44.8 | 1.567 | $12.7M | 515 |
+| 0.12 | 44.8 | 2.738 | $55.9M | 1027 |
+| 0.16 | 48.7 | 4.221 | $109.7M | 1442 |
+| 0.20 | 51.3 | 5.031 | $134.3M | 1649 |
+| 0.30 | 53.3 | 5.577 | $144.5M | 1817 |
+| (no exit) | 53.6 | 5.553 | $146.1M | 1881 |
+
+The tighter the ATR threshold, the worse — exiting on ATR%>8% (PF 1.57) guts the system; it only
+converges back to pure-hold near ATR%>0.30 (where it barely exits). **High ATR% ALONE is not toxic — a
+volatile momentum name is exactly what you want to hold.** The toxicity requires the **conjunction**
+with a loose base: the sharp exhaustion exit adds value *because* it demands both, while the pure-ATR
+exit subtracts value because ATR% by itself just means "lively name." This is the cleanest proof yet
+that the −EV signal is *loose AND high-ATR*, not either alone — and that a naive volatility-stop is a
+mistake on a momentum book.
+
 **rvol vs move: only moderately correlated, and the MOVE dominates.** Within the loose-base
 population, rvol and pct_up have a **Spearman rank correlation of 0.38** (raw Pearson 0.04 is
 outlier-scrambled and misleading; log–log 0.24). So they share information but are far from

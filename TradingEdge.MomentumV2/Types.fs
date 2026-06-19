@@ -37,11 +37,15 @@ type Side =
 ///     locks at break-even (never gives back open profit beyond BE, never trails above entry).
 ///     Intended to pair with a time-stop (`maxHoldBars`) that harvests the winner. Mirrored for
 ///     Short (max(close·(1+p), entry)).
+///   - NoStop: no price stop at all. The position holds until some OTHER exit fires
+///     (exhaustion / time-stop / target) or is MTM'd at the last bar. Diagnostic mode —
+///     isolates the exit-rule's standalone behavior with no stop floor underneath.
 type StopMode =
     | WindowLow
     | AtrRatchet of k: float
     | FixedPct of p: float
     | FixedPctBE of p: float
+    | NoStop
 
 /// Life-cycle of a single trip.
 ///   - PendingLimit barsRested: the entry signal fired on the prior bar, but
@@ -528,6 +532,7 @@ type QullaSystem
             let mutable nextRatchet = pos.RatchetStop
             let stopHit =
                 match stopMode with
+                | NoStop -> false   // no price stop; only other exits (exhaustion / time / target) act
                 | WindowLow ->
                     match side with
                     | Long ->
@@ -556,7 +561,7 @@ type QullaSystem
                         match stopMode with
                         | AtrRatchet k -> sAtrLog |> ValueOption.map (fun atr -> k * atr)
                         | FixedPct p | FixedPctBE p -> ValueSome p
-                        | WindowLow    -> ValueNone   // unreachable
+                        | WindowLow | NoStop -> ValueNone   // unreachable
                     let beCap = (match stopMode with FixedPctBE _ -> true | _ -> false)
                     let hit =
                         match side with
