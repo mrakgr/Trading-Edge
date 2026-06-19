@@ -912,6 +912,42 @@ set (more samples) with both the Qulla day-low stop and the trailing prior-windo
 - Practical read: a tight initial stop mostly buys whipsaw. The momentum edge wants **room** — the
   best R:R lives 9–20% below entry. Don't tighten the initial stop to chase R:R.
 
+### Tight-stop trades — a 20-day TIME-STOP rescues them (the whipsaw, confirmed) (2026-06-19)
+
+Follow-on to the above: for the **tight-stop bucket** (Qulla day-low < 2% below entry, where the
+trailing stop whipsaws), what if we'd **replaced the trailing stop with a 20-day time-stop** — hold
+exactly 20 trading bars and exit at that bar's open (MTM at last close if the ticker runs out of
+bars)? Post-hoc over the same loosened run; forward prices from `split_adjusted_prices` (same
+CS/ADRC universe + date range), per-trade fixed-$10k notional to match the engine.
+
+**Parameters:** same run as the stop-distance analysis above (Long, at-close, Linear, up≥0.05,
+rvol[3,∞), ADV≥$100k, price≥$5, 52w≥0.95, tight<4.0, ATR%<0.11, 2005-01-01→2026-05-13, breadth
+lag1>0.5, **stop-window 15** run — the Qulla day-low ref is window-independent). Bucket = Qulla
+`(entry−day_low)/entry < 0.02`. Time-stop exit = open of the 20th bar after entry.
+
+| tight-stop bucket (Qulla <2%) | n | win% | net | PF | avg/trade |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| actual trailing stop | 1048 | 39.2 | $15.8k | 1.089 | $15 |
+| **20-day time stop** | 1048 | **60.2** | **$163.9k** | **1.684** | **$156** |
+
+**A ~10× improvement, era-robust:** the trailing stop sits <2% away, so any normal pullback triggers
+it and turns would-be winners into small losers. Holding 20 days instead: win rate 39%→**60%**, P&L
+**$16k→$164k**, PF 1.09→**1.68**. Era split (only 14/1048 trades truncated <20 bars, so MTM isn't
+driving it):
+
+| era | n | trailing-stop net / PF | 20d time-stop net / PF |
+| --- | ---: | ---: | ---: |
+| 2005–14 | 489 | $4.3k / 1.045 | $84.3k / **1.726** |
+| 2015–26 | 559 | $11.5k / 1.14 | $79.6k / **1.645** |
+
+**Control — it is SPECIFIC to tight stops, not "time-stops beat trailing everywhere".** The same
+comparison on the **wide** bucket (13–20% stop distance) is a dead heat: trailing PF 1.405 / $320k vs
+time-stop 1.407 / $298k (trailing slightly ahead on P&L). So the time-stop rescue fires *only* where
+the trailing stop is too close to survive normal noise. Read: a tight initial stop is not merely
+"no better" — it is **actively harmful**, and the fix is to **stop trailing close and just hold**
+(time-stop) for those names, not to tighten further. (Trade construction lever for a future variant:
+route tight-initial-stop entries to a time-stop exit, wide ones to the trailing stop.)
+
 ---
 
 ## Yearly breakdown (flat $10k/trip, filtered, by entry year)
