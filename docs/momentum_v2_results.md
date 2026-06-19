@@ -1049,6 +1049,47 @@ dominates, tight is bad." The thing to test next is a **fixed-% initial stop** (
 floor on the existing stops) that then trails or time-stops. (2) The 30%+ fade is partly formula
 survivorship (a 30%+ ATR stop only arises on very high-ATR, intrinsically wilder names).
 
+#### Fixed-% ratchet stop — competitive with ATR, but PF-vs-width is a degenerate objective (2026-06-19)
+
+Built the test the previous section called for: `StopMode = FixedPct p` (CLI `--fixed-stop p`) — the
+**same up-only ratchet machinery as the ATR stop** but with a *constant* fractional distance:
+`stop = max(prev_stop, close·(1−p))`. This isolates distance from mechanism — same trailing, distance
+set directly. Same loosened set (Long, at-close, Linear, up≥0.05, rvol[3,∞), ADV≥$100k, price≥$5,
+52w≥0.95, tight<4.0, ATR%<0.11, 2005-01-01→2026-05-13, breadth lag1>0.5):
+
+| stop | win% | PF | net | avg hold | % exit via stop |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| window-low(4) | 42.5 | 1.352 | $1.29M | — | — |
+| atr k=4 | 41.6 | 1.421 | $3.82M | — | — |
+| fixed p=0.08 | 42.7 | 1.233 | $1.26M | — | — |
+| fixed p=0.10 | 42.2 | 1.329 | $2.06M | — | — |
+| fixed p=0.12 | 41.8 | 1.325 | $2.36M | — | — |
+| fixed p=0.15 | 41.4 | 1.394 | $3.43M | 66 | 94.6% |
+| **fixed p=0.20** | 40.9 | **1.464** | $5.14M | — | — |
+| fixed p=0.25 | 40.4 | 1.525 | $7.12M | 161 | 91.0% |
+| fixed p=0.30 | 39.8 | 1.561 | $8.96M | — | — |
+| fixed p=0.35 | 39.5 | 1.689 | $12.6M | — | — |
+| fixed p=0.40 | 39.0 | 1.861 | $17.9M | — | — |
+| fixed p=0.50 | 38.4 | 2.084 | $27.8M | 512 | 76.4% |
+
+**Two findings:**
+1. **In the tradeable range, fixed-% matches/beats the best ATR stop.** At p=0.20 PF 1.464 > ATR k=4's
+   1.421 with more P&L; p=0.15 (1.394) is comparable. Confirms the previous section: you can set the
+   distance *directly* and do at least as well as inferring it from ATR — distance is the lever.
+2. **But PF rises monotonically with width all the way to p=0.50 (PF 2.08) — which is a DEGENERATE
+   objective, not a result.** This is the same trap as the expansion-exit dead-end: *any* exit rule
+   that fires fights the momentum edge, so looser always scores higher PF. The wide end isn't a better
+   stop, it's the **absence** of one: at p=0.50 the avg hold is **512 bars (~2 yrs)**, only 76% of
+   trades exit via the stop (24% MTM), and the worst single trade is −91% (vs −99% theoretical) — i.e.
+   buy-and-hold-the-survivors with a catastrophe stop, untradeable on per-trade drawdown / capital at
+   risk. At p=0.15 it's still a real system (94.6% stop exits, ~3-month avg hold).
+
+So **PF alone cannot pick the stop width** (it just walks you to no-stop). The realistic sweet spot is
+where the stop still does its job — roughly **p=0.15–0.25** — and there fixed-% is competitive with or
+slightly better than ATR k=4. Net takeaway of the whole stop investigation: **the distance is the
+edge-relevant lever, tight stops whipsaw, and a simple fixed-% ratchet in the 15–25% band is as good
+as the fancier mechanisms** — pick the width by drawdown/hold tolerance, not by maximizing PF.
+
 ---
 
 ## Yearly breakdown (flat $10k/trip, filtered, by entry year)

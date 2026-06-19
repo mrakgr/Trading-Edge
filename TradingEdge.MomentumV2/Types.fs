@@ -29,9 +29,13 @@ type Side =
 ///     RISES: stop = max(prev_stop, candidate). No entry-day-low floor (the ratchet starts
 ///     from the entry bar's own candidate). Mirrored for Short (close + k·ATR$, ratchets
 ///     DOWN-only).
+///   - FixedPct p: identical up-only ratchet but with a CONSTANT fractional distance instead
+///     of k·ATR% — candidate stop = close·(1 − p). Isolates "distance" from "mechanism": same
+///     trailing machinery as AtrRatchet, distance set directly. Mirrored for Short (close·(1+p)).
 type StopMode =
     | WindowLow
     | AtrRatchet of k: float
+    | FixedPct of p: float
 
 /// Life-cycle of a single trip.
 ///   - PendingLimit barsRested: the entry signal fired on the prior bar, but
@@ -510,22 +514,26 @@ type QullaSystem
                             let lvl = if useEntryDayStop then min hi pos.EntryDayStopRef else hi
                             bar.high >= lvl
                         | ValueNone -> useEntryDayStop && bar.high >= pos.EntryDayStopRef
-                | AtrRatchet k ->
-                    // Up-only ATR%-chandelier off the latest close. Check this bar against
-                    // the carried level (if set), then ratchet from this bar's close.
+                | AtrRatchet _ | FixedPct _ ->
+                    // Up-only ratchet off the LATEST close. AtrRatchet uses a per-bar
+                    // ATR%-based fractional distance (k·ATR%, ValueNone if ATR is cold);
+                    // FixedPct uses a constant fraction p. Otherwise identical: check this
+                    // bar against the carried level, then ratchet from this bar's close.
+                    let frac : float voption =
+                        match stopMode with
+                        | AtrRatchet k -> sAtrLog |> ValueOption.map (fun atr -> k * atr)
+                        | FixedPct p   -> ValueSome p
+                        | WindowLow    -> ValueNone   // unreachable
                     let hit =
                         match side with
                         | Long  -> not (Double.IsNaN pos.RatchetStop) && bar.low  <= pos.RatchetStop
                         | Short -> not (Double.IsNaN pos.RatchetStop) && bar.high >= pos.RatchetStop
-                    // Update the carried stop from THIS bar's close + ATR% (for the next bar).
-                    // atr% = sAtrLog (log-ATR ≈ fractional per-bar volatility). ValueNone
-                    // (cold ATR) leaves the level unchanged.
-                    match sAtrLog with
-                    | ValueSome atr ->
+                    match frac with
+                    | ValueSome f ->
                         let candidate =
                             match side with
-                            | Long  -> bar.close * (1.0 - k * atr)
-                            | Short -> bar.close * (1.0 + k * atr)
+                            | Long  -> bar.close * (1.0 - f)
+                            | Short -> bar.close * (1.0 + f)
                         nextRatchet <-
                             if Double.IsNaN pos.RatchetStop then candidate
                             else match side with
