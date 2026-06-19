@@ -1949,7 +1949,14 @@ read `defaultConfig.StopMode` (was hardcoded `WindowLow`); confirmed the no-flag
 
 ---
 
-## Yearly breakdown (flat $10k/trip, filtered, by entry year)
+## Yearly breakdown — PRE-time-stop default (window-low stop-4), filtered (flat $10k/trip, by entry year)
+
+> **Which system:** this is the production default *as it stood before the 2026-06-19 stop-mechanics
+> rework* — **window-low trailing stop (stop-window 4), next-open exit, expansion off, ATR% < 0.11,
+> log-tightness < 4.0, entry-move ≥ 10%**, + breadth (lag-1 pct_above_20 > 0.5) + entry ≥ 2005. It is the
+> `≥ 10%` headline row above (**2,260 trips, PF 1.734, +$520,641, 58.7% positive months**). It is **not**
+> the new default (5-day time-stop, no price stop — PF 1.775 / era-split 1.881·1.848); the time-stop
+> system's own yearly/monthly breakdown has not yet been generated.
 
 | year | trips | win% | PF | net |
 | ---: | ---: | ---: | ---: | ---: |
