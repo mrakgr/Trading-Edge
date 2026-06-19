@@ -830,6 +830,32 @@ the exhaustion signal cannot be a meaningful HELD-EXIT PF lever; its payoff is o
 ATR%-discriminator finding is most valuable *there* — a candidate sharper entry-avoid / short-entry
 filter (high ATR% + loose + spike = the −26%-median cohort). `--exhaustion-min-atr-pct` retained.
 
+###### ⭐ ATR% sorts the UNIVERSE exhaustion signal monotonically — a real short/avoid edge (2026-06-19)
+
+Applying the ATR% breakdown to the **entire universe** of exhaustion bars (the 1,127), not just the
+held exits, gives the cleanest gradient of the session — fwd-20d falls monotonically with ATR% on every
+metric:
+
+| ATR% at bar | n | avg fwd-20d | median | % up |
+| --- | ---: | ---: | ---: | ---: |
+| <5% | 115 | +2.7% | +0.2% | 52% |
+| 5–8% | 112 | −1.7% | −3.7% | 39% |
+| 8–12% | 171 | −6.4% | −11.6% | 33% |
+| 12–18% | 218 | −10.7% | −19.5% | 29% |
+| **18%+** | 511 | **−25.6%** | **−34.1%** | **18%** |
+
+**ATR% is an independent monotonic sort within the exhaustion signal** (the <5% bucket is even mildly
+*positive* — so it isn't a proxy for the condition itself). The toxic tail is large and clean: **511
+bars at ATR%>18% → −25.6% avg / −34% median / only 18% higher over 20 days.** Era-robust on the high-
+ATR% (≥12%) cohort: 2005–14 −18% median / 27% up (n=63), 2015–26 −30% median / 21% up (n=666) — both
+strongly negative (modern era has far more high-ATR small/mid-caps and is worse, but the early era
+confirms it). **This is the genuine edge the whole exhaustion thread was circling, and it is an ENTRY
+signal:** high ATR% + loose base (tight>8) + spike (move>20%, or move>10% with rvol>3) is (a) a hard
+long-AVOID, and (b) a candidate **short entry** — ~82% lower in 20 days, −34% median, large era-spanning
+sample. Categorically different from the held-exit (which only ever saw ~80 of these, biased to the
+big-winner tail). **Next: test it as a standalone short book** (`--side short` + these gates as an
+entry filter — needs a `MinTightness` entry floor + ATR% floor, currently only present as exit knobs).
+
 **rvol vs move: only moderately correlated, and the MOVE dominates.** Within the loose-base
 population, rvol and pct_up have a **Spearman rank correlation of 0.38** (raw Pearson 0.04 is
 outlier-scrambled and misleading; log–log 0.24). So they share information but are far from
