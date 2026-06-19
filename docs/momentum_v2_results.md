@@ -1850,6 +1850,57 @@ cells), not as a separate clause. This is the spec for the conditional time-stop
 
 ---
 
+#### ⭐ On HIGH-EDGE breakouts the edge is concentrated in the first ~5 days (2026-06-19)
+
+Hypothesis: the ATR%<6% quiet names are just low-edge grinders, and the real edge of this system is the
+breakout *pop* in the first week. Test it on the high-edge population where the signal is strongest —
+**production gate (rvol[6,20], move≥10%) + breadth (lag-1 pct_above_20 > 0.5)**, no price stop.
+
+**System parameters:**
+```
+--no-stop --max-hold-bars N   (N ∈ {5,10,15,20,25,30})
+entry gates: up>=0.10  rvol[6,20]  adv>=100000  price>=5  52w>=0.95  tight<4.00  atr%<0.11
++ breadth lag-1 pct_above_20 > 0.5 (post-hoc)   ≈ 2,230 trips
+```
+
+**Breadth-filtered time-stop sweep:**
+
+| hold | n | PF | net | win% |
+| --- | ---: | ---: | ---: | ---: |
+| **5d** | 2,233 | **1.859** | $501k | 53.2 |
+| 10d | 2,227 | 1.847 | $658k | 53.5 |
+| 15d | 2,224 | 1.668 | $626k | 53.9 |
+| 20d | 2,222 | 1.654 | $700k | 54.6 |
+| 25d | 2,216 | 1.596 | $713k | 53.7 |
+| 30d | 2,208 | 1.606 | $787k | 52.7 |
+
+**Segment decomposition** — split each 30d-hold trade's P&L into its first-5-bar segment (entry → close
+at +5) vs the remainder (+5 → exit), PF each:
+
+| segment | n | net $ | PF | share of P&L |
+| --- | ---: | ---: | ---: | ---: |
+| **first 5 bars** | 2,208 | $477k | **1.827** | **61%** |
+| rest (+5 → exit) | 2,208 | $309k | 1.235 | 39% |
+| whole trade | 2,208 | $787k | 1.606 | 100% |
+
+**Confirmed — and the contrast with the loosened set is the whole point:**
+
+| population | first-5 PF | rest PF | spread | first-5 share |
+| --- | ---: | ---: | ---: | ---: |
+| **high-edge** (rvol≥6, move≥10%, breadth) | **1.827** | 1.235 | **0.59** | 61% |
+| loosened (rvol≥3, move≥5%) | 1.319 | 1.169 | 0.15 | 48% |
+
+On the loosened set the first-5 and the rest are barely separable (1.32 vs 1.17) — which is why that
+time-stop sweep was flat (1.35→1.36). On the **high-edge** breakouts the first 5 days are PF **1.83** and
+the remainder collapses to **1.235** — a 0.59 spread, with the first week carrying **61% of the P&L on
+~17% of the holding time**. The edge is the breakout *pop*; everything after is the low-edge grind (the
+ATR%<6% quiet names held ~82 bars are exactly that). The "rest" isn't negative — just dilutive (drags the
+blend from 1.86 → 1.61). So a **5-day time-stop captures the concentrated edge (PF 1.86) and recycles
+capital ~6× faster** than a 30-day hold; holding longer earns more total dollars at a worse rate (the
+capture-vs-efficiency tradeoff, now quantified on the population that matters).
+
+---
+
 ## Yearly breakdown (flat $10k/trip, filtered, by entry year)
 
 | year | trips | win% | PF | net |
