@@ -33,6 +33,7 @@ type Args =
     | Inv_Atr_Stop of float * float
     | Chandelier_Regime of float * float * float
     | Chandelier_Ladder of string
+    | Window_Low
     | No_Stop
     | Max_Hold_Bars of int
     | Profit_Target of float
@@ -78,6 +79,7 @@ type Args =
             | Inv_Atr_Stop _ -> "Up-only INVERSE-ATR%% ratchet stop: stop%% = w*(atrRef/ATR%%) — TIGHTENS as ATR%% rises, widens when quiet. Two args: w atrRef (e.g. --inv-atr-stop 0.10 0.04 = 10%% stop at 4%% ATR). Clamped to (0,0.95]. Mutually exclusive with the other stop flags."
             | Chandelier_Regime _ -> "Regime-switched CHANDELIER stop off the running max-close: width = (ATR%% >= atrThr ? tightPct : widePct), stop = maxClose*(1-width). Three args: widePct tightPct atrThr (e.g. --chandelier-regime 0.20 0.10 0.10 = 20%% leash when quiet, 10%% once ATR%% >= 10%%). Mutually exclusive with the other stop flags."
             | Chandelier_Ladder _ -> "N-tier CHANDELIER ladder off the running max-close. Spec string: comma-separated atrThr:width tiers plus a base:width, e.g. --chandelier-ladder \"0.10:0.08,0.08:0.10,0.06:0.12,base:0.15\" = 8%% leash at ATR>=10%%, 10%% at >=8%%, 12%% at >=6%%, 15%% below 6%%. Highest matching threshold wins. Mutually exclusive with the other stop flags."
+            | Window_Low -> "Use the legacy Qulla WINDOW-LOW trailing stop (trail the prior-`--stop-low-window` low, floored at the entry-day low). This was the default before 2026-06-19; now selectable explicitly. Mutually exclusive with the other stop flags."
             | No_Stop -> "NO price stop at all — hold until another exit fires (exhaustion / time-stop / target) or MTM at the last bar. Diagnostic. Mutually exclusive with the other stop flags."
             | Max_Hold_Bars _ -> "Time-stop: exit at the next open after this many Holding bars (0 = off, default). E.g. 20."
             | Profit_Target _ -> "Fixed profit target as a fraction above entry (0 = off). Resting sell limit, fills intrabar at max(target, open); wins over a same-bar stop (which exits next open). E.g. 0.20."
@@ -161,12 +163,13 @@ let main argv =
                       parsed.TryGetResult Inv_Atr_Stop  |> Option.map InvAtr
                       parsed.TryGetResult Chandelier_Regime |> Option.map ChandelierRegime
                       parsed.TryGetResult Chandelier_Ladder |> Option.map parseLadder
+                      (if parsed.Contains Window_Low then Some WindowLow else None)
                       (if parsed.Contains No_Stop then Some NoStop else None) ]
                     |> List.choose id
                  match modes with
                  | []  -> defaultConfig.StopMode   // no stop flag → the config default (now NoStop)
                  | [m] -> m
-                 | _   -> failwith "--atr-stop, --fixed-stop, --fixed-stop-be, --inv-atr-stop, --chandelier-regime, --chandelier-ladder, --no-stop are mutually exclusive")
+                 | _   -> failwith "--atr-stop, --fixed-stop, --fixed-stop-be, --inv-atr-stop, --chandelier-regime, --chandelier-ladder, --window-low, --no-stop are mutually exclusive")
             MaxHoldBars = parsed.GetResult(Max_Hold_Bars, defaultValue = defaultConfig.MaxHoldBars)
             ProfitTarget = parsed.GetResult(Profit_Target, defaultValue = defaultConfig.ProfitTarget)
             TargetNextOpen = parsed.Contains Target_Next_Open
