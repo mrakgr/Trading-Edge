@@ -855,7 +855,42 @@ long-AVOID, and (b) a candidate **short entry** — ~82% lower in 20 days, −34
 sample. Categorically different from the held-exit (which only ever saw ~80 of these, biased to the
 big-winner tail). **Next: test it as a standalone short book** (`--side short` + these gates as an
 entry filter — needs a `MinTightness` entry floor + ATR% floor, currently only present as exit knobs).
+*(Decision 2026-06-19: shorting these is NOT being pursued — overnight borrow costs are significant for
+these names and spike risk is severe; they'd have to be day-traded. Stay long-only; use this only to
+sharpen the long exit/avoid.)*
 
+###### Isolating the exact "holding is −EV" condition: loose base AND high ATR% (2026-06-19)
+
+Rather than tune exit thresholds blind, scan the cost of *holding*: for every qualifying bar (>5%
+move, near-high liquid universe, 2005+) take the 20-day-forward return — the EV of holding past that
+bar — across the tightness × ATR% grid. The **mean** (the EV that drives PF):
+
+| mean fwd-20d | ATR<8% | ATR 8–12% | ATR>12% |
+| --- | ---: | ---: | ---: |
+| tight ≤4 | +0.65% | +2.81% | +4.76% |
+| 4–8 | +0.48% | +1.05% | +0.51% |
+| **loose >8** | +1.37% | **−1.67%** | **−6.93%** |
+
+**The negative-EV-to-hold region is sharply and uniquely the loose+high-ATR corner.** Both conditions
+are necessary: a loose base on *low* ATR holds fine (+1.37%), and high ATR on a *tight* base is a
+healthy breakout (+4.76%) — only the **conjunction** is toxic. (This also explains every failed exit:
+the *median* is negative almost everywhere, but the *mean* is positive except here — exits chasing the
+median fought the tail; this is the one cell where the mean itself is negative.) Finer ATR within the
+loose bucket: the mean crosses zero at **ATR ≈ 6%** and is robustly negative on mean+median at **ATR ≥
+~16%** (16–22%: −8.7% / −10.5%; 22%+: −11.9% / −16.4%; the lone 12–16% cell pops +8.9% mean on a
+fat-tail outlier, median still −5.7%).
+
+**So the condition is: `tightness > 8 AND ATR% ≳ 16%` (volatility blown up AND base gone loose) — the
+user's exact framing, now pinned to numbers.** But on the LONG book the payoff is still negligible
+(fixed-20% base 1.464 → best 1.465 at atr>16%/move>20%): the negative-EV region holds ~2,000 bars over
+20 years of the *universe*, yet our long book — gated to TIGHT entries — almost never holds a position
+into that state, and when it does it's the biased winner-tail. **Final word on exhaustion exits: the
+−EV-to-hold condition is now exactly characterized (loose + high-ATR), the exit no longer hurts, but it
+cannot add meaningful long PF because the entry gate keeps us out of that state-space. It is an
+entry/avoid signal.** Production already avoids it via `MaxTightness 4.0` (well below the 8 threshold)
+and `MaxAtrPct 0.11` — i.e. the long system structurally never enters the loose+high-ATR cell, which is
+why holding-EV there is moot for it. The exhaustion-exit knobs are retained as the characterized
+negative-result substrate.
 **rvol vs move: only moderately correlated, and the MOVE dominates.** Within the loose-base
 population, rvol and pct_up have a **Spearman rank correlation of 0.38** (raw Pearson 0.04 is
 outlier-scrambled and misleading; log–log 0.24). So they share information but are far from
