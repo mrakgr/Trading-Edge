@@ -38,6 +38,7 @@ type Args =
     | Exhaustion_Rvol of float
     | Exhaustion_Move_Lo of float
     | Exhaustion_Move_Hi of float
+    | Exhaustion_Max_Gain of float
     | Side of string
     | Tightness_Mode of string
     | Rvol_Min of float
@@ -74,6 +75,7 @@ type Args =
             | Exhaustion_Rvol _ -> "Exhaustion exit: rule-A rvol gate R (default 3.0)."
             | Exhaustion_Move_Lo _ -> "Exhaustion exit: rule-A move gate (default 0.05); fires with rvol>R."
             | Exhaustion_Move_Hi _ -> "Exhaustion exit: rule-B move gate (default 0.10); fires regardless of rvol."
+            | Exhaustion_Max_Gain _ -> "Exhaustion exit: only fire while gain-from-entry < this (e.g. 0.10). Default +inf (no cap). A blow-off near entry reverts; far above entry it continues."
             | Side _ -> "Trade direction: 'long' (default) or 'short'. Short trails the stop along the prior-window HIGH and flips the P&L sign."
             | Tightness_Mode _ -> "Tightness measure for the entry filter + expansion exit: 'log' (default) or 'linear'. Thresholds differ between modes."
             | Rvol_Min _ -> "Minimum relative volume at entry. Default 6.0 (production)."
@@ -135,7 +137,8 @@ let main argv =
                   Tightness = parsed.GetResult(Exhaustion_Tightness, defaultValue = defaultConfig.Exhaustion.Tightness)
                   Rvol      = parsed.GetResult(Exhaustion_Rvol,      defaultValue = defaultConfig.Exhaustion.Rvol)
                   MoveLo    = parsed.GetResult(Exhaustion_Move_Lo,   defaultValue = defaultConfig.Exhaustion.MoveLo)
-                  MoveHi    = parsed.GetResult(Exhaustion_Move_Hi,   defaultValue = defaultConfig.Exhaustion.MoveHi) }
+                  MoveHi    = parsed.GetResult(Exhaustion_Move_Hi,   defaultValue = defaultConfig.Exhaustion.MoveHi)
+                  MaxGain   = parsed.GetResult(Exhaustion_Max_Gain,  defaultValue = defaultConfig.Exhaustion.MaxGain) }
             Side = side
             TightnessMode = tightnessMode
             Entry =
@@ -168,8 +171,9 @@ let main argv =
         (if cfg.ProfitTarget > 0.0 && cfg.TargetNextOpen then " (next-open)" else "")
     printfn "  exhaustion exit = %s"
         (if cfg.Exhaustion.Enabled then
-            sprintf "tight>%.1f & ((rvol>%.1f & move>%.0f%%) | move>%.0f%%)"
+            sprintf "tight>%.1f & ((rvol>%.1f & move>%.0f%%) | move>%.0f%%)%s"
                 cfg.Exhaustion.Tightness cfg.Exhaustion.Rvol (cfg.Exhaustion.MoveLo*100.0) (cfg.Exhaustion.MoveHi*100.0)
+                (if Double.IsInfinity cfg.Exhaustion.MaxGain then "" else sprintf " & gain<%.0f%%" (cfg.Exhaustion.MaxGain*100.0))
          else "off")
     printfn "  entry     = up>=%.2f rvol[%.0f,%.0f] adv>=%.0f price>=%.0f 52w>=%.2f tight<%.2f atr%%<%.2f"
         cfg.Entry.UpThreshold cfg.Entry.RvolMin cfg.Entry.RvolMax cfg.Entry.MinAvgDollarVolume

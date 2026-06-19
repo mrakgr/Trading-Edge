@@ -673,11 +673,11 @@ blow-off bar" only occurs **after the name has already exploded up** — so the 
 right-tail rockets a momentum system lives on, banking +41% where letting them ride to the BE/time-stop
 earned more. **The asymmetry is the lesson:** the loose-base negative edge is about *entering* a base
 that is *already* blown-off; once you're holding, a blow-off bar means *you are winning big*. The exact
-same signal flips sign between entry-filter and held-exit. This joins the position-relative expansion
-exit, fixed targets, and the gap-over time-stop as **upside-capping exits that all fight the momentum
-edge.** Engine keeps `--exhaustion-exit` + thresholds as the tested-negative substrate; the signal's
-real use is as an **entry** filter (which production already applies via `MaxTightness`/rvol/move
-gates), not an exit. Stop hunting for a held-position exit that raises PF — **let winners run.**
+same signal flips sign between entry-filter and held-exit *when applied unconditionally*. (This first
+pass joined the position-relative expansion exit, fixed targets, and the gap-over time-stop as
+upside-capping exits — but see the gain-gated refinement below, which rescues it to flat-positive.)
+The signal's primary use remains an **entry** filter (which production already applies via
+`MaxTightness`/rvol/move gates); the held-exit version works only when gated by extension (next).
 
 ###### Resolving the paradox: the loose-base ENTRY really is −EV, the held-exit just never sees those names (2026-06-19)
 
@@ -700,12 +700,42 @@ the moment of entry* — you bought the top of someone else's run. A *held* posi
 condition was entered from a TIGHT base (production entry) and only *became* loose later — i.e. it
 already ran in your favor. Bucketing the 194 held-exit triggers by their gain when the blow-off fired:
 only **13 were at a loss**; 181 were winners (avg +6% / +18% / +56% / +500% across the 0-10 / 10-30 /
-30-100 / 100%+ buckets). **The exhaustion condition never fires on a losing held position** — a name
-blowing off on huge volume is, by construction, one that already paid you. Same `tightness+spike`
-signal, opposite sign, because the *entry price relative to the blow-off* is opposite: the −EV trader
-entered AT the blow-off; the held winner entered before it and the blow-off IS the profit. There is no
-sharpening of the held-exit criteria that fixes this — the signal is structurally an **entry** filter
-(buy the tight base, refuse the loose one), and cannot be repurposed as a profitable held exit.
+30-100 / 100%+ buckets). The held-exit mostly fires on names that already paid you.
+
+**…but the EXTENSION at the trigger is the discriminator, and gating on it salvages the exit
+(2026-06-19).** Measuring the **20-day-forward return FROM the exhaustion-exit price** settles which
+way it cuts — and it depends entirely on how extended the position is:
+
+| post-exhaustion, by gain-at-trigger | n | avg fwd-20d | % up |
+| --- | ---: | ---: | ---: |
+| near entry (<5% gain) | 27 | **−4.58%** | 63% |
+| 5–30% gain | 111 | −0.10% | 48% |
+| >30% gain | 54 | **+11.91%** | 52% |
+
+A blow-off **near entry reverts** (−4.6% fwd, the toppy chase — the same −EV pattern as the loose-base
+entry); the same blow-off **after a 30%+ run keeps going** (+11.9%). The unconditional exit lumps both
+and the rocket group dominates → net wash-to-drag. **Gating the exit on gain-from-entry** (new
+`ExhaustionConfig.MaxGain`, CLI `--exhaustion-max-gain`) — fire only while not-yet-extended — flips it
+from a drag to flat-positive on the BE 10% + 20d base:
+
+| BE 10% + 20d | PF | net |
+| --- | ---: | ---: |
+| exhaustion OFF | 1.400 | $1.889M |
+| + exhaustion, no gain cap | 1.393 | $1.845M |
+| + exhaustion, gain cap 5% | **1.405** | $1.906M |
+| + exhaustion, gain cap 10% | 1.404 | $1.897M |
+| + exhaustion, gain cap 20% | 1.405 | $1.900M |
+
+**Corrected conclusion** (supersedes the earlier "cannot be repurposed as a held exit"): the
+exhaustion signal *can* be a held exit, but **only gated by extension** — it must fire on the
+not-yet-extended subset (the part that overlaps the −EV entry), never on the rockets. With the cap it
+beats the no-exit base on both PF and P&L. **But the effect is tiny and NOT era-robust** (pooled
++0.005 PF; era split 2005-14 1.489→1.480 *down*, 2015-26 1.340→1.351 *up* — a near-wash both ways),
+because the near-entry blow-offs only revert ~−4.6% over 20d and there are few of them. So: the
+held-exit is real and correctly-signed once gain-gated, but it is **not a meaningful PF lever** — the
+edge in this signal still lives overwhelmingly on the **entry** side (buy the tight base, refuse the
+loose one; production already does this via `MaxTightness`/rvol/move). `--exhaustion-max-gain` kept for
+completeness.
 
 **rvol vs move: only moderately correlated, and the MOVE dominates.** Within the loose-base
 population, rvol and pct_up have a **Spearman rank correlation of 0.38** (raw Pearson 0.04 is

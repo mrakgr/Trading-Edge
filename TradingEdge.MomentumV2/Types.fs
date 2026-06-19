@@ -124,7 +124,10 @@ type ExhaustionConfig =
       Tightness: float          // loose-base gate, plain per-bar tightness (e.g. 7.5)
       Rvol: float               // rule A rvol gate (e.g. 3.0)
       MoveLo: float             // rule A move gate (e.g. 0.05)
-      MoveHi: float }           // rule B move gate, no rvol needed (e.g. 0.10)
+      MoveHi: float             // rule B move gate, no rvol needed (e.g. 0.10)
+      MaxGain: float }          // only fire when gain-from-entry < this (e.g. 0.10); +inf = no gate.
+                                // A blow-off NEAR entry is a toppy chase that reverts (−EV); the same
+                                // blow-off after a big run is a winner that continues — so cap the gain.
 
 /// Which tightness measure the entry filter and the expansion exit read.
 ///   - Log    : log(maxHigh/minLow) / logATR  — scale-free, the v2 default.
@@ -585,6 +588,14 @@ type QullaSystem
             // (the move is on the adverse side, i.e. a down-spike against a short).
             let exhaustionHit =
                 exhaustionCfg.Enabled &&
+                // Gain cap: only fire while the position is NOT yet extended. A loose-base
+                // blow-off NEAR entry is a toppy chase that reverts (fwd-20d −4.6%); the same
+                // blow-off after a big run is a winner that keeps going (+11.9%) — so we only
+                // want to exit the former. gain-from-entry on the current close.
+                (let gain = match side with
+                            | Long  -> (bar.close - pos.EntryPrice) / pos.EntryPrice
+                            | Short -> (pos.EntryPrice - bar.close) / pos.EntryPrice
+                 gain < exhaustionCfg.MaxGain) &&
                 (match this.Tightness, this.Rvol (float bar.volume), this.PctUp bar.close with
                  | ValueSome tt, ValueSome rv, ValueSome mv ->
                      let move = match side with Long -> mv | Short -> -mv  // adverse-side move magnitude
