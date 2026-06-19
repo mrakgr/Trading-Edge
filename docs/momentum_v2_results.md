@@ -988,6 +988,31 @@ PF, ~3× P&L, both eras. (Not yet swept on the *production* entry set; k=4 is th
 spot. Candidate to test as the production stop next.) Production default remains window-low(4) until
 that confirms.
 
+**R:R by INITIAL ATR-stop distance (k=4) — tight stops hurt here too, inverted-U.** Same breakdown as
+the window-low stop-distance analysis, now for the ATR ratchet. Initial stop distance = `k·ATR%` (the
+first-bar candidate is `close·(1 − k·ATR%)`, so the distance is exactly `4 × atr_pct_14_at_entry` of
+entry); it varies trade-to-trade because ATR% does, even at fixed k. R = `(exit−entry)/(k·ATR·entry)`.
+
+| initial stop dist | n | win% | avg R | med R | PF | net |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| <4% | 47 | 44.7 | 0.95 | −0.09 | 1.62 | $13k |
+| 4–7% | 849 | 44.5 | 0.07 | −0.14 | **1.11** | $39k |
+| 7–10% | 2287 | 42.4 | 0.09 | −0.19 | **1.16** | $173k |
+| **10–14%** | 3313 | 42.0 | 0.27 | −0.20 | **1.57** | $1.04M |
+| **14–20%** | 2960 | 42.6 | 0.26 | −0.20 | **1.60** | $1.28M |
+| 20–30% | 2002 | 39.8 | 0.21 | −0.28 | 1.46 | $1.02M |
+| 30%+ | 808 | 35.4 | 0.09 | −0.37 | 1.18 | $0.26M |
+
+**Tight stops hurt — inverted-U, damage on both tails:** the tight **4–10%** buckets are the *worst*
+(PF 1.11–1.16) — low-ATR names where even 4×ATR lands close to entry and whipsaws out, the same trap
+as the window-low <2% bucket. The **10–20%** zone is the sweet spot (PF 1.57–1.60) and carries the
+bulk of the P&L ($2.3M of $3.8M). The wide **30%+** tail also fades (PF 1.18, median R −0.37 — too
+loose to protect, gives a lot back). The `<4%` cell (n=47) is the same misleading high-avg-R /
+negative-median tail-artifact seen before — ignore it. So across *both* stop mechanisms the verdict is
+identical: **tight initial stops hurt.** The ATR ratchet's edge is that at k=4 it *naturally* parks
+most trades in the healthy 10–20% band; where ATR is low enough to still produce a tight stop, it
+degrades exactly as the whipsaw thesis predicts.
+
 ---
 
 ## Yearly breakdown (flat $10k/trip, filtered, by entry year)
