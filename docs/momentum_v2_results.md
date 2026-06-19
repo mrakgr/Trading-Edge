@@ -766,6 +766,37 @@ extended triggers can't be cut without sacrificing the tail. **Definitive close 
 line: it is structurally incapable of raising PF on this system — not a tuning problem.** The signal is
 an entry filter; on the exit side, manage downside + holding period only and let the tail run.
 
+###### The condition is STRONGLY −EV universe-wide — it's an ENTRY signal we're already screening (2026-06-19)
+
+The held-exit only ever saw ~80 of these bars. How many are there in the *entire tradeable universe*,
+and what's their forward return? Scanned every (ticker, day) bar 2005+ (CS/ADRC, price≥$5, ADV≥$100k,
+breadth lag1>0.5), reconstructing the same per-bar tightness / rvol / pct_up, and measured the 20-day
+forward return on bars meeting **tightness>8 AND ((rvol>3 AND move>10%) OR move>20%)**:
+
+| universe exhaustion bars | n | avg fwd-20d | median | % up |
+| --- | ---: | ---: | ---: | ---: |
+| all (ADV≥$100k) | 1127 | **−14.5%** | −19.1% | 28.3% |
+| ADV≥$1M, $5–10 | 230 | −15.7% | −21.3% | 23.9% |
+| ADV≥$1M, $10–20 | 210 | −14.7% | −18.8% | 30.0% |
+| ADV≥$1M, $20–50 | 206 | −13.3% | −13.7% | 31.1% |
+| ADV≥$1M, $50+ | 270 | −21.1% | −29.5% | 22.2% |
+
+**Universe-wide this is a powerful, robust negative-EV signal** — −14.5% avg / −19% median over 20
+days, only 28% higher, and negative across *every* price bucket (no penny-stock artifact; $50+ is the
+worst at −21%). So the user's instinct that the pattern is toxic is **completely correct** — on the
+*mean*, not just the median, when measured over the whole universe.
+
+**Reconciliation with the failed held-exit (the key insight):** the ~1,127 toxic bars and our ~80
+held-exit triggers **barely overlap.** The toxic universe bars are overwhelmingly names that were
+loose/extended for a long time — exactly the names the **tight entry gate already refuses to buy.** The
+handful that surface on a *held* position are a biased subsample: names that passed a tight entry, ran
+up into us, then spiked — skewed toward already-big-winners whose *mean* forward return stays positive
+on the fat tail (≠ the −14.5% universe mean). So there's no contradiction: **the condition is toxic in
+the wild, production already screens ~all of it on entry, and the residue reaching a held position is
+the non-representative right tail.** The actionable edge is on the **entry side** (a hard avoid — which
+`MaxTightness`/rvol/move largely encode — or, untested, a candidate SHORT entry: −19% median / 28% up
+on 1,127 liquid occurrences is a far larger, cleaner signal than the held-exit could ever capture).
+
 **rvol vs move: only moderately correlated, and the MOVE dominates.** Within the loose-base
 population, rvol and pct_up have a **Spearman rank correlation of 0.38** (raw Pearson 0.04 is
 outlier-scrambled and misleading; log–log 0.24). So they share information but are far from
