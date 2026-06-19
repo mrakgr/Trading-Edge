@@ -1901,6 +1901,54 @@ capture-vs-efficiency tradeoff, now quantified on the population that matters).
 
 ---
 
+#### ⭐ NEW DEFAULT — 5-day time-stop, NO price stop; the disaster exit is a SHORT setup (2026-06-19)
+
+Acting on the whole stop-mechanics arc: **the new production default is a 5-bar time-stop with no
+trailing price stop** (`defaultConfig`: `StopMode = NoStop`, `MaxHoldBars = 5`). Rationale, all
+established above: moving stops around doesn't help; too-tight stops hurt; the edge is the breakout pop in
+the first ~5 days; price stops only earn their keep at ATR% > ~8-10%. Simple, legible, and the best PF of
+anything tested.
+
+**New default (no flags), production gate:** stop = none, time-stop = 5d, **PF 1.775**, $738k, win 53.7%.
+**+ breadth (lag-1 pct_above_20 > 0.5), era-split:**
+
+| era | n | PF | net |
+| --- | ---: | ---: | ---: |
+| ALL | 2,233 | **1.859** | $501k |
+| pre-2015 | 991 | 1.881 | $172k |
+| post-2015 | 1,242 | 1.848 | $329k |
+
+Near-identical across eras — no regime dependence, and well above every stop-based variant.
+
+**The conditional DISASTER exit — tested, OFF by default, but a real SHORT signal.** Added
+`StopMode`-independent `DisasterConfig` (CLI `--disaster-exit --disaster-atr --disaster-loss`): close at
+next open when a held bar is BOTH volatile (**current-bar** log-ATR% > 0.10) AND under water (gain <
+−0.10) — the one outright-negative-EV corner from the 2D gain×ATR grid. (Current-bar ATR% is fair: it's a
+close-of-bar decision filling at the next open, no lookahead.)
+
+As a *long exit it is redundant* under the 5d hold (PF 1.775 → 1.770 at ATR>10%, 1.765 at ATR>8% — all
+slightly worse). It fires 128× and every one is a loss *by construction* (it only triggers on losers). The
+real test is the **forward return of the names it cut**:
+
+| disaster exits | n | fwd mean | fwd med | fwd PF |
+| --- | ---: | ---: | ---: | ---: |
+| +5d | 127 | −0.16% | −0.63% | 0.974 |
+| +10d | 127 | −2.51% | −4.91% | **0.703** |
+| +20d | 127 | +0.70% | −4.13% | 1.072 |
+
+So the disaster names **do keep falling** — fwd-10d PF **0.703**, median **−4.9%**. The signal is correct;
+it's just redundant as a *long* exit because the 5d time-stop already caps the exposure window before the
+−4.9% continuation compounds (at +5d it's only ~neutral, 0.974 — the bar or two we'd save isn't worth it).
+**But fwd-10d PF 0.70 / −4.9% median is a genuine SHORT setup** — a blown-out, under-water ex-momentum
+name. Caveat (per the short-side policy): borrow cost + spike risk make these a daytrade/short-horizon
+idea, not an overnight hold. The disaster-exit code is kept off-by-default as the substrate for that study.
+
+**Engine note:** flipping `defaultConfig.StopMode → NoStop` also required the CLI no-stop-flag fallback to
+read `defaultConfig.StopMode` (was hardcoded `WindowLow`); confirmed the no-flag run now prints
+`stop mode = none` and matches the pure-timestop-5 number (PF 1.775).
+
+---
+
 ## Yearly breakdown (flat $10k/trip, filtered, by entry year)
 
 | year | trips | win% | PF | net |

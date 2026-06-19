@@ -25,6 +25,7 @@ type Config =
       ProfitTarget: float       // fixed profit target as a fraction of entry (0 = off); resting limit, fills intrabar
       TargetNextOpen: bool      // true = target hit exits at the NEXT open (signal); false = intrabar limit fill
       Exhaustion: ExhaustionConfig  // conditional exhaustion exit (loose-base blow-off), off by default
+      Disaster: DisasterConfig  // conditional disaster exit (high-ATR + under water), on by default
       Side: Side                // Long (default) or Short — flips stop geometry + P&L sign
       TightnessMode: TightnessMode  // Log (default) or Linear — drives entry tightness + expansion
       Notional: float
@@ -68,16 +69,29 @@ let defaultConfig =
       EntryTimeCap = 5
       // Qulla initial stop: floor the trailing stop at the entry-day low. Default on.
       UseEntryDayStop = true
-      // Trailing-stop mechanism. Default = the legacy window-low rule.
-      StopMode = WindowLow
-      // Time-stop OFF by default (0). >0 = exit at next open after that many Holding bars.
-      MaxHoldBars = 0
+      // Trailing-stop mechanism. NEW DEFAULT = NoStop. The whole stop-mechanics study
+      // (2026-06-19) showed moving stops around doesn't help and too-tight stops hurt;
+      // the edge is the breakout pop in the first ~5 days, so a 5d time-stop captures it
+      // and recycles capital. Price stops only earn their keep at ATR% > ~8-10% — handled
+      // by the conditional Disaster exit, not a trailing stop.
+      StopMode = NoStop
+      // Time-stop = 5 bars (NEW DEFAULT). Exit at next open after 5 Holding bars: the
+      // high-edge breakouts carry ~61% of P&L (PF 1.83) in the first 5 days; the rest is
+      // a low-edge grind (PF 1.24).
+      MaxHoldBars = 5
       // Profit target OFF by default (0). >0 = fixed fractional target above entry.
       ProfitTarget = 0.0
       // Target fill: intrabar limit by default; true = exit at next open on a target hit.
       TargetNextOpen = false
       // Conditional exhaustion exit OFF by default; thresholds from the loose-base study.
+      // (With 5d holds, exhaustion blow-offs aren't a concern — left off.)
       Exhaustion = { Enabled = false; Tightness = 7.5; Rvol = 3.0; MoveLo = 0.05; MoveHi = 0.10; MaxGain = infinity; MinAtrPct = 0.0 }
+      // Conditional DISASTER exit OFF by default. The signal is REAL — a held bar that is
+      // BOTH volatile (ATR% > 0.10) AND under water (gain < −0.10) has fwd-10d PF 0.70 /
+      // median −4.9% (a genuine short setup) — but a 5d time-stop already caps the exposure
+      // window before that continuation compounds, so as a LONG exit it is redundant
+      // (1.775 → 1.770). Kept as a tested, off-by-default exit (toggle with the CLI flags).
+      Disaster = { Enabled = false; AtrThr = 0.10; LossThr = -0.10 }
       // Trade direction. Long is the production system; Short mirrors the stop geometry
       // (trail the prior-window HIGH) and flips the P&L sign — used for the short studies.
       Side = Long
@@ -212,7 +226,7 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
                     cfg.ExpansionThr, cfg.ExitTimeCap, cfg.EntryLimitMode,
                     cfg.EntryTrailWindow, cfg.EntryTimeCap, cfg.UseEntryDayStop,
                     cfg.StopMode, cfg.MaxHoldBars, cfg.ProfitTarget, cfg.TargetNextOpen,
-                    cfg.Exhaustion, cfg.Side, cfg.TightnessMode, cfg.Entry)
+                    cfg.Exhaustion, cfg.Disaster, cfg.Side, cfg.TightnessMode, cfg.Entry)
 
     // Flush the just-finished ticker: MTM-close open trips, emit all trips.
     let flush () =

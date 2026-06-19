@@ -155,6 +155,16 @@ type ExhaustionConfig =
                                 // High ATR%% at the blow-off marks the names that crater (fwd-20d −26%
                                 // median) vs low-ATR%% blow-offs that keep grinding up. Separate from gain.
 
+/// Conditional DISASTER exit: the only scenario where forward EV is outright negative
+/// (not merely flat) is a HELD bar that is BOTH volatile (ATR%% > AtrThr) AND under water
+/// (gain-from-entry < LossThr, e.g. −0.10). The 2D gain×ATR grid: the −10..0% / 14%+ cell
+/// is fwd-PF 0.63 and the <−10% rows go deeply negative at high ATR. Exit at the next open.
+/// Independent of the time-stop — fires immediately rather than waiting out the clock.
+type DisasterConfig =
+    { Enabled: bool
+      AtrThr: float             // fire only when the bar's log-ATR%% exceeds this (e.g. 0.10 or 0.08)
+      LossThr: float }          // fire only when gain-from-entry is below this (e.g. −0.10)
+
 /// Which tightness measure the entry filter and the expansion exit read.
 ///   - Log    : log(maxHigh/minLow) / logATR  — scale-free, the v2 default.
 ///   - Linear : (maxHigh − minLow) / linearATR — a raw range/ATR ratio. A blow-off
@@ -197,6 +207,7 @@ type QullaSystem
       profitTarget: float,
       targetNextOpen: bool,
       exhaustionCfg: ExhaustionConfig,
+      disasterCfg: DisasterConfig,
       side: Side,
       tightnessMode: TightnessMode,
       entryCfg: EntryConfig ) =
@@ -304,6 +315,11 @@ type QullaSystem
     /// ATR% stand-in = the log ATR directly (a ~percentage of price per bar).
     /// No close-price argument: the log-space TR already normalizes by price level.
     member _.AtrPct = sAtrLog
+    /// CURRENT-bar log-ATR% — the ATR including the bar just folded in (atrLog.State
+    /// post-push), vs AtrPct which is the pre-push (B−1) snapshot. Used by the disaster
+    /// exit: it's a close-of-bar decision filling at the next open, so the current bar's
+    /// vol is fair game (no lookahead — we already know this bar's range at its close).
+    member _.AtrPctCurrent = atrLog.State
     /// 14-day LOG price span = log(max high) - log(min low) over the prior
     /// `tightnessWindow` bars. ValueNone until both edges are available / on a
     /// non-positive low.
@@ -697,6 +713,17 @@ type QullaSystem
             // price stop (or expansion) on the same bar exits first.
             let heldBars = pos.HoldBars + 1
             let timeStopHit = maxHoldBars > 0 && heldBars >= maxHoldBars
+            // Conditional DISASTER exit: the only outright-negative-EV state — a HELD bar
+            // that is BOTH volatile (ATR% > AtrThr) AND under water (gain < LossThr). Exit
+            // at the next open. Fires regardless of the time-stop clock. Long: gain =
+            // (close-entry)/entry; Short: mirrored.
+            let disasterHit =
+                disasterCfg.Enabled &&
+                (match this.AtrPctCurrent with ValueSome a -> a > disasterCfg.AtrThr | ValueNone -> false) &&
+                (let gain = match side with
+                            | Long  -> (bar.close - pos.EntryPrice) / pos.EntryPrice
+                            | Short -> (pos.EntryPrice - bar.close) / pos.EntryPrice
+                 gain < disasterCfg.LossThr)
             // Profit target: a resting SELL LIMIT (Long) at entry·(1+t) / BUY (Short) at
             // entry·(1−t). It fills INTRABAR — if this bar reaches the level, we fill THIS
             // bar at max(target, open) (a gap-up through the limit fills at the better open;
@@ -727,6 +754,8 @@ type QullaSystem
                 if stopHit then
                     if exitTimeCap <= 0 then { pos with State = ExitingMarket "stop" }
                     else { pos with State = ExitingLimit 0 }
+                elif disasterHit then
+                    { pos with State = ExitingMarket "disaster" }
                 elif expansionHit then
                     { pos with State = ExitingMarket "expansion" }
                 elif exhaustionHit then

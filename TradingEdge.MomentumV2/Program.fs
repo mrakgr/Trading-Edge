@@ -44,6 +44,9 @@ type Args =
     | Exhaustion_Move_Hi of float
     | Exhaustion_Max_Gain of float
     | Exhaustion_Min_Atr_Pct of float
+    | Disaster_Exit
+    | Disaster_Atr of float
+    | Disaster_Loss of float
     | Side of string
     | Tightness_Mode of string
     | Rvol_Min of float
@@ -86,6 +89,9 @@ type Args =
             | Exhaustion_Move_Hi _ -> "Exhaustion exit: rule-B move gate (default 0.10); fires regardless of rvol."
             | Exhaustion_Max_Gain _ -> "Exhaustion exit: only fire while gain-from-entry < this (e.g. 0.10). Default +inf (no cap). A blow-off near entry reverts; far above entry it continues."
             | Exhaustion_Min_Atr_Pct _ -> "Exhaustion exit: only fire when the bar's ATR%% (log-ATR) > this (e.g. 0.12). Default 0 (no gate). High ATR%% at the blow-off marks the names that crater."
+            | Disaster_Exit -> "Enable the conditional DISASTER exit (OFF by default). Closes at next open when a held bar is BOTH volatile (current-bar ATR%% > atr) AND under water (gain < loss). Redundant under a 5d hold; it's really a SHORT setup (fwd-10d PF 0.70)."
+            | Disaster_Atr _ -> "Disaster exit: ATR%% threshold — fire only when the bar's log-ATR%% exceeds this (default 0.10; try 0.08)."
+            | Disaster_Loss _ -> "Disaster exit: loss threshold — fire only when gain-from-entry is below this (default -0.10)."
             | Side _ -> "Trade direction: 'long' (default) or 'short'. Short trails the stop along the prior-window HIGH and flips the P&L sign."
             | Tightness_Mode _ -> "Tightness measure for the entry filter + expansion exit: 'log' (default) or 'linear'. Thresholds differ between modes."
             | Rvol_Min _ -> "Minimum relative volume at entry. Default 6.0 (production)."
@@ -158,7 +164,7 @@ let main argv =
                       (if parsed.Contains No_Stop then Some NoStop else None) ]
                     |> List.choose id
                  match modes with
-                 | []  -> WindowLow
+                 | []  -> defaultConfig.StopMode   // no stop flag → the config default (now NoStop)
                  | [m] -> m
                  | _   -> failwith "--atr-stop, --fixed-stop, --fixed-stop-be, --inv-atr-stop, --chandelier-regime, --chandelier-ladder, --no-stop are mutually exclusive")
             MaxHoldBars = parsed.GetResult(Max_Hold_Bars, defaultValue = defaultConfig.MaxHoldBars)
@@ -173,6 +179,11 @@ let main argv =
                   MoveHi    = parsed.GetResult(Exhaustion_Move_Hi,   defaultValue = defaultConfig.Exhaustion.MoveHi)
                   MaxGain   = parsed.GetResult(Exhaustion_Max_Gain,  defaultValue = defaultConfig.Exhaustion.MaxGain)
                   MinAtrPct = parsed.GetResult(Exhaustion_Min_Atr_Pct, defaultValue = defaultConfig.Exhaustion.MinAtrPct) }
+            Disaster =
+              { defaultConfig.Disaster with
+                  Enabled = parsed.Contains Disaster_Exit
+                  AtrThr  = parsed.GetResult(Disaster_Atr,  defaultValue = defaultConfig.Disaster.AtrThr)
+                  LossThr = parsed.GetResult(Disaster_Loss, defaultValue = defaultConfig.Disaster.LossThr) }
             Side = side
             TightnessMode = tightnessMode
             Entry =
@@ -215,6 +226,10 @@ let main argv =
                 cfg.Exhaustion.Tightness cfg.Exhaustion.Rvol (cfg.Exhaustion.MoveLo*100.0) (cfg.Exhaustion.MoveHi*100.0)
                 (if Double.IsInfinity cfg.Exhaustion.MaxGain then "" else sprintf " & gain<%.0f%%" (cfg.Exhaustion.MaxGain*100.0))
               + (if cfg.Exhaustion.MinAtrPct > 0.0 then sprintf " & atr%%>%.0f%%" (cfg.Exhaustion.MinAtrPct*100.0) else "")
+         else "off")
+    printfn "  disaster exit = %s"
+        (if cfg.Disaster.Enabled then
+            sprintf "atr%%>%.0f%% & gain<%.0f%%" (cfg.Disaster.AtrThr*100.0) (cfg.Disaster.LossThr*100.0)
          else "off")
     printfn "  entry     = up>=%.2f rvol[%.0f,%.0f] adv>=%.0f price>=%.0f 52w>=%.2f tight<%.2f atr%%<%.2f"
         cfg.Entry.UpThreshold cfg.Entry.RvolMin cfg.Entry.RvolMax cfg.Entry.MinAvgDollarVolume
