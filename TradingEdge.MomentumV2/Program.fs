@@ -30,6 +30,8 @@ type Args =
     | Atr_Stop of float
     | Fixed_Stop of float
     | Fixed_Stop_Be of float
+    | Inv_Atr_Stop of float * float
+    | Chandelier_Regime of float * float * float
     | No_Stop
     | Max_Hold_Bars of int
     | Profit_Target of float
@@ -69,6 +71,8 @@ type Args =
             | Atr_Stop _ -> "Use an up-only ATR%%-ratchet trailing stop instead of the window-low rule: stop = max(prev, close - k*ATR%%*close), k = this value. Replaces --stop-low-window / entry-day-low geometry."
             | Fixed_Stop _ -> "Use an up-only FIXED-%% ratchet trailing stop: stop = max(prev, close*(1-p)), p = this fraction (e.g. 0.15). Same trailing machinery as --atr-stop but a constant distance. Mutually exclusive with --atr-stop."
             | Fixed_Stop_Be _ -> "Fixed-%% stop CAPPED at break-even: stop = max(prev, min(close*(1-p), entry)) — starts p below entry, ratchets only up to the entry price, then locks. Pair with --max-hold-bars. Mutually exclusive with --atr-stop/--fixed-stop."
+            | Inv_Atr_Stop _ -> "Up-only INVERSE-ATR%% ratchet stop: stop%% = w*(atrRef/ATR%%) — TIGHTENS as ATR%% rises, widens when quiet. Two args: w atrRef (e.g. --inv-atr-stop 0.10 0.04 = 10%% stop at 4%% ATR). Clamped to (0,0.95]. Mutually exclusive with the other stop flags."
+            | Chandelier_Regime _ -> "Regime-switched CHANDELIER stop off the running max-close: width = (ATR%% >= atrThr ? tightPct : widePct), stop = maxClose*(1-width). Three args: widePct tightPct atrThr (e.g. --chandelier-regime 0.20 0.10 0.10 = 20%% leash when quiet, 10%% once ATR%% >= 10%%). Mutually exclusive with the other stop flags."
             | No_Stop -> "NO price stop at all — hold until another exit fires (exhaustion / time-stop / target) or MTM at the last bar. Diagnostic. Mutually exclusive with the other stop flags."
             | Max_Hold_Bars _ -> "Time-stop: exit at the next open after this many Holding bars (0 = off, default). E.g. 20."
             | Profit_Target _ -> "Fixed profit target as a fraction above entry (0 = off). Resting sell limit, fills intrabar at max(target, open); wins over a same-bar stop (which exits next open). E.g. 0.20."
@@ -126,13 +130,18 @@ let main argv =
             ExpansionThr  = parsed.GetResult(Expansion_Thr,   defaultValue = defaultConfig.ExpansionThr)
             UseEntryDayStop = not (parsed.Contains No_Entry_Day_Stop)
             StopMode =
-                (match parsed.TryGetResult Atr_Stop, parsed.TryGetResult Fixed_Stop, parsed.TryGetResult Fixed_Stop_Be, parsed.Contains No_Stop with
-                 | Some k, None, None, false -> AtrRatchet k
-                 | None, Some p, None, false -> FixedPct p
-                 | None, None, Some p, false -> FixedPctBE p
-                 | None, None, None, true    -> NoStop
-                 | None, None, None, false   -> WindowLow
-                 | _ -> failwith "--atr-stop, --fixed-stop, --fixed-stop-be, --no-stop are mutually exclusive")
+                (let modes =
+                    [ parsed.TryGetResult Atr_Stop      |> Option.map AtrRatchet
+                      parsed.TryGetResult Fixed_Stop    |> Option.map FixedPct
+                      parsed.TryGetResult Fixed_Stop_Be |> Option.map FixedPctBE
+                      parsed.TryGetResult Inv_Atr_Stop  |> Option.map InvAtr
+                      parsed.TryGetResult Chandelier_Regime |> Option.map ChandelierRegime
+                      (if parsed.Contains No_Stop then Some NoStop else None) ]
+                    |> List.choose id
+                 match modes with
+                 | []  -> WindowLow
+                 | [m] -> m
+                 | _   -> failwith "--atr-stop, --fixed-stop, --fixed-stop-be, --inv-atr-stop, --chandelier-regime, --no-stop are mutually exclusive")
             MaxHoldBars = parsed.GetResult(Max_Hold_Bars, defaultValue = defaultConfig.MaxHoldBars)
             ProfitTarget = parsed.GetResult(Profit_Target, defaultValue = defaultConfig.ProfitTarget)
             TargetNextOpen = parsed.Contains Target_Next_Open
@@ -170,6 +179,8 @@ let main argv =
          | AtrRatchet k -> sprintf "atr-ratchet k=%.1f" k
          | FixedPct p -> sprintf "fixed-pct p=%.3f" p
          | FixedPctBE p -> sprintf "fixed-pct-BE p=%.3f" p
+         | InvAtr (w, atrRef) -> sprintf "inv-atr w=%.3f atrRef=%.3f" w atrRef
+         | ChandelierRegime (wide, tight, thr) -> sprintf "chandelier-regime wide=%.3f tight=%.3f atrThr=%.3f" wide tight thr
          | NoStop -> "none")
         cfg.UseEntryDayStop
         (if cfg.MaxHoldBars > 0 then sprintf "%dd" cfg.MaxHoldBars else "off")

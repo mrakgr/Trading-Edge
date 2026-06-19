@@ -1564,6 +1564,62 @@ gain**: low vol → continuation, high vol → reversion, the same volatility ax
 
 ---
 
+#### ⭐ Regime-switched CHANDELIER stop — raises PF *and* passes the forward-EV test (2026-06-19)
+
+**The principle (from the post-exit study).** Be long while forward-EV is positive; flat when it
+turns. Forward-EV is a *decreasing function of ATR%* (≈ +1.7% median at 2% ATR → −4% at 10%+ ATR), so
+the EV-zero exit point is a roughly fixed *ATR-dollar* move, not a fixed %. The acceptance test for any
+exit: **a forward-PF breakdown of the stop exits should show no bucket above ~1.1** — if it does, we
+sold something still trending.
+
+**Two dead-ends first.** (a) A *proportional* ATR-multiple stop (`stop% = k·ATR%`, `--atr-stop`) widens
+the leash as vol rises — backwards — already known to only modestly beat window-low. (b) An *inverse*-ATR
+ratchet (`stop% = w·atrRef/ATR%`, new `--inv-atr-stop`) tightens continuously as vol rises, but made the
+stop-exit forward-PF *worse* (1.21 vs flat-10%'s 1.14): tightening on *every* high-vol name shakes out
+the noisy-pullback names that then bounce (the median reverts but there's a fat bounce tail). **A
+price-pullback stop of any shape selects for mean-reverters** — it can't get below 1.1.
+
+**The fix — regime-switched chandelier off the running MAX CLOSE** (new `--chandelier-regime wide tight
+atrThr`, `StopMode.ChandelierRegime`). One high-water-mark `maxClose` per position; each bar
+`width = (ATR% ≥ atrThr ? tight : wide)`, `stop = maxClose·(1−width)`. Quiet names get a *wide* leash
+(noise can't shake them); the *instant* ATR% crosses the negative-EV threshold the width snaps tight off
+the **peak** (above the old wide line → bites immediately). Path-independent — pure `f(maxClose, regime)`,
+no ratchet bookkeeping, no lookahead (mark through B−1, ATR% = the pre-push log-ATR snapshot).
+
+**System parameters:**
+```
+--chandelier-regime 0.20 0.10 0.10   (20% leash when quiet; 10% off the peak once ATR% ≥ 10%)
+side = long   entry-day-stop = true   time-stop = off   profit/exhaustion = off
+```
+
+**Forward-PF acceptance test passes** (loosened set, rvol≥3 move≥5%, fwd-20d-from-exit):
+
+| stop | book PF | book net | avg gain@exit | **stop-exit fwd-PF** | fwd-med |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| flat 10% | 1.377 | $3.41M | +1.4% | 1.141 | +0.47% |
+| **chandelier 20/10@10%** | **1.516** | **$8.18M** | **+3.3%** | **1.089** | +0.40% |
+
+The chandelier pushes the stop-exit forward-PF **below the 1.1 neutral line** (1.089) — we stop selling
+things that keep going — *while* lifting book PF and letting winners run further (+3.3% vs +1.4% avg gain
+at exit). The wide leash holds quiet trenders through noise; the tight-off-peak arm cuts the violent
+negative-EV names. First mechanism in this workstream to improve book PF and pass the forward-EV test
+together.
+
+**Production gate (rvol[6,20], move≥10%) + breadth (lag-1 pct_above_20 > 0.5), era-split:**
+
+| stop | ALL PF | pre-2015 | post-2015 | ALL net |
+| --- | ---: | ---: | ---: | ---: |
+| flat 10% | 1.335 | 1.215 | 1.444 | $367k |
+| **chandelier 20/10@10%** | **1.419** | **1.391** | 1.445 | **$774k** |
+
+**+0.084 blended PF, 2.1× the P&L, and it RESCUES the weak pre-2015 era** (1.215 → 1.391), pulling the
+two eras to near-parity (1.391 / 1.445) vs the flat stop's lopsided split. Robustifies across regime
+rather than relying on one — the opposite of an artifact. (Without breadth: prod-gate ALL PF 1.554 vs
+1.419; pre/post 1.428/1.440.) Confirmed the default and all pre-existing stop modes are byte-unchanged
+(new code only adds match arms). **This is the live candidate to replace the flat/window-low stop.**
+
+---
+
 ## Yearly breakdown (flat $10k/trip, filtered, by entry year)
 
 | year | trips | win% | PF | net |

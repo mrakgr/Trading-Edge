@@ -45,6 +45,18 @@ type StopMode =
     | AtrRatchet of k: float
     | FixedPct of p: float
     | FixedPctBE of p: float
+    //   - InvAtr (w, atrRef): up-only ratchet whose distance is INVERSELY proportional to
+    //     ATR% — stop% = w·(atrRef/ATR%). At ATR%=atrRef the distance is exactly w; it
+    //     TIGHTENS as ATR% rises (high vol → small leash) and widens when quiet. The opposite
+    //     of AtrRatchet. ValueNone when ATR is cold. Clamped to (0, 0.95] for sanity.
+    | InvAtr of w: float * atrRef: float
+    //   - ChandelierRegime (widePct, tightPct, atrThr): chandelier stop off the running
+    //     MAX CLOSE since entry. The width is regime-switched by the bar's ATR%: quiet
+    //     (ATR% < atrThr) → widePct leash, violent (ATR% ≥ atrThr) → tightPct leash. Stop =
+    //     maxClose·(1−width). Anchoring on the high-water mark means a quiet name that turns
+    //     violent snaps to the tight line off its PEAK (above the old wide line) and bites at
+    //     once — no ratchet bookkeeping. Path-independent: pure f(maxClose, regime).
+    | ChandelierRegime of widePct: float * tightPct: float * atrThr: float
     | NoStop
 
 /// Life-cycle of a single trip.
@@ -86,6 +98,7 @@ type Position =
       EntryDayStopRef: float    // Qullamaggie initial-stop reference (FILL bar's low for Long, high for Short)
       StopLowAtEntry: float     // trailing prior-window low/high going INTO the signal bar (the 15-day-stop ref); nan if window cold
       RatchetStop: float        // AtrRatchet mode: the carried up-only stop level (nan until the first Holding bar sets it)
+      MaxClose: float           // ChandelierRegime mode: running high-water-mark close since fill (nan until first Holding bar)
       HoldBars: int             // # of Holding bars elapsed since fill (for the time-stop / maxHoldBars)
       // metrics snapshotted at the SIGNAL bar (for the trips CSV / parity diff)
       EntryVolume: int64
@@ -530,9 +543,32 @@ type QullaSystem
             // lookahead: the level checked on this bar is `pos.RatchetStop` (set from
             // bars ≤ B-1); we only update it AFTER the check, for B+1.
             let mutable nextRatchet = pos.RatchetStop
+            // ChandelierRegime: running high-water-mark close, carried forward. Same
+            // no-lookahead discipline as nextRatchet — the level checked this bar uses
+            // the mark through B-1 (pos.MaxClose), updated AFTER the check for B+1.
+            let mutable nextMaxClose = pos.MaxClose
             let stopHit =
                 match stopMode with
                 | NoStop -> false   // no price stop; only other exits (exhaustion / time / target) act
+                | ChandelierRegime (widePct, tightPct, atrThr) ->
+                    // Anchor on the high-water mark through the prior bar (seed at entry on
+                    // the first Holding bar). Width regime-switched by the bar's ATR% (the
+                    // pre-push log-ATR snapshot, as-of ≤ B-1 → no lookahead). When ATR is
+                    // cold, default to the WIDE leash (don't tighten on unknown vol).
+                    let mark = if Double.IsNaN pos.MaxClose then pos.EntryPrice else pos.MaxClose
+                    let width =
+                        match sAtrLog with
+                        | ValueSome atr when atr >= atrThr -> tightPct
+                        | _ -> widePct
+                    let hit =
+                        match side with
+                        | Long  -> bar.low  <= mark * (1.0 - width)
+                        | Short -> bar.high >= mark * (1.0 + width)
+                    nextMaxClose <-
+                        match side with
+                        | Long  -> if Double.IsNaN pos.MaxClose then max pos.EntryPrice bar.close else max pos.MaxClose bar.close
+                        | Short -> if Double.IsNaN pos.MaxClose then min pos.EntryPrice bar.close else min pos.MaxClose bar.close
+                    hit
                 | WindowLow ->
                     match side with
                     | Long ->
@@ -551,7 +587,7 @@ type QullaSystem
                             let lvl = if useEntryDayStop then min hi pos.EntryDayStopRef else hi
                             bar.high >= lvl
                         | ValueNone -> useEntryDayStop && bar.high >= pos.EntryDayStopRef
-                | AtrRatchet _ | FixedPct _ | FixedPctBE _ ->
+                | AtrRatchet _ | FixedPct _ | FixedPctBE _ | InvAtr _ ->
                     // Up-only ratchet off the LATEST close. AtrRatchet uses a per-bar
                     // ATR%-based fractional distance (k·ATR%, ValueNone if ATR is cold);
                     // FixedPct/FixedPctBE use a constant fraction p. FixedPctBE additionally
@@ -561,7 +597,12 @@ type QullaSystem
                         match stopMode with
                         | AtrRatchet k -> sAtrLog |> ValueOption.map (fun atr -> k * atr)
                         | FixedPct p | FixedPctBE p -> ValueSome p
-                        | WindowLow | NoStop -> ValueNone   // unreachable
+                        | InvAtr (w, atrRef) ->
+                            // stop% = w·(atrRef/ATR%), tighter as ATR% rises. Clamp to (0,0.95].
+                            sAtrLog |> ValueOption.map (fun atr ->
+                                if atr <= 0.0 then 0.95
+                                else min 0.95 (w * atrRef / atr))
+                        | WindowLow | NoStop | ChandelierRegime _ -> ValueNone   // unreachable
                     let beCap = (match stopMode with FixedPctBE _ -> true | _ -> false)
                     let hit =
                         match side with
@@ -663,8 +704,8 @@ type QullaSystem
                 elif exhaustionHit then
                     { pos with State = ExitingMarket "exhaustion" }
                 elif timeStopHit then
-                    { pos with State = ExitingMarket "time_stop"; RatchetStop = nextRatchet; HoldBars = heldBars }
-                else { pos with RatchetStop = nextRatchet; HoldBars = heldBars }  // still holding
+                    { pos with State = ExitingMarket "time_stop"; RatchetStop = nextRatchet; MaxClose = nextMaxClose; HoldBars = heldBars }
+                else { pos with RatchetStop = nextRatchet; MaxClose = nextMaxClose; HoldBars = heldBars }  // still holding
         | ExitingMarket "__enter_open_after_cap" ->
             // ENTRY timed-out: the buy/sell limit rested the full cap unfilled, so
             // we take the trade at THIS bar's open (the bar after the cap elapsed),
@@ -727,6 +768,7 @@ type QullaSystem
                   EntryDayStopRef = (match side with Long -> bar.low | Short -> bar.high)
                   StopLowAtEntry = orNan (match side with Long -> sStopLow | Short -> sStopHigh)
                   RatchetStop = nan   // AtrRatchet sets this on the first Holding bar
+                  MaxClose = nan      // ChandelierRegime seeds this from entry on the first Holding bar
                   HoldBars = 0
                   EntryVolume = bar.volume
                   RvolAtEntry = orNan (this.Rvol (float bar.volume))
