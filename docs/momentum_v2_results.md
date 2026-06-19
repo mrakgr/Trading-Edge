@@ -1493,6 +1493,77 @@ substrate for this tested negative result.
 
 ---
 
+#### Post-exit path study — forward return by EXIT bucket, and ATR%-at-exit is the discriminator (2026-06-19)
+
+The question: after a trade closes, does the *state it closed in* tell us anything about what the
+stock does next — i.e. is the −10% stop throwing away a bounce (mean-reversion), and do big winners
+keep winning? Measured as the **20-bar forward return from the EXIT price** (the recycle-vs-hold
+decision), bucketed by realized gain-at-exit, then cross-cut by ATR%-at-exit.
+
+**System parameters (this study):**
+```
+side = long              stop mode = fixed-pct ratchet p=0.100   entry-day-stop = true
+entry = at-close         time-stop = off    profit target = off   exhaustion = off
+entry gates: up>=0.05  rvol[3,20]  adv>=100000  price>=5  52w>=0.95  tight<4.00  atr%<0.11
+trips = 18,310   win% 41.7   PF 1.377   net $3.41M     (LOOSENED set: rvol≥3, move≥5%)
+```
+Forward return = `close[exit_rn+20] / exit_price − 1`, joined per-ticker on `split_adjusted_prices`;
+ATR%/tightness at exit reconstructed (log-ATR% and linear tightness over the prior 14 bars).
+
+**By exit bucket** (realized gain at exit):
+
+| exit bucket | n | avg gain@exit | fwd20 mean | fwd20 med | fwd20 PF | win% | tight@exit | ATR%@exit |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| < −10% | 3,055 | −16.6% | −0.39% | −0.24% | **0.936** | 48.7 | 4.76 | 5.79 |
+| −10..0% | 7,471 | −5.3% | +0.76% | +0.45% | 1.159 | 51.4 | 4.24 | 4.39 |
+| 0..+10% | 3,839 | +4.3% | +1.20% | +1.11% | 1.252 | 53.9 | 4.38 | 4.62 |
+| +10..+30% | 2,518 | +17.6% | +1.17% | +0.69% | 1.226 | 51.9 | 4.54 | 5.06 |
+| +30%+ | 953 | +57.6% | +1.00% | **−0.68%** | 1.149 | 47.1 | 4.91 | 6.17 |
+
+Two answers fall out: **(1) the −10% stop is neutral going forward** (PF 0.936, mean −0.39%, win
+48.7%) — a name that has reverted ≥10% from entry has *no* forward edge, so recycling the capital is
+correct and the stop is not sacrificing a bounce. **(2) Winners do NOT keep winning** — forward PF
+*peaks in the middle* (0..+10%: 1.252) and decays with the gain; the +30%+ bucket has a **negative
+forward median (−0.68%)** and sub-50% win rate. The extended names are the ones that give it back.
+Note the loosest base (tight 4.76/4.91) and highest ATR% (5.79/6.17) sit in exactly the two
+worst-forward buckets — the loose-base + high-vol exhaustion signature again.
+
+**…but the gain bucket is mostly a proxy. ATR%-at-exit is the real axis** (standalone, ignoring gain):
+
+| ATR%@exit | n | avg gain@exit | fwd20 mean | fwd20 med | fwd20 PF | win% |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| <2% | 731 | −0.2% | +1.38% | +1.70% | **1.551** | 59.1 |
+| 2-3% | 3,910 | +1.4% | +1.12% | +1.15% | 1.343 | 55.9 |
+| 3-4% | 3,888 | +1.9% | +0.77% | +0.83% | 1.196 | 53.7 |
+| 4-5% | 2,672 | +1.5% | +0.66% | +0.53% | 1.136 | 52.0 |
+| 5-6% | 2,002 | +0.1% | +0.43% | 0.00% | 1.077 | 50.0 |
+| 6-8% | 2,408 | −1.1% | +0.85% | −0.88% | 1.125 | 47.3 |
+| 8-10% | 1,176 | +1.2% | +0.66% | −1.65% | 1.084 | 46.3 |
+| 10-12% | 562 | +1.9% | −1.34% | −4.03% | **0.879** | 42.9 |
+| 12-16% | 312 | +13.0% | +0.40% | −8.04% | 1.032 | 36.5 |
+| 16-20% | 42 | +18.0% | −6.66% | −11.79% | **0.622** | 33.3 |
+| 20%+ | 23 | +176.5% | −2.76% | −10.95% | 0.871 | 34.8 |
+
+**Forward edge decays monotonically with ATR%-at-exit and dies above ~10%.** Median and win% fall
+in lockstep: the *typical* name stops advancing right at **5-6% ATR** (median 0.0, win 50.0) and is
+outright negative-EV by **10%+** (PF 0.88, median −4%). The 12%+ cells carry a few fat-tail survivors
+that prop up the mean/PF while the median bleeds −8% to −12% — read the median there, not the PF. The
+mass is in the healthy 2-5% region (~10.5k of ~18.2k exits); the toxic 10%+ region is thin (~940).
+
+**Cross-cut (gain bucket × ATR%) confirms ATR% dominates:** within *every* gain bucket the <4%-ATR row
+is a healthy ~1.25–1.35 forward PF with a positive median, and the 12%+-ATR row collapses to a
+negative median (−3% to −13%). The two genuinely toxic cells (PF<1, negative median, real n): **< −10%
+& 12%+ ATR** (PF 0.422, median −11.95%, n=108 — a name down ≥10% *and* blown-out keeps falling) and
+**+30%+ & 12%+ ATR** (PF 0.964, median −13.18%, n=94 — the extended-and-violent winner reverts hard).
+
+**Takeaways.** The −10% stop is vindicated (neutral forward EV — recycle, don't hold for a bounce).
+"Let winners run" is true on average but the *extended-and-high-vol* tail reverts — consistent with
+every prior exhaustion finding. And the single most predictive post-exit variable is **ATR%, not the
+gain**: low vol → continuation, high vol → reversion, the same volatility axis the entry gate
+(atr% < 0.11) already screens on. This is a forward/diagnostic measurement, not a new exit rule.
+
+---
+
 ## Yearly breakdown (flat $10k/trip, filtered, by entry year)
 
 | year | trips | win% | PF | net |
