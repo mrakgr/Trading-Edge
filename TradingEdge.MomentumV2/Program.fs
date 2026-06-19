@@ -33,6 +33,11 @@ type Args =
     | Max_Hold_Bars of int
     | Profit_Target of float
     | Target_Next_Open
+    | Exhaustion_Exit
+    | Exhaustion_Tightness of float
+    | Exhaustion_Rvol of float
+    | Exhaustion_Move_Lo of float
+    | Exhaustion_Move_Hi of float
     | Side of string
     | Tightness_Mode of string
     | Rvol_Min of float
@@ -64,6 +69,11 @@ type Args =
             | Max_Hold_Bars _ -> "Time-stop: exit at the next open after this many Holding bars (0 = off, default). E.g. 20."
             | Profit_Target _ -> "Fixed profit target as a fraction above entry (0 = off). Resting sell limit, fills intrabar at max(target, open); wins over a same-bar stop (which exits next open). E.g. 0.20."
             | Target_Next_Open -> "With --profit-target: exit at the NEXT bar's open when the target is hit (a signal), instead of the intrabar limit fill."
+            | Exhaustion_Exit -> "Enable the conditional exhaustion exit: sell at next open when a HELD bar is a loose-base blow-off — tightness>T AND ((rvol>R AND move>moveLo) OR move>moveHi). Defaults T=7.5 R=3 moveLo=0.05 moveHi=0.10."
+            | Exhaustion_Tightness _ -> "Exhaustion exit: loose-base tightness gate T (default 7.5)."
+            | Exhaustion_Rvol _ -> "Exhaustion exit: rule-A rvol gate R (default 3.0)."
+            | Exhaustion_Move_Lo _ -> "Exhaustion exit: rule-A move gate (default 0.05); fires with rvol>R."
+            | Exhaustion_Move_Hi _ -> "Exhaustion exit: rule-B move gate (default 0.10); fires regardless of rvol."
             | Side _ -> "Trade direction: 'long' (default) or 'short'. Short trails the stop along the prior-window HIGH and flips the P&L sign."
             | Tightness_Mode _ -> "Tightness measure for the entry filter + expansion exit: 'log' (default) or 'linear'. Thresholds differ between modes."
             | Rvol_Min _ -> "Minimum relative volume at entry. Default 6.0 (production)."
@@ -119,6 +129,13 @@ let main argv =
             MaxHoldBars = parsed.GetResult(Max_Hold_Bars, defaultValue = defaultConfig.MaxHoldBars)
             ProfitTarget = parsed.GetResult(Profit_Target, defaultValue = defaultConfig.ProfitTarget)
             TargetNextOpen = parsed.Contains Target_Next_Open
+            Exhaustion =
+              { defaultConfig.Exhaustion with
+                  Enabled   = parsed.Contains Exhaustion_Exit
+                  Tightness = parsed.GetResult(Exhaustion_Tightness, defaultValue = defaultConfig.Exhaustion.Tightness)
+                  Rvol      = parsed.GetResult(Exhaustion_Rvol,      defaultValue = defaultConfig.Exhaustion.Rvol)
+                  MoveLo    = parsed.GetResult(Exhaustion_Move_Lo,   defaultValue = defaultConfig.Exhaustion.MoveLo)
+                  MoveHi    = parsed.GetResult(Exhaustion_Move_Hi,   defaultValue = defaultConfig.Exhaustion.MoveHi) }
             Side = side
             TightnessMode = tightnessMode
             Entry =
@@ -149,6 +166,11 @@ let main argv =
     printfn "  profit target = %s%s"
         (if cfg.ProfitTarget > 0.0 then sprintf "%.0f%%" (cfg.ProfitTarget * 100.0) else "off")
         (if cfg.ProfitTarget > 0.0 && cfg.TargetNextOpen then " (next-open)" else "")
+    printfn "  exhaustion exit = %s"
+        (if cfg.Exhaustion.Enabled then
+            sprintf "tight>%.1f & ((rvol>%.1f & move>%.0f%%) | move>%.0f%%)"
+                cfg.Exhaustion.Tightness cfg.Exhaustion.Rvol (cfg.Exhaustion.MoveLo*100.0) (cfg.Exhaustion.MoveHi*100.0)
+         else "off")
     printfn "  entry     = up>=%.2f rvol[%.0f,%.0f] adv>=%.0f price>=%.0f 52w>=%.2f tight<%.2f atr%%<%.2f"
         cfg.Entry.UpThreshold cfg.Entry.RvolMin cfg.Entry.RvolMax cfg.Entry.MinAvgDollarVolume
         cfg.Entry.MinPrice cfg.Entry.Min52wPct cfg.Entry.MaxTightness cfg.Entry.MaxAtrPct

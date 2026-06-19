@@ -24,6 +24,7 @@ type Config =
       MaxHoldBars: int          // time-stop: exit at next open after this many Holding bars (0 = off)
       ProfitTarget: float       // fixed profit target as a fraction of entry (0 = off); resting limit, fills intrabar
       TargetNextOpen: bool      // true = target hit exits at the NEXT open (signal); false = intrabar limit fill
+      Exhaustion: ExhaustionConfig  // conditional exhaustion exit (loose-base blow-off), off by default
       Side: Side                // Long (default) or Short — flips stop geometry + P&L sign
       TightnessMode: TightnessMode  // Log (default) or Linear — drives entry tightness + expansion
       Notional: float
@@ -75,6 +76,8 @@ let defaultConfig =
       ProfitTarget = 0.0
       // Target fill: intrabar limit by default; true = exit at next open on a target hit.
       TargetNextOpen = false
+      // Conditional exhaustion exit OFF by default; thresholds from the loose-base study.
+      Exhaustion = { Enabled = false; Tightness = 7.5; Rvol = 3.0; MoveLo = 0.05; MoveHi = 0.10 }
       // Trade direction. Long is the production system; Short mirrors the stop geometry
       // (trail the prior-window HIGH) and flips the P&L sign — used for the short studies.
       Side = Long
@@ -209,7 +212,7 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
                     cfg.ExpansionThr, cfg.ExitTimeCap, cfg.EntryLimitMode,
                     cfg.EntryTrailWindow, cfg.EntryTimeCap, cfg.UseEntryDayStop,
                     cfg.StopMode, cfg.MaxHoldBars, cfg.ProfitTarget, cfg.TargetNextOpen,
-                    cfg.Side, cfg.TightnessMode, cfg.Entry)
+                    cfg.Exhaustion, cfg.Side, cfg.TightnessMode, cfg.Entry)
 
     // Flush the just-finished ticker: MTM-close open trips, emit all trips.
     let flush () =

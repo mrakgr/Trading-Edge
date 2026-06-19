@@ -111,6 +111,21 @@ type EntryConfig =
       MaxTightness: float       // tightness < this (production 0.30)
       MaxAtrPct: float }        // atr_pct(close) < this (production 0.08)
 
+/// Conditional EXHAUSTION-EXIT thresholds, evaluated on each held bar using THAT
+/// bar's own tightness / rvol / move (the same metrics `ShouldEnter` reads, just
+/// during the trade). Grounded in the loose-base-blow-off study: a loose base is
+/// only dangerous when it is ALSO a same-day move (primary) / volume (sharpener)
+/// spike. Two-rule trigger (Long; mirrored for Short on the move sign):
+///   rule A: tightness > Tightness AND rvol > Rvol AND move > MoveLo  (spike WITH volume)
+///   rule B: tightness > Tightness AND move > MoveHi                  (big move, volume optional)
+/// Fires → exit at the NEXT bar's open (a market exit, like the retired expansion).
+type ExhaustionConfig =
+    { Enabled: bool
+      Tightness: float          // loose-base gate, plain per-bar tightness (e.g. 7.5)
+      Rvol: float               // rule A rvol gate (e.g. 3.0)
+      MoveLo: float             // rule A move gate (e.g. 0.05)
+      MoveHi: float }           // rule B move gate, no rvol needed (e.g. 0.10)
+
 /// Which tightness measure the entry filter and the expansion exit read.
 ///   - Log    : log(maxHigh/minLow) / logATR  — scale-free, the v2 default.
 ///   - Linear : (maxHigh − minLow) / linearATR — a raw range/ATR ratio. A blow-off
@@ -152,6 +167,7 @@ type QullaSystem
       maxHoldBars: int,
       profitTarget: float,
       targetNextOpen: bool,
+      exhaustionCfg: ExhaustionConfig,
       side: Side,
       tightnessMode: TightnessMode,
       entryCfg: EntryConfig ) =
@@ -562,6 +578,20 @@ type QullaSystem
                 match this.ExpansionTightness pos.EntryPrice with
                 | ValueSome t -> t > expansionThr
                 | ValueNone -> false
+            // Conditional EXHAUSTION exit: fire when the HELD bar is a loose-base
+            // blow-off — plain per-bar tightness over the gate AND (a same-day move
+            // spike with volume, OR a big move alone). Reads the same metrics as the
+            // entry, but for the current bar (pre-push snapshots). Mirrored for Short
+            // (the move is on the adverse side, i.e. a down-spike against a short).
+            let exhaustionHit =
+                exhaustionCfg.Enabled &&
+                (match this.Tightness, this.Rvol (float bar.volume), this.PctUp bar.close with
+                 | ValueSome tt, ValueSome rv, ValueSome mv ->
+                     let move = match side with Long -> mv | Short -> -mv  // adverse-side move magnitude
+                     tt > exhaustionCfg.Tightness
+                     && ( (rv > exhaustionCfg.Rvol && move > exhaustionCfg.MoveLo)   // rule A: spike + volume
+                          || move > exhaustionCfg.MoveHi )                            // rule B: big move alone
+                 | _ -> false)
             // Priority: stop is checked BEFORE expansion. Expansion always sells
             // at the next bar's open. A stop, with exitTimeCap=0, also sells at
             // the next open (the baseline — N ignored); with cap>=1 it rests a
@@ -606,6 +636,8 @@ type QullaSystem
                     else { pos with State = ExitingLimit 0 }
                 elif expansionHit then
                     { pos with State = ExitingMarket "expansion" }
+                elif exhaustionHit then
+                    { pos with State = ExitingMarket "exhaustion" }
                 elif timeStopHit then
                     { pos with State = ExitingMarket "time_stop"; RatchetStop = nextRatchet; HoldBars = heldBars }
                 else { pos with RatchetStop = nextRatchet; HoldBars = heldBars }  // still holding

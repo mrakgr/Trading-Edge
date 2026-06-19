@@ -653,6 +653,32 @@ trigger should make it far more targeted (fade only the spike-blow-offs, not qui
 the next thing to test on the exit side. *(Reproduction: the 998k-trip `--no-entry-day-stop` run
 above, tiered on `tightness_14_at_entry > 7.5` with `rvol_at_entry` / `pct_up_at_entry`.)*
 
+##### …and the conditional exhaustion exit was BUILT and TESTED — it does not help (2026-06-19)
+
+Implemented exactly that targeted trigger (`ExhaustionConfig`, CLI `--exhaustion-exit`): on each HELD
+bar, exit at next open when **tightness > 7.5 AND ((rvol > 3 AND move > 5%) OR move > 10%)** — the
+move-primary / rvol-sharpener rule the study above prescribed. Tested on three bases (loosened set,
+up≥5% rvol≥3):
+
+| base | exhaustion OFF | exhaustion ON |
+| --- | ---: | ---: |
+| window-low(4) | 1.352 | 1.332 |
+| BE 10% + 20d | 1.40 | 1.393 |
+| ATR k=4 | 1.421 | 1.412 |
+
+**It slightly HURTS on every base.** The diagnosis (exit-reason mix on the BE+20d run) is decisive and
+explains why: the exhaustion exit fired only **194 times (1.6%)**, on trades that were **93% winners,
+median +41% return (best +2368%), median hold 3 bars**. I.e. on a *held* position a "loose-base
+blow-off bar" only occurs **after the name has already exploded up** — so the trigger sells the
+right-tail rockets a momentum system lives on, banking +41% where letting them ride to the BE/time-stop
+earned more. **The asymmetry is the lesson:** the loose-base negative edge is about *entering* a base
+that is *already* blown-off; once you're holding, a blow-off bar means *you are winning big*. The exact
+same signal flips sign between entry-filter and held-exit. This joins the position-relative expansion
+exit, fixed targets, and the gap-over time-stop as **upside-capping exits that all fight the momentum
+edge.** Engine keeps `--exhaustion-exit` + thresholds as the tested-negative substrate; the signal's
+real use is as an **entry** filter (which production already applies via `MaxTightness`/rvol/move
+gates), not an exit. Stop hunting for a held-position exit that raises PF — **let winners run.**
+
 **rvol vs move: only moderately correlated, and the MOVE dominates.** Within the loose-base
 population, rvol and pct_up have a **Spearman rank correlation of 0.38** (raw Pearson 0.04 is
 outlier-scrambled and misleading; log–log 0.24). So they share information but are far from
