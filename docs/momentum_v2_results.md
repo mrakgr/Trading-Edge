@@ -948,6 +948,46 @@ the trailing stop is too close to survive normal noise. Read: a tight initial st
 (time-stop) for those names, not to tighten further. (Trade construction lever for a future variant:
 route tight-initial-stop entries to a time-stop exit, wide ones to the trailing stop.)
 
+### ATR%-ratchet trailing stop beats the window-low rule (2026-06-19)
+
+Given that the Qulla window-low / entry-day-low stops keep underperforming under the microscope, test
+a different mechanism: an **up-only ATR%-chandelier off the latest close**. Each bar the candidate
+stop = `close − k·ATR%·close` (ATR% = the log-ATR, a per-bar fractional volatility); the carried stop
+**only ever rises** (`stop = max(prev_stop, candidate)`) — never loosens even as ATR expands or price
+dips. New engine `StopMode = AtrRatchet k` (CLI `--atr-stop k`); it **fully replaces** the window-low
+and entry-day-low geometry (no day-low floor — the ratchet starts from the entry bar's own candidate).
+Immutable Position carry of the ratchet level, no lookahead (the level checked on bar B is set from
+bars ≤ B-1, then updated from B's close for B+1).
+
+**Parameters:** loosened set — Long, at-close, Linear, up≥0.05, rvol[3,∞), ADV≥$100k, price≥$5,
+52w≥0.95, tight<4.0, ATR%<0.11, 2005-01-01→2026-05-13, breadth lag1>0.5. Stop = ATR ratchet **only**
+(entry-day-low floor OFF, window-low OFF). Sweep k=1..5 vs the window-low(4) baseline:
+
+| stop | n | win% | PF | net |
+| --- | ---: | ---: | ---: | ---: |
+| window-low(4) baseline | 12266 | 42.5 | 1.352 | $1.29M |
+| atr-ratchet k=1 | 12266 | 45.5 | 1.309 | $1.10M |
+| atr-ratchet k=2 | 12266 | 43.2 | 1.349 | $1.87M |
+| atr-ratchet k=3 | 12266 | 42.3 | 1.387 | $2.81M |
+| **atr-ratchet k=4** | 12266 | 41.6 | **1.421** | $3.82M |
+| atr-ratchet k=5 | 12266 | 40.6 | 1.387 | $4.24M |
+
+**The ATR ratchet beats the window-low stop at k≥3 on PF and massively on P&L** (a looser stop rides
+winners far longer; P&L grows monotonically with k while PF peaks at **k=4**, PF 1.421 vs 1.352
+baseline). The pattern is the same lesson again: **tight = whipsaw** — k=1 has the *highest* win rate
+(45.5%) but the *lowest* P&L and a sub-baseline PF (1.31), exactly the tight-stop trap; momentum wants
+room. Era-robust (k=4 wins both halves):
+
+| era | window-low(4) PF / net | atr k=4 PF / net |
+| --- | ---: | ---: |
+| 2005–14 | 1.489 / $0.66M | **1.568 / $2.03M** |
+| 2015–26 | 1.272 / $0.63M | **1.325 / $1.79M** |
+
+So the ATR%-ratchet is a strictly better trailing mechanism than the legacy window-low here — higher
+PF, ~3× P&L, both eras. (Not yet swept on the *production* entry set; k=4 is the loosened-set sweet
+spot. Candidate to test as the production stop next.) Production default remains window-low(4) until
+that confirms.
+
 ---
 
 ## Yearly breakdown (flat $10k/trip, filtered, by entry year)

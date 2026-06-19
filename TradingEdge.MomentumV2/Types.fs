@@ -19,6 +19,20 @@ type Side =
     | Long
     | Short
 
+/// Trailing-stop mechanism.
+///   - WindowLow: the legacy Qulla rule — trail the prior-window low (`stopLowWindow`),
+///     optionally floored at the entry-day low (`useEntryDayStop`). Can tick DOWN if a
+///     lower low slides into the window; no hard ratchet.
+///   - AtrRatchet k: an up-only ATR%-chandelier off the LATEST close. Each bar the
+///     candidate stop = close − k·(ATR%·close) (ATR% = the log-ATR, a per-bar fractional
+///     volatility, converted to dollars at the current close). The carried stop only ever
+///     RISES: stop = max(prev_stop, candidate). No entry-day-low floor (the ratchet starts
+///     from the entry bar's own candidate). Mirrored for Short (close + k·ATR$, ratchets
+///     DOWN-only).
+type StopMode =
+    | WindowLow
+    | AtrRatchet of k: float
+
 /// Life-cycle of a single trip.
 ///   - PendingLimit barsRested: the entry signal fired on the prior bar, but
 ///     instead of buying the close we rest a BUY LIMIT at the trailing prior-
@@ -57,6 +71,7 @@ type Position =
       EntryReason: string       // "close" | "limit" | "open_after_cap"
       EntryDayStopRef: float    // Qullamaggie initial-stop reference (FILL bar's low for Long, high for Short)
       StopLowAtEntry: float     // trailing prior-window low/high going INTO the signal bar (the 15-day-stop ref); nan if window cold
+      RatchetStop: float        // AtrRatchet mode: the carried up-only stop level (nan until the first Holding bar sets it)
       // metrics snapshotted at the SIGNAL bar (for the trips CSV / parity diff)
       EntryVolume: int64
       RvolAtEntry: float
@@ -122,6 +137,7 @@ type QullaSystem
       entryTrailWindow: int,
       entryTimeCap: int,
       useEntryDayStop: bool,
+      stopMode: StopMode,
       side: Side,
       tightnessMode: TightnessMode,
       entryCfg: EntryConfig ) =
@@ -469,24 +485,54 @@ type QullaSystem
             // trailing stop never loosens; once we match v0 trips, carry the
             // stop in the Position and set it to max(prev_stop, max(sStopLow,
             // entryDayLow)) so it only ever rises.
+            // The new ratcheted stop level after THIS bar, carried forward for the
+            // next bar's check (AtrRatchet mode only; nan in WindowLow mode). No
+            // lookahead: the level checked on this bar is `pos.RatchetStop` (set from
+            // bars ≤ B-1); we only update it AFTER the check, for B+1.
+            let mutable nextRatchet = pos.RatchetStop
             let stopHit =
-                match side with
-                | Long ->
-                    // trail the prior-window LOW (floored at the entry-day low); stop
-                    // when price breaks below it.
-                    match sStopLow with
-                    | ValueSome lo ->
-                        let lvl = if useEntryDayStop then max lo pos.EntryDayStopRef else lo
-                        bar.low <= lvl
-                    | ValueNone -> useEntryDayStop && bar.low <= pos.EntryDayStopRef
-                | Short ->
-                    // mirror: trail the prior-window HIGH (capped at the entry-day high);
-                    // cover when price breaks above it.
-                    match sStopHigh with
-                    | ValueSome hi ->
-                        let lvl = if useEntryDayStop then min hi pos.EntryDayStopRef else hi
-                        bar.high >= lvl
-                    | ValueNone -> useEntryDayStop && bar.high >= pos.EntryDayStopRef
+                match stopMode with
+                | WindowLow ->
+                    match side with
+                    | Long ->
+                        // trail the prior-window LOW (floored at the entry-day low); stop
+                        // when price breaks below it.
+                        match sStopLow with
+                        | ValueSome lo ->
+                            let lvl = if useEntryDayStop then max lo pos.EntryDayStopRef else lo
+                            bar.low <= lvl
+                        | ValueNone -> useEntryDayStop && bar.low <= pos.EntryDayStopRef
+                    | Short ->
+                        // mirror: trail the prior-window HIGH (capped at the entry-day high);
+                        // cover when price breaks above it.
+                        match sStopHigh with
+                        | ValueSome hi ->
+                            let lvl = if useEntryDayStop then min hi pos.EntryDayStopRef else hi
+                            bar.high >= lvl
+                        | ValueNone -> useEntryDayStop && bar.high >= pos.EntryDayStopRef
+                | AtrRatchet k ->
+                    // Up-only ATR%-chandelier off the latest close. Check this bar against
+                    // the carried level (if set), then ratchet from this bar's close.
+                    let hit =
+                        match side with
+                        | Long  -> not (Double.IsNaN pos.RatchetStop) && bar.low  <= pos.RatchetStop
+                        | Short -> not (Double.IsNaN pos.RatchetStop) && bar.high >= pos.RatchetStop
+                    // Update the carried stop from THIS bar's close + ATR% (for the next bar).
+                    // atr% = sAtrLog (log-ATR ≈ fractional per-bar volatility). ValueNone
+                    // (cold ATR) leaves the level unchanged.
+                    match sAtrLog with
+                    | ValueSome atr ->
+                        let candidate =
+                            match side with
+                            | Long  -> bar.close * (1.0 - k * atr)
+                            | Short -> bar.close * (1.0 + k * atr)
+                        nextRatchet <-
+                            if Double.IsNaN pos.RatchetStop then candidate
+                            else match side with
+                                 | Long  -> max pos.RatchetStop candidate   // ratchet UP only
+                                 | Short -> min pos.RatchetStop candidate   // ratchet DOWN only
+                    | ValueNone -> ()
+                    hit
             // Expansion exit fires on the POSITION-RELATIVE tightness (range low
             // floored at the entry price), so it grows as the name runs above our
             // entry across a multi-bar climax — unlike the plain tightness, which a
@@ -505,7 +551,7 @@ type QullaSystem
                 else { pos with State = ExitingLimit 0 }
             elif expansionHit then
                 { pos with State = ExitingMarket "expansion" }
-            else pos
+            else { pos with RatchetStop = nextRatchet }  // still holding — carry the ratcheted stop forward
         | ExitingMarket "__enter_open_after_cap" ->
             // ENTRY timed-out: the buy/sell limit rested the full cap unfilled, so
             // we take the trade at THIS bar's open (the bar after the cap elapsed),
@@ -567,6 +613,7 @@ type QullaSystem
                   EntryReason = "close"
                   EntryDayStopRef = (match side with Long -> bar.low | Short -> bar.high)
                   StopLowAtEntry = orNan (match side with Long -> sStopLow | Short -> sStopHigh)
+                  RatchetStop = nan   // AtrRatchet sets this on the first Holding bar
                   EntryVolume = bar.volume
                   RvolAtEntry = orNan (this.Rvol (float bar.volume))
                   AvgDollarVolumeAtEntry = orNan sAvgDolVol
