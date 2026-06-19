@@ -1704,6 +1704,95 @@ is the substrate for a **conditional / ATR-gated time-stop** — a base time-sto
 the name is quiet, and cuts early (independent of the clock) once ATR% is high. The second axis
 (gain-from-entry, treated separately) is the next breakdown before designing that rule.
 
+**The second marginal — gain-from-entry — is a MUCH weaker discriminator than ATR%** (same exits, same
+forward-5d measure):
+
+Forward-5d **PF** by gain-from-entry:
+
+| gain@exit | 5d | 10d | 20d | 30d |
+| --- | ---: | ---: | ---: | ---: |
+| < −20% | 0.772 | 1.054 | 0.989 | 1.065 |
+| −20..−10% | 1.019 | 1.091 | 0.918 | 1.073 |
+| −10..0% | 1.120 | 1.129 | 1.144 | 1.059 |
+| 0..+10% | 1.020 | 1.202 | 1.145 | 1.077 |
+| +10..+30% | 0.972 | 1.084 | 0.950 | 1.014 |
+| **+30..+60%** | **1.304** | **1.236** | **1.165** | 1.032 |
+| +60%+ | 0.531 | 0.907 | 0.848 | 0.926 |
+
+Forward-5d **MEDIAN %** by gain-from-entry:
+
+| gain@exit | 5d | 10d | 20d | 30d |
+| --- | ---: | ---: | ---: | ---: |
+| < −20% | −1.02 | −0.66 | −0.68 | +0.13 |
+| −20..−10% | −0.24 | +0.17 | −0.14 | +0.17 |
+| −10..0% | +0.15 | +0.28 | +0.27 | +0.16 |
+| 0..+10% | −0.01 | +0.26 | +0.13 | +0.16 |
+| +10..+30% | −0.62 | −0.06 | −0.14 | −0.08 |
+| +30..+60% | −1.18 | −0.02 | −0.35 | 0.00 |
+| +60%+ | −4.42 | +0.52 | −1.56 | −1.04 |
+
+**Findings on the gain axis:**
+1. **The middle is flat & mildly positive** — the −10..+10% buckets hold ~80% of exits (≈15k of 18.3k)
+   at PF 1.02-1.20, small positive medians; no actionable signal.
+2. **The tails bite opposite to a naïve "cut losers / ride winners" rule.** The big-winner tail
+   (**+60%+**) is *toxic* — PF 0.53/0.91/0.85/0.93, median −4.42% at 5d (extended names revert). The
+   big-loser tail (**< −20%**) is *neutral*, even mildly positive by 30d (median +0.13) — no
+   continued-bleed edge from cutting losers fast (echoes the "−10% stop is neutral" finding).
+3. **The +30..+60% band is the one winner zone worth holding longer** — PF 1.304/1.236/1.165 with
+   ~flat medians; a strong, durable continuation cohort distinct from the +60%+ blow-offs.
+
+**Net:** gain-from-entry is a blunt knife — it mostly re-expresses ATR% (a stock can't reach +60% without
+being volatile), plus a real "+30-60% = keep holding" pocket. **ATR% stays the primary gate;** the gain
+axis adds a "cut if +60%+ / hold if +30-60%" nuance. Whether the +60% toxicity is independent of ATR% or
+just ATR% in disguise is settled by the 2D gain×ATR cross (next).
+
+**2D gain×ATR cross** (all four hold lengths pooled for cell counts; forward-5d-from-exit):
+
+PF — rows gain-from-entry, cols ATR%@exit:
+
+| gain ↓ / ATR → | <4% | 4-6% | 6-8% | 8-10% | 10-14% | 14%+ |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| < −10% | 1.25 | 0.94 | 1.02 | 1.00 | 0.89 | 1.26* |
+| −10..0% | 1.15 | 1.14 | 1.07 | 1.02 | 0.96 | 0.63 |
+| 0..+10% | 1.13 | 1.08 | 1.03 | 1.29 | 0.99 | 1.49* |
+| +10..+30% | 1.03 | 0.94 | 1.16 | 1.04 | 0.88 | 0.70 |
+| **+30..+60%** | **1.42** | 1.15 | 0.88 | 1.30 | 1.05 | 1.53* |
+| +60%+ | 0.08* | 0.41 | 0.96 | 0.89 | 0.93 | 0.81 |
+
+MEDIAN % — same axes:
+
+| gain ↓ / ATR → | <4% | 4-6% | 6-8% | 8-10% | 10-14% | 14%+ |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| < −10% | +0.44 | 0.00 | −0.20 | −0.58 | −1.96 | 0.00 |
+| −10..0% | +0.23 | +0.31 | −0.09 | −0.78 | −0.72 | −5.92 |
+| 0..+10% | +0.15 | +0.11 | 0.00 | −0.13 | −1.37 | +0.29 |
+| +10..+30% | +0.03 | −0.36 | 0.00 | −1.28 | −1.33 | −6.65 |
+| +30..+60% | +0.30 | +0.04 | −0.86 | −0.12 | −1.35 | −1.28 |
+| +60%+ | +0.12 | −0.62 | −2.17 | −1.04 | −0.60 | −2.79 |
+
+n — same axes (`*` cells above are the small-n ones):
+
+| gain ↓ / ATR → | <4% | 4-6% | 6-8% | 8-10% | 10-14% | 14%+ |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| < −10% | 2300 | 3224 | 2348 | 1254 | 950 | 312 |
+| −10..0% | 14119 | 6822 | 2382 | 815 | 417 | 51 |
+| 0..+10% | 15084 | 6784 | 2167 | 769 | 385 | 68 |
+| +10..+30% | 3396 | 3374 | 1832 | 739 | 501 | 90 |
+| +30..+60% | 173 | 448 | 423 | 316 | 294 | 111 |
+| +60%+ | 6 | 26 | 79 | 95 | 169 | 126 |
+
+**The cross resolves it:**
+1. **ATR% is a genuine, independent discriminator** — the PF gradient falls left→right within almost
+   every gain row (cleanest in −10..0%: 1.15→1.14→1.07→1.02→0.96→0.63). Not a gain proxy.
+2. **+30..+60% is the strongest hold cohort** and confirmed separable — PF 1.42 at <4% ATR, staying
+   ≥1.05 out to 10-14%. A stock up 30-60% that is *still quiet* is the best thing to keep in the table.
+3. **+60%+ toxicity is its OWN signal, not ATR% in disguise** — that row is sub-1 across *every* ATR
+   column (0.41/0.96/0.89/0.93/0.81), so "up +60%" carries reversion beyond volatility.
+
+**Combined map → the rule:** **hold while ATR% < ~8-10% AND gain < +60%; recycle otherwise** (ATR% ≥ 10%
+or gain ≥ +60%). The +30-60% band rides *because* it is usually still quiet (it lives in the low-ATR
+cells), not as a separate clause. This is the spec for the conditional time-stop to build next.
+
 ---
 
 ## Yearly breakdown (flat $10k/trip, filtered, by entry year)
