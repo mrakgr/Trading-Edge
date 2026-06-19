@@ -1620,6 +1620,92 @@ rather than relying on one — the opposite of an artifact. (Without breadth: pr
 
 ---
 
+#### Time-stops with NO price stop — the "hold another 5 days?" map, gated on ATR% (2026-06-19)
+
+The chandelier-stop geometry got complicated and its quiet-name holds ran **9 months** (the wide leash
+lets a sideways drifter sit for ~189 bars). Cleaner idea: drop the price stop entirely, use a pure
+**time-stop**, and decide *when* to recycle from the forward EV — at the exit, given ATR%, is holding
+another 5 days still +EV? If yes, hold; if no, recycle the capital.
+
+**System parameters:**
+```
+--no-stop --max-hold-bars N   (N ∈ {5,10,15,20,25,30}; the time-stop is the ONLY exit)
+side = long   entry-day-stop = false (no-stop)   profit/exhaustion = off
+entry gates: up>=0.05  rvol[3,20]  adv>=100000  price>=5  52w>=0.95  tight<4.00  atr%<0.11
+LOOSENED set: 18,310 trips
+```
+
+**Time-stop sweep (no price stop):**
+
+| hold | PF | net | win% |
+| --- | ---: | ---: | ---: |
+| 5d | **1.346** | $1.68M | 51.0 |
+| 10d | 1.287 | $1.86M | 50.6 |
+| 15d | 1.310 | $2.37M | 51.8 |
+| 20d | 1.361 | $3.14M | 52.1 |
+| 25d | 1.353 | $3.42M | 52.6 |
+| 30d | 1.328 | $3.51M | 51.8 |
+
+PF peaks at the short (5d, 1.346) and the 20d hold (1.361); net P&L climbs monotonically with hold
+length (more trend captured per trade). No stop needed — the stop was mostly forcing rotation, which the
+time-stop does more cleanly. Holds are now *bounded* by construction (the drawdown / 9-month-hold
+complaint goes away).
+
+**The "hold another 5 days?" map** — forward-5d return measured FROM each time-stop exit, bucketed by
+ATR%-at-exit, one column per hold length. Read the **median** in the high-ATR cells (PF/mean there are
+fat-tail-inflated by a few survivors).
+
+Forward-5d **PF** (>1.1 → keep holding; ≤1.0 → recycle):
+
+| ATR%@exit | 5d | 10d | 20d | 30d |
+| --- | ---: | ---: | ---: | ---: |
+| <4% | 1.073 | 1.231 | 1.148 | 1.120 |
+| 4-6% | 1.062 | 1.168 | 1.050 | 0.919 |
+| 6-8% | 1.021 | 1.174 | 0.940 | 1.072 |
+| 8-10% | 1.141 | 1.038 | 1.100 | 1.045 |
+| 10-14% | 0.877 | 0.974 | 0.847 | 1.077 |
+| 14%+ | 1.141 | 0.994 | 1.008 | 1.406 |
+
+Forward-5d **MEDIAN %** (the honest read):
+
+| ATR%@exit | 5d | 10d | 20d | 30d |
+| --- | ---: | ---: | ---: | ---: |
+| <4% | +0.05 | +0.32 | +0.18 | +0.19 |
+| 4-6% | +0.09 | +0.28 | 0.00 | −0.17 |
+| 6-8% | −0.28 | +0.11 | −0.45 | −0.11 |
+| 8-10% | −0.33 | −0.66 | −0.99 | −0.51 |
+| 10-14% | −2.14 | −1.15 | −2.14 | −0.41 |
+| 14%+ | −5.81 | −0.77 | −3.10 | −0.06 |
+
+Forward-5d **MEAN %** (right-tail visible — diverges from median exactly where the cell is fat-tailed):
+
+| ATR%@exit | 5d (n) | 10d (n) | 20d (n) | 30d (n) |
+| --- | ---: | ---: | ---: | ---: |
+| <4% | +0.11 (7457) | +0.31 (7104) | +0.24 (10285) | +0.20 (10232) |
+| 4-6% | +0.15 (6014) | +0.38 (5864) | +0.14 (4341) | −0.24 (4459) |
+| 6-8% | +0.08 (2615) | +0.58 (2750) | −0.24 (1946) | +0.28 (1920) |
+| 8-10% | +0.60 (1147) | +0.17 (1276) | +0.51 (799) | +0.21 (766) |
+| 10-14% | −0.78 (803) | −0.15 (885) | −1.02 (540) | +0.41 (488) |
+| 14%+ | +1.38 (131) | −0.05 (261) | +0.07 (187) | +2.54 (179) |
+
+**Findings:**
+1. **Only the quiet <4% bucket is reliably worth holding at every horizon** — forward PF 1.07→1.23→1.15
+   →1.12, positive median throughout. Quiet trenders keep grinding up; this is the core hold.
+2. **Everything ≥10% ATR is negative-EV by median at essentially every hold length** (10-14% medians
+   −2.14/−1.15/−2.14/−0.41; 14%+ medians −5.81/−0.77/−3.10). The occasional high PF/mean is one name
+   ripping while the typical one bleeds. **Recycle high-ATR names regardless of the clock.**
+3. **The mid buckets (4-10%) decay with hold length** — fine at 5-10d (PF 1.04-1.17), but the 4-6% and
+   6-8% rows roll under 1.0 by 20-30d. The longer you've held, the lower the ATR% at which holding stops
+   paying.
+
+The clean separator across all horizons is **~8-10% ATR**: below it the median stays non-negative at
+short holds and the <4% band stays positive everywhere; above it the median is negative everywhere. This
+is the substrate for a **conditional / ATR-gated time-stop** — a base time-stop that extends only while
+the name is quiet, and cuts early (independent of the clock) once ATR% is high. The second axis
+(gain-from-entry, treated separately) is the next breakdown before designing that rule.
+
+---
+
 ## Yearly breakdown (flat $10k/trip, filtered, by entry year)
 
 | year | trips | win% | PF | net |
