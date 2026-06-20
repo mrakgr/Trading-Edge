@@ -2816,6 +2816,40 @@ A reasonable robustness measure (don't be long the next meme-stock climax), but 
 tail-regime defense. (Breadth lag-1 > 0.5 should have caught much of 2021's churn but let these through on
 the up-days — the blow-offs happen *into* strength.)
 
+#### Breadth (pct_above_20) cumulative floor — higher breadth is better up to ~0.70, then rolls over (2026-06-20)
+
+> We *gate* on breadth (lag-1 `pct_above_20 > 0.5`) but had never swept the level. Breadth = the fraction of
+> liquid CS/ADRC stocks above their own **20-day** MA across the ~3,000-name universe (`breadth.parquet`,
+> stores pct_above_20/50/100), lagged 1 day. (Note: v0 once concluded the **50-day** breadth was best — that
+> is **stale**; v1/v2 settled on the **20-day** and that is the decided measure.) Cumulative `≥ X` floor
+> (default trips, ≥2005), the clean view (deciles are too noisy):
+
+| floor | n | median | win% | PF | total $ | PF post |
+|---|--:|--:|--:|--:|--:|--:|
+| ≥0.0 (no gate) | 5,858 | +0.34% | 52.8 | 1.781 | 1.20M | 1.644 |
+| ≥0.4 | 4,677 | +0.32% | 52.8 | 1.899 | 1.06M | 1.690 |
+| **≥0.5 (CURRENT)** | 3,717 | +0.28% | 52.3 | 1.991 | 917k | 1.717 |
+| ≥0.6 | 2,520 | +0.30% | 52.9 | 2.249 | 776k | 1.909 |
+| ≥0.65 | 1,919 | +0.34% | 53.1 | 2.385 | 663k | 1.936 |
+| **≥0.70** | 1,272 | +0.38% | 53.5 | **2.822** | 583k | **2.150** |
+| ≥0.75 | 662 | +0.89% | 57.1 | 1.942 | 153k | 1.776 |
+| ≥0.80 | 288 | +0.98% | 58.3 | 2.124 | 80k | 1.967 |
+
+**Findings:**
+1. **PF rises monotonically with breadth up to 0.70, then rolls over.** Peak at ≥0.70: PF **2.822**,
+   post-2015 **2.150** — vs the current ≥0.5 (1.991 / 1.717). The ≥0.75/≥0.80 rollback (~1.9–2.1) is the
+   familiar froth signature (extreme breadth = late-cycle euphoria) but n is thin (288–662) — don't over-read.
+2. **Unlike the noisy deciles, the floor view shows median AND win-rate also rise** (median +0.28% → +0.38%,
+   win 52.3% → 53.5% from ≥0.5 to ≥0.70) — so higher breadth improves the *typical* trade, not just the
+   tail. A trustworthy lever.
+3. **Faster breadth (10/15-day MA) does NOT beat the 20-day** (tested on a matched liquid universe): the
+   10-day was *worse* at every floor, especially post-2015; 15-day ≈ 20-day. The current 20-day window is
+   confirmed; a shorter, more-reactive breadth just adds noise.
+4. **Available upgrade:** raising the breadth gate 0.5 → 0.70 lifts PF 1.991 → 2.822 (post-2015 → 2.150) at
+   the usual capacity cost (3,717 → 1,272 trips, −66%). A steep quality-vs-capacity dial, same family as the
+   tightness/move levers; the *direction* (higher breadth = better, to 0.70) is clean and era-robust. Not
+   adopted as default yet — the −66% capacity is a big ask; candidate for a sizing tilt rather than a hard gate.
+
 #### ⭐ "Top-gainer HEAT" — froth timing measure; CHOSEN: skip entries when heat-10d ≥ 27% (Sykes-inspired) (2026-06-20)
 
 > A new market-timing measure, orthogonal to the %-above-MA breadth we already gate on. It measures the
