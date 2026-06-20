@@ -2611,6 +2611,23 @@ So a cap ~15 severs the dead top decile, and the real conviction lives in **rvol
    (D1–D6) has a near-zero/negative *median* (tail-carried, fragile), decile 7's PF is a fat-tail mirage, and
    the genuine broad-based sweet spot is **decile 9 (rvol ~9–15.6)**: win 55%, median +0.67%, post +0.91%.
 
+**rvol [1,15) QUARTILES (less noisy than deciles, ~2,463/quartile) — the typical trade only wins in Q4:**
+
+| quartile | rvol range | n | median ret | mean ret | win% | PF | med pre | med post |
+|---|---|--:|--:|--:|--:|--:|--:|--:|
+| 1 | 1.0–2.4 | 2,463 | +0.24% | 1.36% | 51.0 | 1.335 | +0.26% | +0.24% |
+| 2 | 2.4–3.8 | 2,463 | **−0.23%** | 1.17% | 48.2 | 1.329 | −0.21% | −0.25% |
+| 3 | 3.8–6.0 | 2,462 | +0.03% | 2.09% | 50.1 | 1.731 | +0.52% | **−0.19%** |
+| **4** | 6.0–15.0 | 2,462 | **+0.37%** | 2.12% | **52.8** | 1.807 | +0.45% | **+0.30%** |
+
+The quartile view (cleaner than the deciles) shows the median is **flat-to-weak across Q1–Q3 then steps up
+in Q4**: +0.24 → −0.23 → +0.03 → +0.37. No smooth ramp — Q1 (rvol 1–2.4) is as good as Q3 (3.8–6) on the
+median. **Only Q4 (rvol 6–15) stands out, and it's the only era-robust quartile** (post-2015 median +0.30%,
+win 52.8%). Q3's PF 1.731 was flattered — its post-2015 median is *negative* (−0.19%, a pre-2015 edge). Q2
+(rvol 2.4–3.8) is the weak spot (negative median both eras). **This vindicates the rvol ≥ 6 floor on a
+median basis** — Q4 (≥6) is exactly where the typical trade turns durably positive, contradicting the
+cumulative-PF "peak at 5" read (which was tail/pre-2015-driven). The conviction is in rvol ~6–15.
+
 **SUB-1 rvol — the floor DOES matter, at ~1 (regenerated with `--rvol-min 0`):** the "1–5 is indistinct"
 read was a *within-≥1* observation; below average volume the median turns sharply negative.
 
