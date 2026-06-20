@@ -24,7 +24,7 @@ no lookahead):
 | gate | threshold | meaning |
 | --- | --- | --- |
 | entry-day move | **≥ 10%** | `close/prevClose − 1` — the breakout has to *announce itself* |
-| relative volume | **6 ≤ rvol ≤ 20** | `volume / 28-day avg volume`; band, not a floor |
+| relative volume | **5 ≤ rvol ≤ 15** | `volume / 28-day avg volume`; band. Floor 6→5 + cap 20→15 on 2026-06-20 — rvol 5 is enough to be significant, and the cap drops the toxic 15+ exhaustion tail |
 | ATR% (log) | **< 0.11** | mean log-true-range over 14 prior bars (see below) |
 | tightness (linear) | **< 4.5** | `(14d range) / ATR` — prior consolidation must be tight (linear; sharper loose-tail cut than log). Raised 4.0 → 4.5 on 2026-06-20 (clean capacity gain; < 4.0 = max-PF, < 5.5 = max-capacity alternatives) |
 | 52-week proximity | **close ≥ 0.95 × hi_252** | near the 1-year closing high |
@@ -53,6 +53,84 @@ close.
 data-fix note below. The change vs the pre-fix numbers was negligible: PF 1.758→1.769, DD −37.6k→
 −33.8k, 26 fewer trips — the production filters mostly exclude the low-priced dividend payers that
 the bug corrupted.)*
+
+---
+
+## Yearly breakdown — PRE-time-stop default (window-low stop-4), filtered (flat $10k/trip, by entry year)
+
+> **Which system:** this is the production default *as it stood before the 2026-06-19 stop-mechanics
+> rework* — **window-low trailing stop (stop-window 4), next-open exit, expansion off, ATR% < 0.11,
+> log-tightness < 4.0, entry-move ≥ 10%**, + breadth (lag-1 pct_above_20 > 0.5) + entry ≥ 2005. It is the
+> `≥ 10%` headline row above (**2,260 trips, PF 1.734, +$520,641, 58.7% positive months**). It is **not**
+> the current default (5-day time-stop, no price stop, rvol [5,15] — see "The system in one screen"); the
+> time-stop system's own yearly/monthly breakdown has not yet been generated. Kept here as the historical
+> reference for the system's year-by-year robustness.
+
+| year | trips | win% | PF | net |
+| ---: | ---: | ---: | ---: | ---: |
+| 2005 | 100 | 50% | 1.38 | +9,277 |
+| 2006 | 130 | 39% | 1.61 | +17,275 |
+| 2007 | 109 | 43% | 1.87 | +24,381 |
+| 2008 | 34 | 59% | 1.73 | +8,161 |
+| 2009 | 51 | 53% | 3.71 | +27,346 |
+| 2010 | 123 | 53% | 2.37 | +41,138 |
+| 2011 | 82 | 43% | 1.42 | +9,226 |
+| 2012 | 73 | 52% | 3.19 | +29,421 |
+| 2013 | 181 | 47% | 1.69 | +34,559 |
+| 2014 | 107 | 50% | 1.65 | +18,738 |
+| 2015 | 86 | 51% | 2.45 | +27,830 |
+| 2016 | 88 | 43% | 1.81 | +11,748 |
+| 2017 | 138 | 46% | 1.35 | +13,744 |
+| 2018 | 127 | 54% | 1.73 | +23,002 |
+| 2019 | 93 | 49% | 4.80 | +103,596 |
+| 2020 | 149 | 42% | 1.81 | +57,348 |
+| 2021 | 191 | 36% | 1.09 | +9,529 |
+| 2022 | 33 | 45% | 1.34 | +5,329 |
+| 2023 | 71 | 51% | 1.59 | +12,368 |
+| 2024 | 127 | 40% | 1.21 | +9,694 |
+| 2025 | 119 | 39% | 0.97 | −1,570 |
+| 2026 | 48 | 46% | 2.75 | +28,501 |
+
+**21 of 22 years positive** (only 2025 fractionally red at −$1.6k). Crucially, the edge is now
+*spread across years* rather than concentrated: 2021's COVID-bubble names — which dominated the old
+system — are largely filtered out by the tight ATR%/tightness gates (2021 is only +$9.5k here),
+and 2020 is solidly positive (+$57k) on the next-open exits getting clear of the March crash. The
+two biggest years (2019 +$104k, 2020 +$57k) are real momentum regimes, not a single blow-off.
+
+<details>
+<summary>Full monthly breakdown — net P&L by year × month ($k), flat sizing, by entry month — click to expand</summary>
+
+| year | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec | **year** |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 2005 | 747 | -2.5k | -876 | · | 796 | 3.2k | 9.3k | 97 | 702 | -378 | -1.1k | -632 | **9.3k** |
+| 2006 | 150 | 584 | 6.0k | 2.9k | -6.4k | -1.4k | 96 | 1.5k | 49 | 2.6k | 7.0k | 4.2k | **17.3k** |
+| 2007 | 1.4k | 4.8k | 1.7k | 10.5k | -2.1k | -1.3k | -2.9k | 213 | 15.7k | -2.2k | -620 | -896 | **24.4k** |
+| 2008 | · | 969 | -1.0k | 3.0k | 10.5k | 1.7k | -2.2k | -4.6k | · | · | -429 | 246 | **8.2k** |
+| 2009 | -593 | · | · | · | 4.2k | 297 | -346 | 16.9k | 691 | 475 | 4.8k | 882 | **27.3k** |
+| 2010 | 418 | 4.9k | 13.7k | -2.4k | -1.1k | · | -94 | 2.8k | 5.5k | 145 | 13.7k | 3.6k | **41.1k** |
+| 2011 | -5 | 7.6k | -1.0k | 3.9k | -371 | · | 320 | · | -706 | · | -1.1k | 631 | **9.2k** |
+| 2012 | 6.9k | 1.8k | 3 | -3.2k | -711 | 13.7k | 266 | 6.7k | 2.5k | -616 | -105 | 2.2k | **29.4k** |
+| 2013 | -864 | 3.5k | -390 | 3.5k | 13.7k | · | 5.5k | 632 | 681 | 8.3k | -177 | 204 | **34.6k** |
+| 2014 | -1.2k | 4.3k | -1.3k | 956 | 6.4k | 7.7k | 63 | -1.4k | -1.7k | 5.1k | 2.5k | -2.7k | **18.7k** |
+| 2015 | 15.4k | 7.6k | -899 | 481 | 980 | 536 | · | -1.2k | · | 4.8k | 1.4k | -1.3k | **27.8k** |
+| 2016 | · | -36 | 15 | -559 | 837 | -594 | 4.0k | 9.4k | 474 | -1.0k | 42 | -803 | **11.7k** |
+| 2017 | -495 | 2.5k | 3.6k | 7.4k | 3.9k | 3.5k | -45 | -802 | -3.2k | 3.8k | -3.3k | -3.3k | **13.7k** |
+| 2018 | 359 | · | 277 | 4.2k | 9.2k | -3.7k | 7.0k | 7.0k | 428 | · | 1.8k | -3.6k | **23.0k** |
+| 2019 | 2.7k | 99.6k | -2.9k | 6.2k | -35 | 954 | -2.2k | · | -1.4k | -1.1k | 7.1k | -5.4k | **103.6k** |
+| 2020 | 2.7k | -12.9k | · | 1.5k | 8.6k | 4.8k | 2.3k | -9.5k | · | -280 | -354 | 60.5k | **57.3k** |
+| 2021 | 32.3k | -24.6k | -3.0k | -4.1k | 3.8k | -7.5k | -357 | 15.5k | 1.2k | -95 | -3.1k | -431 | **9.5k** |
+| 2022 | · | -665 | 2.2k | · | -1.3k | 596 | 1.0k | -338 | · | -276 | 2.6k | 1.5k | **5.3k** |
+| 2023 | -1.1k | -583 | · | 170 | 1.3k | 7.1k | -4.0k | -1.1k | 364 | · | 2.4k | 7.8k | **12.4k** |
+| 2024 | 5.1k | 3.1k | -1.4k | 3.9k | 272 | · | -744 | 51 | -1.2k | 6.0k | -3.7k | -1.6k | **9.7k** |
+| 2025 | -1.1k | -2.5k | · | 26 | 380 | 4.8k | -5.6k | -714 | 12.8k | -7.3k | -171 | -2.0k | **-1.6k** |
+| 2026 | 28.8k | -2.1k | -1.0k | 1.5k | 1.3k | · | · | · | · | · | · | · | **28.5k** |
+
+`·` = no trades that month. 135 / 230 months positive (58.7%); worst month −$24.6k (Feb 2021,
+the post-blow-off unwind); best month +$99.6k (Feb 2019). Outlier months are upside (Feb 2019,
+Dec 2020 +$60k, Jan 2021/2026 ~+$30k), not catastrophic downside — the tight entry gate keeps the
+left tail shallow.
+
+</details>
 
 ---
 
@@ -2705,91 +2783,12 @@ move is gone. The closing-high gate enters *earlier* (above the prior closing hi
 intraday wick — the 0–10% "dead zone above the high"), which is where the edge is. Cleaner-resistance ≠
 better-entry. **Decision: keep the closing-high default;** `--use-52w-high` stays as an opt-in research flag.
 
----
-
-## Yearly breakdown — PRE-time-stop default (window-low stop-4), filtered (flat $10k/trip, by entry year)
-
-> **Which system:** this is the production default *as it stood before the 2026-06-19 stop-mechanics
-> rework* — **window-low trailing stop (stop-window 4), next-open exit, expansion off, ATR% < 0.11,
-> log-tightness < 4.0, entry-move ≥ 10%**, + breadth (lag-1 pct_above_20 > 0.5) + entry ≥ 2005. It is the
-> `≥ 10%` headline row above (**2,260 trips, PF 1.734, +$520,641, 58.7% positive months**). It is **not**
-> the new default (5-day time-stop, no price stop — PF 1.775 / era-split 1.881·1.848); the time-stop
-> system's own yearly/monthly breakdown has not yet been generated.
-
-| year | trips | win% | PF | net |
-| ---: | ---: | ---: | ---: | ---: |
-| 2005 | 100 | 50% | 1.38 | +9,277 |
-| 2006 | 130 | 39% | 1.61 | +17,275 |
-| 2007 | 109 | 43% | 1.87 | +24,381 |
-| 2008 | 34 | 59% | 1.73 | +8,161 |
-| 2009 | 51 | 53% | 3.71 | +27,346 |
-| 2010 | 123 | 53% | 2.37 | +41,138 |
-| 2011 | 82 | 43% | 1.42 | +9,226 |
-| 2012 | 73 | 52% | 3.19 | +29,421 |
-| 2013 | 181 | 47% | 1.69 | +34,559 |
-| 2014 | 107 | 50% | 1.65 | +18,738 |
-| 2015 | 86 | 51% | 2.45 | +27,830 |
-| 2016 | 88 | 43% | 1.81 | +11,748 |
-| 2017 | 138 | 46% | 1.35 | +13,744 |
-| 2018 | 127 | 54% | 1.73 | +23,002 |
-| 2019 | 93 | 49% | 4.80 | +103,596 |
-| 2020 | 149 | 42% | 1.81 | +57,348 |
-| 2021 | 191 | 36% | 1.09 | +9,529 |
-| 2022 | 33 | 45% | 1.34 | +5,329 |
-| 2023 | 71 | 51% | 1.59 | +12,368 |
-| 2024 | 127 | 40% | 1.21 | +9,694 |
-| 2025 | 119 | 39% | 0.97 | −1,570 |
-| 2026 | 48 | 46% | 2.75 | +28,501 |
-
-**21 of 22 years positive** (only 2025 fractionally red at −$1.6k). Crucially, the edge is now
-*spread across years* rather than concentrated: 2021's COVID-bubble names — which dominated the old
-system — are largely filtered out by the tight ATR%/tightness gates (2021 is only +$9.5k here),
-and 2020 is solidly positive (+$57k) on the next-open exits getting clear of the March crash. The
-two biggest years (2019 +$104k, 2020 +$57k) are real momentum regimes, not a single blow-off.
-
-<details>
-<summary>Full monthly breakdown — net P&L by year × month ($k), flat sizing, by entry month — click to expand</summary>
-
-| year | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec | **year** |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 2005 | 747 | -2.5k | -876 | · | 796 | 3.2k | 9.3k | 97 | 702 | -378 | -1.1k | -632 | **9.3k** |
-| 2006 | 150 | 584 | 6.0k | 2.9k | -6.4k | -1.4k | 96 | 1.5k | 49 | 2.6k | 7.0k | 4.2k | **17.3k** |
-| 2007 | 1.4k | 4.8k | 1.7k | 10.5k | -2.1k | -1.3k | -2.9k | 213 | 15.7k | -2.2k | -620 | -896 | **24.4k** |
-| 2008 | · | 969 | -1.0k | 3.0k | 10.5k | 1.7k | -2.2k | -4.6k | · | · | -429 | 246 | **8.2k** |
-| 2009 | -593 | · | · | · | 4.2k | 297 | -346 | 16.9k | 691 | 475 | 4.8k | 882 | **27.3k** |
-| 2010 | 418 | 4.9k | 13.7k | -2.4k | -1.1k | · | -94 | 2.8k | 5.5k | 145 | 13.7k | 3.6k | **41.1k** |
-| 2011 | -5 | 7.6k | -1.0k | 3.9k | -371 | · | 320 | · | -706 | · | -1.1k | 631 | **9.2k** |
-| 2012 | 6.9k | 1.8k | 3 | -3.2k | -711 | 13.7k | 266 | 6.7k | 2.5k | -616 | -105 | 2.2k | **29.4k** |
-| 2013 | -864 | 3.5k | -390 | 3.5k | 13.7k | · | 5.5k | 632 | 681 | 8.3k | -177 | 204 | **34.6k** |
-| 2014 | -1.2k | 4.3k | -1.3k | 956 | 6.4k | 7.7k | 63 | -1.4k | -1.7k | 5.1k | 2.5k | -2.7k | **18.7k** |
-| 2015 | 15.4k | 7.6k | -899 | 481 | 980 | 536 | · | -1.2k | · | 4.8k | 1.4k | -1.3k | **27.8k** |
-| 2016 | · | -36 | 15 | -559 | 837 | -594 | 4.0k | 9.4k | 474 | -1.0k | 42 | -803 | **11.7k** |
-| 2017 | -495 | 2.5k | 3.6k | 7.4k | 3.9k | 3.5k | -45 | -802 | -3.2k | 3.8k | -3.3k | -3.3k | **13.7k** |
-| 2018 | 359 | · | 277 | 4.2k | 9.2k | -3.7k | 7.0k | 7.0k | 428 | · | 1.8k | -3.6k | **23.0k** |
-| 2019 | 2.7k | 99.6k | -2.9k | 6.2k | -35 | 954 | -2.2k | · | -1.4k | -1.1k | 7.1k | -5.4k | **103.6k** |
-| 2020 | 2.7k | -12.9k | · | 1.5k | 8.6k | 4.8k | 2.3k | -9.5k | · | -280 | -354 | 60.5k | **57.3k** |
-| 2021 | 32.3k | -24.6k | -3.0k | -4.1k | 3.8k | -7.5k | -357 | 15.5k | 1.2k | -95 | -3.1k | -431 | **9.5k** |
-| 2022 | · | -665 | 2.2k | · | -1.3k | 596 | 1.0k | -338 | · | -276 | 2.6k | 1.5k | **5.3k** |
-| 2023 | -1.1k | -583 | · | 170 | 1.3k | 7.1k | -4.0k | -1.1k | 364 | · | 2.4k | 7.8k | **12.4k** |
-| 2024 | 5.1k | 3.1k | -1.4k | 3.9k | 272 | · | -744 | 51 | -1.2k | 6.0k | -3.7k | -1.6k | **9.7k** |
-| 2025 | -1.1k | -2.5k | · | 26 | 380 | 4.8k | -5.6k | -714 | 12.8k | -7.3k | -171 | -2.0k | **-1.6k** |
-| 2026 | 28.8k | -2.1k | -1.0k | 1.5k | 1.3k | · | · | · | · | · | · | · | **28.5k** |
-
-`·` = no trades that month. 135 / 230 months positive (58.7%); worst month −$24.6k (Feb 2021,
-the post-blow-off unwind); best month +$99.6k (Feb 2019). Outlier months are upside (Feb 2019,
-Dec 2020 +$60k, Jan 2021/2026 ~+$30k), not catastrophic downside — the tight entry gate keeps the
-left tail shallow.
-
-</details>
-
----
-
 ## Reproduction
 
 ```bash
 # v2 default (2026-06-20): NO price stop, 5-day time-stop, next-open exit (cap=0, no
 # trailing limit, expansion off); entry filters ATR% < 0.11 (log), tightness < 4.5
-# (linear), entry-move floor 10%, rvol [6,20].
+# (linear), entry-move floor 10%, rvol [5,15].
 # Run from dataset start for the 252-day warmup; filter entries to >=2005 post-hoc.
 dotnet run --project TradingEdge.MomentumV2 -c Release -- \
   --start-date 2003-09-10 --end-date 2026-05-13 -o /tmp/v2.csv

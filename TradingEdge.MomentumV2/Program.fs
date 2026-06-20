@@ -98,8 +98,8 @@ type Args =
             | Disaster_Loss _ -> "Disaster exit: loss threshold — fire only when gain-from-entry is below this (default -0.10)."
             | Side _ -> "Trade direction: 'long' (default) or 'short'. Short trails the stop along the prior-window HIGH and flips the P&L sign."
             | Tightness_Mode _ -> "Tightness measure for the entry filter + expansion exit: 'log' (default) or 'linear'. Thresholds differ between modes."
-            | Rvol_Min _ -> "Minimum relative volume at entry. Default 6.0 (production)."
-            | Rvol_Max _ -> "Maximum relative volume at entry. Default 20.0 (production)."
+            | Rvol_Min _ -> "Minimum relative volume at entry. Default 5.0 (production)."
+            | Rvol_Max _ -> "Maximum relative volume at entry. Default 15.0 (production; caps the toxic 15+ exhaustion tail)."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 

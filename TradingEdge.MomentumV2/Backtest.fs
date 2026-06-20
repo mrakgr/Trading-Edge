@@ -103,8 +103,13 @@ let defaultConfig =
           // floor improves PF, %-positive months, worst month AND max drawdown together
           // (1.64→1.73 PF, −$41k→−$36k DD); only raw P&L drops (= less exposure).
         { UpThreshold = 0.10
-          RvolMin = 6.0
-          RvolMax = 20.0
+          // rvol band 2026-06-20: 6→5 floor, 20→15 cap. rvol 5 is enough for a
+          // significant move; the upper cap drops the toxic 15+ exhaustion tail
+          // (rvol decile 10, PF 0.92 / mean −$34 / post 0.84 — a net loser). The
+          // edge ramps cleanly with rvol up to ~15 (clipped-PF + median both monotone),
+          // then inverts — same blow-off shape as 30%+ single-day moves.
+          RvolMin = 5.0
+          RvolMax = 15.0
           MinPriorDays = 21
           MinAvgDollarVolume = 100_000.0
           Min52wPct = 0.95
