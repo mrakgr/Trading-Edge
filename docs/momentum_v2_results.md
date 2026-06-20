@@ -2239,92 +2239,94 @@ entry-ATR% filter and the past-runner signal stack.
 
 **Implication / next step:** a **max-ret-6mo (or max-ADR) entry floor or sizing input** is a strong
 candidate — it adds orthogonal signal to the current ATR%/tightness gates, especially as a *partner* to
-entry-ATR% (cut volatile-but-no-history entries, which are pure fakeouts). max-ret looks like the better of
-the three. **⚠️ But it is NOT a standalone edge — see the gate-dependence result below: under the loose
-gate the top decile INVERTS to a loser. It needs the production rvol/move floor underneath it.** Not yet
-wired into the engine — to be designed and swept next; mind the thin top-bucket n and the win%-vs-PF fat tail.
+entry-ATR% (cut volatile-but-no-history entries, which are pure fakeouts). max-ret looks like the better measure.
+**It is a genuine edge under the full default** — monotone and era-robust, strongest at the top, on both
+the production AND the loose gate once the entry ATR%/tightness caps are applied (see the gate-amplified
+result below; the earlier "loose-gate inversion" was a caps-off artifact). Not yet wired into the engine —
+to be designed and swept next; mind the thin top-decile n and the win%-vs-PF fat tail.
 
-#### ⚠️ The past-runner edge is GATE-DEPENDENT — monotone under production, inverts under the loose gate (2026-06-20)
+#### The past-runner edge is GATE-AMPLIFIED, monotone on BOTH gates — with the ATR%/tightness caps ON (2026-06-20)
 
-> The breakdown above used coarse fixed bins on the production gate. Re-ran it with **even-sized deciles**
-> (NTILE 10 on each measure, ~278 trips/decile production, ~2,360 loose) on **both gates**. Going forward we
-> keep the two stronger measures — **max ATR% 6mo** (true-range, gap-aware) and **max ret/slope** — and drop
-> range-based max ADR (the weaker, redundant cousin). The deciles expose what the fixed bins hid: the
-> signal's high end is **only an edge under the production gate** (rvol [6,20], move ≥ 10%).
+> ⚠️ **Corrected.** The first version of this section read the loose-gate deciles off the loose CSV with
+> the entry **ATR%/tightness caps OFF** (disabled to populate the grid), and wrongly concluded the loose
+> top decile "inverts to a net loser." That was an artifact: the `ATR% < 0.11` cap removes the violent-
+> history blow-off cohort, and *with the cap on* the inversion vanishes. Re-ran with even-sized **deciles**
+> (NTILE 10) and the **real entry caps applied on both gates** (ATR% < 0.11, tight < 4.5). Keep the two
+> stronger measures — **max ATR% 6mo** (true-range) and **max ret/slope** — dropping range-based max ADR.
 
-**PRODUCTION gate — clean monotone rise, top decile strongest (post-2015 holds):**
+**PRODUCTION gate (caps on) — clean monotone rise, top decile strongest:**
 
-| decile (range) | max ATR% 6mo: PF | post | | max ret/slope: PF | post |
+| decile | max ATR% 6mo: PF | post | | max ret/slope: PF | post |
 |---|--:|--:|---|--:|--:|
 | D1 (lowest) | 1.155 | 0.949 | | 1.48 | 1.554 |
 | D5 | 1.825 | 1.651 | | 1.825 | 1.668 |
 | D6 | 1.797 | 1.756 | | 2.047 | 1.995 |
-| D8 | 1.940 | 1.907 | | 1.739 | 1.852 |
 | D9 | 1.965 | 2.100 | | 1.989 | 2.328 |
 | **D10 (highest)** | **2.834** (mean $822) | **2.647** | | **2.697** (mean $749) | **2.676** |
 
-**LOOSE gate — flat/inverted; the top decile is a NET LOSER (slope) or dead (ATR%):**
+**LOOSE gate (caps on) — also monotone-up; top decile is the STRONGEST, NOT a loser:**
 
-| decile (range) | max ATR% 6mo: PF | post | | max ret/slope: PF | post |
+| decile | max ATR% 6mo: PF | post | | max ret/slope: PF | post |
 |---|--:|--:|---|--:|--:|
-| D1 (lowest) | 1.009 | 1.084 | | 1.163 | 1.06 |
-| D5 (spike) | 2.150 | 1.160 | | 1.173 | 1.099 |
-| D6 | 1.310 | 1.216 | | 1.955 | 1.199 |
-| D9 | 1.204 | 1.130 | | 1.205 | 1.195 |
-| **D10 (highest)** | **1.030** (mean $29) | **0.987** | | **0.879** (mean −$125) | **0.851** |
+| D1 (lowest) | 1.112 | 1.274 | | 1.297 | 1.239 |
+| D5 | 1.219 | 0.995 | | 1.264 | 1.217 |
+| D6 | 2.111 | 1.261 | | 1.232 | 1.192 |
+| D9 | 1.538 | 1.497 | | 1.563 | 1.703 |
+| **D10 (highest)** | **1.874** (mean $380) | **1.777** | | **1.706** (mean $314) | **1.692** |
 
-**Why:** the gates differ by the rvol [6,20] band + 10%-move floor. On the loose gate a high-ATR%/high-slope
-name can trigger on a *weak* signal (rvol 3, a 5% move) — i.e. an extreme-volatility stock breaking out on
-**no real demand**, the classic fakeout. The production floor filters exactly those, keeping only past
-runners that are *also* breaking out with conviction *today*. So the "ran before" signal is **worthless-to-
-negative at the extreme without the 'running now, with volume' half** — same complementarity as the
-within-ATR cross-tab, now shown from the other side. The earlier "monotone to PF 3.6" headline was a
-production-gate-only result that the fixed top bin made look universal.
+**It's gate-AMPLIFIED, not gate-dependent.** With the caps on, the top decile is the best cell on *both*
+gates and never a loser — the production gate just sharpens it (D10 ~2.7–2.8 vs loose ~1.7–1.9). The earlier
+"loose-gate inversion" was entirely the missing ATR% cap letting the violent-history fakeout tail back in.
+The `ATR% < 0.11` entry cap and the past-runner signal point the same way: both want a stock with a real
+volatility history but *not* the uncapped blow-off extreme.
 
-**Upshot:** max-ATR%/max-ret is a **multiplier on the production entry, not a replacement for the gate.** A
-future max-ret floor must sit *on top of* rvol [6,20] + move ≥ 10% — you cannot loosen the gate and lean on
-the past-runner measure to recover quality. (Note also a recurring **early-decile spike**, PF ~2–3
-*pre-2015* in both
-measures/gates — a pre-2015 concentration; don't over-read that single decile.)
+**Upshot:** max-ATR%/max-ret is a genuine **edge under the full default** (caps + gate), monotone and
+era-robust, strongest at the top. The production gate amplifies it but the loose gate doesn't kill it — so a
+max-ret floor is a sound signal to build *on top of* the existing entry. (Note a stray **D6 spike** in a
+couple of cells, PF ~2 driven *pre-2015* — a concentration; don't over-read single deciles.)
 
-#### Which half of the gate recovers it? → the RVOL floor, not the move floor (2026-06-20)
+#### Which half of the gate matters? → both floors help and STACK — with the ATR%/tightness caps ON (2026-06-20)
 
-> The production gate is two things: move ≥ 10% *and* rvol [6,20]. Decomposed them — held one at the loose
-> value, raised the other — to see which recovers the monotone past-runner effect. Quintiles (NTILE 5) on
-> the loose-CSV population (no entry ATR%/tightness cap, so absolute PFs run low; the *relative* gate effect
-> is the point), breadth + ≥2005.
+> ⚠️ **Correction.** An earlier version of this section ran the move/rvol decomposition on the loose CSV
+> with the entry **ATR%/tightness caps OFF** (they'd been disabled to populate the volatility grid). That
+> was wrong — the `ATR% < 0.11` cap already removes the violent-history fakeout tail, so the caps-off run
+> mismeasured both the level *and the shape* of the gate effect (it falsely showed the move floor doing
+> nothing, the top quintile losing, and production *worse* than rvol-only). **Redone here with the real
+> caps applied throughout** (ATR% < 0.11, tight < 4.5); only move/rvol are varied. Quintiles (NTILE 5),
+> breadth + ≥2005.
 
-**Whole-system PF by gate (no quintiles):**
+**Whole-system PF by gate (ATR%/tightness caps ON):**
 
 | gate | n | PF |
 |---|--:|--:|
-| move ≥ 5%, rvol [3,20] (loose) | 23,613 | 1.179 |
-| move ≥ 10%, rvol [3,20] | 11,358 | **1.180** ← move floor adds nothing |
-| move ≥ 5%, rvol [6,20] | 6,934 | **1.232** ← rvol floor is the quality lever |
-| move ≥ 10%, rvol [6,20] (prod) | 4,744 | 1.206 |
+| loose: move ≥ 5%, rvol [3,20] | 14,245 | 1.432 |
+| move-only: move ≥ 10%, rvol [3,20] | 6,524 | **1.681** |
+| rvol-only: move ≥ 5%, rvol [6,20] | 4,194 | **1.643** |
+| **PROD**: move ≥ 10%, rvol [6,20] | 2,780 | **1.795** |
 
-**Top-quintile (Q5) PF of the slope measure, across the four gates — the diagnostic:**
+**Top-quintile (Q5) PF of the slope measure, across the four gates:**
 
 | gate | Q5 PF | Q5 post | Q5 mean $ |
 |---|--:|--:|--:|
-| move ≥ 5%, rvol [3,20] (loose) | 0.879 | 0.851 | −125 |
-| **move ≥ 10%, rvol [3,20]** | 0.923 | 0.892 | −79 ← raising the move floor barely moves it |
-| **move ≥ 5%, rvol [6,20]** | **1.085** | **1.081** | +84 ← the rvol floor flips it positive |
-| move ≥ 10%, rvol [6,20] (prod) | 0.962 | 0.95 | −44 |
+| loose: move ≥ 5%, rvol [3,20] | 1.645 | 1.697 | +250 |
+| move-only: move ≥ 10%, rvol [3,20] | 1.882 | 1.854 | +373 |
+| rvol-only: move ≥ 5%, rvol [6,20] | 2.107 | 2.246 | +413 |
+| **PROD**: move ≥ 10%, rvol [6,20] | **2.404** | **2.547** | **+528** |
 
-**Findings:**
-1. **The rvol ≥ 6 floor is the lever, not the move floor.** Raising move 5% → 10% (rvol still 3) leaves both
-   whole-system PF (1.179 → 1.180) and the slope top-quintile (0.88 → 0.92, still losing) ~unchanged.
-   Raising rvol 3 → 6 (move still 5%) lifts whole-system PF to 1.232 and flips the top quintile from −$125
-   to +$84. Mechanistic: a violent-history name needs *volume confirmation* to not be a fakeout; a 10% move
-   is cleared trivially by a high-ATR stock's own noise, so the move floor doesn't separate real from fake.
-2. **⚠️ Layering the move floor ON TOP of rvol ≥ 6 slightly HURTS the extreme.** Full production Q5 (0.962)
-   is *worse* than rvol-only-with-loose-move (1.085); whole-system 1.206 < 1.232. Among rvol ≥ 6 names, the
-   high-slope ones that *also* require a 10% move today are the hardest blow-off entries, which mean-revert.
-3. **Revised design implication:** rvol ≥ 6 is **essential infrastructure** under any max-ret/max-ATR
-   signal — but "higher is always better" is false at the extreme. The edge concentrates in the
-   **upper-middle**; the topmost quintile is fragile even under the full gate. A max-ret *band* or cap may
-   beat a pure floor, and the move floor should not be assumed to help the past-runner names specifically.
+**Findings (caps on — the real system):**
+1. **Both floors help and they STACK cleanly.** Whole-system: 1.432 → move-only 1.681 / rvol-only 1.643 →
+   prod 1.795. Slope Q5: 1.645 → 1.882 / 2.107 → **2.404**. Each tightening step raises PF; no inversion.
+   The move and rvol floors contribute comparably (rvol a touch more at the top), and combine additively.
+2. **The top quintile is NEVER a loser with the caps on** — even on the loose gate it's PF 1.645 (+$250),
+   vs the broken caps-off run's −$125. The `ATR% < 0.11` cap is what removes the violent-history blow-off
+   cohort that made the top decile invert; once it's gone, "more past-runner is better" holds at the top.
+3. **The full PROD slope ladder is monotone and era-robust:** Q1 1.30 → Q3 1.94 → Q5 **2.40** (post-2015
+   Q5 **2.55**). Under the real default, the past-runner edge is strongest at the extreme — opposite of the
+   caps-off artifact.
+
+**Design implication (revised):** a max-ret/max-ATR signal works *on top of* the full production entry
+(both floors + ATR%/tightness caps), and **"higher is better" holds** — a floor on max-ret is sensible, no
+need for a band/cap. The rvol and move floors are both pulling their weight; neither is redundant.
 
 ---
 
