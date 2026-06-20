@@ -114,17 +114,19 @@ let defaultConfig =
           // is a clean interior optimum: total P&L peaks there and falls off both sides —
           // see "Filter-ceiling sweep" 2026-06-20). Tightness is LINEAR (TightnessMode =
           // Linear above).
-          // 2026-06-20: RAISED 4.0 → 5.5 (capacity over PF). On the PRODUCTION gate
-          // (price% ≥ 0.10, rvol [6,20]) loosening to 5.5 gives +59% trips (2,233 → 3,550)
-          // and +40% P&L (+$501k → +$701k) for −0.15 PF (1.859 → 1.711); post-2015 PF
-          // stays strong at 1.678 (vs 1.848 at <4.0). NOTE the gate-dependence: on the
-          // LOOSE gate (price% ≥ 0.05, rvol [3,20]) this same loosening DEGRADES post-2015
-          // PF (the 5.0–5.5 sub-band reverts to PF 1.23 post-2015) — the production
-          // move/rvol floor is what keeps the loose-tightness names clean (5.0–5.5 holds
-          // post-2015 PF 1.45 under the prod gate). The 4.5–5.0 sub-band is the soft spot
-          // we swallow to reach the good 5.0–5.5 band. <4.0 stays the max-PF / min-DD
-          // choice (PF 1.859, post 1.848); 5.5 is the max-capacity choice.
-          MaxTightness = 5.5
+          // 2026-06-20: RAISED 4.0 → 4.5 (the clean half of the capacity gain). On the
+          // PRODUCTION gate (price% ≥ 0.10, rvol [6,20]), tightness bands by era show the
+          // 4.0–4.5 increment is clean (post-2015 PF 1.808 ≈ the <4.0 core's 1.848) while
+          // the NEXT band 4.5–5.0 is the soft spot (post-2015 PF 1.222). So 4.5 takes the
+          // +24% trips (2,233 → 2,780) / +$79k P&L for almost no quality loss (PF 1.859 →
+          // 1.795, post 1.848 → 1.808, mean $225 → $209) and STOPS before the drag.
+          // Pushing to 5.5 adds more capacity (3,550 trips, +$701k) but pays for it —
+          // post-2015 PF 1.678, mean $197 — by carrying the 4.5–5.0 soft band plus the
+          // spiky 5.0–5.5 one. <4.0 remains the max-PF / min-DD choice (PF 1.859, post
+          // 1.848); <5.5 is the max-capacity choice. Gate-dependence: on the LOOSE gate
+          // (price% ≥ 0.05, rvol [3,20]) loosening past 4.0 degrades post-2015 PF (5.0–5.5
+          // reverts to 1.23) — the prod move/rvol floor is what keeps these names clean.
+          MaxTightness = 4.5
           MaxAtrPct = 0.11 } }
 
 /// A finished trip, ready for the CSV. Mirrors v0's base trip columns so the
