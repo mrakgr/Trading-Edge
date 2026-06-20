@@ -2451,6 +2451,56 @@ both the strongest and the most post-2015-durable, and the within-Q5 edge is mon
 the marginally better sort variable; max slope is close and more intuitive. Next: wire one measure into the
 engine as an entry floor and sweep the threshold (same count-vs-PF trade as the tightness ceiling).
 
+#### ⭐ Entry-day move-floor sweep — bigger breakouts are better up to ~27.5%, then a CLIFF at 30% (2026-06-20)
+
+> Does raising the entry-day move threshold (default 10%) help, and where does it stop? Swept the floor
+> post-hoc on the loose CSV holding everything else at default (ATR% < 0.11, tight < 4.5, breadth, ≥2005),
+> for **both rvol gates** (≥6 production, ≥3 loose). PF / mean-$ / pre / post-2015; watch n thinning.
+
+**Production rvol [6,20]:**
+
+| move floor | n | PF | mean $ | total $ | PF post |
+|---|--:|--:|--:|--:|--:|
+| **0.10 (current)** | 2,780 | 1.795 | 209 | 580k | 1.808 |
+| 0.125 | 2,202 | 1.847 | 235 | 517k | 1.916 |
+| 0.15 | 1,698 | 1.887 | 260 | 442k | 1.977 |
+| 0.175 | 1,301 | 1.930 | 290 | 378k | 2.034 |
+| 0.20 | 979 | 1.978 | 331 | 324k | 2.109 |
+| 0.25 | 593 | 2.156 | 422 | 250k | 2.274 |
+| **0.275 (peak)** | 470 | **2.306** | **479** | 225k | **2.458** |
+| **0.30 (cliff)** | 364 | **1.536** | 209 | 76k | **1.460** |
+| 0.40 | 142 | 1.942 | 404 | 57k | 1.639 (pre 4.03) |
+
+**Loose rvol [3,20]:**
+
+| move floor | n | PF | mean $ | total $ | PF post |
+|---|--:|--:|--:|--:|--:|
+| 0.10 | 6,524 | 1.681 | 195 | 1.27M | 1.508 |
+| 0.15 | 3,061 | 1.676 | 218 | 666k | 1.625 |
+| 0.20 | 1,427 | 1.832 | 306 | 436k | 1.870 |
+| 0.25 | 771 | 1.904 | 371 | 286k | 1.985 |
+| **0.275 (peak)** | 582 | **2.037** | **415** | 242k | **2.217** |
+| **0.30 (cliff)** | 436 | **1.493** | 209 | 91k | **1.488** |
+| 0.40 | 163 | 1.770 | 354 | 58k | 1.600 (pre 2.62) |
+
+**Findings:**
+1. **PF rises monotonically up to ~27.5%, then falls off a CLIFF at 30%** — on *both* gates, in *both*
+   eras. Production: PF 1.795 → **2.306** at 0.275, crashes to **1.536** at 0.30. Loose: 1.681 → **2.037**
+   → **1.493**. The ~106 trades in the 0.275–0.30 band are catastrophic (they drag prod PF 2.31 → 1.54).
+2. **The mean-$ tell confirms it's exhaustion-buying:** mean winner shrinks $479 → $209 across the 30% wall.
+   The ≥30% single-day moves aren't just lower win-rate — they're *smaller average winners*: blow-off /
+   exhaustion gaps that revert. **Don't buy breakouts ≥ 30% in a day.**
+3. **rvol ≥ 6 stays ahead at every move floor** — at 0.25 it's 2.156 vs rvol≥3's 1.904 (post 2.274 vs
+   1.985). The move floor does *not* substitute for the volume gate (consistent with the gate decomposition:
+   rvol cleans the low end, move sharpens the high end — complementary). But a steep move floor on the loose
+   gate gets most of the way back: **rvol≥3 + move≥0.25 (PF 1.904 / post 1.985) beats the current default**
+   rvol≥6 + move≥0.10 (1.795 / 1.808) — a different point on the same quality-vs-capacity frontier.
+4. **⚠️ Capacity cost is brutal.** Production 0.10 → 0.275 = **−83% trips (2,780 → 470), −61% total P&L**
+   ($580k → $225k) for +0.51 PF. This is the *opposite* lever to the tightness 4.0 → 4.5 decision (where we
+   took −0.06 PF for +25% trips, capacity over PF). Given capacity is the binding constraint, raising the
+   move *default* much past 0.10–0.15 is dubious — but the 20–27.5% movers are prime **size-up** candidates,
+   and the **30% wall is a hard exclusion** worth applying regardless.
+
 ---
 
 ## Yearly breakdown — PRE-time-stop default (window-low stop-4), filtered (flat $10k/trip, by entry year)
