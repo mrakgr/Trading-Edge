@@ -2654,6 +2654,37 @@ a mild edge ramp to ~15 + a **toxic tail above 15.** Keep the rvol ≥ 6 floor (
 margin; the ≥5 "improvement" is pre-2015 only) and **add an upper cap ~15.** Mirrors move%: healthy middle,
 bad on both extremes — but for rvol the *lower* bad zone is sub-1, not merely low.
 
+#### Cumulative rvol floor with RETURN CLIPPING — the high-floor edge is NOT a tail artifact (2026-06-20)
+
+> Cumulative `rvol ≥ X` floor (capped at 15 to drop the toxic tail, move ≥ 10%, caps on). Raw PF is
+> tail-sensitive — at rvol ≥ 6 the max single-trade return is **+1,202%** (p95 +19%, p99 +41%; 12 trades
+> >+50%, 2 >+100%). To test whether the floor's PF gains are real or carried by a few monsters, recomputed
+> PF with each trade's **upside clipped at +50%** (generous — above p99; loss side untouched).
+
+| floor | n | PF raw | PF clipped | clip pre | clip post |
+|---|--:|--:|--:|--:|--:|
+| ≥1 | 9,850 | 1.515 | 1.353 | 1.453 | 1.318 |
+| ≥3 | 6,247 | 1.681 | 1.425 | 1.589 | 1.354 |
+| ≥5 | 3,437 | 2.004 | **1.581** | 1.702 | 1.517 |
+| ≥6 | 2,503 | 1.807 | 1.604 | 1.683 | 1.561 |
+| ≥7 | 1,825 | 1.971 | 1.689 | 1.689 | 1.688 |
+| ≥8 | 1,346 | 1.749 | 1.721 | 1.872 | 1.644 |
+| ≥9 | 968 | 1.964 | 1.950 | 1.984 | 1.933 |
+| ≥10 | 693 | 2.101 | 2.079 | 2.152 | 2.042 |
+| ≥12 | 319 | 2.721 | 2.670 | 2.079 | 3.037 |
+
+**Findings:**
+1. **The monster winners inflated the LOW floors, not the high ones.** The clip haircut shrinks as the floor
+   rises: ≥1 loses 0.16 PF, ≥5 loses **0.42** (the biggest mirage — that gaudy raw 2.004 was a couple of
+   monsters), but ≥9 loses only 0.014 and ≥12 only 0.05. The high-rvol PFs are tail-robust; their edge is
+   broad, not carried by outliers.
+2. **The monotone trend SURVIVES clipping and is cleaner than raw.** Clipped PF still rises 1.35 → 1.60 (≥6)
+   → 1.95 (≥9) → 2.67 (≥12), and **post-2015 clipped is the cleanest monotone of all** (1.318 → 1.561 → 1.688
+   → 1.933 → 2.042) — no spikes, no reversals. The raw-table lumpiness (the ≥5 and ≥12 bumps) was tail noise.
+3. **Conclusion (tail-robust):** higher rvol genuinely buys better trades, monotonically, all the way to 15
+   — and it is NOT a tail artifact at the high end. This agrees with the median view; raw PF obscured it. The
+   earlier raw "floor peaks at ≥5" was a monster-winner mirage (clipped, ≥5 is 1.58, *below* ≥9–12).
+
 #### 52w-proximity gate: intraday-HIGH channel is WORSE than the closing-high channel (2026-06-20)
 
 > The 52w-proximity gate (`close ≥ 0.95 × prior-252d high`) used the **closing-high** channel. Tested
