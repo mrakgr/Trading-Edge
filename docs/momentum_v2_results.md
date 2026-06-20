@@ -2654,6 +2654,26 @@ a mild edge ramp to ~15 + a **toxic tail above 15.** Keep the rvol ≥ 6 floor (
 margin; the ≥5 "improvement" is pre-2015 only) and **add an upper cap ~15.** Mirrors move%: healthy middle,
 bad on both extremes — but for rvol the *lower* bad zone is sub-1, not merely low.
 
+#### 52w-proximity gate: intraday-HIGH channel is WORSE than the closing-high channel (2026-06-20)
+
+> The 52w-proximity gate (`close ≥ 0.95 × prior-252d high`) used the **closing-high** channel. Tested
+> gating on the **intraday-high** channel instead (`Use52wHigh = true`, CLI `--use-52w-high`) — a stricter
+> "above *true* resistance" condition (price must clear the prior year's intraday spike, not just its closing
+> high). Hypothesis: cleaner resistance detection → better entries. **Result: it's worse on every metric.**
+
+| gate | n | PF | total $ | mean $ | PF pre | PF post |
+|---|--:|--:|--:|--:|--:|--:|
+| **closing-high (DEFAULT)** | 2,780 | **1.795** | 580k | 209 | 1.769 | **1.808** |
+| intraday-high (`--use-52w-high`) | 2,555 | 1.511 | 343k | 134 | 1.752 | **1.384** |
+
+The intraday-high gate lowers PF (1.795 → 1.511), cuts P&L 41%, drops mean-$ (209 → 134), and **degrades
+post-2015 specifically** (1.808 → 1.384; pre-2015 is ~flat). The ~225 trips it removes were *better than
+average* (P&L falls more than proportionally). **Why:** the intraday-high condition is satisfied *later* in
+a breakout — by the time price closes above the prior year's intraday wick, the high-edge early part of the
+move is gone. The closing-high gate enters *earlier* (above the prior closing high but still under the old
+intraday wick — the 0–10% "dead zone above the high"), which is where the edge is. Cleaner-resistance ≠
+better-entry. **Decision: keep the closing-high default;** `--use-52w-high` stays as an opt-in research flag.
+
 ---
 
 ## Yearly breakdown — PRE-time-stop default (window-low stop-4), filtered (flat $10k/trip, by entry year)

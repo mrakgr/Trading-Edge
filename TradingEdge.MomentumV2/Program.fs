@@ -26,6 +26,7 @@ type Args =
     | Up_Threshold of float
     | Min_Price of float
     | Min_52w_Pct of float
+    | Use_52w_High
     | No_Entry_Day_Stop
     | Atr_Stop of float
     | Fixed_Stop of float
@@ -72,6 +73,7 @@ type Args =
             | Up_Threshold _ -> "Min entry-day move (close/prevClose-1). Default 0.10. The v0/old-system value was 0.05."
             | Min_Price _ -> "Min entry close price. Default 5.0. Pass 0 to admit sub-$5 names."
             | Min_52w_Pct _ -> "52-week-high proximity: require close >= this * prior-252d-high-close. Default 0.95. 1.0 = strict new high (the old v0 default); 0 drops the gate."
+            | Use_52w_High -> "Gate the 52w-proximity band on the prior-252d INTRADAY HIGH instead of the closing high (stricter 'above true resistance'). Default off (closing-high channel)."
             | No_Entry_Day_Stop -> "Drop the Qulla entry-day-low stop floor; use the trailing prior-window low only (no stop until that window warms)."
             | Atr_Stop _ -> "Use an up-only ATR%%-ratchet trailing stop instead of the window-low rule: stop = max(prev, close - k*ATR%%*close), k = this value. Replaces --stop-low-window / entry-day-low geometry."
             | Fixed_Stop _ -> "Use an up-only FIXED-%% ratchet trailing stop: stop = max(prev, close*(1-p)), p = this fraction (e.g. 0.15). Same trailing machinery as --atr-stop but a constant distance. Mutually exclusive with --atr-stop."
@@ -194,6 +196,7 @@ let main argv =
                   UpThreshold  = parsed.GetResult(Up_Threshold,  defaultValue = defaultConfig.Entry.UpThreshold)
                   MinPrice     = parsed.GetResult(Min_Price,     defaultValue = defaultConfig.Entry.MinPrice)
                   Min52wPct    = parsed.GetResult(Min_52w_Pct,   defaultValue = defaultConfig.Entry.Min52wPct)
+                  Use52wHigh   = parsed.Contains Use_52w_High
                   MaxTightness = parsed.GetResult(Max_Tightness, defaultValue = defaultConfig.Entry.MaxTightness)
                   MaxAtrPct    = parsed.GetResult(Max_Atr_Pct,   defaultValue = defaultConfig.Entry.MaxAtrPct)
                   RvolMin = parsed.GetResult(Rvol_Min, defaultValue = defaultConfig.Entry.RvolMin)

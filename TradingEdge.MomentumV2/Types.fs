@@ -129,7 +129,8 @@ type EntryConfig =
       RvolMax: float            // max rvol (production 20.0)
       MinPriorDays: int         // require barsSeen > this (v0 21)
       MinAvgDollarVolume: float // min avg dollar volume 4w (v0 100_000)
-      Min52wPct: float          // close >= this * hiClose (production 0.95)
+      Min52wPct: float          // close >= this * (hiClose or hiHigh) (production 0.95)
+      Use52wHigh: bool          // gate on prior-252d intraday HIGH instead of closing high (default false)
       MinPrice: float           // close >= this (production 5.0)
       MaxTightness: float       // tightness < this (production 0.30)
       MaxAtrPct: float }        // atr_pct(close) < this (production 0.08)
@@ -418,8 +419,10 @@ type QullaSystem
         && barsSeen > entryCfg.MinPriorDays
         // liquidity floor on avg dollar volume
         && gate sAvgDolVol (fun adv -> adv >= entryCfg.MinAvgDollarVolume)
-        // 52-week-high proximity band on the close channel
-        && gate sHiClose (fun hi -> c >= entryCfg.Min52wPct * hi)
+        // 52-week-high proximity band — on the closing-high channel (default) or the
+        // intraday-high channel (Use52wHigh = true; stricter "above true resistance")
+        && gate (if entryCfg.Use52wHigh then sHiHigh else sHiClose)
+                (fun hi -> c >= entryCfg.Min52wPct * hi)
         // price floor (production)
         && c >= entryCfg.MinPrice
         // consolidation tightness (production)

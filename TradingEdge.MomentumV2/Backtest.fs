@@ -108,6 +108,7 @@ let defaultConfig =
           MinPriorDays = 21
           MinAvgDollarVolume = 100_000.0
           Min52wPct = 0.95
+          Use52wHigh = false
           MinPrice = 5.0
           // Tuned by post-hoc SQL sweep. ATR% is LOG-space (log-true-range; < 0.11 is
           // clear-cut — the high-vol tail is the biggest single drag, and a 0.11 ceiling
