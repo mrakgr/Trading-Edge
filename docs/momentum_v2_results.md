@@ -2966,6 +2966,19 @@ exact medians shift ~0.1pt. The h10 ladder/threshold below are the corrected, au
    breadth/trend (speculative temperature, not direction). Not yet wired into the engine; the heat series is
    a post-hoc DuckDB build (`scripts/equity/heat_breakdown.sql`) — to go live it needs precomputing into a
    parquet like `breadth.parquet` (then gate `heat10 < 0.25` as-of the prior close).
+5. **The mirror measure "COLD" (bottom-1% losers) is the SAME regime axis as heat — redundant, don't wire
+   it.** Built cold identically (mean return of the *bottom* 1% by `PERCENT_RANK ≤ 0.01`, same $1M universe,
+   −100%/+1000% clip, trailing-10d lagged `c10`). Standalone quintile breakdown: the **coldest** quintile
+   (c10 −24% to −15%, a tape whose laggards are in freefall) is the *worst* for our breakouts — median
+   **−0.34%**, win 46.7%, PF 1.24 — i.e. **same direction as heat** (extremes are bad / risk-off), **not** a
+   contrarian capitulation-bounce signal. But it's a weaker tool: **non-monotone** (only the extreme-cold
+   tail matters; Q2–Q5 are PF 1.5–2.0 with no ordering, plus a fat-tail Q3 spike), and **`corr(c10, h10) =
+   −0.646`** — strongly anti-correlated with heat (frothy tape ⇒ shallow losers; fearful tape ⇒ deep losers
+   + tame gainers), so it's largely the *same* signal from the other tail. Decisive test — *within* the
+   heat-kept book (h10 < 0.25), the coldest cohort's badness mostly vanishes (median flips to **+0.59%**, PF
+   1.67 vs 2.49 for the rest): heat already removes the overlapping bad regime. **Keep heat; cold adds
+   little.** (Useful confirmation that the froth/extreme axis is real from both tails — momentum-long systems
+   just read the *froth* tail more cleanly than the *fear* tail.)
 
 #### 52w-proximity gate: intraday-HIGH channel is WORSE than the closing-high channel (2026-06-20)
 
