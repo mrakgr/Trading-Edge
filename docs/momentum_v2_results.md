@@ -2816,6 +2816,47 @@ A reasonable robustness measure (don't be long the next meme-stock climax), but 
 tail-regime defense. (Breadth lag-1 > 0.5 should have caught much of 2021's churn but let these through on
 the up-days — the blow-offs happen *into* strength.)
 
+#### ⭐ "Top-gainer HEAT" — a froth/speculative-temperature timing measure (Sykes-inspired) (2026-06-20)
+
+> A new market-timing measure, orthogonal to the %-above-MA breadth we already gate on. **Daily heat** =
+> mean return of the **top 1% of gainers** that day among stocks with dollar volume ≥ $100k (per-day
+> `PERCENT_RANK ≥ 0.99` over `adj_close/prev−1`; per-stock daily returns clipped at +1000% to kill
+> data-error spikes). Then **smoothed over a trailing window** (swept 5/10/15/20d), **lagged 1 day**
+> (as-of prior close, no lookahead). It measures the *speculative temperature* of the tape — how hot the
+> day's hottest names are running. Series: 5,704 days; daily heat median 19% (p25 14% calm, p99 54% manic).
+
+**Heat quintiles — high heat is BAD for our breakouts (median return, every window):**
+
+| quintile | h5 | h10 | h15 | **h20** |
+|---|--:|--:|--:|--:|
+| Q1 (coolest) | +0.39% | +0.67% | +0.70% | **+0.72%** |
+| Q2 | +0.58% | +0.45% | +0.44% | +0.38% |
+| Q3 | +0.37% | +0.39% | +0.34% | +0.56% |
+| Q4 | 0.00% | +0.23% | +0.11% | −0.08% |
+| **Q5 (hottest)** | **−0.29%** | **−0.47%** | **−0.41%** | **−0.32%** |
+
+**Findings:**
+1. **The froth hypothesis wins over risk-on.** The hottest-heat quintile is the *only* one with a negative
+   median return — in **all four windows**. When the top 1% of gainers have run hot over the prior 1–4
+   weeks, our momentum breakouts buy into a crowded, late-stage tape and the typical trade loses. Cool tape
+   (Q1–Q2) → breakouts run. This generalizes the 2021-pump finding to a continuous regime measure.
+2. **20-day is the best window** — the cleanest monotone median and the sharpest Q1-vs-Q5 separation (Q1 PF
+   2.13 / post 1.99 vs Q5 1.41 / post 1.44). The longer window smooths daily heat noise into a steadier
+   regime read; h5 is noisiest.
+3. **The "froth cut" (exclude top heat-20d quintile) is a strong, cheap filter:**
+
+   | | n | PF | total $ | PF post |
+   |---|--:|--:|--:|--:|
+   | baseline (all heat) | 3,713 | 1.991 | 917k | — |
+   | keep Q1–4 (heat not hot) | 2,971 | **2.233** | 803k | **1.934** |
+   | Q5 only (hot — excluded) | 742 | 1.414 | 113k | 1.439 |
+
+   Cutting the hot-tape quintile lifts PF **1.991 → 2.233** (post-2015 → 1.934) for −20% trips / −12% P&L —
+   a better quality-per-capacity trade than most filters tested. **Orthogonal** to breadth/trend (it's
+   speculative temperature, not direction). Not yet wired into the engine; candidate as an entry gate or a
+   downsize trigger. Heat series is a post-hoc DuckDB build (`scripts/equity/heat_breakdown.sql`); to make
+   it a live gate it needs precomputing into a parquet like `breadth.parquet`.
+
 #### 52w-proximity gate: intraday-HIGH channel is WORSE than the closing-high channel (2026-06-20)
 
 > The 52w-proximity gate (`close ≥ 0.95 × prior-252d high`) used the **closing-high** channel. Tested
