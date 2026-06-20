@@ -2886,7 +2886,8 @@ $1M), but "higher breadth helps up to a mid-high optimum then froths over" is ro
 > A new market-timing measure, orthogonal to the %-above-MA breadth we already gate on. It measures the
 > *speculative temperature* of the tape — how hot the day's hottest names are running.
 >
-> **How the heat filter is calculated (exact, reproducible — `scripts/equity/heat_breakdown.sql`):**
+> **How the heat filter is calculated (exact, reproducible — canonical builder:
+> `scripts/equity/build_breadth_and_heat.sql`; this section's breakdown SQL: `scripts/equity/heat_breakdown.sql`):**
 > 1. **Per-stock daily return** = `adj_close / prev_adj_close − 1`, from `split_adjusted_prices`.
 > 2. **Qualifying universe each day:** **30-calendar-day average dollar volume ≥ $100k** (the project-
 >    standard `avg_dollar_volume_4w` convention — NOT same-day dollar volume) AND a non-null return.

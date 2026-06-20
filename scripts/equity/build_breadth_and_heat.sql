@@ -1,6 +1,10 @@
 -- =============================================================================
 -- Momentum V2 regime filters — BREADTH and HEAT builders (2026-06-20)
 -- =============================================================================
+-- DOCS: explained in docs/momentum_v2_results.md — sections
+--   "Breadth (pct_above_20) cumulative floor ..." and
+--   "Top-gainer HEAT ..." (rationale, sweeps, thresholds, era splits).
+-- =============================================================================
 -- Run against the equities DB:
 --   duckdb -readonly data/trading.db < scripts/equity/build_breadth_and_heat.sql
 -- (uses COPY ... TO to write parquets; if data/trading.db must stay read-only,
