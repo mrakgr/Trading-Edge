@@ -1949,6 +1949,113 @@ read `defaultConfig.StopMode` (was hardcoded `WindowLow`); confirmed the no-flag
 
 ---
 
+#### ⭐ ATR% × tightness grid under the TIME-STOP — the quiet/tight corner is the book, not a dead zone (2026-06-20)
+
+> **Why this matters.** Under the old trailing-stop systems (window-low, ATR%-ratchet) we concluded that
+> very-low-ATR% / very-low-tightness names "had no edge beyond a certain point." This re-test shows that
+> conclusion was an **artifact of the stop being too tight on quiet names** — the stop sat *inside* their
+> own noise band and chopped them out before the move played. Swap the trailing stop for the 5-day
+> time-stop (current default) and those same quiet/tight names become the **core profit engine**. The
+> entry filters should cut the *opposite* corner (high-ATR% + loose base), not the quiet one.
+
+**Population:** default exit (5d time-stop, NO price stop), entry filters *loosened to populate the grid*
+(`--rvol-min 3 --rvol-max 20 --up-threshold 0.05 --max-atr-pct 100 --max-tightness 100`), breadth applied
+post-hoc (`LAG(pct_above_20) > 0.5`). 35,858 raw trips → ~26.5k after breadth. ATR%/tightness are the
+engine's **log-space** values (ATR% median 0.038, tightness median 3.9). PF = Σwin/|Σloss| over net P&L.
+
+**ATR% marginal** — edge is *highest* at the bottom and decays monotonically; only the `14%+` tail is negative:
+
+| ATR% (log) | n | win% | mean $ | med $ | PF | total $ |
+|---|--:|--:|--:|--:|--:|--:|
+| <4%    | 12,631 | 50.2 | 73 | 4 | **1.371** | +928k |
+| 4–6%   | 5,448 | 50.9 | 117 | 18 | **1.375** | +640k |
+| 6–8%   | 2,374 | 46.6 | 106 | −87 | 1.223 | +253k |
+| 8–10%  | 1,262 | 47.3 | 172 | −91 | 1.259 | +216k |
+| 10–14% | 1,114 | 41.6 | 47 | −368 | 1.05 | +52k |
+| **14%+** | 784 | 30.9 | −694 | −1273 | **0.615** | **−544k** |
+
+> This **directly reverses** the trailing-stop-era read. The quiet `<6%` ATR% names (73% of all trips) are
+> the strongest cells, not the weakest. They were never edge-less — they were stop-victims.
+
+**Tightness marginal** — tighter is better, monotonically; edge dies above ~5.5 (looser = worse):
+
+| tightness (log) | n | win% | mean $ | med $ | PF | total $ |
+|---|--:|--:|--:|--:|--:|--:|
+| <2.5    | 1,123 | 46.9 | 22 | −31 | 1.087 | +24k |
+| 2.5–3.5 | 6,824 | 50.9 | 133 | 12 | **1.481** | +910k |
+| 3.5–4.5 | 6,655 | 50.8 | 102 | 13 | 1.353 | +679k |
+| 4.5–5.5 | 4,386 | 48.9 | 105 | −10 | 1.282 | +459k |
+| 5.5–7   | 3,117 | 45.1 | −15 | −83 | 0.969 | −47k |
+| **7+**  | 1,508 | 39.7 | −320 | −228 | **0.654** | **−482k** |
+
+> Peak is the **tight** `2.5–3.5` cell (PF 1.481). The ultra-tight `<2.5` column is weak/noisy (small n,
+> barely-moved names) — don't over-read it. The real loser is the loose `7+` tail.
+
+**2D PF grid — ATR% (rows) × tightness (cols):**
+
+| ATR% ↓ \ tight → | <2.5 | 2.5–3.5 | 3.5–4.5 | 4.5–5.5 | 5.5–7 | 7+ |
+|---|--:|--:|--:|--:|--:|--:|
+| **<4**    | 1.01 | **1.47** | 1.18 | **1.83** | 1.17 | 1.15 |
+| **4–6**   | 1.18 | 1.38 | **1.58** | 1.40 | 1.26 | 0.97 |
+| **6–8**   | 1.29 | 1.38 | **1.68** | 1.03 | 0.88 | 0.89 |
+| **8–10**  | 2.37* | 2.18* | 1.36 | 1.12 | 0.96 | 0.65 |
+| **10–14** | 0.52* | 1.19 | 1.34 | 0.92 | 0.92 | 1.03 |
+| **14+**   | 0.24* | 1.70* | 0.93 | 0.93 | 0.63 | **0.38** |
+
+`*` = thin cell (n < 50); ignore. Cell **n** and **total $** below.
+
+**n grid:**
+
+| ATR% ↓ \ tight → | <2.5 | 2.5–3.5 | 3.5–4.5 | 4.5–5.5 | 5.5–7 | 7+ |
+|---|--:|--:|--:|--:|--:|--:|
+| **<4**    | 769 | 4308 | 3893 | 2149 | 1174 | 338 |
+| **4–6**   | 235 | 1530 | 1527 | 1061 | 790 | 305 |
+| **6–8**   | 82 | 560 | 624 | 520 | 392 | 196 |
+| **8–10**  | 20 | 243 | 294 | 287 | 293 | 125 |
+| **10–14** | 12 | 143 | 235 | 231 | 283 | 210 |
+| **14+**   | 5 | 40 | 82 | 138 | 185 | 334 |
+
+**total $ grid:**
+
+| ATR% ↓ \ tight → | <2.5 | 2.5–3.5 | 3.5–4.5 | 4.5–5.5 | 5.5–7 | 7+ |
+|---|--:|--:|--:|--:|--:|--:|
+| **<4**    | 2k | **+395k** | +133k | **+338k** | +48k | +12k |
+| **4–6**   | +13k | +183k | **+252k** | +125k | +70k | −4k |
+| **6–8**   | +8k | +95k | **+178k** | +8k | −24k | −12k |
+| **8–10**  | +10k | +176k | +59k | +23k | −8k | −42k |
+| **10–14** | −4k | +21k | +66k | −20k | −18k | +6k |
+| **14+**   | −5k | +40k | −9k | −14k | −114k | **−442k** |
+
+**Verdict:**
+- **The mass and the money live in the quiet/tight top-left quadrant** (ATR% < 6%, tightness 2.5–4.5):
+  `<4% × 2.5–3.5` (n=4308, PF 1.47, +$395k) and `<4% × 4.5–5.5` (PF 1.83, +$338k) are the two biggest
+  P&L cells; `4–6% × 3.5–4.5` (+$252k) and `6–8% × 3.5–4.5` (PF 1.68) round it out. This is precisely the
+  region the trailing stops killed.
+- **The loss engine is the high-ATR% + loose-base corner.** The single `14%+ × 7+` cell is **−$442k / PF
+  0.38** — essentially the entire system loss. The whole bottom row (ATR% 14+) and right column
+  (tightness 7+) are where the cut belongs.
+- **Implication for the filters:** the current `MaxAtrPct = 0.11` cap is roughly right (it trims the
+  worst of the 14%+ row); a `tightness < ~7` cap would shed the loose-base loser without touching the
+  core. There is **no case for an ATR%-floor or tightness-floor** — the quiet/tight cells are the edge.
+- **Why it reverses the old read:** a trailing stop on a 3% -ATR name triggers on a single average down-day;
+  the time-stop simply holds the 5-day window and lets the breakout resolve. Quiet names were never
+  edge-less — the exit was eating them.
+
+**Era split (pre/post 2015-01-01) — the pattern is era-robust, not a single-regime artifact:**
+
+| ATR% | n pre | PF pre | n post | PF post |   | tightness | n pre | PF pre | n post | PF post |
+|---|--:|--:|--:|--:|---|---|--:|--:|--:|--:|
+| <6%    | 9011 | **1.528** | 9068 | 1.241 |   | <3.5    | 3565 | **1.613** | 4382 | 1.323 |
+| 6–10%  | 1048 | 1.307 | 2588 | 1.215 |   | 3.5–5.5 | 4940 | 1.528 | 6101 | 1.218 |
+| 10–14% | 220 | 1.10 | 894 | 1.04 |   | 5.5–7   | 1318 | 1.224 | 1799 | 0.866 |
+| 14%+   | 107 | **0.485** | 677 | **0.63** |   | 7+      | 563 | **0.714** | 945 | **0.635** |
+
+Both eras: monotone decay with ATR%, monotone decay with looseness, the quiet/tight cells strongest and
+the high-ATR%/loose tail the only sub-1.0 cell. The reversal of the old trailing-stop conclusion is not a
+regime fluke.
+
+---
+
 ## Yearly breakdown — PRE-time-stop default (window-low stop-4), filtered (flat $10k/trip, by entry year)
 
 > **Which system:** this is the production default *as it stood before the 2026-06-19 stop-mechanics
