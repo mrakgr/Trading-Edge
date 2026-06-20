@@ -2451,7 +2451,7 @@ both the strongest and the most post-2015-durable, and the within-Q5 edge is mon
 the marginally better sort variable; max slope is close and more intuitive. Next: wire one measure into the
 engine as an entry floor and sweep the threshold (same count-vs-PF trade as the tightness ceiling).
 
-#### ⭐ Entry-day move-floor sweep — bigger breakouts are better up to ~27.5%, then a CLIFF at 30% (2026-06-20)
+#### ⭐ Entry-day move analysis — a SWEET-SPOT NOTCH: 25–30% is the best band, 30–40% the worst (2026-06-20)
 
 > Does raising the entry-day move threshold (default 10%) help, and where does it stop? Swept the floor
 > post-hoc on the loose CSV holding everything else at default (ATR% < 0.11, tight < 4.5, breadth, ≥2005),
@@ -2467,8 +2467,8 @@ engine as an entry floor and sweep the threshold (same count-vs-PF trade as the 
 | 0.175 | 1,301 | 1.930 | 290 | 378k | 2.034 |
 | 0.20 | 979 | 1.978 | 331 | 324k | 2.109 |
 | 0.25 | 593 | 2.156 | 422 | 250k | 2.274 |
-| **0.275 (peak)** | 470 | **2.306** | **479** | 225k | **2.458** |
-| **0.30 (cliff)** | 364 | **1.536** | 209 | 76k | **1.460** |
+| 0.275 | 470 | **2.306** | **479** | 225k | **2.458** |
+| 0.30 | 364 | **1.536** | 209 | 76k | **1.460** |
 | 0.40 | 142 | 1.942 | 404 | 57k | 1.639 (pre 4.03) |
 
 **Loose rvol [3,20]:**
@@ -2479,27 +2479,46 @@ engine as an entry floor and sweep the threshold (same count-vs-PF trade as the 
 | 0.15 | 3,061 | 1.676 | 218 | 666k | 1.625 |
 | 0.20 | 1,427 | 1.832 | 306 | 436k | 1.870 |
 | 0.25 | 771 | 1.904 | 371 | 286k | 1.985 |
-| **0.275 (peak)** | 582 | **2.037** | **415** | 242k | **2.217** |
-| **0.30 (cliff)** | 436 | **1.493** | 209 | 91k | **1.488** |
+| 0.275 | 582 | **2.037** | **415** | 242k | **2.217** |
+| 0.30 | 436 | **1.493** | 209 | 91k | **1.488** |
 | 0.40 | 163 | 1.770 | 354 | 58k | 1.600 (pre 2.62) |
 
-**Findings:**
-1. **PF rises monotonically up to ~27.5%, then falls off a CLIFF at 30%** — on *both* gates, in *both*
-   eras. Production: PF 1.795 → **2.306** at 0.275, crashes to **1.536** at 0.30. Loose: 1.681 → **2.037**
-   → **1.493**. The ~106 trades in the 0.275–0.30 band are catastrophic (they drag prod PF 2.31 → 1.54).
-2. **The mean-$ tell confirms it's exhaustion-buying:** mean winner shrinks $479 → $209 across the 30% wall.
-   The ≥30% single-day moves aren't just lower win-rate — they're *smaller average winners*: blow-off /
-   exhaustion gaps that revert. **Don't buy breakouts ≥ 30% in a day.**
-3. **rvol ≥ 6 stays ahead at every move floor** — at 0.25 it's 2.156 vs rvol≥3's 1.904 (post 2.274 vs
-   1.985). The move floor does *not* substitute for the volume gate (consistent with the gate decomposition:
-   rvol cleans the low end, move sharpens the high end — complementary). But a steep move floor on the loose
-   gate gets most of the way back: **rvol≥3 + move≥0.25 (PF 1.904 / post 1.985) beats the current default**
-   rvol≥6 + move≥0.10 (1.795 / 1.808) — a different point on the same quality-vs-capacity frontier.
-4. **⚠️ Capacity cost is brutal.** Production 0.10 → 0.275 = **−83% trips (2,780 → 470), −61% total P&L**
-   ($580k → $225k) for +0.51 PF. This is the *opposite* lever to the tightness 4.0 → 4.5 decision (where we
-   took −0.06 PF for +25% trips, capacity over PF). Given capacity is the binding constraint, raising the
-   move *default* much past 0.10–0.15 is dubious — but the 20–27.5% movers are prime **size-up** candidates,
-   and the **30% wall is a hard exclusion** worth applying regardless.
+The cumulative floor (above) shows where to set a *threshold*, but it can't locate the actual cliff —
+a 0.30 floor pools *all* ≥30% names, so its low PF is dominated by the many 30–40% trades and hides what
+happens *at* each move level. **Non-cumulative bands (below) are the honest read** of where the edge lives.
+
+**Non-cumulative move bands (production gate, move ≥ 10% applied, bucketed WITHIN):**
+
+| band | n | PF | mean $ | pre | post |
+|---|--:|--:|--:|--:|--:|
+| 10–15% | 1,082 | 1.595 | 127 | 1.904 | 1.387 |
+| 15–20% | 719 | 1.708 | 165 | 1.779 | 1.661 |
+| 20–25% | 386 | 1.642 | 190 | 1.438 | 1.745 |
+| **25–30%** | 229 | **3.342** | **761** | 1.626 | **4.206** |
+| **30–40%** | 222 | **1.230** | 84 | **0.929** | 1.311 |
+| 40–55% | 98 | 2.514 | 550 | 4.562 | 2.128 |
+| 55%+ | 44 | 1.140 | 81 | 2.587 | 1.011 |
+
+**Findings (corrected — the cliff is a NOTCH at 30%, not a smooth ramp):**
+1. **The 25–30% band is the single best cell in the whole move distribution — PF 3.342, mean $761,
+   post-2015 4.206.** These are the highest-conviction clean breakouts. The cumulative sweep buried this
+   (adding 30%+ junk on top dragged the running average down to 1.54 at the 0.30 floor).
+2. **The real cliff is a NOTCH at 30–40%: PF 1.230, mean $84, pre-2015 outright losing (0.929)** — the
+   worst non-trivial band in the sweep, sitting *directly above* the best one. The mean winner collapses
+   $761 → $84 across the 30% line: 30–40% single-day moves are exhaustion / blow-off gaps that revert.
+3. **It is NOT monotone up to the notch.** 20–25% (1.642) is actually *weaker* than 15–20% (1.708); the
+   edge is lumpy with a sharp spike specifically at **25–30%**. So "bigger is better" was wrong — there's a
+   discrete sweet-spot band, not a ramp.
+4. **The far tail (40–55%, 55%+) is thin and pre-2015-driven** — 40–55% PF 2.514 is pre 4.562 / post 2.128
+   on n=98; 55%+ is dead post-2015 (1.011, n=44). Don't lean on it.
+5. **rvol ≥ 6 stays ahead at every cumulative move floor** (move doesn't substitute for volume — rvol
+   cleans the low end, move sharpens the high end), but rvol≥3 + move≥0.25 still beats the rvol≥6 + move≥0.10
+   default — a different frontier point.
+
+**Practical takeaway (revised):** this is a **notch, not a ceiling.** Don't cap at 30% in the naïve sense —
+instead **size up the 25–30% band** (the best clean-breakout cohort) and **de-weight / avoid 30–40%** (the
+exhaustion zone). Keep the move *default* near 0.10–0.15 for capacity (each higher band still has positive
+edge except 30–40%); the 30–40% notch is the one region to actively exclude.
 
 ---
 
