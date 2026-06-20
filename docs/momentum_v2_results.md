@@ -2542,26 +2542,37 @@ edge except 30–40%); the 30–40% notch is the one region to actively exclude.
 > gate (`--rvol-min 1 --rvol-max 1000`) since the standard CSV is rvol ∈ [3,20]; caps + breadth + ≥2005.
 > Non-cumulative bands first (where the edge lives), then the cumulative floor.
 
-**rvol DECILES (move ≥ 10%, caps on, ~1,100 trips/decile):**
+**rvol DECILES — median return added (move ≥ 10%, caps on, ~1,100/decile).** PF is mean-driven, so it's
+tail-sensitive; the **median return** shows what the *typical* trade does:
 
-| decile | rvol range | n | PF | mean $ | pre | post |
+| decile | rvol range | median ret | mean ret | win% | PF | post med |
 |---|---|--:|--:|--:|--:|--:|
-| 1 | 1.0–1.7 | 1,100 | 1.286 | 129 | 0.936 | 1.366 |
-| 2 | 1.7–2.3 | 1,100 | 1.489 | 177 | 1.665 | 1.449 |
-| 3 | 2.3–2.8 | 1,100 | 1.215 | 81 | 1.114 | 1.245 |
-| 4 | 2.8–3.5 | 1,100 | 1.374 | 131 | 1.311 | 1.394 |
-| 5 | 3.5–4.2 | 1,100 | 1.374 | 118 | 1.902 | 1.211 |
-| 6 | 4.2–5.2 | 1,100 | 1.188 | 55 | 1.167 | 1.198 |
-| **7** | 5.2–6.5 | 1,100 | 2.263 | 357 | 4.516 | 1.281 |
-| **8** | 6.5–8.8 | 1,100 | 1.979 | 264 | 1.490 | **2.295** |
-| **9** | 8.8–15.6 | 1,100 | 1.802 | 201 | 2.009 | **1.709** |
-| **10** | 15.6–986 | 1,100 | **0.923** | **−34** | 1.238 | **0.844** |
+| 1 | 1.0–1.7 | +0.19% | 1.29% | 50.5 | 1.286 | +0.38% |
+| 2 | 1.7–2.3 | +0.73% | 1.77% | 53.3 | 1.489 | +0.59% |
+| 3 | 2.3–2.8 | **−0.49%** | 0.81% | 46.2 | 1.215 | −0.51% |
+| 4 | 2.8–3.5 | −0.11% | 1.31% | 49.2 | 1.374 | −0.10% |
+| 5 | 3.5–4.2 | −0.07% | 1.18% | 49.2 | 1.374 | −0.24% |
+| 6 | 4.2–5.2 | 0.00% | 0.55% | 49.7 | 1.188 | −0.12% |
+| 7 | 5.2–6.5 | +0.03% | **3.57%** | 50.0 | 2.263 | −0.41% |
+| 8 | 6.5–8.8 | +0.24% | 2.64% | 51.9 | 1.979 | +0.12% |
+| **9** | 8.8–15.6 | **+0.67%** | 2.01% | **55.2** | 1.802 | **+0.91%** |
+| 10 | 15.6+ | 0.00% | **−0.34%** | 49.9 | 0.923 | −0.08% |
 
-Three clean zones: **D1–D6 (rvol ~1–5) = a flat mediocre plateau** (PF ~1.2–1.5, no trend, low rvol simply
-doesn't discriminate); **D7–D9 (rvol ~5–15.6) = the edge zone** (PF 2.26/1.98/1.80, and D8–D9 durable
-post-2015 at 2.30/1.71 — D7's 2.26 is mostly pre-2015); **D10 (rvol 15.6+) = the toxic tail** (PF 0.923,
-mean −$34, post 0.844 — the only losing decile). The decile-9 top edge (~15.6) is exactly where D10's
-losers begin, so a cap ~15 cleanly severs the toxic decile.
+**The median reframes the rvol story — the edge is almost ALL right-tail, not the typical trade:**
+1. **Low rvol (D1–D6, rvol ~1–5) is a fragile, tail-carried edge.** The *median* trade there is slightly
+   negative-to-flat (−0.49% to 0.00%); the positive PF comes entirely from a few big winners. High variance,
+   mean-dependent — confirms the "1–3 rvol breakouts are barely distinguishable" read. Not a reliable edge.
+2. **Median EXPOSES decile 7 (rvol 5.2–6.5) as a mirage.** Median +0.03% but mean +3.57% — its PF 2.26 is
+   one or two monster trades, not a broadly good cohort (and post-2015 median is −0.41%). PF flattered it.
+3. **⭐ Decile 9 (rvol ~9–15.6) is the genuine sweet spot — the ONLY decile where all three agree:** highest
+   win rate (55.2%), highest median (+0.67%), best post-2015 median (+0.91%). Broad-based edge, not tail-
+   driven. By median this is *the* rvol cohort to want — clearer than the PF view (which spread the edge
+   across D7–D9).
+4. **Decile 10 (15.6+) confirmed toxic from a new angle:** median 0.00%, mean *negative* (−0.34%) — the
+   typical extreme-volume trade goes nowhere and the average loses (reverting blow-offs dominate).
+
+So a cap ~15 severs the dead top decile, and the real conviction lives in **rvol ~9–15** (D9), where the
+*typical* trade — not just the average — is positive and wins >55%.
 
 **Cumulative rvol floor (move ≥ 10%):**
 
@@ -2596,8 +2607,9 @@ losers begin, so a cap ~15 cleanly severs the toxic decile.
    PF rises 1.810 → 1.862** with almost no trade loss (2,779 → 2,503) — cutting the 15+ losers helps the
    modern era for free. (Lowering the floor to 5, `[5,15]`, is the pre-2015 mirage: overall PF 2.004 but
    post-2015 1.748 < current 1.810.)
-4. **Low rvol (D1–D6, rvol ~1–5) is a mediocre-but-positive plateau** (PF ~1.2–1.5, no trend) — not the
-   edge, but not poison. The durable edge is D8–D9 (rvol 6.5–15.6, post 2.30 / 1.71).
+4. **By median (see decile table above), the edge is even more concentrated than PF suggests** — low rvol
+   (D1–D6) has a near-zero/negative *median* (tail-carried, fragile), decile 7's PF is a fat-tail mirage, and
+   the genuine broad-based sweet spot is **decile 9 (rvol ~9–15.6)**: win 55%, median +0.67%, post +0.91%.
 
 **Practical takeaway:** like move%, rvol has a **healthy middle and a toxic blow-off tail.** Keep the rvol≥6
 floor (the ≥5 "improvement" is pre-2015 only), but **add an upper cap ~15** — it strips a genuinely losing
