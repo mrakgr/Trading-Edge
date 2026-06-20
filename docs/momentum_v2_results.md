@@ -2763,6 +2763,34 @@ bad on both extremes — but for rvol the *lower* bad zone is sub-1, not merely 
    — and it is NOT a tail artifact at the high end. This agrees with the median view; raw PF obscured it. The
    earlier raw "floor peaks at ≥5" was a monster-winner mirage (clipped, ≥5 is 1.58, *below* ≥9–12).
 
+#### Why rvol >15 is "neutral" — it's the 2020-21 pump cohort, NOT buyouts (2026-06-20)
+
+> Investigated the toxic rvol >15 tail (decile 10, median 0% / mean −$34 / PF 0.92). Hypothesis: deal-locked
+> buyout/merger arbs (huge volume, price pinned → flat). **The data rejects buyouts and points to catalyst
+> blow-offs concentrated in the 2020-21 pump mania.**
+
+- **Not deal-flat.** The >15 cohort has lower stddev (16% vs 26% for 6–15) and more flat trades (39% within
+  ±2% vs 26%), *but* a fatter LEFT tail (p10 −14.7% vs −8.3%). A buyout pins price near a fixed offer; these
+  don't — they make violent two-sided moves that net to ~0.
+- **The names are explosions, not deals.** Avg entry-day move **+47%**, avg rvol 70 (max 986), across 1,019
+  distinct symbols. Top names: SCKT +538% → −50%, GLSI +998% → −18%, OBLN +414% → −44%, IINN +308% → −61%,
+  YGMZ +333% → −33% — small-cap squeezes, biotech binary readouts, SPAC/meme pumps. They spike then crater.
+- **⭐ It's a 2020-21 regime artifact, not a structural dead zone:**
+
+  | rvol >15 cohort | n | % | median ret | mean ret | PF |
+  |---|--:|--:|--:|--:|--:|
+  | 2020H2–2021 (pump era) | 238 | 20.7% | **−2.27%** | **−4.75%** | **0.477** |
+  | all other years | 912 | 79.3% | +0.18% | +0.87% | 1.273 |
+
+  The toxicity is ~entirely the 21% of the cohort from the 2020-21 meme/SPAC/micro-cap mania (PF 0.48). The
+  other 79%, across normal years, is an ordinary **PF 1.273**. Averaged together → the deceptive ~0 neutral.
+
+**Implication for the [5,15] cap:** the upper cap is mainly **regime insurance against a repeat of 2021's
+pump blow-offs**, not the pruning of a permanently-bad cohort — in normal regimes rvol >15 is fine (PF 1.27).
+A reasonable robustness measure (don't be long the next meme-stock climax), but characterize it honestly as
+tail-regime defense. (Breadth lag-1 > 0.5 should have caught much of 2021's churn but let these through on
+the up-days — the blow-offs happen *into* strength.)
+
 #### 52w-proximity gate: intraday-HIGH channel is WORSE than the closing-high channel (2026-06-20)
 
 > The 52w-proximity gate (`close ≥ 0.95 × prior-252d high`) used the **closing-high** channel. Tested
