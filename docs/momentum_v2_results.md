@@ -2287,6 +2287,45 @@ the past-runner measure to recover quality. (Note also a recurring **early-decil
 *pre-2015* in both
 measures/gates — a pre-2015 concentration; don't over-read that single decile.)
 
+#### Which half of the gate recovers it? → the RVOL floor, not the move floor (2026-06-20)
+
+> The production gate is two things: move ≥ 10% *and* rvol [6,20]. Decomposed them — held one at the loose
+> value, raised the other — to see which recovers the monotone past-runner effect. Quintiles (NTILE 5) on
+> the loose-CSV population (no entry ATR%/tightness cap, so absolute PFs run low; the *relative* gate effect
+> is the point), breadth + ≥2005.
+
+**Whole-system PF by gate (no quintiles):**
+
+| gate | n | PF |
+|---|--:|--:|
+| move ≥ 5%, rvol [3,20] (loose) | 23,613 | 1.179 |
+| move ≥ 10%, rvol [3,20] | 11,358 | **1.180** ← move floor adds nothing |
+| move ≥ 5%, rvol [6,20] | 6,934 | **1.232** ← rvol floor is the quality lever |
+| move ≥ 10%, rvol [6,20] (prod) | 4,744 | 1.206 |
+
+**Top-quintile (Q5) PF of the slope measure, across the four gates — the diagnostic:**
+
+| gate | Q5 PF | Q5 post | Q5 mean $ |
+|---|--:|--:|--:|
+| move ≥ 5%, rvol [3,20] (loose) | 0.879 | 0.851 | −125 |
+| **move ≥ 10%, rvol [3,20]** | 0.923 | 0.892 | −79 ← raising the move floor barely moves it |
+| **move ≥ 5%, rvol [6,20]** | **1.085** | **1.081** | +84 ← the rvol floor flips it positive |
+| move ≥ 10%, rvol [6,20] (prod) | 0.962 | 0.95 | −44 |
+
+**Findings:**
+1. **The rvol ≥ 6 floor is the lever, not the move floor.** Raising move 5% → 10% (rvol still 3) leaves both
+   whole-system PF (1.179 → 1.180) and the slope top-quintile (0.88 → 0.92, still losing) ~unchanged.
+   Raising rvol 3 → 6 (move still 5%) lifts whole-system PF to 1.232 and flips the top quintile from −$125
+   to +$84. Mechanistic: a violent-history name needs *volume confirmation* to not be a fakeout; a 10% move
+   is cleared trivially by a high-ATR stock's own noise, so the move floor doesn't separate real from fake.
+2. **⚠️ Layering the move floor ON TOP of rvol ≥ 6 slightly HURTS the extreme.** Full production Q5 (0.962)
+   is *worse* than rvol-only-with-loose-move (1.085); whole-system 1.206 < 1.232. Among rvol ≥ 6 names, the
+   high-slope ones that *also* require a 10% move today are the hardest blow-off entries, which mean-revert.
+3. **Revised design implication:** rvol ≥ 6 is **essential infrastructure** under any max-ret/max-ATR
+   signal — but "higher is always better" is false at the extreme. The edge concentrates in the
+   **upper-middle**; the topmost quintile is fragile even under the full gate. A max-ret *band* or cap may
+   beat a pure floor, and the move floor should not be assumed to help the past-runner names specifically.
+
 ---
 
 ## Yearly breakdown — PRE-time-stop default (window-low stop-4), filtered (flat $10k/trip, by entry year)
