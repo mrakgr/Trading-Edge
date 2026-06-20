@@ -2536,6 +2536,67 @@ instead **size up the 25–30% band** (the best clean-breakout cohort) and **de-
 exhaustion zone). Keep the move *default* near 0.10–0.15 for capacity (each higher band still has positive
 edge except 30–40%); the 30–40% notch is the one region to actively exclude.
 
+#### ⭐ rvol sweep (1→15, move held at 10%) — rvol ALSO has a toxic blow-off tail; cap it ~15 (2026-06-20)
+
+> Symmetric question to the move analysis: hold move ≥ 10%, vary rvol. Regenerated trips with a wide rvol
+> gate (`--rvol-min 1 --rvol-max 1000`) since the standard CSV is rvol ∈ [3,20]; caps + breadth + ≥2005.
+> Non-cumulative bands first (where the edge lives), then the cumulative floor.
+
+**Non-cumulative rvol bands (move ≥ 10%, caps on):**
+
+| rvol band | n | PF | mean $ | pre | post |
+|---|--:|--:|--:|--:|--:|
+| 1–2 | 1,698 | 1.310 | 131 | 1.047 | 1.372 |
+| 2–3 | 1,905 | 1.301 | 112 | 1.365 | 1.284 |
+| 3–4 | 1,600 | 1.389 | 128 | 1.505 | 1.354 |
+| 4–5 | 1,210 | 1.280 | 83 | 1.457 | 1.205 |
+| **5–6** | 934 | 2.503 | 417 | 4.637 | 1.471 |
+| 6–8 | 1,157 | 1.870 | 238 | 1.509 | 2.080 |
+| 8–10 | 653 | 1.460 | 131 | 1.674 | 1.354 |
+| 10–12 | 374 | 1.640 | 150 | 2.220 | 1.387 |
+| 12–15 | 319 | 2.721 | 351 | 2.151 | 3.074 |
+| **15+** | 1,150 | **0.934** | **−29** | 1.299 | **0.846** |
+
+**Cumulative rvol floor (move ≥ 10%):**
+
+| floor | n | PF | total $ | post |
+|---|--:|--:|--:|--:|
+| ≥1 | 11,000 | 1.436 | 1.62M | 1.341 |
+| ≥3 | 7,397 | 1.516 | 1.19M | 1.349 |
+| **≥5 (cum. peak)** | 4,587 | **1.622** | 885k | 1.382 |
+| ≥6 (current) | 3,653 | 1.426 | 496k | 1.364 |
+| ≥8 | 2,496 | 1.260 | 221k | 1.138 |
+| ≥10 | 1,843 | 1.204 | 135k | 1.086 |
+| ≥15 | 1,150 | **0.934** | −33k | **0.846** |
+
+**rvol BAND gates (cap the tail):**
+
+| gate | n | total $ | PF | pre | post |
+|---|--:|--:|--:|--:|--:|
+| **rvol [6,20] (CURRENT)** | 2,779 | 580k | 1.796 | 1.769 | 1.810 |
+| rvol [5,15] | 3,437 | 918k | 2.004 | 2.492 | 1.748 |
+| **rvol [6,15]** | 2,503 | 529k | 1.807 | 1.705 | **1.862** |
+| rvol [3,15] | 6,247 | 1.22M | 1.681 | 2.066 | 1.513 |
+
+**Findings — rvol is NOT a monotone floor; it mirrors the move%-notch (healthy middle, toxic blow-off tail):**
+1. **The rvol 15+ tail is an outright LOSER: PF 0.934, mean −$29, post-2015 0.846** — the worst band. Extreme
+   volume = climax/exhaustion, exactly like 30%+ single-day moves. This is the cleanest, most robust signal
+   in the sweep.
+2. **The cumulative floor peaks at ~5 then DECLINES:** ≥5 (1.622) > ≥6 (1.426) > ≥8 (1.260) > ≥15 (0.934).
+   Raising the floor past ~5 actively hurts because it loads up on that bad 15+ tail. **The current rvol ≥ 6
+   floor is past the cumulative peak** — but most of the ≥5 advantage is *pre-2015* (the 5–6 band is pre
+   4.64 / post 1.47), so this is era-fragile; post-2015 the floor barely matters between 5 and 6.
+3. **The one durable, actionable change is an UPPER CAP ~15.** `rvol [6,15]` vs current `[6,20]`: **post-2015
+   PF rises 1.810 → 1.862** with almost no trade loss (2,779 → 2,503) — cutting the 15+ losers helps the
+   modern era for free. (Lowering the floor to 5, `[5,15]`, is the pre-2015 mirage: overall PF 2.004 but
+   post-2015 1.748 < current 1.810.)
+4. **Low rvol (1–5) is mediocre-but-positive** (PF ~1.28–1.39, post ~1.2–1.35) — not the edge, but not poison.
+   The durable bright spots are 6–8 (post 2.08) and 12–15 (post 3.07).
+
+**Practical takeaway:** like move%, rvol has a **healthy middle and a toxic blow-off tail.** Keep the rvol≥6
+floor (the ≥5 "improvement" is pre-2015 only), but **add an upper cap ~15** — it strips a genuinely losing
+cohort and lifts the post-2015 PF. The open-ended `≤20` ceiling is leaking the exhaustion tail.
+
 ---
 
 ## Yearly breakdown — PRE-time-stop default (window-low stop-4), filtered (flat $10k/trip, by entry year)
