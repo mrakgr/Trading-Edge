@@ -2056,6 +2056,78 @@ regime fluke.
 
 ---
 
+#### Filter-ceiling sweep — the current ATR% < 0.11 / tight < 4.0 ceilings are already on the post-2015 optimum (2026-06-20)
+
+> Follow-up to the grid above: given that the quiet/tight corner is the book, *should we move the entry
+> ceilings?* Tested candidate ATR% and tightness ceilings on the **loose gate** (price% ≥ 0.05, rvol [3,20],
+> breadth on — same population as the grid). The answer is **no — the current ceilings are the optimum.**
+> Both axes were swept; mean-$/trade is the quality tell (PF can be lifted by a few fat-tail survivors).
+
+**ATR% ceiling sweep (holding tight < 5.5)** — total P&L *peaks at 0.11* and declines on both sides:
+
+| ATR% ceiling | n | PF | total $ | mean $ |
+|---|--:|--:|--:|--:|
+| < 0.08 | 17,258 | 1.406 | +1.73M | 100 |
+| < 0.10 | 18,102 | 1.418 | +2.00M | 110 |
+| **< 0.11** | 18,349 | **1.423** | **+2.09M** | **114** |
+| < 0.12 | 18,539 | 1.403 | +2.07M | 112 |
+| < 0.13 | 18,648 | 1.394 | +2.06M | 110 |
+| < 0.14 | 18,723 | 1.386 | +2.06M | 110 |
+
+Below 0.11 you cut the productive 8–10% ATR band (P&L drops); above 0.11 you add net-negative 12–14% names
+(PF, total $ AND mean-$ all drop — going 0.11→0.12 adds 190 trips but *loses* $22k). **0.11 is a clean
+interior optimum on both sides.** Consistent with the grid: 10–14% is break-even, 14%+ is the −$442k loss
+engine.
+
+**Tightness ceiling sweep (holding ATR% < 0.11)** — *non-monotonic*, and that's the trap:
+
+| tight ceiling | n | PF | total $ | mean $ |
+|---|--:|--:|--:|--:|
+| **< 4.0 (current)** | 11,375 | **1.441** | +1.29M | 114 |
+| < 4.5 | 14,245 | 1.432 | +1.59M | 111 |
+| < 5.0 | 16,573 | 1.399 | +1.75M | 105 |
+| < 5.5 | 18,349 | 1.423 | +2.09M | 114 |
+| < 6.0 | 19,602 | 1.400 | +2.16M | 110 |
+
+The < 5.5 ceiling *looks* like a free +62% P&L at flat mean-$ (1.423 vs 1.441). But it's non-monotone — PF
+dips at 5.0 then recovers at 5.5 — which means a sub-band is carrying it. The **non-cumulative tightness
+bands** (ATR% < 0.11) expose the lump:
+
+| tightness band | n | PF | mean $ |
+|---|--:|--:|--:|
+| < 4.0 | 11,375 | 1.441 | 114 |
+| 4.0–4.5 | 2,870 | 1.395 | 102 |
+| **4.5–5.0** | 2,328 | **1.231** | **70** ← weak |
+| **5.0–5.5** | 1,776 | **1.608** | **194** ← spike |
+| 5.5–6.0 | 1,253 | 1.141 | 49 |
+| 6.0+ | 2,547 | 0.978 | −9 |
+
+The entire < 5.5 case rests on the **5.0–5.5 spike (PF 1.608, mean $194)** — sandwiched next to the *worst*
+qualifying band (4.5–5.0). To reach the spike you must swallow the dip.
+
+**⛔ Era split kills the spike — it's a pre-2015 artifact:**
+
+| tightness band | n pre | PF pre | mean pre | n post | PF post | mean post |
+|---|--:|--:|--:|--:|--:|--:|
+| < 4.0 | 5228 | 1.564 | 123 | 6147 | **1.363** | 105 |
+| 4.0–4.5 | 1342 | 1.386 | 83 | 1528 | 1.401 | 119 |
+| 4.5–5.0 | 1087 | 1.273 | 70 | 1241 | 1.203 | 70 |
+| **5.0–5.5** | 784 | **2.205** | **336** | 992 | **1.232** | **82** |
+| 5.5–6.0 | 554 | 1.363 | 106 | 699 | 1.012 | 5 |
+| 6.0+ | 1169 | 1.10 | 35 | 1378 | 0.908 | −47 |
+
+The 5.0–5.5 spike is **PF 2.205 / mean $336 pre-2015** but reverts to **PF 1.232 / mean $82 post-2015** —
+*below* the core < 4.0 band's post-2015 PF of 1.363. Cumulatively, loosening 4.0 → 5.5 leaves pre-2015 PF
+flat (1.564 → 1.568) but **degrades post-2015 PF (1.363 → 1.331)** — it makes the system worse in the only
+era that matters for live trading. Every loose band (4.5–5.0, 5.5–6.0, 6.0+) is sub-1.4 or negative
+post-2015; there is **no robust loose-tightness edge in the modern era.**
+
+**Verdict: keep ATR% < 0.11, tight < 4.0.** The apparent capacity upside from loosening tightness was a
+pre-2015 mirage; the current ceilings sit on the post-2015 optimum. Tightening ATR% (toward 0.06–0.08) is
+strictly worse on every metric — it cuts the time-stop-rescued 8–10% band. Don't move either ceiling.
+
+---
+
 ## Yearly breakdown — PRE-time-stop default (window-low stop-4), filtered (flat $10k/trip, by entry year)
 
 > **Which system:** this is the production default *as it stood before the 2026-06-19 stop-mechanics
