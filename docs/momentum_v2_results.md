@@ -2823,6 +2823,14 @@ the up-days — the blow-offs happen *into* strength.)
 > stores pct_above_20/50/100), lagged 1 day. (Note: v0 once concluded the **50-day** breadth was best — that
 > is **stale**; v1/v2 settled on the **20-day** and that is the decided measure.) Cumulative `≥ X` floor
 > (default trips, ≥2005), the clean view (deciles are too noisy):
+>
+> **Reverse-engineered universe (the builder wasn't committed; recovered 2026-06-20 by matching the parquet's
+> `n` across dates):** `type IN ('CS','ADRC')` (common stock + ADRs — **NOT** ETF/ETN/funds; those are ~43%
+> of the raw price table, the main gap) **AND 30-calendar-day average dollar volume ≥ $1,000,000** (the
+> project-standard `avg_dollar_volume_4w` liquidity convention; **not** same-day, **not** $100k). Matched the
+> parquet `n` to ~2-3% on 2010/2015/2020/2026 (2,593 vs 2,531; 3,112 vs 3,028; 3,364 vs 3,289; 3,934 vs
+> 3,859 — consistently a hair over, likely a point-in-time ticker-reference nuance). $100k overshoots 25-35%.
+> `pct_above_N` = fraction of that daily universe with `close > N-day SMA of close`.
 
 | floor | n | median | win% | PF | total $ | PF post |
 |---|--:|--:|--:|--:|--:|--:|
@@ -2842,22 +2850,46 @@ the up-days — the blow-offs happen *into* strength.)
 2. **Unlike the noisy deciles, the floor view shows median AND win-rate also rise** (median +0.28% → +0.38%,
    win 52.3% → 53.5% from ≥0.5 to ≥0.70) — so higher breadth improves the *typical* trade, not just the
    tail. A trustworthy lever.
-3. **Faster breadth (10/15-day MA) does NOT beat the 20-day** (tested on a matched liquid universe): the
-   10-day was *worse* at every floor, especially post-2015; 15-day ≈ 20-day. The current 20-day window is
-   confirmed; a shorter, more-reactive breadth just adds noise.
+3. **Faster breadth (10/15-day MA) does NOT beat the 20-day**: the 10-day was *worse* at every floor,
+   especially post-2015; 15-day ≈ 20-day. The current 20-day window is confirmed; a shorter, more-reactive
+   breadth just adds noise. (Caveat: this test built pct_above_10/15/20 on an *approximate* universe — before
+   the universe was reverse-engineered, it omitted the CS/ADRC filter so ~43% ETFs leaked in. The relative
+   window ranking should hold, but re-confirm on the correct CS/ADRC + $1M-dv universe if it ever matters.)
 4. **Available upgrade:** raising the breadth gate 0.5 → 0.70 lifts PF 1.991 → 2.822 (post-2015 → 2.150) at
    the usual capacity cost (3,717 → 1,272 trips, −66%). A steep quality-vs-capacity dial, same family as the
    tightness/move levers; the *direction* (higher breadth = better, to 0.70) is clean and era-robust. Not
    adopted as default yet — the −66% capacity is a big ask; candidate for a sizing tilt rather than a hard gate.
 
-#### ⭐ "Top-gainer HEAT" — froth timing measure; CHOSEN: skip entries when heat-10d ≥ 27% (Sykes-inspired) (2026-06-20)
+**Same sweep on the chosen $100k universe (CS/ADRC + 30-cal-ADV ≥ $100k — the convention we standardize on,
+rebuilt since the production parquet used ~$1M):** the conclusion holds but the optimum shifts down and the
+rollover is earlier/sharper (the looser universe is noisier at the extreme):
+
+| floor | n | median | PF | PF post | (vs $1M-parquet PF) |
+|---|--:|--:|--:|--:|--:|
+| ≥0.5 | 3,542 | +0.30% | 2.044 | 1.759 | (1.991) |
+| ≥0.6 | 2,278 | +0.29% | 2.294 | 1.941 | (2.249) |
+| **≥0.65** | 1,630 | +0.33% | **2.484** | **2.002** | (2.385) |
+| ≥0.70 | 972 | +0.45% | 1.776 | 1.574 | (2.822) |
+| ≥0.75 | 487 | +0.94% | 2.044 | 2.109 | (1.942) |
+
+On the $100k universe the **peak is ≥0.65 (PF 2.484)** with a sharp rollover at ≥0.70 (down to 1.776, thin
+n); on the $1M parquet the peak was ≥0.70. So the optimum is universe-dependent (~0.65 on $100k, ~0.70 on
+$1M), but "higher breadth helps up to a mid-high optimum then froths over" is robust to the definition.
+
+> **Build script:** both the breadth and heat parquets are built by
+> **`scripts/equity/build_breadth_and_heat.sql`** (runnable DuckDB; writes `breadth_100k.parquet` and
+> `heat.parquet`). It encodes the shared universe (30-cal-day ADV ≥ $100k; CS/ADRC for breadth only) and the
+> load-bearing +1000% heat clip — the canonical reference for how both regime filters are computed.
+
+#### ⭐ "Top-gainer HEAT" — froth timing measure; CHOSEN: skip entries when heat-10d ≥ 24% (Sykes-inspired) (2026-06-20)
 
 > A new market-timing measure, orthogonal to the %-above-MA breadth we already gate on. It measures the
 > *speculative temperature* of the tape — how hot the day's hottest names are running.
 >
 > **How the heat filter is calculated (exact, reproducible — `scripts/equity/heat_breakdown.sql`):**
 > 1. **Per-stock daily return** = `adj_close / prev_adj_close − 1`, from `split_adjusted_prices`.
-> 2. **Qualifying universe each day:** dollar volume `adj_close × adj_volume ≥ $100k` AND a non-null return.
+> 2. **Qualifying universe each day:** **30-calendar-day average dollar volume ≥ $100k** (the project-
+>    standard `avg_dollar_volume_4w` convention — NOT same-day dollar volume) AND a non-null return.
 > 3. **⚠️ CLIP each per-stock return at +1000% (×10) BEFORE aggregating.** `split_adjusted_prices` contains
 >    rare corrupted split/price rows that produce absurd returns (max seen ≈ 3,000,000,000%); because heat
 >    is a mean of the *top* tail, even one such row destroys that day's value (un-clipped max heat was
@@ -2869,9 +2901,12 @@ the up-days — the blow-offs happen *into* strength.)
 > 5. **Smooth:** trailing mean over the chosen window — **`h10` = mean of daily heat over the prior 10
 >    days**, `ROWS BETWEEN 10 PRECEDING AND 1 PRECEDING` (the `1 PRECEDING` **lags it one day** → as-of the
 >    prior close, no lookahead). (5/10/15/20 were swept; h10 chosen.)
-> 6. **Gate:** at entry, exclude (or downsize) when **`h10 ≥ 0.27`** (the Q4/Q5 boundary = 80th percentile).
+> 6. **Gate:** at entry, exclude (or downsize) when **`h10 ≥ 0.24`** (the Q4/Q5 boundary = 80th percentile,
+>    on the 30-cal-ADV universe).
 >
-> Series: 5,704 days (2003-09→2026-05); daily heat median 19% (p25 14% calm, p99 54% manic) after clipping.
+> Series ~5,700 days (2003-09→2026-05); daily heat median ~19% after clipping. (Note: switching the universe
+> from same-day to 30-cal-day ADV moved the threshold 27%→24% but the froth-cut result is unchanged — PF
+> 2.243 vs 2.245, post-2015 1.902 vs 1.885 — so the signal is robust to the liquidity-filter definition.)
 
 **Heat quintiles — high heat is BAD for our breakouts (median return, every window):**
 
@@ -2882,6 +2917,10 @@ the up-days — the blow-offs happen *into* strength.)
 | Q3 | +0.37% | **+0.39%** | +0.34% | +0.56% |
 | Q4 | 0.00% | **+0.23%** | +0.11% | −0.08% |
 | **Q5 (hottest)** | −0.29% | **−0.47%** | −0.41% | −0.32% |
+
+*(This window-comparison table is on the original same-day-$100k universe; the chosen-window numbers were
+re-confirmed on the corrected 30-cal-ADV ≥ $100k universe — the conclusion and h10 choice are unchanged, the
+exact medians shift ~0.1pt. The h10 ladder/threshold below are the corrected, authoritative ones.)*
 
 **Findings:**
 1. **The froth hypothesis wins over risk-on.** The hottest-heat quintile is the *only* one with a negative
@@ -2902,26 +2941,27 @@ the up-days — the blow-offs happen *into* strength.)
    (cut the most toxic cohort); h20 wins post-2015 by ~0.05 PF. **Chose h10** — fastest regime response (a
    timing signal should step aside sooner) and the sharpest bad-cohort separation; the window choice is a
    minor optimization (window-insensitivity 10→20 is itself evidence the signal is real, not fitted).
-3. **⭐ The h10 filter — exclude entries when trailing-10d heat ≥ ~27%** (the Q4/Q5 boundary = the 80th
-   percentile of the h10 distribution). Concrete ladder: Q1 ≤12% (calm) · Q2 12–15% · Q3 15–19% (typical,
-   daily-heat median ≈19%) · Q4 19–27% (warming) · **Q5 ≥27% up to 57% (frothy — the cut)**. A 10-day
-   *average* ≥27% means sustained two-week froth, not a single hot day. Filter effect:
+3. **⭐ The h10 filter — exclude entries when trailing-10d heat ≥ ~24%** (Q4/Q5 boundary = 80th percentile,
+   on the 30-cal-ADV ≥ $100k universe). Concrete ladder (quintile boundaries): Q1 10.6–15.1% (calm) · Q2
+   15.1–16.8% · Q3 16.8–19.3% (typical, daily-heat median ≈19%) · Q4 19.3–24.3% (warming) · **Q5 24.3–49.7%
+   (frothy — the cut)**. A 10-day *average* ≥24% means sustained two-week froth, not a single hot day.
+   Filter effect:
 
    | | n | PF | total $ | PF post |
    |---|--:|--:|--:|--:|
    | baseline (all heat) | 3,713 | 1.991 | 917k | — |
-   | keep heat-10d < 27% | 2,971 | **2.245** | 810k | **1.885** |
-   | excluded (heat-10d ≥ 27%) | 742 | 1.388 | 106k | 1.485 |
+   | keep heat-10d < 24% | 2,971 | **2.243** | 810k | **1.902** |
+   | excluded (heat-10d ≥ 24%) | 742 | 1.387 | 106k | 1.466 |
 
-   Cutting the frothy tape lifts PF **1.991 → 2.245** for −20% trips / −12% P&L — a better quality-per-
+   Cutting the frothy tape lifts PF **1.991 → 2.243** for −20% trips / −12% P&L — a better quality-per-
    capacity trade than most filters tested.
-4. **The excluded Q5 is a low-win-rate coin-flip, not outright poison.** Its **median is −0.47%** but its
-   **mean is +1.43%** (win rate 46.8%, the lowest) — froth tape produces enough occasional monsters to keep
+4. **The excluded Q5 is a low-win-rate coin-flip, not outright poison.** Its **median is −0.34%** but its
+   **mean is +1.42%** (win rate ~47%, the lowest) — froth tape produces enough occasional monsters to keep
    the mean barely positive even as the *typical* trade loses. So it's a **downsize/skip** candidate, not a
    hard "never trade" exclusion like the rvol-15+ pump cohort (which had a negative mean). **Orthogonal** to
    breadth/trend (speculative temperature, not direction). Not yet wired into the engine; the heat series is
    a post-hoc DuckDB build (`scripts/equity/heat_breakdown.sql`) — to go live it needs precomputing into a
-   parquet like `breadth.parquet` (then gate `heat10 < 0.27` as-of the prior close).
+   parquet like `breadth.parquet` (then gate `heat10 < 0.24` as-of the prior close).
 
 #### 52w-proximity gate: intraday-HIGH channel is WORSE than the closing-high channel (2026-06-20)
 
