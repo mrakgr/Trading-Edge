@@ -2499,6 +2499,22 @@ happens *at* each move level. **Non-cumulative bands (below) are the honest read
 | 40–55% | 98 | 2.514 | 550 | 4.562 | 2.128 |
 | 55%+ | 44 | 1.140 | 81 | 2.587 | 1.011 |
 
+**Same bands on the loose rvol [3,20] gate — the notch is NOT an artifact of the rvol ≥ 6 filter:**
+
+| band | n | PF | mean $ | pre | post |
+|---|--:|--:|--:|--:|--:|
+| 10–15% | 3,463 | 1.687 | 175 | 2.287 | 1.358 |
+| 15–20% | 1,634 | 1.499 | 141 | 1.939 | 1.329 |
+| 20–25% | 656 | 1.723 | 229 | 1.836 | 1.683 |
+| **25–30%** | 335 | **2.481** | **581** | 1.700 | **2.751** |
+| **30–40%** | 273 | **1.304** | 122 | **0.874** | 1.409 |
+| 40–55% | 115 | 2.174 | 476 | 3.709 | 1.884 |
+| 55%+ | 48 | 1.108 | 64 | 1.046 | 1.122 |
+
+Identical shape: 25–30% is the peak (PF 2.481, post 2.751), 30–40% is the worst non-tail band (1.304, pre-
+2015 losing 0.874), the far tail is pre-2015-driven. rvol ≥ 6 *sharpens* the peak (3.34 vs 2.48) but the
+structure is a property of the move distribution itself, present on both gates.
+
 **Findings (corrected — the cliff is a NOTCH at 30%, not a smooth ramp):**
 1. **The 25–30% band is the single best cell in the whole move distribution — PF 3.342, mean $761,
    post-2015 4.206.** These are the highest-conviction clean breakouts. The cumulative sweep buried this
