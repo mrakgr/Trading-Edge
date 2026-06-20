@@ -2611,9 +2611,31 @@ So a cap ~15 severs the dead top decile, and the real conviction lives in **rvol
    (D1–D6) has a near-zero/negative *median* (tail-carried, fragile), decile 7's PF is a fat-tail mirage, and
    the genuine broad-based sweet spot is **decile 9 (rvol ~9–15.6)**: win 55%, median +0.67%, post +0.91%.
 
-**Practical takeaway:** like move%, rvol has a **healthy middle and a toxic blow-off tail.** Keep the rvol≥6
-floor (the ≥5 "improvement" is pre-2015 only), but **add an upper cap ~15** — it strips a genuinely losing
-cohort and lifts the post-2015 PF. The open-ended `≤20` ceiling is leaking the exhaustion tail.
+**SUB-1 rvol — the floor DOES matter, at ~1 (regenerated with `--rvol-min 0`):** the "1–5 is indistinct"
+read was a *within-≥1* observation; below average volume the median turns sharply negative.
+
+| rvol band | n | median ret | mean ret | win% | PF |
+|---|--:|--:|--:|--:|--:|
+| <0.5 | 170 | **−1.38%** | −0.93% | 43.5 | 0.859 |
+| 0.5–0.75 | 129 | −1.06% | 1.06% | 47.3 | 1.239 |
+| 0.75–1 | 198 | **−1.88%** | 0.88% | 43.4 | 1.175 |
+| 1–1.5 | 767 | −0.17% | 0.92% | 49.4 | 1.187 |
+| 1.5–2 | 931 | +0.64% | 1.64% | 52.8 | 1.443 |
+
+**Sub-1 vs ≥1:** median **−1.30% vs +0.10%**, win **44.5% vs 50.5%** (n=497 vs 11,000). A breakout on
+*below-average* volume is a fakeout — the typical one loses ~1.5% and wins <45%. By PF the sub-1 bands look
+almost respectable (0.86–1.24, an occasional winner drags the mean up); **only the median exposes them.**
+
+**So rvol has THREE regimes, and the median is the only metric that draws all three:**
+- **rvol < 1 = fakeout / fail** (median ≈ −1.5%, win <45%) — no real demand confirming the breakout.
+- **rvol ~1.5–15 = the edge** — a mild ramp (median +0.6% at 1.5–2, +0.57% at 9–15), peaking broadly at
+  decile 9 (rvol ~9–15.6); the 1–5 sub-range is positive-but-indistinct, the conviction is ~9–15.
+- **rvol > 15 = toxic blow-off** (median 0%, mean negative) — climax/exhaustion.
+
+**Practical takeaway:** rvol is **not** a "more is better" dial. It's a **gate at ~1** (below = fakeout) +
+a mild edge ramp to ~15 + a **toxic tail above 15.** Keep the rvol ≥ 6 floor (it clears the sub-1 junk with
+margin; the ≥5 "improvement" is pre-2015 only) and **add an upper cap ~15.** Mirrors move%: healthy middle,
+bad on both extremes — but for rvol the *lower* bad zone is sub-1, not merely low.
 
 ---
 
