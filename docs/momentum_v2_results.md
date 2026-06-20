@@ -2910,6 +2910,14 @@ over" is robust to the definition. **We use $1M.**
 >    the robust catch-all — even with all synthetic names gone, the real `SDRL`/`MULN`-type extremes still need
 >    capping for a top-tail mean. It doesn't touch genuine gainers (a real one-day move tops out well under
 >    1000%). Without it the whole measure is garbage. Do NOT drop it when porting to a live precompute.
+>    **Belt-and-suspenders (added 2026-06-20):** the test tickers ARE separately excluded by a Polygon-sourced
+>    blocklist — `TickersDownload.fs` now fetches `type='OTHER'` (where Polygon files NASDAQ test securities)
+>    into `ticker_reference`, and `build_breadth_and_heat.sql` applies an `is_test_ticker` predicate (type=OTHER
+>    OR name~"test" OR the Z*ZZT/NTEST pattern) to BOTH universes. The pattern alone already removes 880/1005
+>    of the egregious >10,000% rows pre-download; the OTHER fetch covers the rest. This cleans synthetic names
+>    out of breadth too (where they'd silently count as "stocks"). The clip stays as the backstop for residual
+>    real-ticker ratio-glitches (LU, EPIX). Run `dotnet run --project TradingEdge.Massive -- download-tickers`
+>    to populate the OTHER rows.
 > 4. **Daily heat** = mean of the clipped returns of the **top 1% of the qualifying universe by return**
 >    (per-day `PERCENT_RANK() ≥ 0.99`).
 > 5. **Smooth:** trailing mean over the chosen window — **`h10` = mean of daily heat over the prior 10

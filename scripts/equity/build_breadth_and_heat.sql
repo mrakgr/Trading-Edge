@@ -26,7 +26,34 @@
 --   data/equity/momentum_v0/breadth.parquet (the v0 builder was not kept, but
 --   its per-day `n` and the floor-sweep PFs match this $1M+CS/ADRC definition to
 --   ~1-2%). So breadth_1m.parquet here == the production breadth, by construction.
+--
+-- TEST-TICKER BLOCKLIST (NASDAQ test securities — ZXZZT, ZWZZT, ZJZZT, AAZST,
+--   NTEST.*, …): these are synthetic symbols with corrupt prices (0.0001 ->
+--   $200,000 = a +200-billion-% one-day return) that slip into the price table
+--   tagged CS or with no ref row, so neither the type nor the $1M liquidity
+--   filter catches them. SOURCE OF TRUTH: Polygon files them under type='OTHER'
+--   (and their `name` contains "test"). Fetch them into ticker_reference with
+--     dotnet run --project TradingEdge.Massive -- download-tickers
+--   (TickersDownload.fs now includes "OTHER" in tickerTypes). Then both builders
+--   below exclude them via the `is_test_ticker` predicate. Until that download is
+--   run, the predicate matches nothing (OTHER rows absent) and the +1000% return
+--   clip in the HEAT builder remains the safety net. Keep BOTH: the blocklist
+--   removes synthetic NAMES from the universes (incl. breadth, where they'd count
+--   as "stocks"); the clip still handles residual ratio-glitches in REAL tickers
+--   (e.g. LU, EPIX — legit ADRC/CS with one corrupt split-adjusted day).
 -- =============================================================================
+
+-- Reusable test-ticker predicate: TRUE if `tk` is a Polygon test security.
+-- (type='OTHER' is the authoritative tag; the name LIKE '%test%' and the known
+--  Z*ZZT / NTEST pattern are belt-and-suspenders for any that pre-date the OTHER
+--  fetch or lack a ref row.)
+CREATE OR REPLACE TEMP MACRO is_test_ticker(tk) AS (
+  tk IN (SELECT ticker FROM ticker_reference
+         WHERE type = 'OTHER' OR LOWER(name) LIKE '%test%')
+  OR tk SIMILAR TO 'Z[A-Z]ZZT'      -- ZXZZT, ZWZZT, ZJZZT, ZVZZT, ZAZZT, ZBZZT, ZCZZT...
+  OR tk LIKE 'NTEST%'               -- NTEST.A / NTEST.G ...
+  OR tk IN ('AAZST','CGZST','ZYSTF','ZYYZZ','ZYSZZ','YJZST','ZVV')
+);
 
 
 -- -----------------------------------------------------------------------------
@@ -52,6 +79,7 @@ COPY (
     WHERE rn >= 20                       -- need a full 20d MA window
       AND type IN ('CS','ADRC')          -- common stock + ADRs only
       AND adv30 >= 1000000               -- 30-cal-day ADV >= $1M
+      AND NOT is_test_ticker(ticker)     -- block NASDAQ test securities
   )
   SELECT date,
     COUNT(*)                                            AS n,
@@ -82,8 +110,10 @@ COPY (
     SELECT date, ret
     FROM r
     WHERE adv30 >= 1000000               -- 30-cal-day ADV >= $1M
+      AND NOT is_test_ticker(ticker)     -- block NASDAQ test securities
       AND ret IS NOT NULL
-      AND ret <= 10.0                    -- *** load-bearing +1000% clip ***
+      AND ret <= 10.0                    -- *** load-bearing +1000% clip (still needed for
+                                         --     residual ratio-glitches in REAL tickers) ***
   ),
   ranked AS (
     SELECT date, ret, PERCENT_RANK() OVER (PARTITION BY date ORDER BY ret) AS pr
