@@ -2375,16 +2375,68 @@ on noise); rvol-only keeps them positive (1.12/1.10). rvol confirmation cleans t
 > population) — to decide floor-vs-band. If the edge saturates/reverts inside Q5, a band/cap is right; if it
 > keeps climbing, a floor is right.
 
-**Top sub-quintile (within-Q5 sub-Q5) PF — the strongest cell in EVERY system:**
+Each table = the top quintile (Q5) of that measure, re-split into 5 even sub-quantiles. `range` = the
+measure's lo–hi within the sub-bucket. mean $ / PF / pre-2015 / post-2015.
 
-| system / measure | sub-Q5 PF | post | mean $ | n |
-|---|--:|--:|--:|--:|
-| LOOSE / max ATR% | 1.964 | 1.979 | $500 | 569 |
-| LOOSE / max slope | 2.077 | 1.990 | $503 | 569 |
-| MOVE-ONLY / max ATR% | 2.579 | 2.425 | $872 | 260 |
-| MOVE-ONLY / max slope | 2.441 | 2.453 | $816 | 260 |
-| RVOL-ONLY / max ATR% | 2.645 | 2.326 | $975 | 167 |
-| **RVOL-ONLY / max slope** | **3.003** | **2.693** | **$1,051** | 167 |
+**LOOSE — within-Q5 of max ATR% (n≈570/sub):**
+
+| sub-Q | range | mean $ | PF | pre | post |
+|---|---|--:|--:|--:|--:|
+| 1 | 0.095–0.105 | 172 | 1.491 | 1.952 | 1.315 |
+| 2 | 0.105–0.119 | 153 | 1.379 | 1.270 | 1.434 |
+| 3 | 0.119–0.142 | 408 | 2.108 | 2.451 | 2.002 |
+| 4 | 0.142–0.188 | 229 | 1.586 | 2.454 | 1.386 |
+| **5** | 0.188–2.74 | **500** | **1.964** | 1.900 | **1.979** |
+
+**LOOSE — within-Q5 of max slope (n≈570/sub):**
+
+| sub-Q | range | mean $ | PF | pre | post |
+|---|---|--:|--:|--:|--:|
+| 1 | 0.442–0.497 | 264 | 1.925 | 1.538 | 2.196 |
+| 2 | 0.497–0.575 | 73 | 1.193 | 0.892 | 1.363 |
+| 3 | 0.575–0.700 | 242 | 1.676 | 1.624 | 1.697 |
+| 4 | 0.701–0.985 | 170 | 1.376 | 1.462 | 1.341 |
+| **5** | 0.986–1654 | **503** | **2.077** | 2.453 | 1.990 |
+
+**MOVE-ONLY — within-Q5 of max ATR% (n≈261/sub):**
+
+| sub-Q | range | mean $ | PF | pre | post |
+|---|---|--:|--:|--:|--:|
+| 1 | 0.111–0.123 | 236 | 1.521 | 1.292 | 1.610 |
+| 2 | 0.123–0.140 | 391 | 2.028 | 2.412 | 1.930 |
+| 3 | 0.140–0.165 | 433 | 2.199 | 5.145 | 1.839 |
+| 4 | 0.165–0.214 | 352 | 1.835 | 2.302 | 1.723 |
+| **5** | 0.215–2.74 | **872** | **2.579** | 3.689 | **2.425** |
+
+**MOVE-ONLY — within-Q5 of max slope (n≈261/sub):**
+
+| sub-Q | range | mean $ | PF | pre | post |
+|---|---|--:|--:|--:|--:|
+| 1 | 0.538–0.604 | 189 | 1.580 | 1.687 | 1.540 |
+| 2 | 0.604–0.706 | 337 | 1.872 | 1.607 | 1.959 |
+| 3 | 0.707–0.857 | 151 | 1.346 | 1.633 | 1.266 |
+| 4 | 0.857–1.293 | 375 | 1.934 | 2.893 | 1.727 |
+| **5** | 1.297–656 | **816** | **2.441** | 2.373 | **2.453** |
+
+**RVOL-ONLY — within-Q5 of max ATR% (n≈168/sub):**
+
+| sub-Q | range | mean $ | PF | pre | post |
+|---|---|--:|--:|--:|--:|
+| 1 | 0.097–0.107 | 165 | 1.458 | 1.442 | 1.465 |
+| 2 | 0.107–0.122 | 293 | 1.769 | 0.945 | 2.266 |
+| 3 | 0.123–0.145 | 496 | 2.513 | 3.599 | 2.180 |
+| 4 | 0.146–0.192 | 445 | 2.288 | 4.025 | 2.069 |
+| **5** | 0.192–2.00 | **975** | **2.645** | 6.741 | **2.326** |
+
+**RVOL-ONLY — within-Q5 of max slope (n≈168/sub):**
+
+| sub-Q | range | mean $ | PF | pre | post |
+|---|---|--:|--:|--:|--:|
+| 1 | 0.449–0.500 | 191 | 1.581 | 1.250 | 1.920 |
+| 2 | 0.501–0.575 | 179 | 1.557 | 0.870 | 1.960 |
+| 3 | 0.576–0.700 | 351 | 2.185 | 1.843 | 2.286 |
+| 4 | 0.701–0.960 | 298 | 1.752 | 1.219 | 1.923 |
+| **5** | 0.962–656 | **1,051** | **3.003** | 4.720 | **2.693** |
 
 In all six, **sub-Q5 is the highest-PF and highest-mean-$ sub-bucket** — no saturation, no extreme
 reversion. Mean P&L roughly *doubles* sub-Q1 → sub-Q5 in the conviction-gated systems ($165 → $975 ATR%
