@@ -125,6 +125,7 @@ type Position =
 /// breadth_lag1 is NOT here — it is market-wide and applied post-hoc.
 type EntryConfig =
     { UpThreshold: float        // min same-day return, close/prevClose-1 (v0 0.05)
+      MaxUpThreshold: float     // MAX same-day return (cap the 30%+ exhaustion/blow-off; production 0.30)
       RvolMin: float            // min rvol, volume/avgVol4w (production 6.0)
       RvolMax: float            // max rvol (production 20.0)
       MinPriorDays: int         // require barsSeen > this (v0 21)
@@ -410,8 +411,8 @@ type QullaSystem
         let c = bar.close
         let inline gate (v: float voption) (test: float -> bool) =
             match v with ValueSome x -> test x | ValueNone -> false
-        // breakout: same-day return >= threshold
-        gate (this.PctUp c) (fun pu -> pu >= entryCfg.UpThreshold)
+        // breakout: same-day return in [UpThreshold, MaxUpThreshold) — floor + 30%-blow-off cap
+        gate (this.PctUp c) (fun pu -> pu >= entryCfg.UpThreshold && pu < entryCfg.MaxUpThreshold)
         // rvol band (production [RvolMin, RvolMax])
         && gate (this.Rvol (float bar.volume)) (fun rv ->
                rv >= entryCfg.RvolMin && rv <= entryCfg.RvolMax)

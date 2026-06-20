@@ -24,6 +24,7 @@ type Args =
     | Max_Tightness of float
     | Max_Atr_Pct of float
     | Up_Threshold of float
+    | Max_Up_Threshold of float
     | Min_Price of float
     | Min_52w_Pct of float
     | Use_52w_High
@@ -71,6 +72,7 @@ type Args =
             | Max_Tightness _ -> "Max entry tightness (log scale). Default 5.0. Pass a large value to disable."
             | Max_Atr_Pct _ -> "Max entry ATR%% (log scale). Default 0.11. Pass a large value to disable."
             | Up_Threshold _ -> "Min entry-day move (close/prevClose-1). Default 0.10. The v0/old-system value was 0.05."
+            | Max_Up_Threshold _ -> "MAX entry-day move (close/prevClose-1). Default 0.30 — caps the 30%+ single-day blow-off (exhaustion/squeeze/pump that reverts). Pass a large value to disable."
             | Min_Price _ -> "Min entry close price. Default 5.0. Pass 0 to admit sub-$5 names."
             | Min_52w_Pct _ -> "52-week-high proximity: require close >= this * prior-252d-high-close. Default 0.95. 1.0 = strict new high (the old v0 default); 0 drops the gate."
             | Use_52w_High -> "Gate the 52w-proximity band on the prior-252d INTRADAY HIGH instead of the closing high (stricter 'above true resistance'). Default off (closing-high channel)."
@@ -99,7 +101,7 @@ type Args =
             | Side _ -> "Trade direction: 'long' (default) or 'short'. Short trails the stop along the prior-window HIGH and flips the P&L sign."
             | Tightness_Mode _ -> "Tightness measure for the entry filter + expansion exit: 'log' (default) or 'linear'. Thresholds differ between modes."
             | Rvol_Min _ -> "Minimum relative volume at entry. Default 5.0 (production)."
-            | Rvol_Max _ -> "Maximum relative volume at entry. Default 15.0 (production; caps the toxic 15+ exhaustion tail)."
+            | Rvol_Max _ -> "Maximum relative volume at entry. Default +inf (uncapped) — the 30%-move cap handles the blow-off tail instead. Pass e.g. 15 to also cap rvol."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -194,6 +196,7 @@ let main argv =
             Entry =
               { defaultConfig.Entry with
                   UpThreshold  = parsed.GetResult(Up_Threshold,  defaultValue = defaultConfig.Entry.UpThreshold)
+                  MaxUpThreshold = parsed.GetResult(Max_Up_Threshold, defaultValue = defaultConfig.Entry.MaxUpThreshold)
                   MinPrice     = parsed.GetResult(Min_Price,     defaultValue = defaultConfig.Entry.MinPrice)
                   Min52wPct    = parsed.GetResult(Min_52w_Pct,   defaultValue = defaultConfig.Entry.Min52wPct)
                   Use52wHigh   = parsed.Contains Use_52w_High
@@ -237,8 +240,9 @@ let main argv =
         (if cfg.Disaster.Enabled then
             sprintf "atr%%>%.0f%% & gain<%.0f%%" (cfg.Disaster.AtrThr*100.0) (cfg.Disaster.LossThr*100.0)
          else "off")
-    printfn "  entry     = up>=%.2f rvol[%.0f,%.0f] adv>=%.0f price>=%.0f 52w>=%.2f tight<%.2f atr%%<%.2f"
-        cfg.Entry.UpThreshold cfg.Entry.RvolMin cfg.Entry.RvolMax cfg.Entry.MinAvgDollarVolume
+    let rvolHi = if System.Double.IsInfinity cfg.Entry.RvolMax then "inf" else sprintf "%.0f" cfg.Entry.RvolMax
+    printfn "  entry     = up[%.2f,%.2f) rvol[%.0f,%s] adv>=%.0f price>=%.0f 52w>=%.2f tight<%.2f atr%%<%.2f"
+        cfg.Entry.UpThreshold cfg.Entry.MaxUpThreshold cfg.Entry.RvolMin rvolHi cfg.Entry.MinAvgDollarVolume
         cfg.Entry.MinPrice cfg.Entry.Min52wPct cfg.Entry.MaxTightness cfg.Entry.MaxAtrPct
 
     let sw = Stopwatch.StartNew()

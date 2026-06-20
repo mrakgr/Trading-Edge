@@ -24,7 +24,8 @@ no lookahead):
 | gate | threshold | meaning |
 | --- | --- | --- |
 | entry-day move | **≥ 10%** | `close/prevClose − 1` — the breakout has to *announce itself* |
-| relative volume | **5 ≤ rvol ≤ 15** | `volume / 28-day avg volume`; band. Floor 6→5 + cap 20→15 on 2026-06-20 — rvol 5 is enough to be significant, and the cap drops the toxic 15+ exhaustion tail |
+| relative volume | **rvol ≥ 5** (no upper cap) | `volume / 28-day avg volume`. Floor 6→5 on 2026-06-20 (rvol 5 is enough to be significant). The upper cap was *removed* — the 30%-move cap below handles the blow-off tail instead |
+| entry-day move | **10% ≤ move < 30%** | `close/prevClose − 1`. The 30% cap (added 2026-06-20) removes the single-day exhaustion blow-off; it makes an rvol cap redundant |
 | ATR% (log) | **< 0.11** | mean log-true-range over 14 prior bars (see below) |
 | tightness (linear) | **< 4.5** | `(14d range) / ATR` — prior consolidation must be tight (linear; sharper loose-tail cut than log). Raised 4.0 → 4.5 on 2026-06-20 (clean capacity gain; < 4.0 = max-PF, < 5.5 = max-capacity alternatives) |
 | 52-week proximity | **close ≥ 0.95 × hi_252** | near the 1-year closing high |
@@ -2611,10 +2612,34 @@ structure is a property of the move distribution itself, present on both gates.
 
 **Practical takeaway (revised):** this is a **notch, not a ceiling.** Don't cap at 30% in the naïve sense —
 instead **size up the 25–30% band** (the best clean-breakout cohort) and **de-weight / avoid 30–40%** (the
-exhaustion zone). Keep the move *default* near 0.10–0.15 for capacity (each higher band still has positive
-edge except 30–40%); the 30–40% notch is the one region to actively exclude.
+exhaustion zone). Keep the move *default* floor near 0.10 for capacity (each band still has positive edge up
+to 30%); the ≥30% blow-off is the one region to actively exclude.
+
+**✅ ADOPTED (2026-06-20): MaxUpThreshold = 0.30 cap, and the rvol upper cap REMOVED (move cap supersedes
+it).** The 30%+ blow-off and the rvol >15 toxicity are the *same trades* from two angles (the >15 cohort
+averages a +47% move). So a 30%-move cap **mends the rvol >15 bucket directly** — rvol >15 goes from PF 0.73
+(mean −1.8%) to **PF 1.54** (mean +1.2%) once the ≥30% moves are removed. Head-to-head (rvol ≥ 5, breadth,
+≥2005):
+
+| gate | n | PF | total $ | PF post |
+|---|--:|--:|--:|--:|
+| A: rvol [5,15], move uncapped (old) | 3,437 | 2.004 | 918k | 1.748 |
+| **B: rvol ≥ 5 uncapped, move < 30% (NEW DEFAULT)** | 3,713 | 1.991 | 917k | 1.716 |
+| C: both caps | 3,132 | 2.068 | 849k | 1.780 |
+
+A and B are **interchangeable** (PF ~identical, same $917k) — they remove the same blow-offs. B is chosen:
+it keeps **+276 well-behaved high-rvol trades** the volume cap discarded (a 3% PF gain wasn't worth 20%
+fewer trades — option C), and it's the *more principled* rule: a 30% single-day move is what a blow-off
+**is**; high rvol merely correlates. Rationale also includes that the surviving high-rvol names are
+manually triageable (skip the deal-locked/pump ones on a news check), which a blind rvol cap can't do.
+The move filter is now a **band [10%, 30%)** and rvol is **[5, ∞)**.
 
 #### ⭐ rvol sweep (1→15, move held at 10%) — rvol ALSO has a toxic blow-off tail; cap it ~15 (2026-06-20)
+
+> **Superseded conclusion:** this section concluded "add an upper rvol cap ~15." That cap was briefly the
+> default, then **removed** — the 30%-move cap supersedes it (see the move-notch section above: the >15
+> toxicity and the 30%+ moves are the same blow-off trades; capping the move mends the rvol bucket and
+> keeps +276 well-behaved high-rvol trades). The rvol *analysis* below still stands; only the cap was dropped.
 
 > Symmetric question to the move analysis: hold move ≥ 10%, vary rvol. Regenerated trips with a wide rvol
 > gate (`--rvol-min 1 --rvol-max 1000`) since the standard CSV is rvol ∈ [3,20]; caps + breadth + ≥2005.
@@ -2816,7 +2841,7 @@ better-entry. **Decision: keep the closing-high default;** `--use-52w-high` stay
 ```bash
 # v2 default (2026-06-20): NO price stop, 5-day time-stop, next-open exit (cap=0, no
 # trailing limit, expansion off); entry filters ATR% < 0.11 (log), tightness < 4.5
-# (linear), entry-move floor 10%, rvol [5,15].
+# (linear), entry-move band [10%, 30%), rvol >= 5 (no upper cap).
 # Run from dataset start for the 252-day warmup; filter entries to >=2005 post-hoc.
 dotnet run --project TradingEdge.MomentumV2 -c Release -- \
   --start-date 2003-09-10 --end-date 2026-05-13 -o /tmp/v2.csv
