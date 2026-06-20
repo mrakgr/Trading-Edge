@@ -2240,8 +2240,48 @@ entry-ATR% filter and the past-runner signal stack.
 **Implication / next step:** a **max-ret-6mo (or max-ADR) entry floor or sizing input** is a strong
 candidate — it adds orthogonal signal to the current ATR%/tightness gates, especially as a *partner* to
 entry-ATR% (cut volatile-but-no-history entries, which are pure fakeouts). max-ret looks like the better of
-the three (orthogonal within-ATR sort + profitable floor bucket). Not yet wired into the engine — to be
-designed and swept next; mind the thin top-bucket n and the win%-vs-PF fat tail when sizing.
+the three. **⚠️ But it is NOT a standalone edge — see the gate-dependence result below: under the loose
+gate the top decile INVERTS to a loser. It needs the production rvol/move floor underneath it.** Not yet
+wired into the engine — to be designed and swept next; mind the thin top-bucket n and the win%-vs-PF fat tail.
+
+#### ⚠️ The past-runner edge is GATE-DEPENDENT — monotone under production, inverts under the loose gate (2026-06-20)
+
+> The breakdown above used coarse fixed bins on the production gate. Re-ran it with **even-sized deciles**
+> (NTILE 10 on each measure, ~278 trips/decile production, ~2,360 loose) on **both gates**, dropping
+> true-range ATR% (keeping **max ADR** + **max ret/slope** only). The deciles expose what the fixed bins
+> hid: the signal's high end is **only an edge under the production gate** (rvol [6,20], move ≥ 10%).
+
+**PRODUCTION gate — clean monotone rise, top decile strongest (post-2015 holds):**
+
+| decile (range) | max ADR: PF | post | | max ret: PF | post |
+|---|--:|--:|---|--:|--:|
+| D1 (lowest) | ~0.9–1.0 | — | | 1.48 | 1.55 |
+| D5 | 1.752 | 1.349 | | 1.825 | 1.668 |
+| D6 | 1.888 | 2.043 | | 2.047 | 1.995 |
+| D9 | 2.032 | 2.217 | | 1.989 | 2.328 |
+| **D10 (highest)** | **2.937** (mean $867) | **2.717** | | **2.697** (mean $749) | **2.676** |
+
+**LOOSE gate — inverted-U; the top decile is a NET LOSER:**
+
+| decile (range) | max ADR: PF | post | | max ret: PF | post |
+|---|--:|--:|---|--:|--:|
+| D1 (lowest) | 0.943 | 1.024 | | 1.162 | 1.06 |
+| D6 (peak) | 2.027 | 1.257 | | 1.955 | 1.199 |
+| D9 | 1.173 | 1.106 | | 1.207 | 1.195 |
+| **D10 (highest)** | **0.971** (mean −$30) | **0.947** | | **0.879** (mean −$125) | **0.851** |
+
+**Why:** the gates differ by the rvol [6,20] band + 10%-move floor. On the loose gate a high-ADR/high-slope
+name can trigger on a *weak* signal (rvol 3, a 5% move) — i.e. an extreme-volatility stock breaking out on
+**no real demand**, the classic fakeout. The production floor filters exactly those, keeping only past
+runners that are *also* breaking out with conviction *today*. So the "ran before" signal is **worthless-to-
+negative at the extreme without the 'running now, with volume' half** — same complementarity as the
+within-ATR cross-tab, now shown from the other side. The earlier "monotone to PF 3.6" headline was a
+production-gate-only result that the fixed top bin made look universal.
+
+**Upshot:** max-ret/max-ADR is a **multiplier on the production entry, not a replacement for the gate.** A
+future max-ret floor must sit *on top of* rvol [6,20] + move ≥ 10% — you cannot loosen the gate and lean on
+the past-runner measure to recover quality. (Note also a recurring **D6 spike**, PF ~2–3 *pre-2015* in both
+measures/gates — a pre-2015 concentration; don't over-read that single decile.)
 
 ---
 
