@@ -3075,3 +3075,34 @@ exclude the low-priced names where the bug lived; the headline above is on the c
 
 *(The old "ATR% denominator uses the current close" TODO is RESOLVED — that's exactly what the
 log-space rewrite fixed.)*
+
+---
+
+## Next session — INTRADAY entries near the open (planned 2026-06-21)
+
+The whole system so far enters **at the close**. Next: test entering the same high-conviction setups
+**near the open** and holding a few days, to capture the part of the move that happens *during* the
+signal day instead of waiting for the close.
+
+**Why retry this — it failed before, but under different conditions.** Months ago we tested opening-range
+breakouts on high-rvol stocks and got nowhere. **But** that was: (a) essentially *every* rvol stock, with
+(b) **no tightness gate, no ATR% gate, no move band, no breadth/heat regime filter** — i.e. none of the
+edge-concentrating conditions discovered since. Those filters might have been the difference; an intraday
+entry on the *filtered* population is a genuinely different experiment. The hypothesis: enter the
+production setup (move [10%,30%), rvol [5,∞), ATR% < 0.11, tight < 4.5, 52w ≥ 0.95, breadth, heat < 25%)
+**near the open** and hold ~5 days.
+
+**Open questions to design around:**
+- **Entry timing:** at the open? after an opening-range (first 5/15/30 min)? The old ORB framing is one
+  option but not the only one — "buy near the open if the setup is intact" may beat waiting for a range break.
+- **Which signal is known pre-close?** rvol, the entry-day move, and tightness/ATR% are partly intraday —
+  need to define them as-of the entry *moment* (e.g. rvol projected from morning volume), not the full-day
+  close, to avoid lookahead. This is the main correctness risk.
+- **Data:** needs intraday bars (we have the equity bulk; the `intraday_10s` dataset exists). The current
+  engine is daily-bar only — an intraday entry path is a real engine change, not a post-hoc SQL study.
+- **Special case to revisit:** the **very-high-rvol names** (the 15+ / 30%+-move blow-offs that the
+  current close-entry system *excludes* as exhaustion) might behave differently entered *early in the day* —
+  noted as a deferred idea. Worth a separate look once the intraday harness exists.
+
+The bar is high: the close-entry system is now PF ~2.0 (filtered, post-2015 ~1.8) with multiple
+independent edges stacked. Intraday only earns its complexity if it adds materially on top.
