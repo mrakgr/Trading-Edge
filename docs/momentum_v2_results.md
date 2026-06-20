@@ -2816,7 +2816,7 @@ A reasonable robustness measure (don't be long the next meme-stock climax), but 
 tail-regime defense. (Breadth lag-1 > 0.5 should have caught much of 2021's churn but let these through on
 the up-days — the blow-offs happen *into* strength.)
 
-#### ⭐ "Top-gainer HEAT" — a froth/speculative-temperature timing measure (Sykes-inspired) (2026-06-20)
+#### ⭐ "Top-gainer HEAT" — froth timing measure; CHOSEN: skip entries when heat-10d ≥ 27% (Sykes-inspired) (2026-06-20)
 
 > A new market-timing measure, orthogonal to the %-above-MA breadth we already gate on. **Daily heat** =
 > mean return of the **top 1% of gainers** that day among stocks with dollar volume ≥ $100k (per-day
@@ -2827,35 +2827,53 @@ the up-days — the blow-offs happen *into* strength.)
 
 **Heat quintiles — high heat is BAD for our breakouts (median return, every window):**
 
-| quintile | h5 | h10 | h15 | **h20** |
+| quintile | h5 | **h10 (chosen)** | h15 | h20 |
 |---|--:|--:|--:|--:|
-| Q1 (coolest) | +0.39% | +0.67% | +0.70% | **+0.72%** |
-| Q2 | +0.58% | +0.45% | +0.44% | +0.38% |
-| Q3 | +0.37% | +0.39% | +0.34% | +0.56% |
-| Q4 | 0.00% | +0.23% | +0.11% | −0.08% |
-| **Q5 (hottest)** | **−0.29%** | **−0.47%** | **−0.41%** | **−0.32%** |
+| Q1 (coolest) | +0.39% | **+0.67%** | +0.70% | +0.72% |
+| Q2 | +0.58% | **+0.45%** | +0.44% | +0.38% |
+| Q3 | +0.37% | **+0.39%** | +0.34% | +0.56% |
+| Q4 | 0.00% | **+0.23%** | +0.11% | −0.08% |
+| **Q5 (hottest)** | −0.29% | **−0.47%** | −0.41% | −0.32% |
 
 **Findings:**
 1. **The froth hypothesis wins over risk-on.** The hottest-heat quintile is the *only* one with a negative
    median return — in **all four windows**. When the top 1% of gainers have run hot over the prior 1–4
    weeks, our momentum breakouts buy into a crowded, late-stage tape and the typical trade loses. Cool tape
    (Q1–Q2) → breakouts run. This generalizes the 2021-pump finding to a continuous regime measure.
-2. **20-day is the best window** — the cleanest monotone median and the sharpest Q1-vs-Q5 separation (Q1 PF
-   2.13 / post 1.99 vs Q5 1.41 / post 1.44). The longer window smooths daily heat noise into a steadier
-   regime read; h5 is noisiest.
-3. **The "froth cut" (exclude top heat-20d quintile) is a strong, cheap filter:**
+2. **Froth cut across all windows (exclude top quintile, keep Q1–4) — h10/h15 best on the kept book, h20
+   best post-2015, h5 worst:**
+
+   | window | n keep | PF keep | total $ | PF keep post | Q5 median (cut) | Q5 PF |
+   |---|--:|--:|--:|--:|--:|--:|
+   | h5 | 2,971 | 2.167 | 780k | 1.776 | −0.29% | 1.532 |
+   | **h10 (CHOSEN)** | 2,971 | **2.245** | 810k | 1.885 | **−0.47%** | **1.388** |
+   | h15 | 2,971 | 2.244 | 808k | 1.902 | −0.41% | 1.394 |
+   | h20 | 2,971 | 2.233 | 803k | **1.934** | −0.32% | 1.414 |
+
+   h5 is too noisy (cuts the *least* toxic Q5). h10/h15 tie for best kept-PF and sharpest froth separation
+   (cut the most toxic cohort); h20 wins post-2015 by ~0.05 PF. **Chose h10** — fastest regime response (a
+   timing signal should step aside sooner) and the sharpest bad-cohort separation; the window choice is a
+   minor optimization (window-insensitivity 10→20 is itself evidence the signal is real, not fitted).
+3. **⭐ The h10 filter — exclude entries when trailing-10d heat ≥ ~27%** (the Q4/Q5 boundary = the 80th
+   percentile of the h10 distribution). Concrete ladder: Q1 ≤12% (calm) · Q2 12–15% · Q3 15–19% (typical,
+   daily-heat median ≈19%) · Q4 19–27% (warming) · **Q5 ≥27% up to 57% (frothy — the cut)**. A 10-day
+   *average* ≥27% means sustained two-week froth, not a single hot day. Filter effect:
 
    | | n | PF | total $ | PF post |
    |---|--:|--:|--:|--:|
    | baseline (all heat) | 3,713 | 1.991 | 917k | — |
-   | keep Q1–4 (heat not hot) | 2,971 | **2.233** | 803k | **1.934** |
-   | Q5 only (hot — excluded) | 742 | 1.414 | 113k | 1.439 |
+   | keep heat-10d < 27% | 2,971 | **2.245** | 810k | **1.885** |
+   | excluded (heat-10d ≥ 27%) | 742 | 1.388 | 106k | 1.485 |
 
-   Cutting the hot-tape quintile lifts PF **1.991 → 2.233** (post-2015 → 1.934) for −20% trips / −12% P&L —
-   a better quality-per-capacity trade than most filters tested. **Orthogonal** to breadth/trend (it's
-   speculative temperature, not direction). Not yet wired into the engine; candidate as an entry gate or a
-   downsize trigger. Heat series is a post-hoc DuckDB build (`scripts/equity/heat_breakdown.sql`); to make
-   it a live gate it needs precomputing into a parquet like `breadth.parquet`.
+   Cutting the frothy tape lifts PF **1.991 → 2.245** for −20% trips / −12% P&L — a better quality-per-
+   capacity trade than most filters tested.
+4. **The excluded Q5 is a low-win-rate coin-flip, not outright poison.** Its **median is −0.47%** but its
+   **mean is +1.43%** (win rate 46.8%, the lowest) — froth tape produces enough occasional monsters to keep
+   the mean barely positive even as the *typical* trade loses. So it's a **downsize/skip** candidate, not a
+   hard "never trade" exclusion like the rvol-15+ pump cohort (which had a negative mean). **Orthogonal** to
+   breadth/trend (speculative temperature, not direction). Not yet wired into the engine; the heat series is
+   a post-hoc DuckDB build (`scripts/equity/heat_breakdown.sql`) — to go live it needs precomputing into a
+   parquet like `breadth.parquet` (then gate `heat10 < 0.27` as-of the prior close).
 
 #### 52w-proximity gate: intraday-HIGH channel is WORSE than the closing-high channel (2026-06-20)
 

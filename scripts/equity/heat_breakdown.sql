@@ -49,3 +49,44 @@ SELECT CASE WHEN quint<=4 THEN 'keep Q1-4 (heat NOT hot)' ELSE 'Q5 only (hot, ex
 FROM q GROUP BY 1 ORDER BY 1;
 SELECT '--- baseline (all heat) for reference ---' z;
 SELECT COUNT(*) n, ROUND(SUM(CASE WHEN net_pnl>0 THEN net_pnl ELSE 0 END)/NULLIF(-SUM(CASE WHEN net_pnl<0 THEN net_pnl ELSE 0 END),0),3) pf, ROUND(SUM(net_pnl),0) tot FROM t WHERE h20 IS NOT NULL;
+SELECT '=== froth cut: h10 vs h20 (exclude top quintile) ===' z;
+WITH q10 AS (SELECT *, NTILE(5) OVER (ORDER BY h10) quint FROM t WHERE h10 IS NOT NULL)
+SELECT 'h10: keep Q1-4' grp, COUNT(*) n, ROUND(100*MEDIAN(ret),2) med,
+  ROUND(SUM(CASE WHEN net_pnl>0 THEN net_pnl ELSE 0 END)/NULLIF(-SUM(CASE WHEN net_pnl<0 THEN net_pnl ELSE 0 END),0),3) pf,
+  ROUND(SUM(net_pnl),0) tot,
+  ROUND(SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND net_pnl>0 THEN net_pnl ELSE 0 END)/NULLIF(-SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND net_pnl<0 THEN net_pnl ELSE 0 END),0),3) pf_post
+FROM q10 WHERE quint<=4
+UNION ALL
+SELECT 'h10: Q5 (excluded)', COUNT(*), ROUND(100*MEDIAN(ret),2),
+  ROUND(SUM(CASE WHEN net_pnl>0 THEN net_pnl ELSE 0 END)/NULLIF(-SUM(CASE WHEN net_pnl<0 THEN net_pnl ELSE 0 END),0),3),
+  ROUND(SUM(net_pnl),0),
+  ROUND(SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND net_pnl>0 THEN net_pnl ELSE 0 END)/NULLIF(-SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND net_pnl<0 THEN net_pnl ELSE 0 END),0),3)
+FROM q10 WHERE quint=5;
+SELECT '=== froth cut across ALL windows (exclude top quintile) ===' z;
+CREATE OR REPLACE TEMP MACRO cut(col) AS TABLE
+WITH q AS (SELECT *, NTILE(5) OVER (ORDER BY col) quint FROM t WHERE col IS NOT NULL)
+SELECT
+  (SELECT COUNT(*) FROM q WHERE quint<=4) n_keep,
+  ROUND((SELECT SUM(CASE WHEN net_pnl>0 THEN net_pnl ELSE 0 END)/NULLIF(-SUM(CASE WHEN net_pnl<0 THEN net_pnl ELSE 0 END),0) FROM q WHERE quint<=4),3) pf_keep,
+  ROUND((SELECT SUM(net_pnl) FROM q WHERE quint<=4),0) tot_keep,
+  ROUND((SELECT SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND net_pnl>0 THEN net_pnl ELSE 0 END)/NULLIF(-SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND net_pnl<0 THEN net_pnl ELSE 0 END),0) FROM q WHERE quint<=4),3) pf_keep_post,
+  ROUND(100*(SELECT MEDIAN(ret) FROM q WHERE quint=5),2) q5_med,
+  ROUND((SELECT SUM(CASE WHEN net_pnl>0 THEN net_pnl ELSE 0 END)/NULLIF(-SUM(CASE WHEN net_pnl<0 THEN net_pnl ELSE 0 END),0) FROM q WHERE quint=5),3) q5_pf;
+.mode box
+SELECT 'h5'  w, * FROM cut(h5)
+UNION ALL SELECT 'h10', * FROM cut(h10)
+UNION ALL SELECT 'h15', * FROM cut(h15)
+UNION ALL SELECT 'h20', * FROM cut(h20);
+SELECT '=== heat-10d Q5 (top quintile, the excluded froth cohort): mean vs median ===' z;
+WITH q AS (SELECT *, NTILE(5) OVER (ORDER BY h10) quint FROM t WHERE h10 IS NOT NULL)
+SELECT quint, COUNT(*) n,
+  ROUND(100*MEDIAN(ret),2) med_ret_pct, ROUND(100*AVG(ret),2) mean_ret_pct,
+  ROUND(100.0*AVG(CASE WHEN ret>0 THEN 1 ELSE 0 END),1) winr,
+  ROUND(SUM(CASE WHEN net_pnl>0 THEN net_pnl ELSE 0 END)/NULLIF(-SUM(CASE WHEN net_pnl<0 THEN net_pnl ELSE 0 END),0),3) pf
+FROM q GROUP BY quint ORDER BY quint;
+SELECT '=== h10 quintile boundaries (the actual thresholds) ===' z;
+WITH q AS (SELECT *, NTILE(5) OVER (ORDER BY h10) quint FROM t WHERE h10 IS NOT NULL)
+SELECT quint, COUNT(*) n, ROUND(100*MIN(h10),2) lo_pct, ROUND(100*MAX(h10),2) hi_pct
+FROM q GROUP BY quint ORDER BY quint;
+SELECT '=== the Q5 cutoff: exclude h10 >= this ===' z;
+SELECT ROUND(100*quantile_cont(h10,0.8),2) AS h10_p80_pct_threshold FROM t WHERE h10 IS NOT NULL;
