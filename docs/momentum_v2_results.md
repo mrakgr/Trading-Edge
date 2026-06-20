@@ -2173,6 +2173,78 @@ as the **max-PF / min-drawdown** alternative (PF 1.859, post 1.848).
 
 ---
 
+#### ⭐ Past-runner personality — a 6-month volatility/momentum HISTORY predicts the next breakout (2026-06-20)
+
+> **Thesis (Tim Sykes / chart-reading lore):** momentum stocks keep being momentum stocks; boring stocks
+> stay boring. Test it directly — for each entry, measure the stock's volatility/momentum *personality*
+> over the **trailing 6 months (126 trading days)**, then break the default-system trips down by it. The
+> measures are the trailing-126d **max of a 14-day window stat**, sampled **as-of the signal date and
+> lagged 1 bar** (no lookahead — the signal bar's own range is excluded). Three measures:
+> - **max ADR 6mo** = max over 126d of `mean₁₄(high/low − 1)` (range-based, the literal Sykes ADR)
+> - **max ATR% 6mo** = max over 126d of `mean₁₄(true_range/close)` (gap-aware cousin of ADR)
+> - **max ret 6mo** = max over 126d of `close_t/close_{t−14} − 1` (directional 14d burst — the "slope")
+>
+> Population: default trips (5d time-stop, tight < 4.5, ATR% < 0.11), breadth on, ≥2005 (~2,580 trips).
+
+**All three sort the book monotonically — strongly. The verdict: yes, past runners run again.**
+
+| max ADR 6mo | n | win% | mean $ | PF |   | max ret 6mo | n | win% | mean $ | PF |
+|---|--:|--:|--:|--:|---|---|--:|--:|--:|--:|
+| <4%    | 498 | 49.8 | −8 | **0.955** |   | <15%    | 417 | 52.3 | 77 | 1.428 |
+| 4–6%   | 796 | 52.6 | 76 | 1.345 |   | 15–30%  | 1100 | 53.4 | 106 | 1.481 |
+| 6–8%   | 569 | 54.7 | 187 | 1.821 |   | 30–50%  | 705 | 54.8 | 194 | 1.671 |
+| 8–11%  | 427 | 55.3 | 221 | 1.703 |   | 50–80%  | 354 | 52.0 | 276 | 1.832 |
+| 11–15% | 237 | 53.6 | 382 | 1.978 |   | 80–130% | 118 | 55.1 | 520 | 2.548 |
+| **15%+** | 253 | 53.4 | **918** | **3.126** |   | **130%+** | 86 | 41.9 | **1,579** | **3.599** |
+
+(max ATR% 6mo is near-identical to ADR: PF 1.11 → 1.26 → 1.66 → 1.75 → 2.19 → **2.91**.)
+
+- The **bottom ADR/ATR bucket is dead** (PF 0.955 / mean −$8) — stocks with no volatile fortnight in the
+  prior 6 months are untradeable under our system. The top bucket is **PF 3.13 / $918 a trade**.
+- **max ret (the slope) is the most interesting measure** — even its *bottom* bucket is profitable
+  (PF 1.428: a clean directional run leaves edge even when the range was tame), and its top bucket is the
+  strongest of all (**PF 3.60 / $1,579**). It captures directional momentum personality specifically.
+- **Fat-tail caveat:** the top buckets win on magnitude, not frequency — max-ret `130%+` has win% **41.9**
+  but PF 3.60 (few winners, huge). Real edge, but lumpy/higher-variance to trade. n is also thin up top
+  (86–253) — directional, not precise.
+
+**Era split — holds in both eras (not a regime artifact):**
+
+| max ret 6mo | PF pre | PF post |   | max ADR 6mo | PF pre | PF post |
+|---|--:|--:|---|---|--:|--:|
+| <15%    | — | 1.28 |   | <4%    | 1.197 | **0.721** |
+| 15–30%  | 1.813 | 1.277 |   | 4–6%   | 1.829 | 1.033 |
+| 30–50%  | 1.768 | 1.619 |   | 6–8%   | 1.742 | 1.880 |
+| 50–80%  | 1.278 | 2.056 |   | 8–11%  | 1.441 | 1.835 |
+| 80–130% | 2.749 | 2.489 |   | 11–15% | 1.529 | 2.131 |
+| 130%+   | **4.676** | **3.467** |   | 15%+   | **5.247** | **2.856** |
+
+Monotone in both eras; the ADR `<4%` bottom is actually *worse* post-2015 (PF 0.72 — boring names have
+gotten even less tradeable).
+
+**⭐ It's INDEPENDENT of the entry-ATR% filter — the two are complementary, not redundant.** The obvious
+worry is that "past runner" just re-discovers "volatile entry." It does not — max-ret sorts *within* fixed
+entry-ATR% strata:
+
+| within entry-ATR% < 0.06 (quiet entries, n=2,277) | n | PF |   | within entry-ATR% ≥ 0.08 (volatile entries, n=186) | n | PF |
+|---|--:|--:|---|---|--:|--:|
+| max-ret < 30% | 1453 | 1.501 |   | max-ret < 30% | 21 | **0.983** |
+| max-ret 30–80% | 764 | 1.376 |   | max-ret 30–80% | 87 | 2.451 |
+| max-ret > 80% | 60 | **1.701** |   | max-ret > 80% | 78 | **4.875** |
+
+The volatile-entry row is the punchline: **a volatile entry with NO prior run is break-even junk (PF 0.98,
+mean −$12); a volatile entry WITH a prior run is PF 4.88 ($2,025/trade).** Today's volatility only pays
+when the stock has a *history* of running — a momentary spike on an otherwise-boring name is a fakeout. The
+entry-ATR% filter and the past-runner signal stack.
+
+**Implication / next step:** a **max-ret-6mo (or max-ADR) entry floor or sizing input** is a strong
+candidate — it adds orthogonal signal to the current ATR%/tightness gates, especially as a *partner* to
+entry-ATR% (cut volatile-but-no-history entries, which are pure fakeouts). max-ret looks like the better of
+the three (orthogonal within-ATR sort + profitable floor bucket). Not yet wired into the engine — to be
+designed and swept next; mind the thin top-bucket n and the win%-vs-PF fat tail when sizing.
+
+---
+
 ## Yearly breakdown — PRE-time-stop default (window-low stop-4), filtered (flat $10k/trip, by entry year)
 
 > **Which system:** this is the production default *as it stood before the 2026-06-19 stop-mechanics
