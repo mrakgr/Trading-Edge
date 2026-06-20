@@ -110,13 +110,21 @@ let defaultConfig =
           Min52wPct = 0.95
           MinPrice = 5.0
           // Tuned by post-hoc SQL sweep. ATR% is LOG-space (log-true-range; < 0.11 is
-          // clear-cut — the high-vol tail is the biggest single drag). Tightness is
-          // LINEAR (TightnessMode = Linear above); it is monotonic — tighter = higher PF
-          // + smaller drawdown; 4.0 is the drawdown/PF sweet spot (linear <4.0 =
-          // PF 1.758 / 2,253 trips), trading raw P&L (= exposure) for risk. The 4.0
-          // cutoff is essentially the same value under log or linear; only the loose-tail
-          // discrimination differs (linear is sharper there).
-          MaxTightness = 4.0
+          // clear-cut — the high-vol tail is the biggest single drag, and a 0.11 ceiling
+          // is a clean interior optimum: total P&L peaks there and falls off both sides —
+          // see "Filter-ceiling sweep" 2026-06-20). Tightness is LINEAR (TightnessMode =
+          // Linear above).
+          // 2026-06-20: RAISED 4.0 → 5.5 (capacity over PF). On the PRODUCTION gate
+          // (price% ≥ 0.10, rvol [6,20]) loosening to 5.5 gives +59% trips (2,233 → 3,550)
+          // and +40% P&L (+$501k → +$701k) for −0.15 PF (1.859 → 1.711); post-2015 PF
+          // stays strong at 1.678 (vs 1.848 at <4.0). NOTE the gate-dependence: on the
+          // LOOSE gate (price% ≥ 0.05, rvol [3,20]) this same loosening DEGRADES post-2015
+          // PF (the 5.0–5.5 sub-band reverts to PF 1.23 post-2015) — the production
+          // move/rvol floor is what keeps the loose-tightness names clean (5.0–5.5 holds
+          // post-2015 PF 1.45 under the prod gate). The 4.5–5.0 sub-band is the soft spot
+          // we swallow to reach the good 5.0–5.5 band. <4.0 stays the max-PF / min-DD
+          // choice (PF 1.859, post 1.848); 5.5 is the max-capacity choice.
+          MaxTightness = 5.5
           MaxAtrPct = 0.11 } }
 
 /// A finished trip, ready for the CSV. Mirrors v0's base trip columns so the

@@ -26,7 +26,7 @@ no lookahead):
 | entry-day move | **≥ 10%** | `close/prevClose − 1` — the breakout has to *announce itself* |
 | relative volume | **6 ≤ rvol ≤ 20** | `volume / 28-day avg volume`; band, not a floor |
 | ATR% (log) | **< 0.11** | mean log-true-range over 14 prior bars (see below) |
-| tightness (linear) | **< 4.0** | `(14d range) / ATR` — prior consolidation must be tight (linear default; sharper loose-tail cut than log) |
+| tightness (linear) | **< 5.5** | `(14d range) / ATR` — prior consolidation must be tight (linear; sharper loose-tail cut than log). Raised 4.0 → 5.5 on 2026-06-20 (capacity over PF; < 4.0 is the max-PF alternative) |
 | 52-week proximity | **close ≥ 0.95 × hi_252** | near the 1-year closing high |
 | price floor | **≥ $5** | no sub-$5 names |
 | liquidity | **avg dollar volume ≥ $100k** | 28-day average |
@@ -1903,6 +1903,13 @@ capture-vs-efficiency tradeoff, now quantified on the population that matters).
 
 #### ⭐ NEW DEFAULT — 5-day time-stop, NO price stop; the disaster exit is a SHORT setup (2026-06-19)
 
+> **Superseded ceiling (2026-06-20):** the PF figures in this section (1.775 no-breadth; 1.859/1.881/1.848
+> filtered, 2,233 trips) are the **tight < 4.0** numbers, which was the default *when this was written*. The
+> tightness ceiling was later raised to **5.5** (capacity over PF — see "The gate matters" in the
+> filter-ceiling sweep below): the current default is **3,550 trips, PF 1.711, +$701k** (pre 1.775 / post
+> 1.678). The 5d-time-stop / no-price-stop / ATR% < 0.11 facts in this section all still hold; only the
+> tightness ceiling and the headline trip/PF numbers changed.
+
 Acting on the whole stop-mechanics arc: **the new production default is a 5-bar time-stop with no
 trailing price stop** (`defaultConfig`: `StopMode = NoStop`, `MaxHoldBars = 5`). Rationale, all
 established above: moving stops around doesn't help; too-tight stops hurt; the edge is the breakout pop in
@@ -2122,9 +2129,41 @@ flat (1.564 → 1.568) but **degrades post-2015 PF (1.363 → 1.331)** — it ma
 era that matters for live trading. Every loose band (4.5–5.0, 5.5–6.0, 6.0+) is sub-1.4 or negative
 post-2015; there is **no robust loose-tightness edge in the modern era.**
 
-**Verdict: keep ATR% < 0.11, tight < 4.0.** The apparent capacity upside from loosening tightness was a
-pre-2015 mirage; the current ceilings sit on the post-2015 optimum. Tightening ATR% (toward 0.06–0.08) is
-strictly worse on every metric — it cuts the time-stop-rescued 8–10% band. Don't move either ceiling.
+> **⚠️ This loose-gate verdict does NOT carry to the production gate — see below.** On the loose gate the
+> 5.0–5.5 spike reverts to junk post-2015, so loosening *there* is a mirage. But the production move/rvol
+> floor cleans up exactly those names, and on the gate that actually ships the loosening holds.
+
+**The gate matters — on the PRODUCTION gate, tight < 5.5 holds out-of-sample (2026-06-20).** Re-ran the
+tightness decision on the real default gate (price% ≥ 0.10, rvol [6,20], ATR% < 0.11, breadth, ≥2005):
+
+| tightness | n | PF | total $ | mean $ | PF pre | PF post |
+|---|--:|--:|--:|--:|--:|--:|
+| **< 4.0** (old default) | 2,233 | **1.859** | +501k | 225 | 1.881 | **1.848** |
+| **< 5.5** (NEW default) | 3,550 | 1.711 | **+701k** | 197 | 1.775 | **1.678** |
+
+Non-cumulative bands, **production gate**, with era split — the 5.0–5.5 band that reverted to junk on the
+loose gate stays *healthy* here:
+
+| tightness band | n | PF | mean $ | PF pre | PF post |
+|---|--:|--:|--:|--:|--:|
+| < 4.0 | 2,233 | 1.859 | 225 | 1.881 | 1.848 |
+| 4.0–4.5 | 547 | 1.538 | 143 | 1.355 | 1.643 |
+| **4.5–5.0** | 446 | 1.343 | 117 | 1.589 | 1.222 ← soft spot |
+| **5.0–5.5** | 324 | 1.660 | 212 | 2.106 | **1.454** ← still good post-2015 |
+| 5.5+ | 681 | 1.121 | 58 | 1.206 | 1.080 |
+
+Compare the 5.0–5.5 band across gates: **loose gate** PF 2.205 pre → **1.232** post (reverts); **production
+gate** PF 2.106 pre → **1.454** post (holds). The move/rvol floor is what keeps the loose-tightness names
+clean. The 4.5–5.0 band is the soft spot (post 1.222) we swallow to reach the good 5.0–5.5 band, but the
+*aggregate* < 5.5 survives out-of-sample (post-2015 PF 1.678, mean $197).
+
+**✅ DECISION (2026-06-20): RAISE the default tightness ceiling 4.0 → 5.5 — capacity over PF.** On the
+production gate this is **+59% trips (2,233 → 3,550) and +40% P&L (+$501k → +$701k) for −0.15 PF (1.859 →
+1.711)**; post-2015 PF stays strong at 1.678. The capacity is worth ~0.15 PF given the live constraint is
+finding enough trades to fill the book. `MaxTightness = 5.5` in `defaultConfig`.
+**ATR% < 0.11 stays put** — clean interior optimum; tightening it (toward 0.06–0.08) is strictly worse
+(cuts the time-stop-rescued 8–10% band). The `< 4.0` ceiling remains the max-PF / min-drawdown alternative
+(PF 1.859, post 1.848) if a future regime makes capacity less of a constraint than quality.
 
 ---
 
@@ -2208,8 +2247,9 @@ left tail shallow.
 ## Reproduction
 
 ```bash
-# v2 default: stop-window 4, next-open exit (cap=0, no trailing limit, expansion off),
-# log-space entry filters (ATR% < 0.11, tightness < 4.0), entry-move floor 10%.
+# v2 default (2026-06-20): NO price stop, 5-day time-stop, next-open exit (cap=0, no
+# trailing limit, expansion off); entry filters ATR% < 0.11 (log), tightness < 5.5
+# (linear), entry-move floor 10%, rvol [6,20].
 # Run from dataset start for the 252-day warmup; filter entries to >=2005 post-hoc.
 dotnet run --project TradingEdge.MomentumV2 -c Release -- \
   --start-date 2003-09-10 --end-date 2026-05-13 -o /tmp/v2.csv
