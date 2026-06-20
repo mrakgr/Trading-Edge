@@ -28,31 +28,47 @@
 --   ~1-2%). So breadth_1m.parquet here == the production breadth, by construction.
 --
 -- TEST-TICKER BLOCKLIST (NASDAQ test securities — ZXZZT, ZWZZT, ZJZZT, AAZST,
---   NTEST.*, …): these are synthetic symbols with corrupt prices (0.0001 ->
---   $200,000 = a +200-billion-% one-day return) that slip into the price table
---   tagged CS or with no ref row, so neither the type nor the $1M liquidity
---   filter catches them. SOURCE OF TRUTH: Polygon files them under type='OTHER'
---   (and their `name` contains "test"). Fetch them into ticker_reference with
---     dotnet run --project TradingEdge.Massive -- download-tickers
---   (TickersDownload.fs now includes "OTHER" in tickerTypes). Then both builders
---   below exclude them via the `is_test_ticker` predicate. Until that download is
---   run, the predicate matches nothing (OTHER rows absent) and the +1000% return
---   clip in the HEAT builder remains the safety net. Keep BOTH: the blocklist
---   removes synthetic NAMES from the universes (incl. breadth, where they'd count
---   as "stocks"); the clip still handles residual ratio-glitches in REAL tickers
---   (e.g. LU, EPIX — legit ADRC/CS with one corrupt split-adjusted day).
+--   NTEST.*, …): synthetic symbols with corrupt prices (0.0001 -> $200,000 = a
+--   +200-billion-% one-day return) that slip into the price table with NO ref row,
+--   so neither the type nor the $1M liquidity filter catches them.
+--   WHAT DOESN'T WORK (verified 2026-06-20):
+--     - Polygon type='OTHER': the download-tickers run returned 0 OTHER rows —
+--       Polygon does NOT carry these test tickers in its reference master AT ALL
+--       (a direct /v3/reference/tickers?ticker=ZXZZT query returns empty). So a
+--       reference join can't tag them; that clause is inert and removed.
+--     - a high-price rule (close > $50k): LEAKY both ways — catches only ~14/135 of
+--       the egregious corruptions (split-adjustment rescales the spike) AND wrongly
+--       hits ~53 REAL reverse-split micro-caps (HCTI, CDT, RSLS...) whose adjusted
+--       history balloons past $50k. Rejected.
+--   WHAT WORKS: a HARDCODED list of the published exchange test symbols (below).
+--   It's a fixed, finite, published set (NASDAQ Z?ZZT/ZYxxx, NYSE NTEST.*, etc.) —
+--   enumerated exhaustively from our own data via the synthetic signature — so a
+--   literal list is the simplest and most robust option; it does not grow.
+--   The +1000% return clip in the HEAT builder stays as the catch-all backstop for
+--   residual ratio-glitches in REAL tickers (LU, EPIX — legit ADRC/CS, one corrupt
+--   split-adjusted day each). Keep BOTH: blocklist removes synthetic NAMES from the
+--   universes (incl. breadth, where they'd silently count as "stocks"); clip caps
+--   the residual return outliers.
 -- =============================================================================
 
--- Reusable test-ticker predicate: TRUE if `tk` is a Polygon test security.
--- (type='OTHER' is the authoritative tag; the name LIKE '%test%' and the known
---  Z*ZZT / NTEST pattern are belt-and-suspenders for any that pre-date the OTHER
---  fetch or lack a ref row.)
+-- HARDCODED test-ticker blocklist. These are the published exchange test symbols
+-- (NASDAQ Z?ZZT/ZYxxx Tier-1/2/3 test series, NYSE/Arca NTEST.*, plus AAZST/CGZST/
+-- YJZST/ZVV). It is the EXHAUSTIVE set found in split_adjusted_prices via the
+-- synthetic signature (>1000% move AND (no CS/ADRC ref OR an impossible >$50k
+-- adjusted price)). It's a fixed published set — does not grow — so a literal list
+-- is simpler and more robust than any pattern/reference join (both of which proved
+-- leaky: Polygon doesn't list these at all; a bare price/name rule false-positives
+-- on real reverse-split micro-caps / "inTEST"/"Whitestone").
+-- NOTE: the real ticker `Z` (Zillow) is DELIBERATELY EXCLUDED from this list — it
+-- is a legitimate stock with one corrupt $200k row; the +1000% return clip handles
+-- that single glitch, and we must not blanket-block real Zillow.
 CREATE OR REPLACE TEMP MACRO is_test_ticker(tk) AS (
-  tk IN (SELECT ticker FROM ticker_reference
-         WHERE type = 'OTHER' OR LOWER(name) LIKE '%test%')
-  OR tk SIMILAR TO 'Z[A-Z]ZZT'      -- ZXZZT, ZWZZT, ZJZZT, ZVZZT, ZAZZT, ZBZZT, ZCZZT...
-  OR tk LIKE 'NTEST%'               -- NTEST.A / NTEST.G ...
-  OR tk IN ('AAZST','CGZST','ZYSTF','ZYYZZ','ZYSZZ','YJZST','ZVV')
+  tk IN (
+    'ZAZZT','ZBZZT','ZCZZT','ZJZZT','ZVZZT','ZWZZT','ZXZZT','ZYZZT',  -- NASDAQ Z?ZZT test series
+    'ZYYZZ','ZYSZZ','ZYSTF',                                         -- NASDAQ ZYxxx test symbols
+    'NTEST.A','NTEST.B','NTEST.C','NTEST.G',                          -- NYSE/Arca test symbols
+    'AAZST','CGZST','YJZST','ZVV'                                     -- other exchange test symbols
+  )
 );
 
 

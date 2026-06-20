@@ -140,26 +140,24 @@ let downloadTickersOfType
 ///   CS   — common stock
 ///   ADRC — American Depositary Receipt (Common)
 ///   ETF, ETN, ETV, ETS — exchange-traded products
-///   OTHER — catch-all where Polygon files NASDAQ TEST securities (ZXZZT, ZWZZT,
-///           ZJZZT, AAZST, NTEST.*, …) and other non-standard instruments. We
-///           fetch it so those test tickers land in `ticker_reference` and can be
-///           BLOCKED from the price-derived universes (breadth/heat), where they
-///           otherwise slip in tagged CS or with no ref row and produce corrupt
-///           returns (a 0.0001→$200,000 print = a +200-billion-% one-day "gain").
-///           Their `name` typically contains "test"; type comes back as OTHER.
+/// NOTE (2026-06-20): we tried adding "OTHER" here to capture NASDAQ test tickers
+///   (ZXZZT, ZWZZT, ZJZZT, AAZST, NTEST.*) — but Polygon returns ZERO rows for
+///   type=OTHER, and does NOT carry these test symbols in its reference master at
+///   all (a direct ?ticker=ZXZZT query is empty). So the reference feed can't tag
+///   them; they're blocked downstream by name-pattern instead (see
+///   scripts/equity/build_breadth_and_heat.sql `is_test_ticker`). Left OUT of the
+///   type list to avoid a pointless empty fetch.
 /// For each type we fetch both active=true (currently listed) and active=false
 /// (delisted/acquired/merged) so that historical backtests can still classify
 /// tickers that no longer trade. These populate `ticker_reference(ticker, type)`.
-/// Downstream filters (e.g. gap_play) select on `type IN ('CS', 'ADRC')`, which
-/// already excludes OTHER — so adding it is purely additive (no existing filter
-/// changes) and just makes the test tickers explicitly identifiable/blockable.
+/// Downstream filters (e.g. gap_play) select on `type IN ('CS', 'ADRC')`.
 let downloadAllReferenceTickers
     (httpClient: HttpClient)
     (apiKey: string)
     (ct: CancellationToken)
     : Async<Result<(string * string * string) list, string>> =
     async {
-        let tickerTypes = [ "CS"; "ADRC"; "ETF"; "ETN"; "ETV"; "ETS"; "OTHER" ]
+        let tickerTypes = [ "CS"; "ADRC"; "ETF"; "ETN"; "ETV"; "ETS" ]
         let all = ResizeArray<string * string * string>()
         let mutable error : string option = None
 
