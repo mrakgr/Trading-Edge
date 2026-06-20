@@ -2328,6 +2328,77 @@ couple of cells, PF ~2 driven *pre-2015* — a concentration; don't over-read si
 (both floors + ATR%/tightness caps), and **"higher is better" holds** — a floor on max-ret is sensible, no
 need for a band/cap. The rvol and move floors are both pulling their weight; neither is redundant.
 
+#### Full quintile tables — both measures × all three sub-systems (caps + breadth ON, 2026-06-20)
+
+> The full picture behind the Q5-only summary above. Quintiles (NTILE 5) of each measure, **breadth applied
+> throughout** (lag-1 pct_above_20 > 0.5), ATR% < 0.11, tight < 4.5, ≥2005. PF / pre-2015 / post-2015.
+
+**LOOSE (move ≥ 5%, rvol [3,20], ~2,849/quintile):**
+
+| Q | max ATR%: PF | post | | max slope: PF | post |
+|---|--:|--:|---|--:|--:|
+| Q1 | 1.054 | 1.126 | | 1.280 | 1.278 |
+| Q2 | 1.017 | 0.963 | | 1.230 | 1.063 |
+| Q3 | 1.668 | 1.130 | | 1.246 | 1.203 |
+| Q4 | 1.345 | 1.395 | | 1.519 | 1.229 |
+| **Q5** | **1.719** | 1.657 | | **1.645** | 1.697 |
+
+**MOVE-ONLY (move ≥ 10%, rvol [3,20], ~1,305/quintile):**
+
+| Q | max ATR%: PF | post | | max slope: PF | post |
+|---|--:|--:|---|--:|--:|
+| Q1 | 1.009 | 0.843 | | 1.271 | 1.038 |
+| Q2 | 1.095 | 0.946 | | 1.248 | 1.114 |
+| Q3 | 2.237 | 1.281 | | 2.330 | 1.455 |
+| Q4 | 1.569 | 1.635 | | 1.487 | 1.539 |
+| **Q5** | **2.052** | 1.950 | | **1.882** | 1.854 |
+
+**RVOL-ONLY (move ≥ 5%, rvol [6,20], ~839/quintile):**
+
+| Q | max ATR%: PF | post | | max slope: PF | post |
+|---|--:|--:|---|--:|--:|
+| Q1 | 1.067 | 1.122 | | 1.255 | 1.241 |
+| Q2 | 1.200 | 1.096 | | 1.486 | 1.142 |
+| Q3 | 1.521 | 1.227 | | 1.559 | 1.484 |
+| Q4 | 1.617 | 1.691 | | 1.444 | 1.429 |
+| **Q5** | **2.182** | **2.108** | | **2.107** | **2.246** |
+
+Q5 is the strongest quintile in all six. **max ATR% edges max slope at Q5** in every gate (mildly, within
+noise). **rvol-only is the most durable partner** — its Q5 is strongest *and* holds best post-2015 (ATR%
+2.11, slope 2.25), while move-only leans pre-2015 (its Q3 spike is pre-2015 PF ~3.8–4.2). The bottom
+quintiles diverge: move-only Q1–Q2 go *negative* post-2015 (0.84/0.95 — modest-history names clearing 10%
+on noise); rvol-only keeps them positive (1.12/1.10). rvol confirmation cleans the low end better.
+
+#### ⭐ Within-Q5 breakdown — the edge KEEPS rising into the top 4%: use a FLOOR, not a band (2026-06-20)
+
+> Re-split *just the top quintile* of each measure into 5 sub-quantiles (so sub-Q5 ≈ the top 4% of the whole
+> population) — to decide floor-vs-band. If the edge saturates/reverts inside Q5, a band/cap is right; if it
+> keeps climbing, a floor is right.
+
+**Top sub-quintile (within-Q5 sub-Q5) PF — the strongest cell in EVERY system:**
+
+| system / measure | sub-Q5 PF | post | mean $ | n |
+|---|--:|--:|--:|--:|
+| LOOSE / max ATR% | 1.964 | 1.979 | $500 | 569 |
+| LOOSE / max slope | 2.077 | 1.990 | $503 | 569 |
+| MOVE-ONLY / max ATR% | 2.579 | 2.425 | $872 | 260 |
+| MOVE-ONLY / max slope | 2.441 | 2.453 | $816 | 260 |
+| RVOL-ONLY / max ATR% | 2.645 | 2.326 | $975 | 167 |
+| **RVOL-ONLY / max slope** | **3.003** | **2.693** | **$1,051** | 167 |
+
+In all six, **sub-Q5 is the highest-PF and highest-mean-$ sub-bucket** — no saturation, no extreme
+reversion. Mean P&L roughly *doubles* sub-Q1 → sub-Q5 in the conviction-gated systems ($165 → $975 ATR%
+rvol-only; $191 → $1,051 slope rvol-only). **"More is better" holds into the top 4% → a FLOOR is the right
+structure, not a band/cap; the higher the floor, the better the per-trade quality (trading count for PF).**
+Caveats: the within-Q5 middle is lumpy (sub-Q2 sags in a few — sample noise at n~170–570); rvol-only sub-Q5
+is thin (n=167, ~100+ post-2015) so a real floor must be re-validated on a fresh full-history run, not this
+grid CSV; read the post-2015 column (pre-2015 sub-Q5 PFs of 4–7 are small-n).
+
+**Net design call:** pair a **max-ATR%-6mo (or max-slope-6mo) FLOOR** with **rvol ≥ 6** — rvol-only Q5 is
+both the strongest and the most post-2015-durable, and the within-Q5 edge is monotone there. max ATR% is
+the marginally better sort variable; max slope is close and more intuitive. Next: wire one measure into the
+engine as an entry floor and sweep the threshold (same count-vs-PF trade as the tightness ceiling).
+
 ---
 
 ## Yearly breakdown — PRE-time-stop default (window-low stop-4), filtered (flat $10k/trip, by entry year)
