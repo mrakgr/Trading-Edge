@@ -2901,10 +2901,15 @@ over" is robust to the definition. **We use $1M.**
 >    test tickers** (`ZXZZT`, `ZWZZT`, `AAZST`, `TESTA`, `ZVV`, `CGZST`, a bare `Z`, …) that are tagged `CS`
 >    in `ticker_reference` and carry fake volume clearing the $1M bar, so neither the type nor the liquidity
 >    filter catches them; the remainder are real micro-caps with genuine-but-extreme reverse-split moves that
->    *should* still be capped for a top-tail mean. A name-pattern exclusion is whack-a-mole (new test symbols
->    appear) and still leaves ~600 rows — **the clip is the robust catch-all and remains load-bearing.** It
->    doesn't touch genuine gainers (a real one-day move tops out well under 1000%). Without it the whole
->    measure is garbage. Do NOT drop it when porting to a live precompute.
+>    *should* still be capped for a top-tail mean. **A 5-letter-ticker exclusion does NOT work either** (tested):
+>    only 1,747 of the 2,390 corrupt rows are 5-letter; **642 are shorter** — both more synthetic symbols
+>    (`ZVV`, a bare `Z`) *and* legitimate volatile micro-caps with real blowups (`TOPS`, `INPX`, `GBSN`,
+>    `SDRL +180%`, `MULN +177%`, `XELA`). So a 5-letter rule simultaneously *misses* short-ticker junk **and**
+>    would wrongly drop the many real 5-letter names (foreign ADRs etc.) — leaky and over-broad. Any name-based
+>    filter is the wrong tool; the clip is **return-based** (caps the symptom regardless of ticker) and remains
+>    the robust catch-all — even with all synthetic names gone, the real `SDRL`/`MULN`-type extremes still need
+>    capping for a top-tail mean. It doesn't touch genuine gainers (a real one-day move tops out well under
+>    1000%). Without it the whole measure is garbage. Do NOT drop it when porting to a live precompute.
 > 4. **Daily heat** = mean of the clipped returns of the **top 1% of the qualifying universe by return**
 >    (per-day `PERCENT_RANK() ≥ 0.99`).
 > 5. **Smooth:** trailing mean over the chosen window — **`h10` = mean of daily heat over the prior 10
