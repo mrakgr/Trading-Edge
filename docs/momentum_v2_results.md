@@ -2860,28 +2860,30 @@ the up-days — the blow-offs happen *into* strength.)
    tightness/move levers; the *direction* (higher breadth = better, to 0.70) is clean and era-robust. Not
    adopted as default yet — the −66% capacity is a big ask; candidate for a sizing tilt rather than a hard gate.
 
-**Same sweep on the chosen $100k universe (CS/ADRC + 30-cal-ADV ≥ $100k — the convention we standardize on,
-rebuilt since the production parquet used ~$1M):** the conclusion holds but the optimum shifts down and the
-rollover is earlier/sharper (the looser universe is noisier at the extreme):
+> **Universe:** the table above is the **standard $1M universe** (CS/ADRC + 30-cal-day ADV ≥ $1M, decided
+> 2026-06-20 for both filters); the build below reproduces the production `breadth.parquet` to ~1-2%.
 
-| floor | n | median | PF | PF post | (vs $1M-parquet PF) |
-|---|--:|--:|--:|--:|--:|
-| ≥0.5 | 3,542 | +0.30% | 2.044 | 1.759 | (1.991) |
-| ≥0.6 | 2,278 | +0.29% | 2.294 | 1.941 | (2.249) |
-| **≥0.65** | 1,630 | +0.33% | **2.484** | **2.002** | (2.385) |
-| ≥0.70 | 972 | +0.45% | 1.776 | 1.574 | (2.822) |
-| ≥0.75 | 487 | +0.94% | 2.044 | 2.109 | (1.942) |
+**Alternative — same sweep on a looser $100k universe** (CS/ADRC + 30-cal-ADV ≥ $100k), for reference only —
+the optimum shifts down and the rollover is earlier/sharper (the looser universe is noisier at the extreme):
 
-On the $100k universe the **peak is ≥0.65 (PF 2.484)** with a sharp rollover at ≥0.70 (down to 1.776, thin
-n); on the $1M parquet the peak was ≥0.70. So the optimum is universe-dependent (~0.65 on $100k, ~0.70 on
-$1M), but "higher breadth helps up to a mid-high optimum then froths over" is robust to the definition.
+| floor | n | PF | PF post | (vs $1M-standard PF) |
+|---|--:|--:|--:|--:|
+| ≥0.5 | 3,542 | 2.044 | 1.759 | (1.991) |
+| ≥0.6 | 2,278 | 2.294 | 1.941 | (2.249) |
+| **≥0.65** | 1,630 | **2.484** | 2.002 | (2.385) |
+| ≥0.70 | 972 | 1.776 | 1.574 | (2.822) |
+
+On $100k the peak is ≥0.65 (then a sharp thin-n rollover at ≥0.70); on the standard **$1M the peak is ≥0.70
+(PF 2.822)**. The optimum is universe-dependent, but "higher breadth helps to a mid-high optimum then froths
+over" is robust to the definition. **We use $1M.**
 
 > **Build script:** both the breadth and heat parquets are built by
-> **`scripts/equity/build_breadth_and_heat.sql`** (runnable DuckDB; writes `breadth_100k.parquet` and
-> `heat.parquet`). It encodes the shared universe (30-cal-day ADV ≥ $100k; CS/ADRC for breadth only) and the
-> load-bearing +1000% heat clip — the canonical reference for how both regime filters are computed.
+> **`scripts/equity/build_breadth_and_heat.sql`** (runnable DuckDB; writes `breadth_1m.parquet` —
+> reproducing the production `breadth.parquet` — and `heat.parquet`). It encodes the shared universe
+> (30-cal-day ADV ≥ **$1M**; CS/ADRC for breadth only) and the load-bearing +1000% heat clip — the canonical
+> reference for how both regime filters are computed.
 
-#### ⭐ "Top-gainer HEAT" — froth timing measure; CHOSEN: skip entries when heat-10d ≥ 24% (Sykes-inspired) (2026-06-20)
+#### ⭐ "Top-gainer HEAT" — froth timing measure; CHOSEN: skip entries when heat-10d ≥ 25% (Sykes-inspired) (2026-06-20)
 
 > A new market-timing measure, orthogonal to the %-above-MA breadth we already gate on. It measures the
 > *speculative temperature* of the tape — how hot the day's hottest names are running.
@@ -2889,8 +2891,8 @@ $1M), but "higher breadth helps up to a mid-high optimum then froths over" is ro
 > **How the heat filter is calculated (exact, reproducible — canonical builder:
 > `scripts/equity/build_breadth_and_heat.sql`; this section's breakdown SQL: `scripts/equity/heat_breakdown.sql`):**
 > 1. **Per-stock daily return** = `adj_close / prev_adj_close − 1`, from `split_adjusted_prices`.
-> 2. **Qualifying universe each day:** **30-calendar-day average dollar volume ≥ $100k** (the project-
->    standard `avg_dollar_volume_4w` convention — NOT same-day dollar volume) AND a non-null return.
+> 2. **Qualifying universe each day:** **30-calendar-day average dollar volume ≥ $1M** (the project-
+>    standard `avg_dollar_volume_4w` window, $1M bar — NOT same-day dollar volume) AND a non-null return.
 > 3. **⚠️ CLIP each per-stock return at +1000% (×10) BEFORE aggregating.** `split_adjusted_prices` contains
 >    rare corrupted split/price rows that produce absurd returns (max seen ≈ 3,000,000,000%); because heat
 >    is a mean of the *top* tail, even one such row destroys that day's value (un-clipped max heat was
@@ -2902,12 +2904,13 @@ $1M), but "higher breadth helps up to a mid-high optimum then froths over" is ro
 > 5. **Smooth:** trailing mean over the chosen window — **`h10` = mean of daily heat over the prior 10
 >    days**, `ROWS BETWEEN 10 PRECEDING AND 1 PRECEDING` (the `1 PRECEDING` **lags it one day** → as-of the
 >    prior close, no lookahead). (5/10/15/20 were swept; h10 chosen.)
-> 6. **Gate:** at entry, exclude (or downsize) when **`h10 ≥ 0.24`** (the Q4/Q5 boundary = 80th percentile,
->    on the 30-cal-ADV universe).
+> 6. **Gate:** at entry, exclude (or downsize) when **`h10 ≥ 0.25`** (the Q4/Q5 boundary = 80th percentile,
+>    on the 30-cal-ADV ≥ $1M universe).
 >
-> Series ~5,700 days (2003-09→2026-05); daily heat median ~19% after clipping. (Note: switching the universe
-> from same-day to 30-cal-day ADV moved the threshold 27%→24% but the froth-cut result is unchanged — PF
-> 2.243 vs 2.245, post-2015 1.902 vs 1.885 — so the signal is robust to the liquidity-filter definition.)
+> Series ~5,700 days (2003-09→2026-05); daily heat median ~18% after clipping. (Robustness: the froth-cut
+> result barely moves across universe definitions — same-day-$100k gave threshold 27% / kept-PF 2.245;
+> 30-cal-$100k gave 24% / 2.243; **30-cal-$1M (chosen) gives 25% / kept-PF 2.268 / post-2015 1.955** — so the
+> signal does not depend on the liquidity-filter choice; we standardize on 30-cal-day ADV ≥ $1M.)
 
 **Heat quintiles — high heat is BAD for our breakouts (median return, every window):**
 
@@ -2943,26 +2946,26 @@ exact medians shift ~0.1pt. The h10 ladder/threshold below are the corrected, au
    timing signal should step aside sooner) and the sharpest bad-cohort separation; the window choice is a
    minor optimization (window-insensitivity 10→20 is itself evidence the signal is real, not fitted).
 3. **⭐ The h10 filter — exclude entries when trailing-10d heat ≥ ~24%** (Q4/Q5 boundary = 80th percentile,
-   on the 30-cal-ADV ≥ $100k universe). Concrete ladder (quintile boundaries): Q1 10.6–15.1% (calm) · Q2
-   15.1–16.8% · Q3 16.8–19.3% (typical, daily-heat median ≈19%) · Q4 19.3–24.3% (warming) · **Q5 24.3–49.7%
-   (frothy — the cut)**. A 10-day *average* ≥24% means sustained two-week froth, not a single hot day.
+   on the 30-cal-ADV ≥ $1M universe). Concrete ladder (quintile boundaries): Q1 9.6–14.2% (calm) · Q2
+   14.2–16.6% · Q3 16.6–19.2% (typical, daily-heat median ≈18%) · Q4 19.2–25.6% (warming) · **Q5 25.6–49.2%
+   (frothy — the cut)**. A 10-day *average* ≥25% means sustained two-week froth, not a single hot day.
    Filter effect:
 
    | | n | PF | total $ | PF post |
    |---|--:|--:|--:|--:|
    | baseline (all heat) | 3,713 | 1.991 | 917k | — |
-   | keep heat-10d < 24% | 2,971 | **2.243** | 810k | **1.902** |
-   | excluded (heat-10d ≥ 24%) | 742 | 1.387 | 106k | 1.466 |
+   | keep heat-10d < 25% | 2,971 | **2.268** | 825k | **1.955** |
+   | excluded (heat-10d ≥ 25%) | 742 | 1.334 | 92k | 1.403 |
 
-   Cutting the frothy tape lifts PF **1.991 → 2.243** for −20% trips / −12% P&L — a better quality-per-
+   Cutting the frothy tape lifts PF **1.991 → 2.268** for −20% trips / −10% P&L — a better quality-per-
    capacity trade than most filters tested.
-4. **The excluded Q5 is a low-win-rate coin-flip, not outright poison.** Its **median is −0.34%** but its
-   **mean is +1.42%** (win rate ~47%, the lowest) — froth tape produces enough occasional monsters to keep
+4. **The excluded Q5 is a low-win-rate coin-flip, not outright poison.** Its **median is −0.57%** but its
+   **mean is +1.24%** (win rate the lowest) — froth tape produces enough occasional monsters to keep
    the mean barely positive even as the *typical* trade loses. So it's a **downsize/skip** candidate, not a
    hard "never trade" exclusion like the rvol-15+ pump cohort (which had a negative mean). **Orthogonal** to
    breadth/trend (speculative temperature, not direction). Not yet wired into the engine; the heat series is
    a post-hoc DuckDB build (`scripts/equity/heat_breakdown.sql`) — to go live it needs precomputing into a
-   parquet like `breadth.parquet` (then gate `heat10 < 0.24` as-of the prior close).
+   parquet like `breadth.parquet` (then gate `heat10 < 0.25` as-of the prior close).
 
 #### 52w-proximity gate: intraday-HIGH channel is WORSE than the closing-high channel (2026-06-20)
 
