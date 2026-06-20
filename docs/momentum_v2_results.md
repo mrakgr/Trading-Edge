@@ -2818,12 +2818,26 @@ the up-days — the blow-offs happen *into* strength.)
 
 #### ⭐ "Top-gainer HEAT" — froth timing measure; CHOSEN: skip entries when heat-10d ≥ 27% (Sykes-inspired) (2026-06-20)
 
-> A new market-timing measure, orthogonal to the %-above-MA breadth we already gate on. **Daily heat** =
-> mean return of the **top 1% of gainers** that day among stocks with dollar volume ≥ $100k (per-day
-> `PERCENT_RANK ≥ 0.99` over `adj_close/prev−1`; per-stock daily returns clipped at +1000% to kill
-> data-error spikes). Then **smoothed over a trailing window** (swept 5/10/15/20d), **lagged 1 day**
-> (as-of prior close, no lookahead). It measures the *speculative temperature* of the tape — how hot the
-> day's hottest names are running. Series: 5,704 days; daily heat median 19% (p25 14% calm, p99 54% manic).
+> A new market-timing measure, orthogonal to the %-above-MA breadth we already gate on. It measures the
+> *speculative temperature* of the tape — how hot the day's hottest names are running.
+>
+> **How the heat filter is calculated (exact, reproducible — `scripts/equity/heat_breakdown.sql`):**
+> 1. **Per-stock daily return** = `adj_close / prev_adj_close − 1`, from `split_adjusted_prices`.
+> 2. **Qualifying universe each day:** dollar volume `adj_close × adj_volume ≥ $100k` AND a non-null return.
+> 3. **⚠️ CLIP each per-stock return at +1000% (×10) BEFORE aggregating.** `split_adjusted_prices` contains
+>    rare corrupted split/price rows that produce absurd returns (max seen ≈ 3,000,000,000%); because heat
+>    is a mean of the *top* tail, even one such row destroys that day's value (un-clipped max heat was
+>    384,000,000%+). The +1000% ceiling kills the data errors without touching genuine monster gainers
+>    (a real one-day move tops out well under 1000%). This clip is **load-bearing** — without it the whole
+>    measure is garbage. Do NOT drop it when porting to a live precompute.
+> 4. **Daily heat** = mean of the clipped returns of the **top 1% of the qualifying universe by return**
+>    (per-day `PERCENT_RANK() ≥ 0.99`).
+> 5. **Smooth:** trailing mean over the chosen window — **`h10` = mean of daily heat over the prior 10
+>    days**, `ROWS BETWEEN 10 PRECEDING AND 1 PRECEDING` (the `1 PRECEDING` **lags it one day** → as-of the
+>    prior close, no lookahead). (5/10/15/20 were swept; h10 chosen.)
+> 6. **Gate:** at entry, exclude (or downsize) when **`h10 ≥ 0.27`** (the Q4/Q5 boundary = 80th percentile).
+>
+> Series: 5,704 days (2003-09→2026-05); daily heat median 19% (p25 14% calm, p99 54% manic) after clipping.
 
 **Heat quintiles — high heat is BAD for our breakouts (median return, every window):**
 
