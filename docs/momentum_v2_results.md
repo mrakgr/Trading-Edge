@@ -2894,10 +2894,16 @@ over" is robust to the definition. **We use $1M.**
 > 2. **Qualifying universe each day:** **30-calendar-day average dollar volume ≥ $1M** (the project-
 >    standard `avg_dollar_volume_4w` window, $1M bar — NOT same-day dollar volume) AND a non-null return.
 > 3. **⚠️ CLIP each per-stock return at +1000% (×10) BEFORE aggregating.** `split_adjusted_prices` contains
->    rare corrupted split/price rows that produce absurd returns (max seen ≈ 3,000,000,000%); because heat
->    is a mean of the *top* tail, even one such row destroys that day's value (un-clipped max heat was
->    384,000,000%+). The +1000% ceiling kills the data errors without touching genuine monster gainers
->    (a real one-day move tops out well under 1000%). This clip is **load-bearing** — without it the whole
+>    rare corrupted split/price rows that produce absurd returns; because heat is a mean of the *top* tail,
+>    even one such row destroys that day's value. **The $1M + CS/ADRC constraints do NOT remove these** —
+>    verified 2026-06-20: on the $1M universe, un-clipped, **2,390 rows still exceed +1000%** (max
+>    **199,999,989,900%** = `ZXZZT` on 2014-10-22, price 0.0001→199,999.99). The culprits are mostly **NASDAQ
+>    test tickers** (`ZXZZT`, `ZWZZT`, `AAZST`, `TESTA`, `ZVV`, `CGZST`, a bare `Z`, …) that are tagged `CS`
+>    in `ticker_reference` and carry fake volume clearing the $1M bar, so neither the type nor the liquidity
+>    filter catches them; the remainder are real micro-caps with genuine-but-extreme reverse-split moves that
+>    *should* still be capped for a top-tail mean. A name-pattern exclusion is whack-a-mole (new test symbols
+>    appear) and still leaves ~600 rows — **the clip is the robust catch-all and remains load-bearing.** It
+>    doesn't touch genuine gainers (a real one-day move tops out well under 1000%). Without it the whole
 >    measure is garbage. Do NOT drop it when porting to a live precompute.
 > 4. **Daily heat** = mean of the clipped returns of the **top 1% of the qualifying universe by return**
 >    (per-day `PERCENT_RANK() ≥ 0.99`).
