@@ -666,6 +666,28 @@ lower tier from 1.217 to ~1.31–1.37 by dropping the dead extended bucket. **Ta
 close-high, cap the extension at ≤ ~3–5% above the prior max close.** (Diagnostic for now — the lower tier is not in
 production; logged for when intraday entries pull in weaker breakouts.)
 
+**Can the reclaim/gap-over split rescue the dead extended (`d52 ≥ 3%`) bucket? No — reclaim only works in the breakout
+zone, not the extended zone.** Splitting `d52 ≥ 3%` (above the max *close*) into reclaim vs gap-over (vs the *intraday*
+high, the v2 definition):
+
+| extended dead zone (d52 ≥ 3%) | n | PF clip | post-2015 |
+|---|---|---|---|
+| reclaim (open < intraday-high) | 2276 | 1.104 | 1.058 |
+| gap-over (open ≥ high) | 1371 | 1.049 | 1.148 |
+| └ `3..5%` gap-over | 328 | 1.211 | **1.886** |
+| └ `3..5%` reclaim | 941 | 1.116 | 1.004 |
+| └ `5%+` gap-over | 1043 | 1.013 | 1.021 |
+| └ `5%+` reclaim | 1335 | 1.097 | 1.090 |
+
+The reclaim edge is **gone** here: reclaim 1.104 vs gap-over 1.049 (a trivial 0.06, and it *reverses* post-2015), and in
+`3..5%` the **gap-over is the better half** post-2015 (1.886 vs 1.004). This is the crucial contrast with the original v2
+dead zone: that edge was in the **0–10%-above-the-52w-INTRADAY-HIGH** zone (names right *at the breakout level*), whereas
+`d52 ≥ 3% above the max CLOSE` is the **already-extended/run** territory. Once a name is well past its breakout, opening
+below vs above the intraday high no longer matters — it's extended and dead either way. **So the reclaim signal is a
+property of the breakout zone, not the extended zone; the only tool for the `d52 ≥ 3%` bucket is the extension ceiling
+(cap d52), not a reclaim filter.** Script:
+[`scripts/equity/dist_52w_close_510_rvol3.sql`](../scripts/equity/dist_52w_close_510_rvol3.sql).
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)

@@ -74,3 +74,35 @@ SELECT 'd52<0.01' g,* FROM cl(0.01);
 SELECT 'd52<0.03' g,* FROM cl(0.03);
 SELECT 'd52<0.05' g,* FROM cl(0.05);
 SELECT 'd52<0.10 (all)' g,* FROM cl(0.10);
+
+-- ============================================================================
+-- Does reclaim vs gap-over rescue the dead EXTENDED bucket (d52 >= 3% above max
+-- CLOSE)? Reclaim defined vs the 52w INTRADAY high (v2 definition): open below it.
+-- Needs the entry-bar adj_open. Answer: NO — reclaim is a breakout-zone feature,
+-- not an extended-zone one. (Run the section below standalone if t was rebuilt.)
+-- ============================================================================
+CREATE OR REPLACE TEMP TABLE t2 AS
+WITH raw AS (SELECT * FROM read_csv_auto('/tmp/v3_510_rvol3.csv') WHERE open=0),
+br AS (SELECT date, LAG(pct_above_20) OVER (ORDER BY date) b_lag1 FROM 'data/equity/momentum_v0/breadth.parquet'),
+hn AS (SELECT date, h10 FROM 'data/equity/momentum_v0/heat.parquet'),
+px AS (SELECT ticker, date AS d0, adj_open FROM split_adjusted_prices)
+SELECT raw.symbol, raw.entry_date, raw.entry_price, raw.exit_price, raw.net_pnl,
+  raw.pct_52w_at_entry AS d52, px.adj_open AS o,
+  raw.entry_price/(1.0+raw.pct_52w_high_at_entry) AS prior_high,
+  (raw.exit_price/raw.entry_price - 1.0) AS ret
+FROM raw
+JOIN br ON br.date=raw.entry_date
+LEFT JOIN hn ON hn.date=raw.entry_date
+JOIN px ON px.ticker=raw.symbol AND px.d0=raw.entry_date
+WHERE br.b_lag1>0.5 AND raw.entry_date>=DATE '2005-01-01'
+  AND (hn.h10 IS NULL OR hn.h10 < 0.25)
+  AND raw.pct_up_at_entry>=0.05 AND raw.pct_up_at_entry<0.10 AND raw.rvol_at_entry>=3
+  AND px.adj_open>0;
+
+SELECT '=== d52>=0.03 (extended): reclaim vs gap-over, then finer ===' z;
+SELECT CASE WHEN d52<0.05 THEN '3..5%' ELSE '5%+' END dband,
+  CASE WHEN o<prior_high THEN 'reclaim' ELSE 'gap-over' END grp,
+  COUNT(*) n,
+  ROUND(SUM(CASE WHEN ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),3) pf_clip,
+  ROUND(SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret<0 THEN ret ELSE 0 END),0),3) clip_post
+FROM t2 WHERE d52>=0.03 GROUP BY 1,2 ORDER BY 1,2;
