@@ -701,7 +701,7 @@ streak, is the real axis.** Counting the **pre-entry up-streak** (consecutive up
 same population. Script:
 [`scripts/equity/preentry_upstreak_deadzone.sql`](../scripts/equity/preentry_upstreak_deadzone.sql).
 
-| distance from max close | n | mean pre-entry up-streak | % with ≥3 prior up-days |
+| distance from max close | n | mean up-streak (incl. breakout day) | % streak ≥3 (≥2 prior up-days) |
 |---|---|---|---|
 | < 0 (below high) | 1932 | 2.07 | 30.0 |
 | 0..1% (fresh high) | 487 | 2.01 | 27.7 |
@@ -709,12 +709,12 @@ same population. Script:
 | 3..5% | 1269 | 2.09 | 29.8 |
 | **5%+ (extended)** | 2378 | **2.72** | **49.7** |
 
-The `5%+` extended bucket **is** streak-heavy — half its names had already run ≥3 up-days before entry (vs ~28–30%
-everywhere else), confirming many are late continuations where the real breakout was earlier and the 5–10% entry-day
-move is a stale grind. **But the 2D grid shows extension is the dominant axis, not streak** (PF clip by d52 × pre-entry
-streak):
+The `5%+` extended bucket **is** streak-heavy — half its names break out on a ≥3-day up-run (the breakout day plus ≥2
+prior up-days, vs ~28–30% everywhere else), confirming many are late continuations where the run started earlier and the
+5–10% entry-day move is a late leg of a grind. **But the 2D grid shows extension is the dominant axis, not streak** (PF
+clip by d52 × up-streak):
 
-| d52 band ↓ / pre-entry streak → | 0–1 (fresh) | 2 | 3 | 4+ |
+| d52 band ↓ / up-streak (incl. breakout day) → | 0–1 (fresh) | 2 | 3 | 4+ |
 |---|---|---|---|---|
 | < 1% (at high) | 1.443 | 1.297 | 1.195 | **1.533** |
 | 1..3% | 1.284 | 1.313 | **1.716** | 1.233 |
@@ -726,22 +726,25 @@ extension kills it regardless of how it got there — it's not "we bought after 
 at-the-high row is healthy at every streak length (1.44 / 1.30 / 1.20 / 1.53), **long streaks included**. So a long
 pre-entry streak *at a fresh high* is fine; a *short* streak when *already extended* is the dead profile.
 
-**A long pre-entry streak is GOOD, not stale — and a streak cap would be exactly backwards.** Pooled across the band, PF
-clip by pre-entry up-streak length is mildly **non-monotone in the GOOD direction**:
+**A long up-streak is GOOD, not stale — and a streak cap would be exactly backwards.** *Definition: the streak length
+INCLUDES the breakout/entry day itself* — `streak = 1` means only the breakout day was an up-close (0 prior up-days);
+`streak = 5` means the breakout day capped a run of ≥5 consecutive up-closes (≥4 up-days of build-up *into* it). Every
+entry is a gainer day, so the minimum is 1. Pooled across the band, PF clip is mildly **non-monotone in the GOOD
+direction**:
 
-| pre-entry up-streak | n | PF clip | post-2015 |
+| up-streak (incl. breakout day) | n | PF clip | post-2015 |
 |---|---|---|---|
-| 1 | 2411 | 1.290 | 1.142 |
+| 1 (breakout day only) | 2411 | 1.290 | 1.142 |
 | 2 | 2108 | 1.118 | 1.112 |
 | 3 | 1276 | 1.181 | 1.013 |
 | 4 | 680 | 1.115 | 1.099 |
 | **5 (≥5 in a row)** | 594 | **1.513** | **1.856** |
 
-The **longest streak is the best**, not the worst: a name up 5+ straight days into entry is in a strong *persistent
-trend* that keeps running (post-2015 1.856). This is the opposite of the "stale = exhausted" intuition. So a pre-entry
-**streak cap would cut the strongest trend names** — exactly the wrong move. (These streak-5 names also cluster in the
-extended zone, which is why the `5%+` bucket isn't *uniformly* dead — the trend-persistence partly offsets the extension
-drag.)
+The **longest streak is the best**, not the worst: a breakout that caps ≥5 consecutive up-closes is a name in a tight,
+persistent multi-day advance that keeps running (post-2015 1.856). This is the opposite of the "stale = exhausted"
+intuition. So a **streak cap would cut the strongest trend names** — exactly the wrong move. (These streak-5 names also
+cluster in the extended zone, which is why the `5%+` bucket isn't *uniformly* dead — the trend-persistence partly offsets
+the extension drag.)
 
 **Conclusion — the verification passes: we are NOT simply buying multi-day runners.** The dead zone is a genuine
 **extension** effect (d52), not a pre-entry-streak artifact; a long prior streak alone is benign-to-good. So the correct
@@ -749,6 +752,41 @@ discriminator stays the **extension ceiling** (`d52 < ~3%`), *not* a streak cap 
 best and would wrongly cut the strong streak-5 trend names. The one genuinely weak combination is **moderately
 extended + short streak** (`3..5%`/`5%+` at streak 2: 0.95 / 1.00) — gapped into extended territory with no trend behind
 it.
+
+### Trailing-6mo MAX ATR% rescues part of the dead zone — slope does not (2026-06-21)
+
+After reclaim / intraday / streak all failed to discriminate the extended dead zone, two trailing-6-month measures
+(measured as-of entry, no lookahead): **max ATR% 6mo** = max over the trailing 126 days of the 14-bar log-ATR (the most
+violent volatility episode in the last 6 months); **slope 6mo** = OLS slope of ln(close) over 126 bars (6mo log-drift).
+Quintiled within the population. Script:
+[`scripts/equity/sixmo_atr_slope_deadzone.sql`](../scripts/equity/sixmo_atr_slope_deadzone.sql). Baseline 6,730 trips
+(full-6mo-window required), PF clip 1.201.
+
+**Max ATR% 6mo is the FIRST real dead-zone lever — and it's monotone.** Overall, PF rises with the quintile (Q1 calmest
+0.956 → Q5 0.94–0.07 range, 1.411); inside the dead zone it's cleaner:
+
+| max-ATR% 6mo quintile | dead-zone n | PF clip | post-2015 |
+|---|---|---|---|
+| Q1 (calmest 6mo) | 687 | **0.762** | 0.791 |
+| Q2 | 677 | 0.985 | 1.118 |
+| Q3 | 698 | 1.127 | 1.141 |
+| Q4 | 709 | **1.229** | 1.059 |
+| Q5 (most violent 6mo) | 699 | 1.104 | 1.13 |
+
+The calmest 6mo quintile is a clear **loser** (PF 0.762) and PF climbs to Q4 (1.229): a name extended above its high
+**that has been dead-quiet for 6 months** is the genuinely bad dead-zone trade — an extended drift with no underlying
+energy, the stale-continuation profile. **Not just the entry-day ATR% filter in disguise:** the two correlate 0.738, but
+the dead-zone gradient holds *within both* entry-day-ATR% halves (entry-ATR%-LOW: Q1 0.77 → Q4 1.18; entry-ATR%-HIGH:
+Q2 1.02 → Q4 1.26), so the *historical* energy is distinct from today's bar. The two are complementary: the production
+filter wants the **entry bar calm** (ATR% < 0.10, don't buy a jumpy print), this wants the **6mo base to have shown it
+can move** — energy in the base, calm on the trigger. Cutting the bottom ~1–2 quintiles of 6mo-max-ATR% lifts the dead
+zone from ~1.05 to ~1.15–1.23.
+
+**Slope 6mo is a dud.** Overall the quintiles are flat-noisy (1.14 / 1.36 / 1.13 / 1.29 / 1.13, no gradient), and in the
+dead zone the steepest-slope quintiles are if anything slightly *worse* (Q1/Q2 ~1.26 → Q3–Q5 ~0.96–1.08). A steep 6mo
+uptrend does **not** save a dead-zone trade — consistent with the streak result: a steep base just means *more*
+extension, and extension is the problem. So of the two: **max-6mo-ATR% is a genuine dead-zone refinement (drop the
+calmest base), slope is not.**
 
 ---
 

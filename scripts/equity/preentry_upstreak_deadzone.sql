@@ -1,8 +1,10 @@
 -- Are dead-zone trades just names that broke out DAYS EARLIER and have been
--- grinding up since? Measure the PRE-ENTRY up-streak: how many consecutive days
--- (ending at the entry bar, day 0) closed higher than the prior day.
---   up0 = entry close > prior close (always true-ish: it's a gainer-day entry)
---   up_streak = length of the run of consecutive up-days ending at day 0.
+-- grinding up since? Measure the up-streak ENDING AT (and INCLUDING) the entry bar:
+-- the run of consecutive up-closes finishing on day 0.
+--   up_streak INCLUDES the breakout/entry day. up_streak=1 => only the breakout day
+--     was an up-close (0 prior up-days); up_streak=5 => breakout day capped >=5
+--     consecutive up-closes (>=4 up-days of build-up into it).
+--   Every entry is a gainer day (close>prevClose), so the minimum streak is 1.
 -- Hypothesis: dead-zone trades (extended above the 52w max CLOSE, d52 high) carry
 -- LONGER pre-entry up-streaks — the real breakout was earlier, and the entry-day
 -- 5-10% move is a late continuation. If so, the 5% move filter is too coarse and a
