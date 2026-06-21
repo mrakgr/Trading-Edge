@@ -113,3 +113,22 @@ SELECT 'dead zone' scp, aq, COUNT(*) n,
   ROUND(SUM(CASE WHEN ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),3) pf_clip,
   ROUND(SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret<0 THEN ret ELSE 0 END),0),3) clip_post
 FROM d GROUP BY 1,2 ORDER BY 2;
+
+-- ============================================================================
+-- DEAD-ZONE BOUND check: the "d52>=3%" dead zone on the STRONG band is mostly
+-- far-extended (d52>10%) names — a different/parabolic regime. Cap at [3,10]% to
+-- isolate the real "just past the breakout" dead zone. The calm-base ATR% result
+-- is identical either way. (On the WEAK [5,10] band d52 can't exceed ~10% by
+-- construction, so its dead-zone numbers were already implicitly bounded.)
+-- ============================================================================
+SELECT '=== STRONG dead zone reach: how much is d52>10%? ===' z;
+SELECT CASE WHEN d52<0.05 THEN '3-5%' WHEN d52<0.10 THEN '5-10%' WHEN d52<0.20 THEN '10-20%' ELSE '20%+' END dband,
+  COUNT(*) n, ROUND(SUM(CASE WHEN ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),3) pf
+FROM tatr WHERE rvol>=5 AND d52>=0.03 GROUP BY 1 ORDER BY 1;
+
+SELECT '=== STRONG [10,30] rvol>=5: 6mo-max-ATR% quintile — dead zone BOUNDED [3,10]% ===' z;
+WITH d AS (SELECT *, NTILE(5) OVER (ORDER BY max_atr6mo) aq FROM tatr WHERE rvol>=5 AND d52>=0.03 AND d52<0.10)
+SELECT aq, COUNT(*) n,
+  ROUND(SUM(CASE WHEN ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),3) pf_clip,
+  ROUND(SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret<0 THEN ret ELSE 0 END),0),3) clip_post
+FROM d GROUP BY 1 ORDER BY 1;

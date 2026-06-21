@@ -881,22 +881,28 @@ dead zone in the first place.
 
 The extension penalty was weak-band-only — but the **6mo-max-ATR% calm-base penalty is not.** Running the quintile
 breakdown on the strong [10,30]% band (where the dead zone itself is alive), the calmest-6mo quintile is a **net loser
-even here**, and it survives the extension control (dead-zone-only ≈ overall):
+even here**, and it survives the extension control.
 
-| 6mo-max-ATR% quintile, [10,30]% rvol ≥ 5 | OVERALL n=600/q | OVERALL post-2015 | DEAD-ZONE n=436/q | DEAD-ZONE post-2015 |
+> **Dead-zone bound:** the dead zone here is `d52 ∈ [3%, 10%]` — *bounded above*, not the open-ended `d52 ≥ 3%` used in
+> some earlier tables. On the strong band the uncapped `d52 ≥ 3%` set is mostly far-extended names (1187 of 2180 trips
+> sit at d52 > 10% — a different, parabolic regime). Capping at 10% isolates the actual "just past the breakout" dead
+> zone. The calm-base result is identical either way (it is not an artifact of the far-extended tail).
+
+| 6mo-max-ATR% quintile, [10,30]% rvol ≥ 5 | OVERALL n=600/q | OVERALL post-2015 | DEAD-ZONE [3,10]% n≈199/q | DEAD-ZONE post-2015 |
 |---|---|---|---|---|
-| Q1 (calmest 6mo) | **0.987** | **0.804** | **0.995** | **0.872** |
-| Q2 | 1.371 | 1.341 | 1.355 | 1.120 |
-| Q3 | **2.101** | 1.781 | **2.007** | 1.952 |
-| Q4 | 1.923 | 2.350 | 1.924 | 2.366 |
-| Q5 (most violent) | 1.702 | 1.722 | 1.579 | 1.551 |
+| Q1 (calmest 6mo) | **0.987** | **0.804** | **0.927** | **0.780** |
+| Q2 | 1.371 | 1.341 | 1.764 | 1.081 |
+| Q3 | **2.101** | 1.781 | 1.810 | 1.774 |
+| Q4 | 1.923 | 2.350 | **2.132** | 3.294 |
+| Q5 (most violent) | 1.702 | 1.722 | 1.679 | 1.445 |
 
-Unlike the noisy rvol ≥ 8 stacking, this is solid (600 trips/quintile): the calmest quintile is **PF ~0.99 / post-2015
-0.80** — a *net loser* while every other cut of the strong band is healthy (PF 1.4–2.4). The shape is a **hump peaking at
-Q3** (calmest loses, middle best, most-violent Q5 gives some back — the pump-and-revert names), so the rule is **cut the
-bottom quintile**, not chase the top. It holds at rvol ≥ 1 too (monotone-ish Q1→Q5: 1.126 / 1.363 / 1.474 / 1.468 /
-1.533). And the dead-zone-only column ≈ the overall column, so it is **orthogonal to extension** — not the dead zone in
-disguise.
+Unlike the noisy rvol ≥ 8 stacking, this is solid (600 trips/quintile overall, ~199 in the bounded dead zone): the
+calmest quintile is **PF ~0.93–0.99 / post-2015 0.78–0.80** — a *net loser* while every other cut of the strong band is
+healthy (PF 1.4–2.4). The shape is a **hump** (calmest loses, middle/Q4 best, most-violent Q5 gives some back — the
+pump-and-revert names), so the rule is **cut the bottom quintile**, not chase the top. It holds at rvol ≥ 1 too
+(monotone-ish Q1→Q5: 1.126 / 1.363 / 1.474 / 1.468 / 1.533). And the bounded dead-zone column ≈ the overall column, so it
+is **orthogonal to extension** — not the dead zone in disguise. (The weak [5,10]% band, dead zone bounded [3,10]%, is the
+same shape and even sharper at the bottom: Q1 0.758 / post-2015 0.750 → Q4 1.248.)
 
 **Synthesis — the two dead-zone levers split by generality:** *extension (d52)* is a **weak-breakout-only** effect
 (strong breakouts wave through); *6mo-max-ATR% calm-base* is **universal** — the calmest-base quintile is a net loser on
