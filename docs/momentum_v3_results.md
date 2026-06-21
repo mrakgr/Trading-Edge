@@ -1112,6 +1112,45 @@ floor "doesn't combine" with production: heat is already doing part of the same 
 carried by rare huge winners — kept on purpose; on the right side of a bubble that is where the money is, and the +50%
 clip would discard them. The signal lives in the **raw-PF, rvol ≥ 6, un-heat-filtered** population.
 
+#### ⭐ Is the TOP bucket genuinely well-distributed, or also lottery-driven? — it's the MOST concentrated of all (2026-06-21)
+
+A natural worry after the SNS finding: is the strong top bucket (15%+ ATR / 130%+ slope, PF ~3) a real broad edge, or a
+single-trade illusion like the spurious 6-8% spike? Concentration test on the v2-exact population (raw PF) — each
+bucket's PF after removing its top-N winners, and the share of total **winning** profit carried by the single biggest
+trade:
+
+| max-log-ATR bucket | n | PF all | ex top-1 | ex top-3 | ex top-5 | top-1 % of win-profit | top-3 % |
+|---|---|---|---|---|---|---|---|
+| 6-8% | 583 | 1.60 | 1.57 | 1.52 | 1.47 | 1.8 | 5.1 |
+| 8-11% | 446 | 1.77 | 1.72 | 1.64 | 1.58 | 2.5 | 7.1 |
+| 11-15% | 205 | 2.08 | 1.95 | 1.82 | 1.70 | 6.2 | 12.3 |
+| **15%+ (top)** | 173 | **2.99** | **1.60** | **1.42** | **1.28** | **46.3** | **52.6** |
+
+| max-slope bucket | n | PF all | ex top-1 | ex top-5 | top-1 % of win-profit | top-3 % |
+|---|---|---|---|---|---|---|
+| 30-50% | 668 | 1.64 | 1.58 | 1.48 | 3.2 | 6.8 |
+| 80-130% | 109 | 2.37 | 2.12 | 1.71 | 10.5 | 19.9 |
+| **130%+ (top)** | 84 | **3.59** | **1.28** | **0.82** | **64.4** | **71.9** |
+
+**The top bucket is NOT better distributed — it is the MOST lottery-driven bucket of all.** One trade carries **46%**
+(ATR) / **64%** (slope) of the bucket's entire winning profit; the top *three* carry 53% / 72%. Strip the top winner and
+PF falls 2.99 → 1.60 (ATR) and 3.59 → **1.28** (slope); strip the top 5 and the slope top bucket is **0.82 — a net
+loser**. This is the same shape as the spurious SNS spike — except here it is *inherent* to the cohort, not a filter
+artifact.
+
+**The decisive reframe: the past-runner "monotone PF ladder" is also a monotone CONCENTRATION ladder — they are the same
+gradient.** The top-1-share climbs 1.8% → 6.2% → **46.3%** (ATR) and 3.2% → 10.5% → **64.4%** (slope) in lockstep with PF.
+The *base* (ex-top-5) PF does **not** rise across buckets — it is flat-to-declining (ATR 6-8% 1.47 / 11-15% 1.70 / 15%+
+1.28; slope 30-50% 1.48 / 130%+ **0.82**). So high past-volatility/momentum does **not** mean a better *typical* trade —
+it means **a fatter right tail**. The signal is real but it is a **pure convexity / tail bet**: *"high-past-vol names are
+where the moonshots happen,"* not *"high-past-vol names win more often."*
+
+**Sizing consequence:** this cohort must be played as **many tiny lottery-ticket bets to CATCH the rare 5×**, never
+concentrated — in any single trade you almost certainly will not be holding the winner (top bucket win% is only ~48-52%,
+and one name is half the profit). That is exactly how to be "on the right side of a bubble." It also means the headline
+PF ~3 is **not** a sizing-into-able expectation; the realistic per-trade base is the ex-top-5 figure (~1.3 ATR, <1 slope).
+Script: [`scripts/equity/pastrunner_concentration.sql`](../scripts/equity/pastrunner_concentration.sql).
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
