@@ -548,6 +548,21 @@ streaks mean-revert. If anything, the signal is on the UP side: **a 3-day up str
 at an early *profit*-take (sell into a 3-day run rather than holding to day 6). ⏳ *Open: test an early-profit exit on
 the 3-day up streak — but it's modest (PF 1.026 ≠ a loss, just no edge), so it would free capital, not avoid losses.*
 
+**4-day streaks complete the progression (2026-06-21)** — the trend is monotone and the up-side finally crosses below 1:
+
+| streak | n | full-trade PF | FORWARD PF (streak-end → exit) | fwd mean | fwd median |
+|---|--:|--:|--:|--:|--:|
+| DOWN ×4 | 220 | 0.001 | **1.212** | +0.26% | +0.15% |
+| UP ×4 | 229 | 343.9 | **0.916** | **−0.14%** | **−0.04%** |
+
+Forward PF down the streak ladder: **up** = 1.217 (×2) → 1.026 (×3) → **0.916 (×4)** — a clean monotone decay that goes
+*negative* by 4 days (the breakout has fully spent its move; the last held day is a slight drag). **Down** = 1.393 → 1.281
+→ **1.212** — still solidly positive after 4 straight down days; the mean-reversion never breaks. **Caveats keep it
+non-actionable:** the samples are tiny (~220 each, ~10/yr), the forward window at a 4-day streak is only ~1 day (day 5 →
+day-6 open, so "UP×4 negative" just means *the last day of a 4-day winner gives a hair back*), and the eras disagree
+(post-2015 DOWN×4 0.898 / UP×4 0.982 — both ≈ noise). So the **shape is real and consistent** but the 4-day effect is a
+micro-drag, not a regime — it reinforces the day-3 up-streak-exhaustion read rather than adding a separate signal.
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
