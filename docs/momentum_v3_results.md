@@ -1,7 +1,7 @@
 # Mid-Cap Momentum v3 — Clipped-Methodology Era
 
-**Status: working long-only daily-momentum edge. Filtered (breadth + ≥2005): 4,314 trips, PF raw
-1.923 / clip 1.575, +$1.07M. Honest next-open fills, 5-day time-stop.**
+**Status: working long-only daily-momentum edge. Filtered (breadth + ≥2005): 4,245 trips, PF raw
+1.960 / clip 1.600, +$1.08M. Honest next-open fills, 5-day time-stop.**
 
 v3 is not a new engine or a new system — it is the **same `TradingEdge.MomentumV2` production system**,
 carried forward into a research methodology that computes every PF/return figure on **clipped per-trade
@@ -55,6 +55,7 @@ no lookahead):
 | entry-day move | **10% ≤ move < 30%** | `close/prevClose − 1`. The breakout must announce itself; the 30% cap removes the single-day exhaustion blow-off (and makes an rvol upper cap redundant) |
 | relative volume | **rvol ≥ 5** (no upper cap) | `volume / 28-day avg volume`. 5 is enough to be significant; the move cap handles the toxic high-rvol blow-off tail |
 | ATR% (log) | **< 0.10** | mean log-true-range over 14 prior bars. Tightened 0.11 → 0.10 on 2026-06-21 (the 0.10–0.11 band was dead) |
+| intraday return | **`close/open − 1 ≥ −0.07`** | reject deep intraday FADES (gap-up-then-sell-off — the toxic tail of the red-candle band). Added 2026-06-21 |
 | tightness (linear) | **< 4.5** | `(14d range) / ATR` — prior consolidation must be tight (linear scale; sharper loose-tail cut than log) |
 | 52-week proximity | **close ≥ 0.95 × hi_252** | near the 1-year closing high (closing-high channel beats the intraday-high channel) |
 | price floor | **≥ $1** | lowered 5 → 1 on 2026-06-21 (sub-$5 is real edge under the clip, not a lottery; $1–3 kept for the future past-runner floor to rescue) |
@@ -71,14 +72,14 @@ end are marked-to-market at the final close.
 
 | | value |
 | --- | ---: |
-| trips | 4,314 |
-| win rate | 52.6% |
-| profit factor (raw) | **1.923** |
-| profit factor (clip +50%) | **1.575** |
-| net P&L | +$1,071,336 |
+| trips | 4,245 |
+| win rate | 52.7% |
+| profit factor (raw) | **1.960** |
+| profit factor (clip +50%) | **1.600** |
+| net P&L | +$1,078,992 |
 
-*(Unfiltered engine run at production defaults: 6,749 trips / PF 1.820 / +$1.55M. With heat<0.25 added:
-3,195 trips / PF raw 2.164 / clip 1.662 / +$879k.)*
+*(Unfiltered engine run at production defaults: 6,647 trips / PF 1.851 / +$1.56M. With heat<0.25 added:
+3,157 trips / PF raw 2.191 / clip 1.678 / post-2015 1.648 / +$879k.)*
 
 ---
 
@@ -451,12 +452,15 @@ spot**: it captures most of the no-red rule's PF gain (clip 1.575 → **1.600**,
 **69 trips (1.6%)** vs the full rule's 518 — because the mild −5..0% band it keeps is near-baseline (1.42), not worth
 dropping.
 
-**✅ DECISION (2026-06-21): NOT adopted** (either threshold). Two reasons: (1) **heavy overlap with the 30% move cap**
-— the red band averages a +21.5% overnight gap, so the same over-extension cohort is already largely handled by the
-day-move ceiling (and by news review of the high-rvol blow-offs); a third gate at the same target is marginal
-redundancy. (2) The gain is small (+0.025–0.06 clip PF) and a `close/open` gate needs intraday open/close the daily
-engine handles awkwardly. Kept as a documented characterization — **but if ever wired in, `N = −0.07` (deep-fade-only)
-is the better threshold than 0**: nearly the same PF at a tenth of the trip cost.
+**✅ DECISION (2026-06-21): ADOPTED at `N = −0.07` (deep-fade-only).** Wired into the engine as a new entry gate
+`close/open − 1 ≥ −0.07` (`MinIntradayRet` in `defaultConfig.Entry`; CLI `--min-intraday-ret`). It targets *only* the
+toxic deep-fade tail of the red-candle band while keeping the near-baseline mild reds — the capacity-efficient choice
+over the full no-red rule (−69 trips vs −518 for nearly the same PF). **Engine-verified end-to-end** (matches the
+post-hoc projection exactly): breadth-filtered **4,314 → 4,245 trips, clip PF 1.575 → 1.600, post-2015 1.509 → 1.541,
+P&L +$1.07M → +$1.08M** (raw engine PF 1.820 → 1.851). With heat<0.25: clip 1.662 → **1.678**, post 1.572 → **1.648**.
+The earlier overlap concern (the 30% move cap already catches much of this cohort) is real but the deep-fade tail is
+the residual it *doesn't* catch — and it's nearly free (1.6% of trips), so it earns its place. `N = 0` (full no-red)
+remains available via the flag for a slightly higher PF at a much larger capacity cost.
 
 ---
 
@@ -532,7 +536,7 @@ live threat. The **+1000% return clip stays** (still needed for residual real-CS
 ```bash
 # v3 default (2026-06-21): NO price stop, 5-day time-stop, next-open exit; entry filters
 # ATR% < 0.10 (log), tightness < 4.5 (linear), entry-move band [10%, 30%), rvol >= 5 (no upper cap),
-# price >= $1, ADV >= $100k, 52w-close >= 0.95.
+# price >= $1, ADV >= $100k, 52w-close >= 0.95, intraday close/open-1 >= -0.07 (reject deep fades).
 # Run from dataset start for the 252-day warmup; filter entries to >=2005 post-hoc.
 dotnet run --project TradingEdge.MomentumV2 -c Release -- \
   --start-date 2003-09-10 --end-date 2026-05-13 -o /tmp/v3.csv

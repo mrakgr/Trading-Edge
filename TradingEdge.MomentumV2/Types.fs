@@ -134,7 +134,11 @@ type EntryConfig =
       Use52wHigh: bool          // gate on prior-252d intraday HIGH instead of closing high (default false)
       MinPrice: float           // close >= this (production 5.0)
       MaxTightness: float       // tightness < this (production 0.30)
-      MaxAtrPct: float }        // atr_pct(close) < this (production 0.08)
+      MaxAtrPct: float          // atr_pct(close) < this (production 0.08)
+      MinIntradayRet: float }   // close/open-1 >= this — reject deep intraday FADES (gap-up-then-sell-off).
+                                // Production -0.07: drops the toxic deep-fade tail of the red-candle band
+                                // (the candle silhouette of the 30%+ over-extension) while keeping the
+                                // near-baseline mild reds. -inf disables.
 
 /// Conditional EXHAUSTION-EXIT thresholds, evaluated on each held bar using THAT
 /// bar's own tightness / rvol / move (the same metrics `ShouldEnter` reads, just
@@ -430,6 +434,9 @@ type QullaSystem
         && gate this.Tightness (fun t -> t < entryCfg.MaxTightness)
         // ATR% cap (production)
         && gate this.AtrPct (fun a -> a < entryCfg.MaxAtrPct)
+        // intraday-return floor: reject deep fades (gap-up then sell-off). close/open-1 >= MinIntradayRet.
+        // Guard open>0; a non-positive/absent open fails the gate (don't trade what we can't measure).
+        && (bar.``open`` > 0.0 && bar.close / bar.``open`` - 1.0 >= entryCfg.MinIntradayRet)
 
     /// Update every rolling structure with the most recent bar.
     /// Snapshots are taken BEFORE the push (prior-bars / no-lookahead), then

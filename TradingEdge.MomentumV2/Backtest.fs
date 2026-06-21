@@ -149,7 +149,16 @@ let defaultConfig =
           // the 0.10–0.11 band is dead (clip 0.984, post 0.633), so trimming it is pure
           // gain for only −35 trips. The EDGE concentrates in the 0.06–0.10 band (clip
           // 1.9–2.5), not the quiet < 0.04 bulk (1.42) — moderate vol beats minimal vol.
-          MaxAtrPct = 0.10 } }
+          MaxAtrPct = 0.10
+          // Intraday-return floor (added 2026-06-21): reject deep intraday FADES,
+          // close/open-1 >= -0.07. The red-candle band (close<open, but closes up >=10%
+          // on the day) is "gap up huge then sell off" — the candle silhouette of the
+          // 30%+ over-extension. Its DEEP-fade tail is toxic (cut <-10% = clip 0.72,
+          // <-15% = 0.52) but tiny (~27 trades/21y), while the mild -5..0% reds are
+          // near-baseline (1.42). -0.07 is the capacity-efficient threshold: captures
+          // most of the no-red rule's gain (clip 1.575->1.600, post 1.509->1.541) for
+          // -69 trips vs the full rule's -518. (Full no-red N=0 = clip 1.603/post 1.572.)
+          MinIntradayRet = -0.07 } }
 
 /// A finished trip, ready for the CSV. Mirrors v0's base trip columns so the
 /// two outputs diff directly.
