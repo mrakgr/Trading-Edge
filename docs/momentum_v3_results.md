@@ -385,6 +385,33 @@ backwards. **Not adopted as a filter** (the effect is real but the bands are sma
 "middle body" gate is fiddly to specify cleanly) — documented as a strong characterization of *what a good
 breakout day looks like*: opens slightly down, closes near the high, with a controlled rather than vertical body.
 
+#### The RED-CLOSE band drilled — it's "gap up huge then fade," and the damage is ALL in the 20%+ gap (2026-06-21)
+
+The body band `< 0` is the oddest cell: trades that close **up ≥ 10% on the day** yet print a **RED candle**
+(close < open). The only way both hold is a stock that **gapped up huge at the open and then sold off into the
+close** — it finished green purely on the size of the gap. Drill
+([`scripts/equity/candle_redbody_detail.sql`](../scripts/equity/candle_redbody_detail.sql)):
+
+| | n | avg overnight gap | open→close | open_pos | PF clip | clip post |
+|---|--:|--:|--:|--:|--:|--:|
+| GREEN (body ≥ 0) | 3,796 | +6.5% | +9.9% | 0.12 (opens low) | 1.603 | 1.572 |
+| **RED (gap-up then fade)** | 518 | **+21.5%** | −3.5% | 0.68 (opens high) | 1.345 | **1.077** |
+
+The red band gaps **+21.5% overnight** (vs +6.5% green), opens near the top of its range (open_pos 0.68 vs 0.12),
+and gives back ~3.5% intraday — the most extreme gap-over there is (the whole move happened pre-open; live you
+can't capture it). **But it is NOT uniformly bad — the damage is entirely in the 20%+ gap subset:**
+
+| red band × overnight gap | n | PF clip |
+|---|--:|--:|
+| gap 10–20% | 270 | **1.889** ← fine |
+| gap 20%+ | 248 | **1.014** ← the loser |
+
+A red candle on a *moderate* (10–20%) gap is fine (1.889); the loser is the **20%+ gap** (1.014, ≈ breakeven), and
+the deepest intraday fades are worst of all (open→close < −15%: clip 0.516, n 14). The most extreme examples are
++40–175% overnight pops on speculative micro-caps (JG +176%, ZKIN +76%, DOGZ, MICT, TTNP) that opened at the top
+and bled all day — unrepeatable premarket squeezes. **So the red band is not a new bad signal — it's the candle-shape
+silhouette of the same 30%+ over-extension cohort we already cap with the day-move ceiling.** Same theme, fourth axis.
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
