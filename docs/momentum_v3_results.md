@@ -412,6 +412,32 @@ the deepest intraday fades are worst of all (open→close < −15%: clip 0.516, 
 and bled all day — unrepeatable premarket squeezes. **So the red band is not a new bad signal — it's the candle-shape
 silhouette of the same 30%+ over-extension cohort we already cap with the day-move ceiling.** Same theme, fourth axis.
 
+#### Intraday-return floor `close/open − 1 ≥ N` — swept; peaks at N=0, but NOT adopted (2026-06-21)
+
+Tested the cleanest possible version of the finding: a single floor that rejects the trade unless `close/open − 1 ≥ N`
+([`scripts/equity/intraday_ret_floor_sweep.sql`](../scripts/equity/intraday_ret_floor_sweep.sql)). The floor peaks
+**exactly at N = 0 ("no red candle")** and over-cuts for any positive N:
+
+| floor N | n | PF clip | clip post | | excluded tail | n | PF clip of CUT |
+|---|--:|--:|--:|---|---|--:|--:|
+| −∞ (all) | 4,314 | 1.575 | 1.509 | | — | — | — |
+| −0.05 | 4,192 | 1.590 | 1.541 | | cut < 0.00 | 518 | **1.345** ← bad, drop |
+| **0.00 (no red)** | 3,796 | **1.603** | **1.572** | | cut < 0.02 | 910 | 1.496 |
+| 0.02 | 3,404 | 1.590 | 1.541 | | cut < 0.05 | 1,461 | **1.612** ← *above* baseline! |
+| 0.05 | 2,853 | 1.562 | 1.490 | |  |  |  |
+| 0.10 | 1,777 | 1.541 | 1.470 | |  |  |  |
+
+Clip PF rises monotonically to N=0 then falls — N=0 is the optimum on both eras (post-2015 1.509 → 1.572). The
+excluded-tail table shows *why* 0 is the line: the `close/open < 0` reds are genuinely bad (clip 1.345, worth
+dropping), but pushing past 0 starts cutting trades that are **at/above baseline** (the `< 0.05` cut population is
+1.612 > the 1.575 baseline) — a positive floor throws away good trades.
+
+**✅ DECISION (2026-06-21): NOT adopted.** Two reasons: (1) **heavy overlap with the 30% move cap** — the red band
+averages a +21.5% overnight gap, so the same over-extension cohort is already largely handled by the day-move ceiling
+(and by news review of the high-rvol blow-offs); a third gate at the same target is marginal redundancy. (2) The gain
+(+0.06 clip PF, post 1.509 → 1.572) doesn't justify a new gate that needs intraday open/close the daily engine handles
+awkwardly. Kept as a documented characterization, not a filter — but N=0 is the value to use if it's ever wired in.
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
