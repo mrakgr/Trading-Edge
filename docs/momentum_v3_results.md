@@ -178,8 +178,10 @@ re-apply inside each run). Clip +50%, breadth on, ≥2005. Script:
    thin recovery, so it's not a clean monotone improvement.
 
 **Verdict: 14 is well-chosen — it sits at the front of the 13–18 plateau where post-2015 PF is best and capacity is
-full.** If anything **w=13 marginally edges w=14** (same full-sample clip PF within noise, but higher post-2015
-1.521 vs 1.509, +226 trips, +$33k). ⏳ *Open: keep 14, or nudge to 13?*
+full.** w=13 marginally edges it (post-2015 1.521 vs 1.509, +226 trips, +$33k), but the gap is within noise.
+**✅ DECISION (2026-06-21): KEEP the window at 14** — the long-standing, well-understood default on the plateau;
+not worth re-tuning to a coin-flip edge. `AtrWindow = TightnessWindow = 14` unchanged. The `--vol-window` flag
+stays available for future sweeps.
 
 ### 2D joint FLOOR — entry-day move% × rvol: both floors reinforce; the move floor may be too LOW (2026-06-21)
 
