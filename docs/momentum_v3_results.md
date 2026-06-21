@@ -788,6 +788,48 @@ uptrend does **not** save a dead-zone trade — consistent with the streak resul
 extension, and extension is the problem. So of the two: **max-6mo-ATR% is a genuine dead-zone refinement (drop the
 calmest base), slope is not.**
 
+### How much rvol does the dead zone need to turn positive? rvol ≥ ~8–10 — a damning verdict on naive new-high buying (2026-06-21)
+
+The dead-zone CSVs so far were gated at rvol ≥ 3; to find where the dead zone *turns*, regenerate at rvol ≥ 1 (the
+O'Neil "buy the new high" crowd lives mostly at rvol 1–3) and sweep. Population: [5,10]% move, **rvol ≥ 1**, full
+production + breadth + heat; dead zone = d52 ≥ 3% above the 52w max close. Script:
+[`scripts/equity/deadzone_rvol_sweep.sql`](../scripts/equity/deadzone_rvol_sweep.sql).
+
+**Baseline dead zone, all rvol ≥ 1: PF clip 1.076, post-2015 1.001 — dead flat.** A [5,10]% breakout to a new high,
+extended a little above the prior max close, *at any volume*, has essentially **no edge in the modern era**. The
+cumulative rvol floor shows it only turns at an extreme level:
+
+| dead zone (d52 ≥ 3%), keep rvol ≥ | n | PF clip | post-2015 |
+|---|---|---|---|
+| ≥ 1 (all) | 10452 | 1.076 | **1.001** |
+| ≥ 2 | 6552 | 1.111 | 1.054 |
+| ≥ 3 | 3647 | 1.086 | 1.084 |
+| ≥ 5 | 1161 | 1.161 | 1.183 |
+| ≥ 8 | 315 | 1.193 | 1.334 |
+| **≥ 10** | 171 | **1.498** | **1.838** |
+| ≥ 15 | 72 | 1.577 | 1.39 |
+
+The dead zone **does not meaningfully turn until rvol ≥ 8–10.** Below that it crawls 1.08 → 1.16 — barely above churn;
+only at **rvol ≥ 10** does it become a real edge (1.498 / post-2015 1.838), but that is ~1% of the band (171 trips). The
+contrast with the **fresh-high** zone (d52 < 1%) is the whole point — there, rvol ≥ 2–3 already reaches PF ~1.34–1.37:
+
+| keep rvol ≥ | fresh high (d52 < 1%) | dead zone (d52 ≥ 3%) |
+|---|---|---|
+| ≥ 2 | 1.342 | 1.111 |
+| ≥ 3 | **1.372** | 1.086 |
+| ≥ 5 | 1.339 | 1.161 |
+| ≥ 8 | 1.817 | 1.193 |
+
+At the fresh high, modest volume (rvol 2–3) is enough; in the dead zone you need rvol ≥ ~8–10 to reach what the fresh
+high gives you at rvol 2 — the extension penalty is so steep that only near-pump volume overcomes it.
+
+**The O'Neil warning, made precise.** Most significant [5,10]% breakouts to new highs do *not* come with rvol > 3, and
+buying them naively — extended a few % above the prior max close, on ordinary volume — is **PF ≈ 1.0 post-2015 (pure
+churn), and outright negative when 6mo-max-ATR% is also low** (the calmest-base quintile, PF 0.762). It is not just a
+weak edge; it bleeds via costs/slippage while feeling like "textbook discipline." The actionable takeaways stack: **(1)
+buy the fresh high, not the extension** (d52 < ~3%); **(2)** if forced into the dead zone, demand **rvol ≥ ~8–10**, not
+the rvol ≥ 2–3 that suffices at the fresh high; **(3)** drop the dead-quiet-base names (low 6mo-max-ATR%) entirely.
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
