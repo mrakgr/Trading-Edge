@@ -1,7 +1,7 @@
 # Mid-Cap Momentum v3 — Clipped-Methodology Era
 
-**Status: working long-only daily-momentum edge. Filtered (breadth + ≥2005): 3,678 trips, PF raw
-2.021 / clip 1.590, +$915k. Honest next-open fills, 5-day time-stop.**
+**Status: working long-only daily-momentum edge. Filtered (breadth + ≥2005): 4,314 trips, PF raw
+1.923 / clip 1.575, +$1.07M. Honest next-open fills, 5-day time-stop.**
 
 v3 is not a new engine or a new system — it is the **same `TradingEdge.MomentumV2` production system**,
 carried forward into a research methodology that computes every PF/return figure on **clipped per-trade
@@ -57,7 +57,7 @@ no lookahead):
 | ATR% (log) | **< 0.10** | mean log-true-range over 14 prior bars. Tightened 0.11 → 0.10 on 2026-06-21 (the 0.10–0.11 band was dead) |
 | tightness (linear) | **< 4.5** | `(14d range) / ATR` — prior consolidation must be tight (linear scale; sharper loose-tail cut than log) |
 | 52-week proximity | **close ≥ 0.95 × hi_252** | near the 1-year closing high (closing-high channel beats the intraday-high channel) |
-| price floor | **≥ $5** | no sub-$5 names |
+| price floor | **≥ $1** | lowered 5 → 1 on 2026-06-21 (sub-$5 is real edge under the clip, not a lottery; $1–3 kept for the future past-runner floor to rescue) |
 | liquidity | **avg dollar volume ≥ $100k** | 28-day average |
 | breadth (market-wide) | **`pct_above_20` lagged 1 day > 0.5** | applied post-hoc; risk-on regime only |
 | heat (market-wide) | **`h10 < 0.25`** | skip entries when the top-1%-gainer froth measure is hot (Sykes-inspired); applied post-hoc |
@@ -71,13 +71,14 @@ end are marked-to-market at the final close.
 
 | | value |
 | --- | ---: |
-| trips | 3,678 |
-| win rate | 52.3% |
-| profit factor (raw) | **2.021** |
-| profit factor (clip +50%) | **1.590** |
-| net P&L | +$915,056 |
+| trips | 4,314 |
+| win rate | 52.6% |
+| profit factor (raw) | **1.923** |
+| profit factor (clip +50%) | **1.575** |
+| net P&L | +$1,071,336 |
 
-*(Unfiltered engine run at production defaults: 5,827 trips / PF 1.802 / +$1.19M.)*
+*(Unfiltered engine run at production defaults: 6,749 trips / PF 1.820 / +$1.55M. With heat<0.25 added:
+3,195 trips / PF raw 2.164 / clip 1.662 / +$879k.)*
 
 ---
 
@@ -276,7 +277,22 @@ Cumulative price FLOOR — **peaks at ~$3, not $5:**
 3. **The aggregate gain is small but it is FREE trips in a GOOD band** (≥$3 vs ≥$5: clip 1.590 → 1.604, post 1.520
    → 1.517 ≈ flat, +342 trips in the 1.70-PF $3–5 band). Not a PF play — a capacity play that doesn't cost quality.
 
-⏳ *Open decision (below): drop `MinPrice` 5 → 3.*
+**✅ DECISION (2026-06-21): drop `MinPrice` 5 → 1** (not 3). The cumulative-floor *optimum* is $3, but we
+deliberately keep the weak `$1–3` zone IN rather than floor at $3, because those low-priced names are the prime
+candidates to be **rescued by the past-runner max-ADR% / max-slope FLOORS** (deferred, not yet in engine — see
+below). A flat $3 floor would throw them away before that filter gets a chance; a $1 floor keeps them while still
+excluding only the broken-post-2015 sub-$1 penny band (clip_post 0.551). Engine-verified end-to-end at $1:
+
+| filter | trips | PF raw | PF clip | net P&L |
+|---|--:|--:|--:|--:|
+| breadth, ≥2005 ($5 floor, prior) | 3,678 | 2.021 | 1.590 | +$915k |
+| **breadth, ≥2005 ($1 floor, NEW)** | **4,314** | 1.923 | **1.575** | **+$1.07M** |
+| breadth + heat<0.25 ($1 floor) | 3,195 | 2.164 | 1.662 | +$879k |
+
+Adding `$1–5` is **+636 breadth-filtered trips (+17%) / +$156k** at **flat clip PF** (1.590 → 1.575 — the honest
+measure barely moves; raw dips 2.021 → 1.923 only because the `$1–3` names are weaker, exactly the band the
+past-runner floor should lift). Unfiltered engine run: 6,749 trips / PF 1.820 / +$1.55M. `MinPrice = 1.0` in
+`defaultConfig`.
 
 ---
 
@@ -293,7 +309,10 @@ These define the current entry/exit and remain in force. Full derivation and era
 - **rvol three regimes** — <1 fakeout, ~6–15 durable edge, >15 toxic blow-off (the 2020-21 pump cohort, not
   buyouts). Floor at 5; the 30%-move cap supersedes an rvol upper cap. *(v2: "rvol sweep"; "why >15 is neutral".)*
 - **Past-runner floor** (deferred, not in engine) — max-over-6mo of 14d ATR%/slope; top decile PF ~2.7, monotone,
-  era-robust, gate-amplified. "Higher is better" → use a FLOOR. *(v2: "Past-runner personality".)*
+  era-robust, gate-amplified. "Higher is better" → use a FLOOR. *(v2: "Past-runner personality".)* **Now also the
+  designated rescue for the weak `$1–3` price band** admitted by the 2026-06-21 floor drop (5 → 1): the hypothesis
+  is that a low-priced name that has *recently been a runner* (high max-ADR%/slope) carries the breakout edge that
+  a generic $1–3 name lacks. First thing to test when this floor goes into the engine.
 
 ### Regime filters (post-hoc, not yet in engine)
 
@@ -348,7 +367,8 @@ live threat. The **+1000% return clip stays** (still needed for residual real-CS
 
 ```bash
 # v3 default (2026-06-21): NO price stop, 5-day time-stop, next-open exit; entry filters
-# ATR% < 0.10 (log), tightness < 4.5 (linear), entry-move band [10%, 30%), rvol >= 5 (no upper cap).
+# ATR% < 0.10 (log), tightness < 4.5 (linear), entry-move band [10%, 30%), rvol >= 5 (no upper cap),
+# price >= $1, ADV >= $100k, 52w-close >= 0.95.
 # Run from dataset start for the 252-day warmup; filter entries to >=2005 post-hoc.
 dotnet run --project TradingEdge.MomentumV2 -c Release -- \
   --start-date 2003-09-10 --end-date 2026-05-13 -o /tmp/v3.csv

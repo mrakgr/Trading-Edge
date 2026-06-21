@@ -117,7 +117,15 @@ let defaultConfig =
           MinAvgDollarVolume = 100_000.0
           Min52wPct = 0.95
           Use52wHigh = false
-          MinPrice = 5.0
+          // Price floor lowered 5.0 -> 1.0 (2026-06-21). Under the +50% return clip the
+          // sub-$5 region is NOT a lottery mirage (raw PF 1.592 ~= clip 1.526 — no fat
+          // tail; the old "PF 6" was dollar-weighting + the deep-discount universe we no
+          // longer trade). The $3-5 band (clip 1.698) BEATS the $20+ band; the cumulative
+          // floor peaks at ~$3. We keep $1-3 in (rather than floor at $3) deliberately:
+          // the weak $1-3 names are the prime candidates to be rescued by the past-runner
+          // max-ADR% / max-slope FLOORS (deferred, not yet in engine). Floor at $1 to
+          // exclude only the broken-post-2015 sub-$1 penny band (clip_post 0.551).
+          MinPrice = 1.0
           // Tuned by post-hoc SQL sweep. ATR% is LOG-space (log-true-range; < 0.11 is
           // clear-cut — the high-vol tail is the biggest single drag, and a 0.11 ceiling
           // is a clean interior optimum: total P&L peaks there and falls off both sides —
