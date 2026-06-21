@@ -1,4 +1,8 @@
-# Mid-Cap Momentum v3 — Clipped-Methodology Era
+# HighFlyer — Mid-Cap Momentum v3 (Clipped-Methodology Era)
+
+**System name: HighFlyer** (named 2026-06-21) — long-only daily swing momentum on US common stocks / ADRs:
+the tight-consolidation breakout to new 52-week highs on a volume + move spike. Engine project
+`TradingEdge.MomentumV2` (legacy working name); HighFlyer is the user-facing strategy name.
 
 **Status: working long-only daily-momentum edge. Filtered (breadth + ≥2005): 4,245 trips, PF raw
 1.960 / clip 1.600, +$1.08M. Honest next-open fills, 5-day time-stop.**
