@@ -1,6 +1,16 @@
 -- Does the entry-bar INTRADAY return (close/open-1) explain the dead-zone
 -- reclaim-vs-gap-over effect? And does negative intraday return go neutral on
--- the lower-tier [5,10]% / rvol>=2 breakout band (mirroring the production tier)?
+-- the lower-tier [5,10]% / rvol>=3 breakout band?
+--
+-- ⚠️ REPRODUCTION NOTE: the ORIGINAL v2 reclaim result (reclaim PF 1.43 vs
+-- gap-over 1.09, ~2244 dead-zone trips) was on a DIFFERENT population than the
+-- v3 production tier: it was "PURE GAINERS" (--up-threshold 0, NO move floor) on
+-- the v2-era defaults (rvol[6,20], tight<4.0, atr%<0.11, price>=5) + breadth,
+-- v2-era exit. The original reclaim edge ONLY appears on the up=0 population.
+-- The CORRECT reproduction lives in: scripts/equity/deadzone_repro_v2era.sql
+-- (regen CSV with `--up-threshold 0 --rvol-min 6 --rvol-max 20 --min-price 5
+--  --max-tightness 4.0 --max-atr-pct 0.11 --min-intraday-ret -10`).
+-- THIS script instead studies the v3 tiers, where the reclaim edge is weak/absent.
 --
 -- Population: LOOSE CSV (move>=5%, rvol>=2, intraday gate OFF), then RESTRICT to
 --   move in [5,10]% AND rvol>=3 in SQL. Breadth lag1>0.5, >=2005, closed trips.

@@ -563,59 +563,76 @@ day-6 open, so "UP×4 negative" just means *the last day of a 4-day winner gives
 (post-2015 DOWN×4 0.898 / UP×4 0.982 — both ≈ noise). So the **shape is real and consistent** but the 4-day effect is a
 micro-drag, not a regime — it reinforces the day-3 up-streak-exhaustion read rather than adding a separate signal.
 
-### The dead-zone "reclaim vs gap-over" rule is the intraday-return signal in disguise (2026-06-21)
+### Dead-zone reclaim vs gap-over, revisited through intraday return — reproduced, and only PARTLY a proxy (2026-06-21)
 
 The v2 dead-zone refinement was *"require an intraday reclaim of the prior 52w high, not a gap over it"* — in the
-0–10%-above-the-high dead zone, names that **opened below** the prior high and **pushed up through it to close above**
-(reclaim) scored PF 1.43 vs 1.09 for names that **gapped over** the high pre-open (open ≥ high). Now that the
-intraday-return (`close/open − 1`) signal is established (§ *Full intraday-return breakdown*), the question is whether
-that geometry was ever the real signal, or just a proxy for the intraday push. **It was a proxy.**
+0–10%-above-the-high dead zone, names that **opened below** the prior 52w intraday high and **closed above** it
+(reclaim) beat names that **gapped over** it pre-open: PF 1.43 vs 1.09, ~2,244 trips, reclaim carrying nearly all the
+P&L. With the intraday-return (`close/open − 1`) signal now established (§ *Full intraday-return breakdown*), the
+question was whether that geometry was ever real or just a proxy for the intraday push.
 
-The mechanical link is exact: in the dead zone a **reclaim is intraday-up by construction** — if you open below the
-high and close above it, your close is above your open. Cross-tab confirms it with zero leakage: **100% of reclaims are
-intraday-up** (prod tier 1212/1212; weak tier 6730/6730). So "reclaim" and "positive intraday return" are the *same
-variable*. The controlling test — hold the intraday-return sign fixed, then compare reclaim vs gap-over — collapses the
-edge. Script: [`scripts/equity/deadzone_intraday_explains.sql`](../scripts/equity/deadzone_intraday_explains.sql).
-Loose CSV (move ≥ 5%, rvol ≥ 2, intraday gate OFF), breadth lag-1 > 0.5, ≥ 2005, clip +50%.
+**First, the reproduction — which initially failed and is the key lesson.** The original split ONLY reproduces on the
+population it was actually run on: **"pure gainers" (`--up-threshold 0`, NO move floor)** on the v2-era defaults
+(rvol [6,20], tight < 4.0, ATR% < 0.11, price ≥ $5) + breadth. The small movers the up = 0 floor admits are most of the
+2,244 trips and are *where the reclaim edge lives*. Restricting to the v3 production move band [10,30]% (or even
+[5,10]%) carves a different, reclaim-heavy population on which the split **inverts** — so an earlier write-up of this
+section that used the move-restricted tiers was reproducing the wrong population and is **superseded by this one**.
+Repro script: [`scripts/equity/deadzone_repro_v2era.sql`](../scripts/equity/deadzone_repro_v2era.sql) (regen CSV with
+`--up-threshold 0 --rvol-min 6 --rvol-max 20 --min-price 5 --max-tightness 4.0 --max-atr-pct 0.11`). Raw PF (no clip),
+breadth lag-1 > 0.5, ≥ 2005. The v3 5-day exit shifts the PF *levels* vs the original 20-day-era numbers, but the
+direction and ~2,256-trip count reproduce:
 
-**Production tier [10,30]% / rvol ≥ 5 — dead zone (0–10% above 52w high):**
+| dead-zone split (up=0 pure gainers, v2-era filters, 5d stop) | n | win% | PF raw | net | pre-2015 | post-2015 |
+|---|---|---|---|---|---|---|
+| **reclaim (open < high → close > high)** | 1408 | 51.3 | **1.295** | +$97.5k | 1.426 | 1.207 |
+| gap-over (open ≥ high) | 848 | 49.8 | 1.172 | +$27.8k | 1.062 | 1.298 |
 
-| split | n | PF clip | post-2015 |
-|---|---|---|---|
-| reclaim (open < high → close > high) | 1212 | 1.624 | 1.443 |
-| gap-over (open ≥ high) | 706 | 1.526 | **1.665** |
-| └ controlling for intraday sign: gap-over **that closed up** | 492 | 1.530 | **1.758** |
-| └ gap-over that **faded** (intraday down) | 214 | 1.517 | 1.504 |
+Reclaim wins (1.295 vs 1.172) and carries ~78% of the dead-zone P&L — the original finding holds on its own population.
 
-The raw 0.10 reclaim edge (1.624 vs 1.526) (a) **does not survive the era split** — post-2015 the gap-over half *wins*
-(1.665 vs 1.443) — and (b) **shrinks to ~0.09 once you condition on intraday-up** (reclaim 1.624 vs gap-over-up 1.530),
-with the gap-over-up names actually *beating* reclaims out-of-sample (1.758). The reclaim framing also **mislabels** the
-two best gap-over sub-groups: a gap-over that *faded* on the day is still PF 1.52. The deeper signal is **intraday
-push-size**, and on the prod tier it's the familiar **hump** — dead-zone PF by intraday band: `−2..0%` **1.97**, `0..5%`
-1.71, `5..10%` 1.76, `10%+` **1.49** (vertical push = worst); mid-push wins, extremes fade.
+**The 20-day time-stop (the v2-era exit) does NOT recover the exact original 1.43/1.09.** Re-running with
+`--max-hold-bars 20`: reclaim 1.303 / gap-over 1.348 raw PF (gap-over actually edges *ahead* on raw PF), but reclaim
+still carries **~2× the P&L** ($189.8k vs $91.5k on 1395/835 trips) and still wins the early era decisively (pre-2015
+**1.68** vs 1.22). So the time-stop is not the lever; the residual gap to the original 1.09 is most likely the v2-era
+**entry-day stop** geometry (a gap-over's day-low stop sat tighter, penalizing it — the original doc flagged this as a
+"second-order effect" worth ~0.07 PF) plus minor 52w-window drift. The **direction and P&L-dominance reproduce under
+both exits**; the precise 1.09 was specific to a now-superseded stop config and isn't worth chasing.
 
-**Weak tier [5,10]% / rvol ≥ 3 — the effect all but vanishes, and push-size goes monotone-declining:**
+**Is it just the intraday signal? Partly — but NOT fully.** A reclaim is **intraday-up by construction** (open below the
+high, close above it ⇒ close > open): the cross-tab leaks nothing, **100% of reclaims are intraday-up** (1408/1408),
+while gap-overs are mixed (557 up / 291 down). So the two variables are mechanically entangled. The controlling test —
+hold the intraday sign fixed and compare:
 
-| split | n | PF clip | post-2015 |
-|---|---|---|---|
-| reclaim | 3250 | 1.142 | 1.122 |
-| gap-over | 1867 | 1.104 | 1.197 |
-| best dead-zone cell: gap-over **that faded** | 456 | **1.243** | **1.446** |
+| intraday sign | split | n | PF raw | net |
+|---|---|---|---|---|
+| intraday UP | reclaim | 1408 | **1.295** | +$97.5k |
+| intraday UP | gap-over | 557 | 1.171 | +$18.7k |
+| intraday DOWN/flat | gap-over | 291 | 1.174 | +$9.1k |
 
-On weak breakouts the reclaim/gap gap is trivial (1.142 vs 1.104) and *reverses* post-2015. The whole [5,10]% band is
-mediocre (PF 1.21 vs the production tier's 1.60), and crucially the **intraday-return signal INVERTS** versus the
-production tier: here an intraday **fade is the GOOD version** — intraday-down PF 1.455 vs intraday-up 1.193, and the
-band table decays monotonically as the push grows (`−2..0%` **1.62** → `5%+` **1.13 / post 1.06**). So the −0.07
-deep-fade reject gate is a **production-tier phenomenon and does NOT generalize down**: on a small 5–10% mover, a name
-that opened roughly flat and *ground out* its close is live; one that gapped and *drifted* (5%+ intraday push) is the
-exhausted one.
+Among **intraday-up** names, reclaim (1.295) still beats gap-over-up (1.171) by **+0.12 PF** — a *residual* edge that
+does **not** vanish when you control for intraday return. So the reclaim rule is **not merely** the intraday signal in
+disguise: opening below resistance and reclaiming it intraday is genuinely better than gapping through it, even at the
+same intraday-up sign. (Note too that for a **gap-over**, the intraday sign barely matters — 1.171 up vs 1.174 down —
+so intraday return is informative for reclaim-type entries but not gap-over-type ones.) The push-size band on this
+population is **rising-then-flat**, not the hump seen on the strong v3 tier: `−2..0%` 1.22 → `0..5%` 1.24 → `5..10%`
+**1.33** → `10%+` 1.25.
 
-**Verdict (both tiers):** the reclaim-vs-gap-over distinction adds nothing on top of the intraday-return signal — it's
-the same variable wearing a costume, and it's *less* robust (era-fragile, mislabels the faded gap-overs). **Drop the
-reclaim/gap geometry; keep the intraday-return signal.** This matters going into intraday entries: the push-size read is
-the one to carry forward (hump on the strong tier, monotone-declining on the weak tier), not the open-vs-prior-high
-geometry. Net effect on production: none — the engine never used the reclaim rule; this *retires a v2 candidate* rather
-than changing a default.
+**Verdict:** the original reclaim > gap-over result is **real and reproduced** (on up=0 pure gainers). Intraday return
+is **correlated with but does not fully explain** it — reclaim keeps a ~+0.12 PF residual after controlling for the
+intraday sign. So reclaim and intraday-return are two related-but-distinct reads of the same entry bar; the reclaim
+geometry is the stronger one in the dead zone, and intraday return is the more general signal across the rest of the
+system. **Both are worth carrying into intraday entries.** Net effect on production: none — the engine never wired in the
+reclaim rule (it stayed a candidate); this corrects the record and keeps both signals on the table.
+
+> ⚠️ **Methodology lesson:** always reproduce a prior finding **on its original population** before re-interpreting it.
+> The reclaim result was run on `--up-threshold 0` pure gainers; reading it through the v3 production move band silently
+> swapped the population and flipped the sign. Match the filters first, *then* test the new hypothesis.
+
+**Lower-tier aside [5,10]% / rvol ≥ 3 — intraday return INVERTS vs the production tier.** On weak breakouts (PF 1.21
+overall, vs the production tier's 1.60) an intraday **fade is the GOOD version** — intraday-down 1.455 vs intraday-up
+1.193, decaying monotonically as the push grows (`−2..0%` 1.62 → `5%+` 1.13 / post-2015 1.06). So the production −0.07
+deep-fade reject gate is a **strong-tier phenomenon that does not generalize down**: on a small 5–10% mover, a name that
+opened roughly flat and *ground out* its close is live; one that gapped and *drifted* is exhausted. Script:
+[`scripts/equity/deadzone_intraday_explains.sql`](../scripts/equity/deadzone_intraday_explains.sql).
 
 ---
 
