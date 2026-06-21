@@ -106,3 +106,22 @@ SELECT CASE WHEN d52<0.05 THEN '3..5%' ELSE '5%+' END dband,
   ROUND(SUM(CASE WHEN ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),3) pf_clip,
   ROUND(SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret<0 THEN ret ELSE 0 END),0),3) clip_post
 FROM t2 WHERE d52>=0.03 GROUP BY 1,2 ORDER BY 1,2;
+
+-- ============================================================================
+-- Does INTRADAY RETURN rescue the dead extended bucket instead? No — neither sign
+-- nor band discriminates; both reclaim and intraday-push are breakout-zone signals
+-- that go silent once d52 >= 3% (over-extended). Reuses t2 (has adj_open).
+-- ============================================================================
+SELECT '=== d52>=0.03 (extended): by intraday-return sign, then band ===' z;
+SELECT CASE WHEN entry_price/NULLIF(o,0)-1.0>0 THEN 'intraday UP' WHEN entry_price/NULLIF(o,0)-1.0<0 THEN 'intraday DOWN' ELSE 'flat' END sgn,
+  COUNT(*) n,
+  ROUND(SUM(CASE WHEN ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),3) pf_clip,
+  ROUND(SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret<0 THEN ret ELSE 0 END),0),3) clip_post
+FROM t2 WHERE d52>=0.03 GROUP BY 1 ORDER BY 1;
+
+SELECT CASE WHEN entry_price/NULLIF(o,0)-1.0<-0.05 THEN '1:<-5%' WHEN entry_price/NULLIF(o,0)-1.0<-0.02 THEN '2:-5..-2%'
+            WHEN entry_price/NULLIF(o,0)-1.0<0 THEN '3:-2..0%' WHEN entry_price/NULLIF(o,0)-1.0<0.02 THEN '4:0..2%'
+            WHEN entry_price/NULLIF(o,0)-1.0<0.05 THEN '5:2..5%' ELSE '6:5%+' END band,
+  COUNT(*) n,
+  ROUND(SUM(CASE WHEN ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),3) pf_clip
+FROM t2 WHERE d52>=0.03 GROUP BY 1 ORDER BY 1;

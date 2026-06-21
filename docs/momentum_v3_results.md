@@ -688,6 +688,14 @@ property of the breakout zone, not the extended zone; the only tool for the `d52
 (cap d52), not a reclaim filter.** Script:
 [`scripts/equity/dist_52w_close_510_rvol3.sql`](../scripts/equity/dist_52w_close_510_rvol3.sql).
 
+**Does intraday return rescue it instead? No — same dead result, even flatter.** Splitting the same `d52 ≥ 3%` bucket by
+intraday return: by sign, intraday-up 1.087 vs intraday-down 1.028 (n=3376/262) — no edge; by band, **non-monotone and
+hovering ~1.0** (`0..2%` 1.39 is the one bright cell on n=369, but `2..5%` is **0.985** on n=984, and `5%+` 1.103 on
+n=2032) — scatter, not a gradient. So **neither microstructure lever (reclaim geometry NOR intraday push) discriminates
+in the extended zone** — both are *breakout-zone* signals that work only at the fresh high (the 0–1% close-distance cell,
+where intraday push and reclaim both mattered) and go silent once a name has run 3%+ past its max close. **Confirmed: you
+can't rescue over-extended names — you can only avoid them (cap `d52`).**
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
