@@ -462,6 +462,39 @@ The earlier overlap concern (the 30% move cap already catches much of this cohor
 the residual it *doesn't* catch — and it's nearly free (1.6% of trips), so it earns its place. `N = 0` (full no-red)
 remains available via the flag for a slightly higher PF at a much larger capacity cost.
 
+#### Full intraday-return breakdown — the hump strikes again: 0–5% is the SWEET SPOT (2026-06-21)
+
+With the deep-fade floor live, mapped the *whole* intraday-return range to see what else it carries. Script:
+[`scripts/equity/intraday_ret_breakdown.sql`](../scripts/equity/intraday_ret_breakdown.sql). Clip +50%, breadth, ≥2005.
+
+| intraday_ret band | n | PF clip | clip post | | quintile (data-driven) | range | PF clip | clip post |
+|---|--:|--:|--:|---|---|---|--:|--:|
+| < −7% (cut by gate) | 69 | 0.791 | 0.766 | | Q1 | −55%..+1.8% | 1.445 | 1.264 |
+| −7..0% (mild red, kept) | 449 | 1.566 | 1.226 | | **Q2** | +1.8%..+6.3% | **1.912** | **2.092** |
+| **0–2%** | 392 | **1.827** | **2.186** | | Q3 | +6.3%..+10.2% | 1.437 | 1.352 |
+| **2–5%** | 551 | **1.810** | 1.986 | | Q4 | +10.2%..+14.2% | 1.650 | 1.568 |
+| 5–10% | 1,076 | 1.610 | 1.546 | | Q5 | +14.3%..+34.5% | 1.511 | 1.451 |
+| 10–15% | 1,029 | 1.561 | 1.512 | |  |  |  |  |
+| 15–25% | 677 | 1.601 | 1.437 | |  |  |  |  |
+| 25%+ | 71 | 1.043 | 1.401 | |  |  |  |  |
+
+**Findings:**
+1. **The best intraday band is 0–5% (clip ~1.8, post-2015 ~2.0–2.2) — a LOW push, not a big one.** A stock that
+   closes +10% on the *day* but only moved **0–5% from its open** got most of its gain **overnight (the gap)** and then
+   **drifted up calmly** intraday — a controlled, non-vertical session. The quintiles agree: **Q2 (+1.8–6.3% intraday)
+   is the standout at clip 1.912 / post 2.092.**
+2. **The 25%+ intraday band rolls over (1.043)** — a 25%+ open→close climb is the *vertical intraday blow-off*, the
+   worst green band. **Same hump as every axis this session:** moderate beats both extremes (deep fade AND vertical push).
+3. **Intraday return is a GENUINELY NEW signal, not a move% proxy** — corr with the day-move (pct_up) is only **0.29**
+   (and −0.14 with the overnight gap). It measures *where in the session* the move happened, which the move% gate doesn't.
+4. **A green push with NO overnight gap is excellent** (gap <2%: clip 1.839 / post 1.732) — the move is happening
+   cleanly *during* tradeable hours. (Most production trips DO gap, by construction of the ≥10% day-move + rvol filters.)
+
+**No new gate taken** — the 0–5% peak is a soft preference, not a cliff, and the existing gate already removes the bad
+tail; a 25%+ *intraday* cap would only catch 71 trades and overlaps the 30% day-move cap. Documented as another face of
+the **moderate-energy-beats-extreme** theme: the ideal entry day gaps up, then drifts calmly higher — it does **not**
+go vertical intraday.
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
