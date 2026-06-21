@@ -634,6 +634,38 @@ deep-fade reject gate is a **strong-tier phenomenon that does not generalize dow
 opened roughly flat and *ground out* its close is live; one that gapped and *drifted* is exhausted. Script:
 [`scripts/equity/deadzone_intraday_explains.sql`](../scripts/equity/deadzone_intraday_explains.sql).
 
+### Distance from the 52w MAX CLOSE on the [5,10]% / rvol > 3 tier — spike at the fresh high, decay when extended (2026-06-21)
+
+On the lower-tier system (move ∈ [5,10]%, rvol > 3) with **full production settings intact incl. heat + breadth**, how
+does PF depend on `pct_52w_at_entry` = close / 52w-max-close − 1 (the close-vs-close-high reference)? Negative = still
+below the prior max close; ~0 = fresh new closing high; positive = extended above it. Script:
+[`scripts/equity/dist_52w_close_510_rvol3.sql`](../scripts/equity/dist_52w_close_510_rvol3.sql). Baseline 7,069 trips,
+PF clip **1.217** / post-2015 1.161. Clip +50%, breadth lag-1 > 0.5, heat (CS/ADRC) h10 < 0.25, ≥ 2005.
+
+| distance from 52w max close | n | PF clip | post-2015 |
+|---|---|---|---|
+| < −3% (below max close) | 760 | 1.353 | 0.852 |
+| −3..−1% | 755 | 1.328 | 1.713 |
+| −1..0% (just under) | 417 | 1.158 | 0.889 |
+| **0..1% (fresh close-high)** | 487 | **1.735** | **1.909** |
+| 1..3% | 1003 | 1.359 | 1.171 |
+| 3..5% | 1269 | 1.133 | 1.125 |
+| **5%+ (extended)** | 2378 | **1.065** | 1.066 |
+
+**A sharp spike right at the fresh closing high (0–1%, PF 1.735 / post-2015 1.909) then monotone decay the further the
+name extends above it.** The `5%+` bucket is the biggest (2,378 trips, a third of the band) and is **dead** at 1.065 —
+the same moderate>extreme shape as every other axis, here on the 52w-close distance: the best entry is *exactly at* the
+breakout to a new closing high; chasing it once it's run 5%+ past the high is no edge. The deep-below-high `<−3%` bucket
+looks decent (1.353) but is **era-fragile** (post-2015 0.852) — a recovering-laggard artifact, not the signal; the
+fresh-high spike is the era-robust one.
+
+**Cumulative — the CEILING is the refinement, the floor isn't.** Requiring *more* extension (`d52 ≥ N`) flat-to-hurts
+(d52 ≥ 0.03 → 1.086). Requiring *less* (`d52 < N`) concentrates the edge: **d52 < 0.05 → 1.305** (keeps 4,691 of 7,069),
+**d52 < 0.03 → 1.368**, d52 < 0.01 → 1.372. So capping the extension — *not pinning a floor above the high* — lifts the
+lower tier from 1.217 to ~1.31–1.37 by dropping the dead extended bucket. **Takeaway for the lower tier: buy the fresh
+close-high, cap the extension at ≤ ~3–5% above the prior max close.** (Diagnostic for now — the lower tier is not in
+production; logged for when intraday entries pull in weaker breakouts.)
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
