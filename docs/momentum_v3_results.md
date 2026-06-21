@@ -209,6 +209,75 @@ upside to revisit *after* capital efficiency is modeled — at that point a high
 pull. The prior notch work (25–30% best, 30–40% worst, *which is why the 30% cap exists*) is consistent: within
 the [0,30] window the edge keeps rising toward the cap.
 
+### Sub-$5 stocks under the clip — the $5 floor was a raw-PF over-correction (2026-06-21)
+
+The $5 price floor was set in the raw-PF era because the sub-$5 bucket showed a gaudy PF driven by a few lottery
+winners. With the clip we can finally see the region honestly. Wide dump with the price floor dropped
+(`--min-price 0`, rest production); script [`scripts/equity/sub5_price_sweep.sql`](../scripts/equity/sub5_price_sweep.sql).
+
+**The whole sub-$5 region is NOT a lottery mirage** — its raw PF (1.592) is barely above its clipped PF (1.526),
+i.e. *under the production filters there is no fat tail to clip*.
+
+**Where did the original "PF ~6" sub-$5 lottery go? It was never in THIS population — and the cause was NOT the
+return clip.** Tracing it back to `momentum_v0_results.md` (the deep-discount structure study), the old inflation
+had two compounding causes, both orthogonal to the +50% clip:
+1. **It was dollar-P&L-weighted, not return-weighted.** Old PF was computed on dollar `net_pnl`. At fixed $10k
+   notional a sub-$5 name buys a huge share count, so a split/adjustment glitch became a giant *dollar* number —
+   the v0 doc records **a single trade at +$25M (a ~2,500× return) that was 84.6% of its tier**. The v3 sweeps
+   compute PF on per-trade **return** (`exit/entry−1`), which is structurally immune to the share-count explosion
+   (a 2,500× glitch is `ret=2500`, not `+$25M`). *This* — return-weighting, not the +50% price-gain clip — is the
+   real reason "PF 6" became "PF 1.59".
+2. **The lottery lived in a universe we now exclude.** Those glitch trades were **deep-discount, >50%-below-52w-high
+   weakness breakouts** (54% sub-$5, median $4.22 per the v0 doc). Production now requires `52w ≥ 0.95` — *near
+   highs* — so we never enter the beaten-down penny names where the corrupted rows were.
+
+**Proof (verified 2026-06-21):** the single largest sub-$5 trade in the production population is **+161%** (a clean
+$3.34 → $8.71 move) — no monster glitch exists; and `pf_dollar == pf_return == 1.592` *identically* (they only
+diverge when a tail glitch is present). The v0 clean test even used a **+500% clip** (10× looser than ours) and
+*still* found deep-discount was a loser. So the 1.526 clipped sub-$5 PF is honest and propped up by nothing.
+
+| region | n | PF clip | PF raw | clip post |
+|---|--:|--:|--:|--:|
+| sub-$5 [0,5) | 667 | 1.526 | 1.592 | 1.402 |
+| ≥ $5 [5,∞) | 3,678 | 1.590 | 2.021 | 1.520 |
+
+Sub-$5 is only **modestly** worse than ≥$5 — not the disaster the floor implied. The price BANDS show the edge is
+strongly **non-monotone in price**, and the floor is cutting good names:
+
+| price band | n | PF clip | PF raw | clip post |
+|---|--:|--:|--:|--:|
+| < $1 | 31 | 1.582 | 1.582 | 0.551 ← broken post-2015, thin |
+| $1–2 | 121 | 1.442 | 1.460 | 1.422 |
+| $2–3 | 173 | 1.296 | 1.316 | 1.452 |
+| **$3–5** | 342 | **1.698** | 1.820 | **1.501** ← better than $20+ |
+| **$5–10** | 677 | **2.246** | 2.316 | **2.488** ← best band in the book |
+| $10–20 | 920 | 1.780 | 2.854 | 1.608 |
+| $20+ | 2,081 | 1.236 | 1.491 | 1.151 ← *worst* band |
+
+Cumulative price FLOOR — **peaks at ~$3, not $5:**
+
+| floor | n | PF clip | clip post |
+|---|--:|--:|--:|
+| ≥ $0 | 4,345 | 1.575 | 1.492 |
+| ≥ $1 | 4,314 | 1.575 | 1.509 |
+| ≥ $2 | 4,193 | 1.581 | 1.513 |
+| **≥ $3** | 4,020 | **1.604** ← peak | 1.517 |
+| ≥ $5 | 3,678 | 1.590 | 1.520 |
+| ≥ $10 | 3,001 | 1.417 | 1.297 |
+
+**Findings:**
+1. **The edge is low-priced-but-not-penny.** `$5–10` is the single best band in the entire system (clip 2.246,
+   **post-2015 2.488**); `$3–5` (clip 1.698, post 1.501) is *better than the `$20+` band the system currently
+   trades* (clip 1.236, post 1.151). High-priced large-caps are the WORST band — same "energetic middle beats the
+   safe extreme" theme as tightness/ATR%.
+2. **The $5 floor is slightly too high.** The cumulative floor peaks at **≥$3** (clip 1.604 / post 1.517), which
+   recovers the strong `$3–5` band while still excluding the weak `$1–3` zone and the broken-post-2015 penny band
+   (`<$1` post 0.551). Below $3 the $2–3 + penny bands drag PF down.
+3. **The aggregate gain is small but it is FREE trips in a GOOD band** (≥$3 vs ≥$5: clip 1.590 → 1.604, post 1.520
+   → 1.517 ≈ flat, +342 trips in the 1.70-PF $3–5 band). Not a PF play — a capacity play that doesn't cost quality.
+
+⏳ *Open decision (below): drop `MinPrice` 5 → 3.*
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
