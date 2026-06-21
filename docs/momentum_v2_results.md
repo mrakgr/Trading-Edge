@@ -2266,6 +2266,22 @@ as the **max-PF / min-drawdown** alternative (PF 1.859, post 1.848).
 
 #### ⭐ Past-runner personality — a 6-month volatility/momentum HISTORY predicts the next breakout (2026-06-20)
 
+> ⚠️ **READ THIS FIRST (caveat added 2026-06-21).** The PF figures below are **RAW** (no winner-clip), and the **monotone
+> "higher is better, top bucket PF ~3" reads as much cleaner than it trades.** A later investigation
+> ([`momentum_v3_results.md` § past-runner](momentum_v3_results.md)) reproduced this section *exactly* and then dissected
+> it. Two things every first-time reader should know:
+> 1. **The TOP buckets are lottery-driven, NOT well-distributed.** In the 15%+ ADR / 130%+ ret buckets **one trade carries
+>    ~46% / ~64% of the bucket's entire winning profit**; ex-top-1 PF falls 3.0 → 1.6 / 3.6 → 1.3, and ex-top-5 the
+>    ret-top bucket is a *net loser* (0.82). The monotone PF ladder is really a monotone **concentration** ladder — the
+>    *base* (ex-top-5) PF is flat-to-declining across buckets. High past-vol means **a fatter right tail**, not a better
+>    typical trade. So the headline PF ~3 is **not a sizing-into-able expectation** — it's a convexity/tail bet that needs
+>    many-tiny-bets sizing (bubble upside).
+> 2. **The clean monotonicity is fragile to the population.** It only holds on *this* run (rvol [6,20], no heat filter).
+>    Lowering the rvol floor below 6 re-admits extreme lottery winners that spike individual buckets (one +2,368% trade),
+>    and the v3 production **heat** filter over-cuts the profitable 11-15% band — so the ladder looks non-monotone under
+>    v3 production. **The durable, tradeable part is the FLOOR** (dead-quiet-base names are uniformly bad and *that* is
+>    well-distributed) — now shipped as the v3 `max log ATR ≥ 0.04` filter. The "higher is always better" framing is not.
+>
 > **Thesis (Tim Sykes / chart-reading lore):** momentum stocks keep being momentum stocks; boring stocks
 > stay boring. Test it directly — for each entry, measure the stock's volatility/momentum *personality*
 > over the **trailing 6 months (126 trading days)**, then break the default-system trips down by it. The
@@ -2335,6 +2351,11 @@ entry-ATR% (cut volatile-but-no-history entries, which are pure fakeouts). max-r
 the production AND the loose gate once the entry ATR%/tightness caps are applied (see the gate-amplified
 result below; the earlier "loose-gate inversion" was a caps-off artifact). Not yet wired into the engine —
 to be designed and swept next; mind the thin top-decile n and the win%-vs-PF fat tail.
+
+> **Resolution (2026-06-21):** shipped as a **FLOOR**, not a "strongest-at-the-top" signal. The top-bucket strength is
+> lottery-tail (see the caveat at the top of this section), so the engine got a `max log ATR ≥ 0.04` *floor* (cut the
+> dead-quiet base — the well-distributed bottom) rather than a top-chasing gate or a PF-3-sizing input. Details in
+> [`momentum_v3_results.md` § max-log-ATR floor](momentum_v3_results.md).
 
 #### The past-runner edge is GATE-AMPLIFIED, monotone on BOTH gates — with the ATR%/tightness caps ON (2026-06-20)
 
