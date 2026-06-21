@@ -136,7 +136,12 @@ let defaultConfig =
           // (price% ≥ 0.05, rvol [3,20]) loosening past 4.0 degrades post-2015 PF (5.0–5.5
           // reverts to 1.23) — the prod move/rvol floor is what keeps these names clean.
           MaxTightness = 4.5
-          MaxAtrPct = 0.11 } }
+          // ATR% ceiling: tightened 0.11 → 0.10 (2026-06-21). Clipped-PF ceiling sweep
+          // peaks at < 0.10 (clip 1.590 / post-2015 1.520) vs < 0.11 (1.571 / 1.478);
+          // the 0.10–0.11 band is dead (clip 0.984, post 0.633), so trimming it is pure
+          // gain for only −35 trips. The EDGE concentrates in the 0.06–0.10 band (clip
+          // 1.9–2.5), not the quiet < 0.04 bulk (1.42) — moderate vol beats minimal vol.
+          MaxAtrPct = 0.10 } }
 
 /// A finished trip, ready for the CSV. Mirrors v0's base trip columns so the
 /// two outputs diff directly.

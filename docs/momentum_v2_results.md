@@ -2290,6 +2290,78 @@ now the standard convention (see the *Winner-clip convention* note in the rvol s
 tightening below 4.5** — `< 3.5` would discard the best band (3.5–4.0) and `< 2.5` is barely-edge. `MaxTightness =
 4.5` stands, now confirmed on clipped PF.
 
+**Extended to tight < 7 — the ceiling is a HUMP that peaks exactly at 4.5 (2026-06-21).** The sweep above stopped
+at the production ceiling; extending it (wide dump, ATR%-gate also opened, `--max-tightness 1000 --max-atr-pct 1000`,
+9,090 trips; script [`scripts/equity/tightness_atr_cum_sweep.sql`](../scripts/equity/tightness_atr_cum_sweep.sql))
+shows clipped PF **climbs to a peak at < 4.5 then declines monotonically** — loosening past 4.5 strictly hurts:
+
+| tight ceiling | n | PF clip | clip post | tight ceiling | n | PF clip | clip post |
+|---|--:|--:|--:|---|--:|--:|--:|
+| < 2.5 | 298 | 1.219 | 1.499 | **< 4.5** | 3,713 | **1.571** ← peak | 1.478 |
+| < 3.0 | 1,082 | 1.388 | 1.247 | < 5.0 | 4,301 | 1.495 | 1.386 |
+| < 3.5 | 2,047 | 1.447 | 1.338 | < 5.5 | 4,727 | 1.475 | 1.389 |
+| < 4.0 | 3,003 | 1.568 | 1.447 | < 6.0 | 5,025 | 1.421 | 1.333 |
+|  |  |  |  | < 7.0 | 5,365 | 1.390 | 1.291 |
+
+Non-cumulative bands locate the cliff — edge **collapses above 4.5**:
+
+| tightness band | n | PF clip | clip post |
+|---|--:|--:|--:|
+| < 2.5 | 298 | 1.219 | 1.499 |
+| 2.5–3.0 | 784 | 1.449 | 1.184 |
+| 3.0–3.5 | 965 | 1.513 | 1.437 |
+| **3.5–4.0** | 956 | **1.864** | **1.712** |
+| 4.0–4.5 | 710 | 1.584 | 1.609 |
+| 4.5–5.5 | 1,014 | 1.208 | 1.143 |
+| 5.5–7.0 | 638 | 1.015 | 0.886 |
+| 7.0+ | 273 | 0.857 | 0.854 |
+
+So "higher tightness = lower PF" (the surprise) is real but it's a **hump, not a slope**: edge rises off the
+ultra-tight floor (`<2.5` barely-edge), peaks in the **3.5–4.5 zone**, and falls off a cliff above 4.5 (the 5.5–7.0
+band is a *loser*, post 0.886). Loose bases — wide range relative to ATR — genuinely don't break out cleanly.
+`MaxTightness = 4.5` is the optimum of the entire 2.5–7 range, not just a capacity compromise.
+
+#### ATR% ceiling 0.04→0.11 — peaks at ~0.10; the EDGE lives in the 0.06–0.10 band, not the quiet bulk (2026-06-21)
+
+Same wide dump, sweeping the ATR% ceiling with tightness held at the production < 4.5. Clipped PF, breadth on, ≥2005:
+
+| atr% ceiling | n | PF clip | PF raw | clip pre | clip post |
+|---|--:|--:|--:|--:|--:|
+| < 0.04 | 2,254 | 1.420 | 1.965 | 1.644 | 1.236 |
+| < 0.05 | 2,813 | 1.435 | 1.844 | 1.573 | 1.325 |
+| < 0.06 | 3,158 | 1.438 | 1.784 | 1.550 | 1.355 |
+| < 0.07 | 3,380 | 1.492 | 1.801 | 1.588 | 1.425 |
+| < 0.08 | 3,524 | 1.529 | 1.821 | 1.623 | 1.470 |
+| < 0.09 | 3,615 | 1.569 | 1.998 | 1.682 | 1.501 |
+| **< 0.10** | 3,678 | **1.590** ← peak | 2.021 | 1.711 | **1.520** |
+| < 0.11 (default) | 3,713 | 1.571 | 1.991 | 1.738 | 1.478 |
+
+The cumulative ceiling **peaks at < 0.10** (clip 1.590, post 1.520) — fractionally above the shipped < 0.11
+(1.571 / 1.478). The non-cumulative bands explain why, and flip the naive "low vol = safe" intuition hard:
+
+| atr% band | n | PF clip | clip post |
+|---|--:|--:|--:|
+| < 0.04 | 2,254 | 1.420 | 1.236 |
+| 0.04–0.05 | 559 | 1.481 | 1.578 |
+| 0.05–0.06 | 345 | 1.450 | 1.476 |
+| 0.06–0.07 | 222 | 1.925 | 1.867 |
+| 0.07–0.08 | 144 | 2.013 | 1.853 |
+| **0.08–0.09** | 91 | **2.460** | **2.016** |
+| 0.09–0.10 | 63 | 2.208 | 1.903 |
+| 0.10–0.11 | 35 | 0.984 | 0.633 ← dead |
+| 0.11+ | 101 | 0.472 | 0.496 ← junk |
+
+**The edge is concentrated in the 0.06–0.10 ATR% band (PF ~1.9–2.5), NOT in the quiet `<0.04` bulk (1.42).**
+Moderate-volatility breakouts pay; ultra-quiet ones are mediocre, and the 0.10–0.11 band is already dead (PF 0.984,
+post 0.633). This mirrors the tightness hump — both axes reward *moderate* energy, not minimal energy. Tightening
+the ceiling to **0.10** would trim the dead 0.10–0.11 band for a small, real gain (clip 1.571 → 1.590, post 1.478 →
+1.520) at a cost of just **−35 trips**.
+
+**✅ DECISION (2026-06-21): tighten the default `MaxAtrPct` 0.11 → 0.10.** Engine-verified end-to-end: raw PF
+**1.774 → 1.802**, P&L flat at **+$1.19M** (+$1,193,382), trips 5,883 → 5,827 (−56). The trimmed 0.10–0.11 band was
+net-neutral on dollars but PF-dilutive, so removing it lifts PF at no cost to total return. `MaxAtrPct = 0.10` in
+`defaultConfig`.
+
 ---
 
 #### ⭐ Past-runner personality — a 6-month volatility/momentum HISTORY predicts the next breakout (2026-06-20)
