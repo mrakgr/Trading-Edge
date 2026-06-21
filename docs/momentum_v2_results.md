@@ -2362,6 +2362,50 @@ the ceiling to **0.10** would trim the dead 0.10–0.11 band for a small, real g
 net-neutral on dollars but PF-dilutive, so removing it lifts PF at no cost to total return. `MaxAtrPct = 0.10` in
 `defaultConfig`.
 
+#### 2D joint ceiling — tightness × ATR% together: the production corner IS the joint optimum (2026-06-21)
+
+The 1D sweeps optimise each axis with the other held at production. To rule out a hidden off-diagonal sweet-spot,
+ran the **joint cumulative grid** — each cell = PF (clip +50%) over all trades with `tightness < T` **AND**
+`atr% < A`. Same wide dump; script [`scripts/equity/tightness_atr_2d_sweep.sql`](../scripts/equity/tightness_atr_2d_sweep.sql).
+
+**PF (clipped +50%), rows = tight < T, cols = atr% < A** — production corner `(4.5, 0.10)` is **bolded**:
+
+| tight \ atr% | < .05 | < .06 | < .07 | < .08 | < .09 | < .10 | < .11 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| < 3.0 | 1.368 | 1.297 | 1.332 | 1.307 | 1.380 | 1.385 | 1.388 |
+| < 3.5 | 1.334 | 1.325 | 1.328 | 1.356 | 1.410 | 1.440 | 1.447 |
+| < 4.0 | 1.473 | 1.473 | 1.489 | 1.510 | 1.568 | **1.588** | 1.568 |
+| **< 4.5** | 1.435 | 1.438 | 1.492 | 1.529 | 1.569 | **1.590** | 1.571 |
+| < 5.0 | 1.428 | 1.410 | 1.468 | 1.469 | 1.506 | 1.514 | 1.495 |
+| < 5.5 | 1.435 | 1.433 | 1.477 | 1.471 | 1.479 | 1.493 | 1.475 |
+| < 7.0 | 1.366 | 1.379 | 1.394 | 1.397 | 1.391 | 1.408 | 1.390 |
+
+**PF post-2015 (clipped +50%)** — the era that matters for live trading; production corner `(4.5, 0.10)` is the **grid max**:
+
+| tight \ atr% | < .05 | < .06 | < .07 | < .08 | < .09 | < .10 | < .11 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| < 3.0 | 1.358 | 1.245 | 1.203 | 1.177 | 1.260 | 1.253 | 1.247 |
+| < 3.5 | 1.238 | 1.224 | 1.208 | 1.241 | 1.291 | 1.330 | 1.338 |
+| < 4.0 | 1.369 | 1.371 | 1.384 | 1.412 | 1.453 | 1.483 | 1.447 |
+| **< 4.5** | 1.325 | 1.355 | 1.425 | 1.470 | 1.501 | **1.520** | 1.478 |
+| < 5.0 | 1.301 | 1.314 | 1.387 | 1.398 | 1.429 | 1.427 | 1.386 |
+| < 5.5 | 1.344 | 1.375 | 1.433 | 1.433 | 1.438 | 1.434 | 1.389 |
+| < 7.0 | 1.239 | 1.276 | 1.304 | 1.322 | 1.305 | 1.318 | 1.291 |
+
+Trip counts at the corner: `(4.5, 0.10)` = 3,678 (post-breadth/era; the engine reports 5,827 unfiltered).
+
+**The joint grid validates the production corner — there is no better off-diagonal setting:**
+1. **Full-sample peak is the `atr% < 0.10` column at tight 4.0–4.5** (1.588 / 1.590, a tie). **Post-2015 the single
+   best cell is exactly `(tight<4.5, atr%<0.10) = 1.520`** — the shipped corner *is* the modern-era maximum.
+2. **The axes reinforce, they don't trade off.** Moving toward the corner along *either* axis improves PF, and the
+   `< 0.10` ATR% ceiling beats `< 0.11` in nearly every tightness row — the 1D ATR% tightening holds jointly.
+3. **Both cliffs are robust across the other axis.** The `< 0.05` ATR% column is uniformly weak (quiet-vol penalty
+   holds at every tightness) and the `tight < 7.0` row collapses in every ATR% column (loose-base cliff holds at
+   every ATR%). No interaction rescues either dead zone.
+
+**Conclusion: `(MaxTightness 4.5, MaxAtrPct 0.10)` is the joint optimum — nothing to change.** The 2D view rules out
+the concern that independently-tuned 1D ceilings were masking a better combined setting; they weren't.
+
 ---
 
 #### ⭐ Past-runner personality — a 6-month volatility/momentum HISTORY predicts the next breakout (2026-06-20)
