@@ -724,10 +724,24 @@ streak):
 Read the `5%+` row: it's dead at **every** streak length, *including a fresh 1-day move* (0–1 streak → 1.12). So
 extension kills it regardless of how it got there — it's not "we bought after a multi-day run." Conversely the `<1%`
 at-the-high row is healthy at every streak length (1.44 / 1.30 / 1.20 / 1.53), **long streaks included**. So a long
-pre-entry streak *at a fresh high* is fine; a *short* streak when *already extended* is the dead profile. Pooled, the
-streak axis is even mildly **non-monotone in the GOOD direction** — streak length 1→1.29, 2→1.12, 3→1.18, 4→1.12, but
-**5→1.513 (post-2015 1.856)**: a name up 5+ straight days is in a strong persistent trend and continues (and these
-cluster in the extended zone, which is why it isn't *uniformly* dead).
+pre-entry streak *at a fresh high* is fine; a *short* streak when *already extended* is the dead profile.
+
+**A long pre-entry streak is GOOD, not stale — and a streak cap would be exactly backwards.** Pooled across the band, PF
+clip by pre-entry up-streak length is mildly **non-monotone in the GOOD direction**:
+
+| pre-entry up-streak | n | PF clip | post-2015 |
+|---|---|---|---|
+| 1 | 2411 | 1.290 | 1.142 |
+| 2 | 2108 | 1.118 | 1.112 |
+| 3 | 1276 | 1.181 | 1.013 |
+| 4 | 680 | 1.115 | 1.099 |
+| **5 (≥5 in a row)** | 594 | **1.513** | **1.856** |
+
+The **longest streak is the best**, not the worst: a name up 5+ straight days into entry is in a strong *persistent
+trend* that keeps running (post-2015 1.856). This is the opposite of the "stale = exhausted" intuition. So a pre-entry
+**streak cap would cut the strongest trend names** — exactly the wrong move. (These streak-5 names also cluster in the
+extended zone, which is why the `5%+` bucket isn't *uniformly* dead — the trend-persistence partly offsets the extension
+drag.)
 
 **Conclusion — the verification passes: we are NOT simply buying multi-day runners.** The dead zone is a genuine
 **extension** effect (d52), not a pre-entry-streak artifact; a long prior streak alone is benign-to-good. So the correct
