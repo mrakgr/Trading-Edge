@@ -297,23 +297,49 @@ These define the current entry/exit and remain in force. Full derivation and era
 
 ### Regime filters (post-hoc, not yet in engine)
 
-- **HEAT** (Sykes-inspired, ⭐) — daily mean return of the **top 1% gainers** (30-cal-day ADV ≥ $1M universe;
-  **+1000% per-stock return clip is LOAD-BEARING**), trailing-10d lagged = `h10`. **Skip entries when h10 ≥ 0.25**
-  (80th pctile). Froth is bad for breakouts. PF 1.99 → 2.27.
+- **HEAT** (Sykes-inspired, ⭐) — daily mean return of the **top 1% gainers** (**CS/ADRC** + 30-cal-day ADV ≥ $1M
+  universe; **+1000% per-stock return clip is LOAD-BEARING**), trailing-10d lagged = `h10`. **Skip entries when
+  h10 ≥ 0.25** (80th pctile). Froth is bad for breakouts. *(Heat universe unified to CS/ADRC on 2026-06-21 — see
+  next subsection; under the clip the gate gives clip-PF 1.702 / post-2015 1.686 at h10<0.25 vs 1.590/1.520 ungated.)*
 - **BREADTH** — `pct_above_20` on CS/ADRC + 30-cal-day ADV ≥ $1M (reproduces the production `breadth.parquet`).
   PF rises with breadth to a peak at ≥0.70, then rolls over; current gate 0.5.
 - **COLD** (bottom-1% losers) — same axis as heat (corr −0.65), redundant; not wired.
 - Both built by **`scripts/equity/build_breadth_and_heat.sql`**.
-- **TEST-TICKER GOTCHA (resolved):** NASDAQ test symbols (ZXZZT etc.) have corrupt prices; Polygon does NOT list
-  them — fix is a hardcoded blocklist in the build script. The +1000% clip is the backstop for real-ticker glitches.
-  - **The ENGINE needs no blocklist — its INNER JOIN already excludes them (verified 2026-06-21).** `run` in
-    `Backtest.fs` does `JOIN ticker_reference r ON r.ticker = p.ticker WHERE r.type IN ('CS','ADRC')`. Since the
-    test tickers have **no `ticker_reference` row at all**, the inner join drops them automatically. Confirmed:
-    0 test-ticker trips in every dump this session (the 3 `ZY*` names that appear — ZYBT/ZYME/ZYXI — are *real* CS
-    tickers). The explicit `is_test_ticker` blocklist is needed **only** in the breadth/heat builder because that
-    uses a **LEFT** join (and the heat universe is intentionally not CS/ADRC-restricted), so a ref-less test ticker
-    would survive there. Same job, two mechanisms; do **not** remove the engine's CS/ADRC inner join on the
-    assumption the blocklist covers it — it doesn't run in the engine.
+
+#### Heat universe unified to CS/ADRC — drops non-frothy CEFs/preferreds, gates STRONGER, no blocklist (2026-06-21)
+
+Originally the heat universe read the **whole liquid tape** (any ticker ≥ $1M ADV) + a hardcoded `is_test_ticker`
+blocklist, on the rationale that top-gainer froth lives in names that lack a clean CS/ADRC ref row. **That
+rationale was wrong** (caught by inspection): a recent IPO *is* CS and a foreign listing *is* ADRC — both get ref
+rows. The ~16,400 ref-less tickers in the price table break down as ~5,600 genuine non-equity (warrants `…W`,
+units `…U`, rights `…R`, dotted class/`.WS`) and the rest mostly **closed-end funds** (MHD, NCV, NRK, DHY, …) and
+**preferreds** (lowercase-`p` tickers). CEFs and preferreds **structurally cannot be top-1% gainers** — a muni CEF
+doesn't pop 50% — so including them only **dilutes** the froth mean.
+
+Empirically the two universes are **0.815-correlated** but materially different (mean h10 0.172 whole-tape vs
+0.179 CS/ADRC — the CS/ADRC version runs *hotter*, confirming the dilution). And the CS/ADRC heat **gates
+strictly better** under the clip (production trips, breadth on, ≥2005; script
+[`scripts/equity/heat_csadrc_gate_sweep.sql`](../scripts/equity/heat_csadrc_gate_sweep.sql)):
+
+| gate | n | PF clip | clip post | (old whole-tape clip post) |
+|---|--:|--:|--:|--:|
+| no heat gate | 3,678 | 1.590 | 1.520 | — |
+| h10 < 0.20 | 2,476 | 1.778 | **1.819** | 1.722 |
+| h10 < 0.25 | 2,772 | 1.702 | **1.686** | 1.620 |
+| h10 < 0.30 | 3,051 | 1.689 | 1.666 | 1.527 |
+
+**✅ DECISION (2026-06-21): heat is now built on the CS/ADRC inner join** (unified with breadth + the engine).
+The new 80th pctile of h10 is **0.251 ≈ the old 0.25**, so the **gate threshold is unchanged**; it just gates a
+cleaner series (post-2015 1.686 vs 1.620 at h10<0.25). `build_breadth_and_heat.sql` heat block switched to
+`JOIN ticker_reference ... WHERE type IN ('CS','ADRC')`; the `is_test_ticker` blocklist is **no longer needed for
+heat** (the inner join drops ref-less test tickers for free) — it remains only as defence-in-depth on breadth. The
+**+1000% return clip stays** (still needed for residual real-CS/ADRC glitches like LU/EPIX).
+
+- **TEST-TICKER mechanics (verified 2026-06-21).** NASDAQ test symbols (ZXZZT etc.) have corrupt 0.0001→$200k
+  prices but **NO `ticker_reference` row at all** (an earlier note wrongly called them "tagged CS" — corrected).
+  Every CS/ADRC **inner join** therefore drops them for free: the engine (`Backtest.fs`), breadth, and now heat.
+  Confirmed 0 test-ticker trips in every dump this session (the 3 `ZY*` names — ZYBT/ZYME/ZYXI — are *real* CS).
+  Do **not** remove the engine's CS/ADRC inner join thinking a blocklist covers it — no blocklist runs in the engine.
 
 ---
 

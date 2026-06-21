@@ -107,29 +107,39 @@ COPY (
 
 -- -----------------------------------------------------------------------------
 -- 2) HEAT:  daily mean return of the TOP 1% of gainers, then a trailing-10d
---           lagged mean (h10). Gate: skip entries when h10 >= 0.25 (80th pctile, $1M universe).
---    Universe: 30-cal-day ADV >= $1M (NO CS/ADRC restriction).
---    ** The +1000% per-stock return CLIP is LOAD-BEARING ** — split_adjusted_prices
---       has rare corrupted rows (~3e9% returns) that, as a mean of the top tail,
---       destroy a whole day's value. Do not remove it.
+--           lagged mean (h10). Gate: skip entries when h10 >= 0.25 (80th pctile).
+--    Universe: CS/ADRC + 30-cal-day ADV >= $1M.
+--    ** CHANGED 2026-06-21: heat now restricts to CS/ADRC (INNER JOIN), unified with
+--       breadth + the engine. Was previously the whole liquid tape + a hardcoded
+--       test-ticker blocklist. Reasons: (a) the ref-less names the whole-tape version
+--       admitted are mostly closed-end funds + preferreds (NOT warrants/IPOs/foreign —
+--       IPOs are CS, foreign are ADRC, and both DO get a ref row), which structurally
+--       can't be top-1% gainers and only DILUTE the froth mean; (b) the CS/ADRC inner
+--       join drops the test tickers for free (they have NO ticker_reference row), so
+--       the is_test_ticker blocklist is no longer needed here. The two heat series are
+--       0.81-correlated but the CS/ADRC version gates STRONGER: at h10<0.25 clip-post
+--       1.686 vs the old 1.620; at h10<0.20 1.819 vs 1.722. New 80th pctile = 0.251
+--       (~= the old 0.25, so the gate threshold is unchanged).
+--    ** The +1000% per-stock return CLIP is STILL LOAD-BEARING ** — split_adjusted_prices
+--       has rare corrupted rows in REAL CS/ADRC tickers (LU, EPIX: one corrupt split-
+--       adjusted day each) that, as a mean of the top tail, destroy a day's value. Keep it.
 -- -----------------------------------------------------------------------------
 COPY (
   WITH r AS (
-    SELECT ticker, date,
-      adj_close / LAG(adj_close) OVER (PARTITION BY ticker ORDER BY date) - 1.0    AS ret,
-      AVG(adj_close*adj_volume) OVER (PARTITION BY ticker ORDER BY date
+    SELECT p.ticker, p.date,
+      p.adj_close / LAG(p.adj_close) OVER (PARTITION BY p.ticker ORDER BY p.date) - 1.0  AS ret,
+      AVG(p.adj_close*p.adj_volume) OVER (PARTITION BY p.ticker ORDER BY p.date
                              RANGE BETWEEN INTERVAL 30 DAYS PRECEDING AND CURRENT ROW) AS adv30
-    FROM split_adjusted_prices
-    WHERE adj_close > 0
+    FROM split_adjusted_prices p
+    JOIN ticker_reference tr ON tr.ticker = p.ticker     -- INNER join => test tickers (no ref row) dropped for free
+    WHERE p.adj_close > 0 AND tr.type IN ('CS','ADRC')   -- CS/ADRC only (unified with breadth + engine)
   ),
   q AS (
     SELECT date, ret
     FROM r
     WHERE adv30 >= 1000000               -- 30-cal-day ADV >= $1M
-      AND NOT is_test_ticker(ticker)     -- block NASDAQ test securities
       AND ret IS NOT NULL
-      AND ret <= 10.0                    -- *** load-bearing +1000% clip (still needed for
-                                         --     residual ratio-glitches in REAL tickers) ***
+      AND ret <= 10.0                    -- *** load-bearing +1000% clip (residual REAL-ticker glitches) ***
   ),
   ranked AS (
     SELECT date, ret, PERCENT_RANK() OVER (PARTITION BY date ORDER BY ret) AS pr
