@@ -331,9 +331,10 @@ strictly better** under the clip (production trips, breadth on, ≥2005; script
 **✅ DECISION (2026-06-21): heat is now built on the CS/ADRC inner join** (unified with breadth + the engine).
 The new 80th pctile of h10 is **0.251 ≈ the old 0.25**, so the **gate threshold is unchanged**; it just gates a
 cleaner series (post-2015 1.686 vs 1.620 at h10<0.25). `build_breadth_and_heat.sql` heat block switched to
-`JOIN ticker_reference ... WHERE type IN ('CS','ADRC')`; the `is_test_ticker` blocklist is **no longer needed for
-heat** (the inner join drops ref-less test tickers for free) — it remains only as defence-in-depth on breadth. The
-**+1000% return clip stays** (still needed for residual real-CS/ADRC glitches like LU/EPIX).
+`JOIN ticker_reference ... WHERE type IN ('CS','ADRC')`. The `is_test_ticker` blocklist is now **removed entirely**
+(2026-06-21): with the CS/ADRC filter on BOTH universes it never fired — *proven* no-op, 0 test-ticker rows survive
+CS/ADRC + $1M ADV on breadth — and a filter that can't fire only misleads a reader into thinking test tickers are a
+live threat. The **+1000% return clip stays** (still needed for residual real-CS/ADRC glitches like LU/EPIX).
 
 - **TEST-TICKER mechanics (verified 2026-06-21).** NASDAQ test symbols (ZXZZT etc.) have corrupt 0.0001→$200k
   prices but **NO `ticker_reference` row at all** (an earlier note wrongly called them "tagged CS" — corrected).

@@ -27,49 +27,37 @@
 --   its per-day `n` and the floor-sweep PFs match this $1M+CS/ADRC definition to
 --   ~1-2%). So breadth_1m.parquet here == the production breadth, by construction.
 --
--- TEST-TICKER BLOCKLIST (NASDAQ test securities — ZXZZT, ZWZZT, ZJZZT, AAZST,
+-- TEST-TICKER HANDLING (NASDAQ test securities — ZXZZT, ZWZZT, ZJZZT, AAZST,
 --   NTEST.*, …): synthetic symbols with corrupt prices (0.0001 -> $200,000 = a
---   +200-billion-% one-day return) that slip into the price table with NO ref row,
---   so neither the type nor the $1M liquidity filter catches them.
---   WHAT DOESN'T WORK (verified 2026-06-20):
---     - Polygon type='OTHER': the download-tickers run returned 0 OTHER rows —
---       Polygon does NOT carry these test tickers in its reference master AT ALL
---       (a direct /v3/reference/tickers?ticker=ZXZZT query returns empty). So a
---       reference join can't tag them; that clause is inert and removed.
---     - a high-price rule (close > $50k): LEAKY both ways — catches only ~14/135 of
---       the egregious corruptions (split-adjustment rescales the spike) AND wrongly
---       hits ~53 REAL reverse-split micro-caps (HCTI, CDT, RSLS...) whose adjusted
---       history balloons past $50k. Rejected.
---   WHAT WORKS: a HARDCODED list of the published exchange test symbols (below).
---   It's a fixed, finite, published set (NASDAQ Z?ZZT/ZYxxx, NYSE NTEST.*, etc.) —
---   enumerated exhaustively from our own data via the synthetic signature — so a
---   literal list is the simplest and most robust option; it does not grow.
---   The +1000% return clip in the HEAT builder stays as the catch-all backstop for
---   residual ratio-glitches in REAL tickers (LU, EPIX — legit ADRC/CS, one corrupt
---   split-adjusted day each). Keep BOTH: blocklist removes synthetic NAMES from the
---   universes (incl. breadth, where they'd silently count as "stocks"); clip caps
---   the residual return outliers.
+--   +200-billion-% one-day return) that exist in split_adjusted_prices.
+--   KEY FACT (corrected 2026-06-21): they have **NO ticker_reference row at all**
+--   (verified — the ref-table query returns 0 rows for every test symbol; an earlier
+--   note here wrongly said they were "tagged CS" and that the type filter couldn't
+--   catch them — both false). BECAUSE they have no ref row, the `type IN ('CS','ADRC')`
+--   filter used by BOTH universes below drops them for free — the same mechanism the
+--   engine (TradingEdge.MomentumV2) relies on. Verified no-op: 0 test-ticker rows
+--   survive CS/ADRC + $1M ADV on breadth.
+--   HISTORY: an earlier version carried a hardcoded `is_test_ticker` blocklist as
+--   belt-and-suspenders. It never fired once the CS/ADRC filter was in place, so it
+--   was REMOVED (2026-06-21) — a filter that can't fire only misleads a reader into
+--   thinking test tickers are a live threat. (The whole-tape heat universe that DID
+--   need it is also gone — heat is now CS/ADRC too; see the HEAT block below.)
+--   The +1000% return clip in the HEAT builder STAYS as the catch-all backstop for
+--   residual ratio-glitches in REAL CS/ADRC tickers (LU, EPIX — legit, one corrupt
+--   split-adjusted day each; also the real ticker `Z`/Zillow's single $200k row).
 -- =============================================================================
 
--- HARDCODED test-ticker blocklist. These are the published exchange test symbols
--- (NASDAQ Z?ZZT/ZYxxx Tier-1/2/3 test series, NYSE/Arca NTEST.*, plus AAZST/CGZST/
--- YJZST/ZVV). It is the EXHAUSTIVE set found in split_adjusted_prices via the
--- synthetic signature (>1000% move AND (no CS/ADRC ref OR an impossible >$50k
--- adjusted price)). It's a fixed published set — does not grow — so a literal list
--- is simpler and more robust than any pattern/reference join (both of which proved
--- leaky: Polygon doesn't list these at all; a bare price/name rule false-positives
--- on real reverse-split micro-caps / "inTEST"/"Whitestone").
--- NOTE: the real ticker `Z` (Zillow) is DELIBERATELY EXCLUDED from this list — it
--- is a legitimate stock with one corrupt $200k row; the +1000% return clip handles
--- that single glitch, and we must not blanket-block real Zillow.
-CREATE OR REPLACE TEMP MACRO is_test_ticker(tk) AS (
-  tk IN (
-    'ZAZZT','ZBZZT','ZCZZT','ZJZZT','ZVZZT','ZWZZT','ZXZZT','ZYZZT',  -- NASDAQ Z?ZZT test series
-    'ZYYZZ','ZYSZZ','ZYSTF',                                         -- NASDAQ ZYxxx test symbols
-    'NTEST.A','NTEST.B','NTEST.C','NTEST.G',                          -- NYSE/Arca test symbols
-    'AAZST','CGZST','YJZST','ZVV'                                     -- other exchange test symbols
-  )
-);
+-- NOTE (2026-06-21): there is NO LONGER a hardcoded test-ticker blocklist here.
+-- The NASDAQ test symbols (ZXZZT/ZWZZT/Z?ZZT/ZYxxx/NTEST.*/AAZST/CGZST/YJZST/ZVV)
+-- have corrupt 0.0001→$200k prices but **NO ticker_reference row at all**, so the
+-- `type IN ('CS','ADRC')` filter in BOTH universes below already drops them for free
+-- (same mechanism the engine uses). An earlier version kept an explicit
+-- `is_test_ticker` blocklist as belt-and-suspenders, but it never fired once the
+-- CS/ADRC filter was in place — a filter that can't fire only misleads a future
+-- reader into thinking test tickers are a live threat — so it was removed. The
+-- +1000% return clip in the HEAT builder stays as the backstop for residual
+-- ratio-glitches in REAL CS/ADRC tickers (LU, EPIX — one corrupt split-adjusted day
+-- each). The real ticker `Z` (Zillow, one corrupt $200k row) is handled by that clip.
 
 
 -- -----------------------------------------------------------------------------
@@ -95,7 +83,8 @@ COPY (
     WHERE rn >= 20                       -- need a full 20d MA window
       AND type IN ('CS','ADRC')          -- common stock + ADRs only
       AND adv30 >= 1000000               -- 30-cal-day ADV >= $1M
-      AND NOT is_test_ticker(ticker)     -- block NASDAQ test securities
+      -- (no explicit test-ticker block needed: `type IN ('CS','ADRC')` already
+      --  drops the NASDAQ test symbols, which have NO ticker_reference row.)
   )
   SELECT date,
     COUNT(*)                                            AS n,
