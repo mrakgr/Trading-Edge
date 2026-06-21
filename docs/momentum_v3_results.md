@@ -959,7 +959,55 @@ just discards ~20% of trips); dropping both is *worse* in-sample than ATR-alone 
 combine — not because of collinearity but because slope carries no edge. Keep max-ATR% (drop the calmest quintile); drop
 slope from consideration entirely.**
 
-#### Why this contradicts yesterday's "past-runner floor, top-decile PF ~2.7" — it's the CLIP, not the rvol (2026-06-21)
+#### ⭐ SANITY CHECK — the v2 06-20 "Past-runner personality" section, faithfully reproduced (2026-06-21)
+
+Before concluding the clip "kills" the past-runner signal, reproduce the original
+[`momentum_v2_results.md` § Past-runner personality](momentum_v2_results.md) **exactly** — same three measures, same
+buckets, same population, **raw PF** (its convention). Script:
+[`scripts/equity/pastrunner_repro.sql`](../scripts/equity/pastrunner_repro.sql).
+
+**How the three measures were calculated** (trailing **126 trading days** = 6 months, **lagged 1 bar** so the signal
+bar's own range is excluded — no lookahead):
+- **max ADR 6mo** = max over 126d of `mean₁₄( adj_high / adj_low − 1 )` — range-based; the literal Sykes ADR.
+- **max ATR% 6mo** = max over 126d of `mean₁₄( true_range / adj_close )` — gap-aware; **TR divided by the close**
+  (NOT a log measure; this is the formula detail that surprised us — it is `TR/close`, not `ln(high/low)`).
+- **max ret 6mo (the "slope")** = max over 126d of `adj_close_t / adj_close_{t−14} − 1` — a 14-day directional burst
+  (NOT an OLS regression slope; "slope" here is the best trailing 14-day return).
+
+Population: v2-era production (move ≥ 10%, **rvol [6,20]**, ATR% < 0.11, tight < 4.5, price ≥ $5, 5d stop), breadth,
+≥ 2005. **The reproduction matches the original to within rounding** (n = 2,619 vs the documented ~2,580):
+
+| bucket | max ADR 6mo (orig → repro) | max ret/slope (orig → repro) | max ATR% (orig → repro) |
+|---|---|---|---|
+| bottom | 0.955 → **0.998** | 1.428 → 1.177 | 1.11 → 1.19 |
+| top | **3.126 → 3.165** | **3.599 → 3.589** | **2.91 → 2.86** |
+
+So **the 06-20 work was correct and reproduces** — it was a real, monotone, strong signal *on raw PF*. Now add the clip
+column on the **identical buckets** — the bottom is unchanged (no winners to clip) but **the top bucket collapses**, which
+is the whole story:
+
+| bucket | ADR raw → clip | ret/slope raw → clip |
+|---|---|---|
+| bottom (<4% / <15%) | 0.998 → 0.998 | 1.177 → 1.177 |
+| mid | 1.84 → 1.84 | 1.71 → 1.70 |
+| **top (15%+ / 130%+)** | **3.165 → 1.712** | **3.589 → 1.297** |
+
+The lower/mid buckets are **identical raw vs clip**; only the top buckets fall — ADR 3.165 → 1.712, and the slope's top
+**3.589 → 1.297** (from strongest bucket to *below the middle*). The top bucket's win% is only **41.7%** — it wins on a
+handful of huge moves, the textbook lottery signature. **Verdict: the 06-20 measurement was sound; the "monotone PF 3.6
+top" was real raw but lottery-driven at the top. Under the clip the durable part is a bottom-only floor — boring
+(no-volatile-fortnight) names are dead (PF ~1.0, survives the clip) — while "past runners run to huge winners" is true
+but uncliptably lumpy.**
+
+> **Formula invariance (checked 2026-06-21, answering "what if ATR% used log space instead of TR/close?"):** swapping the
+> original `mean₁₄(TR/close)` for the **engine's log-ATR** — `mean₁₄` of the **log true range**
+> `max( ln(high)−ln(low), |ln(high)−ln(prevClose)|, |ln(low)−ln(prevClose)| )` (the proper TR, including the gap-to-prior-close
+> legs — NOT just `ln(high/low)`, which would be the log-space *ADR*) — changes nothing: the two correlate **0.959**, both
+> top deciles raw ~2.69 → clip ~1.66/1.68, same shape. (Range-ADR vs log-ADR likewise correlate **0.992**.) So the measure
+> *formula* — linear-TR/close vs log-true-range vs range-based — is a wash; the clip-vs-raw distinction is the entire
+> difference, not the choice of volatility proxy.
+
+#### Why this looked stronger yesterday than today — it's the CLIP, not the rvol (2026-06-21)
 
 The v2 06-20 session recorded the past-runner (max-6mo-14d-ATR% / slope) as a **strong, monotone, top-decile-PF-~2.7,
 era-robust** signal with "higher is better → use a FLOOR." Today both look weak (ATR%) or dead (slope). The cause is
