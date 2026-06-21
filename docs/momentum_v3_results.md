@@ -959,6 +959,28 @@ just discards ~20% of trips); dropping both is *worse* in-sample than ATR-alone 
 combine — not because of collinearity but because slope carries no edge. Keep max-ATR% (drop the calmest quintile); drop
 slope from consideration entirely.**
 
+#### Why this contradicts yesterday's "past-runner floor, top-decile PF ~2.7" — it's the CLIP, not the rvol (2026-06-21)
+
+The v2 06-20 session recorded the past-runner (max-6mo-14d-ATR% / slope) as a **strong, monotone, top-decile-PF-~2.7,
+era-robust** signal with "higher is better → use a FLOOR." Today both look weak (ATR%) or dead (slope). The cause is
+that the 06-20 result was **raw PF, measured before clip-everywhere became the standard** — and raw PF is exactly the
+lottery-winner mirage the clip was adopted to kill. Decile breakdown, [10,30]% rvol ≥ 5, **raw vs clip side by side**:
+
+| max-6mo-ATR% decile | raw PF | clip PF | | slope decile | raw PF | clip PF |
+|---|---|---|---|---|---|---|
+| D6 | **6.08** | 2.17 | | D6 | **6.34** | 2.22 |
+| D10 (top) | **2.65** | 1.71 | | D7 | **3.58** | 1.71 |
+
+The top ATR% decile reproduces the remembered **raw 2.65 ≈ "~2.7"** — and **clips to 1.71.** Slope's mid deciles are
+raw **6.34 / 3.58** → clip **2.22 / 1.71**: slope's apparent monotone edge was a handful of moonshots clustered in its
+mid-positive deciles, and the clip removes them, leaving it flat. So **slope was never a directional signal — it was a
+lottery-winner concentrator**, and the clip correctly kills it. For ATR% the *penalty* side (calmest quintile = net
+loser) survives the clip cleanly and is the durable, actionable part; the high-ATR% *bonus* was mostly right-tail the
+clip strips. **(Lowering rvol 5 → 2 dilutes the ATR% gradient somewhat but is NOT the main cause — the raw-vs-clip gap
+above is the whole story.)** Net: this **retroactively corrects the deferred "past-runner floor" candidate** — under the
+clip there is no strong monotone floor, only "drop the calmest-base quintile." A clean vindication of the clip
+methodology: it caught a tail-contaminated signal before it became a production filter.
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)

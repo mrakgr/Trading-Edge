@@ -84,3 +84,32 @@ UNION ALL SELECT 'drop slope q1',     COUNT(*), ROUND(SUM(CASE WHEN ret>0 THEN L
   ROUND(SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret<0 THEN ret ELSE 0 END),0),3) FROM tq WHERE sq>=2
 UNION ALL SELECT 'drop BOTH q1',      COUNT(*), ROUND(SUM(CASE WHEN ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),3),
   ROUND(SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret<0 THEN ret ELSE 0 END),0),3) FROM tq WHERE aq>=2 AND sq>=2;
+
+-- ============================================================================
+-- Why does this contradict the v2 06-20 "past-runner floor, top-decile PF ~2.7"?
+-- It's the CLIP: 06-20 was RAW PF (pre clip-everywhere). Decile raw-vs-clip on the
+-- [10,30] rvol>=5 tier shows the top ATR% decile is raw 2.65 (~the remembered 2.7)
+-- -> clip 1.71, and slope's mid deciles are raw 6.3/3.6 -> clip 2.2/1.7 (lottery
+-- winners the clip removes). Slope was a lottery-winner concentrator, not an edge.
+-- ============================================================================
+CREATE OR REPLACE TEMP TABLE b5 AS
+WITH raw AS (SELECT * FROM read_csv_auto('/tmp/v3_510_rvol1.csv') WHERE open=0),
+br AS (SELECT date, LAG(pct_above_20) OVER (ORDER BY date) b_lag1 FROM 'data/equity/momentum_v0/breadth.parquet'),
+hn AS (SELECT date, h10 FROM 'data/equity/momentum_v0/heat.parquet')
+SELECT (raw.exit_price/raw.entry_price-1.0) ret, m.max_atr6mo, m.slope6mo
+FROM raw JOIN br ON br.date=raw.entry_date LEFT JOIN hn ON hn.date=raw.entry_date
+JOIN meas m ON m.ticker=raw.symbol AND m.date=raw.entry_date
+WHERE br.b_lag1>0.5 AND raw.entry_date>=DATE '2005-01-01' AND (hn.h10 IS NULL OR hn.h10<0.25)
+  AND raw.pct_up_at_entry>=0.10 AND raw.pct_up_at_entry<0.30 AND raw.rvol_at_entry>=5 AND m.nbars>=120;
+SELECT '=== max-6mo-ATR% DECILE: raw vs clip ([10,30] rvol>=5) ===' z;
+WITH d AS (SELECT *, NTILE(10) OVER (ORDER BY max_atr6mo) dq FROM b5)
+SELECT dq, COUNT(*) n,
+  ROUND(SUM(CASE WHEN ret>0 THEN ret ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),2) pf_raw,
+  ROUND(SUM(CASE WHEN ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),2) pf_clip
+FROM d GROUP BY 1 ORDER BY 1;
+SELECT '=== max-6mo-SLOPE DECILE: raw vs clip ([10,30] rvol>=5) ===' z;
+WITH d AS (SELECT *, NTILE(10) OVER (ORDER BY slope6mo) dq FROM b5)
+SELECT dq, COUNT(*) n,
+  ROUND(SUM(CASE WHEN ret>0 THEN ret ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),2) pf_raw,
+  ROUND(SUM(CASE WHEN ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),2) pf_clip
+FROM d GROUP BY 1 ORDER BY 1;
