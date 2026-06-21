@@ -563,6 +563,60 @@ day-6 open, so "UP×4 negative" just means *the last day of a 4-day winner gives
 (post-2015 DOWN×4 0.898 / UP×4 0.982 — both ≈ noise). So the **shape is real and consistent** but the 4-day effect is a
 micro-drag, not a regime — it reinforces the day-3 up-streak-exhaustion read rather than adding a separate signal.
 
+### The dead-zone "reclaim vs gap-over" rule is the intraday-return signal in disguise (2026-06-21)
+
+The v2 dead-zone refinement was *"require an intraday reclaim of the prior 52w high, not a gap over it"* — in the
+0–10%-above-the-high dead zone, names that **opened below** the prior high and **pushed up through it to close above**
+(reclaim) scored PF 1.43 vs 1.09 for names that **gapped over** the high pre-open (open ≥ high). Now that the
+intraday-return (`close/open − 1`) signal is established (§ *Full intraday-return breakdown*), the question is whether
+that geometry was ever the real signal, or just a proxy for the intraday push. **It was a proxy.**
+
+The mechanical link is exact: in the dead zone a **reclaim is intraday-up by construction** — if you open below the
+high and close above it, your close is above your open. Cross-tab confirms it with zero leakage: **100% of reclaims are
+intraday-up** (prod tier 1212/1212; weak tier 6730/6730). So "reclaim" and "positive intraday return" are the *same
+variable*. The controlling test — hold the intraday-return sign fixed, then compare reclaim vs gap-over — collapses the
+edge. Script: [`scripts/equity/deadzone_intraday_explains.sql`](../scripts/equity/deadzone_intraday_explains.sql).
+Loose CSV (move ≥ 5%, rvol ≥ 2, intraday gate OFF), breadth lag-1 > 0.5, ≥ 2005, clip +50%.
+
+**Production tier [10,30]% / rvol ≥ 5 — dead zone (0–10% above 52w high):**
+
+| split | n | PF clip | post-2015 |
+|---|---|---|---|
+| reclaim (open < high → close > high) | 1212 | 1.624 | 1.443 |
+| gap-over (open ≥ high) | 706 | 1.526 | **1.665** |
+| └ controlling for intraday sign: gap-over **that closed up** | 492 | 1.530 | **1.758** |
+| └ gap-over that **faded** (intraday down) | 214 | 1.517 | 1.504 |
+
+The raw 0.10 reclaim edge (1.624 vs 1.526) (a) **does not survive the era split** — post-2015 the gap-over half *wins*
+(1.665 vs 1.443) — and (b) **shrinks to ~0.09 once you condition on intraday-up** (reclaim 1.624 vs gap-over-up 1.530),
+with the gap-over-up names actually *beating* reclaims out-of-sample (1.758). The reclaim framing also **mislabels** the
+two best gap-over sub-groups: a gap-over that *faded* on the day is still PF 1.52. The deeper signal is **intraday
+push-size**, and on the prod tier it's the familiar **hump** — dead-zone PF by intraday band: `−2..0%` **1.97**, `0..5%`
+1.71, `5..10%` 1.76, `10%+` **1.49** (vertical push = worst); mid-push wins, extremes fade.
+
+**Weak tier [5,10]% / rvol ≥ 3 — the effect all but vanishes, and push-size goes monotone-declining:**
+
+| split | n | PF clip | post-2015 |
+|---|---|---|---|
+| reclaim | 3250 | 1.142 | 1.122 |
+| gap-over | 1867 | 1.104 | 1.197 |
+| best dead-zone cell: gap-over **that faded** | 456 | **1.243** | **1.446** |
+
+On weak breakouts the reclaim/gap gap is trivial (1.142 vs 1.104) and *reverses* post-2015. The whole [5,10]% band is
+mediocre (PF 1.21 vs the production tier's 1.60), and crucially the **intraday-return signal INVERTS** versus the
+production tier: here an intraday **fade is the GOOD version** — intraday-down PF 1.455 vs intraday-up 1.193, and the
+band table decays monotonically as the push grows (`−2..0%` **1.62** → `5%+` **1.13 / post 1.06**). So the −0.07
+deep-fade reject gate is a **production-tier phenomenon and does NOT generalize down**: on a small 5–10% mover, a name
+that opened roughly flat and *ground out* its close is live; one that gapped and *drifted* (5%+ intraday push) is the
+exhausted one.
+
+**Verdict (both tiers):** the reclaim-vs-gap-over distinction adds nothing on top of the intraday-return signal — it's
+the same variable wearing a costume, and it's *less* robust (era-fragile, mislabels the faded gap-overs). **Drop the
+reclaim/gap geometry; keep the intraday-return signal.** This matters going into intraday entries: the push-size read is
+the one to carry forward (hump on the strong tier, monotone-declining on the weak tier), not the open-vs-prior-high
+geometry. Net effect on production: none — the engine never used the reclaim rule; this *retires a v2 candidate* rather
+than changing a default.
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
