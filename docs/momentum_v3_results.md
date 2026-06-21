@@ -436,14 +436,14 @@ dropping), but pushing past 0 starts cutting trades that are **at/above baseline
 the full no-red rule, keep everything *except* deep intraday fades. The negative region is strongly graded — the
 damage is in the deep fades, the mild reds are near-baseline:
 
-| intraday_ret band | n | PF clip | clip post | | keep ≥ N (deep-fade cut) | trips | PF clip | clip post |
+| intraday_ret band | n | PF clip | clip post |  | keep ≥ N (deep-fade cut) | trips | PF clip | clip post |
 |---|--:|--:|--:|---|---|--:|--:|--:|
 | < −20% | 8 | 0.736 | 0.736 | | all | 4,314 | 1.575 | 1.509 |
 | −20..−15% | 6 | 0.295 | 0.383 | | keep ≥ −0.10 | 4,287 | 1.587 | 1.524 |
 | −15..−10% | 13 | 1.187 | 1.218 | | **keep ≥ −0.07** | 4,245 | **1.600** | 1.541 |
 | −10..−5% | 95 | 1.484 | 1.038 | | keep ≥ −0.05 | 4,192 | 1.590 | 1.541 |
 | −5..0% (mild red) | 396 | 1.420 | 1.179 | | keep ≥ 0.00 | 3,796 | 1.603 | 1.572 |
-| ≥ 0 (green) | 3,796 | 1.603 | 1.572 | |  |  |  |
+| ≥ 0 (green) | 3,796 | 1.603 | 1.572 |  |  |  |  |  |
 
 The deep-fade tail is genuinely toxic (the cut population `< −10%` is clip ~0.72, `< −15%` is 0.52) — but it is
 **tiny: only ~27 trades over 21 years below −10%, 69 below −7%.** So **`N = −0.07` is the capacity-efficient sweet
