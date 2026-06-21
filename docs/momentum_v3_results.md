@@ -850,30 +850,33 @@ production + breadth + heat. Script: [`scripts/equity/dist_52w_close_1030.sql`](
 | 0..1% (fresh high) | 109 | 2.388 | 2.497 |
 | 1..3% | 225 | 2.133 | 1.954 |
 | 3..5% | 285 | 1.853 | 1.261 |
-| **5%+ (extended)** | 2003 | **1.575** | **1.608** |
+| **5..10% (dead zone)** | 745 | **1.694** | **1.800** |
+| 10%+ (far-extended) | 1258 | 1.513 | 1.509 |
 
-The fresh-high spike still exists (2.39 at 0–1%), and extension still *costs* (decaying 2.39 → 1.58), **but the extended
-zone never crosses into no-edge** — `5%+` is PF 1.575 / post-2015 1.608, a perfectly good trade. Contrast the two tiers
-head-to-head:
+The open-ended `5%+` is split here into the **5–10% dead zone** and the **10%+ far-extended/parabolic** tail — the same
+bound applied below, so the dead zone is isolated from the parabolic regime. The fresh-high spike still exists (2.39 at
+0–1%), and extension still *costs* (decaying 2.39 → 1.69), **but the dead zone never crosses into no-edge** — the 5–10%
+band is PF **1.694 / post-2015 1.800** (the strongest post-2015 cell after the fresh high), and even the 10%+ parabolic
+tail holds 1.513. Contrast the two tiers head-to-head:
 
 | zone (rvol ≥ 5) | weak [5,10]% | strong [10,30]% |
 |---|---|---|
 | fresh high (d52 < 1%) | ~1.37 (at rvol ≥ 3) | **~1.79** |
-| extended dead zone (d52 ≥ 3%) | **1.06** (churn) | **1.61** |
+| dead zone (d52 ∈ [3,10]%) | **1.06** (churn) | **1.74** |
 
-**And the rvol rescue requirement vanishes for the strong band** — its dead zone is already PF 1.44 at *any* volume and
-1.61 at rvol ≥ 5 (vs the weak band needing rvol ≥ 8–10 to reach ~1.2):
+**And the rvol rescue requirement vanishes for the strong band** — its dead zone (bounded [3,10]%) is already PF 1.43 at
+*any* volume and 1.74 at rvol ≥ 5 (vs the weak band needing rvol ≥ 8–10 to reach ~1.2):
 
-| dead zone (d52 ≥ 3%), keep rvol ≥ | weak [5,10]% | strong [10,30]% |
+| dead zone (d52 ∈ [3,10]%), keep rvol ≥ | weak [5,10]% | strong [10,30]% |
 |---|---|---|
-| ≥ 1 (all) | 1.076 | **1.440** |
-| ≥ 3 | 1.086 | 1.563 |
-| ≥ 5 | 1.161 | **1.610** |
+| ≥ 1 (all) | 1.076 | **1.426** |
+| ≥ 3 | 1.086 | 1.609 |
+| ≥ 5 | 1.161 | **1.741** |
 
 **Mechanism: a 10–30% move IS the conviction signal**, so even a few % above the old high the demand is real; a 5–10%
 move into extended territory has *neither* freshness *nor* magnitude — the weakest possible combination, and the only one
 where extension turns fatal. **So: there is no waving 5–10% breakouts into the dead zone (PF ≈ 1.0, churn), but 10–30%
-breakouts wave through fine (PF ≈ 1.6).** The extension cap (`d52 < 3%`) is a real refinement for the *weak* tier and
+breakouts wave through fine (dead-zone PF ≈ 1.7).** The extension cap (`d52 < 3%`) is a real refinement for the *weak* tier and
 only a minor optimization for the *strong* tier — which is why production (move ≥ 10%) was never badly exposed to the
 dead zone in the first place.
 

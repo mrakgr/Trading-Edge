@@ -24,10 +24,14 @@ WHERE br.b_lag1>0.5 AND raw.entry_date>=DATE '2005-01-01'
 .mode box
 -- distance bands at rvol>=5 (production strong-tier floor)
 SELECT '=== [10,30]% rvol>=5: distance-from-max-close BANDS ===' z;
+-- 5%+ is SPLIT into the 5-10% dead zone and the 10%+ far-extended/parabolic tail,
+-- so the dead zone is isolated from the parabolic regime (the strong band reaches
+-- d52>10%, unlike the weak band which caps at ~10% by construction).
 SELECT CASE WHEN d52< -0.03 THEN '1: < -3%' WHEN d52< -0.01 THEN '2: -3..-1%'
             WHEN d52<  0.00 THEN '3: -1..0%' WHEN d52<  0.01 THEN '4: 0..1% (fresh high)'
             WHEN d52<  0.03 THEN '5: 1..3%' WHEN d52<  0.05 THEN '6: 3..5%'
-            ELSE                 '7: 5%+ (extended)' END band,
+            WHEN d52<  0.10 THEN '7: 5..10% (dead zone)'
+            ELSE                 '8: 10%+ (far-extended)' END band,
   COUNT(*) n,
   ROUND(SUM(CASE WHEN ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),3) pf_clip,
   ROUND(SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret<0 THEN ret ELSE 0 END),0),3) clip_post
@@ -52,13 +56,14 @@ SELECT 'rvol>=5' g, COUNT(*) n,
   ROUND(SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret<0 THEN ret ELSE 0 END),0),3) clip_post
 FROM t WHERE d52>=0.03 AND rvol>=5;
 
--- rvol sweep within the STRONG-band dead zone (does it ALSO need rvol>=8-10, or turn sooner?)
-SELECT '=== STRONG [10,30] dead zone d52>=3%: cumulative rvol FLOOR ===' z;
+-- rvol sweep within the STRONG-band dead zone, BOUNDED [3,10]% (does it ALSO need
+-- rvol>=8-10, or turn sooner?)
+SELECT '=== STRONG [10,30] dead zone d52 in [3,10]%: cumulative rvol FLOOR ===' z;
 CREATE OR REPLACE TEMP MACRO fls(n) AS TABLE
 SELECT COUNT(*) nn,
   ROUND(SUM(CASE WHEN ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),3) pf_clip,
   ROUND(SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN entry_date>=DATE '2015-01-01' AND ret<0 THEN ret ELSE 0 END),0),3) clip_post
-FROM t WHERE d52>=0.03 AND rvol >= n;
+FROM t WHERE d52>=0.03 AND d52<0.10 AND rvol >= n;
 SELECT 'rvol>=1 (all)' g,* FROM fls(1.0);
 SELECT 'rvol>=3' g,* FROM fls(3.0);
 SELECT 'rvol>=5' g,* FROM fls(5.0);
