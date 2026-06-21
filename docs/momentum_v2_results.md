@@ -2922,9 +2922,11 @@ over" is robust to the definition. **We use $1M.**
 >    even one such row destroys that day's value. **The $1M + CS/ADRC constraints do NOT remove these** —
 >    verified 2026-06-20: on the $1M universe, un-clipped, **2,390 rows still exceed +1000%** (max
 >    **199,999,989,900%** = `ZXZZT` on 2014-10-22, price 0.0001→199,999.99). The culprits are mostly **NASDAQ
->    test tickers** (`ZXZZT`, `ZWZZT`, `AAZST`, `TESTA`, `ZVV`, `CGZST`, a bare `Z`, …) that are tagged `CS`
->    in `ticker_reference` and carry fake volume clearing the $1M bar, so neither the type nor the liquidity
->    filter catches them; the remainder are real micro-caps with genuine-but-extreme reverse-split moves that
+>    test tickers** (`ZXZZT`, `ZWZZT`, `AAZST`, `TESTA`, `ZVV`, `CGZST`, a bare `Z`, …). **CORRECTION (2026-06-21):
+>    these have NO `ticker_reference` row at all** (verified — the ref-table query returns 0 rows for every test
+>    symbol; an earlier note here wrongly said they were "tagged `CS`"). They reach the HEAT universe only because
+>    heat uses a **LEFT** join and is intentionally not CS/ADRC-restricted, so a ref-less ticker survives with a
+>    NULL type and its fake $1M+ volume clears the liquidity bar. The remainder are real micro-caps with genuine-but-extreme reverse-split moves that
 >    *should* still be capped for a top-tail mean. **A 5-letter-ticker exclusion does NOT work either** (tested):
 >    only 1,747 of the 2,390 corrupt rows are 5-letter; **642 are shorter** — both more synthetic symbols
 >    (`ZVV`, a bare `Z`) *and* legitimate volatile micro-caps with real blowups (`TOPS`, `INPX`, `GBSN`,
@@ -2936,8 +2938,16 @@ over" is robust to the definition. **We use $1M.**
 >    1000%). Without it the whole measure is garbage. Do NOT drop it when porting to a live precompute.
 >    **Belt-and-suspenders (2026-06-20):** the test tickers are also excluded by a **hardcoded blocklist** in
 >    `build_breadth_and_heat.sql` (`is_test_ticker` = a literal list: NASDAQ `Z?ZZT`/`ZYxxx` test series, NYSE
->    `NTEST.*`, `AAZST`/`CGZST`/`YJZST`/`ZVV`), applied to BOTH universes. *Why a hardcoded list:* the test
->    symbols are a fixed, finite, published set that doesn't grow, and every alternative proved leaky —
+>    `NTEST.*`, `AAZST`/`CGZST`/`YJZST`/`ZVV`), applied to BOTH universes. *Why a blocklist and not just the type
+>    filter (clarified 2026-06-21):* for **breadth** the `type IN ('CS','ADRC')` inner join ALREADY removes them
+>    for free (they have no ref row — verified 0 survive the join), exactly as in the engine; the blocklist there
+>    is redundant. But **heat deliberately reads the whole liquid tape, NOT just CS/ADRC** (top-gainer froth lives
+>    in warrants/units/recent-IPOs/foreign listings that legitimately lack a clean CS/ADRC row) — there are
+>    **16,400 ref-less tickers** in the price table, so switching heat to a CS/ADRC inner join would silently drop
+>    ~16k real-ish names to kill ~16 synthetic ones. The blocklist removes *only* the known-bad synthetic symbols
+>    while keeping the broad tape — which is why it, not the type filter, is the right tool for heat. *Why a
+>    hardcoded list and not a pattern/API:* the test symbols are a fixed, finite, published set that doesn't grow,
+>    and every alternative proved leaky —
 >    **Polygon doesn't carry them in its reference master at all** (`type=OTHER` and a direct `?ticker=ZXZZT`
 >    query both return 0 rows, verified), a high-price rule false-positives on real reverse-split micro-caps,
 >    and a bare `name~"test"` hits Whitestone/inTEST. The list catches all 16 synthetic tickers found in the
