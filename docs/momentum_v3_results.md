@@ -830,6 +830,53 @@ weak edge; it bleeds via costs/slippage while feeling like "textbook discipline.
 buy the fresh high, not the extension** (d52 < ~3%); **(2)** if forced into the dead zone, demand **rvol ≥ ~8–10**, not
 the rvol ≥ 2–3 that suffices at the fresh high; **(3)** drop the dead-quiet-base names (low 6mo-max-ATR%) entirely.
 
+**Caveat — do the rvol ≥ 8 and 6mo-max-ATR% filters STACK? Mostly no; at rvol ≥ 8 the ATR% structure is noise.** Within
+the dead zone restricted to rvol ≥ 8 (only 299 trips), the 6mo-max-ATR% breakdown is unreliable: full-sample the
+calm-base penalty still shows (calm-half PF 0.986 vs energetic-half 1.352; calmest tercile 0.674), but the gradient is no
+longer monotone (a **hump** — terciles 0.674 / 1.862 / 1.199) and **post-2015 the sign flips** (calm-half 2.418 vs
+energetic 1.138) — classic small-sample instability (~5 trips/yr/cell). The clean monotone version only exists at the
+larger rvol ≥ 3 sample (terciles 0.894 / 1.093 / 1.145, n≈1157 each). So the two filters are **mostly redundant**, and
+rvol ≥ 8 is the stronger, more reliable one: once you demand pump-level volume you've already selected for energetic
+names, and the ATR% filter has little left to do. The 6mo-max-ATR% lever **earns its keep at LOW rvol** (where it
+salvages the churny majority), not on top of an rvol ≥ 8 gate.
+
+### The dead zone is a WEAK-breakout phenomenon — strong [10,30]% breakouts wave through it (2026-06-21)
+
+Repeat the distance-from-max-close breakdown on the **strong [10,30]% breakout band** (vs the [5,10]% band above), full
+production + breadth + heat. Script: [`scripts/equity/dist_52w_close_1030.sql`](../scripts/equity/dist_52w_close_1030.sql).
+
+| distance from max close ([10,30]%, rvol ≥ 5) | n | PF clip | post-2015 |
+|---|---|---|---|
+| 0..1% (fresh high) | 109 | 2.388 | 2.497 |
+| 1..3% | 225 | 2.133 | 1.954 |
+| 3..5% | 285 | 1.853 | 1.261 |
+| **5%+ (extended)** | 2003 | **1.575** | **1.608** |
+
+The fresh-high spike still exists (2.39 at 0–1%), and extension still *costs* (decaying 2.39 → 1.58), **but the extended
+zone never crosses into no-edge** — `5%+` is PF 1.575 / post-2015 1.608, a perfectly good trade. Contrast the two tiers
+head-to-head:
+
+| zone (rvol ≥ 5) | weak [5,10]% | strong [10,30]% |
+|---|---|---|
+| fresh high (d52 < 1%) | ~1.37 (at rvol ≥ 3) | **~1.79** |
+| extended dead zone (d52 ≥ 3%) | **1.06** (churn) | **1.61** |
+
+**And the rvol rescue requirement vanishes for the strong band** — its dead zone is already PF 1.44 at *any* volume and
+1.61 at rvol ≥ 5 (vs the weak band needing rvol ≥ 8–10 to reach ~1.2):
+
+| dead zone (d52 ≥ 3%), keep rvol ≥ | weak [5,10]% | strong [10,30]% |
+|---|---|---|
+| ≥ 1 (all) | 1.076 | **1.440** |
+| ≥ 3 | 1.086 | 1.563 |
+| ≥ 5 | 1.161 | **1.610** |
+
+**Mechanism: a 10–30% move IS the conviction signal**, so even a few % above the old high the demand is real; a 5–10%
+move into extended territory has *neither* freshness *nor* magnitude — the weakest possible combination, and the only one
+where extension turns fatal. **So: there is no waving 5–10% breakouts into the dead zone (PF ≈ 1.0, churn), but 10–30%
+breakouts wave through fine (PF ≈ 1.6).** The extension cap (`d52 < 3%`) is a real refinement for the *weak* tier and
+only a minor optimization for the *strong* tier — which is why production (move ≥ 10%) was never badly exposed to the
+dead zone in the first place.
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
