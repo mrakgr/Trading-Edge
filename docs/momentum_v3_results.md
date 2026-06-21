@@ -523,6 +523,31 @@ losers early") but day-1-down trades have positive forward EV (mean +1.1%, media
 realize the dip and forfeit the bounce. Same lesson as the v2 tight-stop whipsaw: these breakouts need room to shake
 out; a quick stop on early weakness destroys the edge. The 5-day time-stop (hold through) stays.
 
+**Extended to 2- and 3-day STREAKS (2026-06-21)** — same mechanical trap, even more extreme, and a NEW twist on the
+up side. Script: [`scripts/equity/streak_path_breakdown.sql`](../scripts/equity/streak_path_breakdown.sql). A "down
+day" = close below the prior day's close; streaks measured from entry.
+
+| streak | n | full-trade PF (mechanical) | FORWARD PF (streak-end → exit) | fwd mean | fwd median |
+|---|--:|--:|--:|--:|--:|
+| DOWN-DOWN | 991 | 0.151 | **1.393** | +0.75% | +0.13% |
+| UP-UP | 1,038 | 21.065 | 1.217 | +2.67% | 0.00% |
+| DOWN-DOWN-DOWN | 472 | 0.035 | **1.281** | +0.44% | 0.00% |
+| UP-UP-UP | 480 | 107.9 | **1.026** | +4.41% | −0.05% |
+
+The full-trade PF spread is now absurd (UP-UP-UP = 108, DOWN-DOWN-DOWN = 0.035) — by day 3 almost the entire trade is
+already booked; pure mechanics. The **forward** PF is the real signal and it splits the two sides:
+- **Down streaks KEEP their forward edge** — DD forward PF 1.393, DDD 1.281, both solidly > 1 with positive forward
+  mean/median. A stock down 2–3 days straight after entry still has positive expected return over the rest of the hold.
+  No capitulation. This **re-confirms: do NOT cut on weakness**, even a multi-day run of it.
+- **Up streaks DECAY toward no edge** — UU forward PF 1.217, and **UUU drops to 1.026 with a *negative* forward median
+  (−0.05%).** After a 3-day winning streak the forward edge is nearly exhausted: the move is front-loaded and the
+  remaining hold is ~a coin flip.
+
+**The actionable asymmetry is the OPPOSITE of intuition.** The reflex ("cut down-streaks early") is wrong — down
+streaks mean-revert. If anything, the signal is on the UP side: **a 3-day up streak is where forward edge dies**, hinting
+at an early *profit*-take (sell into a 3-day run rather than holding to day 6). ⏳ *Open: test an early-profit exit on
+the 3-day up streak — but it's modest (PF 1.026 ≠ a loss, just no edge), so it would free capital, not avoid losses.*
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
