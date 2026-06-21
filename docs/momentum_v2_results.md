@@ -1,5 +1,11 @@
 # Mid-Cap Momentum v2 — Log-Space Volatility Filters
 
+> **📚 ARCHIVE (as of 2026-06-21).** The **current** production state and all research under the clipped /
+> cumulative methodology live in [`momentum_v3_results.md`](momentum_v3_results.md). This v2 document is the
+> full historical research record — exit-mechanic sweeps, 52w-proximity studies, loose-base shorts,
+> regime-switching, chandelier/time-stop derivation — kept intact for reference. Where a v2 finding was
+> re-derived under the clip (notably the ATR% ceiling, now **0.10** not 0.11), v3 is authoritative.
+
 **Status: working long-only daily-momentum edge, PF ~1.77 post-breadth, on honest next-open fills.**
 This is the current production system. It supersedes both `momentum_v0` (whose mean-reversion
 trailing-limit results were inflated by a fill bug) and the v1 *exit*-correction work, by re-deriving
@@ -2250,161 +2256,11 @@ as the **max-PF / min-drawdown** alternative (PF 1.859, post 1.848).
 **ATR% < 0.11 stays put** — clean interior optimum; tightening it (toward 0.06–0.08) is strictly worse
 (cuts the time-stop-rescued 8–10% band).
 
-**Re-confirmed under the +50% return clip (2026-06-21).** The sweeps above use raw `net_pnl`. Re-ran the
-ceiling sweep on the **production-defaults** trip set (`/tmp/v2_prod.csv`: move[0.10,0.30) / rvol ≥ 5 /
-ATR% < 0.11 / 5d-stop, 5,883 trips, PF 1.774) with **PF computed on per-trade RETURN clipped at +50%** —
-now the standard convention (see the *Winner-clip convention* note in the rvol section). Script:
-[`scripts/equity/tightness_cum_sweep.sql`](../scripts/equity/tightness_cum_sweep.sql). Breadth lag1 > 0.5,
-≥2005, closed trips only.
-
-| tight ceiling | n | mean ret (clip) | **PF clip** | PF raw | clip pre | clip post |
-|---|--:|--:|--:|--:|--:|--:|
-| < 2.5 | 298 | 0.005 | 1.219 | 1.219 | 0.954 | 1.499 |
-| < 3.0 | 1,082 | 0.010 | 1.388 | **2.67** | 1.646 | 1.247 |
-| < 3.5 | 2,047 | 0.012 | 1.447 | 2.122 | 1.649 | 1.338 |
-| < 4.0 | 3,003 | 0.014 | **1.568** | 2.076 | 1.793 | 1.447 |
-| **< 4.5 (default)** | 3,713 | 0.014 | **1.571** | 1.991 | 1.738 | 1.478 |
-
-**The clip changes the read and confirms 4.5.** Two findings:
-1. **The raw PF was a lottery mirage at the tight end.** `tight < 3.0` shows **PF raw 2.67 vs PF clip 1.388** —
-   that bucket's apparent edge was almost entirely a handful of monster winners, not reliable edge. The clip
-   collapses it. The raw column is non-monotone and seductive; **the clipped column is the honest, near-monotone
-   read** and it is the one we now decide on.
-2. **Tighter is NOT better — loosening to the 4.5 ceiling raises clipped PF, it doesn't lower it.** Clip-PF rises
-   1.219 (<2.5) → 1.568 (<4.0) → 1.571 (<4.5). The non-cumulative bands (clipped) pin the source: the **3.5–4.0
-   band is the single best (PF 1.864)**, while **< 2.0 is actually a loser (0.836)** — ultra-tight quiet names
-   don't break out, they just sit. So the froth-side intuition ("tighter = safer = better") is *wrong here*; the
-   edge lives in the moderately-loose 3.5–4.5 zone.
-
-| tightness band (clipped +50%) | n | PF clip | clip post-2015 |
-|---|--:|--:|--:|
-| < 2.0 | 19 | 0.836 | 1.629 |
-| 2.0–2.5 | 279 | 1.248 | 1.488 |
-| 2.5–3.0 | 784 | 1.449 | 1.184 |
-| 3.0–3.5 | 965 | 1.513 | 1.437 |
-| **3.5–4.0** | 956 | **1.864** | **1.712** |
-| 4.0–4.5 | 710 | 1.584 | 1.609 |
-
-`< 4.0` (clip 1.568) and `< 4.5` (clip 1.571) are a **statistical tie on PF** — but 4.5 buys **+710 trips for free**
-(3,003 → 3,713) and its marginal band (4.0–4.5) is healthy (clip 1.584, post 1.609). **There is no case for
-tightening below 4.5** — `< 3.5` would discard the best band (3.5–4.0) and `< 2.5` is barely-edge. `MaxTightness =
-4.5` stands, now confirmed on clipped PF.
-
-**Extended to tight < 7 — the ceiling is a HUMP that peaks exactly at 4.5 (2026-06-21).** The sweep above stopped
-at the production ceiling; extending it (wide dump, ATR%-gate also opened, `--max-tightness 1000 --max-atr-pct 1000`,
-9,090 trips; script [`scripts/equity/tightness_atr_cum_sweep.sql`](../scripts/equity/tightness_atr_cum_sweep.sql))
-shows clipped PF **climbs to a peak at < 4.5 then declines monotonically** — loosening past 4.5 strictly hurts:
-
-| tight ceiling | n | PF clip | clip post | tight ceiling | n | PF clip | clip post |
-|---|--:|--:|--:|---|--:|--:|--:|
-| < 2.5 | 298 | 1.219 | 1.499 | **< 4.5** | 3,713 | **1.571** ← peak | 1.478 |
-| < 3.0 | 1,082 | 1.388 | 1.247 | < 5.0 | 4,301 | 1.495 | 1.386 |
-| < 3.5 | 2,047 | 1.447 | 1.338 | < 5.5 | 4,727 | 1.475 | 1.389 |
-| < 4.0 | 3,003 | 1.568 | 1.447 | < 6.0 | 5,025 | 1.421 | 1.333 |
-|  |  |  |  | < 7.0 | 5,365 | 1.390 | 1.291 |
-
-Non-cumulative bands locate the cliff — edge **collapses above 4.5**:
-
-| tightness band | n | PF clip | clip post |
-|---|--:|--:|--:|
-| < 2.5 | 298 | 1.219 | 1.499 |
-| 2.5–3.0 | 784 | 1.449 | 1.184 |
-| 3.0–3.5 | 965 | 1.513 | 1.437 |
-| **3.5–4.0** | 956 | **1.864** | **1.712** |
-| 4.0–4.5 | 710 | 1.584 | 1.609 |
-| 4.5–5.5 | 1,014 | 1.208 | 1.143 |
-| 5.5–7.0 | 638 | 1.015 | 0.886 |
-| 7.0+ | 273 | 0.857 | 0.854 |
-
-So "higher tightness = lower PF" (the surprise) is real but it's a **hump, not a slope**: edge rises off the
-ultra-tight floor (`<2.5` barely-edge), peaks in the **3.5–4.5 zone**, and falls off a cliff above 4.5 (the 5.5–7.0
-band is a *loser*, post 0.886). Loose bases — wide range relative to ATR — genuinely don't break out cleanly.
-`MaxTightness = 4.5` is the optimum of the entire 2.5–7 range, not just a capacity compromise.
-
-#### ATR% ceiling 0.04→0.11 — peaks at ~0.10; the EDGE lives in the 0.06–0.10 band, not the quiet bulk (2026-06-21)
-
-Same wide dump, sweeping the ATR% ceiling with tightness held at the production < 4.5. Clipped PF, breadth on, ≥2005:
-
-| atr% ceiling | n | PF clip | PF raw | clip pre | clip post |
-|---|--:|--:|--:|--:|--:|
-| < 0.04 | 2,254 | 1.420 | 1.965 | 1.644 | 1.236 |
-| < 0.05 | 2,813 | 1.435 | 1.844 | 1.573 | 1.325 |
-| < 0.06 | 3,158 | 1.438 | 1.784 | 1.550 | 1.355 |
-| < 0.07 | 3,380 | 1.492 | 1.801 | 1.588 | 1.425 |
-| < 0.08 | 3,524 | 1.529 | 1.821 | 1.623 | 1.470 |
-| < 0.09 | 3,615 | 1.569 | 1.998 | 1.682 | 1.501 |
-| **< 0.10** | 3,678 | **1.590** ← peak | 2.021 | 1.711 | **1.520** |
-| < 0.11 (default) | 3,713 | 1.571 | 1.991 | 1.738 | 1.478 |
-
-The cumulative ceiling **peaks at < 0.10** (clip 1.590, post 1.520) — fractionally above the shipped < 0.11
-(1.571 / 1.478). The non-cumulative bands explain why, and flip the naive "low vol = safe" intuition hard:
-
-| atr% band | n | PF clip | clip post |
-|---|--:|--:|--:|
-| < 0.04 | 2,254 | 1.420 | 1.236 |
-| 0.04–0.05 | 559 | 1.481 | 1.578 |
-| 0.05–0.06 | 345 | 1.450 | 1.476 |
-| 0.06–0.07 | 222 | 1.925 | 1.867 |
-| 0.07–0.08 | 144 | 2.013 | 1.853 |
-| **0.08–0.09** | 91 | **2.460** | **2.016** |
-| 0.09–0.10 | 63 | 2.208 | 1.903 |
-| 0.10–0.11 | 35 | 0.984 | 0.633 ← dead |
-| 0.11+ | 101 | 0.472 | 0.496 ← junk |
-
-**The edge is concentrated in the 0.06–0.10 ATR% band (PF ~1.9–2.5), NOT in the quiet `<0.04` bulk (1.42).**
-Moderate-volatility breakouts pay; ultra-quiet ones are mediocre, and the 0.10–0.11 band is already dead (PF 0.984,
-post 0.633). This mirrors the tightness hump — both axes reward *moderate* energy, not minimal energy. Tightening
-the ceiling to **0.10** would trim the dead 0.10–0.11 band for a small, real gain (clip 1.571 → 1.590, post 1.478 →
-1.520) at a cost of just **−35 trips**.
-
-**✅ DECISION (2026-06-21): tighten the default `MaxAtrPct` 0.11 → 0.10.** Engine-verified end-to-end: raw PF
-**1.774 → 1.802**, P&L flat at **+$1.19M** (+$1,193,382), trips 5,883 → 5,827 (−56). The trimmed 0.10–0.11 band was
-net-neutral on dollars but PF-dilutive, so removing it lifts PF at no cost to total return. `MaxAtrPct = 0.10` in
-`defaultConfig`.
-
-#### 2D joint ceiling — tightness × ATR% together: the production corner IS the joint optimum (2026-06-21)
-
-The 1D sweeps optimise each axis with the other held at production. To rule out a hidden off-diagonal sweet-spot,
-ran the **joint cumulative grid** — each cell = PF (clip +50%) over all trades with `tightness < T` **AND**
-`atr% < A`. Same wide dump; script [`scripts/equity/tightness_atr_2d_sweep.sql`](../scripts/equity/tightness_atr_2d_sweep.sql).
-
-**PF (clipped +50%), rows = tight < T, cols = atr% < A** — production corner `(4.5, 0.10)` is **bolded**:
-
-| tight \ atr% | < .05 | < .06 | < .07 | < .08 | < .09 | < .10 | < .11 |
-|---|--:|--:|--:|--:|--:|--:|--:|
-| < 3.0 | 1.368 | 1.297 | 1.332 | 1.307 | 1.380 | 1.385 | 1.388 |
-| < 3.5 | 1.334 | 1.325 | 1.328 | 1.356 | 1.410 | 1.440 | 1.447 |
-| < 4.0 | 1.473 | 1.473 | 1.489 | 1.510 | 1.568 | **1.588** | 1.568 |
-| **< 4.5** | 1.435 | 1.438 | 1.492 | 1.529 | 1.569 | **1.590** | 1.571 |
-| < 5.0 | 1.428 | 1.410 | 1.468 | 1.469 | 1.506 | 1.514 | 1.495 |
-| < 5.5 | 1.435 | 1.433 | 1.477 | 1.471 | 1.479 | 1.493 | 1.475 |
-| < 7.0 | 1.366 | 1.379 | 1.394 | 1.397 | 1.391 | 1.408 | 1.390 |
-
-**PF post-2015 (clipped +50%)** — the era that matters for live trading; production corner `(4.5, 0.10)` is the **grid max**:
-
-| tight \ atr% | < .05 | < .06 | < .07 | < .08 | < .09 | < .10 | < .11 |
-|---|--:|--:|--:|--:|--:|--:|--:|
-| < 3.0 | 1.358 | 1.245 | 1.203 | 1.177 | 1.260 | 1.253 | 1.247 |
-| < 3.5 | 1.238 | 1.224 | 1.208 | 1.241 | 1.291 | 1.330 | 1.338 |
-| < 4.0 | 1.369 | 1.371 | 1.384 | 1.412 | 1.453 | 1.483 | 1.447 |
-| **< 4.5** | 1.325 | 1.355 | 1.425 | 1.470 | 1.501 | **1.520** | 1.478 |
-| < 5.0 | 1.301 | 1.314 | 1.387 | 1.398 | 1.429 | 1.427 | 1.386 |
-| < 5.5 | 1.344 | 1.375 | 1.433 | 1.433 | 1.438 | 1.434 | 1.389 |
-| < 7.0 | 1.239 | 1.276 | 1.304 | 1.322 | 1.305 | 1.318 | 1.291 |
-
-Trip counts at the corner: `(4.5, 0.10)` = 3,678 (post-breadth/era; the engine reports 5,827 unfiltered).
-
-**The joint grid validates the production corner — there is no better off-diagonal setting:**
-1. **Full-sample peak is the `atr% < 0.10` column at tight 4.0–4.5** (1.588 / 1.590, a tie). **Post-2015 the single
-   best cell is exactly `(tight<4.5, atr%<0.10) = 1.520`** — the shipped corner *is* the modern-era maximum.
-2. **The axes reinforce, they don't trade off.** Moving toward the corner along *either* axis improves PF, and the
-   `< 0.10` ATR% ceiling beats `< 0.11` in nearly every tightness row — the 1D ATR% tightening holds jointly.
-3. **Both cliffs are robust across the other axis.** The `< 0.05` ATR% column is uniformly weak (quiet-vol penalty
-   holds at every tightness) and the `tight < 7.0` row collapses in every ATR% column (loose-base cliff holds at
-   every ATR%). No interaction rescues either dead zone.
-
-**Conclusion: `(MaxTightness 4.5, MaxAtrPct 0.10)` is the joint optimum — nothing to change.** The 2D view rules out
-the concern that independently-tuned 1D ceilings were masking a better combined setting; they weren't.
+> **⏭️ MOVED TO v3.** The clipped re-derivation of the tightness & ATR% ceilings (2026-06-21) — the
+> tightness *hump* peaking at 4.5, the ATR% tightening 0.11 → **0.10**, and the 2D joint-ceiling grid —
+> now lives in [`momentum_v3_results.md`](momentum_v3_results.md) § *Entry-filter geometry*, computed under
+> the +50% winner-clip / cumulative standard. The v2 tables above are the raw-`net_pnl` originals; the
+> clipped versions superseded the ATR% decision (default is now **0.10**, not 0.11).
 
 ---
 
