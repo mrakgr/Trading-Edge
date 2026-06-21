@@ -432,11 +432,31 @@ excluded-tail table shows *why* 0 is the line: the `close/open < 0` reds are gen
 dropping), but pushing past 0 starts cutting trades that are **at/above baseline** (the `< 0.05` cut population is
 1.612 > the 1.575 baseline) — a positive floor throws away good trades.
 
-**✅ DECISION (2026-06-21): NOT adopted.** Two reasons: (1) **heavy overlap with the 30% move cap** — the red band
-averages a +21.5% overnight gap, so the same over-extension cohort is already largely handled by the day-move ceiling
-(and by news review of the high-rvol blow-offs); a third gate at the same target is marginal redundancy. (2) The gain
-(+0.06 clip PF, post 1.509 → 1.572) doesn't justify a new gate that needs intraday open/close the daily engine handles
-awkwardly. Kept as a documented characterization, not a filter — but N=0 is the value to use if it's ever wired in.
+**Deep-fade-only variant — cut ONLY the worst reds, keep the mild-red band (2026-06-21).** A follow-up: rather than
+the full no-red rule, keep everything *except* deep intraday fades. The negative region is strongly graded — the
+damage is in the deep fades, the mild reds are near-baseline:
+
+| intraday_ret band | n | PF clip | clip post | | keep ≥ N (deep-fade cut) | trips | PF clip | clip post |
+|---|--:|--:|--:|---|---|--:|--:|--:|
+| < −20% | 8 | 0.736 | 0.736 | | all | 4,314 | 1.575 | 1.509 |
+| −20..−15% | 6 | 0.295 | 0.383 | | keep ≥ −0.10 | 4,287 | 1.587 | 1.524 |
+| −15..−10% | 13 | 1.187 | 1.218 | | **keep ≥ −0.07** | 4,245 | **1.600** | 1.541 |
+| −10..−5% | 95 | 1.484 | 1.038 | | keep ≥ −0.05 | 4,192 | 1.590 | 1.541 |
+| −5..0% (mild red) | 396 | 1.420 | 1.179 | | keep ≥ 0.00 | 3,796 | 1.603 | 1.572 |
+| ≥ 0 (green) | 3,796 | 1.603 | 1.572 | |  |  |  |
+
+The deep-fade tail is genuinely toxic (the cut population `< −10%` is clip ~0.72, `< −15%` is 0.52) — but it is
+**tiny: only ~27 trades over 21 years below −10%, 69 below −7%.** So **`N = −0.07` is the capacity-efficient sweet
+spot**: it captures most of the no-red rule's PF gain (clip 1.575 → **1.600**, post 1.509 → 1.541) for a cost of just
+**69 trips (1.6%)** vs the full rule's 518 — because the mild −5..0% band it keeps is near-baseline (1.42), not worth
+dropping.
+
+**✅ DECISION (2026-06-21): NOT adopted** (either threshold). Two reasons: (1) **heavy overlap with the 30% move cap**
+— the red band averages a +21.5% overnight gap, so the same over-extension cohort is already largely handled by the
+day-move ceiling (and by news review of the high-rvol blow-offs); a third gate at the same target is marginal
+redundancy. (2) The gain is small (+0.025–0.06 clip PF) and a `close/open` gate needs intraday open/close the daily
+engine handles awkwardly. Kept as a documented characterization — **but if ever wired in, `N = −0.07` (deep-fade-only)
+is the better threshold than 0**: nearly the same PF at a tenth of the trip cost.
 
 ---
 
