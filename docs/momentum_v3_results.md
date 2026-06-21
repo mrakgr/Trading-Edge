@@ -877,6 +877,35 @@ breakouts wave through fine (PF ≈ 1.6).** The extension cap (`d52 < 3%`) is a 
 only a minor optimization for the *strong* tier — which is why production (move ≥ 10%) was never badly exposed to the
 dead zone in the first place.
 
+#### …but 6mo-max-ATR% (calm base) IS universal — the calmest quintile is a net loser on the STRONG band too (2026-06-21)
+
+The extension penalty was weak-band-only — but the **6mo-max-ATR% calm-base penalty is not.** Running the quintile
+breakdown on the strong [10,30]% band (where the dead zone itself is alive), the calmest-6mo quintile is a **net loser
+even here**, and it survives the extension control (dead-zone-only ≈ overall):
+
+| 6mo-max-ATR% quintile, [10,30]% rvol ≥ 5 | OVERALL n=600/q | OVERALL post-2015 | DEAD-ZONE n=436/q | DEAD-ZONE post-2015 |
+|---|---|---|---|---|
+| Q1 (calmest 6mo) | **0.987** | **0.804** | **0.995** | **0.872** |
+| Q2 | 1.371 | 1.341 | 1.355 | 1.120 |
+| Q3 | **2.101** | 1.781 | **2.007** | 1.952 |
+| Q4 | 1.923 | 2.350 | 1.924 | 2.366 |
+| Q5 (most violent) | 1.702 | 1.722 | 1.579 | 1.551 |
+
+Unlike the noisy rvol ≥ 8 stacking, this is solid (600 trips/quintile): the calmest quintile is **PF ~0.99 / post-2015
+0.80** — a *net loser* while every other cut of the strong band is healthy (PF 1.4–2.4). The shape is a **hump peaking at
+Q3** (calmest loses, middle best, most-violent Q5 gives some back — the pump-and-revert names), so the rule is **cut the
+bottom quintile**, not chase the top. It holds at rvol ≥ 1 too (monotone-ish Q1→Q5: 1.126 / 1.363 / 1.474 / 1.468 /
+1.533). And the dead-zone-only column ≈ the overall column, so it is **orthogonal to extension** — not the dead zone in
+disguise.
+
+**Synthesis — the two dead-zone levers split by generality:** *extension (d52)* is a **weak-breakout-only** effect
+(strong breakouts wave through); *6mo-max-ATR% calm-base* is **universal** — the calmest-base quintile is a net loser on
+*both* tiers (weak 0.76, strong 0.99 / post-2015 0.80), independent of extension and move size. **So calm-base is the
+most generalizable signal found in this whole dead-zone investigation — and a genuine candidate for the production daily
+system (move ≥ 10%):** it cuts a net-losing quintile the current filters don't touch. (Deferred to wiring: needs a
+trailing-126-day rolling-max-of-14-bar-log-ATR computed in-engine; logged here as the next filter to test when that
+plumbing exists, alongside the past-runner ADR%/slope floor.)
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
