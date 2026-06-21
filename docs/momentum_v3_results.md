@@ -330,6 +330,61 @@ measure barely moves; raw dips 2.021 → 1.923 only because the `$1–3` names a
 past-runner floor should lift). Unfiltered engine run: 6,749 trips / PF 1.820 / +$1.55M. `MinPrice = 1.0` in
 `defaultConfig`.
 
+### Entry-day candle BODY shape — the "fat green candle" hypothesis is WRONG; it's a middle-body hump (2026-06-21)
+
+From the gap-over < reclaim finding, the hypothesis was: a **fat green body** (opens low, closes high — conviction
+built through the day) should beat a **doji / top-heavy** candle. Tested on the production trips by joining each
+entry day's adjusted OHLC and computing body shape. Script:
+[`scripts/equity/candle_body_breakdown.sql`](../scripts/equity/candle_body_breakdown.sql). Clip +50%, breadth, ≥2005.
+
+**Body fraction `(close−open)/range` — the FATTEST green bodies are the WORST (after red):**
+
+| body band | n | PF clip | clip post |
+|---|--:|--:|--:|
+| < 0 (red close) | 518 | 1.345 | 1.077 |
+| 0.0–0.2 (doji-ish) | 249 | **1.888** | **2.514** |
+| 0.2–0.4 | 420 | 1.629 | 1.588 |
+| 0.4–0.6 | 752 | 1.837 | 1.714 |
+| 0.6–0.8 | 1,168 | 1.602 | 1.491 |
+| **0.8–1.0 (fat green)** | 1,207 | **1.426** | **1.405** ← worst non-red |
+
+The hypothesis is **inverted**: the fattest green candle (body 0.8–1.0) is the *worst* non-red band, *below*
+baseline (1.575). The best are the **doji-ish and mid-body** bands. A mild "don't close red" floor (`body ≥ 0`)
+helps (clip 1.603 / post 1.572), but tightening to `body ≥ 0.8` *hurts* (1.426).
+
+**Open position `(open−low)/range` — the cleanest signal, and it CONFIRMS the gap-over intuition:**
+
+| open position | n | PF clip | clip post |
+|---|--:|--:|--:|
+| 0.0–0.2 (opened at LOW) | 3,001 | 1.538 | 1.488 |
+| **0.2–0.4** | 604 | **1.895** | **1.805** |
+| 0.4–0.6 | 313 | 1.619 | 1.694 |
+| 0.6–0.8 | 192 | 1.794 | 1.380 |
+| **0.8–1.0 (opened at HIGH)** | 204 | **1.047** | **0.899** ← a loser |
+
+**Opening at the high is a near-loser (clip 1.047, post-2015 0.899)** — exactly the gap-over story: a stock that
+opens at its high already did the move premarket, nothing left. The sweet spot is opening **lower-middle (0.2–0.4)**.
+
+**The key test — among CLOSE-HIGH trades, does opening low (fat body) beat opening high (doji)?**
+
+| group (close_pos ≥ 0.8) | n | PF clip | clip post |
+|---|--:|--:|--:|
+| A: opened LOW (full fat body) | 1,569 | 1.463 | 1.420 |
+| **B: opened MID** | 310 | **1.977** | **1.968** |
+| C: opened HIGH (doji-at-top) | 90 | 1.489 | 1.880 |
+
+**It's a hump, not a ramp — the MIDDLE body wins (B: clip 1.977 / post 1.968).** Neither extreme is best: the
+full fat body (open-at-low → close-at-high, body_frac ≈ 1) is a **climactic full-range bar — over-extended and
+exhausted**, the *worst* of the three; the doji-at-top is thin/noisy. The winner is a **controlled intraday
+reclaim**: opened slightly down, closed near the high, moderate body.
+
+**Conclusion — same lesson as everywhere this session: MODERATE energy beats EXTREME energy.** The fattest candle
+is the over-extended one, just like the fattest move (30%+ blow-off) and the highest rvol (>15 pump). The gap-over
+instinct was right (opening at the high is genuinely bad), but the "fat body = better" framing had the curve
+backwards. **Not adopted as a filter** (the effect is real but the bands are smaller than the core filters, and a
+"middle body" gate is fiddly to specify cleanly) — documented as a strong characterization of *what a good
+breakout day looks like*: opens slightly down, closes near the high, with a controlled rather than vertical body.
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
