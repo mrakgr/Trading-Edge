@@ -55,7 +55,8 @@ no lookahead):
 | entry-day move | **10% ≤ move < 30%** | `close/prevClose − 1`. The breakout must announce itself; the 30% cap removes the single-day exhaustion blow-off (and makes an rvol upper cap redundant) |
 | relative volume | **rvol ≥ 5** (no upper cap) | `volume / 28-day avg volume`. 5 is enough to be significant; the move cap handles the toxic high-rvol blow-off tail |
 | ATR% (log) | **< 0.10** | mean log-true-range over 14 prior bars. Tightened 0.11 → 0.10 on 2026-06-21 (the 0.10–0.11 band was dead) |
-| intraday return | **`close/open − 1 ≥ −0.07`** | reject deep intraday FADES (gap-up-then-sell-off — the toxic tail of the red-candle band). Added 2026-06-21 |
+| intraday return | **`close/open − 1 ≥ −0.07`** | reject deep intraday FADES (gap-up-then-sell-off — the toxic tail of the red-candle band). Added 2026-06-21. (Raising to 0 tested: trims ~9% of trips for no clip-PF gain — kept at −0.07.) |
+| **max log ATR** | **≥ 0.04** | the past-runner volatility-history FLOOR — 126-bar max of the 14-bar log-ATR (`MinMaxAtrLog`). Cuts the dead-quiet-base names (the robust, well-distributed *bottom* of the past-runner ladder; the *top* is lottery-tail, NOT floored). Wired into the engine 2026-06-21. Unfiltered-engine PF 1.851 → 1.922, −15% trips |
 | tightness (linear) | **< 4.5** | `(14d range) / ATR` — prior consolidation must be tight (linear scale; sharper loose-tail cut than log) |
 | 52-week proximity | **close ≥ 0.95 × hi_252** | near the 1-year closing high (closing-high channel beats the intraday-high channel) |
 | price floor | **≥ $1** | lowered 5 → 1 on 2026-06-21 (sub-$5 is real edge under the clip, not a lottery; $1–3 kept for the future past-runner floor to rescue) |
@@ -880,6 +881,11 @@ breakouts wave through fine (dead-zone PF ≈ 1.7).** The extension cap (`d52 < 
 only a minor optimization for the *strong* tier — which is why production (move ≥ 10%) was never badly exposed to the
 dead zone in the first place.
 
+> **Live-trading watch item (2026-06-21):** even though strong 10–30% breakouts are *solidly profitable* across the 3–10%
+> dead zone (~1.7), the band still has an **internal valley** (the 3–5% / mid sub-bands soften vs the fresh high and the
+> well-extended ends). So *where exactly a breakout lands relative to its prior 52w high matters even inside a profitable
+> band* — worth tracking by eye in live trading, not just trusting the band-level average.
+
 #### …but 6mo-max-ATR% (calm base) IS universal — the calmest quintile is a net loser on the STRONG band too (2026-06-21)
 
 The extension penalty was weak-band-only — but the **6mo-max-ATR% calm-base penalty is not.** Running the quintile
@@ -1150,6 +1156,33 @@ concentrated — in any single trade you almost certainly will not be holding th
 and one name is half the profit). That is exactly how to be "on the right side of a bubble." It also means the headline
 PF ~3 is **not** a sizing-into-able expectation; the realistic per-trade base is the ex-top-5 figure (~1.3 ATR, <1 slope).
 Script: [`scripts/equity/pastrunner_concentration.sql`](../scripts/equity/pastrunner_concentration.sql).
+
+#### ✅ WIRED IN — the max-log-ATR FLOOR at ≥ 0.04 (production default, 2026-06-21)
+
+The **bottom** of the past-runner ladder is the robust, well-distributed part (unlike the lottery-tail top): dead-quiet
+base names are uniformly bad and removing them lifts the *whole distribution*, not just the tail. So a **floor** (not the
+abandoned monotone "higher is better" framing) goes into production. Cumulative floor sweep on full production
+(rvol ≥ 5, raw PF + ex-top-5 base + post-2015):
+
+| keep max log ATR ≥ | trips kept | raw PF | ex-top-5 base | post-2015 |
+|---|---|---|---|---|
+| all | 100% | 2.205 | 1.639 | 2.066 |
+| 0.035 | 89.5% | 2.292 | 1.684 | 2.153 |
+| **0.04 (chosen)** | **82.4%** | **2.346** | **1.705** | **2.216** |
+| 0.05 | 64.2% | 2.569 | 1.799 | 2.426 |
+
+It is a **smooth capacity-vs-edge slope, no sharp knee** — every metric rises monotonically as the floor rises, and
+crucially the **ex-top-5 base lifts alongside raw PF** (1.64 → 1.71 at 0.04), confirming a *broad* gain, not a tail
+artifact. Chose **0.04** (~p20): cuts the dead bottom while keeping 82% of capacity; 0.05+ keeps lifting PF but costs a
+third of the trips (a worse trade than the first cut, and capacity matters for a real book). **Wired into the engine**
+(`EntryConfig.MinMaxAtrLog`, default 0.04; CLI `--min-max-atr-log`): the 126-bar rolling max of the 14-bar log-ATR,
+snapshotted pre-push (no lookahead). Unfiltered-engine headline **PF 1.851 → 1.922, 6,647 → 5,617 trips**. Script:
+[`scripts/equity/maxlogatr_floor_sweep.sql`](../scripts/equity/maxlogatr_floor_sweep.sql).
+
+> **Engine cleanup (same commit):** the log/linear true range now uses the identity `TR = max(high,prevClose) −
+> min(low,prevClose)` (log: `ln(max(hi,pc)/min(lo,pc))`) instead of the explicit 3-leg `max(hi−lo, |hi−pc|, |lo−pc|)` —
+> since `high ≥ low`, the max leg is always highest-endpoint minus lowest-endpoint. **Verified identical to 1e-15** over
+> 173k bars and the full backtest is bit-identical (PF 1.922 / 5,617 trips unchanged). Per user's simplification note.
 
 ---
 

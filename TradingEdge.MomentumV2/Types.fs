@@ -135,10 +135,15 @@ type EntryConfig =
       MinPrice: float           // close >= this (production 5.0)
       MaxTightness: float       // tightness < this (production 0.30)
       MaxAtrPct: float          // atr_pct(close) < this (production 0.08)
-      MinIntradayRet: float }   // close/open-1 >= this — reject deep intraday FADES (gap-up-then-sell-off).
+      MinIntradayRet: float     // close/open-1 >= this — reject deep intraday FADES (gap-up-then-sell-off).
                                 // Production -0.07: drops the toxic deep-fade tail of the red-candle band
                                 // (the candle silhouette of the 30%+ over-extension) while keeping the
                                 // near-baseline mild reds. -inf disables.
+      MinMaxAtrLog: float }     // "max log ATR" >= this — the past-runner volatility-history FLOOR.
+                                // max-of-14bar-log-ATR over the trailing 126 bars (~6mo). Cuts the
+                                // dead-quiet-base names that are uniformly untradeable (the well-distributed
+                                // bottom of the past-runner ladder; the TOP is lottery-tail, not floored).
+                                // Production 0.04 (~p20). 0 / -inf disables.
 
 /// Conditional EXHAUSTION-EXIT thresholds, evaluated on each held bar using THAT
 /// bar's own tightness / rvol / move (the same metrics `ShouldEnter` reads, just
@@ -230,6 +235,11 @@ type QullaSystem
     let loLow     = MinMa(hiCloseWindow)        // long-term LOW channel (252d min of intraday lows)
     let atrLog    = AvgMa(atrWindow)            // ATR = mean LOG true range over the window
     let atrLin    = AvgMa(atrWindow)            // ATR = mean ABSOLUTE true range (linear)
+    // "max log ATR" = the MAX of the 14-bar log-ATR over the trailing 6 months (126
+    // trading days). A past-runner / volatility-history measure: was this stock ever
+    // a real mover recently? Low values (dead-quiet base) are untradeable; gated by a
+    // production FLOOR. Fed atrLog.State each bar (post-push), snapshotted pre-push.
+    let maxAtrLog = MaxMa(126)
     let rangeHigh = MaxMa(tightnessWindow)      // tightness: max high
     let rangeLow  = MinMa(tightnessWindow)      // tightness: min low
     // 4-week (28-calendar-day) trailing means, v0 `stock_volume_4w` semantics.
@@ -255,6 +265,7 @@ type QullaSystem
     let mutable sLoClose   : float voption = ValueNone
     let mutable sLoLow     : float voption = ValueNone
     let mutable sAtrLog    : float voption = ValueNone
+    let mutable sMaxAtrLog : float voption = ValueNone
     let mutable sAtrLin    : float voption = ValueNone
     let mutable sRangeHigh : float voption = ValueNone
     let mutable sRangeLow  : float voption = ValueNone
@@ -321,6 +332,10 @@ type QullaSystem
     /// ATR% stand-in = the log ATR directly (a ~percentage of price per bar).
     /// No close-price argument: the log-space TR already normalizes by price level.
     member _.AtrPct = sAtrLog
+    /// "max log ATR" = MAX of the 14-bar log-ATR over the trailing 126 bars (~6mo),
+    /// snapshotted pre-push (no lookahead — the signal bar's own ATR is excluded).
+    /// A past-runner / volatility-history floor: dead-quiet recent base = untradeable.
+    member _.MaxAtrLog = sMaxAtrLog
     /// CURRENT-bar log-ATR% — the ATR including the bar just folded in (atrLog.State
     /// post-push), vs AtrPct which is the pre-push (B−1) snapshot. Used by the disaster
     /// exit: it's a close-of-bar decision filling at the next open, so the current bar's
@@ -437,6 +452,9 @@ type QullaSystem
         // intraday-return floor: reject deep fades (gap-up then sell-off). close/open-1 >= MinIntradayRet.
         // Guard open>0; a non-positive/absent open fails the gate (don't trade what we can't measure).
         && (bar.``open`` > 0.0 && bar.close / bar.``open`` - 1.0 >= entryCfg.MinIntradayRet)
+        // past-runner volatility-history FLOOR: max log ATR (126-bar max of 14-bar log-ATR) >= MinMaxAtrLog.
+        // Cuts the dead-quiet-base names. ValueNone (insufficient history) fails the gate.
+        && gate this.MaxAtrLog (fun ma -> ma >= entryCfg.MinMaxAtrLog)
 
     /// Update every rolling structure with the most recent bar.
     /// Snapshots are taken BEFORE the push (prior-bars / no-lookahead), then
@@ -459,6 +477,7 @@ type QullaSystem
         sLoClose   <- loClose.State
         sLoLow     <- loLow.State
         sAtrLog    <- atrLog.State
+        sMaxAtrLog <- maxAtrLog.State
         sAtrLin    <- atrLin.State
         sRangeHigh <- rangeHigh.State
         sRangeLow  <- rangeLow.State
@@ -468,20 +487,24 @@ type QullaSystem
         //    bar so the tightness mode is a pure read-time switch.
         match prevClose with
         | ValueSome pc when bar.high > 0.0 && bar.low > 0.0 && pc > 0.0 ->
-            // LINEAR (absolute) true range against the prior close:
-            //   high - low , |high - prevClose| , |low - prevClose|
-            (bar.high - bar.low)
-            |> max (abs (bar.high - pc))
-            |> max (abs (bar.low - pc))
+            // LINEAR (absolute) true range = max(high,prevClose) - min(low,prevClose)
+            // (same identity as the log form below: high >= low, so the max of the
+            // three legs is just highest-endpoint minus lowest-endpoint).
+            (max bar.high pc - min bar.low pc)
             |> atrLin.Push
-            // LOG true range: each leg is a log-price difference, i.e. a log-return
-            // magnitude, so the resulting ATR is intrinsically a percentage-of-price
-            // measure (no later division by any close needed).
-            let lh, ll, lpc = log bar.high, log bar.low, log pc
-            (lh - ll)
-            |> max (abs (lh - lpc))
-            |> max (abs (ll - lpc))
+            // LOG true range = ln(max(high,prevClose) / min(low,prevClose)). Since
+            // high >= low, the max of the three TR legs (ln(hi/lo), |ln(hi)-ln(pc)|,
+            // |ln(lo)-ln(pc)|) is always ln(highest endpoint) - ln(lowest endpoint).
+            // It's a log-return magnitude, so the ATR is intrinsically a %-of-price
+            // measure (no later division by any close needed). [verified identical to
+            // the 3-leg form to 1e-15 over 173k bars.]
+            log (max bar.high pc / min bar.low pc)
             |> atrLog.Push
+            // feed the freshly-updated 14-bar log-ATR into the 126-bar rolling MAX
+            // (the "max log ATR" past-runner measure). Only push real ATR values.
+            match atrLog.State with
+            | ValueSome a -> maxAtrLog.Push a
+            | ValueNone -> ()
         | _ ->
             // first bar (no prior close) or a non-positive price -> TR undefined;
             // skip it from both ATR means

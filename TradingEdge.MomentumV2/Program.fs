@@ -24,6 +24,7 @@ type Args =
     | Max_Tightness of float
     | Max_Atr_Pct of float
     | Min_Intraday_Ret of float
+    | Min_Max_Atr_Log of float
     | Vol_Window of int
     | Up_Threshold of float
     | Max_Up_Threshold of float
@@ -74,6 +75,7 @@ type Args =
             | Max_Tightness _ -> "Max entry tightness (log scale). Default 5.0. Pass a large value to disable."
             | Max_Atr_Pct _ -> "Max entry ATR%% (log scale). Default 0.11. Pass a large value to disable."
             | Min_Intraday_Ret _ -> "Min entry-day intraday return (close/open-1). Default -0.07 — rejects deep intraday FADES (gap-up-then-sell-off). Pass a large negative value to disable."
+            | Min_Max_Atr_Log _ -> "Min 'max log ATR' = 126-bar max of the 14-bar log-ATR (past-runner volatility-history FLOOR). Default 0.04. Cuts dead-quiet-base names. 0 disables."
             | Vol_Window _ -> "Lookback window (bars) for BOTH the ATR%% and tightness measures. Default 14. Sweeps the volatility-base length."
             | Up_Threshold _ -> "Min entry-day move (close/prevClose-1). Default 0.10. The v0/old-system value was 0.05."
             | Max_Up_Threshold _ -> "MAX entry-day move (close/prevClose-1). Default 0.30 — caps the 30%+ single-day blow-off (exhaustion/squeeze/pump that reverts). Pass a large value to disable."
@@ -210,6 +212,7 @@ let main argv =
                   MaxTightness = parsed.GetResult(Max_Tightness, defaultValue = defaultConfig.Entry.MaxTightness)
                   MaxAtrPct    = parsed.GetResult(Max_Atr_Pct,   defaultValue = defaultConfig.Entry.MaxAtrPct)
                   MinIntradayRet = parsed.GetResult(Min_Intraday_Ret, defaultValue = defaultConfig.Entry.MinIntradayRet)
+                  MinMaxAtrLog = parsed.GetResult(Min_Max_Atr_Log, defaultValue = defaultConfig.Entry.MinMaxAtrLog)
                   RvolMin = parsed.GetResult(Rvol_Min, defaultValue = defaultConfig.Entry.RvolMin)
                   RvolMax = parsed.GetResult(Rvol_Max, defaultValue = defaultConfig.Entry.RvolMax) } }
 
@@ -249,9 +252,9 @@ let main argv =
             sprintf "atr%%>%.0f%% & gain<%.0f%%" (cfg.Disaster.AtrThr*100.0) (cfg.Disaster.LossThr*100.0)
          else "off")
     let rvolHi = if System.Double.IsInfinity cfg.Entry.RvolMax then "inf" else sprintf "%.0f" cfg.Entry.RvolMax
-    printfn "  entry     = up[%.2f,%.2f) rvol[%.0f,%s] adv>=%.0f price>=%.0f 52w>=%.2f tight<%.2f atr%%<%.2f intraday>=%.2f"
+    printfn "  entry     = up[%.2f,%.2f) rvol[%.0f,%s] adv>=%.0f price>=%.0f 52w>=%.2f tight<%.2f atr%%<%.2f intraday>=%.2f maxlogatr>=%.3f"
         cfg.Entry.UpThreshold cfg.Entry.MaxUpThreshold cfg.Entry.RvolMin rvolHi cfg.Entry.MinAvgDollarVolume
-        cfg.Entry.MinPrice cfg.Entry.Min52wPct cfg.Entry.MaxTightness cfg.Entry.MaxAtrPct cfg.Entry.MinIntradayRet
+        cfg.Entry.MinPrice cfg.Entry.Min52wPct cfg.Entry.MaxTightness cfg.Entry.MaxAtrPct cfg.Entry.MinIntradayRet cfg.Entry.MinMaxAtrLog
 
     let sw = Stopwatch.StartNew()
     let trips = run dbPath cfg startDate endDate

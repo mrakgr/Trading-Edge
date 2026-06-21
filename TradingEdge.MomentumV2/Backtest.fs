@@ -158,7 +158,14 @@ let defaultConfig =
           // near-baseline (1.42). -0.07 is the capacity-efficient threshold: captures
           // most of the no-red rule's gain (clip 1.575->1.600, post 1.509->1.541) for
           // -69 trips vs the full rule's -518. (Full no-red N=0 = clip 1.603/post 1.572.)
-          MinIntradayRet = -0.07 } }
+          MinIntradayRet = -0.07
+          // past-runner volatility-history FLOOR: max log ATR (126-bar max of the 14-bar
+          // log-ATR) >= 0.04 (~p20 of production). Cuts the dead-quiet-base names — the
+          // robust, well-distributed BOTTOM of the past-runner ladder (the TOP is lottery-
+          // tail, deliberately NOT floored). Raw PF 2.205->2.346 / post-2015 2.066->2.216,
+          // keeps 82% of trips; the ex-top-5 base lifts too (1.64->1.71) so it's a broad
+          // gain, not a tail effect. See docs § past-runner.
+          MinMaxAtrLog = 0.04 } }
 
 /// A finished trip, ready for the CSV. Mirrors v0's base trip columns so the
 /// two outputs diff directly.
