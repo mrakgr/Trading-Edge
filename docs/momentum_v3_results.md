@@ -886,6 +886,46 @@ dead zone in the first place.
 > well-extended ends). So *where exactly a breakout lands relative to its prior 52w high matters even inside a profitable
 > band* — worth tracking by eye in live trading, not just trusting the band-level average.
 
+#### Dead-zone REFERENCE — max 52w CLOSE vs max 52w intraday HIGH (decision deferred, 2026-06-21)
+
+Should the dead zone be measured from the max 52w **close** (`d52c` = `pct_52w_at_entry`, the current `[3,10]%`
+definition) or the max 52w intraday **high** (`d52h` = `pct_52w_high_at_entry`, candidate `[0,10]%`)? The intraday high
+sits *above* the close high, so `d52h` is on average **−2.2%** vs `d52c` (a name is "closer to / below" the intraday
+high) — "0% above the intraday high" ≈ "a couple % above the close high", a stricter *"cleared actual resistance"*
+semantic. The two correlate **0.747** — related but not interchangeable (~25% of names bucket differently). On the
+[5,10]% / rvol ≥ 2 system (full production gates + breadth + heat, clip PF), bucketed:
+
+| band above ref | CLOSE (d52c) PF / post | intraday-HIGH (d52h) PF / post |
+|---|---|---|
+| < 0 (below) | 1.321 / 1.191 | 1.336 / 1.224 |
+| 0–3 (fresh) | **1.323 / 1.317** | 1.228 / 1.155 |
+| 3–5 | 1.098 / 1.000 | 1.029 / 1.016 |
+| 5–7 | 1.128 / 1.178 | 1.074 / 1.150 |
+| **7–10** | 1.099 / 0.962 | **0.976 / 0.755** |
+
+**Cumulative ceiling (the decision lens — keep below N):**
+
+| ceiling | CLOSE: PF / post / %kept | intraday-HIGH: PF / post / %kept |
+|---|---|---|
+| < 0.03 | **1.322 / 1.240 / 51%** | 1.300 / 1.203 / 67% |
+| < 0.05 | 1.263 / 1.178 / 69% | 1.244 / 1.169 / 85% |
+| < 0.07 | 1.231 / 1.178 / 89% | 1.225 / 1.167 / 96% |
+
+**Findings (both refs ~equivalent in aggregate; pick by what you want to express):**
+- **CLOSE ref** gives the single **best filtered cell** (`d52c < 0.03` → 1.322 at 51% kept) and the cleanest *fresh-high*
+  signal (0–3 band 1.323 vs the high-ref's 1.228) — because reclaiming the *closing* high is the meaningful level for a
+  daily-bar system. Its dead valley is central (3–5, post 1.0).
+- **intraday-HIGH ref** flags the **dead extreme more sharply**: its 7–10 band is a genuine *net loser* (post-2015 0.755)
+  where the close-ref 7–10 is merely mediocre (0.962). So the dead zone under the high ref is **`[0,10]`** (the 7–10 sub-band
+  is the worst part, *inside* the zone, not excluded) — `[0,7]` would wrongly cut at the boundary of the deadest names.
+- There is **no sharp knee at 7 or 10 under either ref** — the band softens smoothly from ~3% on, so the ceiling is a
+  capacity dial, not a data-given break.
+
+**Decision: DEFERRED.** The two are close enough that switching isn't compelling on aggregate PF — lock the choice when
+intraday entries put real fills behind the distinction (the intraday-high "cleared actual resistance" semantic may matter
+more once entering mid-session). Current production keeps the **close ref**. Script:
+[`scripts/equity/deadzone_ref_compare.sql`](../scripts/equity/deadzone_ref_compare.sql).
+
 #### …but 6mo-max-ATR% (calm base) IS universal — the calmest quintile is a net loser on the STRONG band too (2026-06-21)
 
 The extension penalty was weak-band-only — but the **6mo-max-ATR% calm-base penalty is not.** Running the quintile
