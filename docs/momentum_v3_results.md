@@ -146,6 +146,65 @@ The axes **reinforce** (no trade-off — moving toward the corner along either a
 joint optimum — nothing to change.** *(Full-sample grid and trip-count grid: see the script output / v2 doc
 equivalents.)*
 
+### 2D joint FLOOR — entry-day move% × rvol: both floors reinforce; the move floor may be too LOW (2026-06-21)
+
+The volatility *ceilings* (tightness, ATR%) define which bases qualify; the move% and rvol *floors* define how
+hard the breakout must announce itself. Joint cumulative grid, each cell = `move ≥ M` **AND** `move < 0.30`
+(the blow-off cap always on) **AND** `rvol ≥ R`, clip +50%. Wide dump with both gates opened
+(`--up-threshold 0 --max-up-threshold 1000 --rvol-min 0 --rvol-max 100000`); rest production. Script:
+[`scripts/equity/move_rvol_2d_sweep.sql`](../scripts/equity/move_rvol_2d_sweep.sql). Production corner
+`(move ≥ 10%, rvol ≥ 5)` is **bolded**.
+
+**PF (clipped +50%), rows = move ≥ M, cols = rvol ≥ R:**
+
+| move \ rvol | ≥1 | ≥3 | ≥5 | ≥7 | ≥10 | ≥15 |
+|---|--:|--:|--:|--:|--:|--:|
+| ≥ 0% | 1.048 | 1.192 | 1.269 | 1.361 | 1.506 | 1.483 |
+| ≥ 5% | 1.199 | 1.288 | 1.435 | 1.576 | 1.790 | 1.638 |
+| ≥ 10% | 1.364 | 1.425 | **1.590** | 1.641 | 1.777 | 1.552 |
+| ≥ 15% | 1.414 | 1.493 | 1.650 | 1.621 | 1.740 | 1.463 |
+| ≥ 20% | 1.487 | 1.593 | 1.728 | 1.727 | **2.054** | 1.779 |
+| ≥ 25% | 1.430 | 1.490 | 1.768 | 1.617 | 1.981 | 1.240 |
+
+**PF post-2015 (the decision surface):**
+
+| move \ rvol | ≥1 | ≥3 | ≥5 | ≥7 | ≥10 | ≥15 |
+|---|--:|--:|--:|--:|--:|--:|
+| ≥ 0% | 1.060 | 1.169 | 1.280 | 1.411 | 1.574 | 1.454 |
+| ≥ 5% | 1.205 | 1.262 | 1.428 | 1.593 | 1.728 | 1.558 |
+| ≥ 10% | 1.317 | 1.343 | **1.520** | 1.604 | 1.628 | 1.405 |
+| ≥ 15% | 1.312 | 1.386 | 1.622 | 1.646 | 1.512 | 1.219 |
+| ≥ 20% | 1.455 | 1.560 | 1.754 | 1.758 | 1.755 | 1.473 |
+| ≥ 25% | 1.394 | 1.471 | **1.807** | 1.647 | 1.610 | 1.142 |
+
+**Trip counts (n):**
+
+| move \ rvol | ≥1 | ≥3 | ≥5 | ≥7 | ≥10 | ≥15 |
+|---|--:|--:|--:|--:|--:|--:|
+| ≥ 0% | 493,741 | 39,872 | 14,464 | 7,758 | 4,038 | 2,078 |
+| ≥ 5% | 40,622 | 14,181 | 6,076 | 3,187 | 1,550 | 755 |
+| ≥ 10% | 9,724 | 6,384 | **3,678** | 2,149 | 1,125 | 578 |
+| ≥ 15% | 3,468 | 2,850 | 1,994 | 1,327 | 758 | 418 |
+| ≥ 20% | 1,271 | 1,150 | 926 | 679 | 442 | 267 |
+| ≥ 25% | 438 | 410 | 359 | 269 | 184 | 121 |
+
+**Findings:**
+1. **Both floors monotonically reinforce up the diagonal.** Along rvol (any move row) PF climbs `≥1 → ≥10` then
+   dips at `≥15` (the toxic pump tail — bad in *every* row). Along move (any rvol col) PF climbs `≥0 → ≥20–25`.
+   The two floors stack: the rich cells are the high-move × high-rvol diagonal, the poor cells the low-low corner
+   (`move≥0 × rv≥1 = 1.048` — essentially no edge).
+2. **The production move floor of 10% looks too LOW.** The shipped corner `(move≥10, rv≥5)` is post-2015 **1.520**,
+   but raising the move floor to **15–20%** at the same rvol lifts it to **1.62 → 1.75** with still-usable size
+   (`move≥15 × rv≥5` = 1.622 / n 1,994; `move≥20 × rv≥5` = 1.754 / n 926; `move≥20 × rv≥7` = 1.758 / n 679). The
+   `move≥25 × rv≥5` cell is the post-2015 PF max of the whole grid at usable size (**1.807**, n 359).
+3. **The `rv≥15` column is a wall** — PF falls off in every move row (toxic blow-off), confirming the high-rvol
+   tail is genuinely bad, not merely thin. The deep corner (`move≥25 × rv≥15`, n 121) is noise.
+
+⏳ **Open decision (below):** push the move floor from 10% toward 15–20%. It trades trips for PF — `move≥15`
+roughly halves size (3,678 → 1,994 at rv≥5) for +0.10 post-2015 PF; `move≥20` quarters it (→ 926) for +0.23. The
+prior notch work (25–30% best, 30–40% worst, *which is why the 30% cap exists*) is consistent — within the [0,30]
+window the edge keeps rising toward the cap. **Need your capacity-vs-PF call** before changing `UpThreshold`.
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
