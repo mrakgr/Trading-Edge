@@ -959,6 +959,13 @@ just discards ~20% of trips); dropping both is *worse* in-sample than ATR-alone 
 combine — not because of collinearity but because slope carries no edge. Keep max-ATR% (drop the calmest quintile); drop
 slope from consideration entirely.**
 
+> ⚠️ **SUPERSEDED (2026-06-21, later same day).** This subsection used **two wrong inputs**: (1) the "slope" was an OLS
+> log-price regression slope, NOT the v2 measure (max 14-day return), and (2) PF was **clipped**. Re-run with the *correct*
+> measures (engine log-ATR + max-14d-return) on **raw PF**, **slope is NOT dead** — it is a real, monotone signal, and so
+> is max-ATR%. The "do they combine" answer (they're largely redundant substitutes) still holds, but "slope carries no
+> edge" was an artifact of the wrong measure + clip. See **§ Why the past-runner monotonicity breaks under v3 production**
+> below for the full corrected story.
+
 #### ⭐ SANITY CHECK — the v2 06-20 "Past-runner personality" section, faithfully reproduced (2026-06-21)
 
 Before concluding the clip "kills" the past-runner signal, reproduce the original
@@ -1049,6 +1056,61 @@ things stacked to make it look clear-cut yesterday and they were all removed/ref
 vs clip; **(3) rvol ≥ 5** (sharper) vs rvol ≥ 2 (diluted). The durable truth under the clip is a **bottom-only floor**:
 the calmest quintile is a net loser, cutting *just that* helps; above it, more historical vol plateaus then fades into
 pump-and-revert. It was clear-cut — clear-cut *wrong*, exactly the failure mode the clip exists to catch.
+
+#### ⭐ Why the past-runner monotonicity BREAKS under v3 production — a one-step ablation (2026-06-21)
+
+The above used clip + an OLS slope. Redone with the **correct measures** (engine log-ATR; max-14d-return slope) on **raw
+PF**, **both signals are real and monotone** on the v2-exact population — and the puzzle becomes: *why does that clean
+monotone ladder fall apart on v3 production?* Resolved by ablating v2-exact → v3-production **one filter at a time** and
+watching the max-log-ATR buckets (v2 fixed edges: `<4 / 4-6 / 6-8 / 8-11 / 11-15 / 15+`%). Script:
+[`scripts/equity/pastrunner_ablation.sql`](../scripts/equity/pastrunner_ablation.sql). Raw PF, breadth, ≥ 2005.
+
+| step | change applied | n | 6-8% | 11-15% | 15%+ | monotone? |
+|---|---|---|---|---|---|---|
+| S0 | **v2-exact** (rvol [6,20], no move cap, $5, ATR%<0.11, breadth-only) | 2619 | 1.60 | 2.08 | 2.99 | ✅ |
+| S1 | + 30% move cap | 2277 | 1.78 | 2.30 | 3.56 | ✅ |
+| **S2** | **rvol [6,20] → ≥ 5** | 3498 | **3.26** | 1.91 | 2.65 | ❌ |
+| S6 | + ATR%<0.10, price ≥ $1, intraday gate, **heat** (= full prod) | 2999 | 3.66 | **1.44** | 3.33 | ❌ |
+
+**Two independent culprits, and the move cap is innocent.** S1 (the 30% move cap) keeps it monotone — *sharpens* it, even.
+S2 is where it breaks, and isolating the two halves of the rvol change shows it's the **floor**, not the cap: removing the
+rvol-20 upper cap alone stays monotone (the rvol > 20 tail is a tame 63 trips, PF 2.08); **lowering the floor 6 → 5 alone
+breaks it** (6-8% bucket → 3.36).
+
+**Culprit #1 — the rvol 5-6 cohort spikes a bucket via ONE trade.** Splitting the 6-8%-ATR bucket by rvol:
+
+| 6-8%-ATR cohort | n | win% | max ret | PF | net |
+|---|---|---|---|---|---|
+| rvol ≥ 6 (v2 had these) | 562 | 56.2 | +40% | 1.81 | $96k |
+| **rvol 5-6 (NEW)** | 183 | 53.0 | **+2,368%** | **7.6** | $263k |
+
+The new cohort's PF 7.6 is **one trade** — `SNS`, 2009-12-15, rvol 5.5, **+2,368%** (a post-crash recovery moonshot), worth
+$237k of the cohort's $263k. **Ex that single trade the cohort is PF 1.66** (ex top-3: 1.47) — fully in line with rvol ≥ 6.
+So the "6-8% spike" that breaks the ladder is a **raw-PF concentration artifact** the rvol ≥ 6 floor happened to exclude —
+exactly the contamination the clip was built to catch.
+
+**Culprit #2 — heat hollows out the 11-15% band by removing its WINNERS.** Heat removal rises monotonically with
+ATR-history, but at 11-15% it cuts the *good* trades:
+
+| ATR bucket | % cut by heat | PF of the cut trades |
+|---|---|---|
+| <4% | 11.1 | 1.04 |
+| 8-11% | 33.2 | 1.69 |
+| **11-15%** | **43.4** | **2.94** ← winners removed |
+| 15%+ | 53.7 | 0.98 |
+
+Heat cuts 43% of the 11-15% band, and those cuts are **PF 2.94** — so the band *collapses to 1.44* in production (the good
+trades got filtered out). At 15%+ heat cuts junk (PF 0.98), so it helps there. Restoring rvol ≥ 6 to full production does
+**not** fully fix the dip *because heat is the one still gutting 11-15%* — they are two separate distortions.
+
+**Resolution of the whole confusing thread.** The past-runner signal is genuine and monotone; it "stops working" under v3
+production for **two non-signal reasons**: (1) the lower rvol floor re-admits extreme lottery winners that spike raw-PF
+buckets (raw-PF artifact), and (2) heat removes the genuinely-good winners from the upper-middle volatility band (real
+filter interaction). **Heat and the past-runner signal overlap on the same frothy names** — which is *why* a past-runner
+floor "doesn't combine" with production: heat is already doing part of the same job (removing froth), just imperfectly
+(it over-cuts the profitable 11-15% band). **Strategic note (per the lottery-tail decision):** these top buckets are
+carried by rare huge winners — kept on purpose; on the right side of a bubble that is where the money is, and the +50%
+clip would discard them. The signal lives in the **raw-PF, rvol ≥ 6, un-heat-filtered** population.
 
 ---
 
