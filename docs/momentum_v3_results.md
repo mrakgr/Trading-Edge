@@ -696,6 +696,46 @@ in the extended zone** — both are *breakout-zone* signals that work only at th
 where intraday push and reclaim both mattered) and go silent once a name has run 3%+ past its max close. **Confirmed: you
 can't rescue over-extended names — you can only avoid them (cap `d52`).**
 
+**Are dead-zone trades just names up several days in a row already (a stale, late breakout)? Partly — but extension, not
+streak, is the real axis.** Counting the **pre-entry up-streak** (consecutive up-closes ending at the entry bar) on the
+same population. Script:
+[`scripts/equity/preentry_upstreak_deadzone.sql`](../scripts/equity/preentry_upstreak_deadzone.sql).
+
+| distance from max close | n | mean pre-entry up-streak | % with ≥3 prior up-days |
+|---|---|---|---|
+| < 0 (below high) | 1932 | 2.07 | 30.0 |
+| 0..1% (fresh high) | 487 | 2.01 | 27.7 |
+| 1..3% | 1003 | 2.04 | 27.6 |
+| 3..5% | 1269 | 2.09 | 29.8 |
+| **5%+ (extended)** | 2378 | **2.72** | **49.7** |
+
+The `5%+` extended bucket **is** streak-heavy — half its names had already run ≥3 up-days before entry (vs ~28–30%
+everywhere else), confirming many are late continuations where the real breakout was earlier and the 5–10% entry-day
+move is a stale grind. **But the 2D grid shows extension is the dominant axis, not streak** (PF clip by d52 × pre-entry
+streak):
+
+| d52 band ↓ / pre-entry streak → | 0–1 (fresh) | 2 | 3 | 4+ |
+|---|---|---|---|---|
+| < 1% (at high) | 1.443 | 1.297 | 1.195 | **1.533** |
+| 1..3% | 1.284 | 1.313 | **1.716** | 1.233 |
+| 3..5% | 1.145 | 0.950 | 1.225 | 1.447 |
+| **5%+ extended** | **1.120** | **1.000** | **1.014** | **1.160** |
+
+Read the `5%+` row: it's dead at **every** streak length, *including a fresh 1-day move* (0–1 streak → 1.12). So
+extension kills it regardless of how it got there — it's not "we bought after a multi-day run." Conversely the `<1%`
+at-the-high row is healthy at every streak length (1.44 / 1.30 / 1.20 / 1.53), **long streaks included**. So a long
+pre-entry streak *at a fresh high* is fine; a *short* streak when *already extended* is the dead profile. Pooled, the
+streak axis is even mildly **non-monotone in the GOOD direction** — streak length 1→1.29, 2→1.12, 3→1.18, 4→1.12, but
+**5→1.513 (post-2015 1.856)**: a name up 5+ straight days is in a strong persistent trend and continues (and these
+cluster in the extended zone, which is why it isn't *uniformly* dead).
+
+**Conclusion — the verification passes: we are NOT simply buying multi-day runners.** The dead zone is a genuine
+**extension** effect (d52), not a pre-entry-streak artifact; a long prior streak alone is benign-to-good. So the correct
+discriminator stays the **extension ceiling** (`d52 < ~3%`), *not* a streak cap — a streak filter would be redundant at
+best and would wrongly cut the strong streak-5 trend names. The one genuinely weak combination is **moderately
+extended + short streak** (`3..5%`/`5%+` at streak 2: 0.95 / 1.00) — gapped into extended territory with no trend behind
+it.
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
