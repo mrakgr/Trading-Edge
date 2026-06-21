@@ -306,6 +306,14 @@ These define the current entry/exit and remain in force. Full derivation and era
 - Both built by **`scripts/equity/build_breadth_and_heat.sql`**.
 - **TEST-TICKER GOTCHA (resolved):** NASDAQ test symbols (ZXZZT etc.) have corrupt prices; Polygon does NOT list
   them — fix is a hardcoded blocklist in the build script. The +1000% clip is the backstop for real-ticker glitches.
+  - **The ENGINE needs no blocklist — its INNER JOIN already excludes them (verified 2026-06-21).** `run` in
+    `Backtest.fs` does `JOIN ticker_reference r ON r.ticker = p.ticker WHERE r.type IN ('CS','ADRC')`. Since the
+    test tickers have **no `ticker_reference` row at all**, the inner join drops them automatically. Confirmed:
+    0 test-ticker trips in every dump this session (the 3 `ZY*` names that appear — ZYBT/ZYME/ZYXI — are *real* CS
+    tickers). The explicit `is_test_ticker` blocklist is needed **only** in the breadth/heat builder because that
+    uses a **LEFT** join (and the heat universe is intentionally not CS/ADRC-restricted), so a ref-less test ticker
+    would survive there. Same job, two mechanisms; do **not** remove the engine's CS/ADRC inner join on the
+    assumption the blocklist covers it — it doesn't run in the engine.
 
 ---
 
