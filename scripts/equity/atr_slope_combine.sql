@@ -113,3 +113,41 @@ SELECT dq, COUNT(*) n,
   ROUND(SUM(CASE WHEN ret>0 THEN ret ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),2) pf_raw,
   ROUND(SUM(CASE WHEN ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),2) pf_clip
 FROM d GROUP BY 1 ORDER BY 1;
+
+-- ============================================================================
+-- Two follow-ups to the "why did it look clear-cut yesterday" question:
+-- (A) NO breadth/heat: does the regime filter explain it? NO — same character,
+--     ATR% even flatter clipped (Q1 1.13 -> Q5 1.37), slope still dead (raw Q3
+--     spike 1.72 -> clip 1.27). Rules out regime interaction.
+-- (B) Cumulative FLOOR raw vs clip: yesterday's "monotone, top ~2.7" was the
+--     cumulative-floor + raw combo. Raw rises to 2.70 @ d5; clip is flat/
+--     non-monotone (1.66 -> 1.86 peak -> 1.71). It's a bottom-only floor.
+-- ============================================================================
+-- (A) no breadth/heat
+CREATE OR REPLACE TEMP TABLE bnh AS
+WITH raw AS (SELECT * FROM read_csv_auto('/tmp/v3_510_rvol1.csv') WHERE open=0)
+SELECT (raw.exit_price/raw.entry_price-1.0) ret, m.max_atr6mo, m.slope6mo
+FROM raw JOIN meas m ON m.ticker=raw.symbol AND m.date=raw.entry_date
+WHERE raw.entry_date>=DATE '2005-01-01'
+  AND raw.pct_up_at_entry>=0.10 AND raw.pct_up_at_entry<0.30 AND raw.rvol_at_entry>=2 AND m.nbars>=120;
+SELECT '=== (A) ATR% quintile NO breadth/heat: clip vs raw ===' z;
+WITH d AS (SELECT *, NTILE(5) OVER (ORDER BY max_atr6mo) q FROM bnh)
+SELECT q, COUNT(*) n,
+  ROUND(SUM(CASE WHEN ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),3) pf_clip,
+  ROUND(SUM(CASE WHEN ret>0 THEN ret ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),3) pf_raw
+FROM d GROUP BY 1 ORDER BY 1;
+SELECT '=== (A) SLOPE quintile NO breadth/heat: clip vs raw ===' z;
+WITH d AS (SELECT *, NTILE(5) OVER (ORDER BY slope6mo) q FROM bnh)
+SELECT q, COUNT(*) n,
+  ROUND(SUM(CASE WHEN ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),3) pf_clip,
+  ROUND(SUM(CASE WHEN ret>0 THEN ret ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0),3) pf_raw
+FROM d GROUP BY 1 ORDER BY 1;
+
+-- (B) cumulative floor raw vs clip (reuses b5 = [10,30] rvol>=5)
+SELECT '=== (B) max-ATR% cumulative FLOOR (keep >= decile boundary): raw vs clip ===' z;
+WITH q AS (SELECT quantile_cont(max_atr6mo, [0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]) qs FROM b5)
+SELECT 'floor d'||i g,
+  (SELECT COUNT(*) FROM b5 WHERE max_atr6mo >= (SELECT qs[i+1] FROM q)) n,
+  ROUND((SELECT SUM(CASE WHEN ret>0 THEN ret ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0) FROM b5 WHERE max_atr6mo >= (SELECT qs[i+1] FROM q)),2) pf_raw,
+  ROUND((SELECT SUM(CASE WHEN ret>0 THEN LEAST(ret,0.50) ELSE 0 END)/NULLIF(-SUM(CASE WHEN ret<0 THEN ret ELSE 0 END),0) FROM b5 WHERE max_atr6mo >= (SELECT qs[i+1] FROM q)),2) pf_clip
+FROM range(0,10) t(i) ORDER BY i;

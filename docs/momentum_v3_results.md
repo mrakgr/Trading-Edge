@@ -981,6 +981,27 @@ above is the whole story.)** Net: this **retroactively corrects the deferred "pa
 clip there is no strong monotone floor, only "drop the calmest-base quintile." A clean vindication of the clip
 methodology: it caught a tail-contaminated signal before it became a production filter.
 
+**Why it looked "monotonically rising" yesterday — the cumulative-FLOOR + raw combo.** The 06-20 view was a *cumulative
+floor* (keep max-ATR% ≥ the Nth decile boundary — the natural way to read "use a FLOOR"), which smooths per-bucket noise
+into a clean line, AND it was *raw* PF. Both effects compounded. The cumulative floor, raw vs clip ([10,30] rvol ≥ 5):
+
+| keep max-ATR% ≥ | n | raw PF | clip PF |
+|---|---|---|---|
+| d0 (all) | 3000 | 2.20 | 1.66 |
+| d2 | 2400 | 2.40 | 1.77 |
+| d4 | 1800 | 2.63 | 1.86 |
+| **d5** | 1500 | **2.70** | 1.84 |
+| d6 | 1200 | 2.16 | 1.78 |
+| d9 (top decile) | 300 | 2.65 | 1.71 |
+
+Raw, it rises smoothly to the remembered **2.70 peak at d5** → "monotone, higher is better." Clipped, it barely moves
+(1.66 → 1.86 peak → back to 1.71) and is **non-monotone** — raising the floor past ~the 40th percentile *hurts*. So three
+things stacked to make it look clear-cut yesterday and they were all removed/reframed today: **(1) cumulative-floor view**
+(smooths noise → line) vs per-bucket quintiles (show the hump); **(2) raw PF** (lottery tail rides the high-ATR% cells)
+vs clip; **(3) rvol ≥ 5** (sharper) vs rvol ≥ 2 (diluted). The durable truth under the clip is a **bottom-only floor**:
+the calmest quintile is a net loser, cutting *just that* helps; above it, more historical vol plateaus then fades into
+pump-and-revert. It was clear-cut — clear-cut *wrong*, exactly the failure mode the clip exists to catch.
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
