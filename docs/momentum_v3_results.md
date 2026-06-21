@@ -495,6 +495,34 @@ tail; a 25%+ *intraday* cap would only catch 71 trades and overlaps the 30% day-
 the **moderate-energy-beats-extreme** theme: the ideal entry day gaps up, then drifts calmly higher — it does **not**
 go vertical intraday.
 
+### Path dependency — day-1 direction is MECHANICAL, not predictive; no early-exit rule (2026-06-21)
+
+Entry = close of day 0; hold days 1–5; exit at the **open of the 6th trading day** (`MaxHoldBars = 5`). Asked whether
+day 1 (first held bar) telegraphs the trade. The raw split is enormous — and entirely a trap:
+
+| day 1 | n | full-trade PF clip | clip post |
+|---|--:|--:|--:|
+| **UP** | 2,160 | **5.739** | 6.061 |
+| **DOWN** | 2,033 | **0.460** | 0.390 |
+
+Day-1-up trades show PF 5.7, day-1-down are a money-loser at 0.46, perfectly monotone across bands (day1 < −10% →
+0.075; day1 10%+ → 29.4). **But this is almost entirely MECHANICAL, not predictive:** day-1 return is a *component*
+of the 5-day trade return — an up day-1 has already booked part of the win, a down day-1 has dug a hole. The actionable
+question is whether day-1 weakness predicts the **rest** of the trade going badly (which would justify an early exit).
+It does **not** — the **forward** return (day-1 close → exit) is the same regardless of day-1 direction:
+
+| day 1 | n | FORWARD PF clip | forward mean | forward median |
+|---|--:|--:|--:|--:|
+| UP | 2,160 | 1.428 | +2.25% | +0.03% |
+| DOWN | 2,033 | **1.474** | +1.13% | **+0.25%** |
+
+**Day-1-down trades have the SAME forward edge as day-1-up (PF 1.47 vs 1.43), and a *higher* forward median.** Graded
+forward bands are flat-to-noisy (even day1 < −10% is forward PF 1.175; the −10..−5% band is the *best* at 1.674) — no
+"weakness begets weakness" continuation. **Conclusion: NO early-exit-on-day-1-weakness rule.** It feels right ("cut the
+losers early") but day-1-down trades have positive forward EV (mean +1.1%, median +0.25%) — exiting on day 1 would
+realize the dip and forfeit the bounce. Same lesson as the v2 tight-stop whipsaw: these breakouts need room to shake
+out; a quick stop on early weakness destroys the edge. The 5-day time-stop (hold through) stays.
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
