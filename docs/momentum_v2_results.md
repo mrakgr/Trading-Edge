@@ -2250,6 +2250,46 @@ as the **max-PF / min-drawdown** alternative (PF 1.859, post 1.848).
 **ATR% < 0.11 stays put** — clean interior optimum; tightening it (toward 0.06–0.08) is strictly worse
 (cuts the time-stop-rescued 8–10% band).
 
+**Re-confirmed under the +50% return clip (2026-06-21).** The sweeps above use raw `net_pnl`. Re-ran the
+ceiling sweep on the **production-defaults** trip set (`/tmp/v2_prod.csv`: move[0.10,0.30) / rvol ≥ 5 /
+ATR% < 0.11 / 5d-stop, 5,883 trips, PF 1.774) with **PF computed on per-trade RETURN clipped at +50%** —
+now the standard convention (see the *Winner-clip convention* note in the rvol section). Script:
+[`scripts/equity/tightness_cum_sweep.sql`](../scripts/equity/tightness_cum_sweep.sql). Breadth lag1 > 0.5,
+≥2005, closed trips only.
+
+| tight ceiling | n | mean ret (clip) | **PF clip** | PF raw | clip pre | clip post |
+|---|--:|--:|--:|--:|--:|--:|
+| < 2.5 | 298 | 0.005 | 1.219 | 1.219 | 0.954 | 1.499 |
+| < 3.0 | 1,082 | 0.010 | 1.388 | **2.67** | 1.646 | 1.247 |
+| < 3.5 | 2,047 | 0.012 | 1.447 | 2.122 | 1.649 | 1.338 |
+| < 4.0 | 3,003 | 0.014 | **1.568** | 2.076 | 1.793 | 1.447 |
+| **< 4.5 (default)** | 3,713 | 0.014 | **1.571** | 1.991 | 1.738 | 1.478 |
+
+**The clip changes the read and confirms 4.5.** Two findings:
+1. **The raw PF was a lottery mirage at the tight end.** `tight < 3.0` shows **PF raw 2.67 vs PF clip 1.388** —
+   that bucket's apparent edge was almost entirely a handful of monster winners, not reliable edge. The clip
+   collapses it. The raw column is non-monotone and seductive; **the clipped column is the honest, near-monotone
+   read** and it is the one we now decide on.
+2. **Tighter is NOT better — loosening to the 4.5 ceiling raises clipped PF, it doesn't lower it.** Clip-PF rises
+   1.219 (<2.5) → 1.568 (<4.0) → 1.571 (<4.5). The non-cumulative bands (clipped) pin the source: the **3.5–4.0
+   band is the single best (PF 1.864)**, while **< 2.0 is actually a loser (0.836)** — ultra-tight quiet names
+   don't break out, they just sit. So the froth-side intuition ("tighter = safer = better") is *wrong here*; the
+   edge lives in the moderately-loose 3.5–4.5 zone.
+
+| tightness band (clipped +50%) | n | PF clip | clip post-2015 |
+|---|--:|--:|--:|
+| < 2.0 | 19 | 0.836 | 1.629 |
+| 2.0–2.5 | 279 | 1.248 | 1.488 |
+| 2.5–3.0 | 784 | 1.449 | 1.184 |
+| 3.0–3.5 | 965 | 1.513 | 1.437 |
+| **3.5–4.0** | 956 | **1.864** | **1.712** |
+| 4.0–4.5 | 710 | 1.584 | 1.609 |
+
+`< 4.0` (clip 1.568) and `< 4.5` (clip 1.571) are a **statistical tie on PF** — but 4.5 buys **+710 trips for free**
+(3,003 → 3,713) and its marginal band (4.0–4.5) is healthy (clip 1.584, post 1.609). **There is no case for
+tightening below 4.5** — `< 3.5` would discard the best band (3.5–4.0) and `< 2.5` is barely-edge. `MaxTightness =
+4.5` stands, now confirmed on clipped PF.
+
 ---
 
 #### ⭐ Past-runner personality — a 6-month volatility/momentum HISTORY predicts the next breakout (2026-06-20)
@@ -2756,6 +2796,18 @@ almost respectable (0.86–1.24, an occasional winner drags the mean up); **only
 a mild edge ramp to ~15 + a **toxic tail above 15.** Keep the rvol ≥ 6 floor (it clears the sub-1 junk with
 margin; the ≥5 "improvement" is pre-2015 only) and **add an upper cap ~15.** Mirrors move%: healthy middle,
 bad on both extremes — but for rvol the *lower* bad zone is sub-1, not merely low.
+
+> ### 📐 Winner-clip convention (PROJECT STANDARD as of 2026-06-21)
+> **All PF / mean-return figures are now computed on each trade's RETURN clipped at +50% (`LEAST(ret, 0.50)`);
+> the loss side is left untouched.** PF is mean-driven and therefore hostage to lottery winners — a single
+> buyout pop or +800% runner can hand a bucket a gaudy PF that has nothing to do with its *reliable* edge, and
+> that contamination is exactly what makes bucketed/decile views go non-monotonic. Clipping the upside to a
+> sensible ceiling (+50% is above p99 of qualifying trades — generous) makes PF reflect the *typical* trade in
+> a bucket, which is what a floor/ceiling filter decision actually rests on. **Total P&L is understated by
+> design** (the conservative read); when raw total-$ matters it is reported separately as `PF raw` / `tot`.
+> Corollary discipline (re-confirmed 2026-06-21): **decide on CUMULATIVE views** (`X ≥ thr` / `X < thr`), which
+> are low-variance and monotone; use **non-cumulative bands only diagnostically** to locate where edge changes
+> — their edge-of-range cells are noisy and must not drive a threshold choice on their own.
 
 #### Cumulative rvol floor with RETURN CLIPPING — the high-floor edge is NOT a tail artifact (2026-06-20)
 
