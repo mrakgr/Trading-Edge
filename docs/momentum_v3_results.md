@@ -200,10 +200,14 @@ hard the breakout must announce itself. Joint cumulative grid, each cell = `move
 3. **The `rv≥15` column is a wall** — PF falls off in every move row (toxic blow-off), confirming the high-rvol
    tail is genuinely bad, not merely thin. The deep corner (`move≥25 × rv≥15`, n 121) is noise.
 
-⏳ **Open decision (below):** push the move floor from 10% toward 15–20%. It trades trips for PF — `move≥15`
-roughly halves size (3,678 → 1,994 at rv≥5) for +0.10 post-2015 PF; `move≥20` quarters it (→ 926) for +0.23. The
-prior notch work (25–30% best, 30–40% worst, *which is why the 30% cap exists*) is consistent — within the [0,30]
-window the edge keeps rising toward the cap. **Need your capacity-vs-PF call** before changing `UpThreshold`.
+**✅ DECISION (2026-06-21): KEEP the move floor at 10% (`UpThreshold = 0.10`, unchanged).** Raising it would lift
+PF (`move≥15` → post-2015 1.622, `move≥20` → 1.754) but at a steep capacity cost — `move≥15` roughly halves the
+book (3,678 → 1,994 at rv≥5) and `move≥20` quarters it (→ 926). The 10% floor is the **capacity anchor**; the PF
+gain isn't worth that much lost size while sizing/capacity is unmodeled (the backtest is uncapped, non-compounding,
+so PF-per-trip is the relevant axis only once a real book constrains concurrency). The finding stands as documented
+upside to revisit *after* capital efficiency is modeled — at that point a higher move floor is the first lever to
+pull. The prior notch work (25–30% best, 30–40% worst, *which is why the 30% cap exists*) is consistent: within
+the [0,30] window the edge keeps rising toward the cap.
 
 ---
 
