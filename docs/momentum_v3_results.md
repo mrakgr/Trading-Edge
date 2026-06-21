@@ -915,6 +915,50 @@ system (move ≥ 10%):** it cuts a net-losing quintile the current filters don't
 trailing-126-day rolling-max-of-14-bar-log-ATR computed in-engine; logged here as the next filter to test when that
 plumbing exists, alongside the past-runner ADR%/slope floor.)
 
+### 6mo-max-ATR% × 6mo-slope — they do NOT combine; max-ATR% is the whole signal, slope is dead (2026-06-21)
+
+The two trailing-6mo measures had only been tested in isolation. Do they combine? Population: **production system, rvol
+lowered to 2** — move ∈ [10,30]%, rvol ≥ 2, full production + breadth + heat; 5,862 trips, PF clip 1.476. Script:
+[`scripts/equity/atr_slope_combine.sql`](../scripts/equity/atr_slope_combine.sql).
+
+**Correlation is only moderate (0.543)** — meaningful but far from collinear, so there *was* room for them to carry
+independent information. They don't, because **slope has no standalone edge to begin with.** In isolation:
+
+| quintile | max-ATR% PF / post-2015 | slope PF / post-2015 |
+|---|---|---|
+| Q1 | 1.094 / **0.983** | 1.496 / 1.256 |
+| Q2 | 1.389 / 1.126 | 1.546 / 1.383 |
+| Q3 | 1.629 / 1.836 | 1.491 / 1.511 |
+| Q4 | 1.480 / 1.559 | 1.517 / 1.644 |
+| Q5 | 1.579 / 1.486 | 1.387 / 1.373 |
+
+Max-ATR% shows the familiar calm-base penalty (Q1 net-loser-ish 1.09 / post-2015 0.98, rising to ~1.6); **slope is flat
+across all five quintiles** (1.39–1.55, no gradient; the steepest quintile is if anything the *worst*). The 2D grid (PF
+by ATR% quintile rows × slope quintile cols) confirms slope adds nothing within an ATR% stratum:
+
+| ATR%-q ↓ / slope-q → | s1 | s2 | s3 | s4 | s5 |
+|---|---|---|---|---|---|
+| aq1 | 0.93 | 1.29 | 1.05 | 1.26 | 1.07 |
+| aq2 | 1.78 | 1.31 | 1.19 | 1.44 | 0.98 |
+| aq3 | 2.23 | 1.79 | 1.36 | 1.68 | 1.23 |
+| aq4 | 1.27 | 1.70 | 1.83 | 1.52 | 1.26 |
+| aq5 | 1.80 | 1.88 | 2.01 | 1.47 | 1.48 |
+
+Row averages climb cleanly aq1→aq5 (the ATR% gradient); across-row (slope) it's **non-monotone scatter** — the grid is
+the ATR% signal running vertically with slope-noise horizontally. The combined-gate test seals it:
+
+| gate | n | PF | post-2015 |
+|---|---|---|---|
+| baseline | 5862 | 1.476 | 1.433 |
+| drop ATR Q1 | 4689 | **1.530** | 1.495 |
+| drop slope Q1 | 4689 | 1.472 | 1.471 |
+| drop BOTH Q1 | 3931 | 1.503 | 1.507 |
+
+Dropping the calm-ATR quintile does all the work (1.476 → 1.530); dropping the slope quintile does **nothing** (→ 1.472,
+just discards ~20% of trips); dropping both is *worse* in-sample than ATR-alone (1.503 < 1.530). **Verdict: they don't
+combine — not because of collinearity but because slope carries no edge. Keep max-ATR% (drop the calmest quintile); drop
+slope from consideration entirely.**
+
 ---
 
 ## Active production-defining findings (carried from v2, still live)
