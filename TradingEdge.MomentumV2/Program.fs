@@ -23,6 +23,7 @@ type Args =
     | Expansion_Thr of float
     | Max_Tightness of float
     | Max_Atr_Pct of float
+    | Vol_Window of int
     | Up_Threshold of float
     | Max_Up_Threshold of float
     | Min_Price of float
@@ -71,6 +72,7 @@ type Args =
             | Expansion_Thr _ -> "Expansion-exit threshold on the log-tightness scale (exit when tightness > this). Default +inf (off). Live tightness runs ~1.4–13."
             | Max_Tightness _ -> "Max entry tightness (log scale). Default 5.0. Pass a large value to disable."
             | Max_Atr_Pct _ -> "Max entry ATR%% (log scale). Default 0.11. Pass a large value to disable."
+            | Vol_Window _ -> "Lookback window (bars) for BOTH the ATR%% and tightness measures. Default 14. Sweeps the volatility-base length."
             | Up_Threshold _ -> "Min entry-day move (close/prevClose-1). Default 0.10. The v0/old-system value was 0.05."
             | Max_Up_Threshold _ -> "MAX entry-day move (close/prevClose-1). Default 0.30 — caps the 30%+ single-day blow-off (exhaustion/squeeze/pump that reverts). Pass a large value to disable."
             | Min_Price _ -> "Min entry close price. Default 5.0. Pass 0 to admit sub-$5 names."
@@ -151,6 +153,9 @@ let main argv =
 
     let cfg =
         { defaultConfig with
+            // --vol-window sets BOTH the ATR%% and tightness lookback to the same value.
+            AtrWindow       = parsed.GetResult(Vol_Window, defaultValue = defaultConfig.AtrWindow)
+            TightnessWindow = parsed.GetResult(Vol_Window, defaultValue = defaultConfig.TightnessWindow)
             StopLowWindow = parsed.GetResult(Stop_Low_Window, defaultValue = defaultConfig.StopLowWindow)
             TrailWindow   = parsed.GetResult(Trail_Window,    defaultValue = defaultConfig.TrailWindow)
             ExitTimeCap   = parsed.GetResult(Exit_Time_Cap,   defaultValue = defaultConfig.ExitTimeCap)

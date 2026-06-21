@@ -147,6 +147,40 @@ The axes **reinforce** (no trade-off — moving toward the corner along either a
 joint optimum — nothing to change.** *(Full-sample grid and trip-count grid: see the script output / v2 doc
 equivalents.)*
 
+### Vol-window length (ATR% + tightness lookback) — 14 is well-chosen; 13–18 is a plateau (2026-06-21)
+
+The ATR% and tightness measures share a single lookback, fixed at **14 bars** since inception and never swept.
+Added a `--vol-window` flag (sets BOTH lookbacks) and ran the engine for every window **10→25** (each is a full
+run — the window redefines the measures, so it can't be sub-filtered in SQL; production caps atr%<0.10 / tight<4.5
+re-apply inside each run). Clip +50%, breadth on, ≥2005. Script:
+[`scripts/equity/vol_window_sweep.sql`](../scripts/equity/vol_window_sweep.sql).
+
+| window | n | PF clip | PF raw | clip post | net P&L | | window | n | PF clip | clip post | net P&L |
+|---|--:|--:|--:|--:|--:|---|---|--:|--:|--:|--:|
+| 10 | 5,356 | 1.428 | 1.695 | 1.381 | $1.07M | | 18 | 3,442 | 1.612 | 1.480 | $0.93M |
+| 11 | 5,079 | 1.481 | 1.772 | 1.440 | $1.09M | | 19 | 3,252 | 1.592 | 1.445 | $0.89M |
+| 12 | 4,793 | 1.497 | 1.805 | 1.477 | $1.07M | | 20 | 3,045 | 1.581 | 1.440 | $0.84M |
+| **13** | 4,540 | 1.569 | 1.906 | **1.521** | **$1.10M** | | 21 | 2,845 | 1.577 | 1.440 | $0.82M |
+| **14** | 4,314 | 1.575 | 1.923 | 1.509 | $1.07M | | 22 | 2,649 | 1.582 | 1.464 | $0.78M |
+| 15 | 4,084 | 1.560 | 1.933 | 1.501 | $1.01M | | 23 | 2,483 | 1.629 | 1.505 | $0.79M |
+| 16 | 3,855 | 1.564 | 1.943 | 1.486 | $0.97M | | 24 | 2,324 | 1.641 | 1.516 | $0.65M |
+| 17 | 3,622 | 1.581 | 1.983 | 1.496 | $0.95M | | 25 | 2,160 | 1.672 | 1.519 | $0.64M |
+
+**Findings:**
+1. **Short windows (10–12) are clearly worse** (clip 1.43–1.50) — a 10-bar base is too noisy to capture a real
+   consolidation. Rules out anything below 13.
+2. **13–14 is a local optimum AND the post-2015 peak.** Clip PF jumps 1.497 (w12) → 1.569 (w13) → 1.575 (w14), and
+   **post-2015 PF tops the entire range at w13 (1.521) / w14 (1.509)** while capacity is still healthy (~4,300–4,500
+   trips) and total P&L is at its max ($1.10M / $1.07M).
+3. **The long-end full-sample PF rise (23–25 → 1.63–1.67) is a thinning artifact, not a real edge.** Trips more than
+   halve (4,540 @ w13 → 2,160 @ w25) and **net P&L falls steadily** ($1.10M → $0.64M) even as PF climbs — the classic
+   "stricter filter keeps only the easy trades" pattern. Post-2015 PF also *dips* through 19–21 (1.44) before the
+   thin recovery, so it's not a clean monotone improvement.
+
+**Verdict: 14 is well-chosen — it sits at the front of the 13–18 plateau where post-2015 PF is best and capacity is
+full.** If anything **w=13 marginally edges w=14** (same full-sample clip PF within noise, but higher post-2015
+1.521 vs 1.509, +226 trips, +$33k). ⏳ *Open: keep 14, or nudge to 13?*
+
 ### 2D joint FLOOR — entry-day move% × rvol: both floors reinforce; the move floor may be too LOW (2026-06-21)
 
 The volatility *ceilings* (tightness, ATR%) define which bases qualify; the move% and rvol *floors* define how
