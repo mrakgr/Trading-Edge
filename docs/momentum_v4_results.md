@@ -169,9 +169,55 @@ proxy "small, frothy, in-a-healthy-tape."
 
 ---
 
+## ⭐ FINDING — low-float names do NOT earn a higher move cap; 30% is correct for them too (2026-06-22)
+
+Hypothesis (user): a 30% day on a $100M-float name is a normal day, not a blow-off, so maybe low-float
+stocks reward (or at least tolerate) the 30%+ moves that the general population can't — i.e. the move cap
+should be float-dependent. Tested by lifting the engine's upper move cap (`--max-up-threshold 100`,
+band → [10%, ∞), 7,137 trips, engine PF 1.589) and crossing move band × `float_usd_at_entry`, full
+production population (breadth + heat + rvol≥5), +50% clip.
+
+The general population confirms the cap: PF falls off a cliff above 30% — 10–30% 1.75 → 30–50% 1.15 →
+50–80% 0.92 → 80%+ 0.45. The blow-off reverts.
+
+Move band × float (covered only):
+
+| move band | LOW < $300M | HIGH ≥ $300M |
+| --------- | ----------- | ------------ |
+| 10–30%    | PF **2.47** (win 60%) | 1.36 |
+| 30–50%    | PF 1.54 (win 54%)     | 0.66 (net loser) |
+| 50–80%    | 0.81        | 2.35¹        |
+| 80%+      | 0.73        | 0.73         |
+
+¹ n=32, noise — ignore. The 30–50% low-float cell (1.54) looked like a shelf, so we swept the cap
+**cumulatively** for low-float only — and it is **NOT** real:
+
+| keep low-float move < | n | PF clip |
+| --------------------- | --- | ------- |
+| 30% (current cap)     | 495 | **2.47** |
+| 40%                   | 536 | 2.25    |
+| 50%                   | 558 | 2.30    |
+| 60%                   | 573 | 2.15    |
+| no cap                | 615 | 1.93    |
+
+**Extending the cap monotonically DEGRADES PF even for low-float.** 30% is the best; every extension
+lowers it. The fine marginal bands show the 30–50% "shelf" was two opposing tiny cells: 30–40% is a
+*loser* (PF 0.85, n=41), 40–50% a flukey winner (PF 3.07, n=**22**, win 73% — one or two trades, not a
+shelf); 50–70% 0.95, 70%+ 0.69. All dead, all thin.
+
+**Conclusion: NO — low-float stocks do not earn a higher move ceiling. The 30% cap is correct for them
+too.** Their advantage is entirely *within* the [10,30%] band (PF 2.47 vs 1.36 high-float), not in
+tolerating bigger moves; a 35%+ single-day move is an exhaustion blow-off **regardless of float**. This
+is the *useful* outcome: float and the move-cap are **independent levers that do not interact** — keep
+the 30% cap, stack the low-float tilt inside it. (Contrast with the breadth/heat overlap finding above,
+where float DID overlap the regime gates.) Script `scripts/equity/move_x_float.sql`.
+
+---
+
 ## Open experiments (v4 queue)
 
-- Float × max-log-ATR overlap (regenerate trips at `--min-max-atr-log 0`) — expected to show similar
-  redundancy per the finding above.
+- Float × max-log-ATR overlap (regenerate trips at `--min-max-atr-log 0`) — user doubts they overlap.
+- Float × rvol interaction grid.
+- Engine wiring of the low-float tilt / filter (decide modest incremental value vs data dependency).
 - Float × rvol and float × move interaction grids.
 - Engine wiring of the float filter / sizing tilt.
