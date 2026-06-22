@@ -1230,6 +1230,64 @@ snapshotted pre-push (no lookahead). Unfiltered-engine headline **PF 1.851 → 1
 
 ---
 
+#### ⭐ FLOAT breakdown — small dollar-float (< $300M at entry) is a clean +0.5 PF edge (2026-06-22)
+
+New structural feature: **public float**, from SEC `dei:EntityPublicFloat` (the 10-K cover-page USD
+market value of non-affiliate shares). Downloaded via SEC's bulk XBRL **frames API** (one CIK-keyed
+call per period; 2009→2026 = 70 frames / 46s) into `data/equity/float/float.db` (`float_sec`). The
+ticker→CIK bridge for delisted names — where momentum runners end up — was the hard part: SEC/edgar
+ticker maps cover only ~46% of our cumulative universe, so the rest were recovered via Polygon
+ticker-details queried with a `?date=` inside each ticker's listing window (96.9% of CS+ADRC resolved
+to a CIK; see `scripts/equity/resolve_cik.py`, `download_float.py`).
+
+**The conversion matters (per user).** `EntityPublicFloat` is a *dollar* value anchored to the close on
+the issuer's 2nd-fiscal-quarter-end (`period_end`). A raw dollar float conflates company *size* with
+float-*tightness* and is anchored to a stale price. So we convert to a **share count** and re-anchor to
+the entry-day price: `float_usd_at_entry = float_usd × adj_close[entry] / adj_close[period_end]`. (A
+1M-share float is $1M behind a $1 stock but $100M behind a $100 stock — bucket on the entry-anchored
+dollar value.) This is **split-safe in adjusted space** — the split adjustment factor cancels in the
+ratio (verified on SMCI across its 2024 10:1 split: raw-consistent and adj-consistent both give the
+same $54.2B entry float). No-lookahead via ASOF join on `known_date = period_end + 90d` (the 10-K
+filing deadline) ≤ `entry_date`. Script: `scripts/equity/float_breakdown.sql`.
+
+Population: v3 production trips (PF 1.922) + breadth + heat + ≥2005, **+50% clip**. Coverage is 47.5%
+overall but that's a **pre-2010 artifact** (XBRL float reporting didn't exist): pre-2010 is 5/659
+covered, **2013+ is 1101/1465 = 75% covered**. The edge below is shown on both windows.
+
+Per-bucket PF by `float_usd_at_entry` (full sample, diagnostic):
+
+| float$ at entry | n | win% | PF (clip) | post-2015 |
+| --------------- | --- | ---- | --------- | --------- |
+| < $50M          | 80  | 60.0 | 2.50      | 2.13      |
+| $50–150M        | 224 | 59.4 | 2.29      | 1.98      |
+| $150–300M       | 191 | 59.7 | 2.72      | 2.99      |
+| $300–750M       | 247 | 54.3 | 1.35      | 1.49      |
+| $750M–2B        | 263 | 52.1 | 1.27      | 1.09      |
+| > $2B           | 241 | 54.8 | 1.49      | 1.58      |
+
+Cumulative CEILING (the decision lens) — keep float below N:
+
+| keep float < | trips | % covered | PF (clip) | post-2015 | 2013+ era |
+| ------------ | ----- | --------- | --------- | --------- | --------- |
+| < $150M      | 304   | 24.4      | 2.36      | 2.03      | 2.05      |
+| < $300M      | 495   | 39.7      | **2.47**  | 2.26      | **2.32**  |
+| < $750M      | 742   | 59.6      | 2.13      | 2.07      | 2.04      |
+| (all covered)| 1246  | 100       | 1.87      | —         | 1.81      |
+| float ≥ $750M| 504   | 40.4      | 1.37      | 1.30      | —         |
+
+**Read:** the edge is **monotone and sharp** — `float < $300M at entry → PF ~2.4–2.5` vs ~1.8 covered
+baseline, and **big float (≥ $750M) is the drag at PF ~1.37**. This is NOT the lottery-tail problem: it
+survives the +50% clip, **win rate RISES** in the low buckets (57–60% vs 52% for big float), and it
+holds in the modern 2013+ window (PF 2.32 at < $300M). The `no-data` bucket is benign — 2013+ no-data
+is PF 1.88 / win 57%, i.e. average, so a float filter wouldn't be dumping a profitable cohort silently.
+
+**Status: NOT yet wired into the engine.** Float lives in a separate DB and needs an engine join +
+the >75%-only-modern coverage caveat thought through (how to treat pre-2013 / no-data trips in a live
+filter). Strong candidate for a production filter (`float_usd_at_entry < ~$300M`) or a sizing tilt.
+Consistent with the recurring theme — small, tight, controlled-conviction names are HighFlyer's edge.
+
+---
+
 ## Active production-defining findings (carried from v2, still live)
 
 These define the current entry/exit and remain in force. Full derivation and era-split tables are in
