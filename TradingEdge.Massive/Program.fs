@@ -85,7 +85,7 @@ type DownloadSplitsArgs =
     interface IArgParserTemplate with
         member this.Usage =
             match this with
-            | Start_Date _ -> "Start date (yyyy-MM-dd). Default: 5 years ago"
+            | Start_Date _ -> "Start date (yyyy-MM-dd). Default: 2003-01-01 (full universe — splits aren't 5yr-gated)"
             | End_Date _ -> "End date (yyyy-MM-dd). Default: none (all future)"
 
 type DownloadDividendsArgs =
@@ -95,7 +95,7 @@ type DownloadDividendsArgs =
     interface IArgParserTemplate with
         member this.Usage =
             match this with
-            | Start_Date _ -> "Start date (yyyy-MM-dd). Default: 5 years ago"
+            | Start_Date _ -> "Start date (yyyy-MM-dd). Default: 2003-01-01 (full universe — dividends aren't 5yr-gated)"
             | End_Date _ -> "End date (yyyy-MM-dd). Default: none (all future)"
 
 type IngestDataArgs =
@@ -541,7 +541,10 @@ let private handleDownloadSplits (config: MassiveConfig) (args: ParseResults<Dow
     let startDate =
         args.TryGetResult DownloadSplitsArgs.Start_Date
         |> Option.map DateTime.Parse
-        |> Option.defaultValue (DateTime.Now.AddYears(-5))
+        // Splits are a reference endpoint, NOT gated by the 5yr aggregate limit — default to the
+        // full universe (Polygon's history starts ~2003). split_adjusted_prices needs ALL splits;
+        // a 5yr default silently truncates pre-2021 adjustment factors and corrupts old prices.
+        |> Option.defaultValue (DateTime(2003, 1, 1))
 
     let endDate =
         args.TryGetResult DownloadSplitsArgs.End_Date
@@ -584,7 +587,9 @@ let private handleDownloadDividends (config: MassiveConfig) (args: ParseResults<
     let startDate =
         args.TryGetResult DownloadDividendsArgs.Start_Date
         |> Option.map DateTime.Parse
-        |> Option.defaultValue (DateTime.Now.AddYears(-5))
+        // Dividends are a reference endpoint, NOT gated by the 5yr aggregate limit — default to the
+        // full universe (Polygon's history starts ~2003). split_adjusted_prices needs ALL dividends.
+        |> Option.defaultValue (DateTime(2003, 1, 1))
 
     let endDate =
         args.TryGetResult DownloadDividendsArgs.End_Date
