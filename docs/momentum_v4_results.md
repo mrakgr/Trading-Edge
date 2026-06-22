@@ -214,6 +214,38 @@ where float DID overlap the regime gates.) Script `scripts/equity/move_x_float.s
 
 ---
 
+## ❌ NEGATIVE — smoothing the breadth gate (MA5/MA10) does NOT beat raw lag-1 (2026-06-22)
+
+The raw daily breadth series (`pct_above_20`) whips across the 0.5 gate ~40% of adjacent days in chop
+zones (visible eyeballing 5 months of it), so the hypothesis was that a moving-average gate would be a
+more stable, better-backtesting regime filter. **Tested and rejected.** All MAs end at lag-1 (window
+`[t-w, t-1]`) — no lookahead. Population: refreshed production trips (PF 1.828 post data-refresh) +
+heat + ≥2005; +50% clip. Gate is the only variable.
+
+| gate | trips | PF clip | post-2015 |
+| ---- | ----- | ------- | --------- |
+| **raw lag-1 > 0.50 (CURRENT)** | 2689 | **1.763** | 1.74 |
+| no gate (heat only)            | 4165 | 1.652 | 1.692 |
+| ma5 > 0.50                     | 2699 | 1.724 | 1.662 |
+| ma10 > 0.50                    | 2812 | 1.729 | 1.669 |
+| raw lag-1 > 0.55               | 2285 | 1.708 | 1.691 |
+| ma10 > 0.55                    | 2343 | 1.813 | 1.858 |
+| raw lag-1 > 0.60               | 1871 | 1.730 | 1.719 |
+| ma10 > 0.60                    | 1796 | 1.739 | 1.889 |
+
+**Read:** at the matched 0.50 threshold raw (1.763) *beats* both MAs (1.724/1.729) — smoothing slightly
+LOWERS PF, opposite of the hypothesis. The only cell that beats baseline is `ma10 > 0.55` (1.813), and
+head-to-head it does beat `raw > 0.55` (1.708) at the same threshold — but it's a single non-monotone
+cell out of ~10 tried (raw wins at 0.50, tie at 0.60, ma10 only at 0.55), the classic shape of a
+multiple-comparison artifact. **Decision: keep the production gate as raw lag-1 > 0.50; do NOT smooth.**
+
+What the test DID confirm (both useful): (1) the breadth gate earns its keep — no-gate 1.652 → gated
+~1.76, a real ~+0.1 PF filter. (2) the edge is **robust to the gate's exact form** (raw vs smoothed,
+0.50–0.60 all land ~1.71–1.81) — reassuring for live trading: no need to agonize over whether breadth
+prints 0.49 or 0.52 on a given day. Script `scripts/equity/breadth_gate_smoothing.sql`.
+
+---
+
 ## Open experiments (v4 queue)
 
 - Float × max-log-ATR overlap (regenerate trips at `--min-max-atr-log 0`) — user doubts they overlap.
