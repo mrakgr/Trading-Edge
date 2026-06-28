@@ -34,4 +34,3 @@ logs/*
 .tmp/
 *.csproj.lscache
 Trading-Edge.code-workspace
-tapesim
