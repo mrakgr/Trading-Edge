@@ -267,7 +267,7 @@ by default in v0 from this point on.
   it's a v1 idea.
 - **Crypto Lake order-book features** for the 24-symbol Tier-A subset. The
   pipeline is documented in
-  [crypto_lake_orderbook_pipeline.md](crypto_lake_orderbook_pipeline.md);
+  [crypto_lake_orderbook_pipeline.md](archive/crypto_lake_orderbook_pipeline.md);
   decision to subscribe is gated on whether v0 trades-only results justify
   the spend. They do, marginally — but order-book features are the kind of
   upgrade that wants a working baseline first.

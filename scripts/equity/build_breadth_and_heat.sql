@@ -1,7 +1,7 @@
 -- =============================================================================
 -- Momentum V2 regime filters — BREADTH and HEAT builders (2026-06-20)
 -- =============================================================================
--- DOCS: explained in docs/momentum_v2_results.md — sections
+-- DOCS: explained in docs/momentum_results.md (§ v2) — sections
 --   "Breadth (pct_above_20) cumulative floor ..." and
 --   "Top-gainer HEAT ..." (rationale, sweeps, thresholds, era splits).
 -- =============================================================================

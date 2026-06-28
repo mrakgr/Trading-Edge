@@ -1,5 +1,5 @@
 -- SANITY CHECK: faithfully reproduce the v2 06-20 "Past-runner personality" section
--- (docs/momentum_v2_results.md) with the EXACT original measures, buckets, population,
+-- (docs/momentum_results.md (§ v2)) with the EXACT original measures, buckets, population,
 -- and RAW PF — then add the +50% CLIP column to show the top-bucket collapse.
 --
 -- THREE MEASURES (trailing 126 trading days = 6mo, LAGGED 1 bar = signal bar excluded,

@@ -1,7 +1,7 @@
 -- REPRODUCE the original v2 dead-zone reclaim>gap-over result, then run the
 -- intraday-return controlling test on the SAME population.
 --
--- The original (docs/momentum_v2_results.md, 2026-06-18): in the 0-10%-above-
+-- The original (docs/momentum_results.md (§ v2), 2026-06-18): in the 0-10%-above-
 -- 52w-intraday-high DEAD ZONE, RECLAIM (open below the prior high, close above)
 -- beat GAP-OVER (open >= high): PF 1.43 vs 1.09, ~2244 trips, reclaim carried
 -- nearly all the P&L. This ONLY reproduces on the "PURE GAINERS" population:

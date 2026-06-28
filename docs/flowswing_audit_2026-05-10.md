@@ -214,7 +214,7 @@ Output CSV has the original FlowSwing columns plus 16 limit-fill columns: `targe
 
 ## 2D PF surface — price_decline × ratio_at_entry
 
-For dynamic-sizing in a live system. Same template as the DonchianScalp 2D table in [docs/donchian_fade_v0_results.md](donchian_fade_v0_results.md), but on FlowSwing's two natural signal axes:
+For dynamic-sizing in a live system. Same template as the DonchianScalp 2D table in [docs/donchian_fade_v0_results.md](archive/donchian_fade_v0_results.md), but on FlowSwing's two natural signal axes:
 
 - **`price_decline`** = `abs(price_rise_at_entry)` × 100 — % decline from the trailing 72h MA at entry. Engine's `pd=14%` floor means all trips are at least 14%.
 - **`ratio_at_entry`** = the rvol-weighted CVD signal magnitude. Engine's `rvol≥0.75` floor means all trips have ratio ≥ 0.75.
