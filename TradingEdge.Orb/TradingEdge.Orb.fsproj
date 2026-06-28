@@ -1,20 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
+  <!-- Reduced to a small trade-data helper library: Eastern-timezone conversion
+       (Timezone) + lit-only trade-condition SQL/row filters (TradeFilters), used
+       by TradingEdge.Massive. The ORB / 10s-bar / binary-tape lineage that used to
+       live here (TradeLoader, TradeBinary, Convert, Pipeline, the Program CLI) was
+       retired with the ORB study; see the cleanup commits. -->
   <ItemGroup>
     <Compile Include="Timezone.fs" />
     <Compile Include="TradeFilters.fs" />
-    <Compile Include="TradeLoader.fs" />
-    <Compile Include="TradeBinary.fs" />
-    <Compile Include="Convert.fs" />
-    <Compile Include="Pipeline.fs" />
-    <Compile Include="Program.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Argu" Version="6.2.5" />
-    <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.4" />
-    <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
   </ItemGroup>
 </Project>
