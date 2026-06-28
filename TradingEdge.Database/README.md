@@ -125,16 +125,6 @@ dotnet run --project TradingEdge.Database -- build-minute-bars [options]
 
 Idempotent — re-runs skip dates whose output already exists unless `--force`.
 
-### convert-trades-to-parquet — one-shot legacy migration
-
-Converts pre-existing `data/trades/{ticker}/{date}.json` to Parquet in place and deletes
-each JSON on success. Idempotent. Only needed once for legacy data; new downloads already
-write Parquet.
-
-```bash
-dotnet run --project TradingEdge.Database -- convert-trades-to-parquet [-i <input-dir>]
-```
-
 ## Project structure
 
 ```

@@ -250,14 +250,6 @@ type IngestIntradayArgs =
             | Input_Dir _ -> "Input directory for intraday data (default: data/intraday)"
             | Timespan _ -> "Filter by timespan: 'minute', 'second', or 'all' (default: all)"
 
-type ConvertTradesToParquetArgs =
-    | [<AltCommandLine("-i")>] Input_Dir of string
-
-    interface IArgParserTemplate with
-        member this.Usage =
-            match this with
-            | Input_Dir _ -> "Directory containing ticker subfolders with .json trades (default: data/trades)"
-
 type BuildMinuteBarsArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
     | [<AltCommandLine("-e")>] End_Date of string
@@ -291,7 +283,6 @@ type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Ingest_Intraday of ParseResults<IngestIntradayArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Tickers of ParseResults<DownloadTickersArgs>
     | [<CliPrefix(CliPrefix.None)>] Refresh_Views of ParseResults<RefreshViewsArgs>
-    | [<CliPrefix(CliPrefix.None)>] Convert_Trades_To_Parquet of ParseResults<ConvertTradesToParquetArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Minute_Bars of ParseResults<BuildMinuteBarsArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Ticker_Events of ParseResults<DownloadTickerEventsArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Ticker_Events of ParseResults<IngestTickerEventsArgs>
@@ -313,7 +304,6 @@ type Arguments =
             | Ingest_Intraday _ -> "Ingest intraday data into DuckDB database"
             | Download_Tickers _ -> "Download ETF/ETN ticker reference data from Polygon"
             | Refresh_Views _ -> "Refresh views only (fast, no table rematerialization)"
-            | Convert_Trades_To_Parquet _ -> "One-shot migration: convert data/trades/*/*.json to zstd-compressed Parquet and delete the JSON originals"
             | Build_Minute_Bars _ -> "Build 1m time-bar aggregates from bulk trades (lit-only, 04:00-20:00 ET, 960 buckets/day)"
             | Download_Ticker_Events _ -> "Download ticker rename/event chains from Polygon /vX/reference/tickers/{ticker}/events"
             | Ingest_Ticker_Events _ -> "Flatten data/tickers/events/*.json -> data/tickers/events.parquet -> ticker_events table"
@@ -1102,103 +1092,6 @@ let private handleIngestIntraday (args: ParseResults<IngestIntradayArgs>) =
 /// TO Parquet path, which is the fastest JSON->Parquet pipeline available
 /// and sidesteps .NET's 2GB string limit on the large files (e.g. BATL,
 /// BYND) that wouldn't round-trip through System.Text.Json.
-let private handleConvertTradesToParquet (args: ParseResults<ConvertTradesToParquetArgs>) =
-    let inputDir =
-        args.TryGetResult ConvertTradesToParquetArgs.Input_Dir
-        |> Option.defaultValue "data/trades"
-
-    if not (Directory.Exists inputDir) then
-        printfn "Directory not found: %s" inputDir
-    else
-        let jsonFiles =
-            Directory.EnumerateFiles(inputDir, "*.json", SearchOption.AllDirectories)
-            |> Seq.sort
-            |> Seq.toArray
-        let total = jsonFiles.Length
-        printfn "Found %d .json files under %s" total (Path.GetFullPath inputDir)
-        if total = 0 then
-            printfn "Nothing to convert."
-        else
-            use connection = new DuckDB.NET.Data.DuckDBConnection("Data Source=:memory:")
-            connection.Open()
-
-            let mutable converted = 0
-            let mutable skipped = 0
-            let mutable failed = 0
-            let mutable bytesBefore = 0L
-            let mutable bytesAfter = 0L
-
-            for i in 0 .. total - 1 do
-                let jsonPath = jsonFiles.[i]
-                let parquetPath = Path.ChangeExtension(jsonPath, ".parquet")
-
-                if File.Exists parquetPath then
-                    skipped <- skipped + 1
-                    printfn "[%d/%d] SKIP  %s (parquet already exists)" (i + 1) total jsonPath
-                else
-                    try
-                        let jsonSize = (FileInfo jsonPath).Length
-                        // DuckDB string literals: escape single quotes by
-                        // doubling. Paths must use forward slashes regardless
-                        // of platform for DuckDB's globbing path resolver.
-                        let escape (p: string) = p.Replace('\\', '/').Replace("'", "''")
-                        let jsonEsc = escape jsonPath
-                        let parquetEsc = escape parquetPath
-
-                        // Cast size/conditions so the resulting Parquet has
-                        // the exact same schema as files produced by the
-                        // live download path (TradesDownload.writeTradesToParquet).
-                        // Mixed schemas would break F# readers that do
-                        // GetDouble on a BIGINT column.
-                        use cmd = connection.CreateCommand()
-                        cmd.CommandText <-
-                            sprintf
-                                "COPY (
-                                    SELECT
-                                        CAST(participant_timestamp AS BIGINT) AS participant_timestamp,
-                                        CAST(sip_timestamp AS BIGINT) AS sip_timestamp,
-                                        CAST(price AS DOUBLE) AS price,
-                                        CAST(size AS DOUBLE) AS size,
-                                        CAST(conditions AS INTEGER[]) AS conditions
-                                    FROM read_json('%s')
-                                 ) TO '%s' (FORMAT PARQUET, COMPRESSION 'zstd', COMPRESSION_LEVEL 3)"
-                                jsonEsc parquetEsc
-                        cmd.ExecuteNonQuery() |> ignore
-
-                        let parquetSize = (FileInfo parquetPath).Length
-                        bytesBefore <- bytesBefore + jsonSize
-                        bytesAfter <- bytesAfter + parquetSize
-
-                        File.Delete jsonPath
-                        converted <- converted + 1
-
-                        let ratio =
-                            if jsonSize > 0L then
-                                100.0 * float parquetSize / float jsonSize
-                            else 0.0
-                        printfn
-                            "[%d/%d] CONV  %s  (%s -> %s, %.1f%%)"
-                            (i + 1) total jsonPath
-                            (sprintf "%.1f MB" (float jsonSize / 1024.0 / 1024.0))
-                            (sprintf "%.1f MB" (float parquetSize / 1024.0 / 1024.0))
-                            ratio
-                    with ex ->
-                        failed <- failed + 1
-                        printfn "[%d/%d] FAIL  %s: %s" (i + 1) total jsonPath ex.Message
-                        // Clean up any half-written Parquet so re-runs retry.
-                        if File.Exists parquetPath then
-                            try File.Delete parquetPath with _ -> ()
-
-            printfn ""
-            printfn "Convert complete: %d converted, %d skipped, %d failed" converted skipped failed
-            if converted > 0 then
-                let ratio = 100.0 * float bytesAfter / float bytesBefore
-                printfn
-                    "Size: %.2f GB -> %.2f GB (%.1f%% of original)"
-                    (float bytesBefore / 1024.0 / 1024.0 / 1024.0)
-                    (float bytesAfter / 1024.0 / 1024.0 / 1024.0)
-                    ratio
-
 let private handleBuildMinuteBars (args: ParseResults<BuildMinuteBarsArgs>) =
     let defaults = MinuteBarsBuild.defaultOptions ()
     let opts : MinuteBarsBuild.BuildOptions = {
@@ -1261,8 +1154,6 @@ let main argv =
             | Download_Tickers args ->
                 let config = loadConfigOrFail configPath
                 handleDownloadTickers config args
-            | Convert_Trades_To_Parquet args ->
-                handleConvertTradesToParquet args
             | Build_Minute_Bars args ->
                 handleBuildMinuteBars args
             | Download_Ticker_Events args ->
