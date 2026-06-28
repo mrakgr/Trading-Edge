@@ -43,16 +43,15 @@ sql/schema/
 │   ├── ticker_events.sql
 │   ├── intraday_prices_minute.sql
 │   └── intraday_prices_second.sql
-└── materialized/                    # derived tables (slow; rebuilt on ingest-data)
-    ├── 01_split_adjusted_prices.sql   # split + dividend adjusted (the heavily-used one)
-    └── 02_trading_calendar.sql
+└── materialized/                    # derived tables (rebuilt on ingest-data)
+    └── 01_split_adjusted_prices.sql   # split + dividend adjusted (the only live derived table)
 ```
 
-> The `materialized/` set was deliberately trimmed to these two (the only live derived
-> tables). The old `session_*`, `premarket_volume_daily`, `structure_levels`,
-> `stock_volume_4w` tables and the `gap_play` / `continuation_plays` views belonged to the
-> retired ORB / gap-up research lineage and were removed — they made `ingest-data` slow
-> (one full-scanned 13 GB of 10s parquets) for no current reader.
+> `split_adjusted_prices` is the sole materialized table. The old `session_*`,
+> `premarket_volume_daily`, `structure_levels`, `stock_volume_4w`, `trading_calendar`
+> tables and the `gap_play` / `continuation_plays` views belonged to the retired ORB /
+> gap-up research lineage and were removed — they made `ingest-data` slow (one
+> full-scanned 13 GB of 10s parquets) for no current reader.
 
 ## Database commands
 
@@ -72,7 +71,7 @@ dotnet run --project TradingEdge.Database -- ingest-data [options]
 - `--tickers-file <path>` (default `data/tickers.csv`)
 
 Uses DuckDB's native CSV reader for fast bulk load; upserts splits/dividends/tickers; then
-builds `split_adjusted_prices` + `trading_calendar`.
+builds `split_adjusted_prices`.
 
 ### ingest-intraday — load per-ticker intraday JSON
 
