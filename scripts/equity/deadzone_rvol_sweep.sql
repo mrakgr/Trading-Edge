@@ -5,7 +5,7 @@
 -- Population: [5,10]% move, rvol>=1, full production (ATR%<0.10, tight<4.5, price>=1,
 --   52w>=0.95, -0.07 intraday gate, 5d stop) + breadth lag1>0.5 + heat h10<0.25.
 -- Input: /tmp/v3_510_rvol1.csv  (regen: dotnet run -c Release --project
---   TradingEdge.MomentumV2 -- --up-threshold 0.05 --rvol-min 1 --out /tmp/v3_510_rvol1.csv)
+--   TradingEdge.HighFlyer -- --up-threshold 0.05 --rvol-min 1 --out /tmp/v3_510_rvol1.csv)
 -- d52 = pct_52w_at_entry. PF clip +50%. >=2005, closed.
 -- Run: duckdb -readonly data/trading.db < scripts/equity/deadzone_rvol_sweep.sql
 

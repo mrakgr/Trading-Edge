@@ -10,7 +10,7 @@
 --
 -- Population: v2-exact (rvol[6,20], no move cap, $5, ATR%<0.11, breadth-only, >=2005),
 -- the population where the past-runner ladder is clean & monotone. RAW PF.
--- Regen CSV: dotnet run -c Release --project TradingEdge.MomentumV2 -- \
+-- Regen CSV: dotnet run -c Release --project TradingEdge.HighFlyer -- \
 --   --up-threshold 0.10 --max-up-threshold 100 --rvol-min 6 --rvol-max 20 \
 --   --min-price 5 --max-tightness 4.5 --max-atr-pct 0.11 --min-intraday-ret -10 \
 --   --out /tmp/v2exact.csv

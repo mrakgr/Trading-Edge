@@ -1,7 +1,7 @@
 -- 2D CUMULATIVE ceiling grid: tightness < T  AND  atr% < A  (joint ceiling).
 -- Each cell = PF (clipped +50%) over all trades below BOTH ceilings.
 -- Input: the wide dump with both gates opened (~9,090 trips):
---   dotnet run -c Release --project TradingEdge.MomentumV2 -- \
+--   dotnet run -c Release --project TradingEdge.HighFlyer -- \
 --     --out /tmp/v2_wide_tight_atr.csv --max-tightness 1000 --max-atr-pct 1000
 -- Run: duckdb -readonly data/trading.db < scripts/equity/tightness_atr_2d_sweep.sql
 --

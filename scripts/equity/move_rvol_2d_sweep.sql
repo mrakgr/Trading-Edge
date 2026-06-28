@@ -2,7 +2,7 @@
 -- Each cell = PF (clipped +50%) over all trades with move >= M AND move < 0.30 AND rvol >= R.
 --   move% range [0, 30] (the 30% blow-off cap is always on); rvol range [1, inf).
 -- Input: wide dump with the move + rvol gates opened (rest production: tight<4.5, atr%<0.10):
---   dotnet run -c Release --project TradingEdge.MomentumV2 -- --out /tmp/v3_wide_move_rvol.csv \
+--   dotnet run -c Release --project TradingEdge.HighFlyer -- --out /tmp/v3_wide_move_rvol.csv \
 --     --up-threshold 0.0 --max-up-threshold 1000 --rvol-min 0 --rvol-max 100000
 -- Run: duckdb -readonly data/trading.db < scripts/equity/move_rvol_2d_sweep.sql
 --

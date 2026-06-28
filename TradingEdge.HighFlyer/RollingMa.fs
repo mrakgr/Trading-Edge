@@ -1,4 +1,4 @@
-module TradingEdge.MomentumV2.RollingMa
+module TradingEdge.HighFlyer.RollingMa
 
 open System
 open System.Collections.Generic

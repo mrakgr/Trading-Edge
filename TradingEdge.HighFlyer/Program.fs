@@ -1,13 +1,13 @@
-module TradingEdge.MomentumV2.Program
+module TradingEdge.HighFlyer.Program
 
 open System
 open System.Diagnostics
 open Argu
-open TradingEdge.MomentumV2.Types
-open TradingEdge.MomentumV2.Backtest
+open TradingEdge.HighFlyer.Types
+open TradingEdge.HighFlyer.Backtest
 
 let private defaultDb = "/home/mrakgr/Trading-Edge/data/trading.db"
-let private defaultCsv = "/tmp/momentum_v2_trips.csv"
+let private defaultCsv = "/tmp/highflyer_trips.csv"
 
 type Args =
     | [<AltCommandLine("-d")>] Db_Path of string
@@ -64,7 +64,7 @@ type Args =
             | Db_Path _ -> "Path to trading.db (DuckDB). Default: the shared data/trading.db."
             | Start_Date _ -> "Backtest start date (yyyy-MM-dd). Default 2005-01-01."
             | End_Date _ -> "Backtest end date (yyyy-MM-dd). Default 2026-05-13 (data max)."
-            | Out _ -> "Output trips CSV path. Default /tmp/momentum_v2_trips.csv."
+            | Out _ -> "Output trips CSV path. Default /tmp/highflyer_trips.csv."
             | Stop_Low_Window _ -> "Trailing-stop low window in bars. Default 4."
             | Trail_Window _ -> "Trailing-limit N-day-high window (the resting sell-limit reference). Default 1 (N=1)."
             | Exit_Time_Cap _ -> "Bars the sell limit may rest before exiting at the next open. Default 5. 0 = exit at next open immediately (N ignored)."
@@ -113,7 +113,7 @@ let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
 [<EntryPoint>]
 let main argv =
-    let parser = ArgumentParser.Create<Args>(programName = "momentum-v2")
+    let parser = ArgumentParser.Create<Args>(programName = "highflyer")
     let parsed = parser.Parse argv
 
     let dbPath    = parsed.GetResult(Db_Path, defaultValue = defaultDb)
@@ -216,7 +216,7 @@ let main argv =
                   RvolMin = parsed.GetResult(Rvol_Min, defaultValue = defaultConfig.Entry.RvolMin)
                   RvolMax = parsed.GetResult(Rvol_Max, defaultValue = defaultConfig.Entry.RvolMax) } }
 
-    printfn "MomentumV2 backtest"
+    printfn "HighFlyer backtest"
     printfn "  db        = %s" dbPath
     printfn "  range     = %O .. %O" startDate endDate
     printfn "  side = %A   stop win = %d   trail N = %d   exit cap = %d   expansion = %.2f   tightness = %A"

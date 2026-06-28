@@ -4,7 +4,7 @@
 -- as-of signal date, lagged 1 bar (no lookahead): max ADR, max ATR%, max 14d return.
 -- Run on the default-system trips CSV (5d time-stop, tight<4.5, ATR%<0.11).
 --   duckdb -readonly data/trading.db < scripts/equity/past_runner_breakdown.sql
--- Expects /tmp/v2_default_45.csv (regen: dotnet run --project TradingEdge.MomentumV2 -c Release -- -o /tmp/v2_default_45.csv)
+-- Expects /tmp/v2_default_45.csv (regen: dotnet run --project TradingEdge.HighFlyer -c Release -- -o /tmp/v2_default_45.csv)
 -- Breadth: data/equity/momentum_v0/breadth.parquet (lag-1 pct_above_20 > 0.5).
 
 -- Build the three trailing-6mo "runner personality" measures, as-of signal (lag-1, no lookahead).

@@ -1,10 +1,10 @@
-module TradingEdge.MomentumV2.Backtest
+module TradingEdge.HighFlyer.Backtest
 
 open System
 open System.Globalization
 open System.Collections.Generic
 open DuckDB.NET.Data
-open TradingEdge.MomentumV2.Types
+open TradingEdge.HighFlyer.Types
 
 /// Full system configuration. The locked v0 default is `defaultConfig`.
 type Config =
@@ -249,11 +249,17 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
     // Universe = common stock + ADRs only (v0's tradableOnly default:
     // ticker_reference.type IN ('CS','ADRC')). Excludes ETFs, units, warrants,
     // preferreds, etc. — without this v1 trades ~3x more tickers than v0.
+    // NOTE the SEMI-JOIN (EXISTS), not an inner JOIN: a few tickers (e.g. ASND)
+    // have BOTH a 'CS' and an 'ADRC' row in ticker_reference, and an inner join
+    // on that would FAN OUT every price bar into two identical consecutive rows —
+    // the per-ticker engine would then fold those tickers' bars in twice (only ~3
+    // names, so immaterial to the aggregate, but wrong). EXISTS filters without
+    // multiplying.
     cmd.CommandText <-
         "SELECT p.ticker, p.date, p.adj_open, p.adj_high, p.adj_low, p.adj_close, p.adj_volume
          FROM split_adjusted_prices p
-         JOIN ticker_reference r ON r.ticker = p.ticker
-         WHERE r.type IN ('CS','ADRC')
+         WHERE EXISTS (SELECT 1 FROM ticker_reference r
+                       WHERE r.ticker = p.ticker AND r.type IN ('CS','ADRC'))
            AND p.date >= $start AND p.date <= $end
          ORDER BY p.ticker, p.date"
     let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- startDate; cmd.Parameters.Add pStart |> ignore

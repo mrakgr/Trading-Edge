@@ -11,7 +11,7 @@
 -- Population: v2-era production — move>=10%, rvol[6,20], ATR%<0.11, tight<4.5, price>=5,
 -- 5d stop, breadth lag1>0.5, >=2005. Target ~2,580 trips (reproduces at 2,619).
 -- Regen the CSV:
---   dotnet run -c Release --project TradingEdge.MomentumV2 -- \
+--   dotnet run -c Release --project TradingEdge.HighFlyer -- \
 --     --up-threshold 0.10 --max-up-threshold 100 --rvol-min 6 --rvol-max 20 \
 --     --min-price 5 --max-tightness 4.5 --max-atr-pct 0.11 --min-intraday-ret -10 \
 --     --out /tmp/pastrunner_repro.csv

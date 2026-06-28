@@ -1,6 +1,6 @@
 -- Cumulative tightness CEILING sweep on the PRODUCTION-defaults trip set.
 -- Regenerate the input first (production defaults, ~16s, 5,883 trips):
---   dotnet run -c Release --project TradingEdge.MomentumV2 -- --out /tmp/v2_prod.csv
+--   dotnet run -c Release --project TradingEdge.HighFlyer -- --out /tmp/v2_prod.csv
 -- Then: duckdb -readonly data/trading.db < scripts/equity/tightness_cum_sweep.sql
 -- Population: /tmp/v2_prod.csv (move[0.10,0.30) rvol>=5 atr%<0.11 tight<4.5 5d-stop),
 --   closed trips only (open=0), breadth lag1>0.5, era>=2005.

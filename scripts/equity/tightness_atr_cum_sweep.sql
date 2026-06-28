@@ -1,7 +1,7 @@
 -- Cumulative CEILING sweeps for tightness (2.5..7) and ATR% (0.04..0.11), on a
 -- WIDE dump with BOTH gates opened (everything else production).
 -- Regenerate the input first (~17s, 9,090 trips):
---   dotnet run -c Release --project TradingEdge.MomentumV2 -- \
+--   dotnet run -c Release --project TradingEdge.HighFlyer -- \
 --     --out /tmp/v2_wide_tight_atr.csv --max-tightness 1000 --max-atr-pct 1000
 -- Then: duckdb -readonly data/trading.db < scripts/equity/tightness_atr_cum_sweep.sql
 --

@@ -35,7 +35,7 @@
 --   note here wrongly said they were "tagged CS" and that the type filter couldn't
 --   catch them — both false). BECAUSE they have no ref row, the `type IN ('CS','ADRC')`
 --   filter used by BOTH universes below drops them for free — the same mechanism the
---   engine (TradingEdge.MomentumV2) relies on. Verified no-op: 0 test-ticker rows
+--   engine (TradingEdge.HighFlyer) relies on. Verified no-op: 0 test-ticker rows
 --   survive CS/ADRC + $1M ADV on breadth.
 --   HISTORY: an earlier version carried a hardcoded `is_test_ticker` blocklist as
 --   belt-and-suspenders. It never fired once the CS/ADRC filter was in place, so it

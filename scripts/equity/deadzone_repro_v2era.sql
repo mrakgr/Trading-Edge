@@ -9,7 +9,7 @@
 -- on the v2-era defaults + breadth.
 --
 -- Regenerate the CSV first:
---   dotnet run --project TradingEdge.MomentumV2 -c Release -- \
+--   dotnet run --project TradingEdge.HighFlyer -c Release -- \
 --     --up-threshold 0 --max-up-threshold 100 --rvol-min 6 --rvol-max 20 \
 --     --min-price 5 --max-tightness 4.0 --max-atr-pct 0.11 --min-intraday-ret -10 \
 --     --out /tmp/v2era_up0.csv

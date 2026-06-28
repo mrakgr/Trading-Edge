@@ -3,7 +3,7 @@
 -- series are 0.81-correlated, mean diff 0.034 (CS/ADRC runs slightly hotter), so
 -- the gate must be re-validated. New 80th pctile of h10 = 0.251 (~= old 0.25).
 -- Input: production-defaults trips (ATR% 0.10): /tmp/v2_prod_atr10.csv
---   (regen: dotnet run -c Release --project TradingEdge.MomentumV2 -- --out /tmp/v2_prod_atr10.csv)
+--   (regen: dotnet run -c Release --project TradingEdge.HighFlyer -- --out /tmp/v2_prod_atr10.csv)
 -- Run: duckdb -readonly data/trading.db < scripts/equity/heat_csadrc_gate_sweep.sql
 -- PF on per-trade RETURN clipped at +50% (project standard). Breadth lag1>0.5, >=2005, closed.
 CREATE OR REPLACE TEMP TABLE t AS

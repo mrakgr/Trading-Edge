@@ -9,7 +9,7 @@
 -- reference, NOT the intraday-high one used by the reclaim/gap split.)
 --
 -- Input: /tmp/v3_510_rvol3.csv  (regen: dotnet run -c Release --project
---   TradingEdge.MomentumV2 -- --up-threshold 0.05 --rvol-min 3 --out /tmp/v3_510_rvol3.csv)
+--   TradingEdge.HighFlyer -- --up-threshold 0.05 --rvol-min 3 --out /tmp/v3_510_rvol3.csv)
 -- PF on per-trade RETURN clipped at +50% (project standard). >=2005, closed.
 -- Run: duckdb -readonly data/trading.db < scripts/equity/dist_52w_close_510_rvol3.sql
 

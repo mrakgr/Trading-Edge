@@ -3,7 +3,7 @@
 -- bucket a gaudy raw PF; the clip should give an honest read.
 -- Input: wide dump with the PRICE floor dropped (rest production: rvol>=5,
 --   move[0.10,0.30), tight<4.5, atr%<0.10, adv>=100k):
---   dotnet run -c Release --project TradingEdge.MomentumV2 -- --out /tmp/v3_wide_nopx.csv --min-price 0
+--   dotnet run -c Release --project TradingEdge.HighFlyer -- --out /tmp/v3_wide_nopx.csv --min-price 0
 -- Run: duckdb -readonly data/trading.db < scripts/equity/sub5_price_sweep.sql
 -- PF on per-trade RETURN clipped at +50% (project standard). Breadth lag1>0.5, >=2005, closed.
 CREATE OR REPLACE TEMP TABLE t AS

@@ -1,6 +1,6 @@
 -- Vol-window sweep: the lookback (bars) for BOTH the ATR% and tightness measures.
 -- Regenerate the 16 inputs first (each is a full engine run; ~15s x 16):
---   for w in $(seq 10 25); do dotnet run -c Release --project TradingEdge.MomentumV2 -- \
+--   for w in $(seq 10 25); do dotnet run -c Release --project TradingEdge.HighFlyer -- \
 --     --vol-window $w --out /tmp/v3_w${w}.csv; done
 -- Then: duckdb -readonly data/trading.db < scripts/equity/vol_window_sweep.sql
 -- Vol-window (ATR% + tightness lookback) sweep, windows 10..25. Each window is a

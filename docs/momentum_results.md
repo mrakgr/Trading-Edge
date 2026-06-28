@@ -8036,7 +8036,7 @@ trailing-limit results were inflated by a fill bug) and the v1 *exit*-correction
 the **entry** filters on a log-volatility scale and dropping the trailing-limit / expansion exits in
 favour of a plain next-open exit.
 
-`TradingEdge.MomentumV2` is a ground-up F# rewrite: all indicators computed in a single in-memory
+`TradingEdge.HighFlyer` is a ground-up F# rewrite: all indicators computed in a single in-memory
 pass (no SQL window functions), one `QullaSystem` per ticker. A full 22-year scan runs in **~15s**,
 so the parameter sweeps below are minutes, not hours.
 
@@ -8707,7 +8707,7 @@ N matches to a handful of trades per tier; the loose tail collapses to PF ~0.25 
 Exact reproduction command (linear tightness, 15-day stop, old gates, no breadth, 2005+ post-hoc):
 
 ```bash
-dotnet run --project TradingEdge.MomentumV2 -c Release -- \
+dotnet run --project TradingEdge.HighFlyer -c Release -- \
   --start-date 2003-09-10 --end-date 2026-05-13 \
   --stop-low-window 15 --tightness-mode linear \
   --min-price 0 --rvol-min 3 --rvol-max 999999 --min-52w-pct 1.0 \
@@ -11107,7 +11107,7 @@ better-entry. **Decision: keep the closing-high default;** `--use-52w-high` stay
 # trailing limit, expansion off); entry filters ATR% < 0.11 (log), tightness < 4.5
 # (linear), entry-move band [10%, 30%), rvol >= 5 (no upper cap).
 # Run from dataset start for the 252-day warmup; filter entries to >=2005 post-hoc.
-dotnet run --project TradingEdge.MomentumV2 -c Release -- \
+dotnet run --project TradingEdge.HighFlyer -c Release -- \
   --start-date 2003-09-10 --end-date 2026-05-13 -o /tmp/v2.csv
 
 # then apply, post-hoc:
@@ -11116,7 +11116,7 @@ dotnet run --project TradingEdge.MomentumV2 -c Release -- \
 #   entry_date >= 2005-01-01
 ```
 
-All defaults live in `TradingEdge.MomentumV2/Backtest.fs` (`defaultConfig`). Threshold sweeps use
+All defaults live in `TradingEdge.HighFlyer/Backtest.fs` (`defaultConfig`). Threshold sweeps use
 the CLI overrides `--max-atr-pct`, `--max-tightness`, `--expansion-thr`, `--exit-time-cap`,
 `--stop-low-window`, `--trail-window`, `--rvol-min/--rvol-max`.
 
@@ -11195,12 +11195,12 @@ independent edges stacked. Intraday only earns its complexity if it adds materia
 
 **System name: HighFlyer** (named 2026-06-21) — long-only daily swing momentum on US common stocks / ADRs:
 the tight-consolidation breakout to new 52-week highs on a volume + move spike. Engine project
-`TradingEdge.MomentumV2` (legacy working name); HighFlyer is the user-facing strategy name.
+`TradingEdge.HighFlyer` (renamed 2026-06-28 from its legacy working name `TradingEdge.MomentumV2`).
 
 **Status: working long-only daily-momentum edge. Filtered (breadth + ≥2005): 4,245 trips, PF raw
 1.960 / clip 1.600, +$1.08M. Honest next-open fills, 5-day time-stop.**
 
-v3 is not a new engine or a new system — it is the **same `TradingEdge.MomentumV2` production system**,
+v3 is not a new engine or a new system — it is the **same `TradingEdge.HighFlyer` production system**,
 carried forward into a research methodology that computes every PF/return figure on **clipped per-trade
 returns** and decides on **cumulative** views. That shift (2026-06-21) was significant enough — it
 re-derived the tightness and ATR% optima and exposed several prior "edges" as lottery-winner mirages —
@@ -11209,7 +11209,7 @@ studies, loose-base shorts, regime-switching, chandelier/time-stop derivation) l
 [`momentum_v2_results.md`](momentum_v2_results.md) and is **not** repeated here; v3 carries only the
 *current production state* and the work done under the clipped methodology.
 
-`TradingEdge.MomentumV2` is a ground-up F# rewrite: all indicators computed in a single in-memory pass
+`TradingEdge.HighFlyer` is a ground-up F# rewrite: all indicators computed in a single in-memory pass
 (no SQL window functions), one `QullaSystem` per ticker. A full 22-year scan runs in **~16s**, so the
 parameter sweeps below are minutes, not hours.
 
@@ -11286,7 +11286,7 @@ end are marked-to-market at the final close.
 All three sweeps below use the **wide dump** (both volatility gates opened so the full range is visible):
 
 ```bash
-dotnet run -c Release --project TradingEdge.MomentumV2 -- \
+dotnet run -c Release --project TradingEdge.HighFlyer -- \
   --out /tmp/v2_wide_tight_atr.csv --max-tightness 1000 --max-atr-pct 1000   # ~9,090 trips
 ```
 
@@ -12555,7 +12555,7 @@ live threat. The **+1000% return clip stays** (still needed for residual real-CS
 # ATR% < 0.10 (log), tightness < 4.5 (linear), entry-move band [10%, 30%), rvol >= 5 (no upper cap),
 # price >= $1, ADV >= $100k, 52w-close >= 0.95, intraday close/open-1 >= -0.07 (reject deep fades).
 # Run from dataset start for the 252-day warmup; filter entries to >=2005 post-hoc.
-dotnet run --project TradingEdge.MomentumV2 -c Release -- \
+dotnet run --project TradingEdge.HighFlyer -c Release -- \
   --start-date 2003-09-10 --end-date 2026-05-13 -o /tmp/v3.csv
 
 # then apply, post-hoc:
@@ -12567,7 +12567,7 @@ dotnet run --project TradingEdge.MomentumV2 -c Release -- \
 # PF/return figures: clip per-trade return at +50% (LEAST(ret,0.50)); decide on cumulative views.
 ```
 
-All defaults live in `TradingEdge.MomentumV2/Backtest.fs` (`defaultConfig`). Threshold sweeps use the CLI
+All defaults live in `TradingEdge.HighFlyer/Backtest.fs` (`defaultConfig`). Threshold sweeps use the CLI
 overrides `--max-atr-pct`, `--max-tightness`, `--rvol-min/--rvol-max`, `--up-threshold/--max-up-threshold`,
 `--exit-time-cap`, `--stop-low-window`, `--trail-window`.
 
@@ -12607,9 +12607,9 @@ edges stacked. Intraday only earns its complexity if it adds materially on top.
 
 **System name: HighFlyer** (named 2026-06-21) — long-only daily swing momentum on US common stocks / ADRs:
 the tight-consolidation breakout to new 52-week highs on a volume + move spike. Engine project
-`TradingEdge.MomentumV2` (legacy working name); HighFlyer is the user-facing strategy name.
+`TradingEdge.HighFlyer` (renamed 2026-06-28 from its legacy working name `TradingEdge.MomentumV2`).
 
-v4 is **not a new engine or a new system** — it is the same `TradingEdge.MomentumV2` production system,
+v4 is **not a new engine or a new system** — it is the same `TradingEdge.HighFlyer` production system,
 carried forward into a new research thread centered on a structural feature that v3 lacked: **public
 float**. The v4 line opens because float turned out to be a clean, first-order edge axis (small
 dollar-float < $300M at entry → PF ~2.5), worth its own document and its own filter/sizing decisions.

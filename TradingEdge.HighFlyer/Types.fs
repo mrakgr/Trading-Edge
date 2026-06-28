@@ -1,7 +1,7 @@
-module TradingEdge.MomentumV2.Types
+module TradingEdge.HighFlyer.Types
 
 open System
-open TradingEdge.MomentumV2.RollingMa
+open TradingEdge.HighFlyer.RollingMa
 
 type Bar =
     { date: DateOnly
@@ -185,7 +185,7 @@ type TightnessMode =
     | Log
     | Linear
 
-/// Per-ticker rolling-indicator state for the momentum-v2 system.
+/// Per-ticker rolling-indicator state for the HighFlyer system.
 ///
 /// All windowed structures follow the v0 "prior bars, exclude current"
 /// convention: read `.State` (or the snapshot fields below) BEFORE pushing

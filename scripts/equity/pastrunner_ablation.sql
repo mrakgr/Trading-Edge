@@ -7,7 +7,7 @@
 --
 -- Input: a LOOSE superset CSV (move>=10, rvol>=1, ATR%<0.11, tight<4.5, price>=1,
 --   intraday gate OFF, no move cap) so every production filter can be applied post-hoc:
---   dotnet run -c Release --project TradingEdge.MomentumV2 -- \
+--   dotnet run -c Release --project TradingEdge.HighFlyer -- \
 --     --up-threshold 0.10 --max-up-threshold 100 --rvol-min 1 --rvol-max 100000 \
 --     --min-price 1 --max-tightness 4.5 --max-atr-pct 0.11 --min-intraday-ret -10 \
 --     --out /tmp/ablation.csv

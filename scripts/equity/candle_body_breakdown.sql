@@ -4,7 +4,7 @@
 -- Joins entry-day adjusted OHLC from split_adjusted_prices (exact match: trip close ==
 -- adj_close on (ticker,date)). PF on per-trade RETURN clipped at +50% (project standard).
 -- Input: production-defaults trips (price>=1): /tmp/v3_prod_px1.csv
---   (regen: dotnet run -c Release --project TradingEdge.MomentumV2 -- --out /tmp/v3_prod_px1.csv)
+--   (regen: dotnet run -c Release --project TradingEdge.HighFlyer -- --out /tmp/v3_prod_px1.csv)
 -- Run: duckdb -readonly data/trading.db < scripts/equity/candle_body_breakdown.sql
 -- Breadth lag1>0.5, >=2005, closed trips only.
 CREATE OR REPLACE TEMP TABLE t AS
