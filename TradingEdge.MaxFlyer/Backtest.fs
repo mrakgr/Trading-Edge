@@ -351,9 +351,10 @@ let run (dbPath: string) (minuteDir: string) (cfg: Config)
     let connStr = $"Data Source={dbPath};ACCESS_MODE=READ_ONLY"
     use conn = new DuckDBConnection(connStr)
     conn.Open()
-    (use pragma = conn.CreateCommand()
-     pragma.CommandText <- "PRAGMA memory_limit='6GB'"
-     pragma.ExecuteNonQuery() |> ignore)
+    do
+        use pragma = conn.CreateCommand()
+        pragma.CommandText <- "PRAGMA memory_limit='6GB'"
+        pragma.ExecuteNonQuery() |> ignore
 
     let candidates = selectCandidates conn cfg startDate endDate
 
