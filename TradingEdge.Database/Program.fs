@@ -164,10 +164,6 @@ type DownloadIntradayArgs =
     | [<AltCommandLine("-o")>] Output_Dir of string
     | [<AltCommandLine("-p")>] Parallelism of int
     | Timespan of string
-    | From_Sip
-    | [<AltCommandLine("-r")>] Min_Rvol of float
-    | [<AltCommandLine("-g")>] Min_Gap_Pct of float
-    | [<AltCommandLine("-v")>] Min_Dollar_Volume of float
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -175,14 +171,10 @@ type DownloadIntradayArgs =
             | Ticker _ -> "Stock ticker symbol (use with --start-date)"
             | Start_Date _ -> "Start date (yyyy-MM-dd). Default: 1 week ago"
             | End_Date _ -> "End date (yyyy-MM-dd). Default: today"
-            | Database _ -> "DuckDB database path for SIP lookup (default: data/trading.db)"
+            | Database _ -> "DuckDB database path (default: data/trading.db)"
             | Output_Dir _ -> "Output directory for downloaded data (default: data/intraday)"
             | Parallelism _ -> "Max parallel downloads (default: 5)"
             | Timespan _ -> "Aggregate timespan: 'minute' or 'second' (default: minute)"
-            | From_Sip -> "Download intraday data for stocks in play from the database"
-            | Min_Rvol _ -> "Min RVOL filter for SIP lookup (default: 3)"
-            | Min_Gap_Pct _ -> "Min gap % filter for SIP lookup (default: 0.05)"
-            | Min_Dollar_Volume _ -> "Min avg dollar volume in millions for SIP lookup (default: 25)"
 
 type DownloadTradesArgs =
     | [<AltCommandLine("-t")>] Ticker of string
@@ -805,32 +797,8 @@ let private handleDownloadIntraday (config: MassiveConfig) (args: ParseResults<D
             let days = getTradingDays startDate endDate
             days |> List.map (fun d -> (ticker, d))
 
-        | None when args.Contains DownloadIntradayArgs.From_Sip ->
-            // From SIP mode: query database for stocks in play
-            let dbPath =
-                args.TryGetResult DownloadIntradayArgs.Database
-                |> Option.defaultValue "data/trading.db"
-
-            let minRvol = args.GetResult(DownloadIntradayArgs.Min_Rvol, defaultValue = 3.0)
-            let minGapPct = args.GetResult(DownloadIntradayArgs.Min_Gap_Pct, defaultValue = 0.05)
-            let minDollarVolume = args.GetResult(DownloadIntradayArgs.Min_Dollar_Volume, defaultValue = 25.0) * 1_000_000.0
-
-            printfn "Querying stocks in play from database..."
-            printfn "Database: %s" (Path.GetFullPath dbPath)
-            printfn "SIP Filters: RVOL >= %.1fx, Gap >= %.1f%%, Avg Dollar Volume >= $%.0fM" minRvol (minGapPct * 100.0) (minDollarVolume / 1_000_000.0)
-
-            use connection = openConnection dbPath
-            let stocks =
-                getGapPlay
-                    connection startDate endDate minRvol minGapPct minDollarVolume
-                    0.95 0.05 true 20 5 0.5 0.0
-
-            stocks
-            |> Array.map (fun (s: GapPlayRow) -> (s.ticker, s.date.ToDateTime(TimeOnly.MinValue)))
-            |> Array.toList
-
         | None ->
-            failwith "Either --ticker or --from-sip is required"
+            failwith "--ticker is required"
 
     if tickerDates.IsEmpty then
         printfn "No ticker/date pairs to download."

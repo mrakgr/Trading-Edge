@@ -4,6 +4,7 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Project Path="TradingEdge.Database/TradingEdge.Database.fsproj" />
   <Project Path="TradingEdge.Massive/TradingEdge.Massive.fsproj" />
   <Project Path="TradingEdge.MomentumV2/TradingEdge.MomentumV2.fsproj" />
   <Project Path="TradingEdge.Orb/TradingEdge.Orb.fsproj" />
