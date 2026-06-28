@@ -5,7 +5,7 @@ open System.IO
 open System.Globalization
 open System.Collections.Generic
 open System.Threading.Tasks
-open TradingEdge.Simulation.BinanceLoader
+open TradingEdge.CryptoBacktest.Trade
 open TradingEdge.CryptoBacktest.OrderflowMA
 open TradingEdge.CryptoBacktest.WindowLoader
 

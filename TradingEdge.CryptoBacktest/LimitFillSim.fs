@@ -5,7 +5,7 @@ open System.IO
 open System.Globalization
 open System.Collections.Generic
 open Nito.Collections
-open TradingEdge.Simulation.BinanceLoader
+open TradingEdge.CryptoBacktest.Trade
 open TradingEdge.CryptoBacktest.SignedBar
 open TradingEdge.CryptoBacktest.OrderflowMA
 open TradingEdge.CryptoBacktest.OrderflowDonchianFade

@@ -203,7 +203,7 @@ type Cell(symbol: string, timeframe: string, cfg: StrategyConfig) =
     /// Trade-stream input: feed each trade through the in-memory bar builder,
     /// which fires onBar at every bar close and pushes the bar to the engine.
     /// Used when reading from per-day trade parquets directly.
-    member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+    member _.PushTrades(trades: TradingEdge.CryptoBacktest.Trade.Trade[]) =
         for t in trades do
             builder.Process(onBar, t)
 
@@ -260,7 +260,7 @@ type VwmaCell(symbol: string, timeframe: string, cfg: StrategyConfig) =
     member _.SetFundingEvents(events: (int64 * float)[]) =
         engine.SetFundingEvents events
 
-    member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+    member _.PushTrades(trades: TradingEdge.CryptoBacktest.Trade.Trade[]) =
         for t in trades do
             builder.Process(onBar, t)
 
@@ -311,7 +311,7 @@ type BreakoutCell(symbol: string, timeframe: string, cfg: StrategyConfig) =
     member _.SetFundingEvents(events: (int64 * float)[]) =
         engine.SetFundingEvents events
 
-    member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+    member _.PushTrades(trades: TradingEdge.CryptoBacktest.Trade.Trade[]) =
         for t in trades do
             builder.Process(onBar, t)
 
@@ -380,7 +380,7 @@ type CumsumCell(symbol: string, timeframe: string, cfg: OrderflowCumsum.CumsumCo
     member _.SetFundingEvents(events: (int64 * float)[]) =
         engine.SetFundingEvents events
 
-    member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+    member _.PushTrades(trades: TradingEdge.CryptoBacktest.Trade.Trade[]) =
         for t in trades do
             builder.Process(onBar, t)
 
@@ -453,7 +453,7 @@ type MAv1Cell(symbol: string, timeframe: string, cfg: OrderflowMAv1.MAv1Config) 
     member _.SetFundingEvents(events: (int64 * float)[]) =
         engine.SetFundingEvents events
 
-    member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+    member _.PushTrades(trades: TradingEdge.CryptoBacktest.Trade.Trade[]) =
         for t in trades do
             builder.Process(onBar, t)
 
@@ -510,7 +510,7 @@ type CumsumZCell(symbol: string, timeframe: string, cfg: OrderflowCumsumZ.Cumsum
     member _.SetFundingEvents(events: (int64 * float)[]) =
         engine.SetFundingEvents events
 
-    member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+    member _.PushTrades(trades: TradingEdge.CryptoBacktest.Trade.Trade[]) =
         for t in trades do
             builder.Process(onBar, t)
 
@@ -579,7 +579,7 @@ type LongFadeMACell(symbol: string, timeframe: string, cfg: OrderflowLongFadeMA.
     member _.SetFundingEvents(events: (int64 * float)[]) =
         engine.SetFundingEvents events
 
-    member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+    member _.PushTrades(trades: TradingEdge.CryptoBacktest.Trade.Trade[]) =
         for t in trades do
             builder.Process(onBar, t)
 
@@ -637,7 +637,7 @@ type ShortFadeMACell(symbol: string, timeframe: string, cfg: OrderflowShortFadeM
     member _.SetFundingEvents(events: (int64 * float)[]) =
         engine.SetFundingEvents events
 
-    member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+    member _.PushTrades(trades: TradingEdge.CryptoBacktest.Trade.Trade[]) =
         for t in trades do
             builder.Process(onBar, t)
 
@@ -693,7 +693,7 @@ type ExtremeRvolCell(symbol: string, timeframe: string, cfg: OrderflowExtremeRvo
     member _.SetFundingEvents(events: (int64 * float)[]) =
         engine.SetFundingEvents events
 
-    member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+    member _.PushTrades(trades: TradingEdge.CryptoBacktest.Trade.Trade[]) =
         for t in trades do
             builder.Process(onBar, t)
 
@@ -1091,7 +1091,7 @@ type DonchianFadeCell(symbol: string, timeframe: string, cfg: OrderflowDonchianF
     member _.SetFundingEvents(events: (int64 * float)[]) =
         engine.SetFundingEvents events
 
-    member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+    member _.PushTrades(trades: TradingEdge.CryptoBacktest.Trade.Trade[]) =
         for t in trades do
             builder.Process(onBar, t)
 
@@ -1219,7 +1219,7 @@ type ConsolBreakoutCell(symbol: string, timeframe: string, cfg: OrderflowConsolB
     member _.SetFundingEvents(events: (int64 * float)[]) =
         engine.SetFundingEvents events
 
-    member _.PushTrades(trades: TradingEdge.Simulation.BinanceLoader.Trade[]) =
+    member _.PushTrades(trades: TradingEdge.CryptoBacktest.Trade.Trade[]) =
         for t in trades do
             builder.Process(onBar, t)
 

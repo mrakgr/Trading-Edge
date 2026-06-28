@@ -3,7 +3,7 @@ module TradingEdge.CryptoBacktest.TradeLoader
 open System
 open System.IO
 open DuckDB.NET.Data
-open TradingEdge.Simulation.BinanceLoader
+open TradingEdge.CryptoBacktest.Trade
 
 // =============================================================================
 // Parquet trade loader

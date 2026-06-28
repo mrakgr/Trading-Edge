@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Trade.fs" />
     <Compile Include="TradeLoader.fs" />
     <Compile Include="SignedBar.fs" />
     <Compile Include="BarLoader.fs" />
@@ -39,7 +40,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TradingEdge.Simulation\TradingEdge.Simulation.fsproj" />
+    <!-- t-digest: used by Breadth.fs / Program.fs. Was reached transitively via the
+         (now-deleted) Simulation project; referenced directly here instead. -->
+    <ProjectReference Include="..\t-digest-csharp\TDigest\TDigest.csproj" />
   </ItemGroup>
 
 </Project>

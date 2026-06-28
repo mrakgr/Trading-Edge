@@ -1,6 +1,6 @@
 module TradingEdge.CryptoBacktest.SignedBar
 
-open TradingEdge.Simulation.BinanceLoader
+open TradingEdge.CryptoBacktest.Trade
 
 // =============================================================================
 // Time-bar with signed dollar-volume
