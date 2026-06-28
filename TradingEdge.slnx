@@ -4,11 +4,6 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Folder Name="/t-digest-csharp/">
-    <Project Path="t-digest-csharp/TDigest/TDigest.csproj" />
-  </Folder>
-  <Project Path="TradingEdge.CryptoBacktest/TradingEdge.CryptoBacktest.fsproj" />
-  <Project Path="TradingEdge.CryptoData/TradingEdge.CryptoData.fsproj" />
   <Project Path="TradingEdge.Massive/TradingEdge.Massive.fsproj" />
   <Project Path="TradingEdge.MomentumV2/TradingEdge.MomentumV2.fsproj" />
   <Project Path="TradingEdge.Orb/TradingEdge.Orb.fsproj" />
