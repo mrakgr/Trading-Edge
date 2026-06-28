@@ -114,40 +114,6 @@ type IngestDataArgs =
             | Dividends_File _ -> "CSV file containing dividends (default: data/dividends.csv)"
             | Tickers_File _ -> "CSV file containing ETF/ETN ticker reference (default: data/tickers.csv)"
 
-type GapPlayArgs =
-    | [<AltCommandLine("-s")>] Start_Date of string
-    | [<AltCommandLine("-e")>] End_Date of string
-    | [<AltCommandLine("-d")>] Database of string
-    | [<AltCommandLine("-r")>] Min_Rvol of float
-    | [<AltCommandLine("-g")>] Min_Gap_Pct of float
-    | [<AltCommandLine("-v")>] Min_Dollar_Volume of float
-    | [<AltCommandLine("-rw")>] Rvol_Weight of float
-    | [<AltCommandLine("-gw")>] Gap_Weight of float
-    | All_Types
-    | Pre_Window_Days of int
-    | Post_Window_Days of int
-    | Min_Atr_Ratio of float
-    | [<AltCommandLine("-pm")>] Min_Pm_Volume_Pct of float
-    | Json
-
-    interface IArgParserTemplate with
-        member this.Usage =
-            match this with
-            | Start_Date _ -> "Start date (yyyy-MM-dd). Default: 1 week ago"
-            | End_Date _ -> "End date (yyyy-MM-dd). Default: today"
-            | Database _ -> "DuckDB database path (default: data/trading.db)"
-            | Min_Rvol _ -> "Minimum relative volume (default: 3)"
-            | Min_Gap_Pct _ -> "Minimum gap percentage as decimal, e.g. 0.05 for 5% (default: 0.05)"
-            | Min_Dollar_Volume _ -> "Minimum avg dollar volume in millions (default: 25)"
-            | Rvol_Weight _ -> "Weight for RVOL in scoring (default: 0.95)"
-            | Gap_Weight _ -> "Weight for gap in scoring (default: 0.05)"
-            | All_Types -> "Disable the tradable-universe filter (default: keep only CS + ADRC)"
-            | Pre_Window_Days _ -> "Days before breakout for ATR baseline (default: 20)"
-            | Post_Window_Days _ -> "Days after breakout for ATR comparison (default: 5)"
-            | Min_Atr_Ratio _ -> "Min post/pre ATR ratio (buyout filter, default: 0.55; 0 disables)"
-            | Min_Pm_Volume_Pct _ -> "Min premarket dollar volume as a fraction of 4w avg dollar volume, e.g. 0.5 for 50% (default: 0, disabled)"
-            | Json -> "Emit JSON to stdout instead of the human-readable table"
-
 type DownloadTickersArgs =
     | [<AltCommandLine("-o")>] Output_File of string
 
@@ -182,53 +148,7 @@ type IngestTickerEventsArgs =
             | Input_Dir _ -> "Directory of per-ticker JSON files (default: data/tickers/events)"
             | Output_Parquet _ -> "Output parquet (default: data/tickers/events.parquet)"
 
-type ContinuationPlaysArgs =
-    | [<AltCommandLine("-s")>] Start_Date of string
-    | [<AltCommandLine("-e")>] End_Date of string
-    | [<AltCommandLine("-d")>] Database of string
-    | [<AltCommandLine("-r")>] Min_Rvol of float
-    | [<AltCommandLine("-g")>] Min_Gap_Pct of float
-    | [<AltCommandLine("-v")>] Min_Dollar_Volume of float
-    | [<AltCommandLine("-rw")>] Rvol_Weight of float
-    | [<AltCommandLine("-gw")>] Gap_Weight of float
-    | All_Types
-    | Pre_Window_Days of int
-    | Post_Window_Days of int
-    | Min_Atr_Ratio of float
-    | [<AltCommandLine("-pm")>] Min_Pm_Volume_Pct of float
-    | Min_Rvol_Fraction of float
-    | Max_Horizon_Days of int
-    | Json
-
-    interface IArgParserTemplate with
-        member this.Usage =
-            match this with
-            | Start_Date _ -> "Start date (yyyy-MM-dd). Default: 1 week ago"
-            | End_Date _ -> "End date (yyyy-MM-dd). Default: today"
-            | Database _ -> "DuckDB database path (default: data/trading.db)"
-            | Min_Rvol _ -> "Minimum relative volume for breakout (default: 3)"
-            | Min_Gap_Pct _ -> "Minimum gap percentage as decimal for breakout (default: 0.05)"
-            | Min_Dollar_Volume _ -> "Minimum avg dollar volume in millions (default: 25)"
-            | Rvol_Weight _ -> "Weight for RVOL in scoring (default: 0.95)"
-            | Gap_Weight _ -> "Weight for gap in scoring (default: 0.05)"
-            | All_Types -> "Disable the tradable-universe filter (default: keep only CS + ADRC)"
-            | Pre_Window_Days _ -> "Days before breakout for ATR baseline (default: 20)"
-            | Post_Window_Days _ -> "Days after breakout for ATR comparison (default: 5)"
-            | Min_Atr_Ratio _ -> "Min post/pre ATR ratio for breakout (default: 0.55)"
-            | Min_Pm_Volume_Pct _ -> "Min premarket dollar volume as a fraction of 4w avg dollar volume, e.g. 0.5 for 50% (default: 0, disabled)"
-            | Min_Rvol_Fraction _ -> "Min fraction of breakout RVOL to keep continuation chain alive (default: 0.5)"
-            | Max_Horizon_Days _ -> "Max calendar days to walk forward from each breakout (default: 30)"
-            | Json -> "Emit JSON to stdout instead of the human-readable table"
-
 type RefreshViewsArgs =
-    | [<AltCommandLine("-d")>] Database of string
-
-    interface IArgParserTemplate with
-        member this.Usage =
-            match this with
-            | Database _ -> "DuckDB database path (default: data/trading.db)"
-
-type BuildPremarketVolumeArgs =
     | [<AltCommandLine("-d")>] Database of string
 
     interface IArgParserTemplate with
@@ -377,13 +297,10 @@ type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Download_News of ParseResults<DownloadNewsArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Data of ParseResults<IngestDataArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Intraday of ParseResults<IngestIntradayArgs>
-    | [<CliPrefix(CliPrefix.None)>] Gap_Play of ParseResults<GapPlayArgs>
-    | [<CliPrefix(CliPrefix.None)>] Continuation_Plays of ParseResults<ContinuationPlaysArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Tickers of ParseResults<DownloadTickersArgs>
     | [<CliPrefix(CliPrefix.None)>] Refresh_Views of ParseResults<RefreshViewsArgs>
     | [<CliPrefix(CliPrefix.None)>] Convert_Trades_To_Parquet of ParseResults<ConvertTradesToParquetArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Minute_Bars of ParseResults<BuildMinuteBarsArgs>
-    | [<CliPrefix(CliPrefix.None)>] Build_Premarket_Volume of ParseResults<BuildPremarketVolumeArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Ticker_Events of ParseResults<DownloadTickerEventsArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Ticker_Events of ParseResults<IngestTickerEventsArgs>
 
@@ -402,13 +319,10 @@ type Arguments =
             | Download_News _ -> "Download news articles for a ticker"
             | Ingest_Data _ -> "Ingest daily data into DuckDB database"
             | Ingest_Intraday _ -> "Ingest intraday data into DuckDB database"
-            | Gap_Play _ -> "List top gap plays for a date range"
-            | Continuation_Plays _ -> "List breakouts and their continuation chains (sustained-volume follow-through days)"
             | Download_Tickers _ -> "Download ETF/ETN ticker reference data from Polygon"
             | Refresh_Views _ -> "Refresh views only (fast, no table rematerialization)"
             | Convert_Trades_To_Parquet _ -> "One-shot migration: convert data/trades/*/*.json to zstd-compressed Parquet and delete the JSON originals"
             | Build_Minute_Bars _ -> "Build 1m time-bar aggregates from bulk trades (lit-only, 04:00-20:00 ET, 960 buckets/day)"
-            | Build_Premarket_Volume _ -> "Materialize the premarket_volume_daily table from data/minute_bars_1m/*.parquet"
             | Download_Ticker_Events _ -> "Download ticker rename/event chains from Polygon /vX/reference/tickers/{ticker}/events"
             | Ingest_Ticker_Events _ -> "Flatten data/tickers/events/*.json -> data/tickers/events.parquet -> ticker_events table"
 
@@ -747,91 +661,6 @@ let private handleIngestData (args: ParseResults<IngestDataArgs>) =
     | None ->
         printfn "  Date range: (no data)"
 
-let private handleGapPlay (args: ParseResults<GapPlayArgs>) =
-    let endDate =
-        args.TryGetResult GapPlayArgs.End_Date
-        |> Option.map DateTime.Parse
-        |> Option.defaultValue DateTime.Now
-
-    let startDate =
-        args.TryGetResult GapPlayArgs.Start_Date
-        |> Option.map DateTime.Parse
-        |> Option.defaultValue (endDate.AddDays(-7))
-
-    let dbPath =
-        args.TryGetResult GapPlayArgs.Database
-        |> Option.defaultValue "data/trading.db"
-
-    let minRvol = args.GetResult(GapPlayArgs.Min_Rvol, defaultValue = 3.0)
-    let minGapPct = args.GetResult(GapPlayArgs.Min_Gap_Pct, defaultValue = 0.05)
-    let minDollarVolume = args.GetResult(GapPlayArgs.Min_Dollar_Volume, defaultValue = 25.0) * 1_000_000.0
-    let rvolWeight = args.GetResult(GapPlayArgs.Rvol_Weight, defaultValue = 0.95)
-    let gapWeight = args.GetResult(GapPlayArgs.Gap_Weight, defaultValue = 0.05)
-    let tradableOnly = not (args.Contains GapPlayArgs.All_Types)
-    let preWindowDays = args.GetResult(GapPlayArgs.Pre_Window_Days, defaultValue = 20)
-    let postWindowDays = args.GetResult(GapPlayArgs.Post_Window_Days, defaultValue = 5)
-    let minAtrRatio = args.GetResult(GapPlayArgs.Min_Atr_Ratio, defaultValue = 0.55)
-    let minPmVolumePct = args.GetResult(GapPlayArgs.Min_Pm_Volume_Pct, defaultValue = 0.0)
-    let jsonMode = args.Contains GapPlayArgs.Json
-
-    if not jsonMode then
-        printfn "Gap Play from %s to %s" (formatDate startDate) (formatDate endDate)
-        printfn "Filters: RVOL >= %.1fx, Gap >= %.1f%%, Avg Dollar Volume >= $%.0fM" minRvol (minGapPct * 100.0) (minDollarVolume / 1_000_000.0)
-        printfn "Tradable-only (CS+ADRC): %b   Pre/post window: %d/%d   Min ATR ratio: %.2f" tradableOnly preWindowDays postWindowDays minAtrRatio
-        if minPmVolumePct > 0.0 then
-            printfn "Min premarket dollar volume / 4w avg: %.0f%%" (minPmVolumePct * 100.0)
-        printfn "Database: %s" (Path.GetFullPath dbPath)
-        printfn ""
-
-    use connection = openConnection dbPath
-    let stocks =
-        getGapPlay
-            connection startDate endDate minRvol minGapPct minDollarVolume
-            rvolWeight gapWeight tradableOnly preWindowDays postWindowDays minAtrRatio
-            minPmVolumePct
-
-    if jsonMode then
-        // Emit a JSON array of one row per gap-play stock with the relevant fields.
-        let sb = System.Text.StringBuilder()
-        sb.Append("[") |> ignore
-        let mutable first = true
-        let formatNullable (n: Nullable<float>) =
-            if n.HasValue then sprintf "%g" n.Value else "null"
-        for stock in stocks do
-            if not first then sb.Append(",") |> ignore
-            first <- false
-            sb.AppendFormat(
-                System.Globalization.CultureInfo.InvariantCulture,
-                "\n  {{\"ticker\": \"{0}\", \"date\": \"{1}\", \"volume\": {2}, \"avg_volume_4w\": {3}, \"avg_dollar_volume_4w\": {4}, \"pm_dollar_volume\": {5}, \"pm_dollar_volume_pct\": {6}}}",
-                stock.ticker,
-                stock.date.ToString("yyyy-MM-dd"),
-                stock.volume,
-                stock.avg_volume_4w,
-                stock.avg_dollar_volume_4w,
-                formatNullable stock.pm_dollar_volume,
-                formatNullable stock.pm_dollar_volume_pct) |> ignore
-        if not first then sb.Append("\n") |> ignore
-        sb.Append("]") |> ignore
-        printfn "%s" (sb.ToString())
-    else
-        if stocks.Length = 0 then
-            printfn "No stocks in play found for the given date range."
-        else
-            let mutable currentDate = DateOnly.MinValue
-            for stock in stocks do
-                if stock.date <> currentDate then
-                    currentDate <- stock.date
-                    printfn "=== %s ===" (currentDate.ToString("yyyy-MM-dd"))
-                let ratioStr =
-                    if stock.atr_ratio.HasValue then sprintf "%5.2f" stock.atr_ratio.Value
-                    else "  n/a"
-                let pmStr =
-                    if stock.pm_dollar_volume_pct.HasValue
-                    then sprintf "%5.0f%%" (stock.pm_dollar_volume_pct.Value * 100.0)
-                    else "  n/a"
-                printfn "  %2d. %-6s  Gap: %+6.2f%%  RVOL: %5.1fx  PM%%adv: %s  Score: %5.2f  AtrRatio: %s"
-                    stock.rank stock.ticker (stock.gap_pct * 100.0) stock.rvol pmStr stock.in_play_score ratioStr
-
 let private handleDownloadTickers (config: MassiveConfig) (args: ParseResults<DownloadTickersArgs>) =
     ensureDataDir ()
 
@@ -924,94 +753,6 @@ let private handleIngestTickerEvents (args: ParseResults<IngestTickerEventsArgs>
         conn.Open()
         Database.executeNamedResource conn "ticker_events.sql"
     TickerEventsIngest.buildAndLoad jsonDir parquet dbPath
-
-let private handleContinuationPlays (args: ParseResults<ContinuationPlaysArgs>) =
-    let endDate =
-        args.TryGetResult ContinuationPlaysArgs.End_Date
-        |> Option.map DateTime.Parse
-        |> Option.defaultValue DateTime.Now
-
-    let startDate =
-        args.TryGetResult ContinuationPlaysArgs.Start_Date
-        |> Option.map DateTime.Parse
-        |> Option.defaultValue (endDate.AddDays(-7))
-
-    let dbPath =
-        args.TryGetResult ContinuationPlaysArgs.Database
-        |> Option.defaultValue "data/trading.db"
-
-    let minRvol = args.GetResult(ContinuationPlaysArgs.Min_Rvol, defaultValue = 3.0)
-    let minGapPct = args.GetResult(ContinuationPlaysArgs.Min_Gap_Pct, defaultValue = 0.05)
-    let minDollarVolume = args.GetResult(ContinuationPlaysArgs.Min_Dollar_Volume, defaultValue = 25.0) * 1_000_000.0
-    let rvolWeight = args.GetResult(ContinuationPlaysArgs.Rvol_Weight, defaultValue = 0.95)
-    let gapWeight = args.GetResult(ContinuationPlaysArgs.Gap_Weight, defaultValue = 0.05)
-    let tradableOnly = not (args.Contains ContinuationPlaysArgs.All_Types)
-    let preWindowDays = args.GetResult(ContinuationPlaysArgs.Pre_Window_Days, defaultValue = 20)
-    let postWindowDays = args.GetResult(ContinuationPlaysArgs.Post_Window_Days, defaultValue = 5)
-    let minAtrRatio = args.GetResult(ContinuationPlaysArgs.Min_Atr_Ratio, defaultValue = 0.55)
-    let minPmVolumePct = args.GetResult(ContinuationPlaysArgs.Min_Pm_Volume_Pct, defaultValue = 0.0)
-    let minRvolFraction = args.GetResult(ContinuationPlaysArgs.Min_Rvol_Fraction, defaultValue = 0.5)
-    let maxHorizonDays = args.GetResult(ContinuationPlaysArgs.Max_Horizon_Days, defaultValue = 30)
-    let jsonMode = args.Contains ContinuationPlaysArgs.Json
-
-    if not jsonMode then
-        printfn "Continuation Plays from %s to %s" (formatDate startDate) (formatDate endDate)
-        printfn "Breakout filters: RVOL >= %.1fx, Gap >= %.1f%%, Avg Dollar Volume >= $%.0fM" minRvol (minGapPct * 100.0) (minDollarVolume / 1_000_000.0)
-        printfn "Tradable-only (CS+ADRC): %b   ATR ratio: %.2f   Min RVOL fraction: %.2f   Max horizon: %d days" tradableOnly minAtrRatio minRvolFraction maxHorizonDays
-        if minPmVolumePct > 0.0 then
-            printfn "Min premarket dollar volume / 4w avg: %.0f%%" (minPmVolumePct * 100.0)
-        printfn "Database: %s" (Path.GetFullPath dbPath)
-        printfn ""
-
-    use connection = openConnection dbPath
-    let plays =
-        getContinuationPlays
-            connection startDate endDate minRvol minGapPct minDollarVolume
-            rvolWeight gapWeight tradableOnly preWindowDays postWindowDays minAtrRatio
-            minPmVolumePct minRvolFraction maxHorizonDays
-
-    if jsonMode then
-        let sb = System.Text.StringBuilder()
-        sb.Append("[") |> ignore
-        let mutable first = true
-        for p in plays do
-            if not first then sb.Append(",") |> ignore
-            first <- false
-            sb.AppendFormat(
-                System.Globalization.CultureInfo.InvariantCulture,
-                "\n  {{\"ticker\": \"{0}\", \"breakout_date\": \"{1}\", \"date\": \"{2}\", \"max_rvol_day\": \"{3}\", \"max_rvol\": {4}, \"days_since_max_rvol_day\": {5}, \"rvol\": {6}, \"volume\": {7}, \"raw_volume\": {8}, \"avg_volume_4w\": {9}, \"avg_dollar_volume_4w\": {10}}}",
-                p.ticker,
-                p.breakout_date.ToString("yyyy-MM-dd"),
-                p.date.ToString("yyyy-MM-dd"),
-                p.max_rvol_day.ToString("yyyy-MM-dd"),
-                p.max_rvol,
-                p.days_since_max_rvol_day,
-                p.rvol,
-                p.volume,
-                p.raw_volume,
-                p.avg_volume_4w,
-                p.avg_dollar_volume_4w) |> ignore
-        if not first then sb.Append("\n") |> ignore
-        sb.Append("]") |> ignore
-        printfn "%s" (sb.ToString())
-    else
-        if plays.Length = 0 then
-            printfn "No continuation plays found for the given date range."
-        else
-            // Group by (ticker, breakout_date) so each chain prints together.
-            let mutable currentKey = ("", DateOnly.MinValue)
-            for p in plays do
-                let key = (p.ticker, p.breakout_date)
-                if key <> currentKey then
-                    currentKey <- key
-                    printfn "=== %s breakout %s ===" p.ticker (p.breakout_date.ToString("yyyy-MM-dd"))
-                printfn "  +%d  %s  rvol %5.2fx  max %5.2fx @ %s  vol %12d"
-                    p.days_since_max_rvol_day
-                    (p.date.ToString("yyyy-MM-dd"))
-                    p.rvol
-                    p.max_rvol
-                    (p.max_rvol_day.ToString("yyyy-MM-dd"))
-                    p.volume
 
 let private handleRefreshViews (args: ParseResults<RefreshViewsArgs>) =
     let dbPath =
@@ -1490,30 +1231,6 @@ let private handleConvertTradesToParquet (args: ParseResults<ConvertTradesToParq
                     (float bytesAfter / 1024.0 / 1024.0 / 1024.0)
                     ratio
 
-let private handleBuildPremarketVolume (args: ParseResults<BuildPremarketVolumeArgs>) =
-    let dbPath =
-        args.TryGetResult BuildPremarketVolumeArgs.Database
-        |> Option.defaultValue "data/trading.db"
-
-    printfn "Building premarket_volume_daily..."
-    printfn "Database: %s" (Path.GetFullPath dbPath)
-
-    use connection = openConnection dbPath
-    let sw = Diagnostics.Stopwatch.StartNew()
-    executeNamedResource connection "07_premarket_volume_daily.sql"
-    sw.Stop()
-
-    let countScalar (sql: string) : int64 =
-        use cmd = connection.CreateCommand()
-        cmd.CommandText <- sql
-        cmd.ExecuteScalar() :?> int64
-
-    let rows    = countScalar "SELECT COUNT(*) FROM premarket_volume_daily"
-    let tickers = countScalar "SELECT COUNT(DISTINCT ticker) FROM premarket_volume_daily"
-    let days    = countScalar "SELECT COUNT(DISTINCT date) FROM premarket_volume_daily"
-    printfn "Done in %.2fs: %d rows across %d tickers x %d trading days"
-        sw.Elapsed.TotalSeconds rows tickers days
-
 let private handleBuildMinuteBars (args: ParseResults<BuildMinuteBarsArgs>) =
     let defaults = MinuteBarsBuild.defaultOptions ()
     let opts : MinuteBarsBuild.BuildOptions = {
@@ -1573,10 +1290,6 @@ let main argv =
                 handleIngestIntraday args
             | Refresh_Views args ->
                 handleRefreshViews args
-            | Gap_Play args ->
-                handleGapPlay args
-            | Continuation_Plays args ->
-                handleContinuationPlays args
             | Download_Tickers args ->
                 let config = loadConfigOrFail configPath
                 handleDownloadTickers config args
@@ -1584,8 +1297,6 @@ let main argv =
                 handleConvertTradesToParquet args
             | Build_Minute_Bars args ->
                 handleBuildMinuteBars args
-            | Build_Premarket_Volume args ->
-                handleBuildPremarketVolume args
             | Download_Ticker_Events args ->
                 let config = loadConfigOrFail configPath
                 handleDownloadTickerEvents config args
