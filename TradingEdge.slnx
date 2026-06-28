@@ -7,5 +7,4 @@
   <Project Path="TradingEdge.Massive/TradingEdge.Massive.fsproj" />
   <Project Path="TradingEdge.MomentumV2/TradingEdge.MomentumV2.fsproj" />
   <Project Path="TradingEdge.Orb/TradingEdge.Orb.fsproj" />
-  <Project Path="TradingEdge.ReplaySimulatorV3/TradingEdge.ReplaySimulatorV3.fsproj" />
 </Solution>
