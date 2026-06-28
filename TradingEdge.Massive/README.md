@@ -1,11 +1,22 @@
 # TradingEdge.Massive
 
-A trading data analysis library for downloading and processing stock market data from Massive.
+The **data-download library** for the TradingEdge equity stack: it fetches stock-market
+data from the Massive S3 flat-files and the Polygon REST API and writes it to raw files
+on disk (CSV / JSON / Parquet). It performs **no** database work.
+
+The DuckDB side (schema, ingest, materialize, query) and the command-line entry point
+live in **[TradingEdge.Database](../TradingEdge.Database/README.md)**, which references
+this library. So although the download *code* lives here, you invoke the download
+commands through the `TradingEdge.Database` CLI:
+
+```bash
+dotnet run --project TradingEdge.Database -- <download-command> [options]
+```
 
 ## Prerequisites
 
-- .NET 9.0 SDK
-- `api_key.json` file in the project root with your Massive API credentials:
+- .NET 10.0 SDK
+- `api_key.json` in the repo root with your Massive / Polygon credentials:
 
 ```json
 {
@@ -18,650 +29,164 @@ A trading data analysis library for downloading and processing stock market data
 ## Building
 
 ```bash
-dotnet build
+# As a library, it builds with the solution:
+dotnet build TradingEdge.slnx
+
+# Standalone:
+dotnet build TradingEdge.Massive/TradingEdge.Massive.fsproj
 ```
 
-## CLI Commands
+## Download commands
 
-### Download Daily Aggregates
+All commands below are exposed by the `TradingEdge.Database` CLI (see note above).
 
-Downloads daily OHLCV data from Massive S3 storage as compressed CSV files.
+### download-bulk — daily aggregates (whole market, from Massive S3)
 
 ```bash
-dotnet run --project TradingEdge.Massive -- download-bulk [options]
+dotnet run --project TradingEdge.Database -- download-bulk [options]
 ```
+- `-s, --start-date <yyyy-MM-dd>` — start (default: 5 years ago)
+- `-e, --end-date <yyyy-MM-dd>` — end (default: today)
+- `-p, --parallelism <int>` — max parallel downloads (default: 10)
 
-**Options:**
-- `-s, --start-date <yyyy-MM-dd>` - Start date (default: 5 years ago)
-- `-e, --end-date <yyyy-MM-dd>` - End date (default: today)
-- `-p, --parallelism <int>` - Max parallel downloads (default: 10)
+Output: `data/daily_aggregates/{yyyy-MM-dd}.csv.gz`.
 
-**Examples:**
+### download-bulk-minute — 1-minute bars (whole market, from Massive S3)
+
+Whole-market 1m OHLCV, one parquet per trading day. Two-stage pipeline (download
+`.csv.gz` to an SSD staging dir → convert to parquet) so downloads and conversions
+overlap. Idempotent/resumable: existing days are skipped; re-run to retry missing days.
 
 ```bash
-# Download last 5 years of data
-dotnet run --project TradingEdge.Massive -- download-bulk
-
-# Download specific date range
-dotnet run --project TradingEdge.Massive -- download-bulk -s 2024-01-01 -e 2024-12-11
-
-# Download with lower parallelism
-dotnet run --project TradingEdge.Massive -- download-bulk -s 2024-12-01 -e 2024-12-11 -p 4
+dotnet run --project TradingEdge.Database -- download-bulk-minute [options]
 ```
+- `-s, --start-date` (default: 2024-04-01; Massive minute history starts 2021-01-01)
+- `-e, --end-date` (default: today)
+- `-p, --parallelism <int>` (default: 10)
+- `-cp, --convert-parallelism <int>` (default: 1; 4 keeps up with `-p 10`)
+- `-o, --output-dir <path>` (default: `data/minute_aggs`)
+- `-T, --temp-dir <path>` — SSD staging for in-flight `.csv.gz` (default: `~/.cache/massive_bulk_tmp`)
 
-Output: `data/daily_aggregates/{yyyy-MM-dd}.csv.gz`
+Output: `data/minute_aggs/{yyyy-MM-dd}.parquet` (~18 MB/day). Schema: `(ticker, ohlcv, window_start, transactions)`.
 
-### Download Bulk Minute Aggregates
+### download-bulk-trades — trade flat-files (whole market, from Massive S3)
 
-Downloads 1-minute OHLCV aggregate bars for the **entire universe** from Massive S3 storage, one parquet per trading day. This is the whole-market counterpart to `download-bulk` (daily); use it when you need intraday bars across all tickers rather than the per-ticker REST `download-intraday`. A two-stage pipeline (download `.csv.gz` to an SSD staging dir → convert to parquet via `zcat | duckdb`) so downloads and conversions overlap.
+Whole-market trades flat-files → zstd-compressed Parquet, one per trading day. Same
+staging pipeline as `download-bulk-minute`.
 
 ```bash
-dotnet run --project TradingEdge.Massive -- download-bulk-minute [options]
+dotnet run --project TradingEdge.Database -- download-bulk-trades [options]
 ```
 
-**Options:**
-- `-s, --start-date <yyyy-MM-dd>` - Start date (default: 2024-04-01). Massive's minute history goes back to **2021-01-01**.
-- `-e, --end-date <yyyy-MM-dd>` - End date (default: today)
-- `-p, --parallelism <int>` - Max parallel downloads (default: 10)
-- `-cp, --convert-parallelism <int>` - Max parallel converters (`zcat | duckdb`) (default: 1; 4 keeps up with `-p 10`)
-- `-o, --output-dir <path>` - Output directory (default: `data/minute_aggs`)
-- `-T, --temp-dir <path>` - SSD-backed staging dir for in-flight `.csv.gz` (default: `~/.cache/massive_bulk_tmp`)
-
-**Examples:**
+### download-splits
 
 ```bash
-# Extend the corpus back to the start of Massive's minute history
-dotnet run --project TradingEdge.Massive -- download-bulk-minute -s 2021-01-01 -e 2024-03-31 -p 10 -cp 4
-
-# A single month
-dotnet run --project TradingEdge.Massive -- download-bulk-minute -s 2024-04-01 -e 2024-04-30
+dotnet run --project TradingEdge.Database -- download-splits [options]
 ```
+- `-s/-e` date range (default start: 5 years ago; no end = all future splits)
 
-Output: `data/minute_aggs/{yyyy-MM-dd}.parquet` (≈18 MB/day, ≈4.5 GB/year). Schema: `(ticker, ohlcv, window_start, transactions)`.
+Output: `data/splits.csv`.
 
-**Idempotent / resumable:** a date whose final `.parquet` already exists is **Skipped**, so re-running the same range only fetches missing days. Market holidays (S3 404) are skipped automatically. Transient S3 `403 Forbidden` bursts can occur at the very start of a run (connection ramp); they are reported as `Failed` and simply leave those days missing — **re-run the same command to retry only the failed/missing dates.**
+### download-dividends
 
-### Download Stock Splits
-
-Downloads stock split information from the Massive API.
+Polygon dividends, monthly chunked + cached (only the current month is re-fetched).
 
 ```bash
-dotnet run --project TradingEdge.Massive -- download-splits [options]
+dotnet run --project TradingEdge.Database -- download-dividends [options]
 ```
+- `-s/-e` date range (default start: 5 years ago)
 
-**Options:**
-- `-s, --start-date <yyyy-MM-dd>` - Start date (default: 5 years ago)
-- `-e, --end-date <yyyy-MM-dd>` - End date (default: none, includes all future splits)
+Output: `data/dividends.csv` (merged) + `data/dividends_cache/{yyyy-MM}.csv`.
 
-**Examples:**
+### download-intraday — per-ticker minute/second bars (Polygon REST)
 
 ```bash
-# Download all splits from the last 5 years
-dotnet run --project TradingEdge.Massive -- download-splits
-
-# Download splits for a specific date range
-dotnet run --project TradingEdge.Massive -- download-splits -s 2024-01-01 -e 2024-12-11
-
-# Download splits from a date onwards (no end date)
-dotnet run --project TradingEdge.Massive -- download-splits -s 2024-01-01
+dotnet run --project TradingEdge.Database -- download-intraday -t TICKER [options]
 ```
+- `-t, --ticker <symbol>` — **required** (the SIP/stocks-in-play mode was removed)
+- `-s, --start-date` (default: 1 week ago), `-e, --end-date`
+- `-o, --output-dir <path>` (default: `data/intraday`)
+- `-p, --parallelism <int>` (default: 5)
+- `--timespan <minute|second>` (default: minute)
 
-Output: `data/splits.csv`
+Output: `data/intraday/{timespan}/{ticker}/{date}.json`.
 
-### Download Dividends
+### download-trades — per-ticker tick-level trades (Polygon REST)
 
-Downloads dividend information from the Polygon API. Uses monthly chunking with full parallelism and caches completed months locally.
+Writes zstd-compressed Parquet keeping only the columns read downstream
+(`participant_timestamp, sip_timestamp, price, size, exchange, trf_id, conditions`).
+The in-memory Parquet serialization uses DuckDB (`TradesDownload.writeTradesToParquet`).
 
 ```bash
-dotnet run --project TradingEdge.Massive -- download-dividends [options]
+dotnet run --project TradingEdge.Database -- download-trades -t TICKER -s <date> [options]
 ```
+- `-t` required, `-s` required, `-e` optional, `-o` (default `data/trades`), `-p` (default 5)
 
-**Options:**
-- `-s, --start-date <yyyy-MM-dd>` - Start date (default: 5 years ago)
-- `-e, --end-date <yyyy-MM-dd>` - End date (default: none, includes all future)
+Output: `data/trades/{ticker}/{date}.parquet`.
 
-**Examples:**
+### download-trades-from-json — batch trades for `(ticker, date)` pairs
 
 ```bash
-# Download all dividends from the last 5 years
-dotnet run --project TradingEdge.Massive -- download-dividends
-
-# Download dividends for a specific date range
-dotnet run --project TradingEdge.Massive -- download-dividends -s 2024-01-01 -e 2024-12-31
+dotnet run --project TradingEdge.Database -- download-trades-from-json -i pairs.json [options]
 ```
+Input JSON: array of `{"ticker": "...", "date": "yyyy-MM-dd"}` (extra fields ignored).
+Existing `.parquet` files are skipped. Output: `data/trades/{ticker}/{date}.parquet`.
 
-Output: `data/dividends.csv` (merged), `data/dividends_cache/{yyyy-MM}.csv` (per-month cache)
-
-**Features:**
-- Downloads all months in parallel for maximum speed (~14s for 5 years)
-- Caches completed months (only current month is re-fetched on subsequent runs)
-- Second run takes ~6s (reads cache + fetches current month only)
-
-### Download Intraday Data
-
-Downloads intraday (minute or second) aggregate bars for specific tickers via the Polygon REST API. Can download for individual tickers or automatically fetch data for all stocks in play.
+### download-quotes — per-ticker NBBO quotes (Polygon REST)
 
 ```bash
-dotnet run --project TradingEdge.Massive -- download-intraday [options]
+dotnet run --project TradingEdge.Database -- download-quotes -t TICKER -s <date> [options]
 ```
+`-t`/`-s` required, `-e`/`-o`/`-p`/`--pretty`. Output: `data/quotes/{ticker}/{date}.json`.
 
-**Options:**
-- `-t, --ticker <symbol>` - Stock ticker symbol (use with date range)
-- `-s, --start-date <yyyy-MM-dd>` - Start date (default: 1 week ago)
-- `-e, --end-date <yyyy-MM-dd>` - End date. If omitted with -t, only start date is downloaded
-- `-d, --database <path>` - DuckDB database path for SIP lookup (default: data/trading.db)
-- `-o, --output-dir <path>` - Output directory (default: data/intraday)
-- `-p, --parallelism <int>` - Max parallel downloads (default: 5)
-- `--timespan <string>` - Aggregate timespan: 'minute' or 'second' (default: minute)
-- `--from-sip` - Download for all stocks in play from database
-- `-r, --min-rvol <float>` - Min RVOL filter for SIP (default: 3)
-- `-g, --min-gap-pct <float>` - Min gap % for SIP (default: 0.05)
-- `-v, --min-dollar-volume <float>` - Min avg dollar volume in millions for SIP (default: 25)
-
-**Examples:**
+### download-news — per-ticker news articles (Polygon REST)
 
 ```bash
-# Download minute data for a specific ticker
-dotnet run --project TradingEdge.Massive -- download-intraday -t NVDA -s 2024-12-01 -e 2024-12-11
-
-# Download second aggregates for a ticker
-dotnet run --project TradingEdge.Massive -- download-intraday -t AAPL -s 2024-12-10 --timespan second
-
-# Download minute data for all stocks in play (from database)
-dotnet run --project TradingEdge.Massive -- download-intraday --from-sip -s 2024-12-01 -e 2024-12-11
-
-# Download for SIPs with custom filters
-dotnet run --project TradingEdge.Massive -- download-intraday --from-sip -r 5 -g 0.10 -s 2024-12-01
+dotnet run --project TradingEdge.Database -- download-news -t TICKER [options]
 ```
+`-t` required; `-s`/`-e` (smart 1-week defaults); `-o`/`-p`. Output: `data/news/{ticker}/{date}.json`.
 
-Output: `data/intraday/{timespan}/{ticker}/{date}.json`
-
-### Download Trades Data
-
-Downloads tick-level trades data for a specific ticker via the Polygon REST API and writes them as zstd-compressed Parquet. The on-disk schema keeps only the five columns that are read downstream:
-
-```
-participant_timestamp BIGINT       -- nanoseconds since Unix epoch (0 for OTC)
-sip_timestamp         BIGINT       -- nanoseconds since Unix epoch
-price                 DOUBLE
-size                  DOUBLE
-conditions            INTEGER[]    -- nullable
-```
-
-Polygon fields `id`, `exchange`, `sequence_number`, `tape` are dropped because no reader consumes them. Typical compression over the source JSON is ~20x.
+### download-tickers — ETF/ETN reference list (Polygon `/v3/reference/tickers`)
 
 ```bash
-dotnet run --project TradingEdge.Massive -- download-trades [options]
+dotnet run --project TradingEdge.Database -- download-tickers [-o data/tickers.csv]
 ```
+Then `ingest-data` loads it into the `ticker_reference` table (used to filter the universe
+to CS/ADRC). The ETF universe changes slowly — refreshing quarterly is plenty.
 
-**Options:**
-- `-t, --ticker <symbol>` - Stock ticker symbol (required)
-- `-s, --start-date <yyyy-MM-dd>` - Start date (required)
-- `-e, --end-date <yyyy-MM-dd>` - End date. If omitted, only start date is downloaded
-- `-o, --output-dir <path>` - Output directory (default: data/trades)
-- `-p, --parallelism <int>` - Max parallel downloads (default: 5)
+### download-ticker-events — rename / corporate-event chains (Polygon `/vX/.../events`)
 
-**Examples:**
+Per-ticker event chains (e.g. FB→META) anchored by `composite_figi`. Idempotent: skips
+tickers already on disk; 404s are persisted and skipped on re-run.
 
 ```bash
-# Download trades for a single day
-dotnet run --project TradingEdge.Massive -- download-trades -t NVDA -s 2024-12-20
-
-# Download trades for a date range
-dotnet run --project TradingEdge.Massive -- download-trades -t NVDA -s 2024-12-15 -e 2024-12-20
-
-# Download with custom output directory
-dotnet run --project TradingEdge.Massive -- download-trades -t AAPL -s 2024-12-20 -o data/my_trades
+dotnet run --project TradingEdge.Database -- download-ticker-events [options]
 ```
-
-Output: `data/trades/{ticker}/{date}.parquet`
-
-### Download Trades from JSON List
-
-Batch-downloads trades for many `(ticker, date)` pairs listed in a JSON file. Pairs are processed most-recent date first, deduplicated, and any pair whose `.parquet` already exists on disk is skipped. Useful for pulling the full set of breakout/continuation plays in one shot.
-
-```bash
-dotnet run --project TradingEdge.Massive -- download-trades-from-json [options]
-```
-
-**Options:**
-- `-i, --input-file <path>` - JSON file: array of objects with `ticker` and `date` fields (required)
-- `-o, --output-dir <path>` - Output directory (default: data/trades)
-- `-p, --parallelism <int>` - Max parallel downloads (default: 10)
-
-The input JSON can have extra fields; only `ticker` (string) and `date` (yyyy-MM-dd string) are read. Example format:
-
-```json
-[
-  {"ticker": "NVDA", "date": "2024-12-20"},
-  {"ticker": "AAPL", "date": "2024-12-19"}
-]
-```
-
-**Example:**
-
-```bash
-dotnet run --project TradingEdge.Massive -- download-trades-from-json -i data/continuation_plays.json
-```
-
-Output: `data/trades/{ticker}/{date}.parquet` (same layout as `download-trades`).
-
-### Convert Trades to Parquet (one-shot migration)
-
-Converts pre-existing `data/trades/{ticker}/{date}.json` files to the new Parquet format in place and deletes each JSON on success. Idempotent -- files that already have a matching `.parquet` are skipped -- so an interrupted run can simply be re-invoked.
-
-```bash
-dotnet run --project TradingEdge.Massive -- convert-trades-to-parquet [-i <input-dir>]
-```
-
-Only needed once to migrate legacy data; new downloads already use Parquet directly.
-
-### Download Quotes Data
-
-Downloads NBBO (National Best Bid and Offer) quotes data for a specific ticker via the Polygon REST API. Each quote record includes bid/ask prices, sizes, exchanges, and timestamps.
-
-```bash
-dotnet run --project TradingEdge.Massive -- download-quotes [options]
-```
-
-**Options:**
-- `-t, --ticker <symbol>` - Stock ticker symbol (required)
-- `-s, --start-date <yyyy-MM-dd>` - Start date (required)
-- `-e, --end-date <yyyy-MM-dd>` - End date. If omitted, only start date is downloaded
-- `-o, --output-dir <path>` - Output directory (default: data/quotes)
-- `-p, --parallelism <int>` - Max parallel downloads (default: 5)
-- `--pretty` - Output JSON with indentation (pretty print)
-
-**Examples:**
-
-```bash
-# Download quotes for a single day
-dotnet run --project TradingEdge.Massive -- download-quotes -t NVDA -s 2024-12-20
-
-# Download quotes for a date range
-dotnet run --project TradingEdge.Massive -- download-quotes -t NVDA -s 2024-12-15 -e 2024-12-20
-
-# Download with pretty-printed JSON
-dotnet run --project TradingEdge.Massive -- download-quotes -t AAPL -s 2024-12-20 --pretty
-```
-
-Output: `data/quotes/{ticker}/{date}.json`
-
-### Download News Articles
-
-Downloads news articles for a specific ticker via the Polygon REST API. Each article includes title, description, URL, publication date, sentiment analysis, and publisher information.
-
-```bash
-dotnet run --project TradingEdge.Massive -- download-news [options]
-```
-
-**Options:**
-- `-t, --ticker <symbol>` - Stock ticker symbol (required)
-- `-s, --start-date <yyyy-MM-dd>` - Start date. If omitted with -e, defaults to 1 week before end date
-- `-e, --end-date <yyyy-MM-dd>` - End date. If omitted with -s, defaults to start date
-- `-o, --output-dir <path>` - Output directory (default: data/news)
-- `-p, --parallelism <int>` - Max parallel downloads (default: 5)
-
-**Examples:**
-
-```bash
-# Download news for a single day
-dotnet run --project TradingEdge.Massive -- download-news -t BYND -s 2025-10-22
-
-# Download news for a date range
-dotnet run --project TradingEdge.Massive -- download-news -t NVDA -s 2024-12-15 -e 2024-12-20
-
-# Download news for the week leading up to a date (start date defaults to 1 week before)
-dotnet run --project TradingEdge.Massive -- download-news -t BYND -e 2025-10-22
-```
-
-Output: `data/news/{ticker}/{date}.json`
-
-### Download Tickers (ETF Reference List)
-
-Downloads the universe of exchange-traded products (ETFs, ETNs, ETVs, ETSs) from Polygon's `/v3/reference/tickers` endpoint and saves them to a CSV file. Like splits and dividends, the data is then loaded into the DuckDB database via `ingest-data`.
-
-The resulting `ticker_reference` table is what `gap-play` uses to filter ETFs out of breakout candidates by default.
-
-```bash
-dotnet run --project TradingEdge.Massive -- download-tickers [options]
-```
-
-**Options:**
-- `-o, --output-file <path>` - Output CSV path (default: data/tickers.csv)
-
-**Example:**
-
-```bash
-# Refresh the ETF list (typical run takes a few seconds; produces ~5k rows)
-dotnet run --project TradingEdge.Massive -- download-tickers
-
-# Then ingest into the database (along with any other refreshed sources)
-dotnet run --project TradingEdge.Massive -- ingest-data
-```
-
-The ETF universe changes slowly — once a quarter is plenty. Run it once (followed by `ingest-data`) before your first `gap-play` query so the ETF filter has data to match against.
-
-### Download Ticker Events (rename / corporate-event chains)
-
-Downloads the per-ticker event chain from Polygon's `/vX/reference/tickers/{ticker}/events` endpoint — primarily ticker-change events (e.g., FB → META, FISV → FI, PEAK → DOC). Each chain is anchored by `composite_figi` so you can link historical and current symbols for the same security.
-
-```bash
-dotnet run --project TradingEdge.Massive -- download-ticker-events [options]
-```
-
-**Options:**
-- `-d, --database <path>` - DuckDB database for ticker list (default: data/trading.db). Ignored if `--tickers` is set.
-- `-o, --output-dir <path>` - Per-ticker JSON output directory (default: data/tickers/events)
-- `-p, --parallelism <n>` - Concurrent requests (default: 8)
-- `-t, --tickers <csv>` - Comma-separated tickers to download (default: every ticker in `ticker_reference`)
-
-**Idempotent**: skips any ticker that already has a JSON on disk. 404 responses are persisted as `{"status":"NOT_FOUND",...}` so they're also skipped on re-run. Re-running only re-fetches genuine network failures.
-
-**Output:**
-- `data/tickers/events/{ticker}.json` — one file per ticker, raw API response. This is the durable copy; the DuckDB table is rebuilt from these.
-
-**Notes on the events chain:**
-- Polygon returns the chain when queried by the *originating* symbol. Querying `FISV/events` returns the full FB→META-style chain; querying `FI/events` typically returns 404.
-- The "ticker change" date can differ from the index-effective date by 1-2 days. Polygon uses the symbol-swap announcement / first-trading-day; S&P's "Selected changes" log uses the index-effective date.
-- Tickers do get recycled — e.g., `FB` is now classified as ETF after Meta dropped the symbol. The `query_ticker` + `event_date` pair is required for unambiguous identity.
-
-### Ingest Ticker Events
-
-Flattens the per-ticker JSONs into a single parquet and loads them into the `ticker_events` table.
-
-```bash
-dotnet run --project TradingEdge.Massive -- ingest-ticker-events [options]
-```
-
-**Options:**
-- `-d, --database <path>` - DuckDB database (default: data/trading.db)
-- `-i, --input-dir <path>` - Per-ticker JSON dir (default: data/tickers/events)
-- `-o, --output-parquet <path>` - Output parquet (default: data/tickers/events.parquet)
-
-**Output:**
-- `data/tickers/events.parquet` — flattened (query_ticker, figi, name, cik, event_date, event_type, event_ticker)
-- `ticker_events` table in DuckDB, loaded from that parquet (truncate-and-insert; safe to re-run)
-
-`NOT_FOUND` responses produce no rows. The parquet is the source of truth; the table is just for SQL convenience.
-
-### Ingest Data
-
-Ingests downloaded daily aggregates, splits, dividends, and the ETF ticker reference into a DuckDB database. Each source is independently gated by file existence, so you can re-run after refreshing only one of them.
-
-```bash
-dotnet run --project TradingEdge.Massive -- ingest-data [options]
-```
-
-**Options:**
-- `-d, --database <path>` - DuckDB database path (default: data/trading.db)
-- `-c, --csv-dir <path>` - Directory containing .csv.gz files (default: data/daily_aggregates)
-- `-s, --splits-file <path>` - CSV file containing splits (default: data/splits.csv)
-- `--dividends-file <path>` - CSV file containing dividends (default: data/dividends.csv)
-- `--tickers-file <path>` - CSV file containing the ETF/ETN ticker reference (default: data/tickers.csv)
-
-**Examples:**
-
-```bash
-# Ingest all data with defaults
-dotnet run --project TradingEdge.Massive -- ingest-data
-
-# Ingest to a custom database
-dotnet run --project TradingEdge.Massive -- ingest-data -d /path/to/custom.db
-```
-
-**Features:**
-- Uses DuckDB's native CSV reader for fast bulk ingestion
-- Upserts splits, dividends, and tickers (inserts new, updates existing) on each run
-- Materializes derived tables (split-and-dividend-adjusted prices, momentum rankings, etc.)
-
-### Ingest Intraday Data
-
-Ingests downloaded intraday JSON files into the DuckDB database.
-
-```bash
-dotnet run --project TradingEdge.Massive -- ingest-intraday [options]
-```
-
-**Options:**
-- `-d, --database <path>` - DuckDB database path (default: data/trading.db)
-- `-i, --input-dir <path>` - Input directory for intraday data (default: data/intraday)
-- `--timespan <string>` - Filter by timespan: 'minute', 'second', or 'all' (default: all)
-
-**Examples:**
-
-```bash
-# Ingest all intraday data (minute and second)
-dotnet run --project TradingEdge.Massive -- ingest-intraday
-
-# Ingest only minute data
-dotnet run --project TradingEdge.Massive -- ingest-intraday --timespan minute
-
-# Ingest only second data
-dotnet run --project TradingEdge.Massive -- ingest-intraday --timespan second
-
-# Ingest from a custom directory
-dotnet run --project TradingEdge.Massive -- ingest-intraday -i /path/to/intraday
-```
-
-**Features:**
-- Uses DuckDB's native JSON reader with glob patterns for fast bulk ingestion
-- Separate tables for minute (`intraday_prices_minute`) and second (`intraday_prices_second`) data
-- Upserts on conflict (updates existing bars)
-
-### Refresh Views
-
-Refreshes only the SQL views without rematerializing the derived tables. Use this when you've modified view definitions but don't need to recompute the underlying materialized tables.
-
-```bash
-dotnet run --project TradingEdge.Massive -- refresh-views [options]
-```
-
-**Options:**
-- `-d, --database <path>` - DuckDB database path (default: data/trading.db)
-
-**Examples:**
-
-```bash
-# Refresh views with default database
-dotnet run --project TradingEdge.Massive -- refresh-views
-
-# Refresh views for a custom database
-dotnet run --project TradingEdge.Massive -- refresh-views -d /path/to/custom.db
-```
-
-### Build Minute Bars
-
-Builds 1-minute time-bar aggregates from the bulk trade parquets. One zstd-compressed parquet per day under `data/minute_bars_1m/{yyyy-MM-dd}.parquet`. Each row is `(ticker, bucket, start_ns, open, high, low, close, volume, dollar_volume, vwap, vwstd, trade_count)`. Buckets are 1-minute slots 04:00-20:00 ET (960 per day, DST-correct via local-ET base time + UTC conversion). Bars apply the canonical lit-only filter (`size > 0 AND trf_id = 0 AND conditions OK`) shared with `TradingEdge.Orb/TradeFilters.fs`.
-
-```bash
-dotnet run --project TradingEdge.Massive -- build-minute-bars [options]
-```
-
-**Options:**
-- `-s, --start-date <yyyy-MM-dd>` - First date inclusive (default: earliest input)
-- `-e, --end-date <yyyy-MM-dd>` - Last date inclusive (default: latest input)
-- `-i, --input-dir <path>` - Bulk trades dir (default: /mnt/d/trading-edge-bulk/trades)
-- `-o, --output-dir <path>` - Output bars dir on SSD (default: data/minute_bars_1m)
-- `-p, --parallelism <int>` - Concurrent days (default: 4)
-- `--force` - Overwrite existing per-day output parquets
-
-Idempotent — re-runs skip dates whose output parquet already exists unless `--force`. Full 2023-01-03 → 2026-05-13 backfill runs in roughly an hour at `-p 4` (~125 GB total output).
-
-### Build Premarket Volume
-
-Materializes the `premarket_volume_daily` table in the DB by aggregating buckets 0..329 (04:00-09:29 ET) of each day's 1-minute bar parquet. Each row is `(ticker, date, pm_volume, pm_dollar_volume, pm_trade_count, pm_vwap, pm_high, pm_low)` with a unique index on `(ticker, date)`. Used by `gap-play -pm/--min-pm-volume-pct` to filter for premarket-led setups.
-
-```bash
-dotnet run --project TradingEdge.Massive -- build-premarket-volume [options]
-```
-
-**Options:**
-- `-d, --database <path>` - DuckDB database path (default: data/trading.db)
-
-Runs in ~10s across the full 841-day dataset since the per-day parquets are already aggregated to bars. Also runs automatically as part of `ingest-data`'s materialization step.
-
-### Gap Play
-
-Lists top gap plays for a date range based on relative volume, opening gap, and liquidity. ETFs are excluded by default (via the `ticker_reference` table populated by `download-tickers`), and rows whose post-event ATR collapses below half their pre-event ATR are filtered out as likely buyouts.
-
-```bash
-dotnet run --project TradingEdge.Massive -- gap-play [options]
-```
-
-**Options:**
-- `-s, --start-date <yyyy-MM-dd>` - Start date (default: 1 week ago)
-- `-e, --end-date <yyyy-MM-dd>` - End date (default: today)
-- `-d, --database <path>` - DuckDB database path (default: data/trading.db)
-- `-r, --min-rvol <float>` - Minimum relative volume (default: 3)
-- `-g, --min-gap-pct <float>` - Minimum gap percentage as decimal (default: 0.05 for 5%)
-- `-v, --min-dollar-volume <float>` - Minimum avg dollar volume in millions (default: 25)
-- `-rw, --rvol-weight <float>` - Weight for RVOL in scoring (default: 0.95)
-- `-gw, --gap-weight <float>` - Weight for gap in scoring (default: 0.05)
-- `--include-etfs` - Do not exclude ETFs/ETNs (default: excluded via `ticker_reference`)
-- `--pre-window-days <int>` - Days before breakout for ATR baseline (default: 20)
-- `--post-window-days <int>` - Days after breakout for ATR comparison (default: 5)
-- `--min-atr-ratio <float>` - Min post/pre ATR ratio (buyout filter, default: 0.55; 0 disables)
-- `-pm, --min-pm-volume-pct <float>` - Min premarket dollar volume as a fraction of 4w avg dollar volume, e.g. 0.5 for 50% (default: 0, disabled). Joins against `premarket_volume_daily` — requires the 1m bars + `build-premarket-volume` step.
-- `--json` - Emit JSON to stdout instead of the human-readable table
-
-**Examples:**
-
-```bash
-# List gap plays for the past week (default filters)
-dotnet run --project TradingEdge.Massive -- gap-play
-
-# List gap plays for a specific date range
-dotnet run --project TradingEdge.Massive -- gap-play -s 2024-12-01 -e 2024-12-11
-
-# Find stocks with higher volatility (5x RVOL, 10% gap)
-dotnet run --project TradingEdge.Massive -- gap-play -r 5 -g 0.10
-
-# Restrict to large-cap stocks only ($100M+ avg volume instead of $25M)
-dotnet run --project TradingEdge.Massive -- gap-play -v 100
-
-# Premarket-led gap plays: $100M+ ADV AND >= 50% of ADV traded in premarket.
-# These are stocks where the news/move happened before RTH open — ideal for
-# tape-reading practice on a sim like DAS.
-dotnet run --project TradingEdge.Massive -- gap-play -v 100 -pm 0.5
-
-# Combine all filters: aggressive settings for small caps
-dotnet run --project TradingEdge.Massive -- gap-play -r 2 -g 0.03 -v 10
-
-# Use balanced weighting (50% RVOL, 50% gap) instead of volume-focused default
-dotnet run --project TradingEdge.Massive -- gap-play -rw 0.5 -gw 0.5
-
-# Disable the buyout filter to see ALL surviving rows
-dotnet run --project TradingEdge.Massive -- gap-play --min-atr-ratio 0
-
-# Dump 2 years of breakouts to JSON
-dotnet run --project TradingEdge.Massive -- gap-play -s 2024-04-11 -e 2026-04-11 --json > data/gap_play.json
-```
-
-**Default Criteria:**
-- Liquidity: $25M+ average daily dollar volume (4-week, prior days only — today's spike is not counted)
-- Relative Volume (RVOL): >= 3x normal volume
-- Opening Gap: >= 5% from previous close
-- ETFs/ETNs excluded (run `download-tickers` then `ingest-data` first to populate the reference table)
-- Buyouts excluded: rows whose 5-day post-event ATR collapses to <= 55% of the 20-day pre-event ATR
-- Ranked by composite score (95% RVOL weight, 5% gap weight)
-- Top 10 stocks per day
-
-### Continuation Plays
-
-For each breakout in `gap-play`, walks forward day-by-day and emits a row for every trading day whose RVOL stays above half the breakout day's RVOL. The chain stops at the first failing day, which is also included so callers can see where the chain died.
-
-The output is a single unified list. Each row carries `number_of_days_since_breakout` (0 for the breakout itself, 1+ for follow-through days) so downstream consumers can filter breakouts vs continuations from a single file.
-
-```bash
-dotnet run --project TradingEdge.Massive -- continuation-plays [options]
-```
-
-**Options:**
-
-All `gap-play` filter options are forwarded (same defaults), including `-pm/--min-pm-volume-pct`, plus:
-- `--min-rvol-fraction <float>` - Min fraction of breakout RVOL to keep the chain alive (default: 0.5)
-- `--max-horizon-days <int>` - Safety cap on chain length in calendar days (default: 30)
-- `--json` - Emit JSON to stdout instead of the human-readable table
-
-**Examples:**
-
-```bash
-# List continuation chains for the past month
-dotnet run --project TradingEdge.Massive -- continuation-plays -s 2026-03-11 -e 2026-04-11
-
-# Dump 2 years of breakouts + continuations to JSON for downstream processing
-dotnet run --project TradingEdge.Massive -- continuation-plays -s 2024-04-11 -e 2026-04-11 --json > data/continuation_plays.json
-
-# Stricter chain rule: only continue if RVOL stays above 70% of breakout day
-dotnet run --project TradingEdge.Massive -- continuation-plays --min-rvol-fraction 0.7
-```
-
-**Output shape (JSON):**
-
-```json
-[
-  {
-    "ticker": "ARM",
-    "breakout_date": "2026-03-20",
-    "date": "2026-03-20",
-    "number_of_days_since_breakout": 0,
-    "rvol": 3.09,
-    "breakout_rvol": 3.09,
-    "volume": 12450804,
-    "avg_volume_4w": 4030000.5
-  },
-  {
-    "ticker": "ARM",
-    "breakout_date": "2026-03-20",
-    "date": "2026-03-23",
-    "number_of_days_since_breakout": 1,
-    "rvol": 1.94,
-    "breakout_rvol": 3.09,
-    ...
-  }
-]
-```
-
-## Project Structure
+- `-d, --database <path>` — DB to source the ticker list (default `data/trading.db`; ignored if `--tickers` set)
+- `-o, --output-dir <path>` (default `data/tickers/events`)
+- `-p, --parallelism <n>` (default 8)
+- `-t, --tickers <csv>` — explicit list (default: every ticker in `ticker_reference`)
+
+Output: `data/tickers/events/{ticker}.json` (the durable copy; the DuckDB table is rebuilt
+from these via `ingest-ticker-events`).
+
+## Project structure
 
 ```
-TradingEdge/
-├── TradingEdge.Massive/         # Core library
-│   ├── Types.fs                 # Domain types
-│   ├── Config.fs                # Configuration loading
-│   ├── S3Download.fs            # S3 bulk download (daily aggregates)
-│   ├── SplitDownload.fs         # Splits API client
-│   ├── DividendDownload.fs      # Dividends API client (monthly cached)
-│   ├── IntradayDownload.fs      # Intraday API client (minute/second bars)
-│   ├── TradesDownload.fs        # Trades API client (tick-level data)
-│   ├── QuotesDownload.fs        # Quotes API client (NBBO data)
-│   ├── NewsDownload.fs          # News API client (articles with sentiment)
-│   ├── TickersDownload.fs       # Reference tickers API client (ETF list)
-│   ├── Database.fs              # DuckDB database operations
-│   ├── Program.fs               # CLI application
-│   └── sql/schema/              # SQL schema files
-│       ├── tables/              # Base tables
-│       │   ├── daily_prices.sql
-│       │   ├── splits.sql
-│       │   ├── dividends.sql
-│       │   └── ticker_reference.sql
-│       ├── materialized/        # Materialized tables (slow to rebuild)
-│       │   ├── 01_split_adjusted_prices.sql  # Split + dividend adjusted
-│       │   ├── 02_trading_calendar.sql
-│       │   └── 04_stock_volume_4w.sql
-│       └── views/               # Views/macros (fast to refresh)
-│           ├── 09_gap_play.sql
-│           └── 11_continuation_plays.sql
-├── api_key.json                 # API credentials (not in git)
-└── data/                        # Downloaded data
-    ├── daily_aggregates/        # Daily OHLCV CSV files
-    ├── intraday/                # Intraday data (minute/second JSON)
-    ├── trades/                  # Tick-level trades data (zstd Parquet)
-    ├── quotes/                  # NBBO quotes data (JSON)
-    ├── news/                    # News articles (JSON)
-    ├── splits.csv               # Splits data
-    ├── dividends.csv            # Dividends data (merged)
-    ├── dividends_cache/         # Per-month dividend cache
-    └── trading.db               # DuckDB database
+TradingEdge.Massive/          # download library (this project)
+├── Types.fs                  # domain types (MassiveConfig, Split, Dividend, DailyPrice, ...)
+├── Config.fs                 # api_key.json loading
+├── S3Download.fs             # Massive S3 bulk pipeline (daily / minute / trades)
+├── SplitDownload.fs          # splits API client
+├── DividendDownload.fs       # dividends API client (monthly cached)
+├── IntradayDownload.fs       # per-ticker minute/second bars
+├── TradesDownload.fs         # tick-level trades -> Parquet (in-memory DuckDB writer)
+├── QuotesDownload.fs         # NBBO quotes
+├── NewsDownload.fs           # news articles
+├── TickersDownload.fs        # ETF/ETN reference list
+└── TickerEventsDownload.fs   # rename / corporate-event chains
 ```
+
+Types.fs and Config.fs are shared: `TradingEdge.Database` consumes them across the project
+reference. The dependency direction is one-way — `TradingEdge.Database → TradingEdge.Massive`
+— so this library never references the DB project.
