@@ -1,6 +1,0 @@
-=== ORB System Trade Breakdown (decision-level, no fill sim) ===
-direction: Long  entryMode: RangeBreakout  stopMode: rangeLo
-bucketSeconds: 10.00  entryDelay: 60.0s
-Position size: $30000  referenceVol: 0.000582  lossLimit: infinity
-RVOL gate: ENABLED (entry >= 5.00x, no volume-fade exit)
-

@@ -27,7 +27,6 @@ papers/
 api_key.json
 
 .fake
-chat.md
 **/__pycache__
 .claude/scheduled_tasks.lock
 logs/*
