@@ -309,8 +309,9 @@ let private runDate
 
     // group rows by ticker into the per-candidate cell, applying the split-adjust ratio.
     let cells = Dictionary<string, ResizeArray<MinuteBar>>()
-    (use reader = cmd.ExecuteReader()
-     while reader.Read() do
+    do
+        use reader = cmd.ExecuteReader()
+        while reader.Read() do
         let ticker = reader.GetString 0
         match byTicker.TryGetValue ticker with
         | true, c ->
@@ -325,7 +326,7 @@ let private runDate
             match cells.TryGetValue ticker with
             | true, lst -> lst.Add bar
             | _ -> let lst = ResizeArray<MinuteBar>() in lst.Add bar; cells.[ticker] <- lst
-        | _ -> ())
+        | _ -> ()
 
     let trips = ResizeArray<Trip>()
     for c in cands do
