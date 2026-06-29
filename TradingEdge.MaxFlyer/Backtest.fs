@@ -55,6 +55,9 @@ let defaultConfig =
           SessionStartMin = 8 * 60 + 30   // 08:30 ET — engine start (SMB 1h opening range)
           EntryStartMin   = 9 * 60 + 35   // 09:35 ET — earliest entry (wall-clock trading floor)
           UseStop = false
+          TimeStopMin = 0                 // time-stop off by default
+          Short = false                   // long by default
+          Target = NoTarget               // no mean-reversion target by default
           MocMin = 16 * 60                // 16:00 ET
           MaxConcurrent = 0 }             // unlimited concurrent breakouts
       Notional = 10_000.0 }
@@ -191,10 +194,12 @@ type Trip =
       NetPnL: float
       BarsHeld: int }
 
-let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Trip =
+let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: IntradayPosition) : Trip =
     match pos.State with
     | ExitedAt (exitMin, exitPx, reason) ->
         let qty = notional / pos.EntryPx
+        // long P&L = qty*(exit-entry); short fades the breakout, so flip the sign.
+        let dirPnl = if short then pos.EntryPx - exitPx else exitPx - pos.EntryPx
         { Symbol = c.Ticker
           SignalDate = c.SignalDate
           TradeDate = c.Date
@@ -218,7 +223,7 @@ let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Tr
           ExitPrice = exitPx
           ExitReason = reason
           Qty = qty
-          NetPnL = qty * (exitPx - pos.EntryPx)            // long-only
+          NetPnL = qty * dirPnl                            // long or short (see dirPnl)
           BarsHeld = exitMin - pos.EntryMin }              // minutes held (1m bars)
     | Holding -> failwith "toTrip called on a still-Holding position (Finalize first)"
 
@@ -297,7 +302,7 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
         sys.Flatten()
         for pos in sys.Positions do
             match pos.State with
-            | ExitedAt _ -> trips.Add(toTrip c cfg.Notional pos)
+            | ExitedAt _ -> trips.Add(toTrip c cfg.Notional cfg.Intraday.Short pos)
             | Holding -> failwith "Flatten closes all; unreachable"
 
     for date, cands in candidates |> Array.groupBy (fun c -> c.Date) do
@@ -398,3 +403,88 @@ let writeCsv (path: string) (trips: Trip[]) =
     use w = new IO.StreamWriter(path)
     w.WriteLine header
     for t in trips do w.WriteLine(row t)
+
+// ---------------------------------------------------------------------------
+// Candidate cache — round-trip Candidate[] to/from CSV.
+//
+// Pipeline 1 (the daily scan over split_adjusted_prices) is the slow half and is
+// INVARIANT to every intraday/exit/target knob. Caching its output lets the
+// intraday experiments (exits, MA/channel targets, side) iterate without re-paying
+// the scan. The CSV carries exactly the Candidate fields the intraday side needs.
+// ---------------------------------------------------------------------------
+
+let candidateHeader =
+    "ticker,date,signal_date,prev_adj_close,adj_ratio,gap_pct,premkt_vol,rth_open,"
+    + "daily_atr_pct,daily_tightness,max_log_atr,pct_52w,pct_52w_high,avg_dollar_volume_4w"
+
+let private candidateRow (c: Candidate) : string =
+    String.concat "," [
+        c.Ticker
+        c.Date.ToString("yyyy-MM-dd")
+        c.SignalDate.ToString("yyyy-MM-dd")
+        fmt c.PrevAdjClose
+        fmt c.AdjRatio
+        fmt c.GapPct
+        string c.PremktVol
+        fmt c.RthOpen
+        fmt c.DailyAtrPct
+        fmt c.DailyTightness
+        fmt c.MaxAtrLog
+        fmt c.Pct52w
+        fmt c.Pct52wHigh
+        fmt c.AvgDolVol
+    ]
+
+let writeCandidates (path: string) (candidates: Candidate[]) =
+    use w = new IO.StreamWriter(path)
+    w.WriteLine candidateHeader
+    for c in candidates do w.WriteLine(candidateRow c)
+
+let readCandidates (path: string) : Candidate[] =
+    let pf (s: string) = Double.Parse(s, inv)
+    let pd (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
+    IO.File.ReadLines path
+    |> Seq.skip 1                              // header
+    |> Seq.map (fun line ->
+        let f = line.Split(',')
+        { Ticker = f.[0]
+          Date = pd f.[1]
+          SignalDate = pd f.[2]
+          PrevAdjClose = pf f.[3]
+          AdjRatio = pf f.[4]
+          GapPct = pf f.[5]
+          PremktVol = Int64.Parse(f.[6], inv)
+          RthOpen = pf f.[7]
+          DailyAtrPct = pf f.[8]
+          DailyTightness = pf f.[9]
+          MaxAtrLog = pf f.[10]
+          Pct52w = pf f.[11]
+          Pct52wHigh = pf f.[12]
+          AvgDolVol = pf f.[13] })
+    |> Seq.toArray
+
+// ---------------------------------------------------------------------------
+// Split run entry points (for the candidate cache).
+// ---------------------------------------------------------------------------
+
+let private withConn (dbPath: string) (f: DuckDBConnection -> 'a) : 'a =
+    let connStr = $"Data Source={dbPath};ACCESS_MODE=READ_ONLY"
+    use conn = new DuckDBConnection(connStr)
+    conn.Open()
+    do
+        use pragma = conn.CreateCommand()
+        pragma.CommandText <- "PRAGMA memory_limit='6GB'"
+        pragma.ExecuteNonQuery() |> ignore
+    f conn
+
+/// Pipeline 1 ONLY: the daily Gate-1+2 scan → candidates (no intraday side).
+let runCollectCandidates (dbPath: string) (cfg: Config)
+                         (startDate: DateOnly) (endDate: DateOnly) : Candidate[] =
+    withConn dbPath (fun conn -> collectCandidates conn cfg startDate endDate)
+
+/// Pipeline 2 ONLY: intraday Gate-3 over a PRE-COLLECTED candidate set (cached CSV).
+/// Skips the daily scan entirely. The DB connection is still needed for the per-date
+/// minute_aggs reads.
+let runFromCandidates (dbPath: string) (minuteDir: string) (cfg: Config)
+                      (candidates: Candidate[]) : Trip[] * int =
+    withConn dbPath (fun conn -> collectTrips conn cfg minuteDir candidates), candidates.Length

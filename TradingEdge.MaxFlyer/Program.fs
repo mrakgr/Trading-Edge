@@ -3,6 +3,7 @@ module TradingEdge.MaxFlyer.Program
 open System
 open System.Diagnostics
 open Argu
+open TradingEdge.MaxFlyer
 open TradingEdge.MaxFlyer.Backtest
 
 let private defaultDb = "/home/mrakgr/Trading-Edge/data/trading.db"
@@ -15,6 +16,8 @@ type Args =
     | Start_Date of string
     | End_Date of string
     | [<AltCommandLine("-o")>] Out of string
+    | Candidates_Out of string
+    | Candidates_In of string
     // Gate 1 — daily selection (D-1)
     | Min_Price of float
     | Min_52w_Pct of float
@@ -37,6 +40,10 @@ type Args =
     | Session_Start_Min of int
     | Entry_Start_Min of int
     | Intraday_Stop
+    | Time_Stop_Min of int
+    | Short
+    | Target of string
+    | Target_Window of int
     | Moc_Min of int
     | Notional of float
     | Max_Concurrent of int
@@ -49,6 +56,8 @@ type Args =
             | Start_Date _ -> "Backtest start date (yyyy-MM-dd). Default 2021-06-17 (dense 1m coverage)."
             | End_Date _ -> "Backtest end date (yyyy-MM-dd). Default 2026-06-25 (data max)."
             | Out _ -> "Output trips CSV path. Default /tmp/maxflyer_trips.csv."
+            | Candidates_Out _ -> "Run ONLY the daily scan (pipeline 1), write the candidate set to this CSV, and exit (no intraday). Caches the slow half so intraday experiments can reuse it via --candidates-in."
+            | Candidates_In _ -> "Skip the daily scan; load candidates from this CSV (from a prior --candidates-out) and run ONLY the intraday side. Gate-1/Gate-2 flags are ignored in this mode."
             // Gate 1
             | Min_Price _ -> "Gate 1: min D-1 close price. Default 1.0."
             | Min_52w_Pct _ -> "Gate 1: 52w-high proximity — require close >= this * prior-252d-high. Default 0.95."
@@ -70,7 +79,11 @@ type Args =
             | Intraday_Max_Atr_Pct _ -> "Gate 3: max intraday ATR%% (log-space) at entry. Default +inf (off). Sweep this in."
             | Session_Start_Min _ -> "Gate 3: first ET minute fed to the intraday engine (the running extremes accumulate from here). Default 510 (08:30, the SMB 1h opening range)."
             | Entry_Start_Min _ -> "Gate 3: earliest ET minute an entry may fire (wall-clock trading floor). Default 575 (09:35). Premarket bars are processed but not traded before this."
-            | Intraday_Stop -> "Gate 3: arm the protective stop (the 2-bar local low at entry; fills at the bar close). Default off (hold to MOC)."
+            | Intraday_Stop -> "Gate 3: arm the protective stop (the 2-bar local low at entry; fills at the bar close). Default off (hold to MOC). Wrong-sided for --short."
+            | Time_Stop_Min _ -> "Gate 3: time-stop — flatten this many minutes after entry (capped at MOC). Default 0 (off). Side-independent."
+            | Short -> "Gate 3: trade the breakout SHORT (fade) instead of long — flips the P&L sign; entry signal unchanged. Default off."
+            | Target _ -> "Gate 3 (short only): mean-reversion cover target — vwap | ma | channel. Covers when price reverts to the anchor; doubles as the loss-cut. Default none (hold to MOC/time-stop)."
+            | Target_Window _ -> "Gate 3: lookback in 1m BARS for --target ma (SMA of closes) or channel (Donchian low). Ignored for vwap (session-cumulative). Default 20."
             | Moc_Min _ -> "Gate 3: MOC cutoff in ET minutes-since-midnight. Default 960 (16:00). RTH bars are session-start..MOC."
             | Notional _ -> "Per-trip notional ($). Default 10000."
             | Max_Concurrent _ -> "Gate 3: cap on currently-OPEN positions per day (0 = unlimited). Default 0."
@@ -84,6 +97,18 @@ let main argv =
 
     let dbPath    = parsed.GetResult(Db_Path, defaultValue = defaultDb)
     let minuteDir = parsed.GetResult(Minute_Dir, defaultValue = defaultMinuteDir)
+
+    // --target {vwap|ma|channel} + --target-window N (window ignored for vwap).
+    let target =
+        match parsed.TryGetResult Target with
+        | None -> Intraday.NoTarget
+        | Some s ->
+            let w = parsed.GetResult(Target_Window, defaultValue = 20)
+            match s.ToLowerInvariant() with
+            | "vwap" -> Intraday.Vwap
+            | "ma" -> Intraday.Ma w
+            | "channel" -> Intraday.Channel w
+            | other -> failwithf "unknown --target '%s' (expected vwap | ma | channel)" other
     let startDate = parseDate (parsed.GetResult(Start_Date, defaultValue = "2021-06-17"))
     let endDate   = parseDate (parsed.GetResult(End_Date,   defaultValue = "2026-06-25"))
     let outPath   = parsed.GetResult(Out, defaultValue = defaultCsv)
@@ -117,6 +142,9 @@ let main argv =
                   SessionStartMin = parsed.GetResult(Session_Start_Min,      defaultValue = dc.Intraday.SessionStartMin)
                   EntryStartMin   = parsed.GetResult(Entry_Start_Min,        defaultValue = dc.Intraday.EntryStartMin)
                   UseStop         = parsed.Contains Intraday_Stop
+                  TimeStopMin     = parsed.GetResult(Time_Stop_Min,          defaultValue = dc.Intraday.TimeStopMin)
+                  Short           = parsed.Contains Short
+                  Target          = target
                   MocMin          = parsed.GetResult(Moc_Min,                defaultValue = dc.Intraday.MocMin)
                   MaxConcurrent   = parsed.GetResult(Max_Concurrent,         defaultValue = dc.Intraday.MaxConcurrent) } }
 
@@ -133,14 +161,44 @@ let main argv =
     let hhmm m = sprintf "%02d:%02d" (m / 60) (m % 60)
     printfn "  Gate2 (premarket): gap[%.2f,%.2f] premkt_vol>=%d premkt_vol_pct_of_avg>=%.2f"
         cfg.Daily.MinGapPct cfg.Daily.MaxGapPct cfg.Daily.MinPremktVol cfg.Daily.MinPremktVolPctOfAvg
-    printfn "  Gate3 (intraday): volwin=%d tight<%s atr%%<%s session=%s entry>=%s stop=%b moc=%s max_concurrent=%d notional=%.0f"
+    let targetStr =
+        match cfg.Intraday.Target with
+        | Intraday.NoTarget -> "none"
+        | Intraday.Vwap -> "vwap"
+        | Intraday.Ma w -> sprintf "ma%d" w
+        | Intraday.Channel w -> sprintf "channel%d" w
+    printfn "  Gate3 (intraday): side=%s target=%s volwin=%d tight<%s atr%%<%s session=%s entry>=%s stop=%b time_stop=%d moc=%s max_concurrent=%d notional=%.0f"
+        (if cfg.Intraday.Short then "SHORT" else "long") targetStr
         cfg.Intraday.VolWindow (inf cfg.Intraday.MaxTightness) (inf cfg.Intraday.MaxAtrPct)
         (hhmm cfg.Intraday.SessionStartMin) (hhmm cfg.Intraday.EntryStartMin) cfg.Intraday.UseStop
+        cfg.Intraday.TimeStopMin
         (hhmm cfg.Intraday.MocMin)
         cfg.Intraday.MaxConcurrent cfg.Notional
 
     let sw = Stopwatch.StartNew()
-    let trips, nCandidates = run dbPath minuteDir cfg startDate endDate
+
+    // Three modes:
+    //  --candidates-out P : run pipeline 1 only, write the candidate set to P, exit.
+    //  --candidates-in  P : skip pipeline 1, load candidates from P, run pipeline 2.
+    //  (neither)          : the full run (pipeline 1 -> pipeline 2).
+    match parsed.TryGetResult Candidates_Out with
+    | Some candPath ->
+        let candidates = runCollectCandidates dbPath cfg startDate endDate
+        sw.Stop()
+        writeCandidates candPath candidates
+        printfn ""
+        printfn "  candidates= %d  (Gate1 & Gate2 passed, %.1f s)" candidates.Length sw.Elapsed.TotalSeconds
+        printfn "  wrote     = %s" candPath
+        0
+    | None ->
+
+    let trips, nCandidates =
+        match parsed.TryGetResult Candidates_In with
+        | Some candPath ->
+            let candidates = readCandidates candPath
+            printfn "  loaded %d cached candidates from %s" candidates.Length candPath
+            runFromCandidates dbPath minuteDir cfg candidates
+        | None -> run dbPath minuteDir cfg startDate endDate
     sw.Stop()
 
     writeCsv outPath trips

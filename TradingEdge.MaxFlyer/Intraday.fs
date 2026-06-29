@@ -41,6 +41,16 @@ type IntradayPosition =
       TightnessAtEntry: float  // intraday tightness snapshot at entry
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
+/// Mean-reversion TARGET — where a (short) position covers when price reverts back
+/// to the anchor. For a short, "reverted" = price falls to/through the anchor, so
+/// the target doubles as the loss-cut: if price never comes back, the trade rides to
+/// MOC (the loss case). This retires the protective stop for the mean-reversion book.
+type Target =
+    | NoTarget                 // hold to MOC / time-stop only
+    | Vwap                     // session VWAP (running, bar-typical-price weighted, from SessionStartMin)
+    | Ma of window: int        // fast simple moving average of closes over `window` 1m bars
+    | Channel of window: int   // Donchian low: min low over the prior `window` 1m bars (pre-breakout range floor)
+
 /// Intraday Gate-3 + engine config.
 type IntradayConfig =
     { VolWindow: int           // intraday ATR/tightness lookback in 1m BARS (swept; default ~20)
@@ -52,6 +62,16 @@ type IntradayConfig =
                                // PROCESSES premarket bars (to warm the running extremes) but does not
                                // TRADE before this wall-clock floor.
       UseStop: bool            // arm the intraday-low protective stop
+      TimeStopMin: int         // time-stop: flatten this many minutes after entry (capped at MOC);
+                               // 0 = off. Side-independent. Fires before the protective stop / MOC
+                               // only if it lands earlier.
+      Short: bool              // trade the breakout SHORT (fade) instead of long. Flips the P&L sign
+                               // only; the breakout entry signal is unchanged. The intraday-low
+                               // protective stop is wrong-sided for a short, so leave UseStop off when
+                               // Short (the first short experiments run stopless + time-stopped).
+      Target: Target           // mean-reversion cover target (NoTarget by default). For a short, the
+                               // position covers when the bar's low reaches the (snapshotted, strictly-
+                               // prior) anchor; doubles as the loss-cut (no separate stop needed).
       MocMin: int              // MOC cutoff in ET minutes (960 = 16:00)
       MaxConcurrent: int }     // cap on currently-OPEN (Holding) positions; 0 = unlimited
 
@@ -64,6 +84,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let atrLin    = AvgMa(cfg.VolWindow)        // mean ABSOLUTE true range (linear)
     let rangeHigh = MaxMa(cfg.VolWindow)        // intraday tightness: max high over the window
     let rangeLow  = MinMa(cfg.VolWindow)        // intraday tightness: min low over the window
+
+    // ----- mean-reversion TARGET anchors (only the one named by cfg.Target is fed) -----
+    // session VWAP = Σ(typical_price · volume) / Σ(volume), typical = (h+l+c)/3, from
+    // SessionStartMin. Bar-based (the 1m parquet carries no trade-exact VWAP) — adequate
+    // for a 1m mean-reversion anchor.
+    let mutable vwapNum  = 0.0                   // Σ tp·v
+    let mutable vwapDen  = 0.0                   // Σ v
+    let maTgt      = match cfg.Target with Ma w -> AvgMa(w)      | _ -> AvgMa(1)   // fast SMA of closes
+    let chanTgt    = match cfg.Target with Channel w -> MinMa(w) | _ -> MinMa(1)   // Donchian low (pre-breakout floor)
 
     // session-cumulative running extremes over ALL bars seen so far (NOT windowed),
     // accumulating from SessionStartMin (08:30 ET). The breakout reference is the high
@@ -86,6 +115,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable sAtrLin    : float voption = ValueNone
     let mutable sRangeHigh : float voption = ValueNone
     let mutable sRangeLow  : float voption = ValueNone
+    // the mean-reversion cover anchor (cfg.Target), as-of going INTO this bar (strictly-
+    // prior). ValueNone until the chosen anchor is warm / when Target = NoTarget.
+    let mutable sTargetAnchor : float voption = ValueNone
 
     let positions = ResizeArray<IntradayPosition>()
 
@@ -109,6 +141,18 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         match this.RangeAbs, sAtrLin with
         | ValueSome r, ValueSome atr when atr <> 0.0 -> ValueSome (r / atr)
         | _ -> ValueNone
+
+    /// The mean-reversion cover anchor (cfg.Target), as-of going INTO the current bar.
+    member _.TargetAnchor = sTargetAnchor
+
+    /// The LIVE target anchor (post-fold) for the chosen cfg.Target — used by ProcessBar
+    /// to snapshot the strictly-prior value. ValueNone for NoTarget / before warm.
+    member private _.LiveTargetAnchor : float voption =
+        match cfg.Target with
+        | NoTarget -> ValueNone
+        | Vwap -> if vwapDen > 0.0 then ValueSome (vwapNum / vwapDen) else ValueNone
+        | Ma _ -> maTgt.State
+        | Channel _ -> chanTgt.State
 
     /// Count of currently-Holding (open) positions.
     member _.OpenCount =
@@ -143,17 +187,18 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
 
     /// Fold the current bar into the intraday indicators. Snapshots taken BEFORE
     /// the push (prior-bars / no-lookahead), then the bar is folded in.
-    member _.ProcessBar (bar: MinuteBar) =
+    member this.ProcessBar (bar: MinuteBar) =
         // `lastBar` still holds the immediately-prior bar here (it's updated at the
         // very end), so it's the source of both the prior low and the prior close.
         // 1) snapshot pre-bar state
-        sRunHi     <- runHi
-        sRunVolHi  <- runVolHi
-        sLastBar   <- lastBar
-        sAtrLog    <- atrLog.State
-        sAtrLin    <- atrLin.State
-        sRangeHigh <- rangeHigh.State
-        sRangeLow  <- rangeLow.State
+        sRunHi        <- runHi
+        sRunVolHi     <- runVolHi
+        sLastBar      <- lastBar
+        sAtrLog       <- atrLog.State
+        sAtrLin       <- atrLin.State
+        sRangeHigh    <- rangeHigh.State
+        sRangeLow     <- rangeLow.State
+        sTargetAnchor <- this.LiveTargetAnchor
 
         // 2) fold the bar in. True range vs the prior 1m close.
         match lastBar with
@@ -167,23 +212,50 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         rangeLow.Push  bar.low
         runHi    <- match runHi with ValueSome h -> ValueSome (max h bar.high) | ValueNone -> ValueSome bar.high
         runVolHi <- match runVolHi with ValueSome v -> ValueSome (max v bar.volume) | ValueNone -> ValueSome bar.volume
+
+        // fold the chosen mean-reversion anchor (only the active one accumulates).
+        match cfg.Target with
+        | NoTarget -> ()
+        | Vwap ->
+            let tp = (bar.high + bar.low + bar.close) / 3.0
+            vwapNum <- vwapNum + tp * float bar.volume
+            vwapDen <- vwapDen + float bar.volume
+        | Ma _ -> maTgt.Push bar.close
+        | Channel _ -> chanTgt.Push bar.low
+
         lastBar   <- ValueSome bar
         barsSeen  <- barsSeen + 1
 
     /// Advance one open position by the current bar, returning the (possibly
     /// state-changed) position — an immutable update, mirroring HighFlyer's
-    /// `Update`. The protective stop (if armed) is the 2-bar local low at entry; a
-    /// stop fires when bar.low reaches it, and fills at the bar's CLOSE — filling
-    /// exactly at the stop price would assume we caught the precise low, which is
-    /// too optimistic; the close is still optimistic but far more defensible.
-    /// Otherwise hold; at/after the MOC cutoff flatten at the bar close. An
-    /// already-exited position is returned unchanged.
+    /// `Update`. Exit precedence (first to fire wins):
+    ///   1. protective stop (if armed) — the 2-bar local low at entry; fires when
+    ///      bar.low reaches it, fills at the bar's CLOSE (filling exactly at the stop
+    ///      price would assume we caught the precise low — too optimistic; the close
+    ///      is still optimistic but far more defensible).
+    ///   2. mean-reversion TARGET (short, if armed) — cover when the bar's low reaches
+    ///      the snapshotted (strictly-prior) anchor; fills at the anchor as a resting
+    ///      limit, but no better than the bar OPEN if price gapped through it. Doubles
+    ///      as the loss-cut (price that never reverts rides to the time-stop / MOC).
+    ///   3. time-stop (if armed) — `TimeStopMin` minutes after entry, fills at close.
+    ///   4. MOC — at/after the cutoff, flatten at close.
+    /// An already-exited position is returned unchanged.
     member _.Advance (bar: MinuteBar) (pos: IntradayPosition) : IntradayPosition =
         match pos.State with
         | ExitedAt _ -> pos
         | Holding ->
+            // a short cover-target: bar.low reaching the strictly-prior anchor.
+            let targetHit =
+                cfg.Short &&
+                match sTargetAnchor with ValueSome a -> bar.low <= a | ValueNone -> false
             if cfg.UseStop && bar.low <= pos.StopLo then
                 { pos with State = ExitedAt (bar.etMin, bar.close, "intraday_stop") }
+            elif targetHit then
+                let anchor = sTargetAnchor.Value
+                let fill = min anchor bar.``open``   // limit fill at anchor; gap-through fills at the open
+                { pos with State = ExitedAt (bar.etMin, fill, "target") }
+            elif cfg.TimeStopMin > 0 && bar.etMin >= pos.EntryMin + cfg.TimeStopMin then
+                { pos with State = ExitedAt (bar.etMin, bar.close, "time_stop") }
             elif bar.etMin >= cfg.MocMin then
                 { pos with State = ExitedAt (bar.etMin, bar.close, "moc") }
             else pos
