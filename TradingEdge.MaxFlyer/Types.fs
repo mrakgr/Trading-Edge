@@ -23,13 +23,23 @@ open TradingEdge.MaxFlyer.RollingMa
 // (premarket) and Gate 3 (intraday), not by D-1's daily candle.
 // =============================================================================
 
+/// One daily bar, enriched with two day-D columns from the same DB row.
+/// `rawClose` (= daily_prices.close) lets us recover the split-adjust ratio for
+/// the intraday parquet; `premktVol` is the day-D premarket signal Gate 2 reads
+/// (0, not absent, on illiquid days — no premarket trades is a real value).
+/// The gap uses the daily ADJUSTED `open`, which equals the premarket table's
+/// rth_open × adjRatio exactly (verified) — so no separate rthOpen field is
+/// needed; `open` already IS the RTH open on the adjusted scale `prevAdjClose`
+/// lives on.
 type Bar =
     { date: DateOnly
       ``open``: float
       high: float
       low: float
       close: float
-      volume: int64 }
+      volume: int64
+      rawClose: float           // daily_prices.close (raw, pre-adjust) — for adjRatio
+      premktVol: int64 }        // day-D premarket volume (04:00-09:29 ET); 0 if none
 
 /// Daily Gate-1 selection thresholds. All are "is this a quality consolidating
 /// name as of the prior close" — tightness / ATR% / 52w-proximity / price /
@@ -43,8 +53,36 @@ type DailyFilterConfig =
       MinPrice: float           // close >= this (production 1.0)
       MaxTightness: float       // tightness < this (production 4.5)
       MaxAtrPct: float          // atr_pct(close) < this — log-ATR (production 0.10)
-      MinMaxAtrLog: float }     // "max log ATR" (126-bar max of 14-bar log-ATR) >= this — past-runner
+      MinMaxAtrLog: float       // "max log ATR" (126-bar max of 14-bar log-ATR) >= this — past-runner
                                 // volatility-history FLOOR; cuts dead-quiet-base names (production 0.04).
+      // ----- Gate 2 (day-D premarket) — gap band + premarket-volume floors -----
+      MinGapPct: float          // gapPct = rthOpen / prevAdjClose - 1 (WIDE by default; the intraday move)
+      MaxGapPct: float
+      MinPremktVol: int64       // min day-D premarket volume (absolute shares)
+      MinPremktVolPctOfAvg: float } // min day-D premarket volume as a FRACTION of the 4w avg DAILY volume
+                                    // (premktVol / avgVol >= this). Default 0.20 = premarket already traded
+                                    // a fifth of a normal full day. Applied IN ADDITION to MinPremktVol.
+
+/// A fully-qualified (ticker, day-D) candidate emitted by MaxFlyer.Process when
+/// Gate 1 passed on D-1 AND Gate 2 passes on D. Carries the D-1 daily snapshots,
+/// the day-D adjRatio (= adj_close_D / raw_close_D, to put the RAW intraday
+/// parquet on the daily adjusted scale), and the already-decided gap%/premktVol.
+type Candidate =
+    { Ticker: string
+      Date: DateOnly            // day D (the trading day)
+      SignalDate: DateOnly      // D-1 (where Gate 1 fired)
+      PrevAdjClose: float       // (D-1).adj_close
+      AdjRatio: float           // (D).adj_close / (D).raw_close
+      GapPct: float
+      PremktVol: int64
+      RthOpen: float            // day-D adjusted RTH open (= bar.open on day D)
+      // Gate-1 snapshots (as of D-1)
+      DailyAtrPct: float
+      DailyTightness: float
+      MaxAtrLog: float
+      Pct52w: float
+      Pct52wHigh: float
+      AvgDolVol: float }
 
 /// Per-ticker rolling-indicator state for the MaxFlyer DAILY selection layer.
 /// (Named `MaxFlyer` — this is selection-only; there is no Qullamaggie-style
@@ -54,7 +92,8 @@ type DailyFilterConfig =
 /// read `.State` (or the snapshot fields below) BEFORE pushing the current bar,
 /// so every value measures the name's state going INTO the bar — no lookahead.
 type MaxFlyer
-    ( hiCloseWindow: int,
+    ( ticker: string,
+      hiCloseWindow: int,
       atrWindow: int,
       tightnessWindow: int,
       volDays: int,
@@ -154,7 +193,11 @@ type MaxFlyer
     /// (we don't trade what we can't measure). NO same-day move/rvol gate — that
     /// is the intraday/gap move (Gates 2 & 3).
     member this.PassesDailyFilter (bar: Bar) : bool =
-        let c = bar.close
+        // MaxFlyer enters at the day-D OPEN (then intraday), so the daily quality
+        // filter is measured against the OPEN — the decision-time price — NOT the
+        // close (which it will never trade at). This differs from HighFlyer, whose
+        // entry filled at the close, so close was correct there.
+        let c = bar.``open``
         let inline gate (v: float voption) (test: float -> bool) =
             match v with ValueSome x -> test x | ValueNone -> false
         // enough prior history (warmup)
@@ -217,3 +260,58 @@ type MaxFlyer
 
         prevClose <- ValueSome bar.close
         barsSeen  <- barsSeen + 1
+
+    /// Fold one daily bar (day D) for this ticker, emitting a `Candidate` via
+    /// `onNext` when day D passes BOTH Gate 1 (daily quality, from D's pre-push
+    /// snapshots = strictly-prior = through yesterday's close) AND Gate 2 (D's
+    /// premarket gap + volume). The whole daily pipeline lives here; the caller
+    /// just feeds bars in `(ticker, date)` order — no carried mutables, no lookback.
+    ///
+    /// Order (no-lookahead): (1) ProcessBar folds D in — but only AFTER snapshotting
+    /// the strictly-prior state, so the `s*` snapshots + read-members now describe
+    /// "going into D" (i.e. through D-1). (2) Gate 1 reads those snapshots, so it is
+    /// effectively as-of D-1's close — D's own close never enters the filter. (3)
+    /// Gate 2 reads D's premarket columns + the prior adj close (`sPrevClose`). Both
+    /// gates decide on information knowable at D's open, so a candidate emitted for D
+    /// is tradeable from D's open with no peeking at D's outcome.
+    member inline this.Process(onNext: Candidate -> unit, bar: Bar) =
+        // (1) advance the engine through day D (snapshot strictly-prior -> fold D).
+        this.ProcessBar bar
+
+        // (2)+(3) both gates on day D. Gate 1 reads pre-push snapshots (through D-1);
+        // Gate 2 reads D's premarket. sPrevClose is D-1's adj close (the gap denominator).
+        match sPrevClose with
+        | ValueSome prevAdjClose when
+                this.PassesDailyFilter bar
+                && prevAdjClose <> 0.0 && bar.rawClose <> 0.0 ->
+            // bar.open is the day-D ADJUSTED RTH open (== premarket rth_open * adjRatio,
+            // verified), on the same adjusted scale as prevAdjClose.
+            // Gate 1 passed => every gated snapshot is ValueSome; the .Value reads are safe.
+            let gapPct = bar.``open`` / prevAdjClose - 1.0
+            // Premarket volume as a fraction of the 4w avg DAILY volume (avgVol). avgVol is
+            // ValueSome here (Gate 1's ADV floor passed implies the volume window is warm).
+            let premktVolPctOfAvg =
+                match this.AvgVolume with
+                | ValueSome av when av > 0.0 -> float bar.premktVol / av
+                | _ -> 0.0
+            if gapPct >= cfg.MinGapPct && gapPct <= cfg.MaxGapPct
+               && bar.premktVol >= cfg.MinPremktVol
+               && premktVolPctOfAvg >= cfg.MinPremktVolPctOfAvg then
+                onNext
+                    { Ticker = ticker
+                      Date = bar.date
+                      SignalDate = bar.date
+                      PrevAdjClose = prevAdjClose
+                      AdjRatio = bar.close / bar.rawClose      // (D).adj_close / (D).raw_close
+                      GapPct = gapPct
+                      PremktVol = bar.premktVol
+                      RthOpen = bar.``open``
+                      DailyAtrPct = this.AtrPct.Value
+                      DailyTightness = this.Tightness.Value
+                      MaxAtrLog = this.MaxAtrLog.Value
+                      // Relative to the OPEN (the decision-time price), not the close —
+                      // D's close isn't knowable at D's open.
+                      Pct52w = (this.Pct52w bar.``open``).Value
+                      Pct52wHigh = (this.Pct52wHigh bar.``open``).Value
+                      AvgDolVol = this.AvgDollarVolume.Value }
+        | _ -> ()
