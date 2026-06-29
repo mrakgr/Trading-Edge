@@ -190,18 +190,19 @@ much further intraday before the breakout. So "the breakout fades" might really 
 broad short (hold-to-MOC) trips by **% change vs prior close at entry**
 (`entry_price / prev_adj_close − 1`), post-hoc on the Run-3 trips CSV.
 
-| % vs prev close at entry | n | win% | avg P&L/trip |
-|---|---|---|---|
-| 10–25% | 470 | 63.8% | **+$65** |
-| 25–50% | 859 | 67.5% | +$202 |
-| 50–100% | 646 | 72.6% | +$492 |
-| 100–200% | 188 | 74.5% | +$1,069 |
-| **200%+** | 28 | 82.1% | **+$2,138** |
+| % vs prev close at entry | n | win% | avg P&L/trip | PF |
+|---|---|---|---|---|
+| 10–25% | 470 | 63.8% | **+$65** | 1.121 |
+| 25–50% | 859 | 67.5% | +$202 | 1.300 |
+| 50–100% | 646 | 72.6% | +$492 | 1.592 |
+| 100–200% | 188 | 74.5% | +$1,069 | **2.353** |
+| **200%+** | 28 | 82.1% | **+$2,138** | **3.730** |
 
 **The short edge scales monotonically with how extended the stock already is** — win
-rate 64% → 82%, and per-trip profit from +$65 to +$2,138 (a 33× spread). The
-least-extended names (up 10–25%) barely fade at all; the parabolic ones (up 100%+) fade
-hard and reliably.
+rate 64% → 82%, per-trip profit +$65 → +$2,138 (a 33× spread), and PF 1.12 → 3.73. The
+least-extended names (up 10–25%) barely fade at all (PF 1.12 — sub-tradeable after
+costs); the parabolic ones (up 100%+) fade hard and reliably (PF 2.35+). In PF terms the
+tradeable region is roughly the **>50% band (PF ~1.6+)**, ideally **>100% (PF 2.35+)**.
 
 **Conclusion: this is an *already-extended-stock* fade, not a breakout fade.** The
 breakout is a timing trigger on top of the real driver — distance run from prior close.
