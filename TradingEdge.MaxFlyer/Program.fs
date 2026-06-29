@@ -29,11 +29,13 @@ type Args =
     | Min_Gap_Pct of float
     | Max_Gap_Pct of float
     | Min_Premkt_Vol of int64
+    | Min_Premkt_Vol_Pct_Of_Avg of float
     // Gate 3 — intraday engine
     | Intraday_Vol_Window of int
     | Intraday_Max_Tightness of float
     | Intraday_Max_Atr_Pct of float
-    | Min_High_Bars of int
+    | Session_Start_Min of int
+    | Entry_Start_Min of int
     | Intraday_Stop
     | Moc_Min of int
     | Notional of float
@@ -58,16 +60,18 @@ type Args =
             | Vol_Window _ -> "Gate 1: lookback (bars) for BOTH daily ATR%% and tightness. Default 14."
             | Min_Prior_Days _ -> "Gate 1: require this many prior daily bars (warmup). Default 21."
             // Gate 2
-            | Min_Gap_Pct _ -> "Gate 2: min day-D gap%% = rth_open/prev_adj_close-1. Default 0.0. WIDE by design."
+            | Min_Gap_Pct _ -> "Gate 2: min day-D gap%% = adj_open/prev_adj_close-1. Default 0.10 (a daytrading-grade move)."
             | Max_Gap_Pct _ -> "Gate 2: max day-D gap%%. Default 2.0 (200%%). Pass a large value to disable the cap."
-            | Min_Premkt_Vol _ -> "Gate 2: min premarket volume (shares, 04:00-09:29 ET). Default 0."
+            | Min_Premkt_Vol _ -> "Gate 2: min ABSOLUTE premarket volume (shares, 04:00-09:29 ET). Default 0."
+            | Min_Premkt_Vol_Pct_Of_Avg _ -> "Gate 2: min premarket volume as a FRACTION of the 4w avg daily volume. Default 0.20 (premarket traded >= 20%% of a normal full day)."
             // Gate 3
             | Intraday_Vol_Window _ -> "Gate 3: intraday ATR/tightness lookback in 1m BARS. Default 20."
-            | Intraday_Max_Tightness _ -> "Gate 3: max intraday tightness (linear) at entry. Default +inf (off). Sweep this in."
+            | Intraday_Max_Tightness _ -> "Gate 3: max intraday tightness (linear) at entry. Default 4.5. Pass a large value to disable."
             | Intraday_Max_Atr_Pct _ -> "Gate 3: max intraday ATR%% (log-space) at entry. Default +inf (off). Sweep this in."
-            | Min_High_Bars _ -> "Gate 3: require this many prior RTH 1m bars before a new-high breakout counts (warmup). Default 15."
-            | Intraday_Stop -> "Gate 3: arm the protective intraday-low stop (the session low at entry). Default off (hold to MOC)."
-            | Moc_Min _ -> "Gate 3: MOC cutoff in ET minutes-since-midnight. Default 960 (16:00). RTH bars are 09:30..MOC."
+            | Session_Start_Min _ -> "Gate 3: first ET minute fed to the intraday engine (the running extremes accumulate from here). Default 510 (08:30, the SMB 1h opening range)."
+            | Entry_Start_Min _ -> "Gate 3: earliest ET minute an entry may fire (wall-clock trading floor). Default 575 (09:35). Premarket bars are processed but not traded before this."
+            | Intraday_Stop -> "Gate 3: arm the protective stop (the 2-bar local low at entry; fills at the bar close). Default off (hold to MOC)."
+            | Moc_Min _ -> "Gate 3: MOC cutoff in ET minutes-since-midnight. Default 960 (16:00). RTH bars are session-start..MOC."
             | Notional _ -> "Per-trip notional ($). Default 10000."
             | Max_Concurrent _ -> "Gate 3: cap on currently-OPEN positions per day (0 = unlimited). Default 0."
 
@@ -89,10 +93,7 @@ let main argv =
         { dc with
             AtrWindow       = parsed.GetResult(Vol_Window, defaultValue = dc.AtrWindow)
             TightnessWindow = parsed.GetResult(Vol_Window, defaultValue = dc.TightnessWindow)
-            MinGapPct    = parsed.GetResult(Min_Gap_Pct,    defaultValue = dc.MinGapPct)
-            MaxGapPct    = parsed.GetResult(Max_Gap_Pct,    defaultValue = dc.MaxGapPct)
-            MinPremktVol = parsed.GetResult(Min_Premkt_Vol, defaultValue = dc.MinPremktVol)
-            Notional     = parsed.GetResult(Notional,       defaultValue = dc.Notional)
+            Notional        = parsed.GetResult(Notional,   defaultValue = dc.Notional)
             Daily =
               { dc.Daily with
                   MinPrice           = parsed.GetResult(Min_Price,             defaultValue = dc.Daily.MinPrice)
@@ -102,16 +103,22 @@ let main argv =
                   MaxAtrPct          = parsed.GetResult(Max_Atr_Pct,           defaultValue = dc.Daily.MaxAtrPct)
                   MinMaxAtrLog       = parsed.GetResult(Min_Max_Atr_Log,       defaultValue = dc.Daily.MinMaxAtrLog)
                   MinAvgDollarVolume = parsed.GetResult(Min_Avg_Dollar_Volume, defaultValue = dc.Daily.MinAvgDollarVolume)
-                  MinPriorDays       = parsed.GetResult(Min_Prior_Days,        defaultValue = dc.Daily.MinPriorDays) }
+                  MinPriorDays       = parsed.GetResult(Min_Prior_Days,        defaultValue = dc.Daily.MinPriorDays)
+                  // Gate 2 (premarket)
+                  MinGapPct            = parsed.GetResult(Min_Gap_Pct,    defaultValue = dc.Daily.MinGapPct)
+                  MaxGapPct            = parsed.GetResult(Max_Gap_Pct,    defaultValue = dc.Daily.MaxGapPct)
+                  MinPremktVol         = parsed.GetResult(Min_Premkt_Vol, defaultValue = dc.Daily.MinPremktVol)
+                  MinPremktVolPctOfAvg = parsed.GetResult(Min_Premkt_Vol_Pct_Of_Avg, defaultValue = dc.Daily.MinPremktVolPctOfAvg) }
             Intraday =
               { dc.Intraday with
-                  VolWindow     = parsed.GetResult(Intraday_Vol_Window,    defaultValue = dc.Intraday.VolWindow)
-                  MaxTightness  = parsed.GetResult(Intraday_Max_Tightness, defaultValue = dc.Intraday.MaxTightness)
-                  MaxAtrPct     = parsed.GetResult(Intraday_Max_Atr_Pct,   defaultValue = dc.Intraday.MaxAtrPct)
-                  MinHighBars   = parsed.GetResult(Min_High_Bars,          defaultValue = dc.Intraday.MinHighBars)
-                  UseStop       = parsed.Contains Intraday_Stop
-                  MocMin        = parsed.GetResult(Moc_Min,                defaultValue = dc.Intraday.MocMin)
-                  MaxConcurrent = parsed.GetResult(Max_Concurrent,         defaultValue = dc.Intraday.MaxConcurrent) } }
+                  VolWindow       = parsed.GetResult(Intraday_Vol_Window,    defaultValue = dc.Intraday.VolWindow)
+                  MaxTightness    = parsed.GetResult(Intraday_Max_Tightness, defaultValue = dc.Intraday.MaxTightness)
+                  MaxAtrPct       = parsed.GetResult(Intraday_Max_Atr_Pct,   defaultValue = dc.Intraday.MaxAtrPct)
+                  SessionStartMin = parsed.GetResult(Session_Start_Min,      defaultValue = dc.Intraday.SessionStartMin)
+                  EntryStartMin   = parsed.GetResult(Entry_Start_Min,        defaultValue = dc.Intraday.EntryStartMin)
+                  UseStop         = parsed.Contains Intraday_Stop
+                  MocMin          = parsed.GetResult(Moc_Min,                defaultValue = dc.Intraday.MocMin)
+                  MaxConcurrent   = parsed.GetResult(Max_Concurrent,         defaultValue = dc.Intraday.MaxConcurrent) } }
 
     let inf (x: float) = if Double.IsInfinity x then "inf" else sprintf "%.3f" x
 
@@ -123,11 +130,13 @@ let main argv =
         cfg.Daily.MinPrice cfg.Daily.Min52wPct (if cfg.Daily.Use52wHigh then "(intraday-high)" else "")
         cfg.Daily.MaxTightness cfg.Daily.MaxAtrPct cfg.Daily.MinMaxAtrLog cfg.Daily.MinAvgDollarVolume
         cfg.AtrWindow cfg.Daily.MinPriorDays
-    printfn "  Gate2 (premarket): gap[%.2f,%.2f] premkt_vol>=%d" cfg.MinGapPct cfg.MaxGapPct cfg.MinPremktVol
-    printfn "  Gate3 (intraday): volwin=%d tight<%s atr%%<%s min_high_bars=%d stop=%b moc=%s max_concurrent=%d notional=%.0f"
+    let hhmm m = sprintf "%02d:%02d" (m / 60) (m % 60)
+    printfn "  Gate2 (premarket): gap[%.2f,%.2f] premkt_vol>=%d premkt_vol_pct_of_avg>=%.2f"
+        cfg.Daily.MinGapPct cfg.Daily.MaxGapPct cfg.Daily.MinPremktVol cfg.Daily.MinPremktVolPctOfAvg
+    printfn "  Gate3 (intraday): volwin=%d tight<%s atr%%<%s session=%s entry>=%s stop=%b moc=%s max_concurrent=%d notional=%.0f"
         cfg.Intraday.VolWindow (inf cfg.Intraday.MaxTightness) (inf cfg.Intraday.MaxAtrPct)
-        cfg.Intraday.MinHighBars cfg.Intraday.UseStop
-        (sprintf "%02d:%02d" (cfg.Intraday.MocMin / 60) (cfg.Intraday.MocMin % 60))
+        (hhmm cfg.Intraday.SessionStartMin) (hhmm cfg.Intraday.EntryStartMin) cfg.Intraday.UseStop
+        (hhmm cfg.Intraday.MocMin)
         cfg.Intraday.MaxConcurrent cfg.Notional
 
     let sw = Stopwatch.StartNew()

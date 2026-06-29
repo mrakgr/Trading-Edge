@@ -71,6 +71,13 @@ let defaultConfig =
 // ===========================================================================
 type DbEmitter(conn: DuckDBConnection, startDate: DateOnly, endDate: DateOnly) =
 
+    // Public accessors for the ctor-captured state: `Process` is `inline`, so an
+    // inlined body can only touch members accessible at the call site (not the
+    // private constructor fields directly).
+    member val Conn = conn
+    member val StartDate = startDate
+    member val EndDate = endDate
+
     // Universe = common stock + ADRs only. NOTE the SEMI-JOIN (EXISTS), not an inner
     // JOIN: a few tickers (e.g. ASND) have BOTH a 'CS' and an 'ADRC' row in
     // ticker_reference; an inner join would FAN OUT every price row into two identical
@@ -80,7 +87,9 @@ type DbEmitter(conn: DuckDBConnection, startDate: DateOnly, endDate: DateOnly) =
     // open (adj_open == premarket rth_open * adjRatio, verified), on the adjusted scale.
     // premkt_vol LEFT-JOINs in; a missing row (illiquid premarket) reads as 0 — no
     // premarket trades is a real value, not a missing one.
-    static member val private Sql =
+    // public (not private) because Process is `inline` — an inlined body can only
+    // touch members accessible at the call site.
+    static member val Sql =
         "SELECT p.ticker, p.date, p.adj_open, p.adj_high, p.adj_low, p.adj_close, p.adj_volume,
                 d.close AS raw_close,
                 COALESCE(pm.premkt_vol, 0) AS premkt_vol
@@ -94,11 +103,11 @@ type DbEmitter(conn: DuckDBConnection, startDate: DateOnly, endDate: DateOnly) =
 
     /// Stream every daily row, pushing (ticker, bar) downstream in (ticker, date)
     /// order. `inline` so the onNext closure fuses into the read loop.
-    member inline _.Process(onNext: string * Bar -> unit) =
-        use cmd = conn.CreateCommand()
+    member inline this.Process(onNext: string * Bar -> unit) =
+        use cmd = this.Conn.CreateCommand()
         cmd.CommandText <- DbEmitter.Sql
-        let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- startDate; cmd.Parameters.Add pStart |> ignore
-        let pEnd   = cmd.CreateParameter() in pEnd.ParameterName   <- "end";   pEnd.Value   <- endDate;   cmd.Parameters.Add pEnd   |> ignore
+        let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- this.StartDate; cmd.Parameters.Add pStart |> ignore
+        let pEnd   = cmd.CreateParameter() in pEnd.ParameterName   <- "end";   pEnd.Value   <- this.EndDate;   cmd.Parameters.Add pEnd   |> ignore
         use reader = cmd.ExecuteReader()
         while reader.Read() do
             let ticker = reader.GetString 0
@@ -148,161 +157,7 @@ let collectCandidates (conn: DuckDBConnection) (cfg: Config)
     candidates.ToArray()
 
 // ---------------------------------------------------------------------------
-// Pass 1 — daily selection (Gate 1) + premarket (Gate 2) → candidates
-// ---------------------------------------------------------------------------
-
-/// A fully-qualified (ticker, day-D) candidate. Both Gate 1 (on D-1) and Gate 2
-/// (D's premarket) have passed. Carries the D-1 daily snapshots, day-D adjRatio
-/// (= adj_close_D / raw_close_D) to put the RAW intraday parquet on the daily
-/// adjusted scale, the already-decided gap%/premktVol, and a lazy thunk to the
-/// day-D RTH minute bars (forced only in Pass 2).
-type Candidate =
-    { Ticker: string
-      Date: DateOnly            // day D (the trading day)
-      SignalDate: DateOnly      // D-1 (where Gate 1 fired)
-      PrevAdjClose: float       // (D-1).adj_close
-      AdjRatio: float           // (D).adj_close / (D).raw_close
-      GapPct: float
-      PremktVol: int64
-      RthOpen: float
-      // Gate-1 snapshots (as of D-1)
-      DailyAtrPct: float
-      DailyTightness: float
-      MaxAtrLog: float
-      Pct52w: float
-      Pct52wHigh: float
-      AvgDolVol: float
-      mutable Cell: MinuteBar[] }   // filled in Pass 2 (one parquet scan per date)
-
-/// One daily-bar row from Pass 1's stream.
-type private DailyRow =
-    { Ticker: string
-      Date: DateOnly
-      AdjClose: float
-      RawClose: float
-      PremktVol: int64 voption
-      RthOpen: float voption }
-
-/// Pass 1: stream split_adjusted_prices ORDER BY ticker, date; one MaxFlyer
-/// per ticker. Gate 1 fires on D-1; we then test Gate 2 on D's premarket row.
-/// We keep a one-bar lookback per ticker (the prior row + whether it passed
-/// Gate 1 + its daily snapshots) so when D arrives we already hold D-1's result
-/// and D's premarket columns — Gate 2 never reads any post-open bar.
-let private selectCandidates
-        (conn: DuckDBConnection) (cfg: Config)
-        (startDate: DateOnly) (endDate: DateOnly) : ResizeArray<Candidate> =
-
-    use cmd = conn.CreateCommand()
-    // Universe = common stock + ADRs only. NOTE the SEMI-JOIN (EXISTS), not an inner
-    // JOIN: a few tickers (e.g. ASND) have BOTH a 'CS' and an 'ADRC' row in
-    // ticker_reference, and an inner join on that would FAN OUT every price row into
-    // two identical consecutive rows — corrupting the one-bar D-1/D lookback (it would
-    // emit a same-day "signal"). EXISTS filters without multiplying.
-    cmd.CommandText <-
-        "SELECT p.ticker, p.date, p.adj_open, p.adj_high, p.adj_low, p.adj_close, p.adj_volume,
-                d.close AS raw_close,
-                pm.premkt_vol, pm.rth_open
-         FROM split_adjusted_prices p
-         JOIN daily_prices d ON d.ticker = p.ticker AND d.date = p.date
-         LEFT JOIN premarket pm ON pm.ticker = p.ticker AND pm.date = p.date
-         WHERE EXISTS (SELECT 1 FROM ticker_reference r
-                       WHERE r.ticker = p.ticker AND r.type IN ('CS','ADRC'))
-           AND p.date >= $start AND p.date <= $end
-         ORDER BY p.ticker, p.date"
-    let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- startDate; cmd.Parameters.Add pStart |> ignore
-    let pEnd   = cmd.CreateParameter() in pEnd.ParameterName   <- "end";   pEnd.Value   <- endDate;   cmd.Parameters.Add pEnd   |> ignore
-
-    let candidates = ResizeArray<Candidate>()
-
-    // per-ticker accumulators
-    let mutable curTicker : string = null
-    let mutable sys = Unchecked.defaultof<MaxFlyer>
-    // the prior bar's carried Gate-1 result + the snapshots we'd need to emit a candidate.
-    let mutable prevPassed = false
-    let mutable prevRow = Unchecked.defaultof<DailyRow>
-    let mutable prevAtrPct = nan
-    let mutable prevTight = nan
-    let mutable prevMaxAtrLog = nan
-    let mutable prevPct52w = nan
-    let mutable prevPct52wHigh = nan
-    let mutable prevAvgDolVol = nan
-
-    let newSystem () =
-        MaxFlyer(cfg.HiCloseWindow, cfg.AtrWindow, cfg.TightnessWindow,
-                 cfg.VolDays, cfg.Daily)
-
-    let resetTicker t =
-        curTicker <- t
-        sys <- newSystem ()
-        prevPassed <- false
-        prevRow <- Unchecked.defaultof<DailyRow>
-
-    let orNan = function ValueSome v -> v | ValueNone -> nan
-
-    // Try to emit a candidate for day D (`row`) using the carried D-1 Gate-1 pass.
-    let tryEmit (row: DailyRow) =
-        if prevPassed && not (isNull (box prevRow)) then
-            // Gate 2: gap% from D's RTH open vs D-1 adj close, plus premarket-volume floor.
-            // Requires the premarket row present (LEFT JOIN may be null on illiquid/halted days).
-            match row.RthOpen, row.PremktVol with
-            | ValueSome rthOpen, ValueSome pmVol when prevRow.AdjClose <> 0.0 && row.RawClose <> 0.0 ->
-                let gapPct = rthOpen / prevRow.AdjClose - 1.0
-                if gapPct >= cfg.MinGapPct && gapPct <= cfg.MaxGapPct && pmVol >= cfg.MinPremktVol then
-                    candidates.Add
-                        { Ticker = curTicker
-                          Date = row.Date
-                          SignalDate = prevRow.Date
-                          PrevAdjClose = prevRow.AdjClose
-                          AdjRatio = row.AdjClose / row.RawClose
-                          GapPct = gapPct
-                          PremktVol = pmVol
-                          RthOpen = rthOpen
-                          DailyAtrPct = prevAtrPct
-                          DailyTightness = prevTight
-                          MaxAtrLog = prevMaxAtrLog
-                          Pct52w = prevPct52w
-                          Pct52wHigh = prevPct52wHigh
-                          AvgDolVol = prevAvgDolVol
-                          Cell = Array.empty }
-            | _ -> ()
-
-    use reader = cmd.ExecuteReader()
-    while reader.Read() do
-        let ticker = reader.GetString 0
-        if ticker <> curTicker then resetTicker ticker
-        let bar : Bar =
-            { date   = DateOnly.FromDateTime(reader.GetDateTime 1)
-              ``open`` = reader.GetDouble 2
-              high   = reader.GetDouble 3
-              low    = reader.GetDouble 4
-              close  = reader.GetDouble 5
-              volume = reader.GetInt64 6 }
-        let row : DailyRow =
-            { Ticker = ticker
-              Date = bar.date
-              AdjClose = bar.close
-              RawClose = reader.GetDouble 7
-              PremktVol = (if reader.IsDBNull 8 then ValueNone else ValueSome (reader.GetInt64 8))
-              RthOpen   = (if reader.IsDBNull 9 then ValueNone else ValueSome (reader.GetDouble 9)) }
-
-        // fold D-1..D: this row is day D; the carried prevPassed is D-1's Gate-1 result.
-        tryEmit row
-
-        // advance the daily engine through this bar, then carry its Gate-1 verdict forward.
-        sys.ProcessBar bar
-        prevPassed <- sys.PassesDailyFilter bar
-        prevRow <- row
-        prevAtrPct <- orNan sys.AtrPct
-        prevTight <- orNan sys.Tightness
-        prevMaxAtrLog <- orNan sys.MaxAtrLog
-        prevPct52w <- orNan (sys.Pct52w bar.close)
-        prevPct52wHigh <- orNan (sys.Pct52wHigh bar.close)
-        prevAvgDolVol <- orNan sys.AvgDollarVolume
-
-    candidates
-
-// ---------------------------------------------------------------------------
-// Pass 2 — intraday (Gate 3): per candidate-date, one parquet scan
+// Pipeline 2 (intraday) — MinuteEmitter → IntradaySystem → trip array.
 // ---------------------------------------------------------------------------
 
 /// A finished intraday trip, ready for the CSV.
@@ -367,23 +222,27 @@ let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Tr
           BarsHeld = exitMin - pos.EntryMin }              // minutes held (1m bars)
     | Holding -> failwith "toTrip called on a still-Holding position (Finalize first)"
 
-/// Load day D's RTH (09:30..16:00) minute bars for the given tickers, in one
-/// parquet scan, split-adjusted per the candidate's adjRatio, and run each
-/// candidate's IntradaySystem. Returns all trips for the date.
-let private runDate
-        (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
-        (date: DateOnly) (cands: Candidate[]) : Trip[] =
+// ===========================================================================
+// Pipeline stage 1 (intraday) — MinuteEmitter: the ONLY database read on the
+// intraday side. One per DATE: it opens that date's minute parquet exactly once
+// and streams the candidate tickers' RTH-session bars (08:30..MOC, ET) downstream
+// as (ticker, MinuteBar), already split-adjusted to each candidate's daily scale.
+// Rows arrive ordered (ticker, et_min), so a consumer sees one ticker's full day
+// before the next — the same boundary shape as the daily DbEmitter.
+// ===========================================================================
+type MinuteEmitter
+        ( conn: DuckDBConnection, path: string,
+          tickers: string[], adjRatio: IDictionary<string, float>,
+          sessionStartMin: int, mocMin: int ) =
 
-    let path = IO.Path.Combine(minuteDir, sprintf "%s.parquet" (date.ToString("yyyy-MM-dd")))
-    if not (IO.File.Exists path) then [||]
-    else
-
-    let byTicker = cands |> Array.map (fun c -> c.Ticker, c) |> dict
-    let tickerList = cands |> Array.map (fun c -> "'" + c.Ticker.Replace("'", "''") + "'") |> String.concat ","
+    // Public accessors for the ctor-captured state `Process` reads (it's `inline`).
+    member val Conn = conn
+    member val AdjRatio = adjRatio
 
     // ET conversion ported from scripts/equity/intraday_checkpoints.py (lines 84-90).
-    use cmd = conn.CreateCommand()
-    cmd.CommandText <-
+    // public (not private) because Process is `inline` (see DbEmitter.Sql).
+    member val Sql =
+        let tickerList = tickers |> Array.map (fun t -> "'" + t.Replace("'", "''") + "'") |> String.concat ","
         sprintf """
         WITH bars AS (
             SELECT ticker,
@@ -395,47 +254,87 @@ let private runDate
         FROM bars
         WHERE et_min >= %d AND et_min <= %d
         ORDER BY ticker, et_min"""
-            (path.Replace("'", "''")) tickerList cfg.Intraday.RthOpenMin cfg.Intraday.MocMin
+            (path.Replace("'", "''")) tickerList sessionStartMin mocMin
 
-    // group rows by ticker into the per-candidate cell, applying the split-adjust ratio.
-    let cells = Dictionary<string, ResizeArray<MinuteBar>>()
-    do
+    /// Stream every candidate-ticker minute bar for this date, split-adjusted, in
+    /// (ticker, et_min) order. `inline` so onNext fuses into the read loop.
+    member inline this.Process(onNext: string * MinuteBar -> unit) =
+        use cmd = this.Conn.CreateCommand()
+        cmd.CommandText <- this.Sql
         use reader = cmd.ExecuteReader()
         while reader.Read() do
-        let ticker = reader.GetString 0
-        match byTicker.TryGetValue ticker with
-        | true, c ->
-            let r = c.AdjRatio
+            let ticker = reader.GetString 0
+            let r = this.AdjRatio.[ticker]
             let bar : MinuteBar =
-                { etMin  = reader.GetInt32 1
+                { etMin    = reader.GetInt32 1
                   ``open`` = reader.GetDouble 2 * r
-                  high   = reader.GetDouble 3 * r
-                  low    = reader.GetDouble 4 * r
-                  close  = reader.GetDouble 5 * r
-                  volume = reader.GetInt64 6 }
-            match cells.TryGetValue ticker with
-            | true, lst -> lst.Add bar
-            | _ -> let lst = ResizeArray<MinuteBar>() in lst.Add bar; cells.[ticker] <- lst
-        | _ -> ()
+                  high     = reader.GetDouble 3 * r
+                  low      = reader.GetDouble 4 * r
+                  close    = reader.GetDouble 5 * r
+                  volume   = reader.GetInt64 6 }
+            onNext (ticker, bar)
 
+// ===========================================================================
+// Pipeline 2 (intraday) — MinuteEmitter -> IntradaySystem -> trip array.
+//
+// Candidates are grouped by date; each date's minute parquet is opened ONCE by a
+// MinuteEmitter (the per-date load that the ticker-sorted, row-group-pruned
+// layout makes cheap). Within a date, bars stream (ticker, et_min) ordered, so we
+// run one IntradaySystem per ticker (fresh at each ticker boundary). Unlike
+// MaxFlyer (which emits via onNext mid-stream), IntradaySystem accumulates and is
+// the TERMINAL stage: at each ticker boundary we Finalize the prior system and
+// drain its closed positions into the trip array, then again after the stream ends.
+// Returns all trips across all dates.
+// ===========================================================================
+let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
+                 (candidates: Candidate[]) : Trip[] =
     let trips = ResizeArray<Trip>()
-    for c in cands do
-        match cells.TryGetValue c.Ticker with
-        | true, bars when bars.Count > 0 ->
-            c.Cell <- bars.ToArray()
-            let sys = IntradaySystem(cfg.Intraday, c.Ticker, c.Date)
-            for b in c.Cell do sys.Process b
-            sys.Finalize c.Cell.[c.Cell.Length - 1]
-            for pos in sys.Positions do
-                match pos.State with
-                | ExitedAt _ -> trips.Add(toTrip c cfg.Notional pos)
-                | Holding -> ()   // Finalize closes all; unreachable
-        | _ -> ()
+
+    // Drain a finished ticker's IntradaySystem: Finalize at its last bar, then
+    // convert every closed position to a Trip (carrying the candidate's daily metrics).
+    let drain (c: Candidate) (sys: IntradaySystem) (lastBar: MinuteBar) =
+        sys.Finalize lastBar
+        for pos in sys.Positions do
+            match pos.State with
+            | ExitedAt _ -> trips.Add(toTrip c cfg.Notional pos)
+            | Holding -> ()   // Finalize closes all; unreachable
+
+    for (date, cs) in candidates |> Seq.groupBy (fun c -> c.Date) do
+        let cands = Seq.toArray cs
+        let path = IO.Path.Combine(minuteDir, sprintf "%s.parquet" (date.ToString("yyyy-MM-dd")))
+        if IO.File.Exists path then
+            let byTicker = cands |> Array.map (fun c -> c.Ticker, c) |> dict
+            let adjRatio = cands |> Array.map (fun c -> c.Ticker, c.AdjRatio) |> dict
+            let emitter = MinuteEmitter(conn, path, Array.map (fun (c: Candidate) -> c.Ticker) cands,
+                                        adjRatio, cfg.Intraday.SessionStartMin, cfg.Intraday.MocMin)
+
+            // Per-ticker state across the (ticker, et_min)-ordered stream. `cur` holds
+            // the candidate + its system + the last bar seen, so a boundary can drain it.
+            let mutable cur : (Candidate * IntradaySystem * MinuteBar) option = None
+            emitter.Process(fun (ticker, bar) ->
+                match cur with
+                | Some(c, sys, _) when c.Ticker = ticker ->
+                    sys.Process bar
+                    cur <- Some(c, sys, bar)
+                | _ ->
+                    // ticker boundary: drain the previous ticker, start this one.
+                    match cur with
+                    | Some(pc, psys, plast) -> drain pc psys plast
+                    | None -> ()
+                    let c = byTicker.[ticker]
+                    let sys = IntradaySystem(cfg.Intraday, ticker, date)
+                    sys.Process bar
+                    cur <- Some(c, sys, bar))
+            // drain the final ticker of the date.
+            match cur with
+            | Some(c, sys, lastBar) -> drain c sys lastBar
+            | None -> ()
+
     trips.ToArray()
 
-/// Run the whole MaxFlyer backtest: Pass 1 (daily selection + premarket Gate 2)
-/// then Pass 2 (intraday, grouped by date so each minute_aggs parquet opens at
-/// most once, only for dates with ≥1 fully-qualified candidate).
+/// Run the whole MaxFlyer backtest: pipeline 1 (daily Gate 1+2 -> candidates)
+/// then pipeline 2 (intraday Gate 3, grouped by date so each minute_aggs parquet
+/// opens at most once, only for dates with ≥1 fully-qualified candidate).
 let run (dbPath: string) (minuteDir: string) (cfg: Config)
         (startDate: DateOnly) (endDate: DateOnly) : Trip[] * int =
     let connStr = $"Data Source={dbPath};ACCESS_MODE=READ_ONLY"
@@ -446,15 +345,9 @@ let run (dbPath: string) (minuteDir: string) (cfg: Config)
         pragma.CommandText <- "PRAGMA memory_limit='6GB'"
         pragma.ExecuteNonQuery() |> ignore
 
-    let candidates = selectCandidates conn cfg startDate endDate
-
-    let trips = ResizeArray<Trip>()
-    let byDate = candidates |> Seq.groupBy (fun c -> c.Date)
-    for (date, cs) in byDate do
-        let arr = Seq.toArray cs
-        trips.AddRange(runDate conn cfg minuteDir date arr)
-
-    trips.ToArray(), candidates.Count
+    let candidates = collectCandidates conn cfg startDate endDate
+    let trips = collectTrips conn cfg minuteDir candidates
+    trips, candidates.Length
 
 // ---------------------------------------------------------------------------
 // CSV emission

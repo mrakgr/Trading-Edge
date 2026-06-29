@@ -132,6 +132,14 @@ type MaxFlyer
     let mutable sAvgDolVol : float voption = ValueNone
 
     member _.BarsSeen = barsSeen
+    /// This system's ticker. Public (not the private ctor arg) so the `inline` Process
+    /// can read it at the call site.
+    member _.Ticker = ticker
+    /// Prior bar's close (pre-push snapshot) = the prior adj close, the gap denominator.
+    /// Public (not a private `let`) so the `inline` Process can read it at the call site.
+    member _.PrevCloseSnapshot = sPrevClose
+    /// The daily filter / Gate-2 thresholds. Public for the same `inline` reason.
+    member _.Cfg = cfg
 
     /// Long-term close channel: highest close over the prior `hiCloseWindow` bars.
     member _.HiClose = sHiClose
@@ -279,8 +287,9 @@ type MaxFlyer
         this.ProcessBar bar
 
         // (2)+(3) both gates on day D. Gate 1 reads pre-push snapshots (through D-1);
-        // Gate 2 reads D's premarket. sPrevClose is D-1's adj close (the gap denominator).
-        match sPrevClose with
+        // Gate 2 reads D's premarket. PrevCloseSnapshot is D-1's adj close (gap denominator).
+        let cfg = this.Cfg
+        match this.PrevCloseSnapshot with
         | ValueSome prevAdjClose when
                 this.PassesDailyFilter bar
                 && prevAdjClose <> 0.0 && bar.rawClose <> 0.0 ->
@@ -298,7 +307,7 @@ type MaxFlyer
                && bar.premktVol >= cfg.MinPremktVol
                && premktVolPctOfAvg >= cfg.MinPremktVolPctOfAvg then
                 onNext
-                    { Ticker = ticker
+                    { Ticker = this.Ticker
                       Date = bar.date
                       SignalDate = bar.date
                       PrevAdjClose = prevAdjClose
