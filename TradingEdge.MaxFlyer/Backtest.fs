@@ -113,6 +113,40 @@ type DbEmitter(conn: DuckDBConnection, startDate: DateOnly, endDate: DateOnly) =
                   premktVol = reader.GetInt64 8 }
             onNext (ticker, bar)
 
+// ===========================================================================
+// Pipeline 1 (daily) — DbEmitter -> MaxFlyer -> candidate array.
+//
+// The DbEmitter streams (ticker, bar) in (ticker, date) order. We keep one
+// MaxFlyer per ticker (spun up fresh at each ticker boundary, since the rolling
+// indicators must not bleed across tickers) and feed each bar into its
+// Process(onNext, bar), whose onNext is the candidate sink — just a
+// ResizeArray.Add. MaxFlyer owns Gate 1 + Gate 2 + the no-lookahead discipline
+// internally, so this function is pure plumbing: no gates, no per-ticker state
+// beyond "which MaxFlyer am I feeding". Returns the accumulated candidates.
+// ===========================================================================
+let collectCandidates (conn: DuckDBConnection) (cfg: Config)
+                      (startDate: DateOnly) (endDate: DateOnly) : Candidate[] =
+    let emitter = DbEmitter(conn, startDate, endDate)
+    let candidates = ResizeArray<Candidate>()
+
+    let mutable ticker_sys = None
+    let restart ticker =
+        let sys = 
+            MaxFlyer(ticker, cfg.HiCloseWindow, cfg.AtrWindow,
+                    cfg.TightnessWindow, cfg.VolDays, cfg.Daily)
+        ticker_sys <- Some (ticker, sys)
+        sys
+
+    emitter.Process(fun (ticker, bar) ->
+        // ticker boundary: a fresh MaxFlyer so no indicator state crosses tickers.
+        let sys =
+            match ticker_sys with
+            | Some(pTicker, sys) -> if pTicker <> ticker then restart ticker else sys
+            | None -> restart ticker
+        sys.Process(candidates.Add, bar))
+
+    candidates.ToArray()
+
 // ---------------------------------------------------------------------------
 // Pass 1 — daily selection (Gate 1) + premarket (Gate 2) → candidates
 // ---------------------------------------------------------------------------
