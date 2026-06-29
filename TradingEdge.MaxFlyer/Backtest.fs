@@ -299,8 +299,7 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
             | ExitedAt _ -> trips.Add(toTrip c cfg.Notional pos)
             | Holding -> ()   // Finalize closes all; unreachable
 
-    for (date, cs) in candidates |> Seq.groupBy (fun c -> c.Date) do
-        let cands = Seq.toArray cs
+    for date, cands in candidates |> Array.groupBy (fun c -> c.Date) do
         let path = IO.Path.Combine(minuteDir, sprintf "%s.parquet" (date.ToString("yyyy-MM-dd")))
         if IO.File.Exists path then
             let byTicker = cands |> Array.map (fun c -> c.Ticker, c) |> dict
