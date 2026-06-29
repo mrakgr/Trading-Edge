@@ -39,17 +39,20 @@ type IntradayPosition =
       RunHiAtEntry: float      // running session high (strictly-prior bars) the breakout cleared
       AtrPctAtEntry: float     // intraday log-ATR snapshot at entry
       TightnessAtEntry: float  // intraday tightness snapshot at entry
-      mutable State: IntraPosState }
+      State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// Intraday Gate-3 + engine config.
 type IntradayConfig =
     { VolWindow: int           // intraday ATR/tightness lookback in 1m BARS (swept; default ~20)
       MaxTightness: float      // intraday tightness gate (per-bar)
       MaxAtrPct: float         // intraday ATR% gate (log-space, per-bar)
-      MinHighBars: int         // require N prior RTH bars before a "new high" counts (warmup)
+      SessionStartMin: int     // first ET minute fed to the engine (510 = 08:30 ET — the SMB "1h
+                               // opening range"; the running high/low/volume accumulate from here).
+      EntryStartMin: int       // earliest ET minute an entry may fire (575 = 09:35). The engine
+                               // PROCESSES premarket bars (to warm the running extremes) but does not
+                               // TRADE before this wall-clock floor.
       UseStop: bool            // arm the intraday-low protective stop
       MocMin: int              // MOC cutoff in ET minutes (960 = 16:00)
-      RthOpenMin: int          // RTH open in ET minutes (570 = 09:30)
       MaxConcurrent: int }     // cap on currently-OPEN (Holding) positions; 0 = unlimited
 
 /// Per-(ticker, day) intraday engine. Feed it the day's RTH MinuteBar[] in time
@@ -62,16 +65,21 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let rangeHigh = MaxMa(cfg.VolWindow)        // intraday tightness: max high over the window
     let rangeLow  = MinMa(cfg.VolWindow)        // intraday tightness: min low over the window
 
-    // session-cumulative running high/low of RTH bars seen so far (NOT windowed):
-    // the new-high breakout reference is the high of ALL strictly-prior RTH bars today.
+    // session-cumulative running extremes over ALL bars seen so far (NOT windowed),
+    // accumulating from SessionStartMin (08:30 ET). The breakout reference is the high
+    // of all strictly-prior bars; runVolHi is the max single-bar VOLUME so far — the
+    // volume-confirmation reference (a real breakout re-takes the session volume high,
+    // which normally only happens at the open/close).
     let mutable runHi    : float voption = ValueNone
     let mutable runLo    : float voption = ValueNone
+    let mutable runVolHi : int64 voption = ValueNone
     let mutable prevClose : float voption = ValueNone
     let mutable barsSeen  = 0
 
     // ----- pre-push snapshots (state going INTO the current bar; no lookahead) -----
     let mutable sRunHi     : float voption = ValueNone
     let mutable sRunLo     : float voption = ValueNone
+    let mutable sRunVolHi  : int64 voption = ValueNone
     let mutable sAtrLog    : float voption = ValueNone
     let mutable sAtrLin    : float voption = ValueNone
     let mutable sRangeHigh : float voption = ValueNone
@@ -85,6 +93,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
 
     // ----- read members (mirror the daily QullaSystem) -----
     member _.RunHigh = sRunHi
+    /// Running max single-bar volume over strictly-prior bars (the volume-confirmation reference).
+    member _.RunVolHigh = sRunVolHi
     member _.AtrLog = sAtrLog
     /// ATR% stand-in = the intraday log-ATR directly.
     member _.AtrPct = sAtrLog
@@ -106,18 +116,22 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
 
     /// Gate 3 — does THIS bar trigger a new-high breakout entry? Reads pre-push
     /// snapshots, so it must be evaluated AFTER ProcessBar(bar). A new SESSION high
-    /// (close above the running high of strictly-prior bars) with the intraday
-    /// tightness/ATR% gates satisfied, enough warmup bars, and concurrency room.
+    /// (close above the running high of strictly-prior bars from 08:30) that ALSO
+    /// re-takes the session 1m-volume high, with the intraday tightness/ATR% gates
+    /// satisfied, past the 09:35 trading floor, and concurrency room.
     member this.ShouldEnter (bar: MinuteBar) : bool =
-        let inline gate (v: float voption) (test: float -> bool) =
+        let inline gate (v: _ voption) (test: _ -> bool) =
             match v with ValueSome x -> test x | ValueNone -> false
-        // new session high vs strictly-prior RTH bars
-        gate sRunHi (fun hi -> bar.close > hi)
-        // enough prior bars this session (warmup; also lets the windows warm).
-        // barsSeen is post-ProcessBar (includes the current bar), so STRICTLY-greater
-        // means "MinHighBars bars came before this one" — earliest entry at
-        // 09:30 + MinHighBars minutes (matches the daily engine's `> MinPriorDays`).
-        && barsSeen > cfg.MinHighBars
+        // past the wall-clock trading floor (09:35). The engine processes premarket
+        // bars from 08:30 to warm the running extremes, but does not TRADE before this.
+        bar.etMin >= cfg.EntryStartMin
+        // new session high vs strictly-prior bars (08:30-onward running high)
+        && gate sRunHi (fun hi -> bar.close > hi)
+        // VOLUME CONFIRMATION: the breakout bar must EXCEED the strictly-prior session
+        // 1m-volume high. Most breakouts never re-take the volume high (which normally
+        // prints at the open/close), so a morning bar that does is a significant event.
+        // This + the tightness filter is the intended edge.
+        && gate sRunVolHi (fun vh -> bar.volume > vh)
         // intraday tightness gate
         && gate this.Tightness (fun t -> t < cfg.MaxTightness)
         // intraday ATR% gate (log-space)
@@ -131,6 +145,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // 1) snapshot pre-bar state
         sRunHi     <- runHi
         sRunLo     <- runLo
+        sRunVolHi  <- runVolHi
         sAtrLog    <- atrLog.State
         sAtrLin    <- atrLin.State
         sRangeHigh <- rangeHigh.State
@@ -145,24 +160,28 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
 
         rangeHigh.Push bar.high
         rangeLow.Push  bar.low
-        runHi <- match runHi with ValueSome h -> ValueSome (max h bar.high) | ValueNone -> ValueSome bar.high
-        runLo <- match runLo with ValueSome l -> ValueSome (min l bar.low)  | ValueNone -> ValueSome bar.low
+        runHi    <- match runHi with ValueSome h -> ValueSome (max h bar.high) | ValueNone -> ValueSome bar.high
+        runLo    <- match runLo with ValueSome l -> ValueSome (min l bar.low)  | ValueNone -> ValueSome bar.low
+        runVolHi <- match runVolHi with ValueSome v -> ValueSome (max v bar.volume) | ValueNone -> ValueSome bar.volume
         prevClose <- ValueSome bar.close
         barsSeen  <- barsSeen + 1
 
-    /// Advance one open position by the current bar. The protective stop (if
-    /// armed) is the intraday session low at entry; a stop fires when bar.low
-    /// reaches it (fill at min(stop, open) — a gap-down through the stop fills
-    /// at the open, no top-tick credit). Otherwise hold; at/after the MOC cutoff
-    /// flatten at the bar close.
-    member _.Advance (bar: MinuteBar) (pos: IntradayPosition) =
+    /// Advance one open position by the current bar, returning the (possibly
+    /// state-changed) position — an immutable update, mirroring HighFlyer's
+    /// `Update`. The protective stop (if armed) is the intraday session low at
+    /// entry; a stop fires when bar.low reaches it (fill at min(stop, open) — a
+    /// gap-down through the stop fills at the open, no top-tick credit). Otherwise
+    /// hold; at/after the MOC cutoff flatten at the bar close. An already-exited
+    /// position is returned unchanged.
+    member _.Advance (bar: MinuteBar) (pos: IntradayPosition) : IntradayPosition =
         match pos.State with
-        | ExitedAt _ -> ()
+        | ExitedAt _ -> pos
         | Holding ->
             if cfg.UseStop && bar.low <= pos.StopLo then
-                pos.State <- ExitedAt (bar.etMin, min pos.StopLo bar.``open``, "intraday_stop")
+                { pos with State = ExitedAt (bar.etMin, min pos.StopLo bar.``open``, "intraday_stop") }
             elif bar.etMin >= cfg.MocMin then
-                pos.State <- ExitedAt (bar.etMin, bar.close, "moc")
+                { pos with State = ExitedAt (bar.etMin, bar.close, "moc") }
+            else pos
 
     /// Advance the whole system by one minute bar: fold the bar in, advance every
     /// open position, then (if Gate 3 fires) open a new independent position.
@@ -171,25 +190,28 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     member this.Process (bar: MinuteBar) =
         this.ProcessBar bar
         for i in 0 .. positions.Count - 1 do
-            this.Advance bar positions.[i]
+            positions.[i] <- this.Advance bar positions.[i]
         if this.ShouldEnter bar then
-            let orNan = function ValueSome v -> v | ValueNone -> nan
+            // ShouldEnter passed => sRunHi / this.Tightness / this.AtrPct are all
+            // ValueSome (each is gated), and sRunLo warms in lockstep with sRunHi
+            // (same bars, folded together in ProcessBar), so it is ValueSome too.
+            // The .Value reads are therefore safe — no sentinel needed.
             // StopLo = the intraday session low going INTO this bar (sRunLo, pre-push,
             // strictly-prior bars). The self-calibrating range analog (ORB doc §9) — not capped.
             positions.Add
                 { EntryMin = bar.etMin
                   EntryPx = bar.close
-                  StopLo = orNan sRunLo
-                  RunHiAtEntry = orNan sRunHi
-                  AtrPctAtEntry = orNan this.AtrPct
-                  TightnessAtEntry = orNan this.Tightness
+                  StopLo = sRunLo.Value
+                  RunHiAtEntry = sRunHi.Value
+                  AtrPctAtEntry = this.AtrPct.Value
+                  TightnessAtEntry = this.Tightness.Value
                   State = Holding }
 
     /// Flatten any still-open positions at the final bar's close (MOC / hold-to-close).
     member _.Finalize (lastBar: MinuteBar) =
-        for p in positions do
-            match p.State with
-            | Holding -> p.State <- ExitedAt (lastBar.etMin, lastBar.close, "moc")
+        for i in 0 .. positions.Count - 1 do
+            match positions.[i].State with
+            | Holding -> positions.[i] <- { positions.[i] with State = ExitedAt (lastBar.etMin, lastBar.close, "moc") }
             | ExitedAt _ -> ()
 
     /// All positions for this (ticker, day), in entry order.
