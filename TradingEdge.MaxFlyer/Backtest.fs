@@ -290,14 +290,15 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
                  (candidates: Candidate[]) : Trip[] =
     let trips = ResizeArray<Trip>()
 
-    // Drain a finished ticker's IntradaySystem: Finalize at its last bar, then
-    // convert every closed position to a Trip (carrying the candidate's daily metrics).
-    let drain (c: Candidate) (sys: IntradaySystem) (lastBar: MinuteBar) =
-        sys.Finalize lastBar
+    // Drain a finished ticker's IntradaySystem: flatten at its last bar (held in
+    // the system's own state), then convert every closed position to a Trip
+    // (carrying the candidate's daily metrics).
+    let drain (c: Candidate) (sys: IntradaySystem) =
+        sys.Flatten()
         for pos in sys.Positions do
             match pos.State with
             | ExitedAt _ -> trips.Add(toTrip c cfg.Notional pos)
-            | Holding -> ()   // Finalize closes all; unreachable
+            | Holding -> failwith "Flatten closes all; unreachable"
 
     for date, cands in candidates |> Array.groupBy (fun c -> c.Date) do
         let path = IO.Path.Combine(minuteDir, sprintf "%s.parquet" (date.ToString("yyyy-MM-dd")))
@@ -308,25 +309,25 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
                                         adjRatio, cfg.Intraday.SessionStartMin, cfg.Intraday.MocMin)
 
             // Per-ticker state across the (ticker, et_min)-ordered stream. `cur` holds
-            // the candidate + its system + the last bar seen, so a boundary can drain it.
-            let mutable cur : (Candidate * IntradaySystem * MinuteBar) option = None
+            // the candidate + its system (the system tracks its own last bar), so a
+            // ticker boundary can drain the previous one.
+            let mutable cur : (Candidate * IntradaySystem) option = None
             emitter.Process(fun (ticker, bar) ->
                 match cur with
-                | Some(c, sys, _) when c.Ticker = ticker ->
+                | Some(c, sys) when c.Ticker = ticker ->
                     sys.Process bar
-                    cur <- Some(c, sys, bar)
                 | _ ->
                     // ticker boundary: drain the previous ticker, start this one.
                     match cur with
-                    | Some(pc, psys, plast) -> drain pc psys plast
+                    | Some(pc, psys) -> drain pc psys
                     | None -> ()
                     let c = byTicker.[ticker]
                     let sys = IntradaySystem(cfg.Intraday, ticker, date)
                     sys.Process bar
-                    cur <- Some(c, sys, bar))
+                    cur <- Some(c, sys))
             // drain the final ticker of the date.
             match cur with
-            | Some(c, sys, lastBar) -> drain c sys lastBar
+            | Some(c, sys) -> drain c sys
             | None -> ()
 
     trips.ToArray()

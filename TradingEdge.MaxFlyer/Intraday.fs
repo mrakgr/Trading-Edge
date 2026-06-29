@@ -72,14 +72,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // which normally only happens at the open/close).
     let mutable runHi    : float voption = ValueNone
     let mutable runVolHi : int64 voption = ValueNone
-    let mutable prevClose : float voption = ValueNone
-    let mutable prevLow  : float voption = ValueNone   // immediately-prior bar's low (for the 2-bar stop)
+    // the most recent bar folded. Read at the TOP of ProcessBar (before the current
+    // bar is pushed) it IS the immediately-prior bar — the source of both the true-range
+    // prior close and the 2-bar-stop prior low; read by Flatten it's the day's last bar.
+    let mutable lastBar  : MinuteBar voption = ValueNone
     let mutable barsSeen  = 0
 
     // ----- pre-push snapshots (state going INTO the current bar; no lookahead) -----
     let mutable sRunHi     : float voption = ValueNone
     let mutable sRunVolHi  : int64 voption = ValueNone
-    let mutable sPrevLow   : float voption = ValueNone   // prior bar's low, as-of going into this bar
+    let mutable sLastBar   : MinuteBar voption = ValueNone   // the prior bar, as-of going into this bar (its low feeds the 2-bar stop)
     let mutable sAtrLog    : float voption = ValueNone
     let mutable sAtrLin    : float voption = ValueNone
     let mutable sRangeHigh : float voption = ValueNone
@@ -142,18 +144,21 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     /// Fold the current bar into the intraday indicators. Snapshots taken BEFORE
     /// the push (prior-bars / no-lookahead), then the bar is folded in.
     member _.ProcessBar (bar: MinuteBar) =
+        // `lastBar` still holds the immediately-prior bar here (it's updated at the
+        // very end), so it's the source of both the prior low and the prior close.
         // 1) snapshot pre-bar state
         sRunHi     <- runHi
         sRunVolHi  <- runVolHi
-        sPrevLow   <- prevLow
+        sLastBar   <- lastBar
         sAtrLog    <- atrLog.State
         sAtrLin    <- atrLin.State
         sRangeHigh <- rangeHigh.State
         sRangeLow  <- rangeLow.State
 
         // 2) fold the bar in. True range vs the prior 1m close.
-        match prevClose with
-        | ValueSome pc when bar.high > 0.0 && bar.low > 0.0 && pc > 0.0 ->
+        match lastBar with
+        | ValueSome prev when bar.high > 0.0 && bar.low > 0.0 && prev.close > 0.0 ->
+            let pc = prev.close
             (max bar.high pc - min bar.low pc) |> atrLin.Push
             log (max bar.high pc / min bar.low pc) |> atrLog.Push
         | _ -> ()
@@ -162,8 +167,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         rangeLow.Push  bar.low
         runHi    <- match runHi with ValueSome h -> ValueSome (max h bar.high) | ValueNone -> ValueSome bar.high
         runVolHi <- match runVolHi with ValueSome v -> ValueSome (max v bar.volume) | ValueNone -> ValueSome bar.volume
-        prevClose <- ValueSome bar.close
-        prevLow   <- ValueSome bar.low
+        lastBar   <- ValueSome bar
         barsSeen  <- barsSeen + 1
 
     /// Advance one open position by the current bar, returning the (possibly
@@ -194,7 +198,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             positions.[i] <- this.Advance bar positions.[i]
         if this.ShouldEnter bar then
             // ShouldEnter passed => sRunHi / this.Tightness / this.AtrPct are all
-            // ValueSome (each is gated). sPrevLow is ValueSome too: it's ValueNone only
+            // ValueSome (each is gated). sLastBar is ValueSome too: it's ValueNone only
             // on the 08:30 session-open bar, but entries can't fire before 09:35
             // (EntryStartMin), by which point a prior bar always exists. The .Value
             // reads are therefore safe — no sentinel needed.
@@ -204,18 +208,24 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             positions.Add
                 { EntryMin = bar.etMin
                   EntryPx = bar.close
-                  StopLo = min sPrevLow.Value bar.low
+                  StopLo = min sLastBar.Value.low bar.low
                   RunHiAtEntry = sRunHi.Value
                   AtrPctAtEntry = this.AtrPct.Value
                   TightnessAtEntry = this.Tightness.Value
                   State = Holding }
 
-    /// Flatten any still-open positions at the final bar's close (MOC / hold-to-close).
-    member _.Finalize (lastBar: MinuteBar) =
-        for i in 0 .. positions.Count - 1 do
-            match positions.[i].State with
-            | Holding -> positions.[i] <- { positions.[i] with State = ExitedAt (lastBar.etMin, lastBar.close, "moc") }
-            | ExitedAt _ -> ()
+    /// Flatten any still-open positions at the last folded bar's close (MOC /
+    /// hold-to-close). The last bar is held in state (set by ProcessBar), so no
+    /// argument is needed. A no-op if no bar was ever processed. (Named `Flatten`,
+    /// not `Finalize`, to avoid colliding with Object.Finalize, the GC finalizer.)
+    member _.Flatten () =
+        match lastBar with
+        | ValueNone -> ()
+        | ValueSome lb ->
+            for i in 0 .. positions.Count - 1 do
+                match positions.[i].State with
+                | Holding -> positions.[i] <- { positions.[i] with State = ExitedAt (lb.etMin, lb.close, "moc") }
+                | ExitedAt _ -> ()
 
     /// All positions for this (ticker, day), in entry order.
     member _.Positions = positions
