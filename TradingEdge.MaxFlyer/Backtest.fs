@@ -14,12 +14,9 @@ type Config =
       AtrWindow: int
       TightnessWindow: int
       VolDays: int
-      // Gate 1 (daily selection)
+      // Gate 1 (daily selection) + Gate 2 (day-D premarket) — both live in DailyFilterConfig,
+      // which MaxFlyer.Process owns end-to-end.
       Daily: DailyFilterConfig
-      // Gate 2 (premarket, day D)
-      MinGapPct: float          // gapPct = rth_open / prevAdjClose - 1 (wide defaults; the intraday move)
-      MaxGapPct: float
-      MinPremktVol: int64
       // Gate 3 (intraday engine)
       Intraday: IntradayConfig
       Notional: float }
@@ -41,21 +38,80 @@ let defaultConfig =
           MinPrice = 1.0
           MaxTightness = 4.5
           MaxAtrPct = 0.10
-          MinMaxAtrLog = 0.04 }
-      // Gate 2 — wide gap band, no premarket-volume floor by default.
-      MinGapPct = 0.0
-      MaxGapPct = 2.0
-      MinPremktVol = 0L
+          MinMaxAtrLog = 0.04
+          // Gate 2 (premarket) — min 10% gap (a daytrading-grade move; may go higher
+          // after research), uncapped on the high side, no absolute premkt-vol floor,
+          // but require premarket to have traded >= 20% of a normal full day.
+          MinGapPct = 0.10
+          MaxGapPct = 2.0
+          MinPremktVol = 0L
+          MinPremktVolPctOfAvg = 0.20 }
       Intraday =
         { VolWindow = 20
-          MaxTightness = infinity   // intraday gates OFF by default (sweep them in)
+          // Intraday tightness is a CORE filter (with the volume-confirmation gate);
+          // start at 4.5 (the daily anchor) and sweep. ATR% gate stays off for now.
+          MaxTightness = 4.5
           MaxAtrPct = infinity
-          MinHighBars = 15
+          SessionStartMin = 8 * 60 + 30   // 08:30 ET — engine start (SMB 1h opening range)
+          EntryStartMin   = 9 * 60 + 35   // 09:35 ET — earliest entry (wall-clock trading floor)
           UseStop = false
-          MocMin = 16 * 60          // 16:00 ET
-          RthOpenMin = 9 * 60 + 30  // 09:30 ET
-          MaxConcurrent = 0 }       // unlimited concurrent breakouts
+          MocMin = 16 * 60                // 16:00 ET
+          MaxConcurrent = 0 }             // unlimited concurrent breakouts
       Notional = 10_000.0 }
+
+// ===========================================================================
+// Pipeline stage 1 — DbEmitter: the ONLY database read on the daily side.
+//
+// Streams the daily universe (split_adjusted_prices + the day's raw close +
+// premarket volume) ordered by (ticker, date) and pushes each row downstream as
+// a (ticker, Bar) via `onNext`. It owns nothing but the read — no gates, no
+// candidate logic, no per-ticker state. The consumer decides what to do at
+// ticker boundaries (e.g. spin up a fresh MaxFlyer). Continuation-passing style
+// isolates the DB from the rest of the pipeline.
+// ===========================================================================
+type DbEmitter(conn: DuckDBConnection, startDate: DateOnly, endDate: DateOnly) =
+
+    // Universe = common stock + ADRs only. NOTE the SEMI-JOIN (EXISTS), not an inner
+    // JOIN: a few tickers (e.g. ASND) have BOTH a 'CS' and an 'ADRC' row in
+    // ticker_reference; an inner join would FAN OUT every price row into two identical
+    // consecutive rows. EXISTS filters without multiplying.
+    //
+    // rth_open is NOT selected: bar.open (adj_open) already IS the day-D adjusted RTH
+    // open (adj_open == premarket rth_open * adjRatio, verified), on the adjusted scale.
+    // premkt_vol LEFT-JOINs in; a missing row (illiquid premarket) reads as 0 — no
+    // premarket trades is a real value, not a missing one.
+    static member val private Sql =
+        "SELECT p.ticker, p.date, p.adj_open, p.adj_high, p.adj_low, p.adj_close, p.adj_volume,
+                d.close AS raw_close,
+                COALESCE(pm.premkt_vol, 0) AS premkt_vol
+         FROM split_adjusted_prices p
+         JOIN daily_prices d ON d.ticker = p.ticker AND d.date = p.date
+         LEFT JOIN premarket pm ON pm.ticker = p.ticker AND pm.date = p.date
+         WHERE EXISTS (SELECT 1 FROM ticker_reference r
+                       WHERE r.ticker = p.ticker AND r.type IN ('CS','ADRC'))
+           AND p.date >= $start AND p.date <= $end
+         ORDER BY p.ticker, p.date"
+
+    /// Stream every daily row, pushing (ticker, bar) downstream in (ticker, date)
+    /// order. `inline` so the onNext closure fuses into the read loop.
+    member inline _.Process(onNext: string * Bar -> unit) =
+        use cmd = conn.CreateCommand()
+        cmd.CommandText <- DbEmitter.Sql
+        let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- startDate; cmd.Parameters.Add pStart |> ignore
+        let pEnd   = cmd.CreateParameter() in pEnd.ParameterName   <- "end";   pEnd.Value   <- endDate;   cmd.Parameters.Add pEnd   |> ignore
+        use reader = cmd.ExecuteReader()
+        while reader.Read() do
+            let ticker = reader.GetString 0
+            let bar : Bar =
+                { date     = DateOnly.FromDateTime(reader.GetDateTime 1)
+                  ``open`` = reader.GetDouble 2
+                  high     = reader.GetDouble 3
+                  low      = reader.GetDouble 4
+                  close    = reader.GetDouble 5
+                  volume   = reader.GetInt64 6
+                  rawClose = reader.GetDouble 7
+                  premktVol = reader.GetInt64 8 }
+            onNext (ticker, bar)
 
 // ---------------------------------------------------------------------------
 // Pass 1 — daily selection (Gate 1) + premarket (Gate 2) → candidates
