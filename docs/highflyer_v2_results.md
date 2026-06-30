@@ -528,6 +528,39 @@ hold harvests the move. Reconciles with Run 11 (same-day-close exit halves the e
 and Run 5 (the 10:00 FILL is better; the PAYOFF is in the following days). Trade it
 as: buy the 30-min dip on a low-float runner, hold ~5 days — do NOT flip intraday.
 
+## Run 17 — anatomy of the A+ dip: how up, how deep, which dips work
+
+Dissect the red-low-float cell on three no-lookahead dimensions from the partial OHLC.
+
+**How much up on the day at entry?** Median **+14.4%**, q25–q75 **+12% to +20%**, range
++10..+29%. These are STRONG runners pulling back a slice, not marginal movers — closer
+in spirit to "a dip from 25→20" than "15→10". The dip itself is **shallow**: avg
+decline from the open **2.4%**, from the 10:00 high **5.2%**. Typical setup = ran to a
+~+17% intraday high, pulled back ~5% off it to sit +14% on the day at 10:00.
+
+**Does the decline-from-open magnitude matter? Yes — clear sweet spot:**
+
+| decline from open | n | win% | PF |
+|---|---|---|---|
+| <1% (barely red) | 42 | 54.8 | 2.705 |
+| **1–3%** | 57 | 71.9 | **4.872** |
+| **3–6%** | 38 | 68.4 | **5.198** |
+| >6% (deep) | 7 | 28.6 | **0.285** ← breaks |
+
+A **1–6% pullback is the gold** (~5 PF, ~70% win). Barely-red (<1%) is just a flat
+candle (2.7); >6% is the dip becoming a DUMP — the move is failing, not resting (0.28,
+n=7 so noisy but directionally a failure). Decline-from-HIGH echoes it: 3–10% off the
+peak best (3.8–5.1), <3% weakest (3.2).
+
+**Bigger runners pull back better** (by move-on-day): 10–13% → PF 3.88, 22–30% → 5.34.
+The deeper-into-the-run names taking a breather are the strongest.
+
+**Refined A+ gate — red + low-float + decline-from-open ∈ [1%, 6%]:**
+**95 trips · 70.5% win · PF 4.998 clip / 5.842 raw.** Trimming the flat (<1%) and
+broken (>6%) tails lifts the cell from 4.18 → 5.00 clipped. The A+ setup crystallized:
+**a low-float name up ~12–20% on the day that has pulled back 1–6% off its open into
+10:00 — buy it, hold ~5 days.**
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared
