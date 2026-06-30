@@ -250,6 +250,63 @@ low-float names is the cell to push on. (Float source: this also validated the
 Polygon shares-outstanding pull — see [[project_float_feature_2026-06-22]] — over
 buying Sharadar.)
 
+## Run 8 — do the two edges compound? (requalifier × float, 2×2)
+
+Split the 10:00 book by BOTH the timing axis (valid-at-close requalifier, where the
+early-entry edge lives — Run 5) AND the float axis (<$300M, Run 7). Combined float
+metric, dollar-float at the 10:00 entry price.
+
+| | LOW <$300M | HIGH ≥$300M |
+|---|---|---|
+| **requalifier (valid at close)** | **PF 3.654 · 67.9% · 343** | PF 3.109 · 64.0% · 619 |
+| only at 10:00 (fades by close) | PF 1.553 · 52.3% · 600 | PF 1.044 · 48.8% · 892 |
+
+**The two edges compound — orthogonally.** Best cell = requalifier × low-float →
+**PF 3.65, 68% win**, above either edge alone (timing-only requalifiers 3.24;
+float-only <$300M ~2.05). Within requalifiers, low-float adds (3.65 vs 3.11);
+within low-float, requalifying adds (3.65 vs 1.55). Neither cannibalizes the other
+(contrast: float×breadth/heat overlapped on the daily book).
+
+Float also does double duty: it **rescues the marginal book** too — the
+fade-out (only-at-10:00) names go from PF 1.044 (high-float, near breakeven, the
+junk the relaxation let in) to 1.553 (low-float, a real edge).
+
+**The strongest HighFlyerV2 setup = a low-float, close-qualifying name entered at
+10:00: PF 3.65, 68% win.** The open no-lookahead problem stays the same (Run 5):
+"valid at close" isn't knowable at 10:00 — need a 10:00-observable proxy for it.
+
+## Run 9 — move floor 5%→10% (rvol stays 2.5): a no-lookahead requalifier proxy
+
+Run 5/8 said the timing edge needs a 10:00-observable proxy for "valid at close"
+(unknowable at 10:00). Test the move floor as that proxy: keep rvol relaxed at 2.5,
+push the move floor back 5%→10% (`--rvol-min 2.5 --up-threshold 0.10`).
+
+| | move 5% (Run 3/8) | **move 10%** |
+|---|---|---|
+| trips | 3,314 | 1,687 |
+| **requalifier rate** | 38.4% | **63.9%** |
+| aggregate PF | 1.637 | **1.906** |
+| low-float (<$300M) PF | 2.066 | **2.378** |
+
+**The 10% floor IS a (partial) no-lookahead requalifier proxy:** 64% of move-10%
+trades requalify at close vs 38% at move-5%. Being up ≥10% by 10:00 (not just 5%)
+is itself evidence the move has legs — exactly the 10:00-observable signal Run 5/8
+needed. Overall PF 1.64→1.91; low-float 2.07→**2.38**.
+
+move-10% 2×2 (requalifier × float):
+
+| | LOW <$300M | HIGH ≥$300M |
+|---|---|---|
+| requalifier | PF 3.07 (271) | 2.80 (561) |
+| fade-out | 1.89 (216) | 1.05 (253) |
+
+Tradeoff: the requalifier cells are a touch BELOW the move-5% book's (low-float
+requalifier 3.07 vs 3.65) — the move-5% book's requalifiers included late-crossers
+that ran hard, which the blunt 10% floor can't single out. But those needed the
+lookahead label anyway. **The deployable win is the overall low-float book at PF
+2.38, traded with NO lookahead** (move ≥10% + low-float, both knowable at/before
+10:00). rvol 2.5 + move 10% is the more tradeable configuration.
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared
