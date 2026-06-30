@@ -444,6 +444,73 @@ better in absolute terms (far more trips at still-strong PF); for the inverted-U
 close trigger's tighter selection is preferable. Either way the two-sided-fade thesis is
 robust to the trigger definition.
 
+## Run 9 — trail-entry: short the rollover, not the thrust (`--trail-entry`)
+
+Shorting *straight into* a high-volume breakout invites the run-over: occasionally the name
+doubles again before it fades, and a stopless hold-to-MOC eats a catastrophic single loss.
+The trail-entry model addresses this. The breakout no longer enters — it **arms** a signal;
+a trailing 2-bar low then ratchets *up* with the move, and the short fills only when a bar
+**closes back below** that trail (the rollover off the top). A protective stop sits at the
+**session high** at fill — if price runs back to a new high, we're out. (Opt-in
+`--trail-entry`; default behaviour unchanged. Mirror for the long: trail a 2-bar high
+ratcheting down, enter on a close above, stop at the session low.) Up-gapper universe,
+close trigger, hold-to-MOC after fill.
+
+| | direct (stopless, hold-to-MOC) | **trail-entry (session-high stop)** |
+|---|---|---|
+| trips | 2,962 | 2,949 |
+| net P&L | +$880,677 | +$311,135 |
+| PF | 1.397 | 1.208 |
+| win% | 67.7% | 39.6% |
+| mean / trip | +$297 | +$106 |
+| **std / trip** | **$3,107** | **$1,469** |
+| per-trip Sharpe (mean/std) | 0.096 | 0.072 |
+| **worst single trade** | **−$52,819** | **−$4,381** |
+
+**Trail-entry fixes the run-over but at a real cost to the edge.** It halves per-trade
+volatility ($3,107 → $1,469) and **caps the worst trade 12× ($52.8k → $4.4k)** — the
+session-high stop means you are *never* run over. But it gives up ~⅔ of the net P&L and a
+chunk of per-trip Sharpe (0.096 → 0.072), because waiting for the rollover misses the
+names that fade immediately and the session-high stop shakes you out of names that wiggle
+to a fresh high before bleeding all day. **The aggregate verdict: the run-overs were
+*priced in* — the all-day bleed more than pays for the occasional −$50k hit, so on a
+per-trade basis the stopless direct short is still better risk-adjusted.** (Caveat: with a
+bounded ~$4.4k worst case you can size the trail book far larger per unit of capital-at-
+risk, and a −$4.4k tail is survivable where a −$53k tail is account-ending — neither of
+which the per-trade Sharpe captures.)
+
+**Extension breakdown — and trail-entry hurts *most* exactly where the direct edge is
+strongest.** PF and worst-trade by at-entry %-vs-prev-close:
+
+| extension @ entry | direct PF | trail PF | direct worst | trail worst |
+|---|---:|---:|---:|---:|
+| 10–25% | 1.147 | 1.150 | −$42,607 | −$2,805 |
+| 25–50% | 1.216 | 0.967 | −$52,819 | −$3,974 |
+| 50–100% | 1.418 | 1.319 | −$47,375 | −$3,848 |
+| 100–200% | 1.891 | 1.598 | −$17,144 | −$3,560 |
+| **200%+** | **3.706** | **1.371** | −$7,327 | −$4,381 |
+
+Two findings stand out:
+
+1. **The trail kills the high-extension jackpot.** Direct PF scales monotonically to **3.71**
+   at 200%+ (the parabolic fade); the trail collapses that to **1.37**. The session-high stop
+   keeps shaking you out of the most-extended names right before they finally roll over —
+   and those are precisely the names with the biggest, most reliable all-day de-rating. The
+   direct short's clean monotonic 1.15→3.71 becomes a flat, non-monotonic ~1.0–1.6.
+2. **The catastrophic run-overs are NOT in the high-extension tail — they're in the mid
+   bands.** Direct worst-trade is −$53k at 25–50% and −$47k at 50–100%, but only −$7k at
+   200%+. A stock already up 200% is exhausted and fades; a stock up only 40% still has room
+   to double on you. So trail-entry's tail-protection is well-targeted at 25–100% but its
+   edge-cost lands hardest at 200%+ (where run-over risk is already lowest). The mis-match
+   suggests the real play is **trail-entry in the mid bands, direct in the 200%+ tail** —
+   a follow-up.
+
+**Conclusion: better risk management ≠ better risk-adjusted return here.** The trail-entry
+stop does exactly what it was designed to (bounded loss, no run-over, half the volatility),
+but the fade edge is strong and *persistent* enough that giving up the immediate-drop and
+the high-extension bleed costs more edge than the tail-protection is worth on a per-trade
+basis. It is a *survivability / sizing* tool, not an alpha improvement.
+
 ## Reproducibility — candidate cache
 
 The daily scan (pipeline 1) is invariant to every intraday/exit/target knob, so it is

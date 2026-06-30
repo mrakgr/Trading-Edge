@@ -25,23 +25,30 @@ type MinuteBar =
       close: float
       volume: int64 }
 
-/// Intraday position life-cycle.
+/// Intraday position life-cycle. With `--trail-entry`, the breakout first ARMS a
+/// position (no fill); it transitions to Holding only when a bar closes back through
+/// the ratcheting trailing level (short on the rollover, not into the thrust). Without
+/// trail-entry the breakout creates a Holding position directly (Armed is never used).
 type IntraPosState =
+    | Armed of armMin: int * trailLevel: float    // breakout fired; waiting for a close through the trail
     | Holding
-    | ExitedAt of exitMin: int * exitPx: float * reason: string   // "moc" | "intraday_stop"
+    | ExitedAt of exitMin: int * exitPx: float * reason: string   // "moc" | "intraday_stop" | "session_stop"
 
-/// One intraday trip. `EntryMin`/`EntryPx` are the FILL (breakout-bar) values;
-/// the *_at_entry metrics are the intraday indicator snapshots at the entry bar.
+/// One intraday trip. `EntryMin`/`EntryPx` are the FILL values (the breakout bar, or
+/// the rollover bar under trail-entry); the *_at_entry metrics are the intraday
+/// indicator snapshots at the ARMING (breakout) bar.
 type IntradayPosition =
     { EntryMin: int
       EntryPx: float
-      StopLevel: float         // the 2-bar local extreme at entry — the protective-stop level. Upside
-                               // breakout: the 2-bar low (min of breakout+prior bar low); downside: the
-                               // 2-bar high. Stop fires when price reaches it (low<=level / high>=level).
+      StopLevel: float         // protective-stop level. Direct entry: the 2-bar local extreme at the
+                               // breakout (upside = 2-bar low, downside = 2-bar high); fires when price
+                               // reaches it (low<=level / high>=level). Under --trail-entry this is the
+                               // SESSION extreme at fill instead (the high for a short, the low for a long):
+                               // we're stopped out if price runs back to a fresh session extreme.
       BreakoutRef: float       // the running session extreme (strictly-prior bars) the breakout cleared —
                                // the session high for an upside breakout, the session low for a downside one
-      AtrPctAtEntry: float     // intraday log-ATR snapshot at entry
-      TightnessAtEntry: float  // intraday tightness snapshot at entry
+      AtrPctAtEntry: float     // intraday log-ATR snapshot at the arming bar
+      TightnessAtEntry: float  // intraday tightness snapshot at the arming bar
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// Mean-reversion TARGET — where a (short) position covers when price reverts back
@@ -75,6 +82,11 @@ type IntradayConfig =
       WickBreakout: bool       // breakout TRIGGER style. false (default) = CLOSE through the prior
                                // session extreme; true = the bar's HIGH/LOW WICK merely pierces it (even
                                // if it closes back inside). Wick fires more/earlier; admits weaker pierces.
+      TrailEntry: bool         // entry MODEL. false (default) = enter immediately on the breakout bar.
+                               // true = the breakout only ARMS; track a trailing 2-bar extreme that
+                               // ratchets WITH the move (up for a short / down for a long), and enter only
+                               // when a bar CLOSES back through it (the rollover off the top/bottom). The
+                               // protective stop then sits at the SESSION extreme at fill. Opt-in.
       Short: bool              // trade the breakout SHORT (fade) instead of long. Flips the P&L sign
                                // only; the breakout entry signal is unchanged. The intraday-low
                                // protective stop is wrong-sided for a short, so leave UseStop off when
@@ -168,10 +180,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         | Ma _ -> maTgt.State
         | Channel _ -> chanTgt.State
 
-    /// Count of currently-Holding (open) positions.
+    /// Count of currently-open positions — Holding, plus Armed (a committed pending
+    /// trail-entry signal counts against concurrency too).
     member _.OpenCount =
         let mutable n = 0
-        for p in positions do (match p.State with Holding -> n <- n + 1 | _ -> ())
+        for p in positions do (match p.State with Holding | Armed _ -> n <- n + 1 | ExitedAt _ -> ())
         n
 
     /// Gate 3 — does THIS bar trigger a new-high breakout entry? Reads pre-push
@@ -269,19 +282,50 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     ///   4. MOC — at/after the cutoff, flatten at close.
     /// An already-exited position is returned unchanged.
     member _.Advance (bar: MinuteBar) (pos: IntradayPosition) : IntradayPosition =
+        // the 2-bar local extreme AT this bar (min/max of this bar + the prior bar).
+        // sLastBar is the strictly-prior bar (ValueNone only on the 08:30 open bar, well
+        // before any entry can fire). For a SHORT (upside breakout) the trail is a 2-bar
+        // LOW; for a LONG (downside breakout) a 2-bar HIGH.
+        let twoBarExtreme =
+            match sLastBar with
+            | ValueSome prev -> if cfg.Downside then max prev.high bar.high else min prev.low bar.low
+            | ValueNone      -> if cfg.Downside then bar.high else bar.low
         match pos.State with
         | ExitedAt _ -> pos
+        | Armed (armMin, trail) ->
+            // trail-entry: ratchet the trailing 2-bar extreme WITH the move (a short's
+            // trail only rises; a long's only falls), then enter when a bar CLOSES back
+            // through it (the rollover). Fill at that bar's close; the protective stop is
+            // the SESSION extreme at fill (sRunHi for a short, sRunLo for a long).
+            let trail' = if cfg.Downside then min trail twoBarExtreme else max trail twoBarExtreme
+            let triggered = if cfg.Downside then bar.close > trail' else bar.close < trail'
+            if triggered then
+                let sessionStop =
+                    match (if cfg.Downside then sRunLo else sRunHi) with
+                    | ValueSome x -> x
+                    | ValueNone   -> if cfg.Downside then bar.low else bar.high
+                { pos with EntryMin = bar.etMin; EntryPx = bar.close; StopLevel = sessionStop; State = Holding }
+            elif bar.etMin >= cfg.MocMin then pos   // never filled by MOC → stays Armed, dropped (no trip)
+            else { pos with State = Armed (armMin, trail') }
         | Holding ->
             // a short cover-target: bar.low reaching the strictly-prior anchor.
             let targetHit =
                 cfg.Short &&
                 match sTargetAnchor with ValueSome a -> bar.low <= a | ValueNone -> false
-            // protective stop: directional. Upside breakout stops below the 2-bar low
-            // (bar.low reaches it); downside breakout stops above the 2-bar high.
+            // protective stop: directional, fires when price reaches pos.StopLevel.
+            //   direct entry  — the 2-bar local extreme at the breakout (short stops on
+            //                   bar.low <= level; long on bar.high >= level), opt-in (UseStop).
+            //   --trail-entry — the SESSION extreme at fill (short stops on bar.high >= the
+            //                   session high → ran back over the top; long on bar.low <= the
+            //                   session low). Intrinsic to the model: always armed.
             let stopHit =
-                if cfg.Downside then bar.high >= pos.StopLevel else bar.low <= pos.StopLevel
-            if cfg.UseStop && stopHit then
-                { pos with State = ExitedAt (bar.etMin, bar.close, "intraday_stop") }
+                if cfg.TrailEntry then
+                    if cfg.Downside then bar.low <= pos.StopLevel else bar.high >= pos.StopLevel
+                elif cfg.Downside then bar.high >= pos.StopLevel
+                else bar.low <= pos.StopLevel
+            if (cfg.UseStop || cfg.TrailEntry) && stopHit then
+                let reason = if cfg.TrailEntry then "session_stop" else "intraday_stop"
+                { pos with State = ExitedAt (bar.etMin, bar.close, reason) }
             elif targetHit then
                 let anchor = sTargetAnchor.Value
                 let fill = min anchor bar.``open``   // limit fill at anchor; gap-through fills at the open
@@ -310,16 +354,22 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             // bar's low and the prior bar's low (a tight stop just under the breakout base).
             // Downside: max of the two highs (just above the breakdown base). Self-
             // calibrating; replaces the wide 08:30-session extreme.
+            // the 2-bar local extreme at the breakout bar (upside = 2-bar low, downside =
+            // 2-bar high): the direct-entry protective stop, AND the initial trail level
+            // for --trail-entry.
+            let twoBar =
+                if cfg.Downside then max sLastBar.Value.high bar.high
+                else min sLastBar.Value.low bar.low
             positions.Add
                 { EntryMin = bar.etMin
                   EntryPx = bar.close
-                  StopLevel =
-                    if cfg.Downside then max sLastBar.Value.high bar.high
-                    else min sLastBar.Value.low bar.low
+                  StopLevel = twoBar
                   BreakoutRef = this.BreakoutRef.Value
                   AtrPctAtEntry = this.AtrPct.Value
                   TightnessAtEntry = this.Tightness.Value
-                  State = Holding }
+                  // direct entry → Holding now (fill at the breakout close). --trail-entry →
+                  // Armed: wait for a close back through the (ratcheting) trail before filling.
+                  State = if cfg.TrailEntry then Armed (bar.etMin, twoBar) else Holding }
 
     /// Flatten any still-open positions at the last folded bar's close (MOC /
     /// hold-to-close). The last bar is held in state (set by ProcessBar), so no
@@ -332,7 +382,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             for i in 0 .. positions.Count - 1 do
                 match positions.[i].State with
                 | Holding -> positions.[i] <- { positions.[i] with State = ExitedAt (lb.etMin, lb.close, "moc") }
-                | ExitedAt _ -> ()
+                | Armed _ | ExitedAt _ -> ()   // Armed but never filled → no trip (dropped below)
 
     /// All positions for this (ticker, day), in entry order.
     member _.Positions = positions

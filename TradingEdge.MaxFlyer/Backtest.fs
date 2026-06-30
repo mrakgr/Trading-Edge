@@ -58,6 +58,7 @@ let defaultConfig =
           TimeStopMin = 0                 // time-stop off by default
           Downside = false                // upside breakout (new session high) by default
           WickBreakout = false            // close-through trigger by default (wick = opt-in)
+          TrailEntry = false              // enter immediately on the breakout by default (trail = opt-in)
           Short = false                   // long by default
           Target = NoTarget               // no mean-reversion target by default
           MocMin = 16 * 60                // 16:00 ET
@@ -228,6 +229,7 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           NetPnL = qty * dirPnl                            // long or short (see dirPnl)
           BarsHeld = exitMin - pos.EntryMin }              // minutes held (1m bars)
     | Holding -> failwith "toTrip called on a still-Holding position (Finalize first)"
+    | Armed _ -> failwith "toTrip called on an Armed (never-filled) position (filter these out)"
 
 // ===========================================================================
 // Pipeline stage 1 (intraday) — MinuteEmitter: the ONLY database read on the
@@ -305,6 +307,7 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
         for pos in sys.Positions do
             match pos.State with
             | ExitedAt _ -> trips.Add(toTrip c cfg.Notional cfg.Intraday.Short pos)
+            | Armed _ -> ()   // armed but never filled (no rollover by MOC) → no trip
             | Holding -> failwith "Flatten closes all; unreachable"
 
     for date, cands in candidates |> Array.groupBy (fun c -> c.Date) do
