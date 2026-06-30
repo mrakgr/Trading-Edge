@@ -511,6 +511,51 @@ but the fade edge is strong and *persistent* enough that giving up the immediate
 the high-extension bleed costs more edge than the tail-protection is worth on a per-trade
 basis. It is a *survivability / sizing* tool, not an alpha improvement.
 
+### Frontside vs backside, both stopless — isolating the entry timing
+
+Run 9's trail-entry bundled two changes: *backside* entry (wait for the rollover) AND the
+session-high stop. To isolate the timing, run trail-entry **stopless** (the stop is now
+opt-in via `--intraday-stop` in both entry models) and compare to the frontside stopless
+short, both hold-to-MOC:
+
+| variant | trips | net P&L | PF | win% |
+|---|---|---|---|---|
+| frontside, stopless | 2,962 | +$880,677 | **1.397** | 67.7% |
+| **backside, stopless** | 2,949 | +$702,467 | **1.329** | 65.3% |
+| backside + session stop (Run 9) | 2,949 | +$311,135 | 1.208 | 39.6% |
+
+**The entry-timing change alone costs only ~0.07 PF (1.397 → 1.329); the session stop costs
+another ~0.12 (→ 1.208) — the stop is ~2× more damaging than the backside timing.** And
+backside-stopless keeps a high win rate (65%, vs the stop's 40%): waiting for the rollover
+fills at a slightly worse price but still captures the same all-day bleed, whereas the stop
+shakes you out of the winners.
+
+But the aggregate hides a **reshaping of the edge across extension** — backside isn't a
+uniform shift, it has a sweet spot:
+
+| extension @ entry | frontside PF | backside PF | front worst | back worst |
+|---|---:|---:|---:|---:|
+| 10–25% | 1.147 | **0.954** | −$42,607 | −$43,411 |
+| 25–50% | 1.216 | 1.102 | −$52,819 | −$56,683 |
+| 50–100% | 1.418 | 1.429 | −$47,375 | −$20,801 |
+| **100–200%** | 1.891 | **2.380** | −$17,144 | −$15,312 |
+| 200%+ | **3.706** | 2.040 | −$7,327 | −$9,175 |
+
+- **Low extension (10–50%): backside is worse** — at 10–25% it goes *negative* (0.95). Mild
+  movers have little rollover to wait for; the close-below confirmation just enters late.
+- **High-mid (50–200%): backside is BETTER**, clearly so at **100–200% (1.89 → 2.38)**. On a
+  strongly-extended name the rollover confirmation earns its keep — it skips the names still
+  grinding up and enters the ones actually turning. This is the "short the backside" thesis
+  working.
+- **200%+ tail: backside is worse (3.71 → 2.04)** — the most parabolic names fade so
+  violently that any delay forfeits much of the drop; frontside catches the whole move.
+
+Worst-trade is ~unchanged frontside vs backside (the timing alone doesn't help the tail —
+only the stop does). **Net: backside entry has a real sweet spot in the 50–200% band; it is
+worse at the mild-mover and the extreme-parabolic ends.** The strongest single configuration
+for the 100–200% band is backside-stopless (PF 2.38); for the 200%+ tail it is
+frontside-stopless (PF 3.71).
+
 ## Reproducibility — candidate cache
 
 The daily scan (pipeline 1) is invariant to every intraday/exit/target knob, so it is

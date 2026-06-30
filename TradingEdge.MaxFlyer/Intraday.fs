@@ -312,18 +312,20 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             let targetHit =
                 cfg.Short &&
                 match sTargetAnchor with ValueSome a -> bar.low <= a | ValueNone -> false
-            // protective stop: directional, fires when price reaches pos.StopLevel.
+            // protective stop: directional, fires when price reaches pos.StopLevel. Opt-in
+            // via UseStop in BOTH entry models (so --trail-entry alone = backside entry,
+            // stopless, hold-to-MOC; add --intraday-stop for the session stop).
             //   direct entry  — the 2-bar local extreme at the breakout (short stops on
-            //                   bar.low <= level; long on bar.high >= level), opt-in (UseStop).
+            //                   bar.low <= level; long on bar.high >= level).
             //   --trail-entry — the SESSION extreme at fill (short stops on bar.high >= the
             //                   session high → ran back over the top; long on bar.low <= the
-            //                   session low). Intrinsic to the model: always armed.
+            //                   session low).
             let stopHit =
                 if cfg.TrailEntry then
                     if cfg.Downside then bar.low <= pos.StopLevel else bar.high >= pos.StopLevel
                 elif cfg.Downside then bar.high >= pos.StopLevel
                 else bar.low <= pos.StopLevel
-            if (cfg.UseStop || cfg.TrailEntry) && stopHit then
+            if cfg.UseStop && stopHit then
                 let reason = if cfg.TrailEntry then "session_stop" else "intraday_stop"
                 { pos with State = ExitedAt (bar.etMin, bar.close, reason) }
             elif targetHit then
