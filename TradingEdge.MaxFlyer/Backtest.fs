@@ -59,6 +59,7 @@ let defaultConfig =
           TimeStopMin = 0                 // time-stop off by default
           Downside = false                // upside breakout (new session high) by default
           WickBreakout = false            // close-through trigger by default (wick = opt-in)
+          RiseEntry = 0.0                 // no pre-entry rise gate by default (rise-entry = opt-in)
           TrailEntry = false              // enter immediately on the breakout by default (trail = opt-in)
           Short = false                   // long by default
           Target = NoTarget               // no mean-reversion target by default

@@ -610,6 +610,58 @@ Every exit mechanism tested — tight stops (Run 1), time-stops (Run 3), price t
 hold-to-MOC. Risk control on this setup is a *position-sizing* problem, not a *stop*
 problem.
 
+## Run 11 — wait for the parabolic move (`--rise-entry`)
+
+Every *exit* mechanism failed. The opposite lever is *entry selection*: instead of shorting
+the breakout, **wait for the name to actually go parabolic and short *that*.** The 10–25%
+band is barely above breakeven (PF 1.15) precisely because those names haven't extended —
+the edge lives in the extended names. `--rise-entry 0.5` arms on the breakout and enters the
+short only once price has run a further **+50% past the breakout price** (fills at the +50%
+level; gap-through at the bar open). Combine with `--trail-entry` to instead wait for the
+rollover *after* the +50%. Frontside, up-gapper universe, hold-to-MOC.
+
+| variant | trips | PF | win% | net P&L |
+|---|---|---|---|---|
+| short on the breakout (stopless) | 2,962 | 1.397 | 67.7% | +$880,677 |
+| **rise +50%, immediate** | 378 | **1.726** | 70.1% | +$284,848 |
+| rise +50% + trail (rollover after) | 373 | 1.659 | 70.2% | +$251,009 |
+
+**Waiting for the +50% parabolic move lifts PF 1.40 → 1.73** — a large jump in trade
+*quality*. Only ~13% of breakouts ever run +50% (2,962 → 378 trips), and those are exactly
+the extended names where the fade is rich; the mild movers are skipped. The immediate fill
+slightly beats the rollover (1.726 vs 1.659): once you've already waited for +50%, the name
+often starts fading right there, so the extra rollover delay forfeits the first leg down
+(consistent with Run 9b — backside timing is marginally worse in the extended zone).
+
+**This is the first thing that improves risk-adjusted return, not just caps loss:**
+
+| | short on breakout | rise +50% |
+|---|---:|---:|
+| mean / trip | +$297 | **+$754** |
+| **per-trip Sharpe (mean/std)** | 0.096 | **0.181** |
+| worst trade | −$52,819 | **−$31,880** |
+
+Per-trip Sharpe nearly **doubles** (0.096 → 0.181) and the worst trade shrinks (−$53k →
+−$32k) — **with no stop at all**. By letting the name run +50% before shorting, you simply
+*don't take* the trades that would have kept running; the ones left are exhausted and fade.
+Extension breakdown (no sub-25% entries exist by construction — all have run +50%):
+
+| at-entry band | n | PF | win% | worst |
+|---|---:|---:|---:|---:|
+| 50–100% | 89 | 2.336 | 73.0 | −$25,072 |
+| 100–200% | 218 | 1.359 | 67.4 | −$31,880 |
+| 200%+ | 71 | 2.899 | 74.6 | −$8,096 |
+
+The mild-mover band is gone; every trade sits in the rich part of the curve. The 100–200%
+band is weakest (PF 1.36 — ran +50% to land merely *strong*, not yet exhausted); the 200%+
+band (already exhausted) is best (PF 2.90), suggesting a *larger* rise gate may push further
+into exhaustion.
+
+**Key reframing: risk control here is a *selection* problem, not a *stop* problem.** Every
+exit that tries to cut the bad trades short also cuts the good ones (the edge is the
+persistent bleed). But *not taking* the trade until the name has proven extended both raises
+the edge and improves risk-adjusted return. Don't stop the bad trades — don't enter them.
+
 ## Reproducibility — candidate cache
 
 The daily scan (pipeline 1) is invariant to every intraday/exit/target knob, so it is

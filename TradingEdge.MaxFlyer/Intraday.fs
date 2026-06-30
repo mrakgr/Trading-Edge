@@ -25,14 +25,19 @@ type MinuteBar =
       close: float
       volume: int64 }
 
-/// Intraday position life-cycle. With `--trail-entry`, the breakout first ARMS a
-/// position (no fill); it transitions to Holding only when a bar closes back through
-/// the ratcheting trailing level (short on the rollover, not into the thrust). Without
-/// trail-entry the breakout creates a Holding position directly (Armed is never used).
+/// Intraday position life-cycle. The breakout may first ARM a position (no fill); it
+/// transitions to Holding once its entry condition is met:
+///   --trail-entry — a bar closes back through the ratcheting trail (rollover off the top).
+///   --rise-entry  — price first runs a further `RiseEntry` fraction from the arm price
+///                   (short into a now-parabolic move), then either fills immediately or,
+///                   if --trail-entry is also on, waits for the rollover after that.
+/// With neither flag the breakout creates a Holding position directly (Armed is unused).
 type IntraPosState =
-    | Armed of armMin: int * trailLevel: float    // breakout fired; waiting for a close through the trail
+    // armMin = arming bar; trailLevel = ratcheting 2-bar extreme; armPrice = breakout-bar
+    // price (the --rise-entry anchor); riseCleared = has the +RiseEntry move happened yet.
+    | Armed of armMin: int * trailLevel: float * armPrice: float * riseCleared: bool
     | Holding
-    | ExitedAt of exitMin: int * exitPx: float * reason: string   // "moc" | "intraday_stop" | "session_stop"
+    | ExitedAt of exitMin: int * exitPx: float * reason: string   // "moc"|"intraday_stop"|"session_stop"|"pct_stop"|"target"|"time_stop"
 
 /// One intraday trip. `EntryMin`/`EntryPx` are the FILL values (the breakout bar, or
 /// the rollover bar under trail-entry); the *_at_entry metrics are the intraday
@@ -87,6 +92,12 @@ type IntradayConfig =
       WickBreakout: bool       // breakout TRIGGER style. false (default) = CLOSE through the prior
                                // session extreme; true = the bar's HIGH/LOW WICK merely pierces it (even
                                // if it closes back inside). Wick fires more/earlier; admits weaker pierces.
+      RiseEntry: float         // entry GATE: require price to first run this fraction past the arm
+                               // (breakout) price before a short may enter — i.e. wait for a further
+                               // parabolic move and short THAT, not the breakout (0 = off; 0.5 = +50%).
+                               // Short anchors above (armPrice*(1+x)), long below (armPrice*(1-x)). Arms
+                               // a position like trail-entry; with --trail-entry it ALSO waits for the
+                               // rollover after the rise, otherwise it fills immediately at the level.
       TrailEntry: bool         // entry MODEL. false (default) = enter immediately on the breakout bar.
                                // true = the breakout only ARMS; track a trailing 2-bar extreme that
                                // ratchets WITH the move (up for a short / down for a long), and enter only
@@ -297,21 +308,40 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             | ValueNone      -> if cfg.Downside then bar.high else bar.low
         match pos.State with
         | ExitedAt _ -> pos
-        | Armed (armMin, trail) ->
-            // trail-entry: ratchet the trailing 2-bar extreme WITH the move (a short's
-            // trail only rises; a long's only falls), then enter when a bar CLOSES back
-            // through it (the rollover). Fill at that bar's close; the protective stop is
-            // the SESSION extreme at fill (sRunHi for a short, sRunLo for a long).
+        | Armed (armMin, trail, armPrice, riseCleared) ->
+            // ratchet the trailing 2-bar extreme WITH the move (a short's trail only rises;
+            // a long's only falls).
             let trail' = if cfg.Downside then min trail twoBarExtreme else max trail twoBarExtreme
-            let triggered = if cfg.Downside then bar.close > trail' else bar.close < trail'
-            if triggered then
-                let sessionStop =
-                    match (if cfg.Downside then sRunLo else sRunHi) with
-                    | ValueSome x -> x
-                    | ValueNone   -> if cfg.Downside then bar.low else bar.high
-                { pos with EntryMin = bar.etMin; EntryPx = bar.close; StopLevel = sessionStop; State = Holding }
-            elif bar.etMin >= cfg.MocMin then pos   // never filled by MOC → stays Armed, dropped (no trip)
-            else { pos with State = Armed (armMin, trail') }
+            // session extreme at fill — the --trail-entry protective stop reference.
+            let sessionStop () =
+                match (if cfg.Downside then sRunLo else sRunHi) with
+                | ValueSome x -> x
+                | ValueNone   -> if cfg.Downside then bar.low else bar.high
+            // --rise-entry GATE: require a further RiseEntry move past the arm price first
+            // (short above armPrice*(1+x), long below armPrice*(1-x)). Once a bar's extreme
+            // reaches that level the gate is cleared (latched). With RiseEntry=0 it's open.
+            let riseLevel = if cfg.Downside then armPrice * (1.0 - cfg.RiseEntry) else armPrice * (1.0 + cfg.RiseEntry)
+            let riseCleared' =
+                riseCleared
+                || cfg.RiseEntry <= 0.0
+                || (if cfg.Downside then bar.low <= riseLevel else bar.high >= riseLevel)
+            if not riseCleared' then
+                // rise gate still pending → can't enter this bar; just ratchet & wait.
+                if bar.etMin >= cfg.MocMin then pos
+                else { pos with State = Armed (armMin, trail', armPrice, false) }
+            elif cfg.TrailEntry then
+                // wait for the rollover: enter on the first close back through the trail.
+                let triggered = if cfg.Downside then bar.close > trail' else bar.close < trail'
+                if triggered then
+                    { pos with EntryMin = bar.etMin; EntryPx = bar.close; StopLevel = sessionStop (); State = Holding }
+                elif bar.etMin >= cfg.MocMin then pos
+                else { pos with State = Armed (armMin, trail', armPrice, true) }
+            else
+                // immediate fill the moment the rise gate clears: short INTO the parabolic
+                // move at the rise level (no better than the bar OPEN if it gapped through).
+                // (Reached only with RiseEntry>0 & not trail — RiseEntry=0 direct entry never arms.)
+                let fill = if cfg.Downside then min riseLevel bar.``open`` else max riseLevel bar.``open``
+                { pos with EntryMin = bar.etMin; EntryPx = fill; StopLevel = sessionStop (); State = Holding }
         | Holding ->
             // a short cover-target: bar.low reaching the strictly-prior anchor.
             let targetHit =
@@ -322,11 +352,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             // stopless, hold-to-MOC; add --intraday-stop for the session stop).
             //   direct entry  — the 2-bar local extreme at the breakout (short stops on
             //                   bar.low <= level; long on bar.high >= level).
-            //   --trail-entry — the SESSION extreme at fill (short stops on bar.high >= the
-            //                   session high → ran back over the top; long on bar.low <= the
-            //                   session low).
+            //   --trail-entry / --rise-entry — the SESSION extreme at fill (short stops on
+            //                   bar.high >= the session high → ran back over the top; long on
+            //                   bar.low <= the session low).
+            // Both Armed paths (trail, rise) set StopLevel to the session extreme, so the
+            // session-stop direction applies whenever either is on.
+            let sessionStopMode = cfg.TrailEntry || cfg.RiseEntry > 0.0
             let stopHit =
-                if cfg.TrailEntry then
+                if sessionStopMode then
                     if cfg.Downside then bar.low <= pos.StopLevel else bar.high >= pos.StopLevel
                 elif cfg.Downside then bar.high >= pos.StopLevel
                 else bar.low <= pos.StopLevel
@@ -388,9 +421,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                   BreakoutRef = this.BreakoutRef.Value
                   AtrPctAtEntry = this.AtrPct.Value
                   TightnessAtEntry = this.Tightness.Value
-                  // direct entry → Holding now (fill at the breakout close). --trail-entry →
-                  // Armed: wait for a close back through the (ratcheting) trail before filling.
-                  State = if cfg.TrailEntry then Armed (bar.etMin, twoBar) else Holding }
+                  // direct entry → Holding now (fill at the breakout close). --trail-entry or
+                  // --rise-entry → Armed: wait for the rise gate and/or the rollover before
+                  // filling. armPrice = the breakout close (the --rise-entry anchor).
+                  State =
+                    if cfg.TrailEntry || cfg.RiseEntry > 0.0 then Armed (bar.etMin, twoBar, bar.close, false)
+                    else Holding }
 
     /// Flatten any still-open positions at the last folded bar's close (MOC /
     /// hold-to-close). The last bar is held in state (set by ProcessBar), so no
