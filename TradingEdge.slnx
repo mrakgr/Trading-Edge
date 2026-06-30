@@ -8,5 +8,6 @@
   <Project Path="TradingEdge.Massive/TradingEdge.Massive.fsproj" />
   <Project Path="TradingEdge.MaxFlyer/TradingEdge.MaxFlyer.fsproj" />
   <Project Path="TradingEdge.HighFlyer/TradingEdge.HighFlyer.fsproj" />
+  <Project Path="TradingEdge.HighFlyerV2/TradingEdge.HighFlyerV2.fsproj" />
   <Project Path="TradingEdge.Orb/TradingEdge.Orb.fsproj" />
 </Solution>

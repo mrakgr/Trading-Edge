@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- HighFlyerV2: daily momentum-breakout swing engine, forked from MaxFlyer's
+       clean (debloated) daily skeleton and brought back to parity with the
+       original TradingEdge.HighFlyer daily system. Removed vs the original:
+       the StopMode zoo (incl. NoStop), Side, exhaustion/disaster/expansion
+       exits, limit-entry, profit-target. Kept: the entry factor stack
+       (move/rvol + the quality filters), fill-at-close, a 5d time-stop, MTM.
+       Self-contained: reads trading.db directly via DuckDB, no project refs.
+
+       NEXT: a separate PARTIAL-daily-candle series (checkpoint snapshots at
+       10:00, 10:30 ET ...) to drive intraday entries on partial info. -->
+  <ItemGroup>
+    <Compile Include="RollingMa.fs" />
+    <Compile Include="Types.fs" />
+    <Compile Include="Backtest.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Argu" Version="6.2.5" />
+    <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.4" />
+    <PackageReference Include="Nito.Collections.Deque" Version="1.2.1" />
+  </ItemGroup>
+
+</Project>

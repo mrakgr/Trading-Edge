@@ -1,0 +1,344 @@
+module TradingEdge.HighFlyerV2.Types
+
+open System
+open TradingEdge.HighFlyerV2.RollingMa
+
+// =============================================================================
+// HighFlyerV2 DAILY engine.
+//
+// Forked from TradingEdge.MaxFlyer.Types (the debloated selection skeleton) and
+// brought back to PARITY with the original TradingEdge.HighFlyer daily system —
+// but expressed in MaxFlyer's clean style.
+//
+// Kept from the original HighFlyer:
+//   - the full entry factor stack: move band (up[lo,hi)) + rvol band + the
+//     quality filters (52w-proximity, price, tightness, ATR%, intraday-ret floor,
+//     past-runner max-log-ATR floor, ADV floor, warmup) — read at the SIGNAL bar,
+//     filling at the bar CLOSE.
+//   - the 252d LOW channels + the Pct52wLow* read members (CSV columns).
+//   - a daily Position life-cycle: fill@close -> hold -> time-stop@next-open / MTM.
+//
+// Removed vs the original HighFlyer (the bloat):
+//   - StopMode (ALL variants, incl. NoStop — NoStop == a time-stop with an
+//     infinite cap, so there is NO price-stop machinery at all here).
+//   - Side (long-only), exhaustion/disaster/expansion exits, limit-entry,
+//     profit-target, and every rolling structure / position field tied to them.
+//
+// The only EXIT is the time-stop (exit at the next open after MaxHoldBars holding
+// bars); anything still open at the last bar is MTM'd. `stopLow`/`stopHigh` and
+// `EntryDayStopRef`/`StopLowAtEntry` survive ONLY as CSV snapshot columns (the
+// golden output carries them); no logic consumes them.
+// =============================================================================
+
+/// One daily bar.
+type Bar =
+    { date: DateOnly
+      ``open``: float
+      high: float
+      low: float
+      close: float
+      volume: int64 }
+
+/// In-engine entry filter thresholds. The original HighFlyer `is_entry`:
+/// breakout move band + rvol band + history + ADV + 52w-proximity + the
+/// production price / tightness / ATR% / intraday-ret / past-runner filters.
+/// breadth_lag1 is NOT here — market-wide, applied post-hoc.
+type EntryConfig =
+    { UpThreshold: float        // min same-day return, close/prevClose-1 (production 0.10)
+      MaxUpThreshold: float     // MAX same-day return (cap the 30%+ blow-off; production 0.30)
+      RvolMin: float            // min rvol, volume/avgVol4w (production 5.0)
+      RvolMax: float            // max rvol (production +inf)
+      MinPriorDays: int         // require barsSeen > this (warmup; v0 21)
+      MinAvgDollarVolume: float // min avg dollar volume 4w (v0 100_000)
+      Min52wPct: float          // close >= this * (hiClose or hiHigh) (production 0.95)
+      Use52wHigh: bool          // gate on prior-252d intraday HIGH instead of closing high (default false)
+      MinPrice: float           // close >= this (production 1.0)
+      MaxTightness: float       // tightness < this (production 4.5; LINEAR scale)
+      MaxAtrPct: float          // atr_pct(close) < this — log-ATR (production 0.10)
+      MinIntradayRet: float     // close/open-1 >= this — reject deep intraday FADES (production -0.07; -inf disables)
+      MinMaxAtrLog: float }     // "max log ATR" (126-bar max of 14-bar log-ATR) >= this —
+                                // past-runner volatility-history FLOOR (production 0.04; 0/-inf disables)
+
+/// Life-cycle of a single trip. Minimal: the original HighFlyer's PendingLimit /
+/// ExitingLimit / ExitingMarket / Side machinery is gone. A trip fills at the
+/// signal-bar close (Holding immediately), exits at the next open when the
+/// time-stop fires (ExitingNextOpen), or is MTM'd at the last bar.
+type PositionState =
+    | Holding
+    | ExitingNextOpen of reason: string   // time-stop fired; fill at the next bar's open
+    | Exited of exitDate: DateOnly * exitPrice: float * reason: string
+
+/// One trip. The *_at_entry metrics are snapshotted at the SIGNAL bar (= the fill
+/// bar, since we fill at close) and fixed. EntryDayStopRef / StopLowAtEntry are
+/// carried for CSV parity with the original output; no stop logic reads them.
+type Position =
+    { SignalDate: DateOnly
+      EntryDate: DateOnly       // = SignalDate (fill at the signal-bar close)
+      EntryPrice: float         // = signal-bar close
+      EntryReason: string       // always "close"
+      EntryDayStopRef: float    // FILL bar's low (CSV column; unused by logic)
+      StopLowAtEntry: float     // trailing prior-window low going INTO the signal bar (CSV column; unused); nan if cold
+      HoldBars: int             // # of Holding bars since fill (for the time-stop)
+      // metrics snapshotted at the SIGNAL bar (CSV / parity)
+      EntryVolume: int64
+      RvolAtEntry: float
+      AvgDollarVolumeAtEntry: float
+      PctUpAtEntry: float
+      AtrPctAtEntry: float
+      TightnessAtEntry: float
+      Pct52wAtEntry: float
+      Pct52wHighAtEntry: float
+      Pct52wLowCloseAtEntry: float
+      Pct52wLowAtEntry: float
+      State: PositionState }
+
+/// Per-ticker rolling-indicator state + the daily trip life-cycle.
+///
+/// All windowed structures follow the "prior bars, exclude current" convention:
+/// read `.State` (or the `s*` snapshots) BEFORE pushing the current bar, so every
+/// value measures the name's state going INTO the bar — no lookahead.
+type HighFlyer
+    ( stopLowWindow: int,
+      hiCloseWindow: int,
+      atrWindow: int,
+      tightnessWindow: int,
+      volDays: int,
+      maxHoldBars: int,
+      entryCfg: EntryConfig ) =
+
+    // ----- rolling structures -----
+    let stopLow   = MinMa(stopLowWindow)        // CSV snapshot only (prior-window low at entry)
+    let hiClose   = MaxMa(hiCloseWindow)        // long-term close channel (252d)
+    let hiHigh    = MaxMa(hiCloseWindow)        // long-term HIGH channel (252d max of intraday highs)
+    let loClose   = MinMa(hiCloseWindow)        // long-term LOW close channel (252d min of closes)
+    let loLow     = MinMa(hiCloseWindow)        // long-term LOW channel (252d min of intraday lows)
+    let atrLog    = AvgMa(atrWindow)            // ATR = mean LOG true range
+    let atrLin    = AvgMa(atrWindow)            // ATR = mean ABSOLUTE true range (linear, for tightness)
+    let maxAtrLog = MaxMa(126)                  // past-runner: 126-bar max of the 14-bar log-ATR
+    let rangeHigh = MaxMa(tightnessWindow)      // tightness: max high
+    let rangeLow  = MinMa(tightnessWindow)      // tightness: min low
+    let avgVol    = CalendarMeanMa(volDays)     // AVG(volume), 28-calendar-day
+    let avgDolVol = CalendarMeanMa(volDays)     // AVG(close*volume), 28-calendar-day
+
+    // Open + closed trips for this ticker, in entry order.
+    let positions = ResizeArray<Position>()
+
+    let mutable prevClose : float voption = ValueNone
+    let mutable barsSeen  = 0
+
+    // ----- snapshots captured at the last ProcessBar, BEFORE the push -----
+    let mutable sStopLow   : float voption = ValueNone
+    let mutable sHiClose   : float voption = ValueNone
+    let mutable sHiHigh    : float voption = ValueNone
+    let mutable sLoClose   : float voption = ValueNone
+    let mutable sLoLow     : float voption = ValueNone
+    let mutable sAtrLog    : float voption = ValueNone
+    let mutable sMaxAtrLog : float voption = ValueNone
+    let mutable sAtrLin    : float voption = ValueNone
+    let mutable sRangeHigh : float voption = ValueNone
+    let mutable sRangeLow  : float voption = ValueNone
+    let mutable sPrevClose : float voption = ValueNone
+    let mutable sAvgVol    : float voption = ValueNone
+    let mutable sAvgDolVol : float voption = ValueNone
+
+    member _.BarsSeen = barsSeen
+
+    /// Trailing prior-window low (CSV snapshot reference).
+    member _.StopLow = sStopLow
+    /// Long-term close channel: highest close over the prior `hiCloseWindow` bars.
+    member _.HiClose = sHiClose
+    member _.HiHigh = sHiHigh
+    /// close / hi_252_closing - 1 (how far above the prior 252d closing high).
+    member _.Pct52w (closePrice: float) =
+        match sHiClose with
+        | ValueSome hi when hi <> 0.0 -> ValueSome (closePrice / hi - 1.0)
+        | _ -> ValueNone
+    /// close / hi_252_intraday_high - 1 (true resistance).
+    member _.Pct52wHigh (closePrice: float) =
+        match sHiHigh with
+        | ValueSome hi when hi <> 0.0 -> ValueSome (closePrice / hi - 1.0)
+        | _ -> ValueNone
+    /// close / lo_252_closing - 1 (relative to the prior 252d closing low).
+    member _.Pct52wLowClose (closePrice: float) =
+        match sLoClose with
+        | ValueSome lo when lo <> 0.0 -> ValueSome (closePrice / lo - 1.0)
+        | _ -> ValueNone
+    /// close / lo_252_intraday_low - 1 (true support).
+    member _.Pct52wLow (closePrice: float) =
+        match sLoLow with
+        | ValueSome lo when lo <> 0.0 -> ValueSome (closePrice / lo - 1.0)
+        | _ -> ValueNone
+    /// ATR(14) in LOG space — a direct ATR% stand-in (no close division).
+    member _.AtrLog = sAtrLog
+    member _.AtrLin = sAtrLin
+    /// ATR% stand-in = the log ATR directly.
+    member _.AtrPct = sAtrLog
+    /// 126-bar max of the 14-bar log-ATR (past-runner floor), pre-push.
+    member _.MaxAtrLog = sMaxAtrLog
+    /// 14-day ABSOLUTE price span (dollars).
+    member _.RangeAbs =
+        match sRangeHigh, sRangeLow with
+        | ValueSome hi, ValueSome lo -> ValueSome (hi - lo)
+        | _ -> ValueNone
+    /// Consolidation tightness = abs range / abs ATR (LINEAR). Low = coiled
+    /// spring, high = trending. Linear is the HighFlyer-confirmed default.
+    member this.Tightness =
+        match this.RangeAbs, sAtrLin with
+        | ValueSome r, ValueSome atr when atr <> 0.0 -> ValueSome (r / atr)
+        | _ -> ValueNone
+    member _.AvgVolume = sAvgVol
+    member _.AvgDollarVolume = sAvgDolVol
+    /// rvol = volume / 4-week avg volume.
+    member _.Rvol (volume: float) =
+        match sAvgVol with
+        | ValueSome av when av <> 0.0 -> ValueSome (volume / av)
+        | _ -> ValueNone
+    /// Same-day return = close / prev close - 1.
+    member _.PctUp (closePrice: float) =
+        match sPrevClose with
+        | ValueSome pc when pc <> 0.0 -> ValueSome (closePrice / pc - 1.0)
+        | _ -> ValueNone
+
+    /// Does the CURRENT bar trigger an entry? Reads pre-push snapshots, so it must
+    /// be evaluated AFTER ProcessBar(bar). Mirrors the original HighFlyer
+    /// `ShouldEnter`. A missing (ValueNone) metric for any active gate fails the
+    /// entry (we don't trade what we can't measure). Fills at the bar CLOSE.
+    member this.ShouldEnter (bar: Bar) : bool =
+        let c = bar.close
+        let inline gate (v: float voption) (test: float -> bool) =
+            match v with ValueSome x -> test x | ValueNone -> false
+        // breakout: same-day return in [UpThreshold, MaxUpThreshold)
+        gate (this.PctUp c) (fun pu -> pu >= entryCfg.UpThreshold && pu < entryCfg.MaxUpThreshold)
+        // rvol band
+        && gate (this.Rvol (float bar.volume)) (fun rv ->
+               rv >= entryCfg.RvolMin && rv <= entryCfg.RvolMax)
+        // enough prior history
+        && barsSeen > entryCfg.MinPriorDays
+        // liquidity floor on avg dollar volume
+        && gate sAvgDolVol (fun adv -> adv >= entryCfg.MinAvgDollarVolume)
+        // 52-week-high proximity band — closing-high (default) or intraday-high channel
+        && gate (if entryCfg.Use52wHigh then sHiHigh else sHiClose)
+                (fun hi -> c >= entryCfg.Min52wPct * hi)
+        // price floor
+        && c >= entryCfg.MinPrice
+        // consolidation tightness
+        && gate this.Tightness (fun t -> t < entryCfg.MaxTightness)
+        // ATR% cap (log-space)
+        && gate this.AtrPct (fun a -> a < entryCfg.MaxAtrPct)
+        // intraday-return floor: reject deep fades (gap-up then sell-off). Guard open>0.
+        && (bar.``open`` > 0.0 && bar.close / bar.``open`` - 1.0 >= entryCfg.MinIntradayRet)
+        // past-runner volatility-history FLOOR. ValueNone fails.
+        && gate this.MaxAtrLog (fun ma -> ma >= entryCfg.MinMaxAtrLog)
+
+    /// Update every rolling structure with the most recent bar. Snapshots are
+    /// taken BEFORE the push (prior-bars / no-lookahead), then the bar is folded
+    /// in for the next call.
+    member _.ProcessBar (bar: Bar) =
+        // 1) snapshot the pre-bar state (calendar means evicted as-of THIS date first).
+        avgVol.Evict    bar.date
+        avgDolVol.Evict bar.date
+        sAvgVol    <- avgVol.State
+        sAvgDolVol <- avgDolVol.State
+        sStopLow   <- stopLow.State
+        sHiClose   <- hiClose.State
+        sHiHigh    <- hiHigh.State
+        sLoClose   <- loClose.State
+        sLoLow     <- loLow.State
+        sAtrLog    <- atrLog.State
+        sMaxAtrLog <- maxAtrLog.State
+        sAtrLin    <- atrLin.State
+        sRangeHigh <- rangeHigh.State
+        sRangeLow  <- rangeLow.State
+        sPrevClose <- prevClose
+
+        // 2) fold the current bar in. Both LOG and LINEAR ATRs updated each bar.
+        match prevClose with
+        | ValueSome pc when bar.high > 0.0 && bar.low > 0.0 && pc > 0.0 ->
+            (max bar.high pc - min bar.low pc)
+            |> atrLin.Push
+            log (max bar.high pc / min bar.low pc)
+            |> atrLog.Push
+            match atrLog.State with
+            | ValueSome a -> maxAtrLog.Push a
+            | ValueNone -> ()
+        | _ -> ()
+
+        stopLow.Push   bar.low
+        hiClose.Push   bar.close
+        hiHigh.Push    bar.high
+        loClose.Push   bar.close
+        loLow.Push     bar.low
+        rangeHigh.Push bar.high
+        rangeLow.Push  bar.low
+        let vol = float bar.volume
+        avgVol.Push    (bar.date, vol)
+        avgDolVol.Push (bar.date, bar.close * vol)
+
+        prevClose <- ValueSome bar.close
+        barsSeen  <- barsSeen + 1
+
+    /// All trips for this ticker (open + closed), in entry order.
+    member _.Positions = positions
+
+    /// Advance one open position by the current bar. Must run AFTER ProcessBar.
+    /// The ONLY exit is the time-stop: once a position has been Holding for
+    /// `maxHoldBars` bars (0 = off), it exits at the NEXT bar's open.
+    member _.Update (bar: Bar) (pos: Position) : Position =
+        match pos.State with
+        | Exited _ -> pos
+        | ExitingNextOpen reason ->
+            // sell at THIS bar's open (the bar after the time-stop fired).
+            { pos with State = Exited (bar.date, bar.``open``, reason) }
+        | Holding ->
+            // Time-stop: counts the bar we're about to survive, so it fires once
+            // HoldBars+1 reaches the cap and fills at bar (cap+1)'s open.
+            let heldBars = pos.HoldBars + 1
+            if maxHoldBars > 0 && heldBars >= maxHoldBars then
+                { pos with State = ExitingNextOpen "time_stop"; HoldBars = heldBars }
+            else { pos with HoldBars = heldBars }
+
+    /// Advance the whole system by one bar: fold the bar in, update every open
+    /// position, then open a new trip (filled at this bar's close) when the entry
+    /// predicate fires. An entry bar is never its own first exit-check bar — the
+    /// new position is appended AFTER existing positions advance.
+    member this.Process (bar: Bar, ?breadthOk: bool) =
+        this.ProcessBar bar
+        for i in 0 .. positions.Count - 1 do
+            positions.[i] <- this.Update bar positions.[i]
+        let breadthOk = defaultArg breadthOk true
+        if breadthOk && this.ShouldEnter bar then
+            // ShouldEnter verified each gated metric is ValueSome, so these reads
+            // are safe (nan only if a metric isn't gated — none of these are).
+            let orNan = function ValueSome v -> v | ValueNone -> nan
+            positions.Add
+                { SignalDate = bar.date
+                  EntryDate = bar.date
+                  EntryPrice = bar.close
+                  EntryReason = "close"
+                  EntryDayStopRef = bar.low
+                  StopLowAtEntry = orNan sStopLow
+                  HoldBars = 0
+                  EntryVolume = bar.volume
+                  RvolAtEntry = orNan (this.Rvol (float bar.volume))
+                  AvgDollarVolumeAtEntry = orNan sAvgDolVol
+                  PctUpAtEntry = orNan (this.PctUp bar.close)
+                  AtrPctAtEntry = orNan this.AtrPct
+                  TightnessAtEntry = orNan this.Tightness
+                  Pct52wAtEntry = orNan (this.Pct52w bar.close)
+                  Pct52wHighAtEntry = orNan (this.Pct52wHigh bar.close)
+                  Pct52wLowCloseAtEntry = orNan (this.Pct52wLowClose bar.close)
+                  Pct52wLowAtEntry = orNan (this.Pct52wLow bar.close)
+                  State = Holding }
+
+    /// Close any still-open positions at the final bar's close, marked-to-market
+    /// (v0's "mtm" exit). Call once after the last bar of the series. Positions
+    /// resting in ExitingNextOpen (time-stop fired on the last bar, no next bar to
+    /// fill at) are also MTM'd here.
+    member _.Finalize (lastBar: Bar) =
+        for i in 0 .. positions.Count - 1 do
+            match positions.[i].State with
+            | Exited _ -> ()
+            | Holding | ExitingNextOpen _ ->
+                positions.[i] <-
+                    { positions.[i] with
+                        State = Exited (lastBar.date, lastBar.close, "mtm") }
