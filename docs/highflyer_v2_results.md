@@ -611,6 +611,40 @@ break is a STOP signal, not a discount.
 the 10:00–10:30 window and it's the same ~5-PF setup (full edge if still red; ~3.4 if it
 already bounced).
 
+## Run 19 — A+ liquidity: too illiquid to trade? (No — the edge survives liquidity gates)
+
+Liquidity profile of the A+ cell (n=95; ignore the max column — adj-price glitch rows):
+
+| metric | q25 | median | q75 |
+|---|---|---|---|
+| price | $5.12 | $8.75 | $22.29 |
+| 4w avg $-volume | $0.33M | $0.76M | $1.79M |
+| shares by 10:00 | 0.24M | 0.62M | 1.82M |
+| **$-volume by 10:00** | $2.16M | **$5.85M** | $34.6M |
+
+Mostly sub-$10 small-caps (expected — low-float). The **4w-ADV looks thin (median
+$0.76M)** — the legitimate concern. BUT you trade these on their EXPLOSIVE day: by
+10:00 a median **$5.85M** has already traded (≈8× the baseline ADV — the rvol effect).
+
+**Does the edge depend on the illiquid tail? No — it survives every gate (clip PF):**
+
+| gate | n | PF |
+|---|---|---|
+| all A+ | 93 | 4.99 |
+| price ≥ $5 | 70 | 4.92 |
+| $vol by 10:00 ≥ $5M | 48 | **5.97** |
+| ADV4w ≥ $1M | 36 | 14.81 (thin n) |
+| price ≥ $5 & $vol-by-10:00 ≥ $5M | 35 | **5.19** |
+
+Filtering to tradeable names KEEPS or improves the PF — the 5-PF is not an
+illiquidity mirage. Deployable liquid version = **price ≥ $5, ≥$5M traded by 10:00 →
+PF ~5.2 (35 trips)** — sizable without being the whole book. (The $14.8 ADV≥$1M cell
+is sample-thin; trust direction, not magnitude.)
+
+**Tradeoff = frequency.** Gating to liquid names halves an already-thin cell (~35–48
+trips / 21y ≈ 1.5–2.5/yr). A real, size-able edge but RARE — a patience setup, not a
+daily grind. Fits discretionary manual trading: wait for the clean liquid one, size up.
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared
