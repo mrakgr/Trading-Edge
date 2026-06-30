@@ -396,13 +396,47 @@ less cleanly, but every cell keeps its sign and the wrong-side trades stay loser
 (up-breakout long 0.70–0.76, down-breakout short 0.81–0.84). **More signal, modestly lower
 quality per trade** — the classic confirmation trade-off.
 
-The structural breakdowns hold under the wick trigger:
+### At-entry extension breakdowns (wick trigger)
 
-- **Up-breakout short still scales monotonically** with at-entry extension: 10–25% PF 1.01,
-  25–50% 1.27, 50–100% 1.60, 100–200% 1.82, 200%+ **3.58** (n=978/1545/1179/380/61).
-- **Down-breakout long is still an inverted-U** (combined universes): <−50% PF 0.38, −50..−10%
-  ~1.56, −10..+10% ~1.49–1.63, +10..25% 1.16, +25..50% 0.69, >+50% **0.51**. Same flush-not-
-  trend shape — peaks in the moderate band, dies at both tails.
+**(A) Up-breakout SHORT, up-gapper universe — still monotonic.** Deeper extension at entry
+= stronger fade, exactly as Run 4 (close trigger), now on 4,143 trips:
+
+| % vs prev close at entry | n | shortPF | win% |
+|---|---:|---:|---:|
+| 10–25% | 978 | 1.008 | 63.2 |
+| 25–50% | 1,545 | 1.273 | 67.9 |
+| 50–100% | 1,179 | 1.604 | 72.9 |
+| 100–200% | 380 | 1.818 | 72.1 |
+| **200%+** | 61 | **3.576** | 80.3 |
+
+**(B) Up-breakout SHORT, down-gapper universe.** Works at both ends, weakest in the
+recovery-to-flat band (mirrors Run 6 — the 0–10% slice is the softest, PF 1.06):
+
+| % vs prev close at entry | n | shortPF | win% |
+|---|---:|---:|---:|
+| < −10% (still capitulating) | 272 | 1.382 | 53.3 |
+| −10..0% | 372 | 1.218 | 57.5 |
+| 0..10% (recovered to ~flat) | 138 | **1.064** | 65.2 |
+| 10..25% | 52 | 2.120 | 71.2 |
+| 25..50% | 12 | 1.978 | 91.7 |
+| >50% | 9 | 1.960 | 66.7 |
+
+**(C) Down-breakout LONG, combined universes — still an inverted-U.** Plateau across the
+moderate flush band, dies at both tails (death-spiral and failed-runner), exactly as Run 7:
+
+| % vs prev close at entry | n | longPF | win% |
+|---|---:|---:|---:|
+| < −50% (death-spiral) | 145 | **0.376** | 35.9 |
+| −50..−25% | 457 | 1.568 | 57.5 |
+| −25..−10% | 867 | 1.557 | 56.6 |
+| −10..0% | 318 | 1.634 | 59.7 |
+| 0..10% | 755 | 1.488 | 49.4 |
+| 10..25% | 331 | 1.159 | 40.2 |
+| 25..50% | 97 | **0.685** | 40.2 |
+| > +50% (failed runner) | 53 | **0.505** | 34.0 |
+
+All three shapes from the close trigger survive intact — the wick trigger just adds trips
+without changing the *structure* of the edge.
 
 **Takeaway:** the close trigger is cleaner per-trade (higher PF); the wick trigger trades
 quality for ~1.5–2× the sample. For the profitable short book the wick variant is arguably
