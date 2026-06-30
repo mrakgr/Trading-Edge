@@ -40,6 +40,7 @@ type Args =
     | Session_Start_Min of int
     | Entry_Start_Min of int
     | Intraday_Stop
+    | Pct_Stop of float
     | Time_Stop_Min of int
     | Downside
     | Wick_Breakout
@@ -83,6 +84,7 @@ type Args =
             | Session_Start_Min _ -> "Gate 3: first ET minute fed to the intraday engine (the running extremes accumulate from here). Default 510 (08:30, the SMB 1h opening range)."
             | Entry_Start_Min _ -> "Gate 3: earliest ET minute an entry may fire (wall-clock trading floor). Default 575 (09:35). Premarket bars are processed but not traded before this."
             | Intraday_Stop -> "Gate 3: arm the protective stop (fills at the bar close). Direct entry: the 2-bar local extreme at the breakout (wrong-sided for a direct --short). Under --trail-entry: the SESSION extreme at fill (correctly sided for the short). Default off (hold to MOC)."
+            | Pct_Stop _ -> "Gate 3: wide catastrophe %-stop — a fixed adverse excursion from entry (0 = off; e.g. 0.5 = stop if price moves 50%% against the position). Independent of --intraday-stop. Clips the run-over tail while leaving normal noise untouched. Fills at the level (gap-through at the bar open)."
             | Time_Stop_Min _ -> "Gate 3: time-stop — flatten this many minutes after entry (capped at MOC). Default 0 (off). Side-independent."
             | Downside -> "Gate 3: breakout DIRECTION — fire on a new session LOW (close < running low) instead of a new session high. Default off (upside). Independent of --short (direction vs P&L sign); the protective stop flips to the 2-bar high."
             | Wick_Breakout -> "Gate 3: breakout TRIGGER — fire when the bar's HIGH/LOW WICK pierces the prior session extreme, even if it closes back inside. Default off (require a CLOSE through the extreme). Fires more/earlier; admits weaker pierces."
@@ -148,6 +150,7 @@ let main argv =
                   SessionStartMin = parsed.GetResult(Session_Start_Min,      defaultValue = dc.Intraday.SessionStartMin)
                   EntryStartMin   = parsed.GetResult(Entry_Start_Min,        defaultValue = dc.Intraday.EntryStartMin)
                   UseStop         = parsed.Contains Intraday_Stop
+                  PctStop         = parsed.GetResult(Pct_Stop,               defaultValue = dc.Intraday.PctStop)
                   TimeStopMin     = parsed.GetResult(Time_Stop_Min,          defaultValue = dc.Intraday.TimeStopMin)
                   Downside        = parsed.Contains Downside
                   WickBreakout    = parsed.Contains Wick_Breakout
@@ -176,14 +179,14 @@ let main argv =
         | Intraday.Vwap -> "vwap"
         | Intraday.Ma w -> sprintf "ma%d" w
         | Intraday.Channel w -> sprintf "channel%d" w
-    printfn "  Gate3 (intraday): dir=%s trig=%s entry=%s side=%s target=%s volwin=%d tight<%s atr%%<%s session=%s entry>=%s stop=%b time_stop=%d moc=%s max_concurrent=%d notional=%.0f"
+    printfn "  Gate3 (intraday): dir=%s trig=%s entry=%s side=%s target=%s volwin=%d tight<%s atr%%<%s session=%s entry>=%s stop=%b pct_stop=%.2f time_stop=%d moc=%s max_concurrent=%d notional=%.0f"
         (if cfg.Intraday.Downside then "DOWN" else "up")
         (if cfg.Intraday.WickBreakout then "wick" else "close")
         (if cfg.Intraday.TrailEntry then "TRAIL" else "direct")
         (if cfg.Intraday.Short then "SHORT" else "long") targetStr
         cfg.Intraday.VolWindow (inf cfg.Intraday.MaxTightness) (inf cfg.Intraday.MaxAtrPct)
         (hhmm cfg.Intraday.SessionStartMin) (hhmm cfg.Intraday.EntryStartMin) cfg.Intraday.UseStop
-        cfg.Intraday.TimeStopMin
+        cfg.Intraday.PctStop cfg.Intraday.TimeStopMin
         (hhmm cfg.Intraday.MocMin)
         cfg.Intraday.MaxConcurrent cfg.Notional
 

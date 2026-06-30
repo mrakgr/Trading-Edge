@@ -556,6 +556,60 @@ worse at the mild-mover and the extreme-parabolic ends.** The strongest single c
 for the 100–200% band is backside-stopless (PF 2.38); for the 200%+ tail it is
 frontside-stopless (PF 3.71).
 
+## Run 10 — wide catastrophe stops (`--pct-stop`)
+
+If the session-high stop is too tight (it shakes you out of winners), maybe a *very* wide
+stop — 50% to 100% adverse from entry — catches only the true account-killers (a short that
+doubles on you) while letting normal noise bleed to MOC. `--pct-stop X` covers a short if
+price rises X above the entry. Frontside short, up-gapper universe, hold-to-MOC otherwise.
+
+| variant | net P&L | PF | std/trip | worst | # stopped |
+|---|---|---|---|---|---|
+| stopless | +$880,677 | **1.397** | $3,107 | −$52,819 | — |
+| +50% stop | +$453,066 | 1.181 | $2,443 | −$9,036 | 378 |
+| +75% stop | +$538,948 | 1.214 | $2,700 | −$11,079 | 207 |
+| +100% stop | +$562,038 | 1.224 | $2,896 | −$29,133 | 129 |
+
+**No — even very wide stops do not preserve the edge.** PF drops materially (1.40 → 1.18–1.22)
+at every level. Two reasons:
+
+1. **A 50–100% adverse move is not rare here — it's regular.** The 50% stop fires on **378
+   trades** (still 129 at 100%). A high-volume gapper running 50%+ past your short before it
+   fades is an ordinary event in this universe, not a once-a-year black swan.
+2. **The stopped-out names are the ones that fade hardest.** A stock up 80% that runs to
+   +130% (tripping the 50% stop) is exactly the parabolic name whose all-day de-rating pays
+   the most — the stop realizes the loss at the blow-off top, right before the bleed. Same
+   mechanism that killed the session-high stop, just at a wider threshold.
+
+Extension breakdown — the damage concentrates where the edge is richest:
+
+| band | stopless PF | +50% stop | +100% stop |
+|---|---:|---:|---:|
+| 10–25% | 1.147 | 0.968 | 1.103 |
+| 25–50% | 1.216 | 1.052 | 1.058 |
+| 50–100% | 1.418 | 1.276 | 1.314 |
+| **100–200%** | **1.891** | 1.329 | 1.372 |
+| **200%+** | **3.706** | 2.526 | 2.496 |
+
+The 100–200% band is gutted (1.89 → 1.33) and the 200%+ jackpot drops (3.71 → ~2.5) — the
+parabolic faders routinely run 50–100% against you *before* rolling over, so any stop at
+that level clips them at the top. Even 10–25% goes negative under the 50% stop (the rare
+mild-mover that runs 50% is a catastrophe the stop *realizes* instead of letting recover).
+
+**Wider is monotonically better** (1.18 → 1.22 as 50% → 100%; +100% beats +50% in every mid
+band), converging toward stopless — the same pattern as the Run-5 targets and the Run-9
+trail stop. There is no sweet-spot stop level that beats holding; the limit (infinitely
+wide = stopless) is the best. And the tail trade-off is poor: the 50% stop cuts the worst
+trade −$53k → −$9k but costs ~$430k of net P&L to do it.
+
+**The frontside fade edge is inseparable from sitting through the adverse excursion.** The
+profit comes from holding the parabolic faders through their run-up to the eventual
+de-rating; a stop tight enough to bound the loss is also tight enough to forfeit the win.
+Every exit mechanism tested — tight stops (Run 1), time-stops (Run 3), price targets
+(Run 5), the session-high stop (Run 9), and now wide %-stops (Run 10) — loses to
+hold-to-MOC. Risk control on this setup is a *position-sizing* problem, not a *stop*
+problem.
+
 ## Reproducibility — candidate cache
 
 The daily scan (pipeline 1) is invariant to every intraday/exit/target knob, so it is

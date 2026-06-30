@@ -55,6 +55,7 @@ let defaultConfig =
           SessionStartMin = 8 * 60 + 30   // 08:30 ET — engine start (SMB 1h opening range)
           EntryStartMin   = 9 * 60 + 35   // 09:35 ET — earliest entry (wall-clock trading floor)
           UseStop = false
+          PctStop = 0.0                   // wide %-stop off by default
           TimeStopMin = 0                 // time-stop off by default
           Downside = false                // upside breakout (new session high) by default
           WickBreakout = false            // close-through trigger by default (wick = opt-in)

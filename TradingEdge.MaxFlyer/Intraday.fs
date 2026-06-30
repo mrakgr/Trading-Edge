@@ -72,6 +72,11 @@ type IntradayConfig =
                                // PROCESSES premarket bars (to warm the running extremes) but does not
                                // TRADE before this wall-clock floor.
       UseStop: bool            // arm the intraday-low protective stop
+      PctStop: float           // wide catastrophe %-stop: a fixed adverse excursion from entry (0 = off;
+                               // e.g. 0.5 = stop if price moves 50% AGAINST the position). Independent of
+                               // UseStop — meant to clip the run-over tail (a short that doubles on you)
+                               // while leaving normal noise untouched. Short: stop on bar.high >= entry*(1+x);
+                               // long: bar.low <= entry*(1-x). Fills at the level, gap-through at the open.
       TimeStopMin: int         // time-stop: flatten this many minutes after entry (capped at MOC);
                                // 0 = off. Side-independent. Fires before the protective stop / MOC
                                // only if it lands earlier.
@@ -325,9 +330,23 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     if cfg.Downside then bar.low <= pos.StopLevel else bar.high >= pos.StopLevel
                 elif cfg.Downside then bar.high >= pos.StopLevel
                 else bar.low <= pos.StopLevel
+            // wide %-stop: a fixed adverse excursion from the entry (e.g. 0.5 = 50% against
+            // us). Independent of UseStop — a catastrophe stop meant to clip the run-over
+            // tail while leaving normal noise untouched. Short stops if price rises PctStop
+            // above entry; long if it falls PctStop below. Fills at the level, but no better
+            // than the bar OPEN if the bar gapped clean through it.
+            let pctStopLevel =
+                if cfg.Short then pos.EntryPx * (1.0 + cfg.PctStop)
+                else pos.EntryPx * (1.0 - cfg.PctStop)
+            let pctStopHit =
+                cfg.PctStop > 0.0 &&
+                (if cfg.Short then bar.high >= pctStopLevel else bar.low <= pctStopLevel)
             if cfg.UseStop && stopHit then
                 let reason = if cfg.TrailEntry then "session_stop" else "intraday_stop"
                 { pos with State = ExitedAt (bar.etMin, bar.close, reason) }
+            elif pctStopHit then
+                let fill = if cfg.Short then max pctStopLevel bar.``open`` else min pctStopLevel bar.``open``
+                { pos with State = ExitedAt (bar.etMin, fill, "pct_stop") }
             elif targetHit then
                 let anchor = sTargetAnchor.Value
                 let fill = min anchor bar.``open``   // limit fill at anchor; gap-through fills at the open
