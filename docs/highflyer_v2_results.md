@@ -413,6 +413,121 @@ This explains why the 10:30 book's aggregate PF is LOWER than 10:00's: waiting t
 an EARLIER checkpoint (9:45?), not later. (Low-float still salvages the late
 bloomers to 1.74 — float's double duty again — but they're strictly worse.)
 
+## Run 14 — 9:45 ET checkpoint: earlier is NOT strictly better; 10:00 is a sweet spot
+
+Run 13 suggested "earlier is better" — test it by going to 9:45 ET
+(`partial_candle_0945`, cutoff 585; only 15 min of RTH). Same config (rvol≥1.0,
+move 10%).
+
+9:45 standalone book = 2,565 trips, **PF 1.497** (low-float 1.961) — WORSE than
+10:00's 1.866 (low-float 2.412). So pushing earlier HURT. The 10:00-book split by
+9:45 is also gentle, not a cliff:
+
+| 10:00 book by 9:45 | trips | PF all | requal@close | PF low-float |
+|---|---|---|---|---|
+| early (qual@9:45) | 2,161 | 1.798 | 69.2 | 2.518 |
+| late (only@10:00) | 1,745 | 1.762 | 45.6 | 2.292 |
+
+The 9:45→10:00 late bloomers are barely worse (1.762 vs 1.798) — nothing like the
+10:00→10:30 cliff (1.35 vs 1.82).
+
+**Why 9:45 underperforms — the fade-prone spike.** Split the 9:45 book by whether it
+HOLDS ≥10% to 10:00:
+
+| 9:45 names | trips | win% | PF |
+|---|---|---|---|
+| **faded by 10:00** (gave it back in 15 min) | 404 | 40.3 | **0.644** |
+| held to 10:00 | 2,161 | 57.4 | 1.843 |
+
+16% of the 9:45 book is **toxic early spikes (PF 0.64)** — pop ≥10% in the first 15
+min, immediately give it back. The 10:00 checkpoint screens these out by waiting
+another 15 minutes.
+
+**10:00 ET is a LOCAL OPTIMUM, not the start of a monotone.** Earlier (9:45) admits
+fade-prone spikes that haven't proven they'll hold; later (10:30) admits weak
+laggards that crossed 10% too slowly. 30 min is the Goldilocks window — long enough
+to filter fakeouts, short enough to keep the cheap early fill. **Keep the 10:00
+checkpoint.**
+
+## Run 15 — candle shape: does buying near the top of the range help?
+
+The partial bar carries full OHLC, so we can test where in the day's range the fill
+sits — all no-lookahead, scale-free ratios off the partial candle:
+- **position-in-range** = (close−low)/(high−low): 1=at the high (strength), 0=at the low.
+- **green/red** = close ≥ open (Qullamaggie's "holding the gain").
+
+**(a) Salvage attempt on 9:45 — FAILS.** Green > red on the 9:45 aggregate (1.594 vs
+1.249) — the red 9:45 candles are the fade-prone spikes. But the shape filters lift
+the 9:45 book only modestly and **never reach 10:00's level**, and barely move the
+deployable low-float book:
+
+| 9:45 filter | PF all | PF low-float |
+|---|---|---|
+| all 9:45 | 1.497 | 1.961 |
+| green | 1.594 | 1.978 |
+| top ≥0.8 | 1.654 | 1.822 |
+| **10:00 baseline** | **1.866** | **2.412** |
+
+Buying near the top of the 9:45 range does NOT make it competitive with 10:00 — 15
+min is fundamentally too little time; a within-candle position filter can't recover
+it. The Goldilocks conclusion (Run 14) stands.
+
+**(b) On the 10:00 book the hypothesis INVERTS — pullback entry wins, esp. low-float:**
+
+| 10:00, green/red | PF all | PF low-float |
+|---|---|---|
+| green | 1.803 | 2.18 |
+| **red** | 1.692 | **4.179** (144) |
+
+position-in-range, low-float: `<0.2` band **PF 7.30** (63) — the *lowest* position,
+the *highest* PF. **On low-float 10:00 names, buying the RED / low-of-range candle
+(a pullback) beats buying strength.** Mechanism: these are already ≥10% up by 10:00;
+a red/low-of-range partial = gapped up huge then **pulled back into 10:00** → you're
+buying the DIP on a strong low-float runner, not chasing the spike extension (less
+room, more reversal risk). The Qullamaggie "buy strength" intuition reverses for
+low-float momentum continuation.
+
+"Red" here = pulled back from a bigger intraday high (still ≥10% up on the day), not
+down on the day.
+
+**Is the 4.18 a winner-skew artifact? No — checked three ways:**
+- **Already clipped.** Every PF above uses `LEAST(ret,0.5)`. Red low-float raw PF
+  4.78 → clip 4.18 (max winner +229% → capped +50%); the clip deflates it only
+  mildly, so it's not one uncapped monster.
+- **Not concentrated.** Top-5 clipped winners = only 16.5% of the cell's gross win
+  (a single-trade artifact would be 50%+). Win rate 63.9%, median +2.4% — a broad
+  momentum-continuation profile leaning on a fat right tail, not a fluke.
+- **Holds in BOTH eras** (clipped, low-float): red 3.61 vs green 1.98 (2005–2014);
+  red 4.30 vs green 2.24 (2015–2026). The pullback-entry edge is persistent, not a
+  one-regime effect.
+
+⚠️ Residual caveat = sample thinness in the EXTREME cells (2005–2014 red = 35
+trips), so don't over-read the magnitude (3.6 vs 4.3) — but the DIRECTION (red >
+green low-float) is solid across eras.
+
+## Run 16 — is the red-low-float edge intraday or multi-day? (it's MULTI-DAY)
+
+Decompose the red-low-float cell's return into the intraday leg (10:00 entry →
+same-day close) and the swing leg (day-D close → 5d exit):
+
+| leg | win% | avg ret | PF clip |
+|---|---|---|---|
+| intraday (10:00→close) | 53.5 | +1.61% | 2.121 |
+| **swing (close→5d exit)** | 61.1 | **+7.96%** | **3.924** |
+| FULL (10:00→5d exit) | 63.9 | +9.53% | 4.179 |
+
+**It's a multi-day edge, not an intraday one.** ~84% of the full move (+7.96 of
++9.53%) accrues AFTER the day-D close. The intraday leg is real but modest (PF 2.12)
+— the dip recovers into the close, but that's the small part; the swing leg (PF
+3.92) is where the edge lives.
+
+So the red/pulled-back low-float name at 10:00 is **a swing entry with a smart
+intraday fill**, NOT a day-trade. The pullback buys a cheaper cost basis into a
+multi-day continuation; the intraday recovery confirms it isn't breaking; the 5-day
+hold harvests the move. Reconciles with Run 11 (same-day-close exit halves the edge)
+and Run 5 (the 10:00 FILL is better; the PAYOFF is in the following days). Trade it
+as: buy the 30-min dip on a low-float runner, hold ~5 days — do NOT flip intraday.
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared
