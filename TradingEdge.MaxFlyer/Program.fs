@@ -41,6 +41,7 @@ type Args =
     | Entry_Start_Min of int
     | Intraday_Stop
     | Time_Stop_Min of int
+    | Downside
     | Short
     | Target of string
     | Target_Window of int
@@ -81,6 +82,7 @@ type Args =
             | Entry_Start_Min _ -> "Gate 3: earliest ET minute an entry may fire (wall-clock trading floor). Default 575 (09:35). Premarket bars are processed but not traded before this."
             | Intraday_Stop -> "Gate 3: arm the protective stop (the 2-bar local low at entry; fills at the bar close). Default off (hold to MOC). Wrong-sided for --short."
             | Time_Stop_Min _ -> "Gate 3: time-stop — flatten this many minutes after entry (capped at MOC). Default 0 (off). Side-independent."
+            | Downside -> "Gate 3: breakout DIRECTION — fire on a new session LOW (close < running low) instead of a new session high. Default off (upside). Independent of --short (direction vs P&L sign); the protective stop flips to the 2-bar high."
             | Short -> "Gate 3: trade the breakout SHORT (fade) instead of long — flips the P&L sign; entry signal unchanged. Default off."
             | Target _ -> "Gate 3 (short only): mean-reversion cover target — vwap | ma | channel. Covers when price reverts to the anchor; doubles as the loss-cut. Default none (hold to MOC/time-stop)."
             | Target_Window _ -> "Gate 3: lookback in 1m BARS for --target ma (SMA of closes) or channel (Donchian low). Ignored for vwap (session-cumulative). Default 20."
@@ -143,6 +145,7 @@ let main argv =
                   EntryStartMin   = parsed.GetResult(Entry_Start_Min,        defaultValue = dc.Intraday.EntryStartMin)
                   UseStop         = parsed.Contains Intraday_Stop
                   TimeStopMin     = parsed.GetResult(Time_Stop_Min,          defaultValue = dc.Intraday.TimeStopMin)
+                  Downside        = parsed.Contains Downside
                   Short           = parsed.Contains Short
                   Target          = target
                   MocMin          = parsed.GetResult(Moc_Min,                defaultValue = dc.Intraday.MocMin)
@@ -167,7 +170,8 @@ let main argv =
         | Intraday.Vwap -> "vwap"
         | Intraday.Ma w -> sprintf "ma%d" w
         | Intraday.Channel w -> sprintf "channel%d" w
-    printfn "  Gate3 (intraday): side=%s target=%s volwin=%d tight<%s atr%%<%s session=%s entry>=%s stop=%b time_stop=%d moc=%s max_concurrent=%d notional=%.0f"
+    printfn "  Gate3 (intraday): dir=%s side=%s target=%s volwin=%d tight<%s atr%%<%s session=%s entry>=%s stop=%b time_stop=%d moc=%s max_concurrent=%d notional=%.0f"
+        (if cfg.Intraday.Downside then "DOWN" else "up")
         (if cfg.Intraday.Short then "SHORT" else "long") targetStr
         cfg.Intraday.VolWindow (inf cfg.Intraday.MaxTightness) (inf cfg.Intraday.MaxAtrPct)
         (hhmm cfg.Intraday.SessionStartMin) (hhmm cfg.Intraday.EntryStartMin) cfg.Intraday.UseStop

@@ -35,8 +35,11 @@ type IntraPosState =
 type IntradayPosition =
     { EntryMin: int
       EntryPx: float
-      StopLo: float            // the 2-bar local low at entry (min of breakout bar + prior bar low) — the protective-stop level
-      RunHiAtEntry: float      // running session high (strictly-prior bars) the breakout cleared
+      StopLevel: float         // the 2-bar local extreme at entry — the protective-stop level. Upside
+                               // breakout: the 2-bar low (min of breakout+prior bar low); downside: the
+                               // 2-bar high. Stop fires when price reaches it (low<=level / high>=level).
+      BreakoutRef: float       // the running session extreme (strictly-prior bars) the breakout cleared —
+                               // the session high for an upside breakout, the session low for a downside one
       AtrPctAtEntry: float     // intraday log-ATR snapshot at entry
       TightnessAtEntry: float  // intraday tightness snapshot at entry
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
@@ -65,6 +68,11 @@ type IntradayConfig =
       TimeStopMin: int         // time-stop: flatten this many minutes after entry (capped at MOC);
                                // 0 = off. Side-independent. Fires before the protective stop / MOC
                                // only if it lands earlier.
+      Downside: bool           // breakout DIRECTION. false (default) = upside breakout to a new session
+                               // HIGH (close > running high); true = downside breakout to a new session
+                               // LOW (close < running low). Independent of Short: Downside chooses the
+                               // signal, Short chooses the P&L sign. The protective stop flips with it
+                               // (2-bar low for upside, 2-bar high for downside).
       Short: bool              // trade the breakout SHORT (fade) instead of long. Flips the P&L sign
                                // only; the breakout entry signal is unchanged. The intraday-low
                                // protective stop is wrong-sided for a short, so leave UseStop off when
@@ -100,6 +108,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // volume-confirmation reference (a real breakout re-takes the session volume high,
     // which normally only happens at the open/close).
     let mutable runHi    : float voption = ValueNone
+    let mutable runLo    : float voption = ValueNone
     let mutable runVolHi : int64 voption = ValueNone
     // the most recent bar folded. Read at the TOP of ProcessBar (before the current
     // bar is pushed) it IS the immediately-prior bar — the source of both the true-range
@@ -109,6 +118,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
 
     // ----- pre-push snapshots (state going INTO the current bar; no lookahead) -----
     let mutable sRunHi     : float voption = ValueNone
+    let mutable sRunLo     : float voption = ValueNone
     let mutable sRunVolHi  : int64 voption = ValueNone
     let mutable sLastBar   : MinuteBar voption = ValueNone   // the prior bar, as-of going into this bar (its low feeds the 2-bar stop)
     let mutable sAtrLog    : float voption = ValueNone
@@ -126,7 +136,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     member _.BarsSeen = barsSeen
 
     // ----- read members (mirror the daily QullaSystem) -----
-    member _.RunHigh = sRunHi
+    /// The strictly-prior session extreme the breakout must clear — the running high for
+    /// an upside breakout, the running low for a downside one.
+    member _.BreakoutRef = if cfg.Downside then sRunLo else sRunHi
     /// Running max single-bar volume over strictly-prior bars (the volume-confirmation reference).
     member _.RunVolHigh = sRunVolHi
     member _.AtrLog = sAtrLog
@@ -171,8 +183,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // past the wall-clock trading floor (09:35). The engine processes premarket
         // bars from 08:30 to warm the running extremes, but does not TRADE before this.
         bar.etMin >= cfg.EntryStartMin
-        // new session high vs strictly-prior bars (08:30-onward running high)
-        && gate sRunHi (fun hi -> bar.close > hi)
+        // new session extreme vs strictly-prior bars (08:30-onward running high/low):
+        // upside = close above the running high; downside = close below the running low.
+        && gate this.BreakoutRef (fun ext -> if cfg.Downside then bar.close < ext else bar.close > ext)
         // VOLUME CONFIRMATION: the breakout bar must EXCEED the strictly-prior session
         // 1m-volume high. Most breakouts never re-take the volume high (which normally
         // prints at the open/close), so a morning bar that does is a significant event.
@@ -192,6 +205,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // very end), so it's the source of both the prior low and the prior close.
         // 1) snapshot pre-bar state
         sRunHi        <- runHi
+        sRunLo        <- runLo
         sRunVolHi     <- runVolHi
         sLastBar      <- lastBar
         sAtrLog       <- atrLog.State
@@ -211,6 +225,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         rangeHigh.Push bar.high
         rangeLow.Push  bar.low
         runHi    <- match runHi with ValueSome h -> ValueSome (max h bar.high) | ValueNone -> ValueSome bar.high
+        runLo    <- match runLo with ValueSome l -> ValueSome (min l bar.low)  | ValueNone -> ValueSome bar.low
         runVolHi <- match runVolHi with ValueSome v -> ValueSome (max v bar.volume) | ValueNone -> ValueSome bar.volume
 
         // fold the chosen mean-reversion anchor (only the active one accumulates).
@@ -248,7 +263,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             let targetHit =
                 cfg.Short &&
                 match sTargetAnchor with ValueSome a -> bar.low <= a | ValueNone -> false
-            if cfg.UseStop && bar.low <= pos.StopLo then
+            // protective stop: directional. Upside breakout stops below the 2-bar low
+            // (bar.low reaches it); downside breakout stops above the 2-bar high.
+            let stopHit =
+                if cfg.Downside then bar.high >= pos.StopLevel else bar.low <= pos.StopLevel
+            if cfg.UseStop && stopHit then
                 { pos with State = ExitedAt (bar.etMin, bar.close, "intraday_stop") }
             elif targetHit then
                 let anchor = sTargetAnchor.Value
@@ -274,14 +293,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             // on the 08:30 session-open bar, but entries can't fire before 09:35
             // (EntryStartMin), by which point a prior bar always exists. The .Value
             // reads are therefore safe — no sentinel needed.
-            // StopLo = the 2-bar local low at entry: min of the breakout bar's low and
-            // the immediately-prior bar's low. A tight, self-calibrating stop just under
-            // the breakout's base (replaces the wide 08:30-session low).
+            // StopLevel = the 2-bar local extreme at entry. Upside: min of the breakout
+            // bar's low and the prior bar's low (a tight stop just under the breakout base).
+            // Downside: max of the two highs (just above the breakdown base). Self-
+            // calibrating; replaces the wide 08:30-session extreme.
             positions.Add
                 { EntryMin = bar.etMin
                   EntryPx = bar.close
-                  StopLo = min sLastBar.Value.low bar.low
-                  RunHiAtEntry = sRunHi.Value
+                  StopLevel =
+                    if cfg.Downside then max sLastBar.Value.high bar.high
+                    else min sLastBar.Value.low bar.low
+                  BreakoutRef = this.BreakoutRef.Value
                   AtrPctAtEntry = this.AtrPct.Value
                   TightnessAtEntry = this.Tightness.Value
                   State = Holding }

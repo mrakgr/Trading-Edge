@@ -243,6 +243,135 @@ is the close. Both early-exit families tested — time-stops (Run 3) and price t
 (Run 5) — trade away edge. The mean-reversion-target / retire-the-stop thesis is
 rejected: there is no level the move reliably returns to; it just bleeds.
 
+## Run 6 — down-gappers (the inverse universe)
+
+Runs 1–5 selected stocks that gapped **up** ≥10% (Gate 2 `gap ∈ [0.10, 2.0]`). Since
+buying breakouts in *up-extended* names is negative EV, the symmetric question is whether
+a breakout in a stock that opened **down** hard is the opposite — a genuine
+reversal/squeeze worth buying. Test: flip the gap band to `[−2.0, −0.10]` (opened down
+≥10%), broad universe (daily quality filters off), everything else as Run 2/3.
+
+12,728 candidate days gapped down ≥10%; 573 of them produced a breakout entry → 647 trips.
+
+| universe | side | trips | win% | net P&L | PF |
+|---|---|---|---|---|---|
+| down-gappers (≥10% down) | long | 647 | 40.2% | −$86,067 | **0.760** |
+| down-gappers (≥10% down) | short | 647 | 57.5% | +$86,067 | **1.316** |
+
+**Buying the down-gapper breakout is still negative** (PF 0.76) — less negative than the
+up-gapper long (0.59) but a loser all the same. The "down a lot → reversal bounce" thesis
+does not hold at the aggregate. **No breakout-buying works** — extended-up or beaten-down.
+The short generalizes (PF 1.32), weaker than on up-gappers (1.51) and far fewer trips
+(647 vs 2,191): **the breakout-to-new-intraday-high is a fade regardless of gap direction.**
+
+**At-entry extension breakdown (down-gapper short).** Note `gap_pct` is the *open*
+snapshot; `entry_price/prev_adj_close−1` is the *entry* snapshot, taken hours later when
+the new-intraday-high trigger fires. A stock can open −15% and rally to +50% by the time
+it breaks out (e.g. ACON 2025-01-30: gap −10.4%, broke out at +99.7% vs prev close; OCG
+2025-12-10: gap −30%, broke out at +52%). The entry trigger *selects for intraday
+strength*, so even a down-gapper universe contains names far above prior close at entry.
+
+| % vs prev close at entry | n | PF |
+|---|---:|---:|
+| < −10% (still capitulating) | 150 | 1.276 |
+| −10..0% (down) | 307 | 1.322 |
+| 0..10% (recovered to ~flat) | 128 | **0.975** |
+| 10..25% (recovered up) | 45 | 1.875 |
+| 25..50% | 10 | 1.610 |
+| 50..100% | 5 | 7.373 |
+| >100% | 2 | (n too small) |
+
+**The fade works at both extremes and dies only in the recovery-to-flat zone.** The short
+is profitable both when the stock is still deeply down (−10%+, PF ~1.3, the bulk of the
+trips) and when it has recovered/squeezed up (>10%, PF 1.6–7+) — the same monotonic
+extension effect as Run 4, now confirmed symmetric. The *only* dead band is **0–10% vs
+prev close (PF 0.975)**: a down-gapper that has clawed back to roughly flat and then breaks
+out is a coin flip. That recovery-to-flat zone is the one place buying the breakout is
+defensible — but it is neutral, not an edge.
+
+**Inside the still-down-at-entry region (`< 0%`), the edge is thin and non-monotonic** —
+unlike the smooth up-side scaling of Run 4. Finer breakdown of the down-at-entry trades:
+
+| at-entry band | n | PF | win% |
+|---|---:|---:|---:|
+| −10..0% | 307 | 1.322 | 57.0 |
+| −15..−10% | 75 | 1.616 | 54.7 |
+| −20..−15% | 25 | 0.707 | 52.0 |
+| −30..−20% | 27 | 1.803 | 48.1 |
+| −40..−30% | 10 | 0.977 | 40.0 |
+| −50..−40% | 6 | 2.297 | 66.7 |
+| < −50% | 7 | 0.602 | 28.6 |
+
+The aggregate `< −10%` PF (1.276) is carried by the mild **−15..−10%** slice (75 trips,
+PF 1.62); everything deeper is 6–27 trips and bounces between PF 0.60 and 2.30 with no
+trend. Note the **win rate decays monotonically with depth** (57% → 29%) even where PF
+stays >1 — the signature of a fat-tailed, continuation-dependent edge: shorting an
+already-crushed name wins *less often* but the rare collapse-to-zero pays for it. This is
+a different statistical character from the up-extension short (a steady all-day de-rating
+bleed at high win rate). The tradeable down-gapper short edge is concentrated in the mild
+**−15..0%** band (382 trips, PF ~1.4); the deep-down tail is too sparse to lean on.
+
+**Unified conclusion across Runs 1–6:** the breakout-to-new-intraday-high is a **fade**,
+and its strength is governed by **distance from prior close at entry, in either direction**
+— extended up (strongest) or still capitulating down. The breakout is a timing trigger on
+the real driver (intraday extension), not the edge itself. There is no version of *buying*
+this breakout that is positive EV.
+
+## Run 7 — the downside breakout (the mirror)
+
+Runs 1–6 traded the breakout to a new session **high**. The symmetric question: what does
+a breakout to a new session **low** do — close below the running session low (08:30-onward),
+same volume confirmation? Engine support added as `--downside` (independent of `--short`:
+`--downside` picks the *signal*, `--short` picks the *P&L sign*; the protective stop flips
+to the 2-bar high). Run on both gap universes, both sides.
+
+| universe | dir | side | trips | win% | net P&L | PF |
+|---|---|---|---|---|---|---|
+| up-gappers | up (high) | short | 2,191 | 69.0% | +$782,641 | **1.509** |
+| up-gappers | up (high) | long | 2,191 | 28.0% | −$14,766 | 0.587 |
+| up-gappers | **down (low)** | **long** | 1,247 | 51.6% | +$165,911 | **1.342** |
+| up-gappers | down (low) | short | 1,247 | 46.8% | −$165,911 | 0.745 |
+| down-gappers | **down (low)** | **long** | 1,095 | 56.6% | +$147,032 | **1.320** |
+| down-gappers | down (low) | short | 1,095 | 42.5% | −$147,032 | 0.758 |
+
+**The breakout is a fade in *both* directions.** Break to a new high → short it (PF 1.51).
+Break to a new low → **long it** (PF 1.32–1.34). The new-low fade long works on *both* gap
+universes nearly identically (up-gappers 1.342, down-gappers 1.320), so it is independent
+of which way the stock gapped. Economic reading: a volume-confirmed thrust to a fresh
+session extreme is an **exhaustion/climax**, not a continuation — buyers exhaust at new
+highs (fade short), sellers exhaust at new lows (fade long).
+
+**At-entry extension breakdown — but the long is an INVERTED-U, not monotonic.** Unlike the
+short (which scales monotonically — deeper extension = stronger), the new-low-fade long
+peaks in the *middle* and dies at *both* tails (combined across both universes):
+
+| % vs prev close at entry | n | PF | win% |
+|---|---:|---:|---:|
+| < −50% (death-spiral) | 118 | **0.399** | 35.6 |
+| −50..−25% | 364 | 1.742 | 60.7 |
+| −25..−10% | 657 | 1.689 | 58.4 |
+| −10..0% | 282 | 1.748 | 61.7 |
+| 0..10% | 591 | 1.686 | 52.6 |
+| 10..25% | 225 | 1.308 | 40.0 |
+| 25..50% | 67 | **0.555** | 43.3 |
+| > +50% (failed runner) | 38 | **0.681** | 34.2 |
+
+**The bounce long needs a *flush*, not a *trend*.** It works as a broad plateau from −50%
+to +10% (PF ~1.7), decays through +10..25% (1.31), and loses at both extremes: a stock
+already down >50% that makes a new low is **going to zero** (PF 0.40 — keep falling, no
+bounce), and a stock still up >25% that breaks to a new session low is a **failed runner**
+rolling over (PF 0.55–0.68 — keep falling). This is the key asymmetry vs the short: the
+short fades *extension* (more is better, either tail); the long fades a *flush* (moderate
+distance only — too little is no edge, too much is a trend you don't want to catch).
+
+**Unified conclusion across Runs 1–7 — the breakout is a two-sided fade.** A volume-
+confirmed break to a new intraday extreme reverts:
+- new **high** → **short**, edge ∝ distance-up (monotonic, strongest at the parabolic tail);
+- new **low** → **long**, edge in the *moderate* flush band (inverted-U: −50%..+10%),
+  killed at the death-spiral (<−50%) and failed-runner (>+25%) tails.
+Buying a new-high breakout or shorting a new-low breakout is negative EV in every cut. The
+breakout is a timing trigger; the edge is exhaustion reversion off a session extreme.
+
 ## Reproducibility — candidate cache
 
 The daily scan (pipeline 1) is invariant to every intraday/exit/target knob, so it is
