@@ -14,8 +14,9 @@ type Config =
       TightnessWindow: int
       VolDays: int
       MaxHoldBars: int          // time-stop: exit at next open after this many Holding bars (0 = off)
-      UsePartialEntry: bool     // true = decide + fill on the 10:00 ET partial candle (the experiment);
+      UsePartialEntry: bool     // true = decide + fill on the partial checkpoint candle (the experiment);
                                 // false = the parity path (full daily bar drives the entry)
+      PartialTable: string      // which checkpoint table to read (partial_candle_1000 / 1030 / ...)
       Notional: float
       Entry: EntryConfig }
 
@@ -34,6 +35,7 @@ let defaultConfig =
       // Entry basis OFF by default = the parity path (full daily bar). --partial-entry
       // switches the decision + fill to the 10:00 ET partial candle.
       UsePartialEntry = false
+      PartialTable = "partial_candle_1000"
       Notional = 10_000.0
       Entry =
         { UpThreshold = 0.10
@@ -118,7 +120,7 @@ let private toTrip (symbol: string) (notional: float)
 // (ticker, date) and pushes each (ticker, Bar) downstream via `onNext`. It owns
 // nothing but the read. Continuation-passing style isolates the DB from the rest.
 // ===========================================================================
-type DbEmitter(conn: DuckDBConnection, startDate: DateOnly, endDate: DateOnly) =
+type DbEmitter(conn: DuckDBConnection, startDate: DateOnly, endDate: DateOnly, partialTable: string) =
 
     // Public accessors for the ctor-captured state: `Process` is `inline`.
     member val Conn = conn
@@ -130,29 +132,32 @@ type DbEmitter(conn: DuckDBConnection, startDate: DateOnly, endDate: DateOnly) =
     // ticker_reference; an inner join would FAN OUT every price row into two
     // identical consecutive rows. EXISTS filters without multiplying.
     //
-    // The partial 10:00 ET candle LEFT-JOINs in (partial_candle_1000, RAW minute
+    // The partial checkpoint candle LEFT-JOINs in (partial_candle_HHMM, RAW minute
     // prices). d.close is the raw daily close, so adjRatio = adj_close/raw_close
     // puts the partial OHLC on the daily adjusted scale. A missing partial row, or
-    // a row with NULL open (no RTH bar before 10:00 — halted/illiquid), reads as
-    // ValueNone => not tradeable on the partial basis that day.
-    static member val Sql =
-        "SELECT p.ticker, p.date, p.adj_open, p.adj_high, p.adj_low, p.adj_close, p.adj_volume,
-                d.close AS raw_close,
-                pc.open AS pc_open, pc.high AS pc_high, pc.low AS pc_low, pc.close AS pc_close, pc.volume AS pc_vol
-         FROM split_adjusted_prices p
-         JOIN daily_prices d ON d.ticker = p.ticker AND d.date = p.date
-         LEFT JOIN partial_candle_1000 pc ON pc.ticker = p.ticker AND pc.date = p.date
-         WHERE EXISTS (SELECT 1 FROM ticker_reference r
-                       WHERE r.ticker = p.ticker AND r.type IN ('CS','ADRC'))
-           AND p.date >= $start AND p.date <= $end
-         ORDER BY p.ticker, p.date"
+    // a row with NULL open (no RTH bar before the cutoff — halted/illiquid), reads
+    // as ValueNone => not tradeable on the partial basis that day. The table name is
+    // a trusted internal config value (partial_candle_1000/1030/...), not user free
+    // text, so direct interpolation is safe here.
+    member val Sql =
+        sprintf
+            "SELECT p.ticker, p.date, p.adj_open, p.adj_high, p.adj_low, p.adj_close, p.adj_volume,
+                    d.close AS raw_close,
+                    pc.open AS pc_open, pc.high AS pc_high, pc.low AS pc_low, pc.close AS pc_close, pc.volume AS pc_vol
+             FROM split_adjusted_prices p
+             JOIN daily_prices d ON d.ticker = p.ticker AND d.date = p.date
+             LEFT JOIN %s pc ON pc.ticker = p.ticker AND pc.date = p.date
+             WHERE EXISTS (SELECT 1 FROM ticker_reference r
+                           WHERE r.ticker = p.ticker AND r.type IN ('CS','ADRC'))
+               AND p.date >= $start AND p.date <= $end
+             ORDER BY p.ticker, p.date" partialTable
 
     /// Stream every daily row, pushing (ticker, dailyBar, partialBar) downstream in
     /// (ticker, date) order. The partial bar is ValueNone when no usable 10:00 ET
     /// candle exists for that (ticker, date). `inline` so onNext fuses into the read loop.
     member inline this.Process(onNext: string * Bar * Bar voption -> unit) =
         use cmd = this.Conn.CreateCommand()
-        cmd.CommandText <- DbEmitter.Sql
+        cmd.CommandText <- this.Sql
         let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- this.StartDate; cmd.Parameters.Add pStart |> ignore
         let pEnd   = cmd.CreateParameter() in pEnd.ParameterName   <- "end";   pEnd.Value   <- this.EndDate;   cmd.Parameters.Add pEnd   |> ignore
         use reader = cmd.ExecuteReader()
@@ -196,7 +201,7 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
         pragma.CommandText <- "PRAGMA memory_limit='6GB'"
         pragma.ExecuteNonQuery() |> ignore
 
-    let emitter = DbEmitter(conn, startDate, endDate)
+    let emitter = DbEmitter(conn, startDate, endDate, cfg.PartialTable)
     let trips = ResizeArray<Trip>()
 
     // Per-ticker mutable accumulators, reset at each ticker boundary.

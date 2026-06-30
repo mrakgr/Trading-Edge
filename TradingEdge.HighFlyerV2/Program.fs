@@ -17,6 +17,7 @@ type Args =
     | Vol_Window of int
     | Max_Hold_Bars of int
     | Partial_Entry
+    | Cutoff_Min of int
     | Up_Threshold of float
     | Max_Up_Threshold of float
     | Rvol_Min of float
@@ -39,7 +40,8 @@ type Args =
             | Stop_Low_Window _ -> "Prior-window low for the stop_low_at_entry CSV snapshot. Default 4. (No stop logic consumes it.)"
             | Vol_Window _ -> "Lookback window (bars) for BOTH the ATR%% and tightness measures. Default 14."
             | Max_Hold_Bars _ -> "Time-stop: exit at the next open after this many Holding bars (0 = off = hold to MTM). Default 5."
-            | Partial_Entry -> "EXPERIMENT: decide + fill the entry on the 10:00 ET PARTIAL candle (partial_candle_1000) instead of the full daily close. Exits stay on the daily series. Days with no usable 10:00 candle are not entered. Default off (parity path)."
+            | Partial_Entry -> "EXPERIMENT: decide + fill the entry on the PARTIAL checkpoint candle (partial_candle_HHMM) instead of the full daily close. Exits stay on the daily series. Days with no usable checkpoint candle are not entered. Default off (parity path)."
+            | Cutoff_Min _ -> "With --partial-entry: which checkpoint table to read, by ET minutes-since-midnight (600=10:00 ET default, 630=10:30, 660=11:00). Maps to partial_candle_HHMM. The table must already be built (scripts/equity/build_partial_candle.fsx --cutoff-min N)."
             | Up_Threshold _ -> "Min entry-day move (close/prevClose-1). Default 0.10."
             | Max_Up_Threshold _ -> "MAX entry-day move (close/prevClose-1). Default 0.30 — caps the 30%+ blow-off. Pass a large value to disable."
             | Rvol_Min _ -> "Minimum relative volume at entry. Default 5.0."
@@ -64,6 +66,10 @@ let main argv =
     let endDate   = parseDate (parsed.GetResult(End_Date,   defaultValue = "2026-05-13"))
     let outPath   = parsed.GetResult(Out, defaultValue = defaultCsv)
 
+    // --cutoff-min selects the checkpoint table (600 -> partial_candle_1000, 630 -> _1030).
+    let cutoffMin = parsed.GetResult(Cutoff_Min, defaultValue = 600)
+    let partialTable = sprintf "partial_candle_%02d%02d" (cutoffMin / 60) (cutoffMin % 60)
+
     let cfg =
         { defaultConfig with
             // --vol-window sets BOTH the ATR%% and tightness lookback.
@@ -72,6 +78,7 @@ let main argv =
             StopLowWindow = parsed.GetResult(Stop_Low_Window, defaultValue = defaultConfig.StopLowWindow)
             MaxHoldBars = parsed.GetResult(Max_Hold_Bars, defaultValue = defaultConfig.MaxHoldBars)
             UsePartialEntry = parsed.Contains Partial_Entry
+            PartialTable = partialTable
             Entry =
               { defaultConfig.Entry with
                   UpThreshold    = parsed.GetResult(Up_Threshold,     defaultValue = defaultConfig.Entry.UpThreshold)
@@ -92,7 +99,7 @@ let main argv =
     printfn "  stop win (csv) = %d   vol window = %d   time-stop = %s"
         cfg.StopLowWindow cfg.AtrWindow
         (if cfg.MaxHoldBars > 0 then sprintf "%dd" cfg.MaxHoldBars else "off (MTM)")
-    printfn "  entry basis = %s" (if cfg.UsePartialEntry then "10:00 ET partial candle" else "daily close (parity)")
+    printfn "  entry basis = %s" (if cfg.UsePartialEntry then sprintf "%02d:%02d ET partial candle (%s)" (cutoffMin/60) (cutoffMin%60) cfg.PartialTable else "daily close (parity)")
     let rvolHi = if Double.IsInfinity cfg.Entry.RvolMax then "inf" else sprintf "%.0f" cfg.Entry.RvolMax
     printfn "  entry     = up[%.2f,%.2f) rvol[%.0f,%s] adv>=%.0f price>=%.0f 52w>=%.2f tight<%.2f atr%%<%.2f intraday>=%.2f maxlogatr>=%.3f"
         cfg.Entry.UpThreshold cfg.Entry.MaxUpThreshold cfg.Entry.RvolMin rvolHi cfg.Entry.MinAvgDollarVolume

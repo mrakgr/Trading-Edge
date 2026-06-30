@@ -387,6 +387,32 @@ rvol-band detail (rvol≥1.0 book) — the low-float edge is **bimodal**, not mo
 the all-trades aggregate peaks at 2.5–3.5; it's specifically the FLOAT-conditioned
 book where 1.0–1.5 shines.
 
+## Run 13 — 10:30 ET checkpoint: are the late bloomers worse?
+
+Built a 10:30 ET partial table (`partial_candle_1030`, cutoff 630; engine
+`--cutoff-min 630`). Question (the checkpoint analog of Run 4/6): do names that
+qualify at 10:30 but NOT at 10:00 ("late bloomers") have poor PF? Same deployable
+config (rvol≥1.0, move 10%). 10:30 book = 5,681 trips, PF 1.671 (vs the 10:00
+book's 1.866 — already a hint that waiting dilutes).
+
+| 10:30 cohort | trips | win% | PF all | requal@close | PF low-float |
+|---|---|---|---|---|---|
+| **early** (qual@10:00) | 3,277 | 56.4 | **1.818** | 65.5% | **2.75** |
+| **late bloomer** (only@10:30) | 2,404 | 51.5 | **1.354** | 31.7% | 1.743 |
+
+**Yes — late bloomers are markedly worse.** The 10:00-qualifiers carry the edge
+(PF 1.82 / low-float 2.75); the names that cross 10% only between 10:00 and 10:30
+are weak (PF 1.35 / low-float 1.74) with half the close-requalification rate (32%
+vs 66%). Same pattern as Run 4/6 on the checkpoint axis: **earlier is better** — a
+name up ≥10% by 10:00 is a stronger signal than one that gets there only by 10:30
+(slower, weaker moves that fade more).
+
+This explains why the 10:30 book's aggregate PF is LOWER than 10:00's: waiting to
+10:30 dilutes the good 10:00 population with 2,404 inferior late-bloomers.
+**Don't move the checkpoint later — 10:00 beats 10:30.** If anything this argues for
+an EARLIER checkpoint (9:45?), not later. (Low-float still salvages the late
+bloomers to 1.74 — float's double duty again — but they're strictly worse.)
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared

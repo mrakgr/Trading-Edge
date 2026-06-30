@@ -1,26 +1,26 @@
 #r "nuget: DuckDB.NET.Data.Full, 1.4.4"
 #r "nuget: Argu, 6.2.5"
 
-// Build the `partial_candle_1000` table in trading.db: one row per (ticker, date)
-// carrying the day's PARTIAL candle as it looked at the 10:00 ET checkpoint.
-// HighFlyerV2's early-entry experiment reads it alongside the full daily bar:
-// the entry decision (move band, rvol, the candle-value filters) and the fill
-// price switch from the full daily candle to this partial one, to test whether
-// entering at 10:00 ET beats entering at the daily close.
+// Build a `partial_candle_HHMM` table in trading.db: one row per (ticker, date)
+// carrying the day's PARTIAL candle as it looked at the --cutoff-min ET checkpoint
+// (default 600 = 10:00 ET; 630 = 10:30, 660 = 11:00 -> partial_candle_1000/1030/1100).
+// HighFlyerV2's early-entry experiment reads it alongside the full daily bar: the
+// entry decision (move band, rvol, the candle-value filters) and the fill price
+// switch from the full daily candle to this partial one, to test whether entering
+// at the checkpoint beats entering at the daily close.
 //
-// The partial candle (as of 10:00 ET, NO peek past it):
+// The partial candle (as of HH:MM ET, NO peek past it), for cutoff C (ET minutes):
 //   open  = open of the FIRST RTH bar (et_min >= 570 = 09:30 ET)              [= rth_open]
-//   high  = MAX(high) over RTH bars 09:30..09:59  (et_min in [570, 600))
-//   low   = MIN(low)  over RTH bars 09:30..09:59
-//   close = close of the LAST RTH bar <= 09:59     (arg_max(close, et_min) over [570,600))
-//   vol   = SUM(volume) from PREMARKET 04:00 through 09:59 (et_min in [240, 600))
+//   high  = MAX(high) over RTH bars 09:30..C-1  (et_min in [570, C))
+//   low   = MIN(low)  over RTH bars 09:30..C-1
+//   close = close of the LAST RTH bar < C        (arg_max(close, et_min) over [570,C))
+//   vol   = SUM(volume) from PREMARKET 04:00 through C-1 (et_min in [240, C))
 //
-// Cutoff = exactly 10:00:00 ET. The 10:00 bar (et_min = 600) covers 10:00:00-
-// 10:00:59, i.e. trades AFTER the checkpoint, so it is EXCLUDED from every leg
-// (the windows are half-open at 600). That makes the row a true "as of 10:00:00"
-// snapshot with no lookahead. Volume is premarket-inclusive (starts 04:00 ET, the
-// same start the `premarket` table uses) while OHLC is RTH-only (from the 09:30
-// open) -- volume measures total interest, the candle measures the RTH move.
+// The cutoff bar (et_min = C) covers HH:MM:00-HH:MM:59, i.e. trades AFTER the
+// checkpoint, so it is EXCLUDED from every leg (windows half-open at C). That makes
+// the row a true "as of HH:MM:00" snapshot with no lookahead. Volume is premarket-
+// inclusive (starts 04:00 ET, same as the `premarket` table) while OHLC is RTH-only
+// (from the 09:30 open) -- volume measures total interest, the candle the RTH move.
 //
 // Source = data/minute_aggs/*.parquet (Massive's published 1m product; same
 // provenance as build_premarket.fsx -- keeps it consistent with the daily
@@ -30,8 +30,8 @@
 //
 // Idempotent: DROP+CREATE. Whole minute_aggs corpus in ~well under a minute.
 //
-// Run:  dotnet fsi scripts/equity/build_partial_candle.fsx
-//       dotnet fsi scripts/equity/build_partial_candle.fsx -- --db data/trading.db --minute-dir data/minute_aggs
+// Run:  dotnet fsi scripts/equity/build_partial_candle.fsx                       (10:00)
+//       dotnet fsi scripts/equity/build_partial_candle.fsx -- --cutoff-min 630   (10:30)
 
 open System
 open Argu
@@ -40,12 +40,14 @@ open DuckDB.NET.Data
 type CliArgs =
     | [<AltCommandLine("-d")>] Db of string
     | [<AltCommandLine("-m")>] Minute_Dir of string
+    | [<AltCommandLine("-c")>] Cutoff_Min of int
 
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | Db _ -> "DuckDB database path (default: data/trading.db)."
             | Minute_Dir _ -> "Directory of minute_aggs parquet files (default: data/minute_aggs)."
+            | Cutoff_Min _ -> "Checkpoint cutoff in ET minutes-since-midnight, EXCLUSIVE (default 600 = 10:00 ET; 630 = 10:30, 660 = 11:00). The table is named partial_candle_HHMM from it."
 
 let parser = ArgumentParser.Create<CliArgs>(programName = "build_partial_candle.fsx")
 let parsed =
@@ -57,17 +59,20 @@ let parsed =
 let dbPath = parsed.TryGetResult Db |> Option.defaultValue "data/trading.db"
 let minuteDir = parsed.TryGetResult Minute_Dir |> Option.defaultValue "data/minute_aggs"
 
-// 10:00 ET checkpoint, minutes-since-midnight.
+// Checkpoint minutes-since-midnight. cutoffMin is EXCLUSIVE (the cutoff bar covers
+// HH:MM:00+, so excluding it makes the row a true "as of HH:MM:00" snapshot).
 let rthOpenMin = 570   // 09:30 ET
-let cutoffMin  = 600   // 10:00 ET (EXCLUSIVE — the 10:00 bar covers 10:00:00+)
+let cutoffMin  = parsed.TryGetResult Cutoff_Min |> Option.defaultValue 600  // 10:00 ET default
 let premktMin  = 240   // 04:00 ET (volume start)
+// table name = partial_candle_HHMM derived from the cutoff (600 -> 1000, 630 -> 1030).
+let tableName  = sprintf "partial_candle_%02d%02d" (cutoffMin / 60) (cutoffMin % 60)
 
 // minute_aggs/*.parquet glob, single-quote-escaped for the SQL literal.
 let glob = System.IO.Path.Combine(minuteDir, "*.parquet").Replace("'", "''")
 
 let sql = $"""
-DROP TABLE IF EXISTS partial_candle_1000;
-CREATE TABLE partial_candle_1000 AS
+DROP TABLE IF EXISTS {tableName};
+CREATE TABLE {tableName} AS
 WITH bars AS (
     SELECT
         ticker,
@@ -93,10 +98,10 @@ SELECT
 FROM bars
 GROUP BY ticker, date;
 
-CREATE UNIQUE INDEX partial_candle_1000_ticker_date ON partial_candle_1000 (ticker, date);
+CREATE UNIQUE INDEX {tableName}_ticker_date ON {tableName} (ticker, date);
 """
 
-printfn "Building `partial_candle_1000` table (10:00 ET checkpoint)"
+printfn "Building `%s` table (%02d:%02d ET checkpoint)" tableName (cutoffMin / 60) (cutoffMin % 60)
 printfn "  db:         %s" (IO.Path.GetFullPath dbPath)
 printfn "  minute_aggs:%s" (IO.Path.GetFullPath minuteDir)
 
@@ -121,11 +126,11 @@ let scalar (q: string) =
 exec sql
 sw.Stop()
 
-let rows    = scalar "SELECT COUNT(*) FROM partial_candle_1000" :?> int64
-let tickers = scalar "SELECT COUNT(DISTINCT ticker) FROM partial_candle_1000" :?> int64
-let days    = scalar "SELECT COUNT(DISTINCT date) FROM partial_candle_1000" :?> int64
-// rows with NO RTH bar before 10:00 (halted/illiquid) have NULL open/close — report them.
-let nullOpen = scalar "SELECT COUNT(*) FROM partial_candle_1000 WHERE open IS NULL" :?> int64
-printfn "Done in %.1fs: %d rows, %d tickers, %d days (%d with no RTH bar < 10:00)"
-    sw.Elapsed.TotalSeconds rows tickers days nullOpen
+let rows    = scalar $"SELECT COUNT(*) FROM {tableName}" :?> int64
+let tickers = scalar $"SELECT COUNT(DISTINCT ticker) FROM {tableName}" :?> int64
+let days    = scalar $"SELECT COUNT(DISTINCT date) FROM {tableName}" :?> int64
+// rows with NO RTH bar before the cutoff (halted/illiquid) have NULL open/close — report them.
+let nullOpen = scalar $"SELECT COUNT(*) FROM {tableName} WHERE open IS NULL" :?> int64
+printfn "Done in %.1fs: %d rows, %d tickers, %d days (%d with no RTH bar < %02d:%02d)"
+    sw.Elapsed.TotalSeconds rows tickers days nullOpen (cutoffMin / 60) (cutoffMin % 60)
 conn.Dispose()
