@@ -372,6 +372,44 @@ confirmed break to a new intraday extreme reverts:
 Buying a new-high breakout or shorting a new-low breakout is negative EV in every cut. The
 breakout is a timing trigger; the edge is exhaustion reversion off a session extreme.
 
+## Run 8 — the wick-breakout trigger (`--wick-breakout`)
+
+Runs 1–7 fire only when a bar **closes** through the prior session extreme (a confirmed
+breakout). The alternative is to fire the moment the bar's **high/low wick pierces** the
+extreme, even if it closes back inside — `--wick-breakout` (close trigger stays the
+default). This admits the weaker "pierce-but-reject" breakouts and fires more often and
+earlier. Does the two-sided-fade edge survive the looser, noisier trigger? Same broad gap
+universes (quality filters off), hold-to-MOC.
+
+| universe | dir | fade side | trips (close → wick) | PF (close → wick) |
+|---|---|---|---|---|
+| up-gappers | up (high) | short | 2,191 → **4,172** | 1.509 → **1.427** |
+| down-gappers | up (high) | short | 647 → **855** | 1.316 → **1.324** |
+| up-gappers | down (low) | long | 1,247 → **1,591** | 1.342 → **1.192** |
+| down-gappers | down (low) | long | 1,095 → **1,432** | 1.320 → **1.233** |
+
+**The edge survives, slightly softened.** The wick trigger roughly doubles the up-breakout
+short count (4,172 trips) and the short stays strongly profitable (PF 1.427, net **+$1.29M**
+gross) — the extra "pierce-but-close-inside" new highs *also* fade. PFs drop a little
+(1.51→1.43, 1.34→1.19) because the looser trigger admits marginal breakouts that revert
+less cleanly, but every cell keeps its sign and the wrong-side trades stay losers
+(up-breakout long 0.70–0.76, down-breakout short 0.81–0.84). **More signal, modestly lower
+quality per trade** — the classic confirmation trade-off.
+
+The structural breakdowns hold under the wick trigger:
+
+- **Up-breakout short still scales monotonically** with at-entry extension: 10–25% PF 1.01,
+  25–50% 1.27, 50–100% 1.60, 100–200% 1.82, 200%+ **3.58** (n=978/1545/1179/380/61).
+- **Down-breakout long is still an inverted-U** (combined universes): <−50% PF 0.38, −50..−10%
+  ~1.56, −10..+10% ~1.49–1.63, +10..25% 1.16, +25..50% 0.69, >+50% **0.51**. Same flush-not-
+  trend shape — peaks in the moderate band, dies at both tails.
+
+**Takeaway:** the close trigger is cleaner per-trade (higher PF); the wick trigger trades
+quality for ~1.5–2× the sample. For the profitable short book the wick variant is arguably
+better in absolute terms (far more trips at still-strong PF); for the inverted-U long the
+close trigger's tighter selection is preferable. Either way the two-sided-fade thesis is
+robust to the trigger definition.
+
 ## Reproducibility — candidate cache
 
 The daily scan (pipeline 1) is invariant to every intraday/exit/target knob, so it is

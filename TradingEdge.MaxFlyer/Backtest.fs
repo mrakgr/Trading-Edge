@@ -57,6 +57,7 @@ let defaultConfig =
           UseStop = false
           TimeStopMin = 0                 // time-stop off by default
           Downside = false                // upside breakout (new session high) by default
+          WickBreakout = false            // close-through trigger by default (wick = opt-in)
           Short = false                   // long by default
           Target = NoTarget               // no mean-reversion target by default
           MocMin = 16 * 60                // 16:00 ET

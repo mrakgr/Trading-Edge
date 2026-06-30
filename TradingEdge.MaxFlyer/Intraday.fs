@@ -69,10 +69,12 @@ type IntradayConfig =
                                // 0 = off. Side-independent. Fires before the protective stop / MOC
                                // only if it lands earlier.
       Downside: bool           // breakout DIRECTION. false (default) = upside breakout to a new session
-                               // HIGH (close > running high); true = downside breakout to a new session
-                               // LOW (close < running low). Independent of Short: Downside chooses the
-                               // signal, Short chooses the P&L sign. The protective stop flips with it
-                               // (2-bar low for upside, 2-bar high for downside).
+                               // HIGH; true = downside breakout to a new session LOW. Independent of
+                               // Short: Downside chooses the signal, Short chooses the P&L sign. The
+                               // protective stop flips with it (2-bar low for upside, 2-bar high for down).
+      WickBreakout: bool       // breakout TRIGGER style. false (default) = CLOSE through the prior
+                               // session extreme; true = the bar's HIGH/LOW WICK merely pierces it (even
+                               // if it closes back inside). Wick fires more/earlier; admits weaker pierces.
       Short: bool              // trade the breakout SHORT (fade) instead of long. Flips the P&L sign
                                // only; the breakout entry signal is unchanged. The intraday-low
                                // protective stop is wrong-sided for a short, so leave UseStop off when
@@ -183,9 +185,20 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // past the wall-clock trading floor (09:35). The engine processes premarket
         // bars from 08:30 to warm the running extremes, but does not TRADE before this.
         bar.etMin >= cfg.EntryStartMin
-        // new session extreme vs strictly-prior bars (08:30-onward running high/low):
-        // upside = close above the running high; downside = close below the running low.
-        && gate this.BreakoutRef (fun ext -> if cfg.Downside then bar.close < ext else bar.close > ext)
+        // new session extreme vs strictly-prior bars (08:30-onward running high/low).
+        // Two trigger styles (cfg.WickBreakout):
+        //   false (default) — CLOSE breakout: the bar must CLOSE through the prior extreme
+        //                     (close > runHi upside / close < runLo downside).
+        //   true            — WICK breakout: the bar's HIGH (upside) / LOW (downside) merely
+        //                     PIERCES the prior extreme, even if it closes back inside.
+        // The wick trigger fires more often (and earlier) and admits the weaker pierce-but-
+        // close-inside breakouts.
+        && gate this.BreakoutRef (fun ext ->
+            match cfg.Downside, cfg.WickBreakout with
+            | false, false -> bar.close > ext
+            | false, true  -> bar.high  > ext
+            | true,  false -> bar.close < ext
+            | true,  true  -> bar.low   < ext)
         // VOLUME CONFIRMATION: the breakout bar must EXCEED the strictly-prior session
         // 1m-volume high. Most breakouts never re-take the volume high (which normally
         // prints at the open/close), so a morning bar that does is a significant event.
