@@ -354,6 +354,39 @@ without contradiction: "10:00 entry beats close entry on the same names" means t
 **HighFlyerV2 is a multi-day continuation trade with an early intraday entry, not an
 intraday scalp.** The 10:00 entry improves the fill; the hold makes the money.
 
+## Run 12 — rvol floor to 1.5 and 1.0 (move stays 10%): low-rvol is NOT noise
+
+Rationale (Bonde / the user): 1× ADV in the first 30 min is already a heavy day
+pace — premarket + 30 min hitting full-day average ⇒ a ~2–3× rvol day by close. So
+a 10:00 rvol floor of 1.0–1.5 is not actually loose in full-day terms.
+
+Aggregate (move 10%): rvol 1.5 → 2,735 trips PF 1.858; rvol 1.0 → 3,906 trips PF
+1.866. The edge does NOT collapse — dropping the floor 2.5→1.0 costs only ~0.04 PF
+while >2× the trips. **The deployable low-float book IMPROVES: PF 2.412 at rvol≥1.0**
+(vs 2.378 @2.5), 868 low-float trips (vs 487).
+
+rvol-band detail (rvol≥1.0 book) — the low-float edge is **bimodal**, not monotone:
+
+| rvol @ 10:00 | PF all | requal% | PF low-float |
+|---|---|---|---|
+| **1.0–1.5** | 1.789 | 43.6 | **3.106** |
+| 1.5–2.0 | 1.71 | 63.6 | 1.672 ← soft spot |
+| 2.0–2.5 | 1.738 | 73.3 | 2.239 |
+| **2.5–3.5** | 2.212 | 71.2 | **3.156** |
+| 3.5–8 | 1.76 | 63.5 | 2.362 |
+| 8+ | 1.632 | 59.1 | 2.138 |
+
+- **1.0–1.5 is genuinely strong on low-float (PF 3.11)** — quiet-but-moving low-float
+  names. Low requalifier rate (43.6% — they often don't rip to the close) but the
+  low-float ones still pay over the 5-day hold. Bonde's early-entry thesis vindicated.
+- Peak stays **2.5–3.5 (3.156)** (echoes Run 3); a soft spot at **1.5–2.0 (1.672)**
+  between the two strong bands. Bimodal — worth not over-fitting, but suggests the
+  cleanest low-float book might skip the 1.5–2.0 dead zone.
+
+**rvol≥1.0 is the better floor for the low-float book** (2.41, ~2× the trips). Note
+the all-trades aggregate peaks at 2.5–3.5; it's specifically the FLOAT-conditioned
+book where 1.0–1.5 shines.
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared
