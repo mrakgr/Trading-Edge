@@ -219,6 +219,37 @@ This completes a clean symmetry:
 - **marginal book (only-at-10:00)** drifts DOWN into the close → must NOT sell at
   the close; the 5-day hold rescues it.
 
+## Run 7 — does the low-float edge survive on the 10:00 entries?
+
+The <$300M dollar-float edge was established on the daily-close book (PF ~2.5 vs
+~1.4). Does it hold on the 10:00 partial book? Float metric = the **combined**
+source (SEC free-float first, Polygon `?date=` scso to fill — 95% trade-time
+coverage in 2013+; see the float memory), dollar-float taken **at the 10:00 entry
+price** (`scso × entry_1000`, or SEC shares × entry_1000). Relaxed partial book,
+74% covered.
+
+| float bucket (at 10:00) | trips | win% | PF clip | PF raw |
+|---|---|---|---|---|
+| **<$150M** | 625 | 58.1 | **2.135** | 2.262 |
+| $150–300M | 318 | 57.9 | 1.910 | 2.03 |
+| $300–750M | 416 | 58.9 | 1.364 | 1.448 |
+| ≥$750M | 1,095 | 53.5 | 1.472 | 1.50 |
+
+**The low-float edge holds cleanly on the 10:00 entries** — monotone in the low
+region, smallest float (<$150M) strongest at PF 2.14, break right at $300M (same as
+the daily book). The <$300M vs ≥$300M split, stable across eras:
+
+| 10:00 book | LOW <$300M | HIGH ≥$300M |
+|---|---|---|
+| Full window | **2.066** (943, 58% win) | 1.441 (1,511) |
+| 2013+ | **2.051** (858, 58% win) | 1.432 (1,191) |
+
+**The two HighFlyerV2 edges stack independently:** timing (early entry, Run 5:
+~2.2→3.2 on the same names) × float (<$300M ~2.05 vs ~1.44). Early entry on
+low-float names is the cell to push on. (Float source: this also validated the
+Polygon shares-outstanding pull — see [[project_float_feature_2026-06-22]] — over
+buying Sharadar.)
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared
