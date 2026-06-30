@@ -14,6 +14,8 @@ type Config =
       TightnessWindow: int
       VolDays: int
       MaxHoldBars: int          // time-stop: exit at next open after this many Holding bars (0 = off)
+      UsePartialEntry: bool     // true = decide + fill on the 10:00 ET partial candle (the experiment);
+                                // false = the parity path (full daily bar drives the entry)
       Notional: float
       Entry: EntryConfig }
 
@@ -29,6 +31,9 @@ let defaultConfig =
       // first 5 days; the rest is a low-edge grind. NoStop is gone — it was just a
       // time-stop with an infinite cap, so a price stop never exists here.
       MaxHoldBars = 5
+      // Entry basis OFF by default = the parity path (full daily bar). --partial-entry
+      // switches the decision + fill to the 10:00 ET partial candle.
+      UsePartialEntry = false
       Notional = 10_000.0
       Entry =
         { UpThreshold = 0.10
@@ -124,17 +129,28 @@ type DbEmitter(conn: DuckDBConnection, startDate: DateOnly, endDate: DateOnly) =
     // inner JOIN: a few tickers (e.g. ASND) have BOTH a 'CS' and an 'ADRC' row in
     // ticker_reference; an inner join would FAN OUT every price row into two
     // identical consecutive rows. EXISTS filters without multiplying.
+    //
+    // The partial 10:00 ET candle LEFT-JOINs in (partial_candle_1000, RAW minute
+    // prices). d.close is the raw daily close, so adjRatio = adj_close/raw_close
+    // puts the partial OHLC on the daily adjusted scale. A missing partial row, or
+    // a row with NULL open (no RTH bar before 10:00 — halted/illiquid), reads as
+    // ValueNone => not tradeable on the partial basis that day.
     static member val Sql =
-        "SELECT p.ticker, p.date, p.adj_open, p.adj_high, p.adj_low, p.adj_close, p.adj_volume
+        "SELECT p.ticker, p.date, p.adj_open, p.adj_high, p.adj_low, p.adj_close, p.adj_volume,
+                d.close AS raw_close,
+                pc.open AS pc_open, pc.high AS pc_high, pc.low AS pc_low, pc.close AS pc_close, pc.volume AS pc_vol
          FROM split_adjusted_prices p
+         JOIN daily_prices d ON d.ticker = p.ticker AND d.date = p.date
+         LEFT JOIN partial_candle_1000 pc ON pc.ticker = p.ticker AND pc.date = p.date
          WHERE EXISTS (SELECT 1 FROM ticker_reference r
                        WHERE r.ticker = p.ticker AND r.type IN ('CS','ADRC'))
            AND p.date >= $start AND p.date <= $end
          ORDER BY p.ticker, p.date"
 
-    /// Stream every daily row, pushing (ticker, bar) downstream in (ticker, date)
-    /// order. `inline` so the onNext closure fuses into the read loop.
-    member inline this.Process(onNext: string * Bar -> unit) =
+    /// Stream every daily row, pushing (ticker, dailyBar, partialBar) downstream in
+    /// (ticker, date) order. The partial bar is ValueNone when no usable 10:00 ET
+    /// candle exists for that (ticker, date). `inline` so onNext fuses into the read loop.
+    member inline this.Process(onNext: string * Bar * Bar voption -> unit) =
         use cmd = this.Conn.CreateCommand()
         cmd.CommandText <- DbEmitter.Sql
         let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- this.StartDate; cmd.Parameters.Add pStart |> ignore
@@ -142,14 +158,31 @@ type DbEmitter(conn: DuckDBConnection, startDate: DateOnly, endDate: DateOnly) =
         use reader = cmd.ExecuteReader()
         while reader.Read() do
             let ticker = reader.GetString 0
+            let date   = DateOnly.FromDateTime(reader.GetDateTime 1)
             let bar : Bar =
-                { date     = DateOnly.FromDateTime(reader.GetDateTime 1)
+                { date     = date
                   ``open`` = reader.GetDouble 2
                   high     = reader.GetDouble 3
                   low      = reader.GetDouble 4
                   close    = reader.GetDouble 5
                   volume   = reader.GetInt64 6 }
-            onNext (ticker, bar)
+            // Partial candle, split-adjusted to the daily scale. ValueNone if the
+            // LEFT JOIN missed OR open is NULL (no RTH bar before 10:00).
+            let partial : Bar voption =
+                if reader.IsDBNull 8 then ValueNone               // pc.open NULL
+                else
+                    let rawClose = reader.GetDouble 7
+                    if rawClose = 0.0 then ValueNone
+                    else
+                        let r = bar.close / rawClose               // adj_close / raw_close
+                        ValueSome
+                            { date     = date
+                              ``open`` = reader.GetDouble 8 * r
+                              high     = reader.GetDouble 9 * r
+                              low      = reader.GetDouble 10 * r
+                              close    = reader.GetDouble 11 * r
+                              volume   = reader.GetInt64 12 }
+            onNext (ticker, bar, partial)
 
 /// Run the whole backtest in a single streaming pass over split_adjusted_prices
 /// (ordered by ticker, date), one HighFlyer per ticker. Returns all trips.
@@ -186,7 +219,7 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
                 | Exited _ -> trips.Add(toTrip curTicker cfg.Notional barIndex p)
                 | _ -> ()
 
-    emitter.Process(fun (ticker, bar) ->
+    emitter.Process(fun (ticker, bar, partial) ->
         if ticker <> curTicker then
             flush ()
             curTicker <- ticker
@@ -196,7 +229,11 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
         barIndex.[bar.date] <- barNo
         barNo <- barNo + 1
         lastBar <- bar
-        sys.Process bar)
+        // Parity path: entryBar = the daily bar (default). Experiment: the partial
+        // candle drives the entry (ValueNone on days with no usable 10:00 candle ->
+        // no entry that day). Exits/indicators always run on the daily bar.
+        let entryBar = if cfg.UsePartialEntry then partial else ValueSome bar
+        sys.Process(bar, entryBar))
     flush ()  // last ticker
 
     trips.ToArray()

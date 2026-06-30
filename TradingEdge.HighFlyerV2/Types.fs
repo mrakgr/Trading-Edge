@@ -199,10 +199,17 @@ type HighFlyer
         | ValueSome pc when pc <> 0.0 -> ValueSome (closePrice / pc - 1.0)
         | _ -> ValueNone
 
-    /// Does the CURRENT bar trigger an entry? Reads pre-push snapshots, so it must
-    /// be evaluated AFTER ProcessBar(bar). Mirrors the original HighFlyer
-    /// `ShouldEnter`. A missing (ValueNone) metric for any active gate fails the
-    /// entry (we don't trade what we can't measure). Fills at the bar CLOSE.
+    /// Does this entry candle trigger an entry? Reads pre-push snapshots, so it
+    /// must be evaluated AFTER ProcessBar(dailyBar). Mirrors the original
+    /// HighFlyer `ShouldEnter`. A missing (ValueNone) metric for any active gate
+    /// fails the entry (we don't trade what we can't measure).
+    ///
+    /// `bar` is the ENTRY candle whose own OHLCV drive the decision + fill — the
+    /// full daily bar in the parity path, or the 10:00 ET partial candle in the
+    /// early-entry experiment. EVERY candle-value gate (move, rvol, 52w-proximity
+    /// close, price floor, intraday-ret close/open) reads it. The prior-day
+    /// snapshots (rvol baseline, 52w channels, tightness, ATR%, ADV, past-runner)
+    /// are unaffected by the cutoff — they measure state going INTO the day.
     member this.ShouldEnter (bar: Bar) : bool =
         let c = bar.close
         let inline gate (v: float voption) (test: float -> bool) =
@@ -297,37 +304,57 @@ type HighFlyer
                 { pos with State = ExitingNextOpen "time_stop"; HoldBars = heldBars }
             else { pos with HoldBars = heldBars }
 
-    /// Advance the whole system by one bar: fold the bar in, update every open
-    /// position, then open a new trip (filled at this bar's close) when the entry
-    /// predicate fires. An entry bar is never its own first exit-check bar — the
-    /// new position is appended AFTER existing positions advance.
-    member this.Process (bar: Bar, ?breadthOk: bool) =
-        this.ProcessBar bar
+    /// Advance the whole system by one day: fold the DAILY bar into the
+    /// indicators, update every open position (exits run on the daily series),
+    /// then open a new trip when the entry predicate fires.
+    ///
+    /// `dailyBar` always drives the indicators + exits. `entryBar` is the candle
+    /// whose own OHLCV drive the entry decision + fill: the daily bar in the parity
+    /// path, or the 10:00 ET partial candle in the early-entry experiment. When the
+    /// partial candle is missing for a tradeable day (no RTH bar before the cutoff —
+    /// halted/illiquid), pass `entryBar = ValueNone` and no entry is taken that day.
+    ///
+    /// An entry candle is never its own first exit-check bar — the new position is
+    /// appended AFTER existing positions advance, and its first time-stop tick is
+    /// the NEXT daily bar.
+    member this.Process (dailyBar: Bar, ?entryBar: Bar voption, ?breadthOk: bool) =
+        this.ProcessBar dailyBar
         for i in 0 .. positions.Count - 1 do
-            positions.[i] <- this.Update bar positions.[i]
+            positions.[i] <- this.Update dailyBar positions.[i]
         let breadthOk = defaultArg breadthOk true
-        if breadthOk && this.ShouldEnter bar then
+        // Default entry candle = the full daily bar (parity). The experiment passes
+        // the partial candle; ValueNone = no tradeable entry candle this day.
+        let entry =
+            match defaultArg entryBar (ValueSome dailyBar) with
+            | ValueSome b -> b
+            | ValueNone -> { dailyBar with volume = 0L }   // sentinel; ShouldEnter below is gated off
+        let hasEntryBar =
+            match defaultArg entryBar (ValueSome dailyBar) with ValueSome _ -> true | ValueNone -> false
+        if breadthOk && hasEntryBar && this.ShouldEnter entry then
             // ShouldEnter verified each gated metric is ValueSome, so these reads
-            // are safe (nan only if a metric isn't gated — none of these are).
+            // are safe (nan only if a metric isn't gated — none of these are). All
+            // candle-value reads use `entry`; the prior-day snapshots are shared.
             let orNan = function ValueSome v -> v | ValueNone -> nan
+            // Tag the fill basis: "close" = full daily bar, "partial" = partial candle.
+            let reason = if System.Object.ReferenceEquals(entry, dailyBar) then "close" else "partial"
             positions.Add
-                { SignalDate = bar.date
-                  EntryDate = bar.date
-                  EntryPrice = bar.close
-                  EntryReason = "close"
-                  EntryDayStopRef = bar.low
+                { SignalDate = dailyBar.date
+                  EntryDate = dailyBar.date
+                  EntryPrice = entry.close
+                  EntryReason = reason
+                  EntryDayStopRef = entry.low
                   StopLowAtEntry = orNan sStopLow
                   HoldBars = 0
-                  EntryVolume = bar.volume
-                  RvolAtEntry = orNan (this.Rvol (float bar.volume))
+                  EntryVolume = entry.volume
+                  RvolAtEntry = orNan (this.Rvol (float entry.volume))
                   AvgDollarVolumeAtEntry = orNan sAvgDolVol
-                  PctUpAtEntry = orNan (this.PctUp bar.close)
+                  PctUpAtEntry = orNan (this.PctUp entry.close)
                   AtrPctAtEntry = orNan this.AtrPct
                   TightnessAtEntry = orNan this.Tightness
-                  Pct52wAtEntry = orNan (this.Pct52w bar.close)
-                  Pct52wHighAtEntry = orNan (this.Pct52wHigh bar.close)
-                  Pct52wLowCloseAtEntry = orNan (this.Pct52wLowClose bar.close)
-                  Pct52wLowAtEntry = orNan (this.Pct52wLow bar.close)
+                  Pct52wAtEntry = orNan (this.Pct52w entry.close)
+                  Pct52wHighAtEntry = orNan (this.Pct52wHigh entry.close)
+                  Pct52wLowCloseAtEntry = orNan (this.Pct52wLowClose entry.close)
+                  Pct52wLowAtEntry = orNan (this.Pct52wLow entry.close)
                   State = Holding }
 
     /// Close any still-open positions at the final bar's close, marked-to-market
