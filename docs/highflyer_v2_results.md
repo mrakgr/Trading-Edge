@@ -561,6 +561,56 @@ broken (>6%) tails lifts the cell from 4.18 → 5.00 clipped. The A+ setup cryst
 **a low-float name up ~12–20% on the day that has pulled back 1–6% off its open into
 10:00 — buy it, hold ~5 days.**
 
+## Run 18 — A+ forward path 10:00→10:30 + checkpoint robustness (manual-trading window)
+
+For manual trading: how do the A+ setups behave over the next 30 min, and are they
+still valid if you only see them at 10:30?
+
+**30-min forward path (10:00→10:30):** they go QUIET — avg +0.32%, median −0.09%,
+49.5% higher at 10:30 (coin flip). No imminent rip. Consistent with the multi-day
+(not intraday) edge (Run 16): the 10:00 entry buys a resting runner, not a launch.
+
+**Still valid at 10:30?** YES, robustly. Of the 95 A+ setups re-measured at the 10:30
+candle: **82 (86%) are still a red candle**, holding PF **4.817 / 71% win** (vs 5.00
+at 10:00); the 13 that turned green are even better (5.85). The setup is a **stable
+structure across the 10:00–10:30 window**, not a fleeting snapshot.
+
+**SMB "first-hour high/low" check** (these A+ names): **67% set their RTH HIGH in the
+first hour** (≤10:30) — supports SMB on the high side; only **46% set the RTH LOW**
+that early. The asymmetry fits the cohort: we selected the PULLBACK names, so the high
+(morning spike) is mostly in, you're buying the dip, and the low often comes later —
+which is exactly why it's a SWING entry (you're not catching the bottom tick; the low
+can come hours later but it recovers over days).
+
+**What if it dipped at 10:00 but RECOVERED green by 10:30 — still a buy?** Yes, but you
+pay up. Split by the 10:00→10:30 path, measuring 5d PF from the ACTUAL 10:30 entry price:
+
+| 10:30 status | n | 10:00→10:30 | PF from 10:00 | PF from 10:30 | win@10:30 |
+|---|---|---|---|---|---|
+| still red @10:30 | 82 | −0.54% | 4.817 | **5.442** | 69.5 |
+| recovered green @10:30 | 13 | +5.74% | 5.848 | **3.40** | 69.2 |
+
+- **Still red at 10:30** → buy it at 10:30, you get the FULL ~5.4 PF (a touch better than
+  10:00 — some dipped a bit more = cheaper basis). You missed nothing.
+- **Already bounced green** → still a good buy at **PF 3.40 / 69% win**, but the +5.74%
+  recovery means you pay ~5–6% more than the dip price, cutting 5.85→3.40. The
+  "chased-the-bounce" tax — a downgrade, not a disqualifier.
+
+The lesson reinforces the thesis: **the edge is buying the pullback cheap.** Catch the
+red dip → 5+ PF; late and chasing the recovery → still 3.4. Better than skipping.
+
+**⚠️ DO NOT AVERAGE DOWN.** The deeper-is-cheaper instinct is WRONG here. Run 17: the
+1–6% dip is the gold (PF ~5), but once the decline breaks past **−6% off the open the
+PF collapses to 0.285** (28.6% win) — decisively negative. Beyond 6% the character
+flips from *pullback* (healthy rest) to *breakdown* (failing move). Adding to a loser
+that has broken −6% drives size INTO the one bucket where the edge inverts. The −6%
+break is a STOP signal, not a discount.
+
+**Manual-trading upshot: you have a real ~30-min window.** No need to fire at exactly
+10:00:00 — spot a low-float runner up 10–20% pulled back 1–6% off its open anytime in
+the 10:00–10:30 window and it's the same ~5-PF setup (full edge if still red; ~3.4 if it
+already bounced).
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared
