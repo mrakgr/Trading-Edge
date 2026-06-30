@@ -329,19 +329,26 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 | ValueSome x -> x
                 | ValueNone   -> if cfg.Downside then bar.low else bar.high
             if cfg.ExtGate > 0.0 then
-                // --ext-gate rollover branch: this arm was created because day-extension was
-                // BELOW ExtGate at the breakout. Wait for the rollover (close back through the
-                // ratcheting trail), and take it ONLY if day-extension has reached ExtGate by
-                // then; if it rolls over while still below ExtGate, SKIP (drop the arm).
-                let rolled = if cfg.Downside then bar.close > trail' else bar.close < trail'
-                let extOk = (if cfg.Downside then -(extension bar.close) else extension bar.close) >= cfg.ExtGate
-                if rolled && extOk then
+                // --ext-gate (<ExtGate-at-breakout) branch: this arm was created because
+                // day-extension was BELOW ExtGate at the breakout. Two confirmations race:
+                //   (1) if RiseEntry>0 and price runs +RiseEntry past the breakout price FIRST
+                //       → take it (short into the parabolic move at the rise level).
+                //   (2) else if a ROLLOVER fires (close back through the trail) → take it ONLY
+                //       if day-extension has reached ExtGate by then; otherwise SKIP (no trade).
+                let riseLevel = if cfg.Downside then armPrice * (1.0 - cfg.RiseEntry) else armPrice * (1.0 + cfg.RiseEntry)
+                let riseHit = cfg.RiseEntry > 0.0 && (if cfg.Downside then bar.low <= riseLevel else bar.high >= riseLevel)
+                let rolled  = if cfg.Downside then bar.close > trail' else bar.close < trail'
+                let extOk   = (if cfg.Downside then -(extension bar.close) else extension bar.close) >= cfg.ExtGate
+                if riseHit then
+                    let fill = if cfg.Downside then min riseLevel bar.``open`` else max riseLevel bar.``open``
+                    { pos with EntryMin = bar.etMin; EntryPx = fill; StopLevel = sessionStop (); State = Holding }
+                elif rolled && extOk then
                     { pos with EntryMin = bar.etMin; EntryPx = bar.close; StopLevel = sessionStop (); State = Holding }
                 elif rolled then
                     // rolled over but not extended enough → no trade. Terminal Skipped state
                     // (never re-triggers, never becomes a trip).
                     { pos with State = Skipped }
-                elif bar.etMin >= cfg.MocMin then pos   // never rolled by MOC → dropped (no trip)
+                elif bar.etMin >= cfg.MocMin then pos   // neither fired by MOC → dropped (no trip)
                 else { pos with State = Armed (armMin, trail', armPrice, riseCleared) }
             else
             // --rise-entry GATE: require a further RiseEntry move past the arm price first

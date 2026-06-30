@@ -708,6 +708,37 @@ longer and entered more-exhausted names. So the conditional trades a bit more ta
 ~2.4× the net P&L. **Ranking by purpose: most net + good PF → ext-gate; best PF + lowest tail
 → rise-entry; raw size → frontside-all.** All three beat every *exit*-based variant.
 
+### Addendum — layering a rise/rollover race on the `< 50%` branch (no effect)
+
+The finer ext-gate breakdown shows the edge is weak/fat-tailed in the **50–100%** band
+(PF ~1.36, the bulk — 930 trips — and the catastrophic −$47k/−$21k worst trades) and clean
+above 100% (PF 1.88 → 3.87 by 200–300%, worst only −$7k). The 50–100% trips are *direct*
+entries (names already ≥ 50% at the breakout, shorted straight in). A proposed refinement:
+in the `< 50%`-at-breakout branch, race two confirmations — if price runs **+50% from the
+breakout price** first, take it; else wait for the **rollover** (close back through the
+2-bar trail) and fill only if extension ≥ 50% by then, else skip (`--ext-gate 0.5
+--rise-entry 0.5`).
+
+| variant | trips | PF | net | per-trip Sharpe | worst |
+|---|---|---|---|---|---|
+| ext-gate 0.5 (rollover-gated only) | 1,278 | 1.573 | +$682,631 | 0.148 | −$47,375 |
+| ext-gate 0.5 + rise 0.5 (race) | 1,278 | 1.573 | +$686,778 | 0.149 | −$47,375 |
+
+**The rise leg is mechanically correct but economically inert.** Same trips, same PF, same
+worst trade; only **68 entries re-timed** (rise fired before the rollover) for a ~$4k net
+difference. The reason is structural: a name in the `< 50%` branch (broke out below +50% on
+the day) needs a *further* +50% from its breakout price to trigger the rise — a large move
+that almost always carries it past the rollover point first, so the rollover wins the race.
+The rollover-gated path already captures these names; the rise race just occasionally
+re-prices the same fill.
+
+**And the −$47k tail is untouched — because it is not in this branch.** The worst trades are
+in the *direct* leg (≥ 50% at the breakout), which neither the rise nor the rollover logic
+governs. Attacking that tail would require confirming the *direct* leg too (never enter
+straight in), which thins the 50–100% band — or, more simply, **capping position size in the
+50–100% band** rather than adding entry confirmation. Layering confirmation on the `< 50%`
+branch is a dead end.
+
 ## Reproducibility — candidate cache
 
 The daily scan (pipeline 1) is invariant to every intraday/exit/target knob, so it is
