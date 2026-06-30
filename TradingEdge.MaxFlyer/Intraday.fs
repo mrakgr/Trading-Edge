@@ -36,6 +36,7 @@ type IntraPosState =
     // armMin = arming bar; trailLevel = ratcheting 2-bar extreme; armPrice = breakout-bar
     // price (the --rise-entry anchor); riseCleared = has the +RiseEntry move happened yet.
     | Armed of armMin: int * trailLevel: float * armPrice: float * riseCleared: bool
+    | Skipped                                                     // armed but a gate refused the fill → no trip
     | Holding
     | ExitedAt of exitMin: int * exitPx: float * reason: string   // "moc"|"intraday_stop"|"session_stop"|"pct_stop"|"target"|"time_stop"
 
@@ -92,6 +93,12 @@ type IntradayConfig =
       WickBreakout: bool       // breakout TRIGGER style. false (default) = CLOSE through the prior
                                // session extreme; true = the bar's HIGH/LOW WICK merely pierces it (even
                                // if it closes back inside). Wick fires more/earlier; admits weaker pierces.
+      ExtGate: float           // CONDITIONAL day-extension entry gate (0 = off; 0.5 = 50% vs prev close).
+                               // At the breakout: if day-extension >= ExtGate already → enter DIRECT (the
+                               // name is parabolic now). If < ExtGate → arm a ROLLOVER (trail-entry style)
+                               // and take it ONLY if day-extension >= ExtGate by the time it triggers;
+                               // otherwise skip (no trade). Short side; uses prevClose. Distinct from
+                               // RiseEntry (which measures % from the breakout PRICE, not the day).
       RiseEntry: float         // entry GATE: require price to first run this fraction past the arm
                                // (breakout) price before a short may enter — i.e. wait for a further
                                // parabolic move and short THAT, not the breakout (0 = off; 0.5 = +50%).
@@ -115,7 +122,11 @@ type IntradayConfig =
 
 /// Per-(ticker, day) intraday engine. Feed it the day's RTH MinuteBar[] in time
 /// order via `Process`, then `Finalize` and read `Trips()`.
-type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
+type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClose: float) =
+
+    // day extension at a bar = close vs the prior daily close (how far up/down on the day).
+    // Used by --ext-gate to route direct-vs-rollover entry and gate the rollover fill.
+    let extension (px: float) = if prevClose > 0.0 then px / prevClose - 1.0 else 0.0
 
     // ----- rolling intraday structures (1m timeframe) -----
     let atrLog    = AvgMa(cfg.VolWindow)        // mean LOG true range over the last VolWindow 1m bars
@@ -200,7 +211,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     /// trail-entry signal counts against concurrency too).
     member _.OpenCount =
         let mutable n = 0
-        for p in positions do (match p.State with Holding | Armed _ -> n <- n + 1 | ExitedAt _ -> ())
+        for p in positions do (match p.State with Holding | Armed _ -> n <- n + 1 | ExitedAt _ | Skipped -> ())
         n
 
     /// Gate 3 — does THIS bar trigger a new-high breakout entry? Reads pre-push
@@ -307,7 +318,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             | ValueSome prev -> if cfg.Downside then max prev.high bar.high else min prev.low bar.low
             | ValueNone      -> if cfg.Downside then bar.high else bar.low
         match pos.State with
-        | ExitedAt _ -> pos
+        | ExitedAt _ | Skipped -> pos
         | Armed (armMin, trail, armPrice, riseCleared) ->
             // ratchet the trailing 2-bar extreme WITH the move (a short's trail only rises;
             // a long's only falls).
@@ -317,6 +328,22 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 match (if cfg.Downside then sRunLo else sRunHi) with
                 | ValueSome x -> x
                 | ValueNone   -> if cfg.Downside then bar.low else bar.high
+            if cfg.ExtGate > 0.0 then
+                // --ext-gate rollover branch: this arm was created because day-extension was
+                // BELOW ExtGate at the breakout. Wait for the rollover (close back through the
+                // ratcheting trail), and take it ONLY if day-extension has reached ExtGate by
+                // then; if it rolls over while still below ExtGate, SKIP (drop the arm).
+                let rolled = if cfg.Downside then bar.close > trail' else bar.close < trail'
+                let extOk = (if cfg.Downside then -(extension bar.close) else extension bar.close) >= cfg.ExtGate
+                if rolled && extOk then
+                    { pos with EntryMin = bar.etMin; EntryPx = bar.close; StopLevel = sessionStop (); State = Holding }
+                elif rolled then
+                    // rolled over but not extended enough → no trade. Terminal Skipped state
+                    // (never re-triggers, never becomes a trip).
+                    { pos with State = Skipped }
+                elif bar.etMin >= cfg.MocMin then pos   // never rolled by MOC → dropped (no trip)
+                else { pos with State = Armed (armMin, trail', armPrice, riseCleared) }
+            else
             // --rise-entry GATE: require a further RiseEntry move past the arm price first
             // (short above armPrice*(1+x), long below armPrice*(1-x)). Once a bar's extreme
             // reaches that level the gate is cleared (latched). With RiseEntry=0 it's open.
@@ -421,11 +448,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                   BreakoutRef = this.BreakoutRef.Value
                   AtrPctAtEntry = this.AtrPct.Value
                   TightnessAtEntry = this.Tightness.Value
-                  // direct entry → Holding now (fill at the breakout close). --trail-entry or
-                  // --rise-entry → Armed: wait for the rise gate and/or the rollover before
-                  // filling. armPrice = the breakout close (the --rise-entry anchor).
+                  // entry routing:
+                  //   --ext-gate — if day-extension already >= ExtGate at the breakout, enter
+                  //                DIRECT (parabolic now); else arm a ROLLOVER gated on reaching
+                  //                ExtGate by fill time.
+                  //   --trail-entry / --rise-entry — arm (wait for the rollover and/or rise gate).
+                  //   otherwise — Holding now (fill at the breakout close).
                   State =
-                    if cfg.TrailEntry || cfg.RiseEntry > 0.0 then Armed (bar.etMin, twoBar, bar.close, false)
+                    if cfg.ExtGate > 0.0 then
+                        if extension bar.close >= cfg.ExtGate then Holding
+                        else Armed (bar.etMin, twoBar, bar.close, false)
+                    elif cfg.TrailEntry || cfg.RiseEntry > 0.0 then Armed (bar.etMin, twoBar, bar.close, false)
                     else Holding }
 
     /// Flatten any still-open positions at the last folded bar's close (MOC /
@@ -439,7 +472,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             for i in 0 .. positions.Count - 1 do
                 match positions.[i].State with
                 | Holding -> positions.[i] <- { positions.[i] with State = ExitedAt (lb.etMin, lb.close, "moc") }
-                | Armed _ | ExitedAt _ -> ()   // Armed but never filled → no trip (dropped below)
+                | Armed _ | Skipped | ExitedAt _ -> ()   // never-filled / skipped → no trip (dropped below)
 
     /// All positions for this (ticker, day), in entry order.
     member _.Positions = positions

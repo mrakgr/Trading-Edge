@@ -46,6 +46,7 @@ type Args =
     | Wick_Breakout
     | Trail_Entry
     | Rise_Entry of float
+    | Ext_Gate of float
     | Short
     | Target of string
     | Target_Window of int
@@ -91,6 +92,7 @@ type Args =
             | Wick_Breakout -> "Gate 3: breakout TRIGGER — fire when the bar's HIGH/LOW WICK pierces the prior session extreme, even if it closes back inside. Default off (require a CLOSE through the extreme). Fires more/earlier; admits weaker pierces."
             | Trail_Entry -> "Gate 3: entry MODEL — the breakout only ARMS; track a trailing 2-bar extreme that ratchets with the move, and enter only when a bar CLOSES back through it (short on the rollover, not into the thrust). Default off (enter on the breakout bar). Stopless unless --intraday-stop is also passed, which adds a protective stop at the SESSION extreme at fill."
             | Rise_Entry _ -> "Gate 3: entry GATE — require price to first run this fraction PAST the breakout price before entering (0 = off; 0.5 = wait for a +50%% move and short THAT parabolic extension, not the breakout). Fills at the rise level immediately; combine with --trail-entry to instead wait for the rollover after the rise. Protective stop (with --intraday-stop) sits at the session extreme at fill."
+            | Ext_Gate _ -> "Gate 3: CONDITIONAL day-extension entry (0 = off; 0.5 = 50%% vs prev close). If the stock is ALREADY >= this at the breakout, enter DIRECT (it's parabolic now). If below, arm a ROLLOVER and take it only if the stock reaches >= this by the time it rolls over; otherwise skip. Measured vs prev close (day extension), not the breakout price."
             | Short -> "Gate 3: trade the breakout SHORT (fade) instead of long — flips the P&L sign; entry signal unchanged. Default off."
             | Target _ -> "Gate 3 (short only): mean-reversion cover target — vwap | ma | channel. Covers when price reverts to the anchor; doubles as the loss-cut. Default none (hold to MOC/time-stop)."
             | Target_Window _ -> "Gate 3: lookback in 1m BARS for --target ma (SMA of closes) or channel (Donchian low). Ignored for vwap (session-cumulative). Default 20."
@@ -157,6 +159,7 @@ let main argv =
                   Downside        = parsed.Contains Downside
                   WickBreakout    = parsed.Contains Wick_Breakout
                   RiseEntry       = parsed.GetResult(Rise_Entry, defaultValue = dc.Intraday.RiseEntry)
+                  ExtGate         = parsed.GetResult(Ext_Gate,   defaultValue = dc.Intraday.ExtGate)
                   TrailEntry      = parsed.Contains Trail_Entry
                   Short           = parsed.Contains Short
                   Target          = target
@@ -186,7 +189,8 @@ let main argv =
         (if cfg.Intraday.Downside then "DOWN" else "up")
         (if cfg.Intraday.WickBreakout then "wick" else "close")
         (if cfg.Intraday.TrailEntry then "TRAIL" else "direct")
-        (if cfg.Intraday.RiseEntry > 0.0 then sprintf "rise%.2f" cfg.Intraday.RiseEntry else "norise")
+        (let r = if cfg.Intraday.RiseEntry > 0.0 then sprintf "rise%.2f" cfg.Intraday.RiseEntry else "norise"
+         if cfg.Intraday.ExtGate > 0.0 then sprintf "%s ext-gate%.2f" r cfg.Intraday.ExtGate else r)
         (if cfg.Intraday.Short then "SHORT" else "long") targetStr
         cfg.Intraday.VolWindow (inf cfg.Intraday.MaxTightness) (inf cfg.Intraday.MaxAtrPct)
         (hhmm cfg.Intraday.SessionStartMin) (hhmm cfg.Intraday.EntryStartMin) cfg.Intraday.UseStop

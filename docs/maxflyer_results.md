@@ -662,6 +662,52 @@ exit that tries to cut the bad trades short also cuts the good ones (the edge is
 persistent bleed). But *not taking* the trade until the name has proven extended both raises
 the edge and improves risk-adjusted return. Don't stop the bad trades — don't enter them.
 
+## Run 12 — conditional day-extension gate (`--ext-gate`)
+
+Run 11's `--rise-entry` measured the move *from the breakout price*, which is restrictive — a
+stock that breaks out *already* at +60% has to run to +140% to qualify. The more natural gate
+is an **absolute day-extension** threshold (% vs prev close), applied conditionally on where
+the name was at the breakout:
+
+- **≥ 50% at the breakout** → enter **direct** (it's parabolic now; short the breakout close).
+- **< 50% at the breakout** → arm a **rollover** (trail-entry style) and take it **only if**
+  the stock has reached ≥ 50% by the time it rolls over; if it rolls over still < 50%, skip.
+
+So every fill is a name that is ≥ 50% on the day, but the entry *style* adapts: direct for
+the already-extended, rollover-confirmed for the climbers. (`--ext-gate 0.5`; threshold vs
+prev close; `prevClose` threaded into the intraday engine.)
+
+| strategy | trips | PF | net P&L | per-trip Sharpe | worst |
+|---|---|---|---|---|---|
+| frontside (short every breakout) | 2,962 | 1.397 | +$880,677 | 0.096 | −$52,819 |
+| **ext-gate 50% (conditional)** | 1,278 | **1.573** | **+$682,631** | 0.148 | −$47,375 |
+| rise +50% from breakout (Run 11) | 378 | 1.726 | +$284,848 | 0.181 | −$31,880 |
+
+**The conditional gate is the sweet spot between the two.** It keeps ~77% of the
+all-breakouts net P&L (+$682k vs +$880k) while lifting PF 1.40 → 1.57 and improving per-trip
+Sharpe ~50% (0.096 → 0.148). It keeps far more trips than Run 11 (1,278 vs 378) because the
+threshold is absolute day-extension, not +50% *from the breakout* — a name breaking out
+already at +60% qualifies for an immediate direct entry (Run 11 would have made it run to
++140%). So you capture all the already-extended breakouts *plus* the climbers that confirm a
+rollover past 50%.
+
+Extension breakdown — the `< 50%` band is empty by construction (the gate refuses it), and
+the rest is the clean monotonic curve with the mild-mover drag removed:
+
+| at-entry band | n | PF | win% | worst |
+|---|---:|---:|---:|---:|
+| < 50% | 1 | — | — | (rounding edge) |
+| 50–100% | 930 | 1.363 | 70.9 | −$47,375 |
+| 100–200% | 296 | 1.965 | 73.6 | −$17,144 |
+| 200%+ | 51 | 3.557 | 78.4 | −$7,327 |
+
+**Trade-off vs Run 11:** the conditional gate's worst trade (−$47k) is larger than Run 11's
+(−$32k), because the *direct* leg shorts names already ≥ 50% at the breakout and some keep
+running before fading (the run-over), whereas Run 11's "+50% from breakout" implicitly waited
+longer and entered more-exhausted names. So the conditional trades a bit more tail risk for
+~2.4× the net P&L. **Ranking by purpose: most net + good PF → ext-gate; best PF + lowest tail
+→ rise-entry; raw size → frontside-all.** All three beat every *exit*-based variant.
+
 ## Reproducibility — candidate cache
 
 The daily scan (pipeline 1) is invariant to every intraday/exit/target knob, so it is
