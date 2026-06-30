@@ -307,6 +307,53 @@ lookahead label anyway. **The deployable win is the overall low-float book at PF
 2.38, traded with NO lookahead** (move ≥10% + low-float, both knowable at/before
 10:00). rvol 2.5 + move 10% is the more tradeable configuration.
 
+## Run 10 — rvol floor 2.5→2.0 (move stays 10%): capacity vs purity
+
+`--rvol-min 2.0 --up-threshold 0.10`. Does dropping the rvol floor another notch
+add usable trades or just dilution?
+
+| | rvol 2.5 (Run 9) | rvol 2.0 |
+|---|---|---|
+| trips | 1,687 | 2,062 (+375) |
+| aggregate PF | 1.906 | 1.900 |
+| requalifier rate | 63.9% | 65.6% |
+| low-float (<$300M) PF | 2.378 | 2.362 |
+
+The new **2.0–2.5 slice (375 trips)** is solid but a touch below the 2.5+ core:
+overall PF 1.738 vs 1.809; low-float 2.239 vs 2.378. So rvol 2.0 is a **near-wash —
+pure capacity at negligible quality cost**: +22% trips, the deployable low-float
+book essentially flat (2.36 vs 2.38), requalifier rate unchanged. The 2.0–2.5 names
+are good-but-not-better than the core (consistent with Run 3's best band being
+2.5–3.5). Capacity-vs-purity dial: 2.0 for more trades at the same edge, 2.5 for the
+cleanest PF; the dilution is tiny either way.
+
+## Run 11 — exit the WHOLE 10:00 book at the same-day close vs the 5-day hold
+
+Run 6 tested the same-day-close exit only on the marginal "only at 10:00" cohort.
+Here: exit EVERY 10:00 trade at day-D's close (~6h intraday round-trip) vs the
+current 5-day hold. Post-hoc, move-10% books.
+
+**rvol 2.5 + move 10%:**
+| | same-day close exit | 5-day hold |
+|---|---|---|
+| ALL | PF 1.223 (50.3% win) | **1.906** (56.2%) |
+| LOW <$300M | PF 1.304 (46.6%) | **2.578** (58.7%) |
+
+**rvol 2.0 + move 10%:** ALL 1.251 vs 1.900; LOW <$300M 1.378 vs **2.586**.
+
+**Keep the 5-day hold — it's decisively better across the WHOLE book**, not just the
+bottom half. Same-day-close roughly halves the low-float edge (2.58→1.30) and drops
+the win rate ~59%→47%. The win-rate drop is the tell: >half the names are BELOW
+their 10:00 entry at the close but recover over the 5-day hold — the intraday path
+is choppier than the multi-day drift.
+
+This generalizes Run 6: these names continue up after 10:00 both intraday AND over
+the following days, and the real payoff accrues over the days. Reconciles with Run 5
+without contradiction: "10:00 entry beats close entry on the same names" means the
+10:00 price is a good ENTRY — the close is still mid-flight, NOT a good exit.
+**HighFlyerV2 is a multi-day continuation trade with an early intraday entry, not an
+intraday scalp.** The 10:00 entry improves the fill; the hold makes the money.
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared
