@@ -855,6 +855,69 @@ rvol since 10:00** (full 2.3–3.2 / low-float 3.4–4.2); fill it right there a
 Skip if it stalled (diff < 2, or ratio < 1.5 → negative) or went climactic (diff >
 15). Same lesson as Run 22, now as a clean afternoon trigger with a 3:30 fill.
 
+## Run 24 — when is a 10:00 entry TOO FAR UP to keep holding? (take-profit line)
+
+Question (user): after entering at 10:00, if the stock runs a lot, when should you
+sell — how much up is too much? The system holds a fixed 5 days regardless; this
+tests whether being up a lot at a checkpoint kills the remaining hold. For each 10:00
+entry (rvol_10≥1, move≥10%), measure how far up it is at a checkpoint vs the 10:00
+fill, then the FORWARD leg from that checkpoint to the 5-day exit.
+
+**Forward leg by how far up at the DAY-1 CLOSE:**
+
+| up at day-1 close | n | fwd avg | fwd PF |
+|---|---|---|---|
+| <0 (red day 1) | 1,895 | +2.2% | 1.68 |
+| 0–5% | 1,406 | +2.1% | 1.81 |
+| 5–10% | 415 | +2.1% | 1.62 |
+| **10–20%** | 148 | +3.1% | 1.65 |
+| **20–35%** | 33 | −0.9% | **0.88** |
+| 35–60% | 6 | −7.6% | 0.43 |
+| >60% | 3 | −24.6% | 0.07 |
+
+**Forward leg by how far up at 3:30** (same-day, actionable before MOC — same shape):
+
+| up at 3:30 | n | fwd avg | fwd PF |
+|---|---|---|---|
+| <0 | 1,956 | +2.1% | 1.66 |
+| 0–5% | 1,385 | +2.4% | 2.03 |
+| 5–10% | 392 | +2.4% | 1.76 |
+| **10–20%** | 140 | +3.2% | 1.58 |
+| **20–35%** | 23 | +0.2% | 1.03 |
+| 35–60% | 10 | −6.3% | 0.41 |
+
+**The "too much up" line is ~+20–25% over your entry, at either checkpoint.** Up to
++20% the forward hold still pays (10–20% is actually the BEST forward bucket, +3%
+still to come — a modest run is NOT a sell). Past ~+20% the forward return goes flat
+then sharply negative. Sell into strength only when the name is STILL up ~+20–25% at
+3:30 or the close. (Extreme cells are thin — 33/23/10/6/3 trips — trust the monotone
+direction, not the −24.6%. This is rare: ~1% of trades are up >20% at day-1 close.)
+
+**Crucial distinction — MAX SPIKE (day-1 high) is the OPPOSITE, it's BULLISH.**
+Full-trade PF by the day-1 RTH high excursion (max favorable move vs entry):
+
+| day-1 high vs entry | n | full-trade avg | full PF |
+|---|---|---|---|
+| <10% | 3,422 | +1.6% | 1.45 |
+| **10–20%** | 377 | +8.5% | 3.62 |
+| **20–35%** | 83 | +16.2% | 5.47 |
+| **35–60%** | 17 | +23.7% | **7.24** |
+
+**Touching a big high intraday is strength, not a fade signal** — names that spiked
+20–60% above entry at some point have the BEST full-trade PF (5.5–7.2). So the sell
+signal is not "it printed a big high"; it's "it's STILL SITTING up +20–25% at a
+checkpoint AFTER the move." A name that ran +30% then settled to +8% by 3:30 is in the
+healthy bucket — hold it. A name parked at +25% into the close is the one to ring the
+register on. (Low-float almost never reaches the extended state — its >+20% cells are
+3–11 trips — so for the core A+ names this is a rare mega-winner situation, not a
+routine trigger.)
+
+**Exit rule:** hold the full 5 days by default; a spike to a big intraday high is not
+a sell. Sell into strength ONLY if the name is still up ~+20–25% over entry at a
+checkpoint (3:30 or the close) — that extended/parabolic-and-holding state is where
+the remaining hold turns negative. Mirror image of the entry rule (don't BUY the
+>+10%-off-open parabola; don't HOLD the >+20%-from-entry parabola).
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared
