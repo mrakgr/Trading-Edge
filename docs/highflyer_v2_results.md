@@ -908,15 +908,41 @@ Full-trade PF by the day-1 RTH high excursion (max favorable move vs entry):
 signal is not "it printed a big high"; it's "it's STILL SITTING up +20–25% at a
 checkpoint AFTER the move." A name that ran +30% then settled to +8% by 3:30 is in the
 healthy bucket — hold it. A name parked at +25% into the close is the one to ring the
-register on. (Low-float almost never reaches the extended state — its >+20% cells are
-3–11 trips — so for the core A+ names this is a rare mega-winner situation, not a
-routine trigger.)
+register on. (For low float the "STILL parked up +20%" state is both MORE common and
+LESS of a sell — quantified in the low-float slice below.)
 
 **Exit rule:** hold the full 5 days by default; a spike to a big intraday high is not
 a sell. Sell into strength ONLY if the name is still up ~+20–25% over entry at a
 checkpoint (3:30 or the close) — that extended/parabolic-and-holding state is where
 the remaining hold turns negative. Mirror image of the entry rule (don't BUY the
 >+10%-off-open parabola; don't HOLD the >+20%-from-entry parabola).
+
+**Low-float slice — the +20% sell line RELAXES for low float (same pattern as Run 26).**
+Forward leg from 3:30, full vs low-float (<$300M dollar-float):
+
+| up at 3:30 | n (full) | PF (full) | n (LF) | PF (LF) | avg fwd (LF) |
+|---|---|---|---|---|---|
+| <0 (red) | 1,956 | 1.66 | 479 | **2.36** | +5.1% |
+| 0–5% | 1,385 | 2.03 | 219 | **3.73** | +5.9% |
+| 5–10% | 392 | 1.76 | 102 | 2.44 | +5.2% |
+| 10–20% | 140 | 1.58 | 54 | 2.06 | +6.6% |
+| **20–35%** | 23 | **1.03** | 11 | **1.87** | +4.9% |
+| >35% | 10 | 0.41 | 3 | — | (3 trips, no losers) |
+
+**The extended state is a full-book sell but still a low-float HOLD.** At 20–35% up at
+3:30, the full book is break-even (PF 1.03 = the take-profit trigger), but low-float
+still forwards **+4.9% at PF 1.87** — the scarce-supply squeeze keeps paying past where
+the full book tops. Every bucket lifts (LF PF 2.0–3.7 vs full 1.6–2.0), and the >35%
+low-float cell is too thin to call (3 trips, PF undefined — no losers). This mirrors
+Run 26 exactly: **for low float, the take-profit threshold shifts UP** — don't sell the
++20–35%-at-3:30 low-float name; only the deeper extension (>+35% here, matching Run 26's
+>+60% cumulative) is the real climax.
+
+**And low float reaches that extended state ~2× as often** — 1.61% of low-float trips
+are >20% up at 3:30 vs 0.84% of the full book. So the correction to the earlier "low
+float almost never reaches the extended state" note: it reaches it MORE often (scarce
+float → more explosive intraday runs), and once there it HOLDS BETTER, not worse. The
+take-profit rule is genuinely a full-book rule that low float largely overrides.
 
 ## Run 25 — where in the day-1 range does the close sit? (high-spread, low-spread, position-in-range)
 
