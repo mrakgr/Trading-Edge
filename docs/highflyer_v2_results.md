@@ -966,6 +966,53 @@ one that closed strong-but-not-parabolic. Low-float holds well across the board 
 range bucket ~2.3–2.6), so this range-geometry read matters least exactly where the
 core edge already lives.
 
+## Run 26 — path-dependent exit: does "too far up" hold for days 1–5, or just day 1?
+
+Run 24 found "up +20% from entry → sell" on the ENTRY day. Does that standing rule
+apply across the whole 5-day hold? Reconstructed each trade's hold path (adj closes
+for hold-days k=1..5 via a window over `split_adjusted_prices`), and for each day-k
+computed **cumulative gain from entry** (day-k close / entry − 1) and the **forward
+leg** (day-k close → final 5d exit). Forward PF of CONTINUING to hold, bucketed by how
+far up you are at the day-k close (**cumulative from entry, NOT the single-day move**):
+
+| up at day-k close (cumulative) | day 1 | day 2 | day 3 | day 4 |
+|---|---|---|---|---|
+| 0–10% | 1.76 | 1.51 | 1.39 | 1.31 |
+| 10–20% | 1.65 | 1.49 | 1.20 | 1.40 |
+| **20–35%** | **0.88** | **1.80** | **1.65** | **1.54** |
+| 35–60% | 0.43 | 0.78 | 0.95 | 0.78 |
+| >60% | 0.07 | 0.00 | 1.05 | 0.49 |
+
+**The +20% sell rule is a DAY-1 phenomenon, not a standing rule.** Key reads:
+- **Day 1:** up +20–35% → forward PF **0.88** (negative avg) = SELL. A parabolic move
+  on the ENTRY day is a crowded gap-and-go top that gives back. (Confirms Run 24, and
+  matches its independent 3:30 cut.)
+- **Days 2–4:** the SAME +20–35% level FLIPS to a good HOLD (PF **1.80 / 1.65 /
+  1.54**). Reaching +25% *spread over 2–4 sessions* is a trend working, not a climax —
+  the velocity is gentler. Do NOT apply the day-1 sell rule here.
+- **+35%+ stays a sell at every horizon** (0.43 / 0.78 / 0.95 / 0.78) — that much
+  extension gives back regardless of when it's reached. **>60% is a sell everywhere**
+  (the day-3 1.05 is a 9-trip noise cell).
+- Day 5 is the exit day itself → forward leg ≈ 0 by construction; ignore for decisions.
+
+**Same level, different velocity:** +20% *in the first session* is a blow-off; +20%
+*built over several days* is a trend. The "extended" threshold scales UP as the move
+earns more time. (Day-1 20–35%/35%+ cells are thin — 33/6 — but agree with Run 24's
+independent 3:30 cut; the days 2–4 20–35% cells are better sampled at 66/112/118.)
+
+**Contrast — the SINGLE-DAY move barely discriminates** (checked separately, pooled
+days 2–5): down/flat/up-to-+20% on a given day all sit ~1.3–1.4 forward PF; only the
+tails talk — a **single-day DOWN >5% is the BEST hold (1.67)** (a sharp red day mid-
+hold is a shakeout that reverts, not a scare), and a **single-day UP >35% is a sell
+(0.67)** (vertical mid-hold session = climax). So the exit signal lives in **how
+extended the POSITION is (cumulative), not how much it moved TODAY** — except: don't
+panic-sell a sharp down-day, and do take a vertical +35% single-session blow-off.
+
+**Exit rule (path-dependent):** (1) Day 1 up +20%+ → sell (entry-day parabola). (2)
+Days 2–4, up +20–35% is fine to KEEP holding (trend); only +35%+ is a sell. (3) Any
+day: a +35% single-session spike → take it; a sharp single-day down move → hold, it's
+a shakeout.
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared
