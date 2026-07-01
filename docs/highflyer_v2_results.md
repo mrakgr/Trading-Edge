@@ -1013,6 +1013,49 @@ Days 2–4, up +20–35% is fine to KEEP holding (trend); only +35%+ is a sell. 
 day: a +35% single-session spike → take it; a sharp single-day down move → hold, it's
 a shakeout.
 
+## Run 27 — the DOWNSIDE half: when a hold is underwater, cut or hold?
+
+Run 26 did the upside; this does the drawdown. Same hold-path reconstruction, forward
+PF of CONTINUING to hold, bucketed by how far UNDERWATER you are at the day-k close
+(cumulative from entry). Pooled days 1–4:
+
+| cumulative at day-k close | n (full) | fwd PF (full) | n (low-float) | fwd PF (low-float) |
+|---|---|---|---|---|
+| **< −20%** | 116 | **0.93** | 41 | 0.84 |
+| **−20..−10%** | 809 | **1.78** | 251 | **2.05** |
+| −10..−5% | 1,694 | 1.45 | 398 | 1.95 |
+| −5..0% | 4,437 | 1.57 | 885 | 1.93 |
+| ≥0 (up) | 8,530 | 1.46 | 1,884 | 1.99 |
+
+**A moderate drawdown is NOT a sell — it's the BEST forward bucket.** Down −10..−20%
+mid-hold has a HIGHER forward PF (1.78 full / 2.05 low-float) than being flat or up.
+The buy-the-dip thesis operating INSIDE the hold: these are mean-reverting momentum
+names, so a pullback during the hold is a discount that reverts, not deterioration.
+Do NOT cut a −10..−20% loser — that's exactly where the recovery edge is strongest.
+
+**The one exception — the −20% cliff.** Below −20% from entry, continuing to hold
+turns negative (PF 0.93 full / 0.84 low-float, ~15% win at day 1). The move has
+genuinely broken; mean-reversion stops. **Hold-time cut-loss line = −20% from entry**
+— the multi-day analog of the −6%-from-open entry rule (a pullback is a discount until
+it becomes a breakdown), wider because it's over 5 days not 30 minutes. (−20% cells
+thin — 116/41 — but unambiguous and consistent day-by-day: day-1 0.05, day-3 0.94.)
+
+**This is WHY stop-losses never worked for this system.** Any stop tight enough to
+fire lands in the −10..−20% band = the single best forward-hold cell; a stop there
+doesn't cut losers, it ejects you from winners mid-recovery. The only drawdown that
+predicts further damage is beyond −20%, and by then the "stop" is just the natural
+hold-time cut-loss line, not a protective stop. The edge lives THROUGH the drawdown.
+
+**Full multi-day exit rule (Runs 24/26/27 combined):** hold through the **−20% … +35%**
+band. Exit early only when the position BREAKS out of it:
+- **Down side:** cut if below **−20%** from entry (broken; mean-reversion gone).
+- **Up side:** take profit if up **+35%+** (any day), or up **+20%+ on DAY 1** only
+  (entry-day parabola); +20–35% on days 2–4 is a healthy trend — keep holding.
+- **Single-day tells:** a sharp down day is a shakeout (hold, best bucket); a vertical
+  +35% single-session spike is a climax (take it).
+- Otherwise ride the 5-day time-stop. No tight protective stop — it only ejects you
+  from the recovery.
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared
