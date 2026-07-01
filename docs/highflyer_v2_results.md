@@ -1013,6 +1013,61 @@ Days 2–4, up +20–35% is fine to KEEP holding (trend); only +35%+ is a sell. 
 day: a +35% single-session spike → take it; a sharp single-day down move → hold, it's
 a shakeout.
 
+**Low-float slice (dollar-float <$300M at entry).** The same upside breakdown, full
+vs low-float side by side (positive cumulative buckets, per hold-day; PF = forward leg
+day-k close → exit):
+
+| up at day-k close | k | n (full) | PF (full) | n (low-float) | PF (low-float) |
+|---|---|---|---|---|---|
+| 0–10% | 1 | 1,821 | 1.76 | 348 | **2.49** |
+| 10–20% | 1 | 148 | 1.65 | 58 | **2.88** |
+| **20–35%** | 1 | 33 | **0.88** | 15 | **1.43** |
+| 0–10% | 2 | 1,748 | 1.51 | 320 | **2.70** |
+| 10–20% | 2 | 322 | 1.49 | 96 | 1.98 |
+| **20–35%** | 2 | 66 | **1.80** | 35 | **2.78** |
+| 35–60% | 2 | 24 | 0.78 | 11 | 2.13 |
+| 0–10% | 3 | 1,640 | 1.39 | 292 | 1.58 |
+| 10–20% | 3 | 376 | 1.20 | 128 | 1.44 |
+| **20–35%** | 3 | 112 | **1.65** | 50 | **2.33** |
+| 0–10% | 4 | 1,571 | 1.31 | 277 | 1.41 |
+| 10–20% | 4 | 426 | 1.40 | 124 | 1.87 |
+| **20–35%** | 4 | 118 | **1.54** | 59 | **2.11** |
+
+**Low float lifts every cell and sharpens the day-1 divide.** Reads:
+- **Low-float PF > full-book PF in every bucket** (usually by 0.3–1.2). The <$300M
+  float edge (Run 19 / A+ setup) compounds through the hold, not just at entry — a
+  low-float name up modestly is a *scarcer* supply squeeze, so continuation is stronger.
+- **The day-1 vs days-2–4 flip at +20–35% survives — and is sharper.** Day-1 +20–35%
+  low-float is **1.43** (barely above break-even, still the worst upside cell on day 1);
+  the SAME level on days 2–4 is **2.78 / 2.33 / 2.11** — a clean, well-sampled
+  (35/50/59) trend signal, not noise. The "same level, different velocity" rule holds
+  more crisply on the core names than the full book.
+- **Early modest-gain cells are where the money is:** low-float up 0–20% on day 1–2
+  runs **2.5–2.9** — the fat, well-populated part of the book. The A+ dip name that's
+  quietly up <20% a day or two in is the highest-conviction hold in the whole study.
+- **The +35% take-profit line SOFTENS for low float.** Pooling days 2–4 for sample
+  (per-day cells were too thin): the 35–60% bucket is where full-book and low-float
+  split hardest —
+
+  | up at day-k (days 2–4 pooled) | n (full) | PF (full) | n (LF) | PF (LF) | avg fwd (LF) |
+  |---|---|---|---|---|---|
+  | 20–35% | 296 | 1.65 | 144 | **2.37** | +4.6% |
+  | **35–60%** | 111 | **0.83** | 61 | **1.46** | +3.3% |
+  | >60% | 29 | 0.48 | 18 | **0.69** | −3.8% |
+
+  In the full book **35–60% is a sell** (PF 0.83, avg forward −0.2% = the "give it back
+  above +35%" rule). But on the **low-float core 35–60% is still a mild HOLD** (PF 1.46,
+  **56% win**, avg +3.3%, median +0.9%; n=61, worst −34% / best +134%) — a right-skewed
+  *continuation*, not a round-trip. The scarce-supply squeeze pushes the climax threshold
+  UP: for a <$300M name the top only truly breaks at **>60%** (PF 0.69, avg −3.8% —
+  same cliff as the full book, just reached later). So the +35%+ take-profit is a
+  **full-book rule; for low float, let winners run to ~+60% before taking.**
+
+**Net:** the path-dependent exit rule is unchanged, but on the low-float core the HOLD
+side is stronger everywhere and the only genuine day-1 sell (parabola +20%+) is the
+lone weak upside cell — reinforcing that for these names, *patience through the modest-
+gain band is the edge*.
+
 ## Run 27 — the DOWNSIDE half: when a hold is underwater, cut or hold?
 
 Run 26 did the upside; this does the drawdown. Same hold-path reconstruction, forward
