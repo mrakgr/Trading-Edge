@@ -918,6 +918,54 @@ checkpoint (3:30 or the close) — that extended/parabolic-and-holding state is 
 the remaining hold turns negative. Mirror image of the entry rule (don't BUY the
 >+10%-off-open parabola; don't HOLD the >+20%-from-entry parabola).
 
+## Run 25 — where in the day-1 range does the close sit? (high-spread, low-spread, position-in-range)
+
+Follow-up to Run 24. First a WARNING: Run 24's "day-1 HIGH excursion → full PF 7"
+table is partly **MFE selection bias** — a stock only *reaches* a +40% intraday high
+if it went up a lot, so sorting on the max favorable excursion partly just re-selects
+winners. To test whether the SHAPE ("spiked then settled") is real over-and-above
+that, condition on WHERE IT CLOSED first, then split by the high↔close↔low geometry.
+
+Population fixed to **close up 0–20% from the 10:00 entry** (the region where holding
+still pays — Run 24 — and ~95% of the book; note "up from ENTRY", so the whole [10,20]
+close band is only ~5% of trips because you're already long from 10:00 and most names
+go sideways-to-down on day 1 relative to your fill — this is a MULTI-DAY edge, Run 16).
+
+**High↔close spread (% the close sits BELOW the day-1 high):**
+
+| high−close spread | n | fwd avg | fwd PF |
+|---|---|---|---|
+| at high (<3% off) | 1,344 | +1.6% | 1.64 |
+| 3–8% off | 511 | +2.9% | 1.81 |
+| **8–15% off** | 75 | +5.9% | **2.49** |
+| 15–25% off | 17 | +6.8% | 1.78 |
+
+**Low↔close spread (% the close sits ABOVE the day-1 low):** weak, barely
+discriminates (1.6–1.9 across the range) — the low side carries little info.
+
+**Position-in-range (0 = closed at the low, 1 = closed at the high) — the cleanest
+summary of both, well-sampled:**
+
+| where in day-1 range it closed | n | fwd PF |
+|---|---|---|
+| 0.0–0.2 (near low) | 13 | 3.92 *(thin)* |
+| 0.2–0.4 | 71 | 1.69 |
+| 0.4–0.6 (mid) | 253 | 2.01 |
+| **0.6–0.8** | 616 | **1.98** |
+| **0.8–1.0 (near high)** | 998 | **1.51** |
+
+**Honest verdict: this is a MODEST tilt, not a new setup.** The one robust,
+well-sampled signal is the NEGATIVE: **closing pinned at the day-1 high (position
+0.8–1.0, ~1,000 trips) is the WEAKEST multi-day hold (PF 1.51)** — a parabolic close
+with no digestion. Anything with a bit of pullback (upper-mid range 0.4–0.8, or 8–15%
+off the high) holds modestly better (~2.0–2.5). The low-spread adds nothing; the
+"spike then settle" magnitude buckets from Run 24 were largely MFE selection bias.
+Net for manual trading: don't treat a strong high-to-close pullback as an A+ signal to
+size into — but a name that closes *jammed at its high* is a slightly worse hold than
+one that closed strong-but-not-parabolic. Low-float holds well across the board (every
+range bucket ~2.3–2.6), so this range-geometry read matters least exactly where the
+core edge already lives.
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared
