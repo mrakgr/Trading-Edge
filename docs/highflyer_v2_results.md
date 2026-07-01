@@ -705,6 +705,123 @@ low-float runner, the −1..−6% RED pullback is the A+ buy (don't wait for gre
 float is larger/unknown, prefer a modest green push (+1..+6%) and avoid the >+10%
 parabola. In neither case buy the >+10% strong push or anything below −6%.
 
+## Run 21 — late-day checkpoints (3:00 & 3:30 ET) + the rvol-lookahead calibration
+
+Motivation (user): to trade this manually you must place MOC orders by ~3:50 ET, so
+a *late* entry decision happens ~3:30. Two things to settle: (1) the production
+`rvol≥5` is measured at the DAILY CLOSE — a 3:30 entrant can't know final daily
+volume, so that gate is lookahead; find the as-of-checkpoint threshold equivalent to
+"will close ≥5 rvol". (2) Does late entry get a morning-like PF?
+
+Built `partial_candle_1500` (cutoff 900) and `partial_candle_1530` (cutoff 930).
+Ran each checkpoint's book with rvol UNCAPPED (`--rvol-min 0`, move≥10%); the CSV's
+`rvol_at_entry` is then the **as-of-checkpoint rvol using the engine's real 4w-daily
+denominator** (partial cumulative volume ÷ CalendarMeanMa) — no SQL replication.
+Joined each to the close book on (symbol, entry_date).
+
+**Volume accrual for names that close rvol≥5** (2,614 of them): a median of **24% in
+by 10:00, 83% by 3:00, 88% by 3:30**. So a name destined for ≥5 has done most of its
+volume by mid-afternoon — the late thresholds can be high without losing recall.
+
+**Calibration** (precision = % of passers that really close ≥5; recall = % of ≥5
+closers caught). The equivalent-to-"closes ≥5" threshold at each checkpoint:
+
+| checkpoint | threshold | precision | recall |
+|---|---|---|---|
+| 10:00 | **1.0** | 80.9% | 84.4% |
+| 3:00 | **3.5** | 75.8% | 93.8% |
+| 3:30 | **4.0** | 78.5% | 93.1% |
+| close | 5.0 | (def) | (def) |
+
+A clean monotone as the day fills: **1.0 → 3.5 → 4.0 → 5.0**. (User's estimate of
+"north of 4" at 3:30 was right — 4.0 is the sweet spot; 4.5 buys precision but sheds
+recall, 5.0 actually *drops* precision while losing recall.) These are the honest,
+no-lookahead rvol floors to use at each entry time.
+
+**Does late entry match the morning?** Books at their calibrated thresholds:
+
+| checkpoint | calibrated rvol | book PF | trips | low-float PF | high-float PF |
+|---|---|---|---|---|---|
+| 10:00 | 1.0 | **1.87** | 3,906 | ~2.4 | — |
+| 3:00 | 3.5 | 1.77 | 6,641 | 1.92 | 1.41 |
+| 3:30 | 4.0 | 1.75 | 6,492 | 1.90 | 1.42 |
+
+**Close, but the morning still wins by a hair, and the low-float edge shrinks late**
+(2.4 → 1.9). The low-float double-duty PERSISTS at 3:00/3:30 (1.9 vs 1.4 high-float)
+— it just isn't as pronounced as at 10:00. Per-setup the A+ dip is as strong late
+(the clean −1..−6% low-float pullback still prints PF ~5–6 at 3:30), but such setups
+are RARER late: by 3:30 the SMB "first-hour high" has played out and the low-float
+move-from-open population has shifted hard to the right — the >+10%-off-open bucket
+holds 1,109 trips at 3:30 vs 209 at 10:00, while the dip cells shrink from ~95 to ~78
+trips. **Late entry works (PF ~1.9 low-float), but you fish a smaller pond of pristine
+dips through a big pile of extended names.** For a manual trader: 10:00 is still the
+prime window; 3:00/3:30 is a viable fallback with rvol floors 3.5/4.0 and the same
+float + dip discipline.
+
+## Run 22 — volume-distribution shape: sustained vs front-loaded (ratio AND diff)
+
+Question (user): among names that are genuinely high-volume by 3:30 (rvol_3:30 ≥ 4),
+does the *shape* of the day's volume matter — a stock busy all day vs one that
+spiked early and went quiet (or was dead early and woke up late)? Two metrics on the
+shared population, returns from the close book (fixed 5d hold, so only volume-shape
+varies):
+- **RATIO** = rvol_3:30 / rvol_10:00 (relative shape; median 3.61, q25–q75 2.88–4.82).
+- **DIFF** = rvol_3:30 − rvol_10:00 (absolute late volume added; median 5.31, 3.81–10.34).
+
+**RATIO — best in the MIDDLE, both extremes bad:**
+
+| ratio (full book) | n | clip PF | | low-float PF |
+|---|---|---|---|---|
+| <2× (front-loaded) | 98 | 1.69 | | 2.14 |
+| **2–3×** | 697 | **2.24** | | 2.95 |
+| **3–4×** | 873 | 1.86 | | **3.80** |
+| 4–6× | 705 | 1.79 | | 2.06 |
+| 6–9× | 252 | **1.06** | | 1.68 |
+| >9× (woke up late) | 100 | **1.06** | | 1.16 |
+
+**DIFF — monotone up into the middle-high band, then fades:**
+
+| diff (full book) | n | clip PF | | low-float PF |
+|---|---|---|---|---|
+| 2–4 | 794 | 1.41 | | 2.57 |
+| 4–6 | 753 | 1.78 | | 2.79 |
+| 6–9 | 403 | 2.12 | | 3.29 |
+| **9–15** | 271 | **3.09** | | 3.34 |
+| >15 (blowoff) | 501 | 1.68 | | 1.69 |
+
+**They reconcile to one signal: busy EARLY *and* busier LATE = genuine all-day
+accumulation, and that's what pays.** You want a name that added a lot of absolute
+volume (diff 6–15) but was already meaningfully active at 10:00 (ratio 2–4×). The two
+traps both show up as PF ~1.1–1.7: the **"woke up late"** name (huge ratio >6×, dead
+at 10:00) and the **blowoff** (diff >15, climactic late volume). A very high ratio
+means it wasn't participating early — those don't hold. Front-loaded (low diff) is
+mediocre too. The accumulation signature (diff 6–15, ratio 2–4×) is the same profile
+the swing hold rewards.
+
+## Run 23 — should you ADD at the close to a 10:00 name that got more active?
+
+Question (user): a stock that's already active at 10:00 (rvol_10 ≥ 1) and ends the
+day *even more* active — is it worth adding to at the close? Took the 10:00 book
+(rvol_10 ≥ 1) and measured the return of shares **added at the close price**
+(close→5d exit = the add-in leg), split by end-of-day rvol:
+
+| end-of-day rvol | n | add-leg avg ret | add-leg PF | low-float add-leg PF |
+|---|---|---|---|---|---|
+| <3 | 67 | +4.3% | 2.15 | 3.43 |
+| 3–5 | 475 | +1.1% | **1.30** | 1.49 |
+| 5–8 | 974 | +1.9% | 1.71 | 2.73 |
+| **8–15** | 816 | **+3.3%** | **2.52** | **4.53** |
+| >15 (blowoff) | 501 | +1.7% | 1.91 | 2.02 |
+
+**Yes — but only in a BAND.** A 10:00 name that builds to **8–15× rvol by close** is
+worth pyramiding into at MOC: the add-in leg pays PF 2.52 / **4.53 low-float** (+3.3
+to +7.2% avg). That's confirmed all-day accumulation. But **don't add to the two
+tails**: the tepid 3–5× (didn't confirm, weakest add at 1.30) and the parabolic >15×
+(climax, 1.91/2.02). Same lesson as Run 22 — the add rule is "confirmed accumulation
+(8–15×), not a fizzle and not a blowoff." Practically: enter the A+ dip at 10:00,
+then if by ~3:30 the name has built to 8–15× rvol (and hasn't gone vertical), add a
+second tranche at MOC.
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared
