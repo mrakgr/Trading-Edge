@@ -645,6 +645,66 @@ is sample-thin; trust direction, not magnitude.)
 trips / 21y ≈ 1.5–2.5/yr). A real, size-able edge but RARE — a patience setup, not a
 daily grind. Fits discretionary manual trading: wait for the clean liquid one, size up.
 
+## Run 20 — move-from-open at 10:00: full book wants a modest push, low-float wants the dip
+
+Breakdown of the deployable 10:00 book (rvol≥1.0, move≥10%; 3,906 trips) by
+**intraday move from the 10:00 open** = `partial_close/partial_open − 1` (raw
+ratio off `partial_candle_1000`, scale-free). Clipped PF (+50% cap). Question: are
+names that moved significantly from the open better than those that didn't?
+
+**Full book (float unfiltered) — an inverted-U; the sweet spot is a MODEST push:**
+
+| Move from open (10:00) | trips | win% | avg | clip PF |
+|---|---|---|---|---|
+| < −6% (deep dip) | 24 | 33.3 | −2.1% | **0.64** |
+| −6..−3% | 179 | 52.0 | +2.8% | 1.72 |
+| −3..−1% | 269 | 56.1 | +3.9% | 1.86 |
+| −1..+1% (flat) | 623 | 56.8 | +1.3% | 1.64 |
+| **+1..+3%** | 541 | 57.9 | +2.7% | **2.10** |
+| **+3..+6%** | 835 | 55.7 | +3.2% | **2.13** |
+| +6..+10% | 849 | 57.2 | +2.9% | 1.74 |
+| > +10% (strong push) | 586 | 50.0 | +3.0% | **1.49** |
+
+**Moving significantly from the open is WORSE, not better.** Best = a modest green
+push **+1..+6%** (PF ~2.1): up on the day, orderly, not parabolic. Both tails bleed:
+the **>+10% strong-push tail is the worst green bucket** (1.49, 50% win, median +0.05%)
+— you're chasing the vertical blow-off / buying the first-hour high (SMB effect); the
+**<−6% deep-dip tail is the outright loser** (0.64), reconfirming the no-average-down
+−6% line on the full book, not just low-float.
+
+**Low-float (<$300M) — the shape INVERTS: the small dips are decisively best (A+):**
+
+| Move from open (10:00), low-float | trips | win% | avg | clip PF |
+|---|---|---|---|---|
+| < −6% (deep dip) | 7 | 28.6 | −2.3% | **0.29** |
+| **−6..−3%** | 38 | 68.4 | +11.9% | **5.20** |
+| **−3..−1%** | 57 | 71.9 | +13.9% | **4.87** |
+| −1..+1% (flat) | 87 | 56.3 | +3.2% | 2.61 |
+| +1..+3% | 85 | 50.6 | +5.2% | 2.82 |
+| +3..+6% | 157 | 61.1 | +6.1% | 2.79 |
+| +6..+10% | 228 | 61.0 | +4.4% | 1.96 |
+| > +10% (strong push) | 209 | 51.2 | +6.1% | 1.92 |
+
+**On low-float the small dips are the best cell (PF ~5) — the exact OPPOSITE of the
+full book**, and a clean re-derivation of yesterday's A+ setup from a different angle.
+The monotone runs downhill from dip → push: the harder a low-float name is still
+pushing off its 10:00 open, the worse (5.2 at −6..−3% → 1.9 at >+10%). Reading:
+
+- **Full book** wants a *modest orderly push* (+1..+6%). The average name up ≥10% that
+  keeps grinding green is fine; the parabolic one tops out.
+- **Low-float** wants the *pullback* (−1..−6%). A low-float name already +10% that's
+  still pushing higher at 10:00 is the crowded/chased one; the one that pulled back 1–6%
+  is quiet accumulation — the swing entry that pays (avg forward ret +12–14%).
+- **Both agree on the −6% floor** (0.29 low-float / 0.64 full): below −6% off the open
+  the pullback has become a breakdown regardless of float. No-average-down holds
+  universally. (Low-float dip cells are thin — 38/57 trips — trust direction over
+  magnitude; consistent with Run 17's [1,6%] A+ band.)
+
+**Manual-trading takeaway:** the "% from open" read is float-conditional. If it's a
+low-float runner, the −1..−6% RED pullback is the A+ buy (don't wait for green). If
+float is larger/unknown, prefer a modest green push (+1..+6%) and avoid the >+10%
+parabola. In neither case buy the >+10% strong push or anything below −6%.
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared
