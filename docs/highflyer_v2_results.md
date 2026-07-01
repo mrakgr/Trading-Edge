@@ -822,33 +822,38 @@ tails**: the tepid 3–5× (didn't confirm, weakest add at 1.30) and the parabol
 then if by ~3:30 the name has built to 8–15× rvol (and hasn't gone vertical), add a
 second tranche at MOC.
 
-**Recut by the SPREAD (volume added after 10:00), not end-of-day level.** The
-end-of-day-rvol split above conflates "how big it got" with "did it keep building";
-the spread `diff = rvol_3:30 − rvol_10:00` isolates the latter (is it still being
-accumulated). It's the sharper add-in trigger:
+**Recut by the SPREAD (volume added after 10:00), not end-of-day level, and FILLED
+AT 3:30.** The end-of-day-rvol split above conflates "how big it got" with "did it
+keep building"; the spread `diff = rvol_3:30 − rvol_10:00` isolates the latter (is it
+still being accumulated). And the add-in is filled at the **3:30 price** (the moment
+you see the spread qualify), not at MOC — the more faithful mechanic, since you can
+just buy it at 3:30 rather than wait for the close. It's the sharper add-in trigger:
 
 | volume ADDED after 10:00 (diff) | n | add-leg PF (full) | low-float PF |
 |---|---|---|---|
-| 2–4 | 851 | 1.41 | 2.76 |
-| 4–6 | 634 | 2.12 | 3.72 |
-| **6–9** | 371 | 2.51 | **4.44** |
-| **9–15** | 262 | **2.98** | 3.24 |
-| >15 (blowoff) | 498 | 1.67 | 1.66 |
+| 2–4 | 907 | 1.48 | 2.68 |
+| 4–6 | 666 | 2.29 | **4.20** |
+| **6–9** | 394 | 2.31 | 4.16 |
+| **9–15** | 278 | **3.21** | 3.41 |
+| >15 (blowoff) | 521 | 1.74 | 1.93 |
 
 (The two PF columns are the SAME add-leg return on two populations: "full" = all
 10:00 names in the bucket; "low-float" = the <$300M subset of that same bucket. The
 gap is the float double-duty stacking on top of the volume-spread edge — n drops
-accordingly, e.g. 371 → 77.) The ratio `rvol_3:30/rvol_10:00` was also tested but is
+accordingly, e.g. 394 → 82.) The **3:30 fill is slightly better than the close fill**
+tested first (e.g. 4–6 low-float 3.72→4.20, 9–15 full 2.98→3.21): buying at 3:30
+instead of waiting for MOC captures ~20 min less upward drift on names that tend to
+drift into the close. The ratio `rvol_3:30/rvol_10:00` was also tested but is
 flatter/less discriminating (mostly PF 1.7–2.0 across the middle); **going forward we
 use the spread DIFFERENCE, not the ratio.** Its one sharp signal worth keeping: ratio
 `<1.5×` (barely built after 10:00) is the only outright LOSER — full 0.64, low-float
 0.59 with a NEGATIVE avg. Confirms the diff read: a name that stalled after the
 morning is a bad add even if it was big at 10:00.
 
-**Add rule (spread form):** add the MOC tranche only if the name added **6–15× rvol
-after 10:00** (full 2.5–3.0 / low-float 3.2–4.4). Skip if it stalled (diff < 2, or
-ratio < 1.5 → negative) or went climactic (diff > 15). Same lesson as Run 22, now as
-a clean afternoon trigger.
+**Add rule (spread form):** at 3:30, add a tranche only if the name added **6–15×
+rvol since 10:00** (full 2.3–3.2 / low-float 3.4–4.2); fill it right there at 3:30.
+Skip if it stalled (diff < 2, or ratio < 1.5 → negative) or went climactic (diff >
+15). Same lesson as Run 22, now as a clean afternoon trigger with a 3:30 fill.
 
 ## Takeaways
 
