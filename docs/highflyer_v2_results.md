@@ -1213,6 +1213,75 @@ unit, and there it's 20/22 full / 22/22 low-float.
 
 *(\*2026 partial — through 2026-05-13 only.)*
 
+## Run 29 — live scanner: engine-validated gate + the recycled-ticker gap fix
+
+First cut of the **real-time detection process** (`scripts/equity/live_scan.py`). It pulls
+Massive's full-market snapshot (`/v2/snapshot/locale/us/markets/stocks/tickers`, ~11k tickers
+in one call — the SAME vendor as the backtest data), joins the D-1 daily factor base computed
+in DuckDB, and applies the exact production `EntryConfig` gate + the <$300M low-float tag. The
+rvol floor is checkpoint-calibrated (intraday volume still accumulating): ~1.0 @ 10:00 → ~5.0
+@ close (1.25 default for ~11:00 ET). Feed decision: **Massive Advanced ($199/mo real-time) for
+3 months**; IBKR = execution + optional Benzinga news; TradingView ruled out (no API / ToS).
+
+**Setup taxonomy (user, this session):** **A+** = low-float ($<300M) AND a dip in the first
+30m off the open (the red-pullback entry); **A** = passes all gates incl. float, no early dip;
+**B** = passes all gates EXCEPT float (mid/large float) → tradeable at smaller size.
+
+### Engine-vs-SQL validation (do the SQL indicators match the backtest to the decimal?)
+
+Ran the engine in parity mode over 2023-2026 (1,151 trips), diffed each indicator the live
+scan reproduces in SQL against the engine's own CSV columns:
+
+| indicator | result |
+|---|---|
+| **ATR% (log 14-bar)** | ✅ exact — max diff 0.0 |
+| **tightness (14-bar range / linear ATR)** | ✅ exact — max diff 0.0 |
+| **rvol (28-cal-day mean vol)** | ✅ **exact after fix** — 0.0 across 651 warm trips |
+| **pct_52w (252-bar high)** | ✅ matches after gap-fix; residual diffs were engine warmup artifacts |
+
+- **rvol fix:** the window must be `[entry−28 days, entry)` anchored on the ENTRY date, not a
+  `RANGE PRECEDING` off the D-1 row (which mis-bounds the calendar span). Traced on MSGM
+  (engine 6.14 = 394412 / mean(19 bars)=64191). Now 0.0 diff.
+
+### The recycled-ticker contamination (and why the engine is *incidentally* safe)
+
+Investigating the pct_52w mismatches surfaced a real, if cosmetic, issue. Some tickers are
+**recycled**: e.g. `MRX` = an old company (2003→2012) whose ticker went dark for **4,154 days**,
+then relisted as **Marex Group plc** (CIK 1997464, IPO 2024-04). A naive "last 252 bars" 52w
+window reaches ACROSS the gap and prices the new company against the OLD company's high ($42.52
+from 2012) — garbage.
+
+- **Why the ENGINE mostly avoids it — by accident, not design.** The engine has NO gap logic.
+  Its `MaxMa(252)` is a fixed 252-*bar* deque, same as the naive SQL. It's protected only
+  because (a) its feed SQL filters `WHERE p.date >= $start` (the `--start-date` CLI arg,
+  default 2005-01-01), so pre-start bars are never streamed to it, and (b) for MRX the gap is
+  >252 bars, so old bars decay out of the window anyway. **A ticker that recycles WITHIN ~252
+  bars of an entry, inside the backtest window, would still contaminate the engine's 52w high.**
+  The safety is incidental; the latent bug is real (and for the live scan, which queries ALL
+  history with no start floor, it's fully exposed).
+- **How much did it touch the production book?** Scanned all 3,906 A+ trips: **29 (0.74%)** have
+  a >45-day gap inside their 52w window; only **2 (0.05%)** are actually contaminated, and BOTH
+  in the SAFE direction (an old high leaked in → pct_52w too NEGATIVE → gate STRICTER, not
+  looser). The bug **cannot have created false positives**; it can only have silently rejected a
+  few valid setups. **The 22/22-year result is untouched** — this is cosmetic, not
+  result-distorting.
+
+### The fix — gap-episode partitioning (applied to the live scan)
+
+Sever every rolling window at a >45-day gap. Pure SQL, no state machine, via the "sessionize"
+idiom: (1) `is_break = date − LAG(date) > 45`; (2) `episode = SUM(is_break) OVER (PARTITION BY
+ticker ORDER BY date)` — a running total that ticks up at each gap; (3) `PARTITION BY ticker,
+episode` on the 52w / ATR / tightness / maxAtrLog windows, so no window can span a gap. Verified:
+MRX splits into two episodes (hi $42.52 old / $66.51 new); the live scan uses the new one. This
+is the SQL equivalent of resetting the engine's rolling state on a detected gap — both yield the
+same result, so the episode logic doubles as the spec for the eventual engine reset.
+
+**Two follow-ups parked for later:** (1) apply the same gap-reset in the F# engine
+(`RollingMa`/`Types.fs` — reset the deques + `barsSeen` on a detected gap), validated against
+this SQL; (2) the live scan reproduces the engine indicators in SQL — a cleaner long-term design
+is an engine "emit D-1 snapshot" mode so the live gate is provably identical with zero
+re-implementation. Neither is urgent (the SQL is engine-validated to the decimal).
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared
