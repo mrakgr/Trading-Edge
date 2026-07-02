@@ -14,7 +14,8 @@ type Args =
     | End_Date of string
     | [<AltCommandLine("-o")>] Out of string
     | Stop_Low_Window of int
-    | Vol_Window of int
+    | Volatility_Window of int
+    | Volume_Days of int
     | Max_Hold_Bars of int
     | Partial_Entry
     | Cutoff_Min of int
@@ -38,7 +39,8 @@ type Args =
             | End_Date _ -> "Backtest end date (yyyy-MM-dd). Default 2026-05-13 (data max)."
             | Out _ -> "Output trips CSV path. Default /tmp/highflyerv2_trips.csv."
             | Stop_Low_Window _ -> "Prior-window low for the stop_low_at_entry CSV snapshot. Default 4. (No stop logic consumes it.)"
-            | Vol_Window _ -> "Lookback window (bars) for BOTH the ATR%% and tightness measures. Default 14."
+            | Volatility_Window _ -> "Lookback window (bars) for BOTH the ATR%% and tightness measures. Default 14."
+            | Volume_Days _ -> "Lookback window (BARS) for the rvol/ADV volume baseline (AvgMa). Default 20."
             | Max_Hold_Bars _ -> "Time-stop: exit at the next open after this many Holding bars (0 = off = hold to MTM). Default 5."
             | Partial_Entry -> "EXPERIMENT: decide + fill the entry on the PARTIAL checkpoint candle (partial_candle_HHMM) instead of the full daily close. Exits stay on the daily series. Days with no usable checkpoint candle are not entered. Default off (parity path)."
             | Cutoff_Min _ -> "With --partial-entry: which checkpoint table to read, by ET minutes-since-midnight (600=10:00 ET default, 630=10:30, 660=11:00). Maps to partial_candle_HHMM. The table must already be built (scripts/equity/build_partial_candle.fsx --cutoff-min N)."
@@ -72,10 +74,11 @@ let main argv =
 
     let cfg =
         { defaultConfig with
-            // --vol-window sets BOTH the ATR%% and tightness lookback.
-            AtrWindow       = parsed.GetResult(Vol_Window, defaultValue = defaultConfig.AtrWindow)
-            TightnessWindow = parsed.GetResult(Vol_Window, defaultValue = defaultConfig.TightnessWindow)
+            // --volatility-window sets BOTH the ATR%% and tightness lookback.
+            AtrWindow       = parsed.GetResult(Volatility_Window, defaultValue = defaultConfig.AtrWindow)
+            TightnessWindow = parsed.GetResult(Volatility_Window, defaultValue = defaultConfig.TightnessWindow)
             StopLowWindow = parsed.GetResult(Stop_Low_Window, defaultValue = defaultConfig.StopLowWindow)
+            VolDays = parsed.GetResult(Volume_Days, defaultValue = defaultConfig.VolDays)
             MaxHoldBars = parsed.GetResult(Max_Hold_Bars, defaultValue = defaultConfig.MaxHoldBars)
             UsePartialEntry = parsed.Contains Partial_Entry
             PartialTable = partialTable

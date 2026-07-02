@@ -31,6 +31,11 @@ type RollingMa<'Bar, 'State>(initState: 'State, windowSize: int) =
             state <- this.Remove (q.Dequeue(), state)
         q.Enqueue x
         state <- this.Add (x, state)
+    /// Drop every buffered bar and return to the initial aggregate — used to
+    /// sever a >45-day listing gap so a recycled ticker's new episode starts cold.
+    member _.Reset () =
+        q.Clear()
+        state <- initState
 
 /// Rolling sum over a fixed-length window of floats. State IS the sum.
 [<Sealed>]
@@ -79,6 +84,12 @@ type MaxMa(windowSize: int) =
         dq.AddToBack(struct (x, barIdx))
         barIdx <- barIdx + 1
         count <- min windowSize (count + 1)
+    /// Clear the window (see RollingMa.Reset). barIdx must reset too — the deque
+    /// eviction cutoff is barIdx-windowSize+1, so a stale barIdx keeps the old horizon.
+    member _.Reset () =
+        dq.Clear()
+        barIdx <- 0
+        count <- 0
 
 [<Sealed>]
 type MinMa(windowSize: int) =
@@ -102,6 +113,12 @@ type MinMa(windowSize: int) =
         dq.AddToBack(struct (x, barIdx))
         barIdx <- barIdx + 1
         count <- min windowSize (count + 1)
+    /// Clear the window (see RollingMa.Reset). barIdx must reset too — the deque
+    /// eviction cutoff is barIdx-windowSize+1, so a stale barIdx keeps the old horizon.
+    member _.Reset () =
+        dq.Clear()
+        barIdx <- 0
+        count <- 0
 
 /// Rolling MEAN over a CALENDAR-day interval (not a fixed bar count), matching
 /// v0's `stock_volume_4w` window: `RANGE BETWEEN INTERVAL <days> DAYS PRECEDING
@@ -135,3 +152,7 @@ type CalendarMeanMa(days: int) =
             else go <- false
     member _.Push (d: DateOnly, v: float) =
         q.Enqueue(struct (d, v)); sum <- sum + v
+    /// Clear the window (see RollingMa.Reset).
+    member _.Reset () =
+        q.Clear()
+        sum <- 0.0

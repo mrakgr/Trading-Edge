@@ -12,7 +12,9 @@ type Config =
       HiCloseWindow: int
       AtrWindow: int
       TightnessWindow: int
-      VolDays: int
+      VolDays: int              // rvol/ADV baseline window, in BARS (was 28 CALENDAR
+                                // days via CalendarMeanMa; now a fixed AvgMa bar count
+                                // ~20, approximating the old 28-day trailing mean)
       MaxHoldBars: int          // time-stop: exit at next open after this many Holding bars (0 = off)
       UsePartialEntry: bool     // true = decide + fill on the partial checkpoint candle (the experiment);
                                 // false = the parity path (full daily bar drives the entry)
@@ -27,7 +29,12 @@ let defaultConfig =
       HiCloseWindow = 252
       AtrWindow = 14
       TightnessWindow = 14
-      VolDays = 28
+      // VolDays is now a BAR count feeding AvgMa (was 28 calendar days via
+      // CalendarMeanMa). 20 approximates the old window's high-bar-count case
+      // (a 28-cal-day window holds a median of 19, max 20 trading bars). This
+      // SHIFTS the rvol/ADV baseline and thus entry selection — re-validated
+      // against live_scan.py (ROWS 20 PRECEDING AND 1 PRECEDING) to 0.0.
+      VolDays = 20
       // 5d time-stop: the high-edge breakouts carry ~61% of P&L (PF 1.83) in the
       // first 5 days; the rest is a low-edge grind. NoStop is gone — it was just a
       // time-stop with an infinite cap, so a price stop never exists here.

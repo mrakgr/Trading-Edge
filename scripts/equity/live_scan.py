@@ -8,7 +8,7 @@ This is the first cut of the real-time detection process (2026-07-01). It:
      ticker's today OHLC/volume + prevDay + todaysChange.
   2. Joins the D-1 (last completed close) daily factors computed in DuckDB to
      match the engine's indicators (Types.fs): 252d high close, 14-bar log/lin
-     ATR, 14-bar tightness range, 28-calendar-day mean volume + dollar volume,
+     ATR, 14-bar tightness range, 20-bar mean volume + dollar volume,
      126-bar max log-ATR.
   3. Applies the exact production EntryConfig gate + the low-float ($<300M) join.
 
@@ -108,15 +108,22 @@ def main():
     base AS (
       SELECT *,
         -- running episode id: increments at each >45d gap (0 for the first listing)
-        SUM(is_break) OVER (PARTITION BY ticker ORDER BY date) AS episode,
-        LAG(c) OVER (PARTITION BY ticker ORDER BY date) AS pc
+        SUM(is_break) OVER (PARTITION BY ticker ORDER BY date) AS episode
       FROM marked
     ),
     tr AS (
+      -- prior close, EPISODE-partitioned (NULL at each episode's first bar) so the
+      -- true range is not computed across a gap — matches the engine, which resets
+      -- prevClose to ValueNone on a gap (lastBar cleared in ResetIndicators).
+      SELECT *,
+        LAG(c) OVER (PARTITION BY ticker, episode ORDER BY date) AS pc
+      FROM base
+    ),
+    trx AS (
       SELECT *,
         CASE WHEN pc>0 AND h>0 AND l>0 THEN greatest(h,pc)-least(l,pc) END AS tr_lin,
         CASE WHEN pc>0 AND h>0 AND l>0 THEN ln(greatest(h,pc)/least(l,pc)) END AS tr_log
-      FROM base
+      FROM tr
     ),
     roll AS (
       SELECT ticker, date, c, o, episode,
@@ -125,42 +132,37 @@ def main():
         MAX(h) OVER w14 AS rng_hi,
         MIN(l) OVER w14 AS rng_lo,
         MAX(c) OVER w252 AS hi_close252,
+        -- 20-BAR trailing mean volume + dollar-volume, episode-partitioned, over the
+        -- 20 COMPLETED bars ending at this row inclusive (ROWS 19 PRECEDING AND CURRENT
+        -- ROW). This row is the last completed close (rn_desc=1) = bar D-1 for a live
+        -- scan on the still-forming bar D, so the frame is [D-20 .. D-1] — exactly the
+        -- 20 prior bars the engine's AvgMa(20) holds when it reads .State pre-push on D.
+        -- Replaces the old 28-CALENDAR-day window to match the engine (Types.fs).
+        -- Episode partition severs recycled-ticker gaps like the engine.
+        AVG(v)   OVER wvol AS avgvol28,
+        AVG(c*v) OVER wvol AS avgdolvol28,
         ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY date DESC) AS rn_desc,
         -- bars in the CURRENT episode only (warmup gate must not count old-listing bars)
         COUNT(*) OVER (PARTITION BY ticker, episode) AS nbars
-      FROM tr
+      FROM trx
       -- every rolling window is partitioned by (ticker, episode): it cannot span a gap.
       WINDOW w14  AS (PARTITION BY ticker, episode ORDER BY date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW),
-             w252 AS (PARTITION BY ticker, episode ORDER BY date ROWS BETWEEN 251 PRECEDING AND CURRENT ROW)
+             w252 AS (PARTITION BY ticker, episode ORDER BY date ROWS BETWEEN 251 PRECEDING AND CURRENT ROW),
+             wvol AS (PARTITION BY ticker, episode ORDER BY date ROWS BETWEEN 19 PRECEDING AND CURRENT ROW)
     ),
     -- 126-bar max of the 14-bar log-ATR (also episode-partitioned)
     maxatr AS (
       SELECT ticker, date,
         MAX(atr_log) OVER (PARTITION BY ticker, episode ORDER BY date ROWS BETWEEN 125 PRECEDING AND CURRENT ROW) AS maxatrlog126
       FROM roll
-    ),
-    -- 28-CALENDAR-day mean volume + dollar-volume, anchored on TODAY (the live
-    -- entry bar D). The engine's CalendarMeanMa snapshot for an entry on D is the
-    -- mean over bars with date in [D-28, D-1] (D not yet pushed). Validated to 0.0
-    -- diff vs the engine across 651 warm trips. NOTE: anchor on CURRENT_DATE, not
-    -- on the last-close row — a RANGE window off D-1 mis-bounds the calendar span.
-    -- (A >45d gap inside a 28-day window is impossible, so no episode split needed here.)
-    calvol AS (
-      SELECT ticker,
-        AVG(v) AS avgvol28,
-        AVG(c*v) AS avgdolvol28
-      FROM base
-      WHERE date >= CURRENT_DATE - INTERVAL 28 DAY AND date < CURRENT_DATE
-      GROUP BY ticker
     )
     SELECT r.ticker,
       r.atr_lin, r.atr_log AS atr_pct, r.rng_hi, r.rng_lo,
       (r.rng_hi - r.rng_lo) AS range_abs,
       CASE WHEN r.atr_lin>0 THEN (r.rng_hi-r.rng_lo)/r.atr_lin END AS tightness,
-      r.hi_close252, m.maxatrlog126, cv.avgvol28, cv.avgdolvol28, r.nbars
+      r.hi_close252, m.maxatrlog126, r.avgvol28, r.avgdolvol28, r.nbars
     FROM roll r
     JOIN maxatr m ON m.ticker=r.ticker AND m.date=r.date
-    JOIN calvol cv ON cv.ticker=r.ticker    -- avgvol28 keyed by ticker (anchored on today)
     WHERE r.rn_desc = 1 AND r.nbars > 21    -- last completed close per ticker, warmed up
     """)
 

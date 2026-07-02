@@ -117,14 +117,18 @@ type HighFlyer
     let maxAtrLog = MaxMa(126)                  // past-runner: 126-bar max of the 14-bar log-ATR
     let rangeHigh = MaxMa(tightnessWindow)      // tightness: max high
     let rangeLow  = MinMa(tightnessWindow)      // tightness: min low
-    let avgVol    = CalendarMeanMa(volDays)     // AVG(volume), 28-calendar-day
-    let avgDolVol = CalendarMeanMa(volDays)     // AVG(close*volume), 28-calendar-day
+    let avgVol    = AvgMa(volDays)              // AVG(volume) over the prior `volDays` BARS
+    let avgDolVol = AvgMa(volDays)              // AVG(close*volume) over the prior `volDays` BARS
 
     // Open + closed trips for this ticker, in entry order.
     let positions = ResizeArray<Position>()
 
-    let mutable prevClose : float voption = ValueNone
     let mutable barsSeen  = 0
+    // The last full bar folded in. Doubles as the prior close (lastBar.close) for
+    // the true-range fold and the pre-push snapshot, the anchor for the >45d
+    // listing-gap check, and the bar we MTM-close open trips at on a gap. ValueNone
+    // before the first bar (so a fresh ticker never triggers a spurious gap reset).
+    let mutable lastBar   : Bar voption = ValueNone
 
     // ----- snapshots captured at the last ProcessBar, BEFORE the push -----
     let mutable sStopLow   : float voption = ValueNone
@@ -137,7 +141,7 @@ type HighFlyer
     let mutable sAtrLin    : float voption = ValueNone
     let mutable sRangeHigh : float voption = ValueNone
     let mutable sRangeLow  : float voption = ValueNone
-    let mutable sPrevClose : float voption = ValueNone
+    let mutable sPrevBar   : Bar voption = ValueNone
     let mutable sAvgVol    : float voption = ValueNone
     let mutable sAvgDolVol : float voption = ValueNone
 
@@ -195,8 +199,8 @@ type HighFlyer
         | _ -> ValueNone
     /// Same-day return = close / prev close - 1.
     member _.PctUp (closePrice: float) =
-        match sPrevClose with
-        | ValueSome pc when pc <> 0.0 -> ValueSome (closePrice / pc - 1.0)
+        match sPrevBar with
+        | ValueSome pb when pb.close <> 0.0 -> ValueSome (closePrice / pb.close - 1.0)
         | _ -> ValueNone
 
     /// Does this entry candle trigger an entry? Reads pre-push snapshots, so it
@@ -237,13 +241,40 @@ type HighFlyer
         // past-runner volatility-history FLOOR. ValueNone fails.
         && gate this.MaxAtrLog (fun ma -> ma >= entryCfg.MinMaxAtrLog)
 
+    /// Clear all rolling indicator state so the next bar starts a COLD episode —
+    /// identical to a freshly-constructed HighFlyer, EXCEPT the `positions` ledger
+    /// is preserved (the pre-gap episode's now-closed trips stay for harvest). Every
+    /// windowed structure is reset (atrLin included — else tightness leaks across the
+    /// gap), plus lastBar (no cross-gap prior-close / true range) and barsSeen (warmup
+    /// re-arms). Callers that need the pre-gap bar must read it BEFORE calling this.
+    member private _.ResetIndicators () =
+        stopLow.Reset ();   hiClose.Reset ();   hiHigh.Reset ()
+        loClose.Reset ();   loLow.Reset ()
+        atrLog.Reset ();    atrLin.Reset ();    maxAtrLog.Reset ()
+        rangeHigh.Reset (); rangeLow.Reset ()
+        avgVol.Reset ();    avgDolVol.Reset ()
+        lastBar   <- ValueNone
+        barsSeen  <- 0
+
     /// Update every rolling structure with the most recent bar. Snapshots are
     /// taken BEFORE the push (prior-bars / no-lookahead), then the bar is folded
     /// in for the next call.
-    member _.ProcessBar (bar: Bar) =
-        // 1) snapshot the pre-bar state (calendar means evicted as-of THIS date first).
-        avgVol.Evict    bar.date
-        avgDolVol.Evict bar.date
+    member this.ProcessBar (bar: Bar) =
+        // 0) >45d listing-gap sever (mirrors live_scan.py's `date - LAG(date) > 45`).
+        // A recycled ticker (old co. then a NEW co. under the same symbol after a
+        // multi-year gap) must not let rolling windows span the gap. On a gap we
+        // (a) MTM-close any still-open trips at the LAST pre-gap bar (end-of-episode,
+        // the same rule Finalize applies at end-of-series), then (b) reset every
+        // indicator so this bar starts cold. positions is NOT cleared — the just-
+        // closed trips stay and are harvested at the next Backtest.flush(). Strictly
+        // `> 45`, so exactly 45 calendar days does not trigger.
+        match lastBar with
+        | ValueSome prev when (bar.date.DayNumber - prev.date.DayNumber) > 45 ->
+            this.Finalize prev          // MTM open trips at the pre-gap bar's close
+            this.ResetIndicators ()
+        | _ -> ()
+
+        // 1) snapshot the pre-bar state.
         sAvgVol    <- avgVol.State
         sAvgDolVol <- avgDolVol.State
         sStopLow   <- stopLow.State
@@ -256,11 +287,12 @@ type HighFlyer
         sAtrLin    <- atrLin.State
         sRangeHigh <- rangeHigh.State
         sRangeLow  <- rangeLow.State
-        sPrevClose <- prevClose
+        sPrevBar   <- lastBar
 
         // 2) fold the current bar in. Both LOG and LINEAR ATRs updated each bar.
-        match prevClose with
-        | ValueSome pc when bar.high > 0.0 && bar.low > 0.0 && pc > 0.0 ->
+        match sPrevBar with
+        | ValueSome pb when bar.high > 0.0 && bar.low > 0.0 && pb.close > 0.0 ->
+            let pc = pb.close
             (max bar.high pc - min bar.low pc)
             |> atrLin.Push
             log (max bar.high pc / min bar.low pc)
@@ -278,10 +310,10 @@ type HighFlyer
         rangeHigh.Push bar.high
         rangeLow.Push  bar.low
         let vol = float bar.volume
-        avgVol.Push    (bar.date, vol)
-        avgDolVol.Push (bar.date, bar.close * vol)
+        avgVol.Push    vol
+        avgDolVol.Push (bar.close * vol)
 
-        prevClose <- ValueSome bar.close
+        lastBar   <- ValueSome bar
         barsSeen  <- barsSeen + 1
 
     /// All trips for this ticker (open + closed), in entry order.

@@ -1282,6 +1282,62 @@ this SQL; (2) the live scan reproduces the engine indicators in SQL — a cleane
 is an engine "emit D-1 snapshot" mode so the live gate is provably identical with zero
 re-implementation. Neither is urgent (the SQL is engine-validated to the decimal).
 
+## Run 30 — engine gap-reset shipped + volume-baseline (`--volume-days`) sweep
+
+Two coupled engine changes, then a sweep of the volume-baseline length. (Parked follow-up #1
+from Run 29 is now DONE.)
+
+### Gap-reset in the F# engine (Run 29's SQL episode logic, now in the engine)
+
+`RollingMa` grew a `Reset()` on every family (base sum/avg, `MaxMa`/`MinMa`, `CalendarMeanMa`).
+`HighFlyer` now stores `lastBar` and, on a **>45-day gap** between consecutive same-ticker bars,
+(a) **MTM-closes any open trips at the last pre-gap bar** (end-of-episode, same rule as
+end-of-series `Finalize`), then (b) resets all 12 rolling structures + `barsSeen` so the new
+episode starts cold. Mirrors the live-scan `episode = SUM(date−LAG(date)>45)` sessionize exactly.
+(`prevClose` was removed — it's just `lastBar.close`; `sPrevClose` → `sPrevBar`.)
+
+**Verified gap-local** (baseline HEAD binary vs new, full 2005–2026 parity run, daily-close path):
+- **Zero** changes on any gap-free ticker, in any column.
+- All 42 dropped/added symbols and all 339 changed-snapshot trips have a genuine >45-day prior
+  gap (smallest ~2,277 days: MRX/Marex, ELE, OPEN, WOOF, VELO, Z, …). No gap-free contamination.
+- Changed columns were ONLY the window-derived metrics (ATR%, tightness, ADV, 52w-low) — never
+  price/PnL/exit. **PF 1.825 → 1.824** (the gap slice is tiny and correctly severed).
+
+### CalendarMeanMa → AvgMa: calendar days no longer needed
+
+The 28-*calendar-day* volume/ADV window (`CalendarMeanMa`) existed **only to survive gaps**. With
+the engine now resetting on gaps, that reason is gone, so the volume baseline is a plain fixed-bar
+`AvgMa`. A 28-calendar-day window empirically holds a **median of 19, max 20** trading bars, so
+20 bars is the closest fixed replacement. Re-validated to **0.0** (max diff 4.8e-13 rvol / 1.0e-5
+ADV = FP noise) against the live scan's matching `ROWS BETWEEN 19 PRECEDING AND CURRENT ROW`
+(episode-partitioned) across all 5,596 trips. Exposed as `--volume-days` (the ATR%/tightness
+window is now the disambiguated `--volatility-window`).
+
+### The sweep — is a longer volume baseline better? (No.)
+
+Full 2005–2026, production defaults, only `--volume-days` varied:
+
+| volume-days | trips | win% | net P&L | clip-era PF |
+|---:|---:|---:|---:|---:|
+| 10 | 5746 | 53.1% | $1.27M | 1.741 |
+| 14 | 5729 | 53.4% | $1.36M | 1.807 |
+| **20** | 5596 | 53.5% | $1.34M | **1.812** |
+| 28 | 5528 | 53.5% | $1.31M | 1.811 |
+| 40 | 5384 | 53.3% | $1.00M | 1.617 |
+| 60 | 5382 | 53.7% | $1.00M | 1.613 |
+| 90 | 5512 | 53.7% | $1.03M | 1.607 |
+
+**PF plateaus at 14–28 bars (~1.81), then falls off a cliff at 40+ (~1.61, −25% net P&L).**
+20 sits at the top of the plateau — the chosen default is well-placed; there is no free
+performance in lengthening the window.
+
+**Why longer is worse:** rvol's job is to flag volume that's *unusual vs the name's recent
+normal*. A ~1-month baseline (14–28 bars) captures "normal" cleanly. Stretch it to 2–4 months and
+it averages in the name's *previous* runs — an episodically-active stock develops a permanently
+inflated baseline, so today's genuine spike no longer clears rvol ≥ 5. You both lose the sharpest
+setups (trips drop ~350) and keep lower-quality ones. Short (10 bars) is also worse — too noisy a
+denominator. The edge wants ~20 bars.
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared
