@@ -624,6 +624,89 @@ FLOORS: 1d ≤ −8%, 3d ≥ −8% (a ceiling on the *downtrend*), 20m ≤ −3%
 > The no-float sweep numbers (Run 21, core = PF 1.96) were never affected — they used
 > the un-joined trip table.
 
+## Run 22 — the 3d return has an inverted-U too: tighten to [−3%, +30%] (PRODUCTION)
+
+Ran the 3d breakdown on the full production system (gates + 1d ≤ −8% + 20m ≤ −3% +
+ADV + rvol + low-float < $300M), 3d filter REMOVED so the whole spectrum shows (1:1
+float join, fan-out-free):
+
+| 3d return | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| < −25% | 1,178 | 57.6 | 1.54 | +1.83 |
+| −25..−15 | 1,057 | 61.0 | 1.83 | +1.74 |
+| −15..−8 | 781 | 67.5 | 2.11 | +1.76 |
+| −8..−3 | 429 | 63.9 | 1.67 | +1.35 |
+| −3..0 | 189 | 67.7 | 2.96 | +2.50 |
+| **0..5** | 269 | 66.9 | **3.10** | +2.84 |
+| **5..15** | 379 | 68.6 | 2.76 | +3.15 |
+| **15..30** | 286 | 65.7 | 2.90 | +3.05 |
+| ≥30% | 226 | 57.1 | 1.70 | +1.86 |
+
+**An inverted-U centered slightly ABOVE zero** — the best fade is a name that was
+**flat-to-UP over the prior 3 days** (0..+15% → PF 2.76–3.10) taking a sharp one-day
+flush: the purest *pullback in an uptrend* (multi-day strength intact → real buyers
+snap the panic back). Both tails are weak: < −25% (multi-day collapse) and ≥ +30% (a
+parabolic blow-off, too extended). 3d threshold sweep **(this table has low-float <
+$300M ALREADY in the base — it measures the 3d effect WITHIN the low-float book):**
+
+| 3d filter (× low-float) | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| ≥ −8 (old) | 1,778 | 65.2 | 2.34 | +2.42 |
+| ≥ −3 | 1,349 | 65.6 | 2.59 | +2.76 |
+| ≥ 0 | 1,160 | 65.3 | 2.55 | +2.80 |
+| **[−3, +30]** | 1,123 | 67.3 | **2.90** | +2.94 |
+
+**PRODUCTION CHANGE: 3d ∈ [−3%, +30%]** (was ≥ −8%) — the cleanest single PF
+improvement, **2.34 → 2.90 within the low-float book** at ~63% of the trips. Both ends
+earn their keep: the −3% floor cuts the weak multi-day-decliner tail; the +30% cap cuts
+the parabolic blow-offs. By-year (3d ≥ 0): 2017→2026 all positive (PF 1.7–4.9, peak
+2021 4.87); weak years are pre-2017 tiny samples (float-coverage-thin), same modern-era
+caveat as low-float.
+
+**IMPORTANT — 3d and low-float are SEPARABLE (both required for PF 2.90):** with 3d ∈
+[−3, +30] but WITHOUT the low-float filter the system is only **PF 2.20** (2,278 trips);
+adding low-float < $300M takes it **2.20 → 2.90** (1,123 trips). So the 2.90 headline is
+NOT the 3d-tightening alone — it needs BOTH the tightened 3d band AND the low-float
+filter. Each does real, independent work.
+
+| 3d ∈ [−3,+30] | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| no float filter | 2,278 | 65.2 | 2.20 | +2.19 |
+| float present | 1,474 | 65.7 | 2.44 | +2.42 |
+| **+ low-float < $300M** | 1,123 | 67.3 | **2.90** | +2.94 |
+
+**Low-float breakdown within the NEW production (3d ∈ [−3%, +30%]):**
+
+| dollar-float | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| < $50M | 681 | 67.3 | 2.76 | +2.84 |
+| $50–150M | 277 | 68.6 | 3.03 | +3.07 |
+| **$150–300M** | 165 | 65.5 | **3.33** | +3.14 |
+| $300M–1B | 191 | 59.7 | 1.44 | +0.89 |
+| $1–5B | 81 | 60.5 | 1.26 | +0.58 |
+| ≥ $5B | 79 | 62.0 | 1.28 | +0.63 |
+
+The < $300M break is now even sharper — all three sub-bands PF **2.76–3.33** vs
+1.26–1.44 for large caps (>2× gap). Within sub-$300M, PF RISES toward the $150–300M
+band (2.76 → 3.03 → 3.33) — the "small-but-real" names fade most cleanly once 3d
+strength is already required; the micro-floats aren't the best here.
+
+---
+
+## PRODUCTION SPEC (locked this session)
+
+**FINAL system → PF 2.90 / 67% win / +2.94% per trade / 1,123 trips (2003–2026).**
+
+Long the intraday flush, scanning from 9:45 ET (indicators warm from 08:30), fill at
+the breakout-bar close, hold to MOC. **min-CLOSE breakout reference.**
+
+- **ENGINE GATES:** entry-bar flush `close/prevClose ≤ −0.7%` · intraday log-ATR `< 0.02`.
+- **SELECTION:** 1d ≤ −8% (depth floor) · 20m ≤ −3% (velocity floor) ·
+  **3d ∈ [−3%, +30%]** (trend band — flat-to-strong, not a decliner, not parabolic) ·
+  dollar-float < $300M (low-float overreaction) · ADV ≥ $500k · rvol_0945 ≥ 0.1.
+- Same-day MOC trade (the bounce is intraday); volatility-regime-tilted; low-float +
+  3d-band filters are modern-era-strongest (pre-2017 float coverage thin).
+
 ---
 
 ## The core setup (as of this session)
@@ -637,7 +720,9 @@ FLOORS: 1d ≤ −8%, 3d ≥ −8% (a ceiling on the *downtrend*), 20m ≤ −3%
 >   *A cheap additive tail-clip: 1.34→1.41 stacked.*
 >
 > **SELECTION (post-hoc filters, the pullback-flush core — depth × velocity × trend × float):**
-> - **3d ≥ −8%** — NOT a multi-day decliner (buyers underneath, not a collapse).
+> - **3d ∈ [−3%, +30%]** — flat-to-STRONG over 3 days (pullback in an uptrend), not a
+>   multi-day decliner and not a parabolic blow-off. A BAND — inverted-U, peak in
+>   [0,+15%] (Run 22). Tightened from ≥ −8%: PF 2.34 → 2.90.
 > - **1d ≤ −8%** — a real day-scale flush (DEPTH); a FLOOR, not a band — deeper is fine
 >   (falling-knife handled by the ATR gate + 3d, not a 1d ceiling). Run 19.
 > - **20m ≤ −3%** — dislocating acutely NOW (VELOCITY); a FLOOR (require some velocity),
