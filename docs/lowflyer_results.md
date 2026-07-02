@@ -720,6 +720,40 @@ a real move when breadth is weak. (Two wrinkles: the < 0.20 deep-bear cell bumps
 good (PF 2.33), so keep trading it, but **size up hard when breadth ≥ 0.65** (the PF gap
 justifies ~2–3× base size). A sizing input, NOT a gate.
 
+## Run 24 — yearly breakdown (flat + breadth-sized)
+
+The production system per year (flat = 1× every trip; sized = **3× when D-1 breadth ≥
+0.65**, 1× otherwise — the Run 23 size-up). `n_up` = trips in the 3×-sized bucket.
+
+| year | n | n_up | flat PF | sized PF | flat avg% | sized avg% | sized net |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 2011 | 8 | 4 | 1.58 | 3.42 | +0.78 | +1.63 | $2.6k |
+| 2012 | 8 | 5 | 0.37 | 0.37 | −3.05 | −1.92 | −$3.5k |
+| 2013 | 9 | 3 | 19.1 | 33.2 | +2.98 | +3.18 | $4.8k |
+| 2014 | 14 | 7 | 5.95 | 3.99 | +4.33 | +3.12 | $8.7k |
+| 2015 | 22 | 2 | 1.97 | 2.03 | +1.11 | +1.03 | $2.7k |
+| 2016 | 27 | 13 | 1.28 | 1.03 | +0.60 | +0.09 | $0.5k |
+| 2017 | 32 | 8 | 3.94 | 4.61 | +3.54 | +3.79 | $18.2k |
+| 2018 | 31 | 11 | 3.81 | 2.65 | +2.96 | +2.35 | $12.5k |
+| 2019 | 45 | 19 | 2.82 | 2.26 | +2.62 | +1.81 | $15.1k |
+| **2020** | 170 | 91 | 3.82 | 4.50 | +3.52 | +3.89 | $136.8k |
+| **2021** | 198 | 100 | 4.96 | 6.41 | +4.10 | +4.88 | $194.4k |
+| **2022** | 108 | 37 | 2.37 | 3.82 | +2.80 | +4.21 | $76.7k |
+| 2023 | 116 | 56 | 1.63 | 1.82 | +1.61 | +1.96 | $44.6k |
+| 2024 | 136 | 30 | 3.04 | 3.36 | +3.56 | +3.69 | $72.4k |
+| 2025 | 162 | 34 | 2.71 | 2.95 | +2.48 | +2.76 | $63.5k |
+| 2026 | 34 | 15 | 2.14 | 2.58 | +1.62 | +1.85 | $11.9k |
+| **TOTAL** | **1,123** | — | **2.90** | **3.40** | **+2.94** | **+3.35** | **$668k** |
+
+Flat: PF 2.90, +$330k. Breadth-sized 3×: **PF 3.40, +$668k (+102% net)** — same trips,
+3× weight on the ~40% that fall on high-breadth days. Every large-sample modern year
+(2020–2025) improves (2021 4.96→6.41, 2022 2.37→3.82). The sized book has HIGHER
+VARIANCE (3× bets on 40% of trips), so sized PF isn't directly risk-comparable to flat —
+it shows breadth is a real +EV sizing signal, not a like-for-like PF. **First trip is
+2011 — SEC XBRL float coverage begins ~2011, so pre-2011 is a DATA boundary, not a
+strategy boundary.** The lone losing year (2012, PF 0.37) is 8-trip noise. Where sample
+is real (2017+, 30–200 trips/yr): positive every year, flat PF 1.6–5.0.
+
 ---
 
 ## PRODUCTION SPEC (locked this session)
@@ -733,8 +767,9 @@ the breakout-bar close, hold to MOC. **min-CLOSE breakout reference.**
 - **SELECTION:** 1d ≤ −8% (depth floor) · 20m ≤ −3% (velocity floor) ·
   **3d ∈ [−3%, +30%]** (trend band — flat-to-strong, not a decliner, not parabolic) ·
   dollar-float < $300M (low-float overreaction) · ADV ≥ $500k · rvol_0945 ≥ 0.1.
-- **SIZING:** base size, **× up when D-1 breadth (`pct_above_20`) ≥ 0.65** (PF 4.23 vs
-  2.33 — Run 23). Breadth is a size-up input, NOT a gate (keep trading weak-breadth days).
+- **SIZING:** base size, **3× when D-1 breadth (`pct_above_20`) ≥ 0.65** (PF 4.23 vs
+  2.33 — Run 23; 3× → PF 2.90→3.40, net +102% — Run 24). A size-up input, NOT a gate
+  (keep trading weak-breadth days); the 3× book carries higher variance.
 - Same-day MOC trade (the bounce is intraday); volatility-regime-tilted; low-float +
   3d-band + breadth-size-up are modern-era-strongest (pre-2017 float coverage thin).
 
