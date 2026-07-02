@@ -573,20 +573,19 @@ fallback — the `live_scan.py` pattern; 62% trip coverage). Within the core (ga
 
 | dollar-float | n | win% | PF | avg% |
 |---|---:|---:|---:|---:|
-| < $50M | 2,029 | 60.5 | 1.54 | +1.24 |
-| **$50–150M** | 837 | 60.9 | **1.89** | +1.77 |
-| **$150–300M** | 551 | 58.1 | 1.76 | +1.30 |
-| $300M–1B | 815 | 52.9 | 1.17 | +0.40 |
-| $1–5B | 499 | 58.3 | 1.27 | +0.51 |
-| ≥ $5B | 303 | 57.4 | 1.24 | +0.47 |
+| < $50M | 1,284 | 65.3 | 2.23 | +2.16 |
+| $50–150M | 562 | 63.2 | 2.23 | +2.12 |
+| **$150–300M** | 355 | 62.0 | **2.45** | +1.97 |
+| $300M–1B | 490 | 56.5 | 1.59 | +1.00 |
+| ≥ $1B | 471 | 60.5 | 1.55 | +0.90 |
 
-**Clean break at ~$300M** — the $50–300M band runs PF 1.76–1.89 vs 1.17–1.27 for
-large caps (> $300M). The flush-fade is fundamentally a **low-float overreaction**
-(a squeeze-prone name overshoots on a flush and snaps back; a mega-cap doesn't) — the
-SAME <$300M threshold that drives the HighFlyer daily edge, now on the intraday side.
-The very-smallest (< $50M) is slightly WORSE (PF 1.54) — illiquid/knife noise past the
-ADV gate — so the sweet spot is **$50–300M, not "smaller is always better."** Stacked:
-core + low-float < $300M → **PF 1.42 → 1.65, avg +0.93% → +1.38%.**
+**Clean break at ~$300M** — the < $300M band runs PF 2.23–2.45 vs 1.55–1.59 for large
+caps (> $300M). The flush-fade is fundamentally a **low-float overreaction** (a
+squeeze-prone name overshoots on a flush and snaps back; a mega-cap doesn't) — the SAME
+<$300M threshold that drives the HighFlyer daily edge, now on the intraday side. Below
+$300M the three sub-bands are all strong (2.23–2.45) — the < $50M "smaller is worse"
+tilt of the earlier (fan-out-contaminated) read does NOT survive the correction; it's
+just "< $300M." Stacked: core + low-float < $300M → **PF 1.92 → 2.26, avg +1.63% → +2.12%.**
 
 **Caveat:** low-float is strong in the modern era (2017+: 2019 PF 3.13, 2021 2.76, 2024–26
 1.6–1.9) but the sub-$300M sample is thin/erratic pre-2017 (float data coverage) — treat
@@ -612,8 +611,18 @@ a floor removes ONLY the flat/rising-20m trades (velocity absent); the band ALSO
 the good deep-20m tail. **Chosen floor: 20m ≤ −3%** — the knee: PF 1.92→1.96, avg
 +1.63→+1.88%, win 62→63%, keeping ~78% of trips and ~90% of net. Past −3% keeps climbing
 (≤ −5% → PF 2.16) but pays real capacity. Stacks with low-float: core + 20m ≤ −3% +
-low-float < $300M → **PF 1.67, 60.7% win** (2,761 trips). So all three declines are
+low-float < $300M → **PF 2.34, 65.2% win** (1,778 trips). So all three declines are
 FLOORS: 1d ≤ −8%, 3d ≥ −8% (a ceiling on the *downtrend*), 20m ≤ −3%.
+
+> **⚠ Correction (fan-out bug):** the low-float / stacked figures in Runs 20–21 were
+> first computed with a float table joined on `(symbol, trade_date)` only — but
+> LowFlyer allows multiple entries per day (18,973 such day-pairs), so that join
+> FANNED OUT multi-entry days (k×k), deflating the aggregate PF. Fixed by computing
+> `dollar_float` as a 1:1 LATERAL column on the trip row. The corrected numbers above
+> are HIGHER (core+float PF 1.65→2.26, core+float+20m-floor 1.67→2.34); the *pattern*
+> (clean < $300M break, low-float is the edge) was unchanged, only the magnitudes.
+> The no-float sweep numbers (Run 21, core = PF 1.96) were never affected — they used
+> the un-joined trip table.
 
 ---
 
