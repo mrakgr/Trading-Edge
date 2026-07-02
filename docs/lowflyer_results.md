@@ -592,6 +592,29 @@ core + low-float < $300M → **PF 1.42 → 1.65, avg +0.93% → +1.38%.**
 1.6–1.9) but the sub-$300M sample is thin/erratic pre-2017 (float data coverage) — treat
 it as a modern-era filter, not a full-history one.
 
+## Run 21 — a 20m FLOOR (not a band) DOES help: require some velocity
+
+Run 19 said don't BAND the 20m; but a FLOOR (require 20m ≤ some small negative — remove
+the velocity-absent trades without amputating the deep tail) improves everything
+monotonically. Sweep on the core (gated + 1d ≤ −8% + 3d ≥ −8% + ADV + rvol):
+
+| 20m floor | n | win% | PF | avg% | net |
+|---|---:|---:|---:|---:|---:|
+| none | 4,823 | 62.1 | 1.92 | +1.63% | $788k |
+| ≤ −1.5% | 4,606 | 62.2 | 1.94 | +1.69% | $779k |
+| ≤ −2% | 4,369 | 62.4 | 1.95 | +1.75% | $766k |
+| **≤ −3%** | 3,786 | 63.0 | 1.96 | +1.88% | $713k |
+| ≤ −4% | 3,152 | 64.2 | 2.05 | +2.14% | $674k |
+| ≤ −5% | 2,540 | 65.0 | 2.16 | +2.47% | $627k |
+
+Monotonic PF/avg/win improvement, capacity the only cost. The difference from Run 19:
+a floor removes ONLY the flat/rising-20m trades (velocity absent); the band ALSO chopped
+the good deep-20m tail. **Chosen floor: 20m ≤ −3%** — the knee: PF 1.92→1.96, avg
++1.63→+1.88%, win 62→63%, keeping ~78% of trips and ~90% of net. Past −3% keeps climbing
+(≤ −5% → PF 2.16) but pays real capacity. Stacks with low-float: core + 20m ≤ −3% +
+low-float < $300M → **PF 1.67, 60.7% win** (2,761 trips). So all three declines are
+FLOORS: 1d ≤ −8%, 3d ≥ −8% (a ceiling on the *downtrend*), 20m ≤ −3%.
+
 ---
 
 ## The core setup (as of this session)
@@ -608,8 +631,9 @@ it as a modern-era filter, not a full-history one.
 > - **3d ≥ −8%** — NOT a multi-day decliner (buyers underneath, not a collapse).
 > - **1d ≤ −8%** — a real day-scale flush (DEPTH); a FLOOR, not a band — deeper is fine
 >   (falling-knife handled by the ATR gate + 3d, not a 1d ceiling). Run 19.
-> - **20m negative** — dislocating acutely NOW (VELOCITY); just needs to be negative,
->   don't box it (Run 19). Orthogonal to 1d (ρ 0.58, each adds PF — Run 18).
+> - **20m ≤ −3%** — dislocating acutely NOW (VELOCITY); a FLOOR (require some velocity),
+>   NOT a band (Run 21 — deeper is better, PF climbs to 2.16 at ≤ −5%; −3% is the
+>   capacity knee). Orthogonal to 1d (ρ 0.58, each adds PF — Run 18).
 > - **dollar-float < $300M** (sweet spot $50–300M) — the flush-fade is a LOW-FLOAT
 >   overreaction; large caps (>$300M) barely work (Run 20). Modern-era filter.
 > - tradeable: ADV ≥ $500k, rvol_0945 ≥ ~0.1 (NOT the old > 1 floor — Run 10).
