@@ -98,6 +98,8 @@ type Trip =
       PctChgSinceOpen: float     // entryPx / dayOpen - 1
       Close1d: float             // close-1-day-ago (adj) = PrevAdjClose
       Close3d: float             // close-3-days-ago (adj)
+      Chg1d: float               // entryPx / close_1d - 1 — day-scale flush DEPTH at entry (selection filter)
+      Chg3d: float               // entryPx / close_3d - 1 — 3-day trend (>= -8% = not a multi-day decliner)
       // exit
       ExitMin: int
       ExitPrice: float           // MOC close (adj scale)
@@ -135,6 +137,8 @@ let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Tr
           PctChgSinceOpen = (if c.DayOpen > 0.0 then pos.EntryPx / c.DayOpen - 1.0 else nan)
           Close1d = c.PrevAdjClose
           Close3d = c.Close3d
+          Chg1d = (if c.PrevAdjClose > 0.0 then pos.EntryPx / c.PrevAdjClose - 1.0 else nan)
+          Chg3d = (if c.Close3d > 0.0 then pos.EntryPx / c.Close3d - 1.0 else nan)
           ExitMin = exitMin
           ExitPrice = exitPx
           ExitReason = reason
@@ -297,7 +301,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,entry_bar_open,prev_bar_close,chg_20m,run_low_at_entry,intraday_atr_pct_at_entry,intraday_tightness_at_entry,"
-    + "rvol,breakout_bar_vol,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,"
+    + "rvol,breakout_bar_vol,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,chg_1d,chg_3d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,med_bar_vol_0945,"
     + "qty,net_pnl,bars_held_min"
@@ -322,6 +326,8 @@ let private row (t: Trip) : string =
         fmt t.PctChgSinceOpen
         fmt t.Close1d
         fmt t.Close3d
+        fmt t.Chg1d
+        fmt t.Chg3d
         hhmm t.ExitMin
         fmt t.ExitPrice
         t.ExitReason

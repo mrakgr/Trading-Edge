@@ -514,6 +514,39 @@ flush + ATR gates didn't just lift the headline, they made the edge more consist
 year-to-year by cutting the noise trades that dragged the weak years. Still
 volatility-tilted (2020–21 the peaks), but no longer dependent on them.
 
+## Run 18 — are 1d and 20m redundant? (No — depth vs velocity, orthogonal)
+
+Both the 1d flush (`entry/close_1d − 1`) and the 20m change (`chg_20m`) reward larger
+declines, so: is conditioning on both redundant? **They are correlated but NOT
+redundant.** ρ(1d, 20m) = **0.576** (so ~2/3 of the variance is independent), and on
+down-days the 20m window captures a **median of only ~40%** of the 1d move (IQR
+23–65%) — the rest happened earlier in the session or overnight. The 2D PF grid
+(rvol_0945 ≥ 0.1, ADV ≥ $500k) proves each adds PF holding the other fixed:
+
+```
+PF          20m:<-6  -6..-3  -3..-1  -1..0
+1d:<-12       1.34    1.11    0.97   0.82     <- falling knife: DEGRADES as 20m steepens
+1d:-12..-8    1.49    1.73    1.40   1.10     <- best row
+1d:-8..-4     1.42    1.39    1.31   1.07
+1d:-4..0      1.08    1.11    1.05   1.01     <- barely-down day: DEAD at every 20m
+```
+
+- **Across a row (fix 1d, vary 20m):** PF rises with 20m velocity — same day-flush, a
+  FAST one fades better than a slow one (e.g. 1d:-8..-4 → 1.07 flat → 1.42 steep).
+- **Down a column (fix 20m, vary 1d):** PF rises with 1d depth — same velocity, a
+  deeper day-flush is better (up to a point).
+- **The best cell is OFF-diagonal** (1d:-12..-8 × 20m:-6..-3 = **1.73**), not the
+  extreme-extreme corner. **Barely-down days (1d:-4..0) are dead at EVERY 20m** — a fast
+  flush without a real day-scale move doesn't work; you need both.
+- **The extreme-extreme corner is the falling knife:** 1d < −12% row DEGRADES as 20m
+  steepens (1.34 → 0.82) — deeply down AND plunging fast = genuine collapse, not overreaction.
+
+**Verdict: keep both — 1d = DEPTH ("is this a real day-scale dislocation?"), 20m =
+VELOCITY ("is it dislocating acutely right now?").** Complementary, not redundant. The
+final selection wants **3d ≥ −8%** (not a multi-day decliner) + **1d moderately negative**
+(real flush, avoid the <−12% knife) + **20m moderately negative** (acute, avoid the
+extreme-extreme corner). `chg_1d`/`chg_3d` promoted to first-class recorded columns.
+
 ---
 
 ## The core setup (as of this session)
@@ -526,11 +559,14 @@ volatility-tilted (2020–21 the peaks), but no longer dependent on them.
 > - intraday log-ATR `< 0.02` (`--max-intraday-atr-pct 0.02`) — reject genuine chaos.
 >   *A cheap additive tail-clip: 1.34→1.41 stacked.*
 >
-> **SELECTION (post-hoc filters, the pullback-flush core):**
-> - down ≥8% vs prior close at entry (a real day-scale flush),
-> - 3-day change ≥ −8% (NOT a multi-day decliner — buyers underneath),
+> **SELECTION (post-hoc filters, the pullback-flush core — depth × velocity × trend, Run 18):**
+> - **3d ≥ −8%** — NOT a multi-day decliner (buyers underneath, not a collapse).
+> - **1d moderately negative** — a real day-scale flush (DEPTH), but avoid the <−12%
+>   falling-knife extreme. (Core cell uses ≤ −8%.)
+> - **20m moderately negative** — dislocating acutely NOW (VELOCITY), but avoid the
+>   extreme-extreme corner (deep-1d × steep-20m = genuine collapse).
 > - tradeable: ADV ≥ $500k, rvol_0945 ≥ ~0.1 (NOT the old > 1 floor — Run 10).
-> Hold to MOC.
+> Hold to MOC. (1d and 20m are orthogonal — ρ 0.58, each adds PF holding the other fixed.)
 >
 > → gated full-book **PF 1.42 / 56% win** (Run 16); the SELECTION core reaches
 > **PF ~1.6–2.2, ~60–70% win**, broadly across the modern era.
