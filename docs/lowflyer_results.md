@@ -691,6 +691,35 @@ The < $300M break is now even sharper — all three sub-bands PF **2.76–3.33**
 band (2.76 → 3.03 → 3.33) — the "small-but-real" names fade most cleanly once 3d
 strength is already required; the micro-floats aren't the best here.
 
+## Run 23 — 20d breadth: strong-breadth days nearly DOUBLE the edge (size-up input)
+
+Joined the market-wide 20d breadth (`pct_above_20`, the HighFlyer measure —
+`data/equity/momentum_v0/breadth.parquet`), using **D-1 breadth** (prior-day close-based,
+no lookahead — the intraday trade fires on day D). Breakdown on the production system
+(gates + 1d + 20m + 3d[−3,+30] + float < $300M + ADV/rvol):
+
+| breadth (D-1) | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| < 0.20 | 51 | 68.6 | 2.82 | +2.91 |
+| 0.20–0.35 | 106 | 59.4 | 1.20 | +0.58 |
+| 0.35–0.50 | 249 | 67.1 | 2.76 | +3.03 |
+| 0.50–0.65 | 280 | 64.3 | 2.61 | +2.31 |
+| **0.65–0.80** | 332 | 69.9 | **3.80** | +3.36 |
+| **≥ 0.80** | 105 | 75.2 | **5.69** | +5.48 |
+
+Strong vs weak split: **breadth ≥ 0.65 → PF 4.23, 71% win (437 trips)** vs < 0.65 →
+PF 2.33, 65% win (686). **Strong breadth nearly DOUBLES the PF.** By-year, the strong
+cohort is broad, NOT just 2020-21: 2020 (5.34), 2021 (8.33), 2022 (10.0), 2024 (4.46),
+2025 (3.58), 2026 (3.36), 2017 (6.75) — every meaningful-sample year is excellent; only
+pre-2017 tiny samples are weak. Intuition: an intraday flush in a low-float name is a
+transient overreaction when the tape is risk-ON (dip-buyers everywhere) but more likely
+a real move when breadth is weak. (Two wrinkles: the < 0.20 deep-bear cell bumps to 2.82
+— extreme-fear violent snapbacks; the 0.20–0.35 cell is a PF-1.20 dead zone.)
+
+**Use breadth to SIZE UP, not to skip** (same as HighFlyer) — the weak/mid book is still
+good (PF 2.33), so keep trading it, but **size up hard when breadth ≥ 0.65** (the PF gap
+justifies ~2–3× base size). A sizing input, NOT a gate.
+
 ---
 
 ## PRODUCTION SPEC (locked this session)
@@ -704,8 +733,10 @@ the breakout-bar close, hold to MOC. **min-CLOSE breakout reference.**
 - **SELECTION:** 1d ≤ −8% (depth floor) · 20m ≤ −3% (velocity floor) ·
   **3d ∈ [−3%, +30%]** (trend band — flat-to-strong, not a decliner, not parabolic) ·
   dollar-float < $300M (low-float overreaction) · ADV ≥ $500k · rvol_0945 ≥ 0.1.
+- **SIZING:** base size, **× up when D-1 breadth (`pct_above_20`) ≥ 0.65** (PF 4.23 vs
+  2.33 — Run 23). Breadth is a size-up input, NOT a gate (keep trading weak-breadth days).
 - Same-day MOC trade (the bounce is intraday); volatility-regime-tilted; low-float +
-  3d-band filters are modern-era-strongest (pre-2017 float coverage thin).
+  3d-band + breadth-size-up are modern-era-strongest (pre-2017 float coverage thin).
 
 ---
 
