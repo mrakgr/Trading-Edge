@@ -61,6 +61,7 @@ let glob = System.IO.Path.Combine(minuteDir, "*.parquet").Replace("'", "''")
 // ET-minute anchors (minutes-since-ET-midnight): 09:30 = 570, 09:45 = 585.
 // The liquidity window is the RTH open range [570, 585) — the 15 one-minute bars
 // 09:30..09:44. It is fully known by 09:45 (no lookahead into the scan window).
+let premktMin = 240   // 04:00 ET — premarket start (for the premarket-inclusive rvol_0945 volume)
 let rthOpen = 570
 let scanMin = 585
 
@@ -84,7 +85,10 @@ liq AS (
         count (CASE WHEN et_min >= {rthOpen} AND et_min < {scanMin} THEN volume END) AS nbar_0945,
         arg_min(CASE WHEN et_min >= {rthOpen} AND et_min < {scanMin} THEN open   END,
                 CASE WHEN et_min >= {rthOpen} AND et_min < {scanMin} THEN et_min END) AS day_open,
-        sum   (CASE WHEN et_min >= {rthOpen} AND et_min < {scanMin} THEN volume ELSE 0 END) AS vol_0945
+        sum   (CASE WHEN et_min >= {rthOpen} AND et_min < {scanMin} THEN volume ELSE 0 END) AS vol_0945,
+        -- premarket-INCLUSIVE volume 04:00->09:45 (== partial_candle_0945.volume) — the
+        -- rvol_0945 numerator used in all the feature analysis.
+        sum   (CASE WHEN et_min >= {premktMin} AND et_min < {scanMin} THEN volume ELSE 0 END) AS vol_0945_pm
     FROM bars
     GROUP BY ticker, date
     HAVING median(CASE WHEN et_min >= {rthOpen} AND et_min < {scanMin} THEN volume END) >= 10000
@@ -109,15 +113,20 @@ ctx AS (
 SELECT c.ticker, c.date,
     c.prev_adj_close, c.close_3d, c.day_close, c.adj_ratio, c.avgvol20,
     c.close_fwd_1d, c.close_fwd_3d, c.close_fwd_5d,
-    l.day_open, l.med_bar_vol_0945, l.nbar_0945, l.vol_0945
+    l.day_open, l.med_bar_vol_0945, l.nbar_0945, l.vol_0945,
+    -- rvol_0945 = premarket-inclusive vol through 09:45 / 20-bar avg daily vol. First-class
+    -- (was a post-join off partial_candle_0945). The <0.1 tail (barely traded by 09:45) is
+    -- dead in every slice (Run 10), so prune it here to save the intraday engine the work.
+    l.vol_0945_pm::DOUBLE / NULLIF(c.avgvol20, 0) AS rvol_0945
 FROM ctx c
 JOIN liq l ON l.ticker = c.ticker AND l.date = c.date   -- INNER JOIN = the liquidity prune
-WHERE c.day_close >= 1.0 AND c.nbars > 21;              -- price>=$1 (D close), warmed up
+WHERE c.day_close >= 1.0 AND c.nbars > 21               -- price>=$1 (D close), warmed up
+  AND l.vol_0945_pm::DOUBLE / NULLIF(c.avgvol20, 0) >= 0.1;  -- drop the dead <0.1 rvol_0945 tail
 
 CREATE UNIQUE INDEX mr_candidate_ticker_date ON mr_candidate (ticker, date);
 """
 
-printfn "Building `mr_candidate` (median 1m-bar vol 09:30-09:45 >= 10k AND >=10 bars; CS/ADRC; price>=$1)"
+printfn "Building `mr_candidate` (median 1m-bar vol 09:30-09:45 >= 10k AND >=10 bars; CS/ADRC; price>=$1; rvol_0945 >= 0.1)"
 printfn "  db:          %s" (IO.Path.GetFullPath dbPath)
 printfn "  minute_aggs: %s" (IO.Path.GetFullPath minuteDir)
 

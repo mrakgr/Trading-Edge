@@ -57,6 +57,9 @@ type IntradayPosition =
       TightnessAtEntry: float  // intraday tightness snapshot at the arming bar
       CumVolAtEntry: int64     // cumulative day volume THROUGH the entry bar (rvol numerator; recorded feature)
       BreakoutBarVol: int64    // the entry (breakout) bar's own volume (recorded feature)
+      BreakoutBarOpen: float   // the entry (breakout) bar's OPEN — for the 1m entry-bar %-change (close/open-1)
+      PrevBarClose: float      // the strictly-prior 1m bar's CLOSE — for the 1m flush = close/prevClose-1
+      Chg20mAtEntry: float     // 20-bar (20-minute) %-change into entry (entry close / close 20 bars ago - 1); nan if <20 bars
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// Mean-reversion TARGET — where a (short) position covers when price reverts back
@@ -120,7 +123,16 @@ type IntradayConfig =
                                // position covers when the bar's low reaches the (snapshotted, strictly-
                                // prior) anchor; doubles as the loss-cut (no separate stop needed).
       MocMin: int              // MOC cutoff in ET minutes (960 = 16:00)
-      MaxConcurrent: int }     // cap on currently-OPEN (Holding) positions; 0 = unlimited
+      MaxConcurrent: int       // cap on currently-OPEN (Holding) positions; 0 = unlimited
+      MinBarFlush: float       // entry-bar FLUSH gate: require close/prevClose-1 <= this (a real flush
+                               // candle, not a one-tick poke below the reference). 0.0 (default) = OFF.
+                               // e.g. -0.007 rejects bars whose 1m move is softer than -0.7%. Uses the
+                               // strictly-prior bar's close (sLastBar); ValueNone prior bar => not gated.
+      MinCloseRef: bool }      // breakout REFERENCE level. false (default) = the running min-LOW
+                               // (max-HIGH upside) of strictly-prior bars. true = the running min-
+                               // CLOSE (max-CLOSE upside) — closes-only, so a long lower/upper WICK
+                               // can't push the channel boundary. The TRIGGER stays close-based;
+                               // this only changes what level the close must clear.
 
 /// Per-(ticker, day) intraday engine. Feed it the day's RTH MinuteBar[] in time
 /// order via `Process`, then `Finalize` and read `Trips()`.
@@ -133,6 +145,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     // ----- rolling intraday structures (1m timeframe) -----
     let atrLog    = AvgMa(cfg.VolWindow)        // mean LOG true range over the last VolWindow 1m bars
     let atrLin    = AvgMa(cfg.VolWindow)        // mean ABSOLUTE true range (linear)
+    let lag20     = LagMa<float>(20)            // 20-bar close delay line -> the 20-minute %-change into entry
     let rangeHigh = MaxMa(cfg.VolWindow)        // intraday tightness: max high over the window
     let rangeLow  = MinMa(cfg.VolWindow)        // intraday tightness: min low over the window
 
@@ -152,6 +165,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     // which normally only happens at the open/close).
     let mutable runHi    : float voption = ValueNone
     let mutable runLo    : float voption = ValueNone
+    // parallel CLOSE-based running extremes (min/max over strictly-prior CLOSES), used
+    // as the breakout reference when cfg.MinCloseRef is on — closes-only, wick-immune.
+    let mutable runHiClose : float voption = ValueNone
+    let mutable runLoClose : float voption = ValueNone
     let mutable runVolHi : int64 voption = ValueNone
     // cumulative day volume from SessionStartMin (09:30). Read (post-fold) when a
     // position is created it is the cumulative volume THROUGH the entry bar (incl. it)
@@ -167,9 +184,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable barsSeen  = 0
 
     // ----- pre-push snapshots (state going INTO the current bar; no lookahead) -----
-    let mutable sRunHi     : float voption = ValueNone
-    let mutable sRunLo     : float voption = ValueNone
-    let mutable sRunVolHi  : int64 voption = ValueNone
+    let mutable sRunHi      : float voption = ValueNone
+    let mutable sRunLo      : float voption = ValueNone
+    let mutable sRunHiClose : float voption = ValueNone
+    let mutable sRunLoClose : float voption = ValueNone
+    let mutable sRunVolHi   : int64 voption = ValueNone
     let mutable sLastBar   : MinuteBar voption = ValueNone   // the prior bar, as-of going into this bar (its low feeds the 2-bar stop)
     let mutable sAtrLog    : float voption = ValueNone
     let mutable sAtrLin    : float voption = ValueNone
@@ -189,8 +208,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
 
     // ----- read members (mirror the daily QullaSystem) -----
     /// The strictly-prior session extreme the breakout must clear — the running high for
-    /// an upside breakout, the running low for a downside one.
-    member _.BreakoutRef = if cfg.Downside then sRunLo else sRunHi
+    /// an upside breakout, the running low for a downside one. cfg.MinCloseRef selects
+    /// the CLOSE-based extreme (wick-immune) instead of the low/high (wick) extreme.
+    member _.BreakoutRef =
+        match cfg.Downside, cfg.MinCloseRef with
+        | true,  false -> sRunLo
+        | true,  true  -> sRunLoClose
+        | false, false -> sRunHi
+        | false, true  -> sRunHiClose
     /// Running max single-bar volume over strictly-prior bars (the volume-confirmation reference).
     member _.RunVolHigh = sRunVolHi
     member _.AtrLog = sAtrLog
@@ -255,6 +280,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // prints at the open/close), so a morning bar that does is a significant event.
         // This + the tightness filter is the intended edge.
         && gate sRunVolHi (fun vh -> bar.volume > vh)
+        // ENTRY-BAR FLUSH gate (cfg.MinBarFlush, 0 = off): the breakout bar's own 1m move
+        // = close/prevClose-1 must be a real flush, not a one-tick poke below the reference.
+        // Downside/long: require the move <= MinBarFlush (e.g. <= -0.7%). Upside: mirror
+        // (>= -MinBarFlush). ValueNone prior close (only the session-open bar) => not gated,
+        // but entries can't fire that early anyway.
+        && (cfg.MinBarFlush = 0.0
+            || gate (sLastBar |> ValueOption.map (fun p -> p.close)) (fun pc ->
+                   pc > 0.0 &&
+                   let mv = bar.close / pc - 1.0
+                   if cfg.Downside then mv <= cfg.MinBarFlush else mv >= -cfg.MinBarFlush))
         // intraday tightness gate
         && gate this.Tightness (fun t -> t < cfg.MaxTightness)
         // intraday ATR% gate (log-space)
@@ -270,6 +305,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // 1) snapshot pre-bar state
         sRunHi        <- runHi
         sRunLo        <- runLo
+        sRunHiClose   <- runHiClose
+        sRunLoClose   <- runLoClose
         sRunVolHi     <- runVolHi
         sLastBar      <- lastBar
         sAtrLog       <- atrLog.State
@@ -290,8 +327,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         rangeLow.Push  bar.low
         runHi    <- match runHi with ValueSome h -> ValueSome (max h bar.high) | ValueNone -> ValueSome bar.high
         runLo    <- match runLo with ValueSome l -> ValueSome (min l bar.low)  | ValueNone -> ValueSome bar.low
+        runHiClose <- match runHiClose with ValueSome h -> ValueSome (max h bar.close) | ValueNone -> ValueSome bar.close
+        runLoClose <- match runLoClose with ValueSome l -> ValueSome (min l bar.close) | ValueNone -> ValueSome bar.close
         runVolHi <- match runVolHi with ValueSome v -> ValueSome (max v bar.volume) | ValueNone -> ValueSome bar.volume
         cumVol   <- cumVol + bar.volume
+        lag20.Push bar.close      // 20-bar delay line; read post-fold at entry = the 20m %-change into it
         if sessionOpen.IsNone then sessionOpen <- ValueSome bar.``open``
 
         // fold the chosen mean-reversion anchor (only the active one accumulates).
@@ -472,6 +512,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   // already includes THIS breakout bar → cumulative volume through entry.
                   CumVolAtEntry = cumVol
                   BreakoutBarVol = bar.volume
+                  BreakoutBarOpen = bar.``open``
+                  PrevBarClose = sLastBar.Value.close
+                  Chg20mAtEntry = (match lagPctChange lag20 with ValueSome p -> p | ValueNone -> nan)
                   // entry routing:
                   //   --ext-gate — if day-extension already >= ExtGate at the breakout, enter
                   //                DIRECT (parabolic now); else arm a ROLLOVER gated on reaching

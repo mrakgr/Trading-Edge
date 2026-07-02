@@ -35,7 +35,10 @@ let defaultConfig =
         { VolWindow = 20
           MaxTightness = infinity        // OFF
           MaxAtrPct = infinity           // OFF
-          SessionStartMin = 9 * 60 + 30  // 09:30 ET — RTH warmup (NOT premarket)
+          SessionStartMin = 8 * 60 + 30  // 08:30 ET — accumulate the running low/vol-high, ATR,
+                                         // tightness and the 20-bar LagMa from premarket (like MaxFlyer),
+                                         // so every indicator (incl. chg_20m) is warm by the 09:45 entry
+                                         // floor regardless of VolWindow. Entries still gated at EntryStartMin.
           EntryStartMin   = 9 * 60 + 45  // 09:45 ET — earliest entry
           UseStop = false
           PctStop = 0.0
@@ -48,7 +51,10 @@ let defaultConfig =
           Short = false                  // LONG (buy the flush)
           Target = NoTarget
           MocMin = 16 * 60               // 16:00 ET
-          MaxConcurrent = 0 }            // unlimited concurrent entries per day
+          MaxConcurrent = 0              // unlimited concurrent entries per day
+          MinBarFlush = 0.0              // entry-bar flush gate OFF (--min-bar-flush -0.007 to enable)
+          MinCloseRef = true }           // default = min-CLOSE reference (wick-immune; +~29% trips at ~same
+                                         // PF — Run 12). --min-low-ref switches back to the min-LOW channel.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
@@ -79,7 +85,12 @@ type Trip =
       // intraday at entry
       EntryMin: int
       EntryPrice: float          // = breakout bar close (the fill)
+      EntryBarOpen: float        // the entry (breakout) 1m bar's OPEN — for the entry-bar %-change (close/open-1)
+      PrevBarClose: float        // the strictly-prior 1m bar's CLOSE — for the flush = close/prevClose-1
+      Chg20m: float              // 20-minute %-change into entry (engine LagMa(20), no post-hoc rescan)
       RunLowAtEntry: float       // the session low the breakout cleared (pos.BreakoutRef)
+      IntradayAtrPct: float      // 1m log-ATR (VolWindow bars) snapshot at the breakout — how jumpy the name is intraday
+      IntradayTightness: float   // 1m tightness snapshot at the breakout
       // RECORDED features (post-hoc slicing, NOT gates)
       Rvol: float                // cumVolToEntry / avgVol20
       BreakoutBarVol: int64      // the breakout bar's own volume
@@ -112,7 +123,12 @@ let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Tr
           AdjRatio = c.AdjRatio
           EntryMin = pos.EntryMin
           EntryPrice = pos.EntryPx
+          EntryBarOpen = pos.BreakoutBarOpen
+          PrevBarClose = pos.PrevBarClose
+          Chg20m = pos.Chg20mAtEntry
           RunLowAtEntry = pos.BreakoutRef
+          IntradayAtrPct = pos.AtrPctAtEntry
+          IntradayTightness = pos.TightnessAtEntry
           Rvol = (if c.AvgVol20 > 0.0 then float pos.CumVolAtEntry / c.AvgVol20 else nan)
           BreakoutBarVol = pos.BreakoutBarVol
           CumVolToEntry = pos.CumVolAtEntry
@@ -280,7 +296,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
-    + "entry_time,entry_price,run_low_at_entry,"
+    + "entry_time,entry_price,entry_bar_open,prev_bar_close,chg_20m,run_low_at_entry,intraday_atr_pct_at_entry,intraday_tightness_at_entry,"
     + "rvol,breakout_bar_vol,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,med_bar_vol_0945,"
@@ -294,7 +310,12 @@ let private row (t: Trip) : string =
         fmt t.AdjRatio
         hhmm t.EntryMin
         fmt t.EntryPrice
+        fmt t.EntryBarOpen
+        fmt t.PrevBarClose
+        fmt t.Chg20m
         fmt t.RunLowAtEntry
+        fmt t.IntradayAtrPct
+        fmt t.IntradayTightness
         fmt t.Rvol
         string t.BreakoutBarVol
         string t.CumVolToEntry

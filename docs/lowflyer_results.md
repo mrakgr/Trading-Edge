@@ -238,27 +238,304 @@ names — a data-coverage artifact, not a strategy failure. Still **volatility-t
 
 ---
 
+## Run 8 — entry-timing: how fast is the flush? (an ACUTE flush is better)
+
+Two entry-timing cuts, both tradeable (known at the entry bar). Base filter
+rvol_0945 > 1, ADV ≥ $500k.
+
+**(a) % change from the 09:30 OPEN to entry** (`entry_price / day_open − 1`, the
+recorded `pct_chg_since_open`) is the *messier* of the two: most entries fire close
+to the open with little net move-from-open, so ~27.6k of 28.4k trips fall in the
+`≥ top` catch-all. The deep-from-open tail (< −10%) fades well (PF ~1.5–1.6) but the
+middle is noisy. Weaker feature — the 09:45 anchor below is cleaner.
+
+**(b) % change from the 09:45 checkpoint to entry** (`entry_price / px_0945 − 1`,
+where `px_0945` = `partial_candle_0945.close × adj_ratio`) is **clean and monotonic**
+— the further the name has fallen *during the scan window*, the better the fade:
+
+| move 09:45 → entry | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| < −10% | 3,233 | 61.2 | 1.21 | +1.30 |
+| **−6..−10%** | 4,626 | **59.8** | **1.56** | +1.13 |
+| −3..−6% | 9,122 | 56.5 | 1.42 | +0.61 |
+| −1..−3% | 6,924 | 51.6 | 1.17 | +0.23 |
+| −0..−1% | 3,834 | 49.1 | 0.98 | −0.02 |
+
+PF climbs smoothly from 0.98 (barely down since 9:45) to ~1.5+ (down 6%+). The
+deepest (<−10%) has a slightly lower *clipped* PF (1.21) but the highest raw avg
+(+1.30% — the +50% clip caps its bigger, more variable bounces).
+
+**Stacked on the core setup** (rvol_0945 > 1, ADV ≥ $500k, down ≥8% @ entry, 3d ≥
+−8%; baseline PF 1.83 / 2,783 trips), the acute-flush gradient still adds:
+
+| 9:45 → entry move | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| < −8% | 1,227 | 66.1 | 1.84 | +2.34 |
+| **−5..−8%** | 774 | 63.7 | **2.18** | +1.80 |
+| −3..−5% | 478 | 59.0 | 1.49 | +0.95 |
+| −1..−3% | 266 | 55.3 | 1.45 | +0.82 |
+
+The **−5..−8% acute flush → PF 2.18** is the best-populated stacked cell (the ≥−1%
+cell shows PF 2.39 on only 38 trips — ignore). **An accelerating flush beats a slow
+drift, even after conditioning on being down ≥8% for the day.** So the ideal is a
+**liquid, recently-strong name in an acute, accelerating flush** — the fastest
+overshoots snap back hardest.
+
+---
+
+## Run 9 — microstructure: the 1m entry-bar body + intraday ATR%
+
+Added three engine-exact columns (`entry_bar_open`, `intraday_atr_pct_at_entry`,
+`intraday_tightness_at_entry` — the breakout bar's open and the 1m log-ATR /
+tightness snapshot at the breakout). Base filter rvol_0945 > 1, ADV ≥ $500k.
+
+**(a) The 1m entry-bar body** = `entry_price / entry_bar_open − 1` (the breakout
+minute's own candle). Cleanly monotonic — a hard flush candle beats a tiny poke
+below the reference:
+
+| entry-bar body | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| < −3% | 4,452 | 62.0 | 1.33 | +1.51 |
+| **−1.5..−3%** | 6,134 | 57.7 | **1.50** | +0.94 |
+| −0.7..−1.5% | 8,267 | 54.0 | 1.23 | +0.34 |
+| −0.3..−0.7% | 6,053 | 52.1 | 1.09 | +0.11 |
+| −0..−0.3% | 3,414 | 50.1 | 1.03 | +0.04 |
+
+The −0.3..0% bucket (PF 1.03) is the dead one-tick-poke-below-the-reference noise —
+exactly what a **breakout-bar flush threshold would remove.** Stacked on the core
+setup (down ≥8% + 3d ≥ −8%), a `< −2%` entry bar → **PF 2.07, 68% win, +2.61%** (1,583
+trips). **Indicated threshold: entry-bar body ≤ −0.7%** (drops the flat-poke tail).
+
+**(b) Intraday ATR% at entry** (1m log-ATR) — helps, but wants a BAND not a floor:
+
+| 1m log-ATR | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| < .002 | 2,651 | 52.9 | 1.13 | +0.10 |
+| .004–.006 | 5,623 | 55.6 | 1.30 | +0.41 |
+| **.006–.01** | 7,370 | 56.0 | **1.53** | +0.82 |
+| .01–.02 | 5,010 | 57.5 | 1.48 | +1.25 |
+| **≥ .02** | 1,557 | 50.1 | **0.87** | +0.04 |
+
+Calm names (< .002) barely revert (no overshoot); the sweet spot is .006–.02
+(PF ~1.5); the MOST volatile (≥ .02) **collapse to PF 0.87** — genuine chaos that
+keeps going (falling-knife family). **Indicated cap: log-ATR < 0.02** (favor
+moderate, reject the extreme). Both thresholds noted for a future gated run — TBD how
+to apply cleanly.
+
+---
+
+## Run 10 — the rvol_0945 floor is over-gating: within a real flush it's the CEILING
+
+Bucketing the FULL rvol_0945 spectrum (incl. sub-1), the earlier `> 1` floor
+(Runs 4+) is revealed as too aggressive. RAW (ADV ≥ $500k, no flush filter), sub-1 is
+mediocre-but-alive (PF 1.15–1.31) and > 1 is genuinely better (PF 1.4–1.5), so the
+floor trades quantity for quality — defensible on the raw book. **But conditioned on
+a real flush (down ≥8% @ entry, 3d ≥ −8%), it flips:**
+
+| rvol_0945 (within core flush) | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| <0.1 | 2,423 | 49.9 | 1.00 | −0.00 |
+| 0.1–0.25 | 2,002 | 56.3 | 1.53 | +0.88 |
+| 0.5–0.75 | 311 | 56.6 | 1.40 | +2.23 |
+| **0.75–1** | 211 | 64.9 | **2.88** | +2.16 |
+| 1–2 | 533 | 61.2 | 1.96 | +1.97 |
+| 2–5 | 760 | 63.7 | 2.15 | +1.97 |
+| ≥5 | 1,490 | 63.6 | 1.68 | +1.66 |
+
+**Once the flush filter is on, everything from ~0.1 upward is PF 1.4–2.9** — only the
+untraded-by-9:45 tail (<0.1) is dead. The `> 1` floor was doing double duty ("real
+event" + "liquid"), but the **flush filter captures 'real event' far better**, so a
+high rvol floor mostly discards good trades. A hard 9:45 flush in a moderately-active
+name (rvol 0.75–1) still reverts strongly (the volume arrives *with* the flush, not
+front-loaded). **Correction: drop the rvol_0945 floor to a light ~0.1–0.25 (exclude
+only the <0.1 untraded tail) and lean on the flush + 3-day + ADV filters instead.**
+
+---
+
+## Run 11 — intraday tightness: coiled is dead, but no strong upside gradient
+
+Motivated by the DAILY-side finding that mean-reversion prefers STRETCHED names
+(daily tightness > 7–8.5), not coiled. LowFlyer's intraday tightness gate is **OFF**
+(`MaxTightness = +inf`) — `intraday_tightness_at_entry` is recorded but never gated,
+so the trades' tightness is whatever the flush naturally produces. Distribution: p10
+3.0, **median 5.2**, p90 8.3 — the flush entries already skew well above MaxFlyer's
+old `< 4.5`, i.e. we were never trading tight consolidations here. Base filter
+rvol_0945 > 1, ADV ≥ $500k:
+
+| intraday tightness @ entry | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| <2 | 1,541 | 49.9 | 0.98 | −0.02 |
+| 3–4 | 5,311 | 54.1 | 1.29 | +0.54 |
+| **4–5** | 5,648 | 55.4 | **1.41** | +0.70 |
+| 6–7 | 3,186 | 56.1 | 1.34 | +0.71 |
+| 7–9 | 3,345 | 56.7 | 1.24 | +0.52 |
+| **≥9** | 1,855 | 59.0 | 1.29 | **+1.23** |
+
+**Confirms the DIRECTION of the daily thesis — coiled (<2) is the only dead cell
+(PF 0.98)** — but there is NO strong upside gradient the way daily >7 was a sweet
+spot. PF rises to ~4–5 then plateaus. The most-stretched (≥9) names have the highest
+win% (59%) and highest avg return (+1.23%, ~2× the middle) but a clip-capped PF (1.29)
+— they pay BIGGER, not more reliably. Stacked on the core setup the gradient flattens
+entirely (everything ≥2 is PF 1.4–1.68) — the flush/3d/ADV filters already capture it.
+
+**Verdict: no intraday tightness gate.** Two caveats vs the daily result: (1) scales
+aren't comparable — this is 20-MINUTE tightness vs the daily 14-DAY; (2) it's measured
+AT the flush (inherently stretched), not going INTO the setup — the true analogue
+would be the pre-9:45 opening-range coil, a feature not recorded. The daily >7 sweet
+spot does NOT transfer; the only actionable read is "avoid the coiled <2–3."
+
+---
+
+## Run 12 — min-CLOSE breakout reference: now the DEFAULT (capacity win)
+
+Added a min-CLOSE breakout reference (running min-CLOSE, not min-LOW — so a long lower
+WICK can't push the channel boundary; trigger stays close-based). A/B over the full
+range:
+
+| reference | trips | win% | net P&L | PF (MOC) |
+|---|---:|---:|---:|---:|
+| min-LOW | 247,900 | 51.9% | +$5.32M | 1.221 |
+| **min-CLOSE** | 318,740 | 51.3% | +$5.94M | 1.200 |
+
+Counterintuitively min-close fires MORE (+29%), not fewer: the min-close boundary is
+HIGHER than min-low (lowest close ≥ lowest low), so it's EASIER to break — it admits
+earlier/shallower breakouts. Within the core setup the two are near-identical (min-low
+PF 1.80 vs min-close 1.76). **Decision: min-CLOSE is the DEFAULT** — +29% trips (more
+capacity) for a marginal −0.02 PF is a good trade, and the closes-only boundary is the
+more sensible definition (wick-immune). `--min-low-ref` switches back to the min-LOW
+channel. (These are pre-08:30-warmup / pre-rvol-prune numbers; the new-defaults
+baseline is re-measured in Run 15.)
+
+## Run 13 — rvol_0945 ≥ 0.1 candidate prune (promoted to first-class)
+
+Promoted `rvol_0945` (premarket-inclusive 04:00→09:45 vol / 20-bar avg daily vol) to a
+first-class `mr_candidate` column and dropped the dead <0.1 tail (Run 10) at the
+candidate level — pruning both the data artifact and the intraday engine's work:
+
+| book | candidates | trips | win% | PF (MOC) |
+|---|---:|---:|---:|---:|
+| all rvol | 1,900,632 | 247,900 | 51.9% | 1.221 |
+| **rvol_0945 ≥ 0.1** | 850,107 | 96,110 | **53.4%** | **1.280** |
+
+Cutting the <0.1 tail removed ~55% of candidate-days / ~60% of trips but LIFTED PF
+1.221 → 1.280 and win% 51.9 → 53.4 (and halved the backtest to ~220s). Confirms that
+tail was pure noise — a light rvol floor is a free quality + speed win.
+
+## Run 14 — 20m price %-change into entry: the flush should be SUSTAINED
+
+Added an engine-computed `chg_20m` = the 20-minute %-change into entry, via a new
+generic `LagMa<'T>(20)` close-delay line (`RollingMa.fs`) read post-fold at the
+breakout — NO post-hoc minute re-scan. (Entries in the first ~5 min after the 09:30
+warmup, i.e. 09:45–09:49, have < 21 bars so `chg_20m` is `nan` — inherent, ~12% of
+trips; excluded below.) Base filter rvol_0945 > 0.5, ADV ≥ $500k:
+
+| 20m change into entry | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| < −10% | 2,334 | 59.0 | 1.08 | +1.05 |
+| **−6..−10%** | 3,771 | 62.4 | **1.76** | +1.75 |
+| −3..−6% | 9,098 | 57.7 | 1.47 | +0.75 |
+| −1.5..−3% | 10,668 | 54.0 | 1.27 | +0.32 |
+| −1.5..0% | 11,179 | 50.3 | 1.01 | +0.01 |
+
+**Stacked on the core setup**, sharper still — **−6..−10% → PF 2.40, 66% win** (1,285
+trips); < −10% backs off to PF 1.68 (falling-knife tail, but highest avg +3.06%).
+An **inverted-U**: a barely-moving 20m (−1.5..0%) is dead (PF 1.0), a sustained ~20-min
+flush (−6..−10%) is the peak, the most-extreme backs off. **The flush should be a
+SUSTAINED ~20-minute slide, not a one-minute air-pocket.** Combined with the 1m
+entry-bar (Run 9) and the 9:45→entry acute-flush (Run 8) findings, the ideal is a name
+**flushing steadily for ~20 minutes into an acute breakout minute.**
+
+---
+
+## Run 15 — new-defaults baseline: 08:30 warmup + min-CLOSE + rvol prune
+
+Consolidated the settled defaults: SessionStartMin = **08:30** (all indicators + the
+20-bar LagMa now warm from premarket, like MaxFlyer — so `chg_20m` is populated by the
+09:45 entry floor regardless of VolWindow), **min-CLOSE** reference (Run 12), and the
+**rvol_0945 ≥ 0.1** candidate prune (Run 13). Full range, ungated:
+
+| baseline | candidates | trips | win% | net P&L | PF (MOC) |
+|---|---:|---:|---:|---:|---:|
+| new defaults | 850,107 | 110,479 | 52.8% | +$3.86M | **1.268** |
+
+The 08:30 warmup cut the `chg_20m` nan rate from ~12% → **2.69%** (the residual are
+days with too few premarket bars — genuinely unmeasurable). min-close gives 110k trips
+vs 96k for min-low at ~the same PF — the capacity gain the Run 12 decision bought.
+
+## Run 16 — the microstructure gates as HARD gates: flush + ATR cap
+
+First run applying the Run 9 microstructure thresholds as ENGINE gates (not post-hoc
+slices): `--min-bar-flush -0.007` (entry-bar `close/prevClose ≤ −0.7%`) and
+`--max-intraday-atr-pct 0.02` (1m log-ATR < 0.02).
+
+| config | trips | win% | net P&L | PF (MOC) |
+|---|---:|---:|---:|---:|
+| ungated baseline | 110,479 | 52.8% | +$3.86M | 1.268 |
+| **gated (flush + ATR)** | 46,290 | **56.0%** | +$3.12M | **1.420** |
+
+**PF 1.27 → 1.42, win% 52.8 → 56.0** — cutting 58% of trips while keeping **81% of the
+net P&L.** The removed 64k trips were low-value volume, not edge. Decomposition:
+
+| gate | trips | win% | PF | net |
+|---|---:|---:|---:|---:|
+| ungated | 110,479 | 52.8 | 1.24 | $3.86M |
+| **flush ≤ −0.7% only** | 49,185 | 55.8 | 1.34 | $3.39M |
+| log-ATR < 0.02 only | 107,388 | 52.9 | 1.28 | $3.60M |
+| both | 46,290 | 56.0 | 1.41 | $3.12M |
+
+**The flush gate is the heavy lifter** — alone it takes PF 1.24 → 1.34 and cuts 55% of
+trips while keeping 88% of net (removing the one-tick-poke breakouts of Run 9). **The
+ATR cap barely prunes alone** (clips only ~3%, the genuine-chaos names) but **stacks
+cleanly** on top (1.34 → 1.41) — a cheap additive tail-clip. Both kept: flush is the
+edge-sharpener, ATR the tail-clip. **PF 1.42 is the best full-book number to date.**
+
+---
+
 ## The core setup (as of this session)
 
-> **Long the intraday flush** — a 1m bar closing below the running session low on
-> high volume, scanning from 9:45 ET — **when: (1) the name is down ≥8% vs prior
-> close at entry, (2) it has NOT been falling over the prior 3 days (3-day change ≥
-> −8%), (3) it's liquid (rvol_0945 > 1, ADV ≥ $500k). Hold to MOC.**
-> → PF ~1.6–1.9, ~60–70% win, broadly across the modern era.
+> **Long the intraday flush** — a 1m bar closing below the running session **min-close**
+> on high volume, scanning from 9:45 ET (indicators warm from 08:30) — **when:**
+> **ENGINE GATES (Run 16):**
+> - entry-bar flush `close/prevClose ≤ −0.7%` (`--min-bar-flush -0.007`) — a real flush
+>   candle, not a one-tick poke. *The heavy lifter: PF 1.24→1.34 alone.*
+> - intraday log-ATR `< 0.02` (`--max-intraday-atr-pct 0.02`) — reject genuine chaos.
+>   *A cheap additive tail-clip: 1.34→1.41 stacked.*
+>
+> **SELECTION (post-hoc filters, the pullback-flush core):**
+> - down ≥8% vs prior close at entry (a real day-scale flush),
+> - 3-day change ≥ −8% (NOT a multi-day decliner — buyers underneath),
+> - tradeable: ADV ≥ $500k, rvol_0945 ≥ ~0.1 (NOT the old > 1 floor — Run 10).
+> Hold to MOC.
+>
+> → gated full-book **PF 1.42 / 56% win** (Run 16); the SELECTION core reaches
+> **PF ~1.6–2.2, ~60–70% win**, broadly across the modern era.
+>
+> **Further boosters (Runs 8, 14) — not yet gated:** the more ACUTE the fall
+> (down ~5–8%+ from the 09:45 price into entry, stacked PF ~2.2) and the more SUSTAINED
+> (20m change −6..−10%, stacked PF ~2.4). The ideal is a name flushing steadily for
+> ~20 min into an acute breakout minute.
 
 The setup is a **pullback-flush fade**, not a falling-knife catch: fade the panic in
-a name that was *strong going in*, only when it's liquid enough to be a real
-overreaction rather than a collapse. It is a **same-day MOC trade** (the bounce is
+a name that was *strong going in*, in an **acute, sustained** move, on a tradeable
+name that isn't in genuine chaos. **The flush filter — not a high rvol floor — is what
+isolates a real event** (Run 10). It is a **same-day MOC trade** (the bounce is
 intraday) and **volatility-regime-tilted** (richest in 2020–22).
 
 ---
 
 ## Open threads / next
 
-- **Promote to first-class columns**: `rvol_0945`, `adv20`, `chg_1d` (vs prior
-  close at entry), `chg_3d` are currently post-join reconstructions off
-  `partial_candle_0945` + `mr_candidate`. Bake them into `mr_candidate` / the trip
-  CSV so the winning slices are exact and reproducible.
+- **Settled defaults (this session):** min-CLOSE reference (Run 12), 08:30 warmup for
+  all indicators + the 20-bar LagMa (so `chg_20m` is warm by 09:45 regardless of
+  VolWindow), rvol_0945 ≥ 0.1 candidate prune (Run 13). Engine gates `--min-bar-flush`
+  and `--max-intraday-atr-pct` wired (default off); first GATED A/B (flush ≤ −0.7%,
+  log-ATR < 0.02) in Run 15.
+- **No tightness gate** (Run 11 settled it — coiled <2 dead, but no upside gradient
+  worth gating; the flush already selects for stretched names).
+- **Promote to first-class columns**: `adv20`, `chg_1d` (vs prior close at entry),
+  `chg_3d` are still post-join reconstructions off `mr_candidate`. (`rvol_0945`,
+  `intraday_atr_pct_at_entry`, `intraday_tightness_at_entry`, `entry_bar_open`,
+  `prev_bar_close`, `chg_20m` are now recorded first-class — added this session.)
 - **The falling-knife short?** The `<−25%` 3-day cell (multi-day collapse) and the
   extreme-rvol deep-flush cell keep bleeding intraday — candidate for a `--short`
   run (the engine flag exists, inert here).

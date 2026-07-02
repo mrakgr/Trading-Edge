@@ -48,6 +48,34 @@ type AvgMa(windowSize) =
     override _.Remove (v, s) = s - v
     member t.State = base.State |> ValueOption.map (fun sum -> sum / float t.Count)
 
+/// Fixed-LAG delay line over any element type: exposes the value pushed `lag` bars
+/// ago (`Lagged`) and the most recent push (`Last`). O(1) per push. Used to measure
+/// the N-minute price move into an intraday entry (feed each close, read the lag)
+/// without any post-hoc re-scan — the engine already streams the bars in order.
+/// For a float delay line, `pctChange` gives curr/lagged-1.
+[<Sealed>]
+type LagMa<'T>(lag: int) =
+    // ring of the last (lag+1) values; when full, the FRONT is the value `lag` bars ago
+    // and the BACK is the current value. Empty until `lag+1` values have been pushed.
+    let q = Queue<'T>(lag + 1)
+    let mutable last : 'T voption = ValueNone
+    member _.Count = q.Count
+    /// The most recent pushed value, or ValueNone before the first push.
+    member _.Last = last
+    /// The value `lag` bars ago, or ValueNone until `lag+1` values have been pushed.
+    member _.Lagged = if q.Count = lag + 1 then ValueSome (q.Peek()) else ValueNone
+    member _.Push (x: 'T) =
+        if q.Count = lag + 1 then q.Dequeue() |> ignore
+        q.Enqueue x
+        last <- ValueSome x
+
+/// %-change from a float LagMa's `lag`-bars-ago value to its most recent push
+/// (curr/lagged - 1), or ValueNone until warm / when the lagged value is non-positive.
+let lagPctChange (m: LagMa<float>) : float voption =
+    match m.Last, m.Lagged with
+    | ValueSome curr, ValueSome old when old > 0.0 -> ValueSome (curr / old - 1.0)
+    | _ -> ValueNone
+
 // =============================================================================
 // Sliding-window MaxMa / MinMa via a monotonic deque
 // =============================================================================
