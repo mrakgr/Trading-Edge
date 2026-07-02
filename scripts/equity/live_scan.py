@@ -96,20 +96,16 @@ def main():
     # / $66.51 new). GAP_DAYS=45 (>1 calendar month of no trading = a new listing).
     con.execute(f"""
     CREATE TEMP TABLE feat AS
-    WITH marked AS (
-      SELECT p.ticker, p.date, p.adj_open o, p.adj_high h, p.adj_low l, p.adj_close c,
-             p.adj_volume v,
-             CASE WHEN p.date - LAG(p.date) OVER w > 45 THEN 1 ELSE 0 END AS is_break
-      FROM db.split_adjusted_prices p
-      JOIN db.ticker_reference r ON r.ticker=p.ticker AND r.type IN ('CS','ADRC')
-      WHERE p.date >= DATE '2024-01-01'   -- 1.5y lookback covers 252d + 126d windows
-      WINDOW w AS (PARTITION BY p.ticker ORDER BY p.date)
-    ),
-    base AS (
-      SELECT *,
-        -- running episode id: increments at each >45d gap (0 for the first listing)
-        SUM(is_break) OVER (PARTITION BY ticker ORDER BY date) AS episode
-      FROM marked
+    WITH base AS (
+      -- episode partitioning comes from the shared `daily_episodes` view (CS/ADRC
+      -- universe, gap-severed at >45d). See scripts/equity/build_daily_episodes_view.sql.
+      -- NOTE: window over the FULL history (no date floor here) so the 252/126/20-bar
+      -- windows are fully warmed — a date floor in this CTE would STARVE the windows
+      -- (validated: floor-in-base drops avgvol28 accuracy; full-warm == engine to 0.0).
+      -- Recency is applied at the FINAL selection instead (see the closing WHERE).
+      SELECT ticker, date, adj_open o, adj_high h, adj_low l, adj_close c,
+             adj_volume v, episode
+      FROM db.daily_episodes
     ),
     tr AS (
       -- prior close, EPISODE-partitioned (NULL at each episode's first bar) so the
@@ -163,7 +159,10 @@ def main():
       r.hi_close252, m.maxatrlog126, r.avgvol28, r.avgdolvol28, r.nbars
     FROM roll r
     JOIN maxatr m ON m.ticker=r.ticker AND m.date=r.date
-    WHERE r.rn_desc = 1 AND r.nbars > 21    -- last completed close per ticker, warmed up
+    -- last completed close per ticker, warmed up, and RECENT (a currently-listed
+    -- name — the recency floor lives HERE, on the selected row, not in `base` where
+    -- it would starve the rolling windows).
+    WHERE r.rn_desc = 1 AND r.nbars > 21 AND r.date >= CURRENT_DATE - INTERVAL 10 DAY
     """)
 
     # float at today's live price (dollar-float = shares * price).
