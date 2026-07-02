@@ -547,6 +547,51 @@ final selection wants **3d ≥ −8%** (not a multi-day decliner) + **1d moderat
 (real flush, avoid the <−12% knife) + **20m moderately negative** (acute, avoid the
 extreme-extreme corner). `chg_1d`/`chg_3d` promoted to first-class recorded columns.
 
+## Run 19 — pinning the 1d/20m ranges: don't narrow (floor, not band)
+
+Tested tightening the loose core (1d ≤ −8%, any negative 20m) into a BOX
+(1d ∈ [−12%,−5%], 20m ∈ [−8%,−3%]) on the gated + 3d ≥ −8% book:
+
+| config | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| **loose** (1d ≤ −8%, any 20m) | 4,823 | 62.1 | **1.92** | +1.63% |
+| boxed (1d [−12,−5], 20m [−8,−3]) | 4,594 | 61.1 | 1.82 | +1.13% |
+
+**Narrowing HURTS** — lower PF and much lower avg return (+1.13 vs +1.63), and it adds
+two negative early years (2004/2005) as the sample thins. Why: the fine grid's high-PF
+cells are *already inside* the loose filter; boxing amputates the profitable deep-flush
+tail (1d < −12% has high avg return) and the good 20m wings. **Operative thresholds:
+1d ≤ −8% is a FLOOR, not a band (deeper is fine — the falling-knife risk is handled by
+the ATR gate + 3d filter, not a 1d ceiling); 20m just needs to be NEGATIVE (velocity
+present), not boxed.** More knobs ≠ better here.
+
+## Run 20 — LOW-FLOAT: the intraday flush-fade is a low-float overreaction (< $300M)
+
+Joined dollar-float (SEC public-float revalued to the trade-day price, polygon-shares
+fallback — the `live_scan.py` pattern; 62% trip coverage). Within the core (gated +
+3d ≥ −8% + 1d ≤ −8%):
+
+| dollar-float | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| < $50M | 2,029 | 60.5 | 1.54 | +1.24 |
+| **$50–150M** | 837 | 60.9 | **1.89** | +1.77 |
+| **$150–300M** | 551 | 58.1 | 1.76 | +1.30 |
+| $300M–1B | 815 | 52.9 | 1.17 | +0.40 |
+| $1–5B | 499 | 58.3 | 1.27 | +0.51 |
+| ≥ $5B | 303 | 57.4 | 1.24 | +0.47 |
+
+**Clean break at ~$300M** — the $50–300M band runs PF 1.76–1.89 vs 1.17–1.27 for
+large caps (> $300M). The flush-fade is fundamentally a **low-float overreaction**
+(a squeeze-prone name overshoots on a flush and snaps back; a mega-cap doesn't) — the
+SAME <$300M threshold that drives the HighFlyer daily edge, now on the intraday side.
+The very-smallest (< $50M) is slightly WORSE (PF 1.54) — illiquid/knife noise past the
+ADV gate — so the sweet spot is **$50–300M, not "smaller is always better."** Stacked:
+core + low-float < $300M → **PF 1.42 → 1.65, avg +0.93% → +1.38%.**
+
+**Caveat:** low-float is strong in the modern era (2017+: 2019 PF 3.13, 2021 2.76, 2024–26
+1.6–1.9) but the sub-$300M sample is thin/erratic pre-2017 (float data coverage) — treat
+it as a modern-era filter, not a full-history one.
+
 ---
 
 ## The core setup (as of this session)
@@ -559,14 +604,16 @@ extreme-extreme corner). `chg_1d`/`chg_3d` promoted to first-class recorded colu
 > - intraday log-ATR `< 0.02` (`--max-intraday-atr-pct 0.02`) — reject genuine chaos.
 >   *A cheap additive tail-clip: 1.34→1.41 stacked.*
 >
-> **SELECTION (post-hoc filters, the pullback-flush core — depth × velocity × trend, Run 18):**
+> **SELECTION (post-hoc filters, the pullback-flush core — depth × velocity × trend × float):**
 > - **3d ≥ −8%** — NOT a multi-day decliner (buyers underneath, not a collapse).
-> - **1d moderately negative** — a real day-scale flush (DEPTH), but avoid the <−12%
->   falling-knife extreme. (Core cell uses ≤ −8%.)
-> - **20m moderately negative** — dislocating acutely NOW (VELOCITY), but avoid the
->   extreme-extreme corner (deep-1d × steep-20m = genuine collapse).
+> - **1d ≤ −8%** — a real day-scale flush (DEPTH); a FLOOR, not a band — deeper is fine
+>   (falling-knife handled by the ATR gate + 3d, not a 1d ceiling). Run 19.
+> - **20m negative** — dislocating acutely NOW (VELOCITY); just needs to be negative,
+>   don't box it (Run 19). Orthogonal to 1d (ρ 0.58, each adds PF — Run 18).
+> - **dollar-float < $300M** (sweet spot $50–300M) — the flush-fade is a LOW-FLOAT
+>   overreaction; large caps (>$300M) barely work (Run 20). Modern-era filter.
 > - tradeable: ADV ≥ $500k, rvol_0945 ≥ ~0.1 (NOT the old > 1 floor — Run 10).
-> Hold to MOC. (1d and 20m are orthogonal — ρ 0.58, each adds PF holding the other fixed.)
+> Hold to MOC.
 >
 > → gated full-book **PF 1.42 / 56% win** (Run 16); the SELECTION core reaches
 > **PF ~1.6–2.2, ~60–70% win**, broadly across the modern era.
