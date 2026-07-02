@@ -489,6 +489,31 @@ ATR cap barely prunes alone** (clips only ~3%, the genuine-chaos names) but **st
 cleanly** on top (1.34 → 1.41) — a cheap additive tail-clip. Both kept: flush is the
 edge-sharpener, ATR the tail-clip. **PF 1.42 is the best full-book number to date.**
 
+## Run 17 — everything stacked: gated book + the selection core
+
+The gated book (flush + ATR gates, Run 16) AND the selection core (down ≥8% @ entry,
+3d ≥ −8%, ADV ≥ $500k, rvol_0945 ≥ 0.1):
+
+| stage | n | win% | PF | avg% | net |
+|---|---:|---:|---:|---:|---:|
+| gated book alone | 46,290 | 56.0 | 1.41 | +0.67% | $3.12M |
+| **+ selection core** | 4,869 | **62.1** | **1.92** | +1.63% | $794k |
+
+**PF 1.92, 62% win, +1.63%/trade over 4,869 trips — and now broad across the years:**
+
+| era | behavior |
+|---|---|
+| 2009–2018 | every year PF 1.33–2.13 (46–242 trips) |
+| 2019 | 2.86 (170) · 2020 3.28 (529) · 2021 2.99 (690) |
+| 2022–2026 | 2.07 · 1.54 · 1.89 · 1.42 · 1.60 (195–605 trips) |
+
+**Positive PF in ~22 of 24 years** — the only misses are 2007 (0.84, 41 trips) and
+2008 (0.94, 101 trips, GFC free-fall where even non-decliners kept dropping). **Every
+year 2009→2026 is positive.** This is MORE robust than the pre-gate core (~19/23) — the
+flush + ATR gates didn't just lift the headline, they made the edge more consistent
+year-to-year by cutting the noise trades that dragged the weak years. Still
+volatility-tilted (2020–21 the peaks), but no longer dependent on them.
+
 ---
 
 ## The core setup (as of this session)
