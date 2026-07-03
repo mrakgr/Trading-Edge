@@ -761,6 +761,30 @@ mean = ~15× the 15m-max = a true out-of-scale CLIMAX bar (S, PF 4.4). **Strengt
 the higher rvol floors** — the weak tier is weak because a 4× bar is just "opening-bar sized," not
 a genuine spike.
 
+## Entry-time (30m buckets) — the short is ROBUST ALL DAY (opposite of the long)
+
+Broke the short (rvol≥40, ATR≥0.03, no 1d floor; 533 trips) down by 30m entry bucket:
+
+| entry | n | win% | raw PF | avg% |
+|---|---:|---:|---:|---:|
+| 09:30 | 25 | 92.0 | 14.7 | +19.6 |
+| 10:00 | 114 | 78.1 | 4.40 | +14.2 |
+| 10:30 | 93 | 79.6 | 5.02 | +16.3 |
+| 11:00–11:30 | 116 | ~78 | 4.7 | +16 |
+| **12:00** | 75 | 89.3 | 9.63 | +20.1 |
+| 13:00 | 19 | 94.7 | 140* | +16.9 |
+| **14:00** | 15 | 66.7 | **0.96** | −0.9 |
+| 15:00–15:30 | 22 | ~73 | 2.8–7.8 | +8 |
+
+**Strong across the WHOLE session** — avg return +14–20% almost everywhere, and midday (12:00 →
+PF 9.6, +20% avg) is among the BEST. The one soft spot is 14:00 (PF 0.96, the only losing bucket,
+15 trips — likely noise). (13:00 PF 140 is a thin-sample artifact, 19 trips near-zero losses.)
+**Mechanism / contrast with the long:** an exhaustion blow-off reverses FAST regardless of the
+clock, so the short doesn't need the morning — a 12:00 or 15:00 parabolic fades as hard as a 10:00
+one. The LONG fade, by contrast, needs TIME for the bounce before MOC, so it's morning-concentrated
+(70% of trips 9:30–11:00). **Practical: run the short ALL session (maybe ex-14:00); time-gate the
+long to the morning.**
+
 ---
 
 ## Working baseline (this session) & next

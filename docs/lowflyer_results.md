@@ -912,6 +912,30 @@ the breakout-bar close, hold to MOC. **min-CLOSE breakout reference.**
 
 ---
 
+## Run 27 — entry-time (30m buckets): the long is MORNING-concentrated
+
+Broke the production long down by 30m entry bucket (hold-to-MOC, so later entry = shorter hold):
+
+| entry | n | win% | clip PF | avg% |
+|---|---:|---:|---:|---:|
+| 09:30 | 162 | 63.0 | 3.02 | +3.1 |
+| **10:00** | 248 | 66.9 | 3.73 | +4.0 |
+| **10:30** | 118 | 73.7 | 6.77 | +4.5 |
+| 11:00 | 85 | 71.8 | 2.82 | +3.3 |
+| 11:30–12:30 | ~100 | ~65 | 1.5–2.6 | +1–2.7 |
+| 13:00–15:30 | ~187 | mixed | noisy (1.2–13*) | +0.4–6 |
+
+**70% of the book (613/870) fires 9:30–11:00, and that's where the edge is cleanest** — 10:00–10:30
+is the sweet spot (PF 3.7–6.8, +4–4.5% avg). It SOFTENS after 11:30 (12:30 & 14:00 dip to PF
+~1.2–1.5). Mechanism: the flush-FADE needs TIME for the bounce to develop before MOC, so morning
+flushes (most room to revert) dominate; late-day entries have little time left and a weaker edge.
+**Implication: the long can likely be time-gated to the morning (9:30–11:30) with little loss** —
+the afternoon adds few trips and is noisier. (Opposite of the SHORT, which is all-day — see the
+short doc: a blow-off reverses FAST regardless of clock, so it doesn't need the morning; midday
+12:00 is even a peak.)
+
+---
+
 ## The core setup (as of this session)
 
 > **Long the intraday flush** — a 1m bar closing below the running session **min-close**
