@@ -756,9 +756,72 @@ is real (2017+, 30–200 trips/yr): positive every year, flat PF 1.6–5.0.
 
 ---
 
+## Run 25 — chg_7d floor: add a 7-day-return floor on top of production (PF 2.86 → 3.25)
+
+Added `chg_7d` (7-trading-day return into entry = `entryPx / close_7d − 1`, `close_7d
+= LAG(adj_close,7)` episode-partitioned) as a first-class recorded column (candidate
+builder + Trip/CSV), symmetric with chg_1d/chg_3d. Sliced it on the production long
+(gates + 1d ≤ −8% + 20m ≤ −3% + 3d ∈ [−3,+30] + float < $300M + ADV, 1:1 float join).
+Baseline: 1,101 trips, PF 2.86, median chg_7d = **+14%** (production names are already
+mostly UP over 7 days — the low-float + 3d selection pre-loads a "runner pulling back").
+
+**Per-bucket = an inverted-U, same shape as 3d** — the sweet spot is flat-to-moderately-
+up over 7 days:
+
+| chg_7d | n | win% | clip PF | avg% |
+|---|---:|---:|---:|---:|
+| < −30% | 48 | 70.8 | 2.62 | +2.73 |
+| −30..−15 | 66 | 63.6 | 1.28 | +0.78 |
+| −15..−5 | 99 | 57.6 | 1.72 | +1.23 |
+| **−5..0** | 79 | 73.4 | **4.15** | +3.48 |
+| **0..15** | 270 | 70.4 | 3.38 | +2.94 |
+| **15..40** | 328 | 67.1 | 3.37 | +3.44 |
+| 40..100 | 180 | 66.1 | 2.84 | +3.37 |
+| ≥100% | 31 | 58.1 | 2.54 | +3.52 |
+
+**FLOOR sweep — the knee is chg_7d ≥ −5%:**
+
+| floor | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| none | 1,101 | 67.0 | 2.86 | +2.92 |
+| ≥ −15% | 987 | 67.1 | 3.07 | +3.07 |
+| **≥ −5%** | 888 | 68.1 | **3.25** | +3.28 |
+| ≥ 0% | 809 | 67.6 | 3.18 | +3.26 |
+
+**PRODUCTION CHANGE: add chg_7d ≥ −5%** — PF **2.86 → 3.25 (+14%)** for only ~19% fewer
+trips. Past 0% plateaus/dips; the +100% tail is fine (a CEILING sweep only LOWERS PF —
+don't cap the parabolic-7d names once low-float + 3d are applied). It's a FLOOR, like 1d
+and 20m.
+
+**INDEPENDENCE — chg_7d does real work BEYOND the 3d band (2×2, both toggled on the same
+base):**
+
+| 3d | 7d | n | win% | PF |
+|---|---|---:|---:|---:|
+| in [−3,+30] | **≥ −5%** | 888 | 68.1 | **3.25** |
+| in [−3,+30] | < −5% | 213 | 62.4 | 1.71 |
+| OUT | ≥ −5% | 1,108 | 63.9 | 2.00 |
+| OUT | < −5% | 2,473 | 60.7 | 1.64 |
+
+NOT redundant. WITHIN the production 3d band, adding the 7d floor lifts PF **1.71 →
+3.25**: the 213 trips that pass 3d ∈ [−3,+30] but fail 7d ≥ −5% are the WORST cell in
+the band — names flat-to-up over 3 days but still down >5% over 7, i.e. a **dead-cat
+bounce inside a week-long decline**. The 3d window can't see them; the 7d window can.
+Each floor cuts a genuinely different bad cohort.
+
+**BY-YEAR (OLD 3d-only vs NEW 3d + 7d ≥ −5%):** the floor holds up and generally
+IMPROVES — 2016 (1.35→1.80), 2022 (2.37→3.08), 2023 (1.62→1.81), 2025 (2.62→3.55),
+2020/21 both up; roughly flat in 2019/2024; small dips only in tiny-n pre-2015 cells.
+Every meaningful-sample year (2015+) stays positive (PF ≥ 1.8). The weak spots (2011/12,
+n≈7) are the same SEC-float-boundary noise as everywhere else. Broad improvement, not
+one-era-driven.
+
+---
+
 ## PRODUCTION SPEC (locked this session)
 
-**FINAL system → PF 2.90 / 67% win / +2.94% per trade / 1,123 trips (2003–2026).**
+**FINAL system → PF 3.25 / 68% win / +3.28% per trade / 888 trips (2003–2026)**
+(was PF 2.90 / 1,123 trips before the Run 25 chg_7d ≥ −5% floor).
 
 Long the intraday flush, scanning from 9:45 ET (indicators warm from 08:30), fill at
 the breakout-bar close, hold to MOC. **min-CLOSE breakout reference.**
@@ -766,6 +829,7 @@ the breakout-bar close, hold to MOC. **min-CLOSE breakout reference.**
 - **ENGINE GATES:** entry-bar flush `close/prevClose ≤ −0.7%` · intraday log-ATR `< 0.02`.
 - **SELECTION:** 1d ≤ −8% (depth floor) · 20m ≤ −3% (velocity floor) ·
   **3d ∈ [−3%, +30%]** (trend band — flat-to-strong, not a decliner, not parabolic) ·
+  **7d ≥ −5%** (7-day trend floor — not a dead-cat bounce in a weekly decline; Run 25) ·
   dollar-float < $300M (low-float overreaction) · ADV ≥ $500k · rvol_0945 ≥ 0.1.
 - **SIZING:** base size, **3× when D-1 breadth (`pct_above_20`) ≥ 0.65** (PF 4.23 vs
   2.33 — Run 23; 3× → PF 2.90→3.40, net +102% — Run 24). A size-up input, NOT a gate
@@ -789,6 +853,9 @@ the breakout-bar close, hold to MOC. **min-CLOSE breakout reference.**
 > - **3d ∈ [−3%, +30%]** — flat-to-STRONG over 3 days (pullback in an uptrend), not a
 >   multi-day decliner and not a parabolic blow-off. A BAND — inverted-U, peak in
 >   [0,+15%] (Run 22). Tightened from ≥ −8%: PF 2.34 → 2.90.
+> - **7d ≥ −5%** — flat-to-up over the trailing 7 days too; a FLOOR (inverted-U, but the
+>   ≥100% tail stays fine so no ceiling — Run 25). Cuts the dead-cat-bounce-in-a-weekly-
+>   decline cohort the 3d window can't see. Independent of 3d: PF 2.86 → 3.25.
 > - **1d ≤ −8%** — a real day-scale flush (DEPTH); a FLOOR, not a band — deeper is fine
 >   (falling-knife handled by the ATR gate + 3d, not a 1d ceiling). Run 19.
 > - **20m ≤ −3%** — dislocating acutely NOW (VELOCITY); a FLOOR (require some velocity),

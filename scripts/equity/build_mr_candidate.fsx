@@ -24,6 +24,7 @@
 //   vol_0945           total volume 09:30-09:45
 //   prev_adj_close     D-1 adj close (= close_1d), episode-partitioned
 //   close_3d           D-3 adj close, episode-partitioned
+//   close_7d           D-7 adj close, episode-partitioned (trailing 7-day return feature)
 //   day_close          D's adj close (the price-floor field + fwd-return base)
 //   adj_ratio          adj_close/raw_close (rescale intraday bars to adjusted)
 //   avgvol20           20-bar trailing mean daily volume (rvol denominator)
@@ -101,6 +102,7 @@ ctx AS (
         CASE WHEN raw_close > 0 THEN adj_close / raw_close END        AS adj_ratio,
         LAG(adj_close, 1) OVER e                                      AS prev_adj_close,   -- close_1d
         LAG(adj_close, 3) OVER e                                      AS close_3d,
+        LAG(adj_close, 7) OVER e                                      AS close_7d,         -- 7-trading-day trailing close
         AVG(adj_volume) OVER (PARTITION BY ticker, episode ORDER BY date
                               ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS avgvol20,
         LEAD(adj_close, 1) OVER e                                     AS close_fwd_1d,
@@ -111,7 +113,7 @@ ctx AS (
     WINDOW e AS (PARTITION BY ticker, episode ORDER BY date)
 )
 SELECT c.ticker, c.date,
-    c.prev_adj_close, c.close_3d, c.day_close, c.adj_ratio, c.avgvol20,
+    c.prev_adj_close, c.close_3d, c.close_7d, c.day_close, c.adj_ratio, c.avgvol20,
     c.close_fwd_1d, c.close_fwd_3d, c.close_fwd_5d,
     l.day_open, l.med_bar_vol_0945, l.nbar_0945, l.vol_0945,
     -- rvol_0945 = premarket-inclusive vol through 09:45 / 20-bar avg daily vol. First-class

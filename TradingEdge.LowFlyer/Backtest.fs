@@ -64,6 +64,7 @@ type Candidate =
       Date: DateOnly
       PrevAdjClose: float       // D-1 adj close (= close_1d), the engine's prevClose
       Close3d: float            // D-3 adj close
+      Close7d: float            // D-7 adj close (trailing 7-day return feature)
       DayClose: float           // D adj close (price floor + fwd-return base)
       AdjRatio: float           // adj_close / raw_close (rescale minute bars)
       AvgVol20: float           // 20-bar trailing mean daily volume (rvol denom)
@@ -98,8 +99,10 @@ type Trip =
       PctChgSinceOpen: float     // entryPx / dayOpen - 1
       Close1d: float             // close-1-day-ago (adj) = PrevAdjClose
       Close3d: float             // close-3-days-ago (adj)
+      Close7d: float             // close-7-days-ago (adj)
       Chg1d: float               // entryPx / close_1d - 1 — day-scale flush DEPTH at entry (selection filter)
       Chg3d: float               // entryPx / close_3d - 1 — 3-day trend (>= -8% = not a multi-day decliner)
+      Chg7d: float               // entryPx / close_7d - 1 — 7-day trend into entry (the run-up feature)
       // exit
       ExitMin: int
       ExitPrice: float           // MOC close (adj scale)
@@ -115,7 +118,7 @@ type Trip =
       NetPnL: float
       BarsHeld: int }
 
-let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Trip =
+let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: IntradayPosition) : Trip =
     match pos.State with
     | ExitedAt (exitMin, exitPx, reason) ->
         let qty = notional / pos.EntryPx
@@ -137,8 +140,10 @@ let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Tr
           PctChgSinceOpen = (if c.DayOpen > 0.0 then pos.EntryPx / c.DayOpen - 1.0 else nan)
           Close1d = c.PrevAdjClose
           Close3d = c.Close3d
+          Close7d = c.Close7d
           Chg1d = (if c.PrevAdjClose > 0.0 then pos.EntryPx / c.PrevAdjClose - 1.0 else nan)
           Chg3d = (if c.Close3d > 0.0 then pos.EntryPx / c.Close3d - 1.0 else nan)
+          Chg7d = (if c.Close7d > 0.0 then pos.EntryPx / c.Close7d - 1.0 else nan)
           ExitMin = exitMin
           ExitPrice = exitPx
           ExitReason = reason
@@ -149,7 +154,8 @@ let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Tr
           CloseFwd5d = c.CloseFwd5d
           MedBarVol0945 = c.MedBarVol0945
           Qty = qty
-          NetPnL = qty * (exitPx - pos.EntryPx)             // long only
+          // long: profit when price rises (exit - entry); short: profit when price falls.
+          NetPnL = (if short then qty * (pos.EntryPx - exitPx) else qty * (exitPx - pos.EntryPx))
           BarsHeld = exitMin - pos.EntryMin }
     | Holding -> failwith "toTrip called on a still-Holding position (Flatten first)"
     | Armed _ | Skipped -> failwith "toTrip called on an Armed/Skipped (never-filled) position (filter these out)"
@@ -160,7 +166,7 @@ let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Tr
 let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: DateOnly) : Candidate[] =
     use cmd = conn.CreateCommand()
     cmd.CommandText <-
-        "SELECT ticker, date, prev_adj_close, close_3d, day_close, adj_ratio, avgvol20,
+        "SELECT ticker, date, prev_adj_close, close_3d, close_7d, day_close, adj_ratio, avgvol20,
                 close_fwd_1d, close_fwd_3d, close_fwd_5d, day_open, med_bar_vol_0945, nbar_0945, vol_0945
          FROM mr_candidate
          WHERE date >= $start AND date <= $end
@@ -177,16 +183,17 @@ let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDa
               Date   = DateOnly.FromDateTime(reader.GetDateTime 1)
               PrevAdjClose = dbl 2
               Close3d = dbl 3
-              DayClose = dbl 4
-              AdjRatio = dbl 5
-              AvgVol20 = dbl 6
-              CloseFwd1d = dbl 7
-              CloseFwd3d = dbl 8
-              CloseFwd5d = dbl 9
-              DayOpen = dbl 10
-              MedBarVol0945 = reader.GetInt64 11
-              NBar0945 = reader.GetInt32 12
-              Vol0945 = reader.GetInt64 13 })
+              Close7d = dbl 4
+              DayClose = dbl 5
+              AdjRatio = dbl 6
+              AvgVol20 = dbl 7
+              CloseFwd1d = dbl 8
+              CloseFwd3d = dbl 9
+              CloseFwd5d = dbl 10
+              DayOpen = dbl 11
+              MedBarVol0945 = reader.GetInt64 12
+              NBar0945 = reader.GetInt32 13
+              Vol0945 = reader.GetInt64 14 })
     out.ToArray()
 
 // ===========================================================================
@@ -244,7 +251,7 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
         sys.Flatten()
         for pos in sys.Positions do
             match pos.State with
-            | ExitedAt _ -> trips.Add(toTrip c cfg.Notional pos)
+            | ExitedAt _ -> trips.Add(toTrip c cfg.Notional cfg.Intraday.Short pos)
             | Armed _ | Skipped -> ()   // never filled → no trip (Armed/RiseEntry off here anyway)
             | Holding -> failwith "Flatten closes all; unreachable"
 
@@ -301,7 +308,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,entry_bar_open,prev_bar_close,chg_20m,run_low_at_entry,intraday_atr_pct_at_entry,intraday_tightness_at_entry,"
-    + "rvol,breakout_bar_vol,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,chg_1d,chg_3d,"
+    + "rvol,breakout_bar_vol,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,med_bar_vol_0945,"
     + "qty,net_pnl,bars_held_min"
@@ -326,8 +333,10 @@ let private row (t: Trip) : string =
         fmt t.PctChgSinceOpen
         fmt t.Close1d
         fmt t.Close3d
+        fmt t.Close7d
         fmt t.Chg1d
         fmt t.Chg3d
+        fmt t.Chg7d
         hhmm t.ExitMin
         fmt t.ExitPrice
         t.ExitReason

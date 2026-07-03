@@ -42,7 +42,7 @@ type Args =
             | Min_Low_Ref -> "Switch the breakout reference back to the running min-LOW channel. Default is min-CLOSE (wick-immune, closes-only; +~29%% trips at ~same PF — Run 12)."
             | Min_Bar_Flush _ -> "Entry-bar FLUSH gate: require the breakout bar's 1m move (close/prevClose-1) <= this. Default 0.0 = OFF. e.g. -0.007 rejects bars softer than -0.7% (a real flush candle, not a one-tick poke)."
             | Max_Intraday_Atr_Pct _ -> "Intraday log-ATR CAP at entry: require the 1m log-ATR < this. Default +inf = OFF. e.g. 0.02 rejects names in genuine chaos (per Run 9)."
-            | Short -> "SWEEP LEVER: trade the flush SHORT instead of long (flips P&L sign only). Default off (long)."
+            | Short -> "Trade the MIRRORED setup: fade the new-session-HIGH pop on high volume SHORT (Downside=false, Short=true) — the true mirror of the default long-the-flush. Breakout ref, flush gate and 2-bar stop all flip. Default off (long the flush)."
             | Pct_Stop _ -> "SWEEP LEVER: wide catastrophe %%-stop, a fixed adverse excursion from entry (0 = off, default)."
             | Time_Stop_Min _ -> "SWEEP LEVER: flatten this many minutes after entry, capped at MOC (0 = off, default = hold to MOC)."
 
@@ -69,11 +69,16 @@ let main argv =
                   MinCloseRef   = not (parsed.Contains Min_Low_Ref)
                   MinBarFlush   = parsed.GetResult(Min_Bar_Flush,   defaultValue = defaultConfig.Intraday.MinBarFlush)
                   MaxAtrPct     = parsed.GetResult(Max_Intraday_Atr_Pct, defaultValue = defaultConfig.Intraday.MaxAtrPct)
+                  // --short = the MIRRORED setup: fade the new-session-HIGH pop on high volume
+                  // (Downside=false) SHORT, the true mirror of the default long-the-flush. The
+                  // engine's breakout ref, flush gate and 2-bar stop all flip with Downside.
+                  Downside      = not (parsed.Contains Short)
                   Short         = parsed.Contains Short
                   PctStop       = parsed.GetResult(Pct_Stop,        defaultValue = defaultConfig.Intraday.PctStop)
                   TimeStopMin   = parsed.GetResult(Time_Stop_Min,   defaultValue = defaultConfig.Intraday.TimeStopMin) } }
 
-    printfn "LowFlyer backtest — market-wide intraday LONG mean-reversion (new-session-low flush)"
+    printfn "LowFlyer backtest — market-wide intraday mean-reversion (%s)"
+        (if cfg.Intraday.Short then "SHORT the new-session-HIGH pop" else "LONG the new-session-low flush")
     printfn "  db          = %s" dbPath
     printfn "  minute_aggs = %s" minuteDir
     printfn "  range       = %O .. %O" startDate endDate
@@ -83,9 +88,13 @@ let main argv =
         (if cfg.Intraday.TimeStopMin > 0 then sprintf "time-stop %dm" cfg.Intraday.TimeStopMin
          elif cfg.Intraday.PctStop > 0.0 then sprintf "pct-stop %.0f%%" (cfg.Intraday.PctStop * 100.0)
          else "hold-to-MOC")
-    printfn "  breakout ref = %s" (if cfg.Intraday.MinCloseRef then "min-CLOSE (wick-immune)" else "min-low")
+    printfn "  breakout    = %s (%s ref)"
+        (if cfg.Intraday.Downside then "new session LOW" else "new session HIGH")
+        (if cfg.Intraday.MinCloseRef then "CLOSE, wick-immune" else "low/high")
     printfn "  gates       = flush %s   log-ATR %s"
-        (if cfg.Intraday.MinBarFlush = 0.0 then "off" else sprintf "<=%.3f" cfg.Intraday.MinBarFlush)
+        (if cfg.Intraday.MinBarFlush = 0.0 then "off"
+         elif cfg.Intraday.Downside then sprintf "<=%.3f" cfg.Intraday.MinBarFlush
+         else sprintf ">=%.3f" (-cfg.Intraday.MinBarFlush))
         (if Double.IsInfinity cfg.Intraday.MaxAtrPct then "off" else sprintf "<%.3f" cfg.Intraday.MaxAtrPct)
 
     let sw = Stopwatch.StartNew()
