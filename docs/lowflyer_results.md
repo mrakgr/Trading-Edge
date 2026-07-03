@@ -818,10 +818,77 @@ one-era-driven.
 
 ---
 
+## Run 26 — bar_rvol_15m & 1m-flush depth on the PRODUCTION long (mirror of the short)
+
+Re-ran the `bar_rvol_15m` (= breakout_bar_vol / mean [9:30,9:45) 1m vol) and 1m-return
+breakdowns on the production system (888 trips, PF 3.25) — the short-side session showed
+these two discriminate OPPOSITELY by side, so re-tested on the long.
+
+**bar_rvol — mild inverted-U, NOT a useful floor (confirms the early-session finding):**
+
+| rvol | n | clip PF | avg% |
+|---|---:|---:|---:|
+| <3 | 111 | 2.79 | +2.7 |
+| **3–5** | 341 | **3.67** | +3.8 |
+| 5–8 | 270 | 3.26 | +3.1 |
+| 8–12 | 113 | 3.52 | +3.2 |
+| 12–20 | 39 | 2.85 | +2.9 |
+| **≥20** | 14 | **1.20** | +1.0 |
+
+Floor sweep: rvol≥3 3.31 (tiny) → rvol≥8 2.78 → rvol≥12 1.96 → rvol≥20 1.20 — a floor barely
+helps and pushing it HIGH actively HURTS. **Mirror of the short:** on the long flush-fade an
+EXTREME volume spike is a FALLING KNIFE (PF 1.20 at ≥20×), not a signal; the mild sweet spot is
+3–5× (a modest, not extreme, spike). rvol is ~useless as a long filter.
+
+**1m-flush DEPTH — a REAL edge on the long (the tradeable feature, not rvol):**
+
+| 1m flush | n | clip PF | avg% |
+|---|---:|---:|---:|
+| 0..−1% | 46 | 1.93 | +1.6 |
+| −1..−2% | 207 | 2.00 | +1.6 |
+| −2..−4% | 368 | 3.49 | +3.1 |
+| −4..−7% | 178 | 4.07 | +4.4 |
+| **−7..−12%** | 71 | 12.0* | +7.8 |
+| ≤−12% | 18 | **1.33** | +2.2 |
+
+Ceiling sweep (deeper flush): any 3.25 → **1m≤−2% 3.84** (635 trips) → ≤−4% 4.22 (267) → ≤−7%
+4.43 (89). **A deeper flush lifts the long PF cleanly** — the prod spec already gates flush
+≤−0.7%; tightening it to ≤−2% (3.25→3.84, keeps 71%) or ≤−4% (4.22, 30%) is a real improvement.
+(*the −7..−12% PF 12.0 is clip-inflated by a few big MOC winners on capped losses; avg% +7.8 is
+the honest read — still the best.) But the ≤−12% EXTREME flush DROPS to PF 1.33 — the falling-
+knife tail; it's an inverted-U at the extreme, same as rvol. Sweet spot ≈ −4 to −12%.
+
+**Long/short mirror confirmed on both features:** rvol useless-to-harmful on the long (extreme
+spike = falling knife) vs the master gate on the short (extreme spike = exhaustion); 1m-candle
+DEPTH is a real edge on BOTH (deeper flush → long, bigger pop → short), each with an inverted-U
+that collapses at the runaway extreme. **On the long, the 1m FLUSH is the tradeable feature, not
+rvol** — candidate production tightening: flush gate −0.7% → −2%. (Not yet locked.)
+
+**CEILINGS ADDED (cut the falling-knife tails):** both features have a runaway extreme that
+collapses, so cap them.
+
+| filter | n | clip PF | avg% |
+|---|---:|---:|---:|
+| baseline | 888 | 3.25 | +3.28 |
+| rvol ≤ 12 | 835 | 3.39 | +3.33 |
+| 1m ≥ −12% (flush no deeper than −12%) | 870 | 3.45 | +3.30 |
+| **BOTH** | 826 | **3.45** | +3.32 |
+
+**rvol ≤ 12** (cut the extreme-spike knife) → 3.25→3.39 at −6% trips. **1m ≥ −12%** (a FLOOR on
+flush DEPTH — reject flushes deeper than −12%, the ≤−12% dead bucket) → 3.25→**3.45** at only −2%
+trips (cheapest single lift). Combined = PF 3.45 / 826 trips — **identical to the 1m floor alone
+(3.45 / 870)** because the extreme-rvol and extreme-flush names are LARGELY THE SAME TRIPS (a 12×+
+spike and a −12% flush candle co-occur — the falling knives). So the two ceilings are NOT additive.
+**DECISION: keep 1m ≥ −12% ONLY, DROP rvol ≤ 12** — same PF 3.45 with MORE trips (870 vs 826),
+since rvol≤12 adds nothing over the 1m floor. → **production long now PF 3.45 / 68% win / 870
+trips.**
+
+---
+
 ## PRODUCTION SPEC (locked this session)
 
-**FINAL system → PF 3.25 / 68% win / +3.28% per trade / 888 trips (2003–2026)**
-(was PF 2.90 / 1,123 trips before the Run 25 chg_7d ≥ −5% floor).
+**FINAL system → PF 3.45 / 68% win / +3.30% per trade / 870 trips (2003–2026)**
+(was 3.25/888 before the Run 26 1m-flush floor; 2.90/1,123 before the Run 25 chg_7d floor).
 
 Long the intraday flush, scanning from 9:45 ET (indicators warm from 08:30), fill at
 the breakout-bar close, hold to MOC. **min-CLOSE breakout reference.**
@@ -830,10 +897,16 @@ the breakout-bar close, hold to MOC. **min-CLOSE breakout reference.**
 - **SELECTION:** 1d ≤ −8% (depth floor) · 20m ≤ −3% (velocity floor) ·
   **3d ∈ [−3%, +30%]** (trend band — flat-to-strong, not a decliner, not parabolic) ·
   **7d ≥ −5%** (7-day trend floor — not a dead-cat bounce in a weekly decline; Run 25) ·
-  dollar-float < $300M (low-float overreaction) · ADV ≥ $500k · rvol_0945 ≥ 0.1.
+  dollar-float < $300M (low-float overreaction) · ADV ≥ $500k · rvol_0945 ≥ 0.1 ·
+  **1m-flush ≥ −12%** (Run 26 falling-knife floor on flush depth — reject flushes deeper than
+  −12%; PF 3.25→3.45. rvol≤12 was tested but DROPPED — redundant with this, fewer trips).
 - **SIZING:** base size, **3× when D-1 breadth (`pct_above_20`) ≥ 0.65** (PF 4.23 vs
   2.33 — Run 23; 3× → PF 2.90→3.40, net +102% — Run 24). A size-up input, NOT a gate
   (keep trading weak-breadth days); the 3× book carries higher variance.
+  **ALSO size on the 1m-flush DEPTH (Run 26):** the deeper the entry flush candle the higher the
+  PF (−1..−2% → 2.0, −4..−7% → 4.1, −7..−12% → best), inverted-U capped by the ≥−12% floor. Size
+  UP as the flush deepens toward −12%; it's the strongest continuous long feature (rvol is NOT —
+  it's a falling-knife on the long).
 - Same-day MOC trade (the bounce is intraday); volatility-regime-tilted; low-float +
   3d-band + breadth-size-up are modern-era-strongest (pre-2017 float coverage thin).
 
