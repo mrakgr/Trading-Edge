@@ -69,7 +69,42 @@ exhausted, price rolling over quietly). So high-1d breakdowns are low-rvol at th
 **the extension + making-new-lows IS the signal, no volume spike needed.** Confirms these are
 genuinely different setups.
 
-**Status: real edge, correct thesis, but a rare low-capacity TAIL setup (~19 trips at 1d≥75%),
-not a standalone book.** More of an "A+ rare-setup" flag than a system. NEXT: characterize the
-1d≥75% cohort (what else distinguishes the winners; is the valley avoidable; forward/by-year),
-and decide if it's worth trading as an occasional overlay.
+**Status after Run 1: real edge, correct thesis, but seemingly a rare low-capacity TAIL setup
+(~19 trips at 1d≥75%).** → but Run 2 reframes this: 1d was partly a PROXY for intraday ATR%.
+
+## Run 2 — intraday ATR% is the REAL gate (not 1d); flips the book +EV with 11× the capacity
+
+Tested intraday ATR% (`intraday_atr_pct_at_entry`, 1m log-ATR) as a lever. It's monotone and far
+stronger than 1d:
+
+| i-ATR% ≥ | n | win% | raw PF | avg% |
+|---|---:|---:|---:|---:|
+| any | 110,479 | 43.5 | 0.79 | −0.4 |
+| 0.03 | 1,035 | 51.2 | **1.11** | +1.0 |
+| **0.05** | 218 | 58.3 | **1.45** | +6.0 |
+| 0.08 | 58 | 62.1 | 1.20 | +4.9 |
+
+**ATR% ≥ 0.05 flips the whole book positive: PF 1.45, 58% win, +6.0% avg, 218 trips** — 11× the
+capacity of the 1d≥75% cell (19), and NO extreme-extension requirement.
+
+**ATR% works INDEPENDENTLY of 1d — the 2×2 proves ATR% is the gate, 1d was a proxy:**
+
+| 1d | i-ATR% | n | raw PF | avg% |
+|---|---|---:|---:|---:|
+| <50% | <0.05 | 110,187 | 0.78 | −0.4 |
+| **<50%** | **≥0.05** | 204 | **1.45** | +6.0 |
+| ≥50% | <0.05 | 74 | **0.56** | −2.9 |
+| ≥50% | ≥0.05 | 14 | 1.58 | +5.7 |
+
+The un-extended `1d<50% × ATR≥0.05` cell is PF 1.45 (204 trips) — as good as the extended cell,
+far more capacity. And `1d≥50% × ATR<0.05` is a LOSS (0.56). **So intraday ATR% is the real gate,
+not 1d.** Run 1's "extension-driven" read was partly an artifact — the 1d≥75% names happened to
+ALSO be high-ATR (chaotic), and ATR% was doing the work.
+
+**Reframed thesis:** the breakdown-short doesn't need the name EXTENDED — it needs the breakdown
+VIOLENT/CHAOTIC intraday (high ATR%). High intraday ATR% = the name is in a genuine intraday
+freefall, and THAT continues down. The momentum-continuation signal is **intraday chaos, not the
+multi-day run-up.** Same ATR% role as the pop-short (both momentum shorts key off intraday
+violence) — consistent, and it upgrades this from "rare tail" to a **small-but-real book (218
+trips at PF 1.45)**. NEXT: is 1d still additive on TOP of ATR≥0.05? by-year; 1m-flush depth
+(the down analog of the pop's 1m); does the down-move need to be a continuation vs first break.
