@@ -858,6 +858,38 @@ Ceiling sweep (deeper flush): any 3.25 → **1m≤−2% 3.84** (635 trips) → �
 the honest read — still the best.) But the ≤−12% EXTREME flush DROPS to PF 1.33 — the falling-
 knife tail; it's an inverted-U at the extreme, same as rvol. Sweet spot ≈ −4 to −12%.
 
+## bar_rvol_20d on the long — a NON-LEVER (opposite of the short, where it's the main gate)
+
+`brv20d = breakout_bar_vol / (avgvol20·adj_ratio/390)` — the breakout bar vs the STABLE 20-day
+per-minute baseline. On the SHORT this became the new main gate (brv20d≥100 → PF 6.65, 2,760
+trips). Tested on the production long (870 trips, PF 3.447; median brv20d 17.4, p90 48.4 — a
+flush-fade doesn't produce the 100×+ climax bars the short's pops do). (`lowflyer_long_brv20d.sql`.)
+
+| brv20d band (non-cum) | n | win% | clip PF | avg% |
+|---|---:|---:|---:|---:|
+| 0–10 | 216 | 70.4 | **4.97** | +4.4 |
+| 10–25 | 368 | 65.5 | 2.98 | +2.9 |
+| 25–50 | 202 | 67.3 | 2.77 | +2.5 |
+| 50–100 | 72 | 72.2 | 3.99 | +4.1 |
+| 100–200 | 11 | 90.9 | 8.27 | +3.2 |
+
+A mild **U-shape** (low tail + extreme tail good, middle weakest) — the exact OPPOSITE of the
+short's monotone escalation from a losing low tail. But **it is NOT a robust lever on the long:**
+- Floor sweep gains only at trivial capacity (≥50 → 4.29 but 84 trips; ≥100 → 10.5 but 12 trips).
+- Ceiling `≤25` mildly lifts PF (3.45→3.58, keeps 584) — echoing brv15's "extreme-volume flush =
+  falling knife" but weak.
+- **The 0–10 "best bucket" (PF 4.97) does NOT survive scrutiny:** its median flush is the
+  SHALLOWEST (−2.5%), so it's not a flush-depth confound — but the `≤25` vs `>25` **by-year split
+  is noisy with no consistent winner** (2017 lo 2.05/hi 7.56; 2019 lo 1.44/hi 5.52; 2024 lo 3.72/hi
+  1.54), and the full-sample "low wins" is driven by two tiny huge-PF years (2014 30.8, 2018 47.1
+  on 4–13 trips). Strip those → no stable edge either way.
+
+**Verdict: brv20d is a NON-LEVER on the long — leave it out.** Mechanistically clean: the long is
+*selling* exhaustion (a flush), whose edge lives in flush DEPTH + low-float + morning timing; a
+stable-baseline UP-volume-climax measure is the wrong axis for it. brv20d is a short-only feature —
+it discriminates a pop's exhaustion, not a flush's. (Mirrors brv15's weak/inverted long behavior;
+confirms the two books are different setups, not mirror images, on the volume-spike axis.)
+
 **Long/short mirror confirmed on both features:** rvol useless-to-harmful on the long (extreme
 spike = falling knife) vs the master gate on the short (extreme spike = exhaustion); 1m-candle
 DEPTH is a real edge on BOTH (deeper flush → long, bigger pop → short), each with an inverted-U
