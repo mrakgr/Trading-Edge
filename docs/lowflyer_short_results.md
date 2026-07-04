@@ -887,12 +887,61 @@ open = 2.92 (normal/heavy) and both fire. **brv20d catches the light-open fakes 
 
 **+1.8 PF for a 15% capacity cut**, purely by dropping 79 light-open false positives.
 
-**Verdict (answers the question):** brv15 is NOT globally destabilized by an abnormal open — it's the
-sharper primary feature and stays honest on the heavy/very-heavy opens that are the norm (80% of the
-book opens >3× the 20d tempo). The instability is a specific, catchable failure mode — **LIGHT
-opens** inflate it. So the design is not "replace brv15 with brv20d" but **keep brv15 primary + add
-`brv20d` as a cheap second-baseline confirmation** that filters the light-open false positives (S
-bucket 4.37→6.16). The two baselines agreeing is the strongest exhaustion signal in the book.
+**FIRST-PASS verdict (REVISED below):** initially read brv20d as a light-open FILTER on brv15. That
+UNDERSOLD it — the deep dive shows brv20d is the stronger PRIMARY lever and should REPLACE brv15≥40 as
+the default.
+
+## brv20d IS THE MAIN LEVER — replaces brv15≥40 as the default (5× capacity, ~1.5× PF, new population)
+
+`brv20d ≥ 100` = **2,760 trips, PF 6.65, 88.7% win, +17.3% avg** vs the current default `brv15 ≥ 40` =
+533 trips, PF 4.37 — **~5× the capacity AND ~1.5× the PF simultaneously.** (`lowflyer_short_brv20d.sql`.)
+
+**brv20d has a hard KNEE at ~100 — it's threshold-like, not the gentle gradient brv15 is:**
+
+| brv20d band (non-cum) | n | win% | raw PF | avg% |
+|---|---:|---:|---:|---:|
+| 0–40 | 2,536 | 63.1 | **0.91** (LOSER) | −1.0 |
+| 40–100 | 3,348 | 67.6 | 1.35 | +3.2 |
+| **100–200** | 2,128 | 86.5 | **5.16** | +15.6 |
+| 200–400 | 578 | 96.4 | 28.3* | +23.1 |
+| 400–800 | 47 | 95.7 | 188* | +22.2 |
+
+Below ~40 there is NO edge (a net loser); the knee at 100 is a sharp regime boundary — a breakout bar
+≥100× the name's average per-minute volume is a genuinely out-of-scale CLIMAX bar. *(The 28/125/188 PFs
+above 200 are thin-DENOMINATOR artifacts — 96–100% win = almost no losing trades → near-zero denom;
+raw PF has no cap. The HONEST metric up there is win% + avg%, both rock-solid. Treat ≥200 as "excellent,
+small.")*
+
+**It's genuinely NEW capacity, not a bigger brv15.** Of brv20d≥100's 2,760 trips only **226 overlap**
+with brv15≥40; the other **2,534 are new** and strong standalone (PF 6.12, +16.6% avg). Conversely the
+307 trips brv15≥40 catches that brv20d≥100 MISSES are much weaker (+7.4% avg). **brv15≥40 was largely
+catching the WRONG thing** (light-open-inflated bars); brv20d≥100 selects a different, better
+population — genuine climax bars measured against a stable name-level baseline.
+
+**brv20d SUBSUMES 1d entirely** (brv20d≥100 base): every 1d band is strong — even down-day (PF 18.5, 16
+trips) and 0–10% (+21.9% avg). 1d floor sweep DEAD FLAT: any 6.65 → 1d≥50% 5.91 → 1d≥150% 7.17. **1d
+adds nothing on top** (cleaner subsumption than rvol showed). Same for the other levers — the single
+out-of-scale-volume gate does the work.
+
+**By-year: robust, NOT era-locked, capacity GROWING.** Positive every year; PF ≥2.3 in every year with
+a real sample (2017 2.75, 2019 2.96, 2024 3.15 the softest; 2020 14.4, 2022 14.4, 2025 14.2 the best).
+Samples: 2020: 283, 2023: 360, 2024: 539, 2025: 523, 2026: 190 — the S-tier at scale.
+
+**Liquidity is fine (tradeable):** median entry $10.15, p10 $2.05, only 10 sub-$1 of 2,760; median ADV
+$3.9M (p25 $1.5M). Real names, not penny-stock artifacts.
+
+**⚠ The squeeze TAIL is real and is a SIZING/loss-study problem, not a PF one.** ret_moc dist (brv20d≥100):
+median +19.4%, p25 already +9.6%, p10 −1.2% — an extraordinary distribution. BUT worst = **−839%** (a
+short run over ~9×) and **90 trips (~3%) lost >20%.** The high PF is DESPITE these (winners dominate),
+but a single −839% is a portfolio event. This is exactly the deferred big-LOSS study / catastrophe-stop
+question — the fat left tail of shorting parabolas. Size for it; do not let one squeeze wipe the book.
+
+**Why brv20d > brv15 mechanistically:** brv15's denominator (the name's own opening-15m tempo) is
+itself an elevated, today-specific, noisy number — a light open deflates it into false spikes, a heavy
+open masks real ones. brv20d's denominator (the 20-day daily avg ÷ 390) is a STABLE, name-level
+baseline, so "100× the normal per-minute volume" means the same thing across names and days. The stable
+baseline is what gives the clean knee and the honest, high-capacity edge. **→ NEW DEFAULT SHORT GATE:
+brv20d ≥ 100 (+ ATR% ≥ 0.03), PF 6.65 / 2,760 trips.** (brv15 retired to a secondary/confirmation role.)
 
 ---
 
