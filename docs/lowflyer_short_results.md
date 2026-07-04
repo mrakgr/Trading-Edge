@@ -787,6 +787,115 @@ long to the morning.**
 
 ---
 
+## BREADTH — NOT a lever for the short (does NOT mirror the long; regime-independent)
+
+Question (user): does high market breadth improve the short like it does the long MR system?
+Thesis: high breadth = bullish tape = more risk-seeking participants = more/better parabolic
+blow-offs to fade → expect high-breadth to help. **It does NOT.** Breadth = `pct_above_20`
+(fraction of the CS/ADRC liquid universe above its 20d MA), no-lookahead `LAG(pct_above_20) OVER
+(ORDER BY date)` — the same series & convention the long production gate uses (breadth≥0.65).
+Ran on the ATR%≥0.03 base at each rvol tier. Coverage 100%. (`lowflyer_short_breadth.sql`.)
+
+**rvol≥40 (S) — flat; NO breadth floor helps:**
+
+| breadth | n | win% | raw PF | avg% |
+|---|---:|---:|---:|---:|
+| 0.00–0.35 (bearish) | 631 | 81.0 | **3.80** | +13.8 |
+| 0.35–0.50 | 775 | 78.3 | **2.61** (dip) | +11.0 |
+| 0.50–0.65 | 835 | 79.8 | 3.81 | +12.6 |
+| 0.65–0.80 | 879 | 78.5 | 3.12 | +12.5 |
+| 0.80–1.00 (bullish) | 153 | 76.5 | 3.89 | +12.2 |
+
+Floor sweep FLAT: any 3.26 → ≥0.50 3.45 → ≥0.65 3.21 → ≥0.80 3.89 (only 153 trips). The ≥0.80
+cell is nominally best but tiny; no monotone gradient, no usable floor.
+
+**rvol≥12 (A+) and rvol≥4 (whole book) — same W-shape, higher capacity:**
+
+| breadth | rvol≥12 PF | rvol≥4 PF |
+|---|---:|---:|
+| <0.35 (bearish) | 3.44 | 2.94 |
+| **0.35–0.50** | **2.09** | **1.89** ← weak cell |
+| 0.50–0.65 | 3.42 | 3.22 |
+| 0.65–0.80 | 2.72 | 2.64 |
+| >0.80 (bullish) | 3.88 | 3.33 |
+
+**Two findings, both against the thesis:**
+1. **The short works in BEARISH markets too** — the <0.35 bucket is one of the BEST (PF 2.9–3.8),
+   not the worst. Broadly positive across modern years (2022 PF 1.99, 2024 3.52, 2025 2.72; not a
+   crash artifact). An over-extended parabolic blows off regardless of the broad tape.
+2. **The only soft regime is the "mushy middle" (0.35–0.50, slightly-below-neutral): PF ~1.9–2.6.**
+   By-year (rvol≥12) it's a genuine soft spot — dragged by 2018 (PF 0.43) & 2024 (1.4) among
+   otherwise-fine years — noisy, not structural, and NOT worth a gate.
+
+**Why it does NOT mirror the long:** the long (fade the flush → bounce) is a bet on dip-buyers
+showing up, which is a risk-appetite / regime-sensitive behaviour → high breadth helps it. The
+short (fade the pop → exhaustion) is a bet on a specific overextended-name's blow-off mechanics
+(rvol/ATR/1m), which fire the SAME whether the market is greedy or fearful. **The short's edge is
+intrinsic to the setup, not the regime.** → **Leave breadth OUT of the short spec.** (If anything,
+one could exclude the 0.35–0.50 band, but it's marginal and costs a big chunk of capacity.)
+
+---
+
+## 15m-rvol vs 20d-rvol baseline — they measure DIFFERENT things; brv20d is a false-positive FILTER
+
+Question (user): the 15m baseline (`bar_rvol_15m` = breakout_bar_vol / MEAN(1m vol over
+[9:30,9:45))) works great, but is it unstable when the premarket/first-15m volume is abnormal? A
+20-DAY baseline might be steadier. Defined **`bar_rvol_20d`** = breakout_bar_vol / (avgvol20 ·
+adj_ratio / 390) — the breakout bar vs the average 1m volume implied by the 20-day ADJUSTED daily
+avg (volume adjusts inversely to price on splits → raw-equiv = avgvol20·adj_ratio; ÷390 RTH mins).
+And **`open15_vs_20d`** = (opening-15m 1m tempo) / (20d per-min baseline) = the "is today's open
+abnormal" gauge. (`lowflyer_short_rvol_baseline.sql`.)
+
+**They are nearly UNCORRELATED (corr of logs = 0.14) — genuinely different signals.** Median
+`open15_vs_20d` = **9.2×**: these popping names open running ~9× their own 20-day tempo (names
+already in play at the bell), so the 15m baseline is itself an elevated, today-specific number
+while the 20d baseline is a slow, name-stable one.
+
+**Head-to-head floor ladders — brv15 is the SHARPER knife:**
+
+| floor | brv15: n / PF | brv20d: n / PF |
+|---|---|---|
+| ≥12 | 2,260 / **3.05** | 8,193 / 1.88 |
+| ≥40 | 533 / **4.37** | 6,108 / 2.47 |
+| ≥100 | 98 / **8.78** | 2,760 / 6.65 |
+
+brv15 concentrates the edge into a tight high-PF tail; brv20d barely moves PF until its extreme
+(≥100) and stays high-capacity/low-PF below it. **As a standalone gate, brv15 wins decisively.**
+
+**The 2×2 is the real finding — they're COMPLEMENTARY, and brv20d removes brv15's false positives:**
+
+| | b20<12 | b20≥12 |
+|---|---:|---:|
+| **b15<12** | PF 0.98 (410) | PF 1.60 (5,974) |
+| **b15≥12** | **PF 1.19 (41)** | **PF 3.11 (2,219)** |
+
+At the 40× tier, sharper: b15≥40 & b20≥40 → **PF 6.16 (454)**; b15<40 & b20<40 → **PF 0.90 (loser,
+2,457)**; the single-agree corners weak (1.18 / 2.33).
+
+**The `b15≥12 & b20<12` false-positive cell (PF 1.19, 41 trips) has median open15_vs_20d = 0.44 — a
+LIGHT open.** This is EXACTLY the user's worry, confirmed: when the first 15m is unusually quiet the
+15m baseline is DEFLATED, so a merely-moderate bar shows a fake-big brv15 (median 19.3×) that against
+the 20d baseline is only 8.9× — not a real exhaustion spike. The agreement cell (PF 3.11) has median
+open = 2.92 (normal/heavy) and both fire. **brv20d catches the light-open fakes brv15 alone cannot.**
+
+**Actionable A/B — brv20d as a confirmation filter on the S bucket:**
+
+| gate | n | raw PF | avg% |
+|---|---:|---:|---:|
+| brv15 ≥ 40 (current S) | 533 | 4.37 | +15.2 |
+| **brv15 ≥ 40 & brv20d ≥ 40** | 454 | **6.16** | +17.5 |
+
+**+1.8 PF for a 15% capacity cut**, purely by dropping 79 light-open false positives.
+
+**Verdict (answers the question):** brv15 is NOT globally destabilized by an abnormal open — it's the
+sharper primary feature and stays honest on the heavy/very-heavy opens that are the norm (80% of the
+book opens >3× the 20d tempo). The instability is a specific, catchable failure mode — **LIGHT
+opens** inflate it. So the design is not "replace brv15 with brv20d" but **keep brv15 primary + add
+`brv20d` as a cheap second-baseline confirmation** that filters the light-open false positives (S
+bucket 4.37→6.16). The two baselines agreeing is the strongest exhaustion signal in the book.
+
+---
+
 ## Working baseline (this session) & next
 
 **Working baseline (evolved this session):** 1d > +50%, **1m return ≥ +2%**, **bar_rvol_15m ≥

@@ -999,3 +999,13 @@ intraday) and **volatility-regime-tilted** (richest in 2020–22).
   signal rather than flat.
 - **Execution realism**: all P&L is gross. MOC fills on the deepest flushes need a
   spread/slippage haircut before this is a live number.
+- **⚠ SWING-EXIT research (TODO, deferred):** the short book proved that high-volume
+  breakouts to new session HIGHS carry strong NEGATIVE intraday expectancy (the pop
+  fades hard — raw PF 3–4+ shorting it). Implication for the multi-day SWING/momentum
+  book (HighFlyer/Momentum, which HOLDS through such days): those intraday pop-and-fade
+  events are a signal to EXIT (or trim) a swing long, not ride it into MOC. Research: for
+  an open swing position, does flattening on a new-session-high high-volume-spike bar beat
+  holding? (The short's entry signal = the swing's exit signal.) Deferred with the loss study.
+- **⚠ LOSS STUDY (TODO, deferred):** study the big LOSING trades in BOTH MR books (long
+  flush-fade and short pop-fade) — the tail that blows through the fade. Characterize them
+  (what regime / rvol / extension / news) to find an avoidance gate or a catastrophe stop.
