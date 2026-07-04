@@ -923,9 +923,38 @@ trips) and 0–10% (+21.9% avg). 1d floor sweep DEAD FLAT: any 6.65 → 1d≥50%
 adds nothing on top** (cleaner subsumption than rvol showed). Same for the other levers — the single
 out-of-scale-volume gate does the work.
 
-**By-year: robust, NOT era-locked, capacity GROWING.** Positive every year; PF ≥2.3 in every year with
-a real sample (2017 2.75, 2019 2.96, 2024 3.15 the softest; 2020 14.4, 2022 14.4, 2025 14.2 the best).
-Samples: 2020: 283, 2023: 360, 2024: 539, 2025: 523, 2026: 190 — the S-tier at scale.
+**By-year: robust, NOT era-locked, and the setup gets DRAMATICALLY MORE FREQUENT in the last decade** —
+the high-PF setup was always +EV but rare pre-2015 (~1–11 trips/yr), then explodes in frequency from
+2020 on while STAYING high-PF. This is the key robustness table (brv20d≥100, ATR%≥0.03):
+
+| yr | n | win% | raw PF | avg% |
+|---|---:|---:|---:|---:|
+| 2005 | 10 | 90.0 | 31.0* | +18.0 |
+| 2008 | 5 | 60.0 | 1.18 | +1.3 |
+| 2009 | 11 | 90.9 | 3.75 | +9.5 |
+| 2010 | 9 | 66.7 | 8.70 | +8.1 |
+| 2012 | 11 | 72.7 | 4.86 | +9.4 |
+| 2013 | 8 | 62.5 | 2.32 | +7.8 |
+| 2014 | 11 | 90.9 | 3.87 | +10.3 |
+| 2015 | 34 | 88.2 | 13.6 | +15.6 |
+| 2016 | 55 | 83.6 | 5.07 | +14.6 |
+| 2017 | 90 | 81.1 | 2.75 | +9.5 |
+| 2018 | 84 | 83.3 | 3.72 | +14.6 |
+| 2019 | 97 | 80.4 | 2.96 | +11.6 |
+| **2020** | **283** | 92.2 | 14.4 | +20.5 |
+| 2021 | 231 | 97.4 | 141* | +21.1 |
+| 2022 | 202 | 90.6 | 14.4 | +17.8 |
+| **2023** | **360** | 88.6 | 7.74 | +17.9 |
+| **2024** | **539** | 87.8 | 3.15 | +14.4 |
+| **2025** | **523** | 89.5 | 14.2 | +20.2 |
+| 2026† | 190 | 86.8 | 9.57 | +18.1 |
+
+**Frequency growth is the headline:** ~1–11 trips/yr through 2014 → 34/55/90/84/97 (2015–19) → **283 → 360
+→ 539 → 523 (2020–25)**, a ~50× rise in setup count per year while PF stays ≥2.3 and avg% stays +14–20%.
+The low-float/meme era manufactures these out-of-scale-volume pop blow-offs at an accelerating rate — the
+book is not just holding up, its CAPACITY is compounding. Positive every year with a real sample; softest
+2017 (2.75), 2024 (3.15); best 2020/2022 (14.4), 2025 (14.2). (*2005 PF 31 & 2021 PF 141 are thin-loss-
+denominator artifacts — trust the win%/avg%, not the ratio. †2026 partial, through the data cutoff.)
 
 **Liquidity is fine (tradeable):** median entry $10.15, p10 $2.05, only 10 sub-$1 of 2,760; median ADV
 $3.9M (p25 $1.5M). Real names, not penny-stock artifacts.
