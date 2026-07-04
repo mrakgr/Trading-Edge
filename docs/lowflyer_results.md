@@ -976,9 +976,13 @@ short doc: a blow-off reverses FAST regardless of clock, so it doesn't need the 
 
 > **Long the intraday flush** — a 1m bar closing below the running session **min-close**
 > on high volume, scanning from 9:45 ET (indicators warm from 08:30) — **when:**
-> **ENGINE GATES (Run 16):**
+> **ENGINE GATES (Run 16; flush-depth floor added 2026-07-04):**
 > - entry-bar flush `close/prevClose ≤ −0.7%` (`--min-bar-flush -0.007`) — a real flush
 >   candle, not a one-tick poke. *The heavy lifter: PF 1.24→1.34 alone.*
+> - entry-bar flush-DEPTH floor `≥ −12%` (`--min-bar-flush-floor -0.12`) — reject flushes
+>   DEEPER than −12% (the Run 26 falling-knife cut). *Bands the entry move with the ceiling
+>   above; PF 3.25→3.45 at −2% trips. Now engine-wired (verified byte-identical to the old
+>   post-hoc SQL floor).*
 > - intraday log-ATR `< 0.02` (`--max-intraday-atr-pct 0.02`) — reject genuine chaos.
 >   *A cheap additive tail-clip: 1.34→1.41 stacked.*
 >
