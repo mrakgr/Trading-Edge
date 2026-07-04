@@ -22,6 +22,7 @@ type Args =
     | Max_Concurrent of int
     | Min_Low_Ref
     | Min_Bar_Flush of float
+    | Min_Bar_Flush_Floor of float
     | Max_Intraday_Atr_Pct of float
     // kept-inert levers (off by default) for later sweeps
     | Short
@@ -42,6 +43,7 @@ type Args =
             | Max_Concurrent _ -> "Cap on concurrently-open positions per day (0 = unlimited, default)."
             | Min_Low_Ref -> "Switch the breakout reference back to the running min-LOW channel. Default is min-CLOSE (wick-immune, closes-only; +~29%% trips at ~same PF — Run 12)."
             | Min_Bar_Flush _ -> "Entry-bar FLUSH gate: require the breakout bar's 1m move (close/prevClose-1) <= this. Default 0.0 = OFF. e.g. -0.007 rejects bars softer than -0.7% (a real flush candle, not a one-tick poke)."
+            | Min_Bar_Flush_Floor _ -> "Entry-bar flush-DEPTH floor (the falling-knife cut, Run 26): reject a flush DEEPER than this. Default 0.0 = OFF. e.g. -0.12 rejects flushes deeper than -12%%. Pairs with --min-bar-flush to band the entry move; PF 3.25->3.45 on the production long."
             | Max_Intraday_Atr_Pct _ -> "Intraday log-ATR CAP at entry: require the 1m log-ATR < this. Default +inf = OFF. e.g. 0.02 rejects names in genuine chaos (per Run 9)."
             | Short -> "Trade the MIRRORED setup: fade the new-session-HIGH pop on high volume SHORT (Downside=false, Short=true) — the true mirror of the default long-the-flush. Breakout ref, flush gate and 2-bar stop all flip. Default off (long the flush)."
             | Short_Breakdown -> "Trade the SAME new-session-LOW breakdown as the default (Downside=true) but SHORT it (Short=true) instead of long — momentum continuation of the flush. +EV when the name is extended (high 1d): the usual flush-fade INVERTS. Mutually exclusive with --short."
@@ -70,6 +72,7 @@ let main argv =
                   MaxConcurrent = parsed.GetResult(Max_Concurrent,  defaultValue = defaultConfig.Intraday.MaxConcurrent)
                   MinCloseRef   = not (parsed.Contains Min_Low_Ref)
                   MinBarFlush   = parsed.GetResult(Min_Bar_Flush,   defaultValue = defaultConfig.Intraday.MinBarFlush)
+                  MinBarFlushFloor = parsed.GetResult(Min_Bar_Flush_Floor, defaultValue = defaultConfig.Intraday.MinBarFlushFloor)
                   MaxAtrPct     = parsed.GetResult(Max_Intraday_Atr_Pct, defaultValue = defaultConfig.Intraday.MaxAtrPct)
                   // Three exclusive modes:
                   //   default            — LONG the new-session-LOW flush (Downside=true, Short=false)
@@ -100,10 +103,13 @@ let main argv =
     printfn "  breakout    = %s (%s ref)"
         (if cfg.Intraday.Downside then "new session LOW" else "new session HIGH")
         (if cfg.Intraday.MinCloseRef then "CLOSE, wick-immune" else "low/high")
-    printfn "  gates       = flush %s   log-ATR %s"
+    printfn "  gates       = flush %s   flush-floor %s   log-ATR %s"
         (if cfg.Intraday.MinBarFlush = 0.0 then "off"
          elif cfg.Intraday.Downside then sprintf "<=%.3f" cfg.Intraday.MinBarFlush
          else sprintf ">=%.3f" (-cfg.Intraday.MinBarFlush))
+        (if cfg.Intraday.MinBarFlushFloor = 0.0 then "off"
+         elif cfg.Intraday.Downside then sprintf ">=%.3f" cfg.Intraday.MinBarFlushFloor
+         else sprintf "<=%.3f" (-cfg.Intraday.MinBarFlushFloor))
         (if Double.IsInfinity cfg.Intraday.MaxAtrPct then "off" else sprintf "<%.3f" cfg.Intraday.MaxAtrPct)
 
     let sw = Stopwatch.StartNew()

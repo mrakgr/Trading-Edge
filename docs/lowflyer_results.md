@@ -925,13 +925,17 @@ trips.**
 Long the intraday flush, scanning from 9:45 ET (indicators warm from 08:30), fill at
 the breakout-bar close, hold to MOC. **min-CLOSE breakout reference.**
 
-- **ENGINE GATES:** entry-bar flush `close/prevClose ≤ −0.7%` · intraday log-ATR `< 0.02`.
-- **SELECTION:** 1d ≤ −8% (depth floor) · 20m ≤ −3% (velocity floor) ·
+- **ENGINE GATES** (all three now wired in-engine, no post-hoc SQL): entry-bar flush
+  `close/prevClose ≤ −0.7%` (`--min-bar-flush -0.007`) · **entry-bar flush-DEPTH floor
+  `≥ −12%`** (`--min-bar-flush-floor -0.12`, the Run 26 falling-knife cut — reject flushes
+  deeper than −12%; PF 3.25→3.45 at −2% trips; wired 2026-07-04, verified byte-identical to the
+  old SQL floor at 870 / 3.447) · intraday log-ATR `< 0.02` (`--max-intraday-atr-pct 0.02`).
+  (rvol≤12 was tested as an alternative to the flush floor but DROPPED — redundant, fewer trips.)
+  **PRODUCTION INVOCATION:** `--min-bar-flush -0.007 --min-bar-flush-floor -0.12 --max-intraday-atr-pct 0.02`.
+- **SELECTION** (post-hoc SQL on the gated CSV): 1d ≤ −8% (depth floor) · 20m ≤ −3% (velocity floor) ·
   **3d ∈ [−3%, +30%]** (trend band — flat-to-strong, not a decliner, not parabolic) ·
   **7d ≥ −5%** (7-day trend floor — not a dead-cat bounce in a weekly decline; Run 25) ·
-  dollar-float < $300M (low-float overreaction) · ADV ≥ $500k · rvol_0945 ≥ 0.1 ·
-  **1m-flush ≥ −12%** (Run 26 falling-knife floor on flush depth — reject flushes deeper than
-  −12%; PF 3.25→3.45. rvol≤12 was tested but DROPPED — redundant with this, fewer trips).
+  dollar-float < $300M (low-float overreaction) · ADV ≥ $500k · rvol_0945 ≥ 0.1.
 - **SIZING:** base size, **3× when D-1 breadth (`pct_above_20`) ≥ 0.65** (PF 4.23 vs
   2.33 — Run 23; 3× → PF 2.90→3.40, net +102% — Run 24). A size-up input, NOT a gate
   (keep trading weak-breadth days); the 3× book carries higher variance.

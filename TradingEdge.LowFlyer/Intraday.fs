@@ -128,6 +128,11 @@ type IntradayConfig =
                                // candle, not a one-tick poke below the reference). 0.0 (default) = OFF.
                                // e.g. -0.007 rejects bars whose 1m move is softer than -0.7%. Uses the
                                // strictly-prior bar's close (sLastBar); ValueNone prior bar => not gated.
+      MinBarFlushFloor: float  // entry-bar flush DEPTH floor (the falling-knife cut, Run 26): reject the
+                               // breakout bar if its 1m move is DEEPER than this. 0.0 (default) = OFF.
+                               // Long/Downside: require close/prevClose-1 >= MinBarFlushFloor (e.g. >= -0.12
+                               // rejects flushes deeper than -12%). Upside/short: mirror (<= -MinBarFlushFloor).
+                               // Pairs with MinBarFlush to make an entry-bar move BAND [floor, ceiling].
       MinCloseRef: bool }      // breakout REFERENCE level. false (default) = the running min-LOW
                                // (max-HIGH upside) of strictly-prior bars. true = the running min-
                                // CLOSE (max-CLOSE upside) — closes-only, so a long lower/upper WICK
@@ -290,6 +295,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                    pc > 0.0 &&
                    let mv = bar.close / pc - 1.0
                    if cfg.Downside then mv <= cfg.MinBarFlush else mv >= -cfg.MinBarFlush))
+        // ENTRY-BAR FLUSH-DEPTH floor (cfg.MinBarFlushFloor, 0 = off): reject a flush DEEPER than
+        // the floor (the Run 26 falling-knife cut). Long/Downside: mv >= floor (e.g. >= -0.12).
+        // Upside/short: mirror (mv <= -floor). Together with MinBarFlush this bands the entry move.
+        && (cfg.MinBarFlushFloor = 0.0
+            || gate (sLastBar |> ValueOption.map (fun p -> p.close)) (fun pc ->
+                   pc > 0.0 &&
+                   let mv = bar.close / pc - 1.0
+                   if cfg.Downside then mv >= cfg.MinBarFlushFloor else mv <= -cfg.MinBarFlushFloor))
         // intraday tightness gate
         && gate this.Tightness (fun t -> t < cfg.MaxTightness)
         // intraday ATR% gate (log-space)
