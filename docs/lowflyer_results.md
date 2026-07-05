@@ -946,6 +946,44 @@ certify capitulation. The production long uses vol-confirm (highest PF, lowest c
 good systems" candidate: run BOTH (vol-high book at full size + no-vol-high deep-flush book), dedup the
 overlap. Threshold not yet locked — ≤ −2% (capacity) vs ≤ −3/−4% (PF) is a sizing call.
 
+## Relaxing the vol gate to a FRACTION (`--vol-high-frac`) — the vol edge is MONOTONE, no free capacity
+
+Rather than binary on/off, made the vol-confirm gate a fraction: enter if breakout-bar vol ≥ `frac ×`
+running vol high (1.0 = original strict "exceed the high"; 0.8 = within 20% of it). Recorded the
+CONTINUOUS `vol_vs_high` = breakout_bar_vol / runVolHi so a relaxed run slices post-hoc. Ran the
+production long at `--vol-high-frac 0.8`. (`lowflyer_long_volfrac.sql`.)
+
+**Bucketed by vol_vs_high — "near the high" (0.90–1.00) is ~as good as a new high; only <0.90 is weak:**
+
+| vol_vs_high | n | win% | clip PF | avg% |
+|---|---:|---:|---:|---:|
+| 0.80–0.90 | 342 | 64.6 | **2.36** (weak) | +2.1 |
+| 0.90–0.95 | 127 | 68.5 | 3.17 | +3.0 |
+| 0.95–1.00 | 112 | 67.9 | 3.08 | +2.5 |
+| 1.00–1.25 (new high) | 330 | 63.9 | 2.79 | +3.0 |
+| 1.25–2.0 | 403 | 70.2 | **4.00** | +3.6 |
+| ≥2.0 | 137 | 71.5 | 4.00 | +3.3 |
+
+**Floor sweep — MONOTONE, relaxing below 1.0 only trades PF for trips, and the edge keeps climbing ABOVE 1.0:**
+
+| vol_vs_high ≥ | n | clip PF | avg% |
+|---|---:|---:|---:|
+| 0.80 | 1,451 | 3.12 | +2.9 |
+| 0.90 | 1,109 | 3.38 | +3.2 |
+| **1.00 (current gate)** | **870** | **3.45** | +3.3 |
+| 1.10 | 709 | 3.69 | +3.4 |
+| 1.25 | 540 | **4.00** | +3.5 |
+
+**Verdict: no free capacity in relaxing below 1.0.** The "within 5–10% of the high" band (0.90–1.00) is
+nearly as good as a fresh high (PF 3.1 vs 3.45) — so being NEAR elevated volume carries most of the
+signal — but the ≥0.90 floor only buys +239 trips (870→1,109) at PF 3.38 vs 3.45, a marginal capacity
+option at best. Below 0.90 dilutes (0.80–0.90 = PF 2.36). **The edge is MONOTONE in volume**: it keeps
+climbing ABOVE the high (≥1.25 → PF 4.00, 540 trips) — so a vol-high FLOOR above 1.0 is the real lever,
+not a relaxation. Consistent with the whole long story — the more the breakout bar dwarfs prior volume,
+the better the capitulation fade. **Keep the strict gate; optionally 0.90 for a little capacity, or ≥1.25
+as a higher-PF/lower-capacity variant.** (The trips-vs-PF tradeoff is unfavorable either way — PF rises
+slower than trips fall, the user's standing observation.)
+
 **CEILINGS ADDED (cut the falling-knife tails):** both features have a runaway extreme that
 collapses, so cap them.
 

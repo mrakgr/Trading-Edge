@@ -54,7 +54,7 @@ let defaultConfig =
           MaxConcurrent = 0              // unlimited concurrent entries per day
           MinBarFlush = 0.0              // entry-bar flush gate OFF (--min-bar-flush -0.007 to enable)
           MinBarFlushFloor = 0.0         // entry-bar flush-depth floor OFF (--min-bar-flush-floor -0.12 to enable)
-          RequireVolHigh = true          // volume-confirm gate ON (--no-vol-high to drop it)
+          VolHighFrac = 1.0              // volume-confirm = must EXCEED the vol high (--vol-high-frac 0.95/0.90 to relax, --no-vol-high to drop)
           MinCloseRef = true }           // default = min-CLOSE reference (wick-immune; +~29% trips at ~same
                                          // PF — Run 12). --min-low-ref switches back to the min-LOW channel.
       Notional = 10_000.0 }
@@ -97,8 +97,9 @@ type Trip =
       // RECORDED features (post-hoc slicing, NOT gates)
       Rvol: float                // cumVolToEntry / avgVol20
       BreakoutBarVol: int64      // the breakout bar's own volume
-      NewVolHigh: bool           // did the breakout bar make a new session 1m-vol high? (always true unless
-                                 // --no-vol-high; then flags which entries would have cleared the vol gate)
+      NewVolHigh: bool           // did the breakout bar make a new session 1m-vol high? (always true at
+                                 // vol-high-frac>=1; a relaxed run flags which entries clear the strict gate)
+      VolVsHigh: float           // breakout-bar volume / running session 1m-vol high (continuous; >=1 = new high)
       BarRvol15m: float          // breakout_bar_vol / mean(1m vol over [9:30,9:45)) — the breakout-bar
                                  // volume spike relative to the name's own opening-15m 1m tempo. Baseline
                                  // = vol_0945 / nbar_0945 (RTH 09:30-09:45 sum / bar count). Discriminates
@@ -146,6 +147,7 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           Rvol = (if c.AvgVol20 > 0.0 then float pos.CumVolAtEntry / c.AvgVol20 else nan)
           BreakoutBarVol = pos.BreakoutBarVol
           NewVolHigh = pos.NewVolHigh
+          VolVsHigh = pos.VolVsHigh
           // spike vs the [9:30,9:45) 1m baseline = vol_0945/nbar_0945 (mean 1m vol over the window).
           BarRvol15m =
               (let meanBarVol15m = if c.NBar0945 > 0 then float c.Vol0945 / float c.NBar0945 else nan
@@ -322,7 +324,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,entry_bar_open,prev_bar_close,chg_20m,run_low_at_entry,intraday_atr_pct_at_entry,intraday_tightness_at_entry,"
-    + "rvol,breakout_bar_vol,new_vol_high,bar_rvol_15m,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
+    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,bar_rvol_15m,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,med_bar_vol_0945,"
     + "qty,net_pnl,bars_held_min"
@@ -344,6 +346,7 @@ let private row (t: Trip) : string =
         fmt t.Rvol
         string t.BreakoutBarVol
         (if t.NewVolHigh then "1" else "0")
+        fmt t.VolVsHigh
         fmt t.BarRvol15m
         string t.CumVolToEntry
         fmt t.PctChgSinceOpen

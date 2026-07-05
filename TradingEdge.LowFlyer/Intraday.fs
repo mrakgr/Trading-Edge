@@ -58,8 +58,12 @@ type IntradayPosition =
       CumVolAtEntry: int64     // cumulative day volume THROUGH the entry bar (rvol numerator; recorded feature)
       BreakoutBarVol: int64    // the entry (breakout) bar's own volume (recorded feature)
       NewVolHigh: bool         // did the entry bar make a NEW session 1m-volume high (vs strictly-prior bars)?
-                               // Always true when RequireVolHigh is on (the gate enforces it); the informative
-                               // case is --no-vol-high, where this flags which entries would have passed the gate.
+                               // Always true at VolHighFrac>=1.0 (the gate enforces it); the informative case
+                               // is a relaxed/off gate, where this flags which entries would pass the strict gate.
+      VolVsHigh: float         // breakout-bar volume / running session 1m-vol high (pre-push). The CONTINUOUS
+                               // version of NewVolHigh: >=1.0 = a new high; 0.8 = 80% of the high. Lets a
+                               // relaxed run (--vol-high-frac 0.8) be sliced post-hoc to find the knee. (runVolHi
+                               // is not in the CSV otherwise, so this must be recorded here.)
       BreakoutBarOpen: float   // the entry (breakout) bar's OPEN — for the 1m entry-bar %-change (close/open-1)
       PrevBarClose: float      // the strictly-prior 1m bar's CLOSE — for the 1m flush = close/prevClose-1
       Chg20mAtEntry: float     // 20-bar (20-minute) %-change into entry (entry close / close 20 bars ago - 1); nan if <20 bars
@@ -141,13 +145,14 @@ type IntradayConfig =
                                // CLOSE (max-CLOSE upside) — closes-only, so a long lower/upper WICK
                                // can't push the channel boundary. The TRIGGER stays close-based;
                                // this only changes what level the close must clear.
-      RequireVolHigh: bool }   // VOLUME-CONFIRMATION gate. true (default) = the breakout bar must ALSO
-                               // exceed the running session max 1m-bar volume (a new-vol-high bar).
-                               // false = DROP the volume requirement, entering on the FIRST new-session-
-                               // extreme bar regardless of its volume — tests whether the 1m-flush gate
-                               // is load-bearing and vol-confirm was just cutting trade count. NOTE:
-                               // with this off, breakout_bar_vol is recorded on a bar that no longer
-                               // had to be volume-notable, so the recorded bar_rvol_* features shift meaning.
+      VolHighFrac: float }     // VOLUME-CONFIRMATION gate as a FRACTION of the running session max 1m-bar
+                               // volume: require bar.volume >= VolHighFrac * runVolHi. 1.0 (default) = the
+                               // original "must EXCEED the vol high" gate (a new-vol-high bar). 0.95 / 0.90
+                               // relax it to "within 5% / 10% of the high" — probes whether the edge is in
+                               // MAKING a new vol high or merely being NEAR elevated volume, recovering trips.
+                               // 0.0 = OFF (fire on the first new-session-extreme bar regardless of volume).
+                               // NOTE: below 1.0 the `new_vol_high` column still records the STRICT test
+                               // (bar > runVolHi), so a relaxed run can still be split on true-new-high vs not.
 
 /// Per-(ticker, day) intraday engine. Feed it the day's RTH MinuteBar[] in time
 /// order via `Process`, then `Finalize` and read `Trips()`.
@@ -290,12 +295,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             | false, true  -> bar.high  > ext
             | true,  false -> bar.close < ext
             | true,  true  -> bar.low   < ext)
-        // VOLUME CONFIRMATION (cfg.RequireVolHigh, default true): the breakout bar must EXCEED
-        // the strictly-prior session 1m-volume high. Most breakouts never re-take the volume
-        // high (which normally prints at the open/close), so a morning bar that does is a
-        // significant event. Set false (--no-vol-high) to DROP this and fire on the first
-        // new-session-extreme bar regardless of volume.
-        && (not cfg.RequireVolHigh || gate sRunVolHi (fun vh -> bar.volume > vh))
+        // VOLUME CONFIRMATION (cfg.VolHighFrac): the breakout bar's volume vs the strictly-prior
+        // session 1m-volume high. 1.0 (default) = must EXCEED it (a new-vol-high bar) — most
+        // breakouts never re-take the vol high, so a morning bar that does is a significant event.
+        // <1.0 relaxes to "within (1-frac) of the high" (0.95/0.90); 0.0 = OFF (--no-vol-high).
+        && (cfg.VolHighFrac <= 0.0
+            || gate sRunVolHi (fun vh ->
+                   if cfg.VolHighFrac >= 1.0 then float bar.volume > float vh          // strict >, original behavior
+                   else float bar.volume >= cfg.VolHighFrac * float vh))
         // ENTRY-BAR FLUSH gate (cfg.MinBarFlush, 0 = off): the breakout bar's own 1m move
         // = close/prevClose-1 must be a real flush, not a one-tick poke below the reference.
         // Downside/long: require the move <= MinBarFlush (e.g. <= -0.7%). Upside: mirror
@@ -539,6 +546,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   // sRunVolHi is the pre-push snapshot (excludes this bar), so this is a true
                   // "new session vol high" test. ValueNone (first bar) counts as a new high.
                   NewVolHigh = (match sRunVolHi with ValueSome vh -> bar.volume > vh | ValueNone -> true)
+                  VolVsHigh = (match sRunVolHi with ValueSome vh when vh > 0L -> float bar.volume / float vh | _ -> nan)
                   BreakoutBarOpen = bar.``open``
                   PrevBarClose = sLastBar.Value.close
                   Chg20mAtEntry = (match lagPctChange lag20 with ValueSome p -> p | ValueNone -> nan)
