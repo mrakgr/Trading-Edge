@@ -72,10 +72,11 @@ type EntryConfig =
                                 // falling knife). +inf disables the ceiling. A dip on ORDINARY volume reverts best.
       Max3dReturn: float         // require close/close-3d-1 <= this (default -0.15 — a real 3-day WASHOUT;
                                 // Run 5: 3d deeper=better, no knife). +inf disables. A CEILING only.
-      MaxPrior2dReturn: float    // require (3d - 1d) <= this — the PRIOR-2-DAY fall going INTO today, i.e.
-                                // the name was ALREADY sliding before today's flush (Run 9). Default -0.10.
-                                // Monotone deeper=better (PF 1.61-1.75 for already-down 10-20%+); the
-                                // >+10%-then-flush cell is a bull-trap LOSS. +inf disables. A CEILING only.
+      MaxPrior2dReturn: float    // require the TRUE prior-2-day return close[t−1]/close[t−3]−1 <= this —
+                                // the PRIOR-2-DAY fall going INTO today, i.e. the name was ALREADY sliding
+                                // before today's flush (Run 9; principled form Run 12, replacing the (3d−1d)
+                                // diff-of-ratios proxy that overstated the fall ~1pp). Default -0.10. Monotone
+                                // deeper=better; the >+5%-then-flush cell is a bull-trap LOSS. +inf disables. CEILING.
       Max60dReturn: float }       // require close/close-60d-1 <= this — a deep 60-day WASHOUT (Run 11).
                                 // Default -0.40. TideFlyer is a WASHOUT book, NOT a pullback book: the
                                 // prior-2d "already sliding" gate selects freefall names, and within that
@@ -195,6 +196,15 @@ type TideFlyer
     /// 60d return = today's close / close-60-bars-ago − 1 (read AFTER ProcessBar's push; the
     /// long-term-trend / washout context). ValueNone until warm.
     member _.Chg60d = lagPctChange close60d
+    /// TRUE prior-2-day return = close[t−1] / close[t−3] − 1 (a real sub-period return; Run 12).
+    /// NOT the (3d − 1d) diff-of-ratios proxy — that overstated the fall by ~1pp (the compounding
+    /// cross-term). Read AFTER ProcessBar's push: close3d (lag 3) then holds {t−3,t−2,t−1,t} so
+    /// `.Lagged` = close[t−3]; sPrevBar = the pre-push lastBar snapshot = bar t−1. ValueNone until
+    /// ≥4 bars pushed (needs close[t−3]) and a prior bar exists.
+    member _.Prior2dReturn : float voption =
+        match sPrevBar, close3d.Lagged with
+        | ValueSome pb, ValueSome c3 when c3 > 0.0 -> ValueSome (pb.close / c3 - 1.0)
+        | _ -> ValueNone
     /// Long-term close channel: highest close over the prior `hiCloseWindow` bars.
     member _.HiClose = sHiClose
     member _.HiHigh = sHiHigh
@@ -290,14 +300,12 @@ type TideFlyer
         // +inf disables. ValueNone (cold) fails when active.
         && (Double.IsInfinity entryCfg.Max3dReturn
             || gate this.Chg3d (fun r -> r <= entryCfg.Max3dReturn))
-        // PRIOR-2-DAY-fall CEILING (Run 9): require (3d - 1d) <= MaxPrior2dReturn — the prior 2 days
-        // ALREADY fell this much before today's flush (already sliding, not a bolt-from-the-blue crack;
-        // the >+10%-then-flush cell is a bull-trap loss). production -0.10. +inf disables. Needs BOTH
-        // 3d (Chg3d) and 1d (PctUp) to be measurable; ValueNone (cold) fails when active.
+        // PRIOR-2-DAY-fall CEILING (Run 9, principled form Run 12): require the TRUE prior-2d return
+        // close[t−1]/close[t−3]−1 <= MaxPrior2dReturn — the prior 2 days ALREADY fell this much before
+        // today's flush (already sliding, not a bolt-from-the-blue crack; the >+5%-then-flush cell is a
+        // bull-trap loss). production -0.10. +inf disables. ValueNone (cold) fails when active.
         && (Double.IsInfinity entryCfg.MaxPrior2dReturn
-            || (match this.Chg3d, this.PctUp c with
-                | ValueSome d3, ValueSome d1 -> (d3 - d1) <= entryCfg.MaxPrior2dReturn
-                | _ -> false))
+            || gate this.Prior2dReturn (fun r -> r <= entryCfg.MaxPrior2dReturn))
         // 60d-return CEILING (Run 11): require close/close-60d-1 <= Max60dReturn — a deep 60-day WASHOUT
         // (production -0.40). TideFlyer is a WASHOUT book: deeper-is-better on every horizon, so a ceiling
         // only. +inf disables. ValueNone (cold, <60 bars of history) fails when active.

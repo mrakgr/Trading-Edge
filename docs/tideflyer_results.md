@@ -374,7 +374,32 @@ filtered book, a separate system. **Decision: TideFlyer stays a WASHOUT book.**
 
 **60d `<−40%` LOCKED as the default** (`Max60dReturn = -0.40`, new `LagMa<float>(60)` gate) — chosen for
 the best trips-per-PF: 60d has the FATTEST high-PF cell (16.7k trips @ PF ~1.96) and keeps the most net
-P&L relative to the ~2.0 PF. **Engine: 16,682 trips / PF 1.957 / 57.4% win / +6.5% avg / $10.9M** — kept
-$10.9M of the $13.7M net while cutting to 47% of trips. **Verified byte-parity vs SQL: 16,687 / PF
-1.955** (5-trip warmup edge, no lookahead). Book progression: 1.415 (3d) → 1.635 (prior-2d) → **1.957
-(60d washout)**. NEXT = rvol, exit-model A/B, sizing-on-depth, the separate pullback book as a candidate.
+P&L relative to the ~2.0 PF. Book progression: 1.415 (3d) → 1.635 (prior-2d) → **1.957 (60d washout)**.
+NEXT = rvol, exit-model A/B, sizing-on-depth, the separate pullback book as a candidate.
+
+## Run 12 — prior-2d switched to the PRINCIPLED true return `close[t−1]/close[t−3]−1`
+
+Replaced the `(3d − 1d)` diff-of-ratios PROXY with the LITERAL prior-2-day sub-period return
+`close[t−1]/close[t−3] − 1` (the user's call — more principled). `tideflyer_prior2d_true.sql`. The proxy
+systematically OVERSTATED the fall by the compounding cross-term: median gap +0.89pp (p90 +2.28pp,
+always positive), so the proxy's −10% cut was really ≈ a true −11%. True-metric band breakdown (within
+3d≤−15%) is cleaner & better-separated than the proxy: monotone deeper=better, the `−5..0` band is dead
+breakeven (PF 1.055) and `>+5%` (bounced-then-flushed) is an outright LOSS (0.960) — the bull-trap is
+sharper on the true metric. Cumulative ceiling: `true ≤ −10%` is the elbow (≤−5%→≤−10% = +0.13 PF, the
+biggest step; −10→−15 adds only +0.14 but halves net P&L).
+
+**Switched the engine to the true metric (`Prior2dReturn` member: `sPrevBar.close / close3d.Lagged − 1`,
+read post-push so close3d = {t−3,t−2,t−1,t}) at the SAME −10% ceiling.** The true −10% is LOOSER than the
+proxy −10% (it's ≈ proxy −11%), so it recovers ~20% more trips for a ~4% PF give-back — a good trade for a
+capacity-hungry swing book (user: "worth increasing the trips by 20% for a 4% reduction in PF"):
+
+| prior-2d metric (+ 3d≤−15% only) | n | PF | net $M |
+|---|---:|---:|---:|
+| PROXY (3d−1d) ≤ −10% | 35.3k | 1.635 | ~13.7 |
+| **TRUE c1/c3−1 ≤ −10%** | 42.7k | 1.597 | 15.5 |
+
+**NEW PRODUCTION DEFAULT (base + 3d≤−15% + TRUE-prior2d≤−10% + 60d≤−40%): 19,587 trips / PF 1.924 /
+57.2% win / +6.3% avg / $12.3M.** The true-metric switch gave MORE net ($12.3M vs the proxy book's $10.9M)
+AND more trips (19.6k vs 16.7k) at ~equal PF (1.924 vs 1.957) — looser as intended. **Verified byte-parity
+vs SQL: 19,603 / PF 1.923** (16-trip warmup edge, no lookahead). Book progression now: 1.415 (3d) → 1.622
+(true-prior2d) → **1.924 (60d washout)**. NEXT = rvol, exit-model A/B, sizing-on-depth, the pullback book.
