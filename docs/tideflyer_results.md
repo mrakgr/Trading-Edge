@@ -174,3 +174,31 @@ to **PF 1.474 (+4.1% avg)** — the two levers REINFORCE, not overlap. PF 1.47 i
 (still sub-LowFlyer, but the levers ARE doing real work — answers the thin-edge concern). **Working
 stack: 1d ∈ [−40,−8]% (size on depth) × volfrac ∈ [0.5,1.5].** NEXT = rvol (entry_vol / avg), then 7d
 return, then the exit-model A/B now that entries are gated.
+
+**DEFAULTS LOCKED into the engine:** 1d band `[−40%, −5%]` (`UpThreshold -0.40`/`MaxUpThreshold -0.05`)
++ **volfrac band `[0.5, 1.5]`** (`VolFracMin`/`VolFracMax`, new gate). New base book = **355,436 trips,
+PF 1.204, 52% win** (`/tmp/tide_base.csv`). Multi-day returns (3d/7d/15d) joined post-hoc from
+`daily_episodes` lagged closes (`tideflyer_multiday.sql`).
+
+## Run 5 — 3d return: a DEEP-WASHOUT amplifier (deeper = better, NO knife), not a pullback filter
+
+3d return = entry_close / close-3-bars-ago − 1 (episode-partitioned LAG, no-lookahead; 100% coverage).
+Distribution median −9.7%, p90 −4.1% — **almost every trip is DOWN over 3d** (structural: a new 7d low
++ down ≥5% today ⇒ down over 3d too; the `0..+10%` bucket is ~empty, 522 trips).
+
+| 3d band | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| **<−40%** | 2,386 | 53.1 | **1.946** | +10.05 |
+| −40..−25 | 13,431 | 54.7 | 1.665 | +4.84 |
+| −25..−15 | 61,302 | 53.3 | 1.306 | +1.74 |
+| −15..−8 | 147,547 | 52.0 | 1.136 | +0.58 |
+| −8..0 | 130,248 | 51.1 | 1.084 | +0.30 |
+
+**3d is a DEEPER-IS-BETTER amplifier — monotone, and NO falling knife at the extreme** (opposite of
+1d): PF climbs 1.08 (−8..0) → **1.95 (<−40%, avg +10%)**. A 3-day −40% is a sharp multi-day WASHOUT
+that snaps back; a 1-day −40% is a single-bar catastrophe that keeps falling — so the knife-floor is a
+1d-only phenomenon. **On the SHORT windows (1d, 3d), depth is the edge.** A 3d floor (≤−15% → PF 1.31,
+77k; ≤−25% → 1.68, 16k) is a strong clean lever — really a **sizing lever** (size up as the 3d washout
+deepens). **Sets up the 7d/15d test:** 3d says "recent washout = good"; the user's hypothesis is the
+LONGER windows should invert — flat-to-UP over 7d/15d (a pullback in an uptrend, not a sustained
+multi-week decliner) = the better setup. Testing next.

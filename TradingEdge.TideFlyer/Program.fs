@@ -21,6 +21,8 @@ type Args =
     | Mirror
     | Target_Exit
     | No_Channel
+    | Vol_Frac_Min of float
+    | Vol_Frac_Max of float
     | Partial_Entry
     | Cutoff_Min of int
     | Up_Threshold of float
@@ -50,6 +52,8 @@ type Args =
             | Mirror -> "MIRROR mode: buy the new 7d HIGH (momentum control) instead of the new 7d LOW (default long-MR). Exit target flips to the 7d low."
             | Target_Exit -> "Exit at the OPPOSITE 7d extreme (long-MR sells at the 7d HIGH; mirror sells at the 7d low), with the time-stop as fallback. Default off = time-stop only."
             | No_Channel -> "DISABLE the 7d-channel entry gate (study the raw pre-channel population, e.g. to sweep the other gates). Default: channel ON."
+            | Vol_Frac_Min _ -> "Volume-fraction FLOOR: require entry_vol / prior-7 vol-max >= this. Default 0.5 (cut the quiet slow-bleed dips). 0 disables."
+            | Vol_Frac_Max _ -> "Volume-fraction CEILING: require entry_vol / prior-7 vol-max <= this. Default 1.5 (cut the panic-spike falling knife). Pass a large value to disable."
             | Partial_Entry -> "EXPERIMENT: decide + fill the entry on the PARTIAL checkpoint candle (partial_candle_HHMM) instead of the full daily close. Exits stay on the daily series. Days with no usable checkpoint candle are not entered. Default off (parity path)."
             | Cutoff_Min _ -> "With --partial-entry: which checkpoint table to read, by ET minutes-since-midnight (600=10:00 ET default, 630=10:30, 660=11:00). Maps to partial_candle_HHMM. The table must already be built (scripts/equity/build_partial_candle.fsx --cutoff-min N)."
             | Up_Threshold _ -> "Min entry-day move (close/prevClose-1). Default 0.10."
@@ -106,7 +110,9 @@ let main argv =
                   MinMaxAtrLog   = parsed.GetResult(Min_Max_Atr_Log,  defaultValue = defaultConfig.Entry.MinMaxAtrLog)
                   LowWindow      = parsed.GetResult(Low_Window,        defaultValue = defaultConfig.Entry.LowWindow)
                   Mirror         = parsed.Contains Mirror
-                  RequireChannel = not (parsed.Contains No_Channel) } }
+                  RequireChannel = not (parsed.Contains No_Channel)
+                  VolFracMin     = parsed.GetResult(Vol_Frac_Min,      defaultValue = defaultConfig.Entry.VolFracMin)
+                  VolFracMax     = parsed.GetResult(Vol_Frac_Max,      defaultValue = defaultConfig.Entry.VolFracMax) } }
 
     printfn "TideFlyer backtest"
     printfn "  db        = %s" dbPath

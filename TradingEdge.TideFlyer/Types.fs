@@ -63,8 +63,13 @@ type EntryConfig =
                                 // the min/max is over the prior `LowWindow` closes, EXCLUDING today.
       Mirror: bool              // false (default) = LONG-MR: buy the new 7d LOW (close <= prior-7 min close).
                                 // true = MIRROR/momentum: buy the new 7d HIGH (close >= prior-7 max close).
-      RequireChannel: bool }    // true (default) = gate on the 7d channel (the TideFlyer signal). false =
+      RequireChannel: bool      // true (default) = gate on the 7d channel (the TideFlyer signal). false =
                                 // OFF (study the raw pre-channel population, e.g. to sweep the other gates).
+      // ----- volume-fraction band: entry_vol / prior-7 vol-max (Run 4) -----
+      VolFracMin: float         // require entry_vol / vol_max_7d >= this (default 0.5 — cut the quiet slow-bleed
+                                // tail). 0 disables the floor.
+      VolFracMax: float }       // require entry_vol / vol_max_7d <= this (default 1.5 — cut the panic-spike
+                                // falling knife). +inf disables the ceiling. A dip on ORDINARY volume reverts best.
 
 /// Life-cycle of a single trip. Minimal: the original HighFlyer's PendingLimit /
 /// ExitingLimit / ExitingMarket / Side machinery is gone. A trip fills at the
@@ -247,9 +252,18 @@ type TideFlyer
         (not entryCfg.RequireChannel
          || gate (if entryCfg.Mirror then sTideHi else sTideLo)
                  (fun ch -> if entryCfg.Mirror then c >= ch else c <= ch))
-        // breakout: same-day return in [UpThreshold, MaxUpThreshold) — NEUTRAL by default
-        // (UpThreshold -inf / MaxUpThreshold +inf); a momentum-era gate, tuned post-hoc.
+        // 1d-return BAND: close/prevClose-1 in [UpThreshold, MaxUpThreshold). For long-MR the
+        // production band is [-40%, -5%) — a real down-day into the low, above the falling knife.
         && gate (this.PctUp c) (fun pu -> pu >= entryCfg.UpThreshold && pu < entryCfg.MaxUpThreshold)
+        // VOLUME-FRACTION band (Run 4): entry_vol / prior-7 vol-max in [VolFracMin, VolFracMax].
+        // Production [0.5, 1.5] — a dip on ORDINARY volume; cut the quiet slow-bleed (<0.5) and the
+        // panic-spike falling knife (>=~2.5). ValueNone vol-max (cold) fails when a bound is active.
+        && (let active = entryCfg.VolFracMin > 0.0 || not (Double.IsInfinity entryCfg.VolFracMax)
+            not active
+            || gate sVolMax (fun vm ->
+                   vm > 0.0 &&
+                   let vf = float bar.volume / vm
+                   vf >= entryCfg.VolFracMin && vf <= entryCfg.VolFracMax))
         // rvol band
         && gate (this.Rvol (float bar.volume)) (fun rv ->
                rv >= entryCfg.RvolMin && rv <= entryCfg.RvolMax)
