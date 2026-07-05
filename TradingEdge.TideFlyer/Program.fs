@@ -36,6 +36,7 @@ type Args =
     | Min_52w_Pct of float
     | Use_52w_High
     | Max_Tightness of float
+    | Min_Atr_Pct of float
     | Max_Atr_Pct of float
     | Min_Intraday_Ret of float
     | Min_Max_Atr_Log of float
@@ -70,7 +71,8 @@ type Args =
             | Min_52w_Pct _ -> "52-week-high proximity: require close >= this * prior-252d-high. Default 0.95."
             | Use_52w_High -> "Gate the 52w-proximity band on the prior-252d INTRADAY HIGH instead of the closing high. Default off."
             | Max_Tightness _ -> "Max entry tightness (LINEAR scale). Default 4.5. Pass a large value to disable."
-            | Max_Atr_Pct _ -> "Max entry ATR%% (log scale). Default 0.10. Pass a large value to disable."
+            | Min_Atr_Pct _ -> "Min entry ATR%% (log scale) FLOOR. Default 0.08 -- TideFlyer INVERTS HighFlyer: a washout-MR book wants VIOLENT dislocations (Run 14). Pass 0 to disable."
+            | Max_Atr_Pct _ -> "Max entry ATR%% (log scale) CEILING. Default 0.25 -- cuts the >0.25 falling-knife (Run 14). Pass a large value to disable."
             | Min_Intraday_Ret _ -> "Min entry-day intraday return (close/open-1). Default -0.07 — rejects deep intraday FADES. Pass a large negative value to disable."
             | Min_Max_Atr_Log _ -> "Min 'max log ATR' = 126-bar max of the 14-bar log-ATR (past-runner FLOOR). Default 0.04. 0 disables."
 
@@ -111,6 +113,7 @@ let main argv =
                   Min52wPct      = parsed.GetResult(Min_52w_Pct,      defaultValue = defaultConfig.Entry.Min52wPct)
                   Use52wHigh     = parsed.Contains Use_52w_High
                   MaxTightness   = parsed.GetResult(Max_Tightness,    defaultValue = defaultConfig.Entry.MaxTightness)
+                  MinAtrPct      = parsed.GetResult(Min_Atr_Pct,      defaultValue = defaultConfig.Entry.MinAtrPct)
                   MaxAtrPct      = parsed.GetResult(Max_Atr_Pct,      defaultValue = defaultConfig.Entry.MaxAtrPct)
                   MinIntradayRet = parsed.GetResult(Min_Intraday_Ret, defaultValue = defaultConfig.Entry.MinIntradayRet)
                   MinMaxAtrLog   = parsed.GetResult(Min_Max_Atr_Log,  defaultValue = defaultConfig.Entry.MinMaxAtrLog)

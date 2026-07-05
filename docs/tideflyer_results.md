@@ -403,3 +403,82 @@ capacity-hungry swing book (user: "worth increasing the trips by 20% for a 4% re
 AND more trips (19.6k vs 16.7k) at ~equal PF (1.924 vs 1.957) — looser as intended. **Verified byte-parity
 vs SQL: 19,603 / PF 1.923** (16-trip warmup edge, no lookahead). Book progression now: 1.415 (3d) → 1.622
 (true-prior2d) → **1.924 (60d washout)**. NEXT = rvol, exit-model A/B, sizing-on-depth, the pullback book.
+
+## Run 13 — FLOAT: the lever INVERTS — TideFlyer is a BIG-float book (low float is a trap here)
+
+Canonical float method (`tideflyer_float.sql`, mirroring `float_breakdown.sql`): SEC `dei:EntityPublicFloat`
+re-anchored to the entry price split-safe (`float_usd * adj_close[entry]/adj_close[period_end]`),
+no-lookahead ASOF on `known_date` (= period_end + 90d). Population = the production book (`/tmp/tide_true.csv`),
+RAW PF. Coverage 49% (the no-data half sits at PF 1.939 ≈ book avg — not systematically different).
+
+**The low-float lever RUNS BACKWARDS vs every other system** — cleanly monotone, but BIG float wins:
+
+| float$ at entry | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| **<50M** | 3,569 | 47.1 | **1.249** | +2.3 |
+| 50–150M | 1,938 | 55.3 | 1.832 | +4.8 |
+| 150–300M | 1,100 | 59.2 | 2.284 | +7.6 |
+| 300–750M | 1,123 | 65.2 | 2.692 | +9.5 |
+| 750M–2B | 946 | 69.7 | 3.540 | +11.8 |
+| **>2B** | 941 | 71.0 | **3.708** | +12.0 |
+
+Cumulative: keep **<$300M → PF 1.515** (BELOW the 1.924 book avg — a DRAG); keep **≥$300M → PF 3.228**
+(3,010 trips, 68% win); keep **≥$750M → PF 3.622**. The usual winning <$300M cut is a *loser* here.
+
+**Why it inverts (mechanically coherent):** LONG-momentum/squeeze books (HighFlyer/LowFlyer) want TIGHT
+float — a small float rips UP on a catalyst (the squeeze accelerant they buy). TideFlyer buys a name in a
+deep 60-day washout (−40%+) that's ALREADY been sliding — and a low-float microcap in that state is a
+FALLING KNIFE that keeps dying (delisting/dilution/fraud, no institutional support to catch it: 47% win /
+PF 1.25 on <$50M). A BIG-float name in a −40% washout is the REAL mean-reversion setup: a large liquid
+company oversold on macro/sector fear that SNAPS BACK because there's a deep buyer base (PF 3.71 / 71% on
+>$2B). **The low-float lever is NOT universal — it's a function of strategy DIRECTION: squeeze books want
+tight floats, deep-washout MR books want BIG floats.** A durable, generalizable insight.
+
+**Kept as a DOCUMENTED signal, NOT wired** (user's call): the SEC float data is spotty (49% coverage) and
+the big-float winners are thin (≥$750M ≈ 95 trips/yr). Present-day float is far easier to source than
+historical, and this experiment settles WHICH DIRECTION to source for (favor ≥$300M, avoid <$150M) before
+going live. Use as a SIZING/selection tilt (size up ≥$300M, down/skip <$150M), no-data names at baseline.
+
+## Run 14 — ATR% & tightness: ATR% INVERTS again (chaos wins) → band [0.08,0.25] + tight<9 LOCKED
+
+The HighFlyer quality gates, recorded but OFF by default here (`tideflyer_atr_tightness.sql`).
+
+**ATR% (log) INVERTS HighFlyer — HIGH volatility is the edge** (inverted-U, median 0.103):
+
+| ATR% band | n | PF | avg% |
+|---|---:|---:|---:|
+| 0.05–0.08 | 4,143 | 1.354 | +2.1 |
+| 0.08–0.10 | 4,711 | 1.631 | +4.0 |
+| **0.10–0.15** | 7,117 | **2.225** | +8.0 |
+| **0.15–0.25** | 2,923 | **2.391** | +11.9 |
+| >0.25 | 433 | 1.519 | +7.6 (44.8% win — a knife) |
+
+HighFlyer's `atr%<0.10` CEILING is a DRAG here (PF 1.501, below book); the FLOOR wins (`≥0.10 → 2.221`).
+**Same mechanism as float:** momentum wants a calm coiled spring; a washout-MR book wants a VIOLENT
+dislocation (the quiet slow-bleed <0.08 limps at PF ~1.3; the violent oversold name snaps back hardest).
+The `>0.25` extreme is a falling-knife (genuine death). **LOCKED: ATR% band [0.08, 0.25]** (`MinAtrPct=0.08`
+FLOOR — inverts HighFlyer — + `MaxAtrPct=0.25` ceiling; kept 0.08 not 0.10 for capacity, per user).
+
+**Tightness = a NON-lever** (whole middle 1.83–2.14, no gradient), except a far-out `9–15` knife (PF 0.907,
+217 trips: a name TRENDING hard, range≫ATR, isn't an MR setup). **LOCKED: `tight < 9`** — a loose sanity cap.
+
+**NEW PRODUCTION DEFAULT (+ atr[0.08,0.25) + tight<9): 14,645 trips / PF 2.105 / 58.2% win / +6.5% avg /
+$11.0M** — kept $11.0M of the $12.3M net at 75% of trips. **Byte-parity vs SQL: 14,645 / PF 2.105** (exact,
+the slice runs on the already-warm book). Book progression: 1.924 (60d) → **2.105 (ATR band + tight cap)**.
+
+**⭐ KEY INTERACTION — depth is NOT orthogonal to ATR% (`tideflyer_lowatr_depth.sql`).** Asked whether the
+depth levers could rescue the weak [0.08,0.10) bucket (PF 1.646). They CAN'T meaningfully — and the
+prior-2d lever runs BACKWARDS there. The same prior-2d deepening splits the two ATR cohorts oppositely:
+
+| prior-2d cut | [0.08,0.10) low-ATR | [0.10,0.25) high-ATR |
+|---|---:|---:|
+| ≤−10% (all) | 1.646 | 2.296 |
+| ≤−15% | **1.506** ↓ | **2.435** ↑ |
+| ≤−20% | **1.456** ↓ | **2.461** ↑ |
+
+**Deepening the multi-day fall helps HIGH-ATR names but HURTS low-ATR ones** — because a deep fall on a
+CALM name is an orderly slow-bleed that keeps bleeding, while a deep fall on a VIOLENT name is a panic
+dislocation that snaps back. Depth only means "reversible dislocation" when volatility is high. (Only 1d
+depth weakly helps the low-ATR bucket: −12% → 1.836, −18% → 2.197 but 410 trips; 3d flat, prior-2d
+inverted.) So the [0.08,0.10) bucket is weak *because it's low-ATR* — kept at 0.08 for capacity, knowing
+depth won't lift it. NEXT = rvol, exit-model A/B, sizing-on-depth, the pullback book.

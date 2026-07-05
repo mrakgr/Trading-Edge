@@ -66,8 +66,9 @@ let defaultConfig =
           Min52wPct = 0.0             // 52w-high proximity OFF (momentum gate)
           Use52wHigh = false
           MinPrice = 1.0              // price floor (kept)
-          MaxTightness = infinity     // tightness OFF
-          MaxAtrPct = infinity        // ATR% cap OFF
+          MaxTightness = 9.0          // tightness ceiling (Run 14): loose sanity cap on the >9 trending-knife
+          MinAtrPct = 0.08            // ATR% FLOOR (Run 14): >=0.08 — washout-MR wants VIOLENT dislocations
+          MaxAtrPct = 0.25            // ATR% CEILING (Run 14): <0.25 — cut the falling-knife extreme
           MinIntradayRet = -infinity  // intraday-fade floor OFF
           MinMaxAtrLog = -infinity    // past-runner floor OFF
           // TideFlyer core signal:

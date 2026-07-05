@@ -53,8 +53,13 @@ type EntryConfig =
       Min52wPct: float          // close >= this * (hiClose or hiHigh) (production 0.95)
       Use52wHigh: bool          // gate on prior-252d intraday HIGH instead of closing high (default false)
       MinPrice: float           // close >= this (production 1.0)
-      MaxTightness: float       // tightness < this (production 4.5; LINEAR scale)
-      MaxAtrPct: float          // atr_pct(close) < this — log-ATR (production 0.10)
+      MaxTightness: float       // tightness < this (LINEAR scale). TideFlyer production 9.0 (Run 14: a loose
+                                // sanity cap trimming the >9 trending-knife tail; tightness is a NON-lever otherwise).
+      MinAtrPct: float          // atr_pct(close) >= this — log-ATR FLOOR (TideFlyer production 0.08; Run 14).
+                                // INVERTS HighFlyer: a washout-MR book wants VIOLENT dislocations (high ATR% =
+                                // sharp reversible dislocation), not calm coiled springs. 0/-inf disables.
+      MaxAtrPct: float          // atr_pct(close) < this — log-ATR CEILING (TideFlyer production 0.25; Run 14:
+                                // cut the >0.25 falling-knife, PF 1.52/44.8% win = genuine death not a dip).
       MinIntradayRet: float     // close/open-1 >= this — reject deep intraday FADES (production -0.07; -inf disables)
       MinMaxAtrLog: float       // "max log ATR" (126-bar max of 14-bar log-ATR) >= this —
                                 // past-runner volatility-history FLOOR (production 0.04; 0/-inf disables)
@@ -327,6 +332,11 @@ type TideFlyer
         && gate this.Tightness (fun t -> t < entryCfg.MaxTightness)
         // ATR% cap (log-space)
         && gate this.AtrPct (fun a -> a < entryCfg.MaxAtrPct)
+        // ATR% FLOOR (Run 14): require log-ATR >= MinAtrPct. INVERTS HighFlyer's cap — a washout-MR book
+        // wants VIOLENT dislocations (high ATR% snaps back hardest); the quiet slow-bleed tail (<0.08) limps.
+        // production 0.08. 0/-inf disables. ValueNone (cold) fails when active.
+        && (entryCfg.MinAtrPct <= 0.0
+            || gate this.AtrPct (fun a -> a >= entryCfg.MinAtrPct))
         // intraday-return floor: reject deep fades (gap-up then sell-off). Guard open>0.
         && (bar.``open`` > 0.0 && bar.close / bar.``open`` - 1.0 >= entryCfg.MinIntradayRet)
         // past-runner volatility-history FLOOR. ValueNone fails.
