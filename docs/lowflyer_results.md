@@ -1014,6 +1014,26 @@ good. **This STRENGTHENS the `--no-vol-high` second book:** `<0.9 & flush ≤ �
 (≤−5% → 216 @ 4.22) is a legit A-tier book on names production discards, and it DOES respond to the
 depth lever. **Size UP on flush depth in BOTH books; the ≥0.9 production book just starts ~1.5 PF higher.**
 
+**Sub-band breakdown of `<0.9` (flush ramp WITHIN each vol_vs_high band, n / clip PF):**
+
+| flush ≤ | 0–0.25 | 0.25–0.50 | 0.50–0.70 | 0.70–0.90 | ≥0.90 |
+|---|---:|---:|---:|---:|---:|
+| 0% | 2.03 (5,872) | 2.06 (3,496) | 2.41 (1,421) | 2.14 (771) | 3.38 (1,109) |
+| −2% | 2.44 (1,016) | 2.20 (1,077) | 2.49 (586) | 2.32 (407) | 3.97 (751) |
+| −3% | 2.52 (285) | 3.32 (379) | 2.79 (264) | 1.96 (218) | 4.55 (458) |
+| −4% | 3.50 (108) | 3.54 (168) | 3.04 (119) | 2.73 (105) | 5.99 (281) |
+| −5% | 2.79 (40)* | 7.17 (70)* | 3.88 (56) | 3.62 (50) | 6.05 (165) |
+
+Three findings: **(1) the ramp HOLDS in every band** — even the near-zero-volume 0–0.25 band ramps
+(2.03 → 3.50 at ≤−4%); it is NOT a mid-volume artifact. **(2) But the `<0.9` bands are FLAT relative to
+each other** — at any fixed flush depth, 0–0.25 ≈ 0.70–0.90 (≤−4%: 3.50 vs 2.73), no monotone gradient.
+The volume edge is a **STEP at 0.9, not a gradient**: being near the vol high barely helps until you
+actually reach it (≥0.90 jumps to 5.99). **(3) Trip counts collapse with depth** — capacity is all
+shallow (0–0.25 has 5,872 trips but only 108 at ≤−4%); deep low-vol cells below ~50 trips are noise
+(*0–0.25 ≤−5% dips to 2.79/40, 0.25–0.50 ≤−5% spikes to 7.17/70 — both small-sample). **Design: don't
+sub-divide `<0.9` — treat it as ONE tier gated on flush depth (≤−4% → ~PF 3.0–3.5); `≥0.9` is a clean
+step above (~PF 6 at the same depth).**
+
 ## CEILINGS ADDED (cut the falling-knife tails)
 
 Both features have a runaway extreme that collapses, so cap them.
