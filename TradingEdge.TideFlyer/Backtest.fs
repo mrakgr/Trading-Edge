@@ -16,6 +16,8 @@ type Config =
                                 // days via CalendarMeanMa; now a fixed AvgMa bar count
                                 // ~20, approximating the old 28-day trailing mean)
       MaxHoldBars: int          // time-stop: exit at next open after this many Holding bars (0 = off)
+      TargetExit: bool          // true = sell at the opposite 7d extreme (long-MR -> 7d high; mirror -> 7d low),
+                                // time-stop as fallback. false = time-stop only (--target-exit toggles it).
       UsePartialEntry: bool     // true = decide + fill on the partial checkpoint candle (the experiment);
                                 // false = the parity path (full daily bar drives the entry)
       PartialTable: string      // which checkpoint table to read (partial_candle_1000 / 1030 / ...)
@@ -39,25 +41,35 @@ let defaultConfig =
       // first 5 days; the rest is a low-edge grind. NoStop is gone — it was just a
       // time-stop with an infinite cap, so a price stop never exists here.
       MaxHoldBars = 5
+      // TideFlyer default exit = the time-stop (fixed N-day hold). --target-exit turns on
+      // the round-trip "sell at the opposite 7d extreme" path (time-stop as fallback).
+      TargetExit = false
       // Entry basis OFF by default = the parity path (full daily bar). --partial-entry
       // switches the decision + fill to the 10:00 ET partial candle.
       UsePartialEntry = false
       PartialTable = "partial_candle_1000"
       Notional = 10_000.0
+      // TideFlyer baseline = the PURE 7d-channel signal. Every momentum-era gate is
+      // NEUTRALIZED (inherited from HighFlyerV2) so Run 1 measures the raw dip signal;
+      // they become post-hoc tuning levers. Only price>=$1 + ADV kept as liquidity floors.
       Entry =
-        { UpThreshold = 0.10
-          MaxUpThreshold = 0.30
-          RvolMin = 5.0
+        { UpThreshold = -infinity     // move-band OFF (momentum gate)
+          MaxUpThreshold = infinity   // (band open both ends)
+          RvolMin = 0.0               // rvol OFF
           RvolMax = infinity
-          MinPriorDays = 21
-          MinAvgDollarVolume = 100_000.0
-          Min52wPct = 0.95
+          MinPriorDays = 21           // warmup (need prior-7 window + history)
+          MinAvgDollarVolume = 100_000.0   // liquidity floor (kept)
+          Min52wPct = 0.0             // 52w-high proximity OFF (momentum gate)
           Use52wHigh = false
-          MinPrice = 1.0
-          MaxTightness = 4.5
-          MaxAtrPct = 0.10
-          MinIntradayRet = -0.07
-          MinMaxAtrLog = 0.04 } }
+          MinPrice = 1.0              // price floor (kept)
+          MaxTightness = infinity     // tightness OFF
+          MaxAtrPct = infinity        // ATR% cap OFF
+          MinIntradayRet = -infinity  // intraday-fade floor OFF
+          MinMaxAtrLog = -infinity    // past-runner floor OFF
+          // TideFlyer core signal:
+          LowWindow = 7               // 7-day close channel
+          Mirror = false              // LONG-MR: buy the new 7d LOW (default)
+          RequireChannel = true } }   // gate on the channel
 
 /// A finished trip, ready for the CSV. Mirrors the original HighFlyer base
 /// columns so the two outputs diff directly.
@@ -220,7 +232,7 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
 
     let newSystem () =
         TideFlyer(cfg.StopLowWindow, cfg.HiCloseWindow, cfg.AtrWindow,
-                  cfg.TightnessWindow, cfg.VolDays, cfg.MaxHoldBars, cfg.Entry)
+                  cfg.TightnessWindow, cfg.VolDays, cfg.MaxHoldBars, cfg.TargetExit, cfg.Entry)
 
     // Flush the just-finished ticker: MTM-close open trips, emit all trips.
     let flush () =

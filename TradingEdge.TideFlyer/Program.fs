@@ -17,6 +17,10 @@ type Args =
     | Volatility_Window of int
     | Volume_Days of int
     | Max_Hold_Bars of int
+    | Low_Window of int
+    | Mirror
+    | Target_Exit
+    | No_Channel
     | Partial_Entry
     | Cutoff_Min of int
     | Up_Threshold of float
@@ -42,6 +46,10 @@ type Args =
             | Volatility_Window _ -> "Lookback window (bars) for BOTH the ATR%% and tightness measures. Default 14."
             | Volume_Days _ -> "Lookback window (BARS) for the rvol/ADV volume baseline (AvgMa). Default 20."
             | Max_Hold_Bars _ -> "Time-stop: exit at the next open after this many Holding bars (0 = off = hold to MTM). Default 5."
+            | Low_Window _ -> "TideFlyer channel window (BARS) for the 7d close-low/high extreme. Default 7. Prior-window convention (min/max over the prior N closes, excluding today)."
+            | Mirror -> "MIRROR mode: buy the new 7d HIGH (momentum control) instead of the new 7d LOW (default long-MR). Exit target flips to the 7d low."
+            | Target_Exit -> "Exit at the OPPOSITE 7d extreme (long-MR sells at the 7d HIGH; mirror sells at the 7d low), with the time-stop as fallback. Default off = time-stop only."
+            | No_Channel -> "DISABLE the 7d-channel entry gate (study the raw pre-channel population, e.g. to sweep the other gates). Default: channel ON."
             | Partial_Entry -> "EXPERIMENT: decide + fill the entry on the PARTIAL checkpoint candle (partial_candle_HHMM) instead of the full daily close. Exits stay on the daily series. Days with no usable checkpoint candle are not entered. Default off (parity path)."
             | Cutoff_Min _ -> "With --partial-entry: which checkpoint table to read, by ET minutes-since-midnight (600=10:00 ET default, 630=10:30, 660=11:00). Maps to partial_candle_HHMM. The table must already be built (scripts/equity/build_partial_candle.fsx --cutoff-min N)."
             | Up_Threshold _ -> "Min entry-day move (close/prevClose-1). Default 0.10."
@@ -80,6 +88,7 @@ let main argv =
             StopLowWindow = parsed.GetResult(Stop_Low_Window, defaultValue = defaultConfig.StopLowWindow)
             VolDays = parsed.GetResult(Volume_Days, defaultValue = defaultConfig.VolDays)
             MaxHoldBars = parsed.GetResult(Max_Hold_Bars, defaultValue = defaultConfig.MaxHoldBars)
+            TargetExit = parsed.Contains Target_Exit
             UsePartialEntry = parsed.Contains Partial_Entry
             PartialTable = partialTable
             Entry =
@@ -94,7 +103,10 @@ let main argv =
                   MaxTightness   = parsed.GetResult(Max_Tightness,    defaultValue = defaultConfig.Entry.MaxTightness)
                   MaxAtrPct      = parsed.GetResult(Max_Atr_Pct,      defaultValue = defaultConfig.Entry.MaxAtrPct)
                   MinIntradayRet = parsed.GetResult(Min_Intraday_Ret, defaultValue = defaultConfig.Entry.MinIntradayRet)
-                  MinMaxAtrLog   = parsed.GetResult(Min_Max_Atr_Log,  defaultValue = defaultConfig.Entry.MinMaxAtrLog) } }
+                  MinMaxAtrLog   = parsed.GetResult(Min_Max_Atr_Log,  defaultValue = defaultConfig.Entry.MinMaxAtrLog)
+                  LowWindow      = parsed.GetResult(Low_Window,        defaultValue = defaultConfig.Entry.LowWindow)
+                  Mirror         = parsed.Contains Mirror
+                  RequireChannel = not (parsed.Contains No_Channel) } }
 
     printfn "TideFlyer backtest"
     printfn "  db        = %s" dbPath

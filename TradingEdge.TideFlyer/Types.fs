@@ -56,8 +56,15 @@ type EntryConfig =
       MaxTightness: float       // tightness < this (production 4.5; LINEAR scale)
       MaxAtrPct: float          // atr_pct(close) < this — log-ATR (production 0.10)
       MinIntradayRet: float     // close/open-1 >= this — reject deep intraday FADES (production -0.07; -inf disables)
-      MinMaxAtrLog: float }     // "max log ATR" (126-bar max of 14-bar log-ATR) >= this —
+      MinMaxAtrLog: float       // "max log ATR" (126-bar max of 14-bar log-ATR) >= this —
                                 // past-runner volatility-history FLOOR (production 0.04; 0/-inf disables)
+      // ----- TideFlyer 7d-channel entry (the core new signal) -----
+      LowWindow: int            // rolling CLOSE-channel window (default 7). PRIOR-window convention:
+                                // the min/max is over the prior `LowWindow` closes, EXCLUDING today.
+      Mirror: bool              // false (default) = LONG-MR: buy the new 7d LOW (close <= prior-7 min close).
+                                // true = MIRROR/momentum: buy the new 7d HIGH (close >= prior-7 max close).
+      RequireChannel: bool }    // true (default) = gate on the 7d channel (the TideFlyer signal). false =
+                                // OFF (study the raw pre-channel population, e.g. to sweep the other gates).
 
 /// Life-cycle of a single trip. Minimal: the original HighFlyer's PendingLimit /
 /// ExitingLimit / ExitingMarket / Side machinery is gone. A trip fills at the
@@ -104,10 +111,13 @@ type TideFlyer
       tightnessWindow: int,
       volDays: int,
       maxHoldBars: int,
+      targetExit: bool,
       entryCfg: EntryConfig ) =
 
     // ----- rolling structures -----
     let stopLow   = MinMa(stopLowWindow)        // CSV snapshot only (prior-window low at entry)
+    let tideLo    = MinMa(entryCfg.LowWindow)   // TideFlyer 7d-CLOSE low channel (buy the new 7d low)
+    let tideHi    = MaxMa(entryCfg.LowWindow)   // TideFlyer 7d-CLOSE high channel (buy the new 7d high / exit target)
     let hiClose   = MaxMa(hiCloseWindow)        // long-term close channel (252d)
     let hiHigh    = MaxMa(hiCloseWindow)        // long-term HIGH channel (252d max of intraday highs)
     let loClose   = MinMa(hiCloseWindow)        // long-term LOW close channel (252d min of closes)
@@ -132,6 +142,8 @@ type TideFlyer
 
     // ----- snapshots captured at the last ProcessBar, BEFORE the push -----
     let mutable sStopLow   : float voption = ValueNone
+    let mutable sTideLo    : float voption = ValueNone   // prior-7 min close (the new-7d-low reference)
+    let mutable sTideHi    : float voption = ValueNone   // prior-7 max close (the new-7d-high reference / exit target)
     let mutable sHiClose   : float voption = ValueNone
     let mutable sHiHigh    : float voption = ValueNone
     let mutable sLoClose   : float voption = ValueNone
@@ -149,6 +161,9 @@ type TideFlyer
 
     /// Trailing prior-window low (CSV snapshot reference).
     member _.StopLow = sStopLow
+    /// TideFlyer 7d channel (prior-window min/max CLOSE), pre-push snapshots.
+    member _.TideLo = sTideLo
+    member _.TideHi = sTideHi
     /// Long-term close channel: highest close over the prior `hiCloseWindow` bars.
     member _.HiClose = sHiClose
     member _.HiHigh = sHiHigh
@@ -218,8 +233,16 @@ type TideFlyer
         let c = bar.close
         let inline gate (v: float voption) (test: float -> bool) =
             match v with ValueSome x -> test x | ValueNone -> false
-        // breakout: same-day return in [UpThreshold, MaxUpThreshold)
-        gate (this.PctUp c) (fun pu -> pu >= entryCfg.UpThreshold && pu < entryCfg.MaxUpThreshold)
+        // TideFlyer CORE signal: a new 7-day CLOSE extreme vs the PRIOR `LowWindow` closes.
+        //   long-MR (default): close <= prior-7 min close (a new 7d LOW — the dip we fade)
+        //   mirror:            close >= prior-7 max close (a new 7d HIGH — the momentum control)
+        // ValueNone (cold) fails. Off when RequireChannel=false (raw-population study).
+        (not entryCfg.RequireChannel
+         || gate (if entryCfg.Mirror then sTideHi else sTideLo)
+                 (fun ch -> if entryCfg.Mirror then c >= ch else c <= ch))
+        // breakout: same-day return in [UpThreshold, MaxUpThreshold) — NEUTRAL by default
+        // (UpThreshold -inf / MaxUpThreshold +inf); a momentum-era gate, tuned post-hoc.
+        && gate (this.PctUp c) (fun pu -> pu >= entryCfg.UpThreshold && pu < entryCfg.MaxUpThreshold)
         // rvol band
         && gate (this.Rvol (float bar.volume)) (fun rv ->
                rv >= entryCfg.RvolMin && rv <= entryCfg.RvolMax)
@@ -248,7 +271,8 @@ type TideFlyer
     /// gap), plus lastBar (no cross-gap prior-close / true range) and barsSeen (warmup
     /// re-arms). Callers that need the pre-gap bar must read it BEFORE calling this.
     member private _.ResetIndicators () =
-        stopLow.Reset ();   hiClose.Reset ();   hiHigh.Reset ()
+        stopLow.Reset ();   tideLo.Reset ();    tideHi.Reset ()
+        hiClose.Reset ();   hiHigh.Reset ()
         loClose.Reset ();   loLow.Reset ()
         atrLog.Reset ();    atrLin.Reset ();    maxAtrLog.Reset ()
         rangeHigh.Reset (); rangeLow.Reset ()
@@ -278,6 +302,8 @@ type TideFlyer
         sAvgVol    <- avgVol.State
         sAvgDolVol <- avgDolVol.State
         sStopLow   <- stopLow.State
+        sTideLo    <- tideLo.State
+        sTideHi    <- tideHi.State
         sHiClose   <- hiClose.State
         sHiHigh    <- hiHigh.State
         sLoClose   <- loClose.State
@@ -303,6 +329,8 @@ type TideFlyer
         | _ -> ()
 
         stopLow.Push   bar.low
+        tideLo.Push    bar.close
+        tideHi.Push    bar.close
         hiClose.Push   bar.close
         hiHigh.Push    bar.high
         loClose.Push   bar.close
@@ -320,19 +348,32 @@ type TideFlyer
     member _.Positions = positions
 
     /// Advance one open position by the current bar. Must run AFTER ProcessBar.
-    /// The ONLY exit is the time-stop: once a position has been Holding for
-    /// `maxHoldBars` bars (0 = off), it exits at the NEXT bar's open.
+    /// Two exit paths:
+    ///   (a) TARGET (targetExit=true): the round-trip — long-MR sells when today's
+    ///       close reaches a new 7d HIGH (c >= prior-7 max close); mirror sells at
+    ///       the 7d LOW. Checked FIRST; fills at the NEXT bar's open. The time-stop
+    ///       remains the fallback if the target never hits.
+    ///   (b) TIME-STOP: once Holding for `maxHoldBars` bars (0 = off), exit next open.
     member _.Update (bar: Bar) (pos: Position) : Position =
         match pos.State with
         | Exited _ -> pos
         | ExitingNextOpen reason ->
-            // sell at THIS bar's open (the bar after the time-stop fired).
+            // sell at THIS bar's open (the bar after the exit fired).
             { pos with State = Exited (bar.date, bar.``open``, reason) }
         | Holding ->
-            // Time-stop: counts the bar we're about to survive, so it fires once
-            // HoldBars+1 reaches the cap and fills at bar (cap+1)'s open.
             let heldBars = pos.HoldBars + 1
-            if maxHoldBars > 0 && heldBars >= maxHoldBars then
+            // (a) target: reached the opposite 7d extreme? (long-MR -> 7d high; mirror -> 7d low)
+            //     sTideHi/sTideLo are the pre-push prior-window snapshots for THIS bar.
+            let targetHit =
+                targetExit &&
+                (if entryCfg.Mirror then
+                     match sTideLo with ValueSome lo -> bar.close <= lo | ValueNone -> false
+                 else
+                     match sTideHi with ValueSome hi -> bar.close >= hi | ValueNone -> false)
+            if targetHit then
+                { pos with State = ExitingNextOpen "target"; HoldBars = heldBars }
+            // (b) time-stop fallback: fires once HoldBars+1 reaches the cap.
+            elif maxHoldBars > 0 && heldBars >= maxHoldBars then
                 { pos with State = ExitingNextOpen "time_stop"; HoldBars = heldBars }
             else { pos with HoldBars = heldBars }
 
