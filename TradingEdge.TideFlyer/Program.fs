@@ -3,6 +3,7 @@ module TradingEdge.TideFlyer.Program
 open System
 open System.Diagnostics
 open Argu
+open TradingEdge.TideFlyer.Types
 open TradingEdge.TideFlyer.Backtest
 
 let private defaultDb = "/home/mrakgr/Trading-Edge/data/trading.db"
@@ -20,7 +21,8 @@ type Args =
     | Low_Window of int
     | Mirror
     | No_Channel
-    | No_Target_Exit
+    | Exit_Mode of string
+    | Target_Frac of float
     | Vol_Frac_Min of float
     | Vol_Frac_Max of float
     | Max_3d_Return of float
@@ -54,7 +56,8 @@ type Args =
             | Max_Hold_Bars _ -> "Time-stop: exit at the next open after this many Holding bars (0 = off = hold to MTM). Default 5."
             | Low_Window _ -> "TideFlyer channel window (BARS) for the 7d close-low/high extreme. Default 7. Prior-window convention (min/max over the prior N closes, excluding today)."
             | Mirror -> "MIRROR mode: buy the new 7d HIGH (momentum control) instead of the new 7d LOW (default long-MR). Exit target flips to the 7d low."
-            | No_Target_Exit -> "DISABLE the target exit (revert to pure 5d time-stop). Default ON (Run 17): sell at the OPPOSITE 7d extreme (long-MR -> 7d HIGH; mirror -> 7d low), time-stop as fallback. +0.058 PF, era-robust."
+            | Exit_Mode _ -> "Target exit fill model (Run 18): 'next-open' (default, close-cross -> next open, the Run 17 model), 'moc' (close-cross -> that same close, no overnight gap), 'limit' (resting limit at the frac-scaled 7d extreme, fills same-bar intraday), or 'off' (pure 5d time-stop, no target). time-stop is always the fallback."
+            | Target_Frac _ -> "Scale the exit target between entry (0.0) and the full 7d high (1.0). Default 1.0. e.g. 0.5 = exit HALFWAY to the 7d high (fires more often, smaller per-trip gain). Applies to all live --exit-mode values: at frac<1.0 moc/next-open trigger when the bar's HIGH reaches the scaled level (target reached intraday) and fill on that close / next open respectively; limit fills AT the level."
             | No_Channel -> "DISABLE the 7d-channel entry gate (study the raw pre-channel population, e.g. to sweep the other gates). Default: channel ON."
             | Vol_Frac_Min _ -> "Volume-fraction FLOOR: require entry_vol / prior-7 vol-max >= this. Default 0.5 (cut the quiet slow-bleed dips). 0 disables."
             | Vol_Frac_Max _ -> "Volume-fraction CEILING: require entry_vol / prior-7 vol-max <= this. Default 1.5 (cut the panic-spike falling knife). Pass a large value to disable."
@@ -92,6 +95,16 @@ let main argv =
     let cutoffMin = parsed.GetResult(Cutoff_Min, defaultValue = 600)
     let partialTable = sprintf "partial_candle_%02d%02d" (cutoffMin / 60) (cutoffMin % 60)
 
+    let exitMode =
+        let frac = parsed.GetResult(Target_Frac, defaultValue = 1.0)
+        match parsed.TryGetResult(Exit_Mode) |> Option.map (fun s -> s.ToLowerInvariant()) with
+        | None -> defaultConfig.ExitMode          // default = NextOpenClose 1.0
+        | Some "off"                     -> Off
+        | Some ("next-open" | "nextopen" | "next_open") -> NextOpenClose frac
+        | Some "moc"                     -> Moc frac
+        | Some "limit"                   -> Limit frac
+        | Some other -> failwithf "unknown --exit-mode '%s' (expected off|next-open|moc|limit)" other
+
     let cfg =
         { defaultConfig with
             // --volatility-window sets BOTH the ATR%% and tightness lookback.
@@ -100,7 +113,7 @@ let main argv =
             StopLowWindow = parsed.GetResult(Stop_Low_Window, defaultValue = defaultConfig.StopLowWindow)
             VolDays = parsed.GetResult(Volume_Days, defaultValue = defaultConfig.VolDays)
             MaxHoldBars = parsed.GetResult(Max_Hold_Bars, defaultValue = defaultConfig.MaxHoldBars)
-            TargetExit = not (parsed.Contains No_Target_Exit)
+            ExitMode = exitMode
             UsePartialEntry = parsed.Contains Partial_Entry
             PartialTable = partialTable
             Entry =

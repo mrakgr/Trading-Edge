@@ -16,8 +16,10 @@ type Config =
                                 // days via CalendarMeanMa; now a fixed AvgMa bar count
                                 // ~20, approximating the old 28-day trailing mean)
       MaxHoldBars: int          // time-stop: exit at next open after this many Holding bars (0 = off)
-      TargetExit: bool          // true = sell at the opposite 7d extreme (long-MR -> 7d high; mirror -> 7d low),
-                                // time-stop as fallback. false = time-stop only (--target-exit toggles it).
+      ExitMode: ExitMode        // how the TARGET exit fills (Run 17/18): NextOpenClose (close-cross ->
+                                // next open, the original), Moc (close-cross -> that close), Limit f
+                                // (resting limit at entry + f*(7d-extreme - entry), fill same-bar intraday),
+                                // or Off (pure time-stop). time-stop is always the fallback.
       UsePartialEntry: bool     // true = decide + fill on the partial checkpoint candle (the experiment);
                                 // false = the parity path (full daily bar drives the entry)
       PartialTable: string      // which checkpoint table to read (partial_candle_1000 / 1030 / ...)
@@ -43,10 +45,10 @@ let defaultConfig =
       MaxHoldBars = 5
       // TideFlyer default exit = the time-stop (fixed N-day hold). --target-exit turns on
       // the round-trip "sell at the opposite 7d extreme" path (time-stop as fallback).
-      TargetExit = true           // ON (Run 17): sell at the 7d HIGH (round-trip the washout->recovery),
+      ExitMode = NextOpenClose 1.0 // ON (Run 17): sell at the 7d HIGH (round-trip the washout->recovery),
                                   // 5d time-stop as fallback. +0.058 PF over pure time-stop (2.237->2.295),
-                                  // no capacity cost, distribution-wide (survives dropping the top 50 winners)
-                                  // & era-robust. Run 1 predicted the exit matters once entries are gated. --no-target-exit disables.
+                                  // no capacity cost, distribution-wide & era-robust. Run 1 predicted the exit
+                                  // matters once entries are gated. --exit-mode {off|next-open|moc|limit} + --target-frac.
       // Entry basis OFF by default = the parity path (full daily bar). --partial-entry
       // switches the decision + fill to the 10:00 ET partial candle.
       UsePartialEntry = false
@@ -257,7 +259,7 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
 
     let newSystem () =
         TideFlyer(cfg.StopLowWindow, cfg.HiCloseWindow, cfg.AtrWindow,
-                  cfg.TightnessWindow, cfg.VolDays, cfg.MaxHoldBars, cfg.TargetExit, cfg.Entry)
+                  cfg.TightnessWindow, cfg.VolDays, cfg.MaxHoldBars, cfg.ExitMode, cfg.Entry)
 
     // Flush the just-finished ticker: MTM-close open trips, emit all trips.
     let flush () =

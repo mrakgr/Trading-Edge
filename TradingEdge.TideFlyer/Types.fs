@@ -89,13 +89,34 @@ type EntryConfig =
                                 // survive the gate). 60d<-40% = 16.7k trips @ PF ~1.96 (best trips/PF cell).
                                 // +inf disables. A CEILING only.
 
+/// How the TARGET exit fills (Run 18). The TIME-STOP always fills at the next open
+/// regardless — only the target's fill model varies.
+///   NextOpenClose — the original (Run 17): target fires when the daily CLOSE >= the
+///     7d-high-of-closes; fill at the NEXT bar's open (market-on-next-open). Exposed to
+///     the overnight gap.
+///   Moc          — MOC fill (that same bar's close). Trigger: at frac=1.0 the CLOSE crosses
+///     the 7d high (the Run-17 close-cross, kept for byte-parity); at frac<1.0 the bar's HIGH
+///     touches the frac-scaled level (the target was REACHED intraday) -> exit on THAT close.
+///   NextOpenClose — same trigger as Moc, but fill at the NEXT bar's open (the overnight-gap model).
+///   Limit        — a resting LIMIT at the frac-scaled level: fill the SAME bar, AT the level,
+///     the first day the bar's HIGH touches it. Fills intraday, no gap.
+///   `targetFrac` scales the exit level between entry (0.0) and the 7d high (1.0): 0.5 = HALFWAY,
+///     capturing half the round-trip — fires more often for a smaller gain. Applies to all three
+///     live modes. Off = pure time-stop, no target.
+type ExitMode =
+    | Off
+    | NextOpenClose of targetFrac: float
+    | Moc of targetFrac: float
+    | Limit of targetFrac: float
+
 /// Life-cycle of a single trip. Minimal: the original HighFlyer's PendingLimit /
 /// ExitingLimit / ExitingMarket / Side machinery is gone. A trip fills at the
 /// signal-bar close (Holding immediately), exits at the next open when the
-/// time-stop fires (ExitingNextOpen), or is MTM'd at the last bar.
+/// time-stop fires (ExitingNextOpen), fills SAME-bar for Moc/Limit targets, or is
+/// MTM'd at the last bar.
 type PositionState =
     | Holding
-    | ExitingNextOpen of reason: string   // time-stop fired; fill at the next bar's open
+    | ExitingNextOpen of reason: string   // time-stop / NextOpenClose target fired; fill at the next bar's open
     | Exited of exitDate: DateOnly * exitPrice: float * reason: string
 
 /// One trip. The *_at_entry metrics are snapshotted at the SIGNAL bar (= the fill
@@ -135,7 +156,7 @@ type TideFlyer
       tightnessWindow: int,
       volDays: int,
       maxHoldBars: int,
-      targetExit: bool,
+      exitMode: ExitMode,
       entryCfg: EntryConfig ) =
 
     // ----- rolling structures -----
@@ -430,11 +451,15 @@ type TideFlyer
     member _.Positions = positions
 
     /// Advance one open position by the current bar. Must run AFTER ProcessBar.
-    /// Two exit paths:
-    ///   (a) TARGET (targetExit=true): the round-trip — long-MR sells when today's
-    ///       close reaches a new 7d HIGH (c >= prior-7 max close); mirror sells at
-    ///       the 7d LOW. Checked FIRST; fills at the NEXT bar's open. The time-stop
-    ///       remains the fallback if the target never hits.
+    /// Two exit paths, target checked FIRST (wins ties with the time-stop):
+    ///   (a) TARGET (exitMode <> Off): the round-trip toward the opposite 7d extreme
+    ///       (long-MR -> 7d high; mirror -> 7d low). `sTideHi`/`sTideLo` are the pre-push
+    ///       prior-window snapshots for THIS bar (no lookahead — the level is known going
+    ///       into the bar). Fill depends on the mode:
+    ///         NextOpenClose — CLOSE crosses the level -> fill NEXT open (the overnight-gap model).
+    ///         Moc           — CLOSE crosses the level -> fill THIS bar's close (MOC, no gap).
+    ///         Limit f       — the bar's HIGH touches the (frac-scaled) level -> fill SAME bar
+    ///                         AT the level. f scales between entry and the 7d extreme.
     ///   (b) TIME-STOP: once Holding for `maxHoldBars` bars (0 = off), exit next open.
     member _.Update (bar: Bar) (pos: Position) : Position =
         match pos.State with
@@ -444,20 +469,43 @@ type TideFlyer
             { pos with State = Exited (bar.date, bar.``open``, reason) }
         | Holding ->
             let heldBars = pos.HoldBars + 1
-            // (a) target: reached the opposite 7d extreme? (long-MR -> 7d high; mirror -> 7d low)
-            //     sTideHi/sTideLo are the pre-push prior-window snapshots for THIS bar.
-            let targetHit =
-                targetExit &&
-                (if entryCfg.Mirror then
-                     match sTideLo with ValueSome lo -> bar.close <= lo | ValueNone -> false
-                 else
-                     match sTideHi with ValueSome hi -> bar.close >= hi | ValueNone -> false)
-            if targetHit then
-                { pos with State = ExitingNextOpen "target"; HoldBars = heldBars }
-            // (b) time-stop fallback: fires once HoldBars+1 reaches the cap.
-            elif maxHoldBars > 0 && heldBars >= maxHoldBars then
-                { pos with State = ExitingNextOpen "time_stop"; HoldBars = heldBars }
-            else { pos with HoldBars = heldBars }
+            // the target 7d extreme level for THIS bar (long-MR = 7d high; mirror = 7d low).
+            let targetLevel = if entryCfg.Mirror then sTideLo else sTideHi
+            // the frac-scaled exit level: entry + frac*(7d extreme - entry). frac=1.0 = the full extreme.
+            let scaledLevel frac lvl = pos.EntryPrice + frac * (lvl - pos.EntryPrice)
+            // MOC/next-open TRIGGER: at frac>=1.0 the CLOSE crosses the extreme (the Run-17 close-cross,
+            // preserved for byte-parity); at frac<1.0 the bar's HIGH touches the scaled level intraday.
+            let crossTrigger frac lvl =
+                if frac >= 1.0 then
+                    if entryCfg.Mirror then bar.close <= lvl else bar.close >= lvl
+                else
+                    let px = scaledLevel frac lvl
+                    if entryCfg.Mirror then bar.low <= px else bar.high >= px
+            // resolve the target fill for the active mode, if it fires this bar.
+            let targetFill : (float * string) option =
+                match exitMode, targetLevel with
+                | Off, _ | _, ValueNone -> None
+                | NextOpenClose frac, ValueSome lvl ->
+                    if crossTrigger frac lvl then Some (nan, "target") else None   // nan price = fill next open
+                | Moc frac, ValueSome lvl ->
+                    if crossTrigger frac lvl then Some (bar.close, "target_moc") else None
+                | Limit frac, ValueSome lvl ->
+                    // a resting LIMIT at the scaled level: fill AT the level when the bar's HIGH reaches it.
+                    let px = scaledLevel frac lvl
+                    let hit = if entryCfg.Mirror then bar.low <= px else bar.high >= px
+                    if hit then Some (px, "target_limit") else None
+            match targetFill with
+            | Some (px, reason) when System.Double.IsNaN px ->
+                // NextOpenClose: mark, fill at the next bar's open.
+                { pos with State = ExitingNextOpen reason; HoldBars = heldBars }
+            | Some (px, reason) ->
+                // Moc / Limit: fill SAME bar, at px.
+                { pos with State = Exited (bar.date, px, reason); HoldBars = heldBars }
+            | None ->
+                // (b) time-stop fallback: fires once HoldBars+1 reaches the cap.
+                if maxHoldBars > 0 && heldBars >= maxHoldBars then
+                    { pos with State = ExitingNextOpen "time_stop"; HoldBars = heldBars }
+                else { pos with HoldBars = heldBars }
 
     /// Advance the whole system by one day: fold the DAILY bar into the
     /// indicators, update every open position (exits run on the daily series),

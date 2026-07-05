@@ -578,7 +578,38 @@ the PEAK of the bounce (the 7d high) instead of an arbitrary day-5 mark.
 distribution-WIDE, not a tail. **Era-robust:** target wins or ties ~15 of 22 years, never blows up, and
 helps MOST in the recent weaker years (2024: 1.83 vs 1.52; 2023: 1.14 vs 1.00; 2025: 0.85 vs 0.74).
 
-**LOCKED `TargetExit = true`** (CLI flipped to `--no-target-exit` to disable). Modest but FREE (same
-entries, no capacity cost) and confirms Run 1's gated-exit prediction. **FINAL production book: 13,122 /
-PF 2.295 / 59.5% win / $11.0M.** Full arc: 1.415(3d)→1.635→1.622(true prior2d)→1.924(60d)→2.105(ATR band)
-→2.237(rvol<3)→**2.295(target-exit)**. NEXT = sizing-on-depth, the pullback book, the HighFlyer-volfrac test.
+**LOCKED target-exit ON** (`ExitMode`, default `NextOpenClose 1.0`). Modest but FREE (same entries, no
+capacity cost) and confirms Run 1's gated-exit prediction. **FINAL production book: 13,122 / PF 2.295 /
+59.5% win / $11.0M.** Full arc: 1.415(3d)→1.635→1.622(true prior2d)→1.924(60d)→2.105(ATR band)
+→2.237(rvol<3)→**2.295(target-exit)**. NEXT = exit fill-model A/B (Run 18), sizing-on-depth, pullback book.
+
+## Run 18 — exit FILL-MODEL & halfway-target A/B: the Run-17 default (next-open @ full) wins all 6
+
+Generalized the exit to an `ExitMode` DU {Off | NextOpenClose f | Moc f | Limit f} × a `targetFrac` scaling
+the exit level between entry (0.0) and the full 7d high (1.0). **Refactor byte-neutral** (off == 2.237,
+next-open@1.0 == 2.295 exactly). Two questions: (a) is the favorable OVERNIGHT GAP real — does filling
+intraday-at-the-level (limit) or on that close (moc) beat next-open? (b) does exiting HALFWAY (frac 0.5)
+beat the full round-trip? Full matrix:
+
+| fill model | @ frac 1.0 | @ frac 0.5 | win% (1.0/0.5) |
+|---|---:|---:|---|
+| **next-open (fill next open)** | **2.295** | 2.215 | 59.5 / 62.6 |
+| moc (fill that close) | 2.284 | 2.098 | 59.5 / 62.9 |
+| limit (fill AT the level) | 2.151 | 1.925 | 60.6 / 65.4 |
+
+**Two clean principles, both confirming the mechanism:**
+1. **Don't exit early — the full 7d-high round-trip beats halfway at EVERY fill model** (frac 1.0 > 0.5
+   across the board). Halfway raises win rate (62–65% vs 59–60%) but CLIPS the fat right tail that carries
+   the PF — the washout-recovery runs are the whole edge.
+2. **The favorable overnight gap is REAL and sizable.** next-open > limit by +0.144 at frac 1.0, and the
+   gap DOUBLES to +0.290 at frac 0.5 — the earlier you exit (mid-recovery, most momentum left), the more
+   upside filling intraday-at-the-level throws away. A name closing at a fresh 7d high tends to GAP UP
+   further next morning; the target exit isn't "sell when recovered," it's "sell into a recovery with
+   overnight momentum" — consistent with MR snapping back hard.
+
+**MOC @ 1.0 (2.284) ≈ next-open (2.295) — the LIVE-EXECUTION EQUIVALENT.** Only −0.011 PF, and operationally
+clean (come in ~10min before the bell, see the close is above the 7d high, submit MOC — no overnight hold on
+the exit). **Kept next-open @ 1.0 as the theoretical default; MOC is the tradeable stand-in.** Ranking:
+next-open@1.0 (2.295) > moc@1.0 (2.284) > next-open@0.5 (2.215) > limit@1.0 (2.151) > moc@0.5 (2.098) >
+limit@0.5 (1.925). NEXT = BREADTH breakdown (expect it to LIFT PF, unlike float — but test direction
+empirically), sizing-on-depth, the pullback book, the HighFlyer-volfrac test.
