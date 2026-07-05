@@ -19,8 +19,8 @@ type Args =
     | Max_Hold_Bars of int
     | Low_Window of int
     | Mirror
-    | Target_Exit
     | No_Channel
+    | No_Target_Exit
     | Vol_Frac_Min of float
     | Vol_Frac_Max of float
     | Max_3d_Return of float
@@ -54,7 +54,7 @@ type Args =
             | Max_Hold_Bars _ -> "Time-stop: exit at the next open after this many Holding bars (0 = off = hold to MTM). Default 5."
             | Low_Window _ -> "TideFlyer channel window (BARS) for the 7d close-low/high extreme. Default 7. Prior-window convention (min/max over the prior N closes, excluding today)."
             | Mirror -> "MIRROR mode: buy the new 7d HIGH (momentum control) instead of the new 7d LOW (default long-MR). Exit target flips to the 7d low."
-            | Target_Exit -> "Exit at the OPPOSITE 7d extreme (long-MR sells at the 7d HIGH; mirror sells at the 7d low), with the time-stop as fallback. Default off = time-stop only."
+            | No_Target_Exit -> "DISABLE the target exit (revert to pure 5d time-stop). Default ON (Run 17): sell at the OPPOSITE 7d extreme (long-MR -> 7d HIGH; mirror -> 7d low), time-stop as fallback. +0.058 PF, era-robust."
             | No_Channel -> "DISABLE the 7d-channel entry gate (study the raw pre-channel population, e.g. to sweep the other gates). Default: channel ON."
             | Vol_Frac_Min _ -> "Volume-fraction FLOOR: require entry_vol / prior-7 vol-max >= this. Default 0.5 (cut the quiet slow-bleed dips). 0 disables."
             | Vol_Frac_Max _ -> "Volume-fraction CEILING: require entry_vol / prior-7 vol-max <= this. Default 1.5 (cut the panic-spike falling knife). Pass a large value to disable."
@@ -100,7 +100,7 @@ let main argv =
             StopLowWindow = parsed.GetResult(Stop_Low_Window, defaultValue = defaultConfig.StopLowWindow)
             VolDays = parsed.GetResult(Volume_Days, defaultValue = defaultConfig.VolDays)
             MaxHoldBars = parsed.GetResult(Max_Hold_Bars, defaultValue = defaultConfig.MaxHoldBars)
-            TargetExit = parsed.Contains Target_Exit
+            TargetExit = not (parsed.Contains No_Target_Exit)
             UsePartialEntry = parsed.Contains Partial_Entry
             PartialTable = partialTable
             Entry =

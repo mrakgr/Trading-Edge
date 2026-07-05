@@ -43,7 +43,10 @@ let defaultConfig =
       MaxHoldBars = 5
       // TideFlyer default exit = the time-stop (fixed N-day hold). --target-exit turns on
       // the round-trip "sell at the opposite 7d extreme" path (time-stop as fallback).
-      TargetExit = false
+      TargetExit = true           // ON (Run 17): sell at the 7d HIGH (round-trip the washout->recovery),
+                                  // 5d time-stop as fallback. +0.058 PF over pure time-stop (2.237->2.295),
+                                  // no capacity cost, distribution-wide (survives dropping the top 50 winners)
+                                  // & era-robust. Run 1 predicted the exit matters once entries are gated. --no-target-exit disables.
       // Entry basis OFF by default = the parity path (full daily bar). --partial-entry
       // switches the decision + fill to the 10:00 ET partial candle.
       UsePartialEntry = false

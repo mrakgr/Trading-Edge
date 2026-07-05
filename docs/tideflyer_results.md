@@ -556,3 +556,29 @@ months ago" signal the gate wants. The 1d/3d/prior-2d gates already handle recen
 only job is long-term depth, and the raw endpoint captures that best. **All 6 within ~0.07 PF (roughly
 interchangeable) → kept the simplest already-wired one (pt60). No engine change.** NEXT = exit-model A/B,
 sizing-on-depth, the pullback book, the HighFlyer-volfrac test.
+
+## Run 17 — EXIT MODEL: target-exit ON (sell at the 7d high) → PF 2.237→2.295. Run 1's prediction held.
+
+Run 1 tested target-exit on the RAW whole-universe book and found it ≈ time-stop (a wash) — but predicted
+**"expect the exit to matter more once entries are gated to higher-quality dips."** Now, on the fully-gated
+PF 2.237 book, re-ran the A/B (`--target-exit` = sell at the opposite 7d extreme, 5d time-stop fallback):
+
+| exit model | PF | win% | net $M | (same 13,122 entries) |
+|---|---:|---:|---:|---|
+| 5d time-stop (old default) | 2.237 | 59.4 | 10.49 | |
+| **target-exit (7d high, ON)** | **2.295** | 59.5 | **10.96** | +0.058 PF / +$0.46M, ZERO capacity cost |
+
+**Mechanism:** 21.9% of trips (2,874) HIT the target — the name round-tripped washout→recovery to a fresh
+7d high within the hold (99.9% win, +42.8% avg on those). The other 77.7% still hit the 5d time-stop
+(the fallback catches names that don't recover, PF 0.85 there). The lift = exiting the fast recoverers at
+the PEAK of the bounce (the 7d high) instead of an arbitrary day-5 mark.
+
+**Robustness (NOT winner-skew):** drop the top 50 winners and target still leads (2.152 vs time-stop
+2.117); MEDIAN return higher (+5.47 vs +5.31); +50%-clipped avg higher (6.57 vs 6.30) — the edge is
+distribution-WIDE, not a tail. **Era-robust:** target wins or ties ~15 of 22 years, never blows up, and
+helps MOST in the recent weaker years (2024: 1.83 vs 1.52; 2023: 1.14 vs 1.00; 2025: 0.85 vs 0.74).
+
+**LOCKED `TargetExit = true`** (CLI flipped to `--no-target-exit` to disable). Modest but FREE (same
+entries, no capacity cost) and confirms Run 1's gated-exit prediction. **FINAL production book: 13,122 /
+PF 2.295 / 59.5% win / $11.0M.** Full arc: 1.415(3d)→1.635→1.622(true prior2d)→1.924(60d)→2.105(ATR band)
+→2.237(rvol<3)→**2.295(target-exit)**. NEXT = sizing-on-depth, the pullback book, the HighFlyer-volfrac test.
