@@ -202,3 +202,41 @@ that snaps back; a 1-day −40% is a single-bar catastrophe that keeps falling �
 deepens). **Sets up the 7d/15d test:** 3d says "recent washout = good"; the user's hypothesis is the
 LONGER windows should invert — flat-to-UP over 7d/15d (a pullback in an uptrend, not a sustained
 multi-week decliner) = the better setup. Testing next.
+
+## Run 6 — 7d & 15d returns: the pullback setup EMERGES on the long window (15d is a U-shape)
+
+7d and 15d returns joined the same way. The setup's character SHIFTS with the window length:
+
+**7d — still mostly deeper-is-better (like 3d), faint flat-uptick:** <−40% PF 1.87, then declines to a
+trough at −15..−8 (1.09), with a small rebound at −8..0 (1.14). Mostly a washout amplifier; the flat
+bucket beating the mild-down bucket is the first hint of the pullback signal.
+
+**15d — U-SHAPE: the user's pullback hypothesis CONFIRMED.** Distribution median −13.6%, p90 +2.7%:
+
+| 15d band | n | PF | avg% |
+|---|---:|---:|---:|
+| **<−40%** | 21,514 | **1.76** | +5.72 |
+| −25..−15 | 84,468 | 1.082 | +0.37 ← trough |
+| −8..0 | 66,927 | 1.091 | +0.31 |
+| **0..+15** | 41,246 | **1.225** | +0.79 |
+| **+15..+40** | 7,310 | **1.287** | +1.26 ★ |
+| >+40% | 1,219 | 1.064 | +0.40 |
+
+Two winning cohorts, opposite ends: **(a) deep 15d washout (<−40%, PF 1.76)** and **(b) a HEALTHY
+UPTREND PULLBACK (up 0..+40% over 15d, PF 1.23–1.29)** — a name up over 15 days that dipped hard today
+into a new 7d low = an uptrend shakeout that reverts. The dead middle is the mild multi-week decliner
+(−25..−8%, PF ~1.08). Carve-out confirms: up-15d PF 1.229 (50k) & deep-washout PF 1.403 (79k) both beat
+the mushy −25..0 middle (PF 1.089, 227k). 15d floor sweep: ≥0% → 1.229, ≥+5% → 1.259, ≥+15% → 1.244.
+
+**Coherent structure across windows:** SHORT windows (1d, 3d) = depth is the edge (1d has a knife-floor,
+3d doesn't); 7d = transitional; 15d = a genuine U (deep washout OR healthy-uptrend pullback, exclude the
+mushy middle). The user's instinct was right — the LONG window rewards being flat-to-UP. 15d encoding =
+a carve-out (up-pullback and/or deep-washout), NOT yet locked.
+
+## Run 7 — 3d ≤ −15% LOCKED as a default (engine gate via LagMa)
+
+Wired a `LagMa<'T>(3)`-based 3d-return gate (reused LowFlyer's generic LagMa + lagPctChange; added a
+Reset for the gap-sever). **Default `Max3dReturn = -0.15`** (require a real 3-day washout). **Verified
+byte-parity vs post-hoc SQL: 77,135 / PF 1.415 (engine) vs 77,119 / PF 1.415 (SQL)** — identical PF,
+16-trip warmup-edge difference, no lookahead. **The 3d≤−15% default lifts the book PF 1.204 → 1.415**
+(355k → 77k trips, 53.6% win). New base book. NEXT = 15d pullback carve-out, rvol, exit A/B.

@@ -75,7 +75,9 @@ let defaultConfig =
           Mirror = false              // LONG-MR: buy the new 7d LOW (default)
           RequireChannel = true       // gate on the channel
           VolFracMin = 0.5            // volume-fraction band [0.5, 1.5] (Run 4): dip on ORDINARY volume;
-          VolFracMax = 1.5 } }        // cut the quiet slow-bleed (<0.5) + the panic-spike knife (>~2.5).
+          VolFracMax = 1.5            // cut the quiet slow-bleed (<0.5) + the panic-spike knife (>~2.5).
+          Max3dReturn = -0.15 } }     // 3d washout CEILING (Run 5): close/close-3d-1 <= -15% (deeper=better,
+                                      // no knife). --max-3d-return to tune; large value disables.
 
 /// A finished trip, ready for the CSV. Mirrors the original HighFlyer base
 /// columns so the two outputs diff directly.

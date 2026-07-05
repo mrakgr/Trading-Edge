@@ -68,8 +68,10 @@ type EntryConfig =
       // ----- volume-fraction band: entry_vol / prior-7 vol-max (Run 4) -----
       VolFracMin: float         // require entry_vol / vol_max_7d >= this (default 0.5 — cut the quiet slow-bleed
                                 // tail). 0 disables the floor.
-      VolFracMax: float }       // require entry_vol / vol_max_7d <= this (default 1.5 — cut the panic-spike
+      VolFracMax: float         // require entry_vol / vol_max_7d <= this (default 1.5 — cut the panic-spike
                                 // falling knife). +inf disables the ceiling. A dip on ORDINARY volume reverts best.
+      Max3dReturn: float }       // require close/close-3d-1 <= this (default -0.15 — a real 3-day WASHOUT;
+                                // Run 5: 3d deeper=better, no knife). +inf disables. A CEILING only.
 
 /// Life-cycle of a single trip. Minimal: the original HighFlyer's PendingLimit /
 /// ExitingLimit / ExitingMarket / Side machinery is gone. A trip fills at the
@@ -124,6 +126,7 @@ type TideFlyer
     let stopLow   = MinMa(stopLowWindow)        // CSV snapshot only (prior-window low at entry)
     let tideLo    = MinMa(entryCfg.LowWindow)   // TideFlyer 7d-CLOSE low channel (buy the new 7d low)
     let tideHi    = MaxMa(entryCfg.LowWindow)   // TideFlyer 7d-CLOSE high channel (buy the new 7d high / exit target)
+    let close3d   = LagMa<float>(3)             // close ring → 3d return via lagPctChange (Run 5: deep 3d washout)
     let hiClose   = MaxMa(hiCloseWindow)        // long-term close channel (252d)
     let hiHigh    = MaxMa(hiCloseWindow)        // long-term HIGH channel (252d max of intraday highs)
     let loClose   = MinMa(hiCloseWindow)        // long-term LOW close channel (252d min of closes)
@@ -174,6 +177,10 @@ type TideFlyer
     /// TideFlyer 7d channel (prior-window min/max CLOSE), pre-push snapshots.
     member _.TideLo = sTideLo
     member _.TideHi = sTideHi
+    /// 3d return = today's close / close-3-bars-ago − 1 (read AFTER ProcessBar's push;
+    /// ValueNone until warm). Uses the daily bar's close — in the parity path that IS
+    /// the entry candle's close; the 3d washout is a daily-context gate either way.
+    member _.Chg3d = lagPctChange close3d
     /// Long-term close channel: highest close over the prior `hiCloseWindow` bars.
     member _.HiClose = sHiClose
     member _.HiHigh = sHiHigh
@@ -264,6 +271,11 @@ type TideFlyer
                    vm > 0.0 &&
                    let vf = float bar.volume / vm
                    vf >= entryCfg.VolFracMin && vf <= entryCfg.VolFracMax))
+        // 3d-return CEILING (Run 5): require close/close-3d-1 <= Max3dReturn — a real multi-day
+        // washout (production -0.15). 3d has NO falling knife (deeper = better), so only a ceiling.
+        // +inf disables. ValueNone (cold) fails when active.
+        && (Double.IsInfinity entryCfg.Max3dReturn
+            || gate this.Chg3d (fun r -> r <= entryCfg.Max3dReturn))
         // rvol band
         && gate (this.Rvol (float bar.volume)) (fun rv ->
                rv >= entryCfg.RvolMin && rv <= entryCfg.RvolMax)
@@ -292,7 +304,7 @@ type TideFlyer
     /// gap), plus lastBar (no cross-gap prior-close / true range) and barsSeen (warmup
     /// re-arms). Callers that need the pre-gap bar must read it BEFORE calling this.
     member private _.ResetIndicators () =
-        stopLow.Reset ();   tideLo.Reset ();    tideHi.Reset ()
+        stopLow.Reset ();   tideLo.Reset ();    tideHi.Reset ();  close3d.Reset ()
         hiClose.Reset ();   hiHigh.Reset ()
         loClose.Reset ();   loLow.Reset ()
         atrLog.Reset ();    atrLin.Reset ();    maxAtrLog.Reset ()
@@ -353,6 +365,7 @@ type TideFlyer
         stopLow.Push   bar.low
         tideLo.Push    bar.close
         tideHi.Push    bar.close
+        close3d.Push   bar.close
         hiClose.Push   bar.close
         hiHigh.Push    bar.high
         loClose.Push   bar.close

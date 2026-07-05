@@ -120,6 +120,33 @@ type MinMa(windowSize: int) =
         barIdx <- 0
         count <- 0
 
+/// Fixed-DELAY line (reused verbatim from TradingEdge.LowFlyer/RollingMa.fs): a ring
+/// of the last (lag+1) values — `.Lagged` is the value `lag` bars ago, `.Last` the
+/// current. Push the bar, then read `lagPctChange` for an N-bar return. Empty until
+/// `lag+1` values have been pushed.
+type LagMa<'T>(lag: int) =
+    let q = Queue<'T>(lag + 1)
+    let mutable last : 'T voption = ValueNone
+    member _.Count = q.Count
+    /// The most recent pushed value, or ValueNone before the first push.
+    member _.Last = last
+    /// The value `lag` bars ago, or ValueNone until `lag+1` values have been pushed.
+    member _.Lagged = if q.Count = lag + 1 then ValueSome (q.Peek()) else ValueNone
+    member _.Push (x: 'T) =
+        if q.Count = lag + 1 then q.Dequeue() |> ignore
+        q.Enqueue x
+        last <- ValueSome x
+    member _.Reset () =
+        q.Clear()
+        last <- ValueNone
+
+/// %-change from a float LagMa's `lag`-bars-ago value to its most recent push
+/// (curr/lagged - 1), or ValueNone until warm / when the lagged value is non-positive.
+let lagPctChange (m: LagMa<float>) : float voption =
+    match m.Last, m.Lagged with
+    | ValueSome curr, ValueSome old when old > 0.0 -> ValueSome (curr / old - 1.0)
+    | _ -> ValueNone
+
 /// Rolling MEAN over a CALENDAR-day interval (not a fixed bar count), matching
 /// v0's `stock_volume_4w` window: `RANGE BETWEEN INTERVAL <days> DAYS PRECEDING
 /// AND INTERVAL 1 DAY PRECEDING`. Bars are evicted by date, so the number of
