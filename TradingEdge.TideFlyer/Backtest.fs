@@ -23,6 +23,12 @@ type Config =
       UsePartialEntry: bool     // true = decide + fill on the partial checkpoint candle (the experiment);
                                 // false = the parity path (full daily bar drives the entry)
       PartialTable: string      // which checkpoint table to read (partial_candle_1000 / 1030 / ...)
+      BreadthMax: float         // market-breadth CEILING (Run 19): only enter when LAG-1 pct_above_20
+                                // (fraction of the universe above its 20d MA, the state going INTO the
+                                // day) < this. Default 0.10 — TideFlyer is a CAPITULATION buyer: a deep
+                                // washout reverts BEST when the broad tape is ALSO puking (<10% above
+                                // 20d MA), i.e. the name got dragged down systemically, not for an
+                                // idiosyncratic reason (INVERTS HighFlyer). PF 2.30->5.31. +inf disables.
       Notional: float
       Entry: EntryConfig }
 
@@ -53,6 +59,7 @@ let defaultConfig =
       // switches the decision + fill to the 10:00 ET partial candle.
       UsePartialEntry = false
       PartialTable = "partial_candle_1000"
+      BreadthMax = 0.10           // capitulation gate (Run 19): enter only when lag-1 pct_above_20 < 0.10
       Notional = 10_000.0
       // TideFlyer baseline = the PURE 7d-channel signal. Every momentum-era gate is
       // NEUTRALIZED (inherited from HighFlyerV2) so Run 1 measures the raw dip signal;
@@ -237,7 +244,8 @@ type DbEmitter(conn: DuckDBConnection, startDate: DateOnly, endDate: DateOnly, p
 
 /// Run the whole backtest in a single streaming pass over split_adjusted_prices
 /// (ordered by ticker, date), one HighFlyer per ticker. Returns all trips.
-/// breadth is applied post-hoc; the engine runs with no breadth gate here.
+/// The CAPITULATION-breadth gate (Run 19) is applied in-engine: an entry fires only
+/// when the LAG-1 market breadth (pct_above_20 the PRIOR day) < cfg.BreadthMax.
 let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly) : Trip[] =
     let connStr = $"Data Source={dbPath};ACCESS_MODE=READ_ONLY"
     use conn = new DuckDBConnection(connStr)
@@ -246,6 +254,25 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
         use pragma = conn.CreateCommand()
         pragma.CommandText <- "PRAGMA memory_limit='6GB'"
         pragma.ExecuteNonQuery() |> ignore
+
+    // Load the LAG-1 breadth series once: for each date, the pct_above_20 of the PRIOR
+    // trading day (the market state going INTO the day — no lookahead). +inf BreadthMax
+    // disables the gate (every day passes). Missing dates (no breadth row) fail the gate
+    // when active, matching the post-hoc join's INNER semantics.
+    let breadthLag1 = Dictionary<DateOnly, float>()
+    if not (Double.IsInfinity cfg.BreadthMax) then
+        use cmd = conn.CreateCommand()
+        cmd.CommandText <-
+            "SELECT date, LAG(pct_above_20) OVER (ORDER BY date) AS b_lag1 \
+             FROM 'data/equity/momentum_v0/breadth.parquet' QUALIFY b_lag1 IS NOT NULL"
+        use rdr = cmd.ExecuteReader()
+        while rdr.Read() do
+            breadthLag1.[DateOnly.FromDateTime(rdr.GetDateTime 0)] <- rdr.GetDouble 1
+    let breadthOk (d: DateOnly) =
+        Double.IsInfinity cfg.BreadthMax
+        || (match breadthLag1.TryGetValue d with
+            | true, b -> b < cfg.BreadthMax
+            | false, _ -> false)   // no breadth data that day -> no entry when the gate is active
 
     let emitter = DbEmitter(conn, startDate, endDate, cfg.PartialTable)
     let trips = ResizeArray<Trip>()
@@ -284,7 +311,7 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
         // candle drives the entry (ValueNone on days with no usable 10:00 candle ->
         // no entry that day). Exits/indicators always run on the daily bar.
         let entryBar = if cfg.UsePartialEntry then partial else ValueSome bar
-        sys.Process(bar, entryBar))
+        sys.Process(bar, entryBar, breadthOk bar.date))
     flush ()  // last ticker
 
     trips.ToArray()

@@ -613,3 +613,39 @@ the exit). **Kept next-open @ 1.0 as the theoretical default; MOC is the tradeab
 next-open@1.0 (2.295) > moc@1.0 (2.284) > next-open@0.5 (2.215) > limit@1.0 (2.151) > moc@0.5 (2.098) >
 limit@0.5 (1.925). NEXT = BREADTH breakdown (expect it to LIFT PF, unlike float — but test direction
 empirically), sizing-on-depth, the pullback book, the HighFlyer-volfrac test.
+
+## Run 19 — ⭐ BREADTH: the biggest lever in the build. INVERTS again → capitulation buyer. PF 2.30→5.31
+
+Breadth = `pct_above_20` (fraction of the universe above its 20d MA), LAG-1 (yesterday's — the market
+state going INTO the day, no-lookahead). `tideflyer_breadth.sql`. **User hypothesis: strong breadth should
+LIFT PF (a dip in a healthy tape reverts). The data INVERTS it — WEAK breadth is the edge, dramatically:**
+
+| breadth (lag-1) | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| **<0.05** | 2,752 | 73.5 | **5.654** | +17.9 |
+| **0.05–0.10** | 2,068 | 76.1 | **4.889** | +16.5 |
+| 0.10–0.15 | 620 | 48.7 | 1.088 | +0.8 |
+| 0.15–0.20 | 785 | 62.5 | 2.303 | +7.7 |
+| 0.5–0.65 | 1,402 | 49.9 | 1.185 | +1.5 |
+| ≥0.5 (strong tape, the hypothesis) | 2,554 | 50.0 | **1.302** | +2.3 |
+
+Cumulative: **<0.10 → PF 5.307** (4,820 trips, 74.6% win); <0.20 → 4.005; **≥0.5 → 1.302** (a DRAG). The
+strong-tape hypothesis is BACKWARDS. Fine sweep: the elbow is SHARP at **<0.10** (the <0.05/0.05–0.10 zone
+is PF 4.9–5.7 @ ~75% win, clearly distinct; two noisy small-bucket notches at 0.10–0.15 & 0.25–0.30). Net
+P&L is ~flat $8.3–9.4M across <0.10..<0.30, so staying TIGHT buys ~same dollars at far higher PF.
+
+**Why it inverts (the FOURTH factor to flip vs HighFlyer — completes the picture): TideFlyer is a
+CAPITULATION buyer.** A deep 60-day washout WHEN THE BROAD TAPE IS ALSO PUKING (<10% above 20d MA) is a
+SYSTEMIC oversold — the name got dragged down with everything else, and rips back when the (oversold)
+market bounces. A deep washout in a HEALTHY tape is IDIOSYNCRATIC — everything's fine but THIS name
+collapsed = a red flag (fraud/dilution/guidance), which doesn't revert (PF 1.30). Same logic as float
+(big/liquid dragged-down names revert; lone-broken microcaps don't) and ATR% (violent broad dislocation
+reverts). **TideFlyer wants the baby thrown out with the bathwater — a good name in a bad tape, and the
+WORSE the tape the better.** Polar opposite of momentum (which needs a healthy tape to sustain a breakout).
+
+**LOCKED `breadth < 0.10`** (`BreadthMax = 0.10`, wired in-engine as a lag-1 gate — 100% coverage, unlike
+float; user: "quality over quantity", picked <0.10 over <0.20 for the PF gap). **Byte-parity: engine 4,820
+/ PF 5.307 == SQL slice exactly; --breadth-max 100 reproduces the 13,122/2.295 book.** ⚠ Caveat: at <0.10
+trips CLUSTER in deep-puke regimes (2008, Mar-2020, 2022) — high time-concentration, P&L comes in bursts.
+**FINAL production book: 4,820 / PF 5.307 / 74.6% win / $8.3M.** Full arc: …2.237(rvol)→2.295(exit)→
+**5.307(breadth<0.10)**. NEXT = close-sequence monotonicity, sizing-on-depth, pullback book, HighFlyer-volfrac.
