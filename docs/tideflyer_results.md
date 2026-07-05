@@ -96,3 +96,41 @@ trip (like LowFlyer's `vol_vs_high`). So **rvol** (entry_vol / avg) and the **vo
 **Tuning population = `/tmp/tide_low_5pct.csv`** (642,671 trips, long-MR + 1d≤−5%, 5d time-stop).
 Further base prunes available if needed (7d-down floor, both-down). **NEXT = tune, one lever at a
 time: 1d-return depth, 7d-return, volume-fraction, rvol.**
+
+## Run 3 — 1d-return depth: an INVERTED-U (deeper dip better, then a falling knife at −40%)
+
+Broke the tuning population down by `pct_up_at_entry` (the 1d return, all < −5% by prune; median
+−7.1%, p10 −13.5%, worst −99.3%). PF from `net_pnl`; avg% from `exit/entry−1`.
+
+| 1d band | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| −5..−8% | 399,074 | 51.1 | 1.135 | +0.53 |
+| −8..−12% | 155,110 | 50.2 | 1.142 | +0.72 |
+| −12..−18% | 57,263 | 49.0 | 1.162 | +1.02 |
+| −18..−25% | 17,904 | 48.3 | 1.219 | +1.59 |
+| −25..−40% | 8,894 | 46.3 | **1.241** | +2.05 |
+| **<−40%** | 3,159 | 39.8 | **0.976** | −0.29 |
+
+**Same inverted-U as the other systems:** PF climbs monotonically with dip depth (1.135 → 1.241) and
+avg% ~quadruples (+0.53 → +2.05) — the harder the 1d fall, the better the bounce — UNTIL `<−40%`,
+which is a **FALLING KNIFE** (PF 0.976, a loss; 39.8% win). Past ~−40% a one-day collapse isn't a dip
+to fade, it's a genuine breakdown (delisting/fraud/bankruptcy) that keeps falling. Win% falls as PF
+rises (51→46%) → deeper dips win LESS often but BIGGER = a **sizing lever, not just a gate.**
+
+**Band beats a one-sided floor** — flooring the knife at −40% lifts every ceiling:
+
+| band | n | PF | avg% |
+|---|---:|---:|---:|
+| −40% ≤ 1d ≤ −8% | 239,488 | 1.16 | +0.91 |
+| −40% ≤ 1d ≤ −12% | 84,251 | 1.186 | +1.25 |
+| **−40% ≤ 1d ≤ −18%** | 26,824 | **1.229** | +1.76 |
+
+−40% floor beats −30% at every ceiling (≤−18%: 1.229 vs 1.218) — keeps the strong −25..−40% cell,
+cuts only the broken <−40% names. **Working 1d encoding: band `−40% ≤ 1d ≤ −8%`** (PF 1.16, 239k) with
+**size-up on depth toward −40%** (avg% ~2× across the band); ≤−18% ceiling is the high-PF/low-capacity
+tier (1.229, 27k).
+
+**⚠ Honest caveat:** PFs are still MODEST (1.16–1.23) — TideFlyer is a real but THIN edge here, well
+below LowFlyer/HighFlyer. The 1d lever helps but isn't transformative alone; the volume-fraction and
+rvol levers (next) must do real work for this to be a keeper. **NEXT = volume-fraction (entry_vol /
+vol_max_7d) breakdown.**
