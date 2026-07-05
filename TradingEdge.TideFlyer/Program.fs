@@ -24,6 +24,7 @@ type Args =
     | Vol_Frac_Min of float
     | Vol_Frac_Max of float
     | Max_3d_Return of float
+    | Max_Prior2d_Return of float
     | Partial_Entry
     | Cutoff_Min of int
     | Up_Threshold of float
@@ -56,6 +57,7 @@ type Args =
             | Vol_Frac_Min _ -> "Volume-fraction FLOOR: require entry_vol / prior-7 vol-max >= this. Default 0.5 (cut the quiet slow-bleed dips). 0 disables."
             | Vol_Frac_Max _ -> "Volume-fraction CEILING: require entry_vol / prior-7 vol-max <= this. Default 1.5 (cut the panic-spike falling knife). Pass a large value to disable."
             | Max_3d_Return _ -> "3d-return CEILING: require close/close-3d-1 <= this. Default -0.15 -- a real 3-day washout (Run 5: 3d deeper=better, no knife). Pass a large value to disable."
+            | Max_Prior2d_Return _ -> "PRIOR-2-DAY-fall CEILING: require (3d-return - 1d-return) <= this. Default -0.10 -- the name ALREADY fell >=10%% over the prior 2 days before today's flush (Run 9: already-sliding beats a bolt-from-the-blue crack; deeper=better). Pass a large value to disable."
             | Partial_Entry -> "EXPERIMENT: decide + fill the entry on the PARTIAL checkpoint candle (partial_candle_HHMM) instead of the full daily close. Exits stay on the daily series. Days with no usable checkpoint candle are not entered. Default off (parity path)."
             | Cutoff_Min _ -> "With --partial-entry: which checkpoint table to read, by ET minutes-since-midnight (600=10:00 ET default, 630=10:30, 660=11:00). Maps to partial_candle_HHMM. The table must already be built (scripts/equity/build_partial_candle.fsx --cutoff-min N)."
             | Up_Threshold _ -> "Min entry-day move (close/prevClose-1). Default 0.10."
@@ -115,7 +117,8 @@ let main argv =
                   RequireChannel = not (parsed.Contains No_Channel)
                   VolFracMin     = parsed.GetResult(Vol_Frac_Min,      defaultValue = defaultConfig.Entry.VolFracMin)
                   VolFracMax     = parsed.GetResult(Vol_Frac_Max,      defaultValue = defaultConfig.Entry.VolFracMax)
-                  Max3dReturn    = parsed.GetResult(Max_3d_Return,     defaultValue = defaultConfig.Entry.Max3dReturn) } }
+                  Max3dReturn    = parsed.GetResult(Max_3d_Return,     defaultValue = defaultConfig.Entry.Max3dReturn)
+                  MaxPrior2dReturn = parsed.GetResult(Max_Prior2d_Return, defaultValue = defaultConfig.Entry.MaxPrior2dReturn) } }
 
     printfn "TideFlyer backtest"
     printfn "  db        = %s" dbPath

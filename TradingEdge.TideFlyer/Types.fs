@@ -70,8 +70,12 @@ type EntryConfig =
                                 // tail). 0 disables the floor.
       VolFracMax: float         // require entry_vol / vol_max_7d <= this (default 1.5 — cut the panic-spike
                                 // falling knife). +inf disables the ceiling. A dip on ORDINARY volume reverts best.
-      Max3dReturn: float }       // require close/close-3d-1 <= this (default -0.15 — a real 3-day WASHOUT;
+      Max3dReturn: float         // require close/close-3d-1 <= this (default -0.15 — a real 3-day WASHOUT;
                                 // Run 5: 3d deeper=better, no knife). +inf disables. A CEILING only.
+      MaxPrior2dReturn: float }   // require (3d - 1d) <= this — the PRIOR-2-DAY fall going INTO today, i.e.
+                                // the name was ALREADY sliding before today's flush (Run 9). Default -0.10.
+                                // Monotone deeper=better (PF 1.61-1.75 for already-down 10-20%+); the
+                                // >+10%-then-flush cell is a bull-trap LOSS. +inf disables. A CEILING only.
 
 /// Life-cycle of a single trip. Minimal: the original HighFlyer's PendingLimit /
 /// ExitingLimit / ExitingMarket / Side machinery is gone. A trip fills at the
@@ -276,6 +280,14 @@ type TideFlyer
         // +inf disables. ValueNone (cold) fails when active.
         && (Double.IsInfinity entryCfg.Max3dReturn
             || gate this.Chg3d (fun r -> r <= entryCfg.Max3dReturn))
+        // PRIOR-2-DAY-fall CEILING (Run 9): require (3d - 1d) <= MaxPrior2dReturn — the prior 2 days
+        // ALREADY fell this much before today's flush (already sliding, not a bolt-from-the-blue crack;
+        // the >+10%-then-flush cell is a bull-trap loss). production -0.10. +inf disables. Needs BOTH
+        // 3d (Chg3d) and 1d (PctUp) to be measurable; ValueNone (cold) fails when active.
+        && (Double.IsInfinity entryCfg.MaxPrior2dReturn
+            || (match this.Chg3d, this.PctUp c with
+                | ValueSome d3, ValueSome d1 -> (d3 - d1) <= entryCfg.MaxPrior2dReturn
+                | _ -> false))
         // rvol band
         && gate (this.Rvol (float bar.volume)) (fun rv ->
                rv >= entryCfg.RvolMin && rv <= entryCfg.RvolMax)

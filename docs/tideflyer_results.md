@@ -240,3 +240,107 @@ Reset for the gap-sever). **Default `Max3dReturn = -0.15`** (require a real 3-da
 byte-parity vs post-hoc SQL: 77,135 / PF 1.415 (engine) vs 77,119 / PF 1.415 (SQL)** — identical PF,
 16-trip warmup-edge difference, no lookahead. **The 3d≤−15% default lifts the book PF 1.204 → 1.415**
 (355k → 77k trips, 53.6% win). New base book. NEXT = 15d pullback carve-out, rvol, exit A/B.
+
+## Run 8 — 1d loss-ceiling & the volfrac "frozen" mystery (both settled on the base book)
+
+Two checks on `/tmp/tide_base.csv` (the pre-3d-gate 355k book) via `tideflyer_ceiling_volfrac.sql`:
+
+**Q1 — does tightening the 1d down-day ceiling from −5% to −10% help?** In ISOLATION yes (monotone,
+same shape as Run 3's depth lever): ≤−5% PF 1.204 → ≤−10% 1.279 → ≤−15% 1.416. **But under the
+production `3d≤−15%` gate it goes DEAD FLAT:** ≤−5% 1.415, ≤−8% 1.413, ≤−10% 1.411, ≤−12% 1.409 — only
+the tiny ≤−15% tail (14k) lifts to 1.497. **Verdict: keep the −5% ceiling.** The 3d washout gate already
+captures the depth the 1d ceiling was reaching for; tightening 1d only halves trip count for nothing.
+
+**Q2 — why did volfrac stop moving PF?** NOT a table error — the base CSV **already has volfrac[0.5,1.5]
+baked in** (it was an engine default when generated), so slicing it left nothing for volfrac to move.
+Going back to the wider `tide_low_5pct.csv` (no volfrac applied), volfrac[0.5,1.5]'s marginal lift is
+**bigger** after the 3d gate, not smaller: +0.058 (no 3d gate: 1.146→1.204) vs **+0.151** (3d gate:
+1.264→1.415). The inverted-U fully survives (≥2.5 spike still a knife at PF 0.983; 0–0.5 quiet still weak
+1.123; sweet spot 1.40–1.43). **Both 3d and volfrac are genuinely load-bearing — KEPT.**
+
+## Run 9 — `3d < 1d` (already sliding into today) — the direct "prior-2d fall" lever
+
+**User idea: require 3d-return < 1d-return** — i.e. the name was ALREADY down over the prior 2 days
+before today's flush (today CONTINUES an existing slide) vs `3d ≥ 1d` where today's 1d drop is the WORST
+bar of the window (a bolt-from-the-blue crack). `tideflyer_3d_vs_1d.sql`.
+
+**Within the production 3d≤−15% book the split is ~fully absorbed** (almost everything −15% over 3d is
+already sliding): 3d<1d PF 1.426 (75k) vs 3d≥1d 1.056 (1.9k) — a tiny junk tail, only +0.011 to the book.
+
+**But WITHOUT the 3d floor it's a strong, capacity-rich lever on the whole base book:**
+
+| split (base, no 3d floor) | n | PF | avg% |
+|---|---:|---:|---:|
+| all base | 355k | 1.204 | +0.90 |
+| **3d < 1d** (already sliding) | 254k | **1.247** | +1.13 |
+| 3d ≥ 1d (cracked today) | 102k | 1.081 | +0.33 |
+
+Keeps 71% of trips (much gentler than 3d≤−15%'s 22%). **Counterintuitive & important: the bounce works
+when today's flush is part of an EXISTING slide, and fails when today is an isolated crack.** Not
+"buy the isolated dip" — buy the name that was *already* bleeding.
+
+**The real structure = a continuous depth lever on `(3d − 1d)` = the prior-2-day fall** (within 3d≤−15%):
+
+| prior-2d fall (3d−1d) | n | PF | avg% |
+|---|---:|---:|---:|
+| **< −20%** | 4.9k | **1.745** | +6.31 |
+| −20..−10% | 30k | **1.609** | +3.48 |
+| −10..−2% | 38k | 1.250 | +1.50 |
+| ~flat ±2% | 3.2k | 1.084 | +0.59 |
+| +2..+10% | 0.8k | 1.044 | +0.37 |
+| **>+10%** (bounced then flushed) | 68 | **0.563** | −4.69 (a bull-trap) |
+
+Monotone: the more the prior 2 days had ALREADY fallen, the better the bounce (PF 1.61–1.75 for
+already-down-10–20%+), collapsing to a LOSS (0.56) for names that BOUNCED then flushed. **The clean
+story: it's not 3-day depth per se, it's that the name was already falling before today.** The 3d≤−15%
+gate was a crude proxy for exactly this. Rather than the boolean `3d < 1d` (which only cuts a junk tail
+once 3d≤−15% is on), the lever is the CONTINUOUS `(3d − 1d)` depth. **Default LOCKED: `(3d − 1d) ≤ −10%`**
+(`MaxPrior2dReturn = -0.10` — the prior 2 days already fell ≥10%), the −20..−10%/<−20% bands are the PF
+1.61–1.75 core. Wired as an engine gate.
+
+**ENGINE default now = base + `3d ≤ −15%` + `(3d − 1d) ≤ −10%` → 35,339 trips / PF 1.635 / 54.8% win /
++3.9% avg / $13.7M** (`/tmp/tide_prior2d.csv`). **Verified byte-parity vs SQL: 35,342 / PF 1.635**
+(3-trip warmup edge, no lookahead). The prior-2d gate is the biggest PF jump since the 3d gate:
+**1.415 → 1.635** (77k → 35k trips).
+
+## Run 10 — 1d floor/ceiling RE-CONFIRMED under the prior-2d gate (both hold)
+
+Re-swept the 1d band on the new production book (`tide_1d_resweep.sql` / `tide_ceiling_sweep.sql`) to
+check the [−40%, −5%) band still holds after the prior-2d gate reshaped the population.
+
+**−40% FLOOR still holds — but it's now a much THINNER, DEEPER knife.** The prior-2d gate pre-empted 96%
+of the old `<−40%` tail (3,159 → 120 trips). What remains splits: `<−50%` is still a clear knife (PF
+0.613, −9.8% avg, 20% win — a 1-day −50% collapse is genuine death the prior-2d context can't save), but
+`−50..−40` actually SURVIVES (PF 1.435) — the gate rescued the shallower part by confirming the name was
+already sliding. Removing the floor entirely is ≈neutral (PF 1.635 → 1.630, only 120 trips). **Kept −40%
+as-is** (harmless, rounder line; the recovered −50..−40 trips are a rounding error). Structural takeaway:
+**the prior-2d gate ABSORBED the falling-knife problem the 1d floor was built for** — the floor is now
+redundant insurance, not a live lever.
+
+**−5% CEILING still holds — the [−5%, 0] bucket is positive but a distinct lower tier.** Admitting shallow
+down-days (relaxing the ceiling): `[−5, 0)` is PF **1.256** (24k) vs the core's 1.635 — above breakeven but
+a sharp step down right at the −5% line (1.635 → 1.268). Flat-to-up (`[0, +2%)`) is nearly empty (599
+trips, 1.157) — structural: a name at a *new 7d low* that's *up today* barely exists (only reachable if the
+prior closes were even lower). So on the **1d** window there's no positive-day pullback population (unlike
+15d). The −5% ceiling adds ~0.37 PF over a shallow today, and the prior-2d "already sliding" gate is NOT
+the same signal — today being a real down-day is independent confirmation. **Kept −5%.** `[−5,0]` (24k @
+1.26) is a capacity-expansion reserve, not core.
+
+**1d-depth is a SIZING lever, not a tighter gate (re-confirmed, knife now gone).** Cumulative ceiling
+sweep — every retained band is a WINNER (no knife anywhere in [−40,−5), even −40..−30 is PF 2.8):
+
+| ceiling (floor −40) | n | PF | avg% | net $M |
+|---|---:|---:|---:|---:|
+| **≤−5% (default)** | 35.3k | 1.635 | +3.9 | 13.69 |
+| ≤−8% | 18.8k | 1.758 | +5.1 | 9.70 |
+| ≤−10% | 12.1k | 1.855 | +6.3 | 7.60 |
+| ≤−12% | 8.1k | 1.897 | +7.0 | 5.68 |
+| ≤−15% | 4.5k | 2.125 | +9.5 | 4.26 |
+| ≤−18% | 2.6k | 2.339 | +11.8 | 3.08 |
+
+Tightening −5%→−10% ~doubles avg% (+3.9→+6.3) and lifts PF +0.22 but HALVES net P&L ($13.7M→$7.6M) — a
+pure capacity-vs-quality dial, no free lunch. For a daily-swing MR book breadth compounds better than
+per-trade PF, so **the default stays −5% (throughput) and depth is captured by SIZING** (avg% is the
+size signal: a −18% name returns 3× a −5% name), NOT by a tighter gate. −10% is the natural "concentrated
+book" alternative (the elbow — −10→−12 adds only +0.04 PF) if capacity ever ceases to be the constraint.
+NEXT = 7d/15d/longer-term pullback study (is buying INTO a longer-term uptrend pullback better?).
