@@ -14,10 +14,13 @@
        buy the high-volume flush to a new session low, held to MOC. Self-contained
        (reads trading.db + minute_aggs parquets directly via DuckDB). -->
   <ItemGroup>
-    <Compile Include="RollingMa.fs" />
     <Compile Include="Intraday.fs" />
     <Compile Include="Backtest.fs" />
     <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../TradingEdge.RollingMa/TradingEdge.RollingMa.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,7 +1,7 @@
 module TradingEdge.TideFlyer.Types
 
 open System
-open TradingEdge.TideFlyer.RollingMa
+open TradingEdge.RollingMa
 
 // =============================================================================
 // TideFlyer DAILY swing mean-reversion engine (copied from HighFlyerV2).

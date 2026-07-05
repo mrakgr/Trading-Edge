@@ -17,7 +17,7 @@ software places the short. Captured so it survives across sessions.
 ## 0. TL;DR / decision
 
 - **The system to productionize:** LowFlyer SHORT, gate `bar_rvol_20d ≥ 100` + ATR%≥0.03 (raw PF 6.65 /
-  2,760 trips / 88.7% win / +17.3% avg — see `docs/lowflyer_short_results.md`). Best book in the stack.
+  2,760 trips / 88.7% win / +17.3% avg — see `docs/maxflyerv2_results.md`). Best book in the stack.
 - **Broker (v0): TradeZero America.** Only broker combining self-serve HTB locates with a **free,
   official, documented REST/WebSocket API** that treats **short locates as a first-class programmatic
   feature** (quote→accept→sell-back). US FINRA/SIPC. Launched **2026-05-22**.

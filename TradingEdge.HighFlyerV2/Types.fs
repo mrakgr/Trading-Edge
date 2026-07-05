@@ -1,7 +1,7 @@
 module TradingEdge.HighFlyerV2.Types
 
 open System
-open TradingEdge.HighFlyerV2.RollingMa
+open TradingEdge.RollingMa
 
 // =============================================================================
 // HighFlyerV2 DAILY engine.

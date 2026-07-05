@@ -1,4 +1,4 @@
-module TradingEdge.MaxFlyer.RollingMa
+module TradingEdge.RollingMa
 
 open System
 open System.Collections.Generic
@@ -31,6 +31,11 @@ type RollingMa<'Bar, 'State>(initState: 'State, windowSize: int) =
             state <- this.Remove (q.Dequeue(), state)
         q.Enqueue x
         state <- this.Add (x, state)
+    /// Drop every buffered bar and return to the initial aggregate — used to
+    /// sever a >45-day listing gap so a recycled ticker's new episode starts cold.
+    member _.Reset () =
+        q.Clear()
+        state <- initState
 
 /// Rolling sum over a fixed-length window of floats. State IS the sum.
 [<Sealed>]
@@ -79,6 +84,12 @@ type MaxMa(windowSize: int) =
         dq.AddToBack(struct (x, barIdx))
         barIdx <- barIdx + 1
         count <- min windowSize (count + 1)
+    /// Clear the window (see RollingMa.Reset). barIdx must reset too — the deque
+    /// eviction cutoff is barIdx-windowSize+1, so a stale barIdx keeps the old horizon.
+    member _.Reset () =
+        dq.Clear()
+        barIdx <- 0
+        count <- 0
 
 [<Sealed>]
 type MinMa(windowSize: int) =
@@ -102,6 +113,40 @@ type MinMa(windowSize: int) =
         dq.AddToBack(struct (x, barIdx))
         barIdx <- barIdx + 1
         count <- min windowSize (count + 1)
+    /// Clear the window (see RollingMa.Reset). barIdx must reset too — the deque
+    /// eviction cutoff is barIdx-windowSize+1, so a stale barIdx keeps the old horizon.
+    member _.Reset () =
+        dq.Clear()
+        barIdx <- 0
+        count <- 0
+
+/// Fixed-DELAY line (reused verbatim from TradingEdge.LowFlyer/RollingMa.fs): a ring
+/// of the last (lag+1) values — `.Lagged` is the value `lag` bars ago, `.Last` the
+/// current. Push the bar, then read `lagPctChange` for an N-bar return. Empty until
+/// `lag+1` values have been pushed.
+[<Sealed>]
+type LagMa<'T>(lag: int) =
+    let q = Queue<'T>(lag + 1)
+    let mutable last : 'T voption = ValueNone
+    member _.Count = q.Count
+    /// The most recent pushed value, or ValueNone before the first push.
+    member _.Last = last
+    /// The value `lag` bars ago, or ValueNone until `lag+1` values have been pushed.
+    member _.Lagged = if q.Count = lag + 1 then ValueSome (q.Peek()) else ValueNone
+    member _.Push (x: 'T) =
+        if q.Count = lag + 1 then q.Dequeue() |> ignore
+        q.Enqueue x
+        last <- ValueSome x
+    member _.Reset () =
+        q.Clear()
+        last <- ValueNone
+
+/// %-change from a float LagMa's `lag`-bars-ago value to its most recent push
+/// (curr/lagged - 1), or ValueNone until warm / when the lagged value is non-positive.
+let lagPctChange (m: LagMa<float>) : float voption =
+    match m.Last, m.Lagged with
+    | ValueSome curr, ValueSome old when old > 0.0 -> ValueSome (curr / old - 1.0)
+    | _ -> ValueNone
 
 /// Rolling MEAN over a CALENDAR-day interval (not a fixed bar count), matching
 /// v0's `stock_volume_4w` window: `RANGE BETWEEN INTERVAL <days> DAYS PRECEDING
@@ -135,3 +180,7 @@ type CalendarMeanMa(days: int) =
             else go <- false
     member _.Push (d: DateOnly, v: float) =
         q.Enqueue(struct (d, v)); sum <- sum + v
+    /// Clear the window (see RollingMa.Reset).
+    member _.Reset () =
+        q.Clear()
+        sum <- 0.0

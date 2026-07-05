@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Shared rolling-window primitives (SumMa/AvgMa/MaxMa/MinMa/LagMa/CalendarMeanMa +
+       the RollingMa base and lagPctChange). Extracted from the four engine projects
+       (HighFlyer/HighFlyerV2/LowFlyer/TideFlyer), which each carried a drifting copy —
+       this is the SUPERSET (all types + Reset() everywhere). No behavior change: the
+       shared type bodies were identical across copies; the only drift was ADDED members
+       (Reset, LagMa) which older callers simply don't use. -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="RollingMa.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Nito.Collections.Deque" Version="1.2.1" />
+  </ItemGroup>
+
+</Project>

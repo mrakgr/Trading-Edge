@@ -1,7 +1,7 @@
 module TradingEdge.HighFlyer.Types
 
 open System
-open TradingEdge.HighFlyer.RollingMa
+open TradingEdge.RollingMa
 
 type Bar =
     { date: DateOnly

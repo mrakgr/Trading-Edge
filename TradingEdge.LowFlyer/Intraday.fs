@@ -1,7 +1,7 @@
 module TradingEdge.LowFlyer.Intraday
 
 open System
-open TradingEdge.LowFlyer.RollingMa
+open TradingEdge.RollingMa
 
 // =============================================================================
 // MaxFlyer INTRADAY layer — Gate 3 (the trading engine).

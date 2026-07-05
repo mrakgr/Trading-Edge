@@ -1,9 +1,15 @@
-# LowFlyer SHORT — Extended-Pop Fade Research Log
+# MaxFlyerV2 — Extended-Pop Fade Research Log (the intraday SHORT book)
 
-`TradingEdge.LowFlyer --short` (branch `highflyer_v2`). The **mirrored** short book:
-fade the high-volume 1m breakout to a new session **HIGH** (`Downside=false, Short=true`
-— the true mirror of the long's new-low flush-fade). Same engine, P&L sign flipped in
-`toTrip`, breakout ref / flush gate / 2-bar stop all flip with `Downside`.
+**`TradingEdge.MaxFlyerV2`** — the intraday **short pop-fade**, forked out of LowFlyer so the short
+and the long (LowFlyer's flush-fade) are separate systems with independent defaults (they had diverged
+and were colliding through one shared `defaultConfig` — e.g. the long's `vol-high-frac 0.90` bleeding
+into the short). Named MaxFlyerV2 as it takes the slot of the deleted parked MaxFlyer.
+
+The **mirrored** short book: fade the high-volume 1m breakout to a new session **HIGH**
+(`Downside=false, Short=true` — the true mirror of the long's new-low flush-fade). Same intraday
+engine, P&L sign flipped in `toTrip`, breakout ref / flush gate / 2-bar stop all flip with `Downside`.
+(Research below was conducted as `TradingEdge.LowFlyer --short` on branch `highflyer_v2`; the findings
+carry over verbatim — the fork changes only the project/defaults, not the engine or signals.)
 
 **This is the OPPOSITE philosophy to the long.** The long is a *pullback* fade — buy a
 flush in a name that was flat-to-strong going in (floors on negative returns). The short

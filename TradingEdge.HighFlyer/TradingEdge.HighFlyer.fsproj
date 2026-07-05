@@ -6,7 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="RollingMa.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="Backtest.fs" />
     <Compile Include="Program.fs" />
@@ -22,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TradingEdge.Massive\TradingEdge.Massive.fsproj" />
+    <ProjectReference Include="..\TradingEdge.RollingMa\TradingEdge.RollingMa.fsproj" />
   </ItemGroup>
 
 </Project>

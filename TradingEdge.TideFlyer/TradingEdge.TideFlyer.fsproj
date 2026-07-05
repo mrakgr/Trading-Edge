@@ -16,10 +16,13 @@
        NEXT: a separate PARTIAL-daily-candle series (checkpoint snapshots at
        10:00, 10:30 ET ...) to drive intraday entries on partial info. -->
   <ItemGroup>
-    <Compile Include="RollingMa.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="Backtest.fs" />
     <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../TradingEdge.RollingMa/TradingEdge.RollingMa.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
