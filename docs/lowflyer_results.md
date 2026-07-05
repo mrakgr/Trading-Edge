@@ -986,37 +986,33 @@ the PRODUCTION default** (`--vol-high-frac 0.90`) — takes the strict-gate 870 
 buying +27% capacity for −0.07 PF. "Within 10% of the vol high" is a cleaner economic threshold than the
 exact-high knife-edge, and ≥1.25 stays available as a higher-PF variant.
 
-## 1m-flush ramp SPLIT by the vol_vs_high 0.9 boundary — volume is what makes flush depth MEAN something
+## 1m-flush ramp SPLIT by the vol_vs_high 0.9 boundary — both ramp; volume ADDS to the flush
 
-Broke the production 1m-flush depth ramp down separately for `vol_vs_high < 0.9` vs `≥ 0.9` (on the
-frac-0.8 book). The two cohorts respond OPPOSITELY to the flush-depth lever (`lowflyer_long_volfrac.sql`):
+Broke the production 1m-flush depth ramp down separately for `vol_vs_high < 0.9` vs `≥ 0.9`, over the
+FULL range (`--no-vol-high` book, vol_vs_high 0→∞). **⚠ An earlier cut used only the frac-0.8 book, so
+its "<0.9" was really [0.8,0.9) — a thin 127-trip sliver that read as FLAT and gave a WRONG "volume
+makes flush mean something / <0.9 doesn't ramp" conclusion. Corrected here.**
+(`lowflyer_long_flush_by_volfrac.sql`.)
 
-| flush band | ≥0.9 PF (n) | <0.9 PF (n) |
+**Both cohorts RAMP with flush depth — ≥0.9 just stronger at every depth:**
+
+| flush ≤ | <0.9 PF (n) | ≥0.9 PF (n) |
 |---|---:|---:|
-| 0..−2% | 2.29 (358) | **3.04** (127) |
-| −2..−4% | **3.01** (470) | 2.16 (157) |
-| −4..−7% | **4.80** (202) | 1.94 (50) |
-| −7..−12% | **11.19** (79) | 7.76 (8) |
+| 0% | 2.09 (11,560) | 3.38 (1,109) |
+| −2% | 2.35 (3,086) | 3.97 (751) |
+| −3% | 2.69 (1,146) | 4.55 (458) |
+| −4% | **3.23 (500)** | 5.99 (281) |
+| −5% | **4.22 (216)** | 6.06 (165) |
+| −7% | 8.01 (69) | 11.19 (79) |
 
-Flush ceiling sweeps confirm it — **the ≥0.9 cohort RAMPS with flush depth, the <0.9 cohort is FLAT:**
-
-| flush ≤ | ≥0.9 PF (n) | <0.9 PF (n) |
-|---|---:|---:|
-| 0% | 3.38 (1,109) | 2.36 (342) |
-| −2% | 3.97 (751) | 2.16 (215) |
-| −3% | 4.55 (458) | 1.84 (125) |
-| −4% | **5.99 (281)** | 2.16 (58) |
-| −5% | 6.06 (165) | 2.11 (26) |
-
-**Flush depth and volume-confirm are COMPLEMENTARY, not substitutes.** With real volume (≥0.9× the
-high), a deeper flush = a more violent, higher-conviction capitulation → the fade improves hard (PF
-3→6 as it deepens). Below 0.9×, a deep flush is NOT a capitulation — it's a price drop on thin volume
-(nobody's actually dumping), so deepening does NOTHING (flat ~2.0). **Volume is what makes the flush
-depth MEAN something.** (Wrinkle: in the SHALLOW 0..−2% band the <0.9 cohort is BETTER, 3.04 vs 2.29 —
-a shallow low-volume dip mean-reverts gently, a shallow high-volume flush is ambiguous — but this
-reverses by −4%.) **This refines the `--no-vol-high` "second book" finding: it worked because those
-trips were mostly ALSO making a vol high; the genuinely-<0.9 trips don't respond to flush depth. The
-flush-depth SIZING lever belongs on the ≥0.9 production book** (size UP as flush deepens: −4% → PF 6).
+**Flush depth and volume-confirm are COMPLEMENTARY and BOTH independently real.** A deep flush fades
+well regardless of volume; volume-confirm ADDS ~+1.5–2.0 PF at each depth (−4%: 5.99 vs 3.23). Not
+"volume makes flush mean something" — each certifies capitulation on its own and they STACK. The
+below-0.9 population is concentrated in near-zero-volume bars (0–0.25× the high = 5,872 trips, weakest
+at PF 2.03), which is why an UNRAMPED <0.9 book looks mediocre — but deepen the flush and it's genuinely
+good. **This STRENGTHENS the `--no-vol-high` second book:** `<0.9 & flush ≤ −4%` = 500 trips @ PF 3.23
+(≤−5% → 216 @ 4.22) is a legit A-tier book on names production discards, and it DOES respond to the
+depth lever. **Size UP on flush depth in BOTH books; the ≥0.9 production book just starts ~1.5 PF higher.**
 
 ## CEILINGS ADDED (cut the falling-knife tails)
 
