@@ -54,7 +54,9 @@ let defaultConfig =
           MaxConcurrent = 0              // unlimited concurrent entries per day
           MinBarFlush = 0.0              // entry-bar flush gate OFF (--min-bar-flush -0.007 to enable)
           MinBarFlushFloor = 0.0         // entry-bar flush-depth floor OFF (--min-bar-flush-floor -0.12 to enable)
-          VolHighFrac = 1.0              // volume-confirm = must EXCEED the vol high (--vol-high-frac 0.95/0.90 to relax, --no-vol-high to drop)
+          VolHighFrac = 0.90             // volume-confirm = breakout vol >= 90% of the running vol high (PRODUCTION:
+                                         // within 10% of the high; +239 trips over strict 1.0 at PF 3.38 vs 3.45 —
+                                         // "near the high" carries the signal, <0.90 dilutes. --vol-high-frac to override.)
           MinCloseRef = true }           // default = min-CLOSE reference (wick-immune; +~29% trips at ~same
                                          // PF — Run 12). --min-low-ref switches back to the min-LOW channel.
       Notional = 10_000.0 }

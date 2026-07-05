@@ -980,12 +980,47 @@ signal — but the ≥0.90 floor only buys +239 trips (870→1,109) at PF 3.38 v
 option at best. Below 0.90 dilutes (0.80–0.90 = PF 2.36). **The edge is MONOTONE in volume**: it keeps
 climbing ABOVE the high (≥1.25 → PF 4.00, 540 trips) — so a vol-high FLOOR above 1.0 is the real lever,
 not a relaxation. Consistent with the whole long story — the more the breakout bar dwarfs prior volume,
-the better the capitulation fade. **Keep the strict gate; optionally 0.90 for a little capacity, or ≥1.25
-as a higher-PF/lower-capacity variant.** (The trips-vs-PF tradeoff is unfavorable either way — PF rises
-slower than trips fall, the user's standing observation.)
+the better the capitulation fade. (The trips-vs-PF tradeoff is unfavorable either way — PF rises slower
+than trips fall, the user's standing observation.) **DECISION (2026-07-06): adopt `vol_vs_high ≥ 0.90` as
+the PRODUCTION default** (`--vol-high-frac 0.90`) — takes the strict-gate 870 trips → 1,109 at PF 3.38,
+buying +27% capacity for −0.07 PF. "Within 10% of the vol high" is a cleaner economic threshold than the
+exact-high knife-edge, and ≥1.25 stays available as a higher-PF variant.
 
-**CEILINGS ADDED (cut the falling-knife tails):** both features have a runaway extreme that
-collapses, so cap them.
+## 1m-flush ramp SPLIT by the vol_vs_high 0.9 boundary — volume is what makes flush depth MEAN something
+
+Broke the production 1m-flush depth ramp down separately for `vol_vs_high < 0.9` vs `≥ 0.9` (on the
+frac-0.8 book). The two cohorts respond OPPOSITELY to the flush-depth lever (`lowflyer_long_volfrac.sql`):
+
+| flush band | ≥0.9 PF (n) | <0.9 PF (n) |
+|---|---:|---:|
+| 0..−2% | 2.29 (358) | **3.04** (127) |
+| −2..−4% | **3.01** (470) | 2.16 (157) |
+| −4..−7% | **4.80** (202) | 1.94 (50) |
+| −7..−12% | **11.19** (79) | 7.76 (8) |
+
+Flush ceiling sweeps confirm it — **the ≥0.9 cohort RAMPS with flush depth, the <0.9 cohort is FLAT:**
+
+| flush ≤ | ≥0.9 PF (n) | <0.9 PF (n) |
+|---|---:|---:|
+| 0% | 3.38 (1,109) | 2.36 (342) |
+| −2% | 3.97 (751) | 2.16 (215) |
+| −3% | 4.55 (458) | 1.84 (125) |
+| −4% | **5.99 (281)** | 2.16 (58) |
+| −5% | 6.06 (165) | 2.11 (26) |
+
+**Flush depth and volume-confirm are COMPLEMENTARY, not substitutes.** With real volume (≥0.9× the
+high), a deeper flush = a more violent, higher-conviction capitulation → the fade improves hard (PF
+3→6 as it deepens). Below 0.9×, a deep flush is NOT a capitulation — it's a price drop on thin volume
+(nobody's actually dumping), so deepening does NOTHING (flat ~2.0). **Volume is what makes the flush
+depth MEAN something.** (Wrinkle: in the SHALLOW 0..−2% band the <0.9 cohort is BETTER, 3.04 vs 2.29 —
+a shallow low-volume dip mean-reverts gently, a shallow high-volume flush is ambiguous — but this
+reverses by −4%.) **This refines the `--no-vol-high` "second book" finding: it worked because those
+trips were mostly ALSO making a vol high; the genuinely-<0.9 trips don't respond to flush depth. The
+flush-depth SIZING lever belongs on the ≥0.9 production book** (size UP as flush deepens: −4% → PF 6).
+
+## CEILINGS ADDED (cut the falling-knife tails)
+
+Both features have a runaway extreme that collapses, so cap them.
 
 | filter | n | clip PF | avg% |
 |---|---:|---:|---:|
@@ -1007,19 +1042,23 @@ trips.**
 
 ## PRODUCTION SPEC (locked this session)
 
-**FINAL system → PF 3.45 / 68% win / +3.30% per trade / 870 trips (2003–2026)**
-(was 3.25/888 before the Run 26 1m-flush floor; 2.90/1,123 before the Run 25 chg_7d floor).
+**FINAL system → PF 3.38 / 68% win / +3.19% per trade / 1,109 trips (2003–2026)**
+(vol_vs_high≥0.90 as of 2026-07-06; was 3.45/870 at the strict ≥1.0 gate; 3.25/888 before the
+Run 26 1m-flush floor; 2.90/1,123 before the Run 25 chg_7d floor).
 
 Long the intraday flush, scanning from 9:45 ET (indicators warm from 08:30), fill at
 the breakout-bar close, hold to MOC. **min-CLOSE breakout reference.**
 
-- **ENGINE GATES** (all three now wired in-engine, no post-hoc SQL): entry-bar flush
+- **ENGINE GATES** (all wired in-engine, no post-hoc SQL): entry-bar flush
   `close/prevClose ≤ −0.7%` (`--min-bar-flush -0.007`) · **entry-bar flush-DEPTH floor
   `≥ −12%`** (`--min-bar-flush-floor -0.12`, the Run 26 falling-knife cut — reject flushes
   deeper than −12%; PF 3.25→3.45 at −2% trips; wired 2026-07-04, verified byte-identical to the
-  old SQL floor at 870 / 3.447) · intraday log-ATR `< 0.02` (`--max-intraday-atr-pct 0.02`).
+  old SQL floor) · intraday log-ATR `< 0.02` (`--max-intraday-atr-pct 0.02`) · **volume-confirm
+  `vol_vs_high ≥ 0.90`** (`--vol-high-frac 0.90`, default 2026-07-06 — breakout bar within 10% of
+  the running session 1m-vol high; relaxed from the strict "new vol high" for +27% capacity at
+  PF 3.45→3.38; edge is monotone in volume, <0.90 dilutes).
   (rvol≤12 was tested as an alternative to the flush floor but DROPPED — redundant, fewer trips.)
-  **PRODUCTION INVOCATION:** `--min-bar-flush -0.007 --min-bar-flush-floor -0.12 --max-intraday-atr-pct 0.02`.
+  **PRODUCTION INVOCATION:** `--min-bar-flush -0.007 --min-bar-flush-floor -0.12 --max-intraday-atr-pct 0.02 --vol-high-frac 0.90`.
 - **SELECTION** (post-hoc SQL on the gated CSV): 1d ≤ −8% (depth floor) · 20m ≤ −3% (velocity floor) ·
   **3d ∈ [−3%, +30%]** (trend band — flat-to-strong, not a decliner, not parabolic) ·
   **7d ≥ −5%** (7-day trend floor — not a dead-cat bounce in a weekly decline; Run 25) ·
