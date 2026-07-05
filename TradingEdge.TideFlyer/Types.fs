@@ -82,6 +82,10 @@ type EntryConfig =
                                 // before today's flush (Run 9; principled form Run 12, replacing the (3d−1d)
                                 // diff-of-ratios proxy that overstated the fall ~1pp). Default -0.10. Monotone
                                 // deeper=better; the >+5%-then-flush cell is a bull-trap LOSS. +inf disables. CEILING.
+      RequireMonotone: bool      // require a STRICT monotone descent d3>d2>d1 into the entry (Run 20):
+                                // the clean staircase-down (PF 5.78 vs 4.29 for a fought-over descent with
+                                // an intermediate bounce). Costs ~27% of trips. Default false (a sizing/
+                                // selection signal — the book is already thin post-breadth). true = gate.
       Max60dReturn: float }       // require close/close-60d-1 <= this — a deep 60-day WASHOUT (Run 11).
                                 // Default -0.40. TideFlyer is a WASHOUT book, NOT a pullback book: the
                                 // prior-2d "already sliding" gate selects freefall names, and within that
@@ -163,6 +167,7 @@ type TideFlyer
     let stopLow   = MinMa(stopLowWindow)        // CSV snapshot only (prior-window low at entry)
     let tideLo    = MinMa(entryCfg.LowWindow)   // TideFlyer 7d-CLOSE low channel (buy the new 7d low)
     let tideHi    = MaxMa(entryCfg.LowWindow)   // TideFlyer 7d-CLOSE high channel (buy the new 7d high / exit target)
+    let close2d   = LagMa<float>(2)             // close ring → d2 (close 2 bars ago) for the monotone-descent gate (Run 20)
     let close3d   = LagMa<float>(3)             // close ring → 3d return via lagPctChange (Run 5: deep 3d washout)
     let close60d  = LagMa<float>(60)            // close ring → 60d return (Run 11: deep 60d washout, the washout gate)
     let hiClose   = MaxMa(hiCloseWindow)        // long-term close channel (252d)
@@ -230,6 +235,14 @@ type TideFlyer
     member _.Prior2dReturn : float voption =
         match sPrevBar, close3d.Lagged with
         | ValueSome pb, ValueSome c3 when c3 > 0.0 -> ValueSome (pb.close / c3 - 1.0)
+        | _ -> ValueNone
+    /// STRICT monotone descent d3 > d2 > d1 (Run 20): each of the prior 3 closes below the one before.
+    /// d1 = sPrevBar.close (t−1), d2 = close2d.Lagged (t−2), d3 = close3d.Lagged (t−3), read AFTER the
+    /// push. Given the gates already force d3>d1>d0, this is the clean staircase-down (vs an intermediate
+    /// bounce = a fought-over descent that reverts less). ValueNone (cold) => false when gated.
+    member _.MonotoneDescent : bool voption =
+        match sPrevBar, close2d.Lagged, close3d.Lagged with
+        | ValueSome pb, ValueSome d2, ValueSome d3 -> ValueSome (d3 > d2 && d2 > pb.close)
         | _ -> ValueNone
     /// Long-term close channel: highest close over the prior `hiCloseWindow` bars.
     member _.HiClose = sHiClose
@@ -337,6 +350,10 @@ type TideFlyer
         // only. +inf disables. ValueNone (cold, <60 bars of history) fails when active.
         && (Double.IsInfinity entryCfg.Max60dReturn
             || gate this.Chg60d (fun r -> r <= entryCfg.Max60dReturn))
+        // STRICT monotone-descent gate (Run 20): require d3>d2>d1 — a clean staircase into the washout
+        // (vs a fought-over descent with an intermediate bounce). Off by default. ValueNone (cold) fails.
+        && (not entryCfg.RequireMonotone
+            || (match this.MonotoneDescent with ValueSome m -> m | ValueNone -> false))
         // rvol band
         && gate (this.Rvol (float bar.volume)) (fun rv ->
                rv >= entryCfg.RvolMin && rv <= entryCfg.RvolMax)
@@ -370,7 +387,7 @@ type TideFlyer
     /// gap), plus lastBar (no cross-gap prior-close / true range) and barsSeen (warmup
     /// re-arms). Callers that need the pre-gap bar must read it BEFORE calling this.
     member private _.ResetIndicators () =
-        stopLow.Reset ();   tideLo.Reset ();    tideHi.Reset ();  close3d.Reset (); close60d.Reset ()
+        stopLow.Reset ();   tideLo.Reset ();    tideHi.Reset ();  close2d.Reset (); close3d.Reset (); close60d.Reset ()
         hiClose.Reset ();   hiHigh.Reset ()
         loClose.Reset ();   loLow.Reset ()
         atrLog.Reset ();    atrLin.Reset ();    maxAtrLog.Reset ()
@@ -431,6 +448,7 @@ type TideFlyer
         stopLow.Push   bar.low
         tideLo.Push    bar.close
         tideHi.Push    bar.close
+        close2d.Push   bar.close
         close3d.Push   bar.close
         close60d.Push  bar.close
         hiClose.Push   bar.close

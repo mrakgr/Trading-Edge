@@ -24,6 +24,7 @@ type Args =
     | Exit_Mode of string
     | Target_Frac of float
     | Breadth_Max of float
+    | Require_Monotone
     | Vol_Frac_Min of float
     | Vol_Frac_Max of float
     | Max_3d_Return of float
@@ -58,6 +59,7 @@ type Args =
             | Low_Window _ -> "TideFlyer channel window (BARS) for the 7d close-low/high extreme. Default 7. Prior-window convention (min/max over the prior N closes, excluding today)."
             | Mirror -> "MIRROR mode: buy the new 7d HIGH (momentum control) instead of the new 7d LOW (default long-MR). Exit target flips to the 7d low."
             | Exit_Mode _ -> "Target exit fill model (Run 18): 'next-open' (default, close-cross -> next open, the Run 17 model), 'moc' (close-cross -> that same close, no overnight gap), 'limit' (resting limit at the frac-scaled 7d extreme, fills same-bar intraday), or 'off' (pure 5d time-stop, no target). time-stop is always the fallback."
+            | Require_Monotone -> "Require a STRICT monotone descent d3>d2>d1 into the entry (Run 20): the clean staircase-down (PF 5.78 vs 4.29 for a fought-over descent). Costs ~27% of trips. Default off (a sizing signal)."
             | Breadth_Max _ -> "Market-breadth CEILING (Run 19): enter only when LAG-1 pct_above_20 (fraction of the universe above its 20d MA, going INTO the day) < this. Default 0.10 -- TideFlyer is a CAPITULATION buyer (deep washout reverts best when the tape is ALSO puking; PF 2.30->5.31). Pass a large value to disable."
             | Target_Frac _ -> "Scale the exit target between entry (0.0) and the full 7d high (1.0). Default 1.0. e.g. 0.5 = exit HALFWAY to the 7d high (fires more often, smaller per-trip gain). Applies to all live --exit-mode values: at frac<1.0 moc/next-open trigger when the bar's HIGH reaches the scaled level (target reached intraday) and fill on that close / next open respectively; limit fills AT the level."
             | No_Channel -> "DISABLE the 7d-channel entry gate (study the raw pre-channel population, e.g. to sweep the other gates). Default: channel ON."
@@ -136,6 +138,7 @@ let main argv =
                   LowWindow      = parsed.GetResult(Low_Window,        defaultValue = defaultConfig.Entry.LowWindow)
                   Mirror         = parsed.Contains Mirror
                   RequireChannel = not (parsed.Contains No_Channel)
+                  RequireMonotone = parsed.Contains Require_Monotone
                   VolFracMin     = parsed.GetResult(Vol_Frac_Min,      defaultValue = defaultConfig.Entry.VolFracMin)
                   VolFracMax     = parsed.GetResult(Vol_Frac_Max,      defaultValue = defaultConfig.Entry.VolFracMax)
                   Max3dReturn    = parsed.GetResult(Max_3d_Return,     defaultValue = defaultConfig.Entry.Max3dReturn)

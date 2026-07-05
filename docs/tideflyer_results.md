@@ -649,3 +649,49 @@ float; user: "quality over quantity", picked <0.10 over <0.20 for the PF gap). *
 trips CLUSTER in deep-puke regimes (2008, Mar-2020, 2022) — high time-concentration, P&L comes in bursts.
 **FINAL production book: 4,820 / PF 5.307 / 74.6% win / $8.3M.** Full arc: …2.237(rvol)→2.295(exit)→
 **5.307(breadth<0.10)**. NEXT = close-sequence monotonicity, sizing-on-depth, pullback book, HighFlyer-volfrac.
+
+## Run 20 — close-sequence: a STRICT monotone descent (d3>d2>d1>d0) beats a fought-over one
+
+Indexing d0=entry close, d1/d2/d3 = 1/2/3 closes ago. The gates already FORCE d3>d1>d0 (1d<=-5% => d1>d0;
+prior-2d<=-10% => d1<d3 — both 100%), so **d2 is the only free close** and the "choppy" quadrant (d3≤d2 &
+d2≤d1) is MATHEMATICALLY EMPTY (0 trips — needs d3≤d1, excluded). `tideflyer_monotone.sql` on the
+breadth<0.10 book. Three possible d2 placements:
+
+| d2 placement | n | PF | avg% |
+|---|---:|---:|---:|
+| **staircase d3>d2>d1 (monotone)** | 3,508 | **5.780** | +18.0 |
+| d2≤d1 (dipped below d1, then up) | 894 | 4.314 | +15.0 |
+| d3≤d2 (spiked above d3, then down) | 418 | 4.242 | +16.2 |
+
+**The clean monotone descent wins: PF 5.78 vs 4.29 non-monotone.** Both conditions agree (d3>d2: 5.44 vs
+4.24; d2>d1: 5.57 vs 4.31). Mechanism: an orderly staircase-down is CONTROLLED distribution that
+mean-reverts; an intermediate bounce (d2 popping up) = someone tried to catch it and FAILED — a
+false-support level that broke, reverts less reliably. A smooth capitulation beats a fought-over one.
+**Wired `RequireMonotone` (d3>d2>d1 via a new `close2d` LagMa), OFF by default** — it's a +0.47 PF
+refinement that costs 27% of an already-thin book (a SIZING signal, not a gate). Byte-parity: engine
+--require-monotone == 3,508 / PF 5.780; default off == 4,820 / 5.307.
+
+**⚠⚠ FREQUENCY REALITY CHECK (the aggregate PF hides this):** the breadth<0.10 book trades **74 days in 17
+years** (~4/yr), **21 active months / 207** (dormant 90% of the time), **7 years with ZERO trades**
+(incl. 2023/24). **Top 5 months = 94% of trips & 96% of P&L; GFC (Oct-Nov 2008) + COVID (Mar 2020) = ~89%
+of ALL P&L.** The $8.3M is essentially "buy the bottom in 2008 & 2020." **breadth<0.10 is NOT a standalone
+daily system — it's a CRASH-CAPITULATION overlay** that mostly sleeps. Out-of-sample outside the 2 crashes
+is ~625 trips / 17 yrs (barely measured — tail-event overfit risk). OPEN DECISION: keep <0.10 as a crash
+overlay, or back off to <0.20/<0.30 for real frequency + OOS robustness (the "system vs crash-timer" fork).
+
+## Run 21 — FLOAT × breadth: big-float edge HOLDS & sharpens in the crash; small-float REHABILITATED
+
+Re-ran the float breakdown ON the breadth<0.10 book (`tide_float_breadth.sql`, coverage 38%). **Big float
+still wins, more cleanly:** <50M PF 3.91 → >2B PF 8.29 (monotone). Cumulative <$300M → 3.75 (a drag vs the
+4.99 covered avg); ≥$300M → 6.49; ≥$750M → 7.45 (82% win, +22% avg). **Same direction as Run 13, sharper.**
+
+**The twist — small float is REHABILITATED by the breadth gate:** the <$50M bucket went from PF 1.25 (47%
+win) on the pre-breadth book to **3.91 (73% win)** here. Conditional on a BROAD crash, even low-float names
+are getting dragged down SYSTEMICALLY (not dying idiosyncratically), so they revert too — the breadth gate
+filters out the fraud/dilution blowups that made small float a knife before. **But big float STILL wins
+(8.29 vs 3.91)** — a $2B+ name only falls 40%/60d in a crash by being swept out with the tide, so it snaps
+back hardest = the purest "baby thrown out with the bathwater". The whole factor stack now tells ONE story:
+**TideFlyer buys QUALITY getting flushed in a PANIC** (breadth=crash, float=big, ATR%=violent,
+volume=moderate/non-catalyst all select "good name, systemic flush, not idiosyncratic death").
+Documented/not-wired (38% coverage, crash-clustered); favor ≥$300M, source present-day float before live.
+NEXT = make the system work in the breadth>0.2 (non-crash) regime + a float breakdown there.
