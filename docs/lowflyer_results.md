@@ -896,6 +896,56 @@ DEPTH is a real edge on BOTH (deeper flush → long, bigger pop → short), each
 that collapses at the runaway extreme. **On the long, the 1m FLUSH is the tradeable feature, not
 rvol** — candidate production tightening: flush gate −0.7% → −2%. (Not yet locked.)
 
+## Dropping the VOLUME-CONFIRM gate (`--no-vol-high`) — reveals a SECOND A-tier long book
+
+Wired a `--no-vol-high` flag (engine field `RequireVolHigh`, default on) that DROPS the
+volume-confirmation gate (`bar.volume > runVolHi`), so entries fire on the FIRST new-session-low
+bar regardless of its 1m volume; the recorded `new_vol_high` column flags which entries WOULD have
+cleared the gate. Hypothesis (user): the vol gate may just be cutting trade count while the 1m-flush
+does the real work. (`lowflyer_long_novolhigh.sql`.)
+
+**The vol gate is NOT redundant — it's a real quality filter (hypothesis rejected):** the full
+production selection on the no-vol-high book = **PF 2.18 / 12,669 trips** (vs 3.45 / 870 with the
+gate). Split by `new_vol_high`:
+
+| cohort | n | win% | clip PF | avg% |
+|---|---:|---:|---:|---:|
+| **new_vol_high=1** (old gate passers) | **870** | 68.0 | **3.447** | +3.30 |
+| new_vol_high=0 (newly admitted) | 11,799 | 61.7 | 2.104 | +1.90 |
+
+The =1 cohort reproduces the production book EXACTLY (870 / 3.447 — validates the flag). A flush bar
+that ALSO makes a new session vol high (real sellers dumping = genuine capitulation) fades better than
+one on ordinary volume. **Volume confirmation carries independent edge.**
+
+**BUT the rejected cohort is a strong STANDALONE book once you ramp the flush DEPTH** (the user's
+follow-up — flush-depth substitutes for volume-confirm). Flush-ceiling sweep on `new_vol_high=0`:
+
+| flush ≤ | n | win% | clip PF | avg% |
+|---|---:|---:|---:|---:|
+| 0% (all) | 11,799 | 61.7 | 2.10 | +1.9 |
+| **−2%** | **3,220** | 64.4 | **2.37** | +2.4 |
+| −3% | 1,206 | 65.3 | 2.73 | +3.0 |
+| **−4%** | 532 | 68.8 | **3.48** | +3.8 |
+| −5% | 233 | 72.1 | 4.38 | +4.3 |
+| −7% | 77 | 76.6 | 7.78 | +6.5 |
+
+Monotone ramp. **At flush ≤ −4% the no-vol-high book hits PF 3.48 — matching the full production book
+(3.45)**: a deep enough flush candle is ITSELF proof of capitulation and fully SUBSTITUTES for the
+volume-high confirmation. (Head-to-head at each depth, vol-high=1 still wins — e.g. −5%: 5.89 vs 4.38 —
+so vol-high AND deep-flush is best; but deep-flush ALONE is A-tier.)
+
+**This is a NEW second book, not a diluted first one.** `new_vol_high=0 & flush ≤ −2%` = 3,220 trips
+@ PF 2.37 (~3.7× the production capacity, from names the current system discards) — or ≤ −3% = 1,206 @
+2.73 as the balance pick. **By-year robust:** positive every year 2012→2026 (only 2011 negative, 12
+trips), modern-strong (2020: 578 trips PF 3.79; 2018 3.69, 2019 4.65, 2025 2.67, 2026 2.82), soft only
+in the 2022/2023 regime years (1.2/1.6) that also stressed the main book — NOT an era artifact.
+
+**Reframed conclusion:** the vol-high gate and the flush-depth floor are PARTIAL SUBSTITUTES — both
+certify capitulation. The production long uses vol-confirm (highest PF, lowest capacity); a parallel
+`--no-vol-high` + flush-depth-floor book adds a large A-tier cohort of DIFFERENT trips. Good "add more
+good systems" candidate: run BOTH (vol-high book at full size + no-vol-high deep-flush book), dedup the
+overlap. Threshold not yet locked — ≤ −2% (capacity) vs ≤ −3/−4% (PF) is a sizing call.
+
 **CEILINGS ADDED (cut the falling-knife tails):** both features have a runaway extreme that
 collapses, so cap them.
 

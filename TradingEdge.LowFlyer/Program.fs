@@ -21,6 +21,7 @@ type Args =
     | Vol_Window of int
     | Max_Concurrent of int
     | Min_Low_Ref
+    | No_Vol_High
     | Min_Bar_Flush of float
     | Min_Bar_Flush_Floor of float
     | Max_Intraday_Atr_Pct of float
@@ -42,6 +43,7 @@ type Args =
             | Vol_Window _ -> "Intraday ATR/tightness lookback in 1m bars (default 20). Both quality gates are OFF (+inf) by default, so this only affects the recorded *_at_entry snapshots."
             | Max_Concurrent _ -> "Cap on concurrently-open positions per day (0 = unlimited, default)."
             | Min_Low_Ref -> "Switch the breakout reference back to the running min-LOW channel. Default is min-CLOSE (wick-immune, closes-only; +~29%% trips at ~same PF — Run 12)."
+            | No_Vol_High -> "DROP the volume-confirmation gate: enter on the FIRST new-session-extreme bar regardless of its 1m volume (default requires the bar to ALSO make a new session 1m-volume high). Tests whether the 1m-flush gate is load-bearing. The recorded `new_vol_high` column flags whether each entry bar DID make a new vol high."
             | Min_Bar_Flush _ -> "Entry-bar FLUSH gate: require the breakout bar's 1m move (close/prevClose-1) <= this. Default 0.0 = OFF. e.g. -0.007 rejects bars softer than -0.7% (a real flush candle, not a one-tick poke)."
             | Min_Bar_Flush_Floor _ -> "Entry-bar flush-DEPTH floor (the falling-knife cut, Run 26): reject a flush DEEPER than this. Default 0.0 = OFF. e.g. -0.12 rejects flushes deeper than -12%%. Pairs with --min-bar-flush to band the entry move; PF 3.25->3.45 on the production long."
             | Max_Intraday_Atr_Pct _ -> "Intraday log-ATR CAP at entry: require the 1m log-ATR < this. Default +inf = OFF. e.g. 0.02 rejects names in genuine chaos (per Run 9)."
@@ -71,6 +73,7 @@ let main argv =
                   VolWindow     = parsed.GetResult(Vol_Window,      defaultValue = defaultConfig.Intraday.VolWindow)
                   MaxConcurrent = parsed.GetResult(Max_Concurrent,  defaultValue = defaultConfig.Intraday.MaxConcurrent)
                   MinCloseRef   = not (parsed.Contains Min_Low_Ref)
+                  RequireVolHigh = not (parsed.Contains No_Vol_High)
                   MinBarFlush   = parsed.GetResult(Min_Bar_Flush,   defaultValue = defaultConfig.Intraday.MinBarFlush)
                   MinBarFlushFloor = parsed.GetResult(Min_Bar_Flush_Floor, defaultValue = defaultConfig.Intraday.MinBarFlushFloor)
                   MaxAtrPct     = parsed.GetResult(Max_Intraday_Atr_Pct, defaultValue = defaultConfig.Intraday.MaxAtrPct)
