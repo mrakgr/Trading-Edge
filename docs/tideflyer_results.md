@@ -75,3 +75,24 @@ time-stop, target-exit}.
 tuning. Candidate prune (to decide): require the 7d low to also be a real DOWN-move (a negative
 1d-return floor — down ≥ X% into the low) + the liquidity floors. Cuts 4.3M → sliceable while keeping
 the thesis. **NEXT = pick the base prune, then tune 1d-return / volume-fraction / other features.**
+
+## Run 2 — base prune: 1d ≤ −5% into the low (down-day requirement)
+
+**Base prune locked: require a real DOWN day into the 7d low** — `close/prevClose-1 < −5%`
+(`MaxUpThreshold = -0.05`, reusing the move-band ceiling; `--max-up-threshold` tunes it). Plus the
+kept liquidity floors (price ≥ $1, ADV ≥ $100k). Long-MR, 5d time-stop.
+
+- **4,335,517 → 642,671 trips** (6.7× cut, 190 MB — sliceable), **PF 1.144 / 50.5% win** vs raw
+  1.149 / 52.2%. The prune removes marginal-drift "technically a new low" noise **without killing the
+  edge** — the −5% names carry the same signal.
+- **Win% dips (52.2 → 50.5) but PF HOLDS (1.144)** — the −5% down-day names win LESS often but bounce
+  HARDER (deeper dip → bigger reversion), keeping PF flat. Encouraging for the depth lever (a steeper
+  1d/7d down-move should raise PF).
+
+**Volume feature wired:** a 7d rolling volume-MAX (`vol_max_7d_at_entry`) is now recorded on every
+trip (like LowFlyer's `vol_vs_high`). So **rvol** (entry_vol / avg) and the **volume-fraction**
+(entry_vol / 7d-vol-max) are both post-hoc levers.
+
+**Tuning population = `/tmp/tide_low_5pct.csv`** (642,671 trips, long-MR + 1d≤−5%, 5d time-stop).
+Further base prunes available if needed (7d-down floor, both-down). **NEXT = tune, one lever at a
+time: 1d-return depth, 7d-return, volume-fraction, rvol.**
