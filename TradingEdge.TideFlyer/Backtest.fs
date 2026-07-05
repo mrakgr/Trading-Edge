@@ -53,8 +53,10 @@ let defaultConfig =
       // NEUTRALIZED (inherited from HighFlyerV2) so Run 1 measures the raw dip signal;
       // they become post-hoc tuning levers. Only price>=$1 + ADV kept as liquidity floors.
       Entry =
-        { UpThreshold = -infinity     // move-band OFF (momentum gate)
-          MaxUpThreshold = infinity   // (band open both ends)
+        { UpThreshold = -infinity     // 1d-return FLOOR off (no lower bound on the down-move)
+          MaxUpThreshold = -0.05      // 1d-return CEILING: require close/prevClose-1 < -5% — a real DOWN
+                                      // day INTO the 7d low (the base prune; --max-up-threshold to tune).
+                                      // For mirror mode you'd raise this back to +inf.
           RvolMin = 0.0               // rvol OFF
           RvolMax = infinity
           MinPriorDays = 21           // warmup (need prior-7 window + history)
@@ -87,6 +89,7 @@ type Trip =
       NetPnL: float
       BarsHeld: int
       EntryVolume: int64
+      VolMaxAtEntry: float
       RvolAtEntry: float
       AvgDollarVolumeAtEntry: float
       PctUpAtEntry: float
@@ -119,6 +122,7 @@ let private toTrip (symbol: string) (notional: float)
           NetPnL = qty * (exitPrice - p.EntryPrice)   // long only
           BarsHeld = barIndex.[exitDate] - barIndex.[p.EntryDate]
           EntryVolume = p.EntryVolume
+          VolMaxAtEntry = p.VolMaxAtEntry
           RvolAtEntry = p.RvolAtEntry
           AvgDollarVolumeAtEntry = p.AvgDollarVolumeAtEntry
           PctUpAtEntry = p.PctUpAtEntry
@@ -271,7 +275,7 @@ let private fmt (x: float) = if Double.IsNaN x then "nan" else x.ToString("0.###
 
 let header =
     "symbol,signal_date,entry_date,entry_reason,exit_date,side,entry_price,entry_day_stop_ref,stop_low_at_entry,exit_price,qty,net_pnl,bars_held,"
-    + "entry_adj_volume,rvol_at_entry,avg_dollar_volume_4w_at_entry,pct_up_at_entry,"
+    + "entry_adj_volume,vol_max_7d_at_entry,rvol_at_entry,avg_dollar_volume_4w_at_entry,pct_up_at_entry,"
     + "atr_pct_14_at_entry,range_pct_14_at_entry,tightness_14_at_entry,pct_52w_at_entry,pct_52w_high_at_entry,pct_52w_low_close_at_entry,pct_52w_low_at_entry,exit_reason,open"
 
 let private row (t: Trip) : string =
@@ -290,6 +294,7 @@ let private row (t: Trip) : string =
         fmt t.NetPnL
         string t.BarsHeld
         string t.EntryVolume
+        fmt t.VolMaxAtEntry
         fmt t.RvolAtEntry
         fmt t.AvgDollarVolumeAtEntry
         fmt t.PctUpAtEntry

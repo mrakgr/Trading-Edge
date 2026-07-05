@@ -88,6 +88,7 @@ type Position =
       HoldBars: int             // # of Holding bars since fill (for the time-stop)
       // metrics snapshotted at the SIGNAL bar (CSV / parity)
       EntryVolume: int64
+      VolMaxAtEntry: float       // prior-7 volume MAX going into the signal bar (vol-fraction denominator); nan if cold
       RvolAtEntry: float
       AvgDollarVolumeAtEntry: float
       PctUpAtEntry: float
@@ -129,6 +130,9 @@ type TideFlyer
     let rangeLow  = MinMa(tightnessWindow)      // tightness: min low
     let avgVol    = AvgMa(volDays)              // AVG(volume) over the prior `volDays` BARS
     let avgDolVol = AvgMa(volDays)              // AVG(close*volume) over the prior `volDays` BARS
+    let volMax    = MaxMa(entryCfg.LowWindow)   // MAX(volume) over the prior LowWindow (7) BARS — recorded on
+                                                // the trip so a "volume fraction" (entry vol / 7d vol max) and
+                                                // rvol are post-hoc levers (mirrors LowFlyer's vol_vs_high idea)
 
     // Open + closed trips for this ticker, in entry order.
     let positions = ResizeArray<Position>()
@@ -156,6 +160,7 @@ type TideFlyer
     let mutable sPrevBar   : Bar voption = ValueNone
     let mutable sAvgVol    : float voption = ValueNone
     let mutable sAvgDolVol : float voption = ValueNone
+    let mutable sVolMax    : float voption = ValueNone   // prior-7 volume max (the vol-fraction denominator)
 
     member _.BarsSeen = barsSeen
 
@@ -207,6 +212,8 @@ type TideFlyer
         | _ -> ValueNone
     member _.AvgVolume = sAvgVol
     member _.AvgDollarVolume = sAvgDolVol
+    /// prior-`LowWindow` volume MAX (pre-push) — the vol-fraction denominator.
+    member _.VolMax = sVolMax
     /// rvol = volume / 4-week avg volume.
     member _.Rvol (volume: float) =
         match sAvgVol with
@@ -276,7 +283,7 @@ type TideFlyer
         loClose.Reset ();   loLow.Reset ()
         atrLog.Reset ();    atrLin.Reset ();    maxAtrLog.Reset ()
         rangeHigh.Reset (); rangeLow.Reset ()
-        avgVol.Reset ();    avgDolVol.Reset ()
+        avgVol.Reset ();    avgDolVol.Reset ();  volMax.Reset ()
         lastBar   <- ValueNone
         barsSeen  <- 0
 
@@ -301,6 +308,7 @@ type TideFlyer
         // 1) snapshot the pre-bar state.
         sAvgVol    <- avgVol.State
         sAvgDolVol <- avgDolVol.State
+        sVolMax    <- volMax.State
         sStopLow   <- stopLow.State
         sTideLo    <- tideLo.State
         sTideHi    <- tideHi.State
@@ -340,6 +348,7 @@ type TideFlyer
         let vol = float bar.volume
         avgVol.Push    vol
         avgDolVol.Push (bar.close * vol)
+        volMax.Push    vol
 
         lastBar   <- ValueSome bar
         barsSeen  <- barsSeen + 1
@@ -419,6 +428,7 @@ type TideFlyer
                   StopLowAtEntry = orNan sStopLow
                   HoldBars = 0
                   EntryVolume = entry.volume
+                  VolMaxAtEntry = orNan sVolMax
                   RvolAtEntry = orNan (this.Rvol (float entry.volume))
                   AvgDollarVolumeAtEntry = orNan sAvgDolVol
                   PctUpAtEntry = orNan (this.PctUp entry.close)
