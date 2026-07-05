@@ -343,4 +343,38 @@ pure capacity-vs-quality dial, no free lunch. For a daily-swing MR book breadth 
 per-trade PF, so **the default stays −5% (throughput) and depth is captured by SIZING** (avg% is the
 size signal: a −18% name returns 3× a −5% name), NOT by a tighter gate. −10% is the natural "concentrated
 book" alternative (the elbow — −10→−12 adds only +0.04 PF) if capacity ever ceases to be the constraint.
-NEXT = 7d/15d/longer-term pullback study (is buying INTO a longer-term uptrend pullback better?).
+
+**⚠ `(3d − 1d)` is a PROXY, not the literal prior-2-day return.** It's the arithmetic difference of two
+returns anchored to the SAME endpoint (`chg_3d − d1`), not `close[t−1]/close[t−3] − 1`. They differ by
+the compounding cross-term (≈ `d1 × prior2d`): e.g. 100→90→81→76.95 gives (3d−1d) = −18.05% vs the true
+prior-2d = −19%. It's a monotone transform in the same direction, so it's a valid gate/lever — and the
+−10% default was tuned ON this exact quantity (the engine computes the identical `Chg3d − PctUp`), so
+research & engine agree. Kept as-is rather than re-sweeping the true 2-day return.
+
+## Run 11 — multi-day pullback study: the thesis FLIPS → TideFlyer is a WASHOUT book. 60d gate locked.
+
+Studied 7d/15d/30d/60d returns on the NEW production book (prior-2d gate, `tideflyer_pullback.sql`) to
+test the user's thesis: is buying INTO a pullback (a name in a longer-term UPTREND, dipping today) better
+than the alternatives (mild decliner / deep washout)? **The prior-2d "already sliding" gate RESHAPED the
+population and the thesis FLIPS vs Run 6.** Distributions are deeply negative (median 30d −34%, 60d −39%;
+even p90 is only −1.5%/+17%) — the gate selects freefall names, so the uptrend-pullback cohort barely
+exists. Direct three-way test (30d trend proxy):
+
+| setup | n | PF | avg% |
+|---|---:|---:|---:|
+| **deep WASHOUT (30d < −25%)** | 23.1k | **1.726** | +4.90 |
+| uptrend PULLBACK (30d ≥ 0) | 3.7k | 1.401 | +2.20 |
+| mild DECLINER (30d ∈ [−25,0)) | 8.2k | 1.384 | +1.74 |
+
+**Deep washout wins OUTRIGHT — the pullback is the WEAKEST, not the strongest** (opposite of Run 6 on the
+old book). Every horizon is monotone deeper-is-better once the prior-2d gate is on: 7d `<−40%` PF 2.02,
+15d `<−40%` 2.08, 30d `<−40%` 1.90, 60d `<−40%` 1.96. The pullback signal isn't dead — it's INCOMPATIBLE
+with the "already sliding" selection (those names don't survive the gate); it would need its own uptrend-
+filtered book, a separate system. **Decision: TideFlyer stays a WASHOUT book.**
+
+**60d `<−40%` LOCKED as the default** (`Max60dReturn = -0.40`, new `LagMa<float>(60)` gate) — chosen for
+the best trips-per-PF: 60d has the FATTEST high-PF cell (16.7k trips @ PF ~1.96) and keeps the most net
+P&L relative to the ~2.0 PF. **Engine: 16,682 trips / PF 1.957 / 57.4% win / +6.5% avg / $10.9M** — kept
+$10.9M of the $13.7M net while cutting to 47% of trips. **Verified byte-parity vs SQL: 16,687 / PF
+1.955** (5-trip warmup edge, no lookahead). Book progression: 1.415 (3d) → 1.635 (prior-2d) → **1.957
+(60d washout)**. NEXT = rvol, exit-model A/B, sizing-on-depth, the separate pullback book as a candidate.

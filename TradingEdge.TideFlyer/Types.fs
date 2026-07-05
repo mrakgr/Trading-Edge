@@ -72,10 +72,16 @@ type EntryConfig =
                                 // falling knife). +inf disables the ceiling. A dip on ORDINARY volume reverts best.
       Max3dReturn: float         // require close/close-3d-1 <= this (default -0.15 — a real 3-day WASHOUT;
                                 // Run 5: 3d deeper=better, no knife). +inf disables. A CEILING only.
-      MaxPrior2dReturn: float }   // require (3d - 1d) <= this — the PRIOR-2-DAY fall going INTO today, i.e.
+      MaxPrior2dReturn: float    // require (3d - 1d) <= this — the PRIOR-2-DAY fall going INTO today, i.e.
                                 // the name was ALREADY sliding before today's flush (Run 9). Default -0.10.
                                 // Monotone deeper=better (PF 1.61-1.75 for already-down 10-20%+); the
                                 // >+10%-then-flush cell is a bull-trap LOSS. +inf disables. A CEILING only.
+      Max60dReturn: float }       // require close/close-60d-1 <= this — a deep 60-day WASHOUT (Run 11).
+                                // Default -0.40. TideFlyer is a WASHOUT book, NOT a pullback book: the
+                                // prior-2d "already sliding" gate selects freefall names, and within that
+                                // deeper-is-better on EVERY horizon (the uptrend-pullback cohort doesn't
+                                // survive the gate). 60d<-40% = 16.7k trips @ PF ~1.96 (best trips/PF cell).
+                                // +inf disables. A CEILING only.
 
 /// Life-cycle of a single trip. Minimal: the original HighFlyer's PendingLimit /
 /// ExitingLimit / ExitingMarket / Side machinery is gone. A trip fills at the
@@ -131,6 +137,7 @@ type TideFlyer
     let tideLo    = MinMa(entryCfg.LowWindow)   // TideFlyer 7d-CLOSE low channel (buy the new 7d low)
     let tideHi    = MaxMa(entryCfg.LowWindow)   // TideFlyer 7d-CLOSE high channel (buy the new 7d high / exit target)
     let close3d   = LagMa<float>(3)             // close ring → 3d return via lagPctChange (Run 5: deep 3d washout)
+    let close60d  = LagMa<float>(60)            // close ring → 60d return (Run 11: deep 60d washout, the washout gate)
     let hiClose   = MaxMa(hiCloseWindow)        // long-term close channel (252d)
     let hiHigh    = MaxMa(hiCloseWindow)        // long-term HIGH channel (252d max of intraday highs)
     let loClose   = MinMa(hiCloseWindow)        // long-term LOW close channel (252d min of closes)
@@ -185,6 +192,9 @@ type TideFlyer
     /// ValueNone until warm). Uses the daily bar's close — in the parity path that IS
     /// the entry candle's close; the 3d washout is a daily-context gate either way.
     member _.Chg3d = lagPctChange close3d
+    /// 60d return = today's close / close-60-bars-ago − 1 (read AFTER ProcessBar's push; the
+    /// long-term-trend / washout context). ValueNone until warm.
+    member _.Chg60d = lagPctChange close60d
     /// Long-term close channel: highest close over the prior `hiCloseWindow` bars.
     member _.HiClose = sHiClose
     member _.HiHigh = sHiHigh
@@ -288,6 +298,11 @@ type TideFlyer
             || (match this.Chg3d, this.PctUp c with
                 | ValueSome d3, ValueSome d1 -> (d3 - d1) <= entryCfg.MaxPrior2dReturn
                 | _ -> false))
+        // 60d-return CEILING (Run 11): require close/close-60d-1 <= Max60dReturn — a deep 60-day WASHOUT
+        // (production -0.40). TideFlyer is a WASHOUT book: deeper-is-better on every horizon, so a ceiling
+        // only. +inf disables. ValueNone (cold, <60 bars of history) fails when active.
+        && (Double.IsInfinity entryCfg.Max60dReturn
+            || gate this.Chg60d (fun r -> r <= entryCfg.Max60dReturn))
         // rvol band
         && gate (this.Rvol (float bar.volume)) (fun rv ->
                rv >= entryCfg.RvolMin && rv <= entryCfg.RvolMax)
@@ -316,7 +331,7 @@ type TideFlyer
     /// gap), plus lastBar (no cross-gap prior-close / true range) and barsSeen (warmup
     /// re-arms). Callers that need the pre-gap bar must read it BEFORE calling this.
     member private _.ResetIndicators () =
-        stopLow.Reset ();   tideLo.Reset ();    tideHi.Reset ();  close3d.Reset ()
+        stopLow.Reset ();   tideLo.Reset ();    tideHi.Reset ();  close3d.Reset (); close60d.Reset ()
         hiClose.Reset ();   hiHigh.Reset ()
         loClose.Reset ();   loLow.Reset ()
         atrLog.Reset ();    atrLin.Reset ();    maxAtrLog.Reset ()
@@ -378,6 +393,7 @@ type TideFlyer
         tideLo.Push    bar.close
         tideHi.Push    bar.close
         close3d.Push   bar.close
+        close60d.Push  bar.close
         hiClose.Push   bar.close
         hiHigh.Push    bar.high
         loClose.Push   bar.close

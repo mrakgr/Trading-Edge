@@ -78,9 +78,12 @@ let defaultConfig =
           VolFracMax = 1.5            // cut the quiet slow-bleed (<0.5) + the panic-spike knife (>~2.5).
           Max3dReturn = -0.15         // 3d washout CEILING (Run 5): close/close-3d-1 <= -15% (deeper=better,
                                       // no knife). --max-3d-return to tune; large value disables.
-          MaxPrior2dReturn = -0.10 } } // prior-2-day-fall CEILING (Run 9): (3d - 1d) <= -10% — already
+          MaxPrior2dReturn = -0.10    // prior-2-day-fall CEILING (Run 9): (3d - 1d) <= -10% — already
                                       // sliding into today's flush (deeper=better, PF 1.61-1.75 for
                                       // already-down 10-20%+). --max-prior2d-return to tune; large disables.
+          Max60dReturn = -0.40 } }    // 60d washout CEILING (Run 11): close/close-60d-1 <= -40% — a deep
+                                      // longer-term collapse. TideFlyer is a WASHOUT book (deeper=better
+                                      // every horizon). 16.7k trips @ PF ~1.96. --max-60d-return; large disables.
 
 /// A finished trip, ready for the CSV. Mirrors the original HighFlyer base
 /// columns so the two outputs diff directly.
