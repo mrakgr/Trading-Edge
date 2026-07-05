@@ -134,3 +134,43 @@ tier (1.229, 27k).
 below LowFlyer/HighFlyer. The 1d lever helps but isn't transformative alone; the volume-fraction and
 rvol levers (next) must do real work for this to be a keeper. **NEXT = volume-fraction (entry_vol /
 vol_max_7d) breakdown.**
+
+**−40% FLOOR LOCKED into the engine** (`UpThreshold = -0.40`, reusing the move-band floor) — the
+falling-knife cut is now a default gate, not post-hoc.
+
+## Run 4 — volume-fraction (entry_vol / 7d vol max): an INVERTED-U, the MIRROR of the short
+
+Does a new 7d volume HIGH (vol-fraction > 1.0) improve PF? **Direct answer: NO** — new-vol-high PF
+1.139 vs not-new-high 1.15. But the finer breakdown reveals an inverted-U centered near 1.0 (1d≥−40%
+book; median volfrac 0.78, p90 2.1, 35% make a new 7d vol high):
+
+| volfrac band | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| 0–0.5 (very quiet) | 170,752 | 48.1 | 1.09 | +0.48 |
+| 0.5–0.8 | 158,176 | 51.5 | 1.19 | +0.88 |
+| **0.8–1.0** | 83,902 | 52.2 | **1.222** | +0.98 |
+| 1.0–1.5 (new high) | 113,283 | 52.5 | 1.211 | +0.88 |
+| 1.5–2.5 | 65,347 | 50.7 | 1.139 | +0.54 |
+| **≥2.5 (huge spike)** | 47,699 | 47.9 | **0.958** | −0.17 |
+
+**The sweet spot is NORMAL-to-slightly-elevated volume (0.8–1.5), NOT a spike** — a dip on ordinary
+volume mean-reverts best. **The extreme spike (≥2.5×) is a FALLING KNIFE (PF 0.958, a loss) — the
+MIRROR-OPPOSITE of the short:** there, a volume spike into a new HIGH = exhaustion blow-off (great
+short); here, a volume spike into a 7d LOW = panic/forced selling that KEEPS going (a dip-buy trap).
+Volume-spike-into-weakness ≠ volume-spike-into-strength. The very-quiet tail (0–0.5×) is also weak
+(1.09) — a dip nobody's trading is a slow bleed, not a sharp reversible dislocation.
+
+**Encoding = a BAND `0.5 ≤ volfrac ≤ 1.5`, and it STACKS with the 1d band (complementary levers):**
+
+| filter (on 1d[−40,−8]) | n | PF | avg% |
+|---|---:|---:|---:|
+| any volfrac | 239,328 | 1.161 | +0.91 |
+| **volfrac 0.5–1.5** | 118,775 | **1.248** | +1.40 |
+| vf[0.8,1.5] & 1d≤−12% | 21,398 | 1.291 | +2.05 |
+| **vf[0.8,1.5] & 1d≤−18%** | 5,665 | **1.474** | +4.09 |
+
+The volume band alone lifts 1.161 → 1.248 (~half the trips); stacking deeper 1d ceilings keeps climbing
+to **PF 1.474 (+4.1% avg)** — the two levers REINFORCE, not overlap. PF 1.47 is finally respectable
+(still sub-LowFlyer, but the levers ARE doing real work — answers the thin-edge concern). **Working
+stack: 1d ∈ [−40,−8]% (size on depth) × volfrac ∈ [0.5,1.5].** NEXT = rvol (entry_vol / avg), then 7d
+return, then the exit-model A/B now that entries are gated.

@@ -53,7 +53,9 @@ let defaultConfig =
       // NEUTRALIZED (inherited from HighFlyerV2) so Run 1 measures the raw dip signal;
       // they become post-hoc tuning levers. Only price>=$1 + ADV kept as liquidity floors.
       Entry =
-        { UpThreshold = -infinity     // 1d-return FLOOR off (no lower bound on the down-move)
+        { UpThreshold = -0.40         // 1d-return FLOOR: require close/prevClose-1 >= -40% — the falling-knife
+                                      // cut (Run 3). Below -40% a 1d collapse is a genuine breakdown that
+                                      // keeps falling (PF 0.976), not a reversible dip. (--up-threshold tunes.)
           MaxUpThreshold = -0.05      // 1d-return CEILING: require close/prevClose-1 < -5% — a real DOWN
                                       // day INTO the 7d low (the base prune; --max-up-threshold to tune).
                                       // For mirror mode you'd raise this back to +inf.
