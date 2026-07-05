@@ -1,14 +1,14 @@
-module TradingEdge.LowFlyer.Program
+module TradingEdge.MaxFlyerV2.Program
 
 open System
 open System.Diagnostics
 open Argu
-open TradingEdge.LowFlyer.Intraday
-open TradingEdge.LowFlyer.Backtest
+open TradingEdge.MaxFlyerV2.Intraday
+open TradingEdge.MaxFlyerV2.Backtest
 
 let private defaultDb = "/home/mrakgr/Trading-Edge/data/trading.db"
 let private defaultMinuteDir = "/home/mrakgr/Trading-Edge/data/minute_aggs"
-let private defaultCsv = "/tmp/lowflyer_trips.csv"
+let private defaultCsv = "/tmp/maxflyerv2_trips.csv"
 
 type Args =
     | [<AltCommandLine("-d")>] Db_Path of string
@@ -26,9 +26,10 @@ type Args =
     | Min_Bar_Flush of float
     | Min_Bar_Flush_Floor of float
     | Max_Intraday_Atr_Pct of float
+    // mode overrides. MaxFlyerV2 DEFAULTS to the short pop-fade (Downside=false, Short=true).
+    | Long                 // escape hatch: trade the LONG new-session-LOW flush (= the LowFlyer book) for parity
+    | Short_Breakdown      // alternate: SHORT the new-session-LOW breakdown (Downside=true, Short=true)
     // kept-inert levers (off by default) for later sweeps
-    // (the SHORT pop-fade + short-breakdown modes were forked out to TradingEdge.MaxFlyerV2;
-    //  LowFlyer is now the LONG flush-fade book only.)
     | Pct_Stop of float
     | Time_Stop_Min of int
 
@@ -39,7 +40,7 @@ type Args =
             | Minute_Dir _ -> "Directory of minute_aggs parquet files. Default: data/minute_aggs."
             | Start_Date _ -> "Backtest start date (yyyy-MM-dd). Default 2003-09-10 (data min)."
             | End_Date _ -> "Backtest end date (yyyy-MM-dd). Default 2026-06-25 (minute-data max)."
-            | Out _ -> "Output trips CSV path. Default /tmp/lowflyer_trips.csv."
+            | Out _ -> "Output trips CSV path. Default /tmp/maxflyerv2_trips.csv."
             | Entry_Start_Min _ -> "Earliest ET minute an entry may fire (585 = 09:45 default). 09:30-EntryStart warms the running low/vol-high."
             | Vol_Window _ -> "Intraday ATR/tightness lookback in 1m bars (default 20). Both quality gates are OFF (+inf) by default, so this only affects the recorded *_at_entry snapshots."
             | Max_Concurrent _ -> "Cap on concurrently-open positions per day (0 = unlimited, default)."
@@ -49,6 +50,8 @@ type Args =
             | Min_Bar_Flush _ -> "Entry-bar FLUSH gate: require the breakout bar's 1m move (close/prevClose-1) <= this. Default 0.0 = OFF. e.g. -0.007 rejects bars softer than -0.7% (a real flush candle, not a one-tick poke)."
             | Min_Bar_Flush_Floor _ -> "Entry-bar flush-DEPTH floor (the falling-knife cut, Run 26): reject a flush DEEPER than this. Default 0.0 = OFF. e.g. -0.12 rejects flushes deeper than -12%%. Pairs with --min-bar-flush to band the entry move; PF 3.25->3.45 on the production long."
             | Max_Intraday_Atr_Pct _ -> "Intraday log-ATR CAP at entry: require the 1m log-ATR < this. Default +inf = OFF. e.g. 0.02 rejects names in genuine chaos (per Run 9)."
+            | Long -> "Escape hatch: trade the LONG new-session-LOW flush-fade (Downside=true, Short=false) — i.e. the LowFlyer book — instead of the default short pop-fade. For cross-system parity checks. Mutually exclusive with --short-breakdown."
+            | Short_Breakdown -> "Alternate short: SHORT the new-session-LOW breakdown (Downside=true, Short=true) — momentum continuation of the flush (the 4th quadrant), rather than the default new-HIGH pop-fade. Mutually exclusive with --long."
             | Pct_Stop _ -> "SWEEP LEVER: wide catastrophe %%-stop, a fixed adverse excursion from entry (0 = off, default)."
             | Time_Stop_Min _ -> "SWEEP LEVER: flatten this many minutes after entry, capped at MOC (0 = off, default = hold to MOC)."
 
@@ -56,7 +59,7 @@ let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
 [<EntryPoint>]
 let main argv =
-    let parser = ArgumentParser.Create<Args>(programName = "lowflyer")
+    let parser = ArgumentParser.Create<Args>(programName = "maxflyerv2")
     let parsed = parser.Parse argv
 
     let dbPath    = parsed.GetResult(Db_Path, defaultValue = defaultDb)
@@ -79,12 +82,16 @@ let main argv =
                   MinBarFlush   = parsed.GetResult(Min_Bar_Flush,   defaultValue = defaultConfig.Intraday.MinBarFlush)
                   MinBarFlushFloor = parsed.GetResult(Min_Bar_Flush_Floor, defaultValue = defaultConfig.Intraday.MinBarFlushFloor)
                   MaxAtrPct     = parsed.GetResult(Max_Intraday_Atr_Pct, defaultValue = defaultConfig.Intraday.MaxAtrPct)
-                  // LONG-only: the short pop-fade + short-breakdown forked to TradingEdge.MaxFlyerV2.
-                  // Downside=true / Short=false come straight from defaultConfig (no override).
+                  // Three modes (MaxFlyerV2 DEFAULTS to the short pop-fade):
+                  //   default            — SHORT the new-session-HIGH pop (Downside=false, Short=true)
+                  //   --long             — LONG the new-session-LOW flush (Downside=true, Short=false) [LowFlyer parity]
+                  //   --short-breakdown  — SHORT the new-session-LOW breakdown (Downside=true, Short=true)
+                  Downside      = parsed.Contains Long || parsed.Contains Short_Breakdown
+                  Short         = not (parsed.Contains Long)
                   PctStop       = parsed.GetResult(Pct_Stop,        defaultValue = defaultConfig.Intraday.PctStop)
                   TimeStopMin   = parsed.GetResult(Time_Stop_Min,   defaultValue = defaultConfig.Intraday.TimeStopMin) } }
 
-    printfn "LowFlyer backtest — market-wide intraday (%s)"
+    printfn "MaxFlyerV2 backtest — intraday SHORT pop-fade (%s)"
         (match cfg.Intraday.Downside, cfg.Intraday.Short with
          | true,  false -> "LONG the new-session-low flush (mean-reversion)"
          | false, true  -> "SHORT the new-session-HIGH pop (mean-reversion)"

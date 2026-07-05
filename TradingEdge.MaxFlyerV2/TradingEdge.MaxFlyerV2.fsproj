@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- MaxFlyerV2: market-wide intraday SHORT pop-fade. Forked from LowFlyer so the
+       short (fade the new-session-HIGH pop) and the long (LowFlyer's new-session-LOW
+       flush-fade) are SEPARATE systems with independent defaultConfig — they had
+       diverged and were colliding through one shared config (e.g. the long's
+       vol-high-frac 0.90 leaking into the short). Same two-pipeline architecture:
+       pipeline 1 = SELECT from mr_candidate; pipeline 2 = the shared intraday engine
+       (Intraday.fs) driven UPSIDE/short (Downside=false, Short=true) to fade the pop,
+       held to MOC. Research log: docs/maxflyerv2_results.md (brv20d>=100 main lever,
+       rvol tiers, ATR floor). Self-contained (reads trading.db + minute_aggs). -->
+  <ItemGroup>
+    <Compile Include="Intraday.fs" />
+    <Compile Include="Backtest.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../TradingEdge.RollingMa/TradingEdge.RollingMa.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Argu" Version="6.2.5" />
+    <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.4" />
+    <PackageReference Include="Nito.Collections.Deque" Version="1.2.1" />
+  </ItemGroup>
+
+</Project>
