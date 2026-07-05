@@ -482,3 +482,49 @@ dislocation that snaps back. Depth only means "reversible dislocation" when vola
 depth weakly helps the low-ATR bucket: −12% → 1.836, −18% → 2.197 but 410 trips; 3d flat, prior-2d
 inverted.) So the [0.08,0.10) bucket is weak *because it's low-ATR* — kept at 0.08 for capacity, knowing
 depth won't lift it. NEXT = rvol, exit-model A/B, sizing-on-depth, the pullback book.
+
+## Run 15 — 20d rvol: confirms the catalyst thesis (inverted-U) → `rvol < 3` ceiling LOCKED
+
+**User thesis (the WHY behind moderate-volume):** a high-volume breakdown signifies a FUNDAMENTAL CATALYST
+(real news that keeps falling), not panic/technical selling that reverts. Tested `rvol_20d` = entry_vol /
+20d-avg-vol (a DIFFERENT denominator than volfrac's 7d-rolling-MAX). `tideflyer_rvol.sql`, on the book with
+VOLFRAC DISABLED (28,186 / PF 1.711) so rvol is isolated.
+
+**rvol_20d is an INVERTED-U — thesis CONFIRMED** (median 1.25, p99 14.8):
+
+| rvol_20d | n | PF | avg% |
+|---|---:|---:|---:|
+| <0.5 (dead quiet) | 3,529 | 1.224 | +1.8 |
+| 0.5–1 | 6,858 | 1.703 | +5.0 |
+| 1–1.5 | 6,680 | 1.997 | +6.4 |
+| **1.5–2** | 4,005 | **2.142** | +7.3 |
+| 2–3 | 3,545 | 1.770 | +6.0 |
+| 3–5 | 2,067 | 1.475 | +4.3 |
+| **>10** | 494 | **1.095** | +1.1 (catalyst-trap, 42.5% win) |
+
+Peaks at ~1.5–2× normal volume, collapses at the spike — a >10× volume day into a washout is a fundamental
+catalyst that KEEPS falling, exactly the mechanism. The dead-quiet <0.5 tail is also weak (a dip nobody
+trades = a slow bleed) — same both-tails-bad shape as volfrac.
+
+**rvol ≈ volfrac (corr 0.805) — the SAME lever, but rvol adds a spike-tail cut volfrac misses.** The
+4-quadrant test: when both agree "moderate" (rvol<2 & volfrac[0.5,1.5]) PF 2.289 vs 1.32 when they
+disagree — mostly overlap, not additive. rvol[0.5,2] standalone (1.906) is slightly BELOW the volfrac book
+(2.105), so volfrac stays the primary single lever (don't replace). BUT rvol bands WITHIN the production
+(volfrac-on) book still show the inverted-U — the peak SHARPENS to PF 2.574 at 1.5–2× and the 3–10×
+catalyst-spike still drags (1.25–1.45). So a light rvol CEILING stacks on top of volfrac:
+
+| filter | n | PF |
+|---|---:|---:|
+| volfrac[0.5,1.5] (production) | 14,645 | 2.105 |
+| **+ rvol < 3** | **13,122** | **2.237** |
+| + rvol < 2 | 10,980 | 2.289 |
+
+**LOCKED `rvol < 3`** (`RvolMax = 3.0`) — the highest-coverage, capacity-cheapest lift (+0.13 PF for −1.5k
+trips), directly encoding the catalyst cut volfrac's 7d denominator misses. rvol<2 is the tighter
+alternative (2.289, but −3.7k trips). The rvol FLOOR left off (the dead-quiet tail is ~absorbed by volfrac).
+**Byte-parity: engine 13,122 / PF 2.237 == SQL slice exactly.** Book: 2.105 (ATR band) → **2.237 (rvol<3)**.
+
+**⏭ TODO (cross-system): wire volfrac into HighFlyer.** volfrac/rvol are a strong lever HERE (washout-MR);
+worth testing whether the same moderate-volume band helps the HighFlyer momentum book too, OR inverts like
+float/ATR% did (momentum may WANT the high-volume catalyst breakout). A clean A/B on the HighFlyerV2 book.
+NEXT = exit-model A/B, sizing-on-depth, the pullback book, + the HighFlyer-volfrac test.

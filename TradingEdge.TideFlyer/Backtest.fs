@@ -59,8 +59,13 @@ let defaultConfig =
           MaxUpThreshold = -0.05      // 1d-return CEILING: require close/prevClose-1 < -5% — a real DOWN
                                       // day INTO the 7d low (the base prune; --max-up-threshold to tune).
                                       // For mirror mode you'd raise this back to +inf.
-          RvolMin = 0.0               // rvol OFF
-          RvolMax = infinity
+          RvolMin = 0.0               // rvol FLOOR OFF (the dead-quiet <0.5 tail is weak but the floor is
+                                      // ~absorbed by volfrac; not worth the trips — Run 15)
+          RvolMax = 3.0               // rvol CEILING (Run 15): entry_vol / 20d-avg < 3× — cut the CATALYST
+                                      // SPIKE. A >3× volume day into a washout = a fundamental catalyst (real
+                                      // news that keeps falling), NOT panic/technical selling that reverts.
+                                      // rvol (20d avg) and volfrac (7d max) are 0.8-corr'd but rvol's spike-tail
+                                      // cut isn't fully captured by volfrac, so this STACKS: PF 2.105 -> 2.237.
           MinPriorDays = 21           // warmup (need prior-7 window + history)
           MinAvgDollarVolume = 100_000.0   // liquidity floor (kept)
           Min52wPct = 0.0             // 52w-high proximity OFF (momentum gate)
