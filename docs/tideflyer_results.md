@@ -528,3 +528,31 @@ alternative (2.289, but −3.7k trips). The rvol FLOOR left off (the dead-quiet 
 worth testing whether the same moderate-volume band helps the HighFlyer momentum book too, OR inverts like
 float/ATR% did (momentum may WANT the high-volume catalyst breakout). A clean A/B on the HighFlyerV2 book.
 NEXT = exit-model A/B, sizing-on-depth, the pullback book, + the HighFlyer-volfrac test.
+
+## Run 16 — washout reference: is 60d-point-return the best, or would 90d/120d/an MA beat it? (NEGATIVE)
+
+**User question: raw point returns could be noisy — would a 120d/90d point return, or a 60d/90d/120d MOVING
+AVERAGE of the close, be a better washout-depth reference?** Tested on the pre-washout-depth book
+(`/tmp/tide_pre60.csv`, all other gates ON, 22,881 / PF 1.890), 6 references (`tideflyer_washout_ref.sql`):
+point return `entry/close[t−N]−1` and MA depth `entry/mean(prior-N closes)−1` for N∈{60,90,120}. Compared
+at **matched selectivity** (deepest 13,120 by each ref = the production trip count):
+
+| washout reference | PF | win% | avg% |
+|---|---:|---:|---:|
+| **pt60 (current, 60d point return)** | **2.238** | 59.4 | +8.0 |
+| ma60 (60d MA depth) | 2.195 | 59.2 | +8.0 |
+| ma90 | 2.180 | 58.7 | +7.8 |
+| ma120 | 2.165 | 58.5 | +7.7 |
+| pt90 | 2.128 | 58.0 | +7.3 |
+| pt120 | 2.102 | 57.6 | +7.2 |
+
+**NEGATIVE result — the current `pt60 ≤ −40%` is (narrowly) the BEST; keep it.** Two patterns: (1) LONGER
+windows are WORSE (pt60 2.238 → pt120 2.102; ma60 2.195 → ma120 2.165) — the edge is in the RECENT 60d
+washout; 90–120d dilutes by admitting names whose collapse is older/staler. (2) The MA is NOT
+smoother-is-better here — ma60 (2.195) slightly UNDERperforms pt60 (2.238). **Why the MA hurts:** a name
+falling THROUGH the 60d window has its 60d mean dragged DOWN by the recent decline, so MA depth UNDERSTATES
+the peak-to-now drop; the point return `entry/close[t−60]` captures the full "how deep from where it was 3
+months ago" signal the gate wants. The 1d/3d/prior-2d gates already handle recent smoothness — the 60d gate's
+only job is long-term depth, and the raw endpoint captures that best. **All 6 within ~0.07 PF (roughly
+interchangeable) → kept the simplest already-wired one (pt60). No engine change.** NEXT = exit-model A/B,
+sizing-on-depth, the pullback book, the HighFlyer-volfrac test.
