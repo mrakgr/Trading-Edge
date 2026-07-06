@@ -67,7 +67,8 @@ let defaultConfig =
           StopDistFrac = 1.0 / 3.0       // stop distance = d/3 (the video's rule).
           MinStopDistPct = 0.01          // Finding 7: skip reclaims whose d/3 stop is tighter than 1% (chop).
           MinTightness = 4.5             // Finding 6: require a name with real range (tightness >= 4.5).
-          StopOnClose = true }           // stop triggers only on a CLOSE below the level (ignore noise wicks).
+          StopOnClose = true             // stop triggers only on a CLOSE below the level (ignore noise wicks).
+          UseTarget = true }             // exit at the VWAP+d target (--no-target lets winners run to MOC).
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the

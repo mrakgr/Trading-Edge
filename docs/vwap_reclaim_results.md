@@ -277,3 +277,92 @@ confirmed-strength filter**.
 **Both Findings 8–9 point the same way as tightness & stop-distance: the reclaim works on names with real
 MOVEMENT and genuine STRENGTH, not shallow chop.** Two more candidate levers (extreme-mover, up-on-day),
 not yet wired. NEXT = wire/stack these; re-check the by-year stability of the ~1.1 book.
+
+---
+
+## Findings 10–13 (the LIQUIDITY + EXIT re-work, driven by looking at the actual charts)
+
+Built `scripts/visualization/vwap_reclaim_charts.py` (1m candles + session VWAP + 9-EMA + below-VWAP
+shading + entry/exit/stop/target markers) to judge the trades QUALITATIVELY — and it immediately exposed
+problems the aggregates hid.
+
+### Finding 10 — ⭐ the $1M ADV floor was ILLIQUID JUNK; $100M is the sweet spot
+
+The charts of the $1M-ADV book were sub-dollar / thin-float trash (AEMD, AGEN, AKAN, ARQQ, ALLR…) with
+garbage 1m bars and unrealistic fills. Raised **ADV = avgvol20 × day_close from $1M → $100M** in
+`vwap_reclaim_candidate` (universe: 19% → **2.7%** of mr_candidate, 23,324 rows). The edge STRENGTHENED on
+genuinely liquid names (ABNB, DDOG, CHPT, LCID, LAZR, FRC…): whole book 0.836 → **1.023**; production cell
+(morning × rb[11,30] + filters) **1.032 → 1.151 / 49.4% win / 713 trips (~140/yr).** Edge improving on
+liquid names is the right sign from a real setup — junk names are where backtests lie.
+
+**But ADV higher than $100M HURTS** (cohort sweep on the production cell):
+
+| ADV floor | n | win% | PF |
+|---|---:|---:|---:|
+| **≥$100M** | 713 | 49.4 | **1.151** |
+| ≥$500M | 99 | 43.4 | 0.898 |
+| ≥$1B | 36 | 38.9 | 0.726 |
+| ≥$2B | 12 | 33.3 | 0.533 |
+
+Monotone decay past $100M. Mechanism: a high-ADV mega-cap on a normal day is too EFFICIENT / VWAP-anchored
+— it chops around VWAP without committing, so the reclaim doesn't follow through. **The sweet spot is the
+$100M–500M liquid-story-stock zone: liquid enough for clean fills, still MOVING enough to trend.** $100M is
+the settled floor.
+
+### Finding 11 — CLOSE-based stop (ignore noise wicks) → 1.151 → 1.199
+
+The stop triggered on any bar whose LOW touched the level, so a single-print wick down that immediately
+recovered stopped you out. Changed the default to **CLOSE-based** (the bar must CLOSE at/below the stop,
+fills at that close; `--wick-stop` reverts). Same entries, better exits — production cell:
+
+| stop mode | n | win% | PF | stop-rate | target | moc |
+|---|---:|---:|---:|---:|---:|---:|
+| CLOSE (new) | 713 | 50.9 | **1.199** | 41.9 | 40.1 | 18.0 |
+| WICK (old) | 713 | 49.4 | 1.151 | 44.7 | 39.0 | 16.3 |
+
+Stop-out rate 44.7 → 41.9% (noise wicks no longer trigger); the rescued trades reallocate to target/MOC.
+More realistic too (you wouldn't fill at a spike low that recovers). Locked CLOSE-based.
+
+### Finding 12 — FLOAT: bigger float wins, cleanly monotone (a sizing/selection tilt)
+
+Float breakdown on the $100M close-stop production cell (coverage 67%; float re-anchored to entry price,
+no-lookahead ASOF on filing known_date — the canonical method):
+
+| float$ | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| <300M | 94 | 51.1 | 0.987 | −0.03 |
+| 300M–1B | 82 | 48.8 | 1.073 | +0.10 |
+| 1–3B | 166 | 53.6 | 1.228 | +0.23 |
+| 3–10B | 88 | 53.4 | 1.386 | +0.35 |
+| **>10B** | 48 | 58.3 | **2.157** | +0.61 |
+
+Cumulative: `<1B → 1.017`, **`≥3B → 1.571`** (55% win). Monotone big-float-wins. NOTE this is float (a
+COMPANY's size), NOT ADV (Finding 10, dollar VOLUME) — they're different axes: you want a big, REAL company
+(high float) that is UNUSUALLY ACTIVE today (rvol>1) but is NOT a hyper-efficient always-liquid mega-cap
+(low-ish ADV). Float picks out "big legitimate company in play" — exactly the SMB thesis. **Kept as a
+sizing/selection TILT, not a hard gate** (float coverage only 67%; the no-data bucket is actually the best
+at 1.245; SEC float data is spotty — favor big float, source better data before live). Same discipline as
+the flyer/TideFlyer float findings.
+
+### Finding 13 — ⭐ REMOVE THE TARGET: let winners run → PF 1.199 → 1.478 (the user's chart read)
+
+Looking at the charts, the fixed `VWAP+d` target looked like it was cutting winners short. Tested a
+`--no-target` mode (exits = stop → time-stop → MOC only). Production cell:
+
+| exit model | n | win% | PF | avg% | stop | target | moc |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| WITH target (old default) | 713 | 50.9 | 1.199 | +0.27 | 41.9 | 40.1 | 18.0 |
+| **NO target (run to MOC)** | 713 | 37.3 | **1.478** | **+0.84** | 54.7 | 0.0 | 45.3 |
+
+**PF 1.199 → 1.478, avg return per trade TRIPLES (+0.27 → +0.84%).** Win rate DROPS 50.9 → 37.3% — the
+classic "let winners run" signature: the target was converting small winners but CAPPING the big ones; the
+40% that used to hit target now ride to MOC, and the runners more than pay for the extra losers (some
+round-trip back to the stop, raising stop-rate to 54.7%). Whole-book hold-to-MOC PF 1.023 → **1.401** too,
+so it helps everywhere, not just the cell. **The reclaim is a momentum-continuation play, not a
+mean-reversion scalp — you want the whole move, not a fixed target.** Big result from the user's visual
+read. Kept `UseTarget=false` as a strong candidate default (pending by-year stability).
+
+**Current best book: $100M ADV · morning 10:00–13:30 · rb[11,30] · tight≥4.5 · min-stop-dist≥1% ·
+close-stop · NO target → PF ~1.48 on the production cell.** NEXT = by-year stability (does 1.48 hold
+across years or is it a couple of years?); stack the float/extreme-mover tilts; render the >$1B charts to
+confirm the "mega-caps chop" mechanism visually.

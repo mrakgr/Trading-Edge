@@ -177,6 +177,8 @@ type IntradayConfig =
       StopOnClose: bool        // true (default) = the stop triggers only when a bar CLOSES at/below the stop
                                // level (ignores random low wicks that immediately recover), filling at that
                                // close. false = the old wick stop (bar.low <= level, fills at the level).
+      UseTarget: bool          // true (default) = exit at the VWAP+d profit target. false = NO target — let
+                               // winners run to the time-stop / MOC (does the target cut winners short?).
       VolHighFrac: float }     // VOLUME-CONFIRMATION gate as a FRACTION of the running session max 1m-bar
                                // volume: require bar.volume >= VolHighFrac * runVolHi. 1.0 (default) = the
                                // original "must EXCEED the vol high" gate (a new-vol-high bar). 0.95 / 0.90
@@ -513,7 +515,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         | ExitedAt _ | Skipped | Armed _ -> pos      // reclaim positions are Holding immediately; no Armed
         | Holding ->
             let stopHit   = if cfg.StopOnClose then bar.close <= pos.StopLevel else bar.low <= pos.StopLevel
-            let targetHit = bar.high >= pos.TargetLevel
+            let targetHit = cfg.UseTarget && bar.high >= pos.TargetLevel
             if stopHit then
                 // close-based: fill at the close (the bar closed below the stop). wick mode: fill at the
                 // level, but no better than the open if the bar gapped clean through it.
