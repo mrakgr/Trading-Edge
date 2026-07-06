@@ -833,3 +833,22 @@ gate here** — it throws away the uptrend-pullback co-winner. The non-crash boo
 a carve-out (washout OR uptrend, exclude the −25..−15 middle), NOT the washout ceiling. prior-2d (short
 window, momentum) is regime-universal; 60d (long window, trend context) is regime-DEPENDENT. NEXT =
 optionally the 60d carve-out on top of prior-2d; yearly stability of the ~1.84 non-crash base.
+
+## Run 27 — monotone descent (d3>d2>d1) CARRIES in the non-crash regime too → base PF 1.837→1.957
+
+The monotone-descent filter (Run 20, already wired as `RequireMonotone`) on the non-crash base
+(breadth≥0.4 & float≥2B & volfrac[0.5,1.5] & prior-2d≤−5, PF 1.837):
+
+| split | n | % | PF | avg% |
+|---|---:|---:|---:|---:|
+| base (any) | 1,364 | 100 | 1.837 | +2.8 |
+| **MONOTONE d3>d2>d1** | 1,074 | 78.7 | **1.957** | +3.0 |
+| NON-monotone | 290 | 21.3 | 1.476 | +1.9 |
+
+**Same direction as Run 20** (clean staircase 1.96 > fought-over descent 1.48; both components agree —
+d3>d2: 1.906, d2>d1: 1.872). **A GOOD trade here:** only cuts 21% of the book (vs 27% in the crash regime)
+because prior-2d≤−5 already selects "already sliding" names that are mostly monotone — so it mainly trims
+the weakest 290 non-monotone names (PF 1.48) for a +0.12 PF lift. Best lever after volfrac for this regime,
+regime-universal (not a fit), already wired (`--require-monotone`). **Non-crash base now: breadth≥0.4 ·
+float≥$2B · volfrac[0.5,1.5] · prior-2d≤−5 · monotone → PF 1.957 / 1,074 trips / 60% win.** NEXT = the 60d
+carve-out (washout OR uptrend); yearly stability of the ~1.96 non-crash base.
