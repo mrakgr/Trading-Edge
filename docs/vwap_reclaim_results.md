@@ -795,3 +795,31 @@ volume band (Finding 27): `run_max_dist ≥ 3.5% AND rvol20m_15m ∈ [0.5,2]` �
 trips / $323k** — the deepest-conviction cell found: deep VOLATILE dips reclaiming on healthy sustained
 volume. All three features recorded-only (selection/sizing levers, not yet gates). Prime sizing candidates:
 size UP deep (run_max_dist high) × volatile (dist/ATR low) × healthy-vol (rvol20m_15m∈[0.5,2]).
+
+### Finding 29 — the run-depth cuts on the FULL 22 years: modern era ELITE, pre-2020 lifts off the floor but stays thin/unreliable
+
+Ran the run-depth cuts (Finding 28) over all 22 years. The era split, vs the plain band (Finding 27) which
+could NOT budge pre-2020:
+
+| cut | pre-2020 PF (n) | modern PF (n) |
+|---|---:|---:|
+| full book | 1.061 (24,239) | 1.441 (16,788) |
+| plain vol band [0.5,2] | 1.071 (8,547) | 1.874 (3,615) |
+| run_max_dist ≥ 3.5% | **1.213** (592) | 1.781 (2,600) |
+| volatile-deep (dist≥3.5% & dist/ATR<3) | **1.515** (68) | **2.516** (687) |
+| deep + vol band ([0.5,2]) | 1.452 (144) | **2.945** (541) |
+
+**Run depth is the FIRST feature to put positive AGGREGATE numbers on pre-2020** — the volume band left it
+flat (1.07), but volatile-deep lifts it to PF ~1.5. This hints run-depth taps a more TIMELESS effect: a
+deep volatile capitulation that reclaims VWAP is a mean-reversion setup that had some edge even in the old
+market, unlike "healthy convergence volume" which is purely a modern-regime tell.
+
+**BUT it does NOT make pre-2020 tradable — the sample is too thin & year-to-year unreliable.** Volatile-deep
+pre-2020 = 1–10 trips/year (the 1.52 aggregate rests on a handful; 2015 is +46% on 2 trips). The looser
+`run_max_dist≥3.5%` (10–108 trips/yr) is a MIXED bag: good years (2011 4.13, 2018 2.17, 2015 1.88) but real
+losers persist (2003–06 all <0.5, 2010 0.07, 2017 0.38) — NOT reliably positive. Suggestive, not conclusive.
+
+**The modern era, by contrast, is ELITE and ROBUST.** Volatile-deep by year 2020→2026: PF 3.07 / 1.73 /
+2.17 / 3.40 / 1.72 / **4.59** / 3.28, averaging +4% to +17%/trade. 2025 = PF 4.59 / +17.4% on 102 trips.
+**Verdict unchanged & sharper: a POST-2020 system.** Run depth makes the modern edge extraordinary but
+can't be sold as 22-year-robust; the pre-2020 lift is a real hint of timelessness, gated by sample size.
