@@ -69,10 +69,11 @@ let defaultConfig =
                                          // once the target is off & winners run to MOC — a wider stop lets
                                          // the reclaim breathe (stop-rate 55%->38%). d*2/3 is the peak (PF
                                          // 1.478->1.689); d/2 and full-d are slightly worse. --stop-dist-frac.
-          MinStopDistPct = 0.01          // Finding 7: min stop distance 1% (below it, skip or clamp).
-          ClampStopDist = true           // Finding 15: CLAMP a too-tight stop to 1% (keep the trade) — the
-                                         // principled behavior; ~identical to skip at d*2/3 (868 vs 847 trips,
-                                         // PF 1.690 vs 1.689) since the wide stop already clears 1% on most.
+          MinStopDistPct = 0.0           // OFF (Finding 18). It was load-bearing at d/3 (Finding 7), but at
+                                         // d*2/3 even the p5 stop distance is 1.17% > 1%, so NOTHING lands
+                                         // under 1% — the filter is fully inert (removing it is byte-identical:
+                                         // 868 trips, PF 1.69). Dropped to simplify. --min-stop-dist-pct to re-enable.
+          ClampStopDist = true           // (moot while MinStopDistPct=0) clamp-vs-skip for a too-tight stop.
           MinTightness = 4.5             // Finding 6: require a name with real range (tightness >= 4.5).
           StopOnClose = true             // stop triggers only on a CLOSE below the level (ignore noise wicks).
           UseTarget = true }             // exit at the VWAP+d target (--no-target lets winners run to MOC).

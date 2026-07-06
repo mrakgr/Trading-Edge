@@ -446,3 +446,19 @@ of good trades — fixed-3% PF 1.32) and too WIDE for calm names (gives back too
 sessionLow` is a per-name volatility proxy that sizes the stop correctly — same spirit as an ATR stop but
 anchored to the setup's actual VWAP structure. The geometry isn't arbitrary; it does real adaptive work no
 fixed number replicates. **Kept d·2/3 geometry.**
+
+### Finding 18 — the 1% min-stop filter is fully INERT at d·2/3 → dropped it
+
+Removed the 1% minimum entirely (pure d·2/3, no floor). Production cell: **byte-identical** — 868 trips,
+PF 1.690 (clamp) vs 1.693 (no min), same net P&L. The reason is in the distribution: at d·2/3 even the
+**p5 stop distance is 1.17%** — i.e. NOTHING lands under 1%, so the filter has nothing to act on. It was
+load-bearing at d/3 (Finding 7, where the sub-1% tail was real chop), but widening the stop (Finding 14)
+fully subsumed its job. Three tests now converge: clamp≈skip (Finding 15), no-min≈clamp (here), all dead
+heats. **Dropped `MinStopDistPct` to 0 to SIMPLIFY** (one fewer knob to explain; `--min-stop-dist-pct`
+re-enables). No performance change. The exit is now just: close-based d·2/3 stop + no target + MOC.
+
+**FINAL production cell (2020-07→2025-06): $100M ADV · morning 10:00–13:30 · rb[11,30] · tight≥4.5 ·
+close-stop · NO target · stop d·2/3 → PF 1.69 / +1.19% avg / 868 trips (~170/yr).** The exit structure is
+fully stress-tested: d·2/3 beats tighter (F14), no-stop (F16), and fixed-% (F17); close-trigger beats wick
+(F11); no-target beats target (F13). Every choice is a confirmed local optimum. NEXT (the make-or-break) =
+by-year stability of this ~1.69 book.
