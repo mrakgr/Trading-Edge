@@ -94,6 +94,9 @@ type IntradayConfig =
       EntryStartMin: int       // earliest ET minute an entry may fire (575 = 09:35). The engine
                                // PROCESSES premarket bars (to warm the running extremes) but does not
                                // TRADE before this wall-clock floor.
+      EntryEndMin: int         // LATEST ET minute an entry may fire (VwapReclaim: 810 = 13:30, the morning
+                               // window per the video — afternoon reclaims fade; Finding 4). Positions
+                               // opened before this still hold to MOC. 0 / >=MocMin = no upper bound.
       UseStop: bool            // arm the intraday-low protective stop
       PctStop: float           // wide catastrophe %-stop: a fixed adverse excursion from entry (0 = off;
                                // e.g. 0.5 = stop if price moves 50% AGAINST the position). Independent of
@@ -355,8 +358,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     member this.ShouldEnterReclaim (bar: MinuteBar) : bool =
         let inline gate (v: _ voption) (test: _ -> bool) =
             match v with ValueSome x -> test x | ValueNone -> false
-        // past the wall-clock trading floor.
+        // inside the wall-clock trading window [EntryStartMin, EntryEndMin]. EntryEndMin<=0 or
+        // >=MocMin = no upper bound (all-day). Default 13:30 morning window (Finding 4).
         bar.etMin >= cfg.EntryStartMin
+        && (cfg.EntryEndMin <= 0 || cfg.EntryEndMin >= cfg.MocMin || bar.etMin <= cfg.EntryEndMin)
         // the CROSS: long = EMA at/below VWAP going in, now ABOVE (reclaim). short (ReclaimShort) = EMA
         // at/above VWAP going in, now BELOW (loss-of-VWAP rejection).
         && (match sEmaPrev, sVwapPrev, ema.State, this.LiveVwap with

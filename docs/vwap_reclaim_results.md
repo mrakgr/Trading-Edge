@@ -594,3 +594,67 @@ still had `UseTarget=true` — so a bare `dotnet run` printed the WRONG (target-
 sharing/repro. Flipped: `UseTarget=false` is now the default (a bare run reproduces the settled no-target
 system); the flag inverted to `--use-target` to re-enable the VWAP±d target for testing. No research
 numbers change (every finding already used no-target).
+
+### Finding 23 — THE FAT BOOK: drop the rb≤30 cap → 6.5× the trips at PF 1.48, positive every modern year
+
+The by-year stability check (the make-or-break gate) on the thin production cell ($30M-1B, morning,
+**rb[11,30]**, tight≥4.5) revealed a fatal trip-count collapse even though PF>1 every year:
+
+| year | rb[11,30] n | rb[11,30] PF | | rb≥11 no-cap n | rb≥11 PF |
+|---|---:|---:|---|---:|---:|
+| 2020 | 90 | 3.07 | | 673 | 1.72 |
+| 2021 | 391 | 1.52 | | 2716 | 1.13 |
+| 2022 | 215 | 1.20 | | 1264 | 1.23 |
+| 2023 | 101 | 5.62 | | 590 | 2.81 |
+| 2024 | 64 | 1.82 | | 501 | 1.86 |
+| 2025 | **35** | 3.74 | | 200 | 1.92 |
+
+**The `rb ≤ 30` UPPER CAP was the strangler** — it threw away the deep-weakness names (rb 30–390, the bulk
+of the book) for a PF premium that does NOT survive the trip-count trade. Removing it (just **rb ≥ 11**, no
+cap): **896 → 5,829 trips (6.5×), PF 2.07 → 1.48, net $163k → $526k (3.2×), positive EVERY year (worst
+1.13), and 2025's 35 trips → 196** (a real sample, not a coin-flip). Lowering the floor further (rb≥5/≥3)
+adds almost nothing — the entire lever is REMOVING the cap, not lowering the floor. The book is BROADLY
+earned: top 1% of trips = 32% of gross wins (right-skewed, as a "run-to-MOC" momentum play should be), and
+every year stays strongly positive after removing its single biggest winner (2025 $57k→$32k). This is the
+sizing-thesis proof: **a PF-1.48 book with ~6k trips beats a PF-2.07 book with 896 for ~3× the dollars AND
+more year-to-year robustness.** Also dropping the now-redundant `BelowVwapFrac>0.6` gate (rb≥11 supersedes
+it) recovered ~2,700 more trips for free. **WIRED into the engine as defaults** (rb≥11, frac OFF) + a new
+`EntryEndMin` gate (10:00–13:30 morning window, previously post-hoc SQL) so a bare run prints the real book.
+
+### Finding 24 — tight ≥ 3 (down from 4.5) on the fat book: 1.7× trips, 1.6× net, still positive every year
+
+Finding 6/19 locked tight≥4.5 on the THIN book. On the fat book the 3–4.5 tightness band is +EV too:
+
+| tight floor | trips | PF | net$k |
+|---|---:|---:|---:|
+| ≥4.5 | 8,694 | 1.390 | 635 |
+| **≥3** | 14,907 | 1.376 | **1,021** |
+| ≥0 (off) | 16,306 | 1.367 | 1,065 |
+
+**tight≥3 → 1.7× the trips and 1.6× net ($635k→$1.02M) for a trivial PF give-up (1.390→1.376).** Below 3 is
+nearly dead (≥0 barely adds over ≥3). By-year (2020-25): positive every year, worst 1.17 (2021), 2025 =
+507 trips. **Made tight≥3 the default.** Settled 5y fat book: **14,907 trips / PF 1.376 / $1.02M**.
+
+### Finding 25 — ⚠ THE 22-YEAR TEST: a POST-2020 edge, essentially FLAT before COVID (regime-dependent)
+
+Ran the full history (2003-09 → 2026-06) on the default fat book. **41,027 trips / PF 1.298 / $1.50M** in
+aggregate — but the by-year decomposition is the real story:
+
+| era | trips | PF | avg% | net$k |
+|---|---:|---:|---:|---:|
+| **2003–2019** (17y) | 24,239 | **1.061** | +0.05% | +116 |
+| **2020–2026** (modern) | 16,788 | **1.441** | +0.83% | **+1,387** |
+
+**92% of the P&L comes from 2020 onward, on FEWER trips.** Pre-2020 is essentially flat — PF 1.06, +0.05%
+per trip (~$5/trade before costs), with **6 losing years of 17** (2004/07/08/10/14/17). The modern era is
+strong and STRENGTHENING every year (2020 1.56 → 2023 1.92 → 2026 2.37). Critically, the pre-2020 flatness
+CANNOT be gated away: rb≥20 leaves it at 1.065; even tight≥6 only reaches 1.17 (and guts the count). There
+is no sub-slice where a pre-2020 edge hides — it genuinely wasn't there.
+
+**Interpretation:** VwapReclaim is a **regime-dependent MODERN edge**, same signature as the momentum
+systems — it works because of post-2020 intraday dynamics (retail flow watching VWAP as a level, meme-era
+low-float churn, fast dip-buying of in-play names). The identical mechanical setup was a coin flip
+pre-2020. **NOT disqualifying** (6+ modern years, every one positive, improving), but it reframes the
+honest pitch from "22-year-robust" to **"a post-2020 intraday edge, flat before COVID — trade it as a
+modern-regime system, with the standing risk that a reversion to pre-2020 dynamics takes the edge with
+it."** This is the key caveat for any live deployment or external share.

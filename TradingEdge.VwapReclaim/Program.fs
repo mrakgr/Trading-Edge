@@ -18,6 +18,7 @@ type Args =
     | [<AltCommandLine("-o")>] Out of string
     // intraday engine knobs (the strategy defaults are locked in Backtest.defaultConfig)
     | Entry_Start_Min of int
+    | Entry_End_Min of int
     | Vol_Window of int
     | Max_Concurrent of int
     | Min_Low_Ref
@@ -54,7 +55,8 @@ type Args =
             | Start_Date _ -> "Backtest start date (yyyy-MM-dd). Default 2003-09-10 (data min)."
             | End_Date _ -> "Backtest end date (yyyy-MM-dd). Default 2026-06-25 (minute-data max)."
             | Out _ -> "Output trips CSV path. Default /tmp/lowflyer_trips.csv."
-            | Entry_Start_Min _ -> "Earliest ET minute an entry may fire (585 = 09:45 default). 09:30-EntryStart warms the running low/vol-high."
+            | Entry_Start_Min _ -> "Earliest ET minute an entry may fire (600 = 10:00 default). 09:30-EntryStart warms VWAP/EMA + the weakness run."
+            | Entry_End_Min _ -> "LATEST ET minute an entry may fire (810 = 13:30 default morning window). 0 or >=MOC = all-day (no upper bound)."
             | Vol_Window _ -> "Intraday ATR/tightness lookback in 1m bars (default 20). Both quality gates are OFF (+inf) by default, so this only affects the recorded *_at_entry snapshots."
             | Max_Concurrent _ -> "Cap on concurrently-open positions per day (0 = unlimited, default)."
             | Min_Low_Ref -> "Switch the breakout reference back to the running min-LOW channel. Default is min-CLOSE (wick-immune, closes-only; +~29%% trips at ~same PF — Run 12)."
@@ -97,6 +99,7 @@ let main argv =
             Intraday =
               { defaultConfig.Intraday with
                   EntryStartMin = parsed.GetResult(Entry_Start_Min, defaultValue = defaultConfig.Intraday.EntryStartMin)
+                  EntryEndMin   = parsed.GetResult(Entry_End_Min,   defaultValue = defaultConfig.Intraday.EntryEndMin)
                   VolWindow     = parsed.GetResult(Vol_Window,      defaultValue = defaultConfig.Intraday.VolWindow)
                   MaxConcurrent = parsed.GetResult(Max_Concurrent,  defaultValue = defaultConfig.Intraday.MaxConcurrent)
                   MinCloseRef   = not (parsed.Contains Min_Low_Ref)
@@ -130,16 +133,17 @@ let main argv =
     printfn "  db          = %s" dbPath
     printfn "  minute_aggs = %s" minuteDir
     printfn "  range       = %O .. %O" startDate endDate
-    printfn "  entry from  = %02d:%02d ET   %s-VWAP frac > %.2f   %s"
+    printfn "  entry window= %02d:%02d–%02d:%02d ET   %s-run >= %d bars   %s"
         (cfg.Intraday.EntryStartMin / 60) (cfg.Intraday.EntryStartMin % 60)
-        (if cfg.Intraday.ReclaimShort then "above" else "below") cfg.Intraday.BelowVwapFrac
+        (cfg.Intraday.EntryEndMin / 60) (cfg.Intraday.EntryEndMin % 60)
+        (if cfg.Intraday.ReclaimShort then "above" else "below") cfg.Intraday.MinRunBelowVwap
         (if cfg.Intraday.TimeStopMin > 0 then sprintf "time-stop %dm" cfg.Intraday.TimeStopMin else "hold-to-MOC")
     printfn "  stop anchor = %s   target = %s"
         (if cfg.Intraday.StopAnchorVwap then "VWAP -/+ d*frac" else "entry -/+ d*frac")
         (if cfg.Intraday.UseTarget then "VWAP -/+ (VWAP - sessionExtreme)" else "NO target (run to MOC)")
-    printfn "  gates       = tightness %s   log-ATR %s"
-        (if Double.IsInfinity cfg.Intraday.MaxTightness then "off" else sprintf "<%.2f" cfg.Intraday.MaxTightness)
-        (if Double.IsInfinity cfg.Intraday.MaxAtrPct then "off" else sprintf "<%.3f" cfg.Intraday.MaxAtrPct)
+    printfn "  gates       = tightness >= %.1f   below-frac %s"
+        cfg.Intraday.MinTightness
+        (if cfg.Intraday.BelowVwapFrac > 0.0 then sprintf "> %.2f" cfg.Intraday.BelowVwapFrac else "off")
 
     let sw = Stopwatch.StartNew()
     let trips, nCand = run dbPath minuteDir cfg startDate endDate

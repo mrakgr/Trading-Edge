@@ -38,7 +38,9 @@ let defaultConfig =
           SessionStartMin = 9 * 60       // 09:30 ET — the SMB session VWAP anchors at the RTH OPEN (not
                                          // premarket). VWAP, the 9-EMA, the below-VWAP counter, and the
                                          // running session low all accumulate from 09:30 for the reclaim.
-          EntryStartMin   = 9 * 60 + 45  // 09:45 ET — earliest entry (15m of session to build VWAP/EMA + weakness)
+          EntryStartMin   = 10 * 60      // 10:00 ET — morning-window START (Finding 4: 10:00-13:30 is best;
+                                         // 09:30-10:00 warms VWAP/EMA + the weakness run before any entry)
+          EntryEndMin     = 13 * 60 + 30 // 13:30 ET — morning-window END (afternoon reclaims fade)
           UseStop = false
           PctStop = 0.0
           TimeStopMin = 0
@@ -61,8 +63,14 @@ let defaultConfig =
           // ----- SMB VWAP x 9-EMA reclaim (long-only) — ON by default for this project -----
           VwapReclaim = true             // this project's whole point: the EMA-crosses-VWAP entry.
           EmaPeriod = 9                  // SMB 9-EMA.
-          BelowVwapFrac = 0.6            // require the EMA below VWAP for >60% of the pre-cross session (swept).
-          MinRunBelowVwap = 0            // consecutive-bars-below-VWAP gate OFF by default (swept post-hoc).
+          BelowVwapFrac = 0.0            // OFF — the consecutive-run gate (MinRunBelowVwap) is the weakness
+                                         // filter now (rb>=11 consecutive is a stronger signal than a 60%
+                                         // cumulative fraction, and they double-gate if both are on).
+          MinRunBelowVwap = 11           // require >=11 CONSECUTIVE bars EMA<VWAP into the cross. The rb FLOOR
+                                         // (no upper cap — the by-year work showed the old rb<=30 cap threw
+                                         // away ~6.5x the trips for a PF premium that doesn't survive the
+                                         // trip-count trade: rb>=11 no-cap = ~5.8k trips / PF 1.48 / positive
+                                         // EVERY year, vs rb[11,30] = 896 trips / PF 2.07 / 35 trips in 2025).
           StopAnchorVwap = true          // stop = VWAP - d*StopDistFrac (default); false = entry-anchored.
           FixedPctStop = 0.0             // 0 = use the d-geometry stop; >0 = a fixed %-below-entry stop (Finding 17).
           StopDistFrac = 2.0 / 3.0       // stop distance = d*2/3 (Finding 14): the video's d/3 was too tight
@@ -74,7 +82,11 @@ let defaultConfig =
                                          // under 1% — the filter is fully inert (removing it is byte-identical:
                                          // 868 trips, PF 1.69). Dropped to simplify. --min-stop-dist-pct to re-enable.
           ClampStopDist = true           // (moot while MinStopDistPct=0) clamp-vs-skip for a too-tight stop.
-          MinTightness = 4.5             // Finding 6: require a name with real range (tightness >= 4.5).
+          MinTightness = 3.0             // require a name with real range. Finding 6 locked 4.5 on the THIN
+                                         // book; on the fat book (rb>=11 no-cap) the 3-4.5 band is +EV too —
+                                         // tight>=3 gives 1.7x the trips (8.7k->14.9k) and 1.6x net ($635k->
+                                         // $1.02M) at ~flat PF (1.39->1.38), positive every year. Below 3 is
+                                         // nearly dead; >=3 is the fat-book floor. (--min-tightness overrides.)
           StopOnClose = true             // stop triggers only on a CLOSE below the level (ignore noise wicks).
           UseTarget = false              // NO target by default (Finding 13: winners run to MOC). --use-target re-enables VWAP+d.
           ReclaimShort = false }         // LONG reclaim by default; --reclaim-short mirrors to the short side.
