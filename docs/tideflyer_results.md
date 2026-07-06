@@ -695,3 +695,77 @@ back hardest = the purest "baby thrown out with the bathwater". The whole factor
 volume=moderate/non-catalyst all select "good name, systemic flush, not idiosyncratic death").
 Documented/not-wired (38% coverage, crash-clustered); favor ≥$300M, source present-day float before live.
 NEXT = make the system work in the breadth>0.2 (non-crash) regime + a float breakdown there.
+
+---
+
+# The NON-CRASH regime rebuild (breadth≥0.4 · float≥$2B) — establishing the honest baseline
+
+**Strategic pivot (user).** The breadth<0.10 book is a crash overlay (~4 trades/yr, 89% of P&L from GFC+
+COVID — see the Run-20 frequency check). To build a real *daily* system, the user chose to REBUILD FROM
+SCRATCH in the regime the engine spends most of its time in: **breadth≥0.4 (moderate-to-healthy tape) &
+float≥$2B (large float)**. Rationale: (1) these patterns work best on LARGER float (Run 13/21 — big-float
+wins every regime); (2) breadth≥0.4 is a REGIME SELECTOR, deliberately excluding the crash windfalls so we
+measure the pattern in NORMAL conditions — NOT a PF-lifter (it isn't, and isn't meant to be). Method: set
+the two regime filters, DISABLE all others except 1d & 3d, get the honest baseline, then re-add levers one
+at a time and check each actually works here (vs having been a crash proxy). Float stays post-hoc (SQL on
+`/tmp/tide_stripped.csv` = engine with only the 1d[−40,−5] + 3d≤−15% gates; the rest disabled via flags).
+
+## Run 22 — the honest baseline: the RAW pattern in this regime is THIN (PF ~1.3)
+
+Stripped engine book (1d+3d only) = 149,192 / PF 1.306. Progressive filtering to the target regime:
+
+| filter | n | PF | avg% |
+|---|---:|---:|---:|
+| stripped (1d+3d only) | 149,192 | 1.306 | +1.9 |
+| + breadth≥0.4 | 70,143 | 1.071 | +0.5 |
+| + float≥2B (alone) | 9,429 | 1.370 | +1.8 |
+| **breadth≥0.4 & float≥2B (TARGET)** | 3,760 | **1.325** | +1.2 |
+
+**The raw pattern here is a THIN edge** (1.325), and honest by-year it's negative in many years (2011–15
+mostly <1.0, 2017/2025 losers); ex-2020&2022 → PF 1.201; **2023–26 OOS → 1.183.** The strong PFs seen
+elsewhere came from the OTHER gates, concentrated in 2020/2022 — NOT from this regime's raw pattern.
+breadth≥0.4 alone drops PF to 1.071 (it's a regime SELECTOR, not a lever — as intended). float≥2B alone
+(1.370) is the only regime filter pulling weight. **This is the sober, honest floor the tuning must lift.**
+
+## Run 23 — volume levers CARRY here (not crash proxies): volfrac[0.5,1.5] → 1.741, rvol<2 → 1.892
+
+rvol_20d & volfrac breakdowns on the target base. **Both show the SAME inverted-U as the capitulation
+regime — they are genuine pattern levers, NOT crash artifacts.** volfrac (the stronger):
+
+| volfrac | n | PF | avg% |
+|---|---:|---:|---:|
+| <0.5 (quiet) | 526 | 1.050 | +0.3 |
+| 0.5–0.8 | 653 | 1.704 | +2.4 |
+| **0.8–1.0** | 356 | **1.968** | +3.0 |
+| 1.0–1.5 | 510 | 1.652 | +2.5 |
+| 1.5–2.5 | 483 | 1.276 | +0.9 |
+| **>2.5 (spike)** | 1,232 | **0.997** | −0.0 (catalyst trap, a THIRD of the book) |
+
+The `>2.5` volume-spike tail is BREAKEVEN and is ~⅓ of the target book — the main reason the raw base was
+only 1.325 (loaded with high-vol catalyst names that don't revert). Cutting it transforms the book:
+
+| cut | n | PF | avg% |
+|---|---:|---:|---:|
+| base (breadth≥0.4 & float≥2B) | 3,760 | 1.325 | +1.2 |
+| **volfrac[0.5,1.5]** | 1,519 | **1.741** | +2.5 |
+| volfrac[0.5,1.5] & rvol<3 | 1,287 | 1.752 | +2.6 |
+| **volfrac[0.5,1.5] & rvol<2** | 991 | **1.892** | +3.0 |
+
+volfrac[0.5,1.5] lifts 1.325→1.741 (+0.42, a real *pattern* edge — a big-float name washing out on MODERATE
+volume in a healthy tape is a fixable overreaction; on a volume SPIKE it's a fundamental event that keeps
+falling). rvol ≈ volfrac (0.8-corr, overlapping) but WITHIN volfrac[0.5,1.5] a TIGHTER rvol<2 is better
+here (1.741→1.892, vs rvol<3's 1.752) — the 2–3 band (PF 1.33) drags. **rvol LEFT OFF for now (user's
+call)** — volfrac carries it. **Current honest non-crash base: breadth≥0.4 · float≥2B · 1d[−40,−5] ·
+3d≤−15% · volfrac[0.5,1.5] → PF 1.741 / 1,519 trips / 57% win.**
+
+## Run 24 — ⚠ the rvol<0.5 "very quiet is great" bucket is a FLOAT-JOIN ARTIFACT, not an edge
+
+The rvol<0.5 bucket showed a surprisingly high PF (3.73 no-volfrac / 7.15 within-volfrac on 13 trips).
+Probed it — **it's ~3 float-misjoined squeeze outliers, NOT a real lever.** Top trip = **GME 2021-02-18
++316.7% / $31.7k** (the meme squeeze — GME's float is mismeasured, landing a squeeze microcap in the
+"≥$2B" bucket); the rest are MICT/OPGN/SINT/DISCB — low-priced squeeze names with volfrac 0.02–0.11, the
+OPPOSITE of the big-float-quality thesis. Drop-top-3 → PF 3.73→2.19; by-year it's incoherent (huge in
+2018/19/21 on n=4/7/17, LOSING in 2022/23/25). **A tiny bucket inflated by float-join errors on squeeze
+names — reinforces the float-data-quality caveat; the volfrac≥0.5 floor already excludes most of it.**
+NEXT = test whether prior-2d / 60d / ATR% / tightness carry in this regime too; yearly stability of the
+1.741 base.
