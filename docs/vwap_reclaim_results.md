@@ -884,3 +884,30 @@ primary monotone lever); `rvol20m_15m > 2` = a DIFFERENT failure mode (the viole
 that explodes volume on both sides — slips past updn but reliably fails). **Keep rvol20m_15m ONLY as the
 exhaustion gate (cut > 2, always-on trash filter)**; the healthy [0.5,2] band framing is superseded by updn
 for selection. A+ book is now `updn≥1.3 & rvol15m<2` → PF 1.919 / +2.28%.
+
+### Finding 32 — NEGATIVE: rvol20m_20d does NOT work as an exhaustion cut (its high tail is PROFITABLE)
+
+Tested adding a `rvol20m_20d` high-end ceiling as a second exhaustion gate on top of `rvol15m>2`, inside
+the A+ book (updn≥1.3 & rvol15m<2). It BACKFIRES — the high rvol20d tail is not toxic, it's the OPPOSITE:
+
+| rvol20m_20d (inside A+) | n | PF | avg% |
+|---|---:|---:|---:|
+| <4 | 142 | 2.857 | +2.91 |
+| 20–50 | 521 | 2.238 | +2.70 |
+| 50–150 | 299 | 1.319 | +0.85 |
+| **≥150** | 404 | **1.852** | **+3.45** |
+
+The tail being "cut" stays strongly profitable: rvol20d≥50 = PF 1.677/+2.35%, rvol20d≥150 = 1.852/**+3.45%
+(the HIGHEST avg in the book)**. Adding the ceiling THROWS AWAY money: A+ base $524k → `<150` $384k → `<50`
+$359k (PF nudges 1.92→2.10 but net drops $165k — a bad trade, paying dollars for a cosmetic PF bump).
+
+**Why it's the wrong tool (the distinction that matters):**
+- `rvol15m > 2` = 20m vol ≫ *THIS MORNING's* opening tempo → a sudden within-day RE-ACCELERATION =
+  blow-off/EXHAUSTION → toxic (PF 0.4). ✓ good gate.
+- `rvol20m_20d` high = 20m vol ≫ the name's *20-DAY normal* → simply a huge-volume in-play low-float day →
+  those are GREAT reclaims that run hard. ✗ NOT exhaustion.
+
+High rvol20d measures "unusual vs the stock's own history" (what you WANT — an in-play mover); high rvol15m
+measures "accelerating vs today's open" (a within-day spike). They look similar but point OPPOSITE (consistent
+with Finding 26, where rvol_0945 was monotone POSITIVE). **VERDICT: no rvol20d cut — rvol15m>2 stays the
+sole exhaustion gate.** A+ book stays `updn≥1.3 & rvol15m<2` (PF 1.919 / +2.28% / 2,298 trips).
