@@ -8,8 +8,10 @@
 // (the ADV/rvol filters were previously applied post-hoc on the trips CSV — now they prune the
 // universe up front, shrinking the run and the output ~5-10x):
 //
-//   ADV = avgvol20 * day_close >= $1,000,000   (20-day average DOLLAR volume — a real liquidity
-//                                                floor: the name is tradeable and can reach target)
+//   ADV = avgvol20 * day_close >= $100,000,000 (20-day average DOLLAR volume — a REAL liquidity floor.
+//                                                $1M let in sub-dollar / thin-float junk with garbage 1m
+//                                                bars & unrealistic fills, visible in the charts; $100M
+//                                                restricts to genuinely tradeable, liquid names)
 //   rvol_0945 > 1                              (trading at MORE than its normal volume into the
 //                                                open — genuinely "in play", not the loose >=0.1
 //                                                base floor)
@@ -44,8 +46,8 @@ DROP TABLE IF EXISTS vwap_reclaim_candidate;
 CREATE TABLE vwap_reclaim_candidate AS
 SELECT *
 FROM mr_candidate
-WHERE avgvol20 * day_close >= 1000000.0   -- ADV >= $1M (20-day avg dollar volume)
-  AND rvol_0945 > 1.0;                     -- genuinely in play into the open
+WHERE avgvol20 * day_close >= 100000000.0  -- ADV >= $100M (20-day avg dollar volume) — liquid names only
+  AND rvol_0945 > 1.0;                      -- genuinely in play into the open
 
 CREATE UNIQUE INDEX vwap_reclaim_candidate_ticker_date ON vwap_reclaim_candidate (ticker, date);
 """
@@ -63,5 +65,5 @@ use rdr = rc.ExecuteReader()
 rdr.Read() |> ignore
 let baseN = rdr.GetInt64 0
 let keptN = rdr.GetInt64 1
-printfn "Built `vwap_reclaim_candidate`: %d / %d mr_candidate rows kept (%.1f%%) — ADV>=$1M & rvol_0945>1"
+printfn "Built `vwap_reclaim_candidate`: %d / %d mr_candidate rows kept (%.1f%%) — ADV>=$100M & rvol_0945>1"
     keptN baseN (100.0 * float keptN / float baseN)
