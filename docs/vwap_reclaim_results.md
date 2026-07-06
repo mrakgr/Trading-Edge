@@ -230,4 +230,50 @@ where the d/3 stop would be too tight (shallow, low-conviction dips whose reclai
 tightness ≥ 4.5 — both select "a name with real range," same mechanism.
 
 **LOCKED into the system: minimum stop-distance ≥ 1% AND tightness ≥ 4.5** (the two entry-quality filters).
-NEXT = 1d-return-to-entry & intraday-return (pct-since-open) breakdowns on this filtered book.
+Together they lift the morning × rb[11,30] book **0.965 → 1.032** (45.3% win, 8,018 trips) — the first
+positive edge. NEXT = 1d-return-to-entry & intraday-return breakdowns on this filtered book.
+
+### Finding 8 — 1d-return-to-entry: a U-SHAPE — big movers (either way) win, the mushy middle loses
+
+`chg_1d` = entry / prev-day-adj-close − 1 (how the stock moved INTO today), on the filtered book:
+
+| 1d return | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| **<−10%** | 735 | 47.6 | **1.136** | +0.24 |
+| −10..−5 | 776 | 43.8 | 0.889 | −0.15 |
+| −5..−2 | 1,041 | 41.1 | 0.749 | −0.29 ← worst |
+| −2..+2 | 1,684 | 44.5 | 0.866 | −0.13 |
+| +2..+5 | 1,141 | 46.4 | 0.981 | −0.02 |
+| +5..+10 | 1,058 | 46.4 | 1.060 | +0.08 |
+| **>+10%** | 1,575 | 47.3 | **1.175** | +0.51 |
+
+**Clean U-shape:** the reclaim works when the stock made a BIG move into today — a large gap DOWN (<−10%,
+PF 1.14) OR a large gap UP (>+10%, PF 1.18); the small-move middle (−5..−2%, PF 0.75) is dead. The classic
+"in play" signal: a hard gapper (either way) is a story stock with real intraday participation; a name
+drifting ±5% is noise. → an **`|1d| > 10%` extreme-mover filter** (both tails ~PF 1.15).
+
+### Finding 9 — intraday-return (entry vs the day's open): UP-day entries win
+
+⚠ **Data fix:** the CSV `pct_chg_since_open` / raw `mr_candidate.day_open` had near-zero-open outliers +
+a split-adjustment mismatch that exploded the ratio (bogus median 2462%). Corrected with
+`entry / (day_open × adj_ratio) − 1` and dropping `day_open ≤ $0.01` — sane after (median +0.95%):
+
+| intraday (entry vs open) | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| <−5% | 516 | 41.7 | 1.047 | +0.09 |
+| −5..−3 | 664 | 40.4 | 0.813 | −0.28 ← worst |
+| −3..−1.5 | 870 | 42.0 | 0.951 | −0.06 |
+| ~flat | 826 | 45.3 | 0.896 | −0.11 |
+| +0.5..+2 | 1,080 | 50.0 | 1.072 | +0.07 |
+| +2..+5 | 1,581 | 46.3 | 1.082 | +0.10 |
+| **>+5%** | 1,676 | 45.5 | **1.105** | +0.30 |
+
+**Entries where the stock is UP on the day win** (PF climbs from the −5..−3 trough 0.81 → >+5% 1.105); a
+reclaim confirmed by the stock already being back above its open is genuinely recovering, whereas a
+"reclaim" while still −3..−5% on the day is a weak bounce in an ongoing down-day. (The `<−5%` band ticks up
+to 1.05 — the deep-washout capitulation-bounce, a small echo of the 1d U-shape.) → a **`intraday > 0`
+confirmed-strength filter**.
+
+**Both Findings 8–9 point the same way as tightness & stop-distance: the reclaim works on names with real
+MOVEMENT and genuine STRENGTH, not shallow chop.** Two more candidate levers (extreme-mover, up-on-day),
+not yet wired. NEXT = wire/stack these; re-check the by-year stability of the ~1.1 book.
