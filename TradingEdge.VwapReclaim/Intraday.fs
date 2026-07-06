@@ -55,6 +55,7 @@ type IntradayPosition =
                                // the session high for an upside breakout, the session low for a downside one
       TargetLevel: float       // VWAP-reclaim profit target = VWAP + (VWAP - sessionLow), snapshotted at
                                // entry (nan for the breakout engine). Long-only; a resting limit above.
+      RunBelowVwapAtEntry: int // consecutive bars EMA<VWAP right before the cross (0 for the breakout engine)
       AtrPctAtEntry: float     // intraday log-ATR snapshot at the arming bar
       TightnessAtEntry: float  // intraday tightness snapshot at the arming bar
       CumVolAtEntry: int64     // cumulative day volume THROUGH the entry bar (rvol numerator; recorded feature)
@@ -157,6 +158,9 @@ type IntradayConfig =
       BelowVwapFrac: float     // require the EMA to have been below VWAP for > this FRACTION of the
                                // pre-cross session bars (a genuine reclaim of sustained weakness, not chop
                                // across VWAP). Swept (0.5/0.6/0.75/0.9). 0 = off.
+      MinRunBelowVwap: int     // require >= this many CONSECUTIVE bars EMA<VWAP immediately before the
+                               // cross (the IMMEDIACY of the weakness — a sustained downtrend into the
+                               // reclaim, not a chop-across). 0 = off. An alternative to BelowVwapFrac.
       StopAnchorVwap: bool     // stop anchor: true (default) = VWAP - (VWAP-sessionLow)/3 (a fixed level
                                // off VWAP); false = entry - (VWAP-sessionLow)/3 (floats with the fill).
                                // Target is VWAP + (VWAP-sessionLow) either way.
@@ -194,6 +198,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let ema        = EmaMa(cfg.EmaPeriod)        // the fast reclaim EMA (9)
     let mutable belowVwapBars = 0                // # bars where EMA < VWAP, from session start (strictly-prior)
     let mutable emaVwapBars   = 0                // # bars where both EMA & VWAP were defined (the counter denom)
+    let mutable runBelowVwap  = 0                // CONSECUTIVE bars EMA<VWAP up to now (resets to 0 on EMA>=VWAP)
     let maTgt      = match cfg.Target with Ma w -> AvgMa(w)      | _ -> AvgMa(1)   // fast SMA of closes
     let chanTgt    = match cfg.Target with Channel w -> MinMa(w) | _ -> MinMa(1)   // Donchian low (pre-breakout floor)
 
@@ -240,6 +245,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sEmaPrev  : float voption = ValueNone   // EMA going INTO this bar (strictly-prior)
     let mutable sVwapPrev : float voption = ValueNone   // session VWAP going INTO this bar (strictly-prior)
     let mutable sBelowVwapFrac : float voption = ValueNone   // frac of pre-cross bars with EMA<VWAP (strictly-prior)
+    let mutable sRunBelowVwap  : int = 0                     // CONSECUTIVE bars EMA<VWAP going INTO this bar (strictly-prior)
 
     let positions = ResizeArray<IntradayPosition>()
 
@@ -284,6 +290,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     member _.SessionLow = runLo
     /// The fraction of pre-cross session bars the EMA spent BELOW VWAP (strictly-prior snapshot).
     member _.BelowVwapFrac = sBelowVwapFrac
+    /// CONSECUTIVE bars the EMA was below VWAP immediately before this bar (strictly-prior).
+    /// Measures the IMMEDIACY/strength of the weakness being reclaimed (vs the whole-session frac).
+    member _.RunBelowVwap = sRunBelowVwap
     /// The mean-reversion cover anchor (cfg.Target), as-of going INTO the current bar.
     member _.TargetAnchor = sTargetAnchor
 
@@ -326,6 +335,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // sustained weakness: the EMA spent > BelowVwapFrac of the pre-cross session below VWAP.
         && (cfg.BelowVwapFrac <= 0.0
             || gate sBelowVwapFrac (fun f -> f > cfg.BelowVwapFrac))
+        // IMMEDIATE weakness: require >= MinRunBelowVwap CONSECUTIVE bars EMA<VWAP right before the cross
+        // (a strong regime-flip reclaim, vs a chop-across). 0 = off.
+        && (cfg.MinRunBelowVwap <= 0 || sRunBelowVwap >= cfg.MinRunBelowVwap)
         // intraday tightness / ATR% gates (optional; +inf disables — same as the breakout path).
         && (Double.IsInfinity cfg.MaxTightness || gate this.Tightness (fun t -> t < cfg.MaxTightness))
         && (Double.IsInfinity cfg.MaxAtrPct   || gate this.AtrPct    (fun a -> a < cfg.MaxAtrPct))
@@ -409,6 +421,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sEmaPrev  <- ema.State
         sVwapPrev <- this.LiveVwap
         sBelowVwapFrac <- if emaVwapBars > 0 then ValueSome (float belowVwapBars / float emaVwapBars) else ValueNone
+        sRunBelowVwap  <- runBelowVwap
 
         // 2) fold the bar in. True range vs the prior 1m close.
         match lastBar with
@@ -435,7 +448,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             match sEmaPrev, sVwapPrev with
             | ValueSome e, ValueSome v ->
                 emaVwapBars <- emaVwapBars + 1
-                if e < v then belowVwapBars <- belowVwapBars + 1
+                if e < v then
+                    belowVwapBars <- belowVwapBars + 1
+                    runBelowVwap  <- runBelowVwap + 1     // extend the consecutive-below streak
+                else
+                    runBelowVwap  <- 0                    // EMA reclaimed/at VWAP -> streak breaks
             | _ -> ()
 
         // session VWAP always accumulates for this engine (independent of cfg.Target), so the
@@ -633,6 +650,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       StopLevel = stop
                       BreakoutRef = vwap
                       TargetLevel = target
+                      RunBelowVwapAtEntry = sRunBelowVwap
                       AtrPctAtEntry = (match this.AtrPct with ValueSome a -> a | ValueNone -> nan)
                       TightnessAtEntry = (match this.Tightness with ValueSome t -> t | ValueNone -> nan)
                       CumVolAtEntry = cumVol
@@ -665,6 +683,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   StopLevel = twoBar
                   BreakoutRef = this.BreakoutRef.Value
                   TargetLevel = nan
+                  RunBelowVwapAtEntry = 0
                   AtrPctAtEntry = this.AtrPct.Value
                   TightnessAtEntry = this.Tightness.Value
                   // cumVol was folded by ProcessBar (called before this append), so it

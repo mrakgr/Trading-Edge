@@ -34,6 +34,7 @@ type Args =
     // ----- SMB VWAP x 9-EMA reclaim knobs -----
     | Ema_Period of int
     | Below_Vwap_Frac of float
+    | Min_Run_Below_Vwap of int
     | Entry_Stop_Anchor
     | Max_Intraday_Tightness of float
 
@@ -58,6 +59,7 @@ type Args =
             | Time_Stop_Min _ -> "SWEEP LEVER: flatten this many minutes after entry, capped at MOC (0 = off, default = hold to MOC)."
             | Ema_Period _ -> "VWAP-reclaim: the fast EMA period that must cross above VWAP (default 9)."
             | Below_Vwap_Frac _ -> "VWAP-reclaim: require the EMA below VWAP for > this fraction of the pre-cross session (default 0.6; 0 = off). Sweep 0.5/0.6/0.75/0.9."
+            | Min_Run_Below_Vwap _ -> "VWAP-reclaim: require >= this many CONSECUTIVE bars EMA<VWAP right before the cross (0 = off). The IMMEDIACY of the weakness; an alternative to --below-vwap-frac."
             | Entry_Stop_Anchor -> "VWAP-reclaim: anchor the stop at ENTRY - (VWAP-sessionLow)/3 instead of the default VWAP - (VWAP-sessionLow)/3."
             | Max_Intraday_Tightness _ -> "Intraday tightness CAP at entry: require tightness < this. Default +inf = OFF."
 
@@ -92,6 +94,7 @@ let main argv =
                   // SMB VWAP-reclaim knobs (VwapReclaim/Short come from defaultConfig: long-only reclaim).
                   EmaPeriod      = parsed.GetResult(Ema_Period,       defaultValue = defaultConfig.Intraday.EmaPeriod)
                   BelowVwapFrac  = parsed.GetResult(Below_Vwap_Frac,  defaultValue = defaultConfig.Intraday.BelowVwapFrac)
+                  MinRunBelowVwap = parsed.GetResult(Min_Run_Below_Vwap, defaultValue = defaultConfig.Intraday.MinRunBelowVwap)
                   StopAnchorVwap = not (parsed.Contains Entry_Stop_Anchor)
                   PctStop       = parsed.GetResult(Pct_Stop,        defaultValue = defaultConfig.Intraday.PctStop)
                   TimeStopMin   = parsed.GetResult(Time_Stop_Min,   defaultValue = defaultConfig.Intraday.TimeStopMin) } }
