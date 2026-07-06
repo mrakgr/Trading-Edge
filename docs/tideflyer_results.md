@@ -870,3 +870,36 @@ Per-band: the shallow cohorts are the weak ones (1d −8..−5 = PF 1.69 / half 
 loose (user): the base is already thin (1,074) — preserve capacity; depth is a SIZING signal, not a gate**
 (avg%: a −22% 3d name returns ~2.5× a −15% one — size up on depth). If ever tightening ONE, 1d≤−8 (2.19 /
 535) is the cleaner cut (drops exactly the weak shallow half). NEXT = yearly stability of the ~1.96 base.
+
+## Run 29 — ⚠ YEARLY STABILITY: the non-crash book is FRAGILE → SHELVED (won't trade with real money)
+
+Yearly breakdown of the full non-crash book (breadth≥0.4 · float≥2B · volfrac[0.5,1.5] · prior-2d≤−5 ·
+monotone, PF 1.957 / 1,074 trips). **The aggregate PF is NOT stable across time:**
+
+| year | trips | PF | | year | trips | PF |
+|---|---:|---:|---|---|---:|---:|
+| 2011 | 7 | 0.43 | | **2020** | 257 | **10.37** |
+| 2013 | 5 | 0.25 | | 2021 | 119 | 3.10 |
+| 2014 | 31 | 0.70 | | 2022 | 185 | 0.98 |
+| 2015 | 29 | 0.36 | | 2023 | 46 | 2.21 |
+| 2019 | 49 | 2.72 | | **2024** | 93 | **0.78** |
+| | | | | **2025** | 89 | **0.71** |
+
+**~7 of 17 years are sub-breakeven** (PF <1.0), the winning years dominated by 2020 (10.4). Robustness cuts:
+**ex-2020&2022 → PF 1.552** (a third of the edge was 2020); **2023–26 OOS → 1.188** with **2024 AND 2025
+both LOSING years.** Winner-skew is only moderate (drop-top-20 → 1.61, so not one-trade luck) — the problem
+is TIME concentration, not a single trade. **All the gate-tuning (volfrac/prior-2d/monotone) lifted the
+AGGREGATE 1.33→1.96 but did NOT fix the temporal fragility** — the lifts came from the same good years, not
+from rescuing the bad ones. TideFlyer is fundamentally a VOLATILITY/dislocation strategy: it works when
+there's genuine fear (2020/2021/2019/2026) and struggles in calm grinding-up tapes (2024/2025); breadth≥0.4
+reduces but doesn't eliminate this.
+
+**DECISION (user): SHELVED — will NOT be traded with real money.** Low trips + poor consistency; recent OOS
+is ~breakeven with two losing years. The production book is the crash-capitulation OVERLAY (breadth<0.10,
+PF 5.31 but ~4 trades/yr — a tactical harvester, not a standalone daily system), and the non-crash big-float
+variant is too fragile to trade. The real-money stack is elsewhere: **LowFlyer + MaxFlyerV2 (2 intraday) +
+HighFlyerV2 (swing-long momentum).** The TideFlyer RESEARCH stands — the factor findings (big float,
+moderate volume, already-sliding, monotone, capitulation-breadth, all INVERTING HighFlyer) are real and
+internally consistent (TideFlyer = buy quality flushed in a panic) — but the system doesn't clear the
+consistency bar for live capital. **Engine complete & documented; no further TideFlyer work planned.**
+NEXT WORKSTREAM = SMB-style intraday scalping strategies (new direction).
