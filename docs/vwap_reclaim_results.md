@@ -911,3 +911,31 @@ High rvol20d measures "unusual vs the stock's own history" (what you WANT — an
 measures "accelerating vs today's open" (a within-day spike). They look similar but point OPPOSITE (consistent
 with Finding 26, where rvol_0945 was monotone POSITIVE). **VERDICT: no rvol20d cut — rvol15m>2 stays the
 sole exhaustion gate.** A+ book stays `updn≥1.3 & rvol15m<2` (PF 1.919 / +2.28% / 2,298 trips).
+
+### Finding 33 — the A+ cell + exhaustion cut, and the SMB d/3-stop+d-target exits FAIL on it (target caps +19% runners)
+
+Added the `rvol15m<2` exhaustion gate (Finding 31) to the A+ stack — a free lift:
+
+**A+ CELL = `updn≥1.3 & run_max_dist≥3.5% & dist/ATR<3 & rvol20m_15m<2` → PF 4.027 / +19.50% avg / 184 trips**
+(vs 3.893 / +18.84% / 190 without the cut — the 6 exhaustion trips were a drag).
+
+**Then tested SMB's original exits (d/3 stop + d target) on this cell — they FAIL, and it's the clearest
+demonstration of the exit thesis yet.** Selection is entry-time, so the same 184 trips, only exits change:
+
+| exit config | win% | PF | avg% | net$k |
+|---|---:|---:|---:|---:|
+| **SMB original: d/3 stop + target** | 54.9 | **1.32** | +1.29 | 24 |
+| d/3 stop, no target | 37.0 | 3.25 | +13.85 | 255 |
+| d·2/3 stop + target | 64.1 | 1.52 | +2.17 | 40 |
+| **BASE: d·2/3 stop, NO target** | 48.4 | **4.027** | **+19.50** | **359** |
+
+The SMB geometry is 3× WORSE (PF 1.32 vs 4.03). The mechanism is stark: adding the target RAISES win rate
+(54.9%, 64.1%) but COLLAPSES avg return (+19.5% → +1.3–2.2%) and PF. These A+ deep-volatile-accumulation
+reclaims run ENORMOUSLY to MOC (avg +19.5% held); a fixed d target amputates exactly the monster runners
+that ARE the edge — ~90% of it. Both levers point the same way independently: target OFF ≫ ON (4.03 vs 1.52
+at d·2/3), and d·2/3 ≫ d/3 (too tight, stops out early). No-target stop-width sweep on the A+ cell confirms
+a broad plateau — d/2 4.16, **d·2/3 4.03, d·0.85 4.16 (peak), d 3.94** — d/3 (3.25) is the only clear loser.
+
+**VERDICT: SMB's d/3+d does NOT work as a MECHANICAL hold-to-MOC rule** (it likely works in their
+DISCRETIONARY hands — scaling out, tape-reading, shorter horizon). The edge is momentum-continuation, so any
+fixed target fights it. Keep d·2/3 + no target; d·0.85 is a noise-level alternative not worth changing for.
