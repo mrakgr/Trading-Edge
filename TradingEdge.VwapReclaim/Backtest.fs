@@ -209,11 +209,19 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
 // ticker-days (161,979 / 850,107 = 19% of mr_candidate).
 // ===========================================================================
 let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: DateOnly) : Candidate[] =
+    // Research override: VWR_CANDIDATE_TABLE lets a breakdown run against a WIDER universe (e.g. a
+    // table with the $100M ADV floor dropped) without disturbing the production `vwap_reclaim_candidate`.
+    // Value is validated against a fixed allow-list (identifier-only) to keep it injection-safe.
+    let table =
+        match Environment.GetEnvironmentVariable "VWR_CANDIDATE_TABLE" with
+        | null | "" -> "vwap_reclaim_candidate"
+        | t when t |> Seq.forall (fun c -> Char.IsLetterOrDigit c || c = '_') -> t
+        | bad -> failwithf "Invalid VWR_CANDIDATE_TABLE %A (identifier chars only)" bad
     use cmd = conn.CreateCommand()
     cmd.CommandText <-
-        "SELECT ticker, date, prev_adj_close, close_3d, close_7d, day_close, adj_ratio, avgvol20,
+        $"SELECT ticker, date, prev_adj_close, close_3d, close_7d, day_close, adj_ratio, avgvol20,
                 close_fwd_1d, close_fwd_3d, close_fwd_5d, day_open, med_bar_vol_0945, nbar_0945, vol_0945
-         FROM vwap_reclaim_candidate
+         FROM {table}
          WHERE date >= $start AND date <= $end
          ORDER BY ticker, date"
     let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- startDate; cmd.Parameters.Add pStart |> ignore

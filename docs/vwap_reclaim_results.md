@@ -480,3 +480,69 @@ Cumulative: no gate 1.562 → **`≥4.5` 1.693** (peak) → `≥6` 1.387 (over-f
 still correct** — lifts the book ~0.13 PF by cutting the weak 2-4.5 slow-movers, keeping the 4.5-6 sweet
 spot; ≥6 over-filters. If anything it matters MORE now that winners run to MOC — you need names that KEEP
 MOVING all day, not ones that reclaim then die flat. No change.
+
+### Finding 20 — the $100M ADV floor was OVER-cutting: $30M–$1B nearly TRIPLES the book at ~flat PF
+
+**The big one.** The $100M ADV floor (Finding 10) was set from illiquid-junk CHARTS back under the OLD
+exit (target + d/3 stop). Now that the exit is fixed (close-stop d·2/3, NO target), re-ran the ADV
+breakdown over the WIDE universe (`vwap_reclaim_candidate_wide` = mr_candidate WHERE `rvol_0945>1`, NO
+ADV floor — 183,590 ticker-days vs 23,324; engine env `VWR_CANDIDATE_TABLE` override). Production cell
+slices re-imposed in SQL (morning 10:00–13:30, rb[11,30], tight≥4.5). PF = raw `ret_moc` (no clip).
+
+**ADV per-bucket (production cell):**
+
+| ADV bucket | n | win% | PF | avg% | net$k |
+|---|---:|---:|---:|---:|---:|
+| <10M | 2407 | 35.5 | **0.695** | −0.82 | **−197** |
+| 10–30M | 940 | 39.1 | 1.183 | +0.39 | +36 |
+| **30–100M** | 596 | 43.6 | **2.003** | +1.71 | **+102** |
+| **100–300M** | 237 | 38.0 | **2.402** | +2.38 | +56 |
+| 300M–1B | 63 | 46.0 | 1.456 | +0.72 | +5 |
+| 1–5B | 10 | 40.0 | 0.957 | — | −0 |
+| >5B | 1 | 0.0 | — | — | −2 |
+
+**Inverted-U, and the peak sits ON the $30–300M band the $100M floor was cutting in half.** Below $30M is
+a graveyard (PF 0.70–1.18, `<10M` loses $197k — that IS the illiquid junk the charts flagged, but it's
+the sub-$30M names, not the $30–100M ones). Above ~$1B the pattern dies (mega-caps too VWAP-anchored,
+Finding 10's other half — confirmed, just at a higher threshold than we'd set).
+
+**ADV floor sweep (band vs current $100M), morning production cell:**
+
+| floor | n | win% | PF | avg% | net$k |
+|---|---:|---:|---:|---:|---:|
+| **CURRENT ≥100M** | 311 | 39.5 | **2.100** | +1.89 | 59 |
+| ≥50M (–1B cap) | 607 | 41.8 | 2.175 | +1.95 | 118 |
+| **≥30M (–1B cap)** | 896 | 42.3 | **2.073** | +1.82 | **163** |
+| ≥20M (–5B) | 1224 | 41.2 | 1.753 | +1.37 | 167 |
+| 30–300M | 833 | 42.0 | 2.116 | +1.90 | 158 |
+
+**Lowering the floor $100M → $30M (with a soft ~$1B ceiling) gives 2.9× the trips (311→896) and 2.8× the
+net P&L ($59k→$163k) for a trivial PF give-up (2.10→2.07).** Holds all-day too (≥100M PF 2.06/558 →
+30M–1B PF 1.87/1597, 2.4× net). **ACTION: drop the candidate ADV floor to $30M** (keep a $1B-ish soft cap
+as a documented tilt — the ≥$1B tail is thin & choppy). The $100M number was a chart-eyeballing artifact
+under the wrong exit; the data now says $30M. This is the largest single improvement since no-target.
+
+### Finding 21 — float is a WEAK, ADV-dominated lever here (NOT a low-float edge; 150–300M is the only bump)
+
+Same population, float re-anchored to entry-day price (canonical `tideflyer_float.sql` method, ASOF
+known_date ≤ entry, no-lookahead). Coverage ~69% (NO-DATA bucket = 1,333/4,254).
+
+| float bucket | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| NO DATA | 1333 | 35.3 | 0.802 | −0.53 |
+| <150M | 1731 | 37.3 | 1.025 | +0.07 |
+| **150–300M** | 326 | 43.9 | **1.853** | +1.27 |
+| 300–750M | 351 | 39.0 | 1.237 | +0.37 |
+| 750M–2B | 275 | 39.3 | 1.091 | +0.11 |
+| 2–10B | 171 | 41.5 | 0.962 | −0.05 |
+| >10B | 67 | 46.3 | 1.144 | +0.21 |
+
+**Float is NOT the clean lever it is on the LowFlyer long / HighFlyer.** Low float (<150M) is ~breakeven
+(PF 1.03), NOT a win — the opposite of what a "small float squeezes harder" prior would predict. The only
+real bump is **150–300M (PF 1.85)**, and it's almost certainly the ADV effect in disguise: the profitable
+$30–300M ADV names cluster in the 150–300M float band, while the <150M-float / NO-DATA buckets are packed
+with the sub-$30M-ADV junk that Finding 20 already cuts. Cumulative float-floor `≥150M` (PF 1.35) barely
+beats `all` — a mild lift, fully explained by excluding the no-data junk. **Verdict: don't add a float
+gate; ADV already does its work. Float stays a documented non-lever for this system** (unlike float being
+a headline lever for the multi-day longs — an intraday reclaim just isn't a float-squeeze play). Contrast
+with Finding 12's "big wins at >10B" tilt, which shrinks to PF 1.14 here — also not worth wiring.
