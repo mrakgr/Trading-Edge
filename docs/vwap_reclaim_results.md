@@ -823,3 +823,44 @@ losers persist (2003–06 all <0.5, 2010 0.07, 2017 0.38) — NOT reliably posit
 2.17 / 3.40 / 1.72 / **4.59** / 3.28, averaging +4% to +17%/trade. 2025 = PF 4.59 / +17.4% on 102 trips.
 **Verdict unchanged & sharper: a POST-2020 system.** Run depth makes the modern edge extraordinary but
 can't be sold as 22-year-robust; the pre-2020 lift is a real hint of timelessness, gated by sample size.
+
+### Finding 30 — Up/Down VOLUME SPLIT by 9-EMA slope: the cleanest convergence-volume measure (beats the time proxy)
+
+Better than the time-window rvol proxy (Finding 27): measure convergence volume DIRECTLY by EMA-slope
+regime. Two running means, RESET at each VWAP cross — every bar whose CLOSE is above the (strictly-prior)
+9-EMA feeds the UP bucket (rising / accumulation), below feeds DOWN (falling / distribution). `run_updn_ratio`
+= UpVol/DnVol: >1 = volume flowing into the RISING side (buying into the convergence back toward VWAP).
+(9-EMA is on CLOSES; VWAP on typical price (h+l+c)/3.) Recorded-only. Ratio med 0.86 / p10 0.55 / p90 1.50.
+
+| run_updn_ratio | n | PF | avg% | net$k |
+|---|---:|---:|---:|---:|
+| <0.5 | 882 | 1.037 | +0.05 | 5 |
+| 0.5–0.8 | 5470 | 1.128 | +0.19 | 105 |
+| 0.8–1.0 | 3443 | 1.387 | +0.66 | 228 |
+| 1.0–1.3 | 2763 | 1.309 | +0.65 | 179 |
+| **1.3–2.0** | 1716 | **1.790** | +2.06 | 354 |
+| **≥2.0** | 633 | **1.983** | +2.40 | 152 |
+
+**Cleanly MONOTONE** (small 1.0–1.3 dip aside): reclaims that come with real buying volume DURING the
+convergence (ratio ~2 = 2× more vol on the rising side) are PF ~2.0 / +2.4%; those where volume is on the
+FALLING side (<0.8) are ~breakeven (PF 1.04–1.13). Confirms the accumulation-vs-distribution thesis exactly.
+
+**More EFFICIENT than the F27 time proxy** — captures ~2× the trips & net $ at a still-strong PF:
+
+| conviction cut | n | PF | avg% | net$k |
+|---|---:|---:|---:|---:|
+| **updn ≥ 0.8 (NEW)** | 8,555 | 1.515 | +1.07 | **911** |
+| rvol20m_15m ∈ [0.5,2] (F27) | 3,308 | 1.709 | +1.40 | 463 |
+| updn ≥ 1.3 (conviction) | 2,349 | 1.839 | +2.15 | 505 |
+
+`updn≥0.8` keeps 57% of the book at PF 1.515 (vs the band halving it) — a much gentler quality/volume trade,
+and it's positive EVERY year (2020-25: 2.00 / 1.23 / 1.38 / 2.30 / 1.95 / 1.57). The EMA-slope split beats
+the time-window proxy because it measures accumulation directly instead of through a noisy 20m-vs-15m window.
+
+**STACKS with run-depth into the best cell yet:**
+- updn≥1.0 & run_max_dist≥3.5% → PF 1.95 / +5.6% / 718 trips
+- **updn≥1.3 & run_max_dist≥3.5% & dist/ATR<3 → PF 3.893 / +18.84% avg / 190 trips / $358k**
+
+The full thesis assembled: DEEP + VOLATILE capitulations that reclaim VWAP WITH volume flowing into the
+rising side average +18.8% hold-to-MOC. `run_updn_ratio` is now the top convergence-volume lever (prefer it
+over rvol20m_15m); recorded-only, a prime gate/sizing candidate.

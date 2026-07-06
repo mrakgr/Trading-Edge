@@ -80,6 +80,10 @@ type IntradayPosition =
       RunAtrAtEntry: float      // mean per-bar log true range OVER THE RUN bars (reset at each cross) — the
                                // run's own volatility, NOT the trailing-window ATR. distance/this = depth in
                                // ATR-units (RunMaxDist/RunAtr) is derived in toTrip.
+      RunUpVolAtEntry: float    // mean 1m volume of ABOVE-9EMA bars since the last VWAP cross (accumulation /
+                               // rising-side volume). nan if no above-EMA bars this run.
+      RunDnVolAtEntry: float    // mean 1m volume of BELOW-9EMA bars since the last VWAP cross (distribution /
+                               // falling-side volume). Up/Dn ratio (in toTrip) = the volume-conviction signal.
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// Mean-reversion TARGET — where a (short) position covers when price reverts back
@@ -247,6 +251,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable runMaxDist = 0.0                 // max fractional VWAP<->EMA gap seen this run
     let mutable runAtrSum  = 0.0                 // Σ per-bar log-TR over this run's bars
     let mutable runAtrN    = 0                   // # bars contributing to runAtrSum
+    // Up/Down VOLUME split since the last VWAP cross (reset at each cross, like the run accumulators).
+    // A bar whose CLOSE is above the (strictly-prior) 9-EMA feeds the Up bucket; below feeds Down. The
+    // Up/Down MEAN-volume RATIO measures whether volume is flowing into the RISING side (accumulation /
+    // convergence back toward VWAP) or the FALLING side (distribution / divergence) of the run.
+    let mutable runUpVolSum = 0.0                // Σ volume of above-EMA (rising) bars this run
+    let mutable runUpVolN   = 0                  // # above-EMA bars
+    let mutable runDnVolSum = 0.0                // Σ volume of below-EMA (falling) bars this run
+    let mutable runDnVolN   = 0                  // # below-EMA bars
     let maTgt      = match cfg.Target with Ma w -> AvgMa(w)      | _ -> AvgMa(1)   // fast SMA of closes
     let chanTgt    = match cfg.Target with Channel w -> MinMa(w) | _ -> MinMa(1)   // Donchian low (pre-breakout floor)
 
@@ -519,7 +531,18 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                     if not (Double.IsNaN barLogTr) then                  // accumulate the run's ATR (log-TR mean)
                         runAtrSum <- runAtrSum + barLogTr
                         runAtrN   <- runAtrN + 1
-                let resetRun () = runMaxDist <- 0.0; runAtrSum <- 0.0; runAtrN <- 0
+                // Up/Down volume split over the WHOLE cross-to-cross regime (NOT gated by onRun — bars
+                // oscillate around the declining/converging EMA within the run). CLOSE vs the strictly-prior
+                // 9-EMA `e`: above -> Up (rising/accumulation), below -> Down (falling/distribution).
+                if bar.close > e then
+                    runUpVolSum <- runUpVolSum + float bar.volume
+                    runUpVolN   <- runUpVolN + 1
+                elif bar.close < e then
+                    runDnVolSum <- runDnVolSum + float bar.volume
+                    runDnVolN   <- runDnVolN + 1
+                let resetRun () =
+                    runMaxDist <- 0.0; runAtrSum <- 0.0; runAtrN <- 0
+                    runUpVolSum <- 0.0; runUpVolN <- 0; runDnVolSum <- 0.0; runDnVolN <- 0
                 if e < v then
                     belowVwapBars <- belowVwapBars + 1
                     runBelowVwap  <- runBelowVwap + 1     // extend the consecutive-below streak
@@ -790,6 +813,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       Vol20mAvgAtEntry = (if vol20.Count >= 20 then (match vol20.State with ValueSome v -> v | ValueNone -> nan) else nan)
                       RunMaxDistAtEntry = runMaxDist
                       RunAtrAtEntry = (if runAtrN > 0 then runAtrSum / float runAtrN else nan)
+                      RunUpVolAtEntry = (if runUpVolN > 0 then runUpVolSum / float runUpVolN else nan)
+                      RunDnVolAtEntry = (if runDnVolN > 0 then runDnVolSum / float runDnVolN else nan)
                       State = Holding }
         elif this.ShouldEnter bar then
             // ShouldEnter passed => sRunHi / this.Tightness / this.AtrPct are all
@@ -831,6 +856,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   Vol20mAvgAtEntry = (if vol20.Count >= 20 then (match vol20.State with ValueSome v -> v | ValueNone -> nan) else nan)
                   RunMaxDistAtEntry = runMaxDist
                   RunAtrAtEntry = (if runAtrN > 0 then runAtrSum / float runAtrN else nan)
+                  RunUpVolAtEntry = (if runUpVolN > 0 then runUpVolSum / float runUpVolN else nan)
+                  RunDnVolAtEntry = (if runDnVolN > 0 then runDnVolSum / float runDnVolN else nan)
                   // entry routing:
                   //   --ext-gate — if day-extension already >= ExtGate at the breakout, enter
                   //                DIRECT (parabolic now); else arm a ROLLOVER gated on reaching
