@@ -743,3 +743,55 @@ just a size-down. **Recommended use: (a) EXCLUDE rvol20m_15m > 2 (exhaustion gat
 band, size down <0.5.** Kept recorded-only for now (the hard gate needs the 15m baseline threaded into the
 IntradaySystem constructor — the features live in `toTrip`, not the entry predicate — deferred until we
 commit to gating). This is the best new selection lever since the fat-book work.
+
+### Finding 28 — RUN DEPTH: bigger %-runs ARE better, and it's the VOLATILE deep ones (dist/ATR is a contra-indicator)
+
+Three new features measured OVER the pre-cross consecutive below-VWAP run (reset at each cross, snapshotted
+at entry): `run_max_dist` = max (VWAP−EMA)/VWAP during the run (the depth); `run_atr` = mean per-bar log-TR
+over the RUN bars (the run's own volatility, not the trailing window); `run_dist_per_atr` = depth ÷ run-ATR
+(depth in ATR-units). Fat book, 5y, recorded-only. Dist median 1.35% / p95 6.18%; dist/ATR mean ~3.
+
+**A) `run_max_dist` — bigger runs ARE better (MONOTONE), confirming the hypothesis:**
+
+| depth | n | PF | avg% |
+|---|---:|---:|---:|
+| <0.5% | 2205 | 1.196 | +0.16 |
+| 1–2% | 4552 | 1.300 | +0.44 |
+| 3.5–6% | 1344 | 1.538 | +1.74 |
+| **≥6%** | 805 | **1.689** | **+3.84** |
+
+The deeper the 9-EMA fell below VWAP before reclaiming, the bigger the bounce — classic MR depth effect
+(deeper dip → bigger reversion). ≥6% runs average +3.8%/trade hold-to-MOC.
+
+**B) `run_atr` (raw run volatility) — flat until a violent tail.** PF ~1.2 for the first 5 buckets, then
+≥2% explodes to PF 2.13 / +8.0% (699 trips). Not a clean standalone lever (confounded with depth), but it
+flags that VOLATILITY, not depth per se, is the driver — see the synthesis.
+
+**C) `run_dist_per_atr` (depth normalized by vol) — INVERTED / a CONTRA-indicator:**
+
+| dist/ATR | n | PF | avg% |
+|---|---:|---:|---:|
+| <1 | 1256 | 1.414 | +0.84 |
+| **1–2** | 4437 | **1.536** | +0.96 |
+| 2–3 | 3457 | 1.432 | +0.82 |
+| 3–4.5 | 2926 | 1.242 | +0.45 |
+| ≥7 | 727 | 1.024 | +0.04 |
+
+Edge DECAYS as depth/ATR rises — the opposite of "normalize the depth" intuition. A run that's ≥7 ATR-units
+deep is dead (PF 1.02). **Synthesis (the real insight):** A and C point opposite because the GOOD deep runs
+got deep through HIGH VOLATILITY, not a long quiet grind. Splitting deep runs (≥3.5%) by dist/ATR proves it:
+
+| deep-run kind | n | PF | avg% |
+|---|---:|---:|---:|
+| **volatile (dist/ATR < 3)** | 556 | **2.262** | **+7.41** |
+| grind (dist/ATR ≥ 3) | 1593 | 1.234 | +0.82 |
+
+**A volatile 6% dip is a great trade; a slow-grind 6% dip is mediocre.** Normalizing volatility OUT
+(dist/ATR) removes the good part — so dist/ATR is a contra-indicator (want the LOW end). The raw depth +
+raw run-ATR are the levers; the ratio is not.
+
+`run_max_dist ≥ 3.5%` alone is robust every year (PF 1.20–2.78, avg +0.8–7.2%). **STACKED with Jeff's
+volume band (Finding 27): `run_max_dist ≥ 3.5% AND rvol20m_15m ∈ [0.5,2]` → PF 2.536 / +7.0% avg / 461
+trips / $323k** — the deepest-conviction cell found: deep VOLATILE dips reclaiming on healthy sustained
+volume. All three features recorded-only (selection/sizing levers, not yet gates). Prime sizing candidates:
+size UP deep (run_max_dist high) × volatile (dist/ATR low) × healthy-vol (rvol20m_15m∈[0.5,2]).

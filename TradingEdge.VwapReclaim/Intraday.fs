@@ -75,6 +75,11 @@ type IntradayPosition =
       Vol20mAvgAtEntry: float   // trailing 20-bar MEAN 1m volume at entry (incl. the cross bar); nan if <20 bars.
                                // "volume during the convergence" — compared to the 20d/min & 15m/min baselines
                                // in toTrip to get rvol20m_20d and rvol20m_15m (Jeff's rising-volume cue).
+      RunMaxDistAtEntry: float  // max (VWAP-EMA)/VWAP over the pre-cross run — how DEEP the 9-EMA fell below
+                               // VWAP (the run's depth as a fraction). "Are bigger %-runs better trades?"
+      RunAtrAtEntry: float      // mean per-bar log true range OVER THE RUN bars (reset at each cross) — the
+                               // run's own volatility, NOT the trailing-window ATR. distance/this = depth in
+                               // ATR-units (RunMaxDist/RunAtr) is derived in toTrip.
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// Mean-reversion TARGET — where a (short) position covers when price reverts back
@@ -235,6 +240,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable runBelowVwap  = 0                // CONSECUTIVE bars EMA<VWAP up to now (resets to 0 on EMA>=VWAP)
     let mutable aboveVwapBars = 0                // # bars where EMA > VWAP (the short mirror of belowVwapBars)
     let mutable runAboveVwap  = 0                // CONSECUTIVE bars EMA>VWAP up to now (resets on EMA<=VWAP)
+    // depth-of-the-run features (measured OVER the current consecutive below-VWAP streak; reset when it
+    // breaks). runMaxDist = max (VWAP-EMA)/VWAP during the run (how far the 9-EMA fell below VWAP);
+    // runAtrSum/runAtrN = mean per-bar log true range over the run bars (the run's volatility). Short
+    // mirror uses (EMA-VWAP)/VWAP over the ABOVE streak.
+    let mutable runMaxDist = 0.0                 // max fractional VWAP<->EMA gap seen this run
+    let mutable runAtrSum  = 0.0                 // Σ per-bar log-TR over this run's bars
+    let mutable runAtrN    = 0                   // # bars contributing to runAtrSum
     let maTgt      = match cfg.Target with Ma w -> AvgMa(w)      | _ -> AvgMa(1)   // fast SMA of closes
     let chanTgt    = match cfg.Target with Channel w -> MinMa(w) | _ -> MinMa(1)   // Donchian low (pre-breakout floor)
 
@@ -472,11 +484,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sRunAboveVwap  <- runAboveVwap
 
         // 2) fold the bar in. True range vs the prior 1m close.
+        let mutable barLogTr = nan               // this bar's log true range (for the run-ATR accumulator below)
         match lastBar with
         | ValueSome prev when bar.high > 0.0 && bar.low > 0.0 && prev.close > 0.0 ->
             let pc = prev.close
             (max bar.high pc - min bar.low pc) |> atrLin.Push
-            log (max bar.high pc / min bar.low pc) |> atrLog.Push
+            barLogTr <- log (max bar.high pc / min bar.low pc)
+            barLogTr |> atrLog.Push
         | _ -> ()
 
         rangeHigh.Push bar.high
@@ -497,17 +511,29 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             match sEmaPrev, sVwapPrev with
             | ValueSome e, ValueSome v ->
                 emaVwapBars <- emaVwapBars + 1
+                // the ACTIVE run's side: long tracks the below-run (VWAP-EMA), short the above-run (EMA-VWAP).
+                let onRun = if cfg.ReclaimShort then e > v else e < v
+                if onRun then
+                    let dist = if v > 0.0 then abs (v - e) / v else 0.0    // fractional VWAP<->EMA gap this bar
+                    if dist > runMaxDist then runMaxDist <- dist          // deepen the run's max distance
+                    if not (Double.IsNaN barLogTr) then                  // accumulate the run's ATR (log-TR mean)
+                        runAtrSum <- runAtrSum + barLogTr
+                        runAtrN   <- runAtrN + 1
+                let resetRun () = runMaxDist <- 0.0; runAtrSum <- 0.0; runAtrN <- 0
                 if e < v then
                     belowVwapBars <- belowVwapBars + 1
                     runBelowVwap  <- runBelowVwap + 1     // extend the consecutive-below streak
                     runAboveVwap  <- 0                    // EMA below VWAP -> above-streak breaks
+                    if cfg.ReclaimShort then resetRun ()  // the short's above-run just broke
                 elif e > v then
                     aboveVwapBars <- aboveVwapBars + 1
                     runAboveVwap  <- runAboveVwap + 1     // extend the consecutive-above streak (short mirror)
                     runBelowVwap  <- 0                    // EMA reclaimed/above VWAP -> below-streak breaks
+                    if not cfg.ReclaimShort then resetRun ()  // the long's below-run just broke
                 else
                     runBelowVwap  <- 0                    // EMA exactly at VWAP -> both streaks break
                     runAboveVwap  <- 0
+                    resetRun ()                           // either way the run broke
             | _ -> ()
 
         // session VWAP always accumulates for this engine (independent of cfg.Target), so the
@@ -762,6 +788,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       PrevBarClose = (match sLastBar with ValueSome p -> p.close | ValueNone -> nan)
                       Chg20mAtEntry = (match lagPctChange lag20 with ValueSome p -> p | ValueNone -> nan)
                       Vol20mAvgAtEntry = (if vol20.Count >= 20 then (match vol20.State with ValueSome v -> v | ValueNone -> nan) else nan)
+                      RunMaxDistAtEntry = runMaxDist
+                      RunAtrAtEntry = (if runAtrN > 0 then runAtrSum / float runAtrN else nan)
                       State = Holding }
         elif this.ShouldEnter bar then
             // ShouldEnter passed => sRunHi / this.Tightness / this.AtrPct are all
@@ -801,6 +829,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   PrevBarClose = sLastBar.Value.close
                   Chg20mAtEntry = (match lagPctChange lag20 with ValueSome p -> p | ValueNone -> nan)
                   Vol20mAvgAtEntry = (if vol20.Count >= 20 then (match vol20.State with ValueSome v -> v | ValueNone -> nan) else nan)
+                  RunMaxDistAtEntry = runMaxDist
+                  RunAtrAtEntry = (if runAtrN > 0 then runAtrSum / float runAtrN else nan)
                   // entry routing:
                   //   --ext-gate — if day-extension already >= ExtGate at the breakout, enter
                   //                DIRECT (parabolic now); else arm a ROLLOVER gated on reaching

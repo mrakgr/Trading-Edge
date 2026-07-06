@@ -147,6 +147,10 @@ type Trip =
       Rvol20m15m: float          // trailing-20m mean 1m volume / (vol_0945/nbar_0945) — the last 20 minutes'
                                  // volume vs the OPENING-15m per-minute average. >1 = volume ACCELERATING since
                                  // the open into the reclaim (the acceleration measure, vs the 20d "hot" one).
+      RunMaxDist: float          // max (VWAP-EMA)/VWAP over the pre-cross run = the run's DEPTH (how far the
+                                 // 9-EMA fell below VWAP). "Are bigger %-runs better trades?"
+      RunAtr: float              // mean per-bar log-TR OVER the run bars (reset at each cross) = the run's own vol
+      RunDistPerAtr: float       // RunMaxDist / RunAtr = the run's depth in ATR-units (depth normalized by vol)
       CumVolToEntry: int64       // cumulative day volume through the entry bar
       PctChgSinceOpen: float     // entryPx / dayOpen - 1
       Close1d: float             // close-1-day-ago (adj) = PrevAdjClose
@@ -203,6 +207,10 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           Rvol20m15m =
               (let meanBarVol15m = if c.NBar0945 > 0 then float c.Vol0945 / float c.NBar0945 else nan
                if meanBarVol15m > 0.0 && not (Double.IsNaN pos.Vol20mAvgAtEntry) then pos.Vol20mAvgAtEntry / meanBarVol15m else nan)
+          RunMaxDist = pos.RunMaxDistAtEntry
+          RunAtr = pos.RunAtrAtEntry
+          RunDistPerAtr =
+              (if pos.RunAtrAtEntry > 0.0 && not (Double.IsNaN pos.RunAtrAtEntry) then pos.RunMaxDistAtEntry / pos.RunAtrAtEntry else nan)
           CumVolToEntry = pos.CumVolAtEntry
           PctChgSinceOpen = (if c.DayOpen > 0.0 then pos.EntryPx / c.DayOpen - 1.0 else nan)
           Close1d = c.PrevAdjClose
@@ -388,7 +396,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,entry_bar_open,prev_bar_close,chg_20m,run_low_at_entry,intraday_atr_pct_at_entry,intraday_tightness_at_entry,"
-    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,rvol20m_20d,rvol20m_15m,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
+    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,rvol20m_20d,rvol20m_15m,run_max_dist,run_atr,run_dist_per_atr,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,med_bar_vol_0945,"
     + "qty,net_pnl,bars_held_min"
@@ -416,6 +424,9 @@ let private row (t: Trip) : string =
         fmt t.BarRvol15m
         fmt t.Rvol20m20d
         fmt t.Rvol20m15m
+        fmt t.RunMaxDist
+        fmt t.RunAtr
+        fmt t.RunDistPerAtr
         string t.CumVolToEntry
         fmt t.PctChgSinceOpen
         fmt t.Close1d
