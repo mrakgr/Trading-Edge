@@ -864,3 +864,23 @@ the time-window proxy because it measures accumulation directly instead of throu
 The full thesis assembled: DEEP + VOLATILE capitulations that reclaim VWAP WITH volume flowing into the
 rising side average +18.8% hold-to-MOC. `run_updn_ratio` is now the top convergence-volume lever (prefer it
 over rvol20m_15m); recorded-only, a prime gate/sizing candidate.
+
+### Finding 31 — rvol20m_15m is NOT redundant vs updn: keep it as a pure EXHAUSTION GATE (rvol15m>2)
+
+With `run_updn_ratio` (Finding 30) as the primary convergence-volume lever, is `rvol20m_15m` (Finding 27)
+now redundant? Tested whether its toxic >2 tail still bites INSIDE the updn book. It does — they measure
+DIFFERENT things:
+
+- **Overlap:** exhaustion names (rvol15m≥2) skew high-updn (avg updn 3.12 vs 0.99) — a violent volume
+  re-acceleration piles volume onto BOTH the up- and down-EMA sides, so it looks like "accumulation" and
+  62 of 73 exhaustion trips sail through the `updn≥0.8` gate. updn does NOT catch them.
+- **Still toxic inside updn≥0.8:** the rvol15m≥2 tail = PF 0.619 / −2.24% (62 trips). Cutting it: updn≥0.8
+  1.515 → **updn≥0.8 & rvol15m<2 = 1.534** (8,493 trips). Free improvement, costs ~60 trips.
+- **Worse on the A+ book:** inside updn≥1.3 the tail is PF 0.40 / −3.70% (51 trips). Cutting it: updn≥1.3
+  1.839 → **updn≥1.3 & rvol15m<2 = 1.919 / +2.28%** (2,298 trips).
+
+**Division of labor:** `run_updn_ratio` = which SIDE volume flows to (accumulation vs distribution, the
+primary monotone lever); `rvol20m_15m > 2` = a DIFFERENT failure mode (the violent blow-off/EXHAUSTION spike
+that explodes volume on both sides — slips past updn but reliably fails). **Keep rvol20m_15m ONLY as the
+exhaustion gate (cut > 2, always-on trash filter)**; the healthy [0.5,2] band framing is superseded by updn
+for selection. A+ book is now `updn≥1.3 & rvol15m<2` → PF 1.919 / +2.28%.
