@@ -174,6 +174,9 @@ type IntradayConfig =
                                // rate 62% at <1%). Default 0.01 (1%). 0 = off.
       MinTightness: float      // MIN intraday tightness at entry (Finding 6): require a name with real range
                                // (tight >= this), not a dead-flat chop. Default 4.5. 0 = off.
+      StopOnClose: bool        // true (default) = the stop triggers only when a bar CLOSES at/below the stop
+                               // level (ignores random low wicks that immediately recover), filling at that
+                               // close. false = the old wick stop (bar.low <= level, fills at the level).
       VolHighFrac: float }     // VOLUME-CONFIRMATION gate as a FRACTION of the running session max 1m-bar
                                // volume: require bar.volume >= VolHighFrac * runVolHi. 1.0 (default) = the
                                // original "must EXCEED the vol high" gate (a new-vol-high bar). 0.95 / 0.90
@@ -499,18 +502,22 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     /// An already-exited position is returned unchanged.
     /// VWAP-reclaim exit (long-only): fixed stop/target levels snapshotted at entry.
     /// Precedence: protective stop → profit target → time-stop → MOC.
-    ///   stop   — bar.low <= StopLevel; fills at the level, gap-through fills worse at the open (min).
+    ///   stop   — CLOSE-based (StopOnClose, default): the bar must CLOSE at/below StopLevel (ignores
+    ///            random low wicks that recover); fills at that close. Wick mode (StopOnClose=false):
+    ///            bar.low <= StopLevel, fills at the level (gap-through at the open).
     ///   target — bar.high >= TargetLevel; a resting SELL limit, fills at the level, gap-up fills
-    ///            better at the open (max). If both the stop and target are touched in the same bar
+    ///            better at the open (max). If both the stop and target trigger in the same bar
     ///            we CONSERVATIVELY take the STOP (can't know intrabar order; assume the adverse fill).
     member private _.AdvanceReclaim (bar: MinuteBar) (pos: IntradayPosition) : IntradayPosition =
         match pos.State with
         | ExitedAt _ | Skipped | Armed _ -> pos      // reclaim positions are Holding immediately; no Armed
         | Holding ->
-            let stopHit   = bar.low  <= pos.StopLevel
+            let stopHit   = if cfg.StopOnClose then bar.close <= pos.StopLevel else bar.low <= pos.StopLevel
             let targetHit = bar.high >= pos.TargetLevel
             if stopHit then
-                let fill = min pos.StopLevel bar.``open``   // gap-down through the stop fills at the open
+                // close-based: fill at the close (the bar closed below the stop). wick mode: fill at the
+                // level, but no better than the open if the bar gapped clean through it.
+                let fill = if cfg.StopOnClose then bar.close else min pos.StopLevel bar.``open``
                 { pos with State = ExitedAt (bar.etMin, fill, "stop") }
             elif targetHit then
                 let fill = max pos.TargetLevel bar.``open`` // gap-up through the target fills at the open

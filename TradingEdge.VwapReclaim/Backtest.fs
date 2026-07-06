@@ -66,7 +66,8 @@ let defaultConfig =
           StopAnchorVwap = true          // stop = VWAP - d*StopDistFrac (default); false = entry-anchored.
           StopDistFrac = 1.0 / 3.0       // stop distance = d/3 (the video's rule).
           MinStopDistPct = 0.01          // Finding 7: skip reclaims whose d/3 stop is tighter than 1% (chop).
-          MinTightness = 4.5 }           // Finding 6: require a name with real range (tightness >= 4.5).
+          MinTightness = 4.5             // Finding 6: require a name with real range (tightness >= 4.5).
+          StopOnClose = true }           // stop triggers only on a CLOSE below the level (ignore noise wicks).
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
