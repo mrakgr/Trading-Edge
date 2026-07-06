@@ -63,7 +63,10 @@ let defaultConfig =
           EmaPeriod = 9                  // SMB 9-EMA.
           BelowVwapFrac = 0.6            // require the EMA below VWAP for >60% of the pre-cross session (swept).
           MinRunBelowVwap = 0            // consecutive-bars-below-VWAP gate OFF by default (swept post-hoc).
-          StopAnchorVwap = true }        // stop = VWAP - (VWAP-sessionLow)/3 (default); false = entry-anchored.
+          StopAnchorVwap = true          // stop = VWAP - d*StopDistFrac (default); false = entry-anchored.
+          StopDistFrac = 1.0 / 3.0       // stop distance = d/3 (the video's rule).
+          MinStopDistPct = 0.01          // Finding 7: skip reclaims whose d/3 stop is tighter than 1% (chop).
+          MinTightness = 4.5 }           // Finding 6: require a name with real range (tightness >= 4.5).
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
@@ -109,6 +112,7 @@ type Trip =
       VolVsHigh: float           // breakout-bar volume / running session 1m-vol high (continuous; >=1 = new high).
                                  // FOR THE RECLAIM: repurposed to the below-VWAP FRACTION at entry.
       RunBelowVwap: int          // consecutive bars EMA<VWAP right before the reclaim cross (0 = breakout engine)
+      StopDistPct: float         // stop distance as a fraction of entry = (entry - stopLevel)/entry
       BarRvol15m: float          // breakout_bar_vol / mean(1m vol over [9:30,9:45)) — the breakout-bar
                                  // volume spike relative to the name's own opening-15m 1m tempo. Baseline
                                  // = vol_0945 / nbar_0945 (RTH 09:30-09:45 sum / bar count). Discriminates
@@ -158,6 +162,7 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           NewVolHigh = pos.NewVolHigh
           VolVsHigh = pos.VolVsHigh
           RunBelowVwap = pos.RunBelowVwapAtEntry
+          StopDistPct = pos.StopDistPct
           // spike vs the [9:30,9:45) 1m baseline = vol_0945/nbar_0945 (mean 1m vol over the window).
           BarRvol15m =
               (let meanBarVol15m = if c.NBar0945 > 0 then float c.Vol0945 / float c.NBar0945 else nan
@@ -338,7 +343,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,entry_bar_open,prev_bar_close,chg_20m,run_low_at_entry,intraday_atr_pct_at_entry,intraday_tightness_at_entry,"
-    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,bar_rvol_15m,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
+    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,med_bar_vol_0945,"
     + "qty,net_pnl,bars_held_min"
@@ -362,6 +367,7 @@ let private row (t: Trip) : string =
         (if t.NewVolHigh then "1" else "0")
         fmt t.VolVsHigh
         string t.RunBelowVwap
+        fmt t.StopDistPct
         fmt t.BarRvol15m
         string t.CumVolToEntry
         fmt t.PctChgSinceOpen

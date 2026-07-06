@@ -36,6 +36,9 @@ type Args =
     | Below_Vwap_Frac of float
     | Min_Run_Below_Vwap of int
     | Entry_Stop_Anchor
+    | Stop_Dist_Frac of float
+    | Min_Stop_Dist_Pct of float
+    | Min_Tightness of float
     | Max_Intraday_Tightness of float
 
     interface IArgParserTemplate with
@@ -60,7 +63,10 @@ type Args =
             | Ema_Period _ -> "VWAP-reclaim: the fast EMA period that must cross above VWAP (default 9)."
             | Below_Vwap_Frac _ -> "VWAP-reclaim: require the EMA below VWAP for > this fraction of the pre-cross session (default 0.6; 0 = off). Sweep 0.5/0.6/0.75/0.9."
             | Min_Run_Below_Vwap _ -> "VWAP-reclaim: require >= this many CONSECUTIVE bars EMA<VWAP right before the cross (0 = off). The IMMEDIACY of the weakness; an alternative to --below-vwap-frac."
-            | Entry_Stop_Anchor -> "VWAP-reclaim: anchor the stop at ENTRY - (VWAP-sessionLow)/3 instead of the default VWAP - (VWAP-sessionLow)/3."
+            | Entry_Stop_Anchor -> "VWAP-reclaim: anchor the stop at ENTRY - d*StopDistFrac instead of the default VWAP - d*StopDistFrac (d = VWAP-sessionLow)."
+            | Stop_Dist_Frac _ -> "VWAP-reclaim: stop DISTANCE as a fraction of d=(VWAP-sessionLow). Default 0.333 (=d/3, tight). Larger = WIDER stop (0.5, 1.0). The stop-distance sweep lever."
+            | Min_Stop_Dist_Pct _ -> "VWAP-reclaim: MIN stop distance as a fraction of entry (Finding 7). Default 0.01 (1%): skip reclaims whose d/3 stop is too tight (chopped inside 1m noise). 0 = off."
+            | Min_Tightness _ -> "VWAP-reclaim: MIN intraday tightness at entry (Finding 6). Default 4.5: require a name with real range, not a dead-flat chop. 0 = off."
             | Max_Intraday_Tightness _ -> "Intraday tightness CAP at entry: require tightness < this. Default +inf = OFF."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
@@ -96,6 +102,9 @@ let main argv =
                   BelowVwapFrac  = parsed.GetResult(Below_Vwap_Frac,  defaultValue = defaultConfig.Intraday.BelowVwapFrac)
                   MinRunBelowVwap = parsed.GetResult(Min_Run_Below_Vwap, defaultValue = defaultConfig.Intraday.MinRunBelowVwap)
                   StopAnchorVwap = not (parsed.Contains Entry_Stop_Anchor)
+                  StopDistFrac   = parsed.GetResult(Stop_Dist_Frac, defaultValue = defaultConfig.Intraday.StopDistFrac)
+                  MinStopDistPct = parsed.GetResult(Min_Stop_Dist_Pct, defaultValue = defaultConfig.Intraday.MinStopDistPct)
+                  MinTightness   = parsed.GetResult(Min_Tightness,   defaultValue = defaultConfig.Intraday.MinTightness)
                   PctStop       = parsed.GetResult(Pct_Stop,        defaultValue = defaultConfig.Intraday.PctStop)
                   TimeStopMin   = parsed.GetResult(Time_Stop_Min,   defaultValue = defaultConfig.Intraday.TimeStopMin) } }
 

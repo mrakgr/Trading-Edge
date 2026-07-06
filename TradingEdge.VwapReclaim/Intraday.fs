@@ -56,6 +56,8 @@ type IntradayPosition =
       TargetLevel: float       // VWAP-reclaim profit target = VWAP + (VWAP - sessionLow), snapshotted at
                                // entry (nan for the breakout engine). Long-only; a resting limit above.
       RunBelowVwapAtEntry: int // consecutive bars EMA<VWAP right before the cross (0 for the breakout engine)
+      StopDistPct: float       // stop DISTANCE as a fraction of entry price = (entry - stopLevel)/entry.
+                               // The recorded var for the "do too-tight stops get chopped?" breakdown. nan for breakout.
       AtrPctAtEntry: float     // intraday log-ATR snapshot at the arming bar
       TightnessAtEntry: float  // intraday tightness snapshot at the arming bar
       CumVolAtEntry: int64     // cumulative day volume THROUGH the entry bar (rvol numerator; recorded feature)
@@ -161,9 +163,17 @@ type IntradayConfig =
       MinRunBelowVwap: int     // require >= this many CONSECUTIVE bars EMA<VWAP immediately before the
                                // cross (the IMMEDIACY of the weakness — a sustained downtrend into the
                                // reclaim, not a chop-across). 0 = off. An alternative to BelowVwapFrac.
-      StopAnchorVwap: bool     // stop anchor: true (default) = VWAP - (VWAP-sessionLow)/3 (a fixed level
-                               // off VWAP); false = entry - (VWAP-sessionLow)/3 (floats with the fill).
+      StopAnchorVwap: bool     // stop anchor: true (default) = VWAP - d*StopDistFrac (a fixed level off
+                               // VWAP); false = entry - d*StopDistFrac (floats with the fill).
                                // Target is VWAP + (VWAP-sessionLow) either way.
+      StopDistFrac: float      // stop DISTANCE as a fraction of d = (VWAP-sessionLow). Default 1/3 (tight);
+                               // larger = WIDER stop (0.5 = half the VWAP-low range, 1.0 = full). The
+                               // stop-distance sweep lever.
+      MinStopDistPct: float    // MIN stop distance as a fraction of entry (Finding 7): reject reclaims where
+                               // the d/3 stop would be TIGHTER than this (chopped inside 1m noise, stop-out
+                               // rate 62% at <1%). Default 0.01 (1%). 0 = off.
+      MinTightness: float      // MIN intraday tightness at entry (Finding 6): require a name with real range
+                               // (tight >= this), not a dead-flat chop. Default 4.5. 0 = off.
       VolHighFrac: float }     // VOLUME-CONFIRMATION gate as a FRACTION of the running session max 1m-bar
                                // volume: require bar.volume >= VolHighFrac * runVolHi. 1.0 (default) = the
                                // original "must EXCEED the vol high" gate (a new-vol-high bar). 0.95 / 0.90
@@ -338,7 +348,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // IMMEDIATE weakness: require >= MinRunBelowVwap CONSECUTIVE bars EMA<VWAP right before the cross
         // (a strong regime-flip reclaim, vs a chop-across). 0 = off.
         && (cfg.MinRunBelowVwap <= 0 || sRunBelowVwap >= cfg.MinRunBelowVwap)
-        // intraday tightness / ATR% gates (optional; +inf disables — same as the breakout path).
+        // intraday tightness FLOOR (Finding 6): require a name with real range, not a dead chop.
+        && (cfg.MinTightness <= 0.0 || gate this.Tightness (fun t -> t >= cfg.MinTightness))
+        // intraday tightness / ATR% CEILINGS (optional; +inf disables — same as the breakout path).
         && (Double.IsInfinity cfg.MaxTightness || gate this.Tightness (fun t -> t < cfg.MaxTightness))
         && (Double.IsInfinity cfg.MaxAtrPct   || gate this.AtrPct    (fun a -> a < cfg.MaxAtrPct))
         // concurrency room.
@@ -638,19 +650,26 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             if this.ShouldEnterReclaim bar then
                 // stop/target geometry off the LIVE VWAP + running session low at the cross bar.
                 // d = VWAP - sessionLow (the VWAP-to-low distance). target = VWAP + d.
-                // stop = VWAP - d/3 (StopAnchorVwap, default) OR entry - d/3.
+                // stop = VWAP - d*StopDistFrac (StopAnchorVwap, default) OR entry - d*StopDistFrac.
+                // StopDistFrac scales the stop distance: 1/3 default (tight), larger = WIDER stop.
                 let vwap = this.LiveVwap.Value          // ShouldEnterReclaim required the cross => LiveVwap is ValueSome
                 let sLow = (match runLo with ValueSome l -> l | ValueNone -> bar.low)
                 let d = vwap - sLow
                 let target = vwap + d
-                let stop   = if cfg.StopAnchorVwap then vwap - d / 3.0 else bar.close - d / 3.0
-                positions.Add
+                let stopDist = d * cfg.StopDistFrac
+                let stop   = if cfg.StopAnchorVwap then vwap - stopDist else bar.close - stopDist
+                let stopDistPct = if bar.close > 0.0 then (bar.close - stop) / bar.close else nan
+                // MIN stop-distance gate (Finding 7): reject reclaims where the d/3 stop is too tight
+                // (chopped inside 1m noise). Applied here (not in ShouldEnter) as the stop level is computed here.
+                if cfg.MinStopDistPct <= 0.0 || stopDistPct >= cfg.MinStopDistPct then
+                 positions.Add
                     { EntryMin = bar.etMin
                       EntryPx = bar.close
                       StopLevel = stop
                       BreakoutRef = vwap
                       TargetLevel = target
                       RunBelowVwapAtEntry = sRunBelowVwap
+                      StopDistPct = stopDistPct
                       AtrPctAtEntry = (match this.AtrPct with ValueSome a -> a | ValueNone -> nan)
                       TightnessAtEntry = (match this.Tightness with ValueSome t -> t | ValueNone -> nan)
                       CumVolAtEntry = cumVol
@@ -684,6 +703,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   BreakoutRef = this.BreakoutRef.Value
                   TargetLevel = nan
                   RunBelowVwapAtEntry = 0
+                  StopDistPct = nan
                   AtrPctAtEntry = this.AtrPct.Value
                   TightnessAtEntry = this.Tightness.Value
                   // cumVol was folded by ProcessBar (called before this append), so it

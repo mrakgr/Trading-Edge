@@ -177,3 +177,57 @@ in *which* reclaims to take.
 
 **NEXT:** stop-geometry variants (VWAP-loss stop, `d/2` wider stop) on the best cell; possibly a 1d-return
 condition; confirm on full history if a variant clears ~PF 1.1+.
+
+---
+
+## Findings 6–7 (5-year book, 2020-07 → 2025-06; morning 10:00–13:30 × run_below ∈ [11,30], base PF 0.965)
+
+From here the study uses a **5-year window** (an intraday scalp doesn't need the full 22y, which spans
+decimalization / HFT-era regime shifts) and the `vwap_reclaim_candidate` pre-pruned universe. The working
+population is the best cell from Finding 5: **morning entries (10:00–13:30 ET) × run_below ∈ [11,30]**,
+hold-to-MOC (the sweep-best exit), **22,789 trips / PF 0.965**.
+
+### Finding 6 — tightness ≥ 4.5 is a real lever; ATR% is not
+
+Intraday tightness (= 14-bar abs range / abs ATR, at entry) is cleanly monotone — a reclaim on a name
+that's genuinely MOVING follows through; a dead-flat name's reclaim fizzles:
+
+| tightness | n | win% | PF |
+|---|---:|---:|---:|
+| 1–2 | 774 | 33.1 | 0.762 |
+| 2–3 | 2,962 | 38.8 | 0.809 |
+| 3–4.5 | 9,995 | 41.8 | 0.955 |
+| **4.5–7** | 8,100 | 44.3 | **1.033** |
+| >7 | 958 | 46.0 | 0.970 |
+
+`tight ≥ 4.5` is the only cleanly-positive cut (PF 1.03, ~9k trips). **ATR% is weak/noisy** by contrast —
+mostly flat with a faint high-vol tilt (0.04–0.08 band PF 1.17 but only 178 trips); no clean lever. Kept
+tightness ≥ 4.5, dropped ATR%.
+
+### Finding 7 — ⭐ too-TIGHT stops get chopped: the stop-out rate is the tell
+
+The stop distance `(entry − stopLevel)/entry` varies per trade (it's `≈ (entry−VWAP) + d/3`, and
+`d = VWAP−sessionLow` varies a lot). Breaking down by it (the d/3 RULE is kept — this is a diagnostic on
+which trades that rule leaves with a too-tight stop):
+
+| stop dist (% of entry) | n | win% | **stop-out rate** | PF | avg% |
+|---|---:|---:|---:|---:|---:|
+| <0.3% | 164 | 39.6 | 56.7 | 0.818 | −0.02 |
+| 0.3–0.6% | 598 | 35.5 | **63.2** | 0.833 | −0.05 |
+| 0.6–1% | 2,790 | 36.9 | **61.8** | 0.833 | −0.09 |
+| 1–2% | 8,645 | 42.4 | 54.2 | 0.934 | −0.05 |
+| 2–3.5% | 5,872 | 42.9 | 49.9 | 0.924 | −0.10 |
+| **3.5–6%** | 2,911 | 45.6 | 46.6 | **1.059** | +0.13 |
+| >6% | 1,797 | 44.1 | 46.1 | 0.985 | −0.07 |
+
+**The smoking gun is the stop-out rate:** a tight stop (<1% from entry) is hit **62–63%** of the time —
+inside the reclaim's normal 1m noise, so you're stopped on a wiggle before the trade can work. As the stop
+widens the stop-out rate falls to ~46%, win rate climbs 36% → 46%, and **PF crosses 1.0 at 3.5–6%
+(1.059)**. This is NOT an argument against d/3 — d/3 works fine when `d` is naturally large; it fails when
+`d` is tiny (a shallow morning dip whose d/3 stop sits ~1% off entry). Cumulative floors: keep
+`stop_dist ≥ 1%` → PF 0.972; `≥ 2%` → 0.984. **The fix: a MINIMUM stop-distance filter** — skip reclaims
+where the d/3 stop would be too tight (shallow, low-conviction dips whose reclaim is noise). Pairs with
+tightness ≥ 4.5 — both select "a name with real range," same mechanism.
+
+**LOCKED into the system: minimum stop-distance ≥ 1% AND tightness ≥ 4.5** (the two entry-quality filters).
+NEXT = 1d-return-to-entry & intraday-return (pct-since-open) breakdowns on this filtered book.
