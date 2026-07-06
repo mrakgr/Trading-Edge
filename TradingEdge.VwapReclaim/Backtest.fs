@@ -64,6 +64,7 @@ let defaultConfig =
           BelowVwapFrac = 0.6            // require the EMA below VWAP for >60% of the pre-cross session (swept).
           MinRunBelowVwap = 0            // consecutive-bars-below-VWAP gate OFF by default (swept post-hoc).
           StopAnchorVwap = true          // stop = VWAP - d*StopDistFrac (default); false = entry-anchored.
+          FixedPctStop = 0.0             // 0 = use the d-geometry stop; >0 = a fixed %-below-entry stop (Finding 17).
           StopDistFrac = 2.0 / 3.0       // stop distance = d*2/3 (Finding 14): the video's d/3 was too tight
                                          // once the target is off & winners run to MOC — a wider stop lets
                                          // the reclaim breathe (stop-rate 55%->38%). d*2/3 is the peak (PF

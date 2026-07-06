@@ -424,3 +424,25 @@ PF↓** — without a stop more dips recover green by MOC (+5.6% win), BUT the o
 structure is a clean ASYMMETRY, exactly right for a momentum-continuation play: KEEP the stop (cut the
 disaster tail, d·2/3 width) + NO target (let winners run).** The d·2/3 stop beats tighter stops (Finding
 14) AND no stop — a genuine local optimum. Confirmed; no change.
+
+### Finding 17 — the d·2/3 GEOMETRY beats every fixed-% stop (the stop must adapt to the name's range)
+
+Does the stop's edge come from the VWAP-to-low geometry, or just from having a cut at a sensible distance?
+The d·2/3 stop distance is a WIDE distribution (production cell: p25 1.9% / med 2.9% / p75 4.6%) — it
+adapts per name. Swept a FIXED %-below-entry stop against it (no-target book, production cell):
+
+| stop | n | win% | PF | avg% | net $k |
+|---|---:|---:|---:|---:|---:|
+| **GEOMETRY d·2/3** | 847 | 44.7 | **1.689** | +1.19 | **101** |
+| fixed 2% | 868 | 38.9 | 1.400 | +0.51 | 45 |
+| fixed 3% | 868 | 44.1 | 1.318 | +0.47 | 40 |
+| fixed 4% | 868 | 46.5 | 1.379 | +0.60 | 52 |
+| fixed 5% | 868 | 48.3 | 1.404 | +0.68 | 59 |
+
+**The geometry WINS decisively** — the best fixed % (5% → 1.404) is far below 1.689, and the geometry earns
+~2× the net P&L ($101k vs $40–59k). No fixed value is competitive. **Validates the core SMB mechanic: the
+stop must ADAPT to the name's own intraday range.** A fixed % is too TIGHT for volatile names (stopped out
+of good trades — fixed-3% PF 1.32) and too WIDE for calm names (gives back too much on losers). `VWAP −
+sessionLow` is a per-name volatility proxy that sizes the stop correctly — same spirit as an ATR stop but
+anchored to the setup's actual VWAP structure. The geometry isn't arbitrary; it does real adaptive work no
+fixed number replicates. **Kept d·2/3 geometry.**

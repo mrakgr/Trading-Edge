@@ -42,6 +42,7 @@ type Args =
     | Wick_Stop
     | No_Target
     | Skip_Tight_Stop
+    | Fixed_Pct_Stop of float
     | Max_Intraday_Tightness of float
 
     interface IArgParserTemplate with
@@ -73,6 +74,7 @@ type Args =
             | Wick_Stop -> "VWAP-reclaim: revert to the WICK stop (triggers when bar.low touches the stop level) instead of the default CLOSE-based stop (bar must CLOSE below the level, ignoring noise wicks)."
             | No_Target -> "VWAP-reclaim: DISABLE the profit target — let winners run to the time-stop / MOC instead of exiting at VWAP+d. Tests whether the target cuts winners short."
             | Skip_Tight_Stop -> "VWAP-reclaim: SKIP a reclaim whose geometric stop is tighter than the min-stop-distance, instead of the default CLAMP (keep the trade, widen the stop to 1%). ~identical at d*2/3."
+            | Fixed_Pct_Stop _ -> "VWAP-reclaim: use a FIXED %-below-entry stop (e.g. 0.03 = 3%) instead of the d*2/3 geometry. 0 (default) = geometry. Tests whether the stop's edge is the VWAP-low geometry or just a sensible fixed distance."
             | Max_Intraday_Tightness _ -> "Intraday tightness CAP at entry: require tightness < this. Default +inf = OFF."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
@@ -114,6 +116,7 @@ let main argv =
                   StopOnClose    = not (parsed.Contains Wick_Stop)
                   UseTarget      = not (parsed.Contains No_Target)
                   ClampStopDist  = not (parsed.Contains Skip_Tight_Stop)
+                  FixedPctStop   = parsed.GetResult(Fixed_Pct_Stop, defaultValue = defaultConfig.Intraday.FixedPctStop)
                   PctStop       = parsed.GetResult(Pct_Stop,        defaultValue = defaultConfig.Intraday.PctStop)
                   TimeStopMin   = parsed.GetResult(Time_Stop_Min,   defaultValue = defaultConfig.Intraday.TimeStopMin) } }
 

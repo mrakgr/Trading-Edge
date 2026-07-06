@@ -166,9 +166,11 @@ type IntradayConfig =
       StopAnchorVwap: bool     // stop anchor: true (default) = VWAP - d*StopDistFrac (a fixed level off
                                // VWAP); false = entry - d*StopDistFrac (floats with the fill).
                                // Target is VWAP + (VWAP-sessionLow) either way.
-      StopDistFrac: float      // stop DISTANCE as a fraction of d = (VWAP-sessionLow). Default 1/3 (tight);
-                               // larger = WIDER stop (0.5 = half the VWAP-low range, 1.0 = full). The
-                               // stop-distance sweep lever.
+      StopDistFrac: float      // stop DISTANCE as a fraction of d = (VWAP-sessionLow). Default 2/3.
+                               // larger = WIDER stop. The GEOMETRIC stop (ignored if FixedPctStop > 0).
+      FixedPctStop: float      // if > 0, use a FIXED %-stop = entry*(1-this) INSTEAD of the d-geometry stop
+                               // (Finding 17: does the stop's edge come from the VWAP-low geometry or just
+                               // from having a cut at a sensible distance?). 0 (default) = use the geometry.
       MinStopDistPct: float    // MIN stop distance as a fraction of entry (Finding 7). When the geometric
                                // stop is tighter than this, either SKIP the trade (ClampStopDist=false) or
                                // CLAMP the stop to this distance (true). Default 0.01 (1%). 0 = off.
@@ -668,7 +670,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 let d = vwap - sLow
                 let target = vwap + d
                 let stopDist = d * cfg.StopDistFrac
-                let rawStop = if cfg.StopAnchorVwap then vwap - stopDist else bar.close - stopDist
+                // stop level: a FIXED %-below-entry (FixedPctStop>0) OR the d-geometry (VWAP- or entry-anchored).
+                let rawStop =
+                    if cfg.FixedPctStop > 0.0 then bar.close * (1.0 - cfg.FixedPctStop)
+                    elif cfg.StopAnchorVwap then vwap - stopDist
+                    else bar.close - stopDist
                 let rawStopDistPct = if bar.close > 0.0 then (bar.close - rawStop) / bar.close else nan
                 // MIN stop-distance handling (Finding 7 / 15). Two modes when the geometric stop is
                 // TIGHTER than MinStopDistPct:
