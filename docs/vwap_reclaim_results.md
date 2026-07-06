@@ -939,3 +939,25 @@ a broad plateau — d/2 4.16, **d·2/3 4.03, d·0.85 4.16 (peak), d 3.94** — d
 **VERDICT: SMB's d/3+d does NOT work as a MECHANICAL hold-to-MOC rule** (it likely works in their
 DISCRETIONARY hands — scaling out, tape-reading, shorter horizon). The edge is momentum-continuation, so any
 fixed target fights it. Keep d·2/3 + no target; d·0.85 is a noise-level alternative not worth changing for.
+
+### Finding 34 — the new features do NOT rescue the SHORT side (they confirm longs≠shorts)
+
+Re-tested the reverse-reclaim short (Finding 22, then PF ~1.25 best) now that we have run-depth, dist/ATR,
+updn-ratio and the exhaustion cut. All features are direction-aware (short uses the ABOVE-VWAP run; updn is
+close-vs-EMA either way). Short book over the fat-book universe (5y): 14,769 trips, **PF 1.026** (near
+breakeven, as before). The features FAIL to lift it — and they explain WHY:
+
+**run_max_dist (strength depth) — DEAD/INVERTED.** Long: deeper dip → bigger reversion (monotone up to PF
+1.69). Short: deeper up-run → WORSE (3.5-6% bucket PF **0.848 / −$67k**, ≥6% 0.968). A big rise into VWAP is
+STRONG MOMENTUM that keeps climbing, not a fade. The single most powerful LONG feature is a NEGATIVE for
+shorts. **run_updn_ratio — FLAT** (all buckets 0.98–1.17): no symmetric "distribution-into-the-breakdown"
+edge, just noise. **run_dist_per_atr — weak, wrong-way, all ~1.0.**
+
+Best stack findable anywhere: shallow(<2%) & volatile(dist/atr<1) = **PF 1.21** (1,313 trips); the triple
+stack thins to PF 1.13 / 299 trips. vs the LONG's PF 4.03 on the identical feature stack. Nothing reaches a
+cost-viable PF (and a short carries extra locate/borrow cost).
+
+**VERDICT: no short side.** This REINFORCES Finding 22 — longs and shorts are NOT mirror images. VwapReclaim
+is a LONG dip-buying/mean-reversion edge specific to the post-2020 regime (beaten-down names reclaiming VWAP
+get BOUGHT); there is no clean short analogue, and sophisticated features don't manufacture one — they just
+measure, precisely, that the edge isn't there on the short. `--reclaim-short` stays a documented negative.
