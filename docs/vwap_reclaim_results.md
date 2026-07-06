@@ -388,3 +388,21 @@ room to breathe. Full-d gives a little back (losers too expensive). **Locked `St
 stop is too tight; the stop WIDTH is what changed here.) Best book now: $100M · morning · rb[11,30] ·
 tight≥4.5 · min-stop≥1% · close-stop · no-target · **stop d·2/3 → PF 1.689 / +1.19% avg / 847 trips**.
 NEXT = by-year stability of the ~1.69 book.
+
+### Finding 15 — min-stop CLAMP vs SKIP: ~identical at d·2/3 (clamp is the principled default now)
+
+When the geometric stop is tighter than the 1% minimum (Finding 7), the original behavior SKIPPED the
+trade. The user's mental model was CLAMP — keep the trade, widen the stop to exactly 1%. Tested both on the
+best book (no-target, stop d·2/3), production cell:
+
+| min-stop mode | n | win% | PF | avg% | net $k |
+|---|---:|---:|---:|---:|---:|
+| SKIP (original) | 847 | 44.7 | 1.689 | +1.19 | 101 |
+| **CLAMP to 1%** | 868 | 44.5 | 1.690 | +1.18 | 102 |
+
+**A dead heat** — clamp adds only 21 trades and PF is unchanged (1.689 vs 1.690). The reason: once the stop
+is d·2/3 WIDE (Finding 14), almost every setup already clears the 1% floor, so the disputed zone is nearly
+empty and the 1% min-stop filter is now largely INERT (it did real work back at d/3 when stops were tight).
+Clamp is the more principled behavior and is harmless-to-marginally-better (the 21 clamped trades perform
+in line with the book), so **made CLAMP the default** (`--skip-tight-stop` reverts). No material effect
+either way at the current stop width.

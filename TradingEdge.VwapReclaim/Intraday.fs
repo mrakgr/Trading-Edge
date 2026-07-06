@@ -169,9 +169,11 @@ type IntradayConfig =
       StopDistFrac: float      // stop DISTANCE as a fraction of d = (VWAP-sessionLow). Default 1/3 (tight);
                                // larger = WIDER stop (0.5 = half the VWAP-low range, 1.0 = full). The
                                // stop-distance sweep lever.
-      MinStopDistPct: float    // MIN stop distance as a fraction of entry (Finding 7): reject reclaims where
-                               // the d/3 stop would be TIGHTER than this (chopped inside 1m noise, stop-out
-                               // rate 62% at <1%). Default 0.01 (1%). 0 = off.
+      MinStopDistPct: float    // MIN stop distance as a fraction of entry (Finding 7). When the geometric
+                               // stop is tighter than this, either SKIP the trade (ClampStopDist=false) or
+                               // CLAMP the stop to this distance (true). Default 0.01 (1%). 0 = off.
+      ClampStopDist: bool      // true = CLAMP a too-tight stop to MinStopDistPct (keep the trade, widen the
+                               // stop); false (default) = SKIP the trade entirely (Finding 7's original).
       MinTightness: float      // MIN intraday tightness at entry (Finding 6): require a name with real range
                                // (tight >= this), not a dead-flat chop. Default 4.5. 0 = off.
       StopOnClose: bool        // true (default) = the stop triggers only when a bar CLOSES at/below the stop
@@ -666,11 +668,20 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 let d = vwap - sLow
                 let target = vwap + d
                 let stopDist = d * cfg.StopDistFrac
-                let stop   = if cfg.StopAnchorVwap then vwap - stopDist else bar.close - stopDist
+                let rawStop = if cfg.StopAnchorVwap then vwap - stopDist else bar.close - stopDist
+                let rawStopDistPct = if bar.close > 0.0 then (bar.close - rawStop) / bar.close else nan
+                // MIN stop-distance handling (Finding 7 / 15). Two modes when the geometric stop is
+                // TIGHTER than MinStopDistPct:
+                //   CLAMP (ClampStopDist=true): keep the trade, but WIDEN the stop so its distance = the
+                //     minimum (place the stop at exactly MinStopDistPct below entry).
+                //   SKIP (false, original): reject the trade entirely.
+                let tooTight = cfg.MinStopDistPct > 0.0 && rawStopDistPct < cfg.MinStopDistPct
+                let stop =
+                    if tooTight && cfg.ClampStopDist then bar.close * (1.0 - cfg.MinStopDistPct)
+                    else rawStop
                 let stopDistPct = if bar.close > 0.0 then (bar.close - stop) / bar.close else nan
-                // MIN stop-distance gate (Finding 7): reject reclaims where the d/3 stop is too tight
-                // (chopped inside 1m noise). Applied here (not in ShouldEnter) as the stop level is computed here.
-                if cfg.MinStopDistPct <= 0.0 || stopDistPct >= cfg.MinStopDistPct then
+                let admit = (not tooTight) || cfg.ClampStopDist
+                if admit then
                  positions.Add
                     { EntryMin = bar.etMin
                       EntryPx = bar.close
