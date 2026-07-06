@@ -366,3 +366,25 @@ read. Kept `UseTarget=false` as a strong candidate default (pending by-year stab
 close-stop · NO target → PF ~1.48 on the production cell.** NEXT = by-year stability (does 1.48 hold
 across years or is it a couple of years?); stack the float/extreme-mover tilts; render the >$1B charts to
 confirm the "mega-caps chop" mechanism visually.
+
+### Finding 14 — ⭐ WIDEN the stop to d·2/3: no-target + wide stop go together → PF 1.478 → 1.689
+
+With the target off (Finding 13) the stop is the ONLY downside cut, so its width matters more. Swept
+`StopDistFrac` (stop = VWAP − d·frac) on the no-target $100M production cell:
+
+| stop width | n | win% | PF | avg% | stop-rate | net $k |
+|---|---:|---:|---:|---:|---:|---:|
+| d/3 (video's rule, old) | 713 | 37.3 | 1.478 | +0.84 | 54.7 | 60 |
+| d/2 | 809 | 42.0 | 1.645 | +1.10 | 45.7 | 89 |
+| **d·2/3** | 847 | 44.7 | **1.689** | **+1.19** | 37.9 | **101** |
+| d (full) | 862 | 47.9 | 1.612 | +1.13 | 24.8 | 97 |
+
+**Inverted-U, peak at d·2/3.** Two effects, both pushing up: (1) the wider stop clears the 1% min-stop
+filter (Finding 7) on more setups (713 → 847 trips); (2) stop-rate collapses 55% → 38% — the reclaim
+survives its initial pullback and runs to MOC instead of getting shaken out. **The tight d/3 was fighting
+the "let it run" thesis** — once you commit to riding the whole move (no target), you must give the trade
+room to breathe. Full-d gives a little back (losers too expensive). **Locked `StopDistFrac = 2/3`.**
+(NOTE: min-stop-distance filter = 1% is STILL ON, unchanged — it's a separate lever, skipping trades whose
+stop is too tight; the stop WIDTH is what changed here.) Best book now: $100M · morning · rb[11,30] ·
+tight≥4.5 · min-stop≥1% · close-stop · no-target · **stop d·2/3 → PF 1.689 / +1.19% avg / 847 trips**.
+NEXT = by-year stability of the ~1.69 book.
