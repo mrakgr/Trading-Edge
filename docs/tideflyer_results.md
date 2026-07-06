@@ -850,5 +850,23 @@ d3>d2: 1.906, d2>d1: 1.872). **A GOOD trade here:** only cuts 21% of the book (v
 because prior-2d≤−5 already selects "already sliding" names that are mostly monotone — so it mainly trims
 the weakest 290 non-monotone names (PF 1.48) for a +0.12 PF lift. Best lever after volfrac for this regime,
 regime-universal (not a fit), already wired (`--require-monotone`). **Non-crash base now: breadth≥0.4 ·
-float≥$2B · volfrac[0.5,1.5] · prior-2d≤−5 · monotone → PF 1.957 / 1,074 trips / 60% win.** NEXT = the 60d
-carve-out (washout OR uptrend); yearly stability of the ~1.96 non-crash base.
+float≥$2B · volfrac[0.5,1.5] · prior-2d≤−5 · monotone → PF 1.957 / 1,074 trips / 60% win.** (60d filter
+LEFT OUT — regime-dependent, fragile, and the book is thin.) NEXT = 1d/3d depth; yearly stability.
+
+## Run 28 — 1d & 3d depth in the non-crash regime: deeper=better (no knife), current thresholds kept LOOSE
+
+On the non-crash base (PF 1.957). Both structural gates are **deeper-is-better, monotone, no falling
+knife** (same as the capitulation regime). Distribution is shallow-clustered (1d median −8%, 3d −18%), so
+the current gates ([−40,−5], 3d≤−15) sit at the LOOSE end — tightening lifts PF but bleeds scarce trips:
+
+| 1d ceiling | n | PF | | 3d ceiling | n | PF |
+|---|---:|---:|---|---|---:|---:|
+| ≤−5 (current) | 1,074 | 1.957 | | ≤−15 (current) | 1,074 | 1.957 |
+| ≤−8 | 535 | 2.189 | | ≤−22 | 214 | 2.577 |
+| ≤−12 | 120 | 2.311 | | ≤−30 | 47 | 3.102 |
+
+Per-band: the shallow cohorts are the weak ones (1d −8..−5 = PF 1.69 / half the book; 3d −22..−15 = 1.77 /
+80% of the book), deeper bands climb to 2.2–2.4 (the tiny <−40 cells are noise, not knives). **Kept BOTH
+loose (user): the base is already thin (1,074) — preserve capacity; depth is a SIZING signal, not a gate**
+(avg%: a −22% 3d name returns ~2.5× a −15% one — size up on depth). If ever tightening ONE, 1d≤−8 (2.19 /
+535) is the cleaner cut (drops exactly the weak shallow half). NEXT = yearly stability of the ~1.96 base.
