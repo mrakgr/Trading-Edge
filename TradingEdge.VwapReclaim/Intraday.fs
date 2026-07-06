@@ -183,6 +183,12 @@ type IntradayConfig =
                                // close. false = the old wick stop (bar.low <= level, fills at the level).
       UseTarget: bool          // true (default) = exit at the VWAP+d profit target. false = NO target — let
                                // winners run to the time-stop / MOC (does the target cut winners short?).
+      ReclaimShort: bool       // MIRROR the reclaim to the SHORT side: enter when the 9-EMA crosses BELOW
+                               // VWAP after sustained STRENGTH (EMA above VWAP for the run). Geometry flips:
+                               // d = sessionHIGH - VWAP; target = VWAP - d (below); stop = VWAP + d*frac
+                               // (above); P&L is short. The weakness run/frac gates read the ABOVE-VWAP
+                               // counters. false (default) = the long reclaim. Tightness/ADV/rvol gates
+                               // and StopDistFrac/UseTarget/StopOnClose all apply symmetrically.
       VolHighFrac: float }     // VOLUME-CONFIRMATION gate as a FRACTION of the running session max 1m-bar
                                // volume: require bar.volume >= VolHighFrac * runVolHi. 1.0 (default) = the
                                // original "must EXCEED the vol high" gate (a new-vol-high bar). 0.95 / 0.90
@@ -218,6 +224,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable belowVwapBars = 0                // # bars where EMA < VWAP, from session start (strictly-prior)
     let mutable emaVwapBars   = 0                // # bars where both EMA & VWAP were defined (the counter denom)
     let mutable runBelowVwap  = 0                // CONSECUTIVE bars EMA<VWAP up to now (resets to 0 on EMA>=VWAP)
+    let mutable aboveVwapBars = 0                // # bars where EMA > VWAP (the short mirror of belowVwapBars)
+    let mutable runAboveVwap  = 0                // CONSECUTIVE bars EMA>VWAP up to now (resets on EMA<=VWAP)
     let maTgt      = match cfg.Target with Ma w -> AvgMa(w)      | _ -> AvgMa(1)   // fast SMA of closes
     let chanTgt    = match cfg.Target with Channel w -> MinMa(w) | _ -> MinMa(1)   // Donchian low (pre-breakout floor)
 
@@ -265,6 +273,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sVwapPrev : float voption = ValueNone   // session VWAP going INTO this bar (strictly-prior)
     let mutable sBelowVwapFrac : float voption = ValueNone   // frac of pre-cross bars with EMA<VWAP (strictly-prior)
     let mutable sRunBelowVwap  : int = 0                     // CONSECUTIVE bars EMA<VWAP going INTO this bar (strictly-prior)
+    let mutable sAboveVwapFrac : float voption = ValueNone   // short mirror: frac of pre-cross bars with EMA>VWAP
+    let mutable sRunAboveVwap  : int = 0                     // short mirror: CONSECUTIVE bars EMA>VWAP into this bar
 
     let positions = ResizeArray<IntradayPosition>()
 
@@ -347,16 +357,20 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             match v with ValueSome x -> test x | ValueNone -> false
         // past the wall-clock trading floor.
         bar.etMin >= cfg.EntryStartMin
-        // the CROSS: EMA was at/below VWAP going into this bar, and is now above it.
+        // the CROSS: long = EMA at/below VWAP going in, now ABOVE (reclaim). short (ReclaimShort) = EMA
+        // at/above VWAP going in, now BELOW (loss-of-VWAP rejection).
         && (match sEmaPrev, sVwapPrev, ema.State, this.LiveVwap with
-            | ValueSome ep, ValueSome vp, ValueSome ec, ValueSome vc -> ep <= vp && ec > vc
+            | ValueSome ep, ValueSome vp, ValueSome ec, ValueSome vc ->
+                if cfg.ReclaimShort then ep >= vp && ec < vc else ep <= vp && ec > vc
             | _ -> false)
-        // sustained weakness: the EMA spent > BelowVwapFrac of the pre-cross session below VWAP.
+        // sustained trend into the cross: long needs > BelowVwapFrac of pre-cross bars BELOW VWAP;
+        // short needs > BelowVwapFrac ABOVE VWAP (same knob, mirrored counter).
         && (cfg.BelowVwapFrac <= 0.0
-            || gate sBelowVwapFrac (fun f -> f > cfg.BelowVwapFrac))
-        // IMMEDIATE weakness: require >= MinRunBelowVwap CONSECUTIVE bars EMA<VWAP right before the cross
-        // (a strong regime-flip reclaim, vs a chop-across). 0 = off.
-        && (cfg.MinRunBelowVwap <= 0 || sRunBelowVwap >= cfg.MinRunBelowVwap)
+            || gate (if cfg.ReclaimShort then sAboveVwapFrac else sBelowVwapFrac) (fun f -> f > cfg.BelowVwapFrac))
+        // IMMEDIATE trend: >= MinRunBelowVwap CONSECUTIVE bars on the trend side right before the cross
+        // (a strong regime-flip, vs a chop-across). 0 = off. Long reads run-below, short reads run-above.
+        && (cfg.MinRunBelowVwap <= 0
+            || (if cfg.ReclaimShort then sRunAboveVwap else sRunBelowVwap) >= cfg.MinRunBelowVwap)
         // intraday tightness FLOOR (Finding 6): require a name with real range, not a dead chop.
         && (cfg.MinTightness <= 0.0 || gate this.Tightness (fun t -> t >= cfg.MinTightness))
         // intraday tightness / ATR% CEILINGS (optional; +inf disables — same as the breakout path).
@@ -443,6 +457,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sVwapPrev <- this.LiveVwap
         sBelowVwapFrac <- if emaVwapBars > 0 then ValueSome (float belowVwapBars / float emaVwapBars) else ValueNone
         sRunBelowVwap  <- runBelowVwap
+        sAboveVwapFrac <- if emaVwapBars > 0 then ValueSome (float aboveVwapBars / float emaVwapBars) else ValueNone
+        sRunAboveVwap  <- runAboveVwap
 
         // 2) fold the bar in. True range vs the prior 1m close.
         match lastBar with
@@ -472,8 +488,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 if e < v then
                     belowVwapBars <- belowVwapBars + 1
                     runBelowVwap  <- runBelowVwap + 1     // extend the consecutive-below streak
+                    runAboveVwap  <- 0                    // EMA below VWAP -> above-streak breaks
+                elif e > v then
+                    aboveVwapBars <- aboveVwapBars + 1
+                    runAboveVwap  <- runAboveVwap + 1     // extend the consecutive-above streak (short mirror)
+                    runBelowVwap  <- 0                    // EMA reclaimed/above VWAP -> below-streak breaks
                 else
-                    runBelowVwap  <- 0                    // EMA reclaimed/at VWAP -> streak breaks
+                    runBelowVwap  <- 0                    // EMA exactly at VWAP -> both streaks break
+                    runAboveVwap  <- 0
             | _ -> ()
 
         // session VWAP always accumulates for this engine (independent of cfg.Target), so the
@@ -518,15 +540,25 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         match pos.State with
         | ExitedAt _ | Skipped | Armed _ -> pos      // reclaim positions are Holding immediately; no Armed
         | Holding ->
-            let stopHit   = if cfg.StopOnClose then bar.close <= pos.StopLevel else bar.low <= pos.StopLevel
-            let targetHit = cfg.UseTarget && bar.high >= pos.TargetLevel
+            // long: stop BELOW (close/low <= level), target ABOVE (high >= level).
+            // short (ReclaimShort): fully mirrored — stop ABOVE (close/high >= level), target BELOW (low <= level).
+            let stopHit =
+                if cfg.ReclaimShort then (if cfg.StopOnClose then bar.close >= pos.StopLevel else bar.high >= pos.StopLevel)
+                else (if cfg.StopOnClose then bar.close <= pos.StopLevel else bar.low <= pos.StopLevel)
+            let targetHit =
+                cfg.UseTarget && (if cfg.ReclaimShort then bar.low <= pos.TargetLevel else bar.high >= pos.TargetLevel)
             if stopHit then
-                // close-based: fill at the close (the bar closed below the stop). wick mode: fill at the
-                // level, but no better than the open if the bar gapped clean through it.
-                let fill = if cfg.StopOnClose then bar.close else min pos.StopLevel bar.``open``
+                // close-based: fill at the close (the bar closed through the stop). wick mode: fill at the
+                // level, but no better than the open if the bar gapped clean through it (worse side per direction).
+                let fill =
+                    if cfg.StopOnClose then bar.close
+                    elif cfg.ReclaimShort then max pos.StopLevel bar.``open``
+                    else min pos.StopLevel bar.``open``
                 { pos with State = ExitedAt (bar.etMin, fill, "stop") }
             elif targetHit then
-                let fill = max pos.TargetLevel bar.``open`` // gap-up through the target fills at the open
+                let fill =
+                    if cfg.ReclaimShort then min pos.TargetLevel bar.``open`` // gap-down through fills at the open
+                    else max pos.TargetLevel bar.``open`` // gap-up through the target fills at the open
                 { pos with State = ExitedAt (bar.etMin, fill, "target") }
             elif cfg.TimeStopMin > 0 && bar.etMin >= pos.EntryMin + cfg.TimeStopMin then
                 { pos with State = ExitedAt (bar.etMin, bar.close, "time_stop") }
@@ -666,16 +698,25 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 // stop = VWAP - d*StopDistFrac (StopAnchorVwap, default) OR entry - d*StopDistFrac.
                 // StopDistFrac scales the stop distance: 1/3 default (tight), larger = WIDER stop.
                 let vwap = this.LiveVwap.Value          // ShouldEnterReclaim required the cross => LiveVwap is ValueSome
-                let sLow = (match runLo with ValueSome l -> l | ValueNone -> bar.low)
-                let d = vwap - sLow
-                let target = vwap + d
+                // d = VWAP-to-extreme distance. Long: VWAP - sessionLow, target ABOVE, stop BELOW.
+                // Short (ReclaimShort): sessionHigh - VWAP, target BELOW, stop ABOVE (fully mirrored).
+                let sExt =
+                    if cfg.ReclaimShort then (match runHi with ValueSome h -> h | ValueNone -> bar.high)
+                    else (match runLo with ValueSome l -> l | ValueNone -> bar.low)
+                let d = if cfg.ReclaimShort then sExt - vwap else vwap - sExt
+                let target = if cfg.ReclaimShort then vwap - d else vwap + d
                 let stopDist = d * cfg.StopDistFrac
-                // stop level: a FIXED %-below-entry (FixedPctStop>0) OR the d-geometry (VWAP- or entry-anchored).
+                // stop level: a FIXED % adverse (FixedPctStop>0) OR the d-geometry (VWAP- or entry-anchored).
+                // Short flips the sign: stop ABOVE entry/VWAP.
                 let rawStop =
-                    if cfg.FixedPctStop > 0.0 then bar.close * (1.0 - cfg.FixedPctStop)
-                    elif cfg.StopAnchorVwap then vwap - stopDist
-                    else bar.close - stopDist
-                let rawStopDistPct = if bar.close > 0.0 then (bar.close - rawStop) / bar.close else nan
+                    if cfg.FixedPctStop > 0.0 then
+                        if cfg.ReclaimShort then bar.close * (1.0 + cfg.FixedPctStop) else bar.close * (1.0 - cfg.FixedPctStop)
+                    elif cfg.StopAnchorVwap then
+                        if cfg.ReclaimShort then vwap + stopDist else vwap - stopDist
+                    else
+                        if cfg.ReclaimShort then bar.close + stopDist else bar.close - stopDist
+                // stop DISTANCE as a positive fraction of entry (adverse excursion), sign-agnostic.
+                let rawStopDistPct = if bar.close > 0.0 then abs (rawStop - bar.close) / bar.close else nan
                 // MIN stop-distance handling (Finding 7 / 15). Two modes when the geometric stop is
                 // TIGHTER than MinStopDistPct:
                 //   CLAMP (ClampStopDist=true): keep the trade, but WIDEN the stop so its distance = the
@@ -683,9 +724,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 //   SKIP (false, original): reject the trade entirely.
                 let tooTight = cfg.MinStopDistPct > 0.0 && rawStopDistPct < cfg.MinStopDistPct
                 let stop =
-                    if tooTight && cfg.ClampStopDist then bar.close * (1.0 - cfg.MinStopDistPct)
+                    if tooTight && cfg.ClampStopDist then
+                        if cfg.ReclaimShort then bar.close * (1.0 + cfg.MinStopDistPct) else bar.close * (1.0 - cfg.MinStopDistPct)
                     else rawStop
-                let stopDistPct = if bar.close > 0.0 then (bar.close - stop) / bar.close else nan
+                let stopDistPct = if bar.close > 0.0 then abs (stop - bar.close) / bar.close else nan
                 let admit = (not tooTight) || cfg.ClampStopDist
                 if admit then
                  positions.Add
@@ -694,7 +736,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       StopLevel = stop
                       BreakoutRef = vwap
                       TargetLevel = target
-                      RunBelowVwapAtEntry = sRunBelowVwap
+                      // record the TREND run into the cross (below-run for long, above-run for short) so the
+                      // rb-band gate/breakdown reads the right counter for either direction.
+                      RunBelowVwapAtEntry = (if cfg.ReclaimShort then sRunAboveVwap else sRunBelowVwap)
                       StopDistPct = stopDistPct
                       AtrPctAtEntry = (match this.AtrPct with ValueSome a -> a | ValueNone -> nan)
                       TightnessAtEntry = (match this.Tightness with ValueSome t -> t | ValueNone -> nan)

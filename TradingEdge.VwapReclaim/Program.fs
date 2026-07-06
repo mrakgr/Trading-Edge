@@ -40,7 +40,8 @@ type Args =
     | Min_Stop_Dist_Pct of float
     | Min_Tightness of float
     | Wick_Stop
-    | No_Target
+    | Use_Target
+    | Reclaim_Short
     | Skip_Tight_Stop
     | Fixed_Pct_Stop of float
     | Max_Intraday_Tightness of float
@@ -72,7 +73,8 @@ type Args =
             | Min_Stop_Dist_Pct _ -> "VWAP-reclaim: MIN stop distance as a fraction of entry (Finding 7). Default 0.01 (1%): skip reclaims whose d/3 stop is too tight (chopped inside 1m noise). 0 = off."
             | Min_Tightness _ -> "VWAP-reclaim: MIN intraday tightness at entry (Finding 6). Default 4.5: require a name with real range, not a dead-flat chop. 0 = off."
             | Wick_Stop -> "VWAP-reclaim: revert to the WICK stop (triggers when bar.low touches the stop level) instead of the default CLOSE-based stop (bar must CLOSE below the level, ignoring noise wicks)."
-            | No_Target -> "VWAP-reclaim: DISABLE the profit target — let winners run to the time-stop / MOC instead of exiting at VWAP+d. Tests whether the target cuts winners short."
+            | Use_Target -> "VWAP-reclaim: RE-ENABLE the VWAP+d profit target (default is NO target — Finding 13: let winners run to MOC; the target caps the momentum-continuation upside)."
+            | Reclaim_Short -> "MIRROR the reclaim to the SHORT side: enter when the 9-EMA crosses BELOW VWAP after sustained STRENGTH (EMA above VWAP for the run). d=sessionHigh-VWAP, target below, stop above, P&L short. All other gates apply symmetrically."
             | Skip_Tight_Stop -> "VWAP-reclaim: SKIP a reclaim whose geometric stop is tighter than the min-stop-distance, instead of the default CLAMP (keep the trade, widen the stop to 1%). ~identical at d*2/3."
             | Fixed_Pct_Stop _ -> "VWAP-reclaim: use a FIXED %-below-entry stop (e.g. 0.03 = 3%) instead of the d*2/3 geometry. 0 (default) = geometry. Tests whether the stop's edge is the VWAP-low geometry or just a sensible fixed distance."
             | Max_Intraday_Tightness _ -> "Intraday tightness CAP at entry: require tightness < this. Default +inf = OFF."
@@ -114,21 +116,27 @@ let main argv =
                   MinStopDistPct = parsed.GetResult(Min_Stop_Dist_Pct, defaultValue = defaultConfig.Intraday.MinStopDistPct)
                   MinTightness   = parsed.GetResult(Min_Tightness,   defaultValue = defaultConfig.Intraday.MinTightness)
                   StopOnClose    = not (parsed.Contains Wick_Stop)
-                  UseTarget      = not (parsed.Contains No_Target)
+                  UseTarget      = parsed.Contains Use_Target
                   ClampStopDist  = not (parsed.Contains Skip_Tight_Stop)
                   FixedPctStop   = parsed.GetResult(Fixed_Pct_Stop, defaultValue = defaultConfig.Intraday.FixedPctStop)
                   PctStop       = parsed.GetResult(Pct_Stop,        defaultValue = defaultConfig.Intraday.PctStop)
-                  TimeStopMin   = parsed.GetResult(Time_Stop_Min,   defaultValue = defaultConfig.Intraday.TimeStopMin) } }
+                  TimeStopMin   = parsed.GetResult(Time_Stop_Min,   defaultValue = defaultConfig.Intraday.TimeStopMin)
+                  // --reclaim-short mirrors the whole system to the short side (Short flips P&L, ReclaimShort flips signal).
+                  ReclaimShort   = parsed.Contains Reclaim_Short
+                  Short          = parsed.Contains Reclaim_Short || defaultConfig.Intraday.Short } }
 
-    printfn "VwapReclaim backtest — SMB VWAP x %d-EMA reclaim (LONG-only intraday)" cfg.Intraday.EmaPeriod
+    printfn "VwapReclaim backtest — SMB VWAP x %d-EMA reclaim (%s intraday)" cfg.Intraday.EmaPeriod
+        (if cfg.Intraday.ReclaimShort then "SHORT / loss-of-VWAP" else "LONG / reclaim")
     printfn "  db          = %s" dbPath
     printfn "  minute_aggs = %s" minuteDir
     printfn "  range       = %O .. %O" startDate endDate
-    printfn "  entry from  = %02d:%02d ET   below-VWAP frac > %.2f   %s"
-        (cfg.Intraday.EntryStartMin / 60) (cfg.Intraday.EntryStartMin % 60) cfg.Intraday.BelowVwapFrac
+    printfn "  entry from  = %02d:%02d ET   %s-VWAP frac > %.2f   %s"
+        (cfg.Intraday.EntryStartMin / 60) (cfg.Intraday.EntryStartMin % 60)
+        (if cfg.Intraday.ReclaimShort then "above" else "below") cfg.Intraday.BelowVwapFrac
         (if cfg.Intraday.TimeStopMin > 0 then sprintf "time-stop %dm" cfg.Intraday.TimeStopMin else "hold-to-MOC")
-    printfn "  stop anchor = %s   target = VWAP + (VWAP - sessionLow)"
-        (if cfg.Intraday.StopAnchorVwap then "VWAP - (VWAP-low)/3" else "entry - (VWAP-low)/3")
+    printfn "  stop anchor = %s   target = %s"
+        (if cfg.Intraday.StopAnchorVwap then "VWAP -/+ d*frac" else "entry -/+ d*frac")
+        (if cfg.Intraday.UseTarget then "VWAP -/+ (VWAP - sessionExtreme)" else "NO target (run to MOC)")
     printfn "  gates       = tightness %s   log-ATR %s"
         (if Double.IsInfinity cfg.Intraday.MaxTightness then "off" else sprintf "<%.2f" cfg.Intraday.MaxTightness)
         (if Double.IsInfinity cfg.Intraday.MaxAtrPct then "off" else sprintf "<%.3f" cfg.Intraday.MaxAtrPct)

@@ -76,7 +76,8 @@ let defaultConfig =
           ClampStopDist = true           // (moot while MinStopDistPct=0) clamp-vs-skip for a too-tight stop.
           MinTightness = 4.5             // Finding 6: require a name with real range (tightness >= 4.5).
           StopOnClose = true             // stop triggers only on a CLOSE below the level (ignore noise wicks).
-          UseTarget = true }             // exit at the VWAP+d target (--no-target lets winners run to MOC).
+          UseTarget = false              // NO target by default (Finding 13: winners run to MOC). --use-target re-enables VWAP+d.
+          ReclaimShort = false }         // LONG reclaim by default; --reclaim-short mirrors to the short side.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
@@ -188,7 +189,8 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           ExitMin = exitMin
           ExitPrice = exitPx
           ExitReason = reason
-          RetMoc = (if pos.EntryPx > 0.0 then exitPx / pos.EntryPx - 1.0 else nan)
+          // long: gain when price rises (exit/entry-1); short: gain when price falls (entry/exit-1).
+          RetMoc = (if pos.EntryPx > 0.0 then (if short then pos.EntryPx / exitPx - 1.0 else exitPx / pos.EntryPx - 1.0) else nan)
           DayClose = c.DayClose
           CloseFwd1d = c.CloseFwd1d
           CloseFwd3d = c.CloseFwd3d

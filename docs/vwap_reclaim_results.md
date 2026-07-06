@@ -546,3 +546,51 @@ beats `all` — a mild lift, fully explained by excluding the no-data junk. **Ve
 gate; ADV already does its work. Float stays a documented non-lever for this system** (unlike float being
 a headline lever for the multi-day longs — an intraday reclaim just isn't a float-squeeze play). Contrast
 with Finding 12's "big wins at >10B" tilt, which shrinks to PF 1.14 here — also not worth wiring.
+
+### Finding 22 — the SHORT mirror (loss-of-VWAP) is STRUCTURALLY WEAK: PF ~1.25 best vs 2.07 long
+
+Mirrored the whole system to the short side (`--reclaim-short`): enter when the 9-EMA crosses BELOW VWAP
+after sustained STRENGTH (EMA above VWAP for the run), geometry flipped — d = sessionHIGH − VWAP, target
+VWAP−d (below), stop VWAP+d·frac (above), P&L short. All gates apply symmetrically (the rb-band now reads
+the ABOVE-VWAP run). Engine change verified P&L-BYTE-NEUTRAL for the long (every entry/exit/reason/net_pnl
+identical; only the `stop_dist_pct` diagnostic went sign-consistent). Same production cell (morning
+10:00–13:30, rb[11,30], tight≥4.5), same wide universe, same settled exit (no-target, close-stop d·2/3).
+
+**Short ADV per-bucket (production cell):**
+
+| ADV bucket | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| <10M | 2036 | 43.7 | 1.008 | +0.81 |
+| 10–30M | 815 | 43.8 | 0.897 | +0.24 |
+| **30–100M** | 543 | 49.9 | **1.273** | +0.76 |
+| 100–300M | 213 | 44.1 | 1.070 | +0.42 |
+| 300M–1B | 54 | 33.3 | 1.076 | +1.23 |
+| >1B | 22 | 27.3 | 0.571 | −0.58 |
+
+Best cell **30M–1B → PF 1.206** (vs the LONG's **2.073** on the byte-identical cell). Every ADV tier is
+~breakeven-to-1.27 — there is no tier where the short has a real edge. Exit-tuning doesn't rescue it:
+
+| short exit variant (30M–1B) | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| **baseline: no-target, d·2/3** | 810 | 47.3 | **1.206** | +0.70 |
+| d/2 stop | 810 | 44.8 | 1.249 | +0.73 |
+| d stop | 810 | 50.1 | 1.222 | +0.83 |
+| WITH target | 810 | 57.3 | **1.000** | +0.20 |
+
+No stop width lifts it past ~1.25, and adding a target KILLS it (PF→1.00 — same asymmetry as the long:
+the target caps the momentum-continuation move). **This is a SIGNAL problem, not an exit problem.**
+Mechanism: the long reclaim is a momentum-continuation play that works because intraday DIPS in liquid
+in-play names get BOUGHT (reclaim-of-VWAP rides the long-side drift). The short mirror fights that same
+drift — "loss of VWAP after strength" is a much noisier, weaker edge because the dip-buying that powers the
+long is exactly what fades the short. **Consistent with the LowFlyer(long)/MaxFlyerV2(short) lesson: longs
+and shorts are DIFFERENT books, not mirror images.** VERDICT: **do NOT trade the reverse-reclaim short.**
+The `--reclaim-short` path stays in the engine as a documented negative result (and for future asymmetric
+short research), but VwapReclaim remains a LONG-only system.
+
+### Note — `UseTarget` default flipped to FALSE (matches the settled system)
+
+Since Finding 13 (no-target wins) all research has been run with `--no-target`, but the engine DEFAULT
+still had `UseTarget=true` — so a bare `dotnet run` printed the WRONG (target-on) book, a footgun for
+sharing/repro. Flipped: `UseTarget=false` is now the default (a bare run reproduces the settled no-target
+system); the flag inverted to `--use-target` to re-enable the VWAP±d target for testing. No research
+numbers change (every finding already used no-target).
