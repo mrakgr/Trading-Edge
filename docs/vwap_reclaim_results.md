@@ -406,3 +406,21 @@ empty and the 1% min-stop filter is now largely INERT (it did real work back at 
 Clamp is the more principled behavior and is harmless-to-marginally-better (the 21 clamped trades perform
 in line with the book), so **made CLAMP the default** (`--skip-tight-stop` reverts). No material effect
 either way at the current stop width.
+
+### Finding 16 — NO stop at all is WORSE: the d·2/3 stop cuts a real disaster tail (asymmetry confirmed)
+
+The logical endpoint of "widen the stop" (Finding 14): remove it entirely (pure hold-to-MOC). Tested on
+the best book (no-target), production cell:
+
+| exit | n | win% | PF | avg% | net $k | worst trade |
+|---|---:|---:|---:|---:|---:|---:|
+| **stop d·2/3 (current)** | 847 | 44.7 | **1.689** | +1.19 | **101** | −21.2% |
+| NO STOP (hold to MOC) | 868 | 50.3 | 1.541 | +1.06 | 92 | −36.8% |
+
+**No stop is WORSE** (PF 1.689 → 1.541, net $101k → $92k) — the OPPOSITE signature of removing the target
+(Finding 13). Removing the target: win↓ PF↑ (it capped winners). Removing the stop: **win↑ (50.3%) but
+PF↓** — without a stop more dips recover green by MOC (+5.6% win), BUT the ones that don't run to a
+**−36.8% catastrophic MOC loss** vs −21% cut. The fat left tail eats the extra small wins. **So the exit
+structure is a clean ASYMMETRY, exactly right for a momentum-continuation play: KEEP the stop (cut the
+disaster tail, d·2/3 width) + NO target (let winners run).** The d·2/3 stop beats tighter stops (Finding
+14) AND no stop — a genuine local optimum. Confirmed; no change.
