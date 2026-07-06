@@ -187,14 +187,18 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
     | Armed _ | Skipped -> failwith "toTrip called on an Armed/Skipped (never-filled) position (filter these out)"
 
 // ===========================================================================
-// Pipeline 1 — read qualifying (ticker, day) rows from mr_candidate.
+// Pipeline 1 — read qualifying (ticker, day) rows from vwap_reclaim_candidate:
+// mr_candidate PRE-PRUNED to the in-play universe (ADV = avgvol20*day_close >= $1M AND
+// rvol_0945 > 1), built by scripts/equity/build_vwap_reclaim_candidate.fsx. Folding these
+// two Layer-1 filters in up front (was post-hoc on the trips CSV) streams ~5x fewer
+// ticker-days (161,979 / 850,107 = 19% of mr_candidate).
 // ===========================================================================
 let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: DateOnly) : Candidate[] =
     use cmd = conn.CreateCommand()
     cmd.CommandText <-
         "SELECT ticker, date, prev_adj_close, close_3d, close_7d, day_close, adj_ratio, avgvol20,
                 close_fwd_1d, close_fwd_3d, close_fwd_5d, day_open, med_bar_vol_0945, nbar_0945, vol_0945
-         FROM mr_candidate
+         FROM vwap_reclaim_candidate
          WHERE date >= $start AND date <= $end
          ORDER BY ticker, date"
     let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- startDate; cmd.Parameters.Add pStart |> ignore

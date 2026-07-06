@@ -59,11 +59,18 @@ play" premarket-activity ratio.
     cross (the newer, better feature — see Finding 3),
 - earliest entry **09:45 ET** (`EntryStartMin`), tightness / ATR% gates **OFF** by default.
 
-### Layer 3 — post-hoc "in-play" gates (SQL join to `mr_candidate`, applied on the trips CSV)
+### Layer 3 — the "in-play" gates (NOW FOLDED INTO LAYER 1 as of this session)
 - **ADV ≥ $1,000,000** where **ADV = `avgvol20` × `day_close`** (20-day average dollar volume — a real
   liquidity floor so the name can actually be traded and the target reached),
 - **`rvol_0945` > 1** (the stock is trading at MORE than its normal volume into the open — genuinely
   "in play," not just clearing the loose Layer-1 floor of 0.1).
+
+These were originally applied POST-HOC (SQL join on the trips CSV). They are now baked into a dedicated
+`vwap_reclaim_candidate` table (`scripts/equity/build_vwap_reclaim_candidate.fsx` — a strict subset of
+`mr_candidate`: 161,979 / 850,107 rows = **19%**), which the engine reads instead of `mr_candidate`. This
+streams ~5× fewer ticker-days (byte-identical results verified: 79,650 trips / PF 0.846 either way) and
+shrinks the trips CSV ~3× (93MB → 32MB). `mr_candidate` is untouched, so LowFlyer/MaxFlyerV2 are
+unaffected. **All Layer-3 PF numbers below already reflect these gates.**
 
 **Not yet applied / explicitly out:** intraday tightness & ATR% gates (OFF), any 1d-return condition
 (deferred), the time-of-day window (studied in Finding 4 but not yet a locked gate), and any wider /
