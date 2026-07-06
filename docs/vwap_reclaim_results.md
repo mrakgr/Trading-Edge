@@ -462,3 +462,21 @@ close-stop · NO target · stop d·2/3 → PF 1.69 / +1.19% avg / 868 trips (~17
 fully stress-tested: d·2/3 beats tighter (F14), no-stop (F16), and fixed-% (F17); close-trigger beats wick
 (F11); no-target beats target (F13). Every choice is a confirmed local optimum. NEXT (the make-or-break) =
 by-year stability of this ~1.69 book.
+
+### Finding 19 — tightness ≥ 4.5 RE-CONFIRMED under the new exits (still load-bearing)
+
+Re-ran the tightness breakdown on the CURRENT exit structure (no-target, d·2/3, close-stop) — tightness was
+locked (Finding 6) back when we still had a target + d/3 stop, so worth re-checking. Morning × rb[11,30],
+tightness gate OFF:
+
+| tightness | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| 2-3 | 135 | 35.6 | 1.041 | +0.06 |
+| 3-4.5 | 1,174 | 41.0 | 1.499 | +0.83 |
+| **4.5-6** | 750 | 43.2 | **1.740** | +1.26 |
+| 6-9 | 118 | 52.5 | 1.387 | +0.65 |
+
+Cumulative: no gate 1.562 → **`≥4.5` 1.693** (peak) → `≥6` 1.387 (over-filtered, thin). **tight ≥ 4.5
+still correct** — lifts the book ~0.13 PF by cutting the weak 2-4.5 slow-movers, keeping the 4.5-6 sweet
+spot; ≥6 over-filters. If anything it matters MORE now that winners run to MOC — you need names that KEEP
+MOVING all day, not ones that reclaim then die flat. No change.
