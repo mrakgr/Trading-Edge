@@ -658,3 +658,41 @@ pre-2020. **NOT disqualifying** (6+ modern years, every one positive, improving)
 honest pitch from "22-year-robust" to **"a post-2020 intraday edge, flat before COVID — trade it as a
 modern-regime system, with the standing risk that a reversion to pre-2020 dynamics takes the edge with
 it."** This is the key caveat for any live deployment or external share.
+
+### Finding 26 — rvol_0945 floor sweep: PF is MONOTONE in rvol; loosening below 1.0 adds uneconomic trips
+
+Tested loosening the candidate `rvol_0945 > 1` gate to ≥0.5 and ≥0.25 (built `vwap_reclaim_candidate_rvol025`
+= $30M ADV + rvol≥0.25, 173k rows; ran the default fat book over it, 5y). Bucketed on `rvol_0945` (the
+09:45 15-min relative volume — the candidate gate, NOT the per-trip `bar_rvol_15m`):
+
+| rvol_0945 bucket | n | PF | avg% | net$k |
+|---|---:|---:|---:|---:|
+| 0.25–0.5 | 17,895 | 1.090 | +0.089 | 159 |
+| 0.5–0.75 | 5,511 | 1.228 | +0.271 | 149 |
+| 0.75–1.0 | 3,356 | 1.154 | +0.204 | 68 |
+| 1.0–2.0 | 6,010 | 1.222 | +0.311 | 187 |
+| 2.0–5.0 | 4,233 | **1.713** | +1.153 | 488 |
+| ≥5.0 | 4,664 | 1.291 | +0.743 | 346 |
+
+**PF rises ~monotonically with rvol** (more "in play" = cleaner reclaim; the 2–5 bucket is the star at PF
+1.71). Cumulative floors: ≥0.25 → PF 1.25 / $1398k; ≥0.5 → 1.33 / $1239k; ≥1.0 (current) → **1.38 /
+$1021k**; ≥2.0 → 1.45 / $835k. Loosening adds NET DOLLARS but at falling quality. By-year: both ≥0.5 and
+≥0.25 stay positive EVERY year (no regime hole), and even the 0.25–0.5 band alone is positive every year
+(PF 1.02–1.11) — but **thin and eroding** (1.09 in 2020 → 1.02 in 2025).
+
+**The cost test settles it.** The 0.25–0.5 band's +0.089% gross avg is SMALLER than realistic execution
+friction:
+
+| bucket | gross avg% | net @10bps | net @20bps |
+|---|---:|---:|---:|
+| **0.25–0.5** | +0.089 | **−0.011** | **−0.111** |
+| 0.5–0.75 | +0.271 | +0.171 | +0.071 |
+| 0.75–1.0 | +0.204 | +0.104 | +0.004 |
+| ≥1.0 | +0.685 | +0.585 | +0.485 |
+
+The 0.25–0.5 slice goes NET-NEGATIVE under a modest 10bps round-trip cost — gross-positive but uneconomic.
+0.5–1.0 survives 10bps (marginal at 20bps); ≥1.0 has a large cushion. **DECISION: keep `rvol > 1` as the
+default gate** (cleanest, best cost-adjusted, and rvol is monotone so per-trade edge peaks here). ≥0.5 is a
+defensible loosening if raw volume is wanted (PF 1.33, +9k trips, positive every year), but ≥0.25 is too
+far. **Better use of rvol = a SIZING lever** (size UP the 2–5 bucket at PF 1.71, DOWN the 0.5–1.0 band)
+rather than a binary gate. No change to defaults.
