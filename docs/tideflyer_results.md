@@ -769,3 +769,67 @@ OPPOSITE of the big-float-quality thesis. Drop-top-3 → PF 3.73→2.19; by-year
 names — reinforces the float-data-quality caveat; the volfrac≥0.5 floor already excludes most of it.**
 NEXT = test whether prior-2d / 60d / ATR% / tightness carry in this regime too; yearly stability of the
 1.741 base.
+
+## Run 25 — ATR% & tightness in the non-crash regime: MARGINAL & messy → NOT worth wiring (thin book)
+
+On the base (breadth≥0.4 & float≥2B & volfrac[0.5,1.5], PF 1.741). **Both behave DIFFERENTLY than in the
+capitulation regime — neither is a clean strong lever here.**
+
+**ATR% (log) — a noisy DOUBLE-HUMP, not the crash regime's monotone ramp:** 0.05–0.08 PF 1.81, a DIP at
+0.08–0.10 (1.43), then 0.10–0.15 back up to 1.92. Cumulative: atr<0.08 → 1.677, atr≥0.10 → 2.175 (241
+trips) — BOTH the low ceiling and the high floor beat base modestly, so the *middle* is the weak spot, not
+a clean one-sided edge. The HighFlyer inversion (high-vol good) is directionally still faintly there but
+MUDDY — in a healthy tape the washout is idiosyncratic, so violent vol is a less reliable "systemic
+overreaction" signal than in a crash.
+
+**Tightness — a genuine inverted-U peaking at 4.5–6 (PF 2.05), INVERTS HighFlyer's `<4.5` ceiling:**
+2–3 PF 1.38 → 3–4.5 1.62 → **4.5–6 2.05** → 6–9 1.79. `tight<4.5` is a DRAG (1.574 < base); you want some
+recent range expansion (4.5–6), NOT a dead-flat coiled spring. The cleaner of the two signals, but a
+NARROW band (506 trips).
+
+**Decision (user): NOT wiring either.** The gains are marginal (best single cuts atr≥0.10 → 2.18 / 241
+trips, tight[4.5,6] → 2.05 / 506 trips — both thin and possibly sample-driven) and the book is ALREADY thin
+(1,519 trips). Adding narrow ATR%/tightness bands would shrink it further for a marginal, fragile lift.
+In this regime ATR%/tightness are SECOND-ORDER — the edge is carried by float + volfrac, not the vol-shape
+gates. NEXT = 60d washout & prior-2d in this regime.
+
+## Run 26 — 60d & prior-2d in the non-crash regime: prior-2d CARRIES, 60d does NOT (it inverts)
+
+On the base (breadth≥0.4 & float≥2B & volfrac[0.5,1.5], PF 1.741). The two return-lookback gates split
+cleanly — a genuinely informative regime divergence.
+
+**prior-2d (TRUE close[t−1]/close[t−3]−1) CARRIES — same "already sliding" shape as every regime:**
+
+| prior-2d | n | PF | avg% |
+|---|---:|---:|---:|
+| **−20..−15** | 148 | **2.365** | +4.0 |
+| **−15..−10** | 582 | **1.975** | +3.2 |
+| −10..−5 | 543 | 1.671 | +2.1 |
+| −5..0 | 120 | 1.145 | +0.7 |
+| >0 | 35 | 0.980 | −0.1 (bolt-from-the-blue, a loss) |
+
+Cumulative: p2d≤−10 → 1.935 (821), **p2d≤−5 → 1.837 (1,364)**, p2d≤0 → 1.763. A universal lever — a
+big-float name already bleeding 2 days into today's flush reverts better than an isolated crack. **SET
+`p2d≤−5` (not −10): user's call — with so few trips, keep 1,364 @ 1.837 over 821 @ 1.935; the +0.10 PF
+isn't worth halving the book.** Base now → **breadth≥0.4 · float≥2B · volfrac[0.5,1.5] · prior-2d≤−5 →
+PF 1.837 / 1,364 trips / 58% win.**
+
+**60d does NOT carry — it INVERTS to a U/W-shape (the crash-regime washout ceiling is WRONG here):**
+
+| 60d return | n | PF |
+|---|---:|---:|
+| **<−40 (deep washout)** | 297 | **2.233** |
+| −25..−15 | 182 | **0.908** ← a LOSS, the dead middle |
+| −8..0 | 105 | 1.881 |
+| **>+15 (60d UPTREND)** | 363 | **2.141** |
+
+Two winning cohorts at OPPOSITE ends — deep washout (2.23) OR a 60d UPTREND pullback (>+15 → 2.14) — with
+a dead mush in the middle (−25..−15 loses). `60d≤−40` gives 2.23 but only 297 trips; `60d≤−25` → 1.736
+(≈ base, no lift); `60d≤−15` → 1.559 (WORSE). **`60d>0 → PF 1.982`** (uptrend-pullback beats the base!).
+This is the Run-6 15d U-shape re-emerging: the capitulation gate had KILLED the uptrend-pullback cohort,
+but in the NORMAL regime it's back — a big-float name in a 60d uptrend that dips today is a healthy
+pullback, not a washout. **CONCLUSION: the `60d≤−40` washout ceiling from the crash regime is the WRONG
+gate here** — it throws away the uptrend-pullback co-winner. The non-crash book wants either NO 60d gate or
+a carve-out (washout OR uptrend, exclude the −25..−15 middle), NOT the washout ceiling. prior-2d (short
+window, momentum) is regime-universal; 60d (long window, trend context) is regime-DEPENDENT. NEXT =
+optionally the 60d carve-out on top of prior-2d; yearly stability of the ~1.84 non-crash base.
