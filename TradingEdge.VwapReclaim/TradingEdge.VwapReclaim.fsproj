@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- VwapReclaim: SMB-style intraday VWAP x 9-EMA cross scalp (long-only).
+       Byte-cloned from LowFlyer; the entry gate + stop/target geometry are being
+       replaced (long when the 9-EMA crosses above session VWAP; stop/target sized
+       off VWAP and the running session low). Same two-pipeline architecture:
+       pipeline 1 = SELECT from mr_candidate; pipeline 2 = the intraday 1m engine
+       (Intraday.fs). Self-contained (reads trading.db + minute_aggs parquets). -->
+  <ItemGroup>
+    <Compile Include="Intraday.fs" />
+    <Compile Include="Backtest.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../TradingEdge.RollingMa/TradingEdge.RollingMa.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Argu" Version="6.2.5" />
+    <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.4" />
+    <PackageReference Include="Nito.Collections.Deque" Version="1.2.1" />
+  </ItemGroup>
+
+</Project>

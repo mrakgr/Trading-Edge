@@ -148,6 +148,24 @@ let lagPctChange (m: LagMa<float>) : float voption =
     | ValueSome curr, ValueSome old when old > 0.0 -> ValueSome (curr / old - 1.0)
     | _ -> ValueNone
 
+/// Exponential moving average — a RECURSIVE accumulator, NOT a windowed structure:
+/// `ema = α·x + (1−α)·ema_prev`, with `α = 2/(period+1)` (the standard EMA smoothing).
+/// Seeded with the first pushed value (the conventional cold-start; no SMA warm-up), so
+/// `.State` is defined from the FIRST push. Read `.State` BEFORE `Push`-ing the current
+/// bar for the strictly-prior (no-lookahead) value, exactly like the RollingMa types.
+[<Sealed>]
+type EmaMa(period: int) =
+    let alpha = 2.0 / (float period + 1.0)
+    let mutable ema : float voption = ValueNone
+    /// The current EMA, or ValueNone before the first push.
+    member _.State = ema
+    member _.Push (x: float) =
+        ema <-
+            match ema with
+            | ValueSome prev -> ValueSome (alpha * x + (1.0 - alpha) * prev)
+            | ValueNone      -> ValueSome x     // seed with the first value
+    member _.Reset () = ema <- ValueNone
+
 /// Rolling MEAN over a CALENDAR-day interval (not a fixed bar count), matching
 /// v0's `stock_volume_4w` window: `RANGE BETWEEN INTERVAL <days> DAYS PRECEDING
 /// AND INTERVAL 1 DAY PRECEDING`. Bars are evicted by date, so the number of
