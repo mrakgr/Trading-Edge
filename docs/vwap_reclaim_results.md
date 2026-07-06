@@ -696,3 +696,50 @@ default gate** (cleanest, best cost-adjusted, and rvol is monotone so per-trade 
 defensible loosening if raw volume is wanted (PF 1.33, +9k trips, positive every year), but ≥0.25 is too
 far. **Better use of rvol = a SIZING lever** (size UP the 2–5 bucket at PF 1.71, DOWN the 0.5–1.0 band)
 rather than a binary gate. No change to defaults.
+
+### Finding 27 — VOLUME DURING THE CONVERGENCE (Jeff's cue): trailing-20m rvol, inverted-U on the 15m baseline
+
+Jeff flagged in the video that volume should be RISING during the EMA→VWAP convergence. Implemented two
+trailing-20m volume features (mean 1m volume over the last 20 bars incl. the cross bar — "volume during the
+convergence", vs the LowFlyer single-BAR rvols):
+- `rvol20m_20d` = vol20m_avg / (avgvol20/390)  — the 20m window vs the 20-DAY per-minute baseline ("hot vs normal")
+- `rvol20m_15m` = vol20m_avg / (vol_0945/nbar_0945) — the 20m window vs the OPENING-15m per-minute avg (ACCELERATION)
+Recorded-only (no gating); engine folds a new `vol20 = AvgMa(20)`. Fat book (5y, 14,907 trips).
+
+**`rvol20m_20d` — WEAK lever.** PF ~1.3–1.5 across all buckets ≥2, no monotone; cumulative floors flat
+(≥2 → 1.38, ≥8 → 1.385). It just re-expresses "the name is in play", which the `rvol_0945>1` gate already
+captures. Not worth wiring.
+
+**`rvol20m_15m` — THE signal, and it's an INVERTED-U (Jeff's cue, quantified):**
+
+| rvol20m_15m | n | PF | avg% | net$k |
+|---|---:|---:|---:|---:|
+| <0.25 | 5,551 | 1.287 | +0.46 | 257 |
+| 0.25–0.5 | 5,975 | 1.282 | +0.53 | 319 |
+| **0.5–1** | 2,904 | **1.713** | +1.35 | 393 |
+| **1–2** | 404 | **1.691** | +1.74 | 70 |
+| 2–4 | 55 | 0.424 | −2.37 | −13 |
+| ≥4 | 18 | 0.732 | −2.68 | −5 |
+
+The sweet spot is **[0.5, 2]× the opening-15m tempo** = "volume sustained/rising into the convergence"
+(PF ~1.70, avg +1.4–1.7%) — exactly Jeff's cue. Below 0.5 (volume died off since the open) is mediocre
+(PF ~1.28). Above 2× it **INVERTS to a loss** (PF 0.42–0.73): a violent 20m volume re-acceleration is a
+blow-off/EXHAUSTION spike, not a healthy convergence (same exhaustion signature the LowFlyer short fades).
+
+**The [0.5, 2] BAND cut: 3,308 trips / PF 1.709 / +1.40% avg — beats the full fat book (1.376) EVERY YEAR:**
+
+| yr | band n | band PF | full PF | | >2 tail PF | >2 avg% |
+|---|---:|---:|---:|---|---:|---:|
+| 2020 | 260 | 2.31 | 1.67 | | 0.13 | −3.3 |
+| 2021 | 1501 | 1.31 | 1.17 | | 0.22 | −6.5 |
+| 2022 | 800 | 1.39 | 1.33 | | 0.42 | −1.5 |
+| 2023 | 385 | 2.40 | 1.92 | | 0.79 | −0.7 |
+| 2024 | 260 | 2.60 | 1.67 | | 8.28 | +14.4 (8 trips, noise) |
+| 2025 | 102 | 3.25 | 1.39 | | 0.00 | −17.1 |
+
+The band beats the book every year (often ~2×) and STRENGTHENS recently. The **>2 exhaustion tail is
+reliably toxic** (PF 0.13–0.79 in 5 of 6 years, only 2024's 8 trips positive = noise) — a genuine GATE, not
+just a size-down. **Recommended use: (a) EXCLUDE rvol20m_15m > 2 (exhaustion gate), (b) SIZE UP the [0.5,2]
+band, size down <0.5.** Kept recorded-only for now (the hard gate needs the 15m baseline threaded into the
+IntradaySystem constructor — the features live in `toTrip`, not the entry predicate — deferred until we
+commit to gating). This is the best new selection lever since the fat-book work.

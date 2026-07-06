@@ -141,6 +141,12 @@ type Trip =
                                  // = vol_0945 / nbar_0945 (RTH 09:30-09:45 sum / bar count). Discriminates
                                  // OPPOSITELY by side: extreme spikes (>=40x) = exhaustion blow-off that
                                  // fades on the SHORT (pop-fade PF 1.0->2.0), but falling-knife on the LONG.
+      Rvol20m20d: float          // trailing-20m mean 1m volume / (avgvol20/390) — the last 20 minutes' volume
+                                 // vs the name's 20-DAY per-minute baseline. "Is the convergence running hot
+                                 // vs normal?" (Jeff's rising-volume-into-the-reclaim cue, 20m window not 1 bar).
+      Rvol20m15m: float          // trailing-20m mean 1m volume / (vol_0945/nbar_0945) — the last 20 minutes'
+                                 // volume vs the OPENING-15m per-minute average. >1 = volume ACCELERATING since
+                                 // the open into the reclaim (the acceleration measure, vs the 20d "hot" one).
       CumVolToEntry: int64       // cumulative day volume through the entry bar
       PctChgSinceOpen: float     // entryPx / dayOpen - 1
       Close1d: float             // close-1-day-ago (adj) = PrevAdjClose
@@ -190,6 +196,13 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           BarRvol15m =
               (let meanBarVol15m = if c.NBar0945 > 0 then float c.Vol0945 / float c.NBar0945 else nan
                if meanBarVol15m > 0.0 then float pos.BreakoutBarVol / meanBarVol15m else nan)
+          // trailing-20m mean 1m volume vs (a) the 20-day per-minute baseline and (b) the opening-15m avg.
+          Rvol20m20d =
+              (let perMin20d = c.AvgVol20 / 390.0   // 390 RTH minutes/day
+               if perMin20d > 0.0 && not (Double.IsNaN pos.Vol20mAvgAtEntry) then pos.Vol20mAvgAtEntry / perMin20d else nan)
+          Rvol20m15m =
+              (let meanBarVol15m = if c.NBar0945 > 0 then float c.Vol0945 / float c.NBar0945 else nan
+               if meanBarVol15m > 0.0 && not (Double.IsNaN pos.Vol20mAvgAtEntry) then pos.Vol20mAvgAtEntry / meanBarVol15m else nan)
           CumVolToEntry = pos.CumVolAtEntry
           PctChgSinceOpen = (if c.DayOpen > 0.0 then pos.EntryPx / c.DayOpen - 1.0 else nan)
           Close1d = c.PrevAdjClose
@@ -375,7 +388,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,entry_bar_open,prev_bar_close,chg_20m,run_low_at_entry,intraday_atr_pct_at_entry,intraday_tightness_at_entry,"
-    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
+    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,rvol20m_20d,rvol20m_15m,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,med_bar_vol_0945,"
     + "qty,net_pnl,bars_held_min"
@@ -401,6 +414,8 @@ let private row (t: Trip) : string =
         string t.RunBelowVwap
         fmt t.StopDistPct
         fmt t.BarRvol15m
+        fmt t.Rvol20m20d
+        fmt t.Rvol20m15m
         string t.CumVolToEntry
         fmt t.PctChgSinceOpen
         fmt t.Close1d

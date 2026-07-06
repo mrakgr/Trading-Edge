@@ -72,6 +72,9 @@ type IntradayPosition =
       BreakoutBarOpen: float   // the entry (breakout) bar's OPEN — for the 1m entry-bar %-change (close/open-1)
       PrevBarClose: float      // the strictly-prior 1m bar's CLOSE — for the 1m flush = close/prevClose-1
       Chg20mAtEntry: float     // 20-bar (20-minute) %-change into entry (entry close / close 20 bars ago - 1); nan if <20 bars
+      Vol20mAvgAtEntry: float   // trailing 20-bar MEAN 1m volume at entry (incl. the cross bar); nan if <20 bars.
+                               // "volume during the convergence" — compared to the 20d/min & 15m/min baselines
+                               // in toTrip to get rvol20m_20d and rvol20m_15m (Jeff's rising-volume cue).
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// Mean-reversion TARGET — where a (short) position covers when price reverts back
@@ -213,6 +216,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let atrLog    = AvgMa(cfg.VolWindow)        // mean LOG true range over the last VolWindow 1m bars
     let atrLin    = AvgMa(cfg.VolWindow)        // mean ABSOLUTE true range (linear)
     let lag20     = LagMa<float>(20)            // 20-bar close delay line -> the 20-minute %-change into entry
+    let vol20     = AvgMa(20)                    // mean 1m VOLUME over the last 20 bars -> "volume during the
+                                                // convergence" (Jeff's rising-volume-into-the-reclaim cue).
+                                                // Compared at entry vs the 20d/min and 15m/min baselines.
     let rangeHigh = MaxMa(cfg.VolWindow)        // intraday tightness: max high over the window
     let rangeLow  = MinMa(cfg.VolWindow)        // intraday tightness: min low over the window
 
@@ -482,6 +488,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         runVolHi <- match runVolHi with ValueSome v -> ValueSome (max v bar.volume) | ValueNone -> ValueSome bar.volume
         cumVol   <- cumVol + bar.volume
         lag20.Push bar.close      // 20-bar delay line; read post-fold at entry = the 20m %-change into it
+        vol20.Push (float bar.volume)  // trailing 20-bar mean 1m volume; read post-fold at entry (incl. the cross bar)
         if sessionOpen.IsNone then sessionOpen <- ValueSome bar.``open``
 
         // VWAP-reclaim: tally the strictly-prior below-VWAP state (prior EMA vs prior VWAP,
@@ -754,6 +761,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       BreakoutBarOpen = bar.``open``
                       PrevBarClose = (match sLastBar with ValueSome p -> p.close | ValueNone -> nan)
                       Chg20mAtEntry = (match lagPctChange lag20 with ValueSome p -> p | ValueNone -> nan)
+                      Vol20mAvgAtEntry = (if vol20.Count >= 20 then (match vol20.State with ValueSome v -> v | ValueNone -> nan) else nan)
                       State = Holding }
         elif this.ShouldEnter bar then
             // ShouldEnter passed => sRunHi / this.Tightness / this.AtrPct are all
@@ -792,6 +800,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   BreakoutBarOpen = bar.``open``
                   PrevBarClose = sLastBar.Value.close
                   Chg20mAtEntry = (match lagPctChange lag20 with ValueSome p -> p | ValueNone -> nan)
+                  Vol20mAvgAtEntry = (if vol20.Count >= 20 then (match vol20.State with ValueSome v -> v | ValueNone -> nan) else nan)
                   // entry routing:
                   //   --ext-gate — if day-extension already >= ExtGate at the breakout, enter
                   //                DIRECT (parabolic now); else arm a ROLLOVER gated on reaching
