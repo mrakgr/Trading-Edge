@@ -35,11 +35,10 @@ let defaultConfig =
         { VolWindow = 20
           MaxTightness = infinity        // OFF
           MaxAtrPct = infinity           // OFF
-          SessionStartMin = 8 * 60 + 30  // 08:30 ET — accumulate the running low/vol-high, ATR,
-                                         // tightness and the 20-bar LagMa from premarket (like MaxFlyer),
-                                         // so every indicator (incl. chg_20m) is warm by the 09:45 entry
-                                         // floor regardless of VolWindow. Entries still gated at EntryStartMin.
-          EntryStartMin   = 9 * 60 + 45  // 09:45 ET — earliest entry
+          SessionStartMin = 9 * 60       // 09:30 ET — the SMB session VWAP anchors at the RTH OPEN (not
+                                         // premarket). VWAP, the 9-EMA, the below-VWAP counter, and the
+                                         // running session low all accumulate from 09:30 for the reclaim.
+          EntryStartMin   = 9 * 60 + 45  // 09:45 ET — earliest entry (15m of session to build VWAP/EMA + weakness)
           UseStop = false
           PctStop = 0.0
           TimeStopMin = 0
@@ -57,8 +56,13 @@ let defaultConfig =
           VolHighFrac = 0.90             // volume-confirm = breakout vol >= 90% of the running vol high (PRODUCTION:
                                          // within 10% of the high; +239 trips over strict 1.0 at PF 3.38 vs 3.45 —
                                          // "near the high" carries the signal, <0.90 dilutes. --vol-high-frac to override.)
-          MinCloseRef = true }           // default = min-CLOSE reference (wick-immune; +~29% trips at ~same
+          MinCloseRef = true             // default = min-CLOSE reference (wick-immune; +~29% trips at ~same
                                          // PF — Run 12). --min-low-ref switches back to the min-LOW channel.
+          // ----- SMB VWAP x 9-EMA reclaim (long-only) — ON by default for this project -----
+          VwapReclaim = true             // this project's whole point: the EMA-crosses-VWAP entry.
+          EmaPeriod = 9                  // SMB 9-EMA.
+          BelowVwapFrac = 0.6            // require the EMA below VWAP for >60% of the pre-cross session (swept).
+          StopAnchorVwap = true }        // stop = VWAP - (VWAP-sessionLow)/3 (default); false = entry-anchored.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the

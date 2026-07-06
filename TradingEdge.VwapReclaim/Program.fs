@@ -31,6 +31,11 @@ type Args =
     //  LowFlyer is now the LONG flush-fade book only.)
     | Pct_Stop of float
     | Time_Stop_Min of int
+    // ----- SMB VWAP x 9-EMA reclaim knobs -----
+    | Ema_Period of int
+    | Below_Vwap_Frac of float
+    | Entry_Stop_Anchor
+    | Max_Intraday_Tightness of float
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -51,6 +56,10 @@ type Args =
             | Max_Intraday_Atr_Pct _ -> "Intraday log-ATR CAP at entry: require the 1m log-ATR < this. Default +inf = OFF. e.g. 0.02 rejects names in genuine chaos (per Run 9)."
             | Pct_Stop _ -> "SWEEP LEVER: wide catastrophe %%-stop, a fixed adverse excursion from entry (0 = off, default)."
             | Time_Stop_Min _ -> "SWEEP LEVER: flatten this many minutes after entry, capped at MOC (0 = off, default = hold to MOC)."
+            | Ema_Period _ -> "VWAP-reclaim: the fast EMA period that must cross above VWAP (default 9)."
+            | Below_Vwap_Frac _ -> "VWAP-reclaim: require the EMA below VWAP for > this fraction of the pre-cross session (default 0.6; 0 = off). Sweep 0.5/0.6/0.75/0.9."
+            | Entry_Stop_Anchor -> "VWAP-reclaim: anchor the stop at ENTRY - (VWAP-sessionLow)/3 instead of the default VWAP - (VWAP-sessionLow)/3."
+            | Max_Intraday_Tightness _ -> "Intraday tightness CAP at entry: require tightness < this. Default +inf = OFF."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -79,36 +88,25 @@ let main argv =
                   MinBarFlush   = parsed.GetResult(Min_Bar_Flush,   defaultValue = defaultConfig.Intraday.MinBarFlush)
                   MinBarFlushFloor = parsed.GetResult(Min_Bar_Flush_Floor, defaultValue = defaultConfig.Intraday.MinBarFlushFloor)
                   MaxAtrPct     = parsed.GetResult(Max_Intraday_Atr_Pct, defaultValue = defaultConfig.Intraday.MaxAtrPct)
-                  // LONG-only: the short pop-fade + short-breakdown forked to TradingEdge.MaxFlyerV2.
-                  // Downside=true / Short=false come straight from defaultConfig (no override).
+                  MaxTightness  = parsed.GetResult(Max_Intraday_Tightness, defaultValue = defaultConfig.Intraday.MaxTightness)
+                  // SMB VWAP-reclaim knobs (VwapReclaim/Short come from defaultConfig: long-only reclaim).
+                  EmaPeriod      = parsed.GetResult(Ema_Period,       defaultValue = defaultConfig.Intraday.EmaPeriod)
+                  BelowVwapFrac  = parsed.GetResult(Below_Vwap_Frac,  defaultValue = defaultConfig.Intraday.BelowVwapFrac)
+                  StopAnchorVwap = not (parsed.Contains Entry_Stop_Anchor)
                   PctStop       = parsed.GetResult(Pct_Stop,        defaultValue = defaultConfig.Intraday.PctStop)
                   TimeStopMin   = parsed.GetResult(Time_Stop_Min,   defaultValue = defaultConfig.Intraday.TimeStopMin) } }
 
-    printfn "LowFlyer backtest — market-wide intraday (%s)"
-        (match cfg.Intraday.Downside, cfg.Intraday.Short with
-         | true,  false -> "LONG the new-session-low flush (mean-reversion)"
-         | false, true  -> "SHORT the new-session-HIGH pop (mean-reversion)"
-         | true,  true  -> "SHORT the new-session-LOW breakdown (momentum continuation)"
-         | false, false -> "LONG the new-session-high pop")
+    printfn "VwapReclaim backtest — SMB VWAP x %d-EMA reclaim (LONG-only intraday)" cfg.Intraday.EmaPeriod
     printfn "  db          = %s" dbPath
     printfn "  minute_aggs = %s" minuteDir
     printfn "  range       = %O .. %O" startDate endDate
-    printfn "  entry from  = %02d:%02d ET   vol window = %d   side = %s   %s"
-        (cfg.Intraday.EntryStartMin / 60) (cfg.Intraday.EntryStartMin % 60) cfg.Intraday.VolWindow
-        (if cfg.Intraday.Short then "SHORT" else "long")
-        (if cfg.Intraday.TimeStopMin > 0 then sprintf "time-stop %dm" cfg.Intraday.TimeStopMin
-         elif cfg.Intraday.PctStop > 0.0 then sprintf "pct-stop %.0f%%" (cfg.Intraday.PctStop * 100.0)
-         else "hold-to-MOC")
-    printfn "  breakout    = %s (%s ref)"
-        (if cfg.Intraday.Downside then "new session LOW" else "new session HIGH")
-        (if cfg.Intraday.MinCloseRef then "CLOSE, wick-immune" else "low/high")
-    printfn "  gates       = flush %s   flush-floor %s   log-ATR %s"
-        (if cfg.Intraday.MinBarFlush = 0.0 then "off"
-         elif cfg.Intraday.Downside then sprintf "<=%.3f" cfg.Intraday.MinBarFlush
-         else sprintf ">=%.3f" (-cfg.Intraday.MinBarFlush))
-        (if cfg.Intraday.MinBarFlushFloor = 0.0 then "off"
-         elif cfg.Intraday.Downside then sprintf ">=%.3f" cfg.Intraday.MinBarFlushFloor
-         else sprintf "<=%.3f" (-cfg.Intraday.MinBarFlushFloor))
+    printfn "  entry from  = %02d:%02d ET   below-VWAP frac > %.2f   %s"
+        (cfg.Intraday.EntryStartMin / 60) (cfg.Intraday.EntryStartMin % 60) cfg.Intraday.BelowVwapFrac
+        (if cfg.Intraday.TimeStopMin > 0 then sprintf "time-stop %dm" cfg.Intraday.TimeStopMin else "hold-to-MOC")
+    printfn "  stop anchor = %s   target = VWAP + (VWAP - sessionLow)"
+        (if cfg.Intraday.StopAnchorVwap then "VWAP - (VWAP-low)/3" else "entry - (VWAP-low)/3")
+    printfn "  gates       = tightness %s   log-ATR %s"
+        (if Double.IsInfinity cfg.Intraday.MaxTightness then "off" else sprintf "<%.2f" cfg.Intraday.MaxTightness)
         (if Double.IsInfinity cfg.Intraday.MaxAtrPct then "off" else sprintf "<%.3f" cfg.Intraday.MaxAtrPct)
 
     let sw = Stopwatch.StartNew()
