@@ -795,5 +795,37 @@ failing today" signal, a market-wide breadth-of-follow-through, or SPY realized-
 vol). Direction (SPY up/down) is confirmed irrelevant (F19). NEXT (user): the float<$300M gate; a
 follow-through/chop measure for 2021; wire the cell as engine gates.
 
+### Finding 21 — 1d-return (`chg_1d`) is a strong MONOTONE lever (book → PF 2.40); still NOT the 2021 fix
+
+`chg_1d` = entry px / prev daily close − 1 = the stock's total move (gap + intraday-so-far) into the
+entry. Breakdown on the N=20 cell (modern) — **cleanly MONOTONE, "more up on the day = better":**
+
+| 1d return into trade | n | avg_ret_pct | win | pf | net |
+|---|--:|--:|--:|--:|--:|
+| <0% (down on day) | 89 | −1.61 | 37.1 | **0.752** | −14,317 |
+| 0-5% | 43 | −0.83 | 37.2 | 0.855 | −3,556 |
+| 5-10% | 55 | 2.07 | 43.6 | 1.431 | +11,359 |
+| 10-20% | 132 | 2.95 | 39.4 | 1.583 | +38,894 |
+| 20-40% | 229 | 4.21 | 40.6 | 1.758 | +96,313 |
+| **40%+** | 563 | 13.37 | 47.2 | **2.711** | +752,870 |
+
+The two LOSING buckets are flat/down-on-the-day (`<5%`, PF 0.75-0.86, both net negative); everything ≥5%
+is profitable & rising. Same "buy strength" logic at the DAILY scale — a volatile intraday run in a stock
+already up 40%+ is a genuine leader continuing; the same run in a flat/red name is a fakeout. Winning
+buckets don't just win more often (~40-47% throughout) — their avg return is far bigger (+13.4% at 40%+).
+
+**As a book filter, `chg_1d ≥ 10%` is a KEEPER:** lifts the cell PF **2.17 → 2.40** at +$888k (vs +$920k) —
+cuts the flat/down fakeouts nearly for free; every year improves EXCEPT 2021.
+
+**But it does NOT fix 2021** (stays PF 0.79 / −$44k). And the diagnostic proves 2021 was NEVER a
+daily-weakness problem: 2021's avg `chg_1d` = 48.7% and only 15.4% of entries were weak (<10%) — BETTER
+than 2020 (21.2% weak) and 2022 (25.2% weak), both profitable. So 2021's names were strong daily gainers
+that still reverted INTRADAY. This SHARPENS F20: 2021 is a pure intraday whipsaw regime that NO
+daily-context feature (SPY direction F19, or the stock's own 1d return) can catch — it needs an INTRADAY
+follow-through / chop measure.
+
+NEXT (user): adopt `chg_1d ≥ 10%` into the cell; the float<$300M gate; an INTRADAY follow-through measure
+for 2021 (daily context is exhausted); wire the cell as engine gates.
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.
