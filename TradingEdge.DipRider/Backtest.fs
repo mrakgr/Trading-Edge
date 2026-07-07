@@ -54,7 +54,10 @@ let defaultConfig =
           Short = false                  // LONG (buy the flush)
           Target = NoTarget
           MocMin = 16 * 60               // 16:00 ET
-          MaxConcurrent = 0              // unlimited concurrent entries per day
+          MaxConcurrent = 1              // ONE position per (ticker,day) (F29): the later same-day adds chase a
+                                        // more-extended run and have worse EV — capping at 1 lifts cell PF
+                                        // ~+0.2 & helps 2021. --max-concurrent 0 = unlimited (the old default;
+                                        // pass it to reproduce V1's archived numbers, which shared this field).
           MinBarFlush = 0.0              // entry-bar flush gate OFF (--min-bar-flush -0.007 to enable)
           MinBarFlushFloor = 0.0         // entry-bar flush-depth floor OFF (--min-bar-flush-floor -0.12 to enable)
           VolHighFrac = 0.90             // volume-confirm = breakout vol >= 90% of the running vol high (PRODUCTION:
@@ -107,7 +110,8 @@ let defaultConfig =
                                          // re-enables it.
           // ----- DipRider V2 (run-above-9EMA slopes, long-only) — OFF by default; --diprider-v2 turns it on -----
           DipRiderV2 = false             // V1 is the archived production system; V2 is the research mode.
-          RunResetBarsBelow = 1          // excuse a single below-9EMA close within an up-run (Finding TBD; swept).
+          RunResetBarsBelow = 4          // F29 sweep (2-5): tol=4 is best on the cell (PF 2.30/2.50 mc0/mc1).
+                                         // Excuse up to 4 below-9EMA closes within an up-run before it breaks.
           DipV2MinRunLen = 10            // require the prior above-9EMA run >= 10 bars (the U-shape's good cell;
                                          // len-1 and 2-9 are the weak/dead zone). --dip-v2-min-run-len; 0 = off.
           DipV2Reclaim = false           // re-break trigger by default; --dip-v2-reclaim = enter on the 9-EMA reclaim.

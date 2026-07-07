@@ -1003,5 +1003,37 @@ peaks would need a carve-out (like the F6 breadth U — user rejected carve-outs
 NEXT (user): decide whether to floor `entry ≥ VWAP` (cuts the weak below-VWAP bucket cleanly); the sess-high
 U-shape is insight not an obvious gate; adopt rvol<75 + chg_1d≥10%; float<$300M; re-baseline leading configs.
 
+### Finding 29 — run-tolerance sweep (2-5) + MAX-CONCURRENT=1: later same-day adds have worse EV (user right)
+
+Swept `RunResetBarsBelow ∈ {2,3,4,5}` × `MaxConcurrent ∈ {0 unlimited, 1}` on the fixed-stop cell.
+
+| tol | mc=0 (unlimited) PF / net | mc=1 PF / net |
+|---|--:|--:|
+| 2 | 2.154 / +847k | 2.150 / +519k |
+| 3 | 2.042 / +778k | 2.245 / +522k |
+| **4** | 2.297 / +846k | **2.498 / +513k** |
+| 5 | 2.111 / +628k | 2.286 / +402k |
+
+- **Tolerance:** modest lever, non-monotone; **tol=4 is best** (vs the old tol=1 which gave the fixed-stop
+  cell PF 2.31). tol=2/3/5 slightly worse.
+- **MAX-CONCURRENT=1 confirms the user's intuition:** capping at ONE position per (ticker,day) raises PF
+  ~+0.2 in almost every cell (tol=2 the only flat one) while cutting ~40% of trips (the later same-day adds)
+  and keeping ~60% of net. **The later concurrent adds re-qualify on a MORE-EXTENDED run → worse EV**; cutting
+  them lifts quality. It also HELPS 2021 the most (fewer chase-adds on chop days).
+
+**New defaults: `RunResetBarsBelow = 4`, `MaxConcurrent = 1`.** `tol=4 mc=1` = **PF 2.498 / 666 trips /
++$513k, POSITIVE every year, 2021 its best yet (PF 1.31 / +$33k)**:
+
+| yr | pf | net |   | yr | pf | net |
+|---|--:|--:|---|---|--:|--:|
+| 2020 | 3.544 | +74,700 | | 2023 | 4.461 | +91,760 |
+| 2021 | 1.308 | +32,962 | | 2024 | 3.262 | +105,116 |
+| 2022 | 2.060 | +43,956 | | 2025 | 2.671 | +107,248 |
+|   |   |   | | 2026 | 3.109 | +57,166 |
+
+⚠ `MaxConcurrent` is SHARED across all engines — the new default (1) shifts V1's archived behavior too; pass
+`--max-concurrent 0` to reproduce V1's old numbers. NEXT (user): entry≥VWAP floor; rvol<75; chg_1d≥10%;
+float<$300M; re-baseline the leading config on these new defaults.
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.
