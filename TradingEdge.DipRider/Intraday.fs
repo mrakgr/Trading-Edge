@@ -98,6 +98,8 @@ type IntradayPosition =
       RunAtrV2AtEntry: float     // mean per-bar log-TR over the just-ended run (the run's own volatility)
       RunLastCloseAtEntry: float // close of the last bar of the just-ended run (its top) — vs entry = pullback depth
       RunPctGainAtEntry: float   // BUY-INTO-RUN: the live run's %gain (entry/floor-1); nan otherwise
+      TrailSlopeAtEntry: float    // trailing-20 OLS log-close slope (independent of the run length)
+      TrailVolSlopeAtEntry: float // trailing-20 OLS log-volume slope (independent of the run length)
       BarsSinceBreakAtEntry: int // bars since the above-EMA run broke (true pullback age; -1 = no run broke yet)
       Vol20AtEntry: int64        // trailing raw volume over the last 20/10/5/2 bars (exhaustion-cutoff inputs)
       Vol10AtEntry: int64
@@ -381,6 +383,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let vol10sum   = SumMa(10)
     let vol5sum    = SumMa(5)
     let vol2sum    = SumMa(2)
+    // TRAILING-WINDOW OLS slopes (fixed 20-bar window, fed EVERY bar — NOT reset at run breaks). These are
+    // INDEPENDENT of the current run length, so they give a stable slope estimate even when the run is short
+    // (a run of 8 bars only has an 8-point run OLS; these always have up to 20). Log-close = trend slope,
+    // log-volume = the volume-trend slope (the F14 lever, measured over a fixed window). Pairs with the
+    // trailing-20 log-ATR (atrLog) which is likewise the fixed-window volatility.
+    let trailSlopeOls = OlsSlopeMa(cfg.VolWindow)   // OLS slope of log(close) over the last VolWindow bars
+    let trailVolOls   = OlsSlopeMa(cfg.VolWindow)   // OLS slope of log(volume) over the last VolWindow bars
     let maTgt      = match cfg.Target with Ma w -> AvgMa(w)      | _ -> AvgMa(1)   // fast SMA of closes
     let chanTgt    = match cfg.Target with Channel w -> MinMa(w) | _ -> MinMa(1)   // Donchian low (pre-breakout floor)
 
@@ -459,6 +468,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sVol10 : int64 = 0L
     let mutable sVol5  : int64 = 0L
     let mutable sVol2  : int64 = 0L
+    let mutable sTrailSlope   : float = nan                  // trailing-20 OLS log-close slope (strictly-prior)
+    let mutable sTrailVolSlope : float = nan                 // trailing-20 OLS log-volume slope (strictly-prior)
 
     let positions = ResizeArray<IntradayPosition>()
 
@@ -753,6 +764,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sVol10 <- (match vol10sum.State with ValueSome v -> int64 v | ValueNone -> 0L)
         sVol5  <- (match vol5sum.State  with ValueSome v -> int64 v | ValueNone -> 0L)
         sVol2  <- (match vol2sum.State  with ValueSome v -> int64 v | ValueNone -> 0L)
+        sTrailSlope    <- (match trailSlopeOls.Slope with ValueSome s -> s | ValueNone -> nan)
+        sTrailVolSlope <- (match trailVolOls.Slope   with ValueSome s -> s | ValueNone -> nan)
 
         // 2) fold the bar in. True range vs the prior 1m close.
         let mutable barLogTr = nan               // this bar's log true range (for the run-ATR accumulator below)
@@ -893,6 +906,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         if cfg.DipRiderV2 then
             vol20sum.Push (float bar.volume); vol10sum.Push (float bar.volume)
             vol5sum.Push  (float bar.volume); vol2sum.Push  (float bar.volume)
+            // trailing-window OLS (fixed 20 bars, every bar — independent of the run). Both pushed together
+            // only when both logs are valid, keeping the two on the same x-axis (like the run OLS, F/zero-vol).
+            if bar.close > 0.0 && bar.volume > 0L then
+                trailSlopeOls.Push (log bar.close)
+                trailVolOls.Push   (log (float bar.volume))
 
         // fold the chosen mean-reversion COVER anchor (only the active one accumulates).
         match cfg.Target with
@@ -1154,7 +1172,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       BarsBelowEmaAtEntry = sBarsBelowEma
                       TrendPctAtEntry = (match sessionOpen with ValueSome o when o > 0.0 -> bar.close / o - 1.0 | _ -> nan)
                       RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
-                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1
+                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1; TrailSlopeAtEntry = nan; TrailVolSlopeAtEntry = nan
                       Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                       State = Holding }
         elif cfg.DipRiderV2 then
@@ -1218,6 +1236,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                         (if buyIntoRun && not (Double.IsNaN sRunMinCloseLive) && sRunMinCloseLive > 0.0
                          then bar.close / sRunMinCloseLive - 1.0 else nan)
                       BarsSinceBreakAtEntry = sBarsSinceBreak
+                      TrailSlopeAtEntry = sTrailSlope; TrailVolSlopeAtEntry = sTrailVolSlope
                       Vol20AtEntry = sVol20; Vol10AtEntry = sVol10; Vol5AtEntry = sVol5; Vol2AtEntry = sVol2
                       VwapAtEntry = (match sVwapNow with ValueSome v -> v | ValueNone -> nan)
                       State = Holding }
@@ -1289,7 +1308,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       BarsBelowEmaAtEntry = 0
                       TrendPctAtEntry = nan
                       RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
-                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1
+                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1; TrailSlopeAtEntry = nan; TrailVolSlopeAtEntry = nan
                       Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                       State = Holding }
         elif this.ShouldEnter bar then
@@ -1339,7 +1358,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   BarsBelowEmaAtEntry = 0
                   TrendPctAtEntry = nan
                   RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
-                  RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1
+                  RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1; TrailSlopeAtEntry = nan; TrailVolSlopeAtEntry = nan
                   Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                   // entry routing:
                   //   --ext-gate — if day-extension already >= ExtGate at the breakout, enter

@@ -611,5 +611,46 @@ vs 1.63) at fewer trips (4.6k vs 10k) — rising volume is a real stackable mome
 | 2025 | 1.726 | +354,338 |
 | 2026 | 3.158 | +396,677 |
 
+### Finding 15 — RUN-INDEPENDENT ATR% + vol-slope (trailing-20): cleaner at short N; run measures win at N>20
+
+The run-based `run_atr_v2` / `run_slope` / `run_vol_slope` are estimated over only N bars — at N=8 that's an
+8-point OLS/mean, noisy. Added run-INDEPENDENT trailing-20-bar measures (fixed window, fed EVERY bar, NOT
+reset at run breaks): `intraday_atr_pct_at_entry` (the trailing-20 log-ATR — ALREADY existed, we just
+weren't slicing on it) + NEW `trail_vol_slope` (trailing-20 OLS log-volume) and `trail_slope` (log-close).
+The ATR pair correlates 0.96 with the run version (ATR is stationary); the VOLUME-slope pair correlates
+only **0.32** — the trailing window is a genuinely different, broader estimate.
+
+**At short N (8) the trailing measures are as good, and the trailing VOL-slope is CLEANER** (monotone, no
+dead middle): `<-.02` PF 1.21 → `.05+` **1.41** (vs the run-based vol-slope which dipped to 1.03 mid-range,
+F14). Trailing ATR% matches the run ATR (`.03+` PF 1.75 vs 1.79).
+
+**Crossover rule (user): use the RUN measures for N > 20, the trailing measures for shorter runs.** Verified
+— cell = `atr ≥ .015 & vol_slope ≥ .05`:
+
+| N | run-based cell PF (net) | independent cell PF (net) |
+|---|--:|--:|
+| 8 | 1.837 (+$2.08M) | 1.898 (+$0.62M) |
+| 30 | **2.168** (+$190k) | 1.673 (+$108k) |
+
+At N=8 the independent cell is a hair higher PF but far fewer trips; at N=30 the RUN measure clearly WINS
+(PF 2.17 vs 1.67) — once the run is 30 bars its own 30-point OLS/ATR is both reliable AND more relevant
+(describes the exact run bought), uninfluenced by pre-run bars. So: **short run → trailing-20; long run
+(>20) → run's own.**
+
+**Run-length sweep on the INDEPENDENT cell (`intraday_atr_pct ≥ .015 & trail_vol_slope ≥ .05`) — longer
+helps, peaks at N=20:**
+
+| N | n | avg_ret_pct | pf | net |
+|---|--:|--:|--:|--:|
+| 8 | 1189 | 5.21 | 1.898 | +619,437 |
+| 15 | 1892 | 6.09 | 1.914 | +1,152,293 |
+| **20** | 1113 | 7.87 | **2.170** | +875,466 |
+| 30 | 264 | 4.08 | 1.673 | +107,712 |
+
+**N=20 is the sweet spot (PF 2.17, +$875k)** — going beyond 8 genuinely helps (8 was too short, as the user
+suspected); N=30 thins out (264 trips) and is the regime to switch to the run measures (which hold 2.17
+there). So the leading momentum config is ~**N=15-20 + trailing-20 volatility & vol-slope cell** (PF 1.9-2.2),
+crossing over to run-based measures past N=20.
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.

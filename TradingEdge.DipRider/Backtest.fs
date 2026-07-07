@@ -197,6 +197,8 @@ type Trip =
       RunLastClose: float        // close of the last bar of the just-ended run (its top)
       EntryVsRunTop: float       // entryPx / run_last_close - 1 (how far below the run's top we bought; <0 = below)
       RunPctGain: float          // BUY-INTO-RUN: the live run's %gain at entry (entry/floor-1); nan otherwise
+      TrailSlope: float          // trailing-20 OLS log-close slope (run-independent)
+      TrailVolSlope: float       // trailing-20 OLS log-volume slope (run-independent; pairs with intraday_atr_pct)
       BarsSinceBreak: int        // bars since the above-EMA run broke = the true pullback age (survives blips)
       Vol20: int64               // trailing raw volume over the last 20 bars (exhaustion inputs)
       Vol10: int64
@@ -281,6 +283,8 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           RunLastClose = pos.RunLastCloseAtEntry
           EntryVsRunTop = (if pos.RunLastCloseAtEntry > 0.0 && not (Double.IsNaN pos.RunLastCloseAtEntry) then pos.EntryPx / pos.RunLastCloseAtEntry - 1.0 else nan)
           RunPctGain = pos.RunPctGainAtEntry
+          TrailSlope = pos.TrailSlopeAtEntry
+          TrailVolSlope = pos.TrailVolSlopeAtEntry
           BarsSinceBreak = pos.BarsSinceBreakAtEntry
           Vol20 = pos.Vol20AtEntry
           Vol10 = pos.Vol10AtEntry
@@ -473,7 +477,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,entry_bar_open,prev_bar_close,chg_20m,run_low_at_entry,intraday_atr_pct_at_entry,intraday_tightness_at_entry,"
-    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,rvol20m_20d,rvol20m_15m,run_max_dist,run_atr,run_dist_per_atr,run_up_vol,run_dn_vol,run_updn_ratio,bars_since_hi,bars_since_vol_hi,bars_below_ema,trend_pct,run_len,run_slope,run_r2,run_vol_slope,run_vol_r2,run_atr_v2,run_last_close,entry_vs_run_top,run_pct_gain,bars_since_break,vol_20,vol_10,vol_5,vol_2,vwap_at_entry,entry_vs_vwap,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
+    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,rvol20m_20d,rvol20m_15m,run_max_dist,run_atr,run_dist_per_atr,run_up_vol,run_dn_vol,run_updn_ratio,bars_since_hi,bars_since_vol_hi,bars_below_ema,trend_pct,run_len,run_slope,run_r2,run_vol_slope,run_vol_r2,run_atr_v2,run_last_close,entry_vs_run_top,run_pct_gain,trail_slope,trail_vol_slope,bars_since_break,vol_20,vol_10,vol_5,vol_2,vwap_at_entry,entry_vs_vwap,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,med_bar_vol_0945,"
     + "qty,net_pnl,bars_held_min"
@@ -520,6 +524,8 @@ let private row (t: Trip) : string =
         fmt t.RunLastClose
         fmt t.EntryVsRunTop
         fmt t.RunPctGain
+        fmt t.TrailSlope
+        fmt t.TrailVolSlope
         string t.BarsSinceBreak
         string t.Vol20
         string t.Vol10
