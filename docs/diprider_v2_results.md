@@ -567,7 +567,8 @@ the volume slope was wrong. Re-ran N=8.)
 
 Unlike the pullback book (F8, volume slope flat/dead), on buy-into-run the LIVE run's volume slope IS a
 signal (full N=8 book): `.05+` (strongly rising volume) → PF **1.388 / +0.62%**, up from the ~1.1-1.2
-middle.
+middle. ⚠ But that 1.388 is a BLEND — see the 2×2: it's the mix of a small volatile subset (PF 1.84) and
+the large non-volatile bulk (PF 1.13). Rising volume ALONE (holding volatility low) is only ~1.13.
 
 | run_vol_slope | n | avg_ret_pct | pf |
 |---|--:|--:|--:|
@@ -586,7 +587,11 @@ middle.
 | ✓ | ✗ | 38447 | 0.153 | 1.134 |
 | ✗ | ✗ | 81959 | 0.077 | 1.084 |
 
-Rising-vol + volatile (PF 1.84) clearly beats volatile-alone (1.41). **Mechanism:** a PULLBACK entry buys
+Rising-vol + volatile (PF 1.84) clearly beats volatile-alone (1.41). But note: rising-vol ALONE (✓/✗ =
+1.134) is barely above the ✗/✗ baseline (1.084) — **volume slope is NOT a standalone edge; it's a
+CONDITIONING lever that only pays inside the volatility cell** (1.41 → 1.84). The full-book 1.39 for
+`.05+` was pulled up by the volatile minority; don't read it as "rising volume ≈ 1.39 on its own."
+**Mechanism:** a PULLBACK entry buys
 AFTER the run paused — its volume story is stale (the fuel ran out, that's why it pulled back). A
 buy-into-RUN entry buys the run WHILE LIVE, so rising volume = the move is still being fueled RIGHT NOW
 (accumulation in progress) — exactly the confirmation a momentum entry wants. So volume-slope-is-dead
