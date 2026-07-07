@@ -195,5 +195,28 @@ volatility) + the exhaustion cap. Exit/stop unchanged (hold-to-MOC + 2-bar-low c
 | 2025 | 175 | 1.321 | +26,557 |
 | 2026 | 51 | 3.548 | +66,120 |
 
+### Finding 4 — short-term exits (new-high target + time-stops) all LOSE; hold-to-MOC wins (V1 F3 again)
+
+V2 is an intraday scalp, so retested new-high exits + time-stops (2020-2026, on the candidate cell
+`run_atr_v2 ≥ .015 & run_len < 50`, 912 trips). Every short-term exit RAISES win rate but LOWERS PF and
+net — the textbook signature of cutting winners short. The intraday-ness is in the ENTRY; the P&L lives
+in letting the volatile-run resumption run to the close.
+
+| exit | n | avg_ret_pct | win | pf | net |
+|---|--:|--:|--:|--:|--:|
+| **MOC (baseline)** | 912 | 2.257 | 17.2 | **1.561** | **+205,835** |
+| new-high only | 912 | 0.044 | 43.5 | 1.017 | +3,994 |
+| time-stop 10m | 912 | 0.526 | 45.8 | 1.290 | +47,973 |
+| time-stop 20m | 912 | 0.430 | 40.2 | 1.172 | +39,224 |
+| time-stop 30m | 912 | 0.438 | 35.3 | 1.154 | +39,961 |
+| new-high + ts10 | 912 | 0.130 | 52.6 | 1.081 | +11,900 |
+| new-high + ts20 | 912 | 0.067 | 50.9 | 1.032 | +6,137 |
+| new-high + ts30 | 912 | 0.079 | 48.6 | 1.035 | +7,167 |
+
+- **The new-high target is the worst** (PF 1.56→1.02, net +$206k→+$4k) — it caps the +5% resumptions that
+  ARE the edge. Same mechanism as V1 F3 and VwapReclaim F13.
+- Time-stops are less destructive (ts10 best at PF 1.29 / +$48k) but still leave ~$158k vs MOC on the table.
+- ⇒ **Keep hold-to-MOC.** Don't retest short-term exits on this pattern again.
+
 NEXT (for the user): decide whether to promote `run_atr_v2 ≥ .015 & run_len < 50` to defaults; sweep the
 run_atr threshold + the run_len cap; consider the volatility exhaustion tail; then a 22-year regime check.
