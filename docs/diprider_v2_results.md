@@ -252,6 +252,39 @@ but concentrates the 2021 drawdown.
 | 2025 | 1.771 / +195,386 | 1.706 / +100,546 |
 | 2026 | 2.014 / +92,592 | 2.600 / +78,411 |
 
-NEXT (for the user): pick k (0.25 = robust fat book / 0 = max dollars); decide whether to promote
-`run_atr_v2 ≥ .015 & run_len < 50` + the chosen k to defaults; investigate the 2021 weak regime; sweep the
-run_atr threshold + the run_len cap; then a 22-year regime check.
+### Finding 6 — breadth: a mild-strong CHOP zone (.55-.65) is the dead cell; breadth does NOT explain 2021
+
+Joined **prior-day** breadth (`pct_above_20` = frac of stocks above their 20-day MA, from
+`data/equity/momentum_v0/breadth.parquet`, `LAG` over date = no lookahead) to the candidate cell
+(k=0.25, `run_atr_v2 ≥ .015 & run_len < 50`, 2020-2026, 1,934 trips matched). PF is **non-monotone** with
+two strong zones and a dead middle:
+
+| prior-day breadth | n | avg_ret_pct | pf | net |
+|---|--:|--:|--:|--:|
+| <.30 (washed out) | 277 | 0.366 | 1.103 | +10,136 |
+| **.30-.45 (weak)** | 457 | 2.318 | 1.637 | +105,940 |
+| **.45-.55 (neutral)** | 285 | 2.772 | 1.791 | +78,989 |
+| .55-.65 (mild-strong) | 318 | 0.906 | 1.235 | +28,810 |
+| .65-.75 (strong) | 317 | 1.466 | 1.418 | +46,480 |
+| **.75+ (ripping)** | 280 | 4.550 | 2.450 | +127,389 |
+
+The pattern works when the market is either **washed-out/reverting** (breadth .30-.55, PF ~1.6-1.8) or
+**ripping** (.75+, PF 2.45 / +4.5% avg); the **.55-.65 mild-strong CHOP zone is the dead cell** (PF 1.24).
+Simple filters:
+
+| filter | n | avg_ret_pct | pf | net |
+|---|--:|--:|--:|--:|
+| none (cell, k=0.25) | 1934 | 2.044 | 1.576 | +395,905 |
+| **drop .55-.65 chop zone** | 1616 | 2.283 | **1.655** | +368,933 |
+| keep only <.55 OR ≥.75 (two peaks) | 1299 | 2.482 | 1.714 | +322,453 |
+
+**Dropping the .55-.65 chop zone is the best trade** — −16% trips, +PF (1.576→1.655), keeps 93% of the
+dollars. Keeping only the two peaks lifts PF further (1.71) but sacrifices more.
+
+**Breadth does NOT explain the 2021 hole** (F5): 2021's avg prior-breadth (0.535) matches the GOOD years
+(2023 = 0.533, 2026 = 0.525), yet 2021 PF is 0.82 vs 2023's 3.22. 2021's weakness is regime-specific
+(the meme-squeeze chop year), not a breadth artifact — a breadth filter won't rescue it.
+
+NEXT (for the user): pick k (0.25 robust / 0 max-dollars); consider the drop-.55-.65 breadth filter; decide
+whether to promote `run_atr_v2 ≥ .015 & run_len < 50` + k + breadth to defaults; still-open: the 2021
+regime (non-breadth), run_atr/run_len threshold sweeps, and a 22-year regime check.
