@@ -353,37 +353,43 @@ a volatile up-run almost always carries elevated/rising volume anyway — so onc
 the volume SLOPE adds little independent information. The volatility already "contains" the volume story.
 (Would likely matter more in a setup NOT pre-selected on volatility.)
 
-### Finding 9 — V1's "shallower pullback = better" HOLDS on V2; the run-tolerance is an implicit depth cap
+### Finding 9 — pullback depth is ~FLAT on V2; V1's "shallower = better" does NOT transfer (CORRECTED)
 
-Rechecked `bars_below_ema` (consecutive bars closed below the 9-EMA into entry = pullback depth), the V1
-F2 lever. On the DEFAULT engine (`RunResetBarsBelow = 1`), `bars_below_ema` maxes out at **3** on BOTH
-triggers — the tolerance-1 run-tracker breaks the up-run after 2 consecutive below-closes, so deep
-pullbacks structurally CANNOT reach an entry. Within that shallow 1-3 range (candidate cell):
+⚠ **This finding was initially reported WRONG and is corrected here.** The first pass claimed
+`bars_below_ema` "maxes out at 3" and that the `RunResetBarsBelow = 1` tolerance was an "implicit
+pullback-depth cap" — both FALSE. That cap was an artifact of conditioning on the `run_len ≥ 10` gate +
+the candidate cell, NOT a property of the engine. (The user correctly disbelieved "no pullbacks deeper
+than 3 bars in 6 years.")
 
-| bars_below_ema | re-break PF (avg_ret) | reclaim PF (avg_ret) |
+**Deep pullbacks are everywhere.** On the UNGATED book (`--dip-v2-min-run-len 0`), `bars_below_ema` runs a
+full smooth distribution out to **55 bars** below the 9-EMA. The tolerance does NOT cap depth: `barsBelowEma`
+counts consecutive below-EMA closes (resets on any close ≥ EMA), and the entry fires on the reclaim/re-break
+bar, so it reads the FULL preceding below-streak.
+
+**And pullback depth is ~FLAT vs outcome** (ungated full modern book, 2020-2026):
+
+| bars_below_ema | re-break PF | reclaim PF |
 |---|--:|--:|
-| 1 | **2.002** (+3.73%) | 1.280 (+0.76%) |
-| 2 | 1.497 (+1.97%) | **1.561** (+1.72%) |
-| 3 | 1.491 (+2.06%) | 1.301 (+0.97%) |
+| 1 | 1.181 | 1.106 |
+| 2 | 1.194 | 1.157 |
+| 3-4 | 1.187 | 1.142 |
+| 5-7 | 1.206 | 1.208 |
+| 8-14 | 1.095 | 1.111 |
+| 15-29 | 1.145 | 1.075 |
+| 30+ | **1.293** | 1.213 |
 
-Re-break: **1 bar is dramatically best (PF 2.00)** — sharp monotone shallow-is-better. Reclaim: a mild
-inverted-U (2 best), the earliest 1-bar entries slightly worse.
+No monotone "shallower = better" — PF hovers ~1.1-1.2 across ALL depths, and the DEEPEST bucket (30+) is
+actually the best on re-break (1.29). **V1 F2's "deeper = broken trend" does NOT transfer to V2.**
 
-**To see the DEEP end, loosen the tolerance** (`--run-reset-bars-below 3` admits ≤3 excused below-closes,
-so pullbacks of 3-7 bars survive). Then V1's monotone degradation REAPPEARS (candidate cell):
+Why the divergence: V1 measured depth on ITS OWN gated book; that "deeper = worse" was real for V1's
+population but is NOT a universal law. V2 selects on **run VOLATILITY** (F3), and once you're in the V2
+book, pullback depth is roughly ORTHOGONAL to outcome. The "shallow wins" pattern that appeared when
+conditioning on `run_len ≥ 10` + the cell was a SELECTION EFFECT (strong long runs happen to resume
+shallow), not the depth mechanism. **Volatility, not depth, is V2's lever.**
 
-| bars_below_ema | n | avg_ret_pct | pf |
-|---|--:|--:|--:|
-| 1 | 351 | 2.726 | **1.76** |
-| 2 | 419 | 2.644 | 1.711 |
-| 3-4 | 859 | 1.881 | 1.517 |
-| 5-7 | 1251 | 1.986 | 1.556 |
-
-**Conclusion: V1 F2 ("shallower resumes, deeper is a broken trend") HOLDS on V2** — 1-2 bar pullbacks
-(PF ~1.7-1.8) beat 3-7 bar (PF ~1.5), monotone. The reason it's invisible in the default book: the
-**`RunResetBarsBelow = 1` tolerance IS an implicit pullback-depth cap** — it only lets shallow (1-3 bar)
-pullbacks reach an entry, already excluding the deep ones V1 warned about. The default engine is buying
-shallow pullbacks by construction.
+**User's open idea (untested):** skip the re-break/reclaim entirely and just BUY 1/2/3 bars into a
+pullback (no resumption trigger). Worth a direct test given depth is flat — the trigger may matter more
+than the depth.
 
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.
