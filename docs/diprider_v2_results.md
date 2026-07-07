@@ -89,33 +89,111 @@ avg log-close slope +0.167%/bar, avg `run_r2` 0.49, avg `run_atr_v2` 0.0105.
 Gated `run_len ≥ 10`, 2020-2026: **15,054 trips / PF 1.169 / +$238k** — MUCH thinner than the 2026 H1
 snapshot (PF 3.00 was a regime slice, not the gate). Critically, the **ungated** book (run_len ≥ 0) is
 **161,142 trips / PF 1.166** — nearly identical PF. So `run_len ≥ 10` **adds no edge on its own**; it
-just cuts 90% of trips at the same PF. The edge must come from the run's SHAPE. Bucket PF (gated book):
+just cuts 90% of trips at the same PF. The edge must come from the run's SHAPE. All bucket tables below
+are the **gated book** (`run_len ≥ 10`, 15,054 trips); `avg_ret_pct` = mean `ret_moc` %, `pf` = MOC PF.
 
-- **`run_atr_v2` (run volatility) — THE lever, clean & monotone:** `<.004` PF 0.95 (dead) → `.008-.015`
-  1.24 → `.015-.03` 1.37 → **`.03+` PF 1.81 / +5.35% avg.** Volatile runs resume hard. Same mechanism as
-  V1 F2 ("the volatility IS the edge") and VwapReclaim's dist/ATR — **volatility is the fuel** across all
-  the systems.
-- **`run_slope` (log-close %/bar) — real but SECONDARY, and it does NOT stack with volatility:** steeper
-  is better in isolation (`.004-.008` PF 1.52 / +2.05%), but the 2×2 stack shows volatility DOMINATES:
-  volatile-only PF **2.15** (+2.89%), steep+volatile 1.31, steep-only 1.23, neither 0.99. **Requiring a
-  steep slope on top of volatility HURTS** (steep-but-calm runs are mediocre; forcing steepness excludes
-  the best pure-volatility trades). Volatile runs are already steep enough.
-- **`run_len`: 15-19 is the sweet spot (PF 1.32), plateaus ~1.19, and 50+ DIES (PF 0.38)** — an upper
-  cap exists (very long runs are exhausted). Use `run_len < 50`.
-- **`run_r2` (cleanliness) — INVERTED:** LOW R² (`<.2`) is best (PF 1.40), high R² (`.8-1`) dead (0.99).
-  A too-clean straight run is over-extended; a choppier climb has more left. Weaker than volatility.
-- **`entry_vs_run_top` — same shape as volatility (and correlated with it):** `4%+` above the run top =
-  PF 2.03 / +5.37%. Big re-breaks above the prior top = strong continuation. (A volatile run makes a big
-  re-break, so this ≈ the volatility signal; don't double-count.)
-- **`run_vol_slope` (is volume rising in the run?) — FLAT/DEAD:** 1.03-1.26 across all buckets. The
-  VOLUME trend is NOT the signal — a clean negative. (The PRICE volatility is.)
-- **`entry_vs_vwap` — mild:** buying 2-5% above VWAP (PF 1.43) beats just-below (0.96). Above-VWAP is
-  better but a weaker lever than volatility.
+**`run_atr_v2` (run volatility) — THE lever, clean & monotone.** `<.004` dead → `.03+` PF 1.81 / +5.35%.
+Volatile runs resume hard. Same mechanism as V1 F2 ("the volatility IS the edge") and VwapReclaim's
+dist/ATR — **volatility is the fuel** across all the systems.
+
+| run_atr_v2 | n | avg_ret_pct | pf |
+|---|--:|--:|--:|
+| <.004 | 7536 | −0.021 | 0.949 |
+| .004-.008 | 4718 | −0.049 | 0.944 |
+| .008-.015 | 1883 | 0.388 | 1.240 |
+| .015-.03 | 679 | 1.139 | 1.367 |
+| **.03+** | 238 | **5.353** | **1.806** |
+
+**`run_slope` (log-close %/bar) — real but SECONDARY.** Steeper is better in isolation, BUT it does NOT
+stack with volatility (see the 2×2 below).
+
+| run_slope | n | avg_ret_pct | pf |
+|---|--:|--:|--:|
+| <0 | 757 | 0.211 | 1.272 |
+| 0 to .001 | 10214 | −0.036 | 0.941 |
+| .001-.002 | 2604 | 0.494 | 1.424 |
+| .002-.004 | 1059 | 0.540 | 1.259 |
+| **.004-.008** | 293 | **2.048** | **1.521** |
+| .008+ | 127 | 1.005 | 1.130 |
+
+**Stack — `run_slope ≥ .002` (steep) × `run_atr_v2 ≥ .012` (vol_hi):** volatility DOMINATES; requiring a
+steep slope on top of volatility HURTS (steep-but-calm runs are mediocre; forcing steepness excludes the
+best pure-volatility trades). Volatile runs are already steep enough.
+
+| steep | vol_hi | n | avg_ret_pct | pf |
+|---|---|--:|--:|--:|
+| true | true | 961 | 1.176 | 1.313 |
+| true | false | 518 | 0.328 | 1.234 |
+| **false** | **true** | 418 | **2.892** | **2.151** |
+| false | false | 13157 | −0.010 | 0.986 |
+
+**`run_len` — 15-19 is the sweet spot; 50+ DIES (exhaustion).** An upper cap exists → use `run_len < 50`.
+
+| run_len | n | avg_ret_pct | pf |
+|---|--:|--:|--:|
+| 10-14 | 6831 | 0.072 | 1.081 |
+| **15-19** | 3736 | 0.300 | **1.319** |
+| 20-29 | 3179 | 0.185 | 1.185 |
+| 30-49 | 1209 | 0.203 | 1.191 |
+| 50-99 | 99 | −0.593 | 0.380 |
+
+**`run_r2` (trend cleanliness) — INVERTED.** LOW R² (`<.2`) is best; a too-clean straight run is
+over-extended, a choppier climb has more left. Weaker than volatility.
+
+| run_r2 | n | avg_ret_pct | pf |
+|---|--:|--:|--:|
+| **<.2** | 3152 | 0.325 | **1.395** |
+| .2-.4 | 2538 | 0.072 | 1.085 |
+| .4-.6 | 3197 | 0.116 | 1.130 |
+| .6-.8 | 3915 | 0.211 | 1.211 |
+| .8-1 | 2252 | −0.010 | 0.991 |
+
+**`run_vol_slope` (is volume rising in the run?) — FLAT/DEAD.** The VOLUME trend is NOT the signal — a
+clean negative. (The PRICE volatility is.)
+
+| run_vol_slope | n | avg_ret_pct | pf |
+|---|--:|--:|--:|
+| <−.02 | 5313 | 0.136 | 1.166 |
+| −.02 to 0 | 2413 | 0.192 | 1.240 |
+| 0-.02 | 2292 | 0.026 | 1.027 |
+| .02-.05 | 2463 | 0.272 | 1.259 |
+| .05+ | 2573 | 0.181 | 1.154 |
+
+**`entry_vs_run_top` — same shape as volatility (and correlated with it; a volatile run makes a big
+re-break, so this ≈ the volatility signal — don't double-count).** `4%+` above the run top = PF 2.03.
+
+| entry_vs_run_top | n | avg_ret_pct | pf |
+|---|--:|--:|--:|
+| below top | 627 | 0.386 | 1.460 |
+| 0-1% | 11747 | 0.016 | 1.025 |
+| 1-2% | 1754 | −0.112 | 0.934 |
+| 2-4% | 664 | 1.121 | 1.410 |
+| **4%+** | 262 | **5.372** | **2.028** |
+
+**`entry_vs_vwap` (buy below vs above VWAP) — mild.** 2-5% above VWAP (PF 1.43) beats just-below (0.96).
+Above-VWAP better, but a weaker lever than volatility.
+
+| entry_vs_vwap | n | avg_ret_pct | pf |
+|---|--:|--:|--:|
+| <−2% | 1451 | 0.234 | 1.190 |
+| −2 to 0% | 3708 | −0.026 | 0.959 |
+| 0-2% | 5719 | 0.024 | 1.039 |
+| **2-5%** | 3031 | 0.426 | **1.429** |
+| 5%+ | 1145 | 0.621 | 1.209 |
 
 **Candidate cell — `run_atr_v2 ≥ .015 & run_len < 50`: PF 1.561 / 912 trips / 17.2% win / +$206k**,
-POSITIVE 6 of 7 years (only 2021 PF 0.90 / −$9k; 2023 & 2026 PF ~3.6). ~140 trips/year — a stable
-volatile-run-resumption book. Simple: ONE dominant lever (run volatility) + the exhaustion cap.
-Exit/stop unchanged (hold-to-MOC + 2-bar-low close-based stop).
+POSITIVE 6 of 7 years. ~140 trips/year — a stable volatile-run-resumption book: ONE dominant lever (run
+volatility) + the exhaustion cap. Exit/stop unchanged (hold-to-MOC + 2-bar-low close-based stop).
+
+| year | n | pf | net |
+|---|--:|--:|--:|
+| 2020 | 97 | 1.290 | +9,062 |
+| 2021 | 236 | 0.904 | −8,999 |
+| 2022 | 120 | 1.401 | +14,776 |
+| 2023 | 77 | 3.594 | +65,736 |
+| 2024 | 156 | 1.463 | +32,584 |
+| 2025 | 175 | 1.321 | +26,557 |
+| 2026 | 51 | 3.548 | +66,120 |
 
 NEXT (for the user): decide whether to promote `run_atr_v2 ≥ .015 & run_len < 50` to defaults; sweep the
 run_atr threshold + the run_len cap; consider the volatility exhaustion tail; then a 22-year regime check.
