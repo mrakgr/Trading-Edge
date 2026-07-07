@@ -353,5 +353,37 @@ a volatile up-run almost always carries elevated/rising volume anyway — so onc
 the volume SLOPE adds little independent information. The volatility already "contains" the volume story.
 (Would likely matter more in a setup NOT pre-selected on volatility.)
 
+### Finding 9 — V1's "shallower pullback = better" HOLDS on V2; the run-tolerance is an implicit depth cap
+
+Rechecked `bars_below_ema` (consecutive bars closed below the 9-EMA into entry = pullback depth), the V1
+F2 lever. On the DEFAULT engine (`RunResetBarsBelow = 1`), `bars_below_ema` maxes out at **3** on BOTH
+triggers — the tolerance-1 run-tracker breaks the up-run after 2 consecutive below-closes, so deep
+pullbacks structurally CANNOT reach an entry. Within that shallow 1-3 range (candidate cell):
+
+| bars_below_ema | re-break PF (avg_ret) | reclaim PF (avg_ret) |
+|---|--:|--:|
+| 1 | **2.002** (+3.73%) | 1.280 (+0.76%) |
+| 2 | 1.497 (+1.97%) | **1.561** (+1.72%) |
+| 3 | 1.491 (+2.06%) | 1.301 (+0.97%) |
+
+Re-break: **1 bar is dramatically best (PF 2.00)** — sharp monotone shallow-is-better. Reclaim: a mild
+inverted-U (2 best), the earliest 1-bar entries slightly worse.
+
+**To see the DEEP end, loosen the tolerance** (`--run-reset-bars-below 3` admits ≤3 excused below-closes,
+so pullbacks of 3-7 bars survive). Then V1's monotone degradation REAPPEARS (candidate cell):
+
+| bars_below_ema | n | avg_ret_pct | pf |
+|---|--:|--:|--:|
+| 1 | 351 | 2.726 | **1.76** |
+| 2 | 419 | 2.644 | 1.711 |
+| 3-4 | 859 | 1.881 | 1.517 |
+| 5-7 | 1251 | 1.986 | 1.556 |
+
+**Conclusion: V1 F2 ("shallower resumes, deeper is a broken trend") HOLDS on V2** — 1-2 bar pullbacks
+(PF ~1.7-1.8) beat 3-7 bar (PF ~1.5), monotone. The reason it's invisible in the default book: the
+**`RunResetBarsBelow = 1` tolerance IS an implicit pullback-depth cap** — it only lets shallow (1-3 bar)
+pullbacks reach an entry, already excluding the deep ones V1 warned about. The default engine is buying
+shallow pullbacks by construction.
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.
