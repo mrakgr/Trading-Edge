@@ -184,13 +184,20 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
 // Pipeline 1 — read qualifying (ticker, day) rows from mr_candidate.
 // ===========================================================================
 let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: DateOnly) : Candidate[] =
+    // Research override: MFV2_CANDIDATE_PARQUET points readCandidates at a PARQUET of the same schema as
+    // mr_candidate (e.g. a restricted (ticker,date) subset) instead of the mr_candidate table. Value must be
+    // a filesystem path; single-quotes are escaped for the interpolated read_parquet(). Empty/unset = default.
+    let source =
+        match System.Environment.GetEnvironmentVariable "MFV2_CANDIDATE_PARQUET" with
+        | null | "" -> "mr_candidate"
+        | p -> sprintf "read_parquet('%s')" (p.Replace("'", "''"))
     use cmd = conn.CreateCommand()
     cmd.CommandText <-
-        "SELECT ticker, date, prev_adj_close, close_3d, close_7d, day_close, adj_ratio, avgvol20,
+        sprintf "SELECT ticker, date, prev_adj_close, close_3d, close_7d, day_close, adj_ratio, avgvol20,
                 close_fwd_1d, close_fwd_3d, close_fwd_5d, day_open, med_bar_vol_0945, nbar_0945, vol_0945
-         FROM mr_candidate
+         FROM %s
          WHERE date >= $start AND date <= $end
-         ORDER BY ticker, date"
+         ORDER BY ticker, date" source
     let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- startDate; cmd.Parameters.Add pStart |> ignore
     let pEnd   = cmd.CreateParameter() in pEnd.ParameterName   <- "end";   pEnd.Value   <- endDate;   cmd.Parameters.Add pEnd   |> ignore
     let out = ResizeArray<Candidate>()

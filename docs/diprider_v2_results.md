@@ -885,5 +885,32 @@ exits.** 2021 needs a chop/whipsaw ENTRY filter, not an exit.
 NEXT (user): stack `chg_1d ≥ 10%` + `rvol < 25x` (F21/F22 entry cuts — the working levers); float<$300M;
 an intraday chop/whipsaw ENTRY measure for residual 2021; wire cell as engine gates.
 
+### Finding 24 — 2021 is TWO-SIDED CHOP, not a reversal regime: shorting the same days ALSO loses
+
+Test (user): run the dedicated short system (MaxFlyerV2, `brv20d≥100` pop-fade) on the EXACT 2021 DipRider
+cell (ticker,date) pairs (257 pairs → exported to a parquet; added `MFV2_CANDIDATE_PARQUET` override to
+MaxFlyerV2's readCandidates so any short book can be pointed at an arbitrary (ticker,date) list). If 2021's
+longs failed because the names REVERTED, shorting them should WIN.
+
+**It doesn't — the short ALSO loses: PF 0.784 / −$83k / 470 trips.** Near mirror-image to DipRider's 0.824.
+
+| book (same 2021 days) | win% | avg_win | avg_loss | pf |
+|---|--:|--:|--:|--:|
+| DipRider LONG | 32.5 | +20.9 | −12.3 | 0.824 |
+| MaxFlyerV2 SHORT | 54.9 | +11.7 | −18.3 | 0.784 |
+
+The short WINS more often (55% — it catches the reversions) but its LOSERS are bigger (−18.3%): when a
+name didn't revert it ran up and SQUEEZED the short. So neither direction works — longs stop out when price
+fails to follow through UP; shorts get squeezed when price fails to revert DOWN. **Whipsaw both ways.**
+
+⇒ **2021 is a two-sided CHOP regime, definitively NOT a directional reversal.** This RULES OUT the
+reversal hypothesis and confirms why F23's blow-off exit was doomed (no consistent direction to exit into).
+The only 2021 fixes are (a) an ENTRY filter that DETECTS & AVOIDS chop days, or (b) accept 2021 as an
+unavoidable ~1-yr drawdown (1 of 7 years; system still +$875k / PF 2.17 overall). Infra win: MaxFlyerV2
+`MFV2_CANDIDATE_PARQUET` override is reusable for any cross-system (ticker,date) probe.
+
+NEXT (user): a chop-DETECTION entry filter (e.g. intraday whipsaw/reversal-count, or a market-wide
+follow-through-breadth measure) for 2021; else adopt F21/F22 cuts + float<$300M and accept 2021; wire cell.
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.
