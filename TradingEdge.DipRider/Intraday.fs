@@ -102,6 +102,7 @@ type IntradayPosition =
       TrailVolSlopeAtEntry: float // trailing-20 OLS log-volume slope (independent of the run length)
       MktChgOpenAtEntry: float    // reference index (SPY) %-change from SESSION OPEN, at the entry minute
       MktChgPrevAtEntry: float    // reference index (SPY) %-change from PREV DAILY CLOSE, at the entry minute
+      EntryVsSessHighAtEntry: float // entry px / running session HIGH (strictly-prior) - 1 (<=0; how far below the high)
       BarsSinceBreakAtEntry: int // bars since the above-EMA run broke (true pullback age; -1 = no run broke yet)
       Vol20AtEntry: int64        // trailing raw volume over the last 20/10/5/2 bars (exhaustion-cutoff inputs)
       Vol10AtEntry: int64
@@ -300,6 +301,10 @@ type IntradayConfig =
                                // book (AdvanceDip). false = hold-to-MOC.
       DipV2ExhaustVolMult: float // the blow-off multiplier: require the exit bar's volume >= this × each
                                // per-minute baseline. Swept (e.g. 5, 10, 20). Only used when DipV2ExhaustExit.
+      DipV2MaxRvol: float      // EXHAUSTION-CUT ENTRY GATE (0 = off): reject entries whose cumulative day
+                               // volume through entry is >= this × the 20-day avg DAILY volume (rvol). A run
+                               // on ALREADY-blown-out volume is LATE (F22: rvol 75x+ = PF 1.53 vs <10x ~2.7).
+                               // Default 75. Needs the 20d-avg baseline (SetVolBaselines' perMin20d × 390).
       DipV2VwapExitBars: int   // LOSS-OF-VWAP EXIT (0 = off): once the 9-EMA has been ABOVE the session VWAP
                                // for >= this many bars during the hold, CLOSE the long the bar the 9-EMA
                                // crosses BELOW VWAP (the trend the run rode broke). Fills at that bar's close.
@@ -658,6 +663,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             bar.etMin >= cfg.EntryStartMin
             && (cfg.EntryEndMin <= 0 || cfg.EntryEndMin >= cfg.MocMin || bar.etMin <= cfg.EntryEndMin)
             && sRunLenAbove = cfg.DipV2BuyIntoRun
+            // EXHAUSTION cut (F22): reject if cumulative day volume through here >= MaxRvol × 20d-avg daily
+            // (rvol = cumVol / avgVol20; avgVol20 = permin20d×390). A run on already-blown-out volume is late.
+            && (cfg.DipV2MaxRvol <= 0.0 || permin20d <= 0.0
+                || float cumVol < cfg.DipV2MaxRvol * (permin20d * 390.0))
             && (cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent)
         else
         bar.etMin >= cfg.EntryStartMin
@@ -1237,7 +1246,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       BarsBelowEmaAtEntry = sBarsBelowEma
                       TrendPctAtEntry = (match sessionOpen with ValueSome o when o > 0.0 -> bar.close / o - 1.0 | _ -> nan)
                       RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
-                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1; TrailSlopeAtEntry = nan; TrailVolSlopeAtEntry = nan; MktChgOpenAtEntry = this.MktChgOpen bar.etMin; MktChgPrevAtEntry = this.MktChgPrev bar.etMin
+                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1; TrailSlopeAtEntry = nan; TrailVolSlopeAtEntry = nan; MktChgOpenAtEntry = this.MktChgOpen bar.etMin; MktChgPrevAtEntry = this.MktChgPrev bar.etMin; EntryVsSessHighAtEntry = (match sRunHi with ValueSome h when h > 0.0 -> bar.close / h - 1.0 | _ -> nan)
                       Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                       State = Holding }
         elif cfg.DipRiderV2 then
@@ -1301,7 +1310,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                          then bar.close / sRunMinCloseLive - 1.0 else nan)
                       BarsSinceBreakAtEntry = sBarsSinceBreak
                       TrailSlopeAtEntry = sTrailSlope; TrailVolSlopeAtEntry = sTrailVolSlope
-                      MktChgOpenAtEntry = this.MktChgOpen bar.etMin; MktChgPrevAtEntry = this.MktChgPrev bar.etMin
+                      MktChgOpenAtEntry = this.MktChgOpen bar.etMin; MktChgPrevAtEntry = this.MktChgPrev bar.etMin; EntryVsSessHighAtEntry = (match sRunHi with ValueSome h when h > 0.0 -> bar.close / h - 1.0 | _ -> nan)
                       Vol20AtEntry = sVol20; Vol10AtEntry = sVol10; Vol5AtEntry = sVol5; Vol2AtEntry = sVol2
                       VwapAtEntry = (match sVwapNow with ValueSome v -> v | ValueNone -> nan)
                       State = Holding }
@@ -1373,7 +1382,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       BarsBelowEmaAtEntry = 0
                       TrendPctAtEntry = nan
                       RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
-                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1; TrailSlopeAtEntry = nan; TrailVolSlopeAtEntry = nan; MktChgOpenAtEntry = this.MktChgOpen bar.etMin; MktChgPrevAtEntry = this.MktChgPrev bar.etMin
+                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1; TrailSlopeAtEntry = nan; TrailVolSlopeAtEntry = nan; MktChgOpenAtEntry = this.MktChgOpen bar.etMin; MktChgPrevAtEntry = this.MktChgPrev bar.etMin; EntryVsSessHighAtEntry = (match sRunHi with ValueSome h when h > 0.0 -> bar.close / h - 1.0 | _ -> nan)
                       Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                       State = Holding }
         elif this.ShouldEnter bar then
@@ -1423,7 +1432,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   BarsBelowEmaAtEntry = 0
                   TrendPctAtEntry = nan
                   RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
-                  RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1; TrailSlopeAtEntry = nan; TrailVolSlopeAtEntry = nan; MktChgOpenAtEntry = this.MktChgOpen bar.etMin; MktChgPrevAtEntry = this.MktChgPrev bar.etMin
+                  RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1; TrailSlopeAtEntry = nan; TrailVolSlopeAtEntry = nan; MktChgOpenAtEntry = this.MktChgOpen bar.etMin; MktChgPrevAtEntry = this.MktChgPrev bar.etMin; EntryVsSessHighAtEntry = (match sRunHi with ValueSome h when h > 0.0 -> bar.close / h - 1.0 | _ -> nan)
                   Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                   // entry routing:
                   //   --ext-gate — if day-extension already >= ExtGate at the breakout, enter

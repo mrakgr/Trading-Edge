@@ -956,5 +956,52 @@ hold-to-MOC.** The stop fix (F25), not a new exit, was the real 2021 solution.
 NEXT (user): the fix likely shifts F12/F13/F16 exact numbers — consider re-baselining the leading configs;
 adopt F21/F22 entry cuts (chg_1d≥10%, rvol<25x); float<$300M; wire cell as engine gates. 2021 now ≈flat.
 
+### Finding 27 — exhaustion `rvol` gate re-verified on the FIXED-STOP book (wired `DipV2MaxRvol`, default OFF)
+
+Re-ran F22's exhaustion cut on the fixed-stop book (F25). It HOLDS: cumulative-day `rvol` (day vol / 20d
+avg daily) has a single clean weak tail at `75x+` (PF 1.53) vs ~2.2-4.5 below. Wired it as an engine gate
+`DipV2MaxRvol` (`--dip-v2-max-rvol`; verified byte-exact vs post-hoc SQL). `rvol < 75` → cell PF **2.31 →
+2.71**, +$700k (86% of net), every year positive incl. **2021 PF 1.16 / +$17k**. `rvol < 25` overcuts
+(PF 2.67 but only +$540k). **Left OFF by default (user)** pending the distance breakdowns.
+- Checked `rvol20m_20d` (last-20m pace vs 20d) too: 96% CORRELATED with cumulative `rvol`, and JAGGED
+  (dead pockets at 40-100x AND 300x+, strong 100-300x between) → a WORSE gate. Cumulative `rvol` wins.
+
+### Finding 28 — entry distance from VWAP and from the SESSION HIGH (fixed-stop cell)
+
+**% distance from VWAP (`entry_vs_vwap`):** below-VWAP is the WEAK bucket; just-above is best, then a plateau.
+
+| entry vs VWAP | n | pf |
+|---|--:|--:|
+| below VWAP | 109 | **1.569** |
+| 0-2% above | 52 | **5.176** |
+| 2-5% | 148 | 2.817 |
+| 5-10% | 306 | 2.046 |
+| 10-20% | 310 | 2.244 |
+| 20-40% | 155 | 2.403 |
+| 40%+ | 33 | 1.991 |
+
+Reads: an `entry ≥ VWAP` floor cuts the worst bucket (below-VWAP = day-trend unconfirmed); a run that just
+reclaimed/held VWAP (0-2%) is the freshest entry (PF 5.18). Beyond that it's a broad ~2.0-2.8 plateau.
+
+**% distance BELOW the session high (`entry_vs_sess_high`, ≤0) — U-SHAPED, the two extremes win:**
+
+| entry below sess high | n | avg_ret_pct | pf |
+|---|--:|--:|--:|
+| at high (0 to −.1%) | 108 | 4.92 | 1.638 |
+| **−.1 to −1%** | 62 | 12.05 | **3.984** |
+| −1 to −3% | 200 | 3.15 | 1.676 |
+| −3 to −6% | 305 | 4.32 | 1.780 |
+| −6 to −12% | 234 | 9.28 | 2.547 |
+| **< −12%** | 204 | 13.39 | **3.433** |
+
+TWO distinct good trades: (a) buy JUST off the high (−.1 to −1%, tiny dip = fresh continuation, PF 3.98),
+or (b) buy DEEP below the high (< −12%, a mid-run name well under its earlier peak with room to run back
+up, PF 3.43 / +13.4% avg / biggest net +$273k). DEAD zones: buying AT the high (chasing the top, 1.64) and
+the shallow-to-moderate 1-6% pullbacks (~1.7-1.8). Non-monotone → not a simple threshold gate; the two
+peaks would need a carve-out (like the F6 breadth U — user rejected carve-outs there, so treat as insight).
+
+NEXT (user): decide whether to floor `entry ≥ VWAP` (cuts the weak below-VWAP bucket cleanly); the sess-high
+U-shape is insight not an obvious gate; adopt rvol<75 + chg_1d≥10%; float<$300M; re-baseline leading configs.
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.
