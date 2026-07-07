@@ -218,5 +218,40 @@ in letting the volatile-run resumption run to the close.
 - Time-stops are less destructive (ts10 best at PF 1.29 / +$48k) but still leave ~$158k vs MOC on the table.
 - ⇒ **Keep hold-to-MOC.** Don't retest short-term exits on this pattern again.
 
-NEXT (for the user): decide whether to promote `run_atr_v2 ≥ .015 & run_len < 50` to defaults; sweep the
-run_atr threshold + the run_len cap; consider the volatility exhaustion tail; then a 22-year regime check.
+### Finding 5 — the re-break ATR% filter is a SELECTIVITY knob, not the edge; relaxing it fattens the book
+
+The re-break trigger is `close ≥ prevBar.high · (1 + k·ATR%)` (k = `DipRebreakAtr`, `--dip-rebreak-atr`).
+Swept k on the candidate cell (`run_atr_v2 ≥ .015 & run_len < 50`, 2020-2026):
+
+| k (re-break ATR mult) | n | avg_ret_pct | pf | net |
+|---|--:|--:|--:|--:|
+| **0.0** (no expansion req) | 3897 | 1.536 | 1.483 | **+598,706** |
+| **0.25** | 1937 | 2.044 | **1.576** | +395,905 |
+| 0.5 (current default) | 912 | 2.257 | 1.561 | +205,835 |
+| 1.0 | 198 | 7.061 | **2.509** | +139,803 |
+
+k is a **fat-book ⇄ high-PF dial on the SAME edge** — the volatility that matters is captured by
+`run_atr_v2` (the RUN's vol), so also requiring the re-break BAR to be an expansion bar is largely
+redundant on this cell:
+- **k=0 ≈ 4× the trips and ~3× the dollars** (+$206k → +$599k) at a small PF cost (1.56 → 1.48).
+- **k=0.25 is the robust sweet spot** — highest PF (1.576) AND 2× the default's trips.
+- k=1.0 = a tiny spectacular book (PF 2.51 / +7% avg) but only 198 trips/6yr — too thin.
+
+**Year stability (cell):** 2021 is the system's weak regime at EVERY k (a persistent feature, not a k
+artifact). k=0 makes 2021 a −$65k hole; **k=0.25 halves it to −$33k** while every other year stays solidly
+positive (2023-2026 all strong). So k=0.25 is the better RISK-ADJUSTED fat book; k=0 maximizes raw dollars
+but concentrates the 2021 drawdown.
+
+| year | k=0.0 pf / net | k=0.25 pf / net |
+|---|--:|--:|
+| 2020 | 1.452 / +62,435 | 1.348 / +25,097 |
+| 2021 | 0.802 / **−65,374** | 0.819 / **−33,098** |
+| 2022 | 1.047 / +6,094 | 1.259 / +17,447 |
+| 2023 | 2.730 / +145,069 | 3.219 / +116,307 |
+| 2024 | 1.759 / +162,502 | 1.752 / +91,194 |
+| 2025 | 1.771 / +195,386 | 1.706 / +100,546 |
+| 2026 | 2.014 / +92,592 | 2.600 / +78,411 |
+
+NEXT (for the user): pick k (0.25 = robust fat book / 0 = max dollars); decide whether to promote
+`run_atr_v2 ≥ .015 & run_len < 50` + the chosen k to defaults; investigate the 2021 weak regime; sweep the
+run_atr threshold + the run_len cap; then a 22-year regime check.
