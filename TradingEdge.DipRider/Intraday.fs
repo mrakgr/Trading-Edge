@@ -292,6 +292,14 @@ type IntradayConfig =
                                // the falling dip room instead of stopping right under a still-falling entry.
       DipV2StopDistFrac: float // stop DISTANCE below the run floor as a fraction of d (default 2/3, VwapReclaim
                                // Finding 14). Larger = WIDER. Used by DipV2GeomStop and by BUY-INTO-RUN.
+      DipV2ExhaustExit: bool   // EXHAUSTION EXIT (MaxFlyer-style, off by default): while HOLDING, exit when a
+                               // 1m bar makes a NEW SESSION HIGH on a VOLUME BLOW-OFF — sell into the parabolic
+                               // top instead of riding it to MOC. Blow-off = bar.volume >= DipV2ExhaustVolMult ×
+                               // BOTH per-minute baselines (20d-avg/390 AND opening-15m avg). Fill at that bar's
+                               // close. Targets the chop-regime give-back (2021). Applies to the buy-into-run/dip
+                               // book (AdvanceDip). false = hold-to-MOC.
+      DipV2ExhaustVolMult: float // the blow-off multiplier: require the exit bar's volume >= this × each
+                               // per-minute baseline. Swept (e.g. 5, 10, 20). Only used when DipV2ExhaustExit.
       DipV2BuyIntoRun: int }   // MOMENTUM ENTRY (0 = off, default): buy INTO the currently-active above-EMA run
                                // when its LENGTH first reaches N bars (sRunLenAbove == N; fires ONCE per run).
                                // NOT a pullback — buys strength directly. Overrides all other triggers. Uses a
@@ -308,6 +316,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     // at entry. Reusable by every intraday system (the broader-market-down-on-the-day feature). No-lookahead:
     // the lookup at et_min uses only the index's bars through et_min (built that way in Backtest.fs).
     let mutable marketCtx : int -> struct (float * float) = fun _ -> struct (nan, nan)
+    // per-minute VOLUME baselines for the exhaustion exit (set per-day from the Candidate; 0 = unset/disabled):
+    //   permin20d  = 20-day avg daily volume / 390  (the name's normal per-minute pace)
+    //   permin15m  = opening-15m (09:30-09:45) avg 1m volume  (the name's own early-session tempo)
+    let mutable permin20d = 0.0
+    let mutable permin15m = 0.0
 
     // day extension at a bar = close vs the prior daily close (how far up/down on the day).
     // Used by --ext-gate to route direct-vs-rollover entry and gate the rollover fill.
@@ -487,6 +500,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     member _.BarsSeen = barsSeen
     /// Set the per-day broader-market (SPY) context lookup: etMin -> struct(chg-from-open, chg-from-prev-close).
     member _.SetMarketCtx (f: int -> struct (float * float)) = marketCtx <- f
+    /// Set the per-minute volume baselines for the exhaustion exit: (20d-avg/390, opening-15m avg 1m vol).
+    member _.SetVolBaselines (perMin20d: float, perMin15m: float) = permin20d <- perMin20d; permin15m <- perMin15m
     /// Reference-index %-change from session open at et_min (nan if unavailable). No-lookahead by construction.
     member private _.MktChgOpen (etMin: int) = let struct (o, _) = marketCtx etMin in o
     /// Reference-index %-change from prev daily close at et_min (nan if unavailable).
@@ -992,7 +1007,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     /// StopOnClose) → optional %-catastrophe stop → time-stop → MOC. The stop is a structural level
     /// snapshotted at entry (the re-break bar's low, or a %-below-entry floor); NoTarget by default
     /// (momentum-continuation, run to MOC — same lesson as the reclaim). StopLevel = -inf disables it.
-    member private _.AdvanceDip (bar: MinuteBar) (pos: IntradayPosition) : IntradayPosition =
+    member private this.AdvanceDip (bar: MinuteBar) (pos: IntradayPosition) : IntradayPosition =
         match pos.State with
         | ExitedAt _ | Skipped | Armed _ -> pos      // DipRider positions are Holding immediately
         | Holding ->
@@ -1006,11 +1021,23 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             // better at the open). Guarded by a valid (non-nan) target.
             let newHighHit =
                 cfg.DipExitNewHigh && not (Double.IsNaN pos.TargetLevel) && bar.high > pos.TargetLevel
+            // EXHAUSTION EXIT (MaxFlyer-style): sell into the parabolic top — this bar makes a NEW SESSION
+            // HIGH (wick pierces the strictly-prior session high) AND is a VOLUME BLOW-OFF (bar volume >=
+            // mult × BOTH per-minute baselines: 20d-avg/390 AND opening-15m avg). Fill at the bar close.
+            // sRunHi is the pre-fold snapshot (strictly-prior), so "> sRunHi" is a genuine new high.
+            let exhaustHit =
+                cfg.DipV2ExhaustExit
+                && permin20d > 0.0 && permin15m > 0.0
+                && float bar.volume >= cfg.DipV2ExhaustVolMult * permin20d
+                && float bar.volume >= cfg.DipV2ExhaustVolMult * permin15m
+                && (match sRunHi with ValueSome h -> bar.high > h | ValueNone -> false)
             if stopHit then
                 let fill = if cfg.StopOnClose then bar.close else min pos.StopLevel bar.``open``
                 { pos with State = ExitedAt (bar.etMin, fill, "stop") }
             elif pctStopHit then
                 { pos with State = ExitedAt (bar.etMin, min pctStopLevel bar.``open``, "pct_stop") }
+            elif exhaustHit then
+                { pos with State = ExitedAt (bar.etMin, bar.close, "exhaust") }
             elif newHighHit then
                 // fill at the target (the prior session high +ε ≈ the level); gap-up fills better at the open.
                 { pos with State = ExitedAt (bar.etMin, max pos.TargetLevel bar.``open``, "new_high") }

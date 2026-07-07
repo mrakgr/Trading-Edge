@@ -857,5 +857,33 @@ that meaningfully dents it. Stacks conceptually with `chg_1d ≥ 10%` (F21) — 
 NEXT (user): stack `chg_1d ≥ 10%` + `rvol < 25x` into the cell (measure the combined book + 2021); the
 float<$300M gate; then an intraday follow-through measure for the residual 2021; wire cell as engine gates.
 
+### Finding 23 — NEGATIVE: MaxFlyer-style exhaustion EXIT (sell the blow-off top) does NOT help; hurts 2021
+
+Idea (user): DipRider is long the names MaxFlyer shorts; sell into the MaxFlyer entry signal — a NEW
+SESSION HIGH on a VOLUME BLOW-OFF (bar vol ≥ mult × BOTH the 20d-per-min AND opening-15m-per-min baselines,
+fill at that bar's close). Built `--dip-v2-exhaust-exit` / `--dip-v2-exhaust-vol-mult`. Swept vs MOC on the
+N=20 cell:
+
+| exit | exhaust-fire % | win | pf | net |
+|---|--:|--:|--:|--:|
+| **MOC (baseline)** | 0 | 43.5 | **2.17** | **+875,466** |
+| exhaust 10× | 11.4 | 46.4 | 2.024 | +731,307 |
+| exhaust 20× | 3.5 | 44.6 | 2.085 | +797,600 |
+
+**Every variant LOWERS PF and net.** And on 2021 (the target) it's WORSE: exhaust-10× = PF 0.784 / −$48k vs
+MOC 0.824 / −$41k.
+
+Same lesson as EVERY exit test here (V1 F3, VwapReclaim F13, V2 F4): **selling into strength caps the
+winners.** It raises win rate (46% vs 43% — banks more trades) but in these low-float CONTINUATION names a
+new-high-on-huge-volume bar often KEEPS GOING — it's the +40% tail that carries the book. MaxFlyer's
+blow-off logic works as a SHORT ENTRY because it selects reversal-prone setups; DipRider already selected
+for CONTINUATION, so the same bar means "still running," not "done." For 2021 specifically it hit the WRONG
+trades: it fired on WINNERS (banking early) while 2021's losses came from runs reverting into the STOP
+(F20), not blowing off at new highs — so it couldn't help. ⇒ **Keep hold-to-MOC. Don't retry blow-off
+exits.** 2021 needs a chop/whipsaw ENTRY filter, not an exit.
+
+NEXT (user): stack `chg_1d ≥ 10%` + `rvol < 25x` (F21/F22 entry cuts — the working levers); float<$300M;
+an intraday chop/whipsaw ENTRY measure for residual 2021; wire cell as engine gates.
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.

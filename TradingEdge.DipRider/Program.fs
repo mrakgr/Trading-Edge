@@ -63,6 +63,8 @@ type Args =
     | Dip_V2_Geom_Stop
     | Dip_V2_Stop_Dist_Frac of float
     | Dip_V2_Buy_Into_Run of int
+    | Dip_V2_Exhaust_Exit
+    | Dip_V2_Exhaust_Vol_Mult of float
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -113,6 +115,8 @@ type Args =
             | Dip_V2_Geom_Stop -> "V2 STOP: use the run-anchored GEOMETRY stop (d = run top - run floor; stop = run floor - d*frac) instead of the 2-bar low. Gives a bought dip room (the 2-bar low trips instantly on a still-falling entry)."
             | Dip_V2_Stop_Dist_Frac _ -> "V2 geometry-stop distance below the run floor as a fraction of the run range (default 0.667 = d*2/3, VwapReclaim F14). Larger = wider. Used by --dip-v2-geom-stop and --dip-v2-buy-into-run."
             | Dip_V2_Buy_Into_Run _ -> "V2 MOMENTUM ENTRY: buy INTO the live above-9EMA run when its length first reaches N bars (fires once/run). NOT a pullback. Uses the live-run geometry stop. Records the live run's len/slope/R2/ATR/%gain. 0 = off."
+            | Dip_V2_Exhaust_Exit -> "V2 EXHAUSTION EXIT (MaxFlyer-style): while holding, sell into a NEW-SESSION-HIGH bar on a VOLUME BLOW-OFF (bar vol >= mult × both the 20d-per-min AND opening-15m per-min baselines), filled at that bar's close. Default OFF = hold-to-MOC."
+            | Dip_V2_Exhaust_Vol_Mult _ -> "V2 exhaustion blow-off multiplier: require the exit bar's volume >= this × each per-minute baseline. Default 10. Swept (5/10/20). Only with --dip-v2-exhaust-exit."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -173,6 +177,8 @@ let main argv =
                   DipV2GeomStop      = parsed.Contains Dip_V2_Geom_Stop
                   DipV2StopDistFrac  = parsed.GetResult(Dip_V2_Stop_Dist_Frac, defaultValue = defaultConfig.Intraday.DipV2StopDistFrac)
                   DipV2BuyIntoRun    = parsed.GetResult(Dip_V2_Buy_Into_Run, defaultValue = defaultConfig.Intraday.DipV2BuyIntoRun)
+                  DipV2ExhaustExit   = parsed.Contains Dip_V2_Exhaust_Exit
+                  DipV2ExhaustVolMult = parsed.GetResult(Dip_V2_Exhaust_Vol_Mult, defaultValue = defaultConfig.Intraday.DipV2ExhaustVolMult)
                   DipRebreakAtr      = parsed.GetResult(Dip_Rebreak_Atr,      defaultValue = defaultConfig.Intraday.DipRebreakAtr)
                   DipMinBarsBelowEma = parsed.GetResult(Dip_Min_Bars_Below_Ema, defaultValue = defaultConfig.Intraday.DipMinBarsBelowEma)
                   DipMaxBarsBelowEma = parsed.GetResult(Dip_Max_Bars_Below_Ema, defaultValue = defaultConfig.Intraday.DipMaxBarsBelowEma)

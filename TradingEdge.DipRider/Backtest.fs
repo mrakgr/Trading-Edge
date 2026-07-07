@@ -116,8 +116,10 @@ let defaultConfig =
           DipV2PullbackBar = 0           // 0 = use re-break/reclaim trigger; N>0 = buy the Nth below-EMA bar.
           DipV2GeomStop = false          // 2-bar-low stop by default; --dip-v2-geom-stop = run-anchored geometry stop.
           DipV2StopDistFrac = 2.0 / 3.0  // geometry-stop distance below the run floor as a fraction of the run range.
-          DipV2BuyIntoRun = 20 }         // Finding 15: N=20 is the momentum sweet spot (PF 2.17 on the cell).
+          DipV2BuyIntoRun = 20           // Finding 15: N=20 is the momentum sweet spot (PF 2.17 on the cell).
                                          // 0 = off (fall back to the re-break/reclaim/pullback trigger). --dip-v2-buy-into-run.
+          DipV2ExhaustExit = false       // exhaustion exit OFF by default; --dip-v2-exhaust-exit turns it on.
+          DipV2ExhaustVolMult = 10.0 }   // blow-off = exit bar vol >= 10× each per-minute baseline. --dip-v2-exhaust-vol-mult.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
@@ -503,6 +505,10 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
                     let c = byTicker.[ticker]
                     let sys = IntradaySystem(cfg.Intraday, ticker, date, c.PrevAdjClose)
                     sys.SetMarketCtx mktCtx
+                    // per-minute volume baselines for the exhaustion exit: 20d-avg/390 and opening-15m avg 1m vol.
+                    let perMin20d = if c.AvgVol20 > 0.0 then c.AvgVol20 / 390.0 else 0.0
+                    let perMin15m = if c.NBar0945 > 0 then float c.Vol0945 / float c.NBar0945 else 0.0
+                    sys.SetVolBaselines(perMin20d, perMin15m)
                     sys.Process bar
                     cur <- Some(c, sys))
             match cur with
