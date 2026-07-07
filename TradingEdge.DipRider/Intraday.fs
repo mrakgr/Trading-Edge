@@ -97,6 +97,7 @@ type IntradayPosition =
       RunVolR2AtEntry: float     // R² of that log-volume fit
       RunAtrV2AtEntry: float     // mean per-bar log-TR over the just-ended run (the run's own volatility)
       RunLastCloseAtEntry: float // close of the last bar of the just-ended run (its top) — vs entry = pullback depth
+      BarsSinceBreakAtEntry: int // bars since the above-EMA run broke (true pullback age; -1 = no run broke yet)
       Vol20AtEntry: int64        // trailing raw volume over the last 20/10/5/2 bars (exhaustion-cutoff inputs)
       Vol10AtEntry: int64
       Vol5AtEntry: int64
@@ -265,10 +266,15 @@ type IntradayConfig =
       DipV2MinRunLen: int      // ENTRY GATE: require the just-ended above-9EMA run to have lasted >= this many
                                // bars (a REAL sustained trend to buy the resumption of, not a 1-bar poke).
                                // Default 10 (the U-shape's good cell). 0 = off (take every re-break).
-      DipV2Reclaim: bool }     // ENTRY TRIGGER STYLE. false (default) = RE-BREAK (close clears the prior bar's
+      DipV2Reclaim: bool       // ENTRY TRIGGER STYLE. false (default) = RE-BREAK (close clears the prior bar's
                                // high by DipRebreakAtr*ATR%). true = 9-EMA RECLAIM: enter when THIS bar's close
                                // crosses back ABOVE the 9-EMA (the pullback's below-EMA run just ended) — fires
                                // earlier / more often, no prior-high or ATR% required.
+      DipV2MinBarsSinceBreak: int  // ENTRY GATE (gate-ready, OFF by default): require >= this many bars since the
+                               // above-EMA run BROKE (the true pullback age, tracked by the dedicated
+                               // barsSinceBreak counter, surviving above-EMA blips). 0 = off.
+      DipV2MaxBarsSinceBreak: int } // ENTRY GATE (OFF by default): require the bars-since-break < this (cap the
+                               // pullback age). 0 = off.
 
 /// Per-(ticker, day) intraday engine. Feed it the day's RTH MinuteBar[] in time
 /// order via `Process`, then `Finalize` and read `Trips()`.
@@ -335,6 +341,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable runAtrSumV2 = 0.0                // Σ per-bar log-TR over the current run's bars (the run's volatility)
     let mutable runAtrNV2   = 0                  // # bars contributing to runAtrSumV2
     let mutable runLastClose = nan               // close of the most recent bar in the current run (its running top)
+    // "bars since the uptrend broke" — a DEDICATED counter, separate from barsBelowEma (raw consecutive
+    // below-streak) and runBelowStreak (the OLS-reset tolerance counter). Starts at 0 the bar the above-EMA
+    // run BREAKS, then counts EVERY subsequent bar until an entry (a brief pop back above the EMA does NOT
+    // reset it) = the true pullback age since the trend was lost. -1 = no run has broken yet this session.
+    let mutable barsSinceBreak = -1
     // SAVED stats of the LAST COMPLETED above-EMA run (read at the next entry). nan/-1 until a run completes.
     let mutable savedRunLen   = -1               // bars the just-ended run lasted
     let mutable savedRunSlope = nan              // OLS log-close slope of the just-ended run (per-bar log-return)
@@ -411,6 +422,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sSavedVolR2    : float = nan
     let mutable sSavedRunAtr   : float = nan
     let mutable sSavedRunLastClose : float = nan
+    let mutable sBarsSinceBreak    : int = -1
     let mutable sVwapNow       : float voption = ValueNone   // session VWAP into this bar (= sVwapPrev; for buy-below/above-VWAP)
     let mutable sVol20 : int64 = 0L                          // trailing raw volume over the last 20/10/5/2 bars (strictly-prior)
     let mutable sVol10 : int64 = 0L
@@ -567,6 +579,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // MIN prior-run length: the just-ended above-9EMA run must have lasted >= DipV2MinRunLen bars
         // (a real sustained trend, not a 1-bar poke — the U-shape's good cell). 0 = off.
         && (cfg.DipV2MinRunLen <= 0 || sSavedRunLen >= cfg.DipV2MinRunLen)
+        // OPTIONAL bars-since-break gate (the true pullback age; both OFF by default).
+        && (cfg.DipV2MinBarsSinceBreak <= 0 || (sBarsSinceBreak >= 0 && sBarsSinceBreak >= cfg.DipV2MinBarsSinceBreak))
+        && (cfg.DipV2MaxBarsSinceBreak <= 0 || (sBarsSinceBreak >= 0 && sBarsSinceBreak < cfg.DipV2MaxBarsSinceBreak))
         // the TRIGGER (cfg.DipV2Reclaim):
         //   false — RE-BREAK: this bar's close clears the strictly-prior bar's HIGH by >= k*ATR% (an
         //           expansion over the prior high).
@@ -679,6 +694,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sSavedVolR2    <- savedVolR2
         sSavedRunAtr   <- savedRunAtr
         sSavedRunLastClose <- savedRunLastClose
+        sBarsSinceBreak <- barsSinceBreak
         sVwapNow       <- this.LiveVwap
         sVol20 <- (match vol20sum.State with ValueSome v -> int64 v | ValueNone -> 0L)
         sVol10 <- (match vol10sum.State with ValueSome v -> int64 v | ValueNone -> 0L)
@@ -774,6 +790,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         if cfg.DipRiderV2 then
             match sEmaPrevDip with
             | ValueSome e ->
+                // advance "bars since the uptrend broke" for every bar AFTER a break has occurred (>=0);
+                // the break bar itself is set to 0 below, overriding this increment for that bar.
+                if barsSinceBreak >= 0 then barsSinceBreak <- barsSinceBreak + 1
                 let above = bar.close >= e
                 if above then runBelowStreak <- 0
                 else runBelowStreak <- runBelowStreak + 1
@@ -794,6 +813,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                     runBelowStreak <- 0            // the breaking bar starts a fresh below-EMA pullback
                     runAtrSumV2 <- 0.0; runAtrNV2 <- 0
                     runLastClose <- nan
+                    barsSinceBreak <- 0            // the uptrend just broke on THIS bar → age 0
                 else
                     // still in the run (an above-bar, or an EXCUSED below-bar within tolerance): extend it.
                     // Feed the bar's log-close AND log-volume to the run OLS, but ONLY when BOTH are valid
@@ -1078,7 +1098,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       BarsBelowEmaAtEntry = sBarsBelowEma
                       TrendPctAtEntry = (match sessionOpen with ValueSome o when o > 0.0 -> bar.close / o - 1.0 | _ -> nan)
                       RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
-                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan
+                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; BarsSinceBreakAtEntry = -1
                       Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                       State = Holding }
         elif cfg.DipRiderV2 then
@@ -1118,6 +1138,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       RunVolR2AtEntry = sSavedVolR2
                       RunAtrV2AtEntry = sSavedRunAtr
                       RunLastCloseAtEntry = sSavedRunLastClose
+                      BarsSinceBreakAtEntry = sBarsSinceBreak
                       Vol20AtEntry = sVol20; Vol10AtEntry = sVol10; Vol5AtEntry = sVol5; Vol2AtEntry = sVol2
                       VwapAtEntry = (match sVwapNow with ValueSome v -> v | ValueNone -> nan)
                       State = Holding }
@@ -1189,7 +1210,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       BarsBelowEmaAtEntry = 0
                       TrendPctAtEntry = nan
                       RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
-                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan
+                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; BarsSinceBreakAtEntry = -1
                       Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                       State = Holding }
         elif this.ShouldEnter bar then
@@ -1239,7 +1260,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   BarsBelowEmaAtEntry = 0
                   TrendPctAtEntry = nan
                   RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
-                  RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan
+                  RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; BarsSinceBreakAtEntry = -1
                   Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                   // entry routing:
                   //   --ext-gate — if day-extension already >= ExtGate at the breakout, enter

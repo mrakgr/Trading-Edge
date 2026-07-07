@@ -57,6 +57,8 @@ type Args =
     | Run_Reset_Bars_Below of int
     | Dip_V2_Min_Run_Len of int
     | Dip_V2_Reclaim
+    | Dip_V2_Min_Bars_Since_Break of int
+    | Dip_V2_Max_Bars_Since_Break of int
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -101,6 +103,8 @@ type Args =
             | Run_Reset_Bars_Below _ -> "V2: how many consecutive below-9EMA closes are EXCUSED before the above-EMA run breaks. Default 1 (a single below-close is forgiven if the next closes back above)."
             | Dip_V2_Min_Run_Len _ -> "V2 GATE: require the just-ended above-9EMA run to have lasted >= this many bars (a real sustained trend, not a 1-bar poke). Default 10. 0 = off."
             | Dip_V2_Reclaim -> "V2 TRIGGER: enter on the 9-EMA RECLAIM (close crosses back above the 9-EMA) instead of the re-break above the prior bar's high. Fires earlier/more often; no prior-high or ATR%% needed."
+            | Dip_V2_Min_Bars_Since_Break _ -> "V2 GATE: require >= this many bars since the above-EMA run broke (the true pullback age). Default 0 = off."
+            | Dip_V2_Max_Bars_Since_Break _ -> "V2 GATE: require < this many bars since the above-EMA run broke (cap the pullback age). Default 0 = off."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -155,6 +159,8 @@ let main argv =
                   RunResetBarsBelow  = parsed.GetResult(Run_Reset_Bars_Below, defaultValue = defaultConfig.Intraday.RunResetBarsBelow)
                   DipV2MinRunLen     = parsed.GetResult(Dip_V2_Min_Run_Len, defaultValue = defaultConfig.Intraday.DipV2MinRunLen)
                   DipV2Reclaim       = parsed.Contains Dip_V2_Reclaim
+                  DipV2MinBarsSinceBreak = parsed.GetResult(Dip_V2_Min_Bars_Since_Break, defaultValue = defaultConfig.Intraday.DipV2MinBarsSinceBreak)
+                  DipV2MaxBarsSinceBreak = parsed.GetResult(Dip_V2_Max_Bars_Since_Break, defaultValue = defaultConfig.Intraday.DipV2MaxBarsSinceBreak)
                   DipRebreakAtr      = parsed.GetResult(Dip_Rebreak_Atr,      defaultValue = defaultConfig.Intraday.DipRebreakAtr)
                   DipMinBarsBelowEma = parsed.GetResult(Dip_Min_Bars_Below_Ema, defaultValue = defaultConfig.Intraday.DipMinBarsBelowEma)
                   DipMaxBarsBelowEma = parsed.GetResult(Dip_Max_Bars_Below_Ema, defaultValue = defaultConfig.Intraday.DipMaxBarsBelowEma)

@@ -391,5 +391,35 @@ shallow), not the depth mechanism. **Volatility, not depth, is V2's lever.**
 pullback (no resumption trigger). Worth a direct test given depth is flat — the trigger may matter more
 than the depth.
 
+### Finding 10 — dedicated `bars_since_break` counter (true pullback age); re-break dies at 20+ bars
+
+Per user: `bars_below_ema` (raw consecutive below-EMA streak, resets on ANY close ≥ EMA) conflates the
+pullback age with the OLS-reset logic. Added a DEDICATED `barsSinceBreak` counter (separate from
+`barsBelowEma` and the tolerance counter `runBelowStreak`): starts at 0 the bar the above-EMA run BREAKS,
+then counts EVERY bar until entry — **surviving above-EMA blips** (does not reset on a pop back above the
+EMA). This is the true "bars since the uptrend broke." Recorded as `bars_since_break`; gate-ready via
+`DipV2Min/MaxBarsSinceBreak` (`--dip-v2-min/max-bars-since-break`, both OFF by default).
+
+It captures cases `bars_below_ema` misses: e.g. a pullback that chops around the EMA for 9 bars reads
+`bars_below_ema = 1` (last blip) but `bars_since_break = 9` (true age). Breakdown (ungated full modern):
+
+| bars_since_break | re-break PF | reclaim PF |
+|---|--:|--:|
+| 0 | 1.156 | 1.148 |
+| 1 | 1.172 | 1.144 |
+| 2 | 1.125 | 1.026 |
+| 3-4 | 1.252 | 1.096 |
+| 5-9 | 1.145 | 1.132 |
+| 10-19 | **1.359** | 1.158 |
+| 20+ | **0.749** | 1.045 |
+
+- **Re-break: mostly flat ~1.1-1.25, EXCEPT a sharp cliff at 20+ (PF 0.75)** — a re-break that takes 20+
+  bars to develop is a dead/broken trend. `10-19` is the best (1.36). So there's a clear UPPER cap
+  (`< 20`), but no "shallower = better" at the front.
+- **Reclaim: flat (1.03-1.16)** — the earlier entry washes out the age effect; no 20+ cliff.
+
+Cleaner than `bars_below_ema` (F9): exposes the 20+ re-break cliff the raw streak obscured. A
+`bars_since_break < 20` cap is a candidate re-break gate (gate-ready, not yet applied).
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.
