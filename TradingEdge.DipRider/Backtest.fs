@@ -107,7 +107,9 @@ let defaultConfig =
                                          // re-enables it.
           // ----- DipRider V2 (run-above-9EMA slopes, long-only) — OFF by default; --diprider-v2 turns it on -----
           DipRiderV2 = false             // V1 is the archived production system; V2 is the research mode.
-          RunResetBarsBelow = 1 }        // excuse a single below-9EMA close within an up-run (Finding TBD; swept).
+          RunResetBarsBelow = 1          // excuse a single below-9EMA close within an up-run (Finding TBD; swept).
+          DipV2MinRunLen = 10 }          // require the prior above-9EMA run >= 10 bars (the U-shape's good cell;
+                                         // len-1 and 2-9 are the weak/dead zone). --dip-v2-min-run-len; 0 = off.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
@@ -184,6 +186,9 @@ type Trip =
       RunR2: float               // R² of the log-close fit (trend cleanliness)
       RunVolSlope: float         // OLS slope of that run's log-volume (per-bar; is volume rising?)
       RunVolR2: float            // R² of the log-volume fit
+      RunAtrV2: float            // mean per-bar log-TR over the just-ended run (its own volatility)
+      RunLastClose: float        // close of the last bar of the just-ended run (its top)
+      EntryVsRunTop: float       // entryPx / run_last_close - 1 (how far below the run's top we bought; <0 = below)
       Vol20: int64               // trailing raw volume over the last 20 bars (exhaustion inputs)
       Vol10: int64
       Vol5: int64
@@ -263,6 +268,9 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           RunR2 = pos.RunR2AtEntry
           RunVolSlope = pos.RunVolSlopeAtEntry
           RunVolR2 = pos.RunVolR2AtEntry
+          RunAtrV2 = pos.RunAtrV2AtEntry
+          RunLastClose = pos.RunLastCloseAtEntry
+          EntryVsRunTop = (if pos.RunLastCloseAtEntry > 0.0 && not (Double.IsNaN pos.RunLastCloseAtEntry) then pos.EntryPx / pos.RunLastCloseAtEntry - 1.0 else nan)
           Vol20 = pos.Vol20AtEntry
           Vol10 = pos.Vol10AtEntry
           Vol5 = pos.Vol5AtEntry
@@ -454,7 +462,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,entry_bar_open,prev_bar_close,chg_20m,run_low_at_entry,intraday_atr_pct_at_entry,intraday_tightness_at_entry,"
-    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,rvol20m_20d,rvol20m_15m,run_max_dist,run_atr,run_dist_per_atr,run_up_vol,run_dn_vol,run_updn_ratio,bars_since_hi,bars_since_vol_hi,bars_below_ema,trend_pct,run_len,run_slope,run_r2,run_vol_slope,run_vol_r2,vol_20,vol_10,vol_5,vol_2,vwap_at_entry,entry_vs_vwap,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
+    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,rvol20m_20d,rvol20m_15m,run_max_dist,run_atr,run_dist_per_atr,run_up_vol,run_dn_vol,run_updn_ratio,bars_since_hi,bars_since_vol_hi,bars_below_ema,trend_pct,run_len,run_slope,run_r2,run_vol_slope,run_vol_r2,run_atr_v2,run_last_close,entry_vs_run_top,vol_20,vol_10,vol_5,vol_2,vwap_at_entry,entry_vs_vwap,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,med_bar_vol_0945,"
     + "qty,net_pnl,bars_held_min"
@@ -497,6 +505,9 @@ let private row (t: Trip) : string =
         fmt t.RunR2
         fmt t.RunVolSlope
         fmt t.RunVolR2
+        fmt t.RunAtrV2
+        fmt t.RunLastClose
+        fmt t.EntryVsRunTop
         string t.Vol20
         string t.Vol10
         string t.Vol5
