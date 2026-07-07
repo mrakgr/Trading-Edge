@@ -878,9 +878,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             positions.[i] <- this.Advance bar positions.[i]
         if cfg.DipRider then
             if this.ShouldEnterDip bar then
-                // fill at the re-break bar's close. StopLevel = the re-break bar's LOW (a tight structural
-                // stop under the resumption bar); -inf if that would be non-positive (stopless fallback).
-                let stop = if bar.low > 0.0 then bar.low else Double.NegativeInfinity
+                // fill at the re-break bar's close. StopLevel = the 2-BAR LOW (min of the re-break bar's low
+                // and the strictly-prior bar's low) — a tight self-calibrating structural stop just under the
+                // resumption base, mirroring the breakout engine's twoBar stop. -inf if non-positive (stopless).
+                let twoBarLow =
+                    match sLastBar with
+                    | ValueSome prev -> min prev.low bar.low
+                    | ValueNone      -> bar.low
+                let stop = if twoBarLow > 0.0 then twoBarLow else Double.NegativeInfinity
                 let stopDistPct = if bar.close > 0.0 && stop > Double.NegativeInfinity then (bar.close - stop) / bar.close else nan
                 positions.Add
                     { EntryMin = bar.etMin

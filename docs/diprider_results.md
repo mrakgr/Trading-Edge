@@ -93,3 +93,18 @@ and sweep the time-stop / MOC choice against the shallow-pullback cell now that 
 Wired `--dip-max-bars-below-ema` (gate: reject re-breaks with ≥ N consecutive bars below the 9-EMA),
 default 8, off with 0. Operationalizes F2's monotone "shallow resumes, deep = broken trend." Not yet
 re-measured under the F3 run-to-MOC exit — that's the next entry-vs-exit pass.
+
+### Finding 5 — 2-bar-low stop (user request): more dollars, close-based wins
+
+Note: DipRider ALWAYS had a protective stop (the re-break bar's low). F3 turned off the new-high TARGET
+and the time-stop, not the stop. Per user request, widened the stop to the **2-bar low** = `min(re-break
+bar low, prior bar low)` — a self-calibrating structural stop under the resumption base (mirrors the
+breakout engine's twoBar). 2020-2026:
+- **re-break-bar low** (prev): PF 1.398 / 14.7% win / +$771k.
+- **2-bar low, close-based** (new default): PF 1.375 / **18.1% win / +$866k.**
+- 2-bar low, WICK-based (`--wick-stop`): PF 1.393 / 14.5% win / +$738k.
+
+The 2-bar low is slightly WIDER (must also clear the prior bar's low) → tapped less on noise → win rate
+14.7%→18.1% and net +$771k→+$866k, at a hair lower PF. **Close-based beats wick** (+$866k vs +$738k):
+the wick stop gets shaken out by intrabar spikes that recover by the close. New default = 2-bar low,
+close-based. (Trip count is unchanged at 17,997 — the stop only changes exits, not entries.)

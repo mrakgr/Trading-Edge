@@ -163,7 +163,8 @@ let main argv =
         let trendPctDisp = 100.0 * cfg.Intraday.DipMinTrendPct
         let rebreakLine = sprintf "  re-break    = close >= prevHigh*(1 + %.2f*ATR%%)   pullback >= %d bars below 9-EMA   trend >= %.1f%% up" cfg.Intraday.DipRebreakAtr cfg.Intraday.DipMinBarsBelowEma trendPctDisp
         printfn "%s" rebreakLine
-        printfn "  exit        = %s + %s + MOC   stop = re-break bar low" newHigh timeStop
+        printfn "  exit        = %s + %s + MOC   stop = 2-bar low (%s)" newHigh timeStop
+            (if cfg.Intraday.StopOnClose then "close-based" else "wick")
         printfn "  gates       = tightness >= %.1f" cfg.Intraday.MinTightness
     else
         printfn "VwapReclaim backtest — SMB VWAP x %d-EMA reclaim (%s intraday)" cfg.Intraday.EmaPeriod
