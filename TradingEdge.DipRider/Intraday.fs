@@ -1219,24 +1219,23 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       State = Holding }
         elif cfg.DipRiderV2 then
             if this.ShouldEnterDipV2 bar then
-                // STOP: 2-bar-low close-based (default), OR the run-anchored GEOMETRY stop (DipV2GeomStop)
-                // for buy-into-pullback (the 2-bar low sits right under a still-falling entry → instant stop).
-                //   geometry: d = run top - run floor (savedRunLastClose - savedRunMinClose),
-                //             stop = savedRunMinClose - d*DipV2StopDistFrac (below the run's floor).
-                //   Falls back to the 2-bar low if the saved run closes are missing (nan) or non-positive.
+                // STOP: 2-bar-low close-based (default), OR the run-anchored GEOMETRY stop (DipV2GeomStop /
+                // buy-into-run). The 2-bar low sits right under a still-falling dip → instant stop, so the
+                // geometry stop sizes the distance off HOW EXTENDED THE ENTRY IS above the run's floor:
+                //   d    = entry close - run floor (min close of the run)   [how far above the floor we bought]
+                //   stop = entry - d*DipV2StopDistFrac                       [frac of the way from entry to floor]
+                // (frac 2/3 → stop 2/3 of the way down to the floor.) Falls back to the 2-bar low if the run
+                // floor is missing/non-positive. NOTE: the OLD version used d = run TOP - floor (the ENTIRE run
+                // height), giving absurd 34-46% stops on names up 100%+ — that was a bug (user-caught).
                 let twoBarLow = match sLastBar with ValueSome prev -> min prev.low bar.low | ValueNone -> bar.low
-                // BUY-INTO-RUN uses the LIVE run's floor/top for the geometry stop (the run we're buying);
-                // buy-into-dip / other modes with DipV2GeomStop use the just-ended (saved) run's floor/top.
+                // BUY-INTO-RUN uses the LIVE run's floor; buy-into-dip / DipV2GeomStop uses the saved run's floor.
                 let buyIntoRun = cfg.DipV2BuyIntoRun > 0
-                let stopFloor, stopTop =
-                    if buyIntoRun then sRunMinCloseLive, sRunLastCloseLive
-                    else sSavedRunMinClose, sSavedRunLastClose
+                let stopFloor = if buyIntoRun then sRunMinCloseLive else sSavedRunMinClose
                 let geomStop =
                     if (cfg.DipV2GeomStop || buyIntoRun)   // buy-into-run always uses the geometry stop
-                       && not (Double.IsNaN stopFloor) && not (Double.IsNaN stopTop)
-                       && stopFloor > 0.0 && stopTop >= stopFloor then
-                        let d = stopTop - stopFloor
-                        ValueSome (stopFloor - d * cfg.DipV2StopDistFrac)
+                       && not (Double.IsNaN stopFloor) && stopFloor > 0.0 && bar.close > stopFloor then
+                        let d = bar.close - stopFloor          // how far the entry sits above the run floor
+                        ValueSome (bar.close - d * cfg.DipV2StopDistFrac)
                     else ValueNone
                 let rawStop = match geomStop with ValueSome g -> g | ValueNone -> twoBarLow
                 let stop = if rawStop > 0.0 then rawStop else Double.NegativeInfinity
