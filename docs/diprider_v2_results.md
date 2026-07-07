@@ -421,5 +421,49 @@ It captures cases `bars_below_ema` misses: e.g. a pullback that chops around the
 Cleaner than `bars_below_ema` (F9): exposes the 20+ re-break cliff the raw streak obscured. A
 `bars_since_break < 20` cap is a candidate re-break gate (gate-ready, not yet applied).
 
+### Finding 11 — ⭐ BUY INTO THE PULLBACK (no resumption trigger) is the FATTEST + BEST book — $1M+ / all years +
+
+User's idea: skip the re-break/reclaim entirely and just BUY the Nth bar into the pullback, WHILE STILL
+BELOW the 9-EMA (fill at the Nth below-EMA bar's close). Added `DipV2PullbackBar = N`
+(`--dip-v2-pullback-bar N`, overrides the trigger). On the candidate cell (`run_atr_v2 ≥ .015 &
+run_len < 50`, 2020-2026):
+
+| entry | n | avg_ret_pct | win | pf | net |
+|---|--:|--:|--:|--:|--:|
+| re-break k=0.5 | 912 | 2.257 | 17.2 | 1.561 | +205,835 |
+| reclaim | 4799 | 1.210 | 13.2 | 1.403 | +580,638 |
+| buy N=1 | 5111 | 0.899 | 8.9 | 1.416 | +459,410 |
+| **buy N=2** | 8896 | 1.171 | 10.0 | 1.510 | **+1,041,393** |
+| **buy N=3** | 7005 | 1.168 | 10.1 | 1.517 | +818,124 |
+
+**Buy N=2 does >$1M net — 5× the re-break's dollars — at essentially the same PF (1.51 vs 1.56).** N=3 is
+a near-tie (1.52 / +$818k). You do NOT need the resumption trigger: on a VOLATILE run (the selected cell),
+a shallow 2-3 bar dip reliably bounces, and entering while still below the EMA gets a BETTER price than
+waiting for the re-break/reclaim confirmation. The confirmation was costing the entry discount. Win rate
+is lower (10% vs 17% — more trades that don't work) but the winners start cheaper, so PF holds and the
+dollars explode.
+
+**Buy N=2 is POSITIVE EVERY YEAR — including 2021** (PF 1.03 / +$16k), the weak regime that was NEGATIVE
+at every trigger-based variant. Buying the dip instead of the confirmation even (marginally) fixes 2021.
+
+| year | n | pf | net |
+|---|--:|--:|--:|
+| 2020 | 1075 | 1.599 | +144,096 |
+| 2021 | 2669 | 1.029 | +15,946 |
+| 2022 | 1082 | 1.299 | +64,556 |
+| 2023 | 622 | 2.081 | +149,467 |
+| 2024 | 1347 | 1.941 | +324,577 |
+| 2025 | 1523 | 1.720 | +281,991 |
+| 2026 | 578 | 1.384 | +60,759 |
+
+⚠ Caveat: at N=1 (and N=2 when tolerance=1) the above-EMA run may not have BROKEN yet, so `run_len` /
+`run_atr_v2` read the PREVIOUS saved run for some entries — revisit the tolerance/save timing if N is
+promoted. Also: full-book (ungated) PF rises with N (1.12/1.19/1.21 for N=1/2/3) — the cell filter is
+doing real work; buy-into-pullback is not free money without the volatility gate.
+
+**⭐ NEW LEADING CANDIDATE: buy N=2 (or N=3) into the pullback + `run_atr_v2 ≥ .015 & run_len < 50`,
+hold-to-MOC, 2-bar stop → PF ~1.51 / +$1.0M / positive every year.** NEXT: sweep N further (4,5?),
+re-verify the run-feature breakdowns under this entry, address the stale-run caveat, then 22-yr check.
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.

@@ -273,8 +273,13 @@ type IntradayConfig =
       DipV2MinBarsSinceBreak: int  // ENTRY GATE (gate-ready, OFF by default): require >= this many bars since the
                                // above-EMA run BROKE (the true pullback age, tracked by the dedicated
                                // barsSinceBreak counter, surviving above-EMA blips). 0 = off.
-      DipV2MaxBarsSinceBreak: int } // ENTRY GATE (OFF by default): require the bars-since-break < this (cap the
+      DipV2MaxBarsSinceBreak: int  // ENTRY GATE (OFF by default): require the bars-since-break < this (cap the
                                // pullback age). 0 = off.
+      DipV2PullbackBar: int }  // ENTRY TRIGGER OVERRIDE (0 = off, default): BUY INTO the pullback with NO
+                               // resumption trigger — enter while price is still BELOW the 9-EMA, exactly when
+                               // the consecutive below-EMA streak reaches N (bars_below_ema == N). Fill at the
+                               // Nth below-bar's close. Overrides DipV2Reclaim / the re-break. Tests "just buy
+                               // 1/2/3 bars into a dip" directly.
 
 /// Per-(ticker, day) intraday engine. Feed it the day's RTH MinuteBar[] in time
 /// order via `Process`, then `Finalize` and read `Trips()`.
@@ -574,7 +579,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     member this.ShouldEnterDipV2 (bar: MinuteBar) : bool =
         bar.etMin >= cfg.EntryStartMin
         && (cfg.EntryEndMin <= 0 || cfg.EntryEndMin >= cfg.MocMin || bar.etMin <= cfg.EntryEndMin)
-        // a pullback has started: price closed below the 9-EMA for >= 1 bar going into this re-break.
+        // a pullback has started: price closed below the 9-EMA for >= 1 bar going into this bar. (For the
+        // buy-into-pullback mode the trigger enforces the exact bar count, so this floor is subsumed.)
         && sBarsBelowEma >= 1
         // MIN prior-run length: the just-ended above-9EMA run must have lasted >= DipV2MinRunLen bars
         // (a real sustained trend, not a 1-bar poke — the U-shape's good cell). 0 = off.
@@ -582,13 +588,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // OPTIONAL bars-since-break gate (the true pullback age; both OFF by default).
         && (cfg.DipV2MinBarsSinceBreak <= 0 || (sBarsSinceBreak >= 0 && sBarsSinceBreak >= cfg.DipV2MinBarsSinceBreak))
         && (cfg.DipV2MaxBarsSinceBreak <= 0 || (sBarsSinceBreak >= 0 && sBarsSinceBreak < cfg.DipV2MaxBarsSinceBreak))
-        // the TRIGGER (cfg.DipV2Reclaim):
-        //   false — RE-BREAK: this bar's close clears the strictly-prior bar's HIGH by >= k*ATR% (an
-        //           expansion over the prior high).
-        //   true  — 9-EMA RECLAIM: this bar's close crosses back ABOVE the strictly-prior 9-EMA. The
-        //           pullback (sBarsBelowEma >= 1, required above) just ended — re-enter on the reclaim,
-        //           no prior-high or ATR% needed. sEmaPrevDip is the strictly-prior EMA (no lookahead).
-        && (if cfg.DipV2Reclaim then
+        // the TRIGGER (precedence: buy-into-pullback > reclaim > re-break):
+        //   DipV2PullbackBar > 0 — BUY INTO THE PULLBACK: enter while price is STILL BELOW the 9-EMA,
+        //           exactly when the consecutive below-EMA streak reaches N (sBarsBelowEma == N). NO
+        //           resumption trigger — fill at the Nth below-bar's close. Tests "just buy 1/2/3 bars
+        //           into a dip" directly.
+        //   DipV2Reclaim — 9-EMA RECLAIM: this bar's close crosses back ABOVE the strictly-prior 9-EMA.
+        //   else — RE-BREAK: this bar's close clears the strictly-prior bar's HIGH by >= k*ATR%.
+        && (if cfg.DipV2PullbackBar > 0 then
+                sBarsBelowEma = cfg.DipV2PullbackBar
+            elif cfg.DipV2Reclaim then
                 match sEmaPrevDip with ValueSome e -> bar.close > e | ValueNone -> false
             else
                 match sLastBar, sAtrLog with

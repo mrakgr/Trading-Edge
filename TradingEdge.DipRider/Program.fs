@@ -59,6 +59,7 @@ type Args =
     | Dip_V2_Reclaim
     | Dip_V2_Min_Bars_Since_Break of int
     | Dip_V2_Max_Bars_Since_Break of int
+    | Dip_V2_Pullback_Bar of int
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -105,6 +106,7 @@ type Args =
             | Dip_V2_Reclaim -> "V2 TRIGGER: enter on the 9-EMA RECLAIM (close crosses back above the 9-EMA) instead of the re-break above the prior bar's high. Fires earlier/more often; no prior-high or ATR%% needed."
             | Dip_V2_Min_Bars_Since_Break _ -> "V2 GATE: require >= this many bars since the above-EMA run broke (the true pullback age). Default 0 = off."
             | Dip_V2_Max_Bars_Since_Break _ -> "V2 GATE: require < this many bars since the above-EMA run broke (cap the pullback age). Default 0 = off."
+            | Dip_V2_Pullback_Bar _ -> "V2 TRIGGER OVERRIDE: BUY INTO the pullback with NO resumption trigger — enter the Nth consecutive bar below the 9-EMA (bars_below_ema == N), still below the EMA. Overrides reclaim/re-break. 0 = off."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -161,6 +163,7 @@ let main argv =
                   DipV2Reclaim       = parsed.Contains Dip_V2_Reclaim
                   DipV2MinBarsSinceBreak = parsed.GetResult(Dip_V2_Min_Bars_Since_Break, defaultValue = defaultConfig.Intraday.DipV2MinBarsSinceBreak)
                   DipV2MaxBarsSinceBreak = parsed.GetResult(Dip_V2_Max_Bars_Since_Break, defaultValue = defaultConfig.Intraday.DipV2MaxBarsSinceBreak)
+                  DipV2PullbackBar   = parsed.GetResult(Dip_V2_Pullback_Bar, defaultValue = defaultConfig.Intraday.DipV2PullbackBar)
                   DipRebreakAtr      = parsed.GetResult(Dip_Rebreak_Atr,      defaultValue = defaultConfig.Intraday.DipRebreakAtr)
                   DipMinBarsBelowEma = parsed.GetResult(Dip_Min_Bars_Below_Ema, defaultValue = defaultConfig.Intraday.DipMinBarsBelowEma)
                   DipMaxBarsBelowEma = parsed.GetResult(Dip_Max_Bars_Below_Ema, defaultValue = defaultConfig.Intraday.DipMaxBarsBelowEma)
@@ -177,7 +180,9 @@ let main argv =
         printfn "  minute_aggs = %s" minuteDir
         printfn "  range       = %O .. %O" startDate endDate
         printfn "  entry window= %s   %s" entryWindow timeStop
-        if cfg.Intraday.DipV2Reclaim then
+        if cfg.Intraday.DipV2PullbackBar > 0 then
+            printfn "  entry       = BUY INTO PULLBACK: the %d-th bar below the 9-EMA (no resumption trigger)" cfg.Intraday.DipV2PullbackBar
+        elif cfg.Intraday.DipV2Reclaim then
             printfn "  entry       = 9-EMA RECLAIM (close crosses back above 9-EMA) after >=1 bar below   (gates 2-5 OFF)"
         else
             printfn "  entry       = re-break close >= prevHigh*(1 + %.2f*ATR%%) after >=1 bar below 9-EMA   (gates 2-5 OFF)" cfg.Intraday.DipRebreakAtr

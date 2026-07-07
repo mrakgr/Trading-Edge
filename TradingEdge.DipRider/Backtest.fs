@@ -112,7 +112,8 @@ let defaultConfig =
                                          // len-1 and 2-9 are the weak/dead zone). --dip-v2-min-run-len; 0 = off.
           DipV2Reclaim = false           // re-break trigger by default; --dip-v2-reclaim = enter on the 9-EMA reclaim.
           DipV2MinBarsSinceBreak = 0     // bars-since-break gates OFF by default (recorded feature first).
-          DipV2MaxBarsSinceBreak = 0 }   // --dip-v2-min/max-bars-since-break to enable.
+          DipV2MaxBarsSinceBreak = 0     // --dip-v2-min/max-bars-since-break to enable.
+          DipV2PullbackBar = 0 }         // 0 = use re-break/reclaim trigger; N>0 = buy the Nth below-EMA bar.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
