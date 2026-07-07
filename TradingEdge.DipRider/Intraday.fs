@@ -97,6 +97,7 @@ type IntradayPosition =
       RunVolR2AtEntry: float     // R² of that log-volume fit
       RunAtrV2AtEntry: float     // mean per-bar log-TR over the just-ended run (the run's own volatility)
       RunLastCloseAtEntry: float // close of the last bar of the just-ended run (its top) — vs entry = pullback depth
+      RunPctGainAtEntry: float   // BUY-INTO-RUN: the live run's %gain (entry/floor-1); nan otherwise
       BarsSinceBreakAtEntry: int // bars since the above-EMA run broke (true pullback age; -1 = no run broke yet)
       Vol20AtEntry: int64        // trailing raw volume over the last 20/10/5/2 bars (exhaustion-cutoff inputs)
       Vol10AtEntry: int64
@@ -285,8 +286,13 @@ type IntradayConfig =
                                // geometry stop: d = savedRunLastClose - savedRunMinClose (the run's range),
                                // stop = savedRunMinClose - d*DipV2StopDistFrac (below the run's floor). Gives
                                // the falling dip room instead of stopping right under a still-falling entry.
-      DipV2StopDistFrac: float } // stop DISTANCE below the run floor as a fraction of d (default 2/3, VwapReclaim
-                               // Finding 14). Larger = WIDER. Only used when DipV2GeomStop.
+      DipV2StopDistFrac: float // stop DISTANCE below the run floor as a fraction of d (default 2/3, VwapReclaim
+                               // Finding 14). Larger = WIDER. Used by DipV2GeomStop and by BUY-INTO-RUN.
+      DipV2BuyIntoRun: int }   // MOMENTUM ENTRY (0 = off, default): buy INTO the currently-active above-EMA run
+                               // when its LENGTH first reaches N bars (sRunLenAbove == N; fires ONCE per run).
+                               // NOT a pullback — buys strength directly. Overrides all other triggers. Uses a
+                               // geometry stop anchored to the LIVE run's floor: d = liveTop - liveFloor, stop =
+                               // liveFloor - d*DipV2StopDistFrac. The live run's ATR/length are recorded at entry.
 
 /// Per-(ticker, day) intraday engine. Feed it the day's RTH MinuteBar[] in time
 /// order via `Process`, then `Finalize` and read `Trips()`.
@@ -439,6 +445,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sSavedRunLastClose : float = nan
     let mutable sSavedRunMinClose  : float = nan
     let mutable sBarsSinceBreak    : int = -1
+    // LIVE (currently-active) above-EMA run snapshots — for BUY-INTO-RUN (strictly-prior, no lookahead).
+    let mutable sRunLenAbove   : int = 0        // bars in the live run going into this bar
+    let mutable sRunMinCloseLive : float = nan  // live run's floor (min close so far) — geom-stop anchor
+    let mutable sRunLastCloseLive : float = nan // live run's top (last close so far) — geom-stop d = top-floor
+    let mutable sRunAtrLive    : float = nan    // live run's mean per-bar log-TR so far (recorded for the breakdown)
+    let mutable sRunSlopeLive  : float = nan    // live run's OLS log-close slope so far (recorded)
+    let mutable sRunR2Live     : float = nan    // live run's OLS R² so far (recorded)
     let mutable sVwapNow       : float voption = ValueNone   // session VWAP into this bar (= sVwapPrev; for buy-below/above-VWAP)
     let mutable sVol20 : int64 = 0L                          // trailing raw volume over the last 20/10/5/2 bars (strictly-prior)
     let mutable sVol10 : int64 = 0L
@@ -588,6 +601,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     /// (run length, log-close/log-vol slopes, R², VWAP side, trailing volumes) is RECORDED for breakdown,
     /// not gated. The re-break bar's close is the fill.
     member this.ShouldEnterDipV2 (bar: MinuteBar) : bool =
+        // BUY-INTO-RUN (momentum): a SEPARATE path — no pullback required. Enter when the live above-EMA
+        // run's length first reaches N (sRunLenAbove == N fires exactly once per run). Overrides everything.
+        if cfg.DipV2BuyIntoRun > 0 then
+            bar.etMin >= cfg.EntryStartMin
+            && (cfg.EntryEndMin <= 0 || cfg.EntryEndMin >= cfg.MocMin || bar.etMin <= cfg.EntryEndMin)
+            && sRunLenAbove = cfg.DipV2BuyIntoRun
+            && (cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent)
+        else
         bar.etMin >= cfg.EntryStartMin
         && (cfg.EntryEndMin <= 0 || cfg.EntryEndMin >= cfg.MocMin || bar.etMin <= cfg.EntryEndMin)
         // a pullback has started: price closed below the 9-EMA for >= 1 bar going into this bar. (For the
@@ -716,6 +737,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sSavedRunLastClose <- savedRunLastClose
         sSavedRunMinClose <- savedRunMinClose
         sBarsSinceBreak <- barsSinceBreak
+        // live-run snapshots (strictly-prior state of the currently-active above-EMA run) for buy-into-run.
+        sRunLenAbove      <- runLenAbove
+        sRunMinCloseLive  <- runMinClose
+        sRunLastCloseLive <- runLastClose
+        sRunAtrLive       <- (if runAtrNV2 > 0 then runAtrSumV2 / float runAtrNV2 else nan)
+        sRunSlopeLive     <- (match runOls.Slope with ValueSome s -> s | ValueNone -> nan)
+        sRunR2Live        <- (match runOls.R2    with ValueSome r -> r | ValueNone -> nan)
         sVwapNow       <- this.LiveVwap
         sVol20 <- (match vol20sum.State with ValueSome v -> int64 v | ValueNone -> 0L)
         sVol10 <- (match vol10sum.State with ValueSome v -> int64 v | ValueNone -> 0L)
@@ -1122,7 +1150,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       BarsBelowEmaAtEntry = sBarsBelowEma
                       TrendPctAtEntry = (match sessionOpen with ValueSome o when o > 0.0 -> bar.close / o - 1.0 | _ -> nan)
                       RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
-                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; BarsSinceBreakAtEntry = -1
+                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1
                       Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                       State = Holding }
         elif cfg.DipRiderV2 then
@@ -1133,12 +1161,18 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 //             stop = savedRunMinClose - d*DipV2StopDistFrac (below the run's floor).
                 //   Falls back to the 2-bar low if the saved run closes are missing (nan) or non-positive.
                 let twoBarLow = match sLastBar with ValueSome prev -> min prev.low bar.low | ValueNone -> bar.low
+                // BUY-INTO-RUN uses the LIVE run's floor/top for the geometry stop (the run we're buying);
+                // buy-into-dip / other modes with DipV2GeomStop use the just-ended (saved) run's floor/top.
+                let buyIntoRun = cfg.DipV2BuyIntoRun > 0
+                let stopFloor, stopTop =
+                    if buyIntoRun then sRunMinCloseLive, sRunLastCloseLive
+                    else sSavedRunMinClose, sSavedRunLastClose
                 let geomStop =
-                    if cfg.DipV2GeomStop
-                       && not (Double.IsNaN sSavedRunMinClose) && not (Double.IsNaN sSavedRunLastClose)
-                       && sSavedRunMinClose > 0.0 && sSavedRunLastClose >= sSavedRunMinClose then
-                        let d = sSavedRunLastClose - sSavedRunMinClose
-                        ValueSome (sSavedRunMinClose - d * cfg.DipV2StopDistFrac)
+                    if (cfg.DipV2GeomStop || buyIntoRun)   // buy-into-run always uses the geometry stop
+                       && not (Double.IsNaN stopFloor) && not (Double.IsNaN stopTop)
+                       && stopFloor > 0.0 && stopTop >= stopFloor then
+                        let d = stopTop - stopFloor
+                        ValueSome (stopFloor - d * cfg.DipV2StopDistFrac)
                     else ValueNone
                 let rawStop = match geomStop with ValueSome g -> g | ValueNone -> twoBarLow
                 let stop = if rawStop > 0.0 then rawStop else Double.NegativeInfinity
@@ -1166,14 +1200,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       BarsSinceVolHiAtEntry = sBarsSinceVolHi
                       BarsBelowEmaAtEntry = sBarsBelowEma
                       TrendPctAtEntry = (match sessionOpen with ValueSome o when o > 0.0 -> bar.close / o - 1.0 | _ -> nan)
-                      // the V2 features: the just-ended run's saved stats (strictly-prior snapshots).
-                      RunLenAtEntry = sSavedRunLen
-                      RunSlopeAtEntry = sSavedRunSlope
-                      RunR2AtEntry = sSavedRunR2
+                      // V2 run features. BUY-INTO-RUN records the LIVE run (the one we're buying); all other
+                      // modes record the just-ended (saved) run. run_pct_gain (RunPctGainAtEntry) = the run's
+                      // %gain, entry/floor-1, for the post-hoc breakdown.
+                      RunLenAtEntry = (if buyIntoRun then sRunLenAbove else sSavedRunLen)
+                      RunSlopeAtEntry = (if buyIntoRun then sRunSlopeLive else sSavedRunSlope)
+                      RunR2AtEntry = (if buyIntoRun then sRunR2Live else sSavedRunR2)
                       RunVolSlopeAtEntry = sSavedVolSlope
                       RunVolR2AtEntry = sSavedVolR2
-                      RunAtrV2AtEntry = sSavedRunAtr
-                      RunLastCloseAtEntry = sSavedRunLastClose
+                      RunAtrV2AtEntry = (if buyIntoRun then sRunAtrLive else sSavedRunAtr)
+                      RunLastCloseAtEntry = (if buyIntoRun then sRunLastCloseLive else sSavedRunLastClose)
+                      RunPctGainAtEntry =
+                        (if buyIntoRun && not (Double.IsNaN sRunMinCloseLive) && sRunMinCloseLive > 0.0
+                         then bar.close / sRunMinCloseLive - 1.0 else nan)
                       BarsSinceBreakAtEntry = sBarsSinceBreak
                       Vol20AtEntry = sVol20; Vol10AtEntry = sVol10; Vol5AtEntry = sVol5; Vol2AtEntry = sVol2
                       VwapAtEntry = (match sVwapNow with ValueSome v -> v | ValueNone -> nan)
@@ -1246,7 +1285,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       BarsBelowEmaAtEntry = 0
                       TrendPctAtEntry = nan
                       RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
-                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; BarsSinceBreakAtEntry = -1
+                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1
                       Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                       State = Holding }
         elif this.ShouldEnter bar then
@@ -1296,7 +1335,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   BarsBelowEmaAtEntry = 0
                   TrendPctAtEntry = nan
                   RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
-                  RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; BarsSinceBreakAtEntry = -1
+                  RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1
                   Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                   // entry routing:
                   //   --ext-gate — if day-extension already >= ExtGate at the breakout, enter

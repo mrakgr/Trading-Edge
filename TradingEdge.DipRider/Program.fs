@@ -62,6 +62,7 @@ type Args =
     | Dip_V2_Pullback_Bar of int
     | Dip_V2_Geom_Stop
     | Dip_V2_Stop_Dist_Frac of float
+    | Dip_V2_Buy_Into_Run of int
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -110,7 +111,8 @@ type Args =
             | Dip_V2_Max_Bars_Since_Break _ -> "V2 GATE: require < this many bars since the above-EMA run broke (cap the pullback age). Default 0 = off."
             | Dip_V2_Pullback_Bar _ -> "V2 TRIGGER OVERRIDE: BUY INTO the pullback with NO resumption trigger — enter the Nth consecutive bar below the 9-EMA (bars_below_ema == N), still below the EMA. Overrides reclaim/re-break. 0 = off."
             | Dip_V2_Geom_Stop -> "V2 STOP: use the run-anchored GEOMETRY stop (d = run top - run floor; stop = run floor - d*frac) instead of the 2-bar low. Gives a bought dip room (the 2-bar low trips instantly on a still-falling entry)."
-            | Dip_V2_Stop_Dist_Frac _ -> "V2 geometry-stop distance below the run floor as a fraction of the run range (default 0.667 = d*2/3, VwapReclaim F14). Larger = wider. Only with --dip-v2-geom-stop."
+            | Dip_V2_Stop_Dist_Frac _ -> "V2 geometry-stop distance below the run floor as a fraction of the run range (default 0.667 = d*2/3, VwapReclaim F14). Larger = wider. Used by --dip-v2-geom-stop and --dip-v2-buy-into-run."
+            | Dip_V2_Buy_Into_Run _ -> "V2 MOMENTUM ENTRY: buy INTO the live above-9EMA run when its length first reaches N bars (fires once/run). NOT a pullback. Uses the live-run geometry stop. Records the live run's len/slope/R2/ATR/%gain. 0 = off."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -170,6 +172,7 @@ let main argv =
                   DipV2PullbackBar   = parsed.GetResult(Dip_V2_Pullback_Bar, defaultValue = defaultConfig.Intraday.DipV2PullbackBar)
                   DipV2GeomStop      = parsed.Contains Dip_V2_Geom_Stop
                   DipV2StopDistFrac  = parsed.GetResult(Dip_V2_Stop_Dist_Frac, defaultValue = defaultConfig.Intraday.DipV2StopDistFrac)
+                  DipV2BuyIntoRun    = parsed.GetResult(Dip_V2_Buy_Into_Run, defaultValue = defaultConfig.Intraday.DipV2BuyIntoRun)
                   DipRebreakAtr      = parsed.GetResult(Dip_Rebreak_Atr,      defaultValue = defaultConfig.Intraday.DipRebreakAtr)
                   DipMinBarsBelowEma = parsed.GetResult(Dip_Min_Bars_Below_Ema, defaultValue = defaultConfig.Intraday.DipMinBarsBelowEma)
                   DipMaxBarsBelowEma = parsed.GetResult(Dip_Max_Bars_Below_Ema, defaultValue = defaultConfig.Intraday.DipMaxBarsBelowEma)
@@ -186,7 +189,9 @@ let main argv =
         printfn "  minute_aggs = %s" minuteDir
         printfn "  range       = %O .. %O" startDate endDate
         printfn "  entry window= %s   %s" entryWindow timeStop
-        if cfg.Intraday.DipV2PullbackBar > 0 then
+        if cfg.Intraday.DipV2BuyIntoRun > 0 then
+            printfn "  entry       = BUY INTO RUN: at live above-9EMA run length = %d bars (momentum; live-run geom stop d*%.2f)" cfg.Intraday.DipV2BuyIntoRun cfg.Intraday.DipV2StopDistFrac
+        elif cfg.Intraday.DipV2PullbackBar > 0 then
             printfn "  entry       = BUY INTO PULLBACK: the %d-th bar below the 9-EMA (no resumption trigger)" cfg.Intraday.DipV2PullbackBar
         elif cfg.Intraday.DipV2Reclaim then
             printfn "  entry       = 9-EMA RECLAIM (close crosses back above 9-EMA) after >=1 bar below   (gates 2-5 OFF)"

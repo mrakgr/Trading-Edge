@@ -511,5 +511,53 @@ stop (d·2/3, floor = run min-close) + hold-to-MOC → PF 1.69 / +$2.9M / positi
 NEXT: promote to defaults; sweep N (2 vs 3) under the geom stop; re-verify run-feature breakdowns; the
 stale-run caveat (N=2 at tol=1); then the 22-yr regime check.
 
+### Finding 13 — BUY INTO THE RUN (momentum, no pullback): a 2nd independent path to ~$3M / all years +
+
+Instead of waiting for the run to break, buy INTO the live above-9EMA run when its length first reaches N
+(`--dip-v2-buy-into-run N`, fires once/run; NOT a pullback). Live-run GEOMETRY stop (floor = live run's
+min-close; d = live top − floor; stop = floor − d·2/3). The live run's len/slope/R²/ATR/%gain are recorded.
+
+**Length sweep (full gated book, live-run geom stop, 2020-2026) — longer run = higher PF, monotone:**
+
+| N | n | avg_ret_pct | win | stop-out % | pf | net |
+|---|--:|--:|--:|--:|--:|--:|
+| 3 | 282607 | 0.153 | 19.2 | 85.4 | 1.200 | +4,321,993 |
+| 5 | 196516 | 0.221 | 22.2 | 78.4 | 1.218 | +4,336,342 |
+| 8 | 130504 | 0.323 | 27.1 | 69.0 | 1.253 | +4,215,352 |
+| 10 | 101680 | 0.369 | 30.3 | 62.8 | 1.259 | +3,748,633 |
+| 15 | 55445 | 0.528 | 37.3 | 47.9 | 1.314 | +2,930,012 |
+| 20 | 30259 | 0.612 | 41.9 | 35.6 | 1.331 | +1,852,098 |
+
+Buying into a LONGER (more proven) run = higher PF + per-trade avg (PF 1.20→1.33), fewer trips. Total
+dollars peak at N=5-8 (~$4.3M ungated). A much bigger book than buy-into-dip (196k trips at N=5).
+
+**Post-hoc breakdowns (N=8) — all three live-run features MONOTONE, same "strong run resumes" story
+(and heavily correlated → they don't all stack):**
+
+_run volatility `run_atr_v2`:_ `<.004` PF 1.03 → `.015-.03` 1.55 → **`.03+` 1.79 / +5.76%.**
+_run %gain (entry/floor−1):_ `<.5%` PF 1.07 → **`8%+` 1.98 / +7.97%.**
+_run OLS slope:_ `0-.001` PF 1.07 → `.004-.008` 1.52 → **`.008+` 1.79 / +5.64%.**
+
+Volatility is the through-line across the ENTIRE V2 line — pullback AND momentum entries alike.
+
+**Leading buy-into-run cell — N=8 + `run_atr_v2 ≥ .015`: PF 1.633 / 10,098 trips / 29% win / +$2.99M,
+POSITIVE every year** (2021 PF 1.11 / +$151k; 2024 +$836k). A PEER to the buy-into-dip system (F12,
++$2.9M / PF 1.69) — a SECOND, independent entry path to the same ~$3M edge, with slightly more trips and
+slightly lower PF.
+
+| year | pf | net |
+|---|--:|--:|
+| 2020 | 1.731 | +388,228 |
+| 2021 | 1.113 | +151,051 |
+| 2022 | 1.305 | +145,036 |
+| 2023 | 2.141 | +352,033 |
+| 2024 | 2.066 | +836,413 |
+| 2025 | 1.698 | +643,047 |
+| 2026 | 2.288 | +478,085 |
+
+**Two ~$3M systems now: (a) buy-into-DIP N=2 + geom stop (F12, PF 1.69); (b) buy-into-RUN N=8 + geom stop
+(F13, PF 1.63).** NEXT (user): sweep N under the volatility cell for buy-into-run; compare/combine the two
+paths (do they fire on different days?); the stale-run caveat; 22-yr check.
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.
