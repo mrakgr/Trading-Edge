@@ -827,5 +827,35 @@ follow-through / chop measure.
 NEXT (user): adopt `chg_1d ≥ 10%` into the cell; the float<$300M gate; an INTRADAY follow-through measure
 for 2021 (daily context is exhausted); wire the cell as engine gates.
 
+### Finding 22 — relative-volume PACE is an EXHAUSTION cut (lower = better); helps 2021 by 2/3
+
+Broke down the volume-relative measures on the N=20 cell. First correction (user): `bar_rvol_15m` (entry
+BAR volume vs opening-15m tempo) is a SPIKE/exhaustion framing that doesn't fit a momentum-continuation
+system — and indeed it's flat (PF 1.9-2.6, no trend). The right framing is TRAILING-WINDOW pace, which I
+built from the recorded raw sums: `rvol_20m = vol_20 / (avgvol20/390·20)`, `rvol_10m` likewise (avgvol20
+reconstructed as `cum_vol_to_entry / rvol`).
+
+All three volume-pace measures point the SAME way — **lower relative pace = better = an EXHAUSTION cut on
+the high tail** (correlated; one lever viewed three ways):
+
+_`rvol` (cumulative day vol / 20d avg daily):_ `<2x` PF **4.59** (+20% avg) → `2-5x` 2.73 → `10-25x` 1.84
+→ `75x+` **1.56**. Monotone down.
+_`rvol_20m` (last 20m pace):_ `<5x` PF 3.46, `5-15x` 3.02 → `40-100x` 1.62, `250x+` 1.63.
+_`rvol_10m` (last 10m pace):_ `<5x` PF **4.78** (67% win) → `15-40x` 3.10 → high tail 1.7-2.1.
+
+Mechanism: a run happening on ALREADY-blown-out volume (75×+ the day / 250×+ recent) is LATE — participation
+is spent; a run on more modest relative volume is still BUILDING, more room to continue. Consistent with a
+continuation system wanting the move still in progress, not exhausted. (Contrast the run's OWN volume SLOPE,
+F14, which is "rising is good" — that's the run building; this is "already-blown-out total is bad" — the day
+exhausted. Different axes: slope = rate now, rvol = accumulated level.)
+
+**Book filter `rvol < 25x` — a KEEPER, and it HELPS 2021:** cell PF **2.17 → 2.51** (+$591k of $875k), and
+2021 improves −$41k → **−$14k** (PF 0.82 → 0.88) — cuts 2/3 of 2021's bleed (2021's chop was partly
+exhausted-name entries), every year up. Doesn't FIX 2021 (still slightly negative) but is the first feature
+that meaningfully dents it. Stacks conceptually with `chg_1d ≥ 10%` (F21) — both cut a different bad tail.
+
+NEXT (user): stack `chg_1d ≥ 10%` + `rvol < 25x` into the cell (measure the combined book + 2021); the
+float<$300M gate; then an intraday follow-through measure for the residual 2021; wire cell as engine gates.
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.
