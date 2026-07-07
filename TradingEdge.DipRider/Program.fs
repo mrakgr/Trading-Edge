@@ -50,8 +50,9 @@ type Args =
     | Reclaim_Mode
     | Dip_Rebreak_Atr of float
     | Dip_Min_Bars_Below_Ema of int
+    | Dip_Max_Bars_Below_Ema of int
     | Dip_Min_Trend_Pct of float
-    | Dip_No_Exit_New_High
+    | Dip_Exit_New_High
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -89,8 +90,9 @@ type Args =
             | Reclaim_Mode -> "Switch OFF DipRider and run the VWAP x 9-EMA RECLAIM engine instead (the forked-from behavior)."
             | Dip_Rebreak_Atr _ -> "DipRider: re-break trigger size — close >= prevBar.high * (1 + k*ATR%%). Default 0.5. 0 = any close above the prior high."
             | Dip_Min_Bars_Below_Ema _ -> "DipRider: require >= this many CONSECUTIVE bars closed below the 9-EMA before the re-break (the pullback depth). Default 3. 0 = off."
+            | Dip_Max_Bars_Below_Ema _ -> "DipRider: CAP the pullback — reject a re-break with >= this many bars below the 9-EMA (Finding 2: shallow resumes, deep = broken trend). Default 8. 0 = off."
             | Dip_Min_Trend_Pct _ -> "DipRider: UPTREND precondition — the re-break close must be >= this fraction above the session open. Default 0.02 (2%%). 0 = off."
-            | Dip_No_Exit_New_High -> "DipRider: DISABLE the exit-to-new-highs (hold to the time-stop / MOC instead). Default = exit when a fresh session high is made."
+            | Dip_Exit_New_High -> "DipRider: RE-ENABLE the exit-to-new-session-high (Finding 3: OFF by default — the target amputates the continuation runners; hold-to-MOC wins)."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -143,8 +145,9 @@ let main argv =
                   VwapReclaim        = parsed.Contains Reclaim_Mode
                   DipRebreakAtr      = parsed.GetResult(Dip_Rebreak_Atr,      defaultValue = defaultConfig.Intraday.DipRebreakAtr)
                   DipMinBarsBelowEma = parsed.GetResult(Dip_Min_Bars_Below_Ema, defaultValue = defaultConfig.Intraday.DipMinBarsBelowEma)
+                  DipMaxBarsBelowEma = parsed.GetResult(Dip_Max_Bars_Below_Ema, defaultValue = defaultConfig.Intraday.DipMaxBarsBelowEma)
                   DipMinTrendPct     = parsed.GetResult(Dip_Min_Trend_Pct,    defaultValue = defaultConfig.Intraday.DipMinTrendPct)
-                  DipExitNewHigh     = not (parsed.Contains Dip_No_Exit_New_High) } }
+                  DipExitNewHigh     = parsed.Contains Dip_Exit_New_High } }
 
     if cfg.Intraday.DipRider then
         let entryWindow =

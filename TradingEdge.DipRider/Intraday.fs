@@ -229,6 +229,9 @@ type IntradayConfig =
       DipMinBarsBelowEma: int  // require >= this many CONSECUTIVE bars CLOSED below the 9-EMA immediately
                                // before the re-break (the pullback DEPTH — a real dip, not a one-bar wiggle).
                                // 0 = off. The EMA-vs-close mirror of MinRunBelowVwap.
+      DipMaxBarsBelowEma: int  // CAP the pullback depth (Finding 2: shallower = better, monotone): reject a
+                               // re-break whose pullback was >= this many consecutive bars below the 9-EMA (a
+                               // BROKEN trend, not a healthy pause). 0 = off (no cap).
       DipMinTrendPct: float     // UPTREND precondition: require the re-break close to be >= this fraction
                                // above the session OPEN (an established up-move to pull back FROM). 0 = off.
                                // e.g. 0.02 = must be >= 2% up on the session at the re-break.
@@ -470,6 +473,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // the PULLBACK: >= DipMinBarsBelowEma consecutive bars closed below the 9-EMA right before this
         // bar (a genuine dip to buy the resumption of, not a one-bar wiggle). 0 = off.
         && (cfg.DipMinBarsBelowEma <= 0 || sBarsBelowEma >= cfg.DipMinBarsBelowEma)
+        // and CAP the pullback depth (shallower = better): reject a re-break off a BROKEN trend. 0 = off.
+        && (cfg.DipMaxBarsBelowEma <= 0 || sBarsBelowEma < cfg.DipMaxBarsBelowEma)
         // the UPTREND precondition: the re-break close is >= DipMinTrendPct above the session open (an
         // established up-move to have pulled back FROM). 0 = off.
         && (cfg.DipMinTrendPct <= 0.0

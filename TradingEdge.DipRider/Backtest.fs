@@ -43,8 +43,9 @@ let defaultConfig =
           EntryEndMin     = 13 * 60 + 30 // 13:30 ET — morning-window END (afternoon reclaims fade)
           UseStop = false
           PctStop = 0.0
-          TimeStopMin = 15               // DipRider: 15m short-term time-stop (user: 5-30m), the fallback exit
-                                         // when the re-break doesn't make a fresh high. --time-stop-min to sweep.
+          TimeStopMin = 0                // DipRider: HOLD-TO-MOC by default (Finding 3: the trade is a
+                                         // momentum-CONTINUATION — letting it run beats any short time-stop;
+                                         // PF climbs 20m<30m<60m<MOC). --time-stop-min N to re-impose a stop.
           Downside = true                // breakout to a new session LOW
           WickBreakout = false           // CLOSE through the prior low
           ExtGate = 0.0
@@ -97,9 +98,14 @@ let defaultConfig =
                                          // over the prior high (a decisive resumption bar, not a one-tick poke).
           DipMinBarsBelowEma = 3         // require >= 3 consecutive bars closed below the 9-EMA before the re-break
                                          // (a genuine pullback, not a one-bar wiggle). Swept later.
+          DipMaxBarsBelowEma = 8         // CAP the pullback at < 8 bars below the 9-EMA (Finding 2: monotone —
+                                         // shallow dips resume, deep ones are broken trends). --dip-max-bars-below-ema.
           DipMinTrendPct = 0.02          // require the re-break close >= 2% above the session open (an established
                                          // intraday uptrend to have pulled back FROM). Swept later.
-          DipExitNewHigh = true }        // EXIT to new session highs (the resumption ran), else the time-stop.
+          DipExitNewHigh = false }       // Finding 3: the new-high target AMPUTATES the runners (PF ~0.95 ON
+                                         // vs 1.06-1.19 OFF). Continuation trade — let it run. --dip-... N/A;
+                                         // pass nothing to keep OFF (the flag --dip-no-exit-new-high is a no-op now,
+                                         // there's no --dip-exit-new-high to turn it back on; edit config to test).
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
