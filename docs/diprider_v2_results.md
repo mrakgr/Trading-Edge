@@ -650,7 +650,43 @@ helps, peaks at N=20:**
 **N=20 is the sweet spot (PF 2.17, +$875k)** — going beyond 8 genuinely helps (8 was too short, as the user
 suspected); N=30 thins out (264 trips) and is the regime to switch to the run measures (which hold 2.17
 there). So the leading momentum config is ~**N=15-20 + trailing-20 volatility & vol-slope cell** (PF 1.9-2.2),
-crossing over to run-based measures past N=20.
+crossing over to run-based measures past N=20. **N=20 LOCKED as the `--diprider-v2` default (`DipV2BuyIntoRun = 20`).**
+
+### Finding 16 — full 22-year test (2003-2026): PF 2.17, edge holds in BOTH eras, but 93% modern by trip count
+
+Ran the locked config (buy-into-run N=20) over the full 22 years, cell = `intraday_atr_pct ≥ .015 &
+trail_vol_slope ≥ .05`:
+
+| era | n | avg_ret_pct | pf | net |
+|---|--:|--:|--:|--:|
+| **full 22y (2003-2026)** | 1193 | 7.71 | **2.167** | +919,808 |
+| pre-2020 (2003-2019) | 80 | 5.54 | 2.126 | +44,342 |
+| modern (2020-2026) | 1113 | 7.87 | 2.170 | +875,466 |
+
+**The edge is NOT regime-dependent** — PF ~2.1 in BOTH eras (unlike VwapReclaim, which was flat/PF~1.0
+pre-2020). But it's overwhelmingly a **modern book by TRIP COUNT: 93% of trips are post-2020** (~5/yr
+pre-2020 vs ~160/yr modern). The reason is the UNIVERSE, not the pattern — the `rvol_0945 > 1 & ADV ≥ $30M`
+in-play filter rarely triggered in 2003-2019 (far fewer high-volume small-caps in play then), so few
+candidate days qualified — but the few that did worked just as well (pre-2020 PF 2.13 on 80 trips).
+
+**By year (modern):** every year PF 1.7-4.0 EXCEPT **2021 (PF 0.82 / −$41k)** — the one persistent losing
+regime seen throughout V2 (the meme-squeeze chop year; NOT breadth-explained, F6). Pre-2020 years have
+tiny samples (1-13 trips) with wild individual PFs (statistically meaningless singly; the aggregate 2.13
+is the signal). 2024-26 are the strongest (PF 3.26 / 3.36 / 4.01).
+
+| yr | n | pf | net |   | yr | n | pf | net |
+|---|--:|--:|--:|---|---|--:|--:|--:|
+| 2020 | 151 | 1.722 | +65,129 | | 2023 | 90 | 2.497 | +86,069 |
+| 2021 | 286 | 0.824 | −41,347 | | 2024 | 181 | 3.256 | +269,817 |
+| 2022 | 155 | 2.073 | +97,198 | | 2025 | 183 | 3.358 | +246,927 |
+|   |   |   |   | | 2026 | 67 | 4.005 | +151,673 |
+
+**⭐⭐ SETTLED momentum system: buy-into-run N=20 + trailing-20 cell (`intraday_atr_pct ≥ .015 &
+trail_vol_slope ≥ .05`) + geometry stop + hold-to-MOC → 22y PF 2.17 / +$920k / edge in both eras / positive
+every modern year except 2021.** (Full ungated N=20 book, 22y = PF 1.244 / 76,395 trips / +$2.22M.)
+
+NEXT (for the user): still-open — the 2021 regime (the only recurring hole); wire the cell as ENGINE gates
+(currently post-hoc SQL); compare/combine vs the buy-into-DIP system (F12); the stale-run caveat.
 
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.

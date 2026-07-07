@@ -116,7 +116,8 @@ let defaultConfig =
           DipV2PullbackBar = 0           // 0 = use re-break/reclaim trigger; N>0 = buy the Nth below-EMA bar.
           DipV2GeomStop = false          // 2-bar-low stop by default; --dip-v2-geom-stop = run-anchored geometry stop.
           DipV2StopDistFrac = 2.0 / 3.0  // geometry-stop distance below the run floor as a fraction of the run range.
-          DipV2BuyIntoRun = 0 }          // 0 = off; N>0 = buy INTO the live run at length N (momentum; --dip-v2-buy-into-run).
+          DipV2BuyIntoRun = 20 }         // Finding 15: N=20 is the momentum sweet spot (PF 2.17 on the cell).
+                                         // 0 = off (fall back to the re-break/reclaim/pullback trigger). --dip-v2-buy-into-run.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
