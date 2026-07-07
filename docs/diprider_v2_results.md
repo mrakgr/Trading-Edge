@@ -762,5 +762,38 @@ just not the 2021 fix.
 NEXT (user): 2021 still open — try SPY multi-day trend / realized-vol, or a name-level follow-through
 measure; the float<$300M gate; wire the cell as engine gates; the stale-run caveat.
 
+### Finding 20 — 2021 = a WIN-RATE collapse (2× stop-outs), NOT a payoff problem; moderate tail concentration
+
+**Tail concentration (N=20 cell, all modern):** top 1 trade = 6% of net, top 10 = 34%, top 25 = 59%, top
+50 = **87%**. Top-heavy but NOT fragile — far healthier than DipRider V1 (top 100 = 117% there, i.e. the
+body lost money). Here the body is genuinely profitable with a fat right tail; the geometry stop +
+volatility selection produce a real edge, not a lottery.
+
+**2021 anatomy — the failure mode is a WIN-RATE collapse, payoff structure is NORMAL:**
+
+| yr | win% | avg_win | avg_loss | W/L | stop-out% | pf |
+|---|--:|--:|--:|--:|--:|--:|
+| 2020 | 45.7 | +22.5 | −11.0 | 2.05 | 11.9 | 1.72 |
+| **2021** | **32.5** | +20.9 | −12.3 | 1.70 | **26.9** | **0.82** |
+| 2022 | 43.2 | +28.0 | −10.3 | 2.72 | 22.6 | 2.07 |
+| 2023 | 43.3 | +36.8 | −11.5 | 3.20 | 18.9 | 2.50 |
+| 2024 | 49.2 | +43.8 | −13.0 | 3.37 | 16.0 | 3.26 |
+| 2025 | 53.0 | +36.3 | −12.2 | 2.98 | 11.5 | 3.36 |
+| 2026 | 44.8 | +67.4 | −13.6 | 4.94 | 28.4 | 4.01 |
+
+2021's **win rate craters to 32.5%** (every other year 43-53%), and its **stop-out rate DOUBLES to 26.9%**
+(good years ~12%). But avg win (+20.9%) and avg loss (−12.3%) are NORMAL. So 2021 isn't "winners got
+smaller / losses got bigger" — **the runs simply followed through ~2× less often** (reverted into the stop).
+The winners that worked paid normally; there were just far fewer of them. **This is the chop-regime
+signature** — and it's a per-NAME follow-through failure (why SPY-direction missed it, F19).
+
+(2026 also has a high stop-out 28.4% but is a great year — its winners were huge, +67% avg, overwhelming
+the stops; small n=67. In 2021 the winners were normal-sized, so the extra stops weren't compensated.)
+
+**⇒ A 2021 fix must measure FOLLOW-THROUGH / chop, not direction:** e.g. a name-level "recent breakouts
+failing today" signal, a market-wide breadth-of-follow-through, or SPY realized-VOL (chop = high whipsaw
+vol). Direction (SPY up/down) is confirmed irrelevant (F19). NEXT (user): the float<$300M gate; a
+follow-through/chop measure for 2021; wire the cell as engine gates.
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.
