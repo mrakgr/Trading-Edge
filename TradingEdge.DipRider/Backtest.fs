@@ -108,8 +108,9 @@ let defaultConfig =
           // ----- DipRider V2 (run-above-9EMA slopes, long-only) — OFF by default; --diprider-v2 turns it on -----
           DipRiderV2 = false             // V1 is the archived production system; V2 is the research mode.
           RunResetBarsBelow = 1          // excuse a single below-9EMA close within an up-run (Finding TBD; swept).
-          DipV2MinRunLen = 10 }          // require the prior above-9EMA run >= 10 bars (the U-shape's good cell;
+          DipV2MinRunLen = 10            // require the prior above-9EMA run >= 10 bars (the U-shape's good cell;
                                          // len-1 and 2-9 are the weak/dead zone). --dip-v2-min-run-len; 0 = off.
+          DipV2Reclaim = false }         // re-break trigger by default; --dip-v2-reclaim = enter on the 9-EMA reclaim.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the

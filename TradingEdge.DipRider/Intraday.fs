@@ -262,9 +262,13 @@ type IntradayConfig =
                                // before the above-EMA run is considered broken. 1 (default) = a single
                                // below-close is forgiven if the next bar closes back above; 2 consecutive
                                // below-closes break the run. Swept later. (0 would break on any below-close.)
-      DipV2MinRunLen: int }    // ENTRY GATE: require the just-ended above-9EMA run to have lasted >= this many
+      DipV2MinRunLen: int      // ENTRY GATE: require the just-ended above-9EMA run to have lasted >= this many
                                // bars (a REAL sustained trend to buy the resumption of, not a 1-bar poke).
                                // Default 10 (the U-shape's good cell). 0 = off (take every re-break).
+      DipV2Reclaim: bool }     // ENTRY TRIGGER STYLE. false (default) = RE-BREAK (close clears the prior bar's
+                               // high by DipRebreakAtr*ATR%). true = 9-EMA RECLAIM: enter when THIS bar's close
+                               // crosses back ABOVE the 9-EMA (the pullback's below-EMA run just ended) — fires
+                               // earlier / more often, no prior-high or ATR% required.
 
 /// Per-(ticker, day) intraday engine. Feed it the day's RTH MinuteBar[] in time
 /// order via `Process`, then `Finalize` and read `Trips()`.
@@ -563,11 +567,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // MIN prior-run length: the just-ended above-9EMA run must have lasted >= DipV2MinRunLen bars
         // (a real sustained trend, not a 1-bar poke — the U-shape's good cell). 0 = off.
         && (cfg.DipV2MinRunLen <= 0 || sSavedRunLen >= cfg.DipV2MinRunLen)
-        // the RE-BREAK: close clears the strictly-prior bar's high by >= k*ATR% (per-bar log-ATR).
-        && (match sLastBar, sAtrLog with
-            | ValueSome prev, ValueSome atr when prev.high > 0.0 ->
-                bar.close >= prev.high * (1.0 + cfg.DipRebreakAtr * atr)
-            | _ -> false)
+        // the TRIGGER (cfg.DipV2Reclaim):
+        //   false — RE-BREAK: this bar's close clears the strictly-prior bar's HIGH by >= k*ATR% (an
+        //           expansion over the prior high).
+        //   true  — 9-EMA RECLAIM: this bar's close crosses back ABOVE the strictly-prior 9-EMA. The
+        //           pullback (sBarsBelowEma >= 1, required above) just ended — re-enter on the reclaim,
+        //           no prior-high or ATR% needed. sEmaPrevDip is the strictly-prior EMA (no lookahead).
+        && (if cfg.DipV2Reclaim then
+                match sEmaPrevDip with ValueSome e -> bar.close > e | ValueNone -> false
+            else
+                match sLastBar, sAtrLog with
+                | ValueSome prev, ValueSome atr when prev.high > 0.0 ->
+                    bar.close >= prev.high * (1.0 + cfg.DipRebreakAtr * atr)
+                | _ -> false)
         // concurrency room.
         && (cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent)
 

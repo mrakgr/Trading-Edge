@@ -56,6 +56,7 @@ type Args =
     | Diprider_V2
     | Run_Reset_Bars_Below of int
     | Dip_V2_Min_Run_Len of int
+    | Dip_V2_Reclaim
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -99,6 +100,7 @@ type Args =
             | Diprider_V2 -> "Switch to DipRider V2 (run-above-9EMA slopes): same re-break entry, gates 2-5 dropped, records the just-ended above-9EMA run's length/log-close slope/log-vol slope/R²s + trailing 20/10/5/2m volume + VWAP for breakdown."
             | Run_Reset_Bars_Below _ -> "V2: how many consecutive below-9EMA closes are EXCUSED before the above-EMA run breaks. Default 1 (a single below-close is forgiven if the next closes back above)."
             | Dip_V2_Min_Run_Len _ -> "V2 GATE: require the just-ended above-9EMA run to have lasted >= this many bars (a real sustained trend, not a 1-bar poke). Default 10. 0 = off."
+            | Dip_V2_Reclaim -> "V2 TRIGGER: enter on the 9-EMA RECLAIM (close crosses back above the 9-EMA) instead of the re-break above the prior bar's high. Fires earlier/more often; no prior-high or ATR%% needed."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -152,6 +154,7 @@ let main argv =
                   VwapReclaim        = parsed.Contains Reclaim_Mode
                   RunResetBarsBelow  = parsed.GetResult(Run_Reset_Bars_Below, defaultValue = defaultConfig.Intraday.RunResetBarsBelow)
                   DipV2MinRunLen     = parsed.GetResult(Dip_V2_Min_Run_Len, defaultValue = defaultConfig.Intraday.DipV2MinRunLen)
+                  DipV2Reclaim       = parsed.Contains Dip_V2_Reclaim
                   DipRebreakAtr      = parsed.GetResult(Dip_Rebreak_Atr,      defaultValue = defaultConfig.Intraday.DipRebreakAtr)
                   DipMinBarsBelowEma = parsed.GetResult(Dip_Min_Bars_Below_Ema, defaultValue = defaultConfig.Intraday.DipMinBarsBelowEma)
                   DipMaxBarsBelowEma = parsed.GetResult(Dip_Max_Bars_Below_Ema, defaultValue = defaultConfig.Intraday.DipMaxBarsBelowEma)
@@ -168,7 +171,10 @@ let main argv =
         printfn "  minute_aggs = %s" minuteDir
         printfn "  range       = %O .. %O" startDate endDate
         printfn "  entry window= %s   %s" entryWindow timeStop
-        printfn "  entry       = re-break close >= prevHigh*(1 + %.2f*ATR%%) after >=1 bar below 9-EMA   (gates 2-5 OFF)" cfg.Intraday.DipRebreakAtr
+        if cfg.Intraday.DipV2Reclaim then
+            printfn "  entry       = 9-EMA RECLAIM (close crosses back above 9-EMA) after >=1 bar below   (gates 2-5 OFF)"
+        else
+            printfn "  entry       = re-break close >= prevHigh*(1 + %.2f*ATR%%) after >=1 bar below 9-EMA   (gates 2-5 OFF)" cfg.Intraday.DipRebreakAtr
         printfn "  run gate     = prior above-9EMA run >= %d bars   (tol: excuse %d below-close(s))" cfg.Intraday.DipV2MinRunLen cfg.Intraday.RunResetBarsBelow
         printfn "  recorded    = run_len / run_slope(logC) / run_r2 / run_vol_slope(logV) / run_vol_r2 / run_atr / vol 20-10-5-2m / vwap"
         printfn "  exit        = hold-to-MOC   stop = 2-bar low (%s)" (if cfg.Intraday.StopOnClose then "close-based" else "wick")

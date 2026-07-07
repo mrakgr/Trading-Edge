@@ -285,6 +285,47 @@ dollars. Keeping only the two peaks lifts PF further (1.71) but sacrifices more.
 (2023 = 0.533, 2026 = 0.525), yet 2021 PF is 0.82 vs 2023's 3.22. 2021's weakness is regime-specific
 (the meme-squeeze chop year), not a breadth artifact — a breadth filter won't rescue it.
 
-NEXT (for the user): pick k (0.25 robust / 0 max-dollars); consider the drop-.55-.65 breadth filter; decide
-whether to promote `run_atr_v2 ≥ .015 & run_len < 50` + k + breadth to defaults; still-open: the 2021
-regime (non-breadth), run_atr/run_len threshold sweeps, and a 22-year regime check.
+(User decided F6's drop-.55-.65 breadth filter is NOT worth it — dropping a middle bucket while keeping
+both tails is overfit; the breadth breakdown stays informative but no breadth gate is applied.)
+
+### Finding 7 — 9-EMA RECLAIM trigger = the FATTEST book (+$581k), but concentrates the 2021 risk
+
+Alternative entry trigger (`--dip-v2-reclaim`, `DipV2Reclaim`): instead of a RE-BREAK above the prior
+bar's high, enter when this bar's close crosses back ABOVE the 9-EMA (the pullback's below-EMA run just
+ended). Fires earlier (before price takes out the prior high) and needs no prior-high/ATR%. Candidate
+cell (`run_atr_v2 ≥ .015 & run_len < 50`, 2020-2026):
+
+| trigger | n | avg_ret_pct | win | pf | net |
+|---|--:|--:|--:|--:|--:|
+| re-break k=0.5 (default) | 912 | 2.257 | 17.2 | 1.561 | +205,835 |
+| re-break k=0.25 | 1937 | 2.044 | 16.0 | 1.576 | +395,905 |
+| **9-EMA reclaim** | 4799 | 1.210 | 13.2 | 1.403 | **+580,638** |
+
+The reclaim is the **far "fat" end of the same fat-book ⇄ PF spectrum as the k-sweep (F5):**
+- **~5× the re-break-default trips (4,799) and the MOST dollars of any variant (+$581k)** — earlier entry
+  catches more of each resumption.
+- **Lower PF (1.40)** — earlier entry admits more marginal signals; per-trade avg +1.21% vs +2.26%. But
+  the core edge holds — the run-volatility lever still works (reclaim run_atr `.03+` → PF 1.69, monotone).
+- **Amplifies the 2021 hole (−$56k vs k=0.25's −$33k) and turns 2022 flat (−$3k)** — the earlier entry
+  makes the bad regime worse, same way k=0 did.
+
+| year | reclaim pf | reclaim net |
+|---|--:|--:|
+| 2020 | 1.566 | +102,016 |
+| 2021 | 0.850 | **−56,301** |
+| 2022 | 0.982 | −2,614 |
+| 2023 | 2.408 | +141,311 |
+| 2024 | 1.669 | +166,049 |
+| 2025 | 1.544 | +156,391 |
+| 2026 | 1.721 | +73,786 |
+
+⚠ Semantic caveat: with `RunResetBarsBelow = 1`, a SINGLE excused below-close doesn't break the up-run,
+so a quick 1-bar-dip-then-reclaim reads the PREVIOUS (stale) saved run, not the just-paused one. Minor
+(most pullbacks are ≥2 bars), but if the reclaim trigger is promoted, revisit the tolerance/save timing.
+
+**Summary of the fat-book ⇄ PF dial** (candidate cell, all hold-to-MOC + 2-bar stop):
+re-break k=1.0 (PF 2.51 / 198 trips) → k=0.5 (1.56 / 912) → k=0.25 (1.58 / 1,937 / +$396k) → k=0
+(1.48 / 3,897 / +$599k) ≈ EMA-reclaim (1.40 / 4,799 / +$581k). **2021 is the weak regime at every point.**
+
+NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
+the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.
