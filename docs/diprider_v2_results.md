@@ -465,5 +465,51 @@ doing real work; buy-into-pullback is not free money without the volatility gate
 hold-to-MOC, 2-bar stop → PF ~1.51 / +$1.0M / positive every year.** NEXT: sweep N further (4,5?),
 re-verify the run-feature breakdowns under this entry, address the stale-run caveat, then 22-yr check.
 
+### Finding 12 — ⭐⭐ the 2-bar stop TRIPS on the bought dip; a run-geometry stop ~TRIPLES net → +$2.9M
+
+User's call: buying INTO a falling dip with a 2-bar-low stop gets knifed — the 2-bar low sits right under
+a still-falling entry. Confirmed: **buy-N=2 with the 2-bar stop STOPS OUT 89.8% of trades** (only 10.2%
+reach MOC). Borrowed VwapReclaim's structure-anchored geometry (`--dip-v2-geom-stop`): save the run's MIN
+close (`savedRunMinClose`, the run floor) and its top (`savedRunLastClose`); `d = top − floor` (run range);
+**stop = floor − d·(2/3)** (below the run's floor, VwapReclaim F14). Falls back to the 2-bar low if the
+saved run closes are missing. Candidate cell (buy N=2, 2020-2026):
+
+| stop | stop-out % | win | pf | net |
+|---|--:|--:|--:|--:|
+| 2-bar low | 89.8 | 10.0 | 1.510 | +1,041,393 |
+| **geometry d·2/3** | 52.9 | 33.1 | **1.694** | **+2,916,402** |
+
+**Stop-out 90%→53%, win 10%→33%, PF 1.51→1.69, net NEARLY TRIPLES to +$2.9M** (same trips — the stop only
+changes exits). The 2-bar low was a noise-level stop under a still-falling dip; anchoring d·2/3 below the
+RUN's floor gives the reversion room to happen. **This is the single biggest lift in the whole V2 line.**
+
+**Positive EVERY year, and it FIXES 2021** (the weak regime): 2021 PF 1.13 / +$158k (was +$16k with the
+2-bar stop; negative at every trigger variant). 2024-26 are huge (+$735k/+$779k/+$416k):
+
+| year | pf | net |
+|---|--:|--:|
+| 2020 | 1.704 | +339,962 |
+| 2021 | 1.126 | +157,959 |
+| 2022 | 1.406 | +191,553 |
+| 2023 | 2.104 | +297,511 |
+| 2024 | 2.119 | +734,705 |
+| 2025 | 2.014 | +778,542 |
+| 2026 | 2.377 | +416,169 |
+
+**Stop-frac sweep — a broad plateau** (d/2 → d·1.5, PF 1.65-1.70); d·2/3 is a fine default, wider (`d`)
+squeezes a touch more net (+$3.04M) at ~same PF:
+
+| frac | stop-out % | pf | net |
+|---|--:|--:|--:|
+| d/2 | 56.1 | 1.702 | +2,857,109 |
+| d·2/3 | 52.8 | 1.695 | +2,921,985 |
+| d | 47.7 | 1.689 | +3,037,238 |
+| d·1.5 | 41.3 | 1.652 | +3,042,095 |
+
+**⭐⭐ LEADING SYSTEM NOW: buy N=2 into the pullback + `run_atr_v2 ≥ .015 & run_len < 50` + run-geometry
+stop (d·2/3, floor = run min-close) + hold-to-MOC → PF 1.69 / +$2.9M / positive every year incl. 2021.**
+NEXT: promote to defaults; sweep N (2 vs 3) under the geom stop; re-verify run-feature breakdowns; the
+stale-run caveat (N=2 at tol=1); then the 22-yr regime check.
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.

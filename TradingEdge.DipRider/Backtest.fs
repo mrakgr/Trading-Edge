@@ -113,7 +113,9 @@ let defaultConfig =
           DipV2Reclaim = false           // re-break trigger by default; --dip-v2-reclaim = enter on the 9-EMA reclaim.
           DipV2MinBarsSinceBreak = 0     // bars-since-break gates OFF by default (recorded feature first).
           DipV2MaxBarsSinceBreak = 0     // --dip-v2-min/max-bars-since-break to enable.
-          DipV2PullbackBar = 0 }         // 0 = use re-break/reclaim trigger; N>0 = buy the Nth below-EMA bar.
+          DipV2PullbackBar = 0           // 0 = use re-break/reclaim trigger; N>0 = buy the Nth below-EMA bar.
+          DipV2GeomStop = false          // 2-bar-low stop by default; --dip-v2-geom-stop = run-anchored geometry stop.
+          DipV2StopDistFrac = 2.0 / 3.0 }// geometry-stop distance below the run floor as a fraction of the run range.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
