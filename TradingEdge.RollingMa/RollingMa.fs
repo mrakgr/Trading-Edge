@@ -202,3 +202,86 @@ type CalendarMeanMa(days: int) =
     member _.Reset () =
         q.Clear()
         sum <- 0.0
+
+// =============================================================================
+// OlsSlopeMa — rolling ordinary-least-squares regression slope (+ R²)
+// =============================================================================
+//
+// The least-squares line y = m·x + b through the last `windowSize` pushed
+// points, minimizing Σ(y - (m·x + b))². The x-coordinate of each point is its
+// ABSOLUTE push index (0, 1, 2, …). The slope is invariant to a constant shift
+// of all x (only the spacing matters), so using the absolute index — rather than
+// re-basing to 0..n-1 on every slide — lets eviction be a clean subtract of the
+// oldest point's exact contribution. Amortized O(1) per push.
+//
+// Closed form (n points, no per-point weights):
+//   slope m = (n·Σxy − Σx·Σy) / (n·Σx² − (Σx)²)
+//   R²      = (n·Σxy − Σx·Σy)² / [ (n·Σx² − (Σx)²)·(n·Σy² − (Σy)²) ]
+// The denominators are n·Var(x) and n·Var(y) up to the same factor; both are the
+// window's x/y spread. `Slope` is defined once ≥2 points span a non-degenerate x
+// range (always true for distinct push indices, i.e. n≥2). `R2` additionally
+// needs a non-degenerate y range (a perfectly flat window has undefined R²).
+//
+// UNITS: the slope is y-per-BAR (per push). Feed log-price to get a %-per-bar
+// (log-return-per-bar) trend that's comparable across tickers — the intended use
+// for a trend feature, same rationale as log-ATR. Read `.State`/`.R2` BEFORE
+// pushing the current bar for the strictly-prior (no-lookahead) value, exactly
+// like the other structures here.
+[<Sealed>]
+type OlsSlopeMa(windowSize: int) =
+    let q = Queue<struct (float * float)>(windowSize)   // (x = absolute push index, y)
+    let mutable sx  = 0.0    // Σx
+    let mutable sy  = 0.0    // Σy
+    let mutable sxx = 0.0    // Σx²
+    let mutable sxy = 0.0    // Σxy
+    let mutable syy = 0.0    // Σy²
+    let mutable idx = 0.0    // next absolute push index (never reset within an episode)
+
+    /// Count of points currently in the window.
+    member _.Count = q.Count
+    member _.WindowSize = windowSize
+
+    /// Denominator n·Σx² − (Σx)² = n·(spread of x). >0 once ≥2 distinct-x points.
+    member private _.Sxx = float q.Count * sxx - sx * sx
+
+    /// OLS slope (y-per-bar), or ValueNone with <2 points (x range degenerate).
+    member this.Slope : float voption =
+        let n = float q.Count
+        let dxx = n * sxx - sx * sx
+        if q.Count >= 2 && dxx > 0.0 then ValueSome ((n * sxy - sx * sy) / dxx)
+        else ValueNone
+
+    /// The slope, exposed as `.State` to match the other RollingMa structures.
+    member this.State = this.Slope
+
+    /// Coefficient of determination R² ∈ [0,1] — the fraction of y-variance the
+    /// line explains (trend cleanliness). ValueNone with <2 points or a flat
+    /// window (Σy spread = 0, R² undefined).
+    member _.R2 : float voption =
+        let n = float q.Count
+        let dxx = n * sxx - sx * sx
+        let dyy = n * syy - sy * sy
+        if q.Count >= 2 && dxx > 0.0 && dyy > 0.0 then
+            let dxy = n * sxy - sx * sy
+            ValueSome (dxy * dxy / (dxx * dyy))
+        else ValueNone
+
+    /// Push the next y (its x is the running absolute index). Evicts the oldest
+    /// point when the window is full, subtracting its exact contribution.
+    member _.Push (y: float) =
+        if q.Count = windowSize then
+            let struct (ox, oy) = q.Dequeue()
+            sx <- sx - ox; sy <- sy - oy
+            sxx <- sxx - ox * ox; sxy <- sxy - ox * oy; syy <- syy - oy * oy
+        let x = idx
+        idx <- idx + 1.0
+        q.Enqueue(struct (x, y))
+        sx <- sx + x; sy <- sy + y
+        sxx <- sxx + x * x; sxy <- sxy + x * y; syy <- syy + y * y
+
+    /// Drop every buffered point and return cold — including the x index, so a
+    /// fresh episode starts its regression at x=0 (see RollingMa.Reset).
+    member _.Reset () =
+        q.Clear()
+        sx <- 0.0; sy <- 0.0; sxx <- 0.0; sxy <- 0.0; syy <- 0.0
+        idx <- 0.0
