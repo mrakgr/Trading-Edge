@@ -53,6 +53,8 @@ type Args =
     | Dip_Max_Bars_Below_Ema of int
     | Dip_Min_Trend_Pct of float
     | Dip_Exit_New_High
+    | Diprider_V2
+    | Run_Reset_Bars_Below of int
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -93,6 +95,8 @@ type Args =
             | Dip_Max_Bars_Below_Ema _ -> "DipRider: CAP the pullback — reject a re-break with >= this many bars below the 9-EMA (Finding 2: shallow resumes, deep = broken trend). Default 8. 0 = off."
             | Dip_Min_Trend_Pct _ -> "DipRider: UPTREND precondition — the re-break close must be >= this fraction above the session open. Default 0.02 (2%%). 0 = off."
             | Dip_Exit_New_High -> "DipRider: RE-ENABLE the exit-to-new-session-high (Finding 3: OFF by default — the target amputates the continuation runners; hold-to-MOC wins)."
+            | Diprider_V2 -> "Switch to DipRider V2 (run-above-9EMA slopes): same re-break entry, gates 2-5 dropped, records the just-ended above-9EMA run's length/log-close slope/log-vol slope/R²s + trailing 20/10/5/2m volume + VWAP for breakdown."
+            | Run_Reset_Bars_Below _ -> "V2: how many consecutive below-9EMA closes are EXCUSED before the above-EMA run breaks. Default 1 (a single below-close is forgiven if the next closes back above)."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -140,16 +144,32 @@ let main argv =
                   // --reclaim-short mirrors the whole system to the short side (Short flips P&L, ReclaimShort flips signal).
                   ReclaimShort   = parsed.Contains Reclaim_Short
                   Short          = parsed.Contains Reclaim_Short || defaultConfig.Intraday.Short
-                  // DipRider (default engine). --reclaim-mode flips back to the reclaim; the two are exclusive.
-                  DipRider           = not (parsed.Contains Reclaim_Mode)
+                  // Engine select (exclusive): default = DipRider V1; --diprider-v2 = V2; --reclaim-mode = reclaim.
+                  DipRiderV2         = parsed.Contains Diprider_V2
+                  DipRider           = not (parsed.Contains Reclaim_Mode) && not (parsed.Contains Diprider_V2)
                   VwapReclaim        = parsed.Contains Reclaim_Mode
+                  RunResetBarsBelow  = parsed.GetResult(Run_Reset_Bars_Below, defaultValue = defaultConfig.Intraday.RunResetBarsBelow)
                   DipRebreakAtr      = parsed.GetResult(Dip_Rebreak_Atr,      defaultValue = defaultConfig.Intraday.DipRebreakAtr)
                   DipMinBarsBelowEma = parsed.GetResult(Dip_Min_Bars_Below_Ema, defaultValue = defaultConfig.Intraday.DipMinBarsBelowEma)
                   DipMaxBarsBelowEma = parsed.GetResult(Dip_Max_Bars_Below_Ema, defaultValue = defaultConfig.Intraday.DipMaxBarsBelowEma)
                   DipMinTrendPct     = parsed.GetResult(Dip_Min_Trend_Pct,    defaultValue = defaultConfig.Intraday.DipMinTrendPct)
                   DipExitNewHigh     = parsed.Contains Dip_Exit_New_High } }
 
-    if cfg.Intraday.DipRider then
+    if cfg.Intraday.DipRiderV2 then
+        let entryWindow =
+            sprintf "%02d:%02d–%02d:%02d ET" (cfg.Intraday.EntryStartMin / 60) (cfg.Intraday.EntryStartMin % 60)
+                (cfg.Intraday.EntryEndMin / 60) (cfg.Intraday.EntryEndMin % 60)
+        let timeStop = if cfg.Intraday.TimeStopMin > 0 then sprintf "time-stop %dm" cfg.Intraday.TimeStopMin else "no time-stop"
+        printfn "DipRider V2 backtest — run-above-9EMA slopes (LONG intraday, research mode)"
+        printfn "  db          = %s" dbPath
+        printfn "  minute_aggs = %s" minuteDir
+        printfn "  range       = %O .. %O" startDate endDate
+        printfn "  entry window= %s   %s" entryWindow timeStop
+        printfn "  entry       = re-break close >= prevHigh*(1 + %.2f*ATR%%) after >=1 bar below 9-EMA   (gates 2-5 OFF)" cfg.Intraday.DipRebreakAtr
+        printfn "  run tol     = excuse %d below-9EMA close(s) before the run breaks" cfg.Intraday.RunResetBarsBelow
+        printfn "  recorded    = run_len / run_slope(logC) / run_r2 / run_vol_slope(logV) / run_vol_r2 / vol 20-10-5-2m / vwap"
+        printfn "  exit        = hold-to-MOC   stop = 2-bar low (%s)" (if cfg.Intraday.StopOnClose then "close-based" else "wick")
+    elif cfg.Intraday.DipRider then
         let entryWindow =
             sprintf "%02d:%02d–%02d:%02d ET" (cfg.Intraday.EntryStartMin / 60) (cfg.Intraday.EntryStartMin % 60)
                 (cfg.Intraday.EntryEndMin / 60) (cfg.Intraday.EntryEndMin % 60)

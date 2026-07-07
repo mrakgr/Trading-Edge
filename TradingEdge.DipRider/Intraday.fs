@@ -89,6 +89,17 @@ type IntradayPosition =
       BarsSinceVolHiAtEntry: int // # bars since the session max-1m-VOLUME high (recency of peak interest)
       BarsBelowEmaAtEntry: int   // # consecutive bars closed below the 9-EMA right before the re-break (pullback depth)
       TrendPctAtEntry: float     // re-break close / session open - 1 (how far up the session the trend had run)
+      // ----- DipRider V2 features (the just-ended above-9EMA run + trailing volumes + VWAP; -1/nan = n/a) -----
+      RunLenAtEntry: int         // bars the just-ended above-9EMA run lasted (the trend we're buying the resumption of)
+      RunSlopeAtEntry: float     // OLS slope of that run's log-close (per-bar log-return = %/bar trend strength)
+      RunR2AtEntry: float        // R² of that log-close fit (trend CLEANLINESS: smooth vs choppy)
+      RunVolSlopeAtEntry: float  // OLS slope of that run's log-volume (per-bar; was volume RISING into the run?)
+      RunVolR2AtEntry: float     // R² of that log-volume fit
+      Vol20AtEntry: int64        // trailing raw volume over the last 20/10/5/2 bars (exhaustion-cutoff inputs)
+      Vol10AtEntry: int64
+      Vol5AtEntry: int64
+      Vol2AtEntry: int64
+      VwapAtEntry: float         // session VWAP at entry (nan if none) — buy-below vs buy-above-VWAP split
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// Mean-reversion TARGET — where a (short) position covers when price reverts back
@@ -235,10 +246,20 @@ type IntradayConfig =
       DipMinTrendPct: float     // UPTREND precondition: require the re-break close to be >= this fraction
                                // above the session OPEN (an established up-move to pull back FROM). 0 = off.
                                // e.g. 0.02 = must be >= 2% up on the session at the re-break.
-      DipExitNewHigh: bool }   // EXIT to NEW HIGHS: cover when a bar's HIGH exceeds the session high that
+      DipExitNewHigh: bool      // EXIT to NEW HIGHS: cover when a bar's HIGH exceeds the session high that
                                // stood at entry (TargetLevel) — the resumption completed the move, book it.
                                // Combined with TimeStopMin (5-30m) as the fallback if it never re-breaks:
                                // whichever fires first. false = hold-to-MOC (+ stop/time-stop). Default true.
+      // ----- DipRider V2: run-above-9EMA slopes (long-only) -----
+      DipRiderV2: bool         // MASTER SWITCH for V2 (exclusive with DipRider/VwapReclaim/breakout). Same
+                               // re-break entry, but gates 2-5 are DROPPED — replaced by RECORDED features of
+                               // the just-ended above-9EMA RUN (length, log-close slope, log-volume slope, R²s)
+                               // for post-hoc breakdown. Entry arms once price has closed below the 9-EMA for
+                               // >= 1 bar (a pullback started). false (default) = off.
+      RunResetBarsBelow: int } // run tolerance: how many CONSECUTIVE bars closed below the 9-EMA are EXCUSED
+                               // before the above-EMA run is considered broken. 1 (default) = a single
+                               // below-close is forgiven if the next bar closes back above; 2 consecutive
+                               // below-closes break the run. Swept later. (0 would break on any below-close.)
 
 /// Per-(ticker, day) intraday engine. Feed it the day's RTH MinuteBar[] in time
 /// order via `Process`, then `Finalize` and read `Trips()`.
@@ -294,6 +315,25 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable volHiBarIdx = -1                 // barsSeen index at the last runVolHi update
     let mutable barsBelowEma = 0                 // CONSECUTIVE bars whose CLOSE was below the 9-EMA (resets
                                                  // to 0 when a bar closes at/above the EMA) — the pullback depth
+    // ----- DipRider V2 run-above-9EMA state (only used when cfg.DipRiderV2) -----
+    // The CURRENT above-EMA run: OLS slope of log-close and log-volume over the run's bars, plus the run
+    // length and the consecutive below-EMA streak (for the RunResetBarsBelow tolerance). At run-break the
+    // run's stats are SAVED (below) before the OLS objects reset. Windows are large so a whole run fits.
+    let runOls     = OlsSlopeMa(500)             // OLS slope of log(close) over the current run's bars
+    let runVolOls  = OlsSlopeMa(500)             // OLS slope of log(volume) over the current run's bars
+    let mutable runLenAbove   = 0                // # bars in the current above-EMA run (incl. excused dips)
+    let mutable runBelowStreak = 0               // consecutive below-EMA closes within the current run (tolerance)
+    // SAVED stats of the LAST COMPLETED above-EMA run (read at the next entry). nan/-1 until a run completes.
+    let mutable savedRunLen   = -1               // bars the just-ended run lasted
+    let mutable savedRunSlope = nan              // OLS log-close slope of the just-ended run (per-bar log-return)
+    let mutable savedRunR2    = nan              // R² of that log-close fit (trend cleanliness)
+    let mutable savedVolSlope = nan              // OLS log-volume slope of the just-ended run (per-bar)
+    let mutable savedVolR2    = nan              // R² of that log-volume fit
+    // trailing raw VOLUME sums over 20/10/5/2 bars (the exhaustion-cutoff inputs; recorded, not gated).
+    let vol20sum   = SumMa(20)
+    let vol10sum   = SumMa(10)
+    let vol5sum    = SumMa(5)
+    let vol2sum    = SumMa(2)
     let maTgt      = match cfg.Target with Ma w -> AvgMa(w)      | _ -> AvgMa(1)   // fast SMA of closes
     let chanTgt    = match cfg.Target with Channel w -> MinMa(w) | _ -> MinMa(1)   // Donchian low (pre-breakout floor)
 
@@ -348,6 +388,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sBarsSinceVolHi  : int = -1                  // barsSeen - volHiBarIdx as-of this bar's start
     let mutable sBarsBelowEma    : int = 0                   // consecutive bars closed below the 9-EMA into this bar (the pullback)
     let mutable sEmaPrevDip      : float voption = ValueNone // the prior 9-EMA (for the trend/pullback context; = sEmaPrev)
+    // ----- DipRider V2 snapshots (the just-ended run's saved stats + trailing volumes, strictly-prior) -----
+    let mutable sSavedRunLen   : int = -1
+    let mutable sSavedRunSlope : float = nan
+    let mutable sSavedRunR2    : float = nan
+    let mutable sSavedVolSlope : float = nan
+    let mutable sSavedVolR2    : float = nan
+    let mutable sVwapNow       : float voption = ValueNone   // session VWAP into this bar (= sVwapPrev; for buy-below/above-VWAP)
+    let mutable sVol20 : int64 = 0L                          // trailing raw volume over the last 20/10/5/2 bars (strictly-prior)
+    let mutable sVol10 : int64 = 0L
+    let mutable sVol5  : int64 = 0L
+    let mutable sVol2  : int64 = 0L
 
     let positions = ResizeArray<IntradayPosition>()
 
@@ -486,10 +537,29 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // concurrency room.
         && (cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent)
 
+    /// DipRider V2 entry (long-only). The SAME re-break trigger as V1, but gates 2-5 are DROPPED — the
+    /// only conditions are: the trading window, price has been below the 9-EMA for >= 1 bar (a pullback
+    /// started), and the re-break (close clears the strictly-prior high by >= k*ATR%). Everything else
+    /// (run length, log-close/log-vol slopes, R², VWAP side, trailing volumes) is RECORDED for breakdown,
+    /// not gated. The re-break bar's close is the fill.
+    member this.ShouldEnterDipV2 (bar: MinuteBar) : bool =
+        bar.etMin >= cfg.EntryStartMin
+        && (cfg.EntryEndMin <= 0 || cfg.EntryEndMin >= cfg.MocMin || bar.etMin <= cfg.EntryEndMin)
+        // a pullback has started: price closed below the 9-EMA for >= 1 bar going into this re-break.
+        && sBarsBelowEma >= 1
+        // the RE-BREAK: close clears the strictly-prior bar's high by >= k*ATR% (per-bar log-ATR).
+        && (match sLastBar, sAtrLog with
+            | ValueSome prev, ValueSome atr when prev.high > 0.0 ->
+                bar.close >= prev.high * (1.0 + cfg.DipRebreakAtr * atr)
+            | _ -> false)
+        // concurrency room.
+        && (cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent)
+
     member this.ShouldEnter (bar: MinuteBar) : bool =
         let inline gate (v: _ voption) (test: _ -> bool) =
             match v with ValueSome x -> test x | ValueNone -> false
-        if cfg.DipRider then this.ShouldEnterDip bar
+        if cfg.DipRiderV2 then this.ShouldEnterDipV2 bar
+        elif cfg.DipRider then this.ShouldEnterDip bar
         elif cfg.VwapReclaim then this.ShouldEnterReclaim bar
         else
         // past the wall-clock trading floor (09:35). The engine processes premarket
@@ -573,6 +643,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sBarsSinceVolHi <- if volHiBarIdx >= 0 then barsSeen - volHiBarIdx else -1
         sBarsBelowEma   <- barsBelowEma
         sEmaPrevDip     <- ema.State
+        // DipRider V2: the just-ended run's saved stats, trailing volumes, and VWAP — all strictly-prior.
+        sSavedRunLen   <- savedRunLen
+        sSavedRunSlope <- savedRunSlope
+        sSavedRunR2    <- savedRunR2
+        sSavedVolSlope <- savedVolSlope
+        sSavedVolR2    <- savedVolR2
+        sVwapNow       <- this.LiveVwap
+        sVol20 <- (match vol20sum.State with ValueSome v -> int64 v | ValueNone -> 0L)
+        sVol10 <- (match vol10sum.State with ValueSome v -> int64 v | ValueNone -> 0L)
+        sVol5  <- (match vol5sum.State  with ValueSome v -> int64 v | ValueNone -> 0L)
+        sVol2  <- (match vol2sum.State  with ValueSome v -> int64 v | ValueNone -> 0L)
 
         // 2) fold the bar in. True range vs the prior 1m close.
         let mutable barLogTr = nan               // this bar's log true range (for the run-ATR accumulator below)
@@ -651,11 +732,52 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // DipRider: extend/reset the consecutive-bars-closed-below-9EMA counter (the pullback depth),
         // measured vs the STRICTLY-PRIOR EMA (sEmaPrevDip, snapshotted above). A close below the prior
         // EMA extends the pullback; a close at/above it ends the pullback (the re-break resets it to 0).
-        if cfg.DipRider then
+        if cfg.DipRider || cfg.DipRiderV2 then
             match sEmaPrevDip with
             | ValueSome e -> if bar.close < e then barsBelowEma <- barsBelowEma + 1 else barsBelowEma <- 0
             | ValueNone -> ()
-        if cfg.VwapReclaim || cfg.DipRider then ema.Push bar.close
+
+        // DipRider V2: track the RUN of bars above the 9-EMA (vs the strictly-prior EMA `sEmaPrevDip`),
+        // tolerating up to RunResetBarsBelow consecutive below-EMA closes before the run breaks. On break,
+        // SAVE the run's OLS stats (log-close slope, log-volume slope, R²s, length) before resetting the
+        // OLS objects. Feed each run bar's log(close)/log(volume) to the OLS.
+        if cfg.DipRiderV2 then
+            match sEmaPrevDip with
+            | ValueSome e ->
+                let above = bar.close >= e
+                if above then runBelowStreak <- 0
+                else runBelowStreak <- runBelowStreak + 1
+                // the run breaks when the below-streak EXCEEDS the tolerance (a real loss of the trend).
+                let broken = (not above) && runBelowStreak > cfg.RunResetBarsBelow
+                if broken then
+                    // save the just-ended run (only if it actually had bars) before resetting the OLS.
+                    if runLenAbove > 0 then
+                        savedRunLen   <- runLenAbove
+                        savedRunSlope <- (match runOls.Slope    with ValueSome s -> s | ValueNone -> nan)
+                        savedRunR2    <- (match runOls.R2       with ValueSome r -> r | ValueNone -> nan)
+                        savedVolSlope <- (match runVolOls.Slope with ValueSome s -> s | ValueNone -> nan)
+                        savedVolR2    <- (match runVolOls.R2    with ValueSome r -> r | ValueNone -> nan)
+                    runOls.Reset(); runVolOls.Reset()
+                    runLenAbove <- 0
+                    runBelowStreak <- 0            // the breaking bar starts a fresh below-EMA pullback
+                else
+                    // still in the run (an above-bar, or an EXCUSED below-bar within tolerance): extend it.
+                    // Feed the bar's log-close AND log-volume to the run OLS, but ONLY when BOTH are valid
+                    // (close>0 & volume>0) — a zero-volume bar is skipped from BOTH regressions together, so
+                    // the price and volume OLS stay on the IDENTICAL push-index x-axis (run_slope and
+                    // run_vol_slope remain directly comparable). runLenAbove still counts the bar (it's part
+                    // of the run in wall-clock time), so run_len may exceed the OLS point count on 0-vol days.
+                    if bar.close > 0.0 && bar.volume > 0L then
+                        runOls.Push (log bar.close)
+                        runVolOls.Push (log (float bar.volume))
+                    runLenAbove <- runLenAbove + 1
+            | ValueNone -> ()
+
+        if cfg.VwapReclaim || cfg.DipRider || cfg.DipRiderV2 then ema.Push bar.close
+        // DipRider V2: trailing raw-volume windows (the exhaustion-cutoff inputs; recorded, not gated).
+        if cfg.DipRiderV2 then
+            vol20sum.Push (float bar.volume); vol10sum.Push (float bar.volume)
+            vol5sum.Push  (float bar.volume); vol2sum.Push  (float bar.volume)
 
         // fold the chosen mean-reversion COVER anchor (only the active one accumulates).
         match cfg.Target with
@@ -751,7 +873,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             else pos
 
     member this.Advance (bar: MinuteBar) (pos: IntradayPosition) : IntradayPosition =
-        if cfg.DipRider then this.AdvanceDip bar pos
+        if cfg.DipRider || cfg.DipRiderV2 then this.AdvanceDip bar pos
         elif cfg.VwapReclaim then this.AdvanceReclaim bar pos else
         // the 2-bar local extreme AT this bar (min/max of this bar + the prior bar).
         // sLastBar is the strictly-prior bar (ValueNone only on the 08:30 open bar, well
@@ -916,6 +1038,47 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       BarsSinceVolHiAtEntry = sBarsSinceVolHi
                       BarsBelowEmaAtEntry = sBarsBelowEma
                       TrendPctAtEntry = (match sessionOpen with ValueSome o when o > 0.0 -> bar.close / o - 1.0 | _ -> nan)
+                      RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
+                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan
+                      Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
+                      State = Holding }
+        elif cfg.DipRiderV2 then
+            if this.ShouldEnterDipV2 bar then
+                // fill at the re-break close; 2-bar-low close-based stop (same as V1, the F5 winner).
+                let twoBarLow = match sLastBar with ValueSome prev -> min prev.low bar.low | ValueNone -> bar.low
+                let stop = if twoBarLow > 0.0 then twoBarLow else Double.NegativeInfinity
+                let stopDistPct = if bar.close > 0.0 && stop > Double.NegativeInfinity then (bar.close - stop) / bar.close else nan
+                positions.Add
+                    { EntryMin = bar.etMin
+                      EntryPx = bar.close
+                      StopLevel = stop
+                      BreakoutRef = (match sLastBar with ValueSome p -> p.high | ValueNone -> nan)
+                      TargetLevel = (match runHi with ValueSome h -> h | ValueNone -> nan)
+                      RunBelowVwapAtEntry = 0
+                      StopDistPct = stopDistPct
+                      AtrPctAtEntry = (match this.AtrPct with ValueSome a -> a | ValueNone -> nan)
+                      TightnessAtEntry = (match this.Tightness with ValueSome t -> t | ValueNone -> nan)
+                      CumVolAtEntry = cumVol
+                      BreakoutBarVol = bar.volume
+                      NewVolHigh = (match sRunVolHi with ValueSome vh -> bar.volume > vh | ValueNone -> true)
+                      VolVsHigh = (match sRunVolHi with ValueSome vh when vh > 0L -> float bar.volume / float vh | _ -> nan)
+                      BreakoutBarOpen = bar.``open``
+                      PrevBarClose = (match sLastBar with ValueSome p -> p.close | ValueNone -> nan)
+                      Chg20mAtEntry = (match lagPctChange lag20 with ValueSome p -> p | ValueNone -> nan)
+                      Vol20mAvgAtEntry = (if vol20.Count >= 20 then (match vol20.State with ValueSome v -> v | ValueNone -> nan) else nan)
+                      RunMaxDistAtEntry = nan; RunAtrAtEntry = nan; RunUpVolAtEntry = nan; RunDnVolAtEntry = nan
+                      BarsSinceHiAtEntry = sBarsSinceHi
+                      BarsSinceVolHiAtEntry = sBarsSinceVolHi
+                      BarsBelowEmaAtEntry = sBarsBelowEma
+                      TrendPctAtEntry = (match sessionOpen with ValueSome o when o > 0.0 -> bar.close / o - 1.0 | _ -> nan)
+                      // the V2 features: the just-ended run's saved stats (strictly-prior snapshots).
+                      RunLenAtEntry = sSavedRunLen
+                      RunSlopeAtEntry = sSavedRunSlope
+                      RunR2AtEntry = sSavedRunR2
+                      RunVolSlopeAtEntry = sSavedVolSlope
+                      RunVolR2AtEntry = sSavedVolR2
+                      Vol20AtEntry = sVol20; Vol10AtEntry = sVol10; Vol5AtEntry = sVol5; Vol2AtEntry = sVol2
+                      VwapAtEntry = (match sVwapNow with ValueSome v -> v | ValueNone -> nan)
                       State = Holding }
         elif cfg.VwapReclaim then
             if this.ShouldEnterReclaim bar then
@@ -984,6 +1147,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       BarsSinceVolHiAtEntry = -1
                       BarsBelowEmaAtEntry = 0
                       TrendPctAtEntry = nan
+                      RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
+                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan
+                      Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                       State = Holding }
         elif this.ShouldEnter bar then
             // ShouldEnter passed => sRunHi / this.Tightness / this.AtrPct are all
@@ -1031,6 +1197,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   BarsSinceVolHiAtEntry = -1
                   BarsBelowEmaAtEntry = 0
                   TrendPctAtEntry = nan
+                  RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
+                  RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan
+                  Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                   // entry routing:
                   //   --ext-gate — if day-extension already >= ExtGate at the breakout, enter
                   //                DIRECT (parabolic now); else arm a ROLLOVER gated on reaching

@@ -102,10 +102,12 @@ let defaultConfig =
                                          // shallow dips resume, deep ones are broken trends). --dip-max-bars-below-ema.
           DipMinTrendPct = 0.02          // require the re-break close >= 2% above the session open (an established
                                          // intraday uptrend to have pulled back FROM). Swept later.
-          DipExitNewHigh = false }       // Finding 3: the new-high target AMPUTATES the runners (PF ~0.95 ON
-                                         // vs 1.06-1.19 OFF). Continuation trade — let it run. --dip-... N/A;
-                                         // pass nothing to keep OFF (the flag --dip-no-exit-new-high is a no-op now,
-                                         // there's no --dip-exit-new-high to turn it back on; edit config to test).
+          DipExitNewHigh = false         // Finding 3: the new-high target AMPUTATES the runners (PF ~0.95 ON
+                                         // vs 1.06-1.19 OFF). Continuation trade — let it run. --dip-exit-new-high
+                                         // re-enables it.
+          // ----- DipRider V2 (run-above-9EMA slopes, long-only) — OFF by default; --diprider-v2 turns it on -----
+          DipRiderV2 = false             // V1 is the archived production system; V2 is the research mode.
+          RunResetBarsBelow = 1 }        // excuse a single below-9EMA close within an up-run (Finding TBD; swept).
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
@@ -176,6 +178,18 @@ type Trip =
       BarsSinceVolHi: int        // # bars since the session max-1m-VOLUME high (recency of peak interest)
       BarsBelowEma: int          // # consecutive bars closed below the 9-EMA before the re-break (pullback depth)
       TrendPct: float            // re-break close / session open - 1 (how far up the session the trend had run)
+      // ----- DipRider V2 features (the just-ended above-9EMA run + trailing volumes + VWAP) -----
+      RunLen: int                // bars the just-ended above-9EMA run lasted
+      RunSlope: float            // OLS slope of that run's log-close (per-bar log-return)
+      RunR2: float               // R² of the log-close fit (trend cleanliness)
+      RunVolSlope: float         // OLS slope of that run's log-volume (per-bar; is volume rising?)
+      RunVolR2: float            // R² of the log-volume fit
+      Vol20: int64               // trailing raw volume over the last 20 bars (exhaustion inputs)
+      Vol10: int64
+      Vol5: int64
+      Vol2: int64
+      VwapAtEntry: float         // session VWAP at entry
+      EntryVsVwap: float         // entryPx / VWAP - 1 (>0 = bought ABOVE VWAP, <0 = below)
       CumVolToEntry: int64       // cumulative day volume through the entry bar
       PctChgSinceOpen: float     // entryPx / dayOpen - 1
       Close1d: float             // close-1-day-ago (adj) = PrevAdjClose
@@ -244,6 +258,17 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           BarsSinceVolHi = pos.BarsSinceVolHiAtEntry
           BarsBelowEma = pos.BarsBelowEmaAtEntry
           TrendPct = pos.TrendPctAtEntry
+          RunLen = pos.RunLenAtEntry
+          RunSlope = pos.RunSlopeAtEntry
+          RunR2 = pos.RunR2AtEntry
+          RunVolSlope = pos.RunVolSlopeAtEntry
+          RunVolR2 = pos.RunVolR2AtEntry
+          Vol20 = pos.Vol20AtEntry
+          Vol10 = pos.Vol10AtEntry
+          Vol5 = pos.Vol5AtEntry
+          Vol2 = pos.Vol2AtEntry
+          VwapAtEntry = pos.VwapAtEntry
+          EntryVsVwap = (if pos.VwapAtEntry > 0.0 && not (Double.IsNaN pos.VwapAtEntry) then pos.EntryPx / pos.VwapAtEntry - 1.0 else nan)
           CumVolToEntry = pos.CumVolAtEntry
           PctChgSinceOpen = (if c.DayOpen > 0.0 then pos.EntryPx / c.DayOpen - 1.0 else nan)
           Close1d = c.PrevAdjClose
@@ -429,7 +454,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,entry_bar_open,prev_bar_close,chg_20m,run_low_at_entry,intraday_atr_pct_at_entry,intraday_tightness_at_entry,"
-    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,rvol20m_20d,rvol20m_15m,run_max_dist,run_atr,run_dist_per_atr,run_up_vol,run_dn_vol,run_updn_ratio,bars_since_hi,bars_since_vol_hi,bars_below_ema,trend_pct,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
+    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,rvol20m_20d,rvol20m_15m,run_max_dist,run_atr,run_dist_per_atr,run_up_vol,run_dn_vol,run_updn_ratio,bars_since_hi,bars_since_vol_hi,bars_below_ema,trend_pct,run_len,run_slope,run_r2,run_vol_slope,run_vol_r2,vol_20,vol_10,vol_5,vol_2,vwap_at_entry,entry_vs_vwap,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,med_bar_vol_0945,"
     + "qty,net_pnl,bars_held_min"
@@ -467,6 +492,17 @@ let private row (t: Trip) : string =
         string t.BarsSinceVolHi
         string t.BarsBelowEma
         fmt t.TrendPct
+        string t.RunLen
+        fmt t.RunSlope
+        fmt t.RunR2
+        fmt t.RunVolSlope
+        fmt t.RunVolR2
+        string t.Vol20
+        string t.Vol10
+        string t.Vol5
+        string t.Vol2
+        fmt t.VwapAtEntry
+        fmt t.EntryVsVwap
         string t.CumVolToEntry
         fmt t.PctChgSinceOpen
         fmt t.Close1d
