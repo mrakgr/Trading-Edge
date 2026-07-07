@@ -119,7 +119,9 @@ let defaultConfig =
           DipV2BuyIntoRun = 20           // Finding 15: N=20 is the momentum sweet spot (PF 2.17 on the cell).
                                          // 0 = off (fall back to the re-break/reclaim/pullback trigger). --dip-v2-buy-into-run.
           DipV2ExhaustExit = false       // exhaustion exit OFF by default; --dip-v2-exhaust-exit turns it on.
-          DipV2ExhaustVolMult = 10.0 }   // blow-off = exit bar vol >= 10× each per-minute baseline. --dip-v2-exhaust-vol-mult.
+          DipV2ExhaustVolMult = 10.0     // blow-off = exit bar vol >= 10× each per-minute baseline. --dip-v2-exhaust-vol-mult.
+          DipV2VwapExitBars = 0 }        // loss-of-VWAP exit OFF by default; --dip-v2-vwap-exit-bars 10 = require the
+                                         // 9-EMA >=10 bars above VWAP then exit when it crosses below.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the

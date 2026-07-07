@@ -912,5 +912,49 @@ unavoidable ~1-yr drawdown (1 of 7 years; system still +$875k / PF 2.17 overall)
 NEXT (user): a chop-DETECTION entry filter (e.g. intraday whipsaw/reversal-count, or a market-wide
 follow-through-breadth measure) for 2021; else adopt F21/F22 cuts + float<$300M and accept 2021; wire cell.
 
+### Finding 25 — ⭐ GEOMETRY-STOP BUG FIX (user-caught from charts) — 34-46% stops → 8%; FIXES 2021
+
+Reviewing the 2021 loser charts (F/charts), the user spotted the stops were ABSURDLY WIDE — "feels like
+1.5d below the run low." Confirmed a real BUG: the geometry stop used `d = run_top − run_floor` (the ENTIRE
+run's bottom-to-top height), so on names up 100%+ intraday, `stop = floor − d·2/3` gave **34-46% stops**
+(CNET 45.8%, NVOS 34%). A −45% stop on a chop day is catastrophic — this drove 2021's losses.
+
+Fixed per user: **`d = entry − run_floor` (how far above the floor we bought), `stop = entry − d·frac`** (2/3
+of the way from entry down to the run floor). Impact (cell, modern):
+
+| | buggy stop | **fixed stop** |
+|---|--:|--:|
+| avg stop dist | 34-46% (max) | **8.0%** (median 6.8%) |
+| stop rate | ~53% | ~60% |
+| cell PF | 2.17 | **2.305** |
+| cell net | +$875k | +$812,667 |
+| **2021 PF / net** | 0.824 / **−$41k** | **1.003 / +$452** |
+
+**The fix FIXES 2021** (−$41k → break-even) AND lifts the whole book (PF 2.17 → 2.31) — every strong year's
+PF also improves, and the winners' tail survives (8% avg still lets volatile runs breathe). So 2021's core
+problem was NOT (only) chop — it was a too-wide stop letting the chop-day losses run to −45%. The
+correct stop cuts them fast. This is the biggest single fix in the V2 line; the volatility/geometry-stop
+findings (F12, F13) still hold directionally but their exact PFs shift under the corrected stop.
+
+### Finding 26 — NEGATIVE: loss-of-VWAP exit doesn't help either (5th exit test, same lesson)
+
+User idea: once the 9-EMA has been above VWAP ≥10 bars, exit the long when it crosses BELOW VWAP (trend
+broke). Built `--dip-v2-vwap-exit-bars`. Full modern (fixed-stop cell):
+
+| exit | vwap-exit fire% | win | pf | net |
+|---|--:|--:|--:|--:|
+| **MOC (fixed stop)** | 0 | 34.5 | **2.305** | **+812,667** |
+| loss-of-VWAP (≥10) | 36.8 | 32.5 | 2.168 | +632,812 |
+
+Fires on 37% of trades, LOWERS PF (2.31→2.17) and net (−$180k), and makes 2021 WORSE (+$452 → −$15k). Same
+lesson as EVERY exit test (V1 F3, VWR F13, V2 F4, V2 F23): in low-float CONTINUATION names, exiting on any
+signal caps the winners — these names dip below VWAP intraday then rip to new highs (the +40% tail), so the
+VWAP loss cuts you out right before the resumption. And the (now-correct) STOP already handles the
+genuinely-broken trends, so the VWAP exit is redundant on losers, destructive on winners. **Keep
+hold-to-MOC.** The stop fix (F25), not a new exit, was the real 2021 solution.
+
+NEXT (user): the fix likely shifts F12/F13/F16 exact numbers — consider re-baselining the leading configs;
+adopt F21/F22 entry cuts (chg_1d≥10%, rvol<25x); float<$300M; wire cell as engine gates. 2021 now ≈flat.
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.

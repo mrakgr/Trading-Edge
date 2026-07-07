@@ -65,6 +65,7 @@ type Args =
     | Dip_V2_Buy_Into_Run of int
     | Dip_V2_Exhaust_Exit
     | Dip_V2_Exhaust_Vol_Mult of float
+    | Dip_V2_Vwap_Exit_Bars of int
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -117,6 +118,7 @@ type Args =
             | Dip_V2_Buy_Into_Run _ -> "V2 MOMENTUM ENTRY: buy INTO the live above-9EMA run when its length first reaches N bars (fires once/run). NOT a pullback. Uses the live-run geometry stop. Records the live run's len/slope/R2/ATR/%gain. 0 = off."
             | Dip_V2_Exhaust_Exit -> "V2 EXHAUSTION EXIT (MaxFlyer-style): while holding, sell into a NEW-SESSION-HIGH bar on a VOLUME BLOW-OFF (bar vol >= mult × both the 20d-per-min AND opening-15m per-min baselines), filled at that bar's close. Default OFF = hold-to-MOC."
             | Dip_V2_Exhaust_Vol_Mult _ -> "V2 exhaustion blow-off multiplier: require the exit bar's volume >= this × each per-minute baseline. Default 10. Swept (5/10/20). Only with --dip-v2-exhaust-exit."
+            | Dip_V2_Vwap_Exit_Bars _ -> "V2 LOSS-OF-VWAP EXIT: once the 9-EMA has been above the session VWAP for >= this many bars during the hold, close the long when the 9-EMA crosses below VWAP. 0 = off (default). e.g. 10."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -179,6 +181,7 @@ let main argv =
                   DipV2BuyIntoRun    = parsed.GetResult(Dip_V2_Buy_Into_Run, defaultValue = defaultConfig.Intraday.DipV2BuyIntoRun)
                   DipV2ExhaustExit   = parsed.Contains Dip_V2_Exhaust_Exit
                   DipV2ExhaustVolMult = parsed.GetResult(Dip_V2_Exhaust_Vol_Mult, defaultValue = defaultConfig.Intraday.DipV2ExhaustVolMult)
+                  DipV2VwapExitBars  = parsed.GetResult(Dip_V2_Vwap_Exit_Bars, defaultValue = defaultConfig.Intraday.DipV2VwapExitBars)
                   DipRebreakAtr      = parsed.GetResult(Dip_Rebreak_Atr,      defaultValue = defaultConfig.Intraday.DipRebreakAtr)
                   DipMinBarsBelowEma = parsed.GetResult(Dip_Min_Bars_Below_Ema, defaultValue = defaultConfig.Intraday.DipMinBarsBelowEma)
                   DipMaxBarsBelowEma = parsed.GetResult(Dip_Max_Bars_Below_Ema, defaultValue = defaultConfig.Intraday.DipMaxBarsBelowEma)

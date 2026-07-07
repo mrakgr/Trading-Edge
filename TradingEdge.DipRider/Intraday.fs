@@ -300,6 +300,10 @@ type IntradayConfig =
                                // book (AdvanceDip). false = hold-to-MOC.
       DipV2ExhaustVolMult: float // the blow-off multiplier: require the exit bar's volume >= this × each
                                // per-minute baseline. Swept (e.g. 5, 10, 20). Only used when DipV2ExhaustExit.
+      DipV2VwapExitBars: int   // LOSS-OF-VWAP EXIT (0 = off): once the 9-EMA has been ABOVE the session VWAP
+                               // for >= this many bars during the hold, CLOSE the long the bar the 9-EMA
+                               // crosses BELOW VWAP (the trend the run rode broke). Fills at that bar's close.
+                               // e.g. 10 = require a >=10-bar above-VWAP regime before the loss-of-VWAP counts.
       DipV2BuyIntoRun: int }   // MOMENTUM ENTRY (0 = off, default): buy INTO the currently-active above-EMA run
                                // when its LENGTH first reaches N bars (sRunLenAbove == N; fires ONCE per run).
                                // NOT a pullback — buys strength directly. Overrides all other triggers. Uses a
@@ -389,6 +393,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     // run BREAKS, then counts EVERY subsequent bar until an entry (a brief pop back above the EMA does NOT
     // reset it) = the true pullback age since the trend was lost. -1 = no run has broken yet this session.
     let mutable barsSinceBreak = -1
+    // consecutive bars the 9-EMA has been ABOVE the session VWAP (for the DipV2 loss-of-VWAP exit). Resets
+    // to 0 when EMA <= VWAP. Maintained for V2 every bar (the reclaim's runAboveVwap is reclaim-only).
+    let mutable emaAboveVwapBars = 0
     // SAVED stats of the LAST COMPLETED above-EMA run (read at the next entry). nan/-1 until a run completes.
     let mutable savedRunLen   = -1               // bars the just-ended run lasted
     let mutable savedRunSlope = nan              // OLS log-close slope of the just-ended run (per-bar log-return)
@@ -485,6 +492,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sRunR2Live     : float = nan    // live run's OLS R² so far (recorded)
     let mutable sRunVolSlopeLive : float = nan  // live run's OLS log-VOLUME slope so far (recorded)
     let mutable sRunVolR2Live    : float = nan  // live run's OLS log-volume R² so far (recorded)
+    let mutable sEmaAboveVwapBars : int = 0     // consecutive bars EMA>VWAP going INTO this bar (for the loss-of-VWAP exit)
     let mutable sVwapNow       : float voption = ValueNone   // session VWAP into this bar (= sVwapPrev; for buy-below/above-VWAP)
     let mutable sVol20 : int64 = 0L                          // trailing raw volume over the last 20/10/5/2 bars (strictly-prior)
     let mutable sVol10 : int64 = 0L
@@ -789,6 +797,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sRunR2Live        <- (match runOls.R2    with ValueSome r -> r | ValueNone -> nan)
         sRunVolSlopeLive  <- (match runVolOls.Slope with ValueSome s -> s | ValueNone -> nan)
         sRunVolR2Live     <- (match runVolOls.R2    with ValueSome r -> r | ValueNone -> nan)
+        sEmaAboveVwapBars <- emaAboveVwapBars   // consecutive EMA>VWAP bars into this bar (for the loss-of-VWAP exit)
         sVwapNow       <- this.LiveVwap
         sVol20 <- (match vol20sum.State with ValueSome v -> int64 v | ValueNone -> 0L)
         sVol10 <- (match vol10sum.State with ValueSome v -> int64 v | ValueNone -> 0L)
@@ -941,6 +950,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             if bar.close > 0.0 && bar.volume > 0L then
                 trailSlopeOls.Push (log bar.close)
                 trailVolOls.Push   (log (float bar.volume))
+            // maintain the consecutive-bars-EMA-above-VWAP counter (post-fold live EMA & VWAP) for the
+            // loss-of-VWAP exit. Extends while EMA > VWAP, resets to 0 otherwise.
+            match ema.State, this.LiveVwap with
+            | ValueSome e, ValueSome v -> if e > v then emaAboveVwapBars <- emaAboveVwapBars + 1 else emaAboveVwapBars <- 0
+            | _ -> ()
 
         // fold the chosen mean-reversion COVER anchor (only the active one accumulates).
         match cfg.Target with
@@ -1031,6 +1045,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 && float bar.volume >= cfg.DipV2ExhaustVolMult * permin20d
                 && float bar.volume >= cfg.DipV2ExhaustVolMult * permin15m
                 && (match sRunHi with ValueSome h -> bar.high > h | ValueNone -> false)
+            // LOSS-OF-VWAP exit: the 9-EMA had been above VWAP for >= DipV2VwapExitBars bars going into this
+            // bar (sEmaAboveVwapBars, strictly-prior) AND on THIS bar the live EMA is now BELOW VWAP (the
+            // above-VWAP trend the run rode just broke). Fill at this bar's close.
+            let vwapLostHit =
+                cfg.DipV2VwapExitBars > 0
+                && sEmaAboveVwapBars >= cfg.DipV2VwapExitBars
+                && (match ema.State, this.LiveVwap with ValueSome e, ValueSome v -> e < v | _ -> false)
             if stopHit then
                 let fill = if cfg.StopOnClose then bar.close else min pos.StopLevel bar.``open``
                 { pos with State = ExitedAt (bar.etMin, fill, "stop") }
@@ -1038,6 +1059,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 { pos with State = ExitedAt (bar.etMin, min pctStopLevel bar.``open``, "pct_stop") }
             elif exhaustHit then
                 { pos with State = ExitedAt (bar.etMin, bar.close, "exhaust") }
+            elif vwapLostHit then
+                { pos with State = ExitedAt (bar.etMin, bar.close, "vwap_lost") }
             elif newHighHit then
                 // fill at the target (the prior session high +ε ≈ the level); gap-up fills better at the open.
                 { pos with State = ExitedAt (bar.etMin, max pos.TargetLevel bar.``open``, "new_high") }
