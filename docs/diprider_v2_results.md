@@ -327,5 +327,31 @@ so a quick 1-bar-dip-then-reclaim reads the PREVIOUS (stale) saved run, not the 
 re-break k=1.0 (PF 2.51 / 198 trips) → k=0.5 (1.56 / 912) → k=0.25 (1.58 / 1,937 / +$396k) → k=0
 (1.48 / 3,897 / +$599k) ≈ EMA-reclaim (1.40 / 4,799 / +$581k). **2021 is the weak regime at every point.**
 
+### Finding 8 — the dead volume-slope result HOLDS on the 9-EMA reclaim trigger too
+
+Rechecked `run_vol_slope` on the reclaim book (F7) — the "volume trend doesn't help" finding (F3) is
+robust across BOTH triggers:
+
+Full gated reclaim book (`run_len ≥ 10`): PF 0.97 → 1.22 with NO trend (falling-vol `<-.02` is actually
+the WORST at 0.97; everything above is a flat ~1.06-1.22).
+
+Candidate cell (reclaim, `run_atr_v2 ≥ .015 & run_len < 50`):
+
+| run_vol_slope | n | avg_ret_pct | pf |
+|---|--:|--:|--:|
+| <−.02 | 1185 | 0.855 | 1.331 |
+| −.02 to 0 | 480 | 0.941 | 1.323 |
+| 0-.02 | 645 | 1.421 | 1.446 |
+| .02-.05 | 1019 | 1.474 | 1.475 |
+| .05+ | 1470 | 1.308 | 1.406 |
+
+A hair more shape than the re-break cell (1.33 → 1.47 rising, then dips at the top) but WEAK (0.14 PF
+spread, non-monotone) — nothing like the run-volatility lever (0.95 → 1.81).
+
+**Mechanism (why volume slope is dead here):** V2 already conditions on `run_atr_v2` (run volatility), and
+a volatile up-run almost always carries elevated/rising volume anyway — so once volatility is selected,
+the volume SLOPE adds little independent information. The volatility already "contains" the volume story.
+(Would likely matter more in a setup NOT pre-selected on volatility.)
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.
