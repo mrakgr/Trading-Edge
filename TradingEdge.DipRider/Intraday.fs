@@ -452,6 +452,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sRunAtrLive    : float = nan    // live run's mean per-bar log-TR so far (recorded for the breakdown)
     let mutable sRunSlopeLive  : float = nan    // live run's OLS log-close slope so far (recorded)
     let mutable sRunR2Live     : float = nan    // live run's OLS R² so far (recorded)
+    let mutable sRunVolSlopeLive : float = nan  // live run's OLS log-VOLUME slope so far (recorded)
+    let mutable sRunVolR2Live    : float = nan  // live run's OLS log-volume R² so far (recorded)
     let mutable sVwapNow       : float voption = ValueNone   // session VWAP into this bar (= sVwapPrev; for buy-below/above-VWAP)
     let mutable sVol20 : int64 = 0L                          // trailing raw volume over the last 20/10/5/2 bars (strictly-prior)
     let mutable sVol10 : int64 = 0L
@@ -744,6 +746,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sRunAtrLive       <- (if runAtrNV2 > 0 then runAtrSumV2 / float runAtrNV2 else nan)
         sRunSlopeLive     <- (match runOls.Slope with ValueSome s -> s | ValueNone -> nan)
         sRunR2Live        <- (match runOls.R2    with ValueSome r -> r | ValueNone -> nan)
+        sRunVolSlopeLive  <- (match runVolOls.Slope with ValueSome s -> s | ValueNone -> nan)
+        sRunVolR2Live     <- (match runVolOls.R2    with ValueSome r -> r | ValueNone -> nan)
         sVwapNow       <- this.LiveVwap
         sVol20 <- (match vol20sum.State with ValueSome v -> int64 v | ValueNone -> 0L)
         sVol10 <- (match vol10sum.State with ValueSome v -> int64 v | ValueNone -> 0L)
@@ -1206,8 +1210,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       RunLenAtEntry = (if buyIntoRun then sRunLenAbove else sSavedRunLen)
                       RunSlopeAtEntry = (if buyIntoRun then sRunSlopeLive else sSavedRunSlope)
                       RunR2AtEntry = (if buyIntoRun then sRunR2Live else sSavedRunR2)
-                      RunVolSlopeAtEntry = sSavedVolSlope
-                      RunVolR2AtEntry = sSavedVolR2
+                      RunVolSlopeAtEntry = (if buyIntoRun then sRunVolSlopeLive else sSavedVolSlope)
+                      RunVolR2AtEntry = (if buyIntoRun then sRunVolR2Live else sSavedVolR2)
                       RunAtrV2AtEntry = (if buyIntoRun then sRunAtrLive else sSavedRunAtr)
                       RunLastCloseAtEntry = (if buyIntoRun then sRunLastCloseLive else sSavedRunLastClose)
                       RunPctGainAtEntry =

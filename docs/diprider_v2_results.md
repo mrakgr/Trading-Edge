@@ -559,5 +559,52 @@ slightly lower PF.
 (F13, PF 1.63).** NEXT (user): sweep N under the volatility cell for buy-into-run; compare/combine the two
 paths (do they fire on different days?); the stale-run caveat; 22-yr check.
 
+### Finding 14 — volume slope is DEAD on pullbacks (F8) but a LIVE, STACKABLE lever on buy-into-run
+
+(Fix: buy-into-run was recording the SAVED (prior) run's `run_vol_slope`, not the live run's — corrected
+to snapshot the LIVE run's log-volume OLS. The F13 breakdowns used the live price slope/ATR already; only
+the volume slope was wrong. Re-ran N=8.)
+
+Unlike the pullback book (F8, volume slope flat/dead), on buy-into-run the LIVE run's volume slope IS a
+signal (full N=8 book): `.05+` (strongly rising volume) → PF **1.388 / +0.62%**, up from the ~1.1-1.2
+middle.
+
+| run_vol_slope | n | avg_ret_pct | pf |
+|---|--:|--:|--:|
+| <−.02 | 59877 | 0.167 | 1.160 |
+| −.02-0 | 8168 | 0.224 | 1.185 |
+| 0-.02 | 8018 | 0.092 | 1.070 |
+| .02-.05 | 11365 | 0.259 | 1.201 |
+| **.05+** | 43076 | 0.618 | **1.388** |
+
+**And it STACKS with volatility** (2×2) — NOT redundant, unlike on the pullback book:
+
+| rising vol (≥.05) | volatile (atr≥.015) | n | avg_ret_pct | pf |
+|---|---|--:|--:|--:|
+| ✓ | ✓ | 4629 | 4.483 | **1.837** |
+| ✗ | ✓ | 5469 | 1.680 | 1.408 |
+| ✓ | ✗ | 38447 | 0.153 | 1.134 |
+| ✗ | ✗ | 81959 | 0.077 | 1.084 |
+
+Rising-vol + volatile (PF 1.84) clearly beats volatile-alone (1.41). **Mechanism:** a PULLBACK entry buys
+AFTER the run paused — its volume story is stale (the fuel ran out, that's why it pulled back). A
+buy-into-RUN entry buys the run WHILE LIVE, so rising volume = the move is still being fueled RIGHT NOW
+(accumulation in progress) — exactly the confirmation a momentum entry wants. So volume-slope-is-dead
+(F8) and volume-slope-is-live (F14) are BOTH correct, distinguished by pullback-vs-momentum entry timing.
+
+**Stacked cell — N=8 + `run_atr_v2 ≥ .015 & run_vol_slope ≥ .05`: PF 1.837 / 4,629 trips / 34% win /
++$2.08M, POSITIVE every year** (2021 PF 1.11; 2026 PF 3.16). Higher PF than the volatility-only cell (1.84
+vs 1.63) at fewer trips (4.6k vs 10k) — rising volume is a real stackable momentum lever.
+
+| year | pf | net |
+|---|--:|--:|
+| 2020 | 1.937 | +258,013 |
+| 2021 | 1.112 | +78,622 |
+| 2022 | 1.581 | +142,933 |
+| 2023 | 2.850 | +307,499 |
+| 2024 | 2.289 | +537,029 |
+| 2025 | 1.726 | +354,338 |
+| 2026 | 3.158 | +396,677 |
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.
