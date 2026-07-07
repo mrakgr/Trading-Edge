@@ -200,6 +200,8 @@ type Trip =
       RunPctGain: float          // BUY-INTO-RUN: the live run's %gain at entry (entry/floor-1); nan otherwise
       TrailSlope: float          // trailing-20 OLS log-close slope (run-independent)
       TrailVolSlope: float       // trailing-20 OLS log-volume slope (run-independent; pairs with intraday_atr_pct)
+      MktChgOpen: float          // SPY %-change from session open at entry (broader-market regime)
+      MktChgPrev: float          // SPY %-change from prev daily close at entry
       BarsSinceBreak: int        // bars since the above-EMA run broke = the true pullback age (survives blips)
       Vol20: int64               // trailing raw volume over the last 20 bars (exhaustion inputs)
       Vol10: int64
@@ -286,6 +288,8 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           RunPctGain = pos.RunPctGainAtEntry
           TrailSlope = pos.TrailSlopeAtEntry
           TrailVolSlope = pos.TrailVolSlopeAtEntry
+          MktChgOpen = pos.MktChgOpenAtEntry
+          MktChgPrev = pos.MktChgPrevAtEntry
           BarsSinceBreak = pos.BarsSinceBreakAtEntry
           Vol20 = pos.Vol20AtEntry
           Vol10 = pos.Vol10AtEntry
@@ -413,6 +417,60 @@ type MinuteEmitter
                   volume   = reader.GetInt64 6 }
             onNext (ticker, bar)
 
+/// Build the per-date MARKET-CONTEXT lookup (broader-market regime, shared by all tickers). Reads the
+/// reference index's (SPY) 1m RTH bars from the same date parquet, plus its prev daily close, and returns
+/// et_min -> struct(chg-from-open, chg-from-prev-close) as CUMULATIVE %-changes at that minute. No-lookahead
+/// by construction (the value at et_min uses only SPY bars through et_min). Returns the (nan,nan) no-op if
+/// SPY is missing that day. `idx` defaults to "SPY".
+let private buildMarketCtx (conn: DuckDBConnection) (path: string) (date: DateOnly)
+                           (mocMin: int) : int -> struct (float * float) =
+    let idx = "SPY"
+    // prev daily close from the RAW daily table (avoid the split_adjusted dividend bug). ValueNone if absent.
+    let prevClose =
+        use cmd = conn.CreateCommand()
+        cmd.CommandText <-
+            "SELECT close FROM daily_prices WHERE ticker = $t AND date < $d ORDER BY date DESC LIMIT 1"
+        let pt = cmd.CreateParameter() in pt.ParameterName <- "t"; pt.Value <- idx; cmd.Parameters.Add pt |> ignore
+        let pd = cmd.CreateParameter() in pd.ParameterName <- "d"; pd.Value <- date; cmd.Parameters.Add pd |> ignore
+        match cmd.ExecuteScalar() with
+        | null -> ValueNone
+        | :? System.DBNull -> ValueNone
+        | v -> ValueSome (System.Convert.ToDouble v)
+    // SPY 1m RTH closes, in et_min order, for this date.
+    let bars =
+        use cmd = conn.CreateCommand()
+        cmd.CommandText <-
+            sprintf """
+            WITH b AS (
+                SELECT CAST(date_part('hour', to_timestamp(window_start/1e9) AT TIME ZONE 'America/New_York') AS INT)*60
+                     + CAST(date_part('minute', to_timestamp(window_start/1e9) AT TIME ZONE 'America/New_York') AS INT) AS et_min,
+                     open, close
+                FROM read_parquet('%s') WHERE ticker = 'SPY' AND close > 0)
+            SELECT et_min, open, close FROM b WHERE et_min >= 570 AND et_min <= %d ORDER BY et_min"""
+                (path.Replace("'", "''")) mocMin
+        use reader = cmd.ExecuteReader()
+        let acc = ResizeArray<struct (int * float * float)>()
+        while reader.Read() do acc.Add(struct (reader.GetInt32 0, reader.GetDouble 1, reader.GetDouble 2))
+        acc
+    if bars.Count = 0 then (fun _ -> struct (nan, nan))
+    else
+        // session open = the first RTH (>=09:30) bar's OPEN.
+        let struct (_, sessOpen, _) = bars.[0]
+        // map et_min -> cumulative (chgOpen, chgPrev) using SPY's close at/through that minute. We fill a
+        // dense map by carrying the last-seen close forward across gaps (a minute with no SPY bar reads the
+        // prior minute's value).
+        let m = System.Collections.Generic.Dictionary<int, struct (float * float)>()
+        let mutable lastClose = sessOpen   // forward-filled across minutes with no SPY bar
+        let mutable bi = 0
+        for etMin in 570 .. mocMin do
+            while bi < bars.Count && (let struct (e,_,_) = bars.[bi] in e) <= etMin do
+                let struct (_,_,c) = bars.[bi] in lastClose <- c
+                bi <- bi + 1
+            let chgOpen = if sessOpen > 0.0 then lastClose / sessOpen - 1.0 else nan
+            let chgPrev = match prevClose with ValueSome pc when pc > 0.0 -> lastClose / pc - 1.0 | _ -> nan
+            m.[etMin] <- struct (chgOpen, chgPrev)
+        (fun etMin -> match m.TryGetValue etMin with | true, v -> v | _ -> struct (nan, nan))
+
 let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
                  (candidates: Candidate[]) : Trip[] =
     let trips = ResizeArray<Trip>()
@@ -432,6 +490,8 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
             let adjRatio = cands |> Array.map (fun c -> c.Ticker, c.AdjRatio) |> dict
             let emitter = MinuteEmitter(conn, path, Array.map (fun (c: Candidate) -> c.Ticker) cands,
                                         adjRatio, cfg.Intraday.SessionStartMin, cfg.Intraday.MocMin)
+            // broader-market (SPY) context for this date — built once, shared by every ticker's engine.
+            let mktCtx = buildMarketCtx conn path date cfg.Intraday.MocMin
             let mutable cur : (Candidate * IntradaySystem) option = None
             emitter.Process(fun (ticker, bar) ->
                 match cur with
@@ -442,6 +502,7 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
                     | None -> ()
                     let c = byTicker.[ticker]
                     let sys = IntradaySystem(cfg.Intraday, ticker, date, c.PrevAdjClose)
+                    sys.SetMarketCtx mktCtx
                     sys.Process bar
                     cur <- Some(c, sys))
             match cur with
@@ -478,7 +539,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,entry_bar_open,prev_bar_close,chg_20m,run_low_at_entry,intraday_atr_pct_at_entry,intraday_tightness_at_entry,"
-    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,rvol20m_20d,rvol20m_15m,run_max_dist,run_atr,run_dist_per_atr,run_up_vol,run_dn_vol,run_updn_ratio,bars_since_hi,bars_since_vol_hi,bars_below_ema,trend_pct,run_len,run_slope,run_r2,run_vol_slope,run_vol_r2,run_atr_v2,run_last_close,entry_vs_run_top,run_pct_gain,trail_slope,trail_vol_slope,bars_since_break,vol_20,vol_10,vol_5,vol_2,vwap_at_entry,entry_vs_vwap,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
+    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,rvol20m_20d,rvol20m_15m,run_max_dist,run_atr,run_dist_per_atr,run_up_vol,run_dn_vol,run_updn_ratio,bars_since_hi,bars_since_vol_hi,bars_below_ema,trend_pct,run_len,run_slope,run_r2,run_vol_slope,run_vol_r2,run_atr_v2,run_last_close,entry_vs_run_top,run_pct_gain,trail_slope,trail_vol_slope,mkt_chg_open,mkt_chg_prev,bars_since_break,vol_20,vol_10,vol_5,vol_2,vwap_at_entry,entry_vs_vwap,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,med_bar_vol_0945,"
     + "qty,net_pnl,bars_held_min"
@@ -527,6 +588,8 @@ let private row (t: Trip) : string =
         fmt t.RunPctGain
         fmt t.TrailSlope
         fmt t.TrailVolSlope
+        fmt t.MktChgOpen
+        fmt t.MktChgPrev
         string t.BarsSinceBreak
         string t.Vol20
         string t.Vol10

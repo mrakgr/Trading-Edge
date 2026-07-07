@@ -731,5 +731,36 @@ down-on-the-day) targets it: 2021's problem is market-regime, not universe or da
 NEXT (user, in order): (1) add a "broader market down-on-the-day" feature/gate to fix 2021; (2) the
 float<$300M gate (cut known-large only); then wire the cell as engine gates + the stale-run caveat.
 
+### Finding 19 — broader-market (SPY) context feature BUILT (reusable); but SPY does NOT explain 2021
+
+Built a reusable **market-context** layer: the engine takes a per-day `SetMarketCtx` lookup
+(`etMin → struct(SPY %-from-open, SPY %-from-prev-close)`), built once per date from SPY's own 1m bars +
+raw daily prev-close (`buildMarketCtx` in Backtest.fs), shared across ALL tickers, snapshotted at entry as
+`mkt_chg_open` / `mkt_chg_prev`. NOT folded into per-ticker state — pure read-only context, no-lookahead
+(value at et_min uses only SPY bars through et_min). **Reusable by every intraday system** (the design goal).
+Verified: same (date, et_min) → identical SPY value across tickers; evolves through the day; 0 NaN.
+
+**But SPY does NOT explain 2021 — the simplest regime hypothesis is RULED OUT:**
+
+_By SPY %-from-open at entry (N=20 cell):_ PF flat-to-inverted — SPY < −1% → **PF 3.08**, flat → 2.34,
+SPY > +1% → 1.78. Works fine (even best) when the market is DOWN hard.
+
+_By SPY %-from-prev-close (day direction):_ same — day < −1.5% → PF 2.79, flat → 2.32, day > +1.5% → 2.62.
+No "down market = bad."
+
+_2021 diagnosis:_ 2021's avg SPY-from-open (−0.009%) and from-prev (+0.039%) are UNREMARKABLE — in line
+with the good years (2024 open −0.002%; 2020 prev +0.047%). **2022 had the MOST negative SPY backdrop**
+(open −0.073%, prev −0.096%) yet 2022 was a GOOD year (PF 2.07). So 2021's hole is NOT a down-market
+effect — it's a CHOP regime (failed follow-through) that neither the intraday nor daily SPY move captures.
+
+Mechanistic read: DipRider buys an INDIVIDUAL name's volatile run — a stock ripping on its own catalyst is
+largely indifferent to SPY minute-to-minute. So SPY %-move is a weak conditioning variable for this pattern
+(it may matter more for index-correlated setups). 2021 likely needs a name-level whipsaw/chop measure or
+SPY's MULTI-DAY trend/vol, not the single-day move. The feature stays (cheap, reusable, recorded); it's
+just not the 2021 fix.
+
+NEXT (user): 2021 still open — try SPY multi-day trend / realized-vol, or a name-level follow-through
+measure; the float<$300M gate; wire the cell as engine gates; the stale-run caveat.
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.

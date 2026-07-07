@@ -100,6 +100,8 @@ type IntradayPosition =
       RunPctGainAtEntry: float   // BUY-INTO-RUN: the live run's %gain (entry/floor-1); nan otherwise
       TrailSlopeAtEntry: float    // trailing-20 OLS log-close slope (independent of the run length)
       TrailVolSlopeAtEntry: float // trailing-20 OLS log-volume slope (independent of the run length)
+      MktChgOpenAtEntry: float    // reference index (SPY) %-change from SESSION OPEN, at the entry minute
+      MktChgPrevAtEntry: float    // reference index (SPY) %-change from PREV DAILY CLOSE, at the entry minute
       BarsSinceBreakAtEntry: int // bars since the above-EMA run broke (true pullback age; -1 = no run broke yet)
       Vol20AtEntry: int64        // trailing raw volume over the last 20/10/5/2 bars (exhaustion-cutoff inputs)
       Vol10AtEntry: int64
@@ -300,6 +302,13 @@ type IntradayConfig =
 /// order via `Process`, then `Finalize` and read `Trips()`.
 type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClose: float) =
 
+    // MARKET CONTEXT (broader-market regime, shared across all tickers on the day). A read-only lookup
+    // etMin -> struct(chg-from-open, chg-from-prev-close) for a reference index (SPY). Set per-day before
+    // feeding bars; defaults to (nan, nan). NOT folded into any per-ticker state — pure context, snapshotted
+    // at entry. Reusable by every intraday system (the broader-market-down-on-the-day feature). No-lookahead:
+    // the lookup at et_min uses only the index's bars through et_min (built that way in Backtest.fs).
+    let mutable marketCtx : int -> struct (float * float) = fun _ -> struct (nan, nan)
+
     // day extension at a bar = close vs the prior daily close (how far up/down on the day).
     // Used by --ext-gate to route direct-vs-rollover entry and gate the rollover fill.
     let extension (px: float) = if prevClose > 0.0 then px / prevClose - 1.0 else 0.0
@@ -476,6 +485,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     member _.Ticker = ticker
     member _.Day = day
     member _.BarsSeen = barsSeen
+    /// Set the per-day broader-market (SPY) context lookup: etMin -> struct(chg-from-open, chg-from-prev-close).
+    member _.SetMarketCtx (f: int -> struct (float * float)) = marketCtx <- f
+    /// Reference-index %-change from session open at et_min (nan if unavailable). No-lookahead by construction.
+    member private _.MktChgOpen (etMin: int) = let struct (o, _) = marketCtx etMin in o
+    /// Reference-index %-change from prev daily close at et_min (nan if unavailable).
+    member private _.MktChgPrev (etMin: int) = let struct (_, p) = marketCtx etMin in p
     /// The session open = the first folded bar's open (09:30). Cross-checks the SQL day_open.
     member _.SessionOpen = sessionOpen
 
@@ -1172,7 +1187,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       BarsBelowEmaAtEntry = sBarsBelowEma
                       TrendPctAtEntry = (match sessionOpen with ValueSome o when o > 0.0 -> bar.close / o - 1.0 | _ -> nan)
                       RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
-                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1; TrailSlopeAtEntry = nan; TrailVolSlopeAtEntry = nan
+                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1; TrailSlopeAtEntry = nan; TrailVolSlopeAtEntry = nan; MktChgOpenAtEntry = this.MktChgOpen bar.etMin; MktChgPrevAtEntry = this.MktChgPrev bar.etMin
                       Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                       State = Holding }
         elif cfg.DipRiderV2 then
@@ -1237,6 +1252,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                          then bar.close / sRunMinCloseLive - 1.0 else nan)
                       BarsSinceBreakAtEntry = sBarsSinceBreak
                       TrailSlopeAtEntry = sTrailSlope; TrailVolSlopeAtEntry = sTrailVolSlope
+                      MktChgOpenAtEntry = this.MktChgOpen bar.etMin; MktChgPrevAtEntry = this.MktChgPrev bar.etMin
                       Vol20AtEntry = sVol20; Vol10AtEntry = sVol10; Vol5AtEntry = sVol5; Vol2AtEntry = sVol2
                       VwapAtEntry = (match sVwapNow with ValueSome v -> v | ValueNone -> nan)
                       State = Holding }
@@ -1308,7 +1324,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       BarsBelowEmaAtEntry = 0
                       TrendPctAtEntry = nan
                       RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
-                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1; TrailSlopeAtEntry = nan; TrailVolSlopeAtEntry = nan
+                      RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1; TrailSlopeAtEntry = nan; TrailVolSlopeAtEntry = nan; MktChgOpenAtEntry = this.MktChgOpen bar.etMin; MktChgPrevAtEntry = this.MktChgPrev bar.etMin
                       Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                       State = Holding }
         elif this.ShouldEnter bar then
@@ -1358,7 +1374,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   BarsBelowEmaAtEntry = 0
                   TrendPctAtEntry = nan
                   RunLenAtEntry = -1; RunSlopeAtEntry = nan; RunR2AtEntry = nan
-                  RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1; TrailSlopeAtEntry = nan; TrailVolSlopeAtEntry = nan
+                  RunVolSlopeAtEntry = nan; RunVolR2AtEntry = nan; RunAtrV2AtEntry = nan; RunLastCloseAtEntry = nan; RunPctGainAtEntry = nan; BarsSinceBreakAtEntry = -1; TrailSlopeAtEntry = nan; TrailVolSlopeAtEntry = nan; MktChgOpenAtEntry = this.MktChgOpen bar.etMin; MktChgPrevAtEntry = this.MktChgPrev bar.etMin
                   Vol20AtEntry = 0L; Vol10AtEntry = 0L; Vol5AtEntry = 0L; Vol2AtEntry = 0L; VwapAtEntry = nan
                   // entry routing:
                   //   --ext-gate — if day-extension already >= ExtGate at the breakout, enter
