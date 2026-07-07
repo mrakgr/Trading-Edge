@@ -688,5 +688,48 @@ every modern year except 2021.** (Full ungated N=20 book, 22y = PF 1.244 / 76,39
 NEXT (for the user): still-open — the 2021 regime (the only recurring hole); wire the cell as ENGINE gates
 (currently post-hoc SQL); compare/combine vs the buy-into-DIP system (F12); the stale-run caveat.
 
+### Finding 17 — LOW FLOAT helps (edge dies > $1B); same low-float lesson as HighFlyerV2 / LowFlyer
+
+Float breakdown on the N=20 cell (modern, ASOF `known_date ≤ trade_date`, as-reported dollar-float from
+SEC `float_sec`; 71% coverage):
+
+| dollar-float | n | avg_ret_pct | win | pf | net |
+|---|--:|--:|--:|--:|--:|
+| <$50M | 503 | 7.87 | 43.7 | 2.162 | +395,618 |
+| $50-150M | 131 | 7.51 | 44.3 | 2.223 | +98,391 |
+| $150-300M | 91 | 7.33 | 51.6 | **2.513** | +66,705 |
+| $300M-1B | 50 | 1.32 | 50.0 | 1.284 | +6,610 |
+| $1-5B | 16 | −2.73 | 25.0 | **0.535** | −4,369 |
+| $5B+ | 12 | −1.46 | 50.0 | 0.725 | −1,749 |
+| no-float (uncovered) | 310 | 10.14 | 40.0 | 2.285 | +314,260 |
+
+**The edge is entirely in LOW-FLOAT (<$300M) names; it DIES above $1B** (PF 0.5-0.7). Mechanism: a
+sustained volatile run in a supply-constrained low-float name is a squeeze that keeps going; large-caps
+are too liquid to sustain intraday momentum. SAME lesson as HighFlyerV2 & LowFlyer (float<$300M → big PF).
+A `float < $300M` gate cuts the dead >$1B tail (78 trips, PF ~0.7-1.3) at ~no cost. ⚠ Keep the "no-float"
+uncovered names (PF 2.29 — they behave low-float); cut only the KNOWN-large tier. (Used as-reported
+float_usd, not re-anchored to entry price — sharpens tiers but won't flip the direction.)
+
+### Finding 18 — the pre-2020 sparsity is NOT a data bug: the SETUP is genuinely rarer, universe is full
+
+User's concern: are all the intraday systems post-2020-dependent because of a DATA problem? **No — the
+data is sound.** The candidate universe (`vwap_reclaim_candidate`, ADV≥$30M & rvol_0945>1) has
+**1,500-2,500 qualifying ticker-days EVERY year back to 2004** (2010: 2,490; 2014: 2,557) — NOT sparse
+pre-2020. So the ~5-trips/yr pre-2020 (F16) is not missing data.
+
+What IS post-2020 is the SETUP frequency: DipRider's cell needs **20 consecutive minutes of a run that is
+both VOLATILE and VOLUME-EXPANDING** — that specific microstructure was genuinely uncommon pre-2020 (only
+80 cell-trips in 17 years despite ~30k candidate-days). It's a real market-structure change, not a gap:
+sustained parabolic 1-minute intraday runs simply persist MORE now. (Supports the "more big runners now"
+folklore heard for the short side — it's frequency, not existence.)
+
+Telling detail: **2021 had 8,639 candidate-days — 2.7× any other year** (the meme-stock flood), yet 2021
+is the WORST modern PF (0.82). More in-play names ≠ better; 2021 was volume-driven CHOP, not clean
+momentum — which is exactly why the user's next step (avoid trading when the BROADER MARKET is
+down-on-the-day) targets it: 2021's problem is market-regime, not universe or data.
+
+NEXT (user, in order): (1) add a "broader market down-on-the-day" feature/gate to fix 2021; (2) the
+float<$300M gate (cut known-large only); then wire the cell as engine gates + the stale-run caveat.
+
 NEXT (for the user): choose the trigger/selectivity point on the dial (robust k=0.25 vs max-$ reclaim/k=0);
 the 2021 regime is the standing risk at ALL points (non-breadth); then run_atr/run_len sweeps + 22-yr check.
