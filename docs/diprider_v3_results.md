@@ -36,10 +36,10 @@ comment wrongly said 09:30):
 Illiquid/halt/print-gap bars are skipped for **every** feature. The 15m-initial-volume counts the first 15
 **valid** feature-bars (not the clock 09:30–09:45 window) — a direct consequence.
 
-**Stop:** geometry stop, `d = entry − 20m-min-close`; `stop = entry − d·(2/3)`, close-based. (Same geometry
-as VwapReclaim F14 / V2 F25; the floor is the 20m **min close** — the trailing analogue of V2's run floor.)
-`--stop-floor-sess-min` swaps to the session-min-close floor. Hold-to-MOC (the continuation lesson: any
-exit caps the winners — V1 F3, VwapReclaim F13, V2 F4/F23/F26).
+**Stop:** geometry stop, `d = entry − floor`; `stop = entry − d·(2/3)`, close-based. (Same geometry as
+VwapReclaim F14 / V2 F25.) The floor is the **session min close (from 08:30)** by default (F2 — beats the
+tighter 20m-min-close floor on win-rate and PF). `--stop-floor-20m` reverts to the 20m-min-close floor.
+Hold-to-MOC (the continuation lesson: any exit caps the winners — V1 F3, VwapReclaim F13, V2 F4/F23/F26).
 
 **Defaults:** morning window 10:00–13:30, `MaxConcurrent = 1` (V2 F29 — later same-day adds have worse EV),
 9-EMA, 20-bar window. Candidate universe = `vwap_reclaim_candidate` (ADV ≥ $1M, rvol_0945 > 1, CS/ADRC,
@@ -99,7 +99,45 @@ few large winners carry it — the momentum-continuation signature). It **concen
 all pre-2018 and shallow (worst = 2010 PF 0.87). 2021 (the two-sided-chop year that dogged V2) is the
 highest-trip year (10,200) at a still-positive PF 1.061 — the loosest cell, ripe for the caps to prune.
 
-This is the launch point for the feature breakdowns. **NEXT:** bucket-breakdown the recorded features to set
-thresholds → (a) slope/log-ATR ratio, (b) session-max-log-ATR floor, (c) the SumMa(6) ≥ 5 gate on/off,
-(d) the long-window SumMa cap (trend-too-long), (e) entry-vs-VWAP / entry-vs-session-high, then stack the
-survivors and re-check the 22-year robustness.
+This is the launch point for the feature breakdowns.
+
+> **Test range note (from 2026-07-08):** the full 22y run takes ~8 min; going forward the working range is
+> **2020-01-01 → 2026-06-25** (the modern era, where the edge lives — ~2.5 min). F1's table stays the 22y
+> reference; subsequent findings quote 2020+ unless noted.
+
+---
+
+## Finding 2 — stop floor = SESSION min close (08:30) beats the 20m-min-close (+12pts win-rate)
+
+The F1 baseline anchored the geometry stop at the **20m-min-close** (the trailing analogue of V2's run
+floor). That floor is tight — it sits just under the recent 20-bar low, so a normal pullback trips it and
+the trade is stopped before the continuation resumes (the low 24.5% win rate was the tell). Widening the
+floor to the **session min close (from 08:30)** — `d = entry − session-min-close`, same `stop = entry −
+d·2/3` — gives the trade room to breathe.
+
+**22y (both stop floors, all else = F1 baseline):**
+
+| stop floor | trips | win% | PF | net |
+|---|---|---|---|---|
+| 20m-min-close (F1) | 67,293 | 24.5% | 1.244 | +$1.45M |
+| **session-min-close (08:30)** | 54,355 | **36.1%** | **1.253** | **+$1.60M** |
+
+**2020+ (both):**
+
+| stop floor | trips | win% | PF | net |
+|---|---|---|---|---|
+| 20m-min-close | 25,917 | 24.3% | 1.342 | +$1.29M |
+| **session-min-close** | 21,007 | **36.1%** | **1.347** | **+$1.39M** |
+
+**Reading:** the session floor is strictly better on every axis — **win-rate +12pts** (24→36%), PF up, net
+up, and **~5k fewer trips** (the wider stop means fewer stop-outs → fewer re-entries, since max-concurrent
+=1). The tight 20m floor was chopping winners exactly as suspected. **Per-year 2020+** (session floor) is
+positive every year: 2020 PF 1.41, 2021 1.07, 2022 1.19, 2023 1.54, 2024 1.67, 2025 1.64, 2026 2.49.
+**Session-min-close is now the default** (`StopFloorSessMin = true`); `--stop-floor-20m` reverts.
+
+(Wiring note: the CLI boolean was initially a `parsed.Contains` flag that forced `false` and silently
+overrode the new default — fixed by inverting to a `--stop-floor-20m` opt-out so the default is honored.)
+
+**NEXT:** bucket-breakdown the recorded features to set thresholds → (a) slope/log-ATR ratio, (b)
+session-max-log-ATR floor, (c) the SumMa(6) ≥ 5 gate on/off, (d) the long-window SumMa cap (trend-too-long),
+(e) entry-vs-VWAP / entry-vs-session-high, then stack the survivors and re-check robustness.

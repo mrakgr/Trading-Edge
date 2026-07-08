@@ -36,7 +36,7 @@ type Args =
     | Max_Sum_Above_60 of int
     // ----- stop / exits -----
     | No_Geom_Stop
-    | Stop_Floor_Sess_Min
+    | Stop_Floor_20m
     | Stop_Dist_Frac of float
     | Wick_Stop
     | Pct_Stop of float
@@ -70,7 +70,7 @@ type Args =
             | Max_Sum_Above_40 _ -> "CAP: reject if >= N of the last 40 bars were above the 9-EMA (trend went on too long). Default 0 = off."
             | Max_Sum_Above_60 _ -> "CAP: reject if >= N of the last 60 bars were above the 9-EMA. Default 0 = off."
             | No_Geom_Stop -> "Disable the geometry stop (hold stopless to MOC + optional --pct-stop/--time-stop)."
-            | Stop_Floor_Sess_Min -> "Use the SESSION MIN CLOSE as the geometry-stop floor instead of the 20m min close (a wider floor)."
+            | Stop_Floor_20m -> "Use the 20m-min-close as the geometry-stop floor instead of the default SESSION-min-close (a tighter floor; F2: the session floor wins on win-rate & PF)."
             | Stop_Dist_Frac _ -> "Geometry-stop distance as a fraction of d = (entry - 20m-min-close). Default 0.667 (=d*2/3)."
             | Wick_Stop -> "Revert to the WICK stop (bar.low <= level) instead of the default CLOSE-based stop."
             | Pct_Stop _ -> "Wide catastrophe %-stop: bar.low <= entry*(1-x). Default 0 = off."
@@ -113,7 +113,7 @@ let main argv =
                   MaxSumAbove40   = parsed.GetResult(Max_Sum_Above_40,  defaultValue = defaultConfig.Intraday.MaxSumAbove40)
                   MaxSumAbove60   = parsed.GetResult(Max_Sum_Above_60,  defaultValue = defaultConfig.Intraday.MaxSumAbove60)
                   GeomStop        = not (parsed.Contains No_Geom_Stop)
-                  StopFloorSessMin = parsed.Contains Stop_Floor_Sess_Min
+                  StopFloorSessMin = not (parsed.Contains Stop_Floor_20m)   // default ON (F2); opt out to the 20m floor
                   StopDistFrac    = parsed.GetResult(Stop_Dist_Frac,    defaultValue = defaultConfig.Intraday.StopDistFrac)
                   StopOnClose     = not (parsed.Contains Wick_Stop)
                   PctStop         = parsed.GetResult(Pct_Stop,          defaultValue = defaultConfig.Intraday.PctStop)

@@ -55,8 +55,10 @@ let defaultConfig =
           MaxSumAbove40  = 0             // trend-too-long cap OFF (tune after breakdown).
           MaxSumAbove60  = 0
           // ----- stop / exits -----
-          GeomStop        = true         // geometry stop: d = entry - 20m-window low; stop = entry - d*StopDistFrac.
-          StopFloorSessMin = false       // stop floor = the 20m-window low (rangeLow); true = the session min close.
+          GeomStop        = true         // geometry stop: d = entry - stopFloor; stop = entry - d*StopDistFrac.
+          StopFloorSessMin = true         // stop floor = the SESSION MIN CLOSE (from 08:30) — F2: the wider floor
+                                         // lifts win-rate 24.5%->36.1% & PF 1.244->1.253 vs the 20m-min-close
+                                         // (the tight 20m floor chopped winners). false = 20m min close.
           StopDistFrac    = 2.0 / 3.0    // stop distance = d*2/3 (VwapReclaim F14 / V2 F25).
           StopOnClose     = true         // stop on a CLOSE at/below the level (ignore noise wicks).
           PctStop         = 0.0          // catastrophe %-stop OFF.
