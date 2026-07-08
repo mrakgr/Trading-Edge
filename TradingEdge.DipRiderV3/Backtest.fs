@@ -45,6 +45,8 @@ let defaultConfig =
           MaxConcurrent   = 1            // ONE position per (ticker,day). --max-concurrent 0 = unlimited.
           // ----- entry gates -----
           MinVolSlope    = 0.05          // 20m OLS log-volume slope >= 0.05 (V2 F14/F15 — rising volume is the PF lever).
+          MaxVolSlope    = 0.25          // F16: blow-off ceiling — reject vol-slope >= 0.25 (a volume explosion into
+                                         // entry; that bucket clips PF 0.58/-4.94%). +inf = off.
           MinPriceSlope  = 0.0           // 20m OLS log-price slope > 0. Sweep for a higher floor.
           MinTightness   = 3.0           // tightness >= 3 (real range, not lethargic; VwapReclaim Finding 6).
           MaxTightness   = infinity      // OFF
@@ -118,6 +120,8 @@ type Trip =
       SumAbove6: int             // # of the last 6 bars that closed >= the 9-EMA (the short push count; SumMa)
       SumAbove40: int            // # of the last 40 closed above the EMA (trend-too-long cap input)
       SumAbove60: int            // # of the last 60 closed above the EMA
+      EmaVwap30: int             // # of the last 30 bars the 9-EMA was above the session VWAP (above-VWAP-uptrend persistence)
+      EmaVwap60: int             // # of the last 60 bars the 9-EMA was above VWAP
       SessMaxLogAtr: float       // session-cumulative MAX of the 20m log-ATR (past volatility explosions)
       SessMinClose: float        // session MIN close (from 08:30) — the geometry-stop floor candidate / context
       SessMaxClose: float        // session MAX close (from 08:30)
@@ -177,6 +181,8 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           SumAbove6 = pos.SumAbove6AtEntry
           SumAbove40 = pos.SumAbove40AtEntry
           SumAbove60 = pos.SumAbove60AtEntry
+          EmaVwap30 = pos.EmaVwap30AtEntry
+          EmaVwap60 = pos.EmaVwap60AtEntry
           SessMaxLogAtr = pos.SessMaxLogAtrAtEntry
           SessMinClose = pos.SessMinCloseAtEntry
           SessMaxClose = pos.SessMaxCloseAtEntry
@@ -444,7 +450,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,stop_dist_pct,"
-    + "price_slope_20,vol_slope_20,log_atr_20,tightness_20,slope_per_atr,sum_above_6,sum_above_40,sum_above_60,"
+    + "price_slope_20,vol_slope_20,log_atr_20,tightness_20,slope_per_atr,sum_above_6,sum_above_40,sum_above_60,ema_vwap_30,ema_vwap_60,"
     + "sess_max_log_atr,sess_min_close,sess_max_close,sess_max_vol,vwap_at_entry,entry_vs_vwap,init_vol_15m,trail_vol_5m,rvol_5m_15m,rvol_5m_20d,"
     + "entry_vs_sess_high,chg_20m,rvol,mkt_chg_open,mkt_chg_prev,cum_vol_to_entry,pct_chg_since_open,"
     + "close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
@@ -469,6 +475,8 @@ let private row (t: Trip) : string =
         string t.SumAbove6
         string t.SumAbove40
         string t.SumAbove60
+        string t.EmaVwap30
+        string t.EmaVwap60
         fmt t.SessMaxLogAtr
         fmt t.SessMinClose
         fmt t.SessMaxClose

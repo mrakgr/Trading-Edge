@@ -25,6 +25,7 @@ type Args =
     | Max_Concurrent of int
     // ----- entry gates -----
     | Min_Vol_Slope of float
+    | Max_Vol_Slope of float
     | Min_Price_Slope of float
     | Min_Tightness of float
     | Max_Intraday_Tightness of float
@@ -63,6 +64,7 @@ type Args =
             | Ema_Period _ -> "The EMA period for the closes-above-EMA count (default 9)."
             | Max_Concurrent _ -> "Cap on concurrently-open positions per day (default 1; 0 = unlimited)."
             | Min_Vol_Slope _ -> "GATE: require the 20m OLS log-volume slope >= this (rising volume = the PF lever). Default 0.05."
+            | Max_Vol_Slope _ -> "BLOW-OFF CEILING (F16): reject the 20m OLS log-volume slope >= this (a volume explosion into entry). Default 0.25. inf = off."
             | Min_Price_Slope _ -> "GATE: require the 20m OLS log-price slope > this. Default 0.0 (sweep for a higher floor)."
             | Min_Tightness _ -> "GATE: require tightness >= this (real range, not lethargic). Default 3.0. 0 = off."
             | Max_Intraday_Tightness _ -> "Tightness CAP at entry: require tightness < this. Default +inf = OFF."
@@ -109,6 +111,7 @@ let main argv =
                   EmaPeriod       = parsed.GetResult(Ema_Period,        defaultValue = defaultConfig.Intraday.EmaPeriod)
                   MaxConcurrent   = parsed.GetResult(Max_Concurrent,    defaultValue = defaultConfig.Intraday.MaxConcurrent)
                   MinVolSlope     = parsed.GetResult(Min_Vol_Slope,     defaultValue = defaultConfig.Intraday.MinVolSlope)
+                  MaxVolSlope     = parsed.GetResult(Max_Vol_Slope,     defaultValue = defaultConfig.Intraday.MaxVolSlope)
                   MinPriceSlope   = parsed.GetResult(Min_Price_Slope,   defaultValue = defaultConfig.Intraday.MinPriceSlope)
                   MinTightness    = parsed.GetResult(Min_Tightness,     defaultValue = defaultConfig.Intraday.MinTightness)
                   MaxTightness    = parsed.GetResult(Max_Intraday_Tightness, defaultValue = defaultConfig.Intraday.MaxTightness)
@@ -146,7 +149,8 @@ let main argv =
         (if ic.MinCloseAbove6 > 0 then sprintf "   sum-above-6 >= %d" ic.MinCloseAbove6 else "")
         (if not (Double.IsNegativeInfinity ic.MinSlopePerAtr) then sprintf "   slope/atr >= %.2f" ic.MinSlopePerAtr else "")
     let caps =
-        [ if ic.MaxRvol5m20d > 0.0 then yield sprintf "rvol5m20d < %.0f" ic.MaxRvol5m20d
+        [ if not (Double.IsInfinity ic.MaxVolSlope) then yield sprintf "vol-slope < %.2f" ic.MaxVolSlope
+          if ic.MaxRvol5m20d > 0.0 then yield sprintf "rvol5m20d < %.0f" ic.MaxRvol5m20d
           if not (Double.IsNegativeInfinity ic.MinEntryVsVwap || Double.IsNaN ic.MinEntryVsVwap) then yield sprintf "entry-vs-vwap >= %.0f%%" (100.0*ic.MinEntryVsVwap)
           if ic.MaxSumAbove40 > 0 then yield sprintf "sum40 < %d" ic.MaxSumAbove40
           if ic.MaxSumAbove60 > 0 then yield sprintf "sum60 < %d" ic.MaxSumAbove60

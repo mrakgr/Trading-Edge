@@ -66,6 +66,8 @@ type IntradayPosition =
       SumAbove6AtEntry: int      // # of the last 6 feature-bars that closed >= the 9-EMA (short push count)
       SumAbove40AtEntry: int     // # of the last 40 that closed above the EMA (trend-too-long cap input)
       SumAbove60AtEntry: int     // # of the last 60 that closed above the EMA
+      EmaVwap30AtEntry: int      // # of the last 30 bars the 9-EMA was ABOVE the session VWAP (persistence of the above-VWAP uptrend)
+      EmaVwap60AtEntry: int      // # of the last 60 bars the 9-EMA was above VWAP
       SessMaxLogAtrAtEntry: float // session-cumulative MAX of the 20m log-ATR so far (past vol explosions)
       SessMinCloseAtEntry: float  // session MIN close (from 08:30) — geometry-stop floor candidate / context
       SessMaxCloseAtEntry: float  // session MAX close (from 08:30)
@@ -96,6 +98,8 @@ type IntradayConfig =
       MaxConcurrent: int       // cap on currently-OPEN (Holding) positions; 0 = unlimited. V3 default = 1.
       // ----- entry gates (trailing-window momentum) -----
       MinVolSlope: float       // require 20m OLS log-volume slope >= this (rising volume). Default 0.05 (V2 F14/F15).
+      MaxVolSlope: float       // BLOW-OFF CEILING (F16): reject 20m OLS log-volume slope >= this — an extreme
+                               // volume-slope-up = a blow-off into entry (>=0.25 clips PF 0.58/-4.94%). +inf = off.
       MinPriceSlope: float     // require 20m OLS log-price slope > this. Default 0.0 (sweep for a higher floor).
       MinTightness: float      // require tightness >= this (real range, not lethargic). Default 3.0. 0 = off.
       MaxTightness: float      // tightness CEILING (+inf disables).
@@ -159,6 +163,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let above6    = SumMa(6)
     let above40   = SumMa(40)
     let above60   = SumMa(60)
+    // SumMa of the 0/1 "was the 9-EMA above the session VWAP this bar?" indicator, over 30/60 feature-bars.
+    // How PERSISTENTLY the fast trend has held above VWAP through the session — a genuine above-VWAP uptrend
+    // signal (distinct from the VwapReclaim cross logic: this is a windowed COUNT, not a cross event).
+    let emaVwap30 = SumMa(30)
+    let emaVwap60 = SumMa(60)
     // trailing-window OLS slopes (fixed VolWindow bars, fed every VALID feature-bar). Log-close = trend slope,
     // log-volume = the volume-trend slope (the F14 lever). Both pushed TOGETHER only when both logs are valid,
     // so they stay on the identical push-index x-axis (directly comparable).
@@ -208,6 +217,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sSumAbove6    : int = 0
     let mutable sSumAbove40   : int = 0
     let mutable sSumAbove60   : int = 0
+    let mutable sEmaVwap30    : int = 0    // # of last 30 bars the 9-EMA was above the session VWAP (into this bar)
+    let mutable sEmaVwap60    : int = 0
     let mutable sSessMaxLogAtr : float = nan
     let mutable sSessMinClose : float = nan
     let mutable sSessMaxClose : float = nan
@@ -262,6 +273,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         && (cfg.EntryEndMin <= 0 || cfg.EntryEndMin >= cfg.MocMin || bar.etMin <= cfg.EntryEndMin)
         // rising volume into the move (the main PF lever): 20m OLS log-volume slope >= MinVolSlope.
         && (not (Double.IsNaN sVolSlope) && sVolSlope >= cfg.MinVolSlope)
+        // blow-off CEILING (F16): reject an extreme volume-slope-up (a volume explosion into entry). +inf = off.
+        && (Double.IsInfinity cfg.MaxVolSlope || (not (Double.IsNaN sVolSlope) && sVolSlope < cfg.MaxVolSlope))
         // positive price trend: 20m OLS log-price slope > MinPriceSlope.
         && (not (Double.IsNaN sPriceSlope) && sPriceSlope > cfg.MinPriceSlope)
         // volatility FLOOR — THE MAIN LEVER (F3): require the 20m log-ATR >= MinAtrPct. Low-ATR names don't
@@ -311,6 +324,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sSumAbove6     <- (match above6.State  with ValueSome v -> int v | ValueNone -> 0)
         sSumAbove40    <- (match above40.State with ValueSome v -> int v | ValueNone -> 0)
         sSumAbove60    <- (match above60.State with ValueSome v -> int v | ValueNone -> 0)
+        sEmaVwap30     <- (match emaVwap30.State with ValueSome v -> int v | ValueNone -> 0)
+        sEmaVwap60     <- (match emaVwap60.State with ValueSome v -> int v | ValueNone -> 0)
         sSessMaxLogAtr <- sessMaxLogAtr
         sSessMinClose  <- (match sessMinClose with ValueSome c -> c | ValueNone -> nan)
         sSessMaxClose  <- (match sessMaxClose with ValueSome c -> c | ValueNone -> nan)
@@ -357,6 +372,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             // closes-above-9EMA indicator, vs the STRICTLY-PRIOR EMA (sEmaPrev). Push 1/0 into the SumMa windows.
             let aboveInd = match sEmaPrev with ValueSome e -> (if bar.close >= e then 1.0 else 0.0) | ValueNone -> 0.0
             above6.Push aboveInd; above40.Push aboveInd; above60.Push aboveInd
+            // "was the 9-EMA above the session VWAP this bar?" — strictly-prior EMA vs strictly-prior VWAP
+            // (sEmaPrev / sVwapNow, both snapshotted at the top before this bar folds). 0 if either undefined.
+            let emaVwapInd =
+                match sEmaPrev, sVwapNow with
+                | ValueSome e, ValueSome v -> if e > v then 1.0 else 0.0
+                | _ -> 0.0
+            emaVwap30.Push emaVwapInd; emaVwap60.Push emaVwapInd
             // trailing-window OLS slopes (both together, same x-axis).
             priceOls.Push (log bar.close)
             volOls.Push   (log (float bar.volume))
@@ -459,6 +481,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   SumAbove6AtEntry = sSumAbove6
                   SumAbove40AtEntry = sSumAbove40
                   SumAbove60AtEntry = sSumAbove60
+                  EmaVwap30AtEntry = sEmaVwap30
+                  EmaVwap60AtEntry = sEmaVwap60
                   SessMaxLogAtrAtEntry = sSessMaxLogAtr
                   SessMinCloseAtEntry = sSessMinClose
                   SessMaxCloseAtEntry = sSessMaxClose

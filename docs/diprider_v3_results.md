@@ -428,5 +428,55 @@ post-hoc 1,560 — slot-freeing again) / raw PF **2.18** / clip PF **1.50** / +$
 **Current locked book: ATR≥0.013 + vol-slope≥0.05 + slope>0 + sum6≥5 + rvol5m20d<100 + entry-vs-vwap≥−3%,
 tightness off** → 1,661 trips / raw PF 2.18 / clip PF 1.50 / +$979k / 39.6% win / all-weather.
 
-**NEXT:** entry-vs-session-high → cumulative cumVol/avgvol20 (post-hoc = gated) → vol-slope clip-check (never
-verified). Clip every lever; watch for redundancy with the two location filters.
+## Finding 15 — 9-EMA-above-VWAP persistence (SumMa 30/60) is U-shaped, NOT a lever — but confirms V3 ≠ VwapReclaim
+
+Added `ema_vwap_30` / `ema_vwap_60`: SumMa of the "was the 9-EMA above the session VWAP this bar?" 0/1
+indicator over 30/60 feature-bars (windowed COUNT, distinct from VwapReclaim's cross event). Recorded, then
+broken down on the locked book (clipped):
+
+**Both ends strong, middle sags (U-shape).** ema_vwap_30: `0–4` (fresh reclaim, clip **1.53**) ≈ `30`
+(persistent all-window, clip **1.63**); the `10–14` middle is the one loser (clip **0.95**). ema_vwap_60 same:
+`0–9` (1.52) ≈ `60` (1.94), `10–19` dip (1.24). No floor helps — a `≥20` floor would keep the good high end
+but discard the EQUALLY-good `0–4` low end (674 trips).
+
+**Why — and the point:** the `0–4` bucket is a name that JUST reclaimed VWAP (fresh cross); the `30/60` bucket
+is a persistent above-VWAP uptrend. **Both work.** The dead middle is the EMA chopping across VWAP — neither a
+clean reclaim nor a clean trend. **This confirms V3 is NOT a VwapReclaim system in disguise:** if it were, the
+fresh-cross bucket would dominate and persistence would hurt; instead persistence is NEUTRAL. V3's edge is
+ATR/volume/9-EMA-run; the VWAP relationship matters only as the F14 LOCATION floor (don't buy >3% below),
+not as a trend-persistence signal. **Record `ema_vwap_30/60`, don't gate** (the `10–14` dip is an interior
+band — the tightness-4–5 overfitting trap).
+
+## Finding 16 — vol_slope_20 is a REAL clip-robust lever (unlike price-slope); `≥0.05` floor justified + a blow-off CEILING
+
+`vol_slope_20 ≥ 0.05` was a V2-inherited gate never clip-verified in V3. Studied it the RIGHT way — with
+**max-concurrent = 0 (unlimited)** so dropping the gate doesn't reshuffle the single daily slot (a stable,
+non-competing 57k-trip set; other gates on). Breakdown (clipped):
+
+| vol_slope_20 | n | PF clip | avg_ret clip |
+|---|---|---|---|
+| <−0.05 | 4,426 | 1.38 | 1.46 |
+| −0.05..0 | 16,965 | 1.28 | 1.46 |
+| 0..0.025 | 11,793 | 1.18 | 1.16 |
+| 0.025..0.05 | 9,730 | 1.29 | 1.84 |
+| **0.05..0.10** | 10,550 | 1.41 | 2.51 |
+| **0.10..0.15** | 2,864 | **2.00** | 5.20 |
+| 0.15..0.25 | 1,005 | 1.59 | 3.27 |
+| **≥0.25** | 74 | **0.58** | **−4.94** |
+
+**Unlike price-slope (F5, pure lottery — died under clipping), vol-slope SURVIVES clipping.** Clipped PF rises
+past ~0.05, peaking at `0.10–0.15` (clip **2.00**, avg return 5.2%). So the V2 direction holds: rising volume
+into the entry is a real, clip-robust edge. Nuances: (1) the `≥0.05` floor cuts MEDIOCRE trips (sub-0.05 clips
+1.18–1.29 — positive, not dead), so it's a quality gate not a survival gate — but justified (selects 1.4–2.0
+over 1.2 mush); keep it. (2) The `≥0.25` bucket is a genuine LOSER (clip **0.58 / −4.94%**) — an extreme
+volume-slope-up = a blow-off into entry, the same exhaustion signature F11 targets, but on the HIGH side the
+floor can't catch. **Add a vol-slope CEILING** to cut it (likely partial overlap with the F11 exhaustion cut).
+[NOTE: unlimited-concurrency lens for SEEING the feature; ceiling re-verified gated below.]
+
+**Ceiling wired & gated (MaxVolSlope, default 0.25):** 1,660 trips / PF 2.181 / +$979k — vs 1,661 without.
+**Essentially identical (1 trip differs)** → CONFIRMED redundant with the F11 exhaustion cut (both detect
+volume blow-offs; on the max-conc-1 book the ≥0.25 entries were already excluded by rvol5m20d<100). Kept as
+cheap insurance (matters only if the exhaustion cut is ever loosened). Locked book PF now 2.18.
+
+**NEXT:** 1d-return-to-entry breakdown (chg_1d — a significant lever in LowFlyer/prior systems) →
+entry-vs-session-high → cumulative cumVol/avgvol20. Clip every lever.
