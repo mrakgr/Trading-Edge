@@ -259,5 +259,70 @@ the loosest/highest-trip year here (1,144 trips, 31.7% win). Every other year is
 (1.05–1.80). **The core system is sound; 2021 is the explicit target** for the remaining levers — judge the
 trend-too-long caps / session-max-ATR / entry-vs-VWAP partly on whether they prune 2021's bad trips.
 
-**NEXT:** 40/60-bar trend-too-long caps (does capping over-extended trends cut 2021?) → session-max-log-ATR
-floor → entry-vs-VWAP / entry-vs-session-high. Clip every lever.
+## Finding 8 — tightness re-confirmed OFF post-9-EMA-gate (no clean floor; only a band-exclude would help)
+
+Re-checked tightness on the sum6≥5 stacked cell (raw + clipped) — the 9-EMA gate did NOT change the shape:
+
+| tightness | n | PF raw | **PF clip** | net clip |
+|---|---|---|---|---|
+| <3 | 18 | — | 1.24 | ~$1k (empty) |
+| 3.0–3.5 | 60 | 1.69 | 1.09 | $2k |
+| 3.5–4.0 | 148 | 2.84 | **1.57** | $43k |
+| **4.0–5.0** | 717 | 1.26 | **0.97** | **−$12k** |
+| 5.0–6.0 | 895 | 1.66 | 1.30 | $136k |
+| 6.0–8.0 | 1,207 | 1.83 | 1.27 | $172k |
+| ≥8.0 | 333 | 1.82 | 1.26 | $47k |
+
+Same **W** as F4, sharpened by clipping: below-3 empty; a good very-tight band 3.5–4.0 (clip PF 1.57);
+a **losing 4–5 dead zone** (717 trips, clip PF **0.97 / −$12k** — the only net-negative bucket); clean
+≥5 workhorse. A floor at ≥5 would remove the 4–5 loser (−$12k) BUT also the good 3.5–4.0 band (+$43k) —
+**net-negative** (~−$31k). Only a band-exclude of 4–5 helps, which "doesn't make sense" mechanically (user).
+**Tightness stays OFF** — no simple floor helps; ATR already does its job. NOTE: the 4–5 dead zone likely
+overlaps 2021's losers — check if a 2021-targeted lever prunes it for free rather than gating tightness.
+
+## Finding 9 — sum_above_40/60 is a FRESH-PUSH preference (low = good), NOT a too-long cap — and it inverts in 2021
+
+Breakdown of `sum_above_40` / `sum_above_60` (# of last 40/60 bars closed above the 9-EMA = how extended the
+trend is) on the sum6≥5 stacked cell, raw + clipped. The spec framed these as a "trend-too-long CAP" (reject
+HIGH counts). **The data says the opposite** — the edge is in the LOW buckets:
+
+**sum_above_40 (clipped):** <10 = 0.59 (bad, 30 trips) | **10–15 = 1.79** | **15–20 = 1.36** | 20–25 = 1.12
+| 25–30 = 1.13 | 30–35 = 1.14 | 35–40 = 1.14. Monotone DECAY as the count rises — a *fresh* push (10–20 of
+40 bars above EMA) is the best trade; a *mature/extended* trend (≥25) is merely mediocre (~1.12), not a loser.
+sum_above_60 same shape (<25 clips 1.28–1.96; mid 25–35 sags to 1.03).
+
+So it's a **low-side preference / band** (`sum40 ∈ ~10–20` = 909 trips, clip PF ~1.5, $236k), not a cap. The
+only genuinely bad bucket is `<10` (too few above-EMA bars = not yet a real push). ⚠️ **But it INVERTS in
+2021** (see F10) — fragile; NOT gating on it as a "too-long cap."
+
+## Finding 10 — 2021 needs a REGIME detector, not a feature gate; the worst cell is 2021×tightness-4–5
+
+Two checks aimed at the 2021 hole (F7):
+
+**(a) 2021-only by sum_above_40 (clipped):** 2021 loses across the ENTIRE sum40 range, and its ONLY positive
+bucket is the EXTENDED one (≥30 = PF 1.21 / +$18k); <15 through 25–30 all clip 0.74–0.90 / negative. So a
+trend-too-long cap would do the **exact wrong thing in 2021** — cut its one good bucket, keep the loser mass.
+The aggregate sum40 signal (low=good) **inverts inside 2021**.
+
+**(b) is the 4–5 tightness dead zone (F8) the same trips as 2021's clip-losers?** Partial overlap — the single
+worst cell in the book is **2021 × tightness-4–5**: 230 trips, clip PF **0.64 / −$44k** (more negative than all
+of 2021 combined). But neither problem contains the other:
+
+| | n | PF clip | net clip |
+|---|---|---|---|
+| 2021 × tight-4–5 | 230 | **0.64** | **−$44k** |
+| 2021 × other | 914 | 0.97 | −$13k |
+| non-2021 × tight-4–5 | 487 | 1.12 | +$32k |
+| non-2021 × other | 1,747 | 1.45 | +$414k |
+
+The 4–5 dead zone is fine OUTSIDE 2021 (PF 1.12, +$32k); 2021 is bad EVERYWHERE but worst in the 4–5 band.
+
+**Conclusion: 2021 cannot be gated away with entry-quality features** — every feature threshold either misfires
+in 2021 (the cap) or discards good non-2021 trades (a tightness gate). This is V2's two-sided-chop lesson
+(V2 F24/F29): the chop poisons ALL setups that year. **2021 needs a 2021-specific REGIME detector** (broader-
+market breadth/chop signal — `mkt_chg_open`/`mkt_chg_prev` are recorded; SPY-chop, VIX, or a same-day
+two-sided-fade detector), not another per-trade feature floor.
+
+**NEXT:** (a) session-max-log-ATR floor + entry-vs-VWAP / entry-vs-session-high (finish the per-trade levers,
+clipped); (b) THEN a regime layer for 2021 — breadth / market-chop, judged on whether it lifts 2021 clip-PF
+above 1.0 without gutting the other years. Clip every lever.
