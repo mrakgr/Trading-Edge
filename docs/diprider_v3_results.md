@@ -362,6 +362,30 @@ chop was largely an **over-trading-the-blow-off** problem (panic/FOMO spikes int
 exhaustion cut doubles as a regime filter. Every other year is solidly clip-positive (1.31–1.86). This is the
 most robust state so far — **no negative years even under +50% clip.**
 
-**NEXT:** try `sum_above_40 < 20` as a GATE (F9's fresh-push preference — re-run gated, per-year clipped) →
-session-max-log-ATR floor → entry-vs-VWAP / entry-vs-session-high. Consider the cumulative cumVol/avgvol20
-filter (post-hoc = gated). Clip every lever.
+## Finding 12 — `sum_above_40 < 20` gate REJECTED — re-breaks 2021, redundant with the exhaustion cut
+
+Wired F9's fresh-push preference as a GATE on top of the F11 book (`--max-sum-above-40 20`):
+**681 trips / raw PF 2.56 / clip PF 1.58 / +$566k.** Tempting on PF — but two problems kill it:
+
+| | trips | PF clip | net clip |
+|---|---|---|---|
+| exhaustion book (F11) | 1,943 | 1.42 | $403k |
+| +sum40<20 | 681 | 1.58 | $211k |
+
+1. **It UN-FIXES 2021.** F11 had 2021 at break-even (clip 1.00); +sum40<20 pushes it back to **clip 0.76 /
+   −$22k** — negative again. Exactly F9's warning that sum40 **inverts in 2021**: 2021's only-good bucket was
+   the EXTENDED (high-sum40) trades, so a low-sum40 "fresh-push" gate preferentially keeps 2021's losers.
+2. **Halves the net** ($403k→$211k, −65% of trips) for a modest PF bump, on 56–143 trips/yr (small-sample).
+
+**Deeper reason — REDUNDANCY:** the fresh-push cut and the exhaustion cut both encode "don't enter late." The
+exhaustion cut (volume-based) does it in a way that FIXES 2021; the sum40 cut (bar-count-based) does it in a
+way that HURTS 2021. When two levers target the same thing, keep the one that generalizes. **Keep the
+exhaustion cut, reject sum40<20.** (Good years 2022–2026 ARE genuinely stronger under it — clip 1.48–2.46 —
+so sum40 is real signal, just not robust; `MaxSumAbove40` stays available, default 0/off.)
+
+**Current locked book: ATR≥0.013 + vol-slope≥0.05 + slope>0 + sum6≥5 + rvol5m20d<100, tightness off, sum40
+off** → 1,943 trips / raw PF 2.06 / clip PF 1.42 / all-weather (per-year clip 1.00–1.86).
+
+**NEXT:** session-max-log-ATR floor → entry-vs-VWAP / entry-vs-session-high → the cumulative cumVol/avgvol20
+filter (post-hoc = gated, so cheap to test) → then a dedicated 2021 regime look if any year still lags. Clip
+every lever; watch for redundancy with the exhaustion cut.
