@@ -70,6 +70,7 @@ type IntradayPosition =
       EmaVwap60AtEntry: int      // # of the last 60 bars the 9-EMA was above VWAP
       TrailVol20mAtEntry: int64  // trailing 20-bar volume sum at entry (the entry's 20m volume)
       SessMaxVol20AtEntry: float // session PEAK trailing-20 volume sum (are we entering at the volume climax or a lull?)
+      EmaAtEntry: float          // the CURRENT-bar 9-EMA at entry (strictly-prior)
       SessMaxEmaAtEntry: float   // session MAX 9-EMA (how far the 9-EMA has pulled back from its session peak)
       SessMaxLogAtrAtEntry: float // session-cumulative MAX of the 20m log-ATR so far (past vol explosions)
       SessMinCloseAtEntry: float  // session MIN close (from 08:30) — geometry-stop floor candidate / context
@@ -525,6 +526,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   EmaVwap60AtEntry = sEmaVwap60
                   TrailVol20mAtEntry = sTrailVol20m
                   SessMaxVol20AtEntry = sSessMaxVol20
+                  EmaAtEntry = (match sEmaPrev with ValueSome e -> e | ValueNone -> nan)
                   SessMaxEmaAtEntry = sSessMaxEma
                   SessMaxLogAtrAtEntry = sSessMaxLogAtr
                   SessMinCloseAtEntry = sSessMinClose

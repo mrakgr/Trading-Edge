@@ -664,6 +664,39 @@ F21-adjacent) that looks like a 2021 lever but is regime-conditional — good in
 is now overwhelming: **2021 needs a market-REGIME/breadth signal**, not another per-trade entry feature. No
 entry feature can separate "2021 low-vol (bad)" from "2024 low-vol (good)."
 
-**NEXT (pivot to the only lever that CAN help 2021):** build a broader-market breadth/chop regime signal from
-`mkt_chg_open`/`mkt_chg_prev` (already recorded) — or SPY realized-vol / a same-day two-sided-fade detector —
-and gate/size on it. Then cumulative cumVol/avgvol20 + chg_3d/7d as remaining per-trade context. Clip every lever.
+## Finding 24 — current-EMA-vs-session-max-EMA: benign+monotone in trend, pathological ONLY in 2021's chop (5th confirmation)
+
+Added `ema_at_entry` (the current-bar 9-EMA) + `ema_vs_max_ema` (current 9-EMA / session-max-9EMA − 1 = how
+far the EMA ITSELF rolled back from its session peak; a pure EMA-to-EMA ratio, not price-based). Split 2021 vs
+rest, A book (clipped):
+
+| era | ema_vs_max_ema | n | win% | PF clip |
+|---|---|---|---|---|
+| **rest** | <−6% (rolled over) | 249 | 44.6 | 1.87 |
+| rest | −6..−3% | 111 | 45.9 | 2.31 |
+| rest | **−3..−1%** | 77 | 50.6 | **2.53** |
+| rest | −1..−0.2% | 44 | 34.1 | 1.38 |
+| rest | ≥−0.2% (at peak) | 408 | 49.0 | 1.87 |
+| **2021** | <−6% | 67 | 29.9 | 1.07 |
+| 2021 | −6..−3% | 36 | 36.1 | 1.16 |
+| **2021** | **−3..−1%** | 33 | **18.2** | **0.40 (−$17k)** |
+| 2021 | −1..−0.2% | 19 | 68.4 | 5.06 |
+| 2021 | ≥−0.2% (at peak) | 165 | 38.2 | 1.17 |
+
+**In the rest years: monotone, benign — NO bad zone** (every bucket clip 1.38–2.53; peak at moderate pullback
+−3..−1% = 2.53, the recurring "moderate-pullback-best" shape). **In 2021: broken/non-monotone** — most buckets
+break-even, and ONE band is catastrophic: **−3..−1% clip 0.40 / 18% win / −$17k** (essentially all of 2021's
+A-book drag). That band — a SHALLOW EMA pullback near its peak — is a healthy "buy the shallow dip" in trend
+(clip 2.53 in the rest) but a FALSE-CONTINUATION top in 2021's chop (the EMA makes a lower high, teases a
+shallow dip, fails).
+
+**5th confirmation of the regime verdict** (after sum40 F12, deep-fade F20, below-VWAP F21, vol-lull F23):
+2021 does NOT have a distinctive bad entry-feature VALUE — it takes the entries that are GOOD in normal years
+and makes them FAIL. That IS a regime problem, by definition. No per-trade feature is gateable for 2021
+because the same value is good-in-trend / bad-in-chop.
+
+**PIVOT — the only lever left that CAN help 2021 = a market-REGIME signal.** Build from `mkt_chg_open` /
+`mkt_chg_prev` (recorded) — or SPY realized-vol / a same-day two-sided-fade / breadth detector — and gate or
+SIZE on it. Alternative: bank A (all-weather, clip-positive every year) + A+ (2021 slightly-neg) as-is and
+DOCUMENT 2021 as regime risk (cf FlowSwing shipping with documented 2022 risk). Then cumVol/avgvol20 +
+chg_3d/7d as remaining per-trade context. Clip every lever.
