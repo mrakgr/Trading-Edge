@@ -519,5 +519,31 @@ earlier bar (max-conc-1 fills at the first qualifying bar, before volume goes pa
 **Current locked book:** ATR≥0.013 + vol-slope∈[0.05,0.25) + slope>0 + sum6≥5 + rvol5m20d<100 +
 entry-vs-vwap≥−3% + **chg_1d≥+10%**, tightness off → 1,209 trips / raw PF 2.58 / clip PF 1.72 / +$1.01M.
 
+## Finding 18 — trend-filter decomposition (GATED): sum6≥5 carries it; price-slope>0 near-inert alone, earns keep only paired
+
+Probed whether the two trend filters (price_slope>0, sum6≥5) are load-bearing. First the negative-slope
+region (max-conc=0 so dropping the gate doesn't reshuffle the slot): price_slope<0 is essentially EMPTY (40
+of 11,532 trips = 0.35%) — because sum6≥5 + chg_1d≥10% already force an uptrend, a qualifying name with
+NEGATIVE 20m slope is a near-contradiction (a brief pause atop a run). Those 40 clip 1.44 (fine, not bad).
+
+**Gated four-way (clipped, 2020+) — the real test (gate≠post-hoc under max-conc=1):**
+
+| config | trips | PF raw | PF clip | net clip |
+|---|---|---|---|---|
+| **both** (pslope>0 + sum6≥5) | 1,209 | 2.579 | **1.721** | $463k |
+| price-slope>0 ONLY | 1,305 | 2.475 | 1.662 | $456k |
+| no trend filters | 1,342 | 2.457 | 1.658 | $461k |
+
+**price-slope>0 ONLY (1.662) ≈ no-trend (1.658)** — the price-slope gate alone does ~NOTHING (removes ~4% of
+trips, mildly counterproductive: the trips it cuts clip 1.81, above-average). **The pair (1.721) clearly beats
+either** (+0.06). So: **sum6≥5 is the load-bearing trend filter**; **price-slope>0 is near-inert alone but
+earns its tiny keep IN COMBINATION** with sum6. All three configs all-weather (2021 ~1.08–1.13 in every
+variant) — no filter protects a specific year; it's purely marginal quality.
+
+**Decision: KEEP BOTH (user) — the locked pair is the best config (1.72).** But if a knob is ever trimmed,
+price-slope is the one to drop, not sum6. The system's trend-detection is really carried by sum6 + the
+volume/day-runner gates; explicit slope is downstream of them. [Revisit: negative-slope buys still untested
+as a STANDALONE book — the 40-trip pause-atop-run population clips 1.44, not worth pursuing now.]
+
 **NEXT:** entry-vs-session-high → cumulative cumVol/avgvol20 (monotone, post-hoc=gated) → chg_3d/7d (the
 multi-day-trend context, per prior systems). Clip every lever.
