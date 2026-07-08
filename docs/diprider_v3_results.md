@@ -545,5 +545,28 @@ price-slope is the one to drop, not sum6. The system's trend-detection is really
 volume/day-runner gates; explicit slope is downstream of them. [Revisit: negative-slope buys still untested
 as a STANDALONE book — the 40-trip pause-atop-run population clips 1.44, not worth pursuing now.]
 
-**NEXT:** entry-vs-session-high → cumulative cumVol/avgvol20 (monotone, post-hoc=gated) → chg_3d/7d (the
-multi-day-trend context, per prior systems). Clip every lever.
+## Finding 19 — the A+ book: vol-slope≥0.10 + chg_1d≥60% → clip PF ~3.2 / raw 5.0 / 57% win (2021-fragile)
+
+The F17 defaults = the **A book** (all-weather, 1,209 trips, clip PF 1.72). Pushed the two strongest levers
+for an A+ concentrate:
+
+- **vol-slope ≥ 0.10** (from 0.05): 529 trips / raw PF 3.13 / clip **1.96** / $262k / 48.6% win. F16's peak
+  band. 2021 slips to clip 0.99 (break-even).
+- **chg_1d WITHIN the vs≥0.10 book is bimodal — a CLIFF at 60%:** 10–60% clips 1.29–1.71, but **≥60% clips
+  2.81 / $191k = 73% of that book's net** (196 trips). Not a smooth escalation.
+
+**A+ stack = vol-slope≥0.10 AND chg_1d≥60%:** **218 trips / raw PF 5.00 / clip PF ~3.2 / +$471k / 56.9% win**
+(2020+). Per-year clip: 2020 2.97 | **2021 0.94 (−$1.6k)** | 2022 7.07 | 2023 5.80 | 2024 3.64 | 2025 3.20 |
+2026 2.16. Good years spectacular; **2021 clip-NEGATIVE again** (the tightening costs 2021's A-book robustness).
+Thin per-year (12–55 trips/yr) — trust the 218-trip aggregate, not single-year PFs.
+
+**Two-book structure (mirrors LowFlyer/VwapReclaim fat-book + A+ cell):** A book = current DEFAULTS
+(all-weather core); A+ = the documented tightening `--min-vol-slope 0.10 --min-chg-1d 0.60` (concentrated
+high-conviction overlay, size up, but 2021-fragile). **A stays the default** (its all-weather property is the
+base guarantee); A+ is a named parameter set, NOT a new default.
+
+[2021 STUDY: generating charts for the 28 A+ 2021 trades to understand why the chop year resists even the
+tightest cell — see NEXT.]
+
+**NEXT:** study the 28 A+ 2021 trades individually (charts) → % distance from session-max-close breakdown →
+entry-vs-session-high → cumulative cumVol/avgvol20 → chg_3d/7d. Clip every lever.
