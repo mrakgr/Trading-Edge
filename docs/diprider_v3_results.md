@@ -465,8 +465,24 @@ transition (−2..0% = 1.82 vs entry_vs_vwap's −3..−1% = 1.58) — the smoot
 predicted. entry_vs_vwap has a slightly higher isolated peak (1..3% = 1.99) but is noisier across the middle.
 **Close substitutes; 9-EMA marginally better.** The real edge in BOTH is the deep-below cut (<−5%); the knee
 for the 9-EMA version is **~−2%** (the −2..0% band is still good), NOT the strict >0 that `RequireEmaAboveVwap`
-(F21) enforces — so a swap would want a parameterized `MinEmaVsVwap ≥ −0.02` floor, not the boolean.
-[DECISION PENDING: keep entry_vs_vwap≥−3%, or swap to ema_vs_vwap≥−2%.]
+(F21) enforces — so the swap uses a parameterized `MinEmaVsVwap ≥ −0.02` floor, not the boolean.
+
+**DECISION: SWAPPED.** `MinEmaVsVwap = −0.02` REPLACES `MinEntryVsVwap` as the default VWAP-location gate
+(F14's `entry_vs_vwap ≥ −3%` is now OFF; `--min-entry-vs-vwap -0.03` restores it). Gated A/B (2020+):
+
+| book | metric | OLD entry-vs-vwap≥−3% | NEW ema-vs-vwap≥−2% |
+|---|---|---|---|
+| **A** | trips | 1,209 | 1,162 |
+| A | clip PF | 1.72 | **1.76** |
+| A | net clip | $463k | **$469k** |
+| A | 2021 clip PF | 1.05 | **1.20** |
+| **A+** | clip PF | 2.78 | 2.78 |
+| A+ | 2021 clip PF | 0.94 | 0.94 |
+
+**A book: strictly better** — clip PF +0.04, net UP on 47 FEWER trips, and **2021 improved (1.05→1.20)** — the
+smoothed EMA-vs-VWAP cuts more of 2021's chop losers than the noisier price version. A+ neutral (already too
+tight for the location filter to matter). **A book per-year (new gate, clip PF):** 2020 1.95 | 2021 **1.20** |
+2022 1.51 | 2023 2.56 | 2024 1.98 | 2025 1.88 | 2026 2.27 — all positive with margin.
 
 ## Finding 15 — 9-EMA-above-VWAP persistence (SumMa 30/60) is U-shaped, NOT a lever — but confirms V3 ≠ VwapReclaim
 
@@ -557,7 +573,8 @@ with exhaustion, but because by the time vol-slope reaches ≥0.25 the position 
 earlier bar (max-conc-1 fills at the first qualifying bar, before volume goes parabolic). Harmless insurance.
 
 **Current locked book:** ATR≥0.013 + vol-slope∈[0.05,0.25) + slope>0 + sum6≥5 + rvol5m20d<100 +
-entry-vs-vwap≥−3% + **chg_1d≥+10%**, tightness off → 1,209 trips / raw PF 2.58 / clip PF 1.72 / +$1.01M.
+**ema-vs-vwap≥−2%** (F27, replaced entry-vs-vwap) + **chg_1d≥+10%**, tightness off → 1,162 trips / raw PF 2.63
+/ clip PF 1.76 / +$1.01M raw.
 
 ## Finding 18 — trend-filter decomposition (GATED): sum6≥5 carries it; price-slope>0 near-inert alone, earns keep only paired
 

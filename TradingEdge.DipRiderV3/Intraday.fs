@@ -124,9 +124,12 @@ type IntradayConfig =
                                // PREV daily close (entry/prevClose - 1 < this). A stock RED on the day is
                                // fighting its own daily trend — buying its intraday bounce loses. Default 0.0
                                // (must be green on the day). NaN/-inf = off.
-      RequireEmaAboveVwap: bool // ENTRY GATE (F21): require the 9-EMA to be ABOVE the session VWAP at entry.
-                               // Pairs with the loss-of-VWAP exit (only trade above-VWAP momentum, bail on the
-                               // loss of VWAP). false (default) = off.
+      RequireEmaAboveVwap: bool // ENTRY GATE (F21): require the 9-EMA STRICTLY ABOVE the session VWAP at entry.
+                               // Superseded by MinEmaVsVwap (the knee is −2%, not 0). false (default) = off.
+      MinEmaVsVwap: float      // VWAP-LOCATION FLOOR (F27, REPLACES MinEntryVsVwap): reject if the current 9-EMA
+                               // is more than |this| below the session VWAP (ema/vwap − 1 < this). The smoothed
+                               // TREND vs VWAP (ignores single wicks) — cleaner than the price-vs-VWAP floor.
+                               // Default −0.02. NaN/-inf = off.
       MaxSumAbove40: int       // CAP: reject if SumAbove40 >= this (trend went on too long). 0 = off (default).
       MaxSumAbove60: int       // CAP: reject if SumAbove60 >= this. 0 = off (default).
       // ----- stop / exits -----
@@ -317,10 +320,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // A red-on-the-day name is fighting its own daily trend. -inf/NaN = off.
         && (Double.IsNegativeInfinity cfg.MinChg1d || Double.IsNaN cfg.MinChg1d
             || (prevClose > 0.0 && bar.close / prevClose - 1.0 >= cfg.MinChg1d))
-        // ABOVE-VWAP ENTRY GATE (F21): require the 9-EMA above the session VWAP (strictly-prior snapshots).
-        // Pairs with the loss-of-VWAP exit. false = off.
+        // ABOVE-VWAP ENTRY GATE (F21): require the 9-EMA STRICTLY above the session VWAP. false = off.
         && (not cfg.RequireEmaAboveVwap
             || (match sEmaPrev, sVwapNow with ValueSome e, ValueSome v -> e > v | _ -> false))
+        // 9-EMA-vs-VWAP FLOOR (F27, replaces the price-vs-VWAP floor): reject if the 9-EMA is more than
+        // |MinEmaVsVwap| below VWAP (a sold-off trend, not a continuation). -inf/NaN = off.
+        && (Double.IsNegativeInfinity cfg.MinEmaVsVwap || Double.IsNaN cfg.MinEmaVsVwap
+            || (match sEmaPrev, sVwapNow with
+                | ValueSome e, ValueSome v -> v > 0.0 && e / v - 1.0 >= cfg.MinEmaVsVwap
+                | _ -> false))
         // the push: >= N of the last 6 bars closed above the 9-EMA. 0 = OFF (default, start disabled).
         && (cfg.MinCloseAbove6 <= 0 || sSumAbove6 >= cfg.MinCloseAbove6)
         // trend-too-long CAP: reject if too many of the last 40/60 bars were above the EMA. 0 = off.

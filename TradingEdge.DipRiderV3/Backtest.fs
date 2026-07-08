@@ -62,14 +62,16 @@ let defaultConfig =
           MaxRvol5m20d   = 100.0         // F11: exhaustion cut — reject if trailing-5m avg vol >= 100× the 20d
                                          // per-min pace (a blow-off = late entry). Robust 50-120 (clip PF ~1.4);
                                          // cuts ~half the book for ~16% of net. 0 = off.
-          MinEntryVsVwap = -0.03         // F14: VWAP-location floor — reject entries >3% BELOW session VWAP (a
-                                         // sold-off falling knife). Lifts clip PF 1.42->1.55 AND net (free); takes
-                                         // 2021 clip 1.00->1.13 (a 2nd 2021 fix, orthogonal to exhaustion). -inf = off.
+          MinEntryVsVwap = Double.NegativeInfinity  // F14 price-vs-VWAP floor — SUPERSEDED by MinEmaVsVwap (F27,
+                                         // the smoothed 9-EMA-vs-VWAP is cleaner). OFF. Pass --min-entry-vs-vwap -0.03 to restore.
           MinChg1d       = 0.10          // F17: day-direction floor — require the stock >= +10% on the day (entry vs
                                          // prev close). Red/flat-day names fight their daily trend; the edge scales
                                          // monotonically with how UP the stock is (>=60% clips PF 2.19/+7.7%). An
                                          // ESSENTIAL entry requirement (user). Lifts clip PF; 3rd 2021 fix. -inf = off.
-          RequireEmaAboveVwap = false    // F21: above-VWAP entry gate (pairs with the loss-of-VWAP exit). Default off.
+          RequireEmaAboveVwap = false    // F21: strict >VWAP gate — superseded by MinEmaVsVwap. Default off.
+          MinEmaVsVwap   = -0.02         // F27: 9-EMA-vs-VWAP floor (REPLACES MinEntryVsVwap) — reject if the 9-EMA
+                                         // is >2% below VWAP. Smoothed trend location; knee at −2% (−2..0% still good).
+                                         // -inf = off.
           MaxSumAbove40  = 0             // trend-too-long cap OFF (tune after breakdown).
           MaxSumAbove60  = 0
           // ----- stop / exits -----
