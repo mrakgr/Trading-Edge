@@ -700,3 +700,44 @@ because the same value is good-in-trend / bad-in-chop.
 SIZE on it. Alternative: bank A (all-weather, clip-positive every year) + A+ (2021 slightly-neg) as-is and
 DOCUMENT 2021 as regime risk (cf FlowSwing shipping with documented 2022 risk). Then cumVol/avgvol20 +
 chg_3d/7d as remaining per-trade context. Clip every lever.
+
+---
+
+## The books — per-year UNCLIPPED ($10k/trip flat, real-dollar "would-have-made")
+
+The tables above quote CLIPPED (winners capped at +50%) as the honest per-trade estimate. These are the
+**UNCLIPPED** (uncapped, full tail P&L) numbers — the "if the fat tails show up" ceiling. Real expectation is
+between the two (~clipped); the unclipped totals are inflated by a few +130-150% low-float squeezes (OBLN/KOSS)
+that can't be counted on repeating. 2020-01-01 → 2026-06-25, notional $10k/trip, max-concurrent 1.
+
+**A book** (ATR≥0.013 + vol-slope∈[0.05,0.25) + slope>0 + sum6≥5 + rvol5m20d<100 + entry-vs-vwap≥−3% +
+chg_1d≥+10%, tightness off):
+
+| yr | n | win% | PF | avg ret% | net $ |
+|---|---:|---:|---:|---:|---:|
+| 2020 | 134 | 43.3 | 2.70 | +8.48 | 113,635 |
+| 2021 | 320 | 35.9 | 1.59 | +3.30 | 105,478 |
+| 2022 | 138 | 43.5 | 1.93 | +4.58 | 63,250 |
+| 2023 | 74 | 51.4 | 4.52 | +17.07 | 126,303 |
+| 2024 | 162 | 48.8 | 3.10 | +10.61 | 171,923 |
+| 2025 | 252 | 48.0 | 2.82 | +10.37 | 261,276 |
+| 2026 | 129 | 46.5 | 3.53 | +13.31 | 171,730 |
+| **TOTAL** | **1,209** | **43.9** | **2.58** | — | **1,013,594** |
+
+**A+ book** (= A + vol-slope≥0.10 + chg_1d≥60%):
+
+| yr | n | win% | PF | avg ret% | net $ |
+|---|---:|---:|---:|---:|---:|
+| 2020 | 27 | 51.9 | 4.54 | +17.28 | 46,666 |
+| 2021 | 28 | 28.6 | 1.66 | +5.94 | 16,623 |
+| 2022 | 12 | 83.3 | 11.59 | +29.15 | 34,975 |
+| 2023 | 14 | 78.6 | 15.76 | +56.12 | 78,575 |
+| 2024 | 41 | 56.1 | 6.27 | +24.75 | 101,474 |
+| 2025 | 55 | 60.0 | 6.32 | +26.54 | 145,957 |
+| 2026 | 41 | 61.0 | 2.94 | +11.44 | 46,900 |
+| **TOTAL** | **218** | **56.9** | **5.00** | — | **471,170** |
+
+**Reading:** A book = **+$1.01M / 6.5y (~$156k/yr)**, positive EVERY year unclipped incl. 2021 (+$105k, its
+highest-trip year). A+ = **+$471k / 6.5y (~$72k/yr)** on 218 trades at 56.9% win / PF 5.0, per-trade avg
+11-56%. Both ramp hard 2023→2025 (the modern-regime tailwind). ⚠️ UNCLIPPED — expect ~clipped (A ~$463k, A+
+~$262k+, roughly half) in live; the gap is fat-tail dependence. cf VwapReclaim F32 (same 2021 signature).
