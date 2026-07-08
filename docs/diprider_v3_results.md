@@ -701,6 +701,47 @@ SIZE on it. Alternative: bank A (all-weather, clip-positive every year) + A+ (20
 DOCUMENT 2021 as regime risk (cf FlowSwing shipping with documented 2022 risk). Then cumVol/avgvol20 +
 chg_3d/7d as remaining per-trade context. Clip every lever.
 
+## Finding 25 — rvol (cumVol/avgvol20): non-monotone, NOT an exhaustion cut; and it INVERTS in 2021 (6th confirmation)
+
+Tested `rvol` = cumulative day volume through entry / 20d-avg-daily-volume as a candidate exhaustion cut
+(monotone-in-time ⇒ post-hoc = gated, no slot-shuffle). A book, clipped:
+
+| rvol | n | PF clip | avg_ret clip |
+|---|---|---|---|
+| <1 | 53 | 2.15 | 5.78 |
+| 1–2 | 162 | 1.96 | 4.95 |
+| 2–4 | 340 | 1.84 | 4.64 |
+| 4–8 | 343 | 1.65 | 3.42 |
+| **8–15** | 170 | **1.18** | 1.06 |
+| 15–30 | 81 | 1.55 | 2.57 |
+| 30–60 | 46 | 1.94 | 4.62 |
+| **≥60** | 14 | **4.97** | 12.06 |
+
+**NOT the high-side exhaustion cut hypothesized — it's the OPPOSITE/non-monotone:** LOW rvol (<4) is BEST
+(clip 1.84–2.15), a dead spot at 8–15 (1.18), then HIGH rvol (≥30) is strong AGAIN (up to 4.97 at ≥60). Why
+it differs from the F11 5m-exhaustion cut (which worked): F11 measures RECENT tempo (a 5m spike = blow-off);
+rvol measures CUMULATIVE day volume — a ≥60 rvol name can have calm CURRENT volume (past its climax, steadily
+running) = good. Different measures; the RECENT one is the exhaustion signal, not the cumulative. **Not a
+clean gate — record it, note the low-rvol (<4) preference, don't gate.**
+
+**INVERTS in 2021 (the cleanest regime-flip yet) — 2021 vs rest (clipped):**
+
+| zone | 2021 | rest |
+|---|---|---|
+| <4 (early) | **0.76 / −$17k** | **2.23 / +$285k** |
+| 4–15 (mid) | 1.23 | 1.62 |
+| ≥15 (blown out) | 2.14 | 1.84 |
+
+**Low rvol (<4) is 2021's WORST zone (0.76, −$17k) but the rest-years' BEST (2.23, +$285k)** — the SAME
+early-volume entry that makes $285k in trend LOSES in 2021's chop (the dead-cat run-ups, = F23's vol-lull
+losers measured cumulatively). Un-gateable for the identical reason as all the others.
+
+**6th confirmation** (sum40 F12, deep-fade F20, below-VWAP F21, vol-lull F23, shallow-EMA F24, now rvol): every
+per-trade feature's BEST-in-trend value is WORST-in-2021. This is now a LAW of the system, not a coincidence:
+**no per-trade feature can gate 2021 — 2021 is DEFINED by making the good entries fail.** Practical hint for the
+regime signal: since it's the LOW-rvol / early-momentum entries that flip, the detector must key on the
+MARKET-level state where early-volume momentum fades (SPY chop / breadth), not any per-trade feature.
+
 ---
 
 ## The books — per-year UNCLIPPED ($10k/trip flat, real-dollar "would-have-made")
