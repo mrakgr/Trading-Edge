@@ -33,6 +33,7 @@ type Args =
     | Min_Close_Above_6 of int
     | Min_Slope_Per_Atr of float
     | Min_Sess_Max_Log_Atr of float
+    | Max_Rvol_5m_20d of float
     | Max_Sum_Above_40 of int
     | Max_Sum_Above_60 of int
     // ----- stop / exits -----
@@ -69,6 +70,7 @@ type Args =
             | Min_Close_Above_6 _ -> "GATE: require >= N of the last 6 bars closed above the 9-EMA. Default 0 = OFF (start disabled; tune later)."
             | Min_Slope_Per_Atr _ -> "GATE: require the (price-slope / log-ATR) ratio >= this. Default OFF (gated after breakdown)."
             | Min_Sess_Max_Log_Atr _ -> "GATE: require the session-max 20m log-ATR >= this (a name that HAS had a volatility explosion). Default 0 = off."
+            | Max_Rvol_5m_20d _ -> "EXHAUSTION CUT (F11): reject if the trailing-5m avg volume >= this × the 20d per-minute pace (a blow-off = late entry). Default 100. 0 = off."
             | Max_Sum_Above_40 _ -> "CAP: reject if >= N of the last 40 bars were above the 9-EMA (trend went on too long). Default 0 = off."
             | Max_Sum_Above_60 _ -> "CAP: reject if >= N of the last 60 bars were above the 9-EMA. Default 0 = off."
             | No_Geom_Stop -> "Disable the geometry stop (hold stopless to MOC + optional --pct-stop/--time-stop)."
@@ -113,6 +115,7 @@ let main argv =
                   MinCloseAbove6  = parsed.GetResult(Min_Close_Above_6, defaultValue = defaultConfig.Intraday.MinCloseAbove6)
                   MinSlopePerAtr  = parsed.GetResult(Min_Slope_Per_Atr, defaultValue = defaultConfig.Intraday.MinSlopePerAtr)
                   MinSessMaxLogAtr = parsed.GetResult(Min_Sess_Max_Log_Atr, defaultValue = defaultConfig.Intraday.MinSessMaxLogAtr)
+                  MaxRvol5m20d    = parsed.GetResult(Max_Rvol_5m_20d,   defaultValue = defaultConfig.Intraday.MaxRvol5m20d)
                   MaxSumAbove40   = parsed.GetResult(Max_Sum_Above_40,  defaultValue = defaultConfig.Intraday.MaxSumAbove40)
                   MaxSumAbove60   = parsed.GetResult(Max_Sum_Above_60,  defaultValue = defaultConfig.Intraday.MaxSumAbove60)
                   GeomStop        = not (parsed.Contains No_Geom_Stop)
@@ -140,7 +143,8 @@ let main argv =
         (if ic.MinCloseAbove6 > 0 then sprintf "   sum-above-6 >= %d" ic.MinCloseAbove6 else "")
         (if not (Double.IsNegativeInfinity ic.MinSlopePerAtr) then sprintf "   slope/atr >= %.2f" ic.MinSlopePerAtr else "")
     let caps =
-        [ if ic.MaxSumAbove40 > 0 then yield sprintf "sum40 < %d" ic.MaxSumAbove40
+        [ if ic.MaxRvol5m20d > 0.0 then yield sprintf "rvol5m20d < %.0f" ic.MaxRvol5m20d
+          if ic.MaxSumAbove40 > 0 then yield sprintf "sum40 < %d" ic.MaxSumAbove40
           if ic.MaxSumAbove60 > 0 then yield sprintf "sum60 < %d" ic.MaxSumAbove60
           if ic.MinSessMaxLogAtr > 0.0 then yield sprintf "sess-max-logATR >= %.3f" ic.MinSessMaxLogAtr
           if not (Double.IsInfinity ic.MaxTightness) then yield sprintf "tight < %.1f" ic.MaxTightness

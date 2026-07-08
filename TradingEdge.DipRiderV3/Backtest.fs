@@ -57,6 +57,9 @@ let defaultConfig =
                                          // (orthogonal to ATR's SIZE). 0 = off.
           MinSlopePerAtr = Double.NegativeInfinity  // slope/log-ATR floor OFF (gated after breakdown).
           MinSessMaxLogAtr = 0.0         // session-max-log-ATR floor OFF (gated after breakdown).
+          MaxRvol5m20d   = 100.0         // F11: exhaustion cut — reject if trailing-5m avg vol >= 100× the 20d
+                                         // per-min pace (a blow-off = late entry). Robust 50-120 (clip PF ~1.4);
+                                         // cuts ~half the book for ~16% of net. 0 = off.
           MaxSumAbove40  = 0             // trend-too-long cap OFF (tune after breakdown).
           MaxSumAbove60  = 0
           // ----- stop / exits -----
@@ -119,6 +122,11 @@ type Trip =
       VwapAtEntry: float         // session VWAP at entry (from 09:30)
       EntryVsVwap: float         // entryPx / VWAP - 1 (>0 = bought ABOVE VWAP, <0 = below)
       InitVol15m: int64          // Σ volume over the first 15 VALID feature-bars (the name's early tempo)
+      TrailVol5m: int64          // trailing 5-bar volume sum at entry (recent tempo — the exhaustion-cut numerator)
+      Rvol5m15m: float           // (trail_vol_5m/5) / (init_vol_15m/15) — recent 5m tempo vs the name's OWN opening
+                                 // 15m tempo. >1 = accelerating; a blow-off cut rejects HIGH values (late/exhausted).
+      Rvol5m20d: float           // (trail_vol_5m/5) / (avgvol20/390) — recent 5m tempo vs the 20-DAY per-minute pace.
+                                 // The "is the last 5 min blown out vs normal?" exhaustion measure.
       EntryVsSessHigh: float     // entry / running session high - 1 (<=0; how far below the session high we bought)
       Chg20m: float              // 20-minute %-change into entry (engine LagMa(20), no post-hoc rescan)
       Rvol: float                // cumVolToEntry / avgVol20 (recorded feature)
@@ -173,6 +181,17 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           VwapAtEntry = pos.VwapAtEntry
           EntryVsVwap = (if pos.VwapAtEntry > 0.0 && not (Double.IsNaN pos.VwapAtEntry) then pos.EntryPx / pos.VwapAtEntry - 1.0 else nan)
           InitVol15m = pos.InitVol15mAtEntry
+          TrailVol5m = pos.TrailVol5mAtEntry
+          // 5m-avg vs the name's OWN opening-15m avg. init_vol_15m = Σ of 15 bars ⇒ /15 for the per-min avg.
+          Rvol5m15m =
+              (let avg5  = float pos.TrailVol5mAtEntry / 5.0
+               let avg15 = if pos.InitVol15mAtEntry > 0L then float pos.InitVol15mAtEntry / 15.0 else nan
+               if avg15 > 0.0 then avg5 / avg15 else nan)
+          // 5m-avg vs the 20-day per-minute pace (avgvol20/390).
+          Rvol5m20d =
+              (let avg5      = float pos.TrailVol5mAtEntry / 5.0
+               let perMin20d = if c.AvgVol20 > 0.0 then c.AvgVol20 / 390.0 else nan
+               if perMin20d > 0.0 then avg5 / perMin20d else nan)
           EntryVsSessHigh = pos.EntryVsSessHighAtEntry
           Chg20m = pos.Chg20mAtEntry
           Rvol = (if c.AvgVol20 > 0.0 then float pos.CumVolAtEntry / c.AvgVol20 else nan)
@@ -423,7 +442,7 @@ let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,stop_dist_pct,"
     + "price_slope_20,vol_slope_20,log_atr_20,tightness_20,slope_per_atr,sum_above_6,sum_above_40,sum_above_60,"
-    + "sess_max_log_atr,sess_min_close,sess_max_close,sess_max_vol,vwap_at_entry,entry_vs_vwap,init_vol_15m,"
+    + "sess_max_log_atr,sess_min_close,sess_max_close,sess_max_vol,vwap_at_entry,entry_vs_vwap,init_vol_15m,trail_vol_5m,rvol_5m_15m,rvol_5m_20d,"
     + "entry_vs_sess_high,chg_20m,rvol,mkt_chg_open,mkt_chg_prev,cum_vol_to_entry,pct_chg_since_open,"
     + "close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
@@ -454,6 +473,9 @@ let private row (t: Trip) : string =
         fmt t.VwapAtEntry
         fmt t.EntryVsVwap
         string t.InitVol15m
+        string t.TrailVol5m
+        fmt t.Rvol5m15m
+        fmt t.Rvol5m20d
         fmt t.EntryVsSessHigh
         fmt t.Chg20m
         fmt t.Rvol

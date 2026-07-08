@@ -323,6 +323,45 @@ in 2021 (the cap) or discards good non-2021 trades (a tightness gate). This is V
 market breadth/chop signal — `mkt_chg_open`/`mkt_chg_prev` are recorded; SPY-chop, VIX, or a same-day
 two-sided-fade detector), not another per-trade feature floor.
 
-**NEXT:** (a) session-max-log-ATR floor + entry-vs-VWAP / entry-vs-session-high (finish the per-trade levers,
-clipped); (b) THEN a regime layer for 2021 — breadth / market-chop, judged on whether it lifts 2021 clip-PF
-above 1.0 without gutting the other years. Clip every lever.
+## Finding 11 — exhaustion cut `rvol_5m_20d < 100` — the biggest lever since ATR; FIXES 2021
+
+Added a trailing **5-bar volume** window (`SumMa(5)`) to the engine + two recorded ratios: `rvol_5m_15m`
+(5m-avg vs the name's OWN opening-15m avg) and **`rvol_5m_20d`** (5m-avg vs the 20d per-minute pace =
+`(trailVol5m/5)/(avgvol20/390)`). Breakdown (clipped):
+
+- **rvol_5m_20d is the clean exhaustion signal.** The ≥80–100 tail (~half the book) is blown-out/late — clip
+  PF ~1.06; everything below clips 1.17–1.50. **Cap sweep 30–150 is a broad, flat knee** (clip PF 1.37–1.44
+  for any cap 50–120 — NOT threshold-sensitive, so not overfit). Peak net at **< 100** (round, defensible:
+  "5m volume ≥ 100× normal per-minute pace = a blow-off, skip"). Wired as `MaxRvol5m20d` gate (default 100).
+- **rvol_5m_15m is NOT a lever** — jagged/non-monotone (a `<0.5` loser, good 1–2.5, a 2.5–4 dip, a 4–7 spike).
+  Kept recorded, not gated.
+
+**Gated `< 100` (vs post-hoc — the gate≠post-hoc point):** post-hoc `<100` predicted 1,755 trips / $945k;
+the GATE gives **1,943 trips / $1.02M** — MORE trips + net, because with max-concurrent=1 skipping an
+exhausted bar frees the day's slot for a later clean bar the post-hoc filter can't surface. (The cumulative
+`cumVol/avgvol20` filter, by contrast, IS monotone-in-time so post-hoc = gated — a reason to prefer it later.)
+
+**Stacked book now = ATR≥0.013 + vol-slope≥0.05 + slope>0 + sum6≥5 + rvol5m20d<100, tightness off:**
+**1,943 trips / raw PF 2.06 / clip PF 1.42 / +$1.02M / 37.8% win.** Raw PF jumped 1.70→2.06.
+
+**Per-year (clipped) — 2021 FIXED, all-weather now:**
+
+| yr | n | PF raw | PF clip | net clip |
+|---|---|---|---|---|
+| 2020 | 208 | 2.21 | 1.54 | $53k |
+| **2021** | 553 | 1.33 | **1.00** | $0.5k |
+| 2022 | 220 | 1.65 | 1.31 | $32k |
+| 2023 | 152 | 2.62 | 1.67 | $48k |
+| 2024 | 256 | 2.35 | 1.66 | $82k |
+| 2025 | 372 | 2.27 | 1.54 | $107k |
+| 2026 | 182 | 3.20 | 1.86 | $80k |
+
+**2021 went clip-NEGATIVE (−$57k, F7) → break-even (clip PF 1.00).** The cut removed 591 of 2021's 1,144
+trips — the blown-out losers. So F10's "2021 needs a regime detector" resolves partly HERE: 2021's two-sided
+chop was largely an **over-trading-the-blow-off** problem (panic/FOMO spikes into exhausted moves); the
+exhaustion cut doubles as a regime filter. Every other year is solidly clip-positive (1.31–1.86). This is the
+most robust state so far — **no negative years even under +50% clip.**
+
+**NEXT:** try `sum_above_40 < 20` as a GATE (F9's fresh-push preference — re-run gated, per-year clipped) →
+session-max-log-ATR floor → entry-vs-VWAP / entry-vs-session-high. Consider the cumulative cumVol/avgvol20
+filter (post-hoc = gated). Clip every lever.

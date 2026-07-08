@@ -72,6 +72,7 @@ type IntradayPosition =
       SessMaxVolAtEntry: int64    // session MAX single-bar volume (from 08:30)
       VwapAtEntry: float          // session VWAP at entry (from 09:30); nan if none. buy-below vs above-VWAP split
       InitVol15mAtEntry: int64    // Σ volume over the first 15 VALID feature-bars (the name's early tempo)
+      TrailVol5mAtEntry: int64    // trailing 5-bar volume sum at entry (recent tempo; exhaustion-cut numerator)
       EntryVsSessHighAtEntry: float // entry px / running session HIGH (strictly-prior) - 1 (<=0; how far below high)
       Chg20mAtEntry: float        // 20-bar %-change into entry (entry close / close 20 bars ago - 1); nan if <20 bars
       CumVolAtEntry: int64        // cumulative day volume THROUGH the entry bar (rvol numerator; recorded)
@@ -105,6 +106,9 @@ type IntradayConfig =
                                // 0 = DISABLED (V3 default — start off, tune later).
       MinSlopePerAtr: float    // require slope/log-ATR ratio >= this. -inf / very-negative = off (default). Gated after breakdown.
       MinSessMaxLogAtr: float  // require the session-max log-ATR >= this (a name that HAS exploded). 0 = off (default).
+      MaxRvol5m20d: float      // EXHAUSTION CUT (F11): reject if the trailing 5m avg volume >= this × the 20d
+                               // per-minute pace ((trailVol5m/5) / (avgvol20/390)). A blow-off = a late entry.
+                               // Default 100. 0 = off. Needs SetVolBaselines' perMin20d.
       MaxSumAbove40: int       // CAP: reject if SumAbove40 >= this (trend went on too long). 0 = off (default).
       MaxSumAbove60: int       // CAP: reject if SumAbove60 >= this. 0 = off (default).
       // ----- stop / exits -----
@@ -157,6 +161,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     // so they stay on the identical push-index x-axis (directly comparable).
     let priceOls  = OlsSlopeMa(cfg.VolWindow)
     let volOls    = OlsSlopeMa(cfg.VolWindow)
+    // trailing 5-bar raw VOLUME sum — the recent-tempo numerator for the exhaustion cut (5m-avg vs the 15m
+    // opening-avg and the 20d per-minute avg). Fed every VALID feature-bar.
+    let vol5sum   = SumMa(5)
 
     // session VWAP = Σ(typical_price · volume) / Σ(volume), typical = (h+l+c)/3, from the 09:30 feature anchor.
     let mutable vwapNum  = 0.0                   // Σ tp·v
@@ -204,6 +211,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sSessMaxVol   : int64 = 0L
     let mutable sVwapNow      : float voption = ValueNone
     let mutable sInitVol15m   : int64 = 0L
+    let mutable sTrailVol5m   : int64 = 0L      // trailing 5-bar volume sum going INTO this bar (exhaustion numerator)
     let mutable sEmaAboveVwapBars : int = 0
 
     let positions = ResizeArray<IntradayPosition>()
@@ -260,6 +268,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         && (cfg.MinTightness <= 0.0 || gate this.Tightness (fun t -> t >= cfg.MinTightness))
         && (Double.IsInfinity cfg.MaxTightness || gate this.Tightness (fun t -> t < cfg.MaxTightness))
         && (Double.IsInfinity cfg.MaxAtrPct    || gate this.AtrLog    (fun a -> a < cfg.MaxAtrPct))
+        // EXHAUSTION CUT (F11): reject if the trailing 5m avg volume >= MaxRvol5m20d × the 20d per-minute
+        // pace ((trailVol5m/5) / (permin20d)). A blow-off = a late entry. 0 = off; needs the perMin20d baseline.
+        && (cfg.MaxRvol5m20d <= 0.0 || permin20d <= 0.0
+            || (float sTrailVol5m / 5.0) < cfg.MaxRvol5m20d * permin20d)
         // the push: >= N of the last 6 bars closed above the 9-EMA. 0 = OFF (default, start disabled).
         && (cfg.MinCloseAbove6 <= 0 || sSumAbove6 >= cfg.MinCloseAbove6)
         // trend-too-long CAP: reject if too many of the last 40/60 bars were above the EMA. 0 = off.
@@ -298,6 +310,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sSessMaxVol    <- (match sessMaxVol   with ValueSome v -> v | ValueNone -> 0L)
         sVwapNow       <- this.LiveVwap
         sInitVol15m    <- initVol15m
+        sTrailVol5m    <- (match vol5sum.State with ValueSome v -> int64 v | ValueNone -> 0L)
         sEmaAboveVwapBars <- emaAboveVwapBars
 
         // 2) the universal VALID-bar gate: a bar enters ANY rolling window only if price AND volume are positive.
@@ -340,6 +353,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             // trailing-window OLS slopes (both together, same x-axis).
             priceOls.Push (log bar.close)
             volOls.Push   (log (float bar.volume))
+            vol5sum.Push  (float bar.volume)   // trailing 5-bar volume (exhaustion-cut numerator)
             // session VWAP.
             let tp = (bar.high + bar.low + bar.close) / 3.0
             vwapNum <- vwapNum + tp * float bar.volume
@@ -444,6 +458,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   SessMaxVolAtEntry = sSessMaxVol
                   VwapAtEntry = (match sVwapNow with ValueSome v -> v | ValueNone -> nan)
                   InitVol15mAtEntry = sInitVol15m
+                  TrailVol5mAtEntry = sTrailVol5m
                   EntryVsSessHighAtEntry = (match sRunHi with ValueSome h when h > 0.0 -> bar.close / h - 1.0 | _ -> nan)
                   Chg20mAtEntry = (match lagPctChange lag20 with ValueSome p -> p | ValueNone -> nan)
                   CumVolAtEntry = cumVol
