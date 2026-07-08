@@ -835,6 +835,59 @@ the 6-feature inversion law + VwapReclaim F32, the evidence mounts that **2021 i
 daily-market or entry-feature signal — it's an intraday-microstructure regime. The only 2021-bad cell here is
 `no_float` (0.97) → cutting SEC-uncovered microcaps is a defensible trash filter but not a 2021 fix.
 
+## Finding 28 — 3-day trend floor `chg_3d ≥ 0` — durable (bad-everywhere), free, 4th 2021 helper → WIRED
+
+`chg_3d` = entry / close-3d-ago − 1. Breakdown on the A book (clipped):
+
+| chg_3d | n | win% | PF clip | net$ |
+|---|---:|---:|---:|---:|
+| <−10% | 59 | 35.6 | **0.90** | −2.8k |
+| −10..0% | 38 | 28.9 | **0.73** | −4.3k |
+| 0..10% | 64 | 32.8 | 1.39 | 11k |
+| 10..25% | 82 | 47.6 | 2.15 | 35k |
+| 25..50% | 191 | 47.1 | **2.34** | 92k |
+| 50..100% | 274 | 50.0 | 2.13 | 142k |
+| ≥100% | 440 | 44.1 | 1.60 | 187k |
+
+Clean floor: the `< 0%` region (3-day decliners) LOSES (clip 0.73–0.90) — buying an intraday pop in a
+multi-day faller fights the trend (same shape as chg_1d, one timeframe out). **DURABLE — bad in BOTH eras**
+(2021 neg-3d clip **0.50**, rest neg-3d **0.94**), NOT regime-conditional — so gateable, unlike the 6
+inverting features. **4th orthogonal 2021 HELPER** (with exhaustion/VWAP-floor/chg_1d — all cut trades bad
+everywhere; 2021 just has more).
+
+**WIRED `MinChg3d = 0.0`** (engine gate via new `SetDailyContext(close3d, close7d)` + `--min-chg-3d`). A book:
+
+| metric | before | after (chg3d≥0) |
+|---|---|---|
+| trips | 1,162 | 1,064 |
+| clip PF | 1.76 | **1.81** |
+| net clip | $469k | $462k |
+| 2021 clip | 1.20 | **1.24** |
+
+Free (clip PF +0.05, −$7k net on 98 fewer trips). Per-year clip: 2020 2.01 | 2021 1.24 | 2022 1.56 | 2023
+3.00 | 2024 2.06 | 2025 1.91 | 2026 2.18. A+ neutral (2.79 / 2021 0.94).
+
+## Finding 29 — chg_7d is NOT a lever (no clean bad-negative; redundant with chg_3d) — record only
+
+`chg_7d` breakdown on the A book WITH chg3d≥0 active (clipped):
+
+| chg_7d | n | PF clip | net$ |
+|---|---:|---:|---:|
+| <−10% | 31 | **2.40** | 15k |
+| −10..0% | 21 | 1.06 | 0.6k |
+| 0..15% | 51 | 3.45 | 38k |
+| 15..35% | 80 | 1.91 | 26k |
+| 35..70% | 164 | 2.40 | 98k |
+| 70..150% | 322 | 2.33 | 202k |
+| ≥150% | 383 | **1.23** | 65k |
+
+**No clean floor:** unlike chg_3d, the negative-7d region is NOT bad — `<−10%` is STRONG (clip 2.40), and in
+2021 the neg-7d cell is the BEST (clip 3.31 vs pos-7d 1.14). Mechanically: with chg3d≥0 already requiring a
+recent uptrend, "up 3d but down 7d" = a pulled-back-then-resumed pattern = fine/good. So a `chg_7d≥0` floor
+would CUT the good `<−10%` bucket. The only signal is a soft `≥150%` CEILING (7-day exhaustion, clip 1.23 —
+weak, not negative, biggest bucket → not worth cutting). Also partially REDUNDANT with chg_3d. **Not a keeper;
+record only.** chg_3d was the real multi-day lever.
+
 ---
 
 ## The books — per-year UNCLIPPED ($10k/trip flat, real-dollar "would-have-made")

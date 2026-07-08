@@ -37,6 +37,7 @@ type Args =
     | Max_Rvol_5m_20d of float
     | Min_Entry_Vs_Vwap of float
     | Min_Chg_1d of float
+    | Min_Chg_3d of float
     | Require_Ema_Above_Vwap
     | Min_Ema_Vs_Vwap of float
     | Max_Sum_Above_40 of int
@@ -79,6 +80,7 @@ type Args =
             | Max_Rvol_5m_20d _ -> "EXHAUSTION CUT (F11): reject if the trailing-5m avg volume >= this × the 20d per-minute pace (a blow-off = late entry). Default 100. 0 = off."
             | Min_Entry_Vs_Vwap _ -> "VWAP-LOCATION FLOOR (F14): reject entries more than |this| below the session VWAP (entry/vwap-1 < this = a sold-off falling knife). Default -0.03. Large-negative = off."
             | Min_Chg_1d _ -> "DAY-DIRECTION FLOOR (F17): require the stock green on the day — reject if entry/prevClose-1 < this. Default 0.0 (must be >= prev close). Large-negative = off."
+            | Min_Chg_3d _ -> "3-DAY TREND FLOOR (F28): require the stock up over 3 days — reject if entry/close3d-1 < this. Default 0.0. Large-negative = off."
             | Require_Ema_Above_Vwap -> "ABOVE-VWAP ENTRY GATE (F21): require the 9-EMA STRICTLY above the session VWAP (superseded by --min-ema-vs-vwap). Default off."
             | Min_Ema_Vs_Vwap _ -> "9-EMA-vs-VWAP FLOOR (F27, replaces --min-entry-vs-vwap): reject if the 9-EMA is more than |this| below VWAP (ema/vwap-1 < this). Default -0.02. Large-negative = off."
             | Max_Sum_Above_40 _ -> "CAP: reject if >= N of the last 40 bars were above the 9-EMA (trend went on too long). Default 0 = off."
@@ -129,6 +131,7 @@ let main argv =
                   MaxRvol5m20d    = parsed.GetResult(Max_Rvol_5m_20d,   defaultValue = defaultConfig.Intraday.MaxRvol5m20d)
                   MinEntryVsVwap  = parsed.GetResult(Min_Entry_Vs_Vwap, defaultValue = defaultConfig.Intraday.MinEntryVsVwap)
                   MinChg1d        = parsed.GetResult(Min_Chg_1d,        defaultValue = defaultConfig.Intraday.MinChg1d)
+                  MinChg3d        = parsed.GetResult(Min_Chg_3d,        defaultValue = defaultConfig.Intraday.MinChg3d)
                   RequireEmaAboveVwap = parsed.Contains Require_Ema_Above_Vwap || defaultConfig.Intraday.RequireEmaAboveVwap
                   MinEmaVsVwap    = parsed.GetResult(Min_Ema_Vs_Vwap,   defaultValue = defaultConfig.Intraday.MinEmaVsVwap)
                   MaxSumAbove40   = parsed.GetResult(Max_Sum_Above_40,  defaultValue = defaultConfig.Intraday.MaxSumAbove40)
@@ -164,6 +167,7 @@ let main argv =
           if not (Double.IsNegativeInfinity ic.MinEmaVsVwap || Double.IsNaN ic.MinEmaVsVwap) then yield sprintf "ema-vs-vwap >= %.0f%%" (100.0*ic.MinEmaVsVwap)
           if ic.RequireEmaAboveVwap then yield "9ema>vwap"
           if not (Double.IsNegativeInfinity ic.MinChg1d || Double.IsNaN ic.MinChg1d) then yield sprintf "chg1d >= %.0f%%" (100.0*ic.MinChg1d)
+          if not (Double.IsNegativeInfinity ic.MinChg3d || Double.IsNaN ic.MinChg3d) then yield sprintf "chg3d >= %.0f%%" (100.0*ic.MinChg3d)
           if ic.MaxSumAbove40 > 0 then yield sprintf "sum40 < %d" ic.MaxSumAbove40
           if ic.MaxSumAbove60 > 0 then yield sprintf "sum60 < %d" ic.MaxSumAbove60
           if ic.MinSessMaxLogAtr > 0.0 then yield sprintf "sess-max-logATR >= %.3f" ic.MinSessMaxLogAtr

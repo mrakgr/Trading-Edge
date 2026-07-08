@@ -124,6 +124,9 @@ type IntradayConfig =
                                // PREV daily close (entry/prevClose - 1 < this). A stock RED on the day is
                                // fighting its own daily trend — buying its intraday bounce loses. Default 0.0
                                // (must be green on the day). NaN/-inf = off.
+      MinChg3d: float          // 3-DAY TREND FLOOR (F28): reject if entry / close-3d-ago - 1 < this. A name
+                               // FALLING over 3 days is a poor momentum buy in BOTH regimes (bad-everywhere,
+                               // durable). Default 0.0 (3-day trend must be up). NaN/-inf = off. Needs close3d.
       RequireEmaAboveVwap: bool // ENTRY GATE (F21): require the 9-EMA STRICTLY ABOVE the session VWAP at entry.
                                // Superseded by MinEmaVsVwap (the knee is −2%, not 0). false (default) = off.
       MinEmaVsVwap: float      // VWAP-LOCATION FLOOR (F27, REPLACES MinEntryVsVwap): reject if the current 9-EMA
@@ -163,6 +166,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     //   permin15m  = opening-15m avg 1m volume       (the name's own early-session tempo)
     let mutable permin20d = 0.0
     let mutable permin15m = 0.0
+    // multi-day daily-close context (adj), for the chg_3d/chg_7d trend floors. 0 = unset (gate disabled).
+    let mutable close3d = 0.0
+    let mutable close7d = 0.0
 
     // ----- rolling intraday structures (1m timeframe; all fed ONLY from the 09:30 feature anchor) -----
     let atrLog    = AvgMa(cfg.VolWindow)        // mean LOG true range over the last VolWindow bars (the volatility feature)
@@ -261,6 +267,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     member _.SetMarketCtx (f: int -> struct (float * float)) = marketCtx <- f
     /// Set the per-minute volume baselines for the exhaustion exit: (20d-avg/390, opening-15m avg 1m vol).
     member _.SetVolBaselines (perMin20d: float, perMin15m: float) = permin20d <- perMin20d; permin15m <- perMin15m
+    /// Set the multi-day daily-close context (adj) for the chg_3d/chg_7d trend floors. 0 disables that gate.
+    member _.SetDailyContext (c3d: float, c7d: float) = close3d <- c3d; close7d <- c7d
     member private _.MktChgOpen (etMin: int) = let struct (o, _) = marketCtx etMin in o
     member private _.MktChgPrev (etMin: int) = let struct (_, p) = marketCtx etMin in p
     /// The session open = the first FEATURE bar's open (09:30). Cross-checks the SQL day_open.
@@ -320,6 +328,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // A red-on-the-day name is fighting its own daily trend. -inf/NaN = off.
         && (Double.IsNegativeInfinity cfg.MinChg1d || Double.IsNaN cfg.MinChg1d
             || (prevClose > 0.0 && bar.close / prevClose - 1.0 >= cfg.MinChg1d))
+        // 3-DAY TREND FLOOR (F28): reject if the stock is falling over 3 days (entry/close3d - 1 < MinChg3d).
+        // Bad-everywhere (both regimes). -inf/NaN = off; needs close3d set.
+        && (Double.IsNegativeInfinity cfg.MinChg3d || Double.IsNaN cfg.MinChg3d || close3d <= 0.0
+            || bar.close / close3d - 1.0 >= cfg.MinChg3d)
         // ABOVE-VWAP ENTRY GATE (F21): require the 9-EMA STRICTLY above the session VWAP. false = off.
         && (not cfg.RequireEmaAboveVwap
             || (match sEmaPrev, sVwapNow with ValueSome e, ValueSome v -> e > v | _ -> false))

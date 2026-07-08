@@ -68,6 +68,9 @@ let defaultConfig =
                                          // prev close). Red/flat-day names fight their daily trend; the edge scales
                                          // monotonically with how UP the stock is (>=60% clips PF 2.19/+7.7%). An
                                          // ESSENTIAL entry requirement (user). Lifts clip PF; 3rd 2021 fix. -inf = off.
+          MinChg3d       = 0.0           // F28: 3-day trend floor — require the stock UP over 3 days (entry >=
+                                         // close3d). A 3-day decliner is a poor momentum buy in BOTH regimes
+                                         // (durable, not regime-conditional). Lifts clip PF+net; 4th 2021 helper. -inf = off.
           RequireEmaAboveVwap = false    // F21: strict >VWAP gate — superseded by MinEmaVsVwap. Default off.
           MinEmaVsVwap   = -0.02         // F27: 9-EMA-vs-VWAP floor (REPLACES MinEntryVsVwap) — reject if the 9-EMA
                                          // is >2% below VWAP. Smoothed trend location; knee at −2% (−2..0% still good).
@@ -441,6 +444,7 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
                     let perMin20d = if c.AvgVol20 > 0.0 then c.AvgVol20 / 390.0 else 0.0
                     let perMin15m = if c.NBar0945 > 0 then float c.Vol0945 / float c.NBar0945 else 0.0
                     sys.SetVolBaselines(perMin20d, perMin15m)
+                    sys.SetDailyContext(c.Close3d, c.Close7d)
                     sys.Process bar
                     cur <- Some(c, sys))
             match cur with
