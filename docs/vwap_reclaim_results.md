@@ -961,3 +961,46 @@ cost-viable PF (and a short carries extra locate/borrow cost).
 is a LONG dip-buying/mean-reversion edge specific to the post-2020 regime (beaten-down names reclaiming VWAP
 get BOUGHT); there is no clean short analogue, and sophisticated features don't manufacture one — they just
 measure, precisely, that the edge isn't there on the short. `--reclaim-short` stays a documented negative.
+
+### Finding 32 — per-year breakdowns of the two A-cells (Finding 30): 2021 is the weakest AND highest-trip year, but stays POSITIVE
+
+Per-year (full-history fat book, hold-to-MOC) for the two Finding-30 cells. Requested to see how the run-depth
+/ updn cells hold up year-by-year, especially in 2021.
+
+**Cell 1 — `updn ≥ 1.0 & run_max_dist ≥ 3.5%`** (modern 2020-25: 801 trips / PF 2.19 / +6.8% avg):
+
+| yr | n | win% | PF | avg% | net$ |
+|---|---:|---:|---:|---:|---:|
+| 2020 | 92 | 51.1 | 3.52 | +11.4 | 104,566 |
+| **2021** | 298 | 36.2 | **1.26** | +1.6 | 47,156 |
+| 2022 | 131 | 45.0 | 1.60 | +2.8 | 36,864 |
+| 2023 | 58 | 43.1 | 3.38 | +13.6 | 78,598 |
+| 2024 | 103 | 40.8 | 2.51 | +10.0 | 102,882 |
+| 2025 | 119 | 51.3 | 3.53 | +14.5 | 172,604 |
+| 2026 | 64 | 54.7 | 4.39 | +14.2 | 90,698 |
+
+**Cell 2 — `updn ≥ 1.3 & run_max_dist ≥ 3.5% & dist/ATR < 3`** (modern 2020-25: 212 trips / PF 4.04 / +19.3% avg):
+
+| yr | n | win% | PF | avg% | net$ |
+|---|---:|---:|---:|---:|---:|
+| 2020 | 24 | 66.7 | 8.25 | +36.2 | 86,902 |
+| **2021** | 63 | 33.3 | **2.48** | +11.1 | 69,942 |
+| 2022 | 27 | 55.6 | 4.09 | +16.1 | 43,521 |
+| 2023 | 18 | 50.0 | 5.05 | +31.2 | 56,199 |
+| 2024 | 40 | 40.0 | 2.92 | +14.0 | 55,828 |
+| 2025 | 40 | 70.0 | 6.36 | +24.0 | 95,886 |
+| 2026 | 23 | 47.8 | 5.97 | +23.8 | 54,739 |
+
+**Both cells: 2021 is the WEAKEST year (PF 1.26 / 2.48, win 33-36%) AND the HIGHEST-trip year** (298 / 63 —
+more than any other year). The by-now-familiar chop signature: 2021 over-trades and wins less. **But both cells
+stay solidly POSITIVE in 2021** — cell 2's 2021 is PF 2.48 / +11% avg (a GOOD year, just the weakest of a
+spectacular set). Every other modern year is 2.5-8.3 PF.
+
+**Cross-system note vs DipRiderV3:** the *identical* 2021-is-weakest-and-most-traded signature appears in V3
+(its worst modern year, its most trips). But VwapReclaim's A-cells hold up BETTER in 2021 (PF 1.26/2.48
+positive) than V3's A+ (slightly negative clipped). VwapReclaim is a capitulation-reclaim FADE (buys beaten
+names reclaiming VWAP) — structurally less exposed to the buy-the-strength-that-fades trap that punishes V3's
+momentum-continuation entries in 2021's two-sided chop. Same regime, opposite entry logic, and the fade
+survives it better. (Reconciliation: modern totals here — 801/212 trips — run ~10-12% above Finding 30's
+718/190, same PF ballpark; a candidate-table / date-boundary difference vs when F30 was written. Shapes and
+per-year robustness are unaffected and if anything slightly stronger.)
