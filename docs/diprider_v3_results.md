@@ -742,6 +742,42 @@ per-trade feature's BEST-in-trend value is WORST-in-2021. This is now a LAW of t
 regime signal: since it's the LOW-rvol / early-momentum entries that flip, the detector must key on the
 MARKET-level state where early-volume momentum fades (SPY chop / breadth), not any per-trade feature.
 
+## Finding 26 — breadth & float breakdowns: float is FLAT (edge already captured upstream); breadth is a smile that FLATLINES in 2021 — NOT the regime signal
+
+Post-hoc joined lag-1 breadth (`pct_above_20`) + SEC $-float (ASOF, re-anchored to entry price, split-safe)
+onto the A book (`scripts/equity/diprider_v3_breadth_float.sql`). Both are per-day/per-ticker ⇒ post-hoc=gated.
+
+**Float ($ at entry, clipped):** <$50M = 1.81 | $50-150M = 1.64 | $150-300M = 2.30 | **$300M-1B = 2.33 (BEST,
+59% win)** | ≥$1B = 1.36 | no_float = 1.57. **Low-float is good but NOT dominant, and slightly INVERTED vs
+HighFlyer/LowFlyer** (where <$300M was ~4×). Reason: V3's `chg_1d≥10%` + `log_atr≥0.013` + `vol_slope≥0.05`
+gates ALREADY select small volatile names, so the low-float edge is captured UPSTREAM; the residual float
+signal is weak. **A low-float gate would NOT help** (it cuts the best $300M-1B bucket). The one actionable
+sliver: `no_float` (SEC-uncovered microcaps) is the worst 2021 cell (see below) — a data-coverage cut, not a
+size gate.
+
+**Breadth (lag-1 pct_above_20, clipped) — a SMILE, not monotone:** extremes best (<0.20 = 2.28, ≥0.80 = 2.98),
+choppy middle (0.35–0.80) flat ~1.5–1.9. Both a broad washout (low breadth → beaten names bounce) AND a
+melt-up (high breadth → momentum runs) help V3; the middle chop is worst. (Different from TideFlyer, which
+wanted LOW breadth only — because V3 is momentum, it also profits from the strong-breadth melt-up.)
+
+**THE KEY RESULT — unlike the 6 per-trade features (F12/20/21/23/24/25), float & breadth do NOT invert in
+2021; they uniformly DEGRADE:**
+
+| feature | 2021 | rest |
+|---|---|---|
+| float <$300M | 1.27 | 1.98 |
+| float ≥$300M | 1.26 | 2.22 |
+| float no_float | **0.97** | 1.83 |
+| breadth extremes | 1.09 | 1.91 |
+| breadth middle | 1.17 | 2.02 |
+
+Float FLATTENS in 2021 (1.27 ≈ 1.26 — not flipped; low-float is NOT 2021's poison). Breadth COMPRESSES to
+~1.1 (the smile vanishes). **So breadth is NOT the 2021 regime signal** — 2021's meme-chop was an intraday
+tape character (individual names pumping/fading) that DAILY breadth (pct above 20d-MA) can't see. Combined with
+the 6-feature inversion law + VwapReclaim F32, the evidence mounts that **2021 is not cleanly fixable** by any
+daily-market or entry-feature signal — it's an intraday-microstructure regime. The only 2021-bad cell here is
+`no_float` (0.97) → cutting SEC-uncovered microcaps is a defensible trash filter but not a 2021 fix.
+
 ---
 
 ## The books — per-year UNCLIPPED ($10k/trip flat, real-dollar "would-have-made")
