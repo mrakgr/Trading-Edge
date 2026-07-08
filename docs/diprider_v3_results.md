@@ -639,5 +639,31 @@ mediocre. The ≥0.98 climax bucket (203 trips, clip 1.37) is a plausible CAP ta
 (2.25), at/above-peak fine (1.73). Same moderate-pullback-good shape as F20's distance-from-high; less clean
 than the volume feature. Record, don't gate.
 
-**NEXT:** test vol20_vs_sessmax<0.98 cap (gated, clipped, 2021) → cumulative cumVol/avgvol20 → chg_3d/7d →
-2021 breadth/chop regime signal. Clip every lever.
+## Finding 23 — vol20_vs_sessmax INVERTS between A and A+; 2021 A+ losses cluster in the volume-LULL zone (regime, not lever)
+
+Studied `vol20_vs_sessmax` on the A+ book, split lull(<0.33)/sweet(0.33–0.85)/climax(≥0.85):
+
+**2021 A+ (28 trades, clipped):** lull = **clip 0.42, 2/9 wins, −$4.9k** (DISASTER); sweet = 1.31 (held both
+mega-squeezes OBLN/KOSS); climax = 0.84. → 2021's A+ losers cluster in the volume-LULL zone (the user's
+"small run-ups far below the highs" — entering after volume dried up = a dead-cat run-up in chop).
+
+**All-years A+ (clipped):** lull = **2.44** | sweet = 2.47 | **climax = 4.51 (BEST, 62% win)**. The EXACT
+OPPOSITE of 2021 — and the opposite of the A book (F22, where climax was WEAKEST, inverted-U).
+
+**The feature is NOT a stable lever — its sign flips by book AND regime:**
+- A book (F22): climax = weakest (exhaustion).
+- A+ all-years: climax = strongest (in extreme-momentum names, climax = the parabolic move has real force).
+- A+ 2021: lull = worst (chop kills low-conviction entries).
+
+Why A vs A+ invert: A+ already requires vol-slope≥0.10 + chg_1d≥60% (parabolic runners) — for those, a volume
+climax is CONFIRMATION not exhaustion; in the broad A book climax IS exhaustion. Same feature, opposite meaning.
+
+**So it explains 2021's A+ losses (volume-lull cluster) but is NOT gateable:** the lull zone is bad ONLY in
+2021 (clip 2.44 in the other years). This is the **4th feature** (after sum40 F12, deep-fade F20, below-VWAP
+F21-adjacent) that looks like a 2021 lever but is regime-conditional — good in trend, bad in chop. The verdict
+is now overwhelming: **2021 needs a market-REGIME/breadth signal**, not another per-trade entry feature. No
+entry feature can separate "2021 low-vol (bad)" from "2024 low-vol (good)."
+
+**NEXT (pivot to the only lever that CAN help 2021):** build a broader-market breadth/chop regime signal from
+`mkt_chg_open`/`mkt_chg_prev` (already recorded) — or SPY realized-vol / a same-day two-sided-fade detector —
+and gate/size on it. Then cumulative cumVol/avgvol20 + chg_3d/7d as remaining per-trade context. Clip every lever.
