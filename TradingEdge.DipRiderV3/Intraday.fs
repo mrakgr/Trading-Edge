@@ -109,6 +109,9 @@ type IntradayConfig =
       MaxRvol5m20d: float      // EXHAUSTION CUT (F11): reject if the trailing 5m avg volume >= this × the 20d
                                // per-minute pace ((trailVol5m/5) / (avgvol20/390)). A blow-off = a late entry.
                                // Default 100. 0 = off. Needs SetVolBaselines' perMin20d.
+      MinEntryVsVwap: float    // VWAP-LOCATION FLOOR (F14): reject if entry px is < this fraction below the
+                               // session VWAP (entry/vwap - 1 < this). A momentum name >3% below VWAP is a
+                               // sold-off falling knife, not a continuation. Default -0.03. NaN/-inf = off.
       MaxSumAbove40: int       // CAP: reject if SumAbove40 >= this (trend went on too long). 0 = off (default).
       MaxSumAbove60: int       // CAP: reject if SumAbove60 >= this. 0 = off (default).
       // ----- stop / exits -----
@@ -272,6 +275,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // pace ((trailVol5m/5) / (permin20d)). A blow-off = a late entry. 0 = off; needs the perMin20d baseline.
         && (cfg.MaxRvol5m20d <= 0.0 || permin20d <= 0.0
             || (float sTrailVol5m / 5.0) < cfg.MaxRvol5m20d * permin20d)
+        // VWAP-LOCATION FLOOR (F14): reject if the entry px is more than |MinEntryVsVwap| below the session
+        // VWAP (a sold-off falling knife, not a continuation). -inf/NaN = off. Uses the strictly-prior VWAP.
+        && (Double.IsNegativeInfinity cfg.MinEntryVsVwap || Double.IsNaN cfg.MinEntryVsVwap
+            || gate sVwapNow (fun v -> v > 0.0 && bar.close / v - 1.0 >= cfg.MinEntryVsVwap))
         // the push: >= N of the last 6 bars closed above the 9-EMA. 0 = OFF (default, start disabled).
         && (cfg.MinCloseAbove6 <= 0 || sSumAbove6 >= cfg.MinCloseAbove6)
         // trend-too-long CAP: reject if too many of the last 40/60 bars were above the EMA. 0 = off.

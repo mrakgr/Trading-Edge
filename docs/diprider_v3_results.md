@@ -386,6 +386,47 @@ so sum40 is real signal, just not robust; `MaxSumAbove40` stays available, defau
 **Current locked book: ATR≥0.013 + vol-slope≥0.05 + slope>0 + sum6≥5 + rvol5m20d<100, tightness off, sum40
 off** → 1,943 trips / raw PF 2.06 / clip PF 1.42 / all-weather (per-year clip 1.00–1.86).
 
-**NEXT:** session-max-log-ATR floor → entry-vs-VWAP / entry-vs-session-high → the cumulative cumVol/avgvol20
-filter (post-hoc = gated, so cheap to test) → then a dedicated 2021 regime look if any year still lags. Clip
-every lever; watch for redundancy with the exhaustion cut.
+## Finding 13 — session-max-log-ATR floor REJECTED — redundant with the entry-ATR gate, and wrong tense
+
+Breakdown of `sess_max_log_atr` (session-cumulative MAX of the 20m log-ATR) on the locked F11 book, raw+clipped:
+flat/non-monotone (clip PF 1.17–1.50, no clean threshold; a dip at 0.03–0.04, fine elsewhere).
+
+**Relationship to the entry `log_atr_20`:** sess_max is **median 3.0× (mean 3.5×) the entry ATR and exceeds
+it 98.8% of the time.** So the F3 entry-ATR floor (≥0.013) ALREADY forces sess_max well above 0.015 (only 6
+trips below) — a session-max floor carries almost no independent information; it's **subsumed** by the entry gate.
+
+**And it's the wrong TENSE for a continuation entry:** sess_max asks "did this name EVER explode today?"
+(persistent, backward-looking); entry-log-ATR asks "is it volatile RIGHT NOW at the entry bar?" A name that
+spiked at the open and went quiet has HIGH sess_max but LOW entry-ATR — the "explosion already over" case we
+correctly DON'T want. The entry-ATR gate excludes those; a sess_max floor would ADMIT them (mildly wrong-signed).
+(Contrast HighFlyerV2, where the 126-bar-max-ATR floor IS useful — but that's a multi-day swing selecting
+"names that CAN move," a different question than "is this intraday move alive now.")
+
+**Conclusion: don't gate on sess_max-log-ATR.** Entry `log_atr_20` is the correct volatility gate — confirmed.
+
+## Finding 14 — VWAP-location floor `entry_vs_vwap >= -3%` — free PF+net, and a 2nd (orthogonal) 2021 fix
+
+Breakdown of `entry_vs_vwap` (entryPx/VWAP − 1) on the locked F11 book (clipped): the **`< −3%` below-VWAP
+bucket (383 trips, 20%) is the ONLY loser — clip PF 0.93 / −$15k.** A momentum name trading >3% BELOW its
+session VWAP has been sold off hard intraday = a falling knife, not a continuation. Everything ≥ −3% is
+positive (clip 1.17–2.05); above-VWAP is strong (1–3% = clip 2.05; ≥6% = best win rates 46–48%).
+
+**Floor sweep (clipped):** `≥ −3%` = 1,560 trips / clip PF **1.55** / net **$418k** (UP from 1.42/$403k —
+improves PF AND net, free). `≥ −1%` gains nothing (1.54/$378k). **−3% is the knee** (round, non-overfit).
+
+**2021 (orthogonal 2nd fix):** the `< −3%` bucket in 2021 is catastrophic (79 trips, clip PF **0.33 / −$29k**)
+— cutting it takes 2021 from break-even (F11 clip 1.00) to genuinely positive. Distinct signal from the
+exhaustion cut: exhaustion removes high-VOLUME blow-offs, the VWAP floor removes sold-off-below-VWAP PRICE
+locations — both are "bad entry location," orthogonal, and 2021's chop produced BOTH flavors.
+
+Wired `MinEntryVsVwap` gate (default −0.03) + `--min-entry-vs-vwap`. **Gated `≥ −3%`:** 1,661 trips (vs
+post-hoc 1,560 — slot-freeing again) / raw PF **2.18** / clip PF **1.50** / +$979k / 39.6% win.
+
+**Per-year (clipped) — every year now clip-positive with margin:** 2020 1.50 | 2021 **1.05** | 2022 1.39 |
+2023 2.24 | 2024 1.88 | 2025 1.62 | 2026 1.87.
+
+**Current locked book: ATR≥0.013 + vol-slope≥0.05 + slope>0 + sum6≥5 + rvol5m20d<100 + entry-vs-vwap≥−3%,
+tightness off** → 1,661 trips / raw PF 2.18 / clip PF 1.50 / +$979k / 39.6% win / all-weather.
+
+**NEXT:** entry-vs-session-high → cumulative cumVol/avgvol20 (post-hoc = gated) → vol-slope clip-check (never
+verified). Clip every lever; watch for redundancy with the two location filters.

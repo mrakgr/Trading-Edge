@@ -60,6 +60,9 @@ let defaultConfig =
           MaxRvol5m20d   = 100.0         // F11: exhaustion cut — reject if trailing-5m avg vol >= 100× the 20d
                                          // per-min pace (a blow-off = late entry). Robust 50-120 (clip PF ~1.4);
                                          // cuts ~half the book for ~16% of net. 0 = off.
+          MinEntryVsVwap = -0.03         // F14: VWAP-location floor — reject entries >3% BELOW session VWAP (a
+                                         // sold-off falling knife). Lifts clip PF 1.42->1.55 AND net (free); takes
+                                         // 2021 clip 1.00->1.13 (a 2nd 2021 fix, orthogonal to exhaustion). -inf = off.
           MaxSumAbove40  = 0             // trend-too-long cap OFF (tune after breakdown).
           MaxSumAbove60  = 0
           // ----- stop / exits -----
