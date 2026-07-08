@@ -68,6 +68,9 @@ type IntradayPosition =
       SumAbove60AtEntry: int     // # of the last 60 that closed above the EMA
       EmaVwap30AtEntry: int      // # of the last 30 bars the 9-EMA was ABOVE the session VWAP (persistence of the above-VWAP uptrend)
       EmaVwap60AtEntry: int      // # of the last 60 bars the 9-EMA was above VWAP
+      TrailVol20mAtEntry: int64  // trailing 20-bar volume sum at entry (the entry's 20m volume)
+      SessMaxVol20AtEntry: float // session PEAK trailing-20 volume sum (are we entering at the volume climax or a lull?)
+      SessMaxEmaAtEntry: float   // session MAX 9-EMA (how far the 9-EMA has pulled back from its session peak)
       SessMaxLogAtrAtEntry: float // session-cumulative MAX of the 20m log-ATR so far (past vol explosions)
       SessMinCloseAtEntry: float  // session MIN close (from 08:30) — geometry-stop floor candidate / context
       SessMaxCloseAtEntry: float  // session MAX close (from 08:30)
@@ -120,6 +123,9 @@ type IntradayConfig =
                                // PREV daily close (entry/prevClose - 1 < this). A stock RED on the day is
                                // fighting its own daily trend — buying its intraday bounce loses. Default 0.0
                                // (must be green on the day). NaN/-inf = off.
+      RequireEmaAboveVwap: bool // ENTRY GATE (F21): require the 9-EMA to be ABOVE the session VWAP at entry.
+                               // Pairs with the loss-of-VWAP exit (only trade above-VWAP momentum, bail on the
+                               // loss of VWAP). false (default) = off.
       MaxSumAbove40: int       // CAP: reject if SumAbove40 >= this (trend went on too long). 0 = off (default).
       MaxSumAbove60: int       // CAP: reject if SumAbove60 >= this. 0 = off (default).
       // ----- stop / exits -----
@@ -180,6 +186,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     // trailing 5-bar raw VOLUME sum — the recent-tempo numerator for the exhaustion cut (5m-avg vs the 15m
     // opening-avg and the 20d per-minute avg). Fed every VALID feature-bar.
     let vol5sum   = SumMa(5)
+    // trailing 20-bar raw VOLUME sum — for the session-MAX-20m-volume feature (compare the entry's 20m volume
+    // to the session's peak 20m volume: are we entering at the volume climax or a lull?).
+    let vol20sum  = SumMa(20)
 
     // session VWAP = Σ(typical_price · volume) / Σ(volume), typical = (h+l+c)/3, from the 09:30 feature anchor.
     let mutable vwapNum  = 0.0                   // Σ tp·v
@@ -193,6 +202,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sessMinClose : float voption = ValueNone
     let mutable sessMaxClose : float voption = ValueNone
     let mutable sessMaxVol   : int64 voption = ValueNone
+    // session-cumulative MAX of the trailing-20-bar volume SUM (the session's peak 20m volume) and of the
+    // 9-EMA (the session's highest 9-EMA). Fed the respective post-fold state each feature-bar. No reset.
+    let mutable sessMaxVol20 : float voption = ValueNone
+    let mutable sessMaxEma   : float voption = ValueNone
     // session-cumulative MAX of the 20m log-ATR (past volatility explosions). Fed the atrLog.State each
     // feature-bar (like HighFlyer's maxAtrLog, but session-cumulative, no window). No reset — per-day engine.
     let mutable sessMaxLogAtr : float = nan
@@ -230,6 +243,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sVwapNow      : float voption = ValueNone
     let mutable sInitVol15m   : int64 = 0L
     let mutable sTrailVol5m   : int64 = 0L      // trailing 5-bar volume sum going INTO this bar (exhaustion numerator)
+    let mutable sTrailVol20m  : int64 = 0L      // trailing 20-bar volume sum going INTO this bar
+    let mutable sSessMaxVol20 : float = nan     // session peak trailing-20 volume sum (strictly-prior)
+    let mutable sSessMaxEma   : float = nan     // session max 9-EMA (strictly-prior)
     let mutable sEmaAboveVwapBars : int = 0
 
     let positions = ResizeArray<IntradayPosition>()
@@ -300,6 +316,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // A red-on-the-day name is fighting its own daily trend. -inf/NaN = off.
         && (Double.IsNegativeInfinity cfg.MinChg1d || Double.IsNaN cfg.MinChg1d
             || (prevClose > 0.0 && bar.close / prevClose - 1.0 >= cfg.MinChg1d))
+        // ABOVE-VWAP ENTRY GATE (F21): require the 9-EMA above the session VWAP (strictly-prior snapshots).
+        // Pairs with the loss-of-VWAP exit. false = off.
+        && (not cfg.RequireEmaAboveVwap
+            || (match sEmaPrev, sVwapNow with ValueSome e, ValueSome v -> e > v | _ -> false))
         // the push: >= N of the last 6 bars closed above the 9-EMA. 0 = OFF (default, start disabled).
         && (cfg.MinCloseAbove6 <= 0 || sSumAbove6 >= cfg.MinCloseAbove6)
         // trend-too-long CAP: reject if too many of the last 40/60 bars were above the EMA. 0 = off.
@@ -341,6 +361,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sVwapNow       <- this.LiveVwap
         sInitVol15m    <- initVol15m
         sTrailVol5m    <- (match vol5sum.State with ValueSome v -> int64 v | ValueNone -> 0L)
+        sTrailVol20m   <- (match vol20sum.State with ValueSome v -> int64 v | ValueNone -> 0L)
+        sSessMaxVol20  <- sessMaxVol20 |> ValueOption.defaultValue nan
+        sSessMaxEma    <- sessMaxEma   |> ValueOption.defaultValue nan
         sEmaAboveVwapBars <- emaAboveVwapBars
 
         // 2) the universal VALID-bar gate: a bar enters ANY rolling window only if price AND volume are positive.
@@ -391,12 +414,21 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             priceOls.Push (log bar.close)
             volOls.Push   (log (float bar.volume))
             vol5sum.Push  (float bar.volume)   // trailing 5-bar volume (exhaustion-cut numerator)
+            vol20sum.Push (float bar.volume)   // trailing 20-bar volume (for the session-peak-20m-volume feature)
+            // session-cumulative MAX of the trailing-20 volume sum (the session's peak 20m volume).
+            (match vol20sum.State with
+             | ValueSome v -> sessMaxVol20 <- (match sessMaxVol20 with ValueSome m -> ValueSome (max m v) | ValueNone -> ValueSome v)
+             | ValueNone -> ())
             // session VWAP.
             let tp = (bar.high + bar.low + bar.close) / 3.0
             vwapNum <- vwapNum + tp * float bar.volume
             vwapDen <- vwapDen + float bar.volume
             // the 9-EMA itself (fed AFTER the indicator reads the prior EMA above).
             ema.Push bar.close
+            // session-cumulative MAX of the 9-EMA (the session's highest 9-EMA).
+            (match ema.State with
+             | ValueSome e -> sessMaxEma <- (match sessMaxEma with ValueSome m -> ValueSome (max m e) | ValueNone -> ValueSome e)
+             | ValueNone -> ())
             // 15m initial volume = Σ over the first 15 VALID feature-bars.
             if initVolBars < 15 then
                 initVol15m  <- initVol15m + bar.volume
@@ -491,6 +523,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   SumAbove60AtEntry = sSumAbove60
                   EmaVwap30AtEntry = sEmaVwap30
                   EmaVwap60AtEntry = sEmaVwap60
+                  TrailVol20mAtEntry = sTrailVol20m
+                  SessMaxVol20AtEntry = sSessMaxVol20
+                  SessMaxEmaAtEntry = sSessMaxEma
                   SessMaxLogAtrAtEntry = sSessMaxLogAtr
                   SessMinCloseAtEntry = sSessMinClose
                   SessMaxCloseAtEntry = sSessMaxClose

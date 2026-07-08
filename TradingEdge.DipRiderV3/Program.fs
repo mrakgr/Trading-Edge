@@ -37,6 +37,7 @@ type Args =
     | Max_Rvol_5m_20d of float
     | Min_Entry_Vs_Vwap of float
     | Min_Chg_1d of float
+    | Require_Ema_Above_Vwap
     | Max_Sum_Above_40 of int
     | Max_Sum_Above_60 of int
     // ----- stop / exits -----
@@ -77,6 +78,7 @@ type Args =
             | Max_Rvol_5m_20d _ -> "EXHAUSTION CUT (F11): reject if the trailing-5m avg volume >= this × the 20d per-minute pace (a blow-off = late entry). Default 100. 0 = off."
             | Min_Entry_Vs_Vwap _ -> "VWAP-LOCATION FLOOR (F14): reject entries more than |this| below the session VWAP (entry/vwap-1 < this = a sold-off falling knife). Default -0.03. Large-negative = off."
             | Min_Chg_1d _ -> "DAY-DIRECTION FLOOR (F17): require the stock green on the day — reject if entry/prevClose-1 < this. Default 0.0 (must be >= prev close). Large-negative = off."
+            | Require_Ema_Above_Vwap -> "ABOVE-VWAP ENTRY GATE (F21): require the 9-EMA above the session VWAP at entry (pairs with the loss-of-VWAP exit). Default off."
             | Max_Sum_Above_40 _ -> "CAP: reject if >= N of the last 40 bars were above the 9-EMA (trend went on too long). Default 0 = off."
             | Max_Sum_Above_60 _ -> "CAP: reject if >= N of the last 60 bars were above the 9-EMA. Default 0 = off."
             | No_Geom_Stop -> "Disable the geometry stop (hold stopless to MOC + optional --pct-stop/--time-stop)."
@@ -125,6 +127,7 @@ let main argv =
                   MaxRvol5m20d    = parsed.GetResult(Max_Rvol_5m_20d,   defaultValue = defaultConfig.Intraday.MaxRvol5m20d)
                   MinEntryVsVwap  = parsed.GetResult(Min_Entry_Vs_Vwap, defaultValue = defaultConfig.Intraday.MinEntryVsVwap)
                   MinChg1d        = parsed.GetResult(Min_Chg_1d,        defaultValue = defaultConfig.Intraday.MinChg1d)
+                  RequireEmaAboveVwap = parsed.Contains Require_Ema_Above_Vwap || defaultConfig.Intraday.RequireEmaAboveVwap
                   MaxSumAbove40   = parsed.GetResult(Max_Sum_Above_40,  defaultValue = defaultConfig.Intraday.MaxSumAbove40)
                   MaxSumAbove60   = parsed.GetResult(Max_Sum_Above_60,  defaultValue = defaultConfig.Intraday.MaxSumAbove60)
                   GeomStop        = not (parsed.Contains No_Geom_Stop)

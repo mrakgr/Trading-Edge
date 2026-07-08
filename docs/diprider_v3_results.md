@@ -598,6 +598,46 @@ deep-fade floor F20) cuts trades that are GOOD in the other 6 years. The three f
 recorded), not another per-trade entry feature. [Charts of the 28 A+ 2021 trades in
 data/charts/diprider_v3_2021_aplus/ for the manual study.]
 
-**NEXT:** cumulative cumVol/avgvol20 (monotone, post-hoc=gated) → chg_3d/7d (multi-day context) → a
-broader-market breadth/chop regime signal for 2021's residual (the only lever left that CAN help it). Clip
-every lever.
+## Finding 21 — above-VWAP entry gate + loss-of-VWAP exit both REJECTED (VwapReclaim logic doesn't fit V3)
+
+Tested the user's idea: only enter when 9-EMA > VWAP, and/or sell when the 9-EMA crosses BELOW VWAP
+(`RequireEmaAboveVwap` gate + `VwapExitBars` exit). Whole-book clipped:
+
+| config | trips | PF clip | net clip |
+|---|---|---|---|
+| **A (baseline, hold-to-MOC)** | 1,209 | 1.721 | **$463k** |
+| A + 9EMA>VWAP entry | 1,071 | 1.711 | $419k |
+| A + entry + loss-of-VWAP exit | 1,254 | 1.765 | $375k |
+
+- **Above-VWAP entry gate: slightly HURTS** (flat PF, −$44k net). The F14 `entry_vs_vwap ≥ −3%` floor already
+  cut the worst below-VWAP entries; the rest are net-positive all years (F14), so a strict >VWAP gate discards
+  profitable trades. (`--vwap-exit-bars 1` ≈ "sell when 9-EMA drops below VWAP"; the N just stops a
+  below-VWAP entry from insta-exiting.)
+- **Loss-of-VWAP exit: higher PF, DESTROYS net** (clip 1.765 but net $375k, −$88k; win 34%). The CONTINUATION
+  lesson again (V1 F3 / VwapReclaim F13 / V2 F4/F23/F26): it cuts more winner-upside than loser-downside —
+  many below-VWAP dips recover and run to MOC.
+- **On 2021 (the motivation): the exit makes it WORSE** — 2021 clip 1.13→1.04, net $23k→$5k. In the chop the
+  9-EMA whipsaws across VWAP, so the exit fires on temporary dips and sells trades that then bounce.
+
+**Confirms V3 is NOT a VwapReclaim system** (cf F15): its edge is not the VWAP relationship as a trigger/exit.
+Hold-to-MOC stays. Both knobs kept (default off) for completeness.
+
+## Finding 22 — NEW session-max features: `vol20_vs_sessmax` is a real inverted-U (climax = weak); session-max-EMA messy
+
+Added `sess_max_vol_20` (running max of the trailing-20 vol sum) + `sess_max_ema` (running max of the 9-EMA),
+with derived `vol20_vs_sessmax` (entry 20m vol / session peak 20m vol) and `ema_vs_sessmax` (entry px /
+session-max-9EMA − 1).
+
+**vol20_vs_sessmax — a clean inverted-U (clipped):** <0.3 = 1.56 | 0.3–0.5 = 1.70 | **0.5–0.7 = 2.57** |
+**0.7–0.85 = 2.19** | 0.85–0.98 = 1.57 | **≥0.98 (climax) = 1.37**. **Entering AT the session volume climax is
+the weakest** (the exhaustion signature, measured session-relative rather than baseline-relative like F11's 5m
+cut); the sweet spot is 0.5–0.85 of peak (real volume conviction, not yet climaxed); volume-dead (<0.3) is
+mediocre. The ≥0.98 climax bucket (203 trips, clip 1.37) is a plausible CAP target — mechanically cleaner
+"not at the blow-off" measure than the F11 baseline-relative cut. [TEST NEXT: gate vol20_vs_sessmax < ~0.98.]
+
+**ema_vs_sessmax — messier, non-monotone:** deep pullback (<−8%) dead (~1.1), the −8..−4% bucket is the peak
+(2.25), at/above-peak fine (1.73). Same moderate-pullback-good shape as F20's distance-from-high; less clean
+than the volume feature. Record, don't gate.
+
+**NEXT:** test vol20_vs_sessmax<0.98 cap (gated, clipped, 2021) → cumulative cumVol/avgvol20 → chg_3d/7d →
+2021 breadth/chop regime signal. Clip every lever.
