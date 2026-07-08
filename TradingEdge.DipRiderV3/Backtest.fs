@@ -48,8 +48,13 @@ let defaultConfig =
           MinPriceSlope  = 0.0           // 20m OLS log-price slope > 0. Sweep for a higher floor.
           MinTightness   = 3.0           // tightness >= 3 (real range, not lethargic; VwapReclaim Finding 6).
           MaxTightness   = infinity      // OFF
+          MinAtrPct      = 0.013         // 20m log-ATR >= 0.013 — THE MAIN LEVER (F3: PF scales monotonically
+                                         // with ATR; sub-0.013 is flat/dead ~PF 1.07). 0 = off.
           MaxAtrPct      = infinity      // OFF
-          MinCloseAbove6 = 0             // SumAbove6 gate DISABLED at baseline (start off; tune the >= threshold later).
+          MinCloseAbove6 = 5             // F6: require >= 5 of the last 6 bars closed above the 9-EMA. A real,
+                                         // clip-robust entry-quality gate (sum6<=4 weak/dead; 5-6 = clipped PF
+                                         // 1.32/1.21, 84% of the book). Measures how SUSTAINED the push is
+                                         // (orthogonal to ATR's SIZE). 0 = off.
           MinSlopePerAtr = Double.NegativeInfinity  // slope/log-ATR floor OFF (gated after breakdown).
           MinSessMaxLogAtr = 0.0         // session-max-log-ATR floor OFF (gated after breakdown).
           MaxSumAbove40  = 0             // trend-too-long cap OFF (tune after breakdown).

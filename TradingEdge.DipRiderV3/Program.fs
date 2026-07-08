@@ -28,6 +28,7 @@ type Args =
     | Min_Price_Slope of float
     | Min_Tightness of float
     | Max_Intraday_Tightness of float
+    | Min_Intraday_Atr_Pct of float
     | Max_Intraday_Atr_Pct of float
     | Min_Close_Above_6 of int
     | Min_Slope_Per_Atr of float
@@ -63,6 +64,7 @@ type Args =
             | Min_Price_Slope _ -> "GATE: require the 20m OLS log-price slope > this. Default 0.0 (sweep for a higher floor)."
             | Min_Tightness _ -> "GATE: require tightness >= this (real range, not lethargic). Default 3.0. 0 = off."
             | Max_Intraday_Tightness _ -> "Tightness CAP at entry: require tightness < this. Default +inf = OFF."
+            | Min_Intraday_Atr_Pct _ -> "Log-ATR FLOOR at entry (THE MAIN LEVER, F3): require the 20m log-ATR >= this. Default 0.013. 0 = off."
             | Max_Intraday_Atr_Pct _ -> "Log-ATR CAP at entry: require the 20m log-ATR < this. Default +inf = OFF."
             | Min_Close_Above_6 _ -> "GATE: require >= N of the last 6 bars closed above the 9-EMA. Default 0 = OFF (start disabled; tune later)."
             | Min_Slope_Per_Atr _ -> "GATE: require the (price-slope / log-ATR) ratio >= this. Default OFF (gated after breakdown)."
@@ -106,6 +108,7 @@ let main argv =
                   MinPriceSlope   = parsed.GetResult(Min_Price_Slope,   defaultValue = defaultConfig.Intraday.MinPriceSlope)
                   MinTightness    = parsed.GetResult(Min_Tightness,     defaultValue = defaultConfig.Intraday.MinTightness)
                   MaxTightness    = parsed.GetResult(Max_Intraday_Tightness, defaultValue = defaultConfig.Intraday.MaxTightness)
+                  MinAtrPct       = parsed.GetResult(Min_Intraday_Atr_Pct,   defaultValue = defaultConfig.Intraday.MinAtrPct)
                   MaxAtrPct       = parsed.GetResult(Max_Intraday_Atr_Pct,   defaultValue = defaultConfig.Intraday.MaxAtrPct)
                   MinCloseAbove6  = parsed.GetResult(Min_Close_Above_6, defaultValue = defaultConfig.Intraday.MinCloseAbove6)
                   MinSlopePerAtr  = parsed.GetResult(Min_Slope_Per_Atr, defaultValue = defaultConfig.Intraday.MinSlopePerAtr)
@@ -132,8 +135,8 @@ let main argv =
     printfn "  anchors     = session extremes from %s ET   features from %s ET (VWAP/OLS/ATR/tightness/EMA/init-vol)"
         (hhmm ic.SessionStartMin) (hhmm ic.FeatureStartMin)
     printfn "  entry window= %s–%s ET   max-concurrent %d" (hhmm ic.EntryStartMin) (hhmm ic.EntryEndMin) ic.MaxConcurrent
-    printfn "  gates       = vol-slope20 >= %.3f   price-slope20 > %.3f   tightness20 >= %.1f%s%s"
-        ic.MinVolSlope ic.MinPriceSlope ic.MinTightness
+    printfn "  gates       = log-ATR20 >= %.3f   vol-slope20 >= %.3f   price-slope20 > %.3f   tightness20 >= %.1f%s%s"
+        ic.MinAtrPct ic.MinVolSlope ic.MinPriceSlope ic.MinTightness
         (if ic.MinCloseAbove6 > 0 then sprintf "   sum-above-6 >= %d" ic.MinCloseAbove6 else "")
         (if not (Double.IsNegativeInfinity ic.MinSlopePerAtr) then sprintf "   slope/atr >= %.2f" ic.MinSlopePerAtr else "")
     let caps =

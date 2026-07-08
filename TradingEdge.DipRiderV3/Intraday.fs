@@ -98,6 +98,8 @@ type IntradayConfig =
       MinPriceSlope: float     // require 20m OLS log-price slope > this. Default 0.0 (sweep for a higher floor).
       MinTightness: float      // require tightness >= this (real range, not lethargic). Default 3.0. 0 = off.
       MaxTightness: float      // tightness CEILING (+inf disables).
+      MinAtrPct: float         // log-ATR FLOOR: require the 20m log-ATR >= this. THE MAIN LEVER (F3: PF scales
+                               // monotonically with ATR; sub-0.013 is flat/dead). 0 = off. Default 0.013.
       MaxAtrPct: float         // log-ATR CEILING (+inf disables).
       MinCloseAbove6: int      // require SumAbove6 >= this (>= N of the last 6 bars closed above the EMA).
                                // 0 = DISABLED (V3 default — start off, tune later).
@@ -251,6 +253,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         && (not (Double.IsNaN sVolSlope) && sVolSlope >= cfg.MinVolSlope)
         // positive price trend: 20m OLS log-price slope > MinPriceSlope.
         && (not (Double.IsNaN sPriceSlope) && sPriceSlope > cfg.MinPriceSlope)
+        // volatility FLOOR — THE MAIN LEVER (F3): require the 20m log-ATR >= MinAtrPct. Low-ATR names don't
+        // move enough for a continuation to pay (sub-0.013 is flat/dead). 0 = off.
+        && (cfg.MinAtrPct <= 0.0 || gate this.AtrLog (fun a -> a >= cfg.MinAtrPct))
         // real range, not a lethargic name: tightness >= MinTightness (and optional CEILINGS).
         && (cfg.MinTightness <= 0.0 || gate this.Tightness (fun t -> t >= cfg.MinTightness))
         && (Double.IsInfinity cfg.MaxTightness || gate this.Tightness (fun t -> t < cfg.MaxTightness))
