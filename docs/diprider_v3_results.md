@@ -568,5 +568,36 @@ base guarantee); A+ is a named parameter set, NOT a new default.
 [2021 STUDY: generating charts for the 28 A+ 2021 trades to understand why the chop year resists even the
 tightest cell — see NEXT.]
 
-**NEXT:** study the 28 A+ 2021 trades individually (charts) → % distance from session-max-close breakdown →
-entry-vs-session-high → cumulative cumVol/avgvol20 → chg_3d/7d. Clip every lever.
+## Finding 20 — distance-from-session-max-close is NOT a general lever (deep-fade is bad ONLY in chop years)
+
+The A+ 2021 anatomy (F19) hinted that entry LOCATION mattered: 2021 winners entered −2.9% below the session
+high, losers −9.1% (chasing deeper fades in the chop). Tested `entry/sess_max_close − 1` on the full A book,
+raw+clipped:
+
+| dist from max-close | n | PF clip | net clip |
+|---|---|---|---|
+| <−15% | 157 | 1.53 | $51k |
+| −15..−10% | 161 | 1.79 | $67k |
+| **−10..−6%** | 163 | **2.39** | $102k |
+| −6..−3% | 166 | 1.60 | $56k |
+| −3..−1% | 222 | 1.66 | $71k |
+| −1..0% (at high) | 340 | 1.62 | $116k |
+
+**Non-monotone inverted-U, NOT a floor:** deepest (<−15%) is weakest (1.53) but the PEAK is a MODERATE
+pullback (−10..−6%, clip 2.39) — not at-the-high. Even the worst bucket is clip-POSITIVE. **Per-year, the
+deep-fade (<−15%) bucket is bad ONLY in the chop years** (2021 clip 0.77, 2022 0.91) and FINE-to-excellent
+elsewhere (2020 2.80, 2023 9.63, 2024 1.67, 2025 1.34). A `≥−15%` floor barely moves PF (1.72→1.75) while
+CUTTING $51k net (sacrifices good trending-year deep-dips). **Don't gate on it.**
+
+**The 2021 lead was regime-specific, not a universal lever** — in chop, deep pullbacks are failed bounces; in
+trend, a deep dip in a runner is a GREAT entry (the literal "dip" in DipRider). This reinforces the F10/F12
+lesson: **2021 can't be gated away with entry-quality features** — every "2021 fix" of this type (sum40 F12,
+deep-fade floor F20) cuts trades that are GOOD in the other 6 years. The three filters that DID help 2021
+(exhaustion, VWAP-floor, chg_1d) worked because they cut trades bad EVERYWHERE; 2021 just had more of them.
+2021's residual weakness needs a genuine REGIME signal (broader-market breadth / market-chop — `mkt_chg_*`
+recorded), not another per-trade entry feature. [Charts of the 28 A+ 2021 trades in
+data/charts/diprider_v3_2021_aplus/ for the manual study.]
+
+**NEXT:** cumulative cumVol/avgvol20 (monotone, post-hoc=gated) → chg_3d/7d (multi-day context) → a
+broader-market breadth/chop regime signal for 2021's residual (the only lever left that CAN help it). Clip
+every lever.
