@@ -428,6 +428,46 @@ post-hoc 1,560 — slot-freeing again) / raw PF **2.18** / clip PF **1.50** / +$
 **Current locked book: ATR≥0.013 + vol-slope≥0.05 + slope>0 + sum6≥5 + rvol5m20d<100 + entry-vs-vwap≥−3%,
 tightness off** → 1,661 trips / raw PF 2.18 / clip PF 1.50 / +$979k / 39.6% win / all-weather.
 
+### F14 table (regenerated) + F27 comparison — entry-price-vs-VWAP vs 9-EMA-vs-VWAP on the SAME current population
+
+F14 was written as prose; the bucket table wasn't saved. Regenerated here on the CURRENT full-gate population
+(unlimited concurrency, both VWAP conditions off — 13,222 trips), alongside the 9-EMA-vs-VWAP alternative, so
+the two location constructs compare apples-to-apples (clipped):
+
+**`entry_vs_vwap` (entry PRICE / VWAP − 1) — the F14 feature:**
+
+| bucket | n | win% | PF clip | net$ |
+|---|---:|---:|---:|---:|
+| <−5% | 1,280 | 31.0 | **1.16** | 109k |
+| −5..−3% | 450 | 35.8 | 1.41 | 95k |
+| −3..−1% | 545 | 35.8 | 1.58 | 168k |
+| −1..1% | 779 | 40.1 | 1.61 | 235k |
+| 1..3% | 1,083 | 46.6 | **1.99** | 505k |
+| 3..6% | 1,764 | 44.7 | 1.72 | 645k |
+| 6..12% | 3,399 | 48.2 | 1.70 | 1,274k |
+| ≥12% | 3,922 | 49.7 | 1.70 | 2,085k |
+
+**`ema_vs_vwap` (current 9-EMA / VWAP − 1) — the proposed alternative:**
+
+| bucket | n | win% | PF clip | net$ |
+|---|---:|---:|---:|---:|
+| <−5% | 1,491 | 31.9 | **1.13** | 109k |
+| −5..−2% | 788 | 33.6 | 1.44 | 190k |
+| −2..0% | 835 | 43.4 | **1.82** | 356k |
+| 0..2% | 1,164 | 42.0 | 1.79 | 455k |
+| 2..5% | 2,279 | 46.6 | 1.79 | 917k |
+| 5..10% | 3,262 | 49.2 | 1.78 | 1,373k |
+| ≥10% | 3,403 | 49.6 | 1.66 | 1,717k |
+
+**Reading:** near-identical shape — BOTH have the same loser, the deep-below `<−5%` bucket (clip ~1.15), and
+both are monotone-positive above ~−2/−3%. The **9-EMA version is marginally cleaner** in the near-VWAP
+transition (−2..0% = 1.82 vs entry_vs_vwap's −3..−1% = 1.58) — the smoothed trend ignores single wicks, as
+predicted. entry_vs_vwap has a slightly higher isolated peak (1..3% = 1.99) but is noisier across the middle.
+**Close substitutes; 9-EMA marginally better.** The real edge in BOTH is the deep-below cut (<−5%); the knee
+for the 9-EMA version is **~−2%** (the −2..0% band is still good), NOT the strict >0 that `RequireEmaAboveVwap`
+(F21) enforces — so a swap would want a parameterized `MinEmaVsVwap ≥ −0.02` floor, not the boolean.
+[DECISION PENDING: keep entry_vs_vwap≥−3%, or swap to ema_vs_vwap≥−2%.]
+
 ## Finding 15 — 9-EMA-above-VWAP persistence (SumMa 30/60) is U-shaped, NOT a lever — but confirms V3 ≠ VwapReclaim
 
 Added `ema_vwap_30` / `ema_vwap_60`: SumMa of the "was the 9-EMA above the session VWAP this bar?" 0/1
