@@ -65,6 +65,10 @@ let defaultConfig =
           MinEntryVsVwap = -0.03         // F14: VWAP-location floor — reject entries >3% BELOW session VWAP (a
                                          // sold-off falling knife). Lifts clip PF 1.42->1.55 AND net (free); takes
                                          // 2021 clip 1.00->1.13 (a 2nd 2021 fix, orthogonal to exhaustion). -inf = off.
+          MinChg1d       = 0.10          // F17: day-direction floor — require the stock >= +10% on the day (entry vs
+                                         // prev close). Red/flat-day names fight their daily trend; the edge scales
+                                         // monotonically with how UP the stock is (>=60% clips PF 2.19/+7.7%). An
+                                         // ESSENTIAL entry requirement (user). Lifts clip PF; 3rd 2021 fix. -inf = off.
           MaxSumAbove40  = 0             // trend-too-long cap OFF (tune after breakdown).
           MaxSumAbove60  = 0
           // ----- stop / exits -----

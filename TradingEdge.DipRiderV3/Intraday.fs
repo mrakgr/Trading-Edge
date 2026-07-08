@@ -116,6 +116,10 @@ type IntradayConfig =
       MinEntryVsVwap: float    // VWAP-LOCATION FLOOR (F14): reject if entry px is < this fraction below the
                                // session VWAP (entry/vwap - 1 < this). A momentum name >3% below VWAP is a
                                // sold-off falling knife, not a continuation. Default -0.03. NaN/-inf = off.
+      MinChg1d: float          // DAY-DIRECTION FLOOR (F17): reject if the entry px is < this fraction vs the
+                               // PREV daily close (entry/prevClose - 1 < this). A stock RED on the day is
+                               // fighting its own daily trend — buying its intraday bounce loses. Default 0.0
+                               // (must be green on the day). NaN/-inf = off.
       MaxSumAbove40: int       // CAP: reject if SumAbove40 >= this (trend went on too long). 0 = off (default).
       MaxSumAbove60: int       // CAP: reject if SumAbove60 >= this. 0 = off (default).
       // ----- stop / exits -----
@@ -292,6 +296,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // VWAP (a sold-off falling knife, not a continuation). -inf/NaN = off. Uses the strictly-prior VWAP.
         && (Double.IsNegativeInfinity cfg.MinEntryVsVwap || Double.IsNaN cfg.MinEntryVsVwap
             || gate sVwapNow (fun v -> v > 0.0 && bar.close / v - 1.0 >= cfg.MinEntryVsVwap))
+        // DAY-DIRECTION FLOOR (F17): reject if the stock is RED on the day (entry/prevClose - 1 < MinChg1d).
+        // A red-on-the-day name is fighting its own daily trend. -inf/NaN = off.
+        && (Double.IsNegativeInfinity cfg.MinChg1d || Double.IsNaN cfg.MinChg1d
+            || (prevClose > 0.0 && bar.close / prevClose - 1.0 >= cfg.MinChg1d))
         // the push: >= N of the last 6 bars closed above the 9-EMA. 0 = OFF (default, start disabled).
         && (cfg.MinCloseAbove6 <= 0 || sSumAbove6 >= cfg.MinCloseAbove6)
         // trend-too-long CAP: reject if too many of the last 40/60 bars were above the EMA. 0 = off.

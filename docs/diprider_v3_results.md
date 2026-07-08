@@ -478,5 +478,46 @@ floor can't catch. **Add a vol-slope CEILING** to cut it (likely partial overlap
 volume blow-offs; on the max-conc-1 book the ≥0.25 entries were already excluded by rvol5m20d<100). Kept as
 cheap insurance (matters only if the exhaustion cut is ever loosened). Locked book PF now 2.18.
 
-**NEXT:** 1d-return-to-entry breakdown (chg_1d — a significant lever in LowFlyer/prior systems) →
-entry-vs-session-high → cumulative cumVol/avgvol20. Clip every lever.
+## Finding 17 — day-direction floor `chg_1d >= +10%` — the biggest lever after ATR; ESSENTIAL requirement
+
+Breakdown of `chg_1d` (entry px / prev daily close − 1 = how far UP on the day) on the locked book, clipped —
+**monotone and clip-robust, the strongest single feature yet**:
+
+| chg_1d | n | PF clip | avg_ret clip |
+|---|---|---|---|
+| **<−5%** | 201 | **0.35** | **−3.46** |
+| −5..0% | 83 | 0.97 | −0.12 |
+| 0..5% | 107 | 1.30 | 1.05 |
+| 5..10% | 147 | 1.34 | 1.33 |
+| 10..20% | 246 | 1.50 | 2.01 |
+| 20..35% | 245 | 1.53 | 2.45 |
+| 35..60% | 243 | 1.42 | 2.24 |
+| **≥60%** | 384 | **2.19** | **7.74** |
+
+The `< 0%` region is a clean mechanical LOSER (red-on-the-day names fighting their own daily trend; `<−5%`
+clips 0.35/−3.5%/−$70k) and the edge scales monotonically with how UP the stock is — the `≥60%` bucket
+(the day's parabolic runners) is clip PF **2.19 / +7.7% / +$297k** = 30% of the book's net. This is the
+HighFlyer runner thesis surfacing.
+
+**Floor sweep (clipped):** none 1.51/$421k → `≥0` **1.72/$492k** (free — removes 284 red-day trips at −$71k,
+PF AND net up) → `≥0.05` 1.74/$481k → `≥0.10` **1.72/$463k**. User set **`≥ +10%` as an ESSENTIAL entry
+requirement** — it's what makes this a momentum-RUNNER system (aligns the entry with the fat-tailed
+day-movers), a definitional gate not just a statistical knee. Wired `MinChg1d` (default 0.10) + `--min-chg-1d`.
+
+**3rd orthogonal 2021 fix:** 2021 red-day trades clip 0.44/−$23k; cutting them lifts 2021 green-day to clip
+1.18. So THREE independent "bad-entry" filters each help 2021 — exhaustion (volume blow-off), VWAP-floor
+(sold-off location), chg_1d (red on the day). 2021's chop manufactured all three flavors.
+
+**Gated `≥10%`:** 1,209 trips / raw PF **2.58** / clip PF **1.72** / +$1.01M / 43.9% win. Per-year clip ALL
+positive with margin: 2020 1.86 | 2021 **1.13** | 2022 1.45 | 2023 2.76 | 2024 2.10 | 2025 1.85 | 2026 2.13.
+Win rates 43–51% (ex-2021). **Strongest state yet.**
+
+**Vol-slope ceiling correction (F16):** the ceiling is inert on the gated book NOT because it's redundant
+with exhaustion, but because by the time vol-slope reaches ≥0.25 the position was ALREADY entered on an
+earlier bar (max-conc-1 fills at the first qualifying bar, before volume goes parabolic). Harmless insurance.
+
+**Current locked book:** ATR≥0.013 + vol-slope∈[0.05,0.25) + slope>0 + sum6≥5 + rvol5m20d<100 +
+entry-vs-vwap≥−3% + **chg_1d≥+10%**, tightness off → 1,209 trips / raw PF 2.58 / clip PF 1.72 / +$1.01M.
+
+**NEXT:** entry-vs-session-high → cumulative cumVol/avgvol20 (monotone, post-hoc=gated) → chg_3d/7d (the
+multi-day-trend context, per prior systems). Clip every lever.
