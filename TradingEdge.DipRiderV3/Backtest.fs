@@ -25,109 +25,45 @@ type Config =
     { Intraday: IntradayConfig
       Notional: float }
 
-/// Production default: the market-wide long mean-reversion setup. Downside
-/// breakout (new session low) + long P&L, no stop / no target, hold to MOC,
-/// scan from 09:45, RTH warmup from 09:30. The two intraday quality gates
-/// (tightness / ATR%) are OFF (+inf) — only new-session-low + volume-confirm +
-/// the 09:45 floor survive.
+/// DipRiderV3 default: pure trailing-window momentum, long-only, hold-to-MOC.
+/// Two-anchor timing (session extremes from 08:30, all other features from
+/// 09:30), morning window 10:00-13:30, one concurrent position, geometry stop
+/// off the 20m-window low. Only the three core gates are ON at the baseline
+/// (vol-slope >= 0.05, price-slope > 0, tightness >= 3); the tunable/cap gates
+/// (SumAbove6, slope/ATR, session-max-log-ATR, the long-window caps) start OFF
+/// and are enabled after a breakdown.
 let defaultConfig =
     { Intraday =
         { VolWindow = 20
-          MaxTightness = infinity        // OFF
-          MaxAtrPct = infinity           // OFF
-          SessionStartMin = 9 * 60       // 09:30 ET — the SMB session VWAP anchors at the RTH OPEN (not
-                                         // premarket). VWAP, the 9-EMA, the below-VWAP counter, and the
-                                         // running session low all accumulate from 09:30 for the reclaim.
-          EntryStartMin   = 10 * 60      // 10:00 ET — morning-window START (Finding 4: 10:00-13:30 is best;
-                                         // 09:30-10:00 warms VWAP/EMA + the weakness run before any entry)
-          EntryEndMin     = 13 * 60 + 30 // 13:30 ET — morning-window END (afternoon reclaims fade)
-          UseStop = false
-          PctStop = 0.0
-          TimeStopMin = 0                // DipRider: HOLD-TO-MOC by default (Finding 3: the trade is a
-                                         // momentum-CONTINUATION — letting it run beats any short time-stop;
-                                         // PF climbs 20m<30m<60m<MOC). --time-stop-min N to re-impose a stop.
-          Downside = true                // breakout to a new session LOW
-          WickBreakout = false           // CLOSE through the prior low
-          ExtGate = 0.0
-          RiseEntry = 0.0
-          TrailEntry = false
-          Short = false                  // LONG (buy the flush)
-          Target = NoTarget
-          MocMin = 16 * 60               // 16:00 ET
-          MaxConcurrent = 1              // ONE position per (ticker,day) (F29): the later same-day adds chase a
-                                        // more-extended run and have worse EV — capping at 1 lifts cell PF
-                                        // ~+0.2 & helps 2021. --max-concurrent 0 = unlimited (the old default;
-                                        // pass it to reproduce V1's archived numbers, which shared this field).
-          MinBarFlush = 0.0              // entry-bar flush gate OFF (--min-bar-flush -0.007 to enable)
-          MinBarFlushFloor = 0.0         // entry-bar flush-depth floor OFF (--min-bar-flush-floor -0.12 to enable)
-          VolHighFrac = 0.90             // volume-confirm = breakout vol >= 90% of the running vol high (PRODUCTION:
-                                         // within 10% of the high; +239 trips over strict 1.0 at PF 3.38 vs 3.45 —
-                                         // "near the high" carries the signal, <0.90 dilutes. --vol-high-frac to override.)
-          MinCloseRef = true             // default = min-CLOSE reference (wick-immune; +~29% trips at ~same
-                                         // PF — Run 12). --min-low-ref switches back to the min-LOW channel.
-          // ----- SMB VWAP x 9-EMA reclaim (long-only) — OFF; DipRider is this project's engine -----
-          VwapReclaim = false            // reclaim engine off; the DipRider block below is ON.
-          EmaPeriod = 9                  // SMB 9-EMA.
-          BelowVwapFrac = 0.0            // OFF — the consecutive-run gate (MinRunBelowVwap) is the weakness
-                                         // filter now (rb>=11 consecutive is a stronger signal than a 60%
-                                         // cumulative fraction, and they double-gate if both are on).
-          MinRunBelowVwap = 11           // require >=11 CONSECUTIVE bars EMA<VWAP into the cross. The rb FLOOR
-                                         // (no upper cap — the by-year work showed the old rb<=30 cap threw
-                                         // away ~6.5x the trips for a PF premium that doesn't survive the
-                                         // trip-count trade: rb>=11 no-cap = ~5.8k trips / PF 1.48 / positive
-                                         // EVERY year, vs rb[11,30] = 896 trips / PF 2.07 / 35 trips in 2025).
-          StopAnchorVwap = true          // stop = VWAP - d*StopDistFrac (default); false = entry-anchored.
-          FixedPctStop = 0.0             // 0 = use the d-geometry stop; >0 = a fixed %-below-entry stop (Finding 17).
-          StopDistFrac = 2.0 / 3.0       // stop distance = d*2/3 (Finding 14): the video's d/3 was too tight
-                                         // once the target is off & winners run to MOC — a wider stop lets
-                                         // the reclaim breathe (stop-rate 55%->38%). d*2/3 is the peak (PF
-                                         // 1.478->1.689); d/2 and full-d are slightly worse. --stop-dist-frac.
-          MinStopDistPct = 0.0           // OFF (Finding 18). It was load-bearing at d/3 (Finding 7), but at
-                                         // d*2/3 even the p5 stop distance is 1.17% > 1%, so NOTHING lands
-                                         // under 1% — the filter is fully inert (removing it is byte-identical:
-                                         // 868 trips, PF 1.69). Dropped to simplify. --min-stop-dist-pct to re-enable.
-          ClampStopDist = true           // (moot while MinStopDistPct=0) clamp-vs-skip for a too-tight stop.
-          MinTightness = 3.0             // require a name with real range. Finding 6 locked 4.5 on the THIN
-                                         // book; on the fat book (rb>=11 no-cap) the 3-4.5 band is +EV too —
-                                         // tight>=3 gives 1.7x the trips (8.7k->14.9k) and 1.6x net ($635k->
-                                         // $1.02M) at ~flat PF (1.39->1.38), positive every year. Below 3 is
-                                         // nearly dead; >=3 is the fat-book floor. (--min-tightness overrides.)
-          StopOnClose = true             // stop triggers only on a CLOSE below the level (ignore noise wicks).
-          UseTarget = false              // NO target by default (Finding 13: winners run to MOC). --use-target re-enables VWAP+d.
-          ReclaimShort = false           // LONG reclaim by default; --reclaim-short mirrors to the short side.
-          // ----- DipRider (pullback-in-uptrend re-break, long-only) — ON by default for this project -----
-          DipRider = true                // this project's engine: buy the re-break after a pullback in an uptrend.
-          DipRebreakAtr = 0.5            // re-break close >= prevBar.high * (1 + 0.5*ATR%): a half-ATR expansion
-                                         // over the prior high (a decisive resumption bar, not a one-tick poke).
-          DipMinBarsBelowEma = 3         // require >= 3 consecutive bars closed below the 9-EMA before the re-break
-                                         // (a genuine pullback, not a one-bar wiggle). Swept later.
-          DipMaxBarsBelowEma = 8         // CAP the pullback at < 8 bars below the 9-EMA (Finding 2: monotone —
-                                         // shallow dips resume, deep ones are broken trends). --dip-max-bars-below-ema.
-          DipMinTrendPct = 0.02          // require the re-break close >= 2% above the session open (an established
-                                         // intraday uptrend to have pulled back FROM). Swept later.
-          DipExitNewHigh = false         // Finding 3: the new-high target AMPUTATES the runners (PF ~0.95 ON
-                                         // vs 1.06-1.19 OFF). Continuation trade — let it run. --dip-exit-new-high
-                                         // re-enables it.
-          // ----- DipRider V2 (run-above-9EMA slopes, long-only) — OFF by default; --diprider-v2 turns it on -----
-          DipRiderV2 = false             // V1 is the archived production system; V2 is the research mode.
-          RunResetBarsBelow = 4          // F29 sweep (2-5): tol=4 is best on the cell (PF 2.30/2.50 mc0/mc1).
-                                         // Excuse up to 4 below-9EMA closes within an up-run before it breaks.
-          DipV2MinRunLen = 10            // require the prior above-9EMA run >= 10 bars (the U-shape's good cell;
-                                         // len-1 and 2-9 are the weak/dead zone). --dip-v2-min-run-len; 0 = off.
-          DipV2Reclaim = false           // re-break trigger by default; --dip-v2-reclaim = enter on the 9-EMA reclaim.
-          DipV2MinBarsSinceBreak = 0     // bars-since-break gates OFF by default (recorded feature first).
-          DipV2MaxBarsSinceBreak = 0     // --dip-v2-min/max-bars-since-break to enable.
-          DipV2PullbackBar = 0           // 0 = use re-break/reclaim trigger; N>0 = buy the Nth below-EMA bar.
-          DipV2GeomStop = false          // 2-bar-low stop by default; --dip-v2-geom-stop = run-anchored geometry stop.
-          DipV2StopDistFrac = 2.0 / 3.0  // geometry-stop distance below the run floor as a fraction of the run range.
-          DipV2BuyIntoRun = 20           // Finding 15: N=20 is the momentum sweet spot (PF 2.17 on the cell).
-                                         // 0 = off (fall back to the re-break/reclaim/pullback trigger). --dip-v2-buy-into-run.
-          DipV2ExhaustExit = false       // exhaustion exit OFF by default; --dip-v2-exhaust-exit turns it on.
-          DipV2ExhaustVolMult = 10.0     // blow-off = exit bar vol >= 10× each per-minute baseline. --dip-v2-exhaust-vol-mult.
-          DipV2VwapExitBars = 0          // loss-of-VWAP exit OFF by default; --dip-v2-vwap-exit-bars 10 = require the
-                                         // 9-EMA >=10 bars above VWAP then exit when it crosses below.
-          DipV2MaxRvol = 0.0 }           // F22 exhaustion cut (OFF by default; --dip-v2-max-rvol 75 enables): skip
-                                         // entries with cumulative day vol >= N× the 20d avg daily vol (blown-out tail).
+          EmaPeriod = 9                  // the 9-EMA (closes-above-EMA reference)
+          SessionStartMin = 8 * 60 + 30  // 08:30 ET — session min/max close + session max volume anchor here.
+          FeatureStartMin = 9 * 60 + 30  // 09:30 ET (570) — VWAP, both OLS slopes, ATR, tightness, EMA, the
+                                         // SumMa above-EMA counts, and 15m-init-vol all fold ONLY from here.
+          EntryStartMin   = 10 * 60      // 10:00 ET — morning-window START (09:30-10:00 warms the windows).
+          EntryEndMin     = 13 * 60 + 30 // 13:30 ET — morning-window END.
+          MocMin          = 16 * 60      // 16:00 ET
+          MaxConcurrent   = 1            // ONE position per (ticker,day). --max-concurrent 0 = unlimited.
+          // ----- entry gates -----
+          MinVolSlope    = 0.05          // 20m OLS log-volume slope >= 0.05 (V2 F14/F15 — rising volume is the PF lever).
+          MinPriceSlope  = 0.0           // 20m OLS log-price slope > 0. Sweep for a higher floor.
+          MinTightness   = 3.0           // tightness >= 3 (real range, not lethargic; VwapReclaim Finding 6).
+          MaxTightness   = infinity      // OFF
+          MaxAtrPct      = infinity      // OFF
+          MinCloseAbove6 = 0             // SumAbove6 gate DISABLED at baseline (start off; tune the >= threshold later).
+          MinSlopePerAtr = Double.NegativeInfinity  // slope/log-ATR floor OFF (gated after breakdown).
+          MinSessMaxLogAtr = 0.0         // session-max-log-ATR floor OFF (gated after breakdown).
+          MaxSumAbove40  = 0             // trend-too-long cap OFF (tune after breakdown).
+          MaxSumAbove60  = 0
+          // ----- stop / exits -----
+          GeomStop        = true         // geometry stop: d = entry - 20m-window low; stop = entry - d*StopDistFrac.
+          StopFloorSessMin = false       // stop floor = the 20m-window low (rangeLow); true = the session min close.
+          StopDistFrac    = 2.0 / 3.0    // stop distance = d*2/3 (VwapReclaim F14 / V2 F25).
+          StopOnClose     = true         // stop on a CLOSE at/below the level (ignore noise wicks).
+          PctStop         = 0.0          // catastrophe %-stop OFF.
+          TimeStopMin     = 0            // HOLD-TO-MOC (the continuation lesson: any exit caps the winners).
+          ExhaustExit     = false        // exhaustion exit OFF (recorded lesson; --exhaust-exit enables).
+          ExhaustVolMult  = 10.0
+          VwapExitBars    = 0 }          // loss-of-VWAP exit OFF.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
@@ -158,68 +94,29 @@ type Trip =
       AdjRatio: float
       // intraday at entry
       EntryMin: int
-      EntryPrice: float          // = breakout bar close (the fill)
-      EntryBarOpen: float        // the entry (breakout) 1m bar's OPEN — for the entry-bar %-change (close/open-1)
-      PrevBarClose: float        // the strictly-prior 1m bar's CLOSE — for the flush = close/prevClose-1
+      EntryPrice: float          // = the entry bar's close (the fill)
+      StopDistPct: float         // stop distance as a fraction of entry = (entry - stopLevel)/entry; nan if stopless
+      // ----- DipRiderV3 trailing-window momentum features (all strictly-prior; nan/-1 = not-warm) -----
+      PriceSlope20: float        // 20m OLS slope of log(close) — trend strength (%/bar). The core price gate.
+      VolSlope20: float          // 20m OLS slope of log(volume) — is volume rising into the move (the F14 lever)
+      LogAtr20: float            // 20m mean log-true-range — the volatility feature (high-ATR trades momentum better)
+      Tightness20: float         // (rangeHigh-rangeLow)/atrLin over the window — real range vs lethargic
+      SlopePerAtr: float         // PriceSlope20 / LogAtr20 (trend per unit volatility) — recorded, gated after breakdown
+      SumAbove6: int             // # of the last 6 bars that closed >= the 9-EMA (the short push count; SumMa)
+      SumAbove40: int            // # of the last 40 closed above the EMA (trend-too-long cap input)
+      SumAbove60: int            // # of the last 60 closed above the EMA
+      SessMaxLogAtr: float       // session-cumulative MAX of the 20m log-ATR (past volatility explosions)
+      SessMinClose: float        // session MIN close (from 08:30) — the geometry-stop floor candidate / context
+      SessMaxClose: float        // session MAX close (from 08:30)
+      SessMaxVol: int64          // session MAX single-bar volume (from 08:30)
+      VwapAtEntry: float         // session VWAP at entry (from 09:30)
+      EntryVsVwap: float         // entryPx / VWAP - 1 (>0 = bought ABOVE VWAP, <0 = below)
+      InitVol15m: int64          // Σ volume over the first 15 VALID feature-bars (the name's early tempo)
+      EntryVsSessHigh: float     // entry / running session high - 1 (<=0; how far below the session high we bought)
       Chg20m: float              // 20-minute %-change into entry (engine LagMa(20), no post-hoc rescan)
-      RunLowAtEntry: float       // the session low the breakout cleared (pos.BreakoutRef)
-      IntradayAtrPct: float      // 1m log-ATR (VolWindow bars) snapshot at the breakout — how jumpy the name is intraday
-      IntradayTightness: float   // 1m tightness snapshot at the breakout
-      // RECORDED features (post-hoc slicing, NOT gates)
-      Rvol: float                // cumVolToEntry / avgVol20
-      BreakoutBarVol: int64      // the breakout bar's own volume
-      NewVolHigh: bool           // did the breakout bar make a new session 1m-vol high? (always true at
-                                 // vol-high-frac>=1; a relaxed run flags which entries clear the strict gate)
-      VolVsHigh: float           // breakout-bar volume / running session 1m-vol high (continuous; >=1 = new high).
-                                 // FOR THE RECLAIM: repurposed to the below-VWAP FRACTION at entry.
-      RunBelowVwap: int          // consecutive bars EMA<VWAP right before the reclaim cross (0 = breakout engine)
-      StopDistPct: float         // stop distance as a fraction of entry = (entry - stopLevel)/entry
-      BarRvol15m: float          // breakout_bar_vol / mean(1m vol over [9:30,9:45)) — the breakout-bar
-                                 // volume spike relative to the name's own opening-15m 1m tempo. Baseline
-                                 // = vol_0945 / nbar_0945 (RTH 09:30-09:45 sum / bar count). Discriminates
-                                 // OPPOSITELY by side: extreme spikes (>=40x) = exhaustion blow-off that
-                                 // fades on the SHORT (pop-fade PF 1.0->2.0), but falling-knife on the LONG.
-      Rvol20m20d: float          // trailing-20m mean 1m volume / (avgvol20/390) — the last 20 minutes' volume
-                                 // vs the name's 20-DAY per-minute baseline. "Is the convergence running hot
-                                 // vs normal?" (Jeff's rising-volume-into-the-reclaim cue, 20m window not 1 bar).
-      Rvol20m15m: float          // trailing-20m mean 1m volume / (vol_0945/nbar_0945) — the last 20 minutes'
-                                 // volume vs the OPENING-15m per-minute average. >1 = volume ACCELERATING since
-                                 // the open into the reclaim (the acceleration measure, vs the 20d "hot" one).
-      RunMaxDist: float          // max (VWAP-EMA)/VWAP over the pre-cross run = the run's DEPTH (how far the
-                                 // 9-EMA fell below VWAP). "Are bigger %-runs better trades?"
-      RunAtr: float              // mean per-bar log-TR OVER the run bars (reset at each cross) = the run's own vol
-      RunDistPerAtr: float       // RunMaxDist / RunAtr = the run's depth in ATR-units (depth normalized by vol)
-      RunUpVol: float            // mean 1m vol of above-9EMA bars since the last VWAP cross (accumulation)
-      RunDnVol: float            // mean 1m vol of below-9EMA bars since the last VWAP cross (distribution)
-      RunUpDnRatio: float        // RunUpVol / RunDnVol — >1 = volume flowing into the RISING side (convergence
-                                 // back toward VWAP); <1 = volume on the FALLING side (divergence/selloff)
-      // ----- DipRider features (the four handcrafted pullback-continuation features) -----
-      BarsSinceHi: int           // # bars since the session PRICE high at the re-break (recency of the 1st push)
-      BarsSinceVolHi: int        // # bars since the session max-1m-VOLUME high (recency of peak interest)
-      BarsBelowEma: int          // # consecutive bars closed below the 9-EMA before the re-break (pullback depth)
-      TrendPct: float            // re-break close / session open - 1 (how far up the session the trend had run)
-      // ----- DipRider V2 features (the just-ended above-9EMA run + trailing volumes + VWAP) -----
-      RunLen: int                // bars the just-ended above-9EMA run lasted
-      RunSlope: float            // OLS slope of that run's log-close (per-bar log-return)
-      RunR2: float               // R² of the log-close fit (trend cleanliness)
-      RunVolSlope: float         // OLS slope of that run's log-volume (per-bar; is volume rising?)
-      RunVolR2: float            // R² of the log-volume fit
-      RunAtrV2: float            // mean per-bar log-TR over the just-ended run (its own volatility)
-      RunLastClose: float        // close of the last bar of the just-ended run (its top)
-      EntryVsRunTop: float       // entryPx / run_last_close - 1 (how far below the run's top we bought; <0 = below)
-      RunPctGain: float          // BUY-INTO-RUN: the live run's %gain at entry (entry/floor-1); nan otherwise
-      TrailSlope: float          // trailing-20 OLS log-close slope (run-independent)
-      TrailVolSlope: float       // trailing-20 OLS log-volume slope (run-independent; pairs with intraday_atr_pct)
+      Rvol: float                // cumVolToEntry / avgVol20 (recorded feature)
       MktChgOpen: float          // SPY %-change from session open at entry (broader-market regime)
       MktChgPrev: float          // SPY %-change from prev daily close at entry
-      EntryVsSessHigh: float     // entry / running session high - 1 (<=0; how far below the session high we bought)
-      BarsSinceBreak: int        // bars since the above-EMA run broke = the true pullback age (survives blips)
-      Vol20: int64               // trailing raw volume over the last 20 bars (exhaustion inputs)
-      Vol10: int64
-      Vol5: int64
-      Vol2: int64
-      VwapAtEntry: float         // session VWAP at entry
-      EntryVsVwap: float         // entryPx / VWAP - 1 (>0 = bought ABOVE VWAP, <0 = below)
       CumVolToEntry: int64       // cumulative day volume through the entry bar
       PctChgSinceOpen: float     // entryPx / dayOpen - 1
       Close1d: float             // close-1-day-ago (adj) = PrevAdjClose
@@ -253,62 +150,27 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           AdjRatio = c.AdjRatio
           EntryMin = pos.EntryMin
           EntryPrice = pos.EntryPx
-          EntryBarOpen = pos.BreakoutBarOpen
-          PrevBarClose = pos.PrevBarClose
-          Chg20m = pos.Chg20mAtEntry
-          RunLowAtEntry = pos.BreakoutRef
-          IntradayAtrPct = pos.AtrPctAtEntry
-          IntradayTightness = pos.TightnessAtEntry
-          Rvol = (if c.AvgVol20 > 0.0 then float pos.CumVolAtEntry / c.AvgVol20 else nan)
-          BreakoutBarVol = pos.BreakoutBarVol
-          NewVolHigh = pos.NewVolHigh
-          VolVsHigh = pos.VolVsHigh
-          RunBelowVwap = pos.RunBelowVwapAtEntry
           StopDistPct = pos.StopDistPct
-          // spike vs the [9:30,9:45) 1m baseline = vol_0945/nbar_0945 (mean 1m vol over the window).
-          BarRvol15m =
-              (let meanBarVol15m = if c.NBar0945 > 0 then float c.Vol0945 / float c.NBar0945 else nan
-               if meanBarVol15m > 0.0 then float pos.BreakoutBarVol / meanBarVol15m else nan)
-          // trailing-20m mean 1m volume vs (a) the 20-day per-minute baseline and (b) the opening-15m avg.
-          Rvol20m20d =
-              (let perMin20d = c.AvgVol20 / 390.0   // 390 RTH minutes/day
-               if perMin20d > 0.0 && not (Double.IsNaN pos.Vol20mAvgAtEntry) then pos.Vol20mAvgAtEntry / perMin20d else nan)
-          Rvol20m15m =
-              (let meanBarVol15m = if c.NBar0945 > 0 then float c.Vol0945 / float c.NBar0945 else nan
-               if meanBarVol15m > 0.0 && not (Double.IsNaN pos.Vol20mAvgAtEntry) then pos.Vol20mAvgAtEntry / meanBarVol15m else nan)
-          RunMaxDist = pos.RunMaxDistAtEntry
-          RunAtr = pos.RunAtrAtEntry
-          RunDistPerAtr =
-              (if pos.RunAtrAtEntry > 0.0 && not (Double.IsNaN pos.RunAtrAtEntry) then pos.RunMaxDistAtEntry / pos.RunAtrAtEntry else nan)
-          RunUpVol = pos.RunUpVolAtEntry
-          RunDnVol = pos.RunDnVolAtEntry
-          RunUpDnRatio =
-              (if pos.RunDnVolAtEntry > 0.0 && not (Double.IsNaN pos.RunUpVolAtEntry) then pos.RunUpVolAtEntry / pos.RunDnVolAtEntry else nan)
-          BarsSinceHi = pos.BarsSinceHiAtEntry
-          BarsSinceVolHi = pos.BarsSinceVolHiAtEntry
-          BarsBelowEma = pos.BarsBelowEmaAtEntry
-          TrendPct = pos.TrendPctAtEntry
-          RunLen = pos.RunLenAtEntry
-          RunSlope = pos.RunSlopeAtEntry
-          RunR2 = pos.RunR2AtEntry
-          RunVolSlope = pos.RunVolSlopeAtEntry
-          RunVolR2 = pos.RunVolR2AtEntry
-          RunAtrV2 = pos.RunAtrV2AtEntry
-          RunLastClose = pos.RunLastCloseAtEntry
-          EntryVsRunTop = (if pos.RunLastCloseAtEntry > 0.0 && not (Double.IsNaN pos.RunLastCloseAtEntry) then pos.EntryPx / pos.RunLastCloseAtEntry - 1.0 else nan)
-          RunPctGain = pos.RunPctGainAtEntry
-          TrailSlope = pos.TrailSlopeAtEntry
-          TrailVolSlope = pos.TrailVolSlopeAtEntry
-          MktChgOpen = pos.MktChgOpenAtEntry
-          MktChgPrev = pos.MktChgPrevAtEntry
-          EntryVsSessHigh = pos.EntryVsSessHighAtEntry
-          BarsSinceBreak = pos.BarsSinceBreakAtEntry
-          Vol20 = pos.Vol20AtEntry
-          Vol10 = pos.Vol10AtEntry
-          Vol5 = pos.Vol5AtEntry
-          Vol2 = pos.Vol2AtEntry
+          PriceSlope20 = pos.PriceSlope20AtEntry
+          VolSlope20 = pos.VolSlope20AtEntry
+          LogAtr20 = pos.LogAtr20AtEntry
+          Tightness20 = pos.Tightness20AtEntry
+          SlopePerAtr = pos.SlopePerAtrAtEntry
+          SumAbove6 = pos.SumAbove6AtEntry
+          SumAbove40 = pos.SumAbove40AtEntry
+          SumAbove60 = pos.SumAbove60AtEntry
+          SessMaxLogAtr = pos.SessMaxLogAtrAtEntry
+          SessMinClose = pos.SessMinCloseAtEntry
+          SessMaxClose = pos.SessMaxCloseAtEntry
+          SessMaxVol = pos.SessMaxVolAtEntry
           VwapAtEntry = pos.VwapAtEntry
           EntryVsVwap = (if pos.VwapAtEntry > 0.0 && not (Double.IsNaN pos.VwapAtEntry) then pos.EntryPx / pos.VwapAtEntry - 1.0 else nan)
+          InitVol15m = pos.InitVol15mAtEntry
+          EntryVsSessHigh = pos.EntryVsSessHighAtEntry
+          Chg20m = pos.Chg20mAtEntry
+          Rvol = (if c.AvgVol20 > 0.0 then float pos.CumVolAtEntry / c.AvgVol20 else nan)
+          MktChgOpen = pos.MktChgOpenAtEntry
+          MktChgPrev = pos.MktChgPrevAtEntry
           CumVolToEntry = pos.CumVolAtEntry
           PctChgSinceOpen = (if c.DayOpen > 0.0 then pos.EntryPx / c.DayOpen - 1.0 else nan)
           Close1d = c.PrevAdjClose
@@ -332,7 +194,6 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           NetPnL = (if short then qty * (pos.EntryPx - exitPx) else qty * (exitPx - pos.EntryPx))
           BarsHeld = exitMin - pos.EntryMin }
     | Holding -> failwith "toTrip called on a still-Holding position (Flatten first)"
-    | Armed _ | Skipped -> failwith "toTrip called on an Armed/Skipped (never-filled) position (filter these out)"
 
 // ===========================================================================
 // Pipeline 1 — read qualifying (ticker, day) rows from vwap_reclaim_candidate:
@@ -491,8 +352,7 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
         sys.Flatten()
         for pos in sys.Positions do
             match pos.State with
-            | ExitedAt _ -> trips.Add(toTrip c cfg.Notional cfg.Intraday.Short pos)
-            | Armed _ | Skipped -> ()   // never filled → no trip (Armed/RiseEntry off here anyway)
+            | ExitedAt _ -> trips.Add(toTrip c cfg.Notional false pos)   // V3 is long-only
             | Holding -> failwith "Flatten closes all; unreachable"
 
     for date, cands in candidates |> Array.groupBy (fun c -> c.Date) do
@@ -554,8 +414,11 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
-    + "entry_time,entry_price,entry_bar_open,prev_bar_close,chg_20m,run_low_at_entry,intraday_atr_pct_at_entry,intraday_tightness_at_entry,"
-    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,rvol20m_20d,rvol20m_15m,run_max_dist,run_atr,run_dist_per_atr,run_up_vol,run_dn_vol,run_updn_ratio,bars_since_hi,bars_since_vol_hi,bars_below_ema,trend_pct,run_len,run_slope,run_r2,run_vol_slope,run_vol_r2,run_atr_v2,run_last_close,entry_vs_run_top,run_pct_gain,trail_slope,trail_vol_slope,mkt_chg_open,mkt_chg_prev,entry_vs_sess_high,bars_since_break,vol_20,vol_10,vol_5,vol_2,vwap_at_entry,entry_vs_vwap,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
+    + "entry_time,entry_price,stop_dist_pct,"
+    + "price_slope_20,vol_slope_20,log_atr_20,tightness_20,slope_per_atr,sum_above_6,sum_above_40,sum_above_60,"
+    + "sess_max_log_atr,sess_min_close,sess_max_close,sess_max_vol,vwap_at_entry,entry_vs_vwap,init_vol_15m,"
+    + "entry_vs_sess_high,chg_20m,rvol,mkt_chg_open,mkt_chg_prev,cum_vol_to_entry,pct_chg_since_open,"
+    + "close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,med_bar_vol_0945,"
     + "qty,net_pnl,bars_held_min"
@@ -568,52 +431,27 @@ let private row (t: Trip) : string =
         fmt t.AdjRatio
         hhmm t.EntryMin
         fmt t.EntryPrice
-        fmt t.EntryBarOpen
-        fmt t.PrevBarClose
-        fmt t.Chg20m
-        fmt t.RunLowAtEntry
-        fmt t.IntradayAtrPct
-        fmt t.IntradayTightness
-        fmt t.Rvol
-        string t.BreakoutBarVol
-        (if t.NewVolHigh then "1" else "0")
-        fmt t.VolVsHigh
-        string t.RunBelowVwap
         fmt t.StopDistPct
-        fmt t.BarRvol15m
-        fmt t.Rvol20m20d
-        fmt t.Rvol20m15m
-        fmt t.RunMaxDist
-        fmt t.RunAtr
-        fmt t.RunDistPerAtr
-        fmt t.RunUpVol
-        fmt t.RunDnVol
-        fmt t.RunUpDnRatio
-        string t.BarsSinceHi
-        string t.BarsSinceVolHi
-        string t.BarsBelowEma
-        fmt t.TrendPct
-        string t.RunLen
-        fmt t.RunSlope
-        fmt t.RunR2
-        fmt t.RunVolSlope
-        fmt t.RunVolR2
-        fmt t.RunAtrV2
-        fmt t.RunLastClose
-        fmt t.EntryVsRunTop
-        fmt t.RunPctGain
-        fmt t.TrailSlope
-        fmt t.TrailVolSlope
-        fmt t.MktChgOpen
-        fmt t.MktChgPrev
-        fmt t.EntryVsSessHigh
-        string t.BarsSinceBreak
-        string t.Vol20
-        string t.Vol10
-        string t.Vol5
-        string t.Vol2
+        fmt t.PriceSlope20
+        fmt t.VolSlope20
+        fmt t.LogAtr20
+        fmt t.Tightness20
+        fmt t.SlopePerAtr
+        string t.SumAbove6
+        string t.SumAbove40
+        string t.SumAbove60
+        fmt t.SessMaxLogAtr
+        fmt t.SessMinClose
+        fmt t.SessMaxClose
+        string t.SessMaxVol
         fmt t.VwapAtEntry
         fmt t.EntryVsVwap
+        string t.InitVol15m
+        fmt t.EntryVsSessHigh
+        fmt t.Chg20m
+        fmt t.Rvol
+        fmt t.MktChgOpen
+        fmt t.MktChgPrev
         string t.CumVolToEntry
         fmt t.PctChgSinceOpen
         fmt t.Close1d
