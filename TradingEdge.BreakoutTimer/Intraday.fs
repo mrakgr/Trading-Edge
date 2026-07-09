@@ -70,6 +70,7 @@ type IntradayPosition =
       EmaVwap60AtEntry: int      // # of the last 60 bars the 9-EMA was above VWAP
       TrailVol20mAtEntry: int64  // trailing 20-bar volume sum at entry (the entry's 20m volume)
       SessMaxVol20AtEntry: float // session PEAK trailing-20 volume sum (are we entering at the volume climax or a lull?)
+      SessMinVol20AtEntry: float // session-MIN trailing-20 volume avg (from 09:45) — the session-min vol-stop basis
       EmaAtEntry: float          // the CURRENT-bar 9-EMA at entry (strictly-prior)
       SessMaxEmaAtEntry: float   // session MAX 9-EMA (how far the 9-EMA has pulled back from its session peak)
       // ----- BreakoutTimer features (strictly-prior; the fusion layer) -----
@@ -185,6 +186,15 @@ type IntradayConfig =
                                // selective than the avg-volume stop (needs an actual downtrend, not mere decay).
                                // e.g. 0.0 (any negative) or −0.05 / −0.10 (a steeper roll-over). Fills at close.
                                // -inf / NaN = off (default).
+      VolStopSessionMin: bool  // 20m-avg-VOLUME STOP basis. false (default) = the stop threshold is
+                               // VolStopFrac × the ENTRY's trailing-20m volume. true = VolStopFrac × the
+                               // SESSION-MIN trailing-20m volume (the quietest 20m so far, tracked from
+                               // VolStopMinStartMin). Motivation: a session-min basis places a LOWER, more
+                               // absolute floor than the entry basis (which drifts up when entering at a
+                               // volume climax) — testing whether the vol-stop lift is a low-threshold effect.
+      VolStopMinStartMin: int  // ET minute the session-MIN 20m-volume tracker starts (585 = 09:45 ET — the
+                               // trade start, NOT the 09:30 feature anchor: the volatile open would drag the
+                               // min down artificially. Only used when VolStopSessionMin = true.
       // ----- exhaustion / loss-of-VWAP exits (recorded lessons from V2; off by default) -----
       ExhaustExit: bool        // MaxFlyer-style: while HOLDING, exit when a 1m bar makes a NEW SESSION HIGH on a
                                // VOLUME BLOW-OFF (>= ExhaustVolMult × BOTH per-min baselines). Fill at that close.
@@ -256,6 +266,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     // session-cumulative MAX of the trailing-20-bar volume SUM (the session's peak 20m volume) and of the
     // 9-EMA (the session's highest 9-EMA). Fed the respective post-fold state each feature-bar. No reset.
     let mutable sessMaxVol20 : float voption = ValueNone
+    // session-cumulative MIN of the trailing-20-bar volume SUM, tracked ONLY from VolStopMinStartMin (09:45 —
+    // skips the volatile open). The session-min basis for the 20m-avg-volume stop. No reset — per-day engine.
+    let mutable sessMinVol20 : float voption = ValueNone
     let mutable sessMaxEma   : float voption = ValueNone
     // session-cumulative MAX of the 20m log-ATR (past volatility explosions). Fed the atrLog.State each
     // feature-bar (like HighFlyer's maxAtrLog, but session-cumulative, no window). No reset — per-day engine.
@@ -315,6 +328,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sTrailVol5m   : int64 = 0L      // trailing 5-bar volume sum going INTO this bar (exhaustion numerator)
     let mutable sTrailVol20m  : int64 = 0L      // trailing 20-bar volume sum going INTO this bar
     let mutable sSessMaxVol20 : float = nan     // session peak trailing-20 volume sum (strictly-prior)
+    let mutable sSessMinVol20 : float = nan     // session-min trailing-20 volume avg from 09:45 (strictly-prior)
     let mutable sSessMaxEma   : float = nan     // session max 9-EMA (strictly-prior)
     let mutable sEmaAboveVwapBars : int = 0
     // BreakoutTimer strictly-prior snapshots (state going INTO this bar — what the entry gate reads).
@@ -459,6 +473,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sTrailVol5m    <- (match vol5sum.State with ValueSome v -> int64 v | ValueNone -> 0L)
         sTrailVol20m   <- (match vol20sum.State with ValueSome v -> int64 v | ValueNone -> 0L)
         sSessMaxVol20  <- sessMaxVol20 |> ValueOption.defaultValue nan
+        sSessMinVol20  <- sessMinVol20 |> ValueOption.defaultValue nan
         sSessMaxEma    <- sessMaxEma   |> ValueOption.defaultValue nan
         sEmaAboveVwapBars <- emaAboveVwapBars
         sBreakoutTimer    <- breakoutTimer
@@ -516,10 +531,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             volOls.Push   (log (float bar.volume))
             vol5sum.Push  (float bar.volume)   // trailing 5-bar volume (exhaustion-cut numerator)
             vol20sum.Push (float bar.volume)   // trailing 20-bar volume (for the session-peak-20m-volume feature)
-            // session-cumulative MAX of the trailing-20 volume sum (the session's peak 20m volume).
+            // session-cumulative MAX of the trailing-20 volume avg (the session's peak 20m volume).
             (match vol20sum.State with
              | ValueSome v -> sessMaxVol20 <- (match sessMaxVol20 with ValueSome m -> ValueSome (max m v) | ValueNone -> ValueSome v)
              | ValueNone -> ())
+            // session-cumulative MIN of the trailing-20 volume avg, tracked from VolStopMinStartMin (09:45). The
+            // window has been folding since 09:30 so it holds ~15 bars at 09:45 — a partial window is fine here
+            // (.State is a mean, not a sum, so an early ~15-bar avg is still a valid 20m-avg estimate).
+            if bar.etMin >= cfg.VolStopMinStartMin then
+                (match vol20sum.State with
+                 | ValueSome v -> sessMinVol20 <- (match sessMinVol20 with ValueSome m -> ValueSome (min m v) | ValueNone -> ValueSome v)
+                 | ValueNone -> ())
             // session VWAP.
             let tp = (bar.high + bar.low + bar.close) / 3.0
             vwapNum <- vwapNum + tp * float bar.volume
@@ -608,12 +630,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             let pctStopLevel = pos.EntryPx * (1.0 - cfg.PctStop)
             let pctStopHit = cfg.PctStop > 0.0 && bar.low <= pctStopLevel
             // 20m-AVG-VOLUME STOP: the live trailing-20m volume (vol20sum.State, incl. THIS bar — ProcessBar ran
-            // first) has fallen to < VolStopFrac of the ENTRY's trailing-20m volume. Volume drying up = disinterest.
-            // Both are 20-bar SUMS so the /20 cancels; the ratio is live_sum / entry_sum. Fills at this bar's close.
+            // first) has fallen below VolStopFrac × the BASIS. Volume drying up = disinterest → exit at close.
+            //   ENTRY basis (default): basis = the entry's trailing-20m volume.
+            //   SESSION-MIN basis (VolStopSessionMin): basis = the session-min trailing-20m volume (from 09:45) —
+            //     a lower, more absolute floor than the entry basis (which drifts up entering at a volume climax).
+            // For the session-min basis use the SnapshotAtEntry (fixed floor as-of entry), matching the entry-basis
+            // path which is also fixed at entry — both are stable thresholds, not running floors that ratchet down.
+            let volStopBasis =
+                if cfg.VolStopSessionMin then pos.SessMinVol20AtEntry
+                else float pos.TrailVol20mAtEntry
             let volStopHit =
-                cfg.VolStopFrac > 0.0 && pos.TrailVol20mAtEntry > 0L
+                cfg.VolStopFrac > 0.0 && volStopBasis > 0.0 && not (Double.IsNaN volStopBasis)
                 && (match vol20sum.State with
-                    | ValueSome v -> v / float pos.TrailVol20mAtEntry < cfg.VolStopFrac
+                    | ValueSome v -> v / volStopBasis < cfg.VolStopFrac
                     | ValueNone -> false)
             // VOLUME-SLOPE STOP: the live 20m OLS log-volume slope has rolled over below VolSlopeStop (the volume
             // TREND is negative = the move is losing fuel). More selective than the avg-volume stop. Fills at close.
@@ -701,6 +730,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   EmaVwap60AtEntry = sEmaVwap60
                   TrailVol20mAtEntry = sTrailVol20m
                   SessMaxVol20AtEntry = sSessMaxVol20
+                  SessMinVol20AtEntry = sSessMinVol20
                   EmaAtEntry = (match sEmaPrev with ValueSome e -> e | ValueNone -> nan)
                   SessMaxEmaAtEntry = sSessMaxEma
                   BreakoutTimerAtEntry = sBreakoutTimer

@@ -58,6 +58,7 @@ type Args =
     | Time_Stop_Min of int
     | Vol_Stop_Frac of float
     | Vol_Slope_Stop of float
+    | Vol_Stop_Session_Min
     | Exhaust_Exit
     | Exhaust_Vol_Mult of float
     | Vwap_Exit_Bars of int
@@ -108,6 +109,7 @@ type Args =
             | Time_Stop_Min _ -> "Flatten this many minutes after entry, capped at MOC. Default 0 = off (hold-to-MOC)."
             | Vol_Stop_Frac _ -> "20m-avg-VOLUME stop: exit when the trailing-20m volume falls below this fraction of its entry value (e.g. 0.667, 0.5). Default 0 = off."
             | Vol_Slope_Stop _ -> "VOLUME-SLOPE stop: exit when the live 20m OLS log-volume slope rolls below this (e.g. 0.0, -0.05, -0.1). More selective than --vol-stop-frac. Default off."
+            | Vol_Stop_Session_Min -> "Switch the --vol-stop-frac basis from the ENTRY's 20m volume to the SESSION-MIN 20m volume (tracked from 09:45). A lower, absolute floor. Default off."
             | Exhaust_Exit -> "EXHAUSTION EXIT: while holding, sell into a NEW-SESSION-HIGH bar on a VOLUME BLOW-OFF (>= mult × both per-minute baselines). Default OFF."
             | Exhaust_Vol_Mult _ -> "Exhaustion blow-off multiplier (default 10). Only with --exhaust-exit."
             | Vwap_Exit_Bars _ -> "LOSS-OF-VWAP EXIT: once the 9-EMA has been above VWAP for >= this many bars, close the long when the 9-EMA crosses below VWAP. 0 = off (default)."
@@ -167,6 +169,8 @@ let main argv =
                   TimeStopMin     = parsed.GetResult(Time_Stop_Min,     defaultValue = defaultConfig.Intraday.TimeStopMin)
                   VolStopFrac     = parsed.GetResult(Vol_Stop_Frac,     defaultValue = defaultConfig.Intraday.VolStopFrac)
                   VolSlopeStop    = parsed.GetResult(Vol_Slope_Stop,    defaultValue = defaultConfig.Intraday.VolSlopeStop)
+                  VolStopSessionMin = (parsed.Contains Vol_Stop_Session_Min || defaultConfig.Intraday.VolStopSessionMin)
+                  VolStopMinStartMin = defaultConfig.Intraday.VolStopMinStartMin
                   ExhaustExit     = parsed.Contains Exhaust_Exit
                   ExhaustVolMult  = parsed.GetResult(Exhaust_Vol_Mult,  defaultValue = defaultConfig.Intraday.ExhaustVolMult)
                   VwapExitBars    = parsed.GetResult(Vwap_Exit_Bars,    defaultValue = defaultConfig.Intraday.VwapExitBars) } }
@@ -218,7 +222,7 @@ let main argv =
         [ yield "hold-to-MOC"
           if ic.TimeStopMin > 0 then yield sprintf "time-stop %dm" ic.TimeStopMin
           if ic.PctStop > 0.0 then yield sprintf "pct-stop %.0f%%" (100.0 * ic.PctStop)
-          if ic.VolStopFrac > 0.0 then yield sprintf "vol-stop<%.0f%%×entry" (100.0 * ic.VolStopFrac)
+          if ic.VolStopFrac > 0.0 then yield sprintf "vol-stop<%.0f%%×%s" (100.0 * ic.VolStopFrac) (if ic.VolStopSessionMin then "sessmin" else "entry")
           if not (Double.IsNegativeInfinity ic.VolSlopeStop || Double.IsNaN ic.VolSlopeStop) then yield sprintf "vol-slope-stop<%.2f" ic.VolSlopeStop
           if ic.ExhaustExit then yield sprintf "exhaust(%.0f×)" ic.ExhaustVolMult
           if ic.VwapExitBars > 0 then yield sprintf "loss-of-VWAP(%d)" ic.VwapExitBars ]

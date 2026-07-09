@@ -109,6 +109,8 @@ let defaultConfig =
                                          // the 20m volume decays below this fraction of its entry value).
           VolSlopeStop    = Double.NegativeInfinity  // volume-slope stop OFF (--vol-slope-stop 0 / -0.05 enables —
                                          // exit when the live 20m OLS log-volume slope rolls below the threshold).
+          VolStopSessionMin = false      // vol-stop basis = ENTRY's 20m volume (--vol-stop-session-min → session-min).
+          VolStopMinStartMin = 585       // session-min 20m-vol tracker starts 09:45 ET (trade start; skips the open).
           ExhaustExit     = false        // exhaustion exit OFF (recorded lesson; --exhaust-exit enables).
           ExhaustVolMult  = 10.0
           VwapExitBars    = 0 }          // loss-of-VWAP exit OFF.
@@ -157,6 +159,7 @@ type Trip =
       EmaVwap60: int             // # of the last 60 bars the 9-EMA was above VWAP
       TrailVol20m: int64         // trailing 20-bar volume sum at entry
       SessMaxVol20: float        // session peak trailing-20 volume sum
+      SessMinVol20: float        // session-MIN trailing-20 volume avg (from 09:45) — the session-min vol-stop basis
       Vol20VsSessMax: float      // entry 20m volume / session peak 20m volume (1.0 = entering at the volume climax; <1 = a lull)
       EmaAtEntry: float          // the current-bar 9-EMA at entry (strictly-prior)
       SessMaxEma: float          // session max 9-EMA
@@ -231,6 +234,7 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           EmaVwap60 = pos.EmaVwap60AtEntry
           TrailVol20m = pos.TrailVol20mAtEntry
           SessMaxVol20 = pos.SessMaxVol20AtEntry
+          SessMinVol20 = pos.SessMinVol20AtEntry
           Vol20VsSessMax =
               (if pos.SessMaxVol20AtEntry > 0.0 && not (Double.IsNaN pos.SessMaxVol20AtEntry)
                then float pos.TrailVol20mAtEntry / pos.SessMaxVol20AtEntry else nan)
@@ -515,7 +519,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,stop_dist_pct,"
-    + "price_slope_20,vol_slope_20,log_atr_20,tightness_20,slope_per_atr,sum_above_6,sum_above_40,sum_above_60,ema_vwap_30,ema_vwap_60,trail_vol_20m,sess_max_vol_20,vol20_vs_sessmax,ema_at_entry,sess_max_ema,breakout_timer,bars_since_ema_high,pb_updn,pb_max_dist,pb_atr_pct,ema_vs_sessmax,ema_vs_max_ema,"
+    + "price_slope_20,vol_slope_20,log_atr_20,tightness_20,slope_per_atr,sum_above_6,sum_above_40,sum_above_60,ema_vwap_30,ema_vwap_60,trail_vol_20m,sess_max_vol_20,sess_min_vol_20,vol20_vs_sessmax,ema_at_entry,sess_max_ema,breakout_timer,bars_since_ema_high,pb_updn,pb_max_dist,pb_atr_pct,ema_vs_sessmax,ema_vs_max_ema,"
     + "sess_max_log_atr,sess_min_close,sess_max_close,sess_max_vol,vwap_at_entry,entry_vs_vwap,init_vol_15m,trail_vol_5m,rvol_5m_15m,rvol_5m_20d,"
     + "entry_vs_sess_high,chg_20m,rvol,mkt_chg_open,mkt_chg_prev,cum_vol_to_entry,pct_chg_since_open,"
     + "close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
@@ -544,6 +548,7 @@ let private row (t: Trip) : string =
         string t.EmaVwap60
         string t.TrailVol20m
         fmt t.SessMaxVol20
+        fmt t.SessMinVol20
         fmt t.Vol20VsSessMax
         fmt t.EmaAtEntry
         fmt t.SessMaxEma

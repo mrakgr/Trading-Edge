@@ -745,3 +745,76 @@ Per-year clip: 2021 is FLAT across the whole sweep (1.57/1.59/1.51/1.52/1.54/1.4
 an arbitrary inherited value. Lowering DOES add net (off/0.005 make ~$525k vs $420k, ~2× the trips — the extra
 low-ATR trades are net-positive, just lower-PF), so off/0.005 is a valid MORE-NET/lower-PF book choice. But it's
 not a free win and does NOT help 2021. **0.013 kept as the default.** (off = the max-net variant if desired.)
+
+## Finding 21 — SESSION-MIN vol-stop basis: WEAKER than the entry basis, not stronger — the low threshold HURTS selectivity
+
+Motivation (user): F16 found the vol-stop was hugely effective on vol-slope<0 trades, and the guess was that
+this could be a *threshold* effect — vol-slope<0 trades enter on quieter volume, so their entry-based stop level
+`⅔×entry-vol` sits LOWER, and a lower floor might be what does the work. To test that directly: hold vol-slope
+**> 0** fixed (rising-volume trades, the ORIGINAL premise — so we're NOT confounding with the F16 population)
+and swap the vol-stop basis from `⅔ × ENTRY 20m-vol` to `⅔ × SESSION-MIN 20m-vol`. The session-min basis is a
+lower, more absolute floor. New engine: `sessMinVol20` (a running min of the trailing-20m avg volume), tracked
+from **09:45 ET** (the trade start — NOT the 09:30 feature anchor; the volatile open would drag the min down),
+fixed as-of entry (`--vol-stop-session-min`). Gated d16 book, ema-fixed, max-conc 1, `--min-vol-slope 0`.
+
+| (vol-slope>0) | no vol-stop | **entry-basis ⅔** | **sessmin-basis ⅔** |
+|---|---|---|---|
+| trips | 811 | 994 | 911 |
+| win% | 46.0% | 46.9% | 45.1% |
+| **PFraw** | 2.85 | **3.23** | 3.04 |
+| **PFclip** | 1.97 | **2.42** | 2.18 |
+| net_raw | $766k | $593k | $658k |
+| net_clip | $399k | $377k | $380k |
+
+**Per-year CLIP PF:**
+
+| config | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|
+| no vol-stop     | 2.27 | 1.56 | 1.80 | 5.24 | 1.81 | 2.15 | 1.82 |
+| entry-basis ⅔   | 3.62 | 1.81 | 2.89 | 4.60 | 3.12 | 2.13 | 1.59 |
+| sessmin-basis ⅔ | 3.07 | 1.67 | 1.96 | 3.21 | 2.79 | 2.01 | 2.04 |
+
+**Result — the hypothesis is REJECTED: session-min is a WEAKER stop, not a stronger one.** The session-min
+basis lands BETWEEN no-stop and entry-basis on clip PF (2.18 vs 1.97 vs 2.42) — it keeps more of the tail
+(net_raw $658k, closer to no-stop's $766k than entry-basis's $593k) but improves per-trade quality LESS. It
+fires less aggressively (911 open-slots vs 994 — the entry stop cuts faster, freeing slots for more trades),
+and its per-year clip lift is muted almost everywhere (2022 1.96 vs entry-basis's 2.89; 2024 2.79 vs 3.12).
+
+**Why:** a LOWER stop threshold makes the stop LESS selective — volume has to fall all the way to ⅔ of the
+session's *quietest* 20m before it fires, which for most trades never happens until very late (near-MOC), so
+the stop degenerates toward hold-to-MOC. The entry basis is a RELATIVE floor ("volume fell to ⅔ of what it was
+when I bought") which fires precisely when the move that justified the entry loses its own fuel — that relative
+drop is the selective signal, not an absolute-low level. **So F16's vol-stop lift on vol-slope<0 trades is NOT
+a low-threshold artifact** — it's the F17 mechanism (declining-vol = fast early pop → the relative ⅔-of-entry
+drop catches the fade). **Keep the ENTRY basis; the session-min basis is discarded** (recorded diagnostic only).
+
+## Finding 22 — entry-basis vol-stop TIGHTNESS sweep: ⅔ is the clip-PF PEAK; tightening to ¾/⅚ only ERODES it
+
+After F21 (entry basis beats session-min) the question was whether a TIGHTER entry-basis stop does even better.
+Swept `--vol-stop-frac` ∈ {⅔, ¾, ⅚} on the SETTLED default book (vol-slope OFF / take-all, d16, ema-fixed,
+max-conc 1). Raw + clip both.
+
+| entry-basis vstop | n | win% | PFraw | **PFclip** | net_raw | net_clip |
+|---|---|---|---|---|---|---|
+| none | 872 | 46.0% | 2.96 | 2.05 | $835k | $448k |
+| **⅔ (0.667)** | 1074 | 47.0% | **3.25** | **2.44** | $624k | $398k |
+| ¾ (0.75) | 1130 | 45.2% | 3.07 | 2.38 | $572k | $381k |
+| ⅚ (0.833) | 1218 | 46.3% | 2.98 | 2.34 | $547k | $369k |
+
+**Per-year CLIP PF:**
+
+| config | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|
+| none    | 2.72 | 1.54 | 1.71 | 6.78 | 1.89 | 2.19 | 1.80 |
+| ⅔       | 4.02 | 1.64 | 2.58 | 5.65 | 3.15 | 2.20 | 1.63 |
+| ¾       | 3.51 | 1.60 | 2.71 | 4.79 | 2.77 | 2.28 | 1.56 |
+| ⅚       | 3.78 | 1.59 | 2.57 | 4.90 | 3.02 | 2.09 | 1.40 |
+
+**Result — ⅔ is the peak; tightening past it is monotonically WORSE on BOTH PF and net.** Clip slides
+2.44 → 2.38 → 2.34 and net $398k → $381k → $369k as the stop tightens. A tighter stop takes MORE trades
+(1074 → 1218 — it fires on more names, freeing more max-conc-1 slots) but each incremental exit is
+lower-quality: the extra trips it enables are net-dilutive. Per-year, ⅔ is the best or near-best clip in almost
+every year (2020 4.02, 2024 3.15 both peak at ⅔; 2026 falls off a cliff 1.63→1.40 as it tightens); no single
+regime year is rescued by a tighter stop (2022 nudges up to 2.71 at ¾ but everything else erodes). 2021 is FLAT
+(~1.6) across the sweep — the vol-stop is regime-neutral there. **⅔ kept as the vol-stop default** (when the
+vol-stop is used at all — recall it remains OFF in the settled default book, a scalp/half-out variant per F14/F17).
