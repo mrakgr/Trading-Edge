@@ -1,10 +1,10 @@
-module TradingEdge.DipRiderV3.Backtest
+module TradingEdge.BreakoutTimer.Backtest
 
 open System
 open System.Globalization
 open System.Collections.Generic
 open DuckDB.NET.Data
-open TradingEdge.DipRiderV3.Intraday
+open TradingEdge.BreakoutTimer.Intraday
 
 // ===========================================================================
 // LowFlyer backtest wiring.
@@ -44,23 +44,23 @@ let defaultConfig =
           MocMin          = 16 * 60      // 16:00 ET
           MaxConcurrent   = 1            // ONE position per (ticker,day). --max-concurrent 0 = unlimited.
           // ----- entry gates -----
-          MinVolSlope    = 0.05          // 20m OLS log-volume slope >= 0.05 (V2 F14/F15 — rising volume is the PF lever).
-          MaxVolSlope    = 0.25          // F16: blow-off ceiling — reject vol-slope >= 0.25 (a volume explosion into
-                                         // entry; that bucket clips PF 0.58/-4.94%). +inf = off.
-          MinPriceSlope  = 0.0           // 20m OLS log-price slope > 0. Sweep for a higher floor.
-          MinTightness   = 3.0           // NOTE: the documented V3 conclusion was "tightness OFF (redundant with ATR)"
-                                         // but this was left ACTIVE at 3.0. It is NEARLY non-binding (2024: min 3.14,
-                                         // ~1 trip differs if turned off) so shipped V3 numbers are ~unchanged either
-                                         // way — kept AS-SHIPPED to preserve the settled book. Set 0.0 to honor the
-                                         // documented decision (changes ~1 trade). BreakoutTimer (fork) turns it OFF.
+          MinVolSlope    = Double.NegativeInfinity  // OFF (F13/F16: vol-slope FLOOR removed — the rising-vol premise
+                                         // INVERTS here (F16: vol-slope<0 is the best bucket, clip 2.37). Take ALL
+                                         // trades (aggregate off-book clip 2.08/787 trips is solidly positive); the
+                                         // <0 edge is a size/split lever, not a hard gate. --min-vol-slope 0.05 restores.
+          MaxVolSlope    = infinity      // OFF (F13: blow-off ceiling is DEAD WEIGHT here). --max-vol-slope 0 = the
+                                         // F16 declining-vol concentrator (clip 2.37); 0.25 = the old V3 ceiling.
+          MinPriceSlope  = Double.NegativeInfinity  // OFF (F12: DEAD WEIGHT in BreakoutTimer — 0/709 entries had
+                                         // slope<=0; a post-drought 9-EMA breakout is trending by construction).
+          MinTightness   = 0.0           // OFF (F12: DEAD WEIGHT — 0/709 entries had tightness<3; also V3 had it
+                                         // stale-active at 3.0 despite "tightness OFF, redundant with ATR"). --min-tightness restores.
           MaxTightness   = infinity      // OFF
           MinAtrPct      = 0.013         // 20m log-ATR >= 0.013 — THE MAIN LEVER (F3: PF scales monotonically
                                          // with ATR; sub-0.013 is flat/dead ~PF 1.07). 0 = off.
           MaxAtrPct      = infinity      // OFF
-          MinCloseAbove6 = 5             // F6: require >= 5 of the last 6 bars closed above the 9-EMA. A real,
-                                         // clip-robust entry-quality gate (sum6<=4 weak/dead; 5-6 = clipped PF
-                                         // 1.32/1.21, 84% of the book). Measures how SUSTAINED the push is
-                                         // (orthogonal to ATR's SIZE). 0 = off.
+          MinCloseAbove6 = 0             // OFF (F12: DEAD WEIGHT in BreakoutTimer — removing it was slightly BETTER,
+                                         // clip 2.06→2.09/+66 trips; the breakout already implies a sustained push).
+                                         // --min-close-above-6 5 restores the V3 value.
           MinSlopePerAtr = Double.NegativeInfinity  // slope/log-ATR floor OFF (gated after breakdown).
           MinSessMaxLogAtr = 0.0         // session-max-log-ATR floor OFF (gated after breakdown).
           MaxRvol5m20d   = 100.0         // F11: exhaustion cut — reject if trailing-5m avg vol >= 100× the 20d
@@ -76,11 +76,19 @@ let defaultConfig =
                                          // close3d). A 3-day decliner is a poor momentum buy in BOTH regimes
                                          // (durable, not regime-conditional). Lifts clip PF+net; 4th 2021 helper. -inf = off.
           RequireEmaAboveVwap = false    // F21: strict >VWAP gate — superseded by MinEmaVsVwap. Default off.
-          MinEmaVsVwap   = -0.02         // F27: 9-EMA-vs-VWAP floor (REPLACES MinEntryVsVwap) — reject if the 9-EMA
-                                         // is >2% below VWAP. Smoothed trend location; knee at −2% (−2..0% still good).
-                                         // -inf = off.
+          MinEmaVsVwap   = Double.NegativeInfinity  // OFF (F12: DEAD WEIGHT in BreakoutTimer — only 2/709 entries
+                                         // were >2% below VWAP; a post-drought 9-EMA breakout is near/above VWAP by
+                                         // construction). --min-ema-vs-vwap -0.02 restores the V3 value.
           MaxSumAbove40  = 0             // trend-too-long cap OFF (tune after breakdown).
           MaxSumAbove60  = 0
+          // ----- BreakoutTimer (the fusion layer) -----
+          RequireBreakoutTimer = false   // MASTER SWITCH off at the baseline (reproduces pure DipRiderV3 exactly,
+                                         // a sanity check). --require-breakout-timer turns the fusion gate ON.
+          BreakoutMinBarsSinceHigh = 16  // arm only after a >= 16-bar EMA-high drought (F4: the overall knee —
+                                         // clip 2.00→2.08, also lifts 2021 1.34→1.50 & 2023 4.22→5.54).
+          BreakoutTimerBars = 10         // 10-bar (~10-minute) permission window after a qualifying breakout.
+          MinPbUpDn       = 0.0          // pb_updn floor OFF by default (F8: --min-pb-updn gates it — a monotone,
+                                         // all-weather A+ lever at drought=16).
           // ----- stop / exits -----
           GeomStop        = true         // geometry stop: d = entry - stopFloor; stop = entry - d*StopDistFrac.
           StopFloorSessMin = true         // stop floor = the SESSION MIN CLOSE (from 08:30) — F2: the wider floor
@@ -88,8 +96,19 @@ let defaultConfig =
                                          // (the tight 20m floor chopped winners). false = 20m min close.
           StopDistFrac    = 2.0 / 3.0    // stop distance = d*2/3 (VwapReclaim F14 / V2 F25).
           StopOnClose     = true         // stop on a CLOSE at/below the level (ignore noise wicks).
+          EmaStop         = true         // F7: EMA-stop (FIXED) is now the DEFAULT — level = 20m-min-9EMA at entry
+                                         // (direct, no geometry), exit when the live 9-EMA drops below it. ≈ close-geom
+                                         // on raw/clip (3.14/2.10 vs 3.08/2.08) but momentum-appropriate. --close-stop
+                                         // reverts to the close-based geometry stop.
+          EmaStopTrail    = false        // when EmaStop: false = FIXED (level frozen at entry); --ema-stop-trail
+                                         // = TRAILING (level recomputes each bar to the current 20m-min-9EMA — a
+                                         // risk-mode: higher clip PF but truncates the fat tail, F7).
           PctStop         = 0.0          // catastrophe %-stop OFF.
           TimeStopMin     = 0            // HOLD-TO-MOC (the continuation lesson: any exit caps the winners).
+          VolStopFrac     = 0.0          // 20m-avg-volume stop OFF (--vol-stop-frac 0.667 / 0.5 enables — exit when
+                                         // the 20m volume decays below this fraction of its entry value).
+          VolSlopeStop    = Double.NegativeInfinity  // volume-slope stop OFF (--vol-slope-stop 0 / -0.05 enables —
+                                         // exit when the live 20m OLS log-volume slope rolls below the threshold).
           ExhaustExit     = false        // exhaustion exit OFF (recorded lesson; --exhaust-exit enables).
           ExhaustVolMult  = 10.0
           VwapExitBars    = 0 }          // loss-of-VWAP exit OFF.
@@ -141,6 +160,12 @@ type Trip =
       Vol20VsSessMax: float      // entry 20m volume / session peak 20m volume (1.0 = entering at the volume climax; <1 = a lull)
       EmaAtEntry: float          // the current-bar 9-EMA at entry (strictly-prior)
       SessMaxEma: float          // session max 9-EMA
+      // ----- BreakoutTimer features (strictly-prior) -----
+      BreakoutTimer: int         // the timer value at entry (>0 = a live post-drought EMA-high breakout window)
+      BarsSinceEmaHigh: int      // # bars since the 9-EMA last made a new session high (0 on a fresh high)
+      PbUpDn: float              // pullback updn = mean above-EMA vol / mean below-EMA vol since the last reset (the vol-slope rival)
+      PbMaxDist: float           // deepest sessMaxEma/ema-1 gap since the last reset (how far the 9-EMA fell below its high)
+      PbAtrPct: float            // mean 20m log-ATR over the pullback run since the last reset
       EmaVsSessMax: float        // entry px / session-max-9EMA - 1 (how far below the session's peak 9-EMA the entry sits)
       EmaVsMaxEma: float         // current 9-EMA / session-max-9EMA - 1 (how far the 9-EMA ITSELF pulled back from its peak; <=0)
       SessMaxLogAtr: float       // session-cumulative MAX of the 20m log-ATR (past volatility explosions)
@@ -211,6 +236,11 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
                then float pos.TrailVol20mAtEntry / pos.SessMaxVol20AtEntry else nan)
           EmaAtEntry = pos.EmaAtEntry
           SessMaxEma = pos.SessMaxEmaAtEntry
+          BreakoutTimer = pos.BreakoutTimerAtEntry
+          BarsSinceEmaHigh = pos.BarsSinceEmaHighAtEntry
+          PbUpDn = pos.PbUpDnAtEntry
+          PbMaxDist = pos.PbMaxDistAtEntry
+          PbAtrPct = pos.PbAtrPctAtEntry
           EmaVsSessMax =
               (if pos.SessMaxEmaAtEntry > 0.0 && not (Double.IsNaN pos.SessMaxEmaAtEntry)
                then pos.EntryPx / pos.SessMaxEmaAtEntry - 1.0 else nan)
@@ -485,7 +515,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,stop_dist_pct,"
-    + "price_slope_20,vol_slope_20,log_atr_20,tightness_20,slope_per_atr,sum_above_6,sum_above_40,sum_above_60,ema_vwap_30,ema_vwap_60,trail_vol_20m,sess_max_vol_20,vol20_vs_sessmax,ema_at_entry,sess_max_ema,ema_vs_sessmax,ema_vs_max_ema,"
+    + "price_slope_20,vol_slope_20,log_atr_20,tightness_20,slope_per_atr,sum_above_6,sum_above_40,sum_above_60,ema_vwap_30,ema_vwap_60,trail_vol_20m,sess_max_vol_20,vol20_vs_sessmax,ema_at_entry,sess_max_ema,breakout_timer,bars_since_ema_high,pb_updn,pb_max_dist,pb_atr_pct,ema_vs_sessmax,ema_vs_max_ema,"
     + "sess_max_log_atr,sess_min_close,sess_max_close,sess_max_vol,vwap_at_entry,entry_vs_vwap,init_vol_15m,trail_vol_5m,rvol_5m_15m,rvol_5m_20d,"
     + "entry_vs_sess_high,chg_20m,rvol,mkt_chg_open,mkt_chg_prev,cum_vol_to_entry,pct_chg_since_open,"
     + "close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
@@ -517,6 +547,11 @@ let private row (t: Trip) : string =
         fmt t.Vol20VsSessMax
         fmt t.EmaAtEntry
         fmt t.SessMaxEma
+        string t.BreakoutTimer
+        string t.BarsSinceEmaHigh
+        fmt t.PbUpDn
+        fmt t.PbMaxDist
+        fmt t.PbAtrPct
         fmt t.EmaVsSessMax
         fmt t.EmaVsMaxEma
         fmt t.SessMaxLogAtr
