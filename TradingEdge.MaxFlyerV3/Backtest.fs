@@ -67,6 +67,12 @@ let defaultConfig =
           EmaArmBars = 60                // --ema-arm-bars: the cross-under window after a breakout. F6: ≤60 more
                                          // than DOUBLES net vs ≤10 ($4.08M vs $1.84M) for a modest PF give-up
                                          // (5.27 vs 6.61); the edge doesn't need a fast rollover. Knee ~60–90.
+          EmaBarsSinceHighEntry = false  // --ema-bars-since-high-entry: fire on the FIRST weakness (barsSinceEmaHigh
+                                         // reaches the threshold) instead of the 9-EMA cross-under (which can lag ~1h).
+          EmaBarsSinceHigh = 1           // --ema-bars-since-high threshold. F8: MONOTONE — tighter = higher PF +
+                                         // more trips + more net + tighter tail. bsh=1 best (PF 8.47, $1.50M, worst
+                                         // −76%); the fresher the weakness, the better the fade. (Note: the whole
+                                         // bsh book is ~2.7× LESS net than the cross-under book — quality vs net.)
           EmaMaxStop = false             // --ema-max-stop: cover when the 9-EMA rises above the session-max 9-EMA.
           EmaMaxStopWindow = 30          // --ema-max-stop-window: 30-bar ROLLING max 9-EMA anchor (F7). Re-anchors
                                          // the stop to the RECENT local EMA high near the fill; the session anchor

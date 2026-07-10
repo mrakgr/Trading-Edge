@@ -192,6 +192,14 @@ type IntradayConfig =
       EmaPeriod: int           // the EMA period for the arm-timer entry + max-EMA stop (default 9).
       EmaArmBars: int          // the countdown length (bars) after a breakout during which the 9-EMA-cross-under
                                // short may fire (default 10).
+      // ----- alt ENTRY TRIGGER: bars-since-9EMA-high (instead of the 9-EMA cross-under) -----
+      EmaBarsSinceHighEntry: bool // when true (with EmaEntry), FIRE the short as soon as barsSinceEmaHigh reaches
+                               // EmaBarsSinceHigh — i.e. on the FIRST small weakness (the 9-EMA hasn't made a new
+                               // session high for N bars), NOT when the 9-EMA crosses back under a stale armed
+                               // level (which can lag ~1h). Mirrors BreakoutTimer's barsSinceEmaHigh. The pending
+                               // arms on each new 9-EMA session high (resetting the counter). Once per episode.
+      EmaBarsSinceHigh: int    // the bars-since-9EMA-high threshold to enter (default 2 = the 9-EMA has stalled/
+                               // ticked down for 2 bars). Only used when EmaBarsSinceHighEntry is on.
       EmaMaxStop: bool         // EXIT MODEL. false (default) = the existing exits (V2). true = add a session-max-
                                // 9EMA stop: while short, COVER (at close) when the live 9-EMA rises ABOVE the
                                // running session-max 9-EMA × (1 + EmaMaxStopBuffer). The max is LIVE/trailing
@@ -269,6 +277,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     // session-cumulative MAX of the folded 9-EMA (LIVE/trailing — keeps updating during a hold; the max-EMA
     // stop reference). No reset — per-(ticker,day) engine.
     let mutable sessMaxEma : float voption = ValueNone
+    // bars since the 9-EMA last made a NEW session high (0 on a fresh EMA-high, +1 otherwise). The bars-since-high
+    // entry trigger (EmaBarsSinceHighEntry): fire when this reaches EmaBarsSinceHigh = the first small weakness.
+    let mutable barsSinceEmaHigh = 0
     // PER-SIGNAL PENDING TRADES (replaces the old global timer): each new-session-high breakout arms its OWN
     // independent pending — its armed 9-EMA level (emaAtArm), its own remaining-bars countdown, and the breakout
     // (signal) bar's features captured at arm time (so the trip describes the pop being faded, not the later
@@ -456,26 +467,38 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // 9-EMA fold + arm-timer bookkeeping (only meaningful when EmaEntry/EmaMaxStop are on; cheap otherwise).
         // Fold the EMA on the current close, then update the LIVE session-max EMA (the trailing max-EMA stop ref).
         ema.Push bar.close
+        // is THIS bar a new 9-EMA session high? (compare the fresh EMA to the STRICTLY-PRIOR session max, i.e.
+        // sessMaxEma BEFORE this bar's update below). NaN/None prior = the first EMA = a new high.
+        let isNewEmaHigh =
+            match ema.State with
+            | ValueSome e -> (match sessMaxEma with ValueSome m -> e > m | ValueNone -> true)
+            | ValueNone -> false
         (match ema.State with
          | ValueSome e ->
              sessMaxEma <- (match sessMaxEma with ValueSome m -> ValueSome (max m e) | ValueNone -> ValueSome e)
              if cfg.EmaMaxStopWindow > 0 then emaRollMax.Push e   // rolling local EMA-high anchor
          | ValueNone -> ())
-        // ARM a NEW PENDING on a new-session-HIGH breakout (the same close-through-prior-high event the direct
-        // entry fades), read against the STRICTLY-PRIOR running high. Each new high arms its OWN independent
-        // pending (bars = EmaArmBars, emaAtArm = the fresh 9-EMA, + the signal-bar features). Pendings are AGED
-        // and FIRED in FirePendings (called from Process AFTER this fold), so the arm bar itself never fires
-        // (ema == emaAtArm, not below) — earliest fire is the next bar. No global timer; pendings coexist.
+        // bars-since-9EMA-high counter (BreakoutTimer idiom): 0 on a fresh EMA high, +1 otherwise.
+        barsSinceEmaHigh <- (if isNewEmaHigh then 0 else barsSinceEmaHigh + 1)
+        // ARM a NEW PENDING. Trigger depends on the entry model:
+        //   default (cross-under): arm on a new-session-HIGH PRICE breakout (the pop we fade); fire later when the
+        //     9-EMA crosses back under the armed level.
+        //   bars-since-high: arm on a new 9-EMA SESSION HIGH; fire when barsSinceEmaHigh reaches the threshold (the
+        //     first small weakness). The counter reset above (=0 on the EMA high) makes it once-per-episode.
+        // Each new high arms its OWN pending (features captured at the arm bar). Pendings fire in Process (below).
         if cfg.EmaEntry then
-            let priorHigh =
-                if cfg.MinCloseRef then (if cfg.Downside then sRunLoClose else sRunHiClose)
-                else (if cfg.Downside then sRunLo else sRunHi)
-            let isBreakout =
-                bar.etMin >= cfg.EntryStartMin
-                && (match priorHigh with
-                    | ValueSome ext -> (if cfg.Downside then bar.close < ext else bar.close > ext)
-                    | ValueNone -> false)
-            if isBreakout then
+            let isArm =
+                if cfg.EmaBarsSinceHighEntry then
+                    isNewEmaHigh && bar.etMin >= cfg.EntryStartMin
+                else
+                    let priorHigh =
+                        if cfg.MinCloseRef then (if cfg.Downside then sRunLoClose else sRunHiClose)
+                        else (if cfg.Downside then sRunLo else sRunHi)
+                    bar.etMin >= cfg.EntryStartMin
+                    && (match priorHigh with
+                        | ValueSome ext -> (if cfg.Downside then bar.close < ext else bar.close > ext)
+                        | ValueNone -> false)
+            if isArm then
                 let twoBar =
                     match sLastBar with
                     | ValueSome prev -> if cfg.Downside then max prev.high bar.high else min prev.low bar.low
@@ -698,11 +721,32 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   SessVolHighAtSignal = af.SessVolHigh
                   State = state }
 
-        if cfg.EmaEntry then
-            // ===== PER-SIGNAL PENDINGS: fire every pending whose 9-EMA has now closed below ITS armed level; age
-            //       the rest and drop the expired. Iterate a COPY of the fire-list so we can mutate `pending`.
-            //       A pending armed THIS bar (signalMin = bar.etMin) is not aged/fired yet (ema == emaAtArm). All
-            //       qualifying pendings fire this bar (user's call); MaxConcurrent (if set) caps how many. =====
+        if cfg.EmaEntry && cfg.EmaBarsSinceHighEntry then
+            // ===== BARS-SINCE-9EMA-HIGH TRIGGER: fire the latest pending EXACTLY when barsSinceEmaHigh REACHES the
+            //       threshold (equality → fires once per high-then-decline episode; the counter resets to 0 on the
+            //       next EMA high, which also arms a fresh pending). Older un-fired pendings are stale (their
+            //       episode ended when a new EMA high reset the counter before it hit the threshold) → drop them.
+            //       The pending armed THIS bar (a fresh EMA high, counter = 0) never fires now unless threshold=0. =====
+            // Only the MOST-RECENT pending (the latest EMA high) is live — the counter tracks bars since IT. Keep
+            // it (aging) until it fires at the threshold or a newer high supersedes it; drop all older pendings.
+            let fireNow = barsSinceEmaHigh = cfg.EmaBarsSinceHigh
+            let room = cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent
+            let lastIdx = pending.Count - 1
+            let toRemove = ResizeArray<int>()
+            for i in 0 .. lastIdx do
+                if i < lastIdx then toRemove.Add i               // superseded by a newer pending → drop
+                else
+                    // the latest pending: fire at the threshold (unless it was armed THIS bar — a fresh EMA high,
+                    // counter = 0 — which only fires if threshold = 0), else keep it aging.
+                    let p = pending.[i]
+                    if p.SignalMin <> bar.etMin && fireNow && room then
+                        addPosition p bar.close Holding
+                        toRemove.Add i
+            for k in toRemove.Count - 1 .. -1 .. 0 do pending.RemoveAt toRemove.[k]
+        elif cfg.EmaEntry then
+            // ===== CROSS-UNDER TRIGGER (default): fire every pending whose 9-EMA has now closed below ITS armed
+            //       level; age the rest and drop the expired. A pending armed THIS bar (signalMin = bar.etMin) is
+            //       not aged/fired yet. All qualifying pendings fire this bar; MaxConcurrent (if set) caps how many.
             let live = ema.State
             let toRemove = ResizeArray<int>()
             for i in 0 .. pending.Count - 1 do
