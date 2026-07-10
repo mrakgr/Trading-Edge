@@ -145,3 +145,26 @@ pendings fire) and --ema-max-stop-buffer (looser = fewer stop-outs) to try to cl
 
 **⚠ Data note (persists):** VLCN 2024-06-25 entry_px $517, CRKN 2024-05-14 $1,464 — pre-split prices the
 adj_ratio join misses. P&L stays bounded by the stop (no distortion), but the adj_ratio edge case is real.
+
+## Finding 5 — ⭐ max-EMA-stop BUFFER (frozen at entry): 20–30% is the plateau — PF 6.2 / net $1.96M / tail bounded
+
+**Bug found + fixed first.** The buffer originally applied to the LIVE/trailing session-max 9-EMA, so it
+SATURATED: buffer ≥10% → the stop NEVER fired (a smoothed EMA can't rise 10% above its own running max; the
+30%/40% CSVs were byte-identical). FIX (user's spec): freeze the stop base at the ENTRY bar's session-max 9-EMA
+(new per-position `EmaStopBase`); stop level = base × (1+buffer); cover when the live 9-EMA CLOSES above it.
+Now the buffer is meaningfully spaced. Swept 0/10/20/30/40% (A-book, 2020+, raw PF).
+
+| buffer | n | win% | raw PF | net | worst | n_stopped |
+|---|---:|---:|---:|---:|---:|---:|
+| 0% (entry EMA-max) | 1550 | 66.6% | 3.57 | $1.39M | −$5,212 | 441 |
+| 10% | 1550 | 80.8% | 4.59 | $1.78M | −$6,079 | 143 |
+| **20%** | 1550 | 83.5% | 6.19 | $1.96M | −$6,878 | 52 |
+| **30%** | 1550 | 84.0% | 6.24 | $1.97M | −$7,458 | 37 |
+| 40% | 1550 | 84.1% | 6.78 | $2.00M | −$11,996 | 18 |
+
+**Clean monotone tradeoff — looser buffer → higher PF, more net, wider tail.** 0% is too tight (441 stops cut
+winners-that-dipped → PF 3.57). **20–30% is the plateau: PF ~6.2, net ~$1.96M, worst bounded −$6.9k/−$7.5k
+(~11× better than V2's −$84k), only 37–52 stops fire** (the stop now catches only genuine runaways, not noise).
+40% edges PF/net (6.78 / $2.00M) but the worst trade DOUBLES to −$11,996 — the stop gets loose enough to let a
+few squeezes run. **This closes most of the net gap vs V2** ($1.96M vs $4.78M, at PF 6.2 ≈ V2's 6.65) while
+keeping the catastrophe tail capped — exactly the mandate. Default buffer → 20–30% (30% for a touch more net).

@@ -46,6 +46,10 @@ type IntraPosState =
 type IntradayPosition =
     { EntryMin: int
       EntryPx: float
+      EmaStopBase: float       // MAX-EMA STOP base, FROZEN at entry: the session-max 9-EMA as-of the ENTRY bar.
+                               // The stop level = EmaStopBase × (1 + EmaMaxStopBuffer); cover when the live 9-EMA
+                               // CLOSES above it. Frozen (not trailing) so the buffer is meaningfully spaced — a
+                               // trailing base rises with the EMA and the buffer saturates. nan when EmaMaxStop off.
       StopLevel: float         // protective-stop level. Direct entry: the 2-bar local extreme at the
                                // breakout (upside = 2-bar low, downside = 2-bar high); fires when price
                                // reaches it (low<=level / high>=level). Under --trail-entry this is the
@@ -270,10 +274,6 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     // the mean-reversion cover anchor (cfg.Target), as-of going INTO this bar (strictly-
     // prior). ValueNone until the chosen anchor is warm / when Target = NoTarget.
     let mutable sTargetAnchor : float voption = ValueNone
-    // 9-EMA subsystem snapshot (strictly-prior, no lookahead): the session-max EMA as-of the PRIOR bar — the
-    // max-EMA stop compares the live EMA to this (the live sessMaxEma already includes this bar, so it can't
-    // be exceeded). The cross-under entry reads the LIVE ema.State directly (post-fold), not a snapshot.
-    let mutable sSessMaxEma : float voption = ValueNone
 
     let positions = ResizeArray<IntradayPosition>()
 
@@ -406,7 +406,6 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sRangeHigh    <- rangeHigh.State
         sRangeLow     <- rangeLow.State
         sTargetAnchor <- this.LiveTargetAnchor
-        sSessMaxEma   <- sessMaxEma
 
         // 2) fold the bar in. True range vs the prior 1m close.
         match lastBar with
@@ -600,16 +599,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             let pctStopHit =
                 cfg.PctStop > 0.0 &&
                 (if cfg.Short then bar.high >= pctStopLevel else bar.low <= pctStopLevel)
-            // MAX-EMA STOP (cfg.EmaMaxStop): while short, cover (at close) when the live 9-EMA rises ABOVE the
-            // session-max 9-EMA × (1 + buffer). Compare to sSessMaxEma — the STRICTLY-PRIOR max (snapshotted at
-            // the top of ProcessBar, BEFORE this bar folded); the live sessMaxEma already includes this bar's
-            // EMA, so it could never be exceeded. A new EMA session high = the pop we faded is re-taking the
-            // high = we're wrong → exit. (Long mirror: 9-EMA below session-MIN — not tracked; short-only for now.)
+            // MAX-EMA STOP (cfg.EmaMaxStop): while short, cover (at close) when the live 9-EMA CLOSES above the
+            // stop level = EmaStopBase × (1 + buffer). EmaStopBase is the session-max 9-EMA FROZEN at the entry
+            // bar (per-position), NOT the live trailing max — freezing makes the buffer meaningfully spaced (a
+            // trailing base rises with the EMA, so any buffer ≥~10% saturates and the stop never fires). The
+            // 9-EMA rising buffer% above where it was at entry = the pop we faded is re-taking the high → exit.
             let emaMaxStopHit =
-                cfg.EmaMaxStop && cfg.Short
-                && (match ema.State, sSessMaxEma with
-                    | ValueSome e, ValueSome m -> e > m * (1.0 + cfg.EmaMaxStopBuffer)
-                    | _ -> false)
+                cfg.EmaMaxStop && cfg.Short && not (Double.IsNaN pos.EmaStopBase)
+                && (match ema.State with
+                    | ValueSome e -> e > pos.EmaStopBase * (1.0 + cfg.EmaMaxStopBuffer)
+                    | ValueNone -> false)
             if emaMaxStopHit then
                 { pos with State = ExitedAt (bar.etMin, bar.close, "ema_max_stop") }
             elif cfg.UseStop && stopHit then
@@ -642,6 +641,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             positions.Add
                 { EntryMin = bar.etMin
                   EntryPx = entryPx
+                  // freeze the max-EMA-stop base at the ENTRY bar's session-max 9-EMA (sessMaxEma is live here —
+                  // ProcessBar already folded this bar). Stop = base × (1+buffer); nan when the stop is off.
+                  EmaStopBase = (if cfg.EmaMaxStop then (match sessMaxEma with ValueSome m -> m | ValueNone -> nan) else nan)
                   StopLevel = af.TwoBar
                   BreakoutRef = af.BreakoutRef
                   AtrPctAtEntry = af.AtrPct

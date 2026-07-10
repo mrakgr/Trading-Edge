@@ -66,7 +66,9 @@ let defaultConfig =
           EmaPeriod = 9                  // the EMA period for the arm-timer entry + max-EMA stop.
           EmaArmBars = 10                // --ema-arm-bars: the cross-under window after a breakout.
           EmaMaxStop = false             // --ema-max-stop: cover when the 9-EMA rises above the session-max 9-EMA.
-          EmaMaxStopBuffer = 0.0 }       // --ema-max-stop-buffer: fractional buffer raising the stop above the max.
+          EmaMaxStopBuffer = 0.30 }      // --ema-max-stop-buffer: buffer raising the stop above the ENTRY-bar
+                                         // session-max 9-EMA. F5: 20–30% = the plateau (PF ~6.2, net ~$1.96M,
+                                         // tail bounded); 0% too tight (cuts winners), 40% leaks the tail. 0.30 default.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
