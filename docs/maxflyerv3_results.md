@@ -168,3 +168,30 @@ winners-that-dipped → PF 3.57). **20–30% is the plateau: PF ~6.2, net ~$1.96
 40% edges PF/net (6.78 / $2.00M) but the worst trade DOUBLES to −$11,996 — the stop gets loose enough to let a
 few squeezes run. **This closes most of the net gap vs V2** ($1.96M vs $4.78M, at PF 6.2 ≈ V2's 6.65) while
 keeping the catastrophe tail capped — exactly the mandate. Default buffer → 20–30% (30% for a touch more net).
+
+## Finding 6 — ⭐ arm-window (timer) sweep, done POST-HOC: ≤60 bars DOUBLES net vs ≤10 for a modest PF give-up
+
+Instead of re-running per timer length (slow, imprecise), ran ONCE with an effectively-infinite arm window
+(`--ema-arm-bars 100000` — every signal that EVER crosses under fires) and sliced the lag (= entry−signal
+minutes = bars the 9-EMA took to roll under) post-hoc. The cumulative table IS the timer-length sweep.
+A-book, 2020+, buffer 30%, raw PF. Lag dist: mean 37.9, median 18, p90 94, max 362.
+
+**CUMULATIVE (arm window ≤ N = the timer sweep):**
+
+| arm ≤ N | n | win% | raw PF | net | worst |
+|---|---:|---:|---:|---:|---:|
+| 10 (old default) | 1,448 | 84.5% | 6.61 | $1.84M | −$7,253 |
+| 20 | 2,412 | 82.8% | 6.08 | $2.89M | −$7,739 |
+| 30 | 2,973 | 82.3% | 5.69 | $3.42M | −$15,339 |
+| **60 (new default)** | **3,654** | **81.1%** | **5.27** | **$4.08M** | −$15,339 |
+| 90 | 3,950 | 80.7% | 5.28 | $4.38M | −$15,339 |
+| 120 | 4,098 | 80.1% | 5.14 | $4.47M | −$15,339 |
+| ∞ | 4,408 | 78.9% | 4.89 | $4.59M | −$15,339 |
+
+**≤60 more than DOUBLES net ($1.84M→$4.08M, +122%, 2.5× trips) for a modest PF give-up (6.61→5.27).** This
+essentially CLOSES the gap to V2 no-stop's $4.78M — but with the tail bounded (worst −$15,339 vs V2's −$83,909,
+still ~5×). **Per-band (non-cum):** bands 1-10…61-90 all strong (PF 3.0-6.6) — the fade doesn't need a fast
+rollover, later cross-unders work too. The −$15,339 worst enters in the 21-30 band (a slower squeeze runs a bit
+before the 9-EMA closes above the frozen stop base) and is the max across all windows ≥30. Past ~90 bars decays
+(91-120 PF 2.62; >120 PF 2.23, avg only +4%) → ∞ is NOT best; soft knee at 60-90. **DEFAULT --ema-arm-bars → 60**
+(≤90 adds ~$300k more at ~same PF, basically free; kept 60 as the clean knee / user's target).

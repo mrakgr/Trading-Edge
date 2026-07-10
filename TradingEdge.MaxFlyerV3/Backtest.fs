@@ -64,7 +64,9 @@ let defaultConfig =
           // 9-EMA arm-timer entry + max-EMA stop — all OFF by default (V3 reproduces V2 until flagged on).
           EmaEntry = false               // --ema-entry: arm on breakout, short on the 9-EMA cross-under.
           EmaPeriod = 9                  // the EMA period for the arm-timer entry + max-EMA stop.
-          EmaArmBars = 10                // --ema-arm-bars: the cross-under window after a breakout.
+          EmaArmBars = 60                // --ema-arm-bars: the cross-under window after a breakout. F6: ≤60 more
+                                         // than DOUBLES net vs ≤10 ($4.08M vs $1.84M) for a modest PF give-up
+                                         // (5.27 vs 6.61); the edge doesn't need a fast rollover. Knee ~60–90.
           EmaMaxStop = false             // --ema-max-stop: cover when the 9-EMA rises above the session-max 9-EMA.
           EmaMaxStopBuffer = 0.30 }      // --ema-max-stop-buffer: buffer raising the stop above the ENTRY-bar
                                          // session-max 9-EMA. F5: 20–30% = the plateau (PF ~6.2, net ~$1.96M,
