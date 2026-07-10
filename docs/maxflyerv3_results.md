@@ -288,3 +288,33 @@ the arm bug — not the fire rule — was the earlier confusion. down-tick sides
 A-book 2020+ **PF 5.68 / net $7.07M / worst −$9.5k / 0 over 100% / 4,746 trips, all-weather.** BEATS V2 no-stop
 ($4.78M / −$83.9k) on BOTH net AND tail (~9× smaller). "Short into every new session high, hold until the
 9-EMA ticks down, roll30m/buf20 stop."
+
+## Finding 10 — ⭐ TIGHT 5% stop + 2 RE-ENTRIES: crushes the tail to −54% at ~flat net (the drawdown-ceiling variant)
+
+Idea (user): a much TIGHTER stop (5% buffer vs 20%) bounds the tail hard, but a tight stop alone bleeds net
+(cuts winners). So don't give up after a stop — re-short on the NEXT 9-EMA down-tick, up to 2 re-entries per pop,
+each with a FRESH 30m-max-9EMA×1.05 stop (`--ema-reentries 2 --ema-max-stop-buffer 0.05`). Chain ends at the cap
+or MOC. Engine: on an ema-stop with budget left, Advance spawns a re-arm pending that PRESERVES the original
+signal's data (signal_time/volume/features — verified: 3-leg chains share signal_time+signal_volume, so brv20d
+is identical across legs; `ArmMin` field split from `SignalMin` so the fire-loop skip guard doesn't clobber the
+reported signal). All max-conc 0 (unlimited — the correct post-hoc mode; max-conc 1 serializes into whatever
+pending grabs the slot and pollutes the population). A-book, 2020+, raw PF.
+
+| config | n | win% | raw PF | net | worst | worst% | n>50% |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **settled (buf20, re0)** | 4,746 | 84.3% | **5.68** | $7.07M | −$9,533 | 95% | 20 |
+| 5%stop re0 | 4,746 | 70.1% | 3.46 | $5.18M | −$5,383 | 54% | 4 |
+| **5%stop re2** | 6,320 | 69.4% | 3.49 | $6.97M | **−$5,383** | **54%** | **4** |
+
+**The 5% stop crushes the tail: worst −95%→−54% (−$9.5k→−$5.4k), trades losing >50% drop 20→4.** No trade loses
+more than 54% — the tightest ceiling in V3. **Re-entries recover almost all the net the tight stop gives up:**
+5%stop-re0 collapses net to $5.18M (the tight stop cuts winners, win 84→70%); the 2 re-entries climb it back to
+$6.97M (+$1.8M) by re-shorting pops that keep fading post-stop (trips 4,746→6,320 = the re-entry legs). **Net vs
+the settled book is ~flat ($6.97M vs $7.07M, −1.4%).**
+
+**The tradeoff (genuine choice):** vs settled buf20 — tail MUCH better (−54% vs −95%, 4 vs 20 over 50%), net
+~flat, but PF worse (3.49 vs 5.68; the tight stop realizes many small losses, win 69% vs 84%). This is the pure
+"trade PF for a lower drawdown CEILING" the V3 mandate is about — the same net at a 40-pt-lower worst-case for ~2
+PF points. For a short book where the tail IS the risk, the −54% ceiling is compelling. **Two shippable books:
+buf20/re0 = high-PF; 5%stop/re2 = tight-ceiling.** (Both beat V2 no-stop's −839% by >15×.) NEXT: sweep re-entry
+count (3-4?) and the tight-stop buffer (3%? 7%?) to map the ceiling/net frontier.

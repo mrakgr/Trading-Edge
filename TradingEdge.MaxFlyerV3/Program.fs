@@ -43,6 +43,7 @@ type Args =
     | Ema_Bars_Since_High_Entry
     | Ema_Bars_Since_High of int
     | Ema_Down_Tick_Entry
+    | Ema_Reentries of int
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -75,6 +76,7 @@ type Args =
             | Ema_Bars_Since_High_Entry -> "ENTRY TRIGGER: fire on the FIRST weakness — enter when barsSinceEmaHigh reaches --ema-bars-since-high — instead of the 9-EMA cross-under (which can lag ~1h after the pop). Arms on each new 9-EMA session high; once per episode. Requires --ema-entry."
             | Ema_Bars_Since_High _ -> "The bars-since-9EMA-high threshold to enter (default 2). Only with --ema-bars-since-high-entry. Swept."
             | Ema_Down_Tick_Entry -> "ENTRY TRIGGER: fire when the 9-EMA TICKS DOWN vs the prior bar (ema < prevEma) — a pure 'EMA turned down' weakness, NO session-high requirement. Requires --ema-entry; takes precedence over the bars-since-high / cross-under triggers."
+            | Ema_Reentries _ -> "RE-ENTRIES after an EMA-stop-out: re-short on the next 9-EMA down-tick up to this many times (0 = off, default). Each re-entry gets a fresh 30m-max-9EMA×(1+buffer) stop. Pair with a TIGHT --ema-max-stop-buffer (e.g. 0.05). Chain ends at the cap or MOC."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -119,6 +121,7 @@ let main argv =
                   EmaMaxStopWindow = parsed.GetResult(Ema_Max_Stop_Window, defaultValue = defaultConfig.Intraday.EmaMaxStopWindow)
                   EmaPctStop = parsed.GetResult(Ema_Pct_Stop, defaultValue = defaultConfig.Intraday.EmaPctStop)
                   EmaDownTickEntry = (parsed.Contains Ema_Down_Tick_Entry || defaultConfig.Intraday.EmaDownTickEntry)
+                  EmaReentries = parsed.GetResult(Ema_Reentries, defaultValue = defaultConfig.Intraday.EmaReentries)
                   EmaBarsSinceHighEntry = (parsed.Contains Ema_Bars_Since_High_Entry || defaultConfig.Intraday.EmaBarsSinceHighEntry)
                   EmaBarsSinceHigh = parsed.GetResult(Ema_Bars_Since_High, defaultValue = defaultConfig.Intraday.EmaBarsSinceHigh) } }
 

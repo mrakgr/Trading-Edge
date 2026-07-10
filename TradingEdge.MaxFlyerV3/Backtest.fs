@@ -72,6 +72,8 @@ let defaultConfig =
           EmaDownTickEntry = false       // --ema-down-tick-entry: fire when the 9-EMA ticks DOWN vs the prior bar
                                          // (ema < prevEma), no session-high requirement. Takes precedence over the
                                          // bars-since-high / cross-under triggers.
+          EmaReentries = 0               // --ema-reentries: after an EMA-stop-out, re-short on the next down-tick up
+                                         // to this many times (0 = off). Pair with a TIGHT --ema-max-stop-buffer.
           EmaBarsSinceHigh = 1           // --ema-bars-since-high threshold (session barsSinceEmaHigh >= this). F8v2:
                                          // th=0 = short into every high; th=1 = 1-bar delay for the FIRST weakness.
                                          // th=1 wins: win 75%→84%, PF 4.52→5.61, net $6.68M→$7.07M (peak). th=2 a hair

@@ -83,6 +83,9 @@ type IntradayPosition =
       SignalClose: float       // the signal bar's CLOSE (vs EntryPx = how far the fade moved before we filled).
       SignalVolume: int64      // the signal (arm/breakout) bar's own VOLUME.
       SessVolHighAtSignal: int64  // the STRICTLY-PRIOR session 1m-vol high at the signal bar (vol-confirm post-hoc).
+      Reentries: int           // RE-ENTRIES this position still permits after a stop-out (down-tick + --ema-reentries).
+                               // On an ema-max-stop with Reentries>0, Advance spawns a fresh re-arm pending carrying
+                               // Reentries-1, which re-shorts on the next down-tick. 0 = no re-entry (chain ends).
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// One PENDING signal in the EMA-entry model: a new-session-high breakout that has NOT yet been faded. It fires
@@ -92,6 +95,13 @@ type IntradayPosition =
 type PendingSignal =
     { EmaAtArm: float
       mutable Bars: int
+      // the bar this pending was (re)armed on — the fire-loop skip guard ("just armed this bar → don't fire yet").
+      // Kept SEPARATE from SignalMin so a re-arm can carry the ORIGINAL signal's time in SignalMin (data preserved)
+      // while ArmMin = the re-arm (stop) bar.
+      ArmMin: int
+      // RE-ENTRY budget this pending will hand to the position it spawns. The ORIGINAL breakout pending starts at
+      // EmaReentries; a re-arm pending (spawned by a stopped position in Advance) carries the DECREMENTED budget.
+      Reentries: int
       BreakoutRef: float; AtrPct: float; Tightness: float; CumVol: int64; BoVol: int64; NewVolHigh: bool
       VolVsHigh: float; BoOpen: float; PrevClose: float; Chg20m: float; TwoBar: float
       SignalMin: int; SignalHigh: float; SignalOpen: float; SignalLow: float; SignalClose: float
@@ -205,6 +215,11 @@ type IntradayConfig =
                                // with NO requirement that the 9-EMA ever made a session high (unlike bars-since-
                                // high). Catches weakness on names whose EMA stalls without a clean session high.
                                // Takes precedence over the bars-since-high and cross-under triggers when on.
+      EmaReentries: int        // RE-ENTRY budget per pop (down-tick mode only): after a position is stopped out by
+                               // the ema-max-stop, re-short on the NEXT 9-EMA down-tick — up to this many times
+                               // (0 = off / give up after the first stop, default). Each re-entry gets a FRESH stop
+                               // (its own 30m-max-9EMA × (1+buffer) frozen at the re-entry bar). Chain ends at the
+                               // cap or MOC. Pairs with a TIGHT buffer (e.g. 0.05) — tight stop + several re-probes.
       EmaMaxStop: bool         // EXIT MODEL. false (default) = the existing exits (V2). true = add a session-max-
                                // 9EMA stop: while short, COVER (at close) when the live 9-EMA rises ABOVE the
                                // running session-max 9-EMA × (1 + EmaMaxStopBuffer). The max is LIVE/trailing
@@ -509,6 +524,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 pending.Add
                     { EmaAtArm  = (match ema.State with ValueSome e -> e | ValueNone -> nan)
                       Bars      = cfg.EmaArmBars
+                      ArmMin    = bar.etMin
+                      Reentries = cfg.EmaReentries
                       BreakoutRef = (match this.BreakoutRef with ValueSome x -> x | ValueNone -> nan)
                       AtrPct      = (match this.AtrPct with ValueSome x -> x | ValueNone -> nan)
                       Tightness   = (match this.Tightness with ValueSome x -> x | ValueNone -> nan)
@@ -664,6 +681,20 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                     | ValueNone -> false)
             if emaMaxStopHit || emaPctStopHit then
                 let reason = if emaPctStopHit && not emaMaxStopHit then "ema_pct_stop" else "ema_max_stop"
+                // RE-ENTRY: stopped by an EMA stop with budget left and before MOC → spawn a fresh re-arm pending
+                // (same pop's signal features, Reentries-1). It re-shorts on the NEXT down-tick (the EMA is rising
+                // at the stop, so the down-tick is false THIS bar; SignalMin=this bar makes the fire loop skip it
+                // this bar). Each re-entry gets its OWN fresh 30m-max×(1+buffer) stop (captured at its entry bar).
+                if pos.Reentries > 0 && bar.etMin < cfg.MocMin then
+                    pending.Add
+                        { EmaAtArm = nan; Bars = cfg.EmaArmBars; ArmMin = bar.etMin; Reentries = pos.Reentries - 1
+                          BreakoutRef = pos.BreakoutRef; AtrPct = pos.AtrPctAtEntry; Tightness = pos.TightnessAtEntry
+                          CumVol = pos.CumVolAtEntry; BoVol = pos.SignalVolume; NewVolHigh = pos.NewVolHigh
+                          VolVsHigh = pos.VolVsHigh; BoOpen = pos.BreakoutBarOpen; PrevClose = pos.PrevBarClose
+                          Chg20m = pos.Chg20mAtEntry; TwoBar = pos.StopLevel
+                          // SignalMin = the ORIGINAL pop's signal time (data preserved); ArmMin = the stop bar (skip).
+                          SignalMin = pos.SignalMin; SignalHigh = pos.SignalHigh; SignalOpen = pos.SignalOpen
+                          SignalLow = pos.SignalLow; SignalClose = pos.SignalClose; SessVolHigh = pos.SessVolHighAtSignal }
                 { pos with State = ExitedAt (bar.etMin, bar.close, reason) }
             elif cfg.UseStop && stopHit then
                 let reason = if cfg.TrailEntry then "session_stop" else "intraday_stop"
@@ -722,6 +753,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   SignalClose = af.SignalClose
                   SignalVolume = af.BoVol
                   SessVolHighAtSignal = af.SessVolHigh
+                  Reentries = af.Reentries
                   State = state }
 
         if cfg.EmaEntry && cfg.EmaDownTickEntry then
@@ -735,7 +767,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             let toRemove = ResizeArray<int>()
             for i in 0 .. pending.Count - 1 do
                 let room = cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent
-                if pending.[i].SignalMin = bar.etMin then ()     // just armed this bar — earliest fire is next bar
+                if pending.[i].ArmMin = bar.etMin then ()        // just (re)armed this bar — earliest fire is next bar
                 elif emaDown && room then
                     addPosition pending.[i] bar.close Holding     // 9-EMA ticked down → fire
                     toRemove.Add i
@@ -762,7 +794,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             let toRemove = ResizeArray<int>()
             for i in 0 .. pending.Count - 1 do
                 let p = pending.[i]
-                if p.SignalMin = bar.etMin then ()               // just armed this bar — leave it for next bar
+                if p.ArmMin = bar.etMin then ()                  // just (re)armed this bar — leave it for next bar
                 else
                     let crossed =
                         match live with
@@ -784,7 +816,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 if cfg.Downside then max sLastBar.Value.high bar.high
                 else min sLastBar.Value.low bar.low
             let af : PendingSignal =
-                { EmaAtArm = nan; Bars = 0
+                { EmaAtArm = nan; Bars = 0; ArmMin = bar.etMin; Reentries = 0
                   BreakoutRef = this.BreakoutRef.Value; AtrPct = this.AtrPct.Value; Tightness = this.Tightness.Value
                   CumVol = cumVol; BoVol = bar.volume
                   NewVolHigh = (match sRunVolHi with ValueSome vh -> bar.volume > vh | ValueNone -> true)
