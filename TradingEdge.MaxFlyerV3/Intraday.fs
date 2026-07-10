@@ -50,6 +50,8 @@ type IntradayPosition =
                                // The stop level = EmaStopBase × (1 + EmaMaxStopBuffer); cover when the live 9-EMA
                                // CLOSES above it. Frozen (not trailing) so the buffer is meaningfully spaced — a
                                // trailing base rises with the EMA and the buffer saturates. nan when EmaMaxStop off.
+      EmaAtEntry: float        // the live 9-EMA on the ENTRY (fill) bar. The 9-EMA %-STOP anchor: level =
+                               // EmaAtEntry × (1 + EmaPctStop). nan when EmaPctStop off.
       StopLevel: float         // protective-stop level. Direct entry: the 2-bar local extreme at the
                                // breakout (upside = 2-bar low, downside = 2-bar high); fires when price
                                // reaches it (low<=level / high>=level). Under --trail-entry this is the
@@ -194,9 +196,21 @@ type IntradayConfig =
                                // 9EMA stop: while short, COVER (at close) when the live 9-EMA rises ABOVE the
                                // running session-max 9-EMA × (1 + EmaMaxStopBuffer). The max is LIVE/trailing
                                // (keeps updating during the hold), so a new EMA session high = "we're wrong" = exit.
-      EmaMaxStopBuffer: float }// a fractional buffer RAISING the max-EMA stop above the session max (0.0 = stop
+      EmaMaxStopWindow: int    // MAX-EMA STOP anchor window (bars). 0 (default) = the SESSION-cumulative max
+                               // 9-EMA. N > 0 = a ROLLING N-bar max 9-EMA (e.g. 30 = a 30m local EMA high).
+                               // The session anchor stales badly: if a stock popped EARLY (pushing the session
+                               // max up) then we short a LATER, LOWER pop, the session-anchored stop sits far
+                               // above where we shorted → it lets the trade run 100%+ before firing (the −153%
+                               // MGIH loser). A rolling window re-anchors to the RECENT local high near the fill.
+      EmaMaxStopBuffer: float  // a fractional buffer RAISING the max-EMA stop above the session max (0.0 = stop
                                // exactly at the session-max 9-EMA; 0.05 = 5% above it, tolerating a small poke
                                // over the high before covering). Only used when EmaMaxStop is on.
+      // ----- alternative EXIT: a pure 9-EMA %-stop anchored to the ENTRY 9-EMA (not the session max) -----
+      EmaPctStop: float }      // 9-EMA %-STOP: while short, cover (at close) when the live 9-EMA rises to
+                               // ema_at_entry × (1 + EmaPctStop) — a UNIFORM per-trade cap measured from the
+                               // 9-EMA at fill, NOT the session max. Tighter/more uniform than the max-EMA stop
+                               // (which lets a session with an already-high max drift far). 0 = OFF (default).
+                               // Mutually usable with EmaMaxStop (both checked; first to fire wins). e.g. 0.60.
 
 /// Per-(ticker, day) intraday engine. Feed it the day's RTH MinuteBar[] in time
 /// order via `Process`, then `Finalize` and read `Trips()`.
@@ -213,6 +227,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let rangeHigh = MaxMa(cfg.VolWindow)        // intraday tightness: max high over the window
     let rangeLow  = MinMa(cfg.VolWindow)        // intraday tightness: min low over the window
     let ema       = EmaMa(cfg.EmaPeriod)        // the 9-EMA — the arm-timer entry ref + the max-EMA stop ref
+    // rolling N-bar MAX of the 9-EMA (the LOCAL EMA high) — the alt max-EMA-stop anchor when EmaMaxStopWindow>0.
+    // Sized only when the rolling anchor is used (window>0); fed the folded EMA each bar.
+    let emaRollMax = if cfg.EmaMaxStopWindow > 0 then MaxMa(cfg.EmaMaxStopWindow) else MaxMa(1)
 
     // ----- mean-reversion TARGET anchors (only the one named by cfg.Target is fed) -----
     // session VWAP = Σ(typical_price · volume) / Σ(volume), typical = (h+l+c)/3, from
@@ -440,7 +457,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // Fold the EMA on the current close, then update the LIVE session-max EMA (the trailing max-EMA stop ref).
         ema.Push bar.close
         (match ema.State with
-         | ValueSome e -> sessMaxEma <- (match sessMaxEma with ValueSome m -> ValueSome (max m e) | ValueNone -> ValueSome e)
+         | ValueSome e ->
+             sessMaxEma <- (match sessMaxEma with ValueSome m -> ValueSome (max m e) | ValueNone -> ValueSome e)
+             if cfg.EmaMaxStopWindow > 0 then emaRollMax.Push e   // rolling local EMA-high anchor
          | ValueNone -> ())
         // ARM a NEW PENDING on a new-session-HIGH breakout (the same close-through-prior-high event the direct
         // entry fades), read against the STRICTLY-PRIOR running high. Each new high arms its OWN independent
@@ -609,8 +628,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 && (match ema.State with
                     | ValueSome e -> e > pos.EmaStopBase * (1.0 + cfg.EmaMaxStopBuffer)
                     | ValueNone -> false)
-            if emaMaxStopHit then
-                { pos with State = ExitedAt (bar.etMin, bar.close, "ema_max_stop") }
+            // 9-EMA %-STOP (cfg.EmaPctStop): cover when the live 9-EMA CLOSES above ema_at_entry × (1+EmaPctStop).
+            // A UNIFORM per-trade cap off the entry 9-EMA (unlike the session-max anchor, which lets a session
+            // with an already-high max drift far — the source of the −153% MGIH loser). First stop to fire wins.
+            let emaPctStopHit =
+                cfg.EmaPctStop > 0.0 && cfg.Short && not (Double.IsNaN pos.EmaAtEntry)
+                && (match ema.State with
+                    | ValueSome e -> e > pos.EmaAtEntry * (1.0 + cfg.EmaPctStop)
+                    | ValueNone -> false)
+            if emaMaxStopHit || emaPctStopHit then
+                let reason = if emaPctStopHit && not emaMaxStopHit then "ema_pct_stop" else "ema_max_stop"
+                { pos with State = ExitedAt (bar.etMin, bar.close, reason) }
             elif cfg.UseStop && stopHit then
                 let reason = if cfg.TrailEntry then "session_stop" else "intraday_stop"
                 { pos with State = ExitedAt (bar.etMin, bar.close, reason) }
@@ -641,9 +669,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             positions.Add
                 { EntryMin = bar.etMin
                   EntryPx = entryPx
-                  // freeze the max-EMA-stop base at the ENTRY bar's session-max 9-EMA (sessMaxEma is live here —
-                  // ProcessBar already folded this bar). Stop = base × (1+buffer); nan when the stop is off.
-                  EmaStopBase = (if cfg.EmaMaxStop then (match sessMaxEma with ValueSome m -> m | ValueNone -> nan) else nan)
+                  // freeze the max-EMA-stop base at entry (structures are live here — ProcessBar folded this bar).
+                  // Window 0 = the session-cumulative max 9-EMA; window N = the rolling N-bar local max 9-EMA
+                  // (re-anchors to the recent high near the fill). Stop = base × (1+buffer); nan when the stop is off.
+                  EmaStopBase =
+                    (if not cfg.EmaMaxStop then nan
+                     elif cfg.EmaMaxStopWindow > 0 then (match emaRollMax.State with ValueSome m -> m | ValueNone -> nan)
+                     else (match sessMaxEma with ValueSome m -> m | ValueNone -> nan))
+                  // the live 9-EMA at fill — the anchor for the EmaPctStop (level = EmaAtEntry × (1+EmaPctStop)).
+                  EmaAtEntry = (if cfg.EmaPctStop > 0.0 then (match ema.State with ValueSome e -> e | ValueNone -> nan) else nan)
                   StopLevel = af.TwoBar
                   BreakoutRef = af.BreakoutRef
                   AtrPctAtEntry = af.AtrPct

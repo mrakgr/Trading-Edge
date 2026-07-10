@@ -195,3 +195,41 @@ rollover, later cross-unders work too. The −$15,339 worst enters in the 21-30 
 before the 9-EMA closes above the frozen stop base) and is the max across all windows ≥30. Past ~90 bars decays
 (91-120 PF 2.62; >120 PF 2.23, avg only +4%) → ∞ is NOT best; soft knee at 60-90. **DEFAULT --ema-arm-bars → 60**
 (≤90 adds ~$300k more at ~same PF, basically free; kept 60 as the clean knee / user's target).
+
+## Finding 7 — ⭐ ROLLING-30m-max-9EMA stop anchor (buf20) HALVES the fat tail (−153%→−82%, 0 over 100%) for FREE
+
+The session-cumulative-max anchor STALES: if a stock popped hard EARLY (pushing the session-max 9-EMA up) then
+we short a LATER, LOWER pop, the stop sits at (stale early max)×(1+buf) — far above where we shorted — so the
+trade runs 100%+ before the 9-EMA reaches it (the −153% MGIH loser: entered 24 bars after signal, session max
+already elevated). Fix (user): anchor to a ROLLING N-bar max 9-EMA (the RECENT local EMA high near the fill),
+not the session max. New `--ema-max-stop-window N` (0 = session max; 30 = 30m local high). Also added (and
+rejected below) a pure entry-EMA %-stop `--ema-pct-stop`.
+
+**First — the plain entry-EMA %-stop (off entry 9-EMA) helps PF but does NOT fix the tail** (A-book, arm≤60):
+
+| stop | win% | PF | net | worst% | n>70% | n>100% |
+|---|---:|---:|---:|---:|---:|---:|
+| session-max buf30 (F6) | 81.1% | 5.27 | $4.08M | 153% | 15 | 2 |
+| entry-EMA %-stop 60% | 81.3% | 5.80 | $4.17M | 120% | 24 | 3 |
+| entry-EMA %-stop 100% | 81.3% | 6.19 | $4.23M | 140% | 8 | 7 |
+
+Best PF/net but the worst is still −120% even at the tightest 60% — the 9-EMA LAGS, so by the time it's risen
+60% off entry the price has already spiked 120%+. Loosening it raises n>100% (deep runaways slip through). The
+problem is the ANCHOR, not the leash.
+
+**ROLLING-30m anchor buffer sweep (A-book, arm≤60) — a HARD CLIFF at 20/25:**
+
+| buffer | win% | PF | net | worst | worst% | n>70% | n>100% |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 10% | 79.0% | 4.19 | $3.75M | −$7,797 | 78% | 4 | 0 |
+| 15% | 80.2% | 4.74 | $3.94M | −$8,422 | 84% | 4 | 0 |
+| **20%** | **80.9%** | **5.26** | **$4.07M** | **−$8,153** | **82%** | 7 | **0** |
+| 25% | 81.0% | 5.26 | $4.07M | −$15,339 | 153% | 9 | 1 |
+| 30% | 81.1% | 5.26 | $4.07M | −$15,339 | 153% | 15 | 2 |
+
+**buf20 = a genuine optimum, not a compromise:** worst −82% / −$8.2k, ZERO trades >100%, at **PF 5.26 / net
+$4.07M — IDENTICAL to the session-max book (F6).** The tail is halved for free. HARD CLIFF above 20%: at buf25+
+the rolling×(1+buf) level rises enough that the runaways slip under → the −153% loser returns. Below 20% the
+stop starts cutting winners (PF 4.19–4.74, net −$130–320k) with no further tail gain. **NEW DEFAULTS: window 30,
+buffer 20%.** This DOMINATES both the session-max stop (same PF/net, half the tail) and the entry-EMA %-stop
+(which floored at −120%). Delivers the user's ask: push the 150% losses down, keep the 60–70% ones.

@@ -68,9 +68,15 @@ let defaultConfig =
                                          // than DOUBLES net vs ≤10 ($4.08M vs $1.84M) for a modest PF give-up
                                          // (5.27 vs 6.61); the edge doesn't need a fast rollover. Knee ~60–90.
           EmaMaxStop = false             // --ema-max-stop: cover when the 9-EMA rises above the session-max 9-EMA.
-          EmaMaxStopBuffer = 0.30 }      // --ema-max-stop-buffer: buffer raising the stop above the ENTRY-bar
-                                         // session-max 9-EMA. F5: 20–30% = the plateau (PF ~6.2, net ~$1.96M,
-                                         // tail bounded); 0% too tight (cuts winners), 40% leaks the tail. 0.30 default.
+          EmaMaxStopWindow = 30          // --ema-max-stop-window: 30-bar ROLLING max 9-EMA anchor (F7). Re-anchors
+                                         // the stop to the RECENT local EMA high near the fill; the session anchor
+                                         // (0) staled → −153% tail. Rolling-30m + buf20 → worst −82%, 0 trades >100%.
+          EmaMaxStopBuffer = 0.20        // --ema-max-stop-buffer. F7: with the rolling-30m anchor, 20% = the sweet
+                                         // spot — worst −82% / 0 over 100% at PF 5.26 / net $4.07M (= the session
+                                         // book's PF/net, HALF the tail). HARD CLIFF: buf25+ → −153% reappears;
+                                         // buf<20 cuts winners (PF↓). (Was 0.30 for the session anchor in F5.)
+          EmaPctStop = 0.0 }             // --ema-pct-stop: 9-EMA %-stop off the ENTRY 9-EMA (uniform per-trade cap).
+                                         // 0 = OFF (default; the max-EMA stop is the primary). e.g. 0.60 caps the tail.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the

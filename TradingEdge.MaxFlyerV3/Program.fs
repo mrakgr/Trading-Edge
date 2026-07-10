@@ -38,6 +38,8 @@ type Args =
     | Ema_Arm_Bars of int
     | Ema_Max_Stop
     | Ema_Max_Stop_Buffer of float
+    | Ema_Max_Stop_Window of int
+    | Ema_Pct_Stop of float
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -65,6 +67,8 @@ type Args =
             | Ema_Arm_Bars _ -> "The cross-under window length (bars) after a breakout during which the 9-EMA-cross short may fire. Default 10."
             | Ema_Max_Stop -> "MAX-EMA STOP: while short, cover (at close) when the live 9-EMA rises ABOVE the running session-max 9-EMA (x (1+buffer)) — a new EMA session high = the pop re-took the high = we're wrong. Default OFF."
             | Ema_Max_Stop_Buffer _ -> "Fractional buffer RAISING the max-EMA stop above the session max (0.0 = at the max, default; 0.05 = 5%% above it). Only used with --ema-max-stop."
+            | Ema_Max_Stop_Window _ -> "Max-EMA-stop ANCHOR window in bars: 0 (default) = session-cumulative max 9-EMA; N = a ROLLING N-bar local max 9-EMA (e.g. 30 = 30m EMA high). Re-anchors the stop to the RECENT high near the fill (the session anchor stales when a stock popped early then we short a later, lower pop)."
+            | Ema_Pct_Stop _ -> "9-EMA %%-STOP: cover when the live 9-EMA rises to ema_at_entry*(1+x) — a UNIFORM per-trade cap off the ENTRY 9-EMA (vs the session-max anchor). 0 = off (default). e.g. 0.60. Composable with --ema-max-stop (first to fire wins)."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -105,7 +109,9 @@ let main argv =
                   EmaPeriod     = parsed.GetResult(Ema_Period,   defaultValue = defaultConfig.Intraday.EmaPeriod)
                   EmaArmBars    = parsed.GetResult(Ema_Arm_Bars, defaultValue = defaultConfig.Intraday.EmaArmBars)
                   EmaMaxStop    = (parsed.Contains Ema_Max_Stop || defaultConfig.Intraday.EmaMaxStop)
-                  EmaMaxStopBuffer = parsed.GetResult(Ema_Max_Stop_Buffer, defaultValue = defaultConfig.Intraday.EmaMaxStopBuffer) } }
+                  EmaMaxStopBuffer = parsed.GetResult(Ema_Max_Stop_Buffer, defaultValue = defaultConfig.Intraday.EmaMaxStopBuffer)
+                  EmaMaxStopWindow = parsed.GetResult(Ema_Max_Stop_Window, defaultValue = defaultConfig.Intraday.EmaMaxStopWindow)
+                  EmaPctStop = parsed.GetResult(Ema_Pct_Stop, defaultValue = defaultConfig.Intraday.EmaPctStop) } }
 
     printfn "MaxFlyerV3 backtest — intraday SHORT pop-fade (%s)"
         (match cfg.Intraday.Downside, cfg.Intraday.Short with
