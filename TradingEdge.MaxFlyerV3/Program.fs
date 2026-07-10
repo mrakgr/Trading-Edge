@@ -26,6 +26,8 @@ type Args =
     | Min_Bar_Flush of float
     | Min_Bar_Flush_Floor of float
     | Max_Intraday_Atr_Pct of float
+    | Min_Intraday_Atr_Pct of float
+    | Min_Brv20d of float
     // mode overrides. MaxFlyerV2 DEFAULTS to the short pop-fade (Downside=false, Short=true).
     | Long                 // escape hatch: trade the LONG new-session-LOW flush (= the LowFlyer book) for parity
     | Short_Breakdown      // alternate: SHORT the new-session-LOW breakdown (Downside=true, Short=true)
@@ -62,6 +64,8 @@ type Args =
             | Min_Bar_Flush _ -> "Entry-bar FLUSH gate: require the breakout bar's 1m move (close/prevClose-1) <= this. Default 0.0 = OFF. e.g. -0.007 rejects bars softer than -0.7% (a real flush candle, not a one-tick poke)."
             | Min_Bar_Flush_Floor _ -> "Entry-bar flush-DEPTH floor (the falling-knife cut, Run 26): reject a flush DEEPER than this. Default 0.0 = OFF. e.g. -0.12 rejects flushes deeper than -12%%. Pairs with --min-bar-flush to band the entry move; PF 3.25->3.45 on the production long."
             | Max_Intraday_Atr_Pct _ -> "Intraday log-ATR CAP at entry: require the 1m log-ATR < this. Default +inf = OFF. e.g. 0.02 rejects names in genuine chaos (per Run 9)."
+            | Min_Intraday_Atr_Pct _ -> "A-BOOK ATR%% FLOOR (baked in): require the arm-bar trailing-20m log-ATR >= this. Default 0.03. 0 = off."
+            | Min_Brv20d _ -> "A-BOOK MAIN LEVER (baked in): require brv20d >= this at the arm bar. brv20d = breakout_bar_vol / (avgvol20*adj_ratio/390). Default 100. 0 = off. Engine emits only A-book trips."
             | Long -> "Escape hatch: trade the LONG new-session-LOW flush-fade (Downside=true, Short=false) — i.e. the LowFlyer book — instead of the default short pop-fade. For cross-system parity checks. Mutually exclusive with --short-breakdown."
             | Short_Breakdown -> "Alternate short: SHORT the new-session-LOW breakdown (Downside=true, Short=true) — momentum continuation of the flush (the 4th quadrant), rather than the default new-HIGH pop-fade. Mutually exclusive with --long."
             | Pct_Stop _ -> "SWEEP LEVER: wide catastrophe %%-stop, a fixed adverse excursion from entry (0 = off, default)."
@@ -105,6 +109,8 @@ let main argv =
                   MinBarFlush   = parsed.GetResult(Min_Bar_Flush,   defaultValue = defaultConfig.Intraday.MinBarFlush)
                   MinBarFlushFloor = parsed.GetResult(Min_Bar_Flush_Floor, defaultValue = defaultConfig.Intraday.MinBarFlushFloor)
                   MaxAtrPct     = parsed.GetResult(Max_Intraday_Atr_Pct, defaultValue = defaultConfig.Intraday.MaxAtrPct)
+                  MinAtrPct     = parsed.GetResult(Min_Intraday_Atr_Pct, defaultValue = defaultConfig.Intraday.MinAtrPct)
+                  MinBrv20d     = parsed.GetResult(Min_Brv20d,           defaultValue = defaultConfig.Intraday.MinBrv20d)
                   // Three modes (MaxFlyerV2 DEFAULTS to the short pop-fade):
                   //   default            — SHORT the new-session-HIGH pop (Downside=false, Short=true)
                   //   --long             — LONG the new-session-LOW flush (Downside=true, Short=false) [LowFlyer parity]
@@ -151,6 +157,9 @@ let main argv =
          elif cfg.Intraday.Downside then sprintf ">=%.3f" cfg.Intraday.MinBarFlushFloor
          else sprintf "<=%.3f" (-cfg.Intraday.MinBarFlushFloor))
         (if Double.IsInfinity cfg.Intraday.MaxAtrPct then "off" else sprintf "<%.3f" cfg.Intraday.MaxAtrPct)
+    printfn "  A-book      = ATR%% >= %s   brv20d >= %s"
+        (if cfg.Intraday.MinAtrPct <= 0.0 then "off" else sprintf "%.3f" cfg.Intraday.MinAtrPct)
+        (if cfg.Intraday.MinBrv20d <= 0.0 then "off" else sprintf "%.0f" cfg.Intraday.MinBrv20d)
 
     let sw = Stopwatch.StartNew()
     let trips, nCand = run dbPath minuteDir cfg startDate endDate

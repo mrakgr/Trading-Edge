@@ -126,6 +126,13 @@ type IntradayConfig =
     { VolWindow: int           // intraday ATR/tightness lookback in 1m BARS (swept; default ~20)
       MaxTightness: float      // intraday tightness gate (per-bar)
       MaxAtrPct: float         // intraday ATR% gate (log-space, per-bar)
+      // ----- A-BOOK GATES (baked into the engine so it emits ONLY A-book trips — tiny CSVs, no post-hoc bloat) -----
+      MinAtrPct: float         // A-book FLOOR: reject the ARM bar unless its intraday log-ATR >= this. 0 = off.
+                               // The V2/V3 A-book value is 0.03. (Complements MaxAtrPct, which is the ceiling.)
+      MinBrv20d: float         // A-book MAIN LEVER: reject the ARM bar unless its brv20d >= this. 0 = off. brv20d =
+                               // breakout_bar_vol / (AvgVol20 * AdjRatio / 390) — the breakout bar's volume vs the
+                               // 20d ADJUSTED daily-avg per-minute. A-book value is 100. Needs AvgVol20/AdjRatio
+                               // (passed to the engine ctor). Under EmaEntry this gates at the SIGNAL (arm) bar.
       SessionStartMin: int     // first ET minute fed to the engine (510 = 08:30 ET — the SMB "1h
                                // opening range"; the running high/low/volume accumulate from here).
       EntryStartMin: int       // earliest ET minute an entry may fire (575 = 09:35). The engine
@@ -246,11 +253,17 @@ type IntradayConfig =
 
 /// Per-(ticker, day) intraday engine. Feed it the day's RTH MinuteBar[] in time
 /// order via `Process`, then `Finalize` and read `Trips()`.
-type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClose: float) =
+type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClose: float,
+                    avgVol20: float, adjRatio: float) =
 
     // day extension at a bar = close vs the prior daily close (how far up/down on the day).
     // Used by --ext-gate to route direct-vs-rollover entry and gate the rollover fill.
     let extension (px: float) = if prevClose > 0.0 then px / prevClose - 1.0 else 0.0
+
+    // brv20d for a breakout bar's volume = vol / (avgVol20 * adjRatio / 390) — the A-book main lever. The daily
+    // per-minute baseline; matches the post-hoc SQL exactly. 0/nan when the daily context is unusable (gate off).
+    let brv20dBaseline = if avgVol20 > 0.0 && adjRatio > 0.0 then avgVol20 * adjRatio / 390.0 else nan
+    let brv20dOf (vol: int64) = if Double.IsNaN brv20dBaseline || brv20dBaseline <= 0.0 then nan else float vol / brv20dBaseline
 
     // ----- rolling intraday structures (1m timeframe) -----
     let atrLog    = AvgMa(cfg.VolWindow)        // mean LOG true range over the last VolWindow 1m bars
@@ -440,6 +453,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         && gate this.Tightness (fun t -> t < cfg.MaxTightness)
         // intraday ATR% gate (log-space)
         && gate this.AtrPct (fun a -> a < cfg.MaxAtrPct)
+        // A-BOOK GATES (baked in) — same as the EmaEntry arm gates, on the direct-entry breakout bar.
+        && (cfg.MinAtrPct <= 0.0 || (match this.AtrPct with ValueSome a -> a >= cfg.MinAtrPct | ValueNone -> false))
+        && (cfg.MinBrv20d <= 0.0 || (let b = brv20dOf bar.volume in not (Double.IsNaN b) && b >= cfg.MinBrv20d))
         // concurrency room (count only currently-OPEN positions)
         && (cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent)
 
@@ -520,6 +536,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 && (match priorHigh with
                     | ValueSome ext -> (if cfg.Downside then bar.close < ext else bar.close > ext)
                     | ValueNone -> false)
+                // A-BOOK GATES (baked in): the ARM bar must clear the ATR% floor and the brv20d main lever, so the
+                // engine emits only A-book trips. ATR% uses this.AtrPct (= sAtrLog, the value captured into the
+                // pending); brv20d uses THIS bar's breakout volume. 0 = gate off.
+                && (cfg.MinAtrPct <= 0.0 || (match this.AtrPct with ValueSome a -> a >= cfg.MinAtrPct | ValueNone -> false))
+                && (cfg.MinBrv20d <= 0.0 || (let b = brv20dOf bar.volume in not (Double.IsNaN b) && b >= cfg.MinBrv20d))
             if isArm then
                 let twoBar =
                     match sLastBar with

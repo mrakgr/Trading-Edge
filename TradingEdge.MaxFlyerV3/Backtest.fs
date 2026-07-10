@@ -35,6 +35,8 @@ let defaultConfig =
         { VolWindow = 20
           MaxTightness = infinity        // OFF
           MaxAtrPct = infinity           // OFF
+          MinAtrPct = 0.03               // A-book ATR% FLOOR baked in (was post-hoc). --min-intraday-atr-pct.
+          MinBrv20d = 100.0              // A-book MAIN LEVER baked in (was post-hoc). --min-brv20d. 0 = off.
           SessionStartMin = 8 * 60 + 30  // 08:30 ET — accumulate the running low/vol-high, ATR,
                                          // tightness and the 20-bar LagMa from premarket (like MaxFlyer),
                                          // so every indicator (incl. chg_20m) is warm by the 09:45 entry
@@ -344,7 +346,7 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
                     | Some(pc, psys) -> drain pc psys
                     | None -> ()
                     let c = byTicker.[ticker]
-                    let sys = IntradaySystem(cfg.Intraday, ticker, date, c.PrevAdjClose)
+                    let sys = IntradaySystem(cfg.Intraday, ticker, date, c.PrevAdjClose, c.AvgVol20, c.AdjRatio)
                     sys.Process bar
                     cur <- Some(c, sys))
             match cur with

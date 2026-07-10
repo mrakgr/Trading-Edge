@@ -363,10 +363,33 @@ buf\cap  0    1    2    3    5   inf     buf\cap  0    1    2    3    5   inf
  1%    3.81 5.70 6.38 6.53 6.65 6.67      1%    -28  -35  -44  -58  -64  -64
  2%    4.14 6.18 6.59 6.72 6.77 6.78      2%    -28  -37  -48  -64  -69  -69
  3%    4.58 6.41 6.76 6.82 6.85 6.85      3%    -28  -40  -51  -65  -70  -70
+ 4%    4.89 6.58 6.89 6.89 6.92 6.92      4%    -28  -48  -61  -81  -88  -88
  5%    5.18 6.68 6.97 6.96 6.98 6.99      5%    -26  -48  -62  -82  -89  -89
+ 6%    5.47 6.77 7.02 7.00 7.04 7.04      6%    -31  -52  -76  -95  -87  -87
  7%    5.65 6.92 7.10 7.09 7.12 7.12      7%    -30  -55  -75  -94  -87  -87
+ 8%    5.75 6.98 7.14 7.14 7.16 7.16      8%    -34  -55  -79  -91  -84  -84
  9%    5.87 6.99 7.13 7.13 7.16 7.16      9%    -36  -64  -89 -102  -96  -96
 ```
+
+**raw PF (the missing third axis):**
+```
+buf\cap   0     1     2     3     5    inf
+ 0%     2.80  2.90  2.88  2.90  2.87  2.82
+ 1%     2.89  3.05  3.04  2.99  2.96  2.95
+ 2%     2.92  3.19  3.13  3.10  3.08  3.06
+ 3%     3.12  3.32  3.27  3.22  3.18  3.18
+ 4%     3.30  3.43  3.39  3.31  3.28  3.27
+ 5%     3.46  3.53  3.49  3.42  3.38  3.38
+ 6%     3.65  3.64  3.58  3.51  3.49  3.49
+ 7%     3.77  3.79  3.71  3.64  3.63  3.63
+ 8%     3.85  3.87  3.79  3.74  3.73  3.74
+ 9%     3.92  3.89  3.81  3.76  3.77  3.77
+```
+PF READS: (a) DOWN a column PF RISES with the buffer (0%→9%: 2.80→3.92 at re0) — a wider stop = fewer premature
+cuts = higher PF, corroborating "buffer is the lever". (b) ACROSS a row PF is ~flat then DECAYS with re-entries
+(re1 is the PF peak in most rows; re3+ erodes). (c) Peak PF cell = **9%/re0 (3.92)** = also the tightest day —
+so 9%/re0 is unambiguously the risk-control optimum (best PF AND best day). The best net cells (buf≥7, re≥2,
+$7.1M) sit at PF ~3.7-3.8 and worst-day ~−$85-95k — more net costs both PF and day.
 
 **Three reads:**
 1. **DOWN a column (raise buffer, re-cap fixed): nearly FREE net.** re0 column: net $3.21M→$5.87M (0→9%) while
@@ -388,3 +411,43 @@ buf\cap  0    1    2    3    5   inf     buf\cap  0    1    2    3    5   inf
 $5.87M, NO re-entries. (b) **5%/re1** = best net/day balance — $6.68M at −$48k, one re-entry only. **Re-entries
 beyond 1 are never worth it** (buy little net, cost a lot of day). All cells still crush V2's −$238k worst-day
 by 3-9×. This settles the stop/re-entry design: pick a buffer for the net you want, cap re-entries at 0-1.
+
+## Finding 13 — PER-LEG PF: re-entry 1 is EXCELLENT (PF 3.81), re-entry 2 marginal, re-entry 3 is a LOSER
+
+The PF of each re-entry leg ON ITS OWN (re_idx = exact leg, not cumulative). A-book, 5% buffer, 2020+.
+
+| leg (re_idx) | n | win% | raw PF | avg% | net |
+|---|---:|---:|---:|---:|---:|
+| 0 (original) | 4,746 | 70.1% | 3.46 | +10.9% | $5.18M |
+| **1 (1st re-entry)** | 1,256 | 68.5% | **3.81** | +11.9% | $1.50M |
+| **2 (2nd re-entry)** | 318 | 62.3% | **2.77** | +9.0% | $0.29M |
+| **3 (3rd re-entry)** | 92 | 41.3% | **0.92** | −0.7% | −$7k |
+| 4 | 45 | 44.4% | 1.38 | +3.0% | +$14k |
+| 5 | 23 | 60.9% | 1.47 | +2.5% | +$6k |
+
+**The 1st re-entry is HIGHER PF than the original entry (3.81 vs 3.46)** — after a tight stop, a pop that keeps
+weakening is a genuinely good re-short. The 2nd is still profitable (PF 2.77) but weaker. **The 3rd is the WALL:
+PF 0.92, net NEGATIVE, win% collapses to 41%** — by the third stop-out on the same pop we're fighting a real
+runaway squeeze that keeps stopping us, and it stops paying. This per-leg view corroborates F12's frontier from
+a different angle: **cap re-entries at 1 (great), 2 at most (marginal), never 3+ (a loser).**
+
+## Finding 14 — ⭐ A-BOOK GATES BAKED INTO THE ENGINE (ATR%≥0.03 & brv20d≥100) — CSVs 700× smaller, byte-identical
+
+Lesson from an OOM crash: running the engine UNGATED and filtering the A-book POST-HOC in SQL wrote MILLIONS of
+junk trips to disk (b00 = 6GB / 12M trips) just to keep ~4,700. Fix: bake the two A-book filters into the engine
+as entry gates so it emits ONLY A-book trips. New config/CLI: `--min-intraday-atr-pct` (default 0.03, the ATR%
+floor) and `--min-brv20d` (default 100, the main lever; brv20d = breakout_bar_vol/(avgvol20·adj_ratio/390), so
+the engine ctor now takes avgVol20+adjRatio). Gates apply at the ARM (breakout) bar in both entry models.
+
+**Validated byte-identical to the post-hoc A-book:**
+| run | gated engine | post-hoc SQL (prior findings) |
+|---|---|---|
+| down-tick, roll30, 5% buf, re0 | 4,746 / PF 3.463 / $5.18M | 4,746 / 3.463 / $5.18M (F12 b05/re0) |
+| direct (V2 parity) | 2,760 / PF 6.645 / $4.78M | 2,760 / 6.645 / $4.78M (F1) |
+
+**CSV size: ~1.4GB → ~2MB (≈700×).** Every run is now tiny: no DuckDB memory strain, no post-hoc join/filter
+(the CSV IS the A-book), a reboot losing /tmp costs a ~100s re-run not a disaster. All F1-F13 numbers unchanged —
+we just compute them 700× lighter. `--min-brv20d 0` / `--min-intraday-atr-pct 0` disables the gates (ungated).
+
+**ATR% definition (for the record):** trailing-20m rolling mean of the 1m LOG true range (`log(max(high,prevC)/
+min(low,prevC))`), NOT session-cumulative — a "moving fast RIGHT NOW" filter that reacts to the current pop.
