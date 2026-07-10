@@ -517,3 +517,58 @@ strictly better. `max_legs/day` = exactly 1 now (the cap is enforced at the EXPO
 **mc0 (unlimited) is BYTE-IDENTICAL** — the arm gate is a no-op there, so all prior F1-F15 numbers unchanged.
 NEXT: sweep max-concurrent {1,2,3,5} — with quality now preserved, a moderate cap may capture most of the
 unlimited net ($7.66M) while keeping the worst-day bounded.
+
+## Finding 17 — ⭐ max-conc 1 stop sweep (unlimited re-entries): the stop level is nearly NET-NEUTRAL; re1 is the peak leg, re3 the wall
+
+At max-conc 1 (arm-gated, F16) the stacking is gone entirely, so this is the honest single-slot book. Swept the
+roll30 stop buffer 1-9% with UNLIMITED re-entries. A-book, 2020+, down-tick entry. (Post-hoc `re_idx<=N` slicing
+is NOT valid at max-conc 1 — a capped re-entry frees a slot a different pending grabs — so re-entries are
+unlimited here; the limited-retry sweep is a separate run at a chosen buffer.)
+
+**Overall (per buffer):**
+
+| buffer | n | win% | raw PF | net | worst symbol-day | worst trade |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1% | 3,842 | 48.4% | 2.29 | $2.17M | −$10.3k | −$5.4k |
+| 2% | 3,443 | 54.0% | 2.35 | $2.21M | −$11.9k | −$5.4k |
+| 3% | 3,190 | 57.9% | 2.41 | $2.23M | −$12.2k | −$5.4k |
+| 4% | 3,041 | 60.7% | 2.45 | $2.25M | −$14.0k | −$5.4k |
+| 5% | 2,900 | 63.5% | 2.53 | $2.28M | −$14.6k | −$5.4k |
+| 6% | 2,790 | 65.6% | 2.60 | $2.30M | −$14.2k | −$5.6k |
+| 7% | 2,713 | 67.4% | 2.67 | $2.33M | −$15.2k | −$6.6k |
+| 8% | 2,635 | 69.0% | 2.75 | $2.36M | −$14.1k | −$6.6k |
+| 9% | 2,577 | 70.3% | 2.79 | $2.36M | −$14.0k | −$6.6k |
+
+**⭐ THE STOP LEVEL IS NEARLY NET-NEUTRAL here: net moves only $2.17M → $2.36M (+9%) across the whole 1-9% sweep**
+(vs the big swings at max-conc 0). WHY: with ONE slot, a stopped-out trade just frees the slot for the next fade —
+so a tighter stop doesn't BLEED net the way it does when many positions run concurrently (there, a stop realizes
+a loss on a position that would otherwise have reverted, with no offsetting re-fill). The buffer only trades PF
+for win% here (wider = higher PF 2.29→2.79 + higher win% 48→70% as fewer trades get stopped), and the worst-day
+stays flat (−$10-15k) — the single slot caps it. So at max-conc 1 the stop is a PF/win-rate knob, not a net knob.
+
+**Per-leg raw PF (rows=buffer, cols=re_idx):**
+
+| buffer | re0 | re1 | re2 | re3 | re4+ |
+|---:|---:|---:|---:|---:|---:|
+| 1% | 2.16 | 2.52 | 2.68 | 1.92 | 2.06 |
+| 3% | 2.24 | 3.17 | 2.33 | 1.82 | 1.42 |
+| 5% | 2.45 | **2.96** | 2.92 | 1.00 | 1.89 |
+| 7% | 2.63 | 3.12 | 2.58 | 0.80 | 2.32 |
+| 9% | 2.76 | 3.12 | 2.47 | 1.15 | 4.01 |
+
+**Per-leg trade count (rows=buffer, cols=re_idx) — re0 constant, re-entries fall as the buffer widens:**
+
+| buffer | re0 | re1 | re2 | re3 | re4+ |
+|---:|---:|---:|---:|---:|---:|
+| 1% | 2,005 | 973 | 463 | 219 | 182 |
+| 3% | 2,005 | 776 | 252 | 96 | 61 |
+| 5% | 2,005 | 635 | 178 | 48 | 34 |
+| 7% | 2,005 | 531 | 120 | 34 | 23 |
+| 9% | 2,005 | 447 | 90 | 25 | 10 |
+
+**re1 is the PEAK leg at every buffer (PF ~2.5-3.2, higher than re0's ~2.2-2.8); re2 is still strong (~2.3-2.9);
+re3 is the WALL — PF ~0.8-1.9, breakeven-ish** (5% detail: re3 PF 1.00, n=48, win 43.8%, net $0). Same re1-peak /
+re3-wall structure as F13 at max-conc 0 → the 3rd re-entry is dead money regardless of concurrency. re0 count is
+CONSTANT (2,005 — entries are buffer-independent); re-entry counts FALL with a wider buffer (fewer stop-outs).
+**Read: the limited-retry sweep should cover re-cap 0-2 (all PF-positive), never 3+.** re2 looks viable here
+(PF ~2.9) — unlike max-conc 0 where re2's day-stacking hurt — because the single slot removes the stacking cost.
