@@ -356,6 +356,20 @@ Ran 10 buffer values (0-9%, unlimited re-entries=20) ONCE, sliced the re-entry c
 (F11's column). A-book, 2020+, max-conc 0. Judged on worst SYMBOL-DAY (F11's honest unit). (b00=6GB/12M trips
 → processed one file at a time with DuckDB `memory_limit`+disk-spill to avoid OOM.)
 
+**BASELINES (the no-stop ceiling the grid trades against; A-book, 2020+, worst SYMBOL-DAY):**
+
+| book | n | win% | raw PF | net | worst trade | worst symday |
+|---|---:|---:|---:|---:|---:|---:|
+| **down-tick entry, NO stop** (hold-MOC) | 4,746 | 87.1% | **7.59** | **$7.66M** | −$74,110 | **−$222k** |
+| V2 direct, no stop | 2,760 | 88.7% | 6.65 | $4.78M | −$83,909 | −$238k |
+
+⚠ **Corrects an F9-era claim.** The down-tick entry ALONE (no stop) is the high-PF / high-net CEILING — PF 7.59
+(vs V2's 6.65) at $7.66M, because deferring to the first EMA weakness is strong SELECTION. **But it does NOT
+improve the worst DAY** (−$222k ≈ V2's −$238k): with no stop, a runaway pop still squeezes to −74% on a trade
+with nothing to cut it. The earlier "no-stop has better worst-drawdown" read was on worst-TRADE / a different
+population; on the honest worst-DAY (F11) the no-stop down-tick book is a FULL-TAIL book like V2. **The stops
+below trade this PF/net ceiling for an ~8× smaller worst-day** (−$222k → −$26-48k).
+
 **NET ($M):**            **WORST SYMBOL-DAY ($k):**
 ```
 buf\cap  0    1    2    3    5   inf     buf\cap  0    1    2    3    5   inf
