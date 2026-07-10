@@ -6,12 +6,12 @@
   </Configurations>
   <Project Path="TradingEdge.Database/TradingEdge.Database.fsproj" />
   <Project Path="TradingEdge.Massive/TradingEdge.Massive.fsproj" />
-  <Project Path="TradingEdge.MaxFlyer/TradingEdge.MaxFlyer.fsproj" />
   <Project Path="TradingEdge.DipRider/TradingEdge.DipRider.fsproj" />
   <Project Path="TradingEdge.HighFlyer/TradingEdge.HighFlyer.fsproj" />
   <Project Path="TradingEdge.HighFlyerV2/TradingEdge.HighFlyerV2.fsproj" />
   <Project Path="TradingEdge.Orb/TradingEdge.Orb.fsproj" />
   <Project Path="TradingEdge.DipRiderV3/TradingEdge.DipRiderV3.fsproj" />
   <Project Path="TradingEdge.BreakoutTimer/TradingEdge.BreakoutTimer.fsproj" />
+  <Project Path="TradingEdge.MaxFlyerV3/TradingEdge.MaxFlyerV3.fsproj" />
   <Project Path="TradingEdge.RollingMa/TradingEdge.RollingMa.fsproj" />
 </Solution>
