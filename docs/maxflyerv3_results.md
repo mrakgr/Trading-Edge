@@ -604,7 +604,9 @@ max-close stop dominates the EMA-max stop on PF and win% at ~the same worst-symb
 | variant | n | win% | raw PF | net $k | worst sym-day $k | worst trade $k |
 |---|---|---|---|---|---|---|
 | ema roll30 b05 re1 | 2678 | 64.2 | 2.58 | 2150 | −7.3 | −5.4 |
+| ema roll30 b05 re2 | 2826 | 64.0 | 2.58 | 2259 | −8.8 | −5.4 |
 | ema roll30 b10 re1 | 2431 | 72.0 | 2.91 | 2316 | −9.3 | −6.6 |
+| ema roll30 b10 re2 | 2501 | 71.7 | 2.88 | 2371 | −10.8 | −6.6 |
 | **mc win20 b10 re1** | 2359 | **73.9** | **3.09** | 2364 | −9.6 | −6.9 |
 | mc win20 b10 re2 | 2416 | 73.6 | 3.04 | 2404 | −10.5 | −6.9 |
 | **mc win20 b20 re1** | 2165 | **79.4** | **3.71** | 2498 | −12.8 | −9.5 |
