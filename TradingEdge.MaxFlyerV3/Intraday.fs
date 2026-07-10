@@ -541,6 +541,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 // pending); brv20d uses THIS bar's breakout volume. 0 = gate off.
                 && (cfg.MinAtrPct <= 0.0 || (match this.AtrPct with ValueSome a -> a >= cfg.MinAtrPct | ValueNone -> false))
                 && (cfg.MinBrv20d <= 0.0 || (let b = brv20dOf bar.volume in not (Double.IsNaN b) && b >= cfg.MinBrv20d))
+                // ROOM at ARM time: don't QUEUE a pending when we're already at capacity. Cap TOTAL committed
+                // exposure (currently-open Holding + already-queued pendings) at MaxConcurrent. This filters
+                // PENDINGS (not fills) so the queue never backlogs while a position is held — the source of the
+                // stack (a pile of stale pendings all firing when the open position finally exits). 0 = unlimited.
+                && (cfg.MaxConcurrent <= 0 || this.OpenCount + pending.Count < cfg.MaxConcurrent)
             if isArm then
                 let twoBar =
                     match sLastBar with
@@ -711,6 +716,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 // (same pop's signal features, Reentries-1). It re-shorts on the NEXT down-tick (the EMA is rising
                 // at the stop, so the down-tick is false THIS bar; SignalMin=this bar makes the fire loop skip it
                 // this bar). Each re-entry gets its OWN fresh 30m-max×(1+buffer) stop (captured at its entry bar).
+                // NO room gate here: THIS position is exiting (vacating its slot), so its re-arm is a 1-for-1
+                // replacement of the SAME chain's slot — not new exposure — so it never grows the stack.
                 if pos.Reentries > 0 && bar.etMin < cfg.MocMin then
                     pending.Add
                         { EmaAtArm = nan; Bars = cfg.EmaArmBars; ArmMin = bar.etMin; Reentries = pos.Reentries - 1

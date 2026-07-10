@@ -493,3 +493,27 @@ breadth. So the extreme worst-day is a stacking artifact, but max-conc 1 pays 2/
 it. **Better levers for the same goal: (a) a STOP (caps per-trade loss so a 21-leg stack can't compound as hard),
 or (b) a per-SYMBOL-DAY leg cap (limit the 21→N directly without serializing the whole book).** The per-symday
 cap is the surgical version — NEXT.
+
+## Finding 16 — ⭐ ROOM CHECK MOVED TO ARM TIME (filter PENDINGS, not fills) — recovers 19 win-pts at max-conc 1
+
+F15 showed max-conc 1 gutted win% (87→64%). Root cause (user): the room check was at FIRE time — a pending sat
+in the queue for the whole hold and was only blocked when it TRIED to fire, so the queue BACKLOGGED with stale
+pendings while a position was held, then dumped them (low-quality late fills) on the exit. Fix: gate at ARM time —
+don't QUEUE a pending when at capacity. Cap TOTAL committed exposure (OpenCount + pending.Count) at MaxConcurrent.
+Re-arms (a stopped position's re-entry) are exempt: they replace the SAME chain's vacating slot, not new exposure.
+
+| down-tick, no stop | mc0 unltd | mc1 OLD (fire-gate) | **mc1 NEW (arm-gate)** |
+|---|---:|---:|---:|
+| n | 4,746 | 2,595 | 2,005 |
+| **win%** | 87.1% | 64.1% | **82.9%** |
+| raw PF | 7.59 | 5.19 | 5.19 |
+| net | $7.66M | $2.59M | $2.59M |
+| worst symday | −$222k | −$74k | −$74k |
+| max legs/day | 21 | 2 | **1** |
+
+**Arm-gating recovers 19 win-pts (64→83%)** by only ever holding the FIRST fresh fade, not a dumped backlog of
+stale ones. Same net/PF/worst-day as the old mc1 but with 590 FEWER trades and much healthier composition —
+strictly better. `max_legs/day` = exactly 1 now (the cap is enforced at the EXPOSURE level, not just at fire).
+**mc0 (unlimited) is BYTE-IDENTICAL** — the arm gate is a no-op there, so all prior F1-F15 numbers unchanged.
+NEXT: sweep max-concurrent {1,2,3,5} — with quality now preserved, a moderate cap may capture most of the
+unlimited net ($7.66M) while keeping the worst-day bounded.
