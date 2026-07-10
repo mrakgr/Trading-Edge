@@ -724,6 +724,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                         else Armed (bar.etMin, af.twoBar, bar.close, false)
                     elif cfg.TrailEntry || cfg.RiseEntry > 0.0 then Armed (bar.etMin, af.twoBar, bar.close, false)
                     else Holding }
+            // DISARM on entry (EmaEntry only): the cross-under fired and we took the short — one trade per arm.
+            // Without this the entry condition (armTimer>0 && ema<emaAtArm) stays true every subsequent bar while
+            // the fade continues, stacking a NEW short each bar until the timer expires. A fresh short must wait
+            // for a fresh new-high re-arm. (Direct entry doesn't use armTimer, so this is a no-op there.)
+            if cfg.EmaEntry then
+                armTimer <- -1
+                armFeat  <- ValueNone
 
     /// Flatten any still-open positions at the last folded bar's close (MOC /
     /// hold-to-close). The last bar is held in state (set by ProcessBar), so no

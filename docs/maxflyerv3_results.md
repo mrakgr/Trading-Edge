@@ -66,3 +66,48 @@ squeezers a stop-MARKET would slip THROUGH the level (1m bars gap), so real stop
 into the V3 engine (as an intraday %-adverse stop) and re-measure with realistic fills (bar CLOSE after the
 pierce, or +slippage), then sweep the threshold on the engine output rather than post-hoc.
 
+
+## Finding 3 — ⭐ 9-EMA arm-timer ENTRY + max-EMA STOP: bounds the tail as well as a +40% fixed stop, but it's a SELECTION filter (smaller/lower-PF book), not just a loss cap
+
+Built into the engine (commit caf124a + disarm fix): `--ema-entry` ARMS a 10-bar countdown on each new session
+high, records that bar's 9-EMA (emaAtArm), and SHORTS (at close) on the first bar within the window whose 9-EMA
+closes BELOW emaAtArm — the confirmed rollover, not the peak. Re-arms on each new high (single timer, latest
+wins); DISARMS on entry (one short per arm — without this it stacked a new short every bar while the fade ran).
+`--ema-max-stop` covers when the live 9-EMA rises above the STRICTLY-PRIOR session-max 9-EMA (× 1+buffer).
+Signal-bar fields recorded (signal_time/high/…/volume, sess_vol_high_at_signal excl. the signal bar) since the
+fill defers from the signal. A-book filter (brv20d≥100 & ATR%≥0.03) applied post-hoc as always.
+
+| A-book | **V2 no-stop** | V2 +40% fixed (F2) | **EMA arm-entry + max-EMA stop** |
+|---|---:|---:|---:|
+| n | 2,760 | 2,760 | 1,249 |
+| win% | 88.7% | 84.7% | 64.8% |
+| PF raw | 6.65 | 4.78 | 3.73 |
+| PF clip | — | — | 3.69 |
+| net | $4.78M | $4.28M | $1.10M |
+| **worst trade** | **−$83,909** | −$4,000 | **−$3,871** |
+
+**The tail goal is MET:** worst trade −$3,871 (≈ the +40% fixed stop's −$4,000), and the −839% DRUG catastrophe
+is GONE — every worst-15 loser exits via `ema_max_stop` at −24% to −39%, all bounded. DRUG 2024-10-15 produces
+NO morning trip at all: its parabola never made a 9-EMA cross-under inside the 10-bar arm window, so we never
+shorted the runaway. That is the entry model working — we only fade CONFIRMED rollovers.
+
+**But it's a different, smaller book, not V2-with-a-stop.** 1,249 trips (vs 2,760), PF 3.73 (vs 6.65), net
+$1.10M (vs $4.78M). Two mechanisms, both selection (not loss-capping):
+- ENTRY defers ~5 min / enters −13.6% BELOW the signal high (mean) waiting for the 9-EMA to roll under. Pops
+  that never roll over intraday are SKIPPED — good for DRUG, but many would-have-faded pops are skipped too.
+- The max-EMA STOP realizes 384 losses at −9.88% avg that hold-to-MOC would have let revert → win% 88.7%→64.8%.
+
+**All-weather:** positive every meaningful year; clip PF 2.5–6.6 across 2016–2026; the big-capacity years
+2024/2025 are PF 3.2/2.8, net $203k/$190k. Exit mix: 865 MOC (+17.1% avg, $1.48M) vs 384 ema_max_stop
+(−9.9% avg, −$0.38M) — the stop is the drag, the held winners are the book.
+
+**Read:** the 9-EMA machinery achieves the SAME tail bound as a dumb +40% fixed stop but sacrifices ~4× more
+net ($1.1M vs $4.3M) to get it — because the deferred entry is a heavy SELECTION filter on top of the stop, not
+a pure loss cap. Whether that's worth it depends on the goal: if the mandate is purely "kill the catastrophe
+tail at least cost," the +40% fixed stop on V2's entry (F2) dominates on net/PF. The EMA book is a genuinely
+DIFFERENT, more selective strategy (fade only confirmed rollovers) that happens to also bound the tail.
+NEXT: sweep --ema-arm-bars (longer window = more entries) and --ema-max-stop-buffer (looser = fewer stop-outs,
+recover net) to see if the EMA book can close the net gap while keeping the tail bound.
+
+**⚠ Data note:** CETX 2019-06-27 shows entry_px $44,057,002 — a pre-split price the adj_ratio join didn't
+adjust. P&L stayed bounded (−$3,138, stopped) so it didn't distort results, but the adj_ratio edge case exists.
