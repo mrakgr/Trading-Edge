@@ -261,3 +261,30 @@ book's $4.07M / 5.26 and V2 no-stop's $4.78M / −$83.9k. "Short into every new 
 bar of 9-EMA weakness + roll30m/buf20 stop" is the strongest configuration found: MORE net than V2 no-stop at a
 ~9× smaller tail. All-weather. (User intuition — don't enter blindly at the top, wait for the first weakness —
 validated on net AND quality.) The cross-under (F6/F7) is now the runner/lower-net alternative, not the main book.
+
+## Finding 9 — ⭐ EMA-DOWN-TICK entry (ema < prevEma): the best entry trigger — highest PF AND net, no session-high dependency
+
+The three "first weakness" triggers compared (A-book, 2020+, roll30/buf20 stop, raw PF). ema-down-tick
+(`--ema-down-tick-entry`) fires when the live 9-EMA ticks DOWN vs the prior bar (ema < prevEma) — a pure,
+local "EMA turned down" weakness, with NO requirement that the 9-EMA ever made a session high (unlike
+bars-since-high). Arm is the price breakout (same as all EMA modes); a pending armed this bar is skipped
+(its breakout bar is an up-tick), so earliest fire = next bar.
+
+| trigger | n | win% | raw PF | net | worst | worst% | mean lag |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **ema-down-tick** | 4,746 | 84.3% | **5.68** | **$7.07M** | −$9,533 | 95% | 8.2 |
+| bars-since-high =1 | 4,671 | 84.3% | 5.60 | $6.93M | −$9,533 | 95% | 8.5 |
+| bars-since-high >=1 | 4,748 | 83.7% | 5.61 | $7.07M | −$9,533 | 95% | 7.4 |
+
+**ema-down-tick is the best of the three — highest PF (5.68), highest net ($7.07M), highest win% (84.3%),
+same tail** (−$9,533, 0 over 100%). It matches bars-since-high>=1 on net but beats it on PF and win%. The
+three are close (all "fade the first EMA weakness after a pop"), but down-tick wins because: (1) it's the
+cleanest signal — a direct local turn-down, no session-high machinery / shared counter; (2) it fires without
+needing a clean session high, catching weakness on names whose EMA stalls without new-highing (4,746 trips,
+better quality). **This is the settled ENTRY for the V3 book.** (`= vs >=` for bars-since-high was a wash;
+the arm bug — not the fire rule — was the earlier confusion. down-tick sidesteps it entirely.)
+
+**⭐ SETTLED V3 BOOK (F5–F9):** `--ema-entry --ema-max-stop --ema-down-tick-entry`, window 30, buffer 0.20 →
+A-book 2020+ **PF 5.68 / net $7.07M / worst −$9.5k / 0 over 100% / 4,746 trips, all-weather.** BEATS V2 no-stop
+($4.78M / −$83.9k) on BOTH net AND tail (~9× smaller). "Short into every new session high, hold until the
+9-EMA ticks down, roll30m/buf20 stop."

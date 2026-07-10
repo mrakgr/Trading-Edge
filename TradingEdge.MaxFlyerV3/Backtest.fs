@@ -69,6 +69,9 @@ let defaultConfig =
                                          // (5.27 vs 6.61); the edge doesn't need a fast rollover. Knee ~60–90.
           EmaBarsSinceHighEntry = false  // --ema-bars-since-high-entry: fire on the FIRST weakness (barsSinceEmaHigh
                                          // reaches the threshold) instead of the 9-EMA cross-under (which can lag ~1h).
+          EmaDownTickEntry = false       // --ema-down-tick-entry: fire when the 9-EMA ticks DOWN vs the prior bar
+                                         // (ema < prevEma), no session-high requirement. Takes precedence over the
+                                         // bars-since-high / cross-under triggers.
           EmaBarsSinceHigh = 1           // --ema-bars-since-high threshold (session barsSinceEmaHigh >= this). F8v2:
                                          // th=0 = short into every high; th=1 = 1-bar delay for the FIRST weakness.
                                          // th=1 wins: win 75%→84%, PF 4.52→5.61, net $6.68M→$7.07M (peak). th=2 a hair
