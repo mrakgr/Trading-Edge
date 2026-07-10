@@ -10,18 +10,18 @@ SELECT r.symbol, r.trade_date, YEAR(r.trade_date) yr,
        r.intraday_atr_pct_at_entry AS iatr,
        r.signal_time, r.entry_time, r.signal_high, r.signal_volume, r.sess_vol_high_at_signal,
        r.breakout_bar_vol / NULLIF(mc.avgvol20*mc.adj_ratio/390.0,0) AS brv20d
-FROM read_csv_auto('/tmp/mfv3_ema_book.csv') r
+FROM read_csv_auto('/tmp/mfv3_ema_book2020.csv') r
 JOIN mr_candidate mc ON mc.ticker=r.symbol AND mc.date=r.trade_date
 WHERE r.intraday_atr_pct_at_entry>=0.03 AND mc.avgvol20>0 AND mc.adj_ratio>0 AND
       r.breakout_bar_vol / NULLIF(mc.avgvol20*mc.adj_ratio/390.0,0) >= 100;
 
 .mode box
-SELECT '=== EMA book (arm-timer entry + max-EMA stop), A-book filtered — OVERALL ===' z;
+-- NB: NO clip PF for the short book — a short's max gain is +100% (price -> 0), so the win side is already
+-- bounded. raw PF is the honest metric here (unlike the long momentum books that need the +50% clip).
+SELECT '=== EMA book (per-signal pending entry + max-EMA stop), A-book filtered — OVERALL ===' z;
 SELECT COUNT(*) n,
   ROUND(100.0*AVG(CASE WHEN -ret_moc>0 THEN 1 ELSE 0 END),1) win_pct,
   ROUND(SUM(CASE WHEN -ret_moc>0 THEN -ret_moc ELSE 0 END)/NULLIF(-SUM(CASE WHEN -ret_moc<0 THEN -ret_moc ELSE 0 END),0),3) raw_pf,
-  ROUND(SUM(CASE WHEN LEAST(-ret_moc,0.50)>0 THEN LEAST(-ret_moc,0.50) ELSE 0 END)
-        /NULLIF(-SUM(CASE WHEN LEAST(-ret_moc,0.50)<0 THEN LEAST(-ret_moc,0.50) ELSE 0 END),0),3) clip_pf,
   ROUND(100.0*AVG(-ret_moc),2) avg_pct,
   ROUND(SUM(net_pnl),0) net_pnl,
   ROUND(MIN(net_pnl),0) worst_net,
@@ -39,12 +39,10 @@ SELECT ROUND(AVG(date_diff('minute', signal_time, entry_time)),1) mean_lag_min,
        ROUND(100.0*AVG(entry_price/signal_high-1),1) mean_entry_vs_sighi_pct
 FROM e;
 
-SELECT '=== by-year (A-book): PF raw/clip, net, worst ===' z;
+SELECT '=== by-year (A-book): raw PF, net, worst ===' z;
 SELECT yr, COUNT(*) n,
   ROUND(100.0*AVG(CASE WHEN -ret_moc>0 THEN 1 ELSE 0 END),1) win_pct,
   ROUND(SUM(CASE WHEN -ret_moc>0 THEN -ret_moc ELSE 0 END)/NULLIF(-SUM(CASE WHEN -ret_moc<0 THEN -ret_moc ELSE 0 END),0),2) raw_pf,
-  ROUND(SUM(CASE WHEN LEAST(-ret_moc,0.50)>0 THEN LEAST(-ret_moc,0.50) ELSE 0 END)
-        /NULLIF(-SUM(CASE WHEN LEAST(-ret_moc,0.50)<0 THEN LEAST(-ret_moc,0.50) ELSE 0 END),0),2) clip_pf,
   ROUND(SUM(net_pnl)/1000.0,0) net_k, ROUND(MIN(net_pnl),0) worst_net
 FROM e GROUP BY yr ORDER BY yr;
 

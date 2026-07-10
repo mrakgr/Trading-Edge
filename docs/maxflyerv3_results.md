@@ -111,3 +111,37 @@ recover net) to see if the EMA book can close the net gap while keeping the tail
 
 **⚠ Data note:** CETX 2019-06-27 shows entry_px $44,057,002 — a pre-split price the adj_ratio join didn't
 adjust. P&L stayed bounded (−$3,138, stopped) so it didn't distort results, but the adj_ratio edge case exists.
+
+## Finding 4 — PER-SIGNAL pending trades recover ~35% more net than the global timer, tail still bounded
+
+Replaced the global arm-timer with independent per-signal PENDINGS (commit 2736930): each new-session-high
+breakout arms its own pending (armed 9-EMA level + own countdown + signal-bar features); fires when ITS 9-EMA
+crosses under ITS emaAtArm before ITS timer expires. Multiple coexist; ALL qualifying fire on the same bar;
+each new high always re-arms; fires-once-then-removed (no stacking). **NB: RAW PF only for the short book — the
+win is bounded at +100% (price→0), so clip is meaningless (unlike the long momentum books).** Runs are 2020+
+(the A-book edge is 2020-concentrated; ~4× faster iteration).
+
+| A-book (2020+) | V2 no-stop (22y) | global-timer EMA (F3, 22y) | **per-signal EMA (F4, 2020+)** |
+|---|---:|---:|---:|
+| n | 2,760 | 1,249 | **1,550** |
+| win% | 88.7% | 64.8% | 66.6% |
+| raw PF | 6.65 | 3.73 | **3.57** |
+| net | $4.78M | $1.10M | **$1.39M** |
+| worst trade | −$83,909 | −$3,871 | −$5,212 |
+
+**Per-signal recovers ~35% more net ($1.39M vs $1.10M) at ~the same PF** — independent pendings keep the
+overlapping setups the global overwrite discarded (e.g. VLCN 2024-06-25 fires two pendings, EFOI three). Still
+ALL-WEATHER: every year 2020–2026 positive, raw PF 2.78–8.32, net $78k–$312k. Tail still bounded: worst −$5,212
+(vs V2's −$83,909; slightly worse than the global timer's −$3,871 — more pendings = more chances to catch a fast
+squeeze, but every worst-15 loser exits via ema_max_stop at −29% to −52%, all capped).
+
+Exit mix: 1,109 MOC (+17.1%, +$1.90M) vs 441 ema_max_stop (−11.5%, −$0.51M) — the held winners ARE the book,
+the stop is the drag. Entry defers ~6.5 min / −14.6% below signal_high (mean) waiting for the rollover.
+
+**Read:** per-signal is a strict improvement over the global timer (same PF, more net, same tail character). The
+book is still ~3.5× less net than V2 no-stop because the deferred-entry SELECTION (fade only confirmed rollovers)
++ the max-EMA stop are heavy filters — the tail bound is not free. NEXT: sweep --ema-arm-bars (longer = more
+pendings fire) and --ema-max-stop-buffer (looser = fewer stop-outs) to try to close the net gap.
+
+**⚠ Data note (persists):** VLCN 2024-06-25 entry_px $517, CRKN 2024-05-14 $1,464 — pre-split prices the
+adj_ratio join misses. P&L stays bounded by the stop (no distortion), but the adj_ratio edge case is real.
