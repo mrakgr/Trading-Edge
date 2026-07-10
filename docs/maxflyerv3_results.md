@@ -606,10 +606,15 @@ max-close stop dominates the EMA-max stop on PF and win% at ~the same worst-symb
 | ema roll30 b05 re1 | 2678 | 64.2 | 2.58 | 2150 | −7.3 | −5.4 |
 | ema roll30 b10 re1 | 2431 | 72.0 | 2.91 | 2316 | −9.3 | −6.6 |
 | **mc win20 b10 re1** | 2359 | **73.9** | **3.09** | 2364 | −9.6 | −6.9 |
+| mc win20 b10 re2 | 2416 | 73.6 | 3.04 | 2404 | −10.5 | −6.9 |
 | **mc win20 b20 re1** | 2165 | **79.4** | **3.71** | 2498 | −12.8 | −9.5 |
+| mc win20 b20 re2 | 2191 | 79.2 | 3.68 | 2519 | −14.4 | −9.5 |
 | **mc win20 b30 re1** | 2111 | **81.1** | **3.94** | 2513 | −12.8 | −9.5 |
+| mc win20 b30 re2 | 2125 | 80.9 | 3.89 | 2518 | −18.5 | −9.5 |
 | mc win20 b40 re1 | 2078 | 82.0 | 4.25 | 2553 | −14.8 | −11.0 |
+| mc win20 b40 re2 | 2083 | 81.9 | 4.18 | 2543 | −22.1 | −11.0 |
 | mc win20 b50 re1 | 2055 | 82.3 | 4.53 | 2571 | −18.6 | −11.4 |
+| mc win20 b50 re2 | 2058 | 82.3 | 4.49 | 2566 | −25.3 | −11.4 |
 
 The buffer is the same net-vs-tail dial as before: **wider buffer = higher PF/win/net but a wider tail** (b10 worst
 −$9.6k → b50 worst −$18.6k). Sweet spot ≈ **b20–b30**: PF 3.7–3.9, win ~80%, worst-symday held to −$12.8k, net
