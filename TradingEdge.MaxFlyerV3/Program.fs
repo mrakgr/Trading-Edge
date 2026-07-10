@@ -31,6 +31,8 @@ type Args =
     // mode overrides. MaxFlyerV2 DEFAULTS to the short pop-fade (Downside=false, Short=true).
     | Long                 // escape hatch: trade the LONG new-session-LOW flush (= the LowFlyer book) for parity
     | Short_Breakdown      // alternate: SHORT the new-session-LOW breakdown (Downside=true, Short=true)
+    | Long_Breakout        // INVERSION: BUY the new-session-HIGH pop, SELL on the 9-EMA down-tick (Short=false, direct entry)
+    | Ema_Down_Tick_Exit
     // kept-inert levers (off by default) for later sweeps
     | Pct_Stop of float
     | Time_Stop_Min of int
@@ -71,6 +73,8 @@ type Args =
             | Min_Brv20d _ -> "A-BOOK MAIN LEVER (baked in): require brv20d >= this at the arm bar. brv20d = breakout_bar_vol / (avgvol20*adj_ratio/390). Default 100. 0 = off. Engine emits only A-book trips."
             | Long -> "Escape hatch: trade the LONG new-session-LOW flush-fade (Downside=true, Short=false) — i.e. the LowFlyer book — instead of the default short pop-fade. For cross-system parity checks. Mutually exclusive with --short-breakdown."
             | Short_Breakdown -> "Alternate short: SHORT the new-session-LOW breakdown (Downside=true, Short=true) — momentum continuation of the flush (the 4th quadrant), rather than the default new-HIGH pop-fade. Mutually exclusive with --long."
+            | Long_Breakout -> "INVERSION of the short pop-fade: BUY the new-session-HIGH pop on the breakout bar (Short=false, Downside=false, direct entry) and SELL on the first 9-EMA down-tick. Turns off all the short-only EMA machinery. A momentum/continuation test of the same signal the short fades."
+            | Ema_Down_Tick_Exit -> "EXIT a LONG when the 9-EMA ticks DOWN vs the prior bar (ema < prevEma). The inversion of --ema-down-tick-entry. Implied by --long-breakout."
             | Pct_Stop _ -> "SWEEP LEVER: wide catastrophe %%-stop, a fixed adverse excursion from entry (0 = off, default)."
             | Time_Stop_Min _ -> "SWEEP LEVER: flatten this many minutes after entry, capped at MOC (0 = off, default = hold to MOC)."
             | Ema_Entry -> "9-EMA ARM-TIMER ENTRY: instead of shorting directly on the breakout, ARM a countdown at the breakout bar (recording its 9-EMA) and SHORT (at close) on the first bar within the window whose 9-EMA closes BELOW that armed level. Re-arms on each new session high. Default OFF (= direct V2 entry)."
@@ -117,18 +121,20 @@ let main argv =
                   MaxAtrPct     = parsed.GetResult(Max_Intraday_Atr_Pct, defaultValue = defaultConfig.Intraday.MaxAtrPct)
                   MinAtrPct     = parsed.GetResult(Min_Intraday_Atr_Pct, defaultValue = defaultConfig.Intraday.MinAtrPct)
                   MinBrv20d     = parsed.GetResult(Min_Brv20d,           defaultValue = defaultConfig.Intraday.MinBrv20d)
-                  // Three modes (MaxFlyerV2 DEFAULTS to the short pop-fade):
+                  // Modes (MaxFlyerV2 DEFAULTS to the short pop-fade):
                   //   default            — SHORT the new-session-HIGH pop (Downside=false, Short=true)
                   //   --long             — LONG the new-session-LOW flush (Downside=true, Short=false) [LowFlyer parity]
                   //   --short-breakdown  — SHORT the new-session-LOW breakdown (Downside=true, Short=true)
+                  //   --long-breakout    — LONG the new-session-HIGH pop (Downside=false, Short=false), exit on down-tick
                   Downside      = parsed.Contains Long || parsed.Contains Short_Breakdown
-                  Short         = not (parsed.Contains Long)
+                  Short         = not (parsed.Contains Long || parsed.Contains Long_Breakout)
                   PctStop       = parsed.GetResult(Pct_Stop,        defaultValue = defaultConfig.Intraday.PctStop)
                   TimeStopMin   = parsed.GetResult(Time_Stop_Min,   defaultValue = defaultConfig.Intraday.TimeStopMin)
-                  EmaEntry      = (parsed.Contains Ema_Entry    || defaultConfig.Intraday.EmaEntry)
+                  // --long-breakout forces the short's EMA machinery OFF (direct entry + down-tick EXIT instead).
+                  EmaEntry      = (not (parsed.Contains Long_Breakout)) && (parsed.Contains Ema_Entry || defaultConfig.Intraday.EmaEntry)
                   EmaPeriod     = parsed.GetResult(Ema_Period,   defaultValue = defaultConfig.Intraday.EmaPeriod)
                   EmaArmBars    = parsed.GetResult(Ema_Arm_Bars, defaultValue = defaultConfig.Intraday.EmaArmBars)
-                  EmaMaxStop    = (parsed.Contains Ema_Max_Stop || defaultConfig.Intraday.EmaMaxStop)
+                  EmaMaxStop    = (not (parsed.Contains Long_Breakout)) && (parsed.Contains Ema_Max_Stop || defaultConfig.Intraday.EmaMaxStop)
                   EmaMaxStopBuffer = parsed.GetResult(Ema_Max_Stop_Buffer, defaultValue = defaultConfig.Intraday.EmaMaxStopBuffer)
                   EmaMaxStopWindow = parsed.GetResult(Ema_Max_Stop_Window, defaultValue = defaultConfig.Intraday.EmaMaxStopWindow)
                   EmaPctStop = parsed.GetResult(Ema_Pct_Stop, defaultValue = defaultConfig.Intraday.EmaPctStop)
@@ -138,7 +144,8 @@ let main argv =
                   EmaBarsSinceHigh = parsed.GetResult(Ema_Bars_Since_High, defaultValue = defaultConfig.Intraday.EmaBarsSinceHigh)
                   MaxCloseStop = (parsed.Contains Max_Close_Stop || defaultConfig.Intraday.MaxCloseStop)
                   MaxCloseStopWindow = parsed.GetResult(Max_Close_Stop_Window, defaultValue = defaultConfig.Intraday.MaxCloseStopWindow)
-                  MaxCloseStopBuffer = parsed.GetResult(Max_Close_Stop_Buffer, defaultValue = defaultConfig.Intraday.MaxCloseStopBuffer) } }
+                  MaxCloseStopBuffer = parsed.GetResult(Max_Close_Stop_Buffer, defaultValue = defaultConfig.Intraday.MaxCloseStopBuffer)
+                  EmaDownTickExit = (parsed.Contains Long_Breakout || parsed.Contains Ema_Down_Tick_Exit || defaultConfig.Intraday.EmaDownTickExit) } }
 
     printfn "MaxFlyerV3 backtest — intraday SHORT pop-fade (%s)"
         (match cfg.Intraday.Downside, cfg.Intraday.Short with

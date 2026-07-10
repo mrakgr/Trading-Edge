@@ -261,8 +261,14 @@ type IntradayConfig =
                                // worst trades quicker. Re-entries chain off it exactly like the EMA stop.
       MaxCloseStopWindow: int  // MAX-CLOSE STOP anchor window (bars). Rolling N-bar max of the raw close.
                                // Default 20 (a 20m local price high). Re-anchors to the recent high near the fill.
-      MaxCloseStopBuffer: float } // buffer RAISING the max-close stop above the rolling max close (0.10 = 10%
+      MaxCloseStopBuffer: float // buffer RAISING the max-close stop above the rolling max close (0.10 = 10%
                                // above the local high before covering). Only used when MaxCloseStop is on.
+      // ----- the LONG BREAKOUT book: BUY the new-session-high pop, SELL on the first 9-EMA down-tick -----
+      EmaDownTickExit: bool }  // EXIT TRIGGER: while HOLDING, close the position when the live 9-EMA TICKS DOWN
+                               // vs the prior bar (ema < prevEma). The inversion of EmaDownTickEntry: instead of
+                               // SHORTING on 9-EMA weakness we EXIT a long on it. Pair with --long-breakout
+                               // (Short=false, direct entry on the breakout bar) to test the long side of the pop.
+                               // Off (default). No re-entries / no other stops needed — the down-tick IS the exit.
 
 /// Per-(ticker, day) intraday engine. Feed it the day's RTH MinuteBar[] in time
 /// order via `Process`, then `Finalize` and read `Trips()`.
@@ -732,7 +738,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             let maxCloseStopHit =
                 cfg.MaxCloseStop && cfg.Short && not (Double.IsNaN pos.CloseStopBase)
                 && bar.close > pos.CloseStopBase * (1.0 + cfg.MaxCloseStopBuffer)
-            if emaMaxStopHit || emaPctStopHit || maxCloseStopHit then
+            // LONG-BREAKOUT EXIT (cfg.EmaDownTickExit): while holding a LONG, sell (at close) on the first 9-EMA
+            // down-tick vs the prior bar — the inversion of the short's down-tick ENTRY. This IS the exit; no stops.
+            let emaDownTickExitHit =
+                cfg.EmaDownTickExit && not cfg.Short
+                && (match ema.State, prevEma with
+                    | ValueSome e, ValueSome pe -> e < pe
+                    | _ -> false)
+            if emaDownTickExitHit then
+                { pos with State = ExitedAt (bar.etMin, bar.close, "ema_down_tick") }
+            elif emaMaxStopHit || emaPctStopHit || maxCloseStopHit then
                 let reason =
                     if maxCloseStopHit && not emaMaxStopHit && not emaPctStopHit then "max_close_stop"
                     elif emaPctStopHit && not emaMaxStopHit then "ema_pct_stop" else "ema_max_stop"

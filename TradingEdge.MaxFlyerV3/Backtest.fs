@@ -96,7 +96,8 @@ let defaultConfig =
                                          // 0 = OFF (default; the max-EMA stop is the primary). e.g. 0.60 caps the tail.
           MaxCloseStop = false           // --max-close-stop: cover when the raw close rises above the rolling-max close.
           MaxCloseStopWindow = 20        // --max-close-stop-window: 20-bar rolling max raw-close anchor.
-          MaxCloseStopBuffer = 0.20 }    // --max-close-stop-buffer: buffer above the rolling max close (0.20 = 20%).
+          MaxCloseStopBuffer = 0.20      // --max-close-stop-buffer: buffer above the rolling max close (0.20 = 20%).
+          EmaDownTickExit = false }       // --ema-down-tick-exit / --long-breakout: sell a LONG on the 9-EMA down-tick.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the

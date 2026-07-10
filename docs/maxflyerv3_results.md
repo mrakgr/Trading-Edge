@@ -696,3 +696,33 @@ Three reads:
 losses on several symbols at once — e.g. ema b05 re1: −9.7 cal vs −7.3 sym). F18's tables quote worst_sym_day;
 this ladder adds the calendar view. Neither is wrong — sym-day is "worst single position-cluster on one name,"
 cal-day is "worst total day." For real-account drawdown, cal-day/week/month are the ones that matter.
+
+**PRODUCTION DEFAULT (set after F19):** the no-flag `defaultConfig` is now this book — `--ema-entry
+--ema-down-tick-entry --ema-max-stop --ema-max-stop-window 30 --ema-max-stop-buffer 0.10 --ema-reentries 2
+--max-concurrent 1` = **`ema roll30 b10 re2`** (2501 trips / 71.7% win / net $2.37M / PF 2.876, worst-week −$9.3k,
+worst-MONTH breakeven). User's call: ~10% is the ideal tail/PF knee and EMA≈max-close there. Flags flip it off.
+
+## Finding 20 — ❌ INVERTING the signal (BUY the pop, sell on the 9-EMA down-tick) has strongly NEGATIVE expectancy — PF 0.32
+
+Direct test of "is the short's edge just the fade, or is there a tradable LONG in the same pop?" `--long-breakout`:
+BUY the new-session-HIGH breakout bar directly (Short=false, Downside=false, same A-book universe: brv20d≥100 &
+ATR%≥0.03), then SELL on the first 9-EMA down-tick (`--ema-down-tick-exit`). The exact inversion of the short book
+(which SHORTS the pop and covers on weakness). max-conc 1, 2020+.
+
+| book | trips | win% | raw PF | net $k | avg ret% | median ret% |
+|---|---|---|---|---|---|---|
+| SHORT pop-fade (default, b10 re2) | 2501 | 71.7 | **2.88** | +2371 | — | — |
+| **LONG breakout (invert)** | 1705 | **19.8** | **0.32** | **−658** | −3.87 | −4.88 |
+
+**The long is a decisive loser** — PF 0.32, win 19.8%, −$658k. Two compounding reasons, both confirmed in the data:
+
+1. **The signal reverts (that's WHY the short works).** The pop into a new session high on A-book volume is a
+   mean-reversion setup; the long is on the wrong side of the same reversion. Median long return −4.88%.
+2. **The down-tick exit is asymmetric AGAINST a long.** 1699/1705 trips exit via the down-tick at avg hold **7.9
+   min** — it sells at the first flicker of weakness, so the ~20% of trades that would have run get cut early
+   (best +101% exists but is rare), while the 80% that immediately reverse are held into the down-tick and sold
+   near the lows. Same trigger that's a great SHORT entry (fade weakness) is a terrible LONG exit (panic-sell noise).
+
+**Verdict: there is no long book in this signal.** The pop-fade is short-only; its edge IS the reversion, and the
+inverse loses on both the direction and the exit. Do not pursue a long variant of the breakout pop. (P&L sign
+verified: NetPnL = qty·(exit−entry) for the long — the loss is real, not a convention bug.)
