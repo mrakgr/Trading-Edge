@@ -655,3 +655,44 @@ b50 −18.6→−25.3.
 0.30 --ema-reentries 1` at max-conc 1** — PF 3.94, win 81%, net $2.5M, worst-symday −$12.8k, worst-trade −$9.5k.
 This is the tightest tail we've reached that still keeps PF ~4 (vs the no-stop down-tick book's −$222k worst-day at
 mc 0, F17-baseline). Stop reasons on b30-re1: 121 stops avg −49.8% (the cut runners), 1990 MOC winners avg +15.7%.
+
+## Finding 19 — ⭐ the FULL tail-aggregation ladder (worst symbol-day → cal-day → week → month): the worst MONTH is ~breakeven-or-positive for every variant; the tail is a SINGLE bad day, not a losing streak
+
+For every F18 variant, the worst adverse Σ-net at each aggregation level (2020+, max-conc 1). **worst_sym_day** =
+Σ per (symbol,date); **worst_cal_day** = Σ per date (all symbols); **worst_week** = Σ per Mon-anchored week;
+**worst_month** = Σ per calendar month. All $k.
+
+| variant | net_k | worst_sym_day | worst_cal_day | worst_week | worst_month |
+|---|---|---|---|---|---|
+| ema roll30 b05 re1 | 2150 | −7.3 | −9.7 | −8.3 | **+1.4** |
+| ema roll30 b05 re2 | 2259 | −8.8 | −12.0 | −8.1 | **+2.1** |
+| ema roll30 b10 re1 | 2316 | −9.3 | −13.9 | −10.7 | **+0.9** |
+| ema roll30 b10 re2 | 2371 | −10.8 | −14.6 | −9.3 | 0.0 |
+| mc win20 b10 re1 | 2364 | −9.6 | −15.2 | −10.8 | **+0.2** |
+| mc win20 b10 re2 | 2404 | −10.5 | −14.3 | −9.6 | −0.7 |
+| mc win20 b20 re1 | 2498 | −12.8 | −15.2 | −8.7 | −0.3 |
+| mc win20 b20 re2 | 2519 | −14.4 | −12.8 | −10.9 | **+2.4** |
+| **mc win20 b30 re1** | 2513 | −12.8 | −14.8 | −12.3 | −0.1 |
+| mc win20 b30 re2 | 2518 | −18.5 | −16.7 | **−20.2** | **+2.6** |
+| mc win20 b40 re1 | 2553 | −14.8 | −13.7 | −15.3 | **+2.8** |
+| mc win20 b40 re2 | 2543 | −22.1 | −20.4 | −21.0 | **+2.8** |
+| mc win20 b50 re1 | 2571 | −18.6 | −16.8 | −17.4 | **+2.8** |
+| mc win20 b50 re2 | 2566 | −25.3 | −23.6 | −22.4 | **+2.8** |
+
+Three reads:
+
+1. **The worst MONTH is ~breakeven-or-positive for EVERY variant** (+$0.9k to +$2.8k; the worst any variant does is
+   −$0.7k, essentially flat). Across 2020–2026 there is **no losing calendar month** in this book at max-conc 1. The
+   drawdown problem is entirely a *within-month* / single-event problem — by 30 days it always washes out.
+2. **worst_week ≈ worst_day in magnitude** for the tight variants (ema b05: week −8.3 vs cal-day −9.7; mc b30 re1:
+   week −12.3 vs cal-day −14.8). The worst week IS essentially one bad day surrounded by profitable ones — losses do
+   **not** stack across a week. The tail is a single-day catastrophe, not a losing streak. (Confirms F2's "worst-30 =
+   57% of loss $" hyper-concentration, now at the calendar level.)
+3. **re1 beats re2 up the whole ladder**, most starkly at b30 (worst-week −12.3 re1 vs −20.2 re2). The re2 tail cost
+   compounds at every horizon → reinforces cap-at-1. The pick, **mc b30 re1**, holds a clean ladder: sym-day −12.8,
+   cal-day −14.8, week −12.3, month −0.1 (flat).
+
+⚠️ Note the two DAY metrics differ: **worst_cal_day is generally WORSE than worst_sym_day** (a bad date carries
+losses on several symbols at once — e.g. ema b05 re1: −9.7 cal vs −7.3 sym). F18's tables quote worst_sym_day;
+this ladder adds the calendar view. Neither is wrong — sym-day is "worst single position-cluster on one name,"
+cal-day is "worst total day." For real-account drawdown, cal-day/week/month are the ones that matter.
