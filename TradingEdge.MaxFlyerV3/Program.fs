@@ -46,6 +46,9 @@ type Args =
     | Ema_Bars_Since_High of int
     | Ema_Down_Tick_Entry
     | Ema_Reentries of int
+    | Max_Close_Stop
+    | Max_Close_Stop_Window of int
+    | Max_Close_Stop_Buffer of float
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -81,6 +84,9 @@ type Args =
             | Ema_Bars_Since_High _ -> "The bars-since-9EMA-high threshold to enter (default 2). Only with --ema-bars-since-high-entry. Swept."
             | Ema_Down_Tick_Entry -> "ENTRY TRIGGER: fire when the 9-EMA TICKS DOWN vs the prior bar (ema < prevEma) — a pure 'EMA turned down' weakness, NO session-high requirement. Requires --ema-entry; takes precedence over the bars-since-high / cross-under triggers."
             | Ema_Reentries _ -> "RE-ENTRIES after an EMA-stop-out: re-short on the next 9-EMA down-tick up to this many times (0 = off, default). Each re-entry gets a fresh 30m-max-9EMA×(1+buffer) stop. Pair with a TIGHT --ema-max-stop-buffer (e.g. 0.05). Chain ends at the cap or MOC."
+            | Max_Close_Stop -> "MAX-CLOSE STOP: while short, cover (at close) when the RAW bar close rises above the rolling-N-bar max close x (1+buffer), frozen at entry. Raw close reacts a bar sooner than the 9-EMA — cuts the worst runners faster. Composable with the EMA stops (first to fire wins). Default OFF."
+            | Max_Close_Stop_Window _ -> "Max-close-stop anchor window in bars (rolling max of the raw close). Default 20 (a 20m local price high)."
+            | Max_Close_Stop_Buffer _ -> "Fractional buffer RAISING the max-close stop above the rolling max close (0.10 = 10%% above the local high). Only used with --max-close-stop. Default 0.20."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -129,7 +135,10 @@ let main argv =
                   EmaDownTickEntry = (parsed.Contains Ema_Down_Tick_Entry || defaultConfig.Intraday.EmaDownTickEntry)
                   EmaReentries = parsed.GetResult(Ema_Reentries, defaultValue = defaultConfig.Intraday.EmaReentries)
                   EmaBarsSinceHighEntry = (parsed.Contains Ema_Bars_Since_High_Entry || defaultConfig.Intraday.EmaBarsSinceHighEntry)
-                  EmaBarsSinceHigh = parsed.GetResult(Ema_Bars_Since_High, defaultValue = defaultConfig.Intraday.EmaBarsSinceHigh) } }
+                  EmaBarsSinceHigh = parsed.GetResult(Ema_Bars_Since_High, defaultValue = defaultConfig.Intraday.EmaBarsSinceHigh)
+                  MaxCloseStop = (parsed.Contains Max_Close_Stop || defaultConfig.Intraday.MaxCloseStop)
+                  MaxCloseStopWindow = parsed.GetResult(Max_Close_Stop_Window, defaultValue = defaultConfig.Intraday.MaxCloseStopWindow)
+                  MaxCloseStopBuffer = parsed.GetResult(Max_Close_Stop_Buffer, defaultValue = defaultConfig.Intraday.MaxCloseStopBuffer) } }
 
     printfn "MaxFlyerV3 backtest — intraday SHORT pop-fade (%s)"
         (match cfg.Intraday.Downside, cfg.Intraday.Short with

@@ -88,8 +88,11 @@ let defaultConfig =
                                          // spot — worst −82% / 0 over 100% at PF 5.26 / net $4.07M (= the session
                                          // book's PF/net, HALF the tail). HARD CLIFF: buf25+ → −153% reappears;
                                          // buf<20 cuts winners (PF↓). (Was 0.30 for the session anchor in F5.)
-          EmaPctStop = 0.0 }             // --ema-pct-stop: 9-EMA %-stop off the ENTRY 9-EMA (uniform per-trade cap).
+          EmaPctStop = 0.0               // --ema-pct-stop: 9-EMA %-stop off the ENTRY 9-EMA (uniform per-trade cap).
                                          // 0 = OFF (default; the max-EMA stop is the primary). e.g. 0.60 caps the tail.
+          MaxCloseStop = false           // --max-close-stop: cover when the raw close rises above the rolling-max close.
+          MaxCloseStopWindow = 20        // --max-close-stop-window: 20-bar rolling max raw-close anchor.
+          MaxCloseStopBuffer = 0.20 }    // --max-close-stop-buffer: buffer above the rolling max close (0.20 = 20%).
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the

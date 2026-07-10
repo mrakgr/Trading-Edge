@@ -580,3 +580,52 @@ re3-wall structure as F13 at max-conc 0 → the 3rd re-entry is dead money regar
 CONSTANT (2,005 — entries are buffer-independent); re-entry counts FALL with a wider buffer (fewer stop-outs).
 **Read: the limited-retry sweep should cover re-cap 0-2 (all PF-positive), never 3+.** re2 looks viable here
 (PF ~2.9) — unlike max-conc 0 where re2's day-stacking hurt — because the single slot removes the stacking cost.
+
+## Finding 18 — ⭐⭐ MAX-CLOSE STOP beats the 9-EMA stop (raw close exits a bar sooner); LIMITED re-entries: re1 is the additive sweet spot, re2 widens the tail
+
+**New exit anchor (`--max-close-stop --max-close-stop-window 20 --max-close-stop-buffer X`)**: while short, cover
+(at close) when the **raw bar close** rises above the rolling-20m-max-close × (1+buffer), frozen at entry — same
+freeze discipline as the EMA stop, but on the raw close instead of the 9-EMA. Motivation (user): "some of these
+worst trades are still pretty bad — would exiting more quickly on bar-close be better?" **Yes.** Raw close reacts
+~1 bar sooner than the smoothed 9-EMA, so it cuts the runners faster at a comparable tail.
+
+All runs **max-conc 1, down-tick entry, 2020+**, limited re-entries. Direct comparison at matched tightness — the
+max-close stop dominates the EMA-max stop on PF and win% at ~the same worst-symbol-day:
+
+| variant | n | win% | raw PF | net $k | worst sym-day $k | worst trade $k |
+|---|---|---|---|---|---|---|
+| ema roll30 b05 re1 | 2678 | 64.2 | 2.58 | 2150 | −7.3 | −5.4 |
+| ema roll30 b10 re1 | 2431 | 72.0 | 2.91 | 2316 | −9.3 | −6.6 |
+| **mc win20 b10 re1** | 2359 | **73.9** | **3.09** | 2364 | −9.6 | −6.9 |
+| **mc win20 b20 re1** | 2165 | **79.4** | **3.71** | 2498 | −12.8 | −9.5 |
+| **mc win20 b30 re1** | 2111 | **81.1** | **3.94** | 2513 | −12.8 | −9.5 |
+| mc win20 b40 re1 | 2078 | 82.0 | 4.25 | 2553 | −14.8 | −11.0 |
+| mc win20 b50 re1 | 2055 | 82.3 | 4.53 | 2571 | −18.6 | −11.4 |
+
+The buffer is the same net-vs-tail dial as before: **wider buffer = higher PF/win/net but a wider tail** (b10 worst
+−$9.6k → b50 worst −$18.6k). Sweet spot ≈ **b20–b30**: PF 3.7–3.9, win ~80%, worst-symday held to −$12.8k, net
+$2.5M. b30-re1 is the pick — same worst-symday as b20 but +PF.
+
+**Limited re-entries — re1 is additive, re2 is NOT.** The user's hypothesis ("capping re-entries might enable
+subsequent setups"): confirmed for re1, rejected for re2.
+
+| buffer | re0 PF (n) | re1 PF (n) | re1→re2 worst-symday |
+|---|---|---|---|
+| b10 | 3.07 (2015) | **3.18 (344)** | −9.6 → −10.5 |
+| b20 | 3.85 (2007) | **2.74 (158)** | −12.8 → −14.4 |
+| b30 | 4.18 (2006) | **2.10 (105)** | −12.8 → **−18.5** |
+| b40 | 4.33 (2005) | 3.09 (73) | −14.8 → −22.1 |
+| b50 | 4.66 (2005) | 2.41 (50) | −18.6 → −25.3 |
+
+- **re0 count is buffer-independent (~2005 entries)**; re1 count RISES as the stop tightens (b10 → 344 re-probes,
+  b50 → 50) — a tight stop trips more, freeing the slot for the next down-tick sooner. This is the mechanism that
+  "enables subsequent setups": tight stop + re1 = take the re-break.
+- **re1 leg PF 2.1–3.18 at every buffer — genuinely additive**, adds net with no worst-symday damage worth noting
+  (b30: −12.8 unchanged going re0→re1... the widening below is the re2 step).
+- **re2 is where the tail opens up** (b30 −12.8 → −18.5; b50 −18.6 → −25.3), and the re2 leg itself is the weak
+  one (PF 2.18 → 0.38 → 0.24 as the buffer widens — same re2/re3 wall as F13/F17). **Cap re-entries at 1.**
+
+**Verdict: the drawdown-controlled short book is `--max-close-stop --max-close-stop-window 20 --max-close-stop-buffer
+0.30 --ema-reentries 1` at max-conc 1** — PF 3.94, win 81%, net $2.5M, worst-symday −$12.8k, worst-trade −$9.5k.
+This is the tightest tail we've reached that still keeps PF ~4 (vs the no-stop down-tick book's −$222k worst-day at
+mc 0, F17-baseline). Stop reasons on b30-re1: 121 stops avg −49.8% (the cut runners), 1990 MOC winners avg +15.7%.
