@@ -55,7 +55,8 @@ let defaultConfig =
                                          // long defaultConfig (which was leaking the long's vol-high-frac 0.90).
           Target = NoTarget
           MocMin = 16 * 60               // 16:00 ET
-          MaxConcurrent = 0              // unlimited concurrent entries per day
+          MaxConcurrent = 1              // ONE position at a time (F16/F18/F19: mc 1 is the production regime —
+                                         // avoids the day-stacking that made mc 0's worst-day −$222k). --max-concurrent 0 = unlimited.
           MinBarFlush = 0.0              // entry-bar flush gate OFF (--min-bar-flush -0.007 to enable)
           MinBarFlushFloor = 0.0         // entry-bar flush-depth floor OFF (--min-bar-flush-floor -0.12 to enable)
           VolHighFrac = 1.0              // SHORT vol-confirm = STRICT (must EXCEED the vol high). Decoupled from
@@ -63,31 +64,34 @@ let defaultConfig =
                                          // strict gate + brv20d>=100 as the main lever. --vol-high-frac to override.
           MinCloseRef = true             // default = min-CLOSE reference (wick-immune; +~29% trips at ~same
                                          // PF — Run 12). --min-low-ref switches back to the min-LOW channel.
-          // 9-EMA arm-timer entry + max-EMA stop — all OFF by default (V3 reproduces V2 until flagged on).
-          EmaEntry = false               // --ema-entry: arm on breakout, short on the 9-EMA cross-under.
+          // 9-EMA arm-timer entry + max-EMA stop — PRODUCTION DEFAULT is the F18/F19 book: down-tick entry,
+          // roll30 EMA-max stop @ buffer 0.10, 2 re-entries, mc 1. (`ema roll30 b10 re2`.) Turn OFF with the flags.
+          EmaEntry = true                // --ema-entry: arm on breakout, short on the 9-EMA down-tick (below).
           EmaPeriod = 9                  // the EMA period for the arm-timer entry + max-EMA stop.
           EmaArmBars = 60                // --ema-arm-bars: the cross-under window after a breakout. F6: ≤60 more
                                          // than DOUBLES net vs ≤10 ($4.08M vs $1.84M) for a modest PF give-up
                                          // (5.27 vs 6.61); the edge doesn't need a fast rollover. Knee ~60–90.
           EmaBarsSinceHighEntry = false  // --ema-bars-since-high-entry: fire on the FIRST weakness (barsSinceEmaHigh
                                          // reaches the threshold) instead of the 9-EMA cross-under (which can lag ~1h).
-          EmaDownTickEntry = false       // --ema-down-tick-entry: fire when the 9-EMA ticks DOWN vs the prior bar
-                                         // (ema < prevEma), no session-high requirement. Takes precedence over the
-                                         // bars-since-high / cross-under triggers.
-          EmaReentries = 0               // --ema-reentries: after an EMA-stop-out, re-short on the next down-tick up
-                                         // to this many times (0 = off). Pair with a TIGHT --ema-max-stop-buffer.
+          EmaDownTickEntry = true        // --ema-down-tick-entry: fire when the 9-EMA ticks DOWN vs the prior bar
+                                         // (ema < prevEma), no session-high requirement. The settled/best trigger (F9).
+                                         // Takes precedence over the bars-since-high / cross-under triggers.
+          EmaReentries = 2               // --ema-reentries: after an EMA-stop-out, re-short on the next down-tick up
+                                         // to this many times. F18: re1 additive, re2 marginal-but-fine; chosen for the
+                                         // default (`b10 re2`). Pairs with the TIGHT 0.10 --ema-max-stop-buffer below.
           EmaBarsSinceHigh = 1           // --ema-bars-since-high threshold (session barsSinceEmaHigh >= this). F8v2:
                                          // th=0 = short into every high; th=1 = 1-bar delay for the FIRST weakness.
                                          // th=1 wins: win 75%→84%, PF 4.52→5.61, net $6.68M→$7.07M (peak). th=2 a hair
                                          // more PF (5.68) / wider tail; decays past 2. Trip count ~flat (delay ≠ filter).
-          EmaMaxStop = false             // --ema-max-stop: cover when the 9-EMA rises above the session-max 9-EMA.
+          EmaMaxStop = true              // --ema-max-stop: cover when the 9-EMA rises above the roll30-max 9-EMA ×(1+buf).
+                                         // ON by default (the F18/F19 tail control). F18 showed the max-CLOSE stop is
+                                         // ~equivalent at b10 — user chose the EMA anchor for the default (little difference).
           EmaMaxStopWindow = 30          // --ema-max-stop-window: 30-bar ROLLING max 9-EMA anchor (F7). Re-anchors
                                          // the stop to the RECENT local EMA high near the fill; the session anchor
                                          // (0) staled → −153% tail. Rolling-30m + buf20 → worst −82%, 0 trades >100%.
-          EmaMaxStopBuffer = 0.20        // --ema-max-stop-buffer. F7: with the rolling-30m anchor, 20% = the sweet
-                                         // spot — worst −82% / 0 over 100% at PF 5.26 / net $4.07M (= the session
-                                         // book's PF/net, HALF the tail). HARD CLIFF: buf25+ → −153% reappears;
-                                         // buf<20 cuts winners (PF↓). (Was 0.30 for the session anchor in F5.)
+          EmaMaxStopBuffer = 0.10        // --ema-max-stop-buffer. DEFAULT 0.10 (F18/F19): the ~ideal tail/PF knee at
+                                         // max-conc 1 — `b10 re2` PF 2.88 / win 71.7% / net $2.37M, worst-week −$9.3k,
+                                         // worst-MONTH breakeven (0.0). Wider (0.20, the old F7 mc-0 value) grows the tail.
           EmaPctStop = 0.0               // --ema-pct-stop: 9-EMA %-stop off the ENTRY 9-EMA (uniform per-trade cap).
                                          // 0 = OFF (default; the max-EMA stop is the primary). e.g. 0.60 caps the tail.
           MaxCloseStop = false           // --max-close-stop: cover when the raw close rises above the rolling-max close.
