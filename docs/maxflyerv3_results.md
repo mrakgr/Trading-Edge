@@ -787,5 +787,46 @@ down-tick default. Full ladder (max-conc 1, 2020+):
 
 Production note (user): may split the fill — **short HALF at the high, HALF at the down-tick** — to blend the
 short-high edge with the down-tick book's tighter worst-trade. The default is the full short-high; the down-tick
-book is `--ema-down-tick-entry` without `--short-high-entry` (turn it off: build a `--no-short-high` or pass the
-down-tick flags on a config with ShortHighEntry off).
+book is now reachable via `--no-short-high` (byte-identical to the old down-tick default).
+
+## Finding 23 — ⭐⭐ RIGHT-SIDE-OF-THE-V (Breitstein): the MORE UNDERWATER a short-high trade is at the arm bar, the BETTER its go-forward edge — ADD on the down-tick when it ran against us
+
+The question: on a short-high leg-0 trade, does the entry→arm DISPLACEMENT (how far price moved from our high entry
+by the time the 9-EMA down-tick arms the stop) predict the go-forward edge — and should we ADD at the down-tick?
+Engine now emits `arm_time` / `arm_close` (the down-tick bar). Displacement = `arm_close/entry − 1` (short: **>0 =
+UNDERWATER** at the arm, the pop kept running against us before rolling over; **<0 = already in profit**). Go-forward
+return = short from the ARM bar's close to exit = `(arm_close − exit_price)/arm_close`. Leg-0 only, 2020+, 2007 trades.
+
+| displacement bucket | n | avg disp | fwd win% | **fwd PF** | avg fwd ret% | med fwd ret% |
+|---|---|---|---|---|---|---|
+| <−15% (deep profit at arm) | 88 | −18.8% | 72.7 | 2.32 | +9.3 | +12.0 |
+| −15..−5% | 848 | −8.5% | 69.9 | 2.31 | +7.3 | +10.3 |
+| −5..0% (small profit) | 643 | −2.9% | 73.4 | 3.32 | +9.2 | +11.7 |
+| 0..5% (small underwater) | 235 | +2.0% | 76.2 | 3.49 | +10.9 | +14.3 |
+| **5..15% underwater** | 123 | +8.8% | **79.7** | **4.42** | **+15.2** | +15.8 |
+| 15..30% underwater | 45 | +19.7% | 73.3 | 3.56 | +15.8 | +22.1 |
+| >30% underwater | 34 | — | 61.8 | — | — | +33.8 |
+
+Collapsed to the two sides (bad rows where arm=exit bar excluded, 9 of 2016):
+
+| side at arm | n | fwd win% | **fwd PF** | avg fwd ret% |
+|---|---|---|---|---|
+| IN PROFIT at arm (disp<0) | 1579 | 71.5 | 2.64 | +8.2 |
+| **UNDERWATER at arm (disp≥0)** | 428 | 75.2 | **3.49** | **+12.4** |
+
+**The underwater-at-arm trades have the BETTER go-forward short** — PF 3.49 vs 2.64, +12.4% vs +8.2% avg. It's
+near-monotonic in displacement, peaking in the 5–15%-underwater bucket (PF 4.42). This is exactly Breitstein's
+**right-side-of-the-V**: a pop that ran HARD against us and only THEN cracked is a more exhausted, higher-air fade
+than one that fizzled early — the bigger the pop before the turn, the more room beneath it when it finally rolls.
+
+**NOT a survivorship artifact.** Both sides carry their stop-outs, at nearly EQUAL stop rates (underwater 88/428 =
+20.6%; in-profit 329/1579 = 20.8%) — the underwater side isn't winning by hiding its blow-ups. The edge is that its
+MOC WINNERS run harder (+21.6% vs +16.1% avg on the MOC exits). Stop-out avg loss is the same both sides (~−22%).
+
+**Answer to "should we add at the down-tick?": YES — and add MORE when we're UNDERWATER** (price extended against
+the short, then turned). That is the highest go-forward PF, and it inverts naive risk management (which cuts losers).
+Here the "loser at the arm" is the STRONGEST continuation short. Caveat: the underwater side is smaller (428 vs 1579
+— most pops have already started falling by the down-tick), and the extreme >30% bucket (n=34) is too thin to size
+on. Practical rule: **the down-tick is not just a stop-arm — it's an ADD point, scaled UP by how far the pop pushed
+past our entry.** Reuse target: the same displacement-at-confirmation feature should be tested on the other
+mean-reversion books (LowFlyer / MaxFlyerV2) — arm the stop AND size the add on the right side of the V.

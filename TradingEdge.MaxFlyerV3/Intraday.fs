@@ -55,6 +55,11 @@ type IntradayPosition =
       StopArmPending: bool     // ShortHighEntry only: this leg entered at the HIGH with a DORMANT ema-max stop.
                                // While true the stop is off; on the first 9-EMA down-tick the stop arms (EmaStopBase
                                // set from the roll30-max at that bar) and this flips false. false for normal legs.
+      ArmMin: int              // the ET minute the ema-max stop ARMED (the first 9-EMA down-tick bar) for a
+                               // ShortHighEntry leg-0. -1 if never armed / not a short-high leg. Records the
+                               // right-side-of-the-V point for the entry→arm displacement analysis.
+      ArmClose: float          // the CLOSE of the down-tick (arm) bar. nan if never armed. Displacement from entry
+                               // = ArmClose / EntryPx − 1 (short: >0 = underwater at the arm; <0 = already in profit).
       CloseStopBase: float     // MAX-CLOSE STOP base, FROZEN at entry: the rolling-N-bar max raw close as-of the
                                // ENTRY bar. Stop level = CloseStopBase × (1 + MaxCloseStopBuffer); cover when the
                                // live bar close rises above it. nan when MaxCloseStop off.
@@ -706,7 +711,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                         let baseV =
                             if cfg.EmaMaxStopWindow > 0 then (match emaRollMax.State with ValueSome m -> m | ValueNone -> nan)
                             else (match sessMaxEma with ValueSome m -> m | ValueNone -> nan)
-                        { pos with EmaStopBase = baseV; StopArmPending = false }
+                        { pos with EmaStopBase = baseV; StopArmPending = false
+                                   ArmMin = bar.etMin; ArmClose = bar.close }   // record the right-side-of-the-V point
                     else pos
                 else pos
             // a short cover-target: bar.low reaching the strictly-prior anchor.
@@ -840,6 +846,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   EmaAtEntry = (if cfg.EmaPctStop > 0.0 then (match ema.State with ValueSome e -> e | ValueNone -> nan) else nan)
                   // freeze the max-CLOSE-stop base at entry: the rolling-N-bar max raw close as-of this bar.
                   CloseStopBase = (if cfg.MaxCloseStop then (match closeRollMax.State with ValueSome m -> m | ValueNone -> nan) else nan)
+                  ArmMin = -1                          // set on the first down-tick when the dormant stop arms
+                  ArmClose = nan
                   StopLevel = af.TwoBar
                   BreakoutRef = af.BreakoutRef
                   AtrPctAtEntry = af.AtrPct
