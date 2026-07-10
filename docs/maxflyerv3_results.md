@@ -318,3 +318,34 @@ the settled book is ~flat ($6.97M vs $7.07M, −1.4%).**
 PF points. For a short book where the tail IS the risk, the −54% ceiling is compelling. **Two shippable books:
 buf20/re0 = high-PF; 5%stop/re2 = tight-ceiling.** (Both beat V2 no-stop's −839% by >15×.) NEXT: sweep re-entry
 count (3-4?) and the tight-stop buffer (3%? 7%?) to map the ceiling/net frontier.
+
+## Finding 11 — ⭐⭐ THE RIGHT TAIL METRIC IS WORST-DAY, NOT WORST-TRADE — and it FLIPS the re-entry verdict
+
+With re-entries the risk unit is no longer one trade: a runaway pop stops at −5%, re-shorts, stops again,
+re-shorts again — several losing legs on ONE pop, ONE day. So the honest drawdown is the **worst DAY** (net
+summed per symbol-day, and per calendar-day), not the worst single trade. Recomputed on the baselines (A-book,
+2020+, max-conc 0; V2 is the direct book):
+
+| config | net | raw PF | worst TRADE | worst SYMBOL-day | worst CAL-day |
+|---|---:|---:|---:|---:|---:|
+| V2 no-stop | $4.25M | 7.53 | −$83,909 | **−$237,542** | −$237,542 |
+| settled buf20 re0 | $7.07M | 5.68 | −$9,533 | **−$47,467** | −$44,287 |
+| 5%stop re0 | $5.18M | 3.46 | −$5,383 | **−$26,526** | −$23,346 |
+| **5%stop re2** | $6.97M | 3.49 | −$5,383 | **−$61,923** | −$58,743 |
+
+**⭐ The re-entries make the worst DAY WORSE even though the worst TRADE is identical.** 5%stop re0 vs re2: same
+worst trade (−$5,383), but worst symbol-day balloons −$26.5k → **−$61.9k (2.3×)** and cal-day −$23k → −$59k. On a
+relentless squeeze the re-entries STACK: −5% stop, re-short, −5%, re-short, −5% — three tight stops on one pop
+compound into a big DAY. **So re-entries are NOT a free tail-reducer** — F10's "−54% worst trade" was measuring
+the wrong unit; the DAY tells the truth.
+
+**The ranking FLIPS on worst-day:**
+- **5%stop re0** = the best drawdown control (−$26.5k symbol-day) — tight stop, NO re-entries — but lowest net ($5.18M).
+- **settled buf20 re0** = best net/day balance: $7.07M net at −$47k worst-day.
+- **5%stop re2** = re-entries bought back net ($6.97M) but PAID −$62k worst-day — WORSE daily drawdown than the
+  settled book despite a 5× tighter per-trade stop.
+
+**All still crush V2** (−$238k worst-day → −$26–62k, 4–9×). **Going forward, judge the buffer×re-cap grid on
+worst SYMBOL-DAY, not worst trade.** The open question: is there a (buffer, re-cap) cell that keeps the net of
+re-entries WITHOUT the day-stacking — likely a small cap (1?) at a moderate buffer, capping how many times one
+pop can compound.

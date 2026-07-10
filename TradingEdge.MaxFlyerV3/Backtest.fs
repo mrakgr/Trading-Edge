@@ -147,6 +147,7 @@ type Trip =
       SignalClose: float         // the signal bar's CLOSE.
       SignalVolume: int64        // the signal bar's own VOLUME.
       SessVolHighAtSignal: int64 // session 1m-vol high STRICTLY BEFORE the signal bar (excl. it) — vol-confirm ref.
+      ReIdx: int                 // re-entry leg index (0 = original, 1 = 1st re-entry, …) — for a POST-HOC cap.
       PctChgSinceOpen: float     // entryPx / dayOpen - 1
       Close1d: float             // close-1-day-ago (adj) = PrevAdjClose
       Close3d: float             // close-3-days-ago (adj)
@@ -201,6 +202,7 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           SignalClose = pos.SignalClose
           SignalVolume = pos.SignalVolume
           SessVolHighAtSignal = pos.SessVolHighAtSignal
+          ReIdx = pos.ReIdx
           PctChgSinceOpen = (if c.DayOpen > 0.0 then pos.EntryPx / c.DayOpen - 1.0 else nan)
           Close1d = c.PrevAdjClose
           Close3d = c.Close3d
@@ -380,7 +382,7 @@ let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,entry_bar_open,prev_bar_close,chg_20m,run_low_at_entry,intraday_atr_pct_at_entry,intraday_tightness_at_entry,"
     + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,bar_rvol_15m,cum_vol_to_entry,"
-    + "signal_time,signal_high,signal_open,signal_low,signal_close,signal_volume,sess_vol_high_at_signal,"
+    + "signal_time,signal_high,signal_open,signal_low,signal_close,signal_volume,sess_vol_high_at_signal,re_idx,"
     + "pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,med_bar_vol_0945,"
@@ -413,6 +415,7 @@ let private row (t: Trip) : string =
         fmt t.SignalClose
         string t.SignalVolume
         string t.SessVolHighAtSignal
+        string t.ReIdx
         fmt t.PctChgSinceOpen
         fmt t.Close1d
         fmt t.Close3d

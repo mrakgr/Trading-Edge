@@ -86,6 +86,7 @@ type IntradayPosition =
       Reentries: int           // RE-ENTRIES this position still permits after a stop-out (down-tick + --ema-reentries).
                                // On an ema-max-stop with Reentries>0, Advance spawns a fresh re-arm pending carrying
                                // Reentries-1, which re-shorts on the next down-tick. 0 = no re-entry (chain ends).
+      ReIdx: int               // RE-ENTRY leg index (0 = original, 1 = 1st re-entry, …) — recorded for a POST-HOC cap.
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// One PENDING signal in the EMA-entry model: a new-session-high breakout that has NOT yet been faded. It fires
@@ -102,6 +103,9 @@ type PendingSignal =
       // RE-ENTRY budget this pending will hand to the position it spawns. The ORIGINAL breakout pending starts at
       // EmaReentries; a re-arm pending (spawned by a stopped position in Advance) carries the DECREMENTED budget.
       Reentries: int
+      // RE-ENTRY leg index: 0 for the original entry, 1 for the 1st re-entry, ... Recorded on the trip so a
+      // re-entry CAP can be applied POST-HOC (filter re_index <= N) — run once with unlimited re-entries, slice.
+      ReIdx: int
       BreakoutRef: float; AtrPct: float; Tightness: float; CumVol: int64; BoVol: int64; NewVolHigh: bool
       VolVsHigh: float; BoOpen: float; PrevClose: float; Chg20m: float; TwoBar: float
       SignalMin: int; SignalHigh: float; SignalOpen: float; SignalLow: float; SignalClose: float
@@ -526,6 +530,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       Bars      = cfg.EmaArmBars
                       ArmMin    = bar.etMin
                       Reentries = cfg.EmaReentries
+                      ReIdx     = 0
                       BreakoutRef = (match this.BreakoutRef with ValueSome x -> x | ValueNone -> nan)
                       AtrPct      = (match this.AtrPct with ValueSome x -> x | ValueNone -> nan)
                       Tightness   = (match this.Tightness with ValueSome x -> x | ValueNone -> nan)
@@ -688,6 +693,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 if pos.Reentries > 0 && bar.etMin < cfg.MocMin then
                     pending.Add
                         { EmaAtArm = nan; Bars = cfg.EmaArmBars; ArmMin = bar.etMin; Reentries = pos.Reentries - 1
+                          ReIdx = pos.ReIdx + 1
                           BreakoutRef = pos.BreakoutRef; AtrPct = pos.AtrPctAtEntry; Tightness = pos.TightnessAtEntry
                           CumVol = pos.CumVolAtEntry; BoVol = pos.SignalVolume; NewVolHigh = pos.NewVolHigh
                           VolVsHigh = pos.VolVsHigh; BoOpen = pos.BreakoutBarOpen; PrevClose = pos.PrevBarClose
@@ -754,6 +760,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   SignalVolume = af.BoVol
                   SessVolHighAtSignal = af.SessVolHigh
                   Reentries = af.Reentries
+                  ReIdx = af.ReIdx
                   State = state }
 
         if cfg.EmaEntry && cfg.EmaDownTickEntry then
@@ -816,7 +823,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 if cfg.Downside then max sLastBar.Value.high bar.high
                 else min sLastBar.Value.low bar.low
             let af : PendingSignal =
-                { EmaAtArm = nan; Bars = 0; ArmMin = bar.etMin; Reentries = 0
+                { EmaAtArm = nan; Bars = 0; ArmMin = bar.etMin; Reentries = 0; ReIdx = 0
                   BreakoutRef = this.BreakoutRef.Value; AtrPct = this.AtrPct.Value; Tightness = this.Tightness.Value
                   CumVol = cumVol; BoVol = bar.volume
                   NewVolHigh = (match sRunVolHi with ValueSome vh -> bar.volume > vh | ValueNone -> true)
