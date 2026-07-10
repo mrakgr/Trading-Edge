@@ -67,6 +67,16 @@ type IntradayPosition =
       BreakoutBarOpen: float   // the entry (breakout) bar's OPEN — for the 1m entry-bar %-change (close/open-1)
       PrevBarClose: float      // the strictly-prior 1m bar's CLOSE — for the 1m flush = close/prevClose-1
       Chg20mAtEntry: float     // 20-bar (20-minute) %-change into entry (entry close / close 20 bars ago - 1); nan if <20 bars
+      // ----- SIGNAL (arm) bar record — for the EMA-entry model, the breakout HIGH is the trade signal but the
+      //       FILL is deferred to the later 9-EMA cross-under. These capture the signal bar so post-hoc we can
+      //       measure how much the entry differs from the signal. For direct entries signal == entry bar. -----
+      SignalMin: int           // the arm (signal/breakout) bar's ET minute. Entry lag = EntryMin - SignalMin.
+      SignalHigh: float        // the breakout bar's HIGH — the trade SIGNAL price (the pop we commit to fade).
+      SignalOpen: float        // the signal bar's OPEN.
+      SignalLow: float         // the signal bar's LOW.
+      SignalClose: float       // the signal bar's CLOSE (vs EntryPx = how far the fade moved before we filled).
+      SignalVolume: int64      // the signal (arm/breakout) bar's own VOLUME.
+      SessVolHighAtSignal: int64  // the STRICTLY-PRIOR session 1m-vol high at the signal bar (vol-confirm post-hoc).
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// Mean-reversion TARGET — where a (short) position covers when price reverts back
@@ -145,7 +155,7 @@ type IntradayConfig =
                                // CLOSE (max-CLOSE upside) — closes-only, so a long lower/upper WICK
                                // can't push the channel boundary. The TRIGGER stays close-based;
                                // this only changes what level the close must clear.
-      VolHighFrac: float }     // VOLUME-CONFIRMATION gate as a FRACTION of the running session max 1m-bar
+      VolHighFrac: float       // VOLUME-CONFIRMATION gate as a FRACTION of the running session max 1m-bar
                                // volume: require bar.volume >= VolHighFrac * runVolHi. 1.0 (default) = the
                                // original "must EXCEED the vol high" gate (a new-vol-high bar). 0.95 / 0.90
                                // relax it to "within 5% / 10% of the high" — probes whether the edge is in
@@ -153,6 +163,24 @@ type IntradayConfig =
                                // 0.0 = OFF (fire on the first new-session-extreme bar regardless of volume).
                                // NOTE: below 1.0 the `new_vol_high` column still records the STRICT test
                                // (bar > runVolHi), so a relaxed run can still be split on true-new-high vs not.
+      // ----- 9-EMA arm-timer ENTRY + session-max-EMA STOP (the V3 addition; all OFF by default so the
+      //       engine reproduces V2 byte-for-byte until --ema-entry / --ema-max-stop flip them on) -----
+      EmaEntry: bool           // ENTRY MODEL. false (default) = short DIRECTLY on the breakout (V2 behavior).
+                               // true = the breakout ARMS a countdown instead: record the 9-EMA at the breakout
+                               // bar (emaAtArm), start an EmaArmBars countdown, and SHORT (at close) on the first
+                               // bar within the window whose 9-EMA closes BELOW emaAtArm (the pop rolled over —
+                               // a confirmed fade). Timer expires with no cross => no trade. Re-arms on each new
+                               // session high. Mirrors BreakoutTimer's arm-timer, flipped for the short.
+      EmaPeriod: int           // the EMA period for the arm-timer entry + max-EMA stop (default 9).
+      EmaArmBars: int          // the countdown length (bars) after a breakout during which the 9-EMA-cross-under
+                               // short may fire (default 10).
+      EmaMaxStop: bool         // EXIT MODEL. false (default) = the existing exits (V2). true = add a session-max-
+                               // 9EMA stop: while short, COVER (at close) when the live 9-EMA rises ABOVE the
+                               // running session-max 9-EMA × (1 + EmaMaxStopBuffer). The max is LIVE/trailing
+                               // (keeps updating during the hold), so a new EMA session high = "we're wrong" = exit.
+      EmaMaxStopBuffer: float }// a fractional buffer RAISING the max-EMA stop above the session max (0.0 = stop
+                               // exactly at the session-max 9-EMA; 0.05 = 5% above it, tolerating a small poke
+                               // over the high before covering). Only used when EmaMaxStop is on.
 
 /// Per-(ticker, day) intraday engine. Feed it the day's RTH MinuteBar[] in time
 /// order via `Process`, then `Finalize` and read `Trips()`.
@@ -168,6 +196,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let lag20     = LagMa<float>(20)            // 20-bar close delay line -> the 20-minute %-change into entry
     let rangeHigh = MaxMa(cfg.VolWindow)        // intraday tightness: max high over the window
     let rangeLow  = MinMa(cfg.VolWindow)        // intraday tightness: min low over the window
+    let ema       = EmaMa(cfg.EmaPeriod)        // the 9-EMA — the arm-timer entry ref + the max-EMA stop ref
 
     // ----- mean-reversion TARGET anchors (only the one named by cfg.Target is fed) -----
     // session VWAP = Σ(typical_price · volume) / Σ(volume), typical = (h+l+c)/3, from
@@ -203,6 +232,24 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable lastBar  : MinuteBar voption = ValueNone
     let mutable barsSeen  = 0
 
+    // ----- 9-EMA arm-timer ENTRY + session-max-EMA STOP state (only live when the flags are on) -----
+    // session-cumulative MAX of the folded 9-EMA (LIVE/trailing — keeps updating during a hold; the max-EMA
+    // stop reference). No reset — per-(ticker,day) engine.
+    let mutable sessMaxEma : float voption = ValueNone
+    // the arm timer: -1 = inactive. Set to EmaArmBars on each new-session-high breakout, downticks 1/bar to a
+    // -1 floor. While > 0 the 9-EMA-cross-under short may fire.
+    let mutable armTimer   = -1
+    // the 9-EMA level as-of the breakout bar that (re)armed the timer — the cross-under reference for the entry.
+    let mutable emaAtArm   : float = nan
+    // the BREAKOUT (arm) bar's features, captured at arm time so the trip describes the POP being faded (not the
+    // later cross-under entry bar). Re-captured on each new-high re-arm (overwrite — latest high wins); consumed
+    // when the cross-under fires. Held as a boxed tuple keyed by field-name below.
+    let mutable armFeat :
+        {| breakoutRef: float; atrPct: float; tightness: float; cumVol: int64; boVol: int64; newVolHigh: bool
+           volVsHigh: float; boOpen: float; prevClose: float; chg20m: float; twoBar: float
+           signalMin: int; signalHigh: float; signalOpen: float; signalLow: float; signalClose: float
+           sessVolHigh: int64 |} voption = ValueNone
+
     // ----- pre-push snapshots (state going INTO the current bar; no lookahead) -----
     let mutable sRunHi      : float voption = ValueNone
     let mutable sRunLo      : float voption = ValueNone
@@ -217,6 +264,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     // the mean-reversion cover anchor (cfg.Target), as-of going INTO this bar (strictly-
     // prior). ValueNone until the chosen anchor is warm / when Target = NoTarget.
     let mutable sTargetAnchor : float voption = ValueNone
+    // 9-EMA subsystem snapshots (strictly-prior, no lookahead): the EMA going into this bar, the session-max
+    // EMA and arm-timer/emaAtArm as-of the prior bar. The breakout bookkeeping reads these before folding.
+    let mutable sEma        : float voption = ValueNone
+    let mutable sSessMaxEma : float voption = ValueNone
+    let mutable sArmTimer   : int = -1
+    let mutable sEmaAtArm   : float = nan
 
     let positions = ResizeArray<IntradayPosition>()
 
@@ -278,6 +331,21 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     member this.ShouldEnter (bar: MinuteBar) : bool =
         let inline gate (v: _ voption) (test: _ -> bool) =
             match v with ValueSome x -> test x | ValueNone -> false
+        // ===== EMA arm-timer ENTRY (cfg.EmaEntry): fire on the 9-EMA CROSS-UNDER while a breakout timer is
+        //       live, NOT on the direct breakout. The arm (a new session high) + emaAtArm were set in ProcessBar
+        //       this bar or earlier. Entry = the live 9-EMA (post-fold, this bar) has closed BELOW emaAtArm.
+        //       Note: on the SAME bar that armed, armTimer was just set to EmaArmBars and ema == emaAtArm (no
+        //       cross yet), so the earliest possible entry is the bar AFTER the arm — correct no-lookahead.
+        //       (Downside/long mirror: cross ABOVE emaAtArm.) =====
+        if cfg.EmaEntry then
+            armTimer > 0
+            && armFeat.IsSome
+            && not (Double.IsNaN emaAtArm)
+            && (match ema.State with
+                | ValueSome e -> if cfg.Downside then e > emaAtArm else e < emaAtArm
+                | ValueNone -> false)
+            && (cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent)
+        else
         // past the wall-clock trading floor (09:35). The engine processes premarket
         // bars from 08:30 to warm the running extremes, but does not TRADE before this.
         bar.etMin >= cfg.EntryStartMin
@@ -345,6 +413,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sRangeHigh    <- rangeHigh.State
         sRangeLow     <- rangeLow.State
         sTargetAnchor <- this.LiveTargetAnchor
+        sEma          <- ema.State
+        sSessMaxEma   <- sessMaxEma
+        sArmTimer     <- armTimer
+        sEmaAtArm     <- emaAtArm
 
         // 2) fold the bar in. True range vs the prior 1m close.
         match lastBar with
@@ -374,6 +446,56 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             vwapDen <- vwapDen + float bar.volume
         | Ma _ -> maTgt.Push bar.close
         | Channel _ -> chanTgt.Push bar.low
+
+        // 9-EMA fold + arm-timer bookkeeping (only meaningful when EmaEntry/EmaMaxStop are on; cheap otherwise).
+        // Fold the EMA on the current close, then update the LIVE session-max EMA (the trailing max-EMA stop ref).
+        ema.Push bar.close
+        (match ema.State with
+         | ValueSome e -> sessMaxEma <- (match sessMaxEma with ValueSome m -> ValueSome (max m e) | ValueNone -> ValueSome e)
+         | ValueNone -> ())
+        // ARM on a new-session-HIGH breakout (the same close-through-prior-high event the direct entry fades),
+        // read against the STRICTLY-PRIOR running high (sRunHiClose upside / sRunHi if wick/min-low ref). Each
+        // new high (re)arms: record emaAtArm = the fresh 9-EMA, restart the countdown. Otherwise tick the timer
+        // down to a -1 floor. The 9-EMA-cross-under entry itself is evaluated in ShouldEnter from the snapshots.
+        if cfg.EmaEntry then
+            let priorHigh =
+                if cfg.MinCloseRef then (if cfg.Downside then sRunLoClose else sRunHiClose)
+                else (if cfg.Downside then sRunLo else sRunHi)
+            let isBreakout =
+                bar.etMin >= cfg.EntryStartMin
+                && (match priorHigh with
+                    | ValueSome ext -> (if cfg.Downside then bar.close < ext else bar.close > ext)
+                    | ValueNone -> false)
+            if isBreakout then
+                armTimer <- cfg.EmaArmBars
+                emaAtArm <- (match ema.State with ValueSome e -> e | ValueNone -> nan)
+                // capture the BREAKOUT bar's features (the pop we'll fade) so the trip describes the arm bar,
+                // not the later cross-under entry bar. Reads the same pre-push snapshots Process uses at a
+                // direct entry (this.BreakoutRef / AtrPct / Tightness = strictly-prior), + post-fold cumVol/lag20.
+                let twoBar =
+                    match sLastBar with
+                    | ValueSome prev -> if cfg.Downside then max prev.high bar.high else min prev.low bar.low
+                    | ValueNone      -> if cfg.Downside then bar.high else bar.low
+                armFeat <- ValueSome
+                    {| breakoutRef = (match this.BreakoutRef with ValueSome x -> x | ValueNone -> nan)
+                       atrPct      = (match this.AtrPct with ValueSome x -> x | ValueNone -> nan)
+                       tightness   = (match this.Tightness with ValueSome x -> x | ValueNone -> nan)
+                       cumVol      = cumVol
+                       boVol       = bar.volume
+                       newVolHigh  = (match sRunVolHi with ValueSome vh -> bar.volume > vh | ValueNone -> true)
+                       volVsHigh   = (match sRunVolHi with ValueSome vh when vh > 0L -> float bar.volume / float vh | _ -> nan)
+                       boOpen      = bar.``open``
+                       prevClose   = (match sLastBar with ValueSome p -> p.close | ValueNone -> nan)
+                       chg20m      = (match lagPctChange lag20 with ValueSome p -> p | ValueNone -> nan)
+                       twoBar      = twoBar
+                       signalMin   = bar.etMin
+                       signalHigh  = bar.high
+                       signalOpen  = bar.``open``
+                       signalLow   = bar.low
+                       signalClose = bar.close
+                       sessVolHigh = (match sRunVolHi with ValueSome vh -> vh | ValueNone -> 0L) |}
+            elif armTimer > 0 then
+                armTimer <- armTimer - 1
 
         lastBar   <- ValueSome bar
         barsSeen  <- barsSeen + 1
@@ -492,7 +614,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             let pctStopHit =
                 cfg.PctStop > 0.0 &&
                 (if cfg.Short then bar.high >= pctStopLevel else bar.low <= pctStopLevel)
-            if cfg.UseStop && stopHit then
+            // MAX-EMA STOP (cfg.EmaMaxStop): while short, cover (at close) when the live 9-EMA rises ABOVE the
+            // session-max 9-EMA × (1 + buffer). Compare to sSessMaxEma — the STRICTLY-PRIOR max (snapshotted at
+            // the top of ProcessBar, BEFORE this bar folded); the live sessMaxEma already includes this bar's
+            // EMA, so it could never be exceeded. A new EMA session high = the pop we faded is re-taking the
+            // high = we're wrong → exit. (Long mirror: 9-EMA below session-MIN — not tracked; short-only for now.)
+            let emaMaxStopHit =
+                cfg.EmaMaxStop && cfg.Short
+                && (match ema.State, sSessMaxEma with
+                    | ValueSome e, ValueSome m -> e > m * (1.0 + cfg.EmaMaxStopBuffer)
+                    | _ -> false)
+            if emaMaxStopHit then
+                { pos with State = ExitedAt (bar.etMin, bar.close, "ema_max_stop") }
+            elif cfg.UseStop && stopHit then
                 let reason = if cfg.TrailEntry then "session_stop" else "intraday_stop"
                 { pos with State = ExitedAt (bar.etMin, bar.close, reason) }
             elif pctStopHit then
@@ -529,27 +663,52 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             // the 2-bar local extreme at the breakout bar (upside = 2-bar low, downside =
             // 2-bar high): the direct-entry protective stop, AND the initial trail level
             // for --trail-entry.
-            let twoBar =
+            let twoBarDirect =
                 if cfg.Downside then max sLastBar.Value.high bar.high
                 else min sLastBar.Value.low bar.low
+            // Under EmaEntry the recorded features describe the ARM (breakout) bar — the pop being faded — not
+            // this cross-under entry bar. EntryMin/EntryPx are still THIS bar (the fill). armFeat is guaranteed
+            // Some here (ShouldEnter required armFeat.IsSome). Direct entry uses the current-bar features as before.
+            let af =
+                match cfg.EmaEntry, armFeat with
+                | true, ValueSome af -> af
+                | _ ->
+                    // Direct entry: the signal bar IS this bar, so signal* == entry-bar values.
+                    {| breakoutRef = this.BreakoutRef.Value; atrPct = this.AtrPct.Value; tightness = this.Tightness.Value
+                       cumVol = cumVol; boVol = bar.volume
+                       newVolHigh = (match sRunVolHi with ValueSome vh -> bar.volume > vh | ValueNone -> true)
+                       volVsHigh = (match sRunVolHi with ValueSome vh when vh > 0L -> float bar.volume / float vh | _ -> nan)
+                       boOpen = bar.``open``; prevClose = sLastBar.Value.close
+                       chg20m = (match lagPctChange lag20 with ValueSome p -> p | ValueNone -> nan)
+                       twoBar = twoBarDirect
+                       signalMin = bar.etMin; signalHigh = bar.high; signalOpen = bar.``open``
+                       signalLow = bar.low; signalClose = bar.close
+                       sessVolHigh = (match sRunVolHi with ValueSome vh -> vh | ValueNone -> 0L) |}
             positions.Add
                 { EntryMin = bar.etMin
                   EntryPx = bar.close
-                  StopLevel = twoBar
-                  BreakoutRef = this.BreakoutRef.Value
-                  AtrPctAtEntry = this.AtrPct.Value
-                  TightnessAtEntry = this.Tightness.Value
+                  StopLevel = af.twoBar
+                  BreakoutRef = af.breakoutRef
+                  AtrPctAtEntry = af.atrPct
+                  TightnessAtEntry = af.tightness
                   // cumVol was folded by ProcessBar (called before this append), so it
                   // already includes THIS breakout bar → cumulative volume through entry.
-                  CumVolAtEntry = cumVol
-                  BreakoutBarVol = bar.volume
+                  CumVolAtEntry = af.cumVol
+                  BreakoutBarVol = af.boVol           // = the SIGNAL (arm) bar's volume under EmaEntry
                   // sRunVolHi is the pre-push snapshot (excludes this bar), so this is a true
                   // "new session vol high" test. ValueNone (first bar) counts as a new high.
-                  NewVolHigh = (match sRunVolHi with ValueSome vh -> bar.volume > vh | ValueNone -> true)
-                  VolVsHigh = (match sRunVolHi with ValueSome vh when vh > 0L -> float bar.volume / float vh | _ -> nan)
-                  BreakoutBarOpen = bar.``open``
-                  PrevBarClose = sLastBar.Value.close
-                  Chg20mAtEntry = (match lagPctChange lag20 with ValueSome p -> p | ValueNone -> nan)
+                  NewVolHigh = af.newVolHigh
+                  VolVsHigh = af.volVsHigh
+                  BreakoutBarOpen = af.boOpen
+                  PrevBarClose = af.prevClose
+                  Chg20mAtEntry = af.chg20m
+                  SignalMin = af.signalMin
+                  SignalHigh = af.signalHigh
+                  SignalOpen = af.signalOpen
+                  SignalLow = af.signalLow
+                  SignalClose = af.signalClose
+                  SignalVolume = af.boVol
+                  SessVolHighAtSignal = af.sessVolHigh
                   // entry routing:
                   //   --ext-gate — if day-extension already >= ExtGate at the breakout, enter
                   //                DIRECT (parabolic now); else arm a ROLLOVER gated on reaching
@@ -557,10 +716,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   //   --trail-entry / --rise-entry — arm (wait for the rollover and/or rise gate).
                   //   otherwise — Holding now (fill at the breakout close).
                   State =
-                    if cfg.ExtGate > 0.0 then
+                    // EmaEntry enters DIRECT (the cross-under IS the confirmation; the arm/rollover machinery
+                    // is bypassed). Otherwise the existing ext-gate / trail / rise routing applies.
+                    if cfg.EmaEntry then Holding
+                    elif cfg.ExtGate > 0.0 then
                         if extension bar.close >= cfg.ExtGate then Holding
-                        else Armed (bar.etMin, twoBar, bar.close, false)
-                    elif cfg.TrailEntry || cfg.RiseEntry > 0.0 then Armed (bar.etMin, twoBar, bar.close, false)
+                        else Armed (bar.etMin, af.twoBar, bar.close, false)
+                    elif cfg.TrailEntry || cfg.RiseEntry > 0.0 then Armed (bar.etMin, af.twoBar, bar.close, false)
                     else Holding }
 
     /// Flatten any still-open positions at the last folded bar's close (MOC /

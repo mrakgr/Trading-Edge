@@ -59,8 +59,14 @@ let defaultConfig =
           VolHighFrac = 1.0              // SHORT vol-confirm = STRICT (must EXCEED the vol high). Decoupled from
                                          // the long's 0.90: the short's research (maxflyerv2_results.md) uses the
                                          // strict gate + brv20d>=100 as the main lever. --vol-high-frac to override.
-          MinCloseRef = true }           // default = min-CLOSE reference (wick-immune; +~29% trips at ~same
+          MinCloseRef = true             // default = min-CLOSE reference (wick-immune; +~29% trips at ~same
                                          // PF — Run 12). --min-low-ref switches back to the min-LOW channel.
+          // 9-EMA arm-timer entry + max-EMA stop — all OFF by default (V3 reproduces V2 until flagged on).
+          EmaEntry = false               // --ema-entry: arm on breakout, short on the 9-EMA cross-under.
+          EmaPeriod = 9                  // the EMA period for the arm-timer entry + max-EMA stop.
+          EmaArmBars = 10                // --ema-arm-bars: the cross-under window after a breakout.
+          EmaMaxStop = false             // --ema-max-stop: cover when the 9-EMA rises above the session-max 9-EMA.
+          EmaMaxStopBuffer = 0.0 }       // --ema-max-stop-buffer: fractional buffer raising the stop above the max.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
@@ -110,6 +116,16 @@ type Trip =
                                  // OPPOSITELY by side: extreme spikes (>=40x) = exhaustion blow-off that
                                  // fades on the SHORT (pop-fade PF 1.0->2.0), but falling-knife on the LONG.
       CumVolToEntry: int64       // cumulative day volume through the entry bar
+      // ----- SIGNAL (arm/breakout) bar — under EmaEntry the breakout HIGH is the signal but the FILL is deferred
+      //       to the 9-EMA cross-under; these let post-hoc analysis compare the signal bar to the entry bar. For
+      //       a direct entry signal* == entry-bar values. -----
+      SignalMin: int             // the signal (arm/breakout) bar's ET minute. entry lag = entry_time - signal_time.
+      SignalHigh: float          // the breakout bar's HIGH — the trade SIGNAL price.
+      SignalOpen: float          // the signal bar's OPEN.
+      SignalLow: float           // the signal bar's LOW.
+      SignalClose: float         // the signal bar's CLOSE.
+      SignalVolume: int64        // the signal bar's own VOLUME.
+      SessVolHighAtSignal: int64 // session 1m-vol high STRICTLY BEFORE the signal bar (excl. it) — vol-confirm ref.
       PctChgSinceOpen: float     // entryPx / dayOpen - 1
       Close1d: float             // close-1-day-ago (adj) = PrevAdjClose
       Close3d: float             // close-3-days-ago (adj)
@@ -157,6 +173,13 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
               (let meanBarVol15m = if c.NBar0945 > 0 then float c.Vol0945 / float c.NBar0945 else nan
                if meanBarVol15m > 0.0 then float pos.BreakoutBarVol / meanBarVol15m else nan)
           CumVolToEntry = pos.CumVolAtEntry
+          SignalMin = pos.SignalMin
+          SignalHigh = pos.SignalHigh
+          SignalOpen = pos.SignalOpen
+          SignalLow = pos.SignalLow
+          SignalClose = pos.SignalClose
+          SignalVolume = pos.SignalVolume
+          SessVolHighAtSignal = pos.SessVolHighAtSignal
           PctChgSinceOpen = (if c.DayOpen > 0.0 then pos.EntryPx / c.DayOpen - 1.0 else nan)
           Close1d = c.PrevAdjClose
           Close3d = c.Close3d
@@ -335,7 +358,9 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,entry_bar_open,prev_bar_close,chg_20m,run_low_at_entry,intraday_atr_pct_at_entry,intraday_tightness_at_entry,"
-    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,bar_rvol_15m,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
+    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,bar_rvol_15m,cum_vol_to_entry,"
+    + "signal_time,signal_high,signal_open,signal_low,signal_close,signal_volume,sess_vol_high_at_signal,"
+    + "pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,med_bar_vol_0945,"
     + "qty,net_pnl,bars_held_min"
@@ -360,6 +385,13 @@ let private row (t: Trip) : string =
         fmt t.VolVsHigh
         fmt t.BarRvol15m
         string t.CumVolToEntry
+        hhmm t.SignalMin
+        fmt t.SignalHigh
+        fmt t.SignalOpen
+        fmt t.SignalLow
+        fmt t.SignalClose
+        string t.SignalVolume
+        string t.SessVolHighAtSignal
         fmt t.PctChgSinceOpen
         fmt t.Close1d
         fmt t.Close3d
