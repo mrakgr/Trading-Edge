@@ -52,6 +52,9 @@ type IntradayPosition =
                                // trailing base rises with the EMA and the buffer saturates. nan when EmaMaxStop off.
       EmaAtEntry: float        // the live 9-EMA on the ENTRY (fill) bar. The 9-EMA %-STOP anchor: level =
                                // EmaAtEntry × (1 + EmaPctStop). nan when EmaPctStop off.
+      StopArmPending: bool     // ShortHighEntry only: this leg entered at the HIGH with a DORMANT ema-max stop.
+                               // While true the stop is off; on the first 9-EMA down-tick the stop arms (EmaStopBase
+                               // set from the roll30-max at that bar) and this flips false. false for normal legs.
       CloseStopBase: float     // MAX-CLOSE STOP base, FROZEN at entry: the rolling-N-bar max raw close as-of the
                                // ENTRY bar. Stop level = CloseStopBase × (1 + MaxCloseStopBuffer); cover when the
                                // live bar close rises above it. nan when MaxCloseStop off.
@@ -263,6 +266,15 @@ type IntradayConfig =
                                // Default 20 (a 20m local price high). Re-anchors to the recent high near the fill.
       MaxCloseStopBuffer: float // buffer RAISING the max-close stop above the rolling max close (0.10 = 10%
                                // above the local high before covering). Only used when MaxCloseStop is on.
+      // ----- APPLES-TO-APPLES entry-timing test: short the HIGH, but arm the stop on the first down-tick -----
+      ShortHighEntry: bool     // ENTRY TIMING (down-tick mode, ORIGINAL leg only): instead of waiting for the
+                               // 9-EMA down-tick to ENTER, short the SIGNAL/breakout bar IMMEDIATELY (the high),
+                               // and leave the ema-max stop DORMANT until the first 9-EMA down-tick — at which
+                               // point the stop arms with its roll30-max base frozen at THAT down-tick bar (exactly
+                               // where the down-tick-ENTRY book freezes it). Isolates the entry-price question:
+                               // short-the-high vs short-the-down-tick, same stop/re-entry mechanics keyed to the
+                               // same down-tick bar. Re-entries STILL enter at the next down-tick (only leg 0 differs).
+                               // Pre-arm: NO exits except MOC (fully unprotected until the down-tick). Off (default).
       // ----- the LONG BREAKOUT book: BUY the new-session-high pop, SELL on the first 9-EMA down-tick -----
       EmaDownTickExit: bool }  // EXIT TRIGGER: while HOLDING, close the position when the live 9-EMA TICKS DOWN
                                // vs the prior bar (ema < prevEma). The inversion of EmaDownTickEntry: instead of
@@ -683,6 +695,20 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 let fill = if cfg.Downside then min riseLevel bar.``open`` else max riseLevel bar.``open``
                 { pos with EntryMin = bar.etMin; EntryPx = fill; StopLevel = sessionStop (); State = Holding }
         | Holding ->
+            // SHORT-THE-HIGH stop-arming (ShortHighEntry): this leg entered at the high with a DORMANT ema-max stop.
+            // On the FIRST 9-EMA down-tick (ema < prevEma for a short), arm the stop — freeze EmaStopBase from the
+            // roll30-max 9-EMA at THIS bar (exactly where the down-tick-ENTRY book freezes it) and clear the flag.
+            // Until then the position is unprotected (MOC-only). Rebind `pos` so the checks below see the armed base.
+            let pos =
+                if pos.StopArmPending && cfg.EmaMaxStop && cfg.Short then
+                    let down = match ema.State, prevEma with ValueSome e, ValueSome p -> e < p | _ -> false
+                    if down then
+                        let baseV =
+                            if cfg.EmaMaxStopWindow > 0 then (match emaRollMax.State with ValueSome m -> m | ValueNone -> nan)
+                            else (match sessMaxEma with ValueSome m -> m | ValueNone -> nan)
+                        { pos with EmaStopBase = baseV; StopArmPending = false }
+                    else pos
+                else pos
             // a short cover-target: bar.low reaching the strictly-prior anchor.
             let targetHit =
                 cfg.Short &&
@@ -795,15 +821,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             positions.[i] <- this.Advance bar positions.[i]
 
         // Build a Holding/Armed position from a PendingSignal `af` filled at `entryPx` this bar.
-        let addPosition (af: PendingSignal) (entryPx: float) (state: IntraPosState) =
+        // stopArmPending=true (ShortHighEntry leg-0): enter with a DORMANT ema-max stop (base nan) that arms on the
+        // first 9-EMA down-tick in Advance. Normal fills pass false → the stop base is frozen here at entry as usual.
+        let addPositionArm (af: PendingSignal) (entryPx: float) (state: IntraPosState) (stopArmPending: bool) =
             positions.Add
                 { EntryMin = bar.etMin
                   EntryPx = entryPx
                   // freeze the max-EMA-stop base at entry (structures are live here — ProcessBar folded this bar).
                   // Window 0 = the session-cumulative max 9-EMA; window N = the rolling N-bar local max 9-EMA
                   // (re-anchors to the recent high near the fill). Stop = base × (1+buffer); nan when the stop is off.
+                  // stopArmPending → DORMANT: leave the base nan now; Advance sets it on the first down-tick.
+                  StopArmPending = stopArmPending
                   EmaStopBase =
-                    (if not cfg.EmaMaxStop then nan
+                    (if stopArmPending || not cfg.EmaMaxStop then nan
                      elif cfg.EmaMaxStopWindow > 0 then (match emaRollMax.State with ValueSome m -> m | ValueNone -> nan)
                      else (match sessMaxEma with ValueSome m -> m | ValueNone -> nan))
                   // the live 9-EMA at fill — the anchor for the EmaPctStop (level = EmaAtEntry × (1+EmaPctStop)).
@@ -831,6 +861,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   Reentries = af.Reentries
                   ReIdx = af.ReIdx
                   State = state }
+        // normal fill: stop armed at entry (stopArmPending=false). ShortHighEntry leg-0 uses addPositionArm ... true.
+        let addPosition (af: PendingSignal) (entryPx: float) (state: IntraPosState) =
+            addPositionArm af entryPx state false
 
         if cfg.EmaEntry && cfg.EmaDownTickEntry then
             // ===== EMA-DOWN-TICK TRIGGER: a pending fires when the live 9-EMA ticked DOWN vs the prior bar's 9-EMA
@@ -842,10 +875,18 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 | _ -> false
             let toRemove = ResizeArray<int>()
             for i in 0 .. pending.Count - 1 do
+                let p = pending.[i]
                 let room = cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent
-                if pending.[i].ArmMin = bar.etMin then ()        // just (re)armed this bar — earliest fire is next bar
+                // SHORT-THE-HIGH (ShortHighEntry, ORIGINAL leg only, ReIdx=0): fire IMMEDIATELY on the arm/breakout
+                // bar (short the high) with a DORMANT stop — do NOT wait for the down-tick. The stop arms later, on
+                // the first 9-EMA down-tick (handled in Advance). Re-entries (ReIdx>0) keep the normal down-tick entry.
+                let shortHighNow = cfg.ShortHighEntry && p.ReIdx = 0 && p.ArmMin = bar.etMin
+                if shortHighNow && room then
+                    addPositionArm p bar.close Holding true       // short the high, stop dormant
+                    toRemove.Add i
+                elif p.ArmMin = bar.etMin then ()                 // just (re)armed this bar — earliest fire is next bar
                 elif emaDown && room then
-                    addPosition pending.[i] bar.close Holding     // 9-EMA ticked down → fire
+                    addPosition p bar.close Holding               // 9-EMA ticked down → fire
                     toRemove.Add i
             for k in toRemove.Count - 1 .. -1 .. 0 do pending.RemoveAt toRemove.[k]
         elif cfg.EmaEntry && cfg.EmaBarsSinceHighEntry then

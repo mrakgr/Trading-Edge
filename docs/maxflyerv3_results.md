@@ -726,3 +726,39 @@ ATR%≥0.03), then SELL on the first 9-EMA down-tick (`--ema-down-tick-exit`). T
 **Verdict: there is no long book in this signal.** The pop-fade is short-only; its edge IS the reversion, and the
 inverse loses on both the direction and the exit. Do not pursue a long variant of the breakout pop. (P&L sign
 verified: NetPnL = qty·(exit−entry) for the long — the loss is real, not a convention bug.)
+
+## Finding 21 — ⭐⭐ APPLES-TO-APPLES entry timing: SHORT-THE-HIGH (defer the stop to the 1st down-tick) BEATS down-tick ENTRY — the down-tick's value is STOP-ARMING, not entry
+
+We had only ever compared down-tick entry vs short-the-high on the OLD mc-0 no-stop system. Proper test on the
+CURRENT default (mc 1, roll30 b10 stop, 2 re-entries): **`--short-high-entry`** — short the breakout bar IMMEDIATELY
+(the high), leave the ema-max stop DORMANT, and ARM it on the first 9-EMA down-tick with the roll30-max base frozen
+at that down-tick bar (exactly where the down-tick-ENTRY book freezes it). Pre-arm = MOC-only (unprotected).
+Re-entries UNCHANGED (still enter at the next down-tick). This isolates the entry PRICE — short-the-high vs
+short-the-down-tick — with identical stop/re-entry mechanics keyed to the same down-tick bar.
+
+| book | trips | win% | raw PF | net $k | worst sym-day | worst trade |
+|---|---|---|---|---|---|---|
+| down-tick ENTRY (default) | 2501 | 71.7 | 2.88 | 2371 | −10.8 | −6.6 |
+| **short-the-HIGH (defer stop)** | 2510 | **73.8** | **3.77** | **3034** | −12.1 | **−17.1** |
+
+**Short-the-high wins decisively: PF 2.88 → 3.77, net +28% ($2.37M → $3.03M), win% +2.1** at the same trip count.
+The mechanism is proven three ways:
+
+1. **Entry timing confirmed**: short-high median entry 10:03 vs down-tick 10:11 (~8 min earlier), earliest 09:45 vs
+   09:46 — it fires on the breakout bar itself, before the EMA rolls over.
+2. **Per-leg PF isolates it perfectly**: re1/re2 legs are IDENTICAL between books (3.20 / 2.70 at n=411 / 83) — by
+   design, since re-entries use down-tick entry in both. The ENTIRE gain is **leg-0: PF 3.98 (short-high) vs 2.82
+   (down-tick)**. Shorting the pop at the high (before it fades) is a materially better fill than waiting for the
+   9-EMA to confirm weakness — the down-tick entry was leaving ~1.1 PF on the table on the original leg.
+3. **The cost is a fatter per-trade tail**: worst trade −$17.1k vs −$6.6k. NOT a naked-position bug — all 5 worst
+   trades exit via `ema_max_stop` (the stop DID arm); the higher entry simply sits further from the stop, so a name
+   that keeps ripping (MBRX −171%, HOUR −104%) runs a larger adverse excursion before the stop catches it. Worst
+   sym-day only −12.1 vs −10.8 (at mc 1 the tail doesn't stack). Stop mix (leg-0): 417 stops avg −18.2%, 1599 MOC
+   winners avg +20.3%.
+
+**Reframe: the 9-EMA down-tick is a STOP-ARMING signal, not an entry signal.** Its real job is to say "the pop has
+turned, now protect the position" — using it to gate ENTRY just delays the fill to a worse price. The best book
+enters at the high and uses the down-tick only to arm the stop. Trade-off vs the default: **+28% net / +0.9 PF for a
+2.6× worse worst-trade (−17k vs −6.6k)** — a sizing question, not an edge question. Candidate for the new default
+pending a worst-trade appetite decision; the tail is still bounded (short, +100%-capped) and worst-sym-day barely
+moved.
