@@ -349,3 +349,42 @@ the wrong unit; the DAY tells the truth.
 worst SYMBOL-DAY, not worst trade.** The open question: is there a (buffer, re-cap) cell that keeps the net of
 re-entries WITHOUT the day-stacking — likely a small cap (1?) at a moderate buffer, capping how many times one
 pop can compound.
+
+## Finding 12 — ⭐ buffer × re-cap FRONTIER (worst symbol-day): the buffer is the real lever, re-entries≤1, 0% is pure friction
+
+Ran 10 buffer values (0-9%, unlimited re-entries=20) ONCE, sliced the re-entry cap POST-HOC via `re_idx<=N`
+(F11's column). A-book, 2020+, max-conc 0. Judged on worst SYMBOL-DAY (F11's honest unit). (b00=6GB/12M trips
+→ processed one file at a time with DuckDB `memory_limit`+disk-spill to avoid OOM.)
+
+**NET ($M):**            **WORST SYMBOL-DAY ($k):**
+```
+buf\cap  0    1    2    3    5   inf     buf\cap  0    1    2    3    5   inf
+ 0%    3.21 4.93 5.71 6.16 6.44 6.49      0%    -28  -29  -37  -41  -65  -69
+ 1%    3.81 5.70 6.38 6.53 6.65 6.67      1%    -28  -35  -44  -58  -64  -64
+ 2%    4.14 6.18 6.59 6.72 6.77 6.78      2%    -28  -37  -48  -64  -69  -69
+ 3%    4.58 6.41 6.76 6.82 6.85 6.85      3%    -28  -40  -51  -65  -70  -70
+ 5%    5.18 6.68 6.97 6.96 6.98 6.99      5%    -26  -48  -62  -82  -89  -89
+ 7%    5.65 6.92 7.10 7.09 7.12 7.12      7%    -30  -55  -75  -94  -87  -87
+ 9%    5.87 6.99 7.13 7.13 7.16 7.16      9%    -36  -64  -89 -102  -96  -96
+```
+
+**Three reads:**
+1. **DOWN a column (raise buffer, re-cap fixed): nearly FREE net.** re0 column: net $3.21M→$5.87M (0→9%) while
+   worst-day holds ~−$28k to −$36k. **The buffer is the real lever, not re-entries.**
+2. **ACROSS a row (add re-entries): net up, worst-day MONOTONICALLY worse** (5% row net $5.18→6.68→6.97M but
+   day −$26k→−$48k→−$62k). Re-entries trade daily drawdown for net — steeply past re1.
+3. **0% is pure friction (user):** the whole 0% row is Pareto-DOMINATED by 1-2% (lower net, same/worse day).
+   The 0% stop trips the instant live-EMA > frozen-max → cuts winners for zero day benefit. **Use ≥1%.**
+
+**The efficient frontier (best net for a worst-day budget):**
+
+| worst-day | best cell | net | PF |
+|---|---|---:|---:|
+| ~−$28k | **9% / re0** | **$5.87M** | 3.92 |
+| ~−$48k | **5% / re1** | **$6.68M** | 3.53 |
+| ~−$65k | 2% / re3 | $6.72M | 3.10 |
+
+**TWO PRODUCTION BOOKS:** (a) **9%/re0** = max risk control — tightest day (−$28k) AND highest re0 PF (3.92),
+$5.87M, NO re-entries. (b) **5%/re1** = best net/day balance — $6.68M at −$48k, one re-entry only. **Re-entries
+beyond 1 are never worth it** (buy little net, cost a lot of day). All cells still crush V2's −$238k worst-day
+by 3-9×. This settles the stop/re-entry design: pick a buffer for the net you want, cap re-entries at 0-1.
