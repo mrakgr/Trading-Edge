@@ -465,3 +465,31 @@ we just compute them 700× lighter. `--min-brv20d 0` / `--min-intraday-atr-pct 0
 
 **ATR% definition (for the record):** trailing-20m rolling mean of the 1m LOG true range (`log(max(high,prevC)/
 min(low,prevC))`), NOT session-cumulative — a "moving fast RIGHT NOW" filter that reacts to the current pop.
+
+## Finding 15 — the −$222k worst-day is a CONCURRENCY-STACKING artifact (21 legs/day) — but max-conc 1 is not the fix
+
+Tested whether the no-stop down-tick book's −$222k worst symbol-day is one catastrophic position or many stacked
+on one runaway pop. Ran max-concurrent 1 (one open position at a time) vs the default max-conc 0 (unlimited).
+A-book, 2020+, no stop.
+
+| | max-conc 0 (unltd) | max-conc 1 |
+|---|---:|---:|
+| n | 4,746 | 2,595 |
+| win% | 87.1% | 64.1% |
+| raw PF | 7.59 | 5.19 |
+| net | $7.66M | $2.59M |
+| worst trade | −$74,110 | −$74,110 |
+| **worst symbol-day** | **−$222,330** | **−$74,110** |
+| **max legs on 1 symbol-day** | **21** | **2** |
+
+**CONFIRMED — the −$222k was STACKING:** at unlimited concurrency one symbol-day fired **21 simultaneous
+positions** (all the pendings on one runaway pop), tripling the −$74k worst TRADE into a −$222k worst DAY. Cap to
+max-conc 1 → worst-day collapses to exactly −$74,110 (= the worst single trade; max 2 legs/day).
+
+**BUT max-conc 1 is NOT the fix — it guts the book:** net $7.66M → $2.59M (−66%) and **win% 87% → 64%.** The win%
+collapse is the tell: with one slot, whichever pending grabs it first is ~random, so we take the FIRST fade on a
+day, not the BEST/all. The unlimited book wins 87% BECAUSE it takes every good fade; serializing throws away that
+breadth. So the extreme worst-day is a stacking artifact, but max-conc 1 pays 2/3 of net + 23 win-pts to remove
+it. **Better levers for the same goal: (a) a STOP (caps per-trade loss so a 21-leg stack can't compound as hard),
+or (b) a per-SYMBOL-DAY leg cap (limit the 21→N directly without serializing the whole book).** The per-symday
+cap is the surgical version — NEXT.
