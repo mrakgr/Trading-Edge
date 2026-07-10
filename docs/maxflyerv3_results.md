@@ -234,36 +234,30 @@ stop starts cutting winners (PF 4.19–4.74, net −$130–320k) with no further
 buffer 20%.** This DOMINATES both the session-max stop (same PF/net, half the tail) and the entry-EMA %-stop
 (which floored at −120%). Delivers the user's ask: push the 150% losses down, keep the 60–70% ones.
 
-## Finding 8 — bars-since-9EMA-high ENTRY (first weakness): MUCH higher PF (8.47) but ~2.7× LESS net than cross-under
+## Finding 8 — ⭐ bars-since-9EMA-high ENTRY: short into every high, hold to the FIRST weakness (th=1) — the STRONGEST book ($7.07M / PF 5.61)
 
-New entry trigger (`--ema-bars-since-high-entry`): instead of waiting for the 9-EMA to cross back under a stale
-armed level (which can lag ~1h — "doesn't feel right to enter 1h after weakness", user), FIRE the short the
-moment barsSinceEmaHigh reaches N — the FIRST small weakness after a 9-EMA session high. Session-level counter
-(BreakoutTimer idiom), fires EXACTLY at `= N` (once per high-then-decline episode), arms on each new 9-EMA high.
-Verified: a crisp N-bar lag (vs the cross-under's variable ~5-20). Stop = roll30m/buf20 (F7). A-book, 2020+.
+⚠ **SUPERSEDES a buggy first pass.** The first implementation ARMED a pending on every new-EMA-high bar (not the
+price breakout) and used a fragile `= N` fire — since a rising 9-EMA re-highs almost every bar, it armed/reset
+constantly, producing garbage counts (th0 8.1M trips, th1≠th2). FIXED: arm on the price breakout (SAME as
+cross-under); fire when the SESSION-level `barsSinceEmaHigh >= threshold`. User's baseline test (th{0,1} → ~same
+trip count) now passes: th0 4,763 vs th1 4,748 A-book (−0.3%) — a delay shifts WHEN, not WHICH. (`--ema-bars-
+since-high-entry`, `--ema-bars-since-high N`.) Stop = roll30m/buf20 (F7). A-book, 2020+, raw PF.
 
 | threshold | n | win% | raw PF | net | worst | worst% | n>100% |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| **bsh=1** | 1,049 | 87.3% | **8.47** | $1.50M | −$7,612 | 76% | 0 |
-| bsh=2 | 915 | 85.2% | 7.52 | $1.22M | −$8,321 | 83% | 0 |
-| bsh=3 | 844 | 83.5% | 6.57 | $1.04M | −$8,283 | 83% | 0 |
-| bsh=4 | 804 | 82.6% | 6.18 | $0.93M | −$9,333 | 93% | 0 |
-| bsh=5 | 784 | 81.1% | 5.84 | $0.87M | −$8,654 | 87% | 0 |
+| th=0 (short into high) | 4,763 | 75.0% | 4.52 | $6.68M | −$6,087 | 61% | 0 |
+| **th=1 (1-bar weakness)** | 4,748 | 83.7% | 5.61 | **$7.07M** | −$9,533 | 95% | 0 |
+| th=2 | 4,738 | 83.4% | 5.68 | $6.91M | −$10,693 | 107% | 1 |
+| th=3 | 4,737 | 82.4% | 5.45 | $6.65M | −$9,867 | 99% | 0 |
 
-**MONOTONE — tighter threshold is better on EVERY axis** (PF, trips, net, tail): the fresher the weakness, the
-better the fade. bsh=1 (enter 1 bar after the EMA high stalls) is the peak: PF 8.47, 87.3% win, worst −76%.
-Waiting even 2-5 bars lets the pop firm up. So the user's intuition — don't enter 1h late — is VALIDATED on
-per-trade quality. **DEFAULT threshold → 1.**
+**Trip count is FLAT (4,763→4,737): a 1-3 bar delay shifts timing, not selection** — every armed high eventually
+sees barsSinceEmaHigh climb (this is the corrected behavior). **th=1 = the peak & the strongest book in V3:** the
+1-bar delay for the first tick of EMA weakness lifts win 75%→84%, PF 4.52→5.61, net $6.68M→$7.07M over shorting
+BLINDLY into the high. th=2 edges PF (5.68) but less net + wider tail (−107%, one >100%); decays past 2. th=1
+also has the tightest tail of the delayed (−95%, 0 over 100%). **DEFAULT threshold → 1.**
 
-**BUT the bars-since-high book is a DIFFERENT, SMALLER book than cross-under** (both A-book, 2020+, same stop):
-
-| book | n | PF | net | worst |
-|---|---:|---:|---:|---:|
-| cross-under (F6/F7, arm≤60) | 3,654 | 5.26 | **$4.07M** | −$8.2k |
-| **bars-since-high (bsh=1)** | 1,049 | **8.47** | $1.50M | −$7.6k |
-
-Cross-under makes **~2.7× more net** ($4.07M vs $1.50M) at lower PF; bars-since-high is **higher PF/quality**
-(8.47 vs 5.26) at far less net. WHY: bsh enters at a fixed 2-bar lag on EVERY stall, but many are just a PAUSE
-(not a rollover) → stopped out quickly by roll30/buf20, so fewer become the big runners the cross-under captures
-by WAITING for a genuine rollover. **Two distinct books: cross-under = the runner/net book; bars-since-high =
-the high-PF/quality book.** Which to ship depends on the goal (net vs risk-adjusted quality). Both all-weather.
+**This book BEATS everything prior** (A-book 2020+): th=1 = **$7.07M / PF 5.61 / worst −$9.5k** vs the cross-under
+book's $4.07M / 5.26 and V2 no-stop's $4.78M / −$83.9k. "Short into every new session high + hold to the first
+bar of 9-EMA weakness + roll30m/buf20 stop" is the strongest configuration found: MORE net than V2 no-stop at a
+~9× smaller tail. All-weather. (User intuition — don't enter blindly at the top, wait for the first weakness —
+validated on net AND quality.) The cross-under (F6/F7) is now the runner/lower-net alternative, not the main book.
