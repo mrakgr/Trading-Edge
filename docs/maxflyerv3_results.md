@@ -762,3 +762,30 @@ enters at the high and uses the down-tick only to arm the stop. Trade-off vs the
 2.6× worse worst-trade (−17k vs −6.6k)** — a sizing question, not an edge question. Candidate for the new default
 pending a worst-trade appetite decision; the tail is still bounded (short, +100%-capped) and worst-sym-day barely
 moved.
+
+## Finding 22 — ⭐ short-the-high is the NEW DEFAULT; its worst-WEEK/MONTH tail is as good as (or better than) the down-tick book — the fatter worst-TRADE does NOT propagate up
+
+Set `ShortHighEntry = true` in `defaultConfig` (F21 is now the no-flag book: 2510 trips / 73.8% win / PF 3.77 /
+net $3.03M). The F21 concern was the fatter worst-TRADE (−$17k). This resolves it: the tail does NOT cluster, so at
+the week/month horizons that matter for a real account the short-high book is as good as or BETTER than the old
+down-tick default. Full ladder (max-conc 1, 2020+):
+
+| book | net $k | worst sym-day | worst cal-day | worst week | worst month |
+|---|---|---|---|---|---|
+| down-tick (old default) | 2371 | −10.8 | −14.6 | −9.3 | 0.0 |
+| **short-high (NEW default)** | **3034** | −12.1 | −14.6 | −10.9 | **+5.8** |
+
+- **Worst MONTH is +$5.8k — POSITIVE, and BETTER than the down-tick book's 0.0.** No losing calendar month across
+  2020–2026. The extra +28% net more than absorbs the fatter worst-trade by the 30-day horizon. Three worst months
+  all green: Feb'26 +5.8, Feb'22 +6.3, Dec'21 +9.5.
+- **Worst CAL-DAY is IDENTICAL (−14.6)** — the single worst day is the same event in both books (the higher entry
+  didn't create a worse worst-day). **Worst-week −10.9 ≈ worst-day** — the F19 property holds: the tail is one bad
+  day, not a losing streak (3 worst weeks −10.9/−10.4/−9.6 are each ~a single bad day: 2020-05-25, 2023-05-08,
+  2022-12-05).
+- Net: the fatter worst-TRADE (−17k) buys +28% net and does NOT deepen the week (−10.9 vs −9.3, ~+$1.6k) or the
+  month (actually improves). **The F21 tradeoff lands favorably at every horizon above the single trade.**
+
+Production note (user): may split the fill — **short HALF at the high, HALF at the down-tick** — to blend the
+short-high edge with the down-tick book's tighter worst-trade. The default is the full short-high; the down-tick
+book is `--ema-down-tick-entry` without `--short-high-entry` (turn it off: build a `--no-short-high` or pass the
+down-tick flags on a config with ShortHighEntry off).

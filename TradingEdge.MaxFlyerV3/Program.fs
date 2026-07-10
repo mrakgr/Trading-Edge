@@ -34,6 +34,7 @@ type Args =
     | Long_Breakout        // INVERSION: BUY the new-session-HIGH pop, SELL on the 9-EMA down-tick (Short=false, direct entry)
     | Ema_Down_Tick_Exit
     | Short_High_Entry     // apples-to-apples: short the HIGH immediately, arm the stop on the first 9-EMA down-tick
+    | No_Short_High        // DISABLE the default short-high entry → revert to the down-tick ENTRY book
     // kept-inert levers (off by default) for later sweeps
     | Pct_Stop of float
     | Time_Stop_Min of int
@@ -76,7 +77,8 @@ type Args =
             | Short_Breakdown -> "Alternate short: SHORT the new-session-LOW breakdown (Downside=true, Short=true) — momentum continuation of the flush (the 4th quadrant), rather than the default new-HIGH pop-fade. Mutually exclusive with --long."
             | Long_Breakout -> "INVERSION of the short pop-fade: BUY the new-session-HIGH pop on the breakout bar (Short=false, Downside=false, direct entry) and SELL on the first 9-EMA down-tick. Turns off all the short-only EMA machinery. A momentum/continuation test of the same signal the short fades."
             | Ema_Down_Tick_Exit -> "EXIT a LONG when the 9-EMA ticks DOWN vs the prior bar (ema < prevEma). The inversion of --ema-down-tick-entry. Implied by --long-breakout."
-            | Short_High_Entry -> "APPLES-TO-APPLES entry-timing test (down-tick mode): short the SIGNAL/breakout bar IMMEDIATELY (the high) instead of waiting for the 9-EMA down-tick, and leave the ema-max stop DORMANT until the first down-tick (when it arms with its roll30-max base frozen at that bar). Re-entries still enter at the next down-tick. Isolates short-the-high vs short-the-down-tick. Requires --ema-entry --ema-down-tick-entry."
+            | Short_High_Entry -> "APPLES-TO-APPLES entry-timing test (down-tick mode): short the SIGNAL/breakout bar IMMEDIATELY (the high) instead of waiting for the 9-EMA down-tick, and leave the ema-max stop DORMANT until the first down-tick (when it arms with its roll30-max base frozen at that bar). Re-entries still enter at the next down-tick. Isolates short-the-high vs short-the-down-tick. ON BY DEFAULT (F21/F22)."
+            | No_Short_High -> "DISABLE the default short-high entry → revert to the DOWN-TICK ENTRY book (wait for the 9-EMA down-tick to enter, stop armed at entry). The tighter-worst-trade variant from F21."
             | Pct_Stop _ -> "SWEEP LEVER: wide catastrophe %%-stop, a fixed adverse excursion from entry (0 = off, default)."
             | Time_Stop_Min _ -> "SWEEP LEVER: flatten this many minutes after entry, capped at MOC (0 = off, default = hold to MOC)."
             | Ema_Entry -> "9-EMA ARM-TIMER ENTRY: instead of shorting directly on the breakout, ARM a countdown at the breakout bar (recording its 9-EMA) and SHORT (at close) on the first bar within the window whose 9-EMA closes BELOW that armed level. Re-arms on each new session high. Default OFF (= direct V2 entry)."
@@ -148,7 +150,7 @@ let main argv =
                   MaxCloseStopWindow = parsed.GetResult(Max_Close_Stop_Window, defaultValue = defaultConfig.Intraday.MaxCloseStopWindow)
                   MaxCloseStopBuffer = parsed.GetResult(Max_Close_Stop_Buffer, defaultValue = defaultConfig.Intraday.MaxCloseStopBuffer)
                   EmaDownTickExit = (parsed.Contains Long_Breakout || parsed.Contains Ema_Down_Tick_Exit || defaultConfig.Intraday.EmaDownTickExit)
-                  ShortHighEntry = (parsed.Contains Short_High_Entry || defaultConfig.Intraday.ShortHighEntry) } }
+                  ShortHighEntry = (not (parsed.Contains No_Short_High)) && (parsed.Contains Short_High_Entry || defaultConfig.Intraday.ShortHighEntry) } }
 
     printfn "MaxFlyerV3 backtest — intraday SHORT pop-fade (%s)"
         (match cfg.Intraday.Downside, cfg.Intraday.Short with

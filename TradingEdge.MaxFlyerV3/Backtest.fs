@@ -97,7 +97,11 @@ let defaultConfig =
           MaxCloseStop = false           // --max-close-stop: cover when the raw close rises above the rolling-max close.
           MaxCloseStopWindow = 20        // --max-close-stop-window: 20-bar rolling max raw-close anchor.
           MaxCloseStopBuffer = 0.20      // --max-close-stop-buffer: buffer above the rolling max close (0.20 = 20%).
-          ShortHighEntry = false         // --short-high-entry: short the HIGH immediately, arm the stop on the 1st down-tick.
+          ShortHighEntry = true          // DEFAULT (F21): short the HIGH immediately (leg 0), arm the ema-max stop on
+                                         // the 1st 9-EMA down-tick. Beats down-tick ENTRY — PF 2.88→3.77, net +28%
+                                         // ($2.37M→$3.03M), win 71.7→73.8. The down-tick is a STOP-ARMING signal, not
+                                         // an entry signal. Cost: fatter worst-TRADE (−$17k vs −$6.6k); worst-day barely
+                                         // moves. (Prod may short HALF at the high, HALF at the down-tick.) Off to revert.
           EmaDownTickExit = false }       // --ema-down-tick-exit / --long-breakout: sell a LONG on the 9-EMA down-tick.
       Notional = 10_000.0 }
 
