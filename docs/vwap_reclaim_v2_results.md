@@ -370,3 +370,38 @@ pairs with a FAST vol estimate (15m). `run_max_dist` accumulates over the whole 
 SLOWER denominator (30m/pullback). This is why there's no single "best ATR" — it depends on what you're
 normalizing. **For ema_climb: use the 15m log-ATR (best plain rolling window, ties pullback run_atr, avoids the
 bespoke run-reset accumulator).** Re-run F9's stack with ema_climb/atr15 in place of /atr20 as the next step.
+
+## Finding 11 — vol_slope CANNOT replace updn — direction beats magnitude for a reclaim (updn sorts a 4× PF spread, vol_slope a flat non-monotone 1.6–2.9)
+
+Tested whether the 20m OLS log-volume slope (`vol_slope_20`, "is volume rising into the reclaim") can replace
+`run_updn_ratio≥1.3` (the conviction/sidedness gate). Stripped updn from the A+ book (rest =
+`run_max_dist≥3.5% & rvol15m<2 & d/atr<3`, n=754) and compared how each feature SORTS the edge.
+
+**updn — sharp monotone sort, 4× spread:**
+
+| updn | n | PF | avg% |
+|---|---:|---:|---:|
+| [−∞,0.8) | 199 | 1.13 | 0.5 |
+| [0.8,1.3) | 320 | 1.67 | 4.1 |
+| [1.3,2.0) | 180 | 4.35 | 19.3 |
+| [2.0,∞) | 55 | 4.63 | 24.3 |
+
+**vol_slope — weak, NON-monotone, narrow 1.6–2.9 spread (more volume ramp is WORSE past the middle):**
+
+| vol_slope | n | PF | avg% |
+|---|---:|---:|---:|
+| [−∞,0) | 298 | 2.03 | 4.9 |
+| [0,0.05) | 298 | 2.90 | 11.4 |
+| [0.05,0.10) | 141 | 2.51 | 9.1 |
+| [0.10,∞) | 17 | 1.56 | 4.4 |
+
+As a replacement FLOOR, the best vol_slope cut (`>0` → PF 2.71 / n=456) is nowhere near `updn≥1.3` (PF 4.42).
+
+**Mechanism — DIRECTION beats MAGNITUDE for a reclaim.** `updn` = volume DIRECTION relative to the 9-EMA (is
+volume on the rising/accumulation side vs the falling/distribution side) — a sidedness/conviction signal.
+`vol_slope` = volume MAGNITUDE trend (is total volume ramping), agnostic to direction. A reclaim can have surging
+volume that's still net distribution (vol_slope high, updn low) — and those are losers. updn sees which side the
+volume is on; vol_slope can't. (Contrast: vol_slope IS the main volume lever in DipRiderV3/BreakoutTimer, but
+those are momentum-CONTINUATION setups where "is volume ramping" is the right question; for a RECLAIM the right
+question is "which side is the volume on.") **VERDICT: keep updn; vol_slope does not replace it. The production A+
+default stands unchanged.**
