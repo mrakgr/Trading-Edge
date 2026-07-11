@@ -344,3 +344,29 @@ consistent with the F3/F5 speed-cap (slower reclaims win, so a ceiling).
 3.66/2.05/3.75. **The trustworthy number is the STACKED ~210-trip cell (PF 5.13), broader and still clearly >
 4.42.** NEXT: yearly stability of the stacked cell; then decide whether ema_climb/atr REPLACES slope/atr (corr
 0.81) in the V2 A+ = `updn≥1.3 & run_max_dist≥3.5% & rvol15m<2 & d/atr<3 & ema_climb/log_atr<2.5`.
+
+## Finding 10 — for ema_climb, the 15m log-ATR is the best rolling denominator (INVERTS F8's 30m result for run_max_dist) — match ATR speed to numerator speed
+
+F8 found 30m > 15m as the rolling-ATR window for `run_max_dist` (depth). Tested the same window question for
+`ema_climb/atr`. Base = `updn≥1.3 & rvol15m<2 & run_max_dist≥3.5%`.
+
+**At ~190 trips:**
+
+| denominator | n | PF | avg% |
+|---|---:|---:|---:|
+| ema_climb / **15m** | 194 | **4.59** | 20.0 |
+| ema_climb / 30m | 194 | 4.53 | 20.1 |
+| ema_climb / 20m | 189 | 4.06 | 17.9 |
+| ema_climb / run_atr (pullback) | 208 | 4.18 | 18.5 |
+
+**At ~95–115 trips:** 15m 5.94 / 20m 5.78 / 30m 5.44 / run_atr 6.03 — 15m and pullback essentially tied, both
+ahead of 20m/30m.
+
+**15m is the best rolling window for ema_climb — the OPPOSITE of run_max_dist (F8 wanted 30m).** And the 20m
+ATR I used in F9's `ema_climb/log_atr` is actually the WEAKEST rolling choice, so F9 UNDERSTATED ema_climb.
+
+**Principle: match the ATR window speed to the numerator's speed.** `ema_climb` is FAST (EMA lift over ~20m) →
+pairs with a FAST vol estimate (15m). `run_max_dist` accumulates over the whole (often longer) run → wants a
+SLOWER denominator (30m/pullback). This is why there's no single "best ATR" — it depends on what you're
+normalizing. **For ema_climb: use the 15m log-ATR (best plain rolling window, ties pullback run_atr, avoids the
+bespoke run-reset accumulator).** Re-run F9's stack with ema_climb/atr15 in place of /atr20 as the next step.
