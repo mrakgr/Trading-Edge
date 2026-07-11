@@ -973,3 +973,44 @@ VwapReclaimV2, where it was strongly additive — the reclaim's few gates leave 
 Clip PF peaks at the low floor (1.77) and erodes monotonically as the floor rises (1.66 @≥2.5 → 1.27 @≥4.0). Win
 rate stays flat ~45% throughout — the floor isn't isolating a better sub-population, just shrinking the book. **A
 FLOOR does not help; the (weak) signal is a CEILING, not a floor.** Confirmed at fine resolution.
+
+## Finding 31 — ⭐ CORRECTION to F30: ema_climb/atr IS useful in DipRiderV3 — as a CEILING (`< 4.0`), not a floor. Caps the exhausted-momentum tail: clip PF 1.77→1.85, keeps 86% of trips, stable every modern year.
+
+F30 tested ema_climb/atr as a floor (raising it HURTS) and concluded "redundant." But the floor ladder showed the
+HIGH tail is the dead segment — so the right operator is a CEILING (cap it), not a floor. Ceiling ladder:
+
+| ceiling | n | rawPF | clipPF | net$ |
+|---|---:|---:|---:|---:|
+| (all) | 1150 | 2.64 | 1.77 | 1,005,568 |
+| **< 4.0** | 986 | 2.74 | **1.85** | 918,732 |
+| < 3.5 | 887 | 2.74 | 1.85 | 819,076 |
+| < 3.0 | 702 | 2.73 | 1.84 | 649,298 |
+| < 2.5 | 469 | 3.00 | 1.92 | 497,673 |
+
+**`< 4.0` is the sweet spot: clip PF 1.77→1.85 while keeping 986/1150 trips (86%) and 92% of net** — trims the
+worst 14% (exhausted high-climb-per-vol names) cheaply. Tightening to `<2.5` reaches clip 1.92 but costs real
+breadth (469 trips) — the standard trade-off.
+
+**Yearly stability (modern years, clip PF) — broad & stable, NOT a hot-year artifact:**
+
+| year | baseline | < 4.0 |
+|---|---:|---:|
+| 2020 | 2.05 | 2.14 |
+| 2021 | 1.24 | 1.24 |
+| 2022 | 1.56 | 1.62 |
+| 2023 | 3.00 | 3.60 |
+| 2024 | 1.99 | 2.02 |
+| 2025 | 1.91 | 2.00 |
+| 2026 | 2.18 | 2.28 |
+
+Every modern year flat-or-better; NONE degraded. Critically **2021 (DRV3's regime-inversion problem year) is not
+hurt** (1.24→1.24) — the gate doesn't break the weakest regime.
+
+**MECHANISM (why ceiling not floor):** high ema_climb/atr = the 9-EMA has already lifted far per unit vol = an
+EXHAUSTED move with capped remaining upside. The F30 floor ladder confirmed this from the other side (BreakoutTimer
+win-rate ROSE with the floor while avg% collapsed 4.6→1.2 — more climb wins more often but smaller). This is the
+SAME ceiling sign as the reclaim (VwapReclaimV2: slow reclaims win) — the feature is a SPEED/EXHAUSTION cap in
+every regime; it's just that in the reclaim the entry sits low on the climb (big spread to exploit) while momentum
+enters higher (only the far tail is exploitable). **REVISED VERDICT: ADD `ema_climb_per_atr < 4.0` as a DipRiderV3
+ceiling gate — cheap, stable, real. (BreakoutTimer F23 ceiling test = flat 1.41→1.44; its structure already avoids
+the tail, so no gate there.)** Open: promote to an engine gate + confirm at max-conc 1 (gate≠post-hoc).
