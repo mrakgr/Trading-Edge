@@ -981,3 +981,21 @@ parquet `window_start` ns timestamp (`Backtest.fs:310-311`); a gap is `bar.etMin
 in-window these run ~33–39 events/name/day, mostly 1–2min dead spots, with a thin tail of true multi-minute halts
 (worst observed 88min). The engine folds across these as if contiguous. Decision (2026-07-11): LEAVE AS-IS — the
 current behavior is preferable; not investigating trade-level impact and not building a gap-aware fold.
+
+## Open threads (parked 2026-07-11 — NOT being pursued now)
+
+Recorded for later. The short book is SETTLED & drawdown-controlled; these are enhancement threads off F21/F23,
+deferred while we sweep the OTHER systems with the BreakoutTimer/MaxFlyerV3 experience:
+
+1. **HALF-at-high / HALF-at-down-tick fill** — explicit engine mode. Split leg-0: half short at the high (F21),
+   half deferred to the down-tick entry. Thesis: keep most of the short-high PF gain while capping the fatter
+   worst-trade (short-high −$17k vs down-tick −$6.6k).
+2. **Scaled-ADD at the down-tick, sized by displacement** — the F23 payoff. Down-tick arms the stop AND adds a 2nd
+   tranche on the inverted-U: bigger add at 5–15% underwater (PF peak 4.42), taper by 30%, NONE beyond 30%.
+3. **Port displacement-at-confirmation to LowFlyer / MaxFlyerV2** — reuse the F23 `arm_close/entry−1` feature to
+   arm the stop AND size the add on the right side of the V.
+4. **Full-22y confirm** of the short-high default (currently swept from 2020-01-01; extend to 2003→2026).
+5. **Productionize.**
+
+Dead: long-flip (F20, PF 0.32). Suggested order when resumed: (1)→(2) first (both change down-tick fill logic and
+interact), then (3)/(4)/(5).
