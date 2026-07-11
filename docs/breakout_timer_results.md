@@ -849,3 +849,21 @@ VwapReclaimV2 (PF 4.42→5.13), where the reclaim's few gates leave headroom AND
 climb, real spread to exploit). In the two MOMENTUM systems it's redundant — they enter with the EMA already
 lifted (DRV3 median 0.053) or their structure/gates already capture the volatility quality (BT). The feature's
 value is REGIME-SPECIFIC: it works for mean-reversion reclaims, not momentum-continuation.
+
+### F23 addendum — full ema_climb/atr FLOOR ladder [x,∞): raising the floor MONOTONICALLY hurts (breaks below 1.0 clip at the top)
+
+| floor | n | win% | rawPF | clipPF | avg% |
+|---|---:|---:|---:|---:|---:|
+| (all) | 3458 | 38.1 | 2.01 | 1.41 | 4.6 |
+| ≥1.5 | 1191 | 42.5 | 1.94 | 1.44 | 4.6 |
+| ≥2.0 | 937 | 43.2 | 1.86 | 1.37 | 4.3 |
+| ≥2.5 | 736 | 43.6 | 1.83 | 1.34 | 4.2 |
+| ≥3.0 | 519 | 45.1 | 1.86 | 1.30 | 4.3 |
+| ≥3.5 | 321 | 44.5 | 1.44 | 1.17 | 2.2 |
+| ≥4.0 | 192 | 41.1 | 1.22 | 0.98 | 1.2 |
+| ≥5.0 | 63 | 36.5 | 1.84 | 1.17 | 4.1 |
+
+Clip PF erodes as the floor rises (1.44 @≥1.5 → 1.30 @≥3.0 → **0.98 @≥4.0**, losing money on a clip basis).
+NUANCE: win RATE rises with the floor (38%→45%) while PF FALLS — high-climb trades win slightly more often but
+their winners are SMALLER (avg% collapses 4.6→1.2). More climb = more exhausted = capped upside — a mild version
+of the reclaim's "too-fast fade," surfacing as clipped-away tails. **A FLOOR is strictly counterproductive here.**

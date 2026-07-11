@@ -956,3 +956,20 @@ tilt ECHOES the reclaim's ceiling, but far weaker. **Why: this is BreakoutTimer-
 STRUCTURE + DipRiderV3's existing ATR-floor / vol-slope / sum6 gates already capture the volatility-quality
 ema_climb/atr measures; it's largely redundant here.** VERDICT: do NOT gate DipRiderV3 on ema_climb/atr. (Contrast
 VwapReclaimV2, where it was strongly additive — the reclaim's few gates leave room the momentum book doesn't.)
+
+### F30 addendum — full ema_climb/atr FLOOR ladder [x,∞): raising the floor MONOTONICALLY hurts
+
+| floor | n | win% | rawPF | clipPF | avg% |
+|---|---:|---:|---:|---:|---:|
+| (all) | 1150 | 45.1 | 2.64 | 1.77 | 8.7 |
+| ≥1.5 | 1077 | 45.0 | 2.67 | 1.77 | 8.9 |
+| ≥2.0 | 902 | 44.9 | 2.57 | 1.72 | 8.4 |
+| ≥2.5 | 681 | 44.9 | 2.39 | 1.66 | 7.5 |
+| ≥3.0 | 448 | 45.8 | 2.49 | 1.65 | 8.0 |
+| ≥3.5 | 263 | 44.9 | 2.30 | 1.49 | 7.1 |
+| ≥4.0 | 164 | 39.6 | 2.00 | 1.27 | 5.3 |
+| ≥5.0 | 40 | 40.0 | 2.32 | 1.23 | 6.3 |
+
+Clip PF peaks at the low floor (1.77) and erodes monotonically as the floor rises (1.66 @≥2.5 → 1.27 @≥4.0). Win
+rate stays flat ~45% throughout — the floor isn't isolating a better sub-population, just shrinking the book. **A
+FLOOR does not help; the (weak) signal is a CEILING, not a floor.** Confirmed at fine resolution.
