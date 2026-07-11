@@ -102,3 +102,50 @@ trims only ~18 trips over 6y. Only soft spot is 2022 (4.09→2.42, still profita
 `updn≥1.3 & run_max_dist≥3.5% & d/atr<3 & rvol15m<2 & ATR%≥0.015–0.020`. Open: whether to promote these post-hoc
 filters to real ENGINE gates (per the BreakoutTimer methodology — gate≠post-hoc once concurrency matters), and
 whether a higher ATR% floor (0.025–0.030) trading breadth for PF 5+ is the better production cell.
+
+## Finding 3 — OLS `slope_per_atr` (speed) confirms the speed-cap thesis but does NOT beat `dist/atr` as a swap — CEILING helps, FLOOR does not
+
+Added 20m OLS log-price & log-volume slopes (`OlsSlopeMa(20)`, mirroring DipRiderV3/BreakoutTimer — fed on the
+same valid-prior-close bars as `atrLog` so x-axes align) and derived **`slope_per_atr` = price-slope / log-ATR**
+= speed-normalized momentum. Recorded-only. Verified byte-identical on all 47 shared columns (41,027 trips / PF
+1.298 unchanged); new columns no-NaN. Motivation (user): `dist/atr` is essentially a CAP on runs that rose too
+FAST; an OLS price-slope-per-ATR is a cleaner, more principled version of the same idea, and might replace both
+`dist/atr` and `tightness`.
+
+**Distribution** on the base (`updn≥1.3 & run_max_dist≥3.5% & rvol15m<2`, no d/atr, n=402): slope/atr min −0.08,
+p10 0.03, p50 0.145, p90 0.29, max 0.54.
+
+**Buckets — the speed-cap thesis holds (high slope/atr = worse), but it's non-monotone:**
+
+| slope/atr | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| [−∞, 0) | 24 | 62.5 | 5.37 | +25.5 |
+| [0.00, 0.05) | 30 | 60.0 | 3.74 | +11.9 |
+| **[0.05, 0.10)** | 69 | 55.1 | **6.01** | +24.3 |
+| [0.10, 0.15) | 88 | 38.6 | 2.16 | +8.3 |
+| [0.15, 0.20) | 74 | 47.3 | 3.53 | +15.0 |
+| [0.20, 0.30) | 81 | 43.2 | 2.18 | +7.1 |
+| [0.30, +∞) | 36 | 50.0 | 3.13 | +6.9 |
+
+Slow/controlled reclaims (even slightly-negative slope) run hardest to MOC (PF 5–6, +24–25%); fast rises
+(≥0.20) fade to PF 2.2/+7%. **A CEILING is indicated; a FLOOR is NOT** — the lowest bucket is the best, so
+banding `[0,X)` cuts the good part.
+
+**Ceiling sweep vs the incumbent — close, but d/atr still wins:**
+
+| book | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| INCUMBENT `d/atr<3` (no floor) | 232 | 50.4 | **4.38** | 20.3 |
+| swap `slope/atr<0.18` (drop d/atr) | 256 | 50.0 | 3.94 | 16.9 |
+| swap `slope/atr<0.20` | 285 | 49.1 | 3.68 | 15.7 |
+| band `slope/atr∈[0,0.20)` | 261 | 47.9 | 3.52 | 14.8 |
+
+The ceiling monotonically improves PF as it tightens (3.34 @ <0.30 → 3.94 @ <0.18), confirming the mechanism —
+but at matched breadth `d/atr<3` still beats it (4.38 vs 3.94, +20.3% vs +16.9%). **As a straight 1:1 swap,
+slope/atr LOSES.**
+
+**The real open question — can slope/atr let us DROP tightness? — needs an ENGINE run.** All fat-book rows are
+already engine-gated at `tightness≥3` (min observed 3.06), so it can't be un-gated post-hoc. If `slope/atr-ceiling
++ NO-tightness ≈ d/atr + tightness`, we'd trade two features for one (a real simplification). That is the next
+test: a `--min-tightness 0` engine run with the slope/atr ceiling applied post-hoc. VERDICT so far: keep d/atr;
+slope/atr is a promising CEILING whose value is TBD pending the tightness-replacement test.
