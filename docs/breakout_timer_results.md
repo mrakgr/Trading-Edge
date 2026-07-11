@@ -878,3 +878,57 @@ piled above the EMA" (high updn) means the move began WITHOUT you (late entry); 
 effect is weak. **VERDICT: updn does not help BreakoutTimer (a mild low-updn tilt exists but isn't worth a gate).**
 Cross-system: trailing-window updn is a null-to-weak feature in BOTH momentum systems (DRV3 F33) and the reclaim
 (VwapReclaim F12); only VwapReclaim's RUN-scoped updn was ever a strong lever.
+
+## Finding 25 — ⭐⭐ vol_climb SUCCEEDS where vol_slope FAILED — a `vol_climb ≥ 0.1` floor lifts clip PF 1.41→1.67 (BreakoutTimer had NO volume gate; vol_slope was dead weight)
+
+Ported vol_climb from DipRiderV3 F32 (`(volEma−volEmaMin)/volEma`; recorded-only, 3458 trips / PF 2.01
+unchanged). KEY CONTEXT: BreakoutTimer runs vol_slope OFF — its F13/F16 found the rising-vol premise DEAD WEIGHT
+(the breakout structure subsumed it). So this tests whether the LEVEL-based vol_climb finds volume signal the
+RATE-based vol_slope could not. vol_climb median only 0.073 (vs DRV3 0.35) — the timer waits for a volume DROUGHT,
+so ~40% of entries fire with volume still at its 20m floor.
+
+**Buckets — the dead-volume floor is the killer:**
+
+| vol_climb | n | rawPF | clipPF | avg% |
+|---|---:|---:|---:|---:|
+| [−∞,0.01) | 1404 | 1.63 | 1.15 | 3.0 |
+| [0.01,0.10) | 457 | 1.75 | 1.39 | 3.3 |
+| [0.10,0.30) | 650 | 2.67 | 1.79 | 6.8 |
+| [0.30,0.50) | 459 | 2.45 | 1.61 | 6.7 |
+| [0.50,0.70) | 287 | 2.10 | 1.62 | 5.1 |
+| [0.70,∞) | 201 | 2.30 | 1.54 | 6.1 |
+
+The `[−∞,0.01)` bucket — **40% of the book, fresh EMA high on volume AT its floor** — is the worst (clip 1.15).
+
+**FLOOR sweep — `vol_climb ≥ 0.1` is the win:**
+
+| gate | n | rawPF | clipPF | avg% | net$ |
+|---|---:|---:|---:|---:|---:|
+| baseline (NO vol gate) | 3458 | 2.01 | 1.41 | 4.6 | 1,594,038 |
+| **`vol_climb ≥ 0.1`** | 1597 | **2.45** | **1.67** | 6.4 | 1,018,192 |
+| `vol_climb ≥ 0.3` | 947 | 2.31 | 1.60 | 6.1 | 577,083 |
+
+Clip PF 1.41→1.67 (+0.26, bigger than DRV3's lift) by cutting the ~1860 dead-volume trips; keeps 46% of trips /
+64% of net at much higher quality.
+
+**⭐ YEARLY — flat-or-better every year, biggest lift in the weakest regime:**
+
+| year | baseline | vol_climb≥0.1 |
+|---|---:|---:|
+| 2020 | 1.55 | 2.08 |
+| **2021** | **1.00** | **1.11** |
+| 2022 | 1.54 | 1.55 |
+| 2023 | 2.18 | 3.20 |
+| 2024 | 1.49 | 1.65 |
+| 2025 | 1.53 | 1.95 |
+| 2026 | 1.80 | 2.02 |
+
+**2021 — BreakoutTimer's weakest year (clip PF exactly 1.00, breakeven) — lifts off the line to 1.11**, mirroring
+DRV3's 2021 fix (F32). CROSS-SYSTEM THEME: **vol_climb is disproportionately helpful in the adverse 2021 regime for
+BOTH momentum systems** — requiring genuine volume expansion filters the low-conviction breakouts that fail when
+momentum isn't rewarded. **MECHANISM here:** the breakout timer waits for a volume drought, so ~40% of entries fire
+on volume still at its floor (vol_climb≈0) — breakouts on no volume, which fizzle. `vol_climb≥0.1` = "require SOME
+volume expansion off the floor," a signal vol_slope's noisy rate couldn't capture but the level-based climb can.
+The tradeoff is real breadth (54% of trips cut); the ≥0.1 floor is the sweet spot (looser than DRV3's ≥0.6 because
+BT's whole distribution sits lower). **VERDICT: strong candidate — add `vol_climb ≥ 0.1` as BreakoutTimer's FIRST
+volume gate.** Next: promote to engine gate (--min-vol-climb) + confirm at the book's max-conc.
