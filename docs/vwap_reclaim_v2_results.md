@@ -225,3 +225,41 @@ exactly the slow-grinding winners.
 **VERDICT:** no floors. Keep the speed CEILINGS (`d/atr<3`, optional `slope/atr<0.18` stack), tightness OFF. The
 settled V2 A+ direction: `updn≥1.3 & run_max_dist≥3.5% & rvol15m<2 & d/atr<3` (≈ PF 4.42), optionally + slope/atr
 ceiling for a tighter/higher-PF cell.
+
+## Finding 6 — added trailing-20m MIN 9-EMA + EMA-climb depth. It does NOT replace `run_max_dist` (VWAP reference is load-bearing). But swapping the PULLBACK atr for the ROLLING-20m log-ATR in d/atr IMPROVES it.
+
+Added `emaMin20 = MinMa(20)` fed `ema.State` each bar (later a stop basis, like DipRiderV3/BreakoutTimer).
+Derived **`ema_climb` = (9-EMA − 20m-min-9-EMA) / 9-EMA** as an alt depth `d`, and both ratios `ema_climb/run_atr`
+(pullback atr) and `ema_climb/log_atr` (rolling-20m atr). Also computed `run_max_dist/log_atr` to isolate the ATR
+choice. Recorded-only; 50 shared CSV columns byte-identical (46,241 trips, tightness OFF), no NaNs. NOTE:
+`price_slope_20` is LOG-space (OLS of `log close`) and `slope_per_atr` divides it by the LOG-ATR — unit-consistent.
+The incumbent `d/atr` uses the PULLBACK atr (`run_atr` = mean log-TR over the run bars), NOT the rolling window.
+
+**(1) EMA-climb does NOT replace `run_max_dist` — ~1.5 PF worse even doing both jobs (floor+ceiling):**
+
+| book | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| INCUMBENT `run_max_dist≥3.5% & run_max_dist/run_atr<3` | 235 | 50.6 | **4.42** | 20.4 |
+| `ema_climb≥0.015 & ema_climb/run_atr<3` | 687 | 42.9 | 2.66 | 8.5 |
+| `ema_climb≥0.020 & ema_climb/run_atr<3` | 485 | 44.7 | 2.93 | 11.2 |
+| `ema_climb≥0.015 & ema_climb/log_atr<3` | 699 | 42.3 | 2.60 | 8.2 |
+
+**Mechanism:** `run_max_dist` measures depth against **VWAP** (the session's volume-weighted fair value — a
+MEANINGFUL level), reset per run. `ema_climb` measures the EMA against **its own trailing-20m min** — a local,
+self-referential floor. A big VWAP dislocation is a real dip-buy; a big climb off a 20m EMA-min is just "the EMA
+rose recently" — far less selective (3× the trips at half the PF, +8% vs +20% avg). **The VWAP reference is
+load-bearing; the EMA-climb throws it away.** (The 20m-min-9-EMA is still worth keeping for the STOP-basis test.)
+
+**(2) ⭐ Swapping the pullback `run_atr` → rolling-20m `log_atr` in d/atr IMPROVES it:**
+
+| `d/atr` denominator | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| pullback `run_atr` (incumbent) | 235 | 50.6 | 4.42 | 20.4 |
+| **rolling `log_atr` < 2.5** | 156 | 49.4 | **4.65** | 22.4 |
+| rolling `log_atr` < 2.0 | 96 | 51.0 | 4.13 | 20.5 |
+| rolling `log_atr` < 3.0 | 231 | 49.8 | 3.87 | 17.9 |
+
+Higher PF and avg at fewer trips. Beyond the marginal PF bump, the rolling-20m log-ATR is the SAME denominator
+`slope/atr` already uses AND that DipRiderV3/BreakoutTimer use — switching makes `d/atr` coherent across all
+features/systems (drops the bespoke run-reset `run_atr` accumulator). **Candidate: redefine V2 `d/atr` =
+`run_max_dist / log_atr` (rolling), ceiling ~2.5.** Open: yearly stability of the log-ATR variant vs pullback.

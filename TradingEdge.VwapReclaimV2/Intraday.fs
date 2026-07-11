@@ -87,6 +87,9 @@ type IntradayPosition =
       PriceSlope20AtEntry: float // 20m OLS slope of log(close) — trend strength (%/bar). The momentum feature
                                // the other 2 systems use; slope/atr is the candidate dist/atr successor.
       VolSlope20AtEntry: float   // 20m OLS slope of log(volume) — is volume rising into the reclaim (Jeff's cue).
+      EmaMin20AtEntry: float    // trailing-20m MIN of the 9-EMA (strictly-prior). Later a stop basis; now the
+                               // floor for the alt depth (current 9-EMA − this) / current = "EMA climb".
+      EmaAtEntry: float         // the strictly-prior 9-EMA value at the cross (numerator for the EMA-climb depth).
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// Mean-reversion TARGET — where a (short) position covers when price reverts back
@@ -239,6 +242,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     // slope_per_atr = price-slope / log-ATR is the SPEED-normalized momentum (the candidate dist/atr successor).
     let priceOls  = OlsSlopeMa(cfg.VolWindow)
     let volOls    = OlsSlopeMa(cfg.VolWindow)
+    // trailing-window rolling MIN of the 9-EMA value (fed ema.State each bar). Used two ways: (1) LATER as a
+    // stop basis, like DipRiderV3/BreakoutTimer; (2) NOW as an alt depth measure — (current 9-EMA − min 9-EMA)
+    // / current = how far the EMA has climbed off its recent floor, a candidate `d` successor for d/atr.
+    let emaMin20  = MinMa(cfg.VolWindow)
 
     // ----- mean-reversion TARGET anchors (only the one named by cfg.Target is fed) -----
     // session VWAP = Σ(typical_price · volume) / Σ(volume), typical = (h+l+c)/3, from
@@ -307,6 +314,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sAtrLin    : float voption = ValueNone
     let mutable sPriceSlope : float = nan       // 20m OLS log-price slope, snapshotted strictly-prior
     let mutable sVolSlope   : float = nan        // 20m OLS log-volume slope, snapshotted strictly-prior
+    let mutable sEmaMin20   : float voption = ValueNone  // trailing-20m min 9-EMA, strictly-prior snapshot
     let mutable sRangeHigh : float voption = ValueNone
     let mutable sRangeLow  : float voption = ValueNone
     // the mean-reversion cover anchor (cfg.Target), as-of going INTO this bar (strictly-
@@ -496,6 +504,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sAtrLin       <- atrLin.State
         sPriceSlope   <- (match priceOls.Slope with ValueSome s -> s | ValueNone -> nan)
         sVolSlope     <- (match volOls.Slope   with ValueSome s -> s | ValueNone -> nan)
+        sEmaMin20     <- emaMin20.State
         sRangeHigh    <- rangeHigh.State
         sRangeLow     <- rangeLow.State
         sTargetAnchor <- this.LiveTargetAnchor
@@ -582,7 +591,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         let tp = (bar.high + bar.low + bar.close) / 3.0
         vwapNum <- vwapNum + tp * float bar.volume
         vwapDen <- vwapDen + float bar.volume
-        if cfg.VwapReclaim then ema.Push bar.close
+        if cfg.VwapReclaim then
+            ema.Push bar.close
+            match ema.State with ValueSome e -> emaMin20.Push e | ValueNone -> ()
 
         // fold the chosen mean-reversion COVER anchor (only the active one accumulates).
         match cfg.Target with
@@ -835,6 +846,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       RunDnVolAtEntry = (if runDnVolN > 0 then runDnVolSum / float runDnVolN else nan)
                       PriceSlope20AtEntry = sPriceSlope
                       VolSlope20AtEntry = sVolSlope
+                      EmaMin20AtEntry = (match sEmaMin20 with ValueSome m -> m | ValueNone -> nan)
+                      EmaAtEntry = (match sEmaPrev with ValueSome e -> e | ValueNone -> nan)
                       State = Holding }
         elif this.ShouldEnter bar then
             // ShouldEnter passed => sRunHi / this.Tightness / this.AtrPct are all
@@ -880,6 +893,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   RunDnVolAtEntry = (if runDnVolN > 0 then runDnVolSum / float runDnVolN else nan)
                   PriceSlope20AtEntry = sPriceSlope
                   VolSlope20AtEntry = sVolSlope
+                  EmaMin20AtEntry = (match sEmaMin20 with ValueSome m -> m | ValueNone -> nan)
+                  EmaAtEntry = (match sEmaPrev with ValueSome e -> e | ValueNone -> nan)
                   // entry routing:
                   //   --ext-gate — if day-extension already >= ExtGate at the breakout, enter
                   //                DIRECT (parabolic now); else arm a ROLLOVER gated on reaching

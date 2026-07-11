@@ -158,6 +158,10 @@ type Trip =
       PriceSlope20: float        // 20m OLS log-price slope at entry (%/bar) — trend strength
       VolSlope20: float          // 20m OLS log-volume slope at entry — rising volume into the reclaim
       SlopePerAtr: float         // PriceSlope20 / (log-ATR at entry) — SPEED-normalized momentum (dist/atr successor)
+      EmaMin20: float            // trailing-20m MIN of the 9-EMA at entry (later a stop basis)
+      EmaClimb: float            // (9-EMA − 20m-min-9-EMA) / 9-EMA = alt depth: how far the EMA climbed off its floor
+      EmaClimbPerRunAtr: float   // EmaClimb / run_atr    (alt `d` ÷ PULLBACK atr — matches d/atr's denominator)
+      EmaClimbPerLogAtr: float   // EmaClimb / log-ATR20  (alt `d` ÷ ROLLING-20m log-ATR — the other denominator)
       CumVolToEntry: int64       // cumulative day volume through the entry bar
       PctChgSinceOpen: float     // entryPx / dayOpen - 1
       Close1d: float             // close-1-day-ago (adj) = PrevAdjClose
@@ -227,6 +231,16 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           SlopePerAtr =
               (if pos.AtrPctAtEntry > 0.0 && not (Double.IsNaN pos.AtrPctAtEntry) && not (Double.IsNaN pos.PriceSlope20AtEntry)
                then pos.PriceSlope20AtEntry / pos.AtrPctAtEntry else nan)
+          EmaMin20 = pos.EmaMin20AtEntry
+          EmaClimb =
+              (if pos.EmaAtEntry > 0.0 && not (Double.IsNaN pos.EmaAtEntry) && not (Double.IsNaN pos.EmaMin20AtEntry)
+               then (pos.EmaAtEntry - pos.EmaMin20AtEntry) / pos.EmaAtEntry else nan)
+          EmaClimbPerRunAtr =
+              (let climb = if pos.EmaAtEntry > 0.0 && not (Double.IsNaN pos.EmaAtEntry) && not (Double.IsNaN pos.EmaMin20AtEntry) then (pos.EmaAtEntry - pos.EmaMin20AtEntry) / pos.EmaAtEntry else nan
+               if pos.RunAtrAtEntry > 0.0 && not (Double.IsNaN pos.RunAtrAtEntry) && not (Double.IsNaN climb) then climb / pos.RunAtrAtEntry else nan)
+          EmaClimbPerLogAtr =
+              (let climb = if pos.EmaAtEntry > 0.0 && not (Double.IsNaN pos.EmaAtEntry) && not (Double.IsNaN pos.EmaMin20AtEntry) then (pos.EmaAtEntry - pos.EmaMin20AtEntry) / pos.EmaAtEntry else nan
+               if pos.AtrPctAtEntry > 0.0 && not (Double.IsNaN pos.AtrPctAtEntry) && not (Double.IsNaN climb) then climb / pos.AtrPctAtEntry else nan)
           CumVolToEntry = pos.CumVolAtEntry
           PctChgSinceOpen = (if c.DayOpen > 0.0 then pos.EntryPx / c.DayOpen - 1.0 else nan)
           Close1d = c.PrevAdjClose
@@ -412,7 +426,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,entry_bar_open,prev_bar_close,chg_20m,run_low_at_entry,intraday_atr_pct_at_entry,intraday_tightness_at_entry,"
-    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,rvol20m_20d,rvol20m_15m,run_max_dist,run_atr,run_dist_per_atr,run_up_vol,run_dn_vol,run_updn_ratio,price_slope_20,vol_slope_20,slope_per_atr,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
+    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,rvol20m_20d,rvol20m_15m,run_max_dist,run_atr,run_dist_per_atr,run_up_vol,run_dn_vol,run_updn_ratio,price_slope_20,vol_slope_20,slope_per_atr,ema_min_20,ema_climb,ema_climb_per_run_atr,ema_climb_per_log_atr,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,med_bar_vol_0945,"
     + "qty,net_pnl,bars_held_min"
@@ -449,6 +463,10 @@ let private row (t: Trip) : string =
         fmt t.PriceSlope20
         fmt t.VolSlope20
         fmt t.SlopePerAtr
+        fmt t.EmaMin20
+        fmt t.EmaClimb
+        fmt t.EmaClimbPerRunAtr
+        fmt t.EmaClimbPerLogAtr
         string t.CumVolToEntry
         fmt t.PctChgSinceOpen
         fmt t.Close1d
