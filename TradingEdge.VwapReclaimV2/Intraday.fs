@@ -92,6 +92,7 @@ type IntradayPosition =
       EmaAtEntry: float         // the strictly-prior 9-EMA value at the cross (numerator for the EMA-climb depth).
       AtrLog15AtEntry: float    // 15m rolling mean log-TR (alt d/atr denominator)
       AtrLog30AtEntry: float    // 30m rolling mean log-TR (alt d/atr denominator)
+      UpdnWAtEntry: float[]     // trailing-window updn ratios [10;15;20;25;30] (fixed-window updn analogue)
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// Mean-reversion TARGET — where a (short) position covers when price reverts back
@@ -250,6 +251,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     // stop basis, like DipRiderV3/BreakoutTimer; (2) NOW as an alt depth measure — (current 9-EMA − min 9-EMA)
     // / current = how far the EMA has climbed off its recent floor, a candidate `d` successor for d/atr.
     let emaMin20  = MinMa(cfg.VolWindow)
+    // TRAILING-WINDOW up/down-volume split (a fixed-window analogue of run_updn_ratio, which accumulates over
+    // the variable-length cross-to-cross run). Per window W: mean per-bar volume of ABOVE-9EMA (Up) bars vs
+    // BELOW-9EMA (Down) bars over the last W bars. Classification uses the strictly-prior EMA, same as the run
+    // version. Four SumMa per window (up-vol, up-count, dn-vol, dn-count); ratio derived at entry.
+    let updnWindows = [| 10; 15; 20; 25; 30 |]
+    let upVolW   = updnWindows |> Array.map SumMa
+    let upNW     = updnWindows |> Array.map SumMa
+    let dnVolW   = updnWindows |> Array.map SumMa
+    let dnNW     = updnWindows |> Array.map SumMa
 
     // ----- mean-reversion TARGET anchors (only the one named by cfg.Target is fed) -----
     // session VWAP = Σ(typical_price · volume) / Σ(volume), typical = (h+l+c)/3, from
@@ -321,6 +331,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sPriceSlope : float = nan       // 20m OLS log-price slope, snapshotted strictly-prior
     let mutable sVolSlope   : float = nan        // 20m OLS log-volume slope, snapshotted strictly-prior
     let mutable sEmaMin20   : float voption = ValueNone  // trailing-20m min 9-EMA, strictly-prior snapshot
+    let sUpdnW = Array.create 5 nan             // strictly-prior trailing-window updn ratios [10;15;20;25;30]
     let mutable sRangeHigh : float voption = ValueNone
     let mutable sRangeLow  : float voption = ValueNone
     // the mean-reversion cover anchor (cfg.Target), as-of going INTO this bar (strictly-
@@ -513,6 +524,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sPriceSlope   <- (match priceOls.Slope with ValueSome s -> s | ValueNone -> nan)
         sVolSlope     <- (match volOls.Slope   with ValueSome s -> s | ValueNone -> nan)
         sEmaMin20     <- emaMin20.State
+        for i in 0 .. 4 do
+            let upV = match upVolW.[i].State with ValueSome s -> s | ValueNone -> 0.0
+            let upN = match upNW.[i].State   with ValueSome s -> s | ValueNone -> 0.0
+            let dnV = match dnVolW.[i].State with ValueSome s -> s | ValueNone -> 0.0
+            let dnN = match dnNW.[i].State   with ValueSome s -> s | ValueNone -> 0.0
+            sUpdnW.[i] <- if upN > 0.0 && dnN > 0.0 && dnV > 0.0 then (upV / upN) / (dnV / dnN) else nan
         sRangeHigh    <- rangeHigh.State
         sRangeLow     <- rangeLow.State
         sTargetAnchor <- this.LiveTargetAnchor
@@ -577,6 +594,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 elif bar.close < e then
                     runDnVolSum <- runDnVolSum + float bar.volume
                     runDnVolN   <- runDnVolN + 1
+                // trailing-window analogue: push this bar's up/down volume + count into every window. Push 0 for
+                // the inactive side so all four SumMa slide in lockstep (a bar == 0 close vs e goes to neither).
+                let upV, upN, dnV, dnN =
+                    if bar.close > e then float bar.volume, 1.0, 0.0, 0.0
+                    elif bar.close < e then 0.0, 0.0, float bar.volume, 1.0
+                    else 0.0, 0.0, 0.0, 0.0
+                for i in 0 .. updnWindows.Length - 1 do
+                    upVolW.[i].Push upV; upNW.[i].Push upN; dnVolW.[i].Push dnV; dnNW.[i].Push dnN
                 let resetRun () =
                     runMaxDist <- 0.0; runAtrSum <- 0.0; runAtrN <- 0
                     runUpVolSum <- 0.0; runUpVolN <- 0; runDnVolSum <- 0.0; runDnVolN <- 0
@@ -860,6 +885,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       EmaAtEntry = (match sEmaPrev with ValueSome e -> e | ValueNone -> nan)
                       AtrLog15AtEntry = (match sAtrLog15 with ValueSome a -> a | ValueNone -> nan)
                       AtrLog30AtEntry = (match sAtrLog30 with ValueSome a -> a | ValueNone -> nan)
+                      UpdnWAtEntry = Array.copy sUpdnW
                       State = Holding }
         elif this.ShouldEnter bar then
             // ShouldEnter passed => sRunHi / this.Tightness / this.AtrPct are all
@@ -909,6 +935,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   EmaAtEntry = (match sEmaPrev with ValueSome e -> e | ValueNone -> nan)
                   AtrLog15AtEntry = (match sAtrLog15 with ValueSome a -> a | ValueNone -> nan)
                   AtrLog30AtEntry = (match sAtrLog30 with ValueSome a -> a | ValueNone -> nan)
+                  UpdnWAtEntry = Array.copy sUpdnW
                   // entry routing:
                   //   --ext-gate — if day-extension already >= ExtGate at the breakout, enter
                   //                DIRECT (parabolic now); else arm a ROLLOVER gated on reaching

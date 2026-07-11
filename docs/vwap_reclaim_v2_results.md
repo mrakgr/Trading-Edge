@@ -405,3 +405,31 @@ volume is on; vol_slope can't. (Contrast: vol_slope IS the main volume lever in 
 those are momentum-CONTINUATION setups where "is volume ramping" is the right question; for a RECLAIM the right
 question is "which side is the volume on.") **VERDICT: keep updn; vol_slope does not replace it. The production A+
 default stands unchanged.**
+
+## Finding 12 — trailing-window updn (10/15/20/25/30m) does NOT match the run-scoped updn — event-scoping is the edge (longer windows converge toward it but never reach it)
+
+Added fixed-window updn analogues (per window W: mean per-bar vol of above-9EMA vs below-9EMA bars over the last
+W bars, 4 SumMa each). Recorded-only; 56 shared CSV columns byte-identical. Note: shorter windows are often
+UNDEFINED — updn_10 is NaN 23% of the time (a 10-bar window frequently lacks both an up-bar AND a down-bar);
+updn_30 NaN only 0.2%. Medians step down 1.75→1.03 as W widens.
+
+**Matched-breadth threshold sweep (each window tightened to ~235 trips, rest of A+ intact):**
+
+| feature | cell | n | PF | avg% |
+|---|---|---:|---:|---:|
+| **run_updn ≥ 1.3 (INCUMBENT)** | — | 235 | **4.42** | 20.4 |
+| updn_30 ≥ 1.5 | closest | 229 | 3.49 | 14.6 |
+| updn_20 ≥ 1.8 | | 245 | 3.53 | 14.6 |
+| updn_25 ≥ 1.8 | | 182 | 3.64 | 15.8 |
+| updn_10 (best) | | ~410 | 2.72 | 9.7 |
+
+**No fixed window matches the run version — best is ~PF 3.5 vs 4.42, avg 14.6% vs 20.4%.** Clean trend: LONGER
+window is better (updn_10 ~2.7 → updn_30 ~3.5), converging toward the run version but never reaching it.
+
+**Why the run version wins — EVENT-SCOPING is the edge.** The run is the ACTUAL accumulation/distribution episode
+(last VWAP cross → now); it measures conviction over precisely the period that matters for THIS reclaim (the whole
+dip-and-recovery). A fixed window arbitrarily truncates or dilutes it: a 45-bar run loses its early distribution
+under a 20m window; an 8-bar run gets 22 bars of unrelated prior action under a 30m window. **This is the SAME
+lesson as F8 (run_atr beat fixed ATR windows) and F10 (match horizon to phenomenon) — here it argues AGAINST a
+fixed window.** The run-reset machinery is load-bearing; it cannot be simplified to a trailing window without
+cost. **VERDICT: keep run_updn_ratio; production A+ stands.**

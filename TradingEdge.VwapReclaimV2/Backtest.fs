@@ -164,6 +164,7 @@ type Trip =
       EmaClimbPerLogAtr: float   // EmaClimb / log-ATR20  (alt `d` ÷ ROLLING-20m log-ATR — the other denominator)
       DistPerLogAtr15: float     // run_max_dist / rolling-15m log-ATR (alt d/atr denominator — window sweep)
       DistPerLogAtr30: float     // run_max_dist / rolling-30m log-ATR (alt d/atr denominator — window sweep)
+      Updn10: float; Updn15: float; Updn20: float; Updn25: float; Updn30: float  // trailing-window updn analogues
       CumVolToEntry: int64       // cumulative day volume through the entry bar
       PctChgSinceOpen: float     // entryPx / dayOpen - 1
       Close1d: float             // close-1-day-ago (adj) = PrevAdjClose
@@ -247,6 +248,8 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
               (if pos.AtrLog15AtEntry > 0.0 && not (Double.IsNaN pos.AtrLog15AtEntry) && not (Double.IsNaN pos.RunMaxDistAtEntry) then pos.RunMaxDistAtEntry / pos.AtrLog15AtEntry else nan)
           DistPerLogAtr30 =
               (if pos.AtrLog30AtEntry > 0.0 && not (Double.IsNaN pos.AtrLog30AtEntry) && not (Double.IsNaN pos.RunMaxDistAtEntry) then pos.RunMaxDistAtEntry / pos.AtrLog30AtEntry else nan)
+          Updn10 = pos.UpdnWAtEntry.[0]; Updn15 = pos.UpdnWAtEntry.[1]; Updn20 = pos.UpdnWAtEntry.[2]
+          Updn25 = pos.UpdnWAtEntry.[3]; Updn30 = pos.UpdnWAtEntry.[4]
           CumVolToEntry = pos.CumVolAtEntry
           PctChgSinceOpen = (if c.DayOpen > 0.0 then pos.EntryPx / c.DayOpen - 1.0 else nan)
           Close1d = c.PrevAdjClose
@@ -432,7 +435,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,entry_bar_open,prev_bar_close,chg_20m,run_low_at_entry,intraday_atr_pct_at_entry,intraday_tightness_at_entry,"
-    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,rvol20m_20d,rvol20m_15m,run_max_dist,run_atr,run_dist_per_atr,run_up_vol,run_dn_vol,run_updn_ratio,price_slope_20,vol_slope_20,slope_per_atr,ema_min_20,ema_climb,ema_climb_per_run_atr,ema_climb_per_log_atr,dist_per_log_atr15,dist_per_log_atr30,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
+    + "rvol,breakout_bar_vol,new_vol_high,vol_vs_high,run_below_vwap,stop_dist_pct,bar_rvol_15m,rvol20m_20d,rvol20m_15m,run_max_dist,run_atr,run_dist_per_atr,run_up_vol,run_dn_vol,run_updn_ratio,price_slope_20,vol_slope_20,slope_per_atr,ema_min_20,ema_climb,ema_climb_per_run_atr,ema_climb_per_log_atr,dist_per_log_atr15,dist_per_log_atr30,updn_10,updn_15,updn_20,updn_25,updn_30,cum_vol_to_entry,pct_chg_since_open,close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,med_bar_vol_0945,"
     + "qty,net_pnl,bars_held_min"
@@ -475,6 +478,7 @@ let private row (t: Trip) : string =
         fmt t.EmaClimbPerLogAtr
         fmt t.DistPerLogAtr15
         fmt t.DistPerLogAtr30
+        fmt t.Updn10; fmt t.Updn15; fmt t.Updn20; fmt t.Updn25; fmt t.Updn30
         string t.CumVolToEntry
         fmt t.PctChgSinceOpen
         fmt t.Close1d
