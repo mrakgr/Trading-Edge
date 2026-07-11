@@ -63,6 +63,7 @@ type IntradayPosition =
       LogAtr20AtEntry: float     // 20m mean log-true-range — the volatility feature
       Tightness20AtEntry: float  // (rangeHigh-rangeLow)/atrLin over the window — real range vs lethargic
       SlopePerAtrAtEntry: float  // PriceSlope20 / LogAtr20 (trend per unit volatility)
+      EmaLowAtEntry: float       // trailing-20m MIN 9-EMA (strictly-prior) — the ema_climb basis
       SumAbove6AtEntry: int      // # of the last 6 feature-bars that closed >= the 9-EMA (short push count)
       SumAbove40AtEntry: int     // # of the last 40 that closed above the EMA (trend-too-long cap input)
       SumAbove60AtEntry: int     // # of the last 60 that closed above the EMA
@@ -723,6 +724,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   LogAtr20AtEntry = (match sAtrLog with ValueSome a -> a | ValueNone -> nan)
                   Tightness20AtEntry = (match this.Tightness with ValueSome t -> t | ValueNone -> nan)
                   SlopePerAtrAtEntry = slopePerAtr
+                  EmaLowAtEntry = (match sEmaLow with ValueSome m -> m | ValueNone -> nan)
                   SumAbove6AtEntry = sSumAbove6
                   SumAbove40AtEntry = sSumAbove40
                   SumAbove60AtEntry = sSumAbove60

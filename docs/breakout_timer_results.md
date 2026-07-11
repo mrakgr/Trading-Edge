@@ -818,3 +818,34 @@ every year (2020 4.02, 2024 3.15 both peak at ⅔; 2026 falls off a cliff 1.63�
 regime year is rescued by a tighter stop (2022 nudges up to 2.71 at ¾ but everything else erodes). 2021 is FLAT
 (~1.6) across the sweep — the vol-stop is regime-neutral there. **⅔ kept as the vol-stop default** (when the
 vol-stop is used at all — recall it remains OFF in the settled default book, a scalp/half-out variant per F14/F17).
+
+## Finding 23 — ema_climb/atr ported from VwapReclaimV2 — REDUNDANT here (the breakout structure subsumes it; 66% of trips sit in one bucket)
+
+Ported `ema_climb/atr` from VwapReclaimV2 (`ema_climb = (9-EMA − 20m-min-9-EMA)/9-EMA`, fractional/scale-free;
+`/log_atr20`). BreakoutTimer already had `emaLow = MinMa(20)` (its EMA-stop floor) — reused it, snapshotted
+strictly-prior; recorded-only. A-book: 3458 trips / raw PF 2.01 / clip PF 1.41. New cols no-NaN. **ema_climb median
+= 0.013** (vs DipRiderV3 0.053, reclaim 0.005) — the breakout-timer enters right after a fresh 9-EMA session high
+post-drought, so the EMA is barely lifting; climb/atr median only 0.64 and **66% of trips (2267) fall in the
+lowest [−∞,1.5) bucket** — the feature barely varies.
+
+| climb/atr | n | rawPF | clipPF | avg% |
+|---|---:|---:|---:|---:|
+| [−∞,1.5) | 2267 | 2.05 | 1.40 | 4.6 |
+| [1.5,2.0) | 254 | 2.28 | 1.76 | 5.4 |
+| [2.0,2.5) | 201 | 2.00 | 1.45 | 4.9 |
+| [2.5,3.0) | 217 | 1.76 | 1.45 | 3.8 |
+| [3.0,3.5) | 198 | 2.56 | 1.51 | 7.7 |
+| [3.5,∞) | 321 | 1.44 | 1.17 | 2.2 |
+| **A-book (all)** | 3458 | 2.01 | 1.41 | 4.6 |
+
+**REDUNDANT.** Floor (`≥2.0/2.5/3.0`) mildly HURTS (clip 1.41→1.30–1.37); ceiling (`<2.5`) a trivial +0.03. The
+faint "less climb = better" tilt (best [1.5,2.0) clip 1.76, worst [3.5+) clip 1.17) is noise-level against a book
+where 66% of trips share one bucket. **Confirms F12 across both momentum systems: the breakout/momentum STRUCTURE
+already subsumes the volatility-quality ema_climb/atr measures — it adds nothing.** VERDICT: do NOT gate on
+ema_climb/atr.
+
+**Cross-system conclusion (VwapReclaimV2 F9 / DipRiderV3 F30 / this):** ema_climb/atr is STRONGLY additive ONLY in
+VwapReclaimV2 (PF 4.42→5.13), where the reclaim's few gates leave headroom AND the entry is at the EMA-cross (low
+climb, real spread to exploit). In the two MOMENTUM systems it's redundant — they enter with the EMA already
+lifted (DRV3 median 0.053) or their structure/gates already capture the volatility quality (BT). The feature's
+value is REGIME-SPECIFIC: it works for mean-reversion reclaims, not momentum-continuation.

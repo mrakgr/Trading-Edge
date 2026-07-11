@@ -152,6 +152,8 @@ type Trip =
       LogAtr20: float            // 20m mean log-true-range — the volatility feature (high-ATR trades momentum better)
       Tightness20: float         // (rangeHigh-rangeLow)/atrLin over the window — real range vs lethargic
       SlopePerAtr: float         // PriceSlope20 / LogAtr20 (trend per unit volatility) — recorded, gated after breakdown
+      EmaClimb: float            // (ema - emaLow20)/ema — fractional climb of the 9-EMA off its trailing-20m min (recorded)
+      EmaClimbPerAtr: float      // EmaClimb / LogAtr20 — climb per unit log-volatility (recorded)
       SumAbove6: int             // # of the last 6 bars that closed >= the 9-EMA (the short push count; SumMa)
       SumAbove40: int            // # of the last 40 closed above the EMA (trend-too-long cap input)
       SumAbove60: int            // # of the last 60 closed above the EMA
@@ -227,6 +229,17 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           LogAtr20 = pos.LogAtr20AtEntry
           Tightness20 = pos.Tightness20AtEntry
           SlopePerAtr = pos.SlopePerAtrAtEntry
+          EmaClimb =
+              (let e = pos.EmaAtEntry
+               let m = pos.EmaLowAtEntry
+               if e > 0.0 && not (Double.IsNaN e) && not (Double.IsNaN m) then (e - m) / e else nan)
+          EmaClimbPerAtr =
+              (let climb =
+                   let e = pos.EmaAtEntry
+                   let m = pos.EmaLowAtEntry
+                   if e > 0.0 && not (Double.IsNaN e) && not (Double.IsNaN m) then (e - m) / e else nan
+               let a = pos.LogAtr20AtEntry
+               if a > 0.0 && not (Double.IsNaN a) && not (Double.IsNaN climb) then climb / a else nan)
           SumAbove6 = pos.SumAbove6AtEntry
           SumAbove40 = pos.SumAbove40AtEntry
           SumAbove60 = pos.SumAbove60AtEntry
@@ -519,7 +532,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,stop_dist_pct,"
-    + "price_slope_20,vol_slope_20,log_atr_20,tightness_20,slope_per_atr,sum_above_6,sum_above_40,sum_above_60,ema_vwap_30,ema_vwap_60,trail_vol_20m,sess_max_vol_20,sess_min_vol_20,vol20_vs_sessmax,ema_at_entry,sess_max_ema,breakout_timer,bars_since_ema_high,pb_updn,pb_max_dist,pb_atr_pct,ema_vs_sessmax,ema_vs_max_ema,"
+    + "price_slope_20,vol_slope_20,log_atr_20,tightness_20,slope_per_atr,ema_climb,ema_climb_per_atr,sum_above_6,sum_above_40,sum_above_60,ema_vwap_30,ema_vwap_60,trail_vol_20m,sess_max_vol_20,sess_min_vol_20,vol20_vs_sessmax,ema_at_entry,sess_max_ema,breakout_timer,bars_since_ema_high,pb_updn,pb_max_dist,pb_atr_pct,ema_vs_sessmax,ema_vs_max_ema,"
     + "sess_max_log_atr,sess_min_close,sess_max_close,sess_max_vol,vwap_at_entry,entry_vs_vwap,init_vol_15m,trail_vol_5m,rvol_5m_15m,rvol_5m_20d,"
     + "entry_vs_sess_high,chg_20m,rvol,mkt_chg_open,mkt_chg_prev,cum_vol_to_entry,pct_chg_since_open,"
     + "close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
@@ -541,6 +554,8 @@ let private row (t: Trip) : string =
         fmt t.LogAtr20
         fmt t.Tightness20
         fmt t.SlopePerAtr
+        fmt t.EmaClimb
+        fmt t.EmaClimbPerAtr
         string t.SumAbove6
         string t.SumAbove40
         string t.SumAbove60
