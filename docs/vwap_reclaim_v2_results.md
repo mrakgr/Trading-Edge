@@ -263,3 +263,27 @@ Higher PF and avg at fewer trips. Beyond the marginal PF bump, the rolling-20m l
 `slope/atr` already uses AND that DipRiderV3/BreakoutTimer use — switching makes `d/atr` coherent across all
 features/systems (drops the bespoke run-reset `run_atr` accumulator). **Candidate: redefine V2 `d/atr` =
 `run_max_dist / log_atr` (rolling), ceiling ~2.5.** Open: yearly stability of the log-ATR variant vs pullback.
+
+## Finding 7 — CORRECTION to F6(2): the rolling-log-ATR d/atr does NOT beat the pullback run_atr — the "win" was a BREADTH ILLUSION
+
+F6 claimed `run_max_dist/log_atr < 2.5` (PF 4.65) beat the incumbent `run_max_dist/run_atr < 3` (PF 4.42). But
+that compared 156 trips to 235 — better PF at 33% fewer trips is not a win, it's just a tighter cut. Dialed out
+to MATCHED breadth:
+
+| book | n | win% | PF | avg% | net$ |
+|---|---:|---:|---:|---:|---:|
+| **INCUMBENT `run_max_dist/run_atr < 3` (pullback)** | 235 | 50.6 | **4.42** | 20.4 | 480k |
+| `run_max_dist/log_atr < 2.5` (rolling) | 156 | 49.4 | 4.65 | 22.4 | 350k |
+| `run_max_dist/log_atr < 3.0` (rolling) | 231 | 49.8 | 3.87 | 17.9 | 413k |
+| `run_max_dist/log_atr < 3.25` (rolling) | 253 | 49.0 | 3.93 | 18.1 | 458k |
+
+**At matched trips (~231–235) the pullback ATR WINS by ~0.5 PF and ~$67k net** (4.42 vs 3.87). The rolling
+log-ATR only looked better because it cut harder. **F6(2) is RETRACTED — keep the pullback `run_atr` in d/atr.**
+
+**Mechanism:** `run_atr` is the RUN'S OWN realized volatility (the pullback that just happened), so
+`run_max_dist / run_atr` asks "how deep was this dip relative to how volatile THIS dip was." The rolling-20m
+log-ATR is a generic, slower volatility estimate that doesn't track the run's own character. For a
+depth-of-THIS-run measure, the run's own ATR is the more natural — and empirically better — denominator. (The
+coherence argument for log-ATR still stands for `slope/atr`, which has no run-scoped analogue — but d/atr keeps
+`run_atr`.) Net of F6+F7: neither the EMA-climb depth nor the rolling ATR improves `d/atr`; the incumbent
+`run_max_dist / run_atr` stands.
