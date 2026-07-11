@@ -308,3 +308,39 @@ cut (`<2.25`, n=138) reaches PF 4.38, but only by dropping 40% of trips (the sam
 volatility baseline — but it's still a GENERIC estimate, not the run's OWN realized vol. `run_atr` is scoped to
 THIS specific dip, which is the right normalizer for a depth-of-this-run measure. **VERDICT: d/atr keeps the
 pullback `run_atr`. The rolling-ATR window sweep (15/20/30) confirms F7 — none is a real improvement.**
+
+## Finding 9 — ⭐ ema_climb/atr is a BETTER quality feature than slope/atr, and it STACKS with d/atr (4.42→5.13). (As a QUALITY gate it works; as a DEPTH replacement it failed in F6.)
+
+Repeated the ema_climb experiment but as a QUALITY feature (keep `run_max_dist≥3.5%` as the depth as usual), head
+-to-head vs `slope/atr`. Base = `updn≥1.3 & rvol15m<2 & run_max_dist≥3.5%` (n=409, PF 3.35, tightness off).
+
+**slope/atr vs ema_climb/atr — ema_climb wins at every matched breadth:**
+
+| feature | n | PF | avg% | | feature | n | PF | avg% |
+|---|---:|---:|---:|---|---|---:|---:|---:|
+| slope/atr<0.10 | 130 | 5.33 | 21.4 | | ema_climb/run_atr<1.5 | 114 | **6.03** | 25.3 |
+| slope/atr<0.18 | 263 | 3.96 | 17.0 | | ema_climb/run_atr<2.5 | 281 | **4.02** | 17.4 |
+| slope/atr<0.20 | 292 | 3.70 | 15.9 | | ema_climb/log_atr<2.5 | 262 | **4.36** | 19.0 |
+
+Highly correlated (corr slope/atr ↔ ema_climb/run_atr = 0.81 — same "reclaim speed per unit vol" idea), but
+ema_climb does it better ⇒ **slope/atr is likely REDUNDANT once ema_climb/atr is in.**
+
+**ema_climb/atr STACKS with the incumbent d/atr (not redundant — corr 0.68):**
+
+| book | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| INCUMBENT `d/atr<3` | 235 | 50.6 | 4.42 | 20.4 |
+| `ema_climb/run_atr<2.5` alone | 281 | 48.4 | 4.02 | 17.4 |
+| **`d/atr<3 & ema_climb/log_atr<2.5`** | 210 | 53.3 | **5.13** | 22.9 |
+| **`d/atr<3 & ema_climb/run_atr<2.0`** | 172 | 53.5 | 5.07 | 22.9 |
+
+**The reframe vs F6:** as a DEPTH measure (replacing run_max_dist) ema_climb FAILED — the VWAP reference is
+load-bearing (F6). But as a QUALITY/SPEED gate on top of the run-distance floor it's the best feature found —
+"how far the EMA lifted off its recent floor per unit vol" = a cleaner speed-of-reclaim axis than the OLS slope,
+consistent with the F3/F5 speed-cap (slower reclaims win, so a ceiling).
+
+**⚠ CAVEAT (learned from F6/F7): the PF-6 cell is THIN & LUMPY.** Yearly of `ema_climb/run_atr<1.5` (n=114):
+2020 PF 30.8 (n=9, +82% avg), 2023 PF 16.5 (n=7) — two low-n monster years inflate it; 2021/2024/2025 are
+3.66/2.05/3.75. **The trustworthy number is the STACKED ~210-trip cell (PF 5.13), broader and still clearly >
+4.42.** NEXT: yearly stability of the stacked cell; then decide whether ema_climb/atr REPLACES slope/atr (corr
+0.81) in the V2 A+ = `updn≥1.3 & run_max_dist≥3.5% & rvol15m<2 & d/atr<3 & ema_climb/log_atr<2.5`.
