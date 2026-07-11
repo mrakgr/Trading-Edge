@@ -1070,3 +1070,14 @@ FLOOR — volume expansion is a real momentum-quality signal the existing gates 
 **VERDICT: strong candidate to REPLACE vol_slope with `vol_climb ≥ 0.6` as the DRV3 volume gate.** Next: promote to
 an engine gate (needs a --min-vol-climb flag + confirm at max-conc 1, gate≠post-hoc), and test an optional
 vol_climb ceiling for the [0.9+) dip.
+
+## Finding 33 — trailing-window updn (10–30m) is NOT a lever in DipRiderV3 — noisy/non-monotone, no window helps
+
+Ported the fixed-window updn (up/down volume split by 9-EMA side, over 10/15/20/25/30m) from VwapReclaimV2
+(recorded-only; 1150 trips / PF 2.637 unchanged). Momentum names skew heavily above-EMA (updn_10 median 6.4,
+updn_20 2.2) — the feature barely discriminates. Buckets zigzag (updn_20: [1.0,1.5) clip 1.85 → [1.5,2.0) 2.15 →
+[2.0,3.0) 1.49 → [3.0,5.0) 2.48) — non-monotone. FLOOR sweep across ALL windows hovers at the 1.77 baseline
+(best updn_15≥3.0 = 1.88 at half breadth, noise). **No window/threshold is a clean lever. VERDICT: updn does not
+help DipRiderV3 — its structure + sum6/chg1d already capture volume conviction; the volume signal that DID work
+here is vol_climb (F32), not updn.** (Same null result as VwapReclaim F12, different reason: there run-scoped updn
+was the strong form; here momentum's above-EMA skew flattens it.)

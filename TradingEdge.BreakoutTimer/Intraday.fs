@@ -94,6 +94,7 @@ type IntradayPosition =
       CumVolAtEntry: int64        // cumulative day volume THROUGH the entry bar (rvol numerator; recorded)
       MktChgOpenAtEntry: float    // reference index (SPY) %-change from SESSION OPEN, at the entry minute
       MktChgPrevAtEntry: float    // reference index (SPY) %-change from PREV DAILY CLOSE, at the entry minute
+      UpdnWAtEntry: float[]       // trailing-window updn ratios [10;15;20;25;30] (recorded-only, ported from VwapReclaimV2)
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// Intraday engine config — DipRiderV3 (pure trailing-window momentum).
@@ -240,6 +241,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     // signal (distinct from the VwapReclaim cross logic: this is a windowed COUNT, not a cross event).
     let emaVwap30 = SumMa(30)
     let emaVwap60 = SumMa(60)
+    // TRAILING-WINDOW up/down-volume split (RECORDED-ONLY, ported from VwapReclaimV2). Per window W: mean per-bar
+    // volume of ABOVE-9EMA (Up) bars vs BELOW-9EMA (Down) bars over the last W bars, classified against the
+    // strictly-prior EMA (same as the above6 indicator). Four SumMa per window (up-vol, up-count, dn-vol,
+    // dn-count); ratio (upV/upN)/(dnV/dnN) derived at entry.
+    let updnWindows = [| 10; 15; 20; 25; 30 |]
+    let upVolW   = updnWindows |> Array.map SumMa
+    let upNW     = updnWindows |> Array.map SumMa
+    let dnVolW   = updnWindows |> Array.map SumMa
+    let dnNW     = updnWindows |> Array.map SumMa
     // trailing-window OLS slopes (fixed VolWindow bars, fed every VALID feature-bar). Log-close = trend slope,
     // log-volume = the volume-trend slope (the F14 lever). Both pushed TOGETHER only when both logs are valid,
     // so they stay on the identical push-index x-axis (directly comparable).
@@ -315,6 +325,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sEmaPrev      : float voption = ValueNone   // the 9-EMA going INTO this bar (for the closes-above indicator)
     let mutable sPriceSlope   : float = nan
     let mutable sVolSlope     : float = nan
+    let sUpdnW = Array.create 5 nan             // strictly-prior trailing-window updn ratios [10;15;20;25;30] (recorded-only)
     let mutable sSumAbove6    : int = 0
     let mutable sSumAbove40   : int = 0
     let mutable sSumAbove60   : int = 0
@@ -460,6 +471,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sEmaPrev       <- ema.State
         sPriceSlope    <- (match priceOls.Slope with ValueSome s -> s | ValueNone -> nan)
         sVolSlope      <- (match volOls.Slope   with ValueSome s -> s | ValueNone -> nan)
+        for i in 0 .. 4 do
+            let upV = match upVolW.[i].State with ValueSome s -> s | ValueNone -> 0.0
+            let upN = match upNW.[i].State   with ValueSome s -> s | ValueNone -> 0.0
+            let dnV = match dnVolW.[i].State with ValueSome s -> s | ValueNone -> 0.0
+            let dnN = match dnNW.[i].State   with ValueSome s -> s | ValueNone -> 0.0
+            sUpdnW.[i] <- if upN > 0.0 && dnN > 0.0 && dnV > 0.0 then (upV / upN) / (dnV / dnN) else nan
         sSumAbove6     <- (match above6.State  with ValueSome v -> int v | ValueNone -> 0)
         sSumAbove40    <- (match above40.State with ValueSome v -> int v | ValueNone -> 0)
         sSumAbove60    <- (match above60.State with ValueSome v -> int v | ValueNone -> 0)
@@ -520,6 +537,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             // closes-above-9EMA indicator, vs the STRICTLY-PRIOR EMA (sEmaPrev). Push 1/0 into the SumMa windows.
             let aboveInd = match sEmaPrev with ValueSome e -> (if bar.close >= e then 1.0 else 0.0) | ValueNone -> 0.0
             above6.Push aboveInd; above40.Push aboveInd; above60.Push aboveInd
+            // trailing-window updn split (RECORDED-ONLY): classify this bar by close vs STRICTLY-PRIOR EMA using
+            // STRICT >/< (matches VwapReclaimV2's updn semantics; a bar == e goes to neither). Push into all windows.
+            let upV, upN, dnV, dnN =
+                match sEmaPrev with
+                | ValueSome e ->
+                    if bar.close > e then float bar.volume, 1.0, 0.0, 0.0
+                    elif bar.close < e then 0.0, 0.0, float bar.volume, 1.0
+                    else 0.0, 0.0, 0.0, 0.0
+                | ValueNone -> 0.0, 0.0, 0.0, 0.0
+            for i in 0 .. updnWindows.Length - 1 do
+                upVolW.[i].Push upV; upNW.[i].Push upN; dnVolW.[i].Push dnV; dnNW.[i].Push dnN
             // "was the 9-EMA above the session VWAP this bar?" — strictly-prior EMA vs strictly-prior VWAP
             // (sEmaPrev / sVwapNow, both snapshotted at the top before this bar folds). 0 if either undefined.
             let emaVwapInd =
@@ -752,6 +780,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   CumVolAtEntry = cumVol
                   MktChgOpenAtEntry = this.MktChgOpen bar.etMin
                   MktChgPrevAtEntry = this.MktChgPrev bar.etMin
+                  UpdnWAtEntry = Array.copy sUpdnW
                   State = Holding }
 
     /// Flatten any still-open positions at the last folded bar's close (MOC / hold-to-close).

@@ -867,3 +867,14 @@ Clip PF erodes as the floor rises (1.44 @≥1.5 → 1.30 @≥3.0 → **0.98 @≥
 NUANCE: win RATE rises with the floor (38%→45%) while PF FALLS — high-climb trades win slightly more often but
 their winners are SMALLER (avg% collapses 4.6→1.2). More climb = more exhausted = capped upside — a mild version
 of the reclaim's "too-fast fade," surfacing as clipped-away tails. **A FLOOR is strictly counterproductive here.**
+
+## Finding 24 — trailing-window updn (10–30m) is NOT a lever in BreakoutTimer — mildly COUNTERPRODUCTIVE (low-updn is better; a floor DEGRADES clip PF)
+
+Ported fixed-window updn from VwapReclaimV2 (recorded-only; 3458 trips / PF 2.01 unchanged). Median updn ~1.3
+across windows (flat). **The edge INVERTS vs the reclaim: the LOWEST updn bucket is the BEST** (updn_20 [−∞,1.0)
+clip 1.64 vs the 1.41 baseline; [1.5,2.0) sags to 1.25). Every FLOOR across every window DEGRADES clip PF (1.41 →
+1.28–1.39). MECHANISM: a breakout-timer entry fires right after a fresh 9-EMA session high — "volume already
+piled above the EMA" (high updn) means the move began WITHOUT you (late entry); balanced volume = earlier. But the
+effect is weak. **VERDICT: updn does not help BreakoutTimer (a mild low-updn tilt exists but isn't worth a gate).**
+Cross-system: trailing-window updn is a null-to-weak feature in BOTH momentum systems (DRV3 F33) and the reclaim
+(VwapReclaim F12); only VwapReclaim's RUN-scoped updn was ever a strong lever.
