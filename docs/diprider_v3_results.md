@@ -1014,3 +1014,59 @@ every regime; it's just that in the reclaim the entry sits low on the climb (big
 enters higher (only the far tail is exploitable). **REVISED VERDICT: ADD `ema_climb_per_atr < 4.0` as a DipRiderV3
 ceiling gate — cheap, stable, real. (BreakoutTimer F23 ceiling test = flat 1.41→1.44; its structure already avoids
 the tail, so no gate there.)** Open: promote to an engine gate + confirm at max-conc 1 (gate≠post-hoc).
+
+## Finding 32 — ⭐⭐ vol_climb (the VOLUME analogue of ema_climb) BEATS vol_slope as the volume gate — better PF, MORE net, and it FIXES 2021
+
+Built `vol_climb = (volEma − volEmaMin)/volEma` — the volume analogue of ema_climb: a 9-EMA of raw volume, its
+20m trailing min, fractional climb off that floor (recorded-only, no gate change). Tested whether it can REPLACE
+`vol_slope ∈ [0.05,0.25)` (the incumbent A-book volume gate). Ran DipRiderV3 with vol-slope OFF (`--min-vol-slope
+-100 --max-vol-slope 1e6`) → 2111 trips / raw PF 2.18 (vs 1150/2.64 with the gate on) as the test base. vol_climb
+median 0.35 (p10 0 / p90 0.76), no NaN. corr(vol_slope, vol_climb) = 0.83 — closely related (both "rising volume"),
+so this is a REPLACEMENT (better expression of the same signal), not an additive stack.
+
+**vol_climb buckets — a clean MONOTONE floor edge (higher climb = better), unlike ema_climb's ceiling:**
+
+| vol_climb | n | rawPF | clipPF | avg% |
+|---|---:|---:|---:|---:|
+| [0.2,0.4) | 497 | 1.74 | 1.24 | 4.1 |
+| [0.4,0.6) | 455 | 2.20 | 1.40 | 6.4 |
+| [0.6,0.8) | 334 | 2.93 | 2.02 | 9.1 |
+| [0.8,0.9) | 106 | 3.60 | 2.47 | 11.4 |
+| [0.9,∞) | 41 | 2.75 | 1.59 | 9.7 |
+
+**Head-to-head (matched breadth, vol-slope-off base):**
+
+| gate | n | rawPF | clipPF | avg% | net$ |
+|---|---:|---:|---:|---:|---:|
+| INCUMBENT `vol_slope ∈ [0.05,0.25)` | 428 | 2.29 | 1.70 | 6.3 | 271,668 |
+| **`vol_climb ≥ 0.6`** | 481 | **3.05** | **2.07** | 9.7 | **465,752** |
+| `vol_climb ≥ 0.5` | 704 | 2.76 | 1.94 | 8.5 | 597,147 |
+
+At ~matched breadth (481 vs 428) `vol_climb≥0.6` beats vol_slope on EVERY axis: clip PF 2.07 vs 1.70, and **1.7×
+the net** ($466k vs $272k).
+
+**⭐ YEARLY — vol_climb≥0.6 wins EVERY year, and FIXES the 2021 problem regime:**
+
+| year | vol_slope clipPF | vol_climb clipPF |
+|---|---:|---:|
+| 2020 | 1.30 | 1.34 |
+| **2021** | **1.07** | **1.42** |
+| 2022 | 2.24 | 2.55 |
+| 2023 | 5.67 | 6.70 |
+| 2024 | 2.32 | 3.25 |
+| 2025 | 1.85 | 2.25 |
+| 2026 | 2.12 | 2.77 |
+
+**2021 — DRV3's chronic regime-inversion weak year (the "6 features invert" LAW) — improves the MOST (1.07→1.42).**
+vol_climb isn't just better on average; it's MORE ROBUST in the adverse regime, with higher breadth every year.
+
+**MECHANISM:** vol_slope is the RATE of log-volume rise (an OLS slope over 20m); vol_climb is the LEVEL of volume
+vs its recent floor (climb off the 20m-min of the volume-EMA). The level framing is a cleaner "we are entering
+into a genuine volume expansion" signal than the noisy slope — and it doesn't have vol_slope's blow-off failure
+mode (vol_climb's top bucket dips only mildly, [0.9+) clip 1.59, hinting at an optional mild ceiling). Contrast
+ema_climb (F30/F31): the PRICE climb was redundant/weak-ceiling in momentum, but the VOLUME climb is a strong
+FLOOR — volume expansion is a real momentum-quality signal the existing gates did NOT fully capture.
+
+**VERDICT: strong candidate to REPLACE vol_slope with `vol_climb ≥ 0.6` as the DRV3 volume gate.** Next: promote to
+an engine gate (needs a --min-vol-climb flag + confirm at max-conc 1, gate≠post-hoc), and test an optional
+vol_climb ceiling for the [0.9+) dip.

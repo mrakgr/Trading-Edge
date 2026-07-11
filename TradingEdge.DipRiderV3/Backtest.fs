@@ -133,6 +133,7 @@ type Trip =
       SlopePerAtr: float         // PriceSlope20 / LogAtr20 (trend per unit volatility) — recorded, gated after breakdown
       EmaClimb: float            // (ema - emaMin)/ema over the trailing 20m — fractional 9-EMA climb off its window min (recorded)
       EmaClimbPerAtr: float      // EmaClimb / LogAtr20 (climb per unit volatility) — recorded
+      VolClimb: float            // (volEma - volEmaMin)/volEma — the VOLUME analogue of ema_climb (fractional; recorded)
       SumAbove6: int             // # of the last 6 bars that closed >= the 9-EMA (the short push count; SumMa)
       SumAbove40: int            // # of the last 40 closed above the EMA (trend-too-long cap input)
       SumAbove60: int            // # of the last 60 closed above the EMA
@@ -145,6 +146,7 @@ type Trip =
       SessMaxEma: float          // session max 9-EMA
       EmaVsSessMax: float        // entry px / session-max-9EMA - 1 (how far below the session's peak 9-EMA the entry sits)
       EmaVsMaxEma: float         // current 9-EMA / session-max-9EMA - 1 (how far the 9-EMA ITSELF pulled back from its peak; <=0)
+      Updn10: float; Updn15: float; Updn20: float; Updn25: float; Updn30: float  // trailing-window updn analogues (recorded-only)
       SessMaxLogAtr: float       // session-cumulative MAX of the 20m log-ATR (past volatility explosions)
       SessMinClose: float        // session MIN close (from 08:30) — the geometry-stop floor candidate / context
       SessMaxClose: float        // session MAX close (from 08:30)
@@ -212,6 +214,10 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
                     if e > 0.0 && not (Double.IsNaN e) && not (Double.IsNaN m) then (e - m) / e else nan)
                let a = pos.LogAtr20AtEntry
                if a > 0.0 && not (Double.IsNaN a) && not (Double.IsNaN climb) then climb / a else nan)
+          VolClimb =
+              (let v = pos.VolEmaAtEntry
+               let m = pos.VolEmaMinAtEntry
+               if v > 0.0 && not (Double.IsNaN v) && not (Double.IsNaN m) then (v - m) / v else nan)
           SumAbove6 = pos.SumAbove6AtEntry
           SumAbove40 = pos.SumAbove40AtEntry
           SumAbove60 = pos.SumAbove60AtEntry
@@ -230,6 +236,8 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
           EmaVsMaxEma =
               (if pos.SessMaxEmaAtEntry > 0.0 && not (Double.IsNaN pos.SessMaxEmaAtEntry) && not (Double.IsNaN pos.EmaAtEntry)
                then pos.EmaAtEntry / pos.SessMaxEmaAtEntry - 1.0 else nan)
+          Updn10 = pos.UpdnWAtEntry.[0]; Updn15 = pos.UpdnWAtEntry.[1]; Updn20 = pos.UpdnWAtEntry.[2]
+          Updn25 = pos.UpdnWAtEntry.[3]; Updn30 = pos.UpdnWAtEntry.[4]
           SessMaxLogAtr = pos.SessMaxLogAtrAtEntry
           SessMinClose = pos.SessMinCloseAtEntry
           SessMaxClose = pos.SessMaxCloseAtEntry
@@ -498,7 +506,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,stop_dist_pct,"
-    + "price_slope_20,vol_slope_20,log_atr_20,tightness_20,slope_per_atr,ema_climb,ema_climb_per_atr,sum_above_6,sum_above_40,sum_above_60,ema_vwap_30,ema_vwap_60,trail_vol_20m,sess_max_vol_20,vol20_vs_sessmax,ema_at_entry,sess_max_ema,ema_vs_sessmax,ema_vs_max_ema,"
+    + "price_slope_20,vol_slope_20,log_atr_20,tightness_20,slope_per_atr,ema_climb,ema_climb_per_atr,vol_climb,sum_above_6,sum_above_40,sum_above_60,ema_vwap_30,ema_vwap_60,trail_vol_20m,sess_max_vol_20,vol20_vs_sessmax,ema_at_entry,sess_max_ema,ema_vs_sessmax,ema_vs_max_ema,updn_10,updn_15,updn_20,updn_25,updn_30,"
     + "sess_max_log_atr,sess_min_close,sess_max_close,sess_max_vol,vwap_at_entry,entry_vs_vwap,init_vol_15m,trail_vol_5m,rvol_5m_15m,rvol_5m_20d,"
     + "entry_vs_sess_high,chg_20m,rvol,mkt_chg_open,mkt_chg_prev,cum_vol_to_entry,pct_chg_since_open,"
     + "close_1d,close_3d,close_7d,chg_1d,chg_3d,chg_7d,"
@@ -522,6 +530,7 @@ let private row (t: Trip) : string =
         fmt t.SlopePerAtr
         fmt t.EmaClimb
         fmt t.EmaClimbPerAtr
+        fmt t.VolClimb
         string t.SumAbove6
         string t.SumAbove40
         string t.SumAbove60
@@ -534,6 +543,7 @@ let private row (t: Trip) : string =
         fmt t.SessMaxEma
         fmt t.EmaVsSessMax
         fmt t.EmaVsMaxEma
+        fmt t.Updn10; fmt t.Updn15; fmt t.Updn20; fmt t.Updn25; fmt t.Updn30
         fmt t.SessMaxLogAtr
         fmt t.SessMinClose
         fmt t.SessMaxClose

@@ -72,7 +72,10 @@ type IntradayPosition =
       SessMaxVol20AtEntry: float // session PEAK trailing-20 volume sum (are we entering at the volume climax or a lull?)
       EmaAtEntry: float          // the CURRENT-bar 9-EMA at entry (strictly-prior)
       EmaMinAtEntry: float       // the 20m trailing MIN of the 9-EMA at entry (ema_climb base; strictly-prior)
+      VolEmaAtEntry: float       // the volume-9-EMA at entry (vol_climb numerator; strictly-prior)
+      VolEmaMinAtEntry: float    // the 20m trailing MIN of the volume-9-EMA at entry (vol_climb base; strictly-prior)
       SessMaxEmaAtEntry: float   // session MAX 9-EMA (how far the 9-EMA has pulled back from its session peak)
+      UpdnWAtEntry: float[]       // trailing-window updn ratios [10;15;20;25;30] (fixed-window updn analogue; recorded-only)
       SessMaxLogAtrAtEntry: float // session-cumulative MAX of the 20m log-ATR so far (past vol explosions)
       SessMinCloseAtEntry: float  // session MIN close (from 08:30) — geometry-stop floor candidate / context
       SessMaxCloseAtEntry: float  // session MAX close (from 08:30)
@@ -180,11 +183,22 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let closeLow  = MinMa(cfg.VolWindow)        // the 20m MIN CLOSE — the geometry-stop floor (StopFloorSessMin=false)
     let ema       = EmaMa(cfg.EmaPeriod)        // the 9-EMA (closes-above-EMA reference)
     let emaMin    = MinMa(cfg.VolWindow)        // the 20m trailing MIN of the 9-EMA — the ema_climb feature denominator base
+    let volEma    = EmaMa(cfg.EmaPeriod)        // 9-EMA of raw 1m VOLUME — the volume analogue of the price 9-EMA
+    let volEmaMin = MinMa(cfg.VolWindow)        // 20m trailing MIN of the volume-9-EMA — the vol_climb base (mirrors emaMin)
     // SumMa of the 0/1 "did this bar close >= the strictly-prior 9-EMA?" indicator, over 6/40/60 feature-bars.
     // The reset-free replacement for V2's above-EMA run length. Short window = the push; long windows = the cap.
     let above6    = SumMa(6)
     let above40   = SumMa(40)
     let above60   = SumMa(60)
+    // TRAILING-WINDOW up/down-volume split (ported from VwapReclaimV2). Per window W: mean per-bar volume of
+    // ABOVE-9EMA (Up) bars vs BELOW-9EMA (Down) bars over the last W feature-bars. Classification uses the
+    // strictly-prior EMA (sEmaPrev), STRICT >/<. Four SumMa per window (up-vol, up-count, dn-vol, dn-count);
+    // ratio (upV/upN)/(dnV/dnN) derived at entry. RECORDED-ONLY (no entry/exit use).
+    let updnWindows = [| 10; 15; 20; 25; 30 |]
+    let upVolW   = updnWindows |> Array.map SumMa
+    let upNW     = updnWindows |> Array.map SumMa
+    let dnVolW   = updnWindows |> Array.map SumMa
+    let dnNW     = updnWindows |> Array.map SumMa
     // SumMa of the 0/1 "was the 9-EMA above the session VWAP this bar?" indicator, over 30/60 feature-bars.
     // How PERSISTENTLY the fast trend has held above VWAP through the session — a genuine above-VWAP uptrend
     // signal (distinct from the VwapReclaim cross logic: this is a windowed COUNT, not a cross event).
@@ -242,11 +256,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sCloseLow     : float voption = ValueNone   // the 20m min close going INTO this bar (the geom-stop floor)
     let mutable sEmaPrev      : float voption = ValueNone   // the 9-EMA going INTO this bar (for the closes-above indicator)
     let mutable sEmaMin       : float voption = ValueNone   // the 20m trailing MIN of the 9-EMA going INTO this bar (ema_climb base)
+    let mutable sVolEma       : float voption = ValueNone   // the volume-9-EMA going INTO this bar (vol_climb numerator)
+    let mutable sVolEmaMin    : float voption = ValueNone   // the 20m trailing MIN of the volume-9-EMA (vol_climb base)
     let mutable sPriceSlope   : float = nan
     let mutable sVolSlope     : float = nan
     let mutable sSumAbove6    : int = 0
     let mutable sSumAbove40   : int = 0
     let mutable sSumAbove60   : int = 0
+    let sUpdnW = Array.create 5 nan             // strictly-prior trailing-window updn ratios [10;15;20;25;30] (recorded-only)
     let mutable sEmaVwap30    : int = 0    // # of last 30 bars the 9-EMA was above the session VWAP (into this bar)
     let mutable sEmaVwap60    : int = 0
     let mutable sSessMaxLogAtr : float = nan
@@ -372,11 +389,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sCloseLow      <- closeLow.State
         sEmaPrev       <- ema.State
         sEmaMin        <- emaMin.State
+        sVolEma        <- volEma.State
+        sVolEmaMin     <- volEmaMin.State
         sPriceSlope    <- (match priceOls.Slope with ValueSome s -> s | ValueNone -> nan)
         sVolSlope      <- (match volOls.Slope   with ValueSome s -> s | ValueNone -> nan)
         sSumAbove6     <- (match above6.State  with ValueSome v -> int v | ValueNone -> 0)
         sSumAbove40    <- (match above40.State with ValueSome v -> int v | ValueNone -> 0)
         sSumAbove60    <- (match above60.State with ValueSome v -> int v | ValueNone -> 0)
+        for i in 0 .. 4 do
+            let upV = match upVolW.[i].State with ValueSome s -> s | ValueNone -> 0.0
+            let upN = match upNW.[i].State   with ValueSome s -> s | ValueNone -> 0.0
+            let dnV = match dnVolW.[i].State with ValueSome s -> s | ValueNone -> 0.0
+            let dnN = match dnNW.[i].State   with ValueSome s -> s | ValueNone -> 0.0
+            sUpdnW.[i] <- if upN > 0.0 && dnN > 0.0 && dnV > 0.0 then (upV / upN) / (dnV / dnN) else nan
         sEmaVwap30     <- (match emaVwap30.State with ValueSome v -> int v | ValueNone -> 0)
         sEmaVwap60     <- (match emaVwap60.State with ValueSome v -> int v | ValueNone -> 0)
         sSessMaxLogAtr <- sessMaxLogAtr
@@ -428,6 +453,18 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             // closes-above-9EMA indicator, vs the STRICTLY-PRIOR EMA (sEmaPrev). Push 1/0 into the SumMa windows.
             let aboveInd = match sEmaPrev with ValueSome e -> (if bar.close >= e then 1.0 else 0.0) | ValueNone -> 0.0
             above6.Push aboveInd; above40.Push aboveInd; above60.Push aboveInd
+            // trailing-window updn split (recorded-only). Classify this bar by close vs the STRICTLY-PRIOR EMA,
+            // STRICT >/< (match VwapReclaimV2 updn semantics). Push 0 for the inactive side so all four SumMa
+            // slide in lockstep; a bar == EMA (or EMA undefined) goes to neither.
+            let upV, upN, dnV, dnN =
+                match sEmaPrev with
+                | ValueSome e ->
+                    if bar.close > e then float bar.volume, 1.0, 0.0, 0.0
+                    elif bar.close < e then 0.0, 0.0, float bar.volume, 1.0
+                    else 0.0, 0.0, 0.0, 0.0
+                | ValueNone -> 0.0, 0.0, 0.0, 0.0
+            for i in 0 .. updnWindows.Length - 1 do
+                upVolW.[i].Push upV; upNW.[i].Push upN; dnVolW.[i].Push dnV; dnNW.[i].Push dnN
             // "was the 9-EMA above the session VWAP this bar?" — strictly-prior EMA vs strictly-prior VWAP
             // (sEmaPrev / sVwapNow, both snapshotted at the top before this bar folds). 0 if either undefined.
             let emaVwapInd =
@@ -452,6 +489,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             ema.Push bar.close
             // trailing 20m MIN of the 9-EMA (pushed AFTER the EMA updates) — the ema_climb base.
             (match ema.State with ValueSome e -> emaMin.Push e | ValueNone -> ())
+            // volume analogue: 9-EMA of raw volume, then its 20m trailing min (mirrors the price emaMin above).
+            volEma.Push (float bar.volume)
+            (match volEma.State with ValueSome v -> volEmaMin.Push v | ValueNone -> ())
             // session-cumulative MAX of the 9-EMA (the session's highest 9-EMA).
             (match ema.State with
              | ValueSome e -> sessMaxEma <- (match sessMaxEma with ValueSome m -> ValueSome (max m e) | ValueNone -> ValueSome e)
@@ -554,7 +594,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   SessMaxVol20AtEntry = sSessMaxVol20
                   EmaAtEntry = (match sEmaPrev with ValueSome e -> e | ValueNone -> nan)
                   EmaMinAtEntry = (match sEmaMin with ValueSome m -> m | ValueNone -> nan)
+                  VolEmaAtEntry = (match sVolEma with ValueSome v -> v | ValueNone -> nan)
+                  VolEmaMinAtEntry = (match sVolEmaMin with ValueSome m -> m | ValueNone -> nan)
                   SessMaxEmaAtEntry = sSessMaxEma
+                  UpdnWAtEntry = Array.copy sUpdnW
                   SessMaxLogAtrAtEntry = sSessMaxLogAtr
                   SessMinCloseAtEntry = sSessMinClose
                   SessMaxCloseAtEntry = sSessMaxClose
