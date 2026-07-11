@@ -159,8 +159,9 @@ let main argv =
     printfn "  anchors     = session extremes from %s ET   features from %s ET (VWAP/OLS/ATR/tightness/EMA/init-vol)"
         (hhmm ic.SessionStartMin) (hhmm ic.FeatureStartMin)
     printfn "  entry window= %s–%s ET   max-concurrent %d" (hhmm ic.EntryStartMin) (hhmm ic.EntryEndMin) ic.MaxConcurrent
-    printfn "  gates       = log-ATR20 >= %.3f   vol-climb >= %.2f   price-slope20 > %.3f   tightness20 >= %.1f%s%s"
-        ic.MinAtrPct ic.MinVolClimb ic.MinPriceSlope ic.MinTightness
+    printfn "  gates       = log-ATR20 >= %.3f   vol-slope20 >= %.3f   price-slope20 > %.3f   tightness20 >= %.1f%s%s%s"
+        ic.MinAtrPct ic.MinVolSlope ic.MinPriceSlope ic.MinTightness
+        (if ic.MinVolClimb > 0.0 then sprintf "   vol-climb >= %.2f" ic.MinVolClimb else "")
         (if ic.MinCloseAbove6 > 0 then sprintf "   sum-above-6 >= %d" ic.MinCloseAbove6 else "")
         (if not (Double.IsNegativeInfinity ic.MinSlopePerAtr) then sprintf "   slope/atr >= %.2f" ic.MinSlopePerAtr else "")
     let caps =

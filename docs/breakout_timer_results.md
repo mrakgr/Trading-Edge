@@ -932,3 +932,12 @@ volume expansion off the floor," a signal vol_slope's noisy rate couldn't captur
 The tradeoff is real breadth (54% of trips cut); the ≥0.1 floor is the sweet spot (looser than DRV3's ≥0.6 because
 BT's whole distribution sits lower). **VERDICT: strong candidate — add `vol_climb ≥ 0.1` as BreakoutTimer's FIRST
 volume gate.** Next: promote to engine gate (--min-vol-climb) + confirm at the book's max-conc.
+
+## Finding 26 — ⚠ CORRECTION: F25's vol_climb win does NOT survive as an ENTRY GATE — same gate≠post-hoc reallocation as DRV3 F34. Default REVERTED.
+
+Wired vol_climb as an engine gate (MinVolClimb=0.1) and ran it live: **3131 trips / clip PF 1.44**, NOT the
+1597 / 1.67 the F25 post-hoc filter promised. Same failure as DipRiderV3 F34 — rejecting a low-vol_climb entry
+frees the concurrency slot for the next (average) setup, so the gate reallocates rather than concentrates. As a
+live gate it was ~neutral (1414→1443 clip, +0.03). **DEFAULT REVERTED** (MinVolClimb=0; vol_slope stays off as
+before, so BT's book is unchanged from F1–F25). Plumbing + `--min-vol-climb` flag + recorded column KEPT. The
+edge is real; apply it to the ORIGINAL breakout next session (don't push the entry forward). TODO. See DRV3 F34.

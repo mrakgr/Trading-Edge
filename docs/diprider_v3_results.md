@@ -1081,3 +1081,24 @@ updn_20 2.2) — the feature barely discriminates. Buckets zigzag (updn_20: [1.0
 help DipRiderV3 — its structure + sum6/chg1d already capture volume conviction; the volume signal that DID work
 here is vol_climb (F32), not updn.** (Same null result as VwapReclaim F12, different reason: there run-scoped updn
 was the strong form; here momentum's above-EMA skew flattens it.)
+
+## Finding 34 — ⚠ CORRECTION: F32's vol_climb win does NOT survive as an ENTRY GATE at max-conc 1 — it REALLOCATES slots (gate ≠ post-hoc). Default REVERTED; edge is real but must apply to the ORIGINAL breakout.
+
+Wired vol_climb as an engine gate (MinVolClimb=0.5) and ran it live. **It did NOT reproduce F32's post-hoc win:**
+
+| config (mc1, vol-slope off) | n | clip PF |
+|---|---:|---:|
+| POST-HOC vol_climb≥0.5 (F32) | 704 | 1.935 |
+| ENGINE-GATED vol_climb≥0.5 (same config) | 1312 | 1.745 |
+
+Same threshold, same base — but the engine gate keeps 1312 trips at clip 1.745, NOT 704 at 1.94. **Confirmed
+mechanism:** at max-conc 1, rejecting a low-vol_climb entry FREES the day's single slot, which the NEXT setup
+(an AVERAGE trip, not a high-vol_climb one) then fills. Post-hoc filtering can't model this — it only ever saw the
+mc1 survivors, so filtering THEM to high-vol_climb cherry-picked winners. The 608-trip gap = slot reallocation.
+As a live gate the NEW default was NEUTRAL-to-WORSE (1150/1.766 old → 1312/1.745 gated).
+
+**This is the classic gate≠post-hoc trap (BreakoutTimer F5 / the DRV3 2021 LAW).** I walked into it — F32's
+headline overstated the edge. **DEFAULT REVERTED** to the settled config (vol_slope[0.05,0.25], MinVolClimb=0);
+plumbing + `--min-vol-climb` flag + recorded `vol_climb` column KEPT. **The edge IS real** (the vol_climb
+distribution genuinely sorts quality) — the fix (user, next session): apply vol_climb to the ORIGINAL breakout
+(decide on the breakout that WOULD fire; don't push entry forward to a later worse setup). TODO.

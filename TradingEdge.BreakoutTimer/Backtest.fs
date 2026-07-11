@@ -50,10 +50,11 @@ let defaultConfig =
                                          // <0 edge is a size/split lever, not a hard gate. --min-vol-slope 0.05 restores.
           MaxVolSlope    = infinity      // OFF (F13: blow-off ceiling is DEAD WEIGHT here). --max-vol-slope 0 = the
                                          // F16 declining-vol concentrator (clip 2.37); 0.25 = the old V3 ceiling.
-          MinVolClimb    = 0.1           // ⭐ F25 VOLUME GATE (BreakoutTimer's FIRST — vol_slope was dead weight):
-                                         // vol_climb >= 0.1. ~40% of entries fire on volume AT its floor (fresh EMA
-                                         // high on a drought = fizzle); this cuts them. clip PF 1.41->1.67, lifts
-                                         // 2021 off breakeven (1.00->1.11), flat-or-better every year. 0 = off.
+          MinVolClimb    = 0.0           // OFF as a GATE. ⚠ F25's post-hoc win (vol_climb>=0.1 -> clip 1.67) does NOT
+                                         // survive as an entry gate (3131/1.44 gated vs 1597/1.67 post-hoc) — same
+                                         // gate!=post-hoc reallocation as DRV3 F32. The EDGE IS REAL but must apply to
+                                         // the ORIGINAL breakout (don't push entry forward). TODO tomorrow.
+                                         // --min-vol-climb 0.1 enables the (reallocating) gate.
           MinPriceSlope  = Double.NegativeInfinity  // OFF (F12: DEAD WEIGHT in BreakoutTimer — 0/709 entries had
                                          // slope<=0; a post-drought 9-EMA breakout is trending by construction).
           MinTightness   = 0.0           // OFF (F12: DEAD WEIGHT — 0/709 entries had tightness<3; also V3 had it
