@@ -928,3 +928,31 @@ chg_1d≥+10%, tightness off):
 highest-trip year). A+ = **+$471k / 6.5y (~$72k/yr)** on 218 trades at 56.9% win / PF 5.0, per-trade avg
 11-56%. Both ramp hard 2023→2025 (the modern-regime tailwind). ⚠️ UNCLIPPED — expect ~clipped (A ~$463k, A+
 ~$262k+, roughly half) in live; the gap is fat-tail dependence. cf VwapReclaim F32 (same 2021 signature).
+
+## Finding 30 — ema_climb/atr ported from VwapReclaimV2 — WEAK/REDUNDANT here (structure + existing gates already capture it)
+
+Ported the `ema_climb/atr` feature from VwapReclaimV2 (where it stacked to PF 5.1): `ema_climb = (9-EMA −
+20m-min-9-EMA)/9-EMA` (fractional, scale-invariant — verified), `ema_climb_per_atr = ema_climb / log_atr20` (same
+denominator as slope_per_atr). Added `emaMin = MinMa(20)` fed `ema.State`; recorded-only, no gate change. A-book
+run (gates baked in): 1150 trips / raw PF 2.64 / clip PF 1.77. New cols no-NaN; ema_climb median 0.053 (10× the
+reclaim's 0.005 — momentum-continuation enters with the EMA already lifted, vs the reclaim entering at the cross).
+
+**Breakdown (raw & clip PF):**
+
+| climb/atr | n | rawPF | clipPF | avg% |
+|---|---:|---:|---:|---:|
+| [−∞,1.5) | 73 | 2.10 | 1.77 | 6.0 |
+| [1.5,2.0) | 175 | 3.26 | 2.01 | 11.4 |
+| [2.0,2.5) | 221 | 3.10 | 1.90 | 11.5 |
+| [2.5,3.0) | 233 | 2.20 | 1.68 | 6.5 |
+| [3.0,3.5) | 185 | 2.77 | 1.89 | 9.2 |
+| [3.5,∞) | 263 | 2.30 | 1.49 | 7.1 |
+| **A-book (all)** | 1150 | 2.64 | 1.77 | 8.7 |
+
+**WEAK/REDUNDANT.** No clean monotone structure. A FLOOR (more climb-per-vol) mildly HURTS (clip 1.77→~1.8 flat,
+raw declines 2.67→2.39). A CEILING (`climb/atr<2.5`) gives a mild lift (raw 3.0 / clip 1.92) but only by cutting
+40% of trips — the best bucket [1.5,2.0) (clip 2.01) is barely above baseline. The faint "less climb = better"
+tilt ECHOES the reclaim's ceiling, but far weaker. **Why: this is BreakoutTimer-F12's lesson — the momentum
+STRUCTURE + DipRiderV3's existing ATR-floor / vol-slope / sum6 gates already capture the volatility-quality
+ema_climb/atr measures; it's largely redundant here.** VERDICT: do NOT gate DipRiderV3 on ema_climb/atr. (Contrast
+VwapReclaimV2, where it was strongly additive — the reclaim's few gates leave room the momentum book doesn't.)
