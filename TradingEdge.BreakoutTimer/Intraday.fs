@@ -73,6 +73,8 @@ type IntradayPosition =
       SessMaxVol20AtEntry: float // session PEAK trailing-20 volume sum (are we entering at the volume climax or a lull?)
       SessMinVol20AtEntry: float // session-MIN trailing-20 volume avg (from 09:45) — the session-min vol-stop basis
       EmaAtEntry: float          // the CURRENT-bar 9-EMA at entry (strictly-prior)
+      VolEmaAtEntry: float       // the volume-9-EMA at entry (vol_climb numerator; strictly-prior)
+      VolEmaMinAtEntry: float    // the 20m trailing MIN of the volume-9-EMA at entry (vol_climb base; strictly-prior)
       SessMaxEmaAtEntry: float   // session MAX 9-EMA (how far the 9-EMA has pulled back from its session peak)
       // ----- BreakoutTimer features (strictly-prior; the fusion layer) -----
       BreakoutTimerAtEntry: int       // the breakout timer value going INTO this bar (>0 = a live breakout window).
@@ -231,6 +233,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let closeLow  = MinMa(cfg.VolWindow)        // the 20m MIN CLOSE — the geometry-stop floor (StopFloorSessMin=false)
     let emaLow    = MinMa(cfg.VolWindow)        // the 20m MIN 9-EMA — the EMA-stop floor (EmaStop mode)
     let ema       = EmaMa(cfg.EmaPeriod)        // the 9-EMA (closes-above-EMA reference)
+    let volEma    = EmaMa(cfg.EmaPeriod)        // 9-EMA of raw 1m VOLUME (vol_climb numerator; ported from DipRiderV3 F32)
+    let volEmaMin = MinMa(cfg.VolWindow)        // 20m trailing MIN of the volume-9-EMA — the vol_climb base
     // SumMa of the 0/1 "did this bar close >= the strictly-prior 9-EMA?" indicator, over 6/40/60 feature-bars.
     // The reset-free replacement for V2's above-EMA run length. Short window = the push; long windows = the cap.
     let above6    = SumMa(6)
@@ -325,6 +329,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sEmaPrev      : float voption = ValueNone   // the 9-EMA going INTO this bar (for the closes-above indicator)
     let mutable sPriceSlope   : float = nan
     let mutable sVolSlope     : float = nan
+    let mutable sVolEma       : float voption = ValueNone   // the volume-9-EMA going INTO this bar (vol_climb numerator)
+    let mutable sVolEmaMin    : float voption = ValueNone   // the 20m trailing MIN of the volume-9-EMA (vol_climb base)
     let sUpdnW = Array.create 5 nan             // strictly-prior trailing-window updn ratios [10;15;20;25;30] (recorded-only)
     let mutable sSumAbove6    : int = 0
     let mutable sSumAbove40   : int = 0
@@ -471,6 +477,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sEmaPrev       <- ema.State
         sPriceSlope    <- (match priceOls.Slope with ValueSome s -> s | ValueNone -> nan)
         sVolSlope      <- (match volOls.Slope   with ValueSome s -> s | ValueNone -> nan)
+        sVolEma        <- volEma.State
+        sVolEmaMin     <- volEmaMin.State
         for i in 0 .. 4 do
             let upV = match upVolW.[i].State with ValueSome s -> s | ValueNone -> 0.0
             let upN = match upNW.[i].State   with ValueSome s -> s | ValueNone -> 0.0
@@ -577,6 +585,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             vwapDen <- vwapDen + float bar.volume
             // the 9-EMA itself (fed AFTER the indicator reads the prior EMA above).
             ema.Push bar.close
+            volEma.Push (float bar.volume)
+            (match volEma.State with ValueSome v -> volEmaMin.Push v | ValueNone -> ())
             // trailing-20m MIN 9-EMA (the EMA-stop floor) — push the freshly-folded EMA into the min-window.
             (match ema.State with ValueSome e -> emaLow.Push e | ValueNone -> ())
             // ===== BreakoutTimer bookkeeping (needs the freshly-folded EMA & atrLog; runs AFTER ema.Push) =====
@@ -762,6 +772,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   SessMaxVol20AtEntry = sSessMaxVol20
                   SessMinVol20AtEntry = sSessMinVol20
                   EmaAtEntry = (match sEmaPrev with ValueSome e -> e | ValueNone -> nan)
+                  VolEmaAtEntry = (match sVolEma with ValueSome v -> v | ValueNone -> nan)
+                  VolEmaMinAtEntry = (match sVolEmaMin with ValueSome m -> m | ValueNone -> nan)
                   SessMaxEmaAtEntry = sSessMaxEma
                   BreakoutTimerAtEntry = sBreakoutTimer
                   BarsSinceEmaHighAtEntry = sBarsSinceEmaHigh
