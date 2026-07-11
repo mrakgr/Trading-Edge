@@ -84,6 +84,9 @@ type IntradayPosition =
                                // rising-side volume). nan if no above-EMA bars this run.
       RunDnVolAtEntry: float    // mean 1m volume of BELOW-9EMA bars since the last VWAP cross (distribution /
                                // falling-side volume). Up/Dn ratio (in toTrip) = the volume-conviction signal.
+      PriceSlope20AtEntry: float // 20m OLS slope of log(close) — trend strength (%/bar). The momentum feature
+                               // the other 2 systems use; slope/atr is the candidate dist/atr successor.
+      VolSlope20AtEntry: float   // 20m OLS slope of log(volume) — is volume rising into the reclaim (Jeff's cue).
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// Mean-reversion TARGET — where a (short) position covers when price reverts back
@@ -230,6 +233,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                                                 // Compared at entry vs the 20d/min and 15m/min baselines.
     let rangeHigh = MaxMa(cfg.VolWindow)        // intraday tightness: max high over the window
     let rangeLow  = MinMa(cfg.VolWindow)        // intraday tightness: min low over the window
+    // trailing-window OLS slopes (fixed VolWindow bars), mirroring DipRiderV3/BreakoutTimer. Log-close =
+    // trend strength (%/bar); log-volume = the rising-volume-into-the-move cue. Fed together each bar that
+    // has a valid true-range (a valid prior close), so their x-axis matches atrLog's. Read at entry;
+    // slope_per_atr = price-slope / log-ATR is the SPEED-normalized momentum (the candidate dist/atr successor).
+    let priceOls  = OlsSlopeMa(cfg.VolWindow)
+    let volOls    = OlsSlopeMa(cfg.VolWindow)
 
     // ----- mean-reversion TARGET anchors (only the one named by cfg.Target is fed) -----
     // session VWAP = Σ(typical_price · volume) / Σ(volume), typical = (h+l+c)/3, from
@@ -296,6 +305,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sLastBar   : MinuteBar voption = ValueNone   // the prior bar, as-of going into this bar (its low feeds the 2-bar stop)
     let mutable sAtrLog    : float voption = ValueNone
     let mutable sAtrLin    : float voption = ValueNone
+    let mutable sPriceSlope : float = nan       // 20m OLS log-price slope, snapshotted strictly-prior
+    let mutable sVolSlope   : float = nan        // 20m OLS log-volume slope, snapshotted strictly-prior
     let mutable sRangeHigh : float voption = ValueNone
     let mutable sRangeLow  : float voption = ValueNone
     // the mean-reversion cover anchor (cfg.Target), as-of going INTO this bar (strictly-
@@ -483,6 +494,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sLastBar      <- lastBar
         sAtrLog       <- atrLog.State
         sAtrLin       <- atrLin.State
+        sPriceSlope   <- (match priceOls.Slope with ValueSome s -> s | ValueNone -> nan)
+        sVolSlope     <- (match volOls.Slope   with ValueSome s -> s | ValueNone -> nan)
         sRangeHigh    <- rangeHigh.State
         sRangeLow     <- rangeLow.State
         sTargetAnchor <- this.LiveTargetAnchor
@@ -503,6 +516,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             (max bar.high pc - min bar.low pc) |> atrLin.Push
             barLogTr <- log (max bar.high pc / min bar.low pc)
             barLogTr |> atrLog.Push
+            // trailing-window OLS slopes on the same bars as atrLog (valid prior close). Both fed together so
+            // their x-axis matches. Guard log() against non-positive close/volume (trade-built bars are >0, but
+            // stay defensive — a bad bar would poison the whole window otherwise).
+            if bar.close > 0.0 then priceOls.Push (log bar.close)
+            if bar.volume > 0L then volOls.Push (log (float bar.volume))
         | _ -> ()
 
         rangeHigh.Push bar.high
@@ -815,6 +833,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       RunAtrAtEntry = (if runAtrN > 0 then runAtrSum / float runAtrN else nan)
                       RunUpVolAtEntry = (if runUpVolN > 0 then runUpVolSum / float runUpVolN else nan)
                       RunDnVolAtEntry = (if runDnVolN > 0 then runDnVolSum / float runDnVolN else nan)
+                      PriceSlope20AtEntry = sPriceSlope
+                      VolSlope20AtEntry = sVolSlope
                       State = Holding }
         elif this.ShouldEnter bar then
             // ShouldEnter passed => sRunHi / this.Tightness / this.AtrPct are all
@@ -858,6 +878,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   RunAtrAtEntry = (if runAtrN > 0 then runAtrSum / float runAtrN else nan)
                   RunUpVolAtEntry = (if runUpVolN > 0 then runUpVolSum / float runUpVolN else nan)
                   RunDnVolAtEntry = (if runDnVolN > 0 then runDnVolSum / float runDnVolN else nan)
+                  PriceSlope20AtEntry = sPriceSlope
+                  VolSlope20AtEntry = sVolSlope
                   // entry routing:
                   //   --ext-gate — if day-extension already >= ExtGate at the breakout, enter
                   //                DIRECT (parabolic now); else arm a ROLLOVER gated on reaching
