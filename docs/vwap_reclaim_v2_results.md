@@ -189,3 +189,39 @@ normalizes trend by trailing-vol; different denominators catch different bad tra
 (PF 5.01) nearly matches the stack, so part of the stack's gain is "cut harder," not purely new information.
 NEXT: these were CEILINGS; test FLOORS on d/atr and slope/atr (a minimum-speed gate — the reclaim needs some
 momentum) now that tightness is gone.
+
+## Finding 5 — FLOORS on d/atr and slope/atr do NOT help — the edge is a CEILING on both axes; the SLOWEST reclaims are the best
+
+Tested the hypothesis that after removing tightness we want a FLOOR (minimum speed — "the reclaim needs some
+momentum"): `d/atr > 0.5` or `slope/atr > 0.06`. Base = `updn≥1.3 & run_max_dist≥3.5% & rvol15m<2`, tightness
+OFF (n=409). Base distribution: d/atr p10=1.4 / p50=2.69; slope/atr p10=0.029 / p50=0.144.
+
+**d/atr FLOOR — a no-op below ~0.7, then monotone DEGRADATION:**
+
+| filter | n | PF | avg% |
+|---|---:|---:|---:|
+| no floor | 409 | 3.35 | 13.3 |
+| d/atr > 0.5 | 409 | 3.35 | 13.3 |
+| d/atr > 1.0 | 395 | 3.24 | 12.8 |
+| d/atr > 2.0 | 299 | 2.70 | 9.5 |
+
+**slope/atr FLOOR — actively HARMFUL:**
+
+| filter | n | PF | avg% |
+|---|---:|---:|---:|
+| no floor | 409 | 3.35 | 13.3 |
+| slope/atr > 0.06 | 340 | 3.18 | 12.6 |
+| slope/atr > 0.10 | 279 | 2.59 | 9.5 |
+
+**Bands confirm the floor does nothing** — `d/atr (0.5,2.5)` = PF 5.01 is identical to the `d/atr<2.5` ceiling
+alone (the 0.5 floor removes 0 trips); every slope/atr band is worse than the d/atr ceiling.
+
+**MECHANISM: for a VWAP reclaim, LESS speed is better.** Both features say the same thing from opposite ends —
+a reclaim that grinds back slowly & controlled (low slope, moderate depth-per-vol) is a healthier continuation
+than one that snaps back violently. Consistent with F3's buckets (the `slope/atr<0` bucket was PF 5.4, the
+`≥0.20` tail PF ~2.2). **The edge is a CEILING on both axes, with NO floor.** Requiring a minimum speed removes
+exactly the slow-grinding winners.
+
+**VERDICT:** no floors. Keep the speed CEILINGS (`d/atr<3`, optional `slope/atr<0.18` stack), tightness OFF. The
+settled V2 A+ direction: `updn≥1.3 & run_max_dist≥3.5% & rvol15m<2 & d/atr<3` (≈ PF 4.42), optionally + slope/atr
+ceiling for a tighter/higher-PF cell.

@@ -82,11 +82,11 @@ let defaultConfig =
                                          // under 1% — the filter is fully inert (removing it is byte-identical:
                                          // 868 trips, PF 1.69). Dropped to simplify. --min-stop-dist-pct to re-enable.
           ClampStopDist = true           // (moot while MinStopDistPct=0) clamp-vs-skip for a too-tight stop.
-          MinTightness = 3.0             // require a name with real range. Finding 6 locked 4.5 on the THIN
-                                         // book; on the fat book (rb>=11 no-cap) the 3-4.5 band is +EV too —
-                                         // tight>=3 gives 1.7x the trips (8.7k->14.9k) and 1.6x net ($635k->
-                                         // $1.02M) at ~flat PF (1.39->1.38), positive every year. Below 3 is
-                                         // nearly dead; >=3 is the fat-book floor. (--min-tightness overrides.)
+          MinTightness = 0.0             // OFF by default (V2 F4). tightness is REDUNDANT once run_dist_per_atr
+                                         // gates the book — `d/atr<3 & no-tightness` reproduces `d/atr<3 &
+                                         // tight>=3` to the decimal (PF 4.42 vs 4.38, same n). The speed caps
+                                         // (d/atr, slope/atr) already remove the dead-flat chop tightness caught.
+                                         // (V1 used tight>=3 on the fat book; --min-tightness re-enables it.)
           StopOnClose = true             // stop triggers only on a CLOSE below the level (ignore noise wicks).
           UseTarget = false              // NO target by default (Finding 13: winners run to MOC). --use-target re-enables VWAP+d.
           ReclaimShort = false }         // LONG reclaim by default; --reclaim-short mirrors to the short side.
