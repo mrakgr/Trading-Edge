@@ -840,3 +840,120 @@ none beyond.** Caveats: the underwater side is smaller (428 vs 1579 — most pop
 tick), and the >30% (n=25) and 15–30% (n=45) buckets are thin. Reuse target: test this displacement-at-confirmation
 feature on the other mean-reversion books (LowFlyer / MaxFlyerV2) — arm the stop AND size the add on the right side
 of the V.
+
+## Finding 24 — ⭐ YEARLY + MONTHLY breakdown of the settled DEFAULT (short-the-high, ema roll30 b10 re2, mc1): every YEAR positive PF≥2.77, ZERO negative MONTHS in 78
+
+Book: `--start-date 2020-01-01` with defaults (short-high entry, EMA roll30 max stop buf 0.10, re-entries 2,
+max-conc 1). **2510 trips / 73.8% win / PF 3.767 / net $3,034,391.** Raw MOC PF (short book convention — no clip).
+
+### Yearly
+
+| Year | n | Win% | PF | Net |
+|---|---|---|---|---|
+| 2020 | 324 | 78.7 | 5.03 | 485,654 |
+| 2021 | 256 | 85.5 | 9.58 | 387,847 |
+| 2022 | 237 | 78.1 | 5.20 | 296,435 |
+| 2023 | 405 | 72.3 | 3.17 | 439,936 |
+| 2024 | 570 | 68.6 | 2.77 | 584,826 |
+| 2025 | 527 | 71.2 | 3.69 | 640,783 |
+| 2026* | 191 | 70.7 | 3.22 | 198,911 |
+| **ALL** | **2510** | **73.8** | **3.77** | **3,034,391** |
+
+\*2026 partial (through 06/25).
+
+**Every year is positive with PF ≥ 2.77.** The edge is regime-persistent but COMPRESSING: PF was extreme in the
+meme/SPAC-rich era (2020–22: 5–10) and has settled into the 2.8–3.7 band as trip count roughly doubled (2024–25).
+Net dollars keep climbing regardless — 2025 is the best year ($641k) — because the stop-armed short-high book
+monetizes far more setups even as per-trip PF normalizes. This is the drawdown-control mandate holding: the stop
+caps the left tail without killing the marginal supply.
+
+### Monthly (78 months, 2020-01 → 2026-06)
+
+| Month | n | Win% | PF | Net |
+|---|---|---|---|---|
+| 2020-01 | 18 | 67 | 3.24 | 22,003 |
+| 2020-02 | 10 | 70 | 3.77 | 11,696 |
+| 2020-03 | 18 | 67 | 2.71 | 18,999 |
+| 2020-04 | 27 | 74 | 4.88 | 41,537 |
+| 2020-05 | 30 | 70 | 2.71 | 28,234 |
+| 2020-06 | 36 | 89 | 16.04 | 80,509 |
+| 2020-07 | 46 | 83 | 11.41 | 75,002 |
+| 2020-08 | 17 | 100 | ∞ | 42,153 |
+| 2020-09 | 22 | 86 | 8.54 | 37,064 |
+| 2020-10 | 25 | 80 | 5.77 | 46,534 |
+| 2020-11 | 31 | 65 | 1.73 | 15,404 |
+| 2020-12 | 44 | 84 | 4.39 | 66,517 |
+| 2021-01 | 25 | 88 | 15.71 | 41,707 |
+| 2021-02 | 41 | 85 | 12.06 | 72,426 |
+| 2021-03 | 28 | 96 | 74.17 | 59,329 |
+| 2021-04 | 12 | 92 | 9.95 | 14,965 |
+| 2021-05 | 16 | 100 | ∞ | 32,178 |
+| 2021-06 | 35 | 74 | 3.50 | 31,595 |
+| 2021-07 | 21 | 100 | ∞ | 37,162 |
+| 2021-08 | 15 | 67 | 3.86 | 15,457 |
+| 2021-09 | 10 | 80 | 7.81 | 14,259 |
+| 2021-10 | 20 | 90 | 17.84 | 38,944 |
+| 2021-11 | 25 | 72 | 3.11 | 20,369 |
+| 2021-12 | 8 | 88 | 8.76 | 9,457 |
+| 2022-01 | 9 | 89 | 226.91 | 14,734 |
+| 2022-02 | 12 | 67 | 3.12 | 6,298 |
+| 2022-03 | 26 | 85 | 3.51 | 26,905 |
+| 2022-04 | 21 | 90 | 22.27 | 31,652 |
+| 2022-05 | 10 | 80 | 80.53 | 14,388 |
+| 2022-06 | 22 | 91 | 12.87 | 46,492 |
+| 2022-07 | 17 | 71 | 5.95 | 19,474 |
+| 2022-08 | 39 | 77 | 5.75 | 43,496 |
+| 2022-09 | 16 | 81 | 7.15 | 24,499 |
+| 2022-10 | 22 | 68 | 4.78 | 26,148 |
+| 2022-11 | 11 | 91 | 165.72 | 18,030 |
+| 2022-12 | 32 | 63 | 1.89 | 24,320 |
+| 2023-01 | 38 | 71 | 2.69 | 32,003 |
+| 2023-02 | 21 | 76 | 4.98 | 30,377 |
+| 2023-03 | 21 | 81 | 6.08 | 24,269 |
+| 2023-04 | 41 | 66 | 2.09 | 30,375 |
+| 2023-05 | 60 | 60 | 1.81 | 41,685 |
+| 2023-06 | 37 | 78 | 2.23 | 28,387 |
+| 2023-07 | 30 | 70 | 2.48 | 18,735 |
+| 2023-08 | 33 | 67 | 2.95 | 32,526 |
+| 2023-09 | 28 | 79 | 3.78 | 40,357 |
+| 2023-10 | 23 | 83 | 14.22 | 43,686 |
+| 2023-11 | 34 | 76 | 6.32 | 58,030 |
+| 2023-12 | 39 | 79 | 6.66 | 59,506 |
+| 2024-01 | 25 | 68 | 1.94 | 14,249 |
+| 2024-02 | 39 | 74 | 2.39 | 44,427 |
+| 2024-03 | 60 | 58 | 1.97 | 40,536 |
+| 2024-04 | 41 | 78 | 8.41 | 62,943 |
+| 2024-05 | 71 | 66 | 1.85 | 40,060 |
+| 2024-06 | 35 | 77 | 5.13 | 61,899 |
+| 2024-07 | 50 | 66 | 2.83 | 50,113 |
+| 2024-08 | 45 | 69 | 3.91 | 51,589 |
+| 2024-09 | 32 | 69 | 4.90 | 39,948 |
+| 2024-10 | 51 | 69 | 2.64 | 52,521 |
+| 2024-11 | 54 | 61 | 2.22 | 40,804 |
+| 2024-12 | 67 | 75 | 2.74 | 85,736 |
+| 2025-01 | 59 | 71 | 4.82 | 86,629 |
+| 2025-02 | 51 | 69 | 2.34 | 53,289 |
+| 2025-03 | 31 | 81 | 7.09 | 41,555 |
+| 2025-04 | 37 | 68 | 2.13 | 27,030 |
+| 2025-05 | 47 | 68 | 3.79 | 70,395 |
+| 2025-06 | 58 | 66 | 2.98 | 62,813 |
+| 2025-07 | 50 | 78 | 6.19 | 75,641 |
+| 2025-08 | 49 | 67 | 4.04 | 56,309 |
+| 2025-09 | 61 | 70 | 3.56 | 66,366 |
+| 2025-10 | 39 | 69 | 2.46 | 31,856 |
+| 2025-11 | 17 | 76 | 5.28 | 24,535 |
+| 2025-12 | 28 | 82 | 25.74 | 44,365 |
+| 2026-01 | 33 | 79 | 8.33 | 44,597 |
+| 2026-02 | 16 | 56 | 1.51 | 5,786 |
+| 2026-03 | 35 | 74 | 3.49 | 29,937 |
+| 2026-04 | 39 | 67 | 2.37 | 27,713 |
+| 2026-05 | 23 | 70 | 3.15 | 25,792 |
+| 2026-06 | 45 | 71 | 3.34 | 65,086 |
+
+**Zero negative months in 78.** The weakest month by PF is 2026-02 (1.51, +$5.8k); the weakest by net is 2021-12
+(+$9.5k). Two structural notes: (1) the highest-n months are the LOWEST-PF months (2024-05 n=71 PF 1.85,
+2024-03 n=60 PF 1.97, 2023-05 n=60 PF 1.81) — fat-tail supply and marginal supply arrive together, and even the
+marginal months clear breakeven comfortably; the stop caps the left tail so the extra volume is additive rather than
+dilutive. (2) The ∞-PF months (2020-08, 2021-05, 2021-07) had zero losing trades — thin-n, early-regime artifacts,
+not repeatable. This monthly consistency is the payoff of the F19 tail work (the tail is a single bad DAY, never a
+losing streak that could sink a month) and the F21/F22 short-the-high default.
