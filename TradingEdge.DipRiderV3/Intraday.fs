@@ -105,9 +105,14 @@ type IntradayConfig =
       MocMin: int              // MOC cutoff in ET minutes (960 = 16:00)
       MaxConcurrent: int       // cap on currently-OPEN (Holding) positions; 0 = unlimited. V3 default = 1.
       // ----- entry gates (trailing-window momentum) -----
-      MinVolSlope: float       // require 20m OLS log-volume slope >= this (rising volume). Default 0.05 (V2 F14/F15).
+      MinVolSlope: float       // require 20m OLS log-volume slope >= this (rising volume). SUPERSEDED by MinVolClimb
+                               // (F32): vol_climb is a better volume gate. Default OFF (-inf); --min-vol-slope restores.
       MaxVolSlope: float       // BLOW-OFF CEILING (F16): reject 20m OLS log-volume slope >= this — an extreme
                                // volume-slope-up = a blow-off into entry (>=0.25 clips PF 0.58/-4.94%). +inf = off.
+      MinVolClimb: float       // ⭐ F32 MAIN VOLUME GATE (REPLACES vol_slope): require vol_climb = (volEma −
+                               // volEmaMin)/volEma >= this. volEma = 9-EMA of raw volume, volEmaMin = its 20m min.
+                               // Fractional [0,1); 0.6 = volume-EMA is 2.5× its 20m floor. Beats vol_slope (clip PF
+                               // 2.07 vs 1.70), wins every year, fixes 2021 (1.07->1.42). 0 = off.
       MinPriceSlope: float     // require 20m OLS log-price slope > this. Default 0.0 (sweep for a higher floor).
       MinTightness: float      // require tightness >= this (real range, not lethargic). Default 3.0. 0 = off.
       MaxTightness: float      // tightness CEILING (+inf disables).
@@ -323,9 +328,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // inside the wall-clock trading window [EntryStartMin, EntryEndMin].
         bar.etMin >= cfg.EntryStartMin
         && (cfg.EntryEndMin <= 0 || cfg.EntryEndMin >= cfg.MocMin || bar.etMin <= cfg.EntryEndMin)
-        // rising volume into the move (the main PF lever): 20m OLS log-volume slope >= MinVolSlope.
-        && (not (Double.IsNaN sVolSlope) && sVolSlope >= cfg.MinVolSlope)
-        // blow-off CEILING (F16): reject an extreme volume-slope-up (a volume explosion into entry). +inf = off.
+        // ⭐ VOLUME GATE (F32, REPLACES vol_slope): vol_climb >= MinVolClimb. Require the volume-9-EMA to have
+        // climbed >= this fraction off its 20m min (genuine volume expansion into the move). 0 = off.
+        && (cfg.MinVolClimb <= 0.0
+            || (match sVolEma, sVolEmaMin with
+                | ValueSome v, ValueSome m when v > 0.0 -> (v - m) / v >= cfg.MinVolClimb
+                | _ -> false))
+        // legacy vol_slope FLOOR (default OFF via -inf; --min-vol-slope restores). Superseded by MinVolClimb.
+        && (Double.IsNegativeInfinity cfg.MinVolSlope || (not (Double.IsNaN sVolSlope) && sVolSlope >= cfg.MinVolSlope))
+        // legacy blow-off CEILING (F16): reject an extreme volume-slope-up. +inf = off (default).
         && (Double.IsInfinity cfg.MaxVolSlope || (not (Double.IsNaN sVolSlope) && sVolSlope < cfg.MaxVolSlope))
         // positive price trend: 20m OLS log-price slope > MinPriceSlope.
         && (not (Double.IsNaN sPriceSlope) && sPriceSlope > cfg.MinPriceSlope)

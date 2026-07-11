@@ -114,9 +114,10 @@ type IntradayConfig =
       MocMin: int              // MOC cutoff in ET minutes (960 = 16:00)
       MaxConcurrent: int       // cap on currently-OPEN (Holding) positions; 0 = unlimited. V3 default = 1.
       // ----- entry gates (trailing-window momentum) -----
-      MinVolSlope: float       // require 20m OLS log-volume slope >= this (rising volume). Default 0.05 (V2 F14/F15).
-      MaxVolSlope: float       // BLOW-OFF CEILING (F16): reject 20m OLS log-volume slope >= this — an extreme
-                               // volume-slope-up = a blow-off into entry (>=0.25 clips PF 0.58/-4.94%). +inf = off.
+      MinVolSlope: float       // LEGACY (OFF by default, F13 dead weight): 20m OLS log-volume slope >= this.
+      MaxVolSlope: float       // BLOW-OFF CEILING (F16): reject 20m OLS log-volume slope >= this. +inf = off (default).
+      MinVolClimb: float       // ⭐ F25 VOLUME GATE (BreakoutTimer's FIRST): require vol_climb = (volEma-volEmaMin)/
+                               // volEma >= this. Default 0.1 (clip PF 1.41->1.67, lifts 2021 off breakeven). 0 = off.
       MinPriceSlope: float     // require 20m OLS log-price slope > this. Default 0.0 (sweep for a higher floor).
       MinTightness: float      // require tightness >= this (real range, not lethargic). Default 3.0. 0 = off.
       MaxTightness: float      // tightness CEILING (+inf disables).
@@ -401,9 +402,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // inside the wall-clock trading window [EntryStartMin, EntryEndMin].
         bar.etMin >= cfg.EntryStartMin
         && (cfg.EntryEndMin <= 0 || cfg.EntryEndMin >= cfg.MocMin || bar.etMin <= cfg.EntryEndMin)
-        // rising volume into the move (the main PF lever): 20m OLS log-volume slope >= MinVolSlope.
-        && (not (Double.IsNaN sVolSlope) && sVolSlope >= cfg.MinVolSlope)
-        // blow-off CEILING (F16): reject an extreme volume-slope-up (a volume explosion into entry). +inf = off.
+        // ⭐ VOLUME GATE (F25): vol_climb >= MinVolClimb. BreakoutTimer's FIRST volume gate (vol_slope was dead
+        // weight, F13). ~40% of entries fire on volume AT its 20m floor (fresh EMA high on a drought = fizzle);
+        // this requires genuine volume expansion. clip PF 1.41->1.67, lifts 2021 off breakeven. 0 = off.
+        && (cfg.MinVolClimb <= 0.0
+            || (match sVolEma, sVolEmaMin with
+                | ValueSome v, ValueSome m when v > 0.0 -> (v - m) / v >= cfg.MinVolClimb
+                | _ -> false))
+        // legacy vol_slope FLOOR (default OFF via -inf; --min-vol-slope restores).
+        && (Double.IsNegativeInfinity cfg.MinVolSlope || (not (Double.IsNaN sVolSlope) && sVolSlope >= cfg.MinVolSlope))
+        // legacy blow-off CEILING (F16): reject an extreme volume-slope-up. +inf = off (default).
         && (Double.IsInfinity cfg.MaxVolSlope || (not (Double.IsNaN sVolSlope) && sVolSlope < cfg.MaxVolSlope))
         // positive price trend: 20m OLS log-price slope > MinPriceSlope.
         && (not (Double.IsNaN sPriceSlope) && sPriceSlope > cfg.MinPriceSlope)

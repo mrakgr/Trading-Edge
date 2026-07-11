@@ -26,6 +26,7 @@ type Args =
     // ----- entry gates -----
     | Min_Vol_Slope of float
     | Max_Vol_Slope of float
+    | Min_Vol_Climb of float
     | Min_Price_Slope of float
     | Min_Tightness of float
     | Max_Intraday_Tightness of float
@@ -67,7 +68,8 @@ type Args =
             | Vol_Window _ -> "Trailing ATR/tightness/OLS-slope lookback in 1m bars (default 20)."
             | Ema_Period _ -> "The EMA period for the closes-above-EMA count (default 9)."
             | Max_Concurrent _ -> "Cap on concurrently-open positions per day (default 1; 0 = unlimited)."
-            | Min_Vol_Slope _ -> "GATE: require the 20m OLS log-volume slope >= this (rising volume = the PF lever). Default 0.05."
+            | Min_Vol_Slope _ -> "LEGACY GATE (OFF by default, superseded by --min-vol-climb): 20m OLS log-volume slope >= this."
+            | Min_Vol_Climb _ -> "⭐ MAIN VOLUME GATE (F32): require vol_climb = (volEma-volEmaMin)/volEma >= this. Default 0.5."
             | Max_Vol_Slope _ -> "BLOW-OFF CEILING (F16): reject the 20m OLS log-volume slope >= this (a volume explosion into entry). Default 0.25. inf = off."
             | Min_Price_Slope _ -> "GATE: require the 20m OLS log-price slope > this. Default 0.0 (sweep for a higher floor)."
             | Min_Tightness _ -> "GATE: require tightness >= this (real range, not lethargic). Default 3.0. 0 = off."
@@ -119,6 +121,7 @@ let main argv =
                   EmaPeriod       = parsed.GetResult(Ema_Period,        defaultValue = defaultConfig.Intraday.EmaPeriod)
                   MaxConcurrent   = parsed.GetResult(Max_Concurrent,    defaultValue = defaultConfig.Intraday.MaxConcurrent)
                   MinVolSlope     = parsed.GetResult(Min_Vol_Slope,     defaultValue = defaultConfig.Intraday.MinVolSlope)
+                  MinVolClimb     = parsed.GetResult(Min_Vol_Climb,     defaultValue = defaultConfig.Intraday.MinVolClimb)
                   MaxVolSlope     = parsed.GetResult(Max_Vol_Slope,     defaultValue = defaultConfig.Intraday.MaxVolSlope)
                   MinPriceSlope   = parsed.GetResult(Min_Price_Slope,   defaultValue = defaultConfig.Intraday.MinPriceSlope)
                   MinTightness    = parsed.GetResult(Min_Tightness,     defaultValue = defaultConfig.Intraday.MinTightness)
@@ -156,8 +159,8 @@ let main argv =
     printfn "  anchors     = session extremes from %s ET   features from %s ET (VWAP/OLS/ATR/tightness/EMA/init-vol)"
         (hhmm ic.SessionStartMin) (hhmm ic.FeatureStartMin)
     printfn "  entry window= %s–%s ET   max-concurrent %d" (hhmm ic.EntryStartMin) (hhmm ic.EntryEndMin) ic.MaxConcurrent
-    printfn "  gates       = log-ATR20 >= %.3f   vol-slope20 >= %.3f   price-slope20 > %.3f   tightness20 >= %.1f%s%s"
-        ic.MinAtrPct ic.MinVolSlope ic.MinPriceSlope ic.MinTightness
+    printfn "  gates       = log-ATR20 >= %.3f   vol-climb >= %.2f   price-slope20 > %.3f   tightness20 >= %.1f%s%s"
+        ic.MinAtrPct ic.MinVolClimb ic.MinPriceSlope ic.MinTightness
         (if ic.MinCloseAbove6 > 0 then sprintf "   sum-above-6 >= %d" ic.MinCloseAbove6 else "")
         (if not (Double.IsNegativeInfinity ic.MinSlopePerAtr) then sprintf "   slope/atr >= %.2f" ic.MinSlopePerAtr else "")
     let caps =

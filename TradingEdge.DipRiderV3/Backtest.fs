@@ -44,9 +44,13 @@ let defaultConfig =
           MocMin          = 16 * 60      // 16:00 ET
           MaxConcurrent   = 1            // ONE position per (ticker,day). --max-concurrent 0 = unlimited.
           // ----- entry gates -----
-          MinVolSlope    = 0.05          // 20m OLS log-volume slope >= 0.05 (V2 F14/F15 — rising volume is the PF lever).
-          MaxVolSlope    = 0.25          // F16: blow-off ceiling — reject vol-slope >= 0.25 (a volume explosion into
-                                         // entry; that bucket clips PF 0.58/-4.94%). +inf = off.
+          MinVolSlope    = Double.NegativeInfinity  // OFF (F32) — SUPERSEDED by MinVolClimb (vol_climb is the better
+                                         // volume gate). --min-vol-slope 0.05 restores the legacy vol_slope floor.
+          MaxVolSlope    = infinity      // OFF (F32) — legacy blow-off ceiling; --max-vol-slope 0.25 restores it.
+          MinVolClimb    = 0.5           // ⭐ F32 MAIN VOLUME GATE: vol_climb >= 0.5 (volume-9-EMA is 2× its 20m
+                                         // floor). REPLACES vol_slope. 0.5 chosen over 0.6 for the better net/PF
+                                         // tradeoff (user): 704 trips/clip 1.94/$597k vs 481/2.07/$466k — +$131k net
+                                         // for −0.13 clip PF. Both beat vol_slope (clip 1.70) & fix 2021. 0 = off.
           MinPriceSlope  = 0.0           // 20m OLS log-price slope > 0. Sweep for a higher floor.
           MinTightness   = 3.0           // NOTE: the documented V3 conclusion was "tightness OFF (redundant with ATR)"
                                          // but this was left ACTIVE at 3.0. It is NEARLY non-binding (2024: min 3.14,
