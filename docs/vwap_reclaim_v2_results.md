@@ -149,3 +149,43 @@ already engine-gated at `tightness≥3` (min observed 3.06), so it can't be un-g
 + NO-tightness ≈ d/atr + tightness`, we'd trade two features for one (a real simplification). That is the next
 test: a `--min-tightness 0` engine run with the slope/atr ceiling applied post-hoc. VERDICT so far: keep d/atr;
 slope/atr is a promising CEILING whose value is TBD pending the tightness-replacement test.
+
+## Finding 4 — ⭐ TIGHTNESS is REDUNDANT once you have `d/atr` — dropped for free; slope/atr stacks additively. TIGHTNESS NOW OFF BY DEFAULT.
+
+Ran the fat book with `--min-tightness 0` (46,241 trips vs 41,027 with tight≥3 — the gate was removing ~5,200
+low-range names) to test whether the speed features make the tightness gate redundant.
+
+**Tightness is dead weight once `d/atr` is present:**
+
+| book | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| `d/atr<3` **& tight≥3** (incumbent A+) | 232 | 50.4 | 4.38 | 20.3 |
+| `d/atr<3` **& NO tightness** | 235 | 50.6 | **4.42** | 20.4 |
+
+Same trips, same PF, same avg — `d/atr<3` already removes everything tightness removed. **DECISION: tightness
+is OFF BY DEFAULT in VwapReclaimV2 from here on.** (base for all rows below = `updn≥1.3 & run_max_dist≥3.5% &
+rvol15m<2`, tightness OFF.)
+
+**CEILING sweeps on the no-tightness book** (capping fast rises — the speed-cap thesis):
+
+| d/atr ceiling | n | PF | avg% | | slope/atr ceiling | n | PF | avg% |
+|---|---:|---:|---:|---|---|---:|---:|---:|
+| d/atr<2.5 | 184 | 5.01 | 22.9 | | slope/atr<0.15 | 218 | 3.76 | 16.1 |
+| d/atr<3.0 | 235 | 4.42 | 20.4 | | slope/atr<0.18 | 263 | 3.96 | 17.0 |
+| d/atr<3.5 | 274 | 3.85 | 17.9 | | slope/atr<0.20 | 292 | 3.70 | 15.9 |
+
+**STACK both ceilings — additive (orthogonal denominators):**
+
+| book | n | win% | PF | avg% |
+|---|---:|---:|---:|---:|
+| `d/atr<3` alone | 235 | 50.6 | 4.42 | 20.4 |
+| `slope/atr<0.18` alone | 263 | 50.2 | 3.96 | 17.0 |
+| **`d/atr<3 & slope/atr<0.18`** | 195 | 53.8 | **4.96** | 22.1 |
+| **`d/atr<3 & slope/atr<0.20`** | 210 | 52.4 | 4.79 | 21.4 |
+| `d/atr<2.5` alone | 184 | 51.6 | 5.01 | 22.9 |
+
+The stack beats either cap alone (PF 4.96 vs 4.42/3.96) — `d/atr` normalizes depth by run-vol, `slope/atr`
+normalizes trend by trailing-vol; different denominators catch different bad trades. Caveat: `d/atr<2.5` alone
+(PF 5.01) nearly matches the stack, so part of the stack's gain is "cut harder," not purely new information.
+NEXT: these were CEILINGS; test FLOORS on d/atr and slope/atr (a minimum-speed gate — the reclaim needs some
+momentum) now that tightness is gone.
