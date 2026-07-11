@@ -957,3 +957,27 @@ marginal months clear breakeven comfortably; the stop caps the left tail so the 
 dilutive. (2) The ∞-PF months (2020-08, 2021-05, 2021-07) had zero losing trades — thin-n, early-regime artifacts,
 not repeatable. This monthly consistency is the payoff of the F19 tail work (the tail is a single bad DAY, never a
 losing streak that could sink a month) and the F21/F22 short-the-high default.
+
+## Finding 25 — ✅ DATA-INTEGRITY CONFIRMATION: there are NO volume-0 bars in minute_aggs — ATR% was never distorted by stale halt prints
+
+Concern going in: volume-0 "halt" bars (a stale price printing with no trades) folding into the trailing-20m ATR
+would understate volatility and bias ATR%-based gates. **This concern is void — those bars do not exist in this
+dataset.**
+
+- The minute-bar source query (`Backtest.fs:313`) filters `WHERE close > 0` but NOT volume.
+- Polygon minute aggregates are **trade-built**: a bar row exists ONLY if ≥1 trade printed. Verified across a full
+  2003→2026 sample: **min(volume) = 1, zero rows with (volume=0 AND close>0).** Recent-day spot checks
+  (2024-05-15, 2024-03-15, 2025-06-10, 2023-05-10, 2020-06-15): engine-visible bars = volume-positive bars,
+  vol0 count = 0 on every day.
+
+**Implication:** every system in this repo (MaxFlyerV3, DipRiderV3, BreakoutTimer, VwapReclaim, LowFlyer, …) has
+been folding ATR%/tightness/OLS off `volume ≥ 1` bars all along. The `close > 0` filter was already sufficient; a
+`volume > 0` guard is a NO-OP on this data. (DipRiderV3 `Intraday.fs:392` carries `bar.close>0 && bar.volume>0` —
+the volume clause never fires; harmless but dead weight.) No fork, no flag, no correction to prior findings.
+
+**Where halts DO live (noted, NOT acted on — current behavior is preferred):** halts manifest as GAPS in the
+per-ticker `etMin` sequence (missing minute rows), not volume-0 bars. `etMin` = real ET minute-of-day from the
+parquet `window_start` ns timestamp (`Backtest.fs:310-311`); a gap is `bar.etMin - prevEtMin > 1`. On active names
+in-window these run ~33–39 events/name/day, mostly 1–2min dead spots, with a thin tail of true multi-minute halts
+(worst observed 88min). The engine folds across these as if contiguous. Decision (2026-07-11): LEAVE AS-IS — the
+current behavior is preferable; not investigating trade-level impact and not building a gap-aware fold.
