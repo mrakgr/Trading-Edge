@@ -90,6 +90,8 @@ type IntradayPosition =
       EmaMin20AtEntry: float    // trailing-20m MIN of the 9-EMA (strictly-prior). Later a stop basis; now the
                                // floor for the alt depth (current 9-EMA − this) / current = "EMA climb".
       EmaAtEntry: float         // the strictly-prior 9-EMA value at the cross (numerator for the EMA-climb depth).
+      AtrLog15AtEntry: float    // 15m rolling mean log-TR (alt d/atr denominator)
+      AtrLog30AtEntry: float    // 30m rolling mean log-TR (alt d/atr denominator)
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// Mean-reversion TARGET — where a (short) position covers when price reverts back
@@ -229,6 +231,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
 
     // ----- rolling intraday structures (1m timeframe) -----
     let atrLog    = AvgMa(cfg.VolWindow)        // mean LOG true range over the last VolWindow 1m bars
+    let atrLog15  = AvgMa(15)                    // mean LOG true range over 15 bars (alt rolling-ATR window)
+    let atrLog30  = AvgMa(30)                    // mean LOG true range over 30 bars (alt rolling-ATR window)
     let atrLin    = AvgMa(cfg.VolWindow)        // mean ABSOLUTE true range (linear)
     let lag20     = LagMa<float>(20)            // 20-bar close delay line -> the 20-minute %-change into entry
     let vol20     = AvgMa(20)                    // mean 1m VOLUME over the last 20 bars -> "volume during the
@@ -311,6 +315,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sRunVolHi   : int64 voption = ValueNone
     let mutable sLastBar   : MinuteBar voption = ValueNone   // the prior bar, as-of going into this bar (its low feeds the 2-bar stop)
     let mutable sAtrLog    : float voption = ValueNone
+    let mutable sAtrLog15  : float voption = ValueNone
+    let mutable sAtrLog30  : float voption = ValueNone
     let mutable sAtrLin    : float voption = ValueNone
     let mutable sPriceSlope : float = nan       // 20m OLS log-price slope, snapshotted strictly-prior
     let mutable sVolSlope   : float = nan        // 20m OLS log-volume slope, snapshotted strictly-prior
@@ -501,6 +507,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         sRunVolHi     <- runVolHi
         sLastBar      <- lastBar
         sAtrLog       <- atrLog.State
+        sAtrLog15     <- atrLog15.State
+        sAtrLog30     <- atrLog30.State
         sAtrLin       <- atrLin.State
         sPriceSlope   <- (match priceOls.Slope with ValueSome s -> s | ValueNone -> nan)
         sVolSlope     <- (match volOls.Slope   with ValueSome s -> s | ValueNone -> nan)
@@ -525,6 +533,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             (max bar.high pc - min bar.low pc) |> atrLin.Push
             barLogTr <- log (max bar.high pc / min bar.low pc)
             barLogTr |> atrLog.Push
+            barLogTr |> atrLog15.Push
+            barLogTr |> atrLog30.Push
             // trailing-window OLS slopes on the same bars as atrLog (valid prior close). Both fed together so
             // their x-axis matches. Guard log() against non-positive close/volume (trade-built bars are >0, but
             // stay defensive — a bad bar would poison the whole window otherwise).
@@ -848,6 +858,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       VolSlope20AtEntry = sVolSlope
                       EmaMin20AtEntry = (match sEmaMin20 with ValueSome m -> m | ValueNone -> nan)
                       EmaAtEntry = (match sEmaPrev with ValueSome e -> e | ValueNone -> nan)
+                      AtrLog15AtEntry = (match sAtrLog15 with ValueSome a -> a | ValueNone -> nan)
+                      AtrLog30AtEntry = (match sAtrLog30 with ValueSome a -> a | ValueNone -> nan)
                       State = Holding }
         elif this.ShouldEnter bar then
             // ShouldEnter passed => sRunHi / this.Tightness / this.AtrPct are all
@@ -895,6 +907,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   VolSlope20AtEntry = sVolSlope
                   EmaMin20AtEntry = (match sEmaMin20 with ValueSome m -> m | ValueNone -> nan)
                   EmaAtEntry = (match sEmaPrev with ValueSome e -> e | ValueNone -> nan)
+                  AtrLog15AtEntry = (match sAtrLog15 with ValueSome a -> a | ValueNone -> nan)
+                  AtrLog30AtEntry = (match sAtrLog30 with ValueSome a -> a | ValueNone -> nan)
                   // entry routing:
                   //   --ext-gate — if day-extension already >= ExtGate at the breakout, enter
                   //                DIRECT (parabolic now); else arm a ROLLOVER gated on reaching

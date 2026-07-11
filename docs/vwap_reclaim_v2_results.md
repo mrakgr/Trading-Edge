@@ -287,3 +287,24 @@ depth-of-THIS-run measure, the run's own ATR is the more natural — and empiric
 coherence argument for log-ATR still stands for `slope/atr`, which has no run-scoped analogue — but d/atr keeps
 `run_atr`.) Net of F6+F7: neither the EMA-climb depth nor the rolling ATR improves `d/atr`; the incumbent
 `run_max_dist / run_atr` stands.
+
+## Finding 8 — 15m/30m rolling log-ATR windows also LOSE to the pullback run_atr in d/atr (longer window is better, but none beats it at matched breadth)
+
+Added 15m & 30m rolling mean log-TR (`AvgMa(15)`, `AvgMa(30)`) to retry the d/atr-denominator swap with
+different windows. `run_max_dist / rolling-atrN` ceiling sweeps, matched to the incumbent's ~235 trips:
+
+| denominator | matched cell | n | PF | avg% |
+|---|---|---:|---:|---:|
+| **pullback `run_atr < 3`** (INCUMBENT) | — | 235 | **4.42** | 20.4 |
+| rolling 15m log-ATR < 3.0 | | 245 | 3.60 | 16.5 |
+| rolling 20m log-ATR < 3.0 | (F7) | 231 | 3.87 | 17.9 |
+| rolling 30m log-ATR < 3.0 | | 221 | 3.95 | 18.3 |
+
+**No rolling window beats the pullback ATR at matched breadth.** There IS a clean monotone trend — longer window
+= better (15m 3.60 → 20m 3.87 → 30m 3.95) — but even 30m lands ~0.5 PF below the incumbent. The 30m at a tighter
+cut (`<2.25`, n=138) reaches PF 4.38, but only by dropping 40% of trips (the same breadth illusion as F7).
+
+**Why longer is better yet still loses:** a longer ATR window is smoother/slower, closer to a stable per-name
+volatility baseline — but it's still a GENERIC estimate, not the run's OWN realized vol. `run_atr` is scoped to
+THIS specific dip, which is the right normalizer for a depth-of-this-run measure. **VERDICT: d/atr keeps the
+pullback `run_atr`. The rolling-ATR window sweep (15/20/30) confirms F7 — none is a real improvement.**
