@@ -1132,3 +1132,13 @@ coincides with the post-hoc mc1 first-trigger set. **The vol_climb edge is now c
 arm/re-arm approach as the correct way to apply a secondary (volume) condition without the gate≠post-hoc
 reallocation penalty. NEXT: replicate to BreakoutTimerBackside (where the re-arm level IS the 20m-min-9EMA
 EmaStop), then the many follow-on ideas the user has.
+
+## Finding 36 — DRV3Backside re-implemented via SHADOW POSITIONS (see BreakoutTimer F28) — byte-identical (704/1.935/$597,147 unchanged)
+
+The arm/re-arm proxy (freeze the stop level, watch for a close-cross) was replaced by the SHADOW-POSITION design
+(a vol-failed price trigger opens a Reported=false position that holds the slot + runs the full exit logic but
+isn't reported). For DRV3 this is BYTE-IDENTICAL to F35 (same 704 entries, clip 1.935, net $597,147) — because
+DRV3's stop is a TIGHT close-based session-min geometry stop whose cross-timing already coincided with the true
+position exit, so the proxy and the shadow agree. The fix MATTERED for BreakoutTimer (loose EMA-cross re-arm fired
+early vs 8 real exit paths → 575 phantom entries; see BT F28). Both engines now reproduce their post-hoc filters
+exactly. The shadow design is the correct, stop-tightness-independent emulation and the validated SMB-backside base.
