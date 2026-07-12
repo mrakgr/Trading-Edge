@@ -53,6 +53,29 @@ type AvgMa(windowSize) =
     override _.Remove (v, s) = s - v
     member t.State = base.State |> ValueOption.map (fun sum -> sum / float t.Count)
 
+/// CUMULATIVE weighted-mean accumulator: `.State = Σnum / Σden`, with `num`/`den`
+/// supplied per push. NOT a fixed window — it accumulates over the whole episode
+/// (like EmaMa/CalendarMeanMa, no windowSize), so it never evicts. The motivating
+/// use is session VWAP: push `(typical·volume, volume)` each bar, read `.State` for
+/// `Σ(tp·v)/Σv`. `.State` is ValueNone until a POSITIVE denominator has accumulated
+/// (Σden > 0), matching "no VWAP before any volume". Read `.State` BEFORE pushing the
+/// current bar for the strictly-prior value, or AFTER for the live/inclusive value —
+/// same convention as the other structures here.
+[<Sealed>]
+type RatioMa() =
+    let mutable num = 0.0    // Σ numerator
+    let mutable den = 0.0    // Σ denominator
+    /// Current ratio Σnum/Σden, or ValueNone until Σden > 0.
+    member _.State = if den > 0.0 then ValueSome (num / den) else ValueNone
+    /// Accumulate one (numerator, denominator) contribution.
+    member _.Push (n: float, d: float) =
+        num <- num + n
+        den <- den + d
+    /// Reset both accumulators to zero (see RollingMa.Reset).
+    member _.Reset () =
+        num <- 0.0
+        den <- 0.0
+
 // =============================================================================
 // Sliding-window MaxMa / MinMa via a monotonic deque
 // =============================================================================
