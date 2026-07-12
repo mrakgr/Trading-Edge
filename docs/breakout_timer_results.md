@@ -1058,3 +1058,28 @@ reject the stopless trades (good population); give them a FALLBACK stop when the
 the geometry stop entry−d·⅔ off session-min, or a fixed −10–15%).** This is a real production risk defect in
 BreakoutTimer (and BreakoutTimerBackside inherits it). FIX PENDING user's choice of fallback mechanism. NOTE: this
 is orthogonal to the vol_climb/backside work — it affects the base book regardless.
+
+## Finding 30 — the naive buffer fix for F29 FAILS (reverted): giving deep below-EMA entries a stop turns "ride to MOC" into INSTANT-STOP CHURN. The real fix must REJECT the no-room entries.
+
+Attempted the F29 fix: never omit the EmaStop — always set it at emaLow×(1−buffer) (buffer 0.5%), and require a
+warm emaLow as an entry precondition. It DID zero out the stopless trades (0 stopless), BUT:
+
+| | trips | trips/day | median hold | rawPF | clipPF | exits |
+|---|---:|---:|---:|---:|---:|---|
+| settled (before) | 3458 | 1.23 | ~235min avg | 2.009 | 1.414 | mostly MOC |
+| naive buffer fix | 13,736 | 4.87 (max 73!) | **1 min** | 1.789 | 1.311 | 12,205 stop / 1,531 MOC |
+
+**The trip count QUADRUPLED and PF DROPPED.** Root cause (confirmed): 56.7% of the book now stops out within 1
+MINUTE, and those instant-stops are the DEEP below-EMA entries (avg entry 3.3% BELOW its 9-EMA, vs ~0% for held
+trades). For a breakout that closes below its 20m-min-9EMA, the entry price is already under the stop level — so a
+stop at emaLow×0.995 is at/above the entry → the trade is born ~stopped-out → stops on bar 1 → frees the mc1 slot
+→ re-enters → churns (up to 73×/day). The 0.5% buffer just converted "stopless ride to MOC" into "instant-stop
+churn" — both wrong.
+
+**LESSON (user was right):** the buffer is a band-aid. The real problem is that BreakoutTimer TAKES entries with no
+room below for a stop (price already below the 20m-min-9EMA). The principled fix is to REJECT those entries
+(require entry/9-EMA above emaLow×(1+buffer) — genuine room), OR redesign the stop, NOT to force a too-tight stop
+onto a born-underwater entry. REVERTED to the settled 3458/2.01 book (F29 finding stays documented; the broken fix
+does not). **The stop redesign is a SEPARATE focused effort (next):** buffer/room sizing + entry-room gate +
+re-validating the Backside engines against the corrected base book. DipRiderV3 is unaffected (0.3% stopless — its
+price pattern (positive slope + sum_above_6≥5) structurally guarantees room below the session-min stop, per user).
