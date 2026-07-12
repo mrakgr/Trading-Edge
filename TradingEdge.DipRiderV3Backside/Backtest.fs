@@ -447,7 +447,8 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
         sys.Flatten()
         for pos in sys.Positions do
             match pos.State with
-            | ExitedAt _ -> trips.Add(toTrip c cfg.Notional false pos)   // V3 is long-only
+            | ExitedAt _ when pos.Reported -> trips.Add(toTrip c cfg.Notional false pos)   // V3 is long-only
+            | ExitedAt _ -> ()                                          // SHADOW (vol-failed) — held the slot, not reported
             | Holding -> failwith "Flatten closes all; unreachable"
 
     for date, cands in candidates |> Array.groupBy (fun c -> c.Date) do

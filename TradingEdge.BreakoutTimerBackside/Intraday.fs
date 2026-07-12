@@ -97,6 +97,9 @@ type IntradayPosition =
       MktChgOpenAtEntry: float    // reference index (SPY) %-change from SESSION OPEN, at the entry minute
       MktChgPrevAtEntry: float    // reference index (SPY) %-change from PREV DAILY CLOSE, at the entry minute
       UpdnWAtEntry: float[]       // trailing-window updn ratios [10;15;20;25;30] (recorded-only, ported from VwapReclaimV2)
+      Reported: bool           // *Backside SHADOW flag: true = a real (vol-passed) trade to REPORT; false = a
+                               // SHADOW (vol FAILED) — holds the concurrency slot + runs full exit logic but is
+                               // NOT reported. Makes the live book == the post-hoc vol filter.
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// Intraday engine config — DipRiderV3 (pure trailing-window momentum).
@@ -328,13 +331,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sCloseLow     : float voption = ValueNone   // the 20m min close going INTO this bar (the geom-stop floor)
     let mutable sEmaLow       : float voption = ValueNone   // the 20m min 9-EMA going INTO this bar (the EMA-stop floor)
     let mutable sEmaPrev      : float voption = ValueNone   // the 9-EMA going INTO this bar (for the closes-above indicator)
-    // ----- ARM/RE-ARM state machine (SMB backside) -----
-    // ARMED + price pattern fires: vol PASSES -> take + disarm (re-arm on the position's exit); vol FAILS ->
-    // SKIP + disarm, freeze the re-arm level = the stop we'd have set. BreakoutTimer's default stop is the EmaStop
-    // (StopLevel = 20m-min-9EMA frozen at entry, triggered by the live 9-EMA closing BELOW it) — so the skip
-    // re-arm uses that SAME level+trigger: re-arm when the live 9-EMA closes below the frozen 20m-min-9EMA.
-    let mutable armed         = true
-    let mutable rearmLevel    = nan     // frozen stop level at a SKIP; re-arm when the live 9-EMA < this. nan = disarmed-by-position.
+    // ----- SMB BACKSIDE via SHADOW POSITIONS -----
+    // A price pattern with a free slot ALWAYS opens a position: Reported=true if vol_climb passes, else a SHADOW
+    // (Reported=false) that holds the slot + runs the full exit logic (all 8 paths: stop/MOC/vol-stop/etc.) but
+    // isn't reported. The slot frees only when the real-or-shadow position EXITS — so timing == the mc1 base book,
+    // and the reported subset == the post-hoc vol filter, EXACTLY (independent of the stop's tightness). The
+    // concurrency cap IS the "arm" state; no separate arm/re-arm machinery needed.
     let mutable sPriceSlope   : float = nan
     let mutable sVolSlope     : float = nan
     let mutable sVolEma       : float voption = ValueNone   // the volume-9-EMA going INTO this bar (vol_climb numerator)
@@ -480,7 +482,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // A+ lever. 0/-inf/NaN = off; requires a warm pb_updn (both up & down bars accumulated).
         && (cfg.MinPbUpDn <= 0.0 || Double.IsNegativeInfinity cfg.MinPbUpDn || Double.IsNaN cfg.MinPbUpDn
             || (not (Double.IsNaN sPbUpDn) && sPbUpDn >= cfg.MinPbUpDn))
-        // NOTE: no concurrency check here — the arm/re-arm state machine (Process) enforces "one setup at a time".
+        // concurrency room — a SHADOW (skipped) position counts toward OpenCount, so a free slot IS the "armed"
+        // state (one setup at a time; the slot frees when the real-or-shadow position exits).
+        && (cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent)
 
     /// Fold one minute bar into all rolling state (snapshot-before-push, no-lookahead).
     member this.ProcessBar (bar: MinuteBar) =
@@ -746,24 +750,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     /// positions advance, so an entry bar is never its own first exit-check.
     member this.Process (bar: MinuteBar) =
         this.ProcessBar bar
-        // advance open positions; a FRESH exit this bar (a taken trade closing) RE-ARMS.
         for i in 0 .. positions.Count - 1 do
-            let before = positions.[i]
-            let after = this.Advance bar before
-            positions.[i] <- after
-            match before.State, after.State with
-            | Holding, ExitedAt (m, _, _) when m = bar.etMin -> armed <- true; rearmLevel <- nan
-            | _ -> ()
-        // RE-ARM off a SKIP: the live 9-EMA has closed BELOW the frozen stop level (BreakoutTimer's EmaStop
-        // trigger — the same condition that would have stopped the trade out). rearmLevel = nan for a
-        // disarmed-by-position case (that re-arms on the exit above).
-        if not armed && rearmLevel > Double.NegativeInfinity && not (Double.IsNaN rearmLevel) then
-            match ema.State with
-            | ValueSome e when e < rearmLevel -> armed <- true; rearmLevel <- nan
-            | _ -> ()
-        if armed && this.PricePatternFires bar then
-            // STOP for THIS setup — identical whether TAKE or SKIP. EMA-STOP (default): level = 20m-min-9EMA
-            // (sEmaLow) frozen now. A SKIP re-arms off THIS SAME level (live 9-EMA closing below it).
+            positions.[i] <- this.Advance bar positions.[i]
+        // SMB backside: a price pattern with a free slot ALWAYS opens a position — REAL (Reported) if vol_climb
+        // passes, else a SHADOW (Reported=false) that holds the slot + runs the full exit logic but isn't
+        // reported. Timing == the mc1 base book; the reported subset == the post-hoc vol filter.
+        if this.PricePatternFires bar then
+            let reported = this.VolumePasses
+            // STOP. EMA-STOP (default): level = 20m-min-9EMA (sEmaLow) frozen at entry.
             let rawStop =
                 if cfg.EmaStop then
                     match sEmaLow with ValueSome l when l > 0.0 && bar.close > l -> l | _ -> Double.NegativeInfinity
@@ -777,19 +771,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                     else Double.NegativeInfinity
             let stop = if rawStop > 0.0 then rawStop else Double.NegativeInfinity
             let stopDistPct = if bar.close > 0.0 && stop > Double.NegativeInfinity then (bar.close - stop) / bar.close else nan
-            if not this.VolumePasses then
-              // SKIP + DISARM. Re-arm when the live 9-EMA closes below THIS setup's stop (the EmaStop level).
-              armed <- false
-              rearmLevel <- stop
-              if not (stop > Double.NegativeInfinity) then armed <- true   // no usable stop -> stay armed.
-            else
-              // TAKE: disarm (re-arms on this position's exit), then build the position.
-              armed <- false
-              let slopePerAtr =
+            let slopePerAtr =
                 match sAtrLog with
                 | ValueSome a when a > 0.0 && not (Double.IsNaN sPriceSlope) -> sPriceSlope / a
                 | _ -> nan
-              positions.Add
+            positions.Add
                 { EntryMin = bar.etMin
                   EntryPx = bar.close
                   StopLevel = stop
@@ -830,6 +816,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                   MktChgOpenAtEntry = this.MktChgOpen bar.etMin
                   MktChgPrevAtEntry = this.MktChgPrev bar.etMin
                   UpdnWAtEntry = Array.copy sUpdnW
+                  Reported = reported
                   State = Holding }
 
     /// Flatten any still-open positions at the last folded bar's close (MOC / hold-to-close).
