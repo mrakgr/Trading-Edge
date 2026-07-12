@@ -328,6 +328,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let mutable sCloseLow     : float voption = ValueNone   // the 20m min close going INTO this bar (the geom-stop floor)
     let mutable sEmaLow       : float voption = ValueNone   // the 20m min 9-EMA going INTO this bar (the EMA-stop floor)
     let mutable sEmaPrev      : float voption = ValueNone   // the 9-EMA going INTO this bar (for the closes-above indicator)
+    // ----- ARM/RE-ARM state machine (SMB backside) -----
+    // ARMED + price pattern fires: vol PASSES -> take + disarm (re-arm on the position's exit); vol FAILS ->
+    // SKIP + disarm, freeze the re-arm level = the stop we'd have set. BreakoutTimer's default stop is the EmaStop
+    // (StopLevel = 20m-min-9EMA frozen at entry, triggered by the live 9-EMA closing BELOW it) — so the skip
+    // re-arm uses that SAME level+trigger: re-arm when the live 9-EMA closes below the frozen 20m-min-9EMA.
+    let mutable armed         = true
+    let mutable rearmLevel    = nan     // frozen stop level at a SKIP; re-arm when the live 9-EMA < this. nan = disarmed-by-position.
     let mutable sPriceSlope   : float = nan
     let mutable sVolSlope     : float = nan
     let mutable sVolEma       : float voption = ValueNone   // the volume-9-EMA going INTO this bar (vol_climb numerator)
@@ -396,19 +403,24 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
 
     /// Gate 3 — does THIS bar trigger a DipRiderV3 momentum entry? Reads pre-push snapshots (strictly-prior),
     /// so it must be evaluated AFTER ProcessBar(bar). The entry bar's close is the fill.
-    member this.ShouldEnterV3 (bar: MinuteBar) : bool =
+    /// The VOLUME check, evaluated at arm-time (strictly-prior). vol_climb >= MinVolClimb. In *Backside this is
+    /// NOT ANDed into the price gate — a price pattern that fails it SKIPS + disarms (F25 as an arm/re-arm check,
+    /// not a gate; fixes the gate≠post-hoc reallocation). 0 = always passes.
+    member _.VolumePasses : bool =
+        cfg.MinVolClimb <= 0.0
+        || (match sVolEma, sVolEmaMin with
+            | ValueSome v, ValueSome m when v > 0.0 -> (v - m) / v >= cfg.MinVolClimb
+            | _ -> false)
+
+    /// PRICE PATTERN — the BreakoutTimer momentum price pattern (strictly-prior snapshots; evaluated AFTER
+    /// ProcessBar). NOTE (*Backside): the vol_climb check and the concurrency cap are NOT here — the arm/re-arm
+    /// state machine in Process() owns both (a taken OR skipped setup disarms until the re-arm level).
+    member this.PricePatternFires (bar: MinuteBar) : bool =
         let inline gate (v: _ voption) (test: _ -> bool) =
             match v with ValueSome x -> test x | ValueNone -> false
         // inside the wall-clock trading window [EntryStartMin, EntryEndMin].
         bar.etMin >= cfg.EntryStartMin
         && (cfg.EntryEndMin <= 0 || cfg.EntryEndMin >= cfg.MocMin || bar.etMin <= cfg.EntryEndMin)
-        // ⭐ VOLUME GATE (F25): vol_climb >= MinVolClimb. BreakoutTimer's FIRST volume gate (vol_slope was dead
-        // weight, F13). ~40% of entries fire on volume AT its 20m floor (fresh EMA high on a drought = fizzle);
-        // this requires genuine volume expansion. clip PF 1.41->1.67, lifts 2021 off breakeven. 0 = off.
-        && (cfg.MinVolClimb <= 0.0
-            || (match sVolEma, sVolEmaMin with
-                | ValueSome v, ValueSome m when v > 0.0 -> (v - m) / v >= cfg.MinVolClimb
-                | _ -> false))
         // legacy vol_slope FLOOR (default OFF via -inf; --min-vol-slope restores).
         && (Double.IsNegativeInfinity cfg.MinVolSlope || (not (Double.IsNaN sVolSlope) && sVolSlope >= cfg.MinVolSlope))
         // legacy blow-off CEILING (F16): reject an extreme volume-slope-up. +inf = off (default).
@@ -468,8 +480,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // A+ lever. 0/-inf/NaN = off; requires a warm pb_updn (both up & down bars accumulated).
         && (cfg.MinPbUpDn <= 0.0 || Double.IsNegativeInfinity cfg.MinPbUpDn || Double.IsNaN cfg.MinPbUpDn
             || (not (Double.IsNaN sPbUpDn) && sPbUpDn >= cfg.MinPbUpDn))
-        // concurrency room.
-        && (cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent)
+        // NOTE: no concurrency check here — the arm/re-arm state machine (Process) enforces "one setup at a time".
 
     /// Fold one minute bar into all rolling state (snapshot-before-push, no-lookahead).
     member this.ProcessBar (bar: MinuteBar) =
@@ -735,14 +746,24 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     /// positions advance, so an entry bar is never its own first exit-check.
     member this.Process (bar: MinuteBar) =
         this.ProcessBar bar
+        // advance open positions; a FRESH exit this bar (a taken trade closing) RE-ARMS.
         for i in 0 .. positions.Count - 1 do
-            positions.[i] <- this.Advance bar positions.[i]
-        if this.ShouldEnterV3 bar then
-            // STOP. Two modes:
-            //   EMA-STOP: the stop level IS the trailing-20m MIN 9-EMA directly (NO geometry) — exit when the
-            //             live 9-EMA falls below it.
-            //   CLOSE geom (default, VwapReclaim/V2): d = entry - floor; stop = entry - d*StopDistFrac (2/3).
-            //     floor = the 20m MIN CLOSE (closeLow, default) or the session min close (StopFloorSessMin).
+            let before = positions.[i]
+            let after = this.Advance bar before
+            positions.[i] <- after
+            match before.State, after.State with
+            | Holding, ExitedAt (m, _, _) when m = bar.etMin -> armed <- true; rearmLevel <- nan
+            | _ -> ()
+        // RE-ARM off a SKIP: the live 9-EMA has closed BELOW the frozen stop level (BreakoutTimer's EmaStop
+        // trigger — the same condition that would have stopped the trade out). rearmLevel = nan for a
+        // disarmed-by-position case (that re-arms on the exit above).
+        if not armed && rearmLevel > Double.NegativeInfinity && not (Double.IsNaN rearmLevel) then
+            match ema.State with
+            | ValueSome e when e < rearmLevel -> armed <- true; rearmLevel <- nan
+            | _ -> ()
+        if armed && this.PricePatternFires bar then
+            // STOP for THIS setup — identical whether TAKE or SKIP. EMA-STOP (default): level = 20m-min-9EMA
+            // (sEmaLow) frozen now. A SKIP re-arms off THIS SAME level (live 9-EMA closing below it).
             let rawStop =
                 if cfg.EmaStop then
                     match sEmaLow with ValueSome l when l > 0.0 && bar.close > l -> l | _ -> Double.NegativeInfinity
@@ -756,11 +777,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                     else Double.NegativeInfinity
             let stop = if rawStop > 0.0 then rawStop else Double.NegativeInfinity
             let stopDistPct = if bar.close > 0.0 && stop > Double.NegativeInfinity then (bar.close - stop) / bar.close else nan
-            let slopePerAtr =
+            if not this.VolumePasses then
+              // SKIP + DISARM. Re-arm when the live 9-EMA closes below THIS setup's stop (the EmaStop level).
+              armed <- false
+              rearmLevel <- stop
+              if not (stop > Double.NegativeInfinity) then armed <- true   // no usable stop -> stay armed.
+            else
+              // TAKE: disarm (re-arms on this position's exit), then build the position.
+              armed <- false
+              let slopePerAtr =
                 match sAtrLog with
                 | ValueSome a when a > 0.0 && not (Double.IsNaN sPriceSlope) -> sPriceSlope / a
                 | _ -> nan
-            positions.Add
+              positions.Add
                 { EntryMin = bar.etMin
                   EntryPx = bar.close
                   StopLevel = stop
