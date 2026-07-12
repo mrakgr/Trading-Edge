@@ -941,3 +941,34 @@ frees the concurrency slot for the next (average) setup, so the gate reallocates
 live gate it was ~neutral (1414→1443 clip, +0.03). **DEFAULT REVERTED** (MinVolClimb=0; vol_slope stays off as
 before, so BT's book is unchanged from F1–F25). Plumbing + `--min-vol-climb` flag + recorded column KEPT. The
 edge is real; apply it to the ORIGINAL breakout next session (don't push the entry forward). TODO. See DRV3 F34.
+
+## Finding 27 — ARM/RE-ARM engine (TradingEdge.BreakoutTimerBackside) captures the vol_climb edge LIVE (clip 1.44→1.54) but does NOT fully match F25's post-hoc — because BT's EmaStop re-arm is LOOSE (re-arms ~2× as often)
+
+Implemented the same arm/re-arm as DipRiderV3Backside (F35), but the re-arm uses BreakoutTimer's native EmaStop:
+level = 20m-min-9EMA frozen at the skip bar, trigger = the live 9-EMA CLOSING BELOW it (a 9-EMA cross, NOT a bar
+close). MinVolClimb=0.1 as the arm-time volume check.
+
+| book | n | rawPF | clipPF | net |
+|---|---:|---:|---:|---:|
+| F25 post-hoc (vol_climb≥0.1) | 1597 | — | 1.67 | — |
+| **BTBackside (LIVE)** | **2172** | 2.158 | **1.54** | 1,178,409 |
+| failed plain gate (F26) | 3131 | — | 1.44 | — |
+| no-gate baseline | 3458 | — | 1.41 | — |
+
+BTBackside lands BETWEEN the post-hoc and the plain gate: 2172 trips / clip 1.54. Correctness OK (0 taken trades
+with vol_climb<0.1). **It does NOT exactly match the post-hoc (unlike DRV3's exact 704) — and that is CORRECT
+behavior, not a bug.** The reason is the re-arm level's TIGHTNESS:
+
+| engine | re-arm | avg trips/day | multi-take days |
+|---|---|---:|---:|
+| DRV3Backside | session-min geometry stop (close-based) — TIGHT | 1.055 | 34 (5%) |
+| BTBackside | 9-EMA < 20m-min-9EMA (EmaStop) — LOOSE | 1.11 | 212 (11%) |
+
+BT's EmaStop re-arms ~2× as often (the 9-EMA dips below its own 20m min frequently in choppy momentum names), so
+after a skip it re-arms within the day and lets LATER price patterns through — the 212 multi-take days supply the
+~575 extra trips the post-hoc (implicitly one-per-day / mc1) never counted. Those extra backside re-entries are
+lower-quality on average, so clip PF (1.54) sits below the post-hoc concentration (1.67) — but still clearly beats
+the plain gate (1.44) and the no-gate baseline (1.41). **The vol_climb edge IS captured live; the gap to post-hoc
+is the looser re-arm, which is a LEVER: a tighter BT re-arm would concentrate it closer to 1.67.** (Contrast DRV3
+F35, whose tight stop reproduces the post-hoc to the decimal.) NEXT: explore re-arm-tightness variants for BT +
+the user's follow-on ideas.
