@@ -972,3 +972,33 @@ the plain gate (1.44) and the no-gate baseline (1.41). **The vol_climb edge IS c
 is the looser re-arm, which is a LEVER: a tighter BT re-arm would concentrate it closer to 1.67.** (Contrast DRV3
 F35, whose tight stop reproduces the post-hoc to the decimal.) NEXT: explore re-arm-tightness variants for BT +
 the user's follow-on ideas.
+
+## Finding 28 — ⭐⭐ CORRECTION to F27: BTBackside's 2172-vs-1597 gap was a BUG, not a "looser re-arm feature". SHADOW POSITIONS fix it → EXACT post-hoc match (1597 / clip 1.670 / net to the dollar)
+
+F27 wrongly framed BTBackside's 2172 trips (vs the 1597 post-hoc) as legitimate extra backside re-entries from a
+"looser re-arm." That was WRONG (user caught it): a correctly-implemented arm/re-arm MUST equal the post-hoc
+filter — the post-hoc filter IS the ground-truth definition of the pattern. The gap was a defect.
+
+**Root cause:** my re-arm watched a SINGLE condition (the 9-EMA crossing the frozen stop level) as a proxy for
+"the position exited." But a real BreakoutTimer position exits via 8 paths (stop / pct_stop / vol_stop /
+vol_slope_stop / exhaust / vwap_lost / time_stop / **moc**). On a skipped setup that would have held to MOC, the
+EMA-cross re-arm fired EARLY, letting in 575 phantom entries at bars the mc1 base book never had a free slot for.
+Proven: BTBackside's 2172 = the 1597 base-book∩vol≥0.1 entries + 575 entries NOT in the base book at all.
+
+**Fix — SHADOW POSITIONS:** on a vol-FAIL, open a real position (Reported=false) that occupies the concurrency
+slot and runs the FULL identical exit logic (all 8 paths), but is not written to the trip output. The slot frees
+only on the position's real exit → trade timing == the mc1 base book → the reported (vol-passed) subset == the
+post-hoc filter, EXACTLY, independent of stop tightness. This collapses the whole arm/re-arm state machine into
+the ordinary concurrency cap (a shadow counts toward OpenCount; a free slot IS the "armed" state).
+
+| book | n | rawPF | clipPF | net |
+|---|---:|---:|---:|---:|
+| F25 post-hoc target | 1597 | — | 1.67 | 1,018,192 |
+| **BTBackside SHADOW (live)** | **1597** | 2.446 | **1.670** | **1,018,192** |
+| buggy arm/re-arm (F27) | 2172 | — | 1.54 | — |
+
+Entry set == post-hoc set EXACTLY (0 phantom, 0 missing); net to the dollar. **F27's "looser re-arm is correct
+behavior" claim is RETRACTED.** Both engines now reproduce the post-hoc filter live: DRV3Backside 704/1.935 (F35,
+unchanged & byte-identical under the shadow rewrite — its tight close-stop already coincided with the true exit),
+BTBackside 1597/1.670 (this). The vol_climb edge is captured LIVE, correctly, in-engine. This is the validated
+SMB-backside base for the follow-on ideas.
