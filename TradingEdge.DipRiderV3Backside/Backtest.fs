@@ -44,15 +44,14 @@ let defaultConfig =
           MocMin          = 16 * 60      // 16:00 ET
           MaxConcurrent   = 1            // ONE position per (ticker,day). --max-concurrent 0 = unlimited.
           // ----- entry gates -----
-          MinVolSlope    = 0.05          // 20m OLS log-volume slope >= 0.05 (V2 F14/F15 — rising volume is the PF lever).
-          MaxVolSlope    = 0.25          // F16: blow-off ceiling — reject vol-slope >= 0.25. +inf = off.
-          MinVolClimb    = 0.0           // OFF as a GATE. ⚠ F32's post-hoc win (vol_climb>=0.5 -> clip 1.94) does NOT
-                                         // survive as an entry gate at max-conc 1: rejecting a low-vol_climb entry
-                                         // hands the mc1 slot to the next (AVERAGE) setup, so the gate REALLOCATES
-                                         // rather than concentrates (704/1.94 post-hoc vs 1312/1.745 gated — proven).
-                                         // The EDGE IS REAL but must be applied to the ORIGINAL breakout (decide on
-                                         // the breakout that WOULD fire, don't push entry forward). TODO tomorrow.
-                                         // --min-vol-climb 0.5 enables the (reallocating) gate.
+          MinVolSlope    = Double.NegativeInfinity  // OFF in *Backside — the vol pattern is now the vol_climb
+                                         // ARM/RE-ARM check (MinVolClimb), not a gate. Matches F32's post-hoc base
+                                         // (which had vol_slope off). --min-vol-slope 0.05 restores the legacy floor.
+          MaxVolSlope    = infinity      // OFF (see above). --max-vol-slope 0.25 restores the legacy ceiling.
+          MinVolClimb    = 0.5           // ⭐ BACKSIDE VOLUME CHECK (not a gate): at each ARMED price pattern, require
+                                         // vol_climb >= 0.5 to TAKE; else SKIP + DISARM until the 20m-min-9EMA re-arm
+                                         // level is breached. Emulates F32's post-hoc vol_climb>=0.5 filter LIVE (one
+                                         // setup per stop-cycle) instead of gating price+vol together. 0 = always take.
           MinPriceSlope  = 0.0           // 20m OLS log-price slope > 0. Sweep for a higher floor.
           MinTightness   = 3.0           // NOTE: the documented V3 conclusion was "tightness OFF (redundant with ATR)"
                                          // but this was left ACTIVE at 3.0. It is NEARLY non-binding (2024: min 3.14,
