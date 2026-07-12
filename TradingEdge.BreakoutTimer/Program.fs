@@ -55,7 +55,6 @@ type Args =
     | Wick_Stop
     | Close_Stop
     | Ema_Stop_Trail
-    | Ema_Stop_Buffer of float
     | Pct_Stop of float
     | Time_Stop_Min of int
     | Vol_Stop_Frac of float
@@ -108,7 +107,6 @@ type Args =
             | Wick_Stop -> "Revert to the WICK stop (bar.low <= level) instead of the default CLOSE-based stop."
             | Close_Stop -> "Revert to the CLOSE-based geometry stop (d = entry - 20m/sess-min-close; stop = entry - d*2/3). Default is the EMA-stop (FIXED)."
             | Ema_Stop_Trail -> "TRAILING EMA-stop variant — recompute the level each bar to the current 20m-min-9EMA (default is FIXED at entry). Ignored under --close-stop."
-            | Ema_Stop_Buffer _ -> "EMA-stop buffer (F29): stop level = 20m-min-9EMA × (1 − this). Guarantees the stop is always set. Default 0.005."
             | Pct_Stop _ -> "Wide catastrophe %-stop: bar.low <= entry*(1-x). Default 0 = off."
             | Time_Stop_Min _ -> "Flatten this many minutes after entry, capped at MOC. Default 0 = off (hold-to-MOC)."
             | Vol_Stop_Frac _ -> "20m-avg-VOLUME stop: exit when the trailing-20m volume falls below this fraction of its entry value (e.g. 0.667, 0.5). Default 0 = off."
@@ -170,7 +168,6 @@ let main argv =
                   StopOnClose     = not (parsed.Contains Wick_Stop)
                   EmaStop         = not (parsed.Contains Close_Stop) && defaultConfig.Intraday.EmaStop
                   EmaStopTrail    = parsed.Contains Ema_Stop_Trail || defaultConfig.Intraday.EmaStopTrail
-                  EmaStopBuffer   = parsed.GetResult(Ema_Stop_Buffer, defaultValue = defaultConfig.Intraday.EmaStopBuffer)
                   PctStop         = parsed.GetResult(Pct_Stop,          defaultValue = defaultConfig.Intraday.PctStop)
                   TimeStopMin     = parsed.GetResult(Time_Stop_Min,     defaultValue = defaultConfig.Intraday.TimeStopMin)
                   VolStopFrac     = parsed.GetResult(Vol_Stop_Frac,     defaultValue = defaultConfig.Intraday.VolStopFrac)
