@@ -26,6 +26,14 @@ type IntradayPosition =
     { EntryMin: int
       EntryPx: float
       StopLevel: float
+      StopDistPct: float         // (entry - stopLevel)/entry at entry; nan if no finite stop
+      // core feature snapshot at entry (all this-bar-inclusive — the values the gates actually read)
+      PriceSlope20: float        // 20m OLS log-price slope
+      LogAtr20: float            // 20m mean log-true-range
+      Sum6: int                  // # of the last 6 bars closed >= the 9-EMA
+      VolClimb: float            // (volEma - volEmaMin)/volEma
+      EmaAtEntry: float          // the 9-EMA at entry
+      VwapAtEntry: float         // session VWAP at entry
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// Intraday engine config — DipRiderV3 (pure trailing-window momentum).
@@ -260,10 +268,21 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             // SMB-backside split: the PRICE pattern (+room) opens a REAL position ONLY IF volume also passes;
             // a volume FAIL still disarms (consumes the setup) so we never defer to a later, worse setup.
             if hasRoom && this.VolumePasses then
+                let vv (v: float voption) = match v with ValueSome x -> x | ValueNone -> nan
                 positions.Add
                     { EntryMin = bar.etMin
                       EntryPx = bar.close
                       StopLevel = stop
+                      StopDistPct = (if bar.close > 0.0 then (bar.close - stop) / bar.close else nan)
+                      PriceSlope20 = vv priceOls.Slope
+                      LogAtr20 = vv atrLog.State
+                      Sum6 = (match sum6.State with ValueSome c -> int (round c) | ValueNone -> 0)
+                      VolClimb =
+                        (match volEma.State, volEmaMin.State with
+                         | ValueSome v, ValueSome m when v > 0.0 -> (v - m) / v
+                         | _ -> nan)
+                      EmaAtEntry = vv ema.State
+                      VwapAtEntry = vv vwap.State
                       State = Holding }
             // taken, vol-skipped, OR no-room: disarm until the next low re-arms.
             armed <- false
