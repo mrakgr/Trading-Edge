@@ -1002,3 +1002,24 @@ behavior" claim is RETRACTED.** Both engines now reproduce the post-hoc filter l
 unchanged & byte-identical under the shadow rewrite — its tight close-stop already coincided with the true exit),
 BTBackside 1597/1.670 (this). The vol_climb edge is captured LIVE, correctly, in-engine. This is the validated
 SMB-backside base for the follow-on ideas.
+
+## Finding 28b — clarification: the phantom-entry cause is NOT "8 exit paths" (production BT exits only via EmaStop-or-MOC). It's that a SKIPPED setup re-arms off the WRONG setup's stop, freeing the slot too early.
+
+F28 attributed the buggy phantoms to "8 exit paths." That was misleading — under production settings BreakoutTimer
+exits ONLY via EmaStop (9-EMA < frozen 20m-min-9EMA) or MOC (all 6 other stops are OFF). The real cause, traced on
+AIG 2009-03-19:
+
+- BASE book (no vol gate): 10:03 taken→stop@10:06; 10:06 taken→**MOC** (9-EMA never crossed its stop). Both have
+  vol_climb=0.0 → post-hoc keeps NEITHER → AIG contributes 0 trades. The 10:06 taken trade held the mc1 slot to
+  16:00, so nothing after 10:06 was ever evaluated.
+- BUGGY Backside: 10:03 skip + 10:06 skip (both vc=0). My re-arm froze the level at the SKIP bar (10:03's stop),
+  and re-armed as soon as the 9-EMA dipped below THAT (earlier, lower) level — freeing the slot mid-morning. A
+  fresh 11:44 trigger (vc 0.423) then PASSED and was taken → a PHANTOM the base book's busy-to-MOC slot never
+  allowed.
+
+**Root cause:** a skip re-arms off the SKIPPED setup's stop, frozen at the skip bar — but in the base book the slot
+is held by the TAKEN setup (a different, later decision) riding to its own exit (usually MOC). So the slot frees at
+the wrong time. Even with only stop-or-MOC, the proxy diverges because it tracks the wrong position's exit. The
+SHADOW POSITION fixes it exactly: the skipped 10:06 setup becomes a shadow that HOLDS the slot to MOC just like the
+base book's taken 10:06 — so 11:44 is never evaluated, and AIG correctly contributes 0. (This is why the shadow —
+running the real position's full exit — is REQUIRED for correctness, not a mere convenience.)
