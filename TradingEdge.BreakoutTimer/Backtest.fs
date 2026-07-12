@@ -108,6 +108,9 @@ let defaultConfig =
           EmaStopTrail    = false        // when EmaStop: false = FIXED (level frozen at entry); --ema-stop-trail
                                          // = TRAILING (level recomputes each bar to the current 20m-min-9EMA — a
                                          // risk-mode: higher clip PF but truncates the fat tail, F7).
+          EmaStopBuffer   = 0.005        // F29 FIX: EmaStop level = 20m-min-9EMA × (1 − 0.005). Guarantees the stop
+                                         // is ALWAYS set (the old close>emaLow guard omitted it on 34% of trades →
+                                         // unprotected to MOC). --ema-stop-buffer overrides; sweep for the level.
           PctStop         = 0.0          // catastrophe %-stop OFF.
           TimeStopMin     = 0            // HOLD-TO-MOC (the continuation lesson: any exit caps the winners).
           VolStopFrac     = 0.0          // 20m-avg-volume stop OFF (--vol-stop-frac 0.667 / 0.5 enables — exit when

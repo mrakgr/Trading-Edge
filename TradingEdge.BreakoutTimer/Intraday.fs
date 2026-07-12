@@ -180,6 +180,12 @@ type IntradayConfig =
       EmaStopTrail: bool       // EMA-STOP SUB-MODE (only when EmaStop): false (default) = FIXED — the level is the
                                // 20m-min-9EMA as-of the ENTRY bar, held for the trade's life. true = TRAILING —
                                // the level recomputes each bar to the CURRENT 20m-min-9EMA (ratchets up with trend).
+      EmaStopBuffer: float     // EMA-STOP BUFFER (F29 fix): the stop level = 20m-min-9EMA × (1 − this). A small
+                               // buffer below the min-9EMA guarantees the stop is ALWAYS set (never omitted) and
+                               // isn't already triggered on the entry bar. Default 0.005 (0.5%). The stop TRIGGERS
+                               // on the live 9-EMA (not the bar close), so the entry's own close is IRRELEVANT to
+                               // whether a stop exists — the old `close > emaLow` guard was wrong and dropped 34%
+                               // of stops (F29). 0 = level exactly at the min-9EMA.
       PctStop: float           // wide catastrophe %-stop: bar.low <= entry*(1-x). 0 = off.
       TimeStopMin: int         // time-stop: flatten this many minutes after entry (capped at MOC). 0 = off.
       VolStopFrac: float       // 20m-AVG-VOLUME STOP: while holding, exit when the trailing-20m volume falls to
@@ -468,6 +474,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // A+ lever. 0/-inf/NaN = off; requires a warm pb_updn (both up & down bars accumulated).
         && (cfg.MinPbUpDn <= 0.0 || Double.IsNegativeInfinity cfg.MinPbUpDn || Double.IsNaN cfg.MinPbUpDn
             || (not (Double.IsNaN sPbUpDn) && sPbUpDn >= cfg.MinPbUpDn))
+        // STOP MUST EXIST (F29): a system that uses stops must never take an unstopped trade. Under EmaStop the
+        // stop needs a warm 20m-min-9EMA (sEmaLow); if the window isn't warm, DON'T take the trade. (For the
+        // close-geometry stop the analogous floor must be warm & positive.) This is the ONLY reason a stop is
+        // ever absent — no silent stop-dropping.
+        && (if cfg.EmaStop then (match sEmaLow with ValueSome l -> l > 0.0 | ValueNone -> false)
+            elif cfg.GeomStop then
+                let floor = if cfg.StopFloorSessMin then sSessMinClose else (match sCloseLow with ValueSome l -> l | ValueNone -> nan)
+                not (Double.IsNaN floor) && floor > 0.0 && bar.close > floor
+            else true)
         // concurrency room.
         && (cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent)
 
@@ -664,7 +679,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             // the EMA-stop LEVEL: FIXED = pos.StopLevel (frozen at entry); TRAILING = the current strictly-prior
             // 20m-min-9EMA (sEmaLow, snapshotted at ProcessBar top = the min going INTO this bar, no lookahead).
             let emaStopLevel =
-                if cfg.EmaStopTrail then (match sEmaLow with ValueSome l -> l | ValueNone -> Double.NegativeInfinity)
+                if cfg.EmaStopTrail then (match sEmaLow with ValueSome l -> l * (1.0 - cfg.EmaStopBuffer) | ValueNone -> Double.NegativeInfinity)
                 else pos.StopLevel
             let stopHit =
                 if cfg.EmaStop then
@@ -745,7 +760,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             //     floor = the 20m MIN CLOSE (closeLow, default) or the session min close (StopFloorSessMin).
             let rawStop =
                 if cfg.EmaStop then
-                    match sEmaLow with ValueSome l when l > 0.0 && bar.close > l -> l | _ -> Double.NegativeInfinity
+                    // EMA-STOP: the stop TRIGGERS on the live 9-EMA falling below this level — so the entry bar's
+                    // CLOSE is irrelevant (the old `bar.close > l` guard was wrong and omitted the stop on 34% of
+                    // trades, F29). The stop is ALWAYS set at emaLow×(1−buffer). A warm emaLow is a PRECONDITION of
+                    // the entry (PricePatternFires requires sEmaLow — see below), so it is always ValueSome here.
+                    match sEmaLow with
+                    | ValueSome l -> l * (1.0 - cfg.EmaStopBuffer)
+                    | ValueNone -> Double.NegativeInfinity   // unreachable: entry gate requires a warm emaLow
                 else
                     let stopFloor =
                         if cfg.StopFloorSessMin then sSessMinClose
