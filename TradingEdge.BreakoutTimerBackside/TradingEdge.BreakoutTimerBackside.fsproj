@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- BreakoutTimer: 9-EMA-breakout momentum system, forked from DipRiderV3.
+       Adds a two-stage "breakout then momentum-confirm" entry on top of the V3
+       trailing-window momentum gate stack: (1) track the session max over 9-EMA
+       VALUES; (2) when the 9-EMA makes a new session high AND it had gone quiet
+       for >= N bars (no new EMA high for N bars, default 8), arm a countdown
+       "breakout timer"; (3) while the timer is positive, permit the DipRiderV3
+       momentum entry to fire. Also tracks VwapReclaim-style pullback features
+       (updn vol split, max distance of 9-EMA below its session high, pullback
+       ATR%), accumulated continuously and reset when the timer expires (with a
+       planned A/B against reset-on-bars_since-threshold). Same two-pipeline
+       architecture: pipeline 1 = SELECT candidates; pipeline 2 = the 1m engine
+       (Intraday.fs). Reads trading.db + minute_aggs parquets. -->
+  <ItemGroup>
+    <Compile Include="Intraday.fs" />
+    <Compile Include="Backtest.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../TradingEdge.RollingMa/TradingEdge.RollingMa.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Argu" Version="6.2.5" />
+    <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.4" />
+    <PackageReference Include="Nito.Collections.Deque" Version="1.2.1" />
+  </ItemGroup>
+
+</Project>

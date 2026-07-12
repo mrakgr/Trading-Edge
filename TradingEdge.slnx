@@ -14,5 +14,7 @@
   <Project Path="TradingEdge.DipRiderV3/TradingEdge.DipRiderV3.fsproj" />
   <Project Path="TradingEdge.BreakoutTimer/TradingEdge.BreakoutTimer.fsproj" />
   <Project Path="TradingEdge.MaxFlyerV3/TradingEdge.MaxFlyerV3.fsproj" />
+  <Project Path="TradingEdge.DipRiderV3Backside/TradingEdge.DipRiderV3Backside.fsproj" />
+  <Project Path="TradingEdge.BreakoutTimerBackside/TradingEdge.BreakoutTimerBackside.fsproj" />
   <Project Path="TradingEdge.RollingMa/TradingEdge.RollingMa.fsproj" />
 </Solution>
