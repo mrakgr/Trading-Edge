@@ -1102,3 +1102,33 @@ headline overstated the edge. **DEFAULT REVERTED** to the settled config (vol_sl
 plumbing + `--min-vol-climb` flag + recorded `vol_climb` column KEPT. **The edge IS real** (the vol_climb
 distribution genuinely sorts quality) — the fix (user, next session): apply vol_climb to the ORIGINAL breakout
 (decide on the breakout that WOULD fire; don't push entry forward to a later worse setup). TODO.
+
+## Finding 35 — ⭐⭐ ARM/RE-ARM engine (TradingEdge.DipRiderV3Backside) reproduces F32's post-hoc vol_climb filter LIVE, to the decimal — the fix for F34's gate≠post-hoc failure
+
+F34 showed the vol_climb win doesn't survive as a plain entry gate (gating price+vol together defers the mc1 slot
+to worse setups: 1312 trips/clip 1.745 vs the 704/1.94 post-hoc). The FIX (user): don't gate on both — gate on the
+PRICE pattern only, and if the volume check fails at that price trigger, SKIP the trade AND DISARM until a re-arm
+condition resets. This emulates the post-hoc filter, which implicitly does "one setup per stop-cycle."
+
+Forked `TradingEdge.DipRiderV3Backside` (SMB backside pattern) with an arm/re-arm state machine:
+- ARMED + price pattern fires → `vol_climb>=0.5` decides: PASS = take the position; FAIL = skip + disarm.
+- Either outcome DISARMS. A taken trade re-arms when it EXITS. A skip re-arms when price CLOSES at/below the SAME
+  stop it would have set (DRV3's real stop = session-min-close geometry `entry−d·⅔`, close-based — NOT the 9-EMA;
+  the 9-EMA-cross stop is BreakoutTimer's EmaStop, a separate fork).
+- The state machine OWNS "one setup at a time" (concurrency check removed from the price gate).
+
+**RESULT — exact match to F32 post-hoc:**
+
+| book | n | rawPF | clipPF | net |
+|---|---:|---:|---:|---:|
+| F32 post-hoc (vol_climb≥0.5 on mc1 vol-slope-off base) | 704 | — | 1.94 | 597,147 |
+| **DRV3Backside (LIVE engine)** | **704** | 2.761 | **1.935** | **597,147** |
+| failed plain gate (F34) | 1312 | — | 1.745 | — |
+
+704 trips, clip 1.935, net $597,147 — identical, net to the dollar. Correctness verified: 0 taken trades with
+vol_climb<0.5 (min exactly 0.500); the vol check is enforced. It lands EXACTLY at 704 (not more) because the
+re-arm level (the tight session-min geometry stop) rarely resets intraday before MOC, so the live candidate set
+coincides with the post-hoc mc1 first-trigger set. **The vol_climb edge is now captured LIVE.** This validates the
+arm/re-arm approach as the correct way to apply a secondary (volume) condition without the gate≠post-hoc
+reallocation penalty. NEXT: replicate to BreakoutTimerBackside (where the re-arm level IS the 20m-min-9EMA
+EmaStop), then the many follow-on ideas the user has.
