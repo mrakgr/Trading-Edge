@@ -1023,3 +1023,38 @@ the wrong time. Even with only stop-or-MOC, the proxy diverges because it tracks
 SHADOW POSITION fixes it exactly: the skipped 10:06 setup becomes a shadow that HOLDS the slot to MOC just like the
 base book's taken 10:06 — so 11:44 is never evaluated, and AIG correctly contributes 0. (This is why the shadow —
 running the real position's full exit — is REQUIRED for correctness, not a mere convenience.)
+
+## Finding 29 — ⚠⚠ PRODUCTION RISK BUG: 34% of BreakoutTimer trades are STOPLESS (ride to MOC unprotected) — the EmaStop guard `close > emaLow` fails when the breakout bar closes below its own 20m-min-9EMA. A fallback stop is PURE improvement.
+
+Surfaced while tracing the Backside phantom (user asked why AIG's trade 2 held to MOC — it was STOPLESS). The
+EmaStop level is set only `if bar.close > sEmaLow` (Intraday.fs ~748); when the breakout bar CLOSES BELOW its 20m-
+min-9EMA, `rawStop = -inf` → the trade has NO stop → rides to MOC fully unprotected. Frequency across the book:
+
+- **1185 / 3458 trips (34.3%) are STOPLESS. ALL rode to MOC. ZERO are in warmup (all ≥10:00).** Structural, not a
+  warmup artifact. (A breakout bar closing below its own recent 20m-min-9EMA is common — it's a deep/volatile entry.)
+- Contrast DipRiderV3: only 0.3% stopless — because DRV3's stop is the SESSION-MIN-close geometry stop (a far-away
+  level an entry rarely closes below), NOT the tight 20m-min-9EMA. **The hole is specific to BreakoutTimer's EmaStop.**
+
+**Investigation (user: measure before fixing) — the stopless trades are a GOOD population but carry an unbounded tail:**
+
+| group | n | win% | rawPF | clipPF | avg | worst |
+|---|---:|---:|---:|---:|---:|---:|
+| stopless (34%) | 1185 | 46.8 | 1.921 | 1.38 | +5.02% | −55.9% |
+| has a stop | 2273 | 33.6 | 2.07 | 1.44 | +4.40% | −53.6% |
+
+Stopless trades have HIGHER win% and avg (they include the winners that held to MOC), so REJECTING them would
+throw away edge. But their tail is just as fat (−40% to −56%) with no protection. **A fallback catastrophe stop on
+the stopless trades is PURE improvement** (approx, MOC-return-capped):
+
+| fallback cap on stopless | book PF | avg | worst |
+|---|---:|---:|---:|
+| none (current) | 2.009 | +4.61% | −55.9% |
+| −20% | 2.111 | +4.83% | −53.6% |
+| −15% | 2.195 | +5.00% | −53.6% |
+| −10% | **2.34** | **+5.25%** | −53.6% |
+
+Capping monotonically LIFTS both PF and avg — the edge does NOT live in the −20%..−56% left tail. **VERDICT: don't
+reject the stopless trades (good population); give them a FALLBACK stop when the EmaStop can't be set (candidate:
+the geometry stop entry−d·⅔ off session-min, or a fixed −10–15%).** This is a real production risk defect in
+BreakoutTimer (and BreakoutTimerBackside inherits it). FIX PENDING user's choice of fallback mechanism. NOTE: this
+is orthogonal to the vol_climb/backside work — it affects the base book regardless.
