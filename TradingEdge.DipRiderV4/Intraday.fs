@@ -82,7 +82,7 @@ type State =
 
 /// Per-(ticker, day) intraday engine. Feed it the day's RTH MinuteBar[] in time
 /// order via `Process`, then `Flatten` and read `Positions`.
-type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClose: float) =
+type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d: float, close3d: float) =
     // ----- rolling intraday structures (1m timeframe; all fed ONLY from the 09:30 feature anchor) -----
     let atrLog    = AvgMa(cfg.VolWindow)        // mean LOG true range over the last VolWindow bars (the volatility feature)
     let atrLin    = AvgMa(cfg.VolWindow)        // mean ABSOLUTE true range (linear) — the tightness DENOMINATOR
@@ -118,7 +118,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             armed = true
         }
 
-    let mutable position : IntradayPosition voption = ValueNone
+    let mutable positions : IntradayPosition ResizeArray = ResizeArray()
     let mutable armed = true
     let mutable bar = ValueNone
     let mutable barsSeen = 0
@@ -142,137 +142,142 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             armed = armed
         }
 
-    /// Fold one minute bar into all rolling state (snapshot-before-push, no-lookahead).
-    member this.ProcessBar (bar: MinuteBar) =
-        if bar.etMin >= cfg.EntryStartMin then
-            ()
-        if bar.etMin >= cfg.FeatureStartMin then
-            vwap.Push(bar.close * float bar.volume, float bar.volume)
-            ema.Push(bar.close)
+    /// Fold one minute bar into all rolling state, THEN snapshot. Features INCLUDE the current
+    /// bar (it has already closed — using it is not lookahead). The one strictly-prior read is the
+    /// true-range prior close (`sState.bar`) and the closes-above-EMA reference (the EMA as it stood
+    /// BEFORE this bar folds), captured before their respective pushes below.
+    member this.ProcessBar (curBar: MinuteBar) =
+        let currentState = this.State
+        // the immediately-prior bar (from the last snapshot) — the true-range prior-close reference.
+        let prevBar = sState.bar
+        if curBar.etMin >= cfg.FeatureStartMin then
+            // session VWAP (typical price · volume) — cumulative from the 09:30 feature anchor.
+            let tp = (curBar.high + curBar.low + curBar.close) / 3.0
+            vwap.Push(tp * float curBar.volume, float curBar.volume)
+            // true range vs the PRIOR bar's close (both linear & log ATR); needs a valid prior bar.
+            match prevBar with
+            | ValueSome prev when curBar.high > 0.0 && curBar.low > 0.0 && prev.close > 0.0 ->
+                let pc = prev.close
+                (max curBar.high pc - min curBar.low pc) |> atrLin.Push
+                log (max curBar.high pc / min curBar.low pc) |> atrLog.Push
+            | _ -> ()
+            // closes-above-9EMA count, vs the STRICTLY-PRIOR EMA (before this bar folds).
+            let prevEma = ema.State
+            let aboveInd = match prevEma with ValueSome e -> (if curBar.close >= e then 1.0 else 0.0) | ValueNone -> 0.0
+            sum6.Push aboveInd
+            // trailing-window OLS log-price slope (the trend feature).
+            priceOls.Push (log curBar.close)
+            // trailing 5-bar raw-volume avg (recent-tempo numerator).
+            vol5avg.Push (float curBar.volume)
+            // the 9-EMA (fed AFTER the above-EMA indicator reads the prior EMA), then its 20m trailing MIN.
+            ema.Push curBar.close
             ema.State |> ValueOption.iter emaLow.Push
-            failwith "Fill in..."
+            // volume analogue: 9-EMA of raw volume, then its 20m trailing MIN (the vol_climb base).
+            volEma.Push (float curBar.volume)
+            volEma.State |> ValueOption.iter volEmaMin.Push
+        // advance the prior-bar pointer & counter for EVERY bar (an invalid/pre-feature bar still
+        // advances wall-clock time so the ATR prior-close is the immediately-prior bar), THEN snapshot
+        // the post-fold state — the entry gate reads features that INCLUDE this bar.
+        bar      <- ValueSome curBar
+        barsSeen <- barsSeen + 1
+        sState   <- currentState
 
 
-    /// Advance one open position by the current bar (immutable update). Exit precedence (first to fire wins):
-    ///   stop -> pct_stop -> exhaust -> vwap_lost -> time_stop -> moc.
+    /// Advance one open position by the current bar (immutable update). Exit precedence
+    /// (first to fire wins): stop -> moc. Both fill at the bar CLOSE.
     member private this.Advance (bar: MinuteBar) (pos: IntradayPosition) : IntradayPosition =
         match pos.State with
         | ExitedAt _ -> pos
         | Holding ->
-            // EmaStop mode: the trigger is the LIVE 9-EMA closing below the frozen level (like BreakoutTimer),
-            // NOT the bar price. Fills at the bar close. Otherwise: geometry/pct stop on close-or-low.
-            let stopHit =
-                pos.StopLevel > Double.NegativeInfinity
-                && (if cfg.EmaStop then (match ema.State with ValueSome e -> e < pos.StopLevel | ValueNone -> false)
-                    elif cfg.StopOnClose then bar.close <= pos.StopLevel
-                    else bar.low <= pos.StopLevel)
-            let pctStopLevel = pos.EntryPx * (1.0 - cfg.PctStop)
-            let pctStopHit = cfg.PctStop > 0.0 && bar.low <= pctStopLevel
-            // EXHAUSTION EXIT: this bar makes a NEW SESSION HIGH (wick > strictly-prior session high) AND is a
-            // VOLUME BLOW-OFF (>= mult × BOTH per-minute baselines). Fill at the bar close.
-            let exhaustHit =
-                cfg.ExhaustExit
-                && permin20d > 0.0 && permin15m > 0.0
-                && float bar.volume >= cfg.ExhaustVolMult * permin20d
-                && float bar.volume >= cfg.ExhaustVolMult * permin15m
-                && (match sRunHi with ValueSome h -> bar.high > h | ValueNone -> false)
-            // LOSS-OF-VWAP exit: the 9-EMA had been above VWAP for >= VwapExitBars bars going into this bar
-            // (strictly-prior) AND on THIS bar the live EMA is now BELOW VWAP. Fill at this bar's close.
-            let vwapLostHit =
-                cfg.VwapExitBars > 0
-                && sEmaAboveVwapBars >= cfg.VwapExitBars
-                && (match ema.State, this.LiveVwap with ValueSome e, ValueSome v -> e < v | _ -> false)
+            // STOP: the current 9-EMA has closed BELOW the frozen stop level. Fills at the bar close.
+            let stopHit = match ema.State with ValueSome e -> e < pos.StopLevel | ValueNone -> false
             if stopHit then
-                let fill =
-                    if cfg.EmaStop || cfg.StopOnClose then bar.close
-                    else min pos.StopLevel bar.``open``
-                { pos with State = ExitedAt (bar.etMin, fill, "stop") }
-            elif pctStopHit then
-                { pos with State = ExitedAt (bar.etMin, min pctStopLevel bar.``open``, "pct_stop") }
-            elif exhaustHit then
-                { pos with State = ExitedAt (bar.etMin, bar.close, "exhaust") }
-            elif vwapLostHit then
-                { pos with State = ExitedAt (bar.etMin, bar.close, "vwap_lost") }
-            elif cfg.TimeStopMin > 0 && bar.etMin >= pos.EntryMin + cfg.TimeStopMin then
-                { pos with State = ExitedAt (bar.etMin, bar.close, "time_stop") }
+                { pos with State = ExitedAt (bar.etMin, bar.close, "stop") }
             elif bar.etMin >= cfg.MocMin then
                 { pos with State = ExitedAt (bar.etMin, bar.close, "moc") }
             else pos
 
+    /// The PRICE pattern — does the CURRENT (post-fold, this-bar-inclusive) feature state clear every
+    /// PRICE gate? Time-window, price/ATR core, day-trend/VWAP floors. This ALONE drives arm/disarm (an
+    /// armed price trigger consumes the setup whether or not volume passes) — the SMB-backside split.
+    /// The volume gate is separate (VolumePasses). Any undefined feature = fail (ValueNone → false).
+    member private this.PricePatternFires (bar: MinuteBar) : bool =
+        let inline gate (v: float voption) (test: float -> bool) =
+            match v with ValueSome x -> test x | ValueNone -> false
+        // inside the wall-clock entry window [EntryStartMin, EntryEndMin].
+        bar.etMin >= cfg.EntryStartMin
+        && (cfg.EntryEndMin <= 0 || cfg.EntryEndMin >= cfg.MocMin || bar.etMin <= cfg.EntryEndMin)
+        // --- price / ATR core ---
+        // positive 20m OLS log-price slope (an up-trend into the entry).
+        && gate priceOls.Slope (fun s -> s > 0.0)
+        // log-ATR FLOOR (the main lever) + optional CEILING.
+        && (cfg.MinAtrPct <= 0.0 || gate atrLog.State (fun a -> a >= cfg.MinAtrPct))
+        && (Double.IsInfinity cfg.MaxAtrPct || gate atrLog.State (fun a -> a < cfg.MaxAtrPct))
+        // >= N of the last 6 bars closed above the 9-EMA. 0 = off.
+        && (cfg.MinCloseAbove6 <= 0 || gate sum6.State (fun c -> int (round c) >= cfg.MinCloseAbove6))
+        // --- day-trend + VWAP floors ---
+        // DAY-DIRECTION FLOOR (F17): entry / prev-daily-close − 1 >= MinChg1d. NaN/-inf = off.
+        && (Double.IsNegativeInfinity cfg.MinChg1d || Double.IsNaN cfg.MinChg1d
+            || (close1d > 0.0 && bar.close / close1d - 1.0 >= cfg.MinChg1d))
+        // 3-DAY TREND FLOOR (F28): entry / close-3d-ago − 1 >= MinChg3d. NaN/-inf/no-close3d = off.
+        && (Double.IsNegativeInfinity cfg.MinChg3d || Double.IsNaN cfg.MinChg3d || close3d <= 0.0
+            || bar.close / close3d - 1.0 >= cfg.MinChg3d)
+        // 9-EMA-vs-VWAP FLOOR (F27): ema / vwap − 1 >= MinEmaVsVwap (smoothed trend vs VWAP). NaN/-inf = off.
+        && (Double.IsNegativeInfinity cfg.MinEmaVsVwap || Double.IsNaN cfg.MinEmaVsVwap
+            || (match ema.State, vwap.State with
+                | ValueSome e, ValueSome v -> v > 0.0 && e / v - 1.0 >= cfg.MinEmaVsVwap
+                | _ -> false))
+
+    /// The VOLUME pattern — vol_climb = (volEma − volEmaMin)/volEma >= MinVolClimb (the F32 gate). Evaluated
+    /// SEPARATELY from the price pattern: a price trigger that FAILS this still disarms (consumes the setup),
+    /// it just doesn't open a REAL position — so the reported set == the post-hoc price∧vol filter, LIVE,
+    /// without deferring to a later/worse setup. 0 = always passes.
+    member private _.VolumePasses : bool =
+        cfg.MinVolClimb <= 0.0
+        || (match volEma.State, volEmaMin.State with
+            | ValueSome v, ValueSome m when v > 0.0 -> (v - m) / v >= cfg.MinVolClimb
+            | _ -> false)
+
     /// Advance the whole system by one minute bar: fold the bar in, advance every open position, then
-    /// (if Gate 3 fires) open a new independent position. The new position is appended AFTER existing
-    /// positions advance, so an entry bar is never its own first exit-check.
+    /// (if armed and the pattern fires) open ONE new position. The re-arm check runs LAST so we never
+    /// arm and enter on the same bar.
     member this.Process (bar: MinuteBar) =
         this.ProcessBar bar
         for i in 0 .. positions.Count - 1 do
             positions.[i] <- this.Advance bar positions.[i]
-        // SMB backside: a price pattern with a free slot ALWAYS opens a position — REAL (Reported) if vol_climb
-        // passes, else a SHADOW (Reported=false) that holds the slot and runs the full exit logic but isn't
-        // reported. Same entry/stop/exits either way, so timing == the mc1 base book; the reported subset == the
-        // post-hoc vol filter.
-        if this.PricePatternFires bar then
-            let reported = this.VolumePasses
-            // STOP (same geometry as the settled DRV3 stop): d = entry - floor; stop = entry - d*StopDistFrac (2/3).
-            let stopFloor =
-                if cfg.StopFloorSessMin then sSessMinClose
-                else (match sCloseLow with ValueSome l -> l | ValueNone -> nan)
-            let rawStop =
-                if cfg.EmaStop then
-                    // frozen 20m-min-9EMA used DIRECTLY as the stop (no session-low geometry).
-                    match sEmaMin with
-                    | ValueSome m when m > 0.0 && bar.close > m -> m
-                    | _ -> Double.NegativeInfinity
-                elif cfg.GeomStop && not (Double.IsNaN stopFloor) && stopFloor > 0.0 && bar.close > stopFloor then
-                    let d = bar.close - stopFloor
-                    bar.close - d * cfg.StopDistFrac
-                else Double.NegativeInfinity
-            let stop = if rawStop > 0.0 then rawStop else Double.NegativeInfinity
-            let stopDistPct = if bar.close > 0.0 && stop > Double.NegativeInfinity then (bar.close - stop) / bar.close else nan
-            let slopePerAtr =
-                match sAtrLog with
-                | ValueSome a when a > 0.0 && not (Double.IsNaN sPriceSlope) -> sPriceSlope / a
-                | _ -> nan
-            positions.Add
-                { EntryMin = bar.etMin
-                  EntryPx = bar.close
-                  StopLevel = stop
-                  StopDistPct = stopDistPct
-                  PriceSlope20AtEntry = sPriceSlope
-                  VolSlope20AtEntry = sVolSlope
-                  LogAtr20AtEntry = (match sAtrLog with ValueSome a -> a | ValueNone -> nan)
-                  Tightness20AtEntry = (match this.Tightness with ValueSome t -> t | ValueNone -> nan)
-                  SlopePerAtrAtEntry = slopePerAtr
-                  SumAbove6AtEntry = sSumAbove6
-                  SumAbove40AtEntry = sSumAbove40
-                  SumAbove60AtEntry = sSumAbove60
-                  EmaVwap30AtEntry = sEmaVwap30
-                  EmaVwap60AtEntry = sEmaVwap60
-                  TrailVol20mAtEntry = sTrailVol20m
-                  SessMaxVol20AtEntry = sSessMaxVol20
-                  EmaAtEntry = (match sEmaPrev with ValueSome e -> e | ValueNone -> nan)
-                  EmaMinAtEntry = (match sEmaMin with ValueSome m -> m | ValueNone -> nan)
-                  VolEmaAtEntry = (match sVolEma with ValueSome v -> v | ValueNone -> nan)
-                  VolEmaMinAtEntry = (match sVolEmaMin with ValueSome m -> m | ValueNone -> nan)
-                  SessMaxEmaAtEntry = sSessMaxEma
-                  UpdnWAtEntry = Array.copy sUpdnW
-                  SessMaxLogAtrAtEntry = sSessMaxLogAtr
-                  SessMinCloseAtEntry = sSessMinClose
-                  SessMaxCloseAtEntry = sSessMaxClose
-                  SessMaxVolAtEntry = sSessMaxVol
-                  VwapAtEntry = (match sVwapNow with ValueSome v -> v | ValueNone -> nan)
-                  InitVol15mAtEntry = sInitVol15m
-                  TrailVol5mAtEntry = sTrailVol5m
-                  EntryVsSessHighAtEntry = (match sRunHi with ValueSome h when h > 0.0 -> bar.close / h - 1.0 | _ -> nan)
-                  Chg20mAtEntry = (match lagPctChange lag20 with ValueSome p -> p | ValueNone -> nan)
-                  CumVolAtEntry = cumVol
-                  MktChgOpenAtEntry = this.MktChgOpen bar.etMin
-                  MktChgPrevAtEntry = this.MktChgPrev bar.etMin
-                  Reported = reported
-                  State = Holding }
+        if armed && this.PricePatternFires bar then
+            // STOP = the CURRENT 20m-min-of-EMA (this-bar-inclusive). The EMA-stop fires when the live
+            // 9-EMA later drops below this level. REQUIRE room: the stop must be finite AND strictly below
+            // the current 9-EMA (else the position is born stopped-out / the stop is meaningless). No room
+            // ⇒ SKIP the trade but STILL disarm (consume the setup until the next low re-arms).
+            let stop =
+                match emaLow.State with
+                | ValueSome m when m > 0.0 -> m
+                | _ -> Double.NegativeInfinity
+            let hasRoom =
+                stop > Double.NegativeInfinity
+                && (match ema.State with ValueSome e -> stop < e | ValueNone -> false)
+            // SMB-backside split: the PRICE pattern (+room) opens a REAL position ONLY IF volume also passes;
+            // a volume FAIL still disarms (consumes the setup) so we never defer to a later, worse setup.
+            if hasRoom && this.VolumePasses then
+                positions.Add
+                    { EntryMin = bar.etMin
+                      EntryPx = bar.close
+                      StopLevel = stop
+                      State = Holding }
+            // taken, vol-skipped, OR no-room: disarm until the next low re-arms.
+            armed <- false
+        // RE-ARM LAST: the current 9-EMA has dropped below the PRIOR 20m-min-of-EMA (a fresh low was made).
+        // Placed at the END so a re-arm on this bar can only enable an entry on a LATER bar.
+        match ema.State, sState.emaLow with
+        | ValueSome e, ValueSome m when e < m -> armed <- true
+        | _ -> ()
+
+
 
     /// Flatten any still-open positions at the last folded bar's close (MOC / hold-to-close).
     member _.Flatten () =
-        match lastBar with
+        match bar with
         | ValueNone -> ()
         | ValueSome lb ->
             for i in 0 .. positions.Count - 1 do
