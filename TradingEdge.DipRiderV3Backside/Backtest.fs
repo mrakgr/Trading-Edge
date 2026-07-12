@@ -87,6 +87,8 @@ let defaultConfig =
           MaxSumAbove40  = 0             // trend-too-long cap OFF (tune after breakdown).
           MaxSumAbove60  = 0
           // ----- stop / exits -----
+          EmaStop         = false        // false = settled geometry stop. true = frozen 20m-min-9EMA as the stop,
+                                         // triggered by the LIVE 9-EMA closing below it (overrides GeomStop).
           GeomStop        = true         // geometry stop: d = entry - stopFloor; stop = entry - d*StopDistFrac.
           StopFloorSessMin = true         // stop floor = the SESSION MIN CLOSE (from 08:30) — F2: the wider floor
                                          // lifts win-rate 24.5%->36.1% & PF 1.244->1.253 vs the 20m-min-close

@@ -149,6 +149,9 @@ type IntradayConfig =
       MaxSumAbove40: int       // CAP: reject if SumAbove40 >= this (trend went on too long). 0 = off (default).
       MaxSumAbove60: int       // CAP: reject if SumAbove60 >= this. 0 = off (default).
       // ----- stop / exits -----
+      EmaStop: bool            // true = stop level IS the frozen 20m-min-9EMA (sEmaMin at entry), used DIRECTLY,
+                               // no session-low geometry. Triggers like the geom stop (close/low <= level per
+                               // StopOnClose). OVERRIDES GeomStop when set. Default false (settled = geometry stop).
       GeomStop: bool           // true (default) = geometry stop: d = entry - stopFloor (the 20m-window low),
                                // stop = entry - d*StopDistFrac. false = stopless (hold-to-MOC + optional pct/time).
       StopFloorSessMin: bool   // stop-floor source: false (default) = the 20m-window low (rangeLow, the trailing
@@ -544,9 +547,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         match pos.State with
         | ExitedAt _ -> pos
         | Holding ->
+            // EmaStop mode: the trigger is the LIVE 9-EMA closing below the frozen level (like BreakoutTimer),
+            // NOT the bar price. Fills at the bar close. Otherwise: geometry/pct stop on close-or-low.
             let stopHit =
                 pos.StopLevel > Double.NegativeInfinity
-                && (if cfg.StopOnClose then bar.close <= pos.StopLevel else bar.low <= pos.StopLevel)
+                && (if cfg.EmaStop then (match ema.State with ValueSome e -> e < pos.StopLevel | ValueNone -> false)
+                    elif cfg.StopOnClose then bar.close <= pos.StopLevel
+                    else bar.low <= pos.StopLevel)
             let pctStopLevel = pos.EntryPx * (1.0 - cfg.PctStop)
             let pctStopHit = cfg.PctStop > 0.0 && bar.low <= pctStopLevel
             // EXHAUSTION EXIT: this bar makes a NEW SESSION HIGH (wick > strictly-prior session high) AND is a
@@ -564,7 +571,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 && sEmaAboveVwapBars >= cfg.VwapExitBars
                 && (match ema.State, this.LiveVwap with ValueSome e, ValueSome v -> e < v | _ -> false)
             if stopHit then
-                let fill = if cfg.StopOnClose then bar.close else min pos.StopLevel bar.``open``
+                let fill =
+                    if cfg.EmaStop || cfg.StopOnClose then bar.close
+                    else min pos.StopLevel bar.``open``
                 { pos with State = ExitedAt (bar.etMin, fill, "stop") }
             elif pctStopHit then
                 { pos with State = ExitedAt (bar.etMin, min pctStopLevel bar.``open``, "pct_stop") }
@@ -596,7 +605,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 if cfg.StopFloorSessMin then sSessMinClose
                 else (match sCloseLow with ValueSome l -> l | ValueNone -> nan)
             let rawStop =
-                if cfg.GeomStop && not (Double.IsNaN stopFloor) && stopFloor > 0.0 && bar.close > stopFloor then
+                if cfg.EmaStop then
+                    // frozen 20m-min-9EMA used DIRECTLY as the stop (no session-low geometry).
+                    match sEmaMin with
+                    | ValueSome m when m > 0.0 && bar.close > m -> m
+                    | _ -> Double.NegativeInfinity
+                elif cfg.GeomStop && not (Double.IsNaN stopFloor) && stopFloor > 0.0 && bar.close > stopFloor then
                     let d = bar.close - stopFloor
                     bar.close - d * cfg.StopDistFrac
                 else Double.NegativeInfinity

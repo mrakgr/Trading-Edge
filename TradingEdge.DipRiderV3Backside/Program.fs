@@ -44,6 +44,7 @@ type Args =
     | Max_Sum_Above_40 of int
     | Max_Sum_Above_60 of int
     // ----- stop / exits -----
+    | Ema_Stop
     | No_Geom_Stop
     | Stop_Floor_20m
     | Stop_Dist_Frac of float
@@ -87,6 +88,7 @@ type Args =
             | Min_Ema_Vs_Vwap _ -> "9-EMA-vs-VWAP FLOOR (F27, replaces --min-entry-vs-vwap): reject if the 9-EMA is more than |this| below VWAP (ema/vwap-1 < this). Default -0.02. Large-negative = off."
             | Max_Sum_Above_40 _ -> "CAP: reject if >= N of the last 40 bars were above the 9-EMA (trend went on too long). Default 0 = off."
             | Max_Sum_Above_60 _ -> "CAP: reject if >= N of the last 60 bars were above the 9-EMA. Default 0 = off."
+            | Ema_Stop -> "Use the frozen 20m-min-9EMA as the stop DIRECTLY (no session-low geometry), triggered by the LIVE 9-EMA closing below it. Overrides the geometry stop."
             | No_Geom_Stop -> "Disable the geometry stop (hold stopless to MOC + optional --pct-stop/--time-stop)."
             | Stop_Floor_20m -> "Use the 20m-min-close as the geometry-stop floor instead of the default SESSION-min-close (a tighter floor; F2: the session floor wins on win-rate & PF)."
             | Stop_Dist_Frac _ -> "Geometry-stop distance as a fraction of d = (entry - 20m-min-close). Default 0.667 (=d*2/3)."
@@ -139,6 +141,7 @@ let main argv =
                   MinEmaVsVwap    = parsed.GetResult(Min_Ema_Vs_Vwap,   defaultValue = defaultConfig.Intraday.MinEmaVsVwap)
                   MaxSumAbove40   = parsed.GetResult(Max_Sum_Above_40,  defaultValue = defaultConfig.Intraday.MaxSumAbove40)
                   MaxSumAbove60   = parsed.GetResult(Max_Sum_Above_60,  defaultValue = defaultConfig.Intraday.MaxSumAbove60)
+                  EmaStop         = parsed.Contains Ema_Stop
                   GeomStop        = not (parsed.Contains No_Geom_Stop)
                   StopFloorSessMin = not (parsed.Contains Stop_Floor_20m)   // default ON (F2); opt out to the 20m floor
                   StopDistFrac    = parsed.GetResult(Stop_Dist_Frac,    defaultValue = defaultConfig.Intraday.StopDistFrac)
@@ -179,7 +182,8 @@ let main argv =
           if not (Double.IsInfinity ic.MaxAtrPct) then yield sprintf "logATR < %.3f" ic.MaxAtrPct ]
     if not (List.isEmpty caps) then printfn "  caps        = %s" (String.concat "   " caps)
     let stopDesc =
-        if ic.GeomStop then
+        if ic.EmaStop then "ema: frozen 20m-min-9EMA, triggered by live 9-EMA closing below it"
+        elif ic.GeomStop then
             sprintf "geom: d = entry - %s; stop = entry - d*%.3f (%s)"
                 (if ic.StopFloorSessMin then "sess-min-close" else "20m-min-close") ic.StopDistFrac
                 (if ic.StopOnClose then "close-based" else "wick")
