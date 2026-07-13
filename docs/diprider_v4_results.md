@@ -294,3 +294,96 @@ month    trips   win%         net  rawPF clipPF
 - 24-cell matrix (3 re-arm × 2 vol × 2 mc × 2 tight): `/tmp/mx_*.csv` / `.log`.
 - rolling·mc0 exhaust on/off (yearly+monthly source): `/tmp/br_rolling_*.csv`.
 - Summary scripts: `scratchpad/mx_summary.py`, `scratchpad/breakdown.py`, `scratchpad/sweep_summary.py`.
+
+## Finding 5 — vol_climb is a clean A+ lever; the A+ book (skip·exhaust-ON·vc0.8) is 2021-robust
+
+`vol_climb = (volEma − volEmaMin)/volEma` is bounded [0,1); `vc = n/(n+1)` means "volEma is (n+1)× its 20m
+floor". Swept on the interpretable n/(n+1) ladder (multiples of the floor), rolling·mc0, **raw AND clip PF**:
+
+**skip·exhaust-ON** (the A+ book — the cleanest response):
+
+| vol_climb | mult | trips | win% | net | raw PF | clip PF |
+|---|---|---:|---:|---:|---:|---:|
+| 0.5 | 2× | 1213 | 41.1% | $915k | 2.73 | 1.87 |
+| 0.6 | 2.5× | 806 | 43.1% | $688k | 3.04 | 2.05 |
+| 0.667 | 3× | 567 | 43.2% | $560k | 3.35 | 2.13 |
+| 0.75 | 4× | 322 | 46.6% | $331k | 3.63 | 2.47 |
+| **0.8** | **5×** | **203** | **50.7%** | **$237k** | **4.34** | **3.12** |
+| 0.833 | 6× | 148 | 49.3% | $147k | 3.97 | 3.06 |
+
+**Monotonic in BOTH PFs up to 5×, then rolls over at 6×** (raw 4.34→3.97, net halves — too sparse). So 5×
+is a genuine peak, not "tighter is always better". All four books climb; **skip·exhaust-ON dominates**
+(skip·ON 5× = 4.34/3.12 beats gate·ON 6× = 3.85/2.63). vol_climb + exhaustion cut are **complementary** — at
+every rung exhaust-ON beats exhaust-OFF (both filter late/exhausted entries via different signals: climb =
+volume-vs-floor, rvol cut = blow-off-vs-20d-pace). gate responds less than skip (in skip, a higher vc makes
+more triggers skip-and-disarm, concentrating the reported book — a sharper filter than gate's straight AND).
+
+⭐ **THE A+ BOOK — `--re-arm rolling-ema-low --min-vol-climb 0.8` (skip mode, exhaust cut ON, mc 0):**
+**raw PF 4.34 / clip PF 3.12 / win 50.7% / 203 trips / $237k over 2020-2026.** Comparable to VwapReclaim's
+A+ cell (PF 4.03/184 trips). The raw-vs-clip gap (~1.4×) is HEALTHY and even narrows as vc tightens — the
+edge is broad-based, NOT a handful of monster winners inflating raw PF.
+
+### 2021-robustness (the decisive test) — A+ book, raw / clip PF per year
+
+| year | trips | win% | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|---:|
+| 2020 | 16 | 56.2% | $16k | 3.21 | 2.33 |
+| **2021** | 64 | 45.3% | $30k | **2.37** | **2.37** |
+| 2022 | 26 | 61.5% | $30k | 6.28 | 5.53 |
+| 2023 | 13 | 53.8% | $48k | 13.47 | 6.53 |
+| 2024 | 25 | 44.0% | $57k | 5.58 | 2.62 |
+| 2025 | 33 | 45.5% | $23k | 2.72 | 2.37 |
+| 2026 | 26 | 61.5% | $35k | 5.86 | 4.77 |
+
+⭐ **Positive EVERY year, and 2021 — the chronic adverse regime — HOLDS at raw 2.37 / clip 2.37.** The vc≥0.8
+requirement FIXES 2021 (every other DRV4 book sags to ~1.1–1.4 clip there). Demanding genuine 5× volume
+expansion filters exactly the low-conviction breakouts that fail when momentum isn't rewarded (the
+cross-system vol_climb theme). **2021 raw == clip (2.37):** zero winners exceeded the +50% clip that year, so
+2021's edge is entirely broad-based, zero tail dependence — the most reassuring possible signal for the
+hardest year. Thin years (2023 @ 13 trips) can't carry weight alone, but the aggregate + the 2021 stress
+test both hold.
+
+### Tail characterization — A+ book (skip·exhaust-ON·vc0.8, 2020-2026)
+
+| metric | value |
+|---|---|
+| worst day | 2024-09-19 −$3,411 |
+| worst week | 2021-W26 −$3,962 |
+| worst month | 2025-09 −$3,953 |
+| max drawdown (daily equity curve) | **−$5,384** (trough 2026-04-09) |
+| profitable months | 43/65 active (66%); 13 of 78 months had NO A+ trade |
+| profitable days | 88/177 active (50%) |
+| total net | $237,389 |
+
+Remarkably shallow tail for the net: **max DD −$5.4k on $237k net (~2.3% of total P&L)**, worst day/week/month
+all ≈ −$3.4–4.0k. The book is THIN (≈31 trips/yr, only 65/78 months active) — monthly hit-rate (66%) is
+lower than the base books (78–87%) purely because sparse months swing, but the losing months are TINY. This
+is a low-frequency, high-quality overlay, not a standalone capacity book. For capacity stay at vc 0.5–0.6;
+for the A+ tier, vc 0.8.
+
+<details>
+<summary>Monthly breakdown — A+ book (skip·exhaust-ON·vc0.8, 203 trips, $237k, raw 4.34 / clip 3.12)</summary>
+
+```
+month    trips   win%         net  rawPF clipPF
+2021-01      9  55.6%      10,108   6.06   6.06
+2021-02     10  40.0%       7,939   3.55   3.55
+2021-03     10  50.0%       4,624   2.33   2.33
+2021-08      5  80.0%       7,007  77.65  77.65
+2021-12      2   0.0%      -2,584   0.00   0.00
+2022-08      5  80.0%      10,968  15.20  15.20
+2023-12      2 100.0%      31,664    nan    nan
+2024-12      4  75.0%      41,512  47.68  12.00
+2025-05      7  71.4%      15,781  18.70  14.43
+2025-09      6  33.3%      -3,953   0.12   0.12
+2026-05     11  72.7%      26,807  31.76  23.81
+2026-06      6  83.3%       6,179   4.29   4.29
+```
+(notable months; sparse-month PFs read `nan` when all-winners. Full CSV: `/tmp/vc_skip_on_vc0.8.csv`)
+</details>
+
+### Artifacts (F5)
+
+- vol_climb ladder (0.4–0.833 × 4 books): `/tmp/vc_*.csv` / `.log`; summary `scratchpad/vc_ladder.py`.
+- A+ book: `/tmp/vc_skip_on_vc0.8.csv`. Config: `--re-arm rolling-ema-low --min-vol-climb 0.8` (defaults
+  otherwise: skip mode, exhaust cut ON, mc 0, tightness OFF).
