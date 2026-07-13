@@ -547,30 +547,42 @@ interaction, not from falling volume per se.
 
 ## F15 — vol_slope is a STEP FUNCTION at 0.025, not monotone (corrects F14's "clean monotone" claim)
 
-Fine grid straddling 0.025 (raw 09:45 book, same-width buckets) — testing step vs ramp on avg%/trade:
+Fine grid straddling 0.025 (raw 09:45 book, no day-scale filters, n=21,277) — testing step vs ramp on
+avg%/trade. **The FULL table (note the trip distribution — the `< −0.05` bucket alone is 10,805 of 21,277
+trades, ~51%; the book is dominated by falling-volume names):**
 
-| bucket | n | win% | PF | avg%/tr |
-|---|---|---|---|---|
-| [−0.025, −0.01) | 1845 | 36 | 1.55 | +0.82 |
-| [−0.01, 0.0) | 923 | 35 | 1.09 | +0.15 |
-| [0.0, 0.01) | 770 | 37 | 1.06 | +0.11 |
-| [0.01, 0.02) | 570 | 39 | 1.50 | +0.94 |
-| [0.02, 0.025) | 263 | 40 | 1.38 | +0.70 |
-| **[0.025, 0.03)** | 242 | 41 | **1.89** | **+2.22** ← STEP |
-| [0.03, 0.04) | 387 | 41 | 2.18 | +2.14 |
-| [0.04, 0.05) | 303 | 41 | 1.15 | +0.40 |
-| [0.05, 0.075) | 495 | 36 | 1.65 | +1.65 |
-| ≥ 0.10 | 407 | 39 | 1.94 | +2.75 |
+| bucket | n | win% | PF | avg%/tr | net |
+|---|---|---|---|---|---|
+| < −0.05 | 10805 | 30 | 1.20 | +0.25 | $274,734 |
+| [−0.05, −0.025) | 3981 | 34 | 1.19 | +0.28 | $109,938 |
+| [−0.025, −0.01) | 1845 | 36 | 1.55 | +0.82 | $150,930 |
+| [−0.01, 0.0) | 923 | 35 | 1.09 | +0.15 | $14,230 |
+| [0.0, 0.01) | 770 | 37 | 1.06 | +0.11 | $8,355 |
+| [0.01, 0.02) | 570 | 39 | 1.50 | +0.94 | $53,812 |
+| [0.02, 0.025) | 263 | 40 | 1.38 | +0.70 | $18,493 |
+| **[0.025, 0.03)** | 242 | 41 | **1.89** | **+2.22** ← STEP | $53,648 |
+| [0.03, 0.04) | 387 | 41 | 2.18 | +2.14 | $82,887 |
+| [0.04, 0.05) | 303 | 41 | 1.15 | +0.40 | $12,186 |
+| [0.05, 0.075) | 495 | 36 | 1.65 | +1.65 | $81,487 |
+| [0.075, 0.10) | 286 | 37 | 1.29 | +0.87 | $25,010 |
+| ≥ 0.10 | 407 | 39 | 1.94 | +2.75 | $112,036 |
 
 **It's a STEP, not a monotone ramp** (user call). avg%/trade sits at +0.1 to +0.9 for every bucket BELOW
 0.025, then the first bucket ABOVE it jumps to **+2.22** — a ~3× discontinuity on adjacent same-width
 buckets, mirrored in PF (1.38 → 1.89). Within each segment it's WEAKLY monotone / noisy:
-- **Below 0.025:** low plateau, noisy (+0.1 to +0.9), no strong trend.
+- **Below 0.025:** low plateau, noisy (+0.1 to +0.9), no strong trend. NOTE the mass is here — the raw book
+  is dominated by falling-volume (< −0.05) names (51% of trips), which sit near breakeven UNFILTERED (PF 1.20,
+  avg% +0.25) and only become strong once the day-strength filter is applied (F14 interaction).
 - **Above 0.025:** high plateau (+0.4 to +2.75), noisy sub-buckets (small n 240–500 each) — don't over-read
   the wiggles; the STEP itself is the robust feature (holds in PF, avg%, AND the filtered books of F13).
 
 **This corrects F14** ("clean monotone positive side" — wrong) and reframes the [0, 0.025) "notch": it is NOT
 a special dip, it's just the TOP of the LOWER plateau, which looks weak only next to the post-step buckets.
 Model: **avg%/trade ≈ a step function, riser at ~0.025** (volume ACCELERATING past a threshold), weak/noisy
-monotonicity on either side. The 0.025 two-tier split (F13) is the right operationalization — it's cutting at
-the step riser. Next: entry-minute sweep (09:46…10:30).
+monotonicity on either side.
+
+**Threshold choice (user):** the riser is around 0.025, but **0.01 or even 0 are defensible cut points too** —
+below the step the plateau is low-but-noisy, so exactly where you draw the line in [0, 0.025) is a judgement
+call, not a sharp knee. `0.025` (F13's split) is good enough and cleanly on the high side of the riser. The
+0.025 two-tier split remains the operationalization — it's cutting at the step riser. Next: entry-minute
+sweep (09:46…10:30).
