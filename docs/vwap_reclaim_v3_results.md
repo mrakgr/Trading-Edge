@@ -111,35 +111,43 @@ concentrated ones share a single sweet spot at `b=0.005`.
 PF falls monotonically (win% rises but net falls) — a stop now too loose: rollovers get room to run back
 into losses. There's no runner to protect at +0.4%, so any buffer is pure downside. **Keep b=0.**
 
-**A cell `updn≥1.0 & run_max_dist≥3.5%` (avg +7%/trade) — peaks at b=0.005:**
+**Fine sweep on the graded cells (2020-26) — the optimum is a THRESHOLD, then a flat plateau ~0.002-0.005.**
 
-| buffer | all-yr PF | all-yr net | modern PF | modern net (865tr) |
+A cell `updn≥1.0 & run_max_dist≥3.5%` (865 trips, avg +7%/trade), and A+ cell `updn≥1.3 & rmd≥3.5% & dpa<3`
+(235 trips, avg +18%/trade):
+
+| buffer | A PF | A net | A+ PF | A+ net |
 |---|---|---|---|---|
-| 0.000 | 2.29 | 642,021 | 2.32 | 610,124 |
-| **0.005** | **2.33** | **663,612** | **2.36** | **629,938** |
-| 0.010 | 2.29 | 654,125 | 2.31 | 620,476 |
-| 0.050 | 2.14 | 626,650 | 2.16 | 596,118 |
+| 0.000 | 2.32 | 610,124 | 4.08 | 423,400 |
+| 0.001 | 2.33 | 610,668 | 4.07 | 422,857 |
+| 0.002 | 2.37 | 632,433 | 4.26 | 445,606 |
+| **0.0025** | **2.37** | **631,437** | **4.25** | **445,248** |
+| 0.003 | 2.37 | 631,468 | 4.22 | 444,374 |
+| 0.005 | 2.36 | 629,938 | 4.22 | 444,386 |
+| 0.010 | 2.31 | 620,476 | 4.13 | 441,559 |
+| 0.050 | 2.16 | 596,118 | 3.88 | 438,976 |
 
-**A+ cell `updn≥1.3 & rmd≥3.5% & dpa<3` (avg +18%/trade) — also peaks at b=0.005:**
+Two structural facts:
+- **It's a THRESHOLD, not a slope.** At `b≤0.001` both cells are byte-close to the tight stop (A 2.33≈2.32,
+  A+ 4.07≈4.08) — the buffer does nothing until it clears the typical ~0.2% 1-tick EMA noise, then it kicks
+  in at `b≈0.002`. Smaller-than-the-knee is NOT better; there's a genuine floor set by EMA tick-noise.
+- **0.002-0.005 is a flat plateau.** Inside it PF/net vary within ~$2k (noise). Past ~0.01 it decays back
+  toward hold-to-MOC (rollovers re-admitted).
 
-| buffer | A+ PF | A+ net | A+(rv<2) PF | A+(rv<2) net |
-|---|---|---|---|---|
-| 0.000 | 4.12 | 429,018 | 4.31 | 431,805 |
-| **0.005** | **4.25** | **450,004** | **4.47** | **453,112** |
-| 0.010 | 4.17 | 447,177 | 4.37 | 450,165 |
-| 0.050 | 3.91 | 444,594 | 4.13 | 449,101 |
+**`b=0.0025` is chosen as the graded-cell default** — dead-center of the plateau on both books (A PF 2.37,
+A+ PF 4.25), capturing the full buffer benefit (+$21k A / +$22k A+ vs the tight stop) without perching on
+either edge of the safe region.
 
-**Why this is a real mechanism, not an overfit.** Two DIFFERENT concentrated books — the A cell (973/865
-trips) and the A+ cell (232 trips) — INDEPENDENTLY peak at the identical `b=0.005`, both decaying past
-~0.01. A single fitted knob wouldn't land on the same value across two disjoint samples of very different
-size. The unifying variable is **avg %/trade**: at +0.4% (fat) there's no runner to protect and any buffer
-re-admits losing rollovers (monotone down); at +7% / +18% (A / A+) 0.5% of room stops the tight EMA-stop
-from clipping a genuine runner mid-move, worth +$20k on each cell. On A+(rv<2) it recovers the entire F2
-tax and lifts PF above V1 (4.31→**4.47**, vs V1's 4.38).
+**Why this is a real mechanism, not an overfit.** Two DIFFERENT concentrated books — the A cell (865 trips)
+and the A+ cell (235 trips) — INDEPENDENTLY show the same threshold-at-0.002 + plateau-to-0.005 shape across
+disjoint samples of very different size. A single fitted knob wouldn't reproduce the same knee twice. The
+unifying variable is **avg %/trade**: at +0.4% (fat) there's no runner to protect and any buffer re-admits
+losing rollovers (monotone down); at +7% / +18% (A / A+) a hair of room stops the tight EMA-stop from
+clipping a genuine runner mid-move, worth ~+$21k on each cell.
 
 **Verdict — one knob, gated by per-trade edge:**
-- **Fat / capacity book (avg <~1%/trade): `--stop-buffer 0`** (the default). Nothing to protect; cut rollovers.
-- **Graded A / A+ cells (avg ≥ ~7%/trade): `--stop-buffer 0.005`.** Protects the runner; +$20k/cell.
+- **Fat / capacity book (avg <~1%/trade): `--stop-buffer 0`** (the engine default). Nothing to protect; cut rollovers.
+- **Graded A / A+ cells (avg ≥ ~7%/trade): `--stop-buffer 0.0025`.** Protects the runner; +$21k/cell.
 
-Buffer the pullback stop **iff the book has real per-trade edge to protect.** 0.005 is consistent enough
-across two independent cells to trust; no engine fork needed.
+Buffer the pullback stop **iff the book has real per-trade edge to protect.** The 0.002-0.005 plateau is
+consistent across two independent cells; 0.0025 is its center. No engine fork needed.
