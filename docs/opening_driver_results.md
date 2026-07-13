@@ -414,5 +414,39 @@ are all shape features it subsumes — vol_slope only as an A+ dial (≥ 0.025 �
   for forward trading.
 - A regime filter could lift 2021 (most trips + worst PF), but not urgent — it stays positive.
 
-**⭐ The 09:45 opening-drive book is all-weather and tradable.** Next: sweep the other entry minutes
-(09:46…10:30) — is 09:45 the best time, and does a later entry (session-long ATR%/vol-slope) differ?
+**⭐ The 09:45 opening-drive book is all-weather and tradable.**
+
+---
+
+## F12 — vol_slope dead zone is a NARROW notch [0, 0.025), NOT a symmetric band — [−0.025, 0) is fine
+
+Fine buckets around zero (capacity book, PF 2.81). Answers "is only [0, 0.025) dull, or [−0.025, 0) too?"
+
+| vol_slope bucket | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| < −0.10 | 170 | 36 | **4.21** | +5.71 | $97k |
+| [−0.10, −0.05) | 526 | 39 | 2.80 | +4.24 | $223k |
+| [−0.05, −0.025) | 204 | 36 | 2.35 | +4.91 | $100k |
+| **[−0.025, 0)** | 170 | 36 | **2.65** | +7.24 | $123k |
+| **[0, 0.025) — DEAD** | 121 | 40 | **1.67** | +3.56 | $43k |
+| [0.025, 0.05) | 72 | 47 | **3.72** | +16.25 | $117k |
+| ≥ 0.05 | 154 | 47 | 3.28 | +12.49 | $192k |
+
+**The dead zone is ONLY [0, 0.025) — a narrow, isolated notch.** [−0.025, 0) is healthy (PF 2.65 / +7.24%).
+The whole negative side is strong (2.35–4.21; steepest-falling < −0.10 is the STRONGEST at 4.21), and
+[0.025, 0.05) is the single best bucket (3.72 / +16.25%). Interpretation: it's NOT a symmetric U — it's
+"any DECISIVE volume trend is good; only the barely-positive-flat drift [0, 0.025) is noise" (neither the
+climactic-open-receding signal of a negative slope nor real acceleration).
+
+**The precise cut — exclude just the [0, 0.025) notch:**
+
+| cut | n | PF | avg% | net |
+|---|---|---|---|---|
+| no cut (capacity) | 1417 | 2.81 | +6.32 | $895k |
+| **exclude [0, 0.025)** | 1296 | **2.98** | +6.58 | $852k |
+| exclude [−0.025, 0.025) (wider) | 1126 | 3.05 | +6.48 | $729k |
+
+Dropping the 121-trip notch lifts PF 2.81 → 2.98 keeping 91% of net. The wider band pushes PF to 3.05 but
+sacrifices the GOOD [−0.025, 0) slice ($123k) — not worth it. **Refined capacity cut: `vol_slope < 0 OR
+vol_slope ≥ 0.025` → PF 2.98 / 1296 trips / $852k.** vol_slope ≥ 0.025 stays the A+ dial (PF 3.43).
+Next: entry-minute sweep (09:46…10:30).
