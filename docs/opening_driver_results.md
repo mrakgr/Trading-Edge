@@ -26,10 +26,20 @@ Both books take the identical 980,708 window-bar trips (2020-26); only the stop 
 | `vwap` (9-EMA < live VWAP; TIGHT) | 980,708 | 37.6% | $18.5M | 1.239 |
 | **`sess-ema-low` (9-EMA < frozen session-min; LOOSE)** | 980,708 | 33.5% | **$58.5M** | **1.373** |
 
-The tight VWAP stop scratches ~93% of entries at the first sub-VWAP tick (entries fire at every window bar
-regardless of price-vs-VWAP, so most are born ~at VWAP). The loose session-min stop has a lower win rate but
-**3.2× the net and a higher PF** — it lets the opening drive actually run. **`sess-ema-low` is the study's
-base stop.** (The firehose / 93%-scratch on VWAP is intentional — the point is to find WHICH entries survive.)
+Exit-reason split (2020-26):
+
+| stop mode | exit=stop | exit=moc | win rate (net>0) | near-flat (\|ret\|<0.1%) |
+|---|---|---|---|---|
+| `vwap` (TIGHT) | 94.0% | 6.0% | 37.6% | 14.5% |
+| `sess-ema-low` (LOOSE) | 64.9% | 35.1% | 33.5% | 6.9% |
+
+Note "stopped" ≠ "loss": on the VWAP book **94% exit via the stop but 37.6% are still net-positive** — the
+9-EMA often ticks below VWAP only AFTER the trade is already up, so a large share of stop-exits lock in a
+gain (only ~14.5% are true near-flat scratches). The tight VWAP stop still caps the winners hard (only 6%
+reach MOC), which is why its PF/net lag. The loose session-min stop lets 35% ride to MOC — a lower win rate
+but **3.2× the net and a higher PF**: it lets the opening drive actually run. **`sess-ema-low` is the study's
+base stop.** (The firehose — every window bar becomes a trip — is intentional; the point is to find WHICH
+entries survive, F2.)
 
 ---
 
