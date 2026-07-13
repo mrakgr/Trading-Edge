@@ -178,4 +178,33 @@ Each is independent signal (ATR% = move size; vol_slope = volume confirming it's
 monotonically 34%→41% as vol_slope tightens (the volume confirm lifts the HIT rate, not just the tail).
 `vol_slope ≥ 0.01` is the knee: +0.25 PF over the ATR base for ~half the trips; ≥0.025 buys only +0.03 more,
 ≥0.05 rolls over. **Running 09:45 book: `ATR% ≥ 0.02 & vol_slope ≥ 0.01` → PF 1.80 / +4.26%/tr / 817 trips /
-$348k.** Next lever to stack: price_slope (two-sided) or chg_1d.
+$348k.**
+
+---
+
+## F5 — price_slope is SUBSUMED by ATR% + vol_slope — dropped as a lever
+
+The raw-book (F3) U-shape said price_slope was a two-sided edge (steep-down PF 1.81, steep-up 1.51, dead
+middle). Tested WITHIN the running base book (`ATR% ≥ 0.02 & vol_slope ≥ 0.01`, PF 1.80) — the U-shape
+COLLAPSES. No price_slope cut beats the base:
+
+| price_slope cut (within base) | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| (base, all) | 817 | 41 | **1.80** | +4.26 | $348k |
+| ≥ 0.0 (up-slope) | 681 | 39 | 1.77 | +4.80 | $327k |
+| ≥ 0.005 | 516 | 40 | 1.67 | +4.65 | $240k |
+| ≥ 0.01 (steep up) | 242 | 43 | 1.72 | +6.01 | $146k |
+| ≤ −0.004 (steep DOWN tail) | 82 | 51 | 1.84 | **+0.55** | $5k |
+| both tails (\|steep\|) | 598 | 41 | 1.67 | +4.09 | $244k |
+| flat-ish middle (exclude tails) | 219 | 38 | **2.44** | +4.72 | $103k |
+
+**Every cut lands at or below the base's 1.80.** The raw U-shape was an ARTIFACT of ATR%/volume covarying
+with slope — once conditioned on high ATR% and rising volume, price_slope carries no residual signal:
+- The steep-DOWN tail (raw-book star, PF 1.81) is now 1.84 ≈ book, and its avg% is only **+0.55** (near-flat
+  chop, not real winners despite 51% win) — it was an ATR/vol phenomenon, not a slope one.
+- The "flat middle" (raw-book DEAD zone) is now the BEST cell (2.44) — a full inversion, i.e. noise, on 219
+  trips. No monotone gradient survives.
+
+**Verdict: DROP price_slope.** Adding it only shrinks the sample for zero PF gain — the exact subsumption
+risk flagged going in. The book stays `ATR% ≥ 0.02 & vol_slope ≥ 0.01`. Next lever to test: chg_1d (the
+day-strength cut — likely NOT subsumed, since it's a day-scale feature orthogonal to the 20m intraday ones).
