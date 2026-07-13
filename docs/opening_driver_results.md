@@ -494,4 +494,51 @@ clean framing is a TWO-TIER system, not a notch-exclusion:
   receding; the [0, 0.025) notch is its one soft spot — excluding it nudges the base to ~2.7).
 
 **⭐ The 0.025 split is the vol_slope structure: accelerating (≥ 0.025) = the A+ book; the rest is a solid
-all-weather base.** Next: entry-minute sweep (09:46…10:30).
+all-weather base.**
+
+---
+
+## F14 — vol_slope shape, big-sample (filters OFF): the notch is REAL; the negative-side strength is a chg_1d INTERACTION
+
+Bucketed vol_slope on the RAW 09:45 book (no day-scale filters, n=21,277, PF 1.31) — 10× the sample — and
+compared the shape across three filter levels to separate real structure from filter artifacts.
+
+**Fine buckets, RAW book:**
+
+| bucket | n | win% | PF | avg% |
+|---|---|---|---|---|
+| < −0.10 | 2926 | 28 | 1.36 | +0.44 |
+| [−0.10, −0.05) | 7879 | 31 | **1.14** | +0.18 |
+| [−0.05, −0.025) | 3981 | 34 | 1.19 | +0.28 |
+| [−0.025, 0) | 2768 | 36 | 1.38 | +0.60 |
+| **[0, 0.025)** | 1603 | 38 | **1.28** | +0.50 |
+| [0.025, 0.05) | 932 | 41 | **1.70** | +1.60 |
+| [0.05, 0.10) | 781 | 36 | 1.50 | +1.36 |
+| ≥ 0.10 | 407 | 39 | **1.94** | +2.75 |
+
+**Shape across filter levels (PF by bucket):**
+
+| bucket | RAW | chg_1d ≥ 0.20 | full book |
+|---|---|---|---|
+| < −0.05 | 1.20 | 2.11 | **3.07** |
+| [−0.05, 0) | 1.27 | 1.97 | 2.50 |
+| **[0, 0.025)** | **1.28** | **1.69** | **1.67** |
+| [0.025, 0.10) | 1.60 | 2.02 | **3.46** |
+| ≥ 0.10 | 1.94 | 2.90 | 3.36 |
+
+Two structural facts, now sample-robust:
+
+1. **The [0, 0.025) notch is REAL, not small-n noise** (F12/F13 hedged this). It's the weakest positive-adjacent
+   bucket in ALL THREE books — a genuine local minimum at barely-positive-drift volume. Correcting F13: the
+   notch is a real structural dip, not a fluke.
+2. **The negative side's strength is a chg_1d INTERACTION, not standalone.** On the RAW book, negative slopes
+   are the WEAKEST (< −0.05 = 1.20, [−0.10, −0.05) = 1.14 the single worst). Only after `chg_1d ≥ 0.20` do
+   they jump (2.11 → 3.07 in the full book). "Receding volume is +EV" holds ONLY conditional on a big day-mover
+   (climactic open cooling off on a stock already up +20%); on a random stock, falling volume is a mild
+   negative. The day-filter lifts negative-slope PF ~2.5× — far more than it lifts the positive side.
+
+**Synthesis:** the positive/accelerating side (≥ 0.025) is a clean monotone lever EVERYWHERE (raw, filtered,
+all years — F13); the [0, 0.025) drift is a real local soft spot; and the negative side is only strong
+*inside* the day-strength book (an interaction). The F13 two-tier operational split (≥ 0.025 A+ / < 0.025
+base) stands — this just explains WHY: the base tier's edge comes from the day-filter × receding-volume
+interaction, not from falling volume per se. Next: entry-minute sweep (09:46…10:30).
