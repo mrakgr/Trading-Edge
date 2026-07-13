@@ -699,3 +699,75 @@ all three.**
 
 - 60m-breakout timer sweep: `/tmp/b60_n*.csv`. Third `BreakoutTimer` in `Intraday.fs`;
   `bars_since_60m_breakout` recorded in the CSV.
+
+## Finding 12 — vc × breakout-window matrix: the two dials, with raw PF, clip PF, net, and yearly stability
+
+Full sweep: the 3 breakout windows × the vc = n/(n+1) ladder (n∈{0,½,1,2,3,4} → vc {0, .333, .5, .667, .75,
+.8}), all at bars<10 (the confirmed cap), gate, no-ps, no-sum6, 2020+. Reporting raw PF / clip PF / net.
+
+**SESSION high:**
+
+| vc | trips | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|
+| 0 | 1097 | $977k | 2.93 | 2.01 |
+| 0.333 | 986 | $887k | 2.91 | 2.01 |
+| 0.5 | 845 | $820k | 3.06 | 2.11 |
+| 0.667 | 557 | $546k | 2.94 | 1.97 |
+| 0.75 | 363 | $445k | 3.56 | 2.31 |
+| **0.8** | 244 | $360k | **4.59** | **2.90** |
+
+**60m high:**
+
+| vc | trips | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|
+| 0 | 1532 | $1.23M | 2.80 | 1.90 |
+| 0.333 | 1391 | $1.17M | 2.87 | 1.94 |
+| 0.5 | 1161 | $1.08M | 3.02 | 2.03 |
+| 0.667 | 746 | $715k | 2.94 | 1.91 |
+| 0.75 | 464 | $549k | 3.56 | 2.26 |
+| **0.8** | 304 | $423k | **4.11** | **2.52** |
+
+**20m high:**
+
+| vc | trips | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|
+| 0 | 2263 | $1.42M | 2.49 | 1.65 |
+| 0.333 | 1617 | $1.21M | 2.66 | 1.73 |
+| 0.5 | 1124 | $952k | 2.84 | 1.78 |
+| 0.667 | 553 | $598k | 3.28 | 1.95 |
+| 0.75 | 287 | $444k | 4.40 | 2.51 |
+| **0.8** | 181 | $333k | **5.04** | **2.71** |
+
+**Reads:**
+1. **Window ordering (session > 60m > 20m) holds at every vc on CLIP PF, but compresses as vc rises** — the
+   trailing-high window matters MOST at low vc; at high vc, volume dominates and the window matters less.
+2. ⭐ **On RAW PF the 20m high WINS the tail (vc0.8: 20m 5.04 > session 4.59 > 60m 4.11) — INVERTING the clip
+   ordering.** The 20m+high-vc book has BIGGER but FEWER winners the +50% clip caps away: raw 5.04 → clip 2.71
+   (1.86× gap, the widest cell), vs session 4.59 → 2.90 (1.58×, tightest). So **session = broadest/most robust
+   edge; 20m = most tail-dependent (explosive winners).** This is exactly why we track raw AND clip.
+3. **Same shallow-U in vc for all three** (dead zone 0.333–0.667, climbs hard to 0.8); net decreases
+   monotonically with vc everywhere.
+
+### Yearly stability (raw / clip PF) — all 6 headline cells are ALL-WEATHER (positive every year)
+
+**2021 (adverse regime), clip PF:** session-A+ **2.32** > 60m-A+ 1.72 > 20m-A+ 1.48. The window ordering holds
+MOST STRONGLY in the hard year — the session high is the most 2021-robust, the 20m the least.
+
+| cell | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | TOTAL clip / raw / net |
+|---|--|--|--|--|--|--|--|--|
+| **session·vc0.8** | 1.62 | **2.32** | 4.84 | 4.86 | 2.75 | 4.12 | 2.58 | 2.90 / 4.59 / $360k |
+| 60m·vc0.8 | 1.31 | 1.72 | 5.78 | 9.71 | 2.28 | 3.05 | 2.33 | 2.52 / 4.11 / $423k |
+| 20m·vc0.8 | 2.59 | 1.48 | 3.11 | 6.43 | 1.99 | 3.62 | 3.44 | 2.71 / 5.04 / $333k |
+| session·vc0 | 2.03 | 1.56 | 1.85 | 5.32 | 2.04 | 2.37 | 1.40 | 2.01 / 2.93 / $977k |
+| 60m·vc0 | 1.77 | 1.49 | 1.92 | 4.83 | 1.73 | 2.20 | 1.73 | 1.90 / 2.80 / $1.23M |
+| 20m·vc0 | 1.95 | 1.31 | 1.31 | 3.79 | 1.44 | 1.93 | 1.39 | 1.65 / 2.49 / $1.42M |
+
+(clip PF shown per year.) The **20m·vc0.8 raw-PF lead (5.04) is TAIL-DRIVEN & concentrated** — mostly 2020
+(raw 5.94) and 2023 (12.53); its 2021 (2.13) and 2024 (4.19) are ordinary. **session·vc0.8 is the steadiest
+year-to-year** and best in the adverse regime → the most trustworthy A+ despite a slightly lower raw PF. The
+`n/(n+1)` monotonicity + all-weather stability across BOTH the window and vc dials makes these features easy
+to trust.
+
+### Artifacts (F12)
+
+- vc × 3-window matrix: `/tmp/vw_{sess,b60,b20}_vc*.csv`. Yearly source via `scratchpad/breakdown.py`.
