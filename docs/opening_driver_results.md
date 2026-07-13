@@ -311,5 +311,30 @@ floor-only $323k). The over-extended runners (F7 ceiling insight) mean-revert; c
 is the A+ variant (~flat net, tighter).
 
 **⭐ 09:45 A-BOOK: `ATR% ≥ 0.02 & vol_slope ≥ 0.01 & chg_1d ≥ 0.20 & 0 ≤ chg_3d ≤ 2.0` → PF 2.77 / +10.78%/tr
-/ 309 trips / $333k.** All named levers placed (price_slope dropped as subsumed). Next: yearly stability of
-this book, then sweep the other entry minutes (09:46…10:30).
+/ 309 trips / $333k.** All named levers placed (price_slope dropped as subsumed).
+
+> chg_3d ceiling revised to **≤ 1.5** (PF 2.96 vs 2.77 at ≤2.0, ~flat net $327k — the PF gain outpaces the
+> tiny net drop). Book before the ATR% relax: `... & 0 ≤ chg_3d ≤ 1.5` → PF 2.96 / +11.69%/tr / 280tr / $327k.
+
+---
+
+## F9 — ATR% floor is SUBSUMED by chg_1d ≥ 0.20 — relax it for +13% trips at flat PF
+
+Now that the day-scale band carries the quality, re-swept the ATR% floor WITHIN the complete book
+(`vol_slope ≥ 0.01 & chg_1d ≥ 0.20 & 0 ≤ chg_3d ≤ 1.5`). Dropping it to 0 barely moves anything:
+
+| ATR% floor | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| ≥ 0.0 (off) | 317 | 44 | 2.96 | +10.60 | $336k |
+| **≥ 0.013** | **296** | **46** | **2.97** | **+11.37** | **$336k** |
+| ≥ 0.015 | 295 | 46 | 2.97 | +11.39 | $336k |
+| ≥ 0.02 (old) | 280 | 46 | 2.96 | +11.69 | $327k |
+
+**chg_1d ≥ 0.20 subsumes the ATR% floor** — a stock up +20% on the day is high-ATR by construction, so the
+explicit floor double-counts. Relaxing ATR% ≥ 0.02 → ≥ 0.013 buys **+16 trips (280 → 296, +6%) and +$9k net
+at identical PF 2.97**; going all the way to 0 adds a few more at flat PF (the floor's only residual value is
+a hair of avg%/trade, +11.7 vs +10.6). Keep a TOKEN floor `≥ 0.013` as a jumpiness guard — free.
+
+**⭐ 09:45 A-BOOK (relaxed): `ATR% ≥ 0.013 & vol_slope ≥ 0.01 & chg_1d ≥ 0.20 & 0 ≤ chg_3d ≤ 1.5` → PF 2.97 /
++11.37%/tr / 296 trips / $336k.** The day-strength band (chg_1d/chg_3d) is the real engine; ATR% and
+price_slope are both subsumed by it. Next: yearly stability, then the entry-minute sweep (09:46…10:30).
