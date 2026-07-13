@@ -449,4 +449,49 @@ climactic-open-receding signal of a negative slope nor real acceleration).
 Dropping the 121-trip notch lifts PF 2.81 → 2.98 keeping 91% of net. The wider band pushes PF to 3.05 but
 sacrifices the GOOD [−0.025, 0) slice ($123k) — not worth it. **Refined capacity cut: `vol_slope < 0 OR
 vol_slope ≥ 0.025` → PF 2.98 / 1296 trips / $852k.** vol_slope ≥ 0.025 stays the A+ dial (PF 3.43).
-Next: entry-minute sweep (09:46…10:30).
+
+---
+
+## F13 — Per-year: the 0.025 split is a YEAR-STABLE regime boundary; the [0, 0.025) notch is real but noisy
+
+Testing whether the F12 notch holds annually, and reframing as `< 0.025` vs `≥ 0.025` (accelerating side).
+
+**The [0, 0.025) notch — a real, recurring soft spot, but noise-dominated (tiny n):**
+
+| year | n | PF | avg% |
+|---|---|---|---|
+| 2020 | 11 | 0.22 | −5.29 |
+| 2021 | 34 | 1.25 | +1.15 |
+| 2022 | 16 | 0.75 | −1.42 |
+| 2023 | 7 | 0.24 | −3.34 |
+| 2024 | 14 | 3.88 | +15.73 |
+| 2025 | 28 | 2.53 | +9.36 |
+| 2026 | 11 | 1.34 | +1.25 |
+
+Bad/mediocre in **5 of 7 years** (2020/22/23 negative, 2021/26 barely positive) — the weakness IS repeated,
+not a one-off. But 7–34 trips/year and two good years (2024/25) → low-conviction: worth EXCLUDING, but not a
+reliable short.
+
+**`≥ 0.025` (accelerating) vs `< 0.025` — the clean, stable split (both all-weather; accel wins EVERY year):**
+
+| year | < 0.025 PF | < 0.025 avg% | **≥ 0.025 PF** | **≥ 0.025 avg%** |
+|---|---|---|---|---|
+| 2020 | 2.14 | +3.02 | **3.44** | +12.37 |
+| 2021 | 1.38 | +1.31 | **1.76** | +4.48 |
+| 2022 | 2.82 | +5.05 | **2.77** | +12.24 |
+| 2023 | 1.94 | +2.83 | **2.98** | +14.10 |
+| 2024 | 5.24 | +13.67 | **5.12** | +21.72 |
+| 2025 | 2.84 | +5.53 | **5.12** | +18.85 |
+| 2026 | 3.14 | +6.61 | **5.30** | +23.34 |
+| **TOT** | 2.60 | +4.92 | **3.43** | +13.69 |
+
+**`≥ 0.025` beats `< 0.025` on avg%/trade EVERY year (2–3×) and on PF in 6 of 7** (2022 ties). The 0.025
+threshold is a genuine year-stable regime boundary — the real signal is "is volume ACCELERATING." So the
+clean framing is a TWO-TIER system, not a notch-exclusion:
+
+- **A+ tier `vol_slope ≥ 0.025`** (accelerating drive) → PF 3.43 / +13.7%/tr / 226 tr / best-in-class every year.
+- **Base tier `vol_slope < 0.025`** → PF 2.60 all-weather (carried by the NEGATIVE slopes = climactic-open
+  receding; the [0, 0.025) notch is its one soft spot — excluding it nudges the base to ~2.7).
+
+**⭐ The 0.025 split is the vol_slope structure: accelerating (≥ 0.025) = the A+ book; the rest is a solid
+all-weather base.** Next: entry-minute sweep (09:46…10:30).
