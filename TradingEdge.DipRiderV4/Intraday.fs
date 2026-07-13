@@ -13,6 +13,24 @@ type MinuteBar =
       close: float
       volume: int64 }
 
+/// A "bars-since-event" countup timer with a latch. State: -1 = waiting (event not yet seen since the last
+/// Reset); 0 = the bar the event FIRST fired; >=0 = bars since. `Start` latches -1->0 ONCE (idempotent while
+/// already >=0, so a repeated event doesn't re-latch); `Step` increments while >=0 (no-op at -1); `Reset`
+/// returns to -1. Read `.Value` (>=0 once armed) or `.Fired` (Value >= 0).
+[<Sealed>]
+type BreakoutTimer() =
+    let mutable v = -1
+    /// The current count: -1 = waiting, 0 = fired this bar, +N = N bars since the event.
+    member _.Value = v
+    /// Has the event fired since the last Reset? (Value >= 0.)
+    member _.Fired = v >= 0
+    /// Latch the event: -1 -> 0. No effect once already >= 0 (fire once per Reset).
+    member _.Start () = if v < 0 then v <- 0
+    /// Advance one bar: +1 while counting (>= 0). No effect while waiting (-1).
+    member _.Step () = if v >= 0 then v <- v + 1
+    /// Return to the waiting state (-1).
+    member _.Reset () = v <- -1
+
 /// Intraday position life-cycle. DipRiderV3 positions are Holding immediately
 /// (no Armed/Skipped arming states — those were the breakout engine's, deleted).
 type IntraPosState =
@@ -195,9 +213,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     // ----- BREAKOUT features (BreakoutTimer fused into V4; reset = the rolling-20m-low re-arm) -----
     // SESSION-max of the 9-EMA (running max, ratchets UP) — the breakout reference high.
     let mutable sessEmaHigh : float voption = ValueNone
-    // BARS-SINCE-INITIAL-BREAKOUT: -1 = re-armed, waiting for the breakout; 0 = the bar the 9-EMA FIRST made a
-    // NEW session-EMA-high after the reset; then +1 each bar. Latches ONCE per reset (later new highs ignored).
-    let mutable barsSinceBreakout : int = -1
+    // BARS-SINCE-INITIAL-BREAKOUT timer: -1 waiting / 0 first new session-EMA-high after reset / +1 each bar.
+    // Latches once per reset (Start is idempotent once >=0). Reset by the 20m-low re-arm.
+    let breakoutTimer = BreakoutTimer()
     // 10m-lagged session-EMA-high (record only, for post-hoc). Delay line of the post-fold sessEmaHigh.
     let laggedSessEmaHigh = LagMa<float>(10)
 
@@ -239,7 +257,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             sessEmaLow = sessEmaLow
             lastStopLevel = lastStopLevel
             sessEmaHigh = sessEmaHigh
-            barsSinceBreakout = barsSinceBreakout
+            barsSinceBreakout = breakoutTimer.Value
             laggedSessEmaHigh = laggedSessEmaHigh.Lagged
             barsSeen = barsSeen
             armed = armed
@@ -288,12 +306,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                 let isNewHigh = match sessEmaHigh with ValueSome h -> e > h | ValueNone -> true
                 // update the running session-EMA-high (ratchets up).
                 sessEmaHigh <- match sessEmaHigh with ValueSome h -> ValueSome (max h e) | ValueNone -> ValueSome e
-                // BARS-SINCE-INITIAL-BREAKOUT: latch -1->0 on the FIRST new high after a reset; then +1/bar.
-                // A later new high while already counting (>=0) does NOT re-latch (BreakoutTimer semantics).
-                if barsSinceBreakout = -1 then
-                    (if isNewHigh then barsSinceBreakout <- 0)
-                else
-                    barsSinceBreakout <- barsSinceBreakout + 1
+                // BARS-SINCE-INITIAL-BREAKOUT: Step FIRST (increment while already counting), THEN Start on a new
+                // high (latches -1->0 for the FIRST breakout; idempotent once >=0, so later highs don't re-latch).
+                breakoutTimer.Step()
+                if isNewHigh then breakoutTimer.Start()
                 // 10m-lagged session-EMA-high (record-only). Push the post-fold session high.
                 match sessEmaHigh with ValueSome h -> laggedSessEmaHigh.Push h | ValueNone -> ())
             // volume analogue: 9-EMA of raw volume, then its 20m trailing MIN (the vol_climb base).
@@ -341,7 +357,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         && (cfg.DisableSum6 || cfg.MinCloseAbove6 <= 0 || gate sum6.State (fun c -> int (round c) >= cfg.MinCloseAbove6))
         // BREAKOUT GATE: the 9-EMA broke to a new session high within the last N bars (0 <= counter < N). 0 = off.
         && (cfg.MaxBarsSinceBreakout <= 0
-            || (barsSinceBreakout >= 0 && barsSinceBreakout < cfg.MaxBarsSinceBreakout))
+            || (breakoutTimer.Fired && breakoutTimer.Value < cfg.MaxBarsSinceBreakout))
         // TIGHTNESS FLOOR: (rangeHigh−rangeLow)/atrLin >= MinTightness (a real range, not lethargic). 0 = off.
         && (cfg.MinTightness <= 0.0 || gate this.Tightness (fun t -> t >= cfg.MinTightness))
         // EXHAUSTION CUT (F11): reject if the trailing-5m vol numerator (avg or MAX) >= MaxRvol5m20d × the 20d
@@ -418,7 +434,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                          | _ -> nan)
                       EmaAtEntry = vv ema.State
                       VwapAtEntry = vv vwap.State
-                      BarsSinceBreakout = barsSinceBreakout
+                      BarsSinceBreakout = breakoutTimer.Value
                       SessEmaHigh = (match sessEmaHigh with ValueSome h -> h | ValueNone -> nan)
                       LaggedSessEmaHigh10m = (match laggedSessEmaHigh.Lagged with ValueSome h -> h | ValueNone -> nan)
                       State = Holding }
@@ -443,8 +459,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             match ema.State, reArmRef with
             | ValueSome e, ValueSome m when e < m ->
                 armed <- true
-                // RESET the breakout counter: a fresh re-arm starts a new breakout-wait cycle (-1 = waiting).
-                barsSinceBreakout <- -1
+                // RESET the breakout timer: a fresh re-arm starts a new breakout-wait cycle (-1 = waiting).
+                breakoutTimer.Reset()
             | _ -> ()
 
 
