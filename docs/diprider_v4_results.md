@@ -806,3 +806,55 @@ kept as a settled negative.
 ### Artifacts (F13)
 
 - OR/AND combos: `/tmp/or_s60.csv`, `/tmp/or_s6020.csv`, `/tmp/or_s60_and.csv`.
+
+## Finding 14 — ⭐ per-window-vc OR: an A / A+ / A++ book family that DOMINATES the single-feature frontier
+
+**Correction to F13:** OR is NOT counterproductive. `session||60m||20m` (all vc0) = 2627 trips / clip 1.669 /
+$1.60M vs `20m-only` 2263 / clip 1.649 / $1.42M — near-identical PF but **+$175k net**: the OR harvests extra
+SAME-quality trades (the nesting divergence cases), a Pareto gain in the net direction, not dilution.
+
+**The real idea (user):** OR the three breakout windows but give EACH its OWN vol_climb floor — the looser the
+structural window, the HIGHER the volume bar it must clear. Implemented as `--breakout-or` +
+`--breakout-vc-{session,60m,20m}` (each OR-branch = window-within-countdown AND vol_climb ≥ its floor;
+`--min-vol-climb 0` so only the per-window floors gate). bars<10 each, gate, no-ps, no-sum6, 2020+:
+
+| book | per-window vc | trips | win% | net | raw PF | clip PF |
+|---|---|---:|---:|---:|---:|---:|
+| **A** | s@0 ∥ 60@⅓ ∥ 20@½ | 1860 | 41.1% | **$1.43M** | 2.77 | 1.86 |
+| **A+** | s@¾ ∥ 60@¾ ∥ 20@⅔ | 786 | 44.9% | $773k | 3.17 | 2.05 |
+| **A++** | s@⅘ ∥ 60@⅘ ∥ 20@¾ | 460 | 48.9% | $597k | **4.05** | **2.54** |
+| (ref) session-only vc0.8 | — | 244 | 54.1% | $360k | 4.59 | 2.90 |
+| (ref) plain OR, all vc0 | — | 2627 | 36.4% | $1.60M | 2.45 | 1.67 |
+
+⭐ **A clean, monotonic A/A+/A++ ladder — each tier a strict Pareto step (quality up, capacity down) — and each
+OR-book carries FAR MORE NET than the single session-only cell at comparable quality:**
+- **A++ (raw 4.05 / clip 2.54 / $597k)** nearly matches session-only-vc0.8 quality (raw 4.59 / clip 2.90) on
+  **1.66× the net** (460 vs 244 trips) — the OR pools the 60m/20m tiers' HIGH-VOL entries that session-only
+  misses (additional A+ trades, not dilution).
+- **A (raw 2.77 / clip 1.86 / $1.43M)** = high-capacity A-book: ≈ 20m-only's net ($1.42M) at much higher
+  quality (clip 1.86 vs 1.65). The tiered floors cut exactly the loose-window/weak-volume churn.
+- **A+ (raw 3.17 / clip 2.05 / $773k)** — the balanced middle (PF > 3 raw, strong net + capacity).
+
+The per-window-vc OR frontier **DOMINATES the single-feature frontier**: at any net level it has higher PF,
+because it pools the best-volume entries from all three structural tiers instead of committing to one window.
+
+### Yearly stability (raw / clip PF) — all three all-weather; A++ is 2021-STRONG
+
+| book | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|--|--|--|--|--|--|--|
+| A | 2.07 | 1.46 | 1.72 | 5.03 | 1.58 | 2.22 | 1.50 |
+| A+ | 1.78 | 1.56 | 2.12 | 5.16 | 1.82 | 2.24 | 1.95 |
+| A++ | 1.42 | **1.74** | 3.82 | 6.31 | 2.51 | 3.09 | 2.30 |
+
+(clip PF per year.) All positive every year, every tier. **A++'s 2021 (raw 2.25 / clip 1.74) is STRONGER than
+the A-book's (1.46)** — the higher per-window vol floors protect the adverse regime (the vol_climb-helps-2021
+theme). Trip counts stay healthy per year even for A++ (29–101/yr), so no thin-year fragility.
+
+⭐ **Production candidates:** A++ (`--breakout-or --breakout-vc-session 0.8 --breakout-vc-60m 0.8
+--breakout-vc-20m 0.75` + all three `--max-bars-since-*-breakout 10`, no-ps, no-sum6, gate, vc0, mc0) as the
+A+ tier at 460 trips / $597k; A as the high-capacity book at 1860 trips / $1.43M. Both dominate their
+single-feature equivalents.
+
+### Artifacts (F14)
+
+- A/A+/A++: `/tmp/abook.csv`, `/tmp/aplus.csv`, `/tmp/aplusplus.csv`. Per-window OR floors: `BreakoutVc*` in the config.

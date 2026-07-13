@@ -131,6 +131,12 @@ type IntradayConfig =
         MaxBarsSince60mBreakout: int // 60m-EMA-BREAKOUT GATE: same, over the trailing-60m EMA max. 0 = OFF (default).
         BreakoutOr: bool         // false (default) = the enabled breakout gates AND together; true = OR (pass if
                                  // ANY enabled window is within its countdown). N=0 windows are excluded either way.
+        // OR-mode PER-WINDOW vol_climb floors (F14 A-book): in OR mode each window's branch ALSO requires
+        // vol_climb >= its own floor — the looser the structure, the higher the volume bar it must clear.
+        // Only used when BreakoutOr=true; ignored otherwise (the global MinVolClimb still governs AND/non-breakout).
+        BreakoutVcSession: float // session-high branch: vol_climb floor (default 0).
+        BreakoutVc60m: float     // 60m-high branch: vol_climb floor.
+        BreakoutVc20m: float     // 20m-high branch: vol_climb floor.
         DisablePriceSlope: bool  // true = drop the price-slope>0 gate (BreakoutTimer didn't use it). Default false.
         DisableSum6: bool        // true = drop the sum6 gate regardless of MinCloseAbove6 (BreakoutTimer didn't
                                  // use it). Default false.
@@ -388,7 +394,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             let b60  = g cfg.MaxBarsSince60mBreakout ema60BreakoutTimer
             let anyEnabled = en cfg.MaxBarsSinceBreakout || en cfg.MaxBarsSince20mBreakout || en cfg.MaxBarsSince60mBreakout
             if not anyEnabled then true                              // no breakout gate configured — pass
-            elif cfg.BreakoutOr then sess || b20 || b60              // OR: any enabled window within countdown
+            elif cfg.BreakoutOr then                                 // OR: any enabled window within countdown AND
+                                                                    // clearing ITS OWN per-window vol_climb floor
+                (sess && this.VolClimbAtLeast cfg.BreakoutVcSession)
+                || (b60 && this.VolClimbAtLeast cfg.BreakoutVc60m)
+                || (b20 && this.VolClimbAtLeast cfg.BreakoutVc20m)
             else                                                    // AND: every ENABLED window must pass
                 (not (en cfg.MaxBarsSinceBreakout)    || sess)
                 && (not (en cfg.MaxBarsSince20mBreakout) || b20)
@@ -421,6 +431,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         || (match volEma.State, volEmaMin.State with
             | ValueSome v, ValueSome m when v > 0.0 -> (v - m) / v >= cfg.MinVolClimb
             | _ -> false)
+
+    /// The current vol_climb = (volEma − volEmaMin)/volEma, or nan if not warm. Used for the OR-mode per-window
+    /// volume floors (F14). A floor of 0 always passes (vol_climb ∈ [0,1)).
+    member private _.VolClimbNow : float =
+        match volEma.State, volEmaMin.State with
+        | ValueSome v, ValueSome m when v > 0.0 -> (v - m) / v
+        | _ -> nan
+    member private this.VolClimbAtLeast (floor: float) : bool =
+        floor <= 0.0 || (let vc = this.VolClimbNow in not (Double.IsNaN vc) && vc >= floor)
 
     /// Advance the whole system by one minute bar: fold the bar in, advance every open position, then
     /// (if armed and the pattern fires) open ONE new position. The re-arm check runs LAST so we never
