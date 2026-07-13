@@ -151,7 +151,143 @@ is the higher-capacity book, skip the higher-PF one.
 | 2026 | 1.53 | 1.57 | 2.02 | 2.19 |
 
 Exhaust-ON wins the clip PF in almost every year (esp. 2021/2022/2023) — the cut earns its keep in the harder
-regimes. Monthly breakdowns for all four books: `/tmp/br_rolling_{skip,gate}_mc0_rvol{on,off}.csv`.
+regimes.
+
+### Worst day / week / month (net P&L, $10k notional) — rolling·mc0
+
+The tail lives in **2021** (the adverse regime) for every book except skip·ON. Skip·ON — the highest-PF,
+lowest-net book — also has the shallowest drawdowns by far (worst month −$5.1k vs −$15–17k for the others).
+
+| book | worst day | worst week | worst month | profitable months |
+|---|---|---|---|---|
+| rolling·gate·ON | 2021-03-24 −$7,780 | 2021-W12 −$11,044 | 2021-03 −$17,296 | 61/78 (78%) |
+| rolling·gate·OFF | 2021-12-10 −$9,445 | 2021-W07 −$18,129 | 2022-05 −$16,029 | 66/78 (85%) |
+| **rolling·skip·ON** | 2024-09-30 −$5,629 | 2020-W30 −$8,826 | **2025-04 −$5,134** | 61/78 (78%) |
+| rolling·skip·OFF | 2021-10-28 −$8,146 | 2021-W43 −$11,260 | 2021-12 −$15,362 | 68/78 (87%) |
+
+(78 months = 2020-01 … 2026-06.) Two things cut against each other:
+- The exhaustion cut (ON) **shrinks the worst month for the skip book dramatically** (−$5.1k vs −$15.4k OFF)
+  — it cuts the fat left tail, not just the middle. For gate, ON/OFF worst-months are comparable
+  (−$17.3k / −$16.0k) but ON reaches it on ~⅓ fewer trips.
+- BUT exhaust-**OFF has MORE profitable months** (85–87% vs 78%). More trades → fewer thin/empty months that
+  tip slightly negative. So OFF wins on hit-rate-of-months, ON wins on tail depth (and on PF). The ON book's
+  17 losing months are shallower; the OFF book has fewer losing months but they're deeper. Consistent with
+  "ON = higher risk-adjusted quality, OFF = higher raw capacity."
+
+<details>
+<summary>Monthly breakdown — rolling·gate·exhaust-ON (2159 trips, $1.46M, clip 1.72)</summary>
+
+```
+month    trips   win%         net  rawPF clipPF
+2020-01      3  66.7%       3,144  57.59  57.59
+2020-02      6  50.0%       1,281   1.69   1.69
+2020-03     17  41.2%        -630   0.91   0.91
+2020-04     11  54.5%       8,540   3.73   3.73
+2020-05     24  37.5%       3,444   1.29   1.29
+2020-06     24  50.0%      23,907   4.44   3.65
+2020-07     33  33.3%      54,526   3.34   1.48
+2020-08     16  43.8%      11,056   2.35   2.10
+2020-09     16  62.5%      56,003  14.75   6.42
+2020-10     16  50.0%       4,916   1.63   1.48
+2020-11     38  31.6%      16,431   1.76   1.30
+2020-12     40  47.5%       2,115   1.13   1.13
+2021-01     93  43.0%      90,086   3.60   2.11
+2021-02    105  37.1%        -963   0.98   0.98
+2021-03     84  23.8%     -17,296   0.67   0.65
+2021-04     15  26.7%        -794   0.84   0.84
+2021-05     16  37.5%        -133   0.98   0.98
+2021-06     68  44.1%      32,301   2.15   1.88
+2021-07     38  18.4%       5,027   1.23   0.90
+2021-08     26  46.2%       6,340   1.66   1.66
+2021-09     54  38.9%      40,100   3.32   2.86
+2021-10     29  44.8%      19,251   2.79   1.84
+2021-11     20  40.0%         877   1.10   1.10
+2021-12     31  25.8%       2,512   1.16   0.76
+2022-03     46  30.4%      22,551   1.86   1.33
+2022-05     14  21.4%      -5,499   0.18   0.18
+2022-08     32  53.1%      24,994   3.07   2.82
+2022-12     11  54.5%      34,344  12.75   4.78
+2023-01     30  40.0%      27,916   3.10   2.25
+2023-09     14  57.1%      18,910   7.31   7.19
+2023-11      8  25.0%      34,957   9.64   2.47
+2023-12      7  71.4%      48,500  45.58  16.60
+2024-04     24  62.5%      62,011  11.47   6.90
+2024-12     67  37.3%      60,085   2.93   1.39
+2025-04     14  21.4%     -11,595   0.19   0.19
+2025-05     55  52.7%     101,627   7.95   3.92
+2025-08     37  70.3%     108,671  15.05   9.40
+2025-10     70  61.4%      87,490   4.59   3.96
+2026-04     43  18.6%      -2,984   0.91   0.63
+2026-05     62  53.2%     162,133   8.76   3.74
+2026-06     35  42.9%       9,565   1.37   1.07
+```
+(abbreviated to the notable months; full CSV: `/tmp/br_rolling_gate_mc0_rvolon.csv`)
+</details>
+
+<details>
+<summary>Monthly breakdown — rolling·gate·exhaust-OFF (3846 trips, $2.12M, clip 1.53)</summary>
+
+```
+month    trips   win%         net  rawPF clipPF
+2021-01    202  44.1%     137,782   2.79   2.05
+2021-03    152  27.0%      -8,256   0.91   0.88
+2021-07     85  22.4%      -7,878   0.84   0.70
+2021-11     68  36.8%      -8,814   0.80   0.74
+2021-12     89  23.6%     -13,531   0.75   0.58
+2022-05     31  16.1%     -16,029   0.10   0.10
+2023-12     10  80.0%      72,698  67.82  30.39
+2024-10     44  34.1%     -12,890   0.44   0.44
+2024-12     91  42.9%     106,945   3.45   2.24
+2025-05     72  51.4%     108,911   5.32   2.90
+2025-08     53  54.7%     105,720   7.33   4.71
+2025-10     88  56.8%     100,303   3.79   3.22
+2026-05     64  51.6%     159,109   7.65   3.26
+```
+(notable months; full CSV: `/tmp/br_rolling_gate_mc0_rvoloff.csv`)
+</details>
+
+<details>
+<summary>Monthly breakdown — rolling·skip·exhaust-ON (1213 trips, $915k, clip 1.87)</summary>
+
+```
+month    trips   win%         net  rawPF clipPF
+2020-05      8  25.0%      -3,529   0.16   0.16
+2021-01     48  39.6%      52,808   4.11   2.18
+2021-12     16  31.2%      -2,995   0.66   0.66
+2023-12      4  75.0%      42,732  73.91  20.11
+2024-04     14  71.4%      38,201  15.22   9.31
+2024-06     15  20.0%      -4,956   0.43   0.43
+2024-10     16  31.2%      -4,372   0.42   0.42
+2025-02     16  25.0%      -5,006   0.48   0.48
+2025-04      8  25.0%      -5,134   0.29   0.29
+2025-05     31  61.3%      92,681  14.20   6.15
+2025-08     16  62.5%      68,626  17.60   8.96
+2025-10     29  69.0%      56,054  12.76  10.63
+2026-05     36  50.0%      85,367   7.79   3.58
+```
+(notable months; full CSV: `/tmp/br_rolling_skip_mc0_rvolon.csv`)
+</details>
+
+<details>
+<summary>Monthly breakdown — rolling·skip·exhaust-OFF (2215 trips, $1.25M, clip 1.58)</summary>
+
+```
+month    trips   win%         net  rawPF clipPF
+2021-01    108  40.7%      71,118   2.76   1.86
+2021-07     54  20.4%      -9,216   0.74   0.53
+2021-10     38  39.5%      -6,374   0.73   0.73
+2021-12     52  25.0%     -15,362   0.53   0.48
+2022-05     16  25.0%      -6,636   0.21   0.21
+2023-12      5  80.0%      48,083  83.04  28.64
+2024-05     17  52.9%      51,696   5.96   2.71
+2024-12     49  34.7%      58,355   3.10   1.51
+2025-05     43  58.1%      99,052   8.92   4.25
+2025-08     27  48.1%      68,681   7.80   4.26
+2025-10     38  63.2%      64,974   8.33   6.82
+2026-05     36  50.0%      85,367   7.79   3.58
+```
+(notable months; full CSV: `/tmp/br_rolling_skip_mc0_rvoloff.csv`)
+</details>
 
 ### Artifacts (F2–F4)
 
