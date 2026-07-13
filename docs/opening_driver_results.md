@@ -541,4 +541,36 @@ Two structural facts, now sample-robust:
 all years — F13); the [0, 0.025) drift is a real local soft spot; and the negative side is only strong
 *inside* the day-strength book (an interaction). The F13 two-tier operational split (≥ 0.025 A+ / < 0.025
 base) stands — this just explains WHY: the base tier's edge comes from the day-filter × receding-volume
-interaction, not from falling volume per se. Next: entry-minute sweep (09:46…10:30).
+interaction, not from falling volume per se.
+
+---
+
+## F15 — vol_slope is a STEP FUNCTION at 0.025, not monotone (corrects F14's "clean monotone" claim)
+
+Fine grid straddling 0.025 (raw 09:45 book, same-width buckets) — testing step vs ramp on avg%/trade:
+
+| bucket | n | win% | PF | avg%/tr |
+|---|---|---|---|---|
+| [−0.025, −0.01) | 1845 | 36 | 1.55 | +0.82 |
+| [−0.01, 0.0) | 923 | 35 | 1.09 | +0.15 |
+| [0.0, 0.01) | 770 | 37 | 1.06 | +0.11 |
+| [0.01, 0.02) | 570 | 39 | 1.50 | +0.94 |
+| [0.02, 0.025) | 263 | 40 | 1.38 | +0.70 |
+| **[0.025, 0.03)** | 242 | 41 | **1.89** | **+2.22** ← STEP |
+| [0.03, 0.04) | 387 | 41 | 2.18 | +2.14 |
+| [0.04, 0.05) | 303 | 41 | 1.15 | +0.40 |
+| [0.05, 0.075) | 495 | 36 | 1.65 | +1.65 |
+| ≥ 0.10 | 407 | 39 | 1.94 | +2.75 |
+
+**It's a STEP, not a monotone ramp** (user call). avg%/trade sits at +0.1 to +0.9 for every bucket BELOW
+0.025, then the first bucket ABOVE it jumps to **+2.22** — a ~3× discontinuity on adjacent same-width
+buckets, mirrored in PF (1.38 → 1.89). Within each segment it's WEAKLY monotone / noisy:
+- **Below 0.025:** low plateau, noisy (+0.1 to +0.9), no strong trend.
+- **Above 0.025:** high plateau (+0.4 to +2.75), noisy sub-buckets (small n 240–500 each) — don't over-read
+  the wiggles; the STEP itself is the robust feature (holds in PF, avg%, AND the filtered books of F13).
+
+**This corrects F14** ("clean monotone positive side" — wrong) and reframes the [0, 0.025) "notch": it is NOT
+a special dip, it's just the TOP of the LOWER plateau, which looks weak only next to the post-step buckets.
+Model: **avg%/trade ≈ a step function, riser at ~0.025** (volume ACCELERATING past a threshold), weak/noisy
+monotonicity on either side. The 0.025 two-tier split (F13) is the right operationalization — it's cutting at
+the step riser. Next: entry-minute sweep (09:46…10:30).
