@@ -658,3 +658,44 @@ $1.80M@30 (clip 1.57) — both worse PF than their bars<10, so not worth it.
 
 - 3-way attribution: `/tmp/{vp,bv_gate,fp}_vc*.csv`. Timer sweeps: `/tmp/bs_n*.csv` (session), `/tmp/b20_n*.csv` (20m).
 - `BreakoutTimer` class in `Intraday.fs`; `bars_since_20m_breakout` recorded in the CSV.
+
+## Finding 11 — 60m-EMA-high breakout: the trailing-high WINDOW is a quality dial (20m < 60m < session)
+
+Added a third breakout feature: `emaHigh60 = MaxMa(60)` of the 9-EMA + a third `BreakoutTimer` (Starts on a
+fresh trailing-60m EMA high, same reset cycle). `bars_since_60m_breakout` recorded; gate
+`--max-bars-since-60m-breakout`. Sweep (gate, vc0, no-ps, no-sum6, 2020+):
+
+| bars< | trips | win% | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|---:|
+| 1 | 1060 | 43.2% | $961k | 2.95 | **1.96** |
+| 3 | 1173 | 43.4% | $1.02M | 2.90 | 1.97 |
+| 5 | 1283 | 43.2% | $1.05M | 2.81 | 1.94 |
+| 10 | 1532 | 43.0% | $1.23M | 2.80 | 1.90 |
+| 15 | 1764 | 42.2% | $1.29M | 2.67 | 1.85 |
+| 20 | 1980 | 42.1% | $1.43M | 2.66 | 1.82 |
+| 25 | 2177 | 41.8% | $1.50M | 2.58 | 1.78 |
+| 30 | 2428 | 40.8% | $1.54M | 2.43 | 1.70 |
+
+### The breakout family, ordered by high-window (bars<10)
+
+| feature | win% | clip PF | trips |
+|---|---:|---:|---:|
+| 20m high | 35.7% | 1.65 | 2263 |
+| **60m high** | 43.0% | **1.90** | 1532 |
+| session high | 46.0% | 2.01 | 1097 |
+
+⭐ **The trailing-high WINDOW is a QUALITY DIAL: the rarer/stronger the "high", the better the book.** And it's
+NONLINEAR with diminishing returns: 20m→60m gains +0.25 clip PF, but 60m→session (a full-day window) gains
+only +0.11 — **~85% of the 20m→session quality gap is captured by 60m.** At bars<1 the 60m raw PF (2.95) even
+MATCHES the session book (2.93), on comparable capacity (1060 vs 1097 trips) — so the 60m high at bars<1–3 is
+a genuine session-quality alternative with slightly different selection.
+
+**Universal ~10-bar dissipation confirmed.** All THREE books (20m/60m/session) show the same profile: clip PF
+roughly FLAT through ~10 bars, then decays (60m: 1.96→1.90→1.70 at 1/10/30). The new-high freshness matters
+for ~10 bars then goes stale — independent of which trailing window defines the high. **bars<10 is the cap for
+all three.**
+
+### Artifacts (F11)
+
+- 60m-breakout timer sweep: `/tmp/b60_n*.csv`. Third `BreakoutTimer` in `Intraday.fs`;
+  `bars_since_60m_breakout` recorded in the CSV.
