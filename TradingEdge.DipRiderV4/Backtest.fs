@@ -67,6 +67,7 @@ let defaultConfig =
                                          // spiky 1m-vol signal). --rvol-use-max enables.
           MaxBarsSinceBreakout = 0       // breakout gate OFF (BreakoutTimer used 10). --max-bars-since-breakout N.
           MaxBarsSince20mBreakout = 0    // 20m-EMA-breakout gate OFF. --max-bars-since-20m-breakout N (sweep [1,10]).
+          MaxBarsSince60mBreakout = 0    // 60m-EMA-breakout gate OFF. --max-bars-since-60m-breakout N.
           DisablePriceSlope = false      // --no-price-slope drops the price-slope>0 gate (BreakoutTimer didn't use it).
           DisableSum6 = false }          // --no-sum6 drops the sum6 gate (BreakoutTimer didn't use it).
       Notional = 10_000.0 }
@@ -105,6 +106,7 @@ type Trip =
       Rvol5m: float              // trailing-5m avg vol / permin20d (exhaustion-cut ratio)
       BarsSinceBreakout: int     // -1/0/+N — the session-high countdown at entry
       BarsSince20mBreakout: int  // -1/0/+N — the 20m-EMA-high countdown at entry
+      BarsSince60mBreakout: int  // -1/0/+N — the 60m-EMA-high countdown at entry
       SessEmaHigh: float         // session-max 9-EMA at entry
       LaggedSessEmaHigh10m: float // session-EMA-high 10m ago (post-hoc)
       VolClimb: float            // (volEma - volEmaMin)/volEma — the F32 volume lever
@@ -149,6 +151,7 @@ let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Tr
           Rvol5m = pos.Rvol5m
           BarsSinceBreakout = pos.BarsSinceBreakout
           BarsSince20mBreakout = pos.BarsSince20mBreakout
+          BarsSince60mBreakout = pos.BarsSince60mBreakout
           SessEmaHigh = pos.SessEmaHigh
           LaggedSessEmaHigh10m = pos.LaggedSessEmaHigh10m
           VolClimb = pos.VolClimb
@@ -331,7 +334,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,stop_dist_pct,"
-    + "price_slope_20,log_atr_20,tightness_20,rvol_5m_20d,bars_since_breakout,bars_since_20m_breakout,sess_ema_high,lagged_sess_ema_high_10m,vol_climb,sum_above_6,ema_at_entry,vwap_at_entry,entry_vs_vwap,"
+    + "price_slope_20,log_atr_20,tightness_20,rvol_5m_20d,bars_since_breakout,bars_since_20m_breakout,bars_since_60m_breakout,sess_ema_high,lagged_sess_ema_high_10m,vol_climb,sum_above_6,ema_at_entry,vwap_at_entry,entry_vs_vwap,"
     + "close_1d,close_3d,chg_1d,chg_3d,pct_chg_since_open,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,"
@@ -352,6 +355,7 @@ let private row (t: Trip) : string =
         fmt t.Rvol5m
         string t.BarsSinceBreakout
         string t.BarsSince20mBreakout
+        string t.BarsSince60mBreakout
         fmt t.SessEmaHigh
         fmt t.LaggedSessEmaHigh10m
         fmt t.VolClimb

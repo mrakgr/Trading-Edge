@@ -36,6 +36,7 @@ type Args =
     // ----- breakout mode -----
     | Max_Bars_Since_Breakout of int
     | Max_Bars_Since_20m_Breakout of int
+    | Max_Bars_Since_60m_Breakout of int
     | No_Price_Slope
     | No_Sum6
     // ----- arm/re-arm state machine -----
@@ -68,6 +69,7 @@ type Args =
             | Rvol_Use_Max -> "Exhaustion-cut numerator = trailing-5m MAX 1m-vol (the short book's spiky signal) instead of the 5m AVG. Since max>=avg, cuts MORE at the same threshold."
             | Max_Bars_Since_Breakout _ -> "BREAKOUT GATE: require 0 <= bars-since-initial-breakout < this (the 9-EMA broke to a new session high within the last N bars, reset by the 20m-low re-arm). 0 = off. BreakoutTimer used 10."
             | Max_Bars_Since_20m_Breakout _ -> "20m-EMA-BREAKOUT GATE: require 0 <= bars-since-20m-EMA-breakout < this (the 9-EMA broke above its trailing-20m max within the last N bars, reset by the 20m-low re-arm). 0 = off. Sweep [1,10]."
+            | Max_Bars_Since_60m_Breakout _ -> "60m-EMA-BREAKOUT GATE: require 0 <= bars-since-60m-EMA-breakout < this (the 9-EMA broke above its trailing-60m max within the last N bars, reset by the 20m-low re-arm). 0 = off."
             | No_Price_Slope -> "Drop the price-slope>0 gate (BreakoutTimer didn't use it)."
             | No_Sum6 -> "Drop the sum6 gate (BreakoutTimer didn't use it)."
             | Re_Arm _ -> "RE-ARM reference level: rolling-ema-low (default) | session-ema-low | stop-level. The live 9-EMA must drop below this to re-arm a consumed setup."
@@ -118,6 +120,7 @@ let main argv =
                   Rvol5mUseMax    = parsed.Contains Rvol_Use_Max
                   MaxBarsSinceBreakout = parsed.GetResult(Max_Bars_Since_Breakout, defaultValue = defaultConfig.Intraday.MaxBarsSinceBreakout)
                   MaxBarsSince20mBreakout = parsed.GetResult(Max_Bars_Since_20m_Breakout, defaultValue = defaultConfig.Intraday.MaxBarsSince20mBreakout)
+                  MaxBarsSince60mBreakout = parsed.GetResult(Max_Bars_Since_60m_Breakout, defaultValue = defaultConfig.Intraday.MaxBarsSince60mBreakout)
                   DisablePriceSlope = parsed.Contains No_Price_Slope
                   DisableSum6     = parsed.Contains No_Sum6 } }
 
@@ -142,6 +145,8 @@ let main argv =
         printfn "  breakout    = 0 <= bars-since-9EMA-session-high < %d (reset by the 20m-low re-arm)" ic.MaxBarsSinceBreakout
     if ic.MaxBarsSince20mBreakout > 0 then
         printfn "  20m-breakout= 0 <= bars-since-9EMA-20m-high < %d (reset by the 20m-low re-arm)" ic.MaxBarsSince20mBreakout
+    if ic.MaxBarsSince60mBreakout > 0 then
+        printfn "  60m-breakout= 0 <= bars-since-9EMA-60m-high < %d (reset by the 20m-low re-arm)" ic.MaxBarsSince60mBreakout
     printfn "  extra gates = %s%s"
         (if ic.MinTightness > 0.0 then sprintf "tightness >= %.1f" ic.MinTightness else "tightness OFF")
         (if ic.MaxRvol5m20d > 0.0 then sprintf "   rvol5m20d < %.0f (%s)" ic.MaxRvol5m20d (if ic.Rvol5mUseMax then "5m-MAX" else "5m-avg") else "   rvol5m20d OFF")

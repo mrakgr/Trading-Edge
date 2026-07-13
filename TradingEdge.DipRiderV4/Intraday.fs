@@ -57,6 +57,7 @@ type IntradayPosition =
       // breakout features (recorded for the breakout experiment + post-hoc)
       BarsSinceBreakout: int     // -1 waiting / 0 breakout bar / +N bars since; the session-high countdown
       BarsSince20mBreakout: int  // same, for the 20m-EMA-high breakout
+      BarsSince60mBreakout: int  // same, for the 60m-EMA-high breakout
       SessEmaHigh: float         // session-max 9-EMA at entry
       LaggedSessEmaHigh10m: float // session-EMA-high as of 10m ago (post-hoc breakout-continuation feature)
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
@@ -127,6 +128,7 @@ type IntradayConfig =
                                    // session high within the last N bars). 0 = OFF (default). BreakoutTimer used 10.
         MaxBarsSince20mBreakout: int // 20m-EMA-BREAKOUT GATE: require 0 <= bars-since-20m-EMA-high < this (the 9-EMA
                                    // broke above its trailing-20m max within the last N bars). 0 = OFF (default).
+        MaxBarsSince60mBreakout: int // 60m-EMA-BREAKOUT GATE: same, over the trailing-60m EMA max. 0 = OFF (default).
         DisablePriceSlope: bool  // true = drop the price-slope>0 gate (BreakoutTimer didn't use it). Default false.
         DisableSum6: bool        // true = drop the sum6 gate regardless of MinCloseAbove6 (BreakoutTimer didn't
                                  // use it). Default false.
@@ -166,6 +168,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     let ema       = EmaMa(cfg.EmaPeriod)        // the 9-EMA (closes-above-EMA reference)
     let emaLow    = MinMa(cfg.VolWindow)        // the 20m trailing MIN of the 9-EMA — the ema_climb feature denominator base
     let emaHigh   = MaxMa(cfg.VolWindow)        // the 20m trailing MAX of the 9-EMA — the 20m-EMA-breakout reference
+    let emaHigh60 = MaxMa(60)                    // the 60m trailing MAX of the 9-EMA — the 60m-EMA-breakout reference
     let volEma    = EmaMa(cfg.EmaPeriod)        // 9-EMA of raw 1m VOLUME — the volume analogue of the price 9-EMA
     let volEmaMin = MinMa(cfg.VolWindow)        // 20m trailing MIN of the volume-9-EMA — the vol_climb base (mirrors emaMin)
     let sum6    = SumMa(6)
@@ -223,6 +226,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     // 20m-9EMA-high breakout timer — mirror of breakoutTimer but the event is a fresh TRAILING-20m EMA high
     // (ema > prior MaxMa(20) of ema), not a session high. Same reset cycle (the 20m-low re-arm).
     let ema20BreakoutTimer = BreakoutTimer()
+    // 60m-9EMA-high breakout timer — same, over a 60-bar trailing max.
+    let ema60BreakoutTimer = BreakoutTimer()
     // 10m-lagged session-EMA-high (record only, for post-hoc). Delay line of the post-fold sessEmaHigh.
     let laggedSessEmaHigh = LagMa<float>(10)
 
@@ -320,6 +325,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                 emaHigh.Push e
                 ema20BreakoutTimer.Step()
                 if isNew20mHigh then ema20BreakoutTimer.Start()
+                // 60m-EMA-high breakout: same, over the trailing-60m EMA max.
+                let isNew60mHigh = match emaHigh60.State with ValueSome h -> e > h | ValueNone -> true
+                emaHigh60.Push e
+                ema60BreakoutTimer.Step()
+                if isNew60mHigh then ema60BreakoutTimer.Start()
                 // 10m-lagged session-EMA-high (record-only). Push the post-fold session high.
                 match sessEmaHigh with ValueSome h -> laggedSessEmaHigh.Push h | ValueNone -> ())
             // volume analogue: 9-EMA of raw volume, then its 20m trailing MIN (the vol_climb base).
@@ -371,6 +381,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         // 20m-EMA-BREAKOUT GATE: the 9-EMA broke above its trailing-20m max within the last N bars. 0 = off.
         && (cfg.MaxBarsSince20mBreakout <= 0
             || (ema20BreakoutTimer.Fired && ema20BreakoutTimer.Value < cfg.MaxBarsSince20mBreakout))
+        // 60m-EMA-BREAKOUT GATE: the 9-EMA broke above its trailing-60m max within the last N bars. 0 = off.
+        && (cfg.MaxBarsSince60mBreakout <= 0
+            || (ema60BreakoutTimer.Fired && ema60BreakoutTimer.Value < cfg.MaxBarsSince60mBreakout))
         // TIGHTNESS FLOOR: (rangeHigh−rangeLow)/atrLin >= MinTightness (a real range, not lethargic). 0 = off.
         && (cfg.MinTightness <= 0.0 || gate this.Tightness (fun t -> t >= cfg.MinTightness))
         // EXHAUSTION CUT (F11): reject if the trailing-5m vol numerator (avg or MAX) >= MaxRvol5m20d × the 20d
@@ -449,6 +462,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                       VwapAtEntry = vv vwap.State
                       BarsSinceBreakout = breakoutTimer.Value
                       BarsSince20mBreakout = ema20BreakoutTimer.Value
+                      BarsSince60mBreakout = ema60BreakoutTimer.Value
                       SessEmaHigh = (match sessEmaHigh with ValueSome h -> h | ValueNone -> nan)
                       LaggedSessEmaHigh10m = (match laggedSessEmaHigh.Lagged with ValueSome h -> h | ValueNone -> nan)
                       State = Holding }
@@ -473,9 +487,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             match ema.State, reArmRef with
             | ValueSome e, ValueSome m when e < m ->
                 armed <- true
-                // RESET both breakout timers: a fresh re-arm starts a new breakout-wait cycle (-1 = waiting).
+                // RESET all breakout timers: a fresh re-arm starts a new breakout-wait cycle (-1 = waiting).
                 breakoutTimer.Reset()
                 ema20BreakoutTimer.Reset()
+                ema60BreakoutTimer.Reset()
             | _ -> ()
 
 
