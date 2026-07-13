@@ -139,3 +139,43 @@ lever. The up-slope decile carries the bigger avg% (+2.48); the down-slope side 
 **09:45 verdict:** ATR% (main lever) + chg_1d ≥ +20% (buy strength, avoid the flat-day dead zone) are the
 two headline cuts; chg_3d ≥ +20%, rising vol_slope, and BOTH tails of price_slope stack on top. Next: build
 the graded 09:45 book from ATR% × chg_1d × chg_3d and check the other entry minutes (09:46…10:30) the same way.
+
+> NOTE: `log_atr_20` / `vol_slope_20` are 20m TRAILING windows. At 09:45 (open+15) a 20m window and a
+> session-long window cover nearly the same bars (09:30→09:45 ≈ 15 bars; the 20m tail reaches ~09:25,
+> pre-open), so the distinction is immaterial HERE. It will matter for later entry minutes — revisit
+> (session-long ATR%/vol-slope) when sweeping 09:46…10:30.
+
+---
+
+## F4 — Building the 09:45 book, one lever at a time (ATR% → +vol_slope)
+
+Stacking features on the 09:45 sess-ema-low book (2020-26). Each addition is chosen at its knee.
+
+**Step 1 — `log_atr_20` floor (the main lever). Monotone; knee at ≥ 0.02:**
+
+| floor | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| 0 (all) | 21,277 | 33 | 1.31 | +0.47 | $998k |
+| 0.013 | 8,342 | 34 | 1.44 | +1.13 | $941k |
+| **0.020** | **4,435** | **34** | **1.55** | **+1.87** | **$831k** |
+| 0.030 | 2,125 | 34 | 1.78 | +3.51 | $745k |
+| 0.040 | 1,152 | 35 | 1.89 | +4.91 | $565k |
+
+`ATR% ≥ 0.02` is the base: PF 1.55 / +1.87%/trade, retaining 83% of book net on 21% of trips.
+
+**Step 2 — `+ vol_slope_20` floor (ADDITIVE, not redundant). Knee at ≥ 0.01:**
+
+| + vol_slope | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| (base, none) | 4,435 | 34 | 1.55 | +1.87 | $831k |
+| ≥ 0.0 | 972 | 39 | 1.71 | +3.68 | $358k |
+| **≥ 0.01** | **817** | **41** | **1.80** | **+4.26** | **$348k** |
+| ≥ 0.025 | 644 | 41 | 1.83 | +4.59 | $296k |
+| ≥ 0.05 | 399 | 42 | 1.79 | +4.36 | $174k |
+
+**They stack additively** — vol_slope alone tops out at PF 1.68, ATR alone at 1.55; TOGETHER they reach 1.80.
+Each is independent signal (ATR% = move size; vol_slope = volume confirming it's real). Win rate climbs
+monotonically 34%→41% as vol_slope tightens (the volume confirm lifts the HIT rate, not just the tail).
+`vol_slope ≥ 0.01` is the knee: +0.25 PF over the ATR base for ~half the trips; ≥0.025 buys only +0.03 more,
+≥0.05 rolls over. **Running 09:45 book: `ATR% ≥ 0.02 & vol_slope ≥ 0.01` → PF 1.80 / +4.26%/tr / 817 trips /
+$348k.** Next lever to stack: price_slope (two-sided) or chg_1d.
