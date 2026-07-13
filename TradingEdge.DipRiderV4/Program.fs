@@ -30,6 +30,10 @@ type Args =
     | Min_Chg_1d of float
     | Min_Chg_3d of float
     | Min_Ema_Vs_Vwap of float
+    // ----- arm/re-arm state machine -----
+    | Re_Arm of string
+    | Max_Concurrent of int
+    | Vol_As_Gate
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -51,6 +55,9 @@ type Args =
             | Min_Chg_1d _ -> "DAY-DIRECTION FLOOR (F17): require the stock green on the day — reject if entry/prevClose-1 < this. Default 0.10. Large-negative = off."
             | Min_Chg_3d _ -> "3-DAY TREND FLOOR (F28): require the stock up over 3 days — reject if entry/close3d-1 < this. Default 0.0. Large-negative = off."
             | Min_Ema_Vs_Vwap _ -> "9-EMA-vs-VWAP FLOOR (F27): reject if the 9-EMA is more than |this| below VWAP (ema/vwap-1 < this). Default -0.02. Large-negative = off."
+            | Re_Arm _ -> "RE-ARM reference level: rolling-ema-low (default) | session-ema-low | stop-level. The live 9-EMA must drop below this to re-arm a consumed setup."
+            | Max_Concurrent _ -> "Cap on concurrently-OPEN positions. 0 = unlimited (default; the pure arm/re-arm book). 1 = block entry+re-arm while a position is Holding (V3Backside slot-lifetime discipline)."
+            | Vol_As_Gate -> "GATE mode: AND vol_climb into the price trigger (a vol-fail neither opens NOR disarms). Default OFF = SKIP mode (vol decides real-vs-skip; a vol-fail still disarms)."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -65,10 +72,20 @@ let main argv =
     let endDate   = parseDate (parsed.GetResult(End_Date,   defaultValue = "2026-06-25"))
     let outPath   = parsed.GetResult(Out, defaultValue = defaultCsv)
 
+    let reArm =
+        match parsed.GetResult(Re_Arm, defaultValue = "rolling-ema-low") with
+        | "rolling-ema-low" -> RollingEmaLow
+        | "session-ema-low" -> SessionEmaLow
+        | "stop-level"      -> LastStopLevel
+        | bad -> failwithf "Invalid --re-arm %A (rolling-ema-low | session-ema-low | stop-level)" bad
+
     let cfg =
         { defaultConfig with
             Intraday =
               { defaultConfig.Intraday with
+                  ReArm           = reArm
+                  MaxConcurrent   = parsed.GetResult(Max_Concurrent, defaultValue = defaultConfig.Intraday.MaxConcurrent)
+                  VolAsGate       = parsed.Contains Vol_As_Gate
                   EntryStartMin   = parsed.GetResult(Entry_Start_Min,   defaultValue = defaultConfig.Intraday.EntryStartMin)
                   EntryEndMin     = parsed.GetResult(Entry_End_Min,     defaultValue = defaultConfig.Intraday.EntryEndMin)
                   FeatureStartMin = parsed.GetResult(Feature_Start_Min, defaultValue = defaultConfig.Intraday.FeatureStartMin)
@@ -98,7 +115,16 @@ let main argv =
         (if not (Double.IsNegativeInfinity ic.MinChg1d || Double.IsNaN ic.MinChg1d) then sprintf "   chg1d >= %.0f%%" (100.0*ic.MinChg1d) else "")
         (if not (Double.IsNegativeInfinity ic.MinChg3d || Double.IsNaN ic.MinChg3d) then sprintf "   chg3d >= %.0f%%" (100.0*ic.MinChg3d) else "")
         (if not (Double.IsNegativeInfinity ic.MinEmaVsVwap || Double.IsNaN ic.MinEmaVsVwap) then sprintf "   ema-vs-vwap >= %.0f%%" (100.0*ic.MinEmaVsVwap) else "")
-    printfn "  vol check   = %s" (if ic.MinVolClimb > 0.0 then sprintf "vol-climb >= %.2f (take-or-disarm)" ic.MinVolClimb else "OFF (always take)")
+    let volMode = if ic.VolAsGate then "GATE (ANDed into the trigger)" else "SKIP (real-vs-skip; still disarms)"
+    printfn "  vol check   = %s   mode = %s"
+        (if ic.MinVolClimb > 0.0 then sprintf "vol-climb >= %.2f" ic.MinVolClimb else "OFF") volMode
+    let reArmDesc =
+        match ic.ReArm with
+        | RollingEmaLow -> "rolling 20m-min-9EMA"
+        | SessionEmaLow -> "session-min 9EMA"
+        | LastStopLevel -> "last consumed setup's stop level"
+    printfn "  re-arm      = live 9-EMA drops below the %s   max-concurrent %s"
+        reArmDesc (if ic.MaxConcurrent <= 0 then "unlimited" else string ic.MaxConcurrent)
     printfn "  stop        = ema: CURRENT 20m-min-9EMA (this-bar-inclusive), triggered by the live 9-EMA below it"
     printfn "  exits       = stop + hold-to-MOC"
 

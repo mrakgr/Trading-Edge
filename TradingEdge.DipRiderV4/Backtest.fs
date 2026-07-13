@@ -34,7 +34,10 @@ type Config =
 /// and are enabled after a breakdown.
 let defaultConfig =
     { Intraday =
-        { VolWindow = 20
+        { ReArm = RollingEmaLow         // re-arm reference: RollingEmaLow | SessionEmaLow | LastStopLevel.
+          MaxConcurrent = 0             // 0 = unlimited (the pure arm/re-arm book). 1 = V3Backside slot-lifetime.
+          VolAsGate = false             // false = SKIP mode (vol decides real-vs-skip); true = GATE mode (vol ANDed in).
+          VolWindow = 20
           EmaPeriod = 9                  // the 9-EMA (closes-above-EMA reference)
           SessionStartMin = 8 * 60 + 30  // 08:30 ET — the session anchor (windows warm from here).
           FeatureStartMin = 9 * 60 + 30  // 09:30 ET (570) — VWAP, OLS slope, ATR, EMA, sum6 fold ONLY from here.

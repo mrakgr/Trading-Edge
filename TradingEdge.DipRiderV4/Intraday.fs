@@ -36,9 +36,28 @@ type IntradayPosition =
       VwapAtEntry: float         // session VWAP at entry
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
+/// The RE-ARM level: what the live 9-EMA must drop below to re-arm the setup (after a disarm). Three
+/// choices, compared as an axis of the F2 experiment.
+type ReArmMode =
+    | RollingEmaLow          // live 9-EMA < the ROLLING 20m-min-of-EMA (the original; the min slides UP as
+                             // bars leave the window, so it re-arms easily — the diagnosed over-firing default).
+    | SessionEmaLow          // live 9-EMA < the SESSION-min of the 9-EMA (running min from the session anchor;
+                             // only ratchets DOWN as new EMA lows are made — a genuinely non-sliding level).
+    | LastStopLevel          // live 9-EMA < the FROZEN stop level of the last CONSUMED setup (frozen on EVERY
+                             // disarm: taken, vol-skip, or no-room). Before the first setup fires: stay armed.
+
 /// Intraday engine config — DipRiderV3 (pure trailing-window momentum).
 type IntradayConfig =
-    { 
+    {
+        ReArm: ReArmMode         // which level the 9-EMA must break below to re-arm (default RollingEmaLow).
+        MaxConcurrent: int        // cap on concurrently-OPEN (Holding) positions. 0 = unlimited (the pure arm/
+                                 // re-arm book — a re-arm can fire a new entry while a prior one is still open).
+                                 // 1 = block BOTH entry and re-arm while a position is Holding (the V3Backside
+                                 // slot-lifetime discipline: the slot frees only when the position exits).
+        VolAsGate: bool          // false (default) = SKIP mode: a price trigger disarms regardless; a REAL
+                                 // position opens only if vol_climb passes (the SMB-backside split). true =
+                                 // GATE mode: vol_climb is ANDed into the trigger — the setup only fires (and
+                                 // only disarms) when BOTH price AND volume pass.
         VolWindow: int           // trailing ATR / tightness / OLS-slope lookback in 1m BARS (default 20)
         EmaPeriod: int           // the 9-EMA period (the closes-above-EMA reference)
         SessionStartMin: int     // first ET minute fed to the engine (510 = 08:30 ET). The session extremes
@@ -84,6 +103,8 @@ type State =
         sPriceSlope : float voption
         volEma : float voption
         volEmaMin : float voption
+        sessEmaLow : float voption   // session-min of the 9-EMA (SessionEmaLow re-arm reference)
+        lastStopLevel : float voption // frozen stop of the last consumed setup (LastStopLevel re-arm reference)
         barsSeen : int
         armed : bool
     }
@@ -122,6 +143,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             sPriceSlope = ValueNone
             volEma = ValueNone
             volEmaMin = ValueNone
+            sessEmaLow = ValueNone
+            lastStopLevel = ValueNone
             barsSeen = 0
             armed = true
         }
@@ -130,9 +153,24 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     let mutable armed = true
     let mutable bar = ValueNone
     let mutable barsSeen = 0
+    // SESSION-min of the 9-EMA (running min from the session anchor; only ratchets DOWN) — the SessionEmaLow
+    // re-arm reference. Updated post-fold in ProcessBar.
+    let mutable sessEmaLow : float voption = ValueNone
+    // the FROZEN stop level of the last CONSUMED setup (set on EVERY disarm) — the LastStopLevel re-arm
+    // reference. ValueNone until the first setup fires (day stays armed until then).
+    let mutable lastStopLevel : float voption = ValueNone
 
     member _.Ticker = ticker
     member _.Day = day
+
+    /// Count of currently-open (Holding) positions — the concurrency denominator.
+    member _.OpenCount =
+        let mutable n = 0
+        for p in positions do (match p.State with Holding -> n <- n + 1 | ExitedAt _ -> ())
+        n
+
+    /// A free concurrency slot? MaxConcurrent<=0 = unlimited (always free).
+    member this.HasSlot = cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent
 
     member _.State : State =
         {
@@ -146,6 +184,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             sPriceSlope = priceOls.Slope
             volEma = volEma.State
             volEmaMin = volEmaMin.State
+            sessEmaLow = sessEmaLow
+            lastStopLevel = lastStopLevel
             barsSeen = barsSeen
             armed = armed
         }
@@ -180,6 +220,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             // the 9-EMA (fed AFTER the above-EMA indicator reads the prior EMA), then its 20m trailing MIN.
             ema.Push curBar.close
             ema.State |> ValueOption.iter emaLow.Push
+            // SESSION-min of the 9-EMA (only ratchets down) — the SessionEmaLow re-arm reference.
+            ema.State |> ValueOption.iter (fun e ->
+                sessEmaLow <- match sessEmaLow with ValueSome m -> ValueSome (min m e) | ValueNone -> ValueSome e)
             // volume analogue: 9-EMA of raw volume, then its 20m trailing MIN (the vol_climb base).
             volEma.Push (float curBar.volume)
             volEma.State |> ValueOption.iter volEmaMin.Push
@@ -253,11 +296,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         this.ProcessBar bar
         for i in 0 .. positions.Count - 1 do
             positions.[i] <- this.Advance bar positions.[i]
-        if armed && this.PricePatternFires bar then
+        // A setup fires when the PRICE pattern clears. In SKIP mode (VolAsGate=false) the volume check does
+        // NOT block the trigger (it only decides real-vs-skip); in GATE mode it is ANDed in, so a vol-fail
+        // neither opens nor disarms.
+        let volOk = this.VolumePasses
+        let triggerFires = this.PricePatternFires bar && (not cfg.VolAsGate || volOk)
+        let mutable disarmedThisBar = false
+        // A free concurrency slot is required to consume a setup. Under mc=1 this blocks a new trigger while a
+        // position is still Holding — the V3Backside slot-lifetime discipline (the slot IS the arm gate).
+        if armed && triggerFires && this.HasSlot then
             // STOP = the CURRENT 20m-min-of-EMA (this-bar-inclusive). The EMA-stop fires when the live
             // 9-EMA later drops below this level. REQUIRE room: the stop must be finite AND strictly below
             // the current 9-EMA (else the position is born stopped-out / the stop is meaningless). No room
-            // ⇒ SKIP the trade but STILL disarm (consume the setup until the next low re-arms).
+            // ⇒ SKIP the trade but STILL disarm (consume the setup until the re-arm level is breached).
             let stop =
                 match emaLow.State with
                 | ValueSome m when m > 0.0 -> m
@@ -265,9 +316,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             let hasRoom =
                 stop > Double.NegativeInfinity
                 && (match ema.State with ValueSome e -> stop < e | ValueNone -> false)
-            // SMB-backside split: the PRICE pattern (+room) opens a REAL position ONLY IF volume also passes;
-            // a volume FAIL still disarms (consumes the setup) so we never defer to a later, worse setup.
-            if hasRoom && this.VolumePasses then
+            // Open a REAL position when there is room AND volume passes. In GATE mode volOk is already true
+            // (it's part of triggerFires); in SKIP mode a vol-fail here just skips the trade.
+            if hasRoom && volOk then
                 let vv (v: float voption) = match v with ValueSome x -> x | ValueNone -> nan
                 positions.Add
                     { EntryMin = bar.etMin
@@ -284,13 +335,27 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                       EmaAtEntry = vv ema.State
                       VwapAtEntry = vv vwap.State
                       State = Holding }
-            // taken, vol-skipped, OR no-room: disarm until the next low re-arms.
+            // consumed (taken, vol-skipped, or no-room): disarm + freeze the stop level for the LastStopLevel
+            // re-arm. Freeze on EVERY disarm, even a no-room one (record the emaLow it WOULD have used).
             armed <- false
-        // RE-ARM LAST: the current 9-EMA has dropped below the PRIOR 20m-min-of-EMA (a fresh low was made).
-        // Placed at the END so a re-arm on this bar can only enable an entry on a LATER bar.
-        match ema.State, sState.emaLow with
-        | ValueSome e, ValueSome m when e < m -> armed <- true
-        | _ -> ()
+            disarmedThisBar <- true
+            lastStopLevel <- (if stop > Double.NegativeInfinity then ValueSome stop else emaLow.State)
+        // RE-ARM LAST (only on a bar we did NOT just disarm on, so a re-arm can only enable a LATER entry):
+        // the current 9-EMA has dropped BELOW the re-arm reference level. The reference is one of:
+        //   RollingEmaLow  — the ROLLING 20m-min-of-EMA (prior snapshot; slides up as bars leave the window)
+        //   SessionEmaLow  — the SESSION-min of the 9-EMA (ratchets down only)
+        //   LastStopLevel  — the frozen stop level of the last consumed setup (ValueNone ⇒ no re-arm yet)
+        // Also require a free slot to re-arm: under mc=1 the setup cannot re-arm while a position is still
+        // Holding, so the slot's lifetime (entry → exit) throttles the book (matches V3Backside).
+        if not disarmedThisBar && this.HasSlot then
+            let reArmRef =
+                match cfg.ReArm with
+                | RollingEmaLow -> sState.emaLow
+                | SessionEmaLow -> sState.sessEmaLow
+                | LastStopLevel -> sState.lastStopLevel
+            match ema.State, reArmRef with
+            | ValueSome e, ValueSome m when e < m -> armed <- true
+            | _ -> ()
 
 
 
