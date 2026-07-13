@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- VwapReclaimV3: debloated long-only fork of VwapReclaim (SMB-style intraday
+       VWAP x 9-EMA reclaim scalp). Strips the breakout engine and the ReclaimShort
+       mirror; the ONLY entry path is the long reclaim (9-EMA crosses above session
+       VWAP after sustained weakness). The geometric VWAP-low stop is replaced with a
+       9-EMA pullback-low stop: the running MIN of the 9-EMA over the current below-
+       VWAP run (reset at each reclaim), triggered when the 9-EMA falls back below it.
+       Snapshot mutables are factored into a state record (DipRiderV4 style). Same
+       two-pipeline architecture: pipeline 1 = SELECT from mr_candidate; pipeline 2 =
+       the intraday 1m engine. Self-contained (reads trading.db + minute_aggs parquets). -->
+  <ItemGroup>
+    <Compile Include="Intraday.fs" />
+    <Compile Include="Backtest.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../TradingEdge.RollingMa/TradingEdge.RollingMa.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Argu" Version="6.2.5" />
+    <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.4" />
+    <PackageReference Include="Nito.Collections.Deque" Version="1.2.1" />
+  </ItemGroup>
+
+</Project>

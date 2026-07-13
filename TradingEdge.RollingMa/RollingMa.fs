@@ -143,6 +143,39 @@ type MinMa(windowSize: int) =
         barIdx <- 0
         count <- 0
 
+// =============================================================================
+// RunMaxMa / RunMinMa — session-cumulative running extreme (NOT windowed)
+// =============================================================================
+//
+// The running max (or min) over EVERY value pushed since the last Reset — a
+// windowless MaxMa/MinMa. Replaces the plain `mutable _ voption` running-extreme
+// idiom used for session highs/lows/volume-highs in the intraday engines: a
+// value goes in with `.Push`, the current extreme reads from `.State`, and
+// `.Reset` clears it (e.g. severing a session boundary, or a VWAP cross).
+// Generic over any comparable type, so it covers both float prices and int64
+// volumes. Read `.State` BEFORE pushing the current bar for the strictly-prior
+// value, or AFTER for the inclusive one — same convention as the other structures.
+
+[<Sealed>]
+type RunMaxMa<'T when 'T: comparison>() =
+    let mutable s : 'T voption = ValueNone
+    /// The running max since the last Reset, or ValueNone before any push.
+    member _.State = s
+    member _.Push (x: 'T) =
+        s <- match s with ValueSome c -> ValueSome (max c x) | ValueNone -> ValueSome x
+    /// Clear the running extreme (see RollingMa.Reset).
+    member _.Reset () = s <- ValueNone
+
+[<Sealed>]
+type RunMinMa<'T when 'T: comparison>() =
+    let mutable s : 'T voption = ValueNone
+    /// The running min since the last Reset, or ValueNone before any push.
+    member _.State = s
+    member _.Push (x: 'T) =
+        s <- match s with ValueSome c -> ValueSome (min c x) | ValueNone -> ValueSome x
+    /// Clear the running extreme (see RollingMa.Reset).
+    member _.Reset () = s <- ValueNone
+
 /// Fixed-DELAY line (reused verbatim from TradingEdge.LowFlyer/RollingMa.fs): a ring
 /// of the last (lag+1) values — `.Lagged` is the value `lag` bars ago, `.Last` the
 /// current. Push the bar, then read `lagPctChange` for an N-bar return. Empty until
