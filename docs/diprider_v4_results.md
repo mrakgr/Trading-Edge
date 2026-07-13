@@ -387,3 +387,34 @@ month    trips   win%         net  rawPF clipPF
 - vol_climb ladder (0.4–0.833 × 4 books): `/tmp/vc_*.csv` / `.log`; summary `scratchpad/vc_ladder.py`.
 - A+ book: `/tmp/vc_skip_on_vc0.8.csv`. Config: `--re-arm rolling-ema-low --min-vol-climb 0.8` (defaults
   otherwise: skip mode, exhaust cut ON, mc 0, tightness OFF).
+
+## Finding 6 — 5m-MAX exhaustion numerator ≈ 5m-AVG (WASH; default stays AVG)
+
+Idea (user): the exhaustion cut uses the trailing-5m **avg** 1m-vol; try the trailing-5m **MAX** instead —
+the spiky 1m-vol signal is the dominant feature in the SHORT book, so it might reject blow-offs better.
+Implemented as `--rvol-use-max` (numerator = `MaxMa(5)` of 1m vol vs the default `AvgMa(5)`). Since max ≥ avg
+always, the same threshold cuts MORE with max — so the fair comparison is at **matched breadth** (matched trip
+count), sweeping the threshold, NOT at a fixed threshold.
+
+Sweep (skip·mc0·vc0.5, 2020+), raw / clip PF at aligned trip counts:
+
+| ~trips | AVG (thr) | MAX (thr) |
+|---|---|---|
+| ~1010 | 2.70 / 1.89 (t75) | 2.63 / 1.88 (t100) |
+| ~1210 | 2.73 / 1.87 (t100) | 2.73 / 1.87 (t150) |
+| ~1360 | 2.66 / 1.84 (t150) | 2.67 / 1.83 (t200) |
+| ~1450 | 2.56 / 1.78 (t200) | 2.56 / 1.78 (t300) |
+
+**Identical at matched breadth** — where trip counts align, both numerators produce the same raw & clip PF
+(e.g. AVG-t100/1213 trips vs MAX-t150/1177 trips: both raw 2.73, clip 1.87). Both peak at the same quality
+(AVG clip 1.885 @ t75, MAX clip 1.875 @ t100). No edge either way; no new A+ tier.
+
+⭐ **Why:** over a 5-bar window the max and avg of 1m volumes are highly correlated (a spike lifts both), so
+as an *exhaustion* (late-entry reject) filter they rank entries almost identically. The max's edge in the
+short book is as an *entry* signal (one violent bar); here it's a *reject*, where smoothed magnitude is what
+matters — and avg captures that just as well. **Default stays AVG.** Plumbing + `--rvol-use-max` flag kept
+(cheap; recorded as a settled negative so we don't retry).
+
+### Artifacts (F6)
+
+- avg-vs-max threshold sweep: `/tmp/rx_{avg,max}_t*.csv`; summary `scratchpad/rx_summary.py`.

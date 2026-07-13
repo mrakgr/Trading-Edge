@@ -61,8 +61,10 @@ let defaultConfig =
                                          // (smoothed trend location; knee at −2%). -inf = off.
           MinTightness   = 0.0           // OFF (ablation: tight≥3 removed only 26/814 trips, PF 2.804→2.800, win
                                          // identical — REDUNDANT with the log-ATR floor, as the V3 notes said). --min-tightness 3 restores.
-          MaxRvol5m20d   = 100.0 }       // F11 exhaustion cut: trailing-5m avg vol < 100× the 20d per-min pace
-                                         // (V3Backside; docs: cuts ~half the book). 0 = off.
+          MaxRvol5m20d   = 100.0         // F11 exhaustion cut: trailing-5m vol numerator < 100× the 20d per-min
+                                         // pace (V3Backside; docs: cuts ~half the book). 0 = off.
+          Rvol5mUseMax   = false }       // false = 5m AVG numerator (V3Backside). true = 5m MAX (the short book's
+                                         // spiky 1m-vol signal). --rvol-use-max enables.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the

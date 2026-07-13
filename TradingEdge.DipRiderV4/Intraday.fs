@@ -93,9 +93,12 @@ type IntradayConfig =
                                  // 0 = DISABLED (V3 default — start off, tune later).
         MinTightness: float      // require tightness = (rangeHigh−rangeLow)/atrLin >= this (a real range, not a
                                  // lethargic name). Default 3.0 (V3Backside). 0 = off.
-        MaxRvol5m20d: float      // EXHAUSTION CUT (F11): reject if the trailing-5m avg vol >= this × the 20d
-                                 // per-minute pace ((trailVol5m/5) / permin20d). A blow-off = a late entry.
-                                 // Default 100 (V3Backside; docs: cuts ~half the book). 0 = off (needs permin20d).
+        MaxRvol5m20d: float      // EXHAUSTION CUT (F11): reject if the trailing-5m vol NUMERATOR >= this × the 20d
+                                 // per-minute pace. A blow-off = a late entry. Default 100 (V3Backside; docs:
+                                 // cuts ~half the book). 0 = off (needs permin20d). Numerator = avg or MAX (below).
+        Rvol5mUseMax: bool       // false (default) = numerator is the trailing-5m AVG 1m-vol (V3Backside). true =
+                                 // the trailing-5m MAX 1m-vol (the spiky signal the SHORT book uses). Since max>=avg,
+                                 // the same threshold cuts MORE with max — sweep the threshold when comparing.
       }
 
 type State = 
@@ -138,6 +141,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     // trailing 5-bar raw VOLUME avg — the recent-tempo numerator for the exhaustion cut (5m-avg vs the 15m
     // opening-avg and the 20d per-minute avg). Fed every VALID feature-bar.
     let vol5avg   = AvgMa(5)
+    let vol5max   = MaxMa(5)                    // trailing-5-bar MAX 1m volume (the spiky alt exhaustion numerator)
 
     // session VWAP = Σ(typical_price · volume) / Σ(volume), typical = (h+l+c)/3, from the 09:30 feature anchor.
     let mutable vwap  = RatioMa()
@@ -184,6 +188,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
 
     /// A free concurrency slot? MaxConcurrent<=0 = unlimited (always free).
     member this.HasSlot = cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent
+
+    /// The trailing-5m exhaustion NUMERATOR — the 5-bar MAX (spiky) or AVG 1m volume per cfg.Rvol5mUseMax.
+    member _.Vol5Num : float voption = if cfg.Rvol5mUseMax then vol5max.State else vol5avg.State
 
     /// Intraday consolidation tightness = (20m window high − low) / linear-ATR. ValueNone until warm.
     member _.Tightness : float voption =
@@ -241,6 +248,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             priceOls.Push (log curBar.close)
             // trailing 5-bar raw-volume avg (recent-tempo numerator).
             vol5avg.Push (float curBar.volume)
+            vol5max.Push (float curBar.volume)
             // the 9-EMA (fed AFTER the above-EMA indicator reads the prior EMA), then its 20m trailing MIN.
             ema.Push curBar.close
             ema.State |> ValueOption.iter emaLow.Push
@@ -292,10 +300,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         && (cfg.MinCloseAbove6 <= 0 || gate sum6.State (fun c -> int (round c) >= cfg.MinCloseAbove6))
         // TIGHTNESS FLOOR: (rangeHigh−rangeLow)/atrLin >= MinTightness (a real range, not lethargic). 0 = off.
         && (cfg.MinTightness <= 0.0 || gate this.Tightness (fun t -> t >= cfg.MinTightness))
-        // EXHAUSTION CUT (F11): reject if trailing-5m avg vol >= MaxRvol5m20d × the 20d per-min pace. A blow-off
-        // = a late entry. 0 = off; needs permin20d > 0 (else can't evaluate, so pass).
+        // EXHAUSTION CUT (F11): reject if the trailing-5m vol numerator (avg or MAX) >= MaxRvol5m20d × the 20d
+        // per-min pace. A blow-off = a late entry. 0 = off; needs permin20d > 0 (else can't evaluate, so pass).
         && (cfg.MaxRvol5m20d <= 0.0 || permin20d <= 0.0
-            || gate vol5avg.State (fun a -> a < cfg.MaxRvol5m20d * permin20d))
+            || gate this.Vol5Num (fun v -> v < cfg.MaxRvol5m20d * permin20d))
         // --- day-trend + VWAP floors ---
         // DAY-DIRECTION FLOOR (F17): entry / prev-daily-close − 1 >= MinChg1d. NaN/-inf = off.
         && (Double.IsNegativeInfinity cfg.MinChg1d || Double.IsNaN cfg.MinChg1d
@@ -358,7 +366,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                       PriceSlope20 = vv priceOls.Slope
                       LogAtr20 = vv atrLog.State
                       Tightness20 = (match this.Tightness with ValueSome t -> t | ValueNone -> nan)
-                      Rvol5m = (match vol5avg.State with ValueSome a when permin20d > 0.0 -> a / permin20d | _ -> nan)
+                      Rvol5m = (match this.Vol5Num with ValueSome v when permin20d > 0.0 -> v / permin20d | _ -> nan)
                       Sum6 = (match sum6.State with ValueSome c -> int (round c) | ValueNone -> 0)
                       VolClimb =
                         (match volEma.State, volEmaMin.State with

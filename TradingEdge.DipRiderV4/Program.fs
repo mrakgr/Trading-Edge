@@ -32,6 +32,7 @@ type Args =
     | Min_Ema_Vs_Vwap of float
     | Min_Tightness of float
     | Max_Rvol_5m_20d of float
+    | Rvol_Use_Max
     // ----- arm/re-arm state machine -----
     | Re_Arm of string
     | Max_Concurrent of int
@@ -58,7 +59,8 @@ type Args =
             | Min_Chg_3d _ -> "3-DAY TREND FLOOR (F28): require the stock up over 3 days — reject if entry/close3d-1 < this. Default 0.0. Large-negative = off."
             | Min_Ema_Vs_Vwap _ -> "9-EMA-vs-VWAP FLOOR (F27): reject if the 9-EMA is more than |this| below VWAP (ema/vwap-1 < this). Default -0.02. Large-negative = off."
             | Min_Tightness _ -> "TIGHTNESS FLOOR: require (rangeHigh-rangeLow)/atrLin >= this (a real range, not lethargic). Default 3.0. 0 = off."
-            | Max_Rvol_5m_20d _ -> "EXHAUSTION CUT (F11): reject if the trailing-5m avg vol >= this × the 20d per-minute pace. Default 100. 0 = off."
+            | Max_Rvol_5m_20d _ -> "EXHAUSTION CUT (F11): reject if the trailing-5m vol numerator >= this × the 20d per-minute pace. Default 100. 0 = off."
+            | Rvol_Use_Max -> "Exhaustion-cut numerator = trailing-5m MAX 1m-vol (the short book's spiky signal) instead of the 5m AVG. Since max>=avg, cuts MORE at the same threshold."
             | Re_Arm _ -> "RE-ARM reference level: rolling-ema-low (default) | session-ema-low | stop-level. The live 9-EMA must drop below this to re-arm a consumed setup."
             | Max_Concurrent _ -> "Cap on concurrently-OPEN positions. 0 = unlimited (default; the pure arm/re-arm book). 1 = block entry+re-arm while a position is Holding (V3Backside slot-lifetime discipline)."
             | Vol_As_Gate -> "GATE mode: AND vol_climb into the price trigger (a vol-fail neither opens NOR disarms). Default OFF = SKIP mode (vol decides real-vs-skip; a vol-fail still disarms)."
@@ -103,7 +105,8 @@ let main argv =
                   MinChg3d        = parsed.GetResult(Min_Chg_3d,        defaultValue = defaultConfig.Intraday.MinChg3d)
                   MinEmaVsVwap    = parsed.GetResult(Min_Ema_Vs_Vwap,   defaultValue = defaultConfig.Intraday.MinEmaVsVwap)
                   MinTightness    = parsed.GetResult(Min_Tightness,     defaultValue = defaultConfig.Intraday.MinTightness)
-                  MaxRvol5m20d    = parsed.GetResult(Max_Rvol_5m_20d,   defaultValue = defaultConfig.Intraday.MaxRvol5m20d) } }
+                  MaxRvol5m20d    = parsed.GetResult(Max_Rvol_5m_20d,   defaultValue = defaultConfig.Intraday.MaxRvol5m20d)
+                  Rvol5mUseMax    = parsed.Contains Rvol_Use_Max } }
 
     let ic = cfg.Intraday
     let hhmm m = sprintf "%02d:%02d" (m / 60) (m % 60)
@@ -123,7 +126,7 @@ let main argv =
         (if not (Double.IsNegativeInfinity ic.MinEmaVsVwap || Double.IsNaN ic.MinEmaVsVwap) then sprintf "   ema-vs-vwap >= %.0f%%" (100.0*ic.MinEmaVsVwap) else "")
     printfn "  extra gates = %s%s"
         (if ic.MinTightness > 0.0 then sprintf "tightness >= %.1f" ic.MinTightness else "tightness OFF")
-        (if ic.MaxRvol5m20d > 0.0 then sprintf "   rvol5m20d < %.0f" ic.MaxRvol5m20d else "   rvol5m20d OFF")
+        (if ic.MaxRvol5m20d > 0.0 then sprintf "   rvol5m20d < %.0f (%s)" ic.MaxRvol5m20d (if ic.Rvol5mUseMax then "5m-MAX" else "5m-avg") else "   rvol5m20d OFF")
     let volMode = if ic.VolAsGate then "GATE (ANDed into the trigger)" else "SKIP (real-vs-skip; still disarms)"
     printfn "  vol check   = %s   mode = %s"
         (if ic.MinVolClimb > 0.0 then sprintf "vol-climb >= %.2f" ic.MinVolClimb else "OFF") volMode
