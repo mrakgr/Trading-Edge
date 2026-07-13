@@ -49,7 +49,11 @@ let defaultConfig =
                                          // (no upper cap — carried over from V1: rb>=11 no-cap = fat book,
                                          // positive EVERY year; the rb<=30 cap threw away ~6.5x the trips).
           MinTightness = 3.0             // require a name with real range (V1 fat-book floor; below 3 is dead).
-          StopBuffer = 0.0               // fire the pullback stop the instant the 9-EMA dips under the run-low.
+          StopBuffer = 0.002             // fire the pullback stop when the 9-EMA falls below run-min*(1-0.002).
+                                         // F3: the buffer optimum is a THRESHOLD (~0.2% EMA tick-noise floor)
+                                         // then a flat plateau 0.002-0.005; 0.002 is the plateau top on both
+                                         // graded cells (A PF 2.37/+$22k, A+ 4.26/+$23k vs tight) and barely
+                                         // touches the fat book. Below ~0.002 reverts to the tight stop.
           StopOnClose = true }           // the 9-EMA is a close-based series (kept for parity).
       Notional = 10_000.0 }
 

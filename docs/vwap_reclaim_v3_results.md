@@ -37,6 +37,10 @@ clean A/B on the exit alone. Full range 2003-09 → 2026-06.
 pullback stop cuts a bit more often, at a controlled distance, and lets the survivors run. On the 2023-24
 slice the exit split is explicit — **1171 stops @ −3.27% mean, 1513 MOC holds @ +5.37% mean**.
 
+> The table above is at `--stop-buffer 0` (the pure stop-swap A/B). The **engine default is now `0.002`**
+> (F3): on the FULL book that's near-free (net $1,604,145 / PF 1.332 — +$2.5k, −0.012 PF vs buffer 0),
+> while it captures the full +$21-23k/cell gain on the graded A/A+ cells. A single default, not book-dependent.
+
 ### Per-year (the edge concentrates where the strategy is tradable — post-2020)
 
 | year | n | V1 PF | V1 net | V3 PF | V3 net | ΔPF | Δnet |
@@ -134,9 +138,11 @@ Two structural facts:
 - **0.002-0.005 is a flat plateau.** Inside it PF/net vary within ~$2k (noise). Past ~0.01 it decays back
   toward hold-to-MOC (rollovers re-admitted).
 
-**`b=0.0025` is chosen as the graded-cell default** — dead-center of the plateau on both books (A PF 2.37,
-A+ PF 4.25), capturing the full buffer benefit (+$21k A / +$22k A+ vs the tight stop) without perching on
-either edge of the safe region.
+**`b=0.002` is adopted as the ENGINE DEFAULT** (top of the plateau: A PF 2.37/$632k, A+ 4.26/$446k). It is
+NOT book-dependent after all — the full-book cost of moving the default off 0 is negligible (FULL net
+$1,601,695 → $1,604,145, PF 1.344 → 1.332; +$2.5k / −0.012), because the fat-book damage only appears ABOVE
+the plateau (the earlier coarse 0.005 point overstated it at −$39k). So one universal `0.002` default
+captures the graded-cell gain essentially for free on the capacity book.
 
 **Why this is a real mechanism, not an overfit.** Two DIFFERENT concentrated books — the A cell (865 trips)
 and the A+ cell (235 trips) — INDEPENDENTLY show the same threshold-at-0.002 + plateau-to-0.005 shape across
@@ -145,9 +151,10 @@ unifying variable is **avg %/trade**: at +0.4% (fat) there's no runner to protec
 losing rollovers (monotone down); at +7% / +18% (A / A+) a hair of room stops the tight EMA-stop from
 clipping a genuine runner mid-move, worth ~+$21k on each cell.
 
-**Verdict — one knob, gated by per-trade edge:**
-- **Fat / capacity book (avg <~1%/trade): `--stop-buffer 0`** (the engine default). Nothing to protect; cut rollovers.
-- **Graded A / A+ cells (avg ≥ ~7%/trade): `--stop-buffer 0.0025`.** Protects the runner; +$21k/cell.
+**Verdict — a single `--stop-buffer 0.002` default:**
+- **Graded A / A+ cells (avg ≥ ~7%/trade):** protects the runner, +$21-23k/cell vs a tight stop.
+- **Fat / capacity book (avg +0.4%/trade):** near-free (−0.012 PF / +$2.5k net) — the buffer's harm to the
+  fat book only shows up ABOVE the 0.002-0.005 plateau, so 0.002 sits right under it.
 
-Buffer the pullback stop **iff the book has real per-trade edge to protect.** The 0.002-0.005 plateau is
-consistent across two independent cells; 0.0025 is its center. No engine fork needed.
+The 0.002-0.005 plateau (threshold at ~0.2% EMA tick-noise; decay past ~0.01) is consistent across two
+independent cells and cheap on the full book, so `0.002` is adopted as the universal engine default.
