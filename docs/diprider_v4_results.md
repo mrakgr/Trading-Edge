@@ -484,7 +484,7 @@ rolling books' 2021 (~1.12–1.14 clip). The breakout structure helps the advers
 Tighter = higher clip PF / less net; looser = more net / lower clip. **10 = the raw-PF peak** (BreakoutTimer's
 choice). The edge decays GRACEFULLY out to 20 bars (later-breakout entries progressively weaker but +EV).
 
-**vol_climb** (bars<10) — nearly IRRELEVANT under the breakout gate:
+**vol_climb** (bars<10) — FLAT over 0.1–0.5 (⚠ see F8: this was a too-narrow range; the edge is in the TAIL):
 
 | vc | trips | net | raw PF | clip PF |
 |---|---:|---:|---:|---:|
@@ -492,15 +492,67 @@ choice). The edge decays GRACEFULLY out to 20 bars (later-breakout entries progr
 | 0.3 | 944 | $872k | 2.92 | 2.00 |
 | 0.5 | 684 | $661k | 3.00 | 2.01 |
 
-0.1→0.5 moves clip PF 1.99→2.01 (flat) while net drops $942k→$661k. ⭐ **The breakout structure SUBSUMES the
-volume filter** — the breakout IS the volume event, so vol_climb adds nothing here (the exact INVERSE of F5,
-where vol_climb was the dominant A+ lever in the NON-breakout books). Keep vc LOOSE (0.1) for the breakout book.
+0.1→0.5 moves clip PF 1.99→2.01 (flat) while net drops. ⚠ **This turn's conclusion "vol_climb is irrelevant
+under the breakout gate" was PREMATURE** — corrected in F8 (extending to the n/(n+1) ladder shows vc bites
+hard from 0.5 up; there's a breakout A+ book at vc0.8). Also: vc0.1 vs vc0 (F8) shows 0 is marginally BETTER
+— the V4 breakout book's exhaustion cut already removes what BreakoutTimer's vc0.1 floor caught. **Base
+breakout book = vc 0 (OFF)**, not 0.1.
 
-⭐ **Settled breakout book:** `--max-bars-since-breakout 10 --min-vol-climb 0.1 --no-price-slope --no-sum6`
-(otherwise defaults). clip PF 1.99 / raw 2.91 / win 46% / $942k / 1053 trips, all-weather. A THIRD V4 book
-alongside the base momentum book and the vol_climb A+ book — highest clip PF of any BROAD (non-A+) V4 book.
+⭐ **Settled base breakout book:** `--max-bars-since-breakout 10 --no-price-slope --no-sum6` (vc OFF, otherwise
+defaults). clip PF 2.01 / raw 2.93 / win 46% / $977k / 1097 trips, all-weather. A THIRD V4 book alongside the
+base momentum book and the vol_climb A+ book — highest clip PF of any BROAD (non-A+) V4 book.
 
 ### Artifacts (F7)
 
 - breakout price-slope/sum6 matrix: `/tmp/bo2_*.csv`; knob sweep: `/tmp/bk_*.csv`.
 - The `lagged_sess_ema_high_10m` column is recorded for a future post-hoc breakout-continuation study.
+
+## Finding 8 — breakout vol_climb: 0 beats 0.1 (base); but vc0.8 is a 2021-robust breakout A+ book
+
+Extended the breakout vol_climb sweep to include **vc=0 (off)** and the higher **n/(n+1) ladder** (F5's
+rungs), on BOTH skip and gate. This corrects two F7 claims. Breakout book (bars<10, no-price-slope, no-sum6,
+rolling·mc0), 2020+:
+
+| vol_climb | skip trips | skip rawPF | skip clipPF | gate trips | gate rawPF | gate clipPF |
+|---|---:|---:|---:|---:|---:|---:|
+| **0 (off)** | 1097 | 2.93 | **2.01** | 1097 | 2.93 | **2.01** |
+| 0.1 | 1053 | 2.91 | 1.99 | 1067 | 2.92 | 2.00 |
+| 0.667 (3×) | 400 | 3.21 | 2.11 | 557 | 2.94 | 1.97 |
+| 0.75 (4×) | 237 | 3.55 | 2.31 | 363 | 3.56 | 2.31 |
+| **0.8 (5×)** | 158 | 4.50 | 2.84 | **244** | **4.59** | **2.90** |
+
+**1. vc=0 > vc=0.1 (base book) — INVERTS the BreakoutTimer F25 finding.** In BreakoutTimer vc≥0.1 lifted clip
+PF 1.41→1.67. Here vc=0 is marginally BETTER than 0.1 (skip clip 2.01/$977k vs 1.99/$942k). The reason is the
+config difference: V4's breakout book STILL runs the exhaustion cut + day-trend/VWAP floors, which already
+remove the low-conviction breakouts BreakoutTimer's vc0.1 was catching → the vc0.1 floor is redundant here.
+**Base breakout book: vc OFF.**
+
+**2. F7's "vol_climb irrelevant under the breakout gate" was WRONG — too-narrow a range (0.1–0.5).** From 0.5
+up, vol_climb bites hard: **vc0.8 (5×) → clip PF 2.84 (skip) / 2.90 (gate), win 54%.** A genuine breakout A+
+book. (Consistent with F5 after all — the vol_climb A+ tail just starts above 0.5.)
+
+**3. gate ≈ skip at the A+ end, gate slightly better** — at vc0.8, gate (2.90/244 trips) edges skip
+(2.84/158) with 55% more capacity at equal quality. Unlike the non-breakout books (skip dominated), here
+**gate is preferable** for the breakout A+ book.
+
+### ⭐ Breakout A+ book — gate·vc0.8 (bars<10, no-ps, no-s6): the BEST 2021 of any V4 A+ book
+
+| year | trips | win% | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|---:|
+| 2020 | 23 | 52.2% | $22k | 2.82 | 1.62 |
+| **2021** | 57 | 49.1% | $45k | **2.89** | **2.32** |
+| 2022 | 17 | 64.7% | $20k | 5.09 | 4.84 |
+| 2023 | 21 | 57.1% | $71k | 10.44 | 4.86 |
+| 2024 | 40 | 55.0% | $72k | 5.15 | 2.75 |
+| 2025 | 45 | 60.0% | $79k | 7.56 | 4.12 |
+| 2026 | 41 | 48.8% | $50k | 3.26 | 2.58 |
+
+TOTAL: **244 trips / win 54.1% / $360k / raw PF 4.59 / clip PF 2.90.** Positive EVERY year; **2021 at raw 2.89
+/ clip 2.32 is the best 2021 of any V4 A+ book** (beats the vol_climb A+ book's 2.37, and the base breakout
+book's 1.48). Less tail-dependent than the vol_climb A+ (only 2020 sub-2.0 clip) and less thin (244 vs 203
+trips, healthier per-year distribution, no 13-trip year). Config:
+`--vol-as-gate --min-vol-climb 0.8 --max-bars-since-breakout 10 --no-price-slope --no-sum6`.
+
+### Artifacts (F8)
+
+- breakout vc ladder incl 0, skip+gate: `/tmp/bv_{skip,gate}_vc*.csv`.
