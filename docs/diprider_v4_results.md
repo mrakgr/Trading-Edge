@@ -71,3 +71,90 @@ next session.
 - `/tmp/drv4.csv`, `/tmp/drv3bs_geom.csv`, `/tmp/drv3bs_ema.csv` (+ `.log` summaries) — the 2020+ runs above.
 - V4 smoke run (Q1 2024): 442 candidates → 43 trips, PF 3.65, **0 NaN stops** (the room-guard holds),
   exits = stop|moc only.
+
+## Finding 2 — the gap was TWO MISSING GATES, dominated by the exhaustion cut (not the re-arm mechanism)
+
+The re-arm-level fix (F1's hypothesis) was implemented (3 re-arm modes: rolling/session/stop-level, all
+frozen-capable) plus a `--max-concurrent` cap — but **none of it closed the gap to V3Backside** (~660 trips).
+The tightest V4 variant still ran ~2× the trips. Diagnosis by direct engine diff found the real cause:
+**the debloat DROPPED two entry gates that V3Backside runs by default.**
+
+| # | V3Backside (default) | V4 (as debloated) | |
+|---|---|---|---|
+| Exhaustion cut | `MaxRvol5m20d = 100` **ON** (docs: "cuts ~half the book") | **absent** | ⭐ the dominant driver |
+| Tightness | `MinTightness = 3.0` **ON** | **absent** | minor (see F3) |
+| Snapshot | snapshot-then-push (**prior** bar) | fold-then-snapshot (**current** bar) | residual |
+| Stop | geometry (sess-min-close × ⅔) | EMA-stop (current 20m-min-EMA) | residual |
+| Re-arm | slot-only (exit = re-arm, via shadow) | slot + explicit re-arm level | residual |
+
+**Restoring both gates** (stop-level·skip·mc1, the closest V3Backside analogue) collapsed the book and lifted PF:
+
+| config | trips | win% | net | raw PF |
+|---|---:|---:|---:|---:|
+| V4 stop·skip·mc1 (gates missing) | 1469 | 41.5% | $893k | 2.23 |
+| **V4 stop·skip·mc1 (gates restored)** | **814** | 42.9% | $668k | **2.80** |
+| V3Backside (geom, ref) | 653 | 45.6% | $613k | 2.95 |
+
+So the missing gates were **~80% of the gap** (1469→814 of the 816-trip excess). The residual ~160 trips /
+0.15 PF is the mechanism trio (snapshot / stop / re-arm) — real but secondary. The user's instinct was
+right: a **missing condition**, not just snapshotting. Restored the exhaustion-cut plumbing (`vol5avg`,
+`permin20d` ctor arg, `avgvol20` candidate col) + tightness (`rangeHigh`/`rangeLow`, `Tightness` member).
+
+## Finding 3 — tightness is DEAD WEIGHT (redundant with the log-ATR floor); default OFF
+
+Ablation (stop·skip·mc1, 2020+): tightness ON→OFF changed the book by **26 trips (3.2%), PF 2.804→2.800,
+win rate identical**. A name clearing `log-ATR ≥ 0.013` already has real range, so the `tightness ≥ 3` gate
+is almost never the binding constraint — exactly the documented V3 conclusion ("OFF, redundant with ATR")
+that was accidentally left ON. **Default flipped to `MinTightness = 0.0`** (`--min-tightness 3` restores).
+
+⚠ **Non-monotonic in the arm/re-arm machine:** turning a gate OFF does NOT uniformly ADD trips. Full 24-cell
+sweep (3 re-arm × 2 vol × 2 mc × 2 tight), tightness ON→OFF trip delta:
+
+| vol mode | Δ trips (off − on) | why |
+|---|---|---|
+| GATE | **+9 to +32** (adds, intuitive) | gate never disarms on a fail → extra passes = extra entries |
+| SKIP | **−26 to −55** (REMOVES, counterintuitive) | a looser gate lets an EARLIER bar consume+disarm the setup (often a vol-skip that opens nothing) → burns it before a later, better bar can fire |
+
+So in SKIP mode a gate is not a pure filter — it also controls *when* the setup is consumed. Every delta is
+≤5% of trips and ≤0.02 clip PF either way: tightness is noise. (Same class as the F34/F26 "gate reallocates
+the slot" lesson.)
+
+## Finding 4 — the exhaustion cut is a REAL quality lever: trades ~⅓ the net for +0.35 PF
+
+The rolling-ema-low book is the standout (best net; gate & skip both strong). mc=0, 2020+, exhaust ON vs OFF:
+
+| variant | trips | win% | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|---:|
+| rolling·**gate**·exhaust-ON | 2159 | 40.7% | $1.46M | 2.47 | 1.72 |
+| rolling·**gate**·exhaust-OFF | 3846 | 39.1% | **$2.12M** | 2.11 | 1.53 |
+| rolling·**skip**·exhaust-ON | 1213 | 41.1% | $915k | 2.73 | 1.87 |
+| rolling·**skip**·exhaust-OFF | 2215 | 39.6% | $1.25M | 2.20 | 1.58 |
+
+The **$2.12M "standout" is the exhaust-OFF gate book** — it buys +$660k net (+45%) but PAYS raw PF 2.47→2.11
+and clip PF 1.72→1.53, on 78% more trips. Unlike tightness, the exhaustion cut is a genuine risk-adjusted
+filter (it rejects late blow-off entries). It stays **ON by default** — the extra net isn't worth the PF/DD.
+gate ≈ skip on risk-adjusted quality here too (clip 1.72 vs 1.87 ON) but gate carries far more net, so gate
+is the higher-capacity book, skip the higher-PF one.
+
+### Per-year — rolling·mc0, exhaust ON vs OFF (clip PF)
+
+**2021 is the adverse-regime watch year** — every book sags there, as expected; the exhaustion cut lifts it.
+
+| year | gate·ON | gate·OFF | skip·ON | skip·OFF |
+|---|--:|--:|--:|--:|
+| 2020 | 1.79 | 1.59 | 1.43 | 1.60 |
+| 2021 | 1.33 | 1.14 | 1.39 | 1.12 |
+| 2022 | 1.72 | 1.32 | 1.81 | 1.37 |
+| 2023 | 3.15 | 2.44 | 4.36 | 2.87 |
+| 2024 | 1.74 | 1.90 | 1.79 | 1.79 |
+| 2025 | 1.94 | 1.75 | 2.31 | 1.88 |
+| 2026 | 1.53 | 1.57 | 2.02 | 2.19 |
+
+Exhaust-ON wins the clip PF in almost every year (esp. 2021/2022/2023) — the cut earns its keep in the harder
+regimes. Monthly breakdowns for all four books: `/tmp/br_rolling_{skip,gate}_mc0_rvol{on,off}.csv`.
+
+### Artifacts (F2–F4)
+
+- 24-cell matrix (3 re-arm × 2 vol × 2 mc × 2 tight): `/tmp/mx_*.csv` / `.log`.
+- rolling·mc0 exhaust on/off (yearly+monthly source): `/tmp/br_rolling_*.csv`.
+- Summary scripts: `scratchpad/mx_summary.py`, `scratchpad/breakdown.py`, `scratchpad/sweep_summary.py`.

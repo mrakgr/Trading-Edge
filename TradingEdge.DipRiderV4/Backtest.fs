@@ -57,8 +57,12 @@ let defaultConfig =
                                          // prev close). An ESSENTIAL entry requirement (user). -inf = off.
           MinChg3d       = 0.0           // F28: 3-day trend floor — require the stock UP over 3 days (entry >= close3d).
                                          // A 3-day decliner is a poor momentum buy in both regimes. -inf = off.
-          MinEmaVsVwap   = -0.02 }       // F27: 9-EMA-vs-VWAP floor — reject if the 9-EMA is >2% below VWAP
+          MinEmaVsVwap   = -0.02         // F27: 9-EMA-vs-VWAP floor — reject if the 9-EMA is >2% below VWAP
                                          // (smoothed trend location; knee at −2%). -inf = off.
+          MinTightness   = 0.0           // OFF (ablation: tight≥3 removed only 26/814 trips, PF 2.804→2.800, win
+                                         // identical — REDUNDANT with the log-ATR floor, as the V3 notes said). --min-tightness 3 restores.
+          MaxRvol5m20d   = 100.0 }       // F11 exhaustion cut: trailing-5m avg vol < 100× the 20d per-min pace
+                                         // (V3Backside; docs: cuts ~half the book). 0 = off.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
@@ -73,7 +77,8 @@ type Candidate =
       CloseFwd1d: float
       CloseFwd3d: float
       CloseFwd5d: float
-      DayOpen: float }          // first 09:30 RTH bar's open (== engine session open)
+      DayOpen: float            // first 09:30 RTH bar's open (== engine session open)
+      AvgVol20: float }         // 20-bar trailing mean daily volume — /390 = permin20d (exhaustion-cut denom)
 
 /// A finished trip — debloated to what the trimmed engine records plus cheap
 /// candidate context. Core entry features (the tuned levers) come from the
@@ -90,6 +95,8 @@ type Trip =
       // ----- core entry-feature snapshot (this-bar-inclusive; the gates' levers) -----
       PriceSlope20: float        // 20m OLS slope of log(close)
       LogAtr20: float            // 20m mean log-true-range
+      Tightness20: float         // (rangeHigh-rangeLow)/atrLin
+      Rvol5m: float              // trailing-5m avg vol / permin20d (exhaustion-cut ratio)
       VolClimb: float            // (volEma - volEmaMin)/volEma — the F32 volume lever
       SumAbove6: int             // # of the last 6 bars that closed >= the 9-EMA
       EmaAtEntry: float          // the 9-EMA at entry
@@ -128,6 +135,8 @@ let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Tr
           StopDistPct = pos.StopDistPct
           PriceSlope20 = pos.PriceSlope20
           LogAtr20 = pos.LogAtr20
+          Tightness20 = pos.Tightness20
+          Rvol5m = pos.Rvol5m
           VolClimb = pos.VolClimb
           SumAbove6 = pos.Sum6
           EmaAtEntry = pos.EmaAtEntry
@@ -170,7 +179,7 @@ let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDa
     use cmd = conn.CreateCommand()
     cmd.CommandText <-
         $"SELECT ticker, date, prev_adj_close, close_3d, day_close, adj_ratio,
-                close_fwd_1d, close_fwd_3d, close_fwd_5d, day_open
+                close_fwd_1d, close_fwd_3d, close_fwd_5d, day_open, avgvol20
          FROM {table}
          WHERE date >= $start AND date <= $end
          ORDER BY ticker, date"
@@ -191,7 +200,8 @@ let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDa
               CloseFwd1d = dbl 6
               CloseFwd3d = dbl 7
               CloseFwd5d = dbl 8
-              DayOpen = dbl 9 })
+              DayOpen = dbl 9
+              AvgVol20 = dbl 10 })
     out.ToArray()
 
 // ===========================================================================
@@ -268,7 +278,9 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
                     | Some(pc, psys) -> drain pc psys
                     | None -> ()
                     let c = byTicker.[ticker]
-                    let sys = IntradaySystem(cfg.Intraday, ticker, date, c.PrevAdjClose, c.Close3d)
+                    // 20d per-minute volume pace (avgvol20/390) — the exhaustion-cut denominator. 0 = off.
+                    let permin20d = if c.AvgVol20 > 0.0 then c.AvgVol20 / 390.0 else 0.0
+                    let sys = IntradaySystem(cfg.Intraday, ticker, date, c.PrevAdjClose, c.Close3d, permin20d)
                     sys.Process bar
                     cur <- Some(c, sys))
             match cur with
@@ -305,7 +317,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,stop_dist_pct,"
-    + "price_slope_20,log_atr_20,vol_climb,sum_above_6,ema_at_entry,vwap_at_entry,entry_vs_vwap,"
+    + "price_slope_20,log_atr_20,tightness_20,rvol_5m_20d,vol_climb,sum_above_6,ema_at_entry,vwap_at_entry,entry_vs_vwap,"
     + "close_1d,close_3d,chg_1d,chg_3d,pct_chg_since_open,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,"
@@ -322,6 +334,8 @@ let private row (t: Trip) : string =
         fmt t.StopDistPct
         fmt t.PriceSlope20
         fmt t.LogAtr20
+        fmt t.Tightness20
+        fmt t.Rvol5m
         fmt t.VolClimb
         string t.SumAbove6
         fmt t.EmaAtEntry

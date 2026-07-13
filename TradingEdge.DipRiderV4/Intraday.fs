@@ -30,6 +30,8 @@ type IntradayPosition =
       // core feature snapshot at entry (all this-bar-inclusive — the values the gates actually read)
       PriceSlope20: float        // 20m OLS log-price slope
       LogAtr20: float            // 20m mean log-true-range
+      Tightness20: float         // (rangeHigh-rangeLow)/atrLin
+      Rvol5m: float              // trailing-5m avg vol / permin20d (the exhaustion-cut ratio); nan if no baseline
       Sum6: int                  // # of the last 6 bars closed >= the 9-EMA
       VolClimb: float            // (volEma - volEmaMin)/volEma
       EmaAtEntry: float          // the 9-EMA at entry
@@ -89,6 +91,11 @@ type IntradayConfig =
         MaxAtrPct: float         // log-ATR CEILING (+inf disables).
         MinCloseAbove6: int      // require SumAbove6 >= this (>= N of the last 6 bars closed above the EMA).
                                  // 0 = DISABLED (V3 default — start off, tune later).
+        MinTightness: float      // require tightness = (rangeHigh−rangeLow)/atrLin >= this (a real range, not a
+                                 // lethargic name). Default 3.0 (V3Backside). 0 = off.
+        MaxRvol5m20d: float      // EXHAUSTION CUT (F11): reject if the trailing-5m avg vol >= this × the 20d
+                                 // per-minute pace ((trailVol5m/5) / permin20d). A blow-off = a late entry.
+                                 // Default 100 (V3Backside; docs: cuts ~half the book). 0 = off (needs permin20d).
       }
 
 type State = 
@@ -99,6 +106,8 @@ type State =
         emaLow : float voption
         atrLin : float voption
         atrLog : float voption
+        tightness : float voption   // (rangeHigh−rangeLow)/atrLin
+        vol5avg : float voption     // trailing-5-bar mean raw volume (exhaustion-cut numerator)
         sum6 : int voption
         sPriceSlope : float voption
         volEma : float voption
@@ -111,10 +120,12 @@ type State =
 
 /// Per-(ticker, day) intraday engine. Feed it the day's RTH MinuteBar[] in time
 /// order via `Process`, then `Flatten` and read `Positions`.
-type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d: float, close3d: float) =
+type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d: float, close3d: float, permin20d: float) =
     // ----- rolling intraday structures (1m timeframe; all fed ONLY from the 09:30 feature anchor) -----
     let atrLog    = AvgMa(cfg.VolWindow)        // mean LOG true range over the last VolWindow bars (the volatility feature)
     let atrLin    = AvgMa(cfg.VolWindow)        // mean ABSOLUTE true range (linear) — the tightness DENOMINATOR
+    let rangeHigh = MaxMa(cfg.VolWindow)        // 20m window high (tightness NUMERATOR)
+    let rangeLow  = MinMa(cfg.VolWindow)        // 20m window low  (tightness NUMERATOR)
     let ema       = EmaMa(cfg.EmaPeriod)        // the 9-EMA (closes-above-EMA reference)
     let emaLow    = MinMa(cfg.VolWindow)        // the 20m trailing MIN of the 9-EMA — the ema_climb feature denominator base
     let volEma    = EmaMa(cfg.EmaPeriod)        // 9-EMA of raw 1m VOLUME — the volume analogue of the price 9-EMA
@@ -139,6 +150,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             emaLow = ValueNone
             atrLin = ValueNone
             atrLog = ValueNone
+            tightness = ValueNone
+            vol5avg = ValueNone
             sum6 = ValueNone
             sPriceSlope = ValueNone
             volEma = ValueNone
@@ -172,14 +185,22 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     /// A free concurrency slot? MaxConcurrent<=0 = unlimited (always free).
     member this.HasSlot = cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent
 
-    member _.State : State =
+    /// Intraday consolidation tightness = (20m window high − low) / linear-ATR. ValueNone until warm.
+    member _.Tightness : float voption =
+        match rangeHigh.State, rangeLow.State, atrLin.State with
+        | ValueSome hi, ValueSome lo, ValueSome atr when atr <> 0.0 -> ValueSome ((hi - lo) / atr)
+        | _ -> ValueNone
+
+    member this.State : State =
         {
-            bar = bar 
+            bar = bar
             vwap = vwap.State
             ema = ema.State
             emaLow = emaLow.State
             atrLin = atrLin.State
             atrLog = atrLog.State
+            tightness = this.Tightness
+            vol5avg = vol5avg.State
             sum6 = ValueOption.map (round >> int) sum6.State
             sPriceSlope = priceOls.Slope
             volEma = volEma.State
@@ -209,6 +230,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                 (max curBar.high pc - min curBar.low pc) |> atrLin.Push
                 log (max curBar.high pc / min curBar.low pc) |> atrLog.Push
             | _ -> ()
+            // 20m window high/low (tightness numerator) — pushed every valid feature-bar (like V3Backside).
+            rangeHigh.Push curBar.high
+            rangeLow.Push  curBar.low
             // closes-above-9EMA count, vs the STRICTLY-PRIOR EMA (before this bar folds).
             let prevEma = ema.State
             let aboveInd = match prevEma with ValueSome e -> (if curBar.close >= e then 1.0 else 0.0) | ValueNone -> 0.0
@@ -266,6 +290,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         && (Double.IsInfinity cfg.MaxAtrPct || gate atrLog.State (fun a -> a < cfg.MaxAtrPct))
         // >= N of the last 6 bars closed above the 9-EMA. 0 = off.
         && (cfg.MinCloseAbove6 <= 0 || gate sum6.State (fun c -> int (round c) >= cfg.MinCloseAbove6))
+        // TIGHTNESS FLOOR: (rangeHigh−rangeLow)/atrLin >= MinTightness (a real range, not lethargic). 0 = off.
+        && (cfg.MinTightness <= 0.0 || gate this.Tightness (fun t -> t >= cfg.MinTightness))
+        // EXHAUSTION CUT (F11): reject if trailing-5m avg vol >= MaxRvol5m20d × the 20d per-min pace. A blow-off
+        // = a late entry. 0 = off; needs permin20d > 0 (else can't evaluate, so pass).
+        && (cfg.MaxRvol5m20d <= 0.0 || permin20d <= 0.0
+            || gate vol5avg.State (fun a -> a < cfg.MaxRvol5m20d * permin20d))
         // --- day-trend + VWAP floors ---
         // DAY-DIRECTION FLOOR (F17): entry / prev-daily-close − 1 >= MinChg1d. NaN/-inf = off.
         && (Double.IsNegativeInfinity cfg.MinChg1d || Double.IsNaN cfg.MinChg1d
@@ -327,6 +357,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                       StopDistPct = (if bar.close > 0.0 then (bar.close - stop) / bar.close else nan)
                       PriceSlope20 = vv priceOls.Slope
                       LogAtr20 = vv atrLog.State
+                      Tightness20 = (match this.Tightness with ValueSome t -> t | ValueNone -> nan)
+                      Rvol5m = (match vol5avg.State with ValueSome a when permin20d > 0.0 -> a / permin20d | _ -> nan)
                       Sum6 = (match sum6.State with ValueSome c -> int (round c) | ValueNone -> 0)
                       VolClimb =
                         (match volEma.State, volEmaMin.State with
