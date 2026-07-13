@@ -563,3 +563,98 @@ trips, healthier per-year distribution, no 13-trip year). Config:
 ### Artifacts (F8)
 
 - breakout vc ladder incl 0, skip+gate: `/tmp/bv_{skip,gate}_vc*.csv`.
+
+## Finding 9 — feature attribution: volume-acceleration dominates; breakout adds a real premium; slope/sum6 are dead weight
+
+Isolated what carries the edge by stripping features. Three books at matched vol_climb (all GATE, rolling·mc0,
+2020+), raw / clip PF:
+- **vol-only**: breakout OFF, price-slope OFF, sum6 OFF (only ATR% + day-floors + exhaustion cut remain).
+- **breakout**: breakout gate ON (bars<10), price-slope OFF, sum6 OFF.
+- **full-price**: price-slope ON + sum6 ON, breakout OFF (the F5-family settled book).
+
+| vol_climb | vol-only trips/raw/clip | breakout trips/raw/clip | full-price trips/raw/clip |
+|---|---|---|---|
+| 0 (off) | 5583 / 2.04 / 1.45 | 1097 / 2.93 / 2.01 | 3961 / 2.14 / 1.53 |
+| 0.333 (1.5×) | 3492 / 2.25 / 1.58 | 986 / 2.91 / 2.01 | 2865 / 2.34 / 1.63 |
+| 0.5 (2×) | 2495 / 2.36 / 1.67 | 845 / 3.06 / 2.11 | 2159 / 2.47 / 1.72 |
+| 0.667 (3×) | 1368 / 2.63 / 1.79 | 557 / 2.94 / 1.97 | 1246 / 2.69 / 1.82 |
+| 0.75 (4×) | 794 / 3.19 / 2.09 | 363 / 3.56 / 2.31 | 743 / 3.20 / 2.08 |
+| 0.8 (5×) | 524 / 3.71 / 2.43 | 244 / 4.59 / 2.90 | 496 / 3.69 / 2.39 |
+
+**Net P&L (same books):**
+
+| vol_climb | vol-only | breakout | full-price |
+|---|---:|---:|---:|
+| **0 (off)** | **$1,900,804** | $976,760 | $1,848,766 |
+| 0.5 (2×) | $1,483,895 | $820,307 | $1,457,369 |
+| 0.8 (5×) | $611,747 | $360,021 | $596,635 |
+
+⭐ **The hierarchy: volume-acceleration (dominant) > breakout-structure (real premium) > ATR% (necessary floor)
+>> price-slope / sum6 (dead weight).**
+1. **Volume acceleration alone carries most of the edge.** Stripped to just ATR%+volume, vol-only climbs
+   1.45→2.43 clip PF as vc rises; at vc0.8 it reaches **2.43** — beating the full-price book (2.39).
+2. **The breakout (new-session-high) structure adds a large, breadth-independent premium** (~+0.3–0.5 clip PF
+   at every rung; vc0.8: 2.90 vs 2.43) on FAR fewer trips — a spike into a NEW HIGH beats a spike into a
+   failing move. This is the one price feature that earns its place beyond ATR%.
+3. **price-slope + sum6 add ~nothing** — vol-only ≈ full-price at every rung, and vol-only even EDGES
+   full-price on clip PF at the tight end. ⚠ **NOT free to drop, though:** full-price's ~1600 fewer trips
+   (vs vol-only vc0) cost only ~$52k net ($1.85M vs $1.90M) = **~$32/trip** — those extra vol-only trades are
+   near-zero-EV CHURN. So slope+sum6 trim churn without lifting quality (they're not harmful, just weak).
+4. **Net decreases monotonically with vc in all three** (mirror of PF) — the two corners of the study:
+   max-net/capacity = **vol-only vc0 ($1.90M, clip 1.45)**; max-PF/A+ = **breakout vc0.8 (clip 2.90, $360k)**.
+
+## Finding 10 — breakout timers refactored to a class; 20m-EMA-high feature; timer-length sweeps
+
+Extracted a `BreakoutTimer` class (Start latches −1→0 once per reset; Step +1 while ≥0; Reset →−1) and
+reimplemented the session-high breakout on it (byte-identical). Added a **second timer for the 20m-EMA-high
+breakout**: `emaHigh = MaxMa(20)` of the 9-EMA; the timer Starts on a fresh trailing-20m EMA high, same reset
+cycle (the 20m-low re-arm). Recorded as `bars_since_20m_breakout`; gate `--max-bars-since-20m-breakout`.
+
+### 20m-EMA breakout vs session-high breakout vs full-price (gate, vc0, no-ps, no-sum6)
+
+| book | trips | win% | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|---:|
+| session-high, bars<10 | 1097 | 46.0% | $977k | 2.93 | **2.01** |
+| 20m-EMA, bars<1 | 1478 | 34.2% | $950k | 2.48 | 1.64 |
+| full-price (replaced) | 3961 | — | $1.85M | 2.14 | 1.53 |
+
+The 20m-EMA breakout is a **MIDDLE tier**: it BEATS full-price (clip 1.64 vs 1.53, on ~half the trips — a
+cleaner simplification), but is well SHORT of the session-high breakout (1.64 vs 2.01, win 34% vs 46%). A new
+SESSION high = strongest all day (rare, strong); a new 20m high = just above 20m ago (frequent, weak).
+
+### Timer-length sweeps — the new-high effect DISSIPATES past ~10 bars for BOTH
+
+**Session-high breakout:**
+
+| bars< | trips | win% | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|---:|
+| 10 | 1097 | 46.0% | $977k | 2.93 | **2.01** |
+| 15 | 1281 | 45.3% | $1.03M | 2.78 | 1.95 |
+| 20 | 1456 | 44.8% | $1.14M | 2.73 | 1.88 |
+| 25 | 1630 | 44.6% | $1.22M | 2.67 | 1.85 |
+| 30 | 1861 | 43.0% | $1.27M | 2.50 | 1.76 |
+
+**20m-EMA breakout:**
+
+| bars< | trips | win% | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|---:|
+| 1 | 1478 | 34.2% | $950k | 2.48 | 1.64 |
+| 5 | 1886 | 35.0% | $1.18M | 2.47 | 1.65 |
+| 10 | 2263 | 35.7% | $1.42M | 2.49 | 1.65 |
+| 15 | 2553 | 35.5% | $1.51M | 2.39 | 1.61 |
+| 20 | 2803 | 36.1% | $1.62M | 2.36 | 1.62 |
+| 25 | 3066 | 36.1% | $1.70M | 2.30 | 1.59 |
+| 30 | 3376 | 36.0% | $1.80M | 2.24 | 1.57 |
+
+⭐ **For BOTH books, clip PF is roughly FLAT through ~10 bars, then decays** — the new-high effect dissipates
+past ~10 bars regardless of which high. The books differ only in their PLATEAU LEVEL (session ~2.0, 20m ~1.65)
+and how fast they decay after (session steeper: 2.01→1.76 over 10→30; 20m gentler: 1.65→1.57). So the extra
+net from a longer window is bought with real PF in BOTH — **bars<10 is the right cap** (past it you chase
+stale breaks). The earlier "20m gives free net" impression was the flat plateau THROUGH 10 (net rises there at
+constant PF); past 10 it decays like the session book. Net-max corners: session $1.27M@30 (clip 1.76), 20m
+$1.80M@30 (clip 1.57) — both worse PF than their bars<10, so not worth it.
+
+### Artifacts (F9–F10)
+
+- 3-way attribution: `/tmp/{vp,bv_gate,fp}_vc*.csv`. Timer sweeps: `/tmp/bs_n*.csv` (session), `/tmp/b20_n*.csv` (20m).
+- `BreakoutTimer` class in `Intraday.fs`; `bars_since_20m_breakout` recorded in the CSV.
