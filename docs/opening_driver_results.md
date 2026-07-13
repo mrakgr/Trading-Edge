@@ -76,3 +76,66 @@ plus the day/3-day momentum being already-way-up (buy strength, not the bounce).
 **Read:** the opening-drive edge is **high-ATR names already up big on the day/3-day, held on a loose 9-EMA
 session-min stop.** chg_1d ≥ +20% is the single strongest cut. Next: stack the top levers (ATR% × chg_1d ×
 chg_3d) and check the entry-time profile within the window (does open+15 beat open+60?).
+
+---
+
+## F3 — 09:45 ET entries only: the same hierarchy holds on the pure opening-drive minute
+
+Restricting to `entry_time = 09:45` (open+15, the first window minute) on the sess-ema-low book, 2020-26:
+**n=21,277, PF 1.309, +0.47%/trade, win 32.9%.** The full-window feature ranking survives the restriction.
+
+**log_atr_20 (ATR%) — monotone, top decile dominates:**
+
+| dec | range | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|---|
+| 10 | ≥ 0.0300 | 2127 | 34 | **1.78** | +3.50 | **$745k** |
+| 9 | 0.0206–0.0300 | 2127 | 33 | 1.15 | +0.37 | $78k |
+| 1–8 | < 0.0206 | — | ~32 | ~1.0–1.2 | ~0 | small |
+
+Decile 10 alone = **75% of the whole 09:45 book's net** from 10% of the trips.
+
+**chg_1d — the single strongest cut, and a DEAD ZONE in the middle:**
+
+| dec | range | n | PF | avg% | net |
+|---|---|---|---|---|---|
+| 10 | ≥ +19.9% | 2125 | **2.05** | +4.10 | **$870k** |
+| 9 | +7.3–19.9% | 2125 | 1.14 | +0.34 | $72k |
+| 7 | +1.8–3.7% | 2125 | 1.30 | +0.39 | $83k |
+| **5–6** | **−1.0% to +1.8%** | 4250 | **0.74 / 0.91** | **−0.25 / −0.10** | **−$75k** |
+| 1–4 | red on the day | — | ~1.0 | ~0 | flat |
+
+Decile 10's net ($870k) ≈ the WHOLE book ($997k) — the rest is net breakeven. And a stock going NOWHERE on
+the day (chg_1d flat, deciles 5-6) is a **losing** 09:45 entry. Buy strength or don't buy.
+
+**chg_3d — top two deciles carry it:**
+
+| dec | range | n | PF | avg% | net |
+|---|---|---|---|---|---|
+| 10 | ≥ +43.9% | 2113 | 1.60 | +2.43 | $514k |
+| 9 | +19.7–43.9% | 2113 | **1.82** | +1.64 | $346k |
+| 1–8 | < +19.7% | — | ~1.0 | ~0 | small (dec 3 = 0.81 dead) |
+
+**vol_slope_20 — monotone, cleaner at 09:45 than the full window:**
+
+| dec | range | n | PF | avg% | net |
+|---|---|---|---|---|---|
+| 10 | ≥ +0.025 | 2127 | **1.68** | +1.73 | $367k |
+| 8 | −0.024 to −0.006 | 2127 | 1.44 | +0.66 | $140k |
+| 1–7 | falling vol | — | ~1.1–1.3 | ~0.1–0.4 | modest |
+
+**price_slope_20 — a sharp TWO-SIDED (U-shaped) signal at 09:45:**
+
+| dec | range | n | PF | avg% | net |
+|---|---|---|---|---|---|
+| 10 | steep UP (≥ +0.0032) | 2127 | **1.51** | +2.48 | $528k |
+| 1 | steep DOWN (≤ −0.0031) | 2128 | **1.81** | +0.68 | $145k |
+| 3 | −0.0018 to −0.0011 | 2128 | 1.80 | +0.53 | $112k |
+| **6** | **flat (~0)** | 2128 | **0.93** | −0.07 | −$16k |
+
+BOTH ends are +EV, the flat middle is dead. At 09:45 the drive works when price is ramping (up-slope) AND
+when it's snapping back off a steep early drop (down-slope) — a genuine two-sided edge, not a pure momentum
+lever. The up-slope decile carries the bigger avg% (+2.48); the down-slope side is a lower-vol reversion pocket.
+
+**09:45 verdict:** ATR% (main lever) + chg_1d ≥ +20% (buy strength, avoid the flat-day dead zone) are the
+two headline cuts; chg_3d ≥ +20%, rising vol_slope, and BOTH tails of price_slope stack on top. Next: build
+the graded 09:45 book from ATR% × chg_1d × chg_3d and check the other entry minutes (09:46…10:30) the same way.
