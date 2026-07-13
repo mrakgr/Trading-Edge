@@ -284,5 +284,32 @@ PF but sheds net; the value is the sign cut, not the magnitude. So chg_3d contri
 gates the day-trend *direction* (up today must not be against a 3-day downtrend).
 
 **Running 09:45 book: `ATR% ≥ 0.02 & vol_slope ≥ 0.01 & chg_1d ≥ 0.20 & chg_3d ≥ 0` → PF 2.31 / +9.01%/tr /
-358 trips / $323k.** All named levers now placed (price_slope dropped as subsumed). Next: yearly stability
-of this book, then sweep the other entry minutes (09:46…10:30).
+358 trips / $323k.**
+
+---
+
+## F8 — chg_3d CEILING: cutting over-extended 3-day runners lifts PF and net together
+
+Applied a chg_3d ceiling on top of the `chg_3d ≥ 0` floor (book PF 2.31). Two clean regions:
+
+| chg_3d ceiling | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| (none) | 358 | 44 | 2.31 | +9.01 | $323k |
+| ≤ 3.0 | 333 | 46 | 2.61 | +10.23 | **$341k** |
+| **≤ 2.0** | **309** | **46** | **2.77** | **+10.78** | **$333k** |
+| ≤ 1.5 | 280 | 46 | 2.96 | +11.69 | $327k |
+| ≤ 1.2 | 255 | 46 | 3.08 | +12.31 | $314k |
+| ≤ 0.8 | 196 | 47 | 3.34 | +12.89 | $253k |
+
+- **≤ 3.0 is free money** — the 25 most-extended trips (up > 300% in 3 days) were net-negative; removing them
+  lifts PF 2.31 → 2.61 AND net RISES to $341k (net-accretive, like the floor).
+- **Below ~1.5 you trade net for PF** — ≤ 1.2 → PF 3.08 but net dips under the no-ceiling book; ≤ 0.8 → 3.34
+  at a third less net.
+
+**`chg_3d ≤ 2.0` is the book default** — PF 2.77 (+0.46 over floor-only) at net $333k (still above the
+floor-only $323k). The over-extended runners (F7 ceiling insight) mean-revert; cap them. `≤ 1.2 → PF 3.08`
+is the A+ variant (~flat net, tighter).
+
+**⭐ 09:45 A-BOOK: `ATR% ≥ 0.02 & vol_slope ≥ 0.01 & chg_1d ≥ 0.20 & 0 ≤ chg_3d ≤ 2.0` → PF 2.77 / +10.78%/tr
+/ 309 trips / $333k.** All named levers placed (price_slope dropped as subsumed). Next: yearly stability of
+this book, then sweep the other entry minutes (09:46…10:30).
