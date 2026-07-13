@@ -771,3 +771,38 @@ to trust.
 ### Artifacts (F12)
 
 - vc × 3-window matrix: `/tmp/vw_{sess,b60,b20}_vc*.csv`. Yearly source via `scratchpad/breakdown.py`.
+
+## Finding 13 — OR-ing breakout windows is COUNTERPRODUCTIVE (the events nest); AND is the only helpful combine
+
+Added `--breakout-or`: combine the enabled breakout gates (session/20m/60m) with OR instead of AND (pass if
+ANY enabled window is within its countdown). Single-window AND==OR verified byte-identical. Base config
+(bars<10 each, gate, vc0, no-ps, no-sum6, 2020+):
+
+| book | trips | win% | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|---:|
+| session ONLY | 1097 | 46.0% | $977k | 2.93 | **2.01** |
+| 60m ONLY | 1532 | 43.0% | $1.23M | 2.80 | 1.90 |
+| 20m ONLY | 2263 | 35.7% | $1.42M | 2.49 | 1.65 |
+| session AND 60m | 900 | 46.9% | $835k | 3.00 | **2.06** |
+| session OR 60m | 1593 | 42.9% | $1.24M | 2.77 | 1.90 |
+| session OR 60m OR 20m | 2627 | 36.4% | $1.60M | 2.45 | 1.67 |
+
+⭐ **The breakout events NEST: a new session high ⊃ a new 60m high ⊃ a new 20m high** (a session high exceeds
+every trailing max, so it's also a 60m and 20m high). Verified on recorded counters: `bars_since_session >=
+bars_since_60m` 97.7%, `>= bars_since_20m` 66% (they diverge only via the shared 20m-low reset + the `<N`
+countdown, e.g. a `(4,4,7)` bar where the 20m fired more recently). Consequence:
+- **`session OR 60m` ≈ `60m ONLY`** (1593≈1532 trips, clip 1.90=1.90) — OR just gives the LOOSER window's book.
+- **`session OR 60m OR 20m` ≈ `20m ONLY`** (2627 vs 2263, clip 1.67≈1.65), slightly WORSE — the OR adds ~360
+  low-quality divergence trips (20m expired but a wider window still live), dragging clip PF.
+- **OR always DILUTES toward the loosest window's quality** — you never want to loosen a quality signal by
+  ORing a weaker version of it.
+
+**The AND is the only helpful combine, and only marginally:** `session AND 60m` (clip 2.06) is the sole combo
+that BEATS session-only (2.01) — requiring both a session high AND a recent 60m high is a touch more selective
+— but it's a small gain for 18% fewer trips (breadth). **Bottom line: don't OR breakout windows. Pick the
+window (a clean quality/capacity dial, F11/F12) or AND for slightly more selectivity.** `--breakout-or` flag
+kept as a settled negative.
+
+### Artifacts (F13)
+
+- OR/AND combos: `/tmp/or_s60.csv`, `/tmp/or_s6020.csv`, `/tmp/or_s60_and.csv`.

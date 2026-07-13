@@ -68,6 +68,7 @@ let defaultConfig =
           MaxBarsSinceBreakout = 0       // breakout gate OFF (BreakoutTimer used 10). --max-bars-since-breakout N.
           MaxBarsSince20mBreakout = 0    // 20m-EMA-breakout gate OFF. --max-bars-since-20m-breakout N (sweep [1,10]).
           MaxBarsSince60mBreakout = 0    // 60m-EMA-breakout gate OFF. --max-bars-since-60m-breakout N.
+          BreakoutOr = false             // AND the enabled breakout gates (default). --breakout-or = OR them.
           DisablePriceSlope = false      // --no-price-slope drops the price-slope>0 gate (BreakoutTimer didn't use it).
           DisableSum6 = false }          // --no-sum6 drops the sum6 gate (BreakoutTimer didn't use it).
       Notional = 10_000.0 }

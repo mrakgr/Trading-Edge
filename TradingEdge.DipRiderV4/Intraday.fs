@@ -129,6 +129,8 @@ type IntradayConfig =
         MaxBarsSince20mBreakout: int // 20m-EMA-BREAKOUT GATE: require 0 <= bars-since-20m-EMA-high < this (the 9-EMA
                                    // broke above its trailing-20m max within the last N bars). 0 = OFF (default).
         MaxBarsSince60mBreakout: int // 60m-EMA-BREAKOUT GATE: same, over the trailing-60m EMA max. 0 = OFF (default).
+        BreakoutOr: bool         // false (default) = the enabled breakout gates AND together; true = OR (pass if
+                                 // ANY enabled window is within its countdown). N=0 windows are excluded either way.
         DisablePriceSlope: bool  // true = drop the price-slope>0 gate (BreakoutTimer didn't use it). Default false.
         DisableSum6: bool        // true = drop the sum6 gate regardless of MinCloseAbove6 (BreakoutTimer didn't
                                  // use it). Default false.
@@ -375,15 +377,22 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         && (Double.IsInfinity cfg.MaxAtrPct || gate atrLog.State (fun a -> a < cfg.MaxAtrPct))
         // >= N of the last 6 bars closed above the 9-EMA. 0 = off; --no-sum6 drops it (BreakoutTimer).
         && (cfg.DisableSum6 || cfg.MinCloseAbove6 <= 0 || gate sum6.State (fun c -> int (round c) >= cfg.MinCloseAbove6))
-        // BREAKOUT GATE: the 9-EMA broke to a new session high within the last N bars (0 <= counter < N). 0 = off.
-        && (cfg.MaxBarsSinceBreakout <= 0
-            || (breakoutTimer.Fired && breakoutTimer.Value < cfg.MaxBarsSinceBreakout))
-        // 20m-EMA-BREAKOUT GATE: the 9-EMA broke above its trailing-20m max within the last N bars. 0 = off.
-        && (cfg.MaxBarsSince20mBreakout <= 0
-            || (ema20BreakoutTimer.Fired && ema20BreakoutTimer.Value < cfg.MaxBarsSince20mBreakout))
-        // 60m-EMA-BREAKOUT GATE: the 9-EMA broke above its trailing-60m max within the last N bars. 0 = off.
-        && (cfg.MaxBarsSince60mBreakout <= 0
-            || (ema60BreakoutTimer.Fired && ema60BreakoutTimer.Value < cfg.MaxBarsSince60mBreakout))
+        // BREAKOUT GATES (session / 20m / 60m EMA-high). Each: 0 <= timer < N, reset by the 20m-low re-arm.
+        // A gate with MaxBars...=0 is OFF (excluded). BreakoutOr=false (default): the ENABLED gates AND together
+        // (all must pass). BreakoutOr=true: the enabled gates OR together (pass if ANY enabled window is within
+        // its countdown) — with N=0 excluded, so "session || 60m" enables only those two.
+        && (let inline g (n: int) (t: BreakoutTimer) = n > 0 && t.Fired && t.Value < n   // this window PASSES
+            let inline en (n: int) = n > 0                                               // this window is ENABLED
+            let sess = g cfg.MaxBarsSinceBreakout    breakoutTimer
+            let b20  = g cfg.MaxBarsSince20mBreakout ema20BreakoutTimer
+            let b60  = g cfg.MaxBarsSince60mBreakout ema60BreakoutTimer
+            let anyEnabled = en cfg.MaxBarsSinceBreakout || en cfg.MaxBarsSince20mBreakout || en cfg.MaxBarsSince60mBreakout
+            if not anyEnabled then true                              // no breakout gate configured — pass
+            elif cfg.BreakoutOr then sess || b20 || b60              // OR: any enabled window within countdown
+            else                                                    // AND: every ENABLED window must pass
+                (not (en cfg.MaxBarsSinceBreakout)    || sess)
+                && (not (en cfg.MaxBarsSince20mBreakout) || b20)
+                && (not (en cfg.MaxBarsSince60mBreakout) || b60))
         // TIGHTNESS FLOOR: (rangeHigh−rangeLow)/atrLin >= MinTightness (a real range, not lethargic). 0 = off.
         && (cfg.MinTightness <= 0.0 || gate this.Tightness (fun t -> t >= cfg.MinTightness))
         // EXHAUSTION CUT (F11): reject if the trailing-5m vol numerator (avg or MAX) >= MaxRvol5m20d × the 20d
