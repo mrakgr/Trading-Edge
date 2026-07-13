@@ -517,19 +517,26 @@ rolling·mc0), 2020+:
 |---|---:|---:|---:|---:|---:|---:|
 | **0 (off)** | 1097 | 2.93 | **2.01** | 1097 | 2.93 | **2.01** |
 | 0.1 | 1053 | 2.91 | 1.99 | 1067 | 2.92 | 2.00 |
+| 0.333 (1.5×) | 917 | 2.93 | 1.99 | 986 | 2.91 | 2.01 |
+| 0.5 (2×) | 684 | 3.00 | 2.01 | 845 | 3.06 | 2.11 |
 | 0.667 (3×) | 400 | 3.21 | 2.11 | 557 | 2.94 | 1.97 |
 | 0.75 (4×) | 237 | 3.55 | 2.31 | 363 | 3.56 | 2.31 |
 | **0.8 (5×)** | 158 | 4.50 | 2.84 | **244** | **4.59** | **2.90** |
 
+**The shape is a shallow U: a flat/slightly-negative DEAD ZONE at 0.1–0.333, crossing back above the vc=0
+baseline (2.005) at 0.5 (2×), then climbing hard to 5×.** The volume edge is real but only bites once you
+demand ≥2× the floor. (Minor wobble: gate·0.667 dips to 1.97 — arm/re-arm reallocation at that breadth; skip
+is smoother. Doesn't change the trend.)
+
 **1. vc=0 > vc=0.1 (base book) — INVERTS the BreakoutTimer F25 finding.** In BreakoutTimer vc≥0.1 lifted clip
-PF 1.41→1.67. Here vc=0 is marginally BETTER than 0.1 (skip clip 2.01/$977k vs 1.99/$942k). The reason is the
+PF 1.41→1.67. Here vc=0 is marginally BETTER than 0.1–0.333 (skip clip 2.01/$977k vs 1.99). The reason is the
 config difference: V4's breakout book STILL runs the exhaustion cut + day-trend/VWAP floors, which already
-remove the low-conviction breakouts BreakoutTimer's vc0.1 was catching → the vc0.1 floor is redundant here.
+remove the low-conviction breakouts BreakoutTimer's vc0.1 was catching → the loose vc floor is redundant here.
 **Base breakout book: vc OFF.**
 
-**2. F7's "vol_climb irrelevant under the breakout gate" was WRONG — too-narrow a range (0.1–0.5).** From 0.5
-up, vol_climb bites hard: **vc0.8 (5×) → clip PF 2.84 (skip) / 2.90 (gate), win 54%.** A genuine breakout A+
-book. (Consistent with F5 after all — the vol_climb A+ tail just starts above 0.5.)
+**2. F7's "vol_climb irrelevant under the breakout gate" was WRONG — too-narrow a range (0.1–0.5).** The dead
+zone ends at 0.333; from 0.5 up vol_climb bites hard: **vc0.8 (5×) → clip PF 2.84 (skip) / 2.90 (gate), win
+54%.** A genuine breakout A+ book. (Consistent with F5 after all — the vol_climb A+ tail just starts at ~2×.)
 
 **3. gate ≈ skip at the A+ end, gate slightly better** — at vc0.8, gate (2.90/244 trips) edges skip
 (2.84/158) with 55% more capacity at equal quality. Unlike the non-breakout books (skip dominated), here
