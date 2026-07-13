@@ -244,3 +244,45 @@ chg_1d is day-scale signal ATR%/vol_slope can't capture.
 
 **Running 09:45 book: `ATR% ≥ 0.02 & vol_slope ≥ 0.01 & chg_1d ≥ 0.20` → PF 2.11 / +7.97%/tr / 396 trips /
 $315k.** Next lever: chg_3d (also day-scale — check whether it adds on top of chg_1d or is collinear with it).
+
+---
+
+## F7 — chg_3d adds a real cut despite collinearity: reject the 3-day DOWNTREND bounce (+ a ceiling)
+
+Broke down chg_3d within the current book (`ATR% ≥ 0.02 & vol_slope ≥ 0.01 & chg_1d ≥ 0.20`, PF 2.11).
+`corr(chg_1d, chg_3d) = 0.533` within the book — partly collinear, but NOT redundant: it isolates a failure
+mode chg_1d can't see.
+
+**Deciles within book — a BAND, not a monotone floor (both tails are bad):**
+
+| dec | chg_3d range | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|---|
+| 1 | −30% → +10% | 39 | 38 | 1.46 | +3.27 | $13k |
+| 2–8 | +10% → +150% | 271 | ~45 | 1.80–5.53 | +6.6 to +18 | strong |
+| **9** | +151–233% | 38 | 42 | **0.87** | −1.18 | −$4k |
+| **10** | ≥ +243% | 38 | 32 | **0.96** | −0.44 | −$2k |
+
+Two effects:
+- **FLOOR — reject the 3-day downtrend bounce.** `chg_3d < 0` (down over 3 days but up +20% TODAY) = **PF
+  0.88 / avg% −0.84 / negative net** (28 trips). A one-day pop inside a multi-day downtrend is a dead-cat
+  bounce, not a drive — the exact failure chg_1d ≥ 0.20 lets through.
+- **CEILING — over-extended runners revert.** chg_3d ≥ +150% (already up 1.5-7× in 3 days) goes negative
+  (deciles 9-10). So a high chg_3d floor (≥ 0.45) starts COSTING PF (2.34 → 1.89).
+
+**Coarse cuts (book PF 2.11):**
+
+| chg_3d cut | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| **≥ 0** | **358** | **44** | **2.31** | **+9.01** | **$323k** |
+| ≥ 0.20 | 324 | 45 | 2.34 | +9.09 | $295k |
+| ≥ 0.45 | 246 | 44 | 1.89 | +6.54 | $161k |
+| < 0 (down-3d) | 28 | 36 | 0.88 | −0.84 | −$2k |
+
+**`chg_3d ≥ 0` is the cut** — lifts PF 2.11 → 2.31 AND net RISES ($315k → $323k), because it removes only
+losing trips (net-accretive, unlike chg_1d's flat-net concentration). The +0.20 floor is marginally higher
+PF but sheds net; the value is the sign cut, not the magnitude. So chg_3d contributes despite r=0.53 — it
+gates the day-trend *direction* (up today must not be against a 3-day downtrend).
+
+**Running 09:45 book: `ATR% ≥ 0.02 & vol_slope ≥ 0.01 & chg_1d ≥ 0.20 & chg_3d ≥ 0` → PF 2.31 / +9.01%/tr /
+358 trips / $323k.** All named levers now placed (price_slope dropped as subsumed). Next: yearly stability
+of this book, then sweep the other entry minutes (09:46…10:30).
