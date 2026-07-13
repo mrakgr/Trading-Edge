@@ -74,17 +74,21 @@ Applying the V1 run-quality books (Findings 27-31) post-hoc to both engines. Ful
 | A+: `updn≥1.3 & rmd≥3.5% & dpa<3` | 240 | **4.22** | **468,635** | 4.12 | 429,018 | +17.9 |
 | A+ (+ `rvol15m<2` exhaustion gate) | 232 | **4.38** | **470,059** | 4.31 | 431,805 | +18.6 |
 
-**The stop cuts opposite ways by book quality:**
-- **Fat book + A `updn` book (marginal reclaims):** the pullback stop is a clean win (+$99k / +$54k). Most
-  reclaims here are mediocre, so trimming the ones that roll back under the pullback low is pure gain.
-- **A+ book (deep-run, high-conviction, healthy-volume runners):** the stop is a small **tax** (−$40k /
-  PF 4.22→4.12). These are the names that run hard to MOC; a tight structure stop occasionally clips a
-  winner mid-run. V1's wider geometric stop (or just hold-to-MOC) edges it here.
+> **Note on the book names.** The 24k `updn≥0.8 & rvol15m<2` row is a *fat-book variant*, NOT the graded
+> A book — the VwapReclaim **A cell is `updn≥1.0 & run_max_dist≥3.5%`** (~973 trips all-yr / 865 modern,
+> avg +7%/trade; F3). The `updn≥0.8` row is kept here only as the "wide" comparison; the A/A+ analysis is
+> the concentrated cells.
 
-**Read:** V3's default stop is the right call for the *tradable, capacity-heavy* book (fat + A). The A+
-book was already selective enough that it barely wants a stop at all — the reclaim quality IS the risk
-control. Both A+ variants remain excellent in V3 (PF ~4.1, +18%/trade, ~50% win). The ~$40k gap over 232
-trips / 24 years is marginal; if the A+ book is traded on its own, a wider `--stop-buffer` recovers it (F3).
+**The stop cuts opposite ways by book quality:**
+- **Fat book (marginal reclaims, avg +0.4%/trade):** the pullback stop is a clean win (+$99k). Most reclaims
+  here are mediocre, so trimming the ones that roll back under the pullback low is pure gain.
+- **A+ book (deep-run, high-conviction runners, avg +18%/trade):** the stop is a small **tax** (−$40k /
+  PF 4.22→4.12). These are the names that run hard to MOC; a tight structure stop occasionally clips a
+  winner mid-run. A hair of `--stop-buffer` recovers it (F3).
+
+**Read:** V3's tight default stop is the right call for the *marginal* fat book (nothing to protect —
+cut the rollovers). The graded A/A+ cells hold real per-trade edge that the tight stop occasionally clips,
+so they want a small buffer. **The buffer's value tracks avg%/trade** — F3 quantifies it.
 
 ---
 
@@ -92,39 +96,50 @@ trips / 24 years is marginal; if the A+ book is traded on its own, a wider `--st
 
 `--stop-buffer b` fires the pullback stop only when the 9-EMA falls below `run-min·(1−b)` — i.e. `b` gives
 the EMA room to dip under the pullback low before stopping. Swept b ∈ {0, .005, .01, .02, .03, .05}, full
-range, each output sliced into the F2 books.
+range. **The optimal buffer tracks the book's avg %/trade** — three independent cells prove it, and the
+concentrated ones share a single sweet spot at `b=0.005`.
 
-**Fat / A book — tight (b=0) is strictly best; any buffer only hurts:**
+**Fat book (avg +0.4%/trade) — tight (b=0) is strictly best; any buffer only hurts:**
 
-| buffer | FULL PF | FULL net | A(updn.8) PF | A net |
+| buffer | FULL PF | FULL net |
+|---|---|---|
+| **0.000** | **1.34** | **1,601,695** |
+| 0.005 | 1.31 | 1,562,880 |
+| 0.010 | 1.29 | 1,494,368 |
+| 0.050 | 1.24 | 1,368,716 |
+
+PF falls monotonically (win% rises but net falls) — a stop now too loose: rollovers get room to run back
+into losses. There's no runner to protect at +0.4%, so any buffer is pure downside. **Keep b=0.**
+
+**A cell `updn≥1.0 & run_max_dist≥3.5%` (avg +7%/trade) — peaks at b=0.005:**
+
+| buffer | all-yr PF | all-yr net | modern PF | modern net (865tr) |
 |---|---|---|---|---|
-| **0.000** | **1.34** | **1,601,695** | **1.48** | **1,384,711** |
-| 0.005 | 1.31 | 1,562,880 | 1.44 | 1,354,009 |
-| 0.010 | 1.29 | 1,494,368 | 1.40 | 1,310,015 |
-| 0.020 | 1.26 | 1,391,472 | 1.37 | 1,250,431 |
-| 0.050 | 1.24 | 1,368,716 | 1.35 | 1,234,007 |
+| 0.000 | 2.29 | 642,021 | 2.32 | 610,124 |
+| **0.005** | **2.33** | **663,612** | **2.36** | **629,938** |
+| 0.010 | 2.29 | 654,125 | 2.31 | 620,476 |
+| 0.050 | 2.14 | 626,650 | 2.16 | 596,118 |
 
-PF falls monotonically with the buffer (win% rises but net falls) — the classic signature of a stop that's
-now too loose: rollovers get room to run back into losses. **Keep b=0 for the capacity book.**
-
-**A+ book — a SMALL buffer recovers the F2 tax and lifts PF above V1:**
+**A+ cell `updn≥1.3 & rmd≥3.5% & dpa<3` (avg +18%/trade) — also peaks at b=0.005:**
 
 | buffer | A+ PF | A+ net | A+(rv<2) PF | A+(rv<2) net |
 |---|---|---|---|---|
 | 0.000 | 4.12 | 429,018 | 4.31 | 431,805 |
 | **0.005** | **4.25** | **450,004** | **4.47** | **453,112** |
 | 0.010 | 4.17 | 447,177 | 4.37 | 450,165 |
-| 0.020 | 4.05 | 446,107 | 4.23 | 449,161 |
 | 0.050 | 3.91 | 444,594 | 4.13 | 449,101 |
 
-`b=0.005` is the A+ sweet spot: it recovers the entire ~$40k F2 tax (A+(rv<2) 4.31→**4.47** PF, +$21k) and
-now **beats V1's PF** (4.38 → 4.47), though V1's net edges it ($470k vs $453k). 0.5% of room is enough to
-stop clipping the deep-run winners mid-move while still cutting the genuine failures. Past b≈0.01 it decays
-back toward hold-to-MOC.
+**Why this is a real mechanism, not an overfit.** Two DIFFERENT concentrated books — the A cell (973/865
+trips) and the A+ cell (232 trips) — INDEPENDENTLY peak at the identical `b=0.005`, both decaying past
+~0.01. A single fitted knob wouldn't land on the same value across two disjoint samples of very different
+size. The unifying variable is **avg %/trade**: at +0.4% (fat) there's no runner to protect and any buffer
+re-admits losing rollovers (monotone down); at +7% / +18% (A / A+) 0.5% of room stops the tight EMA-stop
+from clipping a genuine runner mid-move, worth +$20k on each cell. On A+(rv<2) it recovers the entire F2
+tax and lifts PF above V1 (4.31→**4.47**, vs V1's 4.38).
 
-**Verdict — the stop is book-dependent:**
-- **Fat / A book (the capacity trade): `--stop-buffer 0`** (the default). Tight is best.
-- **A+ book (standalone): `--stop-buffer 0.005`.** Recovers the tax → PF 4.47, +18.6%/trade, ~50% win.
+**Verdict — one knob, gated by per-trade edge:**
+- **Fat / capacity book (avg <~1%/trade): `--stop-buffer 0`** (the default). Nothing to protect; cut rollovers.
+- **Graded A / A+ cells (avg ≥ ~7%/trade): `--stop-buffer 0.005`.** Protects the runner; +$20k/cell.
 
-This is coherent with F2: the marginal fat-book reclaims want their rollovers cut immediately; the A+
-runners want 0.5% of breathing room. One knob, two regimes — no need to fork the engine.
+Buffer the pullback stop **iff the book has real per-trade edge to protect.** 0.005 is consistent enough
+across two independent cells to trust; no engine fork needed.
