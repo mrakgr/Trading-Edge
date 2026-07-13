@@ -372,5 +372,47 @@ FALLING side (~$320k net) for a marginal PF gain. Three correct uses:
 
 **⭐ 09:45 CAPACITY BOOK: `ATR% ≥ 0.013 & chg_1d ≥ 0.20 & 0 ≤ chg_3d ≤ 1.5` (NO vol_slope floor) → PF 2.81 /
 +6.40%/tr / 1417 trips / $895k.** The day-strength band is the whole engine; vol_slope, ATR%, price_slope
-are all shape features it subsumes — vol_slope only as an A+ dial (≥ 0.025 → PF 3.43). Next: yearly stability
-(2.7× the trips now = a real sample per year), then the entry-minute sweep (09:46…10:30).
+are all shape features it subsumes — vol_slope only as an A+ dial (≥ 0.025 → PF 3.43).
+
+---
+
+## F11 — Yearly stability: ALL-WEATHER (positive every year, incl. 2021); the edge is STRONGER recently
+
+09:45 book, 2020-26. Both tiers are positive every single year.
+
+**Capacity book (`ATR% ≥ 0.013 & chg_1d ≥ 0.20 & 0 ≤ chg_3d ≤ 1.5`):**
+
+| year | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| 2020 | 191 | 45 | 2.42 | +4.19 | $80k |
+| **2021** | 366 | 33 | **1.48** | +1.89 | $69k |
+| 2022 | 151 | 41 | 2.81 | +6.34 | $96k |
+| 2023 | 106 | 37 | 2.19 | +4.21 | $45k |
+| 2024 | 178 | 45 | **5.20** | +15.48 | $276k |
+| 2025 | 273 | 40 | 3.29 | +7.38 | $202k |
+| 2026 | 152 | 38 | 3.53 | +8.48 | $129k |
+| **TOTAL** | **1417** | 39 | **2.81** | +6.32 | $895k |
+
+**A+ dial (`+ vol_slope ≥ 0.025`):**
+
+| year | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| 2020 | 24 | 58 | 3.44 | +12.37 | $30k |
+| 2021 | 67 | 39 | 1.76 | +4.48 | $30k |
+| 2022 | 27 | 37 | 2.77 | +12.24 | $33k |
+| 2023 | 13 | 38 | 2.98 | +14.10 | $18k |
+| 2024 | 40 | 55 | 5.12 | +21.72 | $87k |
+| 2025 | 38 | 50 | 5.12 | +18.85 | $72k |
+| 2026 | 17 | 59 | 5.30 | +23.34 | $40k |
+| **TOTAL** | **226** | 47 | **3.43** | +13.69 | $309k |
+
+- **All-weather:** positive every year. Worst case is "less good," not a loss.
+- **2021 is the weak year (PF 1.48)** — the adverse meme-chop regime, AND the highest trip count (366),
+  i.e. the edge DILUTED as the setup fired most often. Still +$69k / PF 1.48 — it survives rather than
+  blowing up. Every other year is PF 2.2–5.2. The A+ dial firms 2021 to PF 1.76.
+- **Stronger recently:** 2024/25/26 are the BEST years (PF 3.3–5.2) — the edge is not decaying, reassuring
+  for forward trading.
+- A regime filter could lift 2021 (most trips + worst PF), but not urgent — it stays positive.
+
+**⭐ The 09:45 opening-drive book is all-weather and tradable.** Next: sweep the other entry minutes
+(09:46…10:30) — is 09:45 the best time, and does a later entry (session-long ATR%/vol-slope) differ?
