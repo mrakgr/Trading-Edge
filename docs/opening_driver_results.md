@@ -337,4 +337,40 @@ a hair of avg%/trade, +11.7 vs +10.6). Keep a TOKEN floor `≥ 0.013` as a jumpi
 
 **⭐ 09:45 A-BOOK (relaxed): `ATR% ≥ 0.013 & vol_slope ≥ 0.01 & chg_1d ≥ 0.20 & 0 ≤ chg_3d ≤ 1.5` → PF 2.97 /
 +11.37%/tr / 296 trips / $336k.** The day-strength band (chg_1d/chg_3d) is the real engine; ATR% and
-price_slope are both subsumed by it. Next: yearly stability, then the entry-minute sweep (09:46…10:30).
+price_slope are both subsumed by it.
+
+---
+
+## F10 — vol_slope is a two-sided U, NOT a floor — the `≥ 0.01` floor (F4) was a MISTAKE
+
+Re-swept vol_slope WITHIN the complete day-scale book (`ATR% ≥ 0.013 & chg_1d ≥ 0.20 & 0 ≤ chg_3d ≤ 1.5`).
+Removing its own floor exposes the true book: **n=1417, PF 2.81, $895k** — far bigger than the 296 I was
+carrying. vol_slope is NOT a monotone floor; it's a two-sided U (the same shape price_slope had — but this
+one SURVIVES inside the full book, so it's real signal):
+
+| vol_slope bucket | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| steep NEG (< −0.05, falling vol) | 696 | 38 | **3.07** | +4.60 | $320k |
+| mild neg [−0.05, 0) | 374 | 36 | 2.50 | +5.97 | $223k |
+| **flat [0, 0.025) — DEAD** | 121 | 40 | **1.67** | +3.56 | $43k |
+| steep POS (≥ 0.025, rising vol) | 226 | 47 | **3.43** | +13.69 | $309k |
+
+Both extremes are strong; the FLAT-slope middle is the dead pocket. Interpretation:
+- **Steep rising volume** = the accelerating drive (PF 3.43, +13.7%/tr, best win rate) — the A+ pocket.
+- **Steep falling volume** = a climactic opening spike RECEDING by 09:45 (huge open, settling) — also strongly
+  +EV (PF 3.07), lower avg% because the move already largely happened.
+- **Flat volume** = no conviction either way → dead (1.67).
+
+**The F4 `vol_slope ≥ 0.01` floor was wrong** — it kept the rising side but discarded the equally-good
+FALLING side (~$320k net) for a marginal PF gain. Three correct uses:
+
+| use | cut | n | PF | net |
+|---|---|---|---|---|
+| **Capacity book** (drop the floor) | (none) | **1417** | **2.81** | **$895k** |
+| Exclude the dead middle | \|vol_slope\| ≥ 0.025 | 922 | ~3.15 | ~$629k |
+| A+ tightening dial | vol_slope ≥ 0.025 | 226 | **3.43** | $309k |
+
+**⭐ 09:45 CAPACITY BOOK: `ATR% ≥ 0.013 & chg_1d ≥ 0.20 & 0 ≤ chg_3d ≤ 1.5` (NO vol_slope floor) → PF 2.81 /
++6.40%/tr / 1417 trips / $895k.** The day-strength band is the whole engine; vol_slope, ATR%, price_slope
+are all shape features it subsumes — vol_slope only as an A+ dial (≥ 0.025 → PF 3.43). Next: yearly stability
+(2.7× the trips now = a real sample per year), then the entry-minute sweep (09:46…10:30).
