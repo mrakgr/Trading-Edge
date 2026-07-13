@@ -33,6 +33,10 @@ type Args =
     | Min_Tightness of float
     | Max_Rvol_5m_20d of float
     | Rvol_Use_Max
+    // ----- breakout mode -----
+    | Max_Bars_Since_Breakout of int
+    | No_Price_Slope
+    | No_Sum6
     // ----- arm/re-arm state machine -----
     | Re_Arm of string
     | Max_Concurrent of int
@@ -61,6 +65,9 @@ type Args =
             | Min_Tightness _ -> "TIGHTNESS FLOOR: require (rangeHigh-rangeLow)/atrLin >= this (a real range, not lethargic). Default 3.0. 0 = off."
             | Max_Rvol_5m_20d _ -> "EXHAUSTION CUT (F11): reject if the trailing-5m vol numerator >= this × the 20d per-minute pace. Default 100. 0 = off."
             | Rvol_Use_Max -> "Exhaustion-cut numerator = trailing-5m MAX 1m-vol (the short book's spiky signal) instead of the 5m AVG. Since max>=avg, cuts MORE at the same threshold."
+            | Max_Bars_Since_Breakout _ -> "BREAKOUT GATE: require 0 <= bars-since-initial-breakout < this (the 9-EMA broke to a new session high within the last N bars, reset by the 20m-low re-arm). 0 = off. BreakoutTimer used 10."
+            | No_Price_Slope -> "Drop the price-slope>0 gate (BreakoutTimer didn't use it)."
+            | No_Sum6 -> "Drop the sum6 gate (BreakoutTimer didn't use it)."
             | Re_Arm _ -> "RE-ARM reference level: rolling-ema-low (default) | session-ema-low | stop-level. The live 9-EMA must drop below this to re-arm a consumed setup."
             | Max_Concurrent _ -> "Cap on concurrently-OPEN positions. 0 = unlimited (default; the pure arm/re-arm book). 1 = block entry+re-arm while a position is Holding (V3Backside slot-lifetime discipline)."
             | Vol_As_Gate -> "GATE mode: AND vol_climb into the price trigger (a vol-fail neither opens NOR disarms). Default OFF = SKIP mode (vol decides real-vs-skip; a vol-fail still disarms)."
@@ -106,7 +113,10 @@ let main argv =
                   MinEmaVsVwap    = parsed.GetResult(Min_Ema_Vs_Vwap,   defaultValue = defaultConfig.Intraday.MinEmaVsVwap)
                   MinTightness    = parsed.GetResult(Min_Tightness,     defaultValue = defaultConfig.Intraday.MinTightness)
                   MaxRvol5m20d    = parsed.GetResult(Max_Rvol_5m_20d,   defaultValue = defaultConfig.Intraday.MaxRvol5m20d)
-                  Rvol5mUseMax    = parsed.Contains Rvol_Use_Max } }
+                  Rvol5mUseMax    = parsed.Contains Rvol_Use_Max
+                  MaxBarsSinceBreakout = parsed.GetResult(Max_Bars_Since_Breakout, defaultValue = defaultConfig.Intraday.MaxBarsSinceBreakout)
+                  DisablePriceSlope = parsed.Contains No_Price_Slope
+                  DisableSum6     = parsed.Contains No_Sum6 } }
 
     let ic = cfg.Intraday
     let hhmm m = sprintf "%02d:%02d" (m / 60) (m % 60)
@@ -117,13 +127,16 @@ let main argv =
     printfn "  anchors     = session from %s ET   features from %s ET (VWAP/OLS/ATR/EMA/sum6)"
         (hhmm ic.SessionStartMin) (hhmm ic.FeatureStartMin)
     printfn "  entry window= %s–%s ET" (hhmm ic.EntryStartMin) (hhmm ic.EntryEndMin)
-    printfn "  price gate  = price-slope20 > 0   log-ATR20 >= %.3f%s   sum6 >= %d%s%s%s"
+    printfn "  price gate  = %s   log-ATR20 >= %.3f%s   %s%s%s%s"
+        (if ic.DisablePriceSlope then "price-slope OFF" else "price-slope20 > 0")
         ic.MinAtrPct
         (if Double.IsInfinity ic.MaxAtrPct then "" else sprintf " (< %.3f)" ic.MaxAtrPct)
-        ic.MinCloseAbove6
+        (if ic.DisableSum6 then "sum6 OFF" else sprintf "sum6 >= %d" ic.MinCloseAbove6)
         (if not (Double.IsNegativeInfinity ic.MinChg1d || Double.IsNaN ic.MinChg1d) then sprintf "   chg1d >= %.0f%%" (100.0*ic.MinChg1d) else "")
         (if not (Double.IsNegativeInfinity ic.MinChg3d || Double.IsNaN ic.MinChg3d) then sprintf "   chg3d >= %.0f%%" (100.0*ic.MinChg3d) else "")
         (if not (Double.IsNegativeInfinity ic.MinEmaVsVwap || Double.IsNaN ic.MinEmaVsVwap) then sprintf "   ema-vs-vwap >= %.0f%%" (100.0*ic.MinEmaVsVwap) else "")
+    if ic.MaxBarsSinceBreakout > 0 then
+        printfn "  breakout    = 0 <= bars-since-9EMA-session-high < %d (reset by the 20m-low re-arm)" ic.MaxBarsSinceBreakout
     printfn "  extra gates = %s%s"
         (if ic.MinTightness > 0.0 then sprintf "tightness >= %.1f" ic.MinTightness else "tightness OFF")
         (if ic.MaxRvol5m20d > 0.0 then sprintf "   rvol5m20d < %.0f (%s)" ic.MaxRvol5m20d (if ic.Rvol5mUseMax then "5m-MAX" else "5m-avg") else "   rvol5m20d OFF")

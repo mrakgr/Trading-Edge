@@ -418,3 +418,89 @@ matters — and avg captures that just as well. **Default stays AVG.** Plumbing 
 ### Artifacts (F6)
 
 - avg-vs-max threshold sweep: `/tmp/rx_{avg,max}_t*.csv`; summary `scratchpad/rx_summary.py`.
+
+## Finding 7 — BREAKOUT fusion: BreakoutTimer's structure on V4's 20m-low reset — a strong all-weather book
+
+Fused BreakoutTimer's breakout structure into V4, but with V4's **rolling-20m-low re-arm as the reset**
+(instead of BreakoutTimer's bars-since-9EMA-high count). New features (all recorded; the 20m-low re-arm
+resets the cycle):
+- **`bars_since_breakout`**: −1 = re-armed/waiting; **0** = the bar the 9-EMA FIRST made a strict new
+  session-EMA-high after the reset; **+1/bar** after (latches ONCE per reset — later new highs don't re-latch).
+  Gate: `0 <= bars_since_breakout < N`. `--max-bars-since-breakout N` (BreakoutTimer used 10).
+- **`sess_ema_high`**: session-max 9-EMA (the breakout reference).
+- **`lagged_sess_ema_high_10m`**: recorded-only, for a later post-hoc breakout-continuation study.
+- Flags `--no-price-slope` / `--no-sum6` (BreakoutTimer used neither).
+
+⚠ **Config note:** "breakout book" = the **settled DipRiderV4 defaults** (skip mode, exhaustion cut ON @100
+5m-avg, rolling re-arm, mc 0, tightness OFF, chg1d≥10% / chg3d≥0 / ema-vs-vwap≥−2%) **PLUS** breakout gate
+(bars<10), vol_climb lowered to 0.1, price-slope + sum6 dropped. NOT a stripped BreakoutTimer clone — the
+exhaustion cut and the day-trend/VWAP floors are still active.
+
+### The breakout gate is a huge quality lever; price-slope & sum6 are dead/counterproductive under it
+
+2020+, rolling·mc0·skip·exhaust-ON, vol_climb 0.1, breakout bars<10:
+
+| config | trips | win% | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|---:|
+| breakout, price-slope ON, sum6 ON | 968 | 46.9% | $845k | 2.83 | 1.95 |
+| breakout, price-slope OFF, sum6 ON | 968 | 46.9% | $846k | 2.83 | 1.95 |
+| breakout, price-slope ON, sum6 OFF | 1051 | 46.1% | $934k | 2.90 | 1.98 |
+| **breakout, both OFF** | **1053** | 46.2% | $942k | **2.91** | **1.99** |
+| no breakout, vc0.1 (ref) | 3236 | 32.3% | $1.40M | 2.16 | 1.53 |
+
+- **price-slope is PURE dead weight** — ON vs OFF is byte-identical (968/$845k/1.95). A 9-EMA making a new
+  session high already implies a positive slope; the gate is fully redundant. `--no-price-slope` is free.
+- **sum6 is mildly COUNTERPRODUCTIVE** — dropping it ADDS net ($845k→$942k) and lifts PF (2.83→2.91).
+- vs the no-breakout vc0.1 baseline (a weak book, PF 2.16/win 32%): the breakout gate lifts clip PF
+  **1.53→1.99**, win **32%→47%**, on ⅓ the trips. **The breakout STRUCTURE is the edge** — it subsumes the
+  momentum-quality gates (exactly the BreakoutTimer lesson). ⭐ Best book: **both OFF**.
+
+### Yearly — breakout both-OFF book (all-weather, 2021 holds)
+
+| year | trips | win% | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|---:|
+| 2020 | 118 | 53.4% | $109k | 3.00 | 2.03 |
+| **2021** | 258 | 38.4% | $118k | **1.98** | **1.48** |
+| 2022 | 108 | 44.4% | $58k | 2.25 | 1.84 |
+| 2023 | 69 | 59.4% | $131k | 7.89 | 5.13 |
+| 2024 | 138 | 50.0% | $168k | 3.49 | 2.18 |
+| 2025 | 242 | 49.6% | $299k | 3.74 | 2.34 |
+| 2026 | 120 | 39.2% | $58k | 1.78 | 1.40 |
+
+Positive EVERY year; 2021 at raw 1.98 / clip 1.48 — weaker but comfortably positive and BETTER than the base
+rolling books' 2021 (~1.12–1.14 clip). The breakout structure helps the adverse regime (BreakoutTimer echo).
+
+### Knob sweeps (both-OFF book)
+
+**bar window** (vc0.1) — a clean capacity/quality dial:
+
+| bars< | trips | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|
+| 5 | 881 | $779k | 2.85 | **2.02** |
+| 10 | 1053 | $942k | **2.91** | 1.99 |
+| 15 | 1205 | $996k | 2.81 | 1.96 |
+| 20 | 1330 | $1.10M | 2.81 | 1.92 |
+
+Tighter = higher clip PF / less net; looser = more net / lower clip. **10 = the raw-PF peak** (BreakoutTimer's
+choice). The edge decays GRACEFULLY out to 20 bars (later-breakout entries progressively weaker but +EV).
+
+**vol_climb** (bars<10) — nearly IRRELEVANT under the breakout gate:
+
+| vc | trips | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|
+| 0.1 | 1053 | $942k | 2.91 | 1.99 |
+| 0.3 | 944 | $872k | 2.92 | 2.00 |
+| 0.5 | 684 | $661k | 3.00 | 2.01 |
+
+0.1→0.5 moves clip PF 1.99→2.01 (flat) while net drops $942k→$661k. ⭐ **The breakout structure SUBSUMES the
+volume filter** — the breakout IS the volume event, so vol_climb adds nothing here (the exact INVERSE of F5,
+where vol_climb was the dominant A+ lever in the NON-breakout books). Keep vc LOOSE (0.1) for the breakout book.
+
+⭐ **Settled breakout book:** `--max-bars-since-breakout 10 --min-vol-climb 0.1 --no-price-slope --no-sum6`
+(otherwise defaults). clip PF 1.99 / raw 2.91 / win 46% / $942k / 1053 trips, all-weather. A THIRD V4 book
+alongside the base momentum book and the vol_climb A+ book — highest clip PF of any BROAD (non-A+) V4 book.
+
+### Artifacts (F7)
+
+- breakout price-slope/sum6 matrix: `/tmp/bo2_*.csv`; knob sweep: `/tmp/bk_*.csv`.
+- The `lagged_sess_ema_high_10m` column is recorded for a future post-hoc breakout-continuation study.

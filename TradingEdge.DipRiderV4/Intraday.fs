@@ -36,6 +36,10 @@ type IntradayPosition =
       VolClimb: float            // (volEma - volEmaMin)/volEma
       EmaAtEntry: float          // the 9-EMA at entry
       VwapAtEntry: float         // session VWAP at entry
+      // breakout features (recorded for the breakout experiment + post-hoc)
+      BarsSinceBreakout: int     // -1 waiting / 0 breakout bar / +N bars since; the BreakoutTimer countdown
+      SessEmaHigh: float         // session-max 9-EMA at entry
+      LaggedSessEmaHigh10m: float // session-EMA-high as of 10m ago (post-hoc breakout-continuation feature)
       State: IntraPosState }   // immutable — advancing a position returns a NEW record (HighFlyer style)
 
 /// The RE-ARM level: what the live 9-EMA must drop below to re-arm the setup (after a disarm). Three
@@ -99,6 +103,12 @@ type IntradayConfig =
         Rvol5mUseMax: bool       // false (default) = numerator is the trailing-5m AVG 1m-vol (V3Backside). true =
                                  // the trailing-5m MAX 1m-vol (the spiky signal the SHORT book uses). Since max>=avg,
                                  // the same threshold cuts MORE with max — sweep the threshold when comparing.
+        // ----- breakout mode (BreakoutTimer fused; reset = the rolling-20m-low re-arm) -----
+        MaxBarsSinceBreakout: int  // BREAKOUT GATE: require 0 <= barsSinceBreakout < this (the 9-EMA broke to a new
+                                   // session high within the last N bars). 0 = OFF (default). BreakoutTimer used 10.
+        DisablePriceSlope: bool  // true = drop the price-slope>0 gate (BreakoutTimer didn't use it). Default false.
+        DisableSum6: bool        // true = drop the sum6 gate regardless of MinCloseAbove6 (BreakoutTimer didn't
+                                 // use it). Default false.
       }
 
 type State = 
@@ -117,6 +127,9 @@ type State =
         volEmaMin : float voption
         sessEmaLow : float voption   // session-min of the 9-EMA (SessionEmaLow re-arm reference)
         lastStopLevel : float voption // frozen stop of the last consumed setup (LastStopLevel re-arm reference)
+        sessEmaHigh : float voption  // session-max of the 9-EMA (the breakout reference high)
+        barsSinceBreakout : int      // -1 waiting; 0 = first new-high bar; +1/bar after (latch once per reset)
+        laggedSessEmaHigh : float voption  // the session-EMA-high as of 10m ago (record-only, post-hoc)
         barsSeen : int
         armed : bool
     }
@@ -162,6 +175,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             volEmaMin = ValueNone
             sessEmaLow = ValueNone
             lastStopLevel = ValueNone
+            sessEmaHigh = ValueNone
+            barsSinceBreakout = -1
+            laggedSessEmaHigh = ValueNone
             barsSeen = 0
             armed = true
         }
@@ -176,6 +192,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     // the FROZEN stop level of the last CONSUMED setup (set on EVERY disarm) — the LastStopLevel re-arm
     // reference. ValueNone until the first setup fires (day stays armed until then).
     let mutable lastStopLevel : float voption = ValueNone
+    // ----- BREAKOUT features (BreakoutTimer fused into V4; reset = the rolling-20m-low re-arm) -----
+    // SESSION-max of the 9-EMA (running max, ratchets UP) — the breakout reference high.
+    let mutable sessEmaHigh : float voption = ValueNone
+    // BARS-SINCE-INITIAL-BREAKOUT: -1 = re-armed, waiting for the breakout; 0 = the bar the 9-EMA FIRST made a
+    // NEW session-EMA-high after the reset; then +1 each bar. Latches ONCE per reset (later new highs ignored).
+    let mutable barsSinceBreakout : int = -1
+    // 10m-lagged session-EMA-high (record only, for post-hoc). Delay line of the post-fold sessEmaHigh.
+    let laggedSessEmaHigh = LagMa<float>(10)
 
     member _.Ticker = ticker
     member _.Day = day
@@ -214,6 +238,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             volEmaMin = volEmaMin.State
             sessEmaLow = sessEmaLow
             lastStopLevel = lastStopLevel
+            sessEmaHigh = sessEmaHigh
+            barsSinceBreakout = barsSinceBreakout
+            laggedSessEmaHigh = laggedSessEmaHigh.Lagged
             barsSeen = barsSeen
             armed = armed
         }
@@ -255,6 +282,20 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             // SESSION-min of the 9-EMA (only ratchets down) — the SessionEmaLow re-arm reference.
             ema.State |> ValueOption.iter (fun e ->
                 sessEmaLow <- match sessEmaLow with ValueSome m -> ValueSome (min m e) | ValueNone -> ValueSome e)
+            // ----- BREAKOUT features -----
+            // detect a STRICT new session-EMA-high vs the PRIOR session high (captured before we update it).
+            ema.State |> ValueOption.iter (fun e ->
+                let isNewHigh = match sessEmaHigh with ValueSome h -> e > h | ValueNone -> true
+                // update the running session-EMA-high (ratchets up).
+                sessEmaHigh <- match sessEmaHigh with ValueSome h -> ValueSome (max h e) | ValueNone -> ValueSome e
+                // BARS-SINCE-INITIAL-BREAKOUT: latch -1->0 on the FIRST new high after a reset; then +1/bar.
+                // A later new high while already counting (>=0) does NOT re-latch (BreakoutTimer semantics).
+                if barsSinceBreakout = -1 then
+                    (if isNewHigh then barsSinceBreakout <- 0)
+                else
+                    barsSinceBreakout <- barsSinceBreakout + 1
+                // 10m-lagged session-EMA-high (record-only). Push the post-fold session high.
+                match sessEmaHigh with ValueSome h -> laggedSessEmaHigh.Push h | ValueNone -> ())
             // volume analogue: 9-EMA of raw volume, then its 20m trailing MIN (the vol_climb base).
             volEma.Push (float curBar.volume)
             volEma.State |> ValueOption.iter volEmaMin.Push
@@ -291,13 +332,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         bar.etMin >= cfg.EntryStartMin
         && (cfg.EntryEndMin <= 0 || cfg.EntryEndMin >= cfg.MocMin || bar.etMin <= cfg.EntryEndMin)
         // --- price / ATR core ---
-        // positive 20m OLS log-price slope (an up-trend into the entry).
-        && gate priceOls.Slope (fun s -> s > 0.0)
+        // positive 20m OLS log-price slope (an up-trend into the entry). --no-price-slope drops it (BreakoutTimer).
+        && (cfg.DisablePriceSlope || gate priceOls.Slope (fun s -> s > 0.0))
         // log-ATR FLOOR (the main lever) + optional CEILING.
         && (cfg.MinAtrPct <= 0.0 || gate atrLog.State (fun a -> a >= cfg.MinAtrPct))
         && (Double.IsInfinity cfg.MaxAtrPct || gate atrLog.State (fun a -> a < cfg.MaxAtrPct))
-        // >= N of the last 6 bars closed above the 9-EMA. 0 = off.
-        && (cfg.MinCloseAbove6 <= 0 || gate sum6.State (fun c -> int (round c) >= cfg.MinCloseAbove6))
+        // >= N of the last 6 bars closed above the 9-EMA. 0 = off; --no-sum6 drops it (BreakoutTimer).
+        && (cfg.DisableSum6 || cfg.MinCloseAbove6 <= 0 || gate sum6.State (fun c -> int (round c) >= cfg.MinCloseAbove6))
+        // BREAKOUT GATE: the 9-EMA broke to a new session high within the last N bars (0 <= counter < N). 0 = off.
+        && (cfg.MaxBarsSinceBreakout <= 0
+            || (barsSinceBreakout >= 0 && barsSinceBreakout < cfg.MaxBarsSinceBreakout))
         // TIGHTNESS FLOOR: (rangeHigh−rangeLow)/atrLin >= MinTightness (a real range, not lethargic). 0 = off.
         && (cfg.MinTightness <= 0.0 || gate this.Tightness (fun t -> t >= cfg.MinTightness))
         // EXHAUSTION CUT (F11): reject if the trailing-5m vol numerator (avg or MAX) >= MaxRvol5m20d × the 20d
@@ -374,6 +418,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                          | _ -> nan)
                       EmaAtEntry = vv ema.State
                       VwapAtEntry = vv vwap.State
+                      BarsSinceBreakout = barsSinceBreakout
+                      SessEmaHigh = (match sessEmaHigh with ValueSome h -> h | ValueNone -> nan)
+                      LaggedSessEmaHigh10m = (match laggedSessEmaHigh.Lagged with ValueSome h -> h | ValueNone -> nan)
                       State = Holding }
             // consumed (taken, vol-skipped, or no-room): disarm + freeze the stop level for the LastStopLevel
             // re-arm. Freeze on EVERY disarm, even a no-room one (record the emaLow it WOULD have used).
@@ -394,7 +441,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                 | SessionEmaLow -> sState.sessEmaLow
                 | LastStopLevel -> sState.lastStopLevel
             match ema.State, reArmRef with
-            | ValueSome e, ValueSome m when e < m -> armed <- true
+            | ValueSome e, ValueSome m when e < m ->
+                armed <- true
+                // RESET the breakout counter: a fresh re-arm starts a new breakout-wait cycle (-1 = waiting).
+                barsSinceBreakout <- -1
             | _ -> ()
 
 
