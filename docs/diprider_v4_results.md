@@ -858,3 +858,79 @@ single-feature equivalents.
 ### Artifacts (F14)
 
 - A/A+/A++: `/tmp/abook.csv`, `/tmp/aplus.csv`, `/tmp/aplusplus.csv`. Per-window OR floors: `BreakoutVc*` in the config.
+
+## Finding 15 — high-vc tail: PF peaks at ~7–8× (not 5×); the S-tier book (all-3 OR @ vc 6/7)
+
+Swept vc = n/(n+1) for n>4 (vc 0.833/0.857/0.875/0.889/0.9 = 6×–10× the floor) on each window (bars<10, gate).
+**PF keeps climbing PAST vc0.8 — the clip-PF PEAK is at ~7–8× (vc 0.857–0.875), adding ~+0.4 clip PF over
+vc0.8 — then rolls over as the books thin out.** Clip PF by vc:
+
+| vc (mult) | session | 60m | 20m |
+|---|---:|---:|---:|
+| 0.8 (5×) | 2.90 | 2.52 | 2.71 |
+| 0.857 (7×) | **3.00** | 3.11 | 3.03 |
+| 0.875 (8×) | 2.71 | **3.13** | **3.10** |
+| 0.9 (10×) | 2.39 | 2.89 | 2.03 |
+
+⚠ Thin and turns over past ~9× (20m@0.9 = 40 trips / clip 2.03, WORSE than vc0.8). Usable window is narrow:
+7–8× is the peak; beyond ~9× too sparse to trust. **60m holds up best at the high end** (60m@8× = clip 3.13 /
+raw 4.71 / 114 trips — best PF-with-breadth) — a 60m high on 8× volume is selective on both axes without being
+as rare as a session high.
+
+### ⭐ S-tier book — all-3 breakout OR @ vc 6/7 (uniform floor)
+
+`--breakout-or --breakout-vc-{session,60m,20m} 0.8571` (+ all `--max-bars-since-*-breakout 10`, no-ps, no-sum6,
+gate, vc0, mc0): **180 trips / win 51.7% / $248k / raw PF 4.46 / clip PF 3.01.**
+
+| book | trips | win% | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|---:|
+| **S-OR: all 3 @ vc 6/7** | 180 | 51.7% | $248k | 4.46 | 3.01 |
+| session @ vc6/7 | 126 | 54.0% | $190k | 4.64 | 3.00 |
+| 60m @ vc6/7 | 143 | 52.4% | $210k | 4.67 | **3.11** |
+| 20m @ vc6/7 | 88 | 53.4% | $121k | 4.47 | 3.03 |
+
+⚠ **A UNIFORM-floor OR does NOT beat its best component** (S-OR clip 3.01 ≤ 60m-only 3.11) — with a COMMON vc
+floor the nesting dominates (60m-only@143 already contains most of session@126 + 20m@88; union only 180). This
+CONTRASTS F14's A/A+/A++, which worked BECAUSE the per-window floors DIFFERED (looser structure → higher vol
+bar → non-overlapping trades). So the OR earns its keep only with DIFFERENTIATED floors; a same-vc OR just
+gives ≈ the middle window on marginally more trips. The S-OR's value is BREADTH (180 trips, most tradable
+S-tier) not higher PF.
+
+### Yearly — S-OR book (all-weather, thin)
+
+| year | trips | win% | net | raw PF | clip PF |
+|---|---:|---:|---:|---:|---:|
+| 2020 | 12 | 66.7% | $27k | 8.82 | 4.64 |
+| **2021** | 38 | 50.0% | $19k | **2.06** | **2.06** |
+| 2022 | 15 | 60.0% | $21k | 5.05 | 4.21 |
+| 2023 | 16 | 62.5% | $65k | 15.75 | 7.53 |
+| 2024 | 23 | 34.8% | $14k | 2.17 | 1.83 |
+| 2025 | 34 | 50.0% | $60k | 6.25 | 3.24 |
+| 2026 | 42 | 52.4% | $43k | 3.44 | 2.81 |
+
+Positive EVERY year; **2021 raw==clip 2.06 (zero tail dependence in the hard year)**; 2024 the other soft year
+(1.83) still positive. Big years (2020/2023 raw 8.8/15.8) are tail-inflated on TINY samples but the book
+doesn't DEPEND on them — even the two weakest years alone are ~PF 2.0. Robust S-tier edge, but LOW-FREQUENCY
+(~26 trips/yr) — inherent to demanding 7× volume expansion on a breakout.
+
+---
+
+## DipRiderV4 — settled book family (F1–F15)
+
+One engine, one clean mechanism (rolling-20m-low arm/re-arm + per-window breakout timers + per-window vol
+floors), spanning capacity→S-tier. All all-weather (positive every year 2020–2026), 2021-robust:
+
+| tier | config (all: rolling re-arm, gate, no-ps, no-sum6, mc0, breakout bars<10) | trips | net | raw PF | clip PF |
+|---|---|---:|---:|---:|---:|
+| Capacity | vol-only, vc0 (no breakout) | 5583 | $1.90M | 2.04 | 1.45 |
+| A (high-cap) | OR: s@0 ∥ 60@⅓ ∥ 20@½ | 1860 | $1.43M | 2.77 | 1.86 |
+| A+ | OR: s@¾ ∥ 60@¾ ∥ 20@⅔ | 786 | $773k | 3.17 | 2.05 |
+| A++ | OR: s@⅘ ∥ 60@⅘ ∥ 20@¾ | 460 | $597k | 4.05 | 2.54 |
+| S | OR: all-3 @ vc 6/7 | 180 | $248k | 4.46 | 3.01 |
+
+Pick the tier by capacity/quality need; all dominate their single-feature equivalents (A/A+/A++ via
+differentiated per-window vol floors). **DipRiderV4 research complete.**
+
+### Artifacts (F15)
+
+- high-vc sweep: `/tmp/hv_{sess,b60,b20}_vc*.csv`. S-OR book: `/tmp/sbook.csv`.
