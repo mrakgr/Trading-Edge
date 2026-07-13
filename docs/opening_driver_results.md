@@ -208,3 +208,39 @@ with slope — once conditioned on high ATR% and rising volume, price_slope carr
 **Verdict: DROP price_slope.** Adding it only shrinks the sample for zero PF gain — the exact subsumption
 risk flagged going in. The book stays `ATR% ≥ 0.02 & vol_slope ≥ 0.01`. Next lever to test: chg_1d (the
 day-strength cut — likely NOT subsumed, since it's a day-scale feature orthogonal to the 20m intraday ones).
+
+---
+
+## F6 — chg_1d is NOT subsumed — a strong, additive day-scale lever (concentrates quality at ~flat net)
+
+Broke down chg_1d WITHIN the base book (`ATR% ≥ 0.02 & vol_slope ≥ 0.01`, PF 1.80). Unlike price_slope, it
+LIFTS the base — a day-scale feature orthogonal to the 20m intraday ones carries independent signal.
+
+**Deciles within base — monotone in the upper half:**
+
+| dec | chg_1d range | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|---|
+| 1–4 | red → +13% | 328 | ~40 | 1.3–1.5 | +0.6 to +1.7 | modest |
+| 5 | +13–18% | 82 | 32 | 0.81 | −1.00 | −$8k (lone neg pocket, noise) |
+| 6 | +18–27% | 82 | 39 | 2.28 | +7.14 | $59k |
+| 7–8 | +27–50% | 162 | ~41 | 1.60 / 2.35 | +4.2 / +8.2 | $100k |
+| 9 | +50–79% | 81 | 42 | 2.38 | +10.38 | $84k |
+| 10 | ≥ +79% | 81 | 48 | 1.96 | +9.02 | $73k |
+
+**Floor sweep — PF rises monotonically while net stays ~FLAT (pure quality concentration):**
+
+| chg_1d floor | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| (base) | 817 | 41 | 1.80 | +4.26 | $348k |
+| ≥ 0.03 | 650 | 40 | 1.83 | +5.11 | $332k |
+| ≥ 0.10 | 523 | 40 | 1.90 | +6.00 | $314k |
+| ≥ 0.15 | 455 | 42 | 2.00 | +6.92 | $315k |
+| **≥ 0.20** | **396** | **43** | **2.11** | **+7.97** | **$315k** |
+
+The ideal lever shape: base → `chg_1d ≥ 0.20` lifts **PF 1.80 → 2.11** and nearly DOUBLES avg%/trade
+(+4.26 → +7.97) while **net barely moves** ($348k → $315k) — it sheds ~half the trips, but they were the
+near-zero-EV ones (no dead weight lost). PF keeps rising to the top of the range (no rollover). Confirms
+chg_1d is day-scale signal ATR%/vol_slope can't capture.
+
+**Running 09:45 book: `ATR% ≥ 0.02 & vol_slope ≥ 0.01 & chg_1d ≥ 0.20` → PF 2.11 / +7.97%/tr / 396 trips /
+$315k.** Next lever: chg_3d (also day-scale — check whether it adds on top of chg_1d or is collinear with it).
