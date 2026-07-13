@@ -8,8 +8,20 @@ as a trip**, held to MOC or a 9-EMA stop. All gate/feature analysis is done POST
 
 **Recorded feature levers:** 20m log-ATR (ATR%), 20m OLS log-price slope, 20m OLS log-volume slope, chg_1d
 (entry vs prev daily close), chg_3d (entry vs close 3d ago), and `rvol_cum` (cumulative session volume vs
-the 20d-average pace through the entry bar). Universe = `vwap_reclaim_candidate` (ADV ≥ $1M & rvol_0945 > 1).
-$10k notional/trip. Era slices (run separately to keep each CSV manageable); the MODERN era is 2020-01 → 2026-06.
+the 20d-average pace through the entry bar). $10k notional/trip. Era slices (run separately to keep each CSV
+manageable); the MODERN era is 2020-01 → 2026-06.
+
+**Universe = `vwap_reclaim_candidate` — the SHARED momentum pool.** DipRiderV4, VwapReclaimV3, and
+OpeningDriver all read this SAME table, so the candidate day-pool is identical across the three momentum
+systems. It is `mr_candidate` (median 1m-bar vol 09:30–09:45 ≥ **10k** AND ≥ 10 bars; CS/ADRC; day-close
+≥ $1) pruned by the two VwapReclaim Layer-1 filters:
+- **$30M dollar-ADV floor** — `avgvol20 * day_close ≥ $30,000,000` (20-day avg DOLLAR volume; VwapReclaim
+  Finding 20: $30M is the floor, $100M over-cut).
+- **premarket+15m ≥ 1× 20d ADV** — `rvol_0945 > 1.0`, where `rvol_0945 = vol_0945_pm / avgvol20` and
+  `vol_0945_pm` is the premarket-inclusive volume 04:00 → 09:45 (genuinely in play into the open).
+
+(All three of these — 10k median bar vol, $30M ADV, premarket+15m ≥ ADV — are the same liquidity/in-play
+requirements the user confirmed for the momentum book; the median-bar & rvol windows are the first 15m to 09:45.)
 
 **The 9-EMA stop** fires when the live 9-EMA drops below a chosen reference (`--stop-mode`):
 - `vwap` — the live session VWAP (dynamic; the TIGHT stop).
