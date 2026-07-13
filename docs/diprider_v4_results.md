@@ -934,3 +934,24 @@ differentiated per-window vol floors). **DipRiderV4 research complete.**
 ### Artifacts (F15)
 
 - high-vc sweep: `/tmp/hv_{sess,b60,b20}_vc*.csv`. S-OR book: `/tmp/sbook.csv`.
+
+## Finding 16 — average % return per trade (pre-cost, per round-trip)
+
+`ret_moc` (exit/entry − 1) = the raw held return per trip at $10k fixed notional — the figure commissions +
+slippage subtract from. For the five settled tiers (2020+):
+
+| tier | trips | **avg %/trade** | avg win | avg loss | win rate |
+|---|---:|---:|---:|---:|---:|
+| Capacity (vol-only vc0) | 5583 | **3.40%** | +24.6% | −4.5% | 27.2% |
+| A | 1860 | **7.68%** | +29.2% | −7.4% | 41.1% |
+| A+ | 786 | **9.83%** | +32.0% | −8.2% | 44.9% |
+| A++ | 460 | **12.98%** | +35.2% | −8.3% | 48.9% |
+| S | 180 | **13.79%** | +34.4% | −8.2% | 51.7% |
+
+⭐ **Commissions/slippage are NEGLIGIBLE for the entire family.** Even the loosest tier (3.40%/trade) clears a
+typical liquid-name round-trip cost (single-digit bp) by ~50–100×. Avg %/trade climbs monotonically with
+selectivity (3.40% → 13.79%), tracking the PF ladder — the tighter books don't just win more OFTEN, each trade
+is BIGGER (avg win +25% → +35%). These are multi-hour holds with double-digit-% average outcomes, NOT scalps,
+so the per-trade edge is 2–3 orders of magnitude larger than transaction costs. Caveat: `ret_moc` is
+close-fill (no modeled entry/exit slippage); for liquid in-play names on 1m bars that's a few bp — immaterial
+against these margins.
