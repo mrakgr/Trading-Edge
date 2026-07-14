@@ -607,3 +607,50 @@ fat-tail cell, so it matters for sizing.
 bar). Maps to a real mechanism: VWAP = the intraday fair-value/support line. Actionable as a gate (buy
 ≤ VWAP; skip the +1.5–3% dead zone) or a sizing tilt (size UP below VWAP). NEXT: decide engine wiring —
 `entry_vs_vwap` is available live at the arm bar (VWAP is already folded), so this can be a real gate.
+
+## F17 — 9-EMA vs VWAP: the SMOOTHER, STRONGER version of F16 (the best lever in the study)
+
+Comparing the 9-EMA (short-term trend) to VWAP at entry — the structural version of F16's price-vs-VWAP
+(the EMA smooths out single-bar noise, measuring where the TREND sits vs fair value). `ema_at_entry /
+vwap_at_entry − 1` on the production book (1028 tr; median +0.7%, 354 trips = 34% with the 9-EMA BELOW
+VWAP).
+
+| 9EMA vs VWAP | n | avg% | avg clip% | win | PF raw | PF clip | net_k |
+|---|---|---|---|---|---|---|---|
+| < −1% (ema well below) | 225 | 17.8 | 7.5 | 38 | 5.08 | 2.71 | 400 |
+| −1..0% (ema just below) | 129 | 16.1 | 4.8 | 42 | 5.06 | 2.21 | 208 |
+| 0..1% (ema just above) | 223 | 8.6 | 3.0 | 39 | 3.00 | 1.69 | 193 |
+| 1..2% | 151 | 9.9 | 41 | — | 3.27 | 1.92 | 150 |
+| ≥ 2% (ema well above) | 300 | 7.4 | 4.2 | 48 | 2.41 | 1.81 | 222 |
+
+Coarse: **9EMA<VWAP clip 2.54 / +17.2% (34% of trips = 52% of net) vs 9EMA≥VWAP clip 1.80 / +8.4%.**
+MORE MONOTONE than F16 (descends smoothly ema-well-below 2.71 → just-above 1.69, then flattens ~1.8; no
+sharp graveyard-then-recovery U — the EMA smooths the single-bar wick that made price-vs-VWAP U-shaped).
+
+**All-weather — beats above in ALL 7 years, HIGHER floor than F16:**
+
+| yr | 9EMA<VWAP clip | 9EMA≥VWAP clip |
+|---|---|---|
+| 2020 | 2.34 | 1.88 |
+| 2021 | 1.62 | 1.28 |
+| 2022 | 2.79 | 1.67 |
+| 2023 | 2.60 | 1.54 |
+| 2024 | 2.29 | 2.14 |
+| 2025 | 4.39 | 2.62 |
+| 2026 | 1.95 | 1.42 |
+
+Clip floor **1.62 (2021)** — higher than F16's below-VWAP 1.51 — and firms the weak years (2026 1.95 vs
+1.42). **LESS concentrated than F16:** top-1 = 8% / top-10 = 39% of gross (vs price-<VWAP's 11% / 44%) —
+the EMA smoothing means fewer jackpots drive it.
+
+**The two signals capture DIFFERENT trips** (cross-tab): both-below 151, price-only 78, **ema-only 203**,
+both-above 596. The 9-EMA catches 203 trips where PRICE already popped back above VWAP but the TREND
+(9-EMA) still sits below — a bar that poked above VWAP on a pullback whose smoothed trend hasn't caught
+up. F16 mis-classifies those as "above VWAP" (mediocre); the 9-EMA correctly flags them as still-in-the-
+pullback. That's why the 9-EMA version is broader AND holds its edge.
+
+**⭐⭐ VERDICT: `9-EMA < VWAP` is the BEST lever in the study** — higher per-year floor (1.62), more trips
+(354 vs 229), less concentrated (top-10 39% vs 44%), and it subsumes+extends F16. Mechanism: the TREND is
+below fair value = still buying into support, not chasing. Both ema_at_entry & vwap_at_entry are folded
+live at the arm bar, so this is fully live-gateable. Prime candidate to wire into the engine (gate: arm
+only when 9-EMA ≤ VWAP; or size UP below).
