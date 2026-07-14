@@ -312,6 +312,10 @@ balanced): below it PF 1.15–1.69, above it PF 2.1–5.1. The floor sweep is th
 - **All tiers are all-weather** — positive every modern year (Capacity: PF ≥ 1.87 every year; A: ≥ 1.69).
 - **Net peaks in the MIDDLE** ($555k at A+): the wide Capacity cell dilutes PF, the tight A++ sheds too many
   trips. A+ (updn ≥ 1.1) is the best net/PF balance.
+- **updn ≥ 1.2 is a DOMINATED trough — skip it.** PF 3.59 / +15.40%/tr / 299 tr / $461k: LOWER PF and net
+  than 1.1 (3.74 / $555k, more trips) AND lower PF than 1.3 (4.33) at ~equal net. The [1.2, 1.3) slice is a
+  weak pocket; 1.2 is Pareto-dominated by both neighbors. The ladder's real inflection points are **1.1**
+  (best net/PF) and **1.3** (quality peak). (All-weather regardless: updn ≥ 1.2 is positive every year, 2021 = 2.02.)
 - **updn ≥ 0.8 is the widest sensible floor** — below it (deciles 1-5) the edge thins to PF 1.15–1.69; going
   to 0 adds few trips (739 vs 551) at PF 2.60. 0.8 ≈ where rising-side volume stops being decisive.
 - 2021 (adverse) dilutes most as updn relaxes (A++ 2.11 → A 1.69 → Capacity 1.87), as expected — the tighter
