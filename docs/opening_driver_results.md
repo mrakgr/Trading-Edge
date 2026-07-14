@@ -790,3 +790,40 @@ monotone); `bh` pullback is REGIME-DEPENDENT. Mechanism: in a choppy/low-momentu
 keeps pulling back (it's a reversal, not a dip); in strong-momentum years (2024-26) it's a genuine dip-buy. So
 the pullback edge is CONDITIONAL on a strong-momentum regime. **Verdict: `bl` (freshness) is the reliable
 timing lever; `bh` (pullback) adds aggregate PF but is not trustworthy standalone — don't lean on it alone.**
+
+## F21 — Yearly robustness of the bl variants: `bl < 15` is the trustworthy cut; tighter is overfit
+
+Per-year PF(n) for the `bl` (bars-since-low freshness) cuts on the 09:45 real-trade book. The aggregate PF
+rises as you tighten, but the yearly view shows the tight cuts are small-sample noise.
+
+| cut | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | TOTAL |
+|---|---|---|---|---|---|---|---|---|
+| base (all bl) | 2.6 | 1.4 | 2.5 | 2.4 | 4.1 | 3.6 | 2.5 | 2.62 (774) |
+| **bl < 15** | 2.8 | 1.3 | 3.1 | 3.3 | 5.7 | 4.3 | 3.3 | **3.08 (420)** |
+| bl < 13 | 3.1 | 1.6 | 3.0 | 2.6 | 6.7 | 3.1 | 2.6 | 3.02 (292) |
+| bl < 10 | 8.6 | 1.7 | 4.2 | 2.1 | 6.8 | 4.2 | **0.5** | 3.58 (155) |
+| bl < 7 | 18.2 | 1.0 | 7.2 | 2.7 | 11.2 | 4.1 | **0.2** | 4.17 (81) |
+| bl = 15 (weak pile) | 2.3 | 1.5 | 1.7 | 1.2 | 2.1 | 2.9 | 1.8 | 2.01 (354) |
+
+Three robustness reads:
+- **`bl < 15` is the sweet spot** — improves or holds vs base in EVERY year, positive everywhere (2021 = 1.3,
+  the only sub-2, same as base). Broad lift (2022 +0.6, 2023 +0.9, 2024 +1.6, 2025 +0.7), not concentrated.
+  **The reliable cut: PF 3.08 / 420 tr / all-weather.**
+- **Tighter than bl<13 is OVERFIT** — counts collapse to single digits/year and PF gets erratic. `bl < 7`'s
+  4.17 aggregate is carried by 2020 (18.2, 7 tr) & 2024 (11.2, 10 tr), but **2026 BREAKS (0.2)** — the tightest
+  cut fails in the most RECENT year, a red flag for forward trading. Don't lean on bl<10 or tighter standalone.
+- **`bl = 15` is weak EVERY year** (2.3/1.5/1.7/1.2/2.1/2.9/1.8 — never > 2.9) — the cleanest robustness result
+  in the study. The bottomed-at-open extended drive is a UNIVERSALLY weak pocket; dropping it is unambiguous.
+
+**Rising-vol side (vs ≥ 0.01):**
+
+| cut | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | TOTAL |
+|---|---|---|---|---|---|---|---|---|
+| rising, all bl | 2.4 | 1.7 | 2.4 | 2.6 | 3.9 | 4.2 | 4.7 | 2.90 (272) |
+| rising & bl<15 | 2.5 | 1.4 | 3.1 | 4.0 | 5.4 | 6.7 | 4.5 | 3.36 (170) |
+| rising & bl<13 | 2.6 | 2.1 | 3.2 | 2.7 | 8.1 | 5.2 | 3.0 | 3.81 (125) |
+
+`rising & bl<15` is the best-populated strong cell (170 tr, positive every year bar a soft 2021 = 1.4);
+`bl<13` firms 2021 (2.1) but thins the other years. **VERDICT: `bl < 15` is the production freshness cut
+(all-weather, robust); the rising-vol × bl<15 is the A+ overlay. Tighter bl is overfit — the aggregate PF
+is a small-sample mirage.**
