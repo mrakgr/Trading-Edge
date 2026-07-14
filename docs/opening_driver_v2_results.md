@@ -72,18 +72,36 @@ Post-hoc vol_slope deciles on the real 702-trip book:
 flat-volume middle (dc8, PF 1.66). Falling volume on a pullback = healthy consolidation; rising
 = fresh thrust; flat = the dead zone.
 
-**But the tails don't survive per-year — the PF-6.89 cell is a fat-tail mirage:**
+**But the tails don't survive per-year:**
 
 | cell | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | PF | n |
 |---|---|---|---|---|---|---|---|---|---|
 | vs ≤ −0.07 (dc1) | 2.09 | 3.49 | **0.31** | 7.17 | 27.60 | 8.31 | **0.07** | 6.89 | 63 |
 | U-edges (≤−0.07 or ≥0.025) | 5.68 | 3.72 | **0.65** | 5.19 | 16.98 | 8.86 | **1.27** | — | 148 |
 
-dc1's 6.89 is carried by 2024 (PF 27.6, avg +82.8% on 10 tr) and 2025; it's **losing in 2022
-(0.31) and 2026 (0.07)**, thin (6–12 tr/yr). As a hard GATE, `vs ≥ 0` CUTS the full book from
-PF 3.52 / $810k → 3.21 / $169k (it discards dc1–dc7, most of which are PF > 2.5).
+dc1's 6.89 is carried by 2024 (PF 27.6, avg +82.8%) and 2025; it's **losing in 2022 (0.31) and
+2026 (0.07)**, thin (6–12 tr/yr). As a hard GATE, `vs ≥ 0` CUTS the full book from PF 3.52 / $810k
+→ 3.21 / $169k (it discards dc1–dc7, most of which are PF > 2.5).
 
-**Verdict: keep vol_slope OFF by default.** The full 702-trip book is the trustworthy, all-weather
-book; every vol_slope slice buys aggregate PF at the cost of the per-year robustness. (This
-qualifies the V1 F15 "vol_slope ≥ 0.025 A+ dial": that cell has a genuinely high win rate (48%),
-but it is a high-quality SUB-slice, not a filter that improves the book on net or per-year.)
+**The decisive test — is dc1's PF real, or a few lottery winners?** (Every cell has a NEGATIVE
+median return — all −4.9%, dc1 −5.1%: this is a fat-tailed book where the median trade LOSES and
+the mean is winner-driven everywhere. So the question is winner *concentration*.)
+
+| cell | full PF | drop top-1 | drop top-3 | top-1 = % of gross profit | top-3 = % of gross |
+|---|---|---|---|---|---|
+| **all (702)** | 3.52 | 3.37 | 3.14 | **4%** | **11%** |
+| dc1 (vs≤−0.07, 83) | 5.85 | 4.87 | 3.64 | **17%** | **38%** |
+| dc10 (vs≥0.025, 65) | 4.83 | 4.22 | 3.24 | 13% | 33% |
+
+**The full book is winner-DIVERSIFIED and robust** — no single trade > 4% of gross profit; dropping
+the 3 biggest of 702 only moves PF 3.52 → 3.14. **The vol_slope tail cells are lottery-skewed and
+fragile** — in dc1 a SINGLE trade (HOLO 2024-02-07, +363%, a sub-$5 meme runner) is 17% of gross
+profit; 3 trades are 38%. Strip those 3 and dc1 falls to 3.64, dc10 to 3.24 — **indistinguishable
+from the full book's stripped 3.14.** The "U-shape edge" is 3–4 microcap jackpots deep, not a
+repeatable property of volume slope.
+
+**Verdict: vol_slope has NO robust edge; keep it OFF by default.** The full 702-trip book is
+trustworthy (diversified + all-weather); every vol_slope slice trades that for a concentrated bet on
+a few microcap jackpots (HOLO/ICCT/PHUN) repeating. This RETIRES the V1 F15 "vol_slope ≥ 0.025 A+
+dial" as a filter — its high win rate (48%) is a real sub-slice property, but its PF is lottery-driven
+and does not improve the book on net, per-year, OR winner-adjusted.
