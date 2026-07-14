@@ -100,8 +100,48 @@ profit; 3 trades are 38%. Strip those 3 and dc1 falls to 3.64, dc10 to 3.24 — 
 from the full book's stripped 3.14.** The "U-shape edge" is 3–4 microcap jackpots deep, not a
 repeatable property of volume slope.
 
-**Verdict: vol_slope has NO robust edge; keep it OFF by default.** The full 702-trip book is
-trustworthy (diversified + all-weather); every vol_slope slice trades that for a concentrated bet on
-a few microcap jackpots (HOLO/ICCT/PHUN) repeating. This RETIRES the V1 F15 "vol_slope ≥ 0.025 A+
-dial" as a filter — its high win rate (48%) is a real sub-slice property, but its PF is lottery-driven
-and does not improve the book on net, per-year, OR winner-adjusted.
+**Verdict (raw): vol_slope has no robust RAW edge; keep it OFF by default.** But see F3 — the +50%
+clip splits the two tails apart and the picture is more nuanced than "all lottery."
+
+## F3 — under the +50% clip, the U-shape is ASYMMETRIC: rising-vol is real, falling-vol is jackpots
+
+Re-running the deciles with each trade capped at +0.50 (`least(ret_moc, 0.50)`) — the standard
+fat-tail-neutralised view:
+
+| decile | vol_slope | n | win | PF raw | **PF clip** |
+|---|---|---|---|---|---|
+| 1 (steep fall) | ≤ −0.073 | 71 | 37 | 6.89 | **2.79** |
+| 2–7 (mild fall) | −0.072…−0.010 | 420 | 30–41 | 2.5–5.0 | 1.4–2.5 |
+| 8 (flat, vs≈0) | −0.010…0.002 | 70 | 34 | 1.66 | 1.61 |
+| 9 | 0.002…0.023 | 70 | 29 | 2.35 | 1.23 |
+| 10 (rising) | ≥ 0.023 | 70 | 46 | 4.58 | **2.81** |
+
+The **U-shape survives the clip** — dc1 (2.79) and dc10 (2.81) are still the two best deciles, both
+well above the flat middle (dc8/9 ≈ 1.2–1.6). So the tails do hold more *repeatable* winners, not
+just bigger ones. But the threshold cuts reveal the two tails are NOT the same kind of edge:
+
+| cut | n | win | PF raw | **PF clip** |
+|---|---|---|---|---|
+| all | 702 | 35 | 3.52 | 1.92 |
+| vs ≥ 0 | 148 | 36 | 3.21 | 1.89 |
+| vs ≥ 0.01 | 107 | 41 | 4.37 | 2.43 |
+| **vs ≥ 0.025 (rising, F15 dial)** | 65 | **48** | 4.83 | **2.94** |
+| **vs ≤ −0.07 (falling, dc1)** | 83 | **34** | 5.85 | **2.46** |
+
+- **Rising-vol (`vs ≥ 0.025`) has a real per-trade QUALITY lift:** clip PF 2.94 vs the book's 1.92,
+  win rate 35% → **48%**. The clip strips its lottery component and the win-rate improvement is
+  genuine — rising volume into the drive is a real quality signal, not a fat-tail artifact. BUT
+  per-year clip is NOT all-weather: 2022 clip PF **0.82** (14% win) and 2026 **1.20**, and the cell
+  is thin (65 tr; 3–9/yr). So it lifts win rate and clip PF on average but does NOT produce a robust
+  standalone book — a quality TILT, not a filter.
+- **Falling-vol (`vs ≤ −0.07`) is JACKPOTS:** clip PF 2.46 but win rate **34%** = the SAME as the
+  book. Its raw 5.85 was almost all the HOLO/ICCT/PHUN jackpots (top-1 = 17% of gross, F2); under
+  the clip it's just an average-win-rate cell with fatter-than-average tails. No repeatable edge.
+
+**Corrected verdict:** the U-shape is asymmetric under the clip. **Rising-vol (`vs ≥ 0.025`)** carries
+a genuine win-rate lift (35%→48%, clip PF 2.94) but is thin and breaks in 2022/2026 — a quality tilt,
+not an all-weather standalone book. **Falling-vol is a lottery mirage** (clip win rate flat at 34%).
+Keep vol_slope OFF as the DEFAULT (the full 702-tr book is the all-weather base). `--min-vol-slope
+0.025` is a legitimate quality overlay to reach for when a higher win rate matters, but it does not
+survive as a hard filter on its own (thin + 2022/2026 clip < 1.2). This PARTIALLY rehabilitates the
+F15 dial (the win-rate signal is real) while confirming F2's core point (it is not a robust filter).
