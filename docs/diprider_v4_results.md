@@ -991,3 +991,37 @@ AND big losers). Unlike the raw pre-A base (where PF rose monotonically to 15%),
 selection means the extreme tail is over-extended, so there's an OPTIMUM at ~5-7%, not "wider is always better."
 A `stop_dist ≥ 0.05` floor (PF 3.03, keeps 80% of net) is the clean quality cut. Next: dist/ATR (normalize the
 run-height by volatility — like V3's dpa — to see if it's a cleaner lever than the raw distance).
+
+## Finding 18 — dist/ATR does NOT port from VwapReclaimV3 — raw stop-distance is the cleaner lever
+
+Tested the V3 idea: normalize the stop-distance (run-height) by volatility. `dist/ATR = stop_dist_pct /
+log_atr_20` on the A book (n=1831, mean 2.83, median 2.71 — a NARROW band). Unlike V3 (where dpa was the
+clean cut), here dist/ATR is WEAKER and NOISIER than the raw distance.
+
+**dist/ATR deciles wander** (no clean gradient): PF ranges 1.73–3.94 across the middle deciles with no
+monotone trend. **Floor sweep peaks at ≥3-4 then COLLAPSES past 5:**
+
+| dist/ATR floor | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| ≥ 2 | 1432 | 45 | 2.84 | +8.23 | $1.18M |
+| **≥ 3** | 709 | 47 | 3.24 | +9.83 | $697k |
+| ≥ 4 | 241 | 51 | 3.30 | +9.49 | $229k |
+| ≥ 5 | 75 | 40 | **1.78** | +4.23 | $32k |
+
+**Head-to-head — the RAW distance wins:**
+
+| lever | best cut | n | PF | net |
+|---|---|---|---|---|
+| raw stop_dist | ≥ 5% | 1070 | 3.03 | **$1.14M** |
+| dist/ATR | ≥ 3 | 709 | 3.24 | $697k |
+
+dist/ATR ≥ 3 gets marginally higher PF (3.24 vs 3.03) but on 34% fewer trips and **$450k less net**, with a
+choppier shape.
+
+**Why the V3 feature doesn't transfer:** in V3, `run_atr` (per-run vol) and `run_max_dist` (depth) were
+genuinely different scales, so the ratio separated "deep" from "deep-relative-to-vol." In DipRiderV4 the stop
+distance and the 20m-ATR are ALREADY vol-coupled BY CONSTRUCTION — the stop IS the 20m-EMA-low, an ATR-scale
+distance below the EMA — so `stop_dist / atr` is a near-constant ratio (narrow band around 2.7) and dividing
+mostly CANCELS rather than revealing structure. **Verdict: on DipRiderV4 use the raw `stop_dist_pct` floor
+(~5%, F17), NOT dist/ATR.** The V3 dpa lever is specific to the depth-vs-run-vol decoupling that DipRiderV4
+doesn't have.
