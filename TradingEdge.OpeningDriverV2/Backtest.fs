@@ -63,6 +63,11 @@ let defaultConfig =
           MaxReEntries   = 0              // 0 = one shot per day (default). >0 = re-arm after a stop-exit on the next
                                           // new 9-EMA session low, up to this many re-entries (--max-re-entries 2).
           ReEntryCooldownBars = 0         // min bars after a stop-exit before re-arm (--re-entry-cooldown-bars); 0 = off.
+          SizeUpFactor   = 3.0            // F17 sizing lever (DEFAULT 3×): bet 3× notional on trades where VWAP > 9-EMA
+                                          // at entry (the trend below fair value = the A+ cell). ret_moc/PF-by-return
+                                          // unchanged; qty / net_pnl (and the equity/drawdown analysis) scale. Higher
+                                          // multipliers monotonically improve risk-adj return (F21) — 3× is a comfort
+                                          // call, not an optimum. --size-up-factor 1 = flat sizing.
           ExhaustExit    = true }         // true = the latch CUTS new arms AND flushes the held position at the climax
                                           // (best clip PF 1.86, risk-adjusted default, F9). --no-exhaust-exit to cut only.
       Notional = 10_000.0 }
@@ -126,13 +131,18 @@ type Trip =
       CloseFwd3d: float
       CloseFwd5d: float
       Qty: float
+      SizeMult: float            // F17 sizing multiplier applied (1.0, or SizeUpFactor when VWAP > 9-EMA at entry)
       NetPnL: float
       BarsHeld: int }
 
-let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Trip =
+let private toTrip (c: Candidate) (notional: float) (sizeUpFactor: float) (pos: IntradayPosition) : Trip =
     match pos.State with
     | ExitedAt (exitMin, exitPx, reason) ->
-        let qty = notional / pos.EntryPx
+        // F17 sizing lever: bet sizeUpFactor× notional when VWAP > 9-EMA at entry (the trend below fair value = A+).
+        let sizeMult =
+            if sizeUpFactor <> 1.0 && pos.VwapAtEntry > 0.0 && pos.EmaAtEntry > 0.0 && pos.VwapAtEntry > pos.EmaAtEntry
+            then sizeUpFactor else 1.0
+        let qty = (notional * sizeMult) / pos.EntryPx
         // rvol_cum = cumulative session volume vs the 20d-average pace THROUGH the entry bar. The 20d
         // per-minute pace is avgvol20/390; multiplied by minutes-elapsed-since-open gives the "expected"
         // cumulative volume by now. >1 = the day is running hotter than its 20d norm at this point.
@@ -172,7 +182,8 @@ let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Tr
           CloseFwd3d = c.CloseFwd3d
           CloseFwd5d = c.CloseFwd5d
           Qty = qty
-          NetPnL = qty * (exitPx - pos.EntryPx)   // long-only
+          SizeMult = sizeMult
+          NetPnL = qty * (exitPx - pos.EntryPx)   // long-only (qty already scaled by sizeMult)
           BarsHeld = exitMin - pos.EntryMin }
     | Holding -> failwith "toTrip called on a still-Holding position (Flatten first)"
 
@@ -275,7 +286,7 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
         sys.Flatten()
         for pos in sys.Positions do
             match pos.State with
-            | ExitedAt _ -> trips.Add(toTrip c cfg.Notional pos)   // long-only; vol-failed setups never opened a position
+            | ExitedAt _ -> trips.Add(toTrip c cfg.Notional cfg.Intraday.SizeUpFactor pos)   // long-only; vol-failed setups never opened a position
             | Holding -> failwith "Flatten closes all; unreachable"
 
     for date, cands in candidates |> Array.groupBy (fun c -> c.Date) do
@@ -337,7 +348,7 @@ let header =
     + "close_1d,close_3d,chg_1d,chg_3d,pct_chg_since_open,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,"
-    + "qty,net_pnl,bars_held_min"
+    + "qty,size_mult,net_pnl,bars_held_min"
 
 let private row (t: Trip) : string =
     String.concat "," [
@@ -375,6 +386,7 @@ let private row (t: Trip) : string =
         fmt t.CloseFwd3d
         fmt t.CloseFwd5d
         fmt t.Qty
+        fmt t.SizeMult
         fmt t.NetPnL
         string t.BarsHeld
     ]

@@ -120,6 +120,8 @@ type IntradayConfig =
       ReEntryCooldownBars: int   // min bars that must pass AFTER a stop-exit before the day can re-arm (default 0). >0
                                  // prevents same-flush re-fires (a new low prints instantly during the down-move that
                                  // stopped us, stacking 3x correlated entries within 1-3 bars) — forces a genuine reset.
+      SizeUpFactor: float        // position-size multiplier when VWAP > 9-EMA at entry (F17: the trend below fair value
+                                 // = the A+ cell). 1.0 (default) = flat sizing; e.g. 3.0 = 3x notional on those trades.
       ExhaustExit: bool }        // true = when the blow-off latch fires, CLOSE any open position at that bar (an
                                  // exhaustion EXIT). Independent of the arm CUT — the latch always blocks new arms
                                  // when ExhaustBrv20d>0; ExhaustExit additionally flushes the held position.

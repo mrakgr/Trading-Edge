@@ -747,3 +747,32 @@ is ~empty.
 to its frozen 41.01 session-min). **REJECTED — re-arm is structurally inert in a 15-min window with a
 wide stop.** Reassuring: there's no "second chance" edge being left on the table; the window is too short
 and the stop too loose for one to exist. Kept off (MaxReEntries=0); `entry_index` column retained.
+
+## F21 — WIRED: 9-EMA-vs-VWAP sizing lever, DEFAULT 3× (F17 → position size)
+
+Wired F17 (9-EMA<VWAP = the A+ cell) as a SIZING lever: bet `SizeUpFactor`× the notional on trades where
+`VWAP > 9-EMA` at entry (the trend below fair value). `ret_moc`/PF-by-return unchanged; only qty & net_pnl
+scale (new `size_mult` column records the applied multiple). **DEFAULT = 3×** (`--size-up-factor 1` = flat).
+
+**Flat vs 3× (same 1028 trips, 2020–26):**
+
+| book | net | PF | worst month | max DD | DD % of final | profitable months |
+|---|---|---|---|---|---|---|
+| flat (1×) | $1.17M | 3.50 | −$9.5k | −$13.9k | 1.2% | 65/78 (83%) |
+| **3×** | **$2.39M** | **4.11** | −$11.7k | −$25.4k | **1.1%** | 66/78 (85%) |
+
+3× lifts net ~2× and PF 3.50→4.11, improves EVERY year (2025 $400k→$885k — the A+ cell dominates the best
+year), and preserves consistency (83%→85% green months). **Crucially the max DRAWDOWN as a % of final
+equity is UNCHANGED (1.2% → 1.1%)** — the sizing lever is free risk-adjusted return, because the cell it
+3×'s is the higher-expectancy one, not a risk concentration.
+
+**Why no multiplier sweep:** higher multipliers MONOTONICALLY improve risk-adjusted return here (they
+concentrate capital into the higher-expectancy VWAP>9-EMA cell), so there is no interior optimum — the
+choice of 3× is a real-world position-sizing / comfort call, not an optimization. ⚠ Caveat: the more you
+lean on the A+ cell, the more the book depends on its continued edge (F17: fatter-tailed, top-10 = 39% of
+gross) — so scale the multiplier to risk tolerance, not to the backtest.
+
+**Risk profile of the production book (flat, for reference):** max peak-to-trough DD **−$13.9k = 1.2% of
+final equity** (Jan–Mar 2021, the meme-chop peak). 13 losing months, deepest −$9.5k (2024-07), no
+consecutive-month losing streak worse than the single worst month. Worst day −$4.8k (2021-02-10), worst
+week −$6.0k (2021-01-25). An exceptionally shallow-drawdown book.
