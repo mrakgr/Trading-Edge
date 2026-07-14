@@ -776,3 +776,41 @@ gross) — so scale the multiplier to risk tolerance, not to the backtest.
 final equity** (Jan–Mar 2021, the meme-chop peak). 13 losing months, deepest −$9.5k (2024-07), no
 consecutive-month losing streak worse than the single worst month. Worst day −$4.8k (2021-02-10), worst
 week −$6.0k (2021-01-25). An exceptionally shallow-drawdown book.
+
+## F22 — BREADTH breakdown: this system is market-AGNOSTIC (breadth is not a useful lever)
+
+Joined the canonical market breadth (`data/equity/momentum_v0/breadth.parquet`, `pct_above_20` = fraction
+of ~4000 stocks above their 20d MA), lagged 1 day (`b_lag1`, no-lookahead), onto the 3× production book
+(99% coverage). Question: does this opening-drive system prefer a hot or quiet tape?
+
+| breadth b_lag1 | n | avg% | win | PF raw | PF clip | net_k |
+|---|---|---|---|---|---|---|
+| < 0.30 (weak tape) | 103 | 9.2 | 47 | 3.25 | 2.42 | 189 |
+| 0.30–0.45 | 220 | 15.6 | 42 | 4.38 | 2.08 | 687 |
+| 0.45–0.55 (neutral) | 193 | 9.7 | 38 | 3.01 | 1.75 | 346 |
+| 0.55–0.70 | 279 | 12.5 | 44 | 3.76 | 2.20 | 838 |
+| ≥ 0.70 (strong tape) | 227 | 8.4 | 41 | 2.82 | 1.83 | 318 |
+
+Aggregate LOOKS like a mild low-breadth tilt (coarse: <0.5 clip 2.10 / avg 13.1% vs ≥0.5 clip 1.97 /
+10.3%), with the weakest-tape cell best (clip 2.42) and the strongest-tape decile worst (dc10 ≥0.78 clip
+1.54) — plausible mechanism: a +20% drive on a WEAK tape is a genuine idiosyncratic mover, on a euphoric
+tape it's more likely froth that fades.
+
+**But per-year it does NOT hold — the direction flips regime to regime:**
+
+| yr | weak (<0.5) clip | strong (≥0.5) clip |
+|---|---|---|
+| 2020 | 1.91 | **2.10** |
+| 2021 | 1.29 | **1.46** |
+| 2022 | **2.27** | 1.55 |
+| 2023 | 1.25 | **2.50** |
+| 2024 | **3.04** | 1.66 |
+| 2025 | **3.56** | 3.08 |
+| 2026 | 1.26 | **1.63** |
+
+Weak-tape wins 4 of 7, strong the other 3, with no pattern; the aggregate edge is entirely carried by
+2024–25. BOTH are all-weather positive (weak floor 1.25, strong 1.46). **VERDICT: breadth is essentially
+NEUTRAL here — not a useful lever.** Mechanistically the day-strength gate (chg_1d≥20%) already selects
+for stocks moving on their OWN catalyst regardless of the broad tape, so this book is largely
+market-agnostic — unlike breakout/beta systems that live or die on breadth. The day-strength selection
+has already "priced in" what breadth would tell us. (Where this one lands: the market-agnostic end.)
