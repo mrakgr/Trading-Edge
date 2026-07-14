@@ -955,3 +955,39 @@ is BIGGER (avg win +25% → +35%). These are multi-hour holds with double-digit-
 so the per-trade edge is 2–3 orders of magnitude larger than transaction costs. Caveat: `ret_moc` is
 close-fill (no modeled entry/exit slippage); for liquid in-play names on 1m bars that's a few bp — immaterial
 against these margins.
+
+## Finding 17 — Stop distance: larger stops help (PF peaks ~7%, rolls over past ~10%)
+
+The EMA-triggered stop sits at the 20m-min-of-9-EMA, frozen at entry; `stop_dist_pct = (entry − stop)/entry`
+is how far the current 9-EMA ran ABOVE its own 20m low at entry (a run-HEIGHT — the long-side mirror of
+VwapReclaimV3's run-DEPTH `run_max_dist`). Broken down on the **A book** (2020+, n=1860, PF 2.77, mean
+stop-dist 6.4%). Larger stops help significantly, but on the A book there's an OPTIMUM (not monotone-to-∞).
+
+**Deciles** — bottom decile (tight, ≤ 2.7%) weakest; top three (≥ 7%) strongest:
+
+| stopdist decile | range % | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|---|
+| 1 | ≤ 2.70 | 186 | 24 | 1.44 | +1.12 | $21k |
+| 5 | 4.8–5.5 | 186 | 45 | 3.86 | +9.21 | $171k |
+| 8 | 7.2–8.5 | 186 | 42 | 3.54 | +12.88 | $240k |
+| 9 | 8.5–11.6 | 186 | 41 | 2.93 | +13.05 | $243k |
+| 10 | ≥ 11.6 | 186 | 48 | 3.31 | +18.32 | $341k |
+
+Decile 10 alone = 24% of book net. **Floor sweep — PF peaks at ~7%, then ROLLS OVER:**
+
+| stopdist floor | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| (all) | 1831 | 41 | 2.77 | +7.77 | $1.42M |
+| ≥ 3% | 1608 | 44 | 2.88 | +8.62 | $1.39M |
+| ≥ 5% | 1070 | 44 | 3.03 | +10.63 | $1.14M |
+| **≥ 7%** | 574 | 44 | **3.18** | +14.30 | $821k |
+| ≥ 10% | 278 | 46 | 3.04 | +15.75 | $438k |
+| ≥ 15% | 91 | 45 | 2.88 | +17.39 | $158k |
+
+**Read:** stop distance measures how far the setup ran above its 20m-EMA-low before entry. Tight (≤ ~3%) =
+weak/choppy setup barely off its floor (decile 1 PF 1.44). Moderate-wide (~5-7%) = a strong established move
+(PF 3.0-3.2). But TOO wide (≥ 15%) = over-extended blow-off that mean-reverts (PF back to 2.88, big winners
+AND big losers). Unlike the raw pre-A base (where PF rose monotonically to 15%), the A book's breakout-quality
+selection means the extreme tail is over-extended, so there's an OPTIMUM at ~5-7%, not "wider is always better."
+A `stop_dist ≥ 0.05` floor (PF 3.03, keeps 80% of net) is the clean quality cut. Next: dist/ATR (normalize the
+run-height by volatility — like V3's dpa — to see if it's a cleaner lever than the raw distance).
