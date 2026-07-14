@@ -823,3 +823,28 @@ NEUTRAL here — not a useful lever.** Mechanistically the day-strength gate (ch
 for stocks moving on their OWN catalyst regardless of the broad tape, so this book is largely
 market-agnostic — unlike breakout/beta systems that live or die on breadth. The day-strength selection
 has already "priced in" what breadth would tell us. (Where this one lands: the market-agnostic end.)
+
+## F23 — stop-buffer sweep (0.1%–0.5%): a NO-OP here (unlike VwapReclaimV3) — leave at 0
+
+Tested (user): does a tiny stop buffer help, as it did on VwapReclaimV3 (which liked ~0.002)? Added a
+`StopBuffer` config — the 9-EMA stop fires only when `live 9-EMA < stopLevel·(1−buffer)` (require the EMA
+`buffer` below the frozen sess-ema-low before stopping, filtering marginal touches). Default 0 (exact touch).
+Swept 0.1%→0.5% on the 3× production book:
+
+| stop buffer | n | avg% | win | PF raw | PF clip | net_k | stop% |
+|---|---|---|---|---|---|---|---|
+| 0.0 (baseline) | 1028 | 11.4 | 42 | 3.50 | 2.03 | 2389 | 47 |
+| 0.1% | 1028 | 11.4 | 42 | 3.49 | 2.03 | 2388 | 46 |
+| 0.2% | 1028 | 11.4 | 43 | 3.47 | 2.02 | 2385 | 46 |
+| 0.3% | 1028 | 11.4 | 43 | 3.48 | 2.03 | 2386 | 45 |
+| 0.4% | 1028 | 11.5 | 43 | 3.48 | 2.03 | 2390 | 45 |
+| 0.5% | 1028 | 11.4 | 43 | 3.45 | 2.01 | 2380 | 44 |
+
+**FLAT — everything is within noise** (net ±$10k on $2.39M, clip PF 2.01–2.03). The buffer marginally cuts
+stop-outs (47→44%) and nudges win +1pt, but makes no meaningful PF/net difference.
+
+**Why it doesn't port from VwapReclaimV3:** different stop geometry. V3's stop was the 9-EMA vs its own
+recent RUN-MIN — a TIGHT stop where the EMA hovers right at the trigger, so tick-noise causes marginal
+false stops a ~0.2% buffer filters. OpeningDriverV2's stop is the 9-EMA vs the FROZEN sess-ema-low — a
+WIDE, distant stop (~1.8% avg room); when the live EMA finally falls that far it's a DECISIVE break, not a
+marginal touch, so there's no noise-band for the buffer to filter. **Leave StopBuffer at 0 (default).**

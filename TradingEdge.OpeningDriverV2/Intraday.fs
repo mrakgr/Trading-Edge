@@ -122,6 +122,9 @@ type IntradayConfig =
                                  // stopped us, stacking 3x correlated entries within 1-3 bars) — forces a genuine reset.
       SizeUpFactor: float        // position-size multiplier when VWAP > 9-EMA at entry (F17: the trend below fair value
                                  // = the A+ cell). 1.0 (default) = flat sizing; e.g. 3.0 = 3x notional on those trades.
+      StopBuffer: float          // widen the stop trigger: fire when the live 9-EMA < stopLevel·(1−this), i.e. require
+                                 // the EMA to drop `this` fraction BELOW the stop level before stopping (filters marginal
+                                 // touches / tick-noise). 0 (default) = exact touch. (VwapReclaimV3 liked ~0.002.)
       ExhaustExit: bool }        // true = when the blow-off latch fires, CLOSE any open position at that bar (an
                                  // exhaustion EXIT). Independent of the arm CUT — the latch always blocks new arms
                                  // when ExhaustBrv20d>0; ExhaustExit additionally flushes the held position.
@@ -256,7 +259,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                 | BelowSessEmaLow -> ValueSome pos.StopLevel
             let stopHit =
                 match ema.State, stopLevel with
-                | ValueSome e, ValueSome lvl -> e < lvl
+                | ValueSome e, ValueSome lvl -> e < lvl * (1.0 - cfg.StopBuffer)   // buffer widens the trigger (0 = exact touch)
                 | _ -> false
             if stopHit then
                 { pos with State = ExitedAt (bar.etMin, bar.close, "stop") }

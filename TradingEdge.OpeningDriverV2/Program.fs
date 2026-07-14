@@ -43,6 +43,7 @@ type Args =
     | Max_Re_Entries of int
     | Re_Entry_Cooldown_Bars of int
     | Size_Up_Factor of float
+    | Stop_Buffer of float
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -73,6 +74,7 @@ type Args =
             | No_Exhaust_Exit -> "Disable the default exhaustion EXIT: the blow-off latch only CUTS new arms and does NOT flush the held position. (By default the latch both cuts and flushes — the risk-adjusted F9 default.)"
             | Max_Re_Entries _ -> "Re-entries per day (default 0 = one shot). After a STOP exit, re-arm on the next NEW 9-EMA session low, up to this many extra entries (e.g. 2 = up to 3 total). The 3% stop-dist gate keeps re-entries out until there's room; an exhaustion flush ends the day. entry_index column records 0=first, 1/2=re-entries."
             | Re_Entry_Cooldown_Bars _ -> "Min bars that must pass AFTER a stop-exit before the day can re-arm (default 0). Prevents same-flush re-fires (a new low prints instantly in the down-move that stopped us, stacking correlated entries within 1-3 bars). E.g. 5 = wait >=5 min for a genuine reset."
+            | Stop_Buffer _ -> "Widen the 9-EMA stop trigger (default 0 = exact touch): fire only when the live 9-EMA drops below stopLevel·(1−this), filtering marginal touches / tick-noise. E.g. 0.001 = require the EMA 0.1% below the stop level. (VwapReclaimV3 preferred ~0.002.)"
             | Size_Up_Factor _ -> "F17 sizing lever (default 1.0 = flat): bet this multiple of the notional on trades where VWAP > 9-EMA at entry (the trend below fair value = the A+ cell). E.g. 3.0 = 3× size on those. ret_moc/PF-by-return unchanged; qty & net_pnl scale (the size_mult column records the applied multiple)."
             | Limit_Entry -> "PATIENT entry: when a bar's gates pass but its close is above the 9-EMA, rest a limit at that bar's 9-EMA good for the next bar only (fill at the 9-EMA if the next bar's low touches it). If the close is already <= the 9-EMA, fill at the close. Unfilled -> re-test the gates next bar (stays armed). Default off (market entry at the arm-bar close)."
 
@@ -122,7 +124,8 @@ let main argv =
                   LimitEntry       = dic.LimitEntry || parsed.Contains Limit_Entry
                   MaxReEntries     = parsed.GetResult(Max_Re_Entries, defaultValue = dic.MaxReEntries)
                   ReEntryCooldownBars = parsed.GetResult(Re_Entry_Cooldown_Bars, defaultValue = dic.ReEntryCooldownBars)
-                  SizeUpFactor     = parsed.GetResult(Size_Up_Factor, defaultValue = dic.SizeUpFactor) } }
+                  SizeUpFactor     = parsed.GetResult(Size_Up_Factor, defaultValue = dic.SizeUpFactor)
+                  StopBuffer       = parsed.GetResult(Stop_Buffer, defaultValue = dic.StopBuffer) } }
 
     let ic = cfg.Intraday
     let hhmm m = sprintf "%02d:%02d" (m / 60) (m % 60)

@@ -68,6 +68,8 @@ let defaultConfig =
                                           // unchanged; qty / net_pnl (and the equity/drawdown analysis) scale. Higher
                                           // multipliers monotonically improve risk-adj return (F21) — 3× is a comfort
                                           // call, not an optimum. --size-up-factor 1 = flat sizing.
+          StopBuffer     = 0.0            // 0 = stop on exact 9-EMA touch of the stop level (default). --stop-buffer
+                                          // 0.001 widens the trigger to 9-EMA < stopLevel·(1−0.001) (tick-noise guard).
           ExhaustExit    = true }         // true = the latch CUTS new arms AND flushes the held position at the climax
                                           // (best clip PF 1.86, risk-adjusted default, F9). --no-exhaust-exit to cut only.
       Notional = 10_000.0 }
