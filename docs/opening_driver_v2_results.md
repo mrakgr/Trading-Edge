@@ -224,3 +224,50 @@ Monotone-up is weak/mediocre EVERY year (clip ≤ 1.69, losing in 2023). Down-ti
 kept failing, 34% win) but both are soft there. **Verdict: the `bl<15` freshness cut (F23/V1) already
 encodes half of this — it drops the extended pile — but F5 sharpens WHY: monotone-up = exhausted. Enter
 on the pullback, never on the stock that's been green every tick.**
+
+## F6 — `bh ≥ 1` only vs the V2 default (`bl < 15 & bh ≥ 1`): quantity+robustness vs quality/trade
+
+Head-to-head on the early [09:45, 10:00) window: the V2 default's timing gate is `bl<15 & bh≥1`;
+this drops the `bl<15` freshness gate and keeps only the pullback requirement (`--bl-max 0`).
+
+| system | n | avg% | win | PF raw | PF clip | net_k |
+|---|---|---|---|---|---|---|
+| V2 default (bl<15 & bh≥1) | 497 | 14.5 | 37 | 4.16 | 2.17 | 719 |
+| **bh ≥ 1 only** | 1088 | 10.6 | 41 | 3.22 | 1.87 | 1154 |
+
+**Per-year (clip PF / net_k):**
+
+| yr | default clip | default net | bh-only clip | bh-only net |
+|---|---|---|---|---|
+| 2020 | 2.28 | 91 | 2.04 | 111 |
+| 2021 | 1.44 | 65 | 1.17 | 85 |
+| 2022 | 2.00 | 23 | 2.03 | 98 |
+| 2023 | 2.10 | 41 | 1.84 | 69 |
+| 2024 | 2.44 | 193 | 2.16 | 289 |
+| 2025 | 3.91 | 284 | 2.78 | 383 |
+| 2026 | **0.98** | 23 | **1.57** | 119 |
+
+**Neither strictly dominates — a real quantity+robustness vs quality/trade trade-off:**
+- **bh≥1 only wins net + robustness:** $1,154k vs $719k (+60% on 2.2× trips), higher win rate
+  (41 vs 37), and it is clip-positive EVERY year — floor **1.17 (2021)**, and 2026 clip **1.57**
+  vs the default's near-breakeven **0.98**. The default's edge is concentrated in 2024–25.
+- **V2 default wins quality/trade:** clip PF 2.17 vs 1.87, avg +14.5% vs +10.6%, net/trip $1,447 vs
+  $1,061. The `bl<15` gate concentrates into fewer, better drives (F5: it drops the exhausted
+  monotone-up pile).
+
+**Concentration check (both are diversified — the default's quality edge is NOT jackpots):**
+
+| system | top-1 | top-3 | top-10 % of gross | clip PF drop-top-10 |
+|---|---|---|---|---|
+| default | 5% | 13% | 29% | 2.17 → 1.95 |
+| bh≥1 only | 4% | 9% | 20% | 1.87 → 1.77 |
+
+Neither is lottery-driven (cf. F2's 17–38% tail cells). The default's clip 2.17 is a real per-trade
+edge (survives dropping the top-10), just slightly more concentrated (fewer trips → each winner
+weighs more).
+
+**Verdict:** by the F2 principle (prefer the diversified, all-weather book), **`bh≥1`-only has the
+stronger case for the production default** — more net, higher win rate, clip-positive every year
+(incl. the soft 2026), maximally diversified. The `bl<15` gate buys genuine quality-per-trade (clip
+2.17, +14.5%/tr) with no jackpot risk, but costs $435k of net and a fragile 2026 — keep it as an
+optional SELECTIVITY dial, not the default.
