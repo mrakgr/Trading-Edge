@@ -37,7 +37,7 @@ type Args =
     // ----- the blow-off exhaustion kill-switch -----
     | Exhaust_Brv20d of float
     | Exhaust_Min_Atr_Pct of float
-    | Exhaust_Exit
+    | No_Exhaust_Exit
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -64,7 +64,7 @@ type Args =
             | Vol_Slope_As_Gate -> "Treat vol_slope as a GATE (keep scanning past failures) instead of the default SKIP filter (first arm bar disarms the day; no position if vol_slope fails there)."
             | Exhaust_Brv20d _ -> "Blow-off kill-switch (default 0 = off): once a bar prints a new session high with brv20d >= this (1m bar volume / (avgvol20·adj/390), the per-minute 20d ADV — 100 = the MaxFlyerV3 short-arm value) AND ATR% >= --exhaust-min-atr-pct, the day is latched exhausted and no arm fires."
             | Exhaust_Min_Atr_Pct _ -> "ATR% floor the climax bar must meet for the exhaustion latch (default 0.03; only used when --exhaust-brv20d > 0)."
-            | Exhaust_Exit -> "When the blow-off latch fires, also CLOSE any open position at that bar (an exhaustion EXIT), not just cut new arms. Needs --exhaust-brv20d > 0."
+            | No_Exhaust_Exit -> "Disable the default exhaustion EXIT: the blow-off latch only CUTS new arms and does NOT flush the held position. (By default the latch both cuts and flushes — the risk-adjusted F9 default.)"
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -107,7 +107,7 @@ let main argv =
                   VolSlopeAsGate  = parsed.Contains Vol_Slope_As_Gate
                   ExhaustBrv20d    = parsed.GetResult(Exhaust_Brv20d,      defaultValue = dic.ExhaustBrv20d)
                   ExhaustMinAtrPct = parsed.GetResult(Exhaust_Min_Atr_Pct, defaultValue = dic.ExhaustMinAtrPct)
-                  ExhaustExit      = parsed.Contains Exhaust_Exit } }
+                  ExhaustExit      = dic.ExhaustExit && not (parsed.Contains No_Exhaust_Exit) } }
 
     let ic = cfg.Intraday
     let hhmm m = sprintf "%02d:%02d" (m / 60) (m % 60)

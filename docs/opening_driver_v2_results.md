@@ -379,3 +379,23 @@ just capped winners (fat-tail-hidden). This is the momentum family's recurring l
 day has climaxed (cut brv20d≥100 = clip 1.79, near-free, all-weather); do NOT sell into the climax
 (the drive isn't done). Default `ExhaustBrv20d=0` (opt-in); the recommended engaged value is 100 as a
 CUT with `ExhaustExit=false`.
+
+## F10 — DEFAULT CHANGE: exhaustion cut+exit at brv20d≥100 is now ON by default
+
+Decision (user): make **`cut+exit 100` the default** — it is the SAME bar the short book (MaxFlyerV3)
+goes short on (brv20d≥100 new-high climax), so the long flushes there too; and it has the best clip PF
+(risk-adjusted). Config defaults changed: `ExhaustBrv20d = 100.0`, `ExhaustExit = true` (was 0 / false).
+`--no-exhaust-exit` reverts to cut-only; `--exhaust-brv20d 0` disables entirely.
+
+**No-arg production default (full window [09:45,10:30] + bl<15 & bh≥1 + cut+exit 100), before vs after:**
+
+| default | n | avg% | win | PF raw | PF clip | net_k |
+|---|---|---|---|---|---|---|
+| pre-exhaustion (F1) | 702 | 11.5 | 35 | 3.52 | 1.92 | 810 |
+| **NEW (cut+exit 100)** | 648 | 10.9 | 37 | **3.52** | **2.12** | 704 |
+
+clip PF 1.92 → **2.12** (+10%), win 35 → 37, raw PF unchanged (3.52 — the fat tail is preserved here),
+for −$106k net (54 days cut + 33 flushed). Per-year all-weather, firmer: 2020 2.28 · 2021 1.42 · 2022
+2.24 · 2023 2.76 · 2024 1.87 · 2025 3.65 · 2026 1.27. The exit's net cost (F9) is smaller on the full
+bl<15&bh≥1 default (only 33 flushes) than on the day-strength book (56), because the tighter timing
+gates already exclude many of the days that would blow off. Accepted as the risk-adjusted default.
