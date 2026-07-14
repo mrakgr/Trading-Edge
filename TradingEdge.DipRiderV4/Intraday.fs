@@ -140,6 +140,13 @@ type IntradayConfig =
         DisablePriceSlope: bool  // true = drop the price-slope>0 gate (BreakoutTimer didn't use it). Default false.
         DisableSum6: bool        // true = drop the sum6 gate regardless of MinCloseAbove6 (BreakoutTimer didn't
                                  // use it). Default false.
+        // ----- stop-distance floor (F17: larger stops help; require the entry ran >= this fraction above its
+        // own 20m-EMA-low, i.e. the frozen stop sits >= MinStopDistPct below entry). 0 = OFF. -----
+        MinStopDistPct: float    // require (entry - stop)/entry >= this. Default 0 (OFF); F17 knee ~0.03.
+        StopDistAsGate: bool     // true = GATE: AND the floor into the trigger — a too-tight setup does NOT
+                                 // fire and does NOT disarm (it waits, re-firing when the distance widens).
+                                 // false = SKIP: the setup fires and DISARMS (consumes the arm) but opens NO
+                                 // position — passes on the trade entirely. Mirrors the vol gate-vs-skip axis.
       }
 
 type State = 
@@ -451,32 +458,43 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         // A setup fires when the PRICE pattern clears. In SKIP mode (VolAsGate=false) the volume check does
         // NOT block the trigger (it only decides real-vs-skip); in GATE mode it is ANDed in, so a vol-fail
         // neither opens nor disarms.
+        // STOP = the CURRENT 20m-min-of-EMA (this-bar-inclusive), and the stop DISTANCE below the entry close.
+        // Computed up-front because the stop-distance floor (F17) can gate the trigger (GATE mode).
+        let stop =
+            match emaLow.State with
+            | ValueSome m when m > 0.0 -> m
+            | _ -> Double.NegativeInfinity
+        let stopDistPct = if bar.close > 0.0 && stop > Double.NegativeInfinity then (bar.close - stop) / bar.close else nan
+        // stop-distance floor: does the entry sit >= MinStopDistPct above its 20m-EMA-low? 0 = always passes.
+        let stopDistOk = cfg.MinStopDistPct <= 0.0 || (not (Double.IsNaN stopDistPct) && stopDistPct >= cfg.MinStopDistPct)
         let volOk = this.VolumePasses
-        let triggerFires = this.PricePatternFires bar && (not cfg.VolAsGate || volOk)
+        // GATE mode for the stop-distance floor: AND it into the trigger, so a too-tight setup does NOT fire
+        // (and does NOT disarm — it waits, re-firing when the distance widens). SKIP mode leaves the trigger
+        // alone and applies the floor at the fill point (disarm + open no position). Same axis as VolAsGate.
+        let triggerFires =
+            this.PricePatternFires bar
+            && (not cfg.VolAsGate || volOk)
+            && (not cfg.StopDistAsGate || stopDistOk)
         let mutable disarmedThisBar = false
         // A free concurrency slot is required to consume a setup. Under mc=1 this blocks a new trigger while a
         // position is still Holding — the V3Backside slot-lifetime discipline (the slot IS the arm gate).
         if armed && triggerFires && this.HasSlot then
-            // STOP = the CURRENT 20m-min-of-EMA (this-bar-inclusive). The EMA-stop fires when the live
-            // 9-EMA later drops below this level. REQUIRE room: the stop must be finite AND strictly below
-            // the current 9-EMA (else the position is born stopped-out / the stop is meaningless). No room
-            // ⇒ SKIP the trade but STILL disarm (consume the setup until the re-arm level is breached).
-            let stop =
-                match emaLow.State with
-                | ValueSome m when m > 0.0 -> m
-                | _ -> Double.NegativeInfinity
+            // REQUIRE room: the stop must be finite AND strictly below the current 9-EMA (else the position is
+            // born stopped-out / the stop is meaningless). No room ⇒ SKIP the trade but STILL disarm (consume
+            // the setup until the re-arm level is breached).
             let hasRoom =
                 stop > Double.NegativeInfinity
                 && (match ema.State with ValueSome e -> stop < e | ValueNone -> false)
-            // Open a REAL position when there is room AND volume passes. In GATE mode volOk is already true
-            // (it's part of triggerFires); in SKIP mode a vol-fail here just skips the trade.
-            if hasRoom && volOk then
+            // Open a REAL position when there is room, volume passes, AND (SKIP mode) the stop-distance floor
+            // clears. In GATE mode stopDistOk is already part of triggerFires (so it's true here); in SKIP mode
+            // a floor-fail here skips the trade but the disarm below still consumes the setup.
+            if hasRoom && volOk && (cfg.StopDistAsGate || stopDistOk) then
                 let vv (v: float voption) = match v with ValueSome x -> x | ValueNone -> nan
                 positions.Add
                     { EntryMin = bar.etMin
                       EntryPx = bar.close
                       StopLevel = stop
-                      StopDistPct = (if bar.close > 0.0 then (bar.close - stop) / bar.close else nan)
+                      StopDistPct = stopDistPct
                       PriceSlope20 = vv priceOls.Slope
                       LogAtr20 = vv atrLog.State
                       Tightness20 = (match this.Tightness with ValueSome t -> t | ValueNone -> nan)

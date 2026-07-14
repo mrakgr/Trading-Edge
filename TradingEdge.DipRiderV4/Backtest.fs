@@ -78,7 +78,12 @@ let defaultConfig =
           BreakoutVc60m = 1.0 / 3.0      // 60m-high branch: vol_climb >= 1/3.
           BreakoutVc20m = 0.5            // 20m-high branch: vol_climb >= 1/2 (loosest structure, highest vol bar).
           DisablePriceSlope = true       // A-book: the breakout STRUCTURE subsumes price-slope (DEAD WEIGHT).
-          DisableSum6 = true }           // A-book: the breakout STRUCTURE subsumes sum6 (DEAD WEIGHT).
+          DisableSum6 = true             // A-book: the breakout STRUCTURE subsumes sum6 (DEAD WEIGHT).
+          MinStopDistPct = 0.03          // ⭐ F17/F20: require the entry >= 3% above its 20m-EMA-low (larger stops
+                                         // = stronger established moves; sub-3% = weak/choppy). SKIP mode: A book
+                                         // 1860→1608 tr, PF 2.77→2.88, net $1.43M→$1.39M (97% kept). 0 = off.
+          StopDistAsGate = false }       // SKIP (fire + disarm, open no position) — GATE tested (F20), no clear
+                                         // win (+$26k net at LOWER PF 2.82 vs 2.88), so SKIP. --stop-dist-as-gate = GATE.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the

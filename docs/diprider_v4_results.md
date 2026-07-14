@@ -1056,3 +1056,30 @@ dpa < 3 lifted PF 3.25 → 4.33). Deciles confirm: the HIGH-dpa deciles (8/9/10)
 middle is muddy.) **Final verdict: dist/ATR is not a useful lever on DipRiderV4 in EITHER direction — floor
 (F18) or ceiling (F19). Use the raw `stop_dist_pct` floor (~5%, F17).** The V3 dpa ceiling is specific to
 mean-reversion; a momentum-continuation book wants exactly the high-relative-to-vol thrust that MR avoids.
+
+## Finding 20 — stop-distance floor built in: 3% SKIP is the default; GATE gives no clear win
+
+Built the stop-distance floor (F17) into the engine with both modes (`--min-stop-dist-pct`, `--stop-dist-as-gate`):
+- **SKIP** (default): a too-tight setup FIRES and DISARMS (consumes the arm) but opens NO position — passes on
+  the trade. Byte-equivalent to the post-hoc `stop_dist ≥ floor` filter (verified: SKIP@3% = 1608 tr / PF
+  2.876 / $1.39M, identical to the post-hoc slice).
+- **GATE**: a too-tight setup does NOT fire and does NOT disarm — it stays armed and RE-FIRES on a later bar
+  once the distance widens (the move ran further above its EMA-low).
+
+**The three books at a 3% floor (2020+):**
+
+| mode | trips | PF | net |
+|---|---|---|---|
+| A book (no floor) | 1860 | 2.77 | $1.43M |
+| **SKIP @ 3% (DEFAULT)** | 1608 | **2.88** | $1.39M |
+| GATE @ 3% | 1709 | 2.82 | $1.41M |
+
+GATE recovers ~101 of the trips SKIP kills (the delayed-then-matured setups), for +$26k net over SKIP — but
+at LOWER PF (2.82 vs 2.88). Yearly: both all-weather, differences within noise (SKIP wins PF most years, GATE
+ties/wins net in the middle years; both ≈ A in 2021). Unlike the vol_climb gate≠skip case (which mattered a
+lot in V3Backside), here the two CONVERGE — the stop-distance floor removes so few, such low-value trips that
+delaying vs dropping them barely differs.
+
+**Verdict: SKIP @ 3% is the default.** GATE gives no clear win (marginal net at lower PF); SKIP is the
+higher-quality, simpler book (it IS the post-hoc filter). The 3% floor lifts the A book PF 2.77 → 2.88 at 97%
+of net — a clean cheap quality cut. New default A book: **1608 tr / PF 2.876 / $1.39M / win 44%.**

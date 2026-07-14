@@ -43,6 +43,9 @@ type Args =
     | Breakout_Vc_20m of float
     | No_Price_Slope
     | No_Sum6
+    // ----- stop-distance floor -----
+    | Min_Stop_Dist_Pct of float
+    | Stop_Dist_As_Gate
     // ----- arm/re-arm state machine -----
     | Re_Arm of string
     | Max_Concurrent of int
@@ -80,6 +83,8 @@ type Args =
             | Breakout_Vc_20m _ -> "OR-mode (F14): the 20m-high branch also requires vol_climb >= this. Default 0."
             | No_Price_Slope -> "Drop the price-slope>0 gate (BreakoutTimer didn't use it)."
             | No_Sum6 -> "Drop the sum6 gate (BreakoutTimer didn't use it)."
+            | Min_Stop_Dist_Pct _ -> "STOP-DISTANCE FLOOR (F17): require the entry to sit >= this fraction above its 20m-EMA-low (the frozen stop is >= this below entry). 0 = OFF (default). Knee ~0.03: larger stops = stronger established moves."
+            | Stop_Dist_As_Gate -> "Apply the stop-distance floor as a GATE (a too-tight setup does NOT fire and does NOT disarm — it waits for the distance to widen). Default OFF = SKIP (the setup fires + disarms but opens no position — passes on the trade)."
             | Re_Arm _ -> "RE-ARM reference level: rolling-ema-low (default) | session-ema-low | stop-level. The live 9-EMA must drop below this to re-arm a consumed setup."
             | Max_Concurrent _ -> "Cap on concurrently-OPEN positions. 0 = unlimited (default; the pure arm/re-arm book). 1 = block entry+re-arm while a position is Holding (V3Backside slot-lifetime discipline)."
             | Vol_As_Gate -> "GATE mode: AND vol_climb into the price trigger (a vol-fail neither opens NOR disarms). Default OFF = SKIP mode (vol decides real-vs-skip; a vol-fail still disarms)."
@@ -134,7 +139,9 @@ let main argv =
                   BreakoutVc60m = parsed.GetResult(Breakout_Vc_60m, defaultValue = defaultConfig.Intraday.BreakoutVc60m)
                   BreakoutVc20m = parsed.GetResult(Breakout_Vc_20m, defaultValue = defaultConfig.Intraday.BreakoutVc20m)
                   DisablePriceSlope = defaultConfig.Intraday.DisablePriceSlope || parsed.Contains No_Price_Slope
-                  DisableSum6     = defaultConfig.Intraday.DisableSum6 || parsed.Contains No_Sum6 } }
+                  DisableSum6     = defaultConfig.Intraday.DisableSum6 || parsed.Contains No_Sum6
+                  MinStopDistPct  = parsed.GetResult(Min_Stop_Dist_Pct, defaultValue = defaultConfig.Intraday.MinStopDistPct)
+                  StopDistAsGate  = defaultConfig.Intraday.StopDistAsGate || parsed.Contains Stop_Dist_As_Gate } }
 
     let ic = cfg.Intraday
     let hhmm m = sprintf "%02d:%02d" (m / 60) (m % 60)
@@ -176,6 +183,9 @@ let main argv =
     printfn "  re-arm      = live 9-EMA drops below the %s   max-concurrent %s"
         reArmDesc (if ic.MaxConcurrent <= 0 then "unlimited" else string ic.MaxConcurrent)
     printfn "  stop        = ema: CURRENT 20m-min-9EMA (this-bar-inclusive), triggered by the live 9-EMA below it"
+    if ic.MinStopDistPct > 0.0 then
+        printfn "  stop-dist   = require entry >= %.1f%% above the 20m-EMA-low   (%s)"
+            (100.0 * ic.MinStopDistPct) (if ic.StopDistAsGate then "GATE: too-tight waits, re-fires" else "SKIP: disarm, no position")
     printfn "  exits       = stop + hold-to-MOC"
 
     let sw = Stopwatch.StartNew()
