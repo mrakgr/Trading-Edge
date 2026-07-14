@@ -25,18 +25,20 @@ type Config =
     { Intraday: IntradayConfig
       Notional: float }
 
-/// DipRiderV3 default: pure trailing-window momentum, long-only, hold-to-MOC.
-/// Two-anchor timing (session extremes from 08:30, all other features from
-/// 09:30), morning window 10:00-13:30, one concurrent position, geometry stop
-/// off the 20m-window low. Only the three core gates are ON at the baseline
-/// (vol-slope >= 0.05, price-slope > 0, tightness >= 3); the tunable/cap gates
-/// (SumAbove6, slope/ATR, session-max-log-ATR, the long-window caps) start OFF
-/// and are enabled after a breakdown.
+/// DipRiderV4 default = THE A BOOK (the settled high-capacity production book).
+/// Long-only, hold-to-MOC or the EMA-triggered stop, morning window 10:00-13:30,
+/// two-anchor timing (session extremes from 08:30, features from 09:30). The A book:
+/// the three EMA-high breakout timers ON (bars<10), OR-combined with DIFFERENTIATED
+/// per-window vol_climb floors (session@0 ∥ 60m@⅓ ∥ 20m@½), vol-as-gate; price-slope
+/// and sum6 DISABLED (the breakout structure subsumes them). The surviving momentum
+/// gates: log-ATR ≥ 0.013, chg1d ≥ +10%, chg3d ≥ 0, ema-vs-vwap ≥ −2%, exhaustion
+/// cut rvol5m < 100. → 1860 trips (2020+) / PF 2.77 / clip 1.86 / $1.43M, all-weather.
+/// Tighten to A+/A++ by raising the per-window vc floors (--breakout-vc-*).
 let defaultConfig =
     { Intraday =
         { ReArm = RollingEmaLow         // re-arm reference: RollingEmaLow | SessionEmaLow | LastStopLevel.
           MaxConcurrent = 0             // 0 = unlimited (the pure arm/re-arm book). 1 = V3Backside slot-lifetime.
-          VolAsGate = false             // false = SKIP mode (vol decides real-vs-skip); true = GATE mode (vol ANDed in).
+          VolAsGate = true              // GATE mode (vol ANDed into the trigger) — the A-book default.
           VolWindow = 20
           EmaPeriod = 9                  // the 9-EMA (closes-above-EMA reference)
           SessionStartMin = 8 * 60 + 30  // 08:30 ET — the session anchor (windows warm from here).
@@ -45,9 +47,8 @@ let defaultConfig =
           EntryEndMin     = 13 * 60 + 30 // 13:30 ET — entry-window END.
           MocMin          = 16 * 60      // 16:00 ET
           // ----- entry gates -----
-          MinVolClimb    = 0.5           // ⭐ BACKSIDE VOLUME CHECK (F32): at each ARMED price pattern, require
-                                         // vol_climb >= 0.5 to TAKE; else SKIP + DISARM until the next 9-EMA low
-                                         // re-arms. Reproduces F32's post-hoc vol_climb>=0.5 filter LIVE. 0 = always take.
+          MinVolClimb    = 0.0           // A-book: the GLOBAL vol_climb gate is OFF (0); the per-window breakout
+                                         // vc floors below (session 0 ∥ 60m ⅓ ∥ 20m ½) do the volume gating instead.
           MinAtrPct      = 0.013         // 20m log-ATR >= 0.013 — THE MAIN LEVER (F3: PF scales monotonically
                                          // with ATR; sub-0.013 is flat/dead ~PF 1.07). 0 = off.
           MaxAtrPct      = infinity      // OFF
@@ -65,15 +66,19 @@ let defaultConfig =
                                          // pace (V3Backside; docs: cuts ~half the book). 0 = off.
           Rvol5mUseMax   = false         // false = 5m AVG numerator (V3Backside). true = 5m MAX (the short book's
                                          // spiky 1m-vol signal). --rvol-use-max enables.
-          MaxBarsSinceBreakout = 0       // breakout gate OFF (BreakoutTimer used 10). --max-bars-since-breakout N.
-          MaxBarsSince20mBreakout = 0    // 20m-EMA-breakout gate OFF. --max-bars-since-20m-breakout N (sweep [1,10]).
-          MaxBarsSince60mBreakout = 0    // 60m-EMA-breakout gate OFF. --max-bars-since-60m-breakout N.
-          BreakoutOr = false             // AND the enabled breakout gates (default). --breakout-or = OR them.
-          BreakoutVcSession = 0.0        // OR-mode per-window vol_climb floors (F14). 0 = no floor.
-          BreakoutVc60m = 0.0
-          BreakoutVc20m = 0.0
-          DisablePriceSlope = false      // --no-price-slope drops the price-slope>0 gate (BreakoutTimer didn't use it).
-          DisableSum6 = false }          // --no-sum6 drops the sum6 gate (BreakoutTimer didn't use it).
+          // ----- A-book breakout structure (the DEFAULT). All three EMA-high breakout timers ON (fire
+          // within 10 bars of a new high), OR-combined, each branch ANDing its OWN per-window vol_climb floor:
+          // session@0 ∥ 60m@⅓ ∥ 20m@½ (looser structure ⇒ higher vol bar required). This IS the A book
+          // (1860 trips 2020+ / PF 2.77 / clip 1.86 / $1.43M) — differentiated per-window floors DOMINATE. -----
+          MaxBarsSinceBreakout    = 10   // session-9EMA-high breakout timer ON (0<=bars<10).
+          MaxBarsSince20mBreakout = 10   // 20m-EMA-high breakout timer ON.
+          MaxBarsSince60mBreakout = 10   // 60m-EMA-high breakout timer ON.
+          BreakoutOr = true              // OR the three windows (any within its countdown AND clearing its vc floor).
+          BreakoutVcSession = 0.0        // session-high branch: vol_climb floor 0 (tightest structure, no vol bar).
+          BreakoutVc60m = 1.0 / 3.0      // 60m-high branch: vol_climb >= 1/3.
+          BreakoutVc20m = 0.5            // 20m-high branch: vol_climb >= 1/2 (loosest structure, highest vol bar).
+          DisablePriceSlope = true       // A-book: the breakout STRUCTURE subsumes price-slope (DEAD WEIGHT).
+          DisableSum6 = true }           // A-book: the breakout STRUCTURE subsumes sum6 (DEAD WEIGHT).
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the

@@ -110,7 +110,7 @@ let main argv =
               { defaultConfig.Intraday with
                   ReArm           = reArm
                   MaxConcurrent   = parsed.GetResult(Max_Concurrent, defaultValue = defaultConfig.Intraday.MaxConcurrent)
-                  VolAsGate       = parsed.Contains Vol_As_Gate
+                  VolAsGate       = defaultConfig.Intraday.VolAsGate || parsed.Contains Vol_As_Gate
                   EntryStartMin   = parsed.GetResult(Entry_Start_Min,   defaultValue = defaultConfig.Intraday.EntryStartMin)
                   EntryEndMin     = parsed.GetResult(Entry_End_Min,     defaultValue = defaultConfig.Intraday.EntryEndMin)
                   FeatureStartMin = parsed.GetResult(Feature_Start_Min, defaultValue = defaultConfig.Intraday.FeatureStartMin)
@@ -129,12 +129,12 @@ let main argv =
                   MaxBarsSinceBreakout = parsed.GetResult(Max_Bars_Since_Breakout, defaultValue = defaultConfig.Intraday.MaxBarsSinceBreakout)
                   MaxBarsSince20mBreakout = parsed.GetResult(Max_Bars_Since_20m_Breakout, defaultValue = defaultConfig.Intraday.MaxBarsSince20mBreakout)
                   MaxBarsSince60mBreakout = parsed.GetResult(Max_Bars_Since_60m_Breakout, defaultValue = defaultConfig.Intraday.MaxBarsSince60mBreakout)
-                  BreakoutOr = parsed.Contains Breakout_Or
+                  BreakoutOr = defaultConfig.Intraday.BreakoutOr || parsed.Contains Breakout_Or
                   BreakoutVcSession = parsed.GetResult(Breakout_Vc_Session, defaultValue = defaultConfig.Intraday.BreakoutVcSession)
                   BreakoutVc60m = parsed.GetResult(Breakout_Vc_60m, defaultValue = defaultConfig.Intraday.BreakoutVc60m)
                   BreakoutVc20m = parsed.GetResult(Breakout_Vc_20m, defaultValue = defaultConfig.Intraday.BreakoutVc20m)
-                  DisablePriceSlope = parsed.Contains No_Price_Slope
-                  DisableSum6     = parsed.Contains No_Sum6 } }
+                  DisablePriceSlope = defaultConfig.Intraday.DisablePriceSlope || parsed.Contains No_Price_Slope
+                  DisableSum6     = defaultConfig.Intraday.DisableSum6 || parsed.Contains No_Sum6 } }
 
     let ic = cfg.Intraday
     let hhmm m = sprintf "%02d:%02d" (m / 60) (m % 60)
