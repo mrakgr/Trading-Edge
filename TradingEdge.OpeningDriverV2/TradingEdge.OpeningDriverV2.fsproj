@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- OpeningDriverV2: the TRADABLE opening-drive engine. Forked from OpeningDriver
+       (the post-hoc recorder). V2 restores an ARM/DISARM state machine: it scans the
+       entry window [open+15, open+60] and fires the FIRST bar that passes ALL settled
+       gates (chg_1d, chg_3d, log-ATR, stop-dist, bars-since-EMA-low, bars-since-EMA-high,
+       vol-slope), opens ONE position, then DISARMS for the rest of the day (no re-arm
+       yet). vol-slope is a gate OR a skip filter (a switch). This collapses OpeningDriver's
+       one-trip-per-window-bar overcount (the same drive counted at every minute) to one
+       trip per drive-day = the real book. Same two-pipeline architecture. -->
+  <ItemGroup>
+    <Compile Include="Intraday.fs" />
+    <Compile Include="Backtest.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../TradingEdge.RollingMa/TradingEdge.RollingMa.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Argu" Version="6.2.5" />
+    <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.4" />
+    <PackageReference Include="Nito.Collections.Deque" Version="1.2.1" />
+  </ItemGroup>
+
+</Project>
