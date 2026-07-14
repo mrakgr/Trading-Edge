@@ -760,3 +760,33 @@ a fatter-tailed, second-tier version. The `bl=15` weak pocket is weak on BOTH si
 $207k. All-weather AND firms the adverse year (2021 = 2.13 vs the base book's 1.34); 2024 = PF 8.15 / +33.8%.
 The two features are COMPLEMENTARY and strongest together on the rising-volume side — a fresh-low drive with
 accelerating volume is the best opening-drive cell found. (Tighten to `bl < 10` for PF 4.89 / +20.7%.)
+
+## F20 — buying pullbacks (bars_since_ema_high) × vol_slope: real in aggregate but REGIME-DEPENDENT (unlike bl)
+
+Split the 09:45 book at vol_slope 0.01 and swept `bh` (bars-since-high; bh=0 = at the new high, bh≥1 = N bars
+into a pullback off it). The pullback beats chasing the high on BOTH sides in AGGREGATE:
+
+| side | bh=0 (at high) | bh≥1 (pullback) | bh∈[1,3] (shallow) |
+|---|---|---|---|
+| RISING vol (≥0.01) | PF 2.68 (221 tr) | **4.07** (51 tr) | 3.29 (38 tr) |
+| FALLING/FLAT (<0.01) | PF 1.99 (285 tr) | **2.91** (217 tr) | **3.56** (73 tr) |
+
+The pullback lift is complementary to `bl`: `bh` matters MOST on the FALLING/flat side (bh=0 is weak there,
+1.99 — chasing an UNCONFIRMED high; the shallow pullback fixes it to 3.56), whereas `bl` freshness compounded
+on the RISING side (F19). Intuition: with rising volume, buying the high is fine (volume confirms
+continuation); with flat/falling volume, the exact high is a chase, so wait for the pullback.
+
+**BUT — the pullback cut is NOT all-weather (the key caveat):**
+
+| shallow pullback (bh∈[1,3]) | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | TOT |
+|---|---|---|---|---|---|---|---|---|
+| both sides PF | 1.34 | 3.73 | **0.67** | **0.61** | 4.26 | 4.94 | 6.49 | 3.45 |
+| falling-vol PF | **0.72** | **0.91** | 1.87 | 1.55 | 12.77 | 6.12 | 3.82 | 3.56 |
+
+**2022-2023 are NEGATIVE years** for the pullback cut (both-sides 0.67 / 0.61; falling-side 2020-2021 also
+negative). The high aggregate PF (3.45) is carried by 2024-2026 papering over losing years — 10-27 trips/year
+is thin. **This is a DIFFERENT quality of signal from `bl`:** `bl` freshness was positive EVERY year (robust,
+monotone); `bh` pullback is REGIME-DEPENDENT. Mechanism: in a choppy/low-momentum tape (2022-23) a "pullback"
+keeps pulling back (it's a reversal, not a dip); in strong-momentum years (2024-26) it's a genuine dip-buy. So
+the pullback edge is CONDITIONAL on a strong-momentum regime. **Verdict: `bl` (freshness) is the reliable
+timing lever; `bh` (pullback) adds aggregate PF but is not trustworthy standalone — don't lean on it alone.**
