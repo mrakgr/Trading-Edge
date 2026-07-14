@@ -659,3 +659,30 @@ pullback. That's why the 9-EMA version is broader AND holds its edge.
 below fair value = still buying into support, not chasing. Both ema_at_entry & vwap_at_entry are folded
 live at the arm bar, so this is fully live-gateable. Prime candidate to wire into the engine (gate: arm
 only when 9-EMA ≤ VWAP; or size UP below).
+
+## F18 — patient LIMIT entries (rest at the 9-EMA): better fills but they SKIP the runaway winners — REJECTED
+
+Tested (user): on the arm bar, if close > 9-EMA, rest a limit at that bar's 9-EMA good for the NEXT bar
+only (fill at the 9-EMA if next low ≤ it); if close ≤ 9-EMA, fill at close immediately; unfilled → re-test
+gates next bar (stays armed, no re-arm). New `LimitEntry` config (default off = market at the arm-bar
+close); `entry_type` recorded ("close"|"limit"). Exhaustion latch + all gates unchanged.
+
+| book | n | avg% | win | PF raw | PF clip | net_k |
+|---|---|---|---|---|---|---|
+| market (OFF, default) | 1028 | 11.4 | 42 | 3.50 | 2.03 | 1172 |
+| limit (ON) | 874 | 10.6 | 42 | 3.34 | 2.00 | 924 |
+
+Limit entry LOSES 154 trips and **$248k net** for no PF gain (raw 3.50→3.34, clip 2.03→2.00).
+
+**The fills ARE better — the loss is SELECTION (missed runaways):**
+- **Matched-day head-to-head** (874 days that filled): the limit got a **+0.37% better fill** and a
+  slightly HIGHER avg return (10.6% vs 10.2% market). So patient entry works mechanically — it buys cheaper.
+- **entry_type split** exposes the problem: patient fills (`limit`, 291) have HIGH avg 13.3% but LOW win
+  30%; immediate fills (`close`, 583, close already ≤ 9-EMA) have avg 9.2% / win 48%. A limit fills ONLY
+  when price comes back DOWN to the 9-EMA — so the **154 days where the drive rips straight up without
+  pulling back NEVER fill**, and those are disproportionately the biggest winners.
+
+**The classic momentum trade-off: waiting for a better price means missing the trades that don't give you
+one — and those are the best ones.** The +0.37% cheaper fill doesn't compensate for the lost runaway net.
+**REJECTED — market-at-close stays the default.** (Consistent with the whole family: the tail is in the
+fills you'd skip, cf. F9's "every exit loses to hold-to-MOC".)

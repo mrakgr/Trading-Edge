@@ -77,6 +77,7 @@ type IntradayPosition =
       BarsSinceEmaHigh: int      // bars since the 9-EMA last made a new session HIGH (0 = this bar; -1 = none yet)
       BarsSinceEmaLow: int       // bars since the 9-EMA last made a new session LOW (0 = this bar; -1 = none yet)
       CumVolAtEntry: int64       // cumulative session volume through the entry bar (rvol_cum numerator)
+      EntryType: string          // "close" (market at the arm bar's close) | "limit" (filled at a resting 9-EMA limit)
       State: IntraPosState }
 
 /// OpeningDriverV2 engine config = timing + windows + stop + the settled arm gates.
@@ -105,6 +106,10 @@ type IntradayConfig =
                                  // per-minute 20d ADV: bar.volume / (avgvol20·adjRatio/390)) AND atrPct >= the floor
                                  // below, the day is LATCHED exhausted and NO further arm can fire. 0 = off (default).
       ExhaustMinAtrPct: float    // the climax bar must also have 20m log-ATR >= this (MaxFlyerV3 A-book floor 0.03).
+      LimitEntry: bool           // true = PATIENT entry: when a bar's gates pass but its close > 9-EMA, rest a limit
+                                 // at that bar's 9-EMA good for the NEXT bar only (fill if next low <= it, at the
+                                 // 9-EMA price). Close <= 9-EMA fills at close immediately. Unfilled -> re-test gates
+                                 // next bar (stays armed). false (default) = market entry at the arm bar's close.
       ExhaustExit: bool }        // true = when the blow-off latch fires, CLOSE any open position at that bar (an
                                  // exhaustion EXIT). Independent of the arm CUT — the latch always blocks new arms
                                  // when ExhaustBrv20d>0; ExhaustExit additionally flushes the held position.
@@ -156,6 +161,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     let mutable sState : State = { bar = ValueNone }
     // the day's arm state: once the engine fires (or a skip-filter burns the day) it DISARMS — no re-arm.
     let mutable armed = true
+    // PATIENT limit entry (LimitEntry mode): a limit resting at the placing bar's 9-EMA, good for the NEXT bar
+    // only. `pendingLimit` = the resting price (the 9-EMA); `pendingArm` = the arm-bar's feature snapshot to
+    // stamp on the fill (so the trip records the SIGNAL bar's context, not the fill bar's). Cleared each bar.
+    let mutable pendingLimit : float voption = ValueNone
+    let mutable pendingArm : IntradayPosition voption = ValueNone
 
     let positions = ResizeArray<IntradayPosition>()
 
@@ -244,6 +254,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         this.ProcessBar curBar
         for i in 0 .. positions.Count - 1 do
             positions.[i] <- this.Advance curBar positions.[i]
+        // (1) PATIENT limit entry: a limit rested last bar (at that bar's 9-EMA) is live for THIS bar only.
+        // Fill if this bar traded down to it (low <= limit), at the limit price, stamped with the arm-bar
+        // snapshot. Whether or not it fills, the one-bar limit is now consumed (cleared below).
+        match pendingLimit, pendingArm with
+        | ValueSome lim, ValueSome arm when armed ->
+            if curBar.low <= lim then
+                positions.Add { arm with EntryMin = curBar.etMin; EntryPx = lim; EntryType = "limit"
+                                         StopDistPct = (if lim > 0.0 && not (Double.IsNaN arm.StopLevel) && arm.StopLevel > Double.NegativeInfinity
+                                                        then (lim - arm.StopLevel) / lim else nan) }
+                armed <- false
+        | _ -> ()
+        pendingLimit <- ValueNone
+        pendingArm <- ValueNone
         if armed then
             let inWindow =
                 curBar.etMin >= cfg.EntryStartMin
@@ -282,24 +305,44 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                 let armCondition =
                     not exhausted && dayStrengthOk && timingOk && (not cfg.VolSlopeAsGate || volSlopeOk)
                 if armCondition then
-                    armed <- false                          // DISARM for the day (no re-arm) — gate or skip.
-                    if volSlopeOk then                       // in GATE mode volSlopeOk is already implied here.
-                        positions.Add
-                            { EntryMin = curBar.etMin
-                              EntryPx = px
-                              StopLevel = stop
-                              StopDistPct = stopDistPct
-                              LogAtr20 = logAtr
-                              PriceSlope20 = vv priceOls.Slope
-                              VolSlope20 = volSlope
-                              EmaAtEntry = vv ema.State
-                              VwapAtEntry = vv vwap.State
-                              SessEmaLowAtEntry = vv sessEmaLow
-                              BarsSinceEmaHigh = barsSinceEmaHigh
-                              BarsSinceEmaLow = barsSinceEmaLow
-                              CumVolAtEntry = cumVol
-                              State = Holding }
-                    // else (SKIP mode, vol_slope failed): day is burned, no position opens.
+                    // the arm-bar feature snapshot (shared by market fill, immediate limit fill, and pending limit).
+                    let emaLvl = vv ema.State
+                    let snap =
+                        { EntryMin = curBar.etMin
+                          EntryPx = px
+                          StopLevel = stop
+                          StopDistPct = stopDistPct
+                          LogAtr20 = logAtr
+                          PriceSlope20 = vv priceOls.Slope
+                          VolSlope20 = volSlope
+                          EmaAtEntry = emaLvl
+                          VwapAtEntry = vv vwap.State
+                          SessEmaLowAtEntry = vv sessEmaLow
+                          BarsSinceEmaHigh = barsSinceEmaHigh
+                          BarsSinceEmaLow = barsSinceEmaLow
+                          CumVolAtEntry = cumVol
+                          EntryType = "close"
+                          State = Holding }
+                    if not volSlopeOk then
+                        // SKIP mode, vol_slope failed: burn the day, no position (matches market-mode behaviour).
+                        armed <- false
+                    elif not cfg.LimitEntry then
+                        armed <- false                       // MARKET entry at the arm bar's close (default).
+                        positions.Add snap
+                    else
+                        // PATIENT limit entry. If the close is already <= the 9-EMA, the limit would fill at once —
+                        // enter at the close now. Otherwise rest a limit at the 9-EMA, good for the NEXT bar only;
+                        // if unfilled the day stays armed and re-tests gates next bar.
+                        match ema.State with
+                        | ValueSome e when px <= e ->
+                            armed <- false
+                            positions.Add snap               // close already at/below the limit -> fill at close.
+                        | ValueSome e ->
+                            pendingLimit <- ValueSome e       // rest the limit at this bar's 9-EMA for the next bar.
+                            pendingArm   <- ValueSome snap
+                        | ValueNone ->
+                            armed <- false                    // no 9-EMA yet (shouldn't happen post-warmup) -> at close.
+                            positions.Add snap
 
     /// Flatten any still-open positions at the last folded bar's close (MOC / hold-to-close).
     member _.Flatten () =

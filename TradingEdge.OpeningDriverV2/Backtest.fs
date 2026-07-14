@@ -56,6 +56,8 @@ let defaultConfig =
                                          // of the 100-130 sweep (best raw PF, clip ~flat) — the exit flushes only the
                                          // truest climaxes so it gives up little net (F12). 0 disables.
           ExhaustMinAtrPct = 0.03         // the climax bar's ATR% floor (MaxFlyerV3 A-book value).
+          LimitEntry     = false          // false = market entry at the arm bar's close (default). true = patient
+                                          // limit at the 9-EMA, filled if the next bar's low touches it (--limit-entry).
           ExhaustExit    = true }         // true = the latch CUTS new arms AND flushes the held position at the climax
                                           // (best clip PF 1.86, risk-adjusted default, F9). --no-exhaust-exit to cut only.
       Notional = 10_000.0 }
@@ -99,6 +101,7 @@ type Trip =
       SessEmaLowAtEntry: float   // the 9-EMA session-min at entry (the BelowSessEmaLow stop level)
       BarsSinceEmaHigh: int      // bars since the 9-EMA last made a new session HIGH (0 = entry bar; -1 = none)
       BarsSinceEmaLow: int       // bars since the 9-EMA last made a new session LOW (0 = entry bar; -1 = none)
+      EntryType: string          // "close" (market at arm-bar close) | "limit" (filled at a resting 9-EMA limit)
       EntryVsVwap: float         // entryPx / VWAP - 1 (location vs VWAP at entry)
       // ----- day-scale context / selection features (from the candidate) -----
       Close1d: float             // close-1-day-ago (adj) = PrevAdjClose
@@ -146,6 +149,7 @@ let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Tr
           SessEmaLowAtEntry = pos.SessEmaLowAtEntry
           BarsSinceEmaHigh = pos.BarsSinceEmaHigh
           BarsSinceEmaLow = pos.BarsSinceEmaLow
+          EntryType = pos.EntryType
           EntryVsVwap = (if pos.VwapAtEntry > 0.0 && not (Double.IsNaN pos.VwapAtEntry) then pos.EntryPx / pos.VwapAtEntry - 1.0 else nan)
           Close1d = c.PrevAdjClose
           Close3d = c.Close3d
@@ -322,7 +326,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,prev_adj_close,adj_ratio,"
     + "entry_time,entry_price,stop_dist_pct,"
-    + "log_atr_20,price_slope_20,vol_slope_20,rvol_cum,cum_vol_to_entry,ema_at_entry,vwap_at_entry,sess_ema_low_at_entry,bars_since_ema_high,bars_since_ema_low,entry_vs_vwap,"
+    + "log_atr_20,price_slope_20,vol_slope_20,rvol_cum,cum_vol_to_entry,ema_at_entry,vwap_at_entry,sess_ema_low_at_entry,bars_since_ema_high,bars_since_ema_low,entry_type,entry_vs_vwap,"
     + "close_1d,close_3d,chg_1d,chg_3d,pct_chg_since_open,"
     + "exit_time,exit_price,exit_reason,ret_moc,"
     + "day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,"
@@ -347,6 +351,7 @@ let private row (t: Trip) : string =
         fmt t.SessEmaLowAtEntry
         string t.BarsSinceEmaHigh
         string t.BarsSinceEmaLow
+        t.EntryType
         fmt t.EntryVsVwap
         fmt t.Close1d
         fmt t.Close3d

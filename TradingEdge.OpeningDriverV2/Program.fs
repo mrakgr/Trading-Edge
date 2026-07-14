@@ -38,6 +38,7 @@ type Args =
     | Exhaust_Brv20d of float
     | Exhaust_Min_Atr_Pct of float
     | No_Exhaust_Exit
+    | Limit_Entry
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -65,6 +66,7 @@ type Args =
             | Exhaust_Brv20d _ -> "Blow-off kill-switch (default 0 = off): once a bar prints a new session high with brv20d >= this (1m bar volume / (avgvol20·adj/390), the per-minute 20d ADV — 100 = the MaxFlyerV3 short-arm value) AND ATR% >= --exhaust-min-atr-pct, the day is latched exhausted and no arm fires."
             | Exhaust_Min_Atr_Pct _ -> "ATR% floor the climax bar must meet for the exhaustion latch (default 0.03; only used when --exhaust-brv20d > 0)."
             | No_Exhaust_Exit -> "Disable the default exhaustion EXIT: the blow-off latch only CUTS new arms and does NOT flush the held position. (By default the latch both cuts and flushes — the risk-adjusted F9 default.)"
+            | Limit_Entry -> "PATIENT entry: when a bar's gates pass but its close is above the 9-EMA, rest a limit at that bar's 9-EMA good for the next bar only (fill at the 9-EMA if the next bar's low touches it). If the close is already <= the 9-EMA, fill at the close. Unfilled -> re-test the gates next bar (stays armed). Default off (market entry at the arm-bar close)."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -107,7 +109,8 @@ let main argv =
                   VolSlopeAsGate  = parsed.Contains Vol_Slope_As_Gate
                   ExhaustBrv20d    = parsed.GetResult(Exhaust_Brv20d,      defaultValue = dic.ExhaustBrv20d)
                   ExhaustMinAtrPct = parsed.GetResult(Exhaust_Min_Atr_Pct, defaultValue = dic.ExhaustMinAtrPct)
-                  ExhaustExit      = dic.ExhaustExit && not (parsed.Contains No_Exhaust_Exit) } }
+                  ExhaustExit      = dic.ExhaustExit && not (parsed.Contains No_Exhaust_Exit)
+                  LimitEntry       = dic.LimitEntry || parsed.Contains Limit_Entry } }
 
     let ic = cfg.Intraday
     let hhmm m = sprintf "%02d:%02d" (m / 60) (m % 60)
@@ -124,6 +127,7 @@ let main argv =
         (if ic.ExhaustBrv20d > 0.0 then sprintf "ON — latch if a new-high bar hits brv20d>=%.0f & ATR%%>=%.3f; %s" ic.ExhaustBrv20d ic.ExhaustMinAtrPct (if ic.ExhaustExit then "CUT arms + EXIT held" else "CUT arms only") else "off")
     printfn "  stop        = 9-EMA below %s"
         (match ic.StopMode with BelowVwap -> "the live session VWAP" | BelowSessEmaLow -> "the 9-EMA session-min (frozen at entry)")
+    printfn "  entry       = %s" (if ic.LimitEntry then "PATIENT limit at the 9-EMA (fill if next bar's low touches it)" else "market at the arm-bar close")
     printfn "  exits       = 9-EMA stop + hold-to-MOC"
 
     let sw = Stopwatch.StartNew()
