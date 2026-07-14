@@ -1083,3 +1083,20 @@ delaying vs dropping them barely differs.
 **Verdict: SKIP @ 3% is the default.** GATE gives no clear win (marginal net at lower PF); SKIP is the
 higher-quality, simpler book (it IS the post-hoc filter). The 3% floor lifts the A book PF 2.77 → 2.88 at 97%
 of net — a clean cheap quality cut. New default A book: **1608 tr / PF 2.876 / $1.39M / win 44%.**
+
+### F20b — the 3% skip floor helps progressively LESS as the book tightens (redundant with the vc floors on A++)
+
+Applied the 3% SKIP floor across the A / A+ / A++ tiers (2020+):
+
+| book | no-floor PF / net / n | + SKIP 3% PF / net / n | ΔPF | trips cut |
+|---|---|---|---|---|
+| **A** | 2.77 / $1.43M / 1860 | 2.88 / $1.39M / 1608 | **+0.11** | −252 (−14%) |
+| **A+** | 3.17 / $773k / 786 | 3.27 / $772k / 729 | **+0.10** | −57 (−7%) |
+| **A++** | 4.05 / $597k / 460 | 4.10 / $599k / 453 | **+0.05** | −7 (−1.5%) |
+
+The floor helps at every tier (higher PF, ~flat net) but the effect FADES: +0.11 PF / 252 trips on A →
++0.05 PF / 7 trips on A++. By A++ the per-window vc floors have already removed almost all the tight-stop
+setups, so the floor is nearly a no-op. **Why they overlap:** stop-distance ≥ 3% and the vc floors are
+correlated — a setup that broke out on elevated volume (clearing the tight A++ vc floors) has usually also
+run well above its EMA-low. **Keep the 3% default (never hurts, mildly helps everywhere), but it does real
+work only on the wider books (A and looser); on A++ it's redundant with the volume floors.**
