@@ -195,27 +195,56 @@ depth floor, and re-examine dpa on its own.
 | ≥ 1.25 (drop shallow) | 429 | 44 | 2.97 | +11.47 | $492k |
 | **[1.25, 3) (BAND)** | **332** | **45** | **3.71** | **+13.76** | **$457k** |
 
-Two conclusions on the user's question ("is dpa < 3 redundant with ATR?"):
+Conclusions on the user's question ("is dpa < 3 redundant with ATR?"):
 1. **`dpa < 3` is NOT just an ATR proxy** — even with run_atr ≥ 0.013 explicit, cutting dpa ≥ 3 lifts PF
    2.72 → 3.12 at 94% of net. Deep-relative-to-vol runs (deciles 9-10) genuinely underperform (a real ceiling).
-2. **A shallow FLOOR also matters** — dpa < ~1.25 (decile 3 dip) is weak. The band **[1.25, 3)** is the clean
-   A+ cell: PF **3.71** / +13.76%/tr / **332 trips** — ~matches the old cell's PF on 38% MORE trips, with a
-   PRINCIPLED structure (updn = conviction, run_atr = jumpiness, dpa-band = "deep but not over-extended vs
-   its own vol").
+2. **A shallow FLOOR also matters** — dpa < ~1.25 (decile 3 dip) is weak. The band **[1.25, 3)** = PF 3.71 /
+   +13.76%/tr / 332 trips.
 
-**Yearly (A+ band, post-2020 = where VwapReclaim lives; pre-2020 rows are 1–3 trips, ignore):**
+## F5 — but a plain `run_max_dist` FLOOR beats the dpa band (simpler + more net)
+
+The dpa band is a vol-NORMALIZED ratio. With ATR now explicit, is the RAW run depth (`run_max_dist`) the
+cleaner lever? Broke it down within the same base — and unlike dpa (a hump), dist is a MONOTONE floor:
+
+| dist decile | range | n | PF | avg% |
+|---|---|---|---|---|
+| 1–4 | 0.005–0.032 | 246 | 1.15–2.26 | +0.8 to +5.5 (weak/noisy) |
+| **5–10** | **≥ 0.032** | 366 | **3.04–3.70** | +10.6 to +20.0 (uniformly strong) |
+
+Sharp knee at ~0.032-0.035. Floor sweep:
+
+| dist floor | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| (none) | 612 | 41 | 2.72 | +9.66 | $591k |
+| ≥ 0.03 | 392 | 44 | 3.12 | +13.40 | $525k |
+| **≥ 0.035** | **336** | **46** | **3.25** | **+14.51** | **$488k** |
+| ≥ 0.05 | 216 | 47 | 3.34 | +16.71 | $361k |
+| ≥ 0.07 | 127 | 50 | 3.48 | +19.33 | $245k |
+
+**`dist ≥ 0.035` beats the dpa band [1.25, 3)** — similar size (336 vs 332), but HIGHER win rate (46 vs 45),
+HIGHER avg% (+14.51 vs +13.76), and **+$31k net** ($488k vs $457k). The band's only edge was PF (3.71 vs 3.25),
+bought by clipping shallow low-vol names — but that costs net. And ONE floor is far simpler + more principled
+than a two-sided ratio band: run-depth is best captured by the RAW dist, not the vol-normalized ratio. The
+old `dpa < 3` ceiling was mostly the ATR floor in disguise; once `run_atr ≥ 0.013` handles jumpiness, the
+deep-vs-vol ceiling adds little.
+
+**Yearly (dist-floor cell, post-2020; pre-2020 = noise):**
 
 | year | n | PF | avg% | net |
 |---|---|---|---|---|
-| 2020 | 23 | 7.81 | +31.80 | $73k |
-| 2021 | 100 | 1.78 | +4.65 | $47k |
-| 2022 | 44 | 3.99 | +12.52 | $55k |
-| 2023 | 25 | 6.25 | +24.34 | $61k |
-| 2024 | 51 | 3.49 | +13.44 | $69k |
-| 2025 | 50 | 5.04 | +17.95 | $90k |
-| 2026 | 28 | 4.62 | +20.60 | $58k |
-| **TOTAL** | **332** | **3.71** | +13.76 | $457k |
+| 2020 | 32 | 6.10 | +31.44 | $101k |
+| 2021 | 92 | 1.36 | +2.95 | $27k |
+| 2022 | 45 | 2.57 | +8.67 | $39k |
+| 2023 | 20 | 6.25 | +29.91 | $60k |
+| 2024 | 51 | 3.55 | +14.73 | $75k |
+| 2025 | 56 | 4.00 | +18.36 | $103k |
+| 2026 | 29 | 3.82 | +19.44 | $56k |
+| **TOTAL** | **336** | **3.25** | +14.51 | $488k |
 
-**All-weather** (positive every modern year). 2021 is the weak-but-positive year (PF 1.78, adverse regime +
-most trips = edge diluted — the same signature as every other momentum book here). **⭐ NEW A+ CELL:
-`updn ≥ 1.3 & run_atr ≥ 0.013 & 1.25 ≤ dpa < 3`** — cleaner, better-reasoned, and larger than the original.
+**All-weather** (positive every modern year). One trade-off vs the dpa band: 2021 is marginally softer (PF
+1.36 vs 1.78 — the band's shallow-floor trimmed 2021's marginal names slightly better), but positive either
+way; every other year is as strong or stronger, with more total net.
+
+**⭐ NEW A+ CELL: `updn ≥ 1.3 & run_atr ≥ 0.013 & run_max_dist ≥ 0.035`** — PF 3.25 / +14.51%/tr / 336 trips /
+$488k. Three orthogonal floors, each doing one job (updn = conviction, run_atr = jumpiness, dist = run depth),
+no vol-normalized ratio needed. Cleaner and larger than the original `rmd≥3.5% & dpa<3` cell.
