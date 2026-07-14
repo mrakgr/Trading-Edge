@@ -756,15 +756,22 @@ scale (new `size_mult` column records the applied multiple). **DEFAULT = 3×** (
 
 **Flat vs 3× (same 1028 trips, 2020–26):**
 
-| book | net | PF | worst month | max DD | DD % of final | profitable months |
+| book | net | PF | worst month | max DD | max DD in position-units | profitable months |
 |---|---|---|---|---|---|---|
-| flat (1×) | $1.17M | 3.50 | −$9.5k | −$13.9k | 1.2% | 65/78 (83%) |
-| **3×** | **$2.39M** | **4.11** | −$11.7k | −$25.4k | **1.1%** | 66/78 (85%) |
+| flat (1×) | $1.17M | 3.50 | −$9.5k | −$13.9k | 1.39× | 65/78 (83%) |
+| **3×** | **$2.39M** | **4.11** | −$11.7k | −$25.4k | **2.54×** | 66/78 (85%) |
 
 3× lifts net ~2× and PF 3.50→4.11, improves EVERY year (2025 $400k→$885k — the A+ cell dominates the best
-year), and preserves consistency (83%→85% green months). **Crucially the max DRAWDOWN as a % of final
-equity is UNCHANGED (1.2% → 1.1%)** — the sizing lever is free risk-adjusted return, because the cell it
-3×'s is the higher-expectancy one, not a risk concentration.
+year), and preserves consistency (83%→85% green months). The max drawdown grows (−$13.9k → −$25.4k) but
+so does net, and it stays SHALLOW relative to bet size (1.4× → 2.5× a base position).
+
+⚠ **Do NOT read "max DD as % of final equity" — it is meaningless here.** "Final equity" = 6.5 YEARS of
+accumulated fixed-$10k-per-trade P&L, not a compounding account; dividing a drawdown by it just says "the
+worst streak was small vs six years of stacked winnings" (trivially true for any long profitable book).
+The interpretable figure is **max DD ÷ base notional = position-units**: the worst peak-to-trough streak
+cost ~**1.4 position-sizes** flat (~**2.5** at 3×). What that is as a % of ACCOUNT depends on how much
+capital you put behind each $10k bet (the position-sizing decision the backtest doesn't set) — e.g. $10k
+bet on a $200k account → ~7% DD; on a $50k account → ~28%.
 
 **Why no multiplier sweep:** higher multipliers MONOTONICALLY improve risk-adjusted return here (they
 concentrate capital into the higher-expectancy VWAP>9-EMA cell), so there is no interior optimum — the
@@ -772,10 +779,12 @@ choice of 3× is a real-world position-sizing / comfort call, not an optimizatio
 lean on the A+ cell, the more the book depends on its continued edge (F17: fatter-tailed, top-10 = 39% of
 gross) — so scale the multiplier to risk tolerance, not to the backtest.
 
-**Risk profile of the production book (flat, for reference):** max peak-to-trough DD **−$13.9k = 1.2% of
-final equity** (Jan–Mar 2021, the meme-chop peak). 13 losing months, deepest −$9.5k (2024-07), no
-consecutive-month losing streak worse than the single worst month. Worst day −$4.8k (2021-02-10), worst
-week −$6.0k (2021-01-25). An exceptionally shallow-drawdown book.
+**Risk profile of the production book (flat, base notional $10k, MaxConcurrent=1 so peak capital deployed
+= ONE position):** max peak-to-trough DD **−$13.9k = ~1.4 base position-sizes** (Jan–Mar 2021, the
+meme-chop peak). 13 losing months, deepest −$9.5k (2024-07), no consecutive-month losing streak worse
+than the single worst month. Worst day −$4.8k (2021-02-10), worst week −$6.0k (2021-01-25). Shallow-
+drawdown book — the worst streak is ~1.4 trades deep. (% of account = a position-sizing choice, not fixed
+by the backtest — see the F21 table note.)
 
 ## F22 — BREADTH breakdown: this system is market-AGNOSTIC (breadth is not a useful lever)
 
