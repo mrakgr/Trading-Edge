@@ -887,3 +887,51 @@ trust per-year. BOTH & falling = 123 tr / PF 3.02, positive most years.
 chg_1d≥0.20, chg_3d∈[0,1.5], stop_dist≥3%) → PF 3.65 / +13.8%/tr / 146 tr / $201k, all-weather (min 2.3),
 firms the adverse year. Fresh drive + pullback entry = the cleanest, most robust cell in the study — the two
 timing features stack without the vol split.
+
+## F24 — Later time buckets (09:45→10:30): 09:45 was NEVER special; widen the window
+
+All prior findings restricted `entry_time='09:45'` (open+15) — the one minute we happened to fix. The modern
+CSV emits every minute 09:45–10:30; here we sweep the settled book across all 46 buckets.
+
+**Base book across the sweep is nearly FLAT** — PF hovers 2.5–2.9, avg%/tr 8–10%, at *every* minute (a soft
+hump 09:53–09:58 at PF ~2.85). Reason: `chg_1d`/`chg_3d` are day-level constants, so every minute re-selects
+the same strong-day universe — the base book barely moves with time. 09:45 is actually one of the *weaker*
+buckets (PF 2.62). **The time signal lives in the INTRADAY features (bl/bh), not the day-strength gate.**
+
+**The A+ cell (`bl<15 & bh≥1`) has strong, monotone time-decay the base book hides** (5-min bands):
+
+| band | n | avg% | win | PF | net_k |
+|---|---|---|---|---|---|
+| 09:45-09:49 | 596 | 16.6 | 35 | 4.31 | 987 |
+| **09:50-09:54** | 485 | **22.1** | 43 | **6.31** | **1069** |
+| 09:55-09:59 | 518 | 16.2 | 49 | 5.30 | 839 |
+| 10:00-10:04 | 436 | 16.6 | 44 | 4.69 | 724 |
+| 10:05-10:09 | 315 | 15.4 | 43 | 4.69 | 486 |
+| 10:10-10:14 | 320 | 17.1 | 37 | 4.57 | 547 |
+| 10:15-10:19 | 279 | 12.1 | 37 | 3.42 | 339 |
+| 10:20-10:24 | 209 | 10.4 | 41 | 3.31 | 216 |
+| 10:25-10:30 | 229 | 4.4 | 36 | 1.99 | 101 |
+
+The edge decays through the morning — meat is the first ~30 min (09:45–10:14, PF 4.3–6.3), rolls off hard
+after 10:15, collapses to PF 1.99 by 10:25–10:30. Peak = 09:50–09:54 (PF 6.31), but the tight 10-min early
+band is thin with a worse floor (2022 PF 1.15) = overfit to the peak.
+
+**⭐ THE WIN — widen the entry window to the 09:45–10:14 "meat" band.** Instead of one entry per drive at
+exactly 09:45, take the bl<15 & bh≥1 pullback WHENEVER it forms in the first 30 min (the timing cut adapts
+per minute). Nearly-free capacity:
+
+| cell | n | avg% | win | PF | net |
+|---|---|---|---|---|---|
+| book @09:45 only | 774 | 8.11 | 44 | 2.62 | $0.63M |
+| book, 09:45-10:14 meat | 24,163 | 9.03 | 44 | 2.68 | $21.8M |
+| A+ @09:45 only | 146 | 13.79 | 34 | 3.65 | $0.20M |
+| **A+, 09:45-10:14 meat** | **2,670** | **17.42** | 42 | **4.96** | **$4.65M** |
+
+Widening the A+ cell 18× (146→2,670 tr) doesn't dilute — it *sharpens* (PF 3.65→4.96, avg 13.8%→17.4%,
+net 23×). Per-year the meat band is all-weather with a PF 1.82 floor (2022), firming to 7.9–10.6 in
+2023–2025. The tighter early band's better peak isn't worth its worse floor.
+
+**⭐⭐ REVISED HEADLINE BOOK: `bl<15 & bh≥1` pullback taken in the FIRST 30 MIN (09:45–10:14)** on top of the
+day-strength book (ATR%≥0.013, chg_1d≥0.20, chg_3d∈[0,1.5], stop_dist≥3%) → **PF 4.96 / +17.4%/tr / 2,670 tr /
+$4.65M, all-weather.** 09:45-only was a sampling artifact of fixing one minute; the real edge is the fresh-drive
+pullback across the opening half-hour.
