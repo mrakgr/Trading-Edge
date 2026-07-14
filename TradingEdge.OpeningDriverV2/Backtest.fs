@@ -35,7 +35,8 @@ let defaultConfig =
           SessionStartMin = 9 * 60 + 30  // 09:30 ET — session anchor (no premarket; features warm from here).
           FeatureStartMin = 9 * 60 + 30  // 09:30 ET (570) — VWAP, OLS slopes, ATR, EMA fold from the RTH open.
           EntryStartMin   = 9 * 60 + 45  // 09:45 ET — open+15, the entry-window START.
-          EntryEndMin     = 10 * 60 + 30 // 10:30 ET — open+60, the entry-window END.
+          EntryEndMin     = 9 * 60 + 59  // 09:59 ET — the last arm bar is [09:59,10:00), so the window is
+                                         // [09:45, 10:00) (F4): after 10:00 the other momentum systems take over.
           MocMin          = 16 * 60      // 16:00 ET
           StopMode        = BelowSessEmaLow  // sess-ema-low DOMINATES (lets the drive run) = V2 default.
           // ----- the settled arm gates (the F1–F24 headline book) -----
@@ -44,8 +45,9 @@ let defaultConfig =
           MaxChg3d       = 1.5           // 3-day-trend band ceiling (reject over-extended blow-off).
           MinLogAtr      = 0.013         // 20m log-ATR jumpiness guard.
           MinStopDistPct = 0.03          // >=3% room to the 9-EMA session-min stop (no-room scratch guard).
-          BlMax          = 15            // freshness: bl<15 (drop the bottomed-at-open pile).
-          BhMin          = 1             // pullback: bh>=1 (any pullback off the high, not chasing).
+          BlMax          = 0             // freshness cut OFF (F6/F7): bl<15 buys quality/trade but costs net +
+                                         // 2026 robustness; the broader bh>=1-only book is the production default.
+          BhMin          = 1             // pullback: bh>=1 (any pullback off the high, not chasing) — the kept gate.
           MinVolSlope    = -infinity     // vol_slope OFF by default (the F24 headline book has NO vol cut).
                                          // Set --min-vol-slope (e.g. 0.025, the F15 A+ dial) to engage it.
           VolSlopeAsGate = false         // SKIP filter by default (--vol-slope-as-gate flips it).

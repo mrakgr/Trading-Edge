@@ -399,3 +399,37 @@ for −$106k net (54 days cut + 33 flushed). Per-year all-weather, firmer: 2020 
 2.24 · 2023 2.76 · 2024 1.87 · 2025 3.65 · 2026 1.27. The exit's net cost (F9) is smaller on the full
 bl<15&bh≥1 default (only 33 flushes) than on the day-strength book (56), because the tighter timing
 gates already exclude many of the days that would blow off. Accepted as the risk-adjusted default.
+
+## F11 — THE PRODUCTION DEFAULT: [09:45,10:00) window, bh≥1 (no bl), exhaustion cut+exit 100
+
+Final default changes (user): window → **[09:45, 10:00)** (`EntryEndMin=599`; F4 — hand 10:00+ to the
+other momentum systems) and **drop `bl<15`** (`BlMax=0`; F6/F7 — bh≥1-only is broader, steadier, and
+all-weather where bl<15 was fragile in 2026), keeping bh≥1 + the F10 exhaustion cut+exit 100.
+
+| book | n | avg% | win | PF raw | PF clip | net_k |
+|---|---|---|---|---|---|---|
+| bh≥1 only, NO exhaustion (F6) | 1088 | 10.6 | 41 | 3.22 | 1.87 | 1154 |
+| **PRODUCTION DEFAULT** | 1006 | 10.4 | 42 | **3.31** | **2.04** | 1044 |
+
+The exhaustion layer (54 days cut + 42 flushed) lifts clip PF 1.87 → **2.04** and raw 3.22 → 3.31,
+win 41 → 42, for −$110k net.
+
+**Per-year — all-weather, and it FIXES the bl<15 default's 2026 fragility:**
+
+| yr | n | win | PF raw | PF clip | net_k |
+|---|---|---|---|---|---|
+| 2020 | 130 | 46 | 3.43 | 2.33 | 120 |
+| 2021 | 253 | 36 | 1.86 | 1.35 | 111 |
+| 2022 | 106 | 42 | 2.59 | 1.83 | 77 |
+| 2023 | 60 | 40 | 3.53 | 1.99 | 72 |
+| 2024 | 139 | 43 | 3.61 | 2.05 | 182 |
+| 2025 | 209 | 51 | 5.44 | 3.28 | 362 |
+| 2026 | 109 | 37 | 3.66 | 1.72 | 120 |
+
+Positive every year, clip floor **1.35 (2021)**; **2026 = 1.72** (vs the bl<15 default's fragile 0.98,
+F6). Diversified (top-1 = 4%, top-10 = 19% of gross — no jackpot dependence).
+
+**⭐ THE PRODUCTION BOOK: 1006 tr / raw PF 3.31 / clip PF 2.04 / $1.04M / win 42%, all-weather.**
+Gates: `chg_1d≥0.20 & chg_3d∈[0,1.5] & log_atr≥0.013 & stop_dist≥0.03 & bh≥1`, arm window [09:45,10:00),
+sess-ema-low 9-EMA stop, exhaustion cut+exit at brv20d≥100 (& ATR%≥0.03). This is the OpeningDriverV2
+no-arg default.
