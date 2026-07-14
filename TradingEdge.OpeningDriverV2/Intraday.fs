@@ -78,6 +78,7 @@ type IntradayPosition =
       BarsSinceEmaLow: int       // bars since the 9-EMA last made a new session LOW (0 = this bar; -1 = none yet)
       CumVolAtEntry: int64       // cumulative session volume through the entry bar (rvol_cum numerator)
       EntryType: string          // "close" (market at the arm bar's close) | "limit" (filled at a resting 9-EMA limit)
+      EntryIndex: int            // 0 = first entry of the day; 1 = first re-entry; 2 = second (re-arm expectancy split)
       State: IntraPosState }
 
 /// OpeningDriverV2 engine config = timing + windows + stop + the settled arm gates.
@@ -113,6 +114,12 @@ type IntradayConfig =
                                  // at that bar's 9-EMA good for the NEXT bar only (fill if next low <= it, at the
                                  // 9-EMA price). Close <= 9-EMA fills at close immediately. Unfilled -> re-test gates
                                  // next bar (stays armed). false (default) = market entry at the arm bar's close.
+      MaxReEntries: int          // 0 (default) = one shot per day (disarm forever after the first entry). >0 = after a
+                                 // STOP exit, re-arm on the next NEW 9-EMA session low, up to this many re-entries (the
+                                 // 3% stop-dist gate keeps us out until there's room again). Exhaust flushes do NOT re-arm.
+      ReEntryCooldownBars: int   // min bars that must pass AFTER a stop-exit before the day can re-arm (default 0). >0
+                                 // prevents same-flush re-fires (a new low prints instantly during the down-move that
+                                 // stopped us, stacking 3x correlated entries within 1-3 bars) — forces a genuine reset.
       ExhaustExit: bool }        // true = when the blow-off latch fires, CLOSE any open position at that bar (an
                                  // exhaustion EXIT). Independent of the arm CUT — the latch always blocks new arms
                                  // when ExhaustBrv20d>0; ExhaustExit additionally flushes the held position.
@@ -162,8 +169,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     let mutable barsSeen = 0
     // the strictly-prior snapshot (only the prior bar is needed — for the true-range prior close).
     let mutable sState : State = { bar = ValueNone }
-    // the day's arm state: once the engine fires (or a skip-filter burns the day) it DISARMS — no re-arm.
+    // the day's arm state: once the engine fires (or a skip-filter burns the day) it DISARMS.
     let mutable armed = true
+    // RE-ARM state (MaxReEntries>0). entryCount = entries taken so far (cap = 1+MaxReEntries). reArmEligible is TRUE
+    // by default (a new 9-EMA session low always re-arms) and is REVOKED PERMANENTLY by an exhaustion trigger (the
+    // blow-off ends the day). sessLowAtExit anchors the "new low AFTER the last stop-exit" trigger (must ratchet
+    // below this) so we re-arm on a FRESH low, not the level we already stopped at.
+    let mutable entryCount = 0
+    let mutable reArmEligible = true
+    let mutable sessLowAtExit : float voption = ValueNone
+    let mutable stopExitMin = -1            // etMin of the last stop-exit (for the ReEntryCooldownBars gate; -1 = none).
     // PATIENT limit entry (LimitEntry mode): a limit resting at the placing bar's 9-EMA, good for the NEXT bar
     // only. `pendingLimit` = the resting price (the 9-EMA); `pendingArm` = the arm-bar's feature snapshot to
     // stamp on the fill (so the trip records the SIGNAL bar's context, not the fill bar's). Cleared each bar.
@@ -256,7 +271,27 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     member this.Process (curBar: MinuteBar) =
         this.ProcessBar curBar
         for i in 0 .. positions.Count - 1 do
-            positions.[i] <- this.Advance curBar positions.[i]
+            let before = positions.[i].State
+            let after = this.Advance curBar positions.[i]
+            positions.[i] <- after
+            match before, after.State with
+            // a fresh STOP-exit is what MAKES the day re-arm-eligible: anchor the low at the stop (the next re-arm
+            // needs a NEW low strictly below it) and record the stop bar (for the cooldown). MOC doesn't re-arm.
+            | Holding, ExitedAt (m, _, "stop") -> sessLowAtExit <- sessEmaLow; stopExitMin <- m
+            // an EXHAUSTION flush ends the day: revoke re-arm eligibility permanently (the blow-off climaxed).
+            | Holding, ExitedAt (_, _, "exhaust") -> reArmEligible <- false
+            | _ -> ()
+        // RE-ARM trigger (requires an actual prior STOP-exit — sessLowAtExit is set ONLY by a stop). Conditions:
+        // eligible (revoked only by exhaustion), disarmed, re-entries remain, cooldown elapsed since the stop, AND
+        // the 9-EMA session-min has made a NEW low strictly below the stop level (a fresh pullback reset). On re-arm
+        // clear the anchor so the NEXT re-arm needs its own stop. The gate scan + 3% stop-dist govern the re-entry.
+        if reArmEligible && not armed && entryCount <= cfg.MaxReEntries then
+            match sessEmaLow, sessLowAtExit with
+            | ValueSome cur, ValueSome atExit
+                    when cur < atExit && (curBar.etMin - stopExitMin) >= cfg.ReEntryCooldownBars ->
+                armed <- true
+                sessLowAtExit <- ValueNone      // consumed — the next re-arm needs a fresh stop-exit.
+            | _ -> ()
         // (1) PATIENT limit entry: a limit rested last bar (at that bar's 9-EMA) is live for THIS bar only.
         // Fill if this bar traded down to it (low <= limit), at the limit price, stamped with the arm-bar
         // snapshot. Whether or not it fills, the one-bar limit is now consumed (cleared below).
@@ -266,6 +301,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                 positions.Add { arm with EntryMin = curBar.etMin; EntryPx = lim; EntryType = "limit"
                                          StopDistPct = (if lim > 0.0 && not (Double.IsNaN arm.StopLevel) && arm.StopLevel > Double.NegativeInfinity
                                                         then (lim - arm.StopLevel) / lim else nan) }
+                entryCount <- entryCount + 1
                 armed <- false
         | _ -> ()
         pendingLimit <- ValueNone
@@ -337,12 +373,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                           BarsSinceEmaLow = barsSinceEmaLow
                           CumVolAtEntry = cumVol
                           EntryType = "close"
+                          EntryIndex = entryCount            // 0 = first entry; 1/2 = re-entries (stamped at fill time).
                           State = Holding }
                     if not volSlopeOk then
                         // SKIP mode, vol_slope failed: burn the day, no position (matches market-mode behaviour).
                         armed <- false
                     elif not cfg.LimitEntry then
                         armed <- false                       // MARKET entry at the arm bar's close (default).
+                        entryCount <- entryCount + 1
                         positions.Add snap
                     else
                         // PATIENT limit entry. If the close is already <= the 9-EMA, the limit would fill at once —
@@ -351,12 +389,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                         match ema.State with
                         | ValueSome e when px <= e ->
                             armed <- false
+                            entryCount <- entryCount + 1
                             positions.Add snap               // close already at/below the limit -> fill at close.
                         | ValueSome e ->
                             pendingLimit <- ValueSome e       // rest the limit at this bar's 9-EMA for the next bar.
                             pendingArm   <- ValueSome snap
                         | ValueNone ->
                             armed <- false                    // no 9-EMA yet (shouldn't happen post-warmup) -> at close.
+                            entryCount <- entryCount + 1
                             positions.Add snap
 
     /// Flatten any still-open positions at the last folded bar's close (MOC / hold-to-close).

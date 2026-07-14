@@ -40,6 +40,8 @@ type Args =
     | Exhaust_Min_Atr_Pct of float
     | No_Exhaust_Exit
     | Limit_Entry
+    | Max_Re_Entries of int
+    | Re_Entry_Cooldown_Bars of int
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -68,6 +70,8 @@ type Args =
             | Exhaust_Brv20d _ -> "Blow-off kill-switch (default 0 = off): once a bar prints a new session high with brv20d >= this (1m bar volume / (avgvol20·adj/390), the per-minute 20d ADV — 100 = the MaxFlyerV3 short-arm value) AND ATR% >= --exhaust-min-atr-pct, the day is latched exhausted and no arm fires."
             | Exhaust_Min_Atr_Pct _ -> "ATR% floor the climax bar must meet for the exhaustion latch (default 0.03; only used when --exhaust-brv20d > 0)."
             | No_Exhaust_Exit -> "Disable the default exhaustion EXIT: the blow-off latch only CUTS new arms and does NOT flush the held position. (By default the latch both cuts and flushes — the risk-adjusted F9 default.)"
+            | Max_Re_Entries _ -> "Re-entries per day (default 0 = one shot). After a STOP exit, re-arm on the next NEW 9-EMA session low, up to this many extra entries (e.g. 2 = up to 3 total). The 3% stop-dist gate keeps re-entries out until there's room; an exhaustion flush ends the day. entry_index column records 0=first, 1/2=re-entries."
+            | Re_Entry_Cooldown_Bars _ -> "Min bars that must pass AFTER a stop-exit before the day can re-arm (default 0). Prevents same-flush re-fires (a new low prints instantly in the down-move that stopped us, stacking correlated entries within 1-3 bars). E.g. 5 = wait >=5 min for a genuine reset."
             | Limit_Entry -> "PATIENT entry: when a bar's gates pass but its close is above the 9-EMA, rest a limit at that bar's 9-EMA good for the next bar only (fill at the 9-EMA if the next bar's low touches it). If the close is already <= the 9-EMA, fill at the close. Unfilled -> re-test the gates next bar (stays armed). Default off (market entry at the arm-bar close)."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
@@ -113,7 +117,9 @@ let main argv =
                   ExhaustBrv20d    = parsed.GetResult(Exhaust_Brv20d,      defaultValue = dic.ExhaustBrv20d)
                   ExhaustMinAtrPct = parsed.GetResult(Exhaust_Min_Atr_Pct, defaultValue = dic.ExhaustMinAtrPct)
                   ExhaustExit      = dic.ExhaustExit && not (parsed.Contains No_Exhaust_Exit)
-                  LimitEntry       = dic.LimitEntry || parsed.Contains Limit_Entry } }
+                  LimitEntry       = dic.LimitEntry || parsed.Contains Limit_Entry
+                  MaxReEntries     = parsed.GetResult(Max_Re_Entries, defaultValue = dic.MaxReEntries)
+                  ReEntryCooldownBars = parsed.GetResult(Re_Entry_Cooldown_Bars, defaultValue = dic.ReEntryCooldownBars) } }
 
     let ic = cfg.Intraday
     let hhmm m = sprintf "%02d:%02d" (m / 60) (m % 60)
@@ -132,7 +138,8 @@ let main argv =
         (if ic.ExhaustBrv20d > 0.0 then sprintf "ON — latch if a new-high bar hits brv20d>=%.0f & ATR%%>=%.3f; %s" ic.ExhaustBrv20d ic.ExhaustMinAtrPct (if ic.ExhaustExit then "CUT arms + EXIT held" else "CUT arms only") else "off")
     printfn "  stop        = 9-EMA below %s"
         (match ic.StopMode with BelowVwap -> "the live session VWAP" | BelowSessEmaLow -> "the 9-EMA session-min (frozen at entry)")
-    printfn "  entry       = %s" (if ic.LimitEntry then "PATIENT limit at the 9-EMA (fill if next bar's low touches it)" else "market at the arm-bar close")
+    printfn "  entry       = %s%s" (if ic.LimitEntry then "PATIENT limit at the 9-EMA (fill if next bar's low touches it)" else "market at the arm-bar close")
+        (if ic.MaxReEntries > 0 then sprintf "; re-arm after stop on new low, up to %d re-entries" ic.MaxReEntries else "; one shot per day")
     printfn "  exits       = 9-EMA stop + hold-to-MOC"
 
     let sw = Stopwatch.StartNew()

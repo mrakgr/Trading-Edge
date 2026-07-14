@@ -714,3 +714,36 @@ tighter stop rescues.
 **REJECTED — keep the `stop_dist ≥ 3%` GATE.** Useful negative: it VALIDATES the 3% gate as a real
 filter (not an arbitrary threshold) — the skipped setups aren't unlucky, they're structurally dead
 (9-EMA at the session floor). `TightStopFloor` stays available (default off) but should not be engaged.
+
+## F20 — re-arm after a stop (on a new 9-EMA low): structurally INERT in a 15-min window — REJECTED
+
+Built the deferred re-arm (user mechanic): after a STOP exit, re-arm on the next NEW 9-EMA session low
+(the drive reset its pullback structure), up to `MaxReEntries` (2), with a `ReEntryCooldownBars` guard;
+exhaust flushes end the day; `entry_index` (0/1/2) recorded. Default off (MaxReEntries=0).
+
+**A phantom-re-fire BUG first inflated it to 2621 tr / $2.85M** (entry-index split all ~clip 1.95, "all
+accretive"). Root cause: `reArmEligible` defaulted true + a `sessLowAtExit=None → allow` fallback let the
+day re-arm on ANY new low WITHOUT a stop having occurred — so on a rising drive it stacked 3 entries
+within 1–3 bars (e.g. AAP 2025-05-22: 3 entries 09:46/48/49, NONE stopped, all rode to MOC +12%). That
+was **3× correlated leverage, not second chances** (P&L corr between entry-0 and entry-1 = 1.0; exit
+times only 36% distinct). Fixed: re-arm now STRICTLY requires a prior stop-exit (only a stop sets the
+anchor), the low must ratchet below the stop level, and the anchor is consumed on re-arm.
+
+**Corrected, re-arm is nearly a NO-OP: 1029 tr (vs 1028) — ONE re-entry in 6.5 years.** Why:
+
+| base book (1028) exit | n | % | avg hold |
+|---|---|---|---|
+| MOC | 518 | 50 | 370 min |
+| stop | 481 | 47 | **81 min** |
+| exhaust | 29 | 3 | 20 min |
+
+Re-arm can only make a NEW trade if the stop lands while the [09:45,10:00) entry window is still open.
+But the sess-ema-low stop is WIDE (frozen 9-EMA session-min — "lets the drive run", F1), so the average
+stop is **81 min after entry (~11:00+)** — only **70 of 481 stops happen before 10:00**, and of those,
+almost none also get a fresh new-low + gate-repass + 3% room before the window closes. The intersection
+is ~empty.
+
+**Nothing is wrong with the stops** (they fire on 47% of trades, correctly; AAP simply never traded down
+to its frozen 41.01 session-min). **REJECTED — re-arm is structurally inert in a 15-min window with a
+wide stop.** Reassuring: there's no "second chance" edge being left on the table; the window is too short
+and the stop too loose for one to exist. Kept off (MaxReEntries=0); `entry_index` column retained.
