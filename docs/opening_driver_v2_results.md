@@ -686,3 +686,31 @@ Limit entry LOSES 154 trips and **$248k net** for no PF gain (raw 3.50→3.34, c
 one — and those are the best ones.** The +0.37% cheaper fill doesn't compensate for the lost runaway net.
 **REJECTED — market-at-close stays the default.** (Consistent with the whole family: the tail is in the
 fills you'd skip, cf. F9's "every exit loses to hold-to-MOC".)
+
+## F19 — tight-stop FLOOR (replace the 3% gate with `stop = max(sess-ema-low, 9EMA·0.97)`): REJECTED
+
+Tested (user): instead of the `stop_dist ≥ 3%` GATE skipping no-room setups, place a formulaic stop at
+`max(sess-ema-low, ema_at_entry·(1−0.03))` and let EVERY setup trade — the no-room ones get a synthetic
+tight stop 3% below the 9-EMA. New `TightStopFloor` config (default 0 = the gate; `--tight-stop-floor
+0.03` = the floor). Question: can those skipped tight-stop entries be salvaged?
+
+| set | n | avg stopdist% | avg% | win | PF raw | PF clip | net_k | stop-exit% |
+|---|---|---|---|---|---|---|---|---|
+| kept (dist≥3%, = the gate book) | 1028 | 1.8 | 8.2 | 32 | 3.61 | 2.02 | 842 | 71 |
+| **NEW tight-stop (was skipped)** | 398 | **−1.0** | **−0.5** | 33 | **0.69** | **0.69** | **−21** | **92** |
+| ALL (floor book) | 1426 | 1.0 | 5.8 | 32 | 3.12 | 1.79 | 821 | 77 |
+
+**The 398 salvaged entries are WORTHLESS — net −$21k, PF 0.69, avg −0.5%/tr, and they STOP OUT 92% of
+the time.** They drag the book from PF 3.61 → 3.12. Per-year they LOSE or break even in ALL 7 years
+(PF 0.25 in 2021, 0.49–0.55 in 2023/25/26; best 1.63 in 2024) — structural, not regime.
+
+**Why the tight stop can't fix them:** the new set's avg stop-distance is **−1.0%** — the session-min
+sits ABOVE the entry context, i.e. the 9-EMA is already at/near the session floor with price barely
+above it (the F16 no-room signature: the drive already stalled). A `9EMA·0.97` stop then sits right where
+price is trading, so it's hit almost immediately (92% stop-exit). **The 3% gate was skipping these for
+exactly the right reason** — they are genuinely no-room, near-instant scratches, not tradable setups a
+tighter stop rescues.
+
+**REJECTED — keep the `stop_dist ≥ 3%` GATE.** Useful negative: it VALIDATES the 3% gate as a real
+filter (not an arbitrary threshold) — the skipped setups aren't unlucky, they're structurally dead
+(9-EMA at the session floor). `TightStopFloor` stays available (default off) but should not be engaged.

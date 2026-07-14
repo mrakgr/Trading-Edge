@@ -30,6 +30,7 @@ type Args =
     | Max_Chg_3d of float
     | Min_Log_Atr of float
     | Min_Stop_Dist_Pct of float
+    | Tight_Stop_Floor of float
     | Bl_Max of int
     | Bh_Min of int
     | Min_Vol_Slope of float
@@ -58,7 +59,8 @@ type Args =
             | Min_Chg_3d _ -> "3-day-trend band floor: entry/close_3d-1 >= this (default 0.0)."
             | Max_Chg_3d _ -> "3-day-trend band ceiling: entry/close_3d-1 <= this (default 1.5)."
             | Min_Log_Atr _ -> "20m log-ATR jumpiness guard: log_atr_20 >= this (default 0.013)."
-            | Min_Stop_Dist_Pct _ -> "Room to the stop: (entry-stop)/entry >= this (default 0.03 = 3%)."
+            | Min_Stop_Dist_Pct _ -> "Room to the stop: (entry-stop)/entry >= this (default 0.03 = 3%). Ignored when --tight-stop-floor > 0."
+            | Tight_Stop_Floor _ -> "Replace the stop-dist GATE with a formulaic FLOOR (default 0 = off): stop = max(sess-ema-low, ema_at_entry·(1−this)). Every setup trades; a session-min within this fraction of the 9-EMA gets a synthetic stop that far below the 9-EMA (e.g. 0.03 = 3%) instead of being skipped."
             | Bl_Max _ -> "Freshness cap: bars-since-EMA-low < this (default 15). 0 disables."
             | Bh_Min _ -> "Pullback floor: bars-since-EMA-high >= this (default 1). 0 disables."
             | Min_Vol_Slope _ -> "20m OLS log-volume slope floor: vol_slope_20 >= this (default 0.0)."
@@ -103,6 +105,7 @@ let main argv =
                   MaxChg3d        = parsed.GetResult(Max_Chg_3d,        defaultValue = dic.MaxChg3d)
                   MinLogAtr       = parsed.GetResult(Min_Log_Atr,       defaultValue = dic.MinLogAtr)
                   MinStopDistPct  = parsed.GetResult(Min_Stop_Dist_Pct, defaultValue = dic.MinStopDistPct)
+                  TightStopFloor  = parsed.GetResult(Tight_Stop_Floor,  defaultValue = dic.TightStopFloor)
                   BlMax           = parsed.GetResult(Bl_Max,            defaultValue = dic.BlMax)
                   BhMin           = parsed.GetResult(Bh_Min,            defaultValue = dic.BhMin)
                   MinVolSlope     = parsed.GetResult(Min_Vol_Slope,     defaultValue = dic.MinVolSlope)
@@ -120,8 +123,10 @@ let main argv =
     printfn "  range       = %O .. %O" startDate endDate
     printfn "  features    = fold from %s ET (VWAP / OLS price&vol slope / log-ATR / 9-EMA / cum-vol)" (hhmm ic.FeatureStartMin)
     printfn "  arm window  = %s–%s ET   (first qualifying bar arms, then disarm)" (hhmm ic.EntryStartMin) (hhmm ic.EntryEndMin)
-    printfn "  gates       = chg_1d>=%.2f  chg_3d in [%.2f,%.2f]  log_atr>=%.4f  stop_dist>=%.3f  bl<%d  bh>=%d"
-        ic.MinChg1d ic.MinChg3d ic.MaxChg3d ic.MinLogAtr ic.MinStopDistPct ic.BlMax ic.BhMin
+    printfn "  gates       = chg_1d>=%.2f  chg_3d in [%.2f,%.2f]  log_atr>=%.4f  %s  bl<%d  bh>=%d"
+        ic.MinChg1d ic.MinChg3d ic.MaxChg3d ic.MinLogAtr
+        (if ic.TightStopFloor > 0.0 then sprintf "stop=max(sess-ema-low, 9EMA*%.3f)" (1.0-ic.TightStopFloor) else sprintf "stop_dist>=%.3f" ic.MinStopDistPct)
+        ic.BlMax ic.BhMin
     printfn "  vol_slope   = >=%.4f as a %s" ic.MinVolSlope (if ic.VolSlopeAsGate then "GATE (keep scanning on fail)" else "SKIP filter (burn the day on fail)")
     printfn "  exhaustion  = %s"
         (if ic.ExhaustBrv20d > 0.0 then sprintf "ON — latch if a new-high bar hits brv20d>=%.0f & ATR%%>=%.3f; %s" ic.ExhaustBrv20d ic.ExhaustMinAtrPct (if ic.ExhaustExit then "CUT arms + EXIT held" else "CUT arms only") else "off")

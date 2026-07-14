@@ -45,6 +45,8 @@ let defaultConfig =
           MaxChg3d       = 1.5           // 3-day-trend band ceiling (reject over-extended blow-off).
           MinLogAtr      = 0.013         // 20m log-ATR jumpiness guard.
           MinStopDistPct = 0.03          // >=3% room to the 9-EMA session-min stop (no-room scratch guard).
+          TightStopFloor = 0.0           // 0 = off (use the MinStopDistPct gate). >0 (e.g. 0.03) = replace the gate
+                                         // with stop = max(sess-ema-low, ema_at_entry·(1−this)); every setup trades.
           BlMax          = 0             // freshness cut OFF (F6/F7): bl<15 buys quality/trade but costs net +
                                          // 2026 robustness; the broader bh>=1-only book is the production default.
           BhMin          = 1             // pullback: bh>=1 (any pullback off the high, not chasing) — the kept gate.

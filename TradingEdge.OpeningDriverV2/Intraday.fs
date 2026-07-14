@@ -95,7 +95,10 @@ type IntradayConfig =
       MinChg3d: float            // 3-day-trend band floor: entry/close_3d - 1 >= this (0.0)
       MaxChg3d: float            // 3-day-trend band ceiling: entry/close_3d - 1 <= this (1.5)
       MinLogAtr: float           // 20m log-ATR jumpiness guard (0.013)
-      MinStopDistPct: float      // room to the stop: (entry-stop)/entry >= this (0.03)
+      MinStopDistPct: float      // room to the stop: (entry-stop)/entry >= this (0.03). Ignored when TightStopFloor>0.
+      TightStopFloor: float      // 0 = off (the MinStopDistPct GATE skips no-room entries). >0 (e.g. 0.03) = replace
+                                 // the gate with a formulaic FLOOR: stop = max(sess-ema-low, ema_at_entry·(1−this)),
+                                 // so EVERY setup trades — no-room ones get a synthetic stop 'this' below the 9-EMA.
       BlMax: int                 // bars-since-EMA-low freshness cap: bl < this (15). <=0 disables.
       BhMin: int                 // bars-since-EMA-high pullback floor: bh >= this (1). <=0 disables.
       MinVolSlope: float         // 20m OLS log-volume slope floor
@@ -279,19 +282,31 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                 let volSlope = vv volOls.Slope
                 let chg1d = if close1d > 0.0 then px / close1d - 1.0 else nan
                 let chg3d = if close3d > 0.0 then px / close3d - 1.0 else nan
-                // the stop reference at THIS bar (for the room gate + the frozen level if we fire).
+                // the natural stop reference at THIS bar (the sess-ema-low, or the VWAP for BelowVwap mode).
                 let stopRef =
                     match cfg.StopMode with
                     | BelowVwap       -> vwap.State
                     | BelowSessEmaLow -> sessEmaLow
-                let stop = vv stopRef
+                let natStop = vv stopRef
+                // TIGHT-STOP FLOOR: when on, the stop is floored at ema_at_entry·(1−floor), so a session-min
+                // within `floor` of the 9-EMA is replaced by that synthetic level (guaranteeing room) rather
+                // than skipped. When off, `stop` = the raw session-min and the MinStopDistPct GATE applies.
+                let stop =
+                    if cfg.TightStopFloor > 0.0 then
+                        match ema.State with
+                        | ValueSome e ->
+                            let floorLvl = e * (1.0 - cfg.TightStopFloor)
+                            if Double.IsNaN natStop then floorLvl else max natStop floorLvl
+                        | ValueNone -> natStop
+                    else natStop
                 let stopDistPct = if px > 0.0 && not (Double.IsNaN stop) then (px - stop) / px else nan
-                // finite-value guards fold into each comparison (a nan feature fails its gate).
+                // finite-value guards fold into each comparison (a nan feature fails its gate). The stop-dist
+                // gate is SKIPPED in TightStopFloor mode (every setup trades with the floored stop).
                 let dayStrengthOk =
                     chg1d >= cfg.MinChg1d
                     && chg3d >= cfg.MinChg3d && chg3d <= cfg.MaxChg3d
                     && logAtr >= cfg.MinLogAtr
-                    && stopDistPct >= cfg.MinStopDistPct
+                    && (cfg.TightStopFloor > 0.0 || stopDistPct >= cfg.MinStopDistPct)
                 let timingOk =
                     (cfg.BlMax <= 0 || (barsSinceEmaLow >= 0 && barsSinceEmaLow < cfg.BlMax))
                     && (cfg.BhMin <= 0 || barsSinceEmaHigh >= cfg.BhMin)
