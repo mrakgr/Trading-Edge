@@ -827,3 +827,35 @@ Three robustness reads:
 `bl<13` firms 2021 (2.1) but thins the other years. **VERDICT: `bl < 15` is the production freshness cut
 (all-weather, robust); the rising-vol × bl<15 is the A+ overlay. Tighter bl is overfit — the aggregate PF
 is a small-sample mirage.**
+
+## F22 — Correction to F20: the BROAD `bh ≥ 1` pullback cut IS all-weather (the [1,3] band was small-sample)
+
+F20 judged the pullback effect "regime-dependent" from the NARROW `bh ∈ [1,3]` band (which had losing 2022/23).
+But that was a small-sample artifact — the BROAD `bh ≥ 1` (ANY pullback off the high) cut is well-populated
+(268 tr) and positive EVERY year:
+
+| cut | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | TOTAL |
+|---|---|---|---|---|---|---|---|---|
+| **bh ≥ 1 (any pullback)** | 2.4 | 2.0 | 2.2 | 2.0 | 4.7 | 4.5 | 3.3 | **3.14 (268)** |
+| bh = 0 (at the high) | 2.7 | **1.1** | 2.6 | 2.6 | 3.8 | 3.1 | **2.1** | 2.37 (506) |
+
+`bh ≥ 1` is all-weather (min 2.0) and DOMINATES bh=0 in exactly the years bh=0 is weakest (2021: 2.0 vs 1.1;
+2026: 3.3 vs 2.1). "Wait for ANY pullback off the high" is a real, robust improvement over "buy the exact
+high" — comparable in robustness to `bl < 15`.
+
+**Side split (the F20 asymmetry holds, but note the population):**
+
+| cut | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | TOTAL |
+|---|---|---|---|---|---|---|---|---|
+| rising & bh≥1 | 3.0(4) | 5.1(15) | 0.0(3) | 2.7(4) | 3.3(10) | 4.8(14) | -(1) | 4.07 (51) |
+| falling & bh≥1 | 2.4 | 1.4 | 3.2 | 1.6 | 5.4 | 4.5 | 2.2 | 2.91 (217) |
+
+`rising & bh≥1` has the highest aggregate PF (4.07) but is THIN (51 tr, 1-15/yr, erratic per-year) — don't
+trust it standalone. `falling & bh≥1` is the well-populated version (217 tr) — positive most years (soft 2021
+1.4, 2023 1.6). This confirms F20's mechanism: the pullback does its real WORK on the FALLING/flat side (where
+bh=0 = chasing an unconfirmed high), and there it's broad enough to trust.
+
+**Revised verdict (supersedes F20's caution): BOTH `bl < 15` (freshness) AND `bh ≥ 1` (any pullback) are
+robust, all-weather timing cuts.** The earlier "regime-dependent" call was specific to the narrow bh∈[1,3]
+band, not the pullback feature itself. Use `bh ≥ 1` broadly (not the tight band); the rising-vol combos stay
+A+ overlays but are too thin to lean on per-year.
