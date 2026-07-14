@@ -689,3 +689,38 @@ are EARLY & PULLING BACK, not the most extended** — a stock that bottomed rece
 entering on a small dip off its high (not chasing the exact high tick). The extended drives (bottomed at the
 open, climbing 15+ bars, buying the new-high tick) have already made most of their move. Caveat: the combined
 cell has a LOWER win rate (32%) but higher PF — a fatter-tailed book (fewer, bigger winners), fine for momentum.
+
+## F18 — bars_since_ema_low focused: DROP the "bottomed-at-open" pile (bl=15); fresher low = monotone better
+
+Focused breakdown of `bars_since_ema_low` on the 09:45 real-trade book (n=774, PF 2.62). (Note on the value 0:
+in the RAW firehose `bl=0` is the biggest bucket — the 9-EMA making a new session low that bar. But WITHIN the
+drive book `bl ≥ 1` — a stock up +20% on the day never makes a fresh 9-EMA session low at 09:45 by
+construction. So `min=1` in the book is a CONFIRMATION it selects genuine drives, not an off-by-one.)
+
+**Per-value — one value dominates: `bl=15` is 46% of the book at the WEAKEST PF:**
+
+| bl | n | PF | avg% | | bl | n | PF | avg% |
+|---|---|---|---|---|---|---|---|---|
+| 2–3 | 19 | ~8 | +30 | | 10 | 31 | 4.38 | +14.96 |
+| 4–5 | 32 | 1.15–3.46 | +0.9–10.5 | | 11–12 | 106 | 1.85–2.22 | +5–8 |
+| 6–7 | 52 | 3.59–4.78 | +12–18 | | 13–14 | 128 | 2.67–3.97 | +9–13 |
+| 8–9 | 50 | 2.51–2.84 | +6–13 | | **15** | **354** | **2.01** | **+4.68** |
+
+`bl=15` (the 9-EMA bottomed at the very OPEN, 09:30, and climbed all 15 bars to 09:45) is the single biggest
+pile AND the weakest — the most EXTENDED drives, least room left. Every other value (bl<15 = the low was set
+LATER, i.e. an intraday dip/reset gave the drive fresh legs) averages better.
+
+**Ceiling sweep — fresher low = monotone better:**
+
+| ceiling | n | PF | avg% | net |
+|---|---|---|---|---|
+| book (bl ≤ 15) | 774 | 2.62 | +8.11 | $628k |
+| **bl < 15** | 420 | **3.08** | +11.00 | $462k |
+| bl < 10 | 155 | 3.58 | +13.06 | $202k |
+| bl < 7 | 81 | **4.17** | +15.57 | $126k |
+| bl < 5 | 39 | 3.99 | +15.65 | $61k |
+
+**The cleanest single cut is `bl < 15`** — just drop the bottomed-at-open pile: PF 2.62 → 3.08 on 420 trips,
+all-weather (2020 2.82, 2021 1.34, 2022 3.14, 2023 3.27, 2024 5.66, 2025 4.35, 2026 3.34). Tighten to `bl < 7`
+(PF 4.17) for an A+ cell. **The extended drive (9-EMA never dipped since the open) is the weak pocket; a drive
+that put in a LATER low — an intraday reset — has more room and is the better buy.**
