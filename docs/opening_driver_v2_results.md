@@ -298,3 +298,37 @@ timing gate rescues it (bh≥1 → 1.17, +bl<15 → 1.44). Raw day-strength thru
 adverse regime — the pullback/freshness structure is what carries 2021. **Production recommendation
 stands (F6): `bh≥1` only** — it captures nearly all the net ($1154k of the $1204k ceiling) while
 being the gate that most cheaply firms the adverse year.
+
+## F8 — 09:45 premarket-inclusive RVOL (`rvol_0945`) is an INVERTED-U: [2,3)× is the sweet spot, [5,10)× a graveyard
+
+`rvol_0945` = premarket-inclusive cumulative volume 04:00→09:45 ÷ 20d avg DAILY volume (the
+candidate-table field, `vol_0945_pm / avgvol20`; `rvol_0945 = 2` means the stock did 2× a normal
+full day's volume by 09:45). Joined onto the day-strength early book (no bl/bh; `chg_1d≥0.20 &
+chg_3d∈[0,1.5] & log_atr≥0.013 & stop_dist≥0.03`, [09:45,10:00), 2020–26, 1362 tr; median rvol 4.1×).
+
+| rvol_0945 | n | avg% | win | PF raw | PF clip | net_k |
+|---|---|---|---|---|---|---|
+| [1, 1.5) | 286 | 5.9 | 48 | 2.76 | 2.02 | 170 |
+| [1.5, 2) | 135 | 7.7 | 39 | 2.90 | 1.80 | 104 |
+| **[2, 3)** | 149 | **14.8** | **54** | **5.23** | **2.83** | 221 |
+| [3, 5) | 166 | 9.0 | 41 | 2.86 | 2.17 | 150 |
+| **[5, 10)** | 156 | 3.1 | **27** | 1.44 | **0.88** | 48 |
+| [10, ∞) | 470 | 10.9 | 36 | 2.78 | 1.48 | 512 |
+
+**NOT monotone — an inverted-U.** More premarket volume helps up to ~3×, then turns TOXIC in the
+5–10× band, then the extreme tail (≥10×, the mega-gappers) partially recovers.
+
+- **⭐ [2, 3)× = the sweet spot:** clip PF 2.83, win **54%**, avg +14.8%/tr — the single best RVOL cell.
+  A stock that's done 2–3× its full ADV by 09:45 = strong genuine participation, not yet blown off.
+  **All-weather** (clip-positive every year, floor 1.04 in 2022 / 1.15 in 2026; strong 2023–25 at
+  3.7–5.3; 51% win even in 2021). Real edge (high win rate = not lottery).
+- **⚠ [5, 10)× = a graveyard:** clip PF **0.88** (LOSING), win **27%** — the WORST cell. Robustly
+  toxic: clip ≤ 1.08 in 6 of 7 years, outright losing in 2021 (0.63) / 2023 (0.00) / 2024 (0.61) /
+  2026 (0.97). 5–10× ADV before 09:45 without being a mega-gapper = the drive is already spent by
+  entry (exhaustion/blow-off). A genuine AVOID zone.
+
+**A floor ALONE hurts** (it drags in the toxic 5–10× band): `rv≥1.5` clip 1.61, `rv≥2` 1.59, `rv≥3`
+1.46, `rv≥5` 1.31 — monotonically WORSE than the full book's 1.67 as the floor rises. **Use a BAND,
+not a floor.** The actionable cut is the `[2,3)` sweet spot (a sharp A+ overlay, clip 2.83/win 54%,
+$221k) and/or EXCLUDE `[5,10)` (removing a clip-0.88 graveyard). This inverts the naive "more volume
+= better" thesis: it's true only up to ~3×, then extreme early volume signals exhaustion.
