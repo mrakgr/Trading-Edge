@@ -248,3 +248,50 @@ way; every other year is as strong or stronger, with more total net.
 **⭐ NEW A+ CELL: `updn ≥ 1.3 & run_atr ≥ 0.013 & run_max_dist ≥ 0.035`** — PF 3.25 / +14.51%/tr / 336 trips /
 $488k. Three orthogonal floors, each doing one job (updn = conviction, run_atr = jumpiness, dist = run depth),
 no vol-normalized ratio needed. Cleaner and larger than the original `rmd≥3.5% & dpa<3` cell.
+
+## F6 — dpa RE-examined inside the floored cell: now a PURE CEILING (subsumed shallow-floor, kept ceiling)
+
+Re-ran the dpa breakdown WITHIN the three-floor A+ cell (`updn ≥ 1.3 & run_atr ≥ 0.013 & dist ≥ 0.035`,
+PF 3.25). The earlier HUMP (F4) is gone — the shallow-dpa weakness DISAPPEARED, leaving a clean ceiling:
+
+| dpa decile | range | n | PF | avg% |
+|---|---|---|---|---|
+| **1** | 0.65–1.36 | 34 | **5.07** | +23.71 (now the BEST, was weak in F4) |
+| 2–7 | 1.37–2.95 | 202 | 3.47–5.05 | +12 to +22 (uniformly strong) |
+| **8–10** | ≥ 2.98 | 99 | **1.53 / 1.75 / 1.58** | +4.5 to +6 (cliff) |
+
+**Why the shallow-floor vanished:** in F4 (only run_atr floored) low dpa meant SHALLOW runs (weak). Now that
+`dist ≥ 0.035` guarantees a deep run, low dpa means "deep run relative to LOW vol" — the BEST kind. The dist
+floor subsumed dpa's shallow-floor role; only the over-extension ceiling survives.
+
+**The ceiling is a strong, net-cheap cut:**
+
+| dpa cut on the cell | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| no cut | 336 | 46 | 3.25 | +14.51 | $488k |
+| **< 3** | 239 | 49 | **4.33** | +18.92 | $452k |
+| < 2.5 | 189 | 48 | 4.49 | +20.10 | $380k |
+| < 2 | 113 | 50 | 4.87 | +21.90 | $247k |
+
+`dpa < 3` lifts PF 3.25 → **4.33** keeping 93% of net — removes the deep-vs-vol runs (deciles 8-10) that
+mean-revert (over-extended relative to their own vol). **And it fixes 2021** (the adverse year): 1.36 → 2.11,
+because the over-extended runs it cuts WERE 2021's worst names.
+
+**Yearly (floors + dpa<3 ceiling):**
+
+| year | n | PF | avg% | net |
+|---|---|---|---|---|
+| 2020 | 24 | 8.19 | +35.24 | $85k |
+| 2021 | 62 | 2.11 | +7.90 | $49k |
+| 2022 | 27 | 4.89 | +17.03 | $46k |
+| 2023 | 18 | 6.61 | +33.04 | $59k |
+| 2024 | 40 | 3.30 | +14.80 | $59k |
+| 2025 | 40 | 6.61 | +24.30 | $97k |
+| 2026 | 23 | 4.53 | +22.28 | $51k |
+| **TOTAL** | **239** | **4.33** | +18.92 | $452k |
+
+**⭐⭐ FINAL A++ CELL: `updn ≥ 1.3 & run_atr ≥ 0.013 & run_max_dist ≥ 0.035 & dpa < 3`** — PF 4.33 /
++18.92%/tr / 239 trips / $452k. All-weather (every modern year ≥ 2.11), the best-yet cell. This is the FULLY
+DE-TANGLED original `updn≥1.3 & rmd≥3.5% & dpa<3`: same feel, but now FOUR orthogonal knobs each with one
+job — updn (conviction), run_atr (jumpiness floor), dist (absolute depth), dpa (over-extension ceiling) —
+matching the old cell's PF (4.29) on ~identical trips (239 vs 240) but with a principled, understood structure.
