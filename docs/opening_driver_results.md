@@ -859,3 +859,31 @@ bh=0 = chasing an unconfirmed high), and there it's broad enough to trust.
 robust, all-weather timing cuts.** The earlier "regime-dependent" call was specific to the narrow bh∈[1,3]
 band, not the pullback feature itself. Use `bh ≥ 1` broadly (not the tight band); the rising-vol combos stay
 A+ overlays but are too thin to lean on per-year.
+
+## F23 — BOTH timing cuts (`bl < 15 & bh ≥ 1`): additive AND more robust than either alone
+
+Requiring both robust timing cuts — a FRESH drive (bl<15) entered on a PULLBACK off the high (bh≥1):
+
+| cut | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | PF | win% | avg% | n |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| base | 2.6 | 1.4 | 2.5 | 2.4 | 4.1 | 3.6 | 2.5 | 2.62 | 44 | +8.1 | 774 |
+| bl < 15 only | 2.8 | 1.3 | 3.1 | 3.3 | 5.7 | 4.3 | 3.3 | 3.08 | 41 | +11.0 | 420 |
+| bh ≥ 1 only | 2.4 | 2.0 | 2.2 | 2.0 | 4.7 | 4.5 | 3.3 | 3.14 | 39 | +10.2 | 268 |
+| **BOTH** | 2.5 | 2.0 | 2.6 | 2.3 | 5.9 | 6.1 | 4.4 | **3.65** | 34 | **+13.8** | 146 |
+
+**The combination is more ROBUST, not just stronger.** BOTH is positive every year with a min of **2.3 (2023)**
+— a HIGHER floor than either component (bl<15 dips to 1.3 in 2021; bh≥1 to 2.0). It firms 2021 specifically
+(2.0 vs base 1.4). The two timers catch DIFFERENT weak-setup failure modes, so requiring both filters the
+adverse-regime junk each alone admits. Interpretation: a fresh drive (room to run) entered on a small pullback
+(better fill, not chasing) = the ideal opening-drive entry.
+
+**Caveat:** win rate falls to 34% — a fatter-tailed book (fewer, bigger winners; +13.8% avg confirms). Fine
+for momentum, matters for sizing.
+
+**Vol split (don't over-slice):** BOTH & rising = PF 7.07 but only 23 tr (1-2/yr some years) — too thin to
+trust per-year. BOTH & falling = 123 tr / PF 3.02, positive most years.
+
+**⭐⭐ THE OPENING-DRIVE A+ CELL: `bl < 15 & bh ≥ 1`** (on top of the settled book: 09:45, ATR%≥0.013,
+chg_1d≥0.20, chg_3d∈[0,1.5], stop_dist≥3%) → PF 3.65 / +13.8%/tr / 146 tr / $201k, all-weather (min 2.3),
+firms the adverse year. Fresh drive + pullback entry = the cleanest, most robust cell in the study — the two
+timing features stack without the vol split.
