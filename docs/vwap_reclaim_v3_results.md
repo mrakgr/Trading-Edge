@@ -158,3 +158,64 @@ clipping a genuine runner mid-move, worth ~+$21k on each cell.
 
 The 0.002-0.005 plateau (threshold at ~0.2% EMA tick-noise; decay past ~0.01) is consistent across two
 independent cells and cheap on the full book, so `0.002` is adopted as the universal engine default.
+
+---
+
+## F4 — A+ cell rebuilt: make ATR EXPLICIT (run_atr ≥ 0.013), then dpa as a BAND [1.25, 3)
+
+**The insight (user):** the old A+ cell `updn ≥ 1.3 & run_max_dist ≥ 0.035 & run_dist_per_atr < 3` HIDES an
+ATR floor. `dpa = run_max_dist / run_atr < 3` with `run_max_dist ≥ 0.035` forces `run_atr > 0.035/3 = 0.0117`
+— nearly the momentum systems' 0.013 floor. So the `run_max_dist ≥ 3.5%` floor was doing TWO jobs at once
+(a real depth floor AND a smuggled ATR floor). Untangle them: set `run_atr ≥ 0.013` EXPLICITLY, drop the
+depth floor, and re-examine dpa on its own.
+
+**New base beats the old cell — 2.5× the trips at still-strong PF** (all years):
+
+| book | n | win% | PF | avg%/tr | net |
+|---|---|---|---|---|---|
+| OLD A+ (`rmd ≥ 3.5% & dpa < 3`) | 240 | 48 | 4.29 | +18.80 | $451k |
+| **NEW base (`updn ≥ 1.3 & run_atr ≥ 0.013`)** | 612 | 41 | 2.72 | +9.66 | **$591k** |
+
+**dpa within the new base is a HUMP — both tails weak (deciles, all-yr):**
+
+| dpa decile | range | n | PF | avg% |
+|---|---|---|---|---|
+| 1–2 | 0.40–1.05 | 124 | 2.13 / 2.77 | +6–8 |
+| **3** | 1.05–1.26 | 61 | **1.25** | +1.32 (shallow dip) |
+| 4–8 | 1.26–2.76 | 305 | **2.65–4.77** | +8–17 (the sweet spot) |
+| 9 | 2.77–3.50 | 61 | 2.16 | +8.86 |
+| **10** | 3.51–7.73 | 61 | **1.69** | +5.20 (deep-vs-vol) |
+
+**dpa still earns its keep — but as a BAND, not a bare ceiling:**
+
+| dpa cut on new base | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| no cut | 612 | 41 | 2.72 | +9.66 | $591k |
+| < 3 (old ceiling) | 515 | 41 | 3.12 | +10.79 | $556k |
+| ≥ 1.25 (drop shallow) | 429 | 44 | 2.97 | +11.47 | $492k |
+| **[1.25, 3) (BAND)** | **332** | **45** | **3.71** | **+13.76** | **$457k** |
+
+Two conclusions on the user's question ("is dpa < 3 redundant with ATR?"):
+1. **`dpa < 3` is NOT just an ATR proxy** — even with run_atr ≥ 0.013 explicit, cutting dpa ≥ 3 lifts PF
+   2.72 → 3.12 at 94% of net. Deep-relative-to-vol runs (deciles 9-10) genuinely underperform (a real ceiling).
+2. **A shallow FLOOR also matters** — dpa < ~1.25 (decile 3 dip) is weak. The band **[1.25, 3)** is the clean
+   A+ cell: PF **3.71** / +13.76%/tr / **332 trips** — ~matches the old cell's PF on 38% MORE trips, with a
+   PRINCIPLED structure (updn = conviction, run_atr = jumpiness, dpa-band = "deep but not over-extended vs
+   its own vol").
+
+**Yearly (A+ band, post-2020 = where VwapReclaim lives; pre-2020 rows are 1–3 trips, ignore):**
+
+| year | n | PF | avg% | net |
+|---|---|---|---|---|
+| 2020 | 23 | 7.81 | +31.80 | $73k |
+| 2021 | 100 | 1.78 | +4.65 | $47k |
+| 2022 | 44 | 3.99 | +12.52 | $55k |
+| 2023 | 25 | 6.25 | +24.34 | $61k |
+| 2024 | 51 | 3.49 | +13.44 | $69k |
+| 2025 | 50 | 5.04 | +17.95 | $90k |
+| 2026 | 28 | 4.62 | +20.60 | $58k |
+| **TOTAL** | **332** | **3.71** | +13.76 | $457k |
+
+**All-weather** (positive every modern year). 2021 is the weak-but-positive year (PF 1.78, adverse regime +
+most trips = edge diluted — the same signature as every other momentum book here). **⭐ NEW A+ CELL:
+`updn ≥ 1.3 & run_atr ≥ 0.013 & 1.25 ≤ dpa < 3`** — cleaner, better-reasoned, and larger than the original.
