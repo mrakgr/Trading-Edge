@@ -563,3 +563,47 @@ magnitude: small float = big moves, win-rate inverts). **But per-year it FAILS t
 **REJECTED: float is not a lever.** The day-strength gates already select for it implicitly (a +20%-day
 runner is usually lower-float), so an explicit float cut would only add fragility. Useful negative result
 — the book captures the float edge downstream; don't re-litigate.
+
+## F16 — distance to VWAP: a STRONG, all-weather, U-SHAPED edge (the best post-hoc signal on this book)
+
+Post-hoc on `entry_vs_vwap` (= entry_price/VWAP − 1) on the production book (1028 tr, full coverage;
+median +1.5%, 22% of entries BELOW VWAP — a pullback entry often dips below the running VWAP).
+
+| distance to VWAP | n | avg% | avg clip% | win | PF raw | PF clip | net_k |
+|---|---|---|---|---|---|---|---|
+| < −2% (deep below) | 63 | 21.8 | 10.1 | 41 | 5.85 | 3.26 | 137 |
+| −2..0% (just below) | 166 | 20.0 | 7.9 | 45 | 5.88 | 2.93 | 332 |
+| 0..1.5% (just above) | 289 | 9.5 | 4.0 | 39 | 3.16 | 1.90 | 275 |
+| **1.5..3% (above)** | 302 | 5.5 | 1.3 | 39 | 2.12 | **1.27** | 166 |
+| 3..5% (well above) | 163 | 9.8 | 6.2 | 49 | 3.24 | 2.44 | 159 |
+| ≥ 5% (far above) | 45 | 23.1 | 7.3 | 47 | 4.88 | 2.22 | 104 |
+
+**U-SHAPE with a graveyard in the middle:**
+- **Below VWAP (<0): the A+ cell** — clip PF 3.03, avg +20.5% (vs above-VWAP 1.78 / +8.8%). 22% of trips
+  = 40% of net at ~2× clip PF. Buying the pullback THROUGH VWAP into support = cheapest entry, best R/R.
+- **+1.5% to +3%: the graveyard** (clip 1.27, decile-7 clip 1.10) — popped above VWAP but not decisively;
+  worst zone in the book. Chasing a weak bounce.
+- **≥3%: recovers** (clip 2.2–2.4) — decisive breakout thrust.
+
+**All-weather AND counter-cyclical (unlike bl/float — this is NOT a regime effect):**
+
+| yr | below (<0) clip | above (≥0) clip | dead-zone 1.5-3% clip |
+|---|---|---|---|
+| 2020 | 3.46 | 1.68 | 1.15 |
+| 2021 | 1.51 | 1.37 | 1.00 |
+| 2022 | 3.71 | 1.63 | 1.22 |
+| 2023 | 2.46 | 1.70 | 1.28 |
+| 2024 | 3.76 | 1.80 | 2.65 |
+| 2025 | 5.30 | 2.81 | 1.33 |
+| 2026 | 2.71 | 1.26 | **0.74** |
+
+**Below-VWAP beats above-VWAP in ALL 7 years** (clip floor 1.51 in 2021), and is MOST dominant in the
+weak years (2026 2.71 vs 1.26). The dead zone is break-even-to-losing in 6 of 7 years and LOSES in 2026
+(0.74, negative net). **Concentration caveat:** below-VWAP is fatter-tailed (top-10 = 44% of gross vs the
+book's ~19%; top-1 only 11%) — the edge survives the +50% clip (clip 2.46–5.30 every year) but it's a
+fat-tail cell, so it matters for sizing.
+
+**⭐ The first robust, per-year, counter-cyclical lever in the study** (bl/vol_slope/float all failed this
+bar). Maps to a real mechanism: VWAP = the intraday fair-value/support line. Actionable as a gate (buy
+≤ VWAP; skip the +1.5–3% dead zone) or a sizing tilt (size UP below VWAP). NEXT: decide engine wiring —
+`entry_vs_vwap` is available live at the arm bar (VWAP is already folded), so this can be a real gate.
