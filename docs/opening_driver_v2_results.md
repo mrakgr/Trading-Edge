@@ -183,3 +183,44 @@ Same F3 verdict, now with net: rising-vol (`vs≥0.025`) is the quality cell (wi
 keeps only **$104k of $719k (14%)** — a real tilt you'd pay 86% of the net for. Falling-vol (clip
 2.15 = the book, win 32% < book) stays a jackpot cell. **Trade the full early book (no vol cut):
 $719k / clip 2.17 / all-weather.**
+
+## F5 — at the 09:59 bucket, WAIT for the 9-EMA downtick; do NOT enter on a monotone-up stock
+
+Studied on the V1 post-hoc recorder (`od_modern_semalow.csv`, every bar present), restricted to the
+**09:59 bucket** (the last bar of the [09:45,10:00) early window) within the day-strength book
+(`chg_1d≥0.20 & chg_3d∈[0,1.5] & log_atr≥0.013 & stop_dist≥0.03`). At 09:59 the max `bl`
+(bars-since-9-EMA-session-low) = 29: **`bl=29` means the 9-EMA made its low at the first bar (~09:30)
+and NEVER made a new low in the 29 bars since** — the "up every 9-EMA tick, get in right away" cohort.
+The question: enter immediately on monotone-up, or wait for a downtick (bl<29 / bh≥1)?
+
+| cohort | n | avg% | win | PF raw | PF clip | net_k |
+|---|---|---|---|---|---|---|
+| ALL (book) | 813 | 9.2 | 43 | 2.70 | 1.74 | 745 |
+| **bl=29 monotone-up (enter now)** | 293 | 4.2 | 43 | **1.79** | **1.40** | 124 |
+| **bl<29 down-ticked (wait)** | 520 | 11.9 | 43 | **3.20** | **1.93** | 621 |
+| bh=0 chasing high | 340 | 7.9 | 43 | 2.27 | 1.42 | 270 |
+| bh≥1 pullback | 473 | 10.1 | 44 | 3.09 | 2.04 | 476 |
+| bl=29 & bh=0 | 119 | 4.4 | 45 | 1.78 | 1.43 | 53 |
+| bl=29 & bh≥1 | 174 | 4.1 | 42 | 1.80 | 1.37 | 71 |
+
+**Waiting for the downtick wins decisively — and it's a MAGNITUDE story, not a win-rate one** (all
+cohorts win ~43%). The monotone-up `bl=29` cohort is the WORST cell: clip PF 1.40 & avg +4.2%/tr vs
+the down-ticked `bl<29` at clip 1.93 & +11.9%/tr — **~2.8× the profit per trade for waiting** ($1,194
+vs $423/tr). A stock that has ticked its 9-EMA up for 30 straight bars into 09:59 has spent its
+thrust (extended/exhausted); the average winner is small. Names that pulled back at least once have
+room left to run. The `bl=29 & bh` splits confirm the exhaustion is structural: `bl=29 & bh=0` (1.78)
+and `bl=29 & bh≥1` (1.80) are BOTH bad — once it's climbed monotonically, a late tiny pullback doesn't
+rescue it.
+
+**Per-year (raw/clip PF):**
+
+| cohort | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|
+| bl=29 monotone-up (clip) | 1.68 | 1.28 | 1.24 | **0.77** | 1.59 | 1.69 | 1.28 |
+| bl<29 down-ticked (clip) | 2.30 | **1.04** | 1.67 | 2.52 | 2.32 | 3.45 | 2.14 |
+
+Monotone-up is weak/mediocre EVERY year (clip ≤ 1.69, losing in 2023). Down-ticked dominates in 6 of
+7 (clip 1.67–3.45); the sole exception is **2021** (the meme-chop year, clip 1.04 vs 1.28 — pullbacks
+kept failing, 34% win) but both are soft there. **Verdict: the `bl<15` freshness cut (F23/V1) already
+encodes half of this — it drops the extended pile — but F5 sharpens WHY: monotone-up = exhausted. Enter
+on the pullback, never on the stock that's been green every tick.**
