@@ -724,3 +724,39 @@ LATER, i.e. an intraday dip/reset gave the drive fresh legs) averages better.
 all-weather (2020 2.82, 2021 1.34, 2022 3.14, 2023 3.27, 2024 5.66, 2025 4.35, 2026 3.34). Tighten to `bl < 7`
 (PF 4.17) for an A+ cell. **The extended drive (9-EMA never dipped since the open) is the weak pocket; a drive
 that put in a LATER low — an intraday reset — has more room and is the better buy.**
+
+## F19 — bl freshness × vol_slope: the effect COMPOUNDS on the rising-volume side (A+ pocket)
+
+Split the 09:45 real-trade book at `vol_slope = 0.01` (a gentle acceleration cut; the F13/F15 step is at
+0.025) and ran the `bl` (bars-since-low) freshness sweep on BOTH sides. The freshness effect holds on both,
+but is dramatically stronger and cleaner on the RISING-volume side.
+
+**RISING volume (vol_slope ≥ 0.01, n=272, PF 2.90) — `bl` is monotone and steep:**
+
+| bl cut | n | win% | PF | avg% |
+|---|---|---|---|---|
+| all | 272 | 46 | 2.90 | +11.66 |
+| bl < 15 | 170 | 45 | 3.36 | +14.59 |
+| bl < 13 | 125 | 47 | 3.81 | +16.56 |
+| bl < 10 | 53 | 49 | 4.89 | +20.70 |
+| **bl < 7** | 16 | 56 | **7.28** | +30.36 |
+| bl = 15 (extended) | 102 | 48 | 2.12 | +6.78 |
+
+Clean monotone climb PF 2.90 → 7.28, win rate RISING (46 → 56%). Fresh drive + accelerating volume = premium.
+
+**FALLING/FLAT volume (vol_slope < 0.01, n=502, PF 2.41) — effect present but weaker/noisier:**
+
+| bl cut | n | win% | PF |
+|---|---|---|---|
+| all | 502 | 43 | 2.41 |
+| bl < 15 | 250 | 39 | 2.83 |
+| bl < 7 | 65 | 32 | 3.42 |
+
+Directionally right (bl<15 → 2.83, bl<7 → 3.42) but bumpy (bl<13 dips to 2.34) and win rate FALLS (43→32%) —
+a fatter-tailed, second-tier version. The `bl=15` weak pocket is weak on BOTH sides (rising 2.12, falling
+1.94) — the bottomed-at-open extended drive is the universal weak spot regardless of volume.
+
+**⭐ A+ POCKET (rising-vol + fresh-low): `vol_slope ≥ 0.01 & bl < 13`** → PF 3.81 / +16.56%/tr / 125 tr /
+$207k. All-weather AND firms the adverse year (2021 = 2.13 vs the base book's 1.34); 2024 = PF 8.15 / +33.8%.
+The two features are COMPLEMENTARY and strongest together on the rising-volume side — a fresh-low drive with
+accelerating volume is the best opening-drive cell found. (Tighten to `bl < 10` for PF 4.89 / +20.7%.)
