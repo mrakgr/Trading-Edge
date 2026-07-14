@@ -271,3 +271,30 @@ stronger case for the production default** — more net, higher win rate, clip-p
 (incl. the soft 2026), maximally diversified. The `bl<15` gate buys genuine quality-per-trade (clip
 2.17, +14.5%/tr) with no jackpot risk, but costs $435k of net and a fragile 2026 — keep it as an
 optional SELECTIVITY dial, not the default.
+
+## F7 — the day-strength-only book (no bl/bh): the full timing ladder
+
+Completing the timing-gate ladder — day-strength only (`chg_1d≥0.20 & chg_3d∈[0,1.5] & log_atr≥0.013
+& stop_dist≥0.03`, both bl AND bh disabled), early [09:45,10:00):
+
+| system | n | avg% | win | PF raw | PF clip | net_k |
+|---|---|---|---|---|---|---|
+| default (bl<15 & bh≥1) | 497 | 14.5 | 37 | 4.16 | 2.17 | 719 |
+| bh≥1 only | 1088 | 10.6 | 41 | 3.22 | 1.87 | 1154 |
+| **day-strength only** | 1362 | 8.8 | 40 | 2.77 | **1.67** | **1204** |
+
+**day-strength only, per-year (clip PF / net_k):** 2020 2.03/133 · **2021 1.01/66** · 2022 1.72/101 ·
+2023 1.72/70 · 2024 1.97/323 · 2025 2.43/380 · 2026 1.62/131. Diversified (top-10 = 18% of gross).
+
+**The ladder trades net for quality/trade and 2021 robustness at each rung:**
+- **day-strength → +bh≥1:** removing 274 marginal trips (1362→1088) COSTS only $50k net ($1204→$1154)
+  but lifts clip PF 1.67→1.87 and firms 2021 from **1.01 (breakeven) → 1.17**. Those bh-filtered-out
+  trades are ~break-even clipped — `bh≥1` is the best-value gate (near-free quality + 2021 firming).
+- **+bh≥1 → +bl<15 (the default):** a further $435k for clip 1.87→2.17 and +14.5%/tr, but 2026 goes
+  fragile (F6).
+
+**2021 is the discriminator:** day-strength-alone washes out in the meme-chop year (clip 1.01); each
+timing gate rescues it (bh≥1 → 1.17, +bl<15 → 1.44). Raw day-strength thrust is not enough in an
+adverse regime — the pullback/freshness structure is what carries 2021. **Production recommendation
+stands (F6): `bh≥1` only** — it captures nearly all the net ($1154k of the $1204k ceiling) while
+being the gate that most cheaply firms the adverse year.
