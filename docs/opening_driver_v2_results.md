@@ -145,3 +145,41 @@ Keep vol_slope OFF as the DEFAULT (the full 702-tr book is the all-weather base)
 0.025` is a legitimate quality overlay to reach for when a higher win rate matters, but it does not
 survive as a hard filter on its own (thin + 2022/2026 clip < 1.2). This PARTIALLY rehabilitates the
 F15 dial (the win-rate signal is real) while confirming F2's core point (it is not a robust filter).
+
+## F4 — the 09:45–09:59 book (hand the tail to the other momentum systems)
+
+Restricting the arm window to the first 15 minutes (`--entry-start-min 585 --entry-end-min 599`) so
+the 10:00+ entries go to the other momentum systems (DipRiderV4 etc.). Now reporting NET alongside
+raw+clip PF:
+
+| yr | n | avg% | win | PF raw | PF clip | net_k |
+|---|---|---|---|---|---|---|
+| 2020 | 72 | 12.6 | 38 | 3.81 | 2.28 | 91 |
+| 2021 | 135 | 4.8 | 33 | 1.95 | 1.44 | 65 |
+| 2022 | 54 | 4.3 | 37 | 2.09 | 2.00 | 23 |
+| 2023 | 30 | 13.7 | 37 | 3.65 | 2.10 | 41 |
+| 2024 | 59 | 32.7 | 37 | 7.19 | 2.44 | 193 |
+| 2025 | 106 | 26.8 | 47 | 8.35 | 3.91 | 284 |
+| 2026 | 41 | 5.7 | 22 | 2.09 | **0.98** | 23 |
+| **all** | **497** | **14.5** | **37** | **4.16** | **2.17** | **719** |
+
+**Cutting the tail is nearly free — and improves quality-per-trade.** vs the full [09:45,10:30] book
+(702 tr / raw 3.52 / clip 1.92 / $810k): the early window keeps **89% of the net ($719k) with 71%
+of the trips**, and clip PF RISES 1.92 → **2.17** (net/trip $1,154 → $1,447). The 10:00–10:30 entries
+were adding trips at lower profit-per-trip (the F24 time-decay) — handing them off costs almost
+nothing. All-weather on raw PF (2021 floor 1.95); clip-positive every year except 2026 (clip 0.98 ≈
+breakeven, 41 tr, partial year through June).
+
+**vol_slope cuts on the early book (net + clip):**
+
+| cut | n | win | PF raw | PF clip | net_k |
+|---|---|---|---|---|---|
+| all | 497 | 37 | 4.16 | 2.17 | 719 |
+| vs ≥ 0 | 96 | 41 | 4.02 | 2.22 | 157 |
+| **vs ≥ 0.025** | 54 | **50** | 5.38 | **3.12** | 104 |
+| vs ≤ −0.07 | 77 | 32 | 4.68 | 2.15 | 130 |
+
+Same F3 verdict, now with net: rising-vol (`vs≥0.025`) is the quality cell (win 50%, clip 3.12) but
+keeps only **$104k of $719k (14%)** — a real tilt you'd pay 86% of the net for. Falling-vol (clip
+2.15 = the book, win 32% < book) stays a jackpot cell. **Trade the full early book (no vol cut):
+$719k / clip 2.17 / all-weather.**
