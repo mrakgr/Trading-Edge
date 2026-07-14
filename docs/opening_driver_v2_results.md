@@ -598,10 +598,15 @@ median +1.5%, 22% of entries BELOW VWAP — a pullback entry often dips below th
 | 2026 | 2.71 | 1.26 | **0.74** |
 
 **Below-VWAP beats above-VWAP in ALL 7 years** (clip floor 1.51 in 2021), and is MOST dominant in the
-weak years (2026 2.71 vs 1.26). The dead zone is break-even-to-losing in 6 of 7 years and LOSES in 2026
-(0.74, negative net). **Concentration caveat:** below-VWAP is fatter-tailed (top-10 = 44% of gross vs the
-book's ~19%; top-1 only 11%) — the edge survives the +50% clip (clip 2.46–5.30 every year) but it's a
-fat-tail cell, so it matters for sizing.
+weak years (2026 2.71 vs 1.26). **The dead zone is a graveyard in ALL 7 years** — it reads clip 2.65 in
+2024, but that is a JACKPOT MIRAGE: NUKK 2024-12-17 (+474%, $47.5k ≈ half the year's $94k net) plus
+CADL (+178%) and MLGO (+173%) are 3 lottery tickets out of 37 trips that even the +50% clip can't fully
+tame (all three clip to the +0.50 max). Strip them and 2024 falls to the ~break-even the other six years
+show (clip 1.00–1.33). So it is NOT "bad 6 of 7, fine in 2024" — it's break-even-to-losing EVERY year
+with 2024's exception being 1–3 jackpots, LOSING in 2026 (0.74, negative net). A genuine avoid zone.
+**Concentration caveat:** below-VWAP is fatter-tailed (top-10 = 44% of gross vs the book's ~19%; top-1
+only 11%) — the edge survives the +50% clip (clip 2.46–5.30 every year) but it's a fat-tail cell, so it
+matters for sizing.
 
 **⭐ The first robust, per-year, counter-cyclical lever in the study** (bl/vol_slope/float all failed this
 bar). Maps to a real mechanism: VWAP = the intraday fair-value/support line. Actionable as a gate (buy
