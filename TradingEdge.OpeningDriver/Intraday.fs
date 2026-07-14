@@ -58,6 +58,8 @@ type IntradayPosition =
       EmaAtEntry: float          // the 9-EMA at entry
       VwapAtEntry: float         // session VWAP at entry
       SessEmaLowAtEntry: float   // the 9-EMA session-min at entry (the BelowSessEmaLow stop level)
+      BarsSinceEmaHigh: int      // bars since the 9-EMA last made a new session HIGH (0 = this bar; -1 = none yet)
+      BarsSinceEmaLow: int       // bars since the 9-EMA last made a new session LOW (0 = this bar; -1 = none yet)
       CumVolAtEntry: int64       // cumulative session volume through the entry bar (rvol_cum numerator)
       State: IntraPosState }
 
@@ -95,6 +97,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
 
     // SESSION-min of the 9-EMA (running min from the anchor; ratchets DOWN only) — the BelowSessEmaLow stop.
     let mutable sessEmaLow : float voption = ValueNone
+    // SESSION-max of the 9-EMA (running max, ratchets UP only) — the reference for "bars since a new EMA high".
+    let mutable sessEmaHigh : float voption = ValueNone
+    // BARS-SINCE the 9-EMA last made a new session HIGH / LOW. 0 on the bar that set the new extreme, +1 each
+    // bar after (a momentum/exhaustion timer: bars-since-high small = just broke out; bars-since-low small =
+    // just bounced off the floor). -1 until the first feature bar seeds the extremes.
+    let mutable barsSinceEmaHigh = -1
+    let mutable barsSinceEmaLow  = -1
     // cumulative session volume from the feature anchor (the rvol_cum numerator; read post-fold at entry).
     let mutable cumVol : int64 = 0L
 
@@ -126,10 +135,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             // trailing-window OLS log-price & log-volume slopes (fed together; volume needs a positive bar).
             priceOls.Push (log curBar.close)
             if curBar.volume > 0L then volOls.Push (log (float curBar.volume))
-            // the 9-EMA, then its session-min (ratchets down only) — the BelowSessEmaLow stop reference.
+            // the 9-EMA, then its session extremes + the bars-since-new-extreme timers. A new session HIGH
+            // (or LOW) resets that timer to 0; otherwise it counts up. Checked against the PRIOR extreme
+            // (captured before the update), so the bar that MAKES the new extreme reads 0.
             ema.Push curBar.close
             ema.State |> ValueOption.iter (fun e ->
-                sessEmaLow <- match sessEmaLow with ValueSome m -> ValueSome (min m e) | ValueNone -> ValueSome e)
+                // session LOW (ratchets down) — also the BelowSessEmaLow stop reference.
+                let isNewLow = match sessEmaLow with ValueSome m -> e < m | ValueNone -> true
+                sessEmaLow <- match sessEmaLow with ValueSome m -> ValueSome (min m e) | ValueNone -> ValueSome e
+                barsSinceEmaLow <- if isNewLow then 0 else barsSinceEmaLow + 1
+                // session HIGH (ratchets up).
+                let isNewHigh = match sessEmaHigh with ValueSome m -> e > m | ValueNone -> true
+                sessEmaHigh <- match sessEmaHigh with ValueSome m -> ValueSome (max m e) | ValueNone -> ValueSome e
+                barsSinceEmaHigh <- if isNewHigh then 0 else barsSinceEmaHigh + 1)
             // cumulative session volume (the rvol_cum numerator).
             cumVol <- cumVol + curBar.volume
         // advance the prior-bar pointer for EVERY bar (so the ATR prior-close is the immediately-prior bar).
@@ -187,6 +205,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                   EmaAtEntry = vv ema.State
                   VwapAtEntry = vv vwap.State
                   SessEmaLowAtEntry = vv sessEmaLow
+                  BarsSinceEmaHigh = barsSinceEmaHigh
+                  BarsSinceEmaLow = barsSinceEmaLow
                   CumVolAtEntry = cumVol
                   State = Holding }
 
