@@ -433,3 +433,32 @@ F6). Diversified (top-1 = 4%, top-10 = 19% of gross — no jackpot dependence).
 Gates: `chg_1d≥0.20 & chg_3d∈[0,1.5] & log_atr≥0.013 & stop_dist≥0.03 & bh≥1`, arm window [09:45,10:00),
 sess-ema-low 9-EMA stop, exhaustion cut+exit at brv20d≥100 (& ATR%≥0.03). This is the OpeningDriverV2
 no-arg default.
+
+## F12 — exhaustion threshold raised to brv20d≥110 (net-peak plateau, NOT overfit)
+
+The cut+exit at 100 bled net (the exit sells winners that ran on — F9). Sweeping the threshold on the
+production book (bh≥1, [09:45,10:00), cut+exit):
+
+| brv20d | n | avg% | win | PF raw | PF clip | net_k | flushes |
+|---|---|---|---|---|---|---|---|
+| 100 | 1006 | 10.4 | 42 | 3.31 | **2.04** | 1044 | 42 |
+| **110** | 1028 | 11.4 | 42 | **3.50** | 2.03 | **1172** | 29 |
+| 120 | 1041 | 11.2 | 42 | 3.47 | 2.01 | 1168 | 24 |
+| 130 | 1054 | 11.0 | 42 | 3.39 | 1.97 | 1164 | 19 |
+
+**100 → 110 recovers $128k of net AND raises raw PF (3.31→3.50), clip ~flat (2.04→2.03).** Past 110
+net plateaus ($1172→1164) and clip erodes.
+
+**Overfit check — it's a robust plateau, not a lone spike:**
+- **Net is a plateau across [110,130]** — $1172k / $1169k / $1165k, within ~$7k. 110 is the LEFT EDGE
+  of the plateau (not a peak sticking up above its neighbours = the overfit signature).
+- **The 100→110 gain is broad-based**, not one year: +$80k in 2024, +$38k in 2025, +$16k in 2022,
+  +$11k in 2021. The ~13 flushes between brv20d 100–110 were false-climax exits (winners that ran),
+  concentrated in 2024 (net 182→262).
+- **Per-year clip PF barely moves with the threshold** (each year swings ≤0.3 across K100–K130); 110 is
+  never dramatically better than 120 in any single year.
+
+The meaningful choice was **100 vs ≥110**, not 110-vs-120 (those are interchangeable). 110 = the point
+where the net-recovery plateau begins, while still flushing the MOST climaxes of the plateau (29 vs 24
+vs 19) = strongest exit protection at full net. Principled, not curve-fit. **New production default:
+brv20d≥110.** Updated production book: **1028 tr / raw PF 3.50 / clip PF 2.03 / $1.17M / win 42%.**
