@@ -598,3 +598,48 @@ below the step the plateau is low-but-noisy, so exactly where you draw the line 
 call, not a sharp knee. `0.025` (F13's split) is good enough and cleanly on the high side of the riser. The
 0.025 two-tier split remains the operationalization — it's cutting at the step riser. Next: entry-minute
 sweep (09:46…10:30).
+
+## F16 — sess-ema-low stop DISTANCE: sub-3% = no stop room = near-instant scratch (not a "larger stops help" lever)
+
+Ported the DipRiderV4 stop-distance study to OpeningDriver's sess-ema-low stop: `stop_dist_pct = (entry −
+sess_ema_low)/entry`. On the 09:45 capacity book (n=1417, PF 2.81, mean 4.9% / median 3.7%). But unlike
+DipRiderV4 (a clean floor lever), here the distribution STRADDLES ZERO — and the shape reveals a mechanical
+issue, not a quality gradient.
+
+**Three regimes (by stop-exit rate + hold time — the tell):**
+
+| regime | n | win% | PF | avg% | stop-exit% | avg hold |
+|---|---|---|---|---|---|---|
+| **sd < 0** (entry BELOW sess-EMA-min) | 390 | 42 | 3.77 | +2.72 | **95%** | **23m** |
+| **sd ∈ [0, 3%)** (near the floor) | 253 | 22 | 3.33 | +6.40 | 76% | 120m |
+| **sd ≥ 3%** (real stop room) | 774 | 44 | 2.62 | +8.11 | 39% | 264m |
+
+**The sub-3% entries have no stop room and get scratched almost instantly.** When the entry sits at/below the
+session-EMA-min, the stop (9-EMA < sess-min) is at or above entry, so it trips on the next tick — 95%
+stop-exit, 23-min holds for sd<0. Their high PF (3.77) is MISLEADING: tiny wins (+2.72%) with fast scratches
+that rarely blow up — these aren't trades, they're the setup being REJECTED by the stop before the drive
+plays out. **45% of the raw book (643 of 1417) is these no-room scratches.**
+
+Only `sd ≥ 3%` is the REAL-TRADE book (39% stop-exit, 264-min holds, +8.11%/trade to MOC). This inverts the
+naive floor-sweep reading: a moderate floor *lowers* headline PF (2.81 → 2.62) ONLY because it removes the
+anomalous near-zero scratch deciles — but it's removing junk, not edge.
+
+**Yearly (09:45 book + stop_dist ≥ 3% — the real book), all-weather:**
+
+| year | n | PF | avg% | net |
+|---|---|---|---|---|
+| 2020 | 90 | 2.62 | +7.11 | $64k |
+| 2021 | 189 | 1.39 | +2.33 | $44k |
+| 2022 | 82 | 2.53 | +7.77 | $64k |
+| 2023 | 55 | 2.44 | +6.56 | $36k |
+| 2024 | 113 | 4.09 | +15.66 | $177k |
+| 2025 | 159 | 3.60 | +11.60 | $184k |
+| 2026 | 86 | 2.50 | +6.80 | $58k |
+| **TOTAL** | **774** | **2.62** | +8.11 | $628k |
+
+**KEY LESSON (mirrors the DipRiderV4 hasRoom/3%-skip decision):** an entry with NO stop room below it should
+be SKIPPED — sub-3% stop distance on the sess-ema-low reference = the 9-EMA is already at/below its session
+floor = an instant scratch, not a real position. The engine currently has no such guard (unlike DipRiderV4's
+`hasRoom` + 3% skip), so 45% of the book is scratch-noise. **The clean opening-drive book requires `stop_dist
+≥ 3%`** → 774 tr / PF 2.62 / +8.11%/tr / 264-min holds, all-weather. NEXT: build this room-guard into the
+engine (skip sub-3% entries) like DipRiderV4, then re-confirm.
