@@ -462,3 +462,104 @@ The meaningful choice was **100 vs ≥110**, not 110-vs-120 (those are interchan
 where the net-recovery plateau begins, while still flushing the MOST climaxes of the plateau (29 vs 24
 vs 19) = strongest exit protection at full net. Principled, not curve-fit. **New production default:
 brv20d≥110.** Updated production book: **1028 tr / raw PF 3.50 / clip PF 2.03 / $1.17M / win 42%.**
+
+## F13 — bl & vol_slope as SIZING levers (post-hoc on the production book): both REJECTED
+
+Idea (user): conditioning hard on bl/vol_slope starves the sample; use them as SIZING tilts on the full
+production book instead (every trade fires, scale capital toward the higher-quality cells). Post-hoc
+breakdown on the 1028-tr production book (bh≥1, [09:45,10:00), exhaustion cut+exit 110).
+
+**bl (bars-since-9-EMA-low) — a monotone AGGREGATE gradient, but regime-fragile per-year:**
+
+| bl band | n | avg% | avg clip% | win | PF clip |
+|---|---|---|---|---|---|
+| bl < 5 (very fresh) | 191 | 17.7 | 7.2 | 40 | 2.71 |
+| bl 5–9 | 144 | 12.3 | 5.1 | 36 | 2.24 |
+| bl 10–14 | 141 | 13.1 | 4.2 | 38 | 1.84 |
+| bl = 15 (bottomed@open) | 162 | 8.5 | 4.1 | 46 | 1.99 |
+| bl 16–22 (extended) | 296 | 9.3 | 3.7 | 45 | 1.74 |
+| bl ≥ 23 | 94 | 6.4 | 4.1 | 47 | 1.89 |
+
+Coarse: bl<15 clip 2.28 / +5.7% vs bl≥15 clip ~1.8 / +3.8%. Looks like a clean freshness ladder — BUT
+per-year it's fragile: **bl<15 beats bl>15 in only 5 of 7 years; it INVERTS in 2022 (1.98 vs 2.24) and
+2026 (1.02 vs 2.14)** — the extended names were better in those years, and 2026 is the live year. The
+bl<5 "very fresh" boost (clip 2.71) is CARRIED by 2023/2025 (5.23, 5.94) and is CATASTROPHIC in 2026
+(clip 0.18 on 13 tr) — a fat-tail cell, not a gradient. Note the win-rate inversion (extended bl wins
+MORE often, 45–47%, but smaller — magnitude story). **REJECTED as a lever: the gradient is 2024–25-
+driven and inverts in the recent/chop years.**
+
+**vol_slope binary at 0.01 (per user, avoiding thin-bucket noise) — NOT a quality gradient, a REGIME
+hedge:**
+
+| vs band | n | avg% | avg clip% | win | PF clip | net_k |
+|---|---|---|---|---|---|---|
+| vs < 0.01 | 772 | 11.0 | 4.3 | 41 | 2.03 | 847 |
+| vs ≥ 0.01 | 256 | 12.7 | 5.9 | 46 | 2.04 | 326 |
+
+Aggregate clip PF is IDENTICAL (2.03 vs 2.04) — vol_slope is not a size-up signal. But per-year they are
+COMPLEMENTARY: vs<0.01 (the bulk) is stronger in normal years but SAGS in the chop years (2021 clip
+1.27, 2026 1.19); vs≥0.01 (rising vol) is counter-cyclical — strongest exactly when the other sags
+(2021 1.66, **2026 3.28**). A diversifier, not a magnitude edge. **REJECTED as a size-up lever** (equal
+clip PF); its only value is regime-robustness, too subtle to size on.
+
+**Decision (user): do NOT use bl or vol_slope as sizing levers.** The base book already captures the edge.
+
+## F14 — relaxing the rvol_0945 pool floor 1.0 → 0.1: MORE trips but dilutive, REJECTED
+
+Built `vwap_reclaim_candidate_rvol01` = mr_candidate WHERE ADV≥$30M AND rvol_0945≥0.1 (vs production's
+rvol>1) — a 10× larger pool. Production engine over it (via `VWR_CANDIDATE_TABLE`): 1766 tr (from 1028).
+
+| rvol_0945 | n | avg% | win | PF raw | PF clip | net_k |
+|---|---|---|---|---|---|---|
+| rvol ≥ 1 (production) | 1028 | 11.4 | 42 | 3.50 | 2.03 | 1172 |
+| rvol < 1 (all NEW) | 738 | 4.6 | 46 | 2.17 | 1.73 | 342 |
+| — [0.1, 0.5) | 333 | 5.8 | 48 | 2.48 | 1.99 | 193 |
+| — [0.5, 1) | 405 | 3.7 | 44 | 1.92 | 1.51 | 148 |
+
+The NEW rvol<1 trips are all-weather (clip floor 1.31 in 2026) and counter-cyclical (stronger than the
+production book in 2021/2023) — they ADD $342k. But clip PF 1.73 < the book's 2.03 (dilutive), and it's
+an inverted-U within the new slice: [0.1,0.5) is nearly production-grade (clip 1.99) but [0.5,1) is the
+trough (1.51). **REJECTED (user): the rvol<1 trades don't add enough net to justify diluting the book.**
+Keep the production rvol>1 pool.
+
+## F15 — FLOAT breakdown: low float is NOT a robust all-weather edge, REJECTED
+
+Joined SEC dei:EntityPublicFloat (dollar float, re-anchored to entry-day price via split_adjusted_prices,
+ASOF known_date ≤ trade_date = no-lookahead) onto the production book. 69% coverage (713/1028 have a
+filing).
+
+| dollar float @entry | n | avg% | win | PF raw | PF clip | net_k |
+|---|---|---|---|---|---|---|
+| < $150M | 339 | 12.7 | 38 | 3.37 | 2.06 | 430 |
+| $150–300M | 57 | 5.1 | 35 | 2.11 | 1.75 | 29 |
+| $300M–1B | 125 | 6.2 | 46 | 2.69 | 2.05 | 78 |
+| $1–5B | 152 | 1.8 | 49 | 1.64 | 1.62 | 27 |
+| ≥ $5B | 40 | 1.7 | 43 | 1.56 | 1.45 | 7 |
+| **no float data** | 315 | 19.1 | 43 | 4.73 | 2.19 | 601 |
+
+Aggregate: float<$300M clip 2.02 vs ≥$300M clip 1.80 — looks like a low-float edge (monotone in
+magnitude: small float = big moves, win-rate inverts). **But per-year it FAILS the robustness test:**
+
+| yr | <$300M clip | ≥$300M clip |
+|---|---|---|
+| 2020 | 1.65 | **2.52** |
+| 2021 | 1.45 | **1.55** |
+| 2022 | 2.52 | **3.52** |
+| 2023 | **1.01** | 2.18 |
+| 2024 | 1.72 | 1.17 |
+| 2025 | **3.65** | 2.17 |
+| 2026 | 1.40 | 1.28 |
+
+**≥$300M actually BEATS <$300M on clip in 4 of 7 years (2020–2023).** The <$300M edge is carried by
+2024–25 (the hot-momentum years) and breaks in 2023 (clip 1.01). A regime effect, not a durable edge.
+
+**Two confounds make float unusable as a lever:**
+1. **The "no float data" bucket (315 tr, 31%!) is the STRONGEST cell** (clip 2.19, avg +19%) and getting
+   stronger recently (2024 clip 4.91, 2025 3.46) — these are foreign issuers / recent IPOs / shells: the
+   explosive movers that don't file EntityPublicFloat. The real low-float movers HIDE here, so the
+   measured <$300M cell isn't even the cleanest low-float proxy.
+2. As a filter, <$300M would CUT the ≥$300M names that carry 2020–2023.
+
+**REJECTED: float is not a lever.** The day-strength gates already select for it implicitly (a +20%-day
+runner is usually lower-float), so an explicit float cut would only add fragility. Useful negative result
+— the book captures the float edge downstream; don't re-litigate.
