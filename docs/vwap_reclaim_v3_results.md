@@ -295,3 +295,28 @@ because the over-extended runs it cuts WERE 2021's worst names.
 DE-TANGLED original `updn≥1.3 & rmd≥3.5% & dpa<3`: same feel, but now FOUR orthogonal knobs each with one
 job — updn (conviction), run_atr (jumpiness floor), dist (absolute depth), dpa (over-extension ceiling) —
 matching the old cell's PF (4.29) on ~identical trips (239 vs 240) but with a principled, understood structure.
+
+## F7 — updn is the QUALITY/CAPACITY DIAL → the A / A+ / A++ ladder (all-weather)
+
+With the other three knobs fixed (`run_atr ≥ 0.013 & dist ≥ 0.035 & dpa < 3`), updn is the tightest floor —
+relax it for weaker/bigger cells. Deciles show a clean break at updn ≈ 1.06 (updn = up-vol / dn-vol; 1.0 =
+balanced): below it PF 1.15–1.69, above it PF 2.1–5.1. The floor sweep is the capacity ladder:
+
+| tier | updn floor | n | win% | PF | avg%/tr | net | 2021 PF |
+|---|---|---|---|---|---|---|---|
+| **Capacity** | ≥ 0.8 | 551 | 42 | 2.86 | +10.80 | $595k | 1.87 |
+| **A** | ≥ 1.0 | 411 | 43 | 3.32 | +13.38 | $550k | 1.69 |
+| **A+** | ≥ 1.1 | 349 | 44 | 3.74 | +15.90 | **$555k** | — |
+| **A++** | ≥ 1.3 | 239 | 49 | 4.33 | +18.92 | $452k | 2.11 |
+
+- **All tiers are all-weather** — positive every modern year (Capacity: PF ≥ 1.87 every year; A: ≥ 1.69).
+- **Net peaks in the MIDDLE** ($555k at A+): the wide Capacity cell dilutes PF, the tight A++ sheds too many
+  trips. A+ (updn ≥ 1.1) is the best net/PF balance.
+- **updn ≥ 0.8 is the widest sensible floor** — below it (deciles 1-5) the edge thins to PF 1.15–1.69; going
+  to 0 adds few trips (739 vs 551) at PF 2.60. 0.8 ≈ where rising-side volume stops being decisive.
+- 2021 (adverse) dilutes most as updn relaxes (A++ 2.11 → A 1.69 → Capacity 1.87), as expected — the tighter
+  the conviction floor, the more it protects the weak year. All stay positive.
+
+**⭐ THE SETTLED A++ FAMILY (all share `run_atr ≥ 0.013 & run_max_dist ≥ 0.035 & dpa < 3`; updn is the dial):**
+Capacity (updn ≥ 0.8, PF 2.86 / 551tr) → A (≥ 1.0, PF 3.32) → A+ (≥ 1.1, PF 3.74 / max net) → A++ (≥ 1.3,
+PF 4.33 / 239tr). updn is a pure conviction dial with the depth/vol/jumpiness floors held fixed.
