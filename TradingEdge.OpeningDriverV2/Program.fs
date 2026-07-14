@@ -34,6 +34,10 @@ type Args =
     | Bh_Min of int
     | Min_Vol_Slope of float
     | Vol_Slope_As_Gate
+    // ----- the blow-off exhaustion kill-switch -----
+    | Exhaust_Brv20d of float
+    | Exhaust_Min_Atr_Pct of float
+    | Exhaust_Exit
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -58,6 +62,9 @@ type Args =
             | Bh_Min _ -> "Pullback floor: bars-since-EMA-high >= this (default 1). 0 disables."
             | Min_Vol_Slope _ -> "20m OLS log-volume slope floor: vol_slope_20 >= this (default 0.0)."
             | Vol_Slope_As_Gate -> "Treat vol_slope as a GATE (keep scanning past failures) instead of the default SKIP filter (first arm bar disarms the day; no position if vol_slope fails there)."
+            | Exhaust_Brv20d _ -> "Blow-off kill-switch (default 0 = off): once a bar prints a new session high with brv20d >= this (1m bar volume / (avgvol20·adj/390), the per-minute 20d ADV — 100 = the MaxFlyerV3 short-arm value) AND ATR% >= --exhaust-min-atr-pct, the day is latched exhausted and no arm fires."
+            | Exhaust_Min_Atr_Pct _ -> "ATR% floor the climax bar must meet for the exhaustion latch (default 0.03; only used when --exhaust-brv20d > 0)."
+            | Exhaust_Exit -> "When the blow-off latch fires, also CLOSE any open position at that bar (an exhaustion EXIT), not just cut new arms. Needs --exhaust-brv20d > 0."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -97,7 +104,10 @@ let main argv =
                   BlMax           = parsed.GetResult(Bl_Max,            defaultValue = dic.BlMax)
                   BhMin           = parsed.GetResult(Bh_Min,            defaultValue = dic.BhMin)
                   MinVolSlope     = parsed.GetResult(Min_Vol_Slope,     defaultValue = dic.MinVolSlope)
-                  VolSlopeAsGate  = parsed.Contains Vol_Slope_As_Gate } }
+                  VolSlopeAsGate  = parsed.Contains Vol_Slope_As_Gate
+                  ExhaustBrv20d    = parsed.GetResult(Exhaust_Brv20d,      defaultValue = dic.ExhaustBrv20d)
+                  ExhaustMinAtrPct = parsed.GetResult(Exhaust_Min_Atr_Pct, defaultValue = dic.ExhaustMinAtrPct)
+                  ExhaustExit      = parsed.Contains Exhaust_Exit } }
 
     let ic = cfg.Intraday
     let hhmm m = sprintf "%02d:%02d" (m / 60) (m % 60)
@@ -110,6 +120,8 @@ let main argv =
     printfn "  gates       = chg_1d>=%.2f  chg_3d in [%.2f,%.2f]  log_atr>=%.4f  stop_dist>=%.3f  bl<%d  bh>=%d"
         ic.MinChg1d ic.MinChg3d ic.MaxChg3d ic.MinLogAtr ic.MinStopDistPct ic.BlMax ic.BhMin
     printfn "  vol_slope   = >=%.4f as a %s" ic.MinVolSlope (if ic.VolSlopeAsGate then "GATE (keep scanning on fail)" else "SKIP filter (burn the day on fail)")
+    printfn "  exhaustion  = %s"
+        (if ic.ExhaustBrv20d > 0.0 then sprintf "ON — latch if a new-high bar hits brv20d>=%.0f & ATR%%>=%.3f; %s" ic.ExhaustBrv20d ic.ExhaustMinAtrPct (if ic.ExhaustExit then "CUT arms + EXIT held" else "CUT arms only") else "off")
     printfn "  stop        = 9-EMA below %s"
         (match ic.StopMode with BelowVwap -> "the live session VWAP" | BelowSessEmaLow -> "the 9-EMA session-min (frozen at entry)")
     printfn "  exits       = 9-EMA stop + hold-to-MOC"

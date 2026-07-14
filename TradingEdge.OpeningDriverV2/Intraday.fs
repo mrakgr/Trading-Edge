@@ -98,8 +98,16 @@ type IntradayConfig =
       BlMax: int                 // bars-since-EMA-low freshness cap: bl < this (15). <=0 disables.
       BhMin: int                 // bars-since-EMA-high pullback floor: bh >= this (1). <=0 disables.
       MinVolSlope: float         // 20m OLS log-volume slope floor
-      VolSlopeAsGate: bool }     // true = vol_slope ANDs into the arm (keep scanning on fail);
+      VolSlopeAsGate: bool       // true = vol_slope ANDs into the arm (keep scanning on fail);
                                  // false (default) = skip filter (first arm bar disarms; no position if vol_slope fails)
+      // ----- the blow-off EXHAUSTION kill-switch (ported from MaxFlyerV3's short-arm signature) -----
+      ExhaustBrv20d: float       // once ANY bar prints a new session high on brv20d >= this (single-bar vol vs the
+                                 // per-minute 20d ADV: bar.volume / (avgvol20·adjRatio/390)) AND atrPct >= the floor
+                                 // below, the day is LATCHED exhausted and NO further arm can fire. 0 = off (default).
+      ExhaustMinAtrPct: float    // the climax bar must also have 20m log-ATR >= this (MaxFlyerV3 A-book floor 0.03).
+      ExhaustExit: bool }        // true = when the blow-off latch fires, CLOSE any open position at that bar (an
+                                 // exhaustion EXIT). Independent of the arm CUT — the latch always blocks new arms
+                                 // when ExhaustBrv20d>0; ExhaustExit additionally flushes the held position.
 
 /// Snapshot of the state going INTO the current bar (strictly-prior; the true-range
 /// prior close). Everything else is read live post-fold (this-bar-inclusive).
@@ -108,7 +116,7 @@ type State =
 
 /// Per-(ticker, day) intraday engine. Feed the day's RTH MinuteBar[] in time order
 /// via `Process`, then `Flatten` and read `Positions`.
-type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d: float, close3d: float, permin20d: float) =
+type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d: float, close3d: float, permin20d: float, avgVol20: float, adjRatio: float) =
     // ----- rolling intraday structures (1m timeframe; fed from the feature anchor) -----
     let atrLog   = AvgMa(cfg.VolWindow)         // mean LOG true range over the last VolWindow bars (ATR%)
     let atrLin   = AvgMa(cfg.VolWindow)         // mean ABSOLUTE true range (linear) — kept for parity/room
@@ -132,6 +140,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     let mutable barsSinceEmaLow  = -1
     // cumulative session volume from the feature anchor (the rvol_cum numerator; read post-fold at entry).
     let mutable cumVol : int64 = 0L
+
+    // ----- the blow-off EXHAUSTION kill-switch (MaxFlyerV3 short-arm signature: new session high + brv20d + ATR%) -----
+    // brv20d baseline = the per-minute 20d ADV, split-adjusted: bar.volume (RAW) / (avgvol20·adjRatio/390). A single
+    // 1m bar at brv20d=100 traded ~25.6% of a whole average day in that minute. Matches MaxFlyerV3's formula exactly.
+    let brv20dBaseline = if avgVol20 > 0.0 && adjRatio > 0.0 then avgVol20 * adjRatio / 390.0 else nan
+    // SESSION-high of the raw CLOSE (ratchets up) — the new-high reference for the climax test (prior-bar running high).
+    let mutable sessHigh : float voption = ValueNone
+    // the LATCH: set once a bar prints close > prior sessHigh with brv20d >= threshold AND atrPct >= floor. Blocks all arms.
+    let mutable exhausted = false
 
     let mutable bar : MinuteBar voption = ValueNone
     let mutable barsSeen = 0
@@ -178,12 +195,26 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                 barsSinceEmaHigh <- if isNewHigh then 0 else barsSinceEmaHigh + 1)
             // cumulative session volume (the rvol_cum numerator).
             cumVol <- cumVol + curBar.volume
+            // EXHAUSTION kill-switch: does THIS bar print a new session high on a brv20d volume spike + ATR%?
+            // Tested against the STRICTLY-PRIOR sessHigh (captured before the ratchet), so a bar making the new
+            // high is compared to the prior high — the MaxFlyerV3 short-arm signature. Once latched, blocks arms.
+            if cfg.ExhaustBrv20d > 0.0 && not exhausted then
+                let isNewHigh = match sessHigh with ValueSome h -> curBar.close > h | ValueNone -> true
+                if isNewHigh then
+                    let brv20d = if Double.IsNaN brv20dBaseline || brv20dBaseline <= 0.0 then nan else float curBar.volume / brv20dBaseline
+                    let atrOk = match atrLog.State with ValueSome a -> a >= cfg.ExhaustMinAtrPct | ValueNone -> false
+                    if not (Double.IsNaN brv20d) && brv20d >= cfg.ExhaustBrv20d && atrOk then
+                        exhausted <- true
+            // ratchet the raw session-high (AFTER the climax test, so the new-high bar compares to the prior high).
+            sessHigh <- match sessHigh with ValueSome h -> ValueSome (max h curBar.close) | ValueNone -> ValueSome curBar.close
         // advance the prior-bar pointer for EVERY bar (so the ATR prior-close is the immediately-prior bar).
         bar      <- ValueSome curBar
         barsSeen <- barsSeen + 1
         sState   <- { bar = ValueSome curBar }
 
-    /// Advance one open position by the current bar. Exit precedence: 9-EMA stop -> MOC. Both fill at close.
+    /// Advance one open position by the current bar. Exit precedence: 9-EMA stop -> exhaust flush -> MOC. All fill
+    /// at close. The exhaust flush fires (only when ExhaustExit) once the day's blow-off latch is set — the latch
+    /// is flipped in ProcessBar, which runs BEFORE Advance, so the climax bar itself flushes the position.
     member private _.Advance (bar: MinuteBar) (pos: IntradayPosition) : IntradayPosition =
         match pos.State with
         | ExitedAt _ -> pos
@@ -199,6 +230,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                 | _ -> false
             if stopHit then
                 { pos with State = ExitedAt (bar.etMin, bar.close, "stop") }
+            elif cfg.ExhaustExit && exhausted then
+                { pos with State = ExitedAt (bar.etMin, bar.close, "exhaust") }
             elif bar.etMin >= cfg.MocMin then
                 { pos with State = ExitedAt (bar.etMin, bar.close, "moc") }
             else pos
@@ -245,8 +278,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                     || (not (Double.IsNaN volSlope) && volSlope >= cfg.MinVolSlope)
                 // the ARM condition. GATE: vol_slope ANDs in (keep scanning on fail). SKIP: everything but
                 // vol_slope arms (the first such bar disarms); the position opens only if vol_slope also passed.
+                // The EXHAUSTION latch blocks EVERYTHING: once the day has climaxed (blow-off high), no arm fires.
                 let armCondition =
-                    dayStrengthOk && timingOk && (not cfg.VolSlopeAsGate || volSlopeOk)
+                    not exhausted && dayStrengthOk && timingOk && (not cfg.VolSlopeAsGate || volSlopeOk)
                 if armCondition then
                     armed <- false                          // DISARM for the day (no re-arm) — gate or skip.
                     if volSlopeOk then                       // in GATE mode volSlopeOk is already implied here.

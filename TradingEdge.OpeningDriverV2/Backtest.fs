@@ -48,7 +48,12 @@ let defaultConfig =
           BhMin          = 1             // pullback: bh>=1 (any pullback off the high, not chasing).
           MinVolSlope    = -infinity     // vol_slope OFF by default (the F24 headline book has NO vol cut).
                                          // Set --min-vol-slope (e.g. 0.025, the F15 A+ dial) to engage it.
-          VolSlopeAsGate = false }       // SKIP filter by default (--vol-slope-as-gate flips it).
+          VolSlopeAsGate = false         // SKIP filter by default (--vol-slope-as-gate flips it).
+          ExhaustBrv20d  = 0.0           // blow-off kill-switch OFF by default (opt-in). --exhaust-brv20d 100 = the
+                                         // MaxFlyerV3 short-arm value: a 1m bar at 100× per-minute ADV on a new high.
+          ExhaustMinAtrPct = 0.03         // the climax bar's ATR% floor (MaxFlyerV3 A-book value; only used when on).
+          ExhaustExit    = false }        // false = the latch only CUTS new arms; true = it also FLUSHES the held
+                                          // position at the climax bar (--exhaust-exit). Both need ExhaustBrv20d>0.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
@@ -276,7 +281,7 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
                     let c = byTicker.[ticker]
                     // 20d per-minute volume pace (avgvol20/390) — the exhaustion-cut denominator. 0 = off.
                     let permin20d = if c.AvgVol20 > 0.0 then c.AvgVol20 / 390.0 else 0.0
-                    let sys = IntradaySystem(cfg.Intraday, ticker, date, c.PrevAdjClose, c.Close3d, permin20d)
+                    let sys = IntradaySystem(cfg.Intraday, ticker, date, c.PrevAdjClose, c.Close3d, permin20d, c.AvgVol20, c.AdjRatio)
                     sys.Process bar
                     cur <- Some(c, sys))
             match cur with

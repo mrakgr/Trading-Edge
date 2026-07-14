@@ -332,3 +332,50 @@ chg_3d∈[0,1.5] & log_atr≥0.013 & stop_dist≥0.03`, [09:45,10:00), 2020–26
 not a floor.** The actionable cut is the `[2,3)` sweet spot (a sharp A+ overlay, clip 2.83/win 54%,
 $221k) and/or EXCLUDE `[5,10)` (removing a clip-0.88 graveyard). This inverts the naive "more volume
 = better" thesis: it's true only up to ~3×, then extreme early volume signals exhaustion.
+
+## F9 — the blow-off EXHAUSTION kill-switch (ported from MaxFlyerV3): use it as a CUT, not an EXIT
+
+Ported MaxFlyerV3's short-arm signature as a day-level exhaustion latch. Once ANY bar prints a **new
+session-high close** (close > running max-close) on **brv20d ≥ K** (single 1m bar volume /
+(avgvol20·adjRatio/390) — the per-minute 20d ADV; matches MaxFlyerV3 exactly) **AND ATR% ≥ 0.03**
+(the MaxFlyerV3 A-book floor, stricter than the book's own 0.013), the day is LATCHED: no further arm
+can fire (the CUT). Optionally (`--exhaust-exit`) it also flushes any held position (the EXIT). New
+config: `ExhaustBrv20d` (0=off default), `ExhaustMinAtrPct` (0.03), `ExhaustExit` (false). Note the
+short & momentum pools DIFFER — MaxFlyerV3 reads `mr_candidate` (broad), OpeningDriverV2 reads
+`vwap_reclaim_candidate` = mr_candidate + ADV≥$30M + rvol_0945>1 (a 19% subset) — so 100 was tuned on
+a broader pool, but it re-optimises here anyway.
+
+**Threshold sweep (day-strength book, CUT-only):**
+
+| brv20d cut | days cut | n | win | PF clip | net_k |
+|---|---|---|---|---|---|
+| OFF | 0 | 1362 | 40 | 1.67 | 1204 |
+| ≥ 40 | 482 | 880 | 40 | 1.67 | 827 |
+| ≥ 60 | 281 | 1081 | 41 | 1.71 | 989 |
+| ≥ 80 | 169 | 1193 | 41 | 1.78 | 1136 |
+| **≥ 100** | **91** | 1271 | 41 | **1.79** | 1190 |
+| ≥ 150 | 25 | 1337 | 41 | 1.73 | 1224 |
+
+**brv20d ≥ 100 is the clean optimum** (clip PF peaks 1.79, near-free −$14k). Lower thresholds OVER-cut
+(≥40 kills 482 days / $377k of net with ZERO clip improvement — it's cutting volume, not blow-offs,
+cf. F8); ≥150 misses too many real climaxes. The MaxFlyerV3-tuned 100 lands on the peak here too — a
+genuine blow-off is ~100× per-minute ADV regardless of side. All-weather: it firms the chop years
+(2021 clip 1.01→1.11, 2026 1.62→1.78) where blow-offs cluster.
+
+**CUT vs EXIT (brv20d ≥ 100):**
+
+| variant | n | win | PF clip | net_k | exhaust-exits |
+|---|---|---|---|---|---|
+| cut-only | 1271 | 41 | 1.79 | **1190** | 0 |
+| cut + exit | 1271 | 42 | **1.86** | 1122 | 56 |
+
+**The exit is a MISTAKE — the counterfactual proves it.** The 56 flushed trades exited at avg **+31.4%**
+but would have averaged **+43.0% held to MOC** — the blow-off climax is NOT the top; the drive runs
+another ~12 pts on average after the volume spike. The exit trades $68k of net for a clip bump that is
+just capped winners (fat-tail-hidden). This is the momentum family's recurring lesson (cf. MaxFlyer:
+"every exit loses to hold-to-MOC; selection improves risk-adj, the tail is in the holding").
+
+**Verdict: the exhaustion signal is a great ENTRY CUT, a poor EXIT.** Don't START a position after the
+day has climaxed (cut brv20d≥100 = clip 1.79, near-free, all-weather); do NOT sell into the climax
+(the drive isn't done). Default `ExhaustBrv20d=0` (opt-in); the recommended engaged value is 100 as a
+CUT with `ExhaustExit=false`.
