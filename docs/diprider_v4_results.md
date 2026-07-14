@@ -1025,3 +1025,34 @@ distance below the EMA — so `stop_dist / atr` is a near-constant ratio (narrow
 mostly CANCELS rather than revealing structure. **Verdict: on DipRiderV4 use the raw `stop_dist_pct` floor
 (~5%, F17), NOT dist/ATR.** The V3 dpa lever is specific to the depth-vs-run-vol decoupling that DipRiderV4
 doesn't have.
+
+## Finding 19 — dist/ATR as a CEILING (V3's actual structure) INVERTS on DipRiderV4 — momentum wants the high-vol thrust
+
+F18 tested dist/ATR as a floor on the full A book — wrong structure. V3 uses it as a CEILING (`dpa < 3`) ON TOP
+of a depth floor (`run_max_dist ≥ 0.035`). Correct port: set `stop_dist ≥ 3.5%` (the run-height floor,
+mirroring V3's depth floor), then sweep dist/ATR as a `<=` ceiling. n=1491, PF 2.89, dist/atr median 2.95.
+
+**The ceiling makes it WORSE — the exact inverse of V3:**
+
+| dist/ATR ceiling | n | PF | avg% | net |
+|---|---|---|---|---|
+| none | 1491 | 2.89 | +8.91 | $1.33M |
+| < 5 | 1416 | 2.96 | +9.16 | $1.30M |
+| < 4 | 1250 | 2.82 | +8.80 | $1.10M |
+| **< 3 (V3's cut)** | 782 | **2.61** | +8.08 | $632k |
+| < 2 | 162 | 3.10 | +11.21 | $182k |
+
+`dist/atr < 3` — the exact V3 cut — LOWERS PF (2.89 → 2.61) and sheds half the net. Opposite of V3 (where
+dpa < 3 lifted PF 3.25 → 4.33). Deciles confirm: the HIGH-dpa deciles (8/9/10) are among the STRONGEST here
+(PF 2.73 / 3.80 / 3.54) — "deep relative to vol" names are GOOD on DipRiderV4, not over-extended.
+
+**Why the mechanism INVERTS:**
+- **V3 (mean-reversion reclaim):** a run deep-vs-its-own-vol = over-extended selloff → the reclaim fails
+  more → dpa is a CEILING (cut the extreme).
+- **DipRiderV4 (momentum continuation):** a setup that ran high-vs-its-own-vol = a strong THRUST → momentum
+  CONTINUES → high dpa is if anything GOOD; a ceiling only cuts winners.
+
+(The lone `< 2` flicker (PF 3.10 / 162 tr) is deciles 1-2 = LOWEST dpa being strong, not a clean ceiling; the
+middle is muddy.) **Final verdict: dist/ATR is not a useful lever on DipRiderV4 in EITHER direction — floor
+(F18) or ceiling (F19). Use the raw `stop_dist_pct` floor (~5%, F17).** The V3 dpa ceiling is specific to
+mean-reversion; a momentum-continuation book wants exactly the high-relative-to-vol thrust that MR avoids.
