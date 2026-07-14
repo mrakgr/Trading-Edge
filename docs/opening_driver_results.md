@@ -643,3 +643,49 @@ floor = an instant scratch, not a real position. The engine currently has no suc
 `hasRoom` + 3% skip), so 45% of the book is scratch-noise. **The clean opening-drive book requires `stop_dist
 ≥ 3%`** → 774 tr / PF 2.62 / +8.11%/tr / 264-min holds, all-weather. NEXT: build this room-guard into the
 engine (skip sub-3% entries) like DipRiderV4, then re-confirm.
+
+## F17 — bars-since-9EMA-high/low: the best drives are EARLY & PULLING BACK, not the most extended
+
+Added two features: bars since the 9-EMA last made a new session HIGH / LOW (0 = the entry bar set it, +1/bar
+after). On the 09:45 real-trade book (stop_dist ≥ 3%, n=774, PF 2.62). At 09:45 they're near-mirrors
+(bars_since_high median 0 = entering as it makes new highs; bars_since_low median 14 = bottomed near the
+open) — but the SPREAD within each predicts outcome, and it's slightly counter-intuitive: extended ≠ better.
+
+**bars_since_ema_HIGH (how recently a new high):**
+
+| bucket | n | win% | PF | avg% |
+|---|---|---|---|---|
+| **0 (chase the exact high)** | 506 | 46 | **2.37** | +7.02 |
+| 1 | 55 | 45 | 3.24 | +10.47 |
+| 2–3 | 56 | 45 | **3.67** | +12.07 |
+| 4–6 | 56 | 39 | 2.32 | +6.00 |
+| 7–15 (stale/re-break) | 101 | 32 | 3.25 | +11.23 |
+
+`bh = 0` (the biggest bucket) is the WEAKEST — buying the exact new-high tick underperforms. `bh ≥ 1` (any
+pullback off the high) = PF 3.14 vs bh=0's 2.37. **Enter a hair after the high, on a small dip — don't chase.**
+
+**bars_since_ema_LOW (how long since the low):**
+
+| bucket | n | win% | PF | avg% |
+|---|---|---|---|---|
+| **< 5 (fresh bounce off the low)** | 39 | 36 | **3.99** | +15.65 |
+| 5–9 | 116 | 41 | 3.43 | +12.19 |
+| 10–12 | 137 | 41 | 2.48 | +8.64 |
+| 13–14 | 128 | 44 | 3.22 | +11.04 |
+| **15 (low at the open, extended)** | 354 | 47 | **2.01** | +4.68 |
+
+`bl < 15` (low NOT at the open) = PF 3.08 vs `bl ≥ 15` (climbing since the open, extended) = PF 2.01. The
+extended late-drive is the weak pocket; the fresh bounce (bl < 5) is the strongest.
+
+**They STACK — a strong A+ cell from these two alone:**
+
+| cell | n | win% | PF | avg% | net |
+|---|---|---|---|---|---|
+| book (stop_dist ≥ 3%) | 774 | 44 | 2.62 | +8.11 | $628k |
+| **bl < 13 & bh ≥ 1 (fresh low + pullback)** | 111 | 32 | **3.84** | +14.96 | $166k |
+
+All-weather (positive every year, 2021 = 2.28, 2024 = PF 9.76 / +46%). **KEY: the best opening-drive entries
+are EARLY & PULLING BACK, not the most extended** — a stock that bottomed recently (fresh drive, room left)
+entering on a small dip off its high (not chasing the exact high tick). The extended drives (bottomed at the
+open, climbing 15+ bars, buying the new-high tick) have already made most of their move. Caveat: the combined
+cell has a LOWER win rate (32%) but higher PF — a fatter-tailed book (fewer, bigger winners), fine for momentum.
