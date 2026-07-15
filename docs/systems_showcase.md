@@ -107,6 +107,11 @@ market-agnostic — the +20%-day gate already isolates single-name catalysts; di
 lottery-driven (top trade = 4% of gross profit).
 
 **Research log:** [docs/opening_driver_v2_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/opening_driver_v2_results.md)
+**Predecessor log:**
+[opening_driver_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/opening_driver_results.md)
+(V1 — the opening-drive *study*: a pure recorder that emitted every bar in the [09:45, 10:30] window and
+established the entry-time and day-strength findings, before V2 turned it into the one-trade-per-day
+arm/disarm engine).
 
 ---
 
@@ -152,6 +157,16 @@ $1.39M · raw PF 2.88.** Positive every year 2020–2026 and 2021-robust (win ra
 the ladder).
 
 **Research log:** [docs/diprider_v4_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/diprider_v4_results.md)
+**Predecessor logs** (the debloat-and-refork lineage):
+[diprider_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/diprider_results.md)
+(V1 — pullback-in-uptrend re-break, forked from VwapReclaim) ·
+[diprider_v2_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/diprider_v2_results.md)
+(V2 — run-above-9EMA slope machinery; the "choosing run-length N is overfitting" lesson) ·
+[diprider_v3_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/diprider_v3_results.md)
+(V3 — pure trailing-window momentum, run-tracking deleted) ·
+[breakout_timer_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/breakout_timer_results.md)
+(BreakoutTimer — the 9-EMA-breakout-timer engine that was merged *into* V4; the key "breakout structure
+subsumes every momentum-quality feature" finding).
 
 ---
 
@@ -184,6 +199,13 @@ PF **3.32**; A+ (≥1.1) PF **3.74**; A++ (≥1.3) PF **4.33** at +18.9%/trade /
 (positive every modern year). Edge concentrates post-2020.
 
 **Research log:** [docs/vwap_reclaim_v3_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/vwap_reclaim_v3_results.md)
+**Predecessor logs:**
+[vwap_reclaim_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/vwap_reclaim_results.md)
+(V1 — the origin, Findings 1–34: the SMB VWAP×9-EMA reclaim scalp, and where the convergence-volume
+lever was discovered — `rvol20m_15m ∈ [0.5,2]` in F27, then superseded by the up/down volume split
+`updn` in F30) ·
+[vwap_reclaim_v2_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/vwap_reclaim_v2_results.md)
+(V2 — feature-set revision with the `ema_climb`/`vol_climb` family before the V3 long-only debloat).
 
 ---
 
@@ -218,6 +240,13 @@ is a single bad day, not a losing streak. This trades PF/net down from the un-st
 exactly as intended.
 
 **Research log:** [docs/maxflyerv3_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/maxflyerv3_results.md)
+**Predecessor logs:**
+[maxflyer_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/maxflyer_results.md)
+(MaxFlyer V0 — the origin intraday volume-confirmed breakout study that proved "the breakout is a
+two-sided *fade*") ·
+[maxflyerv2_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/maxflyerv2_results.md)
+(V2 — the settled short pop-fade with the `brv20d` lever and rvol tiers, *before* V3 added the stops
+that made it drawdown-controlled).
 
 ---
 
@@ -252,6 +281,12 @@ meaningful-sample year 2017→2026 (peak 2021); modern-era-strongest and volatil
 (richest 2020–22).
 
 **Research log:** [docs/lowflyer_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/lowflyer_results.md)
+**Related logs** (offshoots of the same flush engine, not prior versions):
+[lowflyer_shortbreakdown_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/lowflyer_shortbreakdown_results.md)
+(the short *breakdown-continuation* quadrant of the same new-low-on-volume flush — the opposite side of
+the trade) ·
+[lowflyer_short_productionization_research.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/lowflyer_short_productionization_research.md)
+(broker/API/data sweep for taking the short side live).
 
 ---
 
@@ -305,6 +340,8 @@ better-timed one; on the subset of names both engines trade, the 10:00 fill is ~
 identical exits, but this is a timing refinement on top of the setup above, not the setup itself.
 
 **Research log:** [docs/highflyer_v2_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/highflyer_v2_results.md)
+(the original daily-close HighFlyer has no separate log — its locked production baseline is reproduced
+byte-for-byte and documented inside this V2 log, alongside the partial-candle experiment).
 
 ---
 
