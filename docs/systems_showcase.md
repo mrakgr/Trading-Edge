@@ -307,8 +307,14 @@ partial-candle entry — see the note below — but the shipped system decides a
   high, not into open air below one.
 - **Tight consolidation going in:** tightness (14-bar range ÷ linear ATR) **< 4.5** — a coiled base,
   not an already-extended run.
-- **Breakout-day thrust:** day move `close/prevClose ∈ [+10%, +30%]` (the +30% cap trims blow-offs)
-  **and rvol ≥ 5** (breakout on heavy relative volume — the "carry" fuel).
+- **Breakout-day thrust:** day move `close/prevClose ∈ [+10%, +30%]` **and rvol ≥ 5** (heavy relative
+  volume — the "carry" fuel). A major finding of the study: **within the [+10%, +30%] band, a bigger
+  move and higher rvol both improve the edge** — the money is in the strong breakouts, not the marginal
+  ones (peak is the 25–30% band, PF ~3.3 vs ~1.6 at 10–15%). **But there is a sharp cliff at +30%:** the
+  30–40% band collapses to PF ~1.2 (mean winner drops ~$760 → ~$84 across the line) — a single-day move
+  that big is an exhaustion / blow-off gap that reverts. Hence the **hard +30% cap** — it excises exactly
+  the exhaustion band while keeping all the constructive thrust below it. (rvol is likewise strongest
+  ~6–20× and turns bad ≥20×, but the +30% move cap makes an explicit rvol ceiling redundant.)
 - **Volatility context:** prior volatility expansion `max-log-ATR ≥ 0.04`, intraday-ATR% **< 0.10**
   (not already chaotic), same-day intraday return ≥ −7% (don't buy a breakout that's collapsing),
   price ≥ $1, ADV ≥ $100k, `CS`/`ADRC` only. Volume/ATR baselines use a 20-bar window.
