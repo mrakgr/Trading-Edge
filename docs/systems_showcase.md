@@ -355,7 +355,7 @@ HighFlyer with the +50%-clip methodology, v4 the dollar-float era).
 | System | Side | Horizon | Core pattern | Headline (settled book) |
 |--------|------|---------|--------------|-------------------------|
 | **OpeningDriverV2** | Long | Intraday | Opening-drive continuation | PF 4.11 · $2.39M · 1,028 tr (3× sized) |
-| **DipRiderV4** | Long | Intraday | EMA-breakout momentum continuation | A: clip PF 1.86 · $1.43M · 1,860 tr (→ S: clip PF 3.01) |
+| **DipRiderV4** | Long | Intraday | EMA-breakout momentum continuation | A: PF 2.77 · $1.43M · 1,860 tr (→ S: PF 4.46) |
 | **VwapReclaimV3** | Long | Intraday | VWAP reclaim scalp | Cap PF 1.34 · $1.60M · 41k tr (A++ PF 4.33) |
 | **MaxFlyerV3** | Short | Intraday | Pop-fade of new highs (stopped) | PF 3.77 · $3.03M · 2,510 tr · 0 losing months |
 | **LowFlyer** | Long | Intraday | Flush-fade mean reversion | PF 3.38 · 68% win · $668k · 1,109 tr |
