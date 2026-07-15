@@ -92,8 +92,12 @@ inside the `[09:45, 10:00)` ET window and fires on the *first* bar that clears a
   latched — no further arm, and any open position is flushed. This is the same climax signature the
   short book (MaxFlyerV3) uses to *initiate* shorts.
 - **Sizing lever:** bet **3×** notional when the **9-EMA < VWAP at entry** (trend still below fair
-  value = buying support, not chasing). This was the single strongest lever found — all-weather,
-  beats above-VWAP in all seven years.
+  value = buying support, not chasing). This was the single strongest lever in the study. The split is
+  stark: the **34% of entries with the 9-EMA below VWAP average +17.2%/trade at clip PF 2.54** (and carry
+  52% of all net P&L), versus **+8.4%/trade at clip PF 1.80 for the 66% above VWAP** — and it is a clean
+  monotone gradient (well-below VWAP is the sharpest cell, clip PF 2.71). It is **all-weather: below-VWAP
+  beats above-VWAP in all 7 years**, with a 2021 floor of clip PF 1.62 vs 1.28, and the gap widens to
+  2.79 vs 1.67 (2022) and 4.39 vs 2.62 (2025). Not jackpot-driven (top-10 trades = 39% of gross).
 
 **Stops / exits.** Wide `sess-ema-low` stop: exit when the live 9-EMA falls below the frozen 9-EMA
 session-minimum at entry (~1.8% average room — deliberately distant so the drive can run). Otherwise
