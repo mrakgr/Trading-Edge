@@ -268,15 +268,17 @@ extension.
 usable 10:00 ET partial candle (`partial_candle_1000`); the float / ≥10%-move / rvol / dip gates below
 are all applied in-engine at the 10:00 checkpoint.
 
-**Signals / gates (A+ cell).**
+**Signals / gates.** *(The A book is all of these except the red-dip gate; adding the dip gate makes
+the A+ cell.)*
 - **Dollar-float < $300M** at the 10:00 entry price (the strongest split; break point is right at
-  $300M).
+  $300M) — this is the A book's defining gate.
 - **10:00 ET checkpoint** (a validated local optimum: 9:45 admits fade-prone spikes, 10:30 dilutes
   with weak late-bloomers).
 - Up **≥10%** on the day by 10:00 (ideal band 15–20%, population capped ~30%) · **rvol ≥ 1.0 @ 10:00**
   (checkpoint-calibrated).
 - **The edge — candle shape:** a red / low-position-in-range partial candle, i.e. pulled back off a
   higher intraday high. Refined gate: decline-from-open `∈ [1%, 6%]` (>6% is a breakdown, not a dip).
+  *This dip gate is what turns the A book into the sharper-but-thinner A+ cell.*
 - Tradeability: price ≥ $5 and ≥ $5M traded by 10:00 (a patience setup, ~1.5–2.5 clean setups/year).
 - **Adds:** a second tranche at 3:30 ET only if the name built 6–15× rvol since 10:00 (confirmed
   accumulation).
@@ -287,13 +289,20 @@ protective stop (any stop tight enough to fire lands in the −10..−20% band, 
 forward-hold cell). Hard cut below −20% from entry; take-profit at +35%+ any day, or +20%+ on day 1
 only (for low-float, let winners run toward ~+60%).
 
-**Performance (2005 → mid-2026).** The **A+ refined cell** (red + low-float + decline-from-open 1–6%):
-**95 trips · 70.5% win · clip PF 4.998 / raw 5.842** — and it holds across eras (3.61 pre-2014 / 4.30
-post-2015). The deployable low-float book: clip PF ~2.41. The core finding is a *timing* edge, not just
-selection: on names both the 10:00 engine and a daily-close engine trade, entering at 10:00 vs the
-close gives PF 2.29 vs 1.98 (+33% net P&L); the 10:00 fill is on average 0.57%–1.47% *cheaper* than the
-close with identical exits — the entire P&L gap is the entry price. Low-float core profitable **22/22
-years**; survives the 2008 GFC (PF 1.70).
+**Book taxonomy.** **A** = all gates including low-float (<$300M), no early-dip requirement — the
+*deployable* book; **A+** = A *and* an early red-pullback dip off the open — sharper but thin; **B** =
+all gates except float (smaller size).
+
+**Performance (2005 → mid-2026).** The **tradeable book is the A low-float book** (low-float + up ≥10%
+by 10:00, rvol ≥ 1.0, 10:00 entry, 5-day hold): **clip PF 2.412 · 868 trips** — deep enough to actually
+trade, profitable **22/22 years**, and knowable with no lookahead. The **A+ refined cell** (A + red
+partial candle, decline-from-open 1–6%) is the sharpest edge — **95 trips · 70.5% win · clip PF 4.998 /
+raw 5.842**, holding across eras (3.61 pre-2014 / 4.30 post-2015) — but at ~1.5–2.5 clean setups/year it
+is too sparse to be the core book; treat it as a size-up tier layered on the A book, not a standalone
+strategy. The core finding is a *timing* edge, not just selection: on names both the 10:00 engine and a
+daily-close engine trade, entering at 10:00 vs the close gives PF 2.29 vs 1.98 (+33% net P&L); the 10:00
+fill is on average 0.57%–1.47% *cheaper* than the close with identical exits — the entire P&L gap is the
+entry price. The A low-float book survives the 2008 GFC (PF 1.70).
 
 **Research log:** [docs/highflyer_v2_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/highflyer_v2_results.md)
 
@@ -308,7 +317,7 @@ years**; survives the 2008 GFC (PF 1.70).
 | **VwapReclaimV3** | Long | Intraday | VWAP reclaim scalp | Cap PF 1.34 · $1.60M · 41k tr (A++ PF 4.33) |
 | **MaxFlyerV3** | Short | Intraday | Pop-fade of new highs (stopped) | PF 3.77 · $3.03M · 2,510 tr · 0 losing months |
 | **LowFlyer** | Long | Intraday | Flush-fade mean reversion | PF 3.38 · 68% win · $668k · 1,109 tr |
-| **HighFlyerV2** | Long | ~5-day swing | Low-float pullback continuation | A+ clip PF 5.0 · 70% win · 95 tr |
+| **HighFlyerV2** | Long | ~5-day swing | Low-float pullback continuation | A: clip PF 2.41 · 868 tr (A+ dip cell: PF 5.0 · 95 tr) |
 
 The books are deliberately uncorrelated by side and horizon: three intraday long-momentum engines that
 fire in different windows (OpeningDriverV2 09:45–10:00, DipRiderV4 and VwapReclaimV3 after 10:00), a
