@@ -1,7 +1,5 @@
 # Trading Systems Portfolio — Overview
 
-*Prepared for Jeff Holden, SMB Capital*
-
 This document summarizes six intraday/swing equity systems developed and back-tested over a
 multi-decade US-equity 1-minute dataset. Each was built as an explicit state-machine engine in
 F#, validated against a no-lookahead fill model, and stress-tested for per-year robustness and
@@ -51,7 +49,7 @@ Raw PF **3.50** · clip PF **2.03** · win **42%** · flat net **$1.17M**. With 
 market-agnostic — the +20%-day gate already isolates single-name catalysts; diversified, not
 lottery-driven (top trade = 4% of gross profit).
 
-**Research log:** [docs/opening_driver_v2_results.md](https://github.com/mrakgr/Trading-Edge/blob/opening-driver/docs/opening_driver_v2_results.md)
+**Research log:** [docs/opening_driver_v2_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/opening_driver_v2_results.md)
 
 ---
 
@@ -94,7 +92,7 @@ The shipped default adds the 3%-stop-distance floor to the A book: **1,608 trips
 $1.39M · raw PF 2.88.** Positive every year 2020–2026 and 2021-robust (win rate climbs 27% → 52% up
 the ladder).
 
-**Research log:** [docs/diprider_v4_results.md](https://github.com/mrakgr/Trading-Edge/blob/dip-rider-v4/docs/diprider_v4_results.md)
+**Research log:** [docs/diprider_v4_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/diprider_v4_results.md)
 
 ---
 
@@ -124,7 +122,7 @@ run_max_dist ≥ 3.5% & dpa < 3`, with `updn` as the dial): Capacity (updn≥0.8
 PF **3.32**; A+ (≥1.1) PF **3.74**; A++ (≥1.3) PF **4.33** at +18.9%/trade / 239 trips — all-weather
 (positive every modern year). Edge concentrates post-2020.
 
-**Research log:** [docs/vwap_reclaim_v3_results.md](https://github.com/mrakgr/Trading-Edge/blob/vwap-reclaim-v3/docs/vwap_reclaim_v3_results.md)
+**Research log:** [docs/vwap_reclaim_v3_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/vwap_reclaim_v3_results.md)
 
 ---
 
@@ -155,7 +153,7 @@ is a single bad day, not a losing streak. This trades PF/net down from the un-st
 (PF 6.65 / +$4.78M, but with a −839% single-trade / −$238k-worst-day tail) for a ~9–15× smaller tail,
 exactly as intended.
 
-**Research log:** [docs/maxflyerv3_results.md](https://github.com/mrakgr/Trading-Edge/blob/maxflyer-v3/docs/maxflyerv3_results.md)
+**Research log:** [docs/maxflyerv3_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/maxflyerv3_results.md)
 
 ---
 
@@ -186,7 +184,7 @@ breadth-sized 3× book: **PF 3.40 · +$668k net** (+102% vs the flat +$330k). Po
 meaningful-sample year 2017→2026 (peak 2021); modern-era-strongest and volatility-regime-tilted
 (richest 2020–22).
 
-**Research log:** [docs/lowflyer_results.md](https://github.com/mrakgr/Trading-Edge/blob/main/docs/lowflyer_results.md)
+**Research log:** [docs/lowflyer_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/lowflyer_results.md)
 
 ---
 
@@ -226,7 +224,7 @@ close gives PF 2.29 vs 1.98 (+33% net P&L); the 10:00 fill is on average 0.57%�
 close with identical exits — the entire P&L gap is the entry price. Low-float core profitable **22/22
 years**; survives the 2008 GFC (PF 1.70).
 
-**Research log:** [docs/highflyer_v2_results.md](https://github.com/mrakgr/Trading-Edge/blob/highflyer_v2/docs/highflyer_v2_results.md)
+**Research log:** [docs/highflyer_v2_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/highflyer_v2_results.md)
 
 ---
 
