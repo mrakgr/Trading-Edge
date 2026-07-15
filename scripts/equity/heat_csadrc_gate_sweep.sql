@@ -16,7 +16,7 @@ JOIN br ON br.date=raw.entry_date
 LEFT JOIN hn ON hn.date=raw.entry_date
 WHERE br.b_lag1>0.5 AND raw.entry_date>=DATE '2005-01-01';
 -- NOTE: the old whole-tape-heat-vs-new comparison was a one-time validation (results
--- in docs/momentum_results.md (§ v3) § heat universe). heat.parquet is now the CS/ADRC
+-- in docs/highflyer_results.md (§ v3) § heat universe). heat.parquet is now the CS/ADRC
 -- build, so only the NEW gate is reproducible here.
 
 CREATE OR REPLACE TEMP MACRO gate_new(thr) AS TABLE

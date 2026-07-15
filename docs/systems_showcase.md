@@ -340,8 +340,13 @@ better-timed one; on the subset of names both engines trade, the 10:00 fill is ~
 identical exits, but this is a timing refinement on top of the setup above, not the setup itself.
 
 **Research log:** [docs/highflyer_v2_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/highflyer_v2_results.md)
-(the original daily-close HighFlyer has no separate log — its locked production baseline is reproduced
-byte-for-byte and documented inside this V2 log, alongside the partial-candle experiment).
+(the partial-candle intraday-entry experiment; the locked daily-close production baseline is also
+reproduced byte-for-byte inside it).
+**Predecessor log:**
+[highflyer_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/highflyer_results.md)
+(the original lineage, v0→v4 — the system was called *Momentum* before it was named HighFlyer at v3:
+v0 naive 52w-high breakout, v1 realistic-fill rewrite, v2 log-space volatility filters, v3 the named
+HighFlyer with the +50%-clip methodology, v4 the dollar-float era).
 
 ---
 
