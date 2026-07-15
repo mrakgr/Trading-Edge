@@ -19,11 +19,68 @@ per-year breakdowns behind every claim).
 
 ---
 
+## Candidate-day universe — how each system chooses which (ticker, day)s to scan
+
+Every system's intraday engine only ever streams the 1-minute bars of a pre-selected set of
+`(ticker, day)` rows. That selection is pure daily-context SQL and happens *before* any intraday
+signal — it is the "in-play" filter. Five of the six systems draw from one of two shared tables;
+HighFlyerV2 is the exception (it scans every stock daily and gates in-engine). Builder scripts:
+[`build_mr_candidate.fsx`](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/scripts/equity/build_mr_candidate.fsx),
+[`build_vwap_reclaim_candidate.fsx`](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/scripts/equity/build_vwap_reclaim_candidate.fsx).
+
+**`mr_candidate` — the shared base table (the broad "liquid & alive" universe).**
+One row per `(ticker, day)` that clears these daily preconditions (no lookahead — every field is
+known by 09:45 ET or is a strictly-reported forward return):
+- **Liquidity prune (the hard cut):** median of the 09:30–09:45 ET one-minute-bar volumes ≥ **10,000
+  shares**, AND ≥ **10 of the (max 15)** minute bars present. Only qualifying days have their minute
+  bars streamed to the engine.
+- **Instrument type:** common stock or ADR only (`CS`/`ADRC`).
+- **Price floor:** the day's adjusted close ≥ **$1**.
+- **Warmup:** ≥ **21 bars** in the current price episode (episodes are gap-severed at >45 calendar
+  days, so a symbol coming back from a long halt/delisting gap starts fresh).
+- **rvol floor:** `rvol_0945 = (premarket-inclusive volume 04:00→09:45) / (20-day avg daily volume)`
+  ≥ **0.1** (drops the barely-traded tail that is dead in every slice).
+
+**`vwap_reclaim_candidate` — the "genuinely in-play" subset** (a strict subset of `mr_candidate`,
+~19% of it: 161,979 of 850,107 rows). Adds two liquidity/interest prunes:
+- **Dollar-ADV floor:** `avgvol20 × day_close ≥ $30M` (a real liquidity floor — $1M let in
+  sub-dollar / thin-float names with unrealistic 1m fills; $30M is the empirical sweet-spot floor).
+- **rvol_0945 > 1** — trading at *more* than its normal volume into the open, i.e. actually in play,
+  not merely liquid.
+
+**Which system reads what:**
+
+| System | Universe table | Extra in-engine day gates layered on top |
+|--------|----------------|------------------------------------------|
+| OpeningDriverV2 | `vwap_reclaim_candidate` | `chg_1d ≥ +20%`, `chg_3d ∈ [0,1.5]`, `log_ATR ≥ 0.013`, `stop_dist ≥ 3%`, `bh ≥ 1` |
+| DipRiderV4 | `vwap_reclaim_candidate` | `chg1d ≥ 10%`, `chg3d ≥ 0%`, `log_ATR ≥ 0.013`, breakout-timer + vol_climb |
+| VwapReclaimV3 | `vwap_reclaim_candidate` | reclaim cross + weakness-run `rb ≥ 11` + tightness ≥ 3 |
+| MaxFlyerV3 (short) | **`mr_candidate`** (full base) | `brv20d ≥ 100`, intraday ATR% ≥ 0.03 |
+| LowFlyer | **`mr_candidate`** (full base) | flush ≤ −0.7%, depth ≥ −12%, log-ATR < 0.02, vol-confirm; + float/trend selection filters |
+| HighFlyerV2 | *(own universe — see below)* | float < $300M, up ≥10% by 10:00, rvol ≥ 1.0, dip 1–6% |
+
+The two short/mean-reversion books (MaxFlyerV3, LowFlyer) deliberately keep the *broad* `mr_candidate`
+base — they want the full population of movers (including thin, low-dollar-ADV names that pop and
+fade), and do their own filtering in-engine. The three long-momentum books take the pre-narrowed
+`vwap_reclaim_candidate` because their edge lives in liquid, genuinely-in-play names.
+
+**HighFlyerV2 — the exception (daily-driven, not candidate-table-driven).** It does *not* read either
+candidate table. Its engine streams the daily universe directly — `split_adjusted_prices` for every
+`CS`/`ADRC` ticker, left-joined to a **`partial_candle_1000`** table (the 10:00 ET partial candle,
+premarket-inclusive) — and applies every numeric gate (dollar-float < $300M, up ≥10% on the day by
+10:00, rvol ≥ 1.0, decline-from-open 1–6%) inside the engine at the 10:00 checkpoint. So its "universe"
+is simply *all common-stock/ADR daily bars that have a usable 10:00 candle*, narrowed entirely by the
+in-engine gates listed in its section below.
+
+---
+
 ## 1. OpeningDriverV2 — opening-drive momentum (long, intraday)
 
 **Setup.** A long opening-drive continuation. An arm/disarm state machine scans each ticker-day
 inside the `[09:45, 10:00)` ET window and fires on the *first* bar that clears all gates, opens
 **one** position, then disarms for the day — one honest trade per ticker-day.
+
+**Universe.** `vwap_reclaim_candidate` (the in-play subset: ≥$30M dollar-ADV, rvol_0945 > 1).
 
 **Signals / gates (production default).**
 - `chg_1d ≥ +20%` (the day-strength gate — this single condition is the core of the engine; it
@@ -59,6 +116,8 @@ lottery-driven (top trade = 4% of gross profit).
 that make a fresh session/rolling EMA-high on *accelerating* volume. A price pattern arms the setup
 (rolling-20-minute-low arm/re-arm state machine); a volume gate decides whether an armed trigger
 opens a real position. Multi-hour intraday round-trips, exited same day.
+
+**Universe.** `vwap_reclaim_candidate` (the in-play subset: ≥$30M dollar-ADV, rvol_0945 > 1).
 
 **Signals / gates (A-book default).**
 - **Breakout timers (the structural edge):** `bars_since_breakout ∈ [0, 10)`, where bar 0 is the
@@ -103,6 +162,8 @@ the ladder).
 VWAP — the entry fires on that reclaim cross. Single-day, hold-to-MOC unless a structure stop fires,
 gated to a `10:00–13:30` ET window. This is the debloated long-only fork of the VwapReclaim lineage.
 
+**Universe.** `vwap_reclaim_candidate` (the in-play subset: ≥$30M dollar-ADV, rvol_0945 > 1).
+
 **Signals / gates.**
 - Reclaim cross: prior-bar 9-EMA/VWAP below → current 9-EMA/VWAP above.
 - Weakness run `rb ≥ 11` consecutive below-VWAP bars into the reclaim · **tightness ≥ 3.0**
@@ -132,6 +193,9 @@ PF **3.32**; A+ (≥1.1) PF **3.74**; A++ (≥1.3) PF **4.33** at +18.9%/trade /
 with an abnormal volume/volatility surge, betting the pop mean-reverts, and covers into weakness or at
 the close. Because a short's upside is unbounded, the V3 mandate is explicit **drawdown control via
 stops** — accepting a lower PF for a capped left tail.
+
+**Universe.** The full `mr_candidate` base (broad "liquid & alive" — deliberately *not* the
+dollar-ADV-narrowed subset; it wants the whole population of pop-and-fade movers).
 
 **Signals / gates (A-book, production default).**
 - `brv20d ≥ 100` (the main lever: breakout-bar volume vs per-minute 20-day ADV) · intraday
@@ -165,6 +229,9 @@ overshoots and snaps back. Framed as a *pullback in an uptrend* on a recently-st
 name — not a falling knife. Same-day trade, held to MOC; the edge is purely intraday (it round-trips to
 flat over the next 1–5 days).
 
+**Universe.** The full `mr_candidate` base (broad "liquid & alive"); the float/trend/depth cuts below
+are layered on in-engine and post-hoc.
+
 **Signals / gates.**
 - **Engine gates:** entry-bar flush `close/prevClose ≤ −0.7%`; flush-depth floor `≥ −12%` (the
   falling-knife cut); intraday log-ATR `< 0.02`; volume-confirm `vol_vs_high ≥ 0.90` (within 10% of the
@@ -196,6 +263,10 @@ print into a ~10:00 ET checkpoint** — buying the shallow morning *dip* (a red 
 candle) rather than chasing the spike — and holds ~5 days. This *inverts* the Qullamaggie
 buy-strength intuition: for low-float continuation, buying the pullback beats buying the breakout
 extension.
+
+**Universe.** *(Exception to the shared tables.)* Streams all `CS`/`ADRC` daily bars that have a
+usable 10:00 ET partial candle (`partial_candle_1000`); the float / ≥10%-move / rvol / dip gates below
+are all applied in-engine at the 10:00 checkpoint.
 
 **Signals / gates (A+ cell).**
 - **Dollar-float < $300M** at the 10:00 entry price (the strongest split; break point is right at
