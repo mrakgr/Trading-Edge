@@ -57,7 +57,7 @@ known by 09:45 ET or is a strictly-reported forward return):
 | VwapReclaimV3 | `vwap_reclaim_candidate` | reclaim cross + weakness-run `rb ≥ 11` + tightness ≥ 3 |
 | MaxFlyerV3 (short) | **`mr_candidate`** (full base) | `brv20d ≥ 100`, intraday ATR% ≥ 0.03 |
 | LowFlyer | **`mr_candidate`** (full base) | flush ≤ −0.7%, depth ≥ −12%, log-ATR < 0.02, vol-confirm; + float/trend selection filters |
-| HighFlyerV2 | *(own universe — see below)* | float < $300M, up ≥10% by 10:00, rvol ≥ 1.0, dip 1–6% |
+| HighFlyerV2 | *(own universe — all CS/ADRC daily bars)* | 52w-high proximity ≥ 0.95, tightness < 4.5, day move [+10%,+30%], rvol ≥ 5 |
 
 The two short/mean-reversion books (MaxFlyerV3, LowFlyer) deliberately keep the *broad* `mr_candidate`
 base — they want the full population of movers (including thin, low-dollar-ADV names that pop and
@@ -66,11 +66,11 @@ fade), and do their own filtering in-engine. The three long-momentum books take 
 
 **HighFlyerV2 — the exception (daily-driven, not candidate-table-driven).** It does *not* read either
 candidate table. Its engine streams the daily universe directly — `split_adjusted_prices` for every
-`CS`/`ADRC` ticker, left-joined to a **`partial_candle_1000`** table (the 10:00 ET partial candle,
-premarket-inclusive) — and applies every numeric gate (dollar-float < $300M, up ≥10% on the day by
-10:00, rvol ≥ 1.0, decline-from-open 1–6%) inside the engine at the 10:00 checkpoint. So its "universe"
-is simply *all common-stock/ADR daily bars that have a usable 10:00 candle*, narrowed entirely by the
-in-engine gates listed in its section below.
+`CS`/`ADRC` ticker — and decides + fills at the **daily close**, applying every numeric gate
+(52-week-high proximity ≥ 0.95, tightness < 4.5, day move [+10%,+30%], rvol ≥ 5, and the volatility
+context filters) in-engine. So its "universe" is simply *all common-stock/ADR daily bars*, narrowed
+entirely by the in-engine breakout gates listed in its section below. (The `partial_candle_1000` table
+is used only by the research log's experimental intraday-entry variant, not the production book.)
 
 ---
 
@@ -255,54 +255,54 @@ meaningful-sample year 2017→2026 (peak 2021); modern-era-strongest and volatil
 
 ---
 
-## 6. HighFlyerV2 — low-float continuation swing (long, multi-day, intraday entry)
+## 6. HighFlyerV2 — 52-week-high breakout swing (long, multi-day)
 
-**Setup.** A long multi-day continuation swing on low-float momentum runners, entered intraday. It
-scans for a low-float name already up ~10–20% on the day that has **pulled back 1–6% off its opening
-print into a ~10:00 ET checkpoint** — buying the shallow morning *dip* (a red / low-of-range partial
-candle) rather than chasing the spike — and holds ~5 days. This *inverts* the Qullamaggie
-buy-strength intuition: for low-float continuation, buying the pullback beats buying the breakout
-extension.
+**Setup.** A long multi-day momentum swing in the Qullamaggie / episodic-pivot mold. It buys a stock
+**breaking out to (near) a new 52-week high after a tight consolidation**, on a day whose **volume and
+percentage gain confirm the breakout has thrust to carry it further**. The tight prior base plus the
+high-rvol expansion day is the whole pattern — the consolidation supplies the low-risk pivot, the
+breakout-day volume/move supplies the momentum. It holds ~5 trading days.
 
-**Universe.** *(Exception to the shared tables.)* Streams all `CS`/`ADRC` daily bars that have a
-usable 10:00 ET partial candle (`partial_candle_1000`); the float / ≥10%-move / rvol / dip gates below
-are all applied in-engine at the 10:00 checkpoint.
+**Universe / entry basis.** Daily bars for every `CS`/`ADRC` ticker; the decision and fill are on the
+**daily close** (the locked production path). *(The research log also tests an experimental 10:00 ET
+partial-candle entry — see the note below — but the shipped system decides and fills at the close.)*
 
-**Signals / gates.** *(The A book is all of these except the red-dip gate; adding the dip gate makes
-the A+ cell.)*
-- **Dollar-float < $300M** at the 10:00 entry price (the strongest split; break point is right at
-  $300M) — this is the A book's defining gate.
-- **10:00 ET checkpoint** (a validated local optimum: 9:45 admits fade-prone spikes, 10:30 dilutes
-  with weak late-bloomers).
-- Up **≥10%** on the day by 10:00 (ideal band 15–20%, population capped ~30%) · **rvol ≥ 1.0 @ 10:00**
-  (checkpoint-calibrated).
-- **The edge — candle shape:** a red / low-position-in-range partial candle, i.e. pulled back off a
-  higher intraday high. Refined gate: decline-from-open `∈ [1%, 6%]` (>6% is a breakdown, not a dip).
-  *This dip gate is what turns the A book into the sharper-but-thinner A+ cell.*
-- Tradeability: price ≥ $5 and ≥ $5M traded by 10:00 (a patience setup, ~1.5–2.5 clean setups/year).
-- **Adds:** a second tranche at 3:30 ET only if the name built 6–15× rvol since 10:00 (confirmed
-  accumulation).
+**Signals / gates (production defaults).**
+- **52-week-high proximity:** close ≥ **0.95 × the prior 252-bar high** — the breakout is *to* a new
+  high, not into open air below one.
+- **Tight consolidation going in:** tightness (14-bar range ÷ linear ATR) **< 4.5** — a coiled base,
+  not an already-extended run.
+- **Breakout-day thrust:** day move `close/prevClose ∈ [+10%, +30%]` (the +30% cap trims blow-offs)
+  **and rvol ≥ 5** (breakout on heavy relative volume — the "carry" fuel).
+- **Volatility context:** prior volatility expansion `max-log-ATR ≥ 0.04`, intraday-ATR% **< 0.10**
+  (not already chaotic), same-day intraday return ≥ −7% (don't buy a breakout that's collapsing),
+  price ≥ $1, ADV ≥ $100k, `CS`/`ADRC` only. Volume/ATR baselines use a 20-bar window.
 
-**Stops / exits / hold.** Fixed ~5-day hold — the 10:00 entry improves the *fill*, the multi-day hold
-*makes the money* (~84% of the return accrues after the day-D close; do not flip same-day). No tight
-protective stop (any stop tight enough to fire lands in the −10..−20% band, which is the *best*
-forward-hold cell). Hard cut below −20% from entry; take-profit at +35%+ any day, or +20%+ on day 1
-only (for low-float, let winners run toward ~+60%).
+**Stops / exits / hold.** Fixed **5-day hold** (time-stop / MTM), **no tight protective stop** — any
+stop tight enough to fire lands in the −10..−20% band, which is empirically the *best* forward-hold
+cell (these names shake out and recover), so a tight stop ejects you at the worst moment. Manage by
+cutting only on a genuine break (below ~−20% from entry) and letting winners run.
 
-**Book taxonomy.** **A** = all gates including low-float (<$300M), no early-dip requirement — the
-*deployable* book; **A+** = A *and* an early red-pullback dip off the open — sharper but thin; **B** =
-all gates except float (smaller size).
+**Quality overlays (size-up levers, not part of the base gate).**
+- **Low dollar-float (< $300M at entry)** lifts PF in essentially every hold-day/upside cell (usually
+  by +0.3–1.2 PF) — a scarcer float makes the continuation squeeze stronger. It is the single best
+  quality overlay; size up on it rather than treating it as a hard filter.
+- **Velocity rule through the hold:** +20–35% by day 1 is the *worst* upside cell (exhaustion), but the
+  same +20–35% reached on days 2–4 is among the *best* (a healthy trend) — same level, different
+  velocity.
 
-**Performance (2005 → mid-2026).** The **tradeable book is the A low-float book** (low-float + up ≥10%
-by 10:00, rvol ≥ 1.0, 10:00 entry, 5-day hold): **clip PF 2.412 · 868 trips** — deep enough to actually
-trade, profitable **22/22 years**, and knowable with no lookahead. The **A+ refined cell** (A + red
-partial candle, decline-from-open 1–6%) is the sharpest edge — **95 trips · 70.5% win · clip PF 4.998 /
-raw 5.842**, holding across eras (3.61 pre-2014 / 4.30 post-2015) — but at ~1.5–2.5 clean setups/year it
-is too sparse to be the core book; treat it as a size-up tier layered on the A book, not a standalone
-strategy. The core finding is a *timing* edge, not just selection: on names both the 10:00 engine and a
-daily-close engine trade, entering at 10:00 vs the close gives PF 2.29 vs 1.98 (+33% net P&L); the 10:00
-fill is on average 0.57%–1.47% *cheaper* than the close with identical exits — the entire P&L gap is the
-entry price. The A low-float book survives the 2008 GFC (PF 1.70).
+**Performance (2005 → mid-2026, daily-close production book).**
+**5,558 trips · 53.5% win · PF 1.828 · net $1.34M** — reproduced byte-for-byte from the original locked
+HighFlyer engine. With the **low-float (<$300M) overlay** the same book runs materially hotter (PF
+> 2.4 on the low-float slice, and low-float PF exceeds full-book PF in every hold-day cell). Broad and
+robust rather than a thin high-PF cell: it is a high-capacity swing book whose edge is sharpened, not
+created, by the float and velocity overlays.
+
+*Research note (the doc's experiment).* Most of the linked log investigates whether entering earlier —
+on a 10:00 ET partial candle instead of the close — improves the fill. The finding was that a raw 10:00
+entry is a *different, smaller* strategy (the ≥10% move is a moving intraday target), not a strictly
+better-timed one; on the subset of names both engines trade, the 10:00 fill is ~0.6–1.5% cheaper with
+identical exits, but this is a timing refinement on top of the setup above, not the setup itself.
 
 **Research log:** [docs/highflyer_v2_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/highflyer_v2_results.md)
 
@@ -317,7 +317,7 @@ entry price. The A low-float book survives the 2008 GFC (PF 1.70).
 | **VwapReclaimV3** | Long | Intraday | VWAP reclaim scalp | Cap PF 1.34 · $1.60M · 41k tr (A++ PF 4.33) |
 | **MaxFlyerV3** | Short | Intraday | Pop-fade of new highs (stopped) | PF 3.77 · $3.03M · 2,510 tr · 0 losing months |
 | **LowFlyer** | Long | Intraday | Flush-fade mean reversion | PF 3.38 · 68% win · $668k · 1,109 tr |
-| **HighFlyerV2** | Long | ~5-day swing | Low-float pullback continuation | A: clip PF 2.41 · 868 tr (A+ dip cell: PF 5.0 · 95 tr) |
+| **HighFlyerV2** | Long | ~5-day swing | 52w-high breakout from tight base | PF 1.83 · 53.5% win · $1.34M · 5,558 tr (low-float slice PF > 2.4) |
 
 The books are deliberately uncorrelated by side and horizon: three intraday long-momentum engines that
 fire in different windows (OpeningDriverV2 09:45–10:00, DipRiderV4 and VwapReclaimV3 after 10:00), a
