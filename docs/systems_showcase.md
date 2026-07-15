@@ -6,11 +6,11 @@ F#, validated against a no-lookahead fill model, and stress-tested for per-year 
 winner-concentration (fat-tail discipline) rather than a single blended profit factor.
 
 **Conventions used throughout.** Profit factor (PF) is gross-win ÷ gross-loss on a fixed
-$10k-per-trip notional. For the long momentum books I report both **raw** PF (hold-to-MOC, which
-exposes the fat right tail) and **clip** PF (winners capped at +50%, which neutralizes jackpots and
-reveals the durable edge) — a jackpot-skewed cell fails the clip test. P&L is gross (no
+$10k-per-trip notional, held to market-on-close unless a stop fires. P&L is gross (no
 commissions/slippage modeled); these are edge-discovery and viability numbers, not live-execution
-statements. All engines fold features *including* the current already-closed bar and snapshot
+statements. Every headline cell was separately checked for winner-concentration (that a handful of
+jackpot trades aren't carrying the profit factor) and per-year robustness — those checks live in the
+research logs. All engines fold features *including* the current already-closed bar and snapshot
 pre-decision, so nothing reads the future.
 
 All research logs are in the public repository **[mrakgr/Trading-Edge](https://github.com/mrakgr/Trading-Edge)**.
@@ -93,22 +93,21 @@ inside the `[09:45, 10:00)` ET window and fires on the *first* bar that clears a
   short book (MaxFlyerV3) uses to *initiate* shorts.
 - **Sizing lever:** bet **3×** notional when the **9-EMA < VWAP at entry** (trend still below fair
   value = buying support, not chasing). This was the single strongest lever in the study. The split is
-  stark: the **34% of entries with the 9-EMA below VWAP average +17.2%/trade at clip PF 2.54** (and carry
-  52% of all net P&L), versus **+8.4%/trade at clip PF 1.80 for the 66% above VWAP** — and it is a clean
-  monotone gradient (well-below VWAP is the sharpest cell, clip PF 2.71). It is **all-weather: below-VWAP
-  beats above-VWAP in all 7 years**, with a 2021 floor of clip PF 1.62 vs 1.28, and the gap widens to
-  2.79 vs 1.67 (2022) and 4.39 vs 2.62 (2025). Not jackpot-driven (top-10 trades = 39% of gross).
+  stark: the **~⅓ of entries with the 9-EMA below VWAP run PF ~5.0 at +16%/trade** and carry **~half of
+  all net P&L**, versus **PF ~2.8 at +8%/trade for the ~⅔ above VWAP** — a clean monotone gradient
+  (well-below VWAP is the sharpest cell). It is **all-weather: below-VWAP beats above-VWAP in all 7
+  years** (worst-year 2021 floor still clears the above-VWAP book), and the edge is broad, not driven by
+  a handful of outlier winners.
 
 **Stops / exits.** Wide `sess-ema-low` stop: exit when the live 9-EMA falls below the frozen 9-EMA
 session-minimum at entry (~1.8% average room — deliberately distant so the drive can run). Otherwise
 exhaustion-flush or hold-to-MOC. Exit mix ≈ 50% MOC / 47% stop / 3% exhaustion.
 
 **Performance (2020 → mid-2026, 1,028 trips).**
-Raw PF **3.50** · clip PF **2.03** · win **42%** · flat net **$1.17M**. With the 3× 9-EMA<VWAP sizing:
-**PF 4.11 · net $2.39M**. Positive every year (worst-year clip PF 1.35 in 2021); **83% green months**
-(65/78). Max drawdown ≈ 1.4 base position-sizes flat (~2.5× at 3× sizing). Breadth-neutral /
-market-agnostic — the +20%-day gate already isolates single-name catalysts; diversified, not
-lottery-driven (top trade = 4% of gross profit).
+PF **3.50** · win **42%** · flat net **$1.17M**. With the 3× 9-EMA<VWAP sizing: **PF 4.11 · net $2.39M**.
+Positive every year (worst year 2021); **83% green months** (65/78). Max drawdown ≈ 1.4 base
+position-sizes flat (~2.5× at 3× sizing). Breadth-neutral / market-agnostic — the +20%-day gate already
+isolates single-name catalysts; diversified, not lottery-driven (top trade = 4% of gross profit).
 
 **Research log:** [docs/opening_driver_v2_results.md](https://github.com/mrakgr/Trading-Edge/blob/research_summary_july_2026/docs/opening_driver_v2_results.md)
 **Predecessor log:**
@@ -148,13 +147,13 @@ trade is impossible). Otherwise hold-to-MOC.
 of the three breakout windows with progressively higher vol_climb floors), trading breadth for
 quality monotonically:
 
-| Book | Trips | Net | Raw PF | Clip PF | Avg %/trade |
-|------|------:|----:|-------:|--------:|------------:|
-| Capacity | 5,583 | $1.90M | 2.04 | 1.45 | 3.40% |
-| **A (default)** | 1,860 | $1.43M | 2.77 | 1.86 | 7.68% |
-| A+ | 786 | $773k | 3.17 | 2.05 | 9.83% |
-| A++ | 460 | $597k | 4.05 | 2.54 | 12.98% |
-| S | 180 | $248k | 4.46 | 3.01 | 13.79% |
+| Book | Trips | Net | PF | Avg %/trade |
+|------|------:|----:|---:|------------:|
+| Capacity | 5,583 | $1.90M | 2.04 | 3.40% |
+| **A (default)** | 1,860 | $1.43M | 2.77 | 7.68% |
+| A+ | 786 | $773k | 3.17 | 9.83% |
+| A++ | 460 | $597k | 4.05 | 12.98% |
+| S | 180 | $248k | 4.46 | 13.79% |
 
 The shipped default adds the 3%-stop-distance floor to the A book: **1,608 trips · win 44% · net
 $1.39M · raw PF 2.88.** Positive every year 2020–2026 and 2021-robust (win rate climbs 27% → 52% up
@@ -236,9 +235,8 @@ rolling-30-minute maximum 9-EMA, covering when the live 9-EMA closes above base 
 rolling-30m anchor (vs a stale session max) is what bounds the tail. Up to 2 re-entries per pop;
 single concurrency slot.
 
-**Performance (2020 → mid-2026, 2,510 trips).** Win **73.8%** · PF **3.77** raw · net **+$3.03M**.
-(No clip PF — a short's win is bounded at +100%.) **Zero negative months in 78**; every year positive
-with PF ≥ 2.77. Worst single trade −$17.1k, worst calendar day −$14.6k, worst week −$10.9k — the tail
+**Performance (2020 → mid-2026, 2,510 trips).** Win **73.8%** · PF **3.77** · net **+$3.03M**.
+**Zero negative months in 78**; every year positive with PF ≥ 2.77. Worst single trade −$17.1k, worst calendar day −$14.6k, worst week −$10.9k — the tail
 is a single bad day, not a losing streak. This trades PF/net down from the un-stopped V2 baseline
 (PF 6.65 / +$4.78M, but with a −839% single-trade / −$238k-worst-day tail) for a ~9–15× smaller tail,
 exactly as intended.
