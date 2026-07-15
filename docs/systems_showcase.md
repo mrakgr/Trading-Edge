@@ -313,8 +313,10 @@ partial-candle entry — see the note below — but the shipped system decides a
   ones (peak is the 25–30% band, PF ~3.3 vs ~1.6 at 10–15%). **But there is a sharp cliff at +30%:** the
   30–40% band collapses to PF ~1.2 (mean winner drops ~$760 → ~$84 across the line) — a single-day move
   that big is an exhaustion / blow-off gap that reverts. Hence the **hard +30% cap** — it excises exactly
-  the exhaustion band while keeping all the constructive thrust below it. (rvol is likewise strongest
-  ~6–20× and turns bad ≥20×, but the +30% move cap makes an explicit rvol ceiling redundant.)
+  the exhaustion band while keeping all the constructive thrust below it. (**rvol itself has no upper
+  cap** — early studies showed bad results above ~20× rvol, but that badness *disappeared* once the +30%
+  move cap was added: the toxic high-rvol names are the same names as the >30% single-day blow-offs, so
+  capping the move already removes them and a separate rvol ceiling was tried and dropped as redundant.)
 - **Volatility context:** prior volatility expansion `max-log-ATR ≥ 0.04`, intraday-ATR% **< 0.10**
   (not already chaotic), same-day intraday return ≥ −7% (don't buy a breakout that's collapsing),
   price ≥ $1, ADV ≥ $100k, `CS`/`ADRC` only. Volume/ATR baselines use a 20-bar window.
