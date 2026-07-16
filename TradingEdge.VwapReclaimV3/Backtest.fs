@@ -32,9 +32,12 @@ let defaultConfig =
         { VolWindow = 20
           MaxTightness = infinity        // OFF
           MaxAtrPct = infinity           // OFF
-          SessionStartMin = 9 * 60       // 09:30 ET — the SMB session VWAP anchors at the RTH OPEN (not
+          SessionStartMin = 9 * 60 + 30  // 09:30 ET (570) — the SMB session VWAP anchors at the RTH OPEN (not
                                          // premarket). VWAP, the 9-EMA, the below-VWAP counter, and the
                                          // running session low all accumulate from 09:30 for the reclaim.
+                                         // WAS `9 * 60` (=540 = 09:00) — a typo that silently fed 30min of
+                                         // premarket into every accumulator; inherited by V1/V2. See the
+                                         // anchor finding in docs/vwap_reclaim_v3_results.md.
           EntryStartMin   = 10 * 60      // 10:00 ET — morning-window START (Finding 4: 10:00-13:30 is best;
                                          // 09:30-10:00 warms VWAP/EMA + the weakness run before any entry)
           EntryEndMin     = 13 * 60 + 30 // 13:30 ET — morning-window END (afternoon reclaims fade)

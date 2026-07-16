@@ -19,7 +19,14 @@ changes vs V1:
 
 Defaults (production): 10:00–13:30 ET entry window, 09:30 VWAP/EMA anchor, `tightness ≥ 3.0`, weakness run
 `rb ≥ 11` consecutive bars EMA<VWAP into the cross, hold-to-MOC unless the pullback stop fires. Universe =
-`vwap_reclaim_candidate` (ADV ≥ $1M AND rvol_0945 > 1). $10k notional/trip, PF = gross-win / gross-loss (MOC).
+`vwap_reclaim_candidate` (ADV ≥ **$30M** AND rvol_0945 > 1). $10k notional/trip, PF = gross-win / gross-loss (MOC).
+
+> ⚠️ **READ F8 FIRST.** The 09:30 anchor above became TRUE ONLY AS OF F8 — every finding F1–F7 was
+> produced with a **09:00** anchor (a `9 * 60` typo) that seeded 30 min of premarket into VWAP/EMA/the run
+> counter. Correcting it **de-canonizes the F7 A/A+/A++ ladder** (A++ PF 4.33 → 2.49; the ladder flattens to
+> ~2.5 with no dial). The fat/capacity book (PF ~1.32 / 41.7k trips / $1.6M) survives intact and is the only
+> tradable V3 claim. Also see **F9** — a second lookahead in the universe filter.
+> (The ADV ≥ $30M above was previously mis-documented as $1M; $30M is what the builder does.)
 
 ---
 
@@ -324,3 +331,157 @@ balanced): below it PF 1.15–1.69, above it PF 2.1–5.1. The floor sweep is th
 **⭐ THE SETTLED A++ FAMILY (all share `run_atr ≥ 0.013 & run_max_dist ≥ 0.035 & dpa < 3`; updn is the dial):**
 Capacity (updn ≥ 0.8, PF 2.86 / 551tr) → A (≥ 1.0, PF 3.32) → A+ (≥ 1.1, PF 3.74 / max net) → A++ (≥ 1.3,
 PF 4.33 / 239tr). updn is a pure conviction dial with the depth/vol/jumpiness floors held fixed.
+
+> ⚠️ **EVERY NUMBER IN F1–F7 ABOVE WAS PRODUCED WITH A 09:00 VWAP ANCHOR, NOT 09:30 — SEE F8.** The
+> `SessionStartMin = 9 * 60` typo (= 540 = 09:00, not 570 = 09:30) silently seeded 30 minutes of premarket
+> into VWAP/EMA/sessLow/the run counter. Correcting it collapses this ladder (A++ 4.33 → 2.49) and removes
+> the laddering entirely. **The tables above are retained as the historical record of the pre-fix book; they
+> are NOT the tradable numbers.** Read F8 before using anything in F1–F7.
+
+---
+
+## F8 — ⚠️ THE 09:00 ANCHOR BUG: the graded ladder was BUILT ON 30 MINUTES OF PREMARKET
+
+**The bug.** `Backtest.fs` read `SessionStartMin = 9 * 60`. `et_min` is `hour*60 + minute`, so that is
+**540 = 09:00 ET**, not 09:30 (= 570). The adjacent comment said *"09:30 ET — the SMB session VWAP anchors
+at the RTH OPEN (not premarket)"*; `Intraday.fs:69` and this doc's header said 09:30 too. **All three were
+wrong: the code did 09:00.** The emitter filters `et_min >= SessionStartMin`, so **30 minutes of premarket
+fed VWAP, the 9-EMA, `sessLow`, `cumVol`, and the below-VWAP run counter.** Inherited verbatim from V1
+(`VwapReclaim/Backtest.fs:38`) and V2 (`VwapReclaimV2/Backtest.fs:38`) — **every published VwapReclaim
+number across all three versions carries it.** (DipRiderV4 and OpeningDriverV2 have the correct explicit
+two-anchor split — this is a VwapReclaim-lineage bug only.)
+
+**It is not cosmetic.** On 2026-06-24 the 09:00–09:29 window holds **19,530 bars / 3,238 tickers / 259M
+shares**. Measured VWAP distortion at 10:00 across ~2,500 liquid names/day over 7 days: mean **~0.01%**
+(unbiased — direction flips day to day, so the fat book was never *systematically* inflated), but **p95 =
+0.12–0.21% per name**. That p95 lands exactly on the **~0.2% EMA tick-noise floor** F3 identified as the
+threshold where the stop buffer starts working — i.e. the distortion is the same size as the signal the
+system was tuned against.
+
+### The A/B — 3 cells, full range 2003-09 → 2026-06, `--session-start-min` {540, 555, 570}
+
+`555` (09:15) is a **dose-response probe**: half the premarket window.
+
+**Fat/capacity book — barely moves:**
+
+| anchor | trips | win% | net | PF |
+|---|---|---|---|---|
+| 540 (09:00, the bug) | 41,027 | 40.8 | $1,604,145 | **1.332** |
+| 555 (09:15) | 41,382 | 40.8 | $1,602,245 | 1.328 |
+| **570 (09:30, correct)** | 41,703 | 40.7 | $1,598,236 | **1.323** |
+
+**The F7 graded ladder — collapses, monotonically, in every tier:**
+
+| tier (base `run_atr≥0.013 & rmd≥0.035 & dpa<3`) | 540 PF | 555 PF | 570 PF | 540 net | 570 net |
+|---|---|---|---|---|---|
+| Capacity `updn≥0.8` | **2.86** | 2.53 | **2.28** | $595k | $448k |
+| A `updn≥1.0` | **3.32** | 2.82 | **2.54** | $550k | $411k |
+| A+ `updn≥1.1` | **3.74** | 3.17 | **2.52** | $555k | $358k |
+| A++ `updn≥1.3` | **4.33** | 3.43 | **2.49** | $452k | $237k |
+
+*(540 reproduces the published F7 numbers exactly — 551/2.86/$595k, 411/3.32/$550k, 349/3.74/$555k,
+239/4.33/$452k — so the A/B harness is verified against the shipped book.)*
+
+**Three facts, in order of importance:**
+
+1. **It is a clean DOSE-RESPONSE, not noise.** 09:15 lands strictly between 09:00 and 09:30 in **all four
+   tiers**. More premarket → monotonically better numbers. Path-dependent noise would not do this four
+   times in the same direction.
+2. **⭐ At the correct anchor THE LADDER STOPS LADDERING.** At 570: A 2.54, A+ 2.52, A++ 2.49 — tightening
+   `updn` from 1.0 → 1.3 buys **nothing**. F7's entire claim ("updn is a pure conviction dial") **exists
+   only when premarket is in the VWAP.** The quality dial was an artifact of the anchor.
+3. **Trip counts barely move** (A++ 239 → 232). The bug was not *manufacturing* trades — it was **sorting**
+   them. Same setups, better selection.
+
+**Per-year A++ — worse in ALL 7 modern years** (so it is not a regime artifact):
+
+| year | 540 n | 540 PF | 570 n | 570 PF |
+|---|---|---|---|---|
+| 2020 | 24 | 8.19 | 23 | 2.59 |
+| 2021 | 62 | 2.11 | 58 | **1.02** |
+| 2022 | 27 | 4.89 | 25 | 4.20 |
+| 2023 | 18 | 6.61 | 15 | 5.76 |
+| 2024 | 40 | 3.30 | 39 | 3.00 |
+| 2025 | 40 | 6.61 | 47 | 3.17 |
+| 2026 | 23 | 4.53 | 21 | 2.12 |
+
+**2021 goes to PF 1.02 — break-even.** The "all-weather, every modern year ≥ 2.11" claim in F6/F7 does not
+survive the fix.
+
+### The mechanism — and why it is NOT simply "premarket setups are better"
+
+Under 540, splitting the A cell by whether the weakness run *started* before 09:30:
+
+| group | n | avg%/tr | PF | net |
+|---|---|---|---|---|
+| run started in RTH | 340 | +13.08 | **3.19** | $445k |
+| run STARTED premarket | 71 (17.3%) | +14.82 | **4.11** | $105k |
+
+Only **17.3%** of A-cell entries are the "impossible" ones (a weakness run that began before the open —
+these cannot exist at a correct anchor). They are good, but small: 71 trips / $105k.
+
+**The bigger effect is on the ordinary RTH setups.** The 340 RTH-started trades still print **PF 3.19**
+under 540, versus ~2.54 for the whole A cell under 570. So the premarket seed is not mainly smuggling in
+premarket setups — **it shifts the VWAP level itself**, which moves `run_max_dist`, `updn` and `dpa`, and
+that shifted VWAP sorts good from bad better than the true RTH VWAP does.
+
+### Verdict — the decision rule was set BEFORE the numbers were seen
+
+The pre-committed rule: *"Fix materially worse → do NOT silently keep 540. It would mean the edge depends
+on premarket seeding — a genuinely different and interesting claim than the doc makes. An edge you can name
+is tradeable; an edge that's a typo is not."*
+
+**The fix is materially worse. So: the anchor is FIXED to 570 (the honest RTH-open anchor), and the graded
+ladder is hereby DE-CANONIZED.** The tradable V3 book is now:
+
+- **Fat/capacity book: PF 1.323 / 41,703 trips / $1.60M** — essentially unchanged by the fix, and the only
+  V3 claim that survives it intact.
+- **The F7 A/A+/A++ ladder: NOT TRADABLE AS PUBLISHED.** At an honest anchor it is a flat ~2.5 with no
+  dial. The showcase numbers (A: PF 3.32 / 411 trips) must not be quoted.
+
+**Why not keep 540 and "name the edge"?** Because it cannot be named coherently. A VWAP seeded from an
+arbitrary 09:00 start is not a quantity any trader references, the SMB setup is *defined* off the RTH open,
+and the 30-minute window is arbitrary (why not 08:30? 04:00?). The dose-response says more premarket is
+better, which — if it were a real effect — would imply anchoring at 04:00, not 09:00. **A monotone
+improvement in an arbitrary parameter is the signature of a fitted artifact, not a mechanism.**
+
+**⭐ But there IS a real research question here, and it is worth pursuing:** the RTH-started split (PF 3.19
+at 540 vs ~2.54 at 570) says a *premarket-informed reference price* genuinely sorts these setups better.
+That is a legitimate, nameable hypothesis — "the reclaim should be measured against a session VWAP that
+includes premarket positioning" is a *defensible* claim in a way that "09:00 because of a typo" is not. The
+principled way to test it: make the anchor an **explicit, deliberate knob** (04:00 / 08:00 / 09:00 / 09:30),
+sweep it, and if a premarket-inclusive anchor wins on a *principled* boundary (e.g. the 04:00 premarket
+session open, matching `rvol_0945`'s own premarket-inclusive numerator), adopt it **as a documented design
+decision** with its own finding — not as an accident. Until then, 570 is the default.
+
+### Live-trading implication (why this was found now)
+
+Both anchors are live-implementable — the Polygon aggregates endpoint returns today's bars from 04:00 ET,
+so premarket is available in one REST call. This was **never a feed limitation**; it was purely a "which
+numbers are real" question. Fixing to 570 additionally removes a live dependency on premarket bar quality
+on thin names — RTH bars are the most heavily reconciled data there is.
+
+---
+
+## F9 — a SECOND lookahead in the universe: `ADV = avgvol20 × day_close` uses D's CLOSE to trade D
+
+Found while verifying F8. `scripts/equity/build_vwap_reclaim_candidate.fsx` filters
+`avgvol20 * day_close >= 30000000.0` — **`day_close` is day D's closing price**, unknowable at 10:00 when
+the entry fires. Same class as the anchor bug: the universe cannot be reproduced live.
+
+**Churn measured over the full `mr_candidate` base (rvol_0945 > 1):**
+
+| definition | ticker-days |
+|---|---|
+| `avgvol20 × day_close` (current, lookahead) | 52,630 |
+| `avgvol20 × prev_adj_close` (D-1, live-safe) | 52,222 |
+| admitted only by the lookahead | 1,568 |
+| dropped only by the lookahead | 1,211 |
+
+**5.28% of the universe differs.** Mild (a liquidity floor, not a signal gate) but real, and it is a hard
+blocker for live parity: the live scanner *provably cannot* reproduce this universe. Fix to
+`prev_adj_close` (deterministic, available pre-open) and re-baseline.
+
+**Also: three stale comments claim `$1M`** where the builder does **`$30M`** — a 30× discrepancy:
+this doc's header (line 22), `Backtest.fs:14`, `Backtest.fs:208`. The **$30M** figure is correct (F20 of
+the V1 doc: `<$30M` is a graveyard at PF 0.70).

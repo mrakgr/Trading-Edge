@@ -16,6 +16,7 @@ type Args =
     | End_Date of string
     | [<AltCommandLine("-o")>] Out of string
     // intraday engine knobs (the strategy defaults are locked in Backtest.defaultConfig)
+    | Session_Start_Min of int
     | Entry_Start_Min of int
     | Entry_End_Min of int
     | Vol_Window of int
@@ -38,6 +39,7 @@ type Args =
             | Start_Date _ -> "Backtest start date (yyyy-MM-dd). Default 2003-09-10 (data min)."
             | End_Date _ -> "Backtest end date (yyyy-MM-dd). Default 2026-06-25 (minute-data max)."
             | Out _ -> "Output trips CSV path. Default /tmp/vwap_reclaim_v3_trips.csv."
+            | Session_Start_Min _ -> "ET minute the session accumulators anchor at (570 = 09:30 RTH open, the default). VWAP, the 9-EMA, the below-VWAP run counter and the session low all fold from here; the emitter streams no bar before it. 540 (=09:00) reproduces the pre-fix book that seeded 30min of premarket."
             | Entry_Start_Min _ -> "Earliest ET minute an entry may fire (600 = 10:00 default). 09:30-EntryStart warms VWAP/EMA + the weakness run."
             | Entry_End_Min _ -> "LATEST ET minute an entry may fire (810 = 13:30 default morning window). 0 or >=MOC = all-day (no upper bound)."
             | Vol_Window _ -> "Intraday ATR/tightness lookback in 1m bars (default 20). Feeds the tightness gate + the recorded *_at_entry snapshots."
@@ -68,6 +70,7 @@ let main argv =
         { defaultConfig with
             Intraday =
               { defaultConfig.Intraday with
+                  SessionStartMin = parsed.GetResult(Session_Start_Min, defaultValue = defaultConfig.Intraday.SessionStartMin)
                   EntryStartMin = parsed.GetResult(Entry_Start_Min, defaultValue = defaultConfig.Intraday.EntryStartMin)
                   EntryEndMin   = parsed.GetResult(Entry_End_Min,   defaultValue = defaultConfig.Intraday.EntryEndMin)
                   VolWindow     = parsed.GetResult(Vol_Window,      defaultValue = defaultConfig.Intraday.VolWindow)
@@ -85,6 +88,9 @@ let main argv =
     printfn "  db          = %s" dbPath
     printfn "  minute_aggs = %s" minuteDir
     printfn "  range       = %O .. %O" startDate endDate
+    printfn "  session anch= %02d:%02d ET (VWAP/EMA/run/sessLow fold from here)%s"
+        (cfg.Intraday.SessionStartMin / 60) (cfg.Intraday.SessionStartMin % 60)
+        (if cfg.Intraday.SessionStartMin <> 9 * 60 + 30 then "  [NON-DEFAULT — not the RTH open]" else "")
     printfn "  entry window= %02d:%02d–%02d:%02d ET   below-run >= %d bars   %s"
         (cfg.Intraday.EntryStartMin / 60) (cfg.Intraday.EntryStartMin % 60)
         (cfg.Intraday.EntryEndMin / 60) (cfg.Intraday.EntryEndMin % 60)
