@@ -66,8 +66,12 @@ let defaultConfig =
                                          // graded cells (A PF 2.37/+$22k, A+ 4.26/+$23k vs tight) and barely
                                          // touches the fat book. Below ~0.002 reverts to the tight stop.
           StopOnClose = true            // the 9-EMA is a close-based series (kept for parity).
-          VwapUseClose = false }        // VWAP weights the TYPICAL price (h+l+c)/3 — the textbook default.
+          VwapUseClose = false          // VWAP weights the TYPICAL price (h+l+c)/3 — the textbook default.
                                         // --vwap-use-close switches to close-weighting (F11).
+          VwapOffset = 0.0              // no shift — trade the TRUE VWAP line. --vwap-offset displaces it
+                                        // (F12: the "crowded line" test).
+          VwapOffsetFeatures = false }  // when offsetting, keep run_max_dist/dpa on the TRUE VWAP so the
+                                        // graded gates keep their meaning (the clean test). See F12.
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the

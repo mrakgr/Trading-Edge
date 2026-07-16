@@ -31,6 +31,8 @@ type Args =
     | Min_Tightness of float
     | Stop_Buffer of float
     | Vwap_Use_Close
+    | Vwap_Offset of float
+    | Vwap_Offset_Features
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -54,6 +56,8 @@ type Args =
             | Min_Tightness _ -> "VWAP-reclaim: MIN intraday tightness at entry (default 3.0): require a name with real range, not a dead-flat chop. 0 = off."
             | Stop_Buffer _ -> "9-EMA pullback stop BUFFER (fraction): the stop fires when the 9-EMA falls below run-min*(1-buffer). Default 0.0 = fire the instant the EMA dips under the run-low."
             | Vwap_Use_Close -> "Weight session VWAP by the CLOSE instead of the typical price (h+l+c)/3 (the default). The 9-EMA the reclaim crosses is close-based, so this makes both sides of the cross the same price concept."
+            | Vwap_Offset _ -> "Shift the VWAP line used for the CROSS/run decision by this fraction: effective = vwap*(1+offset). Default 0 = the true VWAP. Negative pushes the line DOWN; positive pushes it UP. e.g. -0.002 = 20bps below. Tests the crowded-line hypothesis (F12)."
+            | Vwap_Offset_Features -> "Also measure run_max_dist (and hence dpa) against the SHIFTED line. Default OFF = features stay on the TRUE VWAP, so an offset changes only WHERE YOU TRIGGER, not what the rmd/dpa gates mean. Turning this on confounds the offset test (a -20bps offset collapses avg rmd 3.58%%->1.01%%)."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -85,7 +89,9 @@ let main argv =
                   MinRunBelowVwap = parsed.GetResult(Min_Run_Below_Vwap, defaultValue = defaultConfig.Intraday.MinRunBelowVwap)
                   MinTightness   = parsed.GetResult(Min_Tightness,   defaultValue = defaultConfig.Intraday.MinTightness)
                   StopBuffer     = parsed.GetResult(Stop_Buffer,     defaultValue = defaultConfig.Intraday.StopBuffer)
-                  VwapUseClose   = parsed.Contains Vwap_Use_Close || defaultConfig.Intraday.VwapUseClose } }
+                  VwapUseClose   = parsed.Contains Vwap_Use_Close || defaultConfig.Intraday.VwapUseClose
+                  VwapOffset     = parsed.GetResult(Vwap_Offset,     defaultValue = defaultConfig.Intraday.VwapOffset)
+                  VwapOffsetFeatures = parsed.Contains Vwap_Offset_Features || defaultConfig.Intraday.VwapOffsetFeatures } }
 
     printfn "VwapReclaimV3 backtest — SMB VWAP x %d-EMA reclaim (LONG only), 9-EMA pullback-low stop" cfg.Intraday.EmaPeriod
     printfn "  db          = %s" dbPath
@@ -100,7 +106,8 @@ let main argv =
         (cfg.Intraday.EntryEndMin / 60) (cfg.Intraday.EntryEndMin % 60)
         cfg.Intraday.MinRunBelowVwap
         (if cfg.Intraday.TimeStopMin > 0 then sprintf "time-stop %dm" cfg.Intraday.TimeStopMin else "hold-to-MOC")
-    printfn "  vwap price  = %s" (if cfg.Intraday.VwapUseClose then "CLOSE" else "typical (h+l+c)/3")
+    printfn "  vwap price  = %s%s" (if cfg.Intraday.VwapUseClose then "CLOSE" else "typical (h+l+c)/3")
+        (if cfg.Intraday.VwapOffset <> 0.0 then sprintf "   OFFSET %+.4f (%+.1f bps)" cfg.Intraday.VwapOffset (cfg.Intraday.VwapOffset * 10000.0) else "")
     printfn "  stop        = 9-EMA pullback low (run-min of the 9-EMA), buffer %.3f" cfg.Intraday.StopBuffer
     printfn "  gates       = tightness >= %.1f   below-frac %s"
         cfg.Intraday.MinTightness

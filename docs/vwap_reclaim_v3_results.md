@@ -539,9 +539,12 @@ four times.
 ~09:00 is plausibly when *meaningful* pre-open positioning begins: the 04:00–07:00 tape is thin enough that
 folding it in dilutes VWAP with noise (hence that region UNDER-performing even the RTH anchor), while the
 last ~60–90 min before the open carries the real overnight repricing. This predicts the true optimum is a
-**region (~08:30–09:15)**, and that 09:00's exact height (the ~25% jump over both 08:45 and 09:15) is partly
-luck — a smooth mechanism has no reason to spike that sharply at one 15-min step. **Do not over-trust 09:00
-specifically; trust the 08:30–09:15 plateau.**
+**region**, and that 09:00's exact height at 15-min sampling is partly luck.
+
+> **UPDATE — F13 tested exactly this at 5-min resolution and largely vindicated 09:00.** It is a real peak
+> on a **smooth hill** (monotone both flanks; the ungated fat book traces the same hill), not a spike. But
+> F13 also shows **this section's +71% is A++ small-sample inflation** — the better-powered A book (390 tr)
+> gives **+31%**, and the trustworthy region is the **08:50–09:00 shoulder**. Quote A's numbers, not A++'s.
 
 ### ⭐ VERDICT — `SessionStartMin = 540` (09:00 ET) is RETAINED, now as a DELIBERATE, DOCUMENTED choice
 
@@ -592,6 +595,115 @@ against the anchor (2020-26, sequential).
    ~08:30–09:15 plateau and the fat book over any single graded cell's decimal.)
 
 `--vwap-use-close` is kept as a documented, re-sweepable knob (default OFF).
+
+---
+
+## F12 — the "crowded line" test: displacing VWAP does NOTHING. It's WHEN you start averaging, not WHERE the line sits.
+
+**The hypothesis (user):** 09:30 performs poorly and SMB's stated rules underperform generally — maybe the
+canonical VWAP is simply **over-traded**. Every platform draws the same line, so reclaims off it get
+front-run/faded. If so, a small deliberate **offset** should dodge the crowd and make 09:30 robust.
+
+**A confound found while wiring it (worth its own note).** The naive implementation — shift VWAP and let
+everything read the shifted line — is *invalid*. `run_max_dist` is measured **relative to VWAP**, so an
+offset silently **rescales the very feature the `rmd ≥ 0.035` gate thresholds against**: a −20bps offset
+collapsed avg `run_max_dist` from **3.58% → 1.01%** and 7×'d the trip count (54 → 364). That measures
+"the offset changed what the gates mean", not "the offset dodged the crowd". Fixed with a second knob:
+**`VwapOffsetFeatures = false` (default)** keeps `run_max_dist`/`dpa` on the **TRUE** VWAP while only the
+**cross/run decision** sees the shifted line — isolating *where you trigger* from *what you measure*.
+(Same lesson as F10/F11: anything measured relative to VWAP inherits any change to VWAP.)
+
+**Sweep: offset ∈ ±{2, 5, 10, 20, 50} bps, at BOTH anchors, 2020-26.**
+
+| offset | 09:30 fat PF | 09:30 **A++** | 09:00 fat PF | 09:00 **A++** |
+|---|---|---|---|---|
+| −50 bp | 1.450 | 2.69 | 1.473 | 3.38 |
+| −20 bp | 1.463 | 2.39 | 1.504 | 3.72 |
+| −10 bp | 1.465 | 2.51 | 1.496 | 3.99 |
+| −5 bp | 1.466 | 2.54 | 1.504 | 4.03 |
+| −2 bp | 1.473 | 2.55 | 1.500 | 4.28 |
+| **0 (true VWAP)** | **1.473** | **2.51** | **1.501** | **4.29** |
+| +2 bp | 1.470 | 2.31 | 1.499 | 4.35 |
+| +5 bp | 1.469 | 2.23 | 1.490 | 4.30 |
+| +10 bp | 1.476 | 2.29 | 1.482 | 4.22 |
+| +20 bp | 1.467 | 2.55 | 1.483 | 4.14 |
+| +50 bp | 1.477 | 2.59 | 1.486 | 3.80 |
+
+**The hypothesis is REFUTED, and cleanly:**
+
+1. **At 09:30 the offset does nothing.** Fat book flat across the whole range (1.45–1.48 = noise). A++
+   wanders 2.23–2.69 with **no preferred direction** (−50bp: 2.69; +50bp: 2.59) — a shallow noisy bowl,
+   not a crowding penalty. **Zero-offset ranks 6th of 11** — dead middle. If the true line were being
+   faded, zero should rank LAST and there should be a clear direction. It doesn't, and there isn't.
+2. **⭐ The worst 09:00 cell (3.38) BEATS the best 09:30 cell (2.69).** The two curves **do not overlap**
+   across a ±50bp displacement. **You cannot offset your way out of a bad anchor.**
+3. **At 09:00, zero is already optimal** (peak 4.29–4.35 around 0, decaying symmetrically both ways). The
+   premarket-anchored line does not want to be displaced at all.
+4. **The win rate is FLAT (39–42%) across every cell** — see F13. Crowding/front-running would show up as
+   *more losers*; instead the anchor changes **how much winners make**. That is an **information** effect,
+   not an execution/crowding one.
+
+**⭐ The synthesis: it is about WHEN THE AVERAGING STARTS, not WHERE THE LINE SITS.** Displacement is inert;
+the start time is everything. Consistent with ~09:00 being when meaningful pre-open positioning begins.
+
+**Robustness bonus (matters for live):** at 09:00 the book is flat for ±10bps (4.28 / 4.29 / 4.35), so small
+live-vs-backtest VWAP discrepancies are harmless. Not a knife-edge.
+
+`--vwap-offset` / `--vwap-offset-features` kept as documented knobs (defaults 0 / OFF).
+
+---
+
+## F13 — ⭐ NEIGHBOURHOOD SWEEP at 5-min resolution: 09:00 is a real PEAK on a SMOOTH HILL (but A++ overstates it)
+
+F10 sampled the anchor at **15-minute** spacing, where a genuine plateau and a lucky spike look identical.
+Re-swept **08:20 → 09:30 every 5 minutes** (2020-26, sequential).
+
+**⭐ Graded on the A book (390 trips) — the better-powered read, and the headline:**
+
+| anchor | n | win% | **PF** | net | avg%/tr |
+|---|---|---|---|---|---|
+| 08:20 | 351 | 42 | 2.98 | $418k | 11.9 |
+| 08:25 | 344 | 41 | 2.96 | $402k | 11.7 |
+| 08:30 | 358 | 42 | 3.00 | $431k | 12.0 |
+| 08:35 | 366 | 41 | 3.03 | $448k | 12.2 |
+| 08:40 | 374 | 41 | 2.90 | $438k | 11.7 |
+| 08:45 | 377 | 41 | 2.95 | $455k | 12.1 |
+| 08:50 | 385 | 42 | 3.13 | $495k | 12.8 |
+| 08:55 | 386 | 41 | 3.27 | $527k | 13.6 |
+| **09:00** | **390** | **42** | **3.36** | **$542k** | **13.9** |
+| 09:05 | 391 | 41 | 3.04 | $499k | 12.8 |
+| 09:10 | 395 | 41 | 2.81 | $448k | 11.3 |
+| 09:15 | 401 | 41 | 2.87 | $465k | 11.6 |
+| 09:20 | 398 | 39 | 2.79 | $451k | 11.3 |
+| 09:25 | 412 | 39 | 2.58 | $419k | 10.2 |
+| 09:30 | 402 | 39 | 2.57 | $406k | 10.1 |
+
+**It is a real peak on a smooth hill, not a spike.** Monotone climb 08:40 → 09:00 (2.90 → 2.95 → 3.13 →
+3.27 → **3.36**), monotone decay 09:00 → 09:30 (3.04 → 2.81 → … → 2.57). No jitter on either flank.
+**The UNGATED fat book traces the identical hill** (1.445 → peak **1.501 @ 09:00** → 1.473) with zero tuned
+parameters — the third independent confirmation of F10.
+
+**⚠️ A vs A++ — the small-sample tax, quantified:**
+
+| | A (390 tr) | A++ (234 tr) |
+|---|---|---|
+| peak vs 09:30 | 3.36 → 2.57 = **+31%** | 4.29 → 2.51 = **+71%** |
+| range across the sweep | 2.57–3.36 | 2.51–4.29 |
+| **stdev across cells** | **0.21** | **0.47** |
+
+A++'s stdev is **2.2× A's** on 40% fewer trades. **A++'s 4.29 is substantially inflated** — the honest
+effect is the A book's **~+31%**, not +71%. Two structural facts only the better-powered A book reveals:
+- **The left flank is genuinely FLAT**: 08:20–08:45 sits at 2.90–3.03 (six cells within 0.13). In A++ that
+  same region wobbles 2.94–3.33 with 08:20 spuriously high — that was noise. **Real structure = a flat
+  shelf to ~08:45, a rise into 09:00, then decay.**
+- **The peak is a shoulder, not a needle**: 08:55 (3.27) is only 3% under 09:00 (3.36), vs 6% in A++.
+- **The win rate barely moves (39–42%) across the whole sweep** — the anchor changes the SIZE of winners,
+  not the hit rate. (This is what kills the crowding story in F12.)
+
+**⭐ VERDICT:** the trustworthy region is the **08:50–09:00 shoulder** (PF ~3.1–3.4 on the A book), worth
+**~+30%** over the RTH anchor. `SessionStartMin = 540` (09:00) is retained as the default — it is the top of
+a smooth hill, confirmed by an ungated book, at 5-min resolution, and robust to ±10bps of displacement
+(F12). **Do not quote A++'s 4.29 as the effect size; quote A's 3.36 / +31%.**
 
 ---
 

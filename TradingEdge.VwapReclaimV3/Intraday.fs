@@ -82,11 +82,23 @@ type IntradayConfig =
       StopOnClose: bool        // true (default) = the stop triggers only when the 9-EMA reads below the
                                // level after the bar CLOSES (fills at that close). The 9-EMA is a close-
                                // based series, so this is the natural mode; the flag is kept for parity.
-      VwapUseClose: bool }     // false (default) = VWAP weights the TYPICAL price (h+l+c)/3, the textbook
+      VwapUseClose: bool       // false (default) = VWAP weights the TYPICAL price (h+l+c)/3, the textbook
                                // definition. true = weight the CLOSE only. The 9-EMA the reclaim crosses is
                                // a CLOSE-based series, so close-weighting makes both sides of the cross the
                                // same price concept; typical-price mixes them. Matters most where bars are
                                // thin and h/l/c diverge — i.e. the premarket seed (see F10/F11).
+      VwapOffset: float        // FRACTIONAL shift of the VWAP line used for the CROSS/RUN decision only:
+                               // effective = vwap*(1+offset). 0 (default) = the true VWAP. NEGATIVE pushes
+                               // the line DOWN (the EMA must fall further to count as "below"; the reclaim
+                               // then triggers on a SHALLOWER recovery); POSITIVE pushes it UP. Tests the
+                               // "crowded line" hypothesis — see F12.
+      VwapOffsetFeatures: bool } // false (default) = the recorded/graded features (run_max_dist, and hence
+                               // dpa) keep measuring against the TRUE VWAP even when VwapOffset shifts the
+                               // cross. This is the CLEAN test: it isolates "where do I trigger" from
+                               // "what do I measure". true = features also see the shifted line (the naive
+                               // wiring), which silently RESCALES what the rmd>=0.035 / dpa<3 gates mean —
+                               // a -20bps offset collapses avg run_max_dist 3.58% -> 1.01%, so the gates no
+                               // longer select the same kind of setup and the comparison is confounded.
 
 /// Snapshot of the engine state going INTO the current bar (strictly-prior — no
 /// lookahead). ProcessBar builds a fresh `currentState` from the live indicators
@@ -94,7 +106,11 @@ type IntradayConfig =
 type State =
     { bar          : MinuteBar voption   // the immediately-prior bar (true-range prior close, prev-bar refs)
       ema          : float voption       // the 9-EMA going into this bar
-      vwap         : float voption       // session VWAP going into this bar
+      vwap         : float voption       // session VWAP going into this bar (SHIFTED by cfg.VwapOffset;
+                                         // == vwapTrue when the offset is 0, the default). This is the
+                                         // line the cross + run counter decide against.
+      vwapTrue     : float voption       // the UNSHIFTED session VWAP going in — what run_max_dist measures
+                                         // against unless cfg.VwapOffsetFeatures (see F12).
       atrLog       : float voption       // mean log-TR (VolWindow) going in
       atrLin       : float voption       // mean abs-TR (VolWindow) — the tightness denominator
       rangeHigh    : float voption       // VolWindow window high (tightness numerator)
@@ -150,6 +166,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         { bar = ValueNone
           ema = ValueNone
           vwap = ValueNone
+          vwapTrue = ValueNone
           atrLog = ValueNone
           atrLin = ValueNone
           rangeHigh = ValueNone
@@ -165,8 +182,23 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     member _.SessionOpen = sessionOpen
 
     // ----- live reads (post-fold, incl. the current bar) -----
-    /// The LIVE session VWAP (post-fold). ValueNone before any volume.
-    member private _.LiveVwap : float voption = vwap.State
+    /// The LIVE session VWAP (post-fold), shifted by cfg.VwapOffset. ValueNone before any volume.
+    ///
+    /// The offset is applied HERE, at the single point every consumer reads VWAP through (the entry
+    /// cross, the below-VWAP run counter, run_max_dist, the recorded vwap_at_entry). So a shifted line
+    /// is genuinely the line the whole engine trades — not a cosmetic tweak at the cross only.
+    ///
+    /// F12 tests the "crowded line" hypothesis: if the true VWAP is over-traded (every platform draws
+    /// the same line, so reclaims off it get front-run/faded), a small deliberate displacement should
+    /// pay — and should have a PREFERRED DIRECTION. Noise predicts symmetry and a peak at 0.
+    member private _.LiveVwap : float voption =
+        match vwap.State with
+        | ValueSome v when cfg.VwapOffset <> 0.0 -> ValueSome (v * (1.0 + cfg.VwapOffset))
+        | s -> s
+
+    /// The TRUE (unshifted) live VWAP — what run_max_dist measures against when
+    /// VwapOffsetFeatures = false, so a shifted cross doesn't rescale the graded gates.
+    member private _.TrueVwap : float voption = vwap.State
     /// The running SESSION LOW (post-fold) — recorded run-depth reference.
     member _.SessionLow = sessLow.State
 
@@ -217,10 +249,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     /// at the top of ProcessBar and stored into `sState` at the bottom, so `sState`
     /// always holds the STRICTLY-PRIOR state (excludes the current bar). The entry
     /// gate reads `sState.*` for prior values and the live objects for current ones.
-    member private _.CaptureState () : State =
+    member private this.CaptureState () : State =
         { bar = lastBar
           ema = ema.State
-          vwap = vwap.State
+          vwap = this.LiveVwap        // the SHIFTED line (== TrueVwap when VwapOffset = 0)
+          vwapTrue = this.TrueVwap
           atrLog = atrLog.State
           atrLin = atrLin.State
           rangeHigh = rangeHigh.State
@@ -262,7 +295,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             emaVwapBars <- emaVwapBars + 1
             if e < v then
                 // on the below-VWAP run: deepen the depth, accumulate the run's ATR, extend the EMA-run-low.
-                let dist = if v > 0.0 then (v - e) / v else 0.0
+                // DEPTH is measured against the TRUE VWAP by default, even when the CROSS uses a shifted
+                // line — otherwise the offset silently rescales run_max_dist (and dpa), and the rmd>=0.035
+                // gate stops selecting the same setups. See F12 / VwapOffsetFeatures.
+                let dv =
+                    if cfg.VwapOffsetFeatures then v
+                    else match priorState.vwapTrue with ValueSome t -> t | ValueNone -> v
+                let dist = if dv > 0.0 then (dv - e) / dv else 0.0
                 if dist > runMaxDist then runMaxDist <- dist
                 if not (Double.IsNaN barLogTr) then
                     runAtrSum <- runAtrSum + barLogTr
