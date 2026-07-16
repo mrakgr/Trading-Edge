@@ -898,6 +898,49 @@ Untested (the last idea with a real mechanism): premarket volume **SLOPE** (acce
 rather than a level snapshot. Bar to clear, set in advance: it must separate golden from rest by materially
 more than **1.5×**, else no backtest can save it.
 
+### F14e — ⭐ THE MEAN-REVERSION SYSTEMS ARE CLEAN (audited, not assumed)
+
+**User's question:** the MR systems have no ADV requirement at all, which is suspicious — surely they need
+*some* liquidity floor, and is that one contaminated too?
+
+**What `mr_candidate` actually gates on** (`build_mr_candidate.fsx`) — no ADV filter, but three prunes:
+
+| gate | knowable when? | verdict |
+|---|---|---|
+| `median(1m vol 09:30–09:45) >= 10,000` AND `>=10 of 15 bars` | **09:45** | ✅ **JUST-IN-TIME LEGAL** — both MaxFlyerV3 and LowFlyer have `EntryStartMin = 09:45`. The prune and the first entry are aligned *to the minute*. This looks like a deliberate design choice, not luck. **This IS the liquidity floor** — a 10k-share median 1m bar, expressed in shares rather than dollars. |
+| `day_close >= 1.0` (the $1 price floor) | **D's CLOSE** | ⚠️ **LOOKAHEAD** — measured below |
+| `rvol_0945 >= 0.1` | denominator is D-inclusive `avgvol20` | ⚠️ contaminated (F14c), but a *very* loose floor |
+
+So the answer to "do they really have no ADV requirement" is: **they have a SHARE-based liquidity floor
+(median 1m bar ≥ 10k shares in the opening 15 min), not a DOLLAR-based one** — and unlike the momentum
+systems' ADV filter, it is timed to be legal.
+
+**The `day_close >= $1` lookahead — measured, and it is benign:** 1,060 of 391,007 ticker-days (**0.27%**),
+and **one-directional** (it only ever *admits* names that rallied over $1 on D; it never drops any).
+
+**A/B on the live-safe floor (`prev_adj_close >= $1`), 2020-26:**
+
+| system | trips (old → honest) | PF (old → honest) | net (old → honest) |
+|---|---|---|---|
+| **MaxFlyerV3** | 2,510 → 2,293 | **3.767 → 4.162** ✅ **BETTER** | $3.03M → $2.95M |
+| **LowFlyer** | 69,597 → 69,531 | **1.332 → 1.328** | $3.64M → $3.59M |
+
+**Both survive. MaxFlyerV3 gets BETTER.** Removing the lookahead drops ~200 marginal trips that were
+*hurting* it — the sub-$1-on-D-1 names that rallied above $1 are terrible shorts (you are shorting
+something already squeezing). LowFlyer moves 0.3% = noise.
+
+**⭐ This is the control the whole investigation needed.** It proves the F14 collapse is a real property of
+the momentum systems' ADV filter, not an artifact of the audit method: the same auditor, the same
+live-safe discipline, applied to MaxFlyerV3/LowFlyer, leaves them **intact or improved**. A genuine system
+is INDIFFERENT (or improves) when a lookahead is removed; a lookahead-dependent one collapses.
+
+**Remaining known contamination in the MR book (both minor, both worth fixing):**
+- `brv20d` (MaxFlyerV3's A-book lever) and `rvol` divide by the D-inclusive `avgvol20`. The bias is
+  **CONSERVATIVE** — an inflated denominator UNDERSTATES `brv20d`, making the `≥100` gate *harder* than
+  intended (on 20×-volume days the denominator is **12.5× inflated**). Fixing it should *loosen* the gate
+  and likely *help*. **Not yet measured.**
+- `rvol_0945 >= 0.1` in `mr_candidate` (F14c) — an extremely loose floor; impact likely negligible.
+
 **Methodological lesson (the reason this was missed for so long):** the ADV filter looked like plumbing —
 "a liquidity floor, not a signal gate" — so it was never audited as a source of edge. **A universe filter
 that touches day D's own data is a signal gate, whatever it is named.** Any filter combining a
