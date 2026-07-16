@@ -898,7 +898,12 @@ Untested (the last idea with a real mechanism): premarket volume **SLOPE** (acce
 rather than a level snapshot. Bar to clear, set in advance: it must separate golden from rest by materially
 more than **1.5×**, else no backtest can save it.
 
-### F14e — ⭐ THE MEAN-REVERSION SYSTEMS ARE CLEAN (audited, not assumed)
+### F14e — the mean-reversion systems and the $1 PRICE FLOOR (audited, not assumed)
+
+> ⚠️ **Scope correction (see F14g):** this finding tests the **`day_close ≥ $1` price floor** only, and on
+> that axis both MR systems are clean. It does **NOT** clear MaxFlyerV3 overall — its `brv20d` denominator
+> is a *separate* lookahead, and on that one **MaxFlyerV3 does not survive**. **LowFlyer remains the only
+> fully-cleared system** (F14f).
 
 **User's question:** the MR systems have no ADV requirement at all, which is suspicious — surely they need
 *some* liquidity floor, and is that one contaminated too?
@@ -934,12 +939,90 @@ the momentum systems' ADV filter, not an artifact of the audit method: the same 
 live-safe discipline, applied to MaxFlyerV3/LowFlyer, leaves them **intact or improved**. A genuine system
 is INDIFFERENT (or improves) when a lookahead is removed; a lookahead-dependent one collapses.
 
-**Remaining known contamination in the MR book (both minor, both worth fixing):**
-- `brv20d` (MaxFlyerV3's A-book lever) and `rvol` divide by the D-inclusive `avgvol20`. The bias is
-  **CONSERVATIVE** — an inflated denominator UNDERSTATES `brv20d`, making the `≥100` gate *harder* than
-  intended (on 20×-volume days the denominator is **12.5× inflated**). Fixing it should *loosen* the gate
-  and likely *help*. **Not yet measured.**
+**Remaining known contamination in the MR book:**
+- **`brv20d` — MEASURED, and it is FATAL. See F14g.** (The "conservative bias, fixing it should help"
+  prediction below was **wrong**.)
 - `rvol_0945 >= 0.1` in `mr_candidate` (F14c) — an extremely loose floor; impact likely negligible.
+
+### F14f — LowFlyer's PRODUCTION book is clean (the post-hoc ADV filter is harmless AT $500k)
+
+LowFlyer's production selection (`lowflyer_long_floor_verify.sql`) applies `mc.avgvol20 * r.day_close AS
+adv20 >= 500000` post-hoc — **the exact contaminated formula from F14**. Tested (2020-26, full production
+gates: `chg_1d≤−8% & chg_20m≤−3% & chg_3d∈[−3,30]% & chg_7d≥−5% & ADV≥$500k & float<$300M & flush≥−12%`):
+
+| variant | n | win% | raw PF | clip PF |
+|---|---|---|---|---|
+| CONTAMINATED ADV (`avgvol20 × day_close`) | 1,122 | 66.9 | **3.315** | 3.301 |
+| HONEST ADV (`avgvol20_prior × prev_close`) | 1,124 | 67.0 | **3.329** | 3.314 |
+| HONEST ADV + honest $1 price floor | 1,124 | 67.0 | **3.329** | 3.314 |
+
+**Two trips change out of 1,122; PF moves +0.014 — upward.** Noise.
+
+**⭐ WHY THE SAME FORMULA IS FATAL IN ONE SYSTEM AND INERT IN ANOTHER — it is the THRESHOLD:**
+
+| | filter | universe change | PF impact |
+|---|---|---|---|
+| VwapReclaimV3 | `avgvol20 × day_close ≥ **$30M**` | 0.8% | **1.501 → 1.107 (−26%)** |
+| LowFlyer prod | `avgvol20 × day_close ≥ **$500k**` | 0.2% | **3.315 → 3.329 (+0.4%)** |
+
+At **$500k** the floor is so loose that D-vs-D-1 barely moves membership — it is genuinely what the doc
+calls it, *"a tradeability floor, not a PF booster"*. At **$30M** the threshold sits exactly where
+volume-spike inflation flips names in and out, so the same formula became a covert *"today is a 10×-volume
+day"* selector. **A lookahead is only dangerous where it is doing selection work.** The formula is not the
+problem; the threshold's position relative to the contamination's magnitude is.
+
+### F14g — 🛑 MaxFlyerV3's `brv20d` denominator: the lookahead IS the A-book lever
+
+`brv20d = bar_vol / (avgVol20 · adjRatio / 390)` with the **D-inclusive** `avgVol20`. **Prediction (mine):**
+the bias is conservative — an inflated denominator understates `brv20d`, making `≥100` *harder*, so fixing
+it should loosen the gate and help. **That prediction was WRONG on every count.**
+
+Swapped `avgvol20_prior` into the denominator (parquet override; nothing else changed). Control reproduces
+the baseline, so the harness is sound:
+
+| variant | trips | PF |
+|---|---|---|
+| CONTROL (D-inclusive denom — the shipped book) | 2,499 | **3.758** |
+| **HONEST denom (prior-20)** | **5,402** | **1.301** |
+
+It *does* loosen the gate — trips **more than double** — but the newly admitted trips are **garbage**:
+
+| group | n | win% | PF | net |
+|---|---|---|---|---|
+| also in the old book | 1,547 | **76.3** | **4.43** | $2,059,201 |
+| **newly admitted by the fix** | 3,855 | 46.2 | **0.83** | **−$681,425** |
+
+**Re-tuning the threshold does NOT recover it** — the gate is not merely mis-scaled:
+
+| honest `brv20d` floor | 100 | 200 | 400 | 800 | 1200 |
+|---|---|---|---|---|---|
+| trips | 5,402 | 4,283 | 3,364 | 2,536 | 2,063 |
+| **PF** | 1.301 | 1.316 | **1.318** | 1.283 | 1.282 |
+
+Flat at **~1.30 across a 12× threshold range**. Even at 2,536 trips (the old book's size) it is PF 1.283,
+not 3.77. **No honest threshold reproduces the book at any level.**
+
+**And no legal feature separates the good trips from the junk** — same wall as F14d:
+
+| feature (shared/PF 4.43 vs newly-admitted/PF 0.83) | separation |
+|---|---|
+| rvol at entry | **1.68×** |
+| bar_rvol_15m | 1.27× |
+| breakout_bar_vol | 1.23× |
+| intraday ATR% | 1.14× |
+| entry price | 0.93× |
+| cum_vol_to_entry | 0.75× |
+
+Best legal separator ≈ **1.7×**; rvol bucketing tops out at PF 1.47 (vs 4.43). **⚠️ Two of my explanations
+for this were tested and REFUTED:** (a) "the inclusive denominator smuggles D's volume in via correlation"
+— no: `corr(denom, D volume)` is **0.734 inclusive vs 0.699 prior**, essentially identical, because volume
+is autocorrelated anyway; (b) "it's a units problem, just re-tune the threshold" — no: see the flat sweep.
+**The mechanism remains unexplained.** What is established is the fact: `brv20d ≥ 100` on the D-inclusive
+denominator selects a PF-4.43 book that no prior-only formulation reaches.
+
+**Verdict: MaxFlyerV3's A-book lever is lookahead-dependent.** F14e's "MaxFlyerV3 is clean (PF 3.767 →
+4.162)" tested only the **$1 price floor** — a different, benign lookahead. On the **denominator**, the
+system does not survive. **MaxFlyerV3 must be treated as UNCONFIRMED, not clean.**
 
 **Methodological lesson (the reason this was missed for so long):** the ADV filter looked like plumbing —
 "a liquidity floor, not a signal gate" — so it was never audited as a source of edge. **A universe filter
