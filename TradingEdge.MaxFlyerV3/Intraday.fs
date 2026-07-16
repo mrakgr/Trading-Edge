@@ -140,6 +140,10 @@ type IntradayConfig =
       // ----- A-BOOK GATES (baked into the engine so it emits ONLY A-book trips — tiny CSVs, no post-hoc bloat) -----
       MinAtrPct: float         // A-book FLOOR: reject the ARM bar unless its intraday log-ATR >= this. 0 = off.
                                // The V2/V3 A-book value is 0.03. (Complements MaxAtrPct, which is the ceiling.)
+      MinBrv15m: float         // LOOKAHEAD-FREE twin of MinBrv20d: reject the ARM bar unless
+                               // bar_vol / (D's own 09:30-09:45 mean 1m vol) >= this. 0 = off (default).
+                               // brv20d's baseline needs D's CLOSE; this one is complete at 09:45 =
+                               // EntryStartMin, so it is legal. See F14g/F14h.
       MinBrv20d: float         // A-book MAIN LEVER: reject the ARM bar unless its brv20d >= this. 0 = off. brv20d =
                                // breakout_bar_vol / (AvgVol20 * AdjRatio / 390) — the breakout bar's volume vs the
                                // 20d ADJUSTED daily-avg per-minute. A-book value is 100. Needs AvgVol20/AdjRatio
@@ -290,7 +294,7 @@ type IntradayConfig =
 /// Per-(ticker, day) intraday engine. Feed it the day's RTH MinuteBar[] in time
 /// order via `Process`, then `Finalize` and read `Trips()`.
 type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClose: float,
-                    avgVol20: float, adjRatio: float) =
+                    avgVol20: float, adjRatio: float, meanBarVol15m: float) =
 
     // day extension at a bar = close vs the prior daily close (how far up/down on the day).
     // Used by --ext-gate to route direct-vs-rollover entry and gate the rollover fill.
@@ -300,6 +304,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     // per-minute baseline; matches the post-hoc SQL exactly. 0/nan when the daily context is unusable (gate off).
     let brv20dBaseline = if avgVol20 > 0.0 && adjRatio > 0.0 then avgVol20 * adjRatio / 390.0 else nan
     let brv20dOf (vol: int64) = if Double.IsNaN brv20dBaseline || brv20dBaseline <= 0.0 then nan else float vol / brv20dBaseline
+
+    // brv15m = bar volume / the name's OWN 09:30-09:45 mean 1m volume (vol_0945/nbar_0945).
+    // The LOOKAHEAD-FREE twin of brv20d: the baseline is D's own opening-15m tempo, complete at 09:45,
+    // and EntryStartMin is 09:45 — so it is knowable exactly when the first entry may fire. brv20d's
+    // baseline (avgVol20) instead contains D's OWN full-session volume = not knowable until D's close.
+    // Same quantity conceptually (a bar's volume spike vs a baseline), but honestly measurable. F14h.
+    let brv15mOf (vol: int64) =
+        if Double.IsNaN meanBarVol15m || meanBarVol15m <= 0.0 then nan else float vol / meanBarVol15m
 
     // ----- rolling intraday structures (1m timeframe) -----
     let atrLog    = AvgMa(cfg.VolWindow)        // mean LOG true range over the last VolWindow 1m bars
@@ -494,6 +506,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // A-BOOK GATES (baked in) — same as the EmaEntry arm gates, on the direct-entry breakout bar.
         && (cfg.MinAtrPct <= 0.0 || (match this.AtrPct with ValueSome a -> a >= cfg.MinAtrPct | ValueNone -> false))
         && (cfg.MinBrv20d <= 0.0 || (let b = brv20dOf bar.volume in not (Double.IsNaN b) && b >= cfg.MinBrv20d))
+        && (cfg.MinBrv15m <= 0.0 || (let b = brv15mOf bar.volume in not (Double.IsNaN b) && b >= cfg.MinBrv15m))
         // concurrency room (count only currently-OPEN positions)
         && (cfg.MaxConcurrent <= 0 || this.OpenCount < cfg.MaxConcurrent)
 
@@ -580,6 +593,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 // pending); brv20d uses THIS bar's breakout volume. 0 = gate off.
                 && (cfg.MinAtrPct <= 0.0 || (match this.AtrPct with ValueSome a -> a >= cfg.MinAtrPct | ValueNone -> false))
                 && (cfg.MinBrv20d <= 0.0 || (let b = brv20dOf bar.volume in not (Double.IsNaN b) && b >= cfg.MinBrv20d))
+                && (cfg.MinBrv15m <= 0.0 || (let b = brv15mOf bar.volume in not (Double.IsNaN b) && b >= cfg.MinBrv15m))
                 // ROOM at ARM time: don't QUEUE a pending when we're already at capacity. Cap TOTAL committed
                 // exposure (currently-open Holding + already-queued pendings) at MaxConcurrent. This filters
                 // PENDINGS (not fills) so the queue never backlogs while a position is held — the source of the

@@ -1,5 +1,35 @@
 # Claude Guidelines for TradingEdge
 
+## 🛑 LOOKAHEAD — read `docs/lookahead_protocol.md` before touching any universe/filter/backtest
+
+On 2026-07-16 a single universe filter (`avgvol20 * day_close >= $30M`) was found to be a **backdoor
+"today is a 12×-volume day" selector** — it destroyed **three systems** (VwapReclaimV3 1.501→0.964,
+OpeningDriverV2 4.112→0.728, DipRiderV4 2.876→1.158). It survived a year because it read as *plumbing*.
+
+**The rules that would have caught it in an afternoon:**
+
+1. **Any filter touching day D's data is a SIGNAL GATE, whatever it is named.** "Liquidity floor",
+   "universe prune", "sanity check" — irrelevant. Audit it like an entry gate.
+2. **`ROWS BETWEEN 19 PRECEDING AND CURRENT ROW` is a lookahead in any GATE** (it includes D's own
+   volume). `mr_candidate` carries **`avgvol20_prior`** (`20 PRECEDING AND 1 PRECEDING`) — **gate on that**.
+   Plain `avgvol20` is correct *only* as the rvol denominator.
+3. **⭐ THE DISPROPORTION TEST — free, needs no backtest:** a liquidity filter cannot move PF more than
+   roughly the fraction of the universe it changes. Ours changed **0.8%** of the universe and moved PF
+   **−26%**. That is arithmetically impossible for a real floor. **If "plumbing" is load-bearing, it isn't
+   plumbing.**
+4. **Knowability clock:** for every field in a filter, write the earliest minute it is determined and
+   compare it to `EntryStartMin`. `day_close` / `avgvol20` / `rvol_0945` / `close_fwd_*` = ❌ never.
+   `med_bar_vol_0945` = ✅ only because `EntryStartMin = 09:45` — **aligned to the minute; lower the entry
+   window and it silently becomes a lookahead.**
+5. **Always run a control.** A genuine system is *indifferent* to removing a lookahead, or **improves**
+   (MaxFlyerV3's $1 floor: 3.767 → **4.162**). Without a control you cannot tell "the system is fake" from
+   "my audit is broken".
+6. **Post-hoc SQL counts.** LowFlyer's production book lives entirely in `scripts/equity/*.sql` — the
+   contaminated formula was *there*, not in the engine. Audit the `.sql`, not just the `.fs`.
+
+**Status:** LowFlyer ✅ clean · MaxFlyerV3 ⚠️ unconfirmed (`brv20d` denominator fails) ·
+VwapReclaimV3 / OpeningDriverV2 / DipRiderV4 ❌ dead. `docs/systems_showcase.md` quotes dead numbers.
+
 ## F# Async Patterns
 
 When writing concurrent F# code in this project:

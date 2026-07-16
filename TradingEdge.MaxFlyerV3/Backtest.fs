@@ -36,6 +36,9 @@ let defaultConfig =
           MaxTightness = infinity        // OFF
           MaxAtrPct = infinity           // OFF
           MinAtrPct = 0.03               // A-book ATR% FLOOR baked in (was post-hoc). --min-intraday-atr-pct.
+          MinBrv15m = 0.0               // OFF by default. The LOOKAHEAD-FREE twin of MinBrv20d (baseline =
+                                        // D's own 09:30-09:45 1m tempo, complete at 09:45 = EntryStartMin).
+                                        // --min-brv15m. See F14g/F14h.
           MinBrv20d = 100.0              // A-book MAIN LEVER baked in (was post-hoc). --min-brv20d. 0 = off.
           SessionStartMin = 8 * 60 + 30  // 08:30 ET — accumulate the running low/vol-high, ATR,
                                          // tightness and the 20-bar LagMa from premarket (like MaxFlyer),
@@ -363,7 +366,8 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
                     | Some(pc, psys) -> drain pc psys
                     | None -> ()
                     let c = byTicker.[ticker]
-                    let sys = IntradaySystem(cfg.Intraday, ticker, date, c.PrevAdjClose, c.AvgVol20, c.AdjRatio)
+                    let meanBarVol15m = if c.NBar0945 > 0 then float c.Vol0945 / float c.NBar0945 else nan
+                    let sys = IntradaySystem(cfg.Intraday, ticker, date, c.PrevAdjClose, c.AvgVol20, c.AdjRatio, meanBarVol15m)
                     sys.Process bar
                     cur <- Some(c, sys))
             match cur with

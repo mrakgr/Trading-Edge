@@ -28,6 +28,7 @@ type Args =
     | Max_Intraday_Atr_Pct of float
     | Min_Intraday_Atr_Pct of float
     | Min_Brv20d of float
+    | Min_Brv15m of float
     // mode overrides. MaxFlyerV2 DEFAULTS to the short pop-fade (Downside=false, Short=true).
     | Long                 // escape hatch: trade the LONG new-session-LOW flush (= the LowFlyer book) for parity
     | Short_Breakdown      // alternate: SHORT the new-session-LOW breakdown (Downside=true, Short=true)
@@ -72,7 +73,8 @@ type Args =
             | Min_Bar_Flush_Floor _ -> "Entry-bar flush-DEPTH floor (the falling-knife cut, Run 26): reject a flush DEEPER than this. Default 0.0 = OFF. e.g. -0.12 rejects flushes deeper than -12%%. Pairs with --min-bar-flush to band the entry move; PF 3.25->3.45 on the production long."
             | Max_Intraday_Atr_Pct _ -> "Intraday log-ATR CAP at entry: require the 1m log-ATR < this. Default +inf = OFF. e.g. 0.02 rejects names in genuine chaos (per Run 9)."
             | Min_Intraday_Atr_Pct _ -> "A-BOOK ATR%% FLOOR (baked in): require the arm-bar trailing-20m log-ATR >= this. Default 0.03. 0 = off."
-            | Min_Brv20d _ -> "A-BOOK MAIN LEVER (baked in): require brv20d >= this at the arm bar. brv20d = breakout_bar_vol / (avgvol20*adj_ratio/390). Default 100. 0 = off. Engine emits only A-book trips."
+            | Min_Brv20d _ -> "A-BOOK MAIN LEVER (baked in): require brv20d >= this at the arm bar. brv20d = breakout_bar_vol / (avgvol20*adj_ratio/390). Default 100. 0 = off. Engine emits only A-book trips. WARNING: avgvol20 includes D's OWN full-session volume = LOOKAHEAD (F14g)."
+            | Min_Brv15m _ -> "LOOKAHEAD-FREE twin of --min-brv20d: require bar_vol / (D's own 09:30-09:45 mean 1m vol) >= this at the arm bar. Baseline is complete at 09:45 = EntryStartMin, so it is legal. Default 0 = off."
             | Long -> "Escape hatch: trade the LONG new-session-LOW flush-fade (Downside=true, Short=false) — i.e. the LowFlyer book — instead of the default short pop-fade. For cross-system parity checks. Mutually exclusive with --short-breakdown."
             | Short_Breakdown -> "Alternate short: SHORT the new-session-LOW breakdown (Downside=true, Short=true) — momentum continuation of the flush (the 4th quadrant), rather than the default new-HIGH pop-fade. Mutually exclusive with --long."
             | Long_Breakout -> "INVERSION of the short pop-fade: BUY the new-session-HIGH pop on the breakout bar (Short=false, Downside=false, direct entry) and SELL on the first 9-EMA down-tick. Turns off all the short-only EMA machinery. A momentum/continuation test of the same signal the short fades."
@@ -125,6 +127,7 @@ let main argv =
                   MaxAtrPct     = parsed.GetResult(Max_Intraday_Atr_Pct, defaultValue = defaultConfig.Intraday.MaxAtrPct)
                   MinAtrPct     = parsed.GetResult(Min_Intraday_Atr_Pct, defaultValue = defaultConfig.Intraday.MinAtrPct)
                   MinBrv20d     = parsed.GetResult(Min_Brv20d,           defaultValue = defaultConfig.Intraday.MinBrv20d)
+                  MinBrv15m     = parsed.GetResult(Min_Brv15m,           defaultValue = defaultConfig.Intraday.MinBrv15m)
                   // Modes (MaxFlyerV2 DEFAULTS to the short pop-fade):
                   //   default            — SHORT the new-session-HIGH pop (Downside=false, Short=true)
                   //   --long             — LONG the new-session-LOW flush (Downside=true, Short=false) [LowFlyer parity]
