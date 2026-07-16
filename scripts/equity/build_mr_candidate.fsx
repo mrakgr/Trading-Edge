@@ -27,7 +27,10 @@
 //   close_7d           D-7 adj close, episode-partitioned (trailing 7-day return feature)
 //   day_close          D's adj close (the price-floor field + fwd-return base)
 //   adj_ratio          adj_close/raw_close (rescale intraday bars to adjusted)
-//   avgvol20           20-bar trailing mean daily volume (rvol denominator)
+//   avgvol20           20-bar trailing mean daily volume, INCLUSIVE of D (the rvol DENOMINATOR — matches
+//                      the engine's AvgMa(20) and every published rvol number). Do NOT gate on it.
+//   avgvol20_prior     the same average over the 20 bars ENDING AT D-1 — LIVE-SAFE (known pre-open).
+//                      Use this for any ADV / liquidity GATE; avgvol20 is a lookahead there (F14).
 //   close_fwd_1d/3d/5d D+1/D+3/D+5 adj close (forward returns; REPORTED, no lookahead)
 //
 // The final INNER JOIN (liq x ctx) is the prune: only median>=10k days survive.
@@ -105,6 +108,14 @@ ctx AS (
         LAG(adj_close, 7) OVER e                                      AS close_7d,         -- 7-trading-day trailing close
         AVG(adj_volume) OVER (PARTITION BY ticker, episode ORDER BY date
                               ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS avgvol20,
+        -- LIVE-SAFE twin of avgvol20: the 20 bars ENDING AT D-1, so it is fully known before D opens.
+        -- avgvol20 itself includes D's OWN full-session volume (unknowable until D's close) — fine as an
+        -- rvol DENOMINATOR (that is how the engine's AvgMa(20) is defined and every published rvol number
+        -- uses it), but a LOOKAHEAD if used to decide whether to TRADE D. It is circular there: a big
+        -- volume day inflates its own 20d average, which admits it to a $-volume-floored universe.
+        -- Use this one for any ADV/liquidity GATE. See F9/F14 in docs/vwap_reclaim_v3_results.md.
+        AVG(adj_volume) OVER (PARTITION BY ticker, episode ORDER BY date
+                              ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING) AS avgvol20_prior,
         LEAD(adj_close, 1) OVER e                                     AS close_fwd_1d,
         LEAD(adj_close, 3) OVER e                                     AS close_fwd_3d,
         LEAD(adj_close, 5) OVER e                                     AS close_fwd_5d,
@@ -113,7 +124,7 @@ ctx AS (
     WINDOW e AS (PARTITION BY ticker, episode ORDER BY date)
 )
 SELECT c.ticker, c.date,
-    c.prev_adj_close, c.close_3d, c.close_7d, c.day_close, c.adj_ratio, c.avgvol20,
+    c.prev_adj_close, c.close_3d, c.close_7d, c.day_close, c.adj_ratio, c.avgvol20, c.avgvol20_prior,
     c.close_fwd_1d, c.close_fwd_3d, c.close_fwd_5d,
     l.day_open, l.med_bar_vol_0945, l.nbar_0945, l.vol_0945,
     -- rvol_0945 = premarket-inclusive vol through 09:45 / 20-bar avg daily vol. First-class

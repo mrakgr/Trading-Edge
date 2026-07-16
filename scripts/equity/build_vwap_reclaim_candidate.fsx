@@ -8,7 +8,8 @@
 // (the ADV/rvol filters were previously applied post-hoc on the trips CSV — now they prune the
 // universe up front, shrinking the run and the output ~5-10x):
 //
-//   ADV = avgvol20 * day_close >= $30,000,000  (20-day average DOLLAR volume — a REAL liquidity floor.
+//   ADV = avgvol20_prior * prev_adj_close >= $30,000,000   (20-day average DOLLAR volume — a REAL liquidity
+//                                                floor. LIVE-SAFE as of F14: both factors known pre-open.
 //                                                $1M let in sub-dollar / thin-float junk with garbage 1m
 //                                                bars & unrealistic fills, visible in the charts. $100M
 //                                                was set by chart-eyeballing under the OLD exit and was
@@ -52,8 +53,12 @@ DROP TABLE IF EXISTS vwap_reclaim_candidate;
 CREATE TABLE vwap_reclaim_candidate AS
 SELECT *
 FROM mr_candidate
-WHERE avgvol20 * day_close >= 30000000.0   -- ADV >= $30M (20d avg $vol) — Finding 20: $100M over-cut, $30M is the floor
-  AND rvol_0945 > 1.0;                      -- genuinely in play into the open
+WHERE avgvol20_prior * prev_adj_close >= 30000000.0  -- ADV >= $30M (20d avg $vol), LIVE-SAFE (F14): both
+                                           -- factors are known BEFORE D opens. Was `avgvol20 * day_close`,
+                                           -- which stacked TWO lookaheads — D's own volume (inside its own
+                                           -- 20d average) and D's closing price — to decide whether to
+                                           -- trade D at 10:00. Finding 20: $100M over-cut, $30M is the floor.
+  AND rvol_0945 > 1.0;                     -- genuinely in play into the open
 
 CREATE UNIQUE INDEX vwap_reclaim_candidate_ticker_date ON vwap_reclaim_candidate (ticker, date);
 """

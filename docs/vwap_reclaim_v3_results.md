@@ -1,5 +1,17 @@
 # VwapReclaimV3 — results
 
+> # 🛑 STOP — READ F14 FIRST. NONE OF THE NUMBERS BELOW ARE TRADABLE.
+>
+> The universe filter (`ADV = avgvol20 × day_close ≥ $30M`) contained **two stacked lookaheads** that
+> together acted as a **backdoor "today is a 12×-volume day" selector**. On a live-reproducible universe:
+> **the fat book is PF 0.964 / −$92k (a LOSER)**, and every graded cell (Capacity/A/A+/A++) is at or below
+> break-even. **The 10% of trips the lookahead admitted carried 99.3% of all P&L**; the other 15,134 trips
+> print PF 1.00.
+>
+> Everything in F1–F13 was measured on the contaminated universe and is retained only as a record.
+> **Do not quote any number from this document.** The engine and the methodology may be salvageable; the
+> results are not.
+
 A debloated, **long-only** fork of VwapReclaim (branch off `vwap-reclaim-v2` lineage). Two structural
 changes vs V1:
 
@@ -709,6 +721,11 @@ a smooth hill, confirmed by an ungated book, at 5-min resolution, and robust to 
 
 ## F9 — a SECOND lookahead in the universe: `ADV = avgvol20 × day_close` uses D's CLOSE to trade D
 
+> ⚠️⚠️ **THIS FINDING'S "mild / not a signal gate" ASSESSMENT IS CATASTROPHICALLY WRONG — SEE F14.**
+> Removing this lookahead does not move the book by "<1%". It **destroys it**: the fat book goes
+> PF 1.501 → **0.964** (a LOSER), and the entire A/A+/A++ ladder goes to ~break-even. The ADV filter was a
+> **backdoor outcome selector**. F14 has the measurement. Read it instead of this.
+
 Found while verifying F8. `scripts/equity/build_vwap_reclaim_candidate.fsx` filters
 `avgvol20 * day_close >= 30000000.0` — **`day_close` is day D's closing price**, unknowable at 10:00 when
 the entry fires. Same class as the anchor bug: the universe cannot be reproduced live.
@@ -729,3 +746,97 @@ blocker for live parity: the live scanner *provably cannot* reproduce this unive
 **Also: three stale comments claim `$1M`** where the builder does **`$30M`** — a 30× discrepancy:
 this doc's header (line 22), `Backtest.fs:14`, `Backtest.fs:208`. The **$30M** figure is correct (F20 of
 the V1 doc: `<$30M` is a graveyard at PF 0.70).
+
+---
+
+## F14 — 🛑 THE ADV FILTER WAS A BACKDOOR OUTCOME SELECTOR. THE WHOLE V3 BOOK IS THE LOOKAHEAD.
+
+**This supersedes every performance number in this document.** Removing the universe lookahead does not
+trim the edge — **it removes the edge entirely**. The fat book becomes a LOSER.
+
+### There were TWO stacked lookaheads, not one
+
+`build_vwap_reclaim_candidate.fsx` filtered `avgvol20 * day_close >= $30M`. **Both factors are unknowable
+at the 10:00 entry:**
+1. **`day_close`** — D's closing price (F9 spotted this one).
+2. **`avgvol20`** — ⚠️ the one F9 MISSED, and the worse of the two. `build_mr_candidate.fsx` computes it
+   `ROWS BETWEEN 19 PRECEDING AND CURRENT ROW` — **it includes day D's own full-session volume**, which is
+   not known until D closes. Measured deviation vs a prior-20-only average: **7.3% mean / 13.7% p95**, and
+   on 20×-volume days the inclusive average is **12.5× inflated**.
+
+Fix: added **`avgvol20_prior`** to `mr_candidate` (`ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING` — fully known
+pre-open) and switched the filter to `avgvol20_prior * prev_adj_close >= $30M`. `avgvol20` is KEPT — it is
+the correct **rvol denominator** (it matches the engine's `AvgMa(20)` and every published rvol number); it
+is only a lookahead when used as a **gate**.
+
+### The isolation A/B (2020-26) — each lookahead is independently load-bearing
+
+| universe | rows | trips | win% | PF | net |
+|---|---|---|---|---|---|
+| **old** (both lookaheads) | 52,630 | 16,788 | 40.7 | **1.501** | **$1,477,728** |
+| fix `day_close` only | 52,222 | 16,437 | 39.1 | 1.107 | $306,507 |
+| fix `avgvol20` only | 49,478 | 15,598 | 40.2 | 1.173 | $441,955 |
+| **fix BOTH (live-safe)** | 49,577 | 15,567 | 38.9 | **0.964** | **−$92,378** |
+
+**A 0.8% universe change (52,630 → 52,222 rows) takes PF 1.501 → 1.107 and destroys 79% of the net.**
+408 marginal ticker-days cannot legitimately carry $1.17M. That disproportion IS the diagnosis.
+
+### Where the money was: the lookahead-only trips ARE the entire book
+
+Splitting the old book by whether the fix keeps the trip:
+
+| group | n | net | PF | avg%/tr |
+|---|---|---|---|---|
+| **DROPPED by the fix** (lookahead-only) | 1,654 | **$1,467,499** | **4.05** | **+8.87** |
+| **KEPT** (legitimately tradable) | 15,134 | **$10,228** | **1.00** | **+0.01** |
+
+**The 10% of trips the lookahead admitted carry 99.3% of the P&L. The other 15,134 trips are a coin flip.**
+
+### The graded ladder does not survive either
+
+| tier | old PF | old net | **live-safe PF** | live-safe net | trips |
+|---|---|---|---|---|---|
+| Capacity `updn≥0.8` | 2.99 | $597k | **0.76** | −$42k | 512 → 251 |
+| A `updn≥1.0` | 3.36 | $542k | **0.83** | −$21k | 390 → 172 |
+| A+ `updn≥1.1` | 3.77 | $552k | **0.94** | −$6k | 337 → 141 |
+| A++ `updn≥1.3` | 4.29 | $447k | **1.12** | +$8k | 234 → 85 |
+
+Every tier at or below break-even, and trip counts collapse **55–65%** — **most of the A book never existed
+as a tradable universe.** Those setups sit on names you could only know to watch *after the close*.
+
+### ⭐ THE MECHANISM — proven, not inferred
+
+`avgvol20 * day_close ≥ $30M` is a **backdoor "today is a huge volume day" filter**. A name with a big
+volume spike on D inflates *its own* 20-day average (D is inside the window), pushing it over the $30M
+floor — so the universe admits it **because of what happened on D**. Measured, among names passing the old
+filter:
+
+| group | n | D's volume ÷ its prior-20d average (mean) | (median) |
+|---|---|---|---|
+| **admitted ONLY by the lookahead** | 2,175 | **190.3×** | **12.7×** |
+| admitted by both definitions | 19,189 | 2.3× | **0.98×** |
+
+**The lookahead-only names traded at a median 12.7× their normal volume. The legitimate ones traded at
+0.98× — an ordinary day.** The filter reached into D's session, found the names that would explode, and
+handed them to a 10:00 entry. That is why those 1,654 trips print PF 4.05 while everything else prints 1.00.
+
+### Verdict
+
+- **VwapReclaimV3 is NOT TRADABLE as published.** Under a live-reproducible universe the fat book is
+  PF 0.964 / −$92k and every graded cell is ~break-even.
+- **Every performance number in F1–F13 is contaminated**, including the F10/F13 anchor sweeps (they were
+  run on the lookahead universe). The 09:00-anchor finding itself may still be real — it reproduced on the
+  ungated fat book and across 7 years — but **its magnitudes are meaningless** and it must be re-tested on
+  the live-safe universe before any of it is believed.
+- **The showcase must not quote any VwapReclaim number.**
+- **The same audit is owed to every other system** — `mr_candidate.avgvol20` is shared. Note MaxFlyerV3's
+  `brv20d` divides by `avgVol20`, so its A-book lever has the same lookahead in its DENOMINATOR — but that
+  bias is **conservative** (an inflated denominator UNDERSTATES `brv20d`, making `≥100` harder), so it is a
+  different and less alarming case than this one. It still needs measuring.
+
+**Methodological lesson (the reason this was missed for so long):** the ADV filter looked like plumbing —
+"a liquidity floor, not a signal gate" — so it was never audited as a source of edge. **A universe filter
+that touches day D's own data is a signal gate, whatever it is named.** Any filter combining a
+same-day price with a same-day-inclusive average is selecting on the outcome. The tell was available
+without any backtest: a 0.8% universe change moving PF by 26% is arithmetically impossible for a genuine
+liquidity floor.
