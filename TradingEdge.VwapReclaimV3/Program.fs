@@ -39,7 +39,7 @@ type Args =
             | Start_Date _ -> "Backtest start date (yyyy-MM-dd). Default 2003-09-10 (data min)."
             | End_Date _ -> "Backtest end date (yyyy-MM-dd). Default 2026-06-25 (minute-data max)."
             | Out _ -> "Output trips CSV path. Default /tmp/vwap_reclaim_v3_trips.csv."
-            | Session_Start_Min _ -> "ET minute the session accumulators anchor at (570 = 09:30 RTH open, the default). VWAP, the 9-EMA, the below-VWAP run counter and the session low all fold from here; the emitter streams no bar before it. 540 (=09:00) reproduces the pre-fix book that seeded 30min of premarket."
+            | Session_Start_Min _ -> "ET minute the session accumulators anchor at (540 = 09:00, the default: PREMARKET-INCLUSIVE, deliberate — see F10). VWAP, the 9-EMA, the below-VWAP run counter and the session low all fold from here; the emitter streams no bar before it. 570 = the RTH open (collapses the graded ladder); 240 = 04:00 premarket open (thin noise, also worse). The ~08:30-09:15 plateau is the real optimum."
             | Entry_Start_Min _ -> "Earliest ET minute an entry may fire (600 = 10:00 default). 09:30-EntryStart warms VWAP/EMA + the weakness run."
             | Entry_End_Min _ -> "LATEST ET minute an entry may fire (810 = 13:30 default morning window). 0 or >=MOC = all-day (no upper bound)."
             | Vol_Window _ -> "Intraday ATR/tightness lookback in 1m bars (default 20). Feeds the tightness gate + the recorded *_at_entry snapshots."
@@ -90,7 +90,8 @@ let main argv =
     printfn "  range       = %O .. %O" startDate endDate
     printfn "  session anch= %02d:%02d ET (VWAP/EMA/run/sessLow fold from here)%s"
         (cfg.Intraday.SessionStartMin / 60) (cfg.Intraday.SessionStartMin % 60)
-        (if cfg.Intraday.SessionStartMin <> 9 * 60 + 30 then "  [NON-DEFAULT — not the RTH open]" else "")
+        (if cfg.Intraday.SessionStartMin = defaultConfig.Intraday.SessionStartMin
+         then "  [default — premarket-inclusive, F10]" else "  [NON-DEFAULT]")
     printfn "  entry window= %02d:%02d–%02d:%02d ET   below-run >= %d bars   %s"
         (cfg.Intraday.EntryStartMin / 60) (cfg.Intraday.EntryStartMin % 60)
         (cfg.Intraday.EntryEndMin / 60) (cfg.Intraday.EntryEndMin % 60)

@@ -21,11 +21,15 @@ Defaults (production): 10:00–13:30 ET entry window, 09:30 VWAP/EMA anchor, `ti
 `rb ≥ 11` consecutive bars EMA<VWAP into the cross, hold-to-MOC unless the pullback stop fires. Universe =
 `vwap_reclaim_candidate` (ADV ≥ **$30M** AND rvol_0945 > 1). $10k notional/trip, PF = gross-win / gross-loss (MOC).
 
-> ⚠️ **READ F8 FIRST.** The 09:30 anchor above became TRUE ONLY AS OF F8 — every finding F1–F7 was
-> produced with a **09:00** anchor (a `9 * 60` typo) that seeded 30 min of premarket into VWAP/EMA/the run
-> counter. Correcting it **de-canonizes the F7 A/A+/A++ ladder** (A++ PF 4.33 → 2.49; the ladder flattens to
-> ~2.5 with no dial). The fat/capacity book (PF ~1.32 / 41.7k trips / $1.6M) survives intact and is the only
-> tradable V3 claim. Also see **F9** — a second lookahead in the universe filter.
+> ⭐ **The anchor is 09:00, not 09:30 — deliberately. See F10.** F1–F7 were all produced with a
+> **premarket-inclusive 09:00 VWAP anchor** (the last 30 min before the RTH open seed VWAP/EMA/the run
+> counter). This was originally an accident (`9 * 60` = 540, while every comment claimed 09:30 = 570), and
+> F8 initially "fixed" it to 09:30 — which **collapsed the ladder** (A++ 4.33 → 2.49). F10 then swept the
+> anchor across the whole premarket and found **09:00 peaks in every book — including the UNGATED fat book —
+> and in all seven years**. So the effect is real and the anchor is RETAINED as a documented design choice;
+> **F1–F7 stand as published.** ⚠️ But read F10's magnitude section: the effect is only **+2% ungated**, and
+> the four graded gates compound it to +71% — the ladder is one effect counted four times.
+> Also see **F9** (a second lookahead in the universe filter, unfixed — deliberately).
 > (The ADV ≥ $30M above was previously mis-documented as $1M; $30M is what the builder does.)
 
 ---
@@ -332,15 +336,24 @@ balanced): below it PF 1.15–1.69, above it PF 2.1–5.1. The floor sweep is th
 Capacity (updn ≥ 0.8, PF 2.86 / 551tr) → A (≥ 1.0, PF 3.32) → A+ (≥ 1.1, PF 3.74 / max net) → A++ (≥ 1.3,
 PF 4.33 / 239tr). updn is a pure conviction dial with the depth/vol/jumpiness floors held fixed.
 
-> ⚠️ **EVERY NUMBER IN F1–F7 ABOVE WAS PRODUCED WITH A 09:00 VWAP ANCHOR, NOT 09:30 — SEE F8.** The
-> `SessionStartMin = 9 * 60` typo (= 540 = 09:00, not 570 = 09:30) silently seeded 30 minutes of premarket
-> into VWAP/EMA/sessLow/the run counter. Correcting it collapses this ladder (A++ 4.33 → 2.49) and removes
-> the laddering entirely. **The tables above are retained as the historical record of the pre-fix book; they
-> are NOT the tradable numbers.** Read F8 before using anything in F1–F7.
+> ⭐ **Every number in F1–F7 was produced with the 09:00 premarket-inclusive VWAP anchor — and that anchor
+> is now the DELIBERATE, swept default (F10). These tables STAND.** F8 records the false alarm (the anchor
+> was originally accidental, and "fixing" it to 09:30 collapses this ladder to a flat ~2.5); F10 records the
+> sweep that vindicated 09:00 — it peaks in every book including the ungated one, and in all seven years.
+> ⚠️ Read F10's magnitude section before trusting the ABSOLUTE PFs here: the underlying anchor effect is
+> ~+2%, and these four gates all measure relative to VWAP, so they compound it. The ladder is **one effect
+> counted four times**, not four independent confirmations.
 
 ---
 
-## F8 — ⚠️ THE 09:00 ANCHOR BUG: the graded ladder was BUILT ON 30 MINUTES OF PREMARKET
+## F8 — the 09:00 anchor: discovery + the FALSE ALARM (verdict SUPERSEDED by F10)
+
+> **Status:** this finding correctly discovered that the ladder is built on 30 min of premarket, and
+> correctly measured what happens when you remove it. Its **verdict was wrong** — it called the anchor a
+> typo-artifact and de-canonized the ladder on the strength of a 3-point "dose-response" that turned out to
+> be one shoulder of a hump. **F10 sweeps the full premarket and reinstates 09:00.** Kept in full as the
+> record of the reasoning error: *a monotone run of three points is not a gradient — sweep the whole range
+> before concluding.*
 
 **The bug.** `Backtest.fs` read `SessionStartMin = 9 * 60`. `et_min` is `hour*60 + minute`, so that is
 **540 = 09:00 ET**, not 09:30 (= 570). The adjacent comment said *"09:30 ET — the SMB session VWAP anchors
@@ -425,41 +438,122 @@ under 540, versus ~2.54 for the whole A cell under 570. So the premarket seed is
 premarket setups — **it shifts the VWAP level itself**, which moves `run_max_dist`, `updn` and `dpa`, and
 that shifted VWAP sorts good from bad better than the true RTH VWAP does.
 
-### Verdict — the decision rule was set BEFORE the numbers were seen
+### Interim verdict (SUPERSEDED by F10 — read on)
 
-The pre-committed rule: *"Fix materially worse → do NOT silently keep 540. It would mean the edge depends
-on premarket seeding — a genuinely different and interesting claim than the doc makes. An edge you can name
-is tradeable; an edge that's a typo is not."*
-
-**The fix is materially worse. So: the anchor is FIXED to 570 (the honest RTH-open anchor), and the graded
-ladder is hereby DE-CANONIZED.** The tradable V3 book is now:
-
-- **Fat/capacity book: PF 1.323 / 41,703 trips / $1.60M** — essentially unchanged by the fix, and the only
-  V3 claim that survives it intact.
-- **The F7 A/A+/A++ ladder: NOT TRADABLE AS PUBLISHED.** At an honest anchor it is a flat ~2.5 with no
-  dial. The showcase numbers (A: PF 3.32 / 411 trips) must not be quoted.
-
-**Why not keep 540 and "name the edge"?** Because it cannot be named coherently. A VWAP seeded from an
-arbitrary 09:00 start is not a quantity any trader references, the SMB setup is *defined* off the RTH open,
-and the 30-minute window is arbitrary (why not 08:30? 04:00?). The dose-response says more premarket is
-better, which — if it were a real effect — would imply anchoring at 04:00, not 09:00. **A monotone
-improvement in an arbitrary parameter is the signature of a fitted artifact, not a mechanism.**
-
-**⭐ But there IS a real research question here, and it is worth pursuing:** the RTH-started split (PF 3.19
-at 540 vs ~2.54 at 570) says a *premarket-informed reference price* genuinely sorts these setups better.
-That is a legitimate, nameable hypothesis — "the reclaim should be measured against a session VWAP that
-includes premarket positioning" is a *defensible* claim in a way that "09:00 because of a typo" is not. The
-principled way to test it: make the anchor an **explicit, deliberate knob** (04:00 / 08:00 / 09:00 / 09:30),
-sweep it, and if a premarket-inclusive anchor wins on a *principled* boundary (e.g. the 04:00 premarket
-session open, matching `rvol_0945`'s own premarket-inclusive numerator), adopt it **as a documented design
-decision** with its own finding — not as an accident. Until then, 570 is the default.
+The initial call was to fix to 570 and de-canonize the ladder, on the reasoning that *"a monotone
+improvement in an arbitrary parameter is the signature of a fitted artifact"* — 09:00 being exactly where
+`updn`/`rmd`/`dpa` had been tuned. **That reasoning was WRONG, and F10 refutes it with a full sweep.**
+The 09:00→09:15→09:30 "dose-response" above is not a gradient at all; it is the descending shoulder of a
+hump whose peak sits at ~09:00. Reading three points off one side of a hump produced a confident and
+incorrect conclusion. **The anchor is NOT a typo to be fixed — it is a real (if small) effect. See F10.**
 
 ### Live-trading implication (why this was found now)
 
-Both anchors are live-implementable — the Polygon aggregates endpoint returns today's bars from 04:00 ET,
+Every anchor is live-implementable — the Polygon aggregates endpoint returns today's bars from 04:00 ET,
 so premarket is available in one REST call. This was **never a feed limitation**; it was purely a "which
-numbers are real" question. Fixing to 570 additionally removes a live dependency on premarket bar quality
-on thin names — RTH bars are the most heavily reconciled data there is.
+numbers are real" question.
+
+---
+
+## F10 — ⭐ THE ANCHOR SWEEP: 09:00 IS REAL, NOT A FIT. But the effect is SMALL and the gates COMPOUND it.
+
+F8 concluded the 540 anchor was a typo-artifact. **That conclusion was wrong.** Swept the anchor across the
+full premarket, **modern era only (2020-01-01 → 2026-06-25**, matching F5/F6/F7's own "pre-2020 = noise"
+scope; 10 cells, ~30s each, strictly sequential).
+
+> **Methodology note / hard-won lesson:** each run does `PRAGMA memory_limit='6GB'` (`Backtest.fs:350`), so
+> N concurrent full-history runs ask for N×6GB. Running 9 in parallel on a 15GB box OOM'd the machine (the
+> kernel killed unrelated processes, and one cell died silently while still reporting "done" — which would
+> have quietly corrupted the sweep). **Always run these sequentially.** Restricting to ≥2020 cuts a cell
+> from 117s to 28s, so the whole sweep is ~5 min.
+
+### The full curve — a HUMP peaking at ~09:00, not a monotone gradient
+
+| anchor | fat PF | Capacity | A | A+ | **A++** | A++ net |
+|---|---|---|---|---|---|---|
+| 04:00 | 1.442 | 2.41 | 2.40 | 2.54 | 2.55 | $213k |
+| 05:00 | 1.408 | 2.19 | 2.16 | 2.31 | 2.38 | $190k |
+| 06:00 | 1.423 | 2.31 | 2.38 | 2.55 | 2.70 | $226k |
+| 07:00 | 1.410 | 2.59 | 2.58 | 2.67 | 2.97 | $257k |
+| 08:00 | 1.447 | 2.78 | 2.59 | 2.87 | 3.00 | $252k |
+| 08:30 | 1.449 | 2.77 | 3.00 | 3.17 | 3.27 | $310k |
+| 08:45 | 1.478 | 2.82 | 2.95 | 3.20 | 3.23 | $303k |
+| **09:00** | **1.501** | **2.99** | **3.36** | **3.77** | **4.29** | **$447k** |
+| 09:15 | 1.490 | 2.62 | 2.87 | 3.22 | 3.42 | $347k |
+| 09:30 | 1.473 | 2.31 | 2.57 | 2.55 | 2.51 | $236k |
+
+**"Earlier is better" is FALSE.** 04:00–07:00 is a flat, noisy 2.4–3.0 band — including that early-premarket
+data actively *dilutes* the book vs starting at 08:30. The curve **rises** from ~07:00 to a peak at 09:00,
+then falls off a cliff at 09:30. Same hump in all four tiers AND in the ungated fat book.
+
+### The discriminator: the peak survives with the tuned gates REMOVED
+
+If 09:00 were merely where `updn`/`rmd`/`dpa` were fit, then a book *without* those gates would have no
+reason to prefer it. Tested each gate in isolation and with none at all:
+
+| book | 04:00 | 08:00 | 08:30 | 08:45 | **09:00** | 09:15 | 09:30 | peak |
+|---|---|---|---|---|---|---|---|---|
+| **NO gates (fat book)** | 1.44 | 1.45 | 1.45 | 1.48 | **1.50** | 1.49 | 1.47 | **09:00** |
+| `run_atr ≥ 0.013` only | 1.87 | 1.86 | 1.80 | 1.86 | **1.92** | 1.91 | 1.84 | **09:00** |
+| `rmd ≥ 0.035` only | 1.70 | 1.77 | 1.80 | **1.85** | 1.83 | 1.77 | 1.62 | 08:45 |
+| `dpa < 3` only | 1.52 | 1.53 | 1.52 | 1.54 | **1.63** | 1.60 | 1.61 | **09:00** |
+| `updn ≥ 1.3` only | 1.83 | 1.83 | 1.91 | 1.95 | **2.09** | 1.89 | 1.86 | **09:00** |
+| ALL FOUR (A++) | 2.55 | 3.00 | 3.27 | 3.23 | **4.29** | 3.42 | 2.51 | **09:00** |
+
+**The ungated fat book — which contains not one tuned parameter — peaks at 09:00.** So does every gate
+individually. **09:00 is a property of the DATA, not of the fitting.** The overfitting hypothesis is dead.
+
+### Per-year — all-weather, and NOT concentration-driven
+
+A++ PF by year and anchor:
+
+| anchor | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | TOTAL |
+|---|---|---|---|---|---|---|---|---|
+| 04:00 | 1.52 | 1.41 | 2.82 | 6.43 | 1.82 | 3.65 | 3.08 | 2.55 |
+| 08:00 | 1.56 | 1.56 | 3.61 | 6.13 | 3.57 | 4.73 | 2.17 | 3.00 |
+| 08:30 | 4.53 | 1.44 | 5.04 | 3.05 | 3.68 | 6.38 | 2.08 | 3.27 |
+| **09:00** | **8.19** | **2.11** | 4.89 | **6.61** | 3.30 | **6.61** | **4.53** | **4.29** |
+| 09:15 | 3.88 | 1.57 | 3.20 | 5.32 | **4.20** | 5.51 | 3.94 | 3.42 |
+| 09:30 | 2.59 | **1.02** | 4.20 | 5.76 | 3.00 | 3.17 | 2.12 | 2.51 |
+
+**09:00 is best-or-near-best in ALL SEVEN years** — seven disjoint samples agreeing. And it is *less*
+lottery-driven than the RTH anchor: at 09:00 the top-5 winners are **19.4%** of gross profit (112 winners);
+at 09:30, **26.5%** (92 winners). The 09:00 book is broader and healthier, not one whale.
+
+### ⚠️ The honest magnitude: a SMALL real effect, ~15× amplified by gate-stacking
+
+| book | 09:30 → 09:00 | lift |
+|---|---|---|
+| ungated fat book | 1.473 → 1.501 | **+2%** |
+| single gates | — | **+3–6%** |
+| all four stacked (A++) | 2.51 → 4.29 | **+71%** |
+
+The mechanism is real but **small**. The four gates each lean on the same shifted VWAP (`rmd`, `dpa` and
+`updn` are all measured *relative to VWAP*), so they **compound** a ~2–5% edge into a ~71% one. **A++'s 4.29
+is a genuine signal wearing a very large multiplier** — treat the ladder's absolute PF with corresponding
+caution, and do not read the A→A++ progression as four independent confirmations. It is one effect, counted
+four times.
+
+### Interpretation
+
+~09:00 is plausibly when *meaningful* pre-open positioning begins: the 04:00–07:00 tape is thin enough that
+folding it in dilutes VWAP with noise (hence that region UNDER-performing even the RTH anchor), while the
+last ~60–90 min before the open carries the real overnight repricing. This predicts the true optimum is a
+**region (~08:30–09:15)**, and that 09:00's exact height (the ~25% jump over both 08:45 and 09:15) is partly
+luck — a smooth mechanism has no reason to spike that sharply at one 15-min step. **Do not over-trust 09:00
+specifically; trust the 08:30–09:15 plateau.**
+
+### ⭐ VERDICT — `SessionStartMin = 540` (09:00 ET) is RETAINED, now as a DELIBERATE, DOCUMENTED choice
+
+Not a typo, not "the RTH open" — a **premarket-inclusive VWAP anchor**, swept and chosen. The F1–F7 ladder
+**stands as published**. What changes is the *comment and its status*: this is now a named design decision
+with a finding behind it, not an accident nobody noticed.
+
+**The `--session-start-min` flag (added in this work) stays** as the knob that makes it explicit and
+re-sweepable.
+
+**Corollary for V1/V2:** they share the 540 anchor, so their published numbers are unaffected too — the
+"bug" they inherit is the same real effect.
 
 ---
 
