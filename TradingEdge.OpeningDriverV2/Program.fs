@@ -20,6 +20,8 @@ type Args =
     | Entry_Start_Min of int
     | Entry_End_Min of int
     | Feature_Start_Min of int
+    | Session_Start_Min of int
+    | Vwap_Start_Min of int
     | Vol_Window of int
     | Ema_Period of int
     // ----- stop -----
@@ -56,6 +58,8 @@ type Args =
             | Entry_Start_Min _ -> "Earliest ET minute the arm scan starts (585 = 09:45 = open+15, default)."
             | Entry_End_Min _ -> "Latest ET minute the arm scan fires (630 = 10:30 = open+60, default). 0 or >=MOC = all-day."
             | Feature_Start_Min _ -> "ET minute the trailing features start folding (570 = 09:30 default, the RTH open)."
+            | Session_Start_Min _ -> "ET minute the EMITTER starts streaming bars (570 = 09:30 default). Must be <= --vwap-start-min, else the premarket bars never reach the engine and --vwap-start-min is a silent no-op."
+            | Vwap_Start_Min _ -> "ET minute the session VWAP starts folding, INDEPENDENT of the other features (-1 = follow --feature-start-min). 540 = 09:00 anchors VWAP in the premarket while ATR/slopes/EMA stay at the RTH open — isolates the VWAP anchor (VwapReclaimV3 F10/F13). Needs --session-start-min 540 too."
             | Vol_Window _ -> "Trailing ATR/OLS-slope lookback in 1m bars (default 20)."
             | Ema_Period _ -> "The 9-EMA period (stop reference + slope base; default 9)."
             | Stop_Mode _ -> "9-EMA stop reference: sess-ema-low (default) | vwap. Stop fires when the live 9-EMA drops below the 9-EMA session-min frozen at entry, or below the live session VWAP."
@@ -105,6 +109,8 @@ let main argv =
                   EntryStartMin   = parsed.GetResult(Entry_Start_Min,   defaultValue = dic.EntryStartMin)
                   EntryEndMin     = parsed.GetResult(Entry_End_Min,     defaultValue = dic.EntryEndMin)
                   FeatureStartMin = parsed.GetResult(Feature_Start_Min, defaultValue = dic.FeatureStartMin)
+                  SessionStartMin = parsed.GetResult(Session_Start_Min, defaultValue = dic.SessionStartMin)
+                  VwapStartMin    = parsed.GetResult(Vwap_Start_Min,    defaultValue = dic.VwapStartMin)
                   VolWindow       = parsed.GetResult(Vol_Window,        defaultValue = dic.VolWindow)
                   EmaPeriod       = parsed.GetResult(Ema_Period,        defaultValue = dic.EmaPeriod)
                   StopMode        = stopMode

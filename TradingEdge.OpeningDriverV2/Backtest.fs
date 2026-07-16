@@ -33,7 +33,10 @@ let defaultConfig =
         { VolWindow = 20
           EmaPeriod = 9                  // the 9-EMA (stop reference + slope base)
           SessionStartMin = 9 * 60 + 30  // 09:30 ET — session anchor (no premarket; features warm from here).
-          FeatureStartMin = 9 * 60 + 30  // 09:30 ET (570) — VWAP, OLS slopes, ATR, EMA fold from the RTH open.
+          FeatureStartMin = 9 * 60 + 30  // 09:30 ET (570) — OLS slopes, ATR, EMA fold from the RTH open.
+          VwapStartMin    = -1           // -1 = VWAP follows FeatureStartMin (09:30). Set 540 (09:00) to
+                                         // anchor VWAP in the premarket alone (needs --session-start-min 540
+                                         // too, else the emitter drops the bars and it's a no-op).
           EntryStartMin   = 9 * 60 + 45  // 09:45 ET — open+15, the entry-window START.
           EntryEndMin     = 9 * 60 + 59  // 09:59 ET — the last arm bar is [09:59,10:00), so the window is
                                          // [09:45, 10:00) (F4): after 10:00 the other momentum systems take over.

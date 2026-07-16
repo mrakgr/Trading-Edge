@@ -834,6 +834,70 @@ handed them to a 10:00 entry. That is why those 1,654 trips print PF 4.05 while 
   bias is **conservative** (an inflated denominator UNDERSTATES `brv20d`, making `≥100` harder), so it is a
   different and less alarming case than this one. It still needs measuring.
 
+### F14b — BLAST RADIUS: three systems audited, all three destroyed
+
+`vwap_reclaim_candidate` is shared. Re-ran each system against the live-safe universe (2020-26):
+
+| system | trips (old → fixed) | PF (old → fixed) | net (old → fixed) |
+|---|---|---|---|
+| **VwapReclaimV3** | 16,788 → 15,567 | **1.501 → 0.964** | $1.48M → **−$92k** |
+| **OpeningDriverV2** | 1,028 → **473** | **4.112 → 0.728** | $2.39M → **−$104k** |
+| **DipRiderV4** | 1,608 → **717** | **2.876 → 1.158** | $1.39M → $53k |
+
+**All three momentum systems are gone.** OpeningDriverV2 — the production book — loses 54% of its trips and
+goes negative. Also contaminated but unmeasured (same table): VwapReclaim V1/V2, DipRider/V3(+Backside),
+BreakoutTimer(+Backside), OpeningDriver V1.
+
+**Spared (they read `mr_candidate`, which has NO ADV filter):** MaxFlyerV3, LowFlyer, MaxFlyerV2.
+
+### F14c — A THIRD lookahead: `rvol_0945` is contaminated too
+
+`rvol_0945 = (premarket-inclusive vol 04:00→09:45) / avgvol20` — the **denominator is the D-inclusive
+`avgvol20`**, so the `rvol_0945 > 1.0` filter present in EVERY universe (including the "honest" ones built
+above) is **also not live-reproducible**. Added `rvol_0945_honest` (same numerator, `avgvol20_prior`
+denominator) to `mr_candidate`.
+
+**The contamination was HIDING the signal, not creating it here:** median rvol_0945 for the golden trips
+reads **3.51 contaminated vs 7.32 honest** (rest: 4.53 → 4.93). The inflated denominator suppressed rvol
+exactly on the big-volume names, making the golden group look *lower*-rvol than the rest when it is
+actually **1.5× higher**.
+
+### F14d — ⭐ CAN THE EDGE BE RECOVERED HONESTLY? Four selectors say NO — and here is why
+
+**The edge is REAL and it SURVIVES in the honest universe** — it just cannot be *selected*. 89% of the
+1,654 golden trips are still present under an honest $1M ADV floor, still worth **PF 3.19 / +$893k /
++6.04%/tr / 52% win**. They are drowned by 60,294 neighbours at PF 0.87 / −$1.54M.
+
+Every honest selector tried lands at the same wall (2020-26, all live-safe):
+
+| selector | best cell | PF |
+|---|---|---|
+| honest ADV **floor** ($30M→$1M, 30× range) | all | **0.94–0.99** |
+| honest ADV **bucket** (7 buckets, <$2M→>$1B, 500× range) | none clears 1.0 | **0.86–0.98** |
+| **gap-up** floor (+2%/+5%/+10%) | worsens as it tightens | **0.94→0.86** |
+| gap **+** ADV band (the "ceiling" idea) | worsens as it tightens | **0.86–0.94** |
+| **honest rvol_0945** floor (>1 … >20) | worsens as it tightens | **0.98→0.88** |
+
+**⭐ THE DIAGNOSIS — the discriminator is information you cannot have:**
+
+| feature | GOLDEN | rest | separation |
+|---|---|---|---|
+| **D's WHOLE-SESSION volume ÷ prior-20d avg** (ILLEGAL — needs D's close) | **10.36×** | **1.07×** | **9.7×** |
+| pre-open rvol through 09:45 ÷ prior-20d avg (LEGAL) | 7.32× | 4.93× | **1.5×** |
+
+The illegal feature separates the groups **9.7×**; every legal feature separates them **~1.5×** —
+overlapping distributions. That is why four independent honest selectors all fail at PF ~0.95, and why
+**tightening any honest filter makes it WORSE**: tightening on a weak proxy discards good and bad trips at
+nearly the same rate, paying the variance cost without buying selection.
+
+**The golden trips are "stocks that traded 10× normal volume ACROSS THE WHOLE SESSION."** At 09:45 they
+look like everyone else. The old filter "knew" by reading D's closing volume; the reclaim signal then
+monetized that knowledge at PF ~3. **The knowledge was the edge — not the signal.**
+
+Untested (the last idea with a real mechanism): premarket volume **SLOPE** (acceleration 04:00→09:45)
+rather than a level snapshot. Bar to clear, set in advance: it must separate golden from rest by materially
+more than **1.5×**, else no backtest can save it.
+
 **Methodological lesson (the reason this was missed for so long):** the ADV filter looked like plumbing —
 "a liquidity floor, not a signal gate" — so it was never audited as a source of edge. **A universe filter
 that touches day D's own data is a signal gate, whatever it is named.** Any filter combining a

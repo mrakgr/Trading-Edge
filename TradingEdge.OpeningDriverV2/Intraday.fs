@@ -87,6 +87,14 @@ type IntradayConfig =
       EmaPeriod: int             // the 9-EMA period
       SessionStartMin: int       // first ET minute fed to the engine (session anchor; extremes warm from here)
       FeatureStartMin: int       // ET minute the features start folding (09:30 = the RTH open, no premarket)
+      VwapStartMin: int          // ET minute the session VWAP starts folding, INDEPENDENT of the other
+                                 // features. -1 (default) = follow FeatureStartMin. Set to 540 (09:00) to
+                                 // anchor VWAP in the premarket while ATR/slopes/EMA stay at the RTH open.
+                                 // This ISOLATES the VWAP anchor: VwapReclaimV3 F10/F13 found a smooth hill
+                                 // peaking at 09:00 worth ~+31% there, and in THIS engine VWAP feeds only
+                                 // the 9-EMA<VWAP sizing lever (BelowVwap), so the port is clean.
+                                 // NOTE: the emitter drops bars before SessionStartMin, so lowering this
+                                 // WITHOUT also lowering SessionStartMin is a silent no-op.
       EntryStartMin: int         // earliest ET minute a window entry fires (09:30 + 15 = 09:45)
       EntryEndMin: int           // latest ET minute a window entry fires (09:30 + 60 = 10:30)
       MocMin: int                // MOC cutoff in ET minutes (960 = 16:00)
@@ -199,10 +207,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     /// this is not lookahead), THEN snapshot the prior-bar pointer for the next bar's true-range read.
     member _.ProcessBar (curBar: MinuteBar) =
         let prevBar = sState.bar
-        if curBar.etMin >= cfg.FeatureStartMin then
-            // session VWAP (typical price · volume), cumulative from the feature anchor.
+        // session VWAP folds from its OWN anchor (VwapStartMin), which defaults to FeatureStartMin but can
+        // run EARLIER to pick up premarket positioning without disturbing any other feature. Kept outside
+        // the feature block for exactly that reason.
+        let vwapStart = if cfg.VwapStartMin >= 0 then cfg.VwapStartMin else cfg.FeatureStartMin
+        if curBar.etMin >= vwapStart then
             let tp = (curBar.high + curBar.low + curBar.close) / 3.0
             vwap.Push(tp * float curBar.volume, float curBar.volume)
+        if curBar.etMin >= cfg.FeatureStartMin then
             // true range vs the PRIOR bar's close (linear & log ATR); needs a valid prior bar.
             match prevBar with
             | ValueSome prev when curBar.high > 0.0 && curBar.low > 0.0 && prev.close > 0.0 ->
