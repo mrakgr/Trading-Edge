@@ -30,6 +30,7 @@ type Args =
     | Min_Run_Below_Vwap of int
     | Min_Tightness of float
     | Stop_Buffer of float
+    | Vwap_Use_Close
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -52,6 +53,7 @@ type Args =
             | Min_Run_Below_Vwap _ -> "VWAP-reclaim: require >= this many CONSECUTIVE bars EMA<VWAP right before the cross (default 11; 0 = off). The IMMEDIACY of the weakness."
             | Min_Tightness _ -> "VWAP-reclaim: MIN intraday tightness at entry (default 3.0): require a name with real range, not a dead-flat chop. 0 = off."
             | Stop_Buffer _ -> "9-EMA pullback stop BUFFER (fraction): the stop fires when the 9-EMA falls below run-min*(1-buffer). Default 0.0 = fire the instant the EMA dips under the run-low."
+            | Vwap_Use_Close -> "Weight session VWAP by the CLOSE instead of the typical price (h+l+c)/3 (the default). The 9-EMA the reclaim crosses is close-based, so this makes both sides of the cross the same price concept."
 
 let private parseDate (s: string) = DateOnly.ParseExact(s, "yyyy-MM-dd")
 
@@ -82,7 +84,8 @@ let main argv =
                   BelowVwapFrac  = parsed.GetResult(Below_Vwap_Frac,  defaultValue = defaultConfig.Intraday.BelowVwapFrac)
                   MinRunBelowVwap = parsed.GetResult(Min_Run_Below_Vwap, defaultValue = defaultConfig.Intraday.MinRunBelowVwap)
                   MinTightness   = parsed.GetResult(Min_Tightness,   defaultValue = defaultConfig.Intraday.MinTightness)
-                  StopBuffer     = parsed.GetResult(Stop_Buffer,     defaultValue = defaultConfig.Intraday.StopBuffer) } }
+                  StopBuffer     = parsed.GetResult(Stop_Buffer,     defaultValue = defaultConfig.Intraday.StopBuffer)
+                  VwapUseClose   = parsed.Contains Vwap_Use_Close || defaultConfig.Intraday.VwapUseClose } }
 
     printfn "VwapReclaimV3 backtest — SMB VWAP x %d-EMA reclaim (LONG only), 9-EMA pullback-low stop" cfg.Intraday.EmaPeriod
     printfn "  db          = %s" dbPath
@@ -97,6 +100,7 @@ let main argv =
         (cfg.Intraday.EntryEndMin / 60) (cfg.Intraday.EntryEndMin % 60)
         cfg.Intraday.MinRunBelowVwap
         (if cfg.Intraday.TimeStopMin > 0 then sprintf "time-stop %dm" cfg.Intraday.TimeStopMin else "hold-to-MOC")
+    printfn "  vwap price  = %s" (if cfg.Intraday.VwapUseClose then "CLOSE" else "typical (h+l+c)/3")
     printfn "  stop        = 9-EMA pullback low (run-min of the 9-EMA), buffer %.3f" cfg.Intraday.StopBuffer
     printfn "  gates       = tightness >= %.1f   below-frac %s"
         cfg.Intraday.MinTightness

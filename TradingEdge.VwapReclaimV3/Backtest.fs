@@ -65,7 +65,9 @@ let defaultConfig =
                                          // then a flat plateau 0.002-0.005; 0.002 is the plateau top on both
                                          // graded cells (A PF 2.37/+$22k, A+ 4.26/+$23k vs tight) and barely
                                          // touches the fat book. Below ~0.002 reverts to the tight stop.
-          StopOnClose = true }           // the 9-EMA is a close-based series (kept for parity).
+          StopOnClose = true            // the 9-EMA is a close-based series (kept for parity).
+          VwapUseClose = false }        // VWAP weights the TYPICAL price (h+l+c)/3 — the textbook default.
+                                        // --vwap-use-close switches to close-weighting (F11).
       Notional = 10_000.0 }
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the

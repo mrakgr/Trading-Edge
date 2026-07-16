@@ -557,6 +557,44 @@ re-sweepable.
 
 ---
 
+## F11 — VWAP price basis: typical `(h+l+c)/3` BEATS close-weighting (and the 09:00 hump is basis-robust)
+
+**The idea (user):** the 9-EMA the reclaim crosses is a **close**-based series, while VWAP weights the
+**typical** price `(h+l+c)/3`. So the two sides of the cross are different price concepts. Weighting VWAP by
+the close would make them the same concept — and should matter most where bars are thin and h/l/c diverge
+(i.e. the premarket seed that F10 just showed is load-bearing). Added `--vwap-use-close` and swept it
+against the anchor (2020-26, sequential).
+
+| anchor | FAT typ | FAT **cls** | Δ | A++ typ | A++ **cls** | Δ | A typ | A **cls** | Δ |
+|---|---|---|---|---|---|---|---|---|---|
+| 04:00 | 1.44 | 1.44 | +0.00 | 2.55 | 2.54 | −0.01 | 2.40 | 2.28 | −0.12 |
+| 08:00 | 1.45 | 1.45 | +0.00 | 3.00 | 2.62 | **−0.38** | 2.59 | 2.67 | +0.08 |
+| 08:30 | 1.45 | 1.46 | +0.01 | 3.27 | 3.20 | −0.07 | 3.00 | 2.88 | −0.12 |
+| 08:45 | 1.48 | 1.46 | −0.02 | 3.23 | 3.25 | +0.02 | 2.95 | 2.88 | −0.07 |
+| **09:00** | **1.50** | **1.51** | +0.01 | **4.29** | **3.97** | **−0.32** | **3.36** | **3.08** | **−0.28** |
+| 09:15 | 1.49 | 1.50 | +0.01 | 3.42 | 3.15 | −0.27 | 2.87 | 2.91 | +0.04 |
+| 09:30 | 1.47 | 1.46 | −0.01 | 2.51 | 2.34 | −0.17 | 2.57 | 2.51 | −0.06 |
+
+**Three reads:**
+
+1. **Close-weighting LOSES — keep the typical price.** On the fat book it is a pure wash (±0.01–0.02 = noise:
+   the ungated book cannot tell the two apart). On the graded cells it is consistently *worse* — A++ negative
+   at 6 of 7 anchors, −0.32 at the 09:00 default; A −0.28 there. The coherence argument is theoretically
+   appealing but empirically wrong: **`(h+l+c)/3` captures where the bar actually TRADED**, while the close is
+   a single instant that can be an unrepresentative wick. VWAP's job is to be a volume-weighted *location*
+   estimate, not a close-tracker. **`VwapUseClose = false` stays the default.**
+2. **⭐ The 09:00 hump is ROBUST TO THE PRICE BASIS** — both curves peak at 09:00 (fat 1.50 typ / 1.51 cls)
+   and both cliff at 09:30. The premarket effect survives a change to *how VWAP is computed*, which is
+   independent corroboration of F10 from a direction the tuned gates cannot reach.
+3. **It re-confirms F10's amplification warning.** At 09:00 the fat book is *identical* across bases
+   (1.50 vs 1.51) while A++ swings **0.32**. The gates magnify a difference the underlying book cannot
+   detect. (A++ is ~230 trades, so 0.32 PF there is a handful of trades — more evidence to trust the
+   ~08:30–09:15 plateau and the fat book over any single graded cell's decimal.)
+
+`--vwap-use-close` is kept as a documented, re-sweepable knob (default OFF).
+
+---
+
 ## F9 — a SECOND lookahead in the universe: `ADV = avgvol20 × day_close` uses D's CLOSE to trade D
 
 Found while verifying F8. `scripts/equity/build_vwap_reclaim_candidate.fsx` filters

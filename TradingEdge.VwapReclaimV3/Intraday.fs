@@ -79,9 +79,14 @@ type IntradayConfig =
       StopBuffer: float        // pullback-stop BUFFER as a fraction: the stop fires when the 9-EMA falls
                                // below run-min * (1 - StopBuffer). 0 (default) = fire the instant the EMA
                                // dips under the run-low; a small buffer tolerates a 1-tick undershoot.
-      StopOnClose: bool }      // true (default) = the stop triggers only when the 9-EMA reads below the
+      StopOnClose: bool        // true (default) = the stop triggers only when the 9-EMA reads below the
                                // level after the bar CLOSES (fills at that close). The 9-EMA is a close-
                                // based series, so this is the natural mode; the flag is kept for parity.
+      VwapUseClose: bool }     // false (default) = VWAP weights the TYPICAL price (h+l+c)/3, the textbook
+                               // definition. true = weight the CLOSE only. The 9-EMA the reclaim crosses is
+                               // a CLOSE-based series, so close-weighting makes both sides of the cross the
+                               // same price concept; typical-price mixes them. Matters most where bars are
+                               // thin and h/l/c diverge — i.e. the premarket seed (see F10/F11).
 
 /// Snapshot of the engine state going INTO the current bar (strictly-prior — no
 /// lookahead). ProcessBar builds a fresh `currentState` from the live indicators
@@ -110,7 +115,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     let rangeLow  = MinMa(cfg.VolWindow)        // tightness: window low
     let ema       = EmaMa(cfg.EmaPeriod)        // the fast reclaim EMA (9)
 
-    // session VWAP = Σ(typical·volume)/Σ(volume), typical = (h+l+c)/3, from SessionStartMin.
+    // session VWAP = Σ(price·volume)/Σ(volume) from SessionStartMin, where price = the typical
+    // (h+l+c)/3 by default, or the CLOSE if cfg.VwapUseClose (F11).
     let vwap = RatioMa()
 
     // ----- session-cumulative running extremes (RunMin/RunMax; from SessionStartMin) -----
@@ -286,7 +292,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         | _ -> ()
 
         // session VWAP + 9-EMA fold in.
-        let tp = (bar.high + bar.low + bar.close) / 3.0
+        let tp = if cfg.VwapUseClose then bar.close else (bar.high + bar.low + bar.close) / 3.0
         vwap.Push (tp * float bar.volume, float bar.volume)
         ema.Push bar.close
 
