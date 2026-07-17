@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- DipRiderV3: pure trailing-window intraday momentum (long-only). Forked from
+       DipRider(V2); the V2 run-tracking machinery (above-9EMA run reset, savedRun
+       stats, buy-into-run) is DELETED in favor of reset-free trailing-window
+       features: 20m OLS log-price/log-volume slopes, 20m log-ATR, 20m tightness,
+       SumMa of closes-above-9EMA, and session extremes. Two-anchor timing
+       (session extremes from 08:30, all other features from 09:30). Same
+       two-pipeline architecture: pipeline 1 = SELECT candidates; pipeline 2 = the
+       1m engine (Intraday.fs). Reads trading.db + minute_aggs parquets. -->
+  <ItemGroup>
+    <Compile Include="Intraday.fs" />
+    <Compile Include="Backtest.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../TradingEdge.RollingMa/TradingEdge.RollingMa.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Argu" Version="6.2.5" />
+    <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.4" />
+    <PackageReference Include="Nito.Collections.Deque" Version="1.2.1" />
+  </ItemGroup>
+
+</Project>
