@@ -621,6 +621,68 @@ should be an ATR-dependent region, not a flat floor. That alone should multiply 
 
 ---
 
+## Finding 13 — ⭐ CAN A DEEP z RESCUE AN UP-BIG STOCK? Mostly YES (+2..25%) — and it is the ESCAPE FROM LOWFLYER'S TURF
+
+**User:** *"The problem is that right now we're going on the same path that LowFlyer is on. What if we look
+at stocks which are up on the day, maybe even strongly, and break down on the z score. Can a deep negative
+z score fix the mean reversion in a stock that is up a lot on the day?"*
+
+**A real strategic objection:** F11's peak (`chg_1d ∈ [−10%,−2%]`) IS LowFlyer's territory (its production
+book gates `chg_1d ≤ −8%`). Building a second system there buys **correlated books, not diversification**.
+
+**PF by chg_1d × z (in the ATR band):**
+
+| chg_1d | **z<−3** | −3..−2 | −2..−1 | z≥−1 | n(z<−3) |
+|---|---|---|---|---|---|
+| < −10% | 1.873 | 1.647 | 1.239 | 1.117 | 12,779 |
+| **−10..−2%** (LowFlyer land) | **⭐ 2.388** | 2.024 | 1.717 | 1.755 | 19,307 |
+| −2..+2% | 1.925 | 1.551 | 1.426 | 1.609 | 9,529 |
+| **+2..10%** | **1.922** | 1.569 | 1.383 | 1.363 | 8,649 |
+| **+10..25% UP** | **1.786** | 1.639 | 1.342 | 1.282 | 2,383 |
+| +25..50% UP BIG | 1.498 | 1.443 | 1.329 | 1.304 | 567 |
+| **≥ +50% RIPPING** | **1.059** | 1.261 | 1.165 | 1.010 | 212 |
+
+**⭐ YES, in the +2..25% range.** A `z<−3` lifts `+2..10%` from **1.363 → 1.922 (+41%)** and `+10..25%` from
+**1.282 → 1.786 (+39%)**. Those are large lifts into genuinely tradable territory. **The z-score does most
+of its work exactly where the user hoped.**
+
+**Three honest limits:**
+1. **The rescue is INCOMPLETE.** Even at z<−3, `+10..25%` (1.786) still trails `−10..−2%` (2.388). The
+   deep-z up-day cell is *good*, not *better*.
+2. **It BREAKS past +25%.** `+25..50%` reaches only 1.498; **`≥+50%` is 1.059 — NO rescue at all.**
+   The falling-knife logic inverted: a name ripping +50% that dips 3σ is not mean-reverting, it is the
+   **start of the unwind**.
+3. **Capacity is thin where it is most novel** — `+10..25% × z<−3` is 2,383 sampler trips; `+25..50%` is 567.
+
+### ⭐⭐ THE REAL ANSWER: the two books are COMPLEMENTARY, not redundant — run BOTH
+
+`z < −3`, ATR band, `chg_1d < +25%`:
+
+| yr | UP-DAY n | **UP-DAY PF** | **DOWN-DAY PF** |
+|---|---|---|---|
+| 2020 | 1,916 | **3.179** | 2.661 |
+| 2021 | 1,972 | 2.403 | **4.118** |
+| 2022 | 1,412 | **1.594** | 1.502 |
+| 2023 | 1,303 | **1.713** | 1.698 |
+| 2024 | 1,624 | 2.100 | **2.407** |
+| 2025 | 1,864 | **1.470** | 1.413 |
+| **2026** | 941 | **1.128 ⚠** | 1.800 |
+
+**The up-day book (`chg_1d ≥ +2% & z < −3`) is positive EVERY year and BEATS the down-day book in 2020,
+2022, 2023 and 2025.** ~1,400 sampler trips/yr. **They take turns** (2021: down 4.118 vs up 2.403; 2020: up
+3.179 vs down 2.661) — **that is the diversification the user was after, and it argues for running BOTH as
+separate books rather than choosing.**
+
+⚠ **BUT: 2026 is 1.128 at +0.18%/trade — BELOW costs**, and the trend 3.18 → 2.40 → 1.59 → 1.71 → 2.10 →
+1.47 → **1.13** looks like **decay, not noise**. The down-day book does NOT share it (2026 = 1.800). One
+partial year is not proof, but it is the wrong direction. **Watch this.**
+
+⏭ **Next:** re-run the up-day cell at mc=1 to get a tradable number; check whether the decay survives the
+`dv_0945`/rvol loosening (F10) or is specific to this cell.
+
+
+---
+
 ## Status / next
 
 ⏭ **In order:**
