@@ -1163,6 +1163,62 @@ mc=1.
 
 ---
 
+## Finding 23 — the FLUSH has a KNEE: PF peaks ~−5%, decays to −15%, and past ~−15% the tail EXPLODES (the fade breaks)
+
+**User:** *"These flushes/spikes might have a floor/ceiling after which the mean reversion breaks. Find where
+those levels are."* The F21 buckets stopped at −3%, binning the whole deep tail into one cell. Pushing them
+out:
+
+| flush (bar %) | n | win% | avg% | p1 | **PF** |
+|---|---|---|---|---|---|
+| −2..0% (shallow) | 1,742,441 | 67.8 | 0.201 | −5.02 | 1.524 |
+| −3..−2% | 63,538 | 72.3 | 0.816 | −9.87 | 2.165 |
+| −4..−3% | 22,546 | 73.9 | 1.125 | −11.53 | 2.370 |
+| **−5..−4%** | 8,958 | 73.6 | 1.368 | −13.00 | **⭐ 2.472 (PEAK)** |
+| −7..−5% | 6,195 | 73.1 | 1.506 | −16.69 | 2.250 |
+| −10..−7% | 2,036 | 74.8 | 1.875 | −31.55 | 2.082 |
+| −15..−10% | 477 | 73.2 | 2.406 | −52.72 | 1.837 |
+| **< −15%** | 114 | 60.5 | **−1.946** | **−69.69** | **0.777** |
+
+**⭐ THE SHAPE: PF rises to a PEAK at ~−4 to −5% (2.472), then DECAYS monotonically through −15%, and the
+`< −15%` cell INVERTS to a LOSER (PF 0.777, avg −1.95%/tr).** Below ~15% a single-bar flush is not overshoot
+to buy — it is a REPRICING (halt-reopen, fraud/offering headline) that keeps falling. The p1 tells the story:
+−5% → −13% → −70% as the flush deepens.
+
+**Note avg% keeps RISING to −15% (2.406%) even as PF FALLS** — the winners get bigger, but the losers grow
+FASTER, so the risk-adjusted PF turns over first (~−5%) and only breaks entirely past −15%. **avg% alone
+would mislead you into the knife; PF is the honest measure.**
+
+**⚠ Calibration (per-year honesty):** the `< −15%` cell is **4–37 trips/yr** and its PF swings 0.35 → 2.01
+(negative only in 2025/26). So "−15% is a hard inversion" is DIRECTIONALLY right (deeper stops helping, tail
+explodes to −70%) but NOT a robustly-measured loser on 114 trips. **What IS all-weather: the −4..−10% band =
+PF 1.8–3.3 EVERY year.**
+
+**Tradable band: bar_pct ∈ [−10%, −2%], sweet spot −4..−5%. Cap the flush at ~−10% (beyond it the tail
+outruns the edge); treat < −15% as un-fadeable repricing.** This is the FLOOR the user asked for — and it is
+why LowFlyer's "size on flush depth" needs a CEILING: size up toward −5%, then TAPER, not extrapolate.
+
+### The SHORT pop's ceiling is BEYOND the (quiet-vol) data — which reinforces F22
+
+Same analysis, short side, quiet volume only:
+
+| pop | n | avg% | PF |
+|---|---|---|---|
+| +2..3% | 5,851 | 1.304 | 3.075 |
+| +3..4% | 1,403 | 1.825 | 3.855 |
+| +5..7% | 189 | 3.776 | 15.4 |
+| +7..10% | **31** | 5.537 | 53.4 |
+| +10..15% | **10** | 6.816 | — |
+
+**On quiet volume the short pop shows NO rollover — PF just climbs — but the counts collapse (31, 10 trips):
+those PFs are NOISE, not a knee.** We CANNOT locate the short ceiling, and that is the honest result. The
+reason reinforces F22: the dangerous violent pops are the LOUD ones (already excluded); a violent pop on
+QUIET volume is so rare it never accumulates enough tail to break. The short's floor/ceiling problem is
+solved by the VOLUME filter (F22), not by a bar_pct cap — the opposite of the long, where the cap is needed.
+
+
+---
+
 ## Status / next
 
 ⏭ **In order:**
