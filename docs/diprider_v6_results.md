@@ -1262,6 +1262,46 @@ the long buys WEAKNESS (depth betrays the repricing).**
 
 ---
 
+## Finding 25 — vol TERCILES within each flush band: higher volume is MONOTONICALLY better (the "low-vol fast move" effect is filtered out by the liquidity floor)
+
+**User:** *"split the volume into 3 buckets instead of 2 — intraday, fast moves on low volume are some of the
+best trades that exist."* A real and famous intuition; tested with terciles computed WITHIN each flush band
+(not fixed cutoffs), so "low-vol" means the least-loud third of THAT depth:
+
+| flush | PF low-vol | PF mid-vol | PF high-vol | med volz low / high |
+|---|---|---|---|---|
+| < −10% (extreme) | **0.975** | 1.547 | **1.760** | +110 / +256 |
+| −10..−5% | 2.010 | 2.209 | **2.364** | +51 / +198 |
+| −5..−3% | 2.276 | 2.255 | **2.721** | +8 / +164 |
+| −3..−2% | 2.038 | 2.148 | **2.352** | −21 / +148 |
+| −2..0% | 1.459 | 1.479 | **1.635** | −99 / +90 |
+
+**⭐ In EVERY flush band, higher volume is MONOTONICALLY better — the OPPOSITE of the "low-vol reverts"
+hypothesis.** The least-loud third is the WORST fade in each band; at the < −10% extreme the low-vol tercile
+is a LOSER (0.975) while high-vol still fades (1.760). Robust: high beats low in **6 of 7 years** (only 2022
+flips, narrowly).
+
+**⭐ Why the intuition is REAL but does not apply HERE — a SCALE / LIQUIDITY-FLOOR effect:**
+- The `med volz` column shows the low-vol tercile of a DEEP flush is still **+50 to +110** (session-cum z) —
+  ENORMOUS volume in absolute terms. **There is no genuinely-low-volume deep flush in a `dv ≥ $3M`
+  universe.** A −7% flush ALWAYS brings real volume; the "low" tercile is merely LESS extreme.
+- The classic "fast move on low volume reverts" is a THIN-ORDER-BOOK microstructure effect — one aggressive
+  order sweeps an illiquid book, the price gaps with no participation, and snaps back. **That requires a
+  genuinely illiquid name, which the `dv ≥ $3M` floor removes.** On liquid names a fast move means real
+  participants moved it, and MORE participation = a bigger crowd to fade against = better reversion.
+
+**Synthesis: the user's effect is real but is a THIN-NAME phenomenon the liquidity floor filters out.** On
+this universe the gradient inverts — within any flush depth, more volume = better fade. **This STRENGTHENS
+F24** (depth, not volume, is the long lever): volume has a gradient, but it is monotone-HELPFUL, never a
+separator that recovers the deep tail. The deep-flush knee (F23) stands as a pure DEPTH threshold regardless
+of the volume slice.
+
+⏭ The low-vol-fast-move edge would need a SEPARATE, LOWER-liquidity universe to test — the same conclusion
+F15 reached for the momentum edge (different universe, not a re-slice). Noted, not pursued on this book.
+
+
+---
+
 ## Status / next
 
 ⏭ **In order:**
