@@ -182,6 +182,8 @@ type IntradayPosition =
       VwapAtEntry: float
       DistVwap: float            // close/vwap - 1 (> 0 by construction when RequireBelowVwap)
       DistVwapZ: float           // ⭐ session-cumulative z-score of DistVwap
+      VolZLog: float             // ⭐ session-cum z-score of LOG(bar volume) — volume abnormality, log space
+      VolZLin: float             // ⭐ session-cum z-score of RAW bar volume — normal space (to compare)
       EmaAtEntry: float
       PctChgSinceOpen: float
       Chg1d: float               // entry / prev daily close - 1
@@ -264,6 +266,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     let atrLog     = AvgMa(cfg.VolWindow)
     let adx        = AdxMa(cfg.AdxPeriod)
     let distZ      = CumStdMa()                  // ⭐ session mean/σ of dist_vwap → the z-score
+    let volZLog    = CumStdMa()                  // ⭐ session mean/σ of LOG(bar volume) → the volume z (log space)
+    let volZLin    = CumStdMa()                  // ⭐ session mean/σ of RAW bar volume → the volume z (normal space)
     let priceOls20 = OlsSlopeMa(cfg.VolWindow)
     let priceOls60 = OlsSlopeMa(60)
     let priceOlsOpen = OlsSlopeMa(400)           // ~the whole RTH session (390 bars) = "from open"
@@ -336,6 +340,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         vwap.Push(tp * float bar.volume, float bar.volume)
         // the z accumulator reads dist AFTER the VWAP push (this-bar-inclusive)
         this.DistVwapNow bar.close |> ValueOption.iter distZ.Push
+        // volume z accumulators: log space handles the heavy tail (bar_vol spans 100 -> 39M); linear is
+        // recorded alongside so the log transform can be VALIDATED, not assumed (user).
+        volZLog.Push (log (float (max bar.volume 1L)))
+        volZLin.Push (float bar.volume)
         match prevBar with
         | ValueSome p when bar.high > 0.0 && bar.low > 0.0 && p.close > 0.0 ->
             log (max bar.high p.close / min bar.low p.close) |> atrLog.Push
@@ -398,6 +406,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                   VwapAtEntry = vv vwap.State
                   DistVwap = vv dist
                   DistVwapZ = vv (match dist with ValueSome d -> distZ.Z d | ValueNone -> ValueNone)
+                  VolZLog = vv (volZLog.Z (log (float (max bar.volume 1L))))
+                  VolZLin = vv (volZLin.Z (float bar.volume))
                   EmaAtEntry = vv ema.State
                   PctChgSinceOpen = (match dayOpen with ValueSome o when o > 0.0 -> bar.close / o - 1.0 | _ -> nan)
                   Chg1d = (if close1d > 0.0 then bar.close / close1d - 1.0 else nan)

@@ -226,6 +226,74 @@ cells — deferred to mc=1.**
 
 ---
 
+## Finding 6 — ⭐⭐ VOLUME z: fade the QUIET pop, not the loud one — and LOG space beats normal space
+
+**User:** *"do a breakdown on volume. Let's try a volume z score in log space."* → *"We could also do it in
+normal space and compare."*
+
+Added two session-cumulative `CumStdMa` accumulators (mirroring `dist_vwap_z`): `vol_z_log` (z of
+`log(bar_vol)`) and `vol_z_lin` (z of raw `bar_vol`). `bar_vol` spans 100 → 39M (median 25k) — textbook
+heavy-tailed, so the linear z is outlier-dominated by construction. Both recorded so the transform is
+**validated, not assumed.**
+
+**LOG-space vol z (dv ≥ $3M, ATR band, 7m cover):**
+
+| vol_z_log | n | win% | avg %/tr | **PF** |
+|---|---|---|---|---|
+| **< −0.5 (quiet)** | 827,081 | 71.2 | 0.270 | **⭐ 1.769** |
+| −0.5..0 | 451,658 | 68.8 | 0.230 | 1.531 |
+| 0..0.5 | 426,172 | 68.2 | 0.245 | 1.505 |
+| 0.5..1 | 330,493 | 67.5 | 0.246 | 1.441 |
+| 1..2 | 313,973 | 66.6 | 0.283 | 1.417 |
+| **≥ 2 (spike)** | 51,576 | 64.3 | 0.267 | **1.281** |
+
+**⭐ Strictly monotone: PF 1.769 → 1.281 as volume RISES. FADE THE QUIET POP.** A new-20m-high pop on
+BELOW-average volume is a hollow, unsupported drift that fails; a pop on a VOLUME SPIKE is real buying
+pressure that keeps going. **A volume climax at a new high is a BREAKOUT, not an exhaustion.** This mirrors
+V6's long-side exhaustion logic from the other side.
+
+### ⭐ LOG beats NORMAL — the comparison was worth running
+
+| vol_z_lin (normal space) | n | **PF** |
+|---|---|---|
+| < −0.5 | 841,449 | 1.674 |
+| −0.5..0 | 840,316 | 1.635 |
+| 0..0.5 | 301,202 | 1.395 |
+| 0.5..1 | 151,109 | **1.337** ← dip |
+| 1..2 | 142,845 | 1.368 |
+| ≥ 2 | 124,032 | 1.388 ← rises again |
+
+**Log spans PF 1.769 → 1.281 (0.49, MONOTONE). Linear spans 1.674 → 1.337 (0.29) and is NON-MONOTONE** — it
+dips at 0.5–1 then rises at ≥2, because a handful of 14σ bars land in the top bucket regardless of the true
+shape and blur the signal. **Log space is the correct normalization — confirmed empirically.** (Sanity: log
+z is symmetric, p99 2.18, max 4.55; linear z has median −0.37 but max 13.93 — the right-skew tell.)
+
+### ⭐ vol_z × dist_vwap_z STACK — two independent dimensions of exhaustion
+
+| vol_z | z<0 (fails below VWAP) | z 0–2 | z≥2 (extended) |
+|---|---|---|---|
+| **QUIET (<0)** | **⭐ 1.944** | 1.600 | 1.690 |
+| MID (0–1) | 1.798 | 1.412 | 1.530 |
+| SPIKE (≥1) | 1.487 | 1.238 | 1.499 |
+
+Quiet volume beats spike at EVERY z level; the "fails below VWAP" pop (F4) beats extended at EVERY volume
+level. **The best cell — QUIET volume × BELOW-VWAP pop = PF 1.944** (from a 1.533 book baseline); the worst
+is a mid-z SPIKE (1.238). The two measure DIFFERENT things: `dist_vwap_z` = *where price is* (failed vs
+extended); `vol_z_log` = *how much conviction the pop has*. A quiet pop failing below VWAP is the purest
+exhaustion — no volume, no reclaim of fair value.
+
+⚠ **Non-monotone wrinkle in the SPIKE row:** `z≥2` (1.499) beats `z 0–2` (1.238). A high-volume pop that is
+ALSO wildly extended can still be a blow-off top worth fading; a high-volume pop at MODERATE extension is the
+danger zone (a genuine breakout with fuel). Remember this before gating on vol_z alone.
+
+### Engine change
+Two recorded columns added: `vol_z_log`, `vol_z_lin` (both session-cumulative `CumStdMa`). Neither gates.
+⏭ Port both to DipRiderV6 (long side has no volume-z lever yet) and check the long-side sign — the long
+mirror predicts fade... i.e. BUY the quiet dip, not the panic-volume flush.
+
+
+---
+
 ## Status / next
 
 ⏭ **The V6 levers all need re-measuring on the short side — do NOT assume they mirror.** The load-bearing
