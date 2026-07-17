@@ -347,6 +347,73 @@ VWAP distance, ATR%).*
 
 ---
 
+## Finding 8 — ⭐⭐ chg_1d: BOTH books want MODERATELY-DOWN names — and the up-day tail is a CATASTROPHIC squeeze zone
+
+**Prediction (WRONG):** the mirror said the best short would be a name moderately UP, fading a failed bounce.
+**The data says the best short is a name moderately DOWN**, same as the long book's best dip-buy.
+
+**chg_1d (dv ≥ $3M, ATR band, 7m cover):**
+
+| chg_1d | n | % | win% | avg% | **PF** |
+|---|---|---|---|---|---|
+| < −20% | 81,145 | 3.4 | 66.3 | 0.187 | 1.245 |
+| −20..−10% | 147,441 | 6.1 | 66.6 | 0.225 | 1.411 |
+| −10..−5% | 243,316 | 10.1 | 68.4 | 0.238 | 1.609 |
+| **−5..−2%** | 279,042 | 11.6 | 71.0 | 0.281 | **⭐ 1.912** |
+| −2..0% | 216,767 | 9.0 | 70.5 | 0.232 | 1.695 |
+| 0..+2% | 227,156 | 9.5 | 69.2 | 0.206 | 1.614 |
+| +2..5% | 297,774 | 12.4 | 68.6 | 0.200 | 1.547 |
+| +5..10% | 357,006 | 14.9 | 68.0 | 0.204 | 1.482 |
+| +10..20% | 313,797 | 13.1 | 68.0 | 0.248 | 1.444 |
+| +20..50% | 185,917 | 7.7 | 70.5 | **0.477** | 1.580 |
+| ≥ +50% | 51,592 | 2.1 | **73.0** | **0.675** | 1.442 |
+
+**⭐ PF peaks at −5..−2% (1.912) and declines monotonically UP the day.** The best short is a name **slightly
+RED on the day** that pops to a new 20m high — a failed bounce inside a down day.
+
+**⭐⭐ BOTH BOOKS WANT DOWN-DAY NAMES.** V6 F11's long peak was also moderately down (−10..−2%). **A name red
+on the day but oscillating is a two-way MEAN-REVERSION MACHINE — buy its dips AND fade its pops, both work.**
+That is the opposite of a clean long/short mirror, and it means the two books share a universe (correlated,
+per F1 — not a hedge).
+
+### ⭐ THE UP-DAY TAIL (≥ +20%) IS THE SQUEEZE ZONE — high avg%, fat PF, ACCOUNT-ENDING losses
+
+The +20% cells have the HIGHEST win rate (70.5%, 73.0%) and HIGHEST avg% (0.48%, 0.68% — 2–3× the peak) but
+only MIDDLING PF (1.58, 1.44). That combination is the classic fat-tailed-loser signature. The loss
+distribution confirms it — this is the squeeze risk, MEASURED:
+
+| chg_1d | avg% | p1 worst | **MAX LOSS** | PF |
+|---|---|---|---|---|
+| **≥ +50% (ripping)** | 0.675 | **−24.05%** | **−420%** | 1.442 |
+| **+20..50% (up big)** | 0.477 | **−12.08%** | **−609%** | 1.580 |
+| DOWN day (< −2%) | 0.246 | −6.01% | −77% | 1.571 |
+| flat/mild (< +20%) | 0.217 | −5.61% | −166% | 1.526 |
+
+**A single short in the +20..50% cell lost −609% (a ~7× squeeze); another −420% in the ripping cell.** p1
+losses are −24% and −12% vs the down-day book's −6%. The up-day tail's fat avg% SURVIVES A HANDFUL OF
+ACCOUNT-ENDING LOSSES — in a live book those blow you up before the edge compounds. **Fading a name up 50%
+is picking up nickels in front of a steamroller.**
+
+### ⚠ AND THIS PUNCTURES THE "7m COVER = TIME-STOP" CLAIM (partially)
+
+A −609% loss means the name kept climbing past every 7-minute low **for the rest of the session** and only
+covered at MOC — the cover target NEVER PRINTED. So "the 7m cover bounds the run-over" holds ONLY while a
+new 7m low eventually prints. In a runaway squeeze it does not, and the position runs to close.
+**A HARD STOP IS genuinely needed — but specifically for the up-day tail, not the bounded-hold bulk.**
+
+### ⭐ Verdict — the tradable short universe
+
+**`chg_1d < +20%`** (the down-day + mild bands): PF 1.53–1.57, worst-case bounded to −77% to −166%
+(survivable with sizing), and it is 90% of the book. **EXCLUDE `chg_1d >= +20%`** (the squeeze zone) OR gate
+it behind a hard stop — the backtest avg% there is a mirage that a live squeeze erases. The down-day peak
+(−5..−2%, PF 1.912) is the core, and it OVERLAPS the long book's universe.
+
+⏭ Next: the reset counters (is a 5th consecutive new high a fade or a runaway?) — F8's tail suggests the
+squeeze answer. Then a hard-stop design targeted at the residual runaway risk.
+
+
+---
+
 ## Status / next
 
 ⏭ **The V6 levers all need re-measuring on the short side — do NOT assume they mirror.** The load-bearing
