@@ -47,9 +47,12 @@ type Config =
 let defaultConfig =
     { Intraday =
         { EntryHighWindow = 20         // SHORT the 20m high of closes (the mirror of V6's 20m low).
-          ExitLowWindow   = 5          // cover at the 5m low of closes. V6 F16/F17: the FAST target dominates
-                                       // on the LONG side (PF 1.723 @5m vs 1.257 @60m). ⚠ Re-measure here —
-                                       // F16 also showed the exit window CHANGES WHICH FEATURES MATTER.
+          ExitLowWindow   = 7          // ⭐ cover at the 7m low of closes (user, 2026-07-17). The SHORT optimum
+                                       // is a PLATEAU [5m,7m], NOT the long side's sharp 5m point (F2): the
+                                       // snap-DOWN completes marginally slower than the snap-UP. 7m barely dents
+                                       // the low/mid-ATR bulk (PF within 0.02 of 5m) but RECOVERS the high-ATR
+                                       // bands the fast cover leaves on the table (F3/F5: 0.05-0.08 avg 0.89% ->
+                                       // 1.50%; >=0.08 2.85% -> 4.14%). Long side stays 5m — they measured differently.
           RequireBelowVwap = false     // ⭐ OFF — the sampler RECORDS dist_vwap, it must not GATE it (V6 F5).
           MaxConcurrent   = 0          // ⭐ SAMPLER. 1 = a real (tradable) book.
           VolWindow       = 20

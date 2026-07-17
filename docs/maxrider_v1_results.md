@@ -11,7 +11,7 @@ A direction-flipped mirror of DipRiderV6, forked 2026-07-17.
 side DIFFERS from the long.
 
 **Standing conventions:** SHORT only. **2020-01-01 → 2026-06-30.** Raw MOC PF. $10k notional/trip.
-`dv_0945 >= $3M`, ATR floor 0.004 (uncapped ceiling), 20m-high entry → 5m-low cover (V6 F16/F17 defaults).
+`dv_0945 >= $3M`, ATR floor 0.004 (uncapped ceiling), 20m-high entry → **7m-low cover** (F5; the long side uses 5m).
 
 ---
 
@@ -179,6 +179,49 @@ fast-exit one.
 ⏭ This reframes the short entry: pair the new-20m-high trigger with a **`close < VWAP` filter** (not the
 naive `close > VWAP` mirror of the long). Re-check chg_1d next — the analogue prediction is that the best
 short is a name moderately UP (not ripping), fading a failed intraday bounce.
+
+
+---
+
+## Finding 5 — ⭐ 7m is the SHORT-SIDE default: the fast cover leaves 2–3× the return on the table at high ATR
+
+**User** (flagging the weak `0.05–0.08` band under a 5m cover): *"Let's compare the 7m exits to them."* →
+then, seeing the avg%: *"7m default."*
+
+**PF alone understated the case. The avg% column is decisive — at high ATR the SLOW cover captures 2–3× the
+per-trade return**, because the move there is large AND slow:
+
+| ATR | PF 5 | PF 7 | PF 20 | **avg5** | **avg7** | **avg20** | n |
+|---|---|---|---|---|---|---|---|
+| 0.004–0.009 | **1.460** | 1.438 | 1.284 | 0.144 | 0.160 | 0.177 | 1,842,978 |
+| 0.009–0.013 | **1.632** | 1.618 | 1.489 | 0.345 | 0.391 | 0.506 | 317,313 |
+| 0.013–0.020 | 1.773 | **1.780** | 1.601 | 0.605 | 0.703 | 0.903 | 168,347 |
+| 0.020–0.035 | 1.653 | **1.695** | 1.556 | 0.889 | 1.078 | 1.416 | 72,315 |
+| 0.035–0.05 | 1.405 | 1.383 | **1.412** | 1.033 | 1.147 | **1.847** | 14,415 |
+| **0.05–0.08** | 1.239 | **1.374** | 1.431 | 0.894 | **1.504** | **2.589** | 6,364 |
+| **≥ 0.08** | 1.653 | 1.928 | **1.940** | 2.85 | **4.137** | **6.308** | 935 |
+
+**Two regimes:**
+- **Low/mid ATR (the bulk):** the reversal is FAST — 5m/7m win on PF, holding longer just bleeds win rate,
+  and avg% barely differs (0.14 vs 0.18). 5m is marginally best on PF.
+- **High ATR (≥0.035):** the move is LARGE and SLOW — a fast cover throws away return. At ≥0.08, 20m earns
+  **+6.3%/trade** vs 5m's +2.85%; at 0.05–0.08, +2.59% vs +0.89%.
+
+**⭐ 7m is the chosen compromise (user).** It barely dents the low/mid bulk (PF within 0.02 of 5m) while
+recovering ~half the high-ATR return the 5m cover discards (0.05–0.08 avg 0.89% → 1.50%; ≥0.08 2.85% →
+4.14%). A single global window, no exit-vs-entry coupling to validate. It fits F2's finding that the short's
+snap-DOWN completes slightly slower than the long's snap-UP — **the short optimum is a plateau [5m,7m], and
+7m sits at the return-favouring end of it.** The LONG side stays 5m (they measured differently).
+
+⚠ **Caveats kept loud:** (1) the high-ATR bands 7m rescues are ~21k trips (0.8% of the book) and the
+**hardest to borrow** — the +6.3% at ≥0.08 is the most likely to evaporate under real execution. (2) avg%
+rising with hold time partly just reflects a longer target having more room to travel — it is carrying more
+risk per trade, which is why PF does not rise proportionally. **A future ATR-conditional cover (5m low / 20m
+high-ATR) captures the best of both, but couples exit to entry and leans on exactly those borrow-constrained
+cells — deferred to mc=1.**
+
+### Engine change
+**`ExitLowWindow` default 5 → 7** (user). Long side (`DipRiderV6`) stays at 5.
 
 
 ---
