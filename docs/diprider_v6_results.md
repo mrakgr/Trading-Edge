@@ -765,6 +765,68 @@ already the thin, novel part of the idea, and the floor makes it thinner. **`+2.
 
 ---
 
+## Finding 15 — the EXIT WINDOW: shorter targets = higher PF, longer targets = (slightly) higher return. No free lunch.
+
+**User:** *"How would entering or exiting on the 60m levels affect the results... Would longer targets help
+expectancy or hurt it?"*
+
+Swept the exit target with **identical entries** (2,568,681 trips every row — only the target changes), on
+the production filters (`dv_0945 >= $3M`, ATR band):
+
+| exit = prior N-min HIGH of closes | win% | **avg %/tr** | **PF** | med hold |
+|---|---|---|---|---|
+| **5m** | **68.6** | 0.256 | **⭐ 1.723** | 5 min |
+| 10m | 68.5 | 0.291 | 1.575 | 11 min |
+| **20m (default)** | 66.5 | 0.302 | **1.417** | 24 min |
+| 30m | 65.3 | 0.310 | 1.355 | 38 min |
+| 45m | 64.2 | **⭐ 0.314** | 1.299 | 58 min |
+| 60m | 63.5 | 0.307 | 1.257 | 79 min |
+
+**⭐ THE TWO METRICS POINT IN OPPOSITE DIRECTIONS — that IS the finding:**
+- **PF falls MONOTONICALLY** with target length: **1.723 → 1.257 (−27%)**.
+- **avg %/trade RISES then plateaus**: 0.256 → **0.314 at 45m**, then rolls over at 60m.
+- **Win rate falls monotonically**: 68.6% → 63.5%.
+
+**A longer target earns ~23% more per trade (0.256 → 0.314) at the cost of ~25% of the PF.** You are paid a
+little more to carry a lot more risk. For a mean-reversion book — whose whole appeal is a high win rate and
+a tight distribution — **that is a bad trade.**
+
+**Mechanism:** the edge IS the snap-back, and it is **spent** once price reclaims the 20m high. Holding for
+the 60m high means sitting through the post-reversion drift, which is directionless — **variance without
+drift**.
+
+### ⚠ But the 5m cell is NOT the answer either — costs invert the ranking
+
+At a ~0.1% round-trip cost (spread on `dv_0945 >= $3M` names + commissions):
+
+| exit | gross avg %/tr | **net of ~0.1%** | cost as % of edge |
+|---|---|---|---|
+| 5m | 0.256 | **0.156** | **39%** |
+| 20m | 0.302 | **0.202** | 33% |
+| 45m | 0.314 | **0.214** | **32%** |
+
+**The highest-PF cell (5m) has the WORST net return; the worst-PF cell (45m) has the BEST.** Net of costs
+the ranking compresses to near-indifference.
+
+### ⭐ Verdict: 20m is a defensible middle — and the EXIT is NOT where the edge lives
+
+Keep `--exit-high-window 20`. Shorter = better risk-adjusted, longer = marginally better per-trade
+pre-cost; **neither is a free lunch, and that is itself the point.** Compare the levers:
+
+| lever | PF range it spans | does avg %/tr follow? |
+|---|---|---|
+| **entry selection** (ATR band × z × chg_1d) | **1.26 → 2.15** | ✅ **YES** (0.29 → 1.44) |
+| exit window | 1.26 → 1.72 | ❌ **NO** — it moves the OPPOSITE way |
+
+**Entry selection buys PF *and* return together. The exit window only trades one for the other.** Effort
+belongs on selection.
+
+(F4 already covered the 60m *entry*: it raises PF at every K but is LESS ROBUST — 60m K=1 loses money in
+2021 — and is capacity-thin. The 20m→20m default survives both sweeps.)
+
+
+---
+
 ## Status / next
 
 ⏭ **In order:**
