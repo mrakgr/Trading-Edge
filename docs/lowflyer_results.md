@@ -1192,3 +1192,43 @@ intraday) and **volatility-regime-tilted** (richest in 2020–22).
 - **⚠ LOSS STUDY (TODO, deferred):** study the big LOSING trades in BOTH MR books (long
   flush-fade and short pop-fade) — the tail that blows through the fade. Characterize them
   (what regime / rvol / extension / news) to find an avoidance gate or a catastrophe stop.
+
+## Run 30 — ⭐ THE CONCURRENCY AUDIT: the production book AVERAGES DOWN, and it costs −7% (2026-07-17)
+
+**User's suspicion** (while auditing DipRiderV5's MR mode): *"mc 0 ... the essential effect of having it be
+on is that the system would average down as the price kept making new lows. That wouldn't be possible to do
+in practice, and in fact it most likely inflating the results of LowFlyer."*
+
+**Correct, and it is worth knowing — but LowFlyer survives it comfortably.** `MaxConcurrent = 0` (unlimited,
+the shipped default) on a buy-the-flush-to-a-new-session-low trigger means every further new low opens
+ANOTHER position: it averages down into the flush, with unbounded capital. Not tradable as-is.
+
+**A/B on the FULL PRODUCTION BOOK** (2020-26, honest ADV, all production gates: `chg_1d≤−8% & chg_20m≤−3%
+& chg_3d∈[−3,30]% & chg_7d≥−5% & ADV≥$500k & float<$300M & flush≥−12%`):
+
+| book | n | win% | avg %/tr | **raw PF** | clip PF |
+|---|---|---|---|---|---|
+| **mc=0** (unlimited — AVERAGES DOWN) | 1,125 | 66.9 | 3.344 | **3.322** | 3.308 |
+| **mc=1** (one at a time — TRADABLE) | 767 | 66.5 | 3.128 | **3.093** | 3.089 |
+
+**PF 3.322 → 3.093 (−7%); 32% of the trips disappear but the edge does not.** Win rate is flat (66.9 →
+66.5) and avg/trade only drops 3.34% → 3.13%. The dropped trips were *good* — just unreachable without
+averaging down.
+
+**Fat-book control (same test, no production gates): 1.325 → 1.294 (−2%).** The production book takes the
+larger haircut, which is exactly what you would expect: the gates concentrate into the deep-flush names
+where averaging down helps most.
+
+**⭐ VERDICT: LowFlyer is CLEAN *and* TRADABLE at PF 3.093 / +3.13%/trade / 767 trips (~118/yr).** Report
+**3.093**, not 3.329, as the tradable number from here on. At +3.13%/trade, costs (~0.1% round-trip spread
++ commissions) are noise — this is a rare, fat, cost-insensitive book. Contrast DipRiderV6's MR book:
+PF ~1.4 at +0.7%/trade on 27,629 trips — frequent, thin, cost-sensitive. Different animals.
+
+**Why 3.09 is believable where the dead systems' 3.0+ were not:** LowFlyer has now survived EVERY audit
+that killed them — the honest ADV (F14f: +0.014), the live-safe $1 price floor (F14e), the `brv20d`
+denominator (it does not use it), and now the concurrency check. A genuine system is indifferent to having
+its crutches removed.
+
+⏭ **Owed:** re-tune at mc=1. Every production threshold was fitted against the mc=0 book.
+
+---
