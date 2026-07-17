@@ -577,6 +577,73 @@ clean-tailed).
 
 ---
 
+## Finding 12 — ⭐ INVERSION PROBE: the only fadeable-LOSS cell (= a LONG momentum edge) is the PRE-BREAKOUT volume surge
+
+**User:** *"how the hell do you trade momentum on the long side? Let's try 1m,2m,3m,4m exits... look into new
+session price & volume highs together. I want to see if by using very short exits we can get larger negative
+profit factors that would imply reversing them would give us a long edge."*
+
+**The method:** a short cell with PF < 1 (loses money fading) inverts to a LONG edge of ~1/PF. Ultra-fast
+covers (1–4m low) test whether the immediate CONTINUATION beats the immediate reversal.
+
+**The cell the user picked — sessHIGH × volHIGH (the strongest breakout) — does NOT invert:**
+
+| cover | 1m | 2m | 3m | 4m |
+|---|---|---|---|---|
+| PF (short) | 1.177 | 1.220 | 1.248 | 1.307 |
+
+**Even the strongest breakout still PF > 1 to SHORT at 1m.** A COMPLETED blow-off (price high AND vol high)
+reverts within a minute — no continuation edge. So there is no long-momentum edge in "buy the confirmed
+breakout."
+
+**⭐ But the fade-WORST cell DOES invert — F10's `volHIGH × not-high` (the reversal-up trap):**
+
+| cell (short, by cover) | PF 1m | PF 2m | PF 3m | PF 4m | n |
+|---|---|---|---|---|---|
+| **volHIGH × not-high** | **0.790** | 0.839 | 0.857 | 0.891 | 7,021 |
+| chg_1d ≥ +50% (ripping) | 1.165 | 1.261 | 1.347 | 1.371 | 51,592 |
+| chg_1d ≥ +20% | 1.272 | — | — | 1.462 | 237,509 |
+
+**`volHIGH × not-high` shorts at PF 0.790 (a 1m cover) — a book that LOSES 21% fading it. Inverted ≈ a LONG
+momentum edge of PF ~1.27.** And it gets MORE momentum-like as the cover speeds up (0.891 → 0.790) — the
+continuation is strongest in the FIRST MINUTE.
+
+**Per-year — robust in 6 of 7 (short PF < 1 = long edge):**
+
+| yr | short PF | → long ≈ |
+|---|---|---|
+| 2020 | 0.700 | ~1.43 |
+| 2021 | 0.621 | ~1.61 |
+| 2022 | 0.904 | ~1.11 |
+| **2023** | **1.153** | ~0.87 ❌ |
+| 2024 | 0.935 | ~1.07 |
+| 2025 | 0.835 | ~1.20 |
+| 2026 | 0.578 | ~1.73 |
+
+### ⭐ THE ANSWER — anticipation vs confirmation
+
+**The one long-momentum signal on this universe is the PRE-BREAKOUT VOLUME SURGE:** a bar that spikes volume
+to a new SESSION-VOLUME high while price is still BELOW the session high. Aggressive buying loading up JUST
+BELOW resistance takes it out within 1–2 minutes.
+
+The contrast is the whole lesson:
+- **volume surge BEFORE the price breakout (vol-high × NOT price-high)** → CONTINUES → long momentum edge.
+- **volume spike AT the breakout (vol-high × price-high, F10)** → EXHAUSTS → fadeable.
+- **completed breakout (session price high, any vol, F9)** → reverts → fadeable.
+
+**"How do you trade long momentum?" — you buy the ANTICIPATION, not the CONFIRMATION.** By the time price
+prints the new high, the move is spent; the edge lives in the ~1-2 minutes BEFORE, when volume betrays the
+intent. This also explains why the whole MR study fades new highs so well: a new HIGH is a LATE, exhausted
+signal — the exact thing momentum traders chase and MR traders fade.
+
+⚠ **Narrow and thin:** 7,021 trips (~1,080/yr), squeeze-prone, breaks in 2023. This is a POINTER for a
+future long-momentum system (a 1-2m-hold pre-breakout-volume scalp), not a book yet. But it is the first
+CLEAN evidence in this entire codebase of a real intraday long-momentum edge — and it is tiny, fast, and
+anticipatory, which is exactly why momentum is "so hard": the tradable window is ~2 minutes wide.
+
+
+---
+
 ## Status / next
 
 ⏭ **The V6 levers all need re-measuring on the short side — do NOT assume they mirror.** The load-bearing
