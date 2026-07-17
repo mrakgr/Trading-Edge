@@ -917,6 +917,56 @@ complement to, the DipRiderV6 long core.
 
 ---
 
+## Finding 22 — the POP (bar % change): bigger pop = better fade, BUT the violent tail is a SQUEEZE — and QUIET VOLUME rescues it (PF 3.641)
+
+**User:** *"do a breakdown on bar % change on the short."* The mirror of the long flush (F21): for a short,
+`bar_pct` is the ENTRY BAR's up-move — how hard it POPPED into the 20m high. (Strict trigger + bar_pct
+regen: 100% positive bars, 0 ties, median +0.47%, p99 +3.99%.)
+
+| pop (bar %) | n | win% | avg% | **p1** | **PF** |
+|---|---|---|---|---|---|
+| **> +3% (violent)** | 39,772 | 73.8 | 1.162 | **−24.03** | 1.751 |
+| **+2..3%** | 64,542 | 72.1 | 0.789 | −15.50 | **⭐ 1.770** |
+| +1..2% | 257,045 | 68.9 | 0.426 | −10.18 | 1.581 |
+| +0.5..1% | 489,264 | 66.9 | 0.208 | −6.67 | 1.398 |
+| +0.2..0.5% | 582,514 | 67.0 | 0.128 | −5.33 | 1.300 |
+| 0..+0.2% (gentle) | 358,875 | 67.6 | 0.109 | −5.19 | 1.264 |
+
+**avg% MIRRORS the long flush — bigger pop = better fade (+0.11% → +1.16%, 11× spread). BUT the PF PEAKS at
++2..3% (1.770) and ROLLS OVER at >+3% (1.751)** — the long flush ramp was strictly monotone; the short pop is
+a HUMP. **The tail is why: p1 = −24% at the violent pop vs the long flush's −13.87%.** A dip that keeps
+dipping is bounded (−100%); a pop that keeps popping is NOT — the violent up-bar is where the SQUEEZE lives.
+avg% is fat because MOST violent pops exhaust and fade; PF rolls over because the ones that DON'T (p1 −24%)
+start to outweigh the fatter wins.
+
+### ⭐⭐ BUT the rollover is a VOLUME CONFOUND — quiet volume rescues the violent pop completely
+
+Pops > +2%, by volume:
+
+| volume | n | avg% | **p1** | **PF** |
+|---|---|---|---|---|
+| loud | 71,493 | 0.801 | −20.93 | 1.576 |
+| normal | 24,919 | 1.100 | −15.55 | 2.162 |
+| **quiet** | 7,902 | **1.577** | **−10.76** | **⭐ 3.641** |
+
+**Quiet volume HALVES the tail (−21% → −11%) AND more than DOUBLES the PF (1.58 → 3.641) — the highest
+single-cell PF anywhere in this study, long or short.** The PF rollover was NOT inherent to pop size; it was
+the LOUD violent pops (real squeezes with volume behind them) dragging the cell down.
+
+**⭐ This is F11 at its sharpest: VOLUME separates the fade from the squeeze, and it matters MOST exactly
+where the tail is fattest.** A big pop says the move is STRETCHED; quiet volume says NOBODY IS ACTUALLY
+BUYING IT. Together = the ideal fade. **So the short's bar_pct is NOT really a hump** — the rollover is the
+volume confound; filtered to quiet volume it is a clean monotone lever (bigger pop = better fade, shrinking
+tail), exactly like the long flush.
+
+**⚠ The long/short asymmetry that remains:** on the LONG, flush depth is a pure SIZING lever (size up on the
+deepest flush — LowFlyer's rule, F21). On the SHORT, pop size is a quality lever that MUST be paired with the
+quiet-volume filter before sizing up — a naked violent pop carries the −24% squeeze tail. Bigger pop + quiet
+volume = size up; bigger pop + loud volume = the squeeze you avoid (F18's whole thesis).
+
+
+---
+
 ## Status / next
 
 ⏭ **The V6 levers all need re-measuring on the short side — do NOT assume they mirror.** The load-bearing

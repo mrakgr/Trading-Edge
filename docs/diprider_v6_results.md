@@ -1101,15 +1101,16 @@ median −0.38%, p99 = 0.0 (a 20m-low entry can barely close up), 0 nulls.
 
 | flush (bar %) | n | win% | avg% | p1 | **PF** |
 |---|---|---|---|---|---|
-| **< −3% (violent)** | 41,450 | **74.0** | **1.302** | −13.87 | **⭐ 2.326** |
-| −3..−2% | 67,080 | 72.5 | 0.832 | −9.72 | 2.209 |
-| −2..−1% | 279,853 | 70.2 | 0.480 | −7.12 | 1.915 |
-| −1..−0.5% | 604,108 | 68.7 | 0.259 | −4.98 | 1.700 |
-| −0.5..−0.2% | 775,280 | 69.1 | 0.164 | −4.04 | 1.543 |
-| −0.2..0% | 462,487 | 68.7 | 0.110 | −4.15 | **1.345 ← trough** |
+| **< −3% (violent)** | 40,326 | 73.9 | **1.282** | −13.9 | **⭐ 2.286** |
+| −3..−2% | 63,538 | 72.4 | 0.816 | −9.7 | 2.165 |
+| −2..−1% | 258,030 | 70.1 | 0.469 | −7.1 | 1.877 |
+| −1..−0.5% | 501,509 | 68.6 | 0.228 | −5.0 | 1.572 |
+| −0.5..−0.2% | 604,207 | 69.0 | 0.133 | −4.0 | 1.392 |
+| −0.2..0% | 378,695 | 68.6 | 0.093 | −4.1 | **1.278 ← trough** |
 
-**⭐ The ramp is clean and MONOTONE: PF 1.345 → 2.326 as the flush deepens; avg% +0.11% → +1.30% (12×
-spread).** LowFlyer confirmed — deeper panic = bigger bounce, so LowFlyer SIZED on flush depth. The single
+**⭐ The ramp is clean and MONOTONE: PF 1.278 → 2.286 as the flush deepens; avg% +0.09% → +1.28% (14×
+spread).** (Table refreshed under the STRICT-inequality trigger — the `bar_pct == 0` ties can no longer fire,
+so this ramp is now the WHOLE `bar_pct < 0` picture; shape is unchanged from the pre-strict version.) LowFlyer confirmed — deeper panic = bigger bounce, so LowFlyer SIZED on flush depth. The single
 strongest long lever found. The trough is `−0.2..0%` (1.345) — a lazy drift to a new low, no conviction.
 **All rows above are `bar_pct < 0`; `bar_pct == 0` is EXCLUDED — see the box below.**
 
