@@ -414,6 +414,73 @@ squeeze answer. Then a hard-stop design targeted at the residual runaway risk.
 
 ---
 
+## Finding 9 — ⭐ session high & session-volume high BOTH make the short WORSE — every quality signal says "fade the WEAK pop"
+
+**User:** *"what if we used the session high instead of the 20m high for the short trades? What if we also
+went short only on a new high in session volume? Note the session volume high for the previous bar as a
+feature."*
+
+Added three recorded features (running `RunMaxMa`, strictly-prior — no lookahead): `is_new_sess_high`
+(is this 20m-high entry ALSO a session close-high?), `is_new_sess_vol_high` (did this bar make a new session
+1m-volume high?), `prev_sess_vol_high` (the session vol-high AS OF THE PRIOR BAR — the user's feature).
+
+**Frequencies (dv ≥ $3M, ATR band):** 29.7% of short entries are session highs; only **1.4%** are new
+session-VOLUME highs (a rare condition); 1.1% are both.
+
+### Both ideas make the short WORSE — and in the SAME direction
+
+**1. SESSION high vs 20m-only high:**
+
+| entry | n | win% | avg% | **PF** |
+|---|---|---|---|---|
+| **20m-only high (below session)** | 1,686,938 | 69.8 | 0.279 | **⭐ 1.644** |
+| SESSION high | 714,015 | 67.0 | 0.202 | **1.353** |
+
+**2. NEW session-VOLUME high vs not:**
+
+| | n | win% | avg% | **PF** |
+|---|---|---|---|---|
+| NEW sess-vol high | 33,487 | 64.5 | 0.355 | **1.337** |
+| not | 2,367,466 | 69.0 | 0.255 | **1.547** |
+
+**Both CUT PF hard (1.64→1.35 and 1.55→1.34).** The mechanism is F6's, in its most extreme form: **a new
+SESSION high is the name at its STRONGEST point of the day — the worst thing to fade; a new SESSION-VOLUME
+high is a volume climax = real conviction that keeps going.** Both are the intuitive momentum instinct
+("short the thing making new highs on big volume") — and the data says the OPPOSITE, consistently.
+
+### ⭐ The session-high effect is INDEPENDENT of chg_1d (not a proxy)
+
+| chg_1d | 20m-only PF | SESSION-high PF |
+|---|---|---|
+| DOWN (< −2%) | 1.595 | 1.414 |
+| flat (−2..+10%) | 1.743 | 1.326 |
+| UP (≥ +10%) | 1.603 | 1.365 |
+
+The 20m-only high beats the session high in EVERY chg_1d band (even among down-day names, 1.595 vs 1.414).
+**A name at its session peak is genuinely harder to fade regardless of its day-return** — a standalone
+quality signal, not a chg_1d artifact.
+
+### ⭐⭐ The unifying picture: EVERY short quality signal says FADE THE WEAK POP
+
+| signal | the GOOD short | the BAD short |
+|---|---|---|
+| VWAP (F4) | pop that FAILS below VWAP | pop extended far above |
+| volume (F6) | QUIET pop | volume-SPIKE pop |
+| session high (F9) | 20m high still BELOW session high | new SESSION high |
+| session vol (F9) | ordinary volume | new SESSION-VOL high |
+| chg_1d (F8) | moderately DOWN name | ripping UP name (squeeze) |
+
+**They all point the same way: the fadeable short is a HOLLOW, EXHAUSTED, unsupported pop — never a strong
+breakout.** This is coherent and it is the opposite of what a momentum trader would reach for. The two
+`is_new_sess_*` flags are best used as **EXCLUSIONS** (skip session-highs and vol-high bars), not gates to
+require.
+
+⏭ Next: the reset counters (V6 F1 mirror) — is a 5th consecutive new high a fade or a runaway? F8's squeeze
+tail predicts the latter, and this finding (session highs are worse) reinforces it.
+
+
+---
+
 ## Status / next
 
 ⏭ **The V6 levers all need re-measuring on the short side — do NOT assume they mirror.** The load-bearing

@@ -183,6 +183,9 @@ type IntradayPosition =
       DistVwap: float            // close/vwap - 1 (> 0 by construction when RequireBelowVwap)
       DistVwapZ: float           // ⭐ session-cumulative z-score of DistVwap (linear, close/vwap-1)
       DistVwapZLog: float        // ⭐ session-cumulative z-score of LOG(close/vwap) — the log-space twin
+      IsNewSessHigh: bool        // ⭐ is this entry (a new 20m high) ALSO a new SESSION close-high?
+      PrevSessVolHigh: float     // ⭐ the session 1m-volume high AS OF THE PRIOR BAR (user's feature)
+      IsNewSessVolHigh: bool     // ⭐ did THIS bar make a new SESSION 1m-volume high?
       VolZLog: float             // ⭐ session-cum z-score of LOG(bar volume) — volume abnormality, log space
       VolZLin: float             // ⭐ session-cum z-score of RAW bar volume — normal space (to compare)
       EmaAtEntry: float
@@ -261,6 +264,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     // ----- the two windows that ARE the system -----
     let closeHighN = MaxMa(cfg.EntryHighWindow)  // N-minute MAX of closes — the ENTRY (short) reference
     let closeLowN  = MinMa(cfg.ExitLowWindow)    // N-minute MIN of closes — the COVER target
+    // ⭐ SESSION extremes (running from the feature anchor), for the post-hoc breakdowns (user, 2026-07-17):
+    //   sessHigh    = running MAX of closes — "is this new 20m high ALSO the SESSION high?"
+    //   sessVolHigh = running MAX of 1m bar VOLUME — "did this bar make a NEW SESSION VOLUME high?"
+    let sessHigh    = RunMaxMa<float>()
+    let sessVolHigh = RunMaxMa<int64>()
     // ----- recorded features -----
     let vwap       = RatioMa()
     let ema        = EmaMa(cfg.EmaPeriod)
@@ -298,6 +306,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     // TRIVIALLY TRUE on every bar and the trigger would fire constantly.
     let mutable sCloseLowN  : float voption = ValueNone
     let mutable sCloseHighN : float voption = ValueNone
+    // strictly-prior session extremes — captured BEFORE this bar folds. sSessVolHigh is exactly "the
+    // session volume high AS OF THE PRIOR BAR" the user asked to record; the new-high tests compare THIS
+    // bar against the session that EXCLUDES it.
+    let mutable sSessHigh    : float voption = ValueNone
+    let mutable sSessVolHigh : int64 voption = ValueNone
 
     let vv (v: float voption) = match v with ValueSome x -> x | ValueNone -> nan
 
@@ -336,6 +349,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         // ===== 1. capture the STRICTLY-PRIOR windows BEFORE this close folds =====
         sCloseLowN  <- closeLowN.State
         sCloseHighN <- closeHighN.State
+        sSessHigh    <- sessHigh.State       // session close-high as of the PRIOR bar
+        sSessVolHigh <- sessVolHigh.State     // session volume-high as of the PRIOR bar (user's feature)
         let priorLow  = sCloseLowN
         let priorHigh = sCloseHighN
 
@@ -371,6 +386,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         vol5avg.Push (float bar.volume)
         closeLowN.Push  bar.close
         closeHighN.Push bar.close
+        sessHigh.Push    bar.close
+        sessVolHigh.Push bar.volume
 
         // ===== 3. advance open positions (an exit and an entry may share a bar) =====
         for i in 0 .. positions.Count - 1 do
@@ -414,6 +431,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                   DistVwap = vv dist
                   DistVwapZ = vv (match dist with ValueSome d -> distZ.Z d | ValueNone -> ValueNone)
                   DistVwapZLog = vv (match vwap.State with ValueSome v when v > 0.0 && bar.close > 0.0 -> distZLog.Z (log (bar.close / v)) | _ -> ValueNone)
+                  // ⭐ SESSION-HIGH features (strictly-prior comparisons — no lookahead):
+                  IsNewSessHigh = (match sSessHigh with ValueSome h -> bar.close >= h | ValueNone -> true)
+                  PrevSessVolHigh = (match sSessVolHigh with ValueSome v -> float v | ValueNone -> nan)
+                  IsNewSessVolHigh = (match sSessVolHigh with ValueSome h -> bar.volume >= h | ValueNone -> true)
                   VolZLog = vv (volZLog.Z (log (float (max bar.volume 1L))))
                   VolZLin = vv (volZLin.Z (float bar.volume))
                   EmaAtEntry = vv ema.State
