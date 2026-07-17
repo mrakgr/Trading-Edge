@@ -808,7 +808,9 @@ At a ~0.1% round-trip cost (spread on `dv_0945 >= $3M` names + commissions):
 **The highest-PF cell (5m) has the WORST net return; the worst-PF cell (45m) has the BEST.** Net of costs
 the ranking compresses to near-indifference.
 
-### ⭐ Verdict: 20m is a defensible middle — and the EXIT is NOT where the edge lives
+### 🛑 Verdict SUPERSEDED BY F16 — this section's conclusion was WRONG (see F16)
+
+### ~~Verdict: 20m is a defensible middle~~ — and the EXIT is NOT where the edge lives
 
 Keep `--exit-high-window 20`. Shorter = better risk-adjusted, longer = marginally better per-trade
 pre-cost; **neither is a free lunch, and that is itself the point.** Compare the levers:
@@ -823,6 +825,66 @@ belongs on selection.
 
 (F4 already covered the 60m *entry*: it raises PF at every K but is LESS ROBUST — 60m K=1 loses money in
 2021 — and is capacity-thin. The 20m→20m default survives both sweeps.)
+
+
+---
+
+## Finding 16 — 🛑 F15 WAS WRONG: the 5m target DOMINATES. PF *is* the profit number.
+
+**User:** *"No, you don't get it. A pf of 1.75 is 3x more profit than a pf of 1.25 if we hold the losses
+constant. This table is making the 5m target look really good. High pfs have a lot more consistency than
+low pfs."*
+
+**Correct. F15's verdict ("20m is a defensible middle") was WRONG, and the error was framing.**
+
+**The arithmetic:** normalise gross loss to 1. PF 1.723 ⇒ net **0.723**; PF 1.257 ⇒ net **0.257**.
+That is **2.8× the profit per unit of loss taken.** F15 compared `avg %/trade` as if trade count were fixed
+— but it is not: the 5m target frees capital in **5 minutes vs 79** (~16× the turnover on the same
+capital). **Higher PF *and* faster recycling wins on profit AND consistency.** F15's cost analysis
+(cost ÷ avg-return-per-trade) was the misleading step; the right denominator is **capital-time**, where 5m
+dominates too.
+
+### chg_1d × exit window (dv ≥ $3M, ATR band) — 5m wins in EVERY bucket
+
+| chg_1d | **PF 5m** | PF 20m | PF lift | avg% 5m | avg% 20m | n |
+|---|---|---|---|---|---|---|
+| < −10% | **1.415** | 1.262 | +12% | 0.225 | 0.275 | 385,674 |
+| **−10..−2%** | **⭐ 2.140** | 1.735 | **+23%** | 0.284 | 0.372 | 829,314 |
+| −2..+2% | **1.916** | 1.467 | **+31%** | 0.233 | 0.251 | 482,472 |
+| **+2..10%** | **1.727** | 1.371 | **+26%** | 0.230 | 0.247 | 511,553 |
+| +10..25% | **1.563** | 1.314 | +19% | 0.262 | 0.300 | 240,183 |
+| **≥ +25%** | **1.435** | 1.203 | +19% | 0.350 | 0.347 | 119,485 |
+
+In net-profit-per-unit-of-loss the `−10..−2%` cell goes **0.735 → 1.140 (+55%)**, and recycles capital 5×
+faster. **⭐ Also: `≥ +25%` becomes respectable at 5m (1.435 vs 1.203)** — the snap-back in a ripping name
+is BRIEF, and a 20m target gives it back. That partially rehabilitates F13's up-big cell.
+
+### ⭐⭐ z × exit window — the 5m target partly DISSOLVES the z-score's advantage
+
+| z | **PF 5m** | PF 20m | PF lift | avg% 5m | win% 5m | n |
+|---|---|---|---|---|---|---|
+| **z < −3** | **⭐ 2.152** | 1.907 | +13% | 0.704 | **73.7** | 42,444 |
+| −3..−2 | **1.915** | 1.646 | +16% | 0.355 | 69.8 | 385,674 |
+| −2..−1 | 1.579 | 1.374 | +15% | 0.219 | 68.1 | 1,140,987 |
+| **−1..0** | **1.785** | 1.320 | **+35%** | 0.246 | 68.8 | 723,378 |
+| **z ≥ 0** | **1.839** | 1.416 | **+30%** | 0.229 | 67.7 | 276,198 |
+
+**At 20m, z was cleanly MONOTONE (1.907 → 1.320, a 45% spread). At 5m the U-shape returns and the spread
+COLLAPSES (2.152 vs 1.579) — and `z >= 0` (1.839) now BEATS `z ∈ [−2,−1]` (1.579).**
+
+**The reading: a fast target captures the immediate bounce REGARDLESS of how dislocated the entry was.**
+The z-score was largely a proxy for **how far price had to travel back** — which only mattered because the
+20m target made you wait for it. Take the first snap and the setup's depth matters far less.
+
+**⭐ The capacity implication is large:** at 20m you needed `z < −3` (42k trips) to reach PF ~1.9. At 5m the
+**entire `z >= −1` region (≈1M trips) sits at PF 1.79–1.84** — **near-peak PF on ~25× the trade count.**
+
+### Revised verdict (supersedes F15)
+
+**`--exit-high-window 5` is the new default direction.** The exit is NOT a "trade PF for return" dial as
+F15 claimed — **it is a genuine improvement** once profit is measured per unit of risk and per unit of
+capital-time. ⏭ Sweep 2m/3m/5m/7m to find the true peak; confirm at mc=1; and re-check the F8/F10/F11
+levers under a 5m target, since F16 shows the exit window **changes which entry features matter**.
 
 
 ---
