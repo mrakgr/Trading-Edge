@@ -889,6 +889,79 @@ levers under a 5m target, since F16 shows the exit window **changes which entry 
 
 ---
 
+## Finding 17 — the ATR lever under a 5m exit: the F8 CEILING WAS LARGELY AN ARTIFACT of the slow target
+
+**User:** *"Let's check the ATR lever next."* → then: *"we'll keep the floor at 0.004, but we'll uncap the
+ceiling from here on out... I know that the <0.004 cell won't have any surprises, but the other tail might."*
+
+**The other tail did have a surprise.**
+
+### Inside the band: 5m wins everywhere, and the lift GROWS with ATR
+
+| ATR | **PF 5m** | PF 20m | **PF lift** | avg% 5m | avg% 20m | win% 5m | n |
+|---|---|---|---|---|---|---|---|
+| 0.004–0.006 | 1.510 | 1.294 | +17% | 0.128 | 0.151 | 66.9 | 1,204,601 |
+| 0.006–0.009 | 1.811 | 1.499 | +21% | 0.255 | 0.317 | 69.6 | 766,379 |
+| 0.009–0.013 | 1.875 | 1.515 | +24% | 0.407 | 0.486 | 70.9 | 329,408 |
+| **0.013–0.020** | **⭐ 1.912** | 1.523 | **+26%** | 0.608 | 0.712 | **71.2** | 179,782 |
+| 0.020–0.027 | 1.781 | 1.393 | +28% | 0.737 | 0.777 | 70.6 | 60,697 |
+| 0.027–0.035 | 1.561 | 1.200 | **+30%** | **0.722** | *0.544* | 68.9 | 27,814 |
+
+**The lift grows monotonically with ATR: +17% → +30%.** Coherent — **high-ATR names snap back FASTER and
+HARDER, so a slow target gives back more.** Note the last row: 0.027–0.035 is the only band where the 5m
+target earns MORE per trade than 20m (0.722 vs 0.544) — in the most volatile names **waiting is actively
+destructive**.
+
+**⭐ The peak does NOT move: 0.013–0.020 (PF 1.912, win 71.2%).** Unlike the z-score — which F16 showed the
+fast exit largely DISSOLVES — **ATR survives the exit change intact. It is a genuinely independent lever.**
+
+### ⭐⭐ THE TAIL (ceiling uncapped, floor kept at 0.004 for disk)
+
+| ATR | n | win% | avg %/tr | **PF 5m** | *(PF 20m, F8/F14)* |
+|---|---|---|---|---|---|
+| 0.004–0.013 | 2,300,388 | 68.4 | 0.210 | 1.695 | ~1.4 |
+| **0.013–0.020** | 179,782 | **71.2** | 0.608 | **⭐ 1.912** | 1.523 |
+| 0.020–0.027 | 60,697 | 70.6 | 0.737 | 1.781 | 1.393 |
+| **0.027–0.035** (old ceiling) | 27,814 | 68.9 | 0.722 | **1.561** | 1.200 |
+| **0.035–0.045** | 13,898 | 68.2 | 0.778 | **1.478** | *~1.045* |
+| **0.045–0.06** | 7,084 | 65.8 | 0.867 | **1.432** | *~0.705* |
+| **0.06–0.08** | 2,241 | 66.5 | **1.215** | **1.458** | *~0.705* |
+| **≥ 0.08** | 919 | **50.6** | **−2.919** | **0.618** | — |
+
+**⭐ The 0.035–0.08 range is PROFITABLE under a 5m exit** — PF 1.43–1.48, win 66–68%, and avg/trade RISING
+to **1.215%** at 0.06–0.08. Under a 20m exit those same names were PF ~0.7–1.05 (worthless to losing).
+**The F8/F14 ceiling at 0.035 was mostly the SLOW TARGET failing to bank a fast bounce, not a property of
+the names.**
+
+**But the cliff at 0.08 is REAL, not an artifact:** PF **0.618**, win **50.6%**, avg **−2.92%/trade**. Past
+~8% ATR the name is not oscillating **at any timescale** — it is being repriced.
+
+⚠ **Capacity honesty:** 0.035–0.08 is ~23k trips total (~3,500/yr in the sampler). A genuine slice, not a
+capacity story. And the hump still holds — **uncapping does not move the optimum (0.013–0.020), it recovers
+a profitable TAIL that was being discarded.**
+
+### Engine change
+
+**`MaxAtrPct = infinity` is now the default** (user) — the tail stays SAMPLED and sliceable; `log_atr_20` is
+recorded. **`MinAtrPct = 0.004` stays** (user: *"the 0.004–0.006 cells are dull, so we might as well save
+the hard drive space"*). **The practical ceiling is ~0.08, not 0.035.**
+
+### F10 re-check under the 5m exit — the rvol inversion SURVIVES, and shifts
+
+| ATR band | rvol<0.5 | 0.5–2 | rvol≥2 | n |
+|---|---|---|---|---|
+| 0.004–0.009 | 1.242 | 1.725 | **⭐ 2.083** | 1,970,980 |
+| 0.009–0.020 | 1.525 | 1.716 | **⭐ 2.028** | 509,190 |
+| **0.020–0.035** | **⭐ 1.890** | 1.689 | 1.685 | 88,511 |
+
+**The inversion holds** (low ATR wants HIGH rvol; high ATR wants LOW rvol) — but the fast exit **lifts the
+high-rvol cells sharply**: `rvol>=2 × low ATR` goes **1.595 (20m) → 2.083 (5m)**, the best cell in the
+table. The crossover has moved: at 20m it sat between the 0.009–0.02 and 0.02–0.035 bands; at 5m the
+high-rvol advantage persists further up the ATR range before flipping.
+
+
+---
+
 ## Status / next
 
 ⏭ **In order:**

@@ -63,8 +63,13 @@ let defaultConfig =
           MocMin          = 16 * 60      // 16:00 ET
           MinLowsIntoLeg  = 0            // ⭐ 0 = the SAMPLER (take every low). Set 5 (+ --max-concurrent 1)
                                          // for the F3 production book: PF 1.968 / +1.48%/tr / 1068 trips.
-          MaxAtrPct       = 0.035        // ⭐ THE CEILING (F8): high ATR INVERTS — >=0.05 is PF 0.755 at
-                                         // -1.66%/trade. V5 had NO ceiling (infinity), a known defect.
+          MaxAtrPct       = infinity     // ⭐ UNCAPPED by default (user, 2026-07-17). F8/F14 measured a hard
+                                         // ceiling (~0.035; >=0.05 -> PF 0.755 at -1.66%/tr) — BUT that was
+                                         // under a 20m exit, and F16 showed the exit window CHANGES WHICH
+                                         // ENTRY FEATURES MATTER (the 5m target's PF lift GROWS with ATR:
+                                         // +17% at 0.004-0.006 -> +30% at 0.027-0.035). The ceiling may be
+                                         // largely an ARTIFACT of the slow exit. Keep it uncapped so the tail
+                                         // stays SAMPLED and sliceable post-hoc; log_atr_20 is recorded.
           MinAtrPct       = 0.004 }      // ⭐ A CAPACITY floor, not a quality one (user, 2026-07-17): purely to
                                          // cut the sampler to a manageable size. F8 measured the sub-0.004
                                          // band as WORTHLESS — 69% of the book (7.4M of 10.7M trips) at
