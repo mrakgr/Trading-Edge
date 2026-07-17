@@ -1016,6 +1016,79 @@ NEW dimension for the long book, not an ATR proxy.**
 
 ---
 
+## Finding 20 — the short's F9/F10/F11 features on the LONG book: session extremes MIRROR, but VOLUME does NOT
+
+**User:** *"try these features on the long book — not-session-low instead of not-session-high... First a 2×2
+on session extremes, then break down on the volume z."* Added `vol_z_log`/`vol_z_lin`, `is_new_sess_low`,
+`is_new_sess_vol_high` to the long engine (the mirrors; volume has no directional "low", so vol-HIGH is the
+same flag on both sides). Sanity: vol z mean −0.15 / max 5.87 / 0 nulls; 34.2% session-low (short: 29.7%
+sess-high); 0.9% session-vol-high (short: 1.4%).
+
+### not-session-low MIRRORS the short (F9) — don't buy the name at its absolute worst point
+
+| entry | n | avg% | p1 | PF |
+|---|---|---|---|---|
+| **not-low (20m-only)** | 1,689,681 | 0.263 | −4.65 | **1.808** |
+| SESSION LOW (free-fall) | 879,000 | 0.242 | −5.68 | 1.593 |
+
+Clean mirror: a non-session-low dip beats a session-low free-fall (1.808 vs 1.593), smaller tail too.
+
+### The session-extremes 2×2 MIRRORS the short's F10 exactly — same two-mode structure
+
+| cell | n | avg% | p1 | **PF** |
+|---|---|---|---|---|
+| **not-low × not-vol** | 1,683,919 | 0.263 | −4.65 | **1.809** (clean core, 66%) |
+| not-low × volHIGH | 5,762 | 0.338 | −6.14 | 1.754 |
+| sessLOW × not-vol | 860,823 | 0.236 | −5.63 | **1.583 ← worst** |
+| **sessLOW × volHIGH** | 18,177 | **0.529** | **−8.17** | **⭐ 1.951** |
+
+- `sessLOW × volHIGH` = **the CAPITULATION CLIMAX** (PF 1.951, best, fattest tail −8.17) — a volume spike AT
+  the session low = a washout bottom, the best dip to buy but the falling-knife risk. (Long mirror of the
+  short's blow-off, F10.)
+- `sessLOW × not-vol` = the worst (1.583) — a QUIET grind to a new session low, no capitulation, just steady
+  bleeding. (Long mirror of the short's reversal-up trap.)
+- The quiet session-extreme is the TRAP; the volume-spike session-extreme is the CLIMAX worth trading.
+  **Clean structural symmetry with the short.**
+
+### ⭐⭐ BUT VOLUME z DOES NOT MIRROR — the long is a U-SHAPE, not the short's monotone
+
+| vol_z_log | n | avg% | p1 | **PF** |
+|---|---|---|---|---|
+| **quiet (<−0.5)** | 944,665 | 0.224 | −4.56 | **1.723** |
+| −0.5..0 | 491,665 | 0.223 | −4.97 | **1.627 ← trough** |
+| 0..0.5 | 457,222 | 0.251 | −5.19 | 1.671 |
+| 0.5..1 | 345,235 | 0.292 | −5.38 | 1.755 |
+| **1..2** | 292,051 | 0.358 | −5.71 | **⭐ 1.888** |
+| ≥ 2 (flush) | 37,843 | 0.416 | −6.94 | 1.854 |
+
+**The SHORT was strictly MONOTONE (F6): fade the QUIET pop, PF 1.769 → 1.281 as volume rose. The LONG is a
+U: quiet is decent (1.723), the MIDDLE is the trough (1.627), and LOUD is the BEST (1.888 @ vol_z 1–2).**
+
+**⭐ The long book has TWO winning regimes; the short has one:**
+- **buy the QUIET dip** — an orderly pullback in a strong name (1.723).
+- **buy the PANIC FLUSH** — a capitulation washout (1.888).
+- the DEAD ZONE is the MIDDLE — normal volume, no signal.
+
+**This reconciles the earlier quiet-vs-loud-by-ADX split** (quiet won at high ADX, loud won at low ADX):
+they are TWO DIFFERENT TRADES — the orderly-pullback trade (quiet, works in TRENDING/high-ADX names) and the
+capitulation trade (loud flush, works in CHOPPY/low-ADX names). The U-shape is those two trades side by side.
+
+**⚠ The flush trade's cost is the TAIL:** p1 degrades monotonically with volume (−4.56 → −6.94) — the flush
+that does NOT bottom is the falling knife. So volume controls the tail on BOTH sides (structural mirror of
+F11), even though the PF direction differs.
+
+### ⭐ THE KEY LONG/SHORT ASYMMETRY OF THE STUDY
+
+**SHORT: fade only the QUIET pop (F6/F11 monotone) — one regime, volume-avoidant.
+LONG: buy the quiet dip OR the panic flush (U-shape) — two regimes.** Both fade/buy session extremes only on
+a volume SPIKE (climax), both have volume-driven tails. But the short is one-sided on volume and the long is
+two-sided. A short is fading STRENGTH (which a volume spike confirms → avoid); a long is buying WEAKNESS
+(which a volume flush EXHAUSTS → embrace). That is the real mechanism, and it is why the naive "just mirror
+the short" fails on the volume lever.
+
+
+---
+
 ## Status / next
 
 ⏭ **In order:**

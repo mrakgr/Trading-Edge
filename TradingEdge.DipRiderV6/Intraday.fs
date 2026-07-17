@@ -113,6 +113,11 @@ type IntradayPosition =
       DistVwap: float            // close/vwap - 1 (> 0 by construction when RequireAboveVwap)
       DistVwapZ: float           // ⭐ session-cumulative z-score of DistVwap (linear, close/vwap-1)
       DistVwapZLog: float        // ⭐ session-cumulative z-score of LOG(close/vwap) — the log-space twin
+      VolZLog: float             // ⭐ session-cum z-score of LOG(bar volume) — volume abnormality, log space
+      VolZLin: float             // ⭐ session-cum z-score of RAW bar volume — normal space (to compare)
+      IsNewSessLow: bool         // ⭐ is this entry (a new 20m low) ALSO a new SESSION close-low? (free-fall flag)
+      PrevSessVolHigh: float     // ⭐ the session 1m-volume high as of the PRIOR bar
+      IsNewSessVolHigh: bool     // ⭐ did THIS bar make a new SESSION 1m-volume high? (volume spike)
       EmaAtEntry: float
       PctChgSinceOpen: float
       Chg1d: float               // entry / prev daily close - 1
@@ -192,6 +197,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     let adx        = AdxMa(cfg.AdxPeriod)
     let distZ      = CumStdMa()                  // ⭐ session mean/σ of dist_vwap (close/vwap-1) → the z-score
     let distZLog   = CumStdMa()                  // ⭐ session mean/σ of LOG(close/vwap) → the LOG-space VWAP z.
+    let volZLog    = CumStdMa()                  // ⭐ session mean/σ of LOG(bar volume) → the volume z (log space)
+    let volZLin    = CumStdMa()                  // ⭐ session mean/σ of RAW bar volume → the volume z (normal space)
+    // ⭐ SESSION LOW (running MIN of closes) — the MIRROR of MaxRider's sessHigh. "is this new 20m-low dip
+    // ALSO a new SESSION low?" A session-low dip is a name in free-fall — the long-side analogue of the
+    // short's don't-fade-the-session-high (F9).
                                                  // The true log analogue: symmetric (a +x% and -x% move are
                                                  // equal-and-opposite in log space). log(1+x)~=x for the ~1-3%
                                                  // distances here, so it tracks distZ closely except in the fat
@@ -205,6 +215,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     let volEma     = EmaMa(cfg.EmaPeriod)
     let volEmaMin  = MinMa(cfg.VolWindow)
     let vol5avg    = AvgMa(5)
+    let sessLow    = RunMinMa<float>()           // ⭐ running session MIN of closes (mirror of MaxRider sessHigh)
+    let sessVolHigh = RunMaxMa<int64>()          // ⭐ running session MAX of 1m bar VOLUME (a volume SPIKE flag;
+                                                 // same on both sides — volume has no directional "low" mirror)
     let counters   = NewLowCounters()            // ⭐ the reset machine
     // ⭐ F3: at MinLowsIntoLeg > 0 a leg yields at most ONE position. Set when that leg fires; cleared by
     // the same 20m-high reset that clears the counters. This is what makes "wait for the Kth low" a real
@@ -220,6 +233,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     // TRIVIALLY TRUE on every bar and the trigger would fire constantly.
     let mutable sCloseLowN  : float voption = ValueNone
     let mutable sCloseHighN : float voption = ValueNone
+    let mutable sSessLow    : float voption = ValueNone   // session low as of the PRIOR bar (strictly-prior)
+    let mutable sSessVolHigh : int64 voption = ValueNone  // session vol-high as of the PRIOR bar
 
     let vv (v: float voption) = match v with ValueSome x -> x | ValueNone -> nan
 
@@ -257,6 +272,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         // ===== 1. capture the STRICTLY-PRIOR windows BEFORE this close folds =====
         sCloseLowN  <- closeLowN.State
         sCloseHighN <- closeHighN.State
+        sSessLow    <- sessLow.State
+        sSessVolHigh <- sessVolHigh.State
         let priorLow  = sCloseLowN
         let priorHigh = sCloseHighN
 
@@ -268,6 +285,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         // the z accumulator reads dist AFTER the VWAP push (this-bar-inclusive)
         this.DistVwapNow bar.close |> ValueOption.iter distZ.Push
         (match vwap.State with ValueSome v when v > 0.0 && bar.close > 0.0 -> distZLog.Push (log (bar.close / v)) | _ -> ())
+        volZLog.Push (log (float (max bar.volume 1L)))
+        volZLin.Push (float bar.volume)
         match prevBar with
         | ValueSome p when bar.high > 0.0 && bar.low > 0.0 && p.close > 0.0 ->
             log (max bar.high p.close / min bar.low p.close) |> atrLog.Push
@@ -288,6 +307,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         vol5avg.Push (float bar.volume)
         closeLowN.Push  bar.close
         closeHighN.Push bar.close
+        sessLow.Push    bar.close
+        sessVolHigh.Push bar.volume
 
         // ===== 3. advance open positions (an exit and an entry may share a bar) =====
         for i in 0 .. positions.Count - 1 do
@@ -331,6 +352,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                   DistVwap = vv dist
                   DistVwapZ = vv (match dist with ValueSome d -> distZ.Z d | ValueNone -> ValueNone)
                   DistVwapZLog = vv (match vwap.State with ValueSome v when v > 0.0 && bar.close > 0.0 -> distZLog.Z (log (bar.close / v)) | _ -> ValueNone)
+                  VolZLog = vv (volZLog.Z (log (float (max bar.volume 1L))))
+                  VolZLin = vv (volZLin.Z (float bar.volume))
+                  IsNewSessLow = (match sSessLow with ValueSome lo -> bar.close <= lo | ValueNone -> true)
+                  PrevSessVolHigh = (match sSessVolHigh with ValueSome v -> float v | ValueNone -> nan)
+                  IsNewSessVolHigh = (match sSessVolHigh with ValueSome h -> bar.volume >= h | ValueNone -> true)
                   EmaAtEntry = vv ema.State
                   PctChgSinceOpen = (match dayOpen with ValueSome o when o > 0.0 -> bar.close / o - 1.0 | _ -> nan)
                   Chg1d = (if close1d > 0.0 then bar.close / close1d - 1.0 else nan)

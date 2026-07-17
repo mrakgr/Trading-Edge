@@ -126,6 +126,11 @@ type Trip =
       DistVwap: float            // entry/vwap - 1
       DistVwapZ: float           // ⭐ z of DistVwap (linear)
       DistVwapZLog: float        // ⭐ z of log(close/vwap)
+      VolZLog: float             // ⭐ volume z, log space
+      VolZLin: float             // ⭐ volume z, normal space
+      IsNewSessLow: bool         // ⭐ entry is also a new SESSION close-low (free-fall)
+      PrevSessVolHigh: float     // ⭐ session 1m-vol high as of the PRIOR bar
+      IsNewSessVolHigh: bool     // ⭐ this bar made a new session 1m-vol high
       EmaAtEntry: float
       PctChgSinceOpen: float
       Chg1d: float
@@ -178,6 +183,11 @@ let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Tr
           DistVwap = pos.DistVwap
           DistVwapZ = pos.DistVwapZ
           DistVwapZLog = pos.DistVwapZLog
+          VolZLog = pos.VolZLog
+          VolZLin = pos.VolZLin
+          IsNewSessLow = pos.IsNewSessLow
+          PrevSessVolHigh = pos.PrevSessVolHigh
+          IsNewSessVolHigh = pos.IsNewSessVolHigh
           EmaAtEntry = pos.EmaAtEntry
           PctChgSinceOpen = pos.PctChgSinceOpen
           Chg1d = pos.Chg1d
@@ -393,7 +403,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,adj_ratio,entry_time,entry_price,"
     + "bars_since_first_low,lows_since_first_low,"          // ⭐ the reset counters
-    + "vwap_at_entry,dist_vwap,dist_vwap_z,dist_vwap_z_log,ema_at_entry,pct_chg_since_open,chg_1d,chg_3d,"
+    + "vwap_at_entry,dist_vwap,dist_vwap_z,dist_vwap_z_log,vol_z_log,vol_z_lin,is_new_sess_low,prev_sess_vol_high,is_new_sess_vol_high,ema_at_entry,pct_chg_since_open,chg_1d,chg_3d,"
     + "log_atr_20,adx_14,plus_di_14,minus_di_14,"
     + "price_slope_open,price_slope_60,price_slope_20,"
     + "vol_slope_open,vol_slope_60,vol_slope_20,"
@@ -412,7 +422,7 @@ let private row (t: Trip) =
            f t.EntryPrice
            string t.BarsSinceFirstLow
            string t.LowsSinceFirstLow
-           f t.VwapAtEntry; f t.DistVwap; f t.DistVwapZ; f t.DistVwapZLog; f t.EmaAtEntry
+           f t.VwapAtEntry; f t.DistVwap; f t.DistVwapZ; f t.DistVwapZLog; f t.VolZLog; f t.VolZLin; (if t.IsNewSessLow then "1" else "0"); f t.PrevSessVolHigh; (if t.IsNewSessVolHigh then "1" else "0"); f t.EmaAtEntry
            f t.PctChgSinceOpen; f t.Chg1d; f t.Chg3d
            f t.LogAtr20; f t.Adx14; f t.PlusDi14; f t.MinusDi14
            f t.PriceSlopeOpen; f t.PriceSlope60; f t.PriceSlope20
