@@ -23,6 +23,7 @@ type Args =
     | Exit_High_Window of int
     | No_Vwap_Filter
     // ----- the one surviving gate -----
+    | Min_Lows_Into_Leg of int
     | Min_Intraday_Atr_Pct of float
     // ----- universe -----
     | Min_Dv_0945 of float
@@ -45,7 +46,8 @@ type Args =
             | Entry_Low_Window _ -> "⭐ ENTRY: buy when the close makes a new N-minute LOW of 1m-bar CLOSES. Default 20. Try 60 for a deeper, rarer dip."
             | Exit_High_Window _ -> "⭐ EXIT: sell when the close reaches the N-minute HIGH of 1m-bar CLOSES. Default 20."
             | No_Vwap_Filter -> "Drop the `close > VWAP` entry condition. ⚠ V5 F6 proved it LOAD-BEARING (PF 1.429->1.319 AND avg/trade 0.670%%->0.561%% across 8x the trips). Ablation only."
-            | Min_Intraday_Atr_Pct _ -> "The ONLY gate in V6: 20m log-ATR >= this (MR needs range to revert across). Default 0.013. 0 = off."
+            | Min_Lows_Into_Leg _ -> "⭐ WAIT FOR THE Kth LOW (F3): only enter once this down-leg has made >= K consecutive new lows, and take ONE position per leg. 0 (default) = the sampler (every low). K=5 + --max-concurrent 1 = the production book: PF 1.968 / +1.48%%/trade / 1068 trips, positive every year. The edge is in the BLEEDERS (F1), and this harvests it WITHOUT averaging down."
+            | Min_Intraday_Atr_Pct _ -> "The other gate in V6: 20m log-ATR >= this (MR needs range to revert across). Default 0.013. 0 = off."
             | Min_Dv_0945 _ -> "Universe floor: min 09:30-09:45 dollar volume (LIVE-SAFE; replaces V4's leaked ADV floor). Default 5000000."
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: unlimited concurrent positions, i.e. it AVERAGES DOWN. Removes path dependency so every trip is an independent row for post-hoc SQL — but PF is then ATTRIBUTION, NOT a portfolio number. Use 1 for a real tradable book (V5 F6: mc=0 PF 1.429 vs mc=1 1.285)."
             | Entry_Start_Min _ -> "Earliest ET minute an entry may fire (default 600 = 10:00). ⚠ Must be >= 585 (09:45) — see the knowability guard."
@@ -75,6 +77,7 @@ let main argv =
                     EntryLowWindow   = parsed.GetResult(Entry_Low_Window, defaultValue = d.Intraday.EntryLowWindow)
                     ExitHighWindow   = parsed.GetResult(Exit_High_Window, defaultValue = d.Intraday.ExitHighWindow)
                     RequireAboveVwap = d.Intraday.RequireAboveVwap && not (parsed.Contains No_Vwap_Filter)
+                    MinLowsIntoLeg   = parsed.GetResult(Min_Lows_Into_Leg, defaultValue = d.Intraday.MinLowsIntoLeg)
                     MinAtrPct        = parsed.GetResult(Min_Intraday_Atr_Pct, defaultValue = d.Intraday.MinAtrPct)
                     MaxConcurrent    = parsed.GetResult(Max_Concurrent,  defaultValue = d.Intraday.MaxConcurrent)
                     EntryStartMin    = parsed.GetResult(Entry_Start_Min, defaultValue = d.Intraday.EntryStartMin)
@@ -101,8 +104,9 @@ let main argv =
     printfn "  db          = %s" dbPath
     printfn "  range       = %O .. %O" startDate endDate
     printfn "  universe    = dv_0945 >= $%.1fM  AND  rvol_0945_honest >= 1   [LIVE-SAFE]" (cfg.MinDv0945 / 1e6)
-    printfn "  ENTRY       = close <= prior %dm MIN of closes%s" ic.EntryLowWindow
+    printfn "  ENTRY       = close <= prior %dm MIN of closes%s%s" ic.EntryLowWindow
         (if ic.RequireAboveVwap then "   AND close > VWAP" else "   (⚠ VWAP filter OFF — ablation)")
+        (if ic.MinLowsIntoLeg > 0 then sprintf "   AND >= %d lows into the leg (ONE position/leg)" ic.MinLowsIntoLeg else "")
     printfn "  EXIT        = close >= prior %dm MAX of closes (target)  |  MOC    [NO STOP]" ic.ExitHighWindow
     printfn "  gate        = %s" (if ic.MinAtrPct > 0.0 then sprintf "log-ATR20 >= %.3f  (the ONLY gate)" ic.MinAtrPct else "NONE (ATR floor off)")
     printfn "  entry window= %s–%s ET   features fold from %s ET" (hhmm ic.EntryStartMin) (hhmm ic.EntryEndMin) (hhmm ic.FeatureStartMin)

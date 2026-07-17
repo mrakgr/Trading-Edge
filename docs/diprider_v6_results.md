@@ -136,6 +136,114 @@ bars 0–48 on the smoke test.
 
 ---
 
+## Finding 3 — ⭐⭐ THE BLEEDER CELL IS TRADABLE: "wait for the Kth low", one position per leg
+
+F1 showed the edge is in the bleeders but the best cell *looked* like it required averaging down. **It does
+not.** Instead of taking every new low, **wait until the leg has made K consecutive new lows and take
+EXACTLY ONE position** (the leg is then consumed until a 20m high resets it). That is a real mc=1-style
+book — no averaging down, bounded capital.
+
+**20m-low entry, the Kth-low sweep (one position/leg, 2020-26):**
+
+| wait for the Kth low | n | win% | avg %/tr | **PF** | net |
+|---|---|---|---|---|---|
+| 0 (take the first dip) | 10,495 | 62.6 | 0.468 | 1.255 | $491,590 |
+| 1 | 6,722 | 64.4 | 0.646 | 1.371 | $433,913 |
+| 2 | 4,356 | 66.8 | 0.868 | 1.520 | $378,250 |
+| 3 | 2,793 | 69.1 | 1.112 | 1.719 | $310,622 |
+| 4 | 1,754 | 69.3 | 1.215 | 1.771 | $213,047 |
+| **5** | **1,068** | **70.5** | **1.479** | **⭐ 1.968** | $157,958 |
+| 6 | 666 | 71.0 | 1.380 | 1.875 | $91,895 |
+| 8 | 246 | 72.4 | 1.203 | 1.639 | $29,582 |
+
+**PF peaks at K=5 (1.968) — HIGHER than the sampler's 1.872 for the same cell**, because taking only the
+FIRST qualifying entry avoids the deeper, worse fills. The hump sits in the same place as F1's independent
+measurement: **two different selection rules agreeing on the optimum is real structure, not a fitting
+artifact.**
+
+**The economics improve as you wait:** avg/trade 0.47% → 1.48% (3×), win 62.6% → 70.5%. At +1.48% the
+~0.1% round-trip cost falls from 21% of the edge to **7%**.
+
+**⭐ ENGINE-VERIFIED (not just a post-hoc slice).** Wired as `--min-lows-into-leg` + a `legConsumed` latch
+cleared by the same 20m-high reset. Engine vs post-hoc SQL at K=5:
+
+| | trips | win% | avg %/tr | PF |
+|---|---|---|---|---|
+| post-hoc SQL | 1,068 | 70.5 | 1.479 | 1.968 |
+| **ENGINE** (`--min-lows-into-leg 5 --max-concurrent 1`) | **1,071** | **70.5** | **1.477** | **1.967** |
+
+Two independent implementations agree. (The 3-trip gap is the mc=1 slot interacting with legs that overlap
+a 20m-high reset — correct engine behaviour the SQL proxy cannot model.)
+
+**Per-year (20m-low K=5) — and it FIXES V5 F6's weak years:**
+
+| yr | n | win% | avg %/tr | PF |
+|---|---|---|---|---|
+| 2020 | 149 | 71.8 | 1.725 | 2.244 |
+| 2021 | 170 | 61.8 | 0.396 | **1.220** |
+| 2022 | 141 | 70.9 | 1.566 | 2.484 |
+| 2023 | 164 | 76.2 | 2.259 | **3.108** |
+| 2024 | 217 | 72.4 | 1.782 | 1.991 |
+| 2025 | 175 | 70.3 | 1.192 | 1.652 |
+| 2026 | 52 | 69.2 | 1.322 | 1.812 |
+
+V5 F6's mc=1 book had **2020 AND 2021 both at 1.077 and cost-negative** (+0.12%/tr). K=5 turns 2020 into
+**2.244 / +1.73%**. Only 2021 stays soft (1.220 / +0.40% — marginal after costs). Trip counts are stable
+across years (141–217), so the structure is not a regime artifact.
+
+---
+
+## Finding 4 — the 60m-low entry (user's idea): it RAISES PF at every K — but it is LESS ROBUST
+
+Ran the sampler at `--entry-low-window 60` (a deeper, rarer dip), then sliced post-hoc. **The ungated 60m
+book already beats the ungated 20m one: PF 1.719 / +1.22%/tr vs 1.410 / +0.73%.**
+
+**60m beats 20m on PF at EVERY K:**
+
+| K | 20m-low PF (n) | **60m-low PF (n)** |
+|---|---|---|
+| 0 | 1.255 (10,495) | **1.526** (977) |
+| 1 | 1.371 (6,722) | **1.836** (547) |
+| 3 | 1.719 (2,793) | **2.021** (203) |
+| 4 | 1.771 (1,754) | **2.145** (116) |
+| 5 | 1.968 (1,068) | **2.138** (65) |
+| 6 | 1.875 (666) | **2.195** (44) |
+
+**The mechanism is sound** — a 60m low is a deeper, rarer, more meaningful dip, so each entry is
+higher-quality. **But the headline PF hides two problems:**
+
+### ⚠ The candidate books, with the WORST YEAR shown
+
+| cell | n | /yr | win% | avg % | **PF** | net | **worst yr PF** |
+|---|---|---|---|---|---|---|---|
+| 20m-low K=0 | 10,495 | 1615 | 62.6 | 0.468 | 1.255 | $491,590 | 1.018 |
+| **20m-low K=3** | **2,793** | **430** | 69.1 | 1.112 | **1.719** | **$310,622** | **⭐ 1.296** |
+| 20m-low K=5 | 1,068 | 164 | 70.5 | 1.479 | **1.968** | $157,958 | 1.220 |
+| 60m-low K=0 | 977 | 150 | 70.6 | 0.953 | 1.526 | $93,086 | 1.029 |
+| 60m-low K=1 | 547 | 84 | 71.5 | 1.273 | 1.836 | $69,612 | **0.892** ❌ |
+| 60m-low K=3 | 203 | 31 | 69.5 | 1.468 | 2.021 | $29,794 | 1.027 |
+
+1. **The 60m books are NOT all-weather.** 60m K=1 **LOSES money in 2021 (PF 0.892)**; 60m K=0 is 1.029 and
+   K=3 is 1.027. Their higher PF is partly **regime concentration** — a smaller, sharper sample leaning
+   harder on the good years — not purely better selection.
+2. **31–84 trips/year is too thin** to separate skill from luck.
+
+### ⭐ VERDICT: the production candidate is **20m-low K=3**, not the highest-PF cell
+
+- **PF 1.719 / +1.11%/tr / 430 trips per year / worst year 1.296** — the **best worst-year in the table**.
+  It never has a bad year.
+- It nets **2× K=5's dollars** ($311k vs $158k): above PF ~1.7, **capacity matters more than PF**.
+- At +1.11%/trade, costs (~0.1%) are **~9% of the edge** — comfortably cost-insensitive.
+
+**K=5 has the prettier PF; K=3 has the better business.** Optimising PF blind would have picked 60m K=3
+(PF 2.021) — the cell with 31 trips/yr and a 1.027 worst year.
+
+⏭ **Owed:** the 60m/20m difference may be a *sizing* signal rather than a selection one (60m lows are rarer
+AND better ⇒ size up on them within the 20m book). Test as an overlay, not a replacement.
+
+
+---
+
 ## Status / next
 
 ⏭ **In order:**

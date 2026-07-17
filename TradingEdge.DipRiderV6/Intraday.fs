@@ -210,7 +210,16 @@ type IntradayConfig =
       EntryStartMin: int       // 600 = 10:00
       EntryEndMin: int         // 810 = 13:30
       MocMin: int              // 960 = 16:00
-      MinAtrPct: float }       // the ONLY surviving gate: 20m log-ATR >= this. MR needs RANGE to revert
+      MinLowsIntoLeg: int      // ⭐ WAIT FOR THE Kth LOW (F3). Require lows_since_first_low >= this, and take
+                               // only ONE position per down-leg (the leg is then consumed until a 20m high
+                               // resets it). 0 = off (take every low = the sampler).
+                               //   F1 found the edge is in the BLEEDERS, not the first dip; F3 proved that cell
+                               //   is harvestable WITHOUT averaging down. K=5: PF 1.968 / +1.48%/tr / 1068 trips,
+                               //   positive EVERY year — vs K=0's 1.255 / +0.47%. The PF humps at K=5 and rolls
+                               //   off by K=8 (2 independent selection rules agree on the peak).
+                               //   ⚠ At K>0 this is a REAL mc=1-style book: one position per leg, no averaging
+                               //   down. Set --max-concurrent 1 as well to enforce it globally.
+      MinAtrPct: float }       // the ONLY other gate: 20m log-ATR >= this. MR needs RANGE to revert
                                // across. 0 = off. (V5 F6: it does far LESS work here than in momentum —
                                // 1.350 ungated vs 1.429 — so it is a CAPACITY dial, not the edge.)
 
@@ -240,6 +249,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     let volEmaMin  = MinMa(cfg.VolWindow)
     let vol5avg    = AvgMa(5)
     let counters   = NewLowCounters()            // ⭐ the reset machine
+    // ⭐ F3: at MinLowsIntoLeg > 0 a leg yields at most ONE position. Set when that leg fires; cleared by
+    // the same 20m-high reset that clears the counters. This is what makes "wait for the Kth low" a real
+    // book (no averaging down) rather than a post-hoc slice of the sampler.
+    let mutable legConsumed = false
 
     let positions = ResizeArray<IntradayPosition>()
     let mutable dayOpen : float voption = ValueNone
@@ -336,10 +349,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         let atrOk =
             cfg.MinAtrPct <= 0.0
             || (match atrLog.State with ValueSome a -> a >= cfg.MinAtrPct | ValueNone -> false)
+        // ⭐ F3 "wait for the Kth low": deep enough into THIS leg, and the leg not already used.
+        let legOk =
+            cfg.MinLowsIntoLeg <= 0
+            || (not legConsumed && counters.LowsSinceFirstLow >= cfg.MinLowsIntoLeg)
         let vwapOk =
             not cfg.RequireAboveVwap
             || (match vwap.State with ValueSome v -> v > 0.0 && bar.close > v | ValueNone -> false)
-        if inWindow && atrOk && vwapOk && isNewLow && this.HasSlot then
+        if inWindow && atrOk && vwapOk && legOk && isNewLow && this.HasSlot then
+            if cfg.MinLowsIntoLeg > 0 then legConsumed <- true
             let dist = this.DistVwapNow bar.close
             positions.Add
                 { EntryMin = bar.etMin
@@ -375,7 +393,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                   State = Holding }
 
         // ===== 6. the reset fires LAST: a new 20m high closes the down-leg =====
-        if isNewHigh then counters.Reset()
+        if isNewHigh then
+            counters.Reset()
+            legConsumed <- false      // a fresh leg may fire again
         prevBar <- ValueSome bar
 
     /// Flatten any still-open position at the last bar (MOC).

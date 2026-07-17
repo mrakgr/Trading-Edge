@@ -58,7 +58,9 @@ let defaultConfig =
           EntryStartMin   = 10 * 60      // 10:00 ET (09:30-10:00 warms the windows).
           EntryEndMin     = 13 * 60 + 30 // 13:30 ET
           MocMin          = 16 * 60      // 16:00 ET
-          MinAtrPct       = 0.013 }      // the ONLY gate. V5 F6: a capacity dial, not the edge.
+          MinLowsIntoLeg  = 0            // ⭐ 0 = the SAMPLER (take every low). Set 5 (+ --max-concurrent 1)
+                                         // for the F3 production book: PF 1.968 / +1.48%/tr / 1068 trips.
+          MinAtrPct       = 0.013 }      // the other gate. V5 F6: a capacity dial, not the edge.
       Notional = 10_000.0
       MinDv0945 = 5_000_000.0 }
 
