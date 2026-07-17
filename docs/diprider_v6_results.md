@@ -1219,6 +1219,49 @@ solved by the VOLUME filter (F22), not by a bar_pct cap — the opposite of the 
 
 ---
 
+## Finding 24 — the flush knee is a DEPTH threshold, NOT a volume one (the OPPOSITE of the short) — deep flushes are ALL loud
+
+**User:** *"What if we also control for the volume on these long flushes?"* — testing whether the F23 knee is
+a volume story like the short's squeeze (F22).
+
+**It is NOT — and the reason is structural. Deep flushes are almost ENTIRELY loud:**
+
+| flush | PF quiet | n quiet | PF loud | n loud |
+|---|---|---|---|---|
+| −3..−2% | 1.473 | 569,387 | 1.722 | 540,372 |
+| −5..−3% | 2.824 | 1,753 | 2.457 | 21,287 |
+| −7..−5% | 3.956 | **124** | 2.220 | 5,024 |
+| −10..−7% | 5.903 | **10** | 2.089 | 1,853 |
+| −15..−10% | 11.663 | **2** | 1.783 | 457 |
+| **< −15%** | — | **0** | **0.777** | 114 |
+
+**⭐ A violent flush without volume BASICALLY DOES NOT EXIST** — a name does not drop 10% in one minute on
+quiet volume. The "quiet deep flush" cell is EMPTY by construction (124 → 10 → 2 → 0 as it deepens); those
+PFs of 4–12 are 2–10-trip NOISE. **The `< −15%` breakdown is 100% loud (114 loud, 0 quiet)** — so it is not
+"loud breaks, quiet survives"; it is "**ALL deep flushes are loud, and the deepest — repricings — are where
+even the loud fade fails.**"
+
+**⭐⭐ THE ACTIONABLE FINDING: on the long side VOLUME does NOT separate the good deep flush from the bad —
+DEPTH does.** The loud PF is remarkably STABLE −3% → −10% (2.457 → 2.220 → 2.089) and only collapses < −15%
+(0.777). A loud flush at −7% is a great buy; a loud flush at −16% is a repricing — **volume is loud in BOTH;
+only depth tells them apart.** So F23's cap stands as a PRICE-MAGNITUDE threshold (~−10% tradable, < −15%
+un-fadeable), independent of volume.
+
+### ⭐ THE LONG/SHORT ASYMMETRY, RESOLVED
+
+| | the lever that separates fade from failure | why |
+|---|---|---|
+| **SHORT (F22)** | **VOLUME** at a fixed pop size (quiet = fade, loud = squeeze) | a squeeze NEEDS volume (buyers piling in), so quiet-vs-loud discriminates it |
+| **LONG (F24)** | **DEPTH** (all flushes loud; ~−15% = repricing) | a capitulation flush ALWAYS has volume (panic selling), so among flushes volume is CONSTANT — only depth signals overshoot-vs-repricing |
+
+This is why "just filter on quiet volume" (the short's fix, F22) does NOT port to the long deep-flush problem,
+and why LowFlyer's flush-depth sizing needs a hard CAP rather than a volume gate. The two books are
+mechanistically mirror-opposite on their tail control: **the short fades STRENGTH (volume betrays the fake),
+the long buys WEAKNESS (depth betrays the repricing).**
+
+
+---
+
 ## Status / next
 
 ⏭ **In order:**
