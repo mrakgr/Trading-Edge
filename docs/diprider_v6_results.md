@@ -1262,7 +1262,7 @@ the long buys WEAKNESS (depth betrays the repricing).**
 
 ---
 
-## Finding 25 — vol TERCILES within each flush band: higher volume is MONOTONICALLY better (the "low-vol fast move" effect is filtered out by the liquidity floor)
+## Finding 25 — vol TERCILES within each flush band: higher volume looks monotonically better ⚠️ SUPERSEDED BY F26 (the within-band NTILE was the wrong split)
 
 **User:** *"split the volume into 3 buckets instead of 2 — intraday, fast moves on low volume are some of the
 best trades that exist."* A real and famous intuition; tested with terciles computed WITHIN each flush band
@@ -1298,6 +1298,48 @@ of the volume slice.
 
 ⏭ The low-vol-fast-move edge would need a SEPARATE, LOWER-liquidity universe to test — the same conclusion
 F15 reached for the momentum edge (different universe, not a re-slice). Noted, not pursued on this book.
+
+
+---
+
+## Finding 26 — ⭐ FIXED vol-z boundaries (user's correction to F25): quiet deep flushes DO exist and fade well — the interaction FLIPS with depth
+
+**User caught the F25 error:** *"Do all the columns have the same z-score boundary or not? You should split
+something like [−inf,−0.5), [−0.5,0.5), [0.5,inf)."* — **Correct. F25 used `NTILE(3)` WITHIN each flush band,
+so its "low-vol" third had DIFFERENT (and, at depth, still-huge) z cutoffs per row** (the `med volz` column
+gave it away: +110 for the deepest band). That answers "within a fixed depth, does *relatively* more volume
+help" — NOT "does a deep flush on *absolutely* low volume exist and revert." Fixed boundaries answer the real
+question:
+
+| flush | PF quiet (<−0.5) | n | PF mid | n | PF loud (≥0.5) | n |
+|---|---|---|---|---|---|---|
+| < −10% | 11.663 | **2** | 5.879 | 18 | **1.357** | 571 |
+| −10..−5% | **4.105** | 134 | 2.178 | 1,220 | 2.175 | 6,877 |
+| −5..−3% | **2.824** | 1,753 | 2.202 | 8,464 | 2.457 | 21,287 |
+| −3..−2% | 2.074 | 6,543 | 2.033 | 20,632 | 2.276 | 36,363 |
+| −2..0% | 1.458 | 562,844 | 1.483 | 675,588 | **1.655** | 504,009 |
+
+**⭐ QUIET DEEP FLUSHES DO EXIST (134 at −10..−5%, 1,753 at −5..−3%) and they fade well (4.105 / 2.824).**
+F25's "there is no low-volume deep flush" was an ARTIFACT of the within-band NTILE — this REFUTES it.
+
+**⭐ THE INTERACTION FLIPS WITH DEPTH (the real finding):**
+- **Shallow (−2..0%):** LOUD wins (1.655 > 1.458) — volume = conviction in the dip.
+- **Deep loud EXTREME collapses:** `< −10% × loud` = **1.357**, barely a fade — the repricing tail (F23) is a
+  LOUD-volume phenomenon.
+- **Deep quiet holds up** (2.8–4.1 aggregate) — the pure overshoot the user described DOES appear, but only
+  at DEPTH, which the F25 tercile averaged away.
+
+**⚠ HONESTY — quiet does NOT robustly BEAT loud at depth.** Per-year (deep < −3%), deep+quiet wins 5 of 7
+but LOSES in 2020 (1.94 vs 3.49) and 2021, and the aggregate leans on a 2022 outlier (6.8). Both quiet and
+loud fade well at depth most years (both ~2+); which wins flips around on ~100–500 trips/yr.
+
+**⭐ CORRECTED SYNTHESIS (between F24 and F25, superseding both on this point):** at depth, quiet AND loud
+flushes both fade well; **the deep tail only truly BREAKS in the LOUD extreme (< −10%, PF 1.357)** — a real
+repricing needs volume. Volume is a SOFT modifier at depth, not the clean separator F24 implied nor the
+monotone-helpful lever F25 claimed. The F23 DEPTH knee still stands (it is where the loud flush breaks); but
+the deepest QUIET flushes are the purest overshoots and, where they exist, the strongest fades. **The
+user's "fast move on low volume" intuition is VINDICATED at depth — it was the within-band split that hid
+it.**
 
 
 ---
