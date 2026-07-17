@@ -962,6 +962,17 @@ high-rvol advantage persists further up the ATR range before flipping.
 
 ---
 
+## Finding 18 — `dist_vwap_z_log` added, and it is INDISTINGUISHABLE from the linear z (see MaxRiderV1 F7)
+
+Added `dist_vwap_z_log` = z of `log(close/vwap)` (user, "calculate the VWAP z in log space for both
+systems"). On the long book it tracks the linear `dist_vwap_z` within ~0.02 at every level (e.g. `< −3`:
+2.152 linear vs 2.161 log; the whole U-shape preserved). **No measurable difference.** Full analysis +
+the WHY (input scale: log matters for heavy-tailed volume, not for ±3% VWAP distance) is in
+`docs/maxrider_v1_results.md` F7. Keep the log column as canonical; the choice is immaterial here.
+
+
+---
+
 ## Status / next
 
 ⏭ **In order:**

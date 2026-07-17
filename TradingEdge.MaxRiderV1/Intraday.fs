@@ -181,7 +181,8 @@ type IntradayPosition =
       // ----- location -----
       VwapAtEntry: float
       DistVwap: float            // close/vwap - 1 (> 0 by construction when RequireBelowVwap)
-      DistVwapZ: float           // ⭐ session-cumulative z-score of DistVwap
+      DistVwapZ: float           // ⭐ session-cumulative z-score of DistVwap (linear, close/vwap-1)
+      DistVwapZLog: float        // ⭐ session-cumulative z-score of LOG(close/vwap) — the log-space twin
       VolZLog: float             // ⭐ session-cum z-score of LOG(bar volume) — volume abnormality, log space
       VolZLin: float             // ⭐ session-cum z-score of RAW bar volume — normal space (to compare)
       EmaAtEntry: float
@@ -265,7 +266,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     let ema        = EmaMa(cfg.EmaPeriod)
     let atrLog     = AvgMa(cfg.VolWindow)
     let adx        = AdxMa(cfg.AdxPeriod)
-    let distZ      = CumStdMa()                  // ⭐ session mean/σ of dist_vwap → the z-score
+    let distZ      = CumStdMa()                  // ⭐ session mean/σ of dist_vwap (close/vwap-1) → the z-score
+    let distZLog   = CumStdMa()                  // ⭐ session mean/σ of LOG(close/vwap) → the LOG-space VWAP z.
+                                                 // The true log analogue: symmetric (a +x% and -x% move are
+                                                 // equal-and-opposite in log space). log(1+x)~=x for the ~1-3%
+                                                 // distances here, so it tracks distZ closely except in the fat
+                                                 // tail — recorded to VALIDATE, not assume, like vol_z (F6).
     let volZLog    = CumStdMa()                  // ⭐ session mean/σ of LOG(bar volume) → the volume z (log space)
     let volZLin    = CumStdMa()                  // ⭐ session mean/σ of RAW bar volume → the volume z (normal space)
     let priceOls20 = OlsSlopeMa(cfg.VolWindow)
@@ -340,6 +346,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         vwap.Push(tp * float bar.volume, float bar.volume)
         // the z accumulator reads dist AFTER the VWAP push (this-bar-inclusive)
         this.DistVwapNow bar.close |> ValueOption.iter distZ.Push
+        (match vwap.State with ValueSome v when v > 0.0 && bar.close > 0.0 -> distZLog.Push (log (bar.close / v)) | _ -> ())
         // volume z accumulators: log space handles the heavy tail (bar_vol spans 100 -> 39M); linear is
         // recorded alongside so the log transform can be VALIDATED, not assumed (user).
         volZLog.Push (log (float (max bar.volume 1L)))
@@ -406,6 +413,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                   VwapAtEntry = vv vwap.State
                   DistVwap = vv dist
                   DistVwapZ = vv (match dist with ValueSome d -> distZ.Z d | ValueNone -> ValueNone)
+                  DistVwapZLog = vv (match vwap.State with ValueSome v when v > 0.0 && bar.close > 0.0 -> distZLog.Z (log (bar.close / v)) | _ -> ValueNone)
                   VolZLog = vv (volZLog.Z (log (float (max bar.volume 1L))))
                   VolZLin = vv (volZLin.Z (float bar.volume))
                   EmaAtEntry = vv ema.State

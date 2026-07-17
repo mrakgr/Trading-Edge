@@ -294,6 +294,59 @@ mirror predicts fade... i.e. BUY the quiet dip, not the panic-volume flush.
 
 ---
 
+## Finding 7 — log-space VWAP z is INDISTINGUISHABLE from linear (unlike volume) — and that contrast IS the lesson
+
+**User:** *"Since calculating the z scores in log space performs well, we should calculate z score of the
+distance from VWAP in log space as well for both systems."*
+
+Added `dist_vwap_z_log` = session-cumulative z of `log(close/vwap)` (the true log analogue — symmetric,
+where the raw ratio `close/vwap−1` is not) to BOTH engines. **Result: it makes no measurable difference.**
+
+**SHORT (dv ≥ $3M, ATR band, 7m):**
+
+| VWAP z bucket | **linear PF** | **log PF** | Δ |
+|---|---|---|---|
+| ≥ +3 | 1.653 | 1.613 | −0.04 |
+| +2..+3 | 1.515 | 1.537 | +0.02 |
+| +1..+2 | 1.356 | 1.357 | ~0 |
+| 0..+1 | 1.688 | 1.690 | ~0 |
+| **< 0 (below vwap)** | **1.883** | **1.878** | ~0 |
+
+**LONG (DipRiderV6, 5m):**
+
+| VWAP z bucket | linear PF | log PF |
+|---|---|---|
+| **< −3** | 2.152 | 2.161 |
+| −3..−2 | 1.915 | 1.896 |
+| −2..−1 | 1.579 | 1.570 |
+| −1..0 | 1.785 | 1.792 |
+| ≥ 0 | 1.839 | 1.840 |
+
+The two track within ~0.02–0.04 on **both** systems; bucket populations barely shift; every finding (the
+U-shape, F4's best-short-below-VWAP, V6 F7's long z-sweep) is unchanged.
+
+### ⭐ WHY — and it is the real lesson, since it CONTRASTS with F6 (volume)
+
+The log transform earned its keep for **volume** (F6: log spanned PF 1.769→1.281 monotone, linear only
+1.674→1.337 and non-monotone) but is **inert for VWAP distance** — because of the INPUT SCALE:
+
+| input | range | `log(1+x)` vs `x` | z dominated by outliers? |
+|---|---|---|---|
+| **bar volume** | 100 → 39M (5+ orders of magnitude) | N/A — raw values | **YES** → log essential |
+| **dist_vwap** | ~±1–3% | `log(1+x) ≈ x` for small x | no → transform ~inert |
+
+**A z-score already normalizes scale; the log transform only adds value when the input is HEAVY-TAILED
+enough that a few outliers hijack the mean/σ.** Volume is (a handful of 14σ bars). VWAP distance is not
+(±3%, near-Gaussian). **Keep `dist_vwap_z_log` as the canonical column (symmetric, correct in principle),
+but the choice is immaterial here — do not re-run it.**
+
+**Generalisable rule for this codebase:** *reach for log space when the raw feature spans orders of
+magnitude (volume, dollar-volume, float); skip it for features already bounded to a few percent (returns,
+VWAP distance, ATR%).*
+
+
+---
+
 ## Status / next
 
 ⏭ **The V6 levers all need re-measuring on the short side — do NOT assume they mirror.** The load-bearing

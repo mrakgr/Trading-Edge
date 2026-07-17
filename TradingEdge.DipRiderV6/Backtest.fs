@@ -124,7 +124,8 @@ type Trip =
       // ----- location -----
       VwapAtEntry: float
       DistVwap: float            // entry/vwap - 1
-      DistVwapZ: float           // ⭐ session-cumulative z-score of DistVwap
+      DistVwapZ: float           // ⭐ z of DistVwap (linear)
+      DistVwapZLog: float        // ⭐ z of log(close/vwap)
       EmaAtEntry: float
       PctChgSinceOpen: float
       Chg1d: float
@@ -176,6 +177,7 @@ let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Tr
           VwapAtEntry = pos.VwapAtEntry
           DistVwap = pos.DistVwap
           DistVwapZ = pos.DistVwapZ
+          DistVwapZLog = pos.DistVwapZLog
           EmaAtEntry = pos.EmaAtEntry
           PctChgSinceOpen = pos.PctChgSinceOpen
           Chg1d = pos.Chg1d
@@ -391,7 +393,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,adj_ratio,entry_time,entry_price,"
     + "bars_since_first_low,lows_since_first_low,"          // ⭐ the reset counters
-    + "vwap_at_entry,dist_vwap,dist_vwap_z,ema_at_entry,pct_chg_since_open,chg_1d,chg_3d,"
+    + "vwap_at_entry,dist_vwap,dist_vwap_z,dist_vwap_z_log,ema_at_entry,pct_chg_since_open,chg_1d,chg_3d,"
     + "log_atr_20,adx_14,plus_di_14,minus_di_14,"
     + "price_slope_open,price_slope_60,price_slope_20,"
     + "vol_slope_open,vol_slope_60,vol_slope_20,"
@@ -410,7 +412,7 @@ let private row (t: Trip) =
            f t.EntryPrice
            string t.BarsSinceFirstLow
            string t.LowsSinceFirstLow
-           f t.VwapAtEntry; f t.DistVwap; f t.DistVwapZ; f t.EmaAtEntry
+           f t.VwapAtEntry; f t.DistVwap; f t.DistVwapZ; f t.DistVwapZLog; f t.EmaAtEntry
            f t.PctChgSinceOpen; f t.Chg1d; f t.Chg3d
            f t.LogAtr20; f t.Adx14; f t.PlusDi14; f t.MinusDi14
            f t.PriceSlopeOpen; f t.PriceSlope60; f t.PriceSlope20

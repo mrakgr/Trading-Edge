@@ -166,7 +166,8 @@ type IntradayPosition =
       // ----- location -----
       VwapAtEntry: float
       DistVwap: float            // close/vwap - 1 (> 0 by construction when RequireAboveVwap)
-      DistVwapZ: float           // ⭐ session-cumulative z-score of DistVwap
+      DistVwapZ: float           // ⭐ session-cumulative z-score of DistVwap (linear, close/vwap-1)
+      DistVwapZLog: float        // ⭐ session-cumulative z-score of LOG(close/vwap) — the log-space twin
       EmaAtEntry: float
       PctChgSinceOpen: float
       Chg1d: float               // entry / prev daily close - 1
@@ -244,7 +245,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     let ema        = EmaMa(cfg.EmaPeriod)
     let atrLog     = AvgMa(cfg.VolWindow)
     let adx        = AdxMa(cfg.AdxPeriod)
-    let distZ      = CumStdMa()                  // ⭐ session mean/σ of dist_vwap → the z-score
+    let distZ      = CumStdMa()                  // ⭐ session mean/σ of dist_vwap (close/vwap-1) → the z-score
+    let distZLog   = CumStdMa()                  // ⭐ session mean/σ of LOG(close/vwap) → the LOG-space VWAP z.
+                                                 // The true log analogue: symmetric (a +x% and -x% move are
+                                                 // equal-and-opposite in log space). log(1+x)~=x for the ~1-3%
+                                                 // distances here, so it tracks distZ closely except in the fat
+                                                 // tail — recorded to VALIDATE, not assume, like vol_z (F6).
     let priceOls20 = OlsSlopeMa(cfg.VolWindow)
     let priceOls60 = OlsSlopeMa(60)
     let priceOlsOpen = OlsSlopeMa(400)           // ~the whole RTH session (390 bars) = "from open"
@@ -316,6 +322,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         vwap.Push(tp * float bar.volume, float bar.volume)
         // the z accumulator reads dist AFTER the VWAP push (this-bar-inclusive)
         this.DistVwapNow bar.close |> ValueOption.iter distZ.Push
+        (match vwap.State with ValueSome v when v > 0.0 && bar.close > 0.0 -> distZLog.Push (log (bar.close / v)) | _ -> ())
         match prevBar with
         | ValueSome p when bar.high > 0.0 && bar.low > 0.0 && p.close > 0.0 ->
             log (max bar.high p.close / min bar.low p.close) |> atrLog.Push
@@ -378,6 +385,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                   VwapAtEntry = vv vwap.State
                   DistVwap = vv dist
                   DistVwapZ = vv (match dist with ValueSome d -> distZ.Z d | ValueNone -> ValueNone)
+                  DistVwapZLog = vv (match vwap.State with ValueSome v when v > 0.0 && bar.close > 0.0 -> distZLog.Z (log (bar.close / v)) | _ -> ValueNone)
                   EmaAtEntry = vv ema.State
                   PctChgSinceOpen = (match dayOpen with ValueSome o when o > 0.0 -> bar.close / o - 1.0 | _ -> nan)
                   Chg1d = (if close1d > 0.0 then bar.close / close1d - 1.0 else nan)
