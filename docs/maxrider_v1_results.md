@@ -807,6 +807,31 @@ signal (F12/F13), its price/strength shape (F14), and its ATR ceiling under a 20
 
 ---
 
+## Finding 16 — ADX: same as the long side — higher is BETTER (the MR "loves chop" thesis is false), independent of ATR
+
+`adx_14` breakdown, SHORT (7m cover, dv ≥ $3M, ATR band):
+
+| ADX | n | win% | avg% | **PF** |
+|---|---|---|---|---|
+| < 15 (dead chop) | 269,366 | 68.6 | 0.211 | **1.446 ← WORST** |
+| 15–20 | 448,940 | 68.5 | 0.230 | 1.485 |
+| 20–25 | 455,954 | 68.5 | 0.238 | 1.498 |
+| 25–30 | 369,022 | 68.7 | 0.256 | 1.539 |
+| 30–40 | 465,540 | 69.0 | 0.267 | 1.550 |
+| **≥ 40 (strong trend)** | 391,556 | 70.4 | 0.326 | **⭐ 1.711** |
+
+**Monotone-increasing, and the short RISES FURTHER than the long** — peak at ADX ≥ 40 (PF 1.711, +0.326%/tr,
+the highest avg% of any ADX cell on either side). Same mechanism as DipRiderV6 F19: on a conditioned MR book
+ADX is ENERGY (something to snap back from), not directional-persistence-that-fights-us. Dead chop is the
+worst cell on both sides. **ADX is a genuine new lever, independent of ATR (corr ≈ 0, per F19).**
+
+⚠ The short's ≥40 cell (PF 1.711, +0.326%/tr) is the strong-trend regime — check it does not overlap the F11
+squeeze tail (a name trending hard UP that we are fading) before trusting the avg%; pair with the F11
+quiet-volume filter.
+
+
+---
+
 ## Status / next
 
 ⏭ **The V6 levers all need re-measuring on the short side — do NOT assume they mirror.** The load-bearing

@@ -973,6 +973,49 @@ the WHY (input scale: log matters for heavy-tailed volume, not for ±3% VWAP dis
 
 ---
 
+## Finding 19 — ADX: the MR "loves chop" thesis is WRONG — higher ADX is BETTER, and it is INDEPENDENT of ATR
+
+`adx_14` (Wilder ADX(14), direction-agnostic trend STRENGTH) has been recorded since the sampler was built
+(F2's `AdxMa` class); this is its first analysis. **The textbook MR thesis — best in chop (low ADX), worst
+in a trend (high ADX) — is FALSE here:**
+
+| ADX | n | win% | avg% | **PF** |
+|---|---|---|---|---|
+| < 15 (dead chop) | 303,512 | 67.8 | 0.219 | **1.596 ← WORST** |
+| 15–20 | 474,516 | 68.0 | 0.237 | 1.671 |
+| 20–25 | 476,972 | 68.5 | 0.253 | 1.725 |
+| 25–30 | 385,910 | 68.9 | 0.269 | **1.778** |
+| 30–40 | 490,502 | 69.1 | 0.275 | 1.777 |
+| ≥ 40 (strong trend) | 436,491 | 69.3 | 0.274 | 1.764 |
+
+**Monotone-increasing, plateauing at 30+. The LOWEST ADX (dead chop) is the WORST cell.**
+
+**Why (this reframes ADX for a conditioned MR book):** the entry ALREADY requires a mean-reversion setup (a
+dip to a 20m low). So ADX here is not "a trend that runs THROUGH the reversion" — it is **energy in the
+name**. A dead-chop name (ADX<15) barely moves, so its dips are NOISE with nothing to snap back FROM. A
+high-ADX name makes real thrusts, and the counter-thrust IS the reversion trade. ADX measures ENERGY, not
+directional-persistence-that-fights-us.
+
+**⭐ AND IT IS INDEPENDENT OF ATR** — `corr(ATR, ADX) ≈ 0` in every band (0.06 / −0.02 / 0.00). ATR = bar
+RANGE size; ADX = directional CONSISTENCY. A name can be high-ATR/low-ADX (wild swings going nowhere) or
+low-ATR/high-ADX (steady grind). Orthogonal — and ADX lifts PF WITHIN every ATR band:
+
+| ATR | adx<20 | adx 20–30 | adx≥30 |
+|---|---|---|---|
+| .004–.009 | 1.594 | 1.624 | **1.709** |
+| **.009–.02** | 1.788 | **⭐ 1.966** | 1.905 |
+| .02–.035 | 1.499 | **1.863** | 1.702 |
+
+**Best cell in the study: `ATR 0.009–0.02 × ADX 20–30` = PF 1.966** — two independent levers. ⚠ Nuance: in
+the MID-ATR bands the peak is ADX **20–30**, not ≥30 (a slight inverted-U — do not fade a STRONG trend in an
+ALREADY-volatile name); only in the lowest-ATR band does ADX help monotonically to ≥30. **ADX is a genuine
+NEW dimension for the long book, not an ATR proxy.**
+
+(Short side mirrors this — see MaxRiderV1 F16: monotone-increasing, peak at ADX ≥ 40.)
+
+
+---
+
 ## Status / next
 
 ⏭ **In order:**
