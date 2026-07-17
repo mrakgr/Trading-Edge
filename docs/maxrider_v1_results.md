@@ -762,6 +762,51 @@ the 1m low (exit = stop).** The price-above-VWAP condition is mechanistic confir
 
 ---
 
+## Finding 15 — raising the ATR floor does NOT save the momentum book: the pattern DOESN'T EXIST at high ATR (on this entry rule)
+
+**User:** *"The long avg% figures are a bit small to trade realistically. What if we increase the ATR%
+floor?"*
+
+Directionally right — avg% DOES scale with ATR — but the sample runs out before it becomes a book.
+
+**Momentum cell (`volHIGH × not-high & vol_z ≥ 1.5`, 1m), by ATR, NO ceiling:**
+
+| ATR | n | long PF | **long avg%** | med px |
+|---|---|---|---|---|
+| 0.004–0.009 | 5,107 | 1.237 | 0.067 | $30 |
+| **0.009–0.02** | 1,507 | 1.431 | **0.252** | $34 |
+| 0.02–0.035 | 280 | 1.087 | 0.104 | $32 |
+| **0.035–0.05** | **49** | 1.960 | **⭐ 1.335** | $22 |
+| 0.05–0.08 | **37** | **0.451** | −1.549 | $22 |
+| ≥ 0.08 | **1** | — | — | — |
+
+**The `0.035–0.05` cell IS a tradable magnitude (+1.335%/tr, PF 1.96) — 10× the baseline, exactly as
+predicted.** BUT it is **49 trips** (~7/yr), and the very next band INVERTS to a loser (0.05–0.08: PF 0.451,
+−1.55%/tr, 37 trips). Above ATR 0.035 the cell EVAPORATES.
+
+**⭐ It is NOT a liquidity constraint.** Dropping the dv floor $3M → $500k adds ZERO trips in every high-ATR
+band (49→49, 37→37). The cell is empty regardless of liquidity.
+
+**⭐⭐ It is the ENTRY RULE.** MaxRider fires on a **new 20m high**. A high-ATR name moving violently makes
+new 20m highs CONSTANTLY and sits AT/NEAR its session high — so it rarely satisfies "new vol-high WHILE below
+the session price high." **The pre-breakout COIL is, by construction, a low/moderate-ATR pattern.** You
+cannot raise the ATR floor into a region where the setup does not occur.
+
+### ⭐ Verdict — the magnitude fix needs a NEW ENTRY RULE, not a filter (corrects the F13/F14 handoff)
+
+The F13/F14 note "F17's high-ATR tail should amplify it" was too optimistic — high-ATR names do not present
+this setup under a 20m-high trigger. **On this entry rule the momentum edge is capacity-bound to low/moderate
+ATR** (best real cell: `ATR 0.009–0.02`, +0.252%/tr, 1,507 trips, PF 1.43 — the tradable core).
+
+The momentum fork must DETECT the pre-breakout surge in high-ATR names DIFFERENTLY — not "new 20m high"
+(those names trigger it constantly) but e.g. **first new-vol-high after a consolidation / a breakout of a
+tightening range.** That is a genuinely new engine, which is the right scope for a dedicated momentum fork —
+NOT a re-slice of MaxRider. The MaxRider sampler has now given momentum everything it can: a confirmed
+signal (F12/F13), its price/strength shape (F14), and its ATR ceiling under a 20m-high trigger (F15).
+
+
+---
+
 ## Status / next
 
 ⏭ **The V6 levers all need re-measuring on the short side — do NOT assume they mirror.** The load-bearing
