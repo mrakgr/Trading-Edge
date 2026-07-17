@@ -535,6 +535,92 @@ costs), so **nothing of value is discarded**. The QUALITY floor is ~0.009 and th
 
 ---
 
+## Finding 11 — ⭐⭐ chg_1d INVERTS V4: buy the names already DOWN on the day (peak −10..−5%, PF 1.820)
+
+**User:** *"How does chg_1d affect results in the [0.004, 0.035] band? Let's make that band the default."*
+
+**Engine change:** the ATR band `[0.004, 0.035)` is now the default — `MinAtrPct = 0.004` (capacity, F8) and
+**`MaxAtrPct = 0.035` (quality, F8 — V5 had NO ceiling, `infinity`)**. All numbers below are inside it.
+
+**chg_1d swept over the WHOLE range, both signs (R8):**
+
+| chg_1d | n | % | win% | avg %/tr | **PF** |
+|---|---|---|---|---|---|
+| **< −20%** | 163,386 | 5.0 | 63.7 | 0.113 | **1.079 ← a falling knife** |
+| −20..−10% | 324,600 | 9.9 | 66.5 | 0.392 | 1.464 |
+| **−10..−5%** | 563,151 | **17.1** | **69.2** | **0.428** | **⭐ 1.820** |
+| **−5..−2%** | 505,931 | **15.4** | **69.4** | 0.355 | **1.767** |
+| −2..0% | 302,403 | 9.2 | 67.3 | 0.268 | 1.525 |
+| 0..+2% | 317,741 | 9.7 | 67.4 | 0.278 | 1.511 |
+| +2..5% | 343,427 | 10.4 | 65.7 | 0.258 | 1.427 |
+| +5..10% | 329,265 | 10.0 | 64.7 | 0.281 | 1.405 |
+| **+10..20%** | 254,751 | 7.7 | 64.5 | 0.330 | **1.374 ← where V4 forced every trade** |
+| +20..50% | 139,443 | 4.2 | 64.5 | 0.408 | 1.317 |
+| ≥ +50% | 43,450 | 1.3 | 63.3 | 0.239 | 1.105 |
+
+**A hump: peak at −10..−5% (1.820), monotone decline all the way to +50% (1.105), and a collapse below
+−20% (1.079).**
+
+**🛑 THIS DIRECTLY INVERTS V4's `MinChg1d = +10%`** — which V4 called *"An ESSENTIAL entry requirement
+(user)"*. That gate forces the **+10..20% bucket at PF 1.374 — one of the WORST cells** — and excludes the
+1.820 peak entirely. **Another V4 "essential" lever that reverses on an honest universe under mean
+reversion.** (The tally so far: `vol_climb` inverted (V5 F4), ATR inverted (F8), `chg_1d` inverts, `chg_3d`
+inverts.)
+
+**The reading is coherent:** buy dips in names **already down moderately on the day** — that is genuine
+intraday selling being overdone. Names UP big are in momentum mode (the dip keeps going); names down >20%
+are **broken, not dipping** — the same falling-knife boundary the counters found at 13+ lows (F1).
+
+**Capacity is excellent: `chg_1d ∈ [−10%, −2%]` is 32.5% of the book at PF ≈ 1.79** — a large,
+well-sampled region, not a corner.
+
+### chg_1d × ATR — the hump holds in EVERY band (an independent lever), and the peak SHIFTS
+
+| chg_1d | atr .004–.009 | atr .009–.02 | atr .02–.035 |
+|---|---|---|---|
+| **< −20%** | **0.871** | 1.229 | 1.253 |
+| −20..−10% | 1.237 | 1.856 | **⭐ 2.043** |
+| **−10..−5%** | 1.728 | **⭐⭐ 2.148** | 1.874 |
+| −5..−2% | **1.758** | 1.823 | 1.630 |
+| −2..+2% | 1.513 | 1.533 | 1.570 |
+| +2..10% | 1.327 | 1.636 | 1.644 |
+| **≥ +10%** | 1.185 | 1.399 | 1.281 |
+
+- **⭐ THE BEST CELL IN THE STUDY: `chg_1d ∈ [−10%,−5%] × ATR ∈ [0.009,0.02]` = PF 2.148.**
+- **The deeper the daily drop, the more ATR you want with it** (−20..−10% peaks at high ATR: 2.043). Sensible
+  — a −15% day *should* carry high ATR; if it does not, something is off.
+- **`< −20%` is the WORST cell in EVERY ATR band** (0.871 at low ATR — an outright loser). The falling-knife
+  floor is real, not noise.
+- **`≥ +10%` is worst-but-one everywhere** (1.185–1.399) — exactly where V4's gate lived.
+
+---
+
+## Finding 12 — chg_3d: same shape, and V4's `chg_3d >= 0` gate was ALSO backwards
+
+| chg_3d | n | win% | avg %/tr | **PF** |
+|---|---|---|---|---|
+| **< −30%** | 169,741 | 63.2 | **−0.027** | **0.980 ← loses money** |
+| −30..−15% | 361,861 | 65.9 | 0.262 | 1.347 |
+| **−15..−5%** | 659,100 | 69.1 | 0.370 | **1.773** |
+| **−5..0%** | 392,667 | **69.3** | 0.370 | **⭐ 1.825** |
+| 0..+10% | 696,683 | 67.7 | 0.373 | 1.724 |
+| +10..30% | 644,984 | 65.5 | 0.348 | 1.489 |
+| **≥ +30%** | 353,243 | 63.7 | 0.293 | **1.219** |
+
+Same hump, peaking at **−5..0% (1.825)**. **V4 gated `chg_3d >= 0`, which EXCLUDES the two best cells
+(−15..0%, PF 1.77–1.83) and ADMITS the worst (≥+30%, 1.219).** And `< −30%` loses money — the multi-day
+falling-knife twin of F11's −20% floor.
+
+**⭐ The emerging shape of the system: buy a name that is MODERATELY down (1d −10..−2%, 3d −15..0%), in the
+mid-ATR band, dislocated from VWAP (z < −2.5) — but NOT one that is collapsing (1d < −20%, 3d < −30%) and
+NOT one that is ripping (1d ≥ +10%, 3d ≥ +30%).**
+
+⏭ **The rvol loosening (user):** F10 justifies dropping the old `rvol_0945_honest >= 1` universe gate — it
+should be an ATR-dependent region, not a flat floor. That alone should multiply tradable capacity.
+
+
+---
+
 ## Status / next
 
 ⏭ **In order:**

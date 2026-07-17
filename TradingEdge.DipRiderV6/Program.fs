@@ -25,6 +25,7 @@ type Args =
     // ----- the one surviving gate -----
     | Min_Lows_Into_Leg of int
     | Min_Intraday_Atr_Pct of float
+    | Max_Intraday_Atr_Pct of float
     // ----- universe -----
     | Min_Dv_0945 of float
     // ----- sampler vs book -----
@@ -48,6 +49,7 @@ type Args =
             | Require_Above_Vwap -> "Drop the `close > VWAP` entry condition. ⚠ V5 F6 proved it LOAD-BEARING (PF 1.429->1.319 AND avg/trade 0.670%%->0.561%% across 8x the trips). Ablation only."
             | Min_Lows_Into_Leg _ -> "⭐ WAIT FOR THE Kth LOW (F3): only enter once this down-leg has made >= K consecutive new lows, and take ONE position per leg. 0 (default) = the sampler (every low). K=5 + --max-concurrent 1 = the production book: PF 1.968 / +1.48%%/trade / 1068 trips, positive every year. The edge is in the BLEEDERS (F1), and this harvests it WITHOUT averaging down."
             | Min_Intraday_Atr_Pct _ -> "The other gate in V6: 20m log-ATR >= this (MR needs range to revert across). Default 0.013. 0 = off."
+            | Max_Intraday_Atr_Pct _ -> "⭐ ATR CEILING (F8): 20m log-ATR < this. Default 0.035 — high ATR INVERTS on mean reversion (>=0.05 -> PF 0.755 at -1.66%%/trade; >=0.07 -> 0.541 at -5.83%%). The MIRROR of V4 momentum, where PF scaled monotonically WITH ATR. MR wants range, not chaos. inf = off."
             | Min_Dv_0945 _ -> "Universe floor: min 09:30-09:45 dollar volume (LIVE-SAFE; replaces V4's leaked ADV floor). Default 5000000."
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: unlimited concurrent positions, i.e. it AVERAGES DOWN. Removes path dependency so every trip is an independent row for post-hoc SQL — but PF is then ATTRIBUTION, NOT a portfolio number. Use 1 for a real tradable book (V5 F6: mc=0 PF 1.429 vs mc=1 1.285)."
             | Entry_Start_Min _ -> "Earliest ET minute an entry may fire (default 600 = 10:00). ⚠ Must be >= 585 (09:45) — see the knowability guard."
@@ -79,6 +81,7 @@ let main argv =
                     RequireAboveVwap = d.Intraday.RequireAboveVwap || parsed.Contains Require_Above_Vwap
                     MinLowsIntoLeg   = parsed.GetResult(Min_Lows_Into_Leg, defaultValue = d.Intraday.MinLowsIntoLeg)
                     MinAtrPct        = parsed.GetResult(Min_Intraday_Atr_Pct, defaultValue = d.Intraday.MinAtrPct)
+                    MaxAtrPct        = parsed.GetResult(Max_Intraday_Atr_Pct, defaultValue = d.Intraday.MaxAtrPct)
                     MaxConcurrent    = parsed.GetResult(Max_Concurrent,  defaultValue = d.Intraday.MaxConcurrent)
                     EntryStartMin    = parsed.GetResult(Entry_Start_Min, defaultValue = d.Intraday.EntryStartMin)
                     EntryEndMin      = parsed.GetResult(Entry_End_Min,   defaultValue = d.Intraday.EntryEndMin)
@@ -111,7 +114,12 @@ let main argv =
         (if ic.RequireAboveVwap then "   AND close > VWAP" else "   (VWAP: RECORDED not gated — sampler)")
         (if ic.MinLowsIntoLeg > 0 then sprintf "   AND >= %d lows into the leg (ONE position/leg)" ic.MinLowsIntoLeg else "")
     printfn "  EXIT        = close >= prior %dm MAX of closes (target)  |  MOC    [NO STOP]" ic.ExitHighWindow
-    printfn "  gate        = %s" (if ic.MinAtrPct > 0.0 then sprintf "log-ATR20 >= %.3f" ic.MinAtrPct else "NONE — pure sampler (every filter is post-hoc)")
+    printfn "  gate        = %s" (
+        match ic.MinAtrPct > 0.0, not (Double.IsPositiveInfinity ic.MaxAtrPct) with
+        | false, false -> "NONE — pure sampler (every filter is post-hoc)"
+        | true, true   -> sprintf "log-ATR20 ∈ [%.3f, %.3f)   ⭐ THE BAND (F8/F10)" ic.MinAtrPct ic.MaxAtrPct
+        | true, false  -> sprintf "log-ATR20 >= %.3f (no ceiling ⚠)" ic.MinAtrPct
+        | false, true  -> sprintf "log-ATR20 < %.3f" ic.MaxAtrPct)
     printfn "  entry window= %s–%s ET   features fold from %s ET" (hhmm ic.EntryStartMin) (hhmm ic.EntryEndMin) (hhmm ic.FeatureStartMin)
     if ic.MaxConcurrent <= 0 then
         printfn "  mode        = ⭐ SAMPLER (mc=0 unlimited → it AVERAGES DOWN)"

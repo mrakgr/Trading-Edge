@@ -219,6 +219,12 @@ type IntradayConfig =
                                //   off by K=8 (2 independent selection rules agree on the peak).
                                //   ⚠ At K>0 this is a REAL mc=1-style book: one position per leg, no averaging
                                //   down. Set --max-concurrent 1 as well to enforce it globally.
+      MaxAtrPct: float         // ⭐ log-ATR CEILING (F8): reject if 20m log-ATR >= this. Default 0.035.
+                               // HIGH ATR INVERTS on MR — the exact MIRROR of V4's momentum book, where PF
+                               // scaled MONOTONICALLY with ATR ("THE MAIN LEVER", V4 F3). Momentum wanted the
+                               // violent thrust; MR wants RANGE but NOT CHAOS. Past ~3.5% the name is not
+                               // oscillating, it is BROKEN: >=0.05 -> PF 0.755 at -1.66%/trade, win 52.4%;
+                               // >=0.07 -> PF 0.541 at -5.83%/trade. +inf = off.
       MinAtrPct: float }       // the ONLY other gate: 20m log-ATR >= this. MR needs RANGE to revert
                                // across. 0 = off. (V5 F6: it does far LESS work here than in momentum —
                                // 1.350 ungated vs 1.429 — so it is a CAPACITY dial, not the edge.)
@@ -346,9 +352,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         let inWindow =
             bar.etMin >= cfg.EntryStartMin
             && (cfg.EntryEndMin <= 0 || cfg.EntryEndMin >= cfg.MocMin || bar.etMin <= cfg.EntryEndMin)
+        // ⭐ THE ATR BAND (F8/F10): a FLOOR and a CEILING. Both are needed — sub-floor is dead
+        // (PF ~1.03, below costs) and supra-ceiling INVERTS (PF 0.755 at -1.66%/tr).
         let atrOk =
-            cfg.MinAtrPct <= 0.0
-            || (match atrLog.State with ValueSome a -> a >= cfg.MinAtrPct | ValueNone -> false)
+            (cfg.MinAtrPct <= 0.0
+             || (match atrLog.State with ValueSome a -> a >= cfg.MinAtrPct | ValueNone -> false))
+            && (Double.IsPositiveInfinity cfg.MaxAtrPct
+                || (match atrLog.State with ValueSome a -> a < cfg.MaxAtrPct | ValueNone -> false))
         // ⭐ F3 "wait for the Kth low": deep enough into THIS leg, and the leg not already used.
         let legOk =
             cfg.MinLowsIntoLeg <= 0

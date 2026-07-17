@@ -63,6 +63,8 @@ let defaultConfig =
           MocMin          = 16 * 60      // 16:00 ET
           MinLowsIntoLeg  = 0            // ⭐ 0 = the SAMPLER (take every low). Set 5 (+ --max-concurrent 1)
                                          // for the F3 production book: PF 1.968 / +1.48%/tr / 1068 trips.
+          MaxAtrPct       = 0.035        // ⭐ THE CEILING (F8): high ATR INVERTS — >=0.05 is PF 0.755 at
+                                         // -1.66%/trade. V5 had NO ceiling (infinity), a known defect.
           MinAtrPct       = 0.004 }      // ⭐ A CAPACITY floor, not a quality one (user, 2026-07-17): purely to
                                          // cut the sampler to a manageable size. F8 measured the sub-0.004
                                          // band as WORTHLESS — 69% of the book (7.4M of 10.7M trips) at
