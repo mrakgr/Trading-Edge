@@ -74,7 +74,12 @@ let defaultConfig =
                                          // (<0.035) that is NOT yet wired — high ATR INVERTS (>=0.05 -> PF
                                          // 0.755 at -1.66%/tr). Slice both post-hoc; log_atr_20 is recorded.
       Notional = 10_000.0
-      MinDv0945 = 5_000_000.0 }
+      MinDv0945 = 3_000_000.0 }   // ⭐ THE LIQUIDITY FLOOR (user, 2026-07-17): >= $3M traded 09:30-09:45.
+                                  // NOT optional — F14 measured what happens without it: PF rises MONOTONICALLY
+                                  // as liquidity FALLS (>= $30M -> 1.372; $250k-1M -> 1.885; < $250k -> 3.291),
+                                  // because the low-dv cells are PENNY STOCKS (median entry price $1.13 at
+                                  // < $250k, $1.50 at $250k-1M). The spread alone would eat that "edge", before
+                                  // any market impact. $3M leaves a median entry of $8.58 — fillable.
 
 /// One candidate (ticker, day) from mr_candidate, with the daily context the
 /// engine + the post-hoc feature slicing need. Forward closes are REPORTED only.

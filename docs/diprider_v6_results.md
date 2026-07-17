@@ -13,6 +13,12 @@ leak is removed.
 
 **Standing conventions:** LONG only. **2020-01-01 → 2026-06-30.** Raw MOC PF. $10k notional/trip.
 
+> 🛑 **F5–F13 were run with the liquidity filter OFF (`--min-dv-0945 0`).** F14 shows that inflates PF —
+> the low-liquidity cells are **penny stocks** (median entry **$1.13** below $250k of morning volume) whose
+> spread would eat the whole edge. **The `dv_0945 >= $3M` floor is now the default.** Every F5–F13 number is
+> therefore **optimistic**; the ones re-checked under the floor (F8, F10, F13) **survive with a haircut** —
+> see F14. Treat any un-rechecked F5–F13 magnitude as provisional.
+
 ---
 
 ## The system — all of it
@@ -679,6 +685,82 @@ partial year is not proof, but it is the wrong direction. **Watch this.**
 
 ⏭ **Next:** re-run the up-day cell at mc=1 to get a tradable number; check whether the decay survives the
 `dv_0945`/rvol loosening (F10) or is specific to this cell.
+
+
+---
+
+## Finding 14 — 🛑 THE LIQUIDITY FILTER WAS OFF, AND PF RISES AS LIQUIDITY FALLS (the low-dv "edge" is PENNY STOCKS)
+
+**User:** *"the problem with the tests here is that we've essentially disabled the liquidity filter. We need
+to bring it back up to something reasonable like 3m in the first 15m."*
+
+**Correct — and it matters more than a caveat.** F5–F13 ran with `--min-dv-0945 0`, i.e. on names we could
+never fill.
+
+**dv_0945 sweep (in the ATR band):**
+
+| dv_0945 | n | % | win% | avg %/tr | **PF** | **median entry px** |
+|---|---|---|---|---|---|---|
+| **< $250k** | 6,569 | 0.2 | 75.2 | 0.823 | **3.291** | **$1.13** |
+| **$250k–1M** | 262,520 | 8.0 | 69.8 | 0.480 | **1.885** | **$1.50** |
+| $1M–3M | 449,778 | 13.7 | 67.0 | 0.358 | 1.537 | $2.98 |
+| **$3M–10M** | 678,094 | 20.6 | 66.8 | 0.320 | 1.470 | $8.58 |
+| $10M–30M | 632,386 | 19.2 | 66.7 | 0.310 | 1.464 | $19.44 |
+| ≥ $30M | 1,258,201 | 38.3 | 66.3 | 0.288 | 1.372 | $85.40 |
+
+**⭐ PF rises MONOTONICALLY as liquidity FALLS — and the median entry price gives it away.** The PF 3.291
+cell is **$1.13 stocks**; the 1.885 cell is **$1.50 stocks**. Sub-$2 penny names with a quarter-million
+dollars of morning volume: **the spread alone eats the entire edge**, before any market impact. The
+sub-$3M bands were 21.9% of the book and were inflating every prior finding.
+
+**`dv_0945 >= $3M` is now the DEFAULT** (user). It is conservative — even $3M leaves a **$8.58** median
+entry. Above the floor the liquidity effect is mild (1.470 → 1.464 → 1.372), so the findings survive.
+
+### The re-checks — everything important SURVIVES, with a haircut
+
+**F8 (ATR), now `dv >= $3M`:**
+
+| log-ATR20 | n | avg %/tr | PF (was) | **PF ($3M)** |
+|---|---|---|---|---|
+| < 0.004 | 6,250,941 | 0.015 | 1.033 | **1.057** |
+| 0.004–0.009 | 1,970,980 | 0.216 | ~1.4 | **1.384** |
+| 0.009–0.013 | 329,408 | 0.486 | 1.572 | **1.515** |
+| **0.013–0.02** | 179,782 | 0.712 | 1.583 | **⭐ 1.523** |
+| 0.02–0.035 | 88,511 | 0.704 | ~1.42 | **1.318** |
+| 0.035–0.05 | 17,329 | 0.168 | 1.142 | **1.045** |
+| **≥ 0.05** | 6,813 | **−2.128** | 0.755 | **0.705** |
+
+**The hump AND the inversion both hold.** Peak 1.583 → 1.523. **The ceiling is confirmed and if anything
+SHARPER** (≥0.05 → PF 0.705 at −2.13%/trade).
+
+**F10 (rvol × ATR), now `dv >= $3M` — ⭐ THE INVERSION SURVIVES INTACT:**
+
+| ATR band | rvol<0.5 | 0.5–2 | rvol≥2 | n |
+|---|---|---|---|---|
+| 0.004–0.009 | 1.170 | 1.427 | **1.595** | 1,970,980 |
+| 0.009–0.02 | 1.368 | 1.442 | **1.573** | 509,190 |
+| **0.02–0.035** | **⭐ 1.679** | 1.432 | **1.288** | 88,511 |
+
+Monotone UP at low/mid ATR; **INVERTED at high ATR** (1.679 → 1.288). The "high volatility + high volume =
+a real repricing, not a dip" reading holds on fillable names.
+
+**F13 (the up-day / z rescue), now `dv >= $3M`:**
+
+| chg_1d | z<−3 (was) | **z<−3 ($3M)** | base (z≥−1) | n |
+|---|---|---|---|---|
+| < −10% | 1.873 | **1.779** | 1.104 | 10,296 |
+| −10..−2% (LowFlyer) | 2.388 | **2.321** | 1.677 | 15,431 |
+| −2..+2% | 1.925 | **1.794** | 1.575 | 7,603 |
+| **+2..10%** | 1.922 | **⭐ 1.863** | 1.304 | 6,528 |
+| **+10..25% UP** | 1.786 | **1.576** | 1.246 | 1,862 |
+| ≥ +25% | ~1.3 | **1.333** | 1.145 | 724 |
+
+**The core finding SURVIVES: z<−3 still lifts `+2..10%` from 1.304 → 1.863 (+43%).** The user's up-day
+thesis holds on fillable names.
+
+⚠ **But the up-BIG cell took the biggest hit: `+10..25%` fell 1.786 → 1.576** on 1,862 trips — that was
+already the thin, novel part of the idea, and the floor makes it thinner. **`+2..10%` (6,528 trips, PF
+1.863) is now the better expression of the user's idea than `+10..25%`.**
 
 
 ---
