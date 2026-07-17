@@ -1106,18 +1106,23 @@ median −0.38%, p99 = 0.0 (a 20m-low entry can barely close up), 0 nulls.
 | −2..−1% | 279,853 | 70.2 | 0.480 | −7.12 | 1.915 |
 | −1..−0.5% | 604,108 | 68.7 | 0.259 | −4.98 | 1.700 |
 | −0.5..−0.2% | 775,280 | 69.1 | 0.164 | −4.04 | 1.543 |
-| −0.2..0% | 462,487 | 68.7 | 0.110 | −4.15 | **1.345 ← trough** |
-| ≥ 0% (flat/up) | 338,423 | 64.4 | 0.234 | −3.59 | **2.124** |
+| −0.2..0% (excl 0) | 462,487 | 68.7 | 0.110 | −4.15 | **1.345 ← trough** |
+| **== 0 exactly** | 338,423 | 64.4 | 0.234 | −3.59 | 2.124 |
 
-**PF climbs 1.345 → 2.326 as the flush deepens; avg% goes +0.11% → +1.30% — a 12× expectancy spread.** This
-is LowFlyer's finding confirmed: the deeper the panic, the bigger the bounce, so LowFlyer SIZED on flush
-depth. Same edge here — the single strongest long lever found.
+**⭐ The ramp is MONOTONE once the `bar_pct == 0` cell is separated: PF 1.345 → 2.326 as the flush deepens;
+avg% +0.11% → +1.30% (12× spread).** LowFlyer's finding confirmed — deeper panic = bigger bounce, so
+LowFlyer SIZED on flush depth. The single strongest long lever found. **The trough is `−0.2..0%` (1.345) — a
+lazy drift to a new low, no conviction.**
 
-**⭐ Shallow-U, not a pure ramp:** the `≥ 0%` bar (flat/up, PF 2.124) is a DIFFERENT setup that is also good —
-a name that gapped down BETWEEN bars (the low is from the gap) and is ALREADY recovering on the entry bar: a
-v-bottom mid-turn. The true trough is `−0.2..0%` (1.345) — a LAZY drift to a new low, no conviction either
-way. So: **buy the violent flush OR the already-turning v-bottom; avoid the lazy drift.** (Same two-regime
-shape as F20's volume U.)
+**⚠ THE `bar_pct == 0` CELL IS A SEPARATE SETUP, NOT PART OF THE RAMP (user caught this).** The user asked:
+if we trigger on CLOSES, how can a long entry have a close-UP bar? Answer: it CANNOT, and it does not — the
+"≥ 0%" cell is **100% `bar_pct == 0` exactly** (0 genuinely-positive bars). `bar.close <= priorLow` re-fires
+when this close **TIES** the strictly-prior 20m-low-of-closes: two consecutive bars at an IDENTICAL close
+(e.g. XELA $374.40 → $374.40). That is a **flat RE-TEST / double-tap of a floor** — a name sitting ON
+support, a genuinely different (and decent, 2.124) setup, NOT a deep flush and NOT the invented "v-bottom
+mid-turn / gap" story an earlier draft told. It is NOT a data artifact of thin names (median dv $22M, price
+$25, 13% sub-$5 — same as the book). It just does not belong on the flush ramp. My earlier "shallow-U / buy
+the v-bottom" framing was WRONG on both the mechanism and the narrative.
 
 **⚠ Tail is the flip side:** p1 = −13.87% at the violent flush — best PF/expectancy, fattest tail (the flush
 that keeps flushing). The biggest edge carries the biggest knife, as everywhere in this book.
