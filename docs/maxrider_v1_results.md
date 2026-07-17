@@ -644,6 +644,78 @@ anticipatory, which is exactly why momentum is "so hard": the tradable window is
 
 ---
 
+## Finding 13 — the momentum signal is MONOTONE in surge size and peaks at a ~3m hold — but it is BELOW COSTS on this universe
+
+**User** (on the F12 pre-breakout-vol-surge edge): *"It's actually a good stop... since it would be a genuine
+long trade, there is no point in holding it. Let's break down the new volume high only with the z score for
+the volume."*
+
+**⭐ The stop insight is right:** on the MR side a stop just locks in noise (the reversion needs room), but
+here the position IS a momentum trade — if it does not continue immediately, the thesis is simply WRONG, so
+cutting at the 1m low is the CORRECT exit, not a clipped winner. The exit and the stop are the same event.
+That is why the 1m cover keeps improving the inverted edge (F12).
+
+**New-session-vol-high cell, 1m cover, by `vol_z_log` (short PF < 1 ⇒ a long edge on inversion):**
+
+| vol_z_log | n | short PF | **long avg%/tr** |
+|---|---|---|---|
+| 1–1.5 | 687 | 1.243 | −0.122 |
+| 1.5–2 | 8,668 | 1.148 | −0.077 |
+| 2–3 | 21,525 | 1.117 | −0.066 |
+| **≥ 3 (huge spike)** | 2,601 | **0.886** | **+0.075** |
+
+*(the 0.5–1 row is 6 trips — ignore.)*
+
+**⭐ MONOTONE: short PF falls 1.243 → 0.886 as the surge grows.** Only the biggest spikes (`vol_z_log ≥ 3`,
+3σ above the session's log-volume mean) actually flip to a long edge. **The momentum continuation strengthens
+with the VIOLENCE of the volume surge** — it takes a violent surge below resistance to guarantee the
+breakout follows. Coherent microstructure.
+
+**Hold time (vol_z ≥ 3) — the long edge PEAKS at ~3m:**
+
+| cover | long avg%/tr | long PF |
+|---|---|---|
+| 1m | 0.075 | 1.128 |
+| 2m | 0.086 | 1.114 |
+| **3m** | **0.117** | 1.136 |
+| 4m | 0.087 | 1.089 |
+
+The momentum runs ~3 minutes then gives back. PF stays ~1.13 throughout (the extra 3m return carries
+proportional risk).
+
+**Per-year (1m) — FRAGILE:**
+
+| yr | long PF |
+|---|---|
+| 2020 | 1.377 |
+| 2021 | 1.116 |
+| 2022 | 1.310 |
+| **2023** | **0.507 ❌** |
+| 2024 | 0.999 |
+| 2025 | 1.085 |
+| 2026 | 1.168 |
+
+Positive 5 of 7, but 2023 is a real loser (−0.31%/tr, 157 trips) and 2024 a coin-flip.
+
+### ⭐ Verdict — a confirmed SIGNAL, not yet a BOOK, and it points to a different UNIVERSE
+
+- **As a signal: CONFIRMED.** Pre-breakout volume surge, monotone in surge size, continuing ~3m. The
+  clearest long-momentum evidence in this codebase, and it validates the user's "how momentum should be
+  traded": fast, anticipatory, exit-the-instant-it-fails (exit = stop).
+- **As a book: NOT THERE.** Best cell (`vol_z ≥ 3`, 3m) is +0.117% gross → **~0.02% net** after a ~0.1%
+  round trip, ~400 trips/yr, breaks in 2023. Below costs on THIS universe.
+- **⭐ The magnitude problem is a UNIVERSE problem.** This ran on the MR universe (dv ≥ $3M, moderate ATR)
+  — selected to FADE well. A momentum book wants the OPPOSITE: F17's high-ATR tail (0.035–0.08), and likely
+  cheaper/thinner names, where a breakout runs 5–15% not 0.1%. **The pre-breakout-vol-surge signal in
+  high-ATR names is the pointer** — a separate system, not a MaxRider tweak.
+
+⏭ Deferred to a future momentum fork: pre-breakout-vol-surge trigger (`vol_z_log ≥ 3` bar making a new
+session-vol high while price is BELOW the session high) + high-ATR universe + ~3m hold with the fail-fast
+exit. **Not pursued further here** — the short MR book (F11) is the tradable output of this branch.
+
+
+---
+
 ## Status / next
 
 ⏭ **The V6 levers all need re-measuring on the short side — do NOT assume they mirror.** The load-bearing
