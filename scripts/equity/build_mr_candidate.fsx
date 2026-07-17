@@ -22,6 +22,11 @@
 //   med_bar_vol_0945   median 1m-bar volume 09:30-09:45 (the liquidity metric)
 //   nbar_0945          # of 1m bars present in 09:30-09:45 (>=10 required)
 //   vol_0945           total volume 09:30-09:45
+//   avgprice_0945      mean 1m-bar CLOSE 09:30-09:45 (raw, unadjusted)
+//   dv_0945            LIVE-SAFE opening dollar-volume = vol_0945 * avgprice_0945 * adj_ratio.
+//                      The replacement for the leaked `avgvol20 * day_close` ADV floor: a FIXED,
+//                      CLOSED window, so it cannot swallow D's own close the way a rolling
+//                      average does. ⚠ Legal ONLY for engines with EntryStartMin >= 09:45.
 //   prev_adj_close     D-1 adj close (= close_1d), episode-partitioned
 //   close_3d           D-3 adj close, episode-partitioned
 //   close_7d           D-7 adj close, episode-partitioned (trailing 7-day return feature)
@@ -31,6 +36,10 @@
 //                      the engine's AvgMa(20) and every published rvol number). Do NOT gate on it.
 //   avgvol20_prior     the same average over the 20 bars ENDING AT D-1 — LIVE-SAFE (known pre-open).
 //                      Use this for any ADV / liquidity GATE; avgvol20 is a lookahead there (F14).
+//   rvol_0945          premkt-inclusive vol through 09:45 / avgvol20. ⚠ CONTAMINATED DENOMINATOR —
+//                      report-only. Do NOT gate on it (avgvol20 includes D's own session volume).
+//   rvol_0945_honest   the SAME ratio over avgvol20_prior (20 sessions ending D-1) — LIVE-SAFE.
+//                      ⭐ GATE ON THIS ONE. Legal iff EntryStartMin >= 09:45.
 //   close_fwd_1d/3d/5d D+1/D+3/D+5 adj close (forward returns; REPORTED, no lookahead)
 //
 // The final INNER JOIN (liq x ctx) is the prune: only median>=10k days survive.
@@ -79,7 +88,7 @@ bars AS (
         CAST(date_part('hour',   to_timestamp(window_start/1e9) AT TIME ZONE 'America/New_York') AS INT) * 60
           + CAST(date_part('minute', to_timestamp(window_start/1e9) AT TIME ZONE 'America/New_York') AS INT) AS et_min,
         regexp_extract(filename, '([0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}})\.parquet', 1)::DATE AS date,
-        open, volume
+        open, close, volume
     FROM read_parquet('{glob}', filename = true)
     WHERE close > 0
 ),
@@ -90,6 +99,12 @@ liq AS (
         arg_min(CASE WHEN et_min >= {rthOpen} AND et_min < {scanMin} THEN open   END,
                 CASE WHEN et_min >= {rthOpen} AND et_min < {scanMin} THEN et_min END) AS day_open,
         sum   (CASE WHEN et_min >= {rthOpen} AND et_min < {scanMin} THEN volume ELSE 0 END) AS vol_0945,
+        -- MEAN 1m-bar CLOSE over 09:30-09:45. Pairs with vol_0945 to form a LIVE-SAFE dollar-volume
+        -- floor: `vol_0945 * avgprice_0945` = the actual dollars traded in the opening 15 minutes.
+        -- ⚠ KNOWABILITY (R3): fully determined at 09:45, so it is legal ONLY for engines whose
+        -- EntryStartMin >= 585 (09:45). DipRiderV5 enters at 10:00 ✅. Lower the entry window below
+        -- 09:45 and this silently becomes a lookahead — same alignment trap as med_bar_vol_0945.
+        avg   (CASE WHEN et_min >= {rthOpen} AND et_min < {scanMin} THEN close  END) AS avgprice_0945,
         -- premarket-INCLUSIVE volume 04:00->09:45 (== partial_candle_0945.volume) — the
         -- rvol_0945 numerator used in all the feature analysis.
         sum   (CASE WHEN et_min >= {premktMin} AND et_min < {scanMin} THEN volume ELSE 0 END) AS vol_0945_pm
@@ -126,15 +141,26 @@ ctx AS (
 SELECT c.ticker, c.date,
     c.prev_adj_close, c.close_3d, c.close_7d, c.day_close, c.adj_ratio, c.avgvol20, c.avgvol20_prior,
     c.close_fwd_1d, c.close_fwd_3d, c.close_fwd_5d,
-    l.day_open, l.med_bar_vol_0945, l.nbar_0945, l.vol_0945,
+    l.day_open, l.med_bar_vol_0945, l.nbar_0945, l.vol_0945, l.avgprice_0945,
+    -- LIVE-SAFE dollar-volume: the dollars actually traded 09:30-09:45 (adj-scaled). The replacement
+    -- for the `avgvol20 * day_close` ADV floor that leaked (F14). Legal iff EntryStartMin >= 09:45.
+    l.vol_0945 * l.avgprice_0945 * COALESCE(c.adj_ratio, 1.0) AS dv_0945,
     -- rvol_0945 = premarket-inclusive vol through 09:45 / 20-bar avg daily vol. First-class
     -- (was a post-join off partial_candle_0945). The <0.1 tail (barely traded by 09:45) is
     -- dead in every slice (Run 10), so prune it here to save the intraday engine the work.
-    l.vol_0945_pm::DOUBLE / NULLIF(c.avgvol20, 0) AS rvol_0945
+    l.vol_0945_pm::DOUBLE / NULLIF(c.avgvol20, 0) AS rvol_0945,
+    -- ⭐ LIVE-SAFE rvol_0945: same numerator (D's OWN premarket-inclusive volume through 09:45, complete
+    -- at 09:45), but the denominator is avgvol20_PRIOR (the 20 sessions ENDING AT D-1, known pre-open).
+    -- `rvol_0945` above divides by avgvol20, which INCLUDES D's own full-session volume — circular, and a
+    -- LOOKAHEAD if gated on (F14/R2). Gate on THIS one. Legal iff EntryStartMin >= 09:45.
+    l.vol_0945_pm::DOUBLE / NULLIF(c.avgvol20_prior, 0) AS rvol_0945_honest
 FROM ctx c
 JOIN liq l ON l.ticker = c.ticker AND l.date = c.date   -- INNER JOIN = the liquidity prune
 WHERE c.day_close >= 1.0 AND c.nbars > 21               -- price>=$1 (D close), warmed up
-  AND l.vol_0945_pm::DOUBLE / NULLIF(c.avgvol20, 0) >= 0.1;  -- drop the dead <0.1 rvol_0945 tail
+  -- Drop the dead barely-traded-by-09:45 tail. Uses the LIVE-SAFE (prior-20d) denominator: this is a
+  -- PRUNE, i.e. a GATE, and gating on avgvol20 is a lookahead (R1: a filter touching D's data is a
+  -- signal gate whatever it is named). Kept loose at 0.1 so it stays true plumbing (R4).
+  AND l.vol_0945_pm::DOUBLE / NULLIF(c.avgvol20_prior, 0) >= 0.1;
 
 CREATE UNIQUE INDEX mr_candidate_ticker_date ON mr_candidate (ticker, date);
 """
