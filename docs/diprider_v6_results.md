@@ -1089,6 +1089,64 @@ the short" fails on the volume lever.
 
 ---
 
+## Finding 21 — ⭐⭐ THE FLUSH (bar % change) is the STRONGEST long lever — deeper = better, and it STACKS with everything
+
+**User:** *"do a breakdown on the bar % change? That was really effective on the LowFlyer system."*
+
+Added `bar_pct` = `close / prev-bar-close − 1` (the entry bar's single-bar move; for a long dip-buy it is the
+FLUSH depth — LowFlyer's main sizing lever) to both engines. Sanity: 86.8% of long entries are DOWN bars,
+median −0.38%, p99 = 0.0 (a 20m-low entry can barely close up), 0 nulls.
+
+**⭐ Deeper flush = better dip, MONOTONE — and the avg% climbs HARD (a rare quality+size lever):**
+
+| flush (bar %) | n | win% | avg% | p1 | **PF** |
+|---|---|---|---|---|---|
+| **< −3% (violent)** | 41,450 | **74.0** | **1.302** | −13.87 | **⭐ 2.326** |
+| −3..−2% | 67,080 | 72.5 | 0.832 | −9.72 | 2.209 |
+| −2..−1% | 279,853 | 70.2 | 0.480 | −7.12 | 1.915 |
+| −1..−0.5% | 604,108 | 68.7 | 0.259 | −4.98 | 1.700 |
+| −0.5..−0.2% | 775,280 | 69.1 | 0.164 | −4.04 | 1.543 |
+| −0.2..0% | 462,487 | 68.7 | 0.110 | −4.15 | **1.345 ← trough** |
+| ≥ 0% (flat/up) | 338,423 | 64.4 | 0.234 | −3.59 | **2.124** |
+
+**PF climbs 1.345 → 2.326 as the flush deepens; avg% goes +0.11% → +1.30% — a 12× expectancy spread.** This
+is LowFlyer's finding confirmed: the deeper the panic, the bigger the bounce, so LowFlyer SIZED on flush
+depth. Same edge here — the single strongest long lever found.
+
+**⭐ Shallow-U, not a pure ramp:** the `≥ 0%` bar (flat/up, PF 2.124) is a DIFFERENT setup that is also good —
+a name that gapped down BETWEEN bars (the low is from the gap) and is ALREADY recovering on the entry bar: a
+v-bottom mid-turn. The true trough is `−0.2..0%` (1.345) — a LAZY drift to a new low, no conviction either
+way. So: **buy the violent flush OR the already-turning v-bottom; avoid the lazy drift.** (Same two-regime
+shape as F20's volume U.)
+
+**⚠ Tail is the flip side:** p1 = −13.87% at the violent flush — best PF/expectancy, fattest tail (the flush
+that keeps flushing). The biggest edge carries the biggest knife, as everywhere in this book.
+
+### ⭐ It STACKS — the flush is not redundant with ADX or volume
+
+Deep flush (< −2%) × ADX × volume:
+
+| ADX | PF quiet | PF loud |
+|---|---|---|
+| < 30 | 2.417 | **2.571** |
+| 30–40 | **2.868** | 2.345 |
+| ≥ 40 | 2.173 | 2.137 |
+
+Every cell PF 2.1–2.9, above the deep-flush marginal (2.2). **And it SHARPENS F20's two regimes on the
+deep-flush subset:**
+- **capitulation flush** = deep bar × LOUD volume × CHOPPY (low ADX) → 2.571.
+- **controlled pullback** = deep bar × QUIET volume × TRENDING (mid/high ADX) → 2.868.
+
+Both ~2.5–2.9. The flush is the AMPLITUDE; volume+ADX say WHICH KIND of flush. Together they define the long
+production core the way F18 defined the short's.
+
+⏭ Like LowFlyer, flush depth is a natural SIZING lever (size up on the deeper flush), not just a filter —
+but it imports the tail, so size-up must be paired with the position-level risk of the −13.87% p1. Confirm at
+mc=1.
+
+
+---
+
 ## Status / next
 
 ⏭ **In order:**

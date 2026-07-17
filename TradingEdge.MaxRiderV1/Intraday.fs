@@ -135,6 +135,8 @@ type IntradayPosition =
       VolZLin: float             // ⭐ session-cum z-score of RAW bar volume — normal space (to compare)
       EmaAtEntry: float
       PctChgSinceOpen: float
+      BarPct: float              // ⭐ the ENTRY BAR's single-bar move: close/prev-bar-close - 1. For a long
+                                 // this is the FLUSH depth (LowFlyer's main lever); for a short, the pop.
       Chg1d: float               // entry / prev daily close - 1
       Chg3d: float               // entry / close-3d-ago - 1
       // ----- volatility / trend -----
@@ -384,6 +386,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                   VolZLin = vv (volZLin.Z (float bar.volume))
                   EmaAtEntry = vv ema.State
                   PctChgSinceOpen = (match dayOpen with ValueSome o when o > 0.0 -> bar.close / o - 1.0 | _ -> nan)
+                  BarPct = (match prevBar with ValueSome pb when pb.close > 0.0 -> bar.close / pb.close - 1.0 | _ -> nan)
                   Chg1d = (if close1d > 0.0 then bar.close / close1d - 1.0 else nan)
                   Chg3d = (if close3d > 0.0 then bar.close / close3d - 1.0 else nan)
                   LogAtr20 = vv atrLog.State

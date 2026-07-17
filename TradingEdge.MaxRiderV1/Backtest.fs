@@ -135,6 +135,7 @@ type Trip =
       VolZLin: float             // ⭐ volume z, normal space
       EmaAtEntry: float
       PctChgSinceOpen: float
+      BarPct: float              // ⭐ entry bar single-bar move (flush/pop)
       Chg1d: float
       Chg3d: float
       // ----- volatility / trend -----
@@ -192,6 +193,7 @@ let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Tr
           VolZLin = pos.VolZLin
           EmaAtEntry = pos.EmaAtEntry
           PctChgSinceOpen = pos.PctChgSinceOpen
+          BarPct = pos.BarPct
           Chg1d = pos.Chg1d
           Chg3d = pos.Chg3d
           LogAtr20 = pos.LogAtr20
@@ -407,7 +409,7 @@ let private hhmm (m: int) = sprintf "%02d:%02d" (m / 60) (m % 60)
 let header =
     "symbol,trade_date,adj_ratio,entry_time,entry_price,"
     + "bars_since_first_high,highs_since_first_high,"    // ⭐ the reset counters
-    + "vwap_at_entry,dist_vwap,dist_vwap_z,dist_vwap_z_log,is_new_sess_high,prev_sess_vol_high,is_new_sess_vol_high,vol_z_log,vol_z_lin,ema_at_entry,pct_chg_since_open,chg_1d,chg_3d,"
+    + "vwap_at_entry,dist_vwap,dist_vwap_z,dist_vwap_z_log,is_new_sess_high,prev_sess_vol_high,is_new_sess_vol_high,vol_z_log,vol_z_lin,ema_at_entry,pct_chg_since_open,bar_pct,chg_1d,chg_3d,"
     + "log_atr_20,adx_14,plus_di_14,minus_di_14,"
     + "price_slope_open,price_slope_60,price_slope_20,"
     + "vol_slope_open,vol_slope_60,vol_slope_20,"
@@ -427,7 +429,7 @@ let private row (t: Trip) =
            string t.BarsSinceFirstHigh
            string t.HighsSinceFirstHigh
            f t.VwapAtEntry; f t.DistVwap; f t.DistVwapZ; f t.DistVwapZLog; (if t.IsNewSessHigh then "1" else "0"); f t.PrevSessVolHigh; (if t.IsNewSessVolHigh then "1" else "0"); f t.VolZLog; f t.VolZLin; f t.EmaAtEntry
-           f t.PctChgSinceOpen; f t.Chg1d; f t.Chg3d
+           f t.PctChgSinceOpen; f t.BarPct; f t.Chg1d; f t.Chg3d
            f t.LogAtr20; f t.Adx14; f t.PlusDi14; f t.MinusDi14
            f t.PriceSlopeOpen; f t.PriceSlope60; f t.PriceSlope20
            f t.VolSlopeOpen; f t.VolSlope60; f t.VolSlope20
