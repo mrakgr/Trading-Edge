@@ -21,7 +21,7 @@ type Args =
     // ----- the system (all of it) -----
     | Entry_Low_Window of int
     | Exit_High_Window of int
-    | No_Vwap_Filter
+    | Require_Above_Vwap
     // ----- the one surviving gate -----
     | Min_Lows_Into_Leg of int
     | Min_Intraday_Atr_Pct of float
@@ -45,7 +45,7 @@ type Args =
             | Out _ -> "Output trips CSV path."
             | Entry_Low_Window _ -> "⭐ ENTRY: buy when the close makes a new N-minute LOW of 1m-bar CLOSES. Default 20. Try 60 for a deeper, rarer dip."
             | Exit_High_Window _ -> "⭐ EXIT: sell when the close reaches the N-minute HIGH of 1m-bar CLOSES. Default 20."
-            | No_Vwap_Filter -> "Drop the `close > VWAP` entry condition. ⚠ V5 F6 proved it LOAD-BEARING (PF 1.429->1.319 AND avg/trade 0.670%%->0.561%% across 8x the trips). Ablation only."
+            | Require_Above_Vwap -> "Drop the `close > VWAP` entry condition. ⚠ V5 F6 proved it LOAD-BEARING (PF 1.429->1.319 AND avg/trade 0.670%%->0.561%% across 8x the trips). Ablation only."
             | Min_Lows_Into_Leg _ -> "⭐ WAIT FOR THE Kth LOW (F3): only enter once this down-leg has made >= K consecutive new lows, and take ONE position per leg. 0 (default) = the sampler (every low). K=5 + --max-concurrent 1 = the production book: PF 1.968 / +1.48%%/trade / 1068 trips, positive every year. The edge is in the BLEEDERS (F1), and this harvests it WITHOUT averaging down."
             | Min_Intraday_Atr_Pct _ -> "The other gate in V6: 20m log-ATR >= this (MR needs range to revert across). Default 0.013. 0 = off."
             | Min_Dv_0945 _ -> "Universe floor: min 09:30-09:45 dollar volume (LIVE-SAFE; replaces V4's leaked ADV floor). Default 5000000."
@@ -76,7 +76,7 @@ let main argv =
                 { d.Intraday with
                     EntryLowWindow   = parsed.GetResult(Entry_Low_Window, defaultValue = d.Intraday.EntryLowWindow)
                     ExitHighWindow   = parsed.GetResult(Exit_High_Window, defaultValue = d.Intraday.ExitHighWindow)
-                    RequireAboveVwap = d.Intraday.RequireAboveVwap && not (parsed.Contains No_Vwap_Filter)
+                    RequireAboveVwap = d.Intraday.RequireAboveVwap || parsed.Contains Require_Above_Vwap
                     MinLowsIntoLeg   = parsed.GetResult(Min_Lows_Into_Leg, defaultValue = d.Intraday.MinLowsIntoLeg)
                     MinAtrPct        = parsed.GetResult(Min_Intraday_Atr_Pct, defaultValue = d.Intraday.MinAtrPct)
                     MaxConcurrent    = parsed.GetResult(Max_Concurrent,  defaultValue = d.Intraday.MaxConcurrent)
@@ -103,12 +103,15 @@ let main argv =
         ic.EntryLowWindow ic.ExitHighWindow
     printfn "  db          = %s" dbPath
     printfn "  range       = %O .. %O" startDate endDate
-    printfn "  universe    = dv_0945 >= $%.1fM  AND  rvol_0945_honest >= 1   [LIVE-SAFE]" (cfg.MinDv0945 / 1e6)
+    // NB: rvol_0945_honest is NOT gated here — it is a RECORDED column on diprider_v6_candidate
+    // (built with --min-rvol 0) so the sampler can slice it post-hoc. Do not claim a gate we do not apply.
+    printfn "  universe    = %s   [LIVE-SAFE; rvol_0945_honest RECORDED, not gated]"
+        (if cfg.MinDv0945 > 0.0 then sprintf "dv_0945 >= $%.1fM" (cfg.MinDv0945 / 1e6) else "NONE (dv_0945 recorded only)")
     printfn "  ENTRY       = close <= prior %dm MIN of closes%s%s" ic.EntryLowWindow
-        (if ic.RequireAboveVwap then "   AND close > VWAP" else "   (⚠ VWAP filter OFF — ablation)")
+        (if ic.RequireAboveVwap then "   AND close > VWAP" else "   (VWAP: RECORDED not gated — sampler)")
         (if ic.MinLowsIntoLeg > 0 then sprintf "   AND >= %d lows into the leg (ONE position/leg)" ic.MinLowsIntoLeg else "")
     printfn "  EXIT        = close >= prior %dm MAX of closes (target)  |  MOC    [NO STOP]" ic.ExitHighWindow
-    printfn "  gate        = %s" (if ic.MinAtrPct > 0.0 then sprintf "log-ATR20 >= %.3f  (the ONLY gate)" ic.MinAtrPct else "NONE (ATR floor off)")
+    printfn "  gate        = %s" (if ic.MinAtrPct > 0.0 then sprintf "log-ATR20 >= %.3f" ic.MinAtrPct else "NONE — pure sampler (every filter is post-hoc)")
     printfn "  entry window= %s–%s ET   features fold from %s ET" (hhmm ic.EntryStartMin) (hhmm ic.EntryEndMin) (hhmm ic.FeatureStartMin)
     if ic.MaxConcurrent <= 0 then
         printfn "  mode        = ⭐ SAMPLER (mc=0 unlimited → it AVERAGES DOWN)"

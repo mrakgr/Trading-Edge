@@ -244,6 +244,120 @@ AND better ⇒ size up on them within the 20m book). Test as an overlay, not a r
 
 ---
 
+## Finding 5 — 🛑 THE SAMPLER WAS NOT SAMPLING: three gates were baked in (and one of them was WRONG)
+
+**User:** *"Wait, the VWAP filter was on? What other filter was on in addition to it? I thought the plan was
+to apply all the filters posthoc."*
+
+**Correct, and this invalidated the premise of the design.** V6 was declared a sampler, but it was still
+GATING three things — so those rows were never emitted and could not be sliced:
+
+| gate | was | in the CSV? |
+|---|---|---|
+| `close > VWAP` | **ON** (inherited from V5 F6) | ❌ **NO** — every `dist_vwap` was positive-only |
+| `log_atr_20 >= 0.013` | **ON** (inherited from V5) | ✅ recorded, but un-loosenable below 0.013 |
+| `rvol_0945_honest >= 1` | **ON** (baked into the candidate table's WHERE) | ❌ **NO** — not even a column |
+
+**Fixed:** `RequireAboveVwap = false` and `MinAtrPct = 0.0` are now the sampler defaults;
+`rvol_0945_honest` is a recorded column; a new `diprider_v6_candidate` table is built with `--min-rvol 0`.
+`--require-above-vwap` now turns the gate ON (for building a production book), rather than `--no-vwap-filter`
+turning it off. **A sampler must RECORD, never GATE.**
+
+**The true sampler: 10,725,547 trips** from 392,815 candidate-days (vs 27,629 gated). PF 1.283 / +0.116%/tr.
+*That* is the scale the universe filters were operating at — and it answers the user's surprise at "only 977
+60m lows in 6.5 years": the `dv_0945 ≥ $5M` + `rvol_0945_honest ≥ 1` universe was doing enormous work.
+
+---
+
+## Finding 6 — ⭐⭐ BUYING BELOW VWAP IS BETTER — V5 F6's "load-bearing" VWAP filter was an ARTIFACT
+
+**User's question:** *"is buying above VWAP better than buying below?"*
+
+**No. Below is better — on both PF and avg/trade — and it is 76% of the opportunity.**
+
+| side | n | % of book | win% | avg %/tr | **PF** |
+|---|---|---|---|---|---|
+| ABOVE VWAP | 2,576,658 | 24.0 | 64.9 | 0.0822 | 1.244 |
+| **BELOW VWAP** | **8,148,889** | **76.0** | 65.1 | **0.127** | **1.292** |
+
+**🛑 V5 F6 was WRONG, and the error is instructive.** It reported `close > VWAP` as "LOAD-BEARING (PF
+1.429 → 1.319)". But that test compared *above-VWAP* against *both sides MIXED* — **that is not an
+ablation, it is a comparison against a diluted average.** The real A/B is above vs below, and **below
+wins**. V6's default was built on a conclusion that had never been tested. This is precisely the failure the
+sampler design exists to prevent, which is why F5 mattered.
+
+### The sweep (R8 — the whole range, not the binary): a U-SHAPE the binary split HID
+
+| dist_vwap | n | avg %/tr | **PF** |
+|---|---|---|---|
+| **< −5%** | 670,764 | **0.431** | 1.341 |
+| **−5..−3%** | 916,655 | 0.221 | **⭐ 1.353** |
+| −3..−2% | 1,128,085 | 0.143 | 1.304 |
+| −2..−1% | 2,081,440 | 0.093 | 1.256 |
+| −1..−0.5% | 1,547,321 | 0.063 | 1.225 |
+| **−0.5..0%** | 1,804,623 | 0.050 | **1.227 ← the TROUGH** |
+| 0..+0.5% | 1,172,027 | 0.059 | 1.243 |
+| +0.5..1% | 584,814 | 0.079 | 1.255 |
+| +1..2% | 503,577 | 0.103 | 1.266 |
+| +2..5% | 281,007 | 0.133 | 1.231 |
+| > +5% | 35,234 | 0.205 | 1.162 |
+
+**PF is WORST exactly AT VWAP (1.227) and improves in BOTH directions.** The real signal is not "above vs
+below" — it is **DISTANCE from VWAP, in either direction**. Being pinned at fair value is the dead zone;
+**dislocation** is where reversion lives. The asymmetry favours the downside (below tops out at 1.353 /
++0.431%; above at 1.266).
+
+---
+
+## Finding 7 — ⭐⭐ THE Z-SCORE BEATS RAW DISTANCE (user's idea) — PF 1.580, cleanly monotone
+
+`dist_vwap_z` = the session-cumulative z-score of `dist_vwap` (Welford, `CumStdMa`).
+
+| z bucket | n | avg %/tr | **PF** |
+|---|---|---|---|
+| **z < −2.5** | 414,851 | 0.331 | **⭐ 1.580** |
+| −2.5..−2 | 966,430 | 0.191 | 1.407 |
+| −2..−1.5 | 1,962,794 | 0.147 | 1.328 |
+| −1.5..−1 | 2,312,530 | 0.095 | 1.218 |
+| −1..−0.5 | 1,918,684 | 0.083 | 1.206 |
+| −0.5..0 | 1,458,718 | 0.087 | 1.242 |
+| 0..+0.5 | 1,041,649 | 0.079 | 1.242 |
+| +0.5..1 | 525,471 | 0.074 | 1.250 |
+| z > +1 | 124,419 | 0.070 | 1.253 |
+
+**PF 1.580 at z < −2.5 vs 1.353 for the best RAW-distance cell — and cleanly MONOTONE across the whole
+negative range (1.206 → 1.580), where raw distance was U-shaped.** Normalising by the session's own
+volatility is doing real work: a −3% dip means something very different in a quiet name than in a 15%-ATR
+runner, and the z-score knows the difference. **`dist_vwap_z` supersedes `dist_vwap` as the location lever.**
+
+### The two best levers STACK — and z partly SUBSTITUTES for waiting
+
+PF by (lows into leg) × (z bucket):
+
+| lows | **z<−2.5** | −2.5..−1.5 | −1.5..0 | z≥0 | n (z<−2.5) |
+|---|---|---|---|---|---|
+| **0 first** | **1.545** | 1.390 | 1.290 | 1.268 | 6,533 |
+| 1–2 | 1.379 | 1.298 | 1.218 | 1.232 | 27,496 |
+| 3–4 | 1.432 | 1.313 | 1.220 | 1.241 | 40,313 |
+| 5–7 | **1.547** | 1.357 | 1.221 | 1.233 | 70,217 |
+| 8+ | **1.653** | 1.374 | 1.180 | 1.239 | 270,292 |
+
+- **z lifts PF at EVERY depth** (at 5–7 lows: 1.221 → 1.547).
+- **⭐ z works even on the FIRST dip: 1.545 at `lows=0, z<−2.5`** — nearly the best deep cell. So **z is a
+  SUBSTITUTE for waiting, not merely a complement.** A first-low entry at z<−2.5 is as good as a 5–7-low
+  entry at ordinary z, **and it is far more available.** That is a much better basis for a book than "wait
+  for the 5th low".
+- ⚠ **The 8+ cell reads best here (1.653) but F1 measured 8–12 at 1.311 and 13+ at 0.513 on the GATED
+  book.** Different populations (this sampler has no dv_0945/rvol/ATR filters) — **not a contradiction, but
+  not comparable either.** Re-check the interaction on a gated book before believing "deeper is always
+  better".
+
+⏭ **Next:** ADX (the chop-vs-trend thesis), the six slopes, `chg_1d/3d`, and the volume family — all
+recorded, all pure SQL. Then re-derive the production book from `z` + `K` + a re-swept universe.
+
+
+---
+
 ## Status / next
 
 ⏭ **In order:**

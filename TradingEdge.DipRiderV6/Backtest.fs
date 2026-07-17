@@ -48,7 +48,10 @@ let defaultConfig =
     { Intraday =
         { EntryLowWindow  = 20         // buy the 20m low of closes. 60 = the deeper-dip variant (user).
           ExitHighWindow  = 20         // sell into the 20m high of closes.
-          RequireAboveVwap = true      // V5 F6: LOAD-BEARING (PF 1.429->1.319 and avg/tr 0.670->0.561 without).
+          RequireAboveVwap = false     // ⭐ OFF BY DEFAULT (user, 2026-07-17). V5 F6 called `close > VWAP`
+                                       // load-bearing, but that was measured on the OLD system — baking it in
+                                       // made dist_vwap POSITIVE-ONLY and the below-VWAP half was NEVER
+                                       // SAMPLED. A sampler must RECORD, not GATE. Slice dist_vwap post-hoc.
           MaxConcurrent   = 0          // ⭐ SAMPLER. 1 = a real (tradable) book.
           VolWindow       = 20
           EmaPeriod       = 9
@@ -60,7 +63,9 @@ let defaultConfig =
           MocMin          = 16 * 60      // 16:00 ET
           MinLowsIntoLeg  = 0            // ⭐ 0 = the SAMPLER (take every low). Set 5 (+ --max-concurrent 1)
                                          // for the F3 production book: PF 1.968 / +1.48%/tr / 1068 trips.
-          MinAtrPct       = 0.013 }      // the other gate. V5 F6: a capacity dial, not the edge.
+          MinAtrPct       = 0.0 }        // ⭐ OFF. THE SAMPLER MUST NOT GATE — log_atr_20 is RECORDED, so
+                                         // slice it post-hoc. (Was 0.013, inherited from V5: that silently
+                                         // made the ATR floor un-loosenable in the CSV.)
       Notional = 10_000.0
       MinDv0945 = 5_000_000.0 }
 
@@ -80,6 +85,8 @@ type Candidate =
       // ----- the LIVE-SAFE 09:45 baseline (V5). Both complete at 09:45; EntryStartMin = 10:00 ⇒ legal. -----
       Vol0945: float            // total volume 09:30-09:45
       NBar0945: int             // # of 1m bars present 09:30-09:45 (the permin15m denominator)
+      Rvol0945Honest: float     // ⭐ LIVE-SAFE rvol (premkt-incl vol thru 09:45 / prior-20d avg daily vol).
+                                // RECORDED, not gated — the sampler must sample it (slice post-hoc).
       Dv0945: float }           // ⭐ opening dollar volume = vol_0945 * avgprice_0945 * adj_ratio — the
                                 // in-play selector that REPLACES the leaked `avgvol20 * day_close` ADV floor.
 
@@ -123,7 +130,8 @@ type Trip =
       Rvol5m: float
       VolClimb: float
       CumVol: float
-      Dv0945: float              // the day's opening dollar volume (the universe selector)
+      Dv0945: float              // the day's opening dollar volume
+      Rvol0945Honest: float      // the day's live-safe rvol through 09:45 (RECORDED, not gated)
       // ----- exit -----
       ExitMin: int
       ExitPrice: float
@@ -171,6 +179,7 @@ let private toTrip (c: Candidate) (notional: float) (pos: IntradayPosition) : Tr
           VolClimb = pos.VolClimb
           CumVol = pos.CumVol
           Dv0945 = c.Dv0945
+          Rvol0945Honest = c.Rvol0945Honest
           ExitMin = exitMin
           ExitPrice = exitPx
           ExitReason = reason
@@ -208,14 +217,14 @@ let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDa
     // without disturbing the production table. Validated identifier-only (injection-safe).
     let table =
         match Environment.GetEnvironmentVariable "DR5_CANDIDATE_TABLE" with
-        | null | "" -> "diprider_v5_candidate"
+        | null | "" -> "diprider_v6_candidate"   // the UNFILTERED twin: no rvol prune, so the sampler samples
         | t when t |> Seq.forall (fun c -> Char.IsLetterOrDigit c || c = '_') -> t
         | bad -> failwithf "Invalid DR5_CANDIDATE_TABLE %A (identifier chars only)" bad
     use cmd = conn.CreateCommand()
     cmd.CommandText <-
         $"SELECT ticker, date, prev_adj_close, close_3d, day_close, adj_ratio,
                 close_fwd_1d, close_fwd_3d, close_fwd_5d, day_open,
-                vol_0945::DOUBLE, nbar_0945, dv_0945   -- vol_0945 is HUGEINT in the table; cast for the reader
+                vol_0945::DOUBLE, nbar_0945, dv_0945, rvol_0945_honest   -- vol_0945 is HUGEINT; cast for the reader
          FROM {table}
          WHERE date >= $start AND date <= $end AND dv_0945 >= $mindv
          ORDER BY ticker, date"
@@ -240,7 +249,8 @@ let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDa
               DayOpen = dbl 9
               Vol0945 = dbl 10
               NBar0945 = (if reader.IsDBNull 11 then 0 else int (reader.GetInt64 11))
-              Dv0945 = dbl 12 })
+              Dv0945 = dbl 12
+              Rvol0945Honest = dbl 13 })
     out.ToArray()
 
 // ===========================================================================
@@ -368,7 +378,7 @@ let header =
     + "log_atr_20,adx_14,plus_di_14,minus_di_14,"
     + "price_slope_open,price_slope_60,price_slope_20,"
     + "vol_slope_open,vol_slope_60,vol_slope_20,"
-    + "bar_vol,brv_15m,rvol_5m,vol_climb,cum_vol,dv_0945,"
+    + "bar_vol,brv_15m,rvol_5m,vol_climb,cum_vol,dv_0945,rvol_0945_honest,"
     + "exit_time,exit_price,exit_reason,ret_moc,day_close,close_fwd_1d,close_fwd_3d,close_fwd_5d,"
     + "qty,net_pnl,bars_held_min"
 
@@ -388,7 +398,7 @@ let private row (t: Trip) =
            f t.LogAtr20; f t.Adx14; f t.PlusDi14; f t.MinusDi14
            f t.PriceSlopeOpen; f t.PriceSlope60; f t.PriceSlope20
            f t.VolSlopeOpen; f t.VolSlope60; f t.VolSlope20
-           f t.BarVol; f t.Brv15m; f t.Rvol5m; f t.VolClimb; f t.CumVol; f t.Dv0945
+           f t.BarVol; f t.Brv15m; f t.Rvol5m; f t.VolClimb; f t.CumVol; f t.Dv0945; f t.Rvol0945Honest
            hhmm t.ExitMin; f t.ExitPrice; t.ExitReason; f t.RetMoc
            f t.DayClose; f t.CloseFwd1d; f t.CloseFwd3d; f t.CloseFwd5d
            f t.Qty; f t.NetPnL; string t.BarsHeld |])
