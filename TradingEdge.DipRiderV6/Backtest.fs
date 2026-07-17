@@ -63,9 +63,14 @@ let defaultConfig =
           MocMin          = 16 * 60      // 16:00 ET
           MinLowsIntoLeg  = 0            // ⭐ 0 = the SAMPLER (take every low). Set 5 (+ --max-concurrent 1)
                                          // for the F3 production book: PF 1.968 / +1.48%/tr / 1068 trips.
-          MinAtrPct       = 0.0 }        // ⭐ OFF. THE SAMPLER MUST NOT GATE — log_atr_20 is RECORDED, so
-                                         // slice it post-hoc. (Was 0.013, inherited from V5: that silently
-                                         // made the ATR floor un-loosenable in the CSV.)
+          MinAtrPct       = 0.004 }      // ⭐ A CAPACITY floor, not a quality one (user, 2026-07-17): purely to
+                                         // cut the sampler to a manageable size. F8 measured the sub-0.004
+                                         // band as WORTHLESS — 69% of the book (7.4M of 10.7M trips) at
+                                         // PF 1.03-1.13 and +0.006-0.049%/trade, i.e. BELOW transaction costs.
+                                         // Nothing of value is discarded. The QUALITY floor is ~0.009 and the
+                                         // peak is broad (0.009-0.02 all ~PF 1.58); ⚠ F8 also found a CEILING
+                                         // (<0.035) that is NOT yet wired — high ATR INVERTS (>=0.05 -> PF
+                                         // 0.755 at -1.66%/tr). Slice both post-hoc; log_atr_20 is recorded.
       Notional = 10_000.0
       MinDv0945 = 5_000_000.0 }
 

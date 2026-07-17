@@ -449,6 +449,92 @@ waiting**.
 
 ---
 
+## Finding 10 — rvol_0945_honest: monotone-ish alone, but it INVERTS against ATR (they are NOT independent)
+
+**User:** *"How does rvol_0945_honest affect results? Does a higher value give bigger gains when controlling
+for ATR%?"*
+
+⚠ **Scale reminder:** `rvol_0945_honest` = (premarket-inclusive volume through 09:45) ÷ (prior-20d mean
+**daily** volume). So **1.0 means "by 09:45 it has already traded a full normal DAY's volume"** — a very
+high bar, not a mild one.
+
+**Marginal (10.7M sampler, no gates):**
+
+| rvol | n | % | win% | avg %/tr | **PF** |
+|---|---|---|---|---|---|
+| 0.1–0.25 | 5,820,370 | 54.3 | 64.1 | 0.0499 | 1.169 |
+| 0.25–0.5 | 1,476,819 | 13.8 | 64.6 | 0.0834 | 1.212 |
+| 0.5–1 | 850,265 | 7.9 | 65.4 | 0.1238 | 1.267 |
+| **1–2** (the old gate) | 664,236 | 6.2 | 66.3 | 0.1865 | 1.397 |
+| **2–4** | 475,303 | 4.4 | 66.8 | 0.2377 | **⭐ 1.460** |
+| 4–8 | 317,576 | 3.0 | 67.6 | 0.2782 | 1.455 |
+| ≥ 8 | 1,120,978 | 10.5 | 68.1 | **0.3590** | 1.418 |
+
+Monotone to ~2–4, then a plateau/slight roll-off. Note **avg %/trade keeps climbing to ≥8 (0.359%) while PF
+flattens** — the high-rvol tail has bigger wins *and* bigger losses.
+
+### ⭐ CONTROLLING FOR ATR — the answer is "only in the mid bands; it FLIPS at high ATR"
+
+PF by (ATR band) × (rvol band):
+
+| ATR band | rvol<0.5 | 0.5–2 | **2–8** | rvol≥8 |
+|---|---|---|---|---|
+| < 0.004 (dead) | 1.086 | 1.112 | 1.103 | 1.130 |
+| **0.004–0.009** | 1.294 | 1.442 | 1.586 | **⭐ 1.622** |
+| **0.009–0.02 (peak)** | 1.512 | 1.524 | **⭐ 1.724** | 1.581 |
+| **0.02–0.035** | **⭐ 1.891** | 1.487 | 1.622 | 1.286 |
+| **≥ 0.035** | **1.416** | 0.985 | 0.850 | 0.930 |
+
+**Where higher rvol HELPS:**
+- **ATR 0.004–0.009**: monotone 1.294 → **1.622**. Straightforwardly better.
+- **ATR 0.009–0.02**: peaks at rvol 2–8 (**1.724**), then falls at ≥8.
+
+**⭐ Where it INVERTS:**
+- **ATR 0.02–0.035**: the BEST cell is **rvol < 0.5 (1.891)**, and PF FALLS as rvol rises (→ 1.286).
+- **ATR ≥ 0.035**: same, harder — rvol<0.5 = 1.416, everything above 0.5 LOSES (0.85–0.99).
+
+**The reading: HIGH VOLATILITY *plus* HIGH VOLUME is the failure mode.** A name both moving violently AND
+being hammered on volume is not mean-reverting — that is a **real repricing event** (news / halt / offering)
+and the dip keeps going. A high-ATR name on **quiet** volume is merely noisy, and it reverts beautifully.
+**ATR < 0.004 is flat (~1.10) at EVERY rvol** — confirming F8: that band is dead and no feature rescues it.
+
+### Sample-size honesty (the inversion is real in one band, thin in the other)
+
+| ATR band | rvol band | n | n_syms | win% | avg %/tr | PF |
+|---|---|---|---|---|---|---|
+| 0.009–0.02 | rvol<0.5 | 141,807 | 3,176 | 65.9 | 0.516 | 1.512 |
+| 0.009–0.02 | 0.5–2 | 114,434 | 3,281 | 66.7 | 0.537 | 1.524 |
+| 0.009–0.02 | **≥2** | 370,948 | 3,257 | 68.2 | 0.675 | **1.615** |
+| 0.02–0.035 | **rvol<0.5** | **8,699** | **1,122** | 67.9 | **1.438** | **⭐ 1.891** |
+| 0.02–0.035 | 0.5–2 | 11,834 | 1,441 | 65.9 | 0.959 | 1.487 |
+| 0.02–0.035 | ≥2 | 82,238 | 2,447 | 64.3 | 0.729 | 1.331 |
+| ≥0.035 | **rvol<0.5** | **1,280** | **304** | 61.3 | 1.482 | **1.416 ⚠ THIN** |
+| ≥0.035 | 0.5–2 | 2,049 | 443 | 58.7 | −0.069 | 0.985 |
+| ≥0.035 | ≥2 | 24,282 | 1,650 | 57.2 | −0.367 | 0.919 |
+
+- **`ATR 0.02–0.035 × rvol<0.5` (PF 1.891, avg +1.438%/tr) is BELIEVABLE** — 8,699 trips across **1,122
+  symbols**, and the highest avg/trade in the table.
+- **`ATR ≥0.035 × rvol<0.5` (1.416) is NOT** — 1,280 trips / 304 symbols. It *suggests* F8's "ATR≥0.035 is
+  dangerous" holds only for the NOISY subset, but that is not established.
+- **The `rvol≥2` crossover IS solid on both sides** (helps at 0.009–0.02 → 1.615 on 371k; hurts at
+  0.02–0.035 → 1.331 on 82k; and 0.919 on 24k at ≥0.035).
+
+**⭐ Verdict on the old `rvol_0945_honest >= 1` universe gate: crude but directionally right in the ATR bands
+we actually trade — and the WRONG SHAPE.** The right rvol depends on ATR: **want high rvol at low/mid ATR;
+want LOW rvol at high ATR.** A flat floor cannot express that.
+
+### Engine change (user, 2026-07-17)
+
+**`MinAtrPct` default 0.0 → 0.004** — a **CAPACITY** floor, not a quality one: purely to cut the sampler to
+a manageable size. F8 measured sub-0.004 as 69% of the book at PF 1.03–1.13 / +0.006–0.049%/trade (below
+costs), so **nothing of value is discarded**. The QUALITY floor is ~0.009 and the ceiling (~0.035) is still
+**not wired** — both stay post-hoc, since `log_atr_20` is recorded.
+
+⏭ Also owed: **parquet output** (user) — 10.7M rows × 41 cols is 6.9 GB of CSV.
+
+
+---
+
 ## Status / next
 
 ⏭ **In order:**
