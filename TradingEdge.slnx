@@ -9,6 +9,7 @@
   <Project Path="TradingEdge.DipRider/TradingEdge.DipRider.fsproj" />
   <Project Path="TradingEdge.DipRiderV4/TradingEdge.DipRiderV4.fsproj" />
   <Project Path="TradingEdge.DipRiderV5/TradingEdge.DipRiderV5.fsproj" />
+  <Project Path="TradingEdge.DipRiderV6/TradingEdge.DipRiderV6.fsproj" />
   <Project Path="TradingEdge.HighFlyer/TradingEdge.HighFlyer.fsproj" />
   <Project Path="TradingEdge.HighFlyerV2/TradingEdge.HighFlyerV2.fsproj" />
   <Project Path="TradingEdge.Orb/TradingEdge.Orb.fsproj" />

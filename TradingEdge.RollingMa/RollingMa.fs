@@ -176,6 +176,47 @@ type RunMinMa<'T when 'T: comparison>() =
     /// Clear the running extreme (see RollingMa.Reset).
     member _.Reset () = s <- ValueNone
 
+/// CUMULATIVE mean / standard-deviation accumulator (Welford's online algorithm).
+/// NOT a fixed window — it accumulates over the whole session (like RatioMa/EmaMa),
+/// so it never evicts. The motivating use is the VWAP-distance z-score: push
+/// `close/vwap - 1` each bar, read `.Z x` for how many σ a value sits from the
+/// session mean. Welford rather than Σx/Σx² because the naive form loses precision
+/// catastrophically when the mean is large relative to the variance — exactly the
+/// case here (dist_vwap values cluster tightly near 0).
+///
+/// `.Mean`/`.Std` are ValueNone until 2 values have been pushed (σ is undefined for
+/// n<2). `.Std` is the SAMPLE deviation (n−1 denominator). Read BEFORE pushing the
+/// current bar for the strictly-prior value, or AFTER for the inclusive one — same
+/// convention as the other structures here.
+[<Sealed>]
+type CumStdMa() =
+    let mutable n = 0
+    let mutable mean = 0.0
+    let mutable m2 = 0.0            // Σ (x − mean)² , maintained incrementally
+    /// Count of values pushed since the last Reset.
+    member _.Count = n
+    /// The running mean, or ValueNone before any push.
+    member _.Mean = if n > 0 then ValueSome mean else ValueNone
+    /// The running SAMPLE standard deviation (n−1). ValueNone until n >= 2.
+    member _.Std =
+        if n >= 2 then ValueSome (sqrt (m2 / float (n - 1))) else ValueNone
+    /// The z-score of `x` against the accumulated mean/σ. ValueNone until n >= 2 or
+    /// when σ = 0 (a degenerate constant series — z would be infinite).
+    member t.Z (x: float) : float voption =
+        match t.Std with
+        | ValueSome sd when sd > 0.0 -> ValueSome ((x - mean) / sd)
+        | _ -> ValueNone
+    member _.Push (x: float) =
+        n <- n + 1
+        let d = x - mean
+        mean <- mean + d / float n
+        m2 <- m2 + d * (x - mean)   // note: uses the UPDATED mean — this is Welford
+    /// Clear the accumulator (see RollingMa.Reset).
+    member _.Reset () =
+        n <- 0
+        mean <- 0.0
+        m2 <- 0.0
+
 /// Fixed-DELAY line (reused verbatim from TradingEdge.LowFlyer/RollingMa.fs): a ring
 /// of the last (lag+1) values — `.Lagged` is the value `lag` bars ago, `.Last` the
 /// current. Push the bar, then read `lagPctChange` for an N-bar return. Empty until
