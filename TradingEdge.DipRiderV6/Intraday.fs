@@ -94,61 +94,6 @@ type NewLowCounters() =
         bars <- -1
         lows <- -1
 
-/// Wilder's ADX(14) + directional indicators, on 1m bars. Direction-AGNOSTIC trend
-/// STRENGTH: high in a strong move (either way), low in a chop.
-///
-/// ⭐ The MR thesis this exists to test: mean reversion should work BEST in low-ADX
-/// (choppy, range-bound) conditions and WORST in high-ADX (a real trend, where "the
-/// dip" is just the start of more downside). Nothing in this codebase measured that
-/// before — every prior trend feature (price slope, sum6) was DIRECTIONAL.
-///
-/// Wilder smoothing (not a plain SMA): s_t = s_{t-1} - s_{t-1}/N + x_t.
-/// `.State` is ValueNone until ~2N bars have folded (N to warm the DI smoothing,
-/// then N more for the ADX average of DX).
-[<Sealed>]
-type AdxMa(period: int) =
-    let mutable prev : (float * float * float) voption = ValueNone   // prior (high, low, close)
-    let mutable n = 0
-    let mutable trS = 0.0        // Wilder-smoothed true range
-    let mutable pdmS = 0.0       // Wilder-smoothed +DM
-    let mutable mdmS = 0.0       // Wilder-smoothed -DM
-    let mutable adx = 0.0
-    let mutable adxN = 0
-    let wilder (s: float) (x: float) = s - s / float period + x
-    member _.PlusDi  = if n >= period && trS > 0.0 then ValueSome (100.0 * pdmS / trS) else ValueNone
-    member _.MinusDi = if n >= period && trS > 0.0 then ValueSome (100.0 * mdmS / trS) else ValueNone
-    /// The ADX itself — ValueNone until the DX average has warmed.
-    member _.State = if adxN >= period then ValueSome adx else ValueNone
-    member _.Push (h: float, l: float, c: float) =
-        match prev with
-        | ValueNone -> prev <- ValueSome (h, l, c)
-        | ValueSome (ph, pl, pc) ->
-            let upMove = h - ph
-            let downMove = pl - l
-            // Directional movement: only the LARGER of the two counts, and only if positive.
-            let pdm = if upMove > downMove && upMove > 0.0 then upMove else 0.0
-            let mdm = if downMove > upMove && downMove > 0.0 then downMove else 0.0
-            let tr = max (h - l) (max (abs (h - pc)) (abs (l - pc)))
-            n <- n + 1
-            if n <= period then
-                // seed the smoothing with plain sums over the first `period` bars
-                trS  <- trS + tr
-                pdmS <- pdmS + pdm
-                mdmS <- mdmS + mdm
-            else
-                trS  <- wilder trS tr
-                pdmS <- wilder pdmS pdm
-                mdmS <- wilder mdmS mdm
-            if n >= period && trS > 0.0 then
-                let pdi = 100.0 * pdmS / trS
-                let mdi = 100.0 * mdmS / trS
-                let denom = pdi + mdi
-                if denom > 0.0 then
-                    let dx = 100.0 * abs (pdi - mdi) / denom
-                    adxN <- adxN + 1
-                    adx <- if adxN = 1 then dx else (adx * float (period - 1) + dx) / float period
-            prev <- ValueSome (h, l, c)
-
 /// Intraday position life-cycle.
 type IntraPosState =
     | Holding

@@ -217,6 +217,70 @@ type CumStdMa() =
         mean <- 0.0
         m2 <- 0.0
 
+/// Wilder's ADX(period) + directional indicators (+DI / −DI), fed OHLC bar-by-bar.
+/// Direction-AGNOSTIC trend STRENGTH: high in a strong move (either way), low in a chop.
+/// `.State` (the ADX) is ValueNone until ~2·period bars have folded — `period` to warm the
+/// DI smoothing, then `period` more for the ADX to average the DX. `.PlusDi`/`.MinusDi` are
+/// available after `period` bars.
+///
+/// Wilder smoothing (NOT a plain SMA): s_t = s_{t-1} − s_{t-1}/N + x_t — the standard ADX
+/// definition. Push each bar's (high, low, close); the true-range/±DM are computed against
+/// the strictly-prior bar the accumulator remembers internally.
+[<Sealed>]
+type AdxMa(period: int) =
+    let mutable prev : (float * float * float) voption = ValueNone   // prior (high, low, close)
+    let mutable n = 0
+    let mutable trS = 0.0        // Wilder-smoothed true range
+    let mutable pdmS = 0.0       // Wilder-smoothed +DM
+    let mutable mdmS = 0.0       // Wilder-smoothed -DM
+    let mutable adx = 0.0
+    let mutable adxN = 0
+    let wilder (s: float) (x: float) = s - s / float period + x
+    /// +DI (the up-pressure leg). ValueNone until `period` bars have folded.
+    member _.PlusDi  = if n >= period && trS > 0.0 then ValueSome (100.0 * pdmS / trS) else ValueNone
+    /// −DI (the down-pressure leg). ValueNone until `period` bars have folded.
+    member _.MinusDi = if n >= period && trS > 0.0 then ValueSome (100.0 * mdmS / trS) else ValueNone
+    /// The ADX itself — ValueNone until the DX average has warmed (~2·period bars).
+    member _.State = if adxN >= period then ValueSome adx else ValueNone
+    member _.Push (h: float, l: float, c: float) =
+        match prev with
+        | ValueNone -> prev <- ValueSome (h, l, c)
+        | ValueSome (ph, pl, pc) ->
+            let upMove = h - ph
+            let downMove = pl - l
+            // Directional movement: only the LARGER of the two counts, and only if positive.
+            let pdm = if upMove > downMove && upMove > 0.0 then upMove else 0.0
+            let mdm = if downMove > upMove && downMove > 0.0 then downMove else 0.0
+            let tr = max (h - l) (max (abs (h - pc)) (abs (l - pc)))
+            n <- n + 1
+            if n <= period then
+                // seed the smoothing with plain sums over the first `period` bars
+                trS  <- trS + tr
+                pdmS <- pdmS + pdm
+                mdmS <- mdmS + mdm
+            else
+                trS  <- wilder trS tr
+                pdmS <- wilder pdmS pdm
+                mdmS <- wilder mdmS mdm
+            if n >= period && trS > 0.0 then
+                let pdi = 100.0 * pdmS / trS
+                let mdi = 100.0 * mdmS / trS
+                let denom = pdi + mdi
+                if denom > 0.0 then
+                    let dx = 100.0 * abs (pdi - mdi) / denom
+                    adxN <- adxN + 1
+                    adx <- if adxN = 1 then dx else (adx * float (period - 1) + dx) / float period
+            prev <- ValueSome (h, l, c)
+    /// Clear the accumulator (see RollingMa.Reset).
+    member _.Reset () =
+        prev <- ValueNone
+        n <- 0
+        trS <- 0.0
+        pdmS <- 0.0
+        mdmS <- 0.0
+        adx <- 0.0
+        adxN <- 0
+
 /// Fixed-DELAY line (reused verbatim from TradingEdge.LowFlyer/RollingMa.fs): a ring
 /// of the last (lag+1) values — `.Lagged` is the value `lag` bars ago, `.Last` the
 /// current. Push the bar, then read `lagPctChange` for an N-bar return. Empty until
