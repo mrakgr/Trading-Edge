@@ -58,14 +58,67 @@ has `exit > entry` — **0 violations** on both. Counters mirror cleanly: 0 nega
 | 2025 | 363,626 | 1.418 | 0.202 | 1.467 | 0.203 |
 | 2026 | 161,242 | 1.326 | 0.147 | 1.390 | 0.165 |
 
-**⭐ The short PF is below the long in EVERY year, by a consistent 0.05–0.31.** That asymmetry is the
-well-known structural one: **stocks drift UP over time, so fading pops fights a gentle tailwind that fading
-dips does not.** It is not a flaw — it is the market's long bias appearing exactly where it should.
+**⭐ The short PF is below the long in EVERY year, by a consistent 0.05–0.31 — but the CAUSE is NOT
+overnight drift.** (An earlier draft blamed "stocks drift up so fading pops fights a tailwind" — **WRONG,
+and the user corrected it:** the S&P's entire long-run return has historically accrued OVERNIGHT (close→open);
+the intraday session is flat-to-negative, per Brett Steenbarger's work. So there is no intraday up-tailwind
+for a short to fight.) The real cause is **OPEN** — candidates: SSR making down-moves stickier (a new-high
+fade genuinely can squeeze), or an asymmetry in how the 20m-high/5m-low windows interact with intraday
+structure. Do not assert a mechanism until it is measured.
 
 **⚠ It is the SAME SETUP FROM THE OTHER SIDE, NOT A DIVERSIFIER.** Both books are strongest in 2023 (1.80 /
 1.88) and weakest in 2026 (1.33 / 1.39) — the **same year-to-year shape**. The two will move TOGETHER, not
 hedge each other. What the short side delivers is the user's stated goal — **MORE TRADES**: 2.4M short +
 2.6M long on the same infrastructure, ~2× the capacity.
+
+---
+
+## Finding 2 — the FAST cover mirrors the long side (V6 F16), but the lift is MUTED and the optimum is FLATTER
+
+**User:** *"Do 5m exits improve upon the 20m exits similarly for how they do on the long side?"*
+
+**Yes — same shape, smaller magnitude.** Cover-window sweep, identical entries (2,400,953 trips every row,
+dv ≥ $3M, ATR band):
+
+| cover = prior N-min MIN of closes | win% | avg %/tr | **PF** | med hold |
+|---|---|---|---|---|
+| 3m | 67.1 | 0.174 | 1.528 | ~4 min |
+| **5m** | 68.5 | 0.225 | **⭐ 1.552** | 6 min |
+| 7m | **69.0** | 0.256 | 1.540 | ~8 min |
+| 10m | **69.0** | 0.281 | 1.498 | 11 min |
+| 20m | 68.1 | 0.308 | 1.387 | 24 min |
+| 30m | 67.5 | 0.332 | 1.349 | 36 min |
+| 45m | 67.2 | 0.351 | 1.311 | 55 min |
+| 60m | 66.9 | 0.345 | 1.268 | 74 min |
+
+Same structure as V6: **PF falls monotonically** with target length (1.552 → 1.268) while **avg/trade
+rises** (0.225 → 0.345). Fast wins on PF, slow wins on per-trade return.
+
+### ⭐ BUT the improvement is SMALLER on the short side — and I expected the OPPOSITE
+
+| | 5m PF | 20m PF | **5m/20m ratio** |
+|---|---|---|---|
+| **SHORT** | 1.552 | 1.387 | **1.119 (+12%)** |
+| **LONG** (V6) | 1.723 | 1.417 | **1.216 (+22%)** |
+
+**The fast target lifts the LONG book ~2× as much as the SHORT (+22% vs +12%).** My prior was the reverse —
+that squeeze risk would make a fast cover help the short side MORE (get out before the run-over). The data
+says no.
+
+**The tell is the win-rate curve.** On the short, win rate RISES from 5m→7m→10m (68.5 → 69.0 → 69.0) and
+**3m already rolls over on PF (1.528)** — a very fast cover clips shorts that were still working. On the
+long side 5m was already the win-rate peak with no over-speed. **So the short's snap-DOWN completes
+marginally SLOWER than the long's snap-UP** — the short's ideal cover is a flatter plateau around 5–7m
+rather than a sharp 5m point.
+
+**Practical:** keep the 5m default (it is the PF peak and the fine sweep 3/5/7 confirms it), but the
+short-side optimum is a **plateau [5m, 7m]**, not a knife-edge. At mc=1 the marginally-slower peak may matter
+for capacity.
+
+⚠ Every number is mc=0 attribution and models NO borrow/SSR/squeeze. The 5m cover's main virtue for a REAL
+short book is unchanged: a ~6-min hold gives a squeeze little time to develop — but it is not a substitute
+for a stop.
+
 
 ---
 
