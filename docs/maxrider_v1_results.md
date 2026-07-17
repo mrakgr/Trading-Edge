@@ -481,6 +481,47 @@ tail predicts the latter, and this finding (session highs are worse) reinforces 
 
 ---
 
+## Finding 10 — session-high × vol-high 2×2: they INTERACT (not just "double bad") — a blow-off vs a reversal-up trap
+
+**User:** *"What if we combined both a session high and volume high?"*
+
+| cell | n | % | win% | avg% | p1 worst | **PF** |
+|---|---|---|---|---|---|---|
+| **not-high × not-vol** | 1,679,917 | 70.0 | 69.8 | 0.281 | −6.2% | **⭐ 1.650** |
+| **not-high × volHIGH** | 7,021 | 0.29 | 59.9 | **−0.034** | −11.6% | **0.960** |
+| sessHIGH × not-vol | 687,549 | 28.6 | 67.0 | 0.192 | −7.4% | 1.349 |
+| **sessHIGH × volHIGH** | 26,466 | 1.1 | 65.7 | **0.459** | **−16.9%** | **1.413** |
+
+**The two flags INTERACT — combining them is NOT simply additive:**
+
+**1. `volHIGH × not-high` is the WORST cell (PF 0.960, negative avg%)** — a volume spike that is NOT a new
+session high, i.e. aggressive buying pushing hard into a level BELOW the session high. That is a
+**reversal-UP** signal (the surge resolves upward, not exhausting), so it is the one place fading loses.
+⚠ **But it is NOT robustly negative** — per-year PF ranges 0.71 → 1.47 (negative in 4 of 7 years, positive
+in 3; the aggregate 0.96 is dragged by 2020–21). On 7,021 regime-split trips it is a WEAK/inconsistent cell,
+not a durable losing book. Still clearly the worst of the four and not tradable as a fade.
+
+**2. `sessHIGH × volHIGH` RECOVERS to 1.413 — BETTER than session-high alone (1.349).** A new SESSION high
+ON a volume spike is a **BLOW-OFF CLIMAX** (the classic exhaustion top) and fades better than a QUIET grind
+to a new session high. avg% is the highest in the table (0.459%). **⚠ BUT p1 = −16.9%, the fattest tail
+here** — the squeeze-zone signature (good average, catastrophic worst case), tradable only with a stop.
+
+### The reframe: combining SPLITS the vol-high names by price location
+
+The session-high flag partitions the (rare, 1.4%) vol-high bars into two opposite setups:
+- **vol-high BELOW session high** → the reversal-up trap (0.96) — **exclude.**
+- **vol-high AT session high** → a fadeable blow-off (1.413) with a fat tail — **stop required.**
+
+So F9's "exclude vol-high bars" was too blunt: the vol-high names are not uniformly bad, they are
+BIMODAL, and the session-high flag tells the two apart. This does NOT change the core book (the tradable
+bulk is `not-high × not-vol`, PF 1.650, 70% of the book) — it refines the tail handling.
+
+⭐ **Net for the production filter:** the clean core is **NOT a session high AND NOT a vol-high** (PF 1.650).
+The vol-high tail is a separate, stop-gated, blow-off sub-strategy — not part of the core fade.
+
+
+---
+
 ## Status / next
 
 ⏭ **The V6 levers all need re-measuring on the short side — do NOT assume they mirror.** The load-bearing
