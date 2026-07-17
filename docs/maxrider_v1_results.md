@@ -714,6 +714,54 @@ universe (a known net-positive baseline) then on high-ATR names.
 
 ---
 
+## Finding 14 — price z on the momentum cell: "further down" HURTS — the surge continues only when the name is ALREADY STRONG (above VWAP)
+
+**User:** *"Since taking these trades below the session highs helps, maybe taking them even further down would
+help even more? Break down on the price z score."*
+
+**Refuted — and the opposite is the useful result.** The pre-breakout surge (`volHIGH × not-sess-high &
+vol_z ≥ 1.5`, 1m cover) sliced by `dist_vwap_z` (short PF < 1 ⇒ long edge):
+
+| price_z (vs VWAP) | n | short PF | **long avg%** |
+|---|---|---|---|
+| −2..−1 | 15 | 1.496 | −0.159 |
+| −1..0 | 423 | 0.957 | +0.011 |
+| 0..+1 | 1,711 | 0.789 | +0.079 |
+| **+1..+2** | 2,573 | **0.713** | **+0.138** |
+| ≥ +2 | 2,172 | 0.818 | +0.118 |
+
+**A HUMP peaking at +1..+2 (already ABOVE VWAP); it DIES below VWAP** (`−1..0` barely positive; `−2..−1`
+inverts back to a fade, n=15). **Deeper down is WORSE, not better** — the user's "more room to run" intuition
+is wrong here.
+
+**The mechanism (the useful part):** the surge only continues when the name is **ALREADY STRONG** — above
+VWAP, pushing up near its highs, loading volume right under the *session-price* high. That is a name COILING
+for a breakout. A surge FAR BELOW VWAP is a weak name getting a one-off bounce that fails — no underlying
+strength to break out. **The momentum signal is the intersection of TWO strength conditions:** price ABOVE
+VWAP (strong today) AND below the session price HIGH (breakout not yet happened). This is a STRENGTH-
+CONTINUATION signal, the exact opposite of the MR side (which wanted weakness everywhere).
+
+**But as a FILTER it adds little** — the setup already self-selects for strength:
+
+| book (1m) | n | long avg% | long PF |
+|---|---|---|---|
+| + `price_z ≥ 0` | 6,456 | 0.116 | 1.294 |
+| F13 (no price-z) | 6,894 | 0.109 | 1.283 |
+
+Only +0.01 PF for −438 trips: a name loading volume just below its session high is USUALLY already above
+VWAP, so `price_z ≥ 0` is near-redundant with the trigger. It CONFIRMS the mechanism, it does not add
+independent selection.
+
+**Combined book (vol_z ≥ 1.5 & price_z ∈ [0,+2] & not-sess-high) per year:** 1.426 / 1.860 / 1.129 / 0.860 /
+1.152 / 1.318 / 1.989 — same 6-of-7 (2023 the only break), good years stronger (2021 1.86, 2026 1.99).
+
+⏭ Handed to the momentum fork with a fully-characterised trigger: **buy a bar that (1) spikes volume ≥1.5σ
+(log) to a new SESSION-VOLUME high, (2) is BELOW the session PRICE high, (3) with price ABOVE VWAP; exit at
+the 1m low (exit = stop).** The price-above-VWAP condition is mechanistic confirmation, near-free to keep.
+
+
+---
+
 ## Status / next
 
 ⏭ **The V6 levers all need re-measuring on the short side — do NOT assume they mirror.** The load-bearing
