@@ -1106,23 +1106,33 @@ median −0.38%, p99 = 0.0 (a 20m-low entry can barely close up), 0 nulls.
 | −2..−1% | 279,853 | 70.2 | 0.480 | −7.12 | 1.915 |
 | −1..−0.5% | 604,108 | 68.7 | 0.259 | −4.98 | 1.700 |
 | −0.5..−0.2% | 775,280 | 69.1 | 0.164 | −4.04 | 1.543 |
-| −0.2..0% (excl 0) | 462,487 | 68.7 | 0.110 | −4.15 | **1.345 ← trough** |
-| **== 0 exactly** | 338,423 | 64.4 | 0.234 | −3.59 | 2.124 |
+| −0.2..0% | 462,487 | 68.7 | 0.110 | −4.15 | **1.345 ← trough** |
 
-**⭐ The ramp is MONOTONE once the `bar_pct == 0` cell is separated: PF 1.345 → 2.326 as the flush deepens;
-avg% +0.11% → +1.30% (12× spread).** LowFlyer's finding confirmed — deeper panic = bigger bounce, so
-LowFlyer SIZED on flush depth. The single strongest long lever found. **The trough is `−0.2..0%` (1.345) — a
-lazy drift to a new low, no conviction.**
+**⭐ The ramp is clean and MONOTONE: PF 1.345 → 2.326 as the flush deepens; avg% +0.11% → +1.30% (12×
+spread).** LowFlyer confirmed — deeper panic = bigger bounce, so LowFlyer SIZED on flush depth. The single
+strongest long lever found. The trough is `−0.2..0%` (1.345) — a lazy drift to a new low, no conviction.
+**All rows above are `bar_pct < 0`; `bar_pct == 0` is EXCLUDED — see the box below.**
 
-**⚠ THE `bar_pct == 0` CELL IS A SEPARATE SETUP, NOT PART OF THE RAMP (user caught this).** The user asked:
-if we trigger on CLOSES, how can a long entry have a close-UP bar? Answer: it CANNOT, and it does not — the
-"≥ 0%" cell is **100% `bar_pct == 0` exactly** (0 genuinely-positive bars). `bar.close <= priorLow` re-fires
-when this close **TIES** the strictly-prior 20m-low-of-closes: two consecutive bars at an IDENTICAL close
-(e.g. XELA $374.40 → $374.40). That is a **flat RE-TEST / double-tap of a floor** — a name sitting ON
-support, a genuinely different (and decent, 2.124) setup, NOT a deep flush and NOT the invented "v-bottom
-mid-turn / gap" story an earlier draft told. It is NOT a data artifact of thin names (median dv $22M, price
-$25, 13% sub-$5 — same as the book). It just does not belong on the flush ramp. My earlier "shallow-U / buy
-the v-bottom" framing was WRONG on both the mechanism and the narrative.
+### ⚠ `bar_pct == 0` is EXCLUDED — a tape-microstructure quirk, not a setup (user caught this)
+
+The user asked: if we trigger on CLOSES, how can a long entry have a close-UP bar? **It cannot, and it does
+not** — the original "≥ 0%" row was **100% `bar_pct == 0` exactly** (338,423 rows, 0 positive). The trigger
+`bar.close <= priorLow` re-fires when this close **TIES** the prior 20m-low-of-closes: two consecutive bars
+at an IDENTICAL close.
+
+**What they are (the user pushed until it was nailed down):** NOT halts (0-volume bars never enter the
+engine), NOT cheap stocks (0% sub-$1; the ties skew HIGHER-priced, p90 $977 vs $577). The tell is
+**round-number clustering: whole-dollar closes are 4.09% of tie bars vs 1.99% of the rest; half-dollar 5.9%
+vs 2.97%.** These are **thin-tape bars on HIGH-priced names in a quiet minute** — a $300 stock trading a few
+hundred shares prints the identical close twice, pinned to a round number. 13% prevalence is real (round-
+number pinning is common), not garbage.
+
+**Why it is EXCLUDED, not reported as a 2.124 setup:** a "flat re-test" cannot be distinguished LIVE from any
+other new-low tie, and you cannot reliably FILL at the exact tie price. Its PF is a property of the tape's
+QUIETNESS, not a signal about the stock — a sampler cell that evaporates on contact. **⛔ Two earlier drafts
+FABRICATED explanations for this cell ("gap between bars", "v-bottom mid-turn") without checking; both were
+wrong. The lesson: characterize the cell before narrating it.** The flush finding is the monotone ramp on
+`bar_pct < 0`, full stop — verified unchanged when the tie bars are dropped entirely.
 
 **⚠ Tail is the flip side:** p1 = −13.87% at the violent flush — best PF/expectancy, fattest tail (the flush
 that keeps flushing). The biggest edge carries the biggest knife, as everywhere in this book.
