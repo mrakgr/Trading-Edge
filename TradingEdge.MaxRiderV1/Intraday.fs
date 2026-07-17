@@ -343,8 +343,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         // ===== 4. ⭐ the reset machine =====
         // Step FIRST so BarsSinceFirstLow counts bars ELAPSED since the leg's first low.
         counters.Step()
-        let isNewLow  = match priorLow  with ValueSome lo -> bar.close <= lo | ValueNone -> false
-        let isNewHigh = match priorHigh with ValueSome hi -> bar.close >= hi | ValueNone -> false
+        // ⭐ STRICT inequality (user, 2026-07-17): a new 20m high must be GENUINELY higher than the prior
+        // ceiling, not merely TIE it. `>=` re-fired on `bar.close == priorHigh` — two consecutive identical
+        // closes — which is thin-tape round-number pinning, not a real pop (DipRiderV6 F21). Strict `>`
+        // removes those phantom entries. The cover target below stays inclusive (a tie-to-target is a
+        // legitimate cover). isNewLow is the reset event, also strict for consistency.
+        let isNewLow  = match priorLow  with ValueSome lo -> bar.close < lo | ValueNone -> false
+        let isNewHigh = match priorHigh with ValueSome hi -> bar.close > hi | ValueNone -> false
         if isNewHigh then counters.OnNewHigh()
 
         // ===== 5. entry =====
