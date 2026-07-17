@@ -358,6 +358,97 @@ recorded, all pure SQL. Then re-derive the production book from `z` + `K` + a re
 
 ---
 
+## Finding 8 — ⭐⭐ ATR is the BIGGEST lever, and it INVERTS at the top (a hump with a cliff)
+
+**User:** *"How does ATR % affect the results?"*
+
+**Full 10.7M sampler, no gates (R8 — the whole range):**
+
+| log-ATR20 | n | % of book | win% | avg %/tr | **PF** |
+|---|---|---|---|---|---|
+| < 0.002 | 4,118,622 | **38.4** | 64.4 | 0.0061 | **1.033 ← dead** |
+| 0.002–0.004 | 3,291,766 | **30.7** | 64.0 | 0.0489 | 1.131 |
+| 0.004–0.006 | 1,572,880 | 14.7 | 66.2 | 0.1707 | 1.338 |
+| 0.006–0.009 | 984,708 | 9.2 | 67.9 | 0.3352 | 1.531 |
+| 0.009–0.013 | 409,802 | 3.8 | 67.6 | 0.5303 | 1.572 |
+| **0.013–0.02** | 217,387 | 2.0 | 67.0 | 0.7726 | **⭐ 1.583** |
+| 0.02–0.03 | 86,342 | 0.8 | 65.3 | 0.8469 | 1.423 |
+| 0.03–0.05 | 36,187 | 0.3 | 60.8 | 0.4566 | 1.142 |
+| **≥ 0.05** | 7,853 | 0.1 | **52.4** | **−1.6588** | **0.755 ← LOSES MONEY** |
+
+1. **⭐ The bottom 69% of the book is worthless.** ATR < 0.004 = PF 1.03–1.13 at **+0.006–0.049%/trade —
+   BELOW transaction costs**. 7.4M of 10.7M trips produce essentially nothing. **This is the single biggest
+   filter available.**
+2. **V5's 0.013 floor lands on the peak** (0.013–0.02 → 1.583). Lucky: it was fitted on the *contaminated
+   momentum* book, yet it hits the MR optimum. But the peak is **broad** (0.009–0.02 all ≈1.57–1.58), so the
+   exact number is not load-bearing.
+3. **⭐ HIGH ATR INVERTS AND LOSES MONEY.** ≥0.05 → PF 0.755 at **−1.66%/trade**, win 52.4%. **This is the
+   MIRROR of V4's momentum finding**, where PF scaled *monotonically* with ATR (V4 F3 called it "THE MAIN
+   LEVER"). **Momentum wanted the violent thrust; mean reversion wants RANGE but NOT CHAOS.** Past ~3% the
+   name is not oscillating — it is broken.
+
+### The ceiling, located precisely (within `z < −1.5`, `atr >= 0.009`)
+
+| log-ATR20 | n | win% | avg %/tr | PF |
+|---|---|---|---|---|
+| < 0.025 | 298,972 | 68.5 | 0.868 | **1.795** |
+| 0.025–0.030 | 15,228 | 65.8 | 1.135 | 1.510 |
+| 0.030–0.035 | 8,684 | 65.0 | 1.305 | 1.529 |
+| 0.035–0.040 | 5,306 | 62.3 | 0.799 | 1.249 |
+| 0.040–0.050 | 5,390 | 59.4 | 0.353 | 1.090 |
+| 0.050–0.070 | 3,424 | 55.4 | **−0.173** | 0.966 |
+| ≥ 0.070 | 1,163 | **46.2** | **−5.829** | **0.541** |
+
+**`log_atr_20 < 0.035` is the natural CEILING** — monotone degradation above it, negative avg/trade by 0.05,
+catastrophic at 0.07. The win rate is the cleanest read: 68.5% → 46.2%. **V5 had `MaxAtrPct = infinity`
+(no ceiling at all) — that is now a known defect.**
+
+---
+
+## Finding 9 — ⭐⭐ ATR × Z ARE INDEPENDENT AND THEY MULTIPLY → PF 2.116, ALL-WEATHER
+
+Neither feature is a proxy for the other — each lifts PF at **every** level of the other:
+
+| ATR | **z<−2.5** | −2.5..−1.5 | z≥−1.5 |
+|---|---|---|---|
+| < 0.004 (69% of book) | 1.158 | 1.104 | 1.087 |
+| 0.004–0.009 | 1.744 | 1.454 | 1.381 |
+| **0.009–0.02 (PEAK)** | **⭐ 2.116** (n=47,096) | 1.734 | 1.414 |
+| 0.02–0.03 | 1.868 | 1.588 | 1.222 |
+| ≥ 0.03 (danger) | 1.028 | 1.142 | **0.915** |
+
+**The joint cell `ATR ∈ [0.009, 0.02) × z < −2.5` = PF 2.116 on 47,096 trips**, from a 1.283 baseline.
+**And the danger compounds too: ATR ≥ 0.03 is bad at EVERY z (0.915–1.142) — a deep z-score does NOT rescue
+a chaotic name.**
+
+### ⭐ PER-YEAR — and it FIXES 2021, the year that killed every other config
+
+`log_atr_20 ∈ [0.009, 0.035) AND dist_vwap_z < −2.5`:
+
+| yr | n | win% | avg %/tr | **PF** |
+|---|---|---|---|---|
+| 2020 | 9,193 | 74.7 | 1.835 | **3.043** |
+| **2021** | 10,251 | 73.7 | 1.555 | **⭐ 2.943** |
+| 2022 | 6,455 | 68.7 | 0.848 | 1.560 |
+| 2023 | 7,319 | 70.5 | 1.261 | 1.890 |
+| 2024 | 8,831 | 70.5 | 1.537 | 2.192 |
+| 2025 | 10,712 | 68.0 | 0.969 | 1.608 |
+| 2026 | 4,120 | 66.4 | 0.812 | 1.433 |
+
+**Worst year 1.433; EVERY year ≥ 1.43.** **2021 — which was 1.220 in the K=5 book (F3) and an outright
+LOSER (0.892) in the 60m book (F4) — is now 2.943, the second-BEST year.** The ATR×z pair is finding
+something genuinely regime-independent that the counter-based selection could not.
+
+**⭐ This supersedes the F3/F4 book direction.** `ATR × z` beats "wait for the Kth low" on PF (2.116 vs
+1.968), on robustness (worst year 1.433 vs 1.220), AND on capacity (47k vs 1k sampler trips). The counters
+remain a real lever (F1/F3) — but as a *secondary* one, and F7 already showed **z partly substitutes for
+waiting**.
+
+⚠ **All mc=0 attribution.** The production book must be re-derived and re-run at mc=1.
+
+
+---
+
 ## Status / next
 
 ⏭ **In order:**
