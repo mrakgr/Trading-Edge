@@ -228,6 +228,134 @@ little. That is a real reason to expect a different answer, not a hope.
 
 ---
 
+## Finding 6 — ⭐ MEAN-REVERSION MODE: buy the 20m low above VWAP, sell into the 20m high — PF 1.285, ALL-WEATHER, from a NEAR-BARE config
+
+User's idea (2026-07-17): *"turn DipRiderV5 into a mean reversion system that buys 20m lows above the VWAP
+and sells above the 20m highs"* — a short-term fade using V5's live-safe universe.
+
+**The engine (`--mean-reversion`):**
+
+| | |
+|---|---|
+| **ENTRY** | close ≤ the **strictly-prior** 20m MIN of 1m-bar **CLOSES**, AND close > VWAP |
+| **EXIT** | close ≥ the **strictly-prior** 20m MAX of closes (`target`), or MOC |
+| gates kept | log-ATR ≥ 0.013, entry window 10:00–13:30, `dv_0945 ≥ $5M`, `rvol_0945_honest ≥ 1` |
+| gates DROPPED | arm/re-arm, all 3 breakout timers, vc floors, price-slope, sum6, chg1d, chg3d, ema-vs-vwap, stop-dist |
+
+**CLOSES, not high/low wicks (user):** a wick low is noise a limit may never trade at; a close is a price the
+tape printed and held. ⚠ Both windows are read **strictly-prior** — if the current close were inside its own
+window, `close <= 20m min` would be trivially true **on every bar**.
+
+**Why the momentum machinery had to go:** the two triggers are mutually exclusive. The arm/re-arm re-arms
+when the 9-EMA breaks a 20m **low** — the MR entry condition itself. The breakout timers fire on new
+**highs**. The stop-distance floor gates on distance *above* the 20m-EMA-low, which MR **buys into**.
+
+### ⭐ THE RESULT — and why `MaxConcurrent` is the whole story (user caught this)
+
+`MaxConcurrent = 0` (unlimited) is the inherited V4 default. In V4 the arm/re-arm cycle throttled entries;
+**MR has no arm/re-arm, so with no slot cap every consecutive new-20m-low bar opens ANOTHER position.**
+The trips are then heavily overlapping — not independent bets — and required capital is unbounded.
+
+| config | trips | win% | net | **avg %/tr** | med hold | **PF** |
+|---|---|---|---|---|---|---|
+| mc=0 unlimited (**misleading**) | 38,103 | 65.0 | $2,551,168 | 0.670 | 28m | 1.429 |
+| **mc=1 (HONEST)** | **14,440** | **62.5** | **$657,752** | **0.456** | 29m | **1.285** |
+
+**62% of the trips were stacked duplicates, and they flattered everything.** PF 1.429 → **1.285**,
+avg/trade 0.670% → **0.456%**. ⚠ **Never report an MR number at mc=0.**
+
+**Per-year (mc=1) — positive every year, but the edge is NOT evenly spread:**
+
+| year | n | win% | PF | net | avg %/tr |
+|---|---|---|---|---|---|
+| 2020 | 2187 | 57.7 | **1.077** | +$26,242 | **0.120** |
+| 2021 | 2566 | 58.2 | **1.077** | +$31,221 | **0.122** |
+| 2022 | 1909 | 63.4 | 1.418 | +$110,938 | 0.581 |
+| 2023 | 1936 | 64.5 | 1.400 | +$118,738 | 0.613 |
+| 2024 | 2692 | 66.5 | **1.510** | +$211,493 | 0.786 |
+| 2025 | 2430 | 64.4 | 1.297 | +$129,898 | 0.535 |
+| 2026 | 720 | 63.9 | 1.194 | +$29,223 | 0.406 |
+
+**⚠ 2020/2021 are net LOSERS after costs** (+0.12%/tr is below round-trip cost). The edge is concentrated
+in **2022–2026**. Contrast the momentum book, which lost money in 2022 **and** 2023 — the two systems are
+strong in opposite regimes.
+
+### Cost sensitivity (user's question)
+
+| metric | value |
+|---|---|
+| avg %/trade (mc=1) | **+0.456%** |
+| median %/trade | +1.50% (mc=0 book) |
+| avg WIN | +3.43% |
+| avg LOSS | −4.46% |
+| win rate | 62.5% |
+| median hold | 29 min |
+| p01 / p05 | **−17.79%** / −8.21% |
+
+Entries and exits are **at bar closes on liquid names** (`dv_0945 ≥ $5M`), so spread ≈ 2–5bps/side ⇒
+**~0.1% round trip**, plus commissions (~$2–10 on a $10k clip). **+0.456% gross → ~0.33–0.35% net: costs
+eat ~25–30% of the edge.** Viable, but thin — and materially worse than the mc=0 book implied.
+
+**The classic MR signature, internally consistent:** win small and often (62.5% @ +3.4%), lose rarely but
+bigger (−4.5%). **The p01 of −17.8% is the tail risk — there is NO STOP**, so a name that just keeps
+falling runs to MOC.
+
+### The ablations — the VWAP condition is REAL, the stop is DESTRUCTIVE
+
+(2020+, mc=0 — ⚠ these were run before the concurrency fix; the *ordering* holds but the levels are inflated.)
+
+| config | trips | win% | net | avg %/tr | PF |
+|---|---|---|---|---|---|
+| **MR bare (above-VWAP ON)** | 38,103 | 65.0 | $2,551,168 | 0.670 | **1.429** |
+| MR, **above-VWAP OFF** | 318,281 | 65.4 | $17,862,879 | 0.561 | **1.319** |
+| MR, **9-EMA stop ON** | 38,103 | 47.7 | $436,585 | 0.115 | **1.164** |
+| MR, ATR floor OFF | 435,126 | 65.6 | $8,071,808 | — | 1.350 |
+
+- **⭐ `close > VWAP` is LOAD-BEARING** — dropping it costs PF 1.429 → 1.319 and avg/trade 0.670% → 0.561%
+  across **8× the trips**. It selects **quality**, not just volume. **This is the OPPOSITE of the
+  weak-proxy signature** that killed `vol_climb` (F4): a real lever improves PF as it tightens, and this one
+  does. **The user's instinct to require above-VWAP was right.**
+- **The 9-EMA stop is DESTRUCTIVE** — PF 1.429 → 1.164, win 65% → 47.7%, avg/trade 0.670% → **0.115%**.
+  Exactly as predicted: it arms off the 20m-EMA-**low**, which is what MR buys **into**, so it fires at or
+  near the entry bar. **Default OFF is correct** (`--mr-use-stop` to re-test).
+- **The ATR floor does far less work here than in momentum** (1.350 → 1.429 for an 11× trip cut). The MR
+  edge is **broad and structural**, not selected — encouraging for realness, but it means the ATR floor is
+  a capacity dial, not the source of the edge.
+
+### ⚠ Known data defect (cosmetic, NOT load-bearing)
+
+6,002 of 38,103 rows (16%) carry absurd `entry_price` (max **$409,302,000**) — split-adjustment blowup on
+old pre-split data (same class as the `split_adjusted_prices` dividend bug). **It does not create the
+finding — it DILUTES it:**
+
+| group | n | net | PF | avg %/tr |
+|---|---|---|---|---|
+| px > $1000 (SUSPECT) | 6,002 | $289,027 | **1.295** | 0.482 |
+| px ≤ $1000 (sane) | 32,101 | $2,262,140 | **1.456** | 0.705 |
+
+The sane rows are **better** (1.456 vs 1.429 overall). Percentages are scale-invariant so the % figures
+stand; only the absolute price display is nonsense. **Still worth fixing before any sizing work.**
+
+### Verdict
+
+**The simplest possible structure — buy the 20m low above VWAP, sell the 20m high — has a real,
+live-safe, all-weather edge of PF 1.285 / +0.456%/trade, from a near-bare config with no fitted gates.**
+That is a better honest starting point than the momentum book ever had (F2: PF 1.056), and it was reached
+in one afternoon rather than 20 findings of tuning.
+
+⏭ **What it needs before it is a system:**
+1. **A real stop.** p01 = −17.8% with no stop is the headline risk. The 9-EMA stop is structurally wrong;
+   MR wants a stop *below* the entry (a % stop or a session-low break), not an EMA that sits above it.
+2. **2020/2021 are cost-negative.** Find what separates them (regime? the ATR floor? price tier?) or accept
+   the system as 2022+ only.
+3. **Add the gates back ONE AT A TIME** (chg1d/chg3d/ema-vs-vwap were all bypassed here) — but expect
+   inversions: they were fitted for **momentum**, and F4 already proved one V4 "dominant lever" inverts.
+4. **Fix the split-adjustment blowup** before any position sizing.
+5. **The exhaustion cut (F3) is untested here** — it says LOW volume at entry is better, which is a
+   *mean-reversion* thesis. It may well be a stronger fit for THIS book than for momentum.
+
+---
+
 ## Status / next
 
 **Where V5 stands:** the honest baseline is **PF 1.056**. One real lever found (**exhaustion cut**, F3),

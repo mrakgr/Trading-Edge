@@ -41,7 +41,12 @@ type Config =
 /// Tighten to A+/A++ by raising the per-window vc floors (--breakout-vc-*).
 let defaultConfig =
     { Intraday =
-        { ReArm = RollingEmaLow         // re-arm reference: RollingEmaLow | SessionEmaLow | LastStopLevel.
+        { MeanReversion = false        // ⭐ MOMENTUM by default. --mean-reversion flips the system: buy the 20m
+                                       // LOW of closes while above VWAP, sell into the 20m HIGH of closes.
+          MeanReversionNoVwap = false  // MR: keep the above-VWAP condition (user's spec). --mr-no-vwap ablates it.
+          MeanReversionUseStop = false // MR: the 9-EMA stop is structurally backwards (it arms off the
+                                       // 20m-EMA-LOW = what MR buys into). --mr-use-stop to test it anyway.
+          ReArm = RollingEmaLow         // re-arm reference: RollingEmaLow | SessionEmaLow | LastStopLevel.
           MaxConcurrent = 0             // 0 = unlimited (the pure arm/re-arm book). 1 = V3Backside slot-lifetime.
           VolAsGate = true              // GATE mode (vol ANDed into the trigger) — the A-book default.
           VolWindow = 20

@@ -78,6 +78,23 @@ type ReArmMode =
 /// Intraday engine config — DipRiderV3 (pure trailing-window momentum).
 type IntradayConfig =
     {
+        MeanReversion: bool      // ⭐ MEAN-REVERSION MODE (user, 2026-07-17). Inverts the whole system: instead
+                                 // of buying 9-EMA breakouts to new highs (momentum), BUY the 20m LOW and SELL
+                                 // into the 20m HIGH — a short-term fade.
+                                 //   ENTRY: this bar's close <= the STRICTLY-PRIOR 20m MIN of closes
+                                 //          AND close > VWAP (only fade dips in names still above fair value)
+                                 //   EXIT:  close >= the STRICTLY-PRIOR 20m MAX of closes (a Donchian target)
+                                 //          OR MOC.
+                                 // 20m min/max are of 1m-bar CLOSES, not high/low wicks (user): a wick low is
+                                 // noise a limit may never trade at; a close is a price the tape printed.
+                                 // When true, the momentum arm/re-arm + breakout machinery is BYPASSED — the
+                                 // two triggers are mutually exclusive (one wants new highs, one wants new lows).
+        MeanReversionNoVwap: bool // MR mode: DROP the above-VWAP condition (buy every 20m low, regardless of
+                                 // where price sits vs fair value). Ablation control — measures whether
+                                 // "only fade dips in names still above VWAP" is load-bearing or decoration.
+        MeanReversionUseStop: bool // MR mode: also apply the 9-EMA stop. Default FALSE — V5's stop arms off the
+                                 // 20m-EMA-LOW, which is precisely what MR is BUYING INTO, so it is structurally
+                                 // backwards here and would stop out at the entry. Target-or-MOC only by default.
         ReArm: ReArmMode         // which level the 9-EMA must break below to re-arm (default RollingEmaLow).
         MaxConcurrent: int        // cap on concurrently-OPEN (Holding) positions. 0 = unlimited (the pure arm/
                                  // re-arm book — a re-arm can fire a new entry while a prior one is still open).
@@ -215,6 +232,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     let emaHigh60 = MaxMa(60)                    // the 60m trailing MAX of the 9-EMA — the 60m-EMA-breakout reference
     let volEma    = EmaMa(cfg.EmaPeriod)        // 9-EMA of raw 1m VOLUME — the volume analogue of the price 9-EMA
     let volEmaMin = MinMa(cfg.VolWindow)        // 20m trailing MIN of the volume-9-EMA — the vol_climb base (mirrors emaMin)
+    // ----- MEAN-REVERSION mode (cfg.MeanReversion): the 20m trailing MIN/MAX of 1m-bar CLOSES.
+    // Deliberately CLOSES, not the high/low wicks that rangeHigh/rangeLow use (user, 2026-07-17): a wick
+    // low is noise a limit order may never actually trade at; a CLOSE is a price the tape printed and held.
+    // ⚠ Both are read STRICTLY-PRIOR (before this bar's close is pushed) — if the current close were inside
+    // its own window, "close <= 20m min" would be trivially true on every bar and the trigger would be a
+    // no-op that fires constantly.
+    let closeLow20  = MinMa(cfg.VolWindow)      // 20m trailing MIN of CLOSES — the MR entry reference
+    let closeHigh20 = MaxMa(cfg.VolWindow)      // 20m trailing MAX of CLOSES — the MR exit target
     // 20m trailing AVERAGE of raw 1m volume — the alternative vol-stop basis (cfg.VolStopUseAvg20).
     // AvgMa (NOT SumMa): AvgMa.State divides by the LIVE bar Count, so it is warmup-safe. A raw 20-bar
     // SUM would be artificially small for a sparse name that reaches 10:00 with <20 bars folded.
@@ -259,6 +284,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     let mutable armed = true
     let mutable bar = ValueNone
     let mutable barsSeen = 0
+    // MEAN-REVERSION: the STRICTLY-PRIOR 20m min/max of closes — snapshotted BEFORE the current close is
+    // pushed, so the trigger compares this bar's close against the window that EXCLUDES it. (Including it
+    // would make "close <= 20m min" trivially true on every bar.)
+    let mutable sCloseLow20  : float voption = ValueNone
+    let mutable sCloseHigh20 : float voption = ValueNone
     // SESSION-min of the 9-EMA (running min from the session anchor; only ratchets DOWN) — the SessionEmaLow
     // re-arm reference. Updated post-fold in ProcessBar.
     let mutable sessEmaLow : float voption = ValueNone
@@ -351,6 +381,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             // 20m window high/low (tightness numerator) — pushed every valid feature-bar (like V3Backside).
             rangeHigh.Push curBar.high
             rangeLow.Push  curBar.low
+            // MEAN-REVERSION 20m min/max of CLOSES. Capture the STRICTLY-PRIOR window FIRST (excludes this
+            // bar), THEN push — the trigger must compare this close against the window it is not part of.
+            sCloseLow20  <- closeLow20.State
+            sCloseHigh20 <- closeHigh20.State
+            closeLow20.Push  curBar.close
+            closeHigh20.Push curBar.close
             // closes-above-9EMA count, vs the STRICTLY-PRIOR EMA (before this bar folds).
             let prevEma = ema.State
             let aboveInd = match prevEma with ValueSome e -> (if curBar.close >= e then 1.0 else 0.0) | ValueNone -> 0.0
@@ -416,8 +452,20 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
                 && (match this.VolStopSeries with
                     | ValueSome v -> v < cfg.VolStopFrac * pos.VolBasisAtEntry
                     | ValueNone -> false)
-            if stopHit then
+            // ⭐ MEAN-REVERSION TARGET: this close has reached the STRICTLY-PRIOR 20m MAX of closes —
+            // the fade has played out, sell into the 20m high. Fills at the bar close.
+            let mrTargetHit =
+                cfg.MeanReversion
+                && (match sCloseHigh20 with
+                    | ValueSome hi -> bar.close >= hi
+                    | ValueNone -> false)
+            // In MR mode the 9-EMA stop is OFF by default: V5's stop arms off the 20m-EMA-LOW, which is
+            // exactly what MR BUYS INTO — it would fire at (or immediately after) the entry.
+            let stopActive = stopHit && (not cfg.MeanReversion || cfg.MeanReversionUseStop)
+            if stopActive then
                 { pos with State = ExitedAt (bar.etMin, bar.close, "stop") }
+            elif mrTargetHit then
+                { pos with State = ExitedAt (bar.etMin, bar.close, "target") }
             elif volStopHit then
                 { pos with State = ExitedAt (bar.etMin, bar.close, "vol_stop") }
             elif bar.etMin >= cfg.MocMin then
@@ -431,6 +479,22 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
     member private this.PricePatternFires (bar: MinuteBar) : bool =
         let inline gate (v: float voption) (test: float -> bool) =
             match v with ValueSome x -> test x | ValueNone -> false
+        if cfg.MeanReversion then
+            // ===== MEAN-REVERSION TRIGGER (user, 2026-07-17) — the INVERSE of the momentum book. =====
+            // BUY the 20m low of closes, but ONLY while the name is still above VWAP (fade the dip in a
+            // name that is still above fair value — not a name in free-fall). The momentum arm/re-arm,
+            // breakout timers, sum6 and price-slope are all BYPASSED: they want new HIGHS, this wants
+            // new LOWS, so running both would have the two triggers fighting.
+            bar.etMin >= cfg.EntryStartMin
+            && (cfg.EntryEndMin <= 0 || cfg.EntryEndMin >= cfg.MocMin || bar.etMin <= cfg.EntryEndMin)
+            // log-ATR floor: mean reversion needs RANGE to revert across (kept from V5).
+            && (cfg.MinAtrPct <= 0.0 || gate atrLog.State (fun a -> a >= cfg.MinAtrPct))
+            && (Double.IsInfinity cfg.MaxAtrPct || gate atrLog.State (fun a -> a < cfg.MaxAtrPct))
+            // ⭐ THE TRIGGER: this close is a NEW 20m LOW of closes (vs the STRICTLY-PRIOR window).
+            && gate sCloseLow20 (fun lo -> bar.close <= lo)
+            // ⭐ ABOVE VWAP: only fade dips in names still trading above fair value. --mr-no-vwap drops it.
+            && (cfg.MeanReversionNoVwap || gate vwap.State (fun v -> v > 0.0 && bar.close > v))
+        else
         // inside the wall-clock entry window [EntryStartMin, EntryEndMin].
         bar.etMin >= cfg.EntryStartMin
         && (cfg.EntryEndMin <= 0 || cfg.EntryEndMin >= cfg.MocMin || bar.etMin <= cfg.EntryEndMin)
@@ -523,7 +587,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
             | _ -> Double.NegativeInfinity
         let stopDistPct = if bar.close > 0.0 && stop > Double.NegativeInfinity then (bar.close - stop) / bar.close else nan
         // stop-distance floor: does the entry sit >= MinStopDistPct above its 20m-EMA-low? 0 = always passes.
-        let stopDistOk = cfg.MinStopDistPct <= 0.0 || (not (Double.IsNaN stopDistPct) && stopDistPct >= cfg.MinStopDistPct)
+        // MR mode bypasses the stop-distance floor: it gates on distance ABOVE the 20m-EMA-low, which is the
+        // very thing MR buys INTO — it would reject every genuine MR entry.
+        let stopDistOk = cfg.MeanReversion || cfg.MinStopDistPct <= 0.0 || (not (Double.IsNaN stopDistPct) && stopDistPct >= cfg.MinStopDistPct)
         let volOk = this.VolumePasses
         // GATE mode for the stop-distance floor: AND it into the trigger, so a too-tight setup does NOT fire
         // (and does NOT disarm — it waits, re-firing when the distance widens). SKIP mode leaves the trigger
@@ -535,13 +601,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, close1d:
         let mutable disarmedThisBar = false
         // A free concurrency slot is required to consume a setup. Under mc=1 this blocks a new trigger while a
         // position is still Holding — the V3Backside slot-lifetime discipline (the slot IS the arm gate).
-        if armed && triggerFires && this.HasSlot then
+        // MR mode has NO arm/re-arm cycle: that is momentum machinery (it re-arms when the 9-EMA breaks a
+        // 20m LOW — the MR entry condition itself, so it would fight the trigger). MR fires whenever the
+        // pattern clears and a slot is free.
+        if (cfg.MeanReversion || armed) && triggerFires && this.HasSlot then
             // REQUIRE room: the stop must be finite AND strictly below the current 9-EMA (else the position is
             // born stopped-out / the stop is meaningless). No room ⇒ SKIP the trade but STILL disarm (consume
             // the setup until the re-arm level is breached).
+            // MR mode: no stop by default, so "room below the stop" is meaningless — an MR entry sits AT the
+            // 20m low (i.e. at/below the EMA-low), so this check would reject every one of them.
             let hasRoom =
-                stop > Double.NegativeInfinity
-                && (match ema.State with ValueSome e -> stop < e | ValueNone -> false)
+                cfg.MeanReversion
+                || (stop > Double.NegativeInfinity
+                    && (match ema.State with ValueSome e -> stop < e | ValueNone -> false))
             // Open a REAL position when there is room, volume passes, AND (SKIP mode) the stop-distance floor
             // clears. In GATE mode stopDistOk is already part of triggerFires (so it's true here); in SKIP mode
             // a floor-fail here skips the trade but the disarm below still consumes the setup.

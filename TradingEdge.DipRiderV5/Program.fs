@@ -33,6 +33,9 @@ type Args =
     | Min_Tightness of float
     | Max_Rvol_5m_15m of float
     | Min_Dv_0945 of float
+    | Mean_Reversion
+    | Mr_No_Vwap
+    | Mr_Use_Stop
     | Vol_Stop_Frac of float
     | Vol_Stop_Use_Avg20
     | Rvol_Use_Max
@@ -76,6 +79,9 @@ type Args =
             | Min_Ema_Vs_Vwap _ -> "9-EMA-vs-VWAP FLOOR (F27): reject if the 9-EMA is more than |this| below VWAP (ema/vwap-1 < this). Default -0.02. Large-negative = off."
             | Min_Tightness _ -> "TIGHTNESS FLOOR: require (rangeHigh-rangeLow)/atrLin >= this (a real range, not lethargic). Default 3.0. 0 = off."
             | Max_Rvol_5m_15m _ -> "EXHAUSTION CUT (LIVE-SAFE V5 rebuild): reject if the trailing-5m vol numerator >= this × permin15m (D's OWN 09:30-09:45 mean 1m volume). V4's --max-rvol-5m-20d divided by avgvol20/390, a LOOKAHEAD (avgvol20 includes D's own session volume). Different scale, so V4's 100 does NOT carry over. Default 0 = OFF; re-tune from scratch."
+            | Mean_Reversion -> "⭐ MEAN-REVERSION MODE: invert the system. ENTRY = close makes a new 20m LOW of 1m-bar CLOSES **and** close > VWAP. EXIT = close reaches the 20m HIGH of closes (target), or MOC. Bypasses the momentum arm/re-arm, breakout timers, price-slope, sum6 and the stop-distance floor (all of which want new HIGHS)."
+            | Mr_No_Vwap -> "MR mode ABLATION: drop the above-VWAP entry condition (buy EVERY 20m low regardless of where price sits vs VWAP). Control for whether the VWAP filter is load-bearing."
+            | Mr_Use_Stop -> "MR mode: ALSO apply the 9-EMA stop. Default OFF — the stop arms off the 20m-EMA-LOW, which is what MR buys into, so it fires at entry. For testing only."
             | Vol_Stop_Frac _ -> "⭐ SCALP EXIT: while holding, exit at the bar close once the live volume MA falls below this fraction of the volume MA AS OF ENTRY (0.667 = ⅔). Ported from BreakoutTimer F14. 0 (default) = OFF = hold to MOC. Lookahead-free (D's own bars only)."
             | Vol_Stop_Use_Avg20 -> "Vol-stop BASIS = the 20m AvgMa of raw volume (smoother) instead of the default 9-EMA of volume (faster). Both are warmup-safe averages."
             | Min_Dv_0945 _ -> "IN-PLAY UNIVERSE FLOOR: minimum 09:30-09:45 dollar volume (dv_0945 = vol_0945 * avgprice_0945 * adj_ratio). REPLACES V4's leaked `avgvol20 * day_close >= $30M` ADV floor. Default 5000000 ($5M). 0 = no floor."
@@ -136,6 +142,9 @@ let main argv =
                   MinEmaVsVwap    = parsed.GetResult(Min_Ema_Vs_Vwap,   defaultValue = defaultConfig.Intraday.MinEmaVsVwap)
                   MinTightness    = parsed.GetResult(Min_Tightness,     defaultValue = defaultConfig.Intraday.MinTightness)
                   MaxRvol5m15m    = parsed.GetResult(Max_Rvol_5m_15m,   defaultValue = defaultConfig.Intraday.MaxRvol5m15m)
+                  MeanReversion   = defaultConfig.Intraday.MeanReversion || parsed.Contains Mean_Reversion
+                  MeanReversionNoVwap  = defaultConfig.Intraday.MeanReversionNoVwap || parsed.Contains Mr_No_Vwap
+                  MeanReversionUseStop = defaultConfig.Intraday.MeanReversionUseStop || parsed.Contains Mr_Use_Stop
                   Rvol5mUseMax    = parsed.Contains Rvol_Use_Max
                   VolStopFrac     = parsed.GetResult(Vol_Stop_Frac, defaultValue = defaultConfig.Intraday.VolStopFrac)
                   VolStopUseAvg20 = defaultConfig.Intraday.VolStopUseAvg20 || parsed.Contains Vol_Stop_Use_Avg20
