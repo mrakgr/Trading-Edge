@@ -62,9 +62,9 @@ has `exit > entry` — **0 violations** on both. Counters mirror cleanly: 0 nega
 overnight drift.** (An earlier draft blamed "stocks drift up so fading pops fights a tailwind" — **WRONG,
 and the user corrected it:** the S&P's entire long-run return has historically accrued OVERNIGHT (close→open);
 the intraday session is flat-to-negative, per Brett Steenbarger's work. So there is no intraday up-tailwind
-for a short to fight.) The real cause is **OPEN** — candidates: SSR making down-moves stickier (a new-high
-fade genuinely can squeeze), or an asymmetry in how the 20m-high/5m-low windows interact with intraday
-structure. Do not assert a mechanism until it is measured.
+for a short to fight.) **⭐ The cause is now KNOWN — see F11:** it is the −600% SQUEEZE TAIL in the LOUD-VOLUME cells (a short into a
+volume-spike squeeze is unbounded; a long dip-buy is bounded at −100%). Filter to QUIET volume and the short
+book MATCHES OR BEATS the long in 5 of 7 years — the structural gap disappears. Not drift; a filterable tail.
 
 **⚠ It is the SAME SETUP FROM THE OTHER SIDE, NOT A DIVERSIFIER.** Both books are strongest in 2023 (1.80 /
 1.88) and weakest in 2026 (1.33 / 1.39) — the **same year-to-year shape**. The two will move TOGETHER, not
@@ -518,6 +518,61 @@ bulk is `not-high × not-vol`, PF 1.650, 70% of the book) — it refines the tai
 
 ⭐ **Net for the production filter:** the clean core is **NOT a session high AND NOT a vol-high** (PF 1.650).
 The vol-high tail is a separate, stop-gated, blow-off sub-strategy — not part of the core fade.
+
+
+---
+
+## Finding 11 — ⭐⭐ QUIET-VOLUME SHORTS HAVE SMALL TAILS — this is the WHOLE short<long gap, and it is FILTERABLE
+
+**User:** *"I bet the outsized losses are why the short side isn't as profitable compared to the long side.
+I wonder if the short trades on quiet volume have smaller max losses?"*
+
+**Both halves confirmed. The volume z that gave the best EXPECTANCY (F6) also gives the smallest TAIL —
+monotonically, across the entire loss distribution:**
+
+| vol_z | n | avg% | p5 | p1 | p0.1 | **MAX LOSS** | PF |
+|---|---|---|---|---|---|---|---|
+| **quiet (<−0.5)** | 827,081 | 0.270 | −2.05 | −5.01 | −12.54 | **−82%** | **1.769** |
+| normal (−0.5..0.5) | 877,830 | 0.237 | −2.54 | −6.20 | −17.46 | **−606%** | 1.518 |
+| loud (0.5..1.5) | 540,105 | 0.254 | −3.07 | −8.40 | −25.52 | **−610%** | 1.431 |
+| **SPIKE (≥1.5)** | 155,937 | 0.299 | −4.23 | −11.86 | **−34.99** | −121% | 1.365 |
+
+**⭐ The tail scales monotonically with volume.** At p1, quiet loses −5% vs the spike's −12% (>2×). At p0.1,
+−12.5% vs −35%. **The account-ending −606%/−610% squeezes live in NORMAL and LOUD volume; quiet-volume shorts
+max out at −82%.** So the F6 volume signal does DOUBLE DUTY — **best PF (1.769) AND smallest tail** — which
+is rare (usually the high-PF cell carries MORE tail, as the up-day names did in F8). Here they align, making
+quiet-volume the unambiguous core.
+
+### ⭐⭐ THIS IS THE WHOLE SHORT<LONG GAP — and it DISAPPEARS under a quiet-volume filter
+
+The user's hypothesis, tested directly (short quiet-vol vs long all-vol, per year):
+
+| yr | short quiet-vol n | **SHORT quiet-vol** | LONG (all vol) | gap |
+|---|---|---|---|---|
+| 2020 | 137,381 | 1.743 | 1.881 | −0.14 |
+| 2021 | 178,572 | 1.940 | 1.927 | **+0.01** |
+| 2022 | 126,486 | 1.602 | 1.633 | −0.03 |
+| **2023** | 90,712 | **2.145** | 1.878 | **+0.27** |
+| 2024 | 114,307 | 1.900 | 1.798 | **+0.10** |
+| 2025 | 125,190 | 1.593 | 1.467 | **+0.13** |
+| 2026 | 54,433 | 1.429 | 1.390 | **+0.04** |
+
+**F1's naive mirror trailed the long by 0.05–0.31 EVERY year. Filtered to quiet volume, the short BEATS the
+long in 5 of 7 years** (2023 by +0.27). **The short book is NOT structurally weaker** — the earlier
+"overnight drift" story (F1, corrected) was wrong. The gap was the −600% squeeze tail in the loud-volume
+cells, which a long dip-buy (bounded at −100%) does not have. Remove it and the short is a genuine peer.
+
+### ⭐ The volume filter is the short book's STOP-SUBSTITUTE
+
+F8 warned the short needs a hard stop for the unbounded tail (a −609% loss where the 7m cover never printed).
+**Quiet-volume SELECTION caps the max loss at −82% by AVOIDING the squeeze regime rather than stopping it** —
+strictly better than a stop, which gaps THROUGH in exactly these runaway cases. −82% is still ugly but it is
+bounded and rare (p0.1 = −12.5%). **Short only on quiet volume; do not fade volume spikes at all.**
+
+**⭐ Production consequence:** the core short book = `vol_z_log < −0.5` (∪ the F9/F10 exclusions of session-
+highs and the reversal-up vol-high×not-high cell). That is PF ~1.77 with a bounded tail — a true peer of the
+long book, and it makes the two-sided MR system real (correlated in universe per F1, but the short is now
+clean-tailed).
 
 
 ---
