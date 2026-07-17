@@ -122,6 +122,67 @@ for a stop.
 
 ---
 
+## Finding 3 — ATR mirrors the long side in the mid-band, but the TAIL INVERTS: high-ATR shorts want the SLOW cover
+
+**ATR × cover window (dv ≥ $3M, tail uncapped):**
+
+| ATR | **PF 5m** | PF 20m | avg% 5m | win% 5m | n |
+|---|---|---|---|---|---|
+| 0.004–0.006 | 1.369 | 1.216 | 0.102 | 66.8 | 1,122,300 |
+| 0.006–0.009 | 1.568 | 1.365 | 0.208 | 69.0 | 720,678 |
+| 0.009–0.013 | 1.632 | 1.489 | 0.345 | 70.4 | 317,313 |
+| **0.013–0.020** | **⭐ 1.773** | 1.601 | 0.605 | 72.4 | 168,347 |
+| 0.020–0.035 | 1.653 | 1.556 | 0.889 | 73.3 | 72,315 |
+| **0.035–0.05** | 1.405 | **1.412** | 1.033 | 71.5 | 14,415 |
+| **0.05–0.08** | 1.239 | **1.431** | 0.894 | 69.7 | 6,364 |
+| **≥ 0.08** | 1.653 | **⭐ 1.940** | **2.85** | 71.3 | 935 |
+
+- **Same peak, same hump: 0.013–0.020 (PF 1.773)** — matches V6 F17's location exactly. Mid-band the 5m
+  cover wins +12–15%. ATR is an independent lever on the short side too.
+- **⭐ THE TAIL INVERTS vs the long side.** For the LONG book the fast target dominated MOST at high ATR
+  (the snap-back was quickest there). For the SHORT, **at ATR ≥ 0.035 the SLOW (20m) cover WINS**
+  (0.05–0.08: 1.431 vs 1.239; ≥0.08: 1.940 vs 1.653). **High-ATR names need MORE time to fall to the
+  cover** — a 5m cover on a volatile short clips it before the down-move completes.
+- **The ≥0.08 short cell is strong on paper** (PF 1.940 @20m, +2.85%/tr, 71% win) **but it is the MOST
+  DANGEROUS cell in the study**: 935 trips over 6.5y, and these are the most volatile, HARDEST-TO-BORROW,
+  most squeeze-prone names. **Flag it, do not bank it** — most likely a mirage once borrow/locate/SSR are real.
+
+---
+
+## Finding 4 — the z-score mirrors V6, with a SHORT-SPECIFIC twist: the best fade is a pop that FAILS below VWAP
+
+For a SHORT the pop is ABOVE VWAP, so POSITIVE z is the "deeply extended" tail (the mirror of the long's
+negative z). z × cover (dv ≥ $3M, ATR band):
+
+| z | **PF 5m** | PF 20m | avg% 5m | n |
+|---|---|---|---|---|
+| **z ≥ +3** | **1.670** | 1.551 | 0.521 | 73,122 |
+| +2..+3 | 1.494 | 1.390 | 0.246 | 416,208 |
+| **+1..+2** | 1.368 | 1.261 | 0.154 | 927,312 |
+| 0..+1 | 1.742 | 1.413 | 0.252 | 634,849 |
+| **z < 0** | **⭐ 1.869** | 1.686 | 0.279 | 349,462 |
+
+**⭐ The U-shape returns (as V6 F6/F16) — but for the short, the STRONG end is the WRONG-LOOKING one.** The
+best cell is **`z < 0` (PF 1.869)**: a name making a new 20m HIGH while its close is BELOW VWAP. The
+extended-pop tail (`z ≥ +3`, 1.670) is good but NOT the best.
+
+**This is NOT the clean mirror of the long side** (where the extended dip WAS the strong tail). **The
+reading: a pop to a new 20m high that is STILL BELOW VWAP is a weak, exhausted bounce inside a down day —
+the textbook short.** A `z ≥ +3` name has ripped FAR above VWAP, closer to genuine strength that can keep
+squeezing. **The short's quality signal is not "most extended pop" — it is "pop that FAILS below VWAP."**
+
+**The 5m-dissolves-z effect holds** (as V6 F16): at 20m, z spread 1.261 → 1.686; at 5m it compresses upward
+(1.368 → 1.869), and the `0..+1` and `z<0` cells jump most (+23%, +11%). **The fast cover takes the
+immediate reversal regardless of z** — so on the short side too, z is more a *slow-exit* lever than a
+fast-exit one.
+
+⏭ This reframes the short entry: pair the new-20m-high trigger with a **`close < VWAP` filter** (not the
+naive `close > VWAP` mirror of the long). Re-check chg_1d next — the analogue prediction is that the best
+short is a name moderately UP (not ripping), fading a failed intraday bounce.
+
+
+---
+
 ## Status / next
 
 ⏭ **The V6 levers all need re-measuring on the short side — do NOT assume they mirror.** The load-bearing
