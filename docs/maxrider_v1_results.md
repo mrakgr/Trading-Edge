@@ -863,6 +863,60 @@ noted quiet-vol does that once; ADX compounds it).
 
 ---
 
+## Finding 18 — ⭐⭐⭐ THE PRODUCTION SHORT CORE: quiet-vol × high-ADX × not-session-high = PF 2.6, all-weather, tail-safe
+
+**User:** *"this is a more direct test of Lance's philosophy and I see he was completely right. Smooth spikes
+make for a lot better shorts than choppy ones. What if we also tacked the no-new-session-high condition to
+this?"*
+
+**It COMPOUNDS — a genuine third independent lever. Full stack (all quiet-vol):**
+
+| ADX | **PF not-high** | p1 not-high | PF sess-high | n not-high |
+|---|---|---|---|---|
+| < 30 | 1.744 | −5.18 | 1.457 | 507,420 |
+| 30–40 | 1.934 | −4.94 | 1.472 | 108,066 |
+| **≥ 40** | **⭐ 2.599** | **−4.12** | 1.467 | 72,638 |
+
+**quiet × ADX≥40 × not-high = PF 2.599** (up from 2.107 with just quiet × ADX), on 72,638 trips (~11k/yr).
+
+**⭐ The `sess-high` column reveals the interaction: it is FLAT at ~1.46 across ALL ADX levels.** At the
+session high, ADX STOPS WORKING — a name faded at its peak is just a strong name at its peak, dangerous
+regardless of smoothness. **All the ADX edge lives in the not-high names: `not-session-high` is what LETS the
+ADX lever work.** Not three separate filters — a mechanism.
+
+### ⭐ Per-year (quiet × ADX≥40 × not-high, 7m) — ALL-WEATHER and TAIL-SAFE
+
+| yr | n | win% | avg% | p1 | **PF** |
+|---|---|---|---|---|---|
+| 2020 | 11,702 | 76.3 | 0.350 | −4.25 | 2.377 |
+| 2021 | 17,236 | 79.1 | 0.418 | −3.48 | **3.317** |
+| 2022 | 10,447 | 73.0 | 0.306 | −4.38 | 2.208 |
+| 2023 | 9,334 | 76.1 | 0.404 | −3.82 | 2.920 |
+| 2024 | 10,978 | 75.8 | 0.403 | −4.03 | 2.783 |
+| 2025 | 10,171 | 74.0 | 0.380 | −4.46 | 2.327 |
+| 2026 | 2,770 | 71.6 | 0.252 | −5.35 | 1.726 |
+
+**Every year PF 1.73–3.32, win 72–79%, and p1 capped at −3.5% to −5.4% EVERY year — no squeeze years.**
+Contrast the naive mirror (F1): trailed the long every year at ~1.5 PF with −606% tails. **This core is PF
+~2.6 aggregate, +0.38%/tr, and it BEATS the long book — while being tail-safe.**
+
+### ⭐⭐ LANCE'S PHILOSOPHY, QUANTIFIED
+
+**The ideal short = a SMOOTH, STRONG directional thrust (high ADX) into resistance, on QUIET volume, that has
+NOT yet made a new session high.** A clean pop running out of steam BELOW the day's high — the exhaustion of
+a CONTROLLED move, the exact opposite of a chaotic volume-driven breakout. Every short-side quality signal
+(F4 below-VWAP, F6/F11 quiet volume, F9 not-session-high, F16/F17 high ADX) points to the SAME picture:
+**fade the orderly pop, never the violent one.** ("Smooth spikes short better than choppy ones" — user/Lance.)
+
+**⭐ THE PRODUCTION SHORT CORE (this branch's deliverable):**
+`dv_0945 ≥ $3M · ATR ∈ [0.004, 0.035] · new 20m-high entry · 7m cover · vol_z_log < −0.5 · ADX ≥ 40 ·
+NOT a new session high` → PF 2.6 / +0.38%/tr / ~11k trips-yr / p1 ≤ −5.4% / all-weather.
+⏭ Confirm at mc=1 (this is mc=0 attribution), then it is the tradable short book — a true peer of, and
+complement to, the DipRiderV6 long core.
+
+
+---
+
 ## Status / next
 
 ⏭ **The V6 levers all need re-measuring on the short side — do NOT assume they mirror.** The load-bearing
