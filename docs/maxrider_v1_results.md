@@ -832,6 +832,37 @@ quiet-volume filter.
 
 ---
 
+## Finding 17 — ⭐⭐ ADX × QUIET VOLUME STACK — the best short cell in the study (PF 2.107) AND the smallest tail
+
+**User:** *"On shorts, does ADX stack with quiet volume?"* (resolving the F16 caveat — did high ADX drag the
+F11 squeeze tail back in?)
+
+**They stack cleanly on BOTH dimensions, and they do DIFFERENT jobs:**
+
+| ADX | **PF quiet** | p1 quiet | PF loud | p1 loud | n quiet |
+|---|---|---|---|---|---|
+| < 20 | 1.688 | −5.22 | 1.289 | −8.91 | 286,247 |
+| 20–30 | 1.730 | −5.07 | 1.338 | −9.33 | 292,401 |
+| 30–40 | 1.816 | −4.91 | 1.437 | −9.36 | 141,253 |
+| **≥ 40** | **⭐ 2.107** | **−4.44** | 1.629 | −9.21 | 106,983 |
+
+**PF:** quiet beats loud at EVERY ADX level (the F11 vol lever holds); ADX rises monotonically within BOTH
+volume regimes (the F16 ADX lever holds). **Best cell = quiet × ADX ≥ 40 = PF 2.107** — the highest short PF
+in the whole study, on ~107k trips (~16k/yr, not a corner).
+
+**⭐ The tail resolves the F16 caveat — high ADX does NOT re-import the squeeze, BECAUSE of the vol filter:**
+- **quiet × ADX≥40: p1 = −4.44** — the SMALLEST tail in the table. High ADX on quiet volume is the SAFEST cell.
+- **loud × ADX≥40: p1 = −9.21** — the fat tail I worried about lives entirely in the LOUD column.
+
+**The two levers do different jobs and compound: VOLUME controls the tail (F11), ADX boosts the edge (F16).**
+Within the quiet column the p1 SHRINKS as ADX rises (−5.22 → −4.44) — a strong-trend name faded on quiet
+volume is a clean, exhausted counter-thrust, NOT a squeeze. **This is the production short core: `vol_z_log <
+−0.5` AND high ADX** — best PF and smallest tail simultaneously, which is the rare alignment (F11 already
+noted quiet-vol does that once; ADX compounds it).
+
+
+---
+
 ## Status / next
 
 ⏭ **The V6 levers all need re-measuring on the short side — do NOT assume they mirror.** The load-bearing
