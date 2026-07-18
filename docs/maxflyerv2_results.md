@@ -844,6 +844,9 @@ one could exclude the 0.35–0.50 band, but it's marginal and costs a big chunk 
 
 ## 15m-rvol vs 20d-rvol baseline — they measure DIFFERENT things; brv20d is a false-positive FILTER
 
+**Warning**: The `brv20d` has lookahead volume which makes it work far better than it otherwise would.
+The results involving it are invalid.
+
 Question (user): the 15m baseline (`bar_rvol_15m` = breakout_bar_vol / MEAN(1m vol over
 [9:30,9:45))) works great, but is it unstable when the premarket/first-15m volume is abnormal? A
 20-DAY baseline might be steadier. Defined **`bar_rvol_20d`** = breakout_bar_vol / (avgvol20 ·
@@ -898,6 +901,9 @@ UNDERSOLD it — the deep dive shows brv20d is the stronger PRIMARY lever and sh
 the default.
 
 ## brv20d IS THE MAIN LEVER — replaces brv15≥40 as the default (5× capacity, ~1.5× PF, new population)
+
+**Warning**: The `brv20d` has lookahead volume which makes it work far better than it otherwise would.
+The results involving it are invalid.
 
 `brv20d ≥ 100` = **2,760 trips, PF 6.65, 88.7% win, +17.3% avg** vs the current default `brv15 ≥ 40` =
 533 trips, PF 4.37 — **~5× the capacity AND ~1.5× the PF simultaneously.** (`lowflyer_short_brv20d.sql`.)
