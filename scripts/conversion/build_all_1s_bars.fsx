@@ -6,7 +6,9 @@
 // the surviving trades into 1-SECOND windows over the session, and writes
 // data/intraday_1s/{date}.parquet (on the SSD) with columns
 //   (ticker VARCHAR, bucket INT32, open/high/low/close FLOAT, volume FLOAT,
-//    vwap FLOAT, vwstd FLOAT, log_vwstd FLOAT, trade_count INT32).
+//    vwap FLOAT, log_vwap FLOAT, vwstd FLOAT, log_vwstd FLOAT, trade_count INT32).
+//   log_vwap = vol-weighted mean of ln(price) (log/geometric center) — distinct
+//   from ln(vwap) by Jensen's inequality; the gap is the intra-bar dispersion.
 // bucket is SECONDS since 00:00 ET (DECISION 9): RTH open 09:30 ET = bucket 34200,
 // 10:00 ET = 36000; roll-up to minute = bucket/60, to 10s = bucket/10. 00:00-04:00
 // is empty (no trades) so costs nothing; future-proof for extended/24-7 hours.
@@ -183,6 +185,11 @@ COPY (
         arg_max(price, ts)::FLOAT AS close,
         sum(size)::FLOAT          AS volume,
         (sum(price * size) / sum(size))::FLOAT AS vwap,
+        -- log_vwap = vol-weighted mean of ln(price) (the log/geometric center of
+        -- the bar). NOT ln(vwap): by Jensen ln(mean p) >= mean(ln p), the gap =
+        -- intra-bar dispersion. Distinct from vwap; shares the ln-price accumulator
+        -- with log_vwstd. (ln(vwap) is trivially derivable on read, so not stored.)
+        (sum(ln(price) * size) / sum(size))::FLOAT AS log_vwap,
         sqrt(greatest(0.0,
             sum(price * price * size) / sum(size)
             - pow(sum(price * size) / sum(size), 2)))::FLOAT AS vwstd,
