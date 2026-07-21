@@ -463,8 +463,24 @@ matched hl: 0.996.
 r = ln(V/V_prev) → `EmaMa` of |r|, hl=20m (α = 1−0.5^(1/40)) primary + hl=10m (α = 1−0.5^(1/20))
 twin.** The r² columns are dropped.
 
-Artifacts: `/tmp/volbake_f6abs*/*.parquet`, `/tmp/volbake_f6abs*_day.sql.tmpl`,
-`/tmp/volbake_f6abs*_corr.sql`.
+### F7b — slot vs overlap under the abs kernel (user request): the toll is kernel-independent; the lock survives its last challenger
+
+Same 43 days / both grids; overlap-EWMA of |r| (per-second rolling-30s-vwap returns) vs the slot twin:
+
+| | slot | overlap | Δ | per-day |
+|---|---|---|---|---|
+| hl=20m, off=0 | **0.8707** | 0.8661 | −0.0046 | slot 43/43 |
+| hl=20m, off=15 (staleness-fair) | **0.8698** | 0.8660 | −0.0038 | slot 43/43 |
+| hl=10m, off=0 | **0.8695** | 0.8611 | −0.0083 | — |
+| hl=10m, off=15 | **0.8681** | 0.8610 | −0.0071 | — |
+
+Cross-sectional agrees (0.8539 vs 0.8478 at hl20/off=0). Redundancy 0.988. The overlap toll is
+**kernel-independent** (r²: −0.003/−0.006; abs: −0.004/−0.008 — same size, same shape, larger at the
+shorter half-life where endpoint noise matters more), and overlap-abs-hl20 (0.8661) does not even reach
+slot-r²-hl10 (0.8684). Every construction axis now points the same way: **the F7 lock stands.**
+
+Artifacts: `/tmp/volbake_f6abs*/*.parquet`, `/tmp/volbake_f6oabs/*.parquet`,
+`/tmp/volbake_f6abs*_day.sql.tmpl`, `/tmp/volbake_f6oabs_day.sql.tmpl`, `/tmp/volbake_f6*_corr.sql`.
 
 ---
 
