@@ -373,6 +373,51 @@ Artifacts: `/tmp/volbake_f5c/*.parquet`, `/tmp/volbake_f5c_day.sql.tmpl`, `/tmp/
 
 ---
 
+## Finding 6 — ⭐ the slot-vs-overlap verdict at 43 days + staleness-fair spots: slot wins 43/43, staleness recovers only ~1/5 of the gap
+
+**Question (user):** "It's too bad the overlapping variant isn't the winner — we might want to try it on
+more days just to be completely sure." Plus the user's live-trading point: the overlap estimate is always
+current, while the slot estimate is up to 29s stale at an arbitrary entry second — and every spot in
+F1–F5 was minute-aligned, i.e. **exactly where 30s slots complete**, so all prior measurements evaluated
+the slot version at its freshest. The −0.006 could have been flattering it.
+
+**Setup:** 43 monthly days (nearest trading day to the 15th, 2023-01 → 2026-07, ~3× the prior sample),
+rerun homogeneously; slot-EWMA vs overlap-EWMA at hl ∈ {10m, 20m}; TWO spot grids per day — minute-aligned
+(off=0, slot fresh) and **+15s offset (off=15, slot ~15s stale = its average live condition, overlap
+fresh)**. The offset grid shifts the forward target grid with it (60s cells starting at :15).
+**n = 17.9M obs per grid / 43 days / 3,251 tickers.**
+
+| | pooled slot | pooled ovl | Δ | xsec slot | xsec ovl | per-day |
+|---|---|---|---|---|---|---|
+| off=0, hl=10m | **0.8684** | 0.8612 | −0.0073 | **0.8481** | 0.8389 | slot 43/43 |
+| **off=15, hl=10m** | **0.8670** | 0.8610 | **−0.0060** | **0.8465** | 0.8387 | **slot 43/43** |
+| off=0, hl=20m | **0.8666** | 0.8629 | −0.0037 | **0.8504** | 0.8452 | — |
+| off=15, hl=20m | **0.8657** | 0.8627 | −0.0030 | **0.8494** | 0.8449 | — |
+
+**Per-year mean per-day Δ (ovl − slot, hl=10m):** 2023 −0.0125 · 2024 −0.0083 · 2025 −0.0052 ·
+2026 −0.0068 (off=0; off=15 uniformly ~0.0015 kinder). **Zero overlap wins in any year at either
+offset.**
+
+**Readings:**
+1. **The user's staleness intuition is real but small.** Going from slot-friendly to staleness-fair spots
+   costs the slot version ~0.0014 (0.8684→0.8670) while the overlap version doesn't move (0.8612→0.8610,
+   as expected — it's always fresh). Staleness recovers only ~a fifth of the gap; the rest is the F3/F4
+   endpoint-smoothing toll, which no spot grid can undo.
+2. **The verdict is now about as sure as this harness can make it:** 86/86 day-grid cells to the slot
+   construction, across 43 months and two half-lives. The overlap variant is the better *engineered*
+   object (always-current) but the worse *estimator*, and the estimator deficit dominates.
+3. The gap narrows in recent years (−0.0125 → ~−0.005) and at hl=20m (−0.003) — if the engine ever wants
+   the always-fresh property anyway (e.g. for an intra-bar stop rule), overlap-EWMA hl=20m at −0.003 is
+   the cheapest version of it. Not the default.
+
+**🔒 vol20m LOCKED: slot-EWMA — 30-present-bar slot vwaps → r = ln(V/V_prev) → EmaMa of r², hl=10m
+(α = 1−0.5^(1/20)) primary + hl=20m (α = 1−0.5^(1/40)) twin, √ on read.** Staleness between slot
+boundaries is measured and priced: ~0.0014, not worth the −0.006 estimator toll to remove.
+
+Artifacts: `/tmp/volbake_f6/*.parquet`, `/tmp/volbake_f6_day.sql.tmpl`, `/tmp/volbake_f6_corr.sql`.
+
+---
+
 # Appendix A — the four path-RV constructions (F3 companion)
 
 *(What exactly each variant in the F3 overlap study computes. Open in VS Code markdown preview
