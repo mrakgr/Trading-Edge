@@ -418,6 +418,56 @@ Artifacts: `/tmp/volbake_f6/*.parquet`, `/tmp/volbake_f6_day.sql.tmpl`, `/tmp/vo
 
 ---
 
+## Finding 7 — ⭐⭐ |r| beats r²: EWMA of absolute returns, hl=20m, is the campaign champion — the lock is AMENDED
+
+**Question (user):** "Would averaging the abs r instead of r × r be better?" Same 43-day / two-grid F6
+harness; EWMA of |r| vs EWMA of r² on the same 30s slot returns, hl ∈ {10m, 20m}, then a half-life sweep
+{10, 20, 30, 40}m for the abs form.
+
+| | pooled (off=0) | pooled (off=15) | xsec | per-day vs r² twin |
+|---|---|---|---|---|
+| **abs, hl=20m** | **0.8707** | **0.8698** | 0.8539 | **43/43** (42/43 off=15) |
+| abs, hl=10m | 0.8695 | 0.8681 | 0.8485 | 27/43 |
+| r², hl=10m (the F6 lock) | 0.8684 | 0.8670 | 0.8481 | — |
+| r², hl=20m | 0.8666 | 0.8657 | 0.8504 | — |
+
+**The full kernel × half-life surface (pooled, off=0; user asked for the r² side too):**
+
+| hl | abs | r² | abs − r² |
+|---|---|---|---|
+| 10m | 0.8695 | **0.8684** | +0.0011 |
+| 20m | **0.8707** ⭐ | 0.8666 | +0.0041 |
+| 30m | 0.8688 | 0.8621 | +0.0067 |
+| 40m | 0.8672 | 0.8585 | +0.0087 |
+
+abs peaks at 20m (30m wins only 4/43 days vs 20m); r² peaks at ≤10m and decays ~2.5× faster with
+memory — the confirmation of the interaction story: the longer the memory, the more the quadratic
+kernel's stale outlier-spikes cost, so the abs advantage *widens* monotonically with hl. Cross-sectional
+view agrees in shape (abs 20-40m plateau ~0.854; r² peaks at 20m then falls). Redundancy abs↔r² at
+matched hl: 0.996.
+
+**Readings:**
+1. **The user's instinct was right — and it resolves the F5 tail story into a clean dose-response.**
+   Median |r| (MAD) *ignores* the tail → lost −0.03. Squared r *amplifies* it quadratically → good, but
+   the spike it injects forces a short memory (r² prefers hl=10m; at hl=20m it degrades). Mean |r| keeps
+   the outlier's vote but **linearly** — and with tail influence tamed, longer memory turns from liability
+   to asset (abs *improves* 10m→20m). Linear tail influence is the sweet spot between robust and
+   responsive: it beats the r² form 43/43 days at hl=20m.
+2. **The interaction matters more than either choice alone:** kernel and half-life are not separable
+   (r²: 10m > 20m; abs: 20m > 10m). Sweeping half-life under only one kernel would have missed the
+   champion.
+3. **Engine form is unchanged in complexity:** `EmaMa` fed `abs r` instead of `r*r`, no √ on read. In
+   σ-units multiply by √(π/2) ≈ 1.2533 (Gaussian E|r| = σ·√(2/π)) — irrelevant for ranking/gating.
+
+**🔒 vol20m RE-LOCKED (amends F6): slot construction unchanged — 30-present-bar slot vwaps →
+r = ln(V/V_prev) → `EmaMa` of |r|, hl=20m (α = 1−0.5^(1/40)) primary + hl=10m (α = 1−0.5^(1/20))
+twin.** The r² columns are dropped.
+
+Artifacts: `/tmp/volbake_f6abs*/*.parquet`, `/tmp/volbake_f6abs*_day.sql.tmpl`,
+`/tmp/volbake_f6abs*_corr.sql`.
+
+---
+
 # Appendix A — the four path-RV constructions (F3 companion)
 
 *(What exactly each variant in the F3 overlap study computes. Open in VS Code markdown preview
