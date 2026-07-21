@@ -4,11 +4,22 @@
 
 // Walks every data/bulk/trades/{date}.parquet, applies the trade filter, buckets
 // the surviving trades into 1-SECOND windows over the session, and writes
-// data/intraday_1s/{date}.parquet (on the SSD) with columns
-//   (ticker VARCHAR, bucket INT32, open/high/low/close FLOAT, volume FLOAT,
-//    vwap FLOAT, log_vwap FLOAT, vwstd FLOAT, log_vwstd FLOAT, trade_count INT32).
-//   log_vwap = vol-weighted mean of ln(price) (log/geometric center) — distinct
-//   from ln(vwap) by Jensen's inequality; the gap is the intra-bar dispersion.
+// data/intraday_1s_slim/{date}.parquet (on the SSD) with the SLIM 5-column schema
+//   (ticker VARCHAR, bucket INT32, vwap FLOAT, volume FLOAT, trade_count INT32).
+// ⭐ SLIM SCHEMA (2026-07-21, user decision after the SurgeRider vol bake-off
+// F1-F7 in docs/surgerider_results.md): the locked vol driver is an EWMA of
+// |slot-vwap log-returns| and the momentum engine's channels/fills are all
+// vwap-based, so the old 11-col schema's extras are dead weight:
+//   * open/high/low — unused (channels are vwap MaxMa/MinMa; F5 showed the OHLC
+//     range-estimator family is bid-ask-bounce poison on this data anyway);
+//   * close — dropped because SurgeRider fills at the NEXT present bar's vwap
+//     (a more honest fill than the signal bar's own last print);
+//   * vwstd/log_vwstd — the decomposed-vwstd vol measure lost the bake-off (F1);
+//   * log_vwap — obsoleted before ever being built (F7 needs only slot vwaps).
+// Measured ~62% smaller than the 11-col schema (2026-07-10: 401→154 MB;
+// 2023-02-15: 243→81 MB) → the full 2020→2026 period fits in ~240 GB, less than
+// the old 3.5-year set took, and backtests decompress ~2.6x less. The trades
+// tape remains the source of truth if any dropped field is ever needed again.
 // bucket is SECONDS since 00:00 ET (DECISION 9): RTH open 09:30 ET = bucket 34200,
 // 10:00 ET = 36000; roll-up to minute = bucket/60, to 10s = bucket/10. 00:00-04:00
 // is empty (no trades) so costs nothing; future-proof for extended/24-7 hours.
@@ -21,7 +32,7 @@
 // for the design rationale (timestamp/venue study, schema, sizing).
 //
 // Filter (DECISION 2 + 7 — ALL venues; open/close prints override everything):
-//   * size > 0  AND  price > 0   (price>0 is mandatory for log_vwstd's ln())
+//   * size > 0  AND  price > 0   (garbage guard; also keeps ln(vwap) safe downstream)
 //   * KEEP if:  opening/closing print {17,25,19,8}          -- unconditional (D7)
 //       OR ( sip-participant <= 50 ms (when both nonzero)   -- delta cap
 //            AND NOT in exclude set {2,7,10,13,20,21,22,29,32,52,53} )  -- conditions
@@ -34,10 +45,10 @@
 // time — live-parity: the live feed comes through a SIP), falling back to
 // participant_timestamp only when sip is 0.
 //
-// Schema (DECISIONS 3/4/5/6): no date column (it's the filename); FLOAT prices
-// (compute in f64, cast to f32 on write); INT32 volume/count/bucket; VWAP plus
-// dollar-space vwstd and log/return-space log_vwstd. Written zstd level 9,
-// ORDER BY ticker,bucket (measured ~21% smaller + clusters by ticker).
+// Schema (DECISIONS 3/4/5/6, slimmed 2026-07-21): no date column (it's the
+// filename); FLOAT vwap/volume (compute in f64, cast to f32 on write); INT32
+// trade_count/bucket. Written zstd level 9, ORDER BY ticker,bucket (measured
+// ~21% smaller + clusters by ticker).
 //
 // Safe to run alongside the trades downloader: a file still being written is
 // simply not picked up this pass. Re-run after more downloads land.
@@ -74,7 +85,7 @@ let endDateOpt = parsed.TryGetResult End_Date
 let limitOpt = parsed.TryGetResult Limit
 
 let tradesDir = "data/bulk/trades"       // HDD source (symlink -> /mnt/d)
-let outDir = "data/intraday_1s"          // SSD (repo root /dev/sde) — NOT data/bulk (that's the HDD)
+let outDir = "data/intraday_1s_slim"     // SSD (repo root /dev/sde) — NOT data/bulk (that's the HDD)
 Directory.CreateDirectory outDir |> ignore
 
 // SSD spill dir for the per-day sort (keep any DuckDB spill off the HDD).
@@ -130,12 +141,10 @@ let buildOne (date: string) : double =
     let outEscaped = outPath.Replace("'", "''")
     let spillEscaped = spillDir.Replace("'", "''")
 
-    // All sums/variance accumulate in DOUBLE (DuckDB default); only the final
-    // per-bar RESULT is cast to FLOAT — never accumulate in f32 (catastrophic
-    // cancellation in the variance). greatest(0.0, ...) clamps the tiny negative
-    // a single-price bucket's variance can produce before sqrt. volume is
-    // sum(size)::FLOAT — size is fractional DOUBLE, so int would truncate
-    // sub-share bars to a spurious 0 (Stage 0 found ~2% of bars affected).
+    // All sums accumulate in DOUBLE (DuckDB default); only the final per-bar
+    // RESULT is cast to FLOAT. volume is sum(size)::FLOAT — size is fractional
+    // DOUBLE, so int would truncate sub-share bars to a spurious 0 (Stage 0
+    // found ~2% of bars affected).
     let sql =
         $"""
 SET memory_limit='8GB';
@@ -179,23 +188,8 @@ COPY (
     SELECT
         ticker,
         bucket,
-        arg_min(price, ts)::FLOAT AS open,
-        max(price)::FLOAT         AS high,
-        min(price)::FLOAT         AS low,
-        arg_max(price, ts)::FLOAT AS close,
-        sum(size)::FLOAT          AS volume,
         (sum(price * size) / sum(size))::FLOAT AS vwap,
-        -- log_vwap = vol-weighted mean of ln(price) (the log/geometric center of
-        -- the bar). NOT ln(vwap): by Jensen ln(mean p) >= mean(ln p), the gap =
-        -- intra-bar dispersion. Distinct from vwap; shares the ln-price accumulator
-        -- with log_vwstd. (ln(vwap) is trivially derivable on read, so not stored.)
-        (sum(ln(price) * size) / sum(size))::FLOAT AS log_vwap,
-        sqrt(greatest(0.0,
-            sum(price * price * size) / sum(size)
-            - pow(sum(price * size) / sum(size), 2)))::FLOAT AS vwstd,
-        sqrt(greatest(0.0,
-            sum(ln(price) * ln(price) * size) / sum(size)
-            - pow(sum(ln(price) * size) / sum(size), 2)))::FLOAT AS log_vwstd,
+        sum(size)::FLOAT          AS volume,
         count(*)::INTEGER         AS trade_count
     FROM bucketed
     WHERE bucket >= 0 AND bucket <= {maxBucket}
