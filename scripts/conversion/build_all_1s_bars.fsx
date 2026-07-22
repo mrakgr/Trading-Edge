@@ -52,6 +52,67 @@
 //
 // Safe to run alongside the trades downloader: a file still being written is
 // simply not picked up this pass. Re-run after more downloads land.
+//
+// -----------------------------------------------------------------------------
+// PERFORMANCE — how to make this faster (proposal, NOT implemented 2026-07-22)
+// -----------------------------------------------------------------------------
+// The 2023→2026 set is already built and 2020-2022 is a one-off, so this was
+// left as a note rather than code. If you ever re-run a large slice, this is the
+// lever. Profiled on a heavy 3.0 GB day (2026-06-09, ~182M raw trades, 6 threads):
+//
+//   raw read+decompress (warm) ............... ~1.4-1.8s
+//   + full condition filter (52M survive) .... ~12s wall  (~58s CPU / 6 threads)
+//   + GROUP BY (ticker,bucket) + aggs ........ ~13s   (grouping/sort ≈ free)
+//   + ORDER BY + zstd-9 write ................ ~13-14s (zstd-9 vs -3: same wall,
+//                                                        17% smaller file)
+//   SAME query, first COLD read off the HDD .. ~40-82s
+//
+// So per-day wall time is dominated by TWO things, in this order:
+//   1. The COLD HDD read. data/bulk/trades lives on /mnt/d (spinning disk); `dd`
+//      streams it at ~139 MB/s, so a cold 3 GB day is ~22s of pure read before
+//      any compute. This is the true ceiling — nothing in the query touches it.
+//   2. The two `list_has_any` condition filters over ~180M rows/day: ~58s of CPU
+//      (≈12s wall across 6 threads). This is the bulk of the compute.
+//
+// Things that DO NOT help (measured/reasoned 2026-07-22):
+//   * Reordering the input. The Polygon flat files are ALREADY sorted by
+//     (ticker, sip_timestamp) — checked 2026-06-09: 12,453 ticker transitions,
+//     zero out of order. The GROUP BY and ORDER BY are already cheap on
+//     pre-clustered data. Adding an ORDER BY to the downloader is pure waste.
+//   * Copy-first (cp the day HDD->SSD, then query the SSD copy). Measured:
+//     19s copy + 12s SSD query = ~31s, vs ~22s to just read cold in place. The
+//     copy does not remove the slow HDD read — it IS that read, into a temp file,
+//     after which DuckDB reads a SECOND time from SSD. You pay the ~22s platter
+//     read either way; copy-first only adds a redundant SSD write + reread. It
+//     wins ONLY if the same file is queried more than once, which the builder
+//     never does.
+//   * Staging the whole trades set on SSD. The 2020-2022 slice alone is 775 GB
+//     across 755 days; SSD headroom was ~489 GB. Doesn't fit. (Full archive 2.1 TB.)
+//
+// The ONE real win — a 2-stage OVERLAPPED read-ahead pipeline (hide the HDD read
+// behind the compute). Current loop is serial: read day N off the HDD, THEN
+// filter/group/write it, THEN move to N+1 — so the HDD sits idle during the ~12s
+// of CPU work, and the CPU sits idle during the ~22s cold read. Overlap them:
+//   * Stage 1 (copier task): `cp` day N+1 from the HDD to an SSD scratch file
+//     while stage 2 is still crunching day N.
+//   * Stage 2 (builder, the existing per-day loop): read from the SSD scratch
+//     file, run the query, write the slim output, delete the scratch file.
+//   * One bounded System.Threading.Channels channel between them (capacity 1-2 so
+//     the copier stays at most a day or two ahead and SSD scratch never balloons).
+//   This is the exact PerpsDownload.fs shape (manifest -> download workers ->
+//   unbounded channel -> convert workers -> reporter) that CLAUDE.md points to;
+//   here it collapses to copier -> bounded channel -> builder. Expected per-day
+//   wall drops from serial ~34s toward max(read ~22s, compute ~12s) ≈ ~22s — i.e.
+//   HDD-bound, the compute hidden entirely. ~35% off a full re-run.
+//   Bonus lever if still HDD-bound after that: widen the copier to 2-3 parallel
+//   `cp`s (WSL2 /mnt/d random-read is poor; a couple of concurrent sequential
+//   reads can beat one) and raise the channel capacity to match.
+//
+// Not worth chasing: the condition-filter CPU is already ~12s wall on 6 threads;
+// bumping SET threads only helps if the box has spare cores AND the read is no
+// longer the gate (i.e. only after the pipeline above). zstd-9 is already free on
+// wall time, so don't drop to a lower level — you'd only lose the 17% size win.
+// -----------------------------------------------------------------------------
 
 open System
 open System.IO
