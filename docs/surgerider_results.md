@@ -2,8 +2,24 @@
 
 `TradingEdge.SurgeRider` (long) / `TradingEdge.PlungeRider` (short) — **intraday MOMENTUM on 1-second
 bars** (branch `momentum-1s-bars`). Volume/trade-count-acceleration breakout in the trend direction,
-sampled mc=0 first. Data: `data/intraday_1s/` (887 days, 2023 → 2026-07-17). Design decisions D1-D8 in the
-plan; per-bar semantics: engine steps on PRESENT 1s bars only, windows are present-bar-count.
+sampled mc=0 first. Data: `data/intraday_1s_slim/` (1,642 days, 2020-01-02 → 2026-07-17). Design
+decisions D1-D8 in the plan; per-bar semantics: engine steps on PRESENT 1s bars only, windows are
+present-bar-count.
+
+## ⚠ Terminology — "vol" means VOLATILITY here; much of the older codebase uses "vol" for VOLUME
+
+This confusion has already caused misreadings (2026-07-22: an assistant summary cited `brv20d` and
+MaxRiderV1's "quiet-vol" as volatility precedents — both are **volume** features). The legacy glossary:
+
+- **`rvol*`** (rvol_0945, rvol20d, …) = **relative VOLUME** — today's volume vs a trailing average.
+- **`brv20d`** (MaxFlyer family) = **breakout-bar relative VOLUME** vs the 20d average. Volume. (Also
+  fails the lookahead audit — dead regardless.)
+- **"quiet-vol"** (MaxRiderV1 F18, the stop-substitute) = quiet **VOLUME**, not low volatility.
+- **ATR%, `vol20m`, `ew20`/`ew10`, and everything in this document's F1-F8** = **VOLATILITY**.
+
+**Rule going forward:** volume-derived features must spell it out (`volume`, `rvolume`, `tc`); `vol` bare
+or in `vol20m` is reserved for volatility. When citing an MR-book finding, check which family the feature
+belongs to before using it as precedent.
 
 ---
 
@@ -481,6 +497,161 @@ slot-r²-hl10 (0.8684). Every construction axis now points the same way: **the F
 
 Artifacts: `/tmp/volbake_f6abs*/*.parquet`, `/tmp/volbake_f6oabs/*.parquet`,
 `/tmp/volbake_f6abs*_day.sql.tmpl`, `/tmp/volbake_f6oabs_day.sql.tmpl`, `/tmp/volbake_f6*_corr.sql`.
+
+---
+
+## Finding 8 — ⭐ the complement study: 20m range adds real independent signal on top of the EWMA lock; efficiency ratio is a clean orthogonal trendiness axis; the lock stands
+
+**Question (user):** could volatility estimation be improved by *combining* the locked EWMA with shape
+features of the same window — the 20m range, the 20m max of 30s |r|? E.g. "tight consolidation now but
+the 20m range is wide" — is that a state where the EWMA misreads? Test the pairwise redundancy of these
+estimators.
+
+**Setup:** F6/F7-style harness rebuilt (the /tmp artifacts did not survive; template
+`volbake_f8_day.sql.tmpl` in the session scratchpad): 43 monthly days 2023-01 → 2026-07 (nearest trading
+day to the 15th — day picks differ slightly from F6's list), off=0 minute grid 10:00→15:30, same target
+(std of next ~10 one-minute-vwap log-returns), same guards (≥16/20 trailing, ≥8/10 forward 1m slots) plus
+≥10 slot returns in the trailing 20m, same-day $50M RTH dollar-vol universe, source =
+`data/intraday_1s_slim/`. **n = 18,078,233 obs / 43 days / 14,233 xsec spots.** Validation: the champion
+reproduces — **ew20 pooled 0.8717** here vs the published 0.8707 (different day picks account for it).
+
+The candidates (all from the same 30s slot-vwap return stream, trailing 20m = 40 slots unless noted):
+- **ew20 / ew10** — the F7 lock: EWMA of |r|, hl=20m/10m, wall-clock decay, full-session support.
+- **mean_abs** — equal-weight 20m mean of |r| (the SMA control).
+- **mx** — max |r| over the 20m window (spike detector).
+- **rng** — `ln(max V / min V)` over the 20m slot-vwap path (total range traveled).
+- **net** — `|ln(V_last / V_first)|` (net traverse — the BM drift MLE numerator; for pure BM the
+  endpoints are the *sufficient statistic* for drift, interior points add nothing).
+- **eff** — `net / Σ|r|` (Kaufman efficiency ratio). For fixed n this is a monotone transform of the
+  drift t-statistic: `t = eff·√(2n/π)` ≈ 5.05·eff at n=40. Random-walk null: E[eff] ≈ 1/√n = 0.158;
+  measured mean 0.162 — the average 20m window is almost exactly a random walk.
+  ⚠ Study-construction fencepost (user caught it): the study's Σ|r| selects returns by *known-time* ∈
+  window (the EWMA event-stream convention), so it includes the first window slot's return, whose left
+  endpoint precedes the window — 40 returns in the denominator vs the 39 the numerator telescopes over,
+  and on gappy names net can span holes Σ|r| skips (eff > 1 possible). Uniform ~1/40 dilution,
+  rank-invisible; NOT re-run. The engine form (`net = |ln(V_t / LagMa(40) V)|`, `SumMa(40)` of |r|) is
+  exactly consistent — both cover the same 40 returns (present-bar slots are gapless by construction),
+  so eff ≤ 1 unconditionally.
+
+**Standalone predictive power + redundancy with the lock:**
+
+| measure | pooled ρ | xsec ρ | redundancy vs ew20 |
+|---|---|---|---|
+| **ew20 (lock)** | **0.8717** | **0.8550** | — |
+| ew10 | 0.8702 | — | 0.9939 |
+| mean_abs | 0.8609 | — | 0.9824 |
+| mx | 0.8288 | 0.8015 | 0.9345 |
+| rng | 0.8002 | 0.7664 | 0.8791 |
+| net | 0.5552 | — | 0.5894 |
+| eff | 0.0625 | 0.0608 | **0.0237** |
+
+Other pairs: mx↔rng 0.877, mx↔mean_abs 0.951, rng↔net 0.898, rng↔eff 0.311, eff↔net 0.769.
+
+**Incremental value on top of ew20 (pooled partial Spearman, rank-OLS combined R, per-day wins):**
+
+| added to ew20 | partial ρ \| ew20 | combined R | gain | per-day combo wins | per-day partial > 0 |
+|---|---|---|---|---|---|
+| **rng** | **+0.1452** | **0.8746** | **+0.0029** | **43/43** (mean +0.0032, min +0.0012) | 43/43 |
+| net | +0.1048 | 0.8732 | +0.0015 | — | — |
+| eff | +0.0854 | 0.8727 | +0.0010 | 43/43 | 43/43 |
+| mx | +0.0816 | 0.8726 | +0.0009 | 43/43 | 43/43 |
+| ew10 (twin) | +0.0705 | 0.8724 | +0.0007 | — | — |
+| mean_abs | +0.0489 | 0.8720 | +0.0003 | — | — |
+
+Second-order: partial of mx given BOTH ew20 and rng ≈ +0.037 — the spike detector is mostly a subset of
+the range signal.
+
+**The user's scenario directly (pooled ew20-decile × within-decile rng/eff terciles, median forward vol
+in bp):**
+
+| ew20 decile | med ew20 (bp/30s) | rng T1 | rng T2 | rng T3 | eff T1 | eff T3 |
+|---|---|---|---|---|---|---|
+| 1 (quietest) | 0.85 | 0.57 | 1.26 | **1.66** | 0.87 | 1.37 |
+| 2 | 1.55 | 2.22 | 2.36 | 2.50 | 2.31 | 2.42 |
+| 5 | 2.90 | 3.94 | 4.10 | 4.31 | 4.02 | 4.25 |
+| 8 | 5.31 | 6.55 | 7.02 | 7.55 | 6.83 | 7.33 |
+| 9 | 7.18 | 8.48 | 9.33 | 10.38 | 9.05 | 9.83 |
+| 10 (hottest) | 12.39 | 12.78 | 15.89 | **27.16** | 15.96 | 17.94 |
+
+(Full 10-decile table monotone in every row for both features.)
+
+**Readings:**
+1. **The user's intuition is confirmed in the exact corner named:** at a fixed EWMA reading, a wide
+   trailing range means the EWMA *underestimates* forward vol — by ~3× in the quietest decile
+   (0.57 → 1.66 bp) and ~2× in the hottest (12.78 → 27.16 bp). "Tight consolidation inside a wide range"
+   is a real, measurable EWMA blind spot.
+2. **But rank-wise the correction is small:** combined R 0.8746 vs 0.8717 (+0.003). For context the whole
+   F4→F7 campaign was worth +0.011 — so rng is worth ~¼ of a campaign, concentrated in the tail states
+   the deciles expose. As a *normalizer* the lock stands; as a *state descriptor* rng carries genuinely
+   new information (partial +0.145, 43/43 days).
+3. **Efficiency ratio is the orthogonal axis, as designed:** ρ(eff, ew20) = 0.024 — trendiness is
+   *independent of vol level* — yet its partial is +0.085, 43/43 days positive: given the same EWMA,
+   a trending window precedes more vol than a choppy one. Small but perfectly clean.
+4. **mx is dominated** (partial +0.037 after ew20+rng): the spike's contribution to the range covers most
+   of what the max knows. Range estimators failed as *replacements* (F5); the range succeeds as a
+   *complement* — different job.
+5. Under the BM-with-drift model, `net` is the drift MLE numerator, `eff` its t-statistic, and the
+   measured mean eff sitting on the 1/√n random-walk null says drift is mostly *not* identifiable in
+   20 minutes — which is exactly why eff carries no vol-level information and works as a pure shape/state
+   feature.
+
+**⭐ DECISION: the vol20m lock (F7) is UNCHANGED — ew20 remains THE normalizer. The engine additionally
+records two complement columns: `rng20m` (≈ free — derivable from the 1200-bar MaxMa/MinMa vwap channel
+already in the design as ln(chanHigh/chanLow); note the engine form uses 1s vwaps, so it reads slightly
+wider than the study's slot-vwap form) and `eff20m` (`LagMa(40)` on slot vwaps for net + `SumMa(40)` on
+slot |r|). `mx`, `net`, `mean_abs` are NOT carried (dominated). Combining into a single fitted estimator
+is deferred — the +0.003 doesn't justify a fitted object in the engine; the sampler's post-hoc breakdowns
+get the two columns instead.**
+
+Artifacts: `volbake_f8/*.parquet`, `volbake_f8_day.sql.tmpl`, `f8_corr.sql` (session scratchpad;
+perishable like all /tmp study artifacts).
+
+### F8b — out-of-sample interaction fits (user request): the rng complement survives OOS; the interaction is real but NOT multiplicative — it lives in the per-decile slope shape
+
+**Question (user):** does the ew20+rng correction survive as an actual *estimator* out-of-sample, and
+does an interaction-aware fit (product term, or rng fit within ew20-deciles) beat the additive one?
+
+**Setup:** train = the 24 study days of 2023-24, test = the 19 days of 2025-26. Fits in log space
+(deployable — ranks don't transfer across datasets; ln-Pearson ≈ 0.9 says log-linear is the right
+parametrization): `ln(tgt) ~ ln(ew20) [+ ln(rng)] [+ ln(ew20)·ln(rng)]`, and the per-decile variant
+(decile boundaries of ew20 frozen on train; separate bivariate fit inside each decile). Baseline M0 =
+ew20 alone (fit-free; monotone transforms don't move Spearman). OOS n = 9,253,863.
+
+| model | OOS pooled Spearman | OOS ln-Pearson | per-day vs M0 |
+|---|---|---|---|
+| M0 ew20 alone | 0.8787 | 0.9081 | — |
+| M2 additive +ln(rng) | 0.8802 | 0.9111 | 18/19 (mean +0.0014) |
+| M3 + product term | 0.8802 | 0.9111 | 18/19 (+0.00003 over M2) |
+| **M4 per-decile** | **0.8804** | **0.9122** | **19/19** (mean +0.0017; beats M2 19/19) |
+
+**The fitted shape is the finding (train coefficients):**
+
+| | b_ew (log-slope) | b_rng |
+|---|---|---|
+| global additive (M2) | 0.770 | 0.169 |
+| decile 1 (quietest) | 0.901 | 0.181 |
+| decile 3 | 0.754 | 0.094 |
+| decile 5 | 0.739 | 0.119 |
+| decile 8 | 0.735 | 0.162 |
+| decile 10 (hottest) | 0.786 | **0.240** |
+
+**Readings:**
+1. **The rng correction is a real OOS estimator improvement, not attribution:** +0.0014-0.0017 Spearman
+   and +0.003-0.004 ln-Pearson on unseen 2025-26, 18-19/19 days. (~Half the in-sample rank-optimal
+   +0.0029 — expected: the log-linear fit isn't rank-optimal and the weights are frozen.)
+2. **The multiplicative product term is worthless** (M3−M2 = +0.00003, coefficient −0.005): the
+   interaction is not a smooth product. It lives in the *slope profile*: b_rng is J-shaped across
+   deciles — 0.18 in the quietest decile, dip to ~0.09-0.12 mid-range, monotone climb to 0.24 in the
+   hottest. Range information matters most exactly where the F8 tercile table showed the biggest
+   spread: hot names (12.8→27.2bp) and dead-quiet ones.
+3. **b_ew ≈ 0.74-0.79 < 1 everywhere** — the mean-reversion shrinkage measured in the calibration query
+   (fwd vol / EWMA-implied falls 0.87→0.72 with level) shows up directly as a log-slope below 1: a 1%
+   hotter EWMA predicts only ~0.77% more forward vol.
+4. **Engine consequence: none now.** The sampler records ew20 + rng20m (+ eff20m) as separate columns
+   per F8; the fitted calibration (per-decile or the shrinkage map) belongs to the SIZING stage of a
+   live book, not to gating/ranking. When sizing is designed, M4's coefficients are the starting point.
+
+Artifacts: `f8b_train_agg.csv`, `f8b_train_dec.csv`, `f8b_score.sql` (session scratchpad).
 
 ---
 
