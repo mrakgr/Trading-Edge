@@ -450,9 +450,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             // wants the counterfactual path), first present bar past each horizon
             let p =
                 { p with
-                    FwdVwap60 = (if Double.IsNaN p.FwdVwap60 && bar.etSec >= p.EntrySec + 60 then bar.vwap else p.FwdVwap60)
-                    FwdVwap300 = (if Double.IsNaN p.FwdVwap300 && bar.etSec >= p.EntrySec + 300 then bar.vwap else p.FwdVwap300)
-                    FwdVwap1200 = (if Double.IsNaN p.FwdVwap1200 && bar.etSec >= p.EntrySec + 1200 then bar.vwap else p.FwdVwap1200) }
+                    FwdVwap60 = if Double.IsNaN p.FwdVwap60 && bar.etSec >= p.EntrySec + 60 then bar.vwap else p.FwdVwap60
+                    FwdVwap300 = if Double.IsNaN p.FwdVwap300 && bar.etSec >= p.EntrySec + 300 then bar.vwap else p.FwdVwap300
+                    FwdVwap1200 = if Double.IsNaN p.FwdVwap1200 && bar.etSec >= p.EntrySec + 1200 then bar.vwap else p.FwdVwap1200 }
             let p =
                 match p.State with
                 | Holding | PendingExit _ -> { p with BarsHeld = p.BarsHeld + 1 }

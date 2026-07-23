@@ -655,6 +655,79 @@ Artifacts: `f8b_train_agg.csv`, `f8b_train_dec.csv`, `f8b_score.sql` (session sc
 
 ---
 
+## Finding 9 — first sampler breakdowns (60 trading days): EARLY-in-leg wins, loose channels beat tight, extreme-z is the only acceleration signal, gap-free tape INVERTS
+
+**Setup:** the first real SurgeRider run — 2026-04-22 → 2026-07-17 (60 trading days), 60-bar entry/exit
+channels, $10M dv_0945 floor, mc=0 sampler → **3,373,627 trips / 7,566 ticker-days / 289s** (the
+active/retired-split engine at 0.04 s/candidate). ⚠ ALL numbers are ATTRIBUTION (mc=0), costs NOT
+modeled (~0.01-0.03%/trip cells are BELOW round-trip costs; only cells ≥ ~0.1% clear them).
+`ret_f300`/`ret_f1200` = the exit-independent forward-mark returns (fwd vwap / entry − 1).
+
+**A. The core acceleration hypothesis — z_vol_60 at entry vs outcome:**
+
+| z bucket | n | win% | ret_exit% | ret_f300% | ret_f1200% | PF |
+|---|---|---|---|---|---|---|
+| z<0 | 1,883,357 | 48.5 | +0.0024 | +0.0096 | +0.0077 | 1.101 |
+| 0-1 | 942,708 | 47.9 | +0.0068 | +0.0092 | +0.0027 | 1.089 |
+| 1-2 | 404,533 | 46.8 | +0.0111 | +0.0102 | −0.0099 | 1.084 |
+| 2-3 | 114,180 | 45.6 | −0.0092 | +0.0059 | −0.0374 | 0.947 |
+| **z≥3** | **28,849** | 45.6 | +0.0145 | **+0.060** | **+0.104** | 1.090 |
+
+NON-monotone: mid-z (2-3) is the WORST cell, and only the extreme tail (z≥3, 0.9% of trips) shows a
+real forward kick (+0.10% at 20m — the only cell that clears costs). Echoes the MR-era finding that the
+long-momentum edge lives in the pre-breakout volume SURGE, not in mild elevation. ⚠ z<0's high PF is
+partly an artifact: z<0 IS the exit condition, so those trips exit in ~1 bar with near-zero spread-free
+returns. Confounds (time-of-day, liquidity) not yet controlled.
+
+**B. trade_idx (the user's up-leg reset counter) — early beats late, cleanly:**
+
+| trade_idx | n | ret_exit% | ret_f300% | PF |
+|---|---|---|---|---|
+| 0 | 75,817 | +0.0083 | +0.0238 | 1.159 |
+| 1-2 | 117,319 | +0.0089 | **+0.0274** | **1.167** |
+| 3-5 | 150,397 | +0.0078 | +0.0239 | 1.153 |
+| 6-10 | 210,042 | +0.0058 | +0.0198 | 1.116 |
+| 11-30 | 609,006 | +0.0050 | +0.0149 | 1.100 |
+| >30 | 2,211,046 | +0.0034 | +0.0051 | 1.056 |
+
+Monotone decay past idx ~5; the first ~5 trades of a leg are a broad plateau (PF ~1.16, f300 ~+0.025%).
+**65% of the sampler's book is >30-idx late chases** diluting the aggregate.
+
+**C. gap60 = 0 (dense tape) — INVERTED vs expectation:**
+
+| gap-free (gap60=0) | n | ret_exit% | ret_f300% | PF |
+|---|---|---|---|---|
+| false | 2,663,989 | +0.0073 | +0.0177 | 1.145 |
+| **true** | 709,638 | **−0.0067** | **−0.0195** | **0.919** |
+
+The "only trade gap-free tape" hypothesis fails at first pass — gap60=0 selects the mega-liquid names
+(the 34%-of-entries-at-≥$100M band) whose 1s momentum apparently mean-reverts. ⚠ It is a LIQUIDITY
+PROXY here, not a tape-quality signal; needs conditioning on dv band before any conclusion.
+
+**D. Channel tightening (free from the breach counters — the 60→1200 "sweep" in one run):**
+
+| book | n | ret_exit% | PF |
+|---|---|---|---|
+| all (60-bar gate) | 3,373,627 | +0.0044 | 1.076 |
+| breach_120 = 0 | 2,408,903 | +0.0038 | 1.058 |
+| breach_300 = 0 | 1,546,916 | +0.0031 | 1.040 |
+| breach_1200 = 0 | 736,829 | +0.0011 | 1.011 |
+| breach_sess = 0 | 278,728 | +0.0058 | 1.046 |
+
+Monotonically WORSE as the channel tightens (60 → 1200), with a partial recovery at session-high
+breakouts. The local 60-bar pop carries more forward drift than the big-window breakout at these
+horizons — and it vindicates gating the sampler on the loosest channel (a 300-gated run could never
+have seen rows the tightened books exclude).
+
+**Readings:** (1) the promising cells to intersect next: trade_idx ≤ 5 × z≥3 × (gappy or small-dv),
+with time-of-day and vol-block conditioning; (2) the z-exit at 0 makes most trips 1-2-bar scratches —
+the exit rule itself is a lever to study via the forward marks; (3) everything here is one 60-day
+recent-regime window — the 2023→2026 run is the next scale-up.
+
+Artifacts: `trips_60d/*.parquet` (session scratchpad), engine commit 4e6338d.
+
+---
+
 # Appendix A — the four path-RV constructions (F3 companion)
 
 *(What exactly each variant in the F3 overlap study computes. Open in VS Code markdown preview
