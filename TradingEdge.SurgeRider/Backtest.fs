@@ -33,7 +33,13 @@ type Config =
       /// of seconds, $100-500M 33%, $20-100M 18%). Default $10M dv_0945 (~$50-150M
       /// full-day) — sweep post-hoc; the per-bar DvFloor60/TcFloor60 gates do the
       /// second-by-second version of the same job.
-      MinDv0945: float }
+      MinDv0945: float
+      /// ⭐ Optional in-play universe pre-filter: rvol_0945_honest >= this in the candidate
+      /// SELECT. 0 = off (THE SAMPLER DEFAULT — rvol stays recorded-not-gated for breadth).
+      /// Knowability: same 09:45 class as dv_0945, legal for EntryStartSec >= 35100. Use for
+      /// focused sweeps (e.g. --min-rvol-0945 10 narrows the universe ~50x and a full run
+      /// drops to seconds per day).
+      MinRvol0945: float }
 
 /// The sampler defaults (mc = 0). Every gate here is a HARD gate; everything
 /// else is recorded and sliced post-hoc over the parquet.
@@ -42,13 +48,26 @@ let defaultConfig =
         { EntryChannelBars = 300        // breakout of the ~5m vwap channel; breach counters for all six
                                         // windows are recorded, so post-hoc can TIGHTEN to 1200/session.
           ExitChannelBars  = 300
-          ExitZBars        = 60         // the 1m aggregate z drives the "acceleration died" exits
-          Ezv              = 0.0
-          Ezt              = 0.0
+          ExitZBars        = 60
+          // ⭐ z-EXITS OFF BY DEFAULT (user, 2026-07-23; F11 mechanism study): at EZV/EZT = 0
+          // they were (a) instant-ejecting the 56% of entries born with z < 0 (98% exit on
+          // the fill bar) and (b) acting as a disguised ~60-bar time stop for the rest (an
+          // isolated spike holds the 60-bar-sum z up for exactly the window length). The
+          // system exits SOLELY on the channel break — a scalp study of what breakout
+          // entries actually earn. Re-enable via --ezv/--ezt.
+          Ezv              = Double.NegativeInfinity
+          Ezt              = Double.NegativeInfinity
           DvFloor60        = 100_000.0  // >= $100k traded over the last 60 present bars at the signal
           TcFloor60        = 60.0       // >= 60 trades over the same window (1/sec — bars exist anyway;
                                         // kills the block-print-only tape, per the plan's "volume AND
                                         // activity" requirement)
+          MinVol20m        = 0.0007     // ⭐ THE VOL BAND [7,40)bp/30s (F10 ceiling + F14b floor): the
+                                        // 40bp CEILING is load-bearing (87% of unbanded in-play
+                                        // sess-high trips sit >=40bp at PF 0.82); the floor dropped
+                                        // 20bp -> 7bp (user, 2026-07-23) — the 7-20bp slice runs PF
+                                        // 2.3-3.6 IN-PLAY (F10's p20 was calibrated on the whole
+                                        // universe, not in-play).
+          MaxVol20m        = 0.0040
           MaxConcurrent    = 0          // ⭐ SAMPLER. 1 = a real book.
           SlotBars         = 30
           BaselineBars     = 1200
@@ -57,7 +76,8 @@ let defaultConfig =
           EntryEndSec      = 48600      // 13:30
           MocSec           = 57600 }    // 16:00
       Notional = 10_000.0
-      MinDv0945 = 10_000_000.0 }
+      MinDv0945 = 10_000_000.0
+      MinRvol0945 = 0.0 }
 
 /// One candidate (ticker, day) from diprider_v6_candidate — the daily context
 /// that rides along on every trip for post-hoc slicing. Forward closes are
@@ -74,7 +94,7 @@ type Candidate =
       Dv0945: float
       Rvol0945Honest: float }
 
-let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: DateOnly) (minDv0945: float) : Candidate[] =
+let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: DateOnly) (minDv0945: float) (minRvol0945: float) : Candidate[] =
     // Research override: SR_CANDIDATE_TABLE lets a breakdown run against a different
     // universe without disturbing the production table. Identifier-only (injection-safe).
     let table =
@@ -88,10 +108,12 @@ let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDa
                  close_fwd_1d, close_fwd_3d, close_fwd_5d, dv_0945, rvol_0945_honest
           FROM {table}
           WHERE date >= $start AND date <= $end AND dv_0945 >= $mindv
+            AND rvol_0945_honest >= $minrvol
           ORDER BY ticker, date"
     let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- startDate; cmd.Parameters.Add pStart |> ignore
     let pEnd   = cmd.CreateParameter() in pEnd.ParameterName   <- "end";   pEnd.Value   <- endDate;   cmd.Parameters.Add pEnd   |> ignore
     let pDv    = cmd.CreateParameter() in pDv.ParameterName    <- "mindv"; pDv.Value    <- minDv0945; cmd.Parameters.Add pDv    |> ignore
+    let pRv    = cmd.CreateParameter() in pRv.ParameterName    <- "minrvol"; pRv.Value  <- minRvol0945; cmd.Parameters.Add pRv  |> ignore
     let out = ResizeArray<Candidate>()
     use reader = cmd.ExecuteReader()
     let dbl (i: int) = if reader.IsDBNull i then nan else reader.GetDouble i
@@ -121,8 +143,8 @@ let private tripTableSql = """
 CREATE TABLE trips (
     symbol VARCHAR, trade_date VARCHAR, adj_ratio DOUBLE,
     signal_sec INTEGER, signal_vwap DOUBLE, entry_sec INTEGER, entry_px DOUBLE,
-    z_vol_1 DOUBLE, z_vol_15 DOUBLE, z_vol_30 DOUBLE, z_vol_60 DOUBLE,
-    z_tc_1 DOUBLE, z_tc_15 DOUBLE, z_tc_30 DOUBLE, z_tc_60 DOUBLE,
+    z_vol_1 DOUBLE, z_vol_5 DOUBLE, z_vol_10 DOUBLE, z_vol_15 DOUBLE, z_vol_30 DOUBLE, z_vol_60 DOUBLE,
+    z_tc_1 DOUBLE, z_tc_5 DOUBLE, z_tc_10 DOUBLE, z_tc_15 DOUBLE, z_tc_30 DOUBLE, z_tc_60 DOUBLE,
     vol_20m DOUBLE, vol_10m DOUBLE, rng_20m DOUBLE, eff_20m DOUBLE, slot_count INTEGER,
     rng_sess DOUBLE, rng_300 DOUBLE, rng_120 DOUBLE, rng_60 DOUBLE, rng_30 DOUBLE,
     breach_sess INTEGER, breach_1200 INTEGER, breach_300 INTEGER,
@@ -135,6 +157,10 @@ CREATE TABLE trips (
     tc_15 DOUBLE, tc_30 DOUBLE, tc_60 DOUBLE,
     dollar_vol_60 DOUBLE, cum_vol DOUBLE, cum_tc DOUBLE,
     fwd_vwap_60 DOUBLE, fwd_vwap_300 DOUBLE, fwd_vwap_1200 DOUBLE,
+    aux_hi_120_px DOUBLE, aux_hi_120_sec INTEGER,
+    aux_hi_300_px DOUBLE, aux_hi_300_sec INTEGER,
+    aux_hi_600_px DOUBLE, aux_hi_600_sec INTEGER,
+    aux_hi_1200_px DOUBLE, aux_hi_1200_sec INTEGER,
     exit_sec INTEGER, exit_px DOUBLE, exit_reason VARCHAR,
     ret_exit DOUBLE, bars_held INTEGER,
     prev_adj_close DOUBLE, day_close DOUBLE,
@@ -192,8 +218,8 @@ type TripSink(outDir: string) =
             s (c.Date.ToString "yyyy-MM-dd")
             f c.AdjRatio
             i p.SignalSec; f p.SignalVwap; i p.EntrySec; f p.EntryPx
-            f p.ZVol1; f p.ZVol15; f p.ZVol30; f p.ZVol60
-            f p.ZTc1; f p.ZTc15; f p.ZTc30; f p.ZTc60
+            f p.ZVol1; f p.ZVol5; f p.ZVol10; f p.ZVol15; f p.ZVol30; f p.ZVol60
+            f p.ZTc1; f p.ZTc5; f p.ZTc10; f p.ZTc15; f p.ZTc30; f p.ZTc60
             f p.Vol20m; f p.Vol10m; f p.Rng20m; f p.Eff20m; i p.SlotCount
             f p.RngSess; f p.Rng300; f p.Rng120; f p.Rng60; f p.Rng30
             i p.BreachSess; i p.Breach1200; i p.Breach300
@@ -206,6 +232,12 @@ type TripSink(outDir: string) =
             f p.Tc15; f p.Tc30; f p.Tc60
             f p.DollarVol60; f p.CumVol; f p.CumTc
             f p.FwdVwap60; f p.FwdVwap300; f p.FwdVwap1200
+            let inline auxSec (s: int) =
+                if s < 0 then row.AppendNullValue() |> ignore else row.AppendValue s |> ignore
+            f p.AuxHi120; auxSec p.AuxSec120
+            f p.AuxHi300; auxSec p.AuxSec300
+            f p.AuxHi600; auxSec p.AuxSec600
+            f p.AuxHi1200; auxSec p.AuxSec1200
             i exitSec; f exitPx; s reason
             f (if p.EntryPx > 0.0 then exitPx / p.EntryPx - 1.0 else nan)
             i p.BarsHeld
@@ -334,7 +366,7 @@ let run (dbPath: string) (secDir: string) (outDir: string) (cfg: Config)
         pragma.CommandText <- "PRAGMA memory_limit='6GB'"
         pragma.ExecuteNonQuery() |> ignore
 
-    let candidates = readCandidates conn startDate endDate cfg.MinDv0945
+    let candidates = readCandidates conn startDate endDate cfg.MinDv0945 cfg.MinRvol0945
     use sink = new TripSink(outDir)
     let daysRun = collectTrips conn cfg secDir candidates sink progress
     // the `use` binding disposes the sink on return, flushing the final part

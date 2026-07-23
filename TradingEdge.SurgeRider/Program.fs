@@ -28,8 +28,12 @@ type Args =
     // ----- per-bar liquidity floors -----
     | Dv_Floor_60 of float
     | Tc_Floor_60 of float
+    // ----- the F10 vol band -----
+    | Min_Vol_20m of float
+    | Max_Vol_20m of float
     // ----- universe -----
     | Min_Dv_0945 of float
+    | Min_Rvol_0945 of float
     // ----- sampler vs book -----
     | Max_Concurrent of int
     // ----- timing -----
@@ -51,7 +55,10 @@ type Args =
             | Ezt _ -> "Exit when z(ln k-bar trade-count sum) < this. Default 0. -inf = off."
             | Dv_Floor_60 _ -> "Hard entry gate: >= this many DOLLARS traded over the trailing 60 present bars at the signal. Default 100000. A breakout needs volume."
             | Tc_Floor_60 _ -> "Hard entry gate: >= this many TRADES over the same window. Default 60. A breakout needs activity — volume without trades is one block print."
+            | Min_Vol_20m _ -> "⭐ VOL FLOOR (F10/F14b): vol_20m >= this at the signal (raw mean-|r|/30s units). Default 0.0007 (7bp) — the 7-20bp slice is PF 2.3-3.6 in-play; F10's 20bp floor over-cut. 0 = off."
+            | Max_Vol_20m _ -> "⭐ VOL CEILING (F10): vol_20m < this. Default 0.0040 (40bp) — past ~41bp/30s the name is already blown off (top 2%%: -0.89%%/20m). inf = off."
             | Min_Dv_0945 _ -> "Universe floor: min 09:30-09:45 dollar volume (LIVE-SAFE). Default 10000000 — momentum wants names that trade every second (>= $500M/day names are active 67%% of seconds, $100-500M 33%%)."
+            | Min_Rvol_0945 _ -> "Optional in-play universe pre-filter: rvol_0945_honest >= this (premkt-incl vol thru 09:45 / prior-20d avg; LIVE-SAFE at 09:45). Default 0 = off (sampler breadth). 10 = the stocks-in-play sweeps (~50x smaller universe)."
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: unlimited concurrent positions — every breakout bar opens another trip, so it PYRAMIDS. Removes path dependency (every trip = an independent row) but PF is then ATTRIBUTION, not a portfolio number. 1 = a real book."
             | Entry_Start_Sec _ -> "Earliest ET second (since midnight) an entry may fire. Default 35100 = 09:45. ⚠ Must be >= 35100 — the knowability guard."
             | Entry_End_Sec _ -> "Latest ET second an entry may fire. Default 48600 = 13:30."
@@ -82,10 +89,13 @@ let main argv =
                     Ezt              = parsed.GetResult(Ezt,                defaultValue = d.Intraday.Ezt)
                     DvFloor60        = parsed.GetResult(Dv_Floor_60,        defaultValue = d.Intraday.DvFloor60)
                     TcFloor60        = parsed.GetResult(Tc_Floor_60,        defaultValue = d.Intraday.TcFloor60)
+                    MinVol20m        = parsed.GetResult(Min_Vol_20m,        defaultValue = d.Intraday.MinVol20m)
+                    MaxVol20m        = parsed.GetResult(Max_Vol_20m,        defaultValue = d.Intraday.MaxVol20m)
                     MaxConcurrent    = parsed.GetResult(Max_Concurrent,     defaultValue = d.Intraday.MaxConcurrent)
                     EntryStartSec    = parsed.GetResult(Entry_Start_Sec,    defaultValue = d.Intraday.EntryStartSec)
                     EntryEndSec      = parsed.GetResult(Entry_End_Sec,      defaultValue = d.Intraday.EntryEndSec) }
-            MinDv0945 = parsed.GetResult(Min_Dv_0945, defaultValue = d.MinDv0945) }
+            MinDv0945 = parsed.GetResult(Min_Dv_0945, defaultValue = d.MinDv0945)
+            MinRvol0945 = parsed.GetResult(Min_Rvol_0945, defaultValue = d.MinRvol0945) }
 
     // ⚠ KNOWABILITY GUARD (docs/lookahead_protocol.md R4). The universe is GATED on
     // dv_0945 and every trip RECORDS dv_0945 / rvol_0945_honest — all three are only
@@ -101,7 +111,7 @@ let main argv =
     // Channel/z-window membership: the engine pre-builds exactly these windows and
     // aliases the entry/exit channel onto them — an off-menu value would otherwise
     // throw invalidArg mid-run, after the candidate query already ran.
-    let chanSet = [ 30; 60; 120; 300; 1200 ]
+    let chanSet = [ 20; 25; 30; 45; 60; 120; 300; 1200 ]
     if not (List.contains cfg.Intraday.EntryChannelBars chanSet) then
         eprintfn "FATAL: --entry-channel-bars %d — must be one of %A." cfg.Intraday.EntryChannelBars chanSet
         exit 1
@@ -118,9 +128,14 @@ let main argv =
     printfn "  db          = %s" dbPath
     printfn "  1s bars     = %s" secDir
     printfn "  range       = %O .. %O" startDate endDate
-    printfn "  universe    = dv_0945 >= $%.1fM   [LIVE-SAFE; rvol_0945_honest RECORDED, not gated]" (cfg.MinDv0945 / 1e6)
+    printfn "  universe    = dv_0945 >= $%.1fM%s" (cfg.MinDv0945 / 1e6)
+        (if cfg.MinRvol0945 > 0.0 then sprintf "   AND rvol_0945_honest >= %.1f  [IN-PLAY PRE-FILTER]" cfg.MinRvol0945
+         else "   [LIVE-SAFE; rvol_0945_honest RECORDED, not gated]")
     printfn "  ENTRY       = vwap > prior %d-bar MAX   AND dv60 >= $%.0fk AND tc60 >= %.0f   (fill: NEXT bar vwap)"
         ic.EntryChannelBars (ic.DvFloor60 / 1e3) ic.TcFloor60
+    printfn "  vol band    = vol_20m ∈ [%s, %s) bp/30s   ⭐ THE F10 BAND (floor 0 / ceiling inf = off)"
+        (if ic.MinVol20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVol20m * 1e4))
+        (if Double.IsPositiveInfinity ic.MaxVol20m then "inf" else sprintf "%.0f" (ic.MaxVol20m * 1e4))
     printfn "  EXIT        = z%d(ln vol) < %g  |  z%d(ln tc) < %g  |  vwap < prior %d-bar MIN  |  MOC   (fill: NEXT bar vwap)"
         ic.ExitZBars ic.Ezv ic.ExitZBars ic.Ezt ic.ExitChannelBars
     printfn "  entry window= %s-%s ET   features fold from %s ET" (hhmmss ic.EntryStartSec) (hhmmss ic.EntryEndSec) (hhmmss ic.SessionStartSec)

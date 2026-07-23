@@ -728,6 +728,746 @@ Artifacts: `trips_60d/*.parquet` (session scratchpad), engine commit 4e6338d.
 
 ---
 
+## Finding 10 — ⭐ the vol20m breakdown: forward returns rise MONOTONICALLY with vol through p90, then INVERT catastrophically — a vol BAND, the momentum mirror of the MR ATR band
+
+**Question (user):** the ATR% breakdown was a huge lever for the MR systems — does vol20m do the same
+here? Hoped: avg trade % rises with volatility, ideally PF too. (Also the motivating worry: most trips'
+gains are below commissions — which cells clear costs?)
+
+Same 60-day / 3.37M-trip sampler as F9. `vol_20m` = the locked EmaHlMa of |slot r|, units = mean-|r|
+per 30s slot (×1.77 ≈ 1m σ, per F8b's calibration).
+
+**Deciles (bp = vol_20m × 1e4, per 30s slot):**
+
+| dec | med vol (bp) | n | win% | ret_exit% | ret_f300% | ret_f1200% | PF | PF clip+50% |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 3.7 | 337k | 47.5 | +0.0014 | +0.0043 | +0.0018 | 1.116 | 1.116 |
+| 2 | 5.9 | 337k | 47.5 | +0.0030 | +0.0066 | +0.0139 | 1.166 | 1.166 |
+| 3 | 7.8 | 337k | 48.0 | +0.0043 | +0.0096 | +0.0242 | 1.180 | 1.180 |
+| 4 | 9.6 | 337k | 47.8 | +0.0050 | +0.0098 | +0.0206 | 1.173 | 1.173 |
+| 5 | 11.7 | 337k | 48.0 | +0.0036 | +0.0145 | +0.0296 | 1.106 | 1.106 |
+| 6 | 14.1 | 337k | 48.1 | +0.0035 | +0.0170 | +0.0299 | 1.090 | 1.090 |
+| 7 | 17.2 | 337k | 48.3 | +0.0044 | +0.0216 | +0.0454 | 1.097 | 1.097 |
+| 8 | 21.4 | 337k | 48.7 | +0.0080 | +0.0352 | +0.0749 | 1.152 | 1.152 |
+| 9 | 28.7 | 337k | 48.7 | +0.0115 | +0.0361 | **+0.0821** | 1.165 | 1.165 |
+| 10 | 54.8 | 337k | 47.4 | −0.0010 | −0.0561 | **−0.2875** | 0.996 | 0.991 |
+
+**Decile 10's interior — the break is at ~p92 (≈41 bp/30s):**
+
+| slice | from (bp) | n | ret_exit% | ret_f300% | ret_f1200% | PF |
+|---|---|---|---|---|---|---|
+| p90-92 | 36.0 | 67k | +0.0138 | +0.0344 | +0.0763 | 1.148 |
+| p92-94 | 41.0 | 67k | +0.0189 | +0.0096 | −0.0325 | 1.164 |
+| p94-96 | 49.0 | 67k | +0.0160 | −0.0126 | −0.1803 | 1.099 |
+| p96-98 | 62.6 | 67k | +0.0156 | −0.1092 | −0.4121 | 1.056 |
+| p98-100 | 90.4 | 67k | −0.0694 | −0.2025 | **−0.8890** | 0.885 |
+
+**The band × the F9 positives (band = vol_20m ∈ [p20, p90) = [6.8, 36.0) bp/30s):**
+
+| cell | n | ret_exit% | f300% | f1200% | PF |
+|---|---|---|---|---|---|
+| band alone | 2,361,535 | +0.0057 | +0.0205 | +0.0438 | 1.137 |
+| band × idx≤5 | 232,104 | +0.0074 | +0.0309 | +0.0442 | 1.176 |
+| **band × z≥3** | **19,187** | +0.0216 | **+0.0556** | **+0.1163** | **1.190** |
+| band × idx≤5 × z≥3 | 1,523 | +0.0155 | +0.0193 | +0.0162 | 1.156 |
+
+**Readings:**
+1. **The user's hope confirmed through p90:** forward returns scale monotonically with vol (f1200
+   +0.002% → +0.082%, 40×, deciles 1→9). PF is U-shaped (best 2-4 and 8-9) because the low-vol
+   deciles are scratch-heavy (tiny wins, tiny losses) while 8-9 add real drift.
+2. **⭐ THE CEILING: past ~41 bp/30s (~p92; ≈0.7% 1m σ) everything inverts,** reaching −0.89%/20m in
+   the top 2%. The exact momentum mirror of the MR MaxAtrPct finding ("past ~3.5% the name is not
+   oscillating, it is BROKEN") — here, past ~p92 the name is not breaking out, it is ALREADY blown
+   off. Note ret_exit stays positive to p98 — the z-exit escapes the collapse; the marks show what
+   the entry signal itself walks into.
+3. **The band × z≥3 cell is the first that clears costs by a margin:** +0.116%/20m on 19k trips/60d
+   (~320/day). idx≤5 helps the band too (PF 1.176).
+4. **⚠ The two positives do NOT compound:** band × idx≤5 × z≥3 (n=1.5k) DROPS to +0.016%/20m. The
+   very first extreme-z spike of a fresh leg (right off a 20m low) looks more like a bounce-to-fade
+   than a breakout; the z≥3 edge lives in the LATER legs. Small n — verify on the long run.
+5. Working parameter sense: **vol band ≈ [7, 40] bp/30s** (p20-p92); the next run's breakdowns should
+   treat vol_20m as the primary conditioning axis, as ATR% was for MR.
+
+Artifacts: same trips_60d parquet; queries inline in the session log.
+
+---
+
+## Finding 11 — the [20,40)bp band × STOCKS IN PLAY: rvol≥10 lifts the cell to PF ~1.4-1.5 / +0.2%/5m; the z-exit leaves most of the drift on the table; band promoted to the ENGINE DEFAULT
+
+**Question (user):** +0.116% is far too low — target ≥ +0.3%/trade. Focus the [20,40)bp vol band
+("we need volatility for the larger gains") and intersect with stocks in play — high rvol in the first
+15m including premarket (`rvol_0945_honest`). How does it look?
+
+Same 60-day sampler, now filtered to vol_20m ∈ [20,40)bp/30s. `moc` = the hold-to-close counterfactual
+`day_close/entry_px − 1` (per feedback convention: raw AND +50%-clipped shown).
+⚠ TWO caveats: (1) MOC returns are PSEUDO-REPLICATED — every trip on the same ticker-day shares one
+day_close, so the effective n is the ticker-day count, not the trip count; (2) the in-play cells are
+thin at 60 days (~100s of ticker-days) — the long run must confirm.
+
+| rvol bucket | n | ret_exit% | f300% | f1200% | moc% | moc_clip% | PF_moc | PF_moc_clip |
+|---|---|---|---|---|---|---|---|---|
+| <2 | 637,249 | +0.0097 | +0.0324 | +0.0807 | +0.5418 | +0.5418 | 1.413 | 1.413 |
+| 2-5 | 10,554 | +0.0092 | +0.0473 | +0.0844 | −0.6972 | −0.6972 | 0.663 | 0.663 |
+| 5-10 | 3,801 | +0.0105 | +0.0336 | −0.1208 | −1.5885 | −1.5885 | 0.566 | 0.566 |
+| **10-30** | **3,643** | **+0.0657** | **+0.1774** | **+0.1984** | **+1.1962** | +1.1962 | **1.666** | 1.666 |
+| ≥30 | 3,608 | +0.0673 | +0.2097 | +0.0563 | −1.0387 | −1.0387 | 0.633 | 0.633 |
+
+(Exit-rule PF for the two top buckets: 1.495 / 1.357 — F9 metrics table in the session log.)
+
+**Inside rvol≥10 (n=7,251), by leg position × entry hour:**
+
+| early leg (idx≤5) | before 11:00 | n | f300% | f1200% | moc_clip% | PF_moc_clip |
+|---|---|---|---|---|---|---|
+| yes | yes | 251 | +0.4635 | +0.0887 | −1.9599 | 0.524 |
+| no | yes | 1,297 | +0.1401 | −0.5777 | +0.5483 | 1.221 |
+| **yes** | **no** | **722** | +0.1424 | **+0.2374** | **+1.0549** | **1.673** |
+| no | no | 4,981 | +0.2012 | +0.2974 | −0.0744 | 0.967 |
+
+**Readings:**
+1. **Stocks-in-play works as hoped in the 10-30 bucket:** in-band × rvol 10-30 = exit-PF ~1.5,
+   +0.18%/5m, +0.20%/20m, and the MOC counterfactual says +1.20%/PF 1.67 — the first cell in the
+   system's history to smell like the MR books. But the rvol ladder is NON-monotone (2-10 negative,
+   ≥30 collapses at MOC) — at these n's, treat the shape as suggestive, not measured.
+2. **⭐ The path to the user's +0.3% target is the EXIT, not more entry filters:** in the hot cell the
+   z-exit banks +0.066% while the 5-minute mark shows +0.18-0.21% and MOC +1.2% — the exit rule
+   captures ~a third of the 5m drift and ~5% of the day drift. The z<0 exit was designed to detect
+   "acceleration died"; in an in-play name that fires on every breather. Exit redesign (hold-to-MOC,
+   trailing channel, or a much lower EZV) is the next engine lever.
+3. The afternoon early-leg cell (idx≤5, after 11:00) is the cleanest sub-cell (f1200 +0.24%, MOC_clip
+   +1.05%, PF 1.67) — afternoon breakouts of in-play names that just started a fresh leg.
+4. **ENGINE CHANGE: the [20,40)bp band is now the DEFAULT hard gate** (`MinVol20m = 0.0020`,
+   `MaxVol20m = 0.0040`, CLI `--min-vol-20m`/`--max-vol-20m`, floor 0 / ceiling inf = off). This
+   shrinks future sampler runs ~5× and focuses them on the drift-rich band; vol_20m is still recorded
+   for within-band slicing. ⚠ rvol_0945_honest stays RECORDED, NOT gated (a gate would need its own
+   lookahead audit — the honest denominator passed once, but gating changes the universe).
+5. ⏭ The in-play cells need the 2023→2026 run for real statistics (~20× the ticker-days).
+
+Artifacts: same trips_60d parquet; band gate in commit (pending).
+
+---
+
+## Finding 12 — ⭐⭐ CHANNEL-ONLY EXITS: the scalp book emerges — in-play cells hit +0.39%/trip at PF 2.1-2.6; fast (15/30-bar) z's beat the 1m z in-play
+
+**Decision (user):** this is a SCALPING system — no holding to MOC (intraday swings to the close are a
+known dead end from prior systems). z-exits DISABLED (Ezv/Ezt default → −inf; the F11 mechanisms made
+them an instant-eject + disguised time stop). **Exit = the 60-bar channel break alone.** Re-run of the
+60-day sampler: band gate [20,40)bp (now default) + 60-bar entry/exit channels →
+**658,855 trips / 7,566 ticker-days / 121s** (5.1× fewer trips than the z-exit run — the band gate).
+
+**Headline (all trips, mc=0 attribution, no costs):** avg +0.0388%, median −0.0963% (the ride-winners/
+cut-losers skew — win rate 41.1%), median hold 76 present bars / p90 186, **100.0% channel exits,
+0.0% MOC** (nothing survives to the close even without the z-exits), PF 1.204 (vs 1.076 under z-exits).
+
+**The in-play ladder under the real exit (rvol_0945_honest buckets; clip+50% twin identical):**
+
+| rvol | n | win% | avg ret% | f1200% | PF | med hold |
+|---|---|---|---|---|---|---|
+| <2 | 637,249 | 41.1 | +0.0361 | +0.0807 | 1.192 | 76 |
+| 2-5 | 10,554 | 41.4 | +0.0461 | +0.0844 | 1.200 | 76 |
+| 5-10 | 3,801 | 39.0 | +0.0008 | −0.1208 | 1.003 | 77 |
+| 10-30 | 3,643 | 42.2 | +0.1792 | +0.1984 | 1.660 | 83 |
+| **≥30** | **3,608** | **45.6** | **+0.3931** | +0.0563 | **2.118** | 104 |
+
+**⭐ THE USER'S +0.3% TARGET IS HIT** in rvol≥30 (+0.39%/trip, ~60 trips/day) — the SAME bucket that
+collapsed at MOC in F11 (−1.04%). The scalp exit monetizes what the swing hold gives back: these names
+spike and retrace intraday; the channel exit banks the spike leg. trade_idx inside rvol≥10:
+
+| idx | n | avg ret% | PF | med hold |
+|---|---|---|---|---|
+| 0 | 275 | +0.3369 | 2.400 | 102 |
+| **1-5** | **1,107** | **+0.3980** | **2.639** | 104 |
+| 6-20 | 2,039 | +0.2630 | 1.828 | 93 |
+| >20 | 3,830 | +0.2615 | 1.785 | 88 |
+
+**The z-scale ladder (user question: are 15/30-bar z's clearer than the 1m?):** full band-gated sample
+= flat noise on every k (no bucket exceeds +0.046%; z≥3 vol is WORSE). Inside rvol≥10:
+
+| feature, z≥2 | n | avg ret% | PF |
+|---|---|---|---|
+| z_vol_15 | 441 | +0.3464 | 1.938 |
+| z_vol_30 | 400 | +0.3575 | 1.898 |
+| z_tc_15 | 822 | +0.3366 | 1.890 |
+| z_tc_30 | 622 | +0.2903 | 1.715 |
+| z_tc_60 | 464 | +0.2262 | 1.504 |
+| **z_vol_60** | 374 | **+0.0953** | 1.206 |
+
+**Readings:**
+1. **The scalp thesis is vindicated against both alternative exits:** channel-only beats the z-exit
+   book everywhere (PF 1.204 vs 1.076 overall) and beats MOC exactly where it matters (rvol≥30:
+   +0.39% scalped vs −1.04% held). Spike-and-retrace names want the trailing exit.
+2. **In-play × early-leg is the flagship cell: rvol≥10 × idx≤5 = +0.39%/trip, PF 2.5-2.6, ~23
+   trips/day.** rvol≥30 alone: +0.39%, PF 2.12, ~60/day.
+3. **⭐ The user's instinct on fast z's is right — IN-PLAY:** at z≥2 the 15/30-bar z's hold
+   +0.29-0.36% (PF 1.7-1.9) while the 1m z_vol_60 collapses to +0.095%. Acceleration is a
+   seconds-scale phenomenon; by the time the 1m aggregate is 2σ hot the move is stale. (In the full
+   band-gated sample NO z separates — the z's only matter once the name is in play.)
+4. Win rate 41% with median −0.1%: the book is a classic cut-losers/ride-winners scalper; sizing and
+   cost modeling (spread on in-play names) are the open practical questions.
+5. ⏭ Confirm on 2023→2026 (in-play cells are ~100s of ticker-days here); then mc=1.
+
+Artifacts: `trips_60d_chan/*.parquet` (session scratchpad).
+
+---
+
+## Finding 13 — the z-scale gradient points to SECONDS (z_tc_1 is the best z yet) + ⭐ the tc floor INVERTS: quiet tape beats busy tape
+
+**Questions (user):** (1) 15s z's look promising — try 5-10s too? (2) find the minimum trade-count
+threshold "where the stock isn't dead."
+
+**1. The ladder's short end (free — k=1 was already recorded). In-play (rvol≥10), z≥2, channel-exit
+run:** `z_tc_1` = **+0.378% / PF 2.11 / n=1,294** — the strongest z-feature measured, with 3× the
+sample of z_vol_15. The full gradient (avg ret% at z≥2, in-play):
+
+| k (bars ≈ secs) | z_vol | z_tc |
+|---|---|---|
+| 1 | +0.200 | **+0.378** |
+| 15 | +0.346 | +0.337 |
+| 30 | +0.358 | +0.290 |
+| 60 | +0.095 | +0.226 |
+
+Trade-count improves MONOTONICALLY toward shorter windows; volume peaks at 15-30s and dies at 1m.
+Acceleration is a seconds-scale phenomenon, and the trade-count tape (participation) leads the volume
+tape (size). → **k=5 and k=10 z's added to the engine** (z_vol_5/10, z_tc_5/10 — 4 sums + 4 baselines
++ 4 columns) to fill the gap straddling both peaks; measured in F13b below once the re-run lands.
+
+**2. The tc floor inverts.** Raw tc_60 (prints over the trailing 60 present bars; hard floor 60):
+
+| tc_60 (all trips) | n | avg ret% | PF | | tc_60 (in-play) | n | avg ret% | PF |
+|---|---|---|---|---|---|---|---|---|
+| 60-120 | 1,529 | +0.079 | 1.390 | | <300 | 4,115 | **+0.385** | **2.330** |
+| 120-300 | 144,420 | +0.057 | 1.305 | | 300-600 | 2,137 | +0.163 | 1.457 |
+| 300-600 | 252,154 | +0.039 | 1.205 | | 600-1500 | 778 | +0.107 | 1.335 |
+| 600-1500 | 193,204 | +0.031 | 1.163 | | 1500-4k | 221 | +0.253 | 1.962 |
+| 1500-4k | 55,834 | +0.016 | 1.082 | | | | | |
+| ≥4k | 11,714 | +0.035 | 1.181 | | | | | |
+
+**There is no "dead stock" floor to find above the existing gates** (tc≥60 + $100k/min + the vol band
+already cut the corpses): PF DECLINES monotonically with activity, and in-play the tc<300 cell is the
+best cell in the study (+0.385%, PF 2.33). Fewer prints = fewer participants = less efficient pricing =
+momentum persists. Mirrors MaxRiderV1's quiet-VOLUME stop-substitute — the same "quiet tape carries the
+edge" asymmetry, now on the long-momentum side. (Thin-n curiosity: partial recovery at 1500-4k
+prints/min — the meme-crowd regime; n=221, unverified.) **Do NOT raise TcFloor60 — it would cut the
+best cells.**
+
+Artifacts: same trips_60d_chan parquet.
+
+### F13b — the completed ladder: vol PEAKS at k=10 (+0.47%, PF 2.38); tc peaks at k=1; the two are complementary
+
+Re-run with the k=5/10 columns (identical book — 658,855 trips, PF 1.204 — only the new columns
+populated).
+
+⚠ **CONDITIONING (read before citing): every cell below is `rvol_0945_honest >= 10` (stocks in play)
+AND inside the [20,40)bp vol band** (the engine's hard gate at the time of this run — the 7bp floor
+came later, F14c), z≥2 per cell, channel exits. The k=10/k=1 peaks are facts about IN-PLAY, WITHIN-BAND
+names; the full band-gated sample without the rvol filter showed NO z separation at any k (F13). The
+ladder has NOT been measured on the 7-20bp slice the F14c floor drop re-admits — re-measure on the
+2023→2026 run.
+
+| k | z_vol ret% | n | PF | z_tc ret% | n | PF |
+|---|---|---|---|---|---|---|
+| 1 | +0.200 | 454 | 1.516 | **+0.378** | 1,294 | **2.113** |
+| 5 | +0.300 | 512 | 1.867 | +0.358 | 1,279 | 2.043 |
+| **10** | **+0.467** | 497 | **2.379** | +0.351 | 944 | 1.951 |
+| 15 | +0.346 | 441 | 1.938 | +0.337 | 822 | 1.890 |
+| 30 | +0.358 | 400 | 1.898 | +0.290 | 622 | 1.715 |
+| 60 | +0.095 | 374 | 1.206 | +0.226 | 464 | 1.504 |
+
+**The two champions overlap only partially (225 of ~1,570) and COMBINE:**
+
+| cell (in-play) | n | ret% | PF |
+|---|---|---|---|
+| z_vol_10≥2 only | 272 | +0.436 | 2.384 |
+| z_tc_1≥2 only | 1,069 | +0.351 | 2.052 |
+| BOTH ≥2 | 225 | **+0.505** | 2.373 |
+| **EITHER ≥2** | **1,566** | +0.388 | 2.157 |
+
+**Readings:** (1) volume acceleration is a ~10-second phenomenon (sharp peak; half the effect gone by
+1s — single-bar volume is too noisy — and dead by 1m); trade-count acceleration is fastest of all,
+peaking at the single second. (2) The EITHER-cell is the working entry-signal candidate: ~26 trips/day
+at +0.39%/PF 2.16, built from two partially-independent tells. (3) All cells are 60-day thin (n
+225-1,600) — the 2023→2026 run must confirm before anything is believed.
+
+Artifacts: `trips_60d_chan2/*.parquet` (session scratchpad).
+
+---
+
+## Finding 14 — ⭐ session-high entries: a CONDITIONAL FLIP — worst in the broad universe, BEST in-play (+0.56%, PF 2.71, win 49.8%)
+
+**Question (user, ahead of the aux-exit design):** stocks breaking out to session highs — special case?
+Do those entries have better expectancy? `breach_sess = 0` at the signal = the signal bar broke the
+session high. Channel-exit run (trips_60d_chan2):
+
+| cell | n | win% | ret% | PF |
+|---|---|---|---|---|
+| ALL: at session high | 70,225 | 41.2 | +0.0232 | 1.114 |
+| ALL: recent high (≤300b) | 38,151 | 39.4 | +0.0294 | 1.150 |
+| ALL: far/never | 550,479 | 41.3 | +0.0414 | 1.220 |
+| **in-play (rvol≥10): at sess high** | **556** | **49.8** | **+0.5554** | **2.710** |
+| in-play: not at sess high | 6,695 | 43.4 | +0.2632 | 1.848 |
+| in-play × EITHER-z × at sess high | 168 | — | +0.5713 | 2.564 |
+
+**Reading:** on an ordinary band-gated name, the session-high breakout is where the fade lives (worst
+cell of the three). On a stock IN PLAY it is the strongest continuation signal measured — the long-side
+rhyme of MaxRiderV1's don't-fade-the-session-high. **No defensive special-casing needed: breach_sess=0
+is a positive conditioning flag in-play, already recorded.** (The win-rate jump to ~50% also partially
+pre-answers the aux-exit motivation.) tc≤300 as a default gate: deferred until the long run (user).
+
+Artifacts: same trips_60d_chan2 parquet.
+
+### F14b — the F14 cell WITHOUT the vol band (user question): the 40bp CEILING is what makes the cell work; the 20bp floor may be too high in-play
+
+All channel-exit runs since F11 carry the [20,40)bp band as a hard gate — F14's numbers are
+within-band. Unbanded re-run (`--min-vol-20m 0 --max-vol-20m 1e9`; 3,373,627 trips, PF 1.137 vs the
+banded 1.204). The in-play × session-high cell by vol region:
+
+| vol_20m region | n | win% | ret% | PF |
+|---|---|---|---|---|
+| <7bp | 55 | 58.2 | +0.018 | 1.666 |
+| 7-20bp | 59 | 50.8 | **+0.641** | **3.607** |
+| **20-40bp (the band)** | 556 | 49.8 | +0.555 | 2.710 |
+| **≥40bp** | **4,699** | **35.9** | **−0.344** | **0.817** |
+
+In-play (any breach state): <7bp 1.526 (n=677) · 7-20bp **2.566** (n=484) · band 1.917 (n=7,251) ·
+≥40bp 1.048 (n=96,800).
+
+**Readings:** (1) **the ceiling is load-bearing:** 87% of unbanded in-play session-high breakouts
+happen in the ≥40bp blown-off region and LOSE (PF 0.82, win 36%) — without the band, F14's flagship
+cell drowns net-negative. The band didn't ride along; it *created* the cell. (2) **the 20bp floor may
+be too high for the in-play book:** the 7-20bp slice it excludes runs PF 2.6-3.6 in-play (n=59-484 —
+THIN; the F10 p20 floor was calibrated on the whole universe, not in-play). Candidate adjustment for
+the long run: keep the 40bp ceiling hard, drop the floor to ~7bp, and re-measure the in-play cells.
+
+Artifacts: `trips_60d_noband/*.parquet` (session scratchpad).
+
+### F14c — the cell's anatomy (user questions) + ⭐ regime-dependent exits: in the blowoff region the aux profit-take FLIPS the sign
+
+**What the F14/F14b cell IS:** `rvol_0945_honest >= 10 AND breach_sess = 0` at the signal, channel
+exit, 60-bar channels — **NO z conditions**. The z overlay (EITHER z_vol_10≥2 / z_tc_1≥2), unbanded run:
+
+| vol region × z≥2 | n | ret% | PF |
+|---|---|---|---|
+| 7-20bp, no z | 40 | +0.345 | 2.076 |
+| 7-20bp, z≥2 | 19 | +1.263 | 15.31 (lottery-ticket n) |
+| band, no z | 388 | +0.549 | 2.786 |
+| band, z≥2 | 168 | +0.571 | 2.564 |
+| ≥40bp, no z | 2,748 | −0.458 | 0.743 |
+| ≥40bp, z≥2 | 1,951 | −0.185 | 0.908 |
+
+Inside the band the sess-high cell is z-AGNOSTIC (the session-high breach subsumes the acceleration
+signal); z only softens the ≥40bp losses without flipping them.
+
+**Not-at-session-high (in-play), by vol region:** <7bp 1.509 (n=622) · 7-20bp **2.283** (+0.161,
+n=425) · band 1.848 (+0.263, n=6,695) · ≥40bp 1.073 (+0.064, n=92,101). The extreme-vol carnage is
+SPECIFIC to session-high chasing (−0.344%); ordinary breakouts in blowoff are merely breakeven.
+
+**⭐ The user's regime hypothesis — aux exits when vol is EXTREME (≥40bp):**
+
+| ≥40bp cell | book | win% | ret% | PF |
+|---|---|---|---|---|
+| sess-high | channel | 35.9 | −0.344 | 0.817 |
+| sess-high | **aux (any)** | **71.8** | **+0.025** | **1.046** |
+| not sess-high | channel | 38.0 | +0.064 | 1.073 |
+| not sess-high | aux 20m | 45.6 | +0.112 | 1.155 |
+
+**Readings:** (1) confirmed — in the blowoff regime the F15 verdict INVERTS: taking the first new high
+rescues the sess-high cell from −0.34% to +0.03% (win 72%) and mildly improves the rest. There is no
+tail to protect above 40bp — the pop IS the trade. (2) Still ≈ breakeven after costs → the ceiling
+(don't enter) remains the right default for the LONG book; the regime-dependent exit matters if the
+≥40bp region is ever traded — and PF 0.74-0.82 channel-exit there is PlungeRider material for later.
+(3) **ENGINE CHANGE: MinVol20m default 0.0020 → 0.0007** (the F14b floor drop, user-confirmed).
+
+Artifacts: same trips_60d_noband parquet.
+
+---
+
+## Finding 15 — ⭐ the aux-exit tournament: profit-taking at {2,5,10,20}m highs LIFTS win rate and DESTROYS expectancy in every cell — the trailing channel stands
+
+**Question (user):** win rate is lowish (41-46%) — add auxiliary profit-take exits at the 2m/5m/10m/20m
+highs alongside the trailing channel. Engine: AUX-HIGH MARKS added (first new {120,300,600,1200}-bar
+high strictly after the entry fill, marked at the FOLLOWING bar's vwap — px + sec recorded), so every
+aux book is a CASE expression: `ret = aux_px/entry−1 if aux_sec <= exit_sec else ret_exit`. Run
+reproduces the F12 book exactly (658,855 trips / PF 1.204). Aux-before-exit rates: 2m 82.5%, 5m 66.0%,
+10m 49.8%, 20m 33.7%.
+
+| cell | book | win% | ret% | PF |
+|---|---|---|---|---|
+| all | **channel only** | 41.1 | **+0.0388** | **1.204** |
+| all | aux 2m | 64.2 | +0.0089 | 1.110 |
+| all | aux 20m | 49.3 | +0.0286 | 1.186 |
+| in-play (rvol≥10) | **channel only** | 43.9 | **+0.2856** | **1.917** |
+| in-play | aux 2m | 60.9 | +0.0440 | 1.294 |
+| in-play | aux 10m | 53.6 | +0.0824 | 1.364 |
+| in-play | aux 20m | 50.1 | +0.0912 | 1.360 |
+| in-play × EITHER-z | **channel only** | 46.3 | **+0.3877** | **2.157** |
+| in-play × EITHER-z | aux 20m (best aux) | 54.7 | +0.1102 | 1.466 |
+| in-play × sess-high | **channel only** | 49.8 | **+0.5554** | **2.710** |
+| in-play × sess-high | aux (any window) | 65.5 | +0.0734 | 1.596 |
+
+**Readings:**
+1. **The win rate is cosmetic; the expectancy is 3-8× worse in every cell.** The entries fire at
+   60-bar highs of moving names — the next N-minute high arrives almost immediately ON THE WINNERS
+   (82.5% of trips print the 2m high before the channel break), so the aux caps every good trip at a
+   sliver while the losers still ride the full channel distance down. Cut-winners/keep-losers.
+2. The MaxFlyer lesson ("every EXIT loses to hold; selection ≠ exit") reproduces INTRA-SCALP: the
+   right tail IS the product; profit targets amputate it. The trailing channel already banks the tail.
+3. In the sess-high cell all four aux windows produce the IDENTICAL book (+0.0734/1.596) — at a
+   session high every window's max coincides, so the first new high is a new high of all of them.
+   Internal consistency check passed.
+4. **Decision: no aux exits. The trailing channel remains the sole exit.** If win rate matters for
+   sizing psychology, the lever is entry selection (sess-high in-play cell: win 49.8% at FULL
+   expectancy), not exit truncation. The aux marks stay recorded — they cost nothing and other exit
+   ideas (e.g. aux-high STOPS-to-breakeven) can be prototyped from the same columns.
+
+Artifacts: `trips_60d_aux/*.parquet` (session scratchpad; supersedes trips_60d_chan2 — same book +
+aux/k=5/10 columns).
+
+---
+
+## Finding 17 — ⭐ the exit-channel sweep: 2m trailing is the flagship-cell sweet spot (+0.81%/trip at the same PF); ≥5m bleeds; 20m gives everything back
+
+**Question (user):** instead of the 1m (60-bar) trailing exit low, would 2m or more be better?
+Path-dependent → four engine runs, exit ∈ {60,120,300,1200} bars, entry fixed at 60, band [7,40)bp
+(the new default — trip count jumps to 2,390,478/run from the 7-20bp re-admission). ⭐ The entry rule
+is identical across runs, so all four books contain the SAME 2,390,478 trips — a PAIRED comparison.
+
+**Overall / in-play / in-play × sess-high:**
+
+| exit | win% | ret% | PF | med hold | | in-play: win% | ret% | PF | | sess-hi: win% | ret% | PF |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 60 | 40.9 | +0.020 | **1.167** | 75 | | **43.9** | +0.281 | **1.936** | | 49.9 | +0.564 | **2.777** |
+| **120** | 39.0 | +0.027 | 1.156 | 154 | | 41.2 | +0.302 | 1.715 | | **52.4** | **+0.814** | 2.756 |
+| 300 | 36.5 | +0.036 | 1.134 | 376 | | 36.3 | +0.316 | 1.484 | | 35.6 | +0.635 | 1.753 |
+| 1200 | 35.5 | +0.069 | 1.150 | 1327 | | 30.6 | +0.080 | 1.066 | | 43.7 | +0.109 | 1.072 |
+
+**Readings:**
+1. **⭐ In the flagship cell (in-play × sess-high, n=615) the 2m exit is strictly better than 1m:**
+   +0.814%/trip vs +0.564% (+44%) at essentially the SAME PF (2.756 vs 2.777) and a HIGHER win rate
+   (52.4%). The extra minute of room lets the session-high runners complete a second leg.
+2. **For the broad in-play book, 1m keeps the best PF** (1.94 vs 1.72) though 2m earns slightly more
+   per trip — the marginal in-play names don't sustain second legs.
+3. **≥5m bleeds and 20m is death in-play** (+0.080%/PF 1.066 — everything the spike gave, the 20m
+   trailing stop hands back). The scalp thesis re-confirms from a third direction (z-exits F12, MOC
+   F11, now wide trailing stops): these names spike and RETRACE.
+4. Practical: exit window becomes a per-book knob — 120 for the sess-high tier, 60 for the rest.
+   ⚠ mc=1 capacity: 120 doubles median holds (178 bars in-play). ⚠ Engine runtime: the exit=1200 run
+   ran ~25 min (holds ≈ nothing exits → the active list balloons — O(bars × open)); wide-exit sweeps
+   are expensive at mc=0.
+
+Artifacts: `trips_60d_exit{60,120,300,1200}/*.parquet` (session scratchpad).
+
+### F17b — the z tier under the sweep (user question): NOT-at-high z-breakouts want the FAST exit; the three-tier exit map
+
+**In-play × EITHER-z (z_vol_10≥2 OR z_tc_1≥2) × NOT at session high** (n=1,497, paired across exits):
+
+| exit | win% | ret% | PF | med hold |
+|---|---|---|---|---|
+| **60 (1m)** | 45.0 | +0.355 | **2.103** | 100 |
+| 120 (2m) | 42.8 | +0.372 | 1.877 | 188 |
+| 300 (5m) | 39.0 | **+0.477** | 1.748 | 405 |
+| 1200 (20m) | 32.5 | +0.476 | 1.389 | 1408 |
+
+**z AND sess-high** (n=187): 1m is best outright — +0.642 / PF 2.903; wider only decays (2m 2.414,
+5m 1.811, 20m 1.221).
+
+**Readings:**
+1. **The opposite of the sess-high tier:** for z-selected breakouts NOT at the session high, the 1m
+   exit keeps the best PF; widening buys per-trip return only by paying PF away (5m: +0.48% at 1.75).
+   The sess-high runner's second leg came free (F17: 2m = +44% ret at unchanged PF); the local
+   z-breakout's does not — bank the leg.
+2. The z tier degrades far more GRACEFULLY under wide exits than the broad in-play book (20m: PF 1.39
+   vs the book's 1.07) — acceleration-selected momentum is genuinely more persistent; it just doesn't
+   pay enough extra to justify the wait.
+3. **⭐ THE THREE-TIER EXIT MAP (the working spec going into the long run):**
+   - in-play × sess-high → **2m exit** (+0.81% / PF 2.76, n=615)
+   - in-play × EITHER-z, not at high → **1m exit** (+0.36% / PF 2.10, n=1,497)
+   - everything else in-play → **1m exit** (+0.28% / PF 1.94 baseline)
+   All 60-day-thin; tier boundaries are post-hoc structure the 2023→2026 run must confirm.
+
+Artifacts: same sweep parquets.
+
+---
+
+## Finding 18 — tc≤300 (quiet tape) on top of the tiers: helps EVERYWHERE robustly; the sess-high × quiet headline (PF 14) is 18 ticker-days / 89% top-3 concentration — record, don't believe
+
+**Question (user):** add the F13 quiet-tape filter (tc_60 ≤ 300) on top of the three tiers. Paired
+across the exit sweep, in-play:
+
+| tier | exit | quiet? | n | win% | ret% | PF |
+|---|---|---|---|---|---|---|
+| rest | 60 | no | 2,205 | 41.1 | +0.123 | 1.415 |
+| rest | 60 | **yes** | 3,418 | 44.2 | **+0.301** | **2.034** |
+| z-not-high | 60 | no | 820 | 42.9 | +0.232 | 1.674 |
+| z-not-high | 60 | **yes** | 677 | 47.4 | **+0.504** | **2.710** |
+| sess-high | 120 | no | 476 | 46.2 | +0.076 | 1.144 |
+| sess-high | 120 | **yes** | 139 | 73.4 | +3.340 | 14.24 ⚠ |
+
+(Quiet also rescues wide exits everywhere — e.g. z-not-high × quiet at 20m: +1.02%/PF 1.95 vs the
+busy side's 1.02 — quiet-tape momentum persists.)
+
+**⚠ THE PF-14 CELL'S ANATOMY (checked before believing, per the protocol):** 139 trips = **7 symbols /
+18 ticker-days**; top ticker-day (SRXH 2026-06-16: 27 trips at +13.3% avg) ≈ 77% of the P&L, top 3
+ticker-days = **88.7%**. Median entry $9.58 / dv_0945 $43M — mechanically real, NOT penny junk, but
+this is one runaway runner pseudo-replicated at mc=0 (the DonchianScalp lesson: one day ≈ the whole
+P&L → regime artifact until proven otherwise).
+
+**Readings:**
+1. **The quiet-tape inversion (F13) generalizes to every tier and every exit** — the two broad cells
+   (rest: 1.42→2.03 on n=3,418; z-not-high: 1.67→2.71 on n=677) have real breadth and survive scrutiny.
+   The tc≤300 default (user: decide after the long run) looks increasingly justified.
+2. Also notable: quiet × sess-high separates BUSY sess-high entries as the weak ones (PF 1.14 at 2m) —
+   the crowd chasing a session high on heavy tape is the fade; the quiet grind to a high is the runner.
+3. The sess-high × quiet cell: RECORDED as the most promising cell in the study AND the least
+   believable — 18 ticker-days. The 2023→2026 run is the only arbiter.
+
+Artifacts: same sweep parquets.
+
+---
+
+## Finding 19 — chg_1d (gain vs yesterday's close at entry): the HYPOTHESIS INVERTS — mid-gainers (10-60%) are the fade zone; the best broad host is in-play names DOWN on the day
+
+**Question (user):** are these momentum plays better on large % gainers? `chg_1d = entry_px /
+prev_adj_close − 1` (gap + intraday as of entry — derivable post-hoc, no engine change). In-play,
+1m exit:
+
+| chg_1d at entry | n | win% | ret% | PF |
+|---|---|---|---|---|
+| **down (<0)** | 3,582 | 47.3 | **+0.433** | **2.628** |
+| 0-10% | 1,610 | 46.8 | +0.286 | 1.874 |
+| 10-30% | 596 | 38.9 | +0.075 | 1.207 |
+| **30-60%** | 814 | 34.0 | **−0.075** | **0.771** |
+| 60-100% | 1,018 | 34.8 | +0.043 | 1.128 |
+| >100% | 115 | 74.8 | +1.215 | 7.678 ⚠ |
+
+**Concentration audit (the F18 discipline):** down = 65 ticker-days, top-3 = 66.5% of P&L (fat-tailed
+but has breadth) · **>100% = 2 ticker-days (discard)** · sess-high × 10-60% (+1.16/PF 6.05, n=66) =
+**4 ticker-days, top-3 > 100% (discard)**.
+
+**By tier × gain zone (lo <10% incl. down / mid 10-60% / hi >60%), in-play, 1m exit:**
+
+| tier | gain | n | ret% | PF |
+|---|---|---|---|---|
+| rest | lo | 3,961 | +0.333 | 2.199 |
+| rest | mid | 1,066 | −0.056 | 0.832 |
+| rest | hi | 596 | +0.065 | 1.200 |
+| z-not-high | lo | 867 | +0.479 | 2.535 |
+| z-not-high | mid | 278 | −0.120 | 0.706 |
+| **z-not-high** | **hi** | **352** | **+0.425** | **2.525** |
+| sess-high | lo | 364 | +0.754 | 3.558 |
+| sess-high | mid | 66 | +1.162 | 6.051 ⚠ 4 tkdays — discard |
+| sess-high | hi | 185 | −0.025 | 0.937 |
+
+Every tier's MID zone is the worst broad region (rest 0.83, z-not-high 0.71); the z tier alone stays
+strong on hi (2.53, n=352 — a >60% runner that is STILL accelerating is a different animal from a
+stale one drifting mid-extension). sess-high × hi is weak (0.94) — chasing a blown-out runner to
+fresh session highs adds nothing even in-play.
+
+**Readings:**
+1. **Large gainers are NOT better hosts — the 10-60% zone is where breakout longs go to die** (the
+   only broadly-negative chg_1d region; win rate collapses to 34%). Chasing yesterday's runner
+   mid-extension is the fade.
+2. **The best broad cell is in-play names DOWN vs yesterday's close** (+0.43%/PF 2.63, 65 tkdays):
+   heavy-volume selloff names reclaiming to 60-bar highs — the gap-down-bounce/reclaim structure. The
+   MR-recovery asymmetry ("LONG BUYS WEAKNESS") reappears inside the momentum system itself.
+3. The >100% lottery cells are 2-4 ticker-days — recorded, discarded.
+4. ⏭ chg_1d joins the long-run conditioning axes (down/flat vs mid-gainer especially).
+
+Artifacts: same sweep parquets.
+
+---
+
+## Finding 20 — the fine grid {30,45,60}×{30,45,60} on the in-play universe: entry plateaus at 45-60 (30 dilutes); exit 45≈60 > 30 overall — but the sess-high tier LOVES the 30s exit (PF 4.0)
+
+**Setup (user):** does the tighter-is-better gradient extend below 1m? 3×3 entry×exit grid; NEW
+`--min-rvol-0945 10` universe pre-filter (318 candidates vs 7,566 — ~24×; each run seconds). 45-bar
+channels added to the engine set. All cells are the in-play universe by construction.
+
+**The full grid (paired across exits within an entry; entries change the trip population):**
+
+| entry | exit | n | win% | ret% | PF | med hold |
+|---|---|---|---|---|---|---|
+| 30 | 30 | 10,456 | 44.4 | +0.175 | 1.805 | 48 |
+| 30 | 45 | 10,456 | 43.8 | +0.233 | 1.913 | 70 |
+| 30 | 60 | 10,456 | 43.3 | +0.250 | 1.879 | 91 |
+| 45 | 30 | 8,663 | 45.1 | +0.192 | 1.862 | 49 |
+| **45** | **45** | 8,663 | 44.4 | +0.256 | **1.972** | 71 |
+| 45 | 60 | 8,663 | 43.9 | +0.276 | 1.945 | 92 |
+| 60 | 30 | 7,735 | 45.2 | +0.193 | 1.845 | 50 |
+| 60 | 45 | 7,735 | 44.0 | +0.257 | 1.946 | 71 |
+| 60 | 60 | 7,735 | 43.9 | +0.282 | 1.936 | 92 |
+
+**The sess-high tier is IDENTICAL across entry windows** (a session-high breach breaches every
+shorter channel, so the same 615 signal bars fire regardless — mechanical identity, consistency check
+passed). Its exit profile, now spanning 30→1200 (with F17):
+
+| exit | 30 | 45 | 60 | 120 | 300 | 1200 |
+|---|---|---|---|---|---|---|
+| ret% | +0.582 | +0.538 | +0.564 | **+0.814** | +0.635 | +0.109 |
+| PF | **4.008** | 2.975 | 2.777 | 2.756 | 1.753 | 1.072 |
+
+**Readings:**
+1. **The F9-D gradient does NOT extend below 1m on the entry side:** 30-bar entries add ~35% more
+   trips at LOWER quality (dilution — every minor uptick is a "breakout"); 45 ≈ 60 within noise
+   (45×45 is the nominal PF peak, 1.972 vs 1.936). No default change — 60 stands.
+2. **Exit side, overall book: 45 ≈ 60 > 30** — the 30s trailing stop banks too early (+0.19 vs +0.28)
+   AND loses PF. The 1m default stands for the broad book.
+3. **⭐ But the sess-high tier's exit profile is bimodal: PF peaks at the 30s exit (4.008, +0.582%)
+   while ret peaks at 2m (+0.814%, PF 2.76).** The strongest entries tolerate BOTH a razor stop (they
+   rarely pull back 30s-deep before running — hence PF 4) and a wide one (the second leg). The choice
+   is a risk-preference knob, and at PF 4 the 30s exit halves the loss tail — likely the better mc=1
+   book. Long-run confirmation required as always (n=615, 60d).
+
+Artifacts: `grid_e{30,45,60}_x{30,45,60}/*.parquet` (session scratchpad).
+
+### F20b — the z tier on the fine grid (user question): the razor stop is SPECIFIC to session-high entries; z-breakouts want the full 1m
+
+**z tier (z_vol_10≥2 OR z_tc_1≥2, NOT at session high) across the grid:**
+
+| entry | exit | n | win% | ret% | PF |
+|---|---|---|---|---|---|
+| 30 | 30 | 1,834 | 45.0 | +0.203 | 1.796 |
+| 30 | 60 | 1,834 | 44.4 | +0.319 | 2.026 |
+| 45 | 30 | 1,610 | 46.0 | +0.223 | 1.859 |
+| **45** | **60** | 1,610 | 45.2 | **+0.352** | **2.114** |
+| 60 | 30 | 1,497 | 45.9 | +0.222 | 1.843 |
+| 60 | 60 | 1,497 | 45.0 | +0.355 | 2.103 |
+
+(45-bar exits sit between; F17b: 120 declines to 1.877 — the z tier's exit peak is AT 60.)
+
+**z AND sess-high (n=187, e=60):** exit 30 → +0.564 / PF **3.222** · 45 → 2.689 · 60 → +0.642 / 2.903.
+
+**The 20s/25s probe (user, expecting noise — confirmed): the 30s peak is INTERIOR.** Sess-high exit
+curve, 20s→20m (same 615 trips throughout):
+
+| exit | 20 | 25 | **30** | 45 | 60 | 120 | 300 | 1200 |
+|---|---|---|---|---|---|---|---|---|
+| PF | 3.379 | 3.818 | **4.008** | 2.975 | 2.777 | 2.756 | 1.753 | 1.072 |
+| ret% | +0.442 | +0.515 | **+0.582** | +0.538 | +0.564 | +0.814 | +0.635 | +0.109 |
+
+PF rises smoothly into 30s and falls smoothly away — an interior hump, not a boundary artifact —
+and ret degrades monotonically below 30s (the sub-30s wiggle is noise; the stop sells it). ⚠ Still
+one 615-trip sample: 60 days cannot separate PF 4.0 from 3.0 — the SHAPE is credible, the LEVEL is
+not. Convergence note: F2 found ~30s as the optimal vwap-path SAMPLING scale (finer = microstructure
+poison); the exit geometry independently lands on ~30s as the optimal STOP-DISTANCE scale — the same
+noise floor measured two ways. 20/25-bar channels stay in the engine set.
+
+**Readings:**
+1. **Exit gradients INVERT between tiers:** sess-high PF rises monotonically as the stop TIGHTENS
+   (4.01 at 30s); the z-not-high tier rises as it WIDENS to 1m (1.84 → 2.10) and only declines beyond.
+   Mechanical story: a session-high entry has NO overhead supply — pullbacks are shallow, so a razor
+   stop cuts only real failures; a z-breakout below the high fights overhead structure — it wiggles
+   30-45s deep before continuing, and the tight stop sells those wiggles.
+2. Entry side: 45 ≈ 60 > 30 in this tier too (45×60 nominal best, 2.114 — within noise of 60×60).
+3. z × sess-high inherits the sess-high shape (tight stop → PF 3.2) — the breach state, not the z,
+   decides the exit's geometry.
+4. ⭐ The A+ tier map after the grid: **sess-high entries → 30s razor exit (PF 4.0); z-accel
+   non-high → 1m exit (PF 2.1); rest of in-play → 1m (PF 1.9).** All still 60-day evidence.
+
+Artifacts: same grid parquets.
+
+---
+
+## Finding 21 — the eff_20m (trendiness / drift-t-stat) breakdown: a REAL axis with TIER-DEPENDENT SIGN — coiled-spring at the highs, continuation off them
+
+**Question (user):** breakdown on the F8 efficiency measure (`eff_20m` = |net|/Σ|r| over 40 slots;
+t-stat ≈ 5.05·eff; random-walk null E[eff] ≈ 0.158). In-play universe, 1m exit:
+
+| eff_20m | n | win% | ret% | PF |
+|---|---|---|---|---|
+| <0.10 (chop) | 2,620 | 40.0 | +0.204 | 1.635 |
+| 0.10-0.16 (~null) | 1,094 | 44.1 | +0.331 | 2.120 |
+| 0.16-0.25 | 1,413 | 43.4 | +0.229 | 1.762 |
+| **0.25-0.40** | 1,474 | **51.4** | +0.387 | **2.559** |
+| ≥0.40 (hard trend) | 551 | 39.2 | +0.327 | 1.872 |
+
+Overall: moderate trendiness best (t ≈ 1.3-2.0); hard-trended (t ≥ 2) rolls over — the move is late.
+
+**By tier (each at its preferred exit) — the sign FLIPS:**
+
+⚠ **CORRECTED (F21c): the original table's `CASE ... ELSE 'hi'` swallowed NULL-eff trips (vol-block
+warm-up entries) into the hi bucket** — DuckDB `NULL < x` → NULL → ELSE. Clean numbers (NULL excluded;
+verified against the signed-eff re-run):
+
+| tier | eff lo (<0.16) | eff mid | eff hi (≥0.40) |
+|---|---|---|---|
+| sess-high @30s exit | **+1.307 / PF 17.5 / n=79 ⚠** | +0.736 / 5.109 / n=267 | **−0.166 / 0.540 / n=103** |
+| z-not-high @1m | +0.302 / 1.886 / n=809 | +0.325 / 2.128 / n=531 | **+0.981 / 3.567 / n=83** |
+| rest @1m | +0.195 / 1.628 / n=2,826 | +0.258 / 1.949 / n=2,089 | +0.427 / 2.578 / n=365 |
+
+The correction SHARPENS every reading: hard-trended sess-high entries are outright NEGATIVE (0.54, not
+the reported 1.89 — exhaustion, unmasked), and the z/rest hi cells are stronger than reported (the
+NULL dilution had dragged them down).
+
+**⚠ Concentration audit of the PF-17.5 corner:** 79 trips = 6 symbols / 10 ticker-days, top-3 = 80%
+of P&L (WOK/SRXH again — the F18 suspects). LEVEL = noise. But the DIRECTION repeats independently
+across three tiers, which is harder to fake:
+
+**Readings:**
+1. **Session-high breakouts want LOW prior trendiness — the coiled spring.** A name at its session
+   high whose last 20m was a tight CHOP (eff < 0.16) explodes on the break; one that trended all the
+   way up (eff ≥ 0.40) is exhausted at the high (PF 1.89, the tier's worst). The consolidation-
+   breakout pattern — dead on 1m crypto (2026-05-09, shelved) — shows up alive at 1s on in-play
+   equities, in exactly the state (at the highs, post-consolidation) where the playbooks put it.
+2. **Off-high z-breakouts want HIGH trendiness — continuation, not reversal** (PF 3.14 at eff ≥ 0.40):
+   an accelerating push inside an established trend leg continues; the same push in chop is just chop.
+3. The F8 design intent (eff as the ORTHOGONAL state axis, ρ vs vol 0.024) pays off exactly as hoped:
+   it doesn't predict returns alone (F8: ρ≈0.06) but SPLITS the tiers' geometry.
+4. All of it: 60-day, in-play, concentrated cells — the long run arbitrates. eff bucket boundaries
+   worth carrying: {0.16 (the null), 0.40}.
+
+Artifacts: same grid parquets.
+
+### F21b — eff-hi split by 20m DIRECTION (user catch: eff is |net|/Σ|r|, direction-BLIND): continuation needs z; without z the money is the smooth-DECLINE reversal
+
+Direction proxy from the recorded counters: 20m trended UP if the 1200-bar HIGH breach is fresher
+than the 20m LOW (`breach_1200 < bars_since_low_1200`; −1 sentinels → +inf). In-play, 1m exit:
+
+| tier | eff | dir | n | win% | ret% | PF |
+|---|---|---|---|---|---|---|
+| z-not-high | hi | **up (continuation)** | **36** | 36.1 | **+1.905** | **5.113** ⚠ dust |
+| z-not-high | hi | down (reversal) | 47 | 44.7 | +0.273 | 1.853 |
+| z-not-high | lo | up | 421 | 47.5 | +0.480 | 2.317 |
+| z-not-high | lo | down | 388 | 37.4 | +0.109 | 1.345 |
+| rest | hi | up (continuation) | 105 | — | **−0.070** | **0.866** |
+| **rest** | **hi** | **down (reversal)** | **260** | — | **+0.628** | **4.736** |
+| rest | lo | up | 1,234 | — | +0.405 | 2.149 |
+| rest | lo | down | 1,592 | — | +0.031 | 1.113 |
+
+Audit of the rest×hi×down cell: 16 symbols / 28 ticker-days / top-3 = 65% — fat-tailed but the most
+BREADTH of any spectacular cell so far.
+
+**Readings:**
+1. **The user's catch was load-bearing: the F21 "continuation" story was HALF direction-confounded.**
+   With z-acceleration, the up-leg continuation IS the money (+1.9%, PF 5.1 — but n=36, dust). WITHOUT
+   z, continuation is the only NEGATIVE eff-hi cell (0.87) — a smooth up-trend breaking its 60-bar
+   high on no acceleration is exhaustion, not continuation.
+2. **⭐ The rest-tier's hidden gem: the smooth-decline reversal** — 20m of orderly selling, then a
+   60-bar-high breakout on no particular acceleration = the decline SNAPPING (+0.63%, PF 4.7, n=260,
+   28 tkdays). The F19 "down on the day" echo at the 20m scale, and LowFlyer's "long buys weakness"
+   a third time. Weakness-turning-strength is this codebase's most persistent long edge.
+3. In lo-eff, direction still matters the SAME way for both tiers (up-chop > down-chop) — chop below
+   a fresh low is dead money either way.
+4. dir20m is derivable post-hoc from recorded counters (no engine change); bucket boundaries carried
+   forward. Long-run confirmation required, as everything today.
+
+Artifacts: same grid parquets.
+
+### F21c — eff SIGNED (engine change) + the verification that caught the F21 bucketing bug
+
+**Engine change (user):** `Eff20m` numerator loses its abs — now `ln(V/V_40ago)/Σ|r|` ∈ [−1,1].
+|eff| = trendiness (unchanged semantics); **sign = the 20m net direction**, replacing F21b's
+breach-counter proxy with the exact quantity.
+
+**Verification (user-ordered):** re-ran the two F21 configs. (1) All 7,735 trips join 1:1 with
+`|eff_new| = eff_old` to 1e-12 and zero differences elsewhere. (2) The true sign agrees with the
+F21b counter proxy on **100%** of |eff|≥0.40 trips (307 down + 244 up, 0 off-diagonal); the F21b
+reversal split reproduces exactly. (3) The F21 TIER TABLE did NOT reproduce — which exposed the
+NULL-into-hi CASE bug corrected above. The signed re-run is now the canonical eff data
+(`grid_se60_x{30,60}`); NULL eff (≈8% of trips, vol-block warm-up) is its own bucket everywhere.
+
+Artifacts: `grid_se60_x30`, `grid_se60_x60` (session scratchpad).
+
+---
+
 # Appendix A — the four path-RV constructions (F3 companion)
 
 *(What exactly each variant in the F3 overlap study computes. Open in VS Code markdown preview
