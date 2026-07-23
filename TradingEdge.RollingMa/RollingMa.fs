@@ -217,6 +217,65 @@ type CumStdMa() =
         mean <- 0.0
         m2 <- 0.0
 
+/// WINDOWED mean / standard-deviation over the last `windowSize` pushed values —
+/// the fixed-count sibling of CumStdMa, same Welford recurrence extended with the
+/// exact REMOVAL update so eviction is O(1) (no re-scan of the window):
+///   add    (n → n+1):  d = x − mean;  mean += d/(n+1);       m2 += d·(x − mean′)
+///   remove (n → n−1):  d = x − mean;  mean = mean − d/(n−1); m2 −= d·(x − mean′)
+/// (mean′ = the updated mean in both; the removal is the add run backwards.)
+/// Welford rather than sliding Σx/Σx² for the same reason as CumStdMa — the
+/// algebraic form loses precision catastrophically when the mean dwarfs the
+/// variance, and the motivating feed here (ln(volume), ln(trade_count) baselines
+/// for the SurgeRider z-scores) is exactly that shape. Standalone rather than a
+/// RollingMa<_,_> subclass because the removal update needs the live count, which
+/// the base's Add/Remove(bar, state) contract doesn't carry.
+///
+/// `.Std` is the SAMPLE deviation (n−1), ValueNone until 2 values are buffered;
+/// equals CumStdMa exactly while fewer than `windowSize` values have been pushed.
+/// Read BEFORE pushing the current bar for the strictly-prior value, or AFTER for
+/// the inclusive one — same convention as the other structures here.
+[<Sealed>]
+type WinStdMa(windowSize: int) =
+    let q = Queue<float>(windowSize)
+    let mutable mean = 0.0
+    let mutable m2 = 0.0            // Σ (x − mean)² over the window, maintained incrementally
+    /// Count of values currently in the window.
+    member _.Count = q.Count
+    member _.WindowSize = windowSize
+    /// The window mean, or ValueNone while the window is empty.
+    member _.Mean = if q.Count > 0 then ValueSome mean else ValueNone
+    /// The window SAMPLE standard deviation (n−1). ValueNone until n >= 2.
+    /// m2 can drift a hair negative from float cancellation on near-constant
+    /// feeds — clamp so the sqrt never NaNs.
+    member _.Std =
+        if q.Count >= 2 then ValueSome (sqrt (max 0.0 m2 / float (q.Count - 1))) else ValueNone
+    /// The z-score of `x` against the window mean/σ. ValueNone until n >= 2 or
+    /// when σ = 0 (a degenerate constant window — z would be infinite).
+    member t.Z (x: float) : float voption =
+        match t.Std with
+        | ValueSome sd when sd > 0.0 -> ValueSome ((x - mean) / sd)
+        | _ -> ValueNone
+    member _.Push (x: float) =
+        if q.Count = windowSize then
+            // evict the oldest value: the add update run backwards
+            let old = q.Dequeue()
+            if q.Count = 0 then
+                mean <- 0.0
+                m2 <- 0.0
+            else
+                let d = old - mean
+                mean <- mean - d / float q.Count       // q.Count = n−1 after the dequeue
+                m2 <- m2 - d * (old - mean)            // uses the UPDATED (post-removal) mean
+        q.Enqueue x
+        let d = x - mean
+        mean <- mean + d / float q.Count               // q.Count = n+1 after the enqueue
+        m2 <- m2 + d * (x - mean)                      // uses the UPDATED mean — this is Welford
+    /// Drop every buffered value and return cold (see RollingMa.Reset).
+    member _.Reset () =
+        q.Clear()
+        mean <- 0.0
+        m2 <- 0.0
+
 /// Wilder's ADX(period) + directional indicators (+DI / −DI), fed OHLC bar-by-bar.
 /// Direction-AGNOSTIC trend STRENGTH: high in a strong move (either way), low in a chop.
 /// `.State` (the ADX) is ValueNone until ~2·period bars have folded — `period` to warm the
@@ -326,6 +385,78 @@ type EmaMa(period: int) =
             | ValueSome prev -> ValueSome (alpha * x + (1.0 - alpha) * prev)
             | ValueNone      -> ValueSome x     // seed with the first value
     member _.Reset () = ema <- ValueNone
+
+/// HALF-LIFE exponential moving average with BIAS CORRECTION — the SurgeRider
+/// vol-driver form (EmaMa of |slot-return|, hl = 40 slots, per the F5-F8 bake-off
+/// in docs/surgerider_results.md). Two differences from EmaMa:
+///
+///   1. α comes from a HALF-LIFE: α = 1 − 0.5^(1/hl) — "the value `hl` pushes ago
+///      carries half the weight of the newest". EmaMa's α = 2/(period+1) can't
+///      express hl = 40 (period ≈ 115.4, non-integer).
+///   2. NORMALIZED (bias-corrected) read: EmaMa seeds on the first value, which
+///      leaves that seed (1−α)^k of the TOTAL weight after k pushes — at hl = 40,
+///      still 59% of the estimate 30 pushes in. Here the state is a decayed
+///      numerator/denominator pair (num = Σ decayed α·x, den = Σ decayed α), and
+///      `.State = num/den` — exactly the normalized weighted mean over the pushed
+///      history (Σwᵢxᵢ/Σwᵢ, wᵢ geometric), the construction the bake-off measured.
+///      den → 1, so the correction fades as the support fills; it matters in the
+///      first ~2 half-lives, i.e. the whole 09:45-11:00 entry window at hl = 40
+///      slots. (Equivalent to Adam-style ema/(1−(1−α)^n).)
+///
+/// `.State` is ValueNone before the first push. Read BEFORE pushing the current
+/// bar for the strictly-prior (no-lookahead) value, like the other structures.
+[<Sealed>]
+type EmaHlMa(halfLife: float) =
+    let alpha = 1.0 - 0.5 ** (1.0 / halfLife)
+    let mutable num = 0.0    // Σ decayed α·x
+    let mutable den = 0.0    // Σ decayed α   (→ 1 as the support fills)
+    /// The bias-corrected EWMA, or ValueNone before the first push.
+    member _.State = if den > 0.0 then ValueSome (num / den) else ValueNone
+    member _.Push (x: float) =
+        num <- (1.0 - alpha) * num + alpha * x
+        den <- (1.0 - alpha) * den + alpha
+    /// Clear the accumulator (see RollingMa.Reset).
+    member _.Reset () =
+        num <- 0.0
+        den <- 0.0
+
+/// 30-present-bar SLOT VWAP builder — the return clock for the SurgeRider vol
+/// driver (docs/surgerider_results.md F5b "How slot-EWMA works"). Accumulates
+/// (Σ vwap·volume, Σ volume) over `slotBars` consecutive pushes; on the push that
+/// completes the slot it EMITS the slot vwap `V = Σ(vwap·volume)/Σvolume` — the
+/// exact trade-level VWAP of those bars, since each 1s bar's vwap·volume is that
+/// second's dollar volume — and AUTO-RESETS for the next slot. Every other push
+/// returns ValueNone. The caller chains the emissions (r = ln(V/V_prev) → EmaHlMa
+/// of |r|) with a plain mutable prev or a LagMa.
+///
+/// A completing slot with Σvolume = 0 (can't happen on the 1s dataset — volume ≥ 1
+/// on every present bar — but guard anyway) emits ValueNone and still resets.
+[<Sealed>]
+type SlotVwapMa(slotBars: int) =
+    let mutable pv = 0.0     // Σ vwap·volume over the current partial slot
+    let mutable v = 0.0      // Σ volume
+    let mutable n = 0        // bars in the current partial slot
+    /// Bars accumulated into the current PARTIAL slot (0 right after an emission).
+    member _.Count = n
+    member _.SlotBars = slotBars
+    /// Fold one bar in. Returns the completed slot's vwap on every `slotBars`-th
+    /// push (then starts the next slot cold), ValueNone otherwise.
+    member _.Push (vwap: float, volume: float) : float voption =
+        pv <- pv + vwap * volume
+        v <- v + volume
+        n <- n + 1
+        if n = slotBars then
+            let out = if v > 0.0 then ValueSome (pv / v) else ValueNone
+            pv <- 0.0
+            v <- 0.0
+            n <- 0
+            out
+        else ValueNone
+    /// Drop the current partial slot (see RollingMa.Reset).
+    member _.Reset () =
+        pv <- 0.0
+        v <- 0.0
+        n <- 0
 
 /// Rolling MEAN over a CALENDAR-day interval (not a fixed bar count), matching
 /// v0's `stock_volume_4w` window: `RANGE BETWEEN INTERVAL <days> DAYS PRECEDING
