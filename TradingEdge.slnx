@@ -14,6 +14,7 @@
   <Project Path="TradingEdge.HighFlyer/TradingEdge.HighFlyer.fsproj" />
   <Project Path="TradingEdge.HighFlyerV2/TradingEdge.HighFlyerV2.fsproj" />
   <Project Path="TradingEdge.Orb/TradingEdge.Orb.fsproj" />
+  <Project Path="TradingEdge.SurgeRider/TradingEdge.SurgeRider.fsproj" />
   <Project Path="TradingEdge.VwapReclaimV2/TradingEdge.VwapReclaimV2.fsproj" />
   <Project Path="TradingEdge.DipRiderV3/TradingEdge.DipRiderV3.fsproj" />
   <Project Path="TradingEdge.BreakoutTimer/TradingEdge.BreakoutTimer.fsproj" />
