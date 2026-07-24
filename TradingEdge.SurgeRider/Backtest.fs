@@ -153,7 +153,7 @@ CREATE TABLE trips (
     gap_60 INTEGER, gap_30 INTEGER, gap_15 INTEGER,
     sess_vwap DOUBLE, dist_sess_vwap DOUBLE, pct_chg_open DOUBLE,
     bar_vol DOUBLE, bar_tc INTEGER,
-    vol_15 DOUBLE, vol_30 DOUBLE, vol_60 DOUBLE,
+    vol_5 DOUBLE, vol_10 DOUBLE, vol_15 DOUBLE, vol_30 DOUBLE, vol_60 DOUBLE,
     tc_15 DOUBLE, tc_30 DOUBLE, tc_60 DOUBLE,
     dollar_vol_60 DOUBLE, cum_vol DOUBLE, cum_tc DOUBLE,
     fwd_vwap_60 DOUBLE, fwd_vwap_300 DOUBLE, fwd_vwap_1200 DOUBLE,
@@ -228,7 +228,7 @@ type TripSink(outDir: string) =
             i p.Gap60; i p.Gap30; i p.Gap15
             f p.SessVwap; f p.DistSessVwap; f p.PctChgOpen
             f p.BarVol; i p.BarTc
-            f p.Vol15; f p.Vol30; f p.Vol60
+            f p.Vol5; f p.Vol10; f p.Vol15; f p.Vol30; f p.Vol60
             f p.Tc15; f p.Tc30; f p.Tc60
             f p.DollarVol60; f p.CumVol; f p.CumTc
             f p.FwdVwap60; f p.FwdVwap300; f p.FwdVwap1200

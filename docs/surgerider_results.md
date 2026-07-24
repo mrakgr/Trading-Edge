@@ -1692,6 +1692,216 @@ off-diagonal cells are dust (≤18 tkdays). With these n's the two descriptions 
 
 Artifacts: `high52*.sql` (scratchpad); d52 temp construction reusable for any daily-context join.
 
+## Finding 26 — making the z features work: they only pay on a QUIET tape — quiet × z_tc_1 is the real ignition signal; z_vol and the OR-construction should go
+
+**Question (user):** the z-accel tier's OOS lift is thin (1.665 vs 1.550) — can the volume/tc
+acceleration features be made to work better? Diagnosis on the full 2023→2026 off-high @1m population:
+
+**1. The raw ladders are nearly FLAT OOS.** Avg ret by z bucket (<0 / 0-1 / 1-2 / 2-3 / ≥3):
+only `z_tc_1` is monotone (+0.132 → +0.212 — modest); the tc k≥10 ladders INVERT in the middle then
+spike at ≥3 (regime mixture); every `z_vol_k≥5` ROLLS OVER at z≥3 (v05: +0.051 at ≥3 — extreme
+volume z without matching participation = one whale, not ignition). The 60-day z-tier magnitudes
+(F13/F17b) were regime-flattered.
+
+**2. It's not the baseline construction.** Tested a session-anchored alternative post-hoc
+(`burst_tc = tc_60 / (cum_tc·60/elapsed)` — 1m activity vs the day's own average rate, a stiffer
+baseline than the 20m adaptive window; same for volume): humped at 1-2×, decaying at extremes — no
+better. The confound is intrinsic: EVERY breakout bar has elevated activity (that's why price broke
+out); activity level at the signal bar carries little differential information. (Side hint:
+trade-size ratio 2-4× session average = PF 2.019/n=5,657; extremes bad — a real but thin axis.)
+
+**3. ⭐ THE UNLOCK — condition on the quiet tape.** z × tc_60 (off-high @1m):
+
+| z bucket | busy z_tc_1 | quiet z_tc_1 | busy z_vol_10 | quiet z_vol_10 |
+|---|---|---|---|---|
+| <0 | 1.307 | 1.583 | 1.416 | 1.624 |
+| 0-1 | 1.388 | 1.741 | 1.415 | 1.755 |
+| 1-2 | 1.410 | 1.927 | 1.337 | 1.789 |
+| 2-3 | 1.400 | **2.059** (n=14,978) | 1.273 | 1.749 |
+| ≥3 | 1.452 | 1.954 | 1.184 | 1.238 |
+
+On the busy tape z is DEAD (z_vol_10 anti-monotone: 1.42→1.18). On the quiet tape z_tc_1 works
+properly (1.58→2.06, ret +0.154→+0.250). **Quiet-tape and z aren't two levers — z only exists inside
+quiet.** A 2σ participation print on a quiet tape IS the ignition event; the same print on a busy
+tape is weather. And even inside quiet, z_vol underperforms z_tc and dies at the extreme —
+participation (trade count), not size (volume), is the signal. Jeff Holden's claim again, now with
+the conditioning that makes it usable.
+
+**4. On the sess-high composite** (quiet + not-fade already applied): z_tc_1 adds a mild gradient —
+2.54 (z<0) → ~3.0 (z≥1, n=3,016, 407+ tkdays at ≥3). Real but not load-bearing; costs n heavily.
+
+**Re-definition to carry forward:** the z-accel tier becomes **`tc_60 ≤ 300 AND z_tc_1 ≥ 2`**
+(PF ~2.06 off-high vs 1.665 for the old `z_vol_10≥2 OR z_tc_1≥2`); z_vol drops out of tier
+definitions (stays recorded). Engine-side ideas if more is wanted (deferred): PRE-breakout lagged z
+snapshots (was the tape warming BEFORE price broke — the original pre-breakout-surge spin-off edge;
+current z's are measured at the signal bar where the confound is maximal), and a trade-size-ratio
+feature (the 2-4× band hint).
+
+Artifacts: `z_ladder_oos.sql`, `z_burst.sql`, `z_quiet.sql` (scratchpad).
+
+### F26b — the ABSOLUTE formulation wins (user): quiet tape + bar_tc ∈ [10,40) prints/sec replaces the z machinery
+
+**Idea (user):** `tc_60 ≤ 300` means the tape averages ≤5 prints/sec — so condition on the ABSOLUTE
+signal-bar print count (`bar_tc ≥ 10 or 20`) instead of a z-score. Off-high @1m, quiet tape:
+
+| bar_tc (signal bar) | n | win% | ret% | PF | tkdays |
+|---|---|---|---|---|---|
+| <5 | 104,430 | 44.5 | +0.162 | 1.622 | 3,728 |
+| 5-10 | 17,157 | 47.7 | +0.228 | 1.974 | 2,908 |
+| **10-20** | 14,322 | 48.6 | +0.259 | **2.118** | 2,809 |
+| 20-40 | 10,387 | 48.5 | +0.239 | 2.023 | 2,614 |
+| ≥40 | 5,782 | 46.3 | +0.195 | 1.722 | 2,231 |
+| z_tc_1≥2 (ref) | 27,072 | 48.1 | +0.249 | 2.009 | 3,332 |
+
+Same physics (bar_tc 10-20 ≈ z 2.3 on this tape), but the absolute cut is BETTER: (1) it exposes the
+**interior optimum** — ≥40 prints/sec is a climax print and rolls over, which z's unbounded ≥2 bucket
+smears in; (2) no 20m baseline warm-up (z_tc had NULL/warm-up trips; bar_tc always exists — trade
+from the first minute); (3) it's literally what a tape reader sees. Busy tape: same humped-weak shape
+(1.35-1.50) — the conditioning stays essential, nothing at the signal bar separates a busy tape.
+
+**On the sess-high composite** the gradient is stronger than z's: bar_tc <5 → 20-40 = 2.613 → 3.398
+(+0.399 → +0.499), mild rolloff ≥40 (3.224). `bar_tc ≥ 10` keeps 1,781 trips at PF ~3.2.
+
+**Carried forward:** ignition = **`tc_60 ≤ 300 AND bar_tc ∈ [10,40)`** (off-high tier def;
+sess-high composite optionally `bar_tc ≥ 10`). The z-grid stays recorded for research; the z
+machinery leaves the tier definitions entirely.
+
+### F26c — volume, session-anchored (user): better than z_vol but still the weaker modality; 15s-sustained volume is a LATE signal
+
+**Idea (user):** replace z_vol with `r_k` = avg 1s volume over the last k bars / session-average 1s
+volume (`cum_vol / wall-clock elapsed`). Post-hoc k∈{1,15} (`bar_vol`, `vol_15`; raw 5/10-bar volume
+sums aren't in the sink — only their z's). Off-high @1m, quiet tape (see F26d for the multi-scale
+state pattern that finally made volume pay):
+
+| bucket | r1 (signal bar) | r15 (15s avg) | r1 given bar_tc∈[10,40) |
+|---|---|---|---|
+| <1× | 1.652 (n=89,095) | 1.713 | 1.967 |
+| 1-2× | 1.778 | **1.903** | 2.074 |
+| 2-4× | 1.798 | 1.784 | 2.073 |
+| 4-8× | 1.874 | 1.612 | **2.183** (n=5,200) |
+| 8-16× | **1.947** | 1.498 | 2.057 |
+| ≥16× | 1.848 | 1.483 | 2.049 |
+
+**Readings:** (1) the construction IS better than z_vol — monotone to 8-16× with no z_vol-style
+collapse (quiet z_vol_10≥3 was 1.24) — the session anchor fixes the pathology; (2) but the modality
+still tops out below tc (r1 best 1.95 vs bar_tc best 2.12) — participation > size at ignition,
+fourth independent confirmation; (3) **r15 INVERTS above 2×** (1.90 → 1.48): 15 seconds of sustained
+elevated volume means the move already happened — at ignition scale, volume must be INSTANT, not
+sustained; (4) on top of the bar_tc ignition, r1 adds a mild hump (+0.1-0.2 PF around 4-8×) —
+optional refinement, not load-bearing. Engine TODO if pursued: sink raw `vol_5`/`vol_10` sums to
+close the k-gap (trivial add; expected value modest given k=1/k=15 bracket them).
+
+### F26d — the multi-scale volume STATE (user's coil idea, polarity flipped): the FRESH WAVE — sess ≤ 1m < 1s with 15s not yet caught up — is the volume refinement that pays
+
+**Idea (user):** look for the volume coil — 1m rate BELOW session rate, with {1s,5s,10s} above the 1m
+(quiet minute, instant acceleration). Tested as a 2×2×2 state cross (quiet/Busy minute vs session ×
+1s-above-1m × 15s-above-1m; 5/10s not in the sink), off-high @1m, full population:
+
+| state (minute / 1s / 15s) | n | ret% | PF |
+|---|---|---|---|
+| Busy / spike / **not-yet** (⭐ fresh wave) | 12,967 | +0.208 | **1.812** |
+| Busy / spike / sustained | 44,182 | +0.184 | 1.666 |
+| quiet / spike / sustained | 30,864 | +0.155 | 1.626 |
+| **quiet / spike / not-yet (the coil)** | 9,141 | +0.147 | 1.627 |
+| quiet / no spike / sustained | 33,589 | +0.162 | 1.673 |
+| Busy / no spike / — | 34,339-52,297 | +0.14 | 1.47-1.52 |
+
+**The coil's polarity FLIPS on the minute leg:** the quiet-minute precondition (1m < sess) HURTS —
+the best state is a BUSY minute (`sess ≤ 1m < 1s`, each timeframe accelerating into the next) whose
+1s spike is so fresh the 15s average hasn't caught up. Freshness, not quietness, is the volume
+precondition (the F26c r15-late lesson as a state machine). Magnitude inside the pattern is monotone
+(bar_vol/1m-rate ≥8× → 1.79-1.81).
+
+**Stacked on the tc ignition (off-high):** `tc_60≤300 AND bar_tc∈[10,40)` alone = 2.046 →
+**+ fresh-wave = 2.297 / +0.292 / n=3,232 / 1,539 tkdays** — the best broad off-high cell of the
+campaign. Without the tc ignition, fresh-wave alone is only 1.676 — volume still doesn't stand on
+its own. On the sess-high composite it adds nothing (2.64 vs 2.79) — at the session high the
+structure IS the edge; volume microstates are noise there.
+
+**Note vs the user's original spec:** the 1s-above-1m leg is confirmed; the 15s-ABOVE-1m leg is
+anti-signal (late); 5s/10s untestable post-hoc — `vol_5`/`vol_10` sink columns are the engine TODO
+before the coil-with-{5,10}s variant can be scored. tc quiet (≤300 TRADES) and volume-busy minute
+are compatible: few-but-large prints — the tc quiet leg stays in the definition.
+
+**Carried forward (off-high ignition cell v2):** `tc_60 ≤ 300 AND bar_tc ∈ [10,40) AND sess_rate ≤
+1m_rate < bar_vol AND 15s_rate ≤ 1m_rate` — PF 2.30 on 3.5y, 1,539 tkdays. ⚠ rate-basis note:
+1m/15s rates are per-PRESENT-bar, session rate per wall-clock second (conservative on gappy tapes).
+(Superseded by the F27 stack: eff context beats the fresh-wave refinement.)
+
+## Finding 27 — the {5,10}s coil verdict + ⭐ eff STACKS with the tc ignition: state × event = PF 3.04 off-high (the campaign's best broad cell)
+
+**Setup:** `vol_5`/`vol_10` sunk (engine add, 2026-07-24), both confirmation runs regenerated —
+totals reproduce exactly (262,884 / 1.713 / 1.645), so the schema change is regression-clean.
+
+**1. The exact coil spec (1m < sess AND {1s,5s,10s} > 1m) scores 1.623** — the quiet-minute leg is
+confirmed wrong with the proper legs; {5,10}s doesn't rescue it. Wave-age decomposition (given a 1s
+spike `bar_vol > 1m rate`; age = longest k-avg still ≤ 1m rate), off-high @1m:
+
+| wave age | Busy minute | quiet minute |
+|---|---|---|
+| <5s (ultra-fresh) | 1.660 (n=9,585) | 1.626 |
+| **5-10s** | **1.907** (n=5,308) | 1.655 |
+| 10-15s | 1.797 | 1.660 |
+| >15s (sustained) | 1.672 (n=38,699) | 1.620 |
+
+On the busy minute the optimal wave age is **5-10 seconds** — old enough to be confirmed, young
+enough to be early; ultra-fresh (<5s) is a single unconfirmed print, >15s is late (F26c again). On
+the quiet minute EVERY age is flat ~1.6 — the coil precondition kills the signal outright.
+
+**2. ⭐ eff × tc-ignition × fresh-wave (the stack question), off-high @1m:**
+
+| eff_20m | plain | + fresh-wave | + tc-ignition | + both |
+|---|---|---|---|---|
+| lo (<0.40) | 1.450 (n=169,360) | 1.506 | 1.876 (n=17,808) | 2.183 (n=2,476 / 1,238 tkd) |
+| **hi (≥0.40)** | 1.923 (n=18,424) | 2.058 | **3.043 (n=1,673 / 748 tkd)** | 2.920 (n=266) |
+| NULL (early) | 1.908 (n=17,569) | 2.335 | 2.868 (n=1,996 / 982 tkd) | 2.492 |
+
+**Readings:**
+1. **eff and tc COMPOSE — state × event.** eff-hi (the 20m tape moved efficiently, either direction)
+   × tc-ignition (10-40 prints/sec on a quiet-count tape) = **PF 3.043 / +0.397% / 748 tkdays** —
+   they were designed orthogonal (F8) and they cash orthogonal. Neither alone exceeds 2.05.
+2. **NULL-eff behaves like eff-hi** (2.868 with ignition): early-session entries don't need the 20m
+   context — the practical gate is `NOT eff-lo` (≈3.0 on n=3,669 combined).
+3. **The fresh-wave refinement is a partial SUBSTITUTE for eff, not an addition**: it only helps
+   inside eff-lo (1.876 → 2.183); on top of eff-hi × ignition it adds nothing (2.92, n=266). The
+   volume state was proxying "the tape is moving" — eff measures that better over 20m.
+4. Off-high cell hierarchy to carry: **(eff-hi OR NULL) × tc-ignition ≈ 3.0**; fallback for eff-lo
+   names: + fresh-wave = 2.18. All still mc=0, pre-cost, and untested at mc=1.
+
+### F27b — eff_10m REVIVES inside the ignition cell (user question): both-horizons-live is the peak context
+
+Within the tc-ignition cell, the eff_20m × eff_10m cross (t-adj hi ≥ 0.566 for 10m):
+
+| e20 \ e10 | hi | lo |
+|---|---|---|
+| hi | **3.347 / +0.510 / n=704 / 362 tkd** | 2.811 / n=1,235 |
+| lo | 2.427 / n=1,357 / 666 tkd | 1.878 / n=18,927 |
+| NULL | 3.623 / n=178 ⚠ thin | 2.800 / n=1,692 |
+
+eff_10m adds ~+0.5 PF on top of eff_20m-hi AND partially rescues eff_20m-lo. The F22 freshness
+cross that died OOS (F23) was tested UNCONDITIONED — given the ignition event, "trend live at BOTH
+horizons" is the strongest context state. The recurring law of this system: no feature means
+anything unconditionally — z needed the quiet tape, volume needed the busy-minute wave, eff_10m
+needs the ignition print. **Peak off-high cell: e20-hi × e10-hi × tc-ignition = 3.35 (362 tkd).**
+
+Artifacts: `coil_510.sql`, `eff_stack.sql` (scratchpad); regenerated confirmation parquets.
+
+### F27c — the sess-high tier: tc-ignition YES (2.26 → ~3.05), eff NO (flat in every slice)
+
+Sess-high @30s × tc-ignition × eff: the ignition lifts every eff state uniformly (no-ign 2.10-2.40 →
+ign 2.89-3.21; n=1,660 ignition trips, 57-62% win, 287+333+266 tkdays across the e20 states), and
+within the ignition eff_20m/eff_10m are FLAT (NULL 3.15 / lo 3.05 / hi 2.89 — ordering even mildly
+inverted, i.e. noise). Confirms and sharpens F23: at the session high the STRUCTURE (no overhead
+supply) replaces the context requirement — you don't need the tape to have been trending, only the
+participation print confirming the break is real. Off-high you need both (F27/F27b) because the
+breakout fights supply.
+
+**THE UNIFIED SYSTEM MAP (all 2023→2026, mc=0, pre-cost):**
+- **Cell A — sess-high @30s razor × tc-ignition: PF ~3.05** (context-free; optional not-10-60%-gainer)
+- **Cell B — off-high @1m × tc-ignition × eff-live (e20 hi/NULL, +e10-hi for the peak): PF ~3.0-3.35**
+- Both cells share the ignition event; they differ only in what replaces the missing structure.
+  Symmetric, interpretable, and every component measured on 262,884 trips over 3.5 years.
+
 ---
 
 # Appendix A — the four path-RV constructions (F3 companion)

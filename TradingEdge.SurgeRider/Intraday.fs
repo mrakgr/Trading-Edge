@@ -173,6 +173,8 @@ type SurgePosition =
       // ----- raw activity levels (log twins = ln() in SQL) -----
       BarVol: float
       BarTc: int
+      Vol5: float                // raw 5/10-bar volume sums (user, 2026-07-24 — the F26d
+      Vol10: float               // fresh-wave {5,10}s legs; z twins alone couldn't be unwound)
       Vol15: float
       Vol30: float
       Vol60: float
@@ -677,6 +679,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                          | _ -> nan)
                       BarVol = bar.volume
                       BarTc = bar.tradeCount
+                      Vol5 = vv volSum5.State
+                      Vol10 = vv volSum10.State
                       Vol15 = vv volSum15.State
                       Vol30 = vv volSum30.State
                       Vol60 = vv volSum60.State
