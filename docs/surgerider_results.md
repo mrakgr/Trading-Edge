@@ -1528,7 +1528,169 @@ eff_10m earns its column as the confirm: off-high trend-following wants **hi on 
 coiled-spring wants **quiet on both**. Bucket edges to carry for eff_10m: {0.226, 0.566}. All 60-day,
 in-play, mc=0 — the long run arbitrates.
 
+**⚠ F23 POSTSCRIPT: the freshness cross did NOT survive the 2023→2026 confirmation** — OOS, hi20×lo10
+matches or beats hi20×hi10 in both off-high tiers, and the sess-high union-kill reverses outright.
+eff_10m stays a recorded feature; as a LEVER it is dead. See F23.
+
 Artifacts: `grid_se60_x30`, `grid_se60_x60` (regenerated with `eff_10m`), `f22_*.sql` (scratchpad).
+
+## Finding 23 — ⭐⭐ THE 2023→2026 CONFIRMATION RUN: the three-tier map SURVIVES (sess-high PF 2.2-2.4 EVERY year); quiet-tape + fade-zone survive; the eff stories at the session high DIE
+
+**Setup:** the standing arbiter for every F9-F22 claim. Both canonical configs re-run over
+**2023-01-01 → 2026-07-17** (in-play `--min-rvol-0945 10`, band [7,40)bp, entry 60; exits 60 and 30):
+**262,884 trips / 16,349 ticker-days** (~34× the 60-day sample). Trips now DURABLE:
+`data/equity/surgerider/confirm23_e60_x{30,60}/`. "OOS" below = trade_date < 2026-04-22 (excludes the
+whole F9-F22 discovery window). All mc=0, no costs.
+
+**Broad sampler by year (x60) — positive every year, no regime collapse:**
+
+| yr | n | win% | ret% | PF | net | tkdays |
+|---|---|---|---|---|---|---|
+| 2023 | 128,598 | 44.2 | +0.121 | 1.481 | $1.56M | 1,625 |
+| 2024 | 64,531 | 47.2 | +0.245 | 1.902 | $1.58M | 1,162 |
+| 2025 | 52,249 | 45.0 | +0.227 | 1.729 | $1.18M | 909 |
+| 2026 | 17,506 | 41.3 | +0.175 | 1.550 | $0.31M | 265 |
+
+**⭐ The three-tier map, OOS vs the discovery window — ORDERING CONFIRMED, levels compressed ~½:**
+
+| tier | OOS (23→26.04) | 60d window (F17b/F20) |
+|---|---|---|
+| sess-high @30s | **+0.321 / PF 2.224 / n=22,472 / 1,088 tkd** | +0.581 / 4.008 / n=615 |
+| z-accel @1m | +0.187 / 1.665 / n=52,082 / 3,478 tkd | +0.355 / 2.103 / n=1,497 |
+| rest @1m | +0.143 / 1.550 / n=180,595 / 3,739 tkd | +0.231 / 1.788 / n=5,623 |
+
+The 60-day window was uniformly rosier (hot recent regime) — the F17b LEVELS were inflated ~2×, the
+STRUCTURE is real. And the flagship tier is astonishingly stable by year:
+
+**sess-high @30s razor, by year: PF 2.22 / 2.30 / 2.28 / 2.38** (2023/24/25/26; win 48-55%, ret
++0.27→+0.45). Four years, four indistinguishable readings.
+
+**Lever verdicts (all OOS, per tier):**
+
+| lever | claim (60d) | OOS verdict |
+|---|---|---|
+| tc_60 ≤ 300 quiet tape (F18) | helps every tier | **✅ CONFIRMED everywhere**: sess 2.55 vs 2.03, z 1.94 vs 1.37, rest 1.66 vs 1.36 (n=9k-118k) |
+| chg_1d 10-60% = fade zone (F19) | worst bucket | **✅ CONFIRMED**: worst in every tier (1.38-1.41); ≥60% gainers ALSO dead off-high (1.02-1.04); 0-10% & down-on-day best |
+| eff_20m hi = continuation off-high (F21) | hi best off-high | ✅ direction survives, compressed: z 2.01 / rest 1.98 vs lo 1.59/1.40 |
+| eff sess-high exhaustion-kill (F21) | hi = PF 0.54 | **❌ DEAD**: sess-high eff-FLAT OOS (lo 2.35 / mid 2.19 / hi 2.17) — the kill was WOK/SRXH noise |
+| F21b smooth-decline reversal | down 4.74 vs up 0.87 | **❌ DEAD**: up 1.96-1.97 vs down 2.00-2.07 — sign doesn't matter, only \|eff\| does |
+| F22 freshness cross (hi20×hi10) | stale trend fails | **❌ DEAD**: hi20×lo10 ≥ hi20×hi10 in both tiers (z: 2.11 vs 1.90; rest: 1.95 vs 2.02) |
+| F22 sess-high union-kill / coiled spring | both-quiet PF 12.9 | **❌ REVERSED**: any-hi 2.36 vs both-quiet 2.03 |
+
+The concentration audits called every casualty in advance: each dead lever's 60-day evidence lived in
+10-18 ticker-days of WOK/SRXH. The levers that survived were exactly the ones with 3,000+ tkday
+breadth. NULL-eff (vol warm-up = first ~20m after 09:45) is GOOD in every tier (2.0-2.3) — early
+entries are fine; a time-of-day breakdown is future work.
+
+**⭐ THE TRADABLE COMPOSITE — sess-high @30s razor + tc_60≤300 + not-10-60%-gainer:**
+
+| yr | n | win% | ret% | PF | tkdays |
+|---|---|---|---|---|---|
+| 2023 | 4,053 | 54.4 | +0.293 | 2.475 | 370 |
+| 2024 | 2,341 | 58.2 | +0.474 | 2.676 | 228 |
+| 2025 | 1,395 | 55.1 | +0.579 | 2.988 | 162 |
+| 2026 | 299 | 61.5 | +1.084 | 6.858 | 36 |
+
+(2026 = 6.5 months incl. the hot discovery window.) **Concentration: 796 tkdays / 181 symbols /
+top-3 = 6.9% of gross / top-20 = 27.4% / 51.3% of ticker-days positive — the FIRST cell of the
+campaign to pass every audit at once.** ~9 trips/day average, rising PF across years.
+
+**Verdict:** SurgeRider's skeleton is confirmed 2023→2026: session-high breakouts on in-play,
+in-band, quiet-tape names, razor 30s trailing exit, avoid the mid-gainer fade zone. PF ~2.5 mc=0
+pre-cost. **Next: mc=1 on the composite + the cost model (spreads on in-play names)** — at +0.29-0.58%
+per trip, spread is the entire question.
+
+Artifacts: `data/equity/surgerider/confirm23_e60_x{30,60}/` (durable), `confirm_*.sql` (scratchpad).
+
+## Finding 24 — the breakout-horizon ladder (1m/2m/5m/20m/session): NOT a gradient — the session high is a DISCONTINUITY; interior horizons barely matter
+
+**Question (user):** "session highs are a bit special — is a 1m vs 2m … 20m breakout better?" All
+recorded: every trip carries breach counters for the 60/120/300/1200-bar channels + session, and with
+entry = 60 the longer breaches nest inside the population. Rung = the LONGEST channel broken at entry
+(exclusive tiers). Full 2023→2026 confirmation data, both exits paired on the same 262,884 trips:
+
+| rung (longest broken) | exit | n | win% | ret% | PF |
+|---|---|---|---|---|---|
+| 1m only (60) | 30s | 73,010 | 45.8 | +0.109 | 1.606 |
+| 1m only (60) | 60s | 73,010 | 43.3 | +0.129 | 1.537 |
+| 2m (120) | 30s | 68,002 | 46.8 | +0.123 | 1.651 |
+| 2m (120) | 60s | 68,002 | 44.3 | +0.145 | 1.578 |
+| 5m (300) | 30s | 63,349 | 47.0 | +0.148 | 1.717 |
+| 5m (300) | 60s | 63,349 | 45.4 | +0.195 | 1.719 |
+| 20m (1200) | 30s | 35,436 | 46.4 | +0.146 | 1.585 |
+| 20m (1200) | 60s | 35,436 | 44.7 | +0.162 | 1.484 |
+| **session** | **30s** | **23,087** | **52.3** | **+0.328** | **2.259** |
+| session | 60s | 23,087 | 50.7 | +0.386 | 2.105 |
+
+PF creeps 1.61 → 1.72 from 1m to 5m, DIPS at 20m, then JUMPS at session. Not a gradient — a step.
+
+**Time-of-day control** (is "session" just "early, when session high ≈ 20m high"?): NO — the session
+rung wins BOTH halves of the day (am 2.514 / pm 2.099; every other rung: am 1.6-2.1, pm 1.48-1.58).
+Within the pm alone the interior ladder is essentially FLAT (1.48→1.58 for 1m→20m) and session still
+steps to 2.10. ⚠ Composition caveat: rung-20m is pm-heavy by construction (the 1200-bar channel needs
+~20m of present bars to warm), which explains most of its "dip" vs 5m — but not the session step.
+
+**By year (30s exit):** session = 2.22 / 2.30 / 2.28 / 2.38 — the ONLY rung that is both top and
+stable; interior rungs shuffle (5m spans 1.44-2.02, 20m 1.27-1.97) with no persistent identity.
+
+**Reading — overhead supply is the mechanism, and it's binary, not graded.** Below the session high
+there exist intraday buyers who are underwater and sell into the breakout; above it there are none.
+How far below (1m vs 20m of consolidation) barely matters — what matters is whether the overhead
+cohort EXISTS. This is why the razor exit works there (F17: shallow pullbacks) and why the tier was
+entry-window invariant (F20). The session high isn't the top rung of a ladder; it's a different
+regime. (Longer-horizon highs — multi-day/52-week, the classic Qullamaggie territory — are the
+natural next question; needs daily context joined in, future work.)
+
+Artifacts: same confirmation parquets; `breakout_ladder.sql`, `ladder_checks.sql` (scratchpad).
+
+## Finding 25 — the 52-WEEK-high context (multi-timeframe alignment test): the classic story INVERTS — the edge lives in WRECKAGE (<25% of the prior 52w high ≈ sub-$2 names); blue-sky alignment is the WORST host
+
+**Question (user, via Lance Breitstein's multi-timeframe-alignment principle):** is a session-high
+breakout better when it aligns with the daily timeframe — near/above the 52-week high? Feature
+computed post-hoc, no engine re-run: `high52 = max(adj_high)` over the **prior 252 trading days**
+(`ROWS BETWEEN 252 PRECEDING AND 1 PRECEDING` — ⚠ current day EXCLUDED (user), determined at D−1
+close, knowability-clean), partitioned by `(ticker, episode)` (daily_episodes — no listing-gap
+spans), from `split_adjusted_prices` — same adjustment basis as the trips' `entry_px`
+(adj_ratio = adj_close/raw_close), so the ratio `entry_px/high52` is basis-consistent. ⚠ Known
+subtractive-dividend bug in that table shifts BOTH legs; residual distortion ≈ dividends paid inside
+the window — negligible for this (largely non-paying) universe. Guarded `adj_high > 0`, `nprior ≥ 126`.
+
+**The depth ladder (2023→2026 confirmation trips):**
+
+| entry/high52 | sess-high @30s | off-high @1m |
+|---|---|---|
+| ≥0.80 (at/above the high) | −0.062 / **PF 0.750** / n=1,185 / 45 tkd | +0.023 / 1.080 / n=12,455 |
+| 0.50-0.80 | +0.053 / 1.175 / n=861 | −0.010 / 0.965 / n=11,255 |
+| 0.25-0.50 | −0.027 / 0.906 / n=1,398 | +0.050 / 1.177 / n=24,728 |
+| **0.10-0.25** | +0.305 / **2.557** / n=8,967 / 343 tkd | +0.145 / 1.657 / n=72,630 |
+| **<0.10** | +0.485 / **2.664** / n=9,935 / 559 tkd | +0.214 / 1.761 / n=111,915 |
+| short-hist (<6m, IPO-ish) | +0.101 / 1.186 / n=741 | +0.216 / 1.605 / n=6,814 |
+
+Monotone the WRONG way for the alignment story: ~85% of in-play trips sit below 25% of the prior 52w
+high, and that's where ALL the edge is. Blue-sky names (≥1.0: PF 0.839, n=772) and near-high names
+(0.80-0.95: 0.543) are the tier's worst hosts. The blue-sky bucket is real names, not adjustment junk
+(audited: CLEU/BOLD/LODE/CVAC/CRVS… small per-day P&L, mixed signs).
+
+**Price confound (⚠ raw price = entry_px/adj_ratio — the ADJUSTED px overstates traded price for
+later reverse-splitters):** depth and cheapness are nearly the SAME coordinate — the two deep buckets
+are ~95% sub-$2 names (PF 2.64-2.66 there); within depth ≥0.25 no price band works (0.61-1.49); the
+off-diagonal cells are dust (≤18 tkdays). With these n's the two descriptions are inseparable:
+**"<25% of prior 52w high" ≈ "sub-$2 catastrophically beaten-down name having a ≥10× volume day."**
+
+**Readings:**
+1. **Multi-timeframe alignment does NOT transfer to this system.** The 1s in-play momentum edge is
+   hosted by wreckage — busted biotechs/reverse-split candidates squeezing off multi-year lows — not
+   by quality names breaking to new highs. The LowFlyer/HighFlyerV2 DNA ("long buys weakness", low
+   float, low price) reappears at the 52-week scale. F19 said it intraday (down-on-day best,
+   10-60% gainers fade); this says it at the yearly scale.
+2. The daily-timeframe momentum books (Qullamaggie-style new-high continuation) and this system want
+   OPPOSITE universes — more evidence SurgeRider is an isolated alpha source, not a proxy.
+3. **The cost model is now THE question**: sub-$2 names mean the minimum tick and effective spread
+   are large relative to +0.3-0.5%/trip. Nothing here is believed until spreads are modeled.
+4. Blue-sky in-play names aren't just "no edge" — sess-high 0.75-0.84 hints the FADE side works
+   there (PlungeRider material, with F16's ≥40bp blowoff note).
+
+Artifacts: `high52*.sql` (scratchpad); d52 temp construction reusable for any daily-context join.
 
 ---
 
