@@ -145,7 +145,7 @@ CREATE TABLE trips (
     signal_sec INTEGER, signal_vwap DOUBLE, entry_sec INTEGER, entry_px DOUBLE,
     z_vol_1 DOUBLE, z_vol_5 DOUBLE, z_vol_10 DOUBLE, z_vol_15 DOUBLE, z_vol_30 DOUBLE, z_vol_60 DOUBLE,
     z_tc_1 DOUBLE, z_tc_5 DOUBLE, z_tc_10 DOUBLE, z_tc_15 DOUBLE, z_tc_30 DOUBLE, z_tc_60 DOUBLE,
-    vol_20m DOUBLE, vol_10m DOUBLE, rng_20m DOUBLE, eff_20m DOUBLE, slot_count INTEGER,
+    vol_20m DOUBLE, vol_10m DOUBLE, rng_20m DOUBLE, eff_20m DOUBLE, eff_10m DOUBLE, slot_count INTEGER,
     rng_sess DOUBLE, rng_300 DOUBLE, rng_120 DOUBLE, rng_60 DOUBLE, rng_30 DOUBLE,
     breach_sess INTEGER, breach_1200 INTEGER, breach_300 INTEGER,
     breach_120 INTEGER, breach_60 INTEGER, breach_30 INTEGER,
@@ -220,7 +220,7 @@ type TripSink(outDir: string) =
             i p.SignalSec; f p.SignalVwap; i p.EntrySec; f p.EntryPx
             f p.ZVol1; f p.ZVol5; f p.ZVol10; f p.ZVol15; f p.ZVol30; f p.ZVol60
             f p.ZTc1; f p.ZTc5; f p.ZTc10; f p.ZTc15; f p.ZTc30; f p.ZTc60
-            f p.Vol20m; f p.Vol10m; f p.Rng20m; f p.Eff20m; i p.SlotCount
+            f p.Vol20m; f p.Vol10m; f p.Rng20m; f p.Eff20m; f p.Eff10m; i p.SlotCount
             f p.RngSess; f p.Rng300; f p.Rng120; f p.Rng60; f p.Rng30
             i p.BreachSess; i p.Breach1200; i p.Breach300
             i p.Breach120; i p.Breach60; i p.Breach30

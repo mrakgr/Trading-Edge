@@ -1466,6 +1466,70 @@ NULL-into-hi CASE bug corrected above. The signed re-run is now the canonical ef
 
 Artifacts: `grid_se60_x30`, `grid_se60_x60` (session scratchpad).
 
+## Finding 22 — eff_10m (20-slot twin, new engine feature): NOT a replacement for eff_20m — a FRESHNESS confirm; hi-on-both = the live trend, hi-20m-only = the stale one (PF 0.76-1.68)
+
+**Setup (user, 2026-07-24):** "20m would be a pretty long trend in the market" — added signed
+`eff_10m` (`ln(V/V_20slots_ago)/Σ20|r|`, same slot stream, half the horizon) to the engine and re-ran
+the two canonical configs (60d, in-play, band; totals reproduce F20 exactly, so the change is
+regression-clean). ⚠ **Scale note:** the random-walk null of |eff| scales as 1/√slots — E≈0.158 at 40
+slots but ≈0.224 at 20 — so eff_10m's raw values sit mechanically higher (26.6% of trips ≥0.40 vs
+7.1% for eff_20m). Fair buckets for eff_10m are the F21 edges ×√2: **{0.226, 0.566}** (used below as
+"t-adj"). Redundancy: corr(|eff_10m|,|eff_20m|) = **0.44** (signed 0.68) — a genuinely different
+feature. NULL warm-up drops 7.5% → 1.9% (20 slots warm in half the time).
+
+**Head-to-head ladders (full in-play @1m):** eff_10m alone is FLATTER — its interior peak is
+PF 2.20 (0.25-0.40 raw) vs eff_20m's 2.56, and its lo/mid separation is weaker. As a standalone axis
+the 20m version wins.
+
+**Tier table, eff_10m t-adj {0.226, 0.566} (compare F21c's corrected eff_20m table):**
+
+| tier | NULL | eff lo | eff mid | eff hi |
+|---|---|---|---|---|
+| sess-high @30s | +0.250 / 2.16 / n=64 | +0.859 / 6.98 / n=80 | +1.169 / 9.12 / n=218 | +0.071 / 1.29 / n=253 |
+| z-accel @1m | +0.782 / 4.36 / n=16 | +0.327 / 2.00 / n=747 | +0.248 / 1.79 / n=608 | +0.988 / 3.95 / n=126 |
+| rest @1m | +0.260 / 2.06 / n=64 | +0.201 / 1.65 / n=2,755 | +0.207 / 1.75 / n=2,336 | +0.526 / 2.83 / n=468 |
+
+Same GEOMETRY as F21 (exhaustion-kill at the highs, continuation reward off them) but every edge is
+SOFTER: the sess-high kill is 1.29 vs eff_20m's 0.54, the z-accel hi is 3.95 vs 3.57 with more n.
+Direction split (sign, exact): the F21b asymmetry nearly VANISHES at 10m — rest×hi = up 2.60 (n=172)
+vs down 3.00 (n=296, **43 tkdays — the most breadth of any spectacular cell yet**); at 20m it was
+0.87 vs 4.74. The smooth-decline-reversal read is specifically a **20m**-horizon fact.
+
+**⭐ The cross (the actual finding) — eff_10m is the freshness filter for eff_20m's trend:**
+
+| tier @1m | hi20 × hi10 | hi20 × lo10 (STALE) | lo20 × hi10 | lo20 × lo10 |
+|---|---|---|---|---|
+| z-accel | **+2.126 / 6.19 / n=40 ⚠** | **−0.085 / 0.76 / n=43** | +0.359 / 2.11 / n=78 | +0.308 / 1.96 / n=1,262 |
+| rest | **+0.845 / 4.36 / n=132** | +0.190 / 1.68 / n=233 | +0.359 / 2.18 / n=309 | +0.212 / 1.72 / n=4,606 |
+
+A 20m trend whose last 10m went quiet is a DYING trend — buying its breakout fails (z-accel: PF 0.76,
+outright negative) or merely muddles through (rest: 1.68). The same 20m trend still running at 10m is
+the live one: 4.36-6.19. At the session high the logic INVERTS into a union-kill — hi on EITHER
+horizon poisons the break; chop on BOTH is the coiled spring proper:
+
+**Sess-high @30s exit, eff_20m {hi ≥0.40} × eff_10m t-adj {hi ≥0.566}:**
+
+| eff_20m | eff_10m | n | win% | ret% | PF | tkdays |
+|---|---|---|---|---|---|---|
+| **lo/mid** | **lo/mid (coiled spring)** | **233** | **64.4** | **+1.304** | **12.88** | 15 ⚠ top-3 73% |
+| lo/mid | hi | 113 | 35.4 | −0.036 | 0.858 | 7 |
+| hi | lo/mid | 17 | 0.0 | −0.524 | 0.000 | 5 |
+| hi | hi | 86 | 14.0 | −0.095 | 0.711 | 8 |
+
+Every cell containing a hi is at-or-below water; the both-quiet cell beats the F21 single-horizon
+buckets (5.1-17.5) with the same caveat as always in this tier: 15 tkdays, top-3 = 73% of gross,
+LEVEL = noise, shape = the signal.
+
+**Audits:** rest×hi10 t-adj = 56 tkdays / top-3 48% (broadest yet); z-accel hi20×hi10 n=40 = dust
+with a loud voice; sess-high cells stay WOK/SRXH-concentrated.
+
+**Verdict:** keep BOTH. eff_20m remains the primary state axis (sharper alone, sharper kill);
+eff_10m earns its column as the confirm: off-high trend-following wants **hi on both**, session-high
+coiled-spring wants **quiet on both**. Bucket edges to carry for eff_10m: {0.226, 0.566}. All 60-day,
+in-play, mc=0 — the long run arbitrates.
+
+Artifacts: `grid_se60_x30`, `grid_se60_x60` (regenerated with `eff_10m`), `f22_*.sql` (scratchpad).
+
 ---
 
 # Appendix A — the four path-RV constructions (F3 companion)

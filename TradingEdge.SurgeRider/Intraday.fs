@@ -137,6 +137,8 @@ type SurgePosition =
                                  // before — F21's buckets = abs(eff)); sign = the 20m NET DIRECTION
                                  // (F21b measured the direction flip: reversal-vs-continuation),
                                  // replacing the breach-counter dir proxy with the exact quantity.
+      Eff10m: float              // 20-slot twin (user, 2026-07-24): a 20m trend is LONG for this
+                                 // market — does the 10m drift t-stat separate better than the 20m?
       SlotCount: int             // slot returns folded so far (vol-feature warmth)
       // ----- channel widths, ln(high/low) per present-bar window -----
       RngSess: float
@@ -321,6 +323,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let ew20 = EmaHlMa 20.0                      // vol10m — the trajectory twin
     let slotLag = LagMa<float> 40                // slot vwap 40 emissions ago (eff numerator)
     let slotAbsSum = SumMa 40                    // Σ|r| over the same 40 returns (eff denominator)
+    let slotLag20 = LagMa<float> 20              // eff10m pair — same stream, half the horizon
+    let slotAbsSum20 = SumMa 20
     let mutable prevSlotVwap : float voption = ValueNone
     let mutable prevEtSec = -1                   // the PREVIOUS present bar's etSec (aux-mark lookback)
     let mutable slotReturns = 0
@@ -475,9 +479,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                  ew40.Push ar
                  ew20.Push ar
                  slotAbsSum.Push ar
+                 slotAbsSum20.Push ar
                  slotReturns <- slotReturns + 1
              | _ -> ())
             slotLag.Push v
+            slotLag20.Push v
             prevSlotVwap <- ValueSome v
         | ValueNone -> ()
 
@@ -632,6 +638,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                         (match slotLag.Last, slotLag.Lagged, slotAbsSum.State with
                          | ValueSome cur, ValueSome old, ValueSome s
                              when slotAbsSum.Count = slotAbsSum.WindowSize && old > 0.0 && s > 0.0 ->
+                             log (cur / old) / s
+                         | _ -> nan)
+                      Eff10m =
+                        (match slotLag20.Last, slotLag20.Lagged, slotAbsSum20.State with
+                         | ValueSome cur, ValueSome old, ValueSome s
+                             when slotAbsSum20.Count = slotAbsSum20.WindowSize && old > 0.0 && s > 0.0 ->
                              log (cur / old) / s
                          | _ -> nan)
                       SlotCount = slotReturns
