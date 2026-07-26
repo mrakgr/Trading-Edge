@@ -2196,6 +2196,106 @@ the session anchor stands in; sinking them = 2-line engine add + ~100min regen i
 ⚠ context-dependence: INSIDE the (unstable) 5m rung the calm preference inverts — fresh structural
 breaks want participation; extended levels punish it. No unconditional feature, ever.
 
+## Finding 31 — ⭐ v2b (20bp floor + the absolute feature block): SIZE-WITHOUT-CROWD — the first year-stable, audit-clean, cost-viable long cell on ≥$2 stocks
+
+**Run:** `surge23_v2b_e60_x60_f20bp` — V2 universe + `--min-vol-20m 0.002` (cuts 39.1M→9.24M trips,
+76%; 37 min), new features: `vol_1200`/`tc_1200` (raw 20m sums), `vol_60_prev`/`tc_60_prev`
+(prev-minute lags; vol_120 = vol_60 + vol_60_prev), `px/vol/tc_ols_slope_60` (1m OLS on ln values).
+Baseline PF 1.061. Population below: × eff-hi (|eff_20m| ≥ 0.40).
+
+**The ABSOLUTE 1m-vs-20m ladders (true 20m anchor) — the cleanest activity ladders of the campaign:**
+
+| 1m rate / 20m rate | tc PF | vol PF |
+|---|---|---|
+| <0.5× | **1.274** | 1.184 |
+| 0.5-1× | 1.260 | **1.275** |
+| 1-2× | 1.164 | 1.141 |
+| 2-4× | 0.824 | 0.902 |
+| ≥4× | **0.384 / −1.096%** (n=2,162) | 0.583 / −0.473% |
+
+Monotone down; the ≥4× tc cell (−1.1%/trip) is another heavyweight fade cell for the short program.
+
+**⭐ THE CELL — tc <0.5× × vol 0.5-1× ("size without crowd"): PF 1.731 / n=4,414 / 1,401 tkd:**
+
+| yr | n | ret% | PF | tkd | med px |
+|---|---|---|---|---|---|
+| 2023 | 575 | +0.276 | 1.646 | 218 | $7.77 |
+| 2024 | 801 | +0.433 | 1.995 | 275 | $8.55 |
+| 2025 | 1,984 | +0.175 | 1.473 | 591 | $9.55 |
+| 2026 | 1,054 | +0.300 | 2.162 | 317 | $13.22 |
+
+**Positive EVERY year, no decay, top-3 = 14.4% / 734 symbols — the best audit profile of any V2
+long cell; $8-13 median price clears the ~10-15bp cost line with margin.** Reading: prints at less
+than HALF the 20m rate while volume holds normal = few-but-LARGE prints = accumulation without the
+crowd — the exact inverse of the toxic swarm (F30e: prints-up-size-flat). The participation/size
+framework CLOSES: size-without-crowd = buy; crowd-without-size = run.
+
+**OLS slopes: a NULL result** — all three ladders and the px×tc cross sit in 1.09-1.29 with no
+monotone structure; regression smoothing discards exactly the burst/coherence information the level
+ratios carry. The absolute-level representation (user) is the winner; the OLS block retires with
+the z's. ⏭ the cell wants: exit tuning, the ignition/eff sub-splits, mc=1, and the S9b-family cross.
+
+### F31b — eff decomposition of the cell (user: does eff push it past 2?): LOAD-BEARING but no stable >2 — the two trend flavors DIVERSIFY each other
+
+| eff state | n | ret% | PF | tkd | by year |
+|---|---|---|---|---|---|
+| NULL | 6,979 | +0.033 | 1.076 | 2,260 | — |
+| lo (<0.40) | 72,014 | +0.013 | 1.032 | 12,056 | — |
+| hi-up (continuation) | 1,180 | +0.305 | 2.045 ⚠ | 424 | **0.91** / **4.22** / 1.59 / 1.58, top-3 37.9% |
+| hi-down (reversal) | 3,234 | +0.250 | 1.645 | 1,000 | 1.89 / 1.38 / 1.45 / 2.41, top-3 15.3% ✓ |
+| hi-up × e10-hi | 226 | +0.359 | 2.452 ⚠ | 72 | too thin |
+
+Without eff-hi the cell is DEAD — all F31 value is the eff-hi minority. The continuation flavor's
+2.045 blend is a 2024 gift (4.22; 0.91 in 2023); the reversal flavor is the year-stable half; their
+good years ANTI-CORRELATE (2023/2024 mirror images) — **the parent cell's stability
+(1.65/2.00/1.47/2.16) is flavor diversification, not either flavor alone. No year-stable sub-cell
+clears 2; the honest tradable object stays the combined eff-hi cell at blended 1.73.** Confirmed
+(user): tc-ignition is flat-to-adverse on ≥$2 — the cell is itself an ANTI-ignition state.
+
+### F31c — the ignition print ON TOP of the cell (user hypothesis): it COMPOSES — monotone in bar_tc, the [10,40) band is year-clean and anti-correlated with the eff-up flavor
+
+| signal-bar tc | n | win% | ret% | PF | tkd | by year |
+|---|---|---|---|---|---|---|
+| <10 | 2,804 | 41.7 | +0.184 | 1.549 | 1,183 | — |
+| **10-40 (ignition)** | 1,191 | 43.1 | +0.295 | **1.803** | 658 | 1.73 / **1.39** / 1.78 / 2.44 ✓ |
+| ≥40 (climax) | 419 | 40.1 | +0.719 | 2.359 ⚠ | 276 | 1.23 / **6.34** / 1.21 / 1.26, top-3 48.4% — 2024 artifact |
+
+Broadly adverse on ≥$2 (F30), the ignition print turns POSITIVE inside the quiet-minute cell — the
+conditioning law once more: quiet minute + normal size + live trend + a hard signal second = the V1
+coiled ignition isolated from the swarm regime. The [10,40) band's WORST year is 2024 —
+anti-correlated with the eff-up flavor's 2024 spike: more diversification inside the family.
+**Family state: base cell 1.73 blended; + ignition 1.80 blended (+0.295%/trip), year floor 1.39.
+Untried: exit tuning, mc=1.**
+
+**The RELATIVE recast (user: bar_tc vs the 20m per-bar average, since ≥$2 stocks print faster):**
+interior peak at 1-2× (2.121 / +0.447 / n=610 / 442 tkd; med bar_tc 22 ≈ the absolute band's twin)
+— but year-audit says 1.24 / **4.50** / 1.54 / 1.75, top-3 36.2% — 2024-flattered. **The absolute
+[10,40) band keeps the better year floor (1.39, no 2024 dependence); both stable versions land in
+the same 1.5-1.8 territory.** Session pattern worth naming: EVERY >2 blend today has been a 2024
+gift — 2024 was a monster year for quiet-accumulation momentum on mid-priced stocks; the year audit
+is the only thing standing between this campaign and a curve-fit.
+
+### F31d — do the stops do anything? (user) THE EXITS ARE THE SYSTEM — hold-to-20m earns +0.03%, the trail earns +0.265%; big winners exit within 1% of the top
+
+Post-exit drift (entry-anchored fwd marks vs exit_px, only where the mark lands after the exit),
+F31 base cell:
+
+| outcome | n | ret@exit | post→+5m | post→+20m |
+|---|---|---|---|---|
+| big loser (<−1%) | 449 | −1.762 | +0.220 (bounce) | −0.049 |
+| loser (−1..0) | 2,103 | −0.384 | −0.135 | −0.153 |
+| winner (0..1%) | 1,156 | +0.367 | −0.096 | −0.063 |
+| big winner (>1%) | 706 | +3.317 | **−0.306** | **−0.961** |
+| **ALL: actual vs hold-20m** | 4,414 | **+0.265** | vs **+0.027** | — |
+
+The naive 20m hold earns ~NOTHING (+0.027); the trailing-channel version earns 10× that. Losers
+keep drifting down post-stop (the stop is right; only cost = a +0.22 bounce after the deepest
+stops, small vs the −1.76 avoided); **big winners exit within ~1% of the local top** (−0.96 fade
+over the next 20m) — the trail harvests each trade's blowoff exhaustion. **The entry is a
+zero-drift lottery ticket; the EXIT machinery (cut at −0.4, trail to the climax) is where the PF
+comes from** — the F30e "all EV early + late bleed" seen from the other side. Implication: exit
+tuning is not a tweak for this family, it IS the system design axis.
+
 ---
 
 # Appendix A — the four path-RV constructions (F3 companion)

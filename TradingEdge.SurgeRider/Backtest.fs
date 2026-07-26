@@ -66,6 +66,7 @@ let defaultConfig =
           TcFloor60        = 60.0       // >= 60 trades over the same window (1/sec — bars exist anyway;
                                         // kills the block-print-only tape, per the plan's "volume AND
                                         // activity" requirement)
+          ExhaustTcRatio   = Double.PositiveInfinity   // exhaustion exit OFF by default
           MinVol20m        = 0.0007     // ⭐ THE VOL BAND [7,40)bp/30s (F10 ceiling + F14b floor): the
                                         // 40bp CEILING is load-bearing (87% of unbanded in-play
                                         // sess-high trips sit >=40bp at PF 0.82); the floor dropped

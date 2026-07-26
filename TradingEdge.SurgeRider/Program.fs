@@ -31,6 +31,7 @@ type Args =
     // ----- the F10 vol band -----
     | Min_Vol_20m of float
     | Max_Vol_20m of float
+    | Exhaust_Tc_Ratio of float
     // ----- universe -----
     | Min_Dv_0945 of float
     | Min_Rvol_0945 of float
@@ -58,6 +59,7 @@ type Args =
             | Tc_Floor_60 _ -> "Hard entry gate: >= this many TRADES over the same window. Default 60. A breakout needs activity — volume without trades is one block print."
             | Min_Vol_20m _ -> "⭐ VOL FLOOR (F10/F14b): vol_20m >= this at the signal (raw mean-|r|/30s units). Default 0.0007 (7bp) — the 7-20bp slice is PF 2.3-3.6 in-play; F10's 20bp floor over-cut. 0 = off."
             | Max_Vol_20m _ -> "⭐ VOL CEILING (F10): vol_20m < this. Default 0.0040 (40bp) — past ~41bp/30s the name is already blown off (top 2%%: -0.89%%/20m). inf = off."
+            | Exhaust_Tc_Ratio _ -> "⭐ EXHAUSTION EXIT (F30e/F31d): exit when the 1m tc rate reaches this multiple of the 20m rate during the hold (the crowd arriving = the top). Default off (1e9). Candidates: 2-4."
             | Min_Dv_0945 _ -> "Universe floor: min 09:30-09:45 dollar volume (LIVE-SAFE). Default 10000000 — momentum wants names that trade every second (>= $500M/day names are active 67%% of seconds, $100-500M 33%%)."
             | Min_Rvol_0945 _ -> "Optional in-play universe pre-filter: rvol_0945_honest >= this (premkt-incl vol thru 09:45 / prior-20d avg; LIVE-SAFE at 09:45). Default 0 = off (sampler breadth). 10 = the stocks-in-play sweeps (~50x smaller universe)."
             | Min_Prev_Close _ -> "⭐ V2 universe gate: PRIOR day's close in day-D raw (post-split) scale >= this (prev_adj_close/adj_ratio; knowable BEFORE the open). Default 0 = off. 2 = the V2 >=$2 universe (sub-$1 priced out on every EU-accessible broker — S8b/c)."
@@ -93,6 +95,7 @@ let main argv =
                     TcFloor60        = parsed.GetResult(Tc_Floor_60,        defaultValue = d.Intraday.TcFloor60)
                     MinVol20m        = parsed.GetResult(Min_Vol_20m,        defaultValue = d.Intraday.MinVol20m)
                     MaxVol20m        = parsed.GetResult(Max_Vol_20m,        defaultValue = d.Intraday.MaxVol20m)
+                    ExhaustTcRatio   = parsed.GetResult(Exhaust_Tc_Ratio,   defaultValue = d.Intraday.ExhaustTcRatio)
                     MaxConcurrent    = parsed.GetResult(Max_Concurrent,     defaultValue = d.Intraday.MaxConcurrent)
                     EntryStartSec    = parsed.GetResult(Entry_Start_Sec,    defaultValue = d.Intraday.EntryStartSec)
                     EntryEndSec      = parsed.GetResult(Entry_End_Sec,      defaultValue = d.Intraday.EntryEndSec) }

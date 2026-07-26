@@ -241,6 +241,10 @@ type IntradayConfig =
       // feature still cold (< 2 slot returns) FAILS a positive floor, like DipRider's atrOk.
       MinVol20m: float
       MaxVol20m: float
+      // ⭐ THE EXHAUSTION EXIT (user, 2026-07-26; F30e/F31d): exit when the 1m tc RATE reaches
+      // this multiple of the 20m rate during the hold — the crowd arriving = the top (the
+      // absolute 1m/20m ladder: ≥4x = −1.1%/trip for holders). +infinity = off.
+      ExhaustTcRatio: float
       MaxConcurrent: int         // 0 = unlimited (THE SAMPLER DEFAULT). 1 = a real book.
       SlotBars: int              // the slot clock: 30 present bars (F5c: 30-40s flat, 30 stands).
       BaselineBars: int          // the z baseline window: 1200 present bars (~20m active).
@@ -566,6 +570,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         let exitZv = if cfg.ExitZBars = 1 then zVol1.Z (log (max bar.volume 1.0)) else exitZv
         let exitZt = if cfg.ExitZBars = 1 then zTc1.Z (log (float (max bar.tradeCount 1))) else exitZt
         let channelBroken = match sExitMin with ValueSome lo -> bar.vwap < lo | ValueNone -> false
+        // exhaustion: the 1m tc rate vs the 20m tc rate, both windows warm
+        let exhausted =
+            not (Double.IsPositiveInfinity cfg.ExhaustTcRatio)
+            && tcSum60.Count = tcSum60.WindowSize
+            && tcSum1200.Count = tcSum1200.WindowSize
+            && (match tcSum60.State, tcSum1200.State with
+                | ValueSome t60, ValueSome t1200 when t1200 > 0.0 ->
+                    (t60 / 60.0) / (t1200 / 1200.0) >= cfg.ExhaustTcRatio
+                | _ -> false)
         // compacting walk: survivors overwrite in place, inert trips retire
         let mutable w = 0
         for i in 0 .. active.Count - 1 do
@@ -607,6 +620,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                         // the 16:00 bar IS the auction-proximate print — fill here, not next bar
                         { p with State = ExitedAt (bar.etSec, bar.vwap, "moc") }
                     elif channelBroken then { p with State = PendingExit "channel" }
+                    elif exhausted then { p with State = PendingExit "exhaust" }
                     elif (match exitZv with ValueSome z -> z < cfg.Ezv | ValueNone -> false) then
                         { p with State = PendingExit "zvol" }
                     elif (match exitZt with ValueSome z -> z < cfg.Ezt | ValueNone -> false) then
