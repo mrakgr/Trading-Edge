@@ -2296,6 +2296,69 @@ zero-drift lottery ticket; the EXIT machinery (cut at −0.4, trail to the clima
 comes from** — the F30e "all EV early + late bleed" seen from the other side. Implication: exit
 tuning is not a tweak for this family, it IS the system design axis.
 
+### F31e — "price acceptance" (user, via Lance): the EWMA vol twins have NO resolution for it — but the RANGE version works, monotone
+
+The proposed vol_10m-vs-vol_20m split is structurally empty on the flagship: the twins are EWMAs
+(hl 20 vs 40) over the SAME |r| stream — their ratio's 1-99% span is [0.80, 1.16] (median 0.937);
+binary acceptance/expansion = 1.875 vs 1.903, a wash. **The range version has real spread**
+(`rng_300/rng_20m`: p1 0.088 → p99 0.553 vs the √-time neutral ~0.5; the flagship's median 0.248 =
+the cell is already a deeply compressed state by nature):
+
+| rng300/rng20m | n | win% | ret% | PF | tkd | years |
+|---|---|---|---|---|---|---|
+| **<0.3 (tight coil)** | 1,655 | 43.8 | +0.510 | **2.020** | 490 | 1.28 / 2.83 / 1.52 / **3.42** (best yr = 2026, NOT 2024; top-3 20.4%) |
+| 0.3-0.5 (compressed) | 605 | 41.7 | +0.374 | 1.682 | 225 | — |
+| 0.5-0.7 (NOT accepted) | 58 | 27.6 | −0.201 | **0.733** | 26 | — |
+
+The Lance read confirmed in range space: tighter coil = better break; entries where the last 5m
+still spans most of the 20m range (price NOT accepted, still swinging) are outright losers — CUT
+ratio ≥0.5. The <0.3 preference raises the blend to 2.02 but the year floor stays ~1.3 (it
+concentrates the edge, doesn't stabilize it); the parent keeps the better floor. Both specs carried.
+
+### F31f — the exhaustion exit TESTED (`--exhaust-tc-ratio` 2 and 4): the price trail WINS — 2× cuts the winners' flare, 4× never fires
+
+Engine exit: cover when the 1m tc rate ≥ k× the 20m rate mid-hold. On the flagship cell:
+
+| variant | ret% | PF | %exh exits | yr24 PF |
+|---|---|---|---|---|
+| plain trail | +0.457 | **1.880** | — | 2.165 |
+| exhaust ≥2× | +0.361 | 1.695 | 2.2 | **1.407** |
+| exhaust ≥4× | +0.457 | 1.880 | 0.0 (never fires) | 2.165 |
+
+The 2× trigger fires exactly during the winners' blowoff (entry is at tc<0.5×, so 2× of the 20m
+rate = a 4× acceleration = the F30e FLARE, the hold-worthy state) and surgically deletes 2024's
+monsters; 4× is unreachable before the channel break fires. **F31d's conclusion stands: the price
+trail already IS a well-calibrated exhaustion exit** (1% late but reliable); a single-floor
+activity trigger is either premature or moot. If the activity exit is ever revisited, it must
+encode the N-shape (cut the moderate climb ~1.5-2.5×, HOLD the flare) — not expressible as one
+ratio floor.
+
+### F31g — ⭐ THE FOLDED SPEC CROSSES 2: + chg_1d wings (<−5% OR >15%) = PF 2.128, year floor 1.64, audit-clean
+
+Day-scale location ladders on the coiled flagship (rng_300/rng_20m < 0.5 now DEFAULT — the ≥0.5
+not-accepted tail was PF 0.733): **1m ret monotone UP** (harder breakout minute = better; no
+buy-the-dip at 1s scale); **chg_1d BIMODAL** — big decliners (<−5%: 1.919) and big gainers (>15%:
+2.189, yrs 2.22/3.54/1.73/1.85, top-3 27.6% ✓) are the hosts, the middle is dead (F19's fade-zone
+does NOT transfer here); vs-sessVWAP: deep-below = the solid bulk (1.731), chop zone negative,
+>+2% = 3.284 but **FAILS audit** (yr24 7.12, top-3 47.3% — recorded-not-believed). vs-20m-high
+freshness: no usable lever inside the flagship (87% = stale-high entries at 1.87; thin extremes).
+
+**THE SPEC (7 conditions): quiet minute (tc<0.5×20m) × normal size (vol 0.5-1×) × eff-hi ×
+vol≥40bp × tight coil (<0.5) × chg_1d wings (<−5% | >15%):**
+
+| | n | win% | ret% | PF | tkd |
+|---|---|---|---|---|---|
+| ALL | 1,554 | 44.1 | +0.617 | **2.128** | 458 |
+| 2023 | 237 | 34.2 | +0.647 | 1.991 | 77 |
+| 2024 | 333 | 45.0 | +1.000 | 2.744 | 108 |
+| 2025 | 690 | 43.0 | +0.361 | 1.644 | 184 |
+| 2026 | 294 | 53.4 | +0.762 | 2.904 | 89 |
+
+Top-3 = 22.1% / 372 symbols. ~1.7 trips/day, $8-14 stocks, ~10-15bp RT costs vs +0.62%/trip.
+VWAP breakdown inside adds nothing safely actionable (bulk <−2% at 1.905; middle cells n≤43).
+⏭ mc=1, the entry-redesign fork, and the engine-add batch (vwap_1200 20m rolling VWAP +
+chan_1200_high level).
+
 ---
 
 # Appendix A — the four path-RV constructions (F3 companion)
