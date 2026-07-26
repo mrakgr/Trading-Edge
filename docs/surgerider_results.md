@@ -2359,6 +2359,87 @@ VWAP breakdown inside adds nothing safely actionable (bulk <−2% at 1.905; midd
 ⏭ mc=1, the entry-redesign fork, and the engine-add batch (vwap_1200 20m rolling VWAP +
 chan_1200_high level).
 
+### F31h — mc=1, the 2023 collapse diagnosis, and ⭐ THE SECOND-CHANCE RULE
+
+**Plain mc=1 (greedy non-overlap)**: ALL 2.098 / +0.629 / n=539 (~0.6/day) — the blend survives,
+BUT **2023 collapses 1.99→1.01**. Diagnosis: 2023 is top-heavy (top-3 tkd = 74% of gross; MSAI
+2023-12-21 = +135% over 9 trips) and the edge lives in signal CLUSTERS where the LATER breaks are
+the real moves: single-signal days PF 0.365; multi-day first trips 1.425; **multi-day later trips
+2.672**. The first break of the coil is the probe that fails; sequential execution takes exactly it
+and sits through the good ones. **Capacity note: median signal-bar $10.4k (2-10× the sub-$1 book);
+$2-5k clips defensible on $8-14 names + the TradeZero free ≥$1 limit lane.**
+
+**THE FIX — the SECOND-CHANCE rule (the 2026-07-06 Ross Cameron re-break note, quantified): skip
+each ticker-day's FIRST signal, greedy from the second:**
+
+| variant | n | ret% | PF | by year |
+|---|---|---|---|---|
+| plain mc=1 | 539 | +0.629 | 2.098 | 1.01 / 4.02 / 1.62 / 2.34 |
+| **second-chance mc=1** | 375 | **+0.825** | **2.447** | **1.51 / 4.76 / 1.59 / 2.36** |
+| mc=2 scale-in | 884 | +0.647 | 2.147 | 1.22 / 3.58 / 1.64 / 2.65 |
+
+Repairs 2023, lifts everything, pure sequencing (no engine change). ⚠ **STACKING CAVEAT: the spec
+is now 8 fitted conditions on one 3.5y sample** — each passed its own year audit, but the assembled
+spec needs the V1-style arbiter (holdout period or live-forward) before belief hardens. ~0.42
+trips/day at second-chance mc=1.
+
+### F31i — ⭐ the SECOND-CHANCE RETRACTION (open_at_signal adjudicates) + monthly consistency: a LOTTERY profile — satellite book, not core
+
+**v2c run** (`surge23_v2c`: eff gate `--min-abs-eff-20m 0.4` baked in — 699,682 trips, 13× smaller,
+22 min; + `open_at_signal` (trades already open at the signal — the MECHANICAL cluster index),
+`vwap_1200` (20m rolling VWAP), `chan_1200_high`).
+
+**open_at_signal (folded spec, mc=0) — REFUTES the skip-first rule (user called the overfit; DROPPED):**
+
+| open_at_signal | n | win% | ret% | PF | tkd |
+|---|---|---|---|---|---|
+| 0 | 200 | 44.0 | +0.895 | **2.778** | 190 |
+| 1-2 | 312 | 46.5 | +0.741 | 2.371 | 196 |
+| 3-5 | 367 | 41.1 | +0.526 | 1.886 | 191 |
+| ≥6 | 675 | 44.6 | +0.528 | 1.982 | 214 |
+
+**Distance ladders (no stable gate — extremes thin):**
+
+| vs 20m MA | n | PF | | vs 20m high | n | PF |
+|---|---|---|---|---|---|---|
+| <0.5% | 1,347 | 1.930 | | at/above | 45 | 2.379 |
+| 0.5-1.5% | 83 | 1.012 | | 0..−0.5% | 90 | 2.460 |
+| 1.5-3% | 97 | 5.478 ⚠ | | −0.5..−1.5% | 45 | 1.299 |
+| >3% | 27 | 3.309 ⚠ | | <−1.5% | 1,374 | 2.141 |
+
+**Monthly net% (plain mc=1 | open_at_signal=0 book):**
+
+| mo | 2023 | oas0 | 2024 | oas0 | 2025 | oas0 | 2026 | oas0 |
+|---|---|---|---|---|---|---|---|---|
+| Jan | −12.1 | −12.3 | −1.6 | −2.2 | +3.1 | −1.2 | +2.7 | −1.5 |
+| Feb | −2.6 | −1.4 | −7.2 | +4.2 | −0.9 | +3.5 | +15.1 | −0.0 |
+| Mar | −4.6 | −0.3 | −0.4 | +1.6 | +3.6 | −1.9 | +13.9 | +5.0 |
+| Apr | +15.9 | +9.6 | +4.0 | +0.4 | +8.2 | +0.2 | +9.2 | +1.0 |
+| May | −2.5 | −1.1 | +4.6 | −0.7 | −0.9 | +2.5 | +22.6 | +0.9 |
+| Jun | −2.6 | −4.4 | −3.7 | −1.4 | +0.8 | −3.1 | +2.8 | +1.9 |
+| Jul | +3.6 | +0.3 | +0.4 | +2.9 | +24.8 | +5.7 | | |
+| Aug | −6.9 | −1.8 | +6.6 | +8.1 | +13.0 | +8.9 | | |
+| Sep | −1.2 | +0.0 | +6.2 | +4.0 | +33.1 | +17.8 | | |
+| Oct | −0.4 | +2.7 | **+97.3** | **+95.0** | +1.4 | +0.2 | | |
+| Nov | −5.0 | −1.4 | +75.8 | +2.3 | −2.3 | +4.3 | | |
+| Dec | +19.1 | +26.5 | +15.9 | +13.3 | −9.7 | −9.1 | | |
+
+**Summaries:**
+
+| | plain mc=1 | oas=0 book |
+|---|---|---|
+| n (3.5y) | 539 | 200 |
+| months positive | 25/42 (60%) | 24/42 (57%) |
+| mean / median month | +8.08 / +2.80 | +4.20 / +0.34 |
+| best / worst | +97.3 / −12.1 | +95.0 / −12.3 |
+| by year PF | 1.01 / 4.02 / 1.62 / 2.34 | 1.57 / 9.45 / 1.78 / 1.34 |
+| top-heaviness | 2024-10+11 ≈ 51% of P&L | 2024-10 (4 trips) ≈ 54% of P&L |
+
+**oas=0 makes 2023 profitable (1.57) but at ~1.6 trips/WEEK, with 2024-10's ~+95% in FOUR trips ≈
+half the book's P&L — essentially ONE TRADE. VERDICT: a genuine, cost-viable, LOTTERY-shaped edge —
+a SATELLITE book beside the MR core, not a replacement. The user's MR-first instinct is
+quantitatively vindicated.**
+
 ---
 
 # Appendix A — the four path-RV constructions (F3 companion)

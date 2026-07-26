@@ -66,6 +66,7 @@ let defaultConfig =
           TcFloor60        = 60.0       // >= 60 trades over the same window (1/sec — bars exist anyway;
                                         // kills the block-print-only tape, per the plan's "volume AND
                                         // activity" requirement)
+          MinAbsEff20m     = 0.0        // eff gate off by default (sampler breadth)
           ExhaustTcRatio   = Double.PositiveInfinity   // exhaustion exit OFF by default
           MinVol20m        = 0.0007     // ⭐ THE VOL BAND [7,40)bp/30s (F10 ceiling + F14b floor): the
                                         // 40bp CEILING is load-bearing (87% of unbanded in-play
@@ -159,6 +160,7 @@ CREATE TABLE trips (
     breach_sess INTEGER, breach_1200 INTEGER, breach_300 INTEGER,
     breach_120 INTEGER, breach_60 INTEGER, breach_30 INTEGER,
     trade_idx INTEGER, bars_since_low_1200 INTEGER,
+    open_at_signal INTEGER, vwap_1200 DOUBLE, chan_1200_high DOUBLE,
     gap_60 INTEGER, gap_30 INTEGER, gap_15 INTEGER,
     sess_vwap DOUBLE, dist_sess_vwap DOUBLE, pct_chg_open DOUBLE,
     bar_vol DOUBLE, bar_tc INTEGER,
@@ -237,6 +239,7 @@ type TripSink(outDir: string) =
             i p.BreachSess; i p.Breach1200; i p.Breach300
             i p.Breach120; i p.Breach60; i p.Breach30
             i p.TradeIdx; i p.BarsSinceLow1200
+            i p.OpenAtSignal; f p.Vwap1200; f p.Chan1200High
             i p.Gap60; i p.Gap30; i p.Gap15
             f p.SessVwap; f p.DistSessVwap; f p.PctChgOpen
             f p.BarVol; i p.BarTc

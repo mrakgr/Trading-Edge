@@ -162,6 +162,14 @@ type SurgePosition =
       //   BarsSinceLow1200 -> the leg's age in present bars (-1 = no 20m low yet). -----
       TradeIdx: int
       BarsSinceLow1200: int
+      OpenAtSignal: int          // ⭐ trades already OPEN in the engine when this signal fired
+                                 // (user, 2026-07-26): shared exits => concurrent trips exit
+                                 // together, so 0 = first-of-cluster OR clean re-entry, >=1 = a
+                                 // re-break while a prior break still holds. The mechanically
+                                 // honest second-chance index.
+      Vwap1200: float            // the 20m ROLLING VWAP (dv_1200/vol_1200) — "the 20m MA"
+      Chan1200High: float        // the STRICTLY-PRIOR 20m channel high LEVEL at the signal
+                                 // (distance-to-the-20m-high = ln(signal_vwap/chan_1200_high))
       // ----- the gap counts (what present-bar windows hide) -----
       Gap60: int
       Gap30: int
@@ -241,6 +249,10 @@ type IntradayConfig =
       // feature still cold (< 2 slot returns) FAILS a positive floor, like DipRider's atrOk.
       MinVol20m: float
       MaxVol20m: float
+      // ⭐ HARD EFF GATE (user, 2026-07-26; F31b: eff-lo/NULL = dead everywhere on V2 — "high
+      // eff is useful always, might as well bake it in"): |eff_20m| >= this at the signal.
+      // A signal with eff still cold FAILS a positive floor. 0 = off (sampler breadth).
+      MinAbsEff20m: float
       // ⭐ THE EXHAUSTION EXIT (user, 2026-07-26; F30e/F31d): exit when the 1m tc RATE reaches
       // this multiple of the 20m rate during the hold — the crowd arriving = the top (the
       // absolute 1m/20m ladder: ≥4x = −1.1%/trip for holders). +infinity = off.
@@ -327,6 +339,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let tcSum30 = SumMa 30
     let tcSum60 = SumMa 60
     let dvSum60 = SumMa 60                       // Σ vwap·volume — the liquidity floor
+    let dvSum1200 = SumMa 1200                   // Σ vwap·volume over 20m — the 20m rolling VWAP
     let zVol1 = WinStdMa cfg.BaselineBars        // fed ln(bar volume)
     let zVol5 = WinStdMa cfg.BaselineBars
     let zVol10 = WinStdMa cfg.BaselineBars
@@ -466,6 +479,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if tcSum60.Count = 60 then
             (match tcSum60.State with ValueSome s -> tc60Lag.Push s | ValueNone -> ())
         dvSum60.Push (bar.vwap * bar.volume)
+        dvSum1200.Push (bar.vwap * bar.volume)
         // baselines: ln(bar value) always; ln(sum_k) only once the sum is warm
         zVol1.Push (log (max bar.volume 1.0))
         zTc1.Push (log (float (max bar.tradeCount 1)))
@@ -656,7 +670,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
              || (match ew40.State with ValueSome v -> v >= cfg.MinVol20m | ValueNone -> false))
             && (Double.IsPositiveInfinity cfg.MaxVol20m
                 || (match ew40.State with ValueSome v -> v < cfg.MaxVol20m | ValueNone -> true))
-        if inWindow && channelWarm && isBreakout && floorsOk && volOk && this.HasSlot then
+        let effOk =
+            cfg.MinAbsEff20m <= 0.0
+            || (match slotLag.Last, slotLag.Lagged, slotAbsSum.State with
+                | ValueSome cur, ValueSome old, ValueSome s
+                    when slotAbsSum.Count = slotAbsSum.WindowSize && old > 0.0 && s > 0.0 ->
+                    abs (log (cur / old) / s) >= cfg.MinAbsEff20m
+                | _ -> false)
+        if inWindow && channelWarm && isBreakout && floorsOk && volOk && effOk && this.HasSlot then
             pendingEntry <-
                 ValueSome
                     { SignalSec = bar.etSec
@@ -707,6 +728,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Breach30 = br30.BarsSinceBreach
                       TradeIdx = tradeIdx
                       BarsSinceLow1200 = legLow.BarsSinceBreach
+                      OpenAtSignal = this.OpenCount
+                      Vwap1200 =
+                        (if volSum1200.Count = volSum1200.WindowSize then
+                            match dvSum1200.State, volSum1200.State with
+                            | ValueSome dv, ValueSome v when v > 0.0 -> dv / v
+                            | _ -> nan
+                         else nan)
+                      Chan1200High = vv sMax1200
                       Gap60 = gap60.Gaps
                       Gap30 = gap30.Gaps
                       Gap15 = gap15.Gaps
