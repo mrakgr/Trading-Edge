@@ -181,6 +181,8 @@ type SurgePosition =
       Tc15: float
       Tc30: float
       Tc60: float
+      Vol1200: float             // raw 20m sums (user, 2026-07-26 — the absolute 1m-vs-20m
+      Tc1200: float              // comparisons; the z's are retired as features of record)
       DollarVol60: float         // Sum60 of vwap*volume — the liquidity-floor value
       CumVol: float
       CumTc: float
@@ -301,6 +303,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let volSum15 = SumMa 15
     let volSum30 = SumMa 30
     let volSum60 = SumMa 60
+    let volSum1200 = SumMa 1200                  // raw 20m activity (user, 2026-07-26)
+    let tcSum1200 = SumMa 1200
     let tcSum5 = SumMa 5
     let tcSum10 = SumMa 10
     let tcSum15 = SumMa 15
@@ -428,6 +432,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         volSum15.Push bar.volume
         volSum30.Push bar.volume
         volSum60.Push bar.volume
+        volSum1200.Push bar.volume
+        tcSum1200.Push (float bar.tradeCount)
         tcSum5.Push (float bar.tradeCount)
         tcSum10.Push (float bar.tradeCount)
         tcSum15.Push (float bar.tradeCount)
@@ -687,6 +693,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Tc15 = vv tcSum15.State
                       Tc30 = vv tcSum30.State
                       Tc60 = vv tcSum60.State
+                      Vol1200 = vv volSum1200.State
+                      Tc1200 = vv tcSum1200.State
                       DollarVol60 = vv dvSum60.State
                       CumVol = cumVol
                       CumTc = cumTc

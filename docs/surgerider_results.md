@@ -2136,6 +2136,66 @@ it fails, EV-neutral, NOT a cut signal. **Refined rule: cut when the tape gets s
 hold when it goes quiet or goes vertical.** The campaign's signature non-monotonicity (interior
 optima: bar_tc [10,40), wave-age 5-10s, fade-z 2-3) appears in the exit dimension too.
 
+**The tc × vol regime GRID (user: combinations) — COHERENCE is the variable (rest ret%):**
+
+| tc \ vol | collapse | decay | climb | flare |
+|---|---|---|---|---|
+| collapse | **+0.17** (784) | −0.06 (212) | −0.14 (10) | — |
+| decay | −0.26 (561) | −0.00 (2,623) | −0.13 (565) | −0.22 (25) |
+| climb | −0.35 (10) | −0.28 (521) | −0.26 (1,812) | −0.12 (210) |
+| flare | — | +0.01 (1) | **−0.47** (102) | **+0.25** (237) |
+
+The ONLY positive cells are the coherent corners: both-collapse (+0.17, clean consolidation) and
+both-flare (+0.25, a real second ignition WITH size). The grid's worst cell: tc-flare × vol-climb
+(−0.47) — prints vertical, size grudging = the pure small-order swarm. tc-climb is negative across
+the whole row; even quiet divergence (decay×collapse: prints persist as size leaves) is toxic.
+**THE RULE IN ONE SENTENCE: hold when trade count and volume AGREE at the extremes; cut when
+participation outruns size.** The founding law of the campaign (participation leads size) is the
+whole story on both sides of the trade: at entry on wreckage = join; mid-hold on real stocks =
+leave.
+
+### F30f — breakout rungs + ABSOLUTE activity ratios on V2 (user: no more z's) — the 5m "peak" is a 2024 artifact; the absolute ladders are the keeper
+
+Hot × eff-hi. **The breakout-horizon ladder INVERTS V1's F24** (longest channel broken at entry,
+exclusive rungs):
+
+| rung | n | win% | ret% | PF | tkdays |
+|---|---|---|---|---|---|
+| 1m only | 51,892 | 39.7 | +0.123 | 1.199 | 5,586 |
+| 2m | 40,703 | 40.6 | +0.153 | 1.247 | 4,540 |
+| **5m** | 15,073 | 39.7 | +0.301 | **1.505** ⚠ see audit | 2,233 |
+| 20m | 15,040 | 35.1 | −0.034 | 0.949 | 1,049 |
+| **session** | 55,041 | 35.0 | **−0.165** | **0.831** | 2,207 |
+
+The session high is the WORST rung on real stocks (the fade side's food) — the exact mirror of
+V1's step. ⚠ **The 5m interior peak FAILS the year audit.** Its sub-states by calm/busy minute
+(1m-vs-session rate <1× on both / either / neither):
+
+| 5m rung sub-state | n | ret% | PF | tkd | by year (23/24/25/26) |
+|---|---|---|---|---|---|
+| both calm | 7,851 | +0.170 | 1.322 | 1,272 | 1.40 / 1.63 / **0.93** / 1.67 |
+| one calm | 1,777 | +0.241 | 1.504 | 538 | — |
+| busy (neither) | 5,445 | +0.510 | 1.696 | 1,027 | 1.22 / **3.28** / **1.00** / **0.96** ⚠ top-3 36.6% |
+
+The busy cell's entire blend is 2024; both-calm fails 2025. No year-stable rung structure
+survives; the stable long-V2 ceiling stays ~1.3-1.45.
+
+**The ABSOLUTE 1m-vs-session-rate ladders (the user's z-free formulation; monotone, year-honest):**
+
+| 1m rate / session rate | tc PF | vol PF |
+|---|---|---|
+| <0.5× | 1.226 | 1.206 |
+| 0.5-1× | 1.227 | 1.259 |
+| 1-2× | 1.082 | 1.071 |
+| 2-4× | 0.966 | 0.938 |
+| ≥4× | 0.861 / −0.239 | 0.858 / −0.233 |
+
+Same physics as the z-inversion in plain units — the quiet-relative-to-session minute is the good
+breakout state on real stocks. Data note: raw 20m sums (vol_1200/tc_1200) are NOT in the sink —
+the session anchor stands in; sinking them = 2-line engine add + ~100min regen if ever needed.
+⚠ context-dependence: INSIDE the (unstable) 5m rung the calm preference inverts — fresh structural
+breaks want participation; extended levels punish it. No unconditional feature, ever.
+
 ---
 
 # Appendix A — the four path-RV constructions (F3 companion)
