@@ -170,3 +170,26 @@ gives back far more on a short; meanwhile declines GRIND (short holds ~40% longe
 same stop). Slow-grinding profit + fast-snapping risk → the tight stop is worth more short.
 **Cell B′ specifically is stop-insensitive** (30s 3.503 / +0.419 vs 60s 3.416 / +0.540 on the same
 4,752 trips) — 30s slightly better risk-adjusted, 60s better per-trip; A′ strongly prefers 30s.
+
+## S7 — ⭐ mc=1 (both sides): the attribution SURVIVES sequential execution — cells compress 0-12%, books are real
+
+Two layers. (1) ENGINE mc=1 (`--max-concurrent 1`, one position per ticker at a time, hard gates
+only — banded in-play e60/x30): **SurgeRider book PF 1.669 / 46.5% / n=45,483 / +$587k @10k;
+PlungeRider book PF 1.831 / 47.2% / n=46,332 / +$748k** (mc=0 attribution: 1.713 / 2.112 — modest
+compression, REAL sequential PF numbers now). Runs: `surge23_mc1_e60_x30`, `plunge23_mc1_e60_x30`.
+(2) CELL mc=1 via greedy non-overlap over the recorded trip times (the engine's exact rule: a
+signal is taken only once the prior exit filled; `mc1_cells.py`):
+
+| cell | n mc0 | n mc1 | win% | ret% | mc1 PF | (mc0 PF) | net @10k | tkd |
+|---|---|---|---|---|---|---|---|---|
+| LONG A sess-high composite | 8,088 | 1,526 | 53.8 | +0.420 | 2.707 | 2.778 | $64k | 796 |
+| LONG A+ × ignition | 1,660 | 897 | 57.7 | +0.480 | **3.065** | ~3.05 | $43k | 567 |
+| LONG B off-high ign × eff-live | 4,425 | 2,671 | 52.2 | +0.400 | 2.750 | ~3.0 | $107k | 1,653 |
+| SHORT A′ sess-low ign×eff-dn\|early | 12,132 | 2,022 | 56.3 | +0.568 | 3.083 | ~3.5-3.7 | $115k | 1,208 |
+| SHORT B′ off-low ign × eff-dn\|NULL | 4,752 | 2,765 | 55.6 | +0.395 | **3.200** | 3.50 | $109k | 1,516 |
+
+Trip counts collapse up to 6:1 (the pyramiding removed) yet PF compresses only 0-12% and per-trip
+ret holds or IMPROVES — **the first signal of each episode carries the same edge as the pile**; the
+sampler's duplicates weren't propping the attribution. Four-cell book combined: ~7,000 sequential
+trips, ~$395k @10k notional over 3.5y, pre-cost. Remaining gates: costs (spread on sub-$2 in-play)
+and, short side, BORROW.

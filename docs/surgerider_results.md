@@ -1956,6 +1956,15 @@ tkd; reversal flavor ≈ 2.5-2.6 / 558 tkd.** Artifact: `cellb_sign.sql`.
 - Both cells share the ignition event; they differ only in what replaces the missing structure.
   Symmetric, interpretable, and every component measured on 262,884 trips over 3.5 years.
 
+## Finding 29 — ⭐ mc=1 CONFIRMS (2026-07-25): cells compress only 0-12% under sequential execution
+
+Engine `--max-concurrent 1` (banded in-play e60/x30): **broad book PF 1.669 / n=45,483 / +$587k
+@10k** (vs 1.713 attribution). Cell-level mc=1 (greedy non-overlap over recorded trip times): Cell A
+composite 2.707 (n=1,526), **A+ ×ignition 3.065 (n=897, 57.7% win)**, Cell B 2.750 (n=2,671). The
+pyramided duplicates weren't carrying the attribution — the first signal of each episode holds the
+full edge. Short-side mirror + the combined four-cell book: `docs/plungerider_results.md` S7.
+Remaining gate: the COST MODEL.
+
 ---
 
 # Appendix A — the four path-RV constructions (F3 companion)
