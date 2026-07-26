@@ -183,6 +183,12 @@ type SurgePosition =
       Tc60: float
       Vol1200: float             // raw 20m sums (user, 2026-07-26 — the absolute 1m-vs-20m
       Tc1200: float              // comparisons; the z's are retired as features of record)
+      Vol60Prev: float           // the PREVIOUS non-overlapping minute's sums (60-bar lag of the
+      Tc60Prev: float            // 60-sums) — minute-over-minute activity SLOPE (user, 2026-07-26)
+      Vwap60Ago: float           // vwap 60 present bars ago (two-point 1m return)
+      PxOlsSlope60: float        // ⭐ OLS slopes over the last 60 present bars (user: the 1m
+      VolOlsSlope60: float       // slopes proper) — ln(vwap), ln(bar volume), ln(bar tc);
+      TcOlsSlope60: float        // ln-per-bar units
       DollarVol60: float         // Sum60 of vwap*volume — the liquidity-floor value
       CumVol: float
       CumTc: float
@@ -305,6 +311,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let volSum60 = SumMa 60
     let volSum1200 = SumMa 1200                  // raw 20m activity (user, 2026-07-26)
     let tcSum1200 = SumMa 1200
+    let vol60Lag = LagMa<float> 60               // the previous minute's 60-sum (slope features)
+    let tc60Lag = LagMa<float> 60
+    let vwapLag60 = LagMa<float> 60              // vwap 60 bars ago (two-point 1m return)
+    let pxSlope60 = OlsSlopeMa 60                // OLS slopes over the 1m window:
+    let volSlope60 = OlsSlopeMa 60               // ln(vwap) / ln(bar volume) / ln(bar tc)
+    let tcSlope60 = OlsSlopeMa 60
     let tcSum5 = SumMa 5
     let tcSum10 = SumMa 10
     let tcSum15 = SumMa 15
@@ -434,11 +446,21 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         volSum60.Push bar.volume
         volSum1200.Push bar.volume
         tcSum1200.Push (float bar.tradeCount)
+        vwapLag60.Push bar.vwap
+        if bar.vwap > 0.0 then pxSlope60.Push (log bar.vwap)
+        volSlope60.Push (log (max bar.volume 1.0))
+        tcSlope60.Push (log (float (max bar.tradeCount 1)))
+        // the minute-lag chain feeds only WARM 60-sums (1 push per bar after
+        // warmup keeps .Lagged = the sum ending exactly 60 bars ago)
+        if volSum60.Count = 60 then
+            (match volSum60.State with ValueSome s -> vol60Lag.Push s | ValueNone -> ())
         tcSum5.Push (float bar.tradeCount)
         tcSum10.Push (float bar.tradeCount)
         tcSum15.Push (float bar.tradeCount)
         tcSum30.Push (float bar.tradeCount)
         tcSum60.Push (float bar.tradeCount)
+        if tcSum60.Count = 60 then
+            (match tcSum60.State with ValueSome s -> tc60Lag.Push s | ValueNone -> ())
         dvSum60.Push (bar.vwap * bar.volume)
         // baselines: ln(bar value) always; ln(sum_k) only once the sum is warm
         zVol1.Push (log (max bar.volume 1.0))
@@ -695,6 +717,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Tc60 = vv tcSum60.State
                       Vol1200 = vv volSum1200.State
                       Tc1200 = vv tcSum1200.State
+                      Vol60Prev = vv vol60Lag.Lagged
+                      Tc60Prev = vv tc60Lag.Lagged
+                      Vwap60Ago = vv vwapLag60.Lagged
+                      PxOlsSlope60 =
+                        (if pxSlope60.Count = pxSlope60.WindowSize then vv pxSlope60.Slope else nan)
+                      VolOlsSlope60 =
+                        (if volSlope60.Count = volSlope60.WindowSize then vv volSlope60.Slope else nan)
+                      TcOlsSlope60 =
+                        (if tcSlope60.Count = tcSlope60.WindowSize then vv tcSlope60.Slope else nan)
                       DollarVol60 = vv dvSum60.State
                       CumVol = cumVol
                       CumTc = cumTc

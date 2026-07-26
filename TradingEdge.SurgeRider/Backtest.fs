@@ -164,6 +164,8 @@ CREATE TABLE trips (
     vol_5 DOUBLE, vol_10 DOUBLE, vol_15 DOUBLE, vol_30 DOUBLE, vol_60 DOUBLE,
     tc_15 DOUBLE, tc_30 DOUBLE, tc_60 DOUBLE,
     vol_1200 DOUBLE, tc_1200 DOUBLE,
+    vol_60_prev DOUBLE, tc_60_prev DOUBLE, vwap_60_ago DOUBLE,
+    px_ols_slope_60 DOUBLE, vol_ols_slope_60 DOUBLE, tc_ols_slope_60 DOUBLE,
     dollar_vol_60 DOUBLE, cum_vol DOUBLE, cum_tc DOUBLE,
     fwd_vwap_60 DOUBLE, fwd_vwap_300 DOUBLE, fwd_vwap_1200 DOUBLE,
     aux_hi_120_px DOUBLE, aux_hi_120_sec INTEGER,
@@ -240,6 +242,8 @@ type TripSink(outDir: string) =
             f p.Vol5; f p.Vol10; f p.Vol15; f p.Vol30; f p.Vol60
             f p.Tc15; f p.Tc30; f p.Tc60
             f p.Vol1200; f p.Tc1200
+            f p.Vol60Prev; f p.Tc60Prev; f p.Vwap60Ago
+            f p.PxOlsSlope60; f p.VolOlsSlope60; f p.TcOlsSlope60
             f p.DollarVol60; f p.CumVol; f p.CumTc
             f p.FwdVwap60; f p.FwdVwap300; f p.FwdVwap1200
             let inline auxSec (s: int) =
