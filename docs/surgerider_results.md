@@ -2028,6 +2028,114 @@ NOT met on ≥$2 longs.** Untried: the x30 exit sweep (~100min run; V1 razor mov
 only — unlikely to bridge 1.45→2). Per the user's criterion: pivot to longer-term mean reversion,
 with the V2 SHORT hot-band family (S9b) and the V1 drawer as the standing 1s assets.
 
+### F30c — fast-vs-slow rates + the 20m-z ladders (user, continued): MONOTONE INVERSION — on ≥$2 hot tape, the crowd is the TOP; the "quiet breakout" is the best long state (still ≤1.29)
+
+Hot × eff-hi population. The 10-15s-vs-1m rate ratios are U-shaped (calm-second 1.24-1.29 best,
+1-2× trough 0.94-1.0). **The vs-20m comparisons (= the z features by construction) are perfectly
+monotone NEGATIVE:**
+
+| z (10s vs 20m) | z_tc_10 | z_vol_10 |
+|---|---|---|
+| <0 | 1.280 / +0.142 | 1.226 / +0.115 |
+| 0-1 | 1.212 | 1.221 |
+| 1-2 | 0.899 | 0.894 |
+| 2-3 | 0.781 / −0.250 | 0.770 / −0.252 |
+| ≥3 | 0.618 / −0.484 | **0.373 / −0.774** |
+
+**The complete inversion of V1's ignition: on wreckage the participation burst = the marginal buyer
+arriving; on real stocks the burst = the crowd = the top.** Best long state = the QUIET BREAKOUT
+(hot tape, current seconds calm vs their own 20m). The inverted stack: hot × eff-hi × both-z<1 ×
+not-20m-high = **1.287 / +0.166 / n=82,190 / 5,863 tkd** (yrs 1.12/1.49/1.11/1.44); +tc[120,300)
+adds nothing. Long ceiling unchanged ~1.29-1.45.
+
+**⭐ The program-level takeaway: z_vol_10≥3 on hot ≥$2 tape = −0.77%/trip for longs — the most
+negative broad cell in the program. F16 + S4 + the 20m-high inversion + this ladder all point at
+ONE unbuilt vehicle: the TOP-FADE SHORT (enter into the exhaustion burst at the high, not on the
+breakdown after it). If the 1s work continues, that engine variant is the highest-expected-value
+build; the breakdown-riding engines structurally cannot reach these cells.
+
+### F30d — the top-fade raw material MEASURED (forward marks) + eff_10m on the stack
+
+Forward vwap marks after the burst (hot ≥40bp, ≥$2 longs; entry-fill basis, model-free):
+
+| burst cell | n | fwd 1m | fwd 5m | fwd 20m mean | fwd 20m MEDIAN | tkd |
+|---|---|---|---|---|---|---|
+| **z_vol_10 2-3 × at-20m-high** | 60,862 | −0.080 | −0.181 | −0.286 | **−0.749** | 6,233 |
+| z 2-3 × off-high | 37,606 | +0.068 | +0.059 | +0.021 | −0.235 | 8,105 |
+| z ≥3 × at-20m-high | 6,892 | −0.055 | −0.013 | **+0.268** ⚠ | −0.275 | 1,669 |
+| z ≥3 × off-high | 2,400 | −0.031 | −0.085 | −0.114 | −0.007 | 907 |
+
+**The setup: the MODERATE (2-3σ) burst AT the 20m high — median −0.75%/20m on 61k events / 6,233
+tkd.** The ≥3σ extreme is the trap (mean flips +0.27: monster squeezes live there — the fade needs
+a hard stop above and should prefer 2-3σ). Off-high bursts barely fade — the climax must be AT the
+high. The long channel-ride loses MORE than raw drift (−0.25/−0.77 vs −0.29) because the trailing
+exit buys the burst and sells the low — the mechanic a short harvests. **⏭ if 1s continues: the
+top-fade engine fork (entry = 2-3σ burst at the 20m/session high on hot tape, stop above).**
+
+eff_10m on the quiet-breakout stack (the F27b move): best cell e10-hi × 20m-up = 1.480 / +0.314 /
+n=2,889 — the usual ~+0.2 refinement; the long ceiling stays ≤1.5. The PF-2 long bar remains unmet.
+
+Philosophical note (user): across the whole program, FADING dominates FOLLOWING in every universe
+except sub-$1 wreckage — the one regime where the crowd is the fuel. The retail curriculum (SMB,
+Lance et al.) teaches the exception as the rule.
+
+### F30e — winners vs losers: the ACTIVITY-SLOPE study (user) — slow burn good, flare-up bad; all the EV is in the first ~60s
+
+1s-tape join, 400 sampled tkd / 10,301 trips of the hot × eff-hi cell; 30s activity windows at
+entry, +60s, exit.
+
+**(a) slope over the whole hold, by outcome:** top 20% (avg +2.80%): ln(tc_exit/tc_entry) = +0.005
+— activity SUSTAINED to the exit; 20-50%: −0.172; bottom 50% (−1.32%): −0.088. Winners keep the
+tape engaged through the run.
+
+**(b) the +60s checkpoint (7,673 still open; rest = exit/fwd_vwap_60) — the proposed
+"cut-if-slopes-down" tweak is BACKWARDS:**
+
+| slope at 60s | n | rest ret% | win% |
+|---|---|---|---|
+| tc UP | 2,861 | **−0.223** | 31.0 |
+| tc DOWN | 4,812 | −0.023 | 30.2 |
+| vol UP | 2,961 | −0.191 | 31.6 |
+| both DOWN | 4,192 | −0.010 | 30.2 |
+
+RE-ACCELERATION in the first minute is the adverse signal (the F30c crowd-inversion inside the
+hold): winners build GRADUALLY; the flare-up after entry is the exhaustion print. Reconciles with
+(a): sustained-through-the-move ≠ spiking-in-minute-one. **And: rest-of-trade EV ≤ 0 in EVERY slope
+state — the cell's entire edge is earned in the first ~60 seconds.** Tweak candidates: (i) hard
+~60s time exit (same EV, half the capital lock, forfeits winner tails); (ii) conditional: hold past
+60s only if activity flat-to-down, CUT on re-acceleration (+0.2%/trip saved on the up-slope third).
+
+The full 2×2 (user: what if both are up?):
+
+| state at 60s | n | rest ret% | win% |
+|---|---|---|---|
+| both UP | 2,341 | −0.211 | 32.1 |
+| **tc UP only** | 520 | **−0.275** | 26.2 |
+| vol UP only | 620 | −0.112 | 30.0 |
+| both DOWN | 4,192 | −0.010 | 30.2 |
+
+The WORST state is prints-up-without-size — participation re-accelerating with no matching volume =
+a crowd of small orders chasing = the retail-arrival signature. The cut rule refines to: **cut on
+tc re-acceleration (with or without volume); volume alone is only mildly adverse.** The
+participation-leads-size law appears one final time — inverted, as the strongest adverse signal on
+real stocks.
+
+**The slope-MAGNITUDE ladder (user) — N-SHAPED; the danger zone is the MODERATE climb:**
+
+| tc slope @60s (ln ratio) | n | rest ret% | win% |
+|---|---|---|---|
+| <−1 (collapse) | 1,006 | **+0.115** | 34.7 |
+| −1..0 (quiet decay) | 3,774 | −0.05/−0.09 | 27-30 |
+| **0..+1 (moderate climb)** | 2,553 | **−0.235/−0.293** | 27-30 |
+| ≥+1 (flare >2.7×) | 340 | +0.030 | **46.5** |
+
+(volume: same shape — 0..+1 band −0.23/−0.25, flare +0.057/40.3.) Three regimes: COLLAPSE = good
+(tape silent = nobody selling into you; quiet consolidation); MODERATE CLIMB = the kill zone (the
+grinding retail arrival); FLARE = a second ignition — usually continues (46.5% win), fails big when
+it fails, EV-neutral, NOT a cut signal. **Refined rule: cut when the tape gets somewhat busier;
+hold when it goes quiet or goes vertical.** The campaign's signature non-monotonicity (interior
+optima: bar_tc [10,40), wave-age 5-10s, fade-z 2-3) appears in the exit dimension too.
+
 ---
 
 # Appendix A — the four path-RV constructions (F3 companion)
