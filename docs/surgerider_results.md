@@ -1896,6 +1896,60 @@ supply) replaces the context requirement — you don't need the tape to have bee
 participation print confirming the break is real. Off-high you need both (F27/F27b) because the
 breakout fights supply.
 
+### F28 — distance from session VWAP (off-high entries): a shallow U, NOT a side preference — and Cell B absorbs it entirely
+
+**Question (user, 2026-07-25):** off-high entries — better below or above the session VWAP? Ladder on
+`dist_sess_vwap` (ln(entry vwap / session vwap)), off-high @1m, full 2023→2026:
+
+**Broad off-high population:**
+
+| dist from sess VWAP | n | win% | ret% | PF | tkdays |
+|---|---|---|---|---|---|
+| < −2% | 62,616 | 45.1 | +0.176 | **1.690** | 1,808 |
+| −2 .. −0.5% | 48,760 | 43.7 | +0.122 | 1.514 | 2,407 |
+| ±0.5% (at vwap) | 39,848 | 43.4 | +0.138 | 1.530 | 2,641 |
+| +0.5 .. +2% | 44,544 | 44.5 | +0.160 | 1.568 | 2,508 |
+| +2 .. +5% | 33,309 | 45.0 | +0.183 | 1.630 | 1,441 |
+| > +5% | 10,720 | 42.8 | +0.153 | 1.477 | 348 |
+
+**Inside Cell B (ignition × eff-live):**
+
+| dist from sess VWAP | n | win% | ret% | PF | tkdays |
+|---|---|---|---|---|---|
+| < −2% | 980 | 51.4 | +0.295 | 2.493 | 477 |
+| −2 .. −0.5% | 884 | 53.2 | +0.385 | 3.097 | 498 |
+| ±0.5% (at vwap) | 949 | 51.6 | +0.410 | 2.811 | 597 |
+| +0.5 .. +2% | 998 | 53.7 | +0.484 | 2.775 | 559 |
+| +2 .. +5% | 489 | 53.2 | +0.441 | 2.811 | 239 |
+| > +5% | 125 | 60.8 | +1.126 | 6.355 ⚠ | 63 |
+
+Broad population: a shallow U — deep-below (<−2%, the deep-pullback reversal) and moderately-above
+(+2..5%, the established leg) both beat the ±2% chop band hugging VWAP; >+5% extension rolls off.
+Total spread ±0.1 PF — far weaker than the carried levers. **Inside Cell B the axis is FLAT (2.5-3.1
+across all bands)** — the conditioning absorbs whatever VWAP position was going to say; not a gate.
+Mechanism read: at VWAP both sides have ammunition; far from it one side has capitulated.
+⚠ recorded-not-believed: Cell B × >+5% = PF 6.355 / +1.126 / 60.8% win but n=125 / 63 tkdays —
+re-check after the short side. Artifact: `vwap_dist.sql`.
+
+### F28b — Cell B × eff SIGN (user): given the ignition, CONTINUATION beats reversal by a full PF point — and the sign explains F28's flatness
+
+Cell B's eff-hi part (|eff_20m| ≥ 0.40, NULL excluded — no sign), split by 20m direction × VWAP side:
+
+| dir | vwap side | n | win% | ret% | PF | tkdays |
+|---|---|---|---|---|---|---|
+| **up (continuation)** | ALL | 788 | 55.1 | +0.543 | **3.607** | 320 |
+| up | above | 682 | 55.7 | +0.573 | 3.790 | 279 |
+| up | below | 65 | 55.4 | +0.508 | 2.979 | 35 |
+| **down (reversal)** | ALL | 1,151 | 52.0 | +0.303 | **2.589** | 558 |
+| down | below | 1,097 | 51.4 | +0.283 | 2.477 | 527 |
+| down | at vwap | 26 | 69.2 | +1.183 | 10.202 ⚠ dust | 21 |
+
+Unconditioned the sign was FLAT (F23: 1.96 vs 2.07); inside the ignition, continuation pulls ahead
+3.61 vs 2.59 (both healthy). The VWAP side is ~determined by the sign (95% of down-entries below,
+87% of up-entries above) — F28's flat Cell B ladder was mixing two flavors with opposite VWAP
+positions. **Cell B finest confirmed grain: ignition × eff>+0.40 (continuation) ≈ 3.6-3.8 / 320
+tkd; reversal flavor ≈ 2.5-2.6 / 558 tkd.** Artifact: `cellb_sign.sql`.
+
 **THE UNIFIED SYSTEM MAP (all 2023→2026, mc=0, pre-cost):**
 - **Cell A — sess-high @30s razor × tc-ignition: PF ~3.05** (context-free; optional not-10-60%-gainer)
 - **Cell B — off-high @1m × tc-ignition × eff-live (e20 hi/NULL, +e10-hi for the peak): PF ~3.0-3.35**
