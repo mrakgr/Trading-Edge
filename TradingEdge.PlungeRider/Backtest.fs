@@ -22,7 +22,10 @@ type Config =
       /// The daily in-play floor: minimum 09:30-09:45 dollar volume (see SurgeRider).
       MinDv0945: float
       /// Optional in-play universe pre-filter: rvol_0945_honest >= this. 0 = off.
-      MinRvol0945: float }
+      MinRvol0945: float
+      /// ⭐ V2: universe gate on the PRIOR day's close in day-D raw (post-split) scale —
+      /// prev_adj_close / adj_ratio >= this. Knowable before the open. 0 = off; 2 = V2.
+      MinPrevClose: float }
 
 /// The sampler defaults (mc = 0) — same values as SurgeRider's. ⚠ The vol band
 /// is the LONG side's calibration; F14b/F16 flagged the >= 40bp region it
@@ -47,7 +50,8 @@ let defaultConfig =
           MocSec           = 57600 }    // 16:00
       Notional = 10_000.0
       MinDv0945 = 10_000_000.0
-      MinRvol0945 = 0.0 }
+      MinRvol0945 = 0.0
+      MinPrevClose = 0.0 }
 
 /// One candidate (ticker, day) from diprider_v6_candidate.
 type Candidate =
@@ -62,7 +66,7 @@ type Candidate =
       Dv0945: float
       Rvol0945Honest: float }
 
-let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: DateOnly) (minDv0945: float) (minRvol0945: float) : Candidate[] =
+let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: DateOnly) (minDv0945: float) (minRvol0945: float) (minPrevClose: float) : Candidate[] =
     // Research override: SR_CANDIDATE_TABLE (shared with SurgeRider — same
     // universe machinery). Identifier-only (injection-safe).
     let table =
@@ -77,11 +81,13 @@ let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDa
           FROM {table}
           WHERE date >= $start AND date <= $end AND dv_0945 >= $mindv
             AND rvol_0945_honest >= $minrvol
+            AND coalesce(prev_adj_close / nullif(adj_ratio, 0), 0) >= $minprevclose
           ORDER BY ticker, date"
     let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- startDate; cmd.Parameters.Add pStart |> ignore
     let pEnd   = cmd.CreateParameter() in pEnd.ParameterName   <- "end";   pEnd.Value   <- endDate;   cmd.Parameters.Add pEnd   |> ignore
     let pDv    = cmd.CreateParameter() in pDv.ParameterName    <- "mindv"; pDv.Value    <- minDv0945; cmd.Parameters.Add pDv    |> ignore
     let pRv    = cmd.CreateParameter() in pRv.ParameterName    <- "minrvol"; pRv.Value  <- minRvol0945; cmd.Parameters.Add pRv  |> ignore
+    let pPc    = cmd.CreateParameter() in pPc.ParameterName    <- "minprevclose"; pPc.Value <- minPrevClose; cmd.Parameters.Add pPc |> ignore
     let out = ResizeArray<Candidate>()
     use reader = cmd.ExecuteReader()
     let dbl (i: int) = if reader.IsDBNull i then nan else reader.GetDouble i
@@ -329,7 +335,7 @@ let run (dbPath: string) (secDir: string) (outDir: string) (cfg: Config)
         pragma.CommandText <- "PRAGMA memory_limit='6GB'"
         pragma.ExecuteNonQuery() |> ignore
 
-    let candidates = readCandidates conn startDate endDate cfg.MinDv0945 cfg.MinRvol0945
+    let candidates = readCandidates conn startDate endDate cfg.MinDv0945 cfg.MinRvol0945 cfg.MinPrevClose
     use sink = new TripSink(outDir)
     let daysRun = collectTrips conn cfg secDir candidates sink progress
     candidates.Length, daysRun,

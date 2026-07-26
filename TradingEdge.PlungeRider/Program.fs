@@ -33,6 +33,7 @@ type Args =
     // ----- universe -----
     | Min_Dv_0945 of float
     | Min_Rvol_0945 of float
+    | Min_Prev_Close of float
     // ----- sampler vs book -----
     | Max_Concurrent of int
     // ----- timing -----
@@ -58,6 +59,7 @@ type Args =
             | Max_Vol_20m _ -> "VOL CEILING: vol_20m < this. Default 0.0040 (40bp) — ⚠ long-side calibration; the >=40bp blowoff region it EXCLUDES is flagged short material (F14b/F16). 1e9 = off."
             | Min_Dv_0945 _ -> "Universe floor: min 09:30-09:45 dollar volume (LIVE-SAFE). Default 10000000."
             | Min_Rvol_0945 _ -> "Optional in-play universe pre-filter: rvol_0945_honest >= this (LIVE-SAFE at 09:45). Default 0 = off. 10 = the stocks-in-play sweeps."
+            | Min_Prev_Close _ -> "⭐ V2 universe gate: PRIOR day's close in day-D raw (post-split) scale >= this (knowable before the open). Default 0 = off. 2 = the V2 >=$2 universe."
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: unlimited concurrent positions. PF is then ATTRIBUTION, not a portfolio number. 1 = a real book."
             | Entry_Start_Sec _ -> "Earliest ET second (since midnight) an entry may fire. Default 35100 = 09:45. ⚠ Must be >= 35100 — the knowability guard."
             | Entry_End_Sec _ -> "Latest ET second an entry may fire. Default 48600 = 13:30."
@@ -94,7 +96,8 @@ let main argv =
                     EntryStartSec    = parsed.GetResult(Entry_Start_Sec,    defaultValue = d.Intraday.EntryStartSec)
                     EntryEndSec      = parsed.GetResult(Entry_End_Sec,      defaultValue = d.Intraday.EntryEndSec) }
             MinDv0945 = parsed.GetResult(Min_Dv_0945, defaultValue = d.MinDv0945)
-            MinRvol0945 = parsed.GetResult(Min_Rvol_0945, defaultValue = d.MinRvol0945) }
+            MinRvol0945 = parsed.GetResult(Min_Rvol_0945, defaultValue = d.MinRvol0945)
+            MinPrevClose = parsed.GetResult(Min_Prev_Close, defaultValue = d.MinPrevClose) }
 
     // ⚠ KNOWABILITY GUARD (docs/lookahead_protocol.md R4) — see SurgeRider.
     if cfg.Intraday.EntryStartSec < 35100 then
@@ -121,9 +124,10 @@ let main argv =
     printfn "  db          = %s" dbPath
     printfn "  1s bars     = %s" secDir
     printfn "  range       = %O .. %O" startDate endDate
-    printfn "  universe    = dv_0945 >= $%.1fM%s" (cfg.MinDv0945 / 1e6)
+    printfn "  universe    = dv_0945 >= $%.1fM%s%s" (cfg.MinDv0945 / 1e6)
         (if cfg.MinRvol0945 > 0.0 then sprintf "   AND rvol_0945_honest >= %.1f  [IN-PLAY PRE-FILTER]" cfg.MinRvol0945
          else "   [LIVE-SAFE; rvol_0945_honest RECORDED, not gated]")
+        (if cfg.MinPrevClose > 0.0 then sprintf "   AND prev raw close >= $%.2f  [V2]" cfg.MinPrevClose else "")
     printfn "  ENTRY       = vwap < prior %d-bar MIN   AND dv60 >= $%.0fk AND tc60 >= %.0f   (fill: NEXT bar vwap; SHORT)"
         ic.EntryChannelBars (ic.DvFloor60 / 1e3) ic.TcFloor60
     printfn "  vol band    = vol_20m ∈ [%s, %s) bp/30s   ⚠ long-side calibration (floor 0 / ceiling 1e9 = off)"

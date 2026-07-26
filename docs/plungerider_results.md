@@ -193,3 +193,173 @@ ret holds or IMPROVES — **the first signal of each episode carries the same ed
 sampler's duplicates weren't propping the attribution. Four-cell book combined: ~7,000 sequential
 trips, ~$395k @10k notional over 3.5y, pre-cost. Remaining gates: costs (spread on sub-$2 in-play)
 and, short side, BORROW.
+
+## S8 — the COST MODEL, part 1: budgets (breakeven 39-57bp) + the price-regime discovery (~90% of trips are SUB-$1 → sub-penny ticks; fees & Reg-T become the real questions)
+
+**Budgets — mc=1 cell PF under a flat round-trip cost:**
+
+| cell (mc=1) | PF@0 | @10bp | @20bp | @30bp | @50bp | breakeven |
+|---|---|---|---|---|---|---|
+| LONG A+ sess-high × ign | 3.065 | 2.370 | 1.853 | 1.469 | 0.961 | 48bp |
+| LONG B off-high | 2.750 | 2.074 | 1.596 | 1.252 | 0.808 | 40bp |
+| SHORT A′ sess-low | 3.083 | 2.462 | 1.988 | 1.625 | 1.123 | **57bp** |
+| SHORT B′ off-low | 3.200 | 2.298 | 1.692 | 1.278 | 0.778 | 39bp |
+
+Everything survives 20bp; nothing survives 50bp (except A′ barely). THE question: real RT cost vs ~20bp.
+
+**The price-regime table (raw entry px = entry_px/adj_ratio):**
+
+| cell | <$1 subpenny | $1-2 penny-tick | $2-5 | ≥$5 | med px |
+|---|---|---|---|---|---|
+| A+ long | 88.9 | 3.9 | 3.6 | 3.7 | $0.27 |
+| B long | 88.6 | 3.7 | 3.6 | 4.0 | $0.27 |
+| A′ short | 90.6 | 4.6 | 2.4 | 2.4 | $0.24 |
+| B′ short | 90.7 | 2.9 | 3.0 | 3.3 | $0.26 |
+
+**~90% of the book is sub-$1** — sub-penny quoting (min spread at $0.25 = $0.0001 = 4bp): the
+tick-size threat (penny tick at $1.50 = 67bp minimum spread, above every breakeven) applies to only
+3-5% of trips. Consequences that REFRAME the cost model:
+1. **Fees become %-of-value**: at $0.25, 10k notional = 40k shares; sub-$1 ECN taker fees are
+   ~0.1-0.3% OF VALUE per side → possibly 20-60bp RT from fees ALONE. Not measurable from the tape —
+   comes from the broker/venue schedules (user input; likely the deciding line).
+2. Spread measurement (Level 2, trades tape): within-second price dispersion + Roll estimator on the
+   actual signal seconds — "how far above the 4bp floor do sub-$1 in-play spreads sit?"
+3. **⚠ Reg-T short landmine: sub-$5 shorts margin at max($2.50/share, 100%)** — shorting a $0.25
+   name consumes ~10× notional in margin. A′/B′ per-trip economics survive; CAPITAL EFFICIENCY on
+   the deepest wreckage is savaged (on top of borrow). The short book may need a ≥$1 restriction or
+   resizing.
+
+⏭ Level 2 (measured spreads from `/mnt/d/trading-edge-bulk/trades` on sampled trip events) +
+Level 3 (worst-print replay bound) + the broker fee schedule.
+
+### S8b — CAPACITY + FEES (user questions): the honest reckoning — ~$1-5k/bar fill capacity, IBKR Pro %-caps over budget; the edge is real but SMALL-CLIP
+
+**⚠ adj_ratio bug in the first capacity pass:** `bar_vol × signal_vwap` mixes raw shares with
+ADJUSTED price — overstates dollar volume by adj_ratio (large for reverse-splitters). Corrected
+(`× signal_vwap/adj_ratio`):
+
+| cell | med signal-bar $vol | p25 | p10 | % bars <$100k | ≥$2 subset med |
+|---|---|---|---|---|---|
+| A+ long | $5,435 | $2,300 | $1,026 | 98.7 | $21k |
+| B long | $4,483 | $1,812 | $794 | 99.1 | $20k |
+| A′ short | $977 | $105 | $12 | 98.6 | $8.6k |
+| B′ short | $3,894 | $1,704 | $788 | 99.3 | $12k |
+
+**10k notional = 2-10× the ENTIRE fill bar's volume — the vwap fill is fiction at that size.** At
+5-10% participation (even spread over a few bars), the realistic clip is **~$200-2,000/trip**. The
+$395k @10k four-cell book scales to ~$20-80k over 3.5y at honest sizes: a genuine but SMALL-CLIP
+edge — consistent with the small-account frame, not beyond it.
+
+**Fees (researched 2026-07-25):**
+1. **IBKR Pro is over budget sub-$1**: Fixed = $0.005/sh, min $1, **max 1% of trade value**/side;
+   Tiered **capped at 0.5% of value**/side — at $0.25/share the caps BIND → 100-200bp RT vs 39-57bp
+   breakevens. IBKR Lite: sub-$1 orders commission-FREE but only ≤10% of monthly volume — inverted
+   for a book that is ~90% sub-$1 (excess charged min($0.005/sh, 1%) = 1% at these prices).
+2. **The structural floor is the Reg NMS 610(c) access-fee cap**: sub-$1 taker fees cap at 0.3% of
+   quote price/side today (≈60bp RT — marginal-to-dead) but the 2024 SEC amendments REDUCE it to
+   **0.1%/side (≤20bp RT — inside every budget) with compliance from Nov 2026** — months away.
+   The same amendments bring half-penny quoting to eligible ≥$1 names (halves the $1-2 zone's floor).
+3. **No ≥$2 refuge**: long ≥$2 cells 1.4-1.7 (F25 — the edge IS the wreckage); short ≥$2 PFs
+   (12.6/3.5) are 73-83% top-3 concentration = collapse-day artifacts, recorded-not-believed.
+
+**Verdict (corrected after user pushback on the maker claim):** the tape-level edge is real and
+confirmed, but extraction is constrained to SMALL CLIPS (~$0.5-2k/trip), and the cost lines split:
+1. **COMMISSION is order-type-INDEPENDENT — a BROKER-selection problem.** IBKR Pro's %-of-value
+   caps (0.5-1%/side) kill sub-$0.50 regardless of limit vs market. ⚠ **EU-RESIDENT reality
+   (user is in Croatia; IBKR Lite = US-only)**: the US zero-commission retail routes are OUT —
+   Robinhood EU = tokenized large caps only (no real microcaps, no stock API), Webull EU = UK/NL
+   only, Schwab International = country-limited. The programmatic candidates: **Alpaca**
+   (international + API-first + commission-free, BUT a 2022 report of sub-$1 orders routed
+   non-retail at 40 mils/share = 1.6%/side at $0.25 — CURRENT policy must be verified with
+   support) and **TradeZero International** (built for non-US residents, small-cap/locate
+   specialist — API maturity + sub-$1 schedule need a direct check). IBKR = the ≥$2 fallback.
+2. Venue access fee: taker 0.3%→0.1%/side Nov 2026; makers exempt/rebated.
+3. Spread: maker flips pay→earn BUT momentum entries suffer textbook ADVERSE SELECTION on resting
+   fills (winners run unfilled, losers fill through you) — unmeasurable without quote data; this
+   book is taker-natured on both legs. Do NOT credit maker economics without quotes.
+**THE deciding number is the effective spread on sub-$1 in-play tapes = Level 2 (trades-tape
+measurement).** Everything stays pre-borrow for shorts (+ Reg-T $2.50/sh sub-$5 margin, S8).
+
+### S8c — the broker verdict (2026-07-25) + THE V2 PIVOT
+
+Broker sweep for an EU (Croatia) resident: IBKR Lite = US-only; Alpaca = rejects Croatian
+residents (user, first-hand); Clear Street = no EU; Robinhood EU = tokenized large caps; Webull =
+UK/NL; Schwab Intl = country-limited. **TradeZero International** (the non-US-resident entity):
+sub-$1 = $0.005/sh min $0.99, NO free-limit lane (≈2%/side at $0.25 — the sub-$1 book is priced
+out on EVERY EU-accessible route). BUT: **Developer API launched May 2026** — REST+WebSocket
+execution, free to enable, paper env, and a **Short Locate API** (programmatic locate quote/
+reserve/sell-back) that turns the borrow gate into a QUOTABLE cost-model input. ≥$1: free
+non-marketable limits (≥200sh); marketable $0.005/sh = ≤25bp/side at $2+.
+
+**⏭ THE V2 PIVOT (user decision): SurgeRider/PlungeRider V2 — universe ≥$2 raw price, RELAXED
+rvol, test whether tape acceleration (ignition) + eff carry an edge on cleaner stock.** ⚠ F25's
+"edge dies ≥$2" was measured INSIDE rvol≥10 wreckage — the relaxed-rvol ≥$2 universe is unexplored;
+prior findings neither doom nor guarantee it. Execution story if it works: TradeZero API, ≤25bp/side
+marketable, locate API for shorts.
+
+## S9 — ⭐⭐ THE V2 VERDICT: comprehensively NEGATIVE — nothing in the V1 stack transfers to ≥$2 stocks; the edge IS the wreckage regime
+
+**Setup:** `--min-prev-close 2` (prior close in day-D raw scale — new engine flag), rvol gate OFF,
+no band, e60/x60, 2023→2026: **97,642 tkd → 39.1M (long) / 38.6M (short) trips**, raw PF
+1.074/1.072. Runs: `surge23_v2_e60_x60_noband`, `plunge23_v2_e60_x60_noband` (~10GB each; ⚠ next
+time scout with the 60d window first — this cost 2×100min).
+
+**Every V1 structure fails on this universe (both sides symmetric):**
+
+| structure | V1 (sub-$1 wreckage, in-play) | V2 (≥$2, all rvol) |
+|---|---|---|
+| vol band | 7-20bp peak: 2.69 short / 2.12 long-cell | FLAT 1.04-1.12, no peak |
+| rvol (in-play) | THE precondition (rvol≥10) | INVERTS: rvol≥10 = 0.92 long / 1.02 short; rvol<1 "best" 1.09-1.11 |
+| band × ignition × eff-hi | 3.0-3.3 | 1.12-1.16, ret +0.015-0.02% |
+| best cell anywhere | 3.6-5.0 | 1.32-1.45 (no-band ign, n≈41k) at +0.03-0.14%/trip |
+| **session-extreme step** | interior 1.6-1.8 → 2.26-2.54 | **GONE: sess 1.04-1.05 ≤ off 1.07; ign-sess 1.11-1.21** |
+
+Even the best V2 cells earn +0.03-0.14%/trip — under the ≥$2 cost line (~20-50bp RT marketable)
+everything is deeply negative. **Reading: the V1 edge is a property of the WRECKAGE REGIME, not of
+the tape mechanics abstractly.** On a sub-$1 day-trader-rotation name the session is the entire
+story — no institutional anchor, no multi-day memory — so session extremes are real supply
+boundaries and 1s participation bursts are the marginal buyer. A ≥$2 stock has memory beyond the
+session (holders, levels, institutions): its session high is not "no supply above," and its 1s
+bursts are noise inside bigger flows. The machinery measured this honestly on 78M trips: there is
+no V2 system in this signal class.
+
+**The strategic fork after S9:** (a) the V1 book goes in the DRAWER awaiting extractability (Nov
+2026 access-fee cut; half-penny quoting for eligible ≥$1 names; broker landscape shifts); (b) the
+$1-2 in-play sliver (TradeZero free-limit eligible, half-penny regime coming) — thin n in V1, worth
+a targeted look; (c) a DIFFERENT signal class for real stocks (longer timeframes — the 1s scalp
+layer is the wrong microscope for institutional tape); (d) the S9b survivor below.
+
+### S9b — the ONE V2 survivor (user: "what is the best cell?"): the HOT-TAPE SHORT on ~$5 stocks — real, modest, and it clears its cost line
+
+Decomposing the no-band ignition cells: the quiet<7bp side = $60-80 mega-caps at +0.006% (noise);
+the HOT side is the survivor. **SHORT × vol≥40bp × ignition × eff-hi: PF 1.579 / +0.326%/trip /
+n=5,627 / 1,810 tkdays / median stock $5.42, median rvol 2.8** (+ the eff-NULL early sibling:
+1.378 / +0.20% / n=27,781 / 7,754 tkd @ $6.26). By year × sign: continuation (short into a live 20m
+decline) 1.67/1.43/1.80/1.30, reversal 1.25/1.78/1.47/1.24 — positive EVERY year, both flavors, no
+artifact. This is V1-S4's blowoff-short signature surviving on real stocks. At $5-6 prices the cost
+line (~15-25bp RT marketable at TradeZero) leaves net +0.1-0.3%/trip at PF ~1.3-1.5 — THIN but the
+only V2 cell where edge and extractability overlap. ⚠ Untuned: this cell inherited V1's knobs
+(e60/x60, [10,40) prints, 0.40 eff edges) — an exit sweep / sess-tier / price-floor pass on ITS
+universe is the obvious next step if pursued.
+
+**The fine vol ladder inside the survivor (user: target the high bands — confirmed MONOTONE):**
+
+| band | n | win% | ret% | PF | tkd | med px |
+|---|---|---|---|---|---|---|
+| 40-80bp | 3,933 | 42.3 | +0.152 | 1.368 | 1,401 | $7.21 |
+| **80-160bp** | 1,376 | 46.0 | **+0.541** | 1.674 | 430 | $3.51 |
+| ≥160bp | 318 | 46.2 | +1.548 | 2.118 | 62 ⚠ audit-first | $2.13 |
+
+Per-trip ret scales ~10× up the ladder; median price slides toward the $2 boundary with it — the
+system pulls back toward wreckage from every angle. **Candidate band: [80,160)bp @ ~$3.50 —
++0.54%/trip clears ~20-30bp RT with margin, 430 tkd.** ⚠ Universe-dependent inversion worth
+recording: hot-band breakdown-riding was a BUST on V1 wreckage (S1/S4 squeeze violence) but is the
+sole V2 survivor — the same tape state is a squeeze crowd at $0.25 and genuine liquidation at $3-7.
+
+**The LONG twin (SurgeRider V2, user question): same family at ~2/3 strength — the hierarchy of V1
+REVERSES.** Hot × ign × eff-hi: 40-80bp 1.340/+0.138 (n=3,467); **80-160bp 1.482/+0.357 (n=1,076 /
+431 tkd @ $3.75)**; ≥160bp 1.881/+1.177 (n=181 ⚠). The early-session NULL variant is WEAK on the
+long (1.14-1.22 vs short 1.37-1.38). Reading: on real stocks in violent tapes, DOWNSIDE
+continuation (stop cascades, liquidation) beats upside continuation (breakouts hit profit-taking) —
+the MaxRiderV1 asymmetry at 1s scale. If pursued: the SHORT is the flagship, the long the optional
+second leg — the reverse of V1. Long clears its ~25bp line at net ~+0.1%/trip only.

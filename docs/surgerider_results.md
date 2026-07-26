@@ -1965,6 +1965,69 @@ pyramided duplicates weren't carrying the attribution — the first signal of ea
 full edge. Short-side mirror + the combined four-cell book: `docs/plungerider_results.md` S7.
 Remaining gate: the COST MODEL.
 
+## Finding 30 — SurgeRider V2 (≥$2 universe, rvol gate off, 2026-07-26): the V1 stack does NOT transfer — ONE hot-band survivor at ~2/3 of its short twin's strength
+
+**Setup:** the V2 pivot (sub-$1 priced out on every EU-accessible broker — `plungerider_results.md`
+S8-S8c): `--min-prev-close 2` (new engine flag: prior close in day-D raw scale, knowable before the
+open), rvol gate OFF, no band, e60/x60, 2023→2026. **97,642 tkd → 39,139,588 trips, raw PF 1.074**
+(38.9% win). Run: `surge23_v2_e60_x60_noband` (~10GB). Full verdict + short side:
+`plungerider_results.md` S9/S9b.
+
+**Every V1 structure fails on ≥$2 stocks (long side):**
+
+| structure | V1 (sub-$1 wreckage, in-play) | V2 long (≥$2, all rvol) |
+|---|---|---|
+| vol band | [7,40)bp load-bearing | FLAT: 1.09 / 1.09 / 1.12 / 1.05 / 0.95 across 2bp→80bp+ |
+| rvol in-play | THE precondition | INVERTS: rvol≥10 = **0.923**; rvol<1 = 1.105 |
+| band × ign × eff-hi | ~3.0 (F27) | 1.160 / +0.019% |
+| sess-high step (F24) | 1.6-1.8 → 2.26 | **GONE**: sess 1.054 ≤ off 1.073; sess×ign 1.110 |
+
+**The one survivor — hot band × ignition × eff-hi (the S9b family, long side):**
+
+| band × eff | n | win% | ret% | PF | tkd | med px |
+|---|---|---|---|---|---|---|
+| 40-80bp × NULL | 16,517 | 41.0 | +0.078 | 1.220 | 5,925 | $14.31 |
+| 40-80bp × hi | 3,467 | 41.8 | +0.138 | 1.340 | 1,396 | $6.85 |
+| 80-160bp × NULL | 6,532 | 39.9 | +0.128 | 1.166 | 1,993 | $3.84 |
+| **80-160bp × hi** | 1,076 | 43.4 | **+0.357** | **1.482** | 431 | $3.75 |
+| ≥160bp × NULL | 1,199 | 38.3 | +0.199 | 1.135 | 398 | $3.44 |
+| ≥160bp × hi | 181 | 47.5 | +1.177 | 1.881 ⚠ | 59 | $2.24 |
+
+Monotone in the band (the user's high-vol principle), median price sliding toward the $2 boundary.
+vs the SHORT twin (S9b): every rung ~2/3 strength (80-160×hi: 1.482/+0.357 vs 1.674/+0.541), and
+the early-session NULL variant is weak long (1.14-1.22) where it is real short (1.37-1.38).
+**Reading: on real stocks in violent tapes, downside continuation (stop cascades/liquidation) beats
+upside continuation (breakouts hit profit-taking) — the MaxRiderV1 asymmetry at 1s scale. The V2
+hierarchy REVERSES V1: short = flagship, long = optional second leg** (net after ~25bp RT at $3.75:
+only ~+0.1%/trip). ⚠ Both sides' ≥160bp rungs are audit-first (59-62 tkd). ⚠ The family inherited
+V1's knobs — untuned on its own universe.
+
+### F30b — the fresh-eye tc exploration (user, 2026-07-26): every tc axis tops out at 1.2-1.5 on ≥$2 longs; the PF-2 bar is NOT met
+
+Population: V2 long, vol≥7bp floor + eff-hi (user spec), then the hot band. Findings, compact:
+1. **Broad (≥7bp, eff-hi): everything flat** — 1m-tc interior 1.19-1.20 at +0.03%/trip (med px
+   $31-37 = big-cap noise); concentration (bar_tc/tc_60) flat 1.13-1.16 then DECAYS ≥25%; the
+   ≥50%-of-minute condition = 1.058.
+2. **Hot band (≥40bp, eff-hi) restores structure**: 1m-tc peaks at [120,300) prints (1.356/+0.188,
+   n=26,851, $5.62) and decays monotonically busier (≥1200 = 0.879 NEGATIVE — quiet-count leg
+   confirmed on this universe); concentration humps at 10-25% of the minute (1.252/+0.164);
+   **the remembered loud-20m-high-breakout pattern INVERTS: breach_1200=0 = 0.850/−0.137 vs
+   off-high 1.259/+0.159** — on ≥$2 hot tape the fresh 20m high is the blowoff to fade (the short's
+   food, not the long's).
+3. **The stack** (hot × eff-hi × tc[120,300) × not-20m-high × conc 5-25%): **1.453 / +0.237% /
+   n=3,459 / 1,619 tkd @ $5.30**; by year 1.26/1.81/1.26/1.68 — positive every year, wobbly.
+4. **Aux profit-takes (the F16 hope)**: PT@2m-high lifts PF 1.45→1.61 and win 43→63% but CUTS ret
+   +0.237→+0.121 — fails the ~25bp cost line; hold-to-trail stays the only cost-positive exit.
+5. **Signal-second multiple of the 1m average rate**: W-shaped, max 1.22 (quiet-second 1.219 /
+   4-8× burst 1.201, trough 0.94-0.99 between); the `1m_avg ≤ 2×1s` gate would cut a GOOD bucket.
+
+**Verdict: the long V2 evidence is complete across vol bands, rvol, tc levels, concentration,
+rate-multiples, ignition, eff, session tiers, 20m-high context, and exit counterfactuals — the
+ceiling is PF ~1.45-1.48 broad (+0.24-0.36%/trip) with thin 1.9 corners. The user's PF-2 bar is
+NOT met on ≥$2 longs.** Untried: the x30 exit sweep (~100min run; V1 razor moved longs +0.06-0.15
+only — unlikely to bridge 1.45→2). Per the user's criterion: pivot to longer-term mean reversion,
+with the V2 SHORT hot-band family (S9b) and the V1 drawer as the standing 1s assets.
+
 ---
 
 # Appendix A — the four path-RV constructions (F3 companion)

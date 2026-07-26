@@ -34,6 +34,7 @@ type Args =
     // ----- universe -----
     | Min_Dv_0945 of float
     | Min_Rvol_0945 of float
+    | Min_Prev_Close of float
     // ----- sampler vs book -----
     | Max_Concurrent of int
     // ----- timing -----
@@ -59,6 +60,7 @@ type Args =
             | Max_Vol_20m _ -> "⭐ VOL CEILING (F10): vol_20m < this. Default 0.0040 (40bp) — past ~41bp/30s the name is already blown off (top 2%%: -0.89%%/20m). inf = off."
             | Min_Dv_0945 _ -> "Universe floor: min 09:30-09:45 dollar volume (LIVE-SAFE). Default 10000000 — momentum wants names that trade every second (>= $500M/day names are active 67%% of seconds, $100-500M 33%%)."
             | Min_Rvol_0945 _ -> "Optional in-play universe pre-filter: rvol_0945_honest >= this (premkt-incl vol thru 09:45 / prior-20d avg; LIVE-SAFE at 09:45). Default 0 = off (sampler breadth). 10 = the stocks-in-play sweeps (~50x smaller universe)."
+            | Min_Prev_Close _ -> "⭐ V2 universe gate: PRIOR day's close in day-D raw (post-split) scale >= this (prev_adj_close/adj_ratio; knowable BEFORE the open). Default 0 = off. 2 = the V2 >=$2 universe (sub-$1 priced out on every EU-accessible broker — S8b/c)."
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: unlimited concurrent positions — every breakout bar opens another trip, so it PYRAMIDS. Removes path dependency (every trip = an independent row) but PF is then ATTRIBUTION, not a portfolio number. 1 = a real book."
             | Entry_Start_Sec _ -> "Earliest ET second (since midnight) an entry may fire. Default 35100 = 09:45. ⚠ Must be >= 35100 — the knowability guard."
             | Entry_End_Sec _ -> "Latest ET second an entry may fire. Default 48600 = 13:30."
@@ -95,7 +97,8 @@ let main argv =
                     EntryStartSec    = parsed.GetResult(Entry_Start_Sec,    defaultValue = d.Intraday.EntryStartSec)
                     EntryEndSec      = parsed.GetResult(Entry_End_Sec,      defaultValue = d.Intraday.EntryEndSec) }
             MinDv0945 = parsed.GetResult(Min_Dv_0945, defaultValue = d.MinDv0945)
-            MinRvol0945 = parsed.GetResult(Min_Rvol_0945, defaultValue = d.MinRvol0945) }
+            MinRvol0945 = parsed.GetResult(Min_Rvol_0945, defaultValue = d.MinRvol0945)
+            MinPrevClose = parsed.GetResult(Min_Prev_Close, defaultValue = d.MinPrevClose) }
 
     // ⚠ KNOWABILITY GUARD (docs/lookahead_protocol.md R4). The universe is GATED on
     // dv_0945 and every trip RECORDS dv_0945 / rvol_0945_honest — all three are only
@@ -128,9 +131,10 @@ let main argv =
     printfn "  db          = %s" dbPath
     printfn "  1s bars     = %s" secDir
     printfn "  range       = %O .. %O" startDate endDate
-    printfn "  universe    = dv_0945 >= $%.1fM%s" (cfg.MinDv0945 / 1e6)
+    printfn "  universe    = dv_0945 >= $%.1fM%s%s" (cfg.MinDv0945 / 1e6)
         (if cfg.MinRvol0945 > 0.0 then sprintf "   AND rvol_0945_honest >= %.1f  [IN-PLAY PRE-FILTER]" cfg.MinRvol0945
          else "   [LIVE-SAFE; rvol_0945_honest RECORDED, not gated]")
+        (if cfg.MinPrevClose > 0.0 then sprintf "   AND prev raw close >= $%.2f  [V2]" cfg.MinPrevClose else "")
     printfn "  ENTRY       = vwap > prior %d-bar MAX   AND dv60 >= $%.0fk AND tc60 >= %.0f   (fill: NEXT bar vwap)"
         ic.EntryChannelBars (ic.DvFloor60 / 1e3) ic.TcFloor60
     printfn "  vol band    = vol_20m ∈ [%s, %s) bp/30s   ⭐ THE F10 BAND (floor 0 / ceiling inf = off)"
