@@ -2442,6 +2442,53 @@ quantitatively vindicated.**
 
 ---
 
+### F31j — the |eff_20m| ladder above 0.40: RAISING THE FLOOR DOES NOT HELP (2026-07-27)
+
+Question (user): does |eff_20m| above the 0.40 gate give further improvement? Substrate:
+`surge23_v2c` (eff≥0.40 baked in), the folded spec applied post-hoc.
+
+**Band ladder within the FULL folded spec (n=1,554):**
+
+| \|eff_20m\| band | n | win% | PF | avg %/trip | net $ |
+|---|---|---|---|---|---|
+| [0.40,0.50) | 1,198 | 42.2 | **2.224** | +0.701 | 83,970 |
+| [0.50,0.60) | 300 | 48.7 | 1.672 | +0.302 | 9,056 |
+| [0.60,0.70) | 53 | 62.3 | 1.852 | +0.450 | 2,387 |
+| [0.70,0.80) | 3 | 33.3 | 4.242 | +1.766 | 530 |
+
+Same shape in the looser 4-condition base (no coil/wings, n=2,318): 1.918 / 1.706 / 1.664. The
+distribution also collapses fast — ≥0.50 is only 23% of spec trips. **Win rate RISES with eff
+(42→62%) while PF and %/trip FALL** — the more established the trend at signal time, the more
+reliably it drifts and the less is left in the tank. The 0.40 gate captures the sweet spot;
+everything above it is buying the trend later.
+
+**Cumulative floors (the tempting sawtooth):**
+
+| min \|eff\| | n | win% | PF | avg %/trip |
+|---|---|---|---|---|
+| ≥0.40 (current) | 1,554 | 44.1 | 2.128 | +0.617 |
+| ≥0.45 | 743 | 49.5 | **2.677** | +0.831 |
+| ≥0.50 | 356 | 50.6 | 1.728 | +0.336 |
+| ≥0.55 | 178 | 60.7 | 2.419 | +0.505 |
+| ≥0.60 | 56 | 60.7 | 1.984 | +0.521 |
+
+The ≥0.45 spike is carried entirely by the [0.45,0.50) half-band — and that half-band FAILS both
+standing audits:
+
+| [0.45,0.50) audit | value |
+|---|---|
+| by-year PF | 2.82 / **4.52** / 1.84 / **6.62** — 2024-heavy + 2026-flare |
+| top-3 tkd share | **41% of gross** (145 tkd) |
+| single best tkd | BTCT 2024-11-12 = $14,980 ≈ 30% of the half-band's net |
+
+An interior half-band peaking while BOTH neighbors ([0.40,0.45) = steady 2.24/1.63/1.66/1.30 and
+≥0.50 = 0.74 in 2023) are worse is the signature of noise, and the concentration audit confirms
+it. **VERDICT: keep `--min-abs-eff-20m 0.4`; no higher floor and no band-carve is justified. eff is
+a THRESHOLD feature (dead below 0.40, spent above 0.50), not a gradient to climb.** Closes the
+breakout-entry line — next: pullback entries.
+
+---
+
 # Appendix A — the four path-RV constructions (F3 companion)
 
 *(What exactly each variant in the F3 overlap study computes. Open in VS Code markdown preview
