@@ -245,3 +245,67 @@ syms; breakout cells ran 17-47%). NO lottery profile. BUT months split: 01-03 = 
 (flat), 04-06 = 1.34/1.81/1.38 — the 2026 edge is Apr-Jun only.** Regime or noise — 6.5 months
 cannot say. Full-history run launched: `surgev2_23_pbc_c1200_x120_cf30` (2023→2026, the year
 audit arbiter).
+
+---
+
+## P6 — THE YEAR AUDIT VERDICT: real, stable, and TOO SMALL (2026-07-27)
+
+Full history `surgev2_23_pbc_c1200_x120_cf30`: 809k trips / 97,642 tkd / 24min.
+
+**The stacked cell was ¾ regime.** By year: **1.014 / 1.041 / 1.051 / 1.305** — 2023-2025 flat,
+all the magnitude was 2026 (and Apr-Jun 2026 at that). The fwd-20m drift itself: +0.006 / +0.010 /
+**−0.033** / +0.116 — the positive drift that motivated P4 was a 2026-regime phenomenon. Every
+magnitude amplifier fails the year audit:
+
+| amplifier | by-year PF | verdict |
+|---|---|---|
+| vol [20,40)bp | 1.04 / 1.10 / 1.02 / 1.16 | 2026-tilted |
+| vol [40,80)bp | 0.97 / 1.09 / 0.99 / 1.26 | 2026-only |
+| dip [100,200)bp | 0.93 / 1.06 / 0.98 / 1.22 | 2026-only |
+| dip ≥200bp | 0.79 / 0.89 / 0.91 / 1.12 | negative ex-2026 |
+
+**What IS year-stable — the quiet shallow core:**
+
+| cut | 2023 | 2024 | 2025 | 2026 | avg %/trip |
+|---|---|---|---|---|---|
+| vol [7,20)bp | 1.098 | 1.089 | 1.078 | 1.090 | +0.010 |
+| [7,20)bp × tcr+vr[1,4) | 1.100 | 1.112 | 1.099 | 1.119 | +0.013 |
+| dip <20bp | 1.052 | 1.084 | 1.048 | 1.125 | +0.013 |
+
+**VERDICT: the pullback+confirmation entry is the first V2 entry with a REAL, year-stable,
+breadth-carried positive expectancy (PF ~1.10 every year, no lottery, no concentration) — and it
+is ~1.3bp/trip, several times below any cost floor. The magnitude levers (loud bands, deep dips,
+participation) are all 2026-regime. Where the magnitude is, the years aren't; where the years
+are, the magnitude isn't. The 1s-momentum drift disease on ≥$2 stocks applies to pullbacks as it
+did to breakouts.**
+
+---
+
+## P7 — CAMPAIGN CLOSE: the median-trade postscript (2026-07-27)
+
+User: "This system is useless. Let's wrap up the momentum experiments here." Final requested
+numbers — the median trade of the confirmed cells at mc=0.
+
+**Sub-$1 V1 map (in-play banded universe, 2023→2026):**
+
+| cell | n | win% | PF | mean %/trip | median %/trip | p25/p75 | median $ @10k |
+|---|---|---|---|---|---|---|---|
+| A — sess-high ×30s × ignition | 1,660 | 58.1 | 3.064 | +0.463 | **+0.139** | −0.267/+0.992 | +$13.88 |
+| B — off-high ×1m × ignition × eff | 3,748 | 52.0 | 2.660 | +0.371 | **+0.033** | −0.322/+0.726 | +$3.26 |
+
+**⭐ The ≥$2 folded spec (user's requested subset — surge23_v2c, 2023→2026):**
+
+| metric | value |
+|---|---|
+| n / win% / PF | 1,554 / 44.1% / 2.128 |
+| mean %/trip | +0.617 |
+| **median %/trip** | **−0.177 (−$17.69 @10k)** |
+| p25 / p75 / p90 | −0.852 / +1.019 / +3.231 |
+| median stock price | $5.78 |
+
+**The ≥$2 flagship's MEDIAN trade LOSES 18bp before any costs — the +0.62% mean lives entirely
+above p75. The sub-$1 cells' medians (+3 to +14bp) sit under their own 39-57bp cost floor. Every
+momentum edge this program found was tail-carried: the typical trade loses, the book is a
+tail-harvester. The 1s momentum program closes: V1 = priced out + sub-cost median; V2 breakouts =
+negative-median lottery; V2 pullbacks = stable but 1bp. THE MOMENTUM EXPERIMENTS END HERE — the
+mean-reversion core (LowFlyer/DipRiderV6/MaxRiderV1) remains the program's foundation.**
