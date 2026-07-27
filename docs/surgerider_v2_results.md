@@ -156,3 +156,92 @@ drift on any pullback cell so far, and still nowhere near a system.
 consistent structure: mid-loud vol bands on larger channels show real but small POST-1-5m
 recovery. The natural next design: PULLBACK + CONFIRMATION — after the touch arms the state, enter
 on the vwap reclaiming a short (30s/1m) high — buy the turn, not the knife.**
+
+---
+
+## P4 — ⭐ PULLBACK + CONFIRMATION: THE FIRST POSITIVE-DRIFT ENTRY OF V2 (2026-07-27)
+
+Engine variant (commit d4caa34): ARM on the touch (trend-up + cross below the α-level), ENTER on
+the vwap exceeding the strictly-prior `--confirm-bars` (30) max — the micro-breakout out of the
+dip. A low breach while armed does NOT disarm; `arm_lo_breaches` records it (0 = the strict
+higher-low rule, ≥1 = V-washout). New features: `arm_sec/arm_vwap/arm_min_vwap/arm_bars/
+arm_lo_breaches`. Runs: `surgev2_26_pbc_c1200_x120_cf30` (209k trips), `_c300_` (501k).
+
+**Drift turns POSITIVE at every horizon — the confirmation fixes the falling-knife problem:**
+
+| substrate | entry | n | PF | fwd 1m % | fwd 5m % | fwd 20m % |
+|---|---|---|---|---|---|---|
+| 20m chan | touch (P2/P3) | 549k | 1.054 | −0.002 | −0.002 | +0.003 |
+| 20m chan | **confirm** | 209k | **1.115** | **+0.007** | **+0.009** | **+0.017** |
+| 5m chan | touch | 1,316k | 1.045 | — | — | — |
+| 5m chan | **confirm** | 501k | **1.111** | **+0.009** | | +0.012 |
+
+**The structure (c1200_x120_cf30), all replicated directionally on c300:**
+
+| cut | bucket | n | PF | fwd 20m % |
+|---|---|---|---|---|
+| washout | strict (=0) | 200,422 | **1.119** | +0.018 |
+| washout | washout (≥1) | 8,653 | 1.007 | −0.009 |
+| vol band | [7,20)bp | 156,751 | 1.087 | −0.001 |
+| vol band | [20,40)bp | 41,660 | 1.151 | +0.079 |
+| vol band | [40,80)bp | 8,729 | **1.248** | **+0.141** |
+| vol band | ≥80bp | 1,935 | 0.938 | −0.401 |
+| turn latency | <30s | 130,598 | 1.119 | +0.015 |
+| turn latency | ≥5m | 82 | 0.719 | −0.160 |
+| dip depth | [100,200)bp | 3,813 | 1.162 | +0.146 |
+
+The user's strict disarm instinct adjudicated: **higher-low turns carry the drift; washout turns
+are dead** — but as a recorded split, both populations came from one run.
+
+**The composed cell — strict × vol[20,80)bp on the 20m channel: PF 1.187 / +0.05%/trip /
+n=48,450 / EVERY month of 2026 positive** (01-06: 1.081/1.075/1.049/1.080/1.499/1.118).
+⚠ May = 68% of the cell's net — month-concentration flag. eff is IRRELEVANT here (95% of the
+population sits <0.2 — mechanically: a pullback inside the 20m window kills 20m net drift; the
+eff gate must NOT be applied to this system).
+
+**Honest scale check: best cells are PF 1.19-1.25 at +0.05%/trip vs the breakout folded spec's
+2.13 at +0.62%/trip — an order of magnitude less per trip, BUT with only 2 conditions applied and
+α/confirm-bars/channel-scale entirely unswept. This is the first entry in the whole V2 campaign
+where the tape drifts up AFTER the fill. ⏭ sweep α (deeper arms), confirm bars, dip-depth ×
+latency composition; year audit needs the 2023-2025 run.**
+
+---
+
+## P5 — THE FILTERS INVERT ON THE TURN: moderate participation confirms (2026-07-27)
+
+User: "what if we added the eff and the tc and the vol filters?" Ladders on the strict confirm
+population (c1200_x120_cf30):
+
+| feature | bucket | n | PF | fwd 20m % |
+|---|---|---|---|---|
+| eff | <0.1 | 126,362 | 1.109 | +0.018 |
+| eff | [0.1,0.2) | 63,939 | 1.134 | +0.018 |
+| eff | [0.2,0.3) | 8,988 | 1.155 | +0.028 |
+| eff | [0.3,0.4) | 349 | **0.806** | **−0.311** |
+| tcr (1m/20m) | **<0.5 (the breakout spec's quiet gate)** | 7,611 | **1.072** | −0.000 |
+| tcr | [1,2) | 58,967 | **1.165** | +0.027 |
+| tcr | [2,4) | 2,574 | 1.122 | +0.064 |
+| tcr | ≥4 | 122 | 0.564 | −0.100 |
+| vr (1m/20m) | [1,2) | 50,150 | 1.167 | +0.030 |
+| vr | [2,4) | 5,761 | **1.180** | +0.029 |
+| vr | ≥4 | 428 | 0.974 | +0.010 |
+
+**Every breakout gate INVERTS at the turn: quiet-minute is the worst normal bucket, eff≥0.3 is
+poison, and MODERATE loudness (1-4× the 20m rate) is the confirmation.** At the high the crowd is
+the top; at the higher-low turn the crowd is the proof. (The user's "high-volume pullback" idea
+was right — at the TURN, not the touch.)
+
+**THE STACK (all on c1200_x120_cf30):**
+
+| fold | n | win% | PF | avg %/trip | fwd 20m % |
+|---|---|---|---|---|---|
+| strict | 200,422 | 33.9 | 1.119 | +0.019 | +0.018 |
+| + vol[20,80)bp | 48,450 | 34.8 | 1.187 | +0.050 | +0.092 |
+| + tcr [1,4) | 13,497 | 36.2 | 1.274 | +0.075 | +0.112 |
+| + vr [1,4) | 9,351 | 36.6 | **1.305** | **+0.084** | +0.116 |
+
+**Audits: concentration is THE BEST OF THE PROGRAM — top-3 tkd = 5.2% of gross (3,789 tkd, 980
+syms; breakout cells ran 17-47%). NO lottery profile. BUT months split: 01-03 = 0.98/1.03/0.98
+(flat), 04-06 = 1.34/1.81/1.38 — the 2026 edge is Apr-Jun only.** Regime or noise — 6.5 months
+cannot say. Full-history run launched: `surgev2_23_pbc_c1200_x120_cf30` (2023→2026, the year
+audit arbiter).
