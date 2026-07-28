@@ -1100,6 +1100,27 @@ again). User: floor `|eff_10m| >= 0.15` (cuts the flat middle, n −3,499).
 / 2025 1.748 / 2026 1.641. **≥$1 book (n=43,894) net: PF 1.707 @1¢ marketable / 1.916
 @0.4¢ tiered, med net +1.64/+1.84%.**
 
+## S11 (2026-07-28) — session lows vs higher-low legs (user's closing question)
+
+| session position | n | win | pf | avg% | med% | net |
+|---|---|---|---|---|---|---|
+| NEW session low (breach_lo_sess=0) | 37,373 (61%) | 70.1 | 1.986 | 1.200 | 1.898 | 4,484,865 |
+| off-session-low (>20m ago, mechanically) | 21,992 | 73.9 | 2.232 | 1.380 | 2.142 | 3,034,874 |
+| never broke a session low | 2,280 | 74.2 | 2.517 | 1.647 | 2.415 | 375,422 |
+
+Both prior intuitions confirmed at once: the MAJORITY (61%) are new session lows (deep
+pullbacks ⇒ expected), AND they perform worse (the V6/MaxRider pattern) — though
+"worse" = PF 1.99 here. Structure note: the 1-1200-bar buckets are EMPTY by
+construction (a session low <20m old IS the 20m min ⇒ every new 20m low is a session
+low) — so off-low ≡ **higher-low second legs** (flushed earlier, bounced, new 10-35%
+leg above the morning low); "never" = the open print held as the day's low.
+
+**⭐ BUT the off-low premium is a GOOD-YEAR phenomenon** (by year, sesslow vs off):
+2020 3.35/5.75 · 2021 2.89/2.82 · **2022 1.65/1.04** · 2023 1.72/1.75 · 2024 1.97/2.60
+· 2025 1.54/2.10 · 2026 1.59/1.72. In the bear year the higher-low retest collapses to
+break-even while session lows hold 1.65 — the session-low majority is the REGIME-ROBUST
+half. Verdict: keep both; no spec change (cutting session lows = 2020-fitting).
+
 **⏭ THE PLANNED RERUN (deferred; engine v2):**
 ```
 bin/Release/net10.0/TradingEdge.FlushFader \
