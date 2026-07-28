@@ -1121,6 +1121,42 @@ leg above the morning low); "never" = the open print held as the day's low.
 break-even while session lows hold 1.65 — the session-low majority is the REGIME-ROBUST
 half. Verdict: keep both; no spec change (cutting session lows = 2020-fitting).
 
+## S12 (2026-07-28) — the depth×volume DISPROPORTION grid (user's closing experiment)
+
+Hypothesis: 1m flush depth and volume intensity should be rank-correlated; the BREAKS in
+that pattern should be the A+ trades (deep flush on quiet volume). **Spearman(depth, vr)
+= 0.4005** — correlated, loosely; the pattern-break corners are 4-5× depleted (deep+quiet
+n=1,645, shallow+loud n=1,260 vs concordant 6-7k). Quartile bounds: depth 2.67/3.50/4.82%,
+vr 0.96/1.33/1.86×.
+
+**PF grid** (dq4 = deepest 1m flush; vq1 = quietest):
+
+| dq \ vq | 1 quiet | 2 | 3 | 4 loud |
+|---|---|---|---|---|
+| 1 shallow | 1.858 | 1.960 | 1.963 | **1.551** |
+| 2 | 2.113 | 1.971 | 2.143 | 1.878 |
+| 3 | 2.011 | 2.337 | 2.051 | 2.059 |
+| 4 deep | 2.113 | 2.157 | 1.919 | **2.519** |
+
+**Median-ret grid (%)** — quiet wins EVERY row, monotone:
+
+| dq \ vq | 1 quiet | 2 | 3 | 4 loud |
+|---|---|---|---|---|
+| 1 | 1.80 | 1.67 | 1.55 | 1.38 |
+| 2 | 2.05 | 1.90 | 1.71 | 1.70 |
+| 3 | 2.53 | 2.24 | 2.03 | 1.80 |
+| 4 | **3.20** | 2.47 | 2.63 | 2.72 |
+
+**Verdict — the hypothesis is confirmed in MEDIANS and mirrored in the anti-break:**
+(a) deep+quiet = the best TYPICAL trade (+3.20% median; a 5% 1m drop without the volume
+to justify it is the purest mispricing); (b) shallow+loud = the grid's WORST cell (1.551
+— absorbed-but-not-exhausted selling); the DISPROPORTION carries the information both
+ways. (c) Dollar-weighted PF crowns deep+LOUD (2.519) — volume capitulation carries the
+fat right tail, while deep+quiet's thin tape occasionally produces ugly losers (PF 2.11
+vs its own +3.2% median). Deep+quiet = best median; deep+loud = best tail. No spec
+change today — both deep cells live inside SPEC v1.1; a size-by-cell overlay (bigger
+clips on dq4, either vq wing) is future book-construction work.
+
 **⏭ THE PLANNED RERUN (deferred; engine v2):**
 ```
 bin/Release/net10.0/TradingEdge.FlushFader \
