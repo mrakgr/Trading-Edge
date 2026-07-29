@@ -2264,3 +2264,61 @@ book = 33,693 (tape≥3M within the old universe) + 87 = 33,780 @ ~2.17**, fully
 disk without a full rerun. ⏭ pending the user's gate-wiring choice (SQL honest floor
 vs SQL prefilter + exact engine tape gate) + then rebuild `flushfader_v13_tkds` and
 re-check the dv_0945-axis breakdowns (S28/S34) with honest denominators.
+
+## S36 — year audits of the heavy-morning × torrent cells (2026-07-29)
+
+The S34 diagonal's bottom-right cells, v1.3 cut. [30,100M)×dv20≥30M (S34: 3.74) and
+≥100M×dv20≥30M (S34: 4.68), + the ≥100M row recomputed on the HONEST morning
+measure (dv_0945/adj_ratio):
+
+| yr | [30,100M)×torrent | ≥100M×torrent | [30,100M) HONEST×torrent | ≥100M HONEST×torrent |
+|---|---|---|---|---|
+| 2020 | 201 / 29.56 | 534 / 5.23 | 472 / 8.07 | 202 / 11.52 |
+| 2021 | 308 / 2.47 | 1,046 / 6.10 | 553 / 5.89 | 591 / 4.41 |
+| 2022 | 33 / 5.15 | 167 / 3.73 | 104 / 5.96 | 48 / 4.18 |
+| 2023 | 56 / 5.14 | 73 / **0.50** | 95 / **0.98** | 33 / **1.55** |
+| 2024 | 228 / 3.40 | 312 / 4.62 | 397 / 4.03 | 124 / 3.73 |
+| 2025 | 370 / 2.86 | 521 / 4.67 | 556 / 3.75 | 280 / 3.72 |
+| 2026 | 128 / 1.94 | 175 / 6.20 | 175 / 3.27 | 118 / 5.26 |
+| **TOTAL** | 1,324 / 3.74 | 2,828 / 4.68 | **2,352 / 4.37** | 1,396 / 4.56 |
+
+**Both robust** — cell 1 positive all 7 (floor 1.94; 2020 = a 29× jackpot); cell 2's
+one losing year (2023 = 0.50) is largely FAKE-$100M mornings (reverse-split-inflated
+rows) — the honest axis repairs it to 1.55 with all other years 3.7-11.5. ⭐ The S35
+bug was polluting even the headline-liquidity cells; the honest universe fixes cells
+it never even targeted. Heavy-morning × torrent joins the A+ overlay roster
+("fade the capitulation of a genuinely headline name").
+
+**S36b — [30,100M) HONEST × torrent:** 2,352 @ **PF 4.37 / win 78.6 / avg +2.15 /
+med +2.40** (vs 1,324 @ 3.74 inflated — the honest axis GREW the cell). Years:
+8.07 / 5.89 / 5.96 / **0.98** / 4.03 / 3.75 / 3.27 — six of seven ≥3.27, 2022 = 5.96.
+2023 ≈ breakeven is now the SHARED weak year of both honest heavy-morning cells
+(0.98 / 1.55): a coherent regime statement — 2023 was bad for fading headline-name
+torrents, period. Combined honest ≥30M-morning × ≥30M-torrent corner ≈ 3,700 trips
+@ ~4.3 — the largest high-PF structure of the campaign, fully visible only on the
+honest axis.
+
+## S37 — ⭐⭐ THE STACK: torrent corner × dist-sess-vwap (2026-07-29)
+
+User question: does dsv ≥ −3% stack with the honest ≥30M×torrent corner? 2×2 on the
+v1.3 book:
+
+| cell | vwap dist | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|---|
+| torrent corner | < −3% | 3,105 | 76.6 | 3.915 | 2.06 | 2.36 |
+| **torrent corner** | **≥ −3%** | **643** | **83.7** | **9.189** | **3.11** | **2.85** |
+| rest | < −3% | 34,064 | 71.5 | 1.980 | 1.17 | 1.97 |
+| rest | ≥ −3% | 1,729 | 75.0 | 2.510 | 1.52 | 2.12 |
+
+**MULTIPLICATIVE, near-disjoint (17% overlap): headline name + $30M torrent + still
+AT session vwap = the most violent local capitulation inside the most intact day.**
+Year audit: 7.75 / 3.75 / 3.57 / 28.96 / 70.8 / 8.83 / ∞(42-0) — positive ALL 7;
+**the dsv condition RESCUES the corner's 2023** (bear-market torrents that kept
+falling were already below vwap; the intact-day subset held — user's regime frame:
+2023 belongs to a future SHORT system).
+
+⚠ **CONCENTRATION: 643 trips = 89 ticker-days (~14 events/yr).** This is an A++
+SETUP (recognize + size hard, ~monthly), not a book — the mc=0 adds inflate n.
+Playbook entry: the size-up pyramid is now dsv-prime alone (2.51) → torrent corner
+(3.9) → the stack (9.2), with clip size scaling with cell liquidity (the stack =
+the system's most liquid fills by construction).
