@@ -30,6 +30,16 @@ type Args =
     | Min_Volat_20m of float
     | Max_Volat_20m of float
     | Min_Abs_Eff_20m of float
+    // ----- SPEC v1.2 gates (defaults = the S18 production stack) -----
+    | Max_Speed_1m of float
+    | K_Band_Lo of int
+    | K_Band_Hi of int
+    | Eff20_Lo of float
+    | Eff20_Hi of float
+    | Min_Abs_Eff_10m of float
+    | Dist_Hi_Lo of float
+    | Dist_Hi_Hi of float
+    | Min_Vol10_Rate of float
     // ----- price-acceptance stops -----
     | Vol_Stop_Ratio of float
     | Tc_Stop_Ratio of float
@@ -59,10 +69,19 @@ type Args =
             | Tc_Floor_60 _ -> "Hard entry gate: >= this many TRADES over the same window. Default 60 — volume without trades is one block print."
             | Min_Volat_20m _ -> "volat_20m floor at the signal (raw mean-|r|/30s units; cold volat FAILS a positive floor). Default 0 = off. ⚠ RECORD-FIRST: the breakout F10 band does NOT transfer to MR (THE INVERSION) — band post-hoc over the volat_20m column."
             | Max_Volat_20m _ -> "volat_20m ceiling. Default inf = off. Same record-first stance."
-            | Min_Abs_Eff_20m _ -> "|eff_20m| floor at the signal (cold eff FAILS a positive floor). Default 0 = off — eff is the ADX analog and stays a recorded column."
-            | Vol_Stop_Ratio _ -> "⭐ PRICE-ACCEPTANCE STOP: exit holders when a NEW entry-channel low prints on (vol_60/60)/(vol_1200/1200) >= this. Default 8. inf = off."
-            | Tc_Stop_Ratio _ -> "⭐ PRICE-ACCEPTANCE STOP: same on the trade-count ratio. Default 8. inf = off."
-            | Speed_Stop_Pct _ -> "⭐ PRICE-ACCEPTANCE STOP: exit holders when a NEW entry-channel low prints at vwap/vwap_60_prev-1 < this (the flush continuing at pace). Default -0.01 (-1%/1m). 0 = off."
+            | Min_Abs_Eff_20m _ -> "|eff_20m| floor at the signal (cold eff FAILS a positive floor). Default 0 = off — superseded by the SIGNED --eff20-lo/--eff20-hi band; kept for sweeps."
+            | Max_Speed_1m _ -> "⭐ SPEC v1.2: flush speed gate — vwap/vwap_60_prev - 1 < this at the signal. Default -0.02. 0 = off."
+            | K_Band_Lo _ -> "⭐ SPEC v1.2: lows_since_first_low >= this (K band floor — THE 2022 fix). Default 26. 0 = off."
+            | K_Band_Hi _ -> "⭐ SPEC v1.2: lows_since_first_low <= this (K band ceiling). Default 50. 0 = off."
+            | Eff20_Lo _ -> "⭐ SPEC v1.2: SIGNED eff_20m >= this. Default -0.5. -Infinity = off."
+            | Eff20_Hi _ -> "⭐ SPEC v1.2: SIGNED eff_20m < this. Default -0.3. Infinity = off."
+            | Min_Abs_Eff_10m _ -> "⭐ SPEC v1.2: |eff_10m| >= this (no flat 10m tape). Default 0.15. 0 = off."
+            | Dist_Hi_Lo _ -> "⭐ SPEC v1.2: vwap/chan_hi - 1 >= this (the -35% un-fadeable wall). Default -0.35. -Infinity = off."
+            | Dist_Hi_Hi _ -> "⭐ SPEC v1.2: vwap/chan_hi - 1 < this (deep enough into the leg). Default -0.10. 0 = off."
+            | Min_Vol10_Rate _ -> "⭐ SPEC v1.2: (vol_10/10)/(vol_60/60) >= this (S17 last-10s volume-rate floor — no quiet-tail drift-downs). Default 0.75. 0 = off."
+            | Vol_Stop_Ratio _ -> "PRICE-ACCEPTANCE STOP: exit holders when a NEW entry-channel low prints on (vol_60/60)/(vol_1200/1200) >= this. Default Infinity = OFF (S16 A/B: stops gut the book). e.g. 8 to arm."
+            | Tc_Stop_Ratio _ -> "PRICE-ACCEPTANCE STOP: same on the trade-count ratio. Default Infinity = OFF (S16)."
+            | Speed_Stop_Pct _ -> "PRICE-ACCEPTANCE STOP: exit holders when a NEW entry-channel low prints at vwap/vwap_60_prev-1 < this (the flush continuing at pace). Default 0 = OFF (S16: fired on 93.7% of spec book at median 2s). e.g. -0.01 to arm."
             | Min_Dv_0945 _ -> "Universe floor: min 09:30-09:45 dollar volume (LIVE-SAFE). Default 3000000 — DipRiderV6 F14's MANDATORY floor (below it the PF rise is a penny-stock artifact)."
             | Min_Rvol_0945 _ -> "Optional in-play universe pre-filter: rvol_0945_honest >= this (premkt-incl vol thru 09:45 / prior-20d avg; LIVE-SAFE at 09:45). Default 0 = off (sampler breadth)."
             | Min_Prev_Close _ -> "Universe gate: PRIOR day's close in day-D raw (post-split) scale >= this (prev_adj_close/adj_ratio; knowable BEFORE the open). Default 0 = off. 2 = the >=$2 universe (sub-$1 priced out on every EU-accessible broker)."
@@ -97,6 +116,15 @@ let main argv =
                     MinVolat20m      = parsed.GetResult(Min_Volat_20m,      defaultValue = d.Intraday.MinVolat20m)
                     MaxVolat20m      = parsed.GetResult(Max_Volat_20m,      defaultValue = d.Intraday.MaxVolat20m)
                     MinAbsEff20m     = parsed.GetResult(Min_Abs_Eff_20m,    defaultValue = d.Intraday.MinAbsEff20m)
+                    MaxSpeed1m       = parsed.GetResult(Max_Speed_1m,       defaultValue = d.Intraday.MaxSpeed1m)
+                    KBandLo          = parsed.GetResult(K_Band_Lo,          defaultValue = d.Intraday.KBandLo)
+                    KBandHi          = parsed.GetResult(K_Band_Hi,          defaultValue = d.Intraday.KBandHi)
+                    Eff20Lo          = parsed.GetResult(Eff20_Lo,           defaultValue = d.Intraday.Eff20Lo)
+                    Eff20Hi          = parsed.GetResult(Eff20_Hi,           defaultValue = d.Intraday.Eff20Hi)
+                    MinAbsEff10m     = parsed.GetResult(Min_Abs_Eff_10m,    defaultValue = d.Intraday.MinAbsEff10m)
+                    DistHiLo         = parsed.GetResult(Dist_Hi_Lo,         defaultValue = d.Intraday.DistHiLo)
+                    DistHiHi         = parsed.GetResult(Dist_Hi_Hi,         defaultValue = d.Intraday.DistHiHi)
+                    MinVol10Rate     = parsed.GetResult(Min_Vol10_Rate,     defaultValue = d.Intraday.MinVol10Rate)
                     VolStopRatio     = parsed.GetResult(Vol_Stop_Ratio,     defaultValue = d.Intraday.VolStopRatio)
                     TcStopRatio      = parsed.GetResult(Tc_Stop_Ratio,      defaultValue = d.Intraday.TcStopRatio)
                     SpeedStopPct     = parsed.GetResult(Speed_Stop_Pct,     defaultValue = d.Intraday.SpeedStopPct)
@@ -156,9 +184,20 @@ let main argv =
     printfn "  leg         = arm on first new low, reset on new %d-bar high;  K-gate = %s"
         ic.EntryChannelBars
         (if ic.MinLowsIntoLeg <= 0 then "off (sampler)" else sprintf "wait for the %dth low, one trip/leg" ic.MinLowsIntoLeg)
-    printfn "  volat band  = volat_20m ∈ [%s, %s) bp/30s   (record-first; breakout band does NOT transfer)"
+    printfn "  volat band  = volat_20m ∈ [%s, %s) bp/30s"
         (if ic.MinVolat20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVolat20m * 1e4))
         (if Double.IsPositiveInfinity ic.MaxVolat20m then "inf" else sprintf "%.0f" (ic.MaxVolat20m * 1e4))
+    printfn "  SPEC v1.2   = speed %s | K ∈ [%s, %s] | eff20 ∈ [%s, %s) | |eff10| >= %s | dist-20m-hi ∈ [%s, %s) | vol10rate >= %s"
+        (if ic.MaxSpeed1m >= 0.0 then "off" else sprintf "< %.0f%%/1m" (ic.MaxSpeed1m * 100.0))
+        (if ic.KBandLo <= 0 then "off" else string ic.KBandLo)
+        (if ic.KBandHi <= 0 then "off" else string ic.KBandHi)
+        (if Double.IsNegativeInfinity ic.Eff20Lo then "off" else sprintf "%.2f" ic.Eff20Lo)
+        (if Double.IsPositiveInfinity ic.Eff20Hi then "off" else sprintf "%.2f" ic.Eff20Hi)
+        (if ic.MinAbsEff10m <= 0.0 then "off" else sprintf "%.2f" ic.MinAbsEff10m)
+        (if Double.IsNegativeInfinity ic.DistHiLo then "off" else sprintf "%.0f%%" (ic.DistHiLo * 100.0))
+        (if ic.DistHiHi >= 0.0 then "off" else sprintf "%.0f%%" (ic.DistHiHi * 100.0))
+        (if ic.MinVol10Rate <= 0.0 then "off" else sprintf "%.2fx" ic.MinVol10Rate)
+    printfn "  continuation= right-side-of-V: enter 1st strict {1m,2m,5m}-high break after parent fill; trail stops = strict {1m,2m,5m}-low break | MOC (9 counterfactuals/parent)"
     printfn "  entry window= %s-%s ET   features fold from %s ET" (hhmmss ic.EntryStartSec) (hhmmss ic.EntryEndSec) (hhmmss ic.SessionStartSec)
     if ic.MaxConcurrent <= 0 then
         printfn "  mode        = ⭐ SAMPLER (mc=0 unlimited → every new low opens another trip; averages down)"
@@ -190,5 +229,6 @@ let main argv =
         (100.0 * float stats.Wins / float (max 1L stats.Total)) stats.Wins stats.Total
     printfn "  net P&L    = %s   ⚠ costs not modeled" ((stats.GrossWin - stats.GrossLoss).ToString "N0")
     printfn "  PF         = %.3f%s" pf (if ic.MaxConcurrent <= 0 then "   [ATTRIBUTION ONLY — mc=0]" else "")
-    printfn "  wrote      = %s/trips_p*.parquet" outDir
+    printfn "  cont trips = %d  (right-side-of-V: 3 windows x 3 trail stops per parent)" stats.ContTotal
+    printfn "  wrote      = %s/trips_p*.parquet + cont_trips_p*.parquet" outDir
     0

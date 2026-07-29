@@ -1157,16 +1157,13 @@ vs its own +3.2% median). Deep+quiet = best median; deep+loud = best tail. No sp
 change today — both deep cells live inside SPEC v1.1; a size-by-cell overlay (bigger
 clips on dq4, either vq wing) is future book-construction work.
 
-**⏭ THE PLANNED RERUN (deferred; engine v2):**
-```
-bin/Release/net10.0/TradingEdge.FlushFader \
-  --min-prev-close 1 --min-volat-20m 0.004 \
-  --vol-stop-ratio inf --tc-stop-ratio inf --speed-stop-pct 0 \
-  -o data/equity/flushfader/v3_p1_volat40_nostops
-```
-Baked: prev-close ≥$1, volat floor 40bp; stops OFF (S9 verdict). Post-hoc: speed<−2%,
-K∈[26,50], eff band, dist band. Then: (1) mc=1 + `--min-lows-into-leg 26` book run;
-(2) distinct-leg count vs adds; (3) the TradeZero limit-fill question (production).
+**⏭ THE PLANNED RERUN — SUPERSEDED by S19 (2026-07-29):** the whole stack (and more:
+SPEC v1.2) is now BAKED into the engine with stops off by default, and prev-close
+gating was rejected in favor of post-hoc `entry_px/adj_ratio >= 1` (S19). The
+full-universe production rerun is now just `bin/Release/net10.0/TradingEdge.FlushFader
+-o <dir>` (~80 min on all tkds; 75 s on the `FF_CANDIDATE_TABLE=flushfader_spec_v11_tkds`
+restricted table). Still pending from this list: (1) mc=1 + `--min-lows-into-leg 26`
+book run; (2) distinct-leg count vs adds; (3) the TradeZero limit-fill question.
 
 ⏭ **Future runtime optimization (user, 2026-07-28): per-tkd volatility prefilter.**
 Precompute `(ticker, date, max intraday volat_20m)` once, then skip ticker-days whose max
@@ -1176,3 +1173,642 @@ signal-time volat floor (day-max ≥ signal-bar volat ⇒ provably drops zero qu
 signals, bit-identical output). As a STANDALONE day filter it would be a "day got
 volatile later" lookahead — the exact 2026-07-16 bug class. V6 precedent: the ATR floor
 was load-bearing (sub-0.004 dead-below-costs) — most of the 328k tkds are dead weight.
+
+---
+
+## S13 — the exit-window sweep off the aux-high marks (2026-07-29)
+
+The whole point of keeping the aux marks: test alternative exits in SQL without a
+re-run. All tables on **SPEC v1.1 + raw ≥$1 (n=43,894)**. First, validation: the
+`aux_hi_300` counterfactual reproduces the live engine to the third decimal (PF 2.068
+vs 2.065, identical win/avg/median) — mark machinery confirmed end-to-end.
+
+**⚠ Censoring caveat discovered:** positions retire once exited AND `fwd_vwap_1200`
+fills, so aux marks only observe ~max(actual exit, entry+20m). The PURE "exit at 10m/20m
+high, however long it takes" strategy is NOT evaluable from this parquet (hit% within
+the window: 10m = 41%, 20m = 10%). What IS exact: **"target N-bar high, time-stop at
+entry+20m"** — take the mark only when `aux_sec ≤ entry_sec+1200`, else exit at
+`fwd_vwap_1200` (always recorded).
+
+| exit | hit% | win | PF | avg % | med % | p25 % | p75 % |
+|---|---|---|---|---|---|---|---|
+| 2m high, ts 20m | 94.6 | 70.3 | 1.807 | 0.67 | 1.16 | −0.37 | 2.38 |
+| 5m high, ts 20m | 73.5 | 69.6 | 2.028 | 1.13 | 1.75 | −0.66 | 3.60 |
+| 10m high, ts 20m | 40.0 | 64.4 | 1.712 | 1.07 | 1.62 | −1.42 | 4.30 |
+| 20m high, ts 20m | 9.8 | 60.8 | 1.595 | 0.97 | 1.16 | −1.80 | 4.08 |
+| hold 20m flat (`fwd_1200`) | — | 60.7 | 1.544 | 0.89 | 1.14 | −1.81 | 3.91 |
+| **ACTUAL (5m high, no ts)** | 99.7 | **71.9** | **2.065** | **1.23** | **1.97** | −0.43 | 3.78 |
+
+(Full-day pure exits, also exact since hit ≈ 100%: 2m high = 1.813 / +0.69% — strictly
+worse than 5m at every stat.)
+
+**Verdict — the 5m high is the sweet spot and the current exit is UNBEATEN:**
+- The hump peaks exactly at 5m: 2m exits too early (gives up ~45% of the avg), 10m/20m
+  degrade toward raw drift (1.71 → 1.60 → 1.54 = hold-20m-flat).
+- The ratcheting 5m-high target is doing real work over pure drift: +0.34%/trip and
+  +0.52 PF over holding 20m flat, +11pp win rate.
+- Even the 20m time-stop HURTS the 5m exit (2.028 vs 2.065): the 26.5% of trades that
+  take >20m to print a 5m high are still worth waiting for. Echoes the V6/MaxFlyer
+  lesson: exits lose to patience; selection does the work.
+
+## S14 — rng_300/rng_20m (front-loadedness) + distance-from-5m-high (2026-07-29)
+
+Same book (SPEC v1.1 + ≥$1). `rng_300/rng_20m` = share of the 20m log-range printed in
+the last 5m (median 0.46 on the book — these flushes are front-loaded by construction).
+
+| rng_300/rng_20m | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| <0.25 | 1,938 | 74.0 | 2.362 | 1.20 | 1.94 |
+| [0.25,0.35) | 7,903 | 72.2 | 2.084 | 1.07 | 1.71 |
+| [0.35,0.45) | 11,134 | 71.5 | 2.303 | 1.30 | 1.98 |
+| [0.45,0.55) | 9,849 | 71.8 | 2.005 | 1.21 | 1.96 |
+| [0.55,0.65) | 6,581 | 73.5 | 2.131 | 1.34 | 2.19 |
+| [0.65,0.80) | 4,830 | 70.4 | 1.662 | 1.08 | 2.14 |
+| ≥0.80 | 1,659 | 69.3 | 2.098 | 1.68 | 2.41 |
+
+**No lever here** — PF wobbles 1.66–2.36 with no monotone structure; the spec's
+speed × volat × eff stack has already consumed whatever front-loadedness knew. Medians
+drift up with the ratio (1.94 → 2.41) but tails pay for it; the one soft cell
+([0.65,0.80) = 1.66) is not edge-adjacent enough to gate on.
+
+Distance from 5m high at signal = `exit_chan_hi/signal_vwap − 1` = how much reversion
+the trade is asking for (median 7.5% on the book — these are violent flushes):
+
+| dist from 5m high | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| <4% | 2,348 | 70.2 | 1.858 | 0.68 | 1.23 |
+| [4,5) | 4,396 | 70.8 | 1.973 | 0.84 | 1.50 |
+| [5,6) | 5,828 | 70.4 | 2.209 | 1.01 | 1.65 |
+| [6,7) | 6,322 | 72.5 | 2.171 | 1.08 | 1.82 |
+| [7,8) | 5,529 | 72.3 | 2.149 | 1.16 | 1.95 |
+| [8,10) | 8,158 | 72.8 | 2.092 | 1.27 | 2.24 |
+| [10,13) | 6,240 | 73.8 | 2.249 | 1.63 | 2.68 |
+| [13,17) | 3,033 | 73.8 | 2.175 | 1.92 | 3.26 |
+| ≥17% | 2,040 | 65.3 | 1.524 | 1.59 | 3.42 |
+
+**The dist-from-20m-high shape reproduced at the 5m horizon:** avg/median rise
+monotonically with the ask (0.68% → 1.92% avg, 1.23% → 3.26% med) — the more reversion
+being asked, the more gets paid — until the wall: **≥17% breaks** (win 65.3, PF 1.52,
+the only sub-1.9 cell). Same grammar as the −35% un-fadeable boundary, one horizon
+down. A <17% ceiling would shave 4.6% of trips at PF 1.52 (positive, just weakest) —
+optional polish, not urgent; noted for the spec-freeze discussion.
+
+## S15 — spec trips per ticker-day + the mc=1 preview (2026-07-29)
+
+SPEC v1.1 + ≥$1 (43,894 trips) collapses to **5,560 ticker-days** out of the sampler's
+263,805 (2.1%). Per-tkd signal counts: **597 tkds (10.7%) have exactly ONE spec trip**;
+1,973 have 2–5; 2,666 have 6–20; 324 have >20 (max 66); median 6, mean 7.9. The
+multiplicity is mc=0 same-flush adds — the K∈[26,50] band alone admits up to 25
+signals per leg.
+
+First-signal-per-tkd (the cheap mc=1 proxy) vs the adds:
+
+| cut | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| first signal of tkd | 5,560 | 70.9 | 1.954 | 1.04 | 1.75 |
+| later adds | 38,334 | 72.0 | 2.080 | 1.26 | 2.01 |
+
+**First-signal compression is mild (PF 2.088 → 1.954, −6%)** — the PlungeRider mc=1
+pattern (0–12% compression) repeats: the first qualifying signal already carries the
+edge; adds are slightly better (deeper into the same flush) but nothing depends on
+averaging down. ⚠ This proxies per-TKD-first; the real mc=1 + K-gate book is one trade
+per LEG (a tkd can have several legs) — the engine run remains the ground truth.
+
+Book cadence per year (spec tkds / active days): 2020 916/232 (3.95/day) · 2021
+1,209/229 (5.28) · 2022 605/208 (2.91) · 2023 574/229 (2.51) · 2024 900/240 (3.75) ·
+2025 982/246 (3.99) · 2026 374/114 (3.28). **~2.5–5.3 candidate names per trading day,
+active ~90% of days** — a genuinely tradable manual-or-algo cadence, thinnest exactly
+in the thin-PF years (2022/23).
+
+---
+
+## S16 — the acceptance-stop A/B: stops are DEAD on this book (2026-07-29)
+
+Method: restricted candidate table `flushfader_spec_v11_tkds` (the 5,560 SPEC v1.1
+tkds) in trading.db — the engine now sweeps in **117 s instead of ~80 min** (47×).
+Run: stops ON at engine defaults (vr≥8× | tcr≥8× | 1m pace <−1% on fresh entry-channel
+lows), `--min-volat-20m 0.004`. Signal-set identity confirmed: exactly 43,894 spec
+trips, bit-matched to the no-stop baseline on (symbol, date, signal_sec).
+
+| cut | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| spec book, stops ON | 43,894 | 38.4 | 1.228 | 0.07 | −0.09 |
+| spec book, stops OFF | 43,894 | 71.9 | 2.065 | 1.23 | 1.97 |
+| stopped trades — stopped outcome | 41,148 | 34.3 | 0.311 | −0.23 | −0.12 |
+| stopped trades — no-stop outcome | 41,148 | 70.0 | 1.817 | 1.01 | 1.76 |
+
+Exit mix with stops ON: **speed_stop 93.7%** (41,131), target 6.2%, vol_stop 13 trips,
+tc_stop 4, moc 3. Median time-to-stop = **2 seconds**.
+
+**Verdict — self-refuting by construction:** the spec REQUIRES a ≥2%/1m flush at
+entry, so the very next new low almost always prints at pace <−1% and the speed stop
+fires instantly; the vol/tc arms never fire at all inside K∈[26,50] (the ≥8× lows are
+young-leg phenomena the K band already excludes). The trades the stop "protects" win
+70% for +1.01% without it. This is the empirical A/B behind the S9 stops-OFF verdict —
+the acceptance-stop idea would need a threshold well past the entry speed (or a
+pace-worse-than-entry form) to even be testable, and nothing here motivates trying.
+V6's "stops destructive" lesson survives at 1s resolution.
+
+## S17 — the last-seconds fade test: quiet tails REJECT the exhaustion form (2026-07-29)
+
+User hypothesis: big 1m/20m volume where the LAST 1–10s run below the 1m per-second
+rate = seller exhaustion → best fades. Engine gained `vol_5`/`vol_10` (SumMa 5/10,
+schema now 95 cols) and the restricted universe re-ran stops-OFF in 130 s
+(`spec_tkds_nostops`, 385,401 trips, spec book = 43,894 bit-identical). All ratios =
+per-second averages: `(vol_N/N)/(vol_60/60)`; the signal bar itself = `bar_vol/(vol_60/60)`.
+
+| last-N-s vs 1m rate | <0.5 | [0.5,0.75) | [0.75,1) | [1,1.25) | [1.25,1.5) | [1.5,2) | [2,3) | ≥3 |
+|---|---|---|---|---|---|---|---|---|
+| 1s (sig bar) PF* | 1.88 | 1.97 | 2.26/2.06 | — | — | 2.14 | 2.28 | 2.23/2.04 |
+| 5s PF | 1.798 | 1.865 | 1.995 | 1.907 | 2.108 | **2.486** | 2.157 | 2.045 |
+| 10s PF | **1.619** | **1.670** | 1.872 | 2.354 | 2.198 | 2.321 | 2.063 | 2.139 |
+| 15s PF | 1.662/1.602 | (same buckets) | 2.064 | 1.969 | 2.318 | 2.226 | 2.201 | 2.003 |
+
+*1s row uses its own finer edges (<0.25, [0.25,0.5), [0.5,0.75), [0.75,1), [1,1.5),
+[1.5,2), [2,3), [3,5), ≥5) — full table in the session query; pattern identical.
+Medians track PF: quiet tails 1.5–1.8%, the 1.5–2× band 2.1–2.2%.
+
+**Verdict — the hypothesis INVERTS at every horizon (1s, 5s, 10s, 15s):** a new 20m
+low printed on a QUIET final tape (<0.75× the minute rate) is the *worst* config
+(PF 1.60–1.87, win 68–70) — the seller pausing, not finished. The best cells sit at
+**1–2× the minute rate** (5s: 2.49 at [1.5,2); 10s: 2.35 at [1,1.25)) — the flush
+still printing at full pace into the low, i.e. capitulation-in-progress, consistent
+with S12 (deep+LOUD carries the dollar tail; shallow+quiet-signal weakest). Exhaustion
+on this book is expressed in the eff grammar (e20×e10) and the depth-vs-volume
+disproportion — NOT in a last-seconds volume fade-off. No spec change; the quiet-tail
+zone is weak (1.6–1.8), not toxic, and partially overlaps the S12 deep+quiet median
+story (quiet DAYS good, quiet final SECONDS bad — different objects).
+
+## S17b — the tc twins (2026-07-29)
+
+Engine gained `tc_5`/`tc_10` (schema 97 cols) + **acceptance stops now default OFF**
+(`--vol-stop-ratio`/`--tc-stop-ratio` default Infinity, `--speed-stop-pct` default 0;
+rerun bit-identical to the flag-spelled version). Same ratios as S17 on trade counts:
+`(tc_N/N)/(tc_60/60)`.
+
+| last-N-s tc vs 1m rate | <0.5 | [0.5,0.75) | [0.75,1) | [1,1.25) | [1.25,1.5) | [1.5,2) | [2,3) | ≥3 |
+|---|---|---|---|---|---|---|---|---|
+| 1s (sig bar) PF | 1.899 | 2.205 | 2.069 | 2.382 | 2.086 | 2.119 | 2.007 | 2.134 |
+| 5s PF | 1.979 | 1.877 | 1.921 | 2.094 | 2.186 | 2.140 | 2.172 | 2.044 |
+| 10s PF | **1.762** | 1.906 | 1.924 | 2.097 | 1.901 | **2.357** | 2.060 | 2.243 |
+| 15s PF | **1.663** | 1.811 | 1.900 | 2.002 | **2.405** | 2.093 | 2.219 | 1.811 |
+
+Win rates in the quiet tails: 10s <0.5 = 69.5, 15s <0.5 = 66.7 (vs book 71.9).
+
+**Verdict — tc confirms the S17 inversion, at lower contrast than volume.** Quiet-tc
+tails are the weakest cells everywhere ≥10s; the best cells again sit at 1–2× the
+minute rate. But the spread is milder (5s tc: 1.88–2.19 vs 5s volume: 1.80–2.49) —
+VOLUME is the sharper short-horizon discriminator. Reading: capitulation is a few
+LARGE commitments — the volume rate captures the size of the final panic better than
+the print count; tc fading only matters once the whole tape thins (10–15s). Still no
+spec change — weak, not toxic — but if a tail gate is ever added, it should be a
+volume-rate floor (last-5s ≥ ~0.75× the 1m rate), not tc.
+
+## S18 — ⭐ SPEC v1.2: the last-10s volume-rate floor (2026-07-29)
+
+User decision off S17: add **`(vol_10/10)/(vol_60/60) ≥ 0.75`** — the tape must still
+be printing at ≥75% of the minute's pace through the low (no quiet-tail drift-downs).
+
+```sql
+volat_20m >= 0.0040 AND vwap_60_prev IS NOT NULL AND signal_vwap/vwap_60_prev-1 < -0.02
+AND lows_since_first_low BETWEEN 26 AND 50
+AND eff_20m >= -0.5 AND eff_20m < -0.3
+AND signal_vwap/chan_hi-1 < -0.10 AND signal_vwap/chan_hi-1 >= -0.35
+AND abs(eff_10m) >= 0.15
+AND (vol_10/10.0)/(vol_60/60.0) >= 0.75      -- v1.2: last-10s volume-rate floor
+-- production: + entry_px/adj_ratio >= 1
+```
+
+| book (≥$1) | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| SPEC v1.1 | 43,894 | 71.9 | 2.065 | 1.23 | 1.97 |
+| **SPEC v1.2** | 37,322 | 72.4 | **2.153** | **1.29** | **2.02** |
+| v1.2 net marketable 1.05¢/sh RT | 37,322 | 69.3 | 1.758 | 0.93 | 1.67 |
+
+Year audit (kept vs cut): the gate improves EVERY year — the cut cell's PF is below
+the kept cell's in all 7 years:
+
+| yr | n v1.2 | PF v1.2 | avg % | med % | n cut | PF cut |
+|---|---|---|---|---|---|---|
+| 2020 | 6,306 | 3.798 | 2.02 | 2.39 | 1,155 | 3.549 |
+| 2021 | 7,427 | 3.033 | 1.52 | 2.00 | 1,351 | 2.606 |
+| 2022 | 3,676 | 1.301 | 0.47 | 1.67 | 707 | 1.254 |
+| 2023 | 3,955 | 1.515 | 0.76 | 1.82 | 656 | 1.085 |
+| 2024 | 6,394 | 2.220 | 1.38 | 2.12 | 1,055 | 1.239 |
+| 2025 | 6,829 | 1.889 | 1.12 | 1.89 | 1,179 | 1.279 |
+| 2026 | 2,735 | 1.682 | 1.10 | 2.15 | 469 | 1.403 |
+
+Notes: (a) the gate's value concentrates 2023-2025 (cut PF 1.09–1.28 — near-dead
+weight); in 2020/21 even quiet-tail lows bounced (cut 3.5/2.6), so it costs a little
+wild-year P&L for regime robustness. (b) 15% of trips cut. (c) ⚠ v1.2 post-hoc needs
+`vol_10` → run it off `spec_tkds_nostops/` (or any engine-v3 output), NOT the original
+`base20_e1200_x300/` parquet. (d) The tkd list `flushfader_spec_v11_tkds` remains a
+superset — v1.2 lives inside it.
+
+## S19 — SPEC v1.2 BAKED INTO THE ENGINE + parity proof (2026-07-29)
+
+Engine v4: the S18 stack is now first-class entry gates with production defaults —
+`--max-speed-1m -0.02`, `--k-band-lo 26 --k-band-hi 50`, `--eff20-lo -0.5 --eff20-hi
+-0.3`, `--min-abs-eff-10m 0.15`, `--dist-hi-lo -0.35 --dist-hi-hi -0.10`,
+`--min-vol10-rate 0.75`, plus `--min-volat-20m` default 0.004. Every gate individually
+disable-able; gate expressions mirror the recorded columns exactly. Banner prints the
+full stack. A bare `TradingEdge.FlushFader` run is now the SPEC v1.2 reversal sampler.
+
+Two convention decisions (both deliberate):
+- **Cold `eff_20m` PASSES the band** (user) — a warm-channel flush whose 40-slot eff
+  isn't yet computable is still a valid signal; 190 such trips exist on the restricted
+  universe (gappy tapes). Cold `eff_10m`/volat/speed still FAIL their gates.
+- **The ≥$1 cut stays POST-HOC on raw entry price** (user): `--min-prev-close`
+  default stays 0. A prev-close gate was tried first (knowable pre-open, 5,560 →
+  5,230 tkds) and REJECTED — this book buys flushes, so a name falling DOWN through
+  $1 intraday would be dropped by prev-close exactly when it signals; conversely a
+  sub-$1 name popping over $1 would be missed. Filter trips by `entry_px/adj_ratio
+  >= 1` in SQL instead (the S7c fee wall is an execution constraint, not a signal
+  one).
+
+**Parity proof** (73.8 s on the restricted table; run under the interim prev-close
+variant): engine = 35,014 trips / PF 2.074 / win 72.0 / avg +1.22 / med +1.95;
+NULL-aware post-hoc SQL on `spec_tkds_nostops` under identical conventions =
+**35,014 / 2.074 / 72.0 / +1.22 / +1.95 — zero set difference on (symbol, date,
+signal_sec)**. The gate stack is proven; the $1 convention is orthogonal to it.
+
+⚠ Post-hoc gotcha for the record: the appender writes cold features as **NULL, not
+NaN** — `isnan(eff_20m)` misses them; use `eff_20m IS NULL OR ...`. (DuckDB NaN
+comparisons are total-order — `NaN >= x` is TRUE — so NaN-lenient clauses silently
+flip meaning; NULL semantics are the safe ones.)
+
+**The final `v12_reversals/` book (record-first, all 5,560 tkds): 37,778 trips / PF
+2.155 / win 72.4** — sub-$1 entries recorded, cut post-hoc. This is the production
+reversal book the continuation trades hang off (S20 filters parents to
+`entry_px/adj_ratio >= 1` in the join).
+
+## S20 — ⭐ RIGHT-SIDE-OF-V CONTINUATIONS: built, verified, first grid (2026-07-29)
+
+Engine v5 (user design, Lance's right-side-of-the-V): every reversal fill arms 3
+watchers; the first STRICT break above the prior {1m,2m,5m}-bar max strictly after
+the fill bar (aux discipline) opens that window's continuation at the next bar's
+vwap — one per (parent, window). Each row carries 3 counterfactual trailing stops:
+strict break below the prior {1m,2m,5m}-bar rolling MIN (ratchets up, fill next bar),
+MOC backstop, NO target. Second parquet stream `cont_trips_p*.parquet` (18 cols;
+parent join on symbol+date+parent_signal_sec). Parents bit-unchanged (37,778, same
+P&L). 113,216 cont rows ≈ 3/parent (118 never fired).
+
+**Verification: 8/8 invariants at 0 violations** — incl. the sharp one: for
+target-exited parents, cont-300's entry ≡ the parent's exit fill (same event, same
+bar, same px to 1e-12). The 5m-high continuation IS "flip instead of exit".
+
+**The 9-cell grid** (≥$1 parent book; ret vs each stop, MOC included):
+
+| enter on | stop | n | win | PF | avg % | med % | med hold | moc% |
+|---|---|---|---|---|---|---|---|---|
+| 1m high | 1m trail | 37,512 | 45.5 | **1.580** | **+0.37** | −0.16 | 2.4m | 0.0 |
+| 1m high | 2m trail | 37,512 | 44.5 | 1.374 | +0.33 | −0.32 | 4.7m | 0.1 |
+| 1m high | 5m trail | 37,512 | 37.7 | 1.164 | +0.21 | −0.88 | 9.6m | 1.0 |
+| 2m high | 1m trail | 37,504 | 44.1 | 1.335 | +0.22 | −0.23 | 2.5m | 0.0 |
+| 2m high | 2m trail | 37,504 | 41.6 | 1.133 | +0.12 | −0.46 | 5.0m | 0.2 |
+| 2m high | 5m trail | 37,504 | 37.8 | 0.974 | −0.04 | −0.95 | 11.0m | 1.2 |
+| 5m high | 1m trail | 37,402 | 40.2 | 1.001 | 0.00 | −0.40 | 2.5m | 0.2 |
+| 5m high | 2m trail | 37,402 | 35.4 | 0.796 | −0.22 | −0.72 | 4.9m | 0.6 |
+| 5m high | 5m trail | 37,402 | 33.3 | 0.726 | −0.46 | −1.32 | 12.0m | 2.2 |
+
+**Monotone in BOTH axes: earlier entry better, tighter stop better.** 1m×1m is the
+grid's corner and only strong cell. The 5m-high row ≈ 0-to-negative — the parent's
+exit at the 5m high is exactly where the pop dies; **"flip instead of exit" LOSES,
+the reversal exit is vindicated a second time** (after S13).
+
+Year audit, 1m×1m: 2.553 / 1.870 / 1.352 / 1.170 / 1.289 / 1.261 / 1.633 (2020→26)
+— **positive every year** (more regime-robust than anything the momentum program
+produced), but median negative 5 of 7 years: a tail-carried trend profile.
+
+Fee overlay (1m×1m): gross +0.374%/trip PF 1.58 → **net marketable 1.05¢ RT: +0.012%,
+PF 1.014 — DEAD as a taker strategy**; net tiered commission-only 0.4¢ RT: +0.236%,
+PF 1.326. The continuation buys the break (taker-natural) — unlike the reversal legs,
+passive entry is not free here. Nov 2026 access-fee cut (30→10 mils) moves taker
+all-in to ~0.65¢ RT ≈ +0.15%/trip net — marginal, not dead. ⏭ candidate next steps:
+condition the 1m×1m cell on parent quality (S12 depth×volume cells, dist bands),
+speed-of-break features, or delay-from-parent-entry; a filtered sub-cell clearing
+~0.4%/trip average would trade net.
+
+## S21 — composed exits: arm-a-trail-at-the-Nth-high vs the target (2026-07-29)
+
+User idea: reversal entry, but once the first {1m,2m,5m} high prints, switch to a
+{1m,2m,5m} trailing stop. Composable exactly from the two parquets: ret =
+`coalesce(cont_W.stop_M_px, parent.exit_px) / parent.entry_px − 1` (a parent with no
+W-high break necessarily exited MOC — a 5m-high break implies a 1m-high break).
+≥$1 book, n = 37,512 each:
+
+| arm at | 1m trail | 2m trail | 5m trail |
+|---|---|---|---|
+| 1m high | 1.945 / +0.76 / med 0.68 | 1.749 / +0.71 / 0.43 | 1.481 / +0.59 / −0.16 |
+| 2m high | 2.005 / +0.93 / 1.06 | 1.782 / +0.83 / 0.81 | 1.483 / +0.66 / 0.12 |
+| 5m high | 2.031 / +1.27 / 1.78 | 1.761 / +1.04 / 1.44 | 1.479 / +0.79 / 0.75 |
+| **ACTUAL 5m target** | **2.137 / +1.28 / med 2.01 / win 72.3** | | |
+
+**The target survives its THIRD challenge of the day** (S13 sweep, S20 flip, S21
+trails). Monotone: the earlier the trail arms, the more reversion it forfeits — after
+the first 1m-high pop, price routinely dips through the 1m low before resuming, so
+the trail scratches wins-in-progress. The near-miss: **arm@5m-high × 1m-trail** ("ride
+past the target with a trail") is average-NEUTRAL (+1.27 vs +1.28) but median-worse
+(1.78 vs 2.01) and slower — the continuation tail exactly pays for the give-back
+(consistent with S20's 5m×1m ≈ PF 1.00). No upside is hiding past the target.
+Verdict: the right side of the V is a real but SEPARATE (and taker-cost) edge — it
+does not improve the reversal's exit.
+
+## S22 — flush entry vs breakout entry, identical 5m target (2026-07-29)
+
+User question: is it better to enter on the flush (the reversal) or on the 1m/2m-high
+break (the right side), both exiting at the SAME 5m-high target? Composable exactly:
+the first 5m break after a 1m/2m-break entry IS the parent's exit event (a 5m breach
+implies a 1m breach, so the 1m break can never come later), so composed ret =
+`parent.exit_px / cont_W.entry_px − 1`, MOC fallback inherited. ≥$1 book, identical
+subsets:
+
+| strategy | n | win | PF | avg % | med % | med hold |
+|---|---|---|---|---|---|---|
+| FLUSH entry (reversal) | 37,512 | 72.3 | **2.137** | **1.28** | **2.01** | 10.2m |
+| 1m-high break entry | 37,512 | 74.0 | 1.917 | 0.90 | 1.48 | 7.8m |
+| 2m-high break entry | 37,504 | 75.5 | 1.688 | 0.57 | 1.08 | 5.1m |
+
+**The flush entry wins; the confirmation premium is now priced: ~0.38%/trip for the
+1m break, ~0.71% for the 2m break** — more than the risk it removes, though win rate
+genuinely rises with confirmation (72.3 → 75.5) and holds shorten. The V6 asymmetry
+("long buys WEAKNESS") survives measurement on identical trades with an identical
+exit. Execution compounds it: the flush entry is passive-limit-natural (fee ≈ 0), the
+break entry taker-natural (~1.05¢/sh RT). The 1m-break variant (1.92 / 74% / +0.90%)
+remains a respectable standalone shape for discretionary use — it is just strictly
+dominated here.
+
+## S23 — MA / VWMA exit sweep: the target survives challenge #4 (2026-07-29)
+
+Engine v6: 24 MA-EXIT MARKS per trip — first STRICT cross of vwap above the
+strictly-prior {10,20,30,40,50,60}m mean after the fill bar (aux discipline, fill
+next bar), simple price MA + VWMA, PARTIAL-TOLERANT early-session windows (a young
+60m window = the session-so-far mean), MOC/day-end fallback baked in. Schema 121
+cols. Hand-audit: ADIL 2024-04-12 ma_10m cross recomputed from the slim tape —
+exact to the bar and the digit.
+
+⚠ **Shadowing bug caught mid-flight:** the new `dvSum1200` binding shadowed the
+engine's existing one (which feeds `vwap_1200`) and its double-push made the
+1200-window cover 600s with doubled sums — `vwma_20m` held 1.2 minutes and
+`vwap_1200` was corrupted in the interim parquet. The anomaly (a non-monotone hold
+time) exposed it; fixed by reusing the original object; final run verified
+bit-identical on the book. House rule reinforced: **an off-pattern cell in a sweep
+is a bug until proven a finding.**
+
+Sweep (≥$1 book, n=37,512; MA ≈ VWMA at every window — table shows MA):
+
+| exit | win | PF | avg % | med % | med hold | ≥15:50 |
+|---|---|---|---|---|---|---|
+| ma_10m | 72.4 | 2.119 | 1.16 | 1.86 | 8.8m | 0.1% |
+| ma_20m | 69.6 | 1.837 | **1.34** | **2.40** | 20.8m | 1.8% |
+| ma_30m | 66.6 | 1.640 | 1.32 | 2.56 | 35.5m | 5.2% |
+| ma_40m | 65.5 | 1.484 | 1.22 | 2.76 | 50.6m | 9.8% |
+| ma_50m | 64.9 | 1.437 | 1.23 | 2.97 | 64.0m | 14.0% |
+| ma_60m | 64.9 | 1.382 | 1.17 | 3.17 | 79.1m | 18.2% |
+| **ACTUAL 5m-high target** | **72.3** | **2.137** | 1.28 | 2.01 | 10.2m | 0.4% |
+
+ma_10m ≈ the target (same event family: the first 5m-high break and the 10m-mean
+cross nearly coincide). **ma_20m is the first exit all day to beat the target on
+avg AND median** (+1.34/2.40 vs +1.28/2.01) — but the year audit kills it:
+
+| yr | PF actual | PF ma_20m | avg act | avg ma20 |
+|---|---|---|---|---|
+| 2020 | 3.79 | 2.87 | 2.01 | 2.17 |
+| 2021 | 2.93 | 2.56 | 1.49 | 1.64 |
+| **2022** | **1.30** | **1.02** | **0.46** | **0.04** |
+| 2023 | 1.52 | 1.40 | 0.76 | 0.80 |
+| 2024 | 2.22 | 2.16 | 1.38 | 1.70 |
+| 2025 | 1.86 | 1.60 | 1.10 | 1.05 |
+| 2026 | 1.68 | 1.44 | 1.10 | 0.96 |
+
+**Verdict: the ma_20m avg/median premium is a GOOD-YEAR artifact** (2020/21/24 pay
+for it; 2022 goes to breakeven — the far mean stops getting reached in grind
+regimes and losers bleed to the close). Longer MAs are the same trade-off amplified:
+medians climb to +3.17% (patience conditioning) while PF decays to 1.38. MA vs VWMA:
+a wash everywhere (≤0.03 PF). **The 5m-high target survives its FOURTH challenge**
+(S13 windows, S20 flip, S21 trails, S23 means) — fast reversion capture + regime
+robustness beats every patience variant. Exits are CLOSED for this system.
+
+## S24 — e1m continuation: adding a 5m target to the 1m trail (2026-07-29)
+
+User idea: e1m×1m-trail continuation (S20's corner cell) PLUS the 5m-high target —
+first event wins. Composable exactly (the 5m-target-after-cont-entry ≡ the parent's
+exit event per S22; trigger-bar ties impossible — one bar cannot break above the 5m
+max and below the 1m min; 0 edge-case exclusions).
+
+| e1m exit | win | PF | avg % | med % | p95 % |
+|---|---|---|---|---|---|
+| 1m trail only (S20) | 45.5 | 1.580 | +0.37 | −0.16 | 4.75 |
+| 5m target + 1m trail | 46.3 | 1.658 | +0.42 | −0.13 | 4.59 |
+| 5m target only (S22 shape) | **74.1** | **1.957** | **+0.92** | **+1.48** | 5.29 |
+
+**The trail fires first 78.6% of the time — the target only gets a say in 21.4% of
+trades.** Where it does fire first, locking the 5m-high price beats the trail's
+give-back (+0.08 PF, small tail cost), but the stop remains the dominant and
+damage-doing term. The user's prediction confirmed: targets improve a stopped
+variant, and neither approaches target-without-stop. ⭐ General principle, now
+measured: in any multi-exit design the FASTEST trigger owns the outcome
+distribution, and the fastest trigger is the one nearest to price — a stop
+near price converts the win-rate into a coin flip before slower exits can act
+(the S16/S20/S24 lottery mechanism in one line).
+
+## S25 — the OR-of-5 A+ union + the eff-cell reconciliation (2026-07-29)
+
+**The 2.5-PF campaign opens.** User candidate: v1.2 + ANY of {vol 1m/20m ≥4,
+speed <−10%, chg-from-20m-low <−1%, eff_20m <−0.45, volat ≥200bp}.
+≥$1 v1.2 book (37,512 @ 2.137):
+
+| cut | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| + ANY of the 5 | 8,493 | 73.2 | 2.285 | 1.63 | 2.33 |
+| + ANY of 4 (eff dropped) | 3,141 | 73.2 | 2.380 | 2.28 | 3.20 |
+| none of the 5 | 29,019 | 72.0 | 2.087 | 1.18 | 1.93 |
+
+Singles: vr≥4 = 3.88 (n 535) · speed<−10% = 2.29/avg 3.10 (732) · volat≥200 =
+2.36/avg 2.85 (543) · break<−1% = 2.45 (1,860) · eff<−0.45 = 2.33 (5,810 — dominates
+the union). Year audit: OR-5 2022 = 1.13; OR-4 2022 = **0.60** — the extremes are
+wild-year features; the eff term is the only regime-robust member and the only thing
+keeping 2022 positive. **Verdict (user): not worth it.**
+
+**The eff-interior reconciliation** — the remembered "10,118 @ ~2.5" traced exactly:
+
+| stage (full universe) | n | PF |
+|---|---|---|
+| S9-era eff [−0.5,−0.45) cell | 10,133 | 2.453 |
+| + \|eff_10m\| ≥ 0.15 | 9,892 | 2.481 |
+| + ≥$1 | 7,025 | 2.317 |
+| + vol10 gate (v1.2 form) | 5,810 | 2.325 |
+
+**The $1 floor deflated the cell** (the eff10 floor actually helped it): 2,867 of its
+trips were sub-$1 — where the extra PF lived — and sub-$1 is fee-dead (S7c). The
+~2.5 version was never tradable; its tradable form runs 2.32-2.33.
+
+⚠ **METHOD RULE (new):** the restricted `flushfader_spec_v11_tkds` universe contains
+only tkds with ≥1 v1.1+$1 trip → post-hoc there is EXACT only for TIGHTENINGS of
+v1.1+$1; any RELAXATION (drop a floor, widen a band, sub-$1) silently undercounts
+(the S9 cell read 7,246 vs the true 10,133 — 28% missing). Relaxations run against
+`base20_e1200_x300/` (⚠ no vol_5/10, tc_5/10 columns there) or need a full-universe
+engine rerun.
+
+## S26 — the full lever battery on SPEC v1.2 (2026-07-29)
+
+All breakdowns on the engine-gated v1.2 ≥$1 book (n=37,512 / PF 2.137 / win 72.3 /
+avg +1.28 / med +2.01).
+
+**01 volat_20m (bp):**
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| [40,60) | 4,316 | 73.7 | 2.322 | 1.09 | 1.61 |
+| [60,80) | 10,914 | 71.3 | 2.121 | 1.04 | 1.76 |
+| [80,120) | 15,096 | 72.5 | 2.209 | 1.33 | 2.09 |
+| [120,200) | 6,643 | 72.5 | 1.957 | 1.55 | 2.84 |
+| ≥200 | 543 | 72.4 | 2.360 | 2.85 | 4.22 |
+
+**02 flush speed (%):**
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| [−3,−2) | 14,313 | 71.8 | 2.019 | 0.95 | 1.75 |
+| [−4,−3) | 9,892 | 73.0 | 2.146 | 1.21 | 1.98 |
+| [−6,−4) | 8,794 | 72.7 | 2.233 | 1.48 | 2.27 |
+| [−10,−6) | 3,781 | 71.8 | 2.171 | 1.90 | 2.89 |
+| <−10 | 732 | 70.6 | 2.292 | 3.10 | 4.81 |
+
+**03 K (lows_since_first_low):**
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| 26-29 | 6,911 | 71.5 | 2.075 | 1.22 | 1.96 |
+| **30-34** | 8,470 | 73.0 | **2.400** | 1.43 | 2.10 |
+| **35-39** | 7,637 | 73.7 | **2.347** | 1.42 | 2.09 |
+| 40-44 | 6,962 | 71.0 | 1.892 | 1.10 | 1.90 |
+| 45-50 | 7,532 | 72.1 | 1.986 | 1.19 | 1.94 |
+
+**04 eff_20m** — monotone, deeper better:
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| [−.50,−.45) | 5,810 | 73.8 | 2.325 | 1.40 | 2.11 |
+| [−.45,−.40) | 9,141 | 73.1 | 2.249 | 1.33 | 2.00 |
+| [−.40,−.35) | 11,163 | 72.5 | 2.153 | 1.33 | 2.06 |
+| [−.35,−.30) | 11,398 | 70.7 | 1.958 | 1.14 | 1.90 |
+
+**05 eff_10m** — the hump peaks at [−.6,−.45):
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| <−0.75 | 1,627 | 71.1 | 2.202 | 1.31 | 1.87 |
+| [−.75,−.6) | 6,966 | 73.6 | 2.024 | 1.30 | 2.12 |
+| **[−.6,−.45)** | 12,438 | 73.9 | **2.368** | 1.46 | 2.16 |
+| [−.45,−.3) | 10,665 | 71.6 | 2.002 | 1.16 | 1.98 |
+| [−.3,−.15) | 5,783 | 68.9 | 2.055 | 1.09 | 1.65 |
+| positive side | 33 | — | — | — | noise |
+
+**06 dist from 20m high (%)** — the wall creeps in from −25, not −35:
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| (−15,−10] | 20,491 | 72.0 | 2.123 | 1.03 | 1.76 |
+| (−20,−15] | 10,489 | 72.0 | 2.233 | 1.42 | 2.19 |
+| **(−25,−20]** | 4,345 | 74.8 | **2.305** | 1.87 | 2.98 |
+| (−35,−25] | 2,187 | 71.3 | **1.764** | 1.81 | 3.44 |
+
+**07 chg from 20m low (%)** — decisive breaks better:
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| ≥−0.1 | 12,824 | 72.1 | 2.011 | 1.10 | 1.86 |
+| [−.25,−.1) | 9,252 | 72.7 | 2.231 | 1.28 | 1.97 |
+| [−.5,−.25) | 8,222 | 72.2 | 2.153 | 1.29 | 2.08 |
+| [−1,−.5) | 5,354 | 71.7 | 2.117 | 1.42 | 2.22 |
+| **<−1** | 1,860 | 73.9 | **2.454** | 2.09 | 2.94 |
+
+**08 dist from 5m high (%)** — S14's ≥17 wall confirmed on v1.2:
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| <5 | 5,805 | 71.2 | 1.998 | 0.82 | 1.42 |
+| [5,7) | 10,357 | 71.5 | 2.183 | 1.05 | 1.76 |
+| [7,9) | 8,574 | 73.2 | 2.199 | 1.26 | 2.10 |
+| [9,12) | 7,059 | 73.6 | 2.210 | 1.48 | 2.46 |
+| [12,17) | 3,952 | 74.9 | 2.336 | 2.00 | 3.28 |
+| ≥17 | 1,765 | 65.2 | **1.690** | 1.86 | 3.38 |
+
+**09 vol 1m/20m:**
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| <0.5 | 872 | 72.1 | 2.485 | 1.39 | 1.98 |
+| [0.5,1) | 10,208 | 72.9 | 2.067 | 1.23 | 2.04 |
+| [1,2) | 19,568 | 72.2 | 2.113 | 1.22 | 1.94 |
+| [2,4) | 6,329 | 71.3 | 2.138 | 1.38 | 2.09 |
+| **[4,8)** | 522 | 74.5 | **3.433** | 2.81 | 3.49 |
+| ≥8 | 13 | 100.0 | all-win | 20.54 | 19.90 |
+
+**10 tc 1m/20m:**
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| <0.5 | 532 | 73.7 | 1.667 | 0.90 | 2.00 |
+| [0.5,1) | 10,187 | 72.6 | 2.257 | 1.34 | 2.03 |
+| [1,2) | 20,995 | 72.4 | 2.048 | 1.18 | 1.97 |
+| [2,4) | 5,356 | 71.0 | 2.204 | 1.44 | 2.08 |
+| [4,8) | 425 | 73.4 | 2.862 | 2.46 | 3.01 |
+| ≥8 | 17 | 100.0 | all-win | 17.95 | 19.01 |
+
+**11 vol10 rate** — the zone just above the 0.75 floor is the gate's weakest kept slice:
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| [.75,1) | 5,465 | 72.6 | **1.867** | 1.10 | 1.98 |
+| [1,1.25) | 5,720 | 73.3 | 2.341 | 1.43 | 2.00 |
+| [1.25,1.5) | 5,157 | 72.3 | 2.188 | 1.32 | 2.00 |
+| [1.5,2) | 7,941 | 73.2 | 2.291 | 1.40 | 2.13 |
+| ≥2 | 13,229 | 71.2 | 2.070 | 1.20 | 1.95 |
+
+**12 raw price ($)** — clean monotone DOWN in price:
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| **[1,2)** | 9,513 | 73.6 | **2.598** | 1.67 | 2.37 |
+| [2,5) | 14,725 | 72.3 | 2.229 | 1.28 | 1.89 |
+| [5,10) | 6,836 | 72.9 | 2.012 | 1.18 | 2.05 |
+| [10,25) | 4,737 | 69.8 | **1.682** | 0.91 | 1.79 |
+| ≥25 | 1,701 | 69.6 | **1.335** | 0.53 | 1.85 |
+
+**13 session low** (⚠ S11: the off-low premium was a good-year artifact on v1.1 — year-audit before acting):
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| new sess low | 22,462 | 70.7 | 1.947 | 1.14 | 1.90 |
+| **higher-low leg** | 15,050 | 74.7 | **2.476** | 1.49 | 2.16 |
+
+**14 time of day** — fades into lunch:
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| 10:00-10:30 | 9,512 | 71.6 | 2.302 | 1.33 | 1.95 |
+| 10:30-11:00 | 7,489 | 73.6 | 2.259 | 1.31 | 1.98 |
+| 11:00-12:00 | 10,354 | 72.8 | 2.172 | 1.28 | 1.95 |
+| 12:00-13:30 | 10,157 | 71.5 | 1.919 | 1.22 | 2.13 |
+
+**15 dist to session vwap (%)** — ⭐ the battery's standout new cell:
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| <−15 | 11,282 | 70.7 | **1.846** | 1.31 | 2.27 |
+| [−15,−10) | 11,356 | 72.9 | 2.302 | 1.32 | 2.06 |
+| [−10,−6) | 10,379 | 71.4 | 2.222 | 1.10 | 1.72 |
+| [−6,−3) | 2,398 | 73.6 | 2.221 | 1.07 | 1.74 |
+| **≥−3** | 2,097 | **80.3** | **3.409** | 2.01 | 2.50 |
+
+**16 chg vs prev close (%)** — the V2 wings pattern: flat-day and crashed-day both weak:
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| <−20 | 3,314 | 70.1 | **1.571** | 0.94 | 2.11 |
+| [−20,−5) | 5,784 | 73.6 | 2.472 | 1.49 | 2.12 |
+| [−5,5) | 5,457 | 68.9 | **1.671** | 0.89 | 1.74 |
+| [5,20) | 6,413 | 73.4 | 2.295 | 1.26 | 1.87 |
+| ≥20 | 16,544 | 73.0 | 2.339 | 1.41 | 2.09 |

@@ -229,11 +229,15 @@ type FlushPosition =
       // ----- raw activity levels (log twins = ln() in SQL) -----
       BarVol: float
       BarTc: int
+      Vol5: float                // 5s/10s tails (exhaustion-fade contrast vs the 1m rate)
+      Vol10: float
       Vol15: float
       Vol30: float
       Vol60: float
       Vol600: float              // 10m volume sum (mid-horizon participation ratios)
       Vol1200: float             // 20m sums — the absolute 1m-vs-10m-vs-20m comparisons
+      Tc5: float                 // 5s/10s tails, tc twins
+      Tc10: float
       Tc15: float
       Tc30: float
       Tc60: float
@@ -273,9 +277,72 @@ type FlushPosition =
       AuxSec600: int
       AuxHi1200: float
       AuxSec1200: int
+      // ⭐ MA-EXIT MARKS (user, 2026-07-29): first STRICT cross of vwap above the
+      // strictly-prior {10,20,30,40,50,60}m mean after the fill bar, filled at the
+      // NEXT present bar (aux discipline) — the counterfactual "exit at reversion
+      // to the mean" sweep. ma_* = simple mean of bar vwaps; vwma_* = Σ(vwap·vol)/
+      // Σvol. Both PARTIAL-TOLERANT (early-session window = session-so-far mean).
+      // Unresolved marks fill at the MOC bar / day-end (sec >= MocSec = the moc
+      // fallback, distinguishable post-hoc).
+      Ma10Px: float
+      Ma10Sec: int
+      Ma20Px: float
+      Ma20Sec: int
+      Ma30Px: float
+      Ma30Sec: int
+      Ma40Px: float
+      Ma40Sec: int
+      Ma50Px: float
+      Ma50Sec: int
+      Ma60Px: float
+      Ma60Sec: int
+      Vwma10Px: float
+      Vwma10Sec: int
+      Vwma20Px: float
+      Vwma20Sec: int
+      Vwma30Px: float
+      Vwma30Sec: int
+      Vwma40Px: float
+      Vwma40Sec: int
+      Vwma50Px: float
+      Vwma50Sec: int
+      Vwma60Px: float
+      Vwma60Sec: int
       // ----- exit -----
       BarsHeld: int              // present bars from the fill bar to the exit-fill bar
       State: IntraPosState }
+
+/// ⭐ RIGHT-SIDE-OF-V CONTINUATION (user, 2026-07-29 — Lance Breitstein's concept).
+/// Parent = a SPEC v1.2 reversal trip. After the parent's ENTRY FILL, the first
+/// STRICT break above the prior {60,120,300}-bar MAX — the breach printing strictly
+/// after the fill bar (aux-mark discipline) — is the continuation signal for that
+/// window; it fills at the NEXT present bar's vwap. One continuation per
+/// (parent, window). Each row carries THREE independent counterfactual trailing
+/// stops: exit when vwap breaks STRICTLY below the prior {60,120,300}-bar rolling
+/// MIN (ratchets up as the low rises; fill next bar), MOC backstop, NO profit
+/// target — the right side runs. 3 entries x 3 stops = 9 counterfactuals/parent.
+type ContPosition =
+    { ParentSignalSec: int       // join key back to the reversal trip (with symbol+date)
+      ParentEntrySec: int
+      ParentEntryPx: float
+      EntryWindow: int           // 60 | 120 | 300 — the high-break entry channel
+      SignalSec: int             // the breach bar (strictly after the parent fill bar)
+      SignalVwap: float
+      EntrySec: int              // the next present bar (fill)
+      EntryPx: float
+      // each stop: Pending stages the fill for the next bar; Sec = -1 while live
+      Stop60Pending: bool
+      Stop60Sec: int
+      Stop60Px: float
+      Stop60Reason: string       // "trail" | "moc"
+      Stop120Pending: bool
+      Stop120Sec: int
+      Stop120Px: float
+      Stop120Reason: string
+      Stop300Pending: bool
+      Stop300Sec: int
+      Stop300Px: float
+      Stop300Reason: string }
 
 /// FlushFader config. Hard gates only — every other lever is a recorded column.
 type IntradayConfig =
@@ -299,6 +366,19 @@ type IntradayConfig =
       // ⭐ |eff_20m| floor — same record-first stance (V6's adx analog; keep 0). A signal
       // with eff still cold FAILS a positive floor.
       MinAbsEff20m: float
+      // ⭐ SPEC v1.2 GATES (baked 2026-07-29) — the S18 production stack as entry
+      // conditions, formulas IDENTICAL to the recorded columns. Each individually
+      // disable-able; a cold feature FAILS an armed gate (volatOk stance).
+      MaxSpeed1m: float          // vwap/vwap_60_prev - 1 < this (flush speed). Default -0.02. 0 = off.
+      KBandLo: int               // lows_since_first_low >= this. Default 26. <= 0 = off.
+      KBandHi: int               // lows_since_first_low <= this. Default 50. <= 0 = off.
+      Eff20Lo: float             // eff_20m (SIGNED) >= this. Default -0.5. -Infinity = off.
+      Eff20Hi: float             // eff_20m (SIGNED) <  this. Default -0.3. +Infinity = off.
+                                 // ⚠ COLD eff_20m PASSES this band (user 2026-07-29).
+      MinAbsEff10m: float        // |eff_10m| >= this. Default 0.15. 0 = off.
+      DistHiLo: float            // vwap/chan_hi - 1 >= this (the un-fadeable wall). Default -0.35. -Infinity = off.
+      DistHiHi: float            // vwap/chan_hi - 1 <  this (deep enough into the leg). Default -0.10. >= 0 = off.
+      MinVol10Rate: float        // (vol_10/10)/(vol_60/60) >= this (S17/S18 last-10s floor). Default 0.75. 0 = off.
       // ⭐ PRICE-ACCEPTANCE STOPS (user, 2026-07-28): while holding, exit if a NEW
       // entry-channel low prints on (vol_60/60)/(vol_1200/1200) >= VolStopRatio, or
       // (tc_60/60)/(tc_1200/1200) >= TcStopRatio, or at vwap/vwap_60_prev - 1 <
@@ -372,11 +452,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable legConsumed = false
     let mutable tradeIdx = 0
     // ----- activity sums + lags -----
+    let volSum5 = SumMa 5                        // 5s/10s tails (user, 2026-07-29)
+    let volSum10 = SumMa 10
     let volSum15 = SumMa 15
     let volSum30 = SumMa 30
     let volSum60 = SumMa 60
     let volSum600 = SumMa 600                    // 10m volume (user, 2026-07-28)
     let volSum1200 = SumMa 1200
+    let tcSum5 = SumMa 5
+    let tcSum10 = SumMa 10
     let tcSum15 = SumMa 15
     let tcSum30 = SumMa 30
     let tcSum60 = SumMa 60
@@ -386,6 +470,25 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let tc60Lag = LagMa<float> 60
     let vwap60Lag = LagMa<float> 60              // ⭐ the rolling 60-bar vwap, lagged one minute
     let dvSum60 = SumMa 60                       // Σ vwap·volume — the liquidity floor + vwap_60
+    // ⭐ MA-exit machinery (user, 2026-07-29): rolling sums for the {10..60}m means.
+    // Simple price MA = pxSumN/count; VWMA = dvSumN/volSumN. All partial-tolerant.
+    let pxSum600 = SumMa 600
+    let pxSum1200 = SumMa 1200
+    let pxSum1800 = SumMa 1800
+    let pxSum2400 = SumMa 2400
+    let pxSum3000 = SumMa 3000
+    let pxSum3600 = SumMa 3600
+    let dvSum600 = SumMa 600
+    // (no dvSum1200 here — the engine already maintains one below for vwap_1200;
+    // a duplicate binding SHADOWED it and its double-push corrupted both. ⚠)
+    let dvSum1800 = SumMa 1800
+    let dvSum2400 = SumMa 2400
+    let dvSum3000 = SumMa 3000
+    let dvSum3600 = SumMa 3600
+    let volSum1800 = SumMa 1800
+    let volSum2400 = SumMa 2400
+    let volSum3000 = SumMa 3000
+    let volSum3600 = SumMa 3600
     let dvSum1200 = SumMa 1200                   // Σ vwap·volume over 20m — the 20m rolling VWAP
     // ----- the locked volatility block -----
     let slots = SlotVwapMa cfg.SlotBars
@@ -397,6 +500,21 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let slotAbsSum20 = SumMa 20
     let mutable prevSlotVwap : float voption = ValueNone
     let mutable prevEtSec = -1                   // the PREVIOUS present bar's etSec (aux-mark lookback)
+    let mutable prevVwap = nan                   // ... and its vwap (continuation signal price)
+    // did the PREVIOUS bar close strictly above its prior {10..60}m mean? (the
+    // MA-exit marks fill on the bar AFTER the cross — aux discipline)
+    let mutable prevXMa10 = false
+    let mutable prevXMa20 = false
+    let mutable prevXMa30 = false
+    let mutable prevXMa40 = false
+    let mutable prevXMa50 = false
+    let mutable prevXMa60 = false
+    let mutable prevXVw10 = false
+    let mutable prevXVw20 = false
+    let mutable prevXVw30 = false
+    let mutable prevXVw40 = false
+    let mutable prevXVw50 = false
+    let mutable prevXVw60 = false
     let mutable slotReturns = 0
     // ----- gaps / location / session -----
     let gap60 = GapCounter(60, cfg.SessionStartSec)
@@ -417,6 +535,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let active = ResizeArray<FlushPosition>()
     let retired = ResizeArray<FlushPosition>()
     let mutable pendingEntry : FlushPosition voption = ValueNone
+    // ⭐ right-side-of-V continuations: watchers arm at the parent fill (one per
+    // window, removed when fired), positions retire once all three stops resolve.
+    let contWatch = ResizeArray<struct (int * int * float * int)>()   // parentSignalSec, parentEntrySec, parentEntryPx, window
+    let activeCont = ResizeArray<ContPosition>()
+    let retiredCont = ResizeArray<ContPosition>()
     // STRICTLY-PRIOR snapshots, captured BEFORE this bar's vwap folds in. ⚠ If
     // the current vwap were inside its own window, "vwap < channel min" would be
     // trivially false on every bar (a value can't undercut a min that contains
@@ -447,6 +570,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     member _.Ticker = ticker
     member _.Day = day
     member _.Positions = Seq.append retired active
+    /// Finished continuations (⚠ valid only after Flatten — same as .Positions).
+    member _.ContPositions = Seq.append retiredCont activeCont
     member _.OpenCount =
         let mutable k = 0
         for p in active do
@@ -477,6 +602,22 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         sExitMax <- exitMax.State
         sSessHigh <- sessHigh.State
         sSessLow <- sessLow.State
+        // strictly-prior {10..60}m means for the MA-exit marks (partial-tolerant:
+        // an early-session window degrades to the session-so-far mean)
+        let inline sumMean (s: SumMa) = match s.State with ValueSome v when s.Count > 0 -> v / float s.Count | _ -> nan
+        let inline sumRatio (a: SumMa) (b: SumMa) = match a.State, b.State with ValueSome x, ValueSome y when y > 0.0 -> x / y | _ -> nan
+        let ma10 = sumMean pxSum600
+        let ma20 = sumMean pxSum1200
+        let ma30 = sumMean pxSum1800
+        let ma40 = sumMean pxSum2400
+        let ma50 = sumMean pxSum3000
+        let ma60 = sumMean pxSum3600
+        let vwma10 = sumRatio dvSum600 volSum600
+        let vwma20 = sumRatio dvSum1200 volSum1200
+        let vwma30 = sumRatio dvSum1800 volSum1800
+        let vwma40 = sumRatio dvSum2400 volSum2400
+        let vwma50 = sumRatio dvSum3000 volSum3000
+        let vwma60 = sumRatio dvSum3600 volSum3600
         let priorEntryMin =
             match cfg.EntryChannelBars with
             | 30 -> sMin30 | 60 -> sMin60 | 120 -> sMin120 | 300 -> sMin300 | 600 -> sMin600 | 1200 -> sMin1200
@@ -493,17 +634,36 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         gap60.Push bar.etSec
         gap30.Push bar.etSec
         gap15.Push bar.etSec
+        volSum5.Push bar.volume
+        volSum10.Push bar.volume
         volSum15.Push bar.volume
         volSum30.Push bar.volume
         volSum60.Push bar.volume
         volSum600.Push bar.volume
         volSum1200.Push bar.volume
+        tcSum5.Push (float bar.tradeCount)
+        tcSum10.Push (float bar.tradeCount)
         tcSum15.Push (float bar.tradeCount)
         tcSum30.Push (float bar.tradeCount)
         tcSum60.Push (float bar.tradeCount)
         tcSum600.Push (float bar.tradeCount)
         tcSum1200.Push (float bar.tradeCount)
         dvSum60.Push (bar.vwap * bar.volume)
+        pxSum600.Push bar.vwap
+        pxSum1200.Push bar.vwap
+        pxSum1800.Push bar.vwap
+        pxSum2400.Push bar.vwap
+        pxSum3000.Push bar.vwap
+        pxSum3600.Push bar.vwap
+        dvSum600.Push (bar.vwap * bar.volume)
+        dvSum1800.Push (bar.vwap * bar.volume)
+        dvSum2400.Push (bar.vwap * bar.volume)
+        dvSum3000.Push (bar.vwap * bar.volume)
+        dvSum3600.Push (bar.vwap * bar.volume)
+        volSum1800.Push bar.volume
+        volSum2400.Push bar.volume
+        volSum3000.Push bar.volume
+        volSum3600.Push bar.volume
         dvSum1200.Push (bar.vwap * bar.volume)
         // the minute-lag chains feed only WARM 60-sums (1 push per bar after
         // warmup keeps .Lagged = the value ending exactly 60 bars ago)
@@ -556,7 +716,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // ===== 3. fill pendings at THIS bar's vwap (signals from the prior bar) =====
         match pendingEntry with
         | ValueSome p ->
-            active.Add { p with EntrySec = bar.etSec; EntryPx = bar.vwap }
+            let filled = { p with EntrySec = bar.etSec; EntryPx = bar.vwap }
+            active.Add filled
+            // arm the right-side-of-V watchers for this parent (fire on the first
+            // strict {60,120,300}-bar-high breach strictly after THIS fill bar)
+            contWatch.Add(struct (filled.SignalSec, filled.EntrySec, filled.EntryPx, 60))
+            contWatch.Add(struct (filled.SignalSec, filled.EntrySec, filled.EntryPx, 120))
+            contWatch.Add(struct (filled.SignalSec, filled.EntrySec, filled.EntryPx, 300))
             pendingEntry <- ValueNone
         | ValueNone -> ()
         for i in 0 .. active.Count - 1 do
@@ -569,6 +735,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // The aux-mark logic (step 5) reads the counters AS OF THE PREVIOUS BAR
         // ("previous snapshot's bars-since-high = 0 -> mark on the current
         // bar") — snapshot them before this bar's update.
+        let prevBr60 = br60.BarsSinceBreach   // continuation cat-60 watcher
         let prevBr120 = br120.BarsSinceBreach
         let prevBr300 = br300.BarsSinceBreach
         let prevBr600 = br600.BarsSinceBreach
@@ -663,6 +830,40 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     AuxHi300 = hi300; AuxSec300 = sc300
                     AuxHi600 = hi600; AuxSec600 = sc600
                     AuxHi1200 = hi1200; AuxSec1200 = sc1200 }
+            // MA-exit marks: the PREVIOUS bar crossed strictly above its prior
+            // mean (strictly after the fill bar) -> fill at THIS bar's vwap; any
+            // mark still unresolved at/past MocSec resolves at this bar (the moc
+            // fallback — sec >= MocSec distinguishes it post-hoc).
+            let inline maStep px sec prevX =
+                if Double.IsNaN px && (bar.etSec >= cfg.MocSec || (prevX && prevEtSec > p.EntrySec))
+                then struct (bar.vwap, bar.etSec)
+                else struct (px, sec)
+            let struct (m10p, m10s) = maStep p.Ma10Px p.Ma10Sec prevXMa10
+            let struct (m20p, m20s) = maStep p.Ma20Px p.Ma20Sec prevXMa20
+            let struct (m30p, m30s) = maStep p.Ma30Px p.Ma30Sec prevXMa30
+            let struct (m40p, m40s) = maStep p.Ma40Px p.Ma40Sec prevXMa40
+            let struct (m50p, m50s) = maStep p.Ma50Px p.Ma50Sec prevXMa50
+            let struct (m60p, m60s) = maStep p.Ma60Px p.Ma60Sec prevXMa60
+            let struct (v10p, v10s) = maStep p.Vwma10Px p.Vwma10Sec prevXVw10
+            let struct (v20p, v20s) = maStep p.Vwma20Px p.Vwma20Sec prevXVw20
+            let struct (v30p, v30s) = maStep p.Vwma30Px p.Vwma30Sec prevXVw30
+            let struct (v40p, v40s) = maStep p.Vwma40Px p.Vwma40Sec prevXVw40
+            let struct (v50p, v50s) = maStep p.Vwma50Px p.Vwma50Sec prevXVw50
+            let struct (v60p, v60s) = maStep p.Vwma60Px p.Vwma60Sec prevXVw60
+            let p =
+                { p with
+                    Ma10Px = m10p; Ma10Sec = m10s
+                    Ma20Px = m20p; Ma20Sec = m20s
+                    Ma30Px = m30p; Ma30Sec = m30s
+                    Ma40Px = m40p; Ma40Sec = m40s
+                    Ma50Px = m50p; Ma50Sec = m50s
+                    Ma60Px = m60p; Ma60Sec = m60s
+                    Vwma10Px = v10p; Vwma10Sec = v10s
+                    Vwma20Px = v20p; Vwma20Sec = v20s
+                    Vwma30Px = v30p; Vwma30Sec = v30s
+                    Vwma40Px = v40p; Vwma40Sec = v40s
+                    Vwma50Px = v50p; Vwma50Sec = v50s
+                    Vwma60Px = v60p; Vwma60Sec = v60s }
             let p =
                 match p.State with
                 | Holding | PendingExit _ -> { p with BarsHeld = p.BarsHeld + 1 }
@@ -688,12 +889,68 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                               && not (Double.IsNaN p.AuxHi120 && br120.BarsSinceBreach = 0)
                               && not (Double.IsNaN p.AuxHi300 && br300.BarsSinceBreach = 0)
                               && not (Double.IsNaN p.AuxHi600 && br600.BarsSinceBreach = 0)
-                              && not (Double.IsNaN p.AuxHi1200 && br1200.BarsSinceBreach = 0) ->
+                              && not (Double.IsNaN p.AuxHi1200 && br1200.BarsSinceBreach = 0)
+                              // MA-exit marks: retire only fully resolved (they
+                              // resolve by the MOC bar at the latest)
+                              && not (Double.IsNaN p.Ma10Px) && not (Double.IsNaN p.Ma20Px)
+                              && not (Double.IsNaN p.Ma30Px) && not (Double.IsNaN p.Ma40Px)
+                              && not (Double.IsNaN p.Ma50Px) && not (Double.IsNaN p.Ma60Px)
+                              && not (Double.IsNaN p.Vwma10Px) && not (Double.IsNaN p.Vwma20Px)
+                              && not (Double.IsNaN p.Vwma30Px) && not (Double.IsNaN p.Vwma40Px)
+                              && not (Double.IsNaN p.Vwma50Px) && not (Double.IsNaN p.Vwma60Px) ->
                 retired.Add p
             | _ ->
                 active.[w] <- p
                 w <- w + 1
         if w < active.Count then active.RemoveRange(w, active.Count - w)
+
+        // ===== 5b. right-side-of-V continuations =====
+        // (a) fire watchers: prevBrN = 0 -> the PREVIOUS bar printed a fresh
+        // N-bar high; if that breach was strictly after the parent's fill bar,
+        // it is the continuation signal and the trade fills at THIS bar's vwap
+        // (aux-mark discipline). No entries at/past MocSec.
+        if contWatch.Count > 0 then
+            let mutable cw = 0
+            for i in 0 .. contWatch.Count - 1 do
+                let struct (psig, pent, ppx, win) = contWatch.[i]
+                let prevBrN = match win with 60 -> prevBr60 | 120 -> prevBr120 | _ -> prevBr300
+                if prevBrN = 0 && prevEtSec > pent && bar.etSec < cfg.MocSec then
+                    activeCont.Add
+                        { ParentSignalSec = psig; ParentEntrySec = pent; ParentEntryPx = ppx
+                          EntryWindow = win; SignalSec = prevEtSec; SignalVwap = prevVwap
+                          EntrySec = bar.etSec; EntryPx = bar.vwap
+                          Stop60Pending = false; Stop60Sec = -1; Stop60Px = nan; Stop60Reason = ""
+                          Stop120Pending = false; Stop120Sec = -1; Stop120Px = nan; Stop120Reason = ""
+                          Stop300Pending = false; Stop300Sec = -1; Stop300Px = nan; Stop300Reason = "" }
+                else
+                    contWatch.[cw] <- contWatch.[i]
+                    cw <- cw + 1
+            if cw < contWatch.Count then contWatch.RemoveRange(cw, contWatch.Count - cw)
+        // (b) advance continuations: fill staged trail exits at THIS bar, MOC
+        // unresolved stops at/past MocSec (same-bar, parent discipline), then
+        // stage fresh trail triggers off the strictly-prior {60,120,300}-bar
+        // MINs. Retire once all three stops have resolved.
+        if activeCont.Count > 0 then
+            let stopBreach (prior: float voption) = match prior with ValueSome lo -> bar.vwap < lo | ValueNone -> false
+            let mutable qw = 0
+            for i in 0 .. activeCont.Count - 1 do
+                let mutable q = activeCont.[i]
+                if q.Stop60Pending then q <- { q with Stop60Pending = false; Stop60Sec = bar.etSec; Stop60Px = bar.vwap; Stop60Reason = "trail" }
+                if q.Stop120Pending then q <- { q with Stop120Pending = false; Stop120Sec = bar.etSec; Stop120Px = bar.vwap; Stop120Reason = "trail" }
+                if q.Stop300Pending then q <- { q with Stop300Pending = false; Stop300Sec = bar.etSec; Stop300Px = bar.vwap; Stop300Reason = "trail" }
+                if bar.etSec >= cfg.MocSec then
+                    if q.Stop60Sec < 0 then q <- { q with Stop60Sec = bar.etSec; Stop60Px = bar.vwap; Stop60Reason = "moc" }
+                    if q.Stop120Sec < 0 then q <- { q with Stop120Sec = bar.etSec; Stop120Px = bar.vwap; Stop120Reason = "moc" }
+                    if q.Stop300Sec < 0 then q <- { q with Stop300Sec = bar.etSec; Stop300Px = bar.vwap; Stop300Reason = "moc" }
+                else                               // triggers evaluate from the fill bar on (parent parity)
+                    if q.Stop60Sec < 0 && stopBreach sMin60 then q <- { q with Stop60Pending = true }
+                    if q.Stop120Sec < 0 && stopBreach sMin120 then q <- { q with Stop120Pending = true }
+                    if q.Stop300Sec < 0 && stopBreach sMin300 then q <- { q with Stop300Pending = true }
+                if q.Stop60Sec >= 0 && q.Stop120Sec >= 0 && q.Stop300Sec >= 0 then retiredCont.Add q
+                else
+                    activeCont.[qw] <- q
+                    qw <- qw + 1
+            if qw < activeCont.Count then activeCont.RemoveRange(qw, activeCont.Count - qw)
 
         // ===== 6. entry signal (fills next bar) =====
         let inWindow = bar.etSec >= cfg.EntryStartSec && bar.etSec <= cfg.EntryEndSec
@@ -719,7 +976,56 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     when slotAbsSum.Count = slotAbsSum.WindowSize && old > 0.0 && s > 0.0 ->
                     abs (log (cur / old) / s) >= cfg.MinAbsEff20m
                 | _ -> false)
-        if inWindow && channelWarm && isNewLow && legOk && floorsOk && volatOk && effOk && this.HasSlot then
+        // ⭐ SPEC v1.2 GATES — expressions mirror the recorded columns exactly, so an
+        // engine-gated run must bit-match the post-hoc SQL on the same trips (S19).
+        let speedOk =
+            cfg.MaxSpeed1m >= 0.0
+            || (match vwap60Lag.Lagged with
+                | ValueSome pv when pv > 0.0 -> bar.vwap / pv - 1.0 < cfg.MaxSpeed1m
+                | _ -> false)
+        let kBandOk =
+            (cfg.KBandLo <= 0 || counters.LowsSinceFirstLow >= cfg.KBandLo)
+            && (cfg.KBandHi <= 0 || counters.LowsSinceFirstLow <= cfg.KBandHi)
+        let eff20Signed =
+            match slotLag.Last, slotLag.Lagged, slotAbsSum.State with
+            | ValueSome cur, ValueSome old, ValueSome s
+                when slotAbsSum.Count = slotAbsSum.WindowSize && old > 0.0 && s > 0.0 ->
+                ValueSome (log (cur / old) / s)
+            | _ -> ValueNone
+        let eff20BandOk =
+            // ⭐ COLD eff_20m PASSES (user, 2026-07-29 — deviation from the cold-fails
+            // stance): a warm-channel signal whose 40-slot eff isn't computable yet is
+            // still a valid flush; eff_20m records nan. Post-hoc v1.2 parity needs
+            // `(isnan(eff_20m) OR (eff_20m >= lo AND eff_20m < hi))`.
+            match eff20Signed with
+            | ValueNone -> true
+            | ValueSome e ->
+                (Double.IsNegativeInfinity cfg.Eff20Lo || e >= cfg.Eff20Lo)
+                && (Double.IsPositiveInfinity cfg.Eff20Hi || e < cfg.Eff20Hi)
+        let eff10Ok =
+            cfg.MinAbsEff10m <= 0.0
+            || (match slotLag20.Last, slotLag20.Lagged, slotAbsSum20.State with
+                | ValueSome cur, ValueSome old, ValueSome s
+                    when slotAbsSum20.Count = slotAbsSum20.WindowSize && old > 0.0 && s > 0.0 ->
+                    abs (log (cur / old) / s) >= cfg.MinAbsEff10m
+                | _ -> false)
+        let distHi =
+            match priorEntryMax with
+            | ValueSome hi when hi > 0.0 -> ValueSome (bar.vwap / hi - 1.0)
+            | _ -> ValueNone
+        let distOk =
+            (Double.IsNegativeInfinity cfg.DistHiLo
+             || (match distHi with ValueSome d -> d >= cfg.DistHiLo | ValueNone -> false))
+            && (cfg.DistHiHi >= 0.0
+                || (match distHi with ValueSome d -> d < cfg.DistHiHi | ValueNone -> false))
+        let vol10Ok =
+            cfg.MinVol10Rate <= 0.0
+            || (match volSum10.State, volSum60.State with
+                | ValueSome v10, ValueSome v60 when v60 > 0.0 ->
+                    (v10 / 10.0) / (v60 / 60.0) >= cfg.MinVol10Rate
+                | _ -> false)
+        let specOk = speedOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok
+        if inWindow && channelWarm && isNewLow && legOk && floorsOk && volatOk && effOk && specOk && this.HasSlot then
             if cfg.MinLowsIntoLeg > 0 then legConsumed <- true
             pendingEntry <-
                 ValueSome
@@ -795,11 +1101,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                          | _ -> nan)
                       BarVol = bar.volume
                       BarTc = bar.tradeCount
+                      Vol5 = vv volSum5.State
+                      Vol10 = vv volSum10.State
                       Vol15 = vv volSum15.State
                       Vol30 = vv volSum30.State
                       Vol60 = vv volSum60.State
                       Vol600 = vv volSum600.State
                       Vol1200 = vv volSum1200.State
+                      Tc5 = vv tcSum5.State
+                      Tc10 = vv tcSum10.State
                       Tc15 = vv tcSum15.State
                       Tc30 = vv tcSum30.State
                       Tc60 = vv tcSum60.State
@@ -824,6 +1134,30 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       AuxSec600 = -1
                       AuxHi1200 = nan
                       AuxSec1200 = -1
+                      Ma10Px = nan
+                      Ma10Sec = -1
+                      Ma20Px = nan
+                      Ma20Sec = -1
+                      Ma30Px = nan
+                      Ma30Sec = -1
+                      Ma40Px = nan
+                      Ma40Sec = -1
+                      Ma50Px = nan
+                      Ma50Sec = -1
+                      Ma60Px = nan
+                      Ma60Sec = -1
+                      Vwma10Px = nan
+                      Vwma10Sec = -1
+                      Vwma20Px = nan
+                      Vwma20Sec = -1
+                      Vwma30Px = nan
+                      Vwma30Sec = -1
+                      Vwma40Px = nan
+                      Vwma40Sec = -1
+                      Vwma50Px = nan
+                      Vwma50Sec = -1
+                      Vwma60Px = nan
+                      Vwma60Sec = -1
                       BarsHeld = 0
                       State = Holding }
             // ⭐ the trade counter advances on INITIATION (the signal), whether or
@@ -842,6 +1176,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             tradeIdx <- 0
         // the aux-mark lookback: remember this bar as "the previous bar"
         prevEtSec <- bar.etSec
+        prevVwap <- bar.vwap
+        prevXMa10 <- not (Double.IsNaN ma10) && bar.vwap > ma10
+        prevXMa20 <- not (Double.IsNaN ma20) && bar.vwap > ma20
+        prevXMa30 <- not (Double.IsNaN ma30) && bar.vwap > ma30
+        prevXMa40 <- not (Double.IsNaN ma40) && bar.vwap > ma40
+        prevXMa50 <- not (Double.IsNaN ma50) && bar.vwap > ma50
+        prevXMa60 <- not (Double.IsNaN ma60) && bar.vwap > ma60
+        prevXVw10 <- not (Double.IsNaN vwma10) && bar.vwap > vwma10
+        prevXVw20 <- not (Double.IsNaN vwma20) && bar.vwap > vwma20
+        prevXVw30 <- not (Double.IsNaN vwma30) && bar.vwap > vwma30
+        prevXVw40 <- not (Double.IsNaN vwma40) && bar.vwap > vwma40
+        prevXVw50 <- not (Double.IsNaN vwma50) && bar.vwap > vwma50
+        prevXVw60 <- not (Double.IsNaN vwma60) && bar.vwap > vwma60
 
     /// Flatten at the tape's last bar: fill any pending exit and force-exit any
     /// holder at the last vwap ("moc" — covers early closes and thin tapes whose
@@ -850,7 +1197,36 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     member _.Flatten (lastBar: SecBar) =
         pendingEntry <- ValueNone
         for i in 0 .. active.Count - 1 do
-            match active.[i].State with
-            | Holding | PendingExit _ ->
-                active.[i] <- { active.[i] with State = ExitedAt (lastBar.etSec, lastBar.vwap, "moc") }
-            | ExitedAt _ -> ()
+            let p = active.[i]
+            let p =
+                match p.State with
+                | Holding | PendingExit _ -> { p with State = ExitedAt (lastBar.etSec, lastBar.vwap, "moc") }
+                | ExitedAt _ -> p
+            // MA-exit marks: resolve stragglers at the day's last bar (early
+            // closes / thin tapes whose final print lands before MocSec)
+            let inline fin px = if Double.IsNaN px then lastBar.vwap else px
+            let inline finSec px sec = if Double.IsNaN px then lastBar.etSec else sec
+            active.[i] <-
+                { p with
+                    Ma10Sec = finSec p.Ma10Px p.Ma10Sec; Ma10Px = fin p.Ma10Px
+                    Ma20Sec = finSec p.Ma20Px p.Ma20Sec; Ma20Px = fin p.Ma20Px
+                    Ma30Sec = finSec p.Ma30Px p.Ma30Sec; Ma30Px = fin p.Ma30Px
+                    Ma40Sec = finSec p.Ma40Px p.Ma40Sec; Ma40Px = fin p.Ma40Px
+                    Ma50Sec = finSec p.Ma50Px p.Ma50Sec; Ma50Px = fin p.Ma50Px
+                    Ma60Sec = finSec p.Ma60Px p.Ma60Sec; Ma60Px = fin p.Ma60Px
+                    Vwma10Sec = finSec p.Vwma10Px p.Vwma10Sec; Vwma10Px = fin p.Vwma10Px
+                    Vwma20Sec = finSec p.Vwma20Px p.Vwma20Sec; Vwma20Px = fin p.Vwma20Px
+                    Vwma30Sec = finSec p.Vwma30Px p.Vwma30Sec; Vwma30Px = fin p.Vwma30Px
+                    Vwma40Sec = finSec p.Vwma40Px p.Vwma40Sec; Vwma40Px = fin p.Vwma40Px
+                    Vwma50Sec = finSec p.Vwma50Px p.Vwma50Sec; Vwma50Px = fin p.Vwma50Px
+                    Vwma60Sec = finSec p.Vwma60Px p.Vwma60Sec; Vwma60Px = fin p.Vwma60Px }
+        // continuations: unfired watchers die with the day; a staged trail fills
+        // at the last bar as "trail" (its trigger was real), anything still live
+        // force-exits as "moc" (early closes / thin tapes)
+        contWatch.Clear()
+        for i in 0 .. activeCont.Count - 1 do
+            let mutable q = activeCont.[i]
+            if q.Stop60Sec < 0 then q <- { q with Stop60Pending = false; Stop60Sec = lastBar.etSec; Stop60Px = lastBar.vwap; Stop60Reason = (if q.Stop60Pending then "trail" else "moc") }
+            if q.Stop120Sec < 0 then q <- { q with Stop120Pending = false; Stop120Sec = lastBar.etSec; Stop120Px = lastBar.vwap; Stop120Reason = (if q.Stop120Pending then "trail" else "moc") }
+            if q.Stop300Sec < 0 then q <- { q with Stop300Pending = false; Stop300Sec = lastBar.etSec; Stop300Px = lastBar.vwap; Stop300Reason = (if q.Stop300Pending then "trail" else "moc") }
+            activeCont.[i] <- q
