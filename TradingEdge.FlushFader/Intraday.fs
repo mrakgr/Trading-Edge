@@ -72,7 +72,9 @@ open TradingEdge.RollingMa
 /// One 1-second present bar from data/intraday_1s_slim/, split-adjusted to the
 /// candidate's daily scale. `etSec` = the `bucket` column: seconds since 00:00
 /// ET (RTH open = 34200, 09:45 = 35100, 16:00 = 57600). volume is FLOAT — the
-/// tape carries genuine fractional shares.
+/// tape carries genuine fractional shares — and arrives SPLIT-ADJUSTED (raw
+/// shares / adj_ratio, mirroring vwap = raw × adj_ratio) so vwap·volume is
+/// honest dollars (S29 fix, 2026-07-29).
 type SecBar =
     { etSec: int
       vwap: float

@@ -1812,3 +1812,180 @@ avg +1.28 / med +2.01).
 | [−5,5) | 5,457 | 68.9 | **1.671** | 0.89 | 1.74 |
 | [5,20) | 6,413 | 73.4 | 2.295 | 1.26 | 1.87 |
 | ≥20 | 16,544 | 73.0 | 2.339 | 1.41 | 2.09 |
+
+**17 chg_3d (%)** — two peaks: FRESH flushes (mildly down 3d) and parabolic runners:
+
+| bucket | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| <−30 | 1,814 | 72.6 | 2.072 | 1.20 | 1.87 |
+| [−30,−20) | 947 | 69.4 | 1.912 | 1.06 | 1.52 |
+| [−20,−10) | 1,207 | 70.8 | 2.140 | 1.27 | 1.91 |
+| **[−10,0)** | 1,940 | 74.3 | **3.039** | 1.76 | 2.25 |
+| [0,10) | 3,208 | 73.1 | **1.778** | 0.96 | 1.78 |
+| [10,30) | 6,851 | 71.0 | 2.244 | 1.22 | 1.77 |
+| [30,75) | 9,614 | 71.6 | 1.957 | 1.10 | 1.94 |
+| [75,150) | 5,976 | 73.3 | 2.139 | 1.36 | 2.21 |
+| **≥150** | 5,340 | 74.0 | **2.620** | 1.80 | 2.45 |
+
+[−10,0) = the battery's #2 cell (the flush is FRESH, not day 3 of a collapse) — same
+semantic family as dist-sess-vwap ≥−3% (#1); check jointly. ≥150% = the parabolic
+snapback (a seventh of the book at 2.62). Weak: flat-3d [0,10) 1.78, mid-collapse
+[−30,−20) 1.91 — the chg_1d wings pattern at the 3d horizon.
+
+## S27 — robustness audits: the two A+ cells + the eff_20m loosening test (2026-07-29)
+
+**dist-sess-vwap ≥ −3% by year** (the S26 #1 cell; tightening → restricted book exact):
+
+| yr | n | PF | win | med % |
+|---|---|---|---|---|
+| 2020 | 435 | 4.96 | 77.9 | 2.19 |
+| 2021 | 400 | 4.16 | 81.8 | 1.99 |
+| 2022 | 136 | 2.09 | 76.5 | 1.69 |
+| 2023 | 268 | 1.79 | 72.0 | 2.44 |
+| 2024 | 352 | 6.50 | 89.8 | 3.46 |
+| 2025 | 402 | 6.88 | 82.3 | 2.63 |
+| 2026 | 104 | 1.17 | 71.2 | 3.91 |
+
+**HOLDS: beats the whole-book PF in 6 of 7 years, including the grind years** (2022
+2.09 vs book 1.30; 2023 1.79 vs 1.52). One caveat: 2026 = 1.17 on 104 trips (win
+still 71, median +3.9 — a few large tail losers; small-n noise or early regime signal,
+watch it). Win rate never below 71%. Genuine A+ cell.
+
+**vol 1m/20m [4,8) by year**: 3.14 / 8.75 / 3.05 / 108.5 / 21.4 / **1.85 / 1.21**
+(n = 143/76/15/36/68/112/72). Early years spectacular, but **the two most RECENT
+years are the weakest** and n is lottery-sized throughout. NOT robust as a gate —
+at best a size-up flag, and even that is suspect while 2025-26 run 1.2-1.9.
+
+**eff_20m loosening to −0.6** (relaxation → FULL parquet, v1.2-minus-vol10 approx —
+the vol10 column doesn't exist there; S25 method rule):
+
+| increment [−0.6,−0.5) | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| [−0.60,−0.55) | 1,822 | 70.5 | 2.296 | 1.39 | 1.78 |
+| [−0.55,−0.50) | 3,895 | 73.1 | 1.840 | 1.06 | 1.95 |
+
+Increment year audit: 5.77 / 3.99 / 1.61 / **0.96** / 1.76 / 1.43 / 2.61 — **2023
+NEGATIVE, 2025 thin (1.43)**. The blended increment (~1.9-2.0) dilutes the 2.14 book
+and imports a losing year. **Verdict: do NOT loosen eff_20m** — the −0.5 floor
+stands. (Clarification: the "−0.6 hump" from S26 was eff_10M's peak bucket
+[−0.6,−0.45), not an eff_20m result — eff_20m is monotone within its band and the
+v1.1 grammar already flagged e20 < −0.5 as the zone where deep e10 inverts.)
+
+## S28 — price × dollar volume: price is NOT a liquidity proxy (2026-07-29)
+
+User question: is the S26 raw-price monotone (cheap = better) just DipRiderV6's
+illiquidity lever in disguise? Grid on the v1.2 ≥$1 book (PF per cell):
+
+| dv_0945 \ price | $1-2 | $2-5 | $5-10 | ≥$10 |
+|---|---|---|---|---|
+| $3-10M | 2.65 | 2.00 | 1.78 | 1.49 |
+| $10-30M | 2.78 | 2.51 | 2.27 | 1.76 |
+| $30-100M | 1.79 | 1.80 | 1.64 | 1.74 |
+| ≥$100M | **2.96** | 2.53 | 2.36 | 1.45 |
+
+Row marginals (n / PF / avg / med / med px): 3-10M 7,296/2.018/1.16/1.83/$3.68 ·
+10-30M 7,514/2.329/1.34/1.95/$3.58 · 30-100M 7,795/1.753/0.99/1.89/$3.81 ·
+≥100M 14,907/2.352/1.47/2.18/$3.07.
+
+**Verdicts:** (a) the price gradient SURVIVES within every dv row (monotone in 3 of
+4, steepest in the most liquid) — price is its own lever (structural: a $1.50 name's
+flush→5m-high cycle is a bigger % move; tick-size friction favors the fader);
+(b) **V6's illiquidity lever does NOT reproduce — inverted here**: dv has no clean
+gradient controlling for price and dv≥100M is the BEST row. v1.2 already forces an
+in-play tape, so "illiquid" barely exists on this book; within in-play, headline
+names revert best. (c) Bonus cell: **dv≥100M × $1-2 = 2.96 on 4,079 trips** (sub-$2
+name printing $100M+ by 09:45 = maximal in-play) — dsv-cell-class strength at 2× the
+size. (d) Oddity: the $30-100M row is uniformly weak (~1.75) at every price — no
+mechanism story; watch-item, not signal.
+
+## S29 — cell year audits PASS + the 20m dollar-flow lever + a mixed-scale engine wart (2026-07-29)
+
+**Year audits — both pending cells HOLD (positive every year):**
+
+| yr | dv0945≥100M × $1-2 (n/PF) | chg_3d [−10,0) (n/PF) |
+|---|---|---|
+| 2020 | 699 / 5.21 | 233 / 4.56 |
+| 2021 | 565 / 6.80 | 550 / 7.54 |
+| 2022 | 519 / **1.56** | 228 / **1.55** |
+| 2023 | 550 / 2.01 | 212 / 2.39 |
+| 2024 | 903 / 2.66 | 272 / 3.90 |
+| 2025 | 666 / 3.22 | 327 / 1.77 |
+| 2026 | 177 / 3.30 | 118 / 2.47 |
+
+Both beat the book in every year incl. 2022 (1.56/1.55 vs book 1.30). The A+ roster:
+dist-sess-vwap ≥−3 (3.41) · dv0945≥100M×sub-$2 (2.96, n 4,079) · chg_3d[−10,0) (3.04).
+
+**⚠ MIXED-SCALE DISCOVERY:** the emitter adjusts PRICE (`vwap × adj_ratio`) but
+leaves VOLUME raw → every vwap·volume product (`dvSum60`/DvFloor gate,
+`dollar_vol_60` column) is adj_ratio × real dollars. vwap_60/vwap_1200/VWMA are
+UNAFFECTED (ratio cancels), volume RATIOS unaffected. Exposure: **808 trips (2.15%
+of the book) passed the $100k/60s floor only via inflation** (median-scale reverse-
+split names get a floor relaxed by their ratio — and adj_ratio embeds FUTURE splits,
+so gate strength is subtly future-dependent: the 2026-07-16 bug class in miniature).
+⏭ FIX CANDIDATE (user decision, spec-affecting): emitter divides volume by
+adj_ratio → all dollar quantities honest, volume ratios unchanged, absolute vol_*
+columns move to today's-share units. Post-hoc honest dollars meanwhile:
+`dollar_vol_60/adj_ratio`, `(entry_px/adj_ratio)*vol_N`.
+
+**The 20m dollar-flow grid** (honest: `(entry_px/adj_ratio)·vol_1200`; book median
+$8.7M/20m). PF by row × price:
+
+| dv-20m \ price | $1-2 | $2-5 | $5-10 | ≥$10 | row n / PF |
+|---|---|---|---|---|---|
+| <$3M | 3.08 | 2.28 | 1.02 | (16) | 4,108 / 2.644 |
+| [3,10M) | 1.96 | 1.92 | 1.64 | 1.73 | 16,684 / **1.866** |
+| [10,30M) | **5.44** | 2.44 | 1.79 | 1.25 | 10,918 / 2.038 |
+| [30,100M) | **6.74** | 3.01 | 3.64 | 1.75 | 4,638 / 2.628 |
+| ≥$100M | (17) | 40.9 | 8.69 | 3.04 | 1,164 / **5.459** |
+
+**The signal-time dollar FLOW is a far bigger lever than morning liquidity:**
+U-shaped rows (quiet <3M = 2.64; the mid bulk [3,10M) = 1.87 weakest; then
+monotone UP to ≥100M/20m = 5.46 — $5M+/minute through a 20m-low flush = mass
+capitulation, the S12 deep+loud story in dollars). The price gradient still holds
+within rows (steepest where flow is big: sub-$2 × [10,30M) = 5.44 on n 1,553;
+× [30,100M) = 6.74 on 341). ⏭ candidates: year-audit the flow rows; consider a
+dv20-based size/selection overlay; decide the volume-adjustment engine fix.
+
+**S29b — THE FIX (engine v7, 2026-07-29):** the emitter now divides volume by the
+same adj_ratio it multiplies price by (`volume = raw / r`) — price and shares share
+one scale, every vwap·volume product is honest dollars. Verified on the rerun:
+**zero trips below the honest $100k floor** (min dollar_vol_60 = $100,051). Book
+impact: ≥$1 book 37,512 → **36,717** (−795, the inflated-floor class), PF 2.137 →
+**2.141**, win/avg/median unchanged, year profile unchanged (2022 1.29, 2023 1.47,
+all positive). The contamination class is gone; the edge didn't move — the 808
+trips were floor-noise, not signal. All dollar-denominated post-hoc work
+(dv20 flow grids, fee math via entry_px/adj_ratio) needs no correction factor on
+engine-v7 parquets; `bar_vol`/`vol_*` columns are now in today's-share units
+(ratios unchanged).
+
+## S30 — the float study: price is NOT a float proxy either (2026-07-29)
+
+Join: trips → `ticker_cik` → ASOF latest `dei:EntityPublicFloat` (dollars, as-filed)
+with `known_date <= trade_date` (no lookahead; value up to ~1y stale). Coverage:
+67.6% of the ≥$1 v7 book (11,914 trips uncovered — delisted/foreign/non-XBRL; that
+slice runs 1.82).
+
+| float (as-filed $) | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| <25M | 12,215 | 73.8 | 2.460 | 1.53 | 2.26 |
+| [25,75M) | 5,135 | 72.8 | 2.032 | 1.16 | 2.03 |
+| [75,300M) | 4,411 | 70.9 | 2.239 | 1.19 | 1.78 |
+| [300M,1B) | 1,676 | 67.1 | **1.814** | 0.83 | 1.31 |
+| ≥1B | 1,366 | 76.5 | **5.059** | 1.87 | 2.06 |
+| no data | 11,914 | 71.6 | 1.818 | 1.09 | 1.99 |
+
+Float × price grid (PF): within fl<75M the price gradient SURVIVES monotone
+(3.26 / 2.27 / 1.93 / 1.78 for $1-2/$2-5/$5-10/≥$10); within 75-300M it survives
+flatter (2.60/2.29/2.04/2.06); within ≥300M it INVERTS into the "fallen giant" hump
+($2-5 = 4.19, $5-10 = 3.52).
+
+**Year audits kill the big-float glamour:** ≥1B = half-2020 (672/1,366 trips @ 8.66;
+2026 = 1.15 on 40); fallen-giants ($2-10 × ≥300M) = 7.29 in 2020, fading to 1.92 /
+0.39 in 2025/26. Real-company flushes are a CRASH-REGIME phenomenon — real but not
+a durable overlay.
+
+**Verdicts:** (a) **price is its own lever** — survives controlling for float, as it
+did for dollar volume (S28); (b) nano-float <$25M = a third of the covered book at
+2.46, the V6/LowFlyer small-float story alive but mild inside v1.2; (c) the 300M-1B
+mid-cap band (1.81) + the no-data slice (1.82) are the weak zones; (d) big-float
+strength = 2020-carried, ignore. No spec change.

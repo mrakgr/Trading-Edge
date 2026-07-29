@@ -86,8 +86,8 @@ type Args =
             | Min_Rvol_0945 _ -> "Optional in-play universe pre-filter: rvol_0945_honest >= this (premkt-incl vol thru 09:45 / prior-20d avg; LIVE-SAFE at 09:45). Default 0 = off (sampler breadth)."
             | Min_Prev_Close _ -> "Universe gate: PRIOR day's close in day-D raw (post-split) scale >= this (prev_adj_close/adj_ratio; knowable BEFORE the open). Default 0 = off. 2 = the >=$2 universe (sub-$1 priced out on every EU-accessible broker)."
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: unlimited concurrent positions — every new low opens another trip, so it AVERAGES DOWN. Removes path dependency (every trip = an independent row) but PF is then ATTRIBUTION, not a portfolio number. 1 = a real book."
-            | Entry_Start_Sec _ -> "Earliest ET second (since midnight) an entry may fire. Default 36000 = 10:00 (V6's research window). ⚠ Must be >= 35100 (09:45) — the knowability guard."
-            | Entry_End_Sec _ -> "Latest ET second an entry may fire. Default 48600 = 13:30."
+            | Entry_Start_Sec _ -> "Earliest ET second (since midnight) an entry may fire. Default 35100 = 09:45 — the knowability floor itself (the old 10:00 was a VwapReclaim-era throwback). ⚠ Must be >= 35100."
+            | Entry_End_Sec _ -> "Latest ET second an entry may fire. Default 57000 = 15:50 (last 10m reserved for exits)."
 
 [<EntryPoint>]
 let main argv =

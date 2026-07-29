@@ -81,8 +81,9 @@ let defaultConfig =
           MaxConcurrent    = 0          // ⭐ SAMPLER. 1 = a real book.
           SlotBars         = 30
           SessionStartSec  = 34200      // 09:30 — features fold from the RTH open
-          EntryStartSec    = 36000      // 10:00 — V6's research window (⚠ hard floor 09:45 = 35100, R4)
-          EntryEndSec      = 48600      // 13:30
+          EntryStartSec    = 35100      // ⭐ 09:45 — THE knowability floor itself (user 2026-07-29:
+                                        // 10:00-13:30 was a VwapReclaim-era throwback; use the full day)
+          EntryEndSec      = 57000      // 15:50 — last 10m reserved for exits
           MocSec           = 57600 }    // 16:00
       Notional = 10_000.0
       MinDv0945 = 3_000_000.0
@@ -409,7 +410,12 @@ type SecEmitter
             let bar : SecBar =
                 { etSec      = reader.GetInt32 1
                   vwap       = reader.GetDouble 2 * r
-                  volume     = reader.GetDouble 3
+                  // ⭐ volume divided by the SAME ratio (2026-07-29): price and
+                  // shares must share one scale or every vwap·volume product is
+                  // adj_ratio × real dollars — the DvFloor60 gate was future-
+                  // split-dependent (808 trips passed only via inflation, S29).
+                  // Ratios (vol_10/vol_60, vwap_60, VWMA) are unaffected.
+                  volume     = reader.GetDouble 3 / r
                   tradeCount = reader.GetInt32 4 }
             onNext (ticker, bar)
 
