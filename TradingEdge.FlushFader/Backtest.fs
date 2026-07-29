@@ -72,6 +72,10 @@ let defaultConfig =
           DistHiLo         = -0.35      // dist from 20m high ∈ (-35%, -10%] — inside the
           DistHiHi         = -0.10      // fadeable zone, past the un-fadeable wall
           MinVol10Rate     = 0.75       // last-10s volume rate >= 0.75x the 1m rate (S17/S18)
+          MinDv0945Tape    = 3e6        // ⭐ THE universe floor (S35): Σ vwap·vol over OUR 1s
+                                        // bars < 09:45, honest dollars — replaces the
+                                        // candidate dv_0945 gate (real dollars × adj_ratio,
+                                        // future-split-dependent; 20% of universe inflated in)
           // ⭐ price-acceptance stops (user, 2026-07-28): a fresh entry-channel low on
           // >=8x 1m/20m participation, or at <-1%/1m pace, is the market ACCEPTING the
           // lower price — stop out. S2 motivation: >=8x lows = PF 0.59-0.87 at entry.
@@ -83,10 +87,14 @@ let defaultConfig =
           SessionStartSec  = 34200      // 09:30 — features fold from the RTH open
           EntryStartSec    = 35100      // ⭐ 09:45 — THE knowability floor itself (user 2026-07-29:
                                         // 10:00-13:30 was a VwapReclaim-era throwback; use the full day)
-          EntryEndSec      = 57000      // 15:50 — last 10m reserved for exits
+          EntryEndSec      = 54000      // ⭐ 15:00 (S31b/S31c: after it, quality and
+                                        // completion-room degrade together; 14:30 rejected)
           MocSec           = 57600 }    // 16:00
       Notional = 10_000.0
-      MinDv0945 = 3_000_000.0
+      MinDv0945 = 0.0               // 💀 DEPRECATED (S35): the candidate column = real
+                                    // dollars × adj_ratio (future-split-dependent).
+                                    // The floor now lives in MinDv0945Tape. Column
+                                    // still recorded for reference.
       MinRvol0945 = 0.0
       MinPrevClose = 0.0 }          // record-first (user 2026-07-29): a prev-close gate
                                     // would drop names flushing DOWN through $1 — the $1
@@ -197,7 +205,7 @@ CREATE TABLE trips (
     ret_exit DOUBLE, bars_held INTEGER,
     prev_adj_close DOUBLE, close_3d DOUBLE, day_close DOUBLE,
     close_fwd_1d DOUBLE, close_fwd_3d DOUBLE, close_fwd_5d DOUBLE,
-    dv_0945 DOUBLE, rvol_0945_honest DOUBLE,
+    dv_0945 DOUBLE, rvol_0945_honest DOUBLE, dv_0945_tape DOUBLE,
     qty DOUBLE, net_pnl DOUBLE
 )"""
 
@@ -356,7 +364,7 @@ type TripSink(outDir: string) =
             i p.BarsHeld
             f c.PrevAdjClose; f c.Close3d; f c.DayClose
             f c.CloseFwd1d; f c.CloseFwd3d; f c.CloseFwd5d
-            f c.Dv0945; f c.Rvol0945Honest
+            f c.Dv0945; f c.Rvol0945Honest; f p.Dv0945Tape
             f qty; f pnl
             row.EndRow()
             total <- total + 1L

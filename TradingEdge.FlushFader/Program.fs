@@ -40,6 +40,7 @@ type Args =
     | Dist_Hi_Lo of float
     | Dist_Hi_Hi of float
     | Min_Vol10_Rate of float
+    | Min_Dv_0945_Tape of float
     // ----- price-acceptance stops -----
     | Vol_Stop_Ratio of float
     | Tc_Stop_Ratio of float
@@ -79,10 +80,11 @@ type Args =
             | Dist_Hi_Lo _ -> "⭐ SPEC v1.2: vwap/chan_hi - 1 >= this (the -35% un-fadeable wall). Default -0.35. -Infinity = off."
             | Dist_Hi_Hi _ -> "⭐ SPEC v1.2: vwap/chan_hi - 1 < this (deep enough into the leg). Default -0.10. 0 = off."
             | Min_Vol10_Rate _ -> "⭐ SPEC v1.2: (vol_10/10)/(vol_60/60) >= this (S17 last-10s volume-rate floor — no quiet-tail drift-downs). Default 0.75. 0 = off."
+            | Min_Dv_0945_Tape _ -> "Tape-native dv_0945 floor: Σ vwap·volume over OUR 1s bars strictly before 09:45 >= this (live-scanner-consistent; honest dollars). Default 0 = record-first. Pair with --min-dv-0945 0 when replacing the candidate-table gate."
             | Vol_Stop_Ratio _ -> "PRICE-ACCEPTANCE STOP: exit holders when a NEW entry-channel low prints on (vol_60/60)/(vol_1200/1200) >= this. Default Infinity = OFF (S16 A/B: stops gut the book). e.g. 8 to arm."
             | Tc_Stop_Ratio _ -> "PRICE-ACCEPTANCE STOP: same on the trade-count ratio. Default Infinity = OFF (S16)."
             | Speed_Stop_Pct _ -> "PRICE-ACCEPTANCE STOP: exit holders when a NEW entry-channel low prints at vwap/vwap_60_prev-1 < this (the flush continuing at pace). Default 0 = OFF (S16: fired on 93.7% of spec book at median 2s). e.g. -0.01 to arm."
-            | Min_Dv_0945 _ -> "Universe floor: min 09:30-09:45 dollar volume (LIVE-SAFE). Default 3000000 — DipRiderV6 F14's MANDATORY floor (below it the PF rise is a penny-stock artifact)."
+            | Min_Dv_0945 _ -> "💀 DEPRECATED (S35): the candidate column = real dollars × adj_ratio (future-split-dependent — 20% of the universe was inflated in). Default 0 = off. THE floor is --min-dv-0945-tape."
             | Min_Rvol_0945 _ -> "Optional in-play universe pre-filter: rvol_0945_honest >= this (premkt-incl vol thru 09:45 / prior-20d avg; LIVE-SAFE at 09:45). Default 0 = off (sampler breadth)."
             | Min_Prev_Close _ -> "Universe gate: PRIOR day's close in day-D raw (post-split) scale >= this (prev_adj_close/adj_ratio; knowable BEFORE the open). Default 0 = off. 2 = the >=$2 universe (sub-$1 priced out on every EU-accessible broker)."
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: unlimited concurrent positions — every new low opens another trip, so it AVERAGES DOWN. Removes path dependency (every trip = an independent row) but PF is then ATTRIBUTION, not a portfolio number. 1 = a real book."
@@ -125,6 +127,7 @@ let main argv =
                     DistHiLo         = parsed.GetResult(Dist_Hi_Lo,         defaultValue = d.Intraday.DistHiLo)
                     DistHiHi         = parsed.GetResult(Dist_Hi_Hi,         defaultValue = d.Intraday.DistHiHi)
                     MinVol10Rate     = parsed.GetResult(Min_Vol10_Rate,     defaultValue = d.Intraday.MinVol10Rate)
+                    MinDv0945Tape    = parsed.GetResult(Min_Dv_0945_Tape,   defaultValue = d.Intraday.MinDv0945Tape)
                     VolStopRatio     = parsed.GetResult(Vol_Stop_Ratio,     defaultValue = d.Intraday.VolStopRatio)
                     TcStopRatio      = parsed.GetResult(Tc_Stop_Ratio,      defaultValue = d.Intraday.TcStopRatio)
                     SpeedStopPct     = parsed.GetResult(Speed_Stop_Pct,     defaultValue = d.Intraday.SpeedStopPct)
@@ -169,9 +172,10 @@ let main argv =
     printfn "  db          = %s" dbPath
     printfn "  1s bars     = %s" secDir
     printfn "  range       = %O .. %O" startDate endDate
-    printfn "  universe    = dv_0945 >= $%.1fM%s%s" (cfg.MinDv0945 / 1e6)
+    printfn "  universe    = dv_0945_tape >= $%.1fM (⭐ 1s-bar-native, honest dollars — S35)%s%s%s" (ic.MinDv0945Tape / 1e6)
+        (if cfg.MinDv0945 > 0.0 then sprintf "   AND 💀deprecated dv_0945 >= $%.1fM" (cfg.MinDv0945 / 1e6) else "")
         (if cfg.MinRvol0945 > 0.0 then sprintf "   AND rvol_0945_honest >= %.1f  [IN-PLAY PRE-FILTER]" cfg.MinRvol0945
-         else "   [LIVE-SAFE; rvol_0945_honest RECORDED, not gated]")
+         else "   [rvol_0945_honest RECORDED, not gated]")
         (if cfg.MinPrevClose > 0.0 then sprintf "   AND prev raw close >= $%.2f" cfg.MinPrevClose else "")
     printfn "  ENTRY       = vwap < prior %d-bar MIN (strict; new ~20m low)   AND dv60 >= $%.0fk AND tc60 >= %.0f   (fill: NEXT bar vwap)"
         ic.EntryChannelBars (ic.DvFloor60 / 1e3) ic.TcFloor60

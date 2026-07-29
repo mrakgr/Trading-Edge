@@ -1989,3 +1989,278 @@ did for dollar volume (S28); (b) nano-float <$25M = a third of the covered book 
 2.46, the V6/LowFlyer small-float story alive but mild inside v1.2; (c) the 300M-1B
 mid-cap band (1.81) + the no-data slice (1.82) are the weak zones; (d) big-float
 strength = 2020-carried, ignore. No spec change.
+
+## S31 — THE FULL-WINDOW BOOK (full universe) + the v1.3 candidate (2026-07-29)
+
+Engine v7 defaults now 09:45–15:50 (the 10:00–13:30 window was a VwapReclaim-era
+throwback). Full-universe run: 328,258 candidate tkds, 57 min, 69,456 trips
+(`v12_full_universe/`). New fast-iteration table: **`flushfader_v12_fullwin_tkds`
+(6,990 tkds)** — same tightenings-only caveat as before (S25).
+
+**⚠ PREVIEW-BIAS LESSON (extends the S25 method rule):** the restricted-table
+preview didn't just undercount the new windows — it BIASED them. Preview said
+09:45–10:00 = PF 3.81 (n 872); the honest full-universe number is **1.90 (n 2,551)**.
+The old tkd list selected days that ALSO had mature mid-day signals — a
+systematically better morning population. The restricted table biases any
+out-of-scope slice, not merely shrinks it.
+
+Honest window breakdown (≥$1):
+
+| window | n | win | PF | avg % | med % | moc% |
+|---|---|---|---|---|---|---|
+| 09:45-10:00 | 2,551 | 71.3 | 1.901 | 1.06 | 1.79 | 0.0 |
+| 10:00-13:30 | 37,014 | 72.4 | 2.132 | 1.27 | 2.01 | 0.3 |
+| 13:30-15:00 | 8,239 | 70.2 | 1.759 | 1.06 | 2.01 | 4.2 |
+| 15:00-15:50 | 5,544 | 65.8 | **1.315** | 0.55 | 1.66 | **21.6** |
+
+The morning slice ≈ book-level (keep), 13:30-15:00 mildly dilutive (keep for
+breadth), **15:00+ = the weak tail** (no room to revert; 21.6% forced MOC).
+
+**The v1.3 candidate — window 09:45-15:00 + price < $10:**
+
+| variant | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| full window, no ceiling | 53,348 | 71.3 | 1.937 | 1.15 | 1.96 |
+| + entries end 15:00 | 47,804 | 71.9 | 2.044 | 1.22 | 2.00 |
+| **+ price < $10** | **39,541** | 72.2 | **2.135** | 1.29 | 2.03 |
+
+Year audit of the candidate: 3.93 / 2.93 / **1.47** / **1.64** / 2.04 / 1.84 / 1.67
+— positive every year, and the thin years IMPROVE on the old narrow-window book
+(2022 1.47 vs 1.29; 2023 1.64 vs 1.47). **Net: +8% trips (39,541 vs 36,717) at the
+same PF (2.135 vs 2.141) with better worst years** — the window expansion and the
+price ceiling pay for each other. ⏭ decide v1.3 (bake ceiling + 15:00 end), then
+mc=1 + K-gate book.
+
+**S31b — the 15:00+ tail drilled (10-min slots):** 1.212 / 1.504 / 1.296 / 1.152 /
+1.431 (n 848-1,339 each; win 63-71; moc 6.6% → 36.7%). Uniform weakness, NO gradient
+— [15:00,15:30) ≈ 1.34 vs [15:30,15:50) ≈ 1.29, and the final slot isn't the worst,
+so it's not purely time-to-revert: the late-afternoon flush population is weaker
+throughout (EOD-liquidation flavor). No finer boundary earned — **15:00 stands as
+the v1.3 entry ceiling.**
+
+---
+
+## ⭐ THE SPEC v1.3 — reference card (2026-07-29)
+
+**Mechanics (unchanged since D1):** ENTRY = bar vwap STRICTLY below the prior
+1200-present-bar (~20m) MIN, fill next present bar's vwap, sampler mc=0. EXIT =
+vwap STRICTLY above the prior 300-bar (~5m) MAX, fill next bar; else MOC 16:00.
+**NO stop of any kind** (S16/S24). Universe: dv_0945 ≥ $3M. Liquidity floors at
+signal: ≥$100k and ≥60 trades in the trailing 60 present bars (honest dollars, v7).
+
+**The signal stack (all at signal time, engine-gated):**
+
+| # | condition | value | meaning |
+|---|---|---|---|
+| 1 | volat_20m | ≥ 40bp | day volatile enough to fade |
+| 2 | flush speed (vwap/vwap_60_prev − 1) | < −2% | falling fast over the last minute |
+| 3 | K = lows_since_first_low | ∈ [26, 50] | mature leg — THE 2022 fix |
+| 4 | eff_20m (signed) | ∈ [−0.5, −0.3) | trending down, not un-fadeably (cold PASSES) |
+| 5 | \|eff_10m\| | ≥ 0.15 | 10m tape not flat (cold fails) |
+| 6 | dist from 20m high (vwap/chan_hi − 1) | ∈ (−35%, −10%] | deep into the leg, inside the fadeable zone |
+| 7 | (vol_10/10)/(vol_60/60) | ≥ 0.75 | last-10s tape ≥75% of the minute's pace (S17/S18) |
+| 8 | entry window | **09:45 – 15:00** | S31/S31b/S31c: 15:00+ = quality and completion-room degrade together |
+| 9 | raw price | **< $10** | S26/S28/S30/S31: price is its own lever; ≥$10 loses 2022-23 |
+
+**Post-hoc (not a gate):** raw entry price ≥ $1 (the S7c fee wall; kept post-hoc so
+names crossing $1 intraday stay recorded).
+
+**The book:** n = 39,541 / PF 2.135 / win 72.2 / avg +1.29% / med +2.03%; positive
+all 7 years, worst 2022 = 1.47. **UPDATE (S35c, engine v8):** #8 (09:45-15:00) now
+BAKED; the universe floor is now `dv_0945_tape ≥ $3M` (1s-bar-native honest dollars
+— the candidate dv_0945 gate is DEPRECATED, S35 scale bug); #9 (<$10) remains
+post-hoc alongside the ≥$1 cut. Honest-floor book ≈ 33,780 @ ~2.17 (S35b);
+definitive `v13_reference/` run supersedes prior parquets.
+
+**Validated A+ overlays (sizing, NOT gates):** dist-sess-vwap ≥ −3% (PF 3.41, 6/7
+yrs beat book) · dv_0945 ≥ $100M × sub-$2 (2.96, every yr) · chg_3d ∈ [−10, 0)
+(3.04, every yr) · 20m dollar-flow extremes (U-shape; ≥$100M/20m = 5.46).
+
+**S31c — the cliff search (30-min slots, <$10 book):** 13:00→15:50 = 1.895 / 1.860 /
+1.588 / 1.795 / 1.553 / 1.393; moc% 0.7 → 31.3. No cliff — a gentle sag with a
+noise wobble (14:00-14:30 dips, 14:30-15:00 RECOVERS to 1.80 / med +2.17). The only
+joint quality+completion break is 15:00 (PF < 1.56 for good, moc 6.6 → 12.4 → 31.3).
+**14:30 rejected; 15:00 confirmed as the v1.3 ceiling.**
+
+## S32 — rvol_0945: the QUIET-OPEN cell is the best overlay yet (2026-07-29)
+
+First-ever breakdown of the long-recorded rvol_0945_honest (premkt-incl vol thru
+09:45 / prior-20d avg). Distribution on the v1.3 book is extreme (median 47×, p95
+45,000× — the wreckage denominator). Buckets:
+
+| rvol_0945 | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| **<1×** | 5,558 | 74.4 | **2.996** | 1.53 | 1.91 |
+| [1,3) | 3,845 | 71.8 | 1.729 | 0.95 | 1.96 |
+| [3,10) | 4,469 | 72.6 | 2.044 | 1.24 | 2.08 |
+| [10,50) | 6,183 | 71.6 | 2.298 | 1.42 | 2.06 |
+| [50,250) | 6,853 | 73.3 | 2.556 | 1.58 | 2.29 |
+| [250,2.5k) | 6,938 | 70.8 | 1.794 | 1.09 | 1.99 |
+| ≥2.5k× | 5,695 | 71.3 | 1.860 | 1.07 | 1.89 |
+
+| yr | n <1× | PF <1× | med <1× | n [50,250) | PF [50,250) |
+|---|---|---|---|---|---|
+| 2020 | 1,046 | 5.94 | 2.44 | 1,204 | 4.69 |
+| 2021 | 969 | 4.66 | 2.28 | 1,135 | 4.68 |
+| 2022 | 615 | 2.63 | 1.82 | 609 | 2.37 |
+| 2023 | 434 | 2.77 | 1.76 | 736 | 1.50 |
+| 2024 | 833 | 2.23 | 1.81 | 1,113 | 2.34 |
+| 2025 | 1,108 | 2.50 | 1.49 | 1,417 | 1.80 |
+| 2026 | 553 | 1.55 | 1.27 | 639 | 2.82 |
+
+**Answer to the user's question: NO — high initial rvol is not better.** Twin-peaked:
+quiet-open (<1×) and heavy-but-sane ([50,250)); the "appeared-from-nowhere" extreme
+wing (≥250×) runs below book (2026 = 0.75, 2022 = 1.33 at the edges).
+
+**⭐ rvol < 1× year audit: 5.94 / 4.66 / 2.63 / 2.77 / 2.23 / 2.50 / 1.55 — beats
+the book ALL 7 years, hardest in the grind years (2022 2.63 vs 1.47; 2023 2.77 vs
+1.64).** With dv_0945 ≥ $3M still required, rvol<1 = a NORMALLY-LIQUID name having a
+quiet-for-itself morning that then flushes — no overnight story, no positioned
+crowd. The purest "fresh local dislocation in an unbroken name" cell; family:
+dist-sess-vwap ≥−3%, chg_3d [−10,0). ⏭ family-overlap study (are the three one
+cell?); ⏭ user idea: drop dv_0945 floor / raise the signal-time liquidity floor —
+would WIDEN exactly this best slice (quiet-morning names currently excluded by the
+$3M floor).
+
+## S33 — the dv_0945 floor is LOAD-BEARING: the sub-$3M complement study (2026-07-29)
+
+Method: the ≥$3M side already exists (`v12_full_universe`) — only the complement
+needed a run (`flushfader_sub3m_tkds`, 64,557 tkds, 5 min → `v13_sub3m_complement`,
+8,062 trips). Merged = clean union (disjoint universes). All numbers on the v1.3 cut.
+
+| slice | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| dv_0945 ≥ 3M (current) | 39,541 | 72.2 | 2.135 | 1.29 | 2.03 |
+| dv_0945 < 3M (NEW) | 6,386 | 68.9 | **1.706** | 0.96 | 1.83 |
+| merged open universe | 45,927 | 71.8 | 2.065 | 1.24 | 2.00 |
+
+New-slice year audit: 1.52 / 3.03 / **1.03** / 1.72 / 2.03 / 1.45 / 2.41 — 2022 ≈
+breakeven. Dilutive everywhere it matters.
+
+**Two falsifications, both instructive:**
+1. **rvol<1 does NOT extend to illiquid names** — sub-$3M × rvol<1: 2022 0.86, 2020
+   1.16, 2025 1.25. The S32 A+ cell is "LIQUID name having a quiet morning", not
+   "low rvol" per se. Quiet morning + small ADV = just a thin name.
+2. **The dv_20m replacement INVERTS on the new slice**: within sub-$3M-morning
+   names, big signal-time flow is the WORST cell (≥10M/20m = 1.314) and modest flow
+   the best ([1,3M) = 2.285) — the exact opposite of the old book (≥10M = 2.633).
+   The dollar-flow lever's sign is CONDITIONAL on baseline liquidity: on liquid
+   names big flow = capitulation (fade it); on illiquid names big flow = the whole
+   day IS the event (pump-collapse), still falling.
+
+**Verdict: dv_0945 ≥ $3M stays.** It is not merely a liquidity filter — it
+certifies a real two-sided market existed BEFORE the flush, which is what makes
+both the flow lever and the quiet-open lever mean what they mean. A signal-time
+floor cannot replace it because the floor's meaning flips with the baseline.
+(The one salvageable sliver — new × [1,3M)/20m = 2.29 on 2,151 trips — is not worth
+restructuring the universe for.) Total experiment cost: 5 min of compute.
+
+**S33b — dv_20m WITHIN the sub-$3M-morning slice (fine buckets):**
+
+| dv_20m | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| <1M | 29 | 62.1 | 3.673 | 1.19 | 0.51 |
+| [1,1.5M) | 174 | 77.0 | **3.718** | 2.17 | 2.50 |
+| [1.5,2M) | 474 | 69.4 | 2.315 | 1.69 | 2.20 |
+| [2,3M) | 1,503 | 70.7 | 2.163 | 1.38 | 2.00 |
+| [3,5M) | 2,139 | 67.9 | 1.337 | 0.54 | 1.72 |
+| [5,10M) | 1,401 | 70.6 | 1.819 | 0.96 | 1.78 |
+| [10,20M) | 469 | 62.3 | 1.527 | 0.75 | 1.57 |
+| ≥20M | 197 | 61.9 | **0.918** | −0.15 | 1.27 |
+
+MONOTONE INVERTED vs the established book: on quiet-morning names, less signal-time
+flow = better; ≥$20M/20m goes NEGATIVE (pure pump-collapse). Boundary ≈ $3M/20m.
+[1,3M) year audit: 1.64/8.67/1.66/1.83/2.56/2.08/3.82 — positive all 7 (2022 1.66 >
+main book 1.47). **Principle refined: fadeable flow must be PROPORTIONATE to the
+name's baseline.** Candidate satellite extension: `(dv_0945 ≥ 3M) OR (dv_0945 < 3M
+AND dv_20m ∈ [1,3M))` = +2,151 trips (+5.4%) @ 2.29. ⚠ Held back for now: first-hour
+cell on a fresh population (overfit risk) + thinnest-fill names in the system
+(next-bar-vwap works hardest there). Revisit after the mc=1 book.
+
+## S34 — the dv_0945 × dv_20m grid + THE FLOW-RATIO LEVER (2026-07-29)
+
+Merged universe (v12_full_universe + v13_sub3m_complement), v1.3 cut. PF per cell
+(n in parens):
+
+| dv_0945 \ dv_20m | <1M | [1,3M) | [3,10M) | [10,30M) | ≥30M |
+|---|---|---|---|---|---|
+| <3M (new) | 3.67 (29) | **2.29** (2,151) | 1.49 (3,540) | 1.28 (615) | 1.87 (51) |
+| [3,10M) | — (9) | **2.48** (1,377) | 1.80 (4,978) | 1.76 (1,005) | 5.61 (136) |
+| [10,30M) | 3.09 (13) | **2.87** (951) | 2.32 (3,800) | 2.69 (2,310) | 1.95 (375) |
+| [30,100M) | 1.82 (10) | 1.82 (807) | 1.41 (3,405) | 2.25 (2,660) | **3.74** (1,324) |
+| ≥100M | — (14) | **1.56** (1,660) | 1.97 (7,237) | 2.16 (4,642) | **4.68** (2,828) |
+
+**A PROPORTIONALITY DIAGONAL**: quiet-morning names fade best on quiet flushes
+(top-left band), heavy-morning names on torrents (bottom-right); the ANTI-diagonal
+corners are the weak cells — quiet-morning×torrent (1.28-1.49, pump-collapse) and
+heavy-morning×quiet-flush (1.56, drift without capitulation — the S17 quiet-tail at
+day scale).
+
+**The unifying lever — flush flow as a fraction of morning flow,
+`fr = dv_20m/dv_0945`** (the user's `dv_0945/dv_20m` = its reciprocal):
+
+| fr = dv_20m/dv_0945 | n | win | PF | avg % | med % |
+|---|---|---|---|---|---|
+| <0.03 | 11,939 | 73.1 | 2.086 | 1.28 | 2.12 |
+| [0.03,0.1) | 5,441 | 70.2 | 1.821 | 1.09 | 2.00 |
+| [0.1,0.3) | 6,579 | 70.0 | 1.942 | 1.14 | 1.90 |
+| **[0.3,1)** | 10,767 | 73.5 | **2.439** | 1.46 | 2.10 |
+| [1,3) | 8,002 | 71.7 | 2.158 | 1.27 | 1.88 |
+| [3,10) | 2,575 | 68.6 | 1.586 | 0.83 | 1.80 |
+| ≥10 | 624 | 63.1 | 1.341 | 0.50 | 1.24 |
+
+Hump at [0.3,1) — the 20m flush carrying 30-100% of the whole morning's dollars =
+peak capitulation-in-context. Year audit of the hump: 4.98/2.98/**1.30**/1.66/2.82/
+2.10/2.49 — positive all 7 (2022 = book-level). The ≥3 tail is erratic
+(0.73-4.36 across years) — a caution zone, not a clean gate. Left side non-monotone
+(<0.03 = 2.09 decent — very-slow-bleed days differ from the [0.03,0.3) dip). The
+ratio doesn't fully replace the grid (the corners are sharper 2-D) but it's the
+best single-number summary. ⏭ overlay/sizing candidate alongside the A+ roster; the
+[1,3M)-flush satellite (S33b) is the fr∈[0.3,1] band restricted to quiet mornings.
+
+**S34b — stacking fr < 3 on v1.3: NO-OP, skipped.** On the ≥$3M-morning book only
+614 trips (1.6%) have fr ≥ 3 and they aggregate to PF 2.30 (yearly wild: 45.4 in
+2020 on 84, 0.22 in 2022 on 57 — noise scale). Book 2.135 → 2.132, win/avg/med
+unchanged; 2022 1.47 → 1.53 but 2020 loses its mini-jackpot. **The dv_0945 floor
+already does the fr filter's job** (the toxic fr≥3 mass was the sub-$3M slice S33
+excluded) — near-redundant conditions, confirming the floor-certifies-baseline
+story. NOT added to v1.3; becomes MANDATORY iff the S33b quiet-morning satellite
+universe is ever adopted.
+
+## S35 — ⚠ THE dv_0945 SCALE BUG: the universe floor was future-split-dependent (2026-07-29)
+
+User request: compute dv_0945 from OUR 1s bars for live-scanner consistency (engine
+v8: `dv_0945_tape` = Σ vwap·volume strictly before 09:45, honest dollars, recorded +
+`--min-dv-0945-tape` record-first gate). The comparison EXPOSED A BUG:
+
+**`diprider_v6_candidate.dv_0945 = vol_0945(raw shares) × avgprice(raw) × adj_ratio`
+— real dollars × adj_ratio.** Verified: `dv_0945_tape × adj_ratio / dv_0945` median
+1.023, log-corr 0.9999 (the 2% = mean-1m-close vs true vwap). Same mixed-scale sin
+as S29, at the UNIVERSE level, present in the ENTIRE DipRiderV6 lineage: a name that
+later 1:25-reverse-split entered the $3M floor at $120k real morning dollars.
+
+**Universe impact:** 328,258 → honest 261,888 tkds (−20%); 68,883 inflated IN,
+only 2,513 unfairly excluded (forward splits rare here).
+
+**Book impact (v1.3 cut, by honest tape dv_0945):** tape ≥3M = 33,693 @ 2.168;
+the inflated-in slice = 5,848 trips (14.8%) @ 2.05 blended — **carried by 2020-21
+(3.6/5.5), toxic in the current regime: 2025 = 1.08, 2026 = 0.36 (LOSING)**.
+Removing it raises the book's PF and its recent-year quality simultaneously.
+
+⚠ Collateral: every dv_0945-axis breakdown (S28 grid rows, S34 flow-ratio
+denominator) mixes scales for reverse-splitters — post-hoc fix available
+(`dv_0945/adj_ratio`); qualitative conclusions survive (dv20-based results were
+honest), magnitudes need re-checks where dv_0945 was an axis. rvol_0945 is a pure
+volume ratio — unaffected.
+
+⏭ decision: wire the honest floor (options: SQL `dv_0945/adj_ratio >= 3M` ≈ tape
+within 2%, zero runtime cost; or SQL safety-margin prefilter + exact engine tape
+gate); forward-split complement run in flight for the missing 2,513 tkds.
+
+**S35b — the forward-split complement (the 2,513 wrongly-excluded tkds):** 140 trips
+(22 s isolated pass → `v13_fwdsplit_complement/`); v1.3 + tape≥3M cut = **87 trips @
+PF 3.229 / win 83.9 / med +2.45** — healthy but negligible scale. **The honest v1.3
+book = 33,693 (tape≥3M within the old universe) + 87 = 33,780 @ ~2.17**, fully on
+disk without a full rerun. ⏭ pending the user's gate-wiring choice (SQL honest floor
+vs SQL prefilter + exact engine tape gate) + then rebuild `flushfader_v13_tkds` and
+re-check the dv_0945-axis breakdowns (S28/S34) with honest denominators.

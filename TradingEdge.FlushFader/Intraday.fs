@@ -254,6 +254,9 @@ type FlushPosition =
       DollarVol60: float         // Sum60 of vwap*volume — the liquidity-floor value
       CumVol: float
       CumTc: float
+      Dv0945Tape: float          // ⭐ Σ vwap·volume over OUR 1s bars strictly before
+                                 // 09:45 (honest dollars, v7 scale) — the live-scanner-
+                                 // consistent dv_0945; compare vs the candidate column
       // ----- forward marks (vwap at the first present bar >= entry + horizon; nan if the day ends first) -----
       FwdVwap60: float
       FwdVwap300: float
@@ -381,6 +384,9 @@ type IntradayConfig =
       DistHiLo: float            // vwap/chan_hi - 1 >= this (the un-fadeable wall). Default -0.35. -Infinity = off.
       DistHiHi: float            // vwap/chan_hi - 1 <  this (deep enough into the leg). Default -0.10. >= 0 = off.
       MinVol10Rate: float        // (vol_10/10)/(vol_60/60) >= this (S17/S18 last-10s floor). Default 0.75. 0 = off.
+      MinDv0945Tape: float       // ⭐ tape-native dv_0945 floor (Σ vwap·vol, 1s bars < 09:45).
+                                 // Default 0 = RECORD-FIRST; the live-scanner-consistent
+                                 // replacement for the candidate-table dv_0945 gate.
       // ⭐ PRICE-ACCEPTANCE STOPS (user, 2026-07-28): while holding, exit if a NEW
       // entry-channel low prints on (vol_60/60)/(vol_1200/1200) >= VolStopRatio, or
       // (tc_60/60)/(tc_1200/1200) >= TcStopRatio, or at vwap/vwap_60_prev - 1 <
@@ -525,6 +531,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let sessVwap = RatioMa()
     let mutable openVwap : float voption = ValueNone
     let mutable cumVol = 0.0
+    let mutable dv0945Tape = 0.0                 // frozen once etSec >= 35100 (09:45)
     let mutable cumTc = 0.0
 
     // ⭐ ACTIVE/RETIRED SPLIT (user, 2026-07-23). At mc=0 a busy day opens hundreds
@@ -632,6 +639,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // ===== 2. fold this bar into every structure =====
         if openVwap.IsNone then openVwap <- ValueSome bar.vwap
         cumVol <- cumVol + bar.volume
+        // tape-native 09:30-09:45 dollar volume (35100 = THE knowability floor, R4)
+        if bar.etSec < 35100 then dv0945Tape <- dv0945Tape + bar.vwap * bar.volume
         cumTc <- cumTc + float bar.tradeCount
         gap60.Push bar.etSec
         gap30.Push bar.etSec
@@ -1026,7 +1035,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 | ValueSome v10, ValueSome v60 when v60 > 0.0 ->
                     (v10 / 10.0) / (v60 / 60.0) >= cfg.MinVol10Rate
                 | _ -> false)
-        let specOk = speedOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok
+        let dv0945TapeOk = cfg.MinDv0945Tape <= 0.0 || dv0945Tape >= cfg.MinDv0945Tape
+        let specOk = speedOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk
         if inWindow && channelWarm && isNewLow && legOk && floorsOk && volatOk && effOk && specOk && this.HasSlot then
             if cfg.MinLowsIntoLeg > 0 then legConsumed <- true
             pendingEntry <-
@@ -1123,6 +1133,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Vwap60Prev = vv vwap60Lag.Lagged
                       DollarVol60 = vv dvSum60.State
                       CumVol = cumVol
+                      Dv0945Tape = dv0945Tape
                       CumTc = cumTc
                       FwdVwap60 = nan
                       FwdVwap300 = nan
