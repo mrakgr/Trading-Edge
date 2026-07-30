@@ -3082,3 +3082,15 @@ efficiency ratios** (eff_20m band + |eff_10m| floor) — the low eff↔r correla
 (0.24/0.56) says they measure different things; the honest comparison needs the
 gate-free universe (the current book is eff-band-conditioned, so r's full range
 is censored).
+
+**S38q footnote (user: how can slope ≥ −10bp/min coexist with dist ≤ −10%?):**
+slopes are computed on the **1s present bars** (600/1200-bar windows, pushed in
+step 1 — NOT the 30s slot stream), warming with the channels. The flat-slope
+bucket is near-definitional: dist ≤ −10% with slope ≈ 0 forces the decline into
+the window's TAIL — an L-SHAPE (plateau → late cliff), not a pump-and-dump
+(autopsy: chg_open −19%, breach_1200 ~1691 = no recent 20m high, front-loadedness
+73% = just under the 0.8 rngfront gate, r_20m −0.28). It is the RESIDUAL
+pure-cliff slice rngfront missed, and it is toxic the same way (0.118/25.8%).
+Census: 31 trips / 12 tkds, BJDX 2026-06-02 = −242 of the −257 total →
+anecdote, no gate — but the natural watch-item for tomorrow's filters-off run
+where slope gets its uncensored range.
