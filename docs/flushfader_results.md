@@ -2463,3 +2463,14 @@ print a 10m high inside the window (win collapses 83→71→58); even the 5m tar
 with a 20m time-stop halves the cell (4.66) — the 5% of trades needing >20m are
 precisely the monsters. Wider targets convert the highest-win cell in the system
 back into drift.
+
+**S38c addendum — shorter than 5m (user):** the only sub-5m mark is the 2m high
+(`aux_hi_120`), EXACT on the cell (hit 100%): PF 3.259 / win 87.2 / avg +1.52 —
+higher win, half the payoff. By year it is UNSTABLE: **2020 = 1.031 (avg +0.08!)
+vs 5m's 7.746** — in relentless waterfalls the prior-2m max drifts below entry
+within seconds and the first micro-bounce locks a loss the 5m exit rides through
+(S24's "fastest trigger owns the distribution", target edition). 2021 the lone
+inversion (2m 7.37 > 5m 3.75). The exit hump peaks at 5m from BOTH sides,
+year-audited: 2m 3.26 (unstable) → **5m 9.13 (all years +)** → 10m 2.82 → 20m
+1.84. Sub-2m marks don't exist (engine change needed); the gradient + the S26
+1m-fee-death verdict say don't bother.
