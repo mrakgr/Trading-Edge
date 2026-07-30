@@ -2629,3 +2629,23 @@ purity ≠ day-scoped "no target exit yet"; the cliff belongs to the DAY's first
 capitulation episode. **Division of labor stands: K-band on the 20m clock =
 spec; lows_300 = recency (fresh-leg exclusion, A++ overlay); the day-scoped
 virgin flag = the discipline.**
+
+**S38g addendum — why never-bounced can't rescue mc=1 (user Q):** mc=1 ×
+`lows_300 = lows_20m` on the A++ cell = 58 @ 6.472 ≈ naive greedy (6.216), far
+below the virgin discipline (16.0). Cross-tab virgin(day) × never-bounced(leg):
+
+| virgin | nb | n | PF | win% |
+|---|---|---|---|---|
+| yes | yes | 373 | 11.109 | 83.1 |
+| yes | no | 207 | **25.881** | **95.7** |
+| no | yes | 35 | **1.841** | **28.6** |
+| no | no | 47 | 3.991 | 63.8 |
+
+**LEG AMNESIA:** on A++ events exit-triggering bounces almost always take the
+20m high (S38c) → the leg RESETS → both counters restart together → the flag
+reads pure again on second-episode re-entries (no-virgin × nb = 1.84 @ 28.6 =
+the toxic re-entries WEARING the purity flag). It also penalizes the best trips:
+pre-first-signal mid-leg bounces make virgin days read nb=false, and those are
+the monsters (25.9 @ 95.7, n=207). The two flags run different CLOCKS — leg vs
+day — and the poison is day-scoped. The day-scoped virgin flag stays THE
+discipline.
