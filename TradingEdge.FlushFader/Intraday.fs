@@ -39,8 +39,9 @@ open TradingEdge.RollingMa
 //         depth); ⭐ RESET on a new ENTRY-channel HIGH (the user's "reset at
 //         the 20m high" — V6 reset on its exit window, which at 20/20
 //         coincided; with a 5m exit that would end legs mid-flush, so the
-//         reset is welded to the ENTRY channel here). MinLowsIntoLeg (K) > 0
-//         + the legConsumed latch = V6 F3's "wait for the Kth low" book.
+//         reset is welded to the ENTRY channel here). Books are built
+//         POST-HOC by greedy mc-replay (S38) — the old V6 F3 one-trip-per-leg
+//         K-gate latch (MinLowsIntoLeg + legConsumed) is deleted.
 //
 // ⭐ SAMPLER, NOT A BOOK (mc = 0 default): every qualifying bar becomes an
 // independent trip with its full feature vector + forward marks; PF on the raw
@@ -205,6 +206,12 @@ type FlushPosition =
       // bar AFTER its OnNewLow — the entry bar IS a low, so both >= 0. -----
       BarsSinceFirstLow: int     // the leg's age in present bars
       LowsSinceFirstLow: int     // averaging-down depth (0 = the leg's first low)
+      // ⭐ S38e: same events, TIGHTER resets — leg disarmed by a new 5m/10m
+      // high instead of the 20m one (record-only)
+      BarsSinceFirstLow300: int
+      LowsSinceFirstLow300: int
+      BarsSinceFirstLow600: int
+      LowsSinceFirstLow600: int
       TradeIdx: int              // ⭐ index of this SIGNAL within the down-leg (0 = the leg's
                                  // first trade); reset by the new-high leg reset. Diverges from
                                  // LowsSinceFirstLow wherever a low fired no trade (outside the
@@ -357,9 +364,6 @@ type IntradayConfig =
                                  // Also the leg-reset channel: a new N-bar HIGH ends the down-leg.
       ExitChannelBars: int       // ⭐ EXIT: vwap > the prior N-bar MAX (strict) -> target. Default
                                  // 300 (~5m) — V6 F16's direction. NO other exit before MOC.
-      MinLowsIntoLeg: int        // ⭐ V6 F3 "wait for the Kth low": enter only once the leg has
-                                 // >= K lows, at most ONE trip per leg (legConsumed latch — pair
-                                 // with MaxConcurrent 1 for the real book). 0 = sampler.
       DvFloor60: float           // hard gate: Sum60(vwap*volume) >= this at the signal bar. $ terms.
       TcFloor60: float           // hard gate: Sum60(tradeCount) >= this.
       // ⭐ VOLATILITY BAND — RECORD-FIRST for MR: the breakout F10 calibration does NOT
@@ -457,7 +461,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // within the down-leg; reset together with the counters on the new
     // entry-channel high — NOT on new lows, unlike the momentum engines).
     let counters = NewLowCounters()
-    let mutable legConsumed = false
+    // ⭐ S38e (user): the SAME new-low event counted under TIGHTER leg resets —
+    // disarmed by a new 5m/10m high instead of the 20m one. A 20m-high breach
+    // implies a 5m/10m breach (nested windows), so these never outlive `counters`.
+    // RECORD-ONLY: no gate reads them.
+    let counters300 = NewLowCounters()
+    let counters600 = NewLowCounters()
     let mutable tradeIdx = 0
     // ----- activity sums + lags -----
     let volSum5 = SumMa 5                        // 5s/10s tails (user, 2026-07-29)
@@ -776,9 +785,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // reset high). The RESET itself fires LAST (step 7) — an entry on
         // this bar must read the pre-reset counters.
         counters.Step()
+        counters300.Step()
+        counters600.Step()
         let isNewLow = match priorEntryMin with ValueSome lo -> bar.vwap < lo | ValueNone -> false
         let isNewHigh = match priorEntryMax with ValueSome hi -> bar.vwap > hi | ValueNone -> false
-        if isNewLow then counters.OnNewLow()
+        if isNewLow then
+            counters.OnNewLow()
+            counters300.OnNewLow()
+            counters600.OnNewLow()
 
         // ===== 5. advance open positions: forward marks, hold clock, exit signals =====
         // Exit precedence: moc > acceptance stops > target. Stops and target are
@@ -966,11 +980,6 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // ===== 6. entry signal (fills next bar) =====
         let inWindow = bar.etSec >= cfg.EntryStartSec && bar.etSec <= cfg.EntryEndSec
         let channelWarm = entryMin.Count = entryMin.WindowSize
-        // ⭐ V6 F3 "wait for the Kth low": deep enough into THIS leg, and the
-        // leg not already used.
-        let legOk =
-            cfg.MinLowsIntoLeg <= 0
-            || (not legConsumed && counters.LowsSinceFirstLow >= cfg.MinLowsIntoLeg)
         let floorsOk =
             (match dvSum60.State with ValueSome dv -> dv >= cfg.DvFloor60 | ValueNone -> false)
             && (match tcSum60.State with ValueSome tc -> tc >= cfg.TcFloor60 | ValueNone -> false)
@@ -1037,8 +1046,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 | _ -> false)
         let dv0945TapeOk = cfg.MinDv0945Tape <= 0.0 || dv0945Tape >= cfg.MinDv0945Tape
         let specOk = speedOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk
-        if inWindow && channelWarm && isNewLow && legOk && floorsOk && volatOk && effOk && specOk && this.HasSlot then
-            if cfg.MinLowsIntoLeg > 0 then legConsumed <- true
+        if inWindow && channelWarm && isNewLow && floorsOk && volatOk && effOk && specOk && this.HasSlot then
             pendingEntry <-
                 ValueSome
                     { SignalSec = bar.etSec
@@ -1088,6 +1096,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       // affect this trip. The entry bar IS a low, so both >= 0.
                       BarsSinceFirstLow = counters.BarsSinceFirstLow
                       LowsSinceFirstLow = counters.LowsSinceFirstLow
+                      BarsSinceFirstLow300 = counters300.BarsSinceFirstLow
+                      LowsSinceFirstLow300 = counters300.LowsSinceFirstLow
+                      BarsSinceFirstLow600 = counters600.BarsSinceFirstLow
+                      LowsSinceFirstLow600 = counters600.LowsSinceFirstLow
                       TradeIdx = tradeIdx
                       OpenAtSignal = this.OpenCount
                       Vwap1200 =
@@ -1185,8 +1197,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // clobber the very leg an entry just joined. =====
         if isNewHigh then
             counters.Reset()
-            legConsumed <- false      // a fresh leg may fire again
             tradeIdx <- 0
+        // ⭐ S38e tighter resets: the breach bar reads 0 (OnBreach fired in
+        // step 4). A new 5m/10m high can't share a bar with an entry either
+        // (vwap < prior min1200 <= prior max300/600), so ordering is safe; a
+        // 20m-high bar implies both, keeping all three counters in sync.
+        if br300.BarsSinceBreach = 0 then counters300.Reset()
+        if br600.BarsSinceBreach = 0 then counters600.Reset()
         // the aux-mark lookback: remember this bar as "the previous bar"
         prevEtSec <- bar.etSec
         prevVwap <- bar.vwap

@@ -52,8 +52,6 @@ let defaultConfig =
                                         // on its new HIGH. {60,120,300,600,1200}.
           ExitChannelBars  = 300        // ⭐ the ~5m reversion target (V6 F16's direction).
                                         // {30,60,120,300,600,1200}.
-          MinLowsIntoLeg   = 0          // ⭐ 0 = sampler (averages down). K>0 = V6 F3's "wait for
-                                        // the Kth low", one trip per leg (pair with mc=1).
           DvFloor60        = 100_000.0  // >= $100k traded over the last 60 present bars at the signal
           TcFloor60        = 60.0       // >= 60 trades over the same window (1/sec — kills the
                                         // block-print-only tape)
@@ -175,6 +173,8 @@ CREATE TABLE trips (
     breach_lo_sess INTEGER, breach_lo_1200 INTEGER, breach_lo_600 INTEGER, breach_lo_300 INTEGER,
     breach_lo_120 INTEGER, breach_lo_60 INTEGER, breach_lo_30 INTEGER,
     bars_since_first_low INTEGER, lows_since_first_low INTEGER,
+    bars_since_first_low_300 INTEGER, lows_since_first_low_300 INTEGER,
+    bars_since_first_low_600 INTEGER, lows_since_first_low_600 INTEGER,
     trade_idx INTEGER, open_at_signal INTEGER,
     vwap_1200 DOUBLE, chan_hi DOUBLE, chan_lo DOUBLE, exit_chan_hi DOUBLE,
     gap_60 INTEGER, gap_30 INTEGER, gap_15 INTEGER,
@@ -331,6 +331,8 @@ type TripSink(outDir: string) =
             i p.BreachLoSess; i p.BreachLo1200; i p.BreachLo600; i p.BreachLo300
             i p.BreachLo120; i p.BreachLo60; i p.BreachLo30
             i p.BarsSinceFirstLow; i p.LowsSinceFirstLow
+            i p.BarsSinceFirstLow300; i p.LowsSinceFirstLow300
+            i p.BarsSinceFirstLow600; i p.LowsSinceFirstLow600
             i p.TradeIdx; i p.OpenAtSignal
             f p.Vwap1200; f p.ChanHi; f p.ChanLo; f p.ExitChanHi
             i p.Gap60; i p.Gap30; i p.Gap15

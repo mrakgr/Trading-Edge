@@ -22,7 +22,6 @@ type Args =
     // ----- the system (all of it) -----
     | Entry_Channel_Bars of int
     | Exit_Channel_Bars of int
-    | Min_Lows_Into_Leg of int
     // ----- per-bar liquidity floors -----
     | Dv_Floor_60 of float
     | Tc_Floor_60 of float
@@ -65,7 +64,6 @@ type Args =
             | Out_Dir _ -> "Output DIRECTORY for the trip parquet part files (trips_pNNN.parquet). Post-hoc: read_parquet('<dir>/*.parquet')."
             | Entry_Channel_Bars _ -> "⭐ ENTRY: buy when the bar vwap prints STRICTLY UNDER the prior N-present-bar MIN of vwaps (the flush channel; also the leg-reset channel — a new N-bar HIGH ends the down-leg). One of {60,120,300,600,1200}. Default 1200 (~20m on an active name)."
             | Exit_Channel_Bars _ -> "⭐ EXIT: sell when the vwap STRICTLY EXCEEDS the prior N-present-bar MAX (the reversion target). One of {30,60,120,300,600,1200}. Default 300 (~5m — V6 F16's direction). NO stop; MOC backstop."
-            | Min_Lows_Into_Leg _ -> "⭐ V6 F3 'wait for the Kth low': enter only once the down-leg has >= K new lows, at most ONE trip per leg (the legConsumed latch — pair with --max-concurrent 1 for the real book). Default 0 = sampler (every new low is a trip; averages down)."
             | Dv_Floor_60 _ -> "Hard entry gate: >= this many DOLLARS traded over the trailing 60 present bars at the signal. Default 100000."
             | Tc_Floor_60 _ -> "Hard entry gate: >= this many TRADES over the same window. Default 60 — volume without trades is one block print."
             | Min_Volat_20m _ -> "volat_20m floor at the signal (raw mean-|r|/30s units; cold volat FAILS a positive floor). Default 0 = off. ⚠ RECORD-FIRST: the breakout F10 band does NOT transfer to MR (THE INVERSION) — band post-hoc over the volat_20m column."
@@ -112,7 +110,6 @@ let main argv =
                 { d.Intraday with
                     EntryChannelBars = parsed.GetResult(Entry_Channel_Bars, defaultValue = d.Intraday.EntryChannelBars)
                     ExitChannelBars  = parsed.GetResult(Exit_Channel_Bars,  defaultValue = d.Intraday.ExitChannelBars)
-                    MinLowsIntoLeg   = parsed.GetResult(Min_Lows_Into_Leg,  defaultValue = d.Intraday.MinLowsIntoLeg)
                     DvFloor60        = parsed.GetResult(Dv_Floor_60,        defaultValue = d.Intraday.DvFloor60)
                     TcFloor60        = parsed.GetResult(Tc_Floor_60,        defaultValue = d.Intraday.TcFloor60)
                     MinVolat20m      = parsed.GetResult(Min_Volat_20m,      defaultValue = d.Intraday.MinVolat20m)
@@ -162,9 +159,6 @@ let main argv =
     if not (List.contains cfg.Intraday.ExitChannelBars exitChanSet) then
         eprintfn "FATAL: --exit-channel-bars %d — must be one of %A." cfg.Intraday.ExitChannelBars exitChanSet
         exit 1
-    if cfg.Intraday.MinLowsIntoLeg < 0 then
-        eprintfn "FATAL: --min-lows-into-leg %d — must be >= 0." cfg.Intraday.MinLowsIntoLeg
-        exit 1
 
     let ic = cfg.Intraday
     let hhmmss s = sprintf "%02d:%02d:%02d" (s / 3600) (s % 3600 / 60) (s % 60)
@@ -185,9 +179,8 @@ let main argv =
         (if Double.IsPositiveInfinity ic.VolStopRatio then "off" else sprintf "%.0fx" ic.VolStopRatio)
         (if Double.IsPositiveInfinity ic.TcStopRatio then "off" else sprintf "%.0fx" ic.TcStopRatio)
         (if ic.SpeedStopPct >= 0.0 then "off" else sprintf "%.1f%%" (ic.SpeedStopPct * 100.0))
-    printfn "  leg         = arm on first new low, reset on new %d-bar high;  K-gate = %s"
+    printfn "  leg         = arm on first new low, reset on new %d-bar high (+ 5m/10m-reset twins RECORDED — S38e; books built post-hoc by mc-replay)"
         ic.EntryChannelBars
-        (if ic.MinLowsIntoLeg <= 0 then "off (sampler)" else sprintf "wait for the %dth low, one trip/leg" ic.MinLowsIntoLeg)
     printfn "  volat band  = volat_20m ∈ [%s, %s) bp/30s"
         (if ic.MinVolat20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVolat20m * 1e4))
         (if Double.IsPositiveInfinity ic.MaxVolat20m then "inf" else sprintf "%.0f" (ic.MaxVolat20m * 1e4))

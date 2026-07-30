@@ -2529,3 +2529,45 @@ tape seconds shift the anchor late and can over-split legs on illiquid names
 VIRGIN test is independent of all this: it reads other same-tkd trips' recorded
 `exit_reason='target', exit_sec < signal_sec` — the mc=0 sampler holds positions
 from every signal second, so a prior target exit IS the bounce evidence.
+
+## S38e — engine v9: TRUE lows-into-leg twins at 5m/10m resets (2026-07-30)
+
+User (correcting S38d's proxy): the post-hoc "rank" counted RECORDED TRIPS, not
+new-low events — the engine's `LowsSinceFirstLow` counts every strict new 20m
+low including ones that fail spec gates. **Engine v9:** two more `NewLowCounters`
+(`counters300`/`counters600`) — same arming event (strict new 1200-bar low),
+disarmed by a strict new 300/600-bar high instead of 1200 (`br300.BarsSinceBreach
+= 0` on the breach bar; nested windows ⇒ a 20m breach resets all three). Four
+record-only columns: `bars/lows_since_first_low_300/_600`. Also DELETED (user):
+`MinLowsIntoLeg` + the `legConsumed` latch — the V6 F3 one-trip-per-leg engine
+book mode is dead machinery now that books are built post-hoc by mc-replay
+(behavior-neutral at the K=0 default). Restricted rerun on `flushfader_v13_tkds`
+→ `data/equity/flushfader/v13_legs/` (**THE working parquet**, 131 cols):
+50,910 trips, ZERO set-diff vs v13_reference, invariant lows_300 ≤ lows_600 ≤
+lows clean on all trips.
+
+**lows_since_first_low_300 on the A++ cell** (the 20m counter is spec-pinned to
+[26,50] by the K-band; the 10m twin barely discriminates — 10m ≈ 20m resets):
+
+| lows_300 | n | PF | win% | avg% | med% |
+|---|---|---|---|---|---|
+| 0-5 (fresh 5m leg) | 32 | **0.606** | **50.0** | **−0.74** | −0.07 |
+| 6-15 | 76 | 14.384 | 90.8 | +2.92 | +2.87 |
+| 16-25 | 63 | 83.446 | 95.2 | +4.10 | +3.81 |
+| 26-40 | 377 | 9.556 | 84.4 | +3.24 | +2.66 |
+| 41+ | 114 | 13.625 | 74.6 | +3.17 | +2.88 |
+
+**The virgin finding is READABLE OFF ONE ENGINE COLUMN**: a fresh 5m leg =
+just-bounced = the losing slice. Crossed with the virgin flag, the toxic core is
+the conjunction: post-bounce × fresh-5m-leg = **PF 0.114 / win 22.2 (n=18)** —
+actively harmful; post-bounce × deep = the lottery (5.70, win 56.3); virgin ×
+deep = the setup (14.19, win 87.6).
+
+**Discipline menu (mc=1 on the A++ cell), simplicity vs peak:**
+
+| discipline | n | PF | win% | avg% |
+|---|---|---|---|---|
+| naive greedy | 102 | 6.216 | 79.4 | +2.50 |
+| lows_300 ≥ 6 (ONE engine feature) | 96 | 8.188 | 82.3 | +2.68 |
+| cell-signal rank ≥ 4 | 75 | 8.528 | 85.3 | +3.01 |
+| virgin × rank ≥ 4 | 64 | 16.018 | 90.6 | +3.12 |
