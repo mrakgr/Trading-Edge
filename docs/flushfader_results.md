@@ -2665,3 +2665,13 @@ leg clocks — the K-band is structurally episode-blind); only the day-scoped
 virgin flag excludes it (8.19 → 16.0, win 82 → 91). The discipline ladder is
 now MECHANISM-NAMED: naive 6.22 → +fresh-leg gate 8.19 (kills the fast chase)
 → +day-virgin × rank≥4 16.0 (kills the second-episode lottery).
+
+**S38g correction (user) — the lows_300 shape is a HUMP, not monotone:** finer
+buckets, K-band ON (spec book) / OFF (whole koff universe): 0-5 = 1.706/1.437,
+6-15 = 2.105/1.641, 16-25 = 2.111/1.769, **26-40 = 2.296/2.007 (peak)**, 41-60 =
+1.995/1.655, 61+ = —/1.289 (impossible inside the band). Earlier "monotone" came
+from the grid's coarse 26+ bucket blending peak and dip. The hump SURVIVES the
+K-band (same shape, gentler — the band absorbs part of it), and both clocks
+agree on the ~26-40 sweet zone incl. the over-extension roll-off past ~40-50;
+inside the band the 41-60 bucket = the near-equality (never-bounced deep)
+region, dipping to 1.995 — the S38g regime lens seen from another angle.
