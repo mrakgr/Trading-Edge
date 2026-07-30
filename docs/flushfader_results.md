@@ -2977,3 +2977,37 @@ CAMPAIGN, ~7 trips/event). **Verdict: the priority lever is not slot
 allocation, it is SIZING — trade naive greedy at base size and size up the
 A++ arrivals (the pyramid), exactly the playbook structure. Priority-mc=1
 CLOSED.**
+
+## S38p — PRODUCTION PREP: retiring the 1m-bar funnel (2026-07-30, prep for next session)
+
+User direction: move everything to 1s bars (the live scanner builds those);
+experiment with relaxing/replacing the `mr_candidate` (A) precondition (1m-bar
+medians) — maybe trade counts; find a use for the gap counters. Groundwork laid:
+
+**1. What the funnel's 1m/daily dependencies actually are.** The ONLY 1m-bar
+condition that GATES today is precondition (A): median 09:30-09:45 1m-bar
+volume ≥ 10k AND ≥10/15 bars present. Everything else gating is already
+1s-native (`dv_0945_tape` ≥ $3M) or daily-corpus (CS/ADRC, D-1 adj_close ≥ $1,
+episode warm >21d, adj_ratio/prev_adj_close/close_3d). `rvol_0945_honest` +
+forward closes are record-only (research), not live-needed. Daily-corpus fields
+are live-trivial (any EOD feed); (A) is the one production-parity risk.
+
+**2. The (A) blind spot, quantified (2025 sample, minute_aggs, CS/ADRC):**
+246,239 tkds had ≥$3M morning dollars; **146,845 (60%) FAIL (A)** — the
+share-count median is structurally a tax on EXPENSIVE names. But split by
+price: blind spot = 146,415 at ≥$10 vs **430 sub-$10 (2.1% of the 20,165
+sub-$10 dollar-qualified)**. For THE SYSTEM (the $1-$10 band) (A) is nearly
+harmless — and the 430 it drops are the thinnest of the band (median bar-vol
+7,937 = just under the line; median morning trade count 1,147 vs passers'
+3,538; 113/430 fail on bar presence).
+
+**3. The 1s-native replacement proposal (next session's experiment):** rebuild
+`mr_candidate` with (A) replaced by a DIRECT dollar prefilter (Σ vol·close ≥
+~$2M in SQL, deliberately below the engine's exact $3M tape gate) + optionally
+a trade-count floor (`tc_0945_tape` = Σ trade_count pre-09:45 — subsumes
+bar-presence: user's "replace medians with trade counts"). Sweep the tc floor
+post-hoc off recorded cum_tc/tc features. Gap counters (`gap_60/30/15`,
+recorded) = the live per-signal tape-thinness analog of bar-presence — candidate
+use: record-first study vs the 430-type marginal tapes. Universe growth is
+bounded: sub-$10 adds ~430 tkds/yr; the $10+ flood only matters if the price
+ceiling is ever lifted.
