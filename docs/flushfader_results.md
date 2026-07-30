@@ -2591,3 +2591,22 @@ parquet contains) ⇒ per the S25/S31 method rule needs the full universe.
 other v1.3 gates intact, ~3x trip rate. Post-hoc plan: (1) parity — lows_20m ∈
 [26,50] must reproduce the v13 book; (2) bands on lows_300/lows_600; (3) year
 audits + A++ interplay.
+
+**S38f completed — the wholesale verdict (v13_koff landed: 150,817 trips @
+1.683, 59 min; ⭐ PARITY: lows_20m ∈ [26,50] on it reproduces the v13 book
+EXACTLY — 33,954 / 2.152 / 72.4):**
+
+| K band [26,50] on | n | PF | win% | med% | 2022 | worst recent |
+|---|---|---|---|---|---|---|
+| lows_20m (baseline) | 33,954 | **2.152** | 72.4 | +2.00 | **1.432** | 1.678 |
+| lows_10m | 38,599 | 1.936 | 72.4 | +2.02 | 1.383 | 1.449 |
+| lows_5m | 34,978 | 1.915 | 73.0 | +2.15 | **1.014** | 1.474 |
+
+**The 20m-reset counter IS the right K clock.** Mechanism: the band's CEILING
+(≤50) rejects stale over-extended legs — with a 5m reset any small bounce wipes
+the count, so the ceiling stops seeing leg age and re-admits exactly the
+exhausted 2022-style declines the band was built to exclude (K5's 2022 = 1.014
+vs 1.432). The 5m counter's job is the OTHER end: fresh-leg exclusion in the
+A++ playbook (S38e). Division of labor: **K-band on the 20m clock = spec;
+lows_300 ≥ 6 = A++ overlay.** `v13_koff/` (131 cols, K-free) is the reusable
+universe for any future K experiment.
