@@ -2915,3 +2915,65 @@ greedy (State from the first push) — the ONLY guard is the explicit
 entry gate. The 300/600 windows need no own check (⊂ the 1200 window ⇒ warm by
 implication at any signal); record-only paths handle cold via NaN. One line,
 load-bearing.
+
+**SPEC v1.6 REFERENCE CARD (user request — the full filter list in one place):**
+
+*Universe funnel:* `mr_candidate` preconditions (CS/ADRC; 09:30-09:45 median
+1m-bar volume ≥ 10k with ≥10 of 15 bars present) → engine streams the tkd's 1s
+slim bars → **`dv_0945_tape` ≥ $3M** (Σ vwap·volume over own 1s bars strictly
+before 09:45 — the honest, 1s-native morning-dollars floor, S35).
+
+*Mechanics:* ENTRY = vwap strictly < prior 1200-bar MIN (needs 1,200 present
+bars ⇒ earliest signal ~09:50), fill NEXT bar vwap; EXIT = vwap strictly >
+prior 300-bar MAX, else MOC; NO stops; entry window 09:45-15:00 ET; per-bar
+floors dv_60 ≥ $100k AND tc_60 ≥ 60 at the signal.
+
+*SPEC gates (all at the signal bar):*
+1. `volat_20m` ≥ 40 bp/30s (slot-EmaHl vol floor)
+2. speed: vwap/vwap_60_prev − 1 < −2% (1m flush speed)
+3. K-band: `lows_since_first_low` ∈ [26, 50] (20m-reset leg; THE 2022 fix)
+4. `eff_20m` ∈ [−0.5, −0.3) — **COLD FAILS (v1.6)**
+5. |`eff_10m`| ≥ 0.15 (no flat 10m tape)
+6. dist-20m-high: vwap/chan_hi − 1 ∈ [−35%, −10%)
+7. vol10rate: (vol_10/10)/(vol_60/60) ≥ 0.75 (tape prints through the low)
+8. `lows_since_first_low_300` ≥ 6 (v1.4 — kills the fast-chase re-entry)
+9. `rng_300/rng_20m` < 0.8 (v1.5 — no pure cliffs)
+
+*Post-hoc:* $1 ≤ entry_px/adj_ratio < $10 (raw-price band; ceiling not baked).
+
+## S38o — A+ family overlap + priority-mc=1 (2026-07-30, autonomous while user away)
+
+**1. FAMILY OVERLAP (v1.6 book): the four A+ overlays are NEARLY DISJOINT —
+"one cell wearing four hats" is WRONG.** Jaccards 0.03-0.16. Refresh on v16:
+
+| overlay | n | PF | win% | verdict |
+|---|---|---|---|---|
+| A dsv ≥ −3% | 2,053 | **4.069** | 79.5 | ⭐ THE overlay — all 7 yrs (2.77 worst, 14.35 in 2026) |
+| B rvol_0945 < 1× | 4,650 | 2.916 | 74.6 | DECAYING: 2024-26 = 2.14/2.48/**1.64** → demote to regime lens |
+| C chg_3d [−10,0) | 5,896 | 2.185 | 73.1 | ABSORBED by the spec ladder (≈ book) → retire |
+| D flow [0.3,1) (honest denom) | 15,662 | 2.181 | 73.1 | ABSORBED (was 2.44 on the contaminated denominator) → retire; the queued honest dv-axis re-check is hereby DONE for the hump |
+
+Pairwise intersections: A&B = 5.62 (n=284), A&C = 5.85 (n=494) — but the A&B
+year audit has n = 6-91/yr and **2023 = 0.68** → anecdote-tier (S38j rule), not
+promotable. **The A+ roster collapses to: dsv ≥ −3% (the one robust overlay) +
+the A++ conjunction.** Pyramid simplifies: book 2.2 → dsv 4.1 → torrent corner →
+A++ 16.5.
+
+**2. PRIORITY-mc=1: "keep the powder dry" LOSES.** mc=1 restricted by grade
+(v1.6 book, greedy within grade):
+
+| slot policy | n | PF | avg%/trip | Σret pts/yr |
+|---|---|---|---|---|
+| naive greedy (all book) | 4,062 | 2.104 | +1.12 | **~696** |
+| dsv-only | 369 | 2.908 | +1.47 | ~83 |
+| torrent-only | 484 | 3.581 | +1.87 | ~138 |
+| A++-stack-only | 92 | 8.169 | +2.71 | ~38 |
+
+Selectivity buys 1.4-2.4× per-trip quality at 5-18× fewer trips — the slot
+idles ~85-95% of its opportunity. AND the naive slot already attends **71 of
+86 A++ events (83%)**; what it cannot do is extract the event's DEPTH (captures
+207 of the cell's 2,072 mc=0 pct-pts — the cell's value is the averaging-down
+CAMPAIGN, ~7 trips/event). **Verdict: the priority lever is not slot
+allocation, it is SIZING — trade naive greedy at base size and size up the
+A++ arrivals (the pyramid), exactly the playbook structure. Priority-mc=1
+CLOSED.**
