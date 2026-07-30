@@ -2322,3 +2322,57 @@ SETUP (recognize + size hard, ~monthly), not a book — the mc=0 adds inflate n.
 Playbook entry: the size-up pyramid is now dsv-prime alone (2.51) → torrent corner
 (3.9) → the stack (9.2), with clip size scaling with cell liquidity (the stack =
 the system's most liquid fills by construction).
+
+**S35d — v13_reference VERIFIED (the definitive honest-universe book):** 392,815
+candidates streamed, 59 min, 50,910 trips. v1.3 cut (≥$1, <$10): **33,954 / PF 2.152
+/ win 72.4 / avg +1.28 / med +2.00**. Reconciliation vs the S35b assembly: assembly
+fully contained (0 assembly-only), +174 reference-only trips (0.5% — the S25
+tkd-list relaxation bias, now closed). Tape floor exact: min dv_0945_tape =
+$3,000,074. New workhorse: **`flushfader_v13_tkds`** (from the reference run's trip
+tkds) — all prior tkd tables (spec_v11, v12_fullwin, sub3m, fwdsplit) are STALE/
+scaffolding. All post-hoc now runs off `v13_reference/` (127 cols incl.
+dv_0945_tape).
+
+## S38 — POST-HOC mc=1: the single-account book (2026-07-30)
+
+**Method (user's design, replacing an engine mc=1 rerun which would distort the
+continuation counterfactuals):** replay the v1.3 book chronologically (sorted by
+trade_date, entry_sec, symbol), keep a min-heap of open exit times, take a trip
+iff fewer than `mc` earlier-taken positions are still open at its entry (strict:
+exit == entry still blocks; same-second entries can't double-fill). Script:
+`scripts/equity/flushfader_mc.fsx` (`--mc N`; writes selected keys to
+`v13_reference/mc{N}_selected.parquet` for SQL joins). Verified: 0 overlapping
+pairs, 0 duplicate entry-seconds in the mc=1 selection.
+
+**mc=1 by year** (of the 33,954-trip v1.3 book):
+
+| year | n | PF | win% | avg% | med% |
+|------|---|----|------|------|------|
+| 2020 | 719 | 2.833 | 73.6 | +1.50 | +1.96 |
+| 2021 | 730 | 2.320 | 71.9 | +1.08 | +1.65 |
+| 2022 | 471 | 1.566 | 68.8 | +0.65 | +1.59 |
+| 2023 | 507 | 1.449 | 66.7 | +0.60 | +1.44 |
+| 2024 | 764 | 1.912 | 72.5 | +1.09 | +2.01 |
+| 2025 | 899 | 2.069 | 71.0 | +1.14 | +1.89 |
+| 2026 | 371 | 1.919 | 72.8 | +1.14 | +2.04 |
+| **total** | **4461** | **2.004** | **71.2** | **+1.07** | **+1.80** |
+
+**The concurrency curve is FLAT** — capacity buys trips, not per-trip edge:
+
+| mc | n | % of book | PF | win% | med% |
+|----|---|-----------|----|------|------|
+| 1 | 4,461 | 13.1 | 2.004 | 71.2 | +1.80 |
+| 2 | 8,406 | 24.8 | 1.994 | 71.2 | +1.81 |
+| 3 | 11,832 | 34.8 | 1.993 | 71.4 | +1.81 |
+| 5 | 17,397 | 51.2 | 2.022 | 71.8 | +1.87 |
+| ∞ (mc=0) | 33,954 | 100 | 2.152 | 72.4 | +2.00 |
+
+**Findings:** (1) mc=1 compresses PF only 2.152 → 2.004 (−7%) and stays positive
+all 7 years — same 0-12% compression band as PlungeRider; the edge is NOT an
+mc=0 attribution artifact. (2) ~2.6 taken trips/day at mc=1. (3) The trips
+greedy SKIPS run HOTTER than the ones it takes (2.173 vs 2.004, med +2.04 vs
++1.80): flush clusters — moments when you're already busy — carry the best
+fades (the proportionality story at portfolio scale). First-come-first-served
+costs selection, not just capacity → an A+-priority overlay (prefer
+dsv ≥ −3% / torrent-corner arrivals over marginal ones) should beat naive
+greedy at fixed mc. 2022-2023 remain the soft years in every column.
