@@ -2610,3 +2610,22 @@ vs 1.432). The 5m counter's job is the OTHER end: fresh-leg exclusion in the
 A++ playbook (S38e). Division of labor: **K-band on the 20m clock = spec;
 lows_300 ≥ 6 = A++ overlay.** `v13_koff/` (131 cols, K-free) is the reusable
 universe for any future K experiment.
+
+### S38g — combining lows_20m × lows_5m (2026-07-30)
+
+2D grid on `v13_koff` ($1≤px<$10): the K20 [26,50] row dominates EVERY lows_300
+column (2.1-2.2 vs 1.0-1.8 in all other rows) — the 20m clock's primacy is 2D.
+Inside the spec row lows_300 is mildly monotone: 0-5 = 1.706 / 6-15 = 2.105 /
+16-25 = 2.111 / 26+ = 2.219 (the S38f stacking wash).
+
+**The equality flag `lows_300 = lows_20m` = NEVER-BOUNCED LEG** (engine-native:
+counts agree iff no 5m-high breach since the leg began). On the spec band:
+16,042 @ 2.337 vs bounced 17,912 @ 1.917 — and it RESCUES the weak years
+(2022: 1.74 vs 1.21; 2023: 1.88 vs 1.53; 2025: 2.78 vs 1.56) but INVERTS 2024
+(1.83 vs 2.26) and 2026 (1.64 vs 2.20). Fails the every-year bar → a regime
+lens, not a gate. On the A++ cell it does NOT reproduce the virgin cliff
+(never-bounced 408 @ 8.25 vs bounced 254 @ 11.01 — no separation): leg-scoped
+purity ≠ day-scoped "no target exit yet"; the cliff belongs to the DAY's first
+capitulation episode. **Division of labor stands: K-band on the 20m clock =
+spec; lows_300 = recency (fresh-leg exclusion, A++ overlay); the day-scoped
+virgin flag = the discipline.**
