@@ -2376,3 +2376,33 @@ fades (the proportionality story at portfolio scale). First-come-first-served
 costs selection, not just capacity → an A+-priority overlay (prefer
 dsv ≥ −3% / torrent-corner arrivals over marginal ones) should beat naive
 greedy at fixed mc. 2022-2023 remain the soft years in every column.
+
+### S38b — mc=1 on THE A++ STACK: save the bullet for the 4th flush (2026-07-30)
+
+On v13_reference the stack (≥$30M tape morning × ≥$30M/20m flush × dsv ≥ −3%,
+$1≤px<$10) = **662 trips / 91 tkds / PF 9.125 / win 82.8** (S37's 643 was the
+pre-reference assembly).
+
+**Naive mc=1 greedy** (take the first arrival, re-enter after exit): 102 trips
+(~1.1/event), **PF 6.216 / win 79.4 / avg +2.50** — compression −32%, far above
+the full book's −7%. The cell IS the averaging-down cell (7.3 trips/event) and
+greedy spends its one bullet on the FIRST flush.
+
+**Within-event entry rank** (causal — rank = # of cell signals fired so far that
+ticker-day; user's "EV improves as the stock continues to decline" CONFIRMED):
+
+| entry rank | n | PF | win% | avg% | med% |
+|---|---|---|---|---|---|
+| 1st | 91 | 8.261 | 82.4 | +2.53 | +2.46 |
+| 2nd-3rd | 153 | 8.737 | 85.6 | +2.77 | +2.66 |
+| 4th-6th | 174 | **15.132** | **90.2** | +3.34 | +2.78 |
+| 7th+ | 244 | 7.517 | 75.8 | +3.29 | +2.89 |
+
+Median monotone 2.46 → 2.89; the 4th-6th flush is the sweet spot.
+
+**mc=1 restricted to rank ≥ 4** ("save the bullet"): 75 trips (~11/yr),
+**PF 8.528 / win 85.3 / avg +3.01 / med +2.66**, positive all 7 years
+(2022 4.86 on n=3; 2023 ∞ on n=3). A single slot recovers ~93% of the mc=0
+cell PF. Playbook: on an A++ event, do NOT clip the first flush — either run
+the averaging-down campaign (the mc=0 measurement), or if one clip, wait for
+the 4th cell signal of the day.
