@@ -2406,3 +2406,17 @@ Median monotone 2.46 → 2.89; the 4th-6th flush is the sweet spot.
 cell PF. Playbook: on an A++ event, do NOT clip the first flush — either run
 the averaging-down campaign (the mc=0 measurement), or if one clip, wait for
 the 4th cell signal of the day.
+
+**S38b addendum — decomposing the 6.216 (user: "why is mc=1 at 6 when rank-1 is
+8?"):** the 102 taken = ALL 91 rank-1 trips (PF 8.261, the bucket untouched) +
+11 re-entries at PF 2.44 (IBO −9.2%, EYES −4.5% among them; all 11 fill after
+~11:20, most after 13:00 — the slot frees on a quick target and greedy chases
+the next signal on the same falling name; the −9.2% "target" exit is the 5m-high
+drifting below entry on a deep crash). Arithmetic: 261.9/31.7 = 8.26 →
++42.0 win / +17.2 loss → 303.9/48.9 = 6.22 — eleven trips add 16% to the
+numerator, 54% to the denominator. **CORRECTION to the framing: real compression
+of take-the-first mc=1 is ~−10% (8.26 vs the cell's 9.13); the rest of the −32%
+is small-n re-entry tail noise, NOT evidence that first flushes are weak.** The
+robust findings stand: the rank table (n=153-244/bucket, 4th-6th = 15.1) and
+rank≥4 "save the bullet" (8.53) — which wins both by entering at better ranks
+AND by not chaining afternoon re-entries.
