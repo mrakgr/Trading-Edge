@@ -2821,3 +2821,25 @@ take. fr buckets at mc=1 turn CLEANLY MONOTONE incl. the last bucket:
 The mc=0 ≥0.80 bounce-back (2.099) was AVERAGING-DOWN TAIL RESCUE — first-trip-
 only (greedy) shows the pure cliff at 1.508/64.7. Still regime-caveated by the
 year table; overlay candidate, not a gate.
+
+## S38l — SPEC v1.5 BAKED: + rng_300/rng_20m < 0.8 (engine v11, 2026-07-30)
+
+**SPEC v1.5 = v1.4 + `rng_300/rng_20m < 0.8`** (user: reject the pure cliff; also
+clips the A++ ≥0.80 bucket). Gate `frontOk` mirrors `chanRng max300 min300 /
+chanRng max1200 min1200` — NaN/zero-range denominators FAIL, matching SQL
+`nullif` semantics. `MaxRngFront` config (default 0.8, Infinity = off),
+`--max-rng-front`. Restricted rerun → **`v15_reference/` = THE working parquet**
+(45,730 raw; ⭐ ZERO-DIFF parity vs the SQL cut on v14_reference).
+
+| book (≥$1, <$10) | n | PF | win% | med% |
+|---|---|---|---|---|
+| v1.4 | 31,834 | 2.184 | 72.7 | +2.04 |
+| **v1.5** | **30,513** | **2.191** | **72.9** | **+2.03** |
+| A++ cell v1.4 | 630 | 11.795 | 84.4 | +2.93 |
+| **A++ cell v1.5** | **596** | **16.548** | **87.1** | **+3.13** |
+
+Year audit v1.5 (vs v1.4): 2020 4.097 (4.094) / 2021 2.635 (2.665) / **2022
+1.564 (1.442)** / **2023 1.685 (1.643)** / 2024 1.956 (1.997) / 2025 2.023
+(2.052) / 2026 1.829 (1.851) — buys back the weak years, gives a little back
+in 2024-26 (as the S38k year table predicted). mc=1 book: **4,137 @ 2.106**
+(v1.4 mc=1 was 2.070; v1.3 2.004 — each spec rung lifts the single-slot book).

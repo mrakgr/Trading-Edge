@@ -392,6 +392,10 @@ type IntradayConfig =
                                  // FAST-CHASE re-entry (5m bounce without a 20m leg reset leaves the
                                  // K-band satisfied, re-signaling in seconds; that slice = PF 0.11 on
                                  // the A++ cell). Default 6. 0 = off.
+      MaxRngFront: float         // ⭐ SPEC v1.5 (S38k): rng_300/rng_20m < this — reject the PURE
+                                 // CLIFF (the whole 20m range printed in the last 5m; monotone-worst
+                                 // at mc=1, 1.51/64.7). Degenerate/cold ranges FAIL (mirrors SQL
+                                 // nullif). Default 0.8. Infinity = off.
       MinDv0945Tape: float       // ⭐ tape-native dv_0945 floor (Σ vwap·vol, 1s bars < 09:45).
                                  // Default 0 = RECORD-FIRST; the live-scanner-consistent
                                  // replacement for the candidate-table dv_0945 gate.
@@ -1050,7 +1054,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 | _ -> false)
         let dv0945TapeOk = cfg.MinDv0945Tape <= 0.0 || dv0945Tape >= cfg.MinDv0945Tape
         let lows300Ok = cfg.MinLows300 <= 0 || counters300.LowsSinceFirstLow >= cfg.MinLows300
-        let specOk = speedOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk && lows300Ok
+        let frontOk =
+            Double.IsPositiveInfinity cfg.MaxRngFront
+            || chanRng max300 min300 / chanRng max1200 min1200 < cfg.MaxRngFront
+        let specOk = speedOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk && lows300Ok && frontOk
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && effOk && specOk && this.HasSlot then
             pendingEntry <-
                 ValueSome

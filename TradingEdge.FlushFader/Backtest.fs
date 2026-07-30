@@ -71,6 +71,7 @@ let defaultConfig =
           DistHiHi         = -0.10      // fadeable zone, past the un-fadeable wall
           MinVol10Rate     = 0.75       // last-10s volume rate >= 0.75x the 1m rate (S17/S18)
           MinLows300       = 6          // ⭐ SPEC v1.4: >= 6 lows since the last 5m-high bounce (S38h)
+          MaxRngFront      = 0.8        // ⭐ SPEC v1.5: rng_300/rng_20m < 0.8 — no pure cliffs (S38k)
           MinDv0945Tape    = 3e6        // ⭐ THE universe floor (S35): Σ vwap·vol over OUR 1s
                                         // bars < 09:45, honest dollars — replaces the
                                         // candidate dv_0945 gate (real dollars × adj_ratio,
