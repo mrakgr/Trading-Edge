@@ -176,6 +176,8 @@ type FlushPosition =
       Eff20m: float              // SIGNED ln(V/V_40slots_ago) / Sum40|r| ∈ [-1,1]. |eff| =
                                  // trendiness (drift t-stat — the ADX replacement); sign = the
                                  // 20m net direction. At a flush entry expect eff < 0.
+                                 // ⭐ S38n: warms at 41 slots ≈ 1,230 bars — one slot AFTER the
+                                 // entry channel; cold-at-signal now FAILS the spec (v1.6).
       Eff10m: float              // 20-slot twin (the 10m drift t-stat)
       SlotCount: int             // slot returns folded so far (volat/eff warmth)
       // ----- channel widths, ln(high/low) per present-bar window -----
@@ -519,6 +521,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let slots = SlotVwapMa cfg.SlotBars
     let ew40 = EmaHlMa 40.0                      // volat_20m — THE driver (F7 lock)
     let ew20 = EmaHlMa 20.0                      // volat_10m — the trajectory twin
+    // ⭐ S38n: the 40-INTERVAL horizon STAYS (a 39-interval alignment variant was
+    // built and rejected — it churned ~11% of the book through the eff band and
+    // lost 5 of 7 years). eff_20m therefore warms at 41 slots ≈ 1,230 present
+    // bars, ONE SLOT after the 1200-bar entry channel; cold eff now FAILS (the
+    // v1.2 cold-passes special case is retired — it only ever admitted the
+    // 30-bar warm-up-gap fringe, 471 trips @ 1.78).
     let slotLag = LagMa<float> 40                // slot vwap 40 emissions ago (eff numerator)
     let slotAbsSum = SumMa 40                    // Σ|r| over the same 40 returns (eff denominator)
     let slotLag20 = LagMa<float> 20              // eff10m pair — same stream, half the horizon
@@ -1021,12 +1029,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 ValueSome (log (cur / old) / s)
             | _ -> ValueNone
         let eff20BandOk =
-            // ⭐ COLD eff_20m PASSES (user, 2026-07-29 — deviation from the cold-fails
-            // stance): a warm-channel signal whose 40-slot eff isn't computable yet is
-            // still a valid flush; eff_20m records nan. Post-hoc v1.2 parity needs
-            // `(isnan(eff_20m) OR (eff_20m >= lo AND eff_20m < hi))`.
+            // ⭐ S38n (SPEC v1.6): COLD eff_20m FAILS — standard stance restored.
+            // Cold-at-signal = the one-slot warm-up gap (channel warm at 1,200 bars,
+            // eff at ~1,230) — a weak early-morning thin-tape fringe (471 trips @
+            // 1.78, hurting 2023) — or a degenerate dead tape (Σ|r| = 0). Post-hoc
+            // v1.6 parity vs older parquets: add `eff_20m IS NOT NULL`.
             match eff20Signed with
-            | ValueNone -> true
+            | ValueNone -> false
             | ValueSome e ->
                 (Double.IsNegativeInfinity cfg.Eff20Lo || e >= cfg.Eff20Lo)
                 && (Double.IsPositiveInfinity cfg.Eff20Hi || e < cfg.Eff20Hi)

@@ -2884,3 +2884,34 @@ slots ≈ **1,230 present bars**. The cold-pass therefore governs a ONE-SLOT
 gap wall-clock-dilates (median cold-eff trip ~09:53 = names sitting at ~1,200-
 1,229 present bars then). volat_20m is immune (EWMA emits from the 2nd slot;
 ~39 returns by channel-warm).
+
+## S38n — SPEC v1.6 BAKED: cold eff_20m FAILS, 40-interval eff KEPT (engine v13, 2026-07-30)
+
+The 39-interval alignment variant (engine v12) was built, run on the full
+universe (`v16_39interval_rejected/`, kept as scaffolding), and REJECTED:
+30,686 @ 2.139, worse in 5/7 years (2022 1.419 — giving back the rngfront
+gain), churn in @ 1.749 vs churn out @ 2.106 — the shifted eff values admit a
+worse marginal population through the [−0.5,−0.3) band. User verdict: the cold
+pass was a mental-model error (thought it guarded 09:45+; it guarded a 30-bar
+slot warm-up gap) — drop the fringe, keep the estimator.
+
+**SPEC v1.6 = v1.5 + cold eff_20m FAILS** (40-interval eff untouched; the
+one-slot warm-up gap stays, documented). Pure tightening ⇒ restricted rerun
+exact → **`v16_reference/` = THE working parquet** (44,995 raw; ⭐ ZERO-DIFF
+parity vs `eff_20m IS NOT NULL` on v15).
+
+| | n | PF | win% | med% |
+|---|---|---|---|---|
+| book (≥$1,<$10) | 30,042 | **2.199** | 73.0 | +2.04 |
+| A++ cell | 596 | 16.548 | 87.1 | +3.13 |
+| mc=1 book | 4,062 | 2.104 | 72.0 | +1.84 |
+
+Years: 4.109 / 2.674 / 1.546 / **1.761** / 1.944 / 2.018 / 1.820 — the fringe
+drop HELPS 2023 (1.685 → 1.761); A++ cell identical (cold-eff never touched it).
+
+**Mechanics note (user Q): what stops degenerate channels?** `MinMa`/`MaxMa` are
+greedy (State from the first push) — the ONLY guard is the explicit
+`channelWarm = entryMin.Count = entryMin.WindowSize` (`Intraday.fs:995`) in the
+entry gate. The 300/600 windows need no own check (⊂ the 1200 window ⇒ warm by
+implication at any signal); record-only paths handle cold via NaN. One line,
+load-bearing.

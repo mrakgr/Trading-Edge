@@ -190,7 +190,7 @@ let main argv =
     printfn "  volat band  = volat_20m ∈ [%s, %s) bp/30s"
         (if ic.MinVolat20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVolat20m * 1e4))
         (if Double.IsPositiveInfinity ic.MaxVolat20m then "inf" else sprintf "%.0f" (ic.MaxVolat20m * 1e4))
-    printfn "  SPEC v1.5   = speed %s | K ∈ [%s, %s] | eff20 ∈ [%s, %s) | |eff10| >= %s | dist-20m-hi ∈ [%s, %s) | vol10rate >= %s | lows300 >= %s | rngfront < %s"
+    printfn "  SPEC v1.6   = speed %s | K ∈ [%s, %s] | eff20 ∈ [%s, %s) COLD FAILS | |eff10| >= %s | dist-20m-hi ∈ [%s, %s) | vol10rate >= %s | lows300 >= %s | rngfront < %s"
         (if ic.MaxSpeed1m >= 0.0 then "off" else sprintf "< %.0f%%/1m" (ic.MaxSpeed1m * 100.0))
         (if ic.KBandLo <= 0 then "off" else string ic.KBandLo)
         (if ic.KBandHi <= 0 then "off" else string ic.KBandHi)
