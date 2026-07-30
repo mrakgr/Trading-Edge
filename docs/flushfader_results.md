@@ -2695,3 +2695,33 @@ parquet (47,909 raw trips; ⭐ ZERO-DIFF parity vs the SQL cut on v13_legs).
 
 ⏭ OPEN: how to handle the SECOND EPISODE (post-reset re-entries, the 5.70/56%
 lottery — needs day-scoped state; the virgin flag is the post-hoc form).
+
+## S38i — the virgin feature on the whole book: it's a CONJUNCTION effect (2026-07-30)
+
+**The differentiator (user Q): prior-target-exit count** = # of distinct
+`exit_sec` with `exit_reason='target'` in the same tkd strictly before this
+trip's signal. Causal, blotter-native ("was I paid out on this name today?"),
+and ≈ tape-native (the sampler holds from every signal, so first target exit ≈
+first 5m-high breach after the day's first signal).
+
+**On the v1.4 book: FLAT** — 0 bounces 2.203 / 1 → 2.12 / 2 → 1.845 / 3+ →
+2.757 (n=74). Not a book feature. By liquidity tier, still flat-to-inverted
+([10,30M) even inverts: post-bounce 2.53 > virgin 2.04). The cliff only
+assembles in the FULL A++ conjunction:
+
+| torrent (≥30M×≥30M) | intact (dsv ≥ −3%) | virgin | n | PF | win% |
+|---|---|---|---|---|---|
+| yes | yes | yes | 558 | **15.051** | **88.2** |
+| yes | yes | no | 72 | 4.636 | **55.6** |
+| yes | no | yes | 2,678 | 3.983 | 76.7 |
+| yes | no | no | 234 | 4.171 | 78.2 |
+
+**Below vwap the episode count means NOTHING (3.98 vs 4.17); at vwap it is the
+whole game (15.1 vs 4.6, win 88 vs 56).** Mechanism: on an intact day the first
+violent capitulation is the one the crowd buys; a stock that already bounced
+and is flushing AGAIN while still near vwap = sellers reloading — a different
+trade. Below vwap it's all the same grind regardless of episode.
+
+**Verdict: virgin/second-episode stays a PLAYBOOK rule for the A++ setup — not
+a spec gate.** (A day-scoped `targets_today` engine column would still make the
+scanner self-contained; queued as nice-to-have.)
