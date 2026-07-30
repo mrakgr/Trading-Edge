@@ -3045,3 +3045,40 @@ non-linear 20m = 22.58 (381) vs linear = 9.28 (211)** — the cell is the chaoti
 everything-at-once crash, not the orderly slide; same sign-flips-with-context
 pattern as the flow ratio. ⏭ overlay candidacy (r_10m ≥ −0.95 book overlay;
 cell anti-linearity) + year audits = tomorrow, alongside the mr_candidate work.
+
+**S38q full tables (user). Slopes (bp/min), v1.6 book:**
+
+| slope_20m | n | PF | win% | avg% | med% |
+|---|---|---|---|---|---|
+| <−100 | 2,751 | **3.186** | 79.1 | +2.50 | +3.40 |
+| [−100,−50) | 15,308 | 2.068 | 72.5 | +1.25 | +2.10 |
+| [−50,−25) | 11,111 | 2.157 | 72.3 | +1.10 | +1.81 |
+| [−25,−10) | 841 | 2.601 | 71.6 | +1.35 | +1.75 |
+| ≥−10 | 31 | 0.118 | 25.8 | −8.28 | −4.29 (n=31 anecdote) |
+
+| slope_10m | n | PF | win% | avg% | med% |
+|---|---|---|---|---|---|
+| <−100 | 7,354 | 1.972 | 71.4 | +1.46 | +2.49 |
+| [−100,−50) | 13,460 | 2.414 | 74.7 | +1.37 | +2.10 |
+| [−50,−25) | 6,340 | 2.318 | 72.5 | +1.17 | +1.78 |
+| [−25,−10) | 2,183 | 1.812 | 70.8 | +0.83 | +1.59 |
+| ≥−10 | 705 | 2.066 | 67.2 | +1.02 | +1.62 |
+
+**2D cross (lin20 = r_20m < −0.9; lin10 = r_10m < −0.95):**
+
+| lin20 | lin10 | n | PF | win% | med% |
+|---|---|---|---|---|---|
+| yes | no | 11,067 | **2.599** | 74.8 | +2.12 |
+| yes | yes | 464 | 1.484 | 72.6 | +1.66 |
+| no | no | 17,337 | 2.090 | 72.3 | +2.04 |
+| no | yes | 1,174 | 1.416 | 66.4 | +1.40 |
+
+**A++ cell:** linear-20m 211 @ 9.276/85.3 vs **non-linear 381 @ 22.584/87.9**
+— the cell inverts.
+
+**⏭ PLAN (user): after the S38p mr_candidate 1s-native rebuild, do a FULL RUN
+WITH THE SPEC FILTERS OFF and test whether ols_r_600/_1200 can REPLACE the
+efficiency ratios** (eff_20m band + |eff_10m| floor) — the low eff↔r correlation
+(0.24/0.56) says they measure different things; the honest comparison needs the
+gate-free universe (the current book is eff-band-conditioned, so r's full range
+is censored).
