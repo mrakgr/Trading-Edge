@@ -2474,3 +2474,43 @@ inversion (2m 7.37 > 5m 3.75). The exit hump peaks at 5m from BOTH sides,
 year-audited: 2m 3.26 (unstable) → **5m 9.13 (all years +)** → 10m 2.82 → 20m
 1.84. Sub-2m marks don't exist (engine change needed); the gradient + the S26
 1m-fee-death verdict say don't bother.
+
+### S38d — THE VIRGIN FLUSH: the first bounce ENDS the setup (2026-07-30)
+
+User hypothesis off the S38b re-entry autopsy: "once the exits have been hit
+once, the re-entry trades are a fundamentally different setup" — so reset the
+leg at 5m/10m instead of 20m. Two findings:
+
+**1. The reset WINDOW is unfixable-by-construction:** on the full book the
+5m/10m/20m leg partitions differ by ~60 legs in 12,100 (and ⚠ `breach_N = −1`
+is a NEVER-BREACHED-this-session sentinel — anchor SQL must special-case it, it
+manufactures one fake leg per trip otherwise). The rolling 20m max ages out in
+≤20 minutes, so any bounce that pauses long enough re-takes ALL the highs at
+once — no reset window can separate re-entries from virgins.
+
+**2. The DIRECT test separates them perfectly.** Define virgin = no prior
+target-exit bounce in this (cell) tkd before this signal (causal; live-scanner
+form: "no 5m-high breach since the day's first cell signal"):
+
+| slice | n | PF | win% | avg% | med% |
+|---|---|---|---|---|---|
+| A++ virgin flush | 569 | **14.101** | **88.0** | +3.18 | +2.88 |
+| A++ post-bounce | 93 | 3.028 | **50.5** | +2.46 | **+0.29** |
+| book virgin | 26,913 | 2.148 | 72.5 | +1.27 | +1.99 |
+| book post-bounce | 6,255 | 1.928 | 70.6 | +1.13 | +1.96 |
+
+**USER CONFIRMED: post-bounce trades are a COIN FLIP with a tail (win 50.5,
+med +0.29) — the lottery shape.** On the book the effect is mild; it is a cliff
+in the A++ cell. This also reinterprets S38c: "leg-rank-1 was the worst bucket"
+because it MIXED event-starts with post-bounce re-entries.
+
+**Rank within the virgin flush** (monotone, pristine): 1st 8.26 / 2nd-3rd 9.82 /
+4th-6th **20.54 (win 92.6)** / 7th+ 18.07.
+
+**⭐⭐ THE DISCIPLINE: mc=1 × virgin × rank≥4** ("wait for the 4th signal; once
+the first bounce prints, done with the name"): **64 trips (~10/yr) @ PF 16.018 /
+win 90.6 / avg +3.12** — all 7 years positive (2020 6.29 worst; 2021 23.1, 2025
+29.7, three years loss-free). One slot now BEATS the unconstrained cell (9.13).
+⚠ n=64 — but every refinement was hypothesis-driven and confirmed at scale
+first (rank monotonicity n=662; virgin cliff n=569/93). Sizing pyramid final
+rung: 2.1 book → 2.5 dsv → 4.4 corner → 9.2 stack → **16.0 virgin-rank≥4-mc1**.
