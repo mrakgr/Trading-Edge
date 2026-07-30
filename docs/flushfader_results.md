@@ -3094,3 +3094,9 @@ pure-cliff slice rngfront missed, and it is toxic the same way (0.118/25.8%).
 Census: 31 trips / 12 tkds, BJDX 2026-06-02 = −242 of the −257 total →
 anecdote, no gate — but the natural watch-item for tomorrow's filters-off run
 where slope gets its uncensored range.
+
+**⏭ addendum to the plan (user, end of day):** on the filters-off run also test
+**ols_slope_1200 as a replacement for rng_300/rng_20m** — the flat-slope
+L-shape autopsy suggests slope is the sharper pure-cliff detector (rngfront
+missed the 73%-front-loaded BJDX-type collapses); candidates to compare as the
+anti-cliff gate: rngfront < 0.8 (current) vs slope_20m < −X vs their union.
