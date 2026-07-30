@@ -2420,3 +2420,46 @@ is small-n re-entry tail noise, NOT evidence that first flushes are weak.** The
 robust findings stand: the rank table (n=153-244/bucket, 4th-6th = 15.1) and
 rank≥4 "save the bullet" (8.53) — which wins both by entering at better ranks
 AND by not chaining afternoon re-entries.
+
+### S38c — A++ cell: reset-window study + exit sweep (2026-07-30)
+
+**Q1 (user): tighten the leg reset to 5m/10m?** Legs recomputed post-hoc via the
+breach counters (semantics note: `breach_N` = BARS SINCE the last strict N-bar-high
+breach, so leg anchor = `entry_sec − breach_N`). On the cell the **20m and 10m
+resets yield IDENTICAL partitions** (every mid-crash bounce that takes the 10m
+high takes the 20m high too) and 5m differs by 2 trips — tightening the window is
+a NO-OP on A++ events. What DOES matter is counting within the leg at all:
+
+| rank (within 20m-leg) | n | PF | win% | avg% | med% |
+|---|---|---|---|---|---|
+| 1st | 105 | 6.202 | 80.0 | +2.48 | +2.46 |
+| 2nd-3rd | 169 | 6.892 | 83.4 | +2.72 | +2.63 |
+| 4th-6th | 186 | 10.672 | 88.2 | +3.09 | +2.84 |
+| 7th+ | 202 | **12.732** | 78.7 | **+3.68** | +2.94 |
+
+vs the all-day count where 7th+ DECAYED to 7.5: within-leg rank repairs the tail —
+"7+ signals with no intervening bounce" = the relentless flush = the fattest fades
+(PF/avg now MONOTONE in leg depth; win% dips at 7th+ but payoffs fatten).
+"Save the bullet" mc=1 on leg-rank ≥ 4: 71 trips @ 8.532 / win 85.9 — identical
+to the all-day version (8.528); the one-clip discipline is insensitive to the
+reset choice.
+
+**Q2 (user): exit at 10m/20m highs instead of 5m?** S13 sweep (aux marks;
+censoring ⇒ exact form = "target N-high, time-stop 20m", unresolved → `fwd_1200`)
+restricted to the cell:
+
+| exit | hit% | win | PF | avg% | med% |
+|---|---|---|---|---|---|
+| 2m high, ts 20m | 100.0 | 87.2 | 3.259 | +1.52 | +1.95 |
+| 5m high, ts 20m | 94.9 | 82.5 | 4.664 | +2.71 | +2.86 |
+| 10m high, ts 20m | 67.8 | 71.1 | 2.822 | +2.49 | +3.07 |
+| 20m high, ts 20m | 30.1 | 58.3 | 1.842 | +1.74 | +1.09 |
+| hold 20m flat | — | 58.3 | 1.912 | +1.89 | +1.09 |
+| **ACTUAL (5m, no ts)** | 100.0 | **82.8** | **9.125** | **+3.08** | +2.86 |
+
+**THE EXIT IS UNBEATEN ×5** — and by MORE on the A++ cell than on the book: the
+10m target's +0.2% median premium is swallowed by the 32% of trades that never
+print a 10m high inside the window (win collapses 83→71→58); even the 5m target
+with a 20m time-stop halves the cell (4.66) — the 5% of trades needing >20m are
+precisely the monsters. Wider targets convert the highest-win cell in the system
+back into drift.
