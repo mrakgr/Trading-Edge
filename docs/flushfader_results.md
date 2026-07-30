@@ -2874,3 +2874,13 @@ treasure. **The A++ cell has ZERO trips before 10:00** (6 in 10:00-10:30, rest
 (+ cold semantics for K/dist/rngfront — a redesign) aimed at the extrapolation
 of the day's WEAKEST gradient (honest 09:45-10:00 was 1.90 in S31). The eff
 cold-pass stays as-is (positive fringe, deliberate user decision, A++-irrelevant).
+
+**S38m addendum — WHY eff_20m warms after the 1200-bar channel (user):** same
+present-bar clock, different thresholds. Channel: 1,200 present bars. eff_20m:
+40 completed slot RETURNS; slots complete every 30 PRESENT bars (`SlotBars` =
+30 counts bars, not wall seconds) and the first slot yields no return ⇒ 41
+slots ≈ **1,230 present bars**. The cold-pass therefore governs a ONE-SLOT
+(30-present-bar) warm-up gap: dense tape = 09:50:00→09:50:30; gappy tape = the
+gap wall-clock-dilates (median cold-eff trip ~09:53 = names sitting at ~1,200-
+1,229 present bars then). volat_20m is immune (EWMA emits from the 2nd slot;
+~39 returns by channel-warm).
