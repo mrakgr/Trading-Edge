@@ -2725,3 +2725,27 @@ trade. Below vwap it's all the same grind regardless of episode.
 **Verdict: virgin/second-episode stays a PLAYBOOK rule for the A++ setup — not
 a spec gate.** (A day-scoped `targets_today` engine column would still make the
 scanner self-contained; queued as nice-to-have.)
+
+## S38j — SECOND-EPISODE CENSUS: it's 6 events. Claims downgraded (2026-07-30)
+
+Before feature-hunting the virgin/second-episode divide (user: dist-20m-high?
+volatility?), the event count: **the A++ post-bounce population = 61 trips from
+SIX ticker-days in 6.5 years** — EYES 2021-03-05 (25 trips, −52.9%, THE
+disaster), VERO 2026-01-16 (17, +174.3%), SERV 2024-07-19 (7, +38.8), GTEC
+2020-11-10 (5, +18.9), PPSI 2020-10-06 (4, +16.6), IBRX 2024-10-25 (3, −1.0).
+
+**Downgrades:** (1) "the 5.70/56% second-episode lottery" is NOT a population —
+it is 6 events, and the win-rate collapse is mostly EYES; (2) the feature
+autopsy (2nd episodes: volat 138 vs 93bp, chg_open +82 vs +37%, dsv +7.0 vs
++3.6 — hot/extended/high) describes those same 6 days — anecdote, not signal;
+(3) the striking hot/cool interaction (post-bounce×hot = 0.67/26% vs
+post-bounce×cool = 206/89%, with hot ≡ extended as identical partitions) is
+3 events vs 3 — DO NOT TRADE ON IT. House rule applied: count events before
+profiling features.
+
+**What stands:** virgin side = 569 trips / 90 events / win 87.7 (fully
+powered); book-level episode count = FLAT (S38i, well-powered); **"first
+episode only" survives as CHEAP INSURANCE, not measured edge** — ~1 second
+episode/yr, ex-EYES they were fine, but the rule costs ~nothing and caps a
+demonstrated −53% tail day. Risk argument, not alpha argument. The "defining
+feature between episodes" question is UNANSWERABLE at A++ scale.
