@@ -2649,3 +2649,19 @@ pre-first-signal mid-leg bounces make virgin days read nb=false, and those are
 the monsters (25.9 @ 95.7, n=207). The two flags run different CLOCKS — leg vs
 day — and the poison is day-scoped. The day-scoped virgin flag stays THE
 discipline.
+
+**S38g synthesis — THE TWO RE-ENTRY TYPES (user's mechanism confirmed):**
+
+| type | mechanism | counter signature | n | PF / win |
+|---|---|---|---|---|
+| fast chase | 5m bounce WITHOUT 20m reset → K still satisfied from old lows → re-signal in seconds | post-bounce × lows_300 ≤ 5 (leg intact by arithmetic: a reset would have zeroed K) | 18 | **0.114 / 22%** |
+| second episode | 20m bounce → leg reset → 26-low cooling-off → new episode matures | post-bounce × lows_300 ≥ 6 (often nb=true — amnesia) | 64 | 5.70 / **56%** (lottery) |
+
+User: "re-entries are bad because they landed before the reset had the chance
+to trigger" — EXACTLY type 1, the actively toxic kind; `lows_300 ≥ 6` plugs
+precisely that gap (mc=1: 6.22 → 8.19). Type 2 slips every leg-scoped counter
+(after a full reset a second capitulation is indistinguishable from a first on
+leg clocks — the K-band is structurally episode-blind); only the day-scoped
+virgin flag excludes it (8.19 → 16.0, win 82 → 91). The discipline ladder is
+now MECHANISM-NAMED: naive 6.22 → +fresh-leg gate 8.19 (kills the fast chase)
+→ +day-virgin × rank≥4 16.0 (kills the second-episode lottery).
