@@ -2769,3 +2769,55 @@ S14's ≥17%-ask wall since fr ≈ how much of the cliff the 5m target spans. No
 gated (last bucket breaks monotone; overlay candidate at best). On the A++
 cell: all buckets 10-58 PF except ≥0.80 = 0.384/38% — but census = 5 events
 (IBIO 2020-02-28 −39.9 drives it) ⇒ ANECDOTE per the S38j rule, noted not acted.
+
+**S38k tables (user; full data). v1.4 book, mc=0:**
+
+| rng_300/rng_20m | n | PF | win% | avg% | med% |
+|---|---|---|---|---|---|
+| <0.25 (back-loaded) | 1,516 | 3.027 | 76.8 | +1.45 | +2.12 |
+| 0.25-0.45 | 13,057 | 2.382 | 72.4 | +1.28 | +1.90 |
+| 0.45-0.65 | 11,767 | 1.999 | 72.8 | +1.22 | +2.09 |
+| 0.65-0.80 | 3,577 | 1.763 | 70.9 | +1.18 | +2.10 |
+| ≥0.80 (pure cliff) | 1,287 | 2.099 | 69.5 | +1.65 | +2.36 |
+
+By year (PF): the gradient is a 2021-2023 phenomenon and INVERTS in 2024:
+
+| yr | <0.25 | 0.25-0.45 | 0.45-0.65 | 0.65-0.80 | ≥0.80 |
+|---|---|---|---|---|---|
+| 2020 | 4.93 | 4.81 | 4.04 | 2.84 | 4.01 |
+| 2021 | 6.17 | 2.74 | 2.40 | 2.38 | 3.11 |
+| 2022 | 2.39 | 2.01 | 1.31 | 1.08 | 0.59 |
+| 2023 | 5.65 | 2.60 | 1.31 | 1.07 | 1.11 |
+| 2024 | 1.67 | 1.87 | 1.91 | 2.40 | 2.85 |
+| 2025 | 2.77 | 2.10 | 2.03 | 1.64 | 2.78 |
+| 2026 | 2.00 | 2.30 | 1.67 | 1.60 | 2.43 |
+
+A++ cell (630):
+
+| ratio | n | PF | win% | avg% | med% |
+|---|---|---|---|---|---|
+| <0.25 | 32 | 58.302 | 90.6 | +2.19 | +2.24 |
+| 0.25-0.45 | 243 | 23.798 | 91.4 | +2.90 | +2.82 |
+| 0.45-0.65 | 214 | 10.249 | 77.1 | +3.75 | +4.35 |
+| 0.65-0.80 | 107 | 33.468 | 96.3 | +4.86 | +4.15 |
+| ≥0.80 | 34 | 0.384 | 38.2 | −1.02 | −1.07 |
+
+A++ ≥0.80 census (ANECDOTE): IBIO 2020-02-28 18/−39.9 · KIDZ 2025-05-02 5/−13.4
+· NURO 2021-07-20 9/+12.8 · BBAI 1/+2.1 · AIRI 1/+3.7.
+
+**mc=1 on v1.4 (greedy): 4,248 @ 2.070 / win 71.8 / med +1.85** — ⭐ the
+lows_300 ≥ 6 gate lifts the SINGLE-SLOT book more than the mc=0 book (v1.3 mc=1
+was 2.004): it kills exactly the chained fast-chase re-entries greedy used to
+take. fr buckets at mc=1 turn CLEANLY MONOTONE incl. the last bucket:
+
+| ratio | n | PF | win% | avg% | med% |
+|---|---|---|---|---|---|
+| <0.25 | 266 | 2.374 | 69.5 | +1.10 | +1.70 |
+| 0.25-0.45 | 1,819 | 2.244 | 71.4 | +1.09 | +1.70 |
+| 0.45-0.65 | 1,514 | 2.003 | 73.4 | +1.15 | +2.05 |
+| 0.65-0.80 | 479 | 1.957 | 71.8 | +1.21 | +1.93 |
+| ≥0.80 | 170 | 1.508 | 64.7 | +0.84 | +1.78 |
+
+The mc=0 ≥0.80 bounce-back (2.099) was AVERAGING-DOWN TAIL RESCUE — first-trip-
+only (greedy) shows the pure cliff at 1.508/64.7. Still regime-caveated by the
+year table; overlay candidate, not a gate.
