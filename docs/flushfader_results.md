@@ -2843,3 +2843,14 @@ Year audit v1.5 (vs v1.4): 2020 4.097 (4.094) / 2021 2.635 (2.665) / **2022
 (2.052) / 2026 1.829 (1.851) — buys back the weak years, gives a little back
 in 2024-26 (as the S38k year table predicted). mc=1 book: **4,137 @ 2.106**
 (v1.4 mc=1 was 2.070; v1.3 2.004 — each spec rung lifts the single-slot book).
+
+**S38l mechanics note (user: what if the 20m window isn't full?):** unreachable —
+the entry gate requires the 1200-bar channel FULLY WARM (a "new 20m low" is
+undefined before 1,200 present bars), so frontOk always sees full windows;
+verified: earliest signal in the book = 09:49:59 (= 34,200 + 1,199s, the first
+possible warm second), zero NaN/degenerate ranges. If the NaN branch somehow
+fired, NaN comparisons are false ⇒ trip REJECTED (fail-safe). Corollaries:
+(1) the 09:45-09:50 entry-window slice is empty BY CONSTRUCTION (inherent to
+the 20m-low trigger, predates v1.5); (2) windows count PRESENT bars — on gappy
+tapes both windows stretch together, so the ratio always means "share of the
+window's range in its last quarter" by bar count.
