@@ -2514,3 +2514,18 @@ win 90.6 / avg +3.12** — all 7 years positive (2020 6.29 worst; 2021 23.1, 202
 ⚠ n=64 — but every refinement was hypothesis-driven and confirmed at scale
 first (rank monotonicity n=662; virgin cliff n=569/93). Sizing pyramid final
 rung: 2.1 book → 2.5 dsv → 4.4 corner → 9.2 stack → **16.0 virgin-rank≥4-mc1**.
+
+**S38d method note (user: "how is a post-hoc reset even possible? we only record
+ONE leg counter"):** the engine's `NewLowCounters` (20m reset) was never used.
+The reconstruction uses the seven recorded high-side `BreachCounter`s
+(`Intraday.fs:110-120`): `breach_N` = bars since the last strict N-high breach
+(−1 = never this session; breach bar = 0). On 1s bars that recency converts to
+an absolute anchor `entry_sec − breach_N` = the second of the last breach;
+same-anchor trips share a leg ⇒ `row_number() PARTITION BY (tkd, anchor)` =
+within-leg rank under an N-reset, no engine change. ⚠ Caveats: (1) the −1
+sentinel; (2) `Step()` counts PRESENT bars vs wall-clock `entry_sec` — missing
+tape seconds shift the anchor late and can over-split legs on illiquid names
+(exact on A++ torrent tapes; common-mode across the three reset variants). The
+VIRGIN test is independent of all this: it reads other same-tkd trips' recorded
+`exit_reason='target', exit_sec < signal_sec` — the mc=0 sampler holds positions
+from every signal second, so a prior target exit IS the bounce evidence.
