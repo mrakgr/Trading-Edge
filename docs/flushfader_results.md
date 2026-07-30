@@ -3011,3 +3011,37 @@ recorded) = the live per-signal tape-thinness analog of bar-presence — candida
 use: record-first study vs the 430-type marginal tapes. Universe growth is
 bounded: sub-$10 adds ~430 tkds/yr; the $10+ flood only matters if the price
 ceiling is ever lifted.
+
+## S38q — OLS r + slope features (10m/20m), the beach idea (2026-07-30, last run of the day)
+
+**Engine (record-only):** RollingMa's existing `OlsSlopeMa` (user caught the
+duplicate before I rebuilt it) on ln(vwap) per present bar, 600/1200 windows —
+warm exactly with the channels, no new cold semantics. 4 new columns:
+`ols_slope_600/_1200` (ln/bar; ×6e5 = bp/min), `ols_r_600/_1200` (signed
+Pearson r = sign(slope)·√R²). **`v16_ols/` = THE working parquet** (44,995;
+zero-diff trip parity vs v16_reference). Sanity: r ∈ [−1,1] everywhere, 100%
+negative at signals (every signal IS a 20m low), medians −0.88/−0.84. ⭐ Low
+correlation with eff (r20↔eff20 = 0.24 band-attenuated, r10↔eff10 = 0.56) —
+genuinely new information.
+
+**Book breakdowns ($1-$10):**
+
+| ols_r_20m | n | PF | win% | med% | | ols_r_10m | n | PF | win% | med% |
+|---|---|---|---|---|---|---|---|---|---|---|
+| <−0.95 | 1,862 | **2.927** | 74.3 | +2.20 | | <−0.95 | 1,638 | **1.435** | 68.2 | +1.48 |
+| [−0.95,−0.90) | 9,669 | 2.464 | 74.8 | +2.09 | | [−0.95,−0.90) | 6,544 | 2.019 | 72.8 | +2.28 |
+| [−0.90,−0.80) | 11,938 | 2.071 | 72.7 | +2.06 | | [−0.90,−0.80) | 9,924 | 2.435 | 74.2 | +2.17 |
+| [−0.80,−0.60) | 5,717 | 1.962 | 70.8 | +1.93 | | [−0.80,−0.60) | 7,576 | 2.425 | 74.3 | +1.99 |
+| ≥−0.60 | 856 | 2.091 | 68.6 | +1.73 | | ≥−0.60 | 4,360 | 2.050 | 70.1 | +1.75 |
+
+**TWO-SCALE GRAMMAR: 20m linearity GOOD (monotone 2.93→1.96), 10m perfect
+linearity BAD (worst bucket)** — the long decline should be orderly, the recent
+leg should NOT be a clean straight slide (straight-recent = ongoing drift, not
+capitulation; the S17 quiet-tail at path level). 2D: lin20 × NOT-lin10 = 2.599
+on n=11,067 (a third of the book!); r_10m < −0.95 is bad regardless (1.42-1.48).
+Slopes: 20m < −100bp/min = 3.186/win 79.1 (steep = good, the flush-speed grammar);
+the ≥−10bp/min corner = 0.118 on n=31 (anecdote). **A++ cell INVERTS lin20:
+non-linear 20m = 22.58 (381) vs linear = 9.28 (211)** — the cell is the chaotic
+everything-at-once crash, not the orderly slide; same sign-flips-with-context
+pattern as the flow ratio. ⏭ overlay candidacy (r_10m ≥ −0.95 book overlay;
+cell anti-linearity) + year audits = tomorrow, alongside the mr_candidate work.

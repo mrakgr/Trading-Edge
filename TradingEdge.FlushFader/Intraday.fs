@@ -266,6 +266,13 @@ type FlushPosition =
       Dv0945Tape: float          // ⭐ Σ vwap·volume over OUR 1s bars strictly before
                                  // 09:45 (honest dollars, v7 scale) — the live-scanner-
                                  // consistent dv_0945; compare vs the candidate column
+      // ----- ⭐ S38q rolling OLS of ln(vwap) vs time, 600/1200 present bars.
+      // slope = ln per present bar toward the present (×60 ≈ ln/min; ×6e5 ≈
+      // bp/min); r = Pearson (r < 0 at a flush). nan on degenerate windows. -----
+      OlsSlope600: float
+      OlsR600: float
+      OlsSlope1200: float
+      OlsR1200: float
       // ----- forward marks (vwap at the first present bar >= entry + horizon; nan if the day ends first) -----
       FwdVwap60: float
       FwdVwap300: float
@@ -477,6 +484,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // RECORD-ONLY: no gate reads them.
     let counters300 = NewLowCounters()
     let counters600 = NewLowCounters()
+    // ⭐ S38q OLS trend features (record-only): RollingMa's OlsSlopeMa on
+    // ln(vwap) per present bar; signed r = sign(slope)·√R²
+    let ols600 = OlsSlopeMa 600
+    let ols1200 = OlsSlopeMa 1200
     let mutable tradeIdx = 0
     // ----- activity sums + lags -----
     let volSum5 = SumMa 5                        // 5s/10s tails (user, 2026-07-29)
@@ -732,6 +743,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         min1200.Push bar.vwap
         sessHigh.Push bar.vwap
         sessLow.Push bar.vwap
+        ols600.Push (log bar.vwap)
+        ols1200.Push (log bar.vwap)
         // the slot chain: one |r| into the volat EWMAs per completed slot
         match slots.Push(bar.vwap, bar.volume) with
         | ValueSome v ->
@@ -1167,6 +1180,24 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       DollarVol60 = vv dvSum60.State
                       CumVol = cumVol
                       Dv0945Tape = dv0945Tape
+                      OlsSlope600 =
+                        (match ols600.State with
+                         | ValueSome m when ols600.Count = ols600.WindowSize -> m
+                         | _ -> nan)
+                      OlsR600 =
+                        (match ols600.State, ols600.R2 with
+                         | ValueSome m, ValueSome r2 when ols600.Count = ols600.WindowSize ->
+                             (if m < 0.0 then -sqrt r2 else sqrt r2)
+                         | _ -> nan)
+                      OlsSlope1200 =
+                        (match ols1200.State with
+                         | ValueSome m when ols1200.Count = ols1200.WindowSize -> m
+                         | _ -> nan)
+                      OlsR1200 =
+                        (match ols1200.State, ols1200.R2 with
+                         | ValueSome m, ValueSome r2 when ols1200.Count = ols1200.WindowSize ->
+                             (if m < 0.0 then -sqrt r2 else sqrt r2)
+                         | _ -> nan)
                       CumTc = cumTc
                       FwdVwap60 = nan
                       FwdVwap300 = nan

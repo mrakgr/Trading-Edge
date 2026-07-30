@@ -208,6 +208,7 @@ CREATE TABLE trips (
     prev_adj_close DOUBLE, close_3d DOUBLE, day_close DOUBLE,
     close_fwd_1d DOUBLE, close_fwd_3d DOUBLE, close_fwd_5d DOUBLE,
     dv_0945 DOUBLE, rvol_0945_honest DOUBLE, dv_0945_tape DOUBLE,
+    ols_slope_600 DOUBLE, ols_r_600 DOUBLE, ols_slope_1200 DOUBLE, ols_r_1200 DOUBLE,
     qty DOUBLE, net_pnl DOUBLE
 )"""
 
@@ -369,6 +370,7 @@ type TripSink(outDir: string) =
             f c.PrevAdjClose; f c.Close3d; f c.DayClose
             f c.CloseFwd1d; f c.CloseFwd3d; f c.CloseFwd5d
             f c.Dv0945; f c.Rvol0945Honest; f p.Dv0945Tape
+            f p.OlsSlope600; f p.OlsR600; f p.OlsSlope1200; f p.OlsR1200
             f qty; f pnl
             row.EndRow()
             total <- total + 1L
