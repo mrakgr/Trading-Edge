@@ -2749,3 +2749,12 @@ episode only" survives as CHEAP INSURANCE, not measured edge** — ~1 second
 episode/yr, ex-EYES they were fine, but the rule costs ~nothing and caps a
 demonstrated −53% tail day. Risk argument, not alpha argument. The "defining
 feature between episodes" question is UNANSWERABLE at A++ scale.
+
+**S38j footnote (user: "how does a 5m-high target pay +174%?"):** sumret = Σ over
+17 mc=0 averaging-down trips (per-trip +2..+13%). Per-trip double-digits are the
+5m target's WATERFALL BEHAVIOR: VERO flushed 9.16→8.68 in ~100s, so the
+strictly-prior 300-bar max still remembered ~9.9 — `exit_chan_hi` ask at signal
+= +9..+14.5% (recorded in tgt_dist) — and the V-snap paid all 17 fills at ONE
+shared exit second (3 bounces = 3 cluster exits for the day's 30 trips). The 5m
+target is ADAPTIVE: quiet tape → small ask, waterfall → the whole cliff. This is
+why the exit is unbeaten ×5 — it scales its ask with flush speed automatically.
