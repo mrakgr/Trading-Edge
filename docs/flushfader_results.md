@@ -2854,3 +2854,23 @@ fired, NaN comparisons are false ⇒ trip REJECTED (fail-safe). Corollaries:
 the 20m-low trigger, predates v1.5); (2) windows count PRESENT bars — on gappy
 tapes both windows stretch together, so the ratio always means "share of the
 window's range in its last quarter" by bar count.
+
+## S38m — THE COLD-PERIOD STUDY (user: should 09:45-09:50 be tradable?; 2026-07-30)
+
+Clarification first: **the blocker is the ENTRY DEFINITION, not a gate** — "new
+1200-bar low" cannot exist before ~09:50 (earliest signal ever: 09:49:59), so
+the eff_20m cold-pass never enabled 09:45-09:50; it enables cold-EFF trips
+after 09:50 (thin tapes whose slot features warm late). rngfront adds NO extra
+early blocking (channelWarm ⇒ full rng windows).
+
+Early book (v1.5): 09:50-09:55 = 1.837 / 09:55-10:00 = 1.728 (THE two weakest
+slices of the day) vs 10:00-10:15 = **3.005** / 10:15-10:30 = 2.185 / 10:30+ =
+2.140. The cold-pass carries 471 trips @ 1.777 / win 67.1 / med +1.52 (median
+~09:53) vs warm 30,042 @ 2.199 — the weak fringe, positive, harmless, not
+treasure. **The A++ cell has ZERO trips before 10:00** (6 in 10:00-10:30, rest
+10:30+): the torrent needs the day to develop.
+
+**Verdict: leave it.** Opening 09:45-09:50 needs a session-low warm-up channel
+(+ cold semantics for K/dist/rngfront — a redesign) aimed at the extrapolation
+of the day's WEAKEST gradient (honest 09:45-10:00 was 1.90 in S31). The eff
+cold-pass stays as-is (positive fringe, deliberate user decision, A++-irrelevant).
