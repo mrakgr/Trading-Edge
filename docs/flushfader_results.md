@@ -2758,3 +2758,14 @@ strictly-prior 300-bar max still remembered ~9.9 — `exit_chan_hi` ask at signa
 shared exit second (3 bounces = 3 cluster exits for the day's 30 trips). The 5m
 target is ADAPTIVE: quiet tape → small ask, waterfall → the whole cliff. This is
 why the exit is unbeaten ×5 — it scales its ask with flush speed automatically.
+
+## S38k — rng_300/rng_20m refreshed on v1.4 (user recall of S14; 2026-07-30)
+
+S14 (v1.1 book): no lever. On the v1.4 book a gradient has EMERGED: <0.25 =
+3.027 (n=1,516) → 0.25-0.45 = 2.382 → 0.45-0.65 = 1.999 → 0.65-0.80 = 1.763,
+≥0.80 = 2.099 — **back-loaded flushes (the conclusion of a longer 20m decline)
+fade better than front-loaded ones (the flush IS the decline)**; rhymes with
+S14's ≥17%-ask wall since fr ≈ how much of the cliff the 5m target spans. Not
+gated (last bucket breaks monotone; overlay candidate at best). On the A++
+cell: all buckets 10-58 PF except ≥0.80 = 0.384/38% — but census = 5 events
+(IBIO 2020-02-28 −39.9 drives it) ⇒ ANECDOTE per the S38j rule, noted not acted.
