@@ -2571,3 +2571,23 @@ deep = the setup (14.19, win 87.6).
 | lows_300 ≥ 6 (ONE engine feature) | 96 | 8.188 | 82.3 | +2.68 |
 | cell-signal rank ≥ 4 | 75 | 8.528 | 85.3 | +3.01 |
 | virgin × rank ≥ 4 | 64 | 16.018 | 90.6 | +3.12 |
+
+## S38f — K-band counter experiments: stack vs wholesale replacement (2026-07-30)
+
+**Stacking (user) — lows_300 ≥ 6 on top of the v1.3 spec** is EXACT post-hoc
+(pure tightening). Book buckets: lows_300 0-5 = 1.706 (n=2,120), 6-15 = 2.105,
+16-25 = 2.111, 26-40 = 2.296, 41+ = 1.995 (10m ctr: 0-5 = 1.142 on n=213, rest
+flat). Stacked book = 31,834 @ 2.184 vs 2.152 — but the year audit is a WASH
+(2020/21/25 up, 2023/24/26 down, 2022 flat). **Verdict: NOT a book gate — the
+fresh-leg poison is an A++-cell phenomenon** (0.61 there vs 1.71 on the book);
+stays a playbook overlay. Same lesson as the torrent corner: the signal
+concentrates where the crowd is.
+
+**Wholesale replacement (user) — point the K band at lows_300/lows_600 instead
+of the 20m counter:** mixed tightening+relaxation (lows_300 ≤ lows_20m: drops
+fresh-leg trips, ADMITS deep-5m-leg trips with 20m count > 50 that no existing
+parquet contains) ⇒ per the S25/S31 method rule needs the full universe.
+`v13_koff/` baking: full 392,815-tkd run, `--k-band-lo 0 --k-band-hi 0`, all
+other v1.3 gates intact, ~3x trip rate. Post-hoc plan: (1) parity — lows_20m ∈
+[26,50] must reproduce the v13 book; (2) bands on lows_300/lows_600; (3) year
+audits + A++ interplay.
