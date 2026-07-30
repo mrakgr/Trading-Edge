@@ -39,6 +39,7 @@ type Args =
     | Dist_Hi_Lo of float
     | Dist_Hi_Hi of float
     | Min_Vol10_Rate of float
+    | Min_Lows_300 of int
     | Min_Dv_0945_Tape of float
     // ----- price-acceptance stops -----
     | Vol_Stop_Ratio of float
@@ -78,6 +79,7 @@ type Args =
             | Dist_Hi_Lo _ -> "⭐ SPEC v1.2: vwap/chan_hi - 1 >= this (the -35% un-fadeable wall). Default -0.35. -Infinity = off."
             | Dist_Hi_Hi _ -> "⭐ SPEC v1.2: vwap/chan_hi - 1 < this (deep enough into the leg). Default -0.10. 0 = off."
             | Min_Vol10_Rate _ -> "⭐ SPEC v1.2: (vol_10/10)/(vol_60/60) >= this (S17 last-10s volume-rate floor — no quiet-tail drift-downs). Default 0.75. 0 = off."
+            | Min_Lows_300 _ -> "⭐ SPEC v1.4: lows_since_first_low_300 >= this — kills the FAST-CHASE re-entry (5m bounce without a 20m leg reset re-signals in seconds; PF 0.11 on the A++ cell). Default 6. 0 = off."
             | Min_Dv_0945_Tape _ -> "Tape-native dv_0945 floor: Σ vwap·volume over OUR 1s bars strictly before 09:45 >= this (live-scanner-consistent; honest dollars). Default 0 = record-first. Pair with --min-dv-0945 0 when replacing the candidate-table gate."
             | Vol_Stop_Ratio _ -> "PRICE-ACCEPTANCE STOP: exit holders when a NEW entry-channel low prints on (vol_60/60)/(vol_1200/1200) >= this. Default Infinity = OFF (S16 A/B: stops gut the book). e.g. 8 to arm."
             | Tc_Stop_Ratio _ -> "PRICE-ACCEPTANCE STOP: same on the trade-count ratio. Default Infinity = OFF (S16)."
@@ -124,6 +126,7 @@ let main argv =
                     DistHiLo         = parsed.GetResult(Dist_Hi_Lo,         defaultValue = d.Intraday.DistHiLo)
                     DistHiHi         = parsed.GetResult(Dist_Hi_Hi,         defaultValue = d.Intraday.DistHiHi)
                     MinVol10Rate     = parsed.GetResult(Min_Vol10_Rate,     defaultValue = d.Intraday.MinVol10Rate)
+                    MinLows300       = parsed.GetResult(Min_Lows_300,       defaultValue = d.Intraday.MinLows300)
                     MinDv0945Tape    = parsed.GetResult(Min_Dv_0945_Tape,   defaultValue = d.Intraday.MinDv0945Tape)
                     VolStopRatio     = parsed.GetResult(Vol_Stop_Ratio,     defaultValue = d.Intraday.VolStopRatio)
                     TcStopRatio      = parsed.GetResult(Tc_Stop_Ratio,      defaultValue = d.Intraday.TcStopRatio)
@@ -184,7 +187,7 @@ let main argv =
     printfn "  volat band  = volat_20m ∈ [%s, %s) bp/30s"
         (if ic.MinVolat20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVolat20m * 1e4))
         (if Double.IsPositiveInfinity ic.MaxVolat20m then "inf" else sprintf "%.0f" (ic.MaxVolat20m * 1e4))
-    printfn "  SPEC v1.2   = speed %s | K ∈ [%s, %s] | eff20 ∈ [%s, %s) | |eff10| >= %s | dist-20m-hi ∈ [%s, %s) | vol10rate >= %s"
+    printfn "  SPEC v1.4   = speed %s | K ∈ [%s, %s] | eff20 ∈ [%s, %s) | |eff10| >= %s | dist-20m-hi ∈ [%s, %s) | vol10rate >= %s | lows300 >= %s"
         (if ic.MaxSpeed1m >= 0.0 then "off" else sprintf "< %.0f%%/1m" (ic.MaxSpeed1m * 100.0))
         (if ic.KBandLo <= 0 then "off" else string ic.KBandLo)
         (if ic.KBandHi <= 0 then "off" else string ic.KBandHi)
@@ -194,6 +197,7 @@ let main argv =
         (if Double.IsNegativeInfinity ic.DistHiLo then "off" else sprintf "%.0f%%" (ic.DistHiLo * 100.0))
         (if ic.DistHiHi >= 0.0 then "off" else sprintf "%.0f%%" (ic.DistHiHi * 100.0))
         (if ic.MinVol10Rate <= 0.0 then "off" else sprintf "%.2fx" ic.MinVol10Rate)
+        (if ic.MinLows300 <= 0 then "off" else string ic.MinLows300)
     printfn "  continuation= right-side-of-V: enter 1st strict {1m,2m,5m}-high break after parent fill; trail stops = strict {1m,2m,5m}-low break | MOC (9 counterfactuals/parent)"
     printfn "  entry window= %s-%s ET   features fold from %s ET" (hhmmss ic.EntryStartSec) (hhmmss ic.EntryEndSec) (hhmmss ic.SessionStartSec)
     if ic.MaxConcurrent <= 0 then

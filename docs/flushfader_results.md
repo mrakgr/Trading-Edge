@@ -2675,3 +2675,23 @@ K-band (same shape, gentler — the band absorbs part of it), and both clocks
 agree on the ~26-40 sweet zone incl. the over-extension roll-off past ~40-50;
 inside the band the 41-60 bucket = the near-equality (never-bounced deep)
 region, dipping to 1.995 — the S38g regime lens seen from another angle.
+
+## S38h — SPEC v1.4 BAKED: + lows_300 ≥ 6 (engine v10, 2026-07-30)
+
+**SPEC v1.4 = v1.3 + `lows_since_first_low_300 >= 6`** (user decision: book-level
+wash but it kills the FAST-CHASE re-entry — the actively toxic slice — and a live
+scanner shouldn't chase 5m-bounce re-signals). Engine v10: `MinLows300` config
+(default 6, 0 = off), `--min-lows-300` flag, gate `lows300Ok` in specOk mirrors
+the recorded column exactly. Restricted rerun (pure tightening ⇒ `flushfader_
+v13_tkds` exact) → **`data/equity/flushfader/v14_reference/`** = THE working
+parquet (47,909 raw trips; ⭐ ZERO-DIFF parity vs the SQL cut on v13_legs).
+
+| book (≥$1, <$10) | n | PF | win% | med% |
+|---|---|---|---|---|
+| v1.3 | 33,954 | 2.152 | 72.4 | +2.00 |
+| **v1.4** | **31,834** | **2.184** | **72.7** | **+2.04** |
+| A++ cell v1.3 | 662 | 9.125 | 82.8 | +2.86 |
+| **A++ cell v1.4** | **630** | **11.795** | **84.4** | **+2.93** |
+
+⏭ OPEN: how to handle the SECOND EPISODE (post-reset re-entries, the 5.70/56%
+lottery — needs day-scoped state; the virgin flag is the post-hoc form).

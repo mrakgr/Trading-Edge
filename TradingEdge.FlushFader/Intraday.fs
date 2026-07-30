@@ -388,6 +388,10 @@ type IntradayConfig =
       DistHiLo: float            // vwap/chan_hi - 1 >= this (the un-fadeable wall). Default -0.35. -Infinity = off.
       DistHiHi: float            // vwap/chan_hi - 1 <  this (deep enough into the leg). Default -0.10. >= 0 = off.
       MinVol10Rate: float        // (vol_10/10)/(vol_60/60) >= this (S17/S18 last-10s floor). Default 0.75. 0 = off.
+      MinLows300: int            // ⭐ SPEC v1.4 (S38h): lows_since_first_low_300 >= this — kills the
+                                 // FAST-CHASE re-entry (5m bounce without a 20m leg reset leaves the
+                                 // K-band satisfied, re-signaling in seconds; that slice = PF 0.11 on
+                                 // the A++ cell). Default 6. 0 = off.
       MinDv0945Tape: float       // ⭐ tape-native dv_0945 floor (Σ vwap·vol, 1s bars < 09:45).
                                  // Default 0 = RECORD-FIRST; the live-scanner-consistent
                                  // replacement for the candidate-table dv_0945 gate.
@@ -1045,7 +1049,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     (v10 / 10.0) / (v60 / 60.0) >= cfg.MinVol10Rate
                 | _ -> false)
         let dv0945TapeOk = cfg.MinDv0945Tape <= 0.0 || dv0945Tape >= cfg.MinDv0945Tape
-        let specOk = speedOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk
+        let lows300Ok = cfg.MinLows300 <= 0 || counters300.LowsSinceFirstLow >= cfg.MinLows300
+        let specOk = speedOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk && lows300Ok
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && effOk && specOk && this.HasSlot then
             pendingEntry <-
                 ValueSome
