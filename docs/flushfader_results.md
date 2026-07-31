@@ -3551,3 +3551,28 @@ year-robust 3.19 overlay per S39b; neffret ≥ 28 = 2025-strong overlay with a
 2023 wart; volume-N_eff ≥ 600 = the 4.7 all-years overlay per S39f), not
 gate replacements. ⏭ user decisions queued: drop |eff10| (V2 simplification)?
 adopt any overlay into the sizing pyramid? single-reader engine architecture.
+
+## S39n — THE OVERLAY SCORE: count-of-overlays as the sizing dial (2026-07-31, closing)
+
+The four year-robust overlays on the clean v1.6 book (base-derived, 31,474):
+dsv ≥ −3% (2,095 @ 3.615) · slope_1200 < −100bp/min (2,989 @ 2.972) ·
+volume-N_eff_1200 ≥ 600 (4,234 @ 4.673) · n_eff_ret_20m ≥ 28 (16,114 @
+2.311). Pairwise Jaccard 0.034-0.184 — NEARLY DISJOINT (the S38o lesson
+repeats: the A-list is a family of different lenses, not one cell).
+
+**Count of overlays satisfied = a clean additive score:**
+
+| overlays | n | PF | win% | med |
+|---|---|---|---|---|
+| 0 | 11,858 | 1.746 | 69.7 | +1.83 |
+| 1 | 14,893 | 2.161 | 73.6 | +2.09 |
+| 2 | 3,717 | 3.148 | 78.3 | +2.36 |
+| **3** | **919** | **8.089** | **84.5** | **+3.17** |
+| 4 | 87 | 3.339 | 71.3 | +3.57 |
+
+(4-of-4 = 87-trip noise, not a signal.) Year audit of score ≥ 3 (~140/yr):
+2020 10.6 · 2021 4.4 · 2022 5.3 · **2023 0.911 (n=27 — the 2023 wart
+again)** · 2024 24.4 · 2025 4.8 · 2026 20.7. Six of seven years far above
+the <3 remainder. ⏭ THE SIZING-PYRAMID CANDIDATE for the user: overlay-count
+as the size dial (base size at 0-2, size up at 3+), replacing per-cell
+special-casing; needs the mc=1 replay + A++-interaction pass before adoption.
