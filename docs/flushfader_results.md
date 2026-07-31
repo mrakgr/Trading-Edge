@@ -3657,3 +3657,41 @@ log-slopes are already price-level-invariant; the per-name volatility scale
 that remains is apparently PART of the information. A clean normalizer would
 need a LAGGED volat (pre-window) — not recorded; not worth a column unless
 the raw axes disappoint. **Verdict: keep slope/accel raw (bp/min).**
+
+## S39r — accel5 (slope_5m − slope_10m) breakdown: the 5m scale is NOISE (2026-07-31)
+
+`base_v2/` = base rerun on `flushfader_base_tkds` with the new ols_slope_300
+(single-reader engine, 14.7 min, TRIP-SET PARITY vs base_v1 exact — the
+restricted-table workflow proven end to end). accel5 = (ols_slope_300 −
+ols_slope_600)×6e5 bp/min; q05/med/q95 = −153.7/−27.5/+79.6 (~2× wider than
+the 10m−20m axis). Universe = v1.6 minus rngfront, $1-$10 book.
+
+| accel5 bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| < −300 | 170 | 1.525 | 57.1 | +1.49 | 41.27 | 0.00 | 0.81 | 0.45 | 5.16 | 18.95 | 1.99 |
+| [−300,−200) | 509 | 2.324 | 66.4 | +2.24 | 25.33 | 9.69 | 0.29 | 1.46 | 2.25 | 2.60 | 1.48 |
+| [−200,−150) | 1,084 | 2.177 | 73.9 | +2.56 | 4.14 | 3.74 | 0.32 | 1.59 | 1.75 | 3.75 | 2.28 |
+| [−150,−100) | 2,925 | 2.003 | 72.5 | +2.42 | 12.87 | 6.25 | 2.29 | 1.04 | 1.38 | 1.40 | 2.14 |
+| [−100,−60) | 5,495 | 2.032 | 72.4 | +2.10 | 4.36 | 2.94 | 0.93 | 1.43 | 2.37 | 1.53 | 2.01 |
+| [−60,−30) | 5,826 | 2.393 | 74.7 | +2.16 | 2.64 | 2.65 | 1.91 | 1.66 | 2.33 | 2.68 | 2.42 |
+| [−30,0) | 5,898 | 2.183 | 73.0 | +1.93 | 2.74 | 3.21 | 1.53 | 2.11 | 1.90 | 1.81 | 2.57 |
+| [0,30) | 5,166 | 2.094 | 72.7 | +1.84 | 2.84 | 3.58 | 1.27 | 2.75 | 2.97 | 1.74 | 1.01 |
+| [30,60) | 3,080 | 2.005 | 71.9 | +1.85 | 3.82 | 2.29 | 2.64 | 1.46 | 1.86 | 1.49 | 1.63 |
+| [60,100) | 1,898 | 2.050 | 72.0 | +2.14 | 4.79 | 0.98 | 0.86 | 1.55 | 1.87 | 3.76 | 2.98 |
+| [100,150) | 658 | 3.513 | 72.6 | +2.32 | 19.40 | 2.47 | 2.04 | 1.29 | 6.69 | 4.91 | 1.73 |
+| ≥ 150 | 229 | 2.715 | 85.6 | +3.36 | 38.87 | 1234.32 | −inf | 6.17 | 0.63 | 3.37 | 3.06 |
+
+**Reading:** no consistent bleed band anywhere — negative extremes alternate
+lottery years, the belly is flat 2.0-2.4, decelerating extremes are small-n
+spike cells. Mechanism: the signal bar IS a fresh 20m low, so the last 5m is
+near-definitionally falling — accel5 measures noise around that certainty.
+The informative contrast is the 10m-vs-20m one (S39o). accel5 = record-only,
+NO gate.
+
+**S39r addendum — the −80 TRIPLE mc=1 (user request):** SPEC v1.7 candidate
+= v1.6 + accel(10m−20m) ≥ −80 + slope_20m < −10 (rngfront retained):
+**mc=0 2.352 (29,258) / mc=1 2.173 (4,053) — improves EVERY year at BOTH mc
+levels vs v1.6 (2.148/2.079)**, the first clean sweep of the program. mc=1
+years: 3.288/2.689/1.799/1.556/2.209/1.983/1.858. Caveat: cutoffs chosen
+in-sample today (table boundaries, plateau-stable, 7-year × 2-mc audits).
+Awaiting user bake decision.
