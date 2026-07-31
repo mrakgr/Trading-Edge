@@ -3122,8 +3122,11 @@ will actually build):
 (B) — CS/ADRC × adj_close ≥ $1 × episode warmup — is unchanged. The old
 table's `rvol_0945 ≥ 0.1` prune is DROPPED (the $2M absolute floor subsumes
 it; rvol stays recorded). New table = **`mr_candidate_1s`** (2020+, the 1s
-corpus span), engine override `FF_CANDIDATE_TABLE=mr_candidate_1s`.
-Build: `scripts/equity/build_mr_candidate_1s.fsx`.
+corpus span) in trading.db — now the ENGINE DEFAULT (`300dba9`);
+`FF_CANDIDATE_TABLE` stays as the research override (old universe, restricted
+tkd tables). Build: `scripts/equity/build_mr_candidate_1s.fsx`. Layering:
+table prefilter dv >= $2M x neff >= 25, engine spec gate dv_0945_tape >= $3M
+on top — the $1M margin is post-hoc relaxation room.
 
 **Sanity:** the scan's dv matches the engine's in-stream `dv_0945_tape` on all
 6,091 v1.6 tkds — 0 mismatches ≥ 0.1%. Same definition, two implementations.
