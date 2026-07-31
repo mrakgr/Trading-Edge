@@ -3796,3 +3796,52 @@ removed the capitulation-blow-off WINNERS (the lottery wins live at extreme
 acceleration) — leaving 66 near-pure losers. The marginal view is the honest
 measure of what a gate removes GIVEN the rest of the spec; always evaluate a
 prospective gate on the residual universe, not the breakdown universe.
+
+## S39u — dist-from-20m-high vs slope_20m: REPLACEMENT AT PARITY, NOT TAKEN (user question) (2026-07-31)
+
+Universe = v1.7 minus the dist band minus the slope20 insurance gate (37,689
+trips; slope must compete alone). **corr(dist, slope20) = 0.879** and the 2D
+is GEOMETRICALLY NESTED: slope < −70 × dist ≥ −10 is EMPTY (a steep 20m slope
+forces a deep drawdown); the converse exists (slow-but-deep: dist-in ×
+slope ≥ −25 = 863 @ 2.005).
+
+**dist (%) uncensored** (current gate [−35,−10)):
+
+| bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| < −35 | 129 | 11.21 | 80.6 | +5.62 | 1.62 | −inf | −inf | - | 155.46 | 31.32 | −inf |
+| [−35,−25) | 1,501 | 3.610 | 77.5 | +4.00 | 11.16 | 1.51 | 0.56 | 2.58 | 3.57 | 3.23 | 4.76 |
+| [−25,−18) | 5,775 | 2.647 | 76.7 | +2.83 | 5.29 | 5.38 | 1.13 | 1.96 | 3.36 | 1.95 | 2.52 |
+| [−18,−14) | 8,323 | 2.208 | 71.7 | +2.04 | 2.83 | 3.65 | 2.10 | 1.30 | 2.01 | 2.15 | 2.13 |
+| [−14,−10) | 13,625 | 2.105 | 72.7 | +1.74 | 3.24 | 3.51 | 1.47 | 1.68 | 1.93 | 1.53 | 1.80 |
+| [−10,−7) | 7,374 | 1.932 | 70.1 | +1.24 | 2.32 | 2.70 | 1.25 | 1.18 | 1.84 | 2.14 | 1.26 |
+| [−7,−5) | 953 | 1.146 | 67.9 | +0.88 | 2.34 | 1.02 | 1.74 | 4.10 | 0.73 | 0.57 | 1.35 |
+| [−5,−3) | 9 | 0.375 | 77.8 | +0.99 | 0.06 | - | - | −inf | −inf | - | −inf |
+
+**slope_20m (bp/min) uncensored, same universe:**
+
+| bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| < −250 | 26 | 2.582 | 76.9 | +2.58 | 0.24 | −inf | - | - | −inf | 3.15 | −inf |
+| [−250,−150) | 432 | 9.345 | 83.8 | +4.71 | 936.46 | 0.04 | 3.49 | −inf | 25.59 | 7.77 | 11.67 |
+| [−150,−100) | 2,297 | 3.173 | 80.0 | +3.24 | 3.57 | 9.85 | 0.73 | 2.32 | 3.87 | 3.57 | 3.18 |
+| [−100,−70) | 5,627 | 2.160 | 73.0 | +2.27 | 7.81 | 2.74 | 1.73 | 2.12 | 1.90 | 1.48 | 1.76 |
+| [−70,−50) | 8,942 | 2.217 | 72.6 | +1.98 | 2.92 | 3.47 | 1.88 | 1.26 | 2.22 | 2.22 | 2.27 |
+| [−50,−35) | 9,939 | 2.375 | 73.2 | +1.74 | 3.39 | 3.25 | 1.53 | 1.73 | 2.29 | 1.94 | 2.61 |
+| [−35,−25) | 6,250 | 2.018 | 70.6 | +1.49 | 2.33 | 4.14 | 1.32 | 1.03 | 1.84 | 1.38 | 2.27 |
+| [−25,−15) | 3,464 | 1.957 | 70.8 | +1.24 | 2.99 | 2.20 | 0.86 | 1.97 | 2.47 | 1.80 | 1.56 |
+| [−15,−10) | 526 | 1.057 | 62.0 | +0.72 | 1.25 | 1.21 | 0.44 | 4.95 | 1.65 | 0.45 | 0.67 |
+| ≥ −10 | 186 | 0.695 | 57.0 | +1.32 | 1.70 | 2.34 | 0.27 | 8.55 | 1.75 | 1.49 | 0.09 |
+
+**Replacement grid (mc=0 total | mc=1 total):** dist (current) 2.345 |
+**2.175** · slope<−25 2.338 | 2.093 · slope<−35 **2.402** | 2.173 ·
+dist+slope<−25 2.356 | 2.190 · neither 2.269 | —.
+
+**VERDICT: dist STAYS.** slope<−35 replaces it AT PARITY (mc=0 +0.06, mc=1
+−0.002, mixed years, no recency edge) — and parity does not pay for replacing
+a long-audited gate; slope already holds two v1.7 seats. Notes for later:
+(a) the dist < −35 "un-fadeable wall" slice = 129 trips @ 11.2 on this
+universe — the S7-era wall deserves a small-n revisit someday; (b) the
+shallow margin [−10,−7) = 1.93 is not toxic — the −10 boundary is quality-
+motivated, not damage-motivated. **Bonus: the dist replay = FINAL v1.7 mc=1 =
+2.175 on 4,056** (ladder 2.004 → 2.070 → 2.106 → 2.104 → 2.175).
