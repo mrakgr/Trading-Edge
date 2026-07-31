@@ -422,10 +422,11 @@ type SecEmitter
 let collectTrips (cfg: Config) (secDir: string)
                  (candidates: Candidate[]) (sink: TripSink)
                  (progress: (DateOnly -> int -> int -> int64 -> unit) option) : int =
-    let work = Channel.CreateUnbounded<DateOnly * Candidate[]>()
-    for item in candidates |> Array.groupBy (fun c -> c.Date) do
-        work.Writer.TryWrite item |> ignore
-    work.Writer.Complete()
+    // The work list is fully known upfront — no queue needed (user): workers
+    // claim days off the array with an atomic counter (dynamic load balance;
+    // days vary wildly in cost).
+    let byDate = candidates |> Array.groupBy (fun c -> c.Date)
+    let nextDay = ref -1
 
     // One message per (ticker, day): its finished positions after Flatten.
     // tapeFound=false for days whose 1s file is missing (they still count into
@@ -454,7 +455,12 @@ let collectTrips (cfg: Config) (secDir: string)
             // folded — backpressure lands between days, never inside the fold,
             // and no worker thread ever blocks on the channel.
             let dayOut = ResizeArray<struct (Candidate * FlushPosition[] * bool)>()
-            for date, cands in work.Reader.ReadAllAsync() do
+            let mutable go = true
+            while go do
+              let i = Threading.Interlocked.Increment &nextDay.contents
+              if i >= byDate.Length then go <- false
+              else
+                let date, cands = byDate.[i]
                 dayOut.Clear()
                 let path = IO.Path.Combine(secDir, sprintf "%s.parquet" (date.ToString "yyyy-MM-dd"))
                 if not (IO.File.Exists path) then
