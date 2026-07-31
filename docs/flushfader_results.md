@@ -3464,3 +3464,12 @@ stream. **Bound validation: ZERO violations** on the v16_1s_reference trips
 (6,811 trip-tkd joins, all volat-gate-passed causally); the MINIMUM day-max
 on any actual trip tkd is **131.7bp** — the provable bound is conservative
 by >3× (observation only; the trim stays at the provable 40).
+
+**S39j postscript (user): prepass RETIRED from the build script.** The provable
+trim bought only ~28.5% of streaming (one ≥40bp slot ≠ a sustained EMA ≥ 40 at
+a 20m low — the bound is necessarily loose, see the 131.7bp empirical margin)
+while the per-day fill costs ~7 min per rebuild — not worth the maintenance.
+The REAL trim is the engine-derived `flushfader_base_tkds` signal-day table.
+The column stays in the CURRENT trading.db table (harmless; still ⚠
+compute-only) and the engine's auto-trim clause is column-existence-guarded,
+so future rebuilds without it just skip the trim.

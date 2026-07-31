@@ -178,17 +178,12 @@ JOIN liq l ON l.ticker = c.ticker AND l.date = c.date   -- INNER JOIN = the (A')
 WHERE c.barnum > 21;                                    -- (B) >= 21 PRIOR bars, prior-only
 
 CREATE UNIQUE INDEX mr_candidate_1s_ticker_date ON mr_candidate_1s (ticker, date);
-
--- ⚠⚠ S39j: max_slot_absr_bp = the day's MAX |30s-slot log return| in bp, engine slot
--- definition (30 PRESENT bars, volume-weighted vwap, bars in [34200, 57600] with
--- vwap>0 AND volume>0). THIS IS A WHOLE-SESSION LOOKAHEAD COLUMN — COMPUTE-ONLY.
--- Its ONLY legal use: the engine's provably-trip-preserving streaming trim
--- (volat_20m = EmaHlMa = convex combination of this |r| stream => volat <= day max;
--- max < the volat floor => the causal gate can never open => the day is dead weight).
--- NEVER gate a book, slice a table, or build a feature on it — that is the
--- avgvol20-class "how did today turn out" oracle. Filled by the per-day loop below.
-ALTER TABLE mr_candidate_1s ADD COLUMN max_slot_absr_bp DOUBLE;
 """
+// (S39j max_slot_absr_bp volat-prepass column RETIRED from the build (user): the
+// provable trim only bought ~28.5% of streaming and the per-day fill cost ~7 min per
+// rebuild — the engine-derived `flushfader_base_tkds` signal-day table is the real
+// trim. The engine's auto-trim clause is column-existence-guarded, so tables built
+// without the column just skip it.)
 
 printfn "Building `mr_candidate_1s` (dv_0945_tape >= $%.1fM AND n_eff_shannon >= %.0f; CS/ADRC; >=21 prior bars; NO price floor)" (minDv / 1e6) minNeff
 printfn "  db:      %s" (IO.Path.GetFullPath dbPath)
@@ -211,37 +206,6 @@ let scalar (q: string) =
 
 exec "PRAGMA memory_limit='8GB'"
 exec sql
-
-// S39j prepass fill: PER-DAY loop — the one-shot corpus-wide window OOMs (15GB VM);
-// one day at a time is memory-bounded and takes ~7 min for the full corpus.
-printfn "Filling max_slot_absr_bp (per-day volat prepass)..."
-exec "CREATE TEMP TABLE prepass_acc (ticker VARCHAR, date DATE, max_slot_absr_bp DOUBLE)"
-let dates =
-    let out = ResizeArray<string>()
-    use cmd = conn.CreateCommand()
-    cmd.CommandText <- "SELECT DISTINCT strftime(date, '%Y-%m-%d') FROM mr_candidate_1s ORDER BY 1"
-    use r = cmd.ExecuteReader()
-    while r.Read() do out.Add(r.GetString 0)
-    out
-let slimGlobDir = IO.Path.GetFullPath(slimDir).Replace("'", "''")
-for i in 0 .. dates.Count - 1 do
-    let d = dates.[i]
-    exec $"""
-    INSERT INTO prepass_acc
-    WITH b AS (
-        SELECT t.ticker, vwap::DOUBLE vw, volume::DOUBLE vol,
-               row_number() OVER (PARTITION BY t.ticker ORDER BY bucket) rn
-        FROM read_parquet('{slimGlobDir}/{d}.parquet') t
-        JOIN mr_candidate_1s c ON c.ticker = t.ticker AND c.date = '{d}'
-        WHERE bucket >= 34200 AND bucket <= 57600 AND vwap > 0 AND volume > 0),
-    s AS (SELECT ticker, (rn-1)//30 sid, sum(vw*vol)/sum(vol) sv, count(*) n FROM b GROUP BY 1,2),
-    r AS (SELECT ticker, abs(ln(sv / lag(sv) OVER (PARTITION BY ticker ORDER BY sid))) ar
-          FROM s WHERE n = 30
-          QUALIFY lag(sv) OVER (PARTITION BY ticker ORDER BY sid) IS NOT NULL)
-    SELECT ticker, '{d}'::DATE, max(ar)*1e4 FROM r GROUP BY 1"""
-    if (i + 1) % 200 = 0 then printfn "  prepass %d/%d days" (i + 1) dates.Count
-exec "UPDATE mr_candidate_1s m SET max_slot_absr_bp = p.max_slot_absr_bp
-      FROM prepass_acc p WHERE p.ticker = m.ticker AND p.date = m.date"
 sw.Stop()
 
 let rows    = scalar "SELECT COUNT(*) FROM mr_candidate_1s" :?> int64
