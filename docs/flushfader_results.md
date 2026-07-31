@@ -3188,3 +3188,48 @@ COVID limit-down Monday — the circuit breaker consumed the 09:30-09:45 window
 (day's max-dv tape: $867M at n_eff 2.8 = one halted-auction print). The old
 gate also produced zero candidates that day; both agree the window was
 untradable.
+
+## S39b — OLS overlay YEAR AUDITS on the v1.6 book (queued item 3; run while the reference run streams)
+
+Book = v16_ols, $1 ≤ raw < $10. Four overlay candidates from the S38q grammar,
+now with the year columns that decide their fate (PF | excluded-slice PF):
+
+**A: lin-20m `ols_r_1200 < −0.95`** (S38q headline 2.93):
+
+| year | n | PF | win% | avg | excl PF |
+|---|---|---|---|---|---|
+| 2020 | 245 | 6.136 | 80.0 | +2.16 | 4.047 |
+| 2021 | 375 | 3.670 | 77.6 | +1.59 | 2.614 |
+| 2022 | 175 | 4.374 | 70.3 | +1.54 | 1.481 |
+| 2023 | 224 | 2.602 | 75.0 | +1.47 | 1.713 |
+| 2024 | 283 | 6.181 | 84.8 | +2.33 | 1.860 |
+| 2025 | 368 | **1.692** | 65.8 | +0.86 | 2.040 |
+| 2026 | 192 | **1.477** | 64.1 | +0.68 | 1.845 |
+| TOTAL | 1,862 | 2.927 | 74.3 | | |
+
+**DECAYING** — 2025-26 fall BELOW the complement. Same demotion as rvol<1
+(S38o): a 2020-24 regime lens, not an overlay. **C: lin20 × not-lin10**
+(1,754 @ 2.903) is A with 108 trips shaved — identical decay (2025 1.60,
+2026 1.49). **D: anti-lin10 `ols_r_600 ≥ −0.95`** (28,404 @ 2.259) flips
+sign year-to-year (2022 complement 0.456 = toxic; 2023/25/26 invert) — a
+regime lens at best, no gate.
+
+**B: steep-20m `ols_slope_1200 < −100bp/min`** (⭐ the one that holds):
+
+| year | n | PF | win% | avg | excl PF |
+|---|---|---|---|---|---|
+| 2020 | 479 | 16.524 | 87.5 | +4.15 | 3.632 |
+| 2021 | 232 | 2.474 | 79.7 | +1.67 | 2.688 |
+| 2022 | 127 | 3.882 | 77.2 | +2.48 | 1.472 |
+| 2023 | 306 | 1.784 | 70.3 | +1.37 | 1.757 |
+| 2024 | 594 | 2.075 | 79.3 | +1.77 | 1.921 |
+| 2025 | 717 | 3.175 | 76.8 | +2.39 | 1.878 |
+| 2026 | 296 | 3.910 | 80.4 | +3.36 | 1.622 |
+| TOTAL | 2,751 | **3.186** | 79.1 | | |
+
+Positive every year, worst 1.78, STRENGTHENING into 2025-26 — joins
+dsv ≥ −3% (4.07) in the year-robust overlay roster. **The r-vs-slope split
+previews the gates-off test: the durable information in the OLS features is
+the DESCENT RATE (slope), not the goodness-of-fit (r).** The S38q A++
+anti-linearity inversion (non-linear 22.6 vs 9.3) still stands separately —
+cell-level, not book-level.
