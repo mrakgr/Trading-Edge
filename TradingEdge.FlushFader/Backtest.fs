@@ -84,6 +84,8 @@ let defaultConfig =
                                         // user's table boundary; all-years sweep at both mc levels
           MaxSlope20Bpm    = -10.0      // ⭐ SPEC v1.7 (user): slope_20m < −10bp/min — L-shape
                                         // insurance (the 64-trip 0.438 flat-slope sliver)
+          MinSlope5Bpm     = -400.0     // ⭐ SPEC v1.7 (user, S39s): slope_5m >= −400bp/min — no
+                                        // vertical last-5m collapse (66 trips @ 0.706/36.4%)
           MinDv0945Tape    = 3e6        // ⭐ THE universe floor (S35): Σ vwap·vol over OUR 1s
                                         // bars < 09:45, honest dollars — replaces the
                                         // candidate dv_0945 gate (real dollars × adj_ratio,

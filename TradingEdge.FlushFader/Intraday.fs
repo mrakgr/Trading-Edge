@@ -412,6 +412,10 @@ type IntradayConfig =
                                  // L-SHAPE INSURANCE (flat 20m slope + dist ≤ −10% ⇒ tail-compressed
                                  // late cliff; the 64-trip 0.438/43.8% sliver). Default −10.
                                  // >= 0 = off. Cold OLS FAILS an armed gate.
+      MinSlope5Bpm: float        // ⭐ SPEC v1.7 (user, S39s): slope_5m×6e5 >= this bp/min — reject the
+                                 // VERTICAL last-5m collapse (under the other v1.7 gates the < −400
+                                 // slice = 66 trips @ 0.706/36.4%, four years with ZERO winners).
+                                 // Default −400. −Infinity = off. Cold OLS FAILS an armed gate.
       MinDv0945Tape: float       // ⭐ tape-native dv_0945 floor (Σ vwap·vol, 1s bars < 09:45).
                                  // Default 0 = RECORD-FIRST; the live-scanner-consistent
                                  // replacement for the candidate-table dv_0945 gate.
@@ -1081,7 +1085,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             || (match ols1200.State with
                 | ValueSome m when ols1200.Count = ols1200.WindowSize -> m * 6e5 < cfg.MaxSlope20Bpm
                 | _ -> false)
-        let specOk = speedOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok
+        let slope5Ok =
+            Double.IsNegativeInfinity cfg.MinSlope5Bpm
+            || (match ols300.State with
+                | ValueSome m when ols300.Count = ols300.WindowSize -> m * 6e5 >= cfg.MinSlope5Bpm
+                | _ -> false)
+        let specOk = speedOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && effOk && specOk && this.HasSlot then
             pendingEntry <-
                 ValueSome
