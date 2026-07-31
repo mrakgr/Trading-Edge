@@ -3258,3 +3258,38 @@ the last 20m of volume. Ratio to window size = distributedness; shannon/hhi
 ratio > 1 = a few dominant prints on a broad base (concentration alarm).
 Breakdown queued on the v16_1s_reference run (in flight: v1.6 spec ×
 mr_candidate_1s universe, ~2.4h, the candidate-swap CONTROL).
+
+## S39d — 🛑 LOOKAHEAD CAUGHT (user): the inherited (B) gates were contaminated (2026-07-31)
+
+**User, on my "(B) unchanged" note:** *"you shouldn't have done that. That
+would introduce lookahead much like volume did."* Correct — TWO of the
+inherited `mr_candidate` (B) conditions fail the knowability clock, and both
+were copied into the first `mr_candidate_1s` build:
+
+1. **`day_close >= $1`** — D's OWN close (knowable only at 16:00, gate applies
+   at 09:45), and it is the ADJUSTED close, i.e. future-split-dependent — the
+   S35 disease in a second home: a $0.30 raw penny name with a future 1:10
+   reverse split has adj_close ×10 → ADMITTED because of a corporate action
+   that hasn't happened yet, while a name that crashes through $1 and closes
+   below is EXCLUDED because of D's own outcome — survivorship in exactly the
+   direction that flatters a long-MR book. **REMOVED — no price floor in the
+   candidate table at all.** The $1 cut stays where it always belonged:
+   POST-HOC on raw `entry_px` (S7c fee wall), knowable at the fill.
+2. **`nbars > 21` warmup** — `COUNT(*) OVER (PARTITION BY ticker, episode)` =
+   the episode's TOTAL length INCLUDING FUTURE DAYS: bar #5 of an
+   eventually-100-day episode passed, bar #15 of a 20-day episode (delisting
+   soon) failed — membership conditioned on how long the ticker will SURVIVE.
+   **REPLACED with `ROW_NUMBER() > 21`** (D has ≥ 21 prior bars, prior-only,
+   live-knowable).
+
+⚠ **The old `mr_candidate` (2003+) carries BOTH of these** — every consumer
+(LowFlyer post-hoc SQL, the diprider_v6_candidate copy the older engines
+read) has been sampling a universe conditioned on D's close and on episode
+survival. Flagged here for the record; those books need a control rerun
+before their numbers are quoted again.
+
+**Rebuild:** 1,119,121 → **1,114,792 rows (−0.4% net)** — dropping the price
+floor ADDS sub-$1 tkds, the honest warmup REMOVES early-episode days, and
+they nearly cancel. A lookahead removal that moves the universe 0.4% is the
+disproportion test passing: this is what real plumbing looks like. Reference
+run relaunched on the clean table (banner now echoes the candidate table).
