@@ -273,6 +273,14 @@ type FlushPosition =
       OlsR600: float
       OlsSlope1200: float
       OlsR1200: float
+      // ----- ⭐ S39c rolling N_eff (record-only): Shannon perplexity + HHI of the
+      // volume distribution over the last 600/1200 PRESENT bars — "how many
+      // effective seconds carry the recent volume" (RollingMa NEff monoids in a
+      // SlidingAgg; inverse-free). nan until the window is full. -----
+      NEffShannon600: float
+      NEffHhi600: float
+      NEffShannon1200: float
+      NEffHhi1200: float
       // ----- forward marks (vwap at the first present bar >= entry + horizon; nan if the day ends first) -----
       FwdVwap60: float
       FwdVwap300: float
@@ -488,6 +496,18 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // ln(vwap) per present bar; signed r = sign(slope)·√R²
     let ols600 = OlsSlopeMa 600
     let ols1200 = OlsSlopeMa 1200
+    // ⭐ S39c rolling N_eff over 1s-bar volume, 600/1200 present bars (record-only):
+    // one SlidingAgg per window carrying the (HHI, Shannon) accumulators as a
+    // product monoid. SlidingAgg is size-agnostic — the counts live here and the
+    // caller pops once the window is full (push-then-pop keeps it exactly at size).
+    let neffCombine (struct (h1: NEffHhi, s1: NEffShannon)) (struct (h2: NEffHhi, s2: NEffShannon)) =
+        struct (h1.Merge h2, s1.Merge s2)
+    let neffZero = struct (NEffHhi.Zero, NEffShannon.Zero)
+    let neffLift (v: float) = struct (NEffHhi.Zero.Add v, NEffShannon.Zero.Add v)
+    let neff600 = SlidingAgg<struct (NEffHhi * NEffShannon)>(neffZero, neffCombine)
+    let neff1200 = SlidingAgg<struct (NEffHhi * NEffShannon)>(neffZero, neffCombine)
+    let mutable neff600Count = 0
+    let mutable neff1200Count = 0
     let mutable tradeIdx = 0
     // ----- activity sums + lags -----
     let volSum5 = SumMa 5                        // 5s/10s tails (user, 2026-07-29)
@@ -745,6 +765,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         sessLow.Push bar.vwap
         ols600.Push (log bar.vwap)
         ols1200.Push (log bar.vwap)
+        neff600.Push (neffLift bar.volume)
+        if neff600Count = 600 then neff600.Pop() else neff600Count <- neff600Count + 1
+        neff1200.Push (neffLift bar.volume)
+        if neff1200Count = 1200 then neff1200.Pop() else neff1200Count <- neff1200Count + 1
         // the slot chain: one |r| into the volat EWMAs per completed slot
         match slots.Push(bar.vwap, bar.volume) with
         | ValueSome v ->
@@ -1198,6 +1222,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                          | ValueSome m, ValueSome r2 when ols1200.Count = ols1200.WindowSize ->
                              (if m < 0.0 then -sqrt r2 else sqrt r2)
                          | _ -> nan)
+                      NEffShannon600 =
+                        (if neff600Count = 600 then let struct (_, s) = neff600.Query in s.Value else nan)
+                      NEffHhi600 =
+                        (if neff600Count = 600 then let struct (h, _) = neff600.Query in h.Value else nan)
+                      NEffShannon1200 =
+                        (if neff1200Count = 1200 then let struct (_, s) = neff1200.Query in s.Value else nan)
+                      NEffHhi1200 =
+                        (if neff1200Count = 1200 then let struct (h, _) = neff1200.Query in h.Value else nan)
                       CumTc = cumTc
                       FwdVwap60 = nan
                       FwdVwap300 = nan
