@@ -281,6 +281,13 @@ type FlushPosition =
       NEffHhi600: float
       NEffShannon1200: float
       NEffHhi1200: float
+      // ----- ⭐ S39i (user): N_eff (Shannon) of |30s-slot log returns| — the SAME
+      // stream the eff ratios consume — 40 slot-returns (20m) / 20 (10m): trend
+      // SMOOTHNESS, the candidate replacement for the Kaufman eff ratios. High
+      // (near window size) = movement spread evenly; low = gap-and-chop.
+      // nan until the window is full (same warmth as eff_20m/eff_10m). -----
+      NEffRet20m: float
+      NEffRet10m: float
       // ----- forward marks (vwap at the first present bar >= entry + horizon; nan if the day ends first) -----
       FwdVwap60: float
       FwdVwap300: float
@@ -489,6 +496,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let neff1200 = SlidingAgg<struct (NEffHhi * NEffShannon)>(neffZero, neffCombine)
     let mutable neff600Count = 0
     let mutable neff1200Count = 0
+    // ⭐ S39i (user): N_eff (Shannon) of |30s-slot log returns| — trend SMOOTHNESS
+    // on the SAME stream as the eff ratios (the |r| pushed into slotAbsSum/
+    // slotAbsSum20): 40 slot-returns = 20m, 20 = 10m. A smooth slide spreads its
+    // movement over many effective slots (high N_eff, near the window size); a
+    // gap-and-chop tape concentrates it (low). Scale-invariant (entropy of
+    // shares), direction-blind — the candidate replacement for the Kaufman eff
+    // ratios. Shannon only (HHI = 0.965-correlated duplicate, S39f). Zero-|r|
+    // slots occupy a window slot but add no mass (Add skips v <= 0), exactly
+    // mirroring slotAbsSum's SumMa semantics.
+    let neffRet40 = SlidingAgg<NEffShannon>(NEffShannon.Zero, fun a b -> a.Merge b)
+    let neffRet20 = SlidingAgg<NEffShannon>(NEffShannon.Zero, fun a b -> a.Merge b)
+    let mutable neffRet40Count = 0
+    let mutable neffRet20Count = 0
     let mutable tradeIdx = 0
     // ----- activity sums + lags -----
     let volSum5 = SumMa 5                        // 5s/10s tails (user, 2026-07-29)
@@ -755,6 +775,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                  ew20.Push ar
                  slotAbsSum.Push ar
                  slotAbsSum20.Push ar
+                 // S39i: the same |r| into the smoothness windows
+                 neffRet40.Push (NEffShannon.Zero.Add ar)
+                 if neffRet40Count = 40 then neffRet40.Pop() else neffRet40Count <- neffRet40Count + 1
+                 neffRet20.Push (NEffShannon.Zero.Add ar)
+                 if neffRet20Count = 20 then neffRet20.Pop() else neffRet20Count <- neffRet20Count + 1
                  slotReturns <- slotReturns + 1
              | _ -> ())
             slotLag.Push v
@@ -1152,6 +1177,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                         (if neff1200Count = 1200 then let struct (_, s) = neff1200.Query in s.Value else nan)
                       NEffHhi1200 =
                         (if neff1200Count = 1200 then let struct (h, _) = neff1200.Query in h.Value else nan)
+                      NEffRet20m = (if neffRet40Count = 40 then neffRet40.Query.Value else nan)
+                      NEffRet10m = (if neffRet20Count = 20 then neffRet20.Query.Value else nan)
                       CumTc = cumTc
                       FwdVwap60 = nan
                       FwdVwap300 = nan

@@ -222,6 +222,7 @@ CREATE TABLE trips (
     dv_0945 DOUBLE, rvol_0945_honest DOUBLE, dv_0945_tape DOUBLE,
     ols_slope_600 DOUBLE, ols_r_600 DOUBLE, ols_slope_1200 DOUBLE, ols_r_1200 DOUBLE,
     n_eff_shannon_600 DOUBLE, n_eff_hhi_600 DOUBLE, n_eff_shannon_1200 DOUBLE, n_eff_hhi_1200 DOUBLE,
+    n_eff_ret_20m DOUBLE, n_eff_ret_10m DOUBLE,
     qty DOUBLE, net_pnl DOUBLE
 )"""
 
@@ -322,6 +323,7 @@ type TripSink(outDir: string) =
             f c.Dv0945; f c.Rvol0945Honest; f p.Dv0945Tape
             f p.OlsSlope600; f p.OlsR600; f p.OlsSlope1200; f p.OlsR1200
             f p.NEffShannon600; f p.NEffHhi600; f p.NEffShannon1200; f p.NEffHhi1200
+            f p.NEffRet20m; f p.NEffRet10m
             f qty; f pnl
             row.EndRow()
             total <- total + 1L
