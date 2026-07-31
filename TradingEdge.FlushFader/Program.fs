@@ -170,6 +170,11 @@ let main argv =
     let hhmmss s = sprintf "%02d:%02d:%02d" (s / 3600) (s % 3600 / 60) (s % 60)
     printfn "FlushFader — 1s LONG mean reversion (DipRiderV6 semantics on the SurgeRider engine)"
     printfn "  db          = %s" dbPath
+    printfn "  candidates  = %s%s"
+        (match Environment.GetEnvironmentVariable "FF_CANDIDATE_TABLE" with
+         | null | "" -> "diprider_v6_candidate" | t -> t)
+        (match Environment.GetEnvironmentVariable "FF_CANDIDATE_TABLE" with
+         | null | "" -> "  (default)" | _ -> "  [FF_CANDIDATE_TABLE override]")
     printfn "  1s bars     = %s" secDir
     printfn "  range       = %O .. %O" startDate endDate
     printfn "  universe    = dv_0945_tape >= $%.1fM (⭐ 1s-bar-native, honest dollars — S35)%s%s%s" (ic.MinDv0945Tape / 1e6)
