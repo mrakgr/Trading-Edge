@@ -258,7 +258,9 @@ type TripSink(outDir: string) =
         conn.Open()
         IO.Directory.CreateDirectory outDir |> ignore
         use cmd = conn.CreateCommand()
-        cmd.CommandText <- "PRAGMA memory_limit='2GB'; " + tripTableSql
+        let tmpDir = IO.Path.Combine(IO.Path.GetTempPath(), $"ff_duck_sink_{Guid.NewGuid():N}")
+        IO.Directory.CreateDirectory tmpDir |> ignore
+        cmd.CommandText <- $"PRAGMA memory_limit='2GB'; PRAGMA temp_directory='{tmpDir}'; " + tripTableSql
         cmd.ExecuteNonQuery() |> ignore
     let mutable appender = conn.CreateAppender "trips"
     let mutable rowsInPart = 0
@@ -459,7 +461,14 @@ let collectTrips (cfg: Config) (secDir: string)
                 // N workers x DuckDB's default 80%-of-RAM limit is how the run
                 // tail (stragglers = the heaviest crash days, all in flight at
                 // once) OOM'd a 15GB VM twice at 82-86%.
-                pragma.CommandText <- "PRAGMA threads=1; PRAGMA memory_limit='512MB'"
+                // ⚠ PRIVATE temp_directory per connection: a capped conn SPILLS,
+                // and DuckDB's default spill path is the shared relative ".tmp/"
+                // — concurrent workers collided in the same temp files and died
+                // with corrupted-read aborts/segfaults (deterministic at the
+                // first heavy-spill day; the S39 base-pass 14% crash).
+                let tmpDir = IO.Path.Combine(IO.Path.GetTempPath(), $"ff_duck_{Guid.NewGuid():N}")
+                IO.Directory.CreateDirectory tmpDir |> ignore
+                pragma.CommandText <- $"PRAGMA threads=1; PRAGMA memory_limit='512MB'; PRAGMA temp_directory='{tmpDir}'"
                 pragma.ExecuteNonQuery() |> ignore
             // The emitter loop is a SYNC callback (DuckDB reader), so the day's
             // results are collected locally and written ASYNC once the day is
