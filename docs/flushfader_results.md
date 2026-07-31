@@ -3473,3 +3473,81 @@ The REAL trim is the engine-derived `flushfader_base_tkds` signal-day table.
 The column stays in the CURRENT trading.db table (harmless; still ⚠
 compute-only) and the engine's auto-trim clause is column-existence-guarded,
 so future rebuilds without it just skip the trim.
+
+## S39k — THE BASE PASS LANDS + GRAND PARITY (2026-07-31, autonomous stretch)
+
+Base pass (volat_20m ≥ 40bp × new-20m-low entry, ALL spec gates off, dv-tape
+floor off, clean universe): **2,195,361 raw trips / 796,541 tkds streamed /
+31 min** at 8 workers (RSS flat ~5GB). The maximal-sampler floor: PF 1.288 /
+64.9% win — every gate's value is now measured against this.
+
+Getting it to land took four crashes, each instructive:
+- attempts 1-2 (uncapped): true OOM at 82-86% — the straggler tail is the
+  heaviest crash days all in flight at once; fixed by RowsPerPart 2M→250k +
+  bounded results channel + per-conn DuckDB memory caps.
+- attempts 3-4 (capped): deterministic abort/segfault at 14% — **the caps
+  made heavy days SPILL, and DuckDB's default spill path is the shared
+  relative `.tmp/`; 8 workers collided in the same temp files.** Fixed with a
+  private `temp_directory` per connection (ada99c1). ⚠ Worth remembering for
+  every future multi-connection DuckDB embedder in this repo.
+
+**⭐⭐ GRAND PARITY: the v1.6 spec applied as PURE SQL over the base parquet
+reproduces the engine reference run EXACTLY — 51,675 = 51,675 trips, zero
+diff both directions** (key = symbol, date, signal_sec). The workflow is
+proven: every spec variant that tightens the base = a SQL query, no engine
+rerun. **`flushfader_base_tkds` = 57,208 signal tkds** (5.1% of the candidate
+table) is THE restricted streaming table — future engine changes rerun in
+~2-3 min.
+
+## S39l — HEAD-TO-HEAD 1: the eff ratios vs their challengers (2026-07-31)
+
+Universe = base + all v1.6 gates EXCEPT the eff pair, $1-$10 book: 57,788
+trips @ 1.956. Variants (V1 = current spec):
+
+| year | V0 eff-off | V1 eff pair | V2 band only | V3 ols_r [-.95,-.85) | V4 neffret≥28 | V5 V1+neffret≥28 |
+|---|---|---|---|---|---|---|
+| 2020 | 3.019 | 3.762 | 3.850 | 4.074 | 3.031 | 4.197 |
+| 2021 | 2.824 | 2.884 | 2.914 | 3.135 | 2.643 | 2.732 |
+| 2022 | 1.272 | 1.439 | 1.446 | 1.391 | 1.524 | 1.619 |
+| 2023 | 1.580 | 1.539 | 1.558 | 1.824 | 1.334 | 1.193 |
+| 2024 | 1.918 | 2.044 | 1.917 | 1.809 | 1.856 | 2.025 |
+| 2025 | 1.668 | 1.899 | 1.838 | 1.698 | 1.835 | 2.418 |
+| 2026 | 1.671 | 1.894 | 1.888 | 2.169 | 1.749 | 2.086 |
+| n / PF | 57,788 / 1.956 | 31,474 / 2.148 | 32,544 / 2.120 | 26,647 / 2.130 | 32,111 / 2.015 | 16,114 / 2.311 |
+
+**VERDICT: EFF STAYS.** (a) The whole eff machinery = +0.19 PF for −45% of
+trips, and nearly all of it is the eff20 BAND — the |eff10| floor is close to
+a no-op (V2 ≈ V1 every year except 2024's +0.13; SIMPLIFICATION candidate,
+user call). (b) V3 (OLS-r) ties aggregate but LOSES 2024 AND 2025 — the S39b
+recency decay, now confirmed uncensored: r does not replace eff. (c) V4
+(smoothness alone) strictly worse. (d) **V5 = eff + n_eff_ret_20m ≥ 28
+overlay: 2.311 on half the book, wins 5/7 years, 2025 = 2.418 — but 2023 =
+1.193.** Overlay candidate with a wart, not spec material yet. Corr
+(neffret20, eff20) = 0.319 — related, distinct. In the S38q two-scale
+grammar's uncensored form, perfect 20m linearity ([-1,-.95) = 1.609) is the
+WORST negative band — "orderly slide" was an artifact of the censored book.
+
+## S39m — HEAD-TO-HEAD 2: rngfront vs slope as the anti-cliff gate (2026-07-31)
+
+Universe = base + all v1.6 gates EXCEPT rngfront (eff ON): 32,938 trips @
+2.149. **mc=0 attribution says rngfront is a NO-OP on the clean universe**
+(2.148 with vs 2.149 without, every year within noise) — but **mc=1 replay
+says it EARNS ITS SEAT: 2.079 (on) vs 2.025 (off)**, with the gains in the
+lean years (2022 1.774/1.650, 2024 1.967/1.835, 2026 1.771/1.709). The
+gate's value lives in SLOT ALLOCATION, invisible to mc=0 — the sharpest
+example yet of the S38 lesson that books are decided at mc=1.
+
+**Slope is NOT a rngfront replacement — it is not an anti-cliff gate at
+all:** slope < −100bp/min keeps only 3,007 trips @ 2.967/med +3.45 (a
+steep-flush QUALITY overlay, the S39b axis) and craters 2022 (0.994) at gate
+strength; slope < −150 = 418 @ 5.857 with 2021 = 0.041 (tail-bomb). Union
+with rngfront = rngfront (overlap ~total). The S38q L-SHAPE residual
+(rngfront-kept × slope ≥ −10bp/min) = **32 trips @ 0.118/28.1%** — real,
+toxic, and anecdote-sized, exactly as the S38j census discipline predicted.
+
+**NET OF THE DAY'S TWO HEAD-TO-HEADS: SPEC v1.6 SURVIVES UNCHANGED.** The
+OLS axes and the N_eff family are overlay/sizing material (slope < −100 =
+year-robust 3.19 overlay per S39b; neffret ≥ 28 = 2025-strong overlay with a
+2023 wart; volume-N_eff ≥ 600 = the 4.7 all-years overlay per S39f), not
+gate replacements. ⏭ user decisions queued: drop |eff10| (V2 simplification)?
+adopt any overlay into the sizing pyramid? single-reader engine architecture.
