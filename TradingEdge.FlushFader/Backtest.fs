@@ -194,7 +194,10 @@ let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDa
 // holds the full book. Column order in appendTrip MUST match the CREATE TABLE.
 // ===========================================================================
 [<Literal>]
-let private RowsPerPart = 2_000_000
+// 250k (was 2M): the S39 base pass emits millions of ~140-col trips — a 2M-row
+// in-memory staging table is ~2GB+ and OOM'd a 15GB VM at 82% with zero parts
+// flushed. 250k bounds staging at ~350MB; post-hoc reads glob the parts anyway.
+let private RowsPerPart = 250_000
 
 let private tripTableSql = """
 CREATE TABLE trips (
@@ -429,7 +432,17 @@ let collectTrips (cfg: Config) (secDir: string)
     // the progress denominator so the remaining estimate stays honest). A
     // candidate whose file exists always drains: the dv_0945_tape >= $2M table
     // floor guarantees at least one vwap>0/volume>0 bar in the emitter's range.
-    let results = Channel.CreateUnbounded<struct (Candidate * FlushPosition[] * bool)>()
+    // BOUNDED: 4096 tkd messages of backpressure. If the single sink consumer
+    // ever falls behind 14 producers on a trip-dense stretch, workers block on
+    // the write instead of ballooning the heap (part of the 82%-OOM postmortem).
+    let results = Channel.CreateBounded<struct (Candidate * FlushPosition[] * bool)>(BoundedChannelOptions 4096)
+    // Workers run inside the emitter's SYNC callback — no await possible there, so
+    // a full channel is waited out by blocking the worker thread (safe: the
+    // consumer runs on its own pool thread; no circular dependency).
+    let writeResult (x: struct (Candidate * FlushPosition[] * bool)) =
+        if not (results.Writer.TryWrite x) then
+            let vt = results.Writer.WriteAsync x
+            if not vt.IsCompleted then vt.AsTask().Wait()
 
     let worker () : Task =
         task {
@@ -447,7 +460,7 @@ let collectTrips (cfg: Config) (secDir: string)
             for date, cands in work.Reader.ReadAllAsync() do
                 let path = IO.Path.Combine(secDir, sprintf "%s.parquet" (date.ToString "yyyy-MM-dd"))
                 if not (IO.File.Exists path) then
-                    for c in cands do results.Writer.TryWrite(struct (c, Array.empty, false)) |> ignore
+                    for c in cands do writeResult (struct (c, Array.empty, false))
                 else
                     let byTicker = cands |> Array.map (fun c -> c.Ticker, c) |> dict
                     let adjRatio = cands |> Array.map (fun c -> c.Ticker, c.AdjRatio) |> dict
@@ -455,7 +468,7 @@ let collectTrips (cfg: Config) (secDir: string)
                                              adjRatio, cfg.Intraday.SessionStartSec, cfg.Intraday.MocSec)
                     let drain (c: Candidate) (sys: IntradaySystem) (lastBar: SecBar) =
                         sys.Flatten lastBar
-                        results.Writer.TryWrite(struct (c, Seq.toArray sys.Positions, true)) |> ignore
+                        writeResult (struct (c, Seq.toArray sys.Positions, true))
                     let mutable cur : (Candidate * IntradaySystem * SecBar) option = None
                     emitter.Process(fun (ticker, bar) ->
                         match cur with
