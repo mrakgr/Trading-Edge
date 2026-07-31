@@ -205,7 +205,6 @@ let main argv =
         (if ic.MinVol10Rate <= 0.0 then "off" else sprintf "%.2fx" ic.MinVol10Rate)
         (if ic.MinLows300 <= 0 then "off" else string ic.MinLows300)
         (if Double.IsPositiveInfinity ic.MaxRngFront then "off" else sprintf "%.2f" ic.MaxRngFront)
-    printfn "  continuation= right-side-of-V: enter 1st strict {1m,2m,5m}-high break after parent fill; trail stops = strict {1m,2m,5m}-low break | MOC (9 counterfactuals/parent)"
     printfn "  entry window= %s-%s ET   features fold from %s ET" (hhmmss ic.EntryStartSec) (hhmmss ic.EntryEndSec) (hhmmss ic.SessionStartSec)
     if ic.MaxConcurrent <= 0 then
         printfn "  mode        = ⭐ SAMPLER (mc=0 unlimited → every new low opens another trip; averages down)"
@@ -237,6 +236,5 @@ let main argv =
         (100.0 * float stats.Wins / float (max 1L stats.Total)) stats.Wins stats.Total
     printfn "  net P&L    = %s   ⚠ costs not modeled" ((stats.GrossWin - stats.GrossLoss).ToString "N0")
     printfn "  PF         = %.3f%s" pf (if ic.MaxConcurrent <= 0 then "   [ATTRIBUTION ONLY — mc=0]" else "")
-    printfn "  cont trips = %d  (right-side-of-V: 3 windows x 3 trail stops per parent)" stats.ContTotal
-    printfn "  wrote      = %s/trips_p*.parquet + cont_trips_p*.parquet" outDir
+    printfn "  wrote      = %s/trips_p*.parquet" outDir
     0

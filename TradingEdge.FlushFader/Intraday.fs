@@ -350,28 +350,9 @@ type FlushPosition =
 /// stops: exit when vwap breaks STRICTLY below the prior {60,120,300}-bar rolling
 /// MIN (ratchets up as the low rises; fill next bar), MOC backstop, NO profit
 /// target — the right side runs. 3 entries x 3 stops = 9 counterfactuals/parent.
-type ContPosition =
-    { ParentSignalSec: int       // join key back to the reversal trip (with symbol+date)
-      ParentEntrySec: int
-      ParentEntryPx: float
-      EntryWindow: int           // 60 | 120 | 300 — the high-break entry channel
-      SignalSec: int             // the breach bar (strictly after the parent fill bar)
-      SignalVwap: float
-      EntrySec: int              // the next present bar (fill)
-      EntryPx: float
-      // each stop: Pending stages the fill for the next bar; Sec = -1 while live
-      Stop60Pending: bool
-      Stop60Sec: int
-      Stop60Px: float
-      Stop60Reason: string       // "trail" | "moc"
-      Stop120Pending: bool
-      Stop120Sec: int
-      Stop120Px: float
-      Stop120Reason: string
-      Stop300Pending: bool
-      Stop300Sec: int
-      Stop300Px: float
-      Stop300Reason: string }
+// (right-side-of-V ContPosition machinery DELETED — S39g: the continuation study
+// closed at S26 (taker-fee-dead, left side wins) and the 9-counterfactual
+// tracking was pure per-bar drag on the sampler.)
 
 /// FlushFader config. Hard gates only — every other lever is a recorded column.
 type IntradayConfig =
@@ -602,9 +583,6 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable pendingEntry : FlushPosition voption = ValueNone
     // ⭐ right-side-of-V continuations: watchers arm at the parent fill (one per
     // window, removed when fired), positions retire once all three stops resolve.
-    let contWatch = ResizeArray<struct (int * int * float * int)>()   // parentSignalSec, parentEntrySec, parentEntryPx, window
-    let activeCont = ResizeArray<ContPosition>()
-    let retiredCont = ResizeArray<ContPosition>()
     // STRICTLY-PRIOR snapshots, captured BEFORE this bar's vwap folds in. ⚠ If
     // the current vwap were inside its own window, "vwap < channel min" would be
     // trivially false on every bar (a value can't undercut a min that contains
@@ -635,8 +613,6 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     member _.Ticker = ticker
     member _.Day = day
     member _.Positions = Seq.append retired active
-    /// Finished continuations (⚠ valid only after Flatten — same as .Positions).
-    member _.ContPositions = Seq.append retiredCont activeCont
     member _.OpenCount =
         let mutable k = 0
         for p in active do
@@ -791,11 +767,6 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         | ValueSome p ->
             let filled = { p with EntrySec = bar.etSec; EntryPx = bar.vwap }
             active.Add filled
-            // arm the right-side-of-V watchers for this parent (fire on the first
-            // strict {60,120,300}-bar-high breach strictly after THIS fill bar)
-            contWatch.Add(struct (filled.SignalSec, filled.EntrySec, filled.EntryPx, 60))
-            contWatch.Add(struct (filled.SignalSec, filled.EntrySec, filled.EntryPx, 120))
-            contWatch.Add(struct (filled.SignalSec, filled.EntrySec, filled.EntryPx, 300))
             pendingEntry <- ValueNone
         | ValueNone -> ()
         for i in 0 .. active.Count - 1 do
@@ -808,7 +779,6 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // The aux-mark logic (step 5) reads the counters AS OF THE PREVIOUS BAR
         // ("previous snapshot's bars-since-high = 0 -> mark on the current
         // bar") — snapshot them before this bar's update.
-        let prevBr60 = br60.BarsSinceBreach   // continuation cat-60 watcher
         let prevBr120 = br120.BarsSinceBreach
         let prevBr300 = br300.BarsSinceBreach
         let prevBr600 = br600.BarsSinceBreach
@@ -981,54 +951,6 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 active.[w] <- p
                 w <- w + 1
         if w < active.Count then active.RemoveRange(w, active.Count - w)
-
-        // ===== 5b. right-side-of-V continuations =====
-        // (a) fire watchers: prevBrN = 0 -> the PREVIOUS bar printed a fresh
-        // N-bar high; if that breach was strictly after the parent's fill bar,
-        // it is the continuation signal and the trade fills at THIS bar's vwap
-        // (aux-mark discipline). No entries at/past MocSec.
-        if contWatch.Count > 0 then
-            let mutable cw = 0
-            for i in 0 .. contWatch.Count - 1 do
-                let struct (psig, pent, ppx, win) = contWatch.[i]
-                let prevBrN = match win with 60 -> prevBr60 | 120 -> prevBr120 | _ -> prevBr300
-                if prevBrN = 0 && prevEtSec > pent && bar.etSec < cfg.MocSec then
-                    activeCont.Add
-                        { ParentSignalSec = psig; ParentEntrySec = pent; ParentEntryPx = ppx
-                          EntryWindow = win; SignalSec = prevEtSec; SignalVwap = prevVwap
-                          EntrySec = bar.etSec; EntryPx = bar.vwap
-                          Stop60Pending = false; Stop60Sec = -1; Stop60Px = nan; Stop60Reason = ""
-                          Stop120Pending = false; Stop120Sec = -1; Stop120Px = nan; Stop120Reason = ""
-                          Stop300Pending = false; Stop300Sec = -1; Stop300Px = nan; Stop300Reason = "" }
-                else
-                    contWatch.[cw] <- contWatch.[i]
-                    cw <- cw + 1
-            if cw < contWatch.Count then contWatch.RemoveRange(cw, contWatch.Count - cw)
-        // (b) advance continuations: fill staged trail exits at THIS bar, MOC
-        // unresolved stops at/past MocSec (same-bar, parent discipline), then
-        // stage fresh trail triggers off the strictly-prior {60,120,300}-bar
-        // MINs. Retire once all three stops have resolved.
-        if activeCont.Count > 0 then
-            let stopBreach (prior: float voption) = match prior with ValueSome lo -> bar.vwap < lo | ValueNone -> false
-            let mutable qw = 0
-            for i in 0 .. activeCont.Count - 1 do
-                let mutable q = activeCont.[i]
-                if q.Stop60Pending then q <- { q with Stop60Pending = false; Stop60Sec = bar.etSec; Stop60Px = bar.vwap; Stop60Reason = "trail" }
-                if q.Stop120Pending then q <- { q with Stop120Pending = false; Stop120Sec = bar.etSec; Stop120Px = bar.vwap; Stop120Reason = "trail" }
-                if q.Stop300Pending then q <- { q with Stop300Pending = false; Stop300Sec = bar.etSec; Stop300Px = bar.vwap; Stop300Reason = "trail" }
-                if bar.etSec >= cfg.MocSec then
-                    if q.Stop60Sec < 0 then q <- { q with Stop60Sec = bar.etSec; Stop60Px = bar.vwap; Stop60Reason = "moc" }
-                    if q.Stop120Sec < 0 then q <- { q with Stop120Sec = bar.etSec; Stop120Px = bar.vwap; Stop120Reason = "moc" }
-                    if q.Stop300Sec < 0 then q <- { q with Stop300Sec = bar.etSec; Stop300Px = bar.vwap; Stop300Reason = "moc" }
-                else                               // triggers evaluate from the fill bar on (parent parity)
-                    if q.Stop60Sec < 0 && stopBreach sMin60 then q <- { q with Stop60Pending = true }
-                    if q.Stop120Sec < 0 && stopBreach sMin120 then q <- { q with Stop120Pending = true }
-                    if q.Stop300Sec < 0 && stopBreach sMin300 then q <- { q with Stop300Pending = true }
-                if q.Stop60Sec >= 0 && q.Stop120Sec >= 0 && q.Stop300Sec >= 0 then retiredCont.Add q
-                else
-                    activeCont.[qw] <- q
-                    qw <- qw + 1
-            if qw < activeCont.Count then activeCont.RemoveRange(qw, activeCont.Count - qw)
 
         // ===== 6. entry signal (fills next bar) =====
         let inWindow = bar.etSec >= cfg.EntryStartSec && bar.etSec <= cfg.EntryEndSec
@@ -1334,13 +1256,3 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     Vwma40Sec = finSec p.Vwma40Px p.Vwma40Sec; Vwma40Px = fin p.Vwma40Px
                     Vwma50Sec = finSec p.Vwma50Px p.Vwma50Sec; Vwma50Px = fin p.Vwma50Px
                     Vwma60Sec = finSec p.Vwma60Px p.Vwma60Sec; Vwma60Px = fin p.Vwma60Px }
-        // continuations: unfired watchers die with the day; a staged trail fills
-        // at the last bar as "trail" (its trigger was real), anything still live
-        // force-exits as "moc" (early closes / thin tapes)
-        contWatch.Clear()
-        for i in 0 .. activeCont.Count - 1 do
-            let mutable q = activeCont.[i]
-            if q.Stop60Sec < 0 then q <- { q with Stop60Pending = false; Stop60Sec = lastBar.etSec; Stop60Px = lastBar.vwap; Stop60Reason = (if q.Stop60Pending then "trail" else "moc") }
-            if q.Stop120Sec < 0 then q <- { q with Stop120Pending = false; Stop120Sec = lastBar.etSec; Stop120Px = lastBar.vwap; Stop120Reason = (if q.Stop120Pending then "trail" else "moc") }
-            if q.Stop300Sec < 0 then q <- { q with Stop300Pending = false; Stop300Sec = lastBar.etSec; Stop300Px = lastBar.vwap; Stop300Reason = (if q.Stop300Pending then "trail" else "moc") }
-            activeCont.[i] <- q

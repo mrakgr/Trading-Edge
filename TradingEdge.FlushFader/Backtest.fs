@@ -217,71 +217,8 @@ CREATE TABLE trips (
     qty DOUBLE, net_pnl DOUBLE
 )"""
 
-// ⭐ right-side-of-V continuation trips (user, 2026-07-29): one row per
-// (parent, entry_window), the three trailing-stop outcomes as columns —
-// 3 rows x 3 stops = the 9 counterfactuals per reversal. Parent join:
-// (symbol, trade_date, parent_signal_sec) = trips.(symbol, trade_date, signal_sec).
-let private contTableSql = """
-CREATE TABLE cont_trips (
-    symbol VARCHAR, trade_date VARCHAR, adj_ratio DOUBLE,
-    parent_signal_sec INTEGER, parent_entry_sec INTEGER, parent_entry_px DOUBLE,
-    entry_window INTEGER, signal_sec INTEGER, signal_vwap DOUBLE,
-    entry_sec INTEGER, entry_px DOUBLE,
-    stop60_sec INTEGER, stop60_px DOUBLE, stop60_reason VARCHAR,
-    stop120_sec INTEGER, stop120_px DOUBLE, stop120_reason VARCHAR,
-    stop300_sec INTEGER, stop300_px DOUBLE, stop300_reason VARCHAR
-)"""
-
-type ContSink(outDir: string) =
-    let conn = new DuckDBConnection("Data Source=:memory:")
-    do
-        conn.Open()
-        IO.Directory.CreateDirectory outDir |> ignore
-        use cmd = conn.CreateCommand()
-        cmd.CommandText <- contTableSql
-        cmd.ExecuteNonQuery() |> ignore
-    let mutable appender = conn.CreateAppender "cont_trips"
-    let mutable rowsInPart = 0
-    let mutable part = 0
-    let mutable total = 0L
-    let flushPart () =
-        appender.Close()
-        if rowsInPart > 0 then
-            let path = IO.Path.Combine(outDir, sprintf "cont_trips_p%03d.parquet" part).Replace("\\", "/").Replace("'", "''")
-            use cmd = conn.CreateCommand()
-            cmd.CommandText <- $"COPY cont_trips TO '{path}' (FORMAT PARQUET, COMPRESSION 'zstd'); DELETE FROM cont_trips;"
-            cmd.ExecuteNonQuery() |> ignore
-            part <- part + 1
-            rowsInPart <- 0
-    member _.Total = total
-    member _.Add (c: Candidate) (q: ContPosition) =
-        if q.Stop60Sec < 0 || q.Stop120Sec < 0 || q.Stop300Sec < 0 then
-            failwith "ContSink.Add on an unfinished continuation (Flatten first)"
-        let row = appender.CreateRow()
-        let inline f (x: float) =
-            if Double.IsNaN x then row.AppendNullValue() |> ignore
-            else row.AppendValue x |> ignore
-        let inline i (x: int) = row.AppendValue x |> ignore
-        let inline s (x: string) = row.AppendValue x |> ignore
-        s c.Ticker
-        s (c.Date.ToString "yyyy-MM-dd")
-        f c.AdjRatio
-        i q.ParentSignalSec; i q.ParentEntrySec; f q.ParentEntryPx
-        i q.EntryWindow; i q.SignalSec; f q.SignalVwap
-        i q.EntrySec; f q.EntryPx
-        i q.Stop60Sec; f q.Stop60Px; s q.Stop60Reason
-        i q.Stop120Sec; f q.Stop120Px; s q.Stop120Reason
-        i q.Stop300Sec; f q.Stop300Px; s q.Stop300Reason
-        row.EndRow()
-        total <- total + 1L
-        rowsInPart <- rowsInPart + 1
-        if rowsInPart >= RowsPerPart then
-            flushPart ()
-            appender <- conn.CreateAppender "cont_trips"
-    interface IDisposable with
-        member _.Dispose () =
-            flushPart ()
-            conn.Dispose()
+// (right-side-of-V cont_trips sink DELETED — S39g: study closed at S26,
+// tracking cost removed from the sampler.)
 
 type TripSink(outDir: string) =
     let conn = new DuckDBConnection("Data Source=:memory:")
@@ -442,7 +379,7 @@ type SecEmitter
 /// Run pipeline 2 for every candidate day, streaming finished trips into the
 /// sink. Returns the number of (ticker, day) candidates whose tape was found.
 let collectTrips (conn: DuckDBConnection) (cfg: Config) (secDir: string)
-                 (candidates: Candidate[]) (sink: TripSink) (contSink: ContSink)
+                 (candidates: Candidate[]) (sink: TripSink)
                  (progress: (DateOnly -> int -> int -> int64 -> unit) option) : int =
     let mutable daysRun = 0
     // ⭐ per-tkd progress (user, 2026-07-27): fires after EVERY drained
@@ -458,7 +395,6 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (secDir: string)
             match pos.State with
             | ExitedAt _ -> sink.Add c cfg.Notional pos
             | _ -> failwith "Flatten closes all; unreachable"
-        for q in sys.ContPositions do contSink.Add c q
         processedTkd <- processedTkd + 1
         report c.Date
 
@@ -499,8 +435,7 @@ type TripSinkStats =
     { Total: int64
       Wins: int64
       GrossWin: float
-      GrossLoss: float
-      ContTotal: int64 }
+      GrossLoss: float }
 
 /// Run the whole FlushFader sampler: candidates from trading.db (pipeline 1),
 /// then the 1s flush engine per candidate day (pipeline 2), trips streamed
@@ -518,10 +453,8 @@ let run (dbPath: string) (secDir: string) (outDir: string) (cfg: Config)
 
     let candidates = readCandidates conn startDate endDate cfg.MinDv0945 cfg.MinRvol0945 cfg.MinPrevClose
     use sink = new TripSink(outDir)
-    use contSink = new ContSink(outDir)
-    let daysRun = collectTrips conn cfg secDir candidates sink contSink progress
-    // the `use` bindings dispose both sinks on return, flushing the final parts
+    let daysRun = collectTrips conn cfg secDir candidates sink progress
+    // the `use` binding disposes the sink on return, flushing the final part
     // before the caller ever sees the stats
     candidates.Length, daysRun,
-    { Total = sink.Total; Wins = sink.Wins; GrossWin = sink.GrossWin; GrossLoss = sink.GrossLoss
-      ContTotal = contSink.Total }
+    { Total = sink.Total; Wins = sink.Wins; GrossWin = sink.GrossWin; GrossLoss = sink.GrossLoss }
