@@ -436,14 +436,6 @@ let collectTrips (cfg: Config) (secDir: string)
     // ever falls behind 14 producers on a trip-dense stretch, workers block on
     // the write instead of ballooning the heap (part of the 82%-OOM postmortem).
     let results = Channel.CreateBounded<struct (Candidate * FlushPosition[] * bool)>(BoundedChannelOptions 4096)
-    // Workers run inside the emitter's SYNC callback — no await possible there, so
-    // a full channel is waited out by blocking the worker thread (safe: the
-    // consumer runs on its own pool thread; no circular dependency).
-    let writeResult (x: struct (Candidate * FlushPosition[] * bool)) =
-        if not (results.Writer.TryWrite x) then
-            let vt = results.Writer.WriteAsync x
-            if not vt.IsCompleted then vt.AsTask().Wait()
-
     let worker () : Task =
         task {
             // hop off the caller's thread FIRST: the work channel is already
@@ -457,10 +449,16 @@ let collectTrips (cfg: Config) (secDir: string)
             do  use pragma = conn.CreateCommand()
                 pragma.CommandText <- "PRAGMA threads=2"   // parallelism lives at the day level
                 pragma.ExecuteNonQuery() |> ignore
+            // The emitter loop is a SYNC callback (DuckDB reader), so the day's
+            // results are collected locally and written ASYNC once the day is
+            // folded — backpressure lands between days, never inside the fold,
+            // and no worker thread ever blocks on the channel.
+            let dayOut = ResizeArray<struct (Candidate * FlushPosition[] * bool)>()
             for date, cands in work.Reader.ReadAllAsync() do
+                dayOut.Clear()
                 let path = IO.Path.Combine(secDir, sprintf "%s.parquet" (date.ToString "yyyy-MM-dd"))
                 if not (IO.File.Exists path) then
-                    for c in cands do writeResult (struct (c, Array.empty, false))
+                    for c in cands do dayOut.Add(struct (c, Array.empty, false))
                 else
                     let byTicker = cands |> Array.map (fun c -> c.Ticker, c) |> dict
                     let adjRatio = cands |> Array.map (fun c -> c.Ticker, c.AdjRatio) |> dict
@@ -468,7 +466,7 @@ let collectTrips (cfg: Config) (secDir: string)
                                              adjRatio, cfg.Intraday.SessionStartSec, cfg.Intraday.MocSec)
                     let drain (c: Candidate) (sys: IntradaySystem) (lastBar: SecBar) =
                         sys.Flatten lastBar
-                        writeResult (struct (c, Seq.toArray sys.Positions, true))
+                        dayOut.Add(struct (c, Seq.toArray sys.Positions, true))
                     let mutable cur : (Candidate * IntradaySystem * SecBar) option = None
                     emitter.Process(fun (ticker, bar) ->
                         match cur with
@@ -486,6 +484,8 @@ let collectTrips (cfg: Config) (secDir: string)
                     match cur with
                     | Some(c, sys, lastBar) -> drain c sys lastBar
                     | None -> ()
+                for r in dayOut do
+                    do! results.Writer.WriteAsync r
         }
 
     let workerTasks = Array.init (max 1 cfg.Workers) (fun _ -> worker ())
