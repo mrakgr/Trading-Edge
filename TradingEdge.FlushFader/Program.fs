@@ -52,6 +52,7 @@ type Args =
     | Min_Prev_Close of float
     // ----- sampler vs book -----
     | Max_Concurrent of int
+    | Workers of int
     // ----- timing -----
     | Entry_Start_Sec of int
     | Entry_End_Sec of int
@@ -90,6 +91,7 @@ type Args =
             | Min_Rvol_0945 _ -> "Optional in-play universe pre-filter: rvol_0945_honest >= this (premkt-incl vol thru 09:45 / prior-20d avg; LIVE-SAFE at 09:45). Default 0 = off (sampler breadth)."
             | Min_Prev_Close _ -> "Universe gate: PRIOR day's close in day-D raw (post-split) scale >= this (prev_adj_close/adj_ratio; knowable BEFORE the open). Default 0 = off. 2 = the >=$2 universe (sub-$1 priced out on every EU-accessible broker)."
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: unlimited concurrent positions — every new low opens another trip, so it AVERAGES DOWN. Removes path dependency (every trip = an independent row) but PF is then ATTRIBUTION, not a portfolio number. 1 = a real book."
+            | Workers _ -> "S39h: parallel day-workers (default: cores - 2). Trip SET is identical at any worker count; parquet row order is not."
             | Entry_Start_Sec _ -> "Earliest ET second (since midnight) an entry may fire. Default 35100 = 09:45 — the knowability floor itself (the old 10:00 was a VwapReclaim-era throwback). ⚠ Must be >= 35100."
             | Entry_End_Sec _ -> "Latest ET second an entry may fire. Default 57000 = 15:50 (last 10m reserved for exits)."
 
@@ -139,7 +141,8 @@ let main argv =
                     EntryEndSec      = parsed.GetResult(Entry_End_Sec,      defaultValue = d.Intraday.EntryEndSec) }
             MinDv0945 = parsed.GetResult(Min_Dv_0945, defaultValue = d.MinDv0945)
             MinRvol0945 = parsed.GetResult(Min_Rvol_0945, defaultValue = d.MinRvol0945)
-            MinPrevClose = parsed.GetResult(Min_Prev_Close, defaultValue = d.MinPrevClose) }
+            MinPrevClose = parsed.GetResult(Min_Prev_Close, defaultValue = d.MinPrevClose)
+            Workers = parsed.GetResult(Workers, defaultValue = d.Workers) }
 
     // ⚠ KNOWABILITY GUARD (docs/lookahead_protocol.md R4). The universe is GATED on
     // dv_0945 and every trip RECORDS dv_0945 / rvol_0945_honest — all three are only

@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <PackageReference Include="Argu" Version="6.2.5" />
+    <PackageReference Include="FSharp.Control.TaskSeq" Version="0.4.0" />
     <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.4" />
     <PackageReference Include="Nito.Collections.Deque" Version="1.2.1" />
   </ItemGroup>

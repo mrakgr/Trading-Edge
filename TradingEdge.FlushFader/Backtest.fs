@@ -2,6 +2,9 @@ module TradingEdge.FlushFader.Backtest
 
 open System
 open System.Collections.Generic
+open System.Threading.Channels
+open System.Threading.Tasks
+open FSharp.Control
 open DuckDB.NET.Data
 open TradingEdge.FlushFader.Intraday
 
@@ -42,7 +45,11 @@ type Config =
       /// prev_adj_close / adj_ratio >= this. Knowable BEFORE the open (D-1 close),
       /// unlike entry price. 0 = off (record-first). 2.0 = the ">=$2 stocks" universe
       /// (sub-$1 is priced out on every EU-accessible broker route).
-      MinPrevClose: float }
+      MinPrevClose: float
+      /// ⭐ S39h: day-worker parallelism. Days are the natural isolation unit
+      /// (fresh IntradaySystems, no cross-day state); the trip SET is identical
+      /// at any worker count, only parquet row ORDER varies.
+      Workers: int }
 
 /// The sampler defaults (mc = 0). Every gate here is a HARD gate; everything
 /// else is recorded and sliced post-hoc over the parquet.
@@ -96,9 +103,10 @@ let defaultConfig =
                                     // The floor now lives in MinDv0945Tape. Column
                                     // still recorded for reference.
       MinRvol0945 = 0.0
-      MinPrevClose = 0.0 }          // record-first (user 2026-07-29): a prev-close gate
+      MinPrevClose = 0.0            // record-first (user 2026-07-29): a prev-close gate
                                     // would drop names flushing DOWN through $1 — the $1
                                     // book stays a POST-HOC entry_px cut (S7c fee wall)
+      Workers = max 1 (Environment.ProcessorCount - 2) }
 
 /// One candidate (ticker, day) from diprider_v6_candidate — the daily context
 /// that rides along on every trip for post-hoc slicing. Forward closes are
@@ -378,55 +386,98 @@ type SecEmitter
 
 /// Run pipeline 2 for every candidate day, streaming finished trips into the
 /// sink. Returns the number of (ticker, day) candidates whose tape was found.
-let collectTrips (conn: DuckDBConnection) (cfg: Config) (secDir: string)
+///
+/// ⭐ S39h: DAYS RUN IN PARALLEL. cfg.Workers day-workers each own a private
+/// in-memory DuckDB connection and fold whole days independently (a day is the
+/// natural isolation unit: fresh IntradaySystems, no cross-day state). Finished
+/// tkds flow through an unbounded channel to the single consumer below, which
+/// owns the TripSink (appender stays single-threaded by construction) and the
+/// progress counter. Trip ORDER in the parquet is nondeterministic across runs;
+/// the trip SET is not (zero-diff vs the sequential loop, set-compared).
+let collectTrips (cfg: Config) (secDir: string)
                  (candidates: Candidate[]) (sink: TripSink)
                  (progress: (DateOnly -> int -> int -> int64 -> unit) option) : int =
-    let mutable daysRun = 0
-    // ⭐ per-tkd progress (user, 2026-07-27): fires after EVERY drained
-    // (ticker, day) — the caller throttles the printing. Skipped days (no 1s
-    // tape file) still count as processed so the remaining estimate is honest.
-    let mutable processedTkd = 0
-    let report (date: DateOnly) =
-        progress |> Option.iter (fun p -> p date processedTkd candidates.Length sink.Total)
+    let work = Channel.CreateUnbounded<DateOnly * Candidate[]>()
+    for item in candidates |> Array.groupBy (fun c -> c.Date) do
+        work.Writer.TryWrite item |> ignore
+    work.Writer.Complete()
 
-    let drain (c: Candidate) (sys: IntradaySystem) (lastBar: SecBar) =
-        sys.Flatten lastBar
-        for pos in sys.Positions do
-            match pos.State with
-            | ExitedAt _ -> sink.Add c cfg.Notional pos
-            | _ -> failwith "Flatten closes all; unreachable"
-        processedTkd <- processedTkd + 1
-        report c.Date
+    // One message per (ticker, day): its finished positions after Flatten.
+    // tapeFound=false for days whose 1s file is missing (they still count into
+    // the progress denominator so the remaining estimate stays honest). A
+    // candidate whose file exists always drains: the dv_0945_tape >= $2M table
+    // floor guarantees at least one vwap>0/volume>0 bar in the emitter's range.
+    let results = Channel.CreateUnbounded<struct (Candidate * FlushPosition[] * bool)>()
 
-    for date, cands in candidates |> Array.groupBy (fun c -> c.Date) do
-        let path = IO.Path.Combine(secDir, sprintf "%s.parquet" (date.ToString "yyyy-MM-dd"))
-        if not (IO.File.Exists path) then
-            processedTkd <- processedTkd + cands.Length
-            report date
-        else
-            daysRun <- daysRun + cands.Length
-            let byTicker = cands |> Array.map (fun c -> c.Ticker, c) |> dict
-            let adjRatio = cands |> Array.map (fun c -> c.Ticker, c.AdjRatio) |> dict
-            let emitter = SecEmitter(conn, path, Array.map (fun (c: Candidate) -> c.Ticker) cands,
-                                     adjRatio, cfg.Intraday.SessionStartSec, cfg.Intraday.MocSec)
-            let mutable cur : (Candidate * IntradaySystem * SecBar) option = None
-            emitter.Process(fun (ticker, bar) ->
-                match cur with
-                | Some(c, sys, _) when c.Ticker = ticker ->
-                    sys.Process bar
-                    cur <- Some(c, sys, bar)          // track the LAST bar for Flatten
-                | _ ->
+    let worker () : Task =
+        task {
+            // hop off the caller's thread FIRST: the work channel is already
+            // complete, so ReadAllAsync yields items synchronously — without
+            // this, worker #1 would hot-start and drain the whole channel
+            // before worker #2 is even constructed (task{} runs synchronously
+            // until its first genuine await).
+            do! Task.Yield()
+            use conn = new DuckDBConnection("Data Source=:memory:")
+            conn.Open()
+            do  use pragma = conn.CreateCommand()
+                pragma.CommandText <- "PRAGMA threads=2"   // parallelism lives at the day level
+                pragma.ExecuteNonQuery() |> ignore
+            for date, cands in work.Reader.ReadAllAsync() do
+                let path = IO.Path.Combine(secDir, sprintf "%s.parquet" (date.ToString "yyyy-MM-dd"))
+                if not (IO.File.Exists path) then
+                    for c in cands do results.Writer.TryWrite(struct (c, Array.empty, false)) |> ignore
+                else
+                    let byTicker = cands |> Array.map (fun c -> c.Ticker, c) |> dict
+                    let adjRatio = cands |> Array.map (fun c -> c.Ticker, c.AdjRatio) |> dict
+                    let emitter = SecEmitter(conn, path, Array.map (fun (c: Candidate) -> c.Ticker) cands,
+                                             adjRatio, cfg.Intraday.SessionStartSec, cfg.Intraday.MocSec)
+                    let drain (c: Candidate) (sys: IntradaySystem) (lastBar: SecBar) =
+                        sys.Flatten lastBar
+                        results.Writer.TryWrite(struct (c, Seq.toArray sys.Positions, true)) |> ignore
+                    let mutable cur : (Candidate * IntradaySystem * SecBar) option = None
+                    emitter.Process(fun (ticker, bar) ->
+                        match cur with
+                        | Some(c, sys, _) when c.Ticker = ticker ->
+                            sys.Process bar
+                            cur <- Some(c, sys, bar)          // track the LAST bar for Flatten
+                        | _ ->
+                            match cur with
+                            | Some(pc, psys, plast) -> drain pc psys plast
+                            | None -> ()
+                            let c = byTicker.[ticker]
+                            let sys = IntradaySystem(cfg.Intraday, ticker, date)
+                            sys.Process bar
+                            cur <- Some(c, sys, bar))
                     match cur with
-                    | Some(pc, psys, plast) -> drain pc psys plast
+                    | Some(c, sys, lastBar) -> drain c sys lastBar
                     | None -> ()
-                    let c = byTicker.[ticker]
-                    let sys = IntradaySystem(cfg.Intraday, ticker, date)
-                    sys.Process bar
-                    cur <- Some(c, sys, bar))
-            match cur with
-            | Some(c, sys, lastBar) -> drain c sys lastBar
-            | None -> ()
+        }
 
+    let workerTasks = Array.init (max 1 cfg.Workers) (fun _ -> worker ())
+    // Close the results channel when every worker is done — in a finally, so a
+    // faulted worker can never leave the consumer hanging; the fault itself
+    // re-surfaces at the WaitAll below.
+    let allWorkers =
+        task {
+            try do! Task.WhenAll workerTasks
+            finally results.Writer.Complete()
+        }
+
+    let mutable daysRun = 0
+    let mutable processedTkd = 0
+    let consumer =
+        task {
+            for struct (c, positions, tapeFound) in results.Reader.ReadAllAsync() do
+                if tapeFound then daysRun <- daysRun + 1
+                for pos in positions do
+                    match pos.State with
+                    | ExitedAt _ -> sink.Add c cfg.Notional pos
+                    | _ -> failwith "Flatten closes all; unreachable"
+                processedTkd <- processedTkd + 1
+                progress |> Option.iter (fun p -> p c.Date processedTkd candidates.Length sink.Total)
+        }
+    // sole synchronous join at the outermost boundary (main is sync)
+    Task.WaitAll [| allWorkers :> Task; consumer :> Task |]
     daysRun
 
 /// Console-summary snapshot of the sink counters (the sink itself is disposed
@@ -453,7 +504,7 @@ let run (dbPath: string) (secDir: string) (outDir: string) (cfg: Config)
 
     let candidates = readCandidates conn startDate endDate cfg.MinDv0945 cfg.MinRvol0945 cfg.MinPrevClose
     use sink = new TripSink(outDir)
-    let daysRun = collectTrips conn cfg secDir candidates sink progress
+    let daysRun = collectTrips cfg secDir candidates sink progress
     // the `use` binding disposes the sink on return, flushing the final part
     // before the caller ever sees the stats
     candidates.Length, daysRun,
