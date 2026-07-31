@@ -3233,3 +3233,25 @@ previews the gates-off test: the durable information in the OLS features is
 the DESCENT RATE (slope), not the goodness-of-fit (r).** The S38q A++
 anti-linearity inversion (non-linear 22.6 vs 9.3) still stands separately —
 cell-level, not book-level.
+
+## S39c — rolling 10m/20m N_eff baked into the engine (record-only) (2026-07-31)
+
+**User:** the same effective-count lens, but ROLLING — `n_eff_shannon_600` /
+`n_eff_hhi_600` / `n_eff_shannon_1200` / `n_eff_hhi_1200` on the trip record:
+the NEff monoid pair inside a `SlidingAgg` (product monoid, the inverse-free
+two-stack queue from RollingMa, commit `d50e581`) over 1s-bar VOLUME,
+600/1200 PRESENT-bar windows, snapshotted at the signal bar, nan until warm
+(same discipline as the OLS features; per-ticker-day instance = no reset
+path needed). Commit `c6ed959`.
+
+**Parity:** 8 random spot-check trips × both windows vs brute-force SQL over
+the 1s files — worst |diff| = 1.1e-11, and the window is confirmed to end AT
+the signal bar inclusive. The candidate-table N_eff (fixed 09:30-09:45
+window, S39) and these rolling twins are now the same math at three scopes:
+opening-15m, last-10m, last-20m.
+
+**Interpretation guide:** n_eff_1200 ∈ [1, 1200] = effective seconds carrying
+the last 20m of volume. Ratio to window size = distributedness; shannon/hhi
+ratio > 1 = a few dominant prints on a broad base (concentration alarm).
+Breakdown queued on the v16_1s_reference run (in flight: v1.6 spec ×
+mr_candidate_1s universe, ~2.4h, the candidate-swap CONTROL).
