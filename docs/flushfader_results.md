@@ -3396,3 +3396,38 @@ concentration ratio adds little: hump at [1.4,1.6) = 3.31, mild). 20m↔10m =
 direction inside the cell. Joins dsv ≥ −3% and slope_1200 < −100bp/min in
 the year-robust overlay roster; interaction study queued after the gates-off
 run.
+
+## S39g/h/i — THE FAST LOOP: base-pass workflow, parallel engine, smoothness N_eff (2026-07-31)
+
+**User redirect: "3h runs are too much to wait."** Three changes, each
+zero-diff-verified:
+
+- **S39g — continuation machinery DELETED.** Right-side-of-V closed at S26
+  (taker-fee-dead); the 9-counterfactual tracking was pure per-bar drag.
+  `ContPosition`/`ContSink`/`cont_trips` gone (d37f3f2). Parity: all shared
+  spot-check trips bit-identical.
+- **S39h — parallel day loop** (a04b803): N day-workers (default cores−2,
+  `--workers`) each with a private in-memory DuckDB connection, finished tkds
+  through an unbounded channel into the single sink consumer. A day is the
+  natural isolation unit — the trip SET is identical at any worker count
+  (full-row EXCEPT parity, both directions), only parquet row order varies.
+  Gotcha worth remembering: `task{}` hot-start — with an already-completed
+  work channel, `ReadAllAsync` never awaits and worker #1 drains everything
+  synchronously; `do! Task.Yield()` first.
+- **S39i — `n_eff_ret_20m`/`n_eff_ret_10m`** (user, beach-grade idea #2):
+  Shannon N_eff of the |30s-slot log returns| — THE SAME 40/20-return stream
+  the eff ratios consume — as a trend-SMOOTHNESS measure and candidate
+  REPLACEMENT for the Kaufman ratios. High (→ window size) = movement spread
+  evenly across slots; low = gap-and-chop. Scale-invariant, direction-blind,
+  same warmth as eff. Parity vs SQL slot reconstruction: 2.7e-13 (1874af6).
+
+**The workflow (user design): ONE base pass, then SQL.** Base pass =
+volat_20m ≥ 40bp × new-20m-low entry definition (+ per-bar dv60/tc60 floors),
+ALL spec gates off, dv-tape floor off, on the full clean universe. Every
+planned spec study (eff↔r, rngfront↔slope, N_eff overlays, K/dist/speed
+variants) is a TIGHTENING of that base, and mc=0 trips are independent —
+so every spec variant book = a SQL filter over the base parquet, no engine
+rerun. `flushfader_base_tkds` (distinct signal tkds × mr_candidate_1s) then
+becomes the restricted streaming table for any engine change that DOES need a
+rerun. ⚠ Only relaxations of volat≥40 or the entry channel itself escape the
+base — those need a fresh base pass (~45 min parallel), nothing else does.
