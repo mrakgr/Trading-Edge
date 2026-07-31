@@ -3786,3 +3786,13 @@ not gates; user to adjudicate.
 (PF 0.00 = zero gross wins that year; −inf cells = degenerate small-n
 denominators.) Book effect of the cut: 2.352 → 2.367. This is the v1.7
 `slope_5m ≥ −400bp/min` gate's full evidentiary base.
+
+**⚠ Why 66 here vs 341 in the S39s table (user question):** different
+conditioning. S39s = the < −400 slice on the BREAKDOWN universe (v1.6 minus
+rngfront, no v1.7 gates) = 341 @ 1.061/55.1%. Here = the slice under the FULL
+v1.7 stack: accel ≥ −80 already rejects ~80% of it (a −400bp/min 5m collapse
+drags the 10m slope with it → very negative accel), and it preferentially
+removed the capitulation-blow-off WINNERS (the lottery wins live at extreme
+acceleration) — leaving 66 near-pure losers. The marginal view is the honest
+measure of what a gate removes GIVEN the rest of the spec; always evaluate a
+prospective gate on the residual universe, not the breakdown universe.
