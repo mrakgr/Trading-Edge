@@ -3889,3 +3889,12 @@ toxic at moderate depth, spectacular past −35%). v1.7 currently discards this
 deep capitulations from the accel gate (apply accel only when dist ≥ −35)?
 S38j census note: 75 trips = A++-cell-family size — real but small; year
 spread of the 45.7 cell not yet audited.
+
+**S39v census postscript (the S38j discipline, applied before deciding):**
+the rejected 45.7 cell = **16 tkds EVER** (by year: 2020×2, 2021×1, 2022×0,
+2023×2, 2024×1, **2025×7**, 2026×3), PF carried by the 2025 cluster (38
+trips @ 185 across 7 tkds). Anecdote, not edge — same shape as the S38j
+EYES story. **NO accel exemption** (16 events don't buy a spec branch);
+logged instead as a PLAYBOOK note: deep capitulation (dist < −35%) on
+extreme acceleration = an A++-family recognition/sizing moment when it
+occurs live, not a gate.
