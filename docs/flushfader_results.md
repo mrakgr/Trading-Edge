@@ -3316,3 +3316,83 @@ corner) were sampled with the bounce door open — inflated exactly where those
 systems looked best. Program already closed (2026-07-27), but do NOT quote
 its low-price numbers. PlungeRider's shorts are the one place the bias runs
 conservative.
+
+## S39e — THE CONTROL RUN: v1.6 on the clean universe (2026-07-31)
+
+Full v1.6 spec × `mr_candidate_1s` (the candidate-swap control, rule 5 of the
+lookahead protocol). 51,675 raw trips (~3h). $1-$10 book by year (old = v16_ols):
+
+| year | n old | PF old | n new | PF new |
+|---|---|---|---|---|
+| 2020 | 5,198 | 4.109 | 5,514 | 3.762 |
+| 2021 | 4,948 | 2.674 | 4,944 | 2.884 |
+| 2022 | 2,812 | 1.546 | 2,628 | 1.439 |
+| 2023 | 3,265 | 1.761 | 3,352 | 1.539 |
+| 2024 | 5,270 | 1.944 | 5,597 | 2.044 |
+| 2025 | 6,023 | 2.018 | 6,439 | 1.899 |
+| 2026 | 2,526 | 1.820 | 3,000 | 1.894 |
+| **TOTAL** | **30,042** | **2.199** | **31,474** | **2.148** |
+
+**DISPROPORTION TEST PASSES:** a 75%-new universe moved the book −2.3%.
+Trip decomposition (key = symbol,date,signal_sec): **28,550 shared** (95% of
+the old book), 2,924 added @ 1.411 (blind-spot thin tapes — modest, positive),
+1,492 lost @ 1.262 (below-average — the bugs leaving). The system is
+indifferent to the plumbing swap = the plumbing is real this time.
+
+**A++ cell: 596 @ 18.087/88.1** (old 596 @ 16.548 — the equal n is
+coincidence: 590 shared + 6 added − 6 lost). The swap's anatomy in miniature:
+- **LOST: KIDZ 2025-05-02** — six losing trips (−1.4…−2.4%). The tkd had
+  **19 prior bars** (admitted by the OLD warmup via its episode's FUTURE
+  length) and old-table day_close **$3,590** on a ~$2 raw name (future
+  reverse splits, S35 disease). Both lookaheads on one specimen, holding
+  losers.
+- **ADDED: EXPR 2021-01-27** (meme-squeeze peak, $101M morning, neff 90.6) —
+  the OLD gate rejected it with **8/15 one-minute bars present**: volatility
+  HALTS gutted the window and the bar-COUNT requirement read halts as
+  illiquidity. The old gate wasn't just blind to thin tapes — it excluded the
+  most VIOLENT tapes, i.e. FlushFader's home turf. All added A++ trips won
+  (EXPR +1.5…+1.9%, MLGO +3.5%).
+
+## S39f — rolling N_eff BREAKDOWN (user request): a new year-robust axis (2026-07-31)
+
+Book = v16_1s_reference $1-$10 (31,474 trips; zero null n_eff — warm
+everywhere the channels are). `n_eff_shannon_1200` buckets:
+
+| bucket | n | PF | win% | avg | med |
+|---|---|---|---|---|---|
+| [100,200) | 650 | 2.477 | 71.1 | +1.56 | +1.92 |
+| [200,300) | 5,337 | 1.925 | 69.6 | +1.10 | +1.90 |
+| [300,400) | 9,099 | **1.614** | 71.0 | +0.86 | +1.87 |
+| [400,500) | 7,152 | 2.198 | 73.5 | +1.31 | +2.09 |
+| [500,600) | 5,001 | 2.349 | 74.7 | +1.38 | +2.04 |
+| [600,700) | 2,618 | **4.764** | 79.9 | +2.25 | +2.45 |
+| ≥ 700 | 1,616 | **4.537** | 77.9 | +2.29 | +2.76 |
+
+(10m twin: same shape — trough [150,200) 1.747, top ≥300 = 4.322 on 3,710.)
+
+**⭐ `n_eff_1200 ≥ 600` (13% of book, 4,234 trips @ ~4.7) year audit — beats
+its complement EVERY year:**
+
+| year | n | in | out |
+|---|---|---|---|
+| 2020 | 721 | 11.807 | 3.294 |
+| 2021 | 1,105 | 4.935 | 2.580 |
+| 2022 | 259 | 6.045 | 1.324 |
+| 2023 | 333 | 1.968 | 1.491 |
+| 2024 | 756 | 4.264 | 1.857 |
+| 2025 | 772 | 3.389 | 1.756 |
+| 2026 | 288 | 8.662 | 1.690 |
+
+**NOT trade count in disguise:** within the TOP tc_1200 tercile the neff
+bands still separate 1.593 → 2.818 → **4.703**; tc_1200 buckets alone are
+non-monotone (5-10k = 1.555 is the WORST). N_eff measures how the volume is
+DISTRIBUTED across seconds, not how much of it there is.
+
+**Orthogonality (corr on book):** eff_20m 0.08 / eff_10m 0.05 / ols_r ~0 /
+vol_1200 0.005 — a NEW axis; volat 0.49, dv_0945 0.41, tc_1200 0.73 (the one
+family relative). shannon↔hhi = 0.965 (near-duplicates — one suffices; the
+concentration ratio adds little: hump at [1.4,1.6) = 3.31, mild). 20m↔10m =
+0.955. A++ × neff: <600 = 14.394/90.7 vs ≥600 = **19.464/87.1** — same
+direction inside the cell. Joins dsv ≥ −3% and slope_1200 < −100bp/min in
+the year-robust overlay roster; interaction study queued after the gates-off
+run.
