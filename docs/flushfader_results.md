@@ -3431,3 +3431,36 @@ rerun. `flushfader_base_tkds` (distinct signal tkds × mr_candidate_1s) then
 becomes the restricted streaming table for any engine change that DOES need a
 rerun. ⚠ Only relaxations of volat≥40 or the entry channel itself escape the
 base — those need a fresh base pass (~45 min parallel), nothing else does.
+
+## S39j — the volat PREPASS (user): a lookahead used correctly (2026-07-31)
+
+**User: "group 1s bars into 30s slots in SQL, compute the day's max volatility
+as a prepass, trim the low-vol days without running the engine."** And the
+user's framing of the principle: *the important thing isn't to avoid
+lookaheads — it's to avoid using them inadvertently and incorrectly.*
+
+`max_slot_absr_bp` = the day's MAX |30s-slot log return| (bp), engine slot
+definition (30 PRESENT bars, volume-weighted, SecEmitter's bar filter),
+now a BAKED column of `mr_candidate_1s` (filled by a per-day loop in the
+build script — the one-shot corpus window OOMs a 15GB VM).
+
+**Why the trim is provably trip-preserving:** volat_20m is an `EmaHlMa` =
+Σwᵢxᵢ/Σwᵢ over that same |r| stream — a CONVEX COMBINATION — so
+volat(t) ≤ day-max |slot r| at every bar. A day with max < 40bp can NEVER
+open the volat gate: skipping it changes nothing but wall-clock. The engine
+derives the trim from its LIVE `MinVolat20m` (never diverges from the gate;
+0.01bp margin absorbs the ~1e-13 slot-reconstruction float noise) and
+applies it only when the column exists (override tables may predate it).
+
+**⚠⚠ THE COLUMN IS A WHOLE-SESSION LOOKAHEAD — COMPUTE-ONLY.** Never gate a
+book, slice a table, or build a feature on it: that is the avgvol20-class
+"how volatile did today turn out" oracle. Labeled as such in the build
+script, here, and the engine comment.
+
+**Numbers:** coverage 1,114,792/1,114,792 (every candidate has ≥1 slot
+return). Trim at ≥39.99bp keeps 797,030 (**71.5%**; per-year 60.7-78.9%) —
+and the trimmed 28.5% skew toward dense quiet tapes, the expensive ones to
+stream. **Bound validation: ZERO violations** on the v16_1s_reference trips
+(6,811 trip-tkd joins, all volat-gate-passed causally); the MINIMUM day-max
+on any actual trip tkd is **131.7bp** — the provable bound is conservative
+by >3× (observation only; the trim stays at the provable 40).
