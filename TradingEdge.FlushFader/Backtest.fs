@@ -449,7 +449,10 @@ let collectTrips (cfg: Config) (secDir: string)
     let producer =
         task {
             try
-                for item in candidates |> Array.groupBy (fun c -> c.Date) do
+                // sortBy fst (user): groupBy emits day-groups in first-occurrence
+                // order of the ticker-sorted candidate list — scrambled dates in
+                // the progress log and a jumpier ETA. Chronological costs nothing.
+                for item in candidates |> Array.groupBy (fun c -> c.Date) |> Array.sortBy fst do
                     do! work.Writer.WriteAsync item
             finally work.Writer.Complete()
         }
