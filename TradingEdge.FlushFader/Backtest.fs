@@ -258,7 +258,7 @@ type TripSink(outDir: string) =
         conn.Open()
         IO.Directory.CreateDirectory outDir |> ignore
         use cmd = conn.CreateCommand()
-        cmd.CommandText <- tripTableSql
+        cmd.CommandText <- "PRAGMA memory_limit='2GB'; " + tripTableSql
         cmd.ExecuteNonQuery() |> ignore
     let mutable appender = conn.CreateAppender "trips"
     let mutable rowsInPart = 0
@@ -455,7 +455,11 @@ let collectTrips (cfg: Config) (secDir: string)
             use conn = new DuckDBConnection("Data Source=:memory:")
             conn.Open()
             do  use pragma = conn.CreateCommand()
-                pragma.CommandText <- "PRAGMA threads=2"   // parallelism lives at the day level
+                // parallelism lives at the day level; CAP the per-conn memory —
+                // N workers x DuckDB's default 80%-of-RAM limit is how the run
+                // tail (stragglers = the heaviest crash days, all in flight at
+                // once) OOM'd a 15GB VM twice at 82-86%.
+                pragma.CommandText <- "PRAGMA threads=1; PRAGMA memory_limit='512MB'"
                 pragma.ExecuteNonQuery() |> ignore
             // The emitter loop is a SYNC callback (DuckDB reader), so the day's
             // results are collected locally and written ASYNC once the day is
