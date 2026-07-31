@@ -423,9 +423,17 @@ let collectTrips (cfg: Config) (secDir: string)
                  (candidates: Candidate[]) (sink: TripSink)
                  (progress: (DateOnly -> int -> int -> int64 -> unit) option) : int =
     let work = Channel.CreateUnbounded<DateOnly * Candidate[]>()
-    for item in candidates |> Array.groupBy (fun c -> c.Date) do
-        work.Writer.TryWrite item |> ignore
-    work.Writer.Complete()
+    // Producer task with ASYNC writes (user): sync TryWrite-and-ignore against a
+    // concurrent structure silently drops failures — an anti-pattern even where
+    // "it can't fail". Complete() in finally so workers can never hang on a
+    // faulted producer.
+    let producer =
+        task {
+            try
+                for item in candidates |> Array.groupBy (fun c -> c.Date) do
+                    do! work.Writer.WriteAsync item
+            finally work.Writer.Complete()
+        }
 
     // One message per (ticker, day): its finished positions after Flatten.
     // tapeFound=false for days whose 1s file is missing (they still count into
@@ -512,7 +520,7 @@ let collectTrips (cfg: Config) (secDir: string)
                 progress |> Option.iter (fun p -> p c.Date processedTkd candidates.Length sink.Total)
         }
     // sole synchronous join at the outermost boundary (main is sync)
-    Task.WaitAll [| allWorkers :> Task; consumer :> Task |]
+    Task.WaitAll [| producer :> Task; allWorkers :> Task; consumer :> Task |]
     daysRun
 
 /// Console-summary snapshot of the sink counters (the sink itself is disposed
