@@ -3293,3 +3293,26 @@ floor ADDS sub-$1 tkds, the honest warmup REMOVES early-episode days, and
 they nearly cancel. A lookahead removal that moves the universe 0.4% is the
 disproportion test passing: this is what real plumbing looks like. Reference
 run relaunched on the clean table (banner now echoes the candidate table).
+
+**S39d addendum — the sub-$1 anatomy (user: "how did we have $0-1 trades at
+all if the table had a $1 floor?"):** the floor was on D's ADJUSTED CLOSE,
+never on the entry price — the engine records every trip on an admitted day.
+Decomposing the v16_ols raw trips' sub-$1-raw slice (7,710 trips / 879 tkds):
+
+| admission door | tkds | PF |
+|---|---|---|
+| future reverse split (raw close < $1; in only because adj_ratio ≫ 1) | 787 | 2.164 |
+| **bounce (raw close back ≥ $1 — day in because the flush RECOVERED)** | 92 | **8.546** |
+
+The bounce door's 8.5 = pure outcome selection ("buy the flush, given the
+day closed back above $1"), and the split door's 2.16 rides on
+survived-to-reverse-split names. The $1-$10 BOOK was insulated (post-hoc raw
+entry_px cut), but the "sub-$1 = fee-dead" verdict was measured on this
+flattered sample — it is even deader than stated. ⚠ **The momentum engines
+(SurgeRider/V2, DipRiderV6, PlungeRider, MaxRiderV1) read
+`diprider_v6_candidate` = a copy of `mr_candidate` — same two lookaheads.**
+Their sub-$1/sub-$2 slices (incl. the 52w-inversion "sub-$2 wreckage best"
+corner) were sampled with the bounce door open — inflated exactly where those
+systems looked best. Program already closed (2026-07-27), but do NOT quote
+its low-price numbers. PlungeRider's shorts are the one place the bias runs
+conservative.
