@@ -3611,3 +3611,49 @@ Cutoff sensitivity (keep accel ≥ X, mc=0): −120 → 2.191, −100 → 2.236,
 → 2.320**, −60 → 2.271. Prior context: accel ≥ −100 alone = mc=1 2.068;
 +rngfront = 2.138; the TRIPLE (+slope<−10) = 2.139 (year table in prior
 message; −80 variant pending user cutoff choice).
+
+## S39q — volatility-NORMALIZED slopes (user question): possible, trivial, and it WASHES OUT (2026-07-31)
+
+**User:** rngfront is volatility-invariant, the OLS slopes aren't (S39o figures
+= bp/min, ols_slope × 6e5) — can we normalize by volat? Yes: `nslope = slope ×
+30 / volat_20m` (trend-per-slot in units of typical slot movement,
+dimensionless). Universe = v1.6 minus rngfront, $1-$10 book.
+
+nslope q05/med/q95 = −0.52/−0.32/−0.15; naccel = −0.51/−0.09/+0.26.
+
+| nslope bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| < −0.6 | 427 | 1.590 | 69.3 | +1.76 | 14.13 | 0.35 | 0.73 | 9.83 | 1.00 | 3.67 | 2.19 |
+| [−0.6,−0.45) | 4,286 | 2.004 | 73.0 | +1.83 | 3.08 | 4.87 | 1.37 | 1.31 | 1.89 | 1.55 | 2.25 |
+| [−0.45,−0.35) | 8,525 | 2.163 | 74.4 | +2.16 | 4.83 | 2.13 | 2.32 | 2.13 | 2.26 | 1.99 | 1.04 |
+| [−0.35,−0.25) | 11,206 | 2.438 | 74.3 | +2.19 | 3.71 | 3.47 | 1.47 | 1.92 | 1.67 | 2.62 | 2.64 |
+| [−0.25,−0.18) | 5,452 | 1.775 | 69.1 | +1.92 | 3.40 | 2.41 | 0.67 | 0.90 | 2.82 | 1.08 | 2.49 |
+| [−0.18,−0.12) | 2,366 | 2.413 | 70.2 | +1.94 | 2.69 | 8.47 | 0.68 | 1.26 | 2.19 | 2.73 | 6.47 |
+| [−0.12,−0.07) | 559 | 1.748 | 70.1 | +1.88 | 4.02 | 5.05 | 0.54 | 1.51 | 2.11 | 1.67 | 1.33 |
+| [−0.07,−0.03) | 90 | 1.747 | 71.1 | +2.45 | 8.15 | −inf | 1.62 | −inf | 11.57 | 33.15 | 0.16 |
+| [−0.03,0) | 17 | 106.4 | 88.2 | +6.56 | −inf | - | - | - | 96.89 | - | - |
+| ≥ 0 | 10 | 1.069 | 30.0 | −1.17 | - | - | - | - | −inf | 0.00 | - |
+
+| naccel bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| < −0.5 | 1,754 | 1.689 | 66.7 | +1.82 | 1.91 | 1.01 | 2.63 | 2.34 | 0.99 | 4.65 | 1.58 |
+| [−0.5,−0.35) | 2,735 | 1.617 | 72.2 | +2.26 | 3.13 | 2.27 | 0.93 | 1.32 | 2.08 | 1.52 | 1.03 |
+| [−0.35,−0.25) | 3,876 | 2.365 | 74.5 | +2.26 | 3.23 | 4.67 | 1.03 | 1.04 | 2.01 | 3.18 | 3.48 |
+| [−0.25,−0.15) | 4,694 | 2.280 | 72.8 | +2.10 | 4.86 | 4.73 | 0.86 | 1.36 | 2.20 | 2.29 | 1.82 |
+| [−0.15,−0.05) | 5,565 | 1.957 | 71.8 | +2.04 | 2.81 | 3.30 | 1.02 | 1.22 | 2.45 | 1.78 | 1.78 |
+| [−0.05,0.05) | 5,324 | 2.486 | 74.5 | +2.15 | 4.11 | 3.45 | 2.29 | 2.29 | 2.36 | 1.86 | 1.99 |
+| [0.05,0.15) | 4,345 | 2.218 | 72.6 | +1.94 | 4.67 | 3.36 | 1.02 | 1.49 | 2.22 | 1.64 | 2.87 |
+| [0.15,0.25) | 2,734 | 2.416 | 74.1 | +1.97 | 6.93 | 3.54 | 3.61 | 3.63 | 2.24 | 1.06 | 2.15 |
+| ≥ 0.25 | 1,911 | 2.597 | 73.5 | +1.77 | 6.41 | 2.43 | 6.66 | 2.49 | 1.91 | 2.36 | 1.26 |
+
+**Reading: the RAW axes carry the signal; normalization dilutes it.** The
+crisp raw toxic band [−150,−80)bp/min (1.09/1.32/1.28) smears into two
+mildly-bad mixed-year buckets; the raw L-shape knife (slope < −10) has no
+clean normalized analog (flat end = 17-trip noise cells). **Mechanism:**
+volat_20m's EMA is contaminated by the very recent bars the slope measures —
+numerator and denominator share the move, so dividing self-normalizes the
+signal away. rngfront escapes via range-over-range on nested windows. The
+log-slopes are already price-level-invariant; the per-name volatility scale
+that remains is apparently PART of the information. A clean normalizer would
+need a LAGGED volat (pre-window) — not recorded; not worth a column unless
+the raw axes disappoint. **Verdict: keep slope/accel raw (bp/min).**
