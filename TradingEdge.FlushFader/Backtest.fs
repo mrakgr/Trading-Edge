@@ -116,14 +116,18 @@ type Candidate =
       Dv0945: float
       Rvol0945Honest: float }
 
+/// The candidate table: `mr_candidate_1s` (S39 — 1s-tape-native, dv_0945_tape >= $2M x
+/// n_eff_shannon >= 25, 2020+) unless overridden via FF_CANDIDATE_TABLE (research: run a
+/// breakdown against a different universe, e.g. the old 1m-gated diprider_v6_candidate or
+/// a restricted tkd table). Identifier-only (injection-safe). Fails fast on a bad value.
+let candidateTable =
+    match Environment.GetEnvironmentVariable "FF_CANDIDATE_TABLE" with
+    | null | "" -> "mr_candidate_1s"
+    | t when t |> Seq.forall (fun c -> Char.IsLetterOrDigit c || c = '_') -> t
+    | bad -> failwithf "Invalid FF_CANDIDATE_TABLE %A (identifier chars only)" bad
+
 let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: DateOnly) (minDv0945: float) (minRvol0945: float) (minPrevClose: float) : Candidate[] =
-    // Research override: FF_CANDIDATE_TABLE lets a breakdown run against a different
-    // universe without disturbing the production table. Identifier-only (injection-safe).
-    let table =
-        match Environment.GetEnvironmentVariable "FF_CANDIDATE_TABLE" with
-        | null | "" -> "diprider_v6_candidate"
-        | t when t |> Seq.forall (fun c -> Char.IsLetterOrDigit c || c = '_') -> t
-        | bad -> failwithf "Invalid FF_CANDIDATE_TABLE %A (identifier chars only)" bad
+    let table = candidateTable
     use cmd = conn.CreateCommand()
     cmd.CommandText <-
         $"SELECT ticker, date, prev_adj_close, close_3d, day_close, adj_ratio,
