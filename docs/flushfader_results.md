@@ -3100,3 +3100,91 @@ where slope gets its uncensored range.
 L-shape autopsy suggests slope is the sharper pure-cliff detector (rngfront
 missed the 73%-front-loaded BJDX-type collapses); candidates to compare as the
 anti-cliff gate: rngfront < 0.8 (current) vs slope_20m < −X vs their union.
+
+## S39 — mr_candidate goes 1s-native: N_eff_shannon replaces the median gate (2026-07-31)
+
+**The rebuild (user design, refined from S38p):** precondition (A) — median
+09:30-09:45 1m-bar volume ≥ 10k AND ≥ 10/15 bars, the last 1m-bar dependency —
+is replaced by two floors computed on OUR 1s bars (the feed the live scanner
+will actually build):
+
+- **`dv_0945_tape ≥ $2M`** — Σ vwap·volume 09:30-09:45, raw dollars ($1M of
+  headroom under the spec's $3M engine gate);
+- **`n_eff_shannon ≥ 25`** — exp(Shannon H) of the window's 1s volume
+  distribution = the effective number of equally-weighted seconds carrying the
+  volume, in [1, 900]. Replaces "median + bar count" with one principled
+  number. (The user also added rolling `NEffShannon`/`NEffHhi` monoid
+  accumulators + an inverse-free two-stack `SlidingAgg` to RollingMa —
+  verified against brute force to ~1e-12, commit `d50e581` — for future live
+  rolling use; the SQL build uses the same monoid identity
+  `H = ln Σv − (Σ v·ln v)/Σv`, no window functions.)
+
+(B) — CS/ADRC × adj_close ≥ $1 × episode warmup — is unchanged. The old
+table's `rvol_0945 ≥ 0.1` prune is DROPPED (the $2M absolute floor subsumes
+it; rvol stays recorded). New table = **`mr_candidate_1s`** (2020+, the 1s
+corpus span), engine override `FF_CANDIDATE_TABLE=mr_candidate_1s`.
+Build: `scripts/equity/build_mr_candidate_1s.fsx`.
+
+**Sanity:** the scan's dv matches the engine's in-stream `dv_0945_tape` on all
+6,091 v1.6 tkds — 0 mismatches ≥ 0.1%. Same definition, two implementations.
+
+**Where the floor comes from — the corpus calibration (15.86M tkd, 2020+):**
+
+n_eff_shannon quantiles:
+
+| slice | q01 | q05 | q10 | q25 | med | q75 |
+|---|---|---|---|---|---|---|
+| old-pass tkds | 6.6 | 18.1 | 25.4 | 42.4 | 72.7 | 125.9 |
+| old-FAIL, dv ≥ $1M (blind-spot zone) | 1.4 | 3.3 | 5.3 | 10.5 | 21.2 | 41.5 |
+| v1.6 book tkds | 41.3 | 86.2 | 122.1 | 207.9 | 338.6 | — |
+
+So **25 ≈ the old gate's own q10** — on the distribution axis the new floor is
+as strict as the old gate's tail; the opening is on the DOLLAR axis (thin-bar
+tapes with real money). By dv band, median n_eff rises 15 → 24 → 41 → 87
+($1-3M → $3-10M → $10-30M → $30M+): the two floors are correlated but far from
+redundant.
+
+**Blind-spot recovery (old-FAIL × dv ≥ $3M × avg px < $10, n = 66,510):**
+neff ≥ 10 keeps 96%, **≥ 25 keeps 89%**, ≥ 50 keeps 65%, ≥ 100 keeps 26%.
+
+**Book cost:** neff < 25 touches **14 of 4,138 book tkds** (70 trips, +30.6
+pts net — noise), zero A++ members, and one of the casualties is PMT
+2020-03-18 **−38.4%** (COVID mortgage-REIT collapse on a 17-neff tape) — the
+floor deletes a bomb. Half the dropped tkds are March-2020 REIT/financial
+tapes (CIM/PMT/MFA/RWT) — exactly the "handful of prints own the window"
+shape the metric exists to flag.
+
+**Metric validation anecdote:** the highest-dv LOW-neff days corpus-wide are
+megacap quad-witching Fridays — AAPL/MSFT/NVDA on 2023-06-16, 2023-12-15,
+2024-06-21, 2025-12-19, 2026-06-18 with $6-8B windows at neff 2-9: one
+expiration print owns the window. The alarm rings where it should.
+
+**Universe size (A' × B), ticker-days/yr (old ≈ 49-74k):**
+
+| year | old | dv≥2M | +neff≥10 | **+neff≥25** | +neff≥50 |
+|---|---|---|---|---|---|
+| 2020 | 62,327 | 274,469 | 244,053 | **172,057** | 93,993 |
+| 2021 | 74,203 | 325,403 | 280,865 | **189,630** | 103,211 |
+| 2022 | 60,123 | 287,417 | 252,907 | **177,487** | 100,181 |
+| 2023 | 49,336 | 260,286 | 220,671 | **146,108** | 72,994 |
+| 2024 | 51,373 | 275,893 | 226,186 | **137,426** | 64,663 |
+| 2025 | 62,896 | 324,430 | 281,643 | **181,658** | 89,577 |
+| 2026 | 32,557 | 202,323 | 177,163 | **114,755** | 57,214 |
+
+Chosen: **dv ≥ $2M × neff ≥ 25** ≈ 2.5-3× the old streaming load. Both floors
+are recorded columns — tightenable post-hoc, and the rebuild is cheap (~2 min
+scan) if the 10-25 band ever looks interesting. ⚠ The old-vs-new universes
+ROTATE, they don't nest: 70.2% of old-pass tkds survive the new gate (the 30%
+casualty is almost all the DV axis — 102k fail $2M vs only 15k failing neff),
+while **75.4% of the new universe is newly admitted** — the honest comparison
+of anything downstream is a fresh full run, not a diff.
+
+**BUILT:** `mr_candidate_1s` = **1,119,121 rows / 6,891 tickers / 1,641 days**
+(2020-01-02 → 2026-07-17), 97s build. The .fsx per-year counts match the
+python calibration scan EXACTLY (two independent implementations of the
+entropy — window-share form vs monoid-identity form — same answer, free
+cross-check). The one corpus day with NO candidates: **2020-03-16**, the
+COVID limit-down Monday — the circuit breaker consumed the 09:30-09:45 window
+(day's max-dv tape: $867M at n_eff 2.8 = one halted-auction print). The old
+gate also produced zero candidates that day; both agree the window was
+untradable.
