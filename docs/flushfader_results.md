@@ -3845,3 +3845,47 @@ universe — the S7-era wall deserves a small-n revisit someday; (b) the
 shallow margin [−10,−7) = 1.93 is not toxic — the −10 boundary is quality-
 motivated, not damage-motivated. **Bonus: the dist replay = FINAL v1.7 mc=1 =
 2.175 on 4,056** (ladder 2.004 → 2.070 → 2.106 → 2.104 → 2.175).
+
+## S39v — TRIP EFFICIENCY frontiers (user method) + ⭐ the accel × depth INVERSION (2026-07-31)
+
+**User: find equivalent-PF points and compare trip counts — which feature is
+more trip-efficient?** Universe = v1.7 minus dist minus slope20 gate, accel ON.
+
+| dist: keep < X | n | PF | | slope: keep < Y | n | PF |
+|---|---|---|---|---|---|---|
+| −5 | 37,680 | 2.270 | | −10 | 37,503 | 2.286 |
+| −7 | 36,727 | 2.300 | | −15 | 36,977 | 2.308 |
+| −8 | 35,095 | 2.312 | | −20 | 35,608 | 2.321 |
+| −10 | 29,353 | 2.369 | | −25 | 33,513 | 2.338 |
+| −12 | 22,068 | 2.419 | | −30 | 30,724 | 2.390 |
+| −14 | 15,728 | 2.559 | | −35 | 27,263 | 2.402 |
+| −16 | 10,908 | 2.681 | | −40 | 23,714 | 2.421 |
+| −18 | 7,405 | 2.926 | | −50 | 17,324 | 2.414 |
+| −20 | 4,974 | 2.961 | | −60 | 12,089 | 2.505 |
+| −22 | 3,180 | 3.181 | | −70 | 8,382 | 2.598 |
+| −25 | 1,630 | 3.950 | | −80 | 5,916 | 2.731 |
+| | | | | −100 | 2,755 | 3.648 |
+
+**The frontier CROSSES:** slope is more trip-efficient shallow (at PF ≈
+2.37-2.42 it keeps ~1-2k more trips than dist), **dist dominates the middle**
+(PF ≈ 2.68: dist 10,908 vs slope ~6k — near 2×), ~tied deep. At the MATCHED
+mc=1 point (2.175 vs 2.173): dist = 4,056 mc=1 trips vs slope = 3,794 —
+**dist ~7% more trip-efficient where the book operates.** Verdict of S39u
+stands, now with the efficiency argument: dist stays.
+
+**⭐⭐ THE ACCEL × DEPTH INVERSION (user hypothesis check, answer inverted):**
+
+| dist < −35 slice | n | PF | win% | med |
+|---|---|---|---|---|
+| accel gate ON (what v1.7 keeps) | 129 | 11.21 | 80.6 | +5.62 |
+| accel gate OFF (all) | 204 | 15.089 | 84.3 | +5.45 |
+| **accel FAILS (< −80) — what v1.7 REJECTS** | **75** | **45.713** | **90.7** | **+5.23** |
+
+The accel gate did NOT create the sub-−35% goodness — it is REMOVING its best
+part: past the old un-fadeable wall, extreme acceleration + extreme depth =
+the true capitulation monsters (the S39o "lottery band" is DEPTH-DEPENDENT:
+toxic at moderate depth, spectacular past −35%). v1.7 currently discards this
+75-trip / ~11-per-year / 90.7%-win cell. ⏭ SPEC QUESTION FOR THE USER: exempt
+deep capitulations from the accel gate (apply accel only when dist ≥ −35)?
+S38j census note: 75 trips = A++-cell-family size — real but small; year
+spread of the 45.7 cell not yet audited.
