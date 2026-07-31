@@ -41,6 +41,8 @@ type Args =
     | Min_Vol10_Rate of float
     | Min_Lows_300 of int
     | Max_Rng_Front of float
+    | Min_Accel_1020 of float
+    | Max_Slope_20m of float
     | Min_Dv_0945_Tape of float
     // ----- price-acceptance stops -----
     | Vol_Stop_Ratio of float
@@ -83,6 +85,8 @@ type Args =
             | Min_Vol10_Rate _ -> "⭐ SPEC v1.2: (vol_10/10)/(vol_60/60) >= this (S17 last-10s volume-rate floor — no quiet-tail drift-downs). Default 0.75. 0 = off."
             | Min_Lows_300 _ -> "⭐ SPEC v1.4: lows_since_first_low_300 >= this — kills the FAST-CHASE re-entry (5m bounce without a 20m leg reset re-signals in seconds; PF 0.11 on the A++ cell). Default 6. 0 = off."
             | Max_Rng_Front _ -> "⭐ SPEC v1.5: rng_300/rng_20m < this — reject the PURE CLIFF (whole 20m range in the last 5m; monotone-worst at mc=1). Default 0.8. Infinity = off."
+            | Min_Accel_1020 _ -> "⭐ SPEC v1.7: (slope_10m - slope_20m)*6e5 >= this bp/min — reject the late-accelerating bleed band. Default -80. -Infinity = off."
+            | Max_Slope_20m _ -> "⭐ SPEC v1.7: slope_20m*6e5 < this bp/min — the L-shape insurance (flat-slope late cliff). Default -10. >= 0 = off."
             | Min_Dv_0945_Tape _ -> "Tape-native dv_0945 floor: Σ vwap·volume over OUR 1s bars strictly before 09:45 >= this (live-scanner-consistent; honest dollars). Default 0 = record-first. Pair with --min-dv-0945 0 when replacing the candidate-table gate."
             | Vol_Stop_Ratio _ -> "PRICE-ACCEPTANCE STOP: exit holders when a NEW entry-channel low prints on (vol_60/60)/(vol_1200/1200) >= this. Default Infinity = OFF (S16 A/B: stops gut the book). e.g. 8 to arm."
             | Tc_Stop_Ratio _ -> "PRICE-ACCEPTANCE STOP: same on the trade-count ratio. Default Infinity = OFF (S16)."
@@ -132,6 +136,8 @@ let main argv =
                     MinVol10Rate     = parsed.GetResult(Min_Vol10_Rate,     defaultValue = d.Intraday.MinVol10Rate)
                     MinLows300       = parsed.GetResult(Min_Lows_300,       defaultValue = d.Intraday.MinLows300)
                     MaxRngFront      = parsed.GetResult(Max_Rng_Front,      defaultValue = d.Intraday.MaxRngFront)
+                    MinAccel1020Bpm  = parsed.GetResult(Min_Accel_1020,     defaultValue = d.Intraday.MinAccel1020Bpm)
+                    MaxSlope20Bpm    = parsed.GetResult(Max_Slope_20m,      defaultValue = d.Intraday.MaxSlope20Bpm)
                     MinDv0945Tape    = parsed.GetResult(Min_Dv_0945_Tape,   defaultValue = d.Intraday.MinDv0945Tape)
                     VolStopRatio     = parsed.GetResult(Vol_Stop_Ratio,     defaultValue = d.Intraday.VolStopRatio)
                     TcStopRatio      = parsed.GetResult(Tc_Stop_Ratio,      defaultValue = d.Intraday.TcStopRatio)
@@ -196,7 +202,7 @@ let main argv =
     printfn "  volat band  = volat_20m ∈ [%s, %s) bp/30s"
         (if ic.MinVolat20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVolat20m * 1e4))
         (if Double.IsPositiveInfinity ic.MaxVolat20m then "inf" else sprintf "%.0f" (ic.MaxVolat20m * 1e4))
-    printfn "  SPEC v1.6   = speed %s | K ∈ [%s, %s] | eff20 ∈ [%s, %s) COLD FAILS | |eff10| >= %s | dist-20m-hi ∈ [%s, %s) | vol10rate >= %s | lows300 >= %s | rngfront < %s"
+    printfn "  SPEC v1.7   = speed %s | K ∈ [%s, %s] | eff20 ∈ [%s, %s) COLD FAILS | |eff10| >= %s | dist-20m-hi ∈ [%s, %s) | vol10rate >= %s | lows300 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s"
         (if ic.MaxSpeed1m >= 0.0 then "off" else sprintf "< %.0f%%/1m" (ic.MaxSpeed1m * 100.0))
         (if ic.KBandLo <= 0 then "off" else string ic.KBandLo)
         (if ic.KBandHi <= 0 then "off" else string ic.KBandHi)
@@ -208,6 +214,8 @@ let main argv =
         (if ic.MinVol10Rate <= 0.0 then "off" else sprintf "%.2fx" ic.MinVol10Rate)
         (if ic.MinLows300 <= 0 then "off" else string ic.MinLows300)
         (if Double.IsPositiveInfinity ic.MaxRngFront then "off" else sprintf "%.2f" ic.MaxRngFront)
+        (if Double.IsNegativeInfinity ic.MinAccel1020Bpm then "off" else sprintf "%.0fbp/m" ic.MinAccel1020Bpm)
+        (if ic.MaxSlope20Bpm >= 0.0 then "off" else sprintf "%.0fbp/m" ic.MaxSlope20Bpm)
     printfn "  entry window= %s-%s ET   features fold from %s ET" (hhmmss ic.EntryStartSec) (hhmmss ic.EntryEndSec) (hhmmss ic.SessionStartSec)
     if ic.MaxConcurrent <= 0 then
         printfn "  mode        = ⭐ SAMPLER (mc=0 unlimited → every new low opens another trip; averages down)"

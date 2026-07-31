@@ -403,6 +403,15 @@ type IntradayConfig =
                                  // CLIFF (the whole 20m range printed in the last 5m; monotone-worst
                                  // at mc=1, 1.51/64.7). Degenerate/cold ranges FAIL (mirrors SQL
                                  // nullif). Default 0.8. Infinity = off.
+      MinAccel1020Bpm: float     // ⭐ SPEC v1.7 (S39o/r): (slope_10m − slope_20m)×6e5 >= this bp/min —
+                                 // reject the LATE-ACCELERATING decline (the [−150,−80) bleed band:
+                                 // 1.09/1.32/1.28 across three buckets; the RAW axis carries the
+                                 // signal, vol-normalizing washes it out, S39q). Default −80.
+                                 // −Infinity = off. Cold OLS FAILS an armed gate.
+      MaxSlope20Bpm: float       // ⭐ SPEC v1.7 (user, S39m): slope_20m×6e5 < this bp/min — the
+                                 // L-SHAPE INSURANCE (flat 20m slope + dist ≤ −10% ⇒ tail-compressed
+                                 // late cliff; the 64-trip 0.438/43.8% sliver). Default −10.
+                                 // >= 0 = off. Cold OLS FAILS an armed gate.
       MinDv0945Tape: float       // ⭐ tape-native dv_0945 floor (Σ vwap·vol, 1s bars < 09:45).
                                  // Default 0 = RECORD-FIRST; the live-scanner-consistent
                                  // replacement for the candidate-table dv_0945 gate.
@@ -1057,7 +1066,22 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         let frontOk =
             Double.IsPositiveInfinity cfg.MaxRngFront
             || chanRng max300 min300 / chanRng max1200 min1200 < cfg.MaxRngFront
-        let specOk = speedOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk && lows300Ok && frontOk
+        // ⭐ SPEC v1.7 (S39o/r): OLS gates. ols1200 warms exactly with the entry
+        // channel (both need 1200 present bars) so at any signal both slopes are
+        // warm; the ValueNone arms are pure defense.
+        let accelOk =
+            Double.IsNegativeInfinity cfg.MinAccel1020Bpm
+            || (match ols600.State, ols1200.State with
+                | ValueSome m6, ValueSome m12
+                    when ols600.Count = ols600.WindowSize && ols1200.Count = ols1200.WindowSize ->
+                    (m6 - m12) * 6e5 >= cfg.MinAccel1020Bpm
+                | _ -> false)
+        let slope20Ok =
+            cfg.MaxSlope20Bpm >= 0.0
+            || (match ols1200.State with
+                | ValueSome m when ols1200.Count = ols1200.WindowSize -> m * 6e5 < cfg.MaxSlope20Bpm
+                | _ -> false)
+        let specOk = speedOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && effOk && specOk && this.HasSlot then
             pendingEntry <-
                 ValueSome
