@@ -243,6 +243,7 @@ CREATE TABLE trips (
     prev_adj_close DOUBLE, close_3d DOUBLE, day_close DOUBLE,
     close_fwd_1d DOUBLE, close_fwd_3d DOUBLE, close_fwd_5d DOUBLE,
     dv_0945 DOUBLE, rvol_0945_honest DOUBLE, dv_0945_tape DOUBLE,
+    ols_slope_300 DOUBLE, ols_r_300 DOUBLE,
     ols_slope_600 DOUBLE, ols_r_600 DOUBLE, ols_slope_1200 DOUBLE, ols_r_1200 DOUBLE,
     n_eff_shannon_600 DOUBLE, n_eff_hhi_600 DOUBLE, n_eff_shannon_1200 DOUBLE, n_eff_hhi_1200 DOUBLE,
     n_eff_ret_20m DOUBLE, n_eff_ret_10m DOUBLE,
@@ -346,6 +347,7 @@ type TripSink(outDir: string) =
             f c.PrevAdjClose; f c.Close3d; f c.DayClose
             f c.CloseFwd1d; f c.CloseFwd3d; f c.CloseFwd5d
             f c.Dv0945; f c.Rvol0945Honest; f p.Dv0945Tape
+            f p.OlsSlope300; f p.OlsR300
             f p.OlsSlope600; f p.OlsR600; f p.OlsSlope1200; f p.OlsR1200
             f p.NEffShannon600; f p.NEffHhi600; f p.NEffShannon1200; f p.NEffHhi1200
             f p.NEffRet20m; f p.NEffRet10m
@@ -411,16 +413,31 @@ type SecEmitter
                   tradeCount = reader.GetInt32 4 }
             onNext (ticker, bar)
 
+/// One day-read request to the single reader: the reply channel receives one
+/// message per (candidate, materialized bar array), then completes. On a read
+/// failure the reply completes with the exception (the requesting worker's
+/// fold loop rethrows it — no hangs).
+type private DayRequest =
+    { Date: DateOnly
+      Cands: Candidate[]
+      Reply: ChannelWriter<struct (Candidate * SecBar[])> }
+
 /// Run pipeline 2 for every candidate day, streaming finished trips into the
 /// sink. Returns the number of (ticker, day) candidates whose tape was found.
 ///
-/// ⭐ S39h: DAYS RUN IN PARALLEL. cfg.Workers day-workers each own a private
-/// in-memory DuckDB connection and fold whole days independently (a day is the
-/// natural isolation unit: fresh IntradaySystems, no cross-day state). Finished
-/// tkds flow through an unbounded channel to the single consumer below, which
-/// owns the TripSink (appender stays single-threaded by construction) and the
-/// progress counter. Trip ORDER in the parquet is nondeterministic across runs;
-/// the trip SET is not (zero-diff vs the sequential loop, set-compared).
+/// ⭐ S39h/S39p: DAYS RUN IN PARALLEL behind a SINGLE READER (user design). One
+/// reader task owns THE process's only parquet-reading DuckDB connection;
+/// cfg.Workers day-workers are pure folders (a day is the natural isolation
+/// unit: fresh IntradaySystems, no cross-day state). A worker claims a day,
+/// sends (day, cands, reply) to the reader, and folds the per-tkd bar arrays
+/// that come back on its private reply channel; in-flight tape data is
+/// structurally bounded at ~one day per worker because a worker only requests
+/// its next day after folding the previous one. Centralized IO: no per-worker
+/// memory caps, no concurrent spill directories (the S39 crash class is
+/// structurally gone). Finished tkds flow to the single consumer below, which
+/// owns the TripSink (appender single-threaded by construction) and the
+/// progress counter. Trip ORDER in the parquet is nondeterministic across
+/// runs; the trip SET is not (zero-diff, set-compared).
 let collectTrips (cfg: Config) (secDir: string)
                  (candidates: Candidate[]) (sink: TripSink)
                  (progress: (DateOnly -> int -> int -> int64 -> unit) option) : int =
@@ -446,6 +463,57 @@ let collectTrips (cfg: Config) (secDir: string)
     // ever falls behind 14 producers on a trip-dense stretch, workers block on
     // the write instead of ballooning the heap (part of the 82%-OOM postmortem).
     let results = Channel.CreateBounded<struct (Candidate * FlushPosition[] * bool)>(BoundedChannelOptions 4096)
+
+    // ----- the single reader -----
+    let requests = Channel.CreateUnbounded<DayRequest>()
+    let readerTask =
+        task {
+            do! Task.Yield()
+            use conn = new DuckDBConnection("Data Source=:memory:")
+            conn.Open()
+            do  use pragma = conn.CreateCommand()
+                // THE parquet connection: give it real threads and memory, and a
+                // private spill dir (the shared-".tmp/" collision class is gone
+                // by construction with one reader, the private dir is hygiene).
+                let tmpDir = IO.Path.Combine(IO.Path.GetTempPath(), $"ff_duck_reader_{Guid.NewGuid():N}")
+                IO.Directory.CreateDirectory tmpDir |> ignore
+                pragma.CommandText <- $"PRAGMA threads=6; PRAGMA memory_limit='4GB'; PRAGMA temp_directory='{tmpDir}'"
+                pragma.ExecuteNonQuery() |> ignore
+            let tkds = ResizeArray<struct (Candidate * SecBar[])>()
+            let buf = ResizeArray<SecBar>()
+            for req in requests.Reader.ReadAllAsync() do
+                try
+                    // materialize the day's per-tkd bar arrays in the SYNC emitter
+                    // fold, then hand them over with ASYNC writes (user: no
+                    // TryWrite against a concurrent structure).
+                    tkds.Clear()
+                    let path = IO.Path.Combine(secDir, sprintf "%s.parquet" (req.Date.ToString "yyyy-MM-dd"))
+                    let byTicker = req.Cands |> Array.map (fun c -> c.Ticker, c) |> dict
+                    let adjRatio = req.Cands |> Array.map (fun c -> c.Ticker, c.AdjRatio) |> dict
+                    let emitter = SecEmitter(conn, path, Array.map (fun (c: Candidate) -> c.Ticker) req.Cands,
+                                             adjRatio, cfg.Intraday.SessionStartSec, cfg.Intraday.MocSec)
+                    let mutable curTicker : string = null
+                    let flush () =
+                        if not (isNull curTicker) then
+                            tkds.Add(struct (byTicker.[curTicker], buf.ToArray()))
+                            buf.Clear()
+                    emitter.Process(fun (ticker, bar) ->
+                        if ticker <> curTicker then
+                            flush ()
+                            curTicker <- ticker
+                        buf.Add bar)
+                    flush ()
+                    curTicker <- null
+                    for t in tkds do
+                        do! req.Reply.WriteAsync t
+                    req.Reply.Complete()
+                with ex ->
+                    // fail THIS request loudly (the worker's fold loop rethrows)
+                    // and keep serving the rest — a poisoned day must not hang
+                    // the pipeline.
+                    req.Reply.TryComplete ex |> ignore
+        }
+
     let worker () : Task =
         task {
             // hop off the caller's thread FIRST: the work channel is already
@@ -454,26 +522,6 @@ let collectTrips (cfg: Config) (secDir: string)
             // before worker #2 is even constructed (task{} runs synchronously
             // until its first genuine await).
             do! Task.Yield()
-            use conn = new DuckDBConnection("Data Source=:memory:")
-            conn.Open()
-            do  use pragma = conn.CreateCommand()
-                // parallelism lives at the day level; CAP the per-conn memory —
-                // N workers x DuckDB's default 80%-of-RAM limit is how the run
-                // tail (stragglers = the heaviest crash days, all in flight at
-                // once) OOM'd a 15GB VM twice at 82-86%.
-                // ⚠ PRIVATE temp_directory per connection: a capped conn SPILLS,
-                // and DuckDB's default spill path is the shared relative ".tmp/"
-                // — concurrent workers collided in the same temp files and died
-                // with corrupted-read aborts/segfaults (deterministic at the
-                // first heavy-spill day; the S39 base-pass 14% crash).
-                let tmpDir = IO.Path.Combine(IO.Path.GetTempPath(), $"ff_duck_{Guid.NewGuid():N}")
-                IO.Directory.CreateDirectory tmpDir |> ignore
-                pragma.CommandText <- $"PRAGMA threads=1; PRAGMA memory_limit='512MB'; PRAGMA temp_directory='{tmpDir}'"
-                pragma.ExecuteNonQuery() |> ignore
-            // The emitter loop is a SYNC callback (DuckDB reader), so the day's
-            // results are collected locally and written ASYNC once the day is
-            // folded — backpressure lands between days, never inside the fold,
-            // and no worker thread ever blocks on the channel.
             let dayOut = ResizeArray<struct (Candidate * FlushPosition[] * bool)>()
             for date, cands in work.Reader.ReadAllAsync() do
                 dayOut.Clear()
@@ -481,42 +529,28 @@ let collectTrips (cfg: Config) (secDir: string)
                 if not (IO.File.Exists path) then
                     for c in cands do dayOut.Add(struct (c, Array.empty, false))
                 else
-                    let byTicker = cands |> Array.map (fun c -> c.Ticker, c) |> dict
-                    let adjRatio = cands |> Array.map (fun c -> c.Ticker, c.AdjRatio) |> dict
-                    let emitter = SecEmitter(conn, path, Array.map (fun (c: Candidate) -> c.Ticker) cands,
-                                             adjRatio, cfg.Intraday.SessionStartSec, cfg.Intraday.MocSec)
-                    let drain (c: Candidate) (sys: IntradaySystem) (lastBar: SecBar) =
-                        sys.Flatten lastBar
-                        dayOut.Add(struct (c, Seq.toArray sys.Positions, true))
-                    let mutable cur : (Candidate * IntradaySystem * SecBar) option = None
-                    emitter.Process(fun (ticker, bar) ->
-                        match cur with
-                        | Some(c, sys, _) when c.Ticker = ticker ->
-                            sys.Process bar
-                            cur <- Some(c, sys, bar)          // track the LAST bar for Flatten
-                        | _ ->
-                            match cur with
-                            | Some(pc, psys, plast) -> drain pc psys plast
-                            | None -> ()
-                            let c = byTicker.[ticker]
-                            let sys = IntradaySystem(cfg.Intraday, ticker, date)
-                            sys.Process bar
-                            cur <- Some(c, sys, bar))
-                    match cur with
-                    | Some(c, sys, lastBar) -> drain c sys lastBar
-                    | None -> ()
+                    let reply = Channel.CreateUnbounded<struct (Candidate * SecBar[])>()
+                    do! requests.Writer.WriteAsync { Date = date; Cands = cands; Reply = reply.Writer }
+                    for struct (c, bars) in reply.Reader.ReadAllAsync() do
+                        if bars.Length > 0 then
+                            let sys = IntradaySystem(cfg.Intraday, c.Ticker, date)
+                            for b in bars do sys.Process b
+                            sys.Flatten bars.[bars.Length - 1]
+                            dayOut.Add(struct (c, Seq.toArray sys.Positions, true))
                 for r in dayOut do
                     do! results.Writer.WriteAsync r
         }
 
     let workerTasks = Array.init (max 1 cfg.Workers) (fun _ -> worker ())
-    // Close the results channel when every worker is done — in a finally, so a
-    // faulted worker can never leave the consumer hanging; the fault itself
-    // re-surfaces at the WaitAll below.
+    // Close the request + results channels when every worker is done — in a
+    // finally, so a faulted worker can never leave the reader or consumer
+    // hanging; the fault itself re-surfaces at the WaitAll below.
     let allWorkers =
         task {
             try do! Task.WhenAll workerTasks
-            finally results.Writer.Complete()
+            finally
+                requests.Writer.Complete()
+                results.Writer.Complete()
         }
 
     let mutable daysRun = 0
@@ -533,7 +567,7 @@ let collectTrips (cfg: Config) (secDir: string)
                 progress |> Option.iter (fun p -> p c.Date processedTkd candidates.Length sink.Total)
         }
     // sole synchronous join at the outermost boundary (main is sync)
-    Task.WaitAll [| producer :> Task; allWorkers :> Task; consumer :> Task |]
+    Task.WaitAll [| producer :> Task; readerTask :> Task; allWorkers :> Task; consumer :> Task |]
     daysRun
 
 /// Console-summary snapshot of the sink counters (the sink itself is disposed
