@@ -577,3 +577,166 @@ type OlsSlopeMa(windowSize: int) =
         q.Clear()
         sx <- 0.0; sy <- 0.0; sxx <- 0.0; sxy <- 0.0; syy <- 0.0
         idx <- 0.0
+
+/// Online effective-observation count via the Herfindahl–Hirschman index
+/// (Rényi order 2):  N_eff = (Σv)² / Σv²
+///
+/// Weights heavy observations strongly — the alarm for "one print owns this
+/// window". Immutable, associative, commutative, O(1) state. Zero, negative
+/// and non-finite inputs are skipped.
+///
+/// The primary constructor is public so accumulators can be persisted as
+/// (sum, sumSq, support) and rehydrated from a checkpoint.
+[<Struct>]
+type NEffHhi(sum: float, sumSq: float, support: int) =
+    /// Monoid identity. Equal to Unchecked.defaultof<NEffHhi>.
+    static member Zero = NEffHhi(0.0, 0.0, 0)
+
+    /// Σv
+    member _.Sum = sum
+    /// Σv²
+    member _.SumSq = sumSq
+    /// Count of strictly positive observations (the Rényi order-0 count).
+    member _.Support = support
+
+    /// Fold in one observation, returning a new accumulator.
+    member _.Add(v: float) =
+        if v > 0.0 && Double.IsFinite v then
+            NEffHhi(sum + v, sumSq + v * v, support + 1)
+        else
+            NEffHhi(sum, sumSq, support)
+
+    /// Combine two independently accumulated windows.
+    member _.Merge(other: NEffHhi) =
+        NEffHhi(sum + other.Sum, sumSq + other.SumSq, support + other.Support)
+
+    /// Σpᵢ² on normalised shares — the index itself, in [1/support, 1].
+    /// nan when empty.
+    member _.Index =
+        if sum > 0.0 then sumSq / (sum * sum) else nan
+
+    /// Effective number of equally weighted observations, in [1, support].
+    /// 0.0 when empty.
+    member _.Value =
+        if sum > 0.0 then (sum * sum) / sumSq else 0.0
+
+    static member (+) (a: NEffHhi, b: NEffHhi) = a.Merge b
+
+
+/// Online effective-observation count via Shannon entropy (Rényi order 1,
+/// i.e. perplexity):  N_eff = exp(H),  H = ln(Σv) − (Σ v·ln v)/(Σv)
+///
+/// Weights each observation by its own share — the gauge for "is there enough
+/// distributed activity here". Same monoid properties as NEffHhi.
+[<Struct>]
+type NEffShannon(sum: float, sumVLogV: float, support: int) =
+
+    /// Monoid identity. Equal to Unchecked.defaultof<NEffShannon>.
+    static member Zero = NEffShannon(0.0, 0.0, 0)
+
+    /// Σv
+    member _.Sum = sum
+    /// Σ v·ln v
+    member _.SumVLogV = sumVLogV
+    /// Count of strictly positive observations.
+    member _.Support = support
+
+    /// Fold in one observation, returning a new accumulator.
+    member _.Add(v: float) =
+        if v > 0.0 && Double.IsFinite v then
+            NEffShannon(sum + v, sumVLogV + v * log v, support + 1)
+        else
+            NEffShannon(sum, sumVLogV, support)
+
+    /// Combine two independently accumulated windows.
+    member _.Merge(other: NEffShannon) =
+        NEffShannon(sum + other.Sum, sumVLogV + other.SumVLogV, support + other.Support)
+
+    /// Shannon entropy in nats, in [0, ln support]. nan when empty.
+    /// Clamped at zero: H is mathematically non-negative, but the subtraction
+    /// can land a few ulps below it when all mass sits on one observation.
+    member _.Entropy =
+        if sum > 0.0 then max 0.0 (log sum - sumVLogV / sum) else nan
+
+    /// Effective number of equally weighted observations, in [1, support].
+    /// 0.0 when empty.
+    member this.Value =
+        if sum > 0.0 then exp this.Entropy else 0.0
+
+    static member (+) (a: NEffShannon, b: NEffShannon) = a.Merge b
+
+
+[<RequireQualifiedAccess>]
+module NEff =
+
+    /// Fold a sequence into both accumulators in a single pass.
+    let ofSeq (xs: seq<float>) =
+        let mutable h = NEffHhi.Zero
+        let mutable s = NEffShannon.Zero
+        for v in xs do
+            h <- h.Add v
+            s <- s.Add v
+        struct (h, s)
+
+    /// shannon / hhi — near 1.0 when participating bars are evenly matched,
+    /// large when a few dominant prints sit on an otherwise healthy base.
+    let concentrationRatio (h: NEffHhi) (s: NEffShannon) =
+        if h.Value > 0.0 then s.Value / h.Value else nan
+
+/// Sliding-window aggregation over an arbitrary monoid, in amortised O(1) per
+/// operation and O(w) memory, where w is the number of elements currently held.
+///
+/// Maintains a FIFO queue of the window's elements together with their combined
+/// aggregate: Push admits the newest element, Pop evicts the oldest, Query
+/// returns the aggregate of everything currently in the window.
+///
+/// REQUIREMENTS ON THE MONOID
+///   `combine` must be associative and `zero` must be its two-sided identity.
+///   Commutativity is NOT required — elements are always combined in window
+///   order, oldest on the left. Crucially, no *inverse* is required, which is
+///   the entire point of this structure: it serves aggregates that cannot be
+///   subtracted (t-digest, HyperLogLog, top-k sketches) as well as those that
+///   can. `Push` takes an already-lifted singleton aggregate rather than a raw
+///   value, so the caller decides how a single observation becomes a 'T.
+///
+/// HOW IT WORKS
+///   Two stacks stand in for one queue. `back` receives every Push; `front`
+///   serves every Pop and is refilled by draining `back` into it — that
+///   reversal is what turns LIFO into FIFO. Each entry carries the aggregate of
+///   itself and everything below it in its own stack, which stays cheap to
+///   maintain because a stack is only ever touched at the top: pushing v onto a
+///   stack whose top holds A stores A ⊕ v, and popping merely exposes the entry
+///   beneath, already correct. The window's aggregate is therefore just the two
+///   tops combined, making Query O(1) with no traversal.
+///
+/// COST
+///   A drain is O(n), but each element is pushed and popped at most twice in its
+///   lifetime — once per stack — giving O(1) amortised per operation. The
+///   worst-case hitch is bounded by window size, not by stream length.
+///
+/// NUMERICAL BEHAVIOUR
+///   This is the reason to prefer it over the obvious subtract-the-evicted-
+///   element approach for floating-point aggregates. Every stored aggregate is
+///   built by accumulation upward from the identity, and each drain rebuilds
+///   `front` from scratch, so nothing is ever removed from a sum. Error in a
+///   reported value is bounded by that of summing w values once — a function of
+///   window size, not of how many times the window has slid. Subtractive updates
+///   accumulate error indefinitely and never recover.
+///
+/// Not thread-safe. Pop on an empty window throws.
+[<Sealed>]
+type SlidingAgg<'T>(zero: 'T, combine: 'T -> 'T -> 'T) =
+    let back  = Stack<'T * 'T>()      // (value, aggregate of it and all below)
+    let front = Stack<'T * 'T>()
+    let topAgg (s: Stack<'T * 'T>) = if s.Count = 0 then zero else snd (s.Peek())
+
+    member _.Push(v) = back.Push(v, combine (topAgg back) v)
+
+    member _.Pop() =
+        if front.Count = 0 then
+            while back.Count > 0 do
+                let (v, _) = back.Pop()
+                front.Push(v, combine v (topAgg front))   // v is older → left
+        front.Pop() |> ignore
+
+    member _.Query = combine (topAgg front) (topAgg back)
