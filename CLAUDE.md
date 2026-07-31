@@ -27,8 +27,14 @@ OpeningDriverV2 4.112→0.728, DipRiderV4 2.876→1.158). It survived a year bec
 6. **Post-hoc SQL counts.** LowFlyer's production book lives entirely in `scripts/equity/*.sql` — the
    contaminated formula was *there*, not in the engine. Audit the `.sql`, not just the `.fs`.
 
-**Status:** LowFlyer ✅ clean · MaxFlyerV3 ⚠️ unconfirmed (`brv20d` denominator fails) ·
-VwapReclaimV3 / OpeningDriverV2 / DipRiderV4 ❌ dead. `docs/systems_showcase.md` quotes dead numbers.
+**Status:** LowFlyer ⚠️ avgvol20-clean ONLY — its universe (`mr_candidate`) carried two MORE
+lookaheads found 2026-07-31 (day D's ADJUSTED close ≥ $1 + future-episode-length warmup; see
+`docs/flushfader_results.md` §S39d) · MaxFlyerV3 ⚠️ unconfirmed (`brv20d` denominator fails) ·
+VwapReclaimV3 / OpeningDriverV2 / DipRiderV4 ❌ dead · SurgeRider/V2, DipRiderV6, PlungeRider,
+MaxRiderV1 🛑 invalid pending clean-table reruns (same §S39d bug; banners on their docs; sub-$1/$2
+slices inflated — bounce-door PF 8.5 = outcome selection). `docs/systems_showcase.md` quotes dead
+numbers. Clean universe = `mr_candidate_1s` (1s-tape-native, no price floor, prior-only warmup;
+FlushFader default).
 
 ## F# Async Patterns
 
