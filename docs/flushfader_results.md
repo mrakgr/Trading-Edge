@@ -3576,3 +3576,38 @@ again)** · 2024 24.4 · 2025 4.8 · 2026 20.7. Six of seven years far above
 the <3 remainder. ⏭ THE SIZING-PYRAMID CANDIDATE for the user: overlay-count
 as the size dial (base size at 0-2, size up at 3+), replacing per-cell
 special-casing; needs the mc=1 replay + A++-interaction pass before adoption.
+
+## S39o — slope ACCELERATION (user: slope_10m − slope_20m) breakdown (2026-07-31)
+
+Universe = v1.6 minus rngfront, $1-$10 book (32,938). `accel` = (ols_slope_600
+− ols_slope_1200) × 6e5 bp/min: negative = the decline STEEPENS into the
+signal, positive = decelerating. Quantiles: q05 −95.5 / med −15.3 / q95 +47.5.
+corr(accel, rngfront) = −0.477 (rngfront's OLS cousin), corr(accel, slope20)
+= −0.205. The L-sliver is invisible on this axis too (med −32.6).
+
+| accel bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| < −150 | 281 | 1.974 | 76.2 | +4.11 | 13.79 | 86.63 | 0.32 | 7.94 | 0.29 | 21.40 | 3.35 |
+| [−150,−120) | 447 | 1.086 | 60.9 | +1.48 | −inf | 0.23 | 5.05 | 1.12 | 0.90 | 1.30 | 1.42 |
+| [−120,−100) | 668 | 1.320 | 69.8 | +3.03 | 5.05 | 0.64 | 1.04 | 1.32 | 1.28 | 2.51 | 0.79 |
+| [−100,−80) | 1,319 | 1.275 | 67.9 | +1.88 | 1.33 | 1.12 | 0.48 | 0.66 | 2.60 | 1.59 | 1.05 |
+| [−80,−60) | 2,426 | 2.858 | 73.3 | +2.45 | 5.00 | 2.75 | 1.46 | 0.76 | 4.08 | 3.55 | 4.30 |
+| [−60,−40) | 4,030 | 2.309 | 73.2 | +2.08 | 2.92 | 4.91 | 1.01 | 1.39 | 2.27 | 2.27 | 2.58 |
+| [−40,−20) | 5,819 | 2.181 | 72.9 | +2.23 | 3.37 | 5.01 | 0.65 | 1.89 | 2.48 | 2.24 | 1.75 |
+| [−20,0) | 6,317 | 2.293 | 74.1 | +1.97 | 3.77 | 3.98 | 2.09 | 1.68 | 2.35 | 1.49 | 1.84 |
+| [0,20) | 5,380 | 2.072 | 71.5 | +1.79 | 3.64 | 3.36 | 2.10 | 1.33 | 1.63 | 1.74 | 1.72 |
+| [20,40) | 3,788 | 2.431 | 74.0 | +1.95 | 4.92 | 3.53 | 1.40 | 2.29 | 2.69 | 1.47 | 3.40 |
+| [40,60) | 1,522 | 2.590 | 76.9 | +2.19 | 6.81 | 3.47 | 30.07 | 3.08 | 1.57 | 1.28 | 3.07 |
+| [60,80) | 579 | 3.108 | 75.0 | +2.46 | 19.71 | 1.38 | 22.82 | 2.62 | 2.44 | 2.25 | 14.32 |
+| ≥ 80 | 362 | 2.115 | 65.7 | +1.99 | 2.59 | 0.08 | 0.06 | 4.50 | 5.36 | 2.98 | 0.47 |
+
+**The table's structure:** everything below −80 is bad-or-lottery — [−150,−80)
+= three consecutive toxic buckets (1.09/1.32/1.28; 2,434 trips) and < −150 is
+a 281-trip LOTTERY band (win-big-or-bleed: 86.6 in 2021 vs 0.29-0.32 in
+2022/24). The clean boundary is **−80**, not the −100 first proposed off the
+coarse buckets. [−80,−60) = 2.858 immediately above the line. Deceleration
+[20,80) is good (2.43-3.11) but with small-n year spikes; ≥ 80 erratic.
+Cutoff sensitivity (keep accel ≥ X, mc=0): −120 → 2.191, −100 → 2.236, **−80
+→ 2.320**, −60 → 2.271. Prior context: accel ≥ −100 alone = mc=1 2.068;
++rngfront = 2.138; the TRIPLE (+slope<−10) = 2.139 (year table in prior
+message; −80 variant pending user cutoff choice).
