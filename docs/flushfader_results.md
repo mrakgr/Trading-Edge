@@ -3695,3 +3695,40 @@ levels vs v1.6 (2.148/2.079)**, the first clean sweep of the program. mc=1
 years: 3.288/2.689/1.799/1.556/2.209/1.983/1.858. Caveat: cutoffs chosen
 in-sample today (table boundaries, plateau-stable, 7-year × 2-mc audits).
 Awaiting user bake decision.
+
+## S39s — ⭐ SPEC v1.7 BAKED + slope_5m table + accel5 ≥ 100 = THE ABSORPTION OVERLAY (user) (2026-07-31)
+
+**SPEC v1.7 (user decision) = v1.6 + `accel(10m−20m) ≥ −80bp/min` +
+`slope_20m < −10bp/min`**, rngfront retained; raw bp/min axes (S39q). Engine
+defaults + flags baked; banner = SPEC v1.7. Reference run on the full clean
+universe in flight; parity vs the SQL cut on base_v2 to follow.
+
+**User correction on my S39r "accel5 = noise" verdict (accepted):** the
+DECELERATION side has signal — **`accel5 ≥ 100` = the ABSORPTION overlay**
+(the stock decelerating while still printing new 20m lows = someone is
+absorbing the selling): [100,150) = 3.513 positive ALL SEVEN YEARS, ≥150 =
+85.6% win/med +3.36. Combined ≥100 ≈ 887 trips. Joins the year-robust overlay
+roster (dsv, slope<−100 quality, vol-N_eff≥600, neffret≥28, now absorption) —
+ties back to the absorption-at-key-levels thesis. `accel5 < −300` = coinflip
+(1.53/57%) but LEFT IN (user: small n, no conclusions from 170 trips).
+
+**Raw slope_5m table (user request; universe = v1.6 minus rngfront):**
+q05/med/q95 = −265.5/−93.5/−9.0.
+
+| slope5 bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| < −400 | 341 | 1.061 | 55.1 | +1.19 | −inf | 1.66 | 0.25 | 0.37 | 0.69 | 13.29 | 1.12 |
+| [−400,−300) | 652 | 2.269 | 71.0 | +3.36 | 8.92 | 14.08 | 0.65 | 2.18 | 1.15 | 3.18 | 1.57 |
+| [−300,−200) | 2,951 | 2.188 | 72.6 | +2.72 | 7.56 | 1.23 | 1.74 | 1.07 | 2.04 | 1.86 | 3.50 |
+| [−200,−150) | 3,985 | 1.848 | 72.2 | +2.44 | 3.38 | 2.85 | 0.51 | 1.39 | 3.01 | 2.31 | 1.11 |
+| [−150,−100) | 7,286 | 2.211 | 75.0 | +2.24 | 2.92 | 3.21 | 1.27 | 2.22 | 2.07 | 1.87 | 2.29 |
+| [−100,−70) | 5,922 | 2.559 | 74.7 | +2.11 | 4.20 | 3.70 | 3.46 | 2.19 | 3.20 | 1.45 | 1.92 |
+| [−70,−40) | 5,856 | 2.260 | 72.6 | +1.81 | 3.49 | 2.60 | 1.35 | 1.62 | 2.02 | 2.21 | 3.54 |
+| [−40,−20) | 3,116 | 2.237 | 70.3 | +1.57 | 2.85 | 3.64 | 1.94 | 2.05 | 2.45 | 1.86 | 1.35 |
+| [−20,0) | 1,905 | 1.866 | 68.7 | +1.41 | 3.40 | 2.81 | 1.72 | 1.19 | 1.40 | 1.62 | 1.24 |
+| [0,30) | 849 | 2.137 | 73.4 | +2.23 | 6.50 | 4.17 | 2.28 | 1.04 | 1.40 | 1.86 | 1.95 |
+| ≥ 30 | 75 | 1.631 | 76.0 | +2.90 | −inf | 91.51 | 2.49 | −inf | 0.19 | 4.58 | −inf |
+
+Body flat 1.85-2.56, no bleed band; < −400 = near-coinflip extreme
+(overlapping accel5 < −300 territory); [−100,−70) = the sweet band. Gate-
+hostile, record-only.
