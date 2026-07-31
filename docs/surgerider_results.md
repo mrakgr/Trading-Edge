@@ -1,5 +1,24 @@
 # SurgeRider / PlungeRider — results
 
+> ## 🛑 2026-07-31 (FlushFader S39d): CANDIDATE-TABLE LOOKAHEAD — results in this document are INVALID pending a clean-table control rerun
+>
+> This engine's universe (`diprider_v6_candidate`, a row-for-row copy of `mr_candidate`)
+> carried TWO lookahead gates the whole time:
+>
+> 1. **`day_close >= $1`** — day D's OWN **adjusted** close: unknowable intraday, and
+>    future-split-dependent (penny names admitted *because of a later reverse split*;
+>    days that crashed through $1 excluded *because of D's own outcome*).
+> 2. **`nbars > 21` warmup** — counted the episode's FUTURE days: membership conditioned
+>    on how long the ticker would survive.
+>
+> Measured teeth (on FlushFader's blotter): sub-$1 entries admitted via the "day closed
+> back above $1" door ran **PF 8.5 — pure outcome selection**. For LONG systems the bias
+> inflates exactly the sub-$1/sub-$2 corners; short books are biased conservative but the
+> universe shape is still contaminated. **Do not quote low-price slices from this
+> document.** Details: `docs/flushfader_results.md` §S39d. The clean replacement table is
+> `mr_candidate_1s` (1s-tape-native, no price floor, prior-only warmup, 2020+).
+
+
 `TradingEdge.SurgeRider` (long) / `TradingEdge.PlungeRider` (short) — **intraday MOMENTUM on 1-second
 bars** (branch `momentum-1s-bars`). Volume/trade-count-acceleration breakout in the trend direction,
 sampled mc=0 first. Data: `data/intraday_1s_slim/` (1,642 days, 2020-01-02 → 2026-07-17). Design
