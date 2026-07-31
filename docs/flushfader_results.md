@@ -3898,3 +3898,62 @@ EYES story. **NO accel exemption** (16 events don't buy a spec branch);
 logged instead as a PLAYBOOK note: deep capitulation (dist < −35%) on
 extreme acceleration = an A++-family recognition/sizing moment when it
 occurs live, not a gate.
+
+## S39w — ⭐ v1.7 REFERENCE + PARITY; eff10 REVERSAL; the wall; dist-from-20m-VWAP (2026-07-31)
+
+**v1.7 REFERENCE RUN (full clean universe, engine defaults): 47,847 raw trips
+@ 2.314/72.8% — GRAND PARITY ✓ (engine ≡ SQL-on-base_v2, 47,847 = 47,847,
+zero diff).** `v17_reference/` = THE reference parquet. Book ($1-$10): 29,258
+@ 2.367 mc=0 / 4,056 @ 2.175 mc=1.
+
+**eff10 REVERSAL (user asked to remove; the residual universe says KEEP):**
+my earlier V2 "near-no-op" reading was on the PRE-v1.7 universe (S39t
+conditioning lesson). Under v1.7, the gate's marginal removes |eff10| < 0.15
+= 1,063 @ 1.474/66.8% (recent years bad: 2024 0.56, 2025 0.67), and removal
+drops mc=1 2.175 → 2.127. eff_10m signed, uncensored (dist wall on):
+
+| bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| < −0.6 | 5,999 | 2.552 | 76.3 | +2.09 | 4.25 | 4.98 | 1.29 | 1.28 | 3.05 | 2.04 | 3.59 |
+| [−0.6,−0.45) | 10,266 | 2.558 | 74.3 | +2.14 | 3.01 | 5.55 | 1.40 | 1.92 | 3.08 | 2.28 | 2.12 |
+| [−0.45,−0.3) | 8,804 | 2.261 | 72.9 | +2.03 | 4.07 | 3.12 | 1.62 | 1.84 | 1.94 | 1.84 | 2.12 |
+| [−0.3,−0.15) | 4,123 | 1.938 | 68.6 | +1.77 | 4.75 | 1.76 | 1.98 | 1.39 | 1.62 | 1.29 | 2.67 |
+| [−0.15,−0.05) | 869 | 1.390 | 66.1 | +1.53 | 9.69 | 6.92 | 1.66 | 1.79 | 0.56 | 0.67 | 1.01 |
+| [−0.05,0.05) | 187 | 1.781 | 71.1 | +1.78 | 6.33 | 0.91 | 0.43 | 111.83 | 0.87 | 0.47 | 36.81 |
+| [0.05,0.15) | 7 | 35.34 | 42.9 | −0.03 | - | - | −inf | - | - | 0.00 | - |
+
+Monotone in |magnitude| on the negative side; positive side near-empty at a
+20m-low signal. **NOT baked out — recommendation: KEEP.**
+
+**The −35 wall (user question):** census = 129 trips / 28 tkds (~4/yr; 2024×8
++ 2025×8 tkds carry PF 155/31; 2020 = 1.62; every observable year clean).
+Removal: mc=0 +129 trips @ 11.2, **mc=1 2.175 → 2.184 (+0.009)** — mildly
+positive AND a simplification (drops a parameter whose S7-era "un-fadeable"
+rationale no longer holds here). **Recommendation: REMOVE (user to confirm);
+lottery-shaped caveat on record.**
+
+**dist-from-20m-VWAP (user: never tested):** corr(dist_hi, dist_vw) = 0.948
+— the third depth-family member. Monotone, clean shallow-tail cut
+([−3.5,−2) = 1.036):
+
+| dist_vw bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| < −20 | 302 | 5.427 | 78.5 | +4.82 | 4.62 | −inf | −inf | 2.30 | 24.80 | 3.21 | 4.60 |
+| [−20,−15) | 1,153 | 3.695 | 77.0 | +4.05 | 9.73 | 2.28 | 0.28 | 2.41 | 5.03 | 4.87 | 4.58 |
+| [−15,−12) | 2,576 | 2.908 | 78.1 | +3.16 | 14.71 | 4.25 | 0.81 | 1.92 | 3.77 | 2.33 | 2.56 |
+| [−12,−9) | 6,624 | 2.334 | 74.6 | +2.41 | 3.09 | 5.20 | 1.34 | 1.48 | 2.44 | 2.01 | 2.48 |
+| [−9,−7) | 8,969 | 2.117 | 71.5 | +1.93 | 3.61 | 2.68 | 1.85 | 1.36 | 2.14 | 1.67 | 2.32 |
+| [−7,−5) | 12,143 | 2.154 | 72.8 | +1.60 | 2.71 | 3.88 | 1.82 | 1.72 | 1.57 | 1.63 | 1.76 |
+| [−5,−3.5) | 5,233 | 1.858 | 69.5 | +1.21 | 2.46 | 2.17 | 1.24 | 1.54 | 1.78 | 1.55 | 1.66 |
+| [−3.5,−2) | 503 | 1.036 | 63.8 | +0.64 | 0.88 | 1.38 | 1.79 | 9.79 | 0.79 | 0.94 | 0.40 |
+
+Frontier (keep < X): −4 → 35,903/2.325 · −5 → 31,767/2.356 · −6 →
+25,587/2.406 · −7 → 19,624/2.451 · −8 → 14,594/2.556 · −10 → 7,765/3.026 ·
+−12 → 4,031/3.313 · −15 → 1,455/4.030. On the mc=0 frontier dist_vw beats
+dist_hi at most matched-PF points — but at mc=1: dist_vw@−5 = 2.114,
+**dist_vw@−6 = 2.170 on 3,618 vs dist_hi's 2.175 on 4,056 (dist_hi keeps
+~12% more trips at equal book PF)**. Same verdict as slope: NO replacement.
+**THE THEME OF THE DAY, third confirmation: the baked gates' value lives in
+SLOT ALLOCATION — mc=0 frontiers cannot see it, and every challenger that
+wins mc=0 efficiency loses at the mc=1 operating point.** dist_vw joins the
+overlay/record roster (deep bands 3.7-5.4 with clean years).
