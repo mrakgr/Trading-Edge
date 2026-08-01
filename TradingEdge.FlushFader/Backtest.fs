@@ -284,6 +284,12 @@ CREATE TABLE trips (
     n_eff_ret_20m DOUBLE, n_eff_ret_10m DOUBLE,
     hi_60 DOUBLE,
     rng_slots_20m DOUBLE, rng_slots_10m DOUBLE, eff_rng_20m DOUBLE, eff_rng_10m DOUBLE,
+    gap_300 INTEGER, gap_600 INTEGER, gap_1200 INTEGER,
+    vol_300 DOUBLE, tc_300 DOUBLE,
+    dollar_vol_300 DOUBLE, dollar_vol_600 DOUBLE, dollar_vol_1200 DOUBLE,
+    n_eff_shannon_60 DOUBLE, n_eff_hhi_60 DOUBLE, n_eff_shannon_300 DOUBLE, n_eff_hhi_300 DOUBLE,
+    vol_leg DOUBLE, tc_leg DOUBLE, dv_leg DOUBLE, cum_dv DOUBLE,
+    targets_today INTEGER, volat_20m_prev DOUBLE,
     qty DOUBLE, net_pnl DOUBLE
 )"""
 
@@ -390,6 +396,12 @@ type TripSink(outDir: string) =
             f p.NEffRet20m; f p.NEffRet10m
             f p.Hi60
             f p.RngSlots20m; f p.RngSlots10m; f p.EffRng20m; f p.EffRng10m
+            i p.Gap300; i p.Gap600; i p.Gap1200
+            f p.Vol300; f p.Tc300
+            f p.DollarVol300; f p.DollarVol600; f p.DollarVol1200
+            f p.NEffShannon60; f p.NEffHhi60; f p.NEffShannon300; f p.NEffHhi300
+            f p.VolLeg; f p.TcLeg; f p.DvLeg; f p.CumDv
+            i p.TargetsToday; f p.Volat20mPrev
             f qty; f pnl
             row.EndRow()
             total <- total + 1L

@@ -4691,3 +4691,50 @@ triple adds PF but reintroduces a 2022 wart (0.99) and halves n — the pair
 is the keeper. These are SIZING-pyramid members, not gates (each cuts
 60-83% of the book). ⏭ next: mc=1 + A++-cell interaction pass for O2 x O3
 before promoting it into the official pyramid.
+
+## S40l — the Rényi/volume engine bake + pco REPLACES dsv (2026-08-01, evening)
+
+**User's Rényi framing:** gap_60 is a VOLUME requirement in disguise (real-
+world liquidity benefit backtests can't even see) — and it's the rank-0
+Rényi measure of the window's volume distribution, with n_eff_shannon =
+rank 1 and n_eff_hhi = rank 2. The study program: volume, dollar volume,
+trade count, gaps, and Rényi ranks 0/1/2 on the 1m/5m/10m/20m windows.
+
+**ENGINE (18 new record-only columns, present-bar convention like the rest;
+bars + gaps = calendar span, so rank 0 lives in the gap counters):**
+- `gap_300/600/1200` (rank-0 family completed; gap_60/30/15 existed)
+- `vol_300`, `tc_300` (the 5m window joins the vol/tc family)
+- `dollar_vol_300/600/1200` (the torrent axis recorded at every window)
+- `n_eff_shannon_60/300`, `n_eff_hhi_60/300` (ranks 1-2 at 1m/5m; 600/1200 existed)
+- Tier-2: `vol_leg`/`tc_leg`/`dv_leg` (Σ since the 20m leg's FIRST low, that
+  bar inclusive; anchors snapshot at first-low, clear on leg reset),
+  `cum_dv` (pre-leg = cum − leg, for vol/tc/dv alike), `targets_today`
+  (target exits FILLED before the bar — the S38i day-scoped virgin clock,
+  0 = virgin), `volat_20m_prev` (volat as of 1200 present bars ago — the
+  S39q lagged normalizer). Leg-rate denominators for the participation
+  ratios (user): session average = cum_*/(signal_sec − 34200) (reader feeds
+  RTH-only bars, verified — no premarket in cum) and initial-15m average =
+  vol/tc/dv_0945_tape (trips + mr_candidate_1s join). ⚠ leg rate is per
+  PRESENT BAR, denominators per calendar second — gap counters can bridge.
+`base_v4/` running (all 17 gates off); trip-set parity vs base_v3 to follow.
+
+**pco vs dsv (user: could pco replace dsv?): YES — dsv RETIRES.** corr =
+0.576, and the 2D shows dsv ≥ −3 is a NEAR-SUBSET of pco ≥ 2:
+
+| overlay | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| pco >= 2 | 7,604 | 3.411 | 77.2 | +2.26 | 6.68 | 5.04 | 1.96 | 2.03 | 2.94 | 2.76 | 5.96 |
+| dsv >= -3 | 1,802 | 3.326 | 78.1 | +2.3 | 5.24 | 3.9 | 2.42 | 2.58 | 1.66 | 4.08 | 14.37 |
+| pco >= 2 AND dsv >= -3 | 1,679 | 3.321 | 78.1 | +2.3 | 5.04 | 3.53 | 2.27 | 3.1 | 1.62 | 3.99 | 13.89 |
+| pco >= 2 AND dsv < -3 | 5,925 | 3.439 | 77.0 | +2.25 | 7.45 | 5.56 | 1.89 | 1.81 | 3.9 | 2.54 | 4.89 |
+| pco < 2 AND dsv >= -3 | 123 | 3.409 | 78.0 | +2.29 | 138.39 | 20.9 | 3.37 | 1.09 | - | 16.42 | - |
+| pco >= 2 OR dsv >= -3 | 7,727 | 3.411 | 77.2 | +2.26 | 6.74 | 5.13 | 2.0 | 1.98 | 2.95 | 2.78 | 6.02 |
+
+93% of dsv's trips sit inside pco ≥ 2 (1,679/1,802); dsv's exclusive
+marginal = 123 trips; and pco's exclusive region (dsv < −3) is just as good
+as the overlap (3.439 vs 3.321) — dsv added NOTHING beyond day-structure
+that pco doesn't capture with 4.2× the trips at the same PF. **The overlay
+roster's day-structure seat: dsv ≥ −3 → pco ≥ +2 (recorded since v1.2 as
+pct_chg_open; dsv stays a recorded column).** The 2D grid: within pco ≥ 10,
+every dsv column runs 3.3-3.8 — dsv adds no gradient inside pco's deep
+region either.

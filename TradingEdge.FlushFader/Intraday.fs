@@ -240,10 +240,15 @@ type FlushPosition =
                                  // broke: depth-below-break = ln(signal_vwap/chan_lo) < 0
       ExitChanHi: float          // the STRICTLY-PRIOR EXIT-channel max — the reversion target:
                                  // distance-to-target = ln(exit_chan_hi/signal_vwap) > 0
-      // ----- the gap counts (what present-bar windows hide) -----
+      // ----- the gap counts (what present-bar windows hide). S40l: also the
+      // rank-0 Rényi member per window — bars + gaps = the window's calendar
+      // span, support share = window/(window+gap). -----
       Gap60: int
       Gap30: int
       Gap15: int
+      Gap300: int
+      Gap600: int
+      Gap1200: int
       // ----- location -----
       SessVwap: float
       DistSessVwap: float        // ln(vwap / session vwap)
@@ -256,6 +261,7 @@ type FlushPosition =
       Vol15: float
       Vol30: float
       Vol60: float
+      Vol300: float              // S40l: the 5m window joins the vol/tc/dv family
       Vol600: float              // 10m volume sum (mid-horizon participation ratios)
       Vol1200: float             // 20m sums — the absolute 1m-vs-10m-vs-20m comparisons
       Tc5: float                 // 5s/10s tails, tc twins
@@ -263,6 +269,7 @@ type FlushPosition =
       Tc15: float
       Tc30: float
       Tc60: float
+      Tc300: float
       Tc600: float
       Tc1200: float
       Vol60Prev: float           // the PREVIOUS non-overlapping minute's sums (60-bar lag of the
@@ -272,8 +279,21 @@ type FlushPosition =
                                  // overlapping minute) — flush speed = signal_vwap/vwap_60_prev-1
                                  // (user, 2026-07-28; replaces the noisy two-point vwap_60_ago)
       DollarVol60: float         // Sum60 of vwap*volume — the liquidity-floor value
+      DollarVol300: float        // S40l: dv at every study window (the torrent axis
+      DollarVol600: float        //   lived on dv/20m — now recorded at 5m/10m/20m
+      DollarVol1200: float       //   for the dv-vs-N_eff disentangling)
       CumVol: float
       CumTc: float
+      CumDv: float               // S40l: session Σ vwap·vol — pre-leg dv = cum_dv − dv_leg
+      // ----- ⭐ S40l tier-2: leg-scoped participation (Σ since the 20m leg's
+      // FIRST low, that bar inclusive; nan = no leg open — never at a signal,
+      // the signal bar is a low) + the day-scoped virgin clock + the lagged
+      // volat normalizer (S39q). -----
+      VolLeg: float
+      TcLeg: float
+      DvLeg: float
+      TargetsToday: int          // target exits FILLED before this bar (0 = virgin day)
+      Volat20mPrev: float        // volat_20m as of 1200 present bars ago (nan while cold)
       Dv0945Tape: float          // ⭐ Σ vwap·volume over OUR 1s bars strictly before
                                  // 09:45 (honest dollars, v7 scale) — the live-scanner-
                                  // consistent dv_0945; compare vs the candidate column
@@ -294,6 +314,12 @@ type FlushPosition =
       NEffHhi600: float
       NEffShannon1200: float
       NEffHhi1200: float
+      // S40l: the 1m/5m members (same present-bar convention; gap_60/gap_300
+      // carry the rank-0 side of the family).
+      NEffShannon60: float
+      NEffHhi60: float
+      NEffShannon300: float
+      NEffHhi300: float
       // ----- ⭐ S39i (user): N_eff (Shannon) of |30s-slot log returns| — the SAME
       // stream the eff ratios consume — 40 slot-returns (20m) / 20 (10m): trend
       // SMOOTHNESS, the candidate replacement for the Kaufman eff ratios. High
@@ -538,6 +564,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let neff1200 = SlidingAgg<struct (NEffHhi * NEffShannon)>(neffZero, neffCombine)
     let mutable neff600Count = 0
     let mutable neff1200Count = 0
+    // ⭐ S40l (user): the 1m/5m members of the Rényi family — gap counters carry
+    // rank 0 (support/time), these carry ranks 1-2 on the SAME present-bar
+    // window convention as neff600/1200 (bars + gaps = calendar time post-hoc).
+    let neff60 = SlidingAgg<struct (NEffHhi * NEffShannon)>(neffZero, neffCombine)
+    let neff300 = SlidingAgg<struct (NEffHhi * NEffShannon)>(neffZero, neffCombine)
+    let mutable neff60Count = 0
+    let mutable neff300Count = 0
     // ⭐ S39i (user): N_eff (Shannon) of |30s-slot log returns| — trend SMOOTHNESS
     // on the SAME stream as the eff ratios (the |r| pushed into slotAbsSum/
     // slotAbsSum20): 40 slot-returns = 20m, 20 = 10m. A smooth slide spreads its
@@ -553,6 +586,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable neffRet20Count = 0
     let mutable tradeIdx = 0
     // ----- activity sums + lags -----
+    let volSum300 = SumMa 300                    // S40l: the 5m window joins the family
+    let tcSum300 = SumMa 300
+    let dvSum300 = SumMa 300
     let volSum5 = SumMa 5                        // 5s/10s tails (user, 2026-07-29)
     let volSum10 = SumMa 10
     let volSum15 = SumMa 15
@@ -634,11 +670,29 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let gap60 = GapCounter(60, cfg.SessionStartSec)
     let gap30 = GapCounter(30, cfg.SessionStartSec)
     let gap15 = GapCounter(15, cfg.SessionStartSec)
+    // S40l: the slow-window gap counters (rank-0 Rényi at 5m/10m/20m; bars +
+    // gaps = the window's calendar span).
+    let gap300 = GapCounter(300, cfg.SessionStartSec)
+    let gap600 = GapCounter(600, cfg.SessionStartSec)
+    let gap1200 = GapCounter(1200, cfg.SessionStartSec)
     let sessVwap = RatioMa()
     let mutable openVwap : float voption = ValueNone
     let mutable cumVol = 0.0
     let mutable dv0945Tape = 0.0                 // frozen once etSec >= 35100 (09:45)
     let mutable cumTc = 0.0
+    let mutable cumDv = 0.0                      // S40l: session Σ vwap·vol (leg-scoped dv)
+    // ⭐ S40l tier-2 (user): leg-scoped participation — session-cum anchors
+    // snapshotted at the leg's FIRST low (the first-low bar's own prints count
+    // INTO the leg: anchor = cum minus the current bar). nan = no leg open.
+    let mutable legVolAnchor = nan
+    let mutable legTcAnchor = nan
+    let mutable legDvAnchor = nan
+    // ⭐ S40l tier-2 (S38i): target exits FILLED before this bar — the day-scoped
+    // virgin flag becomes queryable (targets_today = 0 <=> virgin).
+    let mutable targetsToday = 0
+    // ⭐ S40l tier-2 (S39q): volat_20m as of 1200 present bars ago — the LAGGED
+    // (pre-window) normalizer the slope study lacked. nan while cold.
+    let volatLag = LagMa<float> 1200
 
     // ⭐ ACTIVE/RETIRED SPLIT (user, 2026-07-23). At mc=0 a busy day opens hundreds
     // of trips per ticker; looping ALL of them every bar made runtime scale
@@ -743,14 +797,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // tape-native 09:30-09:45 dollar volume (35100 = THE knowability floor, R4)
         if bar.etSec < 35100 then dv0945Tape <- dv0945Tape + bar.vwap * bar.volume
         cumTc <- cumTc + float bar.tradeCount
+        cumDv <- cumDv + bar.vwap * bar.volume
         gap60.Push bar.etSec
         gap30.Push bar.etSec
         gap15.Push bar.etSec
+        gap300.Push bar.etSec
+        gap600.Push bar.etSec
+        gap1200.Push bar.etSec
         volSum5.Push bar.volume
         volSum10.Push bar.volume
         volSum15.Push bar.volume
         volSum30.Push bar.volume
         volSum60.Push bar.volume
+        volSum300.Push bar.volume
         volSum600.Push bar.volume
         volSum1200.Push bar.volume
         tcSum5.Push (float bar.tradeCount)
@@ -758,9 +817,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         tcSum15.Push (float bar.tradeCount)
         tcSum30.Push (float bar.tradeCount)
         tcSum60.Push (float bar.tradeCount)
+        tcSum300.Push (float bar.tradeCount)
         tcSum600.Push (float bar.tradeCount)
         tcSum1200.Push (float bar.tradeCount)
         dvSum60.Push (bar.vwap * bar.volume)
+        dvSum300.Push (bar.vwap * bar.volume)
         pxSum600.Push bar.vwap
         pxSum1200.Push bar.vwap
         pxSum1800.Push bar.vwap
@@ -815,6 +876,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if neff600Count = 600 then neff600.Pop() else neff600Count <- neff600Count + 1
         neff1200.Push (neffLift bar.volume)
         if neff1200Count = 1200 then neff1200.Pop() else neff1200Count <- neff1200Count + 1
+        neff60.Push (neffLift bar.volume)
+        if neff60Count = 60 then neff60.Pop() else neff60Count <- neff60Count + 1
+        neff300.Push (neffLift bar.volume)
+        if neff300Count = 300 then neff300.Pop() else neff300Count <- neff300Count + 1
+        // S40l: lagged volat — push the CURRENT ew40 state each present bar so
+        // .Lagged = volat_20m as of 1200 present bars ago (nan while EMA cold).
+        volatLag.Push (match ew40.State with ValueSome v -> v | ValueNone -> nan)
         // the slot chain: one |r| into the volat EWMAs per completed slot
         match slots.Push(bar.vwap, bar.volume) with
         | ValueSome v ->
@@ -852,6 +920,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             match active.[i].State with
             | PendingExit reason ->
                 active.[i] <- { active.[i] with State = ExitedAt (bar.etSec, bar.vwap, reason) }
+                // S40l (S38i): the day-scoped virgin clock — count target exits
+                // at their FILL (the bounce is real once the exit prints).
+                if reason = "target" then targetsToday <- targetsToday + 1
             | _ -> ()
 
         // ===== 4. breach counters: step, then mark this bar's breaches =====
@@ -892,6 +963,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         let isNewLow = match priorEntryMin with ValueSome lo -> bar.vwap < lo | ValueNone -> false
         let isNewHigh = match priorEntryMax with ValueSome hi -> bar.vwap > hi | ValueNone -> false
         if isNewLow then
+            // S40l: the 20m leg's FIRST low anchors the leg-participation cums.
+            // Anchor BEFORE this bar's prints (already folded above) so the
+            // first-low bar itself counts INTO the leg.
+            if not counters.Armed then
+                legVolAnchor <- cumVol - bar.volume
+                legTcAnchor <- cumTc - float bar.tradeCount
+                legDvAnchor <- cumDv - bar.vwap * bar.volume
             counters.OnNewLow()
             counters300.OnNewLow()
             counters600.OnNewLow()
@@ -1228,6 +1306,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Gap60 = gap60.Gaps
                       Gap30 = gap30.Gaps
                       Gap15 = gap15.Gaps
+                      Gap300 = gap300.Gaps
+                      Gap600 = gap600.Gaps
+                      Gap1200 = gap1200.Gaps
                       SessVwap = vv sessVwap.State
                       DistSessVwap =
                         (match sessVwap.State with
@@ -1244,6 +1325,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Vol15 = vv volSum15.State
                       Vol30 = vv volSum30.State
                       Vol60 = vv volSum60.State
+                      Vol300 = vv volSum300.State
                       Vol600 = vv volSum600.State
                       Vol1200 = vv volSum1200.State
                       Tc5 = vv tcSum5.State
@@ -1251,6 +1333,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Tc15 = vv tcSum15.State
                       Tc30 = vv tcSum30.State
                       Tc60 = vv tcSum60.State
+                      Tc300 = vv tcSum300.State
                       Tc600 = vv tcSum600.State
                       Tc1200 = vv tcSum1200.State
                       Vol60Prev = vv vol60Lag.Lagged
@@ -1258,8 +1341,20 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Vwap60 = vv vwap60Now
                       Vwap60Prev = vv vwap60Lag.Lagged
                       DollarVol60 = vv dvSum60.State
+                      DollarVol300 = vv dvSum300.State
+                      DollarVol600 = vv dvSum600.State
+                      DollarVol1200 = vv dvSum1200.State
                       CumVol = cumVol
+                      CumDv = cumDv
                       Dv0945Tape = dv0945Tape
+                      // S40l tier-2: the signal bar IS a leg low, so the anchors
+                      // are always set here (nan can only appear on non-signal
+                      // reads, which never reach the parquet).
+                      VolLeg = cumVol - legVolAnchor
+                      TcLeg = cumTc - legTcAnchor
+                      DvLeg = cumDv - legDvAnchor
+                      TargetsToday = targetsToday
+                      Volat20mPrev = vv volatLag.Lagged
                       OlsSlope300 =
                         (match ols300.State with
                          | ValueSome m when ols300.Count = ols300.WindowSize -> m
@@ -1295,6 +1390,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                         (if neff1200Count = 1200 then let struct (_, s) = neff1200.Query in s.Value else nan)
                       NEffHhi1200 =
                         (if neff1200Count = 1200 then let struct (h, _) = neff1200.Query in h.Value else nan)
+                      NEffShannon60 =
+                        (if neff60Count = 60 then let struct (_, s) = neff60.Query in s.Value else nan)
+                      NEffHhi60 =
+                        (if neff60Count = 60 then let struct (h, _) = neff60.Query in h.Value else nan)
+                      NEffShannon300 =
+                        (if neff300Count = 300 then let struct (_, s) = neff300.Query in s.Value else nan)
+                      NEffHhi300 =
+                        (if neff300Count = 300 then let struct (h, _) = neff300.Query in h.Value else nan)
                       NEffRet20m = (if neffRet40Count = 40 then neffRet40.Query.Value else nan)
                       NEffRet10m = (if neffRet20Count = 20 then neffRet20.Query.Value else nan)
                       CumTc = cumTc
@@ -1349,6 +1452,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if isNewHigh then
             counters.Reset()
             tradeIdx <- 0
+            // S40l: the leg is over — clear the leg-participation anchors.
+            legVolAnchor <- nan
+            legTcAnchor <- nan
+            legDvAnchor <- nan
         // ⭐ S38e tighter resets: the breach bar reads 0 (OnBreach fired in
         // step 4). A new 5m/10m high can't share a bar with an entry either
         // (vwap < prior min1200 <= prior max300/600), so ordering is safe; a
