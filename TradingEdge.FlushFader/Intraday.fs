@@ -253,6 +253,13 @@ type FlushPosition =
       MaxGapRun1200: float       // longest contiguous tradeless run (s) in the 20m window
       MaxGapRun300: float        // 5m twin
       BigGapRuns1200: float      // count of >= 60s runs in the 20m window
+      // S40x: the halt-ADJUSTED gap family (halt intervals excluded) + detector state.
+      GapAdj60: int
+      GapAdj300: int
+      GapAdj600: int
+      GapAdj1200: int
+      HaltsToday: int            // volatility halts classified so far this session
+      SecsSinceHalt: int         // signal_sec − last reopen sec; −1 = no halt today
       // ----- location -----
       SessVwap: float
       DistSessVwap: float        // ln(vwap / session vwap)
@@ -472,6 +479,18 @@ type IntradayConfig =
                                  // at least 5% below the 20m rolling VWAP (trims the shallow
                                  // [−5,−4) 1.67 tail of the dvw axis). Default −0.05. >= 0 = off.
                                  // Cold vwap_1200 (window not full) FAILS an armed gate.
+      // ⭐ S40x HALT DETECTOR (user design, 2026-08-01): a tradeless run counts
+      // as a HALT — and is EXCLUDED from the gap_adj_* counters — iff, at the
+      // last bar BEFORE the hole: run >= HaltMinRunSec, 5m range (pre-hole,
+      // ln hi/lo) >= HaltMinRng300, and the ADJUSTED 1m gap < HaltMaxPreGap60
+      // (tape continuous right up to the stop; the adjusted counter makes
+      // back-to-back halt chains classify by recursion). Causal/live-buildable.
+      // Detects VOLATILITY halts only — news-pending (T1) halts have a quiet
+      // pre-range and stay in the counters as ordinary gaps (we don't fade
+      // news; sentiment-on-no-news is the MR edge — user).
+      HaltMinRunSec: int         // default 58 (LULD pause = 5min nominal; jitter tolerance)
+      HaltMinRng300: float       // default 0.04 (the LULD trigger state, pre-hole)
+      HaltMaxPreGap60: int       // default 2 (< 2 missing seconds in the pre-halt minute)
       // ⭐ PRICE-ACCEPTANCE STOPS (user, 2026-07-28): while holding, exit if a NEW
       // entry-channel low prints on (vol_60/60)/(vol_1200/1200) >= VolStopRatio, or
       // (tc_60/60)/(tc_1200/1200) >= TcStopRatio, or at vwap/vwap_60_prev - 1 <
@@ -687,6 +706,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let gapRunMax1200 = MaxMa 1200
     let gapRunMax300 = MaxMa 300
     let bigGapRuns1200 = SumMa 1200
+    // S40x halt state: classified halt intervals [a,b] (missing seconds), the
+    // day's halt count, the last reopen second, and the PRE-hole snapshots
+    // (as of the previous present bar) the classifier reads.
+    let haltIvals = ResizeArray<struct (int * int)>()
+    let mutable haltsToday = 0
+    let mutable lastHaltEnd = -1
+    let mutable prevAdjGap60 = 0
+    let mutable prevRng300 = nan
     let sessVwap = RatioMa()
     let mutable openVwap : float voption = ValueNone
     let mutable cumVol = 0.0
@@ -824,6 +851,29 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         gapRunMax1200.Push gapRun
         gapRunMax300.Push gapRun
         bigGapRuns1200.Push (if gapRun >= 60.0 then 1.0 else 0.0)
+        // ⭐ S40x: classify the run just ended against the PRE-hole snapshots.
+        // First bar of the day never classifies (prevRng300 = nan fails >=).
+        if gapRun >= float cfg.HaltMinRunSec
+           && prevRng300 >= cfg.HaltMinRng300
+           && prevAdjGap60 < cfg.HaltMaxPreGap60
+           && prevEtSec >= cfg.SessionStartSec then
+            haltIvals.Add(struct (prevEtSec + 1, bar.etSec - 1))
+            haltsToday <- haltsToday + 1
+            lastHaltEnd <- bar.etSec
+        // adjusted gaps = raw window gaps minus halt-interval overlap with the
+        // SAME [max(sessionStart, now-W+1), now] window the GapCounter uses.
+        let haltOverlap (w: int) =
+            let lo = max cfg.SessionStartSec (bar.etSec - w + 1)
+            let mutable s = 0
+            for struct (a, b) in haltIvals do
+                let hiO = min b bar.etSec
+                let loO = max a lo
+                if hiO >= loO then s <- s + (hiO - loO + 1)
+            s
+        let adjGap60 = max 0 (gap60.Gaps - haltOverlap 60)
+        let adjGap300 = max 0 (gap300.Gaps - haltOverlap 300)
+        let adjGap600 = max 0 (gap600.Gaps - haltOverlap 600)
+        let adjGap1200 = max 0 (gap1200.Gaps - haltOverlap 1200)
         volSum5.Push bar.volume
         volSum10.Push bar.volume
         volSum15.Push bar.volume
@@ -1332,6 +1382,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       MaxGapRun1200 = vv gapRunMax1200.State
                       MaxGapRun300 = vv gapRunMax300.State
                       BigGapRuns1200 = vv bigGapRuns1200.State
+                      GapAdj60 = adjGap60
+                      GapAdj300 = adjGap300
+                      GapAdj600 = adjGap600
+                      GapAdj1200 = adjGap1200
+                      HaltsToday = haltsToday
+                      SecsSinceHalt = (if lastHaltEnd < 0 then -1 else bar.etSec - lastHaltEnd)
                       SessVwap = vv sessVwap.State
                       DistSessVwap =
                         (match sessVwap.State with
@@ -1486,6 +1542,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if br300.BarsSinceBreach = 0 then counters300.Reset()
         if br600.BarsSinceBreach = 0 then counters600.Reset()
         // the aux-mark lookback: remember this bar as "the previous bar"
+        // (+ S40x pre-hole snapshots: this bar's adjusted 1m gap and post-push
+        // 5m range become the classifier inputs if the NEXT bar reveals a hole)
+        prevAdjGap60 <- adjGap60
+        prevRng300 <- chanRng max300 min300
         prevEtSec <- bar.etSec
         prevVwap <- bar.vwap
         prevXMa10 <- not (Double.IsNaN ma10) && bar.vwap > ma10

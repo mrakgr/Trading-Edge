@@ -55,6 +55,9 @@ type Args =
     | Min_Barnum of int
     | Max_Dist_1m of float
     | Max_Dist_Vw20m of float
+    | Halt_Min_Run of int
+    | Halt_Min_Rng_300 of float
+    | Halt_Max_Pre_Gap_60 of int
     // ----- sampler vs book -----
     | Max_Concurrent of int
     | Workers of int
@@ -100,6 +103,9 @@ type Args =
             | Min_Barnum _ -> "⭐ S40e episode warmup: candidate barnum (prior-only ROW_NUMBER, live-knowable) >= this. Default 22 = cut the IPO/early-listing slice (below-book for the LONG book; reserved for a future short system). 0 = off. Column-guarded (legacy tables skip it)."
             | Max_Dist_1m _ -> "⭐ SPEC v1.9 (S40g): vwap/hi_60 - 1 < this — dist from the 1m HIGH; conjunction with the speed gate (the shallow slice above -2%% = slot thieves). Default -0.02. >= 0 = off."
             | Max_Dist_Vw20m _ -> "⭐ SPEC v2.0 (S40h): vwap/vwap_1200 - 1 < this — must sit below the 20m rolling VWAP (trims the shallow dvw tail). Default -0.05. >= 0 = off."
+            | Halt_Min_Run _ -> "⭐ S40x halt detector (record-only): a tradeless run >= this many seconds can classify as a HALT. Default 58."
+            | Halt_Min_Rng_300 _ -> "⭐ S40x: pre-hole 5m range (ln hi/lo) >= this for the run to classify as a halt (the LULD trigger state). Default 0.04."
+            | Halt_Max_Pre_Gap_60 _ -> "⭐ S40x: pre-hole ADJUSTED 1m gap < this (tape continuous up to the stop). Default 2."
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: unlimited concurrent positions — every new low opens another trip, so it AVERAGES DOWN. Removes path dependency (every trip = an independent row) but PF is then ATTRIBUTION, not a portfolio number. 1 = a real book."
             | Workers _ -> "S39h: parallel day-workers (default: cores - 2). Trip SET is identical at any worker count; parquet row order is not."
             | Entry_Start_Sec _ -> "Earliest ET second (since midnight) an entry may fire. Default 35100 = 09:45 — the knowability floor itself (the old 10:00 was a VwapReclaim-era throwback). ⚠ Must be >= 35100."
@@ -133,6 +139,9 @@ let main argv =
                     MaxSpeed1m       = parsed.GetResult(Max_Speed_1m,       defaultValue = d.Intraday.MaxSpeed1m)
                     MaxDist1mHi      = parsed.GetResult(Max_Dist_1m,        defaultValue = d.Intraday.MaxDist1mHi)
                     MaxDistVw20m     = parsed.GetResult(Max_Dist_Vw20m,     defaultValue = d.Intraday.MaxDistVw20m)
+                    HaltMinRunSec    = parsed.GetResult(Halt_Min_Run,       defaultValue = d.Intraday.HaltMinRunSec)
+                    HaltMinRng300    = parsed.GetResult(Halt_Min_Rng_300,   defaultValue = d.Intraday.HaltMinRng300)
+                    HaltMaxPreGap60  = parsed.GetResult(Halt_Max_Pre_Gap_60, defaultValue = d.Intraday.HaltMaxPreGap60)
                     KBandLo          = parsed.GetResult(K_Band_Lo,          defaultValue = d.Intraday.KBandLo)
                     KBandHi          = parsed.GetResult(K_Band_Hi,          defaultValue = d.Intraday.KBandHi)
                     AbsEff20Lo       = parsed.GetResult(Abs_Eff20_Lo,       defaultValue = d.Intraday.AbsEff20Lo)

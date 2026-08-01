@@ -80,6 +80,9 @@ let defaultConfig =
                                         // conjunction (fast last minute AND a real 1m leg);
                                         // first challenger to win at BOTH mc levels
           MaxDistVw20m     = -0.05      // ⭐ SPEC v2.0 (S40h): >= 5% below the 20m rolling VWAP
+          HaltMinRunSec    = 58         // ⭐ S40x halt detector (user design; record-only)
+          HaltMinRng300    = 0.04
+          HaltMaxPreGap60  = 2
           KBandLo          = 26         // lows_since_first_low ∈ [26, 50] — THE 2022 fix
           KBandHi          = 50
           AbsEff20Lo       = 0.3        // ⭐ S40i redesign: |eff_20m| ∈ [0.3, 0.5) — the exhaustion
@@ -286,6 +289,8 @@ CREATE TABLE trips (
     rng_slots_20m DOUBLE, rng_slots_10m DOUBLE, eff_rng_20m DOUBLE, eff_rng_10m DOUBLE,
     gap_300 INTEGER, gap_600 INTEGER, gap_1200 INTEGER,
     max_gap_run_1200 DOUBLE, max_gap_run_300 DOUBLE, big_gap_runs_1200 DOUBLE,
+    gap_adj_60 INTEGER, gap_adj_300 INTEGER, gap_adj_600 INTEGER, gap_adj_1200 INTEGER,
+    halts_today INTEGER, secs_since_halt INTEGER,
     vol_300 DOUBLE, tc_300 DOUBLE,
     dollar_vol_300 DOUBLE, dollar_vol_600 DOUBLE, dollar_vol_1200 DOUBLE,
     n_eff_shannon_60 DOUBLE, n_eff_hhi_60 DOUBLE, n_eff_shannon_300 DOUBLE, n_eff_hhi_300 DOUBLE,
@@ -399,6 +404,8 @@ type TripSink(outDir: string) =
             f p.RngSlots20m; f p.RngSlots10m; f p.EffRng20m; f p.EffRng10m
             i p.Gap300; i p.Gap600; i p.Gap1200
             f p.MaxGapRun1200; f p.MaxGapRun300; f p.BigGapRuns1200
+            i p.GapAdj60; i p.GapAdj300; i p.GapAdj600; i p.GapAdj1200
+            i p.HaltsToday; i p.SecsSinceHalt
             f p.Vol300; f p.Tc300
             f p.DollarVol300; f p.DollarVol600; f p.DollarVol1200
             f p.NEffShannon60; f p.NEffHhi60; f p.NEffShannon300; f p.NEffHhi300
