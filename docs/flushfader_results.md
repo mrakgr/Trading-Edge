@@ -4164,3 +4164,60 @@ shift slightly on the next engine rerun — the current `v17_reference/` was
 cut on the warmed universe), or keep the universe and cut `barnum <= 21`
 POST-HOC (now a legitimate, prior-only, recorded-column cut — NOT the old
 lookahead). Either way the table build stays warmup-free.
+
+## S40d — ⭐ SPEC v1.8 BAKED = v1.7 MINUS the −35% wall (user, 2026-08-01)
+
+`DistHiLo` default → −Infinity (S39w evidence: under the accel/slope gates
+the sub-−35 slice shows no cliff — 129 trips/28 tkds, all-clean-years, mc=1
+2.184 vs 2.175; one parameter fewer). `DistHiHi = −0.10` (deep-enough) stays.
+Reference `v18_reference/` running on the regenerated 59,294-tkd
+`flushfader_base_tkds` (now INCLUDES the 2,086 early tkds — numbers below
+split warmed vs early until the user decides that slice). Parity + book +
+mc=1 to follow.
+
+**eff_rng_20m on the v1.8 residual universe, BOTH eff gates OFF** (user
+request; base_v3 = warmed universe, $1-$10 book): 52,676 trips @ 2.058.
+
+| eff_rng_20m bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,0.3) | 4,710 | 1.647 | 66.8 | +1.88 | 1.97 | 2.52 | 0.82 | 1.1 | 1.84 | 1.65 | 1.49 |
+| [0.3,0.35) | 7,474 | 1.84 | 70.4 | +1.87 | 2.69 | 3.6 | 0.99 | 1.37 | 1.83 | 1.6 | 1.25 |
+| [0.35,0.4) | 11,082 | 2.242 | 72.7 | +2.09 | 3.02 | 2.59 | 1.33 | 2.08 | 1.77 | 2.53 | 2.32 |
+| [0.4,0.45) | 11,641 | 2.354 | 73.6 | +1.98 | 4.13 | 2.81 | 1.65 | 1.74 | 2.3 | 1.87 | 2.41 |
+| [0.45,0.5) | 8,859 | 2.189 | 73.4 | +2.08 | 2.75 | 3.66 | 1.33 | 2.24 | 2.38 | 1.87 | 1.83 |
+| [0.5,0.55) | 5,185 | 2.055 | 72.2 | +1.88 | 3.57 | 4.21 | 1.33 | 1.22 | 1.71 | 1.81 | 2.66 |
+| [0.55,0.6) | 2,377 | 2.155 | 74.6 | +1.89 | 8.05 | 4.65 | 1.1 | 0.87 | 2.7 | 1.65 | 4.62 |
+| [0.6,0.65) | 883 | 1.644 | 72.5 | +1.81 | 21.43 | 8.67 | 1.62 | 1.83 | 2.21 | 0.66 | 0.96 |
+| [0.65,0.7) | 269 | 0.79 | 63.9 | +1.41 | 16.4 | 2.96 | 0.25 | 2.26 | 5.71 | 0.18 | 0.03 |
+| [0.7,0.8) | 172 | 0.648 | 55.2 | +0.88 | - | 1.85 | 0.53 | 1159.26 | 87.56 | 0.39 | 0.03 |
+| [0.8,1.01) | 24 | 2.319 | 66.7 | +1.15 | - | - | 0.0 | - | - | 5.43 | - |
+
+(Same hump as S40b — the wall removal barely perturbs it. The 2023 outlier
+1159 in [0.7,0.8) is one tail trip; the bucket's other years are toxic.)
+
+**v1.8 REFERENCE LANDED — GRAND PARITY ✓: engine 50,954 = SQL 50,954, zero
+diff both directions** (SQL = v1.8-as-SQL over base_v3 ∪ base_early_v1;
+`v18_reference/` = THE reference parquet, run on the 59,294-tkd union table,
+so it CONTAINS the early slice — split below).
+
+| slice | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| v1.8 book FULL universe | 30,797 | 2.321 | 73.2 | +2.04 | 3.59 | 3.42 | 1.56 | 1.68 | 2.21 | 1.98 | 2.4 |
+| v1.8 book warmed only | 29,321 | 2.392 | 73.5 | +2.05 | 3.74 | 3.7 | 1.49 | 1.64 | 2.45 | 1.96 | 2.49 |
+| v1.8 book early only | 1,476 | 1.425 | 66.7 | +1.72 | 1.03 | 1.45 | 2.23 | 2.34 | 0.44 | 2.8 | 0.91 |
+| wall-restored slice (warmed, dist < -35) | 129 | 11.21 | 80.6 | +5.62 | 1.62 | - | - | - | 155.46 | 31.32 | - |
+
+mc=1 (greedy replay, $1-$10 book):
+- **warmed: 4,062 @ 2.184, ALL 7 YEARS POSITIVE** (2020 3.22 / 2021 2.74 /
+  2022 1.80 / 2023 1.56 / 2024 2.22 / 2025 2.01 / 2026 1.88) — exactly the
+  S39w projection. **The mc=1 ladder: 2.004 (v1.4) → 2.070 → 2.106 (v1.5) →
+  2.104 (v1.6) → 2.175 (v1.7) → 2.184 (v1.8).**
+- full universe (early in): 4,232 @ 2.144 — the early slice costs −0.040 at
+  the operating point (dilutive at mc=1 in 5 of 7 years) for ~24 extra
+  slot-trips/yr. Strengthens the case for the post-hoc `barnum <= 21` cut
+  (user decision still open).
+
+**⭐ SPEC v1.8 = v1.7 minus the −35% wall. Book (warmed) 29,321 @ 2.392 mc=0
+/ 4,062 @ 2.184 mc=1. One parameter fewer; the recovered slice is the
+129-trip deep-capitulation lottery (11.2 PF, tail-carried — S39v/w), now
+simply part of the book.**

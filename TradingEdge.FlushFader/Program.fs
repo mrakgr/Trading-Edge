@@ -81,7 +81,7 @@ type Args =
             | Eff20_Lo _ -> "⭐ SPEC v1.2: SIGNED eff_20m >= this. Default -0.5. -Infinity = off."
             | Eff20_Hi _ -> "⭐ SPEC v1.2: SIGNED eff_20m < this. Default -0.3. Infinity = off."
             | Min_Abs_Eff_10m _ -> "⭐ SPEC v1.2: |eff_10m| >= this (no flat 10m tape). Default 0.15. 0 = off."
-            | Dist_Hi_Lo _ -> "⭐ SPEC v1.2: vwap/chan_hi - 1 >= this (the -35% un-fadeable wall). Default -0.35. -Infinity = off."
+            | Dist_Hi_Lo _ -> "⭐ SPEC v1.8: vwap/chan_hi - 1 >= this. Default -Infinity = off (the -35%% wall REMOVED — no cliff under the v1.7 accel/slope gates, S39w/S40d)."
             | Dist_Hi_Hi _ -> "⭐ SPEC v1.2: vwap/chan_hi - 1 < this (deep enough into the leg). Default -0.10. 0 = off."
             | Min_Vol10_Rate _ -> "⭐ SPEC v1.2: (vol_10/10)/(vol_60/60) >= this (S17 last-10s volume-rate floor — no quiet-tail drift-downs). Default 0.75. 0 = off."
             | Min_Lows_300 _ -> "⭐ SPEC v1.4: lows_since_first_low_300 >= this — kills the FAST-CHASE re-entry (5m bounce without a 20m leg reset re-signals in seconds; PF 0.11 on the A++ cell). Default 6. 0 = off."
@@ -205,7 +205,7 @@ let main argv =
     printfn "  volat band  = volat_20m ∈ [%s, %s) bp/30s"
         (if ic.MinVolat20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVolat20m * 1e4))
         (if Double.IsPositiveInfinity ic.MaxVolat20m then "inf" else sprintf "%.0f" (ic.MaxVolat20m * 1e4))
-    printfn "  SPEC v1.7   = speed %s | K ∈ [%s, %s] | eff20 ∈ [%s, %s) COLD FAILS | |eff10| >= %s | dist-20m-hi ∈ [%s, %s) | vol10rate >= %s | lows300 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
+    printfn "  SPEC v1.8   = speed %s | K ∈ [%s, %s] | eff20 ∈ [%s, %s) COLD FAILS | |eff10| >= %s | dist-20m-hi ∈ [%s, %s) | vol10rate >= %s | lows300 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
         (if ic.MaxSpeed1m >= 0.0 then "off" else sprintf "< %.0f%%/1m" (ic.MaxSpeed1m * 100.0))
         (if ic.KBandLo <= 0 then "off" else string ic.KBandLo)
         (if ic.KBandHi <= 0 then "off" else string ic.KBandHi)

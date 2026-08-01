@@ -74,8 +74,12 @@ let defaultConfig =
           Eff20Lo          = -0.5       // eff_20m ∈ [-0.5, -0.3) — the exhaustion band
           Eff20Hi          = -0.3
           MinAbsEff10m     = 0.15       // |eff_10m| >= 0.15 — no flat 10m tape
-          DistHiLo         = -0.35      // dist from 20m high ∈ (-35%, -10%] — inside the
-          DistHiHi         = -0.10      // fadeable zone, past the un-fadeable wall
+          DistHiLo         = Double.NegativeInfinity
+                                        // ⭐ SPEC v1.8 (user, 2026-08-01): the −35% wall REMOVED —
+                                        // under the v1.7 accel/slope gates the sub-−35 slice shows
+                                        // no cliff (S39w: 129 trips/28 tkds, all-clean-years;
+                                        // mc=1 2.184 vs 2.175). One parameter fewer.
+          DistHiHi         = -0.10      // dist from 20m high < −10% — deep enough into the leg
           MinVol10Rate     = 0.75       // last-10s volume rate >= 0.75x the 1m rate (S17/S18)
           MinLows300       = 6          // ⭐ SPEC v1.4: >= 6 lows since the last 5m-high bounce (S38h)
           MaxRngFront      = 0.8        // ⭐ SPEC v1.5: rng_300/rng_20m < 0.8 — no pure cliffs (S38k)
