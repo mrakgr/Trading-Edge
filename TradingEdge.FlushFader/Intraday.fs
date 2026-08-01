@@ -249,6 +249,10 @@ type FlushPosition =
       Gap300: int
       Gap600: int
       Gap1200: int
+      // S40v: halt-vs-sparsity decomposition of the gap totals.
+      MaxGapRun1200: float       // longest contiguous tradeless run (s) in the 20m window
+      MaxGapRun300: float        // 5m twin
+      BigGapRuns1200: float      // count of >= 60s runs in the 20m window
       // ----- location -----
       SessVwap: float
       DistSessVwap: float        // ln(vwap / session vwap)
@@ -675,6 +679,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let gap300 = GapCounter(300, cfg.SessionStartSec)
     let gap600 = GapCounter(600, cfg.SessionStartSec)
     let gap1200 = GapCounter(1200, cfg.SessionStartSec)
+    // ⭐ S40v (user): HALT vs SPARSITY — total gap seconds can't tell one long
+    // contiguous hole (LULD halt ~300s, reopen pause) from many short ones
+    // (thin tape). Per present bar, the gap RUN ending at that bar =
+    // etSec − prevEtSec − 1 (first bar: seconds since the open). Windowed over
+    // the last 1200/300 PRESENT bars: the max run + the count of >= 60s runs.
+    let gapRunMax1200 = MaxMa 1200
+    let gapRunMax300 = MaxMa 300
+    let bigGapRuns1200 = SumMa 1200
     let sessVwap = RatioMa()
     let mutable openVwap : float voption = ValueNone
     let mutable cumVol = 0.0
@@ -804,6 +816,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         gap300.Push bar.etSec
         gap600.Push bar.etSec
         gap1200.Push bar.etSec
+        // S40v: the tradeless run ending at THIS bar (prevEtSec still holds the
+        // previous present bar; -1 on the day's first bar -> run from the open).
+        let gapRun =
+            let prev = if prevEtSec < cfg.SessionStartSec then cfg.SessionStartSec - 1 else prevEtSec
+            float (max 0 (bar.etSec - prev - 1))
+        gapRunMax1200.Push gapRun
+        gapRunMax300.Push gapRun
+        bigGapRuns1200.Push (if gapRun >= 60.0 then 1.0 else 0.0)
         volSum5.Push bar.volume
         volSum10.Push bar.volume
         volSum15.Push bar.volume
@@ -1309,6 +1329,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Gap300 = gap300.Gaps
                       Gap600 = gap600.Gaps
                       Gap1200 = gap1200.Gaps
+                      MaxGapRun1200 = vv gapRunMax1200.State
+                      MaxGapRun300 = vv gapRunMax300.State
+                      BigGapRuns1200 = vv bigGapRuns1200.State
                       SessVwap = vv sessVwap.State
                       DistSessVwap =
                         (match sessVwap.State with

@@ -5322,3 +5322,59 @@ The census-real neighbor (g12 [90,360) × g3<15 = 744 trips / 121 tkds @
 rows dominate the 2D; recency structure adds little at scale. The
 mechanical constraint also caps the pocket: g12 >= 700 × alive-5m is EMPTY
 (not enough present seconds left to keep the last 5m gapless).
+
+## S40v — HALT vs SPARSITY: gap_60's meaning FLIPS with halt context; the burst corner is NOT halts (2026-08-01)
+
+**base_v5 = THE base** (2,217,950, zero-diff parity vs base_v4; new cols
+max_gap_run_1200/300 = longest contiguous tradeless run attached to the
+window's present bars, big_gap_runs_1200 = count of >= 60s runs; ⚠ 0.7% of
+rows have max_run > gap total — a run ENDING in the window can START before
+its calendar span; context feature, by design). Halt-context census on the
+v2.0 residual: **CLEAN (max run < 60s) = 93.8%** @ 2.43; MIXED (60-250s) =
+2.6% @ 5.15; HALTY (>= 250s, LULD-scale) = 3.6% @ 2.32.
+
+gap_60 × halt context (n / PF):
+
+| gap_60 \ context | CLEAN | MIXED | HALTY |
+|---|---|---|---|
+| [0,1) | 6,164 / 3.56 | 0 | 455 / 2.96 |
+| [1,2) | 1,796 / 3.45 | 0 | 76 / 2.89 |
+| [2,4) | 2,233 / 3.41 | 0 | 75 / 2.09 |
+| [4,8) | 3,054 / 1.8 | 0 | 58 / 4.84 |
+| [8,16) | 3,891 / 1.7 | 3 / 0.0 | 98 / 7.34 |
+| [16,61) | 7,754 / 2.15 | 681 / 5.19 | 203 / 1.26 |
+
+| slice | n | tkds | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| g1<4 x CLEAN | 10,193 | 1569 | 3.512 | 77.2 | +2.3 | 7.09 | 5.26 | 2.54 | 2.54 | 2.68 | 2.95 | 3.48 |
+| g1<4 x HALTY | 606 | 93 | 2.849 | 73.3 | +3.16 | 7.43 | 7.76 | 0.16 | 2.62 | 6.41 | 1.44 | 19.23 |
+| g1 [4,16) x CLEAN | 6,945 | 1528 | 1.744 | 70.8 | +1.84 | 3.92 | 3.46 | 0.79 | 1.47 | 2.16 | 1.12 | 1.38 |
+| g1 [4,16) x HALTY | 156 | 28 | 5.992 | 77.6 | +2.32 | 1.97 | 3.04 | 19.57 | 13.29 | 25.41 | 1.52 | 10.99 |
+
+**(a) The user's confound was REAL and productive: gap_60's meaning FLIPS
+with halt context.** On clean tape the [4,16) trough is the true swamp
+(1.74); in halt context the same bucket runs 5.99 (2022-24 = 19.6/13.3/
+25.4 — post-reopen churn IS fadeable; 28 tkds ≈ 4/yr, borderline census).
+Conversely a gapless last minute in halt context = the post-reopen
+immediate knife (2.85 with 2022 = 0.16). The S40k gap_60 trough was a
+MIXTURE all along. (b) **MIXED context (a single 60-250s hole) = 684 @
+5.15** — halt-adjacent tape, overlay-note. (c) The production lens
+sharpens marginally: g1 < 4 × CLEAN = 10,193 @ 3.51.
+
+The S40s burst corner decomposed:
+
+| slice | n | tkds | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| corner (nh12<80 x g12>=700) | 496 | 123 | 11.878 | 82.5 | 6.39 | 2.6 | 19.92 | 8.85 | 72.56 | 12.17 | 16.29 |
+| corner x HALTY (mr>=250) | 0 | 0 | - | - | - | - | - | - | - | - | - |
+| corner x mr [60,250) | 58 | 17 | 52.071 | 89.7 | 0.0 | inf | - | - | 58.38 | tail | inf |
+| corner x SPARSE (mr<60) | 438 | 107 | 10.058 | 81.5 | 10.03 | 2.35 | 19.92 | 8.85 | 74.63 | 7.21 | 14.6 |
+
+**(d) The "reopen-style bursts" narrative (S40s) was WRONG — the corner
+contains ZERO LULD-scale runs.** 438/496 trips have max run < 60s: ~700
+missing seconds accumulated as DOZENS of sub-minute holes — genuinely
+sparse, intermittent tape with episodic volume avalanches, PF 10.06 on
+107 tkds, all years. The corner survives the decomposition as the sparse
+animal; the halt story dies. The intermittency caveat for the slippage
+audit stands and is now precisely characterized: many short waits, not
+halt reopens.
