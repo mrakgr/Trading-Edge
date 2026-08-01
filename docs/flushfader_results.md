@@ -5416,3 +5416,19 @@ pattern at ~8 events/yr; (iii) the CLEAN 94% of the book is untouched by
 all of this.** A proper halt FLAG (exchange feed / LULD reconstruction)
 would settle the residual ambiguity — deferred to the production data
 work.
+
+**S40w addendum — definitions + the total-gap version (user questions):**
+tc >= 15k is the 20m present-bar trade count (~12.5 trades/sec; ~65th
+percentile of the residual book, med 10,110 — moderately busy, below the
+mr>=250 slice's own median of 27.5k). "run >= 250s" = max_gap_run_1200,
+the longest CONTIGUOUS hole. **Using total gap_1200 instead DESTROYS the
+result** — the two variables select nearly disjoint populations: mr>=250 =
+965 trips, g12>=360 = 11,121, overlap only 424; **541 of the 965 big-run
+trips have g12 < 360** (one 300s halt on a liquid tape leaves a modest
+TOTAL; and a run may start before the calendar window). The total-gap
+"busy" cell (g12>=360 × tc>=15k × volat>=150) is nearly EMPTY (56 trips —
+high total gap and high tc are almost contradictory outside a contiguous
+hole), and the total-gap "dead" cell = 10,608 @ 2.17 = just the ordinary
+gappy book, no separation. **Total gap measures SPARSITY; max run measures
+INTERRUPTION. Halts are interruptions, not sparsity — only the run
+decomposition can see them.**
