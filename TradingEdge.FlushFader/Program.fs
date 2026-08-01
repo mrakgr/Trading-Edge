@@ -58,6 +58,7 @@ type Args =
     | Halt_Min_Run of int
     | Halt_Min_Rng_300 of float
     | Halt_Max_Pre_Gap_60 of int
+    | Min_R_Since_Flow of float
     // ----- sampler vs book -----
     | Max_Concurrent of int
     | Workers of int
@@ -106,6 +107,7 @@ type Args =
             | Halt_Min_Run _ -> "⭐ S40x halt detector (record-only): a tradeless run >= this many seconds can classify as a HALT. Default 58."
             | Halt_Min_Rng_300 _ -> "⭐ S40x: pre-hole 5m range (ln hi/lo) >= this for the run to classify as a halt (the LULD trigger state). Default 0.04."
             | Halt_Max_Pre_Gap_60 _ -> "⭐ S40x: pre-hole ADJUSTED 1m gap < this (tape continuous up to the stop). Default 2."
+            | Min_R_Since_Flow _ -> "⭐ SPEC v2.1 (S40y): ols_r_since_flow >= this — reject the PERFECT-LINE flush (the falling-knife quantifier; < -0.95 = 1.22). Default -0.95. <= -1 = off."
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: unlimited concurrent positions — every new low opens another trip, so it AVERAGES DOWN. Removes path dependency (every trip = an independent row) but PF is then ATTRIBUTION, not a portfolio number. 1 = a real book."
             | Workers _ -> "S39h: parallel day-workers (default: cores - 2). Trip SET is identical at any worker count; parquet row order is not."
             | Entry_Start_Sec _ -> "Earliest ET second (since midnight) an entry may fire. Default 35100 = 09:45 — the knowability floor itself (the old 10:00 was a VwapReclaim-era throwback). ⚠ Must be >= 35100."
@@ -142,6 +144,7 @@ let main argv =
                     HaltMinRunSec    = parsed.GetResult(Halt_Min_Run,       defaultValue = d.Intraday.HaltMinRunSec)
                     HaltMinRng300    = parsed.GetResult(Halt_Min_Rng_300,   defaultValue = d.Intraday.HaltMinRng300)
                     HaltMaxPreGap60  = parsed.GetResult(Halt_Max_Pre_Gap_60, defaultValue = d.Intraday.HaltMaxPreGap60)
+                    MinRSinceFlow    = parsed.GetResult(Min_R_Since_Flow,    defaultValue = d.Intraday.MinRSinceFlow)
                     KBandLo          = parsed.GetResult(K_Band_Lo,          defaultValue = d.Intraday.KBandLo)
                     KBandHi          = parsed.GetResult(K_Band_Hi,          defaultValue = d.Intraday.KBandHi)
                     AbsEff20Lo       = parsed.GetResult(Abs_Eff20_Lo,       defaultValue = d.Intraday.AbsEff20Lo)
@@ -220,10 +223,11 @@ let main argv =
     printfn "  volat band  = volat_20m ∈ [%s, %s) bp/30s"
         (if ic.MinVolat20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVolat20m * 1e4))
         (if Double.IsPositiveInfinity ic.MaxVolat20m then "inf" else sprintf "%.0f" (ic.MaxVolat20m * 1e4))
-    printfn "  SPEC v2.0   = speed %s | d1m %s | dvw20 %s | K ∈ [%s, %s] | |eff20| ∈ [%s, %s) | |eff10| >= %s | dist-20m-hi ∈ [%s, %s) | vol10rate >= %s | lows300 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
+    printfn "  SPEC v2.1   = speed %s | d1m %s | dvw20 %s | rflow >= %s | K ∈ [%s, %s] | |eff20| ∈ [%s, %s) | |eff10| >= %s | dist-20m-hi ∈ [%s, %s) | vol10rate >= %s | lows300 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
         (if ic.MaxSpeed1m >= 0.0 then "off" else sprintf "< %.0f%%/1m" (ic.MaxSpeed1m * 100.0))
         (if ic.MaxDist1mHi >= 0.0 then "off" else sprintf "< %.0f%%" (ic.MaxDist1mHi * 100.0))
         (if ic.MaxDistVw20m >= 0.0 then "off" else sprintf "< %.0f%%" (ic.MaxDistVw20m * 100.0))
+        (if ic.MinRSinceFlow <= -1.0 then "off" else sprintf "%.2f" ic.MinRSinceFlow)
         (if ic.KBandLo <= 0 then "off" else string ic.KBandLo)
         (if ic.KBandHi <= 0 then "off" else string ic.KBandHi)
         (if ic.AbsEff20Lo <= 0.0 then "off" else sprintf "%.2f" ic.AbsEff20Lo)

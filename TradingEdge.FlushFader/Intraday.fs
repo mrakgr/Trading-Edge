@@ -127,6 +127,49 @@ type AnchoredOls() =
     member _.Reset () =
         n <- 0.0; sx <- 0.0; sy <- 0.0; sxy <- 0.0; sxx <- 0.0; syy <- 0.0
 
+/// ⭐ S40z (user): anchored Kaufman efficiency on 30-PRESENT-BAR SLOT vwaps —
+/// the SAME stream convention as eff_20m/10m. Sub-30s returns are
+/// MICROSTRUCTURE NOISE (the F7 vol-lock finding) — a bar-level path sum
+/// would be dominated by it. Slots are built INTERNALLY from the anchor, boundaries
+/// aligned to the anchor (not the global slot clock): net ln(V_last/V_first)
+/// over Σ|ln slot r| across all COMPLETED slots since the anchor. Signed; nan
+/// below 3 completed slots or on a zero path.
+[<Sealed>]
+type AnchoredEff(slotBars: int) =
+    let mutable slotDv = 0.0
+    let mutable slotVol = 0.0
+    let mutable slotN = 0
+    let mutable slots = 0
+    let mutable firstV = nan
+    let mutable prevV = nan
+    let mutable sumAbs = 0.0
+    /// Completed slots since the anchor.
+    member _.Slots = slots
+    member _.Push (vwap: float, volume: float) =
+        slotDv <- slotDv + vwap * volume
+        slotVol <- slotVol + volume
+        slotN <- slotN + 1
+        if slotN = slotBars then
+            let v = if slotVol > 0.0 then slotDv / slotVol else vwap
+            if slots = 0 then firstV <- v
+            elif prevV > 0.0 && v > 0.0 then sumAbs <- sumAbs + abs (log (v / prevV))
+            prevV <- v
+            slots <- slots + 1
+            slotDv <- 0.0
+            slotVol <- 0.0
+            slotN <- 0
+    member _.Eff =
+        if slots < 3 || sumAbs <= 0.0 || not (firstV > 0.0) || not (prevV > 0.0) then nan
+        else log (prevV / firstV) / sumAbs
+    member _.Reset () =
+        slotDv <- 0.0
+        slotVol <- 0.0
+        slotN <- 0
+        slots <- 0
+        firstV <- nan
+        prevV <- nan
+        sumAbs <- 0.0
+
 [<Sealed>]
 type GapCounter(windowSecs: int, sessionStartSec: int) =
     let q = System.Collections.Generic.Queue<int>()
@@ -300,6 +343,10 @@ type FlushPosition =
                                  // is the sinceFlow length, already recorded)
       OlsSlopeSinceFlow: float
       OlsRSinceFlow: float
+      // S40z (user): the anchored Kaufman eff twins (per-bar stream — smaller
+      // magnitudes than the slot-based eff_20m/10m by construction).
+      EffSinceHigh: float
+      EffSinceFlow: float
       // S40x: the halt-ADJUSTED gap family (halt intervals excluded) + detector state.
       GapAdj60: int
       GapAdj300: int
@@ -538,6 +585,11 @@ type IntradayConfig =
       HaltMinRunSec: int         // default 58 (LULD pause = 5min nominal; jitter tolerance)
       HaltMinRng300: float       // default 0.04 (the LULD trigger state, pre-hole)
       HaltMaxPreGap60: int       // default 2 (< 2 missing seconds in the pre-halt minute)
+      MinRSinceFlow: float       // ⭐ SPEC v2.1 (user, S40y): r_since_flow >= this — reject the
+                                 // PERFECT-LINE flush (the leg one clean regression line since
+                                 // its first low = a drift, not a capitulation; the falling-knife
+                                 // quantifier: < -0.95 = 1.22 on 406). Default -0.95. <= -1 = off.
+                                 // Unwarm (leg < 3 bars) fails an armed gate.
       // ⭐ PRICE-ACCEPTANCE STOPS (user, 2026-07-28): while holding, exit if a NEW
       // entry-channel low prints on (vol_60/60)/(vol_1200/1200) >= VolStopRatio, or
       // (tc_60/60)/(tc_1200/1200) >= TcStopRatio, or at vwap/vwap_60_prev - 1 <
@@ -762,6 +814,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // then per-bar while the leg is armed) and clears with the leg.
     let olsSinceHigh = AnchoredOls()
     let olsSinceFlow = AnchoredOls()
+    // S40z: the anchored eff twins, same anchors/lifecycle as the OLS pair,
+    // slot cadence = cfg.SlotBars (the eff_20m convention).
+    let effSinceHigh = AnchoredEff cfg.SlotBars
+    let effSinceFlow = AnchoredEff cfg.SlotBars
     let haltIvals = ResizeArray<struct (int * int)>()
     let mutable haltsToday = 0
     let mutable lastHaltEnd = -1
@@ -994,9 +1050,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         sessLow.Push bar.vwap
         ols300.Push (log bar.vwap)
         olsSinceHigh.Push (log bar.vwap)
+        effSinceHigh.Push(bar.vwap, bar.volume)
         // the first-low bar itself is pushed at the arming event (step 4) —
         // Armed is still false here on that bar, so no double-push.
-        if counters.Armed then olsSinceFlow.Push (log bar.vwap)
+        if counters.Armed then
+            olsSinceFlow.Push (log bar.vwap)
+            effSinceFlow.Push(bar.vwap, bar.volume)
         ols600.Push (log bar.vwap)
         ols1200.Push (log bar.vwap)
         neff600.Push (neffLift bar.volume)
@@ -1097,9 +1156,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 legVolAnchor <- cumVol - bar.volume
                 legTcAnchor <- cumTc - float bar.tradeCount
                 legDvAnchor <- cumDv - bar.vwap * bar.volume
-                // S40y: the first-low OLS starts HERE, this bar inclusive.
+                // S40y/z: the first-low OLS + eff start HERE, this bar inclusive.
                 olsSinceFlow.Reset()
                 olsSinceFlow.Push (log bar.vwap)
+                effSinceFlow.Reset()
+                effSinceFlow.Push(bar.vwap, bar.volume)
             counters.OnNewLow()
             counters300.OnNewLow()
             counters600.OnNewLow()
@@ -1265,6 +1326,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             || (match max60.State with
                 | ValueSome h when h > 0.0 -> bar.vwap / h - 1.0 < cfg.MaxDist1mHi
                 | _ -> false)
+        // ⭐ SPEC v2.1 (S40y): reject the perfect-line flush. Unwarm r fails.
+        let rsfOk =
+            cfg.MinRSinceFlow <= -1.0
+            || (let r = olsSinceFlow.R
+                not (Double.IsNaN r) && r >= cfg.MinRSinceFlow)
         // ⭐ SPEC v2.0 (S40h): same dv/vol sums as the recorded vwap_1200 (nan-cold).
         let dvw20Ok =
             cfg.MaxDistVw20m >= 0.0
@@ -1340,7 +1406,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             || (match ols300.State with
                 | ValueSome m when ols300.Count = ols300.WindowSize -> m * 6e5 >= cfg.MinSlope5Bpm
                 | _ -> false)
-        let specOk = speedOk && d1mOk && dvw20Ok && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
+        let specOk = speedOk && d1mOk && dvw20Ok && rsfOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && specOk && this.HasSlot then
             pendingEntry <-
                 ValueSome
@@ -1447,6 +1513,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       BarsSinceHigh = olsSinceHigh.Count
                       OlsSlopeSinceFlow = olsSinceFlow.Slope
                       OlsRSinceFlow = olsSinceFlow.R
+                      EffSinceHigh = effSinceHigh.Eff
+                      EffSinceFlow = effSinceFlow.Eff
                       GapAdj60 = adjGap60
                       GapAdj300 = adjGap300
                       GapAdj600 = adjGap600
@@ -1600,10 +1668,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             legVolAnchor <- nan
             legTcAnchor <- nan
             legDvAnchor <- nan
-            // S40y: both anchored OLS reset with the leg (sinceHigh re-anchors
-            // at the bar after this high; sinceFlow waits for the next first low).
+            // S40y/z: the anchored OLS + eff reset with the leg (sinceHigh
+            // re-anchors at the bar after this high; sinceFlow waits for the
+            // next first low).
             olsSinceHigh.Reset()
             olsSinceFlow.Reset()
+            effSinceHigh.Reset()
+            effSinceFlow.Reset()
         // ⭐ S38e tighter resets: the breach bar reads 0 (OnBreach fired in
         // step 4). A new 5m/10m high can't share a bar with an entry either
         // (vwap < prior min1200 <= prior max300/600), so ordering is safe; a
