@@ -5185,3 +5185,26 @@ nh12 < 80, 11.9)** — the bimodality is total, and the middle remains the
 swamp. Overlay roster: the concentrated-torrent seat refines from
 nh12 < 80 (4.75) to **nh12 < 80 × g12 >= 700 (11.9)**; census-real but
 tail-shaped (mc=1 + sizing discipline before any pyramid promotion).
+
+**S40s addendum — dollar-volume distributions of the two gap bands (user
+liquidity concern):**
+
+| quantile | band [360,700) | band [700,1200) | BOOK reference |
+|---|---|---|---|
+| dv_20m med (q05-q95) | $5.4M ($2.1-11.7M) | $4.5M ($1.6-14.0M) | $5.3M ($2.0-18.6M) |
+| dv_5m med | $1.70M | $1.30M | $1.62M |
+| dv_1m med (q05) | $443k ($139k) | $365k ($138k) | $451k ($141k) |
+| dv_0945 med | $6.3M | $5.3M | $6.8M |
+| entry px med | $2.6 | $3.0 | $2.8 |
+| tc_60 med | 495 | 418 | 508 |
+
+**The 11.9 corner is NOT the illiquid tail** — its dollar distributions sit
+at ~80-85% of the book's medians and are IDENTICAL at q05 (the engine's own
+floors — DvFloor60 $100k, TcFloor60 60, dv_0945 >= $3M, dvw — already force
+real liquidity). These names did $3-14M in the 20m window; the gaps come
+from the tape STOPPING BETWEEN BURSTS, not from the name being untradable.
+A $10k clip ≈ 3% of the median signal-minute flow. **The real practical
+caveat is INTERMITTENCY, not depth**: with 700+ dead seconds, the
+next-present-bar fill assumption papers over wait-time and spread between
+bursts — exactly what the queued TradeZero-fills/slippage work must stress,
+with this corner as the primary test case.
