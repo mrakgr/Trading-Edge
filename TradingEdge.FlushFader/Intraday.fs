@@ -89,6 +89,44 @@ type SecBar =
 /// then read `.Gaps`. Session-start clamp: before the window fills with session
 /// seconds, the denominator is the elapsed session span, so the first RTH bars
 /// don't read as one giant gap.
+/// ⭐ S40y (user): growing-window OLS of ln(vwap) vs present-bar index since an
+/// ANCHOR event (the leg's last 20m-high / the leg's first low) — the leg-shaped
+/// twins of the fixed-window ols_300/600/1200. O(1) push; Reset at the anchor;
+/// nan until 3 points.
+[<Sealed>]
+type AnchoredOls() =
+    let mutable n = 0.0
+    let mutable sx = 0.0
+    let mutable sy = 0.0
+    let mutable sxy = 0.0
+    let mutable sxx = 0.0
+    let mutable syy = 0.0
+    member _.Count = int n
+    member _.Push (y: float) =
+        let x = n
+        n <- n + 1.0
+        sx <- sx + x
+        sy <- sy + y
+        sxy <- sxy + x * y
+        sxx <- sxx + x * x
+        syy <- syy + y * y
+    /// ln per present bar (×6e5 ≈ bp/min in SQL, same convention as ols_slope_*).
+    member _.Slope =
+        if n < 3.0 then nan
+        else
+            let d = n * sxx - sx * sx
+            if d <= 0.0 then nan else (n * sxy - sx * sy) / d
+    /// Pearson r (signed; < 0 on a decline).
+    member _.R =
+        if n < 3.0 then nan
+        else
+            let dx = n * sxx - sx * sx
+            let dy = n * syy - sy * sy
+            if dx <= 0.0 || dy <= 0.0 then nan
+            else (n * sxy - sx * sy) / sqrt (dx * dy)
+    member _.Reset () =
+        n <- 0.0; sx <- 0.0; sy <- 0.0; sxy <- 0.0; sxx <- 0.0; syy <- 0.0
+
 [<Sealed>]
 type GapCounter(windowSecs: int, sessionStartSec: int) =
     let q = System.Collections.Generic.Queue<int>()
@@ -253,6 +291,15 @@ type FlushPosition =
       MaxGapRun1200: float       // longest contiguous tradeless run (s) in the 20m window
       MaxGapRun300: float        // 5m twin
       BigGapRuns1200: float      // count of >= 60s runs in the 20m window
+      // ⭐ S40y (user): the leg-anchored OLS pair — slope/r of ln(vwap) since the
+      // last 20m high and since the leg's FIRST low. Growing windows (the leg's
+      // own shape, not a fixed clock); nan below 3 points.
+      OlsSlopeSinceHigh: float
+      OlsRSinceHigh: float
+      BarsSinceHigh: int         // the sinceHigh window's length (bars_since_first_low
+                                 // is the sinceFlow length, already recorded)
+      OlsSlopeSinceFlow: float
+      OlsRSinceFlow: float
       // S40x: the halt-ADJUSTED gap family (halt intervals excluded) + detector state.
       GapAdj60: int
       GapAdj300: int
@@ -709,6 +756,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // S40x halt state: classified halt intervals [a,b] (missing seconds), the
     // day's halt count, the last reopen second, and the PRE-hole snapshots
     // (as of the previous present bar) the classifier reads.
+    // S40y: the leg-anchored OLS pair. sinceHigh accumulates every bar and
+    // resets on a new 20m high (anchor = the bar AFTER the high); sinceFlow
+    // starts at the leg's first low (that bar inclusive — pushed at the event,
+    // then per-bar while the leg is armed) and clears with the leg.
+    let olsSinceHigh = AnchoredOls()
+    let olsSinceFlow = AnchoredOls()
     let haltIvals = ResizeArray<struct (int * int)>()
     let mutable haltsToday = 0
     let mutable lastHaltEnd = -1
@@ -940,6 +993,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         sessHigh.Push bar.vwap
         sessLow.Push bar.vwap
         ols300.Push (log bar.vwap)
+        olsSinceHigh.Push (log bar.vwap)
+        // the first-low bar itself is pushed at the arming event (step 4) —
+        // Armed is still false here on that bar, so no double-push.
+        if counters.Armed then olsSinceFlow.Push (log bar.vwap)
         ols600.Push (log bar.vwap)
         ols1200.Push (log bar.vwap)
         neff600.Push (neffLift bar.volume)
@@ -1040,6 +1097,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 legVolAnchor <- cumVol - bar.volume
                 legTcAnchor <- cumTc - float bar.tradeCount
                 legDvAnchor <- cumDv - bar.vwap * bar.volume
+                // S40y: the first-low OLS starts HERE, this bar inclusive.
+                olsSinceFlow.Reset()
+                olsSinceFlow.Push (log bar.vwap)
             counters.OnNewLow()
             counters300.OnNewLow()
             counters600.OnNewLow()
@@ -1382,6 +1442,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       MaxGapRun1200 = vv gapRunMax1200.State
                       MaxGapRun300 = vv gapRunMax300.State
                       BigGapRuns1200 = vv bigGapRuns1200.State
+                      OlsSlopeSinceHigh = olsSinceHigh.Slope
+                      OlsRSinceHigh = olsSinceHigh.R
+                      BarsSinceHigh = olsSinceHigh.Count
+                      OlsSlopeSinceFlow = olsSinceFlow.Slope
+                      OlsRSinceFlow = olsSinceFlow.R
                       GapAdj60 = adjGap60
                       GapAdj300 = adjGap300
                       GapAdj600 = adjGap600
@@ -1535,6 +1600,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             legVolAnchor <- nan
             legTcAnchor <- nan
             legDvAnchor <- nan
+            // S40y: both anchored OLS reset with the leg (sinceHigh re-anchors
+            // at the bar after this high; sinceFlow waits for the next first low).
+            olsSinceHigh.Reset()
+            olsSinceFlow.Reset()
         // ⭐ S38e tighter resets: the breach bar reads 0 (OnBreach fired in
         // step 4). A new 5m/10m high can't share a bar with an entry either
         // (vwap < prior min1200 <= prior max300/600), so ordering is safe; a
