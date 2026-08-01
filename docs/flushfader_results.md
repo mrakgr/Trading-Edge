@@ -5228,3 +5228,69 @@ of flow, maximal fill realism) **vs the burst corner = the EDGE side**
 (11.9 PF on book-typical depth but intermittent tape, slippage-audit
 required). Liquidity scaling WITH edge on the continuous side — the S38
 sizing-pyramid principle holding at the microstructure level.
+
+## S40t — the CLIMAX MAP: within-gap nh12 deciles (user's normalization method) (2026-08-01)
+
+**Method (user): for every exact gap value, rank nh12 into deciles WITHIN
+that gap group (NTILE(10) PARTITION BY g12), then aggregate deciles across
+gap values** — removes the gap→N_eff mechanical dependence entirely; the
+residual axis is pure arrangement-given-support. D1 = most concentrated,
+D10 = most even.
+
+Fine ABSOLUTE nh12 within gap <= 15 first (user request; 4,334 trips, nh12
+med 389): everything 4.2-8.3 — elite regardless of nh12; only the most-even
+extreme deteriorates ([580,640) = 4.87 but 2025/26 = 0.84/0.31; [640,1201)
+= 3.19/55% on 40).
+
+| nh12 within gap<=15 | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,250) | 678 | 4.183 | 73.7 | +2.43 | 3.24 | 37.74 | inf | - | 3.62 | 1.91 | 8.8 |
+| [250,320) | 744 | 4.322 | 80.4 | +2.55 | 3.29 | 203.89 | 4.33 | inf | 1.89 | 4.33 | 5.31 |
+| [320,380) | 626 | 6.086 | 82.7 | +2.68 | 7.83 | 4.11 | 6.68 | 6.95 | 3.84 | 7.25 | 12.98 |
+| [380,430) | 719 | 5.138 | 79.0 | +2.71 | 17.41 | 4.41 | inf | 22.57 | 6.35 | 3.08 | 6.34 |
+| [430,480) | 675 | 4.828 | 81.9 | +2.43 | 4.08 | 3.63 | inf | 5.54 | 2.53 | 22.23 | 7.16 |
+| [480,530) | 413 | 6.424 | 80.4 | +3.01 | 2.96 | 12.68 | inf | inf | 2.78 | 169.52 | inf |
+| [530,580) | 214 | 8.339 | 82.7 | +2.29 | 15.21 | 23.12 | 0.87 | inf | inf | 2.41 | - |
+| [580,640) | 225 | 4.866 | 71.1 | +4.13 | 247.18 | 1.81 | - | - | 22.69 | 0.84 | 0.31 |
+| [640,1201) | 40 | 3.185 | 55.0 | +0.75 | inf | 2.74 | - | - | - | - | - |
+
+The decile grids (PF / win% / median ret% per band):
+
+| PF | D1 | D2 | D3 | D4 | D5 | D6 | D7 | D8 | D9 | D10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| gap [0,15) | 4.13 | 2.9 | 11.39 | 18.37 | 4.73 | 5.53 | 3.64 | 7.05 | 3.45 | 6.02 |
+| gap [15,90) | 6.23 | 3.78 | 4.27 | 3.67 | 1.26 | 1.95 | 1.31 | 1.78 | 2.79 | 2.17 |
+| gap [90,360) | 2.15 | 1.85 | 1.88 | 1.97 | 2.2 | 1.92 | 1.88 | 2.04 | 2.54 | 2.73 |
+| gap [360,700) | 2.04 | 1.81 | 2.31 | 2.0 | 2.13 | 1.97 | 1.68 | 1.92 | 1.95 | 2.79 |
+| gap [700,1200) | 4.87 | 2.38 | 2.27 | 2.21 | 1.66 | 2.34 | 2.22 | 1.44 | 2.56 | 3.77 |
+
+| win% | D1 | D2 | D3 | D4 | D5 | D6 | D7 | D8 | D9 | D10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| gap [0,15) | 77.8 | 71.8 | 85.4 | 89.4 | 80.0 | 80.4 | 78.5 | 83.1 | 72.9 | 75.4 |
+| gap [15,90) | 84.6 | 80.4 | 76.8 | 81.0 | 73.4 | 72.0 | 64.7 | 70.1 | 76.7 | 74.7 |
+| gap [90,360) | 72.1 | 71.1 | 71.4 | 71.5 | 71.2 | 71.7 | 73.8 | 73.1 | 76.6 | 73.3 |
+| gap [360,700) | 70.4 | 69.8 | 74.5 | 72.2 | 70.0 | 73.0 | 70.1 | 72.1 | 77.0 | 76.7 |
+| gap [700,1200) | 76.8 | 68.8 | 71.0 | 71.6 | 70.8 | 72.8 | 72.6 | 67.7 | 73.4 | 77.4 |
+
+| med ret% | D1 | D2 | D3 | D4 | D5 | D6 | D7 | D8 | D9 | D10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| gap [0,15) | 3.01 | 1.91 | 2.81 | 3.64 | 2.45 | 2.21 | 3.13 | 2.83 | 2.17 | 2.33 |
+| gap [15,90) | 2.64 | 2.7 | 2.01 | 2.02 | 1.79 | 1.86 | 1.44 | 1.61 | 2.04 | 2.14 |
+| gap [90,360) | 2.05 | 1.82 | 1.82 | 1.85 | 1.82 | 2.02 | 2.11 | 2.01 | 2.17 | 2.13 |
+| gap [360,700) | 1.89 | 1.8 | 1.9 | 1.86 | 1.78 | 2.11 | 1.85 | 2.28 | 2.37 | 2.26 |
+| gap [700,1200) | 2.55 | 1.98 | 2.16 | 2.09 | 1.98 | 2.38 | 2.37 | 2.23 | 2.35 | 2.64 |
+
+**READING — the climax map.** (a) **On continuous tape ([0,15)) arrangement
+is IRRELEVANT** — deciles bounce 2.9-18.4 with no gradient (win% mid-hump);
+a fully-alive tape is already a real auction, everything fades. (b) **The
+concentration preference lives at [15,90)**: D1-D4 = 3.7-6.2 (win 81-85 at
+the top) vs D5-D10 = 1.3-2.8 (win% monotone-ish, median too) — the
+almost-continuous tape is where climax-vs-metronome separates hardest.
+(c) The mid-gap swamp ([90,700)) is flat ~2 everywhere with a faint EVEN
+uptick at D9-10 — neither lens rescues it. (d) The dead-tape band is
+U-shaped: D1 = 4.87 (the S40s burst corner via the normalized method) and
+a D10 echo (3.77, tail-shaped). **So "gap × rank 2 detects climaxes" holds
+with precision: the conjunction matters at the two ends of the gap axis
+([15,90) concentrated-side and [700,1200) D1), is unnecessary on perfect
+tape, and rescues nothing in the swamp.** Method note: the per-group decile
+normalization is a house tool from here on for any nested feature pair.
