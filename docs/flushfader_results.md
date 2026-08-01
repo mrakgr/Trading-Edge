@@ -5155,3 +5155,33 @@ mechanical coupling, not signal redundancy.** Caveat: the gap<5 × modest-tc
 sub-cell (692 @ 5.48/86%) is year-lumpy (2022 0.13, 2025 1.25 vs 17/17/57
 tails) — the whole gap<5 lens stays THE form; tc adds robustness context,
 not a seat.
+
+## S40s — inside nh12 < 80: gap separates AGAIN, but INVERTED — the pure single-burst corner (2026-08-01)
+
+User question: does gap add anything within the concentrated bucket?
+The slice (1,187 trips / 291 tkds) is overwhelmingly GAPPY by construction
+— g12 q25/med/q75 = 442/636/822; only 24 trips have gap < 90 (8 tkds, all
+winners, anecdote) — concentrated volume ≈ a few huge seconds plus dead air.
+
+| gap band within nh12<80 | n | tkds | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,90) combined | 24 | 8 | inf | 100.0 | +3.91 | - | inf | - | - | - | inf | inf |
+| [90,180) | 66 | 12 | 19.877 | 84.8 | +1.3 | inf | inf | - | - | inf | 2.36 | inf |
+| [180,360) | 81 | 22 | 2.556 | 70.4 | +1.92 | 3.58 | 1.11 | inf | inf | - | 1.88 | 1.58 |
+| [360,700) | 520 | 138 | 2.608 | 75.2 | +2.27 | 12.65 | 23.76 | 1.62 | 17.25 | 0.54 | 1.45 | 4.1 |
+| ⭐ [700,1200) | 496 | 123 | 11.878 | 82.5 | +2.94 | 6.39 | 2.6 | 19.92 | 8.85 | 72.56 | 12.17 | 16.29 |
+
+**YES — and the sign FLIPS: within the concentrated bucket, MORE gap is
+better.** The corner sharpens to **nh12 < 80 × gap_1200 >= 700 = 496 trips
+/ 123 tkds (~19/yr, above the S38j census bar) @ 11.878 / 82.5%, ALL 7
+years positive** (worst 2.6) — nearly the whole 20m window tradeless AND
+the volume that did print crammed into a handful of seconds: the PURE
+single-burst capitulation on an otherwise dead tape (violent flush-print
+cluster / reopen-style bursts). Its complement ([360,700), the half-dead
+tape) is the bucket's weak half (2.61, 2024 0.54). **The two 20m corners
+are now maximally separated at OPPOSITE ends of rank 0: continuous-
+everything (gap < 5, 5.63) and dead-tape-single-burst (gap >= 700 ×
+nh12 < 80, 11.9)** — the bimodality is total, and the middle remains the
+swamp. Overlay roster: the concentrated-torrent seat refines from
+nh12 < 80 (4.75) to **nh12 < 80 × g12 >= 700 (11.9)**; census-real but
+tail-shaped (mc=1 + sizing discipline before any pyramid promotion).
