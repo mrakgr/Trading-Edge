@@ -4906,3 +4906,68 @@ family's representative, S39f confirmed at the 1m window). (d) ns60 >= 35 =
 a rarer sharper lens (3,152 @ ~3.4, both bulk buckets positive every year)
 — roster note, subordinate to gap. ⏭ the same rank family at 5m/10m/20m +
 the dv-vs-N_eff torrent disentangling.
+
+## S40o — ⭐⭐ THE TORRENT IS N_eff IN DISGUISE — and the N_eff form FIXES the bear years (2026-08-01)
+
+User hypothesis: dv >= $30M/20m might be n_eff_shannon_1200 in disguise
+(liquid = distributed volume; illiquid = sparse spiky volume). Universe =
+v2.0 residual on base_v4 (26,541). corr(ln dv12, ns12) = 0.795 — tightly
+coupled, as predicted. dv12 q05/med/q95 = $2.9M/$9.1M/$69M; ns12 =
+232/406/701.
+
+| dollar_vol_1200 ($M) | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [1,2) | 307 | 1.773 | 71.3 | +2.98 | 8.84 | - | inf | 0.46 | 15.9 | 0.98 | 1.86 |
+| [2,4) | 3,503 | 2.178 | 70.5 | +2.11 | 3.99 | 4.35 | 2.93 | 1.27 | 2.77 | 1.7 | 1.53 |
+| [4,8) | 8,050 | 2.242 | 73.8 | +2.12 | 3.69 | 2.79 | 2.59 | 2.22 | 2.35 | 1.48 | 1.36 |
+| [8,15) | 6,050 | 2.371 | 72.1 | +1.97 | 3.1 | 3.29 | 0.94 | 1.34 | 2.95 | 2.37 | 3.81 |
+| [15,30) | 4,543 | 2.363 | 75.5 | +2.09 | 4.82 | 4.17 | 0.88 | 3.06 | 1.73 | 1.96 | 6.22 |
+| [30,60) | 2,509 | 3.82 | 78.8 | +2.31 | 5.77 | 4.93 | 0.82 | 0.5 | 3.39 | 5.28 | 12.42 |
+| [60,1000) | 1,579 | 4.286 | 78.8 | +2.87 | 13.55 | 7.26 | 3.81 | inf | 5.19 | 1.87 | 2.87 |
+
+| n_eff_shannon_1200 | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,150) | 62 | 13.074 | 85.5 | +2.77 | 35.14 | inf | - | inf | inf | 10.59 | 5.74 |
+| [150,250) | 1,967 | 2.617 | 73.6 | +2.26 | 6.22 | 6.48 | 3.21 | 1.39 | 10.63 | 1.29 | 3.69 |
+| [250,350) | 6,568 | 2.051 | 70.7 | +1.9 | 4.03 | 3.83 | 0.98 | 1.99 | 2.49 | 1.75 | 1.15 |
+| [350,450) | 7,575 | 2.276 | 73.3 | +2.12 | 3.04 | 2.89 | 2.57 | 1.41 | 2.06 | 2.15 | 2.67 |
+| [450,550) | 5,066 | 2.326 | 74.8 | +2.08 | 3.64 | 3.86 | 0.68 | 1.85 | 2.79 | 2.22 | 3.97 |
+| [550,650) | 3,056 | 2.919 | 77.8 | +2.33 | 6.83 | 3.69 | 5.97 | 1.92 | 1.97 | 1.97 | 7.11 |
+| ⭐ [650,750) | 1,615 | 5.135 | 81.5 | +2.68 | 6.31 | 9.69 | 10.03 | 2.9 | 2.7 | 6.12 | 7.9 |
+| [750,850) | 547 | 5.389 | 75.9 | +3.03 | 14.18 | 4.47 | 2.15 | inf | 46.7 | 1.48 | 0.86 |
+| [850,1201) | 85 | 4.704 | 57.6 | +2.85 | inf | 1.31 | - | - | - | - | - |
+
+2D (n / PF):
+
+| dv12 $M \ ns12 | [0,250) | [250,450) | [450,650) | [650,850) | [850,1201) |
+|---|---|---|---|---|---|
+| [1,4) | 805 / 3.65 | 2,926 / 1.83 | 79 / 5.33 | 0 | 0 |
+| [4,15) | 1,172 / 2.05 | 10,004 / 2.24 | 2,904 / 2.6 | 20 / 2.63 | 0 |
+| [15,30) | 44 / 29.08 | 1,041 / 2.41 | 3,211 / 2.16 | 247 / 5.33 | 0 |
+| [30,1000) | 8 / 1.77 | 172 / 5.58 | 1,928 / 3.09 | 1,895 / 5.2 | 85 / 4.7 |
+
+The decomposition of the torrent corner:
+
+| slice | n | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| torrent: dvm>=30M x dv12>=30M | 3,273 | 3.924 | 78.3 | 9.54 | 6.16 | 1.11 | 0.74 | 3.28 | 3.16 | 7.84 |
+| dv12>=30M only | 4,088 | 4.01 | 78.8 | 7.82 | 5.94 | 1.25 | 0.75 | 4.04 | 3.14 | 6.83 |
+| ⭐ dv12>=30M x ns12>=650 | 1,980 | 5.176 | 78.9 | 11.11 | 6.18 | 3.87 | 6.53 | 3.61 | 3.76 | 5.99 |
+| dv12>=30M x ns12<650 | 2,108 | 3.22 | 78.7 | 5.35 | 5.76 | 0.72 | 0.35 | 5.16 | 2.84 | 8.8 |
+| ns12>=650 x dv12<30M | 267 | 5.168 | 81.3 | 4.26 | 1.54 | 9.1 | 2.96 | 22.34 | inf | 16.87 |
+| ns12>=850 (any dv) | 85 | 4.704 | 57.6 | inf | 1.31 | - | - | - | - | - |
+
+**VERDICT: CONFIRMED AND UPGRADED.** (a) Splitting the dv-torrent by ns12
+at 650: ALL of its bear-year damage lives in the low-N_eff half (2022 0.72
+/ 2023 0.35 there vs **3.87 / 6.53** in the high-N_eff half) — the dollar
+threshold was a noisy proxy for distribution. (b) The N_eff effect holds
+WITHOUT the dollars (ns>=650 × dv<30M = 5.17 on 267). (c) **The new form
+of the corner: `n_eff_shannon_1200 >= 650` ≈ 2,247 trips @ ~5.1 — beats
+the dv-defined torrent (3.92) AND repairs its 2022-23 inversion.** A 20m
+window where 650+ of 1,200 seconds carry effective volume = a genuinely
+continuous institutional-grade panic — the thing the $30M floor was
+groping for. Overlay roster: the torrent tier is now **ns12 >= 650 (the
+DISTRIBUTED torrent)**; dv12 stays recorded. Footnote: the OPPOSITE
+extreme (ns12 < 150 / the 44-trip 29.08 cell) is a concentrated-burst
+anecdote — census first (S38j) before anyone chases it. ⏭ sizing-pyramid
+re-cut with ns12 tiers + the S40k/S40m overlay interaction matrix.
