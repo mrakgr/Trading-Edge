@@ -5208,3 +5208,23 @@ caveat is INTERMITTENCY, not depth**: with 700+ dead seconds, the
 next-present-bar fill assumption papers over wait-time and spread between
 bursts — exactly what the queued TradeZero-fills/slippage work must stress,
 with this corner as the primary test case.
+
+**And the gap_1200 < 5 lens for contrast (user sanity check) — an order of
+magnitude MORE liquid than the book:**
+
+| quantile | gap < 5 lens | BOOK | ratio |
+|---|---|---|---|
+| dv_20m med (q05) | $55.6M ($19.2M) | $5.3M ($2.0M) | ~10× |
+| dv_5m med | $11.3M | $1.6M | ~7× |
+| dv_1m med (q05) | $3.0M ($747k) | $451k ($141k) | ~6.6× |
+| dv_0945 med | $69.1M | $6.8M | ~10× |
+| tc_60 med | 2,816 (~47/sec) | 508 | ~5.5× |
+
+The continuous corner IS the honest-torrent population rediscovered from
+the microstructure side (median morning dv $69M >> the old $30M threshold).
+The bimodal pair is now fully characterized: **gap < 5 = the SIZE side**
+(5.63 PF, worst-year 3.90, $3M/minute tape where six-figure clips are ~3%
+of flow, maximal fill realism) **vs the burst corner = the EDGE side**
+(11.9 PF on book-typical depth but intermittent tape, slippage-audit
+required). Liquidity scaling WITH edge on the continuous side — the S38
+sizing-pyramid principle holding at the microstructure level.
