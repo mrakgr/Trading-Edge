@@ -4221,3 +4221,108 @@ mc=1 (greedy replay, $1-$10 book):
 / 4,062 @ 2.184 mc=1. One parameter fewer; the recovered slice is the
 129-trip deep-capitulation lottery (11.2 PF, tail-carried — S39v/w), now
 simply part of the book.**
+
+## S40e — EARLY SLICE CUT (user decision) + the |eff_20m| reference table (2026-08-01)
+
+**User: cut the early slice from the long book.** Baked as **engine gate
+`MinBarnum = 22`** (`--min-barnum`, 0 = off; column-guarded like the volat
+prepass, so legacy tables skip it): candidate `barnum` >= 22 = the old
+warmup's boundary, now prior-only and deliberate. The 6,993 early rows STAY
+in `mr_candidate_1s` (and `flushfader_base_tkds`) — the future SHORT system
+revisits them; the long engine just won't stream them.
+
+**The survivorship subtlety the user spotted:** the OLD (pre-S39d)
+`COUNT(*)-over-episode > 21` warmup did NOT actually exclude early-episode
+days — any day of an episode that EVENTUALLY ran 22+ days qualified from day
+1. What it excluded was early days of episodes that died young. So the old
+momentum-era books were unknowingly trading the early slice — but only its
+SURVIVORS (episode-length conditioning = the S39d lookahead, survivorship
+flattering the slice). The prior-only rewrite silently excluded all of it;
+today it was measured honestly (1,476 trips @ 1.425 mc=0, −0.040 at mc=1,
+weak in 4-5 of 7 years) and is now excluded on the merits. **The IPO-flush
+long thesis is dead: listing day never even signals through the spec, and
+days 2-21 fade WORSE than seasoned tape — fresh listings don't mean-revert
+like the established book does. Noted as a candidate SHORT-side asymmetry.**
+
+**|eff_20m| reference table** (user request; v1.8-minus-eff universe = both
+eff gates off, warmed base_v3, $1-$10 book, 52,676 trips): the sign is a
+NON-EVENT on this universe — **99.9% of trips have eff_20m < 0** (30 trips
+positive), so signed ≈ −|eff| and the signed convention stays (the band
+[-0.5,-0.3) ≡ |eff| ∈ [0.3,0.5) here). Same hump-and-toxic-tail grammar as
+eff_rng_20m (S40b/d):
+
+| |eff_20m| bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,0.05) | 161 | 1.556 | 68.3 | +2.43 | 4.1 | 1.87 | 7.71 | 0.35 | 3.2 | - | 0.29 |
+| [0.05,0.1) | 522 | 1.511 | 62.1 | +1.53 | 2.41 | 1.72 | 9.56 | 0.66 | 4.21 | 0.99 | 0.59 |
+| [0.1,0.15) | 1,389 | 2.099 | 70.5 | +2.12 | 3.05 | 2.32 | 2.36 | 0.72 | 3.57 | 1.61 | 6.32 |
+| [0.15,0.2) | 2,837 | 1.961 | 70.8 | +2.1 | 3.12 | 3.56 | 0.82 | 1.36 | 1.38 | 3.3 | 1.28 |
+| [0.2,0.25) | 5,303 | 1.786 | 70.2 | +1.79 | 2.02 | 1.98 | 2.22 | 2.16 | 1.64 | 1.75 | 1.22 |
+| [0.25,0.3) | 7,303 | 1.708 | 70.6 | +1.95 | 2.2 | 2.47 | 0.71 | 1.7 | 1.77 | 1.8 | 1.33 |
+| [0.3,0.35) | 8,937 | 2.217 | 71.9 | +1.97 | 3.21 | 3.13 | 1.35 | 1.47 | 2.07 | 2.03 | 2.16 |
+| [0.35,0.4) | 9,156 | 2.368 | 73.6 | +2.04 | 4.38 | 3.51 | 1.17 | 1.72 | 2.06 | 2.16 | 2.89 |
+| [0.4,0.45) | 7,465 | 2.616 | 74.5 | +2.06 | 4.22 | 3.58 | 2.41 | 2.2 | 2.6 | 1.98 | 2.47 |
+| [0.45,0.5) | 4,826 | 2.183 | 73.4 | +2.08 | 4.01 | 6.99 | 1.6 | 1.29 | 2.57 | 1.25 | 2.21 |
+| [0.5,0.6) | 4,025 | 1.853 | 72.5 | +1.86 | 3.03 | 4.32 | 1.15 | 1.27 | 2.01 | 1.39 | 3.36 |
+| [0.6,0.75) | 714 | 0.812 | 63.2 | +0.97 | 6.5 | 4.27 | 0.33 | 2.36 | 1.58 | 0.38 | 0.22 |
+| [0.75,1.01) | 38 | 5.296 | 78.9 | +1.98 | - | - | 0.38 | - | - | - | - |
+
+(The [0.75,1.01) 38-trip cell is tail-carried — its only populated clean year
+is 0.38; anecdote, not a rescue of the extreme end. [0.6,0.75) is the real
+toxic tail, mirroring eff_rng's [0.65,0.8).)
+
+## S40a-addendum — FULL-RANGE speed table (user catch, 2026-08-01)
+
+The S40a speed table stopped at −2% because the residual universe still
+carried the spec's own `speed < -2%` gate (d1m is ungated, so its table ran
+to 0). Apples-to-apples redo: **both axes on the v1.8-MINUS-speed universe**
+(all other gates on, warmed base_v3, $1-$10 book): 40,926 trips @ 2.252.
+
+| speed bucket (%) | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [-100,-8) | 1,162 | 3.825 | 74.4 | +3.73 | 11.64 | 13.41 | 1.32 | 1.72 | 9.44 | 2.41 | 3.34 |
+| [-8,-6) | 2,000 | 2.575 | 72.6 | +2.58 | 4.97 | 6.36 | 0.65 | 2.04 | 3.05 | 1.76 | 2.94 |
+| [-6,-5) | 2,417 | 2.9 | 74.8 | +2.61 | 6.8 | 3.6 | 2.15 | 1.31 | 3.94 | 2.46 | 2.43 |
+| [-5,-4) | 4,357 | 2.392 | 73.6 | +2.24 | 6.71 | 4.27 | 1.24 | 1.79 | 2.5 | 1.66 | 1.81 |
+| [-4,-3) | 7,819 | 2.157 | 73.6 | +1.95 | 3.28 | 3.59 | 1.44 | 1.27 | 2.03 | 1.89 | 2.44 |
+| [-3,-2.5) | 5,408 | 2.308 | 74.2 | +1.96 | 2.84 | 3.74 | 1.71 | 1.82 | 1.96 | 2.04 | 2.42 |
+| [-2.5,-2) | 6,158 | 2.124 | 72.5 | +1.78 | 2.16 | 2.87 | 1.88 | 2.29 | 1.57 | 1.97 | 2.74 |
+| [-2,-1.5) | 5,825 | 1.827 | 72.4 | +1.63 | 2.53 | 2.71 | 1.2 | 1.8 | 1.51 | 1.31 | 2.73 |
+| [-1.5,-1) | 4,186 | 1.88 | 72.0 | +1.49 | 2.36 | 2.66 | 1.17 | 1.91 | 1.46 | 1.61 | 2.79 |
+| [-1,-0.5) | 1,495 | 1.768 | 71.9 | +1.22 | 1.4 | 2.85 | 1.73 | 1.26 | 1.29 | 1.86 | 1.95 |
+| [-0.5,0) | 99 | 2.335 | 76.8 | +1.15 | 9.31 | 7.23 | 0.58 | 2.37 | 18.12 | 3.18 | 0.19 |
+| [0,0.5) | 0 | | | | — structurally empty: a new 20m low with a positive |
+| [0.5,100) | 0 | | | | 1m change is (near-)impossible by construction |
+
+| d1m bucket (%) | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [-100,-12) | 152 | 6.837 | 84.9 | +8.07 | 13.96 | - | - | 0.14 | 472.55 | 27.05 | 2.19 |
+| [-12,-10) | 230 | 5.81 | 77.8 | +4.32 | 4.28 | 22.81 | 6.12 | 3.78 | 27.13 | 5.71 | 2.39 |
+| [-10,-8) | 634 | 2.696 | 71.1 | +2.81 | 8.0 | 14.96 | 0.24 | 1.78 | 9.49 | 1.24 | 5.09 |
+| [-8,-6) | 1,898 | 3.0 | 74.2 | +2.55 | 7.15 | 5.73 | 1.16 | 1.22 | 4.76 | 1.58 | 4.41 |
+| [-6,-5) | 2,551 | 2.169 | 71.3 | +2.32 | 4.63 | 3.45 | 1.24 | 1.93 | 2.03 | 1.59 | 2.17 |
+| [-5,-4) | 4,544 | 2.27 | 73.2 | +2.38 | 3.83 | 3.23 | 1.62 | 1.76 | 2.77 | 1.74 | 1.74 |
+| [-4,-3) | 8,579 | 2.416 | 74.6 | +2.17 | 3.77 | 3.8 | 1.22 | 1.42 | 2.34 | 2.52 | 2.37 |
+| [-3,-2.5) | 6,082 | 2.127 | 72.7 | +1.9 | 2.69 | 3.35 | 1.76 | 2.07 | 1.56 | 1.83 | 2.2 |
+| [-2.5,-2) | 6,628 | 2.208 | 74.1 | +1.79 | 3.05 | 3.28 | 1.49 | 2.0 | 1.87 | 1.67 | 3.16 |
+| [-2,-1.5) | 5,694 | 1.728 | 71.9 | +1.5 | 2.06 | 3.06 | 1.28 | 1.45 | 1.14 | 1.39 | 2.73 |
+| [-1.5,-1) | 3,226 | 1.836 | 70.7 | +1.28 | 2.01 | 2.18 | 1.79 | 1.93 | 1.71 | 1.56 | 1.62 |
+| [-1,-0.5) | 686 | 2.179 | 74.6 | +1.06 | 2.72 | 2.47 | 2.63 | 0.9 | 1.5 | 4.22 | 1.76 |
+| [-0.5,0.01) | 22 | 3.493 | 68.2 | +0.79 | - | 0.72 | 1.86 | 1.24 | 117.52 | 6.39 | - |
+
+**Reading.** (a) The speed gate earns its seat plainly here: the relaxed
+region speed ∈ [-2, 0) = 11,605 trips @ ~1.83 (mediocre EVERY year, never
+toxic, never good) — cutting it is exactly book 40,926 @ 2.252 → 29,321 @
+2.392. (b) With speed ungated, d1m's shallow-end dip moves to [-2,-1) (1.73/
+1.84) and the extreme-shallow buckets RECOVER (2.18/3.49 on small n) — those
+are "20m low with a flat last minute" trips, a different animal from the
+speed-gated shallow slice. The two axes remain 0.91-correlated; d1m's deep
+end is still the cleaner monotone story.
+
+**v18_reference REGENERATED with the barnum gate (warmed-only) — GRAND
+PARITY ✓: engine 48,108 = SQL-over-base_v3 48,108, zero diff both
+directions.** Book 29,321 @ 2.392 mc=0 / 4,062 @ 2.184 mc=1 (identical trip
+set to the S40d warmed split — the gate exactly reproduces the post-hoc
+cut). **`v18_reference/` = THE reference parquet; the v1.8 production stack
+is: `mr_candidate_1s` (warmup-free, barnum recorded) → engine `MinBarnum=22`
++ SPEC v1.8 gates → post-hoc $1-$10.**

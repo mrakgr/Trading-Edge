@@ -53,6 +53,7 @@ type Args =
     | Min_Dv_0945 of float
     | Min_Rvol_0945 of float
     | Min_Prev_Close of float
+    | Min_Barnum of int
     // ----- sampler vs book -----
     | Max_Concurrent of int
     | Workers of int
@@ -96,6 +97,7 @@ type Args =
             | Min_Dv_0945 _ -> "💀 DEPRECATED (S35): the candidate column = real dollars × adj_ratio (future-split-dependent — 20% of the universe was inflated in). Default 0 = off. THE floor is --min-dv-0945-tape."
             | Min_Rvol_0945 _ -> "Optional in-play universe pre-filter: rvol_0945_honest >= this (premkt-incl vol thru 09:45 / prior-20d avg; LIVE-SAFE at 09:45). Default 0 = off (sampler breadth)."
             | Min_Prev_Close _ -> "Universe gate: PRIOR day's close in day-D raw (post-split) scale >= this (prev_adj_close/adj_ratio; knowable BEFORE the open). Default 0 = off. 2 = the >=$2 universe (sub-$1 priced out on every EU-accessible broker)."
+            | Min_Barnum _ -> "⭐ S40e episode warmup: candidate barnum (prior-only ROW_NUMBER, live-knowable) >= this. Default 22 = cut the IPO/early-listing slice (below-book for the LONG book; reserved for a future short system). 0 = off. Column-guarded (legacy tables skip it)."
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: unlimited concurrent positions — every new low opens another trip, so it AVERAGES DOWN. Removes path dependency (every trip = an independent row) but PF is then ATTRIBUTION, not a portfolio number. 1 = a real book."
             | Workers _ -> "S39h: parallel day-workers (default: cores - 2). Trip SET is identical at any worker count; parquet row order is not."
             | Entry_Start_Sec _ -> "Earliest ET second (since midnight) an entry may fire. Default 35100 = 09:45 — the knowability floor itself (the old 10:00 was a VwapReclaim-era throwback). ⚠ Must be >= 35100."
@@ -151,6 +153,7 @@ let main argv =
             MinDv0945 = parsed.GetResult(Min_Dv_0945, defaultValue = d.MinDv0945)
             MinRvol0945 = parsed.GetResult(Min_Rvol_0945, defaultValue = d.MinRvol0945)
             MinPrevClose = parsed.GetResult(Min_Prev_Close, defaultValue = d.MinPrevClose)
+            MinBarnum = parsed.GetResult(Min_Barnum, defaultValue = d.MinBarnum)
             Workers = parsed.GetResult(Workers, defaultValue = d.Workers) }
 
     // ⚠ KNOWABILITY GUARD (docs/lookahead_protocol.md R4). The universe is GATED on

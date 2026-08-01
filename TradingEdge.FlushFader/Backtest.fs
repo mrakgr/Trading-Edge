@@ -46,6 +46,13 @@ type Config =
       /// unlike entry price. 0 = off (record-first). 2.0 = the ">=$2 stocks" universe
       /// (sub-$1 is priced out on every EU-accessible broker route).
       MinPrevClose: float
+      /// ⭐ S40e (user, 2026-08-01): episode warmup — candidate barnum (ROW_NUMBER over
+      /// the episode, prior-only, live-knowable) >= this. Default 22 = cut the
+      /// IPO/early-listing slice (measured BELOW-BOOK for the LONG book: 1,476 trips
+      /// @ 1.425 mc=0, −0.040 at mc=1; the slice stays IN mr_candidate_1s for the
+      /// future SHORT system). 0 = off. Applied only when the column exists
+      /// (legacy tables predate it and are warmed by construction).
+      MinBarnum: int
       /// ⭐ S39h: day-worker parallelism. Days are the natural isolation unit
       /// (fresh IntradaySystems, no cross-day state); the trip SET is identical
       /// at any worker count, only parquet row ORDER varies.
@@ -117,6 +124,7 @@ let defaultConfig =
       MinPrevClose = 0.0            // record-first (user 2026-07-29): a prev-close gate
                                     // would drop names flushing DOWN through $1 — the $1
                                     // book stays a POST-HOC entry_px cut (S7c fee wall)
+      MinBarnum = 22                // ⭐ S40e: cut the early-episode slice (long book only)
       Workers = max 1 (Environment.ProcessorCount - 2) }
 
 /// One candidate (ticker, day) from diprider_v6_candidate — the daily context
@@ -145,7 +153,7 @@ let candidateTable =
     | t when t |> Seq.forall (fun c -> Char.IsLetterOrDigit c || c = '_') -> t
     | bad -> failwithf "Invalid FF_CANDIDATE_TABLE %A (identifier chars only)" bad
 
-let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: DateOnly) (minDv0945: float) (minRvol0945: float) (minPrevClose: float) (minVolat20m: float) : Candidate[] =
+let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: DateOnly) (minDv0945: float) (minRvol0945: float) (minPrevClose: float) (minVolat20m: float) (minBarnum: int) : Candidate[] =
     let table = candidateTable
     // ⭐ S39j volat-prepass trim (user): mr_candidate_1s carries max_slot_absr_bp =
     // the day's MAX |30s-slot log return| (engine slot definition, bp). volat_20m
@@ -166,6 +174,17 @@ let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDa
                 (minVolat20m * 1e4 - 0.01) (minVolat20m * 1e4)
             sprintf "AND max_slot_absr_bp >= %.17g" (minVolat20m * 1e4 - 0.01)
         else ""
+    // ⭐ S40e episode-warmup gate (see Config.MinBarnum). Column-guarded like the
+    // prepass: legacy tables without `barnum` were warmed by construction.
+    let hasBarnumCol =
+        use c = conn.CreateCommand()
+        c.CommandText <- $"SELECT count(*) FROM pragma_table_info('{table}') WHERE name = 'barnum'"
+        Convert.ToInt64(c.ExecuteScalar()) > 0L
+    let barnumClause =
+        if minBarnum > 0 && hasBarnumCol then
+            eprintfn "  warmup      = barnum >= %d (early-episode slice cut — S40e)" minBarnum
+            sprintf "AND barnum >= %d" minBarnum
+        else ""
     use cmd = conn.CreateCommand()
     cmd.CommandText <-
         $"SELECT ticker, date, prev_adj_close, close_3d, day_close, adj_ratio,
@@ -175,6 +194,7 @@ let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDa
             AND rvol_0945_honest >= $minrvol
             AND coalesce(prev_adj_close / nullif(adj_ratio, 0), 0) >= $minprevclose
             {prepassClause}
+            {barnumClause}
           ORDER BY ticker, date"
     let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- startDate; cmd.Parameters.Add pStart |> ignore
     let pEnd   = cmd.CreateParameter() in pEnd.ParameterName   <- "end";   pEnd.Value   <- endDate;   cmd.Parameters.Add pEnd   |> ignore
@@ -610,7 +630,7 @@ let run (dbPath: string) (secDir: string) (outDir: string) (cfg: Config)
         pragma.CommandText <- "PRAGMA memory_limit='6GB'"
         pragma.ExecuteNonQuery() |> ignore
 
-    let candidates = readCandidates conn startDate endDate cfg.MinDv0945 cfg.MinRvol0945 cfg.MinPrevClose cfg.Intraday.MinVolat20m
+    let candidates = readCandidates conn startDate endDate cfg.MinDv0945 cfg.MinRvol0945 cfg.MinPrevClose cfg.Intraday.MinVolat20m cfg.MinBarnum
     use sink = new TripSink(outDir)
     let daysRun = collectTrips cfg secDir candidates sink progress
     // the `use` binding disposes the sink on return, flushing the final part
