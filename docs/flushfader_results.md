@@ -4531,3 +4531,36 @@ near-zero r10↔r20 correlation is the real news — post-gates the two scales
 are independent axes, yet neither offers a year-robust cutoff. **Verdict:
 overlay-grade at best (r20 ∈ [−0.7,−0.5) as a chaos lens with a 2022
 caveat); NOT gates.**
+
+## S40j — relaxing the two 20m distance gates: NO FREE TRIPS (user question, 2026-08-01)
+
+Can d20 < −10% or dvw < −5% be relaxed to admit trips without hurting PF?
+Universe = v2.0 minus the gate under study (other held), warmed base_v3,
+$1-$10 book.
+
+d20 relaxation region (dvw < −5 held):
+
+| d20 bucket (%) | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [-10,-9) | 1,826 | 1.928 | 71.4 | +1.33 | 2.36 | 2.57 | 1.23 | 2.4 | 2.03 | 1.72 | 0.98 |
+| [-9,-8) | 643 | 2.178 | 75.3 | +1.54 | 1.69 | 5.74 | 2.14 | 1.15 | 0.68 | 4.72 | 1.28 |
+| [-8,-7) | 72 | 1.291 | 73.6 | +1.17 | 21.99 | inf | 0.5 | 0.03 | 1.18 | 1.0 | inf |
+| shallower | 0 | | | | (empty — the other gates cap how shallow d20 can run) |
+
+dvw relaxation region (d20 < −10 held): [−5,−4.5) = 385 @ 1.672,
+[−4.5,−4) = 120 @ 1.665, below −4 near-empty (14 trips). The both-off 2D
+shallow region has NO cell at or above book PF (best 2.05; most 0.5-2.0).
+
+Frontier (mc=0): every relaxation is monotone-dilutive — R1 d20<−9 = 28,367
+@ 2.435 (−0.030); R2 d20<−8 = 29,010 @ 2.431 (−0.034); R3 dvw<−4 = 27,046 @
+2.452 (−0.013); R6 both = 31,274 @ 2.404 (−0.061). (Full frontier table in
+the S40j analysis run; CURRENT = 26,541 @ 2.465.)
+
+**⭐ The mc=1 idle-slot hypothesis TESTED** (could below-book trips fill
+empty slots for free?): R2 (d20<−8) at mc=1 = **4,210 @ 2.159 vs current
+3,863 @ 2.218** — +347 slot-trips (+9%) buys only ~+120 points (+2.6% over
+6.5y) at −0.059 PF, equal-or-worse in 6 of 7 years. The added trips earn
+~1/3 of the book's per-trip average even when slots are free. **VERDICT: the
+distance floors sit AT the efficient frontier — no relaxation is PF-neutral
+at either mc level; v2.0 stands.** (Symmetric to the S40g finding: the d1m/
+dvw tightenings removed slot thieves; their reverse admits slot beggars.)
