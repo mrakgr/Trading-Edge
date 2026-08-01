@@ -5378,3 +5378,41 @@ sparse, intermittent tape with episodic volume avalanches, PF 10.06 on
 animal; the halt story dies. The intermittency caveat for the slippage
 audit stands and is now precisely characterized: many short waits, not
 halt reopens.
+
+## S40w — TRUE HALTS vs DEAD TAPE (user definition: big run × high tc × high volat) (2026-08-01)
+
+**User: max-run alone can't separate halts from illiquidity — a genuine
+halt = high gaps AND high tc AND high volatility.** Confirmed by the
+distributions: within mr >= 250 (965 trips), tc_1200 median = 27,507 (book:
+10,110) and volat median = 140bp (book: 86) — the big-run slice is
+MAJORITY-busy, i.e. mostly real halts, with a thin-tape minority mixed in.
+
+| slice | n | tkds | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| TRUE HALT: mr>=250 x tc>=15k x volat>=150bp | 279 | 51 | 5.149 | 80.6 | +4.47 | 2.54 | 1.99 | 7.03 | 30.11 | 95.3 | 1.9 | 60.89 |
+| mr>=250 x tc>=15k (busy, any volat) | 606 | 86 | 2.991 | 75.2 | +3.54 | 3.11 | 7.65 | 1.07 | 1.85 | 78.66 | 1.37 | 24.66 |
+| ⚠ DEAD TAPE: mr>=250 x tc<15k x volat<150bp | 253 | 40 | 1.166 | 67.6 | +2.08 | 5.41 | inf | 0.48 | 26.93 | 2.57 | 0.93 | 0.67 |
+| mr>=250 x tc<15k (thin, any volat) | 359 | 58 | 1.575 | 69.9 | +2.21 | 6.41 | 5.07 | 0.55 | 1.4 | 3.33 | 1.17 | 1.04 |
+
+S40v cells re-split by the definition:
+
+| slice | n | tkds | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| g1 [4,16) x mr>=250 x busy | 43 | 8 | 3.531 | 74.4 | 0.25 | - | - | inf | inf | 0.0 | inf |
+| g1 [4,16) x mr>=250 x thin | 113 | 20 | 10.962 | 78.8 | inf | 3.04 | 19.57 | 6.02 | 8.23 | 8.69 | 0.84 |
+| g1 < 4 x mr>=250 x busy | 524 | 76 | 3.105 | 75.2 | 6.4 | 7.65 | 0.16 | 1.35 | 62.38 | 1.53 | 18.27 |
+| g1 < 4 x mr>=250 x thin | 82 | 19 | 1.635 | 61.0 | inf | inf | - | inf | 0.81 | 0.69 | inf |
+
+**READING.** (a) The user's conjunction SEPARATES: true halts fade at 5.15
+/ 80.6 / median +4.47% (51 tkds ≈ 8/yr) while **dead tape (big hole × thin
+× quiet) = 1.166 — the worst liquidity slice of the whole program, a
+genuine AVOID rule**. (b) The 2022-0.16 knife localizes to gapless-minute
+× BUSY-halt tape (the true post-reopen knife). (c) The S40v [4,16)-halty
+cell's 5.99 was carried by its THIN side (20 tkds) — the "post-reopen
+churn" reading from S40v is retracted; at 8-20 tkds per sub-cell the whole
+mr >= 250 interior is anecdote-scale. **Production output: (i) AVOID
+mr>=250 × tc<15k × volat<150bp; (ii) the halt-fade (5.15) = playbook
+pattern at ~8 events/yr; (iii) the CLEAN 94% of the book is untouched by
+all of this.** A proper halt FLAG (exchange feed / LULD reconstruction)
+would settle the residual ambiguity — deferred to the production data
+work.
