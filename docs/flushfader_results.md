@@ -4326,3 +4326,92 @@ set to the S40d warmed split — the gate exactly reproduces the post-hoc
 cut). **`v18_reference/` = THE reference parquet; the v1.8 production stack
 is: `mr_candidate_1s` (warmup-free, barnum recorded) → engine `MinBarnum=22`
 + SPEC v1.8 gates → post-hoc $1-$10.**
+
+## S40f — experiment: eff_rng_20m band [0.35,0.6) x abs(eff_20m) breakdown → eff_rng DROPPED (user, 2026-08-01)
+
+Universe = v1.8-minus-eff × `eff_rng_20m ∈ [0.35,0.6)` (warmed base_v3,
+$1-$10 book): 39,144 trips @ 2.230.
+
+The [0.6,0.75) and [0.75,1.01) buckets are **empty BY CONSTRUCTION**:
+eff_rng >= |eff| on every row, so the eff_rng < 0.6 cap deletes the |eff|
+toxic tail automatically.
+
+| abs(eff_20m) bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,0.05) | 5 | inf | 100.0 | +0.16 | - | - | inf | - | - | - | - |
+| [0.05,0.1) | 48 | 4.666 | 75.0 | +3.18 | 4.16 | 0.57 | inf | inf | 7.96 | 1.53 | inf |
+| [0.1,0.15) | 306 | 2.221 | 73.9 | +2.15 | 52.45 | 2.3 | 13.89 | 0.22 | 10.68 | 0.8 | 3.47 |
+| [0.15,0.2) | 730 | 1.835 | 72.2 | +2.16 | 2.75 | 4.64 | 1.54 | 1.71 | 0.82 | 4.24 | 2.01 |
+| [0.2,0.25) | 2,308 | 1.701 | 68.8 | +1.65 | 4.22 | 1.59 | 1.8 | 2.77 | 1.18 | 3.4 | 0.55 |
+| [0.25,0.3) | 4,210 | 1.89 | 72.7 | +2.06 | 2.24 | 1.78 | 1.04 | 3.06 | 2.11 | 1.55 | 1.99 |
+| [0.3,0.35) | 6,661 | 2.413 | 73.2 | +2.01 | 2.81 | 2.88 | 1.21 | 1.72 | 2.38 | 2.91 | 2.49 |
+| [0.35,0.4) | 9,150 | 2.367 | 73.6 | +2.04 | 4.37 | 3.51 | 1.17 | 1.72 | 2.06 | 2.16 | 2.89 |
+| [0.4,0.45) | 7,444 | 2.609 | 74.5 | +2.05 | 4.2 | 3.57 | 2.41 | 2.2 | 2.6 | 1.98 | 2.42 |
+| [0.45,0.5) | 4,751 | 2.183 | 73.3 | +2.09 | 3.84 | 6.94 | 1.56 | 1.29 | 2.52 | 1.27 | 2.38 |
+| [0.5,0.6) | 3,531 | 1.897 | 72.6 | +1.83 | 2.55 | 4.26 | 1.1 | 1.2 | 1.76 | 1.74 | 5.26 |
+| [0.6,0.75) | 0 | - | - | - | - | - | - | - | - | - | - |
+| [0.75,1.01) | 0 | - | - | - | - | - | - | - | - | - | - |
+
+**Reading:** (a) the eff_rng floor guts the flat-net low end ([0,0.15): 161/
+522/1,389 → 5/48/306 — low-|eff| tape is overwhelmingly also low-range
+tape); (b) the |eff| HUMP SURVIVES inside the band ([0.2,0.3) still 1.70/
+1.89, [0.3,0.5) still peaks) — eff_rng's edges are a cheaper implementation
+of both eff cutoffs but cannot replicate the interior hump; stacking
+|eff| ∈ [0.3,0.5) inside the band lands at ~28,006 @ ~2.40 ≈ the current
+pair's operating point via two features instead of one.
+
+**DECISIONS (user):** `eff_rng_20m` is DROPPED as a gate candidate (stays a
+recorded column). The eff pair stays AS-IS in the spec; follow-up tests run
+with the |eff_20m|-band and |eff_10m| filters ENABLED. (Signed-vs-unsigned
+is a non-event — 99.9% of the residual universe has eff_20m < 0 — so the
+band [-0.5,-0.3) and |eff| ∈ [0.3,0.5) are interchangeable to within 30
+trips; the spec keeps the existing signed-band implementation.)
+
+## S40g — d1m x speed COMBINED (user direction): the AND-gate wins at BOTH mc levels (2026-08-01)
+
+**User insight:** the S40a-addendum tables showed the speed gate cutting off
+d1m's weak shallow end as pure benefit → don't choose between the 1m axes,
+COMBINE them. Universe = v1.8-minus-speed, eff pair ON (warmed base_v3,
+$1-$10 book): 40,926 trips @ 2.252.
+
+2D (n / PF) — the DIAGONAL carries the book; both-deep is where the edge
+lives, and each axis's shallow slice is weak REGARDLESS of the other:
+
+| speed \ d1m | [-100,-8) | [-8,-6) | [-6,-4) | [-4,-3) | [-3,-2.5) | [-2.5,-2) | [-2,-1.5) | [-1.5,0.01) |
+|---|---|---|---|---|---|---|---|---|
+| [-100,-6) | 995 / 3.7 | 1,414 / 3.16 | 699 / 2.08 | 48 / 3.07 | 4 / 0.47 | 2 / 0.0 | 0 | 0 |
+| [-6,-4) | 21 / 107.68 | 449 / 2.73 | 4,623 / 2.49 | 1,458 / 2.93 | 164 / 1.66 | 50 / 1.87 | 6 / 0.75 | 3 / inf |
+| [-4,-3) | 0 | 21 / 1.14 | 1,457 / 2.02 | 4,189 / 2.23 | 1,371 / 2.3 | 600 / 2.15 | 156 / 1.18 | 25 / 4.75 |
+| [-3,-2.5) | 0 | 12 / 2.54 | 203 / 0.96 | 1,688 / 2.33 | 1,848 / 2.77 | 1,152 / 3.01 | 420 / 1.4 | 85 / 1.87 |
+| [-2.5,-2) | 0 | 2 / inf | 77 / 1.62 | 806 / 2.83 | 1,604 / 1.9 | 2,103 / 2.4 | 1,255 / 1.94 | 311 / 1.21 |
+| [-2,-1.5) | 0 | 0 | 28 / 3.12 | 314 / 2.35 | 839 / 1.55 | 1,813 / 1.94 | 1,897 / 1.75 | 934 / 1.87 |
+| [-1.5,-1) | 0 | 0 | 6 / 0.95 | 69 / 1.81 | 215 / 1.95 | 767 / 1.72 | 1,559 / 1.78 | 1,570 / 2.14 |
+| [-1,0.01) | 0 | 0 | 2 / inf | 7 / 2.44 | 37 / 1.83 | 141 / 2.03 | 401 / 1.59 | 1,006 / 1.83 |
+
+Combined-gate frontier (mc=0):
+
+| gate | n | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| A: speed<-2 (CURRENT v1.8) | 29,321 | 2.392 | 73.5 | 3.74 | 3.7 | 1.49 | 1.64 | 2.45 | 1.96 | 2.49 |
+| B: d1m<-2 only | 31,298 | 2.372 | 73.6 | 3.72 | 3.62 | 1.4 | 1.69 | 2.43 | 1.91 | 2.55 |
+| C: d1m<-1.5 only | 36,992 | 2.28 | 73.4 | 3.49 | 3.51 | 1.38 | 1.66 | 2.25 | 1.84 | 2.57 |
+| D: speed<-2 AND d1m<-1.5 | 28,897 | 2.406 | 73.6 | 3.84 | 3.76 | 1.47 | 1.65 | 2.46 | 1.96 | 2.48 |
+| E: speed<-2 AND d1m<-2 | 27,060 | 2.453 | 73.9 | 4.0 | 3.84 | 1.44 | 1.74 | 2.56 | 1.97 | 2.46 |
+| F: speed<-2 AND d1m<-2.5 | 23,153 | 2.449 | 73.7 | 3.98 | 3.81 | 1.42 | 1.68 | 2.65 | 1.97 | 2.43 |
+| G: speed<-1.5 AND d1m<-2 | 30,054 | 2.395 | 73.7 | 3.8 | 3.66 | 1.42 | 1.71 | 2.48 | 1.92 | 2.52 |
+| H: speed<-2 OR d1m<-2.5 | 30,838 | 2.36 | 73.4 | 3.67 | 3.65 | 1.45 | 1.61 | 2.37 | 1.95 | 2.53 |
+
+E is the knee: −2 on both axes; tightening d1m further (F) buys nothing.
+Either gate ALONE (B/C) is worse than the current spec — the value is the
+CONJUNCTION (fast last minute AND a real 1m leg below the 1m high).
+
+**⭐ mc=1 (greedy replay, E vs current): 3,936 @ 2.211 vs 4,062 @ 2.184 —
++0.027 AT THE OPERATING POINT, better in 6 of 7 years** (2020 3.26/3.22,
+2021 2.77/2.74, 2022 1.82/1.80, 2023 1.59/1.56, 2024 2.29/2.22, 2025
+2.03/2.01; only 2026 gives back 1.85/1.88). **The FIRST challenger of the
+S39-S40 arc to win at BOTH mc levels** — the slot-allocation curse hit
+REPLACEMENTS (slope-for-dist, dist_vw-for-dist, rngfront); this is a
+TIGHTENING, and the trips it removes (the d1m-shallow slice) are slot
+thieves, not slot payers. Bake candidate: `d1m < -2%` gate (engine:
+`vwap/max60 - 1 < -0.02` at the signal, hi_60 already maintained). USER
+DECISION pending.
