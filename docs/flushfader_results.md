@@ -5574,3 +5574,57 @@ the leg's own shape; corr with eff_20m just 0.125). (d) The leg-age axes
 are mild: flush-age [1200,1800) = 1.86 is the stale-flush trough (aged
 20-30min unresolved), old-leg [3600,6000) = 3.93 tail-flavored; no gates
 here. ⏭ overlay interaction pass: ssf-band × the S40 roster + mc=1.
+
+## S40z — ⭐ SPEC v2.1 BAKED (the falling-knife gate) + the anchored eff pair (2026-08-02, night)
+
+**SPEC v2.1 = v2.0 + `ols_r_since_flow >= -0.95`** (user: the quantitative
+form of "don't catch falling knives" — a leg that is one clean regression
+line since its first low is a drift, not a capitulation; unwarm fails;
+`--min-r-since-flow`, <= -1 = off; the canonical base CLI gains
+`--min-r-since-flow -1`). **base_v8 = THE base** (2,217,950, zero-diff vs
+v7) with the anchored eff pair; **`v21_reference/` GRAND PARITY ✓: engine
+42,868 = SQL 42,868. Book 26,135 @ 2.501 / 74.1%** (years 4.49/3.83/1.43/
+1.72/2.62/2.00/2.45); **mc=1 3,829 @ 2.217** — flat vs v2.0's 2.218: the
+gate is mc=0-accretive (+0.036 for −406 trips), slot-neutral — INSURANCE-
+class, adopted on principle (ladder: … 2.211 → 2.218 → 2.217).
+
+**The anchored eff pair (user, slot-based — `AnchoredEff` builds 30-bar
+vwap slots internally, boundaries aligned to the anchor; sub-30s returns =
+microstructure noise, F7):** esh q05/med/q95 = −0.63/−0.38/−0.21; esf =
+−0.69/−0.33/−0.14. **corr with eff_20m: 0.196 / 0.175 — the anchored eff
+is nearly ORTHOGONAL to the fixed-window eff family** (esf↔ssf 0.637,
+esf↔rsf 0.34); the leg's own efficiency is different information from the
+20m clock's.
+
+| eff_since_high | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [-1.01,-0.8) | 85 | 4.528 | 64.7 | +1.19 | 134.05 | inf | 0.0 | 0.89 | inf | 0.69 | 2.45 |
+| [-0.8,-0.7) | 417 | 2.576 | 71.5 | +1.63 | inf | 9.49 | 1.87 | 0.83 | 1.77 | 1.37 | 2.94 |
+| [-0.7,-0.6) | 1,154 | 2.538 | 75.1 | +1.86 | 28.67 | 10.14 | 0.81 | 1.61 | 2.42 | 3.99 | 1.31 |
+| [-0.6,-0.5) | 3,105 | 3.439 | 76.1 | +2.2 | 9.16 | 3.11 | 2.36 | 2.77 | 2.86 | 4.18 | 2.4 |
+| [-0.5,-0.4) | 6,855 | 2.645 | 74.3 | +2.19 | 4.21 | 3.24 | 2.38 | 1.71 | 2.55 | 2.04 | 3.22 |
+| [-0.4,-0.3) | 8,154 | 2.259 | 74.7 | +2.16 | 5.45 | 3.63 | 0.79 | 1.26 | 2.78 | 1.85 | 3.43 |
+| [-0.3,-0.2) | 5,200 | 2.227 | 72.5 | +2.27 | 2.62 | 5.39 | 5.14 | 2.31 | 2.31 | 1.55 | 1.61 |
+| [-0.2,-0.1) | 1,161 | 3.171 | 71.1 | +1.86 | 7.88 | 10.27 | 1.42 | 2.38 | 3.89 | 2.37 | 1.84 |
+
+| eff_since_flow | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [-1.01,-0.8) | 698 | 4.757 | 80.1 | +2.59 | 61.04 | 7.15 | 3.38 | 0.55 | 5.62 | 3.79 | 31.32 |
+| [-0.8,-0.7) | 564 | 1.945 | 69.0 | +2.38 | 2.73 | 1.06 | 0.32 | 0.71 | 6.78 | 2.55 | 8.48 |
+| [-0.7,-0.6) | 1,070 | 3.313 | 77.1 | +2.09 | 9.71 | 9.04 | 1.37 | 3.18 | 3.18 | 1.82 | 3.03 |
+| ⭐ [-0.6,-0.5) | 2,062 | 4.071 | 78.4 | +2.33 | 8.76 | 4.47 | 3.16 | 2.5 | 5.53 | 3.12 | 3.17 |
+| [-0.5,-0.4) | 4,189 | 2.85 | 75.6 | +2.2 | 7.53 | 3.95 | 1.84 | 2.98 | 2.8 | 2.96 | 1.03 |
+| [-0.4,-0.3) | 6,892 | 2.407 | 74.5 | +2.15 | 6.17 | 3.18 | 1.42 | 1.73 | 2.25 | 1.87 | 2.52 |
+| [-0.3,-0.2) | 6,955 | 2.245 | 73.7 | +2.2 | 2.67 | 4.01 | 1.21 | 1.91 | 2.1 | 1.73 | 3.81 |
+| [-0.2,-0.1) | 3,148 | 2.07 | 69.9 | +1.91 | 3.33 | 6.75 | 1.09 | 0.94 | 2.59 | 1.54 | 2.26 |
+| [-0.1,0) | 530 | 2.182 | 61.9 | +1.09 | 6.44 | 2.84 | 4.44 | 1.22 | 3.77 | 2.31 | 0.85 |
+
+**READING:** eff_since_flow is the live one — **[-0.6,-0.5) = 2,062 @
+4.071 / 78.4, ALL years >= 2.5** (overlay candidate: an efficiently-but-
+not-perfectly declining flush), with a [-0.8,-0.7) trough (1.95, 2022-23
+= 0.32/0.71) and a 2023-warted ultra-efficient extreme. eff_since_high's
+best band [-0.6,-0.5) = 3.44 is its softer echo. ⏭ TOMORROW (user's plan):
+slope_since_flow [-140,-100) as a REPLACEMENT for the dvw + d20m-high
+pair (test with both off); r_since_flow vs rngfront replacement; + the
+esf band joins the overlay interaction matrix; then WRAP-UP (mc=1 passes,
+pyramid re-cut).
