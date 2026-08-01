@@ -4738,3 +4738,112 @@ roster's day-structure seat: dsv ≥ −3 → pco ≥ +2 (recorded since v1.2 as
 pct_chg_open; dsv stays a recorded column).** The 2D grid: within pco ≥ 10,
 every dsv column runs 3.3-3.8 — dsv adds no gradient inside pco's deep
 region either.
+
+## S40m — base_v4 PARITY (the cold-eff un-hiding) + the {vol,tc,dv} LEG ANALYSIS (2026-08-01)
+
+**base_v4 parity resolved:** first check showed +22,589 extra trips vs
+base_v3 (strict superset). Root cause: the OLD signed-band eff gate had
+`ValueNone -> false` BEFORE the off-checks — **cold eff failed even with the
+band disabled**, so every prior base pass silently dropped cold/degenerate-
+eff signal bars (Σ40|r| = 0 dead-tape windows + the one-slot warmup gap).
+The S40i abs-band redesign made "off" truly off. The extras are EXACTLY the
+NULL-eff bars (appender writes NaN as NULL — `isnan()` misses them, filter
+on `eff_20m IS NULL`): **base_v4 minus NULL-eff ≡ base_v3, zero diff; v2.0
+SQL over base_v4 = 43,587 = the engine reference exactly** (NULL fails the
+abs band in SQL). **`base_v4/` = THE working base (2,217,950 trips).** ⚠
+eff-OFF universes on v1-v3 bases were ~1% undercounted (the S39l/S40b
+"eff OFF" baselines excluded cold-eff bars); spec-cut studies unaffected.
+
+**The {vol,tc,dv} leg analysis** (user priority; v2.0 residual, base_v4,
+26,541 trips). Leg rate = *_leg/(bars_since_first_low+1) per present bar
+(the signal bar is a low, so legbars >= 1 always; anchors verified: 0
+violations of leg <= cum on 2.2M rows; median leg VWAP/signal_vwap = 1.034).
+Denominators: session avg = cum_*/(signal_sec−34200) (RTH-clean), pre-leg =
+(cum−leg)/(elapsed−legbars), initial-15m = *_0945_tape/900 (bars-as-seconds
+approximation on the leg, S38c precedent). Medians: rs_vol 0.79, rp_vol
+0.73, r15_vol 0.18 — the typical leg runs QUIETER than the session and far
+below the opening rotation.
+
+| rs_vol = leg rate / session avg | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,0.4) | 1,894 | 1.914 | 71.8 | +2.0 | 4.37 | 23.5 | inf | 0.51 | 2.8 | 1.16 | 6.23 |
+| [0.4,0.55) | 4,439 | 2.04 | 72.2 | +2.01 | 3.21 | 3.81 | 0.53 | 1.64 | 2.63 | 2.07 | 2.32 |
+| [0.55,0.7) | 4,572 | 2.807 | 75.8 | +2.12 | 3.12 | 3.55 | 2.97 | 2.55 | 2.22 | 3.56 | 1.89 |
+| [0.7,0.85) | 3,767 | 2.477 | 75.8 | +2.33 | 4.43 | 3.48 | 2.65 | 1.9 | 3.03 | 1.62 | 1.62 |
+| [0.85,1.0) | 2,726 | 4.001 | 77.9 | +2.17 | 11.77 | 5.86 | 2.02 | 1.61 | 2.57 | 4.98 | 16.77 |
+| [1.0,1.25) | 3,212 | 2.582 | 72.9 | +2.1 | 3.55 | 3.78 | 0.93 | 2.96 | 2.19 | 3.12 | 2.16 |
+| [1.25,1.6) | 2,277 | 2.899 | 72.7 | +2.32 | 4.19 | 2.94 | 4.58 | 5.18 | 2.29 | 2.05 | 2.19 |
+| [1.6,2.5) | 2,370 | 2.01 | 71.8 | +2.13 | 5.7 | 4.39 | 1.05 | 1.44 | 5.33 | 0.73 | 1.26 |
+| >= 2.5 | 1,284 | 2.107 | 73.4 | +2.16 | 2.09 | 3.31 | 1.36 | 0.84 | 3.03 | 2.22 | 20.59 |
+
+| rp_vol = leg rate / PRE-leg rate | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,0.35) | 2,240 | 1.755 | 70.5 | +1.88 | 3.42 | 3.66 | 4.41 | 1.07 | 3.19 | 1.19 | 2.13 |
+| [0.35,0.5) | 4,838 | 2.133 | 72.4 | +2.04 | 4.85 | 4.09 | 0.47 | 1.34 | 2.02 | 2.34 | 3.65 |
+| [0.5,0.65) | 4,347 | 2.679 | 76.4 | +2.14 | 2.48 | 3.66 | 3.15 | 2.53 | 2.95 | 2.2 | 2.72 |
+| [0.65,0.8) | 3,151 | 2.559 | 75.3 | +2.27 | 4.31 | 3.49 | 2.78 | 1.87 | 2.36 | 2.19 | 1.54 |
+| ⭐ [0.8,1.0) | 2,822 | 4.469 | 79.0 | +2.27 | 12.07 | 5.87 | 1.9 | 1.76 | 3.67 | 6.15 | 17.3 |
+| [1.0,1.3) | 2,901 | 2.894 | 74.8 | +2.3 | 3.69 | 3.9 | 1.1 | 2.52 | 3.4 | 3.36 | 2.14 |
+| [1.3,2.0) | 3,102 | 2.283 | 70.9 | +2.17 | 5.29 | 3.89 | 1.04 | 2.64 | 1.71 | 1.15 | 2.35 |
+| [2.0,3.5) | 1,936 | 2.231 | 72.6 | +2.11 | 4.07 | 3.82 | 1.11 | 0.96 | 4.8 | 1.67 | 1.54 |
+| >= 3.5 | 1,204 | 2.044 | 71.8 | +2.16 | 1.76 | 2.38 | 4.86 | 4.79 | 2.09 | 1.36 | 1.81 |
+
+| rp_tc (trade-count twin) | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,0.35) | 2,430 | 1.739 | 71.2 | +1.89 | 3.19 | 28.61 | 1.34 | 0.44 | 3.47 | 1.25 | 4.42 |
+| [0.35,0.5) | 4,742 | 2.363 | 74.0 | +2.1 | 4.67 | 4.65 | 0.86 | 2.02 | 2.8 | 1.97 | 2.22 |
+| [0.5,0.65) | 4,456 | 2.219 | 73.3 | +2.02 | 2.33 | 3.44 | 1.25 | 3.7 | 1.89 | 2.14 | 2.2 |
+| [0.65,0.8) | 2,781 | 3.361 | 78.1 | +2.37 | 6.01 | 2.99 | 4.1 | 1.93 | 2.86 | 3.6 | 2.54 |
+| [0.8,1.0) | 2,744 | 3.53 | 78.2 | +2.43 | 8.4 | 5.67 | 1.47 | 1.36 | 3.69 | 5.05 | 3.47 |
+| [1.0,1.3) | 2,802 | 2.551 | 72.5 | +1.86 | 3.35 | 3.0 | 1.61 | 2.69 | 2.24 | 2.67 | 2.11 |
+| [1.3,2.0) | 3,086 | 2.879 | 74.8 | +2.39 | 6.01 | 5.28 | 0.98 | 3.05 | 2.91 | 1.66 | 2.92 |
+| [2.0,3.5) | 2,107 | 2.227 | 70.7 | +2.07 | 5.73 | 3.13 | 1.49 | 1.0 | 2.73 | 1.39 | 1.31 |
+| >= 3.5 | 1,393 | 1.876 | 71.2 | +2.06 | 1.65 | 2.75 | 2.27 | 3.33 | 1.67 | 1.43 | 1.71 |
+
+| rp_dv (dollar twin) | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,0.35) | 3,456 | 2.062 | 73.2 | +2.03 | 5.17 | 5.46 | 9.38 | 1.12 | 3.28 | 1.53 | 2.09 |
+| [0.35,0.5) | 5,092 | 2.141 | 72.2 | +2.03 | 2.33 | 3.16 | 0.67 | 1.64 | 2.42 | 2.31 | 3.52 |
+| [0.5,0.65) | 4,051 | 2.487 | 75.0 | +2.11 | 4.22 | 5.09 | 2.64 | 1.8 | 1.76 | 2.27 | 1.95 |
+| [0.65,0.8) | 2,954 | 3.37 | 77.9 | +2.4 | 6.85 | 3.13 | 2.28 | 2.77 | 4.42 | 2.12 | 5.78 |
+| [0.8,1.0) | 2,672 | 2.857 | 75.6 | +2.1 | 3.26 | 4.92 | 1.06 | 1.29 | 3.81 | 4.54 | 5.36 |
+| [1.0,1.3) | 2,625 | 3.384 | 74.6 | +2.29 | 7.27 | 4.79 | 2.29 | 5.2 | 2.18 | 3.41 | 1.67 |
+| [1.3,2.0) | 2,918 | 2.398 | 73.2 | +2.33 | 6.6 | 3.45 | 1.14 | 1.91 | 1.99 | 1.46 | 2.32 |
+| [2.0,3.5) | 1,732 | 2.296 | 73.0 | +2.15 | 5.63 | 3.71 | 1.12 | 1.19 | 8.18 | 1.01 | 1.19 |
+| >= 3.5 | 1,041 | 1.785 | 69.3 | +2.02 | 1.26 | 2.16 | 4.1 | 4.27 | 1.92 | 1.35 | 1.66 |
+
+| r15_vol = leg rate / initial-15m rate | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,0.05) | 9,347 | 2.842 | 75.3 | +2.27 | 5.3 | 6.83 | 1.92 | 1.99 | 2.03 | 1.99 | 6.33 |
+| [0.05,0.1) | 1,885 | 1.605 | 73.7 | +2.07 | 2.08 | 2.39 | 1.82 | 0.85 | 3.18 | 0.83 | 3.34 |
+| [0.1,0.18) | 2,028 | 2.458 | 72.5 | +1.99 | 3.19 | 5.84 | 2.65 | 1.36 | 2.52 | 2.38 | 2.38 |
+| [0.18,0.3) | 2,235 | 2.487 | 74.0 | +2.25 | 4.25 | 2.39 | 3.28 | 2.13 | 3.61 | 1.85 | 2.06 |
+| [0.3,0.5) | 3,394 | 2.064 | 70.6 | +1.89 | 3.7 | 3.35 | 0.63 | 1.4 | 2.6 | 2.8 | 1.54 |
+| [0.5,0.8) | 3,785 | 2.418 | 74.3 | +2.22 | 2.75 | 1.98 | 1.92 | 3.54 | 2.64 | 2.05 | 2.71 |
+| [0.8,1.35) | 2,552 | 3.107 | 75.5 | +2.0 | 4.14 | 2.13 | 0.66 | 2.89 | 6.87 | 4.91 | 3.5 |
+| >= 1.35 | 1,315 | 2.244 | 72.9 | +2.1 | 16.59 | 4.63 | 1.81 | 0.46 | 2.11 | 1.33 | 1.84 |
+
+| ps_leg = leg avg print / pre-leg avg print | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,0.75) | 1,153 | 2.037 | 71.8 | +1.95 | 6.42 | 2.85 | 2.64 | 2.1 | 0.97 | 1.32 | 3.05 |
+| [0.75,0.85) | 2,445 | 2.686 | 73.8 | +2.01 | 5.82 | 2.72 | 1.98 | 2.34 | 2.36 | 2.65 | 2.55 |
+| [0.85,0.95) | 5,708 | 2.529 | 73.4 | +2.22 | 3.7 | 4.99 | 0.93 | 2.59 | 2.58 | 2.61 | 1.95 |
+| [0.95,1.05) | 8,193 | 2.79 | 75.3 | +2.25 | 3.64 | 4.01 | 1.5 | 2.11 | 3.19 | 2.8 | 2.36 |
+| [1.05,1.15) | 5,438 | 2.105 | 72.5 | +2.05 | 3.64 | 4.18 | 1.5 | 0.91 | 2.17 | 1.58 | 2.99 |
+| [1.15,1.3) | 2,796 | 2.696 | 76.6 | +2.21 | 5.11 | 3.64 | 1.71 | 1.74 | 3.7 | 1.52 | 3.57 |
+| >= 1.3 | 808 | 1.619 | 69.9 | +1.84 | 7.36 | 1.5 | 1.99 | 0.84 | 4.82 | 0.54 | 4.47 |
+
+**⭐ THE STEADY-TAPE FLUSH: rp_vol ∈ [0.8, 1.0) = 2,822 trips @ 4.469 /
+79.0%, ALL 7 YEARS POSITIVE (worst 1.76)** — the leg trading at just-under
+its own pre-leg pace. The same hump appears in all three lenses (rs_vol
+[0.85,1.0) = 4.00; rp_tc [0.65,1.0) = 3.4-3.5) and at BOTH tails the edge
+fades: a DRYING leg (< 0.5: interest gone, 1.7-2.1, 2022-toxic in spots)
+and an ACCELERATING leg (> 1.3-2: real news/panic driving the tape, 1.8-
+2.3). **Mechanism: a capitulation-grade price move on UNREMARKABLE volume
+is mechanical/flow-driven selling — nothing happened — and snaps back;
+volume acceleration means something actually happened.** The r15 axis is
+noisy (the opening-rotation denominator mixes name types); ps_leg is mild
+with a weak >= 1.3 tail (prints fattening into the leg = 1.62). Overlay-
+roster candidate: rp_vol [0.8,1.0) joins as the participation lens; ⏭
+interaction pass vs the S40k trio (near-1.0 steady tape vs gap_60
+continuity — plausibly related) before pyramid promotion.
