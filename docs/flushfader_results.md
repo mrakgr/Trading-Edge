@@ -5294,3 +5294,31 @@ with precision: the conjunction matters at the two ends of the gap axis
 ([15,90) concentrated-side and [700,1200) D1), is unnecessary on perfect
 tape, and rescues nothing in the swamp.** Method note: the per-group decile
 normalization is a house tool from here on for any nested feature pair.
+
+## S40u — the AWAKENING (dead 20m, alive 5m): a real story at ANECDOTE scale (2026-08-01)
+
+User hypothesis: g12 high × g3/g6 low = activity picking up in an otherwise
+inactive stock. 2D (n / PF):
+
+| g12 \ g3 | [0,3) | [3,15) | [15,45) | [45,120) | [120,301) |
+|---|---|---|---|---|---|
+| [0,15) | 3,199 / 5.55 | 1,000 / 4.04 | 0 | 0 | 0 |
+| [15,90) | 368 / 1.52 | 2,019 / 2.32 | 2,005 / 2.75 | 61 / 3.8 | 0 |
+| [90,360) | 218 / 1.94 | 526 / 3.34 | 2,305 / 2.65 | 3,568 / 1.72 | 151 / 1.69 |
+| [360,700) | 64 / inf | 30 / 7.42 | 152 / 2.24 | 2,813 / 2.03 | 3,274 / 1.89 |
+| [700,1200) | 0 | 0 | 0 | 58 / 1.38 | 4,730 / 2.43 |
+
+The awakening cells look SPECTACULAR — g12>=360 × g3<3 = 64 trips with
+ZERO LOSSES (median +7.24%); × g3<15 = 94 @ 51.99/90.4% — **but the census
+kills the feature: 94 trips = 14 tkds EVER (~2/yr)**, the classic
+meme-squeeze roll (AYRO, FTFT, PHUN, GNPX, QSI, TARA, LIDR 21-trip
+campaign, AEHL...), one losing event among them (VRAX 2026-07-09). S38j
+discipline: count events before profiling features. **PLAYBOOK NOTE, not a
+feature: a dead-for-20m name whose last 5m is suddenly gapless and
+flushing = a violent-awakening campaign day (up to 21 trips/event, +30 to
++135 pts summed) — recognize it live, size it as a lottery, expect ~2/yr.**
+The census-real neighbor (g12 [90,360) × g3<15 = 744 trips / 121 tkds @
+2.63, all years positive) is only modestly above book — the marginal gap
+rows dominate the 2D; recency structure adds little at scale. The
+mechanical constraint also caps the pocket: g12 >= 700 × alive-5m is EMPTY
+(not enough present seconds left to keep the last 5m gapless).
