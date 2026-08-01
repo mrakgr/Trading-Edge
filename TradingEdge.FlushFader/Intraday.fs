@@ -392,16 +392,19 @@ type IntradayConfig =
       MaxVolat20m: float
       // ⭐ |eff_20m| floor — same record-first stance (V6's adx analog; keep 0). A signal
       // with eff still cold FAILS a positive floor.
-      MinAbsEff20m: float
+      // (MinAbsEff20m DELETED, S40i: fully superseded — AbsEff20Lo IS the abs floor.)
       // ⭐ SPEC v1.2 GATES (baked 2026-07-29) — the S18 production stack as entry
       // conditions, formulas IDENTICAL to the recorded columns. Each individually
       // disable-able; a cold feature FAILS an armed gate (volatOk stance).
       MaxSpeed1m: float          // vwap/vwap_60_prev - 1 < this (flush speed). Default -0.02. 0 = off.
       KBandLo: int               // lows_since_first_low >= this. Default 26. <= 0 = off.
       KBandHi: int               // lows_since_first_low <= this. Default 50. <= 0 = off.
-      Eff20Lo: float             // eff_20m (SIGNED) >= this. Default -0.5. -Infinity = off.
-      Eff20Hi: float             // eff_20m (SIGNED) <  this. Default -0.3. +Infinity = off.
-                                 // ⚠ COLD eff_20m PASSES this band (user 2026-07-29).
+      AbsEff20Lo: float          // ⭐ SPEC v2.0 REDESIGN (user, S40i): |eff_20m| >= this. Default 0.3.
+      AbsEff20Hi: float          // |eff_20m| < this. Default 0.5. lo <= 0 / hi = +Infinity = off.
+                                 // One |·| convention for both eff measures (mirrors |eff10|);
+                                 // ≡ the old signed band [-0.5,-0.3) to within ~30 trips — 99.9%
+                                 // of the residual universe has eff_20m < 0 (S40e). Unwarm eff
+                                 // fails the band like any other gate (S38n).
       MinAbsEff10m: float        // |eff_10m| >= this. Default 0.15. 0 = off.
       DistHiLo: float            // vwap/chan_hi - 1 >= this (the un-fadeable wall). Default -0.35. -Infinity = off.
       DistHiHi: float            // vwap/chan_hi - 1 <  this (deep enough into the leg). Default -0.10. >= 0 = off.
@@ -435,6 +438,10 @@ type IntradayConfig =
                                  // leg below the 1m high; the shallow slice above −2% = 2,261
                                  // trips @ ~1.6, slot thieves — first both-mc-levels winner).
                                  // Default −0.02. >= 0 = off. Same post-push max60 as hi_60.
+      MaxDistVw20m: float        // ⭐ SPEC v2.0 (user, S40h): vwap/vwap_1200 - 1 < this — must sit
+                                 // at least 5% below the 20m rolling VWAP (trims the shallow
+                                 // [−5,−4) 1.67 tail of the dvw axis). Default −0.05. >= 0 = off.
+                                 // Cold vwap_1200 (window not full) FAILS an armed gate.
       // ⭐ PRICE-ACCEPTANCE STOPS (user, 2026-07-28): while holding, exit if a NEW
       // entry-channel low prints on (vol_60/60)/(vol_1200/1200) >= VolStopRatio, or
       // (tc_60/60)/(tc_1200/1200) >= TcStopRatio, or at vwap/vwap_60_prev - 1 <
@@ -1036,13 +1043,6 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
              || (match ew40.State with ValueSome v -> v >= cfg.MinVolat20m | ValueNone -> false))
             && (Double.IsPositiveInfinity cfg.MaxVolat20m
                 || (match ew40.State with ValueSome v -> v < cfg.MaxVolat20m | ValueNone -> true))
-        let effOk =
-            cfg.MinAbsEff20m <= 0.0
-            || (match slotLag.Last, slotLag.Lagged, slotAbsSum.State with
-                | ValueSome cur, ValueSome old, ValueSome s
-                    when slotAbsSum.Count = slotAbsSum.WindowSize && old > 0.0 && s > 0.0 ->
-                    abs (log (cur / old) / s) >= cfg.MinAbsEff20m
-                | _ -> false)
         // ⭐ SPEC v1.2 GATES — expressions mirror the recorded columns exactly, so an
         // engine-gated run must bit-match the post-hoc SQL on the same trips (S19).
         let speedOk =
@@ -1057,6 +1057,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             || (match max60.State with
                 | ValueSome h when h > 0.0 -> bar.vwap / h - 1.0 < cfg.MaxDist1mHi
                 | _ -> false)
+        // ⭐ SPEC v2.0 (S40h): same dv/vol sums as the recorded vwap_1200 (nan-cold).
+        let dvw20Ok =
+            cfg.MaxDistVw20m >= 0.0
+            || (match dvSum1200.State, volSum1200.State with
+                | ValueSome dv, ValueSome v
+                    when volSum1200.Count = volSum1200.WindowSize && v > 0.0 && dv > 0.0 ->
+                    bar.vwap / (dv / v) - 1.0 < cfg.MaxDistVw20m
+                | _ -> false)
         let kBandOk =
             (cfg.KBandLo <= 0 || counters.LowsSinceFirstLow >= cfg.KBandLo)
             && (cfg.KBandHi <= 0 || counters.LowsSinceFirstLow <= cfg.KBandHi)
@@ -1067,16 +1075,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 ValueSome (log (cur / old) / s)
             | _ -> ValueNone
         let eff20BandOk =
-            // ⭐ S38n (SPEC v1.6): COLD eff_20m FAILS — standard stance restored.
+            // ⭐ S38n (SPEC v1.6): COLD eff_20m FAILS an armed edge — standard stance.
             // Cold-at-signal = the one-slot warm-up gap (channel warm at 1,200 bars,
             // eff at ~1,230) — a weak early-morning thin-tape fringe (471 trips @
-            // 1.78, hurting 2023) — or a degenerate dead tape (Σ|r| = 0). Post-hoc
-            // v1.6 parity vs older parquets: add `eff_20m IS NOT NULL`.
-            match eff20Signed with
-            | ValueNone -> false
-            | ValueSome e ->
-                (Double.IsNegativeInfinity cfg.Eff20Lo || e >= cfg.Eff20Lo)
-                && (Double.IsPositiveInfinity cfg.Eff20Hi || e < cfg.Eff20Hi)
+            // 1.78, hurting 2023) — or a degenerate dead tape (Σ|r| = 0). S40i
+            // redesign: ABSOLUTE band |eff_20m| ∈ [lo, hi) — SQL twin:
+            // abs(eff_20m) >= 0.3 AND abs(eff_20m) < 0.5.
+            (cfg.AbsEff20Lo <= 0.0
+             || (match eff20Signed with ValueSome e -> abs e >= cfg.AbsEff20Lo | ValueNone -> false))
+            && (Double.IsPositiveInfinity cfg.AbsEff20Hi
+                || (match eff20Signed with ValueSome e -> abs e < cfg.AbsEff20Hi | ValueNone -> false))
         let eff10Ok =
             cfg.MinAbsEff10m <= 0.0
             || (match slotLag20.Last, slotLag20.Lagged, slotAbsSum20.State with
@@ -1124,8 +1132,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             || (match ols300.State with
                 | ValueSome m when ols300.Count = ols300.WindowSize -> m * 6e5 >= cfg.MinSlope5Bpm
                 | _ -> false)
-        let specOk = speedOk && d1mOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
-        if inWindow && channelWarm && isNewLow && floorsOk && volatOk && effOk && specOk && this.HasSlot then
+        let specOk = speedOk && d1mOk && dvw20Ok && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
+        if inWindow && channelWarm && isNewLow && floorsOk && volatOk && specOk && this.HasSlot then
             pendingEntry <-
                 ValueSome
                     { SignalSec = bar.etSec

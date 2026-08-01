@@ -4459,3 +4459,75 @@ already-gated d20m-high leaves little there). **Verdict: NOT a gate — the
 deep end (≤ −12%, ~4.0k trips @ ~3.2) joins the overlay/sizing roster with
 an explicit 2022 regime caveat** (same family as dsv ≥ −3, but on the 20m
 clock and bear-fragile where dsv is bear-robust).
+
+## S40i — ⭐ SPEC v2.0 BAKED = v1.9 + dvw < −5% + the ABS eff20 redesign; ols_r tables (2026-08-01)
+
+**SPEC v2.0 = v1.9 + `vwap/vwap_1200 − 1 < −0.05`** (user: trim the shallow
+dvw tail — the [−5,−4) 1.67 bucket; `MaxDistVw20m`/`--max-dist-vw20m`,
+>= 0 = off, cold vwap_1200 fails) **+ the eff20 REDESIGN (user): the gate is
+now an ABSOLUTE band `|eff_20m| ∈ [0.3, 0.5)`** (`AbsEff20Lo/Hi`,
+`--abs-eff20-lo/--abs-eff20-hi`) — one |·| convention for both eff measures,
+mirroring |eff10|. The vestigial `MinAbsEff20m` sweep field/flag/gate is
+DELETED (the abs floor subsumes it), and the banner's "COLD FAILS" label is
+dropped (behavior unchanged and uniform since S38n: an unwarm feature fails
+any active gate; the v1.2 cold-pass special case was the only switch that
+ever existed and S38n deleted it). Canonical eff SQL from here on:
+`abs(eff_20m) >= 0.3 AND abs(eff_20m) < 0.5`. ⚠ Canonical base-pass CLI:
+`--eff20-lo/-hi/--min-abs-eff-20m` are GONE; use `--abs-eff20-lo 0
+--abs-eff20-hi Infinity --max-dist-1m 0 --max-dist-vw20m 0` plus the S40
+list.
+
+**`v20_reference/` GRAND PARITY ✓: engine 43,587 = SQL 43,587, zero diff.
+Book 26,541 @ 2.465 / 74.0%** (years 4.08/3.82/1.45/1.72/2.59/1.98/2.48);
+**mc=1 3,863 @ 2.218, all 7 years positive** (3.32/2.72/1.89/1.58/2.29/
+2.04/1.83). **Ladder: 2.004 → 2.070 → 2.106 → 2.104 → 2.175 → 2.184 (v1.8)
+→ 2.211 (v1.9) → 2.218 (v2.0).** The abs-band redesign is a true no-op on
+the book: 26,541 @ 2.465 EXACTLY matches the signed-band cut — the slope
+gates already exclude every positive-eff trip on this universe.
+
+**ols_r breakdowns** (user request — never shown yesterday; v2.0 residual
+universe, warmed base_v3, $1-$10 book, 26,541 @ 2.465). r = sign(slope) ×
+sqrt(R²) of the OLS on ln(vwap); r20 q05/med/q95 = −0.953/−0.885/−0.676;
+r10 = −0.947/−0.828/−0.371; **corr(r10, r20) = 0.146** — the slope/accel
+gates have DECORRELATED the two scales.
+
+| ols_r_1200 (20m) bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [-1.005,-0.99) | 0 | - | - | - | - | - | - | - | - | - | - |
+| [-0.99,-0.97) | 140 | 3.7 | 75.0 | +2.3 | inf | 5.59 | inf | 1.52 | 7.73 | 0.74 | 3.69 |
+| [-0.97,-0.95) | 1,620 | 2.387 | 72.9 | +2.23 | 1.64 | 3.27 | 7.19 | 3.82 | 4.91 | 1.83 | 1.51 |
+| [-0.95,-0.9) | 9,142 | 2.506 | 75.8 | +2.24 | 5.82 | 3.44 | 1.94 | 2.27 | 2.3 | 1.74 | 2.4 |
+| [-0.9,-0.85) | 6,977 | 2.239 | 73.7 | +2.07 | 4.11 | 4.15 | 1.04 | 1.69 | 2.01 | 1.86 | 2.46 |
+| [-0.85,-0.8) | 3,681 | 2.573 | 73.0 | +2.24 | 5.23 | 4.17 | 0.89 | 1.43 | 4.11 | 2.98 | 1.04 |
+| [-0.8,-0.7) | 3,275 | 2.357 | 71.9 | +2.0 | 2.66 | 3.21 | 2.06 | 0.99 | 2.57 | 2.09 | 7.5 |
+| [-0.7,-0.6) | 1,088 | 3.541 | 72.5 | +2.11 | 3.23 | 7.16 | 0.88 | 1.81 | 5.27 | 2.39 | 23.71 |
+| [-0.6,-0.5) | 444 | 3.239 | 71.8 | +1.75 | 2.29 | 10.27 | 1.0 | 2.29 | 3.19 | 2.65 | 7.34 |
+| [-0.5,-0.3) | 172 | 4.15 | 78.5 | +3.5 | 47.73 | inf | 1.07 | 0.0 | 3.87 | 4.11 | 2.68 |
+| [-0.3,0) | 2 | 1.077 | 50.0 | +0.02 | 1.08 | - | - | - | - | - | - |
+| [0,1.005) | 0 | - | - | - | - | - | - | - | - | - | - |
+
+| ols_r_600 (10m) bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [-1.005,-0.99) | 2 | inf | 100.0 | +1.95 | inf | - | - | - | - | - | - |
+| [-0.99,-0.97) | 144 | 1.914 | 68.8 | +1.75 | 1.05 | 77.34 | 15.37 | 1.02 | 0.89 | 3.32 | 4.45 |
+| [-0.97,-0.95) | 912 | 2.202 | 73.5 | +1.84 | 10.49 | 4.05 | 0.18 | 1.71 | 1.43 | 5.21 | 149.53 |
+| [-0.95,-0.9) | 5,080 | 2.67 | 75.0 | +2.35 | 3.16 | 3.58 | 1.1 | 2.42 | 2.34 | 3.21 | 3.56 |
+| [-0.9,-0.85) | 5,167 | 2.293 | 75.2 | +2.25 | 2.96 | 4.29 | 1.24 | 1.32 | 3.91 | 1.63 | 2.78 |
+| [-0.85,-0.8) | 3,962 | 2.97 | 75.5 | +2.3 | 4.72 | 4.27 | 2.43 | 1.58 | 3.82 | 2.18 | 2.89 |
+| [-0.8,-0.7) | 4,849 | 2.436 | 73.9 | +2.06 | 6.31 | 4.78 | 2.63 | 1.66 | 2.41 | 1.43 | 2.02 |
+| [-0.7,-0.6) | 2,361 | 3.046 | 75.6 | +2.06 | 10.81 | 5.53 | 4.25 | 2.6 | 2.37 | 2.24 | 1.49 |
+| [-0.6,-0.5) | 1,546 | 1.986 | 70.7 | +1.82 | 3.55 | 5.23 | 1.28 | 0.75 | 1.94 | 1.79 | 1.92 |
+| [-0.5,-0.3) | 1,580 | 2.149 | 70.5 | +1.84 | 4.69 | 2.26 | 0.92 | 1.76 | 2.53 | 1.67 | 2.27 |
+| [-0.3,0) | 761 | 1.583 | 64.1 | +1.77 | 2.62 | 1.03 | 4.17 | 2.25 | 2.1 | 1.31 | 0.58 |
+| [0,1.005) | 177 | 2.492 | 68.9 | +1.82 | 4.73 | 0.5 | 68.98 | 6.59 | 0.99 | 4.36 | 1.58 |
+
+**Reading: the S38q two-scale grammar has been EATEN by the slope/accel
+gates.** r20's old "linearity good" gradient is gone; the residual hot spot
+is the NON-linear end ([−0.7,−0.5) = 3.2-4.2, the A++ lin20 inversion:
+chaotic crash > orderly slide) but 2022 is weak in every one of those cells
+and 2026's 23.7 is tail-carried. r10's weakest cell is the flat-fit end
+[−0.3,0) (1.583, 761 trips) but 2022 = 4.17 breaks year-consistency. The
+near-zero r10↔r20 correlation is the real news — post-gates the two scales
+are independent axes, yet neither offers a year-robust cutoff. **Verdict:
+overlay-grade at best (r20 ∈ [−0.7,−0.5) as a chaos lens with a 2022
+caveat); NOT gates.**

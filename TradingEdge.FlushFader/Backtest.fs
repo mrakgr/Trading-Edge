@@ -69,7 +69,7 @@ let defaultConfig =
           DvFloor60        = 100_000.0  // >= $100k traded over the last 60 present bars at the signal
           TcFloor60        = 60.0       // >= 60 trades over the same window (1/sec — kills the
                                         // block-print-only tape)
-          MinAbsEff20m     = 0.0        // superseded by the SIGNED Eff20 band below (kept for sweeps)
+          // (MinAbsEff20m deleted — S40i: AbsEff20Lo is the abs floor)
           MinVolat20m      = 0.004      // ⭐ SPEC v1.2 (S18): the 40bp volatility floor
           MaxVolat20m      = Double.PositiveInfinity
           // ⭐ SPEC v1.2 GATES (S18, baked 2026-07-29). Defaults = the production
@@ -79,10 +79,11 @@ let defaultConfig =
           MaxDist1mHi      = -0.02      // ⭐ SPEC v1.9 (S40g): dist from 1m HIGH < -2% — the 1m
                                         // conjunction (fast last minute AND a real 1m leg);
                                         // first challenger to win at BOTH mc levels
+          MaxDistVw20m     = -0.05      // ⭐ SPEC v2.0 (S40h): >= 5% below the 20m rolling VWAP
           KBandLo          = 26         // lows_since_first_low ∈ [26, 50] — THE 2022 fix
           KBandHi          = 50
-          Eff20Lo          = -0.5       // eff_20m ∈ [-0.5, -0.3) — the exhaustion band
-          Eff20Hi          = -0.3
+          AbsEff20Lo       = 0.3        // ⭐ S40i redesign: |eff_20m| ∈ [0.3, 0.5) — the exhaustion
+          AbsEff20Hi       = 0.5        // band, one |·| convention with |eff10| (sign = non-event)
           MinAbsEff10m     = 0.15       // |eff_10m| >= 0.15 — no flat 10m tape
           DistHiLo         = Double.NegativeInfinity
                                         // ⭐ SPEC v1.8 (user, 2026-08-01): the −35% wall REMOVED —

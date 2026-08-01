@@ -28,13 +28,12 @@ type Args =
     // ----- record-first regime gates (default off) -----
     | Min_Volat_20m of float
     | Max_Volat_20m of float
-    | Min_Abs_Eff_20m of float
     // ----- SPEC v1.2 gates (defaults = the S18 production stack) -----
     | Max_Speed_1m of float
     | K_Band_Lo of int
     | K_Band_Hi of int
-    | Eff20_Lo of float
-    | Eff20_Hi of float
+    | Abs_Eff20_Lo of float
+    | Abs_Eff20_Hi of float
     | Min_Abs_Eff_10m of float
     | Dist_Hi_Lo of float
     | Dist_Hi_Hi of float
@@ -55,6 +54,7 @@ type Args =
     | Min_Prev_Close of float
     | Min_Barnum of int
     | Max_Dist_1m of float
+    | Max_Dist_Vw20m of float
     // ----- sampler vs book -----
     | Max_Concurrent of int
     | Workers of int
@@ -76,12 +76,11 @@ type Args =
             | Tc_Floor_60 _ -> "Hard entry gate: >= this many TRADES over the same window. Default 60 — volume without trades is one block print."
             | Min_Volat_20m _ -> "volat_20m floor at the signal (raw mean-|r|/30s units; cold volat FAILS a positive floor). Default 0 = off. ⚠ RECORD-FIRST: the breakout F10 band does NOT transfer to MR (THE INVERSION) — band post-hoc over the volat_20m column."
             | Max_Volat_20m _ -> "volat_20m ceiling. Default inf = off. Same record-first stance."
-            | Min_Abs_Eff_20m _ -> "|eff_20m| floor at the signal (cold eff FAILS a positive floor). Default 0 = off — superseded by the SIGNED --eff20-lo/--eff20-hi band; kept for sweeps."
             | Max_Speed_1m _ -> "⭐ SPEC v1.2: flush speed gate — vwap/vwap_60_prev - 1 < this at the signal. Default -0.02. 0 = off."
             | K_Band_Lo _ -> "⭐ SPEC v1.2: lows_since_first_low >= this (K band floor — THE 2022 fix). Default 26. 0 = off."
             | K_Band_Hi _ -> "⭐ SPEC v1.2: lows_since_first_low <= this (K band ceiling). Default 50. 0 = off."
-            | Eff20_Lo _ -> "⭐ SPEC v1.2: SIGNED eff_20m >= this. Default -0.5. -Infinity = off."
-            | Eff20_Hi _ -> "⭐ SPEC v1.2: SIGNED eff_20m < this. Default -0.3. Infinity = off."
+            | Abs_Eff20_Lo _ -> "⭐ S40i redesign: |eff_20m| >= this (abs band, mirrors |eff10|). Default 0.3. <= 0 = off."
+            | Abs_Eff20_Hi _ -> "⭐ S40i redesign: |eff_20m| < this. Default 0.5. Infinity = off."
             | Min_Abs_Eff_10m _ -> "⭐ SPEC v1.2: |eff_10m| >= this (no flat 10m tape). Default 0.15. 0 = off."
             | Dist_Hi_Lo _ -> "⭐ SPEC v1.8: vwap/chan_hi - 1 >= this. Default -Infinity = off (the -35%% wall REMOVED — no cliff under the v1.7 accel/slope gates, S39w/S40d)."
             | Dist_Hi_Hi _ -> "⭐ SPEC v1.2: vwap/chan_hi - 1 < this (deep enough into the leg). Default -0.10. 0 = off."
@@ -100,6 +99,7 @@ type Args =
             | Min_Prev_Close _ -> "Universe gate: PRIOR day's close in day-D raw (post-split) scale >= this (prev_adj_close/adj_ratio; knowable BEFORE the open). Default 0 = off. 2 = the >=$2 universe (sub-$1 priced out on every EU-accessible broker)."
             | Min_Barnum _ -> "⭐ S40e episode warmup: candidate barnum (prior-only ROW_NUMBER, live-knowable) >= this. Default 22 = cut the IPO/early-listing slice (below-book for the LONG book; reserved for a future short system). 0 = off. Column-guarded (legacy tables skip it)."
             | Max_Dist_1m _ -> "⭐ SPEC v1.9 (S40g): vwap/hi_60 - 1 < this — dist from the 1m HIGH; conjunction with the speed gate (the shallow slice above -2%% = slot thieves). Default -0.02. >= 0 = off."
+            | Max_Dist_Vw20m _ -> "⭐ SPEC v2.0 (S40h): vwap/vwap_1200 - 1 < this — must sit below the 20m rolling VWAP (trims the shallow dvw tail). Default -0.05. >= 0 = off."
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: unlimited concurrent positions — every new low opens another trip, so it AVERAGES DOWN. Removes path dependency (every trip = an independent row) but PF is then ATTRIBUTION, not a portfolio number. 1 = a real book."
             | Workers _ -> "S39h: parallel day-workers (default: cores - 2). Trip SET is identical at any worker count; parquet row order is not."
             | Entry_Start_Sec _ -> "Earliest ET second (since midnight) an entry may fire. Default 35100 = 09:45 — the knowability floor itself (the old 10:00 was a VwapReclaim-era throwback). ⚠ Must be >= 35100."
@@ -130,13 +130,13 @@ let main argv =
                     TcFloor60        = parsed.GetResult(Tc_Floor_60,        defaultValue = d.Intraday.TcFloor60)
                     MinVolat20m      = parsed.GetResult(Min_Volat_20m,      defaultValue = d.Intraday.MinVolat20m)
                     MaxVolat20m      = parsed.GetResult(Max_Volat_20m,      defaultValue = d.Intraday.MaxVolat20m)
-                    MinAbsEff20m     = parsed.GetResult(Min_Abs_Eff_20m,    defaultValue = d.Intraday.MinAbsEff20m)
                     MaxSpeed1m       = parsed.GetResult(Max_Speed_1m,       defaultValue = d.Intraday.MaxSpeed1m)
                     MaxDist1mHi      = parsed.GetResult(Max_Dist_1m,        defaultValue = d.Intraday.MaxDist1mHi)
+                    MaxDistVw20m     = parsed.GetResult(Max_Dist_Vw20m,     defaultValue = d.Intraday.MaxDistVw20m)
                     KBandLo          = parsed.GetResult(K_Band_Lo,          defaultValue = d.Intraday.KBandLo)
                     KBandHi          = parsed.GetResult(K_Band_Hi,          defaultValue = d.Intraday.KBandHi)
-                    Eff20Lo          = parsed.GetResult(Eff20_Lo,           defaultValue = d.Intraday.Eff20Lo)
-                    Eff20Hi          = parsed.GetResult(Eff20_Hi,           defaultValue = d.Intraday.Eff20Hi)
+                    AbsEff20Lo       = parsed.GetResult(Abs_Eff20_Lo,       defaultValue = d.Intraday.AbsEff20Lo)
+                    AbsEff20Hi       = parsed.GetResult(Abs_Eff20_Hi,       defaultValue = d.Intraday.AbsEff20Hi)
                     MinAbsEff10m     = parsed.GetResult(Min_Abs_Eff_10m,    defaultValue = d.Intraday.MinAbsEff10m)
                     DistHiLo         = parsed.GetResult(Dist_Hi_Lo,         defaultValue = d.Intraday.DistHiLo)
                     DistHiHi         = parsed.GetResult(Dist_Hi_Hi,         defaultValue = d.Intraday.DistHiHi)
@@ -211,13 +211,14 @@ let main argv =
     printfn "  volat band  = volat_20m ∈ [%s, %s) bp/30s"
         (if ic.MinVolat20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVolat20m * 1e4))
         (if Double.IsPositiveInfinity ic.MaxVolat20m then "inf" else sprintf "%.0f" (ic.MaxVolat20m * 1e4))
-    printfn "  SPEC v1.9   = speed %s | d1m %s | K ∈ [%s, %s] | eff20 ∈ [%s, %s) COLD FAILS | |eff10| >= %s | dist-20m-hi ∈ [%s, %s) | vol10rate >= %s | lows300 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
+    printfn "  SPEC v2.0   = speed %s | d1m %s | dvw20 %s | K ∈ [%s, %s] | |eff20| ∈ [%s, %s) | |eff10| >= %s | dist-20m-hi ∈ [%s, %s) | vol10rate >= %s | lows300 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
         (if ic.MaxSpeed1m >= 0.0 then "off" else sprintf "< %.0f%%/1m" (ic.MaxSpeed1m * 100.0))
         (if ic.MaxDist1mHi >= 0.0 then "off" else sprintf "< %.0f%%" (ic.MaxDist1mHi * 100.0))
+        (if ic.MaxDistVw20m >= 0.0 then "off" else sprintf "< %.0f%%" (ic.MaxDistVw20m * 100.0))
         (if ic.KBandLo <= 0 then "off" else string ic.KBandLo)
         (if ic.KBandHi <= 0 then "off" else string ic.KBandHi)
-        (if Double.IsNegativeInfinity ic.Eff20Lo then "off" else sprintf "%.2f" ic.Eff20Lo)
-        (if Double.IsPositiveInfinity ic.Eff20Hi then "off" else sprintf "%.2f" ic.Eff20Hi)
+        (if ic.AbsEff20Lo <= 0.0 then "off" else sprintf "%.2f" ic.AbsEff20Lo)
+        (if Double.IsPositiveInfinity ic.AbsEff20Hi then "off" else sprintf "%.2f" ic.AbsEff20Hi)
         (if ic.MinAbsEff10m <= 0.0 then "off" else sprintf "%.2f" ic.MinAbsEff10m)
         (if Double.IsNegativeInfinity ic.DistHiLo then "off" else sprintf "%.0f%%" (ic.DistHiLo * 100.0))
         (if ic.DistHiHi >= 0.0 then "off" else sprintf "%.0f%%" (ic.DistHiHi * 100.0))
