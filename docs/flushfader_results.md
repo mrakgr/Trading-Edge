@@ -4415,3 +4415,47 @@ TIGHTENING, and the trips it removes (the d1m-shallow slice) are slot
 thieves, not slot payers. Bake candidate: `d1m < -2%` gate (engine:
 `vwap/max60 - 1 < -0.02` at the signal, hi_60 already maintained). USER
 DECISION pending.
+
+## S40h — ⭐ SPEC v1.9 BAKED = v1.8 + d1m < −2% (user, 2026-08-01) + dist-20m-VWAP under v1.9
+
+**SPEC v1.9 = v1.8 + `vwap/hi_60 − 1 < −0.02`** (the 1m-leg conjunction,
+S40g; cutoff −2 from the fine table — the boundary is SHARP: [−2.25,−2) =
+2.37, [−2,−1.75) = 1.71, no recovery shallower). Engine: `MaxDist1mHi`
+(`--max-dist-1m`, >= 0 = off; post-push max60, identical to recorded hi_60,
+gate evaluated after the bar folds like speedOk). ⚠ The canonical base-pass
+CLI (S40) gains `--max-dist-1m 0`.
+
+**`v19_reference/` GRAND PARITY ✓: engine 44,502 = SQL 44,502, zero diff
+both directions. Book 27,060 @ 2.453 / 73.9% mc=0; mc=1 3,936 @ 2.211, all
+7 years positive** (3.26/2.77/1.82/1.59/2.29/2.03/1.85) — both EXACTLY the
+S40g projections. **The mc=1 ladder: 2.004 (v1.4) → 2.070 → 2.106 (v1.5) →
+2.104 (v1.6) → 2.175 (v1.7) → 2.184 (v1.8) → 2.211 (v1.9).**
+
+**dist-20m-VWAP breakdown** (user request; d20m-high held at the spec's
+< −10%; v1.9 residual universe, warmed base_v3, $1-$10 book: 27,060 @
+2.453). dvw = signal_vwap/vwap_1200 − 1; q05/med/q95 = −15.22/−8.12/−5.41;
+corr(dvw, d20m-high) = 0.932. Buckets above −3% are structurally empty (the
+d20m gate forces the VWAP distance deep); [−4,−3) = 14 trips, all winners.
+
+| dist-20m-vwap bucket (%) | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [-100,-14) | 2,076 | 3.606 | 78.0 | +3.84 | 10.19 | 2.84 | 0.52 | 2.57 | 5.02 | 4.05 | 3.52 |
+| [-14,-12) | 1,910 | 2.998 | 78.2 | +3.16 | 11.99 | 4.9 | 1.0 | 1.74 | 4.64 | 2.17 | 2.85 |
+| [-12,-10) | 3,620 | 2.69 | 77.3 | +2.77 | 3.58 | 8.06 | 1.38 | 1.91 | 3.04 | 2.09 | 2.78 |
+| [-10,-9) | 2,749 | 2.066 | 72.2 | +2.05 | 2.54 | 4.15 | 1.48 | 1.21 | 2.13 | 1.87 | 2.0 |
+| [-9,-8) | 3,680 | 2.201 | 70.8 | +1.95 | 3.26 | 2.59 | 2.63 | 1.47 | 1.86 | 2.1 | 2.08 |
+| [-8,-7) | 4,607 | 2.119 | 72.1 | +1.99 | 5.5 | 2.9 | 1.26 | 1.48 | 2.49 | 1.35 | 2.5 |
+| [-7,-6) | 4,859 | 2.406 | 75.4 | +1.88 | 3.37 | 5.61 | 2.7 | 2.05 | 1.55 | 1.65 | 1.73 |
+| [-6,-5) | 3,040 | 2.188 | 71.0 | +1.54 | 2.72 | 2.97 | 1.62 | 2.5 | 1.97 | 1.46 | 2.55 |
+| [-5,-4) | 505 | 1.67 | 66.3 | +1.25 | 1.25 | 4.68 | 1.15 | 5.13 | 1.03 | 1.48 | 1.32 |
+| [-4,-3) | 14 | inf | 100.0 | +2.32 | - | - | inf | inf | inf | inf | inf |
+
+**Reading:** monotone DEEP end (≤ −10% = 2.69/3.00/3.61, strong 2024-26)
+with a clear **2022 inversion in the two deepest buckets (0.52 / 1.00)** —
+deep-below-20m-VWAP in a bear regime is the falling knife (the bear-regime
+theme landing on 2022 here). Shallow [−5,−4) mildly weak (1.67) but 505
+trips and not year-consistent; middle flat 2.1-2.4 (0.93 corr with the
+already-gated d20m-high leaves little there). **Verdict: NOT a gate — the
+deep end (≤ −12%, ~4.0k trips @ ~3.2) joins the overlay/sizing roster with
+an explicit 2022 regime caveat** (same family as dsv ≥ −3, but on the 20m
+clock and bear-fragile where dsv is bear-robust).

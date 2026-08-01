@@ -430,6 +430,11 @@ type IntradayConfig =
       MinDv0945Tape: float       // ⭐ tape-native dv_0945 floor (Σ vwap·vol, 1s bars < 09:45).
                                  // Default 0 = RECORD-FIRST; the live-scanner-consistent
                                  // replacement for the candidate-table dv_0945 gate.
+      MaxDist1mHi: float         // ⭐ SPEC v1.9 (user, S40g): vwap/hi_60 - 1 < this — the 1m-leg
+                                 // CONJUNCTION with the speed gate (fast last minute AND a real
+                                 // leg below the 1m high; the shallow slice above −2% = 2,261
+                                 // trips @ ~1.6, slot thieves — first both-mc-levels winner).
+                                 // Default −0.02. >= 0 = off. Same post-push max60 as hi_60.
       // ⭐ PRICE-ACCEPTANCE STOPS (user, 2026-07-28): while holding, exit if a NEW
       // entry-channel low prints on (vol_60/60)/(vol_1200/1200) >= VolStopRatio, or
       // (tc_60/60)/(tc_1200/1200) >= TcStopRatio, or at vwap/vwap_60_prev - 1 <
@@ -1045,6 +1050,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             || (match vwap60Lag.Lagged with
                 | ValueSome pv when pv > 0.0 -> bar.vwap / pv - 1.0 < cfg.MaxSpeed1m
                 | _ -> false)
+        // ⭐ SPEC v1.9 (S40g): post-push max60, identical to the recorded hi_60
+        // (no fullness requirement — the 1200-bar signal channel guarantees warmth).
+        let d1mOk =
+            cfg.MaxDist1mHi >= 0.0
+            || (match max60.State with
+                | ValueSome h when h > 0.0 -> bar.vwap / h - 1.0 < cfg.MaxDist1mHi
+                | _ -> false)
         let kBandOk =
             (cfg.KBandLo <= 0 || counters.LowsSinceFirstLow >= cfg.KBandLo)
             && (cfg.KBandHi <= 0 || counters.LowsSinceFirstLow <= cfg.KBandHi)
@@ -1112,7 +1124,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             || (match ols300.State with
                 | ValueSome m when ols300.Count = ols300.WindowSize -> m * 6e5 >= cfg.MinSlope5Bpm
                 | _ -> false)
-        let specOk = speedOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
+        let specOk = speedOk && d1mOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && effOk && specOk && this.HasSlot then
             pendingEntry <-
                 ValueSome

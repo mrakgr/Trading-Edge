@@ -76,6 +76,9 @@ let defaultConfig =
           // stack; disable individually for sweeps (see IntradayConfig for the
           // off-conventions). Formulas identical to the recorded columns.
           MaxSpeed1m       = -0.02      // flush speed < -2%/1m
+          MaxDist1mHi      = -0.02      // ⭐ SPEC v1.9 (S40g): dist from 1m HIGH < -2% — the 1m
+                                        // conjunction (fast last minute AND a real 1m leg);
+                                        // first challenger to win at BOTH mc levels
           KBandLo          = 26         // lows_since_first_low ∈ [26, 50] — THE 2022 fix
           KBandHi          = 50
           Eff20Lo          = -0.5       // eff_20m ∈ [-0.5, -0.3) — the exhaustion band
