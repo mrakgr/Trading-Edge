@@ -5432,3 +5432,62 @@ hole), and the total-gap "dead" cell = 10,608 @ 2.17 = just the ordinary
 gappy book, no separation. **Total gap measures SPARSITY; max run measures
 INTERRUPTION. Halts are interruptions, not sparsity — only the run
 decomposition can see them.**
+
+## S40x — the halt detector VERIFIED: adjusted gaps ≈ no-op (sparsity IS the poison), but the HALT CLOCK earns seats (2026-08-01, evening)
+
+**Engine (0bc2525):** the user-designed causal detector — run >= 58s ×
+pre-hole 5m range >= 4% × pre-hole ADJUSTED gap_60 < 2 (recursion chains
+back-to-back halts) — with `gap_adj_{60,300,600,1200}` (= raw − halt-
+interval overlap), `halts_today`, `secs_since_halt`; thresholds are config
+flags. **base_v6 = THE base** (2,217,950, zero-diff vs base_v5; adj <= raw
+on every row). Detector census: 10.2% of base trips sit on detected-halt
+days (~350-500 halt tkds/yr — a plausible LULD rate); max 36 halts/day;
+for most halted-day trips the halt is OUTSIDE the 20m window. On the v2.0
+residual, 24.2% of trips are on halt days (flush days halt often — as
+expected).
+
+20m gap table, RAW vs ADJUSTED (n / PF):
+
+| bucket | raw gap_1200 | adj gap_adj_1200 |
+|---|---|---|
+| [0,5) | 2,873 / 5.63 | 3,148 / 5.09 |
+| [5,15) | 1,326 / 4.28 | 1,419 / 4.49 |
+| [15,40) | 1,897 / 1.96 | 2,055 / 1.98 |
+| [40,90) | 2,556 / 2.88 | 2,587 / 2.89 |
+| [90,180) | 2,608 / 2.78 | 2,580 / 2.63 |
+| [180,360) | 4,160 / 1.77 | 3,800 / 1.73 |
+| [360,700) | 6,333 / 2.03 | 6,164 / 1.97 |
+| [700,1400) | 4,788 / 2.41 | 4,788 / 2.41 |
+
+(1m table moves even less — halts almost never sit inside the signal's
+last minute, because the signal IS trading.)
+
+**⭐ The NEGATIVE result: the swamp does NOT clean up.** The S40x
+prediction (mid-gap buckets contaminated by halts) is REFUTED — bucket-
+by-bucket the adjusted axis is within noise of the raw one, and the [0,5)
+lens actually DILUTES slightly (5.63 → 5.09) as ex-halt windows re-enter
+it. **Sparsity itself is the poison; halt contamination was negligible.
+The raw gap family stands as built; the adjusted family = a cleaner
+DEFINITION, not a better signal.**
+
+**⭐ But the halt CLOCK is a real new axis:**
+
+| slice | n | tkds | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| no halt today | 20,121 | 3219 | 2.414 | 73.7 | +2.07 | 5.11 | 3.57 | 1.73 | 1.77 | 2.27 | 1.82 | 1.86 |
+| ⭐ halts_today = 1 | 3,118 | 382 | 4.103 | 76.6 | +2.49 | 3.6 | 6.72 | 1.95 | 1.24 | 7.35 | 4.95 | 4.8 |
+| halts_today = 2-3 | 1,853 | 224 | 2.808 | 75.3 | +2.32 | 2.77 | 3.64 | 6.62 | 1.65 | 3.48 | 2.04 | 4.72 |
+| ⚠ halts_today >= 4 | 1,449 | 156 | 1.397 | 70.7 | +2.45 | 1.0 | 10.1 | 0.39 | 2.29 | 1.48 | 1.31 | 14.18 |
+| ssh [0,120) | 50 | 14 | 7.811 | 72.0 | +4.3 | 0.0 | - | 2.46 | 3.64 | inf | 4.81 | inf |
+| ssh [120,600) | 129 | 21 | 2.512 | 72.1 | +2.75 | inf | inf | - | 0.58 | 42.02 | 0.88 | 31.57 |
+| ssh [600,1800) | 992 | 137 | 3.431 | 76.4 | +2.76 | 2.6 | 2.12 | 2.79 | 7.69 | 34.89 | 2.15 | 5.52 |
+| ssh >= 1800 | 5,249 | 654 | 2.467 | 74.7 | +2.36 | 2.31 | 7.09 | 0.82 | 1.39 | 2.82 | 2.79 | 5.46 |
+
+**halts_today is MONOTONE-INVERTED: one halt = a great day-context (4.10
+on 382 tkds — census-REAL, the S40w playbook slice at 7.5× the tkds), a
+few halts = fine, a halt CASCADE (>= 4) = 1.40 with 2022 0.39 — the
+death-spiral names are bad fades = a new AVOID rule.** The 10-30-min-
+post-reopen band (3.43 on 137 tkds) is the tradable aftermath; the
+immediate reopen ([0,120) = 14 tkds) stays anecdote. Overlay roster:
++halts_today = 1 (day-context 4.10), +avoid halts_today >= 4; the S40w
+mr-based improvisation RETIRES in favor of the principled detector.
