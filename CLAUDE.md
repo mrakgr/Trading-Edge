@@ -33,7 +33,7 @@ lookaheads found 2026-07-31 (day D's ADJUSTED close ≥ $1 + future-episode-leng
 VwapReclaimV3 / OpeningDriverV2 / DipRiderV4 ❌ dead · SurgeRider/V2, DipRiderV6, PlungeRider,
 MaxRiderV1 🛑 invalid pending clean-table reruns (same §S39d bug; banners on their docs; sub-$1/$2
 slices inflated — bounce-door PF 8.5 = outcome selection). `docs/systems_showcase.md` quotes dead
-numbers. Clean universe = `mr_candidate_1s` (1s-tape-native, no price floor, prior-only warmup;
+numbers. Clean universe = `mr_candidate_1s` (1s-tape-native, no price floor, NO warmup — `barnum` recorded;
 FlushFader default).
 
 ## F# Async Patterns

@@ -3957,3 +3957,210 @@ dist_hi at most matched-PF points — but at mc=1: dist_vw@−5 = 2.114,
 SLOT ALLOCATION — mc=0 frontiers cannot see it, and every challenger that
 wins mc=0 efficiency loses at the mc=1 operating point.** dist_vw joins the
 overlay/record roster (deep bands 3.7-5.4 with clean years).
+
+# S40 — 2026-08-01: base_v3 (hi_60 + slot-range eff twins), speed-vs-1m-high, eff_rng verdict, warmup removal
+
+## S40 — base_v3: five new record-only columns, PARITY EXACT (2026-08-01)
+
+Engine additions (record-only, no gate changes):
+- `hi_60` — the raw 60-bar vwap MAX at the signal (post-push, same convention
+  as `rng_60`; `rng_60` = ln(hi/lo) could never recover the high itself).
+  dist-from-1m-high = `signal_vwap/hi_60 - 1`.
+- `rng_slots_20m` / `rng_slots_10m` — ln(hi/lo) of the last 41 / 21 30s-slot
+  vwaps (`MaxMa 41`/`MinMa 41` + 21 twins pushed at slot emission): the SAME
+  vwap spans eff_20m's 40 / eff_10m's 20 returns cover.
+- `eff_rng_20m` / `eff_rng_10m` — that range over the SAME Σ|r| denominator
+  the eff pair uses (user idea: range replaces |net| in the numerator).
+  Direction-blind, ∈ (0,1], eff_rng ≥ |eff| by construction; warms exactly
+  with the eff pair (the 41st slot emission fills the max/min windows AND
+  completes Σ40|r|).
+
+**`base_v3/` = THE working base parquet: 2,195,361 = 2,195,361 trips, zero
+diff vs base_v2 both directions** (key = symbol/trade_date/signal_sec).
+Invariants verified on all rows: eff_rng ∈ (0,1], eff_rng ≥ |eff|,
+hi_60 ≥ signal_vwap.
+
+⚠ **First attempt SILENTLY LOST 540k trips (strict subset)**: the base-pass
+flag list dated from BEFORE the v1.7 evening bake, so the three new gates
+(accel/slope20/slope5) ran at their spec defaults. **The base-pass CLI must
+be extended every time a spec gate is baked.** Canonical base pass (ALL 15
+gates off; entry window 09:45-15:00 and volat >= 40bp stay baked):
+
+```
+FF_CANDIDATE_TABLE=flushfader_base_tkds \
+./TradingEdge.FlushFader/bin/Release/net10.0/TradingEdge.FlushFader \
+  --max-speed-1m 0 --k-band-lo 0 --k-band-hi 0 \
+  --eff20-lo -Infinity --eff20-hi Infinity --min-abs-eff-10m 0 \
+  --dist-hi-lo -Infinity --dist-hi-hi 0 --min-vol10-rate 0 \
+  --min-lows-300 0 --max-rng-front Infinity --min-dv-0945-tape 0 \
+  --min-accel-1020 -Infinity --max-slope-20m 0 --min-slope-5m -Infinity \
+  --out-dir data/equity/flushfader/base_v3
+```
+
+Bookkeeping note: the v1.7 residual book on base_v3 = **29,192** trips; the
+"29,258 @ 2.367" quoted at yesterday's close predates the slope5 bake — the
+66-trip difference is exactly the slope5 >= -400 residual cut (S39t).
+
+## S40a — flush speed (1m) vs distance from 1m HIGH (user request, 2026-08-01)
+
+Axes: `speed = 100*(signal_vwap/vwap_60_prev - 1)` (the gated flush-speed
+axis, spec < -2; vwap_60_prev = 60-bar rolling vwap lagged 1m) vs
+`d1m = 100*(signal_vwap/hi_60 - 1)` (depth below the 1m HIGH). Universe =
+v1.7 residual, $1-$10 book: 29,192 trips. speed q05/med/q95 =
+-7.4/-3.33/-2.12; d1m = -7.23/-3.37/-1.84; **corr(speed, d1m) = 0.914** —
+same 1m-collapse information, max-anchored vs lagged-mean-anchored.
+
+| speed bucket (%) | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [-100,-8) | 1,110 | 3.44 | 73.4 | +3.46 | 13.22 | 11.19 | 1.19 | 1.72 | 8.17 | 2.19 | 2.96 |
+| [-8,-6) | 1,972 | 2.528 | 72.4 | +2.51 | 5.34 | 6.36 | 0.65 | 2.04 | 3.0 | 1.62 | 2.84 |
+| [-6,-5) | 2,407 | 2.889 | 74.8 | +2.61 | 6.85 | 3.6 | 2.15 | 1.31 | 3.91 | 2.45 | 2.41 |
+| [-5,-4.5) | 1,830 | 2.132 | 71.6 | +2.24 | 8.3 | 3.75 | 1.18 | 1.39 | 2.37 | 1.43 | 1.25 |
+| [-4.5,-4) | 2,513 | 2.631 | 75.2 | +2.24 | 6.05 | 4.76 | 1.3 | 2.11 | 2.56 | 1.87 | 2.82 |
+| [-4,-3.5) | 3,371 | 2.082 | 73.2 | +2.04 | 3.18 | 3.72 | 1.13 | 0.92 | 2.29 | 1.87 | 3.02 |
+| [-3.5,-3) | 4,432 | 2.226 | 73.9 | +1.88 | 3.48 | 3.49 | 1.78 | 1.68 | 1.83 | 1.89 | 2.01 |
+| [-3,-2.75) | 2,487 | 2.257 | 73.5 | +1.96 | 2.75 | 4.06 | 1.5 | 1.3 | 1.96 | 2.4 | 2.52 |
+| [-2.75,-2.5) | 2,917 | 2.355 | 74.8 | +1.97 | 2.93 | 3.51 | 1.95 | 2.59 | 1.95 | 1.81 | 2.35 |
+| [-2.5,-2.25) | 3,021 | 2.144 | 72.0 | +1.86 | 2.09 | 2.82 | 2.29 | 1.98 | 1.47 | 2.32 | 2.32 |
+| [-2.25,-2) | 3,132 | 2.095 | 73.0 | +1.7 | 2.24 | 2.92 | 1.52 | 2.68 | 1.66 | 1.71 | 3.16 |
+
+| d1m bucket (%) | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [-100,-12) | 125 | 5.344 | 82.4 | +7.48 | - | - | - | 0.14 | 284.14 | 20.84 | 2.04 |
+| [-12,-10) | 216 | 5.73 | 76.9 | +4.32 | 6.73 | 14.98 | 5.64 | 3.78 | 25.23 | 5.09 | 2.34 |
+| [-10,-8) | 623 | 2.612 | 70.9 | +2.8 | 8.0 | 13.97 | 0.24 | 1.78 | 9.35 | 1.24 | 4.65 |
+| [-8,-7) | 657 | 3.723 | 76.4 | +3.44 | 9.75 | 15.58 | 2.42 | 1.38 | 6.05 | 1.7 | 4.65 |
+| [-7,-6) | 1,216 | 2.551 | 72.6 | +2.07 | 6.09 | 3.96 | 0.78 | 1.14 | 3.94 | 1.46 | 3.83 |
+| [-6,-5) | 2,531 | 2.133 | 71.1 | +2.29 | 4.67 | 3.45 | 1.24 | 1.93 | 2.01 | 1.52 | 2.1 |
+| [-5,-4) | 4,492 | 2.277 | 73.4 | +2.39 | 3.91 | 3.25 | 1.61 | 1.8 | 2.76 | 1.73 | 1.73 |
+| [-4,-3) | 8,173 | 2.423 | 74.6 | +2.16 | 3.85 | 3.66 | 1.28 | 1.44 | 2.36 | 2.47 | 2.35 |
+| [-3,-2.5) | 4,991 | 2.265 | 73.4 | +1.9 | 2.81 | 3.76 | 2.0 | 2.36 | 1.67 | 1.94 | 1.94 |
+| [-2.5,-2) | 3,907 | 2.488 | 75.3 | +1.82 | 4.13 | 4.02 | 1.56 | 2.21 | 1.9 | 1.97 | 2.73 |
+| [-2,-1.5) | 1,837 | 1.691 | 69.4 | +1.44 | 1.82 | 3.01 | 1.84 | 0.83 | 1.02 | 1.73 | 3.48 |
+| [-1.5,0.01) | 424 | 1.436 | 68.9 | +1.18 | 0.91 | 1.68 | 5.57 | 0.95 | 0.93 | 1.38 | 5.62 |
+
+2D, n / PF:
+
+| speed \ d1m | [-100,-8) | [-8,-6) | [-6,-4) | [-4,-2.5) | [-2.5,0.01) |
+|---|---|---|---|---|---|
+| [-100,-5) | 958 / 3.42 | 1,758 / 3.09 | 2,510 / 2.55 | 257 / 2.51 | 6 / 0.49 |
+| [-5,-4) | 6 / - | 82 / 1.64 | 2,788 / 2.27 | 1,412 / 2.79 | 55 / 1.86 |
+| [-4,-3) | 0 | 20 / 1.2 | 1,448 / 2.02 | 5,554 / 2.25 | 781 / 1.91 |
+| [-3,-2.5) | 0 | 11 / 2.56 | 200 / 0.95 | 3,536 / 2.53 | 1,657 / 2.35 |
+| [-2.5,-2) | 0 | 2 / - | 77 / 1.62 | 2,405 / 2.17 | 3,669 / 2.1 |
+
+**Reading.** (a) d1m is the cleaner axis: monotone into the depths (≤ -10% =
+5.3-5.7 PF) and with a genuinely TOXIC shallow end — trips still within 2% of
+their own 1m high (2,261 trips @ 1.69/1.44, weak in 5 of 7 years each) are
+"new 20m low without a fresh 1m leg": the last minute already bounced/stalled.
+(b) speed adds little once d1m is known (corr 0.914; within-column gradients
+in the 2D are mixed while within-row gradients follow d1m). (c) A
+`d1m < -1.5%` (or -2%) residual gate is the candidate — cutoff = USER
+decision from the d1m table; trip-efficiency + mc=1 to follow before any
+bake, per the slot-allocation discipline (S39u/v).
+
+## S40b — eff_20m vs eff_rng_20m (range numerator): REPLACEMENT REJECTED, the SIGN is the information (2026-08-01)
+
+Universe = v1.7 minus the eff pair, $1-$10 book: 52,405 trips @ 2.046.
+eff_rng_20m q05/med/q95 = 0.276/0.413/0.566; corr(eff_rng_20m, eff_20m) =
+-0.831 (= +0.831 vs |eff_20m| — on this universe eff is negative nearly
+everywhere, so eff_rng ≈ shifted |eff|); corr(eff_rng_10m, |eff_10m|) = 0.894.
+
+| eff_rng_20m bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,0.3) | 4,710 | 1.647 | 66.8 | +1.88 | 1.97 | 2.52 | 0.82 | 1.1 | 1.84 | 1.65 | 1.49 |
+| [0.3,0.35) | 7,451 | 1.814 | 70.3 | +1.86 | 2.69 | 3.57 | 0.99 | 1.37 | 1.74 | 1.59 | 1.23 |
+| [0.35,0.4) | 11,064 | 2.232 | 72.7 | +2.09 | 3.02 | 2.54 | 1.32 | 2.08 | 1.77 | 2.51 | 2.32 |
+| [0.4,0.45) | 11,563 | 2.358 | 73.5 | +1.97 | 4.1 | 2.77 | 1.63 | 1.74 | 2.44 | 1.86 | 2.32 |
+| [0.45,0.5) | 8,802 | 2.15 | 73.3 | +2.07 | 2.68 | 3.66 | 1.32 | 2.24 | 2.33 | 1.82 | 1.79 |
+| [0.5,0.55) | 5,135 | 2.096 | 72.4 | +1.88 | 5.94 | 4.21 | 1.33 | 1.22 | 1.7 | 1.69 | 2.66 |
+| [0.55,0.6) | 2,355 | 2.139 | 74.6 | +1.87 | 10.19 | 4.65 | 1.1 | 0.8 | 2.67 | 1.6 | 4.62 |
+| [0.6,0.65) | 874 | 1.615 | 72.2 | +1.8 | 21.43 | 8.67 | 1.62 | 1.78 | 2.14 | 0.63 | 0.96 |
+| [0.65,0.7) | 263 | 0.749 | 63.1 | +1.17 | 16.4 | 2.96 | 0.25 | 1.94 | 5.71 | 0.14 | 0.03 |
+| [0.7,0.8) | 165 | 0.493 | 54.5 | +0.82 | - | 1.85 | 0.53 | 1159.26 | 14.13 | 0.39 | 0.04 |
+| [0.8,1.01) | 23 | 2.925 | 69.6 | +1.16 | - | - | 0.0 | - | - | 5.43 | - |
+
+| eff_rng_10m bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,0.3) | 2,180 | 1.27 | 64.7 | +1.36 | 2.55 | 2.65 | 1.17 | 0.83 | 0.87 | 1.08 | 1.11 |
+| [0.3,0.35) | 2,965 | 1.748 | 67.3 | +1.69 | 2.71 | 1.74 | 4.54 | 1.66 | 1.29 | 1.66 | 1.39 |
+| [0.35,0.4) | 4,514 | 2.148 | 70.8 | +1.75 | 3.03 | 2.71 | 3.3 | 2.41 | 2.39 | 1.31 | 1.79 |
+| [0.4,0.45) | 6,408 | 2.181 | 71.8 | +1.91 | 4.46 | 2.83 | 0.93 | 3.07 | 2.49 | 1.64 | 1.3 |
+| [0.45,0.5) | 7,131 | 1.972 | 70.2 | +1.85 | 2.92 | 2.95 | 1.24 | 1.56 | 1.54 | 2.01 | 1.84 |
+| [0.5,0.55) | 7,741 | 2.183 | 73.3 | +2.19 | 2.39 | 3.53 | 1.65 | 1.92 | 2.63 | 1.59 | 2.34 |
+| [0.55,0.6) | 6,869 | 2.189 | 74.0 | +2.09 | 2.72 | 4.43 | 0.96 | 1.52 | 2.38 | 2.47 | 1.72 |
+| [0.6,0.65) | 5,871 | 2.289 | 75.2 | +2.15 | 4.74 | 2.92 | 1.69 | 1.75 | 2.08 | 2.17 | 1.67 |
+| [0.65,0.7) | 3,932 | 1.881 | 73.3 | +2.04 | 3.34 | 3.46 | 1.17 | 0.74 | 2.58 | 1.84 | 3.09 |
+| [0.7,0.8) | 3,786 | 1.896 | 72.0 | +1.91 | 3.28 | 3.6 | 0.78 | 1.73 | 1.8 | 1.51 | 2.59 |
+| [0.8,1.01) | 1,008 | 2.87 | 76.5 | +1.95 | 26.11 | 5.61 | 1.56 | 14.37 | 3.16 | 0.62 | 12.5 |
+
+2D — the toxicity eff_rng sees is ALREADY excluded by the signed band (n / PF):
+
+| band \ eff_rng_20m | [0,0.4) | [0.4,0.5) | [0.5,0.6) | [0.6,0.7) | [0.7,1.01) |
+|---|---|---|---|---|---|
+| eff-band IN | 8,853 / 2.26 | 17,463 / 2.35 | 3,838 / 2.33 | 101 / 2.79 | 0 |
+| eff-band OUT | 14,372 / 1.79 | 2,902 / 1.81 | 3,652 / 1.91 | 1,036 / 1.21 | 188 / 0.54 |
+
+Replacement frontier (all keep |eff10| >= 0.15):
+
+| variant | n | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| CURRENT: eff20 [-.5,-.3) | 29,192 | 2.367 | 73.5 | 3.78 | 3.68 | 1.48 | 1.64 | 2.39 | 1.92 | 2.44 |
+| R1: eff_rng [0.35,0.50) | 30,405 | 2.267 | 73.3 | 3.26 | 2.92 | 1.43 | 1.95 | 2.13 | 2.08 | 2.1 |
+| R2: eff_rng [0.35,0.55) | 35,475 | 2.241 | 73.2 | 3.44 | 3.06 | 1.41 | 1.8 | 2.07 | 2.01 | 2.17 |
+| R3: eff_rng [0.35,0.45) | 21,775 | 2.312 | 73.3 | 3.45 | 2.62 | 1.51 | 1.87 | 2.06 | 2.2 | 2.3 |
+| R4: eff_rng [0.38,0.48) | 21,082 | 2.3 | 73.8 | 3.23 | 2.99 | 1.51 | 2.1 | 2.06 | 2.04 | 2.29 |
+| R5: eff_rng [0.40,0.50) | 19,837 | 2.28 | 73.6 | 3.41 | 3.2 | 1.46 | 1.91 | 2.37 | 1.92 | 2.0 |
+| A1: CURRENT + eff_rng < 0.65 | 29,188 | 2.367 | 73.5 | 3.78 | 3.68 | 1.48 | 1.64 | 2.39 | 1.92 | 2.44 |
+
+**VERDICT: eff_rng does NOT replace the signed eff20 band.** (a) The signed
+band DOMINATES the whole frontier — at matched trips (R1) it gives +0.10 PF,
+and no eff_rng window reaches 2.367 at ANY trip count (the frontier is
+one-sided, no iso-PF crossing to arbitrate). (b) eff_rng is hump-shaped with
+a genuinely toxic high end ([0.65,0.8) = 0.75/0.49, 2025-26 near-zero — the
+S38q "perfect linearity is bad" grammar on the range axis), but the 2D shows
+the signed band already excludes ALL of it (band-IN row flat 2.26-2.35;
+eff_rng >= 0.65 inside the band = 101 trips @ 2.79, and the insurance trim
+cuts 4 trips = no-op). (c) Mechanism: direction-blindness is the defect —
+eff_rng cannot distinguish an orderly 20m decline (fadeable, band-IN) from a
+V that already recovered (range large, net ~0, band-OUT-right) or a straight
+cliff (band-OUT-left). **The band's SIGN + both edges carry exactly the
+exclusions eff_rng approximates, plus direction it cannot see. eff stays,
+5th consecutive defense** (S39l ols_r/neffret, S39u slope vs dist, S39v/w
+frontier + dist_vw, S39t eff10 reversal, now eff_rng).
+
+## S40c — WARMUP REMOVED from `mr_candidate_1s`: the IPO/early-listing slice is BELOW-BOOK (2026-08-01)
+
+**User:** the `barnum > 21` warmup is vestigial — nothing in the spec or (A')
+needs any prior day — remove it to admit IPOs. Done: `mr_candidate_1s`
+rebuilt (92.8s) WITHOUT the warmup; **`barnum` (ROW_NUMBER over the episode,
+prior-only, live-knowable) is now a recorded COLUMN**, so the early slice
+stays identifiable and post-hoc-cuttable. 1,121,785 rows (+6,993 early tkds,
++0.62%; only 236 are true listing-day rows — the rest are days 2-21 of fresh
+episodes, which mixes IPOs with episode RESTARTS after listing gaps).
+`flushfader_early_tkds` = the 6,993-row delta table; base pass over it =
+95,695 trips on 2,086 signal tkds (`base_early_v1/`). **The full clean-
+universe base = `base_v3/` ∪ `base_early_v1/`** (disjoint, same schema — glob
+both). `flushfader_base_tkds` regenerated to the union: **59,294 tkds**
+(57,208 + 2,086; now carries `barnum`).
+
+The early slice under v1.7 ($1-$10 book):
+
+| slice | trips | tkds | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| v1.7 early slice (barnum<=21) | 1,441 | 196 | 1.467 | 67.4 | +1.78 | 1.03 | 1.61 | 2.23 | 2.25 | 0.45 | 3.38 | 0.91 |
+| barnum 1 (listing day) | 0 | 0 | - | - | - | - | - | - | - | - | - | - |
+| barnum 2-5 | 583 | 80 | 1.929 | 70.7 | +1.80 | 0.18 | - | 2.42 | 2.74 | 0.90 | 7.37 | 0.14 |
+| barnum 6-21 | 858 | 116 | 1.263 | 65.2 | +1.75 | 1.55 | 0.99 | 1.95 | 2.05 | 0.35 | 2.63 | 7.71 |
+
+**Reading.** (a) Listing day itself NEVER signals through v1.7 (0 of 236
+day-1 candidates) — the IPO-day flush is not in this book's grammar. (b) The
+slice is positive but clearly BELOW-BOOK: 1.467 vs 2.367, under-book in 4 of
+7 years, no stable barnum sub-band (2-5 vs 6-21 flips year to year). 196 tkds
+≈ 28/yr = a real population, not an anecdote (S38j census discipline). (c)
+Adding it to the book dilutes: 29,192 @ 2.367 → 30,633 @ ~2.31. **Decision
+for the user:** accept the honest expanded universe (v1.7 reference numbers
+shift slightly on the next engine rerun — the current `v17_reference/` was
+cut on the warmed universe), or keep the universe and cut `barnum <= 21`
+POST-HOC (now a legitimate, prior-only, recorded-column cut — NOT the old
+lookahead). Either way the table build stays warmup-free.

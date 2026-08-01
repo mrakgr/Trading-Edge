@@ -180,6 +180,15 @@ type FlushPosition =
                                  // entry channel; cold-at-signal now FAILS the spec (v1.6).
       Eff10m: float              // 20-slot twin (the 10m drift t-stat)
       SlotCount: int             // slot returns folded so far (volat/eff warmth)
+      // ----- S40 (user 2026-08-01): slot-vwap RANGE twins of the eff pair.
+      // Numerator = ln(hi/lo) over the SAME 41/21-slot-vwap span the eff returns
+      // cover; eff_rng = that range over the SAME Σ|r| denominator. Direction-
+      // blind; range >= |net| so eff_rng_* >= |eff_*|. nan until the span is
+      // full (same warmth as eff_20m/eff_10m). Record-only. -----
+      RngSlots20m: float         // ln(hi/lo) of the last 41 slot vwaps
+      RngSlots10m: float         // 21-slot-vwap twin
+      EffRng20m: float           // rng_slots_20m / Sum40|r| ∈ (0,1]
+      EffRng10m: float           // rng_slots_10m / Sum20|r|
       // ----- channel widths, ln(high/low) per present-bar window -----
       RngSess: float
       Rng600: float
@@ -187,6 +196,8 @@ type FlushPosition =
       Rng120: float
       Rng60: float
       Rng30: float
+      Hi60: float                // S40: the raw 60-bar vwap MAX (rng_60 can't recover it) —
+                                 // dist-from-1m-high = signal_vwap/hi_60 - 1 (flush-speed study)
       // ----- bars since each channel's HIGH was last breached (-1 = never) -----
       BreachSess: int
       Breach1200: int
@@ -582,6 +593,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let slotAbsSum = SumMa 40                    // Σ|r| over the same 40 returns (eff denominator)
     let slotLag20 = LagMa<float> 20              // eff10m pair — same stream, half the horizon
     let slotAbsSum20 = SumMa 20
+    // S40: slot-vwap extremes over the SAME 41/21-vwap spans the eff returns
+    // cover — the range-eff numerators. Warmth aligns with the eff pair: the
+    // 41st slot emission fills slotMax41 AND completes slotAbsSum's 40 returns.
+    let slotMax41 = MaxMa 41
+    let slotMin41 = MinMa 41
+    let slotMax21 = MaxMa 21
+    let slotMin21 = MinMa 21
     let mutable prevSlotVwap : float voption = ValueNone
     let mutable prevEtSec = -1                   // the PREVIOUS present bar's etSec (aux-mark lookback)
     let mutable prevVwap = nan                   // ... and its vwap (continuation signal price)
@@ -804,6 +822,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
              | _ -> ())
             slotLag.Push v
             slotLag20.Push v
+            slotMax41.Push v
+            slotMin41.Push v
+            slotMax21.Push v
+            slotMin21.Push v
             prevSlotVwap <- ValueSome v
         | ValueNone -> ()
 
@@ -1114,6 +1136,32 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                              log (cur / old) / s
                          | _ -> nan)
                       SlotCount = slotReturns
+                      RngSlots20m =
+                        (match slotMax41.State, slotMin41.State with
+                         | ValueSome h, ValueSome l
+                             when slotMax41.Count = slotMax41.WindowSize && l > 0.0 -> log (h / l)
+                         | _ -> nan)
+                      RngSlots10m =
+                        (match slotMax21.State, slotMin21.State with
+                         | ValueSome h, ValueSome l
+                             when slotMax21.Count = slotMax21.WindowSize && l > 0.0 -> log (h / l)
+                         | _ -> nan)
+                      EffRng20m =
+                        (match slotMax41.State, slotMin41.State, slotAbsSum.State with
+                         | ValueSome h, ValueSome l, ValueSome s
+                             when slotMax41.Count = slotMax41.WindowSize
+                                  && slotAbsSum.Count = slotAbsSum.WindowSize
+                                  && l > 0.0 && s > 0.0 ->
+                             log (h / l) / s
+                         | _ -> nan)
+                      EffRng10m =
+                        (match slotMax21.State, slotMin21.State, slotAbsSum20.State with
+                         | ValueSome h, ValueSome l, ValueSome s
+                             when slotMax21.Count = slotMax21.WindowSize
+                                  && slotAbsSum20.Count = slotAbsSum20.WindowSize
+                                  && l > 0.0 && s > 0.0 ->
+                             log (h / l) / s
+                         | _ -> nan)
                       RngSess =
                         (match sessHigh.State, sessLow.State with
                          | ValueSome h, ValueSome l when l > 0.0 -> log (h / l)
@@ -1123,6 +1171,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Rng120 = chanRng max120 min120
                       Rng60 = chanRng max60 min60
                       Rng30 = chanRng max30 min30
+                      Hi60 = vv max60.State
                       BreachSess = brSess.BarsSinceBreach
                       Breach1200 = br1200.BarsSinceBreach
                       Breach600 = br600.BarsSinceBreach

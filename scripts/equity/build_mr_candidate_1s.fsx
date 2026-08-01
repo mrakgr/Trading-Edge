@@ -12,10 +12,14 @@
 //
 //   (A') LIQUIDITY  — dv_0945_tape >= $2M   (Σ vwap·volume, 09:30-09:45, raw dollars)
 //                     AND n_eff_shannon >= 25 (see below).
-//   (B)  UNIVERSE/CONTEXT — CS/ADRC via `daily_episodes`, episode warmed up:
-//                     D has >= 21 PRIOR bars (ROW_NUMBER, prior-only — the old table's
-//                     COUNT(*)-over-episode counted FUTURE days: membership conditioned
-//                     on the episode's eventual length, a lookahead). ⚠ NO PRICE FLOOR
+//   (B)  UNIVERSE/CONTEXT — CS/ADRC via `daily_episodes`. ⚠ NO WARMUP (S40, user
+//                     2026-08-01): the >= 21-prior-bars clause was vestigial — nothing in
+//                     the spec or (A') needs ANY prior day — and it excluded IPO/early-
+//                     listing days. `barnum` (ROW_NUMBER, prior-only, live-knowable) is
+//                     now a recorded COLUMN so the early-episode slice can be studied
+//                     and, if toxic, cut post-hoc. (The old table's COUNT(*)-over-episode
+//                     variant counted FUTURE days — membership conditioned on the
+//                     episode's eventual length, a lookahead.) ⚠ NO PRICE FLOOR
 //                     (S39d): the old `day_close >= $1` gate was D's OWN close — unknowable
 //                     at 09:45 — and ADJUSTED, i.e. future-split-dependent (S35 disease:
 //                     penny names with future reverse splits admitted, crash-through-$1
@@ -163,7 +167,7 @@ ctx AS (
     FROM daily_episodes
     WINDOW e AS (PARTITION BY ticker, episode ORDER BY date)
 )
-SELECT c.ticker, c.date,
+SELECT c.ticker, c.date, c.barnum,
     c.prev_adj_close, c.close_3d, c.close_7d, c.day_close, c.adj_ratio, c.avgvol20, c.avgvol20_prior,
     c.close_fwd_1d, c.close_fwd_3d, c.close_fwd_5d,
     l.n_bars_1s, l.tc_0945_tape, l.vol_0945_tape, l.dv_0945_tape, l.open_0930_tape,
@@ -174,8 +178,8 @@ SELECT c.ticker, c.date,
     l.vol_0945_pm_tape / NULLIF(c.avgvol20, 0)       AS rvol_0945,
     l.vol_0945_pm_tape / NULLIF(c.avgvol20_prior, 0) AS rvol_0945_honest
 FROM ctx c
-JOIN liq l ON l.ticker = c.ticker AND l.date = c.date   -- INNER JOIN = the (A') prune
-WHERE c.barnum > 21;                                    -- (B) >= 21 PRIOR bars, prior-only
+JOIN liq l ON l.ticker = c.ticker AND l.date = c.date;  -- INNER JOIN = the (A') prune
+-- (S40: the `WHERE c.barnum > 21` warmup is REMOVED — barnum is recorded instead.)
 
 CREATE UNIQUE INDEX mr_candidate_1s_ticker_date ON mr_candidate_1s (ticker, date);
 """
@@ -185,7 +189,7 @@ CREATE UNIQUE INDEX mr_candidate_1s_ticker_date ON mr_candidate_1s (ticker, date
 // trim. The engine's auto-trim clause is column-existence-guarded, so tables built
 // without the column just skip it.)
 
-printfn "Building `mr_candidate_1s` (dv_0945_tape >= $%.1fM AND n_eff_shannon >= %.0f; CS/ADRC; >=21 prior bars; NO price floor)" (minDv / 1e6) minNeff
+printfn "Building `mr_candidate_1s` (dv_0945_tape >= $%.1fM AND n_eff_shannon >= %.0f; CS/ADRC; NO warmup, NO price floor)" (minDv / 1e6) minNeff
 printfn "  db:      %s" (IO.Path.GetFullPath dbPath)
 printfn "  1s slim: %s" (IO.Path.GetFullPath slimDir)
 
