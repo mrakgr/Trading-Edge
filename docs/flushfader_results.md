@@ -4847,3 +4847,62 @@ with a weak >= 1.3 tail (prints fattening into the leg = 1.62). Overlay-
 roster candidate: rp_vol [0.8,1.0) joins as the participation lens; ⏭
 interaction pass vs the S40k trio (near-1.0 steady tape vs gap_60
 continuity — plausibly related) before pyramid promotion.
+
+## S40n — the Rényi rank comparison at 1m: rank 0 DOMINATES, rank 1 has a gap-dependent SIGN, rank 2 is a duplicate (2026-08-01)
+
+User's framing test (gap_60 = rank-0 Rényi of the 1m volume distribution =
+"a volume requirement in disguise"; n_eff_shannon = rank 1, n_eff_hhi =
+rank 2). Universe = v2.0 residual on base_v4 (26,541). ns60 q05/med/q95 =
+10.1/22.7/40.0; nh60 = 4.7/13.8/29.9. Correlations: gap↔ns60 −0.554,
+gap↔ln(tc_60) = **−0.732 (gap IS largely the trade-count/liquidity proxy —
+the user's disguise claim confirmed)**, ns60↔nh60 = **0.969 (ranks 1-2 =
+near-duplicates, matching S39f)**, ns60↔ln(tc_60) 0.589.
+
+| n_eff_shannon_60 bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,10) | 1,300 | 2.506 | 73.3 | +2.13 | 2.35 | 4.99 | 4.12 | 0.67 | 4.23 | 2.04 | 2.61 |
+| [10,15) | 3,485 | 2.286 | 71.9 | +2.04 | 4.95 | 2.97 | 1.48 | 2.18 | 2.44 | 1.66 | 2.2 |
+| [15,20) | 5,412 | 2.061 | 72.3 | +1.92 | 4.04 | 3.08 | 0.87 | 1.22 | 2.47 | 1.91 | 2.07 |
+| [20,25) | 5,602 | 2.358 | 73.8 | +2.17 | 3.9 | 3.36 | 1.88 | 1.68 | 2.38 | 1.63 | 2.31 |
+| [25,30) | 4,573 | 2.5 | 73.9 | +2.21 | 3.85 | 4.33 | 1.57 | 1.9 | 2.63 | 2.26 | 1.9 |
+| [30,35) | 3,017 | 2.797 | 76.4 | +2.22 | 3.08 | 5.25 | 1.04 | 2.15 | 3.29 | 2.34 | 5.2 |
+| [35,40) | 1,832 | 3.259 | 80.0 | +2.51 | 5.71 | 8.59 | 2.57 | 3.05 | 2.01 | 3.37 | 2.68 |
+| [40,45) | 961 | 3.538 | 75.9 | +2.33 | 5.37 | 7.19 | 4.27 | 5.92 | 2.33 | 2.03 | 6.35 |
+| [45,50) | 313 | 3.259 | 71.6 | +2.82 | 124.88 | 1.67 | inf | 0.59 | 17.51 | 1.39 | 8.8 |
+| [50,61) | 46 | 19.96 | 80.4 | +5.42 | 91.44 | 7.32 | - | - | - | inf | inf |
+
+| n_eff_hhi_60 bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,7) | 3,683 | 2.424 | 72.7 | +2.05 | 3.87 | 3.62 | 2.14 | 1.19 | 3.4 | 1.7 | 2.66 |
+| [7,10) | 3,967 | 2.228 | 72.8 | +2.04 | 6.12 | 2.95 | 1.07 | 1.7 | 2.14 | 1.93 | 2.22 |
+| [10,14) | 5,881 | 2.203 | 73.0 | +2.04 | 4.13 | 3.51 | 0.97 | 1.18 | 2.49 | 2.21 | 1.64 |
+| [14,18) | 4,965 | 2.567 | 74.6 | +2.24 | 3.23 | 4.09 | 3.05 | 2.15 | 2.6 | 1.73 | 2.76 |
+| [18,23) | 3,945 | 2.595 | 74.7 | +2.19 | 4.87 | 4.86 | 1.1 | 1.82 | 2.85 | 2.13 | 2.85 |
+| [23,28) | 2,272 | 2.519 | 76.9 | +2.3 | 2.75 | 5.07 | 2.27 | 2.51 | 2.48 | 2.05 | 2.37 |
+| [28,34) | 1,227 | 3.386 | 75.5 | +2.37 | 3.72 | 7.75 | 2.11 | 5.09 | 2.01 | 3.03 | 6.33 |
+| [34,42) | 536 | 3.726 | 77.1 | +2.79 | 14.17 | 2.29 | 6.41 | 4.79 | 4.02 | 2.06 | 6.35 |
+| [42,61) | 65 | 6.061 | 63.1 | +4.99 | 97.39 | 3.78 | - | 0.0 | - | inf | inf |
+
+2D — gap band × ns60 (n / PF), the key structure:
+
+| gap \ ns60 | [0,15) | [15,25) | [25,35) | [35,45) | [45,61) |
+|---|---|---|---|---|---|
+| [0,1) | 94 / 3.94 | 907 / 3.28 | 2,849 / 3.92 | 2,410 / 3.1 | 359 / 3.96 |
+| [1,4) | 273 / 3.52 | 1,502 / 2.91 | 2,086 / 3.28 | 319 / 12.18 | 0 |
+| [4,16) | 1,182 / 2.18 | 4,025 / 1.87 | 1,840 / 1.43 | 57 / 1.46 | 0 |
+| [16,61) | 3,236 / 2.3 | 4,580 / 2.18 | 815 / 2.2 | 7 / - | 0 |
+
+**VERDICTS.** (a) **Rank 0 wins as THE overlay**: at matched trips, gap_60 <
+4 (10,799 @ ~3.45) beats ns60 >= 25 (10,742 @ 2.85) decisively — the
+"disguised volume requirement" is the stronger form, and its −0.73 corr
+with ln(tc_60) says most of its content IS liquidity (which the user noted
+also carries un-backtestable real-world benefits). (b) **Rank 1 has a
+gap-DEPENDENT sign** — within continuous tape (gap < 4) high ns60 helps
+(the [1,4)×[35,45) cell = 12.18 on 319); within GAPPY tape it INVERTS
+([4,16) row falls 2.18 → 1.43 as ns60 rises — on a broken tape, evenly-
+spread volume means NO burst at all, a dead drift-down, not capitulation).
+(c) **Rank 2 adds nothing** (0.969 corr with rank 1 — Shannon stays the
+family's representative, S39f confirmed at the 1m window). (d) ns60 >= 35 =
+a rarer sharper lens (3,152 @ ~3.4, both bulk buckets positive every year)
+— roster note, subordinate to gap. ⏭ the same rank family at 5m/10m/20m +
+the dv-vs-N_eff torrent disentangling.
