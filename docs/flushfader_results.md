@@ -5114,3 +5114,44 @@ liquidity seat: `gap_1200 < 5` (THE continuous-20m lens, 5.63) with
 `nh12 < 80` (the concentrated torrent, 4.75) as its disjoint partner;
 ns12 >= 650 (S40o) largely coincides with the first.** ⏭ overlay
 interaction matrix + mc=1 + pyramid re-cut with the rank-family tiers.
+
+## S40r — is gap a proxy for tc? NO — tc is the material, ARRANGEMENT is the signal (2026-08-01)
+
+corr(g12, ln tc_1200) = −0.802 raised the proxy question. tc_1200
+q05/q25/med/q75/q95 = 4,003/6,266/10,110/20,815/57,536. The coupling is
+partly MECHANICAL (gap >= 1200 − tc: few trades force empty seconds; the
+2D's empty corners show it), so the test is conditioning.
+
+2D — tc_1200 band × gap_1200 band (n / PF):
+
+| tc_1200 \ g12 | [0,5) | [5,15) | [15,90) | [90,360) | >= 360 |
+|---|---|---|---|---|---|
+| [1500,3000) | 0 | 0 | 0 | 0 | 100 / 1.7 |
+| [3000,6000) | 0 | 0 | 0 | 110 / 26.87 | 5,758 / 2.34 |
+| [6000,12000) | 0 | 0 | 143 / 1.81 | 3,985 / 1.77 | 4,942 / 2.01 |
+| [12000,30000) | 269 / 5.93 | 675 / 3.43 | 3,902 / 2.81 | 2,395 / 2.7 | 213 / 1.03 |
+| >= 30000 | 2,604 / 5.6 | 651 / 5.59 | 408 / 1.01 | 278 / 2.11 | 108 / 31.12 |
+
+Matched-trip head-to-head + decomposition (matched tc threshold = 37,196):
+
+| lens | n | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| gap_1200 < 5 (THE lens) | 2,873 | 5.63 | 82.2 | 11.96 | 7.14 | 4.27 | 5.62 | 4.82 | 3.9 | 5.97 |
+| tc_1200 >= 37,196 (matched n) | 2,873 | 4.24 | 80.5 | 9.17 | 5.62 | 5.11 | 24.24 | 4.22 | 2.59 | 5.85 |
+| gap<5 AND tc>=matched | 2,181 | 5.676 | 81.0 | 10.86 | 5.73 | 5.79 | 14.01 | 3.88 | 5.9 | 4.57 |
+| gap<5 AND tc<matched | 692 | 5.476 | 86.0 | 17.25 | 17.41 | 0.13 | 2.14 | 57.39 | 1.25 | 19.04 |
+| gap>=5 AND tc>=matched | 692 | 2.415 | 79.0 | 5.44 | 5.31 | 3.97 | 407.64 | 5.49 | 1.03 | 84.52 |
+
+**VERDICT.** (a) Given tc, gap still separates HARD (within tc [12k,30k):
+5.93 → 1.03 across gap bands; within tc >= 30k: 5.6 → 1.01 at [15,90)).
+(b) Given gap < 5, tc adds NOTHING (5.68 vs 5.48 across the tc split).
+(c) At matched trips the gap lens beats the tc lens (5.63/82.2 vs
+4.24/80.5), and tc-without-continuity collapses to 2.42 — huge bursty
+activity (news prints, halt-resume tape) is NOT the fadeable auction.
+**Trade count is the raw material; UNINTERRUPTED ARRANGEMENT is the
+signal. gap_1200 < 5 = "no tradeless second for twenty minutes" = a
+continuous two-sided auction absorbing the flush — the −0.80 corr was
+mechanical coupling, not signal redundancy.** Caveat: the gap<5 × modest-tc
+sub-cell (692 @ 5.48/86%) is year-lumpy (2022 0.13, 2025 1.25 vs 17/17/57
+tails) — the whole gap<5 lens stays THE form; tc adds robustness context,
+not a seat.
