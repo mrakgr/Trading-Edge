@@ -354,6 +354,7 @@ type FlushPosition =
       DHiFlow: float
       OlsSlopeHiFlow: float
       OlsRHiFlow: float
+      FirstLowVwap: float        // S41k: the leg's first-low anchor price (raw)
       // S40x: the halt-ADJUSTED gap family (halt intervals excluded) + detector state.
       GapAdj60: int
       GapAdj300: int
@@ -406,6 +407,8 @@ type FlushPosition =
       DvLeg: float
       TargetsToday: int          // target exits FILLED before this bar (0 = virgin day)
       Volat20mPrev: float        // volat_20m as of 1200 present bars ago (nan while cold)
+      Vol0945Tape: float         // S41g: Σ volume < 09:45 (dv_0945_tape / vol_0945_tape =
+                                 // the first-15m tape vwap — the day-anchor AVWAP)
       Dv0945Tape: float          // ⭐ Σ vwap·volume over OUR 1s bars strictly before
                                  // 09:45 (honest dollars, v7 scale) — the live-scanner-
                                  // consistent dv_0945; compare vs the candidate column
@@ -842,6 +845,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable openVwap : float voption = ValueNone
     let mutable cumVol = 0.0
     let mutable dv0945Tape = 0.0                 // frozen once etSec >= 35100 (09:45)
+    let mutable vol0945Tape = 0.0                // S41g (user): its volume twin — the
+                                                 // first-15m tape vwap = dv/vol (record-only)
     let mutable cumTc = 0.0
     let mutable cumDv = 0.0                      // S40l: session Σ vwap·vol (leg-scoped dv)
     // ⭐ S40l tier-2 (user): leg-scoped participation — session-cum anchors
@@ -858,6 +863,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable dropToFlow = nan
     let mutable dropSlopeHiFlow = nan
     let mutable dropRHiFlow = nan
+    // S41k (user): the first low's own vwap — signal_vwap/first_low_vwap - 1 =
+    // the leg's EXTENSION below its first low (distance twin of ssf). nan = no leg.
+    let mutable firstLowVwap = nan
     // ⭐ S40l tier-2 (S38i): target exits FILLED before this bar — the day-scoped
     // virgin flag becomes queryable (targets_today = 0 <=> virgin).
     let mutable targetsToday = 0
@@ -966,7 +974,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if openVwap.IsNone then openVwap <- ValueSome bar.vwap
         cumVol <- cumVol + bar.volume
         // tape-native 09:30-09:45 dollar volume (35100 = THE knowability floor, R4)
-        if bar.etSec < 35100 then dv0945Tape <- dv0945Tape + bar.vwap * bar.volume
+        if bar.etSec < 35100 then
+            dv0945Tape <- dv0945Tape + bar.vwap * bar.volume
+            vol0945Tape <- vol0945Tape + bar.volume
         cumTc <- cumTc + float bar.tradeCount
         cumDv <- cumDv + bar.vwap * bar.volume
         gap60.Push bar.etSec
@@ -1192,6 +1202,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     | _ -> nan
                 dropSlopeHiFlow <- olsSinceHigh.Slope
                 dropRHiFlow <- olsSinceHigh.R
+                firstLowVwap <- bar.vwap
             counters.OnNewLow()
             counters300.OnNewLow()
             counters600.OnNewLow()
@@ -1546,6 +1557,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       DHiFlow = dropToFlow
                       OlsSlopeHiFlow = dropSlopeHiFlow
                       OlsRHiFlow = dropRHiFlow
+                      FirstLowVwap = firstLowVwap
                       GapAdj60 = adjGap60
                       GapAdj300 = adjGap300
                       GapAdj600 = adjGap600
@@ -1589,6 +1601,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       DollarVol1200 = vv dvSum1200.State
                       CumVol = cumVol
                       CumDv = cumDv
+                      Vol0945Tape = vol0945Tape
                       Dv0945Tape = dv0945Tape
                       // S40l tier-2: the signal bar IS a leg low, so the anchors
                       // are always set here (nan can only appear on non-signal
@@ -1702,6 +1715,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             dropToFlow <- nan
             dropSlopeHiFlow <- nan
             dropRHiFlow <- nan
+            firstLowVwap <- nan
             // S40y/z: the anchored OLS + eff reset with the leg (sinceHigh
             // re-anchors at the bar after this high; sinceFlow waits for the
             // next first low).

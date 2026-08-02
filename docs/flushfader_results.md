@@ -6449,3 +6449,52 @@ seat ("the flush is NOT the day's first low") is therefore REGIME-ROBUST
 on clean tape — S11's caution no longer applies there; "never" (open
 print held as day low, 314 @ 5.74 / 84.1%) = the purest runner-pullback,
 census-thin but consistent.
+
+## S41n — distance from first low (dsf): dlv's twin, compounds with the slope (2026-08-02)
+
+**User: do we have dist-from-first-low? Breakdown + compare with the
+slope.** Not directly — `first_low_vwap` baked (record-only, captured in
+the arming block). **base_v11 = THE base; `v22_dflow/` = THE working
+parquet** (zero-diff parity, 38,760 exact). `dsf = signal_vwap /
+first_low_vwap - 1` (< 0 always; the leg's EXTENSION below its first low).
+
+**Correlations: dsf ↔ dlv = 0.854 — dsf IS the leg-stretch dimension the
+spec already seats via dlv < -3%** (the leg vwap sits between first low
+and now, so the two distances track). dsf ↔ ssf = 0.174 (orthogonal to
+speed, confirming the S41d two-axis structure), ↔ dhf 0.321, ↔ leg-age
+-0.48.
+
+| dsf bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| < -20 | 816 | 4.439 | 78.7 | +3.73 | 6.61 | 4.54 | 4.65 | 7.77 | 11.87 | 3.21 | 2.44 |
+| [-20,-18) | 672 | 3.247 | 78.9 | +3.21 | 30.72 | 6.96 | 2.48 | 5.04 | 6.62 | 1.05 | 3.59 |
+| [-18,-16) | 1,050 | 2.204 | 71.2 | +3.07 | 13.75 | 3.8 | 0.24 | 4.06 | 1.84 | 1.17 | 4.9 |
+| [-16,-14) | 1,738 | 2.752 | 77.7 | +2.67 | 3.93 | 9.29 | 0.5 | 1.85 | 3.14 | 2.22 | 6.16 |
+| [-14,-12) | 2,766 | 2.673 | 76.4 | +2.45 | 7.73 | 4.72 | 1.05 | 1.21 | 3.64 | 2.06 | 2.71 |
+| [-12,-10) | 3,927 | 2.682 | 76.1 | +2.32 | 4.11 | 3.82 | 1.8 | 2.52 | 2.55 | 2.41 | 2.42 |
+| [-10,-8) | 5,309 | 2.299 | 73.4 | +2.07 | 3.19 | 3.5 | 1.74 | 1.91 | 2.06 | 1.99 | 1.76 |
+| [-8,-6) | 5,214 | 2.578 | 74.5 | +1.87 | 4.93 | 3.68 | 1.52 | 1.75 | 2.05 | 2.21 | 2.32 |
+| [-6,-4) | 2,287 | 2.022 | 71.2 | +1.57 | 4.06 | 3.1 | 1.82 | 0.63 | 1.18 | 1.72 | 3.7 |
+| [-4,-2) | 78 | 1.628 | 59.0 | +0.79 | 1.58 | 2.84 | 0.76 | 0.29 | 48.48 | 1.28 | 1.6 |
+
+**The dsf × ssf cumulative grid (n @ PF; dsf < row AND ssf < col):**
+
+| dsf< | ssf<-25 | ssf<-50 | ssf<-75 | ssf<-100 | ssf<-125 | ssf<-150 |
+|---|---|---|---|---|---|---|
+| -1 | 23857 @ 2.57 | 11974 @ 2.76 | 5393 @ 3.35 | 2635 @ 3.84 | 1236 @ 3.67 | 745 @ 2.63 |
+| -6 | 21492 @ 2.62 | 11161 @ 2.8 | 5089 @ 3.38 | 2492 @ 3.93 | 1172 @ 3.8 | 701 @ 2.75 |
+| -10 | 10969 @ 2.78 | 6316 @ 3.06 | 3052 @ 3.95 | 1538 @ 4.37 | 682 @ 3.97 | 393 @ 2.66 |
+| -14 | 4276 @ 2.92 | 2795 @ 2.85 | 1429 @ 4.02 | **813 @ 6.02** | 352 @ 4.78 | 182 @ 3.06 |
+| -18 | 1488 @ 3.85 | 1087 @ 3.44 | 618 @ 3.91 | **364 @ 8.25** | 185 @ 5.03 | 104 @ 2.99 |
+
+**READING:** (a) dsf alone = a mild deeper-is-better gradient (< -20 =
+4.44 on 179 tkds, ALL years >= 2.44; shallow [-6,-2) weak — the dlv
+story restated at 0.854 corr; no new seat alone). (b) **the CONJUNCTION
+with the slope is the find: deep × fast = dsf < -14 × ssf < -100 = 813 @
+6.02 / 144 tkds (years 10.5 / 2.8 / 0.88 / 3.4 / 24.4 / 5.1 / 7.9);
+tighter -18 = 364 @ 8.25 / 69 tkds** — an extended flush that is STILL
+falling fast >= 100bp/min = the late-stage capitulation climax; 2022 =
+0.88 the wart (bear-year knives). ssf < -150 fades in every row (the
+vertical poison shadows the corner). Roster: **{dsf < -14 × ssf < -100}
+joins as an A+ conjunction lens (2022-warted)**; dsf standalone = dlv
+duplicate, no seat.

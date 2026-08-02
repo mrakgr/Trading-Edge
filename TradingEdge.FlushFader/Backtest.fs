@@ -296,12 +296,12 @@ CREATE TABLE trips (
     ols_slope_since_high DOUBLE, ols_r_since_high DOUBLE, bars_since_high INTEGER,
     ols_slope_since_flow DOUBLE, ols_r_since_flow DOUBLE,
     eff_since_high DOUBLE, eff_since_flow DOUBLE,
-    d_hi_flow DOUBLE, ols_slope_hi_flow DOUBLE, ols_r_hi_flow DOUBLE,
+    d_hi_flow DOUBLE, ols_slope_hi_flow DOUBLE, ols_r_hi_flow DOUBLE, first_low_vwap DOUBLE,
     vol_300 DOUBLE, tc_300 DOUBLE,
     dollar_vol_300 DOUBLE, dollar_vol_600 DOUBLE, dollar_vol_1200 DOUBLE,
     n_eff_shannon_60 DOUBLE, n_eff_hhi_60 DOUBLE, n_eff_shannon_300 DOUBLE, n_eff_hhi_300 DOUBLE,
     vol_leg DOUBLE, tc_leg DOUBLE, dv_leg DOUBLE, cum_dv DOUBLE,
-    targets_today INTEGER, volat_20m_prev DOUBLE,
+    targets_today INTEGER, volat_20m_prev DOUBLE, vol_0945_tape DOUBLE,
     qty DOUBLE, net_pnl DOUBLE
 )"""
 
@@ -415,12 +415,12 @@ type TripSink(outDir: string) =
             f p.OlsSlopeSinceHigh; f p.OlsRSinceHigh; i p.BarsSinceHigh
             f p.OlsSlopeSinceFlow; f p.OlsRSinceFlow
             f p.EffSinceHigh; f p.EffSinceFlow
-            f p.DHiFlow; f p.OlsSlopeHiFlow; f p.OlsRHiFlow
+            f p.DHiFlow; f p.OlsSlopeHiFlow; f p.OlsRHiFlow; f p.FirstLowVwap
             f p.Vol300; f p.Tc300
             f p.DollarVol300; f p.DollarVol600; f p.DollarVol1200
             f p.NEffShannon60; f p.NEffHhi60; f p.NEffShannon300; f p.NEffHhi300
             f p.VolLeg; f p.TcLeg; f p.DvLeg; f p.CumDv
-            i p.TargetsToday; f p.Volat20mPrev
+            i p.TargetsToday; f p.Volat20mPrev; f p.Vol0945Tape
             f qty; f pnl
             row.EndRow()
             total <- total + 1L
