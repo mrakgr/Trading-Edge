@@ -6574,3 +6574,29 @@ pullback; >= 40 rolls off (2022 1.41, over-extended names). dslo ≈ pah
 cushion above the day's floor". **DAY-STRUCTURE FAMILY FINAL FORM: seat
 = dslo bands {AVOID [0.5,6), PREFER [13,40)}; at-low = book-neutral;
 binary retired for the graded U.**
+
+**S41p addendum — the at-low cell subdivided (user).** First: the [0,0.5)
+cell is **97.9% EXACT zeros** (13,440/13,734 — the signal IS the session
+low); the epsilon-above slivers are 26-96-trip anecdotes (their lows date
+back a median ~50min — census-thin, nothing there). The REAL subdivision
+needs a second axis; two work:
+
+**AT-LOW × pab (day shape):** full book — grinder (pab < 10, never above
+vwap, now at a fresh low = the daylong bleeder) = 3,210 @ **1.969** (the
+weak core of the whole book); bands rise with pab; g60: grinder 2.31 →
+[10,25) 3.47 → **[45,65) = 423 @ 4.765 (years 78 / 9.2 / 3.0 / 2.6 /
+6.9 / 8.2 / 2.3)** → V-day >= 65 = 61 @ 11.9 (anecdote). The more of the
+day the stock spent ABOVE its vwap before crashing to a new low, the
+better the fade.
+
+**AT-LOW × dshi (fall from the session high):** gradient — shallow-fall
+[-14,-8) = 1.99, deepening to **[-45,-30) = 2.982 full / 4.295 g60 (1,202
+trips)**; but the crash-day tail < -45 = 1.909 with **2022 = 0.01** (the
+bear-year disaster zone; g60 5.06 but 2023 0.6). Deep-but-not-cataclysmic
+falls bounce best.
+
+**READING:** the at-low mass (58% of book) = grinder (weak, 1.97) + V-
+crash (strong: high-pab or deep-dshi at-low = 3-4.8). Same day-structure
+grammar from the other side: what matters is what the day WAS before the
+flush — a runner crashing to its first session low fades well even AT
+the low; a bleeder grinding lower does not.
