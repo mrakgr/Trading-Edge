@@ -6294,3 +6294,28 @@ overlay roster**; steeper cuts raise PF but 2022 decays monotonically
 (1.68 -> 1.26 -> 0.79; steep flushes in the bear regime keep falling) —
 same for the g60 stacks (x < -100 = 5.6 but 2022 0.54). The steep-flush
 lens SIZES, the -75 line is where it stays all-weather.
+
+## S41k — flush SPEED as an overlay, split by tape (user) (2026-08-02)
+
+**User: add the 1m flush speed (the v1.1 gate axis, spec < -2%) to the
+overlay roster; break down on clean (gap_60 < 4) and illiquid tape.**
+
+Clean tape (base 3.64): the axis is FLAT-mild through [-8,-2) (2.9-4.3,
+[-5,-4) dip 2.88) — cumulative: < -5 = 3.98, < -6 = **4.273 (1,387 @ 311
+tkds)**, < -8 = 4.41, < -10 = 6.62 (173/46 tkds), < -12 = 13.7 (69).
+Illiquid tape (base 2.10): the mid-speeds are a SWAMP — [-8,-7) = 1.60,
+[-4,-3) = 1.95, worse than the illiquid book itself — but the violent
+extreme survives: **< -10 = 9.179 (142/50 tkds)**, < -12 = 18.9 (58).
+
+| overlay | n | tkds | PF | note |
+|---|---|---|---|---|
+| speed < -6 x g60 | 1,387 | 311 | 4.273 | the tradable A form (clean tape) |
+| speed < -8 (all) | 894 | 244 | 3.96 | |
+| ⭐ speed < -10 (all) | 315 | 94 | 7.71 | A++-class; works on BOTH tapes (6.62 clean / 9.18 illiquid) |
+
+**READING:** the speed axis is CONVEX on both tapes — moderate speeds add
+nothing beyond the spec's -2 gate, the violent 1m collapse (< -10) is
+the payload, ~15 events/yr, and it is THE ONE lens that also works on
+holey tape (unlike dhf/rp_vol/ht which all deflate there) — a violent
+enough 1m flush transcends the liquidity regime. Roster: speed < -10 =
+A++ lens (both tapes); speed < -6 x g60 = A form.
