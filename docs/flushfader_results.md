@@ -7218,3 +7218,54 @@ the near-term voice, read AGAINST v20), dslo (distance from session low
 = the discriminator on cool tape)**. FIRST ITEM: study **vchg**
 (volat_20m / volat_20m_prev — the vol-expansion ratio; never examined
 beyond its collapse-tail avoid at < 0.68 = 1.65, S41z).
+
+## S42c — the DISJUNCTION test + d1s (breach depth) calibrated (2026-08-02/03)
+
+**New feature (user): d1s = signal_vwap/chan_lo − 1** (the 1s bar's
+undercut of the prior 20m low — the breach depth). Deciles nearly FLAT
+(2.24-2.86, dec1 < −0.71%); corr speed 0.294 / v20 −0.096 — independent
+but weak alone.
+
+**The disjunction (user): spec ∧ (v20 >= 140 ∨ d20a < −28 ∨ speed < −6
+∨ d1s < −1 ∨ dslo >= 6 ∨ pah >= 28):**
+
+| | n | tkds | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| DISJUNCTION | 14,188 | 2,474 | 3.06 | 76.8 | 5.61 | 3.87 | 1.42 | 2.52 | 3.31 | 2.25 | 3.81 |
+| complement | 16,169 | 3,051 | 2.08 | 72.0 | 2.95 | 2.78 | 1.74 | 1.41 | 1.98 | 1.85 | 1.63 |
+
+**mc=1 on the disjunction book: 2,489 @ 2.481 (all years >= 1.92; 2022
+= 2.72)** vs the full $1+ book's 2.109 — as a one-slot priority filter
+it adds +0.37 PF at 58% of slot-trips (3,808 slot-points vs 4,756).
+Note the 2022 flip: mc=0 1.42 (the violence dilution) but mc=1 2.72 —
+the slot naturally takes the better trips.
+
+| disjunct | n total | PF total | n ONLY | PF only |
+|---|---|---|---|---|
+| v20 >= 140 | 3,049 | 4.14 | 279 | 2.49 |
+| d20a < -28 | 3,284 | 3.82 | 552 | 2.31 |
+| speed < -6 | 3,121 | 3.14 | 947 | 2.28 |
+| d1s < -1 | 1,423 | 2.54 | 548 | 2.37 |
+| dslo >= 6 | 9,893 | 3.16 | 3,357 | 2.14 |
+| pah >= 28 | 6,225 | 3.55 | 81 | 1.22 |
+
+**⭐ THE REAL FIND — the VOTE COUNT (nfire) is a HUMP:**
+
+| voices firing | n | tkds | PF | win% |
+|---|---|---|---|---|
+| 0 | 16,169 | 3,051 | 2.08 | 72.0 |
+| 1 | 5,764 | 1,527 | 2.20 | 74.5 |
+| ⭐ 2 | 5,496 | 1,097 | **3.90** | 78.7 |
+| ⭐ 3 | 1,790 | 487 | **4.29** | 79.4 |
+| 4 | 844 | 236 | 3.57 | 76.5 |
+| 5 | 271 | 86 | 2.98 | 69.7 |
+| 6 | 23 | 19 | 2.02 | 82.6 |
+
+**READING:** every single-voice slice is ≈ book-level (2.1-2.5) — the
+disjunction's power is entirely in the OVERLAPS, and it peaks at 2-3
+voices then DECLINES to 6/6 = 2.02: all-extremes-at-once = the
+sustained-violence crash again (the contrast grammar as a vote count).
+**nfire ∈ [2,4] = 8,130 @ ~3.9 / 1,600+ tkds — the vote count is the
+composite the family has been looking for**: scale-free, census-fat,
+one number, hump-shaped like everything real in this system. d1s = the
+weakest voice (2.54 total); pah-only = 1.22 (its 81 orphans are noise).
