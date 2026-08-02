@@ -6210,31 +6210,29 @@ recorded); inside the gap60 stack either form works.
 rolls off at >= 10. ⭐ d0945 >= 4 = THE overlay cutoff** (4,093 @ 4.058,
 every year >= 2.35; the [2,4) increment = 382 @ ~2.6 marginal).
 
-**The d0945 × pco grid (n @ PF; rows = d0945, cols = pco):**
+**The CUMULATIVE d0945 × pco grid (n @ PF for d0945 >= row AND pco >=
+col; band-grid form rejected as unreadable — user):**
 
-| d0945 \ pco | < -2 | [-2,2) | [2,10) | >= 10 |
-|---|---|---|---|---|
-| < -10 | 12,813 @ 2.42 | 301 @ 1.07 | 353 @ 2.67 | 328 @ 3.53 |
-| [-10,-4) | 2,451 @ 2.02 | 443 @ 3.62 | 489 @ 4.5 | 179 @ 6.09 |
-| [-4,-2) | 243 @ 1.77 | 187 @ 1.6 | 183 @ 1.47 | 128 @ 5.29 |
-| [-2,0) | 143 @ 1.96 | 151 @ 1.49 | 251 @ 1.89 | 172 @ 10.38 |
-| [0,2) | 83 @ 1.97 | 83 @ 2.83 | 232 @ 1.87 | 169 @ 1.3 |
-| [2,4) | 39 @ 23.97 | 47 @ 2.2 | 178 @ 3.04 | 118 @ 1.59 |
-| [4,8) | 50 @ 159.13 | 76 @ 12.3 | 335 @ 2.29 | 364 @ 5.98 |
-| [8,12) | 0 | 15 @ 24.53 | 168 @ 11.49 | 451 @ 6.26 |
-| >= 12 | 15 @ 34.23 | 22 @ 1.32 | 64 @ 4.52 | 2,520 @ 3.63 |
+| d0945 \ pco | >=-6 | >=-2 | >=0 | >=2 | >=4 | >=6 | >=8 | >=10 | >=12 |
+|---|---|---|---|---|---|---|---|---|---|
+| >=-6 | 7034 @ 3.07 | 6383 @ 3.17 | 5985 @ 3.18 | 5608 @ 3.31 | 5135 @ 3.43 | 4691 @ 3.71 | 4314 @ 3.79 | 4005 @ 3.79 | 3633 @ 3.97 |
+| >=-4 | 6299 @ 3.15 | 5914 @ 3.15 | 5639 @ 3.15 | 5333 @ 3.3 | 4907 @ 3.43 | 4531 @ 3.7 | 4202 @ 3.76 | 3922 @ 3.75 | 3564 @ 3.93 |
+| >=-2 | 5667 @ 3.29 | 5416 @ 3.31 | 5243 @ 3.31 | 5022 @ 3.39 | 4686 @ 3.43 | 4359 @ 3.66 | 4050 @ 3.7 | 3794 @ 3.72 | 3476 @ 3.89 |
+| >=0 | 4992 @ 3.49 | 4842 @ 3.45 | 4735 @ 3.44 | 4599 @ 3.43 | 4361 @ 3.49 | 4086 @ 3.67 | 3825 @ 3.65 | 3622 @ 3.62 | 3348 @ 3.83 |
+| >=2 | 4443 @ 3.86 | 4358 @ 3.78 | 4295 @ 3.77 | 4198 @ 3.75 | 4023 @ 3.78 | 3841 @ 4.0 | 3638 @ 3.96 | 3453 @ 3.87 | 3224 @ 3.98 |
+| ⭐ >=4 | 4069 @ 4.03 | 4015 @ 3.96 | 3977 @ 3.95 | 3902 @ 3.91 | 3772 @ 3.98 | 3644 @ 4.15 | 3486 @ 4.12 | 3335 @ 4.03 | 3141 @ 4.01 |
+| >=6 | 3655 @ 4.02 | 3642 @ 4.0 | 3623 @ 4.0 | 3569 @ 3.97 | 3499 @ 4.03 | 3408 @ 4.11 | 3293 @ 4.11 | 3183 @ 4.02 | 3034 @ 3.98 |
+| >=8 | 3249 @ 4.02 | 3240 @ 4.0 | 3230 @ 4.01 | 3203 @ 4.01 | 3174 @ 4.02 | 3121 @ 3.97 | 3054 @ 3.95 | 2971 @ 3.88 | 2871 @ 3.86 |
+| >=10 | 2874 @ 3.75 | 2866 @ 3.74 | 2858 @ 3.75 | 2837 @ 3.75 | 2821 @ 3.78 | 2797 @ 3.76 | 2773 @ 3.75 | 2731 @ 3.71 | 2670 @ 3.76 |
+| >=12 | 2609 @ 3.62 | 2606 @ 3.62 | 2598 @ 3.63 | 2584 @ 3.65 | 2573 @ 3.66 | 2562 @ 3.66 | 2548 @ 3.66 | 2520 @ 3.63 | 2481 @ 3.65 |
 
-**READING:** the mass sits on the agreement diagonal (both-deep 12,813 @
-2.42; both-high 2,520 @ 3.63); the DISAGREEMENT cells carry the signal:
-above-anchor-but-red-print (d>=4 × pco<2) = tiny-n gold (50 @ 159, 76 @
-12.3 — flushes that already reclaimed the participation anchor on a red-
-print day); big-green-print-but-below-anchor (d<0 × pco>=10) = strong
-(5-10) — a deep flush off a strong day; and **the failed-reclaim cell
-(d0945 ∈ [0,4) × pco >= 10 = 287 @ ~1.4) = the weak spot**: a big green
-day whose price is stuck hovering AT the 15m vwap = distribution, not
-capitulation. The threshold form d0945 >= 4 stays the roster rule
-(simple, plateau-backed); the grid cells are census-thin for anything
-finer.
+**READING:** the d0945 axis does ALL the work. Down the leftmost column
+(pco unconstrained) PF climbs 3.07 → 4.03 at d>=4; **across the d>=4 row
+the pco axis is FLAT (4.03 → 4.01)** — once d0945 >= 4 is set, pco adds
+NOTHING. Conversely pco only "works" on shallow-d rows (3.07 → 3.97
+along d>=-6) because it proxies d0945 there. The plateau: d ∈ [4,8] ×
+any pco ≈ 4.0-4.15. **d0945 >= 4 alone = the whole day-structure edge;
+pco is retired as a separate axis.**
 
 **S41j addendum — the same pair INSIDE gap_60 < 4 (user):** universe 9,277
 @ 3.64.
@@ -6250,9 +6248,25 @@ finer.
 | 6 | 2,522 | 4.276 | 9.35 | 3.47 | 1.68 | 4.02 | 3.84 | 2.84 | 19.48 |
 | 8 | 2,295 | 4.057 | 8.23 | 3.79 | 1.59 | 3.95 | 3.54 | 2.52 | 20.42 |
 
-(grid: agreement diagonal a×p1 = 4,249 @ 3.29 / i×p4 = 1,871 @ 3.98;
-disagreement cells collapse to census-thin anecdotes — 77 @ 167, 36 @ 333,
-60 @ 31; the failed-reclaim cell softens to 76 @ 2.96.)
+**The cumulative grid inside gap_60 < 4 (n @ PF, d0945 >= row AND pco >=
+col):**
+
+| d0945 \ pco | >=-6 | >=-2 | >=0 | >=2 | >=4 | >=6 | >=8 | >=10 | >=12 |
+|---|---|---|---|---|---|---|---|---|---|
+| >=-6 | 3807 @ 4.47 | 3619 @ 4.39 | 3539 @ 4.32 | 3380 @ 4.34 | 3220 @ 4.37 | 3017 @ 4.47 | 2840 @ 4.59 | 2697 @ 4.47 | 2510 @ 4.46 |
+| >=-4 | 3583 @ 4.36 | 3478 @ 4.29 | 3412 @ 4.23 | 3273 @ 4.25 | 3125 @ 4.3 | 2955 @ 4.4 | 2796 @ 4.49 | 2656 @ 4.37 | 2476 @ 4.38 |
+| >=-2 | 3372 @ 4.42 | 3288 @ 4.37 | 3243 @ 4.34 | 3135 @ 4.26 | 3014 @ 4.24 | 2867 @ 4.32 | 2716 @ 4.38 | 2592 @ 4.29 | 2424 @ 4.28 |
+| >=0 | 3094 @ 4.37 | 3047 @ 4.32 | 3020 @ 4.29 | 2954 @ 4.28 | 2862 @ 4.26 | 2742 @ 4.23 | 2611 @ 4.24 | 2510 @ 4.18 | 2358 @ 4.18 |
+| >=2 | 2873 @ 4.4 | 2840 @ 4.35 | 2819 @ 4.33 | 2765 @ 4.31 | 2697 @ 4.28 | 2622 @ 4.31 | 2526 @ 4.3 | 2434 @ 4.22 | 2297 @ 4.27 |
+| >=4 | 2711 @ 4.34 | 2691 @ 4.29 | 2674 @ 4.29 | 2631 @ 4.26 | 2572 @ 4.23 | 2512 @ 4.25 | 2442 @ 4.25 | 2372 @ 4.2 | 2254 @ 4.27 |
+| >=6 | 2521 @ 4.28 | 2515 @ 4.27 | 2506 @ 4.28 | 2474 @ 4.27 | 2443 @ 4.29 | 2393 @ 4.24 | 2340 @ 4.23 | 2282 @ 4.16 | 2195 @ 4.18 |
+| >=8 | 2294 @ 4.06 | 2290 @ 4.05 | 2282 @ 4.07 | 2266 @ 4.09 | 2253 @ 4.13 | 2219 @ 4.11 | 2190 @ 4.11 | 2145 @ 4.05 | 2082 @ 4.11 |
+| >=10 | 2074 @ 3.98 | 2070 @ 3.97 | 2062 @ 3.99 | 2048 @ 4.01 | 2040 @ 4.06 | 2026 @ 4.07 | 2024 @ 4.06 | 2004 @ 4.04 | 1957 @ 4.14 |
+| >=12 | 1915 @ 3.92 | 1915 @ 3.92 | 1907 @ 3.93 | 1895 @ 3.96 | 1891 @ 3.99 | 1883 @ 4.01 | 1883 @ 4.01 | 1871 @ 3.98 | 1841 @ 4.02 |
+
+The whole plane is FLAT at 3.9-4.6 — tightening either axis on clean
+tape mostly sheds trips; the loosest corner (>=-6 × >=-6 = 3,807 @ 4.47)
+is as good as anything.
 
 **READING:** on clean tape the d0945 axis FLATTENS — the sweep sits at
 4.15-4.45 across the whole [-4,+6] range (peak >= -2 = 4.451), the
@@ -6262,3 +6276,21 @@ clean-tape base (vs +1.5 standalone), and 2022 WEAKENS with tighter cuts
 phenomenon; under gap60 the day-structure information is largely absorbed
 by tape continuity. Roster: **standalone d0945 >= 4; inside the gap60
 stack use the loose >= -2 form (or skip the axis entirely)**.
+
+**S41j addendum 2 — steep slope_since_flow as an overlay (user):** the
+spec band is [-375,-25); the steep half as a sizing lens on the v2.2 book:
+
+| overlay | n | tkds | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| ssf < -50 | 11,974 | 1,839 | 2.763 | 76.0 | 5.96 | 4.31 | 1.29 | 2.02 | 2.89 | 2.24 | 2.49 |
+| ⭐ ssf < -75 | 5,393 | 908 | 3.349 | 76.7 | 8.12 | 3.14 | 1.68 | 1.74 | 3.74 | 3.19 | 2.7 |
+| ssf < -100 | 2,635 | 469 | 3.842 | 77.5 | 7.06 | 2.21 | 1.26 | 1.77 | 9.66 | 3.4 | 4.26 |
+| ssf < -125 | 1,236 | 253 | 3.671 | 77.8 | 6.79 | 1.38 | 0.79 | 1.77 | 15.49 | 3.43 | 5.28 |
+| g60 × ssf < -75 | 2,684 | 453 | 4.604 | 80.3 | 20.03 | 5.73 | 1.29 | 2.71 | 4.06 | 4.36 | 3.84 |
+| g60 × ssf < -100 | 1,434 | 261 | 5.595 | 82.0 | 23.37 | 12.42 | 0.54 | 3.0 | 8.52 | 4.34 | 5.35 |
+
+**ssf < -75 = the year-robust form (all years >= 1.68) — joins the A-
+overlay roster**; steeper cuts raise PF but 2022 decays monotonically
+(1.68 -> 1.26 -> 0.79; steep flushes in the bear regime keep falling) —
+same for the g60 stacks (x < -100 = 5.6 but 2022 0.54). The steep-flush
+lens SIZES, the -75 line is where it stays all-weather.
