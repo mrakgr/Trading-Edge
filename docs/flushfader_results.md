@@ -7084,6 +7084,19 @@ level), vchg = v20/v20p (expansion), rng20/rngsess/rsl20 (ln-ranges %).
 Intra-family corr: v20 ↔ v10 = 0.982, ↔ rng20 = 0.844, rng20 ↔ rsl20 =
 0.969 — one axis + derived ratios.
 
+**FEATURE REFERENCE (the volatility family):**
+
+| abbr | name | definition | plain English |
+|---|---|---|---|
+| v20 | volat_20m | EmaHlMa (half-life 20 slots) of abs 30s-slot ln-returns, ×1e4 = bp/30s | how WILD the tape has been over the last ~20 minutes (THE locked vol measure, F7; the >= 40bp arming floor lives on this) |
+| v10 | volat_10m | same, half-life 10 slots | the 10-minute twin (0.982 corr — same thing, faster) |
+| vr | vol trajectory | volat_10m / volat_20m | is volatility RISING (> 1) or FADING (< 1) right now |
+| v20p | pre-window vol | volat_20m as of 1200 present bars AGO | how wild the tape was BEFORE the current 20m window (the lagged normalizer, S39q) |
+| vchg | vol expansion | volat_20m / volat_20m_prev | how much the current window EXPANDED vol vs the prior one (< 0.68 = the collapse avoid) |
+| rng20 | 20m range | ln(chan_hi / chan_lo) × 100, % | how wide the 20m price channel is |
+| rngsess | session range | ln(sess_high / sess_low) × 100, % | how wide the whole DAY's range is |
+| rsl20 | 20m slot range | same on 30s slot vwaps | the microstructure-denoised twin of rng20 (0.969 corr) |
+
 **PF per decile (dec 1 = highest):**
 
 | dec | v20 | v10 | vr | v20p | vchg | rng20 | rngsess | rsl20 |
