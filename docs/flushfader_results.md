@@ -6778,3 +6778,48 @@ off; the canonical base CLI gains `--max-z-20m 0`. NO new record cols —
 **2.287**). Both mc levels improve for −433 trips — a true edge trim,
 exactly as forecast from base_v14 (23,424 @ 2.588 / 3,548 @ 2.287 both
 matched pre-computation EXACTLY).
+
+## S41t — the price axis on v2.3: the $10 ceiling is NOT earning (2026-08-02)
+
+**User: price breakdown on full + g60 raw v2.3, decide whether to bake
+< $10.** (Full band tables above in the run; canonical rows:)
+
+| band (FULL raw) | n | PF | 2022 | 2023 | 2025 | 2026 |
+|---|---|---|---|---|---|---|
+| < $0.50 | 3,840 | 2.114 | 2.08 | 2.49 | 1.79 | 2.02 |
+| [$0.50,1) | 3,872 | 2.442 | 1.58 | 3.15 | 2.69 | 2.17 |
+| [$1,2) | 6,545 | 3.094 | 3.27 | 1.85 | 2.21 | 4.21 |
+| [$2,10) | 16,879 | ~2.4 | 0.39-2.47 | 1.07-3.1 | 1.46-2.52 | 1.35-6.06 |
+| [$10,15) | 2,438 | 2.509 | 2.11 | 2.75 | 3.52 | 0.91 |
+| [$15,25) | 2,202 | 2.37 | 1.77 | 0.86 | 2.43 | 2.07 |
+| >= $25 | 2,293 | 2.151 | 3.45 | 14.11 | 2.2 | 3.81 |
+
+| band (g60 raw) | n | PF | 2022 | 2023 | 2025 | 2026 |
+|---|---|---|---|---|---|---|
+| [$7,10) | 1,156 | 5.226 | 6.69 | 3.72 | 3.61 | 17.35 |
+| [$10,15) | 937 | 3.624 | 2.53 | 2.04 | 3.1 | — |
+| [$15,25) | 700 | 4.071 | 13.76 | 4.34 | 3.84 | 3.1 |
+| >= $25 | 833 | 4.848 | — | 8.81 | 3.32 | 2.76 |
+
+**The decision cells:**
+
+| config | mc=0 | mc=1 | mc=1 slot-points |
+|---|---|---|---|
+| FULL $1-10 (current) | 23,424 @ 2.588 | 3,548 @ 2.287 | 4,329 |
+| FULL $1+ | 30,357 @ 2.528 | 4,285 @ 2.109 | 4,756 |
+| FULL $10+ slice | 6,933 @ 2.333 (2022 2.39, 2023 2.09, 2025 2.59) | — | — |
+| g60 $1-10 | 9,107 @ 3.685 | 1,545 @ 2.924 | 2,395 |
+| g60 $1+ | 11,577 @ 3.778 | 1,889 @ 2.771 | 2,871 |
+| g60 $10+ slice | 2,470 @ 4.139 (2022 8.87) | — | — |
+
+**READING:** the < $10 rule dates to v1.3; under v2.3 it is NOT earning.
+The $10+ slice is book-class on the full universe (2.333, with the WEAK
+years 2022/23/25 all BETTER than the sub-$10 book's) and STRONG on clean
+tape (4.139, 2022 = 8.87) — and these are the most liquid, best-fill
+names. mc=0: ceiling-off improves g60 (+0.093), ~flat full (−0.06). mc=1:
+ceiling-off trades −0.15 PF for +20-22% trips → +10-20% total slot-
+points. The ceiling is a slot-concentration device, not an edge
+statement. Sub-$1 stays post-hoc-excluded on FEES (EU routes, v1.1),
+with sub-$0.50 also the weakest band everywhere. **Decision = user's:
+retire the ceiling (recommended — PF-per-slot gives way to points and
+fills) or keep $1-10 as the concentrated book.**
