@@ -7163,3 +7163,24 @@ family-mates don't stack, S41w rule confirmed from the other side; even
 the retest trap softens to 3.5 inside hot vol). Sizing voice: v20-dec1
 enters the price-family max at 4.14, ×liquidity ×participation per the
 cross-family product.
+
+**S42 addendum — dslo inside the top v20 decile (user: v20 = THE longer-
+term feature, speed = THE near-term feature; does above-low still win?):
+NO — the premium VANISHES inside hot vol (mild inversion):**
+
+| state (v20 >= 140) | n | tkds | PF | win% | med |
+|---|---|---|---|---|---|
+| AT the session low | 1,427 | 241 | 4.29 | 79.2 | +3.73 |
+| ABOVE the session low | 1,622 | 238 | 4.01 | 78.5 | +3.31 |
+
+vs the REST of the book (v20 < 140): at-low 15,467 @ 2.19 / above
+11,841 @ 2.59 — the familiar premium lives ONLY outside the hot cell.
+Fine dslo bands inside hot vol are census-thin noise (26-50 tkds cells;
+the retest bands sit at 3.3-3.7, NOT below par; >= 70 = 7.59 on 42
+tkds). **WHY: the at-low poison was the GRINDER (low-pab slow bleed,
+S41p) — and grinders don't print 140bp/30s vol. Hot v20 already excludes
+them, leaving the V-crash at-lows (the good kind) vs runner pullbacks
+(also good): both ~4.1-4.3, nothing left for dslo to separate.**
+Lever-design consequence: v20 and dslo need no conjunction — dslo is
+the discriminator where vol is NOT extreme; v20-dec1 overrides it (the
+max architecture again, from a third angle).
