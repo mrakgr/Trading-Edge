@@ -6411,3 +6411,41 @@ above-session-low = 5,131 @ 4.08 vs at-low 3.19 — live-trivial
 same fact, worth ~+0.3-0.5 residual on clean tape.** The runner-pullback
 story survives (it IS why above-session-low works) but the simplest form
 wins the seat.
+
+## S41m — S11 REPEATED on v2.2 × gap_60 < 4: the 2022 inversion was an ILLIQUID-TAPE artifact (2026-08-02)
+
+**User: repeat S11 (session lows vs higher-low legs) on the latest spec ×
+the clean-tape universe.** S11 (v1.1, full book) found: 61% of trips =
+new session lows @ 1.99 vs off-low 2.23 — but the off-low premium
+COLLAPSED in 2022 (1.04 vs 1.65) → verdict "keep both, cutting session
+lows = 2020-fitting".
+
+**On v2.2 × g60:**
+
+| session position | n | % | win | PF | avg% | med% |
+|---|---|---|---|---|---|---|
+| NEW session low (breach_lo_sess=0) | 4,146 | 44.7 | 75.9 | 3.189 | +1.82 | +2.25 |
+| off-session-low (higher-low leg) | 4,817 | 51.9 | 79.9 | 4.017 | +2.11 | +2.47 |
+| never broke a session low | 314 | 3.4 | 84.1 | 5.74 | +2.03 | +2.22 |
+
+| by year | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|
+| NEW session low | 8.73 | 4.64 | 3.33 | 2.61 | 2.56 | 2.64 | 2.85 |
+| off-session-low | 8.16 | 6.01 | **2.94** | 2.9 | 3.74 | 2.22 | 15.21 |
+| never | 21.31 | 2.65 | 23.69 | — | 40.17 | 3.74 | 5.21 |
+
+Full-book reference (v2.2, no gap cut): sess-low 13,432 @ 2.404 (2022
+2.01) vs off-low 9,583 @ 2.757 with **2022 = 0.97** — the S11 collapse,
+still there.
+
+**READING — S11's bear-year inversion RESOLVED: it was an illiquid-tape
+artifact.** On clean tape the higher-low second leg is ALL-WEATHER (worst
+year 2.22, 2022 = 2.94 ≈ par with session lows' 3.33) and carries a +0.83
+PF premium at 52% of the universe; the 2022 collapse of the off-low
+retest lives entirely on holey tape (full-book off-low 2022 = 0.97).
+The mix also flipped vs S11 (61% session lows then, 44.7% now — the v2.2
+gates already prefer the higher-low structure). The S41l day-structure
+seat ("the flush is NOT the day's first low") is therefore REGIME-ROBUST
+on clean tape — S11's caution no longer applies there; "never" (open
+print held as day low, 314 @ 5.74 / 84.1%) = the purest runner-pullback,
+census-thin but consistent.
