@@ -6641,3 +6641,29 @@ crash (strong: high-pab or deep-dshi at-low = 3-4.8). Same day-structure
 grammar from the other side: what matters is what the day WAS before the
 flush — a runner crashing to its first session low fades well even AT
 the low; a bleeder grinding lower does not.
+
+## S41q — |esf| > 0.25 revisited on gap_60 < 4: the S41b mc=1 edge was a LIQUIDITY proxy (2026-08-02)
+
+**User: revisit the S41b challenger on the clean-tape universe — worth the
+mc=1 tradeoff?** Residual = v2.2 minus the eff band, × g60 = 15,220 @
+2.766 (base_v13).
+
+| config | mc=0 n | mc=0 PF | mc=0 2022 | mc=1 n | mc=1 PF | mc=1 worst yr |
+|---|---|---|---|---|---|---|
+| neither | 15,220 | 2.766 | 1.43 | 2,217 | 2.376 | 1.72 (2025) |
+| |esf| > 0.25 | 11,473 | 2.897 | 1.49 | 1,837 | 2.627 | 1.91 (2025) |
+| eff band (= v2.2 g60 book) | 9,277 | 3.640 | 3.18 | 1,564 | 2.891 | 1.78 (2023) |
+| ⭐ BOTH | 7,357 | 3.735 | 2.86 | 1,330 | **3.058** | 2.04 (2023) |
+
+mc=1 years for BOTH: 5.84 / 3.15 / **4.91** / 2.04 / 3.14 / 2.24 / 3.36.
+
+**READING:** (a) as a REPLACEMENT, |esf| > 0.25 now loses at BOTH levels
+on clean tape (2.627 vs 2.891 at mc=1 — the S41b full-book mc=1
+dominance is GONE). The challenger's slot-efficiency edge was largely a
+LIQUIDITY effect — it spread trips onto cleaner days; once gap_60 < 4
+does that job explicitly, the eff band's concentration wins again. Same
+lesson as dhf/rp_vol/S11: apparent edges keep resolving into the
+liquidity axis. (b) as a STACK on the clean book it now EARNS: +0.095
+mc=0 / **+0.167 mc=1** for −234 slot-trips, all years positive, 2022 =
+4.91 — in S41b the same stack added +0.004 (nothing). **|esf| > 0.25 =
+a clean-tape STACKING lens (A-tier), not a spec gate.**
