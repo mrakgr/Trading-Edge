@@ -6837,3 +6837,40 @@ cut updated to `>= 1`. ⏭ FUTURE (user): sub-$1 may become tradable via
 a REBATE tier — enough limit-order traffic at a commission tier where
 rebates pay the per-share fees; revisit with the slippage/production
 work.
+
+## S41u — ⭐ THE SIZING-LEVER ROSTER (user design) + speed × dhf at the low (2026-08-02)
+
+**The distance levers are SETTLED (user): a REGIME-SWITCHED pair + speed.**
+
+| lever | when | form | proven cells |
+|---|---|---|---|
+| ⭐ dslo (cushion above the day's floor) | ABOVE the session low | U-bands: PREFER [13,40) (g60 [18,25) = 7.82), AVOID [0.5,6) retest zone | S41p |
+| ⭐ dhf (the leg's ARMING drop) | AT the session low (where dslo is silent; 7.51 vs 2.71 separation) | deeper = better; < -24 = the top cell (9.10/97 tkds) | S41f/S41u |
+| ⭐ speed (the flush NOW) | always (BOTH tapes) | convex: < -6 × g60 = A (4.27/311 tkds); < -10 = A++ both tapes (7.71/94 tkds) | S41k |
+| RETIRED | — | pco, d0945, dsv, pab (all = cushion proxies, dslo ↔ pah 0.904); d20 (spec shadow: corr 0.46-0.67 w/ ssf/dlv/dhf/dshi) | S41l/p |
+| dshi (dist from session high) | NO lever seat | shards kept: crash-day AVOID (at-low × dshi < -45 = 2022 0.01); at-low subdivision refinement | S41p |
+
+Correlation backbone: dhf ↔ dslo −0.15, dshi ↔ dslo −0.12, dhf ↔ dshi
+0.43, dhf ↔ speed 0.28 — the three seated levers are mutually near-
+orthogonal: NOW-violence × floor-CUSHION × BIRTH-violence.
+
+**Speed × dhf AT the session low (g60, 5,030 trips; n @ PF):**
+
+| dhf \ speed | [-4,-2) | [-6,-4) | [-10,-6) | < -10 |
+|---|---|---|---|---|
+| < -24 | 60 @ 17.96 | 100 @ 15.75 | 79 @ 30.05 | — |
+| [-24,-16) | 347 @ 6.09 | 241 @ 4.96 | 188 @ 6.87 | 18 @ 0.42 |
+| [-16,-10) | 824 @ 3.84 | 494 @ 2.7 | 290 @ 3.2 | 33 @ 11.61 |
+| [-10,-6) | 1,144 @ 2.83 | 422 @ 1.8 | ⚠ 104 @ 1.06 | 45 @ 2.11 |
+| >= -6 | 423 @ 2.23 | 132 @ 2.85 | 60 @ 24.42 | 5 @ 93.3 |
+
+**READING:** at the low, dhf DOMINATES and speed is mostly flat within a
+dhf band — the deep-birth rows (< -16) are strong at every speed (the
+leg was born violent; extra now-speed adds nothing). Two exceptions:
+(a) ⚠ **the mid-shallow band [-10,-6) INVERTS with speed** (2.83 → 1.06
+at [-10,-6) speed) — a modest-birth leg now accelerating = the breakdown
+gathering pace, not capitulating — a real avoid corner; (b) the shallow-
+birth × violent-now corner (dhf >= -6 × speed < -6 = 60 @ 24.4 + 5 @
+93) = the FLASH CRASH on a quiet day — spectacular but 65 trips, census-
+thin. **Sizing rule at the low: size by dhf; ignore speed except to
+AVOID the accelerating mid-shallow corner.**
