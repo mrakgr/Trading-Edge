@@ -6319,3 +6319,69 @@ the payload, ~15 events/yr, and it is THE ONE lens that also works on
 holey tape (unlike dhf/rp_vol/ht which all deflate there) — a violent
 enough 1m flush transcends the liquidity regime. Roster: speed < -10 =
 A++ lens (both tapes); speed < -6 x g60 = A form.
+
+## S41l — WHY the >= -6 corner works (100% runner-pullbacks) + pah + THE OVERLAY BOOK (2026-08-02)
+
+**User Q1: why is "both d0945 AND pco >= -6" good** (7,034 @ 3.075 vs
+complement 16,823 @ 2.403)? **ANSWER — FLUSH ARITHMETIC MAKES IT THE
+RUNNER-PULLBACK SELECTOR:** the spec demands a deep flush (median -14.3%
+from the 20m high); if price still sits within 6% of the open anchors
+AFTER that flush, the stock must have been UP big before it. Measured:
+`pah = day change at the pre-flush 20m high = (1+pco)/(1+d20)-1` —
+**the corner is 100.0% green-before-flush, median pah = +33.5%** (the
+complement: 59.2% / +2.2, median pco now -13.4 = daylong decliners).
+Fading a spike-down in an UP day vs fading another leg of a decline —
+the pco>=+2 grammar (S40k), fully generalized. Tape check: corner is
+enriched clean (54% vs 33%) but genuinely additive to g60 (corner x g60
+= 4.471 vs not-corner x g60 = 3.211); on illiquid tape it adds nothing
+(2.071).
+
+**pah as the PRINCIPLED unified lens (computable post-hoc from pco +
+chan_hi; replaces the pco/d0945 pair semantically):**
+
+| pah bucket | n | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| < -10 | 2,934 | 1.991 | 72.5 | 3.84 | 2.36 | 0.72 | 1.85 | 2.07 | 1.65 | 2.64 |
+| [-10,-5) | 1,569 | 2.936 | 72.6 | 2.98 | 6.19 | 4.14 | 2.43 | 1.74 | 1.67 | 13.2 |
+| [-5,0) | 2,364 | 2.398 | 75.2 | 2.75 | 3.78 | 2.31 | 1.73 | 2.61 | 2.07 | 1.92 |
+| [0,10) | 6,699 | 2.325 | 72.9 | 4.69 | 3.01 | 2.16 | 1.9 | 2.26 | 1.84 | 1.33 |
+| [10,20) | 3,548 | 2.304 | 76.0 | 2.88 | 5.23 | 0.96 | 1.15 | 6.3 | 2.19 | 1.83 |
+| [20,30) | 2,131 | 3.033 | 75.8 | 14.35 | 4.66 | 9.35 | 3.33 | 3.21 | 1.03 | 3.36 |
+| [30,40) | 1,321 | 3.094 | 78.0 | 22.18 | 18.14 | 0.56 | 1.99 | 3.29 | 2.52 | 3.5 |
+| [40,50) | 865 | 4.37 | 77.1 | 10.37 | 2.7 | 1.7 | 1.83 | 3.87 | 5.29 | 7.79 |
+| [50,100) | 1,731 | 3.848 | 80.0 | 8.28 | 2.52 | 1.16 | 2.58 | 2.5 | 5.47 | 16.96 |
+| >= 100 | 695 | 3.238 | 72.8 | 6.18 | 1.99 | 45.38 | 1.79 | 2.66 | 2.1 | 23.73 |
+
+Cumulative: pah >= 20 = 6,743 @ 3.406 (g60: 4,129 @ 4.414); >= 30 =
+4,612 @ 3.578 (g60 4.637); >= 50 = 2,426 @ 3.641; rolloff >= 75. The
+only avoid: pah < -10 = 1.99 (the true daylong decliner, 2022 = 0.72).
+
+**User Q2 — combine pco and d0945? VERDICT: the day-structure family
+gets ONE seat.** Tight standalone form: d0945 >= 4 (4,093 @ 4.058, the
+S41j plateau). Semantic form: pah >= 20 (runner-pullback, more trips @
+3.41). Conjunctions of pco x d0945 add nothing beyond either (S41j grid:
+the d>=4 row is flat across pco). Under g60 ALL day-structure forms
+flatten (~4.3-4.6 anywhere) — skip the axis there. pco RETIRED.
+
+**User Q3 — ORGANIZING THE OVERLAYS: THE OVERLAY BOOK (proposal).**
+Rules: (1) lenses group into FAMILIES of correlated/nested measures —
+ONE representative per family may be active at a time; (2) each lens has
+a TIER (PF-on-book multiple: A ~3-4x base-1, A+ ~4.5-6, A++ ~9+) = the
+SIZING multiplier; (3) each lens is stamped with its TAPE REGIME (clean
+/ both / illiquid) — clean-only lenses are void on holey tape; (4)
+AVOIDs veto regardless of stack.
+
+| family | lens (representative first) | n | tkds | PF | tier | tape |
+|---|---|---|---|---|---|---|
+| LIQUIDITY | gap_60 < 4 ⊃ gap_1200 < 5 ⊃ ns12 >= 650 | 9,277 / 2,523 / 1,960 | 1,440 / 359 / 296 | 3.64 / 5.84 / 5.20 | A / A+ / A+ | (defines regime) |
+| PARTICIPATION | rp_vol [0.8,1.0) | 2,565 | — | 4.43 (x g60 9.61) | A+ (A++ on clean) | clean |
+| DAY STRUCTURE | d0945 >= 4 (alt: pah >= 20; pco retired) | 4,093 | — | 4.06 | A | standalone only (flat under g60) |
+| LEG SHAPE | esf [-0.6,-0.5) / ssf < -75 / dhf < -24 / speed < -10 | 2,127 / 5,393 / 743 / 315 | — / 908 / 97 / 94 | 3.93 / 3.35 / 9.10 / 7.71 | A / A / A++ / A++ | clean / clean / clean / BOTH |
+| EVENT | ht = 1 | 2,694 | — | 4.62 (x g60 6.37) | A+ | clean |
+| AVOID | halt cascade >= 4; dead tape; pah < -10 | — | — | 1.40 / 1.05 / 1.99 | veto | — |
+
+⚠ intra-family members are NOT additive (nested or corr); cross-family
+additivity MEASURED only for {g60 x rp_vol, g60 x ht, g60 x esf, g60 x
+dhf, corner x g60} — the full cross-family interaction matrix at mc=1 =
+the remaining wrap-up work. dv family (torrent/corner/A++ x dsv) on the
+WATCH LIST (2022/23 fraying) — not in the book.
