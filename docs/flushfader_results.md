@@ -7479,3 +7479,12 @@ tkds = 35.3%) capturing 53.2% of net points; hump holds (0 = 2.08 / 1 =
 tkds). The votes fire mostly on clean tape — on the full book the union
 doubles as a stealth liquidity filter; the g60-restricted form stays
 the honest design.
+
+**S42h final note — extremity IS liquidity-linked (user question):** the
+v20 distribution on g60 = 75/95/126 (q25/med/q75) vs illiquid 62/78/98;
+v20 >= 140 fires 17.1% vs 5.7% (3x), and EVERY voice fires 2-3.3x more
+on clean tape (dslo 35.0 vs 10.5, pah 36.1 vs 10.9). Holey tape
+mechanically suppresses extremity measures (EmaMa decay between sparse
+slots, muted lagged-vwap speeds) and in-play names get continuity AND
+violence together — the stealth-liquidity effect fully explained; the
+g60 universe purifies the votes.
