@@ -7211,3 +7211,10 @@ near-term voice (speed) must be read AGAINST the long-term state (v20):
 same number, opposite meaning — a signed handoff, not a max. v20-hot →
 prefer weak/moderate speed (or terminal < -12); v20-cool → prefer
 strong speed.
+
+⏭ NEXT SESSION (user, 2026-08-02 close): the lever set is NARROWED TO
+THREE — **v20 (volatility = the long-term state), speed (the flush =
+the near-term voice, read AGAINST v20), dslo (distance from session low
+= the discriminator on cool tape)**. FIRST ITEM: study **vchg**
+(volat_20m / volat_20m_prev — the vol-expansion ratio; never examined
+beyond its collapse-tail avoid at < 0.68 = 1.65, S41z).
