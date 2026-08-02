@@ -6823,3 +6823,17 @@ statement. Sub-$1 stays post-hoc-excluded on FEES (EU routes, v1.1),
 with sub-$0.50 also the weakest band everywhere. **Decision = user's:
 retire the ceiling (recommended — PF-per-slot gives way to points and
 fills) or keep $1-10 as the concentrated book.**
+
+**S41t VERDICT (user): the $10 CEILING IS RETIRED — THE BOOK = $1+.**
+Rationale (user): the price bands OVERLAP each other in what they capture
+— but the $10+ trades are completely NON-OVERLAPPING with the sub-$10
+book, so they are a PURE increase to net (and the best-fill names).
+**New canonical book (v2.3, $1+): 30,357 @ 2.528 / mc=1 4,285 @ 2.109 /
+4,756 slot-points; g60: 11,577 @ 3.778 / mc=1 1,889 @ 2.771 / 2,871
+slot-points.** (The mc=1 PF ladder was denominated on the $1-10 cut
+through 2.287; the book redefinition resets the denominator — 2.109 on
+$1+ is the new baseline, not a regression.) `flushfader_mc.fsx` default
+cut updated to `>= 1`. ⏭ FUTURE (user): sub-$1 may become tradable via
+a REBATE tier — enough limit-order traffic at a commission tier where
+rebates pay the per-share fees; revisit with the slippage/production
+work.

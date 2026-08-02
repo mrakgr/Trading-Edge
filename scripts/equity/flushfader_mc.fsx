@@ -44,7 +44,9 @@ let args = parser.Parse(fsi.CommandLineArgs |> Array.skip 1)
 
 let mc = args.GetResult(Mc, defaultValue = 1)
 let tripsGlob = args.GetResult(Trips, defaultValue = "data/equity/flushfader/v13_reference/trips_p*.parquet")
-let cut = args.GetResult(Where, defaultValue = "entry_px/adj_ratio >= 1 AND entry_px/adj_ratio < 10")
+// ⭐ S41t (user, 2026-08-02): the $10 ceiling RETIRED — $10+ trades are
+// non-overlapping with sub-$10 (pure net increase; best fills). Book = $1+.
+let cut = args.GetResult(Where, defaultValue = "entry_px/adj_ratio >= 1")
 let outPath = args.GetResult(Out, defaultValue = $"data/equity/flushfader/v13_reference/mc{mc}_selected.parquet")
 
 printfn "mc=%d  trips=%s" mc tripsGlob
