@@ -6056,3 +6056,100 @@ replacements.
 3.7-4.1 → 4.6-5.1).** The sizing ladder survives v2.2 intact with the
 arming drop joining at the top tier; liquidity still scales WITH edge
 (gap_1200<5 ≈ 10× book liquidity — the S40p finding carries).
+
+## S41g — gap_60 < 4 as THE DEFAULT (user call) + calendar consistency (2026-08-02)
+
+**User: bake gap_60 < 4 into the spec — "it's not worth our time to trade
+illiquid stocks"; the other overlays become SIZING LEVERS on top.** The
+roster recomputed INSIDE gap_60 < 4 (9,277 @ 3.64 / 1,440 tkds; the
+removed 61% of trips = 2.104):
+
+| overlay x gap_60<4 | n | tkds | PF | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| gap60-book | 9,277 | 1,440 | 3.64 | 8.54 | 5.12 | 3.18 | 2.83 | 3.12 | 2.42 | 4.73 |
+| x pco >= +2% | 3,855 | 571 | 4.507 | 10.92 | 4.57 | 2.43 | 2.77 | 3.83 | 3.16 | 15.39 |
+| x gap_1200 < 5 | 2,523 | 359 | 5.837 | 12.52 | 6.64 | 5.99 | 4.24 | 5.73 | 3.63 | 7.51 |
+| ⭐ x rp_vol [0.8,1.0) | 934 | 197 | 9.612 | 9.58 | 16.69 | 21.65 | 19.11 | 1.89 | 19.41 | 15.19 |
+| x ht = 1 | 1,518 | 209 | 6.369 | 14.26 | 11.74 | 5.7 | 1.65 | 11.39 | 4.27 | 11.37 |
+| x esf [-0.6,-0.5) | 884 | 223 | 5.187 | 7.11 | 5.24 | 4.94 | 4.55 | 7.31 | 3.8 | 4.77 |
+| x ns12 >= 650 | 1,935 | 296 | 5.224 | 8.97 | 4.71 | 4.33 | 4.18 | 4.64 | 3.87 | 7.38 |
+| x nh12<80 x gap12>=700 | 0 | 0 | — | | | | | | | |
+| x TORRENT dv12>=30M | 3,420 | 519 | 4.007 | 8.7 | 5.46 | 1.42 | 0.68 | 4.55 | 2.82 | 8.88 |
+| x A++ corner x dsv>=-3 | 411 | 64 | 9.68 | 42.74 | 3.11 | 0.22 | 19.41 | 81.86 | 1392 | — |
+| x dhf < -24 | 462 | 62 | 11.718 | 5.11 | 9.28 | 0.08 | 9.49 | 23.4 | 31.59 | 9.35 |
+| x dhf < -16 | 1,990 | 279 | 5.654 | 10.63 | 1.63 | 5.35 | 14.22 | 4.45 | 4.25 | 19.03 |
+
+**STRUCTURE:** (a) the liquidity family is NESTED — gap_1200<5 (identical
+2,523) and ns12>=650 (1,935/1,960) are subsets of gap_60<4: one axis,
+inner tiers. (b) the nh12 sparse-burst corner = EMPTY on continuous tape
+— dies by design (and its slippage stress case leaves the production
+queue). (c) ⭐ **rp_vol x gap60 = 934 @ 9.61 / 197 tkds = THE new star
+stack** (the steady-tape flush was diluted by illiquid tape; double-digit
+5 of 7 years, 2024 = 1.89 the wart); mc=1 = 202 @ 5.309. esf star x gap60
+= 884 @ 5.19 (all years >= 3.8), mc=1 221 @ 4.119. (d) the dv family
+keeps its 2022/23 warts on clean tape — fraying is not a liquidity
+artifact. **gap60-book mc=1 = 1,564 @ 2.891 / 75.9 (worst yr 2023 1.78)**
+vs full-book 3,582 @ 2.268: −56% slot-trips for +0.62 PF.
+
+**CALENDAR CONSISTENCY (gap60 mc=1 book, equal-sized trips, pre-cost, %
+points of one slot):**
+
+| period | n | % positive | median | worst | best |
+|---|---|---|---|---|---|
+| months | 79 | **91.1** | +26.4 | **-16.6** (2023-03) | +101.1 |
+| weeks | 316 | 84.5 | +6.2 | -33.4 (w/o 2025-12-01) | — |
+| active days | 899 | 77.9 | +2.56 | -38.5 (2025-12-05) | — |
+
+Month distribution: 2 months < −10 (2023-03 −16.6, 2023-11 −16.0), 5 in
+[−10,0), 10 in [0,10), 62 of 79 >= +10. Yearly points: 545 / 344 / 148 /
+127 / 458 / 462 / 313 — every year solidly positive (2022-23 thin, 97/142
+trips, but green). Worst single trips = the no-stop tail: JFBR 2025-12-05
+−38.5, VHC 2023-03-30 −27.7, CADL −21.7, NCT −21.3, NMHI −21.2 (~1/yr at
+the −20..−38 scale; stops remain OFF per S24 — the tail is the cost of
+the 91% months). The anti-lottery: unlike V2 (two months = half the
+P&L), the median month +26.4 IS the system.
+
+## S41h — the ILLIQUID BOOK (gap_60 >= 4) profiled; v2.3 bake CANCELLED (user) (2026-08-02)
+
+**User reversal: gap_60 < 4 will NOT be baked — instead, profile the
+complement as its own book.**
+
+**The illiquid book = 14,580 trips / 2,704 tkds @ 2.104 / 72.5%** — years
+3.67 / 3.23 / 1.25 / 1.55 / 2.37 / 1.68 / 1.57: positive every year but
+DECAYING (2020-21 carried; 2022+ hugs 1.3-1.7). **mc=1 = 2,539 @ 1.963**
+(years 2.89 / 2.87 / 1.85 / 1.63 / 1.80 / 1.81 / **1.25-in-2026**) — the
+one-slot illiquid book is drifting toward break-even in the modern years,
+PRE-cost, on the tape where real fills are worst.
+
+**The gap_60 gradient over the whole v2.2 book is NOT monotone:**
+
+| gap_60 | n | PF | win% | 2022 | 2023 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|
+| [0,2) | 7,313 | 3.672 | 78.8 | 2.75 | 2.82 | 2.52 | 5.25 |
+| [2,4) | 1,964 | 3.504 | 76.1 | 5.56 | 2.84 | 1.93 | 3.19 |
+| [4,6) | 1,481 | 2.046 | 73.9 | 0.7 | 1.94 | 1.15 | 1.84 |
+| [6,8) | 1,269 | 1.862 | 71.4 | 0.51 | 1.38 | 1.3 | 1.25 |
+| [8,10) | 1,012 | 2.107 | 71.6 | 1.89 | 2.3 | 1.53 | 2.87 |
+| [10,15) | 2,186 | 1.772 | 68.3 | 0.8 | 1.45 | 1.06 | 1.53 |
+| [15,20) | 1,687 | 2.099 | 71.3 | 1.57 | 1.44 | 1.52 | 1.02 |
+| [20,30) | 2,992 | 2.371 | 73.8 | 1.65 | 1.72 | 2.04 | 2.2 |
+| [30,40) | 2,216 | 2.188 | 74.0 | 2.3 | 1.64 | 2.47 | 2.08 |
+| >= 40 | 1,737 | 2.27 | 74.8 | 1.59 | 0.98 | 1.23 | 3.39 |
+
+The cliff sits exactly at 4 ([2,4) 3.50 -> [4,6) 2.05); the [4,15) zone
+= THE SWAMP (1.77-2.11, worst [10,15)); the deep-sparse [20,40+) zone
+partially recovers (2.2-2.4) — that's the burst world, structurally
+different tape, not a liquidity gradient.
+
+**Overlays DEFLATE on illiquid tape:** pco 2.39, rp_vol 3.17 (2022-23 ~
+1.2), ht=1 3.19 (2023 0.76), esf 3.24; **dhf < -16 DIES (1.995; 2022-23
+= 0.52 / 0.68)** — the violent-crash edge needs a continuous tape to
+revert on. Dead-tape avoid confirmed: 1.052 on 191. The ONE jewel that
+lives only here: **nh12<80 x gap12>=700 = 440 @ 9.508 / 116 tkds** (the
+sparse-burst corner, definitionally excluded from clean tape).
+
+**READING: liquid and illiquid are two different systems sharing a spec.**
+Clean tape (63% of tkds): 3.64 / mc=1 2.89, every overlay amplifies.
+Illiquid tape: 2.10 / mc=1 1.96 decaying, every overlay deflates except
+the burst corner. The gap_60 axis stays POST-HOC (user), but the sizing
+pyramid should live almost entirely on the clean side.
