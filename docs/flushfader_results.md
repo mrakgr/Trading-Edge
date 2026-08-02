@@ -7184,3 +7184,30 @@ them, leaving the V-crash at-lows (the good kind) vs runner pullbacks
 Lever-design consequence: v20 and dslo need no conjunction — dslo is
 the discriminator where vol is NOT extreme; v20-dec1 overrides it (the
 max architecture again, from a third angle).
+
+## S42b — strong vs weak flushes × hot vol: the CONTRAST grammar (2026-08-02)
+
+**The 2×2 (strong = speed < -6%/1m):**
+
+| | strong flush | weak flush |
+|---|---|---|
+| HOT v20 (>= 140bp) | 912 @ 3.75 / 217 tkds | **2,137 @ 4.43 / 359 tkds** |
+| cool v20 | **2,209 @ 2.88 / 568 tkds** | 25,099 @ 2.30 / 4,337 tkds |
+
+**The speed gradient INVERTS with the vol state.** Cool book: monotone
+violence premium (2.19 → 2.63 → 3.05 → 6.82 at < -12). Inside hot v20:
+a U — [-4,-3) = **5.89 / 206 tkds** (the peak: the exhaustion drip at
+the end of a violent leg), **[-8,-6) = 2.87 with 2022 = 0.01** (the
+re-acceleration: the crash still developing — THE knife cell), then the
+terminal blow-off < -12 = 9.02 / 24 tkds (91.4% win, census-thin).
+
+**READING — the grammar underneath all of it is CONTRAST:** violence
+pays against a QUIET background (speed on cool tape; the S41u flash-
+crash corner; rp-steady × violent price), and exhaustion pays after
+violence (weak speed on hot tape = 4.43, the 2×2's best census cell).
+Sustained violence — hot tape AND still accelerating, short of terminal
+— is the developing crash (2.87, 2022 = 0.01). Lever consequence: the
+near-term voice (speed) must be read AGAINST the long-term state (v20):
+same number, opposite meaning — a signed handoff, not a max. v20-hot →
+prefer weak/moderate speed (or terminal < -12); v20-cool → prefer
+strong speed.
