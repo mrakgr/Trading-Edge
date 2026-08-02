@@ -5970,3 +5970,89 @@ exactly; ladder: 2.004 → 2.070 → 2.106 → 2.104 → 2.175 → 2.184 → 2.2
 v1.7). ⏭ re-check the overlay roster on v2.2 (gap_1200<5, pco>=+2,
 rp_vol band, ht=1, esf star band, nh12 corner) + the arming-drop family
 study + pyramid re-cut.
+
+## S41f — the arming-drop study + overlay roster on v2.2 + pyramid re-cut (2026-08-02)
+
+**Base note (user question, answered from code):** the base book = volat_20m
+>= 40bp (MinVolat20m default ON — never a CLI off-flag in the canonical base
+run; NO volat max, MaxVolat20m = +Infinity always) × strict new 1200-bar low
+× channelWarm × 09:45-15:00 × barnum >= 22 × mc=0 sampler. The S39j volat
+PREPASS (max_slot_absr_bp trim) is still present but DERIVED from the live
+MinVolat20m — it self-removes if the floor is ever set to 0. Every residual-
+universe study is therefore conditioned on the 40bp floor: volat = part of
+the SIGNAL definition (v1.1 decision), not a researched gate.
+
+**1. THE ARMING DROP (d_hi_flow, % from 20m high to the leg's first low) on
+the v2.2 book (23,857 @ 2.569):**
+
+| d_hi_flow | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| < -30 | 206 | 13.593 | 84.5 | +4.57 | 4.31 | — | — | — | 15.44 | 26.66 | 16.83 |
+| [-30,-28) | 86 | 6.74 | 88.4 | +4.23 | 6.02 | — | — | — | — | 30.58 | — |
+| [-28,-26) | 197 | 6.319 | 75.1 | +1.84 | 13.19 | — | 0.08 | 3.44 | 4.9 | 8.82 | — |
+| [-26,-24) | 254 | 8.741 | 80.3 | +3.28 | 3.66 | — | — | — | 5.63 | 114.8 | 1.88 |
+| [-24,-22) | 315 | 1.346 | 62.2 | +2.43 | 18.03 | 2.89 | — | — | 0.87 | 0.54 | 9.84 |
+| [-22,-20) | 397 | 3.555 | 74.8 | +2.59 | 3.44 | 1.05 | — | 1.76 | 10.67 | 1.84 | 6.77 |
+| [-20,-18) | 729 | 3.03 | 75.3 | +2.9 | 190.8 | 1.27 | 1.68 | 2.91 | 1.53 | 15.01 | 0.32 |
+| [-18,-16) | 1,108 | 2.99 | 79.2 | +3.16 | 15.02 | 5.3 | 0.35 | 0.57 | 5.51 | 1.88 | 17.11 |
+| [-16,-14) | 1,824 | 2.564 | 75.2 | +2.64 | 3.02 | 5.04 | 0.52 | 3.01 | 4.26 | 3.19 | 3.71 |
+| [-14,-12) | 2,127 | 2.343 | 78.0 | +2.5 | 11.41 | 4.06 | 0.68 | 1.03 | 4.08 | 1.83 | 2.3 |
+| [-12,-10) | 3,270 | 2.528 | 72.8 | +2.26 | 3.56 | 5.14 | 5.21 | 1.25 | 1.79 | 4.24 | 1.57 |
+| [-10,-8) | 4,293 | 2.06 | 72.3 | +1.94 | 3.76 | 5.37 | 1.92 | 1.68 | 2.23 | 1.24 | 1.72 |
+| [-8,-6) | 5,127 | 2.374 | 74.4 | +2.06 | 5.62 | 3.48 | 2.38 | 2.71 | 1.82 | 1.16 | 3.92 |
+| [-6,-4) | 3,259 | 3.534 | 76.1 | +1.74 | 3.6 | 3.24 | 2.13 | 5.24 | 5.38 | 2.87 | 4.41 |
+| [-4,-2) | 553 | 1.809 | 73.8 | +1.59 | 1.77 | 1.7 | 5.87 | 0.32 | 7.63 | 3.04 | 3.28 |
+| [-2,0) | 112 | 4.677 | 76.8 | +2.16 | 14.7 | 10.75 | — | — | 4.46 | 3.3 | 1.14 |
+
+**⭐ dhf < -24 (the violent arming crash) = 743 @ 9.10 / 81.0** — census 97
+tkds / 92 syms (~15 events/yr, A++-corner class: SIZE it, don't book it);
+2022 = 0.94 the one wart; dhf < -16 = 3,292 @ 3.31 on 443 tkds = the
+tradable-scale version. Corr: dhf↔|eff20| 0.013, ↔ssf 0.238, ↔dlv 0.429 —
+mostly NEW information (the drop INTO the leg vs the leg itself).
+slope_hi_flow = FLAT (~2.5 everywhere; the drop's SIZE matters, not its
+speed; [-350,-300) = 12.0 is a 2026-602-carried anecdote). r_hi_flow mild:
+[0,0.1) rise-then-plunge = 6.12 on 61 tkds (2020-carried), >= 0.2 = 1.60;
+the straight-line DROP is fine (unlike the straight-line leg, rsf) — the
+knife rule applies AFTER the first low, not before it.
+
+**2. OVERLAY ROSTER RE-CHECK on the v2.2 book — every seat SURVIVES, most
+strengthen:**
+
+| overlay | n | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| BOOK (v2.2) | 23,857 | 2.569 | 74.7 | 4.71 | 3.75 | 1.46 | 1.84 | 2.64 | 1.99 | 2.72 |
+| gap_1200 < 5 | 2,523 | 5.837 | 82.3 | 12.52 | 6.64 | 5.99 | 4.24 | 5.73 | 3.63 | 7.51 |
+| pco >= +2% | 6,682 | 3.38 | 77.4 | 7.83 | 5.53 | 1.88 | 1.9 | 2.65 | 2.64 | 6.88 |
+| gap_60 < 4 | 9,277 | 3.64 | 78.3 | 8.54 | 5.12 | 3.18 | 2.83 | 3.12 | 2.42 | 4.73 |
+| O2×O3 (pco × gap_60) | 3,855 | 4.507 | 80.1 | 10.92 | 4.57 | 2.43 | 2.77 | 3.83 | 3.16 | 15.39 |
+| rp_vol [0.8,1.0) | 2,565 | 4.429 | 79.1 | 11.59 | 5.78 | 1.51 | 1.84 | 3.04 | 9.56 | 16.09 |
+| ht = 1 | 2,694 | 4.619 | 78.2 | 4.63 | 6.34 | 2.48 | 1.07 | 9.79 | 5.09 | 5.28 |
+| esf [-0.6,-0.5) | 2,127 | 3.926 | 78.5 | 6.09 | 4.66 | 3.43 | 2.05 | 5.25 | 3.6 | 3.14 |
+| ns12 >= 650 | 1,960 | 5.196 | 78.5 | 9.04 | 4.62 | 4.96 | 3.66 | 4.64 | 3.87 | 7.38 |
+| nh12<80 × gap12>=700 | 440 | 9.508 | 80.2 | 5.08 | 3.56 | 5.77 | 5.05 | 72.55 | 12.01 | 13.5 |
+| TORRENT dv12>=30M | 3,536 | 4.026 | 78.9 | 9.06 | 5.19 | 1.41 | 0.7 | 4.63 | 2.82 | 8.88 |
+| CORNER 30M × 30M | 2,871 | 3.987 | 78.7 | 12.6 | 5.41 | 1.22 | 0.71 | 3.68 | 2.88 | 10.15 |
+| A++ corner × dsv>=-3 | 413 | 9.702 | 88.4 | 42.74 | 3.11 | 0.26 | 19.41 | 81.86 | 1392 | — |
+| ⭐ NEW: dhf < -24 | 743 | 9.1 | 81.0 | 5.19 | 15.37 | 0.94 | 9.65 | 8.68 | 32.03 | 10.08 |
+
+gap_1200<5 = still THE lens (5.84, ALL years >= 3.6); ns12/ht/rp_vol/esf/
+O2×O3 all hold or improve. Warts: the torrent family keeps its 2023 hole
+(0.70) and the A++ cell (now 413 trips, ~30% smaller under the leg-native
+pair) shows 2022 = 0.26 — the dv-defined A++ is fraying at v2.2; the
+GAP-defined tiers (gap_1200, ns12, nh12-corner) are the year-robust
+replacements.
+
+**3. PYRAMID RE-CUT (mc=0 tier / mc=1 one-slot replay):**
+
+| tier | mc=0 n @ PF | mc=1 n @ PF |
+|---|---|---|
+| book | 23,857 @ 2.569 | 3,582 @ 2.268 |
+| A: gap_60<4 / pco>=2 | 9,277 @ 3.64 / 6,682 @ 3.38 | — |
+| A+: O2×O3 / rp_vol / ht=1 | 3,855 @ 4.51 / 2,565 @ 4.43 / 2,694 @ 4.62 | O2×O3 643 @ 3.575 |
+| A+: ns12>=650 / gap_1200<5 | 1,960 @ 5.20 / 2,523 @ 5.84 | 314 @ 3.740 / 383 @ 4.086 |
+| A++: dhf<-24 / nh12-corner / corner×dsv | 743 @ 9.10 / 440 @ 9.51 / 413 @ 9.70 | dhf 104 @ 4.610 / A++ 68 @ 5.053 |
+
+**Pyramid: 2.6 → 3.4-3.6 → 4.4-4.6 → 5.2-5.8 → ~9-10 (mc=1: 2.27 → 3.6 →
+3.7-4.1 → 4.6-5.1).** The sizing ladder survives v2.2 intact with the
+arming drop joining at the top tier; liquidity still scales WITH edge
+(gap_1200<5 ≈ 10× book liquidity — the S40p finding carries).
