@@ -5628,3 +5628,345 @@ slope_since_flow [-140,-100) as a REPLACEMENT for the dvw + d20m-high
 pair (test with both off); r_since_flow vs rngfront replacement; + the
 esf band joins the overlay interaction matrix; then WRAP-UP (mc=1 passes,
 pyramid re-cut).
+
+## S41 — r_since_flow vs rngfront: NOT redundant, both keep their seats (2026-08-02)
+
+**Question (user):** does the new falling-knife gate (`ols_r_since_flow >=
+-0.95`) make `rng_300/rng_20m < 0.8` (rngfront, "a hack in my eyes")
+obsolete? Recall: rngfront was mc=0-weak and earned its seat at mc=1.
+
+**Method:** residual universe = v2.1 with BOTH gates off, SQL over base_v8
++ $1-$10 book cut = **27,377 trips** (v2.1 anchor reproduced exactly:
+26,135 @ 2.501). Fine breakdowns of each axis on the residual universe,
+overlap cross-table, then mc=1 greedy replay of all four on/off combos.
+
+| rngfront bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0.1,0.2) | 358 | 2.42 | 73.2 | +1.74 | 2.01 | 7.64 | — | 1.4 | 0.72 | 54.09 | 0.98 |
+| [0.2,0.3) | 2,910 | 2.744 | 75.5 | +2.02 | 6.22 | 3.31 | 4.35 | 2.71 | 2.07 | 2.5 | 1.38 |
+| [0.3,0.4) | 6,129 | 2.592 | 74.4 | +2.14 | 3.68 | 2.73 | 1.67 | 2.03 | 3.38 | 2.04 | 3.02 |
+| [0.4,0.5) | 6,909 | 2.182 | 72.1 | +2.04 | 3.03 | 3.95 | 1.31 | 2.4 | 1.62 | 1.64 | 3.74 |
+| [0.5,0.6) | 5,351 | 2.487 | 75.3 | +2.32 | 5.06 | 3.8 | 1.17 | 1.55 | 3.25 | 1.94 | 2.39 |
+| [0.6,0.7) | 3,199 | 2.776 | 73.9 | +2.28 | 5.91 | 7.78 | 1.12 | 1.78 | 2.75 | 2.68 | 1.77 |
+| [0.7,0.8) | 1,685 | 2.312 | 74.2 | +2.32 | 4.37 | 6.17 | 1.04 | 0.52 | 8.57 | 1.39 | 3.03 |
+| [0.8,0.9) | 665 | 1.714 | 69.0 | +2.44 | 7.0 | 2.12 | 0.52 | 1.13 | 1.93 | 0.99 | 8.02 |
+| [0.9,1.0) | 144 | 5.508 | 84.0 | +2.66 | — | 30.07 | — | — | 0.66 | — | — |
+| [1.0,1.1) | 27 | 1.546 | 51.9 | +0.11 | 0.22 | — | — | — | — | — | — |
+
+| rsf bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [-0.99,-0.98) | 26 | 16.576 | 96.2 | +3.19 | — | — | — | — | — | — | — |
+| [-0.98,-0.97) | 38 | 8.445 | 89.5 | +3.0 | — | — | — | 4.02 | 2.74 | — | 2.22 |
+| [-0.97,-0.96) | 108 | 1.436 | 72.2 | +2.35 | 1.17 | 1.7 | — | 7.54 | 1.16 | 0.66 | — |
+| [-0.96,-0.95) | 285 | 0.897 | 60.7 | +1.65 | 0.34 | 3.12 | — | 0.74 | 0.55 | 1.76 | 28.88 |
+| [-0.95,-0.94) | 433 | 2.141 | 75.5 | +2.21 | 4.45 | 9.73 | 1.41 | 2.11 | 1.56 | 4.67 | 0.43 |
+| [-0.94,-0.93) | 636 | 2.642 | 74.8 | +2.67 | 2.89 | 2.95 | 1.78 | 1.37 | 11.0 | 1.0 | 81.71 |
+| [-0.93,-0.92) | 871 | 3.466 | 78.2 | +2.54 | 28.58 | 11.46 | 1.34 | 0.98 | 3.71 | 2.15 | 4.24 |
+| [-0.92,-0.91) | 957 | 2.233 | 74.4 | +1.97 | 7.15 | 5.76 | 4.09 | 1.4 | 1.05 | 2.98 | 1.37 |
+| [-0.91,-0.9) | 1,009 | 2.308 | 77.1 | +2.16 | 7.46 | 2.93 | 0.99 | 2.53 | 5.86 | 1.95 | 1.64 |
+| [-0.9,-0.85) | 5,686 | 2.698 | 75.3 | +2.14 | 5.42 | 3.78 | 2.1 | 1.67 | 2.34 | 2.22 | 3.5 |
+| [-0.85,-0.8) | 4,488 | 2.042 | 73.0 | +2.25 | 4.01 | 3.78 | 1.21 | 1.76 | 2.3 | 1.14 | 3.47 |
+| [-0.8,-0.75) | 3,201 | 2.573 | 75.3 | +2.27 | 3.45 | 3.34 | 1.28 | 2.43 | 2.75 | 2.09 | 3.49 |
+| [-0.75,-0.7) | 2,391 | 2.817 | 75.4 | +2.22 | 3.42 | 3.17 | 1.12 | 4.13 | 4.3 | 2.5 | 1.76 |
+| [-0.7,-0.65) | 1,754 | 2.639 | 74.7 | +2.19 | 4.99 | 5.87 | 1.55 | 2.4 | 3.69 | 2.0 | 1.56 |
+| [-0.65,-0.6) | 1,471 | 3.44 | 76.5 | +2.06 | 19.52 | 5.37 | 0.9 | 3.14 | 3.44 | 2.97 | 2.52 |
+| [-0.6,-0.55) | 1,124 | 2.145 | 69.5 | +1.89 | 8.04 | 6.41 | 1.19 | 0.49 | 1.51 | 2.81 | 2.11 |
+| [-0.55,-0.5) | 798 | 2.375 | 68.4 | +2.02 | 5.62 | 11.87 | 0.95 | 1.27 | 1.51 | 1.49 | 2.33 |
+| [-0.5,-0.45) | 525 | 1.538 | 65.3 | +1.36 | 3.55 | 1.32 | 0.52 | 0.9 | 0.66 | 2.93 | 2.76 |
+| [-0.45,-0.4) | 392 | 1.957 | 62.2 | +1.09 | 1.95 | 2.25 | 1.6 | 1.69 | 2.58 | 2.06 | 0.95 |
+| [-0.4,-0.35) | 276 | 2.287 | 65.6 | +1.62 | 2.42 | 2.4 | 1.52 | 1.02 | 2.7 | 4.65 | 0.92 |
+| [-0.35,-0.3) | 176 | 3.927 | 77.8 | +2.44 | 2.17 | 2.73 | 1.42 | 1.21 | 6.82 | 57.44 | — |
+| [-0.3,-0.25) | 153 | 1.851 | 71.2 | +1.48 | 1.18 | 0.66 | 0.2 | 1.16 | 6.19 | 5.43 | — |
+| [-0.25,-0.2) | 142 | 2.276 | 71.8 | +1.71 | 3.14 | 0.78 | 15.47 | 9.95 | 4.85 | 1.19 | 5.87 |
+| [-0.2,-0.15) | 99 | 4.999 | 69.7 | +1.74 | 8.62 | 4.63 | 0.11 | 1.2 | 15.0 | — | — |
+| [-0.15,-0.1) | 105 | 3.427 | 66.7 | +3.23 | 6.55 | 2.18 | — | 1.63 | 5.52 | 3.76 | — |
+| [-0.1,-0.05) | 70 | 2.828 | 72.9 | +2.82 | 3.86 | — | — | 3.55 | 0.74 | 3.67 | — |
+| [-0.05,0) | 53 | 1.248 | 66.0 | +1.81 | — | 14.83 | 0.03 | 1.22 | 0.78 | 13.21 | — |
+| [0,0.05) | 54 | 1.931 | 64.8 | +1.45 | — | 7.78 | 0.23 | 2.12 | — | 6.31 | — |
+| [0.05,0.1) | 32 | 3.929 | 84.4 | +3.06 | — | 8.1 | 0.58 | 0.37 | — | — | — |
+| >= 0.1 | 24 | (mixed) | 87.5 | +4.35 | — | — | — | — | — | — | — |
+
+(Rows >= 0.1 collapsed: 24 trips, mostly winners, pure anecdote. Fine
+0.01 buckets only below -0.90; 0.05 bands elsewhere.)
+
+**Overlap cross-table (the redundancy test):**
+
+| slice | n | PF | win% | med |
+|---|---|---|---|---|
+| front-cut × rsf-cut (both remove) | 51 | 1.799 | 54.9 | +3.06 |
+| front-cut × rsf-pass (only rngfront removes) | 785 | 2.1 | 72.1 | +2.43 |
+| front-pass × rsf-cut (only rsf removes) | 406 | 1.221 | 69.5 | +2.01 |
+| front-pass × rsf-pass (the v2.1 book) | 26,135 | 2.501 | 74.1 | +2.15 |
+
+**The four combos, mc=0 and mc=1 (greedy replay on the $1-$10 book):**
+
+| config | mc=0 n | mc=0 PF | mc=1 n | mc=1 PF |
+|---|---|---|---|---|
+| both OFF | 27,377 | 2.447 | 3,946 | 2.158 |
+| rsf only | 26,920 | 2.483 | 3,907 | 2.164 |
+| rngfront only (= v2.0) | 26,541 | 2.465 | 3,863 | 2.218 |
+| both ON (= v2.1) | 26,135 | 2.501 | 3,829 | 2.217 |
+
+**READING — NOT redundant; the gates are complements, not substitutes:**
+(a) The cut slices are nearly DISJOINT: of ~1,240 removed trips only 51
+are removed by both (Jaccard 0.04). rsf < -0.95 is not "rngfront in leg
+coordinates" — it removes different trips. (b) **Marginal value at mc=1:
+rngfront +0.053 WITH rsf already in the spec** (2.164 → 2.217; +0.060
+without it) — the front-loaded-range gate still owns the slot-level
+improvement, concentrated in 2022/2024/2025. **rsf's mc=1 marginal ≈ 0**
+(2.158 → 2.164 alone; -0.001 on top of rngfront) — pure insurance, as
+S40z measured. (c) At mc=0 the roles flip: rsf cuts the cleaner slice
+(1.221 vs rngfront's 2.10) and adds +0.036 vs rngfront's +0.018. Each
+gate carries the half the other doesn't. (d) Inside the rsf tail the
+damage is concentrated in [-0.97,-0.95) (393 @ ~1.0); the sub--0.98
+extreme is 64 trips @ ~11 — perfect-line-but-profitable anecdote, not
+worth a carve-out (census rule). **VERDICT: rngfront STAYS. v2.1
+unchanged.**
+
+## S41b — esf as an eff_20m replacement: FIRST challenger to beat a baked gate at mc=1 (2026-08-02)
+
+**Question (user):** can `eff_since_flow` replace the `|eff_20m| ∈
+[0.3,0.5)` band? **Residual universe** = v2.1 with the eff band OFF (all
+else on, incl. rngfront + rsf) = 45,686 @ 2.142.
+
+| abs(eff_20m) bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,0.1) | 603 | 1.618 | 65.2 | +1.75 | 2.99 | 1.46 | 7.77 | 0.7 | 6.2 | 1.15 | 0.44 |
+| [0.1,0.2) | 3,660 | 2.037 | 71.7 | +2.2 | 3.0 | 3.24 | 1.31 | 1.01 | 1.94 | 2.38 | 1.61 |
+| [0.2,0.3) | 10,956 | 1.719 | 70.6 | +1.95 | 2.16 | 2.22 | 0.92 | 1.71 | 1.74 | 1.82 | 1.23 |
+| [0.3,0.4) | 15,572 | 2.439 | 73.5 | +2.13 | 4.04 | 3.39 | 1.1 | 1.6 | 2.45 | 2.29 | 2.66 |
+| [0.4,0.5) | 10,563 | 2.597 | 74.9 | +2.19 | 5.57 | 4.66 | 2.18 | 1.9 | 2.92 | 1.7 | 2.22 |
+| [0.5,0.6) | 3,355 | 1.885 | 73.3 | +1.98 | 2.82 | 4.54 | 1.29 | 1.22 | 2.2 | 1.37 | 3.31 |
+| [0.6,0.7) | 491 | 1.458 | 67.0 | +1.3 | 6.72 | 5.52 | 0.33 | 3.03 | 4.26 | 0.87 | 0.21 |
+| [0.7,0.8) | 81 | 0.579 | 59.3 | +1.52 | — | 22.22 | 0.39 | — | 41.73 | 0.38 | — |
+| [0.8,0.9) | 3 | — | 0.0 | −2.53 | — | — | — | — | — | — | — |
+| NULL | 402 | 1.813 | 66.4 | +1.41 | 1.51 | 1.51 | 6.08 | 0.04 | 2.64 | 2.79 | 9.12 |
+
+| eff_since_flow bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| = -1 (monotone) | 217 | 3.932 | 73.3 | +2.32 | 215.8 | 2.27 | 0.87 | — | 8.98 | 34.57 | 1.25 |
+| [-1.0,-0.9) | 638 | 3.634 | 74.5 | +2.28 | 26.51 | 11.59 | 1.44 | 0.79 | 2.28 | 2.19 | 12.98 |
+| [-0.9,-0.8) | 569 | 2.329 | 72.4 | +1.97 | 3.35 | 1.55 | 1.01 | 1.1 | 7.22 | 4.96 | 6.39 |
+| [-0.8,-0.7) | 1,029 | 1.809 | 69.5 | +2.15 | 3.45 | 1.09 | 0.45 | 2.79 | 4.68 | 2.03 | 1.78 |
+| [-0.7,-0.6) | 1,979 | 2.121 | 73.1 | +2.01 | 8.88 | 2.47 | 0.93 | 2.52 | 3.12 | 1.09 | 1.94 |
+| [-0.6,-0.5) | 3,562 | 2.977 | 76.7 | +2.2 | 7.45 | 5.78 | 1.69 | 2.31 | 2.48 | 2.38 | 3.22 |
+| [-0.5,-0.4) | 6,317 | 2.274 | 74.4 | +2.13 | 4.1 | 3.93 | 1.23 | 2.45 | 2.2 | 2.07 | 1.3 |
+| [-0.4,-0.3) | 9,583 | 2.359 | 74.5 | +2.12 | 6.15 | 2.99 | 1.76 | 1.59 | 2.02 | 1.8 | 2.73 |
+| [-0.3,-0.2) | 12,132 | 2.088 | 73.5 | +2.16 | 2.48 | 3.31 | 1.5 | 1.47 | 1.93 | 1.9 | 2.44 |
+| [-0.2,-0.1) | 7,780 | 1.746 | 68.4 | +1.86 | 1.98 | 3.44 | 1.03 | 0.98 | 2.63 | 1.55 | 1.25 |
+| [-0.1,0) | 1,751 | 1.634 | 63.2 | +1.34 | 4.39 | 1.47 | 0.37 | 1.7 | 2.36 | 2.74 | 0.71 |
+| >= 0 | 91 | ~5.6 | 81 | +2.96 | anecdote (85 in [0,0.1) 2021-carried) | | | | | | |
+| NULL | 38 | 0.687 | 52.6 | +1.65 | — | 1.33 | — | 0.3 | — | 0.51 | 3.44 |
+
+(User audit: |eff| <= 1 by construction; the "= -1" row is float noise
+at EXACTLY -1 — monotone flushes, every 30s slot below the last (max
+deviation 2e-16; 0 of 2.2M base trips exceed |1| beyond epsilon). The
+-1.0 bucket edge splits the monotone population: 217 epsilon-below + 17
+exact + 245 within 1e-4 in the [-1.0,-0.9) row — ~480 monotone-flush
+trips @ ~3.7, echoing the rsf sub--0.98 finding: the truly perfect line
+snaps back; the almost-perfect keeps falling.)
+
+**Conjunction check (why esf's S40z star band was so strong):** esf-star
+[-0.6,-0.5) WITH the eff band = 4.071 (2,062) but WITHOUT it = **2.098**
+(1,500) — the star is a CONJUNCTION, not a standalone. Consistent with
+corr 0.175 (orthogonal ≠ substitute).
+
+**The head-to-head (mc=0 on the residual, mc=1 greedy replay):**
+
+| gate | mc=0 n | mc=0 PF | mc=1 n | mc=1 PF | mc=1 worst yr |
+|---|---|---|---|---|---|
+| neither | 45,686 | 2.142 | 5,325 | 1.986 | 1.51 (2022) |
+| eff band [0.3,0.5) (= v2.1) | 26,135 | 2.501 | 3,829 | 2.217 | 1.58 (2023) |
+| esf < -0.25 | 30,034 | 2.330 | **3,995** | **2.288** | 1.75 (2022) |
+| esf ∈ [-0.7,-0.25) | 27,581 | 2.325 | 3,775 | 2.252 | — |
+| esf < -0.3 | 23,894 | 2.390 | 3,347 | 2.271 | — |
+| STACK eff band + esf < -0.2 | 22,430 | 2.591 | 3,422 | 2.292 | — |
+
+esf < -0.25 mc=1 years: 3.42 / 2.46 / 1.75 / 1.85 / 2.68 / 1.92 / 2.15
+(vs eff band 3.28 / 2.74 / 1.88 / 1.58 / 2.27 / 2.07 / 1.81 — esf wins
+4/7 incl. both books' worst year).
+
+**READING — the S39 slot-allocation theme INVERTED for the first time:**
+every prior challenger won mc=0 and lost mc=1; **esf < -0.25 LOSES mc=0
+(2.330 vs 2.501 at iso-n — the eff band's conjunction cells concentrate
+PF) but DOMINATES mc=1 on BOTH axes: +166 trips AND +0.071 PF AND better
+worst-year (1.75 vs 1.58)**. At mc=1 the eff band is the redundant one:
+stacking it on esf < -0.2 gives +0.004 PF for −573 trips. The leg-native
+efficiency spreads good trips across days better than the fixed 20m
+window (slot efficiency), while the 20m band packs them into conjunction
+cells (book PF). Trade-off is REAL: replace = mc=0 book 2.501 → ~2.33
+(+3,899 trips), mc=1 2.217 → 2.288. Decision = user's (spec surgery at
+wrap-up stage re-opens reference/parity/overlay work).
+
+**VERDICT (user): NOT worth the mc=0 loss — esf will NOT be a filter;
+the eff_20m band stays.** (esf remains overlay material via the S40z
+star band, which is a conjunction WITH the eff band.)
+
+## S41c — ssf < -25 CAN replace the dvw + d20m-high pair (2026-08-02)
+
+**Question (user, from the S40y queue):** can `slope_since_flow` replace
+BOTH `dvw < -5%` (dist from 20m vwap) and `d20 < -10%` (dist from 20m
+high)? Also: do we have a vwap-since-flow feature? — YES, implicitly:
+`dv_leg / vol_leg` = the leg's vwap since the first-low anchor;
+`dlv = signal_vwap/(dv_leg/vol_leg)-1` needs no engine change.
+
+**Residual universe** = v2.1 with BOTH distance gates OFF = 32,696 @
+2.385 (pair keeps 26,135 @ 2.501 = the anchor, exact). Axes on it: dvw
+and d20 = clean monotone deeper-is-better gradients (dvw [-3,-2) = 0.57
+/ [-4,-3) = 1.33 shallow-end poison; d20 [-6,-4) = 0.68 / [-8,-6) =
+1.58).
+
+**The ssf axis (bp/min) on the residual:**
+
+| ssf bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| < -400 | 54 | 0.581 | 48.1 | -0.35 | — | — | — | — | 6.41 | 1.35 | — |
+| [-400,-375) | 23 | 0.625 | 52.2 | +0.12 | — | — | — | — | 0.36 | — | — |
+| [-375,-350) | 25 | 12.3 | 84.0 | +2.68 | — | — | — | — | — | — | — |
+| [-350,-325) | 13 | inf | 100.0 | +3.78 | — | — | — | — | — | — | — |
+| [-325,-300) | 21 | 31.471 | 90.5 | +4.08 | — | 276.5 | — | — | — | 14.77 | — |
+| [-300,-275) | 29 | 20.87 | 93.1 | +4.34 | — | — | — | 0.66 | — | — | — |
+| [-275,-250) | 32 | 7.885 | 75.0 | +4.85 | — | 3.16 | — | 0.99 | — | — | 35.08 |
+| [-250,-225) | 48 | 6.416 | 87.5 | +4.21 | 3.39 | 15.21 | — | — | — | — | 66.37 |
+| [-225,-200) | 110 | 1.739 | 58.2 | +1.76 | — | 0.56 | — | 1.4 | 47.19 | 0.57 | 1.59 |
+| [-200,-175) | 180 | 1.35 | 66.1 | +2.0 | 1.64 | 0.45 | 0.39 | 0.53 | 3.33 | 1.29 | 3.53 |
+| [-175,-150) | 368 | 2.758 | 75.0 | +2.65 | 4.19 | 1.3 | 0.44 | 1.54 | 26.86 | 67.36 | 2.87 |
+| [-150,-125) | 543 | 7.391 | 83.6 | +3.4 | 9.62 | 71.33 | 3.25 | 4.0 | 11.29 | 5.79 | 6.76 |
+| [-125,-100) | 1,517 | 3.905 | 77.1 | +2.85 | 7.58 | 3.91 | 3.08 | 1.74 | 6.64 | 3.23 | 3.21 |
+| [-100,-75) | 2,840 | 2.908 | 75.7 | +2.58 | 9.68 | 4.46 | 2.6 | 1.72 | 2.29 | 2.99 | 1.45 |
+| [-75,-50) | 6,837 | 2.302 | 75.0 | +2.16 | 4.37 | 5.49 | 1.13 | 2.2 | 2.29 | 1.69 | 2.11 |
+| [-50,-25) | 12,486 | 2.324 | 73.3 | +1.85 | 3.49 | 3.38 | 1.68 | 1.63 | 2.19 | 1.69 | 3.12 |
+| [-25,0) | 7,416 | 1.955 | 69.9 | +1.39 | 2.56 | 2.85 | 1.2 | 1.45 | 2.09 | 1.98 | 1.12 |
+| >= 0 | 154 | 0.965 | 57.1 | +1.14 | 0.43 | 0.69 | 0.62 | 3.37 | 4.37 | 4.6 | 2.11 |
+
+Gradient: steeper is better down to ~-150; **[-25,0) = 1.955 and >= 0 =
+0.965 = the shallow-drift poison; < -400 = 0.58 = the vertical poison**;
+[-225,-175) trough (1.35-1.74) on small n with the [-375,-225) strong
+zone above it also small-n (the -400 floor keeps both — only the
+verified-toxic verticals go).
+
+**The dlv axis (% from leg vwap) on the residual:**
+
+| dlv bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| < -12 | 2,480 | 3.235 | 76.7 | +3.11 | 8.87 | 37.81 | 1.3 | 2.06 | 6.14 | 2.08 | 2.65 |
+| [-12,-11) | 1,063 | 2.269 | 78.0 | +2.95 | 5.26 | 9.28 | 0.62 | 2.6 | 3.26 | 1.28 | 3.32 |
+| [-11,-10) | 1,437 | 1.834 | 70.5 | +2.18 | 2.48 | 4.44 | 1.02 | 1.95 | 2.15 | 1.06 | 3.12 |
+| [-10,-9) | 1,934 | 1.939 | 71.4 | +2.26 | 2.95 | 4.93 | 1.01 | 1.34 | 1.74 | 2.13 | 1.58 |
+| [-9,-8) | 2,623 | 2.304 | 72.0 | +2.17 | 3.29 | 2.37 | 1.0 | 1.41 | 3.02 | 2.2 | 3.09 |
+| [-8,-7) | 3,282 | 2.515 | 77.1 | +2.18 | 4.06 | 3.71 | 1.08 | 1.15 | 3.57 | 2.71 | 2.67 |
+| [-7,-6) | 4,184 | 2.679 | 74.5 | +1.96 | 4.51 | 3.8 | 1.98 | 2.04 | 3.08 | 1.94 | 1.81 |
+| [-6,-5) | 4,781 | 2.808 | 72.8 | +1.89 | 3.98 | 4.28 | 1.51 | 2.78 | 2.32 | 3.09 | 1.59 |
+| [-5,-4) | 5,090 | 2.184 | 72.2 | +1.68 | 3.53 | 3.79 | 1.62 | 1.58 | 1.34 | 1.9 | 1.63 |
+| [-4,-3) | 4,005 | 2.194 | 72.1 | +1.61 | 3.53 | 2.23 | 1.82 | 1.54 | 1.57 | 2.01 | 3.02 |
+| [-3,-2) | 1,669 | 1.705 | 69.1 | +1.15 | 2.43 | 2.22 | 1.5 | 1.25 | 1.4 | 1.28 | 1.31 |
+| [-2,-1) | 147 | 1.149 | 72.1 | +1.02 | 13.94 | 2.41 | 1.52 | 3.72 | 0.16 | 0.22 | 8.63 |
+| [-1,0) | 1 | — | 100.0 | +3.02 | — | — | — | — | — | — | — |
+
+dlv = HUMP at [-8,-5) ~2.5-2.8, soft [-11,-9) ~1.8-1.9, strong < -12
+(3.24, 2021-flavored), **shallow poison [-3,0) = 1.15-1.71 all-years-
+mediocre = what the -3 cut removes** — not gate-shaped alone, earns its
+seat only next to ssf (corr 0.075).
+
+**Head-to-head (mc=0 on residual, mc=1 greedy replay):**
+
+| config | mc=0 n | mc=0 PF | mc=1 n | mc=1 PF | mc=1 worst yr |
+|---|---|---|---|---|---|
+| neither | 32,696 | 2.385 | 4,728 | 2.053 | 1.55 (2023) |
+| PAIR dvw<-5 & d20<-10 (= v2.1) | 26,135 | 2.501 | 3,829 | 2.217 | 1.58 (2023) |
+| ssf < -25 | 25,126 | 2.523 | 3,743 | 2.214 | 1.70 (2023) |
+| ssf ∈ [-400,-25) | 25,072 | 2.535 | 3,738 | 2.227 | 1.73 (2023) |
+| STACK pair + ssf<-25 | 21,982 | 2.593 | 3,287 | 2.279 | 1.77 (2023) |
+
+mc=0 years, pair vs ssf<-25: 4.49/4.63, 3.83/3.71, 1.43/1.45, 1.72/1.75,
+2.62/2.56, 2.00/1.97, 2.45/2.70 — statistically the same book. mc=1
+years: ssf wins 2020-2023 (incl. worst yr 1.58→1.70), pair wins
+2024/2026.
+
+**Overlap:** both agree on 21,982 @ 2.593; pair-only-keeps 3,144 @ 1.916,
+ssf-only-keeps 4,153 @ 2.03 — each cuts a below-book slice the other
+misses (partial substitutes, unlike the S41 disjoint case).
+
+**READING: the swap is essentially FREE — one leg-anchored feature
+replaces two fixed-window distance features at the same frontier** (mc=0
+2.523 vs 2.501 on -1,009 trips = iso-frontier; mc=1 dead heat 2.214 vs
+2.217; worst-year better). The [-400 floor adds +0.013 at both levels
+(the vertical-crash sliver, 54 trips @ 0.58). The STACK is the strongest
+config at BOTH levels (2.593 / 2.279) if tightening is wanted. Decision
+= user's: replace (simpler leg-native grammar), keep (status quo), or
+stack.
+
+## S41d — dlv joins: THE LEG-NATIVE PAIR {ssf, dlv} (2026-08-02)
+
+**User: also study dist-from-vwap-since-flow (dlv) as a gate.** The
+correlation matrix explains everything:
+
+| | dvw | d20 | ssf | dlv |
+|---|---|---|---|---|
+| dvw | 1 | **0.946** | 0.526 | 0.558 |
+| d20 | | 1 | 0.477 | 0.558 |
+| ssf | | | 1 | **0.075** |
+| dlv | | | | 1 |
+
+**The incumbent "pair" is largely ONE feature counted twice (0.946).**
+dlv = the same distance idea in leg coordinates (0.558 to both), but
+nearly ORTHOGONAL to ssf (0.075) — so {ssf = leg speed, dlv = leg
+stretch} spans two real dimensions where {dvw, d20} spans ~one.
+Consistent with that: dlv adds +0.004 on top of the incumbent pair
+(nothing), +0.032 on top of ssf (a real seat).
+
+| config | mc=0 n | mc=0 PF | mc=1 n | mc=1 PF | mc=1 worst yr |
+|---|---|---|---|---|---|
+| PAIR dvw<-5 & d20<-10 (= v2.1) | 26,135 | 2.501 | 3,829 | 2.217 | 1.58 (2023) |
+| dlv < -4 alone | 26,874 | 2.450 | 4,050 | 2.179 | 1.54 (2023) |
+| ssf ∈ [-400,-25) alone | 25,072 | 2.535 | 3,738 | 2.227 | 1.73 (2023) |
+| ⭐ LEG PAIR ssf band + dlv<-3 | 23,880 | 2.567 | 3,585 | 2.268 | 1.74 (2023) |
+| LEG PAIR ssf band + dlv<-4 | 20,967 | 2.585 | 3,221 | 2.294 | 1.73 (2023) |
+| triple (old pair + ssf<-25) | 21,982 | 2.593 | 3,287 | 2.279 | 1.77 (2023) |
+
+**READING:** dlv alone is NOT gate-shaped (hump; mc=1 below the pair's
+frontier). But **the leg-native pair {ssf ∈ [-400,-25), dlv < -3} beats
+the incumbent pair at BOTH levels (+0.066 mc=0 / +0.051 mc=1) for -8.6%
+trips, and beats the triple stack on trip-efficiency at mc=1 (2.268 @
+3,585 vs 2.279 @ 3,287 — same PF class, +364 trips)** — the iso-PF house
+test favors it over the triple. mc=1 years: 3.40/3.06/2.07/1.78/2.05/
+2.12/1.74 — worst-year 1.58 → 1.78, gives back 2024 (2.27 → 2.05) and
+2026. The falling-knife family would then be fully anchored: r (shape) ×
+slope (speed) × dlv (stretch), one 20m-clock distance retired. Decision
+= user's.
+
+## S41e — ⭐⭐ SPEC v2.2 BAKED: THE LEG-NATIVE PAIR + the arming-drop family (2026-08-02)
+
+**SPEC v2.2 = v2.1 with {dvw < -5%, d20m-high < -10%} REPLACED by
+{ssf ∈ [-375, -25) bp/min, dlv < -3%}** (user; floor tightened -400 →
+-375 off the fine table — [-400,-375) = 23 @ 0.63). Engine surgery:
+`MaxDistVw20m`, `DistHiLo`, `DistHiHi` + their gates DELETED;
+`SsfLoBpm`/`SsfHiBpm` (`--ssf-lo`/`--ssf-hi`) and `MaxDistLegVwap`
+(`--max-dist-leg-vwap`) added — same slope/leg-cum sources as the
+recorded `ols_slope_since_flow` and `dv_leg`/`vol_leg` (SQL twins).
+The canonical base CLI swaps `--max-dist-vw20m 0 --dist-hi-lo -Infinity
+--dist-hi-hi 0` for `--ssf-lo -Infinity --ssf-hi 0 --max-dist-leg-vwap 0`.
+
+**NEW RECORD-ONLY FAMILY (user, S41e): the ARMING DROP** — captured at
+the leg's first-low bar (chan_hi decays as bars roll out, so read-at-
+signal would be wrong): `d_hi_flow` = first low / prior 20m high - 1;
+`ols_slope_hi_flow` / `ols_r_hi_flow` = the drop segment's OLS
+(olsSinceHigh at the arming bar spans exactly high -> first low — a free
+snapshot). Reset with the leg.
+
+**base_v9 = THE base** (2,217,950, zero-diff vs v8 + 3 new cols).
+**`v22_reference/` = THE reference — GRAND PARITY ✓: engine 38,760 = SQL
+38,760, zero diff both directions.** New cols sane: d_hi_flow populated
+on all trips ∈ [-0.688, -0.0005]; slope/r nan only on 133 sub-3-bar
+drops; ols_r_hi_flow ∈ [-0.996, +0.701] (positive r = rise-then-plunge
+drop segments — study material).
+
+**Book (v2.1 → v2.2): 26,135 @ 2.501 → 23,857 @ 2.569 / 74.7%**, years
+4.71 / 3.75 / 1.47 / 1.84 / 2.64 / 1.99 / 2.72 (worst yr 2022 1.43 →
+1.47; 2023 1.72 → 1.84; 2026 2.45 → 2.72; give-back 2025 2.00 → 1.99 ≈
+flat and 2021). **mc=1: 3,582 @ 2.268** (matches the base_v8 forecast
+exactly; ladder: 2.004 → 2.070 → 2.106 → 2.104 → 2.175 → 2.184 → 2.211
+→ 2.218 → 2.217 → **2.268** — the biggest single-step mc=1 gain since
+v1.7). ⏭ re-check the overlay roster on v2.2 (gap_1200<5, pco>=+2,
+rp_vol band, ht=1, esf star band, nh12 corner) + the arming-drop family
+study + pyramid re-cut.
