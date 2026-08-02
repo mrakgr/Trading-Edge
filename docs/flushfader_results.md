@@ -7269,3 +7269,28 @@ sustained-violence crash again (the contrast grammar as a vote count).
 composite the family has been looking for**: scale-free, census-fat,
 one number, hump-shaped like everything real in this system. d1s = the
 weakest voice (2.54 total); pah-only = 1.22 (its 81 orphans are noise).
+
+**S42d — gap_60 < 4 added as the 7th voice (user):** union grows to
+18,331 @ 3.00 / 3,016 tkds (60% of book); complement 12,026 @ 1.91.
+**g60-only orphans = 4,143 @ 2.72 — the ONLY voice whose solo trips beat
+book** (it's a background-QUALITY vote, not an extremity vote). The
+hump SHIFTS RIGHT accordingly:
+
+| voices (of 7) | n | tkds | PF | win% | 2022 | 2023 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 12,026 | 2,489 | 1.91 | 70.8 | 1.57 | 1.45 | 1.64 | 1.38 |
+| 1 | 7,786 | 1,829 | 2.16 | 73.9 | 1.13 | 1.4 | 1.87 | 1.89 |
+| 2 | 4,325 | 1,098 | 3.04 | 76.4 | 2.86 | 3.83 | 1.51 | 3.05 |
+| ⭐ 3 | 3,883 | 792 | **4.50** | 80.2 | 4.29 | 2.62 | 3.15 | 5.92 |
+| ⭐ 4 | 1,440 | 381 | **5.04** | 82.1 | 1.93 | 2.96 | 4.62 | 6.19 |
+| 5 | 673 | 186 | 2.98 | 74.9 | **0.6** | 5.66 | 3.58 | 8.73 |
+| 6 | 206 | 67 | 5.42 | 72.3 | — | — | 3.6 | 35.83 |
+| 7 | 18 | 14 | 1.74 | 83.3 | — | — | — | 28.35 |
+
+mc=1: any-of-7 = 3,017 @ 2.419; **nfire >= 2 = 1,812 @ 2.690 (+1.69
+avg, THE best one-slot PF of any book-scale filter yet)**; >= 3 = 1,051
+@ 2.597 / +1.79 avg. The all-extreme knife resurfaces at nfire = 5
+(2022 = 0.6). **VERDICT: g60 belongs in the vote — peak moves to 3-4
+(5,323 @ ~4.6 / 1,173 tkds combined); the count now mixes extremity
+votes with one quality vote, and the mc=1 ladder gets its best rung
+(2.69).**
