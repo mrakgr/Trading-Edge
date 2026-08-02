@@ -7137,3 +7137,29 @@ v20p pre-level = flat noise) except one avoid: **vchg dec10 (vol
 COLLAPSED to < 0.68x its pre-window level) = 1.65**. Perfectly
 orthogonal to participation (rp_vol −0.014) — the rp × v20-hot
 conjunction is the natural next cross-family probe.
+
+## S42 — inside the hot-tape cell (v20 >= 140bp): 3,049 @ 4.14 / 459 tkds (2026-08-02)
+
+| lens within the cell | band | n | tkds | PF | win% |
+|---|---|---|---|---|---|
+| (the cell itself) | — | 3,049 | 459 | 4.14 | 78.8 |
+| gap_60 | [0,2) | 1,689 | 276 | **5.88** | 82.2 |
+| gap_60 | [2,25+) | 1,360 | 326 | 2.4-5.1 mixed | — |
+| rp_vol | [0.8,1.0) | 336 | 55 | **9.35** | 77.7 |
+| rp_vol | < 0.5 / >= 1.5 | 880 / 357 | 121 / 73 | 3.54 / 3.42 | — |
+| cushion (dslo) | all bands | — | — | FLAT 3.1-4.5 | — |
+
+Cell years: 5.84 / 3.49 / **1.16** / 5.74 / 4.63 / 4.05 / 3.37 — the
+Achilles heel is 2022 (and the g60<2 sub-cell's 2022 = 0.69): hot tape
+in the bear year = the knife regime (the z20-inversion pattern again —
+extreme-violence cells flip sign in bear markets).
+
+**READING — the architecture holds inside the cell:** liquidity still
+separates (× g60<2 = 5.88 on 276 tkds = the tradable core, 56% of the
+cell), participation still compounds (× rp star = 9.35 — the predicted
+rp × v20 conjunction, orthogonal −0.014), and the price family adds
+NOTHING (cushion flat; v20 ↔ d20a 0.83 already owns the depth info —
+family-mates don't stack, S41w rule confirmed from the other side; even
+the retest trap softens to 3.5 inside hot vol). Sizing voice: v20-dec1
+enters the price-family max at 4.14, ×liquidity ×participation per the
+cross-family product.
