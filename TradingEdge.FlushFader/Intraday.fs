@@ -357,6 +357,8 @@ type FlushPosition =
       FirstLowVwap: float        // S41k: the leg's first-low anchor price (raw)
       BarsAboveSvwap: int        // S41o: present bars spent ABOVE the running session vwap
       BarsPresent: int           // its denominator (present bars this session)
+      SessLow: float             // S41p: the raw session extremes (dist-from-session-low =
+      SessHigh: float            // signal_vwap/sess_low - 1 = the GRADED above-low measure)
       // S40x: the halt-ADJUSTED gap family (halt intervals excluded) + detector state.
       GapAdj60: int
       GapAdj300: int
@@ -1568,6 +1570,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       FirstLowVwap = firstLowVwap
                       BarsAboveSvwap = barsAboveSvwap
                       BarsPresent = barsPresent
+                      SessLow = (match sessLow.State with ValueSome l -> l | ValueNone -> nan)
+                      SessHigh = (match sessHigh.State with ValueSome h -> h | ValueNone -> nan)
                       GapAdj60 = adjGap60
                       GapAdj300 = adjGap300
                       GapAdj600 = adjGap600

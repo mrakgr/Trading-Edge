@@ -6535,3 +6535,42 @@ the UNTESTED day**: >90% above vwap means this flush is likely the day's
 FIRST test of the vwap area (fails more, 2023 = 0.56); 80-90% = dipped
 before and recovered = proven support. Same grammar as the S41j failed-
 reclaim/hover cell.
+
+## S41p — distance from the session low: THE U-SHAPE (retest zone = the trap) (2026-08-02)
+
+**User: test dist-from-session-low.** Engine: raw `sess_low` + `sess_high`
+baked (record-only; **base_v13 = THE base, `v22_slo/` = THE working
+parquet**, zero-diff 38,760). `dslo = signal_vwap/sess_low - 1` (mass
+point at 0 = the at-low trips); `dshi` rides along (corr -0.107 with
+dslo — independent, unstudied).
+
+**Correlations: dslo ↔ pah = 0.904** — dist-from-session-low IS the
+runner-pullback measure (pah) in cleaner form; ↔ pab 0.559.
+
+| dslo bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| ~0 (AT low) | 13,734 | 2.402 | 73.1 | +2.06 | 3.8 | 3.23 | 2.04 | 2.1 | 2.42 | 1.88 | 1.93 |
+| [0.5,2) | 766 | 1.979 | 74.0 | +2.12 | 6.16 | 2.14 | 1.8 | 1.03 | 2.88 | 0.97 | 1.91 |
+| [2,4) | 861 | 1.766 | 74.1 | +2.13 | 1.97 | 4.46 | 0.72 | 0.67 | 4.69 | 1.58 | 1.9 |
+| [4,6) | 760 | 1.954 | 74.9 | +2.49 | 7.09 | 10.56 | 0.28 | 0.8 | 7.72 | 2.35 | 4.33 |
+| [6,9) | 1,106 | 2.239 | 75.2 | +2.22 | 5.56 | 5.58 | 0.73 | 2.06 | 3.2 | 1.47 | 3.24 |
+| [9,13) | 1,228 | 2.262 | 79.1 | +2.02 | 5.41 | 7.01 | 0.68 | 2.35 | 1.9 | 1.39 | 3.29 |
+| [13,18) | 1,169 | 3.325 | 77.2 | +2.23 | 40.72 | 5.15 | 4.87 | 1.06 | 1.99 | 2.4 | 2.66 |
+| ⭐ [18,25) | 1,022 | 4.977 | 81.7 | +2.21 | 11.42 | 9.84 | 5.51 | 1.24 | 3.18 | 4.87 | 11.26 |
+| ⭐ [25,40) | 1,353 | 4.788 | 76.5 | +2.46 | 6.57 | 1.98 | 3.27 | 1.61 | 6.53 | 5.71 | 19.65 |
+| >= 40 | 1,858 | 3.47 | 77.1 | +2.75 | 6.67 | 4.11 | 1.41 | 4.45 | 2.43 | 2.34 | 16.89 |
+
+(g60 version: same shape louder — at-low 3.18; [18,25) = 7.817 on 656 /
+[25,40) = 6.119 on 795; >= 40 = 3.55 w/ 2022 0.85.)
+
+**READING — THE U-SHAPE refines the S41l binary:** the binary "above the
+session low = 4.08" HID a trap: **the RETEST ZONE [0.5,6) cushion =
+1.77-1.98 (2022-23 = 0.28-1.03) — WORSE than being AT the low (2.40)**.
+Flushing back toward the morning low with a thin cushion = the support
+break in progress. The edge lives at [13,40) cushion (3.3-5.0, g60 6-8):
+a flush that still sits WELL above the day's floor = the true runner
+pullback; >= 40 rolls off (2022 1.41, over-extended names). dslo ≈ pah
+(0.904) explains the whole family: pah/d0945/pab all proxy "how much
+cushion above the day's floor". **DAY-STRUCTURE FAMILY FINAL FORM: seat
+= dslo bands {AVOID [0.5,6), PREFER [13,40)}; at-low = book-neutral;
+binary retired for the graded U.**
