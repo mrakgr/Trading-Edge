@@ -6235,3 +6235,30 @@ day whose price is stuck hovering AT the 15m vwap = distribution, not
 capitulation. The threshold form d0945 >= 4 stays the roster rule
 (simple, plateau-backed); the grid cells are census-thin for anything
 finer.
+
+**S41j addendum — the same pair INSIDE gap_60 < 4 (user):** universe 9,277
+@ 3.64.
+
+| d0945 >= x (g60<4) | n | PF | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|
+| -6 | 3,911 | 4.02 | 11.15 | 6.46 | 2.33 | 2.52 | 3.76 | 2.21 | 14.61 |
+| -4 | 3,623 | 4.153 | 12.12 | 6.54 | 2.08 | 2.54 | 3.78 | 2.39 | 14.9 |
+| ⭐ -2 | 3,392 | 4.451 | 11.78 | 6.17 | 1.98 | 3.05 | 3.67 | 2.78 | 14.99 |
+| 0 | 3,104 | 4.38 | 11.17 | 5.08 | 1.72 | 3.12 | 3.62 | 2.91 | 14.46 |
+| 2 | 2,879 | 4.413 | 10.13 | 4.56 | 1.72 | 3.89 | 3.79 | 2.9 | 15.21 |
+| 4 | 2,716 | 4.342 | 10.24 | 4.27 | 1.72 | 4.13 | 3.71 | 2.81 | 14.9 |
+| 6 | 2,522 | 4.276 | 9.35 | 3.47 | 1.68 | 4.02 | 3.84 | 2.84 | 19.48 |
+| 8 | 2,295 | 4.057 | 8.23 | 3.79 | 1.59 | 3.95 | 3.54 | 2.52 | 20.42 |
+
+(grid: agreement diagonal a×p1 = 4,249 @ 3.29 / i×p4 = 1,871 @ 3.98;
+disagreement cells collapse to census-thin anecdotes — 77 @ 167, 36 @ 333,
+60 @ 31; the failed-reclaim cell softens to 76 @ 2.96.)
+
+**READING:** on clean tape the d0945 axis FLATTENS — the sweep sits at
+4.15-4.45 across the whole [-4,+6] range (peak >= -2 = 4.451), the
+overlay is cutoff-insensitive and worth only ~+0.7-0.8 PF over the 3.64
+clean-tape base (vs +1.5 standalone), and 2022 WEAKENS with tighter cuts
+(1.98 -> 1.72). The S41j plateau-at->=4 is mostly an illiquid-tape
+phenomenon; under gap60 the day-structure information is largely absorbed
+by tape continuity. Roster: **standalone d0945 >= 4; inside the gap60
+stack use the loose >= -2 form (or skip the axis entirely)**.
