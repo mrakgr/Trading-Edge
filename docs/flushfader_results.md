@@ -6153,3 +6153,38 @@ Clean tape (63% of tkds): 3.64 / mc=1 2.89, every overlay amplifies.
 Illiquid tape: 2.10 / mc=1 1.96 decaying, every overlay deflates except
 the burst corner. The gap_60 axis stays POST-HOC (user), but the sizing
 pyramid should live almost entirely on the clean side.
+
+## S41i — pco vs d0945 (the first-15m vwap anchor): d0945 WINS standalone, converges under gap60 (2026-08-02)
+
+**User: is distance from the FIRST-15M VWAP better than pco (green-from-
+open)?** Engine: `vol_0945_tape` added (frozen at 09:45 like its dv twin;
+record-only) — **base_v10 = THE base, `v22_vwap15/` = THE working parquet**
+(zero-diff parity vs v22_reference, 38,760 exact). `d0945 =
+signal_vwap/(dv_0945_tape/vol_0945_tape) - 1`. **corr(pco, d0945) = 0.924**
+— same idea, different anchor (participation-weighted vs the open print).
+
+d0945 axis on the v2.2 book: deep-below plateau ~2.0-2.7; **hover AT the
+anchor [-2,+2) = 1.7-2.3 with 2023 = 0.44 (the weak zone)**; above-anchor
+HUMP [4,12) = 4.2 / 4.0 / 9.1 / 5.8; >= 20 = 4.24. (Full tables above in
+the run; pco's axis is the noisier cousin.)
+
+| config | n | PF | 2022 | 2023 | 2025 | 2026 | mc=1 |
+|---|---|---|---|---|---|---|---|
+| pco >= 2 (incumbent O2) | 6,682 | 3.380 | 1.88 | 1.9 | 2.64 | 6.88 | 1,131 @ 2.596 |
+| d0945 >= 2 | 4,475 | 3.903 | 2.67 | 2.3 | 2.84 | 14.1 | 754 @ 2.835 |
+| d0945 >= 4 | 4,093 | 4.058 | 2.75 | 2.35 | 2.97 | 14.23 | — |
+| pco>=2 AND NOT d0945>=2 | 2,484 | 2.852 | 1.42 | 1.37 | 2.35 | 2.89 | — |
+| d0945>=2 AND NOT pco>=2 | 277 | 9.682 | 11.61 | — | 2.43 | 9.91 | — |
+| O2xO3 incumbent (pco x g60) | 3,855 | 4.507 | | | | | — |
+| d0945>=2 x g60 | 2,879 | 4.413 | | | | | 492 @ 3.477 |
+
+**READING:** (a) **standalone, the vwap anchor strictly dominates**: what
+pco keeps and d0945 rejects (green vs the open print but BELOW the 15m
+vwap) = 2.85 with 1.4-ish 2022-23; what d0945 adds (red vs the print but
+ABOVE the vwap) = 277 @ 9.68. The information is in the participation-
+weighted anchor, not the first print. (b) **under gap_60 < 4 the two
+CONVERGE** (4.41 vs 4.51 — incumbent even slightly ahead on more trips):
+on continuous tape the open print ≈ the 15m vwap; the anchor only matters
+where the print is noise — exactly the illiquid tape. **ROSTER: d0945 >= 2
+replaces pco >= 2 as the standalone day-structure overlay** (pco stays
+recorded); inside the gap60 stack either form works.
