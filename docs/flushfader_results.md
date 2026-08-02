@@ -6597,19 +6597,44 @@ low); the epsilon-above slivers are 26-96-trip anecdotes (their lows date
 back a median ~50min — census-thin, nothing there). The REAL subdivision
 needs a second axis; two work:
 
-**AT-LOW × pab (day shape):** full book — grinder (pab < 10, never above
-vwap, now at a fresh low = the daylong bleeder) = 3,210 @ **1.969** (the
-weak core of the whole book); bands rise with pab; g60: grinder 2.31 →
-[10,25) 3.47 → **[45,65) = 423 @ 4.765 (years 78 / 9.2 / 3.0 / 2.6 /
-6.9 / 8.2 / 2.3)** → V-day >= 65 = 61 @ 11.9 (anecdote). The more of the
-day the stock spent ABOVE its vwap before crashing to a new low, the
-better the fade.
+**AT-LOW × pab (day shape):** the more of the day the stock spent ABOVE
+its vwap before crashing to a new low, the better the fade.
 
-**AT-LOW × dshi (fall from the session high):** gradient — shallow-fall
-[-14,-8) = 1.99, deepening to **[-45,-30) = 2.982 full / 4.295 g60 (1,202
-trips)**; but the crash-day tail < -45 = 1.909 with **2022 = 0.01** (the
-bear-year disaster zone; g60 5.06 but 2023 0.6). Deep-but-not-cataclysmic
+| at-low × pab, FULL BOOK | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,10) grinder | 3,210 | 1.969 | 72.0 | +1.99 | 4.09 | 1.26 | 3.35 | 2.05 | 1.74 | 1.61 | 1.74 |
+| [10,25) | 4,858 | 2.6 | 75.0 | +2.14 | 3.69 | 3.74 | 2.07 | 1.7 | 2.94 | 2.04 | 2.46 |
+| [25,45) | 3,779 | 2.555 | 71.7 | +2.02 | 4.46 | 6.68 | 2.23 | 2.86 | 3.09 | 1.79 | 1.3 |
+| [45,65) | 1,359 | 2.345 | 73.4 | +1.98 | 1.54 | 3.59 | 0.87 | 2.44 | 2.28 | 3.59 | 4.03 |
+| >= 65 (V-day) | 234 | 3.567 | 70.9 | +2.32 | — | 0.52 | — | — | 2.04 | 16.4 | 4.2 |
+
+| at-low × pab, g60 | n | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| [0,10) grinder | 801 | 2.307 | 72.5 | 2.51 | 2.18 | 17.7 | 1.57 | 1.52 | 2.74 | 3.21 |
+| [10,25) | 1,690 | 3.468 | 78.1 | 10.24 | 4.15 | 4.89 | 2.97 | 2.98 | 2.35 | 3.73 |
+| [25,45) | 1,171 | 2.972 | 73.8 | 13.64 | 9.27 | 1.55 | 2.98 | 2.81 | 2.19 | 2.22 |
+| ⭐ [45,65) | 423 | 4.765 | 80.6 | 77.97 | 9.15 | 2.98 | 2.61 | 6.91 | 8.23 | 2.3 |
+| >= 65 (V-day) | 61 | 11.88 | 68.9 | — | 50.04 | — | — | — | 51.36 | — |
+
+**AT-LOW × dshi (fall from the session high):** deep-but-not-cataclysmic
 falls bounce best.
+
+| at-low × dshi, FULL BOOK | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| >= -8 (tight day) | 4 | — | 100.0 | +1.1 | — | — | — | — | — | — | — |
+| [-14,-8) | 1,099 | 1.993 | 70.2 | +1.46 | 3.29 | 1.76 | 0.77 | 2.95 | 11.72 | 1.38 | 2.73 |
+| [-20,-14) | 3,258 | 2.084 | 71.0 | +1.69 | 2.92 | 3.23 | 1.97 | 2.71 | 1.27 | 2.07 | 0.79 |
+| [-30,-20) | 4,945 | 2.412 | 72.7 | +2.21 | 3.77 | 3.87 | 2.47 | 2.6 | 2.18 | 2.04 | 1.83 |
+| ⭐ [-45,-30) | 3,388 | 2.982 | 77.8 | +2.42 | 6.92 | 4.26 | 2.58 | 1.78 | 2.6 | 2.27 | 3.62 |
+| < -45 (crash day) | 746 | 1.909 | 67.4 | +2.31 | 2.25 | 8.26 | **0.01** | 0.7 | 20.74 | 0.83 | 1.91 |
+
+| at-low × dshi, g60 | n | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| [-14,-8) | 136 | 3.637 | 86.0 | 52.05 | 1.76 | — | 1.8 | 12.81 | 20.49 | — |
+| [-20,-14) | 808 | 2.403 | 72.4 | 18.11 | 5.77 | 1.96 | 2.12 | 1.45 | 2.6 | 0.57 |
+| [-30,-20) | 1,759 | 2.671 | 74.7 | 5.99 | 11.86 | 8.9 | 3.01 | 2.37 | 1.93 | 2.12 |
+| ⭐ [-45,-30) | 1,202 | 4.295 | 78.5 | 16.3 | 3.07 | 2.02 | 2.5 | 1.99 | 5.23 | 29.68 |
+| < -45 (crash day) | 237 | 5.061 | 78.1 | 4.09 | — | — | 0.6 | 26.94 | 1.07 | 5.4 |
 
 **READING:** the at-low mass (58% of book) = grinder (weak, 1.97) + V-
 crash (strong: high-pab or deep-dshi at-low = 3-4.8). Same day-structure
