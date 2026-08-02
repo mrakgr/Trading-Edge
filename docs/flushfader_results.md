@@ -7472,3 +7472,10 @@ capturing 69.1% of the book's net points**; the >= 2-vote core = 4,813 =
 41.6% of trips (702 tkds) with 54.5% of net points. The zero-vote
 remainder (5,146 @ 2.79) stays positive — the base-size floor under the
 vote tiers.
+
+**S42h coverage, FULL book:** union = 10,956 = 36.1% of trips (1,676
+tkds = 35.3%) capturing 53.2% of net points; hump holds (0 = 2.08 / 1 =
+2.51 / 2 = 4.21 on 838 tkds / 3 = 4.04 / 4 = 3.17 / 5 = 4.54 on 47
+tkds). The votes fire mostly on clean tape — on the full book the union
+doubles as a stealth liquidity filter; the g60-restricted form stays
+the honest design.
