@@ -7294,3 +7294,28 @@ avg, THE best one-slot PF of any book-scale filter yet)**; >= 3 = 1,051
 (5,323 @ ~4.6 / 1,173 tkds combined); the count now mixes extremity
 votes with one quality vote, and the mc=1 ladder gets its best rung
 (2.69).**
+
+**S42e — the CORRECTED design (user: g60 was meant as the UNIVERSE, not
+a voice; dslo tightened >= 6 → >= 16):** 6 extremity voices {v20 >= 140,
+d20a < -28, speed < -6, d1s < -1, dslo >= 16, pah >= 28}, tested inside
+gap_60 < 4.
+
+| universe | slice | n | tkds | PF | mc=1 |
+|---|---|---|---|---|---|
+| g60 < 4 | DISJUNCTION | 6,566 | 1,038 | **4.67** | 1,128 @ **3.097** (+1.88 avg) |
+| g60 < 4 | complement | 5,011 | 962 | 2.77 | — |
+| g60 < 4 | nfire >= 2 | 4,918 | 849 | ~5.3 | **821 @ 3.300 (+2.02 avg)** |
+| full | DISJUNCTION | 11,585 | 2,040 | 3.33 | 2,087 @ 2.400 |
+| full | nfire >= 2 | 7,580 | — | ~3.9 | 1,290 @ 2.603 |
+
+nfire profile inside g60: 0 = 2.77 / 1 = 3.79 / **2 = 5.49 (571 tkds)**
+/ **3 = 5.26 (278)** / 4 = 3.67 (2022 = 0.61 — the knife row) / 5 =
+5.11 / 6 = 1.53. The hump peaks at 2-3 votes; the tightened dslo (>= 16
+vs >= 6, riding the S41p [13,40) band) sharpened every tier vs S42c.
+
+**⭐ VERDICT: the user's intended construction — extremity votes INSIDE
+the clean-tape universe — beats the 7-voice mix everywhere: mc=1 nfire
+>= 2 × g60 = 821 @ 3.300 = THE best one-slot book-scale number of the
+program** (ladder of mc=1 books: full 2.109 → disjunctions 2.4-2.7 →
+g60-book 2.891 → g60 × any-voice 3.097 → g60 × >= 2 votes 3.300).
+Quality belongs in the UNIVERSE; extremity belongs in the VOTE.
