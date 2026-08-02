@@ -355,6 +355,8 @@ type FlushPosition =
       OlsSlopeHiFlow: float
       OlsRHiFlow: float
       FirstLowVwap: float        // S41k: the leg's first-low anchor price (raw)
+      BarsAboveSvwap: int        // S41o: present bars spent ABOVE the running session vwap
+      BarsPresent: int           // its denominator (present bars this session)
       // S40x: the halt-ADJUSTED gap family (halt intervals excluded) + detector state.
       GapAdj60: int
       GapAdj300: int
@@ -866,6 +868,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // S41k (user): the first low's own vwap — signal_vwap/first_low_vwap - 1 =
     // the leg's EXTENSION below its first low (distance twin of ssf). nan = no leg.
     let mutable firstLowVwap = nan
+    // S41o (user): the TIME-INTEGRAL of day strength — present bars spent above
+    // the (running) session vwap + the present-bar denominator. Session-scoped.
+    let mutable barsAboveSvwap = 0
+    let mutable barsPresent = 0
     // ⭐ S40l tier-2 (S38i): target exits FILLED before this bar — the day-scoped
     // virgin flag becomes queryable (targets_today = 0 <=> virgin).
     let mutable targetsToday = 0
@@ -973,12 +979,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // ===== 2. fold this bar into every structure =====
         if openVwap.IsNone then openVwap <- ValueSome bar.vwap
         cumVol <- cumVol + bar.volume
+        barsPresent <- barsPresent + 1
         // tape-native 09:30-09:45 dollar volume (35100 = THE knowability floor, R4)
         if bar.etSec < 35100 then
             dv0945Tape <- dv0945Tape + bar.vwap * bar.volume
             vol0945Tape <- vol0945Tape + bar.volume
         cumTc <- cumTc + float bar.tradeCount
         cumDv <- cumDv + bar.vwap * bar.volume
+        if cumVol > 0.0 && bar.vwap > cumDv / cumVol then barsAboveSvwap <- barsAboveSvwap + 1
         gap60.Push bar.etSec
         gap30.Push bar.etSec
         gap15.Push bar.etSec
@@ -1558,6 +1566,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       OlsSlopeHiFlow = dropSlopeHiFlow
                       OlsRHiFlow = dropRHiFlow
                       FirstLowVwap = firstLowVwap
+                      BarsAboveSvwap = barsAboveSvwap
+                      BarsPresent = barsPresent
                       GapAdj60 = adjGap60
                       GapAdj300 = adjGap300
                       GapAdj600 = adjGap600

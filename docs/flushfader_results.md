@@ -6498,3 +6498,40 @@ falling fast >= 100bp/min = the late-stage capitulation climax; 2022 =
 vertical poison shadows the corner). Roster: **{dsf < -14 × ssf < -100}
 joins as an A+ conjunction lens (2022-warted)**; dsf standalone = dlv
 duplicate, no seat.
+
+## S41o — % of bars above session vwap (pab): family member, not the seat (2026-08-02)
+
+**User idea: % of present bars spent above the running session vwap as a
+pah/d0945 substitute.** Engine: `bars_above_svwap` + `bars_present` baked
+(both INTs — the ratio computed post-hoc, per user; **base_v12 = THE
+base, `v22_bav/` = THE working parquet**, zero-diff 38,760). `pab =
+100·bars_above_svwap/bars_present`.
+
+**Correlations: pab ↔ pah 0.665 / d0945 0.716 / above-session-low 0.686 /
+dsv 0.58** — squarely in the day-structure family, duplicate of none.
+
+| pab bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [0,10) | 3,578 | 1.9 | 72.4 | +2.02 | 4.26 | 1.48 | 1.06 | 2.05 | 1.8 | 1.65 | 2.07 |
+| [10,20) | 3,644 | 2.596 | 74.8 | +2.16 | 3.88 | 4.74 | 1.8 | 1.48 | 3.36 | 1.6 | 3.05 |
+| [20,30) | 3,461 | 2.495 | 74.1 | +2.08 | 3.36 | 3.57 | 2.16 | 2.51 | 2.84 | 2.29 | 1.53 |
+| [30,40) | 2,607 | 3.4 | 73.8 | +2.17 | 2.9 | 8.51 | 2.89 | 5.12 | 4.03 | 2.87 | 1.9 |
+| [40,50) | 2,159 | 2.059 | 73.6 | +2.08 | 3.06 | 4.7 | 0.64 | 1.45 | 4.74 | 1.92 | 4.22 |
+| [50,60) | 1,886 | 2.651 | 72.3 | +2.01 | 9.4 | 2.77 | 1.95 | 2.01 | 1.57 | 2.79 | 3.02 |
+| [60,70) | 1,779 | 3.11 | 78.8 | +2.44 | 11.82 | 2.82 | 0.83 | 5.41 | 1.6 | 4.77 | 6.49 |
+| [70,80) | 1,980 | 2.493 | 77.7 | +2.21 | 19.68 | 6.57 | 4.13 | 1.67 | 5.73 | 0.83 | 4.82 |
+| ⭐ [80,90) | 1,604 | 5.134 | 78.2 | +2.35 | 8.11 | 12.72 | 5.39 | 2.31 | 4.98 | 5.1 | 4.17 |
+| [90,100] | 1,159 | 2.416 | 75.4 | +2.28 | 5.41 | 2.39 | 14.93 | 0.56 | 2.08 | 2.43 | 29.19 |
+
+(g60 version: same shape, [80,90) = 9.95 on 933 the standout.)
+
+**The residual test vs the S41l/m binary (g60):** within ABOVE-session-
+low, pab bands are FLAT (4.18 / 4.16 / 4.05) — no residual; within
+AT-session-low, pab >= 60 = 15.4 on 93 (V-day anecdote). **VERDICT: pab
+does NOT displace the binary seat; it's a graded family member on par
+with pah/d0945.** The texture worth keeping: **[80,90) = 5.134 (all
+years >= 2.31) vs [90,100] = 2.416 — the TESTED-AND-RECOVERED day beats
+the UNTESTED day**: >90% above vwap means this flush is likely the day's
+FIRST test of the vwap area (fails more, 2023 = 0.56); 80-90% = dipped
+before and recovered = proven support. Same grammar as the S41j failed-
+reclaim/hover cell.

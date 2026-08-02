@@ -297,6 +297,7 @@ CREATE TABLE trips (
     ols_slope_since_flow DOUBLE, ols_r_since_flow DOUBLE,
     eff_since_high DOUBLE, eff_since_flow DOUBLE,
     d_hi_flow DOUBLE, ols_slope_hi_flow DOUBLE, ols_r_hi_flow DOUBLE, first_low_vwap DOUBLE,
+    bars_above_svwap INTEGER, bars_present INTEGER,
     vol_300 DOUBLE, tc_300 DOUBLE,
     dollar_vol_300 DOUBLE, dollar_vol_600 DOUBLE, dollar_vol_1200 DOUBLE,
     n_eff_shannon_60 DOUBLE, n_eff_hhi_60 DOUBLE, n_eff_shannon_300 DOUBLE, n_eff_hhi_300 DOUBLE,
@@ -416,6 +417,7 @@ type TripSink(outDir: string) =
             f p.OlsSlopeSinceFlow; f p.OlsRSinceFlow
             f p.EffSinceHigh; f p.EffSinceFlow
             f p.DHiFlow; f p.OlsSlopeHiFlow; f p.OlsRHiFlow; f p.FirstLowVwap
+            i p.BarsAboveSvwap; i p.BarsPresent
             f p.Vol300; f p.Tc300
             f p.DollarVol300; f p.DollarVol600; f p.DollarVol1200
             f p.NEffShannon60; f p.NEffHhi60; f p.NEffShannon300; f p.NEffHhi300
