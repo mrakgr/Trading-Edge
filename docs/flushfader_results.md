@@ -7319,3 +7319,37 @@ the clean-tape universe — beats the 7-voice mix everywhere: mc=1 nfire
 program** (ladder of mc=1 books: full 2.109 → disjunctions 2.4-2.7 →
 g60-book 2.891 → g60 × any-voice 3.097 → g60 × >= 2 votes 3.300).
 Quality belongs in the UNIVERSE; extremity belongs in the VOTE.
+
+## S42f — v20 \ d20a and d20a \ v20: the tails DIVERGE (2026-08-03)
+
+**User (real-money intent declared on S42e): do the two main voices have
+good independent trades?** Despite corr(v20, d20a) = 0.829 on the
+CONTINUOUS features, at the voice thresholds (v20 >= 140 / d20a < -28)
+the overlap is only partial — Jaccard 0.45:
+
+| FULL BOOK | n | tkds | PF | win% | med | 2022 | 2023 |
+|---|---|---|---|---|---|---|---|
+| BOTH | 1,970 | 312 | 4.16 | 79.6 | +3.81 | 1.87 | 12.85 |
+| v20 ONLY | 1,079 | 205 | 4.12 | 77.4 | +3.03 | **0.64** | 3.1 |
+| d20a ONLY | 1,314 | 256 | 3.30 | 76.8 | +2.72 | 1.54 | 1.54 |
+| neither | 25,994 | 4,342 | 2.31 | 73.6 | +2.0 | 1.63 | 1.72 |
+
+| g60 < 4 | n | tkds | PF | win% | 2022 | 2023 |
+|---|---|---|---|---|---|---|
+| BOTH | 1,250 | 201 | 5.23 | 79.7 | 1.64 | 19.67 |
+| v20 ONLY | 733 | 146 | 4.90 | 81.6 | **0.56** | 12.95 |
+| ⭐ d20a ONLY | 630 | 123 | **6.76** | 83.0 | — (no losses) | 6.62 |
+| neither | 8,964 | 1,494 | 3.33 | 77.9 | 7.6 | 2.14 |
+
+**READING:** (a) both set-differences trade WELL — the voices are
+genuinely two, not one: hot-vol-without-deep-leg (choppy violence) and
+deep-leg-without-hot-vol (the long grind that has already cooled) are
+different animals, both fadeable. (b) v20-only ≈ BOTH on the full book
+(4.12 vs 4.16) — d20a adds NO conjunction bonus on top of v20
+(family-mates don't stack, again); the value of keeping both is
+COVERAGE, exactly what the vote structure uses. (c) on clean tape
+**d20a-only = 6.76 / 123 tkds = the partition's best cell** (and
+loss-free in 2022) while **v20-only carries the bear wart (2022 = 0.64
+full / 0.56 g60)** — hot chop without a deep leg is the knife flavor;
+deep-leg-cooled is the safe flavor. Sizing note for the vote: a v20
+vote is worth less in bear regimes; a d20a vote is not.
