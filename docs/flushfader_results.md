@@ -7402,3 +7402,24 @@ best. **d1s DROPS from the g60 voice list** — the breach depth is
 mildly informative on holey tape only; its S42c weakest-voice showing
 is now fully explained. (The terminal < -2.5 g60 sliver 4.78/32 tkds =
 playbook anecdote.)
+
+## S42h — the 5-VOICE vote (d1s dropped) + 5s/10s flush speeds queued (2026-08-03)
+
+**Dropping the null voice IMPROVED the vote** (g60 universe; voices =
+{v20 >= 140, d20a < -28, speed < -6, dslo >= 16, pah >= 28}):
+
+| votes (of 5) | n | tkds | PF | win% | 2022 | 2023 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 5,146 | 972 | 2.79 | 76.2 | 4.8 | 1.61 | 1.86 | 2.5 |
+| 1 | 1,618 | 360 | 3.61 | 77.6 | 11.17 | 10.19 | 1.39 | 3.88 |
+| ⭐ 2 | 3,024 | 530 | **5.91** | 83.1 | 12.89 | 3.53 | 5.51 | 9.13 |
+| 3 | 1,124 | 230 | 4.87 | 81.1 | **0.54** | 3.19 | 4.83 | 8.38 |
+| 4 | 509 | 107 | 3.68 | 76.4 | **0.66** | 6.97 | 2.47 | 95.65 |
+| 5 | 156 | 37 | 4.12 | 69.2 | — | — | 4.35 | 22.82 |
+
+**mc=1: nfire >= 1 = 1,051 @ 3.022; nfire >= 2 = 769 @ 3.622 / +2.13
+avg — the program's best one-slot number again (3.300 → 3.622 just by
+removing d1s's noise votes).** The knife moves to nfire >= 3 in 2022
+(0.54/0.66). Engine: `vwap_5_prev`/`vwap_10_prev` baked (dv twins +
+non-overlapping lags mirroring vwap_60_prev; record-only) for the 5s/
+10s flush-speed study — base_v15 + v23_fast running.

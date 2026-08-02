@@ -405,6 +405,8 @@ type FlushPosition =
       Vol60Prev: float           // the PREVIOUS non-overlapping minute's sums (60-bar lag of the
       Tc60Prev: float            // 60-sums) — minute-over-minute activity SLOPE
       Vwap60: float              // ⭐ the CURRENT rolling 60-bar vwap (dv_60/vol_60)
+      Vwap5Prev: float           // S42h: 5-bar vwap lagged 5 bars (5s flush speed denominator)
+      Vwap10Prev: float          // S42h: 10-bar twin
       Vwap60Prev: float          // ⭐ the rolling 60-bar vwap 60 bars ago (previous non-
                                  // overlapping minute) — flush speed = signal_vwap/vwap_60_prev-1
                                  // (user, 2026-07-28; replaces the noisy two-point vwap_60_ago)
@@ -755,6 +757,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let dvSum300 = SumMa 300
     let volSum5 = SumMa 5                        // 5s/10s tails (user, 2026-07-29)
     let volSum10 = SumMa 10
+    // ⭐ S42h (user): 5s/10s flush speeds — dv twins + non-overlapping lags,
+    // mirroring the vwap_60_prev construction. Record-only.
+    let dvSum5 = SumMa 5
+    let dvSum10 = SumMa 10
+    let vwap5Lag = LagMa<float> 5
+    let vwap10Lag = LagMa<float> 10
     let volSum15 = SumMa 15
     let volSum30 = SumMa 30
     let volSum60 = SumMa 60
@@ -1067,7 +1075,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         let adjGap600 = max 0 (gap600.Gaps - haltOverlap 600)
         let adjGap1200 = max 0 (gap1200.Gaps - haltOverlap 1200)
         volSum5.Push bar.volume
+        dvSum5.Push (bar.vwap * bar.volume)
         volSum10.Push bar.volume
+        dvSum10.Push (bar.vwap * bar.volume)
         volSum15.Push bar.volume
         volSum30.Push bar.volume
         volSum60.Push bar.volume
@@ -1125,6 +1135,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 | _ -> ValueNone
             else ValueNone
         (match vwap60Now with ValueSome v -> vwap60Lag.Push v | ValueNone -> ())
+        (if volSum5.Count = volSum5.WindowSize then
+            match dvSum5.State, volSum5.State with
+            | ValueSome dv, ValueSome v when v > 0.0 -> vwap5Lag.Push (dv / v)
+            | _ -> ())
+        (if volSum10.Count = volSum10.WindowSize then
+            match dvSum10.State, volSum10.State with
+            | ValueSome dv, ValueSome v when v > 0.0 -> vwap10Lag.Push (dv / v)
+            | _ -> ())
         sessVwap.Push(bar.vwap * bar.volume, bar.volume)
         max30.Push bar.vwap
         max60.Push bar.vwap
@@ -1679,6 +1697,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Vol60Prev = vv vol60Lag.Lagged
                       Tc60Prev = vv tc60Lag.Lagged
                       Vwap60 = vv vwap60Now
+                      Vwap5Prev = vv vwap5Lag.Lagged
+                      Vwap10Prev = vv vwap10Lag.Lagged
                       Vwap60Prev = vv vwap60Lag.Lagged
                       DollarVol60 = vv dvSum60.State
                       DollarVol300 = vv dvSum300.State
