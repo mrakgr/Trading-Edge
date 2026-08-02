@@ -6970,6 +6970,29 @@ pah (dvw/d20/pah UN-retired for this test). Selected SLOPE: slope20,
 slope10, slope5, ssf, ssh. r-features excluded; esh/eff → the efficiency
 family. Leaning: ONE combined distance+slope family.**
 
+**FEATURE REFERENCE (the price family):** all measured AT the signal bar
+(a fresh 20m low); distances in % (negative = below the anchor), slopes
+in bp/min on OLS of ln(vwap).
+
+| abbr | name | definition | plain English |
+|---|---|---|---|
+| speed | 1m flush speed | vwap / vwap_60_prev − 1 | how hard the LAST MINUTE fell (vs the 1m vwap one minute ago) |
+| d1m | dist from 1m high | vwap / hi_60 − 1 | how far below the last minute's high the print is |
+| dvw | dist from 20m vwap | vwap / vwap_1200 − 1 | how stretched below the 20-minute rolling vwap |
+| d20 | dist from 20m high | vwap / chan_hi − 1 | the whole 20m leg's depth: current price vs the 20m channel high |
+| dlv | dist from LEG vwap | vwap / (dv_leg/vol_leg) − 1 | how far below the average price paid DURING this leg (since its first low) |
+| dsf | extension below first low | vwap / first_low_vwap − 1 | how much further the leg has fallen since its FIRST low printed |
+| dhf | the ARMING drop | first_low / 20m-high at arming − 1 | how violent the drop that STARTED the leg was (high → first low; frozen at arming) |
+| dslo | cushion above session low | vwap / sess_low − 1 | how far the flush still sits ABOVE the day's floor (0 = this IS the session low) |
+| dshi | fall from session high | vwap / sess_high − 1 | how far below the day's top the print is |
+| dsv | dist from session vwap | ln(vwap / sess_vwap) | above/below the day's volume-weighted average price |
+| pah | day change at pre-flush high | (1+pco)/(1+d20) − 1 | how far UP on the day the stock was at its 20m high, BEFORE this flush (the runner detector) |
+| slope20 | 20m OLS slope | ols on ln(vwap), 1200 bars | the 20-minute trend's steepness |
+| slope10 | 10m OLS slope | same, 600 bars | the 10-minute trend's steepness |
+| slope5 | 5m OLS slope | same, 300 bars | the last 5 minutes' steepness (the vertical-collapse detector) |
+| ssf | slope since flow | OLS since the leg's first low | how fast the leg has been falling since ITS OWN start (growing window) |
+| ssh | slope since high | OLS since the last 20m high | how fast price has fallen since the leg's top |
+
 **⭐ THE d20-vs-SLOPE ANSWER (user question): d20 ↔ slope20 = 0.87, d20 ↔
 ssh = 0.731, ssh ↔ slope20 = 0.749** — the distance from the 20m high IS
 the 20m slope family (they'd only decouple via leg age, and d20 ↔ age =
