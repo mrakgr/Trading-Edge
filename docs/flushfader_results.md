@@ -7353,3 +7353,33 @@ loss-free in 2022) while **v20-only carries the bear wart (2022 = 0.64
 full / 0.56 g60)** — hot chop without a deep leg is the knife flavor;
 deep-leg-cooled is the safe flavor. Sizing note for the vote: a v20
 vote is worth less in bear regimes; a d20a vote is not.
+
+## S42g — breach depth (d1s) revisited: < -1% overshoots; -0.75 is the voice (2026-08-03)
+
+**User: is d1s < -1% too stringent?** Fine bands (full book):
+
+| d1s band | n | tkds | PF | win% | med | 2022 | 2023 |
+|---|---|---|---|---|---|---|---|
+| [-0.05,0) | 6,440 | 2,942 | 2.31 | 74.0 | +1.92 | 1.62 | 2.07 |
+| [-0.1,-0.05) | 3,832 | 2,251 | 2.37 | 73.6 | +1.99 | 2.58 | 1.24 |
+| [-0.2,-0.1) | 5,600 | 2,793 | 2.52 | 73.9 | +2.08 | 1.49 | 2.32 |
+| [-0.35,-0.2) | 5,535 | 2,856 | 2.7 | 75.2 | +2.15 | 1.91 | 1.97 |
+| [-0.5,-0.35) | 3,325 | 2,143 | 2.59 | 74.1 | +2.24 | 1.71 | 1.92 |
+| [-0.75,-0.5) | 2,878 | 1,877 | 2.55 | 73.4 | +2.25 | 1.19 | 1.52 |
+| ⭐ [-1,-0.75) | 1,324 | 1,037 | **3.21** | 76.1 | +2.61 | 1.64 | 3.26 |
+| [-1.5,-1) | 932 | 732 | 2.58 | 75.2 | +2.79 | **0.98** | 1.3 |
+| [-2.5,-1.5) | 391 | 333 | 2.28 | 73.9 | +3.08 | **0.52** | 1.43 |
+| < -2.5 | 100 | 85 | 3.33 | 74.0 | +3.2 | — | 9.58 |
+
+Cumulative: < -0.35 = 2.65 / < -0.5 = 2.68 / **< -0.75 = 2.80 (2,747 @
+1,612 tkds; g60 3.77)** / < -1 = 2.54 / < -1.5 = 2.47 / < -2.5 = 3.33
+(85 tkds; g60 4.78/32). On g60 the cumulative plateau is FLAT 3.75-3.78
+across [-0.75,-0.35].
+
+**READING: YES, < -1 overshoots — it sits past the peak.** The axis is
+the S42b speed-shape at the 1s scale: a drift up to the [-1,-0.75)
+sweet band (3.21 / 1,037 tkds, all years >= 1.3), then the
+1-1.5-2.5% smash-through bands SAG with bear warts (2022 = 0.98 / 0.52
+— a bar crashing >1% through the prior 20m low = the crash
+accelerating), then the terminal < -2.5 blow-off recovers (3.33/85).
+**The d1s voice moves to < -0.75: +93% trips AND +0.26 PF vs < -1.**
