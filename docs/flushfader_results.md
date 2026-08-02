@@ -6874,3 +6874,51 @@ birth × violent-now corner (dhf >= -6 × speed < -6 = 60 @ 24.4 + 5 @
 93) = the FLASH CRASH on a quiet day — spectacular but 65 trips, census-
 thin. **Sizing rule at the low: size by dhf; ignore speed except to
 AVOID the accelerating mid-shallow corner.**
+
+## S41v — rp_vol [0.8,1.0) × the liquidity family: THE LADDER WITHIN (2026-08-02)
+
+**User (+ the sizing pivot): 2D lever grids are census-starved — sizing
+will take the MAX PF over individual lever features, not conjunction
+cells. Price-based features paused. Study: rp_vol [0.8,1.0) stacked with
+gap_60 / gap_1200 / n_eff_hhi.** On the v2.3 $1+ book the steady-tape
+band = **3,314 @ 4.633 / 78.7**.
+
+| rp × gap_60 | n | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| [0,2) | 984 | 10.189 | 85.1 | 9.95 | 32.34 | 56.56 | 15.25 | 1.76 | 32.75 | 12.16 |
+| [2,4) | 316 | 4.943 | 74.1 | 5.7 | 1.23 | 19.49 | 15.82 | 3.53 | 5.13 | — |
+| [4,10) | 585 | 4.577 | 76.1 | 3.93 | 6.82 | 2.5 | 1.05 | 9.51 | 12.12 | 15.38 |
+| [10,25) | 856 | 2.529 | 75.4 | 13.76 | 1.62 | 0.69 | 0.78 | 3.75 | 4.96 | 27.37 |
+| >= 25 | 573 | 4.588 | 78.2 | 7.28 | 4.55 | 1.56 | 3.3 | 4.47 | 47.17 | — |
+
+| rp × gap_1200 | n | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| [0,5) | 367 | 17.464 | 86.9 | 15.53 | 49.3 | — | 5.43 | 4.13 | 11.37 | — |
+| [5,60) | 477 | 5.37 | 80.7 | 6.24 | 7.99 | — | 5.61 | 1.46 | 13.99 | 9.12 |
+| [60,180) | 482 | 4.986 | 78.8 | 3.58 | 10.58 | 15.04 | 4.92 | 2.78 | 17.53 | 64.74 |
+| [180,400) | 725 | 3.5 | 78.9 | 39.64 | 2.61 | 0.77 | 0.81 | 11.34 | 17.4 | 56.12 |
+| >= 400 | 1,263 | 4.046 | 75.5 | 10.1 | 3.48 | 1.55 | 3.05 | 3.11 | 6.03 | 25.41 |
+
+| rp × n_eff_hhi_1200 | n | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| [0,80) | 89 | 5.052 | 83.1 | — | 0.08 | 0.68 | — | 7.91 | — | 55.9 |
+| [80,200) | 1,470 | 3.581 | 78.2 | 4.85 | 3.09 | 1.31 | 1.81 | 3.74 | 9.86 | 39.9 |
+| [200,400) | 1,485 | 5.416 | 78.5 | 10.05 | 10.53 | 2.47 | 1.99 | 2.57 | 11.54 | 11.09 |
+| [400,650) | 263 | 20.942 | 83.7 | 12.39 | 130.8 | — | 3.49 | 60.58 | 12.65 | — |
+| >= 650 | 7 | 0 (7 losers) | 0.0 | — | — | — | — | — | — | — |
+
+Census: rp × g60 < 2 = **984 @ 10.19 / 194 tkds**; rp × g60 < 4 = 1,300
+@ 8.39 / 264 tkds; rp × gap_1200 < 5 = 367 @ 17.46 / 65 tkds; rp × nh12
+[400,650) = 263 @ 20.94 / 50 tkds.
+
+**READING — the steady-tape flush scales MONOTONICALLY with tape
+continuity:** 4.63 (band) → 8.39 (g60<4) → 10.19 (g60<2, 194 tkds — the
+tradable-census form) → 17.5 / 20.9 at the ultra-continuous tier (65/50
+tkds — SIZE territory). The three liquidity axes are the same nested
+family (S41g), so these are deepening views of ONE conjunction:
+UNREMARKABLE volume flushing on a PERFECT tape — the purest "sentiment
+dislocation without participation change" the system has found. Warts:
+the g60 [10,25) trough (2.53 w/ 2022-23 < 0.8) and 2024 = 1.76 in the
+top cell (its known soft year). nh12 >= 650 in-band = 7/7 losers
+(degenerate ultra-distributed corner). ⭐ the ladder for the max-PF
+sizing scheme: rp-band 4.6 → ×g60 8.4-10.2 → ×g12<5 17.5.
