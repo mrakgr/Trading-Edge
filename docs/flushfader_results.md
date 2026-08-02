@@ -6385,3 +6385,29 @@ additivity MEASURED only for {g60 x rp_vol, g60 x ht, g60 x esf, g60 x
 dhf, corner x g60} — the full cross-family interaction matrix at mc=1 =
 the remaining wrap-up work. dv family (torrent/corner/A++ x dsv) on the
 WATCH LIST (2022/23 fraying) — not in the book.
+
+**S41l addendum — pah vs the SESSION LOW (user: "is this just a proxy for
+being above the session low in g60?"): YES, LARGELY.** Structural fact
+first: at a signal (a new 20m low), `breach_lo_sess` is effectively
+BINARY — the [1m,10m) bucket is EMPTY (a session low set within the 20m
+window would sit above the new 20m low, so the signal bar would breach it
+→ 0). Either the flush IS the session low (44.7% of g60 trips) or the
+session low predates the leg entirely.
+
+| g60 universe | n | PF | win% |
+|---|---|---|---|
+| AT session low (breach_lo_sess < 1m) | 4,146 | 3.189 | 75.9 |
+| ABOVE session low (>10m / never) | 5,131 | 4.083 | 80.1 |
+
+Confounding with pah: pct-at-session-low by pah band = 85% (pah<0) /
+71% ([0,20)) / 9.4% ([20,50)) / 0.2% (>=50) — **pah >= 20 ≈ above-
+session-low** (91-99.8% of those trips). Mutual residuals: within
+ABOVE, pah adds ~+0.3-0.7 (3.34 → 4.39 across bands); within AT, pah
+[20,50) = 5.45 on 217 (small-n inversion); holding pah, the session-low
+state adds ~+0.3-0.4. **VERDICT: on clean tape the day-structure family
+collapses to the BINARY "the flush is NOT the day's first low" —
+above-session-low = 5,131 @ 4.08 vs at-low 3.19 — live-trivial
+(breach_lo_sess >= 600 OR -1); pah/d0945/pco = graded refinements of the
+same fact, worth ~+0.3-0.5 residual on clean tape.** The runner-pullback
+story survives (it IS why above-session-low works) but the simplest form
+wins the seat.
