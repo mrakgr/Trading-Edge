@@ -343,10 +343,17 @@ type FlushPosition =
                                  // is the sinceFlow length, already recorded)
       OlsSlopeSinceFlow: float
       OlsRSinceFlow: float
-      // S40z (user): the anchored Kaufman eff twins (per-bar stream — smaller
-      // magnitudes than the slot-based eff_20m/10m by construction).
+      // S40z (user): the anchored Kaufman eff twins (30-bar vwap slots built
+      // internally, boundaries aligned to the anchor — sub-30s returns are
+      // microstructure noise, F7).
       EffSinceHigh: float
       EffSinceFlow: float
+      // S41e (user): the arming drop — first leg low / 20m high at arming - 1
+      // (the flush magnitude that started the leg) + the drop segment's OLS
+      // slope/r (high -> first low). nan = channel-cold / short arming.
+      DHiFlow: float
+      OlsSlopeHiFlow: float
+      OlsRHiFlow: float
       // S40x: the halt-ADJUSTED gap family (halt intervals excluded) + detector state.
       GapAdj60: int
       GapAdj300: int
@@ -537,8 +544,20 @@ type IntradayConfig =
                                  // of the residual universe has eff_20m < 0 (S40e). Unwarm eff
                                  // fails the band like any other gate (S38n).
       MinAbsEff10m: float        // |eff_10m| >= this. Default 0.15. 0 = off.
-      DistHiLo: float            // vwap/chan_hi - 1 >= this (the un-fadeable wall). Default -0.35. -Infinity = off.
-      DistHiHi: float            // vwap/chan_hi - 1 <  this (deep enough into the leg). Default -0.10. >= 0 = off.
+      // ⭐ SPEC v2.2 (user, S41c/d): THE LEG-NATIVE PAIR replaces {dvw < -5%,
+      // d20m-high < -10%} — those two were ONE feature counted twice (corr
+      // 0.946); ssf (leg SPEED) x dlv (leg STRETCH) are corr 0.075 = two real
+      // dimensions. Beats the old pair at both mc levels (+0.066 mc=0 /
+      // +0.051 mc=1 for -8.6% trips). Unwarm slope / leg vwap FAILS an armed
+      // gate (at signal a leg always exists; defense only).
+      SsfLoBpm: float            // slope_since_flow x 6e5 >= this bp/min (no vertical crash;
+                                 // < -400 = 0.58, [-400,-375) = 0.63). Default -375 (user
+                                 // tightened from -400). -Infinity = off.
+      SsfHiBpm: float            // slope_since_flow x 6e5 < this bp/min (no shallow drift;
+                                 // [-25,0) = 1.96, >= 0 = 0.97). Default -25. >= 0 = off.
+      MaxDistLegVwap: float      // vwap / (dv_leg/vol_leg) - 1 < this — stretched below the
+                                 // leg's OWN vwap (the [-3,0) shallow slice = 1.6). Default
+                                 // -0.03. >= 0 = off.
       MinVol10Rate: float        // (vol_10/10)/(vol_60/60) >= this (S17/S18 last-10s floor). Default 0.75. 0 = off.
       MinLows300: int            // ⭐ SPEC v1.4 (S38h): lows_since_first_low_300 >= this — kills the
                                  // FAST-CHASE re-entry (5m bounce without a 20m leg reset leaves the
@@ -569,10 +588,6 @@ type IntradayConfig =
                                  // leg below the 1m high; the shallow slice above −2% = 2,261
                                  // trips @ ~1.6, slot thieves — first both-mc-levels winner).
                                  // Default −0.02. >= 0 = off. Same post-push max60 as hi_60.
-      MaxDistVw20m: float        // ⭐ SPEC v2.0 (user, S40h): vwap/vwap_1200 - 1 < this — must sit
-                                 // at least 5% below the 20m rolling VWAP (trims the shallow
-                                 // [−5,−4) 1.67 tail of the dvw axis). Default −0.05. >= 0 = off.
-                                 // Cold vwap_1200 (window not full) FAILS an armed gate.
       // ⭐ S40x HALT DETECTOR (user design, 2026-08-01): a tradeless run counts
       // as a HALT — and is EXCLUDED from the gap_adj_* counters — iff, at the
       // last bar BEFORE the hole: run >= HaltMinRunSec, 5m range (pre-hole,
@@ -835,6 +850,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable legVolAnchor = nan
     let mutable legTcAnchor = nan
     let mutable legDvAnchor = nan
+    // ⭐ S41e (user): the arming drop — first leg low / 20m channel high at the
+    // arming bar - 1 (the flush magnitude that STARTED the leg; chan_hi decays
+    // as bars roll out, so it must be captured at arming, not read at signal)
+    // + the drop segment's OLS slope/r (olsSinceHigh at the arming bar spans
+    // exactly high -> first low — a free snapshot). Record-only. nan = no leg.
+    let mutable dropToFlow = nan
+    let mutable dropSlopeHiFlow = nan
+    let mutable dropRHiFlow = nan
     // ⭐ S40l tier-2 (S38i): target exits FILLED before this bar — the day-scoped
     // virgin flag becomes queryable (targets_today = 0 <=> virgin).
     let mutable targetsToday = 0
@@ -1161,6 +1184,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 olsSinceFlow.Push (log bar.vwap)
                 effSinceFlow.Reset()
                 effSinceFlow.Push(bar.vwap, bar.volume)
+                // S41e: the arming drop, captured against THIS bar's prior 20m high
+                // + the drop segment's OLS (sinceHigh spans high -> this first low).
+                dropToFlow <-
+                    match priorEntryMax with
+                    | ValueSome hi when hi > 0.0 -> bar.vwap / hi - 1.0
+                    | _ -> nan
+                dropSlopeHiFlow <- olsSinceHigh.Slope
+                dropRHiFlow <- olsSinceHigh.R
             counters.OnNewLow()
             counters300.OnNewLow()
             counters600.OnNewLow()
@@ -1331,14 +1362,20 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             cfg.MinRSinceFlow <= -1.0
             || (let r = olsSinceFlow.R
                 not (Double.IsNaN r) && r >= cfg.MinRSinceFlow)
-        // ⭐ SPEC v2.0 (S40h): same dv/vol sums as the recorded vwap_1200 (nan-cold).
-        let dvw20Ok =
-            cfg.MaxDistVw20m >= 0.0
-            || (match dvSum1200.State, volSum1200.State with
-                | ValueSome dv, ValueSome v
-                    when volSum1200.Count = volSum1200.WindowSize && v > 0.0 && dv > 0.0 ->
-                    bar.vwap / (dv / v) - 1.0 < cfg.MaxDistVw20m
-                | _ -> false)
+        // ⭐ SPEC v2.2 (S41c/d): the leg-native pair. Same slope/leg-cum sources
+        // as the recorded ols_slope_since_flow and dv_leg/vol_leg (SQL twins).
+        let ssfOk =
+            let s = olsSinceFlow.Slope * 6e5
+            (Double.IsNegativeInfinity cfg.SsfLoBpm
+             || (not (Double.IsNaN s) && s >= cfg.SsfLoBpm))
+            && (cfg.SsfHiBpm >= 0.0
+                || (not (Double.IsNaN s) && s < cfg.SsfHiBpm))
+        let dlvOk =
+            cfg.MaxDistLegVwap >= 0.0
+            || (let v = cumVol - legVolAnchor
+                let dv = cumDv - legDvAnchor
+                not (Double.IsNaN v) && v > 0.0 && dv > 0.0
+                && bar.vwap / (dv / v) - 1.0 < cfg.MaxDistLegVwap)
         let kBandOk =
             (cfg.KBandLo <= 0 || counters.LowsSinceFirstLow >= cfg.KBandLo)
             && (cfg.KBandHi <= 0 || counters.LowsSinceFirstLow <= cfg.KBandHi)
@@ -1366,15 +1403,6 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     when slotAbsSum20.Count = slotAbsSum20.WindowSize && old > 0.0 && s > 0.0 ->
                     abs (log (cur / old) / s) >= cfg.MinAbsEff10m
                 | _ -> false)
-        let distHi =
-            match priorEntryMax with
-            | ValueSome hi when hi > 0.0 -> ValueSome (bar.vwap / hi - 1.0)
-            | _ -> ValueNone
-        let distOk =
-            (Double.IsNegativeInfinity cfg.DistHiLo
-             || (match distHi with ValueSome d -> d >= cfg.DistHiLo | ValueNone -> false))
-            && (cfg.DistHiHi >= 0.0
-                || (match distHi with ValueSome d -> d < cfg.DistHiHi | ValueNone -> false))
         let vol10Ok =
             cfg.MinVol10Rate <= 0.0
             || (match volSum10.State, volSum60.State with
@@ -1406,7 +1434,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             || (match ols300.State with
                 | ValueSome m when ols300.Count = ols300.WindowSize -> m * 6e5 >= cfg.MinSlope5Bpm
                 | _ -> false)
-        let specOk = speedOk && d1mOk && dvw20Ok && rsfOk && kBandOk && eff20BandOk && eff10Ok && distOk && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
+        let specOk = speedOk && d1mOk && ssfOk && dlvOk && rsfOk && kBandOk && eff20BandOk && eff10Ok && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && specOk && this.HasSlot then
             pendingEntry <-
                 ValueSome
@@ -1515,6 +1543,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       OlsRSinceFlow = olsSinceFlow.R
                       EffSinceHigh = effSinceHigh.Eff
                       EffSinceFlow = effSinceFlow.Eff
+                      DHiFlow = dropToFlow
+                      OlsSlopeHiFlow = dropSlopeHiFlow
+                      OlsRHiFlow = dropRHiFlow
                       GapAdj60 = adjGap60
                       GapAdj300 = adjGap300
                       GapAdj600 = adjGap600
@@ -1668,6 +1699,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             legVolAnchor <- nan
             legTcAnchor <- nan
             legDvAnchor <- nan
+            dropToFlow <- nan
+            dropSlopeHiFlow <- nan
+            dropRHiFlow <- nan
             // S40y/z: the anchored OLS + eff reset with the leg (sinceHigh
             // re-anchors at the bar after this high; sinceFlow waits for the
             // next first low).

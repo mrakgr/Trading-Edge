@@ -79,7 +79,6 @@ let defaultConfig =
           MaxDist1mHi      = -0.02      // ⭐ SPEC v1.9 (S40g): dist from 1m HIGH < -2% — the 1m
                                         // conjunction (fast last minute AND a real 1m leg);
                                         // first challenger to win at BOTH mc levels
-          MaxDistVw20m     = -0.05      // ⭐ SPEC v2.0 (S40h): >= 5% below the 20m rolling VWAP
           HaltMinRunSec    = 58         // ⭐ S40x halt detector (user design; record-only)
           HaltMinRng300    = 0.04
           HaltMaxPreGap60  = 2
@@ -89,12 +88,14 @@ let defaultConfig =
           AbsEff20Lo       = 0.3        // ⭐ S40i redesign: |eff_20m| ∈ [0.3, 0.5) — the exhaustion
           AbsEff20Hi       = 0.5        // band, one |·| convention with |eff10| (sign = non-event)
           MinAbsEff10m     = 0.15       // |eff_10m| >= 0.15 — no flat 10m tape
-          DistHiLo         = Double.NegativeInfinity
-                                        // ⭐ SPEC v1.8 (user, 2026-08-01): the −35% wall REMOVED —
-                                        // under the v1.7 accel/slope gates the sub-−35 slice shows
-                                        // no cliff (S39w: 129 trips/28 tkds, all-clean-years;
-                                        // mc=1 2.184 vs 2.175). One parameter fewer.
-          DistHiHi         = -0.10      // dist from 20m high < −10% — deep enough into the leg
+          // ⭐ SPEC v2.2 (user, S41c/d): the LEG-NATIVE PAIR replaces the v2.0
+          // dvw < -5% + d20m-high < -10% distance pair (corr 0.946 = one
+          // feature twice; ssf x dlv corr 0.075). The v1.8 wall (DistHiLo)
+          // and both old fields are DELETED with their gates.
+          SsfLoBpm         = -375.0     // slope_since_flow >= -375bp/min (user tightened from
+                                        // -400; < -400 = 0.58, [-400,-375) = 0.63)
+          SsfHiBpm         = -25.0      // slope_since_flow < -25bp/min ([-25,0) = 1.96, >= 0 = 0.97)
+          MaxDistLegVwap   = -0.03      // >= 3% below the leg's own vwap ([-3,0) = 1.15-1.71)
           MinVol10Rate     = 0.75       // last-10s volume rate >= 0.75x the 1m rate (S17/S18)
           MinLows300       = 6          // ⭐ SPEC v1.4: >= 6 lows since the last 5m-high bounce (S38h)
           MaxRngFront      = 0.8        // ⭐ SPEC v1.5: rng_300/rng_20m < 0.8 — no pure cliffs (S38k)
@@ -295,6 +296,7 @@ CREATE TABLE trips (
     ols_slope_since_high DOUBLE, ols_r_since_high DOUBLE, bars_since_high INTEGER,
     ols_slope_since_flow DOUBLE, ols_r_since_flow DOUBLE,
     eff_since_high DOUBLE, eff_since_flow DOUBLE,
+    d_hi_flow DOUBLE, ols_slope_hi_flow DOUBLE, ols_r_hi_flow DOUBLE,
     vol_300 DOUBLE, tc_300 DOUBLE,
     dollar_vol_300 DOUBLE, dollar_vol_600 DOUBLE, dollar_vol_1200 DOUBLE,
     n_eff_shannon_60 DOUBLE, n_eff_hhi_60 DOUBLE, n_eff_shannon_300 DOUBLE, n_eff_hhi_300 DOUBLE,
@@ -413,6 +415,7 @@ type TripSink(outDir: string) =
             f p.OlsSlopeSinceHigh; f p.OlsRSinceHigh; i p.BarsSinceHigh
             f p.OlsSlopeSinceFlow; f p.OlsRSinceFlow
             f p.EffSinceHigh; f p.EffSinceFlow
+            f p.DHiFlow; f p.OlsSlopeHiFlow; f p.OlsRHiFlow
             f p.Vol300; f p.Tc300
             f p.DollarVol300; f p.DollarVol600; f p.DollarVol1200
             f p.NEffShannon60; f p.NEffHhi60; f p.NEffShannon300; f p.NEffHhi300

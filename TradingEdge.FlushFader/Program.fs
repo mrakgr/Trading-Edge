@@ -35,8 +35,9 @@ type Args =
     | Abs_Eff20_Lo of float
     | Abs_Eff20_Hi of float
     | Min_Abs_Eff_10m of float
-    | Dist_Hi_Lo of float
-    | Dist_Hi_Hi of float
+    | Ssf_Lo of float
+    | Ssf_Hi of float
+    | Max_Dist_Leg_Vwap of float
     | Min_Vol10_Rate of float
     | Min_Lows_300 of int
     | Max_Rng_Front of float
@@ -54,7 +55,6 @@ type Args =
     | Min_Prev_Close of float
     | Min_Barnum of int
     | Max_Dist_1m of float
-    | Max_Dist_Vw20m of float
     | Halt_Min_Run of int
     | Halt_Min_Rng_300 of float
     | Halt_Max_Pre_Gap_60 of int
@@ -86,8 +86,9 @@ type Args =
             | Abs_Eff20_Lo _ -> "⭐ S40i redesign: |eff_20m| >= this (abs band, mirrors |eff10|). Default 0.3. <= 0 = off."
             | Abs_Eff20_Hi _ -> "⭐ S40i redesign: |eff_20m| < this. Default 0.5. Infinity = off."
             | Min_Abs_Eff_10m _ -> "⭐ SPEC v1.2: |eff_10m| >= this (no flat 10m tape). Default 0.15. 0 = off."
-            | Dist_Hi_Lo _ -> "⭐ SPEC v1.8: vwap/chan_hi - 1 >= this. Default -Infinity = off (the -35%% wall REMOVED — no cliff under the v1.7 accel/slope gates, S39w/S40d)."
-            | Dist_Hi_Hi _ -> "⭐ SPEC v1.2: vwap/chan_hi - 1 < this (deep enough into the leg). Default -0.10. 0 = off."
+            | Ssf_Lo _ -> "⭐ SPEC v2.2 (S41c/d): ols_slope_since_flow x 6e5 >= this bp/min (no vertical crash). Default -375. -Infinity = off."
+            | Ssf_Hi _ -> "⭐ SPEC v2.2 (S41c/d): ols_slope_since_flow x 6e5 < this bp/min (no shallow drift). Default -25. >= 0 = off."
+            | Max_Dist_Leg_Vwap _ -> "⭐ SPEC v2.2 (S41d): vwap/(dv_leg/vol_leg) - 1 < this — stretched below the leg's OWN vwap. Default -0.03. >= 0 = off."
             | Min_Vol10_Rate _ -> "⭐ SPEC v1.2: (vol_10/10)/(vol_60/60) >= this (S17 last-10s volume-rate floor — no quiet-tail drift-downs). Default 0.75. 0 = off."
             | Min_Lows_300 _ -> "⭐ SPEC v1.4: lows_since_first_low_300 >= this — kills the FAST-CHASE re-entry (5m bounce without a 20m leg reset re-signals in seconds; PF 0.11 on the A++ cell). Default 6. 0 = off."
             | Max_Rng_Front _ -> "⭐ SPEC v1.5: rng_300/rng_20m < this — reject the PURE CLIFF (whole 20m range in the last 5m; monotone-worst at mc=1). Default 0.8. Infinity = off."
@@ -103,7 +104,6 @@ type Args =
             | Min_Prev_Close _ -> "Universe gate: PRIOR day's close in day-D raw (post-split) scale >= this (prev_adj_close/adj_ratio; knowable BEFORE the open). Default 0 = off. 2 = the >=$2 universe (sub-$1 priced out on every EU-accessible broker)."
             | Min_Barnum _ -> "⭐ S40e episode warmup: candidate barnum (prior-only ROW_NUMBER, live-knowable) >= this. Default 22 = cut the IPO/early-listing slice (below-book for the LONG book; reserved for a future short system). 0 = off. Column-guarded (legacy tables skip it)."
             | Max_Dist_1m _ -> "⭐ SPEC v1.9 (S40g): vwap/hi_60 - 1 < this — dist from the 1m HIGH; conjunction with the speed gate (the shallow slice above -2%% = slot thieves). Default -0.02. >= 0 = off."
-            | Max_Dist_Vw20m _ -> "⭐ SPEC v2.0 (S40h): vwap/vwap_1200 - 1 < this — must sit below the 20m rolling VWAP (trims the shallow dvw tail). Default -0.05. >= 0 = off."
             | Halt_Min_Run _ -> "⭐ S40x halt detector (record-only): a tradeless run >= this many seconds can classify as a HALT. Default 58."
             | Halt_Min_Rng_300 _ -> "⭐ S40x: pre-hole 5m range (ln hi/lo) >= this for the run to classify as a halt (the LULD trigger state). Default 0.04."
             | Halt_Max_Pre_Gap_60 _ -> "⭐ S40x: pre-hole ADJUSTED 1m gap < this (tape continuous up to the stop). Default 2."
@@ -140,7 +140,9 @@ let main argv =
                     MaxVolat20m      = parsed.GetResult(Max_Volat_20m,      defaultValue = d.Intraday.MaxVolat20m)
                     MaxSpeed1m       = parsed.GetResult(Max_Speed_1m,       defaultValue = d.Intraday.MaxSpeed1m)
                     MaxDist1mHi      = parsed.GetResult(Max_Dist_1m,        defaultValue = d.Intraday.MaxDist1mHi)
-                    MaxDistVw20m     = parsed.GetResult(Max_Dist_Vw20m,     defaultValue = d.Intraday.MaxDistVw20m)
+                    SsfLoBpm         = parsed.GetResult(Ssf_Lo,             defaultValue = d.Intraday.SsfLoBpm)
+                    SsfHiBpm         = parsed.GetResult(Ssf_Hi,             defaultValue = d.Intraday.SsfHiBpm)
+                    MaxDistLegVwap   = parsed.GetResult(Max_Dist_Leg_Vwap,  defaultValue = d.Intraday.MaxDistLegVwap)
                     HaltMinRunSec    = parsed.GetResult(Halt_Min_Run,       defaultValue = d.Intraday.HaltMinRunSec)
                     HaltMinRng300    = parsed.GetResult(Halt_Min_Rng_300,   defaultValue = d.Intraday.HaltMinRng300)
                     HaltMaxPreGap60  = parsed.GetResult(Halt_Max_Pre_Gap_60, defaultValue = d.Intraday.HaltMaxPreGap60)
@@ -150,8 +152,6 @@ let main argv =
                     AbsEff20Lo       = parsed.GetResult(Abs_Eff20_Lo,       defaultValue = d.Intraday.AbsEff20Lo)
                     AbsEff20Hi       = parsed.GetResult(Abs_Eff20_Hi,       defaultValue = d.Intraday.AbsEff20Hi)
                     MinAbsEff10m     = parsed.GetResult(Min_Abs_Eff_10m,    defaultValue = d.Intraday.MinAbsEff10m)
-                    DistHiLo         = parsed.GetResult(Dist_Hi_Lo,         defaultValue = d.Intraday.DistHiLo)
-                    DistHiHi         = parsed.GetResult(Dist_Hi_Hi,         defaultValue = d.Intraday.DistHiHi)
                     MinVol10Rate     = parsed.GetResult(Min_Vol10_Rate,     defaultValue = d.Intraday.MinVol10Rate)
                     MinLows300       = parsed.GetResult(Min_Lows_300,       defaultValue = d.Intraday.MinLows300)
                     MaxRngFront      = parsed.GetResult(Max_Rng_Front,      defaultValue = d.Intraday.MaxRngFront)
@@ -223,18 +223,18 @@ let main argv =
     printfn "  volat band  = volat_20m ∈ [%s, %s) bp/30s"
         (if ic.MinVolat20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVolat20m * 1e4))
         (if Double.IsPositiveInfinity ic.MaxVolat20m then "inf" else sprintf "%.0f" (ic.MaxVolat20m * 1e4))
-    printfn "  SPEC v2.1   = speed %s | d1m %s | dvw20 %s | rflow >= %s | K ∈ [%s, %s] | |eff20| ∈ [%s, %s) | |eff10| >= %s | dist-20m-hi ∈ [%s, %s) | vol10rate >= %s | lows300 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
+    printfn "  SPEC v2.2   = speed %s | d1m %s | ssf ∈ [%s, %s) bp/m | dlv %s | rflow >= %s | K ∈ [%s, %s] | |eff20| ∈ [%s, %s) | |eff10| >= %s | vol10rate >= %s | lows300 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
         (if ic.MaxSpeed1m >= 0.0 then "off" else sprintf "< %.0f%%/1m" (ic.MaxSpeed1m * 100.0))
         (if ic.MaxDist1mHi >= 0.0 then "off" else sprintf "< %.0f%%" (ic.MaxDist1mHi * 100.0))
-        (if ic.MaxDistVw20m >= 0.0 then "off" else sprintf "< %.0f%%" (ic.MaxDistVw20m * 100.0))
+        (if Double.IsNegativeInfinity ic.SsfLoBpm then "off" else sprintf "%.0f" ic.SsfLoBpm)
+        (if ic.SsfHiBpm >= 0.0 then "off" else sprintf "%.0f" ic.SsfHiBpm)
+        (if ic.MaxDistLegVwap >= 0.0 then "off" else sprintf "< %.0f%%" (ic.MaxDistLegVwap * 100.0))
         (if ic.MinRSinceFlow <= -1.0 then "off" else sprintf "%.2f" ic.MinRSinceFlow)
         (if ic.KBandLo <= 0 then "off" else string ic.KBandLo)
         (if ic.KBandHi <= 0 then "off" else string ic.KBandHi)
         (if ic.AbsEff20Lo <= 0.0 then "off" else sprintf "%.2f" ic.AbsEff20Lo)
         (if Double.IsPositiveInfinity ic.AbsEff20Hi then "off" else sprintf "%.2f" ic.AbsEff20Hi)
         (if ic.MinAbsEff10m <= 0.0 then "off" else sprintf "%.2f" ic.MinAbsEff10m)
-        (if Double.IsNegativeInfinity ic.DistHiLo then "off" else sprintf "%.0f%%" (ic.DistHiLo * 100.0))
-        (if ic.DistHiHi >= 0.0 then "off" else sprintf "%.0f%%" (ic.DistHiHi * 100.0))
         (if ic.MinVol10Rate <= 0.0 then "off" else sprintf "%.2fx" ic.MinVol10Rate)
         (if ic.MinLows300 <= 0 then "off" else string ic.MinLows300)
         (if Double.IsPositiveInfinity ic.MaxRngFront then "off" else sprintf "%.2f" ic.MaxRngFront)
