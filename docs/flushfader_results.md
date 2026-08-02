@@ -6981,9 +6981,8 @@ Decile tables (equal-n ≈ 3,036/bucket, v2.3 $1+ book 30,357 @ 2.53;
 dec 1 = most extreme). ⚠ dslo's deciles 1-5 are the 45% mass at exactly
 0 (ntile splits ties arbitrarily — year cells there are meaningless);
 dslo's lever form stays the S41p band table.
-|                     view                      |
-|-----------------------------------------------|
-| PF per decile (dec 1 = most extreme/negative) |
+**PF per decile (dec 1 = most extreme/negative):**
+
 | dec | speed | d1m  | dvw  | d20  | dlv  | dsf  | dhf  | dslo | dshi | dsv  | pah  | slope20 | slope10 | slope5 | ssf  | ssh  |
 |----:|------:|-----:|-----:|-----:|-----:|-----:|-----:|-----:|-----:|-----:|-----:|--------:|--------:|-------:|-----:|-----:|
 | 1   | 3.23  | 3.47 | 3.23 | 3.36 | 3.05 | 3.1  | 3.58 | 3.41 | 2.49 | 2.87 | 1.97 | 3.55    | 3.46    | 3.42   | 3.04 | 3.06 |
@@ -6996,9 +6995,9 @@ dslo's lever form stays the S41p band table.
 | 8   | 2.26  | 2.35 | 2.35 | 2.5  | 2.47 | 2.31 | 2.16 | 2.53 | 2.11 | 2.17 | 2.69 | 2.91    | 2.62    | 2.24   | 2.32 | 2.22 |
 | 9   | 2.49  | 2.62 | 2.44 | 2.37 | 2.18 | 2.13 | 2.92 | 3.46 | 2.19 | 2.27 | 3.06 | 2.06    | 2.28    | 2.15   | 2.71 | 2.32 |
 | 10  | 1.95  | 1.99 | 1.9  | 1.83 | 2.06 | 1.8  | 2.41 | 4.11 | 1.63 | 3.02 | 4.14 | 2.11    | 2.15    | 2.12   | 2.5  | 2.45 |
-|                    view                    |
-|--------------------------------------------|
-| decile LOWER edges (dec k hi = dec k+1 lo) |
+
+**Decile LOWER edges (dec k's hi = dec k+1's lo):**
+
 | dec | speed |  d1m  |  dvw  |  d20  |  dlv  |  dsf  |  dhf  | dslo | dshi  |  dsv  |  pah  | slope20 | slope10 | slope5 |  ssf   |  ssh   |
 |----:|------:|------:|------:|------:|------:|------:|------:|-----:|------:|------:|------:|--------:|--------:|-------:|-------:|-------:|
 | 1   | -20.5 | -21.1 | -39.6 | -74.8 | -33.4 | -57.1 | -68.8 | 0.0  | -85.2 | -86.5 | -75.4 | -344.3  | -363.3  | -399.8 | -374.3 | -345.2 |
