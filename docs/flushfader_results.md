@@ -6761,3 +6761,20 @@ On clean tape z_20m becomes a MONOTONE gradient (4.67 → 3.77 → 3.18 →
 it** (deep bands 0.22/0.41, mild band 10.26): the deep-z flush on clean
 tape = the bear-year knife. A graded clean-tape lens with a regime
 caveat (overlay material, sized down in bear regimes), not a gate.
+
+## S41s — ⭐⭐ SPEC v2.3 BAKED: z_20m < -1.5σ (the weak-dip trim) (2026-08-02)
+
+**SPEC v2.3 = v2.2 + `z_20m(log) < -1.5`** (user: "we're just trimming the
+edges" — the monotone g60 gradient earned it). Gate = (ln vwap − L)/σ_L on
+the 1200-bar window's own vw ln-moments (same sums as the recorded
+dlv_1200/dlv2_1200 — SQL twins); degenerate σ fails; `--max-z-20m`, >= 0 =
+off; the canonical base CLI gains `--max-z-20m 0`. NO new record cols —
+**base_v14 stays THE base** (predates the gate, identical universe).
+
+**`v23_reference/` = THE reference — GRAND PARITY ✓: engine 38,069 = SQL
+38,069, zero diff. Book 23,857 @ 2.569 → 23,424 @ 2.588** (years 4.79 /
+3.78 / 1.46 / 1.84 / 2.70 / 1.97 / 2.82 — 2024 and 2026 up, rest ~flat);
+**mc=1 3,548 @ 2.287** (2.268 → 2.287; ladder: … 2.217 → 2.268 →
+**2.287**). Both mc levels improve for −433 trips — a true edge trim,
+exactly as forecast from base_v14 (23,424 @ 2.588 / 3,548 @ 2.287 both
+matched pre-computation EXACTLY).

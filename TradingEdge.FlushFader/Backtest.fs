@@ -83,6 +83,9 @@ let defaultConfig =
           HaltMinRng300    = 0.04
           HaltMaxPreGap60  = 2
           MinRSinceFlow    = -0.95      // ⭐ SPEC v2.1 (S40y): the falling-knife gate
+          MaxZ20m          = -1.5       // ⭐ SPEC v2.3 (user, S41r): 20m vw-sigma z < -1.5 —
+                                        // trims the weak dip (429 @ 1.67; edge trim, both
+                                        // mc levels improve)
           KBandLo          = 26         // lows_since_first_low ∈ [26, 50] — THE 2022 fix
           KBandHi          = 50
           AbsEff20Lo       = 0.3        // ⭐ S40i redesign: |eff_20m| ∈ [0.3, 0.5) — the exhaustion

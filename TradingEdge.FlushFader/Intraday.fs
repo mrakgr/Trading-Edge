@@ -620,6 +620,13 @@ type IntradayConfig =
       HaltMinRunSec: int         // default 58 (LULD pause = 5min nominal; jitter tolerance)
       HaltMinRng300: float       // default 0.04 (the LULD trigger state, pre-hole)
       HaltMaxPreGap60: int       // default 2 (< 2 missing seconds in the pre-halt minute)
+      MaxZ20m: float             // ⭐ SPEC v2.3 (user, S41r): the 20m vw-sigma z (LOG space) < this —
+                                 // z = (ln vwap - L)/sigma_L on the 1200-bar window's own volume-
+                                 // weighted ln-price moments. Trims the WEAK DIP ([-1.5,-1) = 1.67
+                                 // full / 1.80 g60 — the flush that barely dents its own 20m
+                                 // dispersion; monotone on clean tape). Default -1.5. >= 0 = off.
+                                 // Cold/degenerate sigma FAILS an armed gate. (log vs normal =
+                                 // 0.997 — convention only.)
       MinRSinceFlow: float       // ⭐ SPEC v2.1 (user, S40y): r_since_flow >= this — reject the
                                  // PERFECT-LINE flush (the leg one clean regression line since
                                  // its first low = a drift, not a capitulation; the falling-knife
@@ -1425,6 +1432,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             cfg.MinRSinceFlow <= -1.0
             || (let r = olsSinceFlow.R
                 not (Double.IsNaN r) && r >= cfg.MinRSinceFlow)
+        // ⭐ SPEC v2.3 (S41r): same ln-moment sums as the recorded dlv_1200/dlv2_1200.
+        let z20Ok =
+            cfg.MaxZ20m >= 0.0
+            || (match dlvSum1200.State, dlv2Sum1200.State, volSum1200.State with
+                | ValueSome dl, ValueSome dl2, ValueSome v
+                    when volSum1200.Count = volSum1200.WindowSize && v > 0.0 ->
+                    let mean = dl / v
+                    let var = dl2 / v - mean * mean
+                    var > 0.0 && (log bar.vwap - mean) / sqrt var < cfg.MaxZ20m
+                | _ -> false)
         // ⭐ SPEC v2.2 (S41c/d): the leg-native pair. Same slope/leg-cum sources
         // as the recorded ols_slope_since_flow and dv_leg/vol_leg (SQL twins).
         let ssfOk =
@@ -1497,7 +1514,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             || (match ols300.State with
                 | ValueSome m when ols300.Count = ols300.WindowSize -> m * 6e5 >= cfg.MinSlope5Bpm
                 | _ -> false)
-        let specOk = speedOk && d1mOk && ssfOk && dlvOk && rsfOk && kBandOk && eff20BandOk && eff10Ok && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
+        let specOk = speedOk && d1mOk && ssfOk && dlvOk && rsfOk && z20Ok && kBandOk && eff20BandOk && eff10Ok && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && specOk && this.HasSlot then
             pendingEntry <-
                 ValueSome
