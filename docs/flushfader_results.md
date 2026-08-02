@@ -6188,3 +6188,50 @@ on continuous tape the open print ≈ the 15m vwap; the anchor only matters
 where the print is noise — exactly the illiquid tape. **ROSTER: d0945 >= 2
 replaces pco >= 2 as the standalone day-structure overlay** (pco stays
 recorded); inside the gap60 stack either form works.
+
+## S41j — the d0945 cutoff sweep + d0945 × pco grid (2026-08-02)
+
+**User: does d0945 have to be >= 2?** Cumulative sweep on the v2.2 book:
+
+| d0945 >= x | n | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| -6 | 7,444 | 2.929 | 77.3 | 9.08 | 4.59 | 1.49 | 1.5 | 2.35 | 2.03 | 8.2 |
+| -4 | 6,500 | 3.092 | 77.9 | 9.1 | 5.45 | 1.87 | 1.45 | 2.39 | 2.12 | 10.74 |
+| -2 | 5,759 | 3.329 | 78.5 | 10.24 | 5.68 | 1.91 | 1.65 | 2.44 | 2.37 | 12.58 |
+| 0 | 5,042 | 3.524 | 78.5 | 9.63 | 5.34 | 2.13 | 2.02 | 2.42 | 2.58 | 12.05 |
+| 2 | 4,475 | 3.903 | 79.0 | 8.91 | 4.92 | 2.67 | 2.3 | 2.97 | 2.84 | 14.1 |
+| ⭐ 4 | 4,093 | 4.058 | 79.3 | 8.68 | 5.02 | 2.75 | 2.35 | 3.27 | 2.97 | 14.23 |
+| 6 | 3,674 | 4.042 | 78.9 | 7.86 | 4.04 | 2.67 | 2.58 | 3.27 | 3.0 | 18.95 |
+| 8 | 3,268 | 4.045 | 78.4 | 6.96 | 3.98 | 2.61 | 3.21 | 3.29 | 2.68 | 19.6 |
+| 10 | 2,888 | 3.77 | 77.3 | 6.01 | 4.06 | 2.62 | 2.97 | 3.16 | 2.39 | 21.5 |
+| 12 | 2,621 | 3.643 | 76.5 | 5.69 | 3.66 | 2.75 | 2.92 | 2.97 | 2.32 | 21.44 |
+
+**PF climbs monotonically to a PLATEAU at >= 4 (4.06, flat through >= 8),
+rolls off at >= 10. ⭐ d0945 >= 4 = THE overlay cutoff** (4,093 @ 4.058,
+every year >= 2.35; the [2,4) increment = 382 @ ~2.6 marginal).
+
+**The d0945 × pco grid (n @ PF; rows = d0945, cols = pco):**
+
+| d0945 \ pco | < -2 | [-2,2) | [2,10) | >= 10 |
+|---|---|---|---|---|
+| < -10 | 12,813 @ 2.42 | 301 @ 1.07 | 353 @ 2.67 | 328 @ 3.53 |
+| [-10,-4) | 2,451 @ 2.02 | 443 @ 3.62 | 489 @ 4.5 | 179 @ 6.09 |
+| [-4,-2) | 243 @ 1.77 | 187 @ 1.6 | 183 @ 1.47 | 128 @ 5.29 |
+| [-2,0) | 143 @ 1.96 | 151 @ 1.49 | 251 @ 1.89 | 172 @ 10.38 |
+| [0,2) | 83 @ 1.97 | 83 @ 2.83 | 232 @ 1.87 | 169 @ 1.3 |
+| [2,4) | 39 @ 23.97 | 47 @ 2.2 | 178 @ 3.04 | 118 @ 1.59 |
+| [4,8) | 50 @ 159.13 | 76 @ 12.3 | 335 @ 2.29 | 364 @ 5.98 |
+| [8,12) | 0 | 15 @ 24.53 | 168 @ 11.49 | 451 @ 6.26 |
+| >= 12 | 15 @ 34.23 | 22 @ 1.32 | 64 @ 4.52 | 2,520 @ 3.63 |
+
+**READING:** the mass sits on the agreement diagonal (both-deep 12,813 @
+2.42; both-high 2,520 @ 3.63); the DISAGREEMENT cells carry the signal:
+above-anchor-but-red-print (d>=4 × pco<2) = tiny-n gold (50 @ 159, 76 @
+12.3 — flushes that already reclaimed the participation anchor on a red-
+print day); big-green-print-but-below-anchor (d<0 × pco>=10) = strong
+(5-10) — a deep flush off a strong day; and **the failed-reclaim cell
+(d0945 ∈ [0,4) × pco >= 10 = 287 @ ~1.4) = the weak spot**: a big green
+day whose price is stuck hovering AT the 15m vwap = distribution, not
+capitulation. The threshold form d0945 >= 4 stays the roster rule
+(simple, plateau-backed); the grid cells are census-thin for anything
+finer.
