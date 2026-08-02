@@ -7075,3 +7075,52 @@ rank/decile space or PF space (the S41x calibration itself) rather than
 raw %; the S41u regime-switch (dhf at the low / dslo above) remains the
 clean two-feature form. Volatility noted as the missing family (volat_20m
 recorded since v1.1 — queued for the lever program).
+
+## S41z — the VOLATILITY family calibrated: it's the price family in disguise (2026-08-02)
+
+Members (dec 1 = HIGHEST): v20 = volat_20m (bp/30s, the locked driver),
+v10 twin, vr = v10/v20 (trajectory), v20p = volat_20m_prev (pre-window
+level), vchg = v20/v20p (expansion), rng20/rngsess/rsl20 (ln-ranges %).
+Intra-family corr: v20 ↔ v10 = 0.982, ↔ rng20 = 0.844, rng20 ↔ rsl20 =
+0.969 — one axis + derived ratios.
+
+**PF per decile (dec 1 = highest):**
+
+| dec | v20 | v10 | vr | v20p | vchg | rng20 | rngsess | rsl20 |
+|----:|----:|----:|---:|-----:|-----:|------:|--------:|------:|
+| 1 | 4.13 | 4.0 | 2.76 | 2.66 | 2.5 | 3.36 | 3.5 | 3.44 |
+| 2 | 2.53 | 2.55 | 2.8 | 2.71 | 2.71 | 2.78 | 2.82 | 2.68 |
+| 3 | 2.19 | 2.34 | 2.55 | 2.11 | 2.97 | 2.99 | 3.34 | 2.85 |
+| 4 | 2.52 | 2.81 | 2.47 | 2.56 | 2.41 | 2.22 | 2.43 | 2.49 |
+| 5 | 2.55 | 2.06 | 2.86 | 2.86 | 2.95 | 2.38 | 2.59 | 2.14 |
+| 6 | 2.14 | 2.51 | 2.56 | 3.23 | 2.62 | 2.32 | 2.01 | 1.9 |
+| 7 | 2.54 | 2.12 | 2.19 | 2.51 | 3.05 | 2.16 | 2.79 | 3.21 |
+| 8 | 2.15 | 2.31 | 3.28 | 1.92 | 2.6 | 2.52 | 2.09 | 2.36 |
+| 9 | 2.7 | 2.62 | 2.12 | 2.53 | 2.37 | 2.36 | 2.06 | 2.49 |
+| 10 | 1.93 | 2.0 | 2.08 | 2.32 | 1.65 | 1.83 | 1.79 | 1.81 |
+
+**Decile LOWER edges:**
+
+| dec | v20 | v10 | vr | v20p | vchg | rng20 | rngsess | rsl20 |
+|----:|----:|----:|---:|-----:|-----:|------:|--------:|------:|
+| 1 | 140.2 | 130.3 | 1.04 | 186.9 | 1.09 | 25.3 | 69.4 | 21.9 |
+| 2 | 115.7 | 108.8 | 1.01 | 146.5 | 1.01 | 21.3 | 53.8 | 18.3 |
+| 3 | 101.5 | 95.2 | 0.98 | 121.7 | 0.96 | 18.8 | 43.9 | 15.9 |
+| 4 | 91.3 | 86.5 | 0.97 | 107.4 | 0.93 | 17.0 | 36.8 | 14.4 |
+| 5 | 83.3 | 79.1 | 0.95 | 95.1 | 0.89 | 15.5 | 31.7 | 13.1 |
+| 6 | 76.6 | 72.8 | 0.93 | 84.0 | 0.85 | 14.2 | 27.4 | 11.9 |
+| 7 | 69.4 | 66.5 | 0.92 | 74.4 | 0.81 | 13.0 | 23.4 | 10.8 |
+| 8 | 61.8 | 59.7 | 0.89 | 64.9 | 0.76 | 11.8 | 19.5 | 9.8 |
+| 9 | 53.5 | 52.4 | 0.87 | 54.8 | 0.68 | 10.5 | 15.9 | 8.5 |
+| 10 | 40.0 | 35.6 | 0.73 | 7.9 | 0.17 | 5.5 | 7.3 | 4.0 |
+
+**CROSS-FAMILY PLACEMENT: v20 ↔ d20a = 0.829** (↔ speed 0.40, ↔ dslo
+0.23, ↔ rp_vol −0.014, ↔ gap_60 −0.24) — on a book of 20m flushes, the
+20m |r|-EmaMa IS the flush's size: **volatility is NOT a separate lever
+family; v20 joins the price family** (as arguably its best member — dec1
+> 140bp = 4.13, the family's top extreme cell; dec10 hugging the 40bp
+floor = 1.93 the drag). The derived members are DEAD (vr trajectory /
+v20p pre-level = flat noise) except one avoid: **vchg dec10 (vol
+COLLAPSED to < 0.68x its pre-window level) = 1.65**. Perfectly
+orthogonal to participation (rp_vol −0.014) — the rp × v20-hot
+conjunction is the natural next cross-family probe.
