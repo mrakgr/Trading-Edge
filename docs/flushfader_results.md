@@ -7465,3 +7465,10 @@ faster than the 1m clock. speed (1m) stays THE near-term feature.
 canonical base command is now `FF_CANDIDATE_TABLE=flushfader_base_tkds
 <binary> --base-run --out-dir ...` — new gates default OFF in the base
 by construction.
+
+**S42h coverage note (user):** on the g60 book (11,577 / 1,774 tkds) the
+5-voice union fires on **6,431 trips = 55.5% (965 tkds = 54.4%),
+capturing 69.1% of the book's net points**; the >= 2-vote core = 4,813 =
+41.6% of trips (702 tkds) with 54.5% of net points. The zero-vote
+remainder (5,146 @ 2.79) stays positive — the base-size floor under the
+vote tiers.
