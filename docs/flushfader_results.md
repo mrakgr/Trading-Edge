@@ -7383,3 +7383,22 @@ sweet band (3.21 / 1,037 tkds, all years >= 1.3), then the
 — a bar crashing >1% through the prior 20m low = the crash
 accelerating), then the terminal < -2.5 blow-off recovers (3.33/85).
 **The d1s voice moves to < -0.75: +93% trips AND +0.26 PF vs < -1.**
+
+**S42g addendum — d1s < -0.5 and its complement on g60 (user; real-money
+universe): THE VOICE IS NULL ON CLEAN TAPE.**
+
+| universe | side | n | tkds | PF | win% | 2022 |
+|---|---|---|---|---|---|---|
+| g60 < 4 | d1s < -0.5 | 1,957 | 908 | **3.78** | 79.3 | 1.05 |
+| g60 < 4 | complement >= -0.5 | 9,620 | 1,711 | **3.78** | 78.5 | 7.19 |
+| FULL | d1s < -0.5 | 5,625 | 2,645 | 2.68 | 74.4 | 1.15 |
+| FULL | complement | 24,732 | 4,559 | 2.49 | 74.2 | 1.76 |
+
+On the clean-tape book the voice and complement are IDENTICAL (3.78 =
+3.78 = the g60 book PF — zero separation at ANY shallow threshold; the
+S42g g60 plateau was book-level all along), and the voice CONCENTRATES
+the bear wart (2022 = 1.05 vs 7.19). On the full book it's +0.19 at
+best. **d1s DROPS from the g60 voice list** — the breach depth is
+mildly informative on holey tape only; its S42c weakest-voice showing
+is now fully explained. (The terminal < -2.5 g60 sliver 4.78/32 tkds =
+playbook anecdote.)
