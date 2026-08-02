@@ -6667,3 +6667,44 @@ liquidity axis. (b) as a STACK on the clean book it now EARNS: +0.095
 mc=0 / **+0.167 mc=1** for −234 slot-trips, all years positive, 2022 =
 4.91 — in S41b the same stack added +0.004 (nothing). **|esf| > 0.25 =
 a clean-tape STACKING lens (A-tier), not a spec gate.**
+
+## S41r — vwap z-scores (session/5m/10m/20m, log vs normal): shape ratios, one family member, one avoid (2026-08-02)
+
+**User: z-scores vs the session/5m/10m/20m vwaps; log or normal space?**
+Engine: 12 raw-moment cols baked (Σv·p², Σv·ln p, Σv·(ln p)² per window;
+record-only — z math in SQL; **base_v14 = THE base, `v22_z/` = THE working
+parquet**, zero-diff 38,760). ⚠ HOUSE LESSON: **DuckDB `log()` is BASE-10
+— use `ln()`**; the first pass mixed log10(price) against natural-log
+moments and produced −30σ medians (caught by the sanity row: σ_l must ≈
+σ_n/V on every trip).
+
+**Findings:** (a) **log vs normal: corr 0.997/0.996 — the space choice is
+IRRELEVANT** at intraday dispersions; log kept for convention. (b) The z
+ranges are tame (session median −2.16σ ∈ [−5.7, 1.2]; z20 median −2.11 ∈
+[−4.2, −0.7]) and **the windows' z's are mutually ~ORTHOGONAL (0.045-
+0.05) and near-independent of the raw distances (z20 ↔ dvw = 0.075)** —
+dividing by each window's own vw-σ turns correlated distances into
+independent SHAPE ratios; z20 in particular ≈ (dist below 20m vwap)/
+(flush size) — the spec's gates already pin it into a narrow band.
+(c) **z_sess = another day-structure family member** (corr 0.696 with
+dslo, 0.558 with dsv): the g60 gradient runs 2.29 (< −3, 2022 = 0.52) →
+4.3-4.6 at [−2,−0.5) — the cushion story again, weaker than dslo's own
+table; no new seat. (d) One avoid sliver: **z20 ∈ [−1.5,−1) = 429 @
+1.673 / 153 tkds** (the flush that barely dented its own 20m dispersion).
+
+| z_sess (log), g60 | n | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| < -3 | 578 | 2.286 | 67.8 | 24.21 | 29.37 | 0.52 | 1.51 | 6.43 | 1.5 | 1.8 |
+| [-3,-2.5) | 1,573 | 3.372 | 76.9 | 8.87 | 6.13 | 9.82 | 3.15 | 3.91 | 2.53 | 2.23 |
+| [-2.5,-2) | 2,164 | 3.476 | 79.8 | 11.28 | 4.3 | 8.44 | 1.98 | 1.74 | 3.39 | 8.51 |
+| [-2,-1.5) | 1,251 | 4.315 | 77.2 | 4.07 | 5.39 | 24.3 | 5.17 | 16.0 | 2.13 | 5.81 |
+| [-1.5,-1) | 965 | 3.772 | 79.9 | 8.6 | 4.12 | 8.51 | 8.87 | 4.39 | 1.4 | 33.63 |
+| [-1,-0.5) | 1,106 | 4.595 | 78.7 | 15.79 | 4.27 | 6.39 | 1.73 | 4.94 | 3.32 | 14.14 |
+| [-0.5,0) | 709 | 3.874 | 83.1 | 187.4 | 11.88 | 0.58 | 3.21 | 9.78 | 1.75 | 23.46 |
+| >= 0 | 931 | 3.935 | 79.1 | 4.9 | 4.14 | 3.16 | 6.97 | 1.9 | 3.92 | 15.18 |
+
+(Full-book z_sess and z20 tables in the run; z_sess full-book gradient
+2.3-2.7 deep → 3.1-3.5 shallow; z20 mild deeper-is-better.) **VERDICT:
+the σ-cloud z adds no new seat — its session form re-derives the cushion
+axis, its window forms are spec-pinned shape ratios; keep the z20
+[−1.5,−1) avoid + the raw moments (free for future normalizers).**

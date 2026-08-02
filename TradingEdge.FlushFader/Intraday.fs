@@ -359,6 +359,19 @@ type FlushPosition =
       BarsPresent: int           // its denominator (present bars this session)
       SessLow: float             // S41p: the raw session extremes (dist-from-session-low =
       SessHigh: float            // signal_vwap/sess_low - 1 = the GRADED above-low measure)
+      // S41q: z-score raw moments (session + 5m/10m/20m; normal + log space).
+      SessDv2: float
+      SessDlv: float
+      SessDlv2: float
+      Dv2300: float
+      Dlv300: float
+      Dlv2300: float
+      Dv2600: float
+      Dlv600: float
+      Dlv2600: float
+      Dv21200: float
+      Dlv1200: float
+      Dlv21200: float
       // S40x: the halt-ADJUSTED gap family (halt intervals excluded) + detector state.
       GapAdj60: int
       GapAdj300: int
@@ -771,6 +784,18 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let volSum3000 = SumMa 3000
     let volSum3600 = SumMa 3600
     let dvSum1200 = SumMa 1200                   // Σ vwap·volume over 20m — the 20m rolling VWAP
+    // ⭐ S41q (user): z-score raw moments — Σv·p², Σv·ln p, Σv·(ln p)² per window
+    // (both NORMAL- and LOG-space vw-σ derivable post-hoc; ln(vwap) != vw-mean of
+    // ln p so log space needs its own first moment). Record-only.
+    let dv2Sum300 = SumMa 300
+    let dlvSum300 = SumMa 300
+    let dlv2Sum300 = SumMa 300
+    let dv2Sum600 = SumMa 600
+    let dlvSum600 = SumMa 600
+    let dlv2Sum600 = SumMa 600
+    let dv2Sum1200 = SumMa 1200
+    let dlvSum1200 = SumMa 1200
+    let dlv2Sum1200 = SumMa 1200
     // ----- the locked volatility block -----
     let slots = SlotVwapMa cfg.SlotBars
     let ew40 = EmaHlMa 40.0                      // volat_20m — THE driver (F7 lock)
@@ -874,6 +899,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // the (running) session vwap + the present-bar denominator. Session-scoped.
     let mutable barsAboveSvwap = 0
     let mutable barsPresent = 0
+    // S41q session second moments (see the SumMa block for the window twins)
+    let mutable cumDv2 = 0.0
+    let mutable cumDlv = 0.0
+    let mutable cumDlv2 = 0.0
     // ⭐ S40l tier-2 (S38i): target exits FILLED before this bar — the day-scoped
     // virgin flag becomes queryable (targets_today = 0 <=> virgin).
     let mutable targetsToday = 0
@@ -988,6 +1017,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             vol0945Tape <- vol0945Tape + bar.volume
         cumTc <- cumTc + float bar.tradeCount
         cumDv <- cumDv + bar.vwap * bar.volume
+        let lnp = log bar.vwap
+        cumDv2 <- cumDv2 + bar.vwap * bar.vwap * bar.volume
+        cumDlv <- cumDlv + lnp * bar.volume
+        cumDlv2 <- cumDlv2 + lnp * lnp * bar.volume
         if cumVol > 0.0 && bar.vwap > cumDv / cumVol then barsAboveSvwap <- barsAboveSvwap + 1
         gap60.Push bar.etSec
         gap30.Push bar.etSec
@@ -1044,6 +1077,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         tcSum1200.Push (float bar.tradeCount)
         dvSum60.Push (bar.vwap * bar.volume)
         dvSum300.Push (bar.vwap * bar.volume)
+        dv2Sum300.Push (bar.vwap * bar.vwap * bar.volume)
+        dlvSum300.Push (log bar.vwap * bar.volume)
+        dlv2Sum300.Push (log bar.vwap * log bar.vwap * bar.volume)
         pxSum600.Push bar.vwap
         pxSum1200.Push bar.vwap
         pxSum1800.Push bar.vwap
@@ -1051,6 +1087,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         pxSum3000.Push bar.vwap
         pxSum3600.Push bar.vwap
         dvSum600.Push (bar.vwap * bar.volume)
+        dv2Sum600.Push (bar.vwap * bar.vwap * bar.volume)
+        dlvSum600.Push (log bar.vwap * bar.volume)
+        dlv2Sum600.Push (log bar.vwap * log bar.vwap * bar.volume)
         dvSum1800.Push (bar.vwap * bar.volume)
         dvSum2400.Push (bar.vwap * bar.volume)
         dvSum3000.Push (bar.vwap * bar.volume)
@@ -1060,6 +1099,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         volSum3000.Push bar.volume
         volSum3600.Push bar.volume
         dvSum1200.Push (bar.vwap * bar.volume)
+        dv2Sum1200.Push (bar.vwap * bar.vwap * bar.volume)
+        dlvSum1200.Push (log bar.vwap * bar.volume)
+        dlv2Sum1200.Push (log bar.vwap * log bar.vwap * bar.volume)
         // the minute-lag chains feed only WARM 60-sums (1 push per bar after
         // warmup keeps .Lagged = the value ending exactly 60 bars ago)
         if volSum60.Count = 60 then
@@ -1572,6 +1614,18 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       BarsPresent = barsPresent
                       SessLow = (match sessLow.State with ValueSome l -> l | ValueNone -> nan)
                       SessHigh = (match sessHigh.State with ValueSome h -> h | ValueNone -> nan)
+                      SessDv2 = cumDv2
+                      SessDlv = cumDlv
+                      SessDlv2 = cumDlv2
+                      Dv2300 = vv dv2Sum300.State
+                      Dlv300 = vv dlvSum300.State
+                      Dlv2300 = vv dlv2Sum300.State
+                      Dv2600 = vv dv2Sum600.State
+                      Dlv600 = vv dlvSum600.State
+                      Dlv2600 = vv dlv2Sum600.State
+                      Dv21200 = vv dv2Sum1200.State
+                      Dlv1200 = vv dlvSum1200.State
+                      Dlv21200 = vv dlv2Sum1200.State
                       GapAdj60 = adjGap60
                       GapAdj300 = adjGap300
                       GapAdj600 = adjGap600
