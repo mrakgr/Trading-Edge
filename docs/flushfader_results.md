@@ -7057,3 +7057,21 @@ UP-monotones = pah (deep-red-day 1.97 → mega-runner 4.14) and dslo; dshi
 4.14, dhf-dec1 3.58, slope20-dec1 3.55, d1m-dec1 3.47, ssf-dec2 3.46.
 ⏭ build the per-trip MAX-PF transform over these calibrations and
 validate (rank realized PF by predicted tier; mc=1).
+
+## S41y — the |d20a| + dslo composite (user curiosity) (2026-08-02)
+
+score = |d20a| + dslo (both in %). **Scale imbalance: corr(score, dslo)
+= 0.969 vs corr(score, |d20a|) = 0.381** — dslo's range (0..+600 for
+mega-runners) dwarfs |d20a|'s (5..75), so the raw sum ≈ dslo with a
+d20a tilt. Full-book deciles: top two (score >= 37.6) = 4.15 / 4.18,
+middle sag, dec9 = 1.87 (the retest trap re-expressed). g60 deciles
+noisy non-monotone.
+
+**The one real gain: score >= 37.6 = 6,072 @ 4.16 (all years >= 1.8) vs
+dslo-top-decile 3,035 @ 4.11 — SAME PF, DOUBLE the trips** (the d20a
+tilt admits deep-leg trips with moderate cushion; iso-PF trip-efficiency
+win). For honest composition the parts need a common scale first —
+rank/decile space or PF space (the S41x calibration itself) rather than
+raw %; the S41u regime-switch (dhf at the low / dslo above) remains the
+clean two-feature form. Volatility noted as the missing family (volat_20m
+recorded since v1.1 — queued for the lever program).
