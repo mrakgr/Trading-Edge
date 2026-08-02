@@ -6745,3 +6745,19 @@ record):**
 the σ-cloud z adds no new seat — its session form re-derives the cushion
 axis, its window forms are spec-pinned shape ratios; keep the z20
 [−1.5,−1) avoid + the raw moments (free for future normalizers).**
+
+**S41r addendum — z_20m (log) on the g60 book (user):**
+
+| z_20m (g60) | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| < -3 | 60 | 7.35 | 73.3 | +3.96 | — | 41.29 | 0.22 | — | 23.1 | 3.08 | — |
+| [-3,-2.5) | 1,181 | 4.671 | 79.9 | +2.82 | 20.15 | 8.9 | 0.41 | 8.2 | 10.73 | 2.73 | 4.08 |
+| [-2.5,-2) | 4,690 | 3.773 | 79.3 | +2.41 | 10.74 | 6.4 | 3.84 | 2.25 | 2.86 | 2.91 | 3.64 |
+| [-2,-1.5) | 3,176 | 3.178 | 77.0 | +2.26 | 5.75 | 3.83 | 10.26 | 3.18 | 2.27 | 1.83 | 8.48 |
+| ⚠ [-1.5,-1) | 170 | 1.803 | 62.4 | +1.5 | 0.79 | 1.57 | — | 0.99 | 3.31 | 1.86 | 2.94 |
+
+On clean tape z_20m becomes a MONOTONE gradient (4.67 → 3.77 → 3.18 →
+1.80; the weak-dip avoid confirms at 170/50 tkds) — but **2022 INVERTS
+it** (deep bands 0.22/0.41, mild band 10.26): the deep-z flush on clean
+tape = the bear-year knife. A graded clean-tape lens with a regime
+caveat (overlay material, sized down in bear regimes), not a gate.
