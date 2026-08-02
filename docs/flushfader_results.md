@@ -6922,3 +6922,41 @@ the g60 [10,25) trough (2.53 w/ 2022-23 < 0.8) and 2024 = 1.76 in the
 top cell (its known soft year). nh12 >= 650 in-band = 7/7 losers
 (degenerate ultra-distributed corner). ⭐ the ladder for the max-PF
 sizing scheme: rp-band 4.6 → ×g60 8.4-10.2 → ×g12<5 17.5.
+
+## S41w — speed × the rp ladder: CROSS-FAMILY STACKS ARE CLEAN (2026-08-02)
+
+**User: put flush speed on top of the rp × liquidity ladder.**
+
+| speed within rp band (3,314) | n | tkds | PF | win% | 2024 |
+|---|---|---|---|---|---|
+| [-3.5,-2) | 1,812 | 508 | 3.548 | 77.6 | 2.35 |
+| [-5,-3.5) | 932 | 266 | 4.484 | 77.8 | 5.0 |
+| [-8,-5) | 462 | 142 | 9.008 | 84.8 | 2.76 |
+| < -8 | 108 | 30 | 19.004 | 79.6 | 254.9 |
+
+| speed within rp × g60<4 (1,300) | n | tkds | PF | win% |
+|---|---|---|---|---|
+| [-3.5,-2) | 617 | 173 | 5.454 | 79.7 |
+| [-5,-3.5) | 390 | 115 | 8.637 | 83.6 |
+| [-8,-5) | 217 | 65 | 16.728 | 88.0 |
+| < -8 | 76 | 20 | 34.875 | 81.6 |
+
+| speed within rp × g60<2 (984) | n | tkds | PF | win% |
+|---|---|---|---|---|
+| [-3.5,-2) | 465 | 126 | 5.561 | 81.3 |
+| [-5,-3.5) | 276 | 86 | 18.649 | 90.2 |
+| [-8,-5) | 177 | 48 | 15.006 | 87.6 |
+| < -8 | 66 | 15 | 40.453 | 83.3 |
+
+(Full year columns in the run tables; 2022-23 in the upper tiers are
+mostly loss-free (NULL PF); the recurring soft pockets are 2024.)
+
+**READING — WHY this stack is clean where the price-lever grids were
+noise:** rp (participation shape) × gap (tape quality) × speed (violence)
+are three DIFFERENT families, mutually near-orthogonal — their
+conjunctions multiply (3.5 → 9.0 → 16.7 → 34.9 with censuses 508 → 142 →
+65 → 20 tkds); the S41u dhf × speed grid was two PRICE-family levers
+re-measuring the same drop geometry, hence the variance. **ARCHITECTURE
+RULE for the max-PF sizing scheme: take MAX within a family, MULTIPLY
+across families.** The tradable mid-rungs: rp × speed [-8,-5) = 462 @
+9.0 / 142 tkds; rp × g60<4 × speed [-5,-3.5) = 390 @ 8.6 / 115 tkds.
