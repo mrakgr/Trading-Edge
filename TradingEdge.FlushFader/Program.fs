@@ -60,6 +60,7 @@ type Args =
     | Halt_Max_Pre_Gap_60 of int
     | Min_R_Since_Flow of float
     | Max_Z_20m of float
+    | Base_Run
     // ----- sampler vs book -----
     | Max_Concurrent of int
     | Workers of int
@@ -110,6 +111,7 @@ type Args =
             | Halt_Max_Pre_Gap_60 _ -> "⭐ S40x: pre-hole ADJUSTED 1m gap < this (tape continuous up to the stop). Default 2."
             | Min_R_Since_Flow _ -> "⭐ SPEC v2.1 (S40y): ols_r_since_flow >= this — reject the PERFECT-LINE flush (the falling-knife quantifier; < -0.95 = 1.22). Default -0.95. <= -1 = off."
             | Max_Z_20m _ -> "⭐ SPEC v2.3 (S41r): 20m vw-sigma z (ln space) < this — trims the weak dip [-1.5,-1). Default -1.5. >= 0 = off."
+            | Base_Run -> "⭐ THE BASE PASS: turn EVERY spec gate OFF in one flag (speed/d1m/ssf/dlv/rflow/z20/K/eff20/eff10/vol10rate/lows300/rngfront/accel/slope20/slope5/dv0945tape). Keeps the SIGNAL definition (volat >= 40bp, 20m low, channel warm, barnum >= 22, entry window). Explicit gate flags still override. Replaces the 17-flag canonical base CLI (S42h; a wrong sentinel here once cost 540k trips silently)."
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: unlimited concurrent positions — every new low opens another trip, so it AVERAGES DOWN. Removes path dependency (every trip = an independent row) but PF is then ATTRIBUTION, not a portfolio number. 1 = a real book."
             | Workers _ -> "S39h: parallel day-workers (default: cores - 2). Trip SET is identical at any worker count; parquet row order is not."
             | Entry_Start_Sec _ -> "Earliest ET second (since midnight) an entry may fire. Default 35100 = 09:45 — the knowability floor itself (the old 10:00 was a VwapReclaim-era throwback). ⚠ Must be >= 35100."
@@ -130,6 +132,22 @@ let main argv =
     let endDate   = parsed.GetResult(End_Date,   defaultValue = "2026-07-17") |> parseDate
 
     let d = defaultConfig
+    // ⭐ --base-run: the per-gate OFF sentinels (see each config field's doc).
+    let baseRun = parsed.Contains Base_Run
+    let dI =
+        if not baseRun then d.Intraday
+        else
+            { d.Intraday with
+                MaxSpeed1m = 0.0; MaxDist1mHi = 0.0
+                SsfLoBpm = Double.NegativeInfinity; SsfHiBpm = 0.0
+                MaxDistLegVwap = 0.0; MinRSinceFlow = -1.0; MaxZ20m = 0.0
+                KBandLo = 0; KBandHi = 0
+                AbsEff20Lo = 0.0; AbsEff20Hi = Double.PositiveInfinity
+                MinAbsEff10m = 0.0; MinVol10Rate = 0.0; MinLows300 = 0
+                MaxRngFront = Double.PositiveInfinity
+                MinAccel1020Bpm = Double.NegativeInfinity
+                MaxSlope20Bpm = 0.0; MinSlope5Bpm = Double.NegativeInfinity
+                MinDv0945Tape = 0.0 }
     let cfg =
         { d with
             Intraday =
@@ -140,28 +158,28 @@ let main argv =
                     TcFloor60        = parsed.GetResult(Tc_Floor_60,        defaultValue = d.Intraday.TcFloor60)
                     MinVolat20m      = parsed.GetResult(Min_Volat_20m,      defaultValue = d.Intraday.MinVolat20m)
                     MaxVolat20m      = parsed.GetResult(Max_Volat_20m,      defaultValue = d.Intraday.MaxVolat20m)
-                    MaxSpeed1m       = parsed.GetResult(Max_Speed_1m,       defaultValue = d.Intraday.MaxSpeed1m)
-                    MaxDist1mHi      = parsed.GetResult(Max_Dist_1m,        defaultValue = d.Intraday.MaxDist1mHi)
-                    SsfLoBpm         = parsed.GetResult(Ssf_Lo,             defaultValue = d.Intraday.SsfLoBpm)
-                    SsfHiBpm         = parsed.GetResult(Ssf_Hi,             defaultValue = d.Intraday.SsfHiBpm)
-                    MaxDistLegVwap   = parsed.GetResult(Max_Dist_Leg_Vwap,  defaultValue = d.Intraday.MaxDistLegVwap)
+                    MaxSpeed1m       = parsed.GetResult(Max_Speed_1m,       defaultValue = dI.MaxSpeed1m)
+                    MaxDist1mHi      = parsed.GetResult(Max_Dist_1m,        defaultValue = dI.MaxDist1mHi)
+                    SsfLoBpm         = parsed.GetResult(Ssf_Lo,             defaultValue = dI.SsfLoBpm)
+                    SsfHiBpm         = parsed.GetResult(Ssf_Hi,             defaultValue = dI.SsfHiBpm)
+                    MaxDistLegVwap   = parsed.GetResult(Max_Dist_Leg_Vwap,  defaultValue = dI.MaxDistLegVwap)
                     HaltMinRunSec    = parsed.GetResult(Halt_Min_Run,       defaultValue = d.Intraday.HaltMinRunSec)
                     HaltMinRng300    = parsed.GetResult(Halt_Min_Rng_300,   defaultValue = d.Intraday.HaltMinRng300)
                     HaltMaxPreGap60  = parsed.GetResult(Halt_Max_Pre_Gap_60, defaultValue = d.Intraday.HaltMaxPreGap60)
-                    MinRSinceFlow    = parsed.GetResult(Min_R_Since_Flow,    defaultValue = d.Intraday.MinRSinceFlow)
-                    MaxZ20m          = parsed.GetResult(Max_Z_20m,          defaultValue = d.Intraday.MaxZ20m)
-                    KBandLo          = parsed.GetResult(K_Band_Lo,          defaultValue = d.Intraday.KBandLo)
-                    KBandHi          = parsed.GetResult(K_Band_Hi,          defaultValue = d.Intraday.KBandHi)
-                    AbsEff20Lo       = parsed.GetResult(Abs_Eff20_Lo,       defaultValue = d.Intraday.AbsEff20Lo)
-                    AbsEff20Hi       = parsed.GetResult(Abs_Eff20_Hi,       defaultValue = d.Intraday.AbsEff20Hi)
-                    MinAbsEff10m     = parsed.GetResult(Min_Abs_Eff_10m,    defaultValue = d.Intraday.MinAbsEff10m)
-                    MinVol10Rate     = parsed.GetResult(Min_Vol10_Rate,     defaultValue = d.Intraday.MinVol10Rate)
-                    MinLows300       = parsed.GetResult(Min_Lows_300,       defaultValue = d.Intraday.MinLows300)
-                    MaxRngFront      = parsed.GetResult(Max_Rng_Front,      defaultValue = d.Intraday.MaxRngFront)
-                    MinAccel1020Bpm  = parsed.GetResult(Min_Accel_1020,     defaultValue = d.Intraday.MinAccel1020Bpm)
-                    MaxSlope20Bpm    = parsed.GetResult(Max_Slope_20m,      defaultValue = d.Intraday.MaxSlope20Bpm)
-                    MinSlope5Bpm     = parsed.GetResult(Min_Slope_5m,       defaultValue = d.Intraday.MinSlope5Bpm)
-                    MinDv0945Tape    = parsed.GetResult(Min_Dv_0945_Tape,   defaultValue = d.Intraday.MinDv0945Tape)
+                    MinRSinceFlow    = parsed.GetResult(Min_R_Since_Flow,    defaultValue = dI.MinRSinceFlow)
+                    MaxZ20m          = parsed.GetResult(Max_Z_20m,          defaultValue = dI.MaxZ20m)
+                    KBandLo          = parsed.GetResult(K_Band_Lo,          defaultValue = dI.KBandLo)
+                    KBandHi          = parsed.GetResult(K_Band_Hi,          defaultValue = dI.KBandHi)
+                    AbsEff20Lo       = parsed.GetResult(Abs_Eff20_Lo,       defaultValue = dI.AbsEff20Lo)
+                    AbsEff20Hi       = parsed.GetResult(Abs_Eff20_Hi,       defaultValue = dI.AbsEff20Hi)
+                    MinAbsEff10m     = parsed.GetResult(Min_Abs_Eff_10m,    defaultValue = dI.MinAbsEff10m)
+                    MinVol10Rate     = parsed.GetResult(Min_Vol10_Rate,     defaultValue = dI.MinVol10Rate)
+                    MinLows300       = parsed.GetResult(Min_Lows_300,       defaultValue = dI.MinLows300)
+                    MaxRngFront      = parsed.GetResult(Max_Rng_Front,      defaultValue = dI.MaxRngFront)
+                    MinAccel1020Bpm  = parsed.GetResult(Min_Accel_1020,     defaultValue = dI.MinAccel1020Bpm)
+                    MaxSlope20Bpm    = parsed.GetResult(Max_Slope_20m,      defaultValue = dI.MaxSlope20Bpm)
+                    MinSlope5Bpm     = parsed.GetResult(Min_Slope_5m,       defaultValue = dI.MinSlope5Bpm)
+                    MinDv0945Tape    = parsed.GetResult(Min_Dv_0945_Tape,   defaultValue = dI.MinDv0945Tape)
                     VolStopRatio     = parsed.GetResult(Vol_Stop_Ratio,     defaultValue = d.Intraday.VolStopRatio)
                     TcStopRatio      = parsed.GetResult(Tc_Stop_Ratio,      defaultValue = d.Intraday.TcStopRatio)
                     SpeedStopPct     = parsed.GetResult(Speed_Stop_Pct,     defaultValue = d.Intraday.SpeedStopPct)
@@ -226,6 +244,7 @@ let main argv =
     printfn "  volat band  = volat_20m ∈ [%s, %s) bp/30s"
         (if ic.MinVolat20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVolat20m * 1e4))
         (if Double.IsPositiveInfinity ic.MaxVolat20m then "inf" else sprintf "%.0f" (ic.MaxVolat20m * 1e4))
+    (if parsed.Contains Base_Run then printfn "  mode        = ⭐ BASE RUN — every spec gate OFF (signal definition only)")
     printfn "  SPEC v2.3   = speed %s | d1m %s | ssf ∈ [%s, %s) bp/m | dlv %s | rflow >= %s | z20 < %s | K ∈ [%s, %s] | |eff20| ∈ [%s, %s) | |eff10| >= %s | vol10rate >= %s | lows300 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
         (if ic.MaxSpeed1m >= 0.0 then "off" else sprintf "< %.0f%%/1m" (ic.MaxSpeed1m * 100.0))
         (if ic.MaxDist1mHi >= 0.0 then "off" else sprintf "< %.0f%%" (ic.MaxDist1mHi * 100.0))
