@@ -7423,3 +7423,19 @@ removing d1s's noise votes).** The knife moves to nfire >= 3 in 2022
 (0.54/0.66). Engine: `vwap_5_prev`/`vwap_10_prev` baked (dv twins +
 non-overlapping lags mirroring vwap_60_prev; record-only) for the 5s/
 10s flush-speed study — base_v15 + v23_fast running.
+
+**S42h addendum — the 5s/10s flush speeds: F7 REASSERTS (2026-08-03).**
+`vwap_5_prev`/`vwap_10_prev` baked (**base_v15 = THE base, `v23_fast/` =
+THE working parquet**, zero-diff 38,069). s5 ↔ s60 corr 0.49, s10 ↔ s60
+0.61, s5 ↔ s10 0.85; medians −0.96 / −1.44%. **On g60 BOTH are FLAT
+noise across deciles (s5 3.13-4.92, s10 3.2-5.32, no gradient) and the
+fastest decile carries the bear wart (dec1 2022 = 0.48 / 0.29 — below
+the 3.78 book)** — the sub-30s scale rule (F7: microstructure noise)
+holds even for volume-weighted 5/10-bar vwap changes: no near-term voice
+faster than the 1m clock. speed (1m) stays THE near-term feature.
+
+**--base-run VERIFIED:** one-month window (2024-01), flag vs the
+17-flag hand CLI: **17,251 = 17,251, zero diff both directions.** The
+canonical base command is now `FF_CANDIDATE_TABLE=flushfader_base_tkds
+<binary> --base-run --out-dir ...` — new gates default OFF in the base
+by construction.
