@@ -9035,3 +9035,86 @@ usual concentration trade, and left as a user decision.
 improve a construction, first run the construction WITHOUT the feature
 and WITHOUT its predecessor. Both times, the credit belonged to a
 deletion.
+
+
+## S43d — the TANDEM test: speed and pah are REDUNDANT, not bad (user challenge) (2026-08-03)
+
+User, twice: (1) "test whether speed actually contributes in tandem with
+the other features", (2) "Pah is a deletion? Shouldn't it give a
+benefit at >= 28%?" **Both challenges land. S43c's verdicts survive but
+its REASONING was wrong — neither feature is bad; both are redundant.**
+
+### speed IN TANDEM (g60, $1+, NO vote pre-filter)
+
+| other voices | speed ON n / PF / avg% | speed OFF n / PF / avg% |
+|-------------:|------------------------|-------------------------|
+| 0 | 239 / **1.79** / +1.34 | 3,428 / 2.50 / +1.27 |
+| 1 | 390 / **7.09** / +3.44 | 2,176 / 4.30 / +1.88 |
+| 2 | 383 / 5.61 / +3.46 | 2,085 / 5.61 / +2.29 |
+| 3 | 319 / 5.24 / +3.57 | 1,114 / 6.46 / +2.63 |
+| 4 | 136 / 4.81 / +3.18 | 439 / 6.26 / +3.02 |
+| 5 | 103 / 3.26 / +2.32 | 205 / 2.74 / +2.07 |
+
+**Speed-on trips have a HIGHER AVERAGE RETURN at every single level**
+(+50-80% at levels 1-3). "Speed dilutes" was wrong: it marks
+higher-VARIANCE, higher-MEAN trades — bigger wins and bigger losses,
+which raises avg% while often lowering PF. Pairwise it is a genuine
+confirmer: **speed x haltband = 11.90** (378) vs haltband alone 5.16;
+speed x d20a 6.95 vs 5.94.
+
+**Why it still leaves the roster:** at a >= 1 bar a voice's ONLY
+contribution is the trips it admits ALONE — those 239 at 1.79. The
+tandem trips are already in the book via their other voices. **Keeping
+speed in the roster does not buy the tandem benefit; you already have
+it.** In the traded 6-voice book speed-on = 475 trips @ **+2.68% avg**
+vs +1.92 (PF 3.77 vs 4.09, win 77.5 vs 79.1) — a legitimate but
+AMBIGUOUS sizing input (size up for expectancy, down for smoothness).
+
+### pah IN ISOLATION — the user was right, the threshold is book-wrong
+
+| band | FULL book PF | g60 book PF |
+|------|-------------:|------------:|
+| <0 | 2.31 | 3.73 |
+| [0,10) | 2.28 | 2.91 |
+| **[10,20)** | 2.60 | **6.50** |
+| [20,28) | 2.31 | 3.26 |
+| [28,45) | **3.28** | 4.16 |
+| [45,80) | **3.42** | 5.02 |
+| >=80 | **4.14** | 4.72 |
+| (book) | 2.544 | 4.003 |
+
+On the FULL book pah is cleanly monotone above 28 (3.28/3.42/4.14 vs
+book 2.544) — the >= 28 threshold is well calibrated THERE. **On g60 it
+is not monotone**: the >= 28 cells sit barely above the 4.00 book while
+the best cell is **[10,20) = 6.50** (1,538 trips, 297 tkds, every year
+>= 2.79). The threshold was calibrated on a book we no longer trade.
+
+**But re-thresholding does not rescue it as a VOICE** (mc=3; no-pah =
+3,207 @ 3.702):
+
+| variant | n | PF | solo trips | solo PF |
+|---------|--:|---:|-----------:|--------:|
+| pah >= 28 (current) | 3,261 | 3.613 | 169 | 1.84 |
+| pah [10,20) | 3,435 | 3.576 | 590 | 3.67 |
+| **pah >= 45** | **3,207** | **3.702** | **0** | — |
+| **pah >= 80** | **3,207** | **3.702** | **0** | — |
+
+⭐ **At >= 45 the voice NEVER FIRES ALONE — it is identical to deleting
+it, to the trip.** Every high-pah trip is already admitted by another
+voice. Below 45 the trips it uniquely adds are weak (1.84 at >= 28) or
+merely below-book (3.67 at [10,20) vs the 4.92 mc=0 book).
+
+**Corrected verdict: pah is REDUNDANT, not bad.** Its signal is real
+and already captured; as an admitter it can only add what the others
+declined. Out of the roster, feature retained (the g60 [10,20) cell is
+a sizing candidate).
+
+### The rule this establishes
+
+**A voice earns its seat ONLY by the quality of the trips it admits
+ALONE.** A feature can be genuinely predictive, genuinely confirming in
+tandem, and still worth nothing as a voice — because at a >= 1 bar the
+vote is a UNION and everything else it touches is already in the book.
+That is the third time today a feature's apparent contribution
+dissolved under the right control (v20/S42x, lowdens/S43c, and now
+speed and pah).
