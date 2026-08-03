@@ -9516,3 +9516,97 @@ and its trough is deeper (1.77 vs 2.76). The extra two days of context
 blur the signal rather than sharpen it. ⚠ Both are thin at the tails
 and the 2022 columns are mostly NULL/0 — these are SIZING tiers, not
 gates.
+
+
+## S43j — the deep-flush book by YEAR: 2022 is ONE ticker-day, not a regime (2026-08-03)
+
+User: "2022 was negative for it, right? I imagine that in a bear market
+like it, there weren't many large gainers that this method prefers."
+**Half right on the fact, and the mechanism is REJECTED by the data.**
+
+### 1. The deep-flush book by year (mc=0)
+
+| yr | n | tkds | n_lose | PF | win% | avg% | med% | worst | net pts |
+|----|--:|-----:|-------:|---:|-----:|-----:|-----:|------:|--------:|
+| 2020 | 157 | 35 | 21 | 20.19 | 86.6 | +4.42 | +4.83 | -3.9 | +694 |
+| 2021 | 161 | 37 | 37 | 7.06 | 77.0 | +3.24 | +2.96 | -7.9 | +522 |
+| **2022** | **32** | **9** | 8 | **1.16** | 75.0 | **+0.48** | +4.30 | **-28.1** | **+16** |
+| 2023 | 120 | 27 | 39 | 3.30 | 67.5 | +2.43 | +1.81 | -10.3 | +291 |
+| 2024 | 291 | 65 | 46 | 6.15 | 84.2 | +3.74 | +3.37 | -21.9 | +1,087 |
+| 2025 | 343 | 80 | 60 | 4.53 | 82.5 | +2.79 | +3.12 | -15.9 | +957 |
+| 2026 | 259 | 52 | 40 | 7.42 | 84.6 | +4.21 | +3.68 | -10.3 | +1,091 |
+
+⚠ **Correction to the question:** at mc=0 2022 is marginally POSITIVE
+(1.16 / +0.48% / +16 pts), not negative. It reads negative at mc=3
+(0.717 / -1.34%) because the slot selector concentrates into the bad
+day. Note also the median trip in 2022 is **+4.30%** — the HIGHEST
+median of any year. The mean is dragged below it.
+
+### 2. ⭐ THE MIX TEST — the hypothesis is REJECTED
+
+chg_1d band composition, % of each year's deep flushes:
+
+| yr | %down | %[0,25) | %[25,150) AVOID | %[150,400) | **%>=400 BEST** | median chg_1d |
+|----|------:|--------:|----------------:|-----------:|----------------:|--------------:|
+| 2020 | 4.5 | 3.8 | 21.0 | 10.8 | **59.9** | 1,429 |
+| 2021 | 9.3 | 7.5 | 30.4 | 8.1 | 44.7 | 197 |
+| **2022** | 15.6 | 3.1 | 15.6 | 6.3 | **59.4** | **931** |
+| 2023 | 11.7 | 11.7 | 25.8 | 8.3 | 42.5 | 163 |
+| 2024 | 5.5 | 6.2 | 26.1 | 11.7 | 50.5 | 487 |
+| 2025 | 2.6 | 7.9 | 30.9 | 21.9 | 36.7 | 210 |
+| 2026 | 8.5 | 8.1 | 35.5 | 25.5 | **22.4** | 144 |
+
+**2022 had the SECOND-HIGHEST share of >=400% runners (59.4%) and the
+second-highest median chg_1d (931%)** — and the whole g60 universe
+agrees, even more strongly:
+
+| yr | universe n | %>=400 | median chg_1d |
+|----|-----------:|-------:|--------------:|
+| 2020 | 1,801 | 50.1 | 456 |
+| 2021 | 2,203 | 49.9 | 385 |
+| **2022** | **539** | **62.0** | **1,321** |
+| 2023 | 881 | 48.0 | 243 |
+| 2024 | 1,824 | 43.8 | 204 |
+| 2025 | 2,546 | 31.1 | 111 |
+| 2026 | 1,289 | 18.7 | 79 |
+
+**2022 has the HIGHEST runner share and the HIGHEST median move of any
+year in this universe.** The bear market shrank the universe hard (539
+trips vs 1,800-2,500) but the names that DID qualify were the most
+extreme of the whole sample — 2022 was the year of the violent microcap
+squeeze (HKD/AMTD is in the book). **Fewer opportunities, not tamer
+ones.** The scarcity is real; the "no large gainers" mechanism is not.
+
+### 3. So where did 2022 actually go? ONE ticker-day.
+
+Every 2022 ticker-day in the deep-flush book:
+
+| symbol | date | n | med chg_1d | losers | worst | net pts |
+|--------|------|--:|-----------:|-------:|------:|--------:|
+| **ENSV** | 2022-03-08 | 3 | 156 | 3 | **-28.1** | **-81.2** |
+| BSFC | 2022-01-21 | 2 | 234,768 | 2 | -6.8 | -13.4 |
+| NRSN | 2022-06-29 | 1 | 0 | 1 | -3.3 | -3.3 |
+| TMC | 2022-03-08 | 4 | 34 | 0 | +1.0 | +5.4 |
+| KALA | 2022-12-28 | 5 | 16,633 | 2 | -0.7 | +8.5 |
+| SPRC | 2022-11-07 | 2 | 584,142 | 0 | +4.1 | +8.8 |
+| ATXI | 2022-09-23 | 2 | 4,037 | 0 | +9.5 | +21.3 |
+| **HKD** | 2022-09-21 | 5 | **-8** | 0 | +5.0 | +30.8 |
+| SST | 2022-04-08 | 8 | 932 | 0 | +4.1 | +38.7 |
+
+| 2022 | n | tkds | PF | avg% | net pts |
+|------|--:|-----:|---:|-----:|--------:|
+| as-is | 32 | 9 | 1.16 | +0.48 | +16 |
+| **minus ENSV 03-08 only** | 29 | 8 | **6.43** | **+3.33** | **+97** |
+
+**ENSV 2022-03-08 alone (3 trips) is -81 points against a +16 year.**
+Remove that one ticker-day and 2022 is 6.43 / +3.33%/trip — an ordinary
+good year. Seven of nine 2022 ticker-days were profitable.
+
+⭐ And note **HKD 2022-09-21**: median chg_1d **-8%** — the INTO-SUPPORT
+case (S43i) — 5 trips, zero losers, +30.8 pts, the second-best day of
+the year. The into-support cell worked in the bear too.
+
+**Conclusion: 2022's deep-flush weakness is a 9-ticker-day sample with
+one bad day in it, not a regime effect.** The honest statement is
+SCARCITY (32 trips vs 157-343), and scarcity is exactly what should be
+expected when the universe shrinks 70%.
