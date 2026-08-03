@@ -8740,3 +8740,88 @@ raw material — the bar stays at 2.
 ⏭ To move the FLOOR the levers are regime detection (the optimal vote
 threshold is demonstrably regime-dependent in BOTH directions — S42x)
 or position sizing. Not the vote bar.
+
+
+## S43 — ⭐⭐ THE VOLUME FAMILY: rp_vol x gap_1200 = the sizing ladder (2026-08-03)
+
+Two decisions from the user first: **the vote bar drops to >= 1** (2 and
+3 reserved as a future sizing lever), and the three remaining volume
+features get **separate treatment — NOT voices**, because they are
+volume/liquidity facts, not extremity facts.
+
+**THE NEW DEFAULT BOOK (v2.6, g60, votes >= 1, $1+):** mc=0 7,655 @
+4.923 · **mc=1 1,294 @ 3.434 · mc=2 2,371 @ 3.527 · mc=3 3,261 @ 3.613**
+(avg% +1.81/+1.87/+1.92, worst year 2025 @ 2.53-2.63).
+
+### Are these three features ONE thing or THREE?
+
+| pair | corr |
+|------|-----:|
+| gap_1200 vs n_eff_shannon_1200 | **-0.535** |
+| gap_1200 vs rp_vol | 0.156 |
+| n_eff_shannon_1200 vs rp_vol | **-0.062** |
+| n_eff_shannon_1200 vs v20 | 0.471 |
+| rp_vol vs v20 | -0.039 |
+
+**gap_1200 and n_eff are family-mates** (-0.535 — holes and effective
+trade count are the same fact twice); **rp_vol is independent of both
+AND of volatility.** Per the S41w architecture rule (max WITHIN a
+family, MULTIPLY across), that means: pick ONE of {gap, n_eff}, and
+rp_vol multiplies with it.
+
+### The three, each alone (mc=1 / mc=3 on the default book)
+
+| lens | mc=1 | mc=3 |
+|------|------|------|
+| (none) | 1,294 @ 3.434 | 3,261 @ 3.613 |
+| **rp_vol >= 0.8** | 457 @ **5.286** | 1,131 @ **6.174** |
+| gap_1200 < 15 | 515 @ 4.431 | 1,331 @ 4.642 |
+| n_eff extremes (dec 1-2 or 9-10) | 563 @ 3.879 | 1,389 @ 4.217 |
+| **rp_vol >= 0.8 AND gap_1200 < 15** | **157 @ 14.957** | **398 @ 16.631** |
+
+**n_eff loses on both counts** — weakest alone AND it is 0.471
+correlated with v20 (a volatility proxy wearing a volume costume).
+**Dropped.** gap_1200 keeps the family seat.
+
+**rp_vol is the find.** Its band table is a step function, not a
+gradient: <0.6 = 4.51 · [0.6,0.8) = **3.22** · [0.8,1.0) = **9.81** ·
+[1.0,1.5) = 9.26 · [1.5,2.5) = 12.15. The threshold at 0.8 is sharp
+and the mechanism is clean: **rp_vol >= 0.8 means volume is SUSTAINED
+into the flush** (the leg trades at >= 80% of the pre-leg rate) rather
+than drying up. A flush on evaporating volume is a different animal
+from a flush the crowd is actually participating in.
+
+gap_1200 is NON-monotone with a swamp: 0 = 6.60 · [1,5) = 6.61 ·
+[5,15) = 5.31 · **[15,40) = 2.70** · [40,100) = 4.43 · >=100 = 5.90 —
+the same cliff/swamp/recovery shape gap_60 shows (S41h).
+
+### ⭐ The stack multiplies, and it is all-weather
+
+mc=3, rp_vol >= 0.8 AND gap_1200 < 15: **398 @ 16.631**, +3.14% avg,
+85.7% win — by year **20.10 / 23.74 / 127.56 / inf / 10.10 / 13.41 /
+14.57 (2020..2026)**. Every year >= 10.
+
+⚠ **But it is THIN and lumpy**: 157 tkds over 7 years at mc=0, with
+2023 = 4 tkds / 10 trips and 2022 = 9 tkds; AIXI 2026-04-08 alone
+supplies 25 trips and half of 2026's mc=0 points. It is a real edge on
+a small population — which is exactly why it belongs in SIZING, not in
+the entry logic.
+
+### ⭐⭐ THE VOLUME SIZING LADDER (the deliverable)
+
+Split the TRADED mc=3 book by the two surviving features:
+
+| tier | n | tkds | % of book | PF | win% | avg% | 2022 | net pts |
+|------|--:|-----:|----------:|---:|-----:|-----:|-----:|--------:|
+| **A — both** (rp>=0.8 AND gap<15) | 357 | 143 | 10.9 | **15.29** | 85.7 | +3.09 | 127.56 | 1,102 |
+| B — one of the two | 1,635 | 629 | 50.1 | 3.76 | 77.5 | +1.95 | 5.30 | 3,193 |
+| C — neither | 1,269 | 486 | 38.9 | 2.69 | 76.5 | +1.56 | 2.55 | 1,976 |
+
+A clean monotone ladder on 11% / 50% / 39% of the book, with PF 15.3 /
+3.8 / 2.7 and 2022 holding at every tier. **This is the volume family's
+job: it does not choose WHETHER to trade, it chooses HOW BIG.**
+
+⏭ The two sizing dimensions are now independent and both calibrated:
+**vote count** (1 / 2 / 3, S42z) and **volume tier** (A / B / C).
+Crossing them is the natural next step — and per S41w they should
+multiply, since extremity and liquidity are different families.
