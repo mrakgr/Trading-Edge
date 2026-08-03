@@ -9124,7 +9124,9 @@ speed and pah).
 
 User: "instead of the distance to arming high from OPEN, can we try
 distance to arming high from SESSION LOW? The g60 book is more volatile
-so that might be throwing off the threshold."
+so that might be throwing off the threshold." (The feature in question
+uses `chan_hi` = the rolling 20m channel high — see the terminology fix
+below.)
 
 **First, an algebraic simplification worth recording:**
 
@@ -9133,10 +9135,27 @@ so that might be throwing off the threshold."
         = chan_hi / open - 1
 
 The signal price CANCELS. pah was never a composite — it is purely
-**the arming high above the day's OPEN**. The proposed swap is
+**the 20m CHANNEL HIGH above the day's open**. The proposed swap is
 therefore exactly: change the anchor from `open` to `sess_low`.
 
     dhl = chan_hi / sess_low - 1
+
+⚠ **TERMINOLOGY FIX (user caught, same day): `chan_hi` is NOT the
+"arming high".** It is `ChanHi` = *the strictly-prior ENTRY-channel max
+at the signal* (Intraday.fs:318), and `EntryChannelBars = 1200`, so it
+is the **rolling ~20-minute channel high, recomputed every bar**. The
+ARMING high is a different, FROZEN quantity — `d_hi_flow`, captured at
+the leg's first low (S41e) — and that is what feeds `d20a`. The two are
+related but not the same; the S43d/S43e prose said "arming high" where
+it meant "20m channel high". The MEASUREMENTS are unaffected (every
+query used the `chan_hi` column), only the label was wrong.
+
+**Both halves of the simplification were verified, not just derived:**
+`PctChgOpen = bar.vwap / openVwap - 1` where `openVwap` = the first-RTH-bar
+vwap (Intraday.fs:1777), so `(1+pco) = signal_vwap/open`. And
+`signal_vwap/(1+pct_chg_open)` is **constant within every one of 4,061
+multi-trip ticker-days — max relative spread 0.0** — confirming the
+anchor is a fixed session open rather than anything rolling.
 
 ### The family is one feature
 
