@@ -8825,3 +8825,98 @@ job: it does not choose WHETHER to trade, it chooses HOW BIG.**
 **vote count** (1 / 2 / 3, S42z) and **volume tier** (A / B / C).
 Crossing them is the natural next step — and per S41w they should
 multiply, since extremity and liquidity are different families.
+
+
+## S43b — n_eff settled (it INTERACTS, it does not compose) + lowdens joins the SIZING ladder (2026-08-03)
+
+### n_eff conditioned on gap_1200 < 5 (user: "I think I saw that they
+### do compose in one earlier test, but others say they don't")
+
+Holding the gap confound fixed (2,298 trips, 341 tkds):
+
+| pair | corr inside gap<5 |
+|------|------------------:|
+| **shannon vs hhi** | **0.955** |
+| shannon vs gap_1200 | -0.324 |
+| hhi vs gap_1200 | -0.213 |
+| shannon vs v20 | 0.392 |
+| **hhi vs v20** | **0.483** |
+| shannon / hhi vs rp_vol | 0.104 / 0.036 |
+
+**Shannon and HHI are the same feature** (0.955) — no choosing between
+them. Conditioning removes some of the gap entanglement but the
+VOLATILITY entanglement survives (0.39-0.48): n_eff is a v20 proxy
+wearing a volume costume, in both flavours.
+
+Neither is monotone inside gap<5 (shannon quintiles 5.83 / 4.66 /
+**11.24** / 6.39 / 7.26; hhi 5.25 / 6.18 / 6.20 / **13.86** / 6.00),
+and BOTH have their top quintile decaying in 2026 (0.53 each).
+
+**⭐ Why the user remembers contradictory results — the SIGN FLIPS:**
+
+| | hhi < 400 | hhi >= 400 |
+|---|---|---|
+| rp_vol < 0.8 | 4.03 | **6.01** (higher is better) |
+| rp_vol >= 0.8 | **32.42** | 23.79 (higher is WORSE) |
+
+That is an INTERACTION, not a composition. Against the clean
+benchmark — **rp_vol >= 0.8 alone inside gap<5 = 623 @ 26.97** —
+adding `hhi >= 400` LOWERS it to 23.79. n_eff earns no seat; it only
+re-slices rp_vol with an unstable sign. **Both flavours retired.**
+
+⚠ Note `gap_1200 < 5` is regime-selective: 11 tkds in 2022 and 8 in
+2023 (vs 47-89 elsewhere). That is why its year columns read NULL —
+census, not performance.
+
+### lowdens (S40k) = lows_since_first_low / bars_since_first_low
+
+| band | n | tkds | n_lose | PF | avg% |
+|------|--:|-----:|-------:|---:|-----:|
+| <0.10 | 6,633 | 1,077 | 1,302 | 4.61 | 2.35 |
+| [0.10,0.15) | 646 | 156 | 133 | 5.86 | 2.57 |
+| [0.15,0.20) | 237 | 57 | 29 | **12.55** | 2.97 |
+| [0.20,0.30) | 111 | 26 | 7 | **28.10** | 4.45 |
+| [0.30,0.45) | 28 | 4 | 0 | **∞** | 4.96 |
+
+**Monotone and steep.** Correlations: v20 **-0.056**, speed 0.018,
+dslo -0.035 — genuinely independent of the price/vol voices. But
+**esf 0.783** and **bars_since_first_low -0.682**: lowdens is
+essentially INVERSE LEG DURATION (K is gated to [26,50], so lows/bars
+is ~1/bars), and it is an esf FAMILY-MATE.
+
+**As a VOICE it fails three ways** (default book, mc=1 / mc=3):
+
+| construction | mc=1 | mc=3 |
+|---|---|---|
+| 8-voice base | 1,294 @ 3.434 | 3,261 @ **3.613** |
+| + lowdens as a 9th voice | 1,302 @ 3.422 | 3,284 @ 3.600 |
+| family-OR (esf OR lowdens) | 1,295 @ 3.409 | 3,264 @ 3.584 |
+| swap esf -> lowdens >= 0.15 | 1,105 @ 3.558 | 2,816 @ **3.804** |
+
+ADDING it does nothing (redundant at corr 0.783). The FAMILY-OR is
+worse — at a >= 1 bar, widening any voice only dilutes. Only the SWAP
+improves (+0.19 PF, 5 of 7 years better, floor unchanged at 2.65) and
+it costs 14% of trips. **Marginal; not taken** — the user chose >= 1
+precisely for volume.
+
+### ⭐⭐ Where lowdens DOES belong — the sizing ladder
+
+lowdens is independent of the volume family (rp 0.147, gap -0.022, hhi
+0.167), so it MULTIPLIES with it. The 3-way grid shows it rescues the
+weak volume tiers: B 4.94 -> **23.20**, C 3.49 -> **10.71** (and, as
+with n_eff, it INVERTS inside the strongest volume cell: A 35.84 ->
+16.24 — high-lowdens adds nothing to tape that is already perfect).
+
+**THE CONSOLIDATED SIZING LADDER (default book, mc=0):**
+
+| tier | rule | n | tkds | % book | PF | win% | avg% | 2022 |
+|------|------|--:|-----:|-------:|---:|-----:|-----:|-----:|
+| **1 TOP** | lowdens >= 0.15 **OR** (rp>=0.8 AND gap<15) | 1,077 | 203 | 14.1 | **26.52** | 90.0 | +3.62 | 13.00 |
+| **2 MID** | rp>=0.8 **OR** gap_1200<15 | 3,656 | 625 | 47.8 | **4.94** | 79.8 | +2.44 | 8.02 |
+| **3 BASE** | neither | 2,922 | 509 | 38.2 | **3.49** | 78.6 | +1.98 | 2.86 |
+
+26.5 / 4.9 / 3.5 across 14% / 48% / 38% of the book, monotone in PF,
+win%, avg% AND 2022. Three independent families now feed it — price
+extremity (the vote), liquidity (rp_vol x gap_1200), and leg geometry
+(lowdens) — which is why the top tier reaches 26.5 without any single
+feature doing the work.
