@@ -1536,8 +1536,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     let var = dl2 / v - mean * mean
                     var > 0.0 && (log bar.vwap - mean) / sqrt var < cfg.MaxZ20m
                 | _ -> false)
-        // ⭐ SPEC v2.4 (S42n): the cascade-knife gate — no fading the LULD
+        // ⭐ SPEC v2.4/v2.5: the cascade-knife gate — no fading the LULD
         // elevator. Mirrors the recorded halts_today / secs_since_halt exactly.
+        //
+        // REJECT is  (ht>=3 & ssh<20m) OR (ht>=1 & ssh<2m), so accept is its
+        // De Morgan dual — a CONJUNCTION, one clause per veto:
+        //     (ht<3 OR ssh>=20m)  AND  (ht=0 OR ssh>=2m)          [ssh<0 <=> ht=0]
+        // ⚠ NOT a disjunction of accepts. `(ht>=3 & ssh>=20m) OR (ht>=1 &
+        // ssh>=2m) OR ht=0` looks equivalent and is NOT: the weaker second
+        // clause is satisfied by ht>=3 names too, so it re-admits every
+        // serial breaker at ssh in [2m,20m) — 568 trips, the PF~1.5 core of
+        // exactly what the v2.4 knife exists to remove.
         let cascadeOk =
             let ssh = if lastHaltEnd < 0 then -1 else bar.etSec - lastHaltEnd
             // v2.4 — the serial-breaker knife: ht >= N inside W of a resume.
