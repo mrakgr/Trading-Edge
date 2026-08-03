@@ -8051,3 +8051,88 @@ cell (59 trips, no losers) suggests the knife is really "serial breaker
 AND locally sparse". It is 7 ticker-days across 2023-2026 — far too
 thin to carve a gate exception from, and doing so would be textbook
 overfitting. Recorded for a future look if the cell grows.
+
+
+## S42r — ⭐ the halt count MEASURED: bar-indexed windowed count built, day count wins by 47x (2026-08-03)
+
+S42q answered the windowed-vs-day question with a PROXY (halt SECONDS
+bucketed at 400s). User caught it, then specified the right design
+twice: count halts in the last 1200 **BARS** (not seconds), and use a
+**SumMa of a per-bar indicator** (not interval scanning).
+
+**Implementation** (`halts_1200` / `halts_600`, record-only): 1 into a
+`SumMa` on every bar that classifies a halt, 0 otherwise — the rolling
+sum IS the count, O(1), the same shape as the existing
+`big_gap_runs_1200`. **Bar-indexed is the load-bearing choice:** a halt
+REMOVES seconds from the tape, so a wall-clock window shrinks exactly
+when a cascade is running (a 300s pause eats 25% of a 1200s window) —
+the first, wall-clock version degenerated to 0/1 everywhere. The bar
+window stretches back THROUGH the holes, where the cascade lives.
+
+Probe validation (every boundary independent): ssh <10m -> (1,1);
+ssh [10,20m) -> (**1,0**) — inside the 1200-bar window, outside the
+600; ssh [20,40m) -> (0,0); CYN 2025-06-26 with 15 halts but 1.8h
+since resume -> 0. Bake `v23_hcount/` (--cascade-halt-count 0) =
+**GRAND PARITY 38,069 exact vs v23_vs, zero ret diff.**
+
+**The windowed count DOES reach >=2** (the wall-clock one never did):
+191 trips / 32 tkds over 7 years — 109 at 2, 71 at 3, 11 at 4.
+
+### THE MEASURED ANSWER — golden window (ssh [5,20m), g60)
+
+| definition | n | tkds | PF | win% | avg% |
+|------------|--:|-----:|---:|-----:|-----:|
+| **DAY count = 1 (what we trade)** | 224 | 34 | **142.58** | 93.8 | +4.93 |
+| WINDOWED count = 1 (the proposal) | 607 | 87 | **3.01** | 75.6 | +2.39 |
+| the trips windowed-only ADDS | 383 | 53 | **1.48** | 65.0 | +0.90 |
+
+**A 47x collapse.** (S42q's proxy estimated 422 trips @ 1.55 -> blended
+2.56; measured is 383 @ 1.48 -> 3.01. The proxy verdict was right and
+is now MEASURED.)
+
+### Why — the windowed count cannot see the difference
+
+Recently-resumed trips (ssh<20m, g60), by BOTH features:
+
+| windowed | day count | n | tkds | PF | avg% |
+|----------|-----------|--:|-----:|---:|-----:|
+| = 1 | ht<=2 | 270 | 42 | **59.04** | +4.36 |
+| = 1 | ht>=3 | 364 | 51 | **1.46** | +0.92 |
+| >= 2 | ht<=2 | 2 | 1 | NULL | +6.01 |
+| >= 2 | ht>=3 | 102 | 15 | **5.44** | +4.36 |
+
+`windowed = 1` contains BOTH the best population (59.04) and the worst
+(1.46) — it cannot separate them; the DAY count does, perfectly. The
+day count is a statement about the NAME ("clean stock that had one
+event" vs "serial breaker"); the windowed count is a statement about
+the last 20 minutes of tape, which both populations share.
+
+Also measured: the **acute** cascade (windowed >= 2) is GOOD — 102 @
+5.44 / +4.36%. This is the corrected form of the ">=400s cell"
+retracted in S42q: directionally right, but only establishable with a
+real count, and it does NOT survive as a gate refinement.
+
+### The refined gate — TESTED and REJECTED
+
+Spare the acute cascades: block `ht>=3 AND ssh<20m AND halts_1200 = 1`
+(the spread-out serial breaker) instead of all of `ht>=3 AND ssh<20m`.
+7-voice vote, g60:
+
+| gate | mc=1 | 2022 | mc=3 | 2022 |
+|------|------|-----:|------|-----:|
+| **v2.4 as baked** | **829 @ 4.174** | 2.362 | **2,118 @ 4.327** | 2.578 |
+| refined (spare acute) | 843 @ 3.956 | 2.267 | 2,158 @ 4.185 | 2.496 |
+
+Worse at both depths and in 2022 both times: the acute-cascade trips
+look good in isolation (5.44) but are slot thieves in the vote book.
+**v2.4 stands exactly as baked.**
+
+### Verdict
+
+**`halts_today` x `secs_since_halt` is the right encoding.** The
+windowed counts stay as recorded columns — they cost nothing and are
+now the honest way to ask cascade-DENSITY questions (the S42q proxy
+never could). `v23_hcount/` = the research parquet (v2.3 population,
+every column through S42r; apply the v2.4 gate in SQL). `v24_hcount/`
+DELETED — its `halts_1200` held the wall-clock definition under the
+same column name, a footgun for any future query.
