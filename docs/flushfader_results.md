@@ -9118,3 +9118,79 @@ vote is a UNION and everything else it touches is already in the book.
 That is the third time today a feature's apparent contribution
 dissolved under the right control (v20/S42x, lowdens/S43c, and now
 speed and pah).
+
+
+## S43e — the DAY-STRUCTURE family is ONE feature; dslo keeps the seat (2026-08-03)
+
+User: "instead of the distance to arming high from OPEN, can we try
+distance to arming high from SESSION LOW? The g60 book is more volatile
+so that might be throwing off the threshold."
+
+**First, an algebraic simplification worth recording:**
+
+    pah = (1 + pct_chg_open) * chan_hi / signal_vwap - 1
+        = (vwap/open) * (chan_hi/vwap) - 1
+        = chan_hi / open - 1
+
+The signal price CANCELS. pah was never a composite — it is purely
+**the arming high above the day's OPEN**. The proposed swap is
+therefore exactly: change the anchor from `open` to `sess_low`.
+
+    dhl = chan_hi / sess_low - 1
+
+### The family is one feature
+
+| pair (g60) | corr |
+|------------|-----:|
+| pah vs dslo | 0.943 |
+| pah vs dhl | 0.951 |
+| **dhl vs dslo** | **0.975** |
+| dbh (chan_hi/vwap-1) vs dslo | 0.102 |
+| dbh vs d20a | **-0.767** |
+| dbh vs v20 | **0.826** |
+
+**dhl is not a pah replacement — it is a dslo TWIN (0.975).** And the
+one piece of dhl that is NOT dslo (`dbh`) is already carried by d20a
+(-0.767) and v20 (0.826). ⭐ **This is the deeper explanation for S43d:
+pah could never earn a voice seat because `dslo` was already holding
+the family's seat all along.**
+
+### The user's intuition about the ANCHOR was right
+
+dhl bands, g60, no vote filter — compare to pah's noisy
+3.73 / 2.91 / 6.50 / 3.26 / 4.16 / 5.02 / 4.72:
+
+| dhl band | n | tkds | PF | worst year |
+|----------|--:|-----:|---:|-----------:|
+| <15 | 1,480 | 364 | 2.56 | 0.82 |
+| [15,22) | 2,451 | 478 | 2.71 | 1.18 |
+| [22,30) | 1,778 | 372 | 4.27 | 2.38 |
+| [30,45) | 1,969 | 359 | **5.49** | 2.79 |
+| [45,70) | 1,644 | 271 | **7.17** | 2.48 |
+| [70,120) | 1,163 | 165 | 3.22 | 1.23 |
+| >=120 | 598 | 75 | 6.74 | 1.05 |
+
+**Monotone 2.56 -> 7.17 where pah zig-zags.** The session low IS the
+better anchor for a volatile book — exactly as predicted.
+
+### But the better-behaved feature does NOT make the better voice
+
+Family-seat contest, 6-voice roster, mc=3:
+
+| day-structure voice | n | PF | solo trips | solo PF |
+|---------------------|--:|---:|-----------:|--------:|
+| **dslo >= 16 (incumbent)** | 3,096 | **4.023** | 1,773 | **4.70** |
+| dhl >= 45 | 2,919 | 3.987 | 1,355 | 4.35 |
+| dhl in [30,70) | 2,998 | 3.797 | 1,518 | 4.67 |
+| dhl >= 30 | 3,240 | 3.691 | 2,179 | 3.96 |
+| *(no day-structure voice)* | 2,388 | **4.078** | — | — |
+
+**dslo keeps the seat.** dhl's cleaner band table reflects the
+population it SELECTS — most of which the other voices already admit.
+What decides a voice is the quality of what it admits ALONE, and there
+dslo wins (4.70 vs 4.35/4.67/3.96). **Fourth time today that a feature
+looked better in isolation than it performs as a voice.**
+
+⏭ Open user decision: dropping the day-structure voice entirely is the
+highest-PF construction tested (2,388 @ **4.078**) at -23% trips — the
+same concentration trade as the 5-voice roster.
