@@ -9419,3 +9419,100 @@ regime-CONDITIONAL trades from regime-ROBUST ones.
 The `-2%` spec gate stays as the signal definition. The `-6%` marker
 becomes a sizing flag with a regime rule attached — the same treatment
 v20 votes already carry (S42f).
+
+
+## S43i — DEEP FLUSHES in multi-day context: the LowFlyer chg_1d / chg_3d idea (2026-08-03)
+
+User: "LowFlyer really benefited from chg_1d and chg_3d in conjunction
+with this feature... sharp flushes into support worked much better than
+when the stock was sliding off. We want buying deep flushes to be into
+support."
+
+**Definitions (user-corrected: measured to the ENTRY, not to D-1):**
+
+    chg_1d = signal_vwap * adj_ratio / prev_adj_close - 1     (D-1 close -> entry)
+    chg_3d = signal_vwap * adj_ratio / close_3d        - 1     (D-3 close -> entry)
+
+**Knowability:** `prev_adj_close` = D-1 close, `close_3d` =
+`LAG(adj_close,3)` = D-3 close (build_mr_candidate_1s.fsx:154) — both
+fixed before the open; `signal_vwap` is current. `day_close` and
+`close_fwd_*` are NEVER touched. adj_ratio puts the prior closes in
+today's raw scale.
+
+**Census — this is a parabolic-runner population:**
+
+| scope | chg_1d q25 / med / q75 | chg_3d q25 / med / q75 | n |
+|-------|------------------------|------------------------|--:|
+| g60 universe | 39.9 / **168.1** / 2611.2 | 69.1 / **258.4** / 3405.0 | 11,083 |
+| deep-flush book | 55.0 / **203.8** / 2633.2 | 89.9 / **274.3** / 3330.1 | 1,363 |
+
+The median deep flush is on a stock up **204% on the day** and **274%
+over three days**. "Down to entry" therefore means a name that ran
+earlier and is now RED on the session — not a quiet stock.
+
+### chg_1d — DEEP-FLUSH book (6-voice >= 1, speed < -6%)
+
+| band | n | tkds | n_lose | PF | win% | p22 | p25 | yrs | avg% |
+|------|--:|-----:|-------:|---:|-----:|----:|----:|----:|-----:|
+| **<0 (down to entry)** | 88 | 25 | 8 | **30.49** | 90.9 | NULL | 22.37 | 7 | +4.39 |
+| [0,25) | 99 | 23 | 23 | 3.86 | 76.8 | 0.0 | 1.70 | 7 | +2.60 |
+| **[25,60)** | 172 | 41 | 59 | **1.77** | 65.7 | NULL | 3.65 | 7 | +1.06 |
+| [60,150) | 220 | 54 | 48 | 2.60 | 78.2 | 0.0 | 13.17 | 7 | +1.87 |
+| [150,400) | 217 | 49 | 23 | 5.57 | 89.4 | 0.0 | 2.05 | 7 | +3.81 |
+| **>=400** | 567 | 122 | 90 | **12.71** | 84.1 | 5.41 | 9.77 | 7 | +4.57 |
+
+### chg_3d — DEEP-FLUSH book
+
+| band | n | tkds | n_lose | PF | win% | p22 | p25 | yrs | avg% |
+|------|--:|-----:|-------:|---:|-----:|----:|----:|----:|-----:|
+| <0 (down to entry) | 47 | 11 | 8 | 11.93 | 83.0 | NULL | NULL | 7 | +3.75 |
+| [0,25) | 51 | 14 | 5 | 12.78 | 90.2 | NULL | 42.68 | 6 | +3.64 |
+| **[25,60)** | 124 | 33 | 34 | **2.76** | 72.6 | 1.63 | 35.70 | 7 | +2.01 |
+| [60,150) | 260 | 60 | 47 | 4.26 | 81.9 | NULL | 25.08 | 6 | +2.15 |
+| [150,400) | 273 | 60 | 53 | 4.52 | 80.6 | NULL | 2.07 | 6 | +3.43 |
+| **>=400** | 608 | 134 | 104 | **7.56** | 82.9 | 0.82 | 3.82 | 7 | +4.20 |
+
+### chg_1d — the WHOLE g60 UNIVERSE (the control: no vote, no speed cut)
+
+| band | n | tkds | n_lose | PF | win% | p22 | p25 | yrs | avg% |
+|------|--:|-----:|-------:|---:|-----:|----:|----:|----:|-----:|
+| <0 (down to entry) | 873 | 174 | 219 | **3.38** | 74.9 | 4.96 | 10.64 | 7 | +1.71 |
+| [0,25) | 1,231 | 213 | 280 | 2.97 | 77.3 | 28.41 | 2.28 | 7 | +1.68 |
+| [25,60) | 1,490 | 285 | 338 | 3.51 | 77.3 | 5.58 | 3.43 | 7 | +1.69 |
+| [60,150) | 1,774 | 272 | 373 | 2.92 | 79.0 | 3.18 | 2.68 | 7 | +1.75 |
+| [150,400) | 1,127 | 135 | 276 | 3.36 | 75.5 | 0.0 | 1.83 | 7 | +2.18 |
+| **>=400** | 4,588 | 719 | 825 | **5.91** | 82.0 | 8.42 | 3.72 | 7 | +2.47 |
+
+### chg_3d — the WHOLE g60 UNIVERSE
+
+| band | n | tkds | n_lose | PF | win% | p22 | p25 | yrs | avg% |
+|------|--:|-----:|-------:|---:|-----:|----:|----:|----:|-----:|
+| <0 (down to entry) | 492 | 100 | 125 | 2.43 | 74.6 | 10.76 | 3.55 | 7 | +1.45 |
+| [0,25) | 655 | 136 | 175 | 2.52 | 73.3 | NULL | 1.01 | 7 | +1.33 |
+| [25,60) | 1,311 | 261 | 265 | 4.17 | 79.8 | 7.65 | 5.49 | 7 | +1.85 |
+| [60,150) | 1,914 | 331 | 448 | 2.99 | 76.6 | 2.85 | 2.97 | 7 | +1.66 |
+| [150,400) | 1,779 | 220 | 396 | 3.52 | 77.7 | 14.40 | 3.02 | 7 | +2.11 |
+| **>=400** | 4,932 | 757 | 902 | **5.42** | 81.7 | 3.22 | 2.93 | 7 | +2.43 |
+
+### Reading
+
+**Two different things, separated by the control:**
+
+1. **An INTERACTION, deep-flush-specific.** `chg_1d < 0` reads **30.49**
+   on deep flushes vs **3.38** on the universe — a 9x gap. This is the
+   "into support" case and it exists ONLY when the flush is violent.
+   Small: 88 trips / 25 tkds / all 7 years.
+2. **A MAIN EFFECT, present everywhere.** `>= 400%` is the best band in
+   all four tables (12.71 / 7.56 / 5.91 / 5.42). Extreme runners fade
+   well regardless of flush depth; a deep flush merely amplifies it.
+   And it carries real size — **567 trips / 122 tkds** on the deep book.
+3. **A genuine AVOID.** Deep flush with `chg_1d` in [25,150) = 392 trips
+   (29% of the deep book) at 1.77-2.60 and 65.7% win in the worst band.
+   This is the user's "sliding off": up modestly, no trend bid, no
+   support, just a break.
+
+**chg_1d beats chg_3d as the axis** — its down-band is 30.49 vs 11.93
+and its trough is deeper (1.77 vs 2.76). The extra two days of context
+blur the signal rather than sharpen it. ⚠ Both are thin at the tails
+and the 2022 columns are mostly NULL/0 — these are SIZING tiers, not
+gates.
