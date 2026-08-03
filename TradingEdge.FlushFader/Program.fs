@@ -256,11 +256,13 @@ let main argv =
         (if ic.SpeedStopPct >= 0.0 then "off" else sprintf "%.1f%%" (ic.SpeedStopPct * 100.0))
     printfn "  leg         = arm on first new low, reset on new %d-bar high (+ 5m/10m-reset twins RECORDED — S38e; books built post-hoc by mc-replay)"
         ic.EntryChannelBars
+    printfn "  halt detect = run >= %ds AND pre-hole 5m rng >= %.1f%% AND pre-hole adj 1m gap < %d   (feeds the cascade gate)"
+        ic.HaltMinRunSec (ic.HaltMinRng300 * 100.0) ic.HaltMaxPreGap60
     printfn "  volat band  = volat_20m ∈ [%s, %s) bp/30s"
         (if ic.MinVolat20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVolat20m * 1e4))
         (if Double.IsPositiveInfinity ic.MaxVolat20m then "inf" else sprintf "%.0f" (ic.MaxVolat20m * 1e4))
     (if parsed.Contains Base_Run then printfn "  mode        = ⭐ BASE RUN — every spec gate OFF (signal definition only)")
-    printfn "  SPEC v2.5   = speed %s | d1m %s | ssf ∈ [%s, %s) bp/m | dlv %s | rflow >= %s | z20 < %s | cascade %s | K ∈ [%s, %s] | |eff20| ∈ [%s, %s) | |eff10| >= %s | vol10rate >= %s | lows300 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
+    printfn "  SPEC v2.6   = speed %s | d1m %s | ssf ∈ [%s, %s) bp/m | dlv %s | rflow >= %s | z20 < %s | cascade %s | K ∈ [%s, %s] | |eff20| ∈ [%s, %s) | |eff10| >= %s | vol10rate >= %s | lows300 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
         (if ic.MaxSpeed1m >= 0.0 then "off" else sprintf "< %.0f%%/1m" (ic.MaxSpeed1m * 100.0))
         (if ic.MaxDist1mHi >= 0.0 then "off" else sprintf "< %.0f%%" (ic.MaxDist1mHi * 100.0))
         (if Double.IsNegativeInfinity ic.SsfLoBpm then "off" else sprintf "%.0f" ic.SsfLoBpm)

@@ -81,7 +81,12 @@ let defaultConfig =
                                         // first challenger to win at BOTH mc levels
           HaltMinRunSec    = 58         // ⭐ S40x halt detector (user design; record-only)
           HaltMinRng300    = 0.04
-          HaltMaxPreGap60  = 2
+          HaltMaxPreGap60  = 4        // ⭐ SPEC v2.6 (user, S42y): was 2. The detector must
+                                        // agree with the universe it FEEDS — we trade gap_60 < 4,
+                                        // so a name at gap_60 = 3 is tradeable but its halts went
+                                        // unclassified. Effect is small and all in the right
+                                        // direction (S42w): +3.4% halted trips, S-tier cell
+                                        // 224 -> 229, halt-band voice 5.86 -> 6.02.
           MinRSinceFlow    = -0.95      // ⭐ SPEC v2.1 (S40y): the falling-knife gate
           CascadeHaltCount = 3          // ⭐ SPEC v2.4 (S42n): the cascade-knife gate — reject
           CascadeWindowSec = 1200       // ht>=3 signals < 20m after the last resume

@@ -8451,7 +8451,7 @@ mc=3 1.17 / 2.00 / 1.65 / **2.30**. Win% at mc=3: 72.2 / 77.4 / 76.6 / **80.4**.
    >= 1 (or trades g60 flat) in a bear is the open design question.
 
 
-## ⭐⭐ SPEC v2.5 — THE REFERENCE CARD (2026-08-03)
+## ⭐⭐ SPEC v2.6 — THE REFERENCE CARD (2026-08-03)
 
 Everything needed to reproduce the current system. Supersedes the v2.2
 / v2.3 cards.
@@ -8479,6 +8479,7 @@ Everything needed to reproduce the current system. Supersedes the v2.2
 | rflow | ols_r_since_flow >= -0.95 | v2.1 |
 | z20 | z_20m (LOG space, vw moments) < -1.5 sigma | v2.3 |
 | **cascade** | **ht>=1: wait 120s · ht>=3: wait 1200s after resume** | **v2.4/v2.5** |
+| halt detector | run >= 58s AND pre-hole 5m rng >= 4% AND **pre-hole adj 1m gap < 4** | v2.6 |
 | K | lows_since_first_low in [26, 50] | v1.2 |
 | eff20 | abs(eff_20m) in [0.30, 0.50) | v1.2 |
 | eff10 | abs(eff_10m) >= 0.15 | v1.2 |
@@ -8499,11 +8500,11 @@ Everything needed to reproduce the current system. Supersedes the v2.2
     # THE REFERENCE (full v2.5 spec = every default)
     FF_CANDIDATE_TABLE=flushfader_base_tkds \
       ./TradingEdge.FlushFader/bin/Release/net10.0/TradingEdge.FlushFader \
-      --out-dir data/equity/flushfader/v25_reference
+      --out-dir data/equity/flushfader/v26_reference
 
     # mc replay (mc=1 is the decider; mc=3 is the trading target)
     dotnet fsi scripts/equity/flushfader_mc.fsx -- --mc 3 \
-      --trips "data/equity/flushfader/v25_reference/trips_p*.parquet" \
+      --trips "data/equity/flushfader/v26_reference/trips_p*.parquet" \
       --where "<book cut>"
 
 ⚠ Verify gates from the BANNER, never by reading config (S42t: a
@@ -8556,12 +8557,14 @@ vote book — "the best trade in our entire playbook" (user).
 | path | what |
 |------|------|
 | `base_v15/` | THE base (2,217,950 trips, every gate off) |
-| **`v25_reference/`** | **THE reference — v2.5, 37,444 trips** |
+| **`v26_reference/`** | **THE reference — v2.6, 37,414 trips** |
+| `v25_reference/` | v2.5 (37,444) — superseded, kept for the S42v/S42x tables |
 | `v23_hcount/` | research parquet: v2.3 population (38,069) + halt counts, for halt-zone work the spec now gates away |
 | `v23_vs/`, `v23_fast/`, `v22_*/` | superseded (kept for provenance) |
 
 Grand-parity chain: base_v15 -> v23 (38,069) -> v24 (37,464, cascade
-knife) -> **v25 (37,444, + reopen block)**, every step verified exact.
+knife) -> v25 (37,444, + reopen block) -> **v26 (37,414, + detector
+pre-gap 4)**, every step verified exact.
 
 
 ## S42w — halt detector pre-gap 2 -> 4: a wash (2026-08-03)
@@ -8670,3 +8673,70 @@ improves is total PF (4.371 -> 4.772) and the SHAPE (bear years stop
 being the weak point). Whether -17% volume is worth +0.40 PF and a
 flatter year profile is a portfolio call, not a statistical one —
 LEFT FOR THE USER.
+
+
+## S42y — ⭐ SPEC v2.6 BAKED: halt detector pre-gap 2 -> 4 (2026-08-03)
+
+User: "we'll move the default pre-gap from < 2 to < 4. No reason not to
+do it." Adopted on the CONSISTENCY argument from S42w (the detector
+must agree with the `gap_60 < 4` universe it feeds), not on yield.
+
+**GRAND PARITY, and a free control:** `v25_hg4/` was already baked with
+`--halt-max-pre-gap-60 4` explicitly, so flipping the DEFAULT had to
+reproduce it exactly — **37,414 = 37,414 = 37,414 predicted**, zero
+asymmetric rows, zero diff on ret_exit AND on halts_today itself.
+`v26_reference/` = THE reference.
+
+**Also surfaced the detector in the BANNER:**
+`halt detect = run >= 58s AND pre-hole 5m rng >= 4.0% AND pre-hole adj
+1m gap < 4   (feeds the cascade gate)`. It stopped being record-only
+the moment the cascade gate consumed it (v2.4), so it belongs where
+gates get verified — the S42t lesson.
+
+**v2.6 books ($1+):** full 29,764 @ 2.544 · g60 11,083 @ **4.003** ·
+S-tier cell **229 @ 144.38** (35 tkds, was 224 / 34).
+
+**The canonical ladder, v2.5 -> v2.6** (g60, 8-voice >= 2):
+
+| mc | v2.5 | v2.6 | 2022 |
+|---:|------|------|------|
+| 1 | 884 @ 4.075 | **879 @ 4.121** | 2.526 -> 2.516 |
+| 2 | 1,630 @ 4.244 | **1,621 @ 4.268** | 2.661 -> 2.653 |
+| 3 | 2,248 @ 4.371 | **2,236 @ 4.391** | 2.778 -> 2.759 |
+
+A wash exactly as S42w forecast: ~10 fewer trips and ~+0.02 PF at each
+depth. Taken for correctness, and the g60 book crosses 4.00.
+
+
+## S42z — the vote BAR: the first vote buys the FLOOR, the rest buy the MEAN (2026-08-03)
+
+User: "What about votes >= 1 on the g60 universe. Is the worst year
+still 2.5?" **Yes — 2.514 (2025), against the >= 2 book's 2.526
+(2022).** Laying every construction out (g60, mc=1 unless noted):
+
+| construction | n | PF | worst year | which year |
+|--------------|--:|---:|-----------:|-----------|
+| no vote | 1,830 | 2.955 | **1.773** | 2023 |
+| votes >= 1 | 1,297 | 3.401 | **2.514** | 2025 |
+| votes >= 2 (current) | 884 | 4.075 | **2.526** | 2022 |
+| votes [2,3] (mc=3) | 1,857 | 4.772 | **2.754** | 2024 |
+
+**The first vote buys the FLOOR; every vote after buys only the MEAN.**
+no-vote -> >=1 lifts the worst year 1.77 -> 2.51 (+0.74). >=1 -> >=2
+lifts it 0.01 while lifting the MEAN 3.40 -> 4.08. The cap adds another
+0.40 of mean and nothing to the floor.
+
+**And the worst year ROTATES** — 2023, 2025, 2022, 2024, never the same
+twice. Four constructions, four floors in [2.45, 2.78]. That is not a
+bear-regime weakness; it looks like the sampling noise of a 7-year book
+at 100-500 trades/yr. **No vote engineering will raise it.**
+
+votes >= 1 does buy CONSISTENCY: ex-2020 its year range is 2.51-3.32
+(1.3x) vs >= 2's 2.53-5.26 (2.1x). So >=1 is the flatter book and >=2
+the higher-expectancy one. With conviction sizing (S38: sizing, not
+slot allocation, is the lever) the higher-expectancy book is the better
+raw material — the bar stays at 2.
+
+⏭ To move the FLOOR the levers are regime detection (the optimal vote
+threshold is demonstrably regime-dependent in BOTH directions — S42x)
+or position sizing. Not the vote bar.
