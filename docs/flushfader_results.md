@@ -8920,3 +8920,118 @@ win%, avg% AND 2022. Three independent families now feed it — price
 extremity (the vote), liquidity (rp_vol x gap_1200), and leg geometry
 (lowdens) — which is why the top tier reaches 26.5 without any single
 feature doing the work.
+
+
+## S43c — ⭐⭐ the ROSTER at a >=1 BAR: the vote became a UNION, and most voices stopped paying (2026-08-03)
+
+This began as "does lowdens belong in the vote?" and ended somewhere
+else entirely. Book throughout = v2.6, g60, $1+, mc=3 unless noted.
+**Baseline: all 8 voices, votes >= 1 = 3,261 trips @ 3.613.**
+
+### 1. lowdens is NOT a voice — at any threshold, in any form
+
+Tested at **0.10 / 0.15 / 0.20 / 0.25** (fire rates 9.8 / 3.4 / 1.3 /
+0.5% of the book), in three forms:
+
+| form | ld>=0.10 | ld>=0.15 | ld>=0.20 | ld>=0.25 |
+|------|---------:|---------:|---------:|---------:|
+| ADD as a 9th voice | 3.600 | 3.584 | 3.584 | 3.613 |
+| SWAP for esf | 3.775 | 3.804 | 3.776 | 3.801 |
+| family-OR with esf | — | 3.584 | — | — |
+
+("family-OR" = the S41w *max-within-family* rule for binary voices: the
+family casts ONE vote, fired by EITHER member — as opposed to ADD,
+which counts both and double-counts the shared information.)
+
+**ADD never helps** (redundant — corr(lowdens, esf) = 0.783; lowdens is
+essentially inverse leg duration, corr with bars_since_first_low =
+-0.682). **family-OR is worse** — at a >= 1 bar, widening any voice
+only admits more trips. Only SWAP improved... and the swap is
+insensitive to the threshold, which was the tell.
+
+### 2. ⚠ THE MISSING CONTROL — it was never lowdens
+
+| construction | mc=1 | mc=3 |
+|--------------|------|------|
+| 8 voices (base) | 1,294 @ 3.434 | 3,261 @ 3.613 |
+| **drop esf, add NOTHING** | **1,081 @ 3.572** | **2,748 @ 3.792** |
+| swap esf -> lowdens >= 0.15 | 1,105 @ 3.558 | 2,816 @ 3.804 |
+| swap esf -> lowdens >= 0.25 | — | 2,753 @ 3.801 |
+
+**Dropping esf alone gets 3.792; adding lowdens on top adds 0.012 =
+noise.** The whole "swap improves" result was esf being weak. Same
+trap as S42x (v20 looked like the 2022 culprit until the control
+showed removing it changed nothing) — **run the control before
+crediting the new feature.**
+
+### 3. Why the roster changed: >= 1 turns the vote into a UNION
+
+At >= 2 a voice must be a good PARTNER. At >= 1 a voice can single-
+handedly admit a trip, so **its entire contribution is the quality of
+its SOLO trips**:
+
+| voice | solo trips | tkds | solo PF | avg% | 2022 |
+|-------|-----------:|-----:|--------:|-----:|-----:|
+| **speed** | 239 | 76 | **1.79** | +1.34 | 2.55 |
+| **pah** | 169 | 37 | **1.84** | +0.79 | — |
+| esf | 1,094 | 266 | 4.07 | +1.75 | 3.85 |
+| v20 | 108 | 27 | 6.13 | +2.66 | — |
+| **haltband** | 323 | 61 | **9.28** | +2.44 | **16.8** |
+
+(Book = 4.92 at mc=0.) esf dilutes by VOLUME — 1,094 solo trips just
+below book — while speed and pah dilute by QUALITY.
+
+**Leave-one-out, mc=3 (base 3,261 @ 3.613):**
+
+| dropped | n | PF | delta |
+|---------|--:|---:|------:|
+| **halt band** | 3,143 | **3.539** | **-0.074** |
+| dslo | 3,181 | 3.603 | -0.010 |
+| ramp | 3,220 | 3.604 | -0.009 |
+| v20 | 3,227 | 3.642 | +0.029 |
+| d20a | 3,207 | 3.648 | +0.035 |
+| pah | 3,207 | 3.702 | +0.089 |
+| **esf** | 2,748 | **3.792** | **+0.179** |
+| **speed** | 3,156 | **3.878** | **+0.265** |
+
+**Only the halt band earns its seat at this bar.**
+
+### 4. Tightening speed does not save it — it converges on deletion
+
+| speed voice | n | PF |
+|-------------|--:|---:|
+| < -6% (current) | 3,261 | 3.613 |
+| < -8% | 3,190 | 3.675 |
+| < -10% | 3,169 | 3.820 |
+| < -12% | 3,159 | **3.883** |
+| **removed** | 3,156 | **3.878** |
+
+Monotone, and -12% lands 3 trips from deletion. Speed's marginal
+contribution as a VOICE is negative at every threshold. ⚠ This retires
+speed **from the voice roster only** — it remains a first-class SIZING
+feature (S42b: speed must be read AGAINST v20; its meaning inverts
+with the vol state, which is exactly why a single one-sided threshold
+cannot work as a voice).
+
+### 5. The trimmed rosters
+
+| roster | mc=1 | mc=3 | worst year (mc=3) |
+|--------|------|------|------------------:|
+| 8 voices | 1,294 @ 3.434 | 3,261 @ 3.613 | 2.63 (2025) |
+| **6 voices (-speed, -pah)** | **1,224 @ 3.820** | **3,096 @ 4.023** | **3.11 (2021)** |
+| 5 voices (-speed, -pah, -esf) | 972 @ 4.151 | 2,489 @ 4.408 | — |
+
+**The 6-voice roster {v20, d20a, dslo, ramp, esf, haltband} is the
+recommendation:** +0.41 PF at mc=3 for only **-5% trips** (3,261 ->
+3,096), and it is the first construction all day to lift the WORST
+YEAR off the ~2.5-2.8 floor — 2021 at **3.11**, with every year >= 3.11
+(11.20 / 3.11 / 3.87 / 3.51 / 3.43 / 3.48 / 4.07). Recall S42z: no
+vote-BAR change ever moved that floor. Trimming the ROSTER did.
+
+Dropping esf too (5 voices) gives 4.408 but costs 24% of trips — the
+usual concentration trade, and left as a user decision.
+
+**House lesson (twice today):** when a candidate feature appears to
+improve a construction, first run the construction WITHOUT the feature
+and WITHOUT its predecessor. Both times, the credit belonged to a
+deletion.
