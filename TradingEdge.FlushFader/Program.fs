@@ -268,8 +268,16 @@ let main argv =
         (if ic.MaxDistLegVwap >= 0.0 then "off" else sprintf "< %.0f%%" (ic.MaxDistLegVwap * 100.0))
         (if ic.MinRSinceFlow <= -1.0 then "off" else sprintf "%.2f" ic.MinRSinceFlow)
         (if ic.MaxZ20m >= 0.0 then "off" else sprintf "%.1fσ" ic.MaxZ20m)
+        // the gate reads as a case analysis on the halt count — print it that way,
+        // and print each rule's OFF state as "off" (a raw 0 renders as "ht>=0" /
+        // "wait 0s", which reads like a live rule; banners are how gates get verified)
         (if ic.CascadeHaltCount <= 0 && ic.ReopenBlockSec <= 0 then "off"
-         else sprintf "ht>=%d&<%ds | reopen<%ds" ic.CascadeHaltCount ic.CascadeWindowSec ic.ReopenBlockSec)
+         else
+             sprintf "%s, %s"
+                 (if ic.ReopenBlockSec <= 0 then "ht>=1 off"
+                  else sprintf "ht>=1 wait %ds" ic.ReopenBlockSec)
+                 (if ic.CascadeHaltCount <= 0 then "serial-breaker off"
+                  else sprintf "ht>=%d wait %ds" ic.CascadeHaltCount ic.CascadeWindowSec))
         (if ic.KBandLo <= 0 then "off" else string ic.KBandLo)
         (if ic.KBandHi <= 0 then "off" else string ic.KBandHi)
         (if ic.AbsEff20Lo <= 0.0 then "off" else sprintf "%.2f" ic.AbsEff20Lo)

@@ -1539,26 +1539,25 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // ⭐ SPEC v2.4/v2.5: the cascade-knife gate — no fading the LULD
         // elevator. Mirrors the recorded halts_today / secs_since_halt exactly.
         //
-        // REJECT is  (ht>=3 & ssh<20m) OR (ht>=1 & ssh<2m), so accept is its
-        // De Morgan dual — a CONJUNCTION, one clause per veto:
-        //     (ht<3 OR ssh>=20m)  AND  (ht=0 OR ssh>=2m)          [ssh<0 <=> ht=0]
-        // ⚠ NOT a disjunction of accepts. `(ht>=3 & ssh>=20m) OR (ht>=1 &
-        // ssh>=2m) OR ht=0` looks equivalent and is NOT: the weaker second
-        // clause is satisfied by ht>=3 names too, so it re-admits every
-        // serial breaker at ssh in [2m,20m) — 568 trips, the PF~1.5 core of
-        // exactly what the v2.4 knife exists to remove.
+        // Stated as the rule reads: HOW LONG must the tape run after a resume
+        // before we are willing to fade it? A case analysis on the halt count,
+        // whose three cases PARTITION ht (so they cannot overlap):
+        //     ht = 0        never halted today  ->  no wait
+        //     1 <= ht < N   ordinary halt       ->  ReopenBlockSec    (2m)
+        //     ht >= N       serial breaker      ->  CascadeWindowSec  (20m)
+        // ⚠ The middle case's UPPER bound is load-bearing. Written without it,
+        // as `(ht>=N & ssh>=20m) || (ht>=1 & ssh>=2m) || ht=0`, the weaker
+        // clause is satisfied by ht>=N names too and re-admits every serial
+        // breaker at ssh in [2m,20m) — 568 trips, the PF~1.5 core of exactly
+        // what this gate exists to remove.
+        // Each knob is independently switchable (0 = that rule off) and
+        // --base-run zeroes both, which zeroes every wait.
         let cascadeOk =
-            let ssh = if lastHaltEnd < 0 then -1 else bar.etSec - lastHaltEnd
-            // v2.4 — the serial-breaker knife: ht >= N inside W of a resume.
-            (cfg.CascadeHaltCount <= 0
-             || haltsToday < cfg.CascadeHaltCount
-             || ssh < 0
-             || ssh >= cfg.CascadeWindowSec)
-            // ⭐ v2.5 — the reopen block: nothing inside the first ReopenBlockSec of
-            // ANY resume (ht = 0 has ssh = -1 and is never blocked).
-            && (cfg.ReopenBlockSec <= 0
-                || ssh < 0
-                || ssh >= cfg.ReopenBlockSec)
+            let requiredWait =
+                if haltsToday = 0 then 0
+                elif cfg.CascadeHaltCount > 0 && haltsToday >= cfg.CascadeHaltCount then cfg.CascadeWindowSec
+                else cfg.ReopenBlockSec
+            requiredWait <= 0 || bar.etSec - lastHaltEnd >= requiredWait
         // ⭐ SPEC v2.2 (S41c/d): the leg-native pair. Same slope/leg-cum sources
         // as the recorded ols_slope_since_flow and dv_leg/vol_leg (SQL twins).
         let ssfOk =

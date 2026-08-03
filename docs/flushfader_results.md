@@ -8367,3 +8367,45 @@ tkds); **g60 = 11,103 @ 3.980 / p22 4.04** (1,724 tkds).
 PF, win%, avg% and 2022 ALL rise with depth. Since this morning's
 5-voice/v2.3 starting point (mc=1 769 @ 3.622) the mc=1 book is +15%
 trips at +0.45 PF, and mc=3 now carries 5,170 slot points at 4.371.
+
+### S42t addendum — the cascade gate rewritten as a CASE ANALYSIS (user, 2026-08-03)
+
+User: "You're right that what you have is correct, but it's too hard to
+understand. How about `(ht>=3 && ssh>=20m) || (ht>=1 && ht<3 &&
+ssh>=2m) || ht=0`?" — **correct, and adopted.** The `ht<3` upper bound
+is what makes it sound: the three cases now PARTITION ht, so none can
+leak into another's territory. (Without it the middle clause is
+satisfied by ht>=3 names and re-admits 568 serial-breaker trips at
+ssh in [2m,20m) — the earlier attempt's bug.)
+
+Implemented as the question the rule actually asks — *how long must the
+tape run after a resume before we fade it?*
+
+    let requiredWait =
+        if haltsToday = 0 then 0
+        elif cfg.CascadeHaltCount > 0 && haltsToday >= cfg.CascadeHaltCount
+             then cfg.CascadeWindowSec
+        else cfg.ReopenBlockSec
+    requiredWait <= 0 || bar.etSec - lastHaltEnd >= requiredWait
+
+Four lines, one wait per case, both knobs still independently
+switchable. **GRAND PARITY vs v25_reference: 37,444 = 37,444, zero
+asymmetric rows, zero diff on ret_exit / entry_px / exit_px.**
+
+**Banner hazard fixed at the same time:** it printed raw config, so
+`--cascade-halt-count 0` rendered as `cascade ht>=0&<1200s` and
+`--reopen-block-sec 0` as `reopen<0s` — both READ LIKE LIVE RULES when
+off. Since the S42t base-run bug was caught by reading a banner, a
+lying banner is a live trap. Now:
+
+| flags | banner |
+|-------|--------|
+| defaults | `cascade ht>=1 wait 120s, ht>=3 wait 1200s` |
+| `--base-run` | `cascade off` |
+| `--cascade-halt-count 0` | `cascade ht>=1 wait 120s, serial-breaker off` |
+| `--reopen-block-sec 0` | `cascade ht>=1 off, ht>=3 wait 1200s` |
+
+**House lesson:** a gate's code should read like the rule it enforces.
+The De Morgan conjunction was correct but opaque, and opaque gates are
+where the S42q-S42t errors bred. Prefer the case analysis; verify the
+rewrite by parity, not by re-reading the boolean.
