@@ -9796,3 +9796,88 @@ on 592 trips, the favourability is not. Do not lean on it; just do not
 fear it either.) This does NOT retire the slippage question — halts
 are one failure mode, ordinary spread and impact on 300%-movers is
 another and is still unmeasured.
+
+
+## S43n — S-tier B: prior-halt composition, and does < -10% help? (2026-08-03)
+
+### 1. How many S-tier B trades were ALREADY halted before entry? (user)
+
+**53.5% of them** — against 35.0% for the g60 book. The setup is
+strongly enriched in halted names, which follows: a stock up 300%+
+usually got there through halts.
+
+| prior halts | n | tkds | % | losers | PF | win% | avg% | net pts |
+|-------------|--:|-----:|--:|-------:|---:|-----:|-----:|--------:|
+| ht=0 never halted | 275 | 59 | 46.5 | 45 | 11.08 | 83.6 | +4.64 | +1,276 |
+| ht=1 | 94 | 26 | 15.9 | 9 | **17.30** | 90.4 | +5.07 | +476 |
+| ht=2 | 73 | 16 | 12.3 | 8 | **43.62** | 89.0 | +5.51 | +402 |
+| **ht=3-5** | 97 | 19 | 16.4 | 24 | **7.12** | 75.3 | +3.00 | +291 |
+| ht>=6 | 53 | 11 | 9.0 | 5 | 28.49 | 90.6 | +6.74 | +357 |
+
+g60 baseline: ht=0 65.0% @ 3.44 · ht=1 17.2% @ 5.74 · ht=2 5.7% @ 5.86
+· ht=3-5 7.7% @ 4.11 · ht>=6 4.3% @ 5.21.
+
+**A prior halt is a POSITIVE, not a risk.** Never-halted is already
+11.08, but ht=1/ht=2 run 17.30 / 43.62 at ~90% win. The soft tier is
+**ht=3-5 (7.12, 75.3% win, 24 losers of 97)** — the serial-breaker
+signature again (S42n). ht>=6 at 28.49 cuts against it but is 53 trips
+on 11 tkds.
+
+How recent was that halt (halted names only):
+
+| last halt | n | tkds | % | PF | avg% |
+|-----------|--:|-----:|--:|---:|-----:|
+| <20m | 14 | 4 | 4.4 | ∞ (0 losers) | +6.75 |
+| **[20,80m) <- the halt-band VOICE** | 203 | 44 | **64.0** | 12.46 | +3.94 |
+| [80,160m) | 44 | 14 | 13.9 | 16.17 | +6.00 |
+| >=160m | 56 | 13 | 17.7 | **31.54** | +6.59 |
+
+Two-thirds sit in the halt-band voice window, so the vote is partly
+HOW they got admitted. The OLDEST halts are the best (31.54) — by then
+the halt is pure context: the name proved it can move violently, the
+crowd is watching, and the LULD elevator is long over.
+
+⭐ **The two S-tier setups are the same animal from different angles** —
+A is timing off a fresh first halt, B is a deep flush on a huge mover
+that has usually halted at some point. Their 12-trip overlap
+understates how related they are.
+
+### 2. Would speed < -10% improve it? **NO.**
+
+Cumulative sweep inside S-tier B (chg_1d >= 300, vote >= 1):
+
+| speed cut | n | tkds | losers | PF | win% | avg% | yrs | 2022 | net pts |
+|-----------|--:|-----:|-------:|---:|-----:|-----:|----:|-----:|--------:|
+| < -4 | 1,529 | 302 | 235 | 11.27 | 84.6 | +3.76 | 7 | **15.57** | **+5,750** |
+| **< -6 (current)** | 592 | 129 | 91 | **13.41** | 84.6 | +4.73 | 7 | 5.41 | +2,803 |
+| < -8 | 233 | 57 | 52 | 12.87 | 77.7 | +5.84 | 7 | 1.59 | +1,361 |
+| < -10 | 78 | 20 | 19 | 11.40 | 75.6 | +6.76 | 7 | **0.00** | +527 |
+| < -12 | 28 | 9 | 3 | 169.79 | 89.3 | +8.58 | 4 | NULL | +240 |
+| < -15 | 5 | 2 | 0 | ∞ | 100.0 | +14.62 | 2 | NULL | +73 |
+
+**PF PEAKS at the current -6 and falls as you tighten** (13.41 -> 12.87
+-> 11.40). Only avg% rises — that is just bigger moves on fewer trades,
+not a better edge. And **2022 collapses: 5.41 -> 1.59 -> 0.00.** At -10
+the cell is 78 trips / 20 tkds with a zero bear year.
+
+The band view shows exactly why tightening loses:
+
+| speed band | n | tkds | losers | PF | avg% | net pts |
+|------------|--:|-----:|-------:|---:|-----:|--------:|
+| [-6,-2) | 2,816 | 495 | 497 | 7.13 | +2.48 | +6,995 |
+| **[-8,-6)** | 359 | 102 | 39 | **13.97** | +4.02 | +1,442 |
+| **[-10,-8)** | 155 | 48 | 33 | **14.03** | +5.38 | +833 |
+| [-15,-10) | 73 | 19 | 19 | 9.95 | +6.22 | +454 |
+| < -15 | 5 | 2 | 0 | ∞ | +14.62 | +73 |
+
+The edge sits in **[-10,-6)** — 514 trips at ~14 — and **[-8,-6) is the
+LARGEST good band (359 trips)**. A -8 or -10 cut throws away the
+biggest piece of the very thing it is trying to isolate. Below -10 the
+PF actually falls (9.95).
+
+⭐ **Worth flagging the other direction:** `< -4` gives **2.6x the trips
+(1,529), 2x the net points (5,750), and a far better 2022 (15.57)** for
+-2.1 PF. On the volume-coherent logic used all session (votes>=1,
+dslo>=8, chg_1d>=300 over >=400), **-4 is arguably the better cut than
+-6** — it is only "less deep" by name. Left as a user decision; the
+current -6 stands.
