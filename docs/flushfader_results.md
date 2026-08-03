@@ -8345,3 +8345,25 @@ ticker-days, not concentrated.
     {v20 >= 140bp, d20a < -28%, speed < -6%, dslo >= +16%, pah >= +28%,
      ramp (vs20-vs10)*2e4 < -12, |esf| >= 0.5,
      halt band: ssh in [1200, 4800)}
+
+### v25_reference BAKED and VERIFIED
+
+**GRAND PARITY EXACT, three ways:** predicted 37,444 = SQL-emulated
+37,444 = baked **37,444**, zero asymmetric rows, zero ret_exit diff.
+`v25_reference/` = **THE reference**. (Every number in S42u above was
+measured on the SQL emulation and is therefore confirmed by this.)
+
+**Canonical books ($1+):** full = 29,794 @ 2.542 / p22 1.59 (4,697
+tkds); **g60 = 11,103 @ 3.980 / p22 4.04** (1,724 tkds).
+
+**THE CANONICAL LADDER — SPEC v2.5, 8-voice vote, g60, $1+, nfire>=2:**
+
+| mc | n | PF | win% | avg% | med% | 2022 | slot pts |
+|---:|--:|---:|-----:|-----:|-----:|-----:|---------:|
+| 1 | 884 | 4.075 | 79.1 | +2.18 | +2.47 | 2.526 | 1,927 |
+| 2 | 1,630 | 4.244 | 79.9 | +2.25 | +2.50 | 2.661 | 3,668 |
+| 3 | 2,248 | 4.371 | 80.4 | +2.30 | +2.52 | 2.778 | 5,170 |
+
+PF, win%, avg% and 2022 ALL rise with depth. Since this morning's
+5-voice/v2.3 starting point (mc=1 769 @ 3.622) the mc=1 book is +15%
+trips at +0.45 PF, and mc=3 now carries 5,170 slot points at 4.371.
