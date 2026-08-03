@@ -9610,3 +9610,75 @@ the year. The into-support cell worked in the bear too.
 one bad day in it, not a regime effect.** The honest statement is
 SCARCITY (32 trips vs 157-343), and scarcity is exactly what should be
 expected when the universe shrinks 70%.
+
+
+## S43k — the two requested chg_1d tables, and WHERE to cut (2026-08-03)
+
+### g60 + DEEP SPEED (speed < -6%), NO vote
+
+| band | n | tkds | n_lose | PF | win% | p20 | p21 | p22 | p23 | p24 | p25 | p26 | avg% | net pts |
+|------|--:|-----:|-------:|---:|-----:|-----|-----|----:|----:|-----|----:|----:|-----:|--------:|
+| **<0 (down to entry)** | 109 | 30 | 19 | **7.62** | 82.6 | NULL | NULL | 3.13 | 1.30 | 937.5 | 31.99 | 2.44 | +3.54 | +386 |
+| [0,25) | 132 | 29 | 39 | 2.86 | 70.5 | NULL | NULL | 0.0 | 1.15 | 37.5 | 1.54 | 1.47 | +2.23 | +295 |
+| **[25,60)** | 194 | 51 | 67 | **1.60** | 65.5 | 10.23 | 3.49 | NULL | NULL | 1.87 | 1.71 | 1.03 | +0.90 | +175 |
+| [60,150) | 263 | 62 | 59 | 2.79 | 77.6 | 16.38 | 0.16 | 0.0 | 0.19 | 3.15 | 14.09 | 4.35 | +1.94 | +511 |
+| [150,400) | 219 | 50 | 23 | 5.62 | 89.5 | NULL | 18.75 | 0.0 | 3.85 | 220.88 | 2.10 | NULL | +3.82 | +837 |
+| **>=400** | 674 | 147 | 106 | **7.43** | 84.3 | 17.12 | 17.82 | 6.73 | 20.87 | 10.24 | 2.10 | 21.53 | +4.09 | +2,758 |
+
+### g60 + VOTE (>= 1 of 6) + DEEP SPEED
+
+| band | n | tkds | n_lose | PF | win% | p20 | p21 | p22 | p23 | p24 | p25 | p26 | avg% | net pts |
+|------|--:|-----:|-------:|---:|-----:|-----|-----|-----|----:|-----|----:|-----|-----:|--------:|
+| **<0 (down to entry)** | 88 | 25 | 8 | **30.49** | 90.9 | NULL | NULL | NULL | 1.30 | NULL | 22.37 | NULL | +4.39 | +386 |
+| [0,25) | 99 | 23 | 23 | 3.86 | 76.8 | NULL | NULL | 0.0 | 1.15 | 15.13 | 1.70 | 19.85 | +2.60 | +257 |
+| **[25,60)** | 172 | 41 | 59 | **1.77** | 65.7 | 10.23 | 3.50 | NULL | NULL | 1.78 | 3.65 | 0.87 | +1.06 | +183 |
+| [60,150) | 220 | 54 | 48 | 2.60 | 78.2 | 19953 | 0.16 | 0.0 | 0.19 | 2.55 | 13.17 | 7.99 | +1.87 | +412 |
+| [150,400) | 217 | 49 | 23 | 5.57 | 89.4 | NULL | 18.75 | 0.0 | 3.85 | 220.88 | 2.05 | NULL | +3.81 | +828 |
+| **>=400** | 567 | 122 | 90 | **12.71** | 84.1 | 13.38 | 13.55 | 5.41 | 20.50 | 9.72 | 9.77 | 47.43 | +4.57 | +2,593 |
+
+**What the YEAR columns add (invisible in the PF alone):** the `>=400`
+band is the ONLY one with a complete healthy year row in both tables —
+7/7 years populated, all >= 2.10 (and all >= 5.41 with the vote).
+Everything else is riddled with NULLs and zeros. The `<0` cell's 30.49
+rests on almost no year coverage (only 2023 and 2025 populated with the
+vote). And the `[25,60)` avoid is the most TRUSTWORTHY reading of the
+pair — 1.60 / 1.77 with 65.5-65.7% win and years 0.87 / 1.03 / 1.71 /
+1.78 / 3.50 — because it is bad EVERYWHERE rather than spectacular
+somewhere.
+
+### ⭐ WHERE TO CUT — cumulative sweep (vote + deep book)
+
+| chg_1d cut | n | tkds | n_lose | PF | win% | avg% | 2022 | net pts |
+|------------|--:|-----:|-------:|---:|-----:|-----:|-----:|--------:|
+| >=100 | 903 | 194 | 138 | 7.72 | 84.7 | +4.07 | **0.82** | +3,674 |
+| >=150 | 784 | 170 | 113 | 9.50 | 85.6 | +4.36 | **1.11** | +3,420 |
+| **>=200** | 688 | 153 | 108 | 10.22 | 84.3 | +4.53 | **5.41** | +3,118 |
+| >=250 | 633 | 142 | 104 | 10.06 | 83.6 | +4.57 | 5.41 | +2,893 |
+| **>=300** | 592 | 129 | 91 | **13.41** | 84.6 | **+4.73** | 5.41 | +2,803 |
+| >=400 | 567 | 122 | 90 | 12.71 | 84.1 | +4.57 | 5.41 | +2,593 |
+| >=600 | 527 | 116 | 90 | 10.95 | 82.9 | +4.18 | 5.41 | +2,202 |
+| >=1000 | 458 | 99 | 81 | 10.69 | 82.3 | +4.15 | 2.73 | +1,903 |
+
+The complement — what a cut would discard:
+
+| below cut | n | tkds | PF | win% | avg% | net pts |
+|-----------|--:|-----:|---:|-----:|-----:|--------:|
+| <100 | 460 | 113 | 3.17 | 75.4 | +2.14 | +985 |
+| <200 | 675 | 156 | 3.33 | 78.8 | +2.28 | +1,540 |
+| <300 | 771 | 176 | 3.40 | 79.2 | +2.41 | +1,856 |
+| <400 | 796 | 184 | 3.65 | 79.8 | +2.59 | +2,066 |
+
+**Answer to "should it be exactly >= 400%?" — NO.**
+
+1. **>= 300 strictly DOMINATES >= 400**: more trips (592 vs 567),
+   higher PF (13.41 vs 12.71), higher avg (+4.73 vs +4.57), identical
+   2022. There is no argument for 400 over 300.
+2. **The real boundary is 200, and it is a 2022 boundary.** Below it the
+   bear year collapses (0.82 at >=100, 1.11 at >=150); at >=200 it snaps
+   to 5.41 and holds through >=600. That is the honest floor.
+3. **>=200 vs >=300 is the volume/quality trade**: 688 @ 10.22 (3,117
+   slot pts) vs 592 @ 13.41 (2,800). Consistent with votes>=1 and
+   dslo>=8, **>=200 is the volume-coherent pick**; >=300 is the peak.
+4. ⚠ The discarded complement is NOT junk — below 200 is 675 trips @
+   3.33 / +2.28%. Cutting concentrates the book; it does not remove
+   losers.
