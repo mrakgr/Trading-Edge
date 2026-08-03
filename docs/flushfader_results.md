@@ -7714,3 +7714,55 @@ every year >= 2.15 at every depth. mc=3 = 2.7x the mc=1 points at
 HIGHER quality — the real-money case for multi-slot. (5-voice mc=1
 reference was 769 @ 3.622; the 6th voice trades -0.05 PF at mc=1 for
 +4% points and the cleaner ladder above.)
+
+
+## S42m — ⭐⭐ THE 7-VOICE VOTE: |esf| >= 0.5 adopted (2026-08-03)
+
+User revisited esf (eff_since_flow — Kaufman efficiency of the leg
+since its first low, S41b's mc=1 star that was rejected in isolation)
+as a VOICE. |esf| >= 0.4 tested first: voice-shaped (fires 40%,
+Jaccard <= 24 vs all six voices — only 4.3 vs ramp; lifts within EVERY
+6-vote level incl. 6-of-6+esf = 15.97/21) but cost -0.18 PF at every
+mc depth for +10% points (marginal set 338 @ 3.32).
+
+**|esf| fine bands, g60 book:**
+
+| band | n | tkds | pf | p21 | p22 | p23 | p24 | p25 | p26 | avg% |
+|------|--:|-----:|---:|----:|----:|----:|----:|----:|----:|-----:|
+| <0.3 | 4,016 | 714 | 3.38 | 4.15 | 7.31 | 1.91 | 3.23 | 2.40 | 7.04 | 1.98 |
+| [0.3,0.4) | 2,923 | 645 | 3.43 | 4.57 | 6.34 | 4.36 | 3.01 | 1.56 | 6.37 | 1.85 |
+| [0.4,0.5) | 2,071 | 463 | 4.23 | 5.88 | 5.06 | 6.19 | 4.07 | 5.58 | **1.29** | 2.13 |
+| [0.5,0.6) | 1,180 | 293 | **5.95** | 7.57 | 6.87 | 4.93 | 5.45 | 4.56 | 6.89 | 2.34 |
+| [0.6,0.7) | 639 | 161 | 3.88 | 4.03 | 2.02 | 3.79 | 1.96 | 1.48 | 10.11 | 2.10 |
+| [0.7,0.8) | 377 | 88 | **2.46** | 4.65 | 0.48 | 0.05 | 2.84 | 2.19 | 8.31 | 1.84 |
+| >=0.8 | 369 | 98 | **12.84** | 27.43 | 4.54 | 5.69 | 4.00 | 9.19 | 306.41 | 3.05 |
+
+Non-monotone: [0.5,0.6) peak (all years >= 4.5), [0.7,0.8) = the trap
+band, >=0.8 = the virgin-efficiency star. **User: "What if we made it
+0.5?" — 0.5 DOMINATES 0.4**: the [0.4,0.5) diluter drops out, the trap
+band is too thin (377 book-wide) to dent the >= 2 arithmetic.
+
+**The ladder (g60, >= 2 votes, $1+):**
+
+| construction | mc=1 | mc=2 | mc=3 |
+|---|---|---|---|
+| 6-voice | 807 @ 3.570 / 1,703 pts | 1,497 @ 3.712 / 3,248 | 2,078 @ 3.922 / 4,676 |
+| 7v esf>=0.4 | 921 @ 3.375 / 1,860 | 1,710 @ 3.558 / 3,591 | 2,368 @ 3.737 / 5,162 |
+| **7v esf>=0.5** | **879 @ 3.570 / 1,846** | **1,629 @ 3.710 / 3,535** | **2,257 @ 3.880 / 5,056** |
+
+esf >= 0.5 = **free volume**: +8% slot points at ZERO PF cost (mc=1
+identical 3.570; mc=3 -0.042), 2022 BETTER at every depth (mc=3 2.370
+vs 2.272). Marginal set at mc=3 = **196 @ 4.03 / p22 6.21 / +466 pts**
+— the additions are better than the book they join (4.03 > 3.88).
+(0.4's marginal set was 338 @ 3.32 — 0.5 keeps the best 60% of the
+additions and drops exactly the dilution.) Avoid >= 3 as the bar
+(esf's 2022 knife at high counts: 1.45 at mc=1).
+
+**⭐⭐ THE VOTE (canonical, real-money construction):**
+
+    g60 universe (gap_60 < 4), $1+, nfire >= 2 of SEVEN:
+    {v20 >= 140bp, d20a < -28%, speed < -6%, dslo >= +16%, pah >= +28%,
+     ramp (volat_slope_20m - volat_slope_10m)*2e4 < -12, |esf| >= 0.5}
+
+    mc=1  879 @ 3.570 / +2.10   mc=2  1,629 @ 3.710 / +2.17
+    mc=3  2,257 @ 3.880 / +2.24  — 2022 >= 2.17 at every depth.
