@@ -9682,3 +9682,56 @@ The complement — what a cut would discard:
 4. ⚠ The discarded complement is NOT junk — below 200 is 675 trips @
    3.33 / +2.28%. Cutting concentrates the book; it does not remove
    losers.
+
+
+## S43l — ⭐⭐ THE TWO S-TIER SETUPS (user decision: chg_1d >= 300%) (2026-08-03)
+
+User set the cut at **>= 300%**, reasoning: ">= 200 vs >= 300 is 30% of
+the PF for 10% of the net — not worth the tradeoff. Maybe >= 300 acts
+as a regime filter for bear markets." (Supported: 2022 reads 5.41 at
+both, but >= 300 is where the PF curve peaks — 13.41 — and >= 400 is
+strictly dominated.)
+
+**⭐ S-TIER A — the first-halt aftermath**
+
+    ht = 1  AND  secs_since_halt in [120, 1200)      (g60, $1+)
+
+**⭐ S-TIER B — the deep flush on a huge mover**
+
+    speed < -6%  AND  chg_1d >= 300%  AND  vote >= 1  (g60, $1+)
+
+### The tradeable ladder (mc replay, not attribution)
+
+| setup | mc=1 | mc=3 |
+|-------|------|------|
+| A first-halt | 35 @ **49.59** / +3.97% | 92 @ **63.10** / +4.09% |
+| B deep-mover | 139 @ **9.12** / +3.86% | 322 @ **9.87** / +4.09% |
+| **A OR B** | **170 @ 10.53** / +3.87% | **405 @ 11.70** / +4.08% |
+
+**They are near-DISJOINT** — 217 halt-only trips, 580 deep-only, and
+only **12 in both**. Two independent edges, so the union is close to
+additive. Union = **160 ticker-days = 22.9 per year.**
+
+### ⚠ What these numbers do NOT yet include
+
+1. **COSTS ARE NOT MODELLED.** The engine banner says so on every run.
+   At +4.08%/trip a 0.5-1.0% round trip on sub-$10 microcaps takes
+   12-25% of the edge. It does not kill it — but PF 11.7 is a
+   pre-cost number and will not survive intact.
+2. **FILLS are assumed.** Entry = next present bar's vwap, exit =
+   next bar's vwap after the 5m-high cross. On names moving 300%+ in a
+   day with LULD halts firing, real fills are the open question. The
+   slippage study has been on the queue since S42 and is now the single
+   highest-value remaining item — it is what stands between these
+   numbers and a live decision.
+3. **PF is unstable at this size.** A at mc=3 is 92 trips with ~9
+   losers. A single bad ticker-day moves it enormously — exactly what
+   ENSV 2022-03-08 did to the deep book (S43j).
+4. **Frequency: ~23 ticker-days/year combined**, ~58 trades/year at
+   mc=3. Real, tradeable, but a patient book — roughly two setups a
+   month, not a daily grind.
+
+**The honest summary: two genuinely independent, all-weather, high-PF
+setups on ~23 ticker-days a year, at +4%/trip BEFORE costs.** That is a
+very good result. Whether it is a great one depends entirely on the
+slippage study.
