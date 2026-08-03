@@ -314,6 +314,7 @@ CREATE TABLE trips (
     vol_leg DOUBLE, tc_leg DOUBLE, dv_leg DOUBLE, cum_dv DOUBLE,
     targets_today INTEGER, volat_20m_prev DOUBLE, vol_0945_tape DOUBLE,
     volat_slope_20m DOUBLE, volat_r_20m DOUBLE, volat_slope_10m DOUBLE, volat_r_10m DOUBLE,
+    halts_1200 INTEGER, halts_600 INTEGER,
     qty DOUBLE, net_pnl DOUBLE
 )"""
 
@@ -441,6 +442,7 @@ type TripSink(outDir: string) =
             f p.VolLeg; f p.TcLeg; f p.DvLeg; f p.CumDv
             i p.TargetsToday; f p.Volat20mPrev; f p.Vol0945Tape
             f p.VolatSlope20m; f p.VolatR20m; f p.VolatSlope10m; f p.VolatR10m
+            i p.Halts1200; i p.Halts600
             f qty; f pnl
             row.EndRow()
             total <- total + 1L

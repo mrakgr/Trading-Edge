@@ -378,6 +378,9 @@ type FlushPosition =
       GapAdj600: int
       GapAdj1200: int
       HaltsToday: int            // volatility halts classified so far this session
+      Halts1200: int             // ⭐ S42r: classified halts OVERLAPPING the trailing 20m
+      Halts600: int              //    ... and the trailing 10m (windowed twins of HaltsToday;
+                                 //    the COUNT, not the seconds — see haltCount vs haltOverlap)
       SecsSinceHalt: int         // signal_sec − last reopen sec; −1 = no halt today
       // ----- location -----
       SessVwap: float
@@ -1117,6 +1120,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 let loO = max a lo
                 if hiO >= loO then s <- s + (hiO - loO + 1)
             s
+        // ⭐ S42r (user, 2026-08-03): the COUNT of classified halts overlapping
+        // the same trailing window. haltOverlap gives their total SECONDS —
+        // duration and count are DIFFERENT facts (a single LULD pause is 300s
+        // nominal but ranges 0-599s here, so seconds cannot proxy the count).
+        // Record-only: the windowed-vs-day halt-count comparison (S42q).
+        let haltCount (w: int) =
+            let lo = max cfg.SessionStartSec (bar.etSec - w + 1)
+            let mutable c = 0
+            for struct (a, b) in haltIvals do
+                if min b bar.etSec >= max a lo then c <- c + 1
+            c
         let adjGap60 = max 0 (gap60.Gaps - haltOverlap 60)
         let adjGap300 = max 0 (gap300.Gaps - haltOverlap 300)
         let adjGap600 = max 0 (gap600.Gaps - haltOverlap 600)
@@ -1723,6 +1737,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       GapAdj600 = adjGap600
                       GapAdj1200 = adjGap1200
                       HaltsToday = haltsToday
+                      Halts1200 = haltCount 1200
+                      Halts600 = haltCount 600
                       SecsSinceHalt = (if lastHaltEnd < 0 then -1 else bar.etSec - lastHaltEnd)
                       SessVwap = vv sessVwap.State
                       DistSessVwap =

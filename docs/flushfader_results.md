@@ -7969,6 +7969,19 @@ The correct statement is the ht=1-conditional one in section 2 above.
 
 ## S42q — halts_today vs a 20m-WINDOWED halt count: the DAY count wins decisively (2026-08-03)
 
+> ⚠ **METHOD CAVEAT (user caught, same day): the "halts in the window"
+> split below is a PROXY, not a count.** It uses `gap_1200 -
+> gap_adj_1200` = `haltOverlap 1200` = halt **SECONDS** in the trailing
+> 20m, bucketed at 400s. Single halts range 0-599s (median 299 = the
+> LULD pause), so `>=400s` does NOT mean two halts — 37 g60 trips with
+> `halts_today = 1` (definitionally ONE halt) sit in that bucket.
+> **Surviving:** the `<400s` direction (two halts would have to average
+> <200s each; only 68/230 single halts are that short), which is what
+> the verdict rests on. **Retracted:** the ">=400s = acute cascade"
+> cell. Proper `halts_1200` / `halts_600` COUNT columns baked in S42r —
+> see there for the measured answer.
+
+
 User: "whether we'd be better off using the ht features as we're doing
 now, or whether we should consider only the halts in the last 20m.
 We'll have to implement it into the engine. Before that I want to see
