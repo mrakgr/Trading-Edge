@@ -378,9 +378,10 @@ type FlushPosition =
       GapAdj600: int
       GapAdj1200: int
       HaltsToday: int            // volatility halts classified so far this session
-      Halts1200: int             // ⭐ S42r: classified halts OVERLAPPING the trailing 20m
-      Halts600: int              //    ... and the trailing 10m (windowed twins of HaltsToday;
-                                 //    the COUNT, not the seconds — see haltCount vs haltOverlap)
+      Halts1200: int             // ⭐ S42r: classified halts inside the last 1200 PRESENT BARS
+      Halts600: int              //    ... and the last 600 (bar-indexed twins of HaltsToday —
+                                 //    the entry channel's own window, so the lookback stretches
+                                 //    back THROUGH halt holes; the COUNT, not the seconds)
       SecsSinceHalt: int         // signal_sec − last reopen sec; −1 = no halt today
       // ----- location -----
       SessVwap: float
@@ -974,6 +975,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // ⭐ S40l tier-2 (S39q): volat_20m as of 1200 present bars ago — the LAGGED
     // (pre-window) normalizer the slope study lacked. nan while cold.
     let volatLag = LagMa<float> 1200
+    // ⭐ S42r (user, 2026-08-03): halts classified inside the last N PRESENT
+    // BARS — one indicator per bar into a rolling sum (the bigGapRuns1200
+    // pattern). Bar-indexed, NOT wall-clock: a halt REMOVES seconds from the
+    // tape, so a wall-clock window shrinks exactly when a cascade is running
+    // (a 300s pause eats 25% of a 1200s window; 2+ halts essentially cannot
+    // fit and the count degenerates to 0/1 — measured, v24_hcount). The bar
+    // window stretches back THROUGH the holes, where the cascade lives.
+    let haltSum1200 = SumMa 1200
+    let haltSum600 = SumMa 600
 
     // ⭐ ACTIVE/RETIRED SPLIT (user, 2026-07-23). At mc=0 a busy day opens hundreds
     // of trips per ticker; looping ALL of them every bar made runtime scale
@@ -1103,13 +1113,20 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         bigGapRuns1200.Push (if gapRun >= 60.0 then 1.0 else 0.0)
         // ⭐ S40x: classify the run just ended against the PRE-hole snapshots.
         // First bar of the day never classifies (prevRng300 = nan fails >=).
-        if gapRun >= float cfg.HaltMinRunSec
-           && prevRng300 >= cfg.HaltMinRng300
-           && prevAdjGap60 < cfg.HaltMaxPreGap60
-           && prevEtSec >= cfg.SessionStartSec then
-            haltIvals.Add(struct (prevEtSec + 1, bar.etSec - 1))
-            haltsToday <- haltsToday + 1
-            lastHaltEnd <- bar.etSec
+        let haltClassified =
+            if gapRun >= float cfg.HaltMinRunSec
+               && prevRng300 >= cfg.HaltMinRng300
+               && prevAdjGap60 < cfg.HaltMaxPreGap60
+               && prevEtSec >= cfg.SessionStartSec then
+                haltIvals.Add(struct (prevEtSec + 1, bar.etSec - 1))
+                haltsToday <- haltsToday + 1
+                lastHaltEnd <- bar.etSec
+                true
+            else false
+        // S42r: 1 on a bar that classified a halt, 0 otherwise -> the rolling
+        // sums ARE the windowed halt counts (auto-evicting at 1200/600 bars).
+        haltSum1200.Push (if haltClassified then 1.0 else 0.0)
+        haltSum600.Push (if haltClassified then 1.0 else 0.0)
         // adjusted gaps = raw window gaps minus halt-interval overlap with the
         // SAME [max(sessionStart, now-W+1), now] window the GapCounter uses.
         let haltOverlap (w: int) =
@@ -1120,17 +1137,6 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 let loO = max a lo
                 if hiO >= loO then s <- s + (hiO - loO + 1)
             s
-        // ⭐ S42r (user, 2026-08-03): the COUNT of classified halts overlapping
-        // the same trailing window. haltOverlap gives their total SECONDS —
-        // duration and count are DIFFERENT facts (a single LULD pause is 300s
-        // nominal but ranges 0-599s here, so seconds cannot proxy the count).
-        // Record-only: the windowed-vs-day halt-count comparison (S42q).
-        let haltCount (w: int) =
-            let lo = max cfg.SessionStartSec (bar.etSec - w + 1)
-            let mutable c = 0
-            for struct (a, b) in haltIvals do
-                if min b bar.etSec >= max a lo then c <- c + 1
-            c
         let adjGap60 = max 0 (gap60.Gaps - haltOverlap 60)
         let adjGap300 = max 0 (gap300.Gaps - haltOverlap 300)
         let adjGap600 = max 0 (gap600.Gaps - haltOverlap 600)
@@ -1737,8 +1743,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       GapAdj600 = adjGap600
                       GapAdj1200 = adjGap1200
                       HaltsToday = haltsToday
-                      Halts1200 = haltCount 1200
-                      Halts600 = haltCount 600
+                      Halts1200 = (match haltSum1200.State with ValueSome v -> int v | ValueNone -> 0)
+                      Halts600 = (match haltSum600.State with ValueSome v -> int v | ValueNone -> 0)
                       SecsSinceHalt = (if lastHaltEnd < 0 then -1 else bar.etSec - lastHaltEnd)
                       SessVwap = vv sessVwap.State
                       DistSessVwap =
