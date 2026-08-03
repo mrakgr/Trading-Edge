@@ -8562,3 +8562,111 @@ vote book — "the best trade in our entire playbook" (user).
 
 Grand-parity chain: base_v15 -> v23 (38,069) -> v24 (37,464, cascade
 knife) -> **v25 (37,444, + reopen block)**, every step verified exact.
+
+
+## S42w — halt detector pre-gap 2 -> 4: a wash (2026-08-03)
+
+User: the detector demands `pre-hole adjusted 1m gap < 2` while the
+traded universe is `gap_60 < 4` — inconsistent, so halts on legitimately
+tradeable names go unclassified. Baked `--halt-max-pre-gap-60 4`
+(`v25_hg4/`, everything else at v2.5 defaults).
+
+**It barely moves anything.**
+
+| | trips | halted trips | halted tkds | % halted |
+|---|------:|-------------:|------------:|---------:|
+| pre-gap < 2 | 29,794 | 6,917 | 859 | 23.22 |
+| pre-gap < 4 | 29,764 | 7,153 | 880 | 24.03 |
+
++236 halted trips (+3.4%), +21 halted ticker-days, and the book itself
+shrinks by 30 (the extra halts trip the cascade gate). Downstream:
+
+| cell | pre-gap < 2 | pre-gap < 4 |
+|------|-------------|-------------|
+| **S-TIER (ht=1, ssh [2,20m), g60)** | 224 @ 142.58 / 34 tkds | **229 @ 144.38 / 35 tkds** |
+| halt-band voice (ssh [20,80m), g60) | 1,862 @ 5.86 / p22 13.62 | 1,897 @ 6.02 / p22 14.34 |
+
+**+5 trips and +1 ticker-day in the S-tier cell.** Everything moves in
+the right direction and nothing moves materially — the 4%-range and
+58s-run conditions are what actually bind, not the pre-gap. Verdict:
+**adopt for consistency, not for yield** (the detector should agree
+with the universe it feeds); no re-bake of the reference is warranted
+on these numbers alone. Fold it in with the next spec change.
+
+
+## S42x — ⭐⭐ WHICH VOICE BREAKS 2022? Not a voice — the VOTE COUNT (2026-08-03)
+
+The g60 book does **5.059** in 2022 at mc=1 without the vote and
+**2.526** with it (S42v). Diagnosis on v25_reference, g60, mc=0.
+
+**A. Each voice when it fires, PF by year:**
+
+| voice | n fires | all | 2020 | 2021 | **2022** | 2023 | 2024 | 2025 | 2026 |
+|-------|--------:|----:|-----:|-----:|---------:|-----:|-----:|-----:|-----:|
+| v20 | 1,742 | 5.44 | 10.90 | 1.80 | **0.87** | 15.70 | 6.06 | 4.92 | 12.95 |
+| speed | 1,594 | 4.51 | 20.87 | 8.44 | **1.33** | 3.35 | 7.00 | 2.49 | 4.53 |
+| d20a | 1,611 | 6.31 | 8.93 | 6.73 | **1.70** | 10.92 | 6.38 | 4.17 | 11.41 |
+| esf | 2,498 | 4.91 | 19.29 | 6.21 | 2.12 | 2.63 | 3.50 | 3.54 | 8.57 |
+| dslo | 3,812 | 4.70 | 12.25 | 3.86 | 2.90 | 3.55 | 3.90 | 3.62 | 11.00 |
+| pah | 3,891 | 4.63 | 11.18 | 2.92 | 3.17 | 3.62 | 3.88 | 4.15 | 11.09 |
+| ramp | 627 | 8.66 | 20.74 | 56.10 | **7.61** | 2.22 | 7.49 | 11.31 | 5.60 |
+| haltband | 1,862 | 5.86 | 11.69 | 3.99 | **13.62** | 2.81 | 4.77 | 5.73 | 15.83 |
+
+**B. The culprit test — 2022, fired vs quiet:**
+
+| voice | n fires 22 | PF fired | PF quiet | net pts | avg fired | avg quiet |
+|-------|-----------:|---------:|---------:|--------:|----------:|----------:|
+| **v20** | 40 | **0.87** | 7.19 | **-22** | **-0.55** | +2.06 |
+| speed | 46 | 1.33 | 5.42 | +37 | +0.81 | +1.97 |
+| d20a | 17 | 1.70 | 4.34 | +27 | +1.59 | +1.88 |
+| esf | 200 | 2.12 | 7.43 | +240 | +1.20 | +2.26 |
+| dslo | 216 | 2.90 | 5.58 | +365 | +1.69 | +1.99 |
+| pah | 227 | 3.17 | 5.21 | +417 | +1.84 | +1.89 |
+| ramp | 26 | 7.61 | 3.89 | +89 | +3.40 | +1.79 |
+| haltband | 113 | 13.62 | 3.27 | +312 | +2.76 | +1.63 |
+
+**v20 is the only voice with NEGATIVE 2022 expectancy** (-0.55%/trip,
+-22 pts). ramp and haltband are the only two that are ACCRETIVE.
+
+**⚠ But removing v20 does NOT fix 2022** — it is identical to four
+decimals: mc=1 2.526 -> 2.526, mc=3 2.778 -> 2.778 (it does lift the
+overall book, mc=3 4.371 -> 4.531 on 92 fewer trips, by trimming
+volume). Those 40 fires are mostly not the trips the mc selector takes.
+
+**C. The real cause — the hump INVERTS in a bear:**
+
+| votes | n all | PF all | n 2022 | **PF 2022** | net pts 22 |
+|------:|------:|-------:|-------:|------------:|-----------:|
+| 0 | 3,437 | 2.51 | 125 | 3.87 | +176 |
+| 1 | 2,413 | 3.57 | 150 | 5.62 | +290 |
+| 2 | 2,478 | 5.84 | 140 | **38.87** | +407 |
+| 3 | 1,516 | 5.99 | 80 | 6.51 | +171 |
+| 4 | 757 | 5.84 | 30 | **0.95** | **-5** |
+| 5 | 342 | 3.51 | 7 | **0.47** | **-30** |
+| 6 | 139 | 3.63 | 10 | 1.10 | +2 |
+
+All-years the hump is flat-topped from 2 to 4 (5.84 / 5.99 / 5.84). In
+2022 it **collapses after 3** (38.87 / 6.51 / 0.95 / 0.47). **In a bear,
+many extremity voices agreeing simultaneously is a CRASH, not a
+fadeable flush** — the S42b contrast grammar (sustained violence =
+developing crash) reappearing at the vote level.
+
+**D. The fix is a CAP, not a deletion.** mc=3, g60:
+
+| construction | n | PF | 2020 | 2021 | **2022** | 2023 | 2024 | 2025 | 2026 |
+|---|--:|---:|-----:|-----:|---------:|-----:|-----:|-----:|-----:|
+| vote >= 2 (current) | 2,248 | 4.371 | 13.07 | 3.81 | **2.78** | 4.05 | 3.29 | 3.84 | 5.28 |
+| vote in [2,4] | 2,093 | 4.382 | — | — | 2.78 | — | — | — | — |
+| **vote in [2,3]** | 1,857 | **4.772** | 20.01 | 4.69 | **8.40** | 5.71 | **2.75** | 4.01 | 4.45 |
+| drop v20, >= 2 | 2,156 | 4.531 | — | — | 2.78 | — | — | — | — |
+
+Capping at 3 **triples 2022 (2.78 -> 8.40)** and improves 5 of 7 years,
+for -17% trips. Note `[2,4]` does nothing (2.78) — the damage is
+concentrated at exactly 4 votes, which is 30 of 2022's trips.
+
+**⚠ HONEST CAVEAT — the cap does NOT raise the worst-year floor.** It
+moves it: worst year goes from 2022 @ 2.778 to **2024 @ 2.754**. What
+improves is total PF (4.371 -> 4.772) and the SHAPE (bear years stop
+being the weak point). Whether -17% volume is worth +0.40 PF and a
+flatter year profile is a portfolio call, not a statistical one —
+LEFT FOR THE USER.
