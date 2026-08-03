@@ -9735,3 +9735,64 @@ additive. Union = **160 ticker-days = 22.9 per year.**
 setups on ~23 ticker-days a year, at +4%/trip BEFORE costs.** That is a
 very good result. Whether it is a great one depends entirely on the
 slippage study.
+
+
+## S43m — do deep flushes get HALTED while we hold? (user) (2026-08-03)
+
+User: "it's possible that the deep flushes result in halts. It's worth
+checking out." **Right about the mechanism — a -6%/min move is exactly
+what trips LULD — and the answer contains a bonus.**
+
+Measure = `hold_gap = (exit_sec - entry_sec) - bars_held`. On g60
+(continuous tape) a >= 300s hole during the hold IS a halt. ⚠ Post-hoc
+forensic only, NEVER a gate (S42p).
+
+### The halt-during-hold RATE
+
+| population | n | % paused (>=58s) | **% HALTED (>=300s)** | med gap |
+|------------|--:|-----------------:|----------------------:|--------:|
+| whole g60 book | 11,083 | 15.5 | **2.8** | 7s |
+| moderate flush [-6,-2) | 9,492 | 14.6 | **2.3** | 7s |
+| **DEEP flush < -6%** | 1,591 | 20.9 | **5.6** | 9s |
+| **S-TIER B (deep + chg1d>=300 + vote)** | 592 | 18.8 | **2.7** | 6s |
+
+⭐ **Deep flushes DO have 2.4x the halt-trap rate of moderate ones
+(5.6% vs 2.3%) — but the >= 300% filter removes the elevation
+entirely (2.7% = the book baseline).**
+
+Plausible mechanism: LULD bands reference a 5-minute rolling average,
+so on a stock already up 300%+ the reference price is CHASING the
+price and a -6% minute rarely breaches the band. A quiet name that
+drops 6% in a minute breaches immediately. **The >= 300% cut is
+therefore not only a PF filter — it is a halt-risk filter**, which is
+an independent reason to prefer it over >= 200%.
+
+### And when a halt DOES land, it is favourable
+
+**S-TIER B:**
+
+| hold | n | tkds | % | losers | PF | win% | avg% | worst |
+|------|--:|-----:|--:|-------:|---:|-----:|-----:|------:|
+| HALTED (>=300s) | 16 | 4 | 2.7 | 2 | 264.81 | 87.5 | **+9.26** | **-0.3** |
+| paused (58-300s) | 95 | 21 | 16.0 | 15 | 12.41 | 84.2 | +5.57 | -6.1 |
+| clean hold | 481 | 106 | 81.3 | 74 | 12.88 | 84.6 | +4.42 | -8.2 |
+
+**S-TIER A:**
+
+| hold | n | % | PF | avg% | worst |
+|------|--:|--:|---:|-----:|------:|
+| HALTED (>=300s) | 8 | 3.5 | ∞ (0 losers) | +2.81 | **+0.1** |
+| clean hold | 221 | 96.5 | 141.5 | +4.96 | -1.2 |
+
+Same asymmetry as S42p's golden window: **in both S-tier setups the
+halt that catches us is the LULD-UP halt of the snap-back, not the
+down halt** — worst cases -0.3% and +0.1%. Compare the S42p pre-first-
+halt population, where a halt-during-hold was catastrophic (PF 0.07,
+-6.06%/trip, worst -38.5%).
+
+**Verdict: the risk is real for deep flushes as a class and absent from
+the S-tier cells.** (⚠ 16 and 8 trips respectively — the RATE is solid
+on 592 trips, the favourability is not. Do not lean on it; just do not
+fear it either.) This does NOT retire the slippage question — halts
+are one failure mode, ordinary spread and impact on 300%-movers is
+another and is still unmeasured.
