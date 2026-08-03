@@ -9213,3 +9213,67 @@ looked better in isolation than it performs as a voice.**
 ⏭ Open user decision: dropping the day-structure voice entirely is the
 highest-PF construction tested (2,388 @ **4.078**) at -23% trips — the
 same concentration trade as the 5-voice roster.
+
+
+## S43f — dhla tested both ways; the day-structure family is CLOSED (2026-08-03)
+
+User: "let's also try dhla = d20a x dslo", then: "One disadvantage of
+that is that it wouldn't take the current price into account, but maybe
+that could be fine..."
+
+Two readings, both computed (the notation was ambiguous):
+
+    dhla_ratio = arming_high / sess_low - 1   = (1+dslo)/(1+d20a) - 1
+                 [the geometric analogue of dhl, anchored on the FROZEN
+                  arming high instead of the rolling 20m channel high]
+    dhla_prod  = |d20a| x dslo                [the literal product]
+
+### Neither is new information
+
+| | vs dslo | vs d20a | vs dhl |
+|---|--------:|--------:|-------:|
+| dhla_ratio | **0.955** | -0.365 | **0.981** |
+| dhla_prod | **0.958** | -0.201 | — |
+
+⚠ **`dhla_prod` is also DEGENERATE**: q10 = q25 = **0.0**, median 0.6 —
+because ~45% of trips sit EXACTLY at the session low (the S41p mass
+point), so `dslo = 0` and any product with it collapses to zero for the
+largest single group in the book.
+
+### ⭐ The user's own objection, answered empirically
+
+The price-free forms (dhl, dhla_ratio) are ratios of two LEVELS — the
+current price cancels. That does NOT buy independence: both still
+correlate **0.955-0.975 with the price-based dslo**. The decomposition
+says why — `(1+dhl) = (1+dbh)(1+dslo)` and the flush-depth factor
+`dbh` (median 18.7%) varies far less than `dslo`, so the product tracks
+dslo whichever high you anchor on.
+
+**And discarding the price is the wrong trade anyway.** For a
+mean-reversion ENTRY, "how far above the low am I *right now*" (dslo,
+price-dependent) is the tradeable fact; "how big is the day's range"
+(dhl / dhla, price-free) is background. The price-free forms throw away
+precisely the part that decides the entry — which is why they lose:
+
+| day-structure voice | n | PF |
+|---------------------|--:|---:|
+| **dslo >= 16 (incumbent)** | 3,096 | **4.023** |
+| dhla_ratio >= 65 | 2,755 | 3.966 |
+| dhla_ratio >= 45 | 3,003 | 3.932 |
+| dhla_ratio >= 30 | 3,493 | 3.540 |
+| dhl >= 45 (S43e) | 2,919 | 3.987 |
+| dhl >= 30 (S43e) | 3,240 | 3.691 |
+
+In isolation dhla_ratio is well-behaved like dhl (bands 2.34 / 3.23 /
+4.88 / **6.28** / 4.44 / 4.10) — and, like dhl, that does not survive
+into the voice test.
+
+### ⛔ FAMILY CLOSED
+
+Five formulations tested — **pah** (chan_hi/open), **dslo**
+(vwap/sess_low), **dhl** (chan_hi/sess_low), **dhla_ratio**
+(arming_high/sess_low), **dhla_prod** (|d20a| x dslo) — all
+pairwise 0.94-0.98, all beaten by the incumbent. **`dslo >= 16` keeps
+the day-structure seat; the family is closed.** Anchoring on a
+different high, a different low, or removing the price entirely does
+not produce a new feature — it produces dslo in a new costume.
