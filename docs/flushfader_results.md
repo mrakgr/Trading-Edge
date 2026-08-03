@@ -8409,3 +8409,43 @@ lying banner is a live trap. Now:
 The De Morgan conjunction was correct but opaque, and opaque gates are
 where the S42q-S42t errors bred. Prefer the case analysis; verify the
 rewrite by parity, not by re-reading the boolean.
+
+
+## S42v — WHERE WE STAND: the SPEC v2.5 matrix (universe x vote x concurrency) (2026-08-03)
+
+All on `v25_reference`, $1+. Vote = the 8 voices, nfire >= 2.
+
+| book | mc=0 (attribution) | mc=1 | mc=2 | mc=3 |
+|------|--------------------|------|------|------|
+| full, no vote | 29,794 @ **2.542** | 4,233 @ **2.147** | 7,922 @ **2.140** | 11,063 @ **2.186** |
+| full, + vote | 8,290 @ **3.969** | 1,350 @ **2.960** | 2,491 @ **3.035** | 3,431 @ **3.143** |
+| g60, no vote | 11,103 @ **3.980** | 1,830 @ **2.955** | 3,373 @ **3.033** | 4,658 @ **3.112** |
+| **g60, + vote** | 5,253 @ **5.568** | 884 @ **4.075** | 1,630 @ **4.244** | **2,248 @ 4.371** |
+
+avg% per trip (same order): mc=1 1.12 / 1.89 / 1.56 / **2.18**;
+mc=3 1.17 / 2.00 / 1.65 / **2.30**. Win% at mc=3: 72.2 / 77.4 / 76.6 / **80.4**.
+
+**Three things this table says:**
+
+1. **The two filters are near-perfect twins and they STACK.** At mc=1
+   the universe filter alone (g60, 2.955) and the vote filter alone
+   (2.960) are worth almost exactly the same, and together they give
+   4.075 — nearly DOUBLE the unfiltered 2.147. Independent evidence for
+   the S42c design principle: quality in the universe, extremity in the
+   vote, two different facts.
+
+2. **Quality and quantity genuinely trade off.** Slot points
+   (n x avg%) at mc=3: full/no-vote **12,944** @ 2.19 · full+vote
+   6,862 @ 3.14 · g60/no-vote 7,686 @ 3.11 · g60+vote **5,170** @ 4.37.
+   The unfiltered book earns 2.5x the points of the traded book at half
+   the PF, because with more candidates the single slot is simply busy
+   more often. g60+vote is the deliberate choice of PF over points
+   (S41g/h two-book view); full+vote is the standing alternative if
+   capital ever wants the volume at 3.14.
+
+3. **⚠ In 2022 the VOTE COSTS on the clean book.** g60/no-vote 2022 =
+   **5.059** at mc=1 vs g60+vote **2.526**. The extremity voices
+   discount in a bear (S42f: v20-only 2022 = 0.56, d20a-only loss-free)
+   — the vote is a bull-regime amplifier, and the universe filter is
+   what actually carries 2022. A regime rule that drops the vote bar to
+   >= 1 (or trades g60 flat) in a bear is the open design question.
