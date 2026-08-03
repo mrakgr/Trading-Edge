@@ -9846,14 +9846,15 @@ understates how related they are.
 
 Cumulative sweep inside S-tier B (chg_1d >= 300, vote >= 1):
 
-| speed cut | n | tkds | losers | PF | win% | avg% | yrs | 2022 | net pts |
-|-----------|--:|-----:|-------:|---:|-----:|-----:|----:|-----:|--------:|
-| < -4 | 1,529 | 302 | 235 | 11.27 | 84.6 | +3.76 | 7 | **15.57** | **+5,750** |
-| **< -6 (current)** | 592 | 129 | 91 | **13.41** | 84.6 | +4.73 | 7 | 5.41 | +2,803 |
-| < -8 | 233 | 57 | 52 | 12.87 | 77.7 | +5.84 | 7 | 1.59 | +1,361 |
-| < -10 | 78 | 20 | 19 | 11.40 | 75.6 | +6.76 | 7 | **0.00** | +527 |
-| < -12 | 28 | 9 | 3 | 169.79 | 89.3 | +8.58 | 4 | NULL | +240 |
-| < -15 | 5 | 2 | 0 | ∞ | 100.0 | +14.62 | 2 | NULL | +73 |
+| speed cut | n | tkds | losers | PF | win% | avg% | med% | yrs | 2022 | net pts |
+|-----------|--:|-----:|-------:|---:|-----:|-----:|-----:|----:|-----:|--------:|
+| **< -2 (spec base, NO deep cut)** | **3,408** | **541** | 588 | **8.17** | 82.7 | +2.87 | +2.84 | 7 | **10.54** | **+9,797** |
+| < -4 | 1,529 | 302 | 235 | 11.27 | 84.6 | +3.76 | +3.69 | 7 | **15.57** | **+5,750** |
+| **< -6 (current)** | 592 | 129 | 91 | **13.41** | 84.6 | +4.73 | +4.60 | 7 | 5.41 | +2,803 |
+| < -8 | 233 | 57 | 52 | 12.87 | 77.7 | +5.84 | +5.01 | 7 | 1.59 | +1,361 |
+| < -10 | 78 | 20 | 19 | 11.40 | 75.6 | +6.76 | +5.79 | 7 | **0.00** | +527 |
+| < -12 | 28 | 9 | 3 | 169.79 | 89.3 | +8.58 | +6.01 | 4 | NULL | +240 |
+| < -15 | 5 | 2 | 0 | ∞ | 100.0 | +14.62 | +19.55 | 2 | NULL | +73 |
 
 **PF PEAKS at the current -6 and falls as you tighten** (13.41 -> 12.87
 -> 11.40). Only avg% rises — that is just bigger moves on fewer trades,
@@ -9875,9 +9876,24 @@ LARGEST good band (359 trips)**. A -8 or -10 cut throws away the
 biggest piece of the very thing it is trying to isolate. Below -10 the
 PF actually falls (9.95).
 
-⭐ **Worth flagging the other direction:** `< -4` gives **2.6x the trips
-(1,529), 2x the net points (5,750), and a far better 2022 (15.57)** for
--2.1 PF. On the volume-coherent logic used all session (votes>=1,
-dslo>=8, chg_1d>=300 over >=400), **-4 is arguably the better cut than
--6** — it is only "less deep" by name. Left as a user decision; the
-current -6 stands.
+⭐ **The other direction is where the money is.** With the spec baseline
+now in the table, the full picture is a clean monotone trade of PF
+against everything else:
+
+| cut | trips | net pts | PF | 2022 |
+|-----|------:|--------:|---:|-----:|
+| < -2 | 3,408 | **9,797** | 8.17 | 10.54 |
+| < -4 | 1,529 | 5,750 | 11.27 | **15.57** |
+| < -6 | 592 | 2,803 | **13.41** | 5.41 |
+
+**`< -2` — i.e. NO deep-flush cut at all — earns 3.5x the net points of
+`< -6` at PF 8.17 and a 2022 of 10.54.** `< -4` sits between with the
+BEST bear year of the three (15.57). The deep cut is buying PF with
+net, and steeply: each step from -2 to -6 roughly halves the book.
+
+On the volume-coherent logic used all session (votes>=1, dslo>=8,
+chg_1d>=300 over >=400), **-4 has the strongest case** — 2.6x the trips
+of -6, 2x the net, and the best 2022 of any cut. It is only "less
+deep" by name. ⚠ Note also that `chg_1d >= 300` is doing most of the
+work here: `< -2` with it still yields 8.17 on 3,408 trips. Left as a
+user decision; the current -6 stands.
