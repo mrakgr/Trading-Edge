@@ -7832,10 +7832,11 @@ recorded columns exactly (both causal running state); flags
 ret_exit diff on survivors. **v24_reference/ = THE reference** (v23_vs
 retains the removed trips for halt-zone research).
 
-Also settled (user question): ht=1 ssh<2m = EXACTLY the six BWV trips
-(one tkd, 100% losers, -4.3 pts) and **[2,5m) contains ZERO trips in 7
-years** — the 20m-low channel can't re-arm that fast post-resume. The
-golden window is empirically **[5,20m): 47 @ 59.0 then 177 @ 201.3**.
+Also settled (user question): ht=1 ssh<2m = the six BWV trips on g60
+(one tkd, 100% losers, -4.3 pts). ⚠ **The "[2,5m) is empty" claim made
+here was WRONG as stated — see S42p §5 for the correction and the real
+(and better) result: the emptiness is ht=1-CONDITIONAL and structural.**
+The golden window is empirically **[5,20m): 47 @ 59.0 then 177 @ 201.3**.
 
 **New canonical books ($1+):** full = 29,814 @ 2.542 (was 2.528);
 g60 = 11,111 @ 3.977 / p22 3.98 (was 3.778).
@@ -7853,3 +7854,114 @@ exactly the cascade windows and lost — PF +0.45 at mc=3 for -3% slot
 points; win% +1.0-1.2 at every depth; 2022 +0.21-0.31. (Control logic
 per the lookahead protocol: removing a bad-but-causal zone should
 improve or leave flat — it improved everywhere.)
+
+
+## S42p — the FORBIDDEN STATE: ht=1 has NO [2,5m) window; and the real halt risk is being CAUGHT HOLDING (2026-08-03)
+
+User: "I think halt cascades have a very peculiar pattern so that 2m
+might just be the boundary to clip sequential halt cascades."
+**Hypothesis CONFIRMED and sharpened — but the boundary is 5m, not 2m,
+and it is a boundary of EXISTENCE, not of quality.**
+
+### 1. The literal question: ht=1 AND ssh < 2m
+
+Seventeen trips on **three ticker-days in seven years** (BWV 2022-08-18
+g60 6 @ -4.3 pts + illiq 2 @ -6.2; WORX 2020-04-15 1 @ -3.5; ZENA
+2025-06-05 8 @ +40.1) — net ~ +3 pts. Gating it on top of v2.4:
+mc=1 829 @ 4.174 -> **827 @ 4.183**. Two trips, +0.009 PF: below the
+noise floor. **No gate** (the disproportion test in reverse — a filter
+touching 0.02% of the book SHOULD NOT move PF; this one correctly
+doesn't). The BWV cluster was small losses, not a cascade victim
+(hold_gap 5s — the tape never went dark on them).
+
+### 2. ⭐ THE FORBIDDEN STATE (the peculiar pattern)
+
+Signals in the first 20m after a resume, FULL book, by halt number:
+
+| zone | ht=1 | ht=2 | ht>=3 | ht=1 tkds |
+|------|-----:|-----:|------:|----------:|
+| <2m | 17 | 3 | 37 | 3 |
+| **[2,5m)** | **0** | 6 | 33 | **0** |
+| [5,10m) | 47 | 0 | 121 | 8 |
+| [10,20m) | 187 | 57 | 352 | 31 |
+
+**ht=1 x [2,5m) is EMPTY in BOTH books across 7 years.** Under any
+smooth interpolation between the neighbouring bands the expected count
+is 25-28 (P(0) ~ 1e-11) — this is structural, not sampling. The zone
+itself is NOT empty: 39 trips live there, every one of them ht>=2.
+
+**Mechanism — LULD re-trigger relabeling.** A stock still weak enough
+to print new 20m lows 2-5 minutes after its first resume trips the
+NEXT halt. That (a) blanks the tape, so no bar exists to signal on, and
+(b) increments the counter, so anything after it is ht>=2 BY
+CONSTRUCTION. There is no "first-halt stock still collapsing at 3
+minutes" state in nature — it has already become a second-halt stock.
+The [2,5m) survivors are exactly the cascade tiers riding between
+halts (64.1% of them eat another >=300s hole during the hold).
+
+**Consequence — the A++ golden window is a CASCADE-SURVIVORSHIP filter,
+and a causal one.** ht=1 x ssh [5,20m) isn't magic timing: by 5 minutes
+past resume with no second halt, the tape has ALREADY run the cascade
+test and the stock passed. The market does the filtering; we just read
+the clock. (This also explains the shape: 6 trips at <2m = before the
+test, 0 in [2,5m) = during the test, 224 at [5,20m) = after it.)
+
+### 3. Is the v2.4 cascade gate correctly SHAPED?
+
+Post-hoc gate shapes on v23_vs, 7-voice vote, g60, mc=1
+(shape (a) reproduces the baked engine gate exactly = control):
+
+| shape | n | PF | 2022 |
+|-------|--:|---:|-----:|
+| **(a) ht>=3 AND <20m — BAKED** | 829 | **4.174** | 2.362 |
+| (b) ht>=3 AND [5,20m) (spare <5m) | 833 | 4.137 | 2.362 |
+| (c) ht>=3 AND <40m | 795 | 4.214 | **2.128** |
+| (d) ht>=2 AND <20m | 823 | 4.148 | 2.353 |
+| (e) (a) + clip all <2m | 827 | 4.183 | 2.406 |
+
+Nothing beats it: (c) buys +0.04 PF by giving up 34 trips AND 0.23 of
+2022. **The gate is at a local optimum and is not knife-edge tuned** —
+every neighbouring shape lands within 0.05 PF.
+
+### 4. ⭐⭐ THE REAL HALT RISK: caught holding, before the first halt
+
+`hold_gap = (exit_sec - entry_sec) - bars_held` = missing seconds
+DURING the hold. On g60 (continuous tape) a >=300s hole IS a halt.
+**This is a post-hoc forensic, NOT a gate — it is pure lookahead.**
+
+ht=0 population (before the day's first halt), g60:
+
+| hold | n | % | PF | win% | avg% | worst% |
+|------|--:|--:|---:|-----:|-----:|-------:|
+| clean | 6,132 | 84.3 | 5.50 | 80.9 | +2.14 | -16.7 |
+| pause (58-300s) | 923 | 12.7 | 2.11 | 68.9 | +1.15 | -27.7 |
+| **re-halt (>=300s)** | **218** | **3.0** | **0.07** | **17.4** | **-6.06** | **-38.5** |
+
+Inside the A++ golden window (ht=1, ssh [5,20m)), g60:
+
+| hold | n | % | PF | win% | avg% | worst% |
+|------|--:|--:|---:|-----:|-----:|-------:|
+| clean | 216 | 96.4 | 139.7 | 93.5 | +5.01 | -1.2 |
+| re-halt (>=300s) | 8 | 3.6 | NULL | **100.0** | +2.81 | +0.1 |
+
+**THE ASYMMETRY: it matters which DIRECTION the halt that catches you
+is going.** Pre-first-halt, the halt that traps a long is the DOWN halt
+the stock is collapsing into — 17% win, -6.06% avg, and it owns the
+book's worst trips (-38.5% = the two-book view's worst trip). In the
+post-resume bounce, the halt that catches you is the UP halt of the
+snap-back — 100% win. **The golden window carries NO hidden re-halt
+tax** (correcting the caution filed at S42n: size it on its merits).
+
+3% of ht=0 trips carry -1,321 net points of damage. They are not
+gateable directly, but they ARE predictable in principle: LULD bands
+are a known, causal function of price tier and time of day, so
+**distance-to-lower-LULD-band at signal** is a buildable feature.
+Queued as the highest-value halt follow-up.
+
+### 5. CORRECTION to S42o
+
+S42o stated "[2,5m) contains ZERO trips in 7 years — the 20m-low
+channel can't re-arm that fast post-resume." **Both halves were wrong:**
+the claim was measured on g60 only (the full book holds 39 trips there)
+and the mechanism is LULD re-trigger relabeling, not channel warmth.
+The correct statement is the ht=1-conditional one in section 2 above.
