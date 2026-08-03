@@ -645,6 +645,13 @@ type IntradayConfig =
                                  // its first low = a drift, not a capitulation; the falling-knife
                                  // quantifier: < -0.95 = 1.22 on 406). Default -0.95. <= -1 = off.
                                  // Unwarm (leg < 3 bars) fails an armed gate.
+      CascadeHaltCount: int      // ⭐ SPEC v2.4 (user, S42n): the CASCADE-KNIFE gate — reject a
+                                 // signal iff haltsToday >= this AND secs since last resume <
+                                 // CascadeWindowSec. The halt NUMBER matters ONLY in the
+                                 // immediate aftermath (<20m: ht=3 = 1.25 / ht>=4 = 2.09 w/
+                                 // 2022 0.08; by [20,80m) every tier reverts fine). Both
+                                 // counters are causal running state. Default 3. 0 = off.
+      CascadeWindowSec: int      // the post-resume window (default 1200 = 20m)
       // ⭐ PRICE-ACCEPTANCE STOPS (user, 2026-07-28): while holding, exit if a NEW
       // entry-channel low prints on (vol_60/60)/(vol_1200/1200) >= VolStopRatio, or
       // (tc_60/60)/(tc_1200/1200) >= TcStopRatio, or at vwap/vwap_60_prev - 1 <
@@ -1501,6 +1508,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     let var = dl2 / v - mean * mean
                     var > 0.0 && (log bar.vwap - mean) / sqrt var < cfg.MaxZ20m
                 | _ -> false)
+        // ⭐ SPEC v2.4 (S42n): the cascade-knife gate — no fading the LULD
+        // elevator. Mirrors the recorded halts_today / secs_since_halt exactly.
+        let cascadeOk =
+            cfg.CascadeHaltCount <= 0
+            || haltsToday < cfg.CascadeHaltCount
+            || lastHaltEnd < 0
+            || bar.etSec - lastHaltEnd >= cfg.CascadeWindowSec
         // ⭐ SPEC v2.2 (S41c/d): the leg-native pair. Same slope/leg-cum sources
         // as the recorded ols_slope_since_flow and dv_leg/vol_leg (SQL twins).
         let ssfOk =
@@ -1573,7 +1587,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             || (match ols300.State with
                 | ValueSome m when ols300.Count = ols300.WindowSize -> m * 6e5 >= cfg.MinSlope5Bpm
                 | _ -> false)
-        let specOk = speedOk && d1mOk && ssfOk && dlvOk && rsfOk && z20Ok && kBandOk && eff20BandOk && eff10Ok && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
+        let specOk = speedOk && d1mOk && ssfOk && dlvOk && rsfOk && z20Ok && cascadeOk && kBandOk && eff20BandOk && eff10Ok && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && specOk && this.HasSlot then
             let struct (vs20m, vr20m) = volatOls 40
             let struct (vs10m, vr10m) = volatOls 20

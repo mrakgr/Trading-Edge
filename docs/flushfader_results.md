@@ -7766,3 +7766,90 @@ additions and drops exactly the dilution.) Avoid >= 3 as the bar
 
     mc=1  879 @ 3.570 / +2.10   mc=2  1,629 @ 3.710 / +2.17
     mc=3  2,257 @ 3.880 / +2.24  — 2022 >= 2.17 at every depth.
+
+
+## S42n — the HALT study: first-halt aftermath = the program's best cell; cascades knife only <20m (2026-08-03)
+
+Question (user): is the ht=1 edge confined to the immediate 20m
+aftermath (gap_1200 > gap_adj_1200 = a halt hole inside the 20m
+window) or does it persist? Lookahead scare resolved first:
+`halts_today` is the RUNNING counter, incremented at each resume
+classification (Intraday.fs:1101) and recorded at signal (:1711) —
+"exactly N halts so far" is knowable live; the ht=1 slices are CAUSAL.
+(Empirically 2/260 ht=1 tkds ever produce a later ht>=2 trip —
+cascade days rarely signal again under the spec.)
+
+**ht=1, g60, decay by secs_since_halt:**
+
+| since halt | n | tkds | pf | p22 | avg% | med% |
+|---|--:|-----:|---:|----:|-----:|-----:|
+| <10m | 53 | 9 | 25.12 | 0.0 | +3.44 | +3.53 |
+| [10,20m) | 177 | 28 | **201.28** | — | +5.19 | **+5.24** |
+| [20,40m) | 307 | 52 | 7.12 | 3.41 | +2.56 | +2.84 |
+| [40,80m) | 510 | 79 | 4.98 | 1004 | +2.24 | +2.94 |
+| [80,160m) | 404 | 76 | 6.73 | 2.08 | +2.24 | +2.17 |
+| >=160m | 408 | 57 | 3.17 | 0.54 | +2.15 | +2.50 |
+
+The "2022 = 0.0" in <10m = ONE ticker-day (BWV 2022-08-18, six trips
+58-64 SECONDS after resume, -4.3 pts) — the re-halt instability strip,
+not a bear effect. The [10,20m) golden window: 90-100% win every year,
+~4 tkds/yr (A++ rarity class).
+
+**<20m post-resume by halt NUMBER (the ht>=1 rerun's payoff):**
+
+| tier | n | tkds | pf | p22 | avg% | med% | win% |
+|---|--:|-----:|---:|----:|-----:|-----:|-----:|
+| ht=1 (first) | 230 | 35 | **91.6** | 0.0 | +4.79 | +4.84 | 91.3 |
+| ht=2 | 42 | 8 | 11.94 | NULL | +2.12 | +1.15 | 71.4 |
+| ht=3 | 77 | 13 | **1.25** | 0.59 | +0.48 | +0.59 | 59.7 |
+| ht>=4 | 389 | 51 | **2.09** | 0.08 | +1.91 | +3.31 | 70.4 |
+
+**[20,80m):** ht=1 5.64 / ht=2 8.77 / ht=3 3.68 / ht>=4 5.54 — all
+healthy. **THE GRAMMAR: the halt number matters ONLY in the immediate
+aftermath.** First-resume fade = maximum-fear MR (wide LULD bands, the
+crowd just watched it halt); third-plus-resume fade <20m = the
+cascade knife (still in the elevator; the S41 ht>=4 = 1.40 avoid
+decomposes into this zone). Clean lens: **ht=1 x ssh in [2,20m)**
+(sub-2m = re-halt strip). ht=1 stays elevated (~5-7) out to ~160m —
+the edge is front-loaded but persists ~2.5h.
+
+Caveat for the halt book: exits assume our resting/MOC fills execute —
+a position that re-halts INTO the close books its last-bar price; live,
+size the <40m post-halt trades knowing a re-halt can trap the exit.
+
+
+## S42o — ⭐⭐ SPEC v2.4 BAKED: the cascade-knife gate (2026-08-03)
+
+User: "straight up just add this to the filters list as a negation of
+this condition." **SPEC v2.4 = v2.3 + reject signal iff halts_today >=
+3 AND secs_since_halt < 1200.** Engine gate `cascadeOk` mirrors the
+recorded columns exactly (both causal running state); flags
+`--cascade-halt-count` (default 3, 0 = off) / `--cascade-window-sec`
+(default 1200); `--base-run` neutralizes it; banner = SPEC v2.4.
+
+**GRAND PARITY exact:** forecast from v23_vs = 605 knife-zone trips →
+`v24_reference/` = **37,464 = 37,464**, zero asymmetric rows, zero
+ret_exit diff on survivors. **v24_reference/ = THE reference** (v23_vs
+retains the removed trips for halt-zone research).
+
+Also settled (user question): ht=1 ssh<2m = EXACTLY the six BWV trips
+(one tkd, 100% losers, -4.3 pts) and **[2,5m) contains ZERO trips in 7
+years** — the 20m-low channel can't re-arm that fast post-resume. The
+golden window is empirically **[5,20m): 47 @ 59.0 then 177 @ 201.3**.
+
+**New canonical books ($1+):** full = 29,814 @ 2.542 (was 2.528);
+g60 = 11,111 @ 3.977 / p22 3.98 (was 3.778).
+
+**The 7-voice vote ladder, v2.3 → v2.4:**
+
+| mc | v2.3 | v2.4 | 2022 |
+|---:|------|------|-----:|
+| 1 | 879 @ 3.570 / +2.10 | **829 @ 4.174 / +2.22** | 2.362 |
+| 2 | 1,629 @ 3.710 / +2.17 | **1,534 @ 4.229 / +2.26** | 2.480 |
+| 3 | 2,257 @ 3.880 / +2.24 | **2,118 @ 4.327 / +2.31** | 2.578 |
+
+**The removed trips were SLOT THIEVES**: they held mc slots during
+exactly the cascade windows and lost — PF +0.45 at mc=3 for -3% slot
+points; win% +1.0-1.2 at every depth; 2022 +0.21-0.31. (Control logic
+per the lookahead protocol: removing a bad-but-causal zone should
+improve or leave flat — it improved everywhere.)

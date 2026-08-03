@@ -83,6 +83,8 @@ let defaultConfig =
           HaltMinRng300    = 0.04
           HaltMaxPreGap60  = 2
           MinRSinceFlow    = -0.95      // ⭐ SPEC v2.1 (S40y): the falling-knife gate
+          CascadeHaltCount = 3          // ⭐ SPEC v2.4 (S42n): the cascade-knife gate — reject
+          CascadeWindowSec = 1200       // ht>=3 signals < 20m after the last resume
           MaxZ20m          = -1.5       // ⭐ SPEC v2.3 (user, S41r): 20m vw-sigma z < -1.5 —
                                         // trims the weak dip (429 @ 1.67; edge trim, both
                                         // mc levels improve)
