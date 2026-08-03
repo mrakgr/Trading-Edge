@@ -8112,9 +8112,11 @@ event" vs "serial breaker"); the windowed count is a statement about
 the last 20 minutes of tape, which both populations share.
 
 Also measured: the **acute** cascade (windowed >= 2) is GOOD — 102 @
-5.44 / +4.36%. This is the corrected form of the ">=400s cell"
-retracted in S42q: directionally right, but only establishable with a
-real count, and it does NOT survive as a gate refinement.
+5.44 / +4.36%. ⚠ **This paragraph's attribution is WRONG — see S42s.**
+The 102 is a blend of a 59-trip no-loser cell and a 43-trip 1.70 cell,
+split by halt DURATION, not by the count; and the >=400s cell was never
+contaminated in this population. The count is not the operative
+variable.
 
 ### The refined gate — TESTED and REJECTED
 
@@ -8140,3 +8142,63 @@ never could). `v23_hcount/` = the research parquet (v2.3 population,
 every column through S42r; apply the v2.4 gate in SQL). `v24_hcount/`
 DELETED — its `halts_1200` held the wall-clock definition under the
 same column name, a footgun for any future query.
+
+
+## S42s — CORRECTION to S42r: it is halt DURATION, not halt COUNT (2026-08-03)
+
+User: "What do you mean by this? What is the >=400s artifact?" —
+auditing the claim, it does not hold. **Three errors in a row on one
+cell, all from reasoning about it instead of measuring it:**
+
+1. **S42q** split the gate-blocked set (`ht>=3 AND ssh<20m`) by
+   `gap_1200 - gap_adj_1200` (halt SECONDS in the trailing wall-clock
+   20m) at 400s and LABELLED the buckets "~one halt" / "~two halts".
+   Labelling error — but the cell itself was real.
+2. **The retraction** claimed the >=400s bucket was contaminated with
+   single long halts. **Wrong for THIS population** — see below, there
+   are zero such trips. The 37 contaminated trips were in the ht=1
+   population; I generalised across populations without checking.
+3. **S42r's "rehabilitation"** credited the true COUNT (>=2) for the
+   cell's performance. **Also wrong** — duration is doing the work.
+
+**The cross-tab that settles it** (blocked set, g60):
+
+| proxy bucket | true count | n | tkds | PF | avg% |
+|--------------|-----------|--:|-----:|---:|-----:|
+| <400s | count = 1 | 364 | 51 | 1.46 | +0.92 |
+| <400s | count >= 2 | 43 | 10 | **1.70** | +1.64 |
+| >=400s | count >= 2 | 59 | 7 | **NULL (no losers)** | +6.35 |
+| >=400s | count = 1 | **0** | — | — | — |
+
+The >=400s cell is a strict SUBSET of the count>=2 cell (no single
+long halts in this population at all). And **within** count>=2, the
+duration split is 59 @ no-losers vs 43 @ 1.70 — the sub-400s half is
+as bad as the count=1 group. **So S42r's "acute cascade = 102 @ 5.44"
+is a BLEND of one excellent cell and one mediocre one, and the count
+was never the operative variable.** The right statement: among serial
+breakers recently resumed, what separates them is how much of the last
+20 minutes the stock spent HALTED (>=1/3 of it = the acute elevator),
+not how many times it halted.
+
+**The duration-refined gate — tested, WINS, still NOT baked:**
+
+| gate | mc=1 | 2022 | mc=3 | 2022 |
+|------|------|-----:|------|-----:|
+| v2.4 as baked | 829 @ 4.174 | 2.362 | 2,118 @ 4.327 | 2.578 |
+| count-refined (S42r) | 843 @ 3.956 | 2.267 | 2,158 @ 4.185 | 2.496 |
+| **duration-refined** | **835 @ 4.217** | 2.362 | **2,136 @ 4.378** | 2.578 |
+
+Strictly better than v2.4 — more trips AND more PF, 2022 identical.
+**Rejected anyway on census grounds:** the cell is 7 ticker-days in 4
+years (2023 1 tkd / 2024 4 tkds supplying 28 of 59 trips / 2025 1 /
+2026 1) with **zero presence in 2020, 2021, 2022**, and the +0.043 PF
+at mc=1 sits INSIDE the +/-0.05 band that every neighbouring gate shape
+occupies (S42p). That is a 4-ticker-day feature wearing a gate's
+clothes. **v2.4 stands.** Re-test if the cell reaches ~25 tkds spanning
+a bear year.
+
+**House lesson (this whole S42q-S42s thread):** when a cell's identity
+is defined by a derived quantity, MEASURE the quantity before naming
+it — and when correcting an error, re-check the correction against the
+same population, not a neighbouring one. The census-before-profiling
+rule (S38j) exists for exactly this and I skipped it three times.
