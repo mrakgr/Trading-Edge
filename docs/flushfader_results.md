@@ -7978,8 +7978,12 @@ The correct statement is the ht=1-conditional one in section 2 above.
 > **Surviving:** the `<400s` direction (two halts would have to average
 > <200s each; only 68/230 single halts are that short), which is what
 > the verdict rests on. **Retracted:** the ">=400s = acute cascade"
-> cell. Proper `halts_1200` / `halts_600` COUNT columns baked in S42r —
-> see there for the measured answer.
+> cell. Proper bar-indexed `halts_1200` / `halts_600` COUNT columns
+> baked in **S42r — MEASURED, and the verdict HOLDS**: day count 142.58
+> vs windowed 3.01 (47x). The proxy estimated 422 trips @ 1.55; measured
+> is 383 @ 1.48 — close enough that the S42q conclusion was sound, but
+> it could not be known so without the count. The retracted ">=400s"
+> cell is also REHABILITATED there (acute cascade = 5.44, measured).
 
 
 User: "whether we'd be better off using the ht features as we're doing
