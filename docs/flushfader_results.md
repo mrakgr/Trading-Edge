@@ -7567,7 +7567,7 @@ window) excluded.
 | [1.2,1.5) | 334 | 72 | 3.59 | 4.90 | 2.59 | 1.82 | 4.88 | 24.53 | 3.31 | 2.14 | 2.27 |
 | [1.5,2.0) | 82 | 14 | 7.08 | 7.96 | 1.20 | NULL | 26.61 | 29.36 | NULL | 3.03 | 2.01 |
 | [2.0,3.0) | 16 | 4 | 40.09 | NULL | NULL | NULL | NULL | 18.60 | NULL | 3.67 | 4.19 |
-| [3.0,5.0) | 4 | 2 | NULL | NULL | NULL | NULL | NULL | NULL | NULL | 0.95 | 1.14 |
+| [3.0,5.0) | 4 | 2 | ∞ | NULL | NULL | NULL | NULL | NULL | NULL | 0.95 | 1.14 |
 
 Mass sits in [0.68,1.2) (9,866/11,526). The expansion tail >=1.5 = 102
 trips total — spectacular shards (7.08 / 40.09), NO VOICE possible.
@@ -7942,7 +7942,7 @@ Inside the A++ golden window (ht=1, ssh [5,20m)), g60:
 | hold | n | % | PF | win% | avg% | worst% |
 |------|--:|--:|---:|-----:|-----:|-------:|
 | clean | 216 | 96.4 | 139.7 | 93.5 | +5.01 | -1.2 |
-| re-halt (>=300s) | 8 | 3.6 | NULL | **100.0** | +2.81 | +0.1 |
+| re-halt (>=300s) | 8 | 3.6 | ∞ | **100.0** | +2.81 | +0.1 |
 
 **THE ASYMMETRY: it matters which DIRECTION the halt that catches you
 is going.** Pre-first-halt, the halt that traps a long is the DOWN halt
@@ -7996,14 +7996,25 @@ change would destroy the A++ cell. No bake needed.
 
 | zone | n ht=1 | PF ht=1 | n ht=2 | PF ht=2 | n ht>=3 | PF ht>=3 | n all | PF all |
 |------|-------:|--------:|-------:|--------:|--------:|---------:|------:|-------:|
-| <2m | 6 | 0.00 | 2 | 0.00 | 6 | NULL | 14 | 3.27 |
-| [2,5m) | 0 | — | 6 | NULL | 33 | 3.52 | 39 | 4.65 |
+| <2m | 6 | 0.00 | 2 | 0.00 | 6 | ∞ | 14 | 3.27 |
+| [2,5m) | 0 | — | 6 | ∞ | 33 | 3.52 | 39 | 4.65 |
 | [5,10m) | 47 | **59.01** | 0 | — | 116 | **1.67** | 163 | 2.29 |
 | [10,20m) | 177 | **201.28** | 34 | 9.40 | 311 | **1.95** | 522 | 3.81 |
 | [20,40m) | 307 | 7.12 | 244 | 6.76 | 259 | 4.13 | 810 | 5.73 |
 | [40,80m) | 510 | 4.98 | 134 | 17.59 | 408 | 5.80 | 1,052 | 5.96 |
 | >=80m | 812 | 4.18 | 272 | 4.15 | 620 | 3.47 | 1,704 | 3.86 |
 | no halt today | 7,273 | 3.43 | — | — | — | — | 7,273 | 3.43 |
+
+**Table convention (user, 2026-08-03):** `∞` = trips present but ZERO
+losers, so the PF denominator is 0 — always read it against `n`; `—` =
+no trips at all. Both `∞` cells here are ONE ticker-day apiece: the
+<2m/ht>=3 cell is 6 trips on 1 tkd, and the [2,5m)/ht=2 cell is CCIV
+2021-01-15, six signals on CONSECUTIVE SECONDS (46591-46596) all
+exiting at target +6.04% to +6.94% — which mc=1 collapses to a single
+trade. **Infinities of census, not of edge.** ⚠ NULL/∞ in the per-YEAR
+columns (p21..p26) elsewhere in this doc stays ambiguous — those
+tables carry no per-year `n`, so a blank there may mean "no trips that
+year" OR "no losers that year". Check the census before quoting one.
 
 Collapsed (panel O), g60: **halt >20m ago** = ht=1 4.80 / ht=2 6.05 /
 ht>=3 4.15 — count-independent and ALL above the no-halt 3.43. **halt
@@ -8020,7 +8031,7 @@ trailing 20m window (`gap_1200 - gap_adj_1200`), g60:
 | local structure | n | tkds | PF | avg% | net pts |
 |-----------------|--:|-----:|---:|-----:|--------:|
 | ~one halt in window (<400s) | 407 | 60 | **1.49** | +1.00 | +406 |
-| >=400s of halt in window | 59 | 7 | NULL | +6.35 | +375 |
+| >=400s of halt in window | 59 | 7 | ∞ | +6.35 | +375 |
 
 **The locally-SPARSE ones are the bad ones.** A stock that halted 3+
 times today but only once in the last 20 minutes is a serial breaker
@@ -8102,7 +8113,7 @@ Recently-resumed trips (ssh<20m, g60), by BOTH features:
 |----------|-----------|--:|-----:|---:|-----:|
 | = 1 | ht<=2 | 270 | 42 | **59.04** | +4.36 |
 | = 1 | ht>=3 | 364 | 51 | **1.46** | +0.92 |
-| >= 2 | ht<=2 | 2 | 1 | NULL | +6.01 |
+| >= 2 | ht<=2 | 2 | 1 | ∞ | +6.01 |
 | >= 2 | ht>=3 | 102 | 15 | **5.44** | +4.36 |
 
 `windowed = 1` contains BOTH the best population (59.04) and the worst
@@ -8167,7 +8178,7 @@ cell, all from reasoning about it instead of measuring it:**
 |--------------|-----------|--:|-----:|---:|-----:|
 | <400s | count = 1 | 364 | 51 | 1.46 | +0.92 |
 | <400s | count >= 2 | 43 | 10 | **1.70** | +1.64 |
-| >=400s | count >= 2 | 59 | 7 | **NULL (no losers)** | +6.35 |
+| >=400s | count >= 2 | 59 | 7 | **∞ (no losers)** | +6.35 |
 | >=400s | count = 1 | **0** | — | — | — |
 
 The >=400s cell is a strict SUBSET of the count>=2 cell (no single
