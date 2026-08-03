@@ -9277,3 +9277,79 @@ pairwise 0.94-0.98, all beaten by the incumbent. **`dslo >= 16` keeps
 the day-structure seat; the family is closed.** Anchoring on a
 different high, a different low, or removing the price entirely does
 not produce a new feature — it produces dslo in a new costume.
+
+
+## S43g — dslo TUNED on the g60 book: the threshold is not a sensitive parameter (2026-08-03)
+
+User: "We'll remove pah from the family. We might also want to tune
+dslo on the g60 book. I haven't done that properly before deciding."
+**pah is OUT.** dslo's >= 16 threshold predates the g60 book, so it was
+never calibrated where we trade.
+
+**The mass point first (census before profiling):** **44.1%** of the g60
+book (4,886 of 11,083) sits at `dslo = 0` — the flush IS the session
+low. `min(dslo) = 0.0` exactly, so the feature is one-sided. Above it:
+q60 = 11.3, q75 = 25.4, q90 = 54.6.
+
+**dslo fine bands, g60, no vote filter** (book = 4.003):
+
+| band | n | tkds | n_lose | PF | p20 | p21 | p22 | p23 | p24 | p25 | p26 | avg% |
+|------|--:|-----:|-------:|---:|----:|----:|----:|----:|----:|----:|----:|-----:|
+| AT low (=0) | 4,886 | 844 | 1,113 | 3.36 | 7.97 | 4.97 | 4.05 | 2.77 | 2.67 | 2.82 | 2.66 | 1.85 |
+| (0,4) | 739 | 177 | 149 | 3.01 | 6.38 | 3.62 | 87.35 | 0.81 | 3.73 | 1.10 | 4.95 | 1.67 |
+| [4,8) | 523 | 147 | 115 | 5.03 | 3.67 | 28.17 | 11.10 | 1.30 | 5.54 | 2.60 | 71.59 | 2.19 |
+| **[8,12)** | 605 | 153 | 85 | **10.52** | 9.33 | 8.15 | 3.06 | 157.4 | 11.88 | 10.15 | 40.19 | 2.36 |
+| [12,16) | 527 | 133 | 119 | 4.36 | 8.19 | 3.07 | 14.99 | NULL | 31.93 | 2.25 | 3.16 | 1.88 |
+| [16,22) | 678 | 141 | 88 | 5.96 | 95.85 | 7.05 | NULL | 0.71 | 36.15 | 4.13 | 11.16 | 2.27 |
+| [22,30) | 660 | 135 | 139 | 5.53 | 13.63 | 5.22 | NULL | 1.06 | 4.67 | 3.65 | 64.85 | 2.27 |
+| [30,45) | 939 | 179 | 198 | 5.24 | 14.54 | 3.02 | 28.41 | 4.09 | 2.52 | 5.75 | 19.38 | 2.34 |
+| >=45 | 1,526 | 203 | 305 | 3.95 | 7.65 | 3.19 | 1.23 | 20.72 | 3.81 | 2.72 | 6.07 | 2.54 |
+
+The at-low group is the weakest large cell (3.36) — the S41n
+"flush NOT the day's first low" structure, confirmed on this book.
+[8,12) shows a spike (10.52, every year >= 3.06) but its NEIGHBOUR
+[12,16) reads 4.36 — a 2.4x discontinuity between adjacent bands is
+much more likely noise than structure, so it is NOT actioned.
+
+**Solo-trip quality by threshold** (what a voice actually admits):
+
+| threshold | solo trips | tkds | solo PF | avg% |
+|-----------|-----------:|-----:|--------:|-----:|
+| **>= 16 (current)** | 1,596 | 284 | **4.63** | +2.01 |
+| >= 8 | 2,120 | 396 | 4.48 | +1.91 |
+| >= 22 | 1,288 | 230 | 4.47 | +2.04 |
+| >= 12 | 1,813 | 336 | 4.21 | +1.90 |
+| > 0 | 2,855 | 547 | 3.98 | +1.81 |
+| >= 30 | 968 | 171 | 3.84 | +2.04 |
+| >= 45 | 573 | 97 | 3.38 | +2.06 |
+
+**Book level, 7-voice roster (pah removed), mc=3:**
+
+| dslo voice | n | PF | avg% |
+|------------|--:|---:|-----:|
+| > 0 | 3,746 | 3.468 | +1.84 |
+| **>= 8** | **3,444** | 3.677 | +1.92 |
+| >= 12 | 3,313 | 3.649 | +1.93 |
+| **>= 16 (current)** | 3,207 | **3.702** | +1.96 |
+| >= 22 | 3,091 | 3.689 | +1.97 |
+| >= 30 | 2,977 | 3.694 | +2.01 |
+| *[8,12) band only* | *2,757* | *3.770* | *+2.03* |
+| *>= 8 excl [12,16)* | *3,361* | *3.739* | *+1.94* |
+
+⭐ **The sweep is FLAT from 8 to 30 — 3.649 to 3.702, a 0.053 spread.**
+The only threshold that clearly loses is `> 0` (3.468), i.e. admitting
+the (0,8) sliver. **dslo's threshold is not a sensitive parameter**;
+the incumbent 16 sits at the top of a plateau, not on a peak.
+
+Two carved constructions (the [8,12) band, and >=8 excluding the
+[12,16) dip) score higher — 3.770 and 3.739, the latter on MORE trips
+than the incumbent. **Both are rejected as curve-fitting**: they exist
+only because one adjacent band happened to read low, and the S42s
+lesson (a 7-tkd cell dressed as a gate) applies directly.
+
+**Verdict: keep dslo >= 16, or move to >= 8 for volume.** >= 8 buys
++237 trips (+7.4%, ~+5% slot points) for -0.025 PF. Given the user
+chose the >= 1 bar explicitly for volume, **>= 8 is the consistent
+choice**; >= 16 is the equally-defensible status quo. Either way this
+is a coin-flip parameter, which is itself the useful finding — no
+further dslo tuning is warranted.
