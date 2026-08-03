@@ -8449,3 +8449,116 @@ mc=3 1.17 / 2.00 / 1.65 / **2.30**. Win% at mc=3: 72.2 / 77.4 / 76.6 / **80.4**.
    — the vote is a bull-regime amplifier, and the universe filter is
    what actually carries 2022. A regime rule that drops the vote bar to
    >= 1 (or trades g60 flat) in a bear is the open design question.
+
+
+## ⭐⭐ SPEC v2.5 — THE REFERENCE CARD (2026-08-03)
+
+Everything needed to reproduce the current system. Supersedes the v2.2
+/ v2.3 cards.
+
+### 1. The signal (unchanged since v1.x — this is the base)
+
+    universe   dv_0945_tape >= $3.0M   (1s-bar-native honest dollars, S35)
+               barnum >= 22            (early-episode slice cut, S40e)
+    ENTRY      vwap < prior 1200-bar MIN (strict, new ~20m low)
+               AND dv60 >= $100k AND tc60 >= 60      fill = NEXT bar vwap
+    EXIT       vwap > prior 300-bar MAX (strict, ~5m high) | MOC
+    leg        arm on first new low, reset on new 1200-bar high
+    volat      volat_20m >= 40 bp/30s  (no ceiling)
+    window     09:45-15:00 ET entries; features fold from 09:30
+    stops      OFF (price-acceptance stops all disabled — V6: destructive)
+
+### 2. The v2.5 spec gates (all ANDed on top of the signal)
+
+| gate | value | since |
+|------|-------|-------|
+| flush speed | vwap/vwap_60_prev - 1 < -2%/1m | v1.2 |
+| d1m | vwap/hi_60 - 1 < -2% | v1.9 |
+| ssf | ols_slope_since_flow x 6e5 in [-375, -25) bp/min | v2.2 |
+| dlv | vwap/(dv_leg/vol_leg) - 1 < -3% | v2.2 |
+| rflow | ols_r_since_flow >= -0.95 | v2.1 |
+| z20 | z_20m (LOG space, vw moments) < -1.5 sigma | v2.3 |
+| **cascade** | **ht>=1: wait 120s · ht>=3: wait 1200s after resume** | **v2.4/v2.5** |
+| K | lows_since_first_low in [26, 50] | v1.2 |
+| eff20 | abs(eff_20m) in [0.30, 0.50) | v1.2 |
+| eff10 | abs(eff_10m) >= 0.15 | v1.2 |
+| vol10rate | (vol_10/10)/(vol_60/60) >= 0.75 | v1.2 |
+| lows300 | lows_since_first_low_300 >= 6 | v1.4 |
+| rngfront | rng_300/rng_20m < 0.80 | v1.5 |
+| accel1020 | (slope_600 - slope_1200) x 6e5 >= -80 bp/min | v1.7 |
+| slope20 | ols_slope_1200 x 6e5 < -10 bp/min | v1.7 |
+| slope5 | ols_slope_300 x 6e5 >= -400 bp/min | v1.7 |
+
+### 3. Canonical commands
+
+    # THE BASE (every spec gate OFF — signal definition only)
+    FF_CANDIDATE_TABLE=flushfader_base_tkds \
+      ./TradingEdge.FlushFader/bin/Release/net10.0/TradingEdge.FlushFader \
+      --base-run --out-dir data/equity/flushfader/base_vNN
+
+    # THE REFERENCE (full v2.5 spec = every default)
+    FF_CANDIDATE_TABLE=flushfader_base_tkds \
+      ./TradingEdge.FlushFader/bin/Release/net10.0/TradingEdge.FlushFader \
+      --out-dir data/equity/flushfader/v25_reference
+
+    # mc replay (mc=1 is the decider; mc=3 is the trading target)
+    dotnet fsi scripts/equity/flushfader_mc.fsx -- --mc 3 \
+      --trips "data/equity/flushfader/v25_reference/trips_p*.parquet" \
+      --where "<book cut>"
+
+⚠ Verify gates from the BANNER, never by reading config (S42t: a
+silent no-op edit left --base-run carrying a live gate). `--base-run`
+must print `cascade off`.
+
+### 4. THE VOTE — 8 voices, nfire >= 2
+
+| voice | condition |
+|-------|-----------|
+| v20 | volat_20m x 1e4 >= 140 bp |
+| d20a | (vwap/first_low_vwap)(1+d_hi_flow) - 1 < -28% |
+| speed | vwap/vwap_60_prev - 1 < -6% |
+| dslo | vwap/sess_low - 1 >= +16% |
+| pah | (1+pct_chg_open) x chan_hi/vwap - 1 >= +28% |
+| ramp | (volat_slope_20m - volat_slope_10m) x 2e4 < -12 |
+| esf | abs(eff_since_flow) >= 0.5 |
+| halt band | secs_since_halt in [1200, 4800) |
+
+### 5. The books (v25_reference, $1+)
+
+**TRADED = g60 (gap_60 < 4) + vote >= 2.** Per-year ladder:
+
+| year | mc=1 n / PF | mc=2 n / PF | mc=3 n / PF |
+|------|-------------|-------------|-------------|
+| 2020 | 129 / 13.280 | 241 / 12.661 | 338 / 13.065 |
+| 2021 | 130 / 3.478 | 237 / 3.742 | 325 / 3.810 |
+| 2022 | 49 / 2.526 | 92 / 2.661 | 129 / 2.778 |
+| 2023 | 82 / 3.556 | 146 / 3.857 | 198 / 4.047 |
+| 2024 | 164 / 3.120 | 307 / 3.271 | 425 / 3.291 |
+| 2025 | 219 / 3.491 | 404 / 3.617 | 551 / 3.843 |
+| 2026 | 111 / 5.261 | 203 / 5.393 | 282 / 5.281 |
+| **total** | **884 / 4.075** | **1,630 / 4.244** | **2,248 / 4.371** |
+
+win% 79.1 / 79.9 / 80.4 · avg% +2.18 / +2.25 / +2.30 · med% +2.47 /
++2.50 / +2.52. **Every year positive at every depth; worst year 2022 =
+2.53-2.78.** Full matrix incl. the other three books: S42v.
+
+### 6. The S-TIER cell (user, 2026-08-03) — traded SEPARATELY
+
+    ht = 1  AND  secs_since_halt in [120, 1200)      -- first halt, 2-20m post-resume
+
+g60: [5,10m) 47 @ 59.0 · [10,20m) 177 @ 201.3 · 91-94% win · med
++5.2%/trip · ~4 tkds/yr. Causal (S42p): by 5m past resume with no
+second halt the tape has ALREADY run the cascade test. NOT part of the
+vote book — "the best trade in our entire playbook" (user).
+
+### 7. Parquet inventory
+
+| path | what |
+|------|------|
+| `base_v15/` | THE base (2,217,950 trips, every gate off) |
+| **`v25_reference/`** | **THE reference — v2.5, 37,444 trips** |
+| `v23_hcount/` | research parquet: v2.3 population (38,069) + halt counts, for halt-zone work the spec now gates away |
+| `v23_vs/`, `v23_fast/`, `v22_*/` | superseded (kept for provenance) |
+
+Grand-parity chain: base_v15 -> v23 (38,069) -> v24 (37,464, cascade
+knife) -> **v25 (37,444, + reopen block)**, every step verified exact.
