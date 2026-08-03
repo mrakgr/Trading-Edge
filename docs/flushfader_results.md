@@ -7488,3 +7488,229 @@ mechanically suppresses extremity measures (EmaMa decay between sparse
 slots, muted lagged-vwap speeds) and in-play names get continuity AND
 violence together — the stealth-liquidity effect fully explained; the
 g60 universe purifies the votes.
+
+
+## S42i — volume-rate voice candidates: vol10rate no, quiet-volume (1m/20m < 1) = bull-regime sizing nudge (2026-08-03)
+
+Question (user): does tightening `vol10rate` (10s/1m, spec floor 0.75)
+warrant a 6th voice? Same for the 1m/20m volume rate. Universe = the
+g60 book ($1+, gap_60 < 4) on `v23_fast`.
+
+**vol10rate = (vol_10/10)/(vol_60/60) — fine bands:**
+
+| band | n | tkds | pf | p21 | p22 | p23 | p24 | p25 | p26 | avg% | med% |
+|------|--:|-----:|---:|----:|----:|----:|----:|----:|----:|-----:|-----:|
+| [0.75,1.0) | 1,946 | 803 | 3.71 | 6.03 | 6.59 | 3.97 | 2.67 | 2.51 | 2.70 | 1.89 | 2.21 |
+| [1.0,1.25) | 2,097 | 857 | 3.95 | 6.00 | 5.89 | 2.64 | 4.13 | 2.76 | 2.57 | 2.02 | 2.33 |
+| [1.25,1.5) | 1,736 | 777 | 4.19 | 6.11 | 6.00 | 2.12 | 2.81 | 3.14 | 6.04 | 2.10 | 2.53 |
+| [1.5,2.0) | 2,547 | 939 | **4.46** | 3.26 | 4.22 | 3.90 | 4.42 | 3.14 | 6.35 | 2.33 | 2.71 |
+| [2.0,2.5) | 1,613 | 689 | 3.72 | 4.34 | 2.08 | 2.09 | 3.46 | 3.01 | 5.95 | 2.09 | 2.50 |
+| [2.5,3.0) | 905 | 426 | 2.83 | 8.96 | 1.12 | 2.46 | 2.68 | 1.48 | 9.60 | 1.84 | 2.44 |
+| [3.0,4.0) | 621 | 272 | 2.72 | 2.76 | 1.60 | 5.32 | 2.75 | 1.57 | 9.77 | 1.70 | 2.26 |
+| [4.0,6.0) | 112 | 56 | 2.06 | 7.84 | NULL | 0.98 | NULL | 1.32 | 1.32 | 1.21 | 2.19 |
+
+**NO VOICE.** Hump peaks mid-band [1.5,2.0) = 4.46 and the tail DECAYS
+(2.83 / 2.72 / 2.06) with 2022 warts (1.12 / 1.60 / NULL). F7 again from
+the volume side: a 10s burst faster than the 1m clock carries no
+extremity premium. The 0.75 spec floor already sits at the right place.
+
+**v1m20 = (vol_60/60)/(vol_1200/1200) — fine bands:**
+
+| band | n | tkds | pf | p21 | p22 | p23 | p24 | p25 | p26 | avg% | med% |
+|------|--:|-----:|---:|----:|----:|----:|----:|----:|----:|-----:|-----:|
+| <0.75 | 1,270 | 367 | 4.47 | 2.86 | 7.14 | 3.61 | 5.01 | 4.50 | 4.66 | 2.29 | 2.98 |
+| [0.75,1.0) | 1,637 | 515 | **5.23** | 4.08 | 3.68 | 5.55 | 3.66 | 4.20 | 8.33 | 2.45 | 2.77 |
+| [1.0,1.25) | 1,740 | 599 | 3.40 | 4.51 | 1.27 | 4.97 | 3.15 | 2.54 | 6.90 | 1.92 | 2.52 |
+| [1.25,1.5) | 1,683 | 589 | 3.05 | 5.81 | 2.24 | 3.89 | 2.66 | 1.66 | 3.68 | 1.60 | 1.97 |
+| [1.5,2.0) | 2,607 | 697 | 3.53 | 4.70 | 11.00 | 2.73 | 4.31 | 1.78 | 3.91 | 1.96 | 2.44 |
+| [2.0,2.5) | 1,411 | 437 | 3.80 | 4.45 | 4.93 | 1.19 | 3.08 | 2.89 | 13.98 | 2.08 | 2.42 |
+| [2.5,3.0) | 612 | 221 | 3.96 | 7.32 | 23.26 | 3.46 | 2.65 | 3.62 | 3.91 | 2.14 | 2.43 |
+| [3.0,4.0) | 499 | 151 | 3.98 | 21.53 | 3.76 | 1.54 | 2.27 | 2.72 | 3.57 | 2.37 | 2.23 |
+| >=4.0 | 118 | 38 | 2.69 | NULL | NULL | 68.10 | 1.32 | 0.65 | 0.65 | 1.84 | 2.22 |
+
+The signal lives at the **LOW** end: the last minute QUIETER than the
+20m average = exhaustion-drip volume — the volume-side cousin of the
+S42b exhaustion-drip speed cell. `f_vq = v1m20 < 1.0` fires 25.1% of
+the g60 book, near-DISJOINT from the speed voice (Jaccard 4.0%;
+20-30% vs the others), and lifts PF within every 5-vote level
+(0: 2.66→3.65 / 2: 5.71→6.47 / 3: 4.27→6.37 / 5: 2.21→26.29 on 62).
+The speed x quiet corner = 179 @ 7.43 / +4.38 avg — violent price on
+quiet tape = pure air pocket.
+
+**But it FAILS the mc=1 vote test.** 6-voice hump mc=1: nfire>=2 = 848
+@ 3.289; nfire>=3 = 498 @ 3.439 w/ 2022 = 1.197 (the knife again).
+Both below the 5-voice nfire>=2 = 769 @ 3.622. With six voices the
+>=2 bar admits weaker pairs; >=3 over-concentrates into the 2022 knife.
+
+**Its real role = sizing nudge.** Splitting the ACTUAL 5-voice mc=1
+book (769) by f_vq: quiet = 285 @ 4.06 / +2.29 avg vs loud = 484 @
+3.39 — but 2022 INVERTS (quiet 0.90 vs loud 4.69). In a bear the quiet
+flush is the developing crash (contrast grammar, volume edition).
+Treat f_vq like the v20 votes: a bull-regime up-size, discounted in
+bear. **The 5-voice vote stands unchanged.**
+
+
+## S42j — vchg (volat_20m / volat_20m_prev): the contrast grammar's third confirmation (2026-08-03)
+
+First proper look at vchg (queued since the 08-02 close; only the S41z
+<0.68 collapse-avoid = 1.65 was known). g60 book, 51 NULLs (cold prev
+window) excluded.
+
+**vchg fine bands, g60 book:**
+
+| band | n | tkds | pf | p21 | p22 | p23 | p24 | p25 | p26 | avg% | med% |
+|------|--:|-----:|---:|----:|----:|----:|----:|----:|----:|-----:|-----:|
+| <0.68 | 1,224 | 238 | **2.47** | 2.11 | 3.44 | 3.15 | 2.85 | 1.96 | 1.52 | 1.52 | 2.03 |
+| [0.68,0.85) | 3,865 | 695 | 3.83 | 5.49 | 1.86 | 3.83 | 6.07 | 2.54 | 2.63 | 2.03 | 2.54 |
+| [0.85,1.0) | 4,173 | 755 | 4.14 | 7.27 | 12.45 | 1.74 | 2.63 | 2.01 | 24.15 | 2.18 | 2.55 |
+| [1.0,1.2) | 1,828 | 349 | 4.04 | 3.09 | 11.01 | 8.19 | 2.15 | 6.29 | 4.50 | 2.10 | 2.40 |
+| [1.2,1.5) | 334 | 72 | 3.59 | 4.90 | 2.59 | 1.82 | 4.88 | 24.53 | 3.31 | 2.14 | 2.27 |
+| [1.5,2.0) | 82 | 14 | 7.08 | 7.96 | 1.20 | NULL | 26.61 | 29.36 | NULL | 3.03 | 2.01 |
+| [2.0,3.0) | 16 | 4 | 40.09 | NULL | NULL | NULL | NULL | 18.60 | NULL | 3.67 | 4.19 |
+| [3.0,5.0) | 4 | 2 | NULL | NULL | NULL | NULL | NULL | NULL | NULL | 0.95 | 1.14 |
+
+Mass sits in [0.68,1.2) (9,866/11,526). The expansion tail >=1.5 = 102
+trips total — spectacular shards (7.08 / 40.09), NO VOICE possible.
+The <0.68 collapse-avoid confirms on g60 (2.47, worst in 2025/26).
+
+**vchg x v20 state — the derivative reads against the level:**
+
+| v20 state | vchg band | n | tkds | pf | p22 | avg% |
+|-----------|-----------|--:|-----:|---:|----:|-----:|
+| cool <80 | collapse <0.85 | 819 | 208 | 2.91 | 2.16 | 1.30 |
+| cool <80 | flat [0.85,1.2) | 2,511 | 509 | 4.16 | 8.40 | 1.68 |
+| cool <80 | expand [1.2,2.0) | 234 | 46 | 3.88 | NULL | 1.72 |
+| mid [80,140) | collapse | 2,847 | 500 | 2.78 | 6.77 | 1.54 |
+| mid [80,140) | flat | 2,969 | 470 | 3.88 | 19.04 | 2.33 |
+| mid [80,140) | expand | 160 | 31 | 5.38 | 0.21 | 3.37 |
+| hot >=140 | collapse | 1,423 | 230 | **5.17** | **0.60** | 3.00 |
+| hot >=140 | flat | 521 | 87 | 5.32 | 22.99 | 3.38 |
+| hot >=140 | expand | 22 | 7 | 1.41 | 0.00 | 0.99 |
+
+Cool/mid tape: collapsing vol = dead fade (2.78-2.91) — that's where
+the S41z avoid lives. Hot tape: collapsing vol = exhaustion
+confirmation (5.17) but carries the 2022 wart (0.60); hot + expand =
+the developing crash (1.41). Same grammar as speed: **the sign of the
+vol derivative flips value with the vol level.**
+
+**On the traded 5-voice mc=1 book (769)** the collapse-avoid INVERTS:
+
+| band | n | pf | p22 | p25 | p26 | avg% |
+|------|--:|---:|----:|----:|----:|-----:|
+| collapse <0.68 | 74 | 5.03 | 10.39 | 11.31 | 2.11 | 2.61 |
+| flat | 663 | 3.73 | 1.57 | 2.86 | 6.03 | 2.11 |
+| expand >=1.2 | 32 | 1.71 | 2.42 | 12.77 | 2.38 | 1.39 |
+
+The vote book is already selected for extremity, so collapsing vol
+there = exhaustion confirmation, not dead tape.
+
+**Verdict: no spec change, no voice.** vchg is a regime lens: apply the
+<0.68 avoid only on cool/mid tape; on the vote book leave collapse
+alone (it's the good half) and treat expand >=1.2 as a mild down-size
+(1.71, but 32 trips = shard). Third independent confirmation of the
+contrast grammar (speed S42b, quiet-volume S42i, vol-derivative S42j).
+
+
+## S42k — volat_slope: OLS of |30s slot return| — the self-contained vol trend (2026-08-03)
+
+vchg's flaw (user): it needs a FULL prior 20m window (51 NULLs + cold
+starts). Replacement: **OLS of |slot return| vs slot order over the
+last 40 / 20 completed slot returns** — computed at signal from a
+40-deep ring of the same |r| stream that feeds the F7 vol lock. New
+record-only columns `volat_slope_20m` / `volat_r_20m` /
+`volat_slope_10m` / `volat_r_10m` (nan below 3 returns; partial
+windows allowed — filter on slot_count). Scale in SQL: **x2e4 = bp of
+|r| per minute**. Baked as `v23_vs/` — **GRAND PARITY 38,069 exact,
+zero ret_exit diff vs v23_fast; ZERO nulls** on the new columns
+(v23_vs supersedes v23_fast as THE working parquet — same trips, more
+columns). Quantiles (g60): s20 q05/med/q95 = -5.8/-0.1/+4.3; s10 =
+-12.6/+1.7/+13.0 (the flush pumps the recent window).
+
+**s20 fine bands, g60 book:**
+
+| band | n | tkds | pf | p21 | p22 | p23 | p24 | p25 | p26 | avg% | med% |
+|------|--:|-----:|---:|----:|----:|----:|----:|----:|----:|-----:|-----:|
+| <-6 | 543 | 116 | **9.05** | 13.04 | **0.20** | 14.59 | 6.38 | 34.91 | 13.42 | 3.61 | 3.71 |
+| [-6,-4) | 784 | 171 | 2.46 | 4.08 | 21.52 | NULL | 2.22 | 1.33 | 6.46 | 1.52 | 2.46 |
+| [-4,-2) | 1,625 | 346 | 4.31 | 3.80 | NULL | 2.17 | 7.56 | 2.68 | 6.04 | 2.23 | 2.59 |
+| [-2,0) | 2,958 | 625 | 4.03 | 3.91 | 7.11 | 4.64 | 3.89 | 1.91 | 6.06 | 1.89 | 2.21 |
+| [0,2) | 3,362 | 717 | 3.21 | 8.49 | 2.81 | 1.19 | 1.83 | 2.54 | 3.35 | 1.82 | 2.41 |
+| [2,4) | 1,594 | 361 | 4.05 | 7.03 | 2.89 | 6.95 | 5.18 | 2.29 | 6.52 | 2.00 | 2.31 |
+| [4,6) | 511 | 110 | 3.24 | 1.40 | 3.87 | 1.83 | 13.82 | 4.39 | 3.22 | 2.36 | 3.00 |
+| >=6 | 200 | 41 | 5.55 | NULL | **0.00** | 9.52 | 8.13 | 11.86 | 1.53 | 4.19 | 4.78 |
+
+Both extremes are bull monsters with 2022 knives — because s20 is
+v20-entangled (corr -0.45: deep contraction follows a vol spike).
+
+**s10 fine bands:** milder version of the same (extremes 4.50 / 5.18,
+middle 2.9-3.9). **sdiff = s20 - s10:** <-12 (the last 10m ramping much
+faster than the 20m trend) = 6.09/737 robust (p21 67.4, p22 3.23);
+[3,6) = 6.26 but its 2022 = 81.9 and [6,12)'s = 1624 are shards; middle
+flat 3.3-3.5. Fine bands in run50.sql.
+
+**THE table — s20 x v20 state (contrast grammar, 4th confirmation):**
+
+| v20 state | s20 band | n | tkds | pf | p22 | avg% |
+|-----------|----------|--:|-----:|---:|----:|-----:|
+| cool <80 | contract <-2 | 213 | 63 | **2.45** | NULL | 1.13 |
+| cool <80 | flat [-2,2) | 2,574 | 553 | 3.26 | 5.40 | 1.42 |
+| cool <80 | expand >=2 | 809 | 195 | **8.20** | 5.39 | 2.27 |
+| mid [80,140) | contract | 1,624 | 319 | 3.39 | 19.24 | 1.90 |
+| mid [80,140) | flat | 3,087 | 545 | 3.60 | 10.75 | 2.00 |
+| mid [80,140) | expand | 1,287 | 224 | 2.93 | 3.51 | 2.02 |
+| hot >=140 | contract | 1,115 | 185 | **5.98** | **5.84** | 3.09 |
+| hot >=140 | flat | 659 | 125 | 3.99 | 0.24 | 2.82 |
+| hot >=140 | expand | 209 | 43 | 5.70 | 0.43 | 3.83 |
+
+Two star cells, BOTH 2022-positive: **cool + expand = 8.20** (vol
+igniting off a quiet base, 195 tkds) and **hot + contract = 5.98 w/
+p22 5.84** (exhaustion after the storm). The hot 2022 knife lives in
+flat/expand (0.24/0.43), NOT in contraction — the vchg hot+collapse
+wart (p22 0.60) does not transfer (s20-vchg corr only 0.32; trend
+WITHIN the window vs level ratio ACROSS windows are different facts).
+Cool + contract = 2.45 = the dead-fade avoid.
+
+**On the traded 5-voice mc=1 book (769):** contract <-2 = **247 @ 5.07**
+(p22 3.40 / p25 3.98 / p26 9.95), flat = 368 @ 3.08, expand = 154 @
+3.32. A clean all-weather up-size lens on the vote book — unlike
+vchg-collapse it needs no bear discount.
+
+**Verdict:** volat_slope_20m REPLACES vchg wholesale (self-contained,
+zero NULLs, cleaner grammar, 2022-safe star cells). Roles: the
+s20 x v20 contrast pair {cool+expand, hot+contract} = the vol-family
+sizing lens; cool+contract = avoid; sdiff <-12 = robust secondary
+(6.09/737). No spec change, no new voice (extreme bands carry 2022
+knives at the tails where they'd bind).
+
+
+## S42l — ⭐⭐ ramp ADOPTED: the 6-VOICE VOTE + the rising concurrency ladder (2026-08-03)
+
+User: "we definitely want that. Who doesn't want more net?" — and mc=2/3
+are in trading scope given the mc=0 → mc=1 gap. **THE VOTE is now SIX
+voices on the g60 universe:**
+
+    {v20 >= 140bp, d20a < -28%, speed < -6%, dslo >= +16%,
+     pah >= +28%, ramp: (volat_slope_20m - volat_slope_10m)*2e4 < -12}
+
+nfire >= 2 = the book. Expansion candidates s20 >= 2/4 REJECTED as
+voices (invert with vote count — conditional info belongs to sizing);
+ramp = the one voice-shaped expansion measure (recent 10m |r| trend
+steeper than the 20m trend = the flush climaxing NOW — timing, not
+state): lifts at every 5-vote level (0: 4.82 / 1: 5.10 / 2: 9.20 /
+4: 19.17 / 5: 19.59), Jaccard <= 17 vs every sitting voice, robust
+every year (p22 3.23 in its band).
+
+**The concurrency ladder on the 6-voice >= 2 book (g60, $1+):**
+
+| mc | n | PF | win% | avg% | slot pts | 2022 |
+|---:|--:|---:|-----:|-----:|---------:|-----:|
+| 1 | 807 | 3.570 | 77.9 | +2.11 | 1,703 | 2.150 |
+| 2 | 1,497 | 3.712 | 78.5 | +2.17 | 3,248 | 2.180 |
+| 3 | 2,078 | 3.922 | 79.1 | +2.25 | 4,676 | 2.272 |
+
+PF and avg% RISE with depth (greedy mc=1 takes the chronologically
+first trip, not the best; deeper slots breathe past it), 2022 stable,
+every year >= 2.15 at every depth. mc=3 = 2.7x the mc=1 points at
+HIGHER quality — the real-money case for multi-slot. (5-voice mc=1
+reference was 769 @ 3.622; the 6th voice trades -0.05 PF at mc=1 for
++4% points and the cleaner ladder above.)

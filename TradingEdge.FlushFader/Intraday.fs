@@ -426,6 +426,17 @@ type FlushPosition =
       DvLeg: float
       TargetsToday: int          // target exits FILLED before this bar (0 = virgin day)
       Volat20mPrev: float        // volat_20m as of 1200 present bars ago (nan while cold)
+      // ----- S42k (user, 2026-08-03): OLS of |30s slot return| vs slot index
+      // over the LAST 40 / 20 completed slot returns — the SELF-CONTAINED
+      // vol-trend (expansion > 0, contraction < 0). Unlike vchg =
+      // volat_20m/volat_20m_prev this needs no prior 20m window. Slope =
+      // Δ|r| per slot (×2e4 ≈ bp of |r| per minute in SQL); r = Pearson
+      // trend quality. nan below 3 returns in the window; partial windows
+      // allowed (filter post-hoc on slot_count). Record-only. -----
+      VolatSlope20m: float       // OLS slope over last min(slot_count,40) |r|
+      VolatR20m: float           // its Pearson r
+      VolatSlope10m: float       // 20-return twin
+      VolatR10m: float           // its Pearson r
       Vol0945Tape: float         // S41g: Σ volume < 09:45 (dv_0945_tape / vol_0945_tape =
                                  // the first-15m tape vwap — the day-anchor AVWAP)
       Dv0945Tape: float          // ⭐ Σ vwap·volume over OUR 1s bars strictly before
@@ -850,6 +861,35 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable prevXVw50 = false
     let mutable prevXVw60 = false
     let mutable slotReturns = 0
+    // S42k (user, 2026-08-03): ring of the last 40 |slot returns| — the
+    // self-contained vol-trend source (vchg needs a FULL prior 20m window;
+    // an OLS of |r| within the current window doesn't). Read lazily at signal.
+    let absRetRing : float[] = Array.create 40 nan
+    // OLS of the last min(slotReturns, window) ring values vs their order.
+    // O(window) but only evaluated at signal bars — negligible.
+    let volatOls (window: int) =
+        let n = min slotReturns window
+        if n < 3 then struct (nan, nan)
+        else
+            let mutable sx = 0.0
+            let mutable sy = 0.0
+            let mutable sxy = 0.0
+            let mutable sxx = 0.0
+            let mutable syy = 0.0
+            for i in 0 .. n - 1 do
+                let x = float i
+                let y = absRetRing.[(slotReturns - n + i) % 40]
+                sx <- sx + x
+                sy <- sy + y
+                sxy <- sxy + x * y
+                sxx <- sxx + x * x
+                syy <- syy + y * y
+            let nf = float n
+            let dx = nf * sxx - sx * sx
+            let dy = nf * syy - sy * sy
+            let slope = if dx <= 0.0 then nan else (nf * sxy - sx * sy) / dx
+            let r = if dx <= 0.0 || dy <= 0.0 then nan else (nf * sxy - sx * sy) / sqrt (dx * dy)
+            struct (slope, r)
     // ----- gaps / location / session -----
     let gap60 = GapCounter(60, cfg.SessionStartSec)
     let gap30 = GapCounter(30, cfg.SessionStartSec)
@@ -1194,6 +1234,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                  if neffRet40Count = 40 then neffRet40.Pop() else neffRet40Count <- neffRet40Count + 1
                  neffRet20.Push (NEffShannon.Zero.Add ar)
                  if neffRet20Count = 20 then neffRet20.Pop() else neffRet20Count <- neffRet20Count + 1
+                 absRetRing.[slotReturns % 40] <- ar   // S42k: newest |r| overwrites the oldest
                  slotReturns <- slotReturns + 1
              | _ -> ())
             slotLag.Push v
@@ -1534,6 +1575,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 | _ -> false)
         let specOk = speedOk && d1mOk && ssfOk && dlvOk && rsfOk && z20Ok && kBandOk && eff20BandOk && eff10Ok && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && specOk && this.HasSlot then
+            let struct (vs20m, vr20m) = volatOls 40
+            let struct (vs10m, vr10m) = volatOls 20
             pendingEntry <-
                 ValueSome
                     { SignalSec = bar.etSec
@@ -1716,6 +1759,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       DvLeg = cumDv - legDvAnchor
                       TargetsToday = targetsToday
                       Volat20mPrev = vv volatLag.Lagged
+                      VolatSlope20m = vs20m
+                      VolatR20m = vr20m
+                      VolatSlope10m = vs10m
+                      VolatR10m = vr10m
                       OlsSlope300 =
                         (match ols300.State with
                          | ValueSome m when ols300.Count = ols300.WindowSize -> m
