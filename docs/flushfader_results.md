@@ -9353,3 +9353,69 @@ chose the >= 1 bar explicitly for volume, **>= 8 is the consistent
 choice**; >= 16 is the equally-defensible status quo. Either way this
 is a coin-flip parameter, which is itself the useful finding — no
 further dslo tuning is warranted.
+
+
+## S43h — ⭐⭐ speed moved OUTSIDE the family: it is a REGIME SPLIT, not a filter (2026-08-03)
+
+Two user decisions: **dslo -> >= 8%** (S43g), and **speed out of the
+voice family**, tested instead as a CONJUNCTION and its complement.
+
+⚠ **Framing (user):** the spec's `speed < -2%/1m` HARD GATE is
+untouched — it is part of the signal definition. The `-6%` cut is a
+SEPARATE, deeper marker for **deep flushes** *within* the already-gated
+book. So the complement below is not "no speed filter"; it is
+**moderate flush, speed in [-6%, -2%)**.
+
+### THE NEW CANONICAL ROSTER — 6 voices, bar >= 1
+
+    {v20 >= 140bp, d20a < -28%, dslo >= +8%,
+     ramp < -12, |esf| >= 0.5, haltband ssh in [20,80m)}
+    universe: v2.6 spec, g60 (gap_60 < 4), $1+
+
+| mc | n | PF | win% | avg% | med% |
+|---:|--:|---:|-----:|-----:|-----:|
+| 1 | 1,325 | 3.737 | 77.6 | +1.87 | +2.24 |
+| 2 | 2,433 | 3.821 | 78.1 | +1.93 | +2.30 |
+| 3 | 3,347 | **3.939** | 78.4 | +1.98 | +2.35 |
+
+By year (mc=3): 9.57 / 2.89 / 3.94 / 3.65 / 3.59 / 3.26 / 4.19 —
+every year >= 2.89.
+
+⚠ **Cost of the dslo 16 -> 8 move, stated plainly:** it buys +251 trips
+(3,096 -> 3,347) but gives back 0.084 PF (4.023 -> 3.939) **and drops
+the worst year from 3.11 to 2.89** — the floor lift reported in S43c
+does not survive it. Volume was the user's stated priority; the trade
+is real and should be re-examined if the floor matters more later.
+
+### ⭐ The speed split — deep vs moderate flush (mc=3)
+
+| book | n | PF | avg% | 2020 | 2021 | **2022** | 2023 | 2024 | 2025 | 2026 |
+|------|--:|---:|-----:|-----:|-----:|---------:|-----:|-----:|-----:|-----:|
+| all (baseline) | 3,347 | 3.939 | +1.98 | 9.57 | 2.89 | 3.94 | 3.65 | 3.59 | 3.26 | 4.19 |
+| **deep: speed < -6%** | 751 | **4.204** | **+2.88** | 14.28 | 5.70 | **0.72** | 2.47 | 4.50 | 3.45 | 6.81 |
+| **moderate: [-6%,-2%)** | 2,989 | 4.043 | +1.92 | 9.58 | 2.79 | **4.04** | 4.16 | 3.66 | 3.46 | 4.24 |
+
+**This is the cleanest regime split in the system.**
+
+- **Deep flush = the high-expectancy BULL book.** +2.88%/trip vs
+  +1.92 — **50% more per trade** — and the best PF (4.204). But 2022 is
+  a knife: **PF 0.717, -1.34%/trip, 61.9% win on 21 trips.**
+- **Moderate flush = the ALL-WEATHER book.** Every year >= 2.79 and
+  **2022 = 4.042**, its second-best year.
+
+This is the S42b contrast grammar at book level: **violence pays in a
+rising tape and is a developing crash in a falling one.** The -6% cut
+does not separate good trades from bad — it separates
+regime-CONDITIONAL trades from regime-ROBUST ones.
+
+### Verdict on speed
+
+| use | verdict |
+|-----|---------|
+| as a VOICE (union member) | **NO** — solo trips 1.79 (S43c/d) |
+| as an always-on CONJUNCTION | **NO** — cuts to 751 trips AND buys the 2022 knife (0.717) |
+| as a REGIME-CONDITIONAL SIZE lever | **YES** — +50% expectancy, explicitly discounted in a bear |
+
+The `-2%` spec gate stays as the signal definition. The `-6%` marker
+becomes a sizing flag with a regime rule attached — the same treatment
+v20 votes already carry (S42f).
