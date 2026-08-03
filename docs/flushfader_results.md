@@ -7965,3 +7965,76 @@ channel can't re-arm that fast post-resume." **Both halves were wrong:**
 the claim was measured on g60 only (the full book holds 39 trips there)
 and the mechanism is LULD re-trigger relabeling, not channel warmth.
 The correct statement is the ht=1-conditional one in section 2 above.
+
+
+## S42q — halts_today vs a 20m-WINDOWED halt count: the DAY count wins decisively (2026-08-03)
+
+User: "whether we'd be better off using the ht features as we're doing
+now, or whether we should consider only the halts in the last 20m.
+We'll have to implement it into the engine. Before that I want to see
+the profit factors." **The tables say don't build it** — the engine
+change would destroy the A++ cell. No bake needed.
+
+### The grid: PF by halt-recency x halt-count (g60, $1+)
+
+| zone | n ht=1 | PF ht=1 | n ht=2 | PF ht=2 | n ht>=3 | PF ht>=3 | n all | PF all |
+|------|-------:|--------:|-------:|--------:|--------:|---------:|------:|-------:|
+| <2m | 6 | 0.00 | 2 | 0.00 | 6 | NULL | 14 | 3.27 |
+| [2,5m) | 0 | — | 6 | NULL | 33 | 3.52 | 39 | 4.65 |
+| [5,10m) | 47 | **59.01** | 0 | — | 116 | **1.67** | 163 | 2.29 |
+| [10,20m) | 177 | **201.28** | 34 | 9.40 | 311 | **1.95** | 522 | 3.81 |
+| [20,40m) | 307 | 7.12 | 244 | 6.76 | 259 | 4.13 | 810 | 5.73 |
+| [40,80m) | 510 | 4.98 | 134 | 17.59 | 408 | 5.80 | 1,052 | 5.96 |
+| >=80m | 812 | 4.18 | 272 | 4.15 | 620 | 3.47 | 1,704 | 3.86 |
+| no halt today | 7,273 | 3.43 | — | — | — | — | 7,273 | 3.43 |
+
+Collapsed (panel O), g60: **halt >20m ago** = ht=1 4.80 / ht=2 6.05 /
+ht>=3 4.15 — count-independent and ALL above the no-halt 3.43. **halt
+within 20m** = ht=1 91.6 / ht=2 11.94 / ht>=3 1.94 — a 47x spread.
+So the count only speaks in conjunction with a recent resume; a stale
+halt is a mild positive whatever the count. (Illiquid tape differs:
+there ht>=3 stays bad even when stale, 1.27 vs 2.03 baseline.)
+
+### Why the windowed count LOSES
+
+Split the blocked set (ht>=3 AND ssh<20m) by halt-seconds inside the
+trailing 20m window (`gap_1200 - gap_adj_1200`), g60:
+
+| local structure | n | tkds | PF | avg% | net pts |
+|-----------------|--:|-----:|---:|-----:|--------:|
+| ~one halt in window (<400s) | 407 | 60 | **1.49** | +1.00 | +406 |
+| >=400s of halt in window | 59 | 7 | NULL | +6.35 | +375 |
+
+**The locally-SPARSE ones are the bad ones.** A stock that halted 3+
+times today but only once in the last 20 minutes is a serial breaker
+grinding down all session — exactly the population a windowed counter
+would re-label as "ht=1" and hand to the golden-window logic.
+
+**THE COUNTERFACTUAL** — inside the golden window (ssh [5,20m), ~one
+halt in the trailing 20m), g60:
+
+| | n | tkds | PF | win% | avg% | net pts |
+|---|--:|-----:|---:|-----:|-----:|--------:|
+| DAY-count ht=1 (what we trade now) | 187 | 30 | **106.46** | 92.5 | +4.40 | +823 |
+| day-count ht>=2, ~1 halt in window (windowed ADDS) | 422 | 62 | **1.55** | 65.6 | +1.04 | +438 |
+| **BLENDED = what a windowed counter trades** | 609 | 92 | **2.56** | 73.9 | +2.07 | +1,261 |
+
+**A 20m-windowed halt count takes the A++ cell from PF 106 to PF 2.56**
+by diluting 187 trips at 92.5% win with 422 trips at 1.55. The golden
+window's edge IS the day-level statement "this stock has halted exactly
+ONCE today" — a clean name that had one violent LULD event and is
+snapping back. "Once in the last 20 minutes" is a completely different
+and much weaker claim.
+
+### Verdict
+
+**Keep `halts_today` x `secs_since_halt`. Both dimensions are
+load-bearing and neither is replaceable by the other:** the count is a
+DAY-CHARACTER statement (clean name vs serial breaker), the clock is a
+CASCADE-SURVIVORSHIP statement (S42p). No engine change.
+
+Noted but NOT acted on: within the blocked set, the >=400s-in-window
+cell (59 trips, no losers) suggests the knife is really "serial breaker
+AND locally sparse". It is 7 ticker-days across 2023-2026 — far too
+thin to carve a gate exception from, and doing so would be textbook
+overfitting. Recorded for a future look if the cell grows.
