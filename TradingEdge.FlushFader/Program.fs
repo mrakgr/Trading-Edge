@@ -62,6 +62,7 @@ type Args =
     | Max_Z_20m of float
     | Cascade_Halt_Count of int
     | Cascade_Window_Sec of int
+    | Reopen_Block_Sec of int
     | Base_Run
     // ----- sampler vs book -----
     | Max_Concurrent of int
@@ -114,6 +115,7 @@ type Args =
             | Min_R_Since_Flow _ -> "⭐ SPEC v2.1 (S40y): ols_r_since_flow >= this — reject the PERFECT-LINE flush (the falling-knife quantifier; < -0.95 = 1.22). Default -0.95. <= -1 = off."
             | Max_Z_20m _ -> "⭐ SPEC v2.3 (S41r): 20m vw-sigma z (ln space) < this — trims the weak dip [-1.5,-1). Default -1.5. >= 0 = off."
             | Cascade_Halt_Count _ -> "⭐ SPEC v2.4 (S42n): cascade-knife gate — reject a signal iff halts_today >= this AND secs since resume < --cascade-window-sec. Default 3. 0 = off."
+            | Reopen_Block_Sec _ -> "⭐ SPEC v2.5 (S42t): reject any signal within this many seconds of ANY resume — the first 1-2 halts INCLUDED. Default 120. 0 = off."
             | Cascade_Window_Sec _ -> "the cascade gate's post-resume window in seconds (default 1200 = 20m)."
             | Base_Run -> "⭐ THE BASE PASS: turn EVERY spec gate OFF in one flag (speed/d1m/ssf/dlv/rflow/z20/K/eff20/eff10/vol10rate/lows300/rngfront/accel/slope20/slope5/dv0945tape). Keeps the SIGNAL definition (volat >= 40bp, 20m low, channel warm, barnum >= 22, entry window). Explicit gate flags still override. Replaces the 17-flag canonical base CLI (S42h; a wrong sentinel here once cost 540k trips silently)."
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: unlimited concurrent positions — every new low opens another trip, so it AVERAGES DOWN. Removes path dependency (every trip = an independent row) but PF is then ATTRIBUTION, not a portfolio number. 1 = a real book."
@@ -151,7 +153,13 @@ let main argv =
                 MaxRngFront = Double.PositiveInfinity
                 MinAccel1020Bpm = Double.NegativeInfinity
                 MaxSlope20Bpm = 0.0; MinSlope5Bpm = Double.NegativeInfinity
-                MinDv0945Tape = 0.0 }
+                MinDv0945Tape = 0.0
+                // ⚠ S42t BUGFIX: these two were MISSING here — the S42n edit that was
+                // meant to add CascadeHaltCount silently no-op'd (wrong indentation, no
+                // assert), so --base-run carried a LIVE cascade gate. No data was
+                // affected (base_v15 predates v2.4; every bake since passed flags
+                // explicitly), but a base run is only a base run if EVERY gate is off.
+                CascadeHaltCount = 0; ReopenBlockSec = 0 }
     let cfg =
         { d with
             Intraday =
@@ -174,6 +182,7 @@ let main argv =
                     MaxZ20m          = parsed.GetResult(Max_Z_20m,          defaultValue = dI.MaxZ20m)
                     CascadeHaltCount = parsed.GetResult(Cascade_Halt_Count, defaultValue = dI.CascadeHaltCount)
                     CascadeWindowSec = parsed.GetResult(Cascade_Window_Sec, defaultValue = dI.CascadeWindowSec)
+                    ReopenBlockSec   = parsed.GetResult(Reopen_Block_Sec,   defaultValue = dI.ReopenBlockSec)
                     KBandLo          = parsed.GetResult(K_Band_Lo,          defaultValue = dI.KBandLo)
                     KBandHi          = parsed.GetResult(K_Band_Hi,          defaultValue = dI.KBandHi)
                     AbsEff20Lo       = parsed.GetResult(Abs_Eff20_Lo,       defaultValue = dI.AbsEff20Lo)
@@ -251,7 +260,7 @@ let main argv =
         (if ic.MinVolat20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVolat20m * 1e4))
         (if Double.IsPositiveInfinity ic.MaxVolat20m then "inf" else sprintf "%.0f" (ic.MaxVolat20m * 1e4))
     (if parsed.Contains Base_Run then printfn "  mode        = ⭐ BASE RUN — every spec gate OFF (signal definition only)")
-    printfn "  SPEC v2.4   = speed %s | d1m %s | ssf ∈ [%s, %s) bp/m | dlv %s | rflow >= %s | z20 < %s | cascade %s | K ∈ [%s, %s] | |eff20| ∈ [%s, %s) | |eff10| >= %s | vol10rate >= %s | lows300 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
+    printfn "  SPEC v2.5   = speed %s | d1m %s | ssf ∈ [%s, %s) bp/m | dlv %s | rflow >= %s | z20 < %s | cascade %s | K ∈ [%s, %s] | |eff20| ∈ [%s, %s) | |eff10| >= %s | vol10rate >= %s | lows300 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
         (if ic.MaxSpeed1m >= 0.0 then "off" else sprintf "< %.0f%%/1m" (ic.MaxSpeed1m * 100.0))
         (if ic.MaxDist1mHi >= 0.0 then "off" else sprintf "< %.0f%%" (ic.MaxDist1mHi * 100.0))
         (if Double.IsNegativeInfinity ic.SsfLoBpm then "off" else sprintf "%.0f" ic.SsfLoBpm)
@@ -259,7 +268,8 @@ let main argv =
         (if ic.MaxDistLegVwap >= 0.0 then "off" else sprintf "< %.0f%%" (ic.MaxDistLegVwap * 100.0))
         (if ic.MinRSinceFlow <= -1.0 then "off" else sprintf "%.2f" ic.MinRSinceFlow)
         (if ic.MaxZ20m >= 0.0 then "off" else sprintf "%.1fσ" ic.MaxZ20m)
-        (if ic.CascadeHaltCount <= 0 then "off" else sprintf "ht>=%d & <%ds" ic.CascadeHaltCount ic.CascadeWindowSec)
+        (if ic.CascadeHaltCount <= 0 && ic.ReopenBlockSec <= 0 then "off"
+         else sprintf "ht>=%d&<%ds | reopen<%ds" ic.CascadeHaltCount ic.CascadeWindowSec ic.ReopenBlockSec)
         (if ic.KBandLo <= 0 then "off" else string ic.KBandLo)
         (if ic.KBandHi <= 0 then "off" else string ic.KBandHi)
         (if ic.AbsEff20Lo <= 0.0 then "off" else sprintf "%.2f" ic.AbsEff20Lo)

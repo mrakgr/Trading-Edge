@@ -656,6 +656,14 @@ type IntradayConfig =
                                  // 2022 0.08; by [20,80m) every tier reverts fine). Both
                                  // counters are causal running state. Default 3. 0 = off.
       CascadeWindowSec: int      // the post-resume window (default 1200 = 20m)
+      ReopenBlockSec: int        // ⭐ SPEC v2.5 (user, S42t): no fade within this many
+                                 // seconds of ANY resume, the first 1-2 halts INCLUDED.
+                                 // Rationale (S42p): [2,5m) post-resume is where the next
+                                 // LULD trigger decides itself — a first-halt name still
+                                 // printing new lows there RE-HALTS (that state is
+                                 // structurally EMPTY for ht=1), so a sub-2m entry is
+                                 // taken blind to a cascade test the tape is about to
+                                 // run. Default 120. 0 = off. Subsumes the ht>=3 case.
       // ⭐ PRICE-ACCEPTANCE STOPS (user, 2026-07-28): while holding, exit if a NEW
       // entry-channel low prints on (vol_60/60)/(vol_1200/1200) >= VolStopRatio, or
       // (tc_60/60)/(tc_1200/1200) >= TcStopRatio, or at vwap/vwap_60_prev - 1 <
@@ -1531,10 +1539,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // ⭐ SPEC v2.4 (S42n): the cascade-knife gate — no fading the LULD
         // elevator. Mirrors the recorded halts_today / secs_since_halt exactly.
         let cascadeOk =
-            cfg.CascadeHaltCount <= 0
-            || haltsToday < cfg.CascadeHaltCount
-            || lastHaltEnd < 0
-            || bar.etSec - lastHaltEnd >= cfg.CascadeWindowSec
+            let ssh = if lastHaltEnd < 0 then -1 else bar.etSec - lastHaltEnd
+            // v2.4 — the serial-breaker knife: ht >= N inside W of a resume.
+            (cfg.CascadeHaltCount <= 0
+             || haltsToday < cfg.CascadeHaltCount
+             || ssh < 0
+             || ssh >= cfg.CascadeWindowSec)
+            // ⭐ v2.5 — the reopen block: nothing inside the first ReopenBlockSec of
+            // ANY resume (ht = 0 has ssh = -1 and is never blocked).
+            && (cfg.ReopenBlockSec <= 0
+                || ssh < 0
+                || ssh >= cfg.ReopenBlockSec)
         // ⭐ SPEC v2.2 (S41c/d): the leg-native pair. Same slope/leg-cum sources
         // as the recorded ols_slope_since_flow and dv_leg/vol_leg (SQL twins).
         let ssfOk =

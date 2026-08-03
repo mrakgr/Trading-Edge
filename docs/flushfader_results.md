@@ -8213,3 +8213,135 @@ is defined by a derived quantity, MEASURE the quantity before naming
 it — and when correcting an error, re-check the correction against the
 same population, not a neighbouring one. The census-before-profiling
 rule (S38j) exists for exactly this and I skipped it three times.
+
+
+## S42t — ⭐⭐ SPEC v2.5: the REOPEN BLOCK (+ a --base-run bug found while wiring it) (2026-08-03)
+
+User: "To the (ht >= 3 /\ ssh < 20m) filter let's also \/ (ht < 3 /\
+ssh < 2m). For the first 2 halts we might as well avoid taking trades
+in the first 2 minutes after the reopen to avoid getting caught in a
+cascade. Let's bake it into the spec."
+
+**SPEC v2.5 = v2.4 + `ReopenBlockSec = 120`:** reject any signal within
+120s of ANY resume, the first 1-2 halts INCLUDED (ht = 0 has ssh = -1
+and is never blocked). Implemented as its own knob rather than as the
+literal disjunction because `(ht>=3 & ssh<1200) OR (ht<3 & ssh<120)`
+is equivalent to `(ht>=3 & ssh<1200) OR (ht>=1 & ssh<120)` — the ht>=3
+case is common to both — and the second form is independently
+switchable (`--reopen-block-sec`, 0 = off) and independently
+neutralised by `--base-run`.
+
+**Rationale** is S42p's forbidden state: [2,5m) post-resume is where
+the next LULD trigger decides itself, and for ht=1 that state is
+structurally EMPTY (a first-halt name still printing new lows there
+RE-HALTS). A sub-2m entry is therefore taken BLIND to a cascade test
+the tape is about to run. Cost is trivial (20 trips at $1+, 3
+ticker-days in 7 years — S42p §1) and the user's reasoning is a
+risk-shape argument, not a PF argument.
+
+### ⚠ BUGFIX found while wiring: --base-run never neutralised v2.4
+
+The S42n edit that was supposed to add `CascadeHaltCount = 0` to the
+`--base-run` block **silently no-op'd** — the python `str.replace` used
+20-space indentation against a 16-space file and there was no assert.
+So `--base-run` has been carrying a LIVE cascade gate since S42n.
+
+**No data is affected:** `base_v15` (THE base) predates v2.4 entirely,
+and every bake since passed its flags explicitly (`v23_hcount` used
+`--cascade-halt-count 0`). But a base run is only a base run if EVERY
+gate is off. Both `CascadeHaltCount = 0` and `ReopenBlockSec = 0` are
+now in the block, **verified from the banner** rather than by
+inspection: `--base-run` prints `cascade off`, the default prints
+`cascade ht>=3&<1200s | reopen<120s`.
+
+**House lesson:** every scripted source edit needs an `assert` on its
+anchor. A no-op replace is invisible — it produces a clean build and a
+silently wrong binary. (This is the same failure mode as the S42q-S42s
+cell: an unverified assumption that looked like it worked.)
+
+Forecast: 38,069 (v2.3) - 605 (v2.4 knife) - 20 (new reopen block)
+= **37,444**.
+
+
+## S42u — ⭐ the halt-band VOICE: ht>0 & ssh in [20,80m) — NOT a volatility proxy (2026-08-03)
+
+User: "could the outperformance of the [20,80m) band be explained by
+volatility, or would it be worth adding ht > 0 && ssh in [20, 80m) as
+a voice filter?" **Answer: partly confounded, but the edge SURVIVES
+normalisation, and it is COMPLEMENTARY to v20 rather than redundant.**
+Population = the v2.5 spec, g60, $1+.
+
+**A. The confound is real** — the band IS a high-vol population:
+
+| group | n | tkds | v20 q25/med/q75 | % hot (v20>=140) | avg votes | PF |
+|-------|--:|-----:|-----------------|-----------------:|----------:|---:|
+| no halt today | 7,273 | 1,209 | 70 / 89 / 115 | 11.4 | 1.17 | 3.43 |
+| halt <20m | 264 | 41 | 113 / 139 / 160 | 39.8 | 1.63 | 86.35 |
+| **halt [20,80m)** | 1,862 | 288 | 101 / **126** / 159 | **39.5** | 2.17 | **5.86** |
+| halt >=80m | 1,704 | 253 | 72 / **85** / 101 | 4.2 | 1.66 | 3.86 |
+
+(Note the >=80m row: v20 median 85 is BELOW the no-halt 89 and only
+4.2% hot — hours after a halt the vol has fully decayed, and the PF
+decays with it to 3.86. The vol confound is real and it is what makes
+the naive comparison suspect.)
+
+**B. But it SURVIVES decile normalisation** (house rule) — v20 deciles
+over the whole g60 book, band vs no-halt WITHIN each decile:
+
+| v20 decile | v20 range (bp) | n band | PF band | n no-halt | PF no-halt |
+|-----------:|----------------|-------:|--------:|----------:|-----------:|
+| 1 | 40-58 | 11 | ∞ | 926 | 5.51 |
+| 2 | 58-70 | 29 | **29.85** | 877 | 3.89 |
+| 3 | 70-79 | 75 | **5.35** | 748 | 3.21 |
+| 4 | 79-86 | 100 | **19.31** | 785 | 2.24 |
+| 5 | 86-94 | 131 | **10.26** | 771 | 2.14 |
+| 6 | 94-103 | 132 | 3.45 | 715 | 3.59 |
+| 7 | 103-115 | 231 | **9.13** | 675 | 4.24 |
+| 8 | 115-132 | 297 | **4.68** | 663 | 3.21 |
+| 9 | 132-157 | 383 | **7.14** | 573 | 3.65 |
+| 10 | 157-326 | 473 | 4.97 | 540 | 5.72 |
+
+**The band beats no-halt in 8 of 10 deciles**, and — the important
+part — **its edge is LARGEST where volatility is LOW** (deciles 2-5:
+29.85 / 5.35 / 19.31 / 10.26 against 3.89 / 3.21 / 2.24 / 2.14) and
+VANISHES in decile 10 (4.97 vs 5.72). A recent halt is information the
+CURRENT volatility no longer carries: the name was in play, the crowd
+is still watching, the LULD reference has reset — even though the tape
+has since calmed. That makes it a complement to v20, not a proxy.
+
+**C. It also adds WITHIN each vote level** — most where the other
+voices are silent:
+
+| votes (7v) | n band | PF band | n rest | PF rest |
+|-----------:|-------:|--------:|-------:|--------:|
+| 0 | 321 | **6.30** | 3,437 | 2.51 |
+| 1 | 313 | **8.42** | 2,092 | 3.34 |
+| 2 | 481 | 6.02 | 2,165 | 5.60 |
+| 3 | 357 | 8.01 | 1,035 | 5.97 |
+| 4 | 262 | 3.53 | 400 | 4.91 |
+| 5 | 118 | 4.51 | 80 | 3.48 |
+| 6 | 9 | 17.07 | 21 | 1.70 |
+
+**D. Year robustness** (1,862 trips / 288 tkds): 2020 11.69 / 2021 3.99
+/ 2022 **13.62** / 2023 2.81 / 2024 4.77 / 2025 5.73 / 2026 15.83 —
+every year >= 2.81 and the BEST bear-year reading of any voice.
+
+### The 8-voice ladder — ADOPTED
+
+| construction | mc=1 | mc=2 | mc=3 |
+|---|---|---|---|
+| 7-voice | 827 @ 4.183 | 1,530 @ 4.242 | 2,113 @ 4.336 |
+| **8-voice (+ halt band)** | **884 @ 4.075** | **1,630 @ 4.244** | **2,248 @ 4.371** |
+| 2022, 7v -> 8v | 2.406 -> **2.526** | 2.517 -> **2.661** | 2.607 -> **2.778** |
+
++6.4-6.9% trips at every depth; PF flat at mc=2 and BETTER at mc=3;
+only mc=1 pays a toll (-0.108). **2022 improves at every depth.**
+Marginal set at mc=3 = **151 trips / 65 tkds / PF 6.19 / p22 57.4 /
++356 pts** — better than the book it joins and spread over 65
+ticker-days, not concentrated.
+
+**⭐⭐ THE VOTE = EIGHT VOICES** (g60, $1+, nfire >= 2):
+
+    {v20 >= 140bp, d20a < -28%, speed < -6%, dslo >= +16%, pah >= +28%,
+     ramp (vs20-vs10)*2e4 < -12, |esf| >= 0.5,
+     halt band: ssh in [1200, 4800)}
