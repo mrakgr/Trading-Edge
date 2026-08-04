@@ -10388,3 +10388,98 @@ can size.
   redundant, it dilutes the book at mc=3, and its tail is bear poison.
 - ✅ **ACCEPTED as a SIZING candidate**, joining `speed` in that role, with
   the 2022 inversion documented as the constraint.
+
+
+## S43t — ⭐⭐ SETTLED: the rank-1/rank-2 Renyi measures add NOTHING over rank-0 (2026-08-04)
+
+User: "I am a bit confused whether stacking the rank 1 and 2 Renyi measures
+on top of rank 0 (the gap) gives a benefit. At first we concluded they
+don't, and some tests showed that they did at the deep end. Let's settle
+this once and for all."
+
+**The user's framing is the right one and names the whole question:**
+
+| Renyi order | measure | what it counts |
+|---|---|---|
+| alpha = 0 | `gap_1200` | Hartley / support size — how many of the 1200 seconds traded at all |
+| alpha = 1 | `n_eff_shannon_1200` | Shannon — effective number of participants |
+| alpha = 2 | `n_eff_hhi_1200` | collision / Herfindahl — `1 / sum(p^2)` |
+
+### 1. Conditioning on gap<5 does NOT separate ranks 1 and 2
+
+| scope | n | corr(sh,hhi) | corr(gap,sh) | corr(gap,hhi) | corr(sh,v20) | corr(hhi,v20) |
+|---|--:|--:|--:|--:|--:|--:|
+| all g60+vote | 7,782 | **0.959** | -0.532 | -0.460 | 0.480 | 0.526 |
+| gap_1200 < 5 | 2,315 | **0.955** | -0.322 | -0.212 | 0.401 | 0.493 |
+
+**Shannon and HHI remain 0.955 correlated INSIDE the conditioned set** —
+they are one feature, so any finding for one is a finding for both. Both
+also keep a 0.4-0.5 correlation with `volat_20m`: the v20-proxy problem
+(S43) survives the conditioning.
+
+### 2. The quintile tables are NON-MONOTONE on both books (gap<5 held)
+
+| q | regular PF | S-tier B PF | med v20 (reg) |
+|--:|---|---|--:|
+| 1 | 7.07 | 15.34 | 86 |
+| 2 | 4.54 | 31.46 | 110 |
+| 3 | **11.61** | **43.61** | 134 |
+| 4 | 6.45 | 7.13 | 135 |
+| 5 | 7.38 | 11.21 | 158 |
+
+A hump, not a ladder — and `med_v20` climbs monotonically through every
+quintile on both books (86->158), which is the proxy showing through.
+
+### 3. ⭐ THE 2x2 — and why the earlier tests DISAGREED
+
+| variant | regular n / PF | **S-tier B n / PF** |
+|---|---|---|
+| baseline (neither) | 7,782 / 5.26 | 3,864 / 8.04 |
+| **gap<5 ONLY** | 2,315 / 6.93 | **1,141 / 15.23** |
+| shannon>=650 ONLY | 1,816 / 6.96 | 963 / 8.22 |
+| gap<5 + shannon>=650 | 1,421 / **7.67** | 740 / **13.83** |
+| hhi>=400 ONLY | 1,951 / 5.85 | 997 / **6.03** |
+| gap<5 + hhi>=400 | 1,382 / 7.48 | 688 / 13.25 |
+
+⭐ **THE ANSWER DIFFERS BY BOOK, which is exactly the source of the
+confusion.** On S-tier B — *the deep end* — stacking is **strictly WORSE
+than gap alone** (13.83 and 13.25 vs **15.23**), and `hhi` alone is worse
+than the baseline (6.03 vs 8.04). Only on the broader regular book does
+the stack appear to help (7.67 vs 6.93).
+
+### 4. ⭐⭐ THE ISO-TRIP CONTROL KILLS THE REMAINING CASE
+
+The stack cuts the regular book from 2,315 to 1,421 trips. So compare it
+against simply tightening **gap alone** to a similar size:
+
+| variant | n | tkds | losers | PF | **avg%** |
+|---|--:|--:|--:|---|--:|
+| gap<5 | 2,315 | 345 | 354 | 6.93 | +2.98 |
+| **gap<5 + sh>=650** | **1,421** | 219 | 237 | **7.67** | **+3.08** |
+| gap<3 (gap-only) | 1,825 | 270 | 270 | 7.13 | +3.14 |
+| gap<2 (gap-only) | 1,606 | 229 | 242 | 7.05 | +3.21 |
+| **gap<1 (gap-only)** | **1,285** | 182 | 200 | 7.30 | **+3.28** |
+
+At a comparable trip count, **gap-only reads PF 7.30 vs the stack's 7.67 —
+and BEATS it on average return per trip, +3.28% vs +3.08%.** The stack is
+not finding better trades; it is cutting more trips and giving up per-trip
+expectancy to do it. The +0.37 PF is inside the noise of the gap ladder
+itself (7.05 / 7.13 / 7.30 is not monotone either).
+
+### ⭐ VERDICT — SETTLED
+
+**The rank-1 and rank-2 measures add NOTHING over rank-0.** `n_eff` stays
+retired (S43).
+
+- Shannon and HHI are **one feature** (0.955), before and after conditioning.
+- Both are **partly v20 proxies** (0.4-0.5), before and after conditioning.
+- On the deep book they are **actively harmful** when stacked on the gap.
+- On the broad book their apparent gain **does not survive the iso-trip
+  control**, and costs per-trip expectancy.
+
+⚠ **Why the earlier reading said "they compose at the deep end":** it
+compared the stacked PF (7.67) against the un-stacked one (6.93) **without
+controlling for the fact that the stack simply cuts more trips**. That is
+the same missing-control trap as lowdens/esf (S43), v20/2022 (S42x), and
+speed/pah (S43d). ⭐ **The gap IS the volume feature. One measure per
+family, and rank 0 is the one that earns the seat.**
