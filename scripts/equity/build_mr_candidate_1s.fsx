@@ -80,6 +80,7 @@ type CliArgs =
     | [<AltCommandLine("-s")>] Slim_Dir of string
     | Min_Dv of float
     | Min_Neff of float
+    | Min_Bars of int
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -87,7 +88,8 @@ type CliArgs =
             | Db _ -> "DuckDB database path (default: data/trading.db)."
             | Slim_Dir _ -> "Directory of 1s slim parquet files (default: data/intraday_1s_slim)."
             | Min_Dv _ -> "dv_0945_tape floor in raw dollars (default: 2e6)."
-            | Min_Neff _ -> "n_eff_shannon floor (default: 25)."
+            | Min_Neff _ -> "n_eff_shannon floor — ⚠ RETIRED as the gate (S43u), 0 = off (default: 0)."
+            | Min_Bars _ -> "n_bars_1s floor over [09:30,09:45) = 900 - gap count. THE (A') gate (default: 200)."
 
 let parser = ArgumentParser.Create<CliArgs>(programName = "build_mr_candidate_1s.fsx")
 let parsed =
@@ -97,7 +99,17 @@ let parsed =
 let dbPath  = parsed.TryGetResult Db |> Option.defaultValue "data/trading.db"
 let slimDir = parsed.TryGetResult Slim_Dir |> Option.defaultValue "data/intraday_1s_slim"
 let minDv   = parsed.TryGetResult Min_Dv |> Option.defaultValue 2e6
-let minNeff = parsed.TryGetResult Min_Neff |> Option.defaultValue 25.0
+// ⭐ S43u (user): n_eff_shannon RETIRED as the (A') gate, replaced by a GAP COUNT.
+// Why: the 09:30 opening auction print is a median 26% (p90 58%) of ALL 09:30-09:45
+// volume, so exp(Shannon H) over per-second volume shares is substantially a measure of
+// HOW BIG THE OPENING PRINT WAS. Excluding that one second lifts median n_eff 27.9 ->
+// 50.6, and 22% of ticker-days that FAIL n_eff>=25 would PASS without it. A gap count is
+// immune: it asks only whether the second traded at all, never how much.
+// Knowability is unchanged — both are folded over [09:30, 09:45) and fully determined by
+// 09:45, and EntryStartMin >= 09:45. Iso-universe threshold is 210; 200 is the round pick
+// (56.8% vs 54.0% kept). The two filters disagree on 20.9% of ticker-days.
+let minNeff = parsed.TryGetResult Min_Neff |> Option.defaultValue 0.0
+let minBars = parsed.TryGetResult Min_Bars |> Option.defaultValue 200
 let glob = IO.Path.Combine(slimDir, "*.parquet").Replace("'", "''")
 
 // Seconds-since-ET-midnight anchors: premarket 04:00 = 14400, RTH open 09:30 = 34200,
@@ -138,12 +150,18 @@ liq AS (
     FROM read_parquet('{glob}', filename = true)
     WHERE bucket >= {premktSec} AND bucket < {scanSec}
     GROUP BY 1, 2
+    -- ⭐ S43u: THE (A') GATE IS NOW THE GAP COUNT. n_bars_1s = seconds in [09:30,09:45)
+    -- that traded at all; gaps = 900 - n_bars_1s. Immune to the opening print (see header).
+    -- n_eff_shannon is still RECORDED (both orders) but no longer gates unless --min-neff
+    -- is passed explicitly.
     HAVING sum(vwap::DOUBLE * volume::DOUBLE) FILTER (bucket >= {rthOpenSec}) >= {minDv}
-       AND CASE WHEN sum(volume::DOUBLE) FILTER (bucket >= {rthOpenSec} AND volume > 0) > 0 THEN
-               exp( ln(sum(volume::DOUBLE) FILTER (bucket >= {rthOpenSec} AND volume > 0))
-                  - sum(volume::DOUBLE * ln(volume::DOUBLE)) FILTER (bucket >= {rthOpenSec} AND volume > 0)
-                    / sum(volume::DOUBLE) FILTER (bucket >= {rthOpenSec} AND volume > 0) )
-           END >= {minNeff}
+       AND count(*) FILTER (bucket >= {rthOpenSec}) >= {minBars}
+       AND ({minNeff} <= 0.0
+            OR CASE WHEN sum(volume::DOUBLE) FILTER (bucket >= {rthOpenSec} AND volume > 0) > 0 THEN
+                   exp( ln(sum(volume::DOUBLE) FILTER (bucket >= {rthOpenSec} AND volume > 0))
+                      - sum(volume::DOUBLE * ln(volume::DOUBLE)) FILTER (bucket >= {rthOpenSec} AND volume > 0)
+                        / sum(volume::DOUBLE) FILTER (bucket >= {rthOpenSec} AND volume > 0) )
+               END >= {minNeff})
 ),
 -- (B) episode-partitioned daily context — IDENTICAL to build_mr_candidate.fsx.
 ctx AS (
@@ -189,7 +207,9 @@ CREATE UNIQUE INDEX mr_candidate_1s_ticker_date ON mr_candidate_1s (ticker, date
 // trim. The engine's auto-trim clause is column-existence-guarded, so tables built
 // without the column just skip it.)
 
-printfn "Building `mr_candidate_1s` (dv_0945_tape >= $%.1fM AND n_eff_shannon >= %.0f; CS/ADRC; NO warmup, NO price floor)" (minDv / 1e6) minNeff
+printfn "Building `mr_candidate_1s` (dv_0945_tape >= $%.1fM AND n_bars_1s >= %d [gaps <= %d of 900]%s; CS/ADRC; NO warmup, NO price floor)"
+    (minDv / 1e6) minBars (900 - minBars)
+    (if minNeff > 0.0 then sprintf " AND n_eff_shannon >= %.0f" minNeff else "; n_eff gate OFF (S43u)")
 printfn "  db:      %s" (IO.Path.GetFullPath dbPath)
 printfn "  1s slim: %s" (IO.Path.GetFullPath slimDir)
 

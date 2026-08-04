@@ -10515,3 +10515,130 @@ existing one, report the candidate against (a) the existing feature
 tightened to the same trip count and (b) a random subsample of the same
 size. If the candidate does not clear BOTH, the "gain" is trip-count
 arithmetic, not selection.
+
+
+## S43u — ⭐⭐ THE UNIVERSE GATE: n_eff_shannon -> GAP COUNT (2026-08-04)
+
+User: "Replace the n_eff_shannon threshold in the candidate table with a
+gap count threshold instead. Likely the opening print could be skewing the
+results." **Both halves of that were right, and the fix is now baked.**
+
+### 1. ⭐ THE OPENING-PRINT SKEW — confirmed, and large
+
+`n_eff_shannon` = exp(Shannon H) over per-second volume SHARES in
+[09:30, 09:45). Measured over 91,524 ticker-days (2024 Q1, dv >= $2M):
+
+| measure | value |
+|---|---:|
+| opening print as % of ALL 09:30-09:45 volume | **26.0% median**, 57.7% at p90 |
+| median n_eff **with** the open | 27.9 |
+| median n_eff **without** the open | **50.6** |
+| ticker-days failing `n_eff>=25` that would PASS without the open | **22.0%** |
+
+**Dropping ONE second nearly doubles the measure.** For a fifth of the
+affected population the gate was reading *how big the opening auction print
+was*, not how continuously the name traded.
+
+### 2. Why the gap count is the right replacement
+
+| family | measures | fails because |
+|---|---|---|
+| MAGNITUDE | volume, dollar volume, trade count | one monster print buys $11M of dv and says nothing about 10:23 |
+| SHAPE (Renyi 1,2) | shannon, hhi | still functions of the volume distribution -> hostage to the same print |
+| **OCCUPANCY (Renyi 0)** | **gap count** | **binary per second — invariant to HOW MUCH** |
+
+The gap count measures the SUPPORT of the distribution, not its mass or
+shape. And persistence is what this system actually needs: we hold ~5.6
+minutes and exit on a 5m-HIGH CROSS, a trigger that cannot fire without
+continuous price discovery. ⭐ **Three independent searches have now
+converged on time-occupancy: `gap_60<4` (the g60 universe split, S41g-n),
+`gap_1200` (the top overlay lens, rp_vol x gap_1200 = 28.97), and now the
+universe gate itself.**
+
+### 3. The bake
+
+`build_mr_candidate_1s.fsx`: new `--min-bars` (default **200**, i.e. gaps
+<= 700 of 900); `--min-neff` retired to 0 = off but n_eff STILL RECORDED
+(both orders). Iso-universe threshold is 210; 200 keeps 56.8% vs n_eff's
+54.0%. **Knowability unchanged** — both fold over [09:30,09:45), fully
+determined by 09:45, EntryStartMin >= 09:45.
+
+| | rows |
+|---|---:|
+| new universe | 1,145,230 |
+| old universe | 1,121,785 |
+| in both | 930,813 |
+| **dropped** (n_eff kept, gap rejects) | **190,972** |
+| **added** (gap keeps, n_eff rejected) | **214,417** |
+
+⭐ **+2.1% net but ~19% of the universe EXCHANGED**, and the two sides are
+not alike:
+
+| group | med dv | med traded secs | med n_eff | med trades |
+|---|---:|---:|---:|---:|
+| DROPPED | $3.75M | 161 | 33.2 | 696 |
+| **ADDED** | **$11.43M** | **262** | 17.6 | **1,076** |
+
+**The days n_eff REJECTED have 3x the dollar volume, 1.6x the traded
+seconds and 1.5x the prints of the days it KEPT** — because the richest
+names open with the biggest auction prints. `n_eff >= 25` was a partial
+INVERSE-liquidity filter.
+
+### 4. The pipeline (all re-run, nothing reused)
+
+| artifact | old | **new** |
+|---|---|---|
+| candidate table | 1,121,785 | **1,145,230** |
+| base (full universe, every spec gate off) | `base_v15` 2,217,950 | **`base_v16` 2,184,698** / 56,312 tkds |
+| reference (SPEC v2.6) | `v26_reference` 37,414 | **`v27_reference` 37,214** |
+
+⚠ `flushfader_base_tkds` was NOT reused — it was derived from the OLD
+universe and would have silently confined the spec to the days n_eff
+admitted. Both runs went over the full 1,137,765 ticker-days (96 min and
+69 min respectively). It has since been REGENERATED from `base_v16`
+(56,312 rows, schema verified identical to `mr_candidate_1s`).
+
+**GRAND PARITY: 37,214 v27 trips, 37,214 matched in `base_v16`, 0 orphans,
+0 ret_exit mismatches.**
+
+### 5. ⭐⭐ THE BOOKS — essentially UNCHANGED
+
+| book | v27 (new) n / PF | v26 (old) n / PF |
+|---|---|---|
+| whole book $1+ | 29,574 / 2.56 | 29,463 / 2.55 |
+| g60 | 10,990 / 3.99 | 10,983 / 3.99 |
+| g60 + vote>=1 | 7,703 / 5.19 | 7,698 / 5.19 |
+| **BOOK** | **3,811 / 7.91** | 3,806 / 7.89 |
+
+Attribution of the difference:
+
+| | trips | tkds |
+|---|---:|---:|
+| gained from NEW gap-only days | **5** | 2 |
+| **LOST to days the gap gate rejects** | **0** | **0** |
+
+⭐⭐ **A 19% universe swap moved the traded book by +0.13% and lost NOTHING.**
+
+### VERDICT — a HYGIENE win, not an edge win
+
+1. ✅ **SAFE**: zero trades lost, PF identical to 2 decimals at every cut.
+2. ❌ **It does NOT improve the book.** Anyone reading §3 might expect a
+   gain from admitting 214k richer ticker-days; there isn't one.
+3. ⭐ **Because the universe gate is FULLY SUBSUMED DOWNSTREAM.** A day
+   that fails a 09:30-09:45 gap count also fails `gap_60 < 4` at the
+   signal, plus `dv60>=$100k`, `tc60>=60`, `volat>=40bp`. The 191k rejected
+   days were never producing book trades.
+4. ⭐ **This is the DISPROPORTION TEST PASSING** (CLAUDE.md rule 3): a
+   filter changing 19% of the universe moved PF by ~0%. That is the
+   signature of genuine plumbing — the exact inverse of the 2026-07-16
+   collapse, where 0.8% of the universe moved PF -26%.
+5. ✅ **Keep it anyway.** It is conceptually correct (persistence, not
+   print size), it removes a live-trading fragility (n_eff would swing on
+   any day with an unusual opening auction), and it costs nothing.
+
+⚠ **A NOTE ON THE BASE BANNER.** `universe = dv_0945_tape >= $0.0M` on a
+base run means the ENGINE's gate is off — it does NOT mean the universe is
+unfiltered. The `$2M` floor and the gap gate were already applied when
+`mr_candidate_1s` was built. The base is therefore: **20m low x volat >=
+40bp x dv60>=$100k x tc60>=60 x barnum>=22, over a table that is already
+dv>=$2M x gaps<=700.**
