@@ -10021,3 +10021,78 @@ second, structurally different population: the `<0` band is a higher-
 priced ($5.95 median vs $4.00) and less frenzied tape than the
 parabolic runners, so its fills may well be BETTER, but that is a guess
 until measured.
+
+
+## S43p — ⭐⭐ S-TIER B goes VOLUME: the deep-flush cut is retired to a sizing lever (2026-08-04)
+
+User: "I think I'd prefer volume, and we'll leave the deep flush as a
+sizing lever in the future."
+
+**Confirmation of scope for S43o:** every S43o number was measured WITH
+`speed < -6%` active. The spec's own `speed < -2%/1m` gate is always
+underneath — "no deep cut" means falling back to it, never to no speed
+condition at all.
+
+### The speed sweep, with the S43o union (g60, vote >= 1, chg_1d >= 300 OR < 0)
+
+| speed cut | n | tkds | losers | PF | win% | avg% | med% | 2022 | net pts |
+|-----------|--:|-----:|-------:|----|-----:|-----:|-----:|------|--------:|
+| **< -2 (spec base)** | **3,864** | **640** | 672 | **8.04** | 82.6 | +2.84 | +2.83 | 11.07 | **+10,955** |
+| < -3 | 2,874 | 525 | 516 | 8.59 | 82.0 | +3.09 | +3.08 | 8.24 | +8,872 |
+| < -4 | 1,782 | 353 | 267 | 11.23 | 85.0 | +3.68 | +3.60 | **15.33** | +6,563 |
+| < -5 | 1,099 | 233 | 160 | 13.42 | 85.4 | +4.29 | +4.26 | 11.20 | +4,713 |
+| < -6 (was) | 680 | 154 | 99 | 14.35 | 85.4 | +4.69 | +4.53 | 7.53 | +3,188 |
+| < -8 | 258 | 66 | 55 | 13.40 | 78.7 | +5.78 | +5.00 | 1.59 | +1,492 |
+
+Dropping to the spec base = **5.7x the trips, 4.2x the ticker-days,
+3.4x the net** for PF 8.04 vs 14.35. ⭐ **2022 is healthy at every cut
+from -2 to -5** (7.5-15.3) — the bear-year knife only appears at -8
+(1.59), so the volume choice costs nothing on the floor. The union
+also removes the -6 dip (7.53) that S43o inherited: -4 and -5 both
+read better in 2022 than -6 does.
+
+### The tradeable ladder (mc replay, g60 $1+)
+
+| construction | mc=1 | mc=3 | tkds/yr | net pts @ mc=3 |
+|--------------|------|------|--------:|---------------:|
+| B deep (< -6) | 163 @ 9.98 / +3.96% | 384 @ 10.93 / +4.17% | 21.9 | — |
+| **B volume (spec -2)** | **688 @ 5.35** / +2.25% | **1,727 @ 5.90** / +2.38% | — | — |
+| A OR B deep | 193 @ 11.15 / +3.93% | 464 @ 12.47 / +4.13% | 26.1 | +1,917 |
+| **A OR B volume** | **711 @ 5.61** / +2.32% | **1,791 @ 6.21** / +2.45% | **93.0** | **+4,396** |
+
+**4.5x the ticker-days and 2.3x the net for roughly half the PF.**
+
+### Per-year, A OR B volume at mc=3
+
+| yr | n | PF | win% | avg% |
+|----|--:|----|-----:|-----:|
+| 2020 | 317 | 9.82 | 85.8 | +3.04 |
+| **2021** | 405 | **3.81** | 74.3 | +1.54 |
+| 2022 | 135 | 7.37 | 83.0 | +2.27 |
+| 2023 | 150 | 4.51 | 80.7 | +2.07 |
+| 2024 | 318 | 4.45 | 77.0 | +2.37 |
+| 2025 | 347 | 9.35 | 82.4 | +2.82 |
+| 2026 | 119 | 12.63 | 87.4 | +3.85 |
+| **total** | **1,791** | **6.21** | 80.5 | +2.45 |
+
+**Every year positive, worst = 3.81 (2021), 2022 = 7.37.** Compare the
+main vote book's worst year of ~2.89 — this is still a materially
+higher floor, on 93 ticker-days a year instead of 26.
+
+### ⭐ THE BOOK AS IT NOW STANDS
+
+    B (volume) :  g60  AND  vote >= 1  AND  (chg_1d >= 300% OR chg_1d < 0)
+    A (S-tier) :  g60  AND  ht = 1  AND  ssh in [2, 20m)
+                                                        ($1+, SPEC v2.6)
+
+`speed < -6%` is **retired from the definition and becomes a SIZING
+lever** — S43h already showed why it cannot be a one-sided gate (its
+meaning inverts with vol state), and the sweep above prices the lever
+exactly: each step from -2 to -6 roughly halves the book while adding
+~0.5%/trip. That is a size ladder, not a filter.
+
+⚠ This is a different animal from the S43l "two S-tier setups": 93
+ticker-days a year is a real working book, not two setups a month. It
+therefore inherits the MAIN book's cost exposure — at +2.45%/trip a
+0.5-1.0% round trip is **20-40% of the edge**, not 12-25%. The
+slippage study matters MORE under this choice, not less.
