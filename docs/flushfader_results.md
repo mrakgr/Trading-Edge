@@ -11682,3 +11682,83 @@ alone unless the low-gap condition also holds.
 ⭐ The robust core is the GAP split (S43ab: 7/7 years, ratios improve
 ex-artifact). Speed is a MODIFIER on top of it, valid only in the low-gap
 stratum.
+
+
+## S43ad — THE FULL 8-STATE SIZING TABLE incl. the vote=0 states (2026-08-04)
+
+User: "the vote=0 state (non-book) is worth trading, just with size
+proportional to its PF." **Agreed for 2 of the 4 out-states; the other 2
+should be dropped — evidence below.**
+
+### THE TABLE — gross and COST-ADJUSTED (S43x ladder)
+
+| tier | state | n | tkds | PF gross | avg gross | PF @$25k | avg @$25k | PF @$50k | avg @$50k |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|
+| **A** | BOOK · gap<15 · DEEP | 567 | 125 | **8.64** | +4.25 | 7.25 | +3.92 | 6.73 | +3.78 |
+| **B** | BOOK · gap<15 · shal | 2,879 | 476 | **6.67** | +2.68 | 5.45 | +2.35 | 4.99 | +2.21 |
+| **C** | BOOK · gap>=15 · DEEP | 790 | 190 | **4.26** | +2.82 | 3.70 | +2.49 | 3.47 | +2.35 |
+| **D** | BOOK · gap>=15 · shal | 3,540 | 721 | **4.15** | +1.86 | 3.30 | +1.53 | 2.98 | +1.39 |
+| **E** | out · gap<15 · shal | 1,039 | 197 | **3.42** | +1.63 | 2.72 | +1.30 | 2.47 | +1.16 |
+| **F** | out · gap>=15 · shal | 1,961 | 418 | **1.87** | +0.90 | 1.50 | +0.57 | 1.37 | +0.43 |
+| ❌ G | out · gap>=15 · DEEP | 160 | 55 | 1.63 | +1.34 | 1.45 | +1.01 | 1.38 | +0.87 |
+| ❌ H | out · gap<15 · DEEP | 54 | 15 | 1.75 | +0.90 | 1.44 | +0.57 | 1.32 | +0.43 |
+
+**All 8 survive costs on a pooled basis even at $50k** — but pooling is
+exactly what S43aa warned about. The per-year table decides.
+
+### ⚠ PER-YEAR ON THE OUT-STATES (gross avg% per trip)
+
+| state | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | verdict |
+|---|--:|--:|--:|--:|--:|--:|--:|---|
+| **E** out·gap<15·shal | 2.38 | 2.09 | 1.34 | 0.68 | **-0.23** | 1.36 | 2.05 | ✅ one negative yr |
+| **F** out·gap>=15·shal | 0.85 | 1.60 | 1.27 | **0.11** | 0.95 | 0.67 | 0.67 | ✅ thin but never negative |
+| ❌ **G** out·gap>=15·DEEP | 4.27 | 4.42 | 1.54 | 1.83 | 5.49 | **-5.42** | 0.03 | ❌ UNSTABLE |
+| ❌ **H** out·gap<15·DEEP | 6.17 | 2.87 | — | — | -0.09 | 2.81 | -0.58 | ❌ 1-2 trips most yrs |
+
+(n per year for G: 29/16/14/3/35/37/26 · for H: 1/14/0/0/2/7/30.)
+
+⭐ **DROP G AND H.** They are precisely where the SPEED INVERSION lives
+(S43ac: deep is negative outside the book). G posts **-5.42% on 37 trips
+in 2025** and +0.03% in 2026; H has 54 trips TOTAL with two years empty
+and two more at 1-2 trips. Their pooled PFs of 1.63/1.75 are noise around
+a coin flip. Together they are 214 trips = 6.6% of the out-population, so
+dropping them costs almost nothing.
+
+⚠ **E and F are genuinely marginal, not free money.** F runs +0.11% gross
+in 2023 — **negative after any cost** — and +0.67-0.95% in four other
+years, leaving +0.34-0.62% net at $25k. E has a negative 2024. They are
+tradeable at SMALL size; they are not a second book.
+
+### ⭐ PORTFOLIO EFFECT — trading the 6 viable states (mc=3)
+
+| construction | n | PF | avg% | worst yr |
+|---|--:|--:|--:|--:|
+| THE BOOK only | 3,330 | **3.90** | +1.97 | 2.78 |
+| THE BOOK + gap_adj<15 | 1,407 | **5.10** | +2.43 | 3.26 |
+| **all 6 viable states** | **4,550** | **3.15** | +1.65 | **2.03** |
+
+Adding E and F buys **+37% trips (3,330 -> 4,550)** for **-19% PF (3.90 ->
+3.15)** and **-16% per-trip return**, and lowers the worst year from 2.78
+to **2.03 (2023)**. That is the trade: more slots, thinner average.
+
+### ⭐ SIZING RECOMMENDATION
+
+Size ∝ PF is the user's rule; note **expectancy, not PF, is what
+compounds** — the two disagree at C vs D (PF 4.26/4.15 nearly equal, avg
++2.82/+1.86 far apart) and at F vs G. Suggested relative units using the
+$25k cost-adjusted expectancy:
+
+| tier | state | rel. size | rationale |
+|---|---|--:|---|
+| A | BOOK·gap<15·DEEP | **3.0** | best cell; ⚠ absent in 2022 |
+| B | BOOK·gap<15·shal | **2.0** | the workhorse, gap dim is 7/7 |
+| C | BOOK·gap>=15·DEEP | **1.5** | ⚠ deep fails 2022/23 here |
+| D | BOOK·gap>=15·shal | **1.0** | base unit |
+| E | out·gap<15·shal | **0.6** | one negative year |
+| F | out·gap>=15·shal | **0.3** | negative after cost in 2023 |
+| G, H | out · DEEP | **0** | ❌ do not trade |
+
+⚠ The out-states raise slot contention: at mc=3 they will displace book
+trades. E and F should be taken only when no A-D signal is competing for
+the slot, otherwise the +37% trips comes partly at the expense of the
+better tiers.
