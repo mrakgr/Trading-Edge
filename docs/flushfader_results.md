@@ -10893,3 +10893,125 @@ morning — a third of that PF was the artifact.
    do yesterday" filter tripled a PF. Day-context should not do that.
 4. It was found by an unrelated task (the passive-fill study) forcing a
    raw-vs-adjusted audit. **Cheap audits of "obvious" plumbing keep paying.**
+
+
+## S43w — gap_1200 x volume participation: ROBUST, but CONDITIONAL on g60 (2026-08-04)
+
+User: "whether they are robust features, both together and in isolation."
+Run with the full S43v battery (three books, year columns with LOSER
+counts, ex-artifact-year pooling, random-subsample null).
+
+**Definitions** (`rp_vol` re-derived from S41, doc line 4761, and
+structurally verified on 29,574 trips: **0 violations** of `vol_leg <=
+cum_vol`, **0** of `legbars <= bars_present`, **0 nulls**):
+
+```
+leg rate     = vol_leg / (bars_since_first_low + 1)
+pre-leg rate = (cum_vol - vol_leg) / (bars_present - (bars_since_first_low + 1))
+rp_vol       = leg rate / pre-leg rate
+```
+
+⚠ Median `rp_vol` here is **0.554**, not S41's 0.73 — that table was the
+v2.0 population. Bands recalibrated to v27. `corr(rp_vol, gap_1200) =
+0.072` ⇒ genuinely independent, so a conjunction is near-multiplicative.
+
+### 1. gap_1200 — the shape INVERTS on g60
+
+| gap_1200 | full n / PF | g60 n / PF | g60+vote n / PF |
+|---|---|---|---|
+| <5 | 3,106 / 5.64 | **3,106 / 5.64** | 2,302 / 6.87 |
+| [5,15) | 1,241 / 4.88 | 1,221 / 4.86 | 932 / 5.33 |
+| [15,50) | 2,632 / 2.37 | 2,304 / 2.46 | 1,710 / 3.00 |
+| [50,200) | 5,184 / 2.88 | 2,986 / 3.60 | 1,954 / 5.60 |
+| [200,600) | 8,755 / **2.20** | 1,337 / **5.04** | 785 / **7.52** |
+| >=600 | 8,656 / 2.06 | 36 / 3.39 | 20 / 1.60 |
+
+⭐ **`gap_1200 < 5` is FULLY SUBSUMED by g60** — 3,106 trips in both
+columns, identical. Zero gaps in 1200 bars implies few in 60.
+⭐ **On the full book gap_1200 is monotone DECREASING** (5.64 -> 2.06:
+fewer gaps = better). **On g60 it INVERTS at the high end** — `[200,600)`
+reads 5.04 / 7.52 vs 2.20 on the full book. A name with `gap_1200` = 300
+but `gap_60 < 4` was sparse 20 minutes ago and is dense NOW: **the tape
+just woke up**, which is a different and good animal.
+
+### 2. rp_vol — does NOTHING on the full book, strong on g60
+
+| rp_vol | full n / PF | g60 n / PF | g60+vote n / PF |
+|---|---|---|---|
+| <0.35 | 4,893 / 1.95 | 1,755 / 4.03 | 1,249 / 5.86 |
+| [0.35,0.5) | 7,380 / 2.76 | 3,232 / 2.89 | 2,112 / 3.81 |
+| [0.5,0.65) | 6,286 / 2.68 | 2,461 / 3.35 | 1,684 / 4.07 |
+| [0.65,0.8) | 4,226 / 3.02 | 1,300 / 4.80 | 880 / 5.37 |
+| [0.8,1.0) | 3,547 / **2.41** | 1,013 / 7.69 | 770 / **14.88** |
+| [1.0,1.3) | 2,008 / 2.59 | 696 / 7.56 | 563 / 7.65 |
+| [1.3,2.0) | 1,033 / 2.85 | 419 / **14.20** | 360 / 12.91 |
+| >=2.0 | 201 / 3.63 | 114 / 12.00 | 85 / 9.94 |
+
+⚠ On the full book it is **FLAT** (1.95-3.63) and S41's star band
+`[0.8,1.0)` reads **2.41, BELOW its neighbours**. On g60 it is strongly
+increasing above 0.65.
+
+### 3. ⭐⭐ THE ROBUSTNESS TEST THAT chg_1d FAILED
+
+`rp_vol >= 0.8` vs each book's own baseline:
+
+| book | all-yrs cut/base = ratio | **ex-2020 & 2022** |
+|---|---|---|
+| full | 2.57 / 2.56 = **1.00** | 2.27 / 2.44 = **0.93** |
+| g60 | 8.74 / 3.99 = **2.19** | 7.46 / 3.55 = **2.10** |
+| g60+vote | 11.10 / 5.19 = **2.14** | 9.24 / 4.59 = **2.01** |
+
+⭐⭐ **The ratio barely moves when the two near-loss-free years are
+removed (2.19 -> 2.10).** `chg_1d` collapsed 1.66 -> 1.32 under the same
+test. And **every year has REAL losses** (40/60/7/29/45/49/35 losers) —
+no zero-loss artifact anywhere.
+
+Random-subsample null, g60+vote, **ex-2020 & 2022** (baseline 6,099 @ 4.59
+/ +2.28%):
+
+| cut | n | PF | null 95% | pctile | avg% | null 95% | pctile |
+|---|--:|---|---|--:|---|---|--:|
+| `rp_vol>=0.8` | 1,235 | 9.24 | [3.88, 5.52] | **100th** | 2.71 | [2.09, 2.47] | **100th** |
+| `gap_1200<5` | 1,925 | 6.10 | [4.05, 5.22] | **100th** | 2.81 | [2.14, 2.43] | **100th** |
+| **BOTH** | **396** | **23.39** | [3.37, 6.51] | **100th** | **3.31** | [1.90, 2.65] | **100th** |
+| EITHER | 2,764 | 6.28 | [4.18, 5.06] | **100th** | 2.70 | [2.18, 2.39] | **100th** |
+
+All four clear on **both** PF and expectancy — the axis that killed
+`chg_1d < 20%` (which sat exactly on the null's upper bound).
+
+### 4. The conjunction, per year (with loser counts)
+
+| yr | base PF | n | tkds | losers | cell PF | **cell avg%** | base avg% |
+|---|--:|--:|--:|--:|---|--:|--:|
+| 2020 | 13.52 | 143 | 24 | 15 | 49.43 | **4.42** | 3.30 |
+| 2021 | 4.02 | 210 | 38 | 23 | 31.94 | **3.05** | 1.72 |
+| 2022 | 4.25 | 20 | 3 | 1 | 111.36 | **2.11** | 2.04 |
+| 2023 | 4.34 | 21 | 3 | 0 | inf | **2.86** | 2.11 |
+| 2024 | 4.31 | 74 | 15 | 10 | 13.22 | **4.04** | 2.50 |
+| 2025 | 4.18 | 59 | 10 | 1 | 222.41 | **2.70** | 2.13 |
+| 2026 | 7.62 | 32 | 6 | 7 | 13.00 | **4.72** | 3.37 |
+
+⭐ **Expectancy beats baseline in 7 of 7 years.** The four years with
+real loss counts read 49 / 32 / 13 / 13 against baselines of 13.5 / 4.0 /
+4.3 / 7.6. ⚠ The `inf` / 111 / 222 cells are **3-10 ticker-day years** —
+ignore those PFs. ⚠ **Frequency: 99 tkds over 7 years = 14/yr.**
+
+### ⭐ VERDICT
+
+1. **Both are ROBUST — genuinely, unlike `chg_1d`.** They survive the
+   ex-artifact-year pooling, the null on both axes, and per-year loser
+   counts.
+2. **Both are CONDITIONAL on g60.** `rp_vol` is worth **1.00x on the full
+   book** (0.93 ex-artifact) and **2.0-2.2x on g60**. This is an
+   AMPLIFICATION, not the sign INVERSION `chg_1d` had — a weaker form of
+   conditionality, but conditional nonetheless.
+3. **`rp_vol` is the stronger of the two** (2.01x vs `gap_1200<5`'s 1.33x
+   ex-artifact) and is the one that is NOT already implied by g60.
+4. **`gap_1200 < 5` is redundant with g60 at the low end** (identical
+   3,106 trips) — what it adds on g60 lives at the HIGH end, where the
+   "tape just woke up" cell reads 7.52.
+5. ⭐ **The conjunction is a genuine TOP SIZING TIER**: 396 trips @ 23.39
+   / +3.31%, expectancy-positive vs baseline in 7/7 years, at ~14 ticker-
+   days a year. Independent inputs (corr 0.072) ⇒ near-multiplicative.
+   **Not a gate — a size lever**, on the same footing as `speed`,
+   `z_20m` and `chg_1d < 0`.
