@@ -11762,3 +11762,65 @@ $25k cost-adjusted expectancy:
 trades. E and F should be taken only when no A-D signal is competing for
 the slot, otherwise the +37% trips comes partly at the expense of the
 better tiers.
+
+
+## S43ae — ⭐⭐ FINAL SIZING SPEC: 6 tiers, expectancy-weighted (user decision) (2026-08-04)
+
+**USER DECISION: drop G and H; size by EXPECTANCY.**
+
+### THE SPEC
+
+Universe `g60` (`gap_60 < 4`), `$1+`, SPEC v2.6, `v27_reference`.
+Three binary dimensions:
+
+```
+inbook = votes >= 1 of 6   OR   S-tier A (ht=1 AND ssh in [120,1200))
+lowgap = gap_adj_1200 < 15                    <- halt-ADJUSTED, S43ab
+deep   = signal_vwap/vwap_60_prev - 1 < -6%
+```
+
+| tier | state | n | tkds | PF net | **exp net** | sd | exp/sd | worst | p05 | **SIZE** |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| **A** | BOOK · gap<15 · DEEP | 567 | 125 | 7.25 | **+3.92** | 5.47 | 0.717 | -14.2 | -4.29 | **2.56** |
+| **B** | BOOK · gap<15 · shal | 2,879 | 476 | 5.45 | **+2.35** | 3.34 | 0.706 | -14.5 | -3.62 | **1.53** |
+| **C** | BOOK · gap>=15 · DEEP | 790 | 190 | 3.70 | **+2.49** | 4.96 | 0.502 | **-28.4** | **-7.26** | **1.62** |
+| **D** | BOOK · gap>=15 · shal | 3,540 | 721 | 3.30 | **+1.53** | 3.33 | 0.461 | -30.9 | -4.04 | **1.00** |
+| **E** | out · gap<15 · shal | 1,039 | 197 | 2.72 | **+1.30** | 3.11 | 0.417 | -13.2 | -4.79 | **0.85** |
+| **F** | out · gap>=15 · shal | 1,961 | 418 | 1.50 | **+0.57** | 4.04 | **0.140** | **-38.8** | -6.40 | **0.37** |
+| ❌ | out · DEEP (either gap) | 214 | 70 | — | — | — | — | — | — | **0** |
+
+`exp net` = per-trip return after the S43x $25k cost of 0.33%. SIZE =
+expectancy relative to tier D. mc=3 portfolio over the 6 traded tiers:
+**4,550 trips @ PF 3.15 / +1.65%, every year positive, worst 2.03.**
+
+### ⚠ TWO THINGS EXPECTANCY-WEIGHTING DOES NOT SEE
+
+**1. The deep premium is largely a VARIANCE premium.** A's expectancy is
+**1.67x** B's — but its expectancy-per-unit-risk is only **1.02x**
+(0.717 vs 0.706). The extra return is bought with proportionally more
+dispersion, so expectancy weighting gives A 1.67x B's size where
+risk-adjusted weighting would give it 1.02x. If position sizing is meant
+to equalise RISK rather than maximise expected return, A and B belong at
+the same size.
+
+**2. Tier C is the weakest link in the scheme.** Expectancy ranks C ABOVE
+B (1.62 vs 1.53), but C has:
+- a **-28.4% worst trip and -7.26% p05** vs B's -14.5% / -3.62%;
+- the speed dimension **failing 2022 (0.26) and 2023 (0.77)** in that
+  stratum (S43ac);
+- and only 3% more PF than D (3.70 vs 3.30).
+
+So C gets the second-largest weight while being the only tier with BOTH a
+fat left tail AND documented regime failure. **Judgment override
+recommended: cap C at or below B (~1.3-1.5).**
+
+⚠ **Tier F carries the book's worst tail** (-38.8% worst, exp/sd **0.14**)
+on the thinnest edge (+0.57%). Its 0.37 weight is already small; the
+risk-adjusted weight would be 0.30. Do not let it grow.
+
+### ⭐ SLOT CONTENTION
+
+At mc=3 the out-tiers (E, F) will displace book trades. **E and F should
+yield to any competing A-D signal** — otherwise the +37% trips they add
+(3,330 -> 4,550) comes partly out of the better tiers, and the measured
+portfolio PF of 3.15 will not be achieved.
