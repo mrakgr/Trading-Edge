@@ -11351,9 +11351,41 @@ equally good** — `gap_1200 < 5` is 3,106 trips @ 5.64 above $1 vs 434 @
 5.85 here. There is no reason to reach into sub-$1 for a corner already
 held with far better year coverage.
 
+### 6. Are the $0.50-1.00 names FALLEN $1+ STOCKS? NO — and the fallen ones are DEAD
+
+User hypothesis: "maybe $0.50-1.00 is strong because these were formerly
+>$1 stocks which dipped below $1 during the day."
+
+⭐ **THE ADJUSTMENT DIRECTION (user asked: multiply or divide?)** —
+`adj_ratio = adj_close / raw_close`, so **raw = adjusted / adj_ratio**:
+prior close in day-D raw scale = **`prev_adj_close / adj_ratio`
+(DIVIDE)**. Confirmed by the engine's own gate, `Backtest.fs:216`:
+`coalesce(prev_adj_close / nullif(adj_ratio,0), 0) >= $minprevclose`,
+documented as *"PRIOR day's close in day-D raw (post-split) scale"*.
+⚠ MULTIPLYING is what produced the S43v lookahead.
+
+**Only 3.6% of $0.50-1.00 trips closed >= $1 the prior day** (median prior
+close **$0.53** vs median entry **$0.752**). These are NOT fallen $1+
+names — they are genuine sub-$1 stocks **up ~42% on the day**.
+
+| $0.50-1.00 split | n | tkds | PF | avg% | med prev | med today | med day chg |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| **was >= $1 yesterday** | 136 | 31 | **1.03** | **+0.07** | $1.16 | $0.931 | **-19%** |
+| was sub-$1 yesterday | 3,670 | 505 | **2.49** | **+1.50** | $0.52 | $0.746 | **+39%** |
+
+⭐⭐ **THE HYPOTHESIS INVERTS: the fallen-from-$1 names are the DEAD
+subgroup — PF 1.03, +0.07%/trip, NO edge.** All of the bucket's strength
+comes from pennies RUNNING (+39% on the day). Including the fallen names
+would add the one dead population, not rescue anything.
+
+Coherent with S43v: on the FULL book corrected `chg_1d` is monotone
+INCREASING (2.05 -> 8.71), so a name down 19% on the day sits in the worst
+part of that curve. Other tiers are too small to read (22 trips <$0.25, 13
+in $0.25-0.50).
+
 ### VERDICT
 
-**Sub-$1 does not earn a place.** (0) `gap_1200` does not rescue it either (§5); (a) the filter stack breaks below $0.50
+**Sub-$1 does not earn a place.** (-1) the $0.50-1.00 strength is NOT fallen $1+ names and the fallen ones are dead (§6); (0) `gap_1200` does not rescue it either (§5); (a) the filter stack breaks below $0.50
 and is only 1.40x effective in $0.50-1.00 vs ~2.05x above $1; (b) even that
 tier has a NEGATIVE 2021 and two more years at ~1.4-1.5; (c) the cheap
 spread is real but small in absolute terms next to percentage-of-principal
