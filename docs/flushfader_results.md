@@ -11392,3 +11392,86 @@ spread is real but small in absolute terms next to percentage-of-principal
 fees; (d) **the rebate case specifically requires the one thing this system
 cannot do — rest the entry.** ⭐ The `cross entry / rest exit` rule from
 S43y is CONFIRMED on an independent population, and more strongly.
+
+
+## S43aa — the "TAPE JUST WOKE UP" cell (gap_1200 high x g60): NOT ROBUST (2026-08-04)
+
+User: "you've shown that stocks that pass g60 and have a sparse g1200 have
+good expectancy. Let's study the robustness of it." **It does not survive.**
+
+### 1. Fine bands in the high-gap region (g60 book, $1+, v27)
+
+| gap_1200 | n | tkds | losers | PF | avg% | med hr ET | med v20 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| <100 | 8,266 | 1,237 | 1,703 | 4.00 | +2.09 | 10:50 | 97 |
+| [100,200) | 1,351 | 270 | 300 | 3.24 | +1.74 | 11:43 | 83 |
+| [200,300) | 656 | 158 | 157 | 3.85 | +1.82 | 12:11 | 78 |
+| **[300,450)** | 512 | 119 | 89 | **6.30** | +2.51 | 11:48 | 79 |
+| **[450,600)** | 169 | 42 | 39 | **7.66** | +2.94 | 12:13 | 93 |
+| [600,800) | 36 | 9 | 9 | 3.39 | +2.43 | 13:19 | 67 |
+
+The rise is real in aggregate (3.24 -> 3.85 -> 6.30 -> 7.66) and collapses
+past 600 on 36 trips. Strong zone = **[300,600), 681 trips / 161 tkds**.
+⚠ Note `med_hr_et` climbs 10:50 -> 12:13 and `med_v20` FALLS: this is a
+**midday, lower-volatility reactivation** population.
+
+### 2. ⭐⭐ PER-YEAR KILLS IT
+
+| yr | base PF / avg% | cell n | losers | lossPts | cell PF | cell avg% | **avg ratio** |
+|---|---|--:|--:|--:|---|--:|--:|
+| 2020 | 8.40 / 2.73 | 157 | 15 | 15.8 | 29.54 | 2.87 | **1.05** |
+| 2021 | 4.64 / 1.78 | 60 | 23 | 32.1 | 3.04 | 1.09 | **0.61** |
+| 2022 | 4.03 / 1.87 | 50 | 17 | 53.1 | 1.47 | 0.49 | **0.26** |
+| 2023 | 3.03 / 1.58 | 58 | 4 | 11.4 | 20.75 | 3.88 | **2.46** |
+| 2024 | 3.30 / 2.06 | 148 | 15 | 14.3 | 40.56 | 3.83 | **1.86** |
+| 2025 | 3.04 / 1.77 | 144 | 34 | 81.5 | 5.04 | 2.29 | **1.29** |
+| 2026 | 4.24 / 2.62 | 64 | 20 | 108.6 | 2.10 | 1.86 | **0.71** |
+
+**It FAILS in 3 of 7 years** (2021, 2022, 2026), badly in 2022 (0.26).
+⭐ **And the huge PFs sit exactly where losses are ABSENT**: 2020 (15
+losers / 15.8 pts -> 29.54), 2023 (4 / 11.4 -> 20.75), 2024 (15 / 14.3 ->
+40.56); the years with real losses read 1.47, 2.10, 3.04.
+
+### 3. Pooling and the null
+
+| scope | base | cell | PF ratio | avg ratio |
+|---|---|---|--:|--:|
+| all years | 10,990 / 3.99 / +2.06% | 681 / **6.62** / +2.61% | 1.66 | 1.27 |
+| ex-2020 | 9,205 / 3.57 / +1.93% | 524 / 5.42 / +2.54% | 1.52 | 1.31 |
+| **ex-2020/23/24** | 6,509 / 3.75 / +1.95% | 318 / **2.96** / +1.69% | **0.79** | **0.87** |
+
+Random-subsample null:
+
+| scope | cell PF | null95(PF) | pctile | cell avg% | null95(avg) | pctile |
+|---|--:|---|--:|--:|---|--:|
+| all years | 6.62 | [3.11, 5.32] | **99.9th** | 2.61 | [1.77, 2.34] | **100th** |
+| ex-2020/23/24 | 2.96 | [2.57, 5.85] | **10.8th** | 1.69 | [1.51, 2.37] | **12.2th** |
+
+### ⭐⭐ THE METHODOLOGICAL LESSON — the null test has a BLIND SPOT
+
+**The random-subsample null draws from the POOLED population across all
+years. It tests exchangeability, NOT stability.** A cell whose losses
+happen to be absent in a few particular years clears it easily while being
+a temporal artifact — which is exactly what happens here (99.9th pctile
+pooled, 10.8th once three years are removed). Trip counts are spread evenly
+across years (157/60/50/58/148/144/64); what varies wildly is the LOSS
+profile inside the cell, and pooling hides that entirely.
+
+⭐ **RULE: the null test and the per-year ratio table are COMPLEMENTS, not
+substitutes.** The null catches "small cell, lucky draw"; the per-year
+table catches "concentrated in good years". Report BOTH. (Every earlier
+null in S43t/S43v/S43w was paired with a per-year table — this is the first
+case where they DISAGREE, and the per-year table is right.)
+
+⚠ Dropping the three best years is deliberately conservative and biases
+downward, so 0.79 is not the honest expectation either. **The fair summary
+is the per-year record: wins 4, fails 3, worst 0.26, with the aggregate
+carried by PF explosions where losses were absent.**
+
+### VERDICT
+
+❌ **REJECTED.** `gap_1200 in [300,600)` on g60 is not a robust cell. Its
+S43w appearance (5.04 / 7.52 in the `[200,600)` band) was the pooled view;
+the per-year record does not support it. ⭐ Compare `rp_vol` (S43w), which
+passed BOTH tests — ratio 2.19 -> 2.10 when the artifact years came out —
+and remains the volume-family keeper.
