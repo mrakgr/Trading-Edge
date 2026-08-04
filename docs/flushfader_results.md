@@ -11824,3 +11824,77 @@ At mc=3 the out-tiers (E, F) will displace book trades. **E and F should
 yield to any competing A-D signal** — otherwise the +37% trips they add
 (3,330 -> 4,550) comes partly out of the better tiers, and the measured
 portfolio PF of 3.15 will not be achieved.
+
+
+## S43af — ⚠ RETRACTION: slot "priority" is WRONG, and mc=3 is a PYRAMIDING book (2026-08-04)
+
+User: "How could that work? At most we could increase the position sizes
+if the stock continues falling... can't you label the trips, merge them,
+and check if the earlier positions are taking up slots for the later ones?"
+
+**Both points land. My S43ae advice ("E and F must yield to competing A-D
+signals") was unimplementable AND wrong. Retracted.**
+
+⚠ **Unimplementable**: at the moment an E/F signal fires you cannot know
+whether an A-D signal will arrive later. You cannot hold a slot for a
+hypothetical.
+
+### 1. MEASURED DISPLACEMENT (tier-labelled merged replay, mc=3)
+
+| tier | A-D-only book | merged 6-tier | displaced |
+|---|--:|--:|--:|
+| A | 203 | 196 | **-7** |
+| B | 1,161 | 1,098 | **-63** |
+| C | 286 | 275 | **-11** |
+| D | 1,680 | 1,596 | **-84** |
+| **total** | **3,330** | **3,165** | **-165 (5.0%)** |
+
+E/F contribute **1,385** taken trips (E=454, F=931). Of **4,611** blocked
+A-D signals, only **414 (9.0%)** had an E/F position holding a slot — the
+other **91% is A-D blocking A-D**, inherent to mc=3 and nothing to do with
+the out-tiers.
+
+### 2. ⭐⭐ AND PRIORITY MAKES IT WORSE
+
+Reserving slots is the live-implementable form of "yield":
+
+| construction | n | PF | avg% | **net pts** | A-D taken |
+|---|--:|--:|--:|--:|--:|
+| A-D only (book) | 3,330 | 3.901 | +1.97 | 6,551 | 3,330 |
+| **6-tier, FIRST-COME** | **4,550** | 3.147 | +1.65 | **7,510** | 3,165 |
+| 6-tier, 1 slot reserved A-D | 4,232 | 3.246 | +1.70 | 7,215 | 3,223 |
+| 6-tier, 2 slots reserved A-D | 3,827 | 3.463 | +1.80 | 6,884 | 3,278 |
+
+**Reserving recovers A-D trips while LOSING money** (7,510 -> 7,215 ->
+6,884). E/F average ~+1.03%/trip, so holding a slot empty against a signal
+that may never arrive costs more than the upgrade is worth.
+⭐ **FIRST-COME-FIRST-SERVED IS OPTIMAL.** No priority logic needed.
+
+⚠ Note the shape: **PF RISES (3.147 -> 3.463) while NET FALLS.** Fourth
+instance today of the PF-vs-net divergence (passive entry S43y, the
+Shannon/gap stack S43t, the chg_1d bands S43v). **Always decide on NET.**
+
+### 3. ⭐⭐⭐ mc=3 IS A PYRAMIDING BOOK, NOT A DIVERSIFIED ONE
+
+| entry type | n | % |
+|---|--:|--:|
+| **pyramid ADD into a name already held** | **2,722** | **59.8%** |
+| alongside a DIFFERENT symbol | 43 | **0.9%** |
+| opened flat | 1,785 | 39.2% |
+
+⭐ **60% of taken entries are adds into a position we already hold**, as it
+makes another new 20-minute low — exactly the user's "increase position
+size if the stock continues falling". **Genuine cross-name contention is
+0.9%.**
+
+**Two consequences:**
+
+1. The 165 "displaced" A-D trips are NOT lost opportunities in other names
+   — they are lost **PYRAMID DEPTH in the same name**. That is a much
+   smaller loss than the phrase "displacement" implies.
+2. ⚠ **RISK: the sizing tiers STACK WITHIN A NAME.** At mc=3 we are
+   usually 2-3 positions deep in ONE stock, not spread across three. A
+   tier-A add on top of a tier-A position is 2x concentration in a single
+   microcap, not diversification. **The S43ae weights are per-trip; the
+   per-NAME exposure is up to 3x that.** Position limits should be set on
+   the aggregate name exposure, not the per-entry size.
