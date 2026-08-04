@@ -11612,3 +11612,73 @@ wake-up cell (1.66 -> 0.79) and better even than `rp_vol` (2.19 -> 2.10).
    years) > `rp_vol>=0.8` (6/7, fails 2023) > `chg_1d<0` (survives nulls
    but is a sign-flipping interaction) > `speed` / `z_20m` (invert with
    regime).**
+
+
+## S43ac — ⭐⭐ THE 8-STATE SIZING MATRIX (user: book x gap_adj x deep flush) (2026-08-04)
+
+User: "these 4 states in the book are what is going to determine sizing.
+The only thing I'd like to throw in is deep flush (speed < -6%)."
+
+Three binary dimensions on the g60 universe ($1+, v27):
+`inbook` = `votes>=1 OR S-tier A` · `lowgap` = `gap_adj_1200 < 15` ·
+`deep` = `signal_vwap/vwap_60_prev - 1 < -6%`.
+
+### THE MATRIX
+
+| state | n | tkds | losers | PF | win% | avg% | net pts |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| **BOOK · gap<15 · DEEP** | 567 | 125 | 116 | **8.64** | 79.5 | **+4.25** | 2,411 |
+| **BOOK · gap<15 · shal** | 2,879 | 476 | 462 | **6.67** | 84.0 | +2.68 | 7,726 |
+| **BOOK · gap>=15 · DEEP** | 790 | 190 | 134 | **4.26** | 83.0 | +2.82 | 2,229 |
+| **BOOK · gap>=15 · shal** | 3,540 | 721 | 759 | **4.15** | 78.6 | +1.86 | 6,601 |
+| out · gap<15 · shal | 1,039 | 197 | 233 | 3.42 | 77.6 | +1.63 | 1,691 |
+| out · gap>=15 · shal | 1,961 | 418 | 531 | 1.87 | 72.9 | +0.90 | 1,757 |
+| out · gap<15 · DEEP | 54 | 15 | 14 | 1.75 | 74.1 | +0.90 | 48 |
+| out · gap>=15 · DEEP | 160 | 55 | 48 | 1.63 | 70.0 | +1.34 | 214 |
+
+**Clean monotone ladder inside the book: 8.64 / 6.67 / 4.26 / 4.15.**
+⭐ **The GAP dimension DOMINATES the SPEED dimension** — `gap<15 shallow`
+(6.67) beats `gap>=15 DEEP` (4.26). Size on gap first.
+
+⚠ **DEEP INVERTS OUTSIDE THE BOOK**: 1.75 vs 3.42 at low gap, 1.63 vs 1.87
+at high gap. Operationally irrelevant (we only trade book states) but it
+confirms speed is a CONDITIONAL feature, never a standalone one — the S42b
+contrast grammar and S43h ("speed = a regime split, not a filter").
+
+### ⚠ PER-YEAR ON THE SPEED DIMENSION (deep/shallow expectancy ratio)
+
+| yr | low-gap ratio | n(deep) | high-gap ratio | n(deep) |
+|---|--:|--:|--:|--:|
+| 2020 | 1.46 | 65 | 1.36 | 97 |
+| 2021 | 1.54 | 95 | 3.16 | 69 |
+| **2022** | **— (0 trips)** | 0 | **0.26** | 32 |
+| 2023 | 2.26 | 23 | **0.77** | 97 |
+| 2024 | 1.65 | 114 | 2.05 | 177 |
+| 2025 | 1.17 | 141 | 1.69 | 197 |
+| 2026 | 1.35 | 129 | 1.42 | 121 |
+
+⭐ **Deep is RELIABLE where the tape is clean and UNRELIABLE where it is
+not**: 6/6 populated years above 1.17 in the low-gap stratum, but it FAILS
+2022 (0.26) and 2023 (0.77) at high gap. ⚠ **2022 has ZERO low-gap deep
+trips** — the best state simply does not occur in a bear market. That is
+self-limiting (we cannot be hurt by a state that never fires) but it also
+means we have NO evidence for that state in a bear regime.
+
+### ⭐ SIZING RECOMMENDATION
+
+| tier | state | n | tkds | PF | avg% | confidence |
+|---|---|--:|--:|--:|--:|---|
+| **A (max)** | BOOK · gap<15 · DEEP | 567 | 125 | 8.64 | +4.25 | 6/6 yrs, but absent in 2022 |
+| **B** | BOOK · gap<15 · shal | 2,879 | 476 | 6.67 | +2.68 | gap dim is 7/7 (S43ab) |
+| **C** | BOOK · gap>=15 · DEEP | 790 | 190 | 4.26 | +2.82 | ⚠ deep fails 2022/2023 here |
+| **D (min)** | BOOK · gap>=15 · shal | 3,540 | 721 | 4.15 | +1.86 | the base state |
+
+⚠ **Tier C is the weak one** — its PF edge over D is only 4.26 vs 4.15
+(+3%), and the speed dimension fails 2 of 7 years in that stratum. Its
+expectancy edge is better (+2.82 vs +1.86) but that is the axis that
+inverts. **Consider collapsing C into D** and sizing on the gap dimension
+alone unless the low-gap condition also holds.
+
+⭐ The robust core is the GAP split (S43ab: 7/7 years, ratios improve
+ex-artifact). Speed is a MODIFIER on top of it, valid only in the low-gap
+stratum.
