@@ -310,7 +310,7 @@ CREATE TABLE trips (
     ols_slope_since_flow DOUBLE, ols_r_since_flow DOUBLE,
     eff_since_high DOUBLE, eff_since_flow DOUBLE,
     d_hi_flow DOUBLE, ols_slope_hi_flow DOUBLE, ols_r_hi_flow DOUBLE, eff_hi_flow DOUBLE,
-    arm_hi_eff_20m DOUBLE, arm_hi_eff_10m DOUBLE, first_low_vwap DOUBLE,
+    arm_hi_eff_20m DOUBLE, arm_hi_eff_10m DOUBLE, arm_hi_slots_20m INTEGER, arm_hi_slots_10m INTEGER, first_low_vwap DOUBLE,
     bars_above_svwap INTEGER, bars_present INTEGER, sess_low DOUBLE, sess_high DOUBLE,
     sess_dv2 DOUBLE, sess_dlv DOUBLE, sess_dlv2 DOUBLE,
     dv2_300 DOUBLE, dlv_300 DOUBLE, dlv2_300 DOUBLE,
@@ -438,7 +438,7 @@ type TripSink(outDir: string) =
             f p.OlsSlopeSinceFlow; f p.OlsRSinceFlow
             f p.EffSinceHigh; f p.EffSinceFlow
             f p.DHiFlow; f p.OlsSlopeHiFlow; f p.OlsRHiFlow; f p.EffHiFlow
-            f p.ArmHiEff20m; f p.ArmHiEff10m; f p.FirstLowVwap
+            f p.ArmHiEff20m; f p.ArmHiEff10m; i p.ArmHiSlots20m; i p.ArmHiSlots10m; f p.FirstLowVwap
             i p.BarsAboveSvwap; i p.BarsPresent
             f p.SessLow; f p.SessHigh
             f p.SessDv2; f p.SessDlv; f p.SessDlv2

@@ -12177,3 +12177,113 @@ reusable for any "feature state at the extreme" question, and
 per-year, and the cold-bar fallback is a scale mismatch.
 ⏭ The untested angle: `eff_hi_flow` itself (the drop-segment eff) has not
 been broken down at all yet.
+
+
+## S43aj — partial-window eff + recorded spans, and the no-eff-gate run (2026-08-04, late)
+
+User: "if the feature isn't fully warm we should just get the eff ratio as
+it is. But along the ratios we might as well keep records of how many slots
+they were computed from." Then: a run with the eff_20m / eff_10m gates OFF.
+
+### 1. The build
+
+`LagMa.Oldest` added (the earliest value still held — `Lagged` once full, the
+first push before that). The metadata payload widened to
+`(eff20, eff10, span20, span10)`; eff is now formed over WHATEVER span has
+accumulated, guarded by `Count >= 2` (at least one slot return) and
+positive cur/old/sum. Four columns: `arm_hi_eff_20m/10m` +
+**`arm_hi_slots_20m/10m`**.
+
+⚠ Below 20 slots the two measures are IDENTICAL by construction — both
+`LagMa` queues hold every value pushed, so `Oldest` and the return sums
+coincide. The recorded spans make that visible instead of silent.
+
+**Run:** `v29_noeff/` — `--abs-eff20-lo 0 --abs-eff20-hi 1000
+--min-abs-eff-10m 0`, **63,629 trips** vs the gated 37,214 (the eff band was
+trimming 41% of the book).
+
+⚠ **A FIRST ATTEMPT PRODUCED ZERO TRIPS**: `--abs-eff20-hi 0` reads as a
+CEILING of 0.00, not "off" — the banner prints `off` for that bound only at
+positive infinity (`Program.fs:286`). Caught from the BANNER, not the
+flags. |eff| <= 1 by construction (numerator = sum of slot log-returns,
+denominator = sum of their absolute values), so 1000 is definitively off.
+
+### 2. ⭐⭐ THE SPAN CONFOUND IS SEVERE — AND IT INVERTS
+
+Coverage on g60: **70.0% full 40 slots · 9.0% span 20-39 · 16.2% span 2-19
+· 4.8% none.** Partial-warm recovers 25.2% of previously-cold trips.
+
+**But eff drifts UP as the span shrinks** — median `arm_hi_eff_20m`:
+
+| span | median eff |
+|---|--:|
+| full 40 | **0.196** |
+| 20-39 | **0.284** |
+| 2-19 | **0.412** |
+
+A shorter window gives chop less time to accumulate in the denominator.
+Consequence — the eff→return relationship **INVERTS by span group**:
+
+| span group | n | avg all | avg lo-eff (<0.20) | avg hi-eff (>=0.20) | % hi-eff |
+|---|--:|--:|--:|--:|--:|
+| full 40 | 12,888 | +1.72 | +1.57 | **+1.88** | 48.8 |
+| span 20-39 | 1,664 | +1.88 | **+2.87** | +1.49 | 71.5 |
+| span 2-19 | 2,985 | +1.66 | +0.89 | **+1.91** | 75.4 |
+
+⇒ **The raw feature CANNOT be used without conditioning on span.** This is
+exactly what recording the spans was for.
+
+### 3. The clean read (full span only, g60) — and why the bands alternate
+
+| band | n | tkds | losers | PF | avg% |
+|---|--:|--:|--:|--:|--:|
+| **<0** | 1,092 | 153 | 199 | **4.43** | +2.18 |
+| [0,.10) | 2,399 | 333 | 594 | 2.34 | +1.46 |
+| [.10,.20) | 3,113 | 446 | 767 | 2.33 | +1.43 |
+| **[.20,.30)** | 2,553 | 367 | 570 | **4.27** | +1.99 |
+| [.30,.40) | 2,239 | 296 | 502 | 2.52 | +1.49 |
+| >=.40 | 1,492 | 224 | 285 | **4.49** | +2.28 |
+
+**SPLIT-HALF (H1 2020-22 vs H2 2023-26):**
+
+| band | H1 PF/avg | H2 PF/avg | stable? |
+|---|---|---|---|
+| **<0** | 4.42 / +2.00 | **4.43 / +2.30** | ✅ |
+| [0,.10) | 1.79 / +1.01 | 2.82 / +1.76 | ✗ |
+| [.10,.20) | 2.97 / +1.53 | 2.06 / +1.37 | ✗ |
+| **[.20,.30)** | 4.18 / +1.72 | **4.32 / +2.18** | ✅ |
+| [.30,.40) | 3.82 / +1.75 | 1.90 / +1.22 | ✗ |
+| >=.40 | **13.40** / +2.79 | **2.43** / +1.66 | ✗ collapses |
+
+`>=.40`'s pooled 4.49 was entirely H1. But `<0` replicates almost exactly.
+
+### 4. ❌ PER-YEAR KILLS BOTH SURVIVORS
+
+Expectancy ratio vs the full-span g60 baseline:
+
+| band | 2020 | 2021 | 2022 | **2023** | 2024 | 2025 | 2026 | record |
+|---|--:|--:|--:|--:|--:|--:|--:|---|
+| `<0` | 1.02 | 0.90 | 3.22 | **-0.15** | 1.97 | 2.15 | 0.87 | ❌ 3/7 |
+| `[.20,.30)` | 0.59 | 1.24 | 2.17 | **0.54** | 0.76 | 1.73 | 1.15 | ❌ 4/7 |
+
+⚠ The `<0` band has a **NEGATIVE 2023** — 134 trips, 53 losers, PF 0.91.
+And 2023 fails for BOTH — the same year that broke `chg_1d` (S43v),
+`rp_vol` (S43w) and the wake-up cell (S43aa).
+
+⭐⭐ **METHODOLOGICAL: SPLIT-HALF IS A WEAKER TEST THAN PER-YEAR.** Both
+bands PASSED the split-half and FAILED per-year, because each half pools
+3-4 years and 2023's failure is diluted by 2024-26. Same blind spot as the
+pooled null in S43aa. **Per-year remains the binding test; split-half only
+adds an out-of-sample flavour on top of it.**
+
+### VERDICT
+
+✅ The mechanism is complete and correct — partial spans recover 25.2% of
+coverage, and recording the span is what exposed the confound.
+✅ ⭐ **The span confound is itself the finding**: eff over a short window
+is NOT comparable to eff over a long one (0.412 vs 0.196 median), and the
+return relationship inverts between them. Any future eff-like feature
+measured at a variable-age anchor needs its span recorded.
+❌ **No usable cell.** Neither surviving band clears per-year.
+⏭ Still untested: `eff_hi_flow` (the drop-segment eff, S43ai), and a
+span-NORMALISED eff (dividing by the span rather than conditioning on it).

@@ -400,6 +400,10 @@ type LagMa<'T>(lag: int) =
     member _.Last = last
     /// The value `lag` bars ago, or ValueNone until `lag+1` values have been pushed.
     member _.Lagged = if q.Count = lag + 1 then ValueSome (q.Peek()) else ValueNone
+    /// ⭐ S43aj (user): the OLDEST value still held, warm or not — `Lagged` once the
+    /// window is full, the earliest push before that. Lets a ratio be formed over a
+    /// PARTIAL window (paired with `Count` so the span is recorded, not guessed).
+    member _.Oldest = if q.Count > 0 then ValueSome (q.Peek()) else ValueNone
     member _.Push (x: 'T) =
         if q.Count = lag + 1 then q.Dequeue() |> ignore
         q.Enqueue x

@@ -366,6 +366,8 @@ type FlushPosition =
       // no leg.
       ArmHiEff20m: float
       ArmHiEff10m: float
+      ArmHiSlots20m: int         // S43aj: slot SPAN each ratio was computed from
+      ArmHiSlots10m: int         //   (40 / 20 = fully warm; less = partial; 0 = none)
       FirstLowVwap: float        // S41k: the leg's first-low anchor price (raw)
       BarsAboveSvwap: int        // S41o: present bars spent ABOVE the running session vwap
       BarsPresent: int           // its denominator (present bars this session)
@@ -730,7 +732,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // vwap once per present bar. Runs PARALLEL to entryMax rather than replacing
     // it so the signal path is provably untouched (parity by construction); the
     // extra deque is amortized O(1). Payload = (eff_20m, eff_10m) at that bar.
-    let entryMaxMeta = MaxMaMeta<struct (float * float)> cfg.EntryChannelBars
+    let entryMaxMeta = MaxMaMeta<struct (float * float * int * int)> cfg.EntryChannelBars
     let exitMax = chanMax cfg.ExitChannelBars       // ⭐ the reversion target
     // ----- breach counters, both sides per window -----
     let brSess = BreachCounter()
@@ -990,6 +992,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // these, so the signal path is byte-identical to v27.
     let mutable armHiEff20 = nan
     let mutable armHiEff10 = nan
+    let mutable armHiSlots20 = 0
+    let mutable armHiSlots10 = 0
     // S41k (user): the first low's own vwap — signal_vwap/first_low_vwap - 1 =
     // the leg's EXTENSION below its first low (distance twin of ssf). nan = no leg.
     let mutable firstLowVwap = nan
@@ -1040,7 +1044,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable sMax600 : float voption = ValueNone
     let mutable sMax1200 : float voption = ValueNone
     // S43ai: prior-bar metadata of the entry-channel high (eff_20m, eff_10m)
-    let mutable sMaxMeta : struct (float * float) voption = ValueNone
+    let mutable sMaxMeta : struct (float * float * int * int) voption = ValueNone
     let mutable sMin30 : float voption = ValueNone
     let mutable sMin60 : float voption = ValueNone
     let mutable sMin120 : float voption = ValueNone
@@ -1316,20 +1320,24 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // bar body is otherwise irrelevant: one push per bar in bar order gives
         // a deque identical to entryMax's.) Same formulas as the eff20Signed /
         // eff10Ok gates; nan when the window is cold.
+        // ⭐ S43aj (user): take the ratio AS IT IS even when the window is short —
+        // `Oldest` spans whatever has accumulated — and RECORD THE SPAN alongside,
+        // so a partial reading is identifiable rather than silently mixed in with
+        // full ones. ⚠ The span matters: a shorter window gives chop less time to
+        // accumulate in the denominator, so eff drifts UP as the span shrinks
+        // (S43ai measured median 0.337 at 20 slots vs 0.191 at 40). Below 20 slots
+        // the two measures read IDENTICALLY (same queue contents), which the
+        // recorded spans make visible.
         let effPairNow =
-            let e20 =
-                match slotLag.Last, slotLag.Lagged, slotAbsSum.State with
-                | ValueSome cur, ValueSome old, ValueSome s
-                    when slotAbsSum.Count = slotAbsSum.WindowSize && old > 0.0 && s > 0.0 ->
-                    log (cur / old) / s
-                | _ -> nan
-            let e10 =
-                match slotLag20.Last, slotLag20.Lagged, slotAbsSum20.State with
-                | ValueSome cur, ValueSome old, ValueSome s
-                    when slotAbsSum20.Count = slotAbsSum20.WindowSize && old > 0.0 && s > 0.0 ->
-                    log (cur / old) / s
-                | _ -> nan
-            struct (e20, e10)
+            let partialEff (lagM: LagMa<float>) (absSum: SumMa) =
+                match lagM.Last, lagM.Oldest, absSum.State with
+                | ValueSome cur, ValueSome old, ValueSome sm
+                    when lagM.Count >= 2 && old > 0.0 && cur > 0.0 && sm > 0.0 ->
+                    struct (log (cur / old) / sm, lagM.Count - 1)
+                | _ -> struct (nan, 0)
+            let struct (e20, n20) = partialEff slotLag slotAbsSum
+            let struct (e10, n10) = partialEff slotLag20 slotAbsSum20
+            struct (e20, e10, n20, n10)
         entryMaxMeta.Push(bar.vwap, effPairNow)
 
         // ===== 3. fill pendings at THIS bar's vwap (signals from the prior bar) =====
@@ -1411,8 +1419,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 // sMaxMeta is snapshotted alongside sMax1200, so it describes
                 // exactly the `priorEntryMax` used for dropToFlow above.
                 (match sMaxMeta with
-                 | ValueSome (struct (e20, e10)) -> armHiEff20 <- e20; armHiEff10 <- e10
-                 | ValueNone -> armHiEff20 <- nan; armHiEff10 <- nan)
+                 | ValueSome (struct (e20, e10, n20, n10)) ->
+                     armHiEff20 <- e20; armHiEff10 <- e10
+                     armHiSlots20 <- n20; armHiSlots10 <- n10
+                 | ValueNone ->
+                     armHiEff20 <- nan; armHiEff10 <- nan
+                     armHiSlots20 <- 0; armHiSlots10 <- 0)
                 firstLowVwap <- bar.vwap
             counters.OnNewLow()
             counters300.OnNewLow()
@@ -1805,6 +1817,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       EffHiFlow = dropEffHiFlow
                       ArmHiEff20m = armHiEff20
                       ArmHiEff10m = armHiEff10
+                      ArmHiSlots20m = armHiSlots20
+                      ArmHiSlots10m = armHiSlots10
                       FirstLowVwap = firstLowVwap
                       BarsAboveSvwap = barsAboveSvwap
                       BarsPresent = barsPresent
