@@ -11898,3 +11898,70 @@ size if the stock continues falling". **Genuine cross-name contention is
    microcap, not diversification. **The S43ae weights are per-trip; the
    per-NAME exposure is up to 3x that.** Position limits should be set on
    the aggregate name exposure, not the per-entry size.
+
+
+## S43ag — ⭐⭐ DECISION: DROP E/F. Capacity expands through mc, not marginal tiers (2026-08-04)
+
+**USER DECISION:** *"is the increase in net profit only 14% for a 36%
+increase in trips? The out book isn't worth trading, we'd be better off
+concentrating on our best trades. Marginal trades are something you take
+only when your account is so large that you're opportunity-constrained."*
+
+**Adopted, and the data says it is not even close.**
+
+### The trade E/F offered
+
+| | n | PF | avg% | net pts |
+|---|--:|--:|--:|--:|
+| A-D book only | 3,330 | **3.901** | +1.97 | 6,551 |
+| + E/F (6-tier) | 4,550 | 3.147 | +1.65 | 7,510 |
+| **delta** | **+36.6%** | **-19%** | **-16%** | **+14.6%** |
+
+### ⭐⭐ THE CAPACITY LADDER — A-D BOOK ALONE
+
+| mc | n | trades/yr | PF | avg% | net pts | % of attribution |
+|---:|--:|--:|--:|--:|--:|--:|
+| 1 | 1,318 | 188 | 3.698 | +1.85 | 2,443 | 16.9% |
+| 2 | 2,420 | 346 | 3.782 | +1.91 | 4,617 | 31.1% |
+| **3** | **3,330** | **476** | **3.901** | **+1.97** | **6,551** | 42.8% |
+| 4 | 4,101 | 586 | 4.066 | +2.03 | 8,333 | 52.7% |
+| 5 | 4,758 | 680 | 4.197 | +2.09 | 9,927 | 61.2% |
+| 6 | 5,295 | 756 | 4.291 | +2.13 | 11,253 | 68.1% |
+| 8 | 6,131 | 876 | 4.516 | +2.21 | 13,524 | 78.8% |
+
+⭐⭐ **PF RISES WITH mc (3.698 -> 4.516) and so does per-trip return.**
+That is the OPPOSITE of normal concurrency compression, and it follows
+from S43af's pyramiding structure: the trips added by raising mc are
+DEEPER ADDS INTO NAMES STILL FALLING, which are BETTER than average. The
+ladder converges upward toward the mc=0 attribution of 5.25.
+
+### ⭐ THE TWO EXPANSION ROUTES ARE NOT COMPARABLE
+
+| route | marginal trip | effect |
+|---|---|---|
+| **raise mc** | **BETTER** than average | PF and expectancy both RISE |
+| add E/F | WORSE than average | PF -19% for +14.6% net |
+
+At mc=8 the A-D book alone does **13,524 net pts @ PF 4.516** — **80% more
+net than the 6-tier mc=3 book (7,510) at a HIGHER PF**. E/F is dominated
+on every axis. **Capacity expands through mc, never through marginal
+tiers.**
+
+⚠ **CAVEAT — the capacity ladder is a CONCENTRATION ladder.** With 59.8%
+of entries being same-name adds (S43af), raising mc mostly buys DEPTH in
+one name, not more names. mc=8 can mean 8 positions in a single microcap.
+**What governs how far up this ladder you can go is the aggregate
+per-NAME exposure limit, not the slot count** — and the S43x cost ladder
+applies to the AGGREGATE name position, so a 3-deep $50k-per-entry stack
+is a $150k position facing the $100k-$250k cost tier (35-53% of edge), not
+the $50k tier (24%).
+
+### ⭐ FINAL BOOK
+
+```
+BOOK   = g60 (gap_60<4) AND (votes >= 1 of 6  OR  S-tier A)   $1+, SPEC v2.6
+SIZING = 4 tiers on {gap_adj_1200 < 15} x {speed < -6%}, expectancy-weighted
+         A 2.56 · B 1.53 · C 1.62 (cap at <= B) · D 1.00
+EXEC   = cross the entry, rest the exit (S43y)
+mc     = 3 today; expand via mc, subject to per-name exposure limits
+```
