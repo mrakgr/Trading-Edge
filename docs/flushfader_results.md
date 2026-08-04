@@ -11140,3 +11140,88 @@ link (daily-V denominator vs seconds-long execution). ⏭ The passive-fill
 study — whether resting bids are adversely selected — is the last open
 cost question, and the biggest lever: earning the 0.26% spread rather than
 paying it would roughly HALVE the $50k cost.
+
+
+## S43y — ⭐⭐ THE PASSIVE-FILL STUDY: cross the ENTRY, rest the EXIT (2026-08-04)
+
+The last open cost question, and the answer is an **asymmetry** — not the
+uniform "use limit orders and capture the spread" the plan assumed.
+
+**Method.** For every trip in the corrected mc=3 book (3,330 trips, 807
+dates) measure from raw lit prints:
+- entry side: the **MIN** print over (entry_sec, entry_sec+T], capped at
+  `exit_sec` — a fill after the exit is a MISS, not a trade;
+- exit side: the **MAX** print over [exit_sec, exit_sec+T].
+A limit fills if the tape reaches it (`< L` to buy, `> L` to sell).
+⚠ The two files are deliberately NOT symmetric: entry windows are capped
+at the exit, exit windows extend PAST it.
+
+### 1. Fill rates (limit at mid -/+ half the measured spread)
+
+| side | T=30s | T=60s | T=300s |
+|---|--:|--:|--:|
+| BID at `px - step/2` | — | **87.4** | 92.5 |
+| OFFER at `exit_px + step/2` | 85.1 | **88.8** | 95.3 |
+
+Both sides fill readily. ⚠ `at` and `through` fill rules COINCIDE here
+because `px -/+ step/2` sits off the penny grid, so the queue-priority
+distinction does not bite.
+
+### 2. ⭐⭐ ADVERSE SELECTION ON THE ENTRY IS REAL AND LARGE
+
+`L = px - step/2`, 60s window:
+
+| group | n | % | PF | **avg%** | med% | win% |
+|---|--:|--:|--:|--:|--:|--:|
+| FILLED | 2,909 | 87.4 | 3.54 | **+1.83** | +2.19 | 77.2 |
+| **⭐ MISSED** | 421 | 12.6 | **8.72** | **+2.90** | +3.19 | 85.7 |
+
+**The 12.6% you miss are far BETTER trades** — +2.90% vs +1.83% per trip,
+PF 8.72 vs 3.54, 85.7% win vs 77.2%. Structural, not tunable: the signal
+is a NEW 20-MINUTE LOW, so a resting bid fills exactly when the low keeps
+extending and misses exactly when the reversal is immediate — which is the
+trade you want.
+
+### 3. ⭐⭐ THE HEAD-TO-HEAD (net points; exits that miss fall back to
+crossing at the MEASURED 60s post-signal vwap, not an assumed price)
+
+| strategy | n | PF | avg% | net pts | **vs crossing** |
+|---|--:|--:|--:|--:|--:|
+| **A: cross entry + cross exit** | 3,330 | 3.33 | +1.705 | 5,677 | **100%** |
+| B: REST bid 60s + cross exit | 2,909 | 3.54 | +1.835 | 5,339 | **94%** |
+| **⭐ C: cross entry + REST offer 60s** | 3,330 | 3.52 | +1.817 | **6,050** | **107%** |
+| D: REST both 60s | 2,909 | 3.73 | +1.946 | 5,661 | **100%** |
+
+⭐⭐ **PASSIVE ENTRY COSTS 6%. PASSIVE EXIT GAINS 7%. BOTH TOGETHER IS A
+WASH.** The optimum is **C: cross the entry, rest the exit.**
+
+⚠ **THE TRAP, in miniature:** rows B and D have HIGHER PF and HIGHER
+per-trip return than crossing while earning LESS money. Reported on PF and
+avg% alone, passive entry looks like a clear win. It is not — the better
+per-trip stats come from having discarded the best trades. Same PF-vs-net
+divergence as the S43t iso-trip control. **Always report NET.**
+
+### ⭐ WHY — and it is the same mechanism S43x measured
+
+The system is **long a collapse** on entry and **short a continuation** on
+exit:
+
+| leg | what the tape does | delay (S43x) | passive fill is... |
+|---|---|--:|---|
+| ENTRY | price still falling into a new 20m low | +0.093 @60s | **adversely** selected -> CROSS |
+| EXIT | price keeps rising past the 5m-high cross | **-0.102** @60s | **favourably** selected -> REST |
+
+The S43x exit credit and this exit gain are the same phenomenon measured
+two ways.
+
+### VERDICT
+
+1. ❌ **The "limit orders everywhere, capture the spread + rebates" plan
+   does NOT survive.** On the entry it is net-NEGATIVE.
+2. ✅ **Cross the entry, rest the exit = +7% net** on top of the S43x
+   ladder — at the $50k tier roughly +1.50% -> +1.60% per trip.
+3. ⭐ Rebates are a bonus not modelled here: strategy C pays a taker fee
+   on entry and earns a MAKER rebate on the exit fill.
+4. ⚠ Not modelled: the exit fallback assumes we cross at the measured 60s
+   vwap when the offer misses; queue position is not simulated (the
+   off-grid limit makes `at`/`through` identical, which flatters slightly).
