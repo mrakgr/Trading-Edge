@@ -10996,6 +10996,44 @@ real loss counts read 49 / 32 / 13 / 13 against baselines of 13.5 / 4.0 /
 4.3 / 7.6. ⚠ The `inf` / 111 / 222 cells are **3-10 ticker-day years** —
 ignore those PFs. ⚠ **Frequency: 99 tkds over 7 years = 14/yr.**
 
+### 4b. ⚠ IS rp_vol ROBUST EVERY YEAR? NO — 2023 FAILS (user question)
+
+`rp_vol >= 0.8` vs each book's own baseline, per year:
+
+| yr | g60 PF ratio | g60 **avg ratio** | g60+vote PF ratio | g60+vote **avg ratio** | cell losers (g60 / vote) |
+|---|--:|--:|--:|--:|---|
+| 2020 | 1.73 | 1.21 | 1.44 | 1.08 | 61 / 40 |
+| 2021 | 3.82 | 1.47 | 4.25 | 1.53 | 69 / 60 |
+| 2022 | 3.29 | **1.06** | 3.00 | **1.01** | 8 / 7 |
+| **2023** | **0.66** | **0.55** | **0.69** | **0.55** | 35 / 29 |
+| 2024 | 2.02 | 1.31 | 1.95 | 1.24 | 72 / 45 |
+| 2025 | 5.58 | 1.39 | 3.80 | 1.13 | 64 / 49 |
+| 2026 | **1.05** | 1.29 | **0.85** | 1.17 | 46 / 35 |
+
+⚠ **2023 is a CLEAR failure on both books and both metrics — the cell
+earned HALF the baseline per trip (avg ratio 0.55) with 35 and 29 REAL
+losers.** Not thin-sample noise. ⚠ 2022's big PF ratios (3.29/3.00) are
+near-washes on EXPECTANCY (1.06/1.01) — only 8 and 7 losers, so the PF is
+the loss-tail, not the edge.
+
+**Honest statement: 6 of 7 years on expectancy, ONE clear failure year** —
+NOT "robust every year". ⭐ Note 2023 is also the year `chg_1d` failed
+(S43v), so it may be a regime in which quality features generally invert
+rather than anything specific to `rp_vol`.
+
+### ⚠ NOTE ON THE NULL-TEST TABLES
+
+The two `null 95%` columns in §3 are DIFFERENT quantities and should read
+`null 95% (PF)` and `null 95% (avg%)`. **What the test does:** draw a
+RANDOM subset of the book of exactly the candidate's size (without
+replacement), compute its PF, repeat 4,000x. That is the distribution of
+PFs a cell of that size produces BY CHANCE. Random sampling has the same
+EXPECTED PF as the parent, so the null centres near the baseline and its
+spread is pure sampling noise — which widens as the cell shrinks. A
+candidate inside the band is indistinguishable from picking trades at
+random, i.e. the feature selects nothing. It is the fix for "small cell,
+high PF, looks impressive".
+
 ### ⭐ VERDICT
 
 1. **Both are ROBUST — genuinely, unlike `chg_1d`.** They survive the
@@ -11015,3 +11053,90 @@ ignore those PFs. ⚠ **Frequency: 99 tkds over 7 years = 14/yr.**
    days a year. Independent inputs (corr 0.072) ⇒ near-multiplicative.
    **Not a gate — a size lever**, on the same footing as `speed`,
    `z_20m` and `chg_1d < 0`.
+
+
+## S43x — COST STUDIES RE-DERIVED on the corrected book (2026-08-04)
+
+Supersedes the book-level aggregates of S43q/S43r (their per-trip TAPE
+measurements always stood). Re-measured from raw prints over **807 dates**
+(was 506) for the corrected book: **3,330 trips / 1,191 tkds** at mc=3.
+
+⚠ **MY PREDICTION WAS WRONG.** I expected costs to worsen ~25% because the
+edge fell from +2.45% to +1.97%/trip. **Total cost FELL** (0.472% vs
+0.631% at $50k) — the corrected book has a stronger exit credit and a
+marginally tighter spread — so the two effects largely cancel.
+
+### 1. Spread — unchanged (it is a property of the tape)
+
+| bucket | n | med px | `step` $ | `roll` $ | step % | `p_rev` | `p_flat` |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| $1.00-1.50 | 346 | 1.23 | 0.005 | 0.0019 | 0.482 | 0.875 | 0.927 |
+| $1.50-2 | 327 | 1.73 | 0.009 | 0.0021 | 0.487 | 0.848 | 0.911 |
+| $2-3 | 523 | 2.46 | 0.010 | 0.0026 | 0.368 | 0.844 | 0.889 |
+| $3-5 | 705 | 3.91 | 0.010 | 0.0036 | 0.247 | 0.800 | 0.842 |
+| $5-10 | 776 | 6.65 | 0.010 | 0.0061 | 0.153 | 0.727 | 0.764 |
+| $10+ | 653 | 18.60 | 0.020 | 0.0210 | 0.087 | 0.610 | 0.583 |
+
+Same as S43q: 1 tick across $1.50-$10, HALF a tick at $1.00-1.50 (retail
+price improvement), 2 ticks at $10+. `p_flat` 0.58-0.93 ⇒ Roll still
+biased low. Read `roll <= true <= step`.
+
+### 2. ⭐ Delay — the exit credit got STRONGER
+
+| work window | med $vol | size @10% | entry cost | **exit cost** | **net delay** |
+|---|--:|--:|--:|--:|--:|
+| T = 5s | $75k | $7.5k | -0.016 | -0.001 | **-0.018** |
+| T = 15s | $200k | $20.0k | +0.013 | -0.018 | **-0.006** |
+| T = 30s | $367k | $36.7k | +0.031 | -0.042 | **-0.012** |
+| T = 60s | $637k | $63.7k | +0.093 | **-0.102** | **-0.009** |
+| T = 120s | $1.06M | $106k | +0.232 | -0.110 | +0.122 |
+| T = 300s | $2.05M | $205k | +0.450 | -0.055 | +0.395 |
+
+⭐⭐ **Net delay is NEGATIVE — a CREDIT — all the way out to a 60-second
+work window** (was +0.039 there). The exit pays -0.102 while the entry
+costs +0.093. Execution delay is FREE up to roughly **$64k**. The S43r
+mechanism is confirmed and strengthened: long a collapse (delay hurts),
+short a continuation past the 5m-high cross (delay pays).
+
+### 3. ⭐⭐ THE RE-DERIVED COST LADDER (mc=3, 3,330 trips, Y=0.5, 10% partic)
+
+| position | spread | delay | impact | **total** | % oversize | **PF net** | **avg% net** | **edge lost** |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|
+| gross | — | — | — | — | — | **3.90** | **+1.97** | — |
+| **$10k** | 0.260 | **-0.059** | 0.091 | **0.292** | 0.2% | **3.29** | **+1.68** | **15%** |
+| **$25k** | 0.260 | **-0.074** | 0.144 | 0.330 | 2.2% | **3.23** | **+1.64** | **17%** |
+| **$50k** | 0.260 | 0.008 | 0.204 | 0.472 | 6.5% | **3.03** | **+1.50** | **24%** |
+| $100k | 0.260 | 0.134 | 0.288 | 0.682 | 23.4% | 2.65 | +1.29 | 35% |
+| $250k | 0.260 | 0.334 | 0.455 | 1.050 | 58.8% | 2.08 | +0.92 | 53% |
+
+(Old contaminated-book ladder for reference: $50k = 0.631 total / PF 4.23
+/ +1.82% / 26%.) **Sweet spot remains $25-50k. $250k is still the
+practical ceiling** (59% of trips oversize).
+
+### 4. Liquidity check — still passes, less emphatically
+
+| dv60 quintile | n | range | med px | losers | PF | avg% | net pts |
+|---|--:|---|--:|--:|--:|--:|--:|
+| 1 | 666 | $135-750k | $1.98 | 146 | 4.62 | +2.09 | 1,393 |
+| 2 | 666 | $750k-1.26M | $3.26 | 146 | 4.03 | +2.03 | 1,354 |
+| 3 | 666 | $1.26-1.92M | $4.24 | 160 | 3.23 | +1.65 | 1,099 |
+| 4 | 666 | $1.92-3.55M | $5.79 | 136 | 3.57 | +1.83 | 1,219 |
+| 5 | 666 | $3.57M+ | $8.30 | 134 | 4.24 | +2.23 | 1,486 |
+
+Flat-ish and mildly U-shaped (4.62 / 4.03 / 3.23 / 3.57 / 4.24) rather
+than the contaminated book's clean "most liquid is best". Net points are
+still even across all five. **A liquidity floor remains close to free.**
+
+Capacity census: median entry-minute $vol **$1.55M** on **1,435 trades**
+(min $135k = the `dv60 >= $100k` gate; Q1 $866k, Q3 $2.98M).
+
+### VERDICT
+
+**The system survives costs.** At the $25-50k sweet spot it nets **PF
+3.0-3.2 and +1.5-1.6% per trip** after measured spread, delay and modelled
+impact, on ~476 trades/year at mc=3. ⚠ Still not covered: the next-bar-vwap
+FILL is assumed attainable, and the sqrt impact term remains the weakest
+link (daily-V denominator vs seconds-long execution). ⏭ The passive-fill
+study — whether resting bids are adversely selected — is the last open
+cost question, and the biggest lever: earning the 0.26% spread rather than
+paying it would roughly HALVE the $50k cost.
