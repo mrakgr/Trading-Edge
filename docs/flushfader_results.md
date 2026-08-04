@@ -11468,9 +11468,69 @@ downward, so 0.79 is not the honest expectation either. **The fair summary
 is the per-year record: wins 4, fails 3, worst 0.26, with the aggregate
 carried by PF explosions where losses were absent.**
 
+### 4. ⭐⭐ THE HALT CONTROL (user: "make sure these datapoints aren't due to halts")
+
+`gap_adj_*` EXCLUDES classified volatility halts (`Intraday.fs:628` — a
+tradeless run counts as a halt iff run >= 58s, pre-hole 5m range >= 4%, and
+pre-hole adjusted 1m gap < 4). So `gap_1200 - gap_adj_1200` = the halt
+seconds inside the window. **The user's suspicion was right and it is most
+of the effect.**
+
+**gap_adj_1200 on the g60 universe** (halts excluded):
+
+| band | n | tkds | losers | PF | avg% | 2022 | 2026 |
+|---|--:|--:|--:|--:|--:|---|---|
+| <5 | 3,250 | 468 | 545 | **6.10** | +2.75 | 7.3 | 9.3 |
+| [5,15) | 1,289 | 232 | 280 | 5.26 | +2.28 | inf | 21.5 |
+| [15,50) | 2,318 | 404 | 548 | 2.45 | +1.38 | 1.3 | 2.4 |
+| [50,100) | 1,644 | 298 | 350 | 3.91 | +1.99 | 51.2 | 2.3 |
+| [100,200) | 1,308 | 263 | 294 | 3.08 | +1.67 | 3.2 | 3.0 |
+| [200,300) | 597 | 148 | 156 | 3.09 | +1.47 | 14.3 | 4.7 |
+| [300,600) | 548 | 140 | 115 | **4.84** | +2.16 | **1.5** | **1.6** |
+| >=600 | 36 | 9 | 9 | 3.39 | +2.43 | inf | inf |
+
+⭐ **The high-gap cell WEAKENS once halts are removed: [300,600) goes 6.62
+-> 4.84**, while the LOW end STRENGTHENS (`<5`: 5.64 -> 6.10). The
+adjusted axis is cleaner: low gap good, high gap ordinary.
+
+**Decomposition inside `gap_1200 [300,600)`:**
+
+| group | n | % | tkds | losers | PF | avg% |
+|---|--:|--:|--:|--:|--:|--:|
+| no halt (pure sparseness) | 548 | 80.5 | 140 | 115 | **4.84** | +2.16 |
+| **MOSTLY HALT (>=150s)** | 133 | 19.5 | **17** | 13 | **66.61** | +4.51 |
+
+**19.5% of the cell is halt-driven and carries PF 66.6 on 17 ticker-days
+— that is what inflated 4.84 into 6.62.**
+
+**And halt-gap is spectacular across the WHOLE g60 book, not just here:**
+
+| group | n | % | losers | PF | avg% |
+|---|--:|--:|--:|--:|--:|
+| no halt seconds | 10,725 | 97.6 | 2,273 | 3.84 | +2.00 |
+| <150s halt | 60 | 0.5 | 10 | 47.45 | +3.76 |
+| **>=150s halt** | 205 | 1.9 | 14 | **108.23** | +4.79 |
+
+⭐⭐ **BUT IT IS S-TIER A REDISCOVERED — 179 of the 205 (87%) already ARE
+S-tier A:**
+
+| group | n | tkds | losers | PF | avg% | med ssh |
+|---|--:|--:|--:|---|--:|--:|
+| both (halt-gap AND S-tier A) | 179 | 25 | 5 | **280.21** | +5.05 | 691s |
+| halt-gap ONLY | 26 | 5 | 9 | 14.07 | +2.97 | 663s |
+| S-tier A ONLY | 50 | 12 | 9 | 47.98 | +4.29 | 1,145s |
+| neither | 10,735 | 1,676 | 2,274 | 3.84 | +2.00 | -1 |
+
+Median `secs_since_halt` = 691s (~11.5m), squarely inside S-tier A's
+[2,20m) window. **The halt-gap lens adds only 26 genuinely new trips.**
+
+⇒ The "tape just woke up" story was **two things wearing one label**: a
+halt-reopen population we ALREADY trade (S-tier A), plus a residual
+sparseness population that fails per-year 3/7.
+
 ### VERDICT
 
-❌ **REJECTED.** `gap_1200 in [300,600)` on g60 is not a robust cell. Its
+❌ **REJECTED.** `gap_1200 in [300,600)` on g60 is not a robust cell — and ~20% of it was HALT REOPEN (§4), 87% of which is S-tier A we already trade. Its
 S43w appearance (5.04 / 7.52 in the `[200,600)` band) was the pooled view;
 the per-year record does not support it. ⭐ Compare `rp_vol` (S43w), which
 passed BOTH tests — ratio 2.19 -> 2.10 when the artifact years came out —
