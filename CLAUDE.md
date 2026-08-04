@@ -17,14 +17,25 @@ OpeningDriverV2 4.112→0.728, DipRiderV4 2.876→1.158). It survived a year bec
    roughly the fraction of the universe it changes. Ours changed **0.8%** of the universe and moved PF
    **−26%**. That is arithmetically impossible for a real floor. **If "plumbing" is load-bearing, it isn't
    plumbing.**
-4. **Knowability clock:** for every field in a filter, write the earliest minute it is determined and
+4. **⭐ ADJUSTED-PRICE SCALES — check every price column against the raw tape.** `adj_ratio =
+   adj_close/raw_close` is adjusted for **every split AFTER day D**, so it is FUTURE INFORMATION.
+   In a ratio of two adjusted prices it cancels and is harmless; **un-cancelled in a gate it is a
+   lookahead.** ⚠ 1s bars arrive from the loader ALREADY adjusted (`Intraday.fs`: *"vwap = raw ×
+   adj_ratio"*) — so `signal_vwap` / `entry_px` are ADJUSTED, and `entry_px / adj_ratio` is RAW.
+   On 2026-08-04 a `chg_1d` filter multiplied by `adj_ratio` a second time and became a
+   **future-reverse-split detector**: 43.6% of the book had `adj_ratio != 1` (p90 370, max 6e7),
+   and **71.4% of the resulting "S-tier" book was artifact** (see `docs/flushfader_results.md`
+   §S43v). This is the **S35 contamination class recurring** — the engine already flags
+   `--min-dv-0945` for the identical bug. **If you are multiplying by `adj_ratio`, stop and verify
+   against `/mnt/d/trading-edge-bulk/trades/` — one query settles it.**
+5. **Knowability clock:** for every field in a filter, write the earliest minute it is determined and
    compare it to `EntryStartMin`. `day_close` / `avgvol20` / `rvol_0945` / `close_fwd_*` = ❌ never.
    `med_bar_vol_0945` = ✅ only because `EntryStartMin = 09:45` — **aligned to the minute; lower the entry
    window and it silently becomes a lookahead.**
-5. **Always run a control.** A genuine system is *indifferent* to removing a lookahead, or **improves**
+6. **Always run a control.** A genuine system is *indifferent* to removing a lookahead, or **improves**
    (MaxFlyerV3's $1 floor: 3.767 → **4.162**). Without a control you cannot tell "the system is fake" from
    "my audit is broken".
-6. **Post-hoc SQL counts.** LowFlyer's production book lives entirely in `scripts/equity/*.sql` — the
+7. **Post-hoc SQL counts.** LowFlyer's production book lives entirely in `scripts/equity/*.sql` — the
    contaminated formula was *there*, not in the engine. Audit the `.sql`, not just the `.fs`.
 
 **Status:** LowFlyer ⚠️ avgvol20-clean ONLY — its universe (`mr_candidate`) carried two MORE

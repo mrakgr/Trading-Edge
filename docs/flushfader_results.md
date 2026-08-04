@@ -8453,6 +8453,16 @@ mc=3 1.17 / 2.00 / 1.65 / **2.30**. Win% at mc=3: 72.2 / 77.4 / 76.6 / **80.4**.
 
 ## ⭐⭐ SPEC v2.6 — THE REFERENCE CARD (2026-08-03)
 
+> ⚠ **UPDATED 2026-08-04.** The universe gate is now a GAP COUNT, not
+> `n_eff_shannon` (S43u): `mr_candidate_1s` = `dv_0945_tape >= $2M AND
+> n_bars_1s >= 200` (gaps <= 700 of 900). THE base = **`base_v16`**
+> (2,184,698); THE reference = **`v27_reference`** (37,214), grand parity
+> exact. **THE BOOK = `g60 AND vote >= 1`** — the `chg_1d` gate is DROPPED
+> (S43v: it carried a future-split lookahead). mc=3 with S-tier A =
+> **3,330 @ 3.901 / +1.97%/trip**, worst year 2.78.
+> ⚠ `flushfader_base_tkds` must be REGENERATED after any universe change —
+> it carries the full candidate schema restricted to signal days.
+
 Everything needed to reproduce the current system. Supersedes the v2.2
 / v2.3 cards.
 
@@ -9423,6 +9433,40 @@ v20 votes already carry (S42f).
 
 ## S43i — DEEP FLUSHES in multi-day context: the LowFlyer chg_1d / chg_3d idea (2026-08-03)
 
+> # 🛑🛑 INVALID — chg_1d LOOKAHEAD (found 2026-08-04, see S43v)
+>
+> **Every `chg_1d` / `chg_3d` number in S43i through S43u is WRONG.** The
+> formula used was
+>
+> ```
+> chg_1d = signal_vwap * adj_ratio / prev_adj_close - 1     # ← WRONG
+> ```
+>
+> but 1s bars arrive from the loader **already split-adjusted**
+> (`Intraday.fs`: *"vwap = raw × adj_ratio"*), so `signal_vwap` is ALREADY
+> in the adjusted scale. Applying `adj_ratio` a second time left an
+> **uncancelled future-split factor** in the filter — and `adj_ratio =
+> adj_close/raw_close` is adjusted for **all splits AFTER day D**. The
+> correct form, in which the adjusted basis cancels between numerator and
+> denominator, is:
+>
+> ```
+> chg_1d = signal_vwap / prev_adj_close - 1                 # ← CORRECT
+> chg_3d = signal_vwap / close_3d       - 1
+> ```
+>
+> **Consequences:** 43.6% of the book has `adj_ratio != 1` (p90 = 370, max
+> = 6e7 — these are microcaps that later reverse-split). Median `chg_1d`
+> was inflated 50% -> 166%. **`chg_1d >= 300%` was substantially a
+> FUTURE-REVERSE-SPLIT DETECTOR**, and **71.4% of the "S-tier B" book was
+> that artifact** (2,720 of 3,811 trips, median `adj_ratio` = 25).
+>
+> **VERDICT (S43v): the `chg_1d` gate is DROPPED entirely.** `chg_1d < 0`
+> survives as a SIZING tier only. Read S43i-S43u for method and for the
+> non-chg_1d findings (halts, costs, voices, the universe gate — all
+> unaffected); do NOT quote their chg_1d numbers or the S-tier B book.
+
+
 User: "LowFlyer really benefited from chg_1d and chg_3d in conjunction
 with this feature... sharp flushes into support worked much better than
 when the stock was sliding off. We want buying deep flushes to be into
@@ -9520,6 +9564,10 @@ gates.
 
 ## S43j — the deep-flush book by YEAR: 2022 is ONE ticker-day, not a regime (2026-08-03)
 
+> 🛑 **INVALID — chg_1d lookahead; see the banner at S43i and the verdict in S43v.**
+> The S-tier B construction in this section does not survive the fix.
+
+
 User: "2022 was negative for it, right? I imagine that in a bear market
 like it, there weren't many large gainers that this method prefers."
 **Half right on the fact, and the mechanism is REJECTED by the data.**
@@ -9614,6 +9662,10 @@ expected when the universe shrinks 70%.
 
 ## S43k — the two requested chg_1d tables, and WHERE to cut (2026-08-03)
 
+> 🛑 **INVALID — chg_1d lookahead; see the banner at S43i and the verdict in S43v.**
+> The S-tier B construction in this section does not survive the fix.
+
+
 ### g60 + DEEP SPEED (speed < -6%), NO vote
 
 | band | n | tkds | n_lose | PF | win% | p20 | p21 | p22 | p23 | p24 | p25 | p26 | avg% | net pts |
@@ -9686,6 +9738,10 @@ The complement — what a cut would discard:
 
 ## S43l — ⭐⭐ THE TWO S-TIER SETUPS (user decision: chg_1d >= 300%) (2026-08-03)
 
+> 🛑 **INVALID — chg_1d lookahead; see the banner at S43i and the verdict in S43v.**
+> The S-tier B construction in this section does not survive the fix.
+
+
 User set the cut at **>= 300%**, reasoning: ">= 200 vs >= 300 is 30% of
 the PF for 10% of the net — not worth the tradeoff. Maybe >= 300 acts
 as a regime filter for bear markets." (Supported: 2022 reads 5.41 at
@@ -9738,6 +9794,10 @@ slippage study.
 
 
 ## S43m — do deep flushes get HALTED while we hold? (user) (2026-08-03)
+
+> 🛑 **INVALID — chg_1d lookahead; see the banner at S43i and the verdict in S43v.**
+> The S-tier B construction in this section does not survive the fix.
+
 
 User: "it's possible that the deep flushes result in halts. It's worth
 checking out." **Right about the mechanism — a -6%/min move is exactly
@@ -9799,6 +9859,10 @@ another and is still unmeasured.
 
 
 ## S43n — S-tier B: prior-halt composition, and does < -10% help? (2026-08-03)
+
+> 🛑 **INVALID — chg_1d lookahead; see the banner at S43i and the verdict in S43v.**
+> The S-tier B construction in this section does not survive the fix.
+
 
 ### 1. How many S-tier B trades were ALREADY halted before entry? (user)
 
@@ -9900,6 +9964,10 @@ user decision; the current -6 stands.
 
 
 ## S43o — ⭐⭐ S-TIER B: the chg_1d cut becomes a UNION of both tails (2026-08-04)
+
+> 🛑 **INVALID — chg_1d lookahead; see the banner at S43i and the verdict in S43v.**
+> The S-tier B construction in this section does not survive the fix.
+
 
 User: "Since stocks down more than 0% on the day have a great edge, let's
 make the chg_1d filter `>= 300% || < 0`." (Sent as `&&` first, which is
@@ -10025,6 +10093,10 @@ until measured.
 
 ## S43p — ⭐⭐ S-TIER B goes VOLUME: the deep-flush cut is retired to a sizing lever (2026-08-04)
 
+> 🛑 **INVALID — chg_1d lookahead; see the banner at S43i and the verdict in S43v.**
+> The S-tier B construction in this section does not survive the fix.
+
+
 User: "I think I'd prefer volume, and we'll leave the deep flush as a
 sizing lever in the future."
 
@@ -10099,6 +10171,14 @@ slippage study matters MORE under this choice, not less.
 
 
 ## S43q — ⭐⭐ THE SLIPPAGE STUDY: costs MEASURED, not assumed (2026-08-04)
+
+> ⚠ **PARTIALLY SUPERSEDED (S43v).** The per-trip TAPE measurements here
+> (spread, `step`/`roll`, delay by work window, sigma, day volume) are
+> properties of the tape and STAND. But the book-level aggregates — the
+> cost-adjusted PF ladder and the % -of-edge figures — were computed over
+> the chg_1d-contaminated book and must be re-derived on the corrected
+> book (`g60 AND vote>=1`, 3,330 @ 3.90 at mc=3). **Re-run queued.**
+
 
 User: "the easiest thing we could do is just calculate the 1m dollar volume
 quartiles for these trades... fill simulations are overkill. At 2.8%
@@ -10209,6 +10289,14 @@ volume choice in S43p is vindicated rather than endangered.
 
 
 ## S43r — ⭐⭐ MARKET IMPACT: the size ladder, and why the EXIT pays us back (2026-08-04)
+
+> ⚠ **PARTIALLY SUPERSEDED (S43v).** The per-trip TAPE measurements here
+> (spread, `step`/`roll`, delay by work window, sigma, day volume) are
+> properties of the tape and STAND. But the book-level aggregates — the
+> cost-adjusted PF ladder and the % -of-edge figures — were computed over
+> the chg_1d-contaminated book and must be re-derived on the corrected
+> book (`g60 AND vote>=1`, 3,330 @ 3.90 at mc=3). **Re-run queued.**
+
 
 User: "Let's model the market impact next." Two components, only one of
 which is the textbook one.
@@ -10642,3 +10730,166 @@ unfiltered. The `$2M` floor and the gap gate were already applied when
 `mr_candidate_1s` was built. The base is therefore: **20m low x volat >=
 40bp x dv60>=$100k x tc60>=60 x barnum>=22, over a table that is already
 dv>=$2M x gaps<=700.**
+
+
+## S43v — 🛑⭐⭐ THE chg_1d LOOKAHEAD: the bug, the corrected tables, the new book (2026-08-04)
+
+Found while pinning down raw-vs-adjusted price scales for the passive-fill
+study. **It invalidates the S-tier B program (S43i-S43p) and shrinks the
+system by roughly a third.**
+
+### 1. The bug
+
+```
+chg_1d = signal_vwap * adj_ratio / prev_adj_close - 1     # WRONG (S43i-S43u)
+chg_1d = signal_vwap                / prev_adj_close - 1  # CORRECT
+```
+
+1s bars arrive from the loader **already split-adjusted** —
+`Intraday.fs` states it outright: *"volume ... arrives SPLIT-ADJUSTED (raw
+shares / adj_ratio, mirroring **vwap = raw × adj_ratio**)"*. So
+`signal_vwap` is already in the adjusted scale and multiplying by
+`adj_ratio` applies it twice.
+
+**Verified three independent ways** on AIMD 2024-01-05 (`adj_ratio` = 5.0):
+
+| source | value |
+|---|---|
+| 1s tape bar vwap @ bucket 49177 | **2.6716** |
+| `entry_px / adj_ratio` | **2.6716** ✓ |
+| `signal_vwap` @ 49176 = 13.3256, tape = 2.6651 | 2.6651 × 5.0 ✓ |
+| engine source comment | *"vwap = raw × adj_ratio"* ✓ |
+
+**Why it is a LOOKAHEAD and not merely a scale error:** `adj_ratio =
+adj_close/raw_close` is adjusted for **every split AFTER day D**. In the
+correct form the adjusted basis appears in numerator AND denominator and
+cancels, leaving a clean ratio. In the wrong form one factor survives, so
+the filter reads future corporate actions.
+
+⚠ **This is the S35 contamination class, recurring** — the engine already
+carries `--min-dv-0945` marked *"💀 DEPRECATED (S35): real dollars ×
+adj_ratio (future-split-dependent — 20% of the universe was inflated in)"*.
+Same factor, same mechanism, a year later, in a filter I wrote myself.
+
+### 2. The damage
+
+| measure | value |
+|---|---:|
+| book trips with `adj_ratio != 1` | **43.6%** |
+| p90 / max `adj_ratio` | **370 / 6.0e7** |
+| median `chg_1d`, wrong -> correct | **166% -> 50%** |
+
+`chg_1d >= 300%` therefore selected largely on **future reverse splits** —
+the signature of a dying microcap — not on "up 300% today".
+
+Decomposing the old S-tier B book (g60, vote>=1, wrong cut, 3,811 trips):
+
+| group | n | % | med adj_ratio | PF | avg% |
+|---|--:|--:|--:|---|--:|
+| genuine (passes the correct cut too) | 1,091 | 28.6 | 1.0 | 9.59 | +3.55 |
+| **⚠ ARTIFACT (wrong formula only)** | **2,720** | **71.4** | **25.0** | 7.22 | +2.53 |
+
+**71.4% of the reported book was the artifact.**
+
+### 3. The corrected tables — the axis INVERTS with tape quality
+
+`chg_1d` bands, PF by universe (n / tkds / PF):
+
+| band | full book $1+ | g60 | g60 + vote>=1 |
+|---|---|---|---|
+| **<0** | 8,182 / 1,568 / **2.05** | 1,276 / 250 / **5.00** | 669 / 132 / **10.16** |
+| [0,20) | 7,341 / 1,463 / 2.60 | 1,637 / 311 / 3.18 | 765 / 168 / 7.51 |
+| [20,40) | 4,180 / 790 / 2.28 | 1,779 / 357 / 3.21 | 1,233 / 258 / 3.98 |
+| [40,70) | 3,769 / 608 / 2.82 | 2,115 / 377 / 4.98 | 1,542 / 286 / 5.69 |
+| [70,120) | 3,047 / 431 / 2.90 | 1,836 / 297 / 3.58 | 1,401 / 236 / 6.14 |
+| [120,200) | 1,771 / 228 / 3.36 | 1,274 / 177 / 3.73 | 1,111 / 159 / 3.38 |
+| [200,400) | 1,059 / 123 / 4.31 | 868 / 108 / 4.03 | 788 / 100 / 3.74 |
+| **>=400** | 225 / 22 / **8.71** | 205 / 21 / **20.11** | 194 / 21 / **19.43** |
+
+⭐ **On the FULL book `chg_1d` is essentially MONOTONE INCREASING (2.05 ->
+8.71) — the down-band is the WORST cell. On g60 it INVERTS: `<0` becomes
+the best large band.** The low-end edge is conditional on clean tape and is
+NEGATIVE on the illiquid side. Both cells are large (8,182 vs 1,276 trips),
+so this is a real interaction, not noise.
+
+`chg_3d` is the weak axis in both universes — full book 2.13-3.80 with no
+trend, g60 2.37-6.37 and bumpy. **Its S43i "multi-day context" story was
+the split artifact. DROPPED.**
+
+⚠ The `>=400` cell is the SAME ~21 ticker-days in all three columns
+(22 -> 21 -> 21) while trips go 225 -> 205 -> 194: neither g60 nor the vote
+SELECTS anything there. **VERO 2026-01-16 and ATNF 2024-10-16 alone are 48%
+of its P&L.** Treat 20.11 as meaningless.
+
+### 4. ⭐⭐ WHY THE GATE IS DROPPED (user call)
+
+**The headline gains are two years of near-zero losses.** The `<20%` cell
+in 2020 is 261 trips with **4 losers and 2.4 gross loss points** (PF 463 =
+1122/2.4). 2022 is 106 trips, 6 losers, 7.5 loss points.
+
+| scope | baseline | `<0` | `<20%` |
+|---|---|---|---|
+| all years | 7,703 / **5.19** / +2.43% | 669 / 10.16 / +3.10% | 1,434 / 8.63 / +2.86% |
+| ex-2020 | 6,515 / 4.57 / +2.27% | 555 / 7.81 / +2.76% | 1,173 / 6.57 / +2.54% |
+| **ex-2020 & ex-2022** | 6,099 / **4.59** / +2.28% | 497 / **7.12** / +2.72% | 1,067 / **6.06** / +2.50% |
+
+**On the five clean years the cut is worth 1.32x on PF and 1.10x on
+expectancy, for discarding 82% of the trips.** Per-year ratios (cut PF /
+baseline PF) for `<20%`: 1.43 / **0.78** / 1.97 / 1.90 / **0.68** — it
+FAILS in 2023 and 2026, the two most recent clean years. The pooled 1.32
+is a ratio of sums and is carried by 2024-25.
+
+Random-subsample null on the five clean years:
+
+| cut | n | PF | null 95% | pctile | avg% | null 95% | pctile |
+|---|--:|---|---|--:|---|---|--:|
+| `<0` | 497 | 7.12 | [3.49, 6.34] | **99.6th** | 2.72 | [1.96, 2.61] | **99.7th** |
+| `<20%` | 1,067 | 6.06 | [3.84, 5.57] | 99.8th | 2.50 | [2.08, **2.50**] | 97.8th |
+
+`<20%`'s EXPECTANCY sits exactly on the null's upper bound. `<0` clears
+both decisively.
+
+**DECISION (user): drop the `chg_1d` gate entirely; keep `chg_1d < 0` as a
+SIZING tier**, alongside `speed` (S43p) and `z_20m` (S43s) — features that
+are real but too small/conditional to define a book. Reasons: the gain is
+two loss-free years; both cuts fail 2023 and 2026; the `<0` edge is a
+sign-flipping interaction; and it contradicts the volume preference set in
+S43p.
+
+### 5. ⭐ THE CORRECTED BOOK
+
+```
+BOOK   =  g60 (gap_60 < 4)  AND  vote >= 1 of 6      ($1+, SPEC v2.6)
+S-TIER =  ht = 1  AND  secs_since_halt in [120, 1200)
+```
+
+mc=3, A OR B, on `v27_reference`:
+
+| yr | n | PF | win% | avg% |
+|----|--:|---|--:|--:|
+| 2020 | 521 | 9.399 | 85.0 | +2.84 |
+| **2021** | 617 | **2.782** | 72.8 | +1.18 |
+| 2022 | 211 | 3.937 | 84.4 | +1.83 |
+| 2023 | 282 | 3.649 | 78.7 | +1.75 |
+| 2024 | 554 | 3.562 | 78.3 | +2.07 |
+| 2025 | 772 | 3.253 | 75.6 | +1.82 |
+| 2026 | 373 | 4.222 | 79.9 | +2.44 |
+| **total** | **3,330** | **3.901** | 78.3 | **+1.97** |
+
+**Every year positive, worst 2.78.** Against the pre-fix claim of 1,791 @
+6.21 / +2.45%: **1.9x the trips at 0.63x the PF and 0.80x the per-trip
+return.** The system is real but materially smaller than reported this
+morning — a third of that PF was the artifact.
+
+### ⭐ LESSONS
+
+1. **Check the SCALE of every price column against the raw tape before
+   building a ratio on it.** One `duckdb` query against
+   `/mnt/d/trading-edge-bulk/trades/` would have caught this on day one.
+2. **`adj_ratio` is FUTURE-SPLIT-DEPENDENT. It must never appear
+   un-cancelled in a gate.** In any ratio of two adjusted prices it
+   cancels; if you find yourself multiplying by it, stop.
+3. **The disproportion test would have flagged it**: a "what did the stock
+   do yesterday" filter tripled a PF. Day-context should not do that.
+4. It was found by an unrelated task (the passive-fill study) forcing a
+   raw-vs-adjusted audit. **Cheap audits of "obvious" plumbing keep paying.**
