@@ -10483,3 +10483,35 @@ controlling for the fact that the stack simply cuts more trips**. That is
 the same missing-control trap as lowdens/esf (S43), v20/2022 (S42x), and
 speed/pah (S43d). ⭐ **The gap IS the volume feature. One measure per
 family, and rank 0 is the one that earns the seat.**
+
+### S43t addendum — the iso-trip control, quantified (user asked what it is)
+
+**What the control is FOR:** PF rises mechanically when trips are cut, so
+"added a feature, PF went up" is not evidence the feature found anything.
+The stack took the book 2,315 -> 1,421 trips and PF 6.93 -> 7.67. The
+control asks: does tightening the EXISTING feature alone, to the same trip
+count, get there anyway?
+
+Bootstrap (20,000 resamples) and a random-subsample null (5,000 draws):
+
+| | n | PF | 95% CI |
+|---|--:|---|---|
+| candidate `gap<5 AND sh>=650` | 1,421 | 7.67 | **[6.34, 9.43]** |
+| control `gap<1` (gap-only) | 1,285 | 7.30 | **[5.97, 9.08]** |
+| **NULL: random 1,421-trip subsample of gap<5** | 1,421 | **6.93 median** | **[6.16, 7.92]** |
+
+1. **The candidate's and the control's CIs overlap almost entirely** — they
+   are statistically indistinguishable.
+2. ⭐ **The candidate sits at the 93.6th percentile of the RANDOM-SUBSAMPLE
+   null, i.e. INSIDE the 95% band.** Adding Shannon to the gap produces a PF
+   change that cannot be distinguished from **randomly discarding the same
+   number of trades**.
+3. And it is contradicted by expectancy: +3.08%/trip vs +3.21% (gap<2) and
+   +3.28% (gap<1). PF and avg% disagree, which a genuine selector would not
+   do.
+
+⭐ **RULE (generalise this):** whenever a new feature is stacked on an
+existing one, report the candidate against (a) the existing feature
+tightened to the same trip count and (b) a random subsample of the same
+size. If the candidate does not clear BOTH, the "gain" is trip-count
+arithmetic, not selection.
