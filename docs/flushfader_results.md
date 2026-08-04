@@ -11225,3 +11225,101 @@ two ways.
 4. ⚠ Not modelled: the exit fallback assumes we cross at the measured 60s
    vwap when the offer misses; queue position is not simulated (the
    off-grid limit makes `at`/`through` identical, which flatters slightly).
+
+
+## S43z — SUB-$1: the filters break below $0.50, and the REBATE THESIS FAILS (2026-08-04)
+
+User: "test the 3 books on < $1 stocks... those are where earning maker
+rebates makes the most difference." **Both halves tested. The cost half is
+confirmed; the thesis still fails, for a structural reason.**
+
+### 1. ⭐ THE FILTER STACK BREAKS AT $0.50 (user asked: does g60 add
+nothing on ALL sub-$1 buckets? NO — there is a clean break)
+
+| price tier | full PF | g60 PF | **g60 lift** | vote PF | **total lift** |
+|---|--:|--:|--:|--:|--:|
+| <$0.10 | 3.25 | 3.13 | **0.96** | 2.61 | **0.80** |
+| $0.10-0.25 | 2.31 | 2.41 | 1.04 | 2.24 | **0.97** |
+| $0.25-0.50 | 1.85 | 1.60 | **0.86** | 1.75 | **0.95** |
+| **$0.50-1.00** | 2.38 | 3.03 | **1.27** | **3.33** | **1.40** |
+| $1-2 | 3.03 | 4.92 | 1.62 | 6.30 | 2.08 |
+| $2-5 | 2.54 | 3.27 | 1.29 | 5.22 | 2.06 |
+| $5+ | 2.36 | 4.30 | 1.82 | 4.77 | 2.02 |
+
+**Below $0.50 the stack is INERT or HARMFUL** (total lift 0.80 / 0.97 /
+0.95; g60 REDUCES PF in $0.25-0.50). **$0.50-1.00 works but at 1.40x vs the
+~2.05x it delivers everywhere above $1.** The aggregate "sub-$1 filters
+don't work" was masking two different populations.
+
+### 2. But even the working tier has a NEGATIVE year
+
+`$0.50-1.00`, g60 + (vote>=1 OR S-tier A), **mc=3: 557 @ 2.846 / +1.82%**
+
+| yr | 2020 | **2021** | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| PF | 1.364 | **0.628** | 23.672 | 7.092 | 5.024 | 4.091 | 1.542 |
+| avg% | +0.69 | **-0.92** | +2.46 | +3.02 | +2.11 | +2.39 | +0.78 |
+
+2021 is outright negative; 2020 and 2026 are 1.36 / 1.54 on 77 and 90
+trips (NOT thin). 2022's 23.67 is 24 trips = meaningless. Whole sub-$1
+book at mc=3: **1,160 @ 2.212 / +1.51%**, worst year 1.296. Compare the
+$1+ book: 3.901, every year >= 2.78.
+
+### 3. ⭐ THE COST HALF OF THE THESIS IS CONFIRMED
+
+Sub-penny quoting is real below $1 (~32% of non-zero price changes are
+sub-penny). Measured `step` on the sub-$1 book:
+
+| tier | med px | step $ | **step %** | roll % | p_flat | p_rev |
+|---|--:|--:|--:|--:|--:|--:|
+| <$0.25 | 0.167 | 0.0001 | **0.110** | 0.111 | 0.774 | 0.620 |
+| $0.25-0.50 | 0.381 | 0.0003 | **0.078** | 0.115 | 0.671 | 0.563 |
+| $0.50-1.00 | 0.729 | 0.0005 | **0.065** | 0.102 | 0.632 | 0.532 |
+| *($1+ book)* | *3.91* | *0.010* | ***0.260*** | — | — | — |
+
+⭐ **Sub-$1 spread is ~4x CHEAPER in percentage terms than the $1+ book**,
+and the $1-2 tier is the market's worst (0.352%) because a penny tick on a
+$1.40 stock is huge. ⭐ Note `roll` and `step` now AGREE (0.102 vs 0.065)
+where they diverged badly above $1 — the finer grid means less bid-ask
+bounce (`p_rev` 0.53 vs 0.88), so Roll's assumptions fit worse but `step`
+shrinks to meet it.
+
+### 4. ⭐⭐ AND YET THE REBATE THESIS FAILS
+
+| | sub-$1 | $1+ |
+|---|--:|--:|
+| bid fill @60s | 91.0% | 87.4% |
+| offer fill @60s | 93.5% | 88.8% |
+| **MISSED** trips avg% | **+3.64** | +2.90 |
+| FILLED trips avg% | **+1.30** | +1.83 |
+| **selection penalty** | **2.8x** | 1.6x |
+
+| strategy | sub-$1 net | vs cross | ($1+) |
+|---|--:|--:|--:|
+| A: cross + cross | 1,621 | 100% | 100% |
+| B: **REST bid** + cross exit | 1,376 | **85%** | 94% |
+| **C: cross entry + REST offer** | 1,742 | **108%** | 107% |
+| D: REST both | 1,483 | **92%** | 100% |
+
+⭐⭐ **THE SAME ASYMMETRY HOLDS, AND ADVERSE SELECTION IS WORSE ON SUB-$1**
+(passive entry costs **15%** vs 6%; missed trades run **2.8x** the filled
+ones). **This is what kills the rebate thesis**: earning maker rebates on
+BOTH legs requires resting the ENTRY, and resting the entry is precisely
+what this system cannot afford. The only winning strategy (C) is a TAKER on
+entry — so it earns a rebate on one leg only, exactly as at $1+.
+
+⚠ **The fee side is also why sub-$1 was excluded originally** (SPEC v1.1:
+"sub-$1 FEE-DEAD every EU route"): sub-$1 is typically billed as a
+PERCENTAGE OF PRINCIPAL rather than per share. No schedule is assumed here
+— but at a taker fee anywhere near 0.3% of principal the entry leg alone
+eats >20% of a +1.40% gross edge, dwarfing the 0.065-0.11% spread saving.
+
+### VERDICT
+
+**Sub-$1 does not earn a place.** (a) the filter stack breaks below $0.50
+and is only 1.40x effective in $0.50-1.00 vs ~2.05x above $1; (b) even that
+tier has a NEGATIVE 2021 and two more years at ~1.4-1.5; (c) the cheap
+spread is real but small in absolute terms next to percentage-of-principal
+fees; (d) **the rebate case specifically requires the one thing this system
+cannot do — rest the entry.** ⭐ The `cross entry / rest exit` rule from
+S43y is CONFIRMED on an independent population, and more strongly.
