@@ -144,6 +144,53 @@ type MinMa(windowSize: int) =
         count <- 0
 
 // =============================================================================
+// MaxMaMeta — MaxMa carrying a per-value METADATA payload
+// =============================================================================
+//
+// ⭐ S43ai (user): a plain MaxMa returns the window max but DISCARDS everything
+// else about the bar that set it. Carrying a payload alongside each value lets
+// us recover the feature state AS OF the extreme — e.g. eff_20m / eff_10m at
+// the ARMING HIGH, which measures the smoothness of the trend INTO the high
+// (the drop out of it is already covered by olsSinceHigh / effSinceHigh).
+//
+// Identical monotonic-deque mechanics to MaxMa; the deque holds
+// (value, barIdx, meta). ⚠ TIE CONVENTION: the back-pop test is `<=`, so among
+// EQUAL maxima the LATEST bar's metadata survives — the same tie-break MaxMa
+// already uses for its own barIdx.
+
+[<Sealed>]
+type MaxMaMeta<'M>(windowSize: int) =
+    let dq = Deque<struct (float * int * 'M)>()
+    let mutable barIdx = 0
+    let mutable count = 0
+    member _.Count = count
+    member _.WindowSize = windowSize
+    /// Current window max, or ValueNone when the window is empty.
+    member _.State =
+        if dq.Count = 0 then ValueNone
+        else let struct (v, _, _) = dq.[0] in ValueSome v
+    /// Metadata of the bar that SET the current window max.
+    member _.StateMeta =
+        if dq.Count = 0 then ValueNone
+        else let struct (_, _, m) = dq.[0] in ValueSome m
+    member _.Push (x: float, meta: 'M) =
+        let cutoff = barIdx - windowSize + 1
+        while dq.Count > 0 &&
+              (let struct (_, i, _) = dq.[0] in i < cutoff) do
+            dq.RemoveFromFront() |> ignore
+        while dq.Count > 0 &&
+              (let struct (v, _, _) = dq.[dq.Count - 1] in v <= x) do
+            dq.RemoveFromBack() |> ignore
+        dq.AddToBack(struct (x, barIdx, meta))
+        barIdx <- barIdx + 1
+        count <- min windowSize (count + 1)
+    /// Clear the window (see MaxMa.Reset — barIdx must reset too).
+    member _.Reset () =
+        dq.Clear()
+        barIdx <- 0
+        count <- 0
+
+// =============================================================================
 // RunMaxMa / RunMinMa — session-cumulative running extreme (NOT windowed)
 // =============================================================================
 //

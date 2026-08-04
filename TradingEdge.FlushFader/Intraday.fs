@@ -354,6 +354,18 @@ type FlushPosition =
       DHiFlow: float
       OlsSlopeHiFlow: float
       OlsRHiFlow: float
+      // ⭐ S43ai (user): the EFF twin of the drop segment. olsSinceHigh at the
+      // arming bar spans exactly high -> first low, and effSinceHigh shares that
+      // anchor — so this was a free snapshot that was simply never taken. It
+      // completes the family: the drop was the only segment measured by OLS alone.
+      EffHiFlow: float
+      // ⭐ S43ai (user): eff_20m / eff_10m AS OF THE ARMING HIGH — the smoothness
+      // of the trend INTO the high, which nothing else captured (olsSinceHigh /
+      // effSinceHigh measure the drop OUT of it). Carried as MaxMaMeta payload
+      // on the entry channel, snapshotted at the arming bar. nan = cold eff or
+      // no leg.
+      ArmHiEff20m: float
+      ArmHiEff10m: float
       FirstLowVwap: float        // S41k: the leg's first-low anchor price (raw)
       BarsAboveSvwap: int        // S41o: present bars spent ABOVE the running session vwap
       BarsPresent: int           // its denominator (present bars this session)
@@ -714,6 +726,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         | _ -> invalidArg "n" $"no {n}-bar channel"
     let entryMin = chanMin cfg.EntryChannelBars     // ⭐ the flush trigger side
     let entryMax = chanMax cfg.EntryChannelBars     // ⭐ the leg-reset side (+ chan_hi)
+    // ⭐ S43ai: a metadata-carrying TWIN of entryMax, same window, fed the same
+    // vwap once per present bar. Runs PARALLEL to entryMax rather than replacing
+    // it so the signal path is provably untouched (parity by construction); the
+    // extra deque is amortized O(1). Payload = (eff_20m, eff_10m) at that bar.
+    let entryMaxMeta = MaxMaMeta<struct (float * float)> cfg.EntryChannelBars
     let exitMax = chanMax cfg.ExitChannelBars       // ⭐ the reversion target
     // ----- breach counters, both sides per window -----
     let brSess = BreachCounter()
@@ -966,6 +983,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable dropToFlow = nan
     let mutable dropSlopeHiFlow = nan
     let mutable dropRHiFlow = nan
+    let mutable dropEffHiFlow = nan
+    // ⭐ S43ai (user): eff_20m / eff_10m as of the bar that SET the arming high.
+    // Carried as MaxMaMeta metadata on the entry channel (same window as
+    // entryMax) and snapshotted at the arming bar. RECORD-ONLY — no gate reads
+    // these, so the signal path is byte-identical to v27.
+    let mutable armHiEff20 = nan
+    let mutable armHiEff10 = nan
     // S41k (user): the first low's own vwap — signal_vwap/first_low_vwap - 1 =
     // the leg's EXTENSION below its first low (distance twin of ssf). nan = no leg.
     let mutable firstLowVwap = nan
@@ -1015,6 +1039,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable sMax300 : float voption = ValueNone
     let mutable sMax600 : float voption = ValueNone
     let mutable sMax1200 : float voption = ValueNone
+    // S43ai: prior-bar metadata of the entry-channel high (eff_20m, eff_10m)
+    let mutable sMaxMeta : struct (float * float) voption = ValueNone
     let mutable sMin30 : float voption = ValueNone
     let mutable sMin60 : float voption = ValueNone
     let mutable sMin120 : float voption = ValueNone
@@ -1056,6 +1082,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         sMax300 <- max300.State
         sMax600 <- max600.State
         sMax1200 <- max1200.State
+        // S43ai: the STRICTLY-PRIOR metadata, snapshotted at the same instant as
+        // sMax1200 so it describes the same high that priorEntryMax reports.
+        sMaxMeta <- entryMaxMeta.StateMeta
         sMin30 <- min30.State
         sMin60 <- min60.State
         sMin120 <- min120.State
@@ -1281,6 +1310,28 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             prevSlotVwap <- ValueSome v
         | ValueNone -> ()
 
+        // ⭐ S43ai: feed the metadata twin ONCE per present bar, HERE — after the
+        // slot chain, so the payload is the eff pair in exactly the state the
+        // signal-time eff_20m / eff_10m would read on this bar. (Position in the
+        // bar body is otherwise irrelevant: one push per bar in bar order gives
+        // a deque identical to entryMax's.) Same formulas as the eff20Signed /
+        // eff10Ok gates; nan when the window is cold.
+        let effPairNow =
+            let e20 =
+                match slotLag.Last, slotLag.Lagged, slotAbsSum.State with
+                | ValueSome cur, ValueSome old, ValueSome s
+                    when slotAbsSum.Count = slotAbsSum.WindowSize && old > 0.0 && s > 0.0 ->
+                    log (cur / old) / s
+                | _ -> nan
+            let e10 =
+                match slotLag20.Last, slotLag20.Lagged, slotAbsSum20.State with
+                | ValueSome cur, ValueSome old, ValueSome s
+                    when slotAbsSum20.Count = slotAbsSum20.WindowSize && old > 0.0 && s > 0.0 ->
+                    log (cur / old) / s
+                | _ -> nan
+            struct (e20, e10)
+        entryMaxMeta.Push(bar.vwap, effPairNow)
+
         // ===== 3. fill pendings at THIS bar's vwap (signals from the prior bar) =====
         match pendingEntry with
         | ValueSome p ->
@@ -1355,6 +1406,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     | _ -> nan
                 dropSlopeHiFlow <- olsSinceHigh.Slope
                 dropRHiFlow <- olsSinceHigh.R
+                dropEffHiFlow <- effSinceHigh.Eff   // S43ai: same anchor, same bar
+                // ⭐ S43ai: the eff pair as of the bar that SET that same high —
+                // sMaxMeta is snapshotted alongside sMax1200, so it describes
+                // exactly the `priorEntryMax` used for dropToFlow above.
+                (match sMaxMeta with
+                 | ValueSome (struct (e20, e10)) -> armHiEff20 <- e20; armHiEff10 <- e10
+                 | ValueNone -> armHiEff20 <- nan; armHiEff10 <- nan)
                 firstLowVwap <- bar.vwap
             counters.OnNewLow()
             counters300.OnNewLow()
@@ -1744,6 +1802,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       DHiFlow = dropToFlow
                       OlsSlopeHiFlow = dropSlopeHiFlow
                       OlsRHiFlow = dropRHiFlow
+                      EffHiFlow = dropEffHiFlow
+                      ArmHiEff20m = armHiEff20
+                      ArmHiEff10m = armHiEff10
                       FirstLowVwap = firstLowVwap
                       BarsAboveSvwap = barsAboveSvwap
                       BarsPresent = barsPresent
