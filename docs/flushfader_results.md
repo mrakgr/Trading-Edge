@@ -10096,3 +10096,113 @@ ticker-days a year is a real working book, not two setups a month. It
 therefore inherits the MAIN book's cost exposure — at +2.45%/trip a
 0.5-1.0% round trip is **20-40% of the edge**, not 12-25%. The
 slippage study matters MORE under this choice, not less.
+
+
+## S43q — ⭐⭐ THE SLIPPAGE STUDY: costs MEASURED, not assumed (2026-08-04)
+
+User: "the easiest thing we could do is just calculate the 1m dollar volume
+quartiles for these trades... fill simulations are overkill. At 2.8%
+average gain I am not that concerned about trading fees anymore."
+
+**Agreed on fees. But the binding cost at these prices is the TICK, not
+the fee** — a $0.01 spread on a $1.50 stock is 0.67% one way. So the study
+is: capacity (the user's ask) + the spread actually paid.
+
+Method note for the spread estimator: `docs/rolls_estimator.md`.
+
+### 1. CAPACITY — entry-minute dollar volume (mc=3 book, 1,791 trips)
+
+| | min | p10 | Q1 | **median** | Q3 | p90 | max |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| $/min | $135k | $575k | $850k | **$1.49M** | $2.97M | $6.16M | $134M |
+
+Median **1,394 trades** in the entry minute; median hold 335s (5.6m). The
+$135k floor is the entry gate's own `dv60 >= $100k`. Position size at a
+given participation rate:
+
+| participation | p10 | Q1 | median | Q3 |
+|---|---:|---:|---:|---:|
+| 1% | $5.8k | $8.5k | $14.9k | $29.7k |
+| 2% | $11.5k | $17.0k | $29.7k | $59.3k |
+| 5% | $28.8k | $42.5k | $74.3k | $148k |
+| 10% | $57.5k | $85k | $148k | $297k |
+
+### 2. ⭐ THE EDGE DOES NOT LIVE IN THE ILLIQUID TRADES
+
+| dv60 quintile | range | med px | losers | PF | avg% | net pts |
+|---|---|---:|---:|---:|---:|---:|
+| 1 | $135-744k | $1.98 | 76 | 6.69 | +2.53 | 909 |
+| 2 | $745k-1.2M | $2.95 | 67 | 6.32 | +2.43 | 870 |
+| 3 | $1.2-1.8M | $4.09 | 67 | 5.45 | +2.19 | 783 |
+| 4 | $1.8-3.8M | $5.54 | 75 | 5.46 | +2.35 | 840 |
+| 5 | $3.8M+ | $8.68 | 65 | **7.38** | +2.78 | 994 |
+
+**Flat, and the MOST liquid quintile is the best.** Net points are nearly
+even across all five (909/870/783/840/994). This is the opposite of the
+usual microcap failure mode and it means **a liquidity floor is close to
+free**: `dv60 >= $2M` leaves 1,621 trips @ PF 10.56 at a $6.64 median price.
+
+### 3. THE SPREAD — measured on 506 days of raw prints
+
+No quote data exists (trades only: price/size/`sip_timestamp`/`trf_id`), so
+the spread is inferred from trade prices. Roll's estimator + the observed
+price grid, lit prints only, entry/exit +/- 30s, 3,582 windows. ⚠ Parity:
+1s vwaps reconstructed from trades match `intraday_1s_slim` to 4 decimals.
+
+| bucket | n | med px | `step` $ | `roll` $ | step % | roll % | **assumed %** | roll in ticks | `p_rev` |
+|---|--:|---:|---:|---:|---:|---:|---:|---:|---:|
+| $1.00-1.50 | 226 | 1.24 | 0.005 | 0.0019 | 0.482 | 0.153 | 0.809 | 0.19 | 0.875 |
+| $1.50-2 | 195 | 1.72 | 0.010 | 0.0021 | 0.504 | 0.120 | 0.581 | 0.21 | 0.857 |
+| $2-3 | 284 | 2.45 | 0.010 | 0.0026 | 0.372 | 0.115 | 0.408 | 0.26 | 0.841 |
+| $3-5 | 349 | 3.82 | 0.010 | 0.0037 | 0.247 | 0.096 | 0.262 | 0.37 | 0.788 |
+| $5-10 | 371 | 6.74 | 0.010 | 0.0062 | 0.153 | 0.089 | 0.148 | 0.62 | 0.724 |
+| $10+ | 366 | 17.32 | 0.020 | 0.0222 | 0.090 | 0.118 | 0.058 | 2.22 | 0.606 |
+
+**Findings:**
+
+1. **`step` = exactly 1 tick ($0.01) across $1.50-$10**, 2 ticks at $10+,
+   and **half a tick ($0.005) at $1.00-1.50** — sub-penny prints, i.e.
+   retail price improvement. The 1-cent assumption was the right order of
+   magnitude and slightly CONSERVATIVE at the cheap end.
+2. **Roll is biased LOW here, as predicted** — 0.19-0.62 ticks on sub-$10
+   names is implausible. `p_flat` gives the mechanism: **83% of consecutive
+   trades print at the same price** = the serial correlation in trade
+   direction that breaks Roll's coin-flip assumption.
+3. ⚠ **`p_rev` correction**: under pure bounce, consecutive non-zero
+   changes alternate DETERMINISTICALLY, so the null is **1.0, not 0.5**
+   (an earlier note of mine had this backwards). Measured 0.606-0.875 =
+   strong bounce, **strongest at the cheap tick-constrained end**.
+4. ⇒ Read the pair as a **bracket**: `roll <= true spread <= step`.
+
+### 4. ⭐⭐ THE COST-ADJUSTED BOOK (mc=3, 1,791 trips)
+
+| cost model | cost % of px | PF | win% | avg% | net pts | **% of edge lost** |
+|---|---:|---:|---:|---:|---:|---:|
+| gross | 0 | 6.21 | 80.5 | +2.45 | 4,396 | 0 |
+| ROLL, half-spread each way (optimistic) | 0.122 | 5.72 | 79.6 | +2.33 | 4,177 | **5%** |
+| **STEP, half-spread each way (central)** | 0.276 | **5.17** | 77.9 | **+2.18** | 3,902 | **11%** |
+| STEP, FULL spread each way (pessimistic) | 0.552 | 4.25 | 75.6 | +1.90 | 3,408 | **22%** |
+| (my earlier 1-cent assumption) | 0.326 | 4.98 | 77.4 | +2.13 | 3,813 | 13% |
+
+⭐ **VERDICT: costs take 5-22% of the edge, most likely ~11%, and the book
+survives the pessimistic case at PF 4.25 / +1.90% per trip.**
+
+⚠ **This CORRECTS the S43p warning.** S43p said "at +2.45%/trip a 0.5-1.0%
+round trip is 20-40% of the edge". The measured round trip is **0.28-0.55%**,
+not 0.5-1.0% — so the true figure is roughly half what was feared, and the
+volume choice in S43p is vindicated rather than endangered.
+
+### 5. What this study still does NOT cover
+
+1. **Impact is not modelled** — only the spread. The half/full-spread
+   models price *crossing*, not the price move caused by our own size. At
+   1-2% participation impact should be small; at 10% it is not, and this
+   study cannot say how much.
+2. **No quote data** ⇒ the spread is inferred, never observed. The bracket
+   is honest but it is a bracket.
+3. **Fills are still assumed at the next bar's vwap.** We now know what
+   crossing the spread costs relative to that fill; we have not shown the
+   vwap fill itself is attainable on a halted, 300%-mover tape.
+4. **Entry is BUYING A COLLAPSE and exit is SELLING A BOUNCE** — both trade
+   WITH available liquidity, which argues the real cost sits nearer the
+   optimistic end. Unquantified, but it is the direction of the error.
