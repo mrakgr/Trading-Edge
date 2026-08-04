@@ -11965,3 +11965,94 @@ SIZING = 4 tiers on {gap_adj_1200 < 15} x {speed < -6%}, expectancy-weighted
 EXEC   = cross the entry, rest the exit (S43y)
 mc     = 3 today; expand via mc, subject to per-name exposure limits
 ```
+
+
+## S43ah — FLOAT: was the chg_1d lookahead a float proxy? NO — and float itself does not survive (2026-08-04, late)
+
+User: "it is weird that future split adjustment would influence intraday
+mean reversion. What sort of stocks would have significant future
+adjustment? Large caps. Maybe the double-counted split adjustment was a
+silent proxy for float."
+
+**Half right — but the half that mattered runs the other way.**
+
+Data: `data/equity/float/float.db`, concept `dei:EntityPublicFloat`
+(public float in DOLLARS), ASOF-joined on `known_date <= trade_date` (the
+filing date = no lookahead). Coverage **72.5%** of the g60 book, median
+float **$22.5M**, median staleness **176 days**.
+
+### 1. adj_ratio vs float — the direction is backwards
+
+| adj_ratio | n | % | med float | med px | med dv60 |
+|---|--:|--:|--:|--:|--:|
+| **<1 (future FORWARD split)** | 295 | 2.7 | **$244.4M** | $16.59 | $5.25M |
+| =1 (no future split) | 6,217 | 56.6 | $22.7M | $4.99 | $1.73M |
+| 1-10 (small reverse) | 1,175 | 10.7 | $24.1M | $3.37 | $1.68M |
+| 10-100 | 1,960 | 17.8 | $20.6M | $2.88 | $1.44M |
+| **>=100 (massive reverse)** | 1,343 | 12.2 | **$16.6M** | $2.90 | $1.38M |
+
+⭐ **Forward-split names ARE large caps** (float $244M vs the book's $22M)
+— the user's intuition is correct for `adj_ratio < 1`. **But they are only
+2.7% of the book, and the buggy formula MULTIPLIED by adj_ratio**, so
+`chg_1d >= 300` selected the HIGH end: reverse splitters (40.7% of the
+book) with LOWER float, falling monotonically $24.1M -> $20.6M -> $16.6M.
+
+`corr(ln adj_ratio, ln float) = -0.124` — real but weak.
+⇒ **The lookahead was a "WILL REVERSE-SPLIT SOON" detector (distressed
+microcap), not a float proxy.** Reverse splits are the listing-compliance
+manoeuvre of dying small caps; that is the population it silently picked.
+
+### 2. Float on its own — a U-shape that does NOT survive per-year
+
+| float band | n | tkds | losers | PF | avg% | med px |
+|---|--:|--:|--:|--:|--:|--:|
+| **<$5M** | 1,348 | 172 | 233 | **6.67** | +2.84 | $3.75 |
+| $5-15M | 1,987 | 311 | 416 | 4.45 | +2.21 | $3.92 |
+| $15-40M | 1,670 | 267 | 396 | 3.30 | +1.77 | $3.75 |
+| $40-100M | 1,001 | 170 | 178 | 3.19 | +1.77 | $3.68 |
+| $100-300M | 1,130 | 167 | 230 | 3.78 | +1.89 | $5.73 |
+| **>=$300M** | 828 | 150 | 183 | **4.96** | +2.11 | $6.61 |
+| no filing | 3,026 | 465 | 661 | 3.51 | +1.93 | $4.03 |
+
+**Per-year expectancy ratio vs the g60 baseline:**
+
+| cell | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | record |
+|---|--:|--:|--:|--:|--:|--:|--:|---|
+| float <$5M | **0.84** | 1.50 | **0.13** | **0.79** | 1.77 | 1.50 | 1.41 | ❌ 4/7 |
+| float >=$300M | 1.06 | 0.94 | 1.11 | **0.35** | **0.79** | 1.14 | **0.77** | ❌ 3/7 |
+
+⭐ **THE SMALL-FLOAT CELL IS A REGIME ARTIFACT.** The universe's float
+composition shifted hard:
+
+| yr | coverage | med float | **% under $5M** |
+|---|--:|--:|--:|
+| 2020 | 86% | $26.7M | 10.4 |
+| 2021 | 76% | $29.0M | 3.0 |
+| 2022 | 73% | $73.2M | 4.3 |
+| 2023 | 57% | $47.0M | 10.4 |
+| 2024 | 64% | $20.6M | 17.9 |
+| 2025 | 75% | $9.0M | **34.8** |
+| 2026 | 63% | $9.1M | 25.0 |
+
+**79% of the `<$5M` cell's trips fall in 2024-2026**, exactly when such
+names became common — and it FAILS in the years when they were rare
+(2022 ratio 0.13). Same shape as the S43aa wake-up cell: a pooled table
+that looks strong because a regime, not a feature, produced it.
+
+⚠ Also note **median staleness 176 days**: `EntityPublicFloat` is a 10-K
+cover-page figure, so the DOLLAR float is measured at the last filing. On
+a name that has since run 300%, the current dollar float is far larger
+than recorded — so this feature partly encodes "was small at last filing",
+i.e. past appreciation, not present size.
+
+### VERDICT
+
+❌ **Float is not usable on this book.** Neither tail survives per-year;
+the pooled U-shape is regime composition plus noise.
+❌ **And it does not rehabilitate the chg_1d lookahead** — that selected
+future reverse-splitters, which is only weakly (and negatively) related to
+float. The bug remains a bug with no salvageable signal behind it.
+⭐ The one durable fact: **forward-split (large-cap) names are 2.7% of the
+book and carry 11x the median float** — if a size dimension is ever
+wanted, `adj_ratio < 1` is a clean post-hoc label for it, though it is
+NOT live-knowable and cannot be traded.
