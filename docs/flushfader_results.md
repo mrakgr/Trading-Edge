@@ -9897,3 +9897,127 @@ of -6, 2x the net, and the best 2022 of any cut. It is only "less
 deep" by name. ⚠ Note also that `chg_1d >= 300` is doing most of the
 work here: `< -2` with it still yields 8.17 on 3,408 trips. Left as a
 user decision; the current -6 stands.
+
+
+## S43o — ⭐⭐ S-TIER B: the chg_1d cut becomes a UNION of both tails (2026-08-04)
+
+User: "Since stocks down more than 0% on the day have a great edge, let's
+make the chg_1d filter `>= 300% || < 0`." (Sent as `&&` first, which is
+the empty set; corrected to `||` in the next message.)
+
+**Adopted. It is a strictly dominating change — more trips, higher PF,
+more net, AND it lifts the worst year.** The discarded middle is the
+mushy `[0, 300)` band.
+
+### ⚠ FIRST — a correction to S43k
+
+S43k annotated the `<0` cell as resting on "almost no year coverage
+(only 2023 and 2025 populated with the vote)". **That reading was
+wrong.** The NULL PFs in that table were **zero-loser cells**, not
+empty ones. Every one of the 7 years is populated:
+
+| yr | n | losers | PF | net pts |
+|----|--:|-------:|----|--------:|
+| 2020 | 7 | 0 | **inf** | +47 |
+| 2021 | 15 | 0 | **inf** | +66 |
+| 2022 | 5 | 0 | **inf** | +31 |
+| 2023 | 14 | 7 | 1.30 | +3 |
+| 2024 | 16 | 0 | **inf** | +103 |
+| 2025 | 9 | 1 | 22.37 | +60 |
+| 2026 | 22 | 0 | **inf** | +76 |
+
+**5 of 7 years are LOSS-FREE and all 7 are net positive.** That is the
+opposite of a thin cell. ⭐ HOUSE RULE from this: **always render an
+undefined PF as `inf`, never NULL** — `NULL` is visually identical to
+"no data" and it cost us a good filter for a day.
+
+### The cut sweep (g60, deep speed < -6%, vote >= 1, mc=0)
+
+| cut | n | tkds | losers | PF | win% | avg% | med% | net pts |
+|-----|--:|-----:|-------:|---:|-----:|-----:|-----:|--------:|
+| >=300 (was) | 592 | 129 | 91 | 13.41 | 84.6 | +4.73 | +4.60 | +2,803 |
+| **>=300 OR <0 (NEW)** | **680** | **154** | 99 | **14.35** | **85.4** | +4.69 | +4.53 | **+3,188** |
+| <0 alone | 88 | 25 | 8 | 30.49 | 90.9 | +4.39 | +4.30 | +386 |
+| >=200 OR <0 | 776 | 178 | 116 | 10.98 | 85.1 | +4.52 | +4.39 | +3,504 |
+| no chg_1d cut | 1,363 | 305 | 251 | 5.66 | 81.6 | +3.42 | +3.38 | +4,658 |
+
++15% trips, +19% ticker-days, +14% net, and PF *rises* 13.41 -> 14.35.
+There is no tradeoff to argue about — unlike >=200 vs >=300, which cost
+PF for net.
+
+### The tradeable ladder (mc replay)
+
+| setup | mc=1 | mc=3 | tkds/yr (mc=3) |
+|-------|------|------|---------------:|
+| B old (>=300) | 139 @ 9.12 / +3.86% | 322 @ 9.87 / +4.09% | 18.3 |
+| **B new (>=300 OR <0)** | **163 @ 9.98** / +3.96% | **384 @ 10.93** / +4.17% | **21.9** |
+| A OR B old | 170 @ 10.53 / +3.87% | 405 @ 11.70 / +4.08% | 22.7 |
+| **A OR B new** | **193 @ 11.15** / +3.93% | **464 @ 12.47** / +4.13% | **26.1** |
+
+A and B stay near-disjoint: 15 shared trips of 894 (was 12 of 809).
+
+### ⭐ It lifts the FLOOR — per-year, A OR B at mc=3
+
+| yr | old n / PF | new n / PF |
+|----|-----------|-----------|
+| 2020 | 62 / 11.05 | 66 / **12.18** |
+| 2021 | 58 / 8.59 | 67 / **9.95** |
+| **2022** | 14 / **3.64** | 17 / **4.90** |
+| 2023 | 33 / 10.22 | 39 / 6.11 ⚠ |
+| 2024 | 91 / 9.58 | 103 / **11.41** |
+| 2025 | 98 / 14.06 | 107 / **14.81** |
+| 2026 | 49 / 47.45 | 65 / **56.03** |
+
+**6 of 7 years improve and the WORST YEAR RISES 3.64 -> 4.90.** Note
+against S42z's FLOOR LAW ("to move the floor use regime detection or
+sizing, not the vote bar") — this is not the vote bar. It is a
+*population* change, which is the category the floor law said would be
+needed.
+
+⚠ 2023 is the one degradation (10.22 -> 6.11) and it is **two ticker-
+days**: TOP 2023-05-05 (3 trips, 3 losers, -7.5 pts) and SOUN
+2023-02-23 (11 trips, 4 losers, but +10.6 pts net). One bad name.
+
+### What the two tails actually ARE (they are not the same animal)
+
+| band | n | med chg_1d | med chg_3d | n with chg_3d>0 | med px |
+|------|--:|-----------:|-----------:|----------------:|-------:|
+| >=300% | 592 | **+2,978%** | +3,796% | **592 / 592** | $4.00 |
+| <0 | 88 | **-12%** | +22% | 50 / 88 | $5.95 |
+
+The `>=300` tail is the parabolic runner mid-flight. The `<0` tail is a
+**higher-priced, calmer name that is RED on the session** — 57% of them
+still up over three days (a giveback), 43% down (a slide).
+
+### Does the "into support" thesis refine it further? NO
+
+Testing the user's own S43i thesis on the down-band — buy the giveback,
+avoid the slide:
+
+| 3d context | n | tkds | losers | PF | win% | avg% | worst | yrs |
+|------------|--:|-----:|-------:|----|-----:|-----:|------:|----:|
+| 3d >= +60% (big giveback) | 24 | 9 | 1 | 33.98 | 95.8 | +3.85 | -2.8 | 3 |
+| 3d [0,60) (giveback) | 26 | 9 | 0 | **inf** | 100.0 | +5.84 | **+2.9** | 4 |
+| 3d < 0 (SLIDING OFF) | 38 | 8 | 7 | 14.77 | 81.6 | +3.73 | -3.0 | 6 |
+
+**All three work.** The slide group carries all 7 losers but still reads
+14.77 on 38 trips — it is noisier, not bad. Adding a `chg_3d >= 0`
+condition would cut 43% of the band to remove a sub-population that is
+itself strongly profitable. **Rejected — keep the cut simple.** (The
+2023 TOP case has chg_3d = -73.6%, so it fits the slide story, but one
+ticker-day is not a class.)
+
+### ⭐ THE UPDATED S-TIER B
+
+    speed < -6%  AND  (chg_1d >= 300% OR chg_1d < 0)  AND  vote >= 1
+                                                            (g60, $1+)
+
+mc=3: **384 @ 10.93 / +4.17%/trip / 21.9 tkds per year.**
+Union with S-TIER A: **464 @ 12.47 / +4.13%/trip / 26.1 tkds per year.**
+
+⚠ Costs still unmodelled — see S43l §"What these numbers do NOT include".
+The slippage study remains the gating item, and it now has to cover a
+second, structurally different population: the `<0` band is a higher-
+priced ($5.95 median vs $4.00) and less frenzied tape than the
+parabolic runners, so its fills may well be BETTER, but that is a guess
+until measured.
