@@ -10206,3 +10206,99 @@ volume choice in S43p is vindicated rather than endangered.
 4. **Entry is BUYING A COLLAPSE and exit is SELLING A BOUNCE** — both trade
    WITH available liquidity, which argues the real cost sits nearer the
    optimistic end. Unquantified, but it is the direction of the error.
+
+
+## S43r — ⭐⭐ MARKET IMPACT: the size ladder, and why the EXIT pays us back (2026-08-04)
+
+User: "Let's model the market impact next." Two components, only one of
+which is the textbook one.
+
+### Component 1 — EXECUTION DELAY (measured, no model)
+
+The backtest fills at the next 1s bar's vwap = instantaneous. A real order
+of size Q at participation p takes `T = Q / (p * $rate)` seconds, over which
+we pay the tape's VWAP. **For a system that BUYS a collapse this is adverse
+by construction — the price is running away from us, and that move is the
+very thing we are buying.** Measured from raw prints over 506 days:
+
+| work window | med $vol in window | size @ 10% | **entry cost** | **exit cost** | net delay |
+|---|---:|---:|---:|---:|---:|
+| T =   5s | $68k | $6.8k | -0.017 | -0.002 | **-0.019** |
+| T =  15s | $189k | $18.9k | +0.026 | -0.024 | **+0.002** |
+| T =  30s | $352k | $35.2k | +0.061 | -0.042 | +0.019 |
+| T =  60s | $588k | $58.8k | +0.129 | -0.090 | +0.039 |
+| T = 120s | $1.02M | $102k | +0.305 | -0.127 | +0.177 |
+| T = 300s | $2.02M | $202k | +0.589 | -0.140 | +0.449 |
+
+⭐⭐ **THE EXIT RUNS THE OPPOSITE WAY AND PARTLY PAYS FOR THE ENTRY.** Entry
+cost grows monotonically with T (0.026 -> 0.589) exactly as expected. But
+**every exit number is NEGATIVE — working the sell order SLOWLY gets a
+BETTER price**, improving from -0.024 to -0.140.
+
+This is structural, not noise. The exit trigger is a **5-minute-high
+cross**, and momentum persists past it — so the tape keeps rising while we
+sell. The system is long a collapse (delay hurts) and short a continuation
+(delay helps). The offset is real and it is worth ~25-30% of the entry cost
+at every horizon.
+
+⇒ **Net delay is essentially FREE below ~$35k and still only 0.04% at
+$59k.** It only bites past ~$100k.
+
+### Component 2 — OWN PRICE PRESSURE (square-root law)
+
+`dP/P = Y * sigma_day * sqrt(Q/V)`; method note in `docs/rolls_estimator.md`
+§ companion. Inputs measured per ticker-day from 1s bars: **median
+sigma_day = 29.0%** (1m returns x sqrt(390)) and **median day dollar volume
+= $330.6M**. These are enormous-volume names, so participation is trivial:
+
+| position | % of DAY's volume | Y=0.25 | **Y=0.50** | Y=1.00 |
+|---|---:|---:|---:|---:|
+| $10k | 0.003% | 0.043 | **0.085** | 0.171 |
+| $25k | 0.008% | 0.068 | **0.135** | 0.270 |
+| $50k | 0.015% | 0.096 | **0.191** | 0.382 |
+| $100k | 0.030% | 0.135 | **0.270** | 0.540 |
+| $250k | 0.076% | 0.214 | **0.427** | 0.855 |
+
+⚠ The numbers are driven by **sigma, not by size** — impact is linear in
+sigma and these names run 29% daily vol. At 0.03% of the day's volume a
+$100k order is a rounding error in participation terms.
+
+### ⭐⭐ THE FULL COST LADDER (mc=3, 1,791 trips, Y=0.5, 10% participation)
+
+Per trip: measured spread (`step`, half each way) + measured delay at the
+smallest window that supports the size + square-root impact.
+
+| position | spread | delay | impact | **total** | % oversize | **PF net** | **avg% net** | edge lost |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| gross | — | — | — | — | — | 6.21 | +2.45 | — |
+| **$10k** | 0.276 | **-0.038** | 0.093 | **0.331** | 0.2% | **5.03** | **+2.12** | **13%** |
+| **$25k** | 0.276 | -0.008 | 0.147 | 0.415 | 2.1% | 4.72 | +2.04 | **17%** |
+| **$50k** | 0.276 | 0.147 | 0.208 | 0.631 | 5.7% | 4.23 | +1.82 | **26%** |
+| $100k | 0.276 | 0.291 | 0.295 | 0.862 | 25.1% | 3.64 | +1.59 | 35% |
+| $250k | 0.276 | 0.467 | 0.466 | 1.209 | 59.1% | 2.83 | +1.25 | 49% |
+
+("% oversize" = trips where even a 300s window at 10% participation cannot
+absorb the size — there the cost is understated, so the big rows are
+optimistic.)
+
+### ⭐ VERDICT
+
+1. **The spread is the FIXED cost and it dominates at small size** (0.276%
+   of a 0.331% total at $10k). Delay and impact are the size-dependent
+   parts.
+2. **$25k-$50k is the sweet spot** — 17-26% of the edge, PF still 4.2-4.7,
+   +1.8-2.0% per trip. At mc=3 that is ~256 trades/year on ~$150k of
+   deployed capital (3 concurrent slots).
+3. **$100k+ degrades fast** and a quarter of trips can no longer be filled
+   at 10% participation in 5 minutes. **$250k is where half the edge is
+   gone** and 59% of trips are oversize — that is the practical ceiling of
+   this book as constructed.
+4. ⚠ **The square-root term is the weakest link.** It is calibrated on
+   metaorders worked over HOURS, and uses the DAY's volume as denominator
+   while we execute in seconds — which understates our impact. Pulling the
+   other way, we trade a capitulation where volume is 10-100x normal.
+   Y=1.00 doubles the impact column and is the conservative read.
+5. ⭐ **The direction of the remaining error is favourable**: we buy a
+   collapse and sell into a continuation, i.e. we trade WITH available
+   liquidity on both legs. The measured exit credit is the first hard
+   evidence for what was a hand-wave in S43q.
