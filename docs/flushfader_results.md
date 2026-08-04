@@ -10302,3 +10302,89 @@ optimistic.)
    collapse and sell into a continuation, i.e. we trade WITH available
    liquidity on both legs. The measured exit credit is the first hard
    evidence for what was a hand-wave in S43q.
+
+
+## S43s — z_20m as a 7th voice: REJECTED as a voice, ACCEPTED as a sizing lever (2026-08-04)
+
+User: "Currently we're only trimming >= -1.5, but maybe it would be worth
+adding it as a voice when it is < -2.5?"
+
+**Reconstruction (exact):** z is not a recorded column but its inputs are —
+`z20 = (ln(signal_vwap) - dlv_1200/vol_1200) / sqrt(dlv2_1200/vol_1200 -
+(dlv_1200/vol_1200)^2)`. Parity: over 29,764 $1+ trips, **max z = -1.5000,
+0 violations, 0 nulls** — it is the engine's gate to the digit.
+
+### 1. The fine table (g60, year columns, per house rule)
+
+| z band | n | tkds | PF | win% | avg% | 20 | 21 | 22 | 23 | 24 | 25 | 26 |
+|---|--:|--:|---|--:|--:|--|--|--|--|--|--|--|
+| [-1.75,-1.5) | 903 | 310 | 4.17 | 76.2 | +1.95 | 2.6 | 7.9 | 7.5 | 5.4 | 2.6 | 2.9 | 19.7 |
+| [-2.0,-1.75) | 2,700 | 743 | 3.85 | 79.7 | +1.88 | 9.8 | 4.3 | 19.0 | 2.8 | 2.7 | 2.3 | 7.5 |
+| [-2.25,-2.0) | 3,489 | 894 | 4.24 | 79.7 | +2.06 | 9.6 | 3.9 | 5.3 | 2.2 | 2.5 | 4.4 | 7.6 |
+| **[-2.5,-2.25)** | 2,304 | 668 | **3.23** | 77.8 | +1.85 | 13.9 | 3.5 | 4.0 | 3.4 | 3.7 | 2.1 | 1.7 |
+| [-2.75,-2.5) | 1,216 | 355 | 4.79 | 80.1 | +2.59 | 11.5 | 6.3 | 2.5 | 6.3 | 7.1 | 3.5 | 3.0 |
+| [-3.0,-2.75) | 374 | 133 | 4.57 | 82.9 | +2.88 | 2.3 | 62.4 | 0.6 | 2.6 | 14.2 | 4.1 | 9.9 |
+| [-3.5,-3.0) | 89 | 41 | 12.31 | 77.5 | +4.66 | inf | 87.1 | 1.0 | inf | 23.1 | 3.3 | inf |
+| < -3.5 | 8 | 4 | 3.98 | 75.0 | +2.44 | inf | inf | 0.0 | inf | inf | inf | inf |
+
+⚠ **Non-monotone, and the proposed -2.5 threshold sits immediately after
+the WORST band in the table** ([-2.5,-2.25) = 3.23). Cumulatively:
+
+| cut | n | tkds | PF | avg% | **2022** |
+|---|--:|--:|---|--:|---|
+| all g60 | 11,083 | 1,718 | 4.00 | +2.07 | **4.03** |
+| < -2.25 | 3,991 | 836 | 3.89 | +2.24 | **1.83** |
+| < -2.5 | 1,687 | 411 | 4.96 | +2.76 | **1.08** |
+| < -2.75 | 471 | 151 | 5.38 | +3.21 | **0.57** |
+| < -3.0 | 97 | 41 | 11.05 | +4.48 | **0.59** |
+
+⭐ **The deep-z tail is BEAR POISON** — 2022 falls monotonically 4.03 ->
+1.83 -> 1.08 -> 0.57 as the cut tightens. Same signature as `speed < -10`
+(S43n), where PF rose while 2022 went to zero.
+
+### 2. ⭐ THE SOLO TEST (S43c rule: a >=1 bar makes the vote a UNION, so a
+voice is worth exactly what it admits ALONE)
+
+g60 + the chg_1d filter, 6 voices vs `z < -2.5`:
+
+| group | n | tkds | losers | PF | win% | avg% | net pts |
+|---|--:|--:|--:|---|--:|--:|--:|
+| both fire | 682 | 161 | 99 | 14.39 | 85.5 | +3.98 | 2,713 |
+| existing 6 only (the book) | 3,182 | 584 | 573 | 7.09 | 82.0 | +2.59 | 8,241 |
+| **⭐ z SOLO (what it ADDS)** | **220** | 65 | 57 | **2.41** | 74.1 | **+1.54** | 338 |
+| neither (correctly excluded) | 1,559 | 332 | 383 | **2.48** | 75.4 | +1.22 | 1,894 |
+
+**The trips z admits ALONE (2.41) are statistically indistinguishable from
+the trips the vote correctly REJECTS (2.48).** And 682 of its 902 firings
+(76%) already fire another voice. This is the exact redundancy trap that
+retired speed and pah in S43d.
+
+### 3. The book confirms it (mc=3)
+
+| roster | n | PF | avg% |
+|---|--:|---|--:|
+| **6 voices (current)** | **1,727** | **5.903** | **+2.38** |
+| + z < -2.5 | 1,836 | 5.513 | +2.32 |
+| + z < -2.75 | 1,748 | 5.829 | +2.37 |
+
+Both dilute. `-2.75` is near-neutral only because it barely fires.
+
+### 4. ⭐ BUT IT IS A REAL SIZING LEVER — inside the book
+
+| group | n | PF | avg% | 20 | 21 | **22** | 23 | 24 | 25 | 26 |
+|---|--:|---|--:|--|--|--|--|--|--|--|
+| z < -2.5 | 682 | **14.39** | **+3.98** | 47.3 | 6.7 | **3.9** | 5.8 | 16.6 | 54.9 | 47.1 |
+| z >= -2.5 | 3,182 | 7.09 | +2.59 | 11.6 | 5.9 | **16.5** | 4.7 | 4.4 | 7.8 | 14.0 |
+
+**2x the PF and +1.4pp per trip, better in 6 of 7 years — but it INVERTS in
+2022** (3.9 vs 16.5). That is the CONTRAST GRAMMAR signature (S42b) for the
+fifth time: speed, quiet-vol, vol-derivative, vote count, and now z. A
+feature whose meaning flips with regime cannot be a one-sided voice, but it
+can size.
+
+### VERDICT
+
+- ❌ **REJECTED as a voice** — its solo trips are junk, it is 76%
+  redundant, it dilutes the book at mc=3, and its tail is bear poison.
+- ✅ **ACCEPTED as a SIZING candidate**, joining `speed` in that role, with
+  the 2022 inversion documented as the constraint.
