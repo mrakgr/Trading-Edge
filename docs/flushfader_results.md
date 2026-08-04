@@ -12056,3 +12056,124 @@ float. The bug remains a bug with no salvageable signal behind it.
 book and carry 11x the median float** — if a size dimension is ever
 wanted, `adj_ratio < 1` is a clean post-hoc label for it, though it is
 NOT live-knowable and cannot be traded.
+
+
+## S43ai — MaxMaMeta + eff AT / FROM the arming high: built, parity-clean, NO usable cell yet (2026-08-04, late)
+
+User: "extend the MaxMa structure so it holds metadata values in addition
+to the maximums... store the current eff_20m and eff_10m. That will allow
+us to record the eff at the arming highs."
+
+### 1. THE MECHANISM (built, committed)
+
+`MaxMaMeta<'M>` in `RollingMa.fs` — the MaxMa monotonic deque holding
+`(value, barIdx, meta)`, exposing `State` and **`StateMeta`** = the payload
+of the bar that SET the current max.
+
+Two deliberate deviations from the literal request, both for safety:
+- **A sibling type, not a retrofit of `MaxMa`.** Making MaxMa generic would
+  change the signature at all 15 call sites; a slip there alters the signal
+  path invisibly.
+- **Run PARALLEL to `entryMax`, not replacing it.** Parity then holds BY
+  CONSTRUCTION. Cost is one extra amortized-O(1) deque.
+
+⚠ **Three ordering traps, all resolved deliberately:**
+1. **Push position.** The slot chain (`slotLag`/`slotAbsSum`) updates AFTER
+   `max1200.Push`. Pushing metadata there would store the PREVIOUS slot's
+   eff. It is pushed after the slot chain instead, matching signal-time
+   semantics. (Position is otherwise irrelevant — one push per bar in bar
+   order gives a deque identical to `entryMax`'s.)
+2. **Snapshot alignment.** `sMaxMeta` is captured at the same instant as
+   `sMax1200`, so it describes the same high `priorEntryMax` reports and
+   that `dropToFlow` is computed against.
+3. **Ties.** Back-pop is `<=`, so among equal maxima the LATEST bar's
+   metadata survives — MaxMa's own convention.
+
+**Three new RECORD-ONLY columns** (`v28_armeff/`):
+
+| column | meaning |
+|---|---|
+| `arm_hi_eff_20m` / `arm_hi_eff_10m` | eff as of the bar that SET the arming high — the trend INTO the high |
+| `eff_hi_flow` | `effSinceHigh.Eff` at the arming bar = the drop segment high -> first low |
+
+⭐ **`eff_hi_flow` closes a gap the user spotted**: the drop segment had
+`ols_slope_hi_flow` / `ols_r_hi_flow` recorded but NOT its eff twin, even
+though `effSinceHigh` already shares the anchor. It completes the family —
+the drop was the only segment measured by OLS alone.
+
+**PARITY EXACT vs `v27_reference`: 37,214 trips, all joined, 0 ret_exit
+differences, 0 orphans.**
+
+### 2. WHAT THE FEATURE LOOKS LIKE
+
+g60: cold 26.2% (eff20) / 17.4% (eff10); p10 **0.007**, median **0.191**,
+p90 0.406; `corr(arm20, arm10) = 0.45`; ⭐ **`corr(arm_hi_eff_20m,
+eff_20m) = 0.004`** — genuinely orthogonal to the signal-time eff, and the
+sign flips as it should (median **+0.19** at the high vs **-0.38** at the
+signal). The distribution is almost entirely POSITIVE — a 20m high is by
+construction the top of a rise — so the feature grades HOW CLEANLY the
+run-up got there.
+
+| band | g60 n / PF | g60+vote n / PF |
+|---|---|---|
+| **<0 (fell into the high)** | 688 / **7.06** | 496 / **8.01** |
+| [0,0.10) choppy | 1,583 / 3.81 | 1,099 / 4.16 |
+| [0.10,0.20) | 1,944 / 3.55 | 1,353 / 3.81 |
+| [0.20,0.30) | 1,676 / 6.14 | 1,274 / 5.91 |
+| [0.30,0.40) | 1,356 / 3.62 | 1,063 / 5.22 |
+| >=0.40 smooth climb | 861 / 4.50 | 764 / 6.92 |
+| COLD | 2,882 / 3.33 | 1,654 / 5.79 |
+
+⚠ The middle zigzags (3.81 / 3.55 / **6.14** / 3.62 on g60) — no clean
+structure. ⚠ And COLD is BELOW baseline on g60 (3.33 vs 3.99) but ABOVE it
+on g60+vote (5.79 vs 5.19); a relationship that flips between books is
+noise, not a warm-up penalty.
+
+### 3. ❌ THE `<0` CELL FAILS PER-YEAR
+
+| yr | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| n | 147 | 100 | 55 | 69 | 87 | 138 | 92 |
+| losers | 20 | 21 | 5 | 32 | **1** | 17 | 7 |
+| cell PF | 9.78 | 2.00 | 18.81 | 1.76 | **52.19** | 18.23 | 8.92 |
+| **avg ratio** | **0.99** | **0.54** | 1.37 | **0.48** | 1.76 | 1.90 | **1.00** |
+
+**Beats baseline in only 3 of 7 years**, and the headline PF is the usual
+absent-loss artifact — 2024 reads 52.19 on ONE loser and 2022 18.81 on
+five, while the years with real loss counts (2021: 21 -> 2.00; 2023: 32 ->
+1.76) sit BELOW baseline. Same signature as S43aa.
+
+### 4. ❌ THE eff10 FALLBACK FOR COLD BARS — REJECTED (SCALE MISMATCH)
+
+User: "we could just substitute the arm_hi_eff_10m early in the session."
+
+| source | n | % | **med eff** | **% negative** | PF |
+|---|--:|--:|--:|--:|--:|
+| native20 | 8,108 | 73.8 | **0.191** | **8.5** | 4.30 |
+| fallback10 | 974 | 8.9 | **0.337** | **4.1** | 4.92 |
+| still cold | 1,908 | 17.4 | — | — | 2.85 |
+
+⭐ **eff over 20 slots runs systematically HIGHER than over 40** (median
+0.337 vs 0.191) — a shorter window gives chop less time to accumulate — so
+a fixed threshold means different things depending on which source filled
+it, and the negative rate HALVES (8.5% -> 4.1%). It also buys almost
+nothing: the `<0` cell goes 688 -> 728 trips, PF 7.06 -> 6.96. And
+**eff10's own `<0` cell reads 2.94** vs native eff20's 7.06 — it is not
+measuring the same thing.
+
+⚠ **The "accept partial warmth at >= 20 slots" variant has the same defect
+in continuous form**: `slotAbsSum` would sum over fewer slots, shrinking
+the denominator and inflating eff. If partial warmth is wanted, the honest
+fix is to NORMALISE BY THE ACTUAL SLOT COUNT, not to substitute a different
+window.
+
+### VERDICT
+
+✅ **The mechanism is built, parity-clean and committed** — `MaxMaMeta` is
+reusable for any "feature state at the extreme" question, and
+`eff_hi_flow` closes a real gap in the S41e family.
+❌ **No usable cell yet.** `arm_hi_eff_20m` is orthogonal to everything
+(corr 0.004) which is promising, but its one interesting band fails
+per-year, and the cold-bar fallback is a scale mismatch.
+⏭ The untested angle: `eff_hi_flow` itself (the drop-segment eff) has not
+been broken down at all yet.
