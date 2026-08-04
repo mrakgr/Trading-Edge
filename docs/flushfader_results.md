@@ -11314,9 +11314,46 @@ PERCENTAGE OF PRINCIPAL rather than per share. No schedule is assumed here
 — but at a taker fee anywhere near 0.3% of principal the entry leg alone
 eats >20% of a +1.40% gross edge, dwarfing the 0.065-0.11% spread saving.
 
+### 5. gap_1200 on sub-$1 (user: "maybe that one will do better?") — NO
+
+⚠ Counter to expectation, **sub-$1 tape is DENSER, not sparser**: median
+`gap_1200` = 111-157 vs 281-313 above $1, and 49-60% pass g60 vs 36-37%.
+The sub-$1 names that clear the universe gate are heavily-traded pennies.
+
+| gap_1200 | <$0.25 | $0.25-0.50 | $0.50-1.00 | $1+ |
+|---|--:|--:|--:|--:|
+| <5 | 1.67 | 3.15 | **5.85** | **5.64** |
+| [5,15) | 2.87 | 0.83 | 1.25 | 4.88 |
+| [15,50) | 2.78 | 3.91 | 2.56 | 2.37 |
+| [50,200) | 1.91 | 0.79 | 2.12 | 2.88 |
+| [200,600) | 3.98 | 2.91 | 2.16 | 2.20 |
+| >=600 | 2.16 | 2.67 | 2.32 | 2.06 |
+
+**On $1+ it is a clean monotone ladder (5.64 -> 2.06). Below $0.50 it is
+pure noise** (3.15 / 0.83 / 3.91 / 0.79 — alternating, no structure). In
+$0.50-1.00 only the extreme `<5` corner fires (5.85 on 434 trips), with
+everything else flat at 2.1-2.6 — **a corner, not a gradient.**
+
+That corner clears the null decisively (PF 5.85 vs null95(PF) [1.87, 3.13];
+avg 3.08% vs null95(avg) [1.08, 1.81]; both 100th pctile) but is
+**practically unusable**:
+
+| yr | 2020 | 2021 | 2022 | **2023** | 2024 | 2025 | 2026 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| n | 32 | 51 | 7 | **0** | 81 | 181 | 82 |
+| PF | 2.55 | **1.09** | inf | **absent** | 32.8 | 9.59 | 5.76 |
+
+**2023 has ZERO trips**, 2021 is breakeven, 2022 is 7 trips, and the money
+is entirely 2024-2026. 58 tkds over 7 years = ~8/yr, recency-concentrated.
+
+⭐ **THE DECIDER: the same cell exists at $1+ SEVEN TIMES LARGER and
+equally good** — `gap_1200 < 5` is 3,106 trips @ 5.64 above $1 vs 434 @
+5.85 here. There is no reason to reach into sub-$1 for a corner already
+held with far better year coverage.
+
 ### VERDICT
 
-**Sub-$1 does not earn a place.** (a) the filter stack breaks below $0.50
+**Sub-$1 does not earn a place.** (0) `gap_1200` does not rescue it either (§5); (a) the filter stack breaks below $0.50
 and is only 1.40x effective in $0.50-1.00 vs ~2.05x above $1; (b) even that
 tier has a NEGATIVE 2021 and two more years at ~1.4-1.5; (c) the cheap
 spread is real but small in absolute terms next to percentage-of-principal
