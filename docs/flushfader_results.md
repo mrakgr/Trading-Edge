@@ -11535,3 +11535,80 @@ S43w appearance (5.04 / 7.52 in the `[200,600)` band) was the pooled view;
 the per-year record does not support it. ⭐ Compare `rp_vol` (S43w), which
 passed BOTH tests — ratio 2.19 -> 2.10 when the artifact years came out —
 and remains the volume-family keeper.
+
+
+## S43ab — ⭐⭐ `gap_adj_1200 < 15` on g60: THE BEST SIZING TIER FOUND (2026-08-04)
+
+User: "should we consider the gap_1200 < 15 cells as a sizeup candidate on
+the g60 universe? You said they are mostly redundant, but that isn't really
+the case from what I can see." **The user is right and my S43w wording was
+wrong.**
+
+⚠ **THE CORRECTION.** S43w said `gap_1200 < 5` is "fully subsumed by g60".
+That was a statement about **SET CONTAINMENT** — every `gap_1200 < 5` trip
+already passes `gap_60 < 4` (3,106 trips in both columns). It is NOT a
+claim that `gap_1200` carries no information WITHIN g60, and the table
+plainly shows it does. Two different claims, run together.
+
+### 1. Per-year — `gap_adj_1200 < 15` on g60 (the recommended form)
+
+| yr | base PF / avg% | n | tkds | losers | cell PF | PF ratio | cell avg% | **avg ratio** |
+|---|---|--:|--:|--:|--:|--:|--:|--:|
+| 2020 | 8.40 / 2.73 | 713 | 107 | 138 | 7.94 | 0.95 | +2.91 | **1.07** |
+| 2021 | 4.64 / 1.78 | 1,130 | 173 | 233 | 4.35 | 0.94 | +1.92 | **1.08** |
+| 2022 | 4.03 / 1.87 | 132 | 26 | 13 | 12.14 | 3.01 | +2.54 | **1.36** |
+| 2023 | 3.03 / 1.58 | 182 | 29 | 22 | 9.88 | 3.26 | +3.00 | **1.90** |
+| 2024 | 3.30 / 2.06 | 708 | 105 | 128 | 5.51 | 1.67 | +2.75 | **1.34** |
+| 2025 | 3.04 / 1.77 | 1,097 | 158 | 217 | 4.48 | 1.47 | +2.40 | **1.36** |
+| 2026 | 4.24 / 2.62 | 577 | 75 | 74 | 11.20 | 2.64 | +3.74 | **1.43** |
+
+⭐⭐ **EXPECTANCY BEATS BASELINE IN 7 OF 7 YEARS**, and **every year
+carries real losses** (138/233/13/22/128/217/74) — no zero-loss inflation
+anywhere. ⚠ PF ratio dips slightly below 1 in 2020/2021 (0.95/0.94) while
+expectancy is above 1 — a mild PF-vs-avg divergence, but both near parity
+in those years and strongly positive in the other five.
+
+### 2. Pooled, and the artifact-year test
+
+| scope | cut | n | PF | avg% |
+|---|---|--:|--:|--:|
+| all yrs | baseline | 10,990 | 3.99 | +2.06 |
+| all yrs | `gap_1200<15` | 4,327 | 5.42 | +2.49 |
+| all yrs | **`gap_adj_1200<15`** | **4,539** | **5.86** | **+2.62** |
+| all yrs | `gap_1200<5` | 3,106 | 5.64 | +2.61 |
+| ex-20&22 | baseline | 8,666 | 3.55 | +1.94 |
+| ex-20&22 | `gap_1200<15` | 3,518 | 5.04 | +2.42 |
+| ex-20&22 | **`gap_adj_1200<15`** | **3,694** | **5.48** | **+2.56** |
+| ex-20&22 | `gap_1200<5` | 2,548 | 4.91 | +2.46 |
+
+⭐ **THE RATIOS IMPROVE WHEN THE ARTIFACT YEARS COME OUT** — 1.47 -> 1.54
+on PF, 1.27 -> 1.32 on expectancy. That is the opposite of the S43aa
+wake-up cell (1.66 -> 0.79) and better even than `rp_vol` (2.19 -> 2.10).
+
+### 3. Null test (both scopes, both axes)
+
+| scope | cut | n | PF | null95(PF) | pctile | avg% | null95(avg) | pctile |
+|---|---|--:|--:|---|--:|--:|---|--:|
+| all | `gap_1200<15` | 4,327 | 5.42 | [3.68, 4.35] | **100th** | 2.49 | [1.97, 2.16] | **100th** |
+| all | `gap_adj_1200<15` | 4,539 | 5.86 | [3.68, 4.35] | **100th** | 2.62 | [1.98, 2.15] | **100th** |
+| ex-20&22 | `gap_1200<15` | 3,518 | 5.04 | [3.24, 3.90] | **100th** | 2.42 | [1.84, 2.04] | **100th** |
+| ex-20&22 | `gap_adj_1200<15` | 3,694 | 5.48 | [3.26, 3.88] | **100th** | 2.56 | [1.84, 2.04] | **100th** |
+
+### ⭐ VERDICT — ADOPT AS THE TOP SIZING TIER
+
+1. ✅ **7/7 years on expectancy**, real losses every year, ratios that
+   IMPROVE ex-artifact-years, 100th-percentile nulls on both axes in both
+   scopes. It passes every test in the battery — including the per-year
+   test that killed S43aa.
+2. ⭐ **Use the ADJUSTED form.** `gap_adj_1200 < 15` DOMINATES
+   `gap_1200 < 15` — **more trips AND higher PF** (4,539 @ 5.86 vs 4,327 @
+   5.42). Consistent with S43aa: removing halt holes sharpens the low-gap
+   end (`<5`: 5.64 -> 6.10) because a halt is not tape sparseness.
+3. ⭐ **SIZE: 4,539 of 10,990 = 41% of the g60 book.** Unlike every other
+   sizing lever found today (`rp_vol` 1,778; the rp x gap conjunction 396;
+   S-tier A 229), this one is big enough to matter for portfolio
+   construction rather than being a rare corner.
+4. Ranking of the sizing levers by robustness: **`gap_adj_1200<15` (7/7
+   years) > `rp_vol>=0.8` (6/7, fails 2023) > `chg_1d<0` (survives nulls
+   but is a sign-flipping interaction) > `speed` / `z_20m` (invert with
+   regime).**
