@@ -12287,3 +12287,94 @@ measured at a variable-age anchor needs its span recorded.
 ❌ **No usable cell.** Neither surviving band clears per-year.
 ⏭ Still untested: `eff_hi_flow` (the drop-segment eff, S43ai), and a
 span-NORMALISED eff (dividing by the span rather than conditioning on it).
+
+
+## S43ak — `eff_hi_flow` (the drop-segment eff): a DURATION PROXY, rejected (2026-08-04, late)
+
+The last untested piece of the S43ai family — eff over the arming high ->
+first low segment.
+
+### 1. Census — good coverage, and a STRONG confound
+
+g60, spec book (`v28_armeff`), n = 10,990:
+
+| | value |
+|---|--:|
+| cold | **4.7%** (vs `arm_hi_eff_20m`'s 26.2% — much better) |
+| p10 / median / p90 | -0.721 / **-0.355** / -0.152 |
+| median drop span | **760 bars** (~12.7 min) |
+| **`corr(eff_hi_flow, drop_bars)`** | **+0.714** |
+
+Entirely NEGATIVE, as a drop must be. ⚠ But the **0.714 correlation with
+the drop's own length** is far stronger than the arming-high feature's span
+issue — a fast drop is a clean directed move (eff -> -1), a drawn-out one
+accumulates chop (eff -> 0). Drop span = `bars_since_high -
+bars_since_first_low`, both recorded.
+
+### 2. The raw bands SORT BY DURATION
+
+| band | n | tkds | PF | avg% | **med drop bars** |
+|---|--:|--:|--:|--:|--:|
+| <-.60 steep clean | 1,892 | 365 | 3.74 | +1.92 | **341** |
+| [-.60,-.45) | 1,730 | 288 | 3.40 | +1.78 | **576** |
+| [-.45,-.35) | 1,698 | 286 | 4.51 | +2.45 | **759** |
+| [-.35,-.25) | 2,105 | 336 | **5.31** | +2.36 | **945** |
+| [-.25,-.15) | 2,026 | 319 | 3.26 | +1.88 | **1,120** |
+| >=-.15 choppy | 1,019 | 174 | 4.03 | +2.00 | **1,380** |
+| cold | 520 | 105 | 4.64 | +1.90 | 46 |
+
+`med_drop_bars` climbs monotonically 341 -> 1,380 across the bands. The
+"eff" ordering IS a duration ordering.
+
+### 3. ⭐⭐ WITHIN DROP-SPAN TERCILES THE DIRECTION FLIPS
+
+| drop span | steepest eff | mid | choppiest |
+|---|---|---|---|
+| short (med 412 bars) | **4.09** / +2.10 | 3.71 / +2.02 | 3.11 / +1.88 |
+| medium (783) | 2.77 / +1.40 | **6.89** / +2.72 | 3.61 / +1.95 |
+| long (1,218) | 3.91 / +2.17 | 3.44 / +1.97 | **6.96** / +2.43 |
+
+Steepest wins in short drops, the MIDDLE in medium, choppiest in long —
+**three strata, three different orderings.** A real feature would point the
+same way in each. ⇒ **`eff_hi_flow` carries no information once duration is
+held constant.**
+
+### 4. The variable that DID emerge — drop duration — is weak
+
+| drop bars | n | losers | PF | avg% |
+|---|--:|--:|--:|--:|
+| <200 | 1,018 | 207 | 3.40 | +1.90 |
+| 200-500 | 1,979 | 364 | 3.25 | +1.76 |
+| 500-900 | 3,867 | 856 | 4.11 | +2.10 |
+| 900-1300 | 2,776 | 638 | 4.09 | +2.09 |
+| **>=1300** | 1,350 | 232 | **5.53** | +2.47 |
+
+Roughly monotone — a longer, slower slide into the flush fades better than
+a fast one. But per-year:
+
+| yr | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| ratio | 1.07 | 1.27 | **0.86** | **0.93** | 1.13 | 1.92 | 1.03 |
+| losers | 27 | 45 | 35 | 38 | 47 | **22** | 18 |
+
+**5/7, but two are marginal (1.03, 1.07), it fails 2022 and 2023, and the
+pooled 5.53 leans on 2025's 46.59 on just 22 losers.** Margins of 3-13% in
+most years — not in the class of `gap_adj_1200 < 15` (7/7 at 1.07-1.90).
+
+### VERDICT
+
+❌ **`eff_hi_flow` REJECTED** — a duration proxy (corr 0.714) that carries
+nothing once duration is controlled; the direction of its effect is not
+even consistent across strata.
+❌ **Drop duration itself: too weak to adopt** (5/7 with small margins,
+fails 2022 AND 2023).
+⭐ **This closes the S43ai/aj family.** All three arming-high measures —
+eff INTO the high, eff OUT to the first low, and the partial-span variants
+— produced no usable cell. The mechanism (`MaxMaMeta`, recorded spans) is
+sound and reusable; the hypothesis that trend smoothness around the arming
+high predicts the fade is NOT supported.
+⭐ ⚠ **AND THE SAME LESSON A THIRD TIME**: `arm_hi_eff` was confounded by
+its measurement span (S43aj), `eff_hi_flow` by the segment's duration
+(here). **Any eff/OLS-style ratio taken over a VARIABLE-LENGTH window needs
+its length recorded and controlled — the ratio is not comparable across
+lengths.**
