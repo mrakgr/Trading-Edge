@@ -13255,3 +13255,50 @@ because they were not re-expressions of an axis already in the spec.
 gates to -2.6% gives mc=3 PF **4.851 vs 4.550** (+6.6%) for net 5,917 vs 6,414
 (-7.7%) — the same volume-for-quality trade declined twice already today. Left
 alone pending a deliberate decision on that trade for the book as a whole.
+
+### ❌ S43ar addendum — the `s1m` CEILING TRIM: an mc=0 mirage (2026-08-05)
+
+**User:** *"see if they have a weak spot near their ceiling that we could trim
+lightly."* On the mc=0 book `s1m >= 0` (a new 20m low printed while the 1m OLS
+slope is RISING) looks like exactly that:
+
+| `s1m` band | n | losers | PF | avg% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| [-100,-50) | 300 | 58 | 5.39 | +2.35 | 0.73 | 0.70 | 0.13 | 1.22 | 0.78 | 1.35 | 0.81 |
+| [-50,0) | 149 | 24 | **7.35** | +2.53 | 0.50 | 0.78 | 1.07 | 1.04 | 0.99 | 1.33 | 1.17 |
+| **>= 0 (RISING)** | **70** | 22 | **1.55** | **+0.84** | 0.49 | 1.03 | **-6.03** | 1.98 | **0.14** | 0.60 | 0.71 |
+
+PF 1.55 against the book's 4.55, below book in 6 of 7 years, and the boundary is
+at ZERO with the band below it (7.35) among the best — a clean story too
+(a new low with a rising 1m slope = the low printed early in the minute and the
+bounce has ALREADY started, so the entry is late). `s2m` and `s3m` show NO
+ceiling weakness (their `>=0` bands read 3.99 / 5.15).
+
+❌ **AND THE TRIM MAKES THE BOOK WORSE AT BOTH CONCURRENCIES:**
+
+| | book | taken | PF | avg% | net |
+|---|---:|---:|---:|---:|---:|
+| mc=1 baseline | 7,044 | 1,178 | **4.168** | +2.00 | **2,356** |
+| mc=1 trim `s1m >= 0` | 6,974 | 1,171 | 4.046 | +1.99 | 2,330 |
+| mc=1 trim `s1m >= -50` | 6,825 | 1,163 | 4.096 | +2.00 | 2,326 |
+| mc=3 baseline | 7,044 | 2,997 | **4.550** | +2.14 | **6,414** |
+| mc=3 trim `s1m >= 0` | 6,974 | 2,982 | 4.513 | +2.14 | 6,381 |
+
+⭐⭐ **THE TRIP COUNTS ARE THE WHOLE STORY: it removes 70 from the BOOK but only
+7 at mc=1 and 15 at mc=3.** The band is 1.0% of the book and 0.5% of what is
+actually traded. Per-year at mc=3 the only material move is **2022: 4.130 ->
+3.419** — the trim HURTS precisely the year the mc=0 table flagged at -6.03.
+
+⭐⭐⭐ **THE ENSV LESSON, THIRD OCCURRENCE.** When a name's 1m slope turns
+positive it generates SEVERAL SIGNALS IN A ROW, so those 70 mc=0 rows are a
+handful of clusters counted many times over — and concurrency already excludes
+almost all of them. **The band's badness at mc=0 is a pyramiding artifact.**
+
+⭐ **STANDING RULE, now three-for-three (ENSV, the deep-axis 2022 readings, this):
+ANY BAND TABLE ON THE mc=0 SAMPLER NEEDS ITS mc=1 SURVIVOR COUNT CHECKED BEFORE
+IT MEANS ANYTHING.** A cell that looks terrible on the sampler may be almost
+entirely un-tradeable, in which case trimming it costs good trips and buys
+nothing. Pair this with the S43as rule (**match the BOOK, not just the cell**).
+
+**VERDICT: no trim, at 0, -25 or -50. The ceilings are clean on all three
+horizons once measured on the traded book.**
