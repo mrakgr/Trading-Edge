@@ -13030,3 +13030,125 @@ replication across mc. **The volume is real; the structure it buys is worse.**
 flushes and yet the z score is not negative"* — 129 mc=1 trips are `dlo3m < -5%`
 with `z_20m >= -2.5`. Next: 1m/2m/3m OLS SLOPES with ceilings set to exclude
 ~25% of the book.
+
+## ⭐⭐⭐ S43ar — 1m/2m/3m OLS SLOPES: `s1m <= -350` REPLACES `speed < -6%` AS THE DEEP DIMENSION (2026-08-05)
+
+**User:** *"let's try 1m, 2m, and 3m slopes next. We'll set their ceilings so
+they exclude 25% of the book roughly."* Then: *"let's also try the slope
+differences."*
+
+### BUILD (`v36_slopes`, 35,778 — parity)
+
+`ols60 / ols120 / ols180 = OlsSlopeMa` on `ln(vwap)`, same convention as the
+existing `ols300` (x 6e5 = bp/min). The OLS ladder previously started at 5m;
+nothing measured the 1-3m trend directly — exactly the horizon the deep-flush
+measures live on.
+
+### ⭐⭐ FIRST: THE z GEOMETRY, SOLVED
+
+User: *"It's very weird that there are this many deep flushes and yet the z
+score is not negative"*, then *"Why is the 20m and 5m slope LESS negative when
+z < -2.5?"*
+
+Deep (`dlo3m < -5%`) trips split by `z_20m < -2.5`, mc=1, are **identical on
+everything except z**: leg 583 vs 603 bars, drop -12.2 vs -12.3%, and **both sit
+-10.8% below the 20m VWAP**. The numerator of z is the same; the whole
+difference is the **DENOMINATOR** — the volume-weighted sigma of log price.
+
+⭐ **`z_20m` is a RANGE-NORMALISED depth. Its information is in the DISPERSION,
+not the distance.** `z < -2.5` = the 20m window was TIGHT and price has just
+broken out of it downward; deep-with-`z >= -2.5` = the window was ALREADY WIDE.
+Equally far below the mean in percent, fewer sigmas. (⚠ `volat_20m` does NOT
+separate them, 110 vs 107bp — that is an EWMA of bar-to-bar |r| = NOISE, while
+z's sigma is the spread of price LEVELS. Different quantities.)
+
+That geometry forces the slope answer, and **the new slopes confirm it — the
+profile CROSSES OVER AT 3 MINUTES:**
+
+| `z<-2.5` | 1m | 2m | 3m | 5m | 20m | r(1m) |
+|---|---:|---:|---:|---:|---:|---:|
+| ✗ | -260 | -228 | -236 | **-183** | **-63** | -0.79 |
+| ✓ | **-453** | **-339** | -242 | -164 | -43 | **-0.88** |
+
+Same total drop on different schedules: a violent 1-2 MINUTE BREAK out of a base
+(low sigma, steep short slope, shallow long slope) vs a STEADY GRIND (wide sigma,
+steep long slope). ⚠ **The 20m slope reports the OPPOSITE of what is happening.**
+And the break case fades better (+2.91% vs +2.11%).
+
+### THE CEILINGS AT ~25% (mc=1 book, n=1,178)
+
+`s1m <= -376` · `s2m <= -262` · `s3m <= -209` bp/min. Horizons are distinct:
+`corr(s1m,s3m) = 0.247`, `corr(s1m,s2m) = 0.527`, `corr(s2m,s3m) = 0.765`.
+
+| rule | n | PF | avg% | worst | yrs >= 1.0 |
+|---|---:|---:|---:|---:|---|
+| **A `s1m <= p25`** | 295 | **5.09** | +2.55 | **-10.3** | 5/7 |
+| B `s2m <= p25` | 295 | 3.95 | +2.34 | -15.5 | 4/7 |
+| C `s3m <= p25` | 295 | 3.79 | +2.31 | -15.5 | 4/7 |
+| D `mean(1,2,3) <= p25` | 295 | 4.57 | +2.55 | -15.5 | 5/7 |
+| E `min(1,2,3) <= p25` | 295 | 4.66 | +2.50 | -15.5 | 4/7 |
+| F all three <= own p25 | 113 | 3.87 | +2.67 | -10.3 | 5/7 |
+| ref `speed < -6%` | 168 | 3.93 | +2.76 | -15.5 | 6/7 |
+
+❌ **COMBINING DOES NOT HELP** — mean (4.57) and min (4.66) both come in BELOW
+`s1m` alone (5.09) despite the low cross-correlation. The 2m/3m members carry the
+grind-down cases the 1m member correctly excludes.
+
+❌ **AND NEITHER DO THE DIFFERENCES** (user's follow-up): `d12` 4.77, `d13` 4.85
+(2021 = **0.34**), `d23` 4.06 — all below `s1m`'s 5.09, and largely redundant with
+it (`corr(d13,s1m) = 0.879`, `corr(d12,s1m) = 0.771`). Since `s3m`'s window
+CONTAINS the 1m, the difference is mostly `s1m` variation again. **Acceleration
+adds nothing over level here.**
+
+### ⭐ THE THRESHOLD IS A BROAD HUMP — take the ROUND -350, not the p25 -376
+
+| `s1m <=` | -250 | -300 | **-350** | -376 | -400 | -450 | -550 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| n | 538 | 420 | **340** | 296 | 255 | 193 | 123 |
+| PF | 4.40 | 4.56 | **5.37** | 5.09 | 4.97 | 4.61 | 4.36 |
+| worst | -12.9 | -12.9 | **-10.3** | -10.3 | -10.3 | -10.3 | -10.3 |
+
+-350 is the PEAK, takes MORE trips than the p25, is where the tail sheds
+(-12.9 -> -10.3), and is a round number rather than a percentile fitted to this
+book.
+
+### ⭐⭐⭐ THE SIZING MATRIX WITH `deep = s1m <= -350` (mc=1) — IT FIXES THE TIER ORDERING
+
+| tier | n / PF / avg% / worst / rel | speed's version |
+|---|---|---|
+| A gap_lo & deep | **134** / **8.09** / +3.36 / **-6.3** / 2.19 | 73 / 6.89 / +3.75 / -8.1 / 2.29 |
+| B gap_lo only | 342 / 4.62 / +2.12 / -12.9 / 1.38 | 403 / 5.15 / +2.24 / 1.37 |
+| C deep only | **206** / **4.10** / +2.05 / **-10.3** / 1.34 | 95 / **2.70** / +2.01 / -15.5 / 1.22 |
+| D neither | 496 / 3.21 / +1.54 / -15.5 / 1.00 | 607 / 3.69 / +1.64 / 1.00 |
+
+- **Tier A: +84% trips, HIGHER PF (8.09 vs 6.89), SHALLOWER tail (-6.3 vs -8.1)**
+  — better on every axis at once.
+- ⭐ **TIER C IS REPAIRED.** Under `speed` it sat at PF 2.70, BELOW tier D's 3.69
+  (the "bigger swings not better swings" cell that forced the `cap C <= B` rule).
+  Under `s1m` it is 4.10, ABOVE D's 3.21, on 117% more trips, tail -15.5 -> -10.3.
+- ⭐ **THE TIERS ARE MONOTONE ON BOTH METRICS FOR THE FIRST TIME**: PF 8.09 >
+  4.62 > 4.10 > 3.21 and expectancy 3.36 > 2.12 > 2.05 > 1.54.
+
+Per-year, both 6/7 failing the SAME year (2023), but `s1m` is far more UNIFORM:
+
+| rule | n | PF | avg% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **`s1m <= -350`** | **340** | **5.37** | +2.57 | 1.18 | 1.08 | 1.29 | 0.95 | 1.47 | 1.43 | 1.06 |
+| `speed < -6%` | 168 | 3.93 | +2.76 | 1.47 | 1.47 | 1.67 | 0.92 | 1.31 | 1.36 | 1.37 |
+
+Range 1.06-1.47 vs 0.92-1.67. Twice the trips at 37% higher PF.
+
+The z-refinement of C still works but is now OPTIONAL rather than corrective:
+C\* = 62 @ 6.72 / +2.76% vs demoted 144 @ 3.37 / +1.75% — and the demoted cell
+(3.37) is ABOVE tier D, so those trips no longer need rescuing, they just belong
+one tier down. Dense-tape `z-deep+` 2.16 vs `z+deep+` 2.25 => **z stays OUT of
+tier A**, same conclusion as under `speed`.
+
+⭐ **ADOPTED: the deep sizing dimension is `ols_slope_60 x 6e5 <= -350 bp/min`.**
+Post-hoc, no engine change. **This is the only candidate on the deep axis all
+session to survive every check** — threshold re-expression, iso-trip, tail
+behaviour, and both concurrencies.
+
+⏭ NEXT: `speed < -2%` and `d1m < -2%` are HARD ENGINE GATES (not sizing).
+`corr(s1m,speed) = 0.75`, `corr(s1m,d1m) = 0.818`, and the two gates are 0.908
+correlated with EACH OTHER. Test whether ONE `s1m` gate can replace BOTH.

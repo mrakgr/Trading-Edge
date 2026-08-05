@@ -546,6 +546,14 @@ type FlushPosition =
       // ----- ⭐ S38q rolling OLS of ln(vwap) vs time, 600/1200 present bars.
       // slope = ln per present bar toward the present (×60 ≈ ln/min; ×6e5 ≈
       // bp/min); r = Pearson (r < 0 at a flush). nan on degenerate windows. -----
+      // ⭐ S43ar (user): 1m / 2m / 3m OLS slopes on ln(vwap), same convention as
+      // ols_slope_300 (multiply by 6e5 for bp/min). Record-only.
+      OlsSlope60: float
+      OlsR60: float
+      OlsSlope120: float
+      OlsR120: float
+      OlsSlope180: float
+      OlsR180: float
       OlsSlope300: float           // ⭐ S39p: the 5m twin (300 present bars)
       OlsR300: float
       OlsSlope600: float
@@ -861,6 +869,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                                                  // scale for DIRECT recent-acceleration
                                                  // (slope_5m − slope_10m), replacing the
                                                  // rngfront proxy for "late cliff"
+    // ⭐ S43ar (user): the SHORT-HORIZON slope family. The existing OLS ladder
+    // starts at 5m (ols300); nothing measured the 1-3m trend directly, which is
+    // exactly the horizon the deep-flush measures live on.
+    let ols60 = OlsSlopeMa 60
+    let ols120 = OlsSlopeMa 120
+    let ols180 = OlsSlopeMa 180
     let ols600 = OlsSlopeMa 600
     let ols1200 = OlsSlopeMa 1200
     // ⭐ S39c rolling N_eff over 1s-bar volume, 600/1200 present bars (record-only):
@@ -1388,6 +1402,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         min1200.Push bar.vwap
         sessHigh.Push bar.vwap
         sessLow.Push bar.vwap
+        ols60.Push (log bar.vwap)
+        ols120.Push (log bar.vwap)
+        ols180.Push (log bar.vwap)
         ols300.Push (log bar.vwap)
         olsSinceHigh.Push (log bar.vwap)
         effSinceHigh.Push(bar.vwap, bar.volume)
@@ -2071,6 +2088,30 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       VolatR20m = vr20m
                       VolatSlope10m = vs10m
                       VolatR10m = vr10m
+                      OlsSlope60 =
+                        (match ols60.State with
+                         | ValueSome m when ols60.Count = ols60.WindowSize -> m | _ -> nan)
+                      OlsR60 =
+                        (match ols60.State, ols60.R2 with
+                         | ValueSome m, ValueSome r2 when ols60.Count = ols60.WindowSize ->
+                             (if m < 0.0 then -sqrt r2 else sqrt r2)
+                         | _ -> nan)
+                      OlsSlope120 =
+                        (match ols120.State with
+                         | ValueSome m when ols120.Count = ols120.WindowSize -> m | _ -> nan)
+                      OlsR120 =
+                        (match ols120.State, ols120.R2 with
+                         | ValueSome m, ValueSome r2 when ols120.Count = ols120.WindowSize ->
+                             (if m < 0.0 then -sqrt r2 else sqrt r2)
+                         | _ -> nan)
+                      OlsSlope180 =
+                        (match ols180.State with
+                         | ValueSome m when ols180.Count = ols180.WindowSize -> m | _ -> nan)
+                      OlsR180 =
+                        (match ols180.State, ols180.R2 with
+                         | ValueSome m, ValueSome r2 when ols180.Count = ols180.WindowSize ->
+                             (if m < 0.0 then -sqrt r2 else sqrt r2)
+                         | _ -> nan)
                       OlsSlope300 =
                         (match ols300.State with
                          | ValueSome m when ols300.Count = ols300.WindowSize -> m

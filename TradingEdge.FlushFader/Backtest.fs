@@ -298,6 +298,8 @@ CREATE TABLE trips (
     prev_adj_close DOUBLE, close_3d DOUBLE, day_close DOUBLE,
     close_fwd_1d DOUBLE, close_fwd_3d DOUBLE, close_fwd_5d DOUBLE,
     dv_0945 DOUBLE, rvol_0945_honest DOUBLE, dv_0945_tape DOUBLE,
+    ols_slope_60 DOUBLE, ols_r_60 DOUBLE, ols_slope_120 DOUBLE, ols_r_120 DOUBLE,
+    ols_slope_180 DOUBLE, ols_r_180 DOUBLE,
     ols_slope_300 DOUBLE, ols_r_300 DOUBLE,
     ols_slope_600 DOUBLE, ols_r_600 DOUBLE, ols_slope_1200 DOUBLE, ols_r_1200 DOUBLE,
     n_eff_shannon_600 DOUBLE, n_eff_hhi_600 DOUBLE, n_eff_shannon_1200 DOUBLE, n_eff_hhi_1200 DOUBLE,
@@ -430,6 +432,7 @@ type TripSink(outDir: string) =
             f c.PrevAdjClose; f c.Close3d; f c.DayClose
             f c.CloseFwd1d; f c.CloseFwd3d; f c.CloseFwd5d
             f c.Dv0945; f c.Rvol0945Honest; f p.Dv0945Tape
+            f p.OlsSlope60; f p.OlsR60; f p.OlsSlope120; f p.OlsR120; f p.OlsSlope180; f p.OlsR180
             f p.OlsSlope300; f p.OlsR300
             f p.OlsSlope600; f p.OlsR600; f p.OlsSlope1200; f p.OlsR1200
             f p.NEffShannon600; f p.NEffHhi600; f p.NEffShannon1200; f p.NEffHhi1200
