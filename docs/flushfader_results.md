@@ -13639,3 +13639,99 @@ Per-year vol-normalised expectancy, tier vs D (mc=3):
 A clears D in EVERY year; C misses 2023 and 2026, consistent with it being the
 weaker half of the B/C pair. **This SUPERSEDES the S43ac multipliers (A 2.56 /
 B 1.53 / C 1.62 / D 1.00), which were derived at mc=0 on RAW returns.**
+
+## ⚠⭐ S43ax — THE SIZING MULTIPLIERS: every criterion tried, and why the answer is unstable (2026-08-05)
+
+Follows S43aw (which established `SIZE ∝ 1/sqrt(volat_20m)`). This section is the
+**multiplier** question, and it did not converge. Recorded in full because the
+DISAGREEMENT is the finding.
+
+### THE LADDER OF CRITERIA (tier A relative to tier D)
+
+| criterion | A/D | note |
+|---|---:|---|
+| variance-Kelly `mu/sigma^2` | 1.35-1.69 | ❌ **ranks B ABOVE A** — A's sd is inflated by bigger WINS |
+| MC tail-DD, full-book tails | 1.93 | capacity: f such that p95 DD of a 50-trade path = 20% |
+| relPF (`PF_A/PF_D`) | 2.55 | |
+| raw growth / median DD | 2.73 | ⚠ numerator includes the principal, damps toward 1 |
+| **(PF-1) ratio** (user) | **3.25** | edge is `qL x (PF-1)`, so PF-1 is the edge proxy |
+| weekly DD, calendar-matched | 3.79 | ⚠ charges D for trading more often (83% vs 34% of weeks) |
+| downside-Kelly `mu/downside^2`, full book | 4.02 | |
+| excess growth / median DD | 4.31 | the Calmar/MAR construction |
+| **downside-Kelly, cascade-deduped** | **8.67** | the mc=1-equivalent counting rule |
+
+**A factor of 6 between the extremes.** These are different OBJECTIVES, not
+different estimates of one quantity.
+
+### ⭐⭐ WHAT IS SOLID
+
+1. **`E = qL x (PF-1)`, so edge is proportional to `PF-1`, NOT `PF`** (user). A PF
+   of 1.0 is zero edge; `PF` has a floor that has nothing to do with edge. ⚠ But
+   `qL` is NOT constant across tiers (0.38 / 0.52 / 0.59 / 0.71), so the `(PF-1)`
+   RATIO overstates the EDGE ratio by `qL_D/qL_A` ~ 1.87x — tier A earns much of
+   its PF by LOSING LESS, and only the edge belongs in Kelly's numerator.
+2. ⭐ **DOWNSIDE deviation, not total sd, is the discriminating statistic**
+   (user's suggestion): A 1.36% vs D 2.14%, while A's TOTAL sd (3.81%) is the
+   HIGHEST in the book. **A's volatility is UPSIDE volatility**, and variance-Kelly
+   penalises it as risk — which is why it ranks B above A. **`mu/sigma^2` is not
+   conservative here, it is WRONG.**
+3. ⭐⭐ **mc=1 == ONE TRADE PER CASCADE.** Cascade-deduping the full book gives
+   **1,231** groups vs mc=1's **1,178** trades. The full book counts each disaster
+   ticker-day 1-6 times (its 20 worst trades come from just **6 distinct tkds**;
+   ENSV alone contributes 6), but at mc=1 those trips OVERLAP so at most one is
+   takeable. **The full book overstates tail FREQUENCY by 3-6x for any mc-limited
+   book.**
+4. ⚠ **mc=1 is a GLOBAL slot constraint, not per-ticker** (user asked): being long
+   `NINE` (a ticker) from 43283 blocked ENSV's entire 43326 cascade. Different
+   name, same capital.
+5. ⭐ **Tier A's clean tail is NOT a truncation artifact** — I claimed it was and
+   was wrong. Cascade-deduped over the full 6.5 years, A's worst is STILL **-5.2%**
+   (the -11.0% A trade is a pyramid ADD that mc=1 never takes), while D keeps
+   **-25.0%** (ENSV's FIRST entry is a D trade and survives dedup).
+
+### ❌ WHAT IS NOT SOLID — THE FRAGILITY THAT DECIDES IT
+
+Tier A's advantage rests on **30 losing cascades**, worst **-5.2%**, second-worst
+**-3.5%** — an unusually tight cluster. Injecting ONE additional loss:
+
+| inject into A | A's dsd | **A/D** |
+|---|---:|---:|
+| nothing | 1.02% | **8.67** |
+| -6% | 1.14% | 6.83 |
+| -10% | 1.32% | **4.98** |
+| -15% | 1.63% | **3.25** |
+
+⭐⭐ **ANY SIZING RULE WHOSE ANSWER IS A FUNCTION OF THE WORST OBSERVED LOSS IS
+MEASURING SAMPLE SIZE, NOT RISK.** This killed exact Kelly (f* is essentially
+`0.12/|worst loss|`; the i.i.d. bootstrap CANNOT generate a loss worse than the
+historical maximum), and it destabilises every drawdown- and downside-based
+measure here. ⭐ **USER'S CONCLUSION: an INSENSITIVE measure like `PF-1` may be
+preferable precisely BECAUSE it does not key on the tail.** Recorded as the open
+question.
+
+⭐ **One mechanism supports A's thin tail rather than luck:** tier A requires
+`gap_adj_1200 < 15` = DENSE, continuously-trading tape, and sparse tape is what
+lets price JUMP past the exit target. ENSV had `gap_adj = 45` and lands in D.
+
+### ⚠ ADOPTED — PROVISIONAL
+
+```
+SIZE  ∝  (1 / sqrt(volat_20m))  x  tier_multiplier
+A  gap_adj_1200 < 15 AND ols_slope_60 x 6e5 <= -350     5.00
+B  gap_adj_1200 < 15 only                               1.75
+C  ols_slope_60 x 6e5 <= -350 only                      1.45
+D  neither                                              1.00
+```
+
+A at 5.00 = the cascade-deduped downside-Kelly (8.67) HAIRCUT for the fragility
+above (one -10% A trade puts it at 4.98). B and C from the same deduped estimate
+(1.78 / 1.44) — far more stable, resting on 68 and 46 losers with normal -10 to
+-12% worst cases. **This SUPERSEDES the S43aw relPF multipliers (A 2.55 / B 1.48 /
+C 1.34) and the S43ac originals (A 2.56 / B 1.53 / C 1.62, derived at mc=0 on RAW
+returns).**
+
+⚠⚠ **TREAT AS PROVISIONAL.** The defensible range for A spans **1.9 to 8.7**
+depending on the objective, and the choice within it is risk appetite, not
+measurement. ⏭ **USER (2026-08-05): taking a break to research position sizing
+properly; `PF-1` may be the better basis for its insensitivity; expects the live
+system to underperform these numbers.**
