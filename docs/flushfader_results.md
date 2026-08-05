@@ -13735,3 +13735,163 @@ depending on the objective, and the choice within it is risk appetite, not
 measurement. ⏭ **USER (2026-08-05): taking a break to research position sizing
 properly; `PF-1` may be the better basis for its insensitivity; expects the live
 system to underperform these numbers.**
+
+## ⭐⭐⭐ S43ay — DISTRIBUTIONS, KELLY, AND THE HONEST BOOK (2026-08-05, evening)
+
+Follows S43ax. User's idea: *"fit a log normal to our returns and estimate the
+drawdowns based on that... hold the means steady, but normalize the variance."*
+The distribution work led somewhere, but the two BIGGEST findings came from user
+challenges that overturned my own results. Recorded with the corrections in place.
+
+### ⭐⭐⭐ 1. THE GLOBAL mc=1 BOOK IS A LUCK ARTIFACT — USE PER-TICKER-DAY mc=1
+
+**User:** *"The full book having bigger negative trades than mc=1 makes no sense.
+mc=1 should have the biggest losses since it's in at the start of every decline...
+The fact that we're skipping them over is pure luck."* Correct on both counts.
+
+| book | n | mean | worst | p1 | <-10% | <-20% | <-30% |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| full (all signals) | 35,778 | 1.52% | -44.8% | -13.90% | 2.13% | 0.517% | 0.131% |
+| **PER-TICKER-DAY mc=1** | **6,385** | **1.17%** | **-44.8%** | **-13.32%** | **2.30%** | **0.501%** | **0.125%** |
+| global mc=1 (what we used) | 1,178 | 1.95% | -12.8% | -9.20% | 0.85% | 0.000% | 0.000% |
+
+⭐⭐ **Of the 20 worst ticker-days: per-ticker-day contains 20/20, global mc=1
+contains 2/20** — and on those two it entered at #7 and #10 and MADE MONEY. The
+single global slot was busy elsewhere when the disasters happened. With n=20 that
+gap is not significant (expected ~4, got 2) ⇒ **LUCK, not a property to size on.**
+
+⭐⭐ **This RETRACTS the S43ax claim that "mc=0 manufactures a fat left tail."**
+The per-ticker-day tail is essentially IDENTICAL to the full book's (2.30% vs
+2.13% below -10%). Pyramiding was NOT inflating the tail rate; the confound was
+the global replay's luck. ⚠ The per-ticker-day book is more conservative on BOTH
+axes — mean 1.17% (vs global mc=1's 1.95%, because first entries in a cascade earn
+less than later ones) AND the full tail. **It is the honest book. Use it.**
+
+⭐ **Also refuted: the within-cascade mechanism.** Entry #1 is NOT worse than later
+entries (worst -44.8 / -44.6 / -44.5; %<-10% 2.26 / 2.27 / 2.27). Cause: entries do
+not all exit on the same bounce — the target is a ROLLING 5m max, so each trade
+exits on its own local bounce and measures its loss from its own entry.
+
+### ⭐⭐ 2. EXACT KELLY = `argmax_f  SUM w_i log(1 + f r_i)`
+
+The general form; `f=(bp-q)/b` and `f=mu/sigma^2` are special cases. Verified
+against 6 textbook closed forms, exact to 4 dp. **`mu/sigma^2` is a 2nd-order
+Taylor expansion** — accurate as a FUNCTION in the operating range (error 0.001pp
+at f=0.25) but **its argmax routinely lands OUTSIDE the feasible set**: on our
+book it says 4.05 when a -100% loss makes f>=1 certain ruin.
+
+⭐⭐ **AND THE EXACT KELLY IS ITSELF AN ASSUMPTION ARTIFACT:**
+
+| worst assumed loss | ruin cap 1/L | f* @1-in-1k | f* @1-in-100k |
+|---|---:|---:|---:|
+| -30% | 3.333 | 2.994 | 3.328 |
+| -50% | 2.000 | 1.806 | 1.998 |
+| -100% | 1.000 | 0.833 | 0.999 |
+
+**f* ~ 0.85-1.00 x (1 / worst ASSUMED loss), nearly independent of its
+probability.** So "assume -100%, take quarter-Kelly, get 0.25" is CIRCULAR — the
+S43ax lesson ("any rule keyed on the worst loss measures sample size, not risk")
+recurring with an ASSUMPTION artifact substituted for the sampling artifact.
+⚠ At P(-100%) <= 1e-5 the reported f* is a CORNER solution pinned to the ruin
+boundary, not an optimum.
+
+### 3. THE DISTRIBUTION BAKE-OFF — NIG WINS, AND WHY
+
+Pooled demeaned log-returns, n=1,178. Defect to match: skew -1.13 AND ex-kurt
++2.78 simultaneously — needs 4 parameters (skew-normal caps near +1.0 ex-kurt; t
+has no skew).
+
+| family | k | AIC | dAIC | KS p | left-tail err |
+|---|---:|---:|---:|---:|---:|
+| **norminvgauss (NIG)** | 4 | **-4869.1** | 0.0 | 0.985 | **0.126** |
+| johnsonsu | 4 | -4867.8 | 1.3 | 0.983 | 0.179 |
+| t | 3 | -4792.5 | 76.6 | 0.047 | 1.852 |
+| **norm (the lognormal model)** | 2 | -4647.1 | **222.0** | 0.000 | 2.256 |
+
+Tail accuracy, tier D — observed `P<-8%` = 1.81%, normal says **0.16%**, NIG says
+1.53%. ⭐ **NIG = a normal whose VARIANCE is a random "activity level" z:**
+`z ~ InverseGaussian; X = mu + beta*z + sqrt(z)*W`. Random z ⇒ fat tails; `beta<0`
+⇒ high-activity trades are biased to losses ⇒ skew. **CONFIRMED IN THE DATA** by
+duration quintile: mean +4.67 / +2.72 / +1.51 / -0.09 / -2.56%, worst +1.1 /
+-3.6 / -5.8 / -11.4 / -12.8% — monotone in BOTH. `Var = -3.22 + 1.352 x minutes`,
+R^2 = 0.935 (diffusion). ❌ But hold times are LOGNORMAL not inverse Gaussian
+(dAIC 62.7) — the first-passage derivation FAILS because the barrier MOVES (rolling
+5m max), so NIG is "right family, partly understood", not derived.
+⚠ scipy's `a,b` are DIMENSIONLESS (`alpha*delta`, `beta*delta`); true alpha = 41.3.
+Std errors: shape params 20-24% rel, location params 7-8% ⇒ **hold tail parameters
+~3x more loosely than drift.** EVT/GPD on the loss tail: **xi = -0.07 (BOUNDED,
+not power-law)**, 1-in-1000 loss ~ -15%.
+
+### ❌ 4. TIER A's THIN TAIL — MY SIGNIFICANCE CLAIM WAS WRONG
+
+I reported a parametric bootstrap p = 0.005 that A's tail is real. **Withdrawn:**
+that null was a FITTED NIG which I had already shown is fatter-tailed than the
+data (sample skew/kurtosis sat at p10 of the model's range) — an inflated null
+manufactures significance. The assumption-free permutation test, demeaned to
+isolate SHAPE from A's higher mean:
+
+| statistic | 2020-2023 | 2024-2026 |
+|---|---:|---:|
+| downside deviation | 0.62 | 0.067 |
+| worst deviation | 0.38 | **0.009** |
+| % beyond 2sd below | 0.16 | **0.0015** |
+| skew | 0.10 | **0.002** |
+
+⭐ **In 2020-2023 NOTHING is significant** (several near 0.5). The shape advantage
+is a 2024-2026 phenomenon. The MEAN advantage IS present in both halves (0.0247 vs
+null 0.0188, p=0.057; then 0.0308 vs 0.0188, p=0.0005). **Drift replicates, shape
+does not** — exactly the user's prediction that "the overfit is in avoiding big
+losses, not the median trade."
+
+### ⭐⭐ 5. TAIL AUGMENTATION BY WEIGHTING (user's design) — AND ITS REAL KNOB
+
+*"weight the sampling probabilities... assume at least one -90% trade."* Built as
+weights (equivalent to replication, exact and cheap): empirical above threshold U,
+synthetic exponential tail below it, double-anchored (measured rate at U; 1/N at
+-100%). ⚠ A FIRST ATTEMPT ANCHORED ONLY AT -90% and back-extrapolated the fitted
+decay — incompatible, gave probability 2.9 at -13% and garbage negative E.
+
+**The catastrophe model matters more than the catastrophe rate:**
+- MODEL S (tier-scaled, each tier's tail pinned to its OWN rate): A/D = 6.41 -> 4.27
+  as catastrophe rarens. ❌ Assumes A is proportionally protected from disasters it
+  has never seen = the overfit.
+- MODEL H (common hazard, identical deep tail for all): A/D = 2.27 -> 2.53. A -90%
+  trade comes from a halt/fraud/bankruptcy print — processes indifferent to
+  `gap_adj_1200`. **More physical.**
+
+❌ **BUT I CLAIMED THE DISTORTIONS "CANCEL" IN THE RATIO. THEY DO NOT** (user
+challenge). Decomposing `f_A/f_D = (E ratio) x (var factor)`: as the tail fattens
+the E ratio FALLS 2.050->1.890 while the var factor RISES 1.107->1.341. **Two
+opposing effects partly offsetting under one calibration — not cancellation.**
+⭐⭐ And the true knob is **U, the depth below which tier-specificity stops**:
+
+| U | events below U | A/D @1e-3 | @1e-5 | @1e-7 |
+|---|---:|---:|---:|---:|
+| -10% | 147 | 2.35 | 1.89 | 1.85 |
+| -20% | 32 | 2.27 | 2.43 | 2.53 |
+| -40% | 3 | 3.14 | 4.13 | 4.31 |
+
+**1.85 to 4.31.** My "stable across four orders of magnitude" was stability along
+one axis while a MORE influential arbitrary choice was held fixed. (Tail SHAPE,
+exp vs power-law, moves it <=0.10 — that choice genuinely doesn't matter.)
+
+### ⚠ WHERE IT LANDS — NOTHING WIRED
+
+Per-ticker-day book, NO synthetic tail, assumption-free:
+
+| | A | B | C | D |
+|---|---:|---:|---:|---:|
+| mean % | 2.15 | 1.57 | 1.24 | 1.05 |
+| downside semivar x1e4 | 4.14 | 6.01 | 12.83 | 11.22 |
+| E/sd_dn^2 ratio | **5.55** | 2.79 | 1.03 | 1.00 |
+| **pure mean ratio** | **2.05** | **1.49** | **1.18** | **1.00** |
+
+⭐ **Honest span for A: ~1.9 to ~5.6**, position inside it set by how deep you
+believe tier protection extends. **The data cannot decide: below -20% there are 32
+events book-wide and tier A has NONE of them.** Narrower than S43ax's 1.9-8.7 and
+the indeterminacy is now UNDERSTOOD rather than merely observed. ⭐ **The only
+choice-free number is the MEAN RATIO 2.05 / 1.49 / 1.18** — measured data on the
+honest book, no catastrophe assumption, and exactly the user's original
+"different means, shared risk" design. **SPEC UNCHANGED (A 5.00 / B 1.75 / C 1.45)
+pending tomorrow.** ⏭ USER: augment with large losses interactively until f lands
+naturally where it should, to build intuition first.
