@@ -508,6 +508,15 @@ type FlushPosition =
       Vwap60: float              // ⭐ the CURRENT rolling 60-bar vwap (dv_60/vol_60)
       Vwap5Prev: float           // S42h: 5-bar vwap lagged 5 bars (5s flush speed denominator)
       Vwap10Prev: float          // S42h: 10-bar twin
+      // ⭐ S43at (user): the 30s twins. `speed_30 = signal_vwap/vwap_30_prev - 1`
+      // and `d_30s_hi = signal_vwap/hi_30 - 1`. Record-only.
+      Vwap30Prev: float
+      Hi30: float
+      // ⭐ S43au: the CURRENT rolling vwaps at 30s/2m/3m (vwap_60 and vwap_1200
+      // already existed). `d_vwap_N = signal_vwap/vwap_N - 1`.
+      Vwap30: float
+      Vwap120: float
+      Vwap180: float
       Vwap60Prev: float          // ⭐ the rolling 60-bar vwap 60 bars ago (previous non-
                                  // overlapping minute) — flush speed = signal_vwap/vwap_60_prev-1
                                  // (user, 2026-07-28; replaces the noisy two-point vwap_60_ago)
@@ -937,6 +946,20 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let vol60Lag = LagMa<float> 60               // the previous minute's 60-sum (slope features)
     let tc60Lag = LagMa<float> 60
     let vwap60Lag = LagMa<float> 60              // ⭐ the rolling 60-bar vwap, lagged one minute
+    // ⭐ S43at (user): the 30-SECOND twins of `speed` and `d_1m_hi`. The 1m family
+    // saturates at corr ~0.91 with each other; the question is whether HALVING the
+    // horizon separates the way TRIPLING it did (s1m won as a sizing lever at the
+    // 1m scale, and the z geometry showed the discriminating action is at 1-2 min).
+    // ⭐ S43au (user): "we really should have tested distance from the 1m/2m/3m
+    // vwap". DISTINCT from `speed`, which divides by the LAGGED vwap: dividing by
+    // the CURRENT rolling vwap asks "how far below the recent average is this print
+    // right now" — the numerator of a z-score rather than a displacement.
+    let dvSum120 = SumMa 120
+    let volSum120 = SumMa 120
+    let dvSum180 = SumMa 180
+    let volSum180 = SumMa 180
+    let dvSum30 = SumMa 30
+    let vwap30Lag = LagMa<float> 30              // the rolling 30-bar vwap, lagged 30s
     let dvSum60 = SumMa 60                       // Σ vwap·volume — the liquidity floor + vwap_60
     // ⭐ MA-exit machinery (user, 2026-07-29): rolling sums for the {10..60}m means.
     // Simple price MA = pxSumN/count; VWMA = dvSumN/volSumN. All partial-tolerant.
@@ -1335,6 +1358,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         tcSum300.Push (float bar.tradeCount)
         tcSum600.Push (float bar.tradeCount)
         tcSum1200.Push (float bar.tradeCount)
+        dvSum30.Push (bar.vwap * bar.volume)   // S43at
+        dvSum120.Push (bar.vwap * bar.volume)  // S43au
+        volSum120.Push bar.volume
+        dvSum180.Push (bar.vwap * bar.volume)
+        volSum180.Push bar.volume
         dvSum60.Push (bar.vwap * bar.volume)
         dvSum300.Push (bar.vwap * bar.volume)
         dv2Sum300.Push (bar.vwap * bar.vwap * bar.volume)
@@ -1378,6 +1406,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 | _ -> ValueNone
             else ValueNone
         (match vwap60Now with ValueSome v -> vwap60Lag.Push v | ValueNone -> ())
+        // S43at: same construction one horizon down — 30-bar rolling vwap, lagged 30 bars.
+        (if volSum30.Count = volSum30.WindowSize then
+            match dvSum30.State, volSum30.State with
+            | ValueSome dv, ValueSome v when v > 0.0 -> vwap30Lag.Push (dv / v)
+            | _ -> ())
         (if volSum5.Count = volSum5.WindowSize then
             match dvSum5.State, volSum5.State with
             | ValueSome dv, ValueSome v when v > 0.0 -> vwap5Lag.Push (dv / v)
@@ -2067,6 +2100,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Vwap60 = vv vwap60Now
                       Vwap5Prev = vv vwap5Lag.Lagged
                       Vwap10Prev = vv vwap10Lag.Lagged
+                      Vwap30Prev = vv vwap30Lag.Lagged
+                      Vwap30 = sumRatio dvSum30 volSum30
+                      Vwap120 = sumRatio dvSum120 volSum120
+                      Vwap180 = sumRatio dvSum180 volSum180
+                      Hi30 = vv max30.State
                       Vwap60Prev = vv vwap60Lag.Lagged
                       DollarVol60 = vv dvSum60.State
                       DollarVol300 = vv dvSum300.State

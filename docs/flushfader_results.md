@@ -13346,3 +13346,97 @@ seven slices, not magnitude. And the boundary is a NARROW INTERIOR CELL with goo
 bands on both sides — the shape that has burned us repeatedly. **Not worth a gate
 that would need revalidating on every future book.** ⏭ Re-check on the next
 reference run; if it replicates at the same size it becomes more interesting.
+
+## ❌ S43at/au — 30s TWINS and VWAP DISTANCES as gates: rejected; ⭐ but `dv1200` surfaces (2026-08-05)
+
+**User:** *"try out the 30s versions of these features"*, then *"we really should
+have tested distance from the 1m/2m/3m vwap"* — and, on clarification, **as GATE
+replacements for `speed`/`d1m`**, not as sizing measures.
+
+### BUILD (`v38_flush30s`, `v39_vwapdist`, `v40_nospeed_vwap`)
+
+`dvSum30` + `vwap30Lag` -> `vwap_30_prev` (the 30-bar vwap 30 bars ago, mirroring
+`vwap_60_prev`); `hi_30` from the existing `max30`; `dvSum120/180` + `volSum120/180`
+-> `vwap_120` / `vwap_180` (`vwap_60` and `vwap_1200` already existed). All runs
+35,778 = parity; `v40` = gates-off (56,935, incumbent book reproduces at 7,044).
+
+⚠ **TWO DIFFERENT CONSTRUCTIONS, easily conflated** (user caught this):
+
+| | window | analogue of |
+|---|---|---|
+| `dv30 = signal_vwap/vwap_30 - 1` | last 30 bars, **OVERLAPPING the signal bar** | — (new) |
+| `spd30 = signal_vwap/vwap_30_prev - 1` | bars -60..-30, **strictly prior** | `speed` |
+
+`dv30`'s window contains the signal bar, so that bar's own price is in the
+DENOMINATOR — a "distance from my own recent average", not a clean displacement.
+
+### THE GATE TABLE (iso-book vs the incumbent's 7,044)
+
+| gate | mc=1 book / taken / PF / net | mc=3 PF / net |
+|---|---|---|
+| **INCUMBENT `speed AND d1m`** | 7,044 / 1,178 / **4.168** / 2,356 | **4.550** / **6,414** |
+| `spd30 <= -1.6%` (lagged 30s) | 6,869 / 1,172 / **4.011** / 2,332 | 4.440 / 6,390 |
+| `d30 <= -1.6%` (30s high) | 6,973 / 1,186 / 4.213 / 2,384 | 4.449 / 6,409 |
+| `spd30 AND d30` (the 30s PAIR) | 6,262 / 1,118 / 4.220 / 2,314 | 4.534 / 6,193 |
+| `dv30 <= -0.75%` (current 30s) | 6,732 / 1,184 / 4.190 / 2,368 | **4.566** / 6,411 |
+| `dv60 <= -1.1%` | 6,970 / 1,192 / 4.029 / 2,384 | 4.429 / 6,392 |
+| `dv120 <= -1.7%` | 6,742 / 1,146 / 3.887 / 2,269 | 4.311 / 6,150 |
+| `dv180 <= -2.2%` | 6,633 / 1,100 / 4.031 / 2,233 | 4.417 / 6,115 |
+
+❌ **The DIRECT analogues lose**: `spd30` (the exact 30s twin of `speed`) is worse
+at BOTH concurrencies. ❌ **The vwap distances degrade monotonically outward**
+(dv30 -> dv60 -> dv120 -> dv180 = 4.566 / 4.429 / 4.311 / 4.417 at mc=3).
+
+⭐ **`dv30` MATCHES the two-gate conjunction with ONE gate** (4.190 / 4.566 vs
+4.168 / 4.550, net flat) — but it is a TIE, not a win, its threshold ladder shows
+NO plateau (just the quality/volume slide), and the iso-book control brackets it
+(`speed<-2.2/d1m<-2.2` = 4.525 at book 6,535; `-2.3/-2.3` = 4.582 at 6,272).
+**Not worth a parity-breaking spec change for 0.35% PF and no net.**
+
+⭐⭐ **THE MECHANISM IS THE FINDING.** The 30s PAIR mirrors the incumbent's exact
+structure one horizon down and reads 4.220 / 4.534 vs 4.168 / 4.550 — the same
+book quality from an 11% SMALLER book with 3.5% less net. **The conjunction
+structure transfers across horizons; 1 MINUTE IS SIMPLY THE BETTER SCALE.** And
+`dv30`'s tie explains WHY the pair works: you can only sit far below a 30-SECOND
+vwap if the move was both FAST and GENUINE, so one short-horizon distance encodes
+the AND that a 1-minute measure cannot.
+
+⭐ **HORIZON ROLE ASYMMETRY, now on both ends:** gates want the SHORTEST horizon
+(dv30 best, degrading outward); SIZING wants the LONGEST (`s1m` at 1m beat the 30s
+twins; `dv1200` at 20m has the highest expectancy of any measure tested). Halving
+the horizon is the mirror of tripling it — 3m gave the best sizing measure, 30s
+gives nothing.
+
+### ⭐⭐ THE INCIDENTAL FIND: `dv1200` (distance from the 20m VWAP)
+
+Fell out of the sizing bakeoff (iso-trip, top-295 of the mc=1 book):
+
+| measure | PF | avg% | worst |
+|---|---:|---:|---:|
+| `s1m` (1m OLS slope) | **5.09** | +2.55 | **-10.3** |
+| **`dv1200` (dist 20m vwap)** | 4.80 | **+2.86** | -15.5 |
+| `speed` | 4.68 | +2.69 | -15.5 |
+| `z_20m` (NORMALISED) | 4.49 | +2.22 | -15.5 |
+| ... `d30` 4.63 · `dv30` 4.47 · `spd30` 4.33 · `dv120` 4.31 · `dv60` 4.18 · `d1m` 4.15 · `dv180` 4.14 |
+
+⭐⭐⭐ **`corr(dv1200, z_20m) = 0.059`** — the RAW 20m-vwap distance and the
+sigma-NORMALISED z are ESSENTIALLY INDEPENDENT, despite one being approximately
+the numerator of the other. Sigma varies so much trip-to-trip that dividing by it
+scrambles the ordering entirely — **`z_20m` is dominated by its DENOMINATOR**,
+exactly as the S43ar geometry finding said. And the RAW version is the better one
+(4.80 / +2.86 vs 4.49 / +2.22, **+29% expectancy**). They are ADDITIVE:
+
+| `dv1200 <= -8.5%` | `z_20m < -2.5` | n | PF | avg% |
+|---|---|---:|---:|---:|
+| ✗ | ✗ | 458 | 3.05 | +1.35 |
+| ✗ | ✓ | 74 | 3.54 | +1.56 |
+| ✓ | ✗ | 541 | 4.89 | +2.42 |
+| ✓ | ✓ | 105 | **6.11** | **+3.01** |
+
+And orthogonal to the adopted sizing dimension — **`corr(dv1200, s1m) = 0.333`**,
+with `dv1200` alone (rel 1.79) STRONGER than `s1m` alone (1.41) on 4x the trips.
+
+⚠ `vwap_1200` has been recorded ALL ALONG — no engine work needed. ⏭ **PARKED AS
+A LEAD, NOT A FINDING**: no threshold ladder, per-year table, iso-trip control or
+mc=3 check has been run on it. Five candidates today cleared exactly this much and
+then died against a control.
