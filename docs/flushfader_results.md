@@ -13556,3 +13556,86 @@ form. **A feature can be a good voice and a bad multiplier.**
 deep `dlo3m` (-2.43/-0.70), `dv1200` (-12.29), volatility (-18.39) — every
 third-axis-only cell with a blown-up 2022 was selecting the SAME THING: high
 volatility names in a bear year, where the fat tail runs against you.
+
+## ⭐⭐⭐ S43aw — VOLATILITY-NORMALISED SIZING: `1/sqrt(volat)` + re-derived multipliers (2026-08-05)
+
+**User:** *"try dividing the position size of every trade by the 20m volatility
+and regenerating the sizing matrix... if this vol normalization is working
+properly, the profit factors and average trade % should be approximately equal."*
+The test did not come out as predicted, and what it exposed is more useful.
+
+### ⭐⭐ 1. FULL `1/volat` OVERSHOOTS — THE RIGHT EXPONENT IS 0.5
+
+Scaling each trip's P&L by `(volat_ref/volat)^k` and measuring whether the result
+still carries volatility:
+
+| k | corr(\|r\|, vol) | sd% | avg% | PF |
+|---:|---:|---:|---:|---:|
+| 0.00 (raw) | **+0.237** | 3.61 | 2.145 | 4.550 |
+| 0.25 | +0.114 | 3.49 | 2.106 | 4.529 |
+| 0.40 | +0.036 | 3.45 | 2.092 | 4.517 |
+| **0.50** | **-0.016** | **3.44** | 2.087 | 4.510 |
+| 0.60 | -0.067 | 3.44 | 2.085 | 4.503 |
+| 1.00 (full 1/vol) | **-0.257** | 3.55 | 2.107 | 4.480 |
+
+⭐ **`k = 0.5` zeroes the correlation AND minimises dispersion.** Full `1/vol`
+OVER-corrects: it flips the sign (+0.237 -> -0.257), leaving high-vol trades
+SMALLER than low-vol ones. **SIZE ∝ 1/sqrt(volat_20m).** ⚠ Aggregate PF and
+expectancy barely move across the whole range (4.55 -> 4.48) — this is purely a
+CROSS-SECTIONAL correction, which is exactly where sizing lives.
+
+### 2. THE MATRIX ON `1/sqrt(vol)` SIZING
+
+| tier | mc=3 n / PF / avg% / relPF / relAVG | mc=1 relPF / relAVG |
+|---|---|---|
+| A `gap_lo & deep` | 354 / 8.86 / 3.00 / **2.55** / 1.70 | **2.57** / 1.77 |
+| B `gap_lo only` | 889 / 5.14 / 2.14 / **1.48** / 1.21 | **1.37** / 1.20 |
+| C `deep only` | 501 / 4.65 / 2.15 / **1.34** / 1.21 | **1.20** / 1.19 |
+| D neither | 1,253 / 3.48 / 1.77 / 1.00 / 1.00 | 1.00 / 1.00 |
+
+⭐ **THE EQUALITY TEST FAILS, AND THAT IS THE FINDING.** relPF 2.55 vs relAVG 1.70
+for tier A — closer than under full `1/vol` (2.47 vs 1.38) but not converged.
+**After removing volatility ENTIRELY, the tiers still differ 2.5x in PROFIT FACTOR
+but only 1.7x in PER-TRADE RETURN. The tier edge is WIN/LOSS ASYMMETRY, not trade
+size.** Tier A does not move further once vol-adjusted; it LOSES LESS.
+
+⭐ **B and C are the same tier on expectancy** (relAVG 1.21/1.21 at mc=3,
+1.20/1.19 at mc=1) though they separate mildly on PF. The old spec had them at
+1.53 / 1.62 with a bolted-on "cap C <= B" rule; under vol normalisation **C sits
+BELOW B naturally and the cap rule RETIRES.**
+
+⭐⭐ **A THIRD OF THE OLD DIFFERENTIATION WAS VOLATILITY, DOUBLE-COUNTED.** Raw
+expectancy spread A/D is 2.10x; vol-normalised it is 1.38x (full) / 1.70x (sqrt).
+Sizing by `1/sqrt(vol)` AND by the old multipliers would have charged for the same
+thing twice.
+
+### ⭐ 3. THE ADOPTED MULTIPLIERS — relPF (DRAWDOWN WEIGHTING, user's call)
+
+```
+SIZE  ∝  (1 / sqrt(volat_20m))  x  tier_multiplier
+
+A  gap_adj_1200 < 15  AND  ols_slope_60 x 6e5 <= -350     2.55   (mc=1: 2.57)
+B  gap_adj_1200 < 15  only                                1.48   (mc=1: 1.37)
+C  ols_slope_60 x 6e5 <= -350  only                       1.34   (mc=1: 1.20)
+D  neither                                                1.00
+```
+
+**relPF chosen over relAVG or their geometric mean** because the binding
+constraint is DRAWDOWN, not capital — PF is the win/loss-asymmetry measure and
+that is what the tiers actually differ on. (geo = sqrt(relPF x relAVG) would give
+A 2.08 / B 1.34 / C 1.27; relAVG alone would give A 1.70.) ⚠ **The choice of
+weighting moves tier A between 1.70 and 2.55 — state it explicitly, do not inherit
+it from a formula.**
+
+Per-year vol-normalised expectancy, tier vs D (mc=3):
+
+| tier | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | beats D |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| A | 3.67 | 1.23 | 2.85 | 3.58 | 4.04 | 2.40 | 3.41 | **7/7** |
+| B | 2.08 | 1.97 | 2.44 | 2.69 | 2.10 | 1.87 | 2.97 | 6/7 |
+| C | 2.83 | 1.75 | 2.96 | **1.12** | 2.25 | 2.43 | **1.70** | 5/7 |
+| D | 3.06 | 1.17 | 1.59 | 1.71 | 1.25 | 1.40 | 2.44 | — |
+
+A clears D in EVERY year; C misses 2023 and 2026, consistent with it being the
+weaker half of the B/C pair. **This SUPERSEDES the S43ac multipliers (A 2.56 /
+B 1.53 / C 1.62 / D 1.00), which were derived at mc=0 on RAW returns.**
