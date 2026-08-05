@@ -313,6 +313,7 @@ CREATE TABLE trips (
     ols_slope_since_flow DOUBLE, ols_r_since_flow DOUBLE,
     eff_since_high DOUBLE, eff_since_flow DOUBLE,
     eff9_since_high DOUBLE, eff9_since_flow DOUBLE, slots_since_high INTEGER, slots_since_flow INTEGER,
+    z_since_high DOUBLE, z_since_flow DOUBLE, chan_lo_prev DOUBLE,
     d_hi_flow DOUBLE, ols_slope_hi_flow DOUBLE, ols_r_hi_flow DOUBLE, eff_hi_flow DOUBLE,
     arm_hi_eff_20m DOUBLE, arm_hi_eff_10m DOUBLE, arm_hi_slots_20m INTEGER, arm_hi_slots_10m INTEGER, first_low_vwap DOUBLE,
     bars_above_svwap INTEGER, bars_present INTEGER, sess_low DOUBLE, sess_high DOUBLE,
@@ -443,6 +444,7 @@ type TripSink(outDir: string) =
             f p.OlsSlopeSinceFlow; f p.OlsRSinceFlow
             f p.EffSinceHigh; f p.EffSinceFlow
             f p.Eff9SinceHigh; f p.Eff9SinceFlow; i p.SlotsSinceHigh; i p.SlotsSinceFlow
+            f p.ZSinceHigh; f p.ZSinceFlow; f p.ChanLoPrev
             f p.DHiFlow; f p.OlsSlopeHiFlow; f p.OlsRHiFlow; f p.EffHiFlow
             f p.ArmHiEff20m; f p.ArmHiEff10m; i p.ArmHiSlots20m; i p.ArmHiSlots10m; f p.FirstLowVwap
             i p.BarsAboveSvwap; i p.BarsPresent

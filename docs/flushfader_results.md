@@ -12740,3 +12740,104 @@ stability evidence — read EXPECTANCY.
 `--where`. `bars_since_first_low` has been recorded since long before this
 session — this is a REDISCOVERY of an existing column, not a new feature.
 (`slots_since_flow`, added in S43am, is that / 30 — corr 0.9999.)
+
+## ❌ S43ao — ANCHORED z + the LAGGED CHANNEL LOW: all rejected; the deep-flush axis is ONE-DIMENSIONAL (2026-08-05)
+
+**User:** *"Can we look at z score since the arming high and also the first
+low? ... Maybe we should change how we're calculating the deep flush as
+well. One candidate would be to use the distance from 1m high. Another
+would be to create a new 20m low feature lagged by 1m. These measures are
+all just a little off and don't behave the way that I'd like."*
+
+### BUILD (`v33_anchz`, 35,778 trips — parity with v31/v32)
+
+1. **`AnchoredEff.Z(px)`** — volume-weighted log-price moments (Σv, Σ v·ln p,
+   Σ v·(ln p)²) accumulated PER PRESENT BAR since the anchor, so `z_since_high`
+   / `z_since_flow` are directly comparable to `z_20m` (whose `dlv_1200` /
+   `dlv2_1200` are per-bar SumMa). Same anchors and same reset as `.Eff`.
+2. **`entryMinLag = LagMa<float> 60`** pushed with `priorEntryMin` each present
+   bar → **`chan_lo_prev`** = the entry-channel min AS OF 60 BARS AGO (mirrors
+   `vwap60Lag` → `vwap_60_prev`). `dlo1m = signal_vwap/chan_lo_prev - 1`.
+
+### ⚠ `d1s` REDISCOVERED UNDER A NEW NAME — a process failure
+
+I derived `signal_vwap/chan_lo - 1`, called it `dlo`, and reported an
+iso-trip cell (188 dense-tape trips, PF 11.88, positive all seven years) as
+a promising find. **User: "I think we were calling the dlo here d1s
+elsewhere. When we checked the d1s feature previously, we couldn't find any
+benefit."** Correct — S42c defines `d1s = signal_vwap/chan_lo − 1` and
+**S42g DROPPED it**: on g60, `d1s < -0.5` and its complement both read
+**PF 3.78 = 3.78**, zero separation, with the voice concentrating the 2022
+wart (1.05 vs 7.19).
+
+**Why my table looked good:** the threshold was **not chosen** — it was
+derived post-hoc to hit 188 trips so it would match the incumbent's count
+(implied cut `d1s < -0.6026%` = the 15th percentile of the stratum), inside
+a sub-stratum S42g never conditioned on. Move off that point and it breaks:
+at `d1s < -1%` **2022 goes NEGATIVE in both strata** (-0.38 dense / -6.17
+sparse) — which is exactly S42g's finding that the >1% smash-through bands
+"SAG with bear warts (2022 = 0.98 / 0.52)". The two analyses agree; my
+headline was the artifact. ⭐ **LESSON: grep the log for a feature's name
+AND its formula before presenting it as new.**
+
+### ⭐⭐ THE REAL FINDING: THE DEEP-FLUSH AXIS IS ONE-DIMENSIONAL
+
+| measure | corr with `speed` |
+|---|---:|
+| `d1m` (distance from 1m high) | **0.911** |
+| `dlo1m` (below the 1m-LAGGED 20m low) | **0.888** |
+| `z_since_flow` | 0.412 |
+| `z_20m` | 0.406 |
+| `d1s` (breach depth) | 0.355 |
+
+**The three "different" depth measures are one feature with three names**,
+and none of the genuinely distinct ones beats `speed` at its own job. That
+is the answer to "these measures are all just a little off": they are
+shadows of a single axis, and `speed` is its best available expression.
+
+### THE VERDICTS
+
+| candidate | verdict |
+|---|---|
+| `z_10m` | ❌ NON-MONOTONE — its good band splits at finer resolution ([-3.0,-2.75) is 3/7 years and NEGATIVE in 2022/2026; [-2.75,-2.5) is 5/7). Where it acts alone it lifts PF 4.08 → 4.88 with expectancy FLAT (+2.00 → +2.09) = loss-tail reshuffling, not selection. |
+| `z_since_high` | ❌ SPAN ARTIFACT — pooled gradient is clean (3.25 → 1.84 %/trip) but within span terciles expectancy is FLAT (1.98/2.04/1.96 and 2.21/2.25/2.11) and only sorts in T3. |
+| `z_since_flow` | ❌ REAL BUT DOMINATED — see below. |
+| `d1m`, `dlo1m` | ❌ speed twins (0.911 / 0.888). |
+| `d1s` | ❌ already rejected in S42g. |
+
+**`z_since_flow` is the near-miss and deserves its record.** It is the ONLY
+anchored feature all session to hold its direction under span control — the
+most-negative tercile wins in ALL THREE span strata (+2.83 / +2.32 / +2.59
+vs middles 2.10 / 1.76 / 1.58). Its `[-3.0,-2.5)` band is 2,048 trips (19%
+of g60) at PF 5.11 / +2.53% with **6/7 years above 1.0 and the seventh at
+0.98**. It clears the random null (n=2,279: PF 95% [3.74, 4.80], avg%
+[1.98, 2.26]).
+
+**❌ AND IT STILL DIES ON THE ISO-TRIP CONTROL:**
+
+| cut | n | PF | avg% |
+|---|---:|---:|---:|
+| g60 baseline | 10,666 | 4.27 | +2.13 |
+| candidate `z_since_flow < -2.5` | 2,279 | 5.29 | +2.65 |
+| ctrl `z_20m` tightened | 2,279 | 4.30 | +2.54 |
+| ctrl `\|esf\|` tightened | 2,279 | 4.71 | +2.31 |
+| ctrl leg age tightened | 2,279 | 5.78 | +2.49 |
+| **ctrl `speed` tightened** | 2,279 | **5.42** | **+3.16** |
+
+Tightening `speed` to the same trip count wins on BOTH axes.
+
+### ⭐⭐⭐ THE PATTERN, NOW FOUR FOR FOUR
+
+Arming-high eff (S43ai) → `eff_hi_flow` (S43ak) → anchored `eff9` (S43am) →
+anchored `z` (here). **Every one cleared the pooled null; three of four
+cleared span control; ALL FOUR died against a knob on a feature already in
+the spec.** The pooled null and the span control are necessary and not
+sufficient — **the iso-trip control against an existing knob is the test
+that actually decides.** The only feature to survive the full battery today
+was LEG AGE (S43an), and it survived precisely because it is NOT on this
+axis (`corr` with speed = -0.041).
+
+⏭ **OBSERVATION from the control column, not a proposal:** `speed`
+tightened to the top 21% yields **+3.16%/trip**. There may be more in the
+speed axis than `< -6%` extracts. ⚠ Check S43ac and the earlier speed work
+FIRST — that is the step skipped on `d1s`.

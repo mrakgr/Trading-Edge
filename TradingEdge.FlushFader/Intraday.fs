@@ -150,9 +150,21 @@ type AnchoredEff(slotBars: int) =
     // built from the anchored slots too, so it seeds at the anchor.
     let ema9 = EmaMa 9
     let mutable sumSgn = 0.0
+    // ⭐ S43ao (user): volume-weighted log-price MOMENTS since the anchor, so the
+    // segment carries its own z-score. Accumulated PER PRESENT BAR (not per slot),
+    // matching the convention of the fixed-window z's (dlv_1200 / dlv2_1200 are
+    // SumMa over present bars) so z_since_* is directly comparable to z_20m.
+    let mutable sumV = 0.0
+    let mutable sumVL = 0.0
+    let mutable sumVL2 = 0.0
     /// Completed slots since the anchor.
     member _.Slots = slots
     member _.Push (vwap: float, volume: float) =
+        if vwap > 0.0 && volume > 0.0 then
+            let lp = log vwap
+            sumV <- sumV + volume
+            sumVL <- sumVL + volume * lp
+            sumVL2 <- sumVL2 + volume * lp * lp
         slotDv <- slotDv + vwap * volume
         slotVol <- slotVol + volume
         slotN <- slotN + 1
@@ -186,6 +198,18 @@ type AnchoredEff(slotBars: int) =
     /// S43aj/ak lesson holds here too.
     member _.Eff9Ema =
         if slots < 3 || sumAbs <= 0.0 then nan else sumSgn / sumAbs
+    /// ⭐ S43ao: volume-weighted z of `px` against the anchored segment's own
+    /// log-price distribution. Same form as z_20m but over a VARIABLE-LENGTH
+    /// window anchored at the leg extreme, so ⚠ RECORD AND CONTROL THE SPAN
+    /// (.Slots) — every anchored ratio so far has drifted with it.
+    /// The current bar is already folded in when this is read at the signal bar,
+    /// exactly as the fixed-window z's include it.
+    member _.Z (px: float) =
+        if sumV <= 0.0 || not (px > 0.0) then nan
+        else
+            let mean = sumVL / sumV
+            let var = sumVL2 / sumV - mean * mean
+            if var <= 0.0 then nan else (log px - mean) / sqrt var
     member _.Reset () =
         slotDv <- 0.0
         slotVol <- 0.0
@@ -196,6 +220,9 @@ type AnchoredEff(slotBars: int) =
         sumAbs <- 0.0
         ema9.Reset ()
         sumSgn <- 0.0
+        sumV <- 0.0
+        sumVL <- 0.0
+        sumVL2 <- 0.0
 
 [<Sealed>]
 type GapCounter(windowSecs: int, sessionStartSec: int) =
@@ -391,6 +418,11 @@ type FlushPosition =
       // structurally span-normalised where Kaufman's is not.
       Eff9SinceHigh: float
       Eff9SinceFlow: float
+      // ⭐ S43ao (user): volume-weighted z of the signal price against each anchored
+      // segment's own log-price distribution, and the entry-channel min as of 1m ago.
+      ZSinceHigh: float
+      ZSinceFlow: float
+      ChanLoPrev: float
       SlotsSinceHigh: int
       SlotsSinceFlow: int
       // S41e (user): the arming drop — first leg low / 20m high at arming - 1
@@ -1077,6 +1109,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable targetsToday = 0
     // ⭐ S40l tier-2 (S39q): volat_20m as of 1200 present bars ago — the LAGGED
     // (pre-window) normalizer the slope study lacked. nan while cold.
+    // ⭐ S43ao (user): the ENTRY-CHANNEL MIN as of 60 present bars ago. `chan_lo`
+    // is the CURRENT strictly-prior 1200-bar min, which the signal has just broken
+    // by a median of only 0.21% — a gap-through-the-level measure, not flush depth.
+    // Against the min AS IT STOOD A MINUTE AGO, `signal_vwap/chan_lo_prev - 1` is a
+    // genuine depth-over-a-minute measure: the same shape as `speed` but anchored on
+    // a CHANNEL FLOOR instead of a rolling vwap (speed and d_1m_hi are corr 0.911 —
+    // one feature twice — so a floor-anchored twin is the missing dimension).
+    let entryMinLag = LagMa<float> 60
     let volatLag = LagMa<float> 1200
     // ⭐ S42r (user, 2026-08-03): halts classified inside the last N PRESENT
     // BARS — one indicator per bar into a rolling sum (the bigGapRuns1200
@@ -1354,6 +1394,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // S40l: lagged volat — push the CURRENT ew40 state each present bar so
         // .Lagged = volat_20m as of 1200 present bars ago (nan while EMA cold).
         volatLag.Push (match ew40.State with ValueSome v -> v | ValueNone -> nan)
+        // S43ao: push THIS bar's strictly-prior channel min; `.Lagged` then reads
+        // the value from 60 bars ago (same semantics as vwap60Lag -> vwap_60_prev).
+        entryMinLag.Push (match priorEntryMin with ValueSome v -> v | ValueNone -> nan)
         // the slot chain: one |r| into the volat EWMAs per completed slot
         match slots.Push(bar.vwap, bar.volume) with
         | ValueSome v ->
@@ -1916,6 +1959,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       EffSinceFlow = effSinceFlow.Eff
                       Eff9SinceHigh = effSinceHigh.Eff9Ema
                       Eff9SinceFlow = effSinceFlow.Eff9Ema
+                      ZSinceHigh = effSinceHigh.Z bar.vwap
+                      ZSinceFlow = effSinceFlow.Z bar.vwap
+                      ChanLoPrev = (match entryMinLag.Lagged with ValueSome v -> v | ValueNone -> nan)
                       SlotsSinceHigh = effSinceHigh.Slots
                       SlotsSinceFlow = effSinceFlow.Slots
                       DHiFlow = dropToFlow
