@@ -100,6 +100,8 @@ let defaultConfig =
           AbsEff20Lo       = 0.3        // ⭐ S40i redesign: |eff_20m| ∈ [0.3, 0.5) — the exhaustion
           AbsEff20Hi       = 0.5        // band, one |·| convention with |eff10| (sign = non-event)
           MinAbsEff10m     = 0.15       // |eff_10m| >= 0.15 — no flat 10m tape
+          MinEff9Ema10m    = -0.10      // ⭐ SPEC v2.7 (S43al): eff_9ema_10m >= -0.10 — the whipsaw
+                                        // knife. ⚠ NEGATIVE bound; off = -infinity, NOT 0.
           // ⭐ SPEC v2.2 (user, S41c/d): the LEG-NATIVE PAIR replaces the v2.0
           // dvw < -5% + d20m-high < -10% distance pair (corr 0.946 = one
           // feature twice; ssf x dlv corr 0.075). The v1.8 wall (DistHiLo)
@@ -302,6 +304,7 @@ CREATE TABLE trips (
     n_eff_ret_20m DOUBLE, n_eff_ret_10m DOUBLE,
     hi_60 DOUBLE,
     rng_slots_20m DOUBLE, rng_slots_10m DOUBLE, eff_rng_20m DOUBLE, eff_rng_10m DOUBLE,
+    eff_9ema_20m DOUBLE, eff_9ema_10m DOUBLE,
     gap_300 INTEGER, gap_600 INTEGER, gap_1200 INTEGER,
     max_gap_run_1200 DOUBLE, max_gap_run_300 DOUBLE, big_gap_runs_1200 DOUBLE,
     gap_adj_60 INTEGER, gap_adj_300 INTEGER, gap_adj_600 INTEGER, gap_adj_1200 INTEGER,
@@ -309,6 +312,7 @@ CREATE TABLE trips (
     ols_slope_since_high DOUBLE, ols_r_since_high DOUBLE, bars_since_high INTEGER,
     ols_slope_since_flow DOUBLE, ols_r_since_flow DOUBLE,
     eff_since_high DOUBLE, eff_since_flow DOUBLE,
+    eff9_since_high DOUBLE, eff9_since_flow DOUBLE, slots_since_high INTEGER, slots_since_flow INTEGER,
     d_hi_flow DOUBLE, ols_slope_hi_flow DOUBLE, ols_r_hi_flow DOUBLE, eff_hi_flow DOUBLE,
     arm_hi_eff_20m DOUBLE, arm_hi_eff_10m DOUBLE, arm_hi_slots_20m INTEGER, arm_hi_slots_10m INTEGER, first_low_vwap DOUBLE,
     bars_above_svwap INTEGER, bars_present INTEGER, sess_low DOUBLE, sess_high DOUBLE,
@@ -430,6 +434,7 @@ type TripSink(outDir: string) =
             f p.NEffRet20m; f p.NEffRet10m
             f p.Hi60
             f p.RngSlots20m; f p.RngSlots10m; f p.EffRng20m; f p.EffRng10m
+            f p.Eff9Ema20m; f p.Eff9Ema10m
             i p.Gap300; i p.Gap600; i p.Gap1200
             f p.MaxGapRun1200; f p.MaxGapRun300; f p.BigGapRuns1200
             i p.GapAdj60; i p.GapAdj300; i p.GapAdj600; i p.GapAdj1200
@@ -437,6 +442,7 @@ type TripSink(outDir: string) =
             f p.OlsSlopeSinceHigh; f p.OlsRSinceHigh; i p.BarsSinceHigh
             f p.OlsSlopeSinceFlow; f p.OlsRSinceFlow
             f p.EffSinceHigh; f p.EffSinceFlow
+            f p.Eff9SinceHigh; f p.Eff9SinceFlow; i p.SlotsSinceHigh; i p.SlotsSinceFlow
             f p.DHiFlow; f p.OlsSlopeHiFlow; f p.OlsRHiFlow; f p.EffHiFlow
             f p.ArmHiEff20m; f p.ArmHiEff10m; i p.ArmHiSlots20m; i p.ArmHiSlots10m; f p.FirstLowVwap
             i p.BarsAboveSvwap; i p.BarsPresent

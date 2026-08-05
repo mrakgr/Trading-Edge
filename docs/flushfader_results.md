@@ -8453,6 +8453,19 @@ mc=3 1.17 / 2.00 / 1.65 / **2.30**. Win% at mc=3: 72.2 / 77.4 / 76.6 / **80.4**.
 
 ## ⭐⭐ SPEC v2.6 — THE REFERENCE CARD (2026-08-03)
 
+> 🛑 **SUPERSEDED BY SPEC v2.7, 2026-08-05 (S43al).** One gate added:
+> **`eff_9ema_10m >= -0.10`** — the whipsaw knife. THE reference is now
+> **`v31_reference` (35,778)**, an exact SUBSET of `v27_reference` (0
+> `ret_exit` diffs, 0 orphans). mc=3 on the book = **3,250 @ 4.090 /
+> +2.01%/trip**, worst year **2.860** (was 3,336 @ 3.899, worst 2.782).
+> Everything else on this card stands.
+> ⚠ **OFF FOR THIS GATE IS -INFINITY, NOT 0** — the bound is negative, so
+> `0` is a live ceiling (the S43aj trap mirrored). Verify from the BANNER,
+> which prints `eff9ema10 >= -0.10`.
+> ⚠ The `$1+` floor is the RAW price `entry_px/adj_ratio >= 1`, NOT the
+> adjusted `entry_px` (S43al: the adjusted form inflates the book to 9,924
+> from 7,789 and does not reproduce the recorded mc=3 numbers).
+
 > ⚠ **UPDATED 2026-08-04.** The universe gate is now a GAP COUNT, not
 > `n_eff_shannon` (S43u): `mr_candidate_1s` = `dv_0945_tape >= $2M AND
 > n_bars_1s >= 200` (gaps <= 700 of 900). THE base = **`base_v16`**
@@ -12378,3 +12391,211 @@ its measurement span (S43aj), `eff_hi_flow` by the segment's duration
 (here). **Any eff/OLS-style ratio taken over a VARIABLE-LENGTH window needs
 its length recorded and controlled — the ratio is not comparable across
 lengths.**
+
+## ⭐⭐ S43al — the eff_9ema FAMILY + SPEC v2.7: `eff_9ema_10m >= -0.10` BAKED (2026-08-05)
+
+**User design.** An efficiency ratio with the same denominator as `eff_20m`
+but a different NUMERATOR: instead of the two-endpoint displacement
+`ln(V_last/V_first)`, a **TREND-SIGNED sum of the very same slot returns**
+
+    eff_9ema = SUM s_t * r_t / SUM |r_t|      r_t = ln(V_t / V_{t-1})
+    s_t = +1 if V_{t-1} > EMA9(V)_{t-1} else -1
+
+The sign is fixed by the PREVIOUS slot's position against its own 9-slot
+EMA — strictly-prior information. It is the P&L of a trend-following
+overlay normalised by total path length. Kaufman's eff sees only the two
+ends, so a V-shape and a straight slide that finish alike read alike; this
+credits every leg that agreed with the prevailing trend and debits every
+leg that fought it.
+
+### 1. BUILD
+
+`EmaMa 9` (already existed, alpha = 2/(period+1)) + `SumMa 40` / `SumMa 20`
+for the signed sums, pushed in the SAME slot-emission branch as
+`slotAbsSum`, from ONE computed `r`. `slotEma9.Push v` sits AFTER the sign
+read so the EMA has absorbed `pv` but not `v`. Two record-only columns
+`eff_9ema_20m` / `eff_9ema_10m`; warmth guard identical to `eff_20m`.
+
+**PARITY EXACT.** `v30_eff9ema` (eff gates OFF) = 63,629 trips; its
+eff-band subset reproduces `v27_reference` at 37,214 with 0 `ret_exit`
+diffs — which simultaneously verifies the record-only additions AND the
+superset property of the ungated run.
+
+### 2. NOT A RELABELLED `-eff_20m`
+
+The numerator telescopes when `s_t` never flips, giving `eff_9ema = s *
+eff_20m` exactly. **Measured: the sign flips in 99.79% of windows** (only
+0.21% telescope). `corr(eff_9ema_20m, eff_20m) = -0.336` in the book,
+-0.536 ungated. Median +0.215, 10.9% negative. Orthogonal to every
+existing lever: `gap_adj_1200` +0.084 · speed -0.019 · `volat_20m` -0.169 ·
+`eff_since_flow` -0.202 · `n_eff_ret_20m` -0.097.
+
+### 3. IT DOES NOT REPLACE `eff_20m` — but it is real
+
+Head-to-head, ungated g60+vote book (16,750), at MATCHED trip count:
+
+| cut | n | PF | avg% |
+|---|---:|---:|---:|
+| baseline, no eff gate | 16,750 | 2.97 | +1.89 |
+| **incumbent** \|eff20\| in [.3,.5) & \|eff10\| >= .15 | 9,924 | **4.10** | **+2.31** |
+| `e9_20m >= 0.16` (iso-trip) | 10,609 | 3.42 | +2.11 |
+| `e9_10m >= 0.30` (iso-trip) | 9,990 | 3.15 | +2.02 |
+
+Random-null at n=9,924: PF 95% [2.87, 3.12], avg% [1.84, 1.94]. Both
+variants sit OUTSIDE it — genuine selection, just weaker than Kaufman's.
+
+⚠ These four rows use the ADJUSTED `entry_px >= 1` floor (caught and
+corrected mid-session — the project convention is the RAW
+`entry_px/adj_ratio >= 1`; the corrected baseline reproduces the recorded
+mc=3 book at 3,336 @ 3.899 vs 3,330 @ 3.901). Rows below are all RAW.
+
+### 4. ⭐ CONDITIONING ON e9 CONFIRMS THE INCUMBENT BAND
+
+`|eff_20m|` bands GIVEN `eff_9ema_20m >= 0.20` (g60+vote, no eff gate).
+`*` = inside today's band; year columns = expectancy ratio vs the book:
+
+| \|eff_20m\| | n | PF | avg% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| <.10 | 31 | inf (0 losers) | +3.63 | 1.93 | 2.73 | 0.34 | 1.07 | 1.04 | - | - |
+| [.10,.20) | 286 | 3.42 | +2.02 | 1.24 | 2.04 | 1.54 | 0.25 | 0.22 | 0.42 | 0.89 |
+| [.20,.30) | 1,404 | 3.04 | +1.79 | 0.88 | 0.94 | 1.09 | 1.27 | 0.54 | 0.47 | 0.92 |
+| **[.30,.40)\*** | 3,191 | **4.59** | **+2.54** | 1.07 | 1.27 | 0.83 | 1.04 | 1.08 | 1.09 | 1.10 |
+| **[.40,.50)\*** | 2,746 | **5.14** | **+2.64** | 1.29 | 1.29 | 1.18 | 1.02 | 0.66 | 1.28 | 1.38 |
+| [.50,.60) | 1,132 | 1.89 | +1.24 | 0.43 | 1.38 | **-0.64** | 1.17 | 0.70 | **0.03** | 1.34 |
+| [.60,.70) | 227 | 1.64 | +1.03 | 1.16 | 0.45 | **-2.15** | 1.92 | 1.11 | **-0.14** | 1.19 |
+
+⭐ **The `[0.30, 0.50)` band is confirmed and e9 does NOT substitute for
+it.** High e9 does not rescue the `>= 0.50` tail (1.89 / 1.64, with 2022 at
+-0.64/-2.15 and 2025 at 0.03/-0.14) — **the upper bound is load-bearing.**
+Nor does it justify widening down ([.20,.30) reads 3.04 vs the book's
+4.10). The two features MULTIPLY: same eff band, e9 high vs low, 4.59 vs
+3.13 and 5.14 vs 3.25 — a near-constant ~+45% lift = an orthogonal second
+dimension. `eff_20m` is negative in **100.0%** of these trips, so `abs()`
+is cosmetic.
+
+### 5. ⭐⭐ THE KNIFE IS ON THE 10m TWIN AT -0.10, NOT THE 20m AT 0
+
+User proposed `eff_9ema_20m >= 0` ("strip the trash"). **The data says the
+threshold and the twin are both wrong.**
+
+`eff_9ema_10m` fine bands inside the book:
+
+| band | n | losers | PF | avg% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **<-.10** | **211** | **80** | **1.23** | **+0.35** | -0.13 | 0.33 | 0.95 | 0.42 | -0.10 | -0.25 | 0.65 |
+| [-.10,0) | 301 | 52 | **8.06** | +2.64 | 1.16 | 0.90 | 1.95 | 1.34 | 1.48 | 0.24 | 1.05 |
+| [0,.10) | 524 | 89 | 5.58 | +2.51 | 0.90 | 1.13 | 1.32 | -0.09 | 1.31 | 0.97 | 0.31 |
+| [.10,.20) | 734 | 141 | 5.18 | +2.48 | 1.15 | 0.26 | 1.41 | 1.50 | 1.25 | 1.13 | 0.52 |
+| [.20,.30) | 1,057 | 204 | 5.41 | +2.23 | 0.71 | 0.81 | 1.55 | 1.08 | 0.66 | 1.42 | 0.77 |
+| [.30,.40) | 1,344 | 282 | 4.12 | +2.37 | 0.95 | 0.90 | 0.93 | 1.53 | 1.03 | 0.96 | 0.76 |
+| [.40,.50) | 1,293 | 218 | 7.41 | +2.85 | 0.97 | 1.30 | 1.02 | 1.18 | 1.24 | 1.39 | 1.05 |
+| [.50,.65) | 1,725 | 301 | 7.30 | +2.54 | 1.13 | 1.27 | 0.82 | 0.66 | 1.06 | 0.87 | 1.34 |
+| >=.65 | 600 | 113 | 3.77 | +2.28 | 1.51 | 1.04 | 0.25 | 0.38 | 0.06 | 0.65 | 1.99 |
+
+**The trash is below -0.10.** `[-.10, 0)` is one of the BEST cells (PF
+8.06, 6/7 years) — a `>= 0` knife throws it away. Same on the 20m: its
+`[-.05, 0)` band is 270 trips @ PF **6.07** / +2.69%, above the book.
+
+Knives compared, mc=0 on the book (7,789 @ 5.25 / +2.43% / net 18,966):
+
+| gate | n | PF | avg% | net | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `e9_20m >= 0` (proposed) | 7,227 | 5.34 | +2.46 | 17,766 **(-6.3%)** | 1.00 | 1.01 | **0.89** | **0.92** | 1.06 | 1.03 | 1.00 |
+| `e9_20m >= -0.10` | 7,666 | 5.28 | +2.45 | 18,747 (-1.2%) | 1.00 | 1.00 | 0.95 | 1.00 | 1.01 | 1.03 | 0.99 |
+| **`e9_10m >= -0.10`** | **7,578** | **5.55** | **+2.49** | **18,893 (-0.4%)** | 1.02 | 1.02 | **1.00** | 1.01 | 1.03 | 1.04 | 1.01 |
+
+**At mc=3, which decides it:**
+
+| book | n | PF | avg% | worst year |
+|---|---:|---:|---:|---|
+| baseline | 3,336 | 3.899 | +1.96 | 2021 = 2.782 |
+| `e9_20m >= 0` | 3,115 | **3.846** (down) | +1.96 | 2022 = **2.698** (down) |
+| **`e9_10m >= -0.10`** | **3,250** | **4.090** | **+2.01** | 2021 = **2.860** |
+
+⭐ **BAKED AS SPEC v2.7.** First feature this session with a 7/7 per-year
+record (every ratio in 1.00-1.04). Removes 211 trips at PF 1.23 / +0.35%
+for 0.4% of mc=0 net; mc=3 PF 3.899 -> 4.090, worst year 2.782 -> 2.860.
+
+**Parity chain: `v27_reference` (37,214) -> `v31_reference` (35,778)**,
+verified as an exact SUBSET — 35,778 matched, 0 `ret_exit` diffs, 0
+orphans.
+
+⚠ **OFF IS -INFINITY, NOT 0.** The bound is NEGATIVE, so `0` is a LIVE
+ceiling — the S43aj `--abs-eff20-hi 0` trap in mirror image. Encoded in the
+field doc, the flag help, and the banner (`eff9ema10 >= -0.10`). **Verify
+from the BANNER.**
+
+## S43am — the ANCHORED eff_9ema twins: REJECTED (2026-08-05)
+
+**User:** "calculate the eff_9ema since the arming high and first low."
+
+**BUILD.** `AnchoredEff` extended in place with `.Eff9Ema` — same
+anchor-aligned slots as `.Eff` by construction, so `eff9_since_high/flow`
+describe EXACTLY the same path as `eff_since_high/flow`; only the numerator
+differs. Internal `EmaMa 9` seeded at the anchor. Spans recorded as
+`slots_since_high/flow`. `v32_eff9anch` = 35,778, parity by construction.
+
+### ⚠ THE SPAN CONFOUND IS NOT SOLVED — a claim I wrote into the source and had to retract
+
+I asserted in the code comment that this ratio is "structurally
+span-normalised" because it is a weighted mean of +/-1. **The data
+refutes it.** `corr(eff9_since_high, slots) = -0.589`; median drifts
+**0.771** (10-20 slots) -> 0.477 -> 0.245 -> **0.139** (>= 80). A longer
+segment gives price more chances to cross its own EMA, so the signed terms
+cancel more. That is the SAME drift magnitude as Kaufman's `.Eff` (-0.771
+-> -0.255) reached by a different mechanism. **Bounding to [-1,1] is not
+span-normalising.** Comment corrected in `Intraday.fs`.
+
+### THE VOTE WAS CONTAMINATING THE FIRST READ (user catch)
+
+User: *"test this on the g60 universe without the voice family because the
+voice family has an esf feature already in it."* Correct — the roster
+carries `|eff_since_flow| >= 0.5`, the Kaufman twin at the SAME anchor
+(`corr(eff9_since_flow, eff_since_flow) = -0.699`).
+
+⭐ On the vote book `eff9_since_high < 0` read 343 @ PF 13.20 / +2.86% and
+survived a span control. **On g60 alone it reads 3.01 / +1.68% — BELOW the
+4.27 / +2.13% baseline, with 2026 at -0.91.** Entirely a vote interaction.
+**Always strip a roster of any voice sharing the candidate's anchor before
+reading the candidate.**
+
+### `eff9_since_flow in [0, .10)` — the one cell, and it dies on the control
+
+On g60 it looked genuinely strong: 1,347 @ **6.78** / +2.51% vs 4.27 /
++2.13%; **survived span control in ALL THREE terciles** (11.15/4.51 ·
+5.11/4.07 · 7.31/3.55 — the only anchored feature to do so); cleared the
+random null (n=1,347: PF 95% [3.59, 5.11], avg% [1.93, 2.30]); nearly
+DISJOINT from the `esf` voice (73 of 1,347 overlap = 5.4%); and per-year
+0.99/0.95/**1.19**/**1.82**/1.60/1.10/1.27 — working in 2022 and 2023, the
+two killer years. ⚠ But an INTERIOR band with a hole beside it: [.10,.15)
+collapses to 2.96, below both neighbours.
+
+**THE ROSTER TEST KILLS IT** (mc=3, g60, $1+ raw, `v32`):
+
+| roster variant | n | PF | avg% | net pts | worst year |
+|---|---:|---:|---:|---:|---|
+| **V6 baseline** | 3,250 | 4.090 | +2.01 | 6,533 | 2.860 (2021) |
+| V7 = V6 **+** e9flow | 3,472 | 3.928 | +1.95 | 6,770 | 2.769 |
+| V6' = esf **->** e9flow | 3,017 | 4.298 | +2.08 | 6,275 | 3.149 |
+| **CONTROL-A: keep esf, tighten to \|esf\| >= 0.7** | **2,925** | **4.433** | **+2.15** | 6,289 | **3.594** (2023) |
+| CONTROL-B: dslo >= 16 (pre-S43g roster) | 3,007 | 4.137 | +2.06 | 6,192 | 3.542 |
+
+As a 7th voice: +222 trips buys +3.6% net but costs 0.16 PF and makes every
+year but 2026 worse — the marginal-trade pattern already rejected. As a
+REPLACEMENT it beats the baseline — **but CONTROL-A beats IT on PF,
+expectancy AND worst year at 92 fewer trips.** Turning the existing `esf`
+knob from 0.5 to 0.7 does everything the new voice does and more. The
+apparent gain was trip-count arithmetic.
+
+⭐ **VERDICT: rejected. The anchored eff_9ema family is CLOSED**, like the
+arming-high family before it. **The pattern now has a name: an anchored
+ratio at a VARIABLE-AGE anchor keeps producing cells that clear pooled
+nulls AND span controls but die against a knob on an existing feature.**
+The iso-trip control is the test that catches it — a pooled null and a
+span control together are still not enough.
+
+⏭ **INCIDENTAL LEAD (from the CONTROL, not the hypothesis):** `|esf| >=
+0.7` reads better than the current roster on every axis but volume —
+-10% trips, PF 4.090 -> **4.433**, expectancy +2.01 -> +2.15, **worst year
+2.860 -> 3.594**, net -3.7%. Needs its own fine-band/per-year/iso-trip
+scrutiny before it goes near the spec.

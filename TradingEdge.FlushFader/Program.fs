@@ -35,6 +35,7 @@ type Args =
     | Abs_Eff20_Lo of float
     | Abs_Eff20_Hi of float
     | Min_Abs_Eff_10m of float
+    | Min_Eff_9ema_10m of float
     | Ssf_Lo of float
     | Ssf_Hi of float
     | Max_Dist_Leg_Vwap of float
@@ -91,6 +92,7 @@ type Args =
             | Abs_Eff20_Lo _ -> "⭐ S40i redesign: |eff_20m| >= this (abs band, mirrors |eff10|). Default 0.3. <= 0 = off."
             | Abs_Eff20_Hi _ -> "⭐ S40i redesign: |eff_20m| < this. Default 0.5. Infinity = off."
             | Min_Abs_Eff_10m _ -> "⭐ SPEC v1.2: |eff_10m| >= this (no flat 10m tape). Default 0.15. 0 = off."
+            | Min_Eff_9ema_10m _ -> "⭐ SPEC v2.7 (S43al): eff_9ema_10m >= this — the whipsaw knife. Default -0.10. ⚠ OFF = -infinity ONLY; 0 is a LIVE bound."
             | Ssf_Lo _ -> "⭐ SPEC v2.2 (S41c/d): ols_slope_since_flow x 6e5 >= this bp/min (no vertical crash). Default -375. -Infinity = off."
             | Ssf_Hi _ -> "⭐ SPEC v2.2 (S41c/d): ols_slope_since_flow x 6e5 < this bp/min (no shallow drift). Default -25. >= 0 = off."
             | Max_Dist_Leg_Vwap _ -> "⭐ SPEC v2.2 (S41d): vwap/(dv_leg/vol_leg) - 1 < this — stretched below the leg's OWN vwap. Default -0.03. >= 0 = off."
@@ -150,6 +152,7 @@ let main argv =
                 KBandLo = 0; KBandHi = 0
                 AbsEff20Lo = 0.0; AbsEff20Hi = Double.PositiveInfinity
                 MinAbsEff10m = 0.0; MinVol10Rate = 0.0; MinLows300 = 0
+                MinEff9Ema10m = Double.NegativeInfinity   // ⚠ off is -inf, NOT 0 (a live bound)
                 MaxRngFront = Double.PositiveInfinity
                 MinAccel1020Bpm = Double.NegativeInfinity
                 MaxSlope20Bpm = 0.0; MinSlope5Bpm = Double.NegativeInfinity
@@ -188,6 +191,7 @@ let main argv =
                     AbsEff20Lo       = parsed.GetResult(Abs_Eff20_Lo,       defaultValue = dI.AbsEff20Lo)
                     AbsEff20Hi       = parsed.GetResult(Abs_Eff20_Hi,       defaultValue = dI.AbsEff20Hi)
                     MinAbsEff10m     = parsed.GetResult(Min_Abs_Eff_10m,    defaultValue = dI.MinAbsEff10m)
+                    MinEff9Ema10m    = parsed.GetResult(Min_Eff_9ema_10m,   defaultValue = dI.MinEff9Ema10m)
                     MinVol10Rate     = parsed.GetResult(Min_Vol10_Rate,     defaultValue = dI.MinVol10Rate)
                     MinLows300       = parsed.GetResult(Min_Lows_300,       defaultValue = dI.MinLows300)
                     MaxRngFront      = parsed.GetResult(Max_Rng_Front,      defaultValue = dI.MaxRngFront)
@@ -262,7 +266,7 @@ let main argv =
         (if ic.MinVolat20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVolat20m * 1e4))
         (if Double.IsPositiveInfinity ic.MaxVolat20m then "inf" else sprintf "%.0f" (ic.MaxVolat20m * 1e4))
     (if parsed.Contains Base_Run then printfn "  mode        = ⭐ BASE RUN — every spec gate OFF (signal definition only)")
-    printfn "  SPEC v2.6   = speed %s | d1m %s | ssf ∈ [%s, %s) bp/m | dlv %s | rflow >= %s | z20 < %s | cascade %s | K ∈ [%s, %s] | |eff20| ∈ [%s, %s) | |eff10| >= %s | vol10rate >= %s | lows300 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
+    printfn "  SPEC v2.7   = speed %s | d1m %s | ssf ∈ [%s, %s) bp/m | dlv %s | rflow >= %s | z20 < %s | cascade %s | K ∈ [%s, %s] | |eff20| ∈ [%s, %s) | |eff10| >= %s | eff9ema10 >= %s | vol10rate >= %s | lows300 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
         (if ic.MaxSpeed1m >= 0.0 then "off" else sprintf "< %.0f%%/1m" (ic.MaxSpeed1m * 100.0))
         (if ic.MaxDist1mHi >= 0.0 then "off" else sprintf "< %.0f%%" (ic.MaxDist1mHi * 100.0))
         (if Double.IsNegativeInfinity ic.SsfLoBpm then "off" else sprintf "%.0f" ic.SsfLoBpm)
@@ -285,6 +289,7 @@ let main argv =
         (if ic.AbsEff20Lo <= 0.0 then "off" else sprintf "%.2f" ic.AbsEff20Lo)
         (if Double.IsPositiveInfinity ic.AbsEff20Hi then "off" else sprintf "%.2f" ic.AbsEff20Hi)
         (if ic.MinAbsEff10m <= 0.0 then "off" else sprintf "%.2f" ic.MinAbsEff10m)
+        (if Double.IsNegativeInfinity ic.MinEff9Ema10m then "off" else sprintf "%+.2f" ic.MinEff9Ema10m)
         (if ic.MinVol10Rate <= 0.0 then "off" else sprintf "%.2fx" ic.MinVol10Rate)
         (if ic.MinLows300 <= 0 then "off" else string ic.MinLows300)
         (if Double.IsPositiveInfinity ic.MaxRngFront then "off" else sprintf "%.2f" ic.MaxRngFront)

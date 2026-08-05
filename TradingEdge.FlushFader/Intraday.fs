@@ -143,6 +143,13 @@ type AnchoredEff(slotBars: int) =
     let mutable firstV = nan
     let mutable prevV = nan
     let mutable sumAbs = 0.0
+    // ⭐ S43am (user): the eff_9ema twin of this anchored segment. Shares the
+    // SAME anchor-aligned slots as .Eff by construction, so the two describe
+    // exactly the same path — only the numerator differs (trend-signed sum of
+    // every slot return, vs the two-endpoint displacement). The 9-slot EMA is
+    // built from the anchored slots too, so it seeds at the anchor.
+    let ema9 = EmaMa 9
+    let mutable sumSgn = 0.0
     /// Completed slots since the anchor.
     member _.Slots = slots
     member _.Push (vwap: float, volume: float) =
@@ -152,7 +159,15 @@ type AnchoredEff(slotBars: int) =
         if slotN = slotBars then
             let v = if slotVol > 0.0 then slotDv / slotVol else vwap
             if slots = 0 then firstV <- v
-            elif prevV > 0.0 && v > 0.0 then sumAbs <- sumAbs + abs (log (v / prevV))
+            elif prevV > 0.0 && v > 0.0 then
+                let r = log (v / prevV)
+                sumAbs <- sumAbs + abs r
+                // S43am: ema9 has absorbed prevV but NOT v (pushed below), so the
+                // sign is strictly-prior. Cold convention: the seed makes the
+                // segment's FIRST return read s = -1 (prevV > prevV is false).
+                let s = match ema9.State with ValueSome e when prevV > e -> 1.0 | _ -> -1.0
+                sumSgn <- sumSgn + s * r
+            ema9.Push v
             prevV <- v
             slots <- slots + 1
             slotDv <- 0.0
@@ -161,6 +176,16 @@ type AnchoredEff(slotBars: int) =
     member _.Eff =
         if slots < 3 || sumAbs <= 0.0 || not (firstV > 0.0) || not (prevV > 0.0) then nan
         else log (prevV / firstV) / sumAbs
+    /// ⭐ S43am: the trend-signed efficiency over the same anchored segment.
+    /// ⚠ NOT SPAN-FREE — measured corr(eff9_since_high, slots) = -0.589, median
+    /// drifting 0.771 (10-20 slots) -> 0.139 (>= 80). Being a weighted mean of
+    /// +/-1 bounds it to [-1,1] but does NOT make it comparable across lengths:
+    /// a longer segment gives price more chances to cross its own 9-slot EMA, so
+    /// the signed terms cancel more. Same magnitude of drift as Kaufman's .Eff
+    /// (-0.771 -> -0.255) by a different mechanism. CONDITION ON .Slots — the
+    /// S43aj/ak lesson holds here too.
+    member _.Eff9Ema =
+        if slots < 3 || sumAbs <= 0.0 then nan else sumSgn / sumAbs
     member _.Reset () =
         slotDv <- 0.0
         slotVol <- 0.0
@@ -169,6 +194,8 @@ type AnchoredEff(slotBars: int) =
         firstV <- nan
         prevV <- nan
         sumAbs <- 0.0
+        ema9.Reset ()
+        sumSgn <- 0.0
 
 [<Sealed>]
 type GapCounter(windowSecs: int, sessionStartSec: int) =
@@ -270,6 +297,16 @@ type FlushPosition =
       RngSlots10m: float         // 21-slot-vwap twin
       EffRng20m: float           // rng_slots_20m / Sum40|r| ∈ (0,1]
       EffRng10m: float           // rng_slots_10m / Sum20|r|
+      // ----- ⭐ S43al (user 2026-08-05): the eff_9ema family. Same denominator as
+      // eff_20m/eff_10m, but the NUMERATOR is a TREND-SIGNED sum of the very same
+      // slot returns instead of the endpoint displacement ln(V_last/V_first):
+      //   eff_9ema = Σ s_t·r_t / Σ|r_t|,  s_t = +1 if V_{t-1} > EMA9(V)_{t-1} else -1
+      // Kaufman's eff sees only the two ends, so a V-shaped window and a straight
+      // slide that finish in the same place read alike; this credits every leg that
+      // agreed with the prevailing trend and debits every leg that fought it. Both
+      // live in [-1,1] and share the warmth convention (40 / 20 returns). -----
+      Eff9Ema20m: float
+      Eff9Ema10m: float
       // ----- channel widths, ln(high/low) per present-bar window -----
       RngSess: float
       Rng600: float
@@ -348,6 +385,14 @@ type FlushPosition =
       // microstructure noise, F7).
       EffSinceHigh: float
       EffSinceFlow: float
+      // ⭐ S43am (user): the eff_9ema twins of the two anchored segments —
+      // high -> now and first-low -> now. Same slots as eff_since_high/flow.
+      // SPANS RECORDED alongside (the S43aj/ak lesson), though this ratio is
+      // structurally span-normalised where Kaufman's is not.
+      Eff9SinceHigh: float
+      Eff9SinceFlow: float
+      SlotsSinceHigh: int
+      SlotsSinceFlow: int
       // S41e (user): the arming drop — first leg low / 20m high at arming - 1
       // (the flush magnitude that started the leg) + the drop segment's OLS
       // slope/r (high -> first low). nan = channel-cold / short arming.
@@ -595,6 +640,16 @@ type IntradayConfig =
                                  // of the residual universe has eff_20m < 0 (S40e). Unwarm eff
                                  // fails the band like any other gate (S38n).
       MinAbsEff10m: float        // |eff_10m| >= this. Default 0.15. 0 = off.
+      // ⭐ SPEC v2.7 (user, S43al): eff_9ema_10m >= this. Default -0.10 — the
+      // WHIPSAW knife. Below -0.10 the 20 slot-returns fought the 9-slot EMA
+      // more than they agreed with it: 211 trips of 7,789 at PF 1.23 / +0.35%,
+      // with a NEGATIVE expectancy ratio in 2020/2024/2025. The adjacent
+      // [-0.10, 0) band is the OPPOSITE — PF 8.06 — which is why the knife sits
+      // at -0.10 and NOT at 0 (a >= 0 cut LOWERS mc=3 PF, 3.899 -> 3.846).
+      // ⚠ THE THRESHOLD IS NEGATIVE, so 0 is a LIVE bound, not a sentinel.
+      // Off = NEGATIVE INFINITY only — the S43aj `--abs-eff20-hi 0` trap in
+      // mirror image. Verify from the BANNER, never from the flag.
+      MinEff9Ema10m: float
       // ⭐ SPEC v2.2 (user, S41c/d): THE LEG-NATIVE PAIR replaces {dvw < -5%,
       // d20m-high < -10%} — those two were ONE feature counted twice (corr
       // 0.946); ssf (leg SPEED) x dlv (leg STRETCH) are corr 0.075 = two real
@@ -874,6 +929,18 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let slotAbsSum = SumMa 40                    // Σ|r| over the same 40 returns (eff denominator)
     let slotLag20 = LagMa<float> 20              // eff10m pair — same stream, half the horizon
     let slotAbsSum20 = SumMa 20
+    // ⭐ S43al (user): the eff_9ema numerators. Σ s·r over the SAME 40 / 20 returns
+    // slotAbsSum / slotAbsSum20 absolute, with s fixed by the PREVIOUS slot's
+    // position relative to its own 9-slot EMA (strictly-prior information — the
+    // sign is knowable before the return happens). This is the P&L of a
+    // trend-following overlay normalised by total path length, and it replaces
+    // Kaufman's two-endpoint numerator with one that reads the whole path.
+    // ⚠ Cold-start convention: EmaMa seeds on the first value, so the day's FIRST
+    // slot return reads s = -1 (pv > pv is false). One term in forty, and long
+    // gone by the time the eff window warms at 41 slots (~1,230 present bars).
+    let slotEma9 = EmaMa 9                       // 9-slot EMA of the slot vwaps
+    let slotSgnSum = SumMa 40                    // Σ s·r over the eff_20m window
+    let slotSgnSum20 = SumMa 20                  // ... and over the eff_10m window
     // S40: slot-vwap extremes over the SAME 41/21-vwap spans the eff returns
     // cover — the range-eff numerators. Warmth aligns with the eff pair: the
     // 41st slot emission fills slotMax41 AND completes slotAbsSum's 40 returns.
@@ -1292,11 +1359,21 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         | ValueSome v ->
             (match prevSlotVwap with
              | ValueSome pv when pv > 0.0 && v > 0.0 ->
-                 let ar = abs (log (v / pv))
+                 let r = log (v / pv)
+                 let ar = abs r
                  ew40.Push ar
                  ew20.Push ar
                  slotAbsSum.Push ar
                  slotAbsSum20.Push ar
+                 // S43al: the trend-signed twin of this same return. slotEma9 has
+                 // absorbed pv but NOT v (it is pushed below, with slotLag), so the
+                 // sign is fixed strictly before r is realised — no lookahead.
+                 let s =
+                     match slotEma9.State with
+                     | ValueSome e when pv > e -> 1.0
+                     | _ -> -1.0
+                 slotSgnSum.Push (s * r)
+                 slotSgnSum20.Push (s * r)
                  // S39i: the same |r| into the smoothness windows
                  neffRet40.Push (NEffShannon.Zero.Add ar)
                  if neffRet40Count = 40 then neffRet40.Pop() else neffRet40Count <- neffRet40Count + 1
@@ -1307,6 +1384,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
              | _ -> ())
             slotLag.Push v
             slotLag20.Push v
+            slotEma9.Push v                      // S43al: AFTER the sign read above
+
             slotMax41.Push v
             slotMin41.Push v
             slotMax21.Push v
@@ -1669,6 +1748,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     when slotAbsSum20.Count = slotAbsSum20.WindowSize && old > 0.0 && s > 0.0 ->
                     abs (log (cur / old) / s) >= cfg.MinAbsEff10m
                 | _ -> false)
+        // ⭐ S43al: the eff_9ema_10m whipsaw knife. Same window and warmth guard
+        // as eff10Ok (slotSgnSum20 and slotAbsSum20 are pushed on identical
+        // slots, so one Count check covers both); cold FAILS, the standard
+        // armed-gate stance. SQL twin: eff_9ema_10m >= -0.10.
+        let eff9Ok =
+            Double.IsNegativeInfinity cfg.MinEff9Ema10m
+            || (match slotSgnSum20.State, slotAbsSum20.State with
+                | ValueSome num, ValueSome den
+                    when slotAbsSum20.Count = slotAbsSum20.WindowSize && den > 0.0 ->
+                    num / den >= cfg.MinEff9Ema10m
+                | _ -> false)
         let vol10Ok =
             cfg.MinVol10Rate <= 0.0
             || (match volSum10.State, volSum60.State with
@@ -1700,7 +1790,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             || (match ols300.State with
                 | ValueSome m when ols300.Count = ols300.WindowSize -> m * 6e5 >= cfg.MinSlope5Bpm
                 | _ -> false)
-        let specOk = speedOk && d1mOk && ssfOk && dlvOk && rsfOk && z20Ok && cascadeOk && kBandOk && eff20BandOk && eff10Ok && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
+        let specOk = speedOk && d1mOk && ssfOk && dlvOk && rsfOk && z20Ok && cascadeOk && kBandOk && eff20BandOk && eff10Ok && eff9Ok && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && specOk && this.HasSlot then
             let struct (vs20m, vr20m) = volatOls 40
             let struct (vs10m, vr10m) = volatOls 20
@@ -1751,6 +1841,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                                   && slotAbsSum20.Count = slotAbsSum20.WindowSize
                                   && l > 0.0 && s > 0.0 ->
                              log (h / l) / s
+                         | _ -> nan)
+                      // S43al: slotSgnSum and slotAbsSum are pushed on exactly the
+                      // same slots, so their Counts are identical — one warmth
+                      // guard covers both, and it is the SAME guard eff_20m uses.
+                      Eff9Ema20m =
+                        (match slotSgnSum.State, slotAbsSum.State with
+                         | ValueSome n, ValueSome d
+                             when slotAbsSum.Count = slotAbsSum.WindowSize && d > 0.0 -> n / d
+                         | _ -> nan)
+                      Eff9Ema10m =
+                        (match slotSgnSum20.State, slotAbsSum20.State with
+                         | ValueSome n, ValueSome d
+                             when slotAbsSum20.Count = slotAbsSum20.WindowSize && d > 0.0 -> n / d
                          | _ -> nan)
                       RngSess =
                         (match sessHigh.State, sessLow.State with
@@ -1811,6 +1914,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       OlsRSinceFlow = olsSinceFlow.R
                       EffSinceHigh = effSinceHigh.Eff
                       EffSinceFlow = effSinceFlow.Eff
+                      Eff9SinceHigh = effSinceHigh.Eff9Ema
+                      Eff9SinceFlow = effSinceFlow.Eff9Ema
+                      SlotsSinceHigh = effSinceHigh.Slots
+                      SlotsSinceFlow = effSinceFlow.Slots
                       DHiFlow = dropToFlow
                       OlsSlopeHiFlow = dropSlopeHiFlow
                       OlsRHiFlow = dropRHiFlow
