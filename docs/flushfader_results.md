@@ -8547,6 +8547,13 @@ must print `cascade off`.
 | esf | abs(eff_since_flow) >= 0.5 |
 | halt band | secs_since_halt in [1200, 4800) |
 
+> 🛑 **CURRENT ROSTER (2026-08-05, S43an) — 6 voices, bar >= 1:**
+> `{v20 >= 140bp, d20a < -28%, dslo >= +8%, ramp < -12,`
+> `bars_since_first_low <= 390, haltband ssh in [20,80m)}`
+> `speed` and `pah` were dropped earlier (S43g); **`|esf| >= 0.5` is
+> replaced by `bars_since_first_low <= 390`** (S43an — esf was leg age in
+> disguise). Applied POST-HOC in the mc replay's `--where`; no engine gate.
+
 ### 5. The books (v25_reference, $1+)
 
 **TRADED = g60 (gap_60 < 4) + vote >= 2.** Per-year ladder:
@@ -9390,6 +9397,15 @@ book. So the complement below is not "no speed filter"; it is
 **moderate flush, speed in [-6%, -2%)**.
 
 ### THE NEW CANONICAL ROSTER — 6 voices, bar >= 1
+
+> 🛑 **SUPERSEDED 2026-08-05 (S43an): `|esf| >= 0.5` IS REPLACED BY
+> `bars_since_first_low <= 390`.** The esf voice was a LEG-AGE voice in
+> disguise (corr -0.65 with leg span; a raw age voice reproduces it to
+> within noise). Current roster:
+> `{v20 >= 140bp, d20a < -28%, dslo >= +8%, ramp < -12,`
+> `bars_since_first_low <= 390, haltband ssh in [20,80m)}`
+> mc=3 = **2,997 @ 4.550 / +2.14%**, worst year **3.325** — better than the
+> esf roster in ALL SEVEN YEARS.
 
     {v20 >= 140bp, d20a < -28%, dslo >= +8%,
      ramp < -12, |esf| >= 0.5, haltband ssh in [20,80m)}
@@ -12599,3 +12615,128 @@ span control together are still not enough.
 -10% trips, PF 4.090 -> **4.433**, expectancy +2.01 -> +2.15, **worst year
 2.860 -> 3.594**, net -3.7%. Needs its own fine-band/per-year/iso-trip
 scrutiny before it goes near the spec.
+
+## ⭐⭐ S43an — the `esf` VOICE IS LEG AGE IN DISGUISE; replaced by `bars_since_first_low <= 390` (2026-08-05)
+
+Chased as an INCIDENTAL LEAD out of the S43am iso-trip control, which
+showed `|esf| >= 0.7` beating the roster. Following it produced a better
+answer than the lead itself.
+
+### 1. `|esf|` IS A SPAN PROXY
+
+`corr(|eff_since_flow|, slots_since_flow) = -0.65`. Median leg span **8
+slots at `|esf| >= 0.8` vs 31 at `< 0.5`**. The decisive test — swap in a
+RAW LEG-AGE voice with no efficiency computation anywhere:
+
+| voice | n | PF | avg% | net | worst yr |
+|---|---:|---:|---:|---:|---:|
+| `\|esf\| >= 0.8` | 2,846 | 4.636 | +2.19 | 6,233 | 3.433 |
+| `slots_since_flow <= 8` | 2,853 | 4.606 | +2.19 | 6,248 | **3.487** |
+
+Same trips, same expectancy, same net, same PF within noise. **The eff
+computation contributes nothing.** The voice's actual content is "the first
+low was under ~4 minutes ago".
+
+### 2. WHY THE THRESHOLD MATTERED: EXCLUSION, NOT SELECTION
+
+Among trips the `esf` voice UNIQUELY admits (no other voice firing), every
+tier below 0.80 is below-book (ratios vs the book, per year):
+
+| uniquely admitted | n | PF | avg% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| [.50,.60) | 467 | 4.64 | +1.82 | 0.87 | 0.81 | 0.52 | 0.55 | 0.46 | 1.08 | 0.68 |
+| [.60,.70) | 242 | 2.24 | +1.12 | 0.68 | 0.51 | 0.74 | 1.12 | -0.15 | 0.03 | 0.99 |
+| [.70,.80) | 178 | 3.51 | +2.30 | 1.31 | 0.85 | 1.21 | -2.32 | 0.67 | 0.13 | 0.97 |
+| >= .80 | 155 | 26.45 | +3.20 | 1.31 | 1.46 | 0.74 | 0.49 | 1.84 | 1.55 | 1.04 |
+
+`esf >= 0.5` was admitting **709 trips that lose to the book in six years
+of seven.** Raising the threshold helped by NOT ADMITTING those — not
+because high-esf trips are good.
+
+### 3. ⭐ VOICE, NOT GATE — and the difference is large
+
+| form | n | PF | avg% | net | worst yr |
+|---|---:|---:|---:|---:|---:|
+| baseline (esf voice) | 3,250 | 4.090 | +2.01 | 6,532 | 2.860 |
+| **voice `bars <= 390`** | 2,997 | **4.550** | +2.14 | **6,414** | **3.325** |
+| gate `bars <= 1800` | 2,511 | 4.466 | +2.17 | 5,449 | 3.292 |
+| gate `bars <= 1200` | 2,099 | 4.449 | +2.16 | 4,534 | 2.897 |
+| gate `bars <= 900` | 1,633 | 4.847 | +2.25 | 3,674 | 3.329 |
+| gate `bars <= 600` | 996 | 5.088 | +2.40 | 2,390 | **2.261** |
+
+**Every gate form gives less money at no better PF**; the 600 gate buys PF
+5.088 by discarding 63% of the net AND has a WORSE worst year than the
+incumbent. Structural: as a gate, leg age applies to every trip and kills
+good ones the strong voices caught on older legs. **Leg age is a REASON TO
+TAKE a trade, not a REQUIREMENT OF one.**
+
+### 4. THE THRESHOLD IS A PLATEAU
+
+| voice threshold (bars) | 240 | 300 | 388 | 480 | 600 |
+|---|---:|---:|---:|---:|---:|
+| PF | 4.597 | 4.572 | 4.569 | 4.329 | 3.736 |
+| net | 6,224 | 6,257 | 6,437 | 6,506 | 6,444 |
+
+Flat 240-390, decaying after. **390 chosen over the measured 388** (user:
+"388 would look like we're overfitting if anybody looked at these params").
+The difference is 22 candidate trips -> **3 mc=3 trips, all in 2021**: PF
+4.569 -> 4.550, net -0.4%. Noise. ⭐ **390s = exactly 6.5 minutes**, while
+388 is an artifact of the 30-bar slot grid (`slots <= 12` <=> `bars <= 388`,
+verified 0 disagreements / 1,344 trips; `slots = 12` spans bars [359, 388]).
+State the rule in SECONDS, not in slot-boundary units.
+
+### 5. THE NEW ROSTER — better in ALL SEVEN YEARS
+
+    {v20 >= 140bp, d20a < -28%, dslo >= +8%, ramp < -12,
+     bars_since_first_low <= 390, haltband ssh in [20,80m)}
+
+| year | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | TOTAL |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| esf roster | 10.138 | 2.860 | 3.870 | 3.680 | 3.639 | 3.662 | 4.158 | 4.090 |
+| **age roster** | **10.406** | **3.325** | **4.130** | **3.939** | **4.091** | **3.877** | **5.242** | **4.550** |
+
+**-7.8% trips, -1.8% net, PF +11.2%, worst year +16.3%, and better in
+every single year.**
+
+**Controls passed.** ISO-TRIP (in the `esf>=0.8` form): cutting the same
+~400 trips through `dslo >= 24` (n = 2,835) gives PF **4.090** and worst
+year 2.899 — literally no better than the incumbent. NOT REDUNDANT with the
+`K` gate (`corr(slots_since_flow, lows_since_first_low) = 0.274` — leg
+DURATION and leg LOW-COUNT are near-independent). Keeping BOTH voices is
+worse than either alone (3,280 @ 4.064).
+
+### 6. SIZING-MATRIX INTERACTION: CLEAN
+
+`corr(bars_since_first_low, gap_adj_1200) = 0.054`, `corr(..., speed) =
+-0.041`. Tier shares barely move (gap_adj<15 40.2% -> 41.5%; deep 14.3% ->
+15.0%). mc=3:
+
+| tier | esf: n / PF / avg% | age: n / PF / avg% |
+|---|---|---|
+| A gap_adj<15 & deep | 188 / 7.95 / +3.67 | **188 / 8.39 / +3.90** |
+| B gap_adj<15 only | 1,118 / 5.06 / +2.30 | 1,054 / **5.60** / **+2.38** |
+| C deep only | 277 / 2.70 / +2.04 | 261 / **3.35** / **+2.34** |
+| D neither | 1,667 / 3.58 / +1.63 | 1,491 / **3.88** / **+1.73** |
+
+Every tier improves on both axes. **Tier A is IDENTICAL in size (188)** —
+the change never reaches the top tier; all 256 removed trips come from B
+(-64) and D (-176), the dilutive tiers. Tier C — the fragile one — improves
+in 6 of 7 years (2024 +1.49% -> +2.42%).
+
+⚠ **THE RECORDED MULTIPLIERS ARE STALE** (A 2.56 / B 1.53 / C 1.62 / D
+1.00). Measured on the v2.7 book: **A 2.25 / B 1.41 / C 1.25 / D 1.00**
+(esf) and A 2.25 / B 1.37 / C 1.35 / D 1.00 (age). B and C have SWAPPED
+versus the recorded spec, which retires the "cap C <= B" rule instead of
+needing it. ⭐ **USER: the correct denominator is PF / VOLATILITY, not
+average trade % — expectancy-weighting silently sizes up whatever tier has
+the fattest tail.** Deferred; re-derive properly.
+
+⚠ **Tier A is thin and has a hole:** 188 trips over 6.5 years (~29/yr) with
+**ZERO trips in 2022**; tier B's 2022/2023 PFs are absent-loss artifacts
+(281.6 and `inf` = zero losers). For thin tiers, per-year PF is not
+stability evidence — read EXPECTANCY.
+
+⚠ **NO ENGINE CHANGE.** The roster is applied post-hoc in the mc replay's
+`--where`. `bars_since_first_low` has been recorded since long before this
+session — this is a REDISCOVERY of an existing column, not a new feature.
+(`slots_since_flow`, added in S43am, is that / 30 — corr 0.9999.)
