@@ -423,6 +423,12 @@ type FlushPosition =
       ZSinceHigh: float
       ZSinceFlow: float
       ChanLoPrev: float
+      // ⭐ S43ap (user): the 2m flush pair — the 20m low as of 120 bars ago, and
+      // the 2m high. Twins of chan_lo_prev / hi_60 at double the horizon.
+      ChanLoPrev120: float
+      Hi120: float
+      ChanLoPrev180: float
+      Hi180: float
       SlotsSinceHigh: int
       SlotsSinceFlow: int
       // S41e (user): the arming drop — first leg low / 20m high at arming - 1
@@ -794,6 +800,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let max30 = MaxMa 30
     let max60 = MaxMa 60
     let max120 = MaxMa 120
+    // ⭐ S43ap (user): the 3m high — "as far as we'd want to go for quick flushes".
+    // Record-only; no channel/gate reads it, so no snapshot pair is needed.
+    let max180 = MaxMa 180
     let max300 = MaxMa 300
     let max600 = MaxMa 600
     let max1200 = MaxMa 1200
@@ -1117,6 +1126,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // a CHANNEL FLOOR instead of a rolling vwap (speed and d_1m_hi are corr 0.911 —
     // one feature twice — so a floor-anchored twin is the missing dimension).
     let entryMinLag = LagMa<float> 60
+    // ⭐ S43ap (user): the 2m twins. The 1m family (speed, d_1m_hi, dlo1m) is one
+    // axis three times over (pairwise corr 0.83-0.91); the question is whether
+    // doubling the horizon separates from it or just smooths it.
+    let entryMinLag120 = LagMa<float> 120
+    let entryMinLag180 = LagMa<float> 180
     let volatLag = LagMa<float> 1200
     // ⭐ S42r (user, 2026-08-03): halts classified inside the last N PRESENT
     // BARS — one indicator per bar into a rolling sum (the bigGapRuns1200
@@ -1362,6 +1376,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         max30.Push bar.vwap
         max60.Push bar.vwap
         max120.Push bar.vwap
+        max180.Push bar.vwap
         max300.Push bar.vwap
         max600.Push bar.vwap
         max1200.Push bar.vwap
@@ -1397,6 +1412,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // S43ao: push THIS bar's strictly-prior channel min; `.Lagged` then reads
         // the value from 60 bars ago (same semantics as vwap60Lag -> vwap_60_prev).
         entryMinLag.Push (match priorEntryMin with ValueSome v -> v | ValueNone -> nan)
+        entryMinLag120.Push (match priorEntryMin with ValueSome v -> v | ValueNone -> nan)
+        entryMinLag180.Push (match priorEntryMin with ValueSome v -> v | ValueNone -> nan)
         // the slot chain: one |r| into the volat EWMAs per completed slot
         match slots.Push(bar.vwap, bar.volume) with
         | ValueSome v ->
@@ -1962,6 +1979,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       ZSinceHigh = effSinceHigh.Z bar.vwap
                       ZSinceFlow = effSinceFlow.Z bar.vwap
                       ChanLoPrev = (match entryMinLag.Lagged with ValueSome v -> v | ValueNone -> nan)
+                      ChanLoPrev120 = (match entryMinLag120.Lagged with ValueSome v -> v | ValueNone -> nan)
+                      Hi120 = vv max120.State
+                      ChanLoPrev180 = (match entryMinLag180.Lagged with ValueSome v -> v | ValueNone -> nan)
+                      Hi180 = vv max180.State
                       SlotsSinceHigh = effSinceHigh.Slots
                       SlotsSinceFlow = effSinceFlow.Slots
                       DHiFlow = dropToFlow

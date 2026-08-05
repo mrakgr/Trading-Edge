@@ -12841,3 +12841,139 @@ axis (`corr` with speed = -0.041).
 tightened to the top 21% yields **+3.16%/trip**. There may be more in the
 speed axis than `< -6%` extracts. ⚠ Check S43ac and the earlier speed work
 FIRST — that is the step skipped on `d1s`.
+
+## ⭐⭐⭐ S43ap — 2m/3m FLUSH FEATURES, and THE mc=0 TAIL ILLUSION (2026-08-05)
+
+**User:** *"let's try 2m flush features... the 20m low lagged by 2m and the 2m
+high"*, then 3m — *"as far as we'd want to go for quick flushes"*.
+
+### BUILD (`v34_flush2m`, `v35_flush3m` — both 35,778, parity)
+
+`entryMinLag120/180 = LagMa<float>` on `priorEntryMin` -> `chan_lo_prev_120/180`;
+`max180 = MaxMa 180` -> `hi_180` (`max120` already existed). Four derived
+measures: `d2m/d3m = signal_vwap/hi_120|180 - 1`, `dlo2m/dlo3m =
+signal_vwap/chan_lo_prev_120|180 - 1`.
+
+### ⭐ LENGTHENING THE HORIZON DECORRELATES FROM `speed`
+
+| | 1m | 2m | 3m |
+|---|---:|---:|---:|
+| distance-from-high | 0.913 | 0.912 | **0.774** |
+| below-lagged-20m-low | 0.888 | 0.751 | **0.629** |
+
+The 1m family is one axis three times over; the 3m pair is genuinely separate.
+
+### THE THRESHOLD-RULE LADDER (g60, mc=0), ratios vs g60 per-year
+
+| rule | n | PF | avg% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `speed < -6%` (incumbent) | 1,520 | 5.34 | +3.30 | 1.62 | 1.79 | 0.43 | 1.56 | 1.84 | 1.37 | 1.29 |
+| **`d3m < -9%`** | 1,763 | **5.64** | **+3.47** | 1.85 | 1.55 | **-0.59** | 1.60 | 1.94 | 1.48 | 1.51 |
+| `dlo3m < -5%` | 3,144 | 4.84 | +2.88 | 1.61 | 1.68 | 0.57 | 1.29 | 1.49 | 1.17 | 1.16 |
+| **`dlo3m < -7%`** | 1,333 | 5.51 | **+3.60** | 2.15 | 2.23 | 0.17 | 1.52 | 1.53 | 1.57 | 1.56 |
+| `dlo3m < -9%` | 497 | 6.14 | +4.66 | 2.93 | 3.10 | **-1.22** | 1.87 | 2.10 | 1.97 | 2.05 |
+
+⭐ **`d3m < -9%` is the FIRST depth candidate all session to survive the
+threshold re-expression** (16% more trips than the incumbent at higher PF AND
+expectancy), and its iso-trip and threshold views AGREE on 2022 (-1.20 / -0.59)
+where `dlo1m`'s contradicted. `dlo3m < -7%` has the highest expectancy of any
+rule tested (+3.60%) and no negative year.
+
+### ⭐⭐⭐ THE FINDING: 2022 WAS A CONCURRENCY ARTIFACT ALL ALONG
+
+**User: *"The reason why ENSV is so bad is because the system just kept adding
+down constantly."*** Correct, and decisive.
+
+2022's entire loss in the deep cell was **ONE ticker-day** — ENSV 2022-03-08,
+-56.0% of a -59.2% year, from 5 tkds / 12 trips. At **mc=1 ENSV takes exactly
+ONE trip that day: the +0.2% one.** All four -25%..-31% entries are excluded,
+because `NINE` entered at 43283 — 43s before ENSV's first signal — and held the
+single slot to 44144. (⚠ So mc=1's protection here was INCIDENTAL, not a
+property of ENSV.)
+
+**Every "2022 is negative" reading on the deep axis this session was an mc=0
+artifact:**
+
+| rule, on the mc=1 book | n | PF | avg% | 2022 ratio |
+|---|---:|---:|---:|---:|
+| `speed < -6%` | 168 | 3.93 | +2.76 | **1.67** |
+| `d3m < -9%` | 193 | **4.17** | **+2.79** | **1.42** |
+| `dlo3m < -5%` | 305 | 3.89 | +2.39 | 1.09 |
+| `dlo3m < -7%` | 128 | 3.71 | +2.62 | 0.70 |
+
+All positive; `speed` and `d3m` ABOVE baseline — versus +0.43 and **-0.59** at
+mc=0. **The depth axis does not have a 2022 problem; the mc=0 attribution view
+does.** The problem year at mc=1 is 2023 (0.87-0.92 for all four = a property of
+the book, not of any measure).
+
+**And the fat left tail is pyramiding, confirmed:** mc=1 worst trip **-15.5%**
+vs mc=3 **-30.6%**, while p1 (-9.2 vs -9.8) and p5 (-4.0 vs -3.7) are
+identical. Only the extreme tail differs — and at mc=3 that -30.6% sits in
+**tier D**, not in a deep tier.
+
+⚠ **USER CAUGHT (PF, not expectancy):** no deep rule beats the mc=1 book on PF
+(book 4.17; best rule 4.17, two below). They lift EXPECTANCY (+2.39..+2.79 vs
++2.00) while leaving PF flat. **Bigger swings, not better ones.** Right metric
+for a sizing lever, but it deflates the mc=0 story.
+
+### ⭐⭐ THE SIZING MATRIX AT mc=1 — never done before (it was built at mc=0)
+
+S43ac derived the matrix on the **mc=0 sampler** (top state 567 trips; mc=3
+gives 188, mc=1 gives 73). Re-derived:
+
+| tier | mc=1 n / PF / avg% / rel | mc=3 n / PF / avg% / rel |
+|---|---|---|
+| A gap_lo & deep | 73 / 6.89 / +3.75 / **2.29** | 188 / 8.39 / +3.90 / **2.26** |
+| B gap_lo only | 403 / 5.15 / +2.24 / **1.37** | 1,055 / 5.57 / +2.37 / **1.37** |
+| C deep only | 95 / **2.70** / +2.01 / 1.22 | 261 / 3.35 / +2.34 / 1.36 |
+| D neither | 607 / 3.69 / +1.64 / 1.00 | 1,493 / 3.86 / +1.73 / 1.00 |
+
+⭐ **The weights are STABLE across concurrency** (A 2.29/2.26, B 1.37/1.37 exact,
+D 1.00) — the matrix was derived at the wrong mc but survives it.
+⚠ **Except C: at mc=1 its PF (2.70) is BELOW tier D's (3.69)** while carrying
+higher expectancy and the worst tail (-15.5%). The `cap C <= B` rule turns out
+to be well-founded, not a fudge.
+⚠ **Tier A at mc=1 is 73 trips (11/yr), NO 2022 at all, and a 2021 (0.71) BELOW
+tier D's (0.81).** The largest position size rests on four good years of six.
+**B is the only tier steady everywhere** (1.62-2.80 every year, 403 of 1,178).
+
+### ⭐⭐ TIER C RE-CHECKED AT mc=1: the z-refinement REPLICATES
+
+| | n | losers | PF | avg% | worst |
+|---|---:|---:|---:|---:|---:|
+| mc=1 C = `gapHI & deep` | 95 | 23 | **2.70** | +2.01 | -15.5 |
+| mc=1 **C\* = `+ z<-2.5`** | 40 | 8 | **4.47** | +2.94 | **-10.3** |
+| mc=1 demoted (`deep, no z`) | 55 | 15 | **1.94** | +1.33 | -15.5 |
+| mc=1 D (reference) | 607 | 141 | 3.69 | +1.64 | -13.6 |
+| mc=3 C\* | 119 | 20 | 6.33 | +3.52 | -10.3 |
+| mc=3 demoted | 142 | 35 | 2.06 | +1.35 | -15.9 |
+
+**The demoted cell is stable garbage at BOTH concurrencies** (PF 1.94 vs 2.06,
+avg +1.33 vs +1.35, and it owns the tail: -15.5/-15.9 vs C\*'s -10.3 at both).
+⭐ **The z condition is what makes C a real tier**: unrefined C sits BELOW D on
+PF at mc=1 (2.70 vs 3.69); C\* sits above it (4.47).
+
+8 states at mc=1 reproduce the mc=3 structure: sparse tape deep-alone **0.82**
+(below baseline), z-alone 1.10, **both 1.82** (mc=3: 0.77 / 0.81 / 1.99); dense
+tape `z-deep+` and `z+deep+` are **both exactly 2.32**, so z adds NOTHING where
+tier A lives. **A stays speed-only at both concurrencies.**
+
+⚠ **C\* is 40 trips at mc=1 (~6/yr) — the POOLED replication is the evidence;
+the per-year rows are NOT readable** (the demoted cell's 2022 = 9.06 and 2025 =
+-0.51 are a handful of trips each).
+
+### THE CHART RIG — `scripts/visualization/flushfader_loser_charts.py`
+
+1s vwap + volume, with the two ROLLING levels the engine uses: the prior 5m MAX
+(= the exit target) and the prior 20m MIN (= the entry trigger). ⭐ **The 5m max
+RATCHETS DOWN with a crash**, so on a sustained slide a `"target"` exit prints
+far below entry — ENSV exits at $4.612 against a $6.645 entry, reason `target`.
+The system has no stop; it waits for a bounce scored against a collapsed
+reference. **That is an EXIT-design property, not a signal one.**
+
+⚠ **BUG THE USER CAUGHT — the stored 1s slim parquet is RAW.** `Intraday.fs`
+multiplies by `adj_ratio` at LOAD time, so the adjustment lives in the ENGINE,
+not the file. Trip prices (`entry_px`/`exit_px`/`signal_vwap`) ARE adjusted and
+must be divided; **the bars must NOT be.** I divided both and shrank BSFC 1000x
+and CING 12x. Verified: BSFC 2022-01-21 bars 4.26-5.14 vs `entry_px` 4455.61
+(adj 1000); CING 2023-12-28 bars 8.15-12.54 vs 106.3 (adj 12).
