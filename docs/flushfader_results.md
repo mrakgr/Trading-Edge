@@ -13440,3 +13440,66 @@ with `dv1200` alone (rel 1.79) STRONGER than `s1m` alone (1.41) on 4x the trips.
 A LEAD, NOT A FINDING**: no threshold ladder, per-year table, iso-trip control or
 mc=3 check has been run on it. Five candidates today cleared exactly this much and
 then died against a control.
+
+## ❌ S43av — `dv1200` REJECTED: it is the 20m RANGE, i.e. a VOLATILITY PROXY (2026-08-05)
+
+`dv1200 = signal_vwap/vwap_1200 - 1` surfaced in the S43au bakeoff with the
+highest EXPECTANCY of ten depth measures (+2.86%) and `corr(dv1200, z_20m) =
+0.059`. Battery run; rejected on two independent grounds.
+
+### ❌ 1. IT DOES NOT REPLACE `s1m` — it loses the tail
+
+Sizing matrix, `deep = dv1200 <= -11.5%` vs the adopted `s1m <= -350` (mc=1):
+
+| tier | `dv1200` n / PF / avg% / worst / rel | `s1m` |
+|---|---|---|
+| A | 184 / 5.80 / +3.05 / **-12.5** / 2.00 | 134 / **8.09** / **+3.36** / **-6.3** / **2.19** |
+| C | 116 / 3.60 / +2.50 / -15.5 / 1.63 | 206 / **4.10** / **-10.3** / 1.34 |
+
+At mc=3 `dv1200`'s tier C carries a **-29.7%** trip where `s1m`'s carries -10.3.
+**It never sheds the tail at ANY threshold** (-15.5 all the way down to a 19-trip
+cell). Its iso-trip expectancy edge does not survive crossing with `gap_adj`.
+
+### ❌ 2. AS A THIRD AXIS: additive pooled, but the years are concentrated
+
+8-state (gap_adj x s1m x dv1200, mc=3): `far` lifts rel in every stratum (1.00 ->
+1.35, 1.16 -> **1.92**, 1.34 -> 1.64, 1.86 -> **2.38**), and the all-three cell is
+the book's best (219 @ +3.77%, worst -8.2%). ⚠ But PER-YEAR:
+
+| cell | n | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| A `gap+deep`, near | 135 | 3.89 | **1.90** | — | 3.13 | 2.26 | 2.68 | 4.02 |
+| A+ all three | 219 | 4.10 | **-0.33** | 3.36 | 5.37 | 5.67 | 2.93 | 4.11 |
+| X `far` ONLY | 151 | 3.15 | 1.42 | **-12.29** | 3.14 | 1.74 | 1.24 | 4.84 |
+
+Adding `far` to the top tier turns 2021 from **+1.90 to -0.33**, and the cell it
+UNIQUELY admits reads **-12.29% in 2022**. The pooled 2.38 is three good years
+(3.36 / 5.37 / 5.67) paid for by a negative one.
+
+### ⭐⭐⭐ 3. THE MECHANISM (user: *"dv1200 might just be a volatility proxy"*) — CORRECT
+
+| pair | corr |
+|---|---:|
+| `dv1200` vs **`rng_20m`** | **-0.942** |
+| `dv1200` vs `volat_20m` | -0.772 |
+| `volat_20m` vs `rng_20m` | 0.821 |
+
+**`dv1200` IS the 20-minute range under another name.** Its selection is almost
+pure volatility sorting — share passing `dv1200 <= -11.5%` by volat band:
+**4.6%** (<100bp) / 31.5% / 73.6% / **96.8%** (>=200bp). That is why its effect is
+year-dependent: volatility REGIMES are. And the roster already carries a
+volatility voice (`v20 >= 140bp`).
+
+⭐⭐ **AND IT EXPLAINS THE 0.059 CORRELATION WITH `z_20m`.** If `dv1200 ~ -range`
+and `sigma ~ range`, then `z = distance/sigma ~ -1`, a near-CONSTANT. **The
+normalisation does not rescale `dv1200`, IT DIVIDES OUT ITS ENTIRE CONTENT.** The
+two are not independent information sources — `z_20m` is what REMAINS after the
+volatility `dv1200` is made of has been removed. Same conclusion as the S43ar
+geometry ("z's information is in the DISPERSION, not the distance"), now with the
+mechanism named. ⭐ **A near-zero correlation between a ratio and its own numerator
+is a SIGNATURE that the denominator carries the numerator's variance** — worth
+checking for on any normalised feature.
+
+**VERDICT: keep `s1m <= -350`. `dv1200` is rejected as a replacement AND as a
+third axis. `z_20m` was never the candidate — it was the WEAKEST of the ten
+measures at iso-trip (4.49 / +2.22%).**
