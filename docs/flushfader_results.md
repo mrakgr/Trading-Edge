@@ -12977,3 +12977,56 @@ not the file. Trip prices (`entry_px`/`exit_px`/`signal_vwap`) ARE adjusted and
 must be divided; **the bars must NOT be.** I divided both and shrank BSFC 1000x
 and CING 12x. Verified: BSFC 2022-01-21 bars 4.26-5.14 vs `entry_px` 4455.61
 (adj 1000); CING 2023-12-28 bars 8.15-12.54 vs 106.3 (adj 12).
+
+## ❌ S43aq — `dlo3m` AS THE DEEP DIMENSION: rejected (2026-08-05)
+
+**User:** *"Let's try the same table except this time with dlo3m < -5%
+instead of speed."* It buys volume and loses the structure.
+
+| tier | mc=1 n / PF / rel  (speed's in brackets) | mc=3 n / PF / rel |
+|---|---|---|
+| A gap_lo & deep | 107 / **4.97** / **1.96**  (73 / 6.89 / 2.29) | 310 / 6.61 / **2.08**  (188 / 8.39 / 2.26) |
+| B gap_lo only | 369 / **5.67** / 1.49  (403 / 5.15 / 1.37) | 933 / 5.75 / 1.42  (1,055 / 5.57 / 1.37) |
+| C deep only | 198 / 3.36 / 1.31  (95 / 2.70 / 1.22) | 541 / 3.57 / 1.35  (261 / 3.35 / 1.36) |
+| D neither | 504 / 3.52 / 1.00 | 1,213 / 3.86 / 1.00 |
+
+Tiers A and C get ~65% bigger. But:
+
+❌ **At mc=1 tier A's PF (4.97) falls BELOW tier B's (5.67)** — the top tier
+stops being the best tier on PF. With `speed` it is 6.89 vs 5.15, clearly
+ordered. Separation drops too (rel 1.96 vs 2.29).
+
+❌ **It makes the z-score MORE necessary, not less** (the user's hypothesis was
+that `dlo3m` might let us dispense with it). Dense-tape cells at mc=1:
+
+| deep measure | `z-deep+` | `z+deep+` |
+|---|---:|---:|
+| `speed < -6%` | 2.32 | 2.32 (**exactly equal — z is pure cost in tier A**) |
+| `dlo3m < -5%` | 1.74 | **2.49** (**z is what separates the top cell**) |
+
+❌ **THE TIER-C REFINEMENT STOPS REPLICATING ACROSS CONCURRENCY:**
+
+| | n | PF | avg% | worst |
+|---|---:|---:|---:|---:|
+| mc=1 C = `gapHI & dlo3m` | 198 | 3.36 | +2.04 | -15.5 |
+| mc=1 C\* = `+ z<-2.5` | 69 | **4.10** | +2.45 | -10.3 |
+| mc=1 demoted | 129 | 3.02 | +1.81 | -15.5 |
+| mc=3 C | 541 | 3.57 | +2.21 | -30.6 |
+| mc=3 C\* | 191 | **3.27** | +2.45 | -30.6 |
+| mc=3 demoted | 350 | **3.80** | +2.08 | -15.9 |
+
+At mc=3 it **INVERTS** — C\* (3.27) is worse than the cell it would demote
+(3.80), and C\* KEEPS the -30.6% tail instead of shedding it. With `speed` the
+refinement held at both concurrencies (C\* 4.47/6.33 vs demoted 1.94/2.06,
+shedding the tail at both). **A refinement that works at one concurrency and
+reverses at the other is not a real effect.**
+
+⭐ **VERDICT: `speed < -6%` STAYS the deep dimension.** `dlo3m < -5%` gives ~65%
+more trips in the sizing tiers, but costs the A/B ordering at mc=1, makes the
+z-score more necessary rather than less, and breaks the tier-C refinement's
+replication across mc. **The volume is real; the structure it buys is worse.**
+
+⏭ **USER OBSERVATION, open:** *"It's very weird that there are this many deep
+flushes and yet the z score is not negative"* — 129 mc=1 trips are `dlo3m < -5%`
+with `z_20m >= -2.5`. Next: 1m/2m/3m OLS SLOPES with ceilings set to exclude
+~25% of the book.
