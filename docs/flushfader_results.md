@@ -13302,3 +13302,47 @@ nothing. Pair this with the S43as rule (**match the BOOK, not just the cell**).
 
 **VERDICT: no trim, at 0, -25 or -50. The ceilings are clean on all three
 horizons once measured on the traded book.**
+
+### ⚠ S43ar addendum 2 — the `dlo` SHALLOW TRIM: real, consistent, and too small to adopt (2026-08-05)
+
+Same ceiling question asked of `dlo1m`/`dlo2m`. **This one is NOT an mc=0 mirage
+— and the survivor count said so before the test did:**
+
+| band | `dlo1m` n / mc=1 surv / PF | `dlo2m` n / mc=1 surv / PF |
+|---|---|---|
+| [-1,-0.5) | 535 / 138 / 6.45 | 304 / 78 / 5.78 |
+| **[-0.5,-0.2)** | 193 / **66 (34%)** / **3.78** | 126 / **44 (35%)** / **3.58** |
+| >= -0.2% | 104 / 48 / 6.03 | 77 / 34 / 4.27 |
+
+**34-35% of the weak band survives to mc=1, against 10% for the `s1m >= 0`
+mirage.** Shallow penetration means the price barely broke the level, which
+produces ISOLATED signals rather than clusters — so the cell is genuinely
+tradeable. ⚠ Non-monotone though: the band ABOVE it (`>= -0.2%`) is fine.
+
+**The trims move the right way at BOTH concurrencies:**
+
+| | book | taken | PF | avg% | net |
+|---|---:|---:|---:|---:|---:|
+| mc=1 baseline | 7,044 | 1,178 | 4.168 | +2.00 | **2,356** |
+| mc=1 trim `dlo1m >= -0.5%` | 6,747 | 1,150 | **4.223** | +2.03 | 2,334 |
+| mc=1 trim `dlo2m >= -0.5%` | 6,841 | 1,157 | **4.222** | +2.02 | 2,337 |
+| mc=3 baseline | 7,044 | 2,997 | 4.550 | +2.14 | **6,414** |
+| mc=3 trim `dlo1m >= -0.5%` | 6,747 | 2,922 | 4.605 | +2.17 | 6,341 |
+| mc=3 **trim `dlo2m >= -0.5%`** | 6,841 | 2,947 | **4.616** | **+2.17** | 6,395 |
+
+Per-year (mc=3), `dlo2m` trim vs baseline: 10.539/3.357/4.187/**3.906**/**4.057**
+/4.009/5.443 vs 10.406/3.325/4.130/3.939/4.091/3.877/5.242 — **5 of 7 better and
+both misses under 1%.** Trimming BOTH is identical to trimming `dlo1m` alone
+(same 6,851 book) — the `dlo2m` weak band is a SUBSET of the `dlo1m` one.
+
+⭐ **NEARLY FREE:** -0.3% net at mc=3 for +1.5% PF, against every other quality
+lever today costing 5-16% of net. Mechanically coherent too — penetrating the
+2-minute-old 20m low by less than half a percent means the flush barely cleared
+the level it was meant to break.
+
+❌ **FILED AS A NEAR-MISS, NOT ADOPTED (user).** +1.5% PF on ~2,950 trips sits
+inside the noise band for PF; the only thing crediting it is consistency across
+seven slices, not magnitude. And the boundary is a NARROW INTERIOR CELL with good
+bands on both sides — the shape that has burned us repeatedly. **Not worth a gate
+that would need revalidating on every future book.** ⏭ Re-check on the next
+reference run; if it replicates at the same size it becomes more interesting.
