@@ -13152,3 +13152,106 @@ behaviour, and both concurrencies.
 ⏭ NEXT: `speed < -2%` and `d1m < -2%` are HARD ENGINE GATES (not sizing).
 `corr(s1m,speed) = 0.75`, `corr(s1m,d1m) = 0.818`, and the two gates are 0.908
 correlated with EACH OTHER. Test whether ONE `s1m` gate can replace BOTH.
+
+## ❌ S43as — THE 1m GATE SWAP: every candidate rejected; the incumbent pair is well-calibrated (2026-08-05)
+
+**Question:** `speed < -2%` and `d1m < -2%` are HARD ENGINE GATES and are 0.908
+correlated with each other. Can `s1m`, `dlo1m` or `dlo2m` replace one or both?
+
+**Setup:** `v37_nospeed` — a run with `--max-speed-1m 0 --max-dist-1m 0`
+(banner: `speed off | d1m off`), **56,935 trips** vs the gated 35,778. ⭐ PARITY
+VERIFIED: filtering v37 by both gates reproduces 35,778 exactly. Everything below
+is post-hoc on that superset, so gate variants are compared on identical tape.
+
+### THE GATES EARN THEIR PLACE, AND `d1m` IS NOT REDUNDANT
+
+mc=1, book = g60 + roster (leg-age) + $1 raw:
+
+| gate | book | taken | PF | avg% | net |
+|---|---:|---:|---:|---:|---:|
+| **INCUMBENT `speed<-2 AND d1m<-2`** | 7,044 | 1,178 | **4.168** | **+2.00** | 2,356 |
+| `s1m <= -140` (iso-n) | 6,654 | 1,166 | 3.996 | +1.98 | 2,309 |
+| `speed<-2` ONLY (drop d1m) | 7,482 | 1,230 | 3.877 | +1.91 | 2,349 |
+| NO 1m gate at all | 9,310 | 1,386 | 3.713 | +1.79 | 2,481 |
+
+⭐ The pair lifts PF 12% over no gate (3.713 -> 4.168), and **dropping `d1m`
+costs 4.168 -> 3.877 despite its 0.908 correlation with `speed`.** The
+redundancy is in their VALUES, not in their JOINT CONSTRAINT — per S40g the pair
+is deliberately a conjunction ("a fast last minute AND a real 1m leg"), and a
+single number cannot express an AND.
+
+### ❌ `s1m` — worse as a gate, though it WON as a sizing lever (S43ar)
+
+Matched size 3.996 vs 4.168. Adding it as a THIRD gate is the only variant to
+edge PF up (`pair + s1m<=-140` = 4.211 vs 4.168, **+1%**) and it costs 8% of
+trips and **5% of net** — noise on 1,083 trips.
+
+⭐ **THE ROLE ASYMMETRY IS THE FINDING:** the same feature wins decisively at
+`-350` (the extreme ~25% of an already-gated book, where "how steep is the last
+minute" is the right one-number summary) and loses at `-140` (the shallow end,
+top ~61%, where the conjunction structure is what matters).
+
+### ❌ `dlo1m` — looked like a 9% PF win; the control killed it
+
+`dlo1m <= -1.75%` ALONE read PF 4.585 (mc=1) / 4.976 (mc=3) vs the pair's 4.168
+/ 4.550, with a per-year plateau BOUNDED ON BOTH SIDES (below by dilution at
+-1.00% = 3.940, above by the 2022 collapse past -2%: 6.15 -> 2.46 -> 1.75) and
+6/7 years better. ⚠ But -12% net at mc=1 and -16% at mc=3. **ISO-TRIP CONTROL:**
+
+| | taken | PF | avg% | net |
+|---|---:|---:|---:|---:|
+| mc=1 CANDIDATE `dlo1m <= -1.75%` | 933 | 4.585 | +2.22 | 2,071 |
+| mc=1 ctrl-A `speed<-2.8 AND d1m<-2.8` | 926 | 4.412 | **+2.26** | **2,093** |
+| mc=1 ctrl-B `speed<-3 AND d1m<-3` | 854 | 4.583 | **+2.34** | 1,998 |
+| mc=1 **ctrl-D `d1m<-4` ALONE** | 653 | **4.841** | **+2.60** | 1,698 |
+| mc=3 CANDIDATE | 2,281 | 4.976 | +2.37 | 5,406 |
+| mc=3 **ctrl-D `d1m<-4` ALONE** | 1,568 | **5.261** | **+2.74** | 4,296 |
+
+Control-B matches it exactly (4.583 vs 4.585) on higher expectancy; **control-D
+— nothing but turning the EXISTING `d1m` knob from -2% to -4% — beats it
+outright at both concurrencies.** `dlo1m` can also replace `speed` at parity
+(`dlo1m AND d1m` = 4.196 vs 4.168) but not `d1m` (4.026).
+
+### ❌ `dlo2m` — and the ISO-BOOK test is the cleanest refutation of the session
+
+`dlo2m` is the least correlated with the incumbents (0.777 speed / 0.687 d1m),
+and tightened it looked competitive (`<= -3%` = PF 4.258 vs 4.168). **Run at the
+INCUMBENT'S OWN BOOK SIZE it collapses:**
+
+| | book | taken | PF | avg% | net |
+|---|---:|---:|---:|---:|---:|
+| mc=1 INCUMBENT | 7,044 | 1,178 | **4.168** | **+2.00** | **2,356** |
+| mc=1 `dlo2m <= -1.5%` (ISO, book 7,056) | 7,056 | 1,192 | 3.822 | +1.90 | 2,265 |
+| mc=3 INCUMBENT | 7,044 | 2,997 | **4.550** | **+2.14** | **6,414** |
+| mc=3 `dlo2m <= -1.5%` (ISO) | 7,056 | 3,042 | 4.141 | +2.03 | 6,175 |
+
+At a 0.2% book-size difference the incumbent is **+9% PF at mc=1 and +10% at
+mc=3**, plus higher win rate, expectancy and net, and it wins 5 of 7 years.
+`pair + dlo2m<=-2%` also loses to `speed<-2.6 AND d1m<-2.6` at matched book
+(mc=3: 4.770 vs **4.851**, net 5,591 vs **5,917**).
+
+⭐⭐ **THE METHODOLOGICAL POINT (user):** *"dlo2m might be too large currently."*
+Exactly right. **PF rises as ANY threshold tightens, so a candidate evaluated at
+a smaller book than the incumbent always flatters itself.** `dlo2m`'s apparent
+4.258 was pure trip-count arithmetic; at the incumbent's size it is 3.822.
+**Always match the BOOK, not just the cell.**
+
+### ⭐ VERDICT: `speed < -2%` AND `d1m < -2%` STAND UNCHANGED
+
+Every configuration tried — `s1m` alone / as a third gate, `dlo1m` alone /
+swapped for either member, `dlo2m` alone / added to the pair — is matched or
+beaten by the incumbent, either at its own size or by moving its own thresholds.
+**The pair is a well-calibrated summary of a genuinely one-dimensional axis
+(S43ao).**
+
+**FIVE FOR FIVE TODAY:** arming-high eff, anchored eff9, anchored z,
+`z_since_flow`, and the whole gate family — every one cleared some subset of the
+pooled null / span control / threshold re-expression, and **every one died
+against a knob on an existing feature.** The only survivors of the full battery
+were LEG AGE (S43an) and `s1m <= -350` as the deep SIZING dimension (S43ar), both
+because they were not re-expressions of an axis already in the spec.
+
+⏭ The one real dial the controls exposed, not a new feature: tightening BOTH
+gates to -2.6% gives mc=3 PF **4.851 vs 4.550** (+6.6%) for net 5,917 vs 6,414
+(-7.7%) — the same volume-for-quality trade declined twice already today. Left
+alone pending a deliberate decision on that trade for the book as a whole.
