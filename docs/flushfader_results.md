@@ -13503,3 +13503,56 @@ checking for on any normalised feature.
 **VERDICT: keep `s1m <= -350`. `dv1200` is rejected as a replacement AND as a
 third axis. `z_20m` was never the candidate — it was the WEAKEST of the ten
 measures at iso-trip (4.49 / +2.22%).**
+
+### ⭐⭐ S43av addendum — THE SUBSTITUTION TEST: volatility reproduces `dv1200` exactly (2026-08-05)
+
+**User:** *"let's try doing a breakdown on the volatility just to see what happens
+to the sizing matrix. Will we get the same results as when we did a breakdown on
+dv1200?"* **Yes — cell for cell.** `volat_20m >= 130bp` (p73, matched to
+`dv1200 <= -11.5%`'s 817 trips) substituted as the third axis, mc=3:
+
+| `gap` `deep` `3rd` | **`dv1200`** n / PF / avg% / worst / rel | **`volat`** n / PF / avg% / worst / rel |
+|---|---|---|
+| ✗ ✗ ✗ | 1,102 / 3.44 / 1.58 / -30.6 / 1.00 | 1,079 / 3.63 / 1.63 / -13.6 / 1.00 |
+| ✗ ✗ ✓ | 151 / **3.06** / 2.14 / **-29.7** / 1.35 | 174 / **2.53** / 1.78 / **-30.6** / 1.10 |
+| ✗ ✓ ✗ | 330 / 4.57 / 1.83 / -10.3 / 1.16 | 384 / 4.12 / 2.03 / -10.3 / 1.25 |
+| ✗ ✓ ✓ | 171 / 5.20 / 3.04 / -10.3 / 1.92 | 117 / 8.94 / 2.95 / -6.1 / 1.81 |
+| ✓ ✗ ✗ | 613 / 5.32 / 2.11 / -12.9 / 1.34 | 566 / 5.92 / 2.15 / -12.9 / 1.32 |
+| ✓ ✗ ✓ | 276 / 4.79 / 2.60 / -12.7 / 1.64 | 323 / 4.29 / 2.47 / -12.7 / 1.52 |
+| ✓ ✓ ✗ | 135 / 9.47 / 2.95 / -12.3 / 1.86 | 155 / 9.78 / 3.19 / -12.3 / 1.96 |
+| **✓ ✓ ✓** | 219 / 8.43 / **3.77** / **-8.2** / **2.38** | 199 / 8.17 / **3.67** / **-8.2** / **2.25** |
+
+Same structure cell for cell, including the two details that decided it: the top
+cell at rel 2.38 vs 2.25 with an **IDENTICAL -8.2% worst trip**, and the
+third-axis-ONLY cell as the worst-PF cell in both, carrying the book's
+catastrophic tail (-29.7 / -30.6). **PER-YEAR reproduces too, harder:**
+
+| cell | n | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| A `gap+deep`, lo-vol | 155 | 3.27 | **2.35** | 1.64 | 3.63 | 4.62 | 2.26 | 3.64 |
+| A+ all three (volat) | 199 | 4.75 | **-0.18** | 5.07 | 5.32 | 5.01 | 3.14 | 4.57 |
+| X volat ONLY | 174 | 3.77 | **-1.50** | **-18.39** | 2.85 | 0.90 | 0.78 | 6.05 |
+
+vs `dv1200`: top-cell 2021 **-0.33 -> -0.18**, third-axis-only 2022 **-12.29 ->
+-18.39**. Same failure, same years, same sign. ❌ And as a REPLACEMENT for `s1m`
+volatility fails like `dlo3m` did — the 4-state breaks the tier ordering, **A =
+5.44 PF vs B = 6.64**.
+
+⭐⭐⭐ **THE SUBSTITUTION TEST IS STRONGER EVIDENCE THAN THE CORRELATION.** Two
+features built from completely different arithmetic (a price ratio vs an EWMA of
+|slot returns|) produce the SAME sizing matrix because they measure the same
+thing. When a candidate is suspected of proxying something already in the system,
+**swap the suspect in and check whether the tables coincide** — -0.942 said they
+were related; the matrix says they are interchangeable.
+
+⭐⭐ **VOICE vs SIZING AXIS — the distinction this makes concrete.** `v20 >= 140bp`
+is ALREADY a roster voice, i.e. a reason to INCLUDE a trip. Both tests show that
+promoting volatility to a SIZING axis — a reason to bet MORE — fails, because
+high volatility widens the outcome distribution SYMMETRICALLY. That is the
+"bigger swings, not better swings" pattern from tier C (S43ap), in its cleanest
+form. **A feature can be a good voice and a bad multiplier.**
+
+⭐ **AND IT RETRO-EXPLAINS EVERY CATASTROPHIC 2022 TODAY.** `d1s` (-1.90/-2.51),
+deep `dlo3m` (-2.43/-0.70), `dv1200` (-12.29), volatility (-18.39) — every
+third-axis-only cell with a blown-up 2022 was selecting the SAME THING: high
+volatility names in a bear year, where the fat tail runs against you.
