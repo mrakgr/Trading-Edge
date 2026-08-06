@@ -13895,3 +13895,64 @@ honest book, no catastrophe assumption, and exactly the user's original
 "different means, shared risk" design. **SPEC UNCHANGED (A 5.00 / B 1.75 / C 1.45)
 pending tomorrow.** ⏭ USER: augment with large losses interactively until f lands
 naturally where it should, to build intuition first.
+
+## S43az — SIZING DECIDED: pure empirical Kelly ratios; absolute scale = live discipline (2026-08-06)
+
+**Tool:** `scripts/equity/flushfader_kelly.py` (moved from scratchpad). Model per tier:
+`g(f) = (1-w)·mean log(1+f·rᵢ) + w·log(1+f·r_dis)` on the **per-ticker-day mc=1 book**
+(6,385 trips / 5,486 ticker-days, vol-normalised rn). Solves the shared disaster
+probability w by bisection so a chosen tier's exact Kelly hits a target f.
+
+### The shared -100% atom: anchoring A fails, anchoring D works
+
+Break-even w per tier is `μ/(μ+1)` — above it the tier's f* = 0:
+A 1 in 47 · B 1 in 65 · C 1 in 82 · D 1 in 96.
+
+- **f*_A = 0.25 ⇒ w = 1/64 ⇒ B, C, D ALL DEAD** (w exceeds their break-evens; a
+  shared -100% atom subtracts ≈w from every tier's mean and kills the weak tiers first).
+- **f*_D = 0.25 ⇒ w = 1/134** ⇒ f = 0.63/0.50/0.35/0.25, multipliers **2.52/1.99/1.39**.
+- **f*_D = 0.10 ⇒ w = 1/109** ⇒ multipliers **5.46/3.86/2.16** — pushing D toward its
+  break-even inflates every ratio. A's absolute f barely moves (0.63→0.55); it is D's
+  collapse that stretches the multipliers.
+
+⭐ **USER'S CONCLUSION (correct): you can get any answer you want by setting w.**
+Same indeterminacy as S43ay's U-threshold, now in its cleanest form: the A/D ratio is
+"how close is D to death at your assumed disaster rate".
+
+### ⚠ `--r-dis 0` = the atom is INERT (script bug, fixed)
+
+With r_dis = 0 the disaster term is log(1) = 0 for all f — w does NOTHING, the
+bisection ran to its bound and printed "solved w = 0.5" while f*_A came out 7.298,
+not the 0.25 it claimed. Script now warns. Those numbers are the **pure empirical
+Kelly, no disaster assumption**, and all four sit 89–97% pinned against the ruin cap
+1/|worst observed loss|:
+
+| | A | B | C | D |
+|---|---:|---:|---:|---:|
+| worst observed % | -12.8 | -21.4 | -35.1 | -44.8 |
+| pure Kelly f* | 7.30 | 4.38 | 2.53 | 2.17 |
+| f*/ruin-cap | 93% | 94% | 89% | 97% |
+| **multiplier vs D** | **3.36** | **2.02** | **1.17** | 1.00 |
+| worst-loss ratio | 3.51 | 2.09 | 1.27 | 1.00 |
+
+⚠ So these multipliers ARE the worst-observed-loss ratios in light disguise — the
+S43ax trap (worst-loss-keyed sizing measures SAMPLE SIZE: A's -12.8% floor rests on
+232 trades; one -20% A trade drops its multiplier to ~2.2). Accepted anyway because:
+
+1. 3.36/2.02/1.17 sits INSIDE the honest span (mean ratios 2.05/1.49/1.18; disaster-
+   anchored 2.52/1.99/1.39; S43ax spec 5.00/1.75/1.45 was the outlier on B/C).
+2. At the chosen absolute scale the differences between candidate sets are noise.
+
+### 🔒 SIZING SPEC (v3) — replaces S43ax's 5.00/1.75/1.45
+
+**SIZE ∝ (1/√volat_20m) × tier {A 3.36, B 2.02, C 1.17, D 1.00}**, absolute scale
+**starting at 1% of account on D** (≈3.4% on A ≈ 1/200th of empirical Kelly),
+escalating with live evidence. Rationale for comfort: break-even on a -100% loss is
+1 in 47 trades (A) / 1 in 96 (D) — the edge survives a total loss every ~100 trades.
+
+⏭ **NOT YET WRITTEN: the escalation policy.** Pre-commit BEFORE live results exist
+(the live-money overfit is ratcheting size up after a lucky month): review cadence,
+what evidence permits an increase, what drawdown forces an automatic cut. Second
+live priority: measure fills vs the sim's cross-the-entry / rest-the-exit assumption.
+Overfit magnitude unknowable until live; user judges the EDGE itself robust even if
+the backtest flatters it.
