@@ -13957,96 +13957,164 @@ live priority: measure fills vs the sim's cross-the-entry / rest-the-exit assump
 Overfit magnitude unknowable until live; user judges the EDGE itself robust even if
 the backtest flatters it.
 
-## S43ba — SYSTEM RECAP (capstone entry before live; research phase closed 2026-08-06)
+## S43ba — SYSTEM RECAP (capstone; research phase closed 2026-08-06)
 
-**What FlushFader is.** A 1-second-tape mean-reversion LONG system for US equities:
-buy violent intraday flushes in liquid small-caps, exit into the bounce. Built
-S13→S43az over 2026-07/08 on the `flush-fader` branch; real-money intent. This
-entry recaps the locked state; details in the cited sections.
+**FlushFader** is a 1-second-tape intraday mean-reversion LONG system for US
+equities: buy a violent flush in a liquid small-cap, exit into the first bounce.
+Median hold is a few minutes. Entries cross the spread; exits rest. All results
+are simulated fills at the NEXT bar's tape vwap. One position per ticker-day.
 
-### The pipeline
+**The funnel — from all ticker-days to the trades we take:**
 
-1. **Universe: `mr_candidate_1s`** (rebuilt 2026-08-04, §S43u; warmup removed
-   §S40c). A ticker-day is admitted iff, over the 900 seconds of
-   [09:30, 09:45): **`dv_0945_tape ≥ $2M`** (1s-tape-native honest dollars,
-   Σ vwap·volume of OUR bars — never the adjusted candidate column, §S35)
-   **AND `n_bars_1s ≥ 200`** (the OCCUPANCY / gap-count gate: ≤ 700 of 900
-   seconds empty; it REPLACED `n_eff_shannon ≥ 25`, which was an
-   inverse-liquidity filter — the days it rejected had 3× the dollar volume).
-   **NO price floor, NO warmup** — IPO day 1 admitted, `barnum` recorded.
-   Both gates fold strictly before 09:45 = EntryStartMin (knowability ✅).
-   Build: `scripts/equity/build_mr_candidate_1s.fsx` (1,145,230 rows).
-2. **Signal/base (engine, unchanged since v1.x):** universe row AND engine tape
-   floor **`dv_0945_tape ≥ $3M`** AND `barnum ≥ 22`. ENTRY: vwap < prior
-   1200-bar strict MIN (new ~20m low) AND dv60 ≥ $100k AND tc60 ≥ 60; fill =
-   NEXT-bar vwap. EXIT: vwap > prior 300-bar strict MAX (~5m high) | MOC.
-   Leg: arm on first new low, reset on new 1200-bar high. `volat_20m ≥ 40bp`.
-   Entries 09:45–15:00 ET. Stops OFF.
-3. **SPEC v2.7 gates (all ANDed):** flush `speed < −2%/1m` AND `d1m < −2%`
-   (the deep-flush conjunction, §S43t) · ssf `ols_slope_since_flow×6e5 ∈
-   [−375,−25)` · dlv < −3% · rflow ≥ −0.95 · z20 < −1.5σ (log, vw) ·
-   K = `lows_since_first_low ∈ [26,50]` · |eff_20m| ∈ [0.30, 0.50) ·
-   |eff_10m| ≥ 0.15 · vol10rate ≥ 0.75 · lows300 ≥ 6 · rngfront < 0.80 ·
-   accel1020 ≥ −80 · slope20 < −10 · slope5 ≥ −400 · cascade waits (ht≥1:
-   120s, ht≥3: 1200s post-resume) · halt detector (run ≥ 58s × pre-hole 5m
-   rng ≥ 4% × pre-hole adj 1m gap < 4, v2.6) · **`eff_9ema_10m ≥ −0.10`**
-   (the v2.7 whipsaw knife; ⚠ off = −∞, not 0). Full card §S43a′ (v2.6 card
-   + banners); verify from the engine BANNER, never config.
-4. **Book filter (post-hoc in the mc replay `--where`): `$1+ RAW`
-   (`entry_px/adj_ratio ≥ 1`, never adjusted — §S43v/S43al) AND `gap_60 < 4`
-   (g60) AND (vote ≥ 1 of 6 OR S-tier A)** — roster voices {v20 ≥ 140bp,
-   d20a < −28%, dslo ≥ +8%, ramp < −12, `bars_since_first_low` ≤ 390,
-   haltband ssh ∈ [20,80m)} (§S43an; esf retired as leg-age-in-disguise).
-   S-tier A = `ht = 1 AND secs_since_halt ∈ [120, 1200)` — traded, "the best
-   trade in our entire playbook" (§S42p).
-5. **Execution:** cross the entry, rest the exit. One position per ticker-day
-   (per-tkd mc=1 is the honest accounting — §S43ay).
+| stage | count |
+|---|---:|
+| universe `mr_candidate_1s` (ticker-days, 2020-01 → 2026-07) | 1,145,230 |
+| raw signal trips, every spec gate off (`base_v16`) | 2,184,698 |
+| trips passing the SPEC (`v31_reference`) | 35,778 |
+| trips passing the BOOK filter ($1+ raw × g60 × vote/S-tier) | 7,044 |
+| **one trade per ticker-day (mc=1 per tkd) — WHAT WE TRADE** | **1,231** |
 
-### The headline numbers (production book, 7,044 mc=0 trips)
+### 1. Universe — which ticker-days are in play
 
-| replay | trades | PF | med % | worst year |
-|---|---:|---:|---:|---:|
-| mc=1 (one global slot) | 1,178 | **4.168** | +2.00 | — |
-| mc=3 | 2,997 | **4.550** | +2.14 | 3.325 |
+Both gates are measured over the 900 seconds of [09:30, 09:45) ET, so the
+universe is fully known by the time the entry window opens at 09:45.
+Build: `scripts/equity/build_mr_candidate_1s.fsx`.
 
-### Per-tier profit factors (the forgotten numbers)
+| filter | setting | meaning |
+|---|---|---|
+| `dv_0945_tape` | ≥ $2M | dollars traded 09:30–09:45 summed over OUR 1s bars (Σ vwap·volume, raw tape — never adjusted prices) |
+| `n_bars_1s` | ≥ 200 | at least 200 of the 900 seconds printed a bar — the tape is OCCUPIED through time, not a handful of huge prints |
+| price floor | none | sub-$1 names admitted here; the $1 floor is applied at the book stage |
+| listing age | none | IPO day 1 admitted; `barnum` (episode age in days) is recorded for the engine |
 
-Tiers: **A** = `gap_adj_1200<15` AND `ols_slope_60×6e5 ≤ −350` · **B** = gap only ·
-**C** = slope only · **D** = neither. Measured on the v31_reference (35,778, the
-sizing campaign's base) and its per-ticker-day mc=1 dedup (6,385):
+### 2. The signal — what makes a trip
 
-| tier | ref n | **ref PF** | win% | | per-tkd n | **per-tkd PF** | mean rn% |
-|---|---:|---:|---:|---|---:|---:|---:|
-| A | 2,242 | **4.830** | 78.5 | | 232 | **3.802** | 2.15 |
-| B | 3,715 | **4.018** | 80.9 | | 671 | **3.122** | 1.57 |
-| C | 7,758 | **2.545** | 73.3 | | 908 | **1.985** | 1.24 |
-| D | 22,063 | **2.132** | 72.7 | | 4,574 | **1.922** | 1.05 |
-| ALL | 35,778 | 2.512 | 74.1 | | 6,385 | 2.088 | 1.17 |
+The engine walks 1s bars. Features fold from 09:30; entries allowed
+09:45–15:00 ET.
 
-(Raw-return PFs; vol-normalised PFs are within 0.07 everywhere. The per-tkd
-column is the honest one — dedup removes the cascade double-counting that
-flatters A/B. ⚠ Base note: the tier work conditions on the v31_reference, not
-the vote-filtered production book; the vote columns are derived in SQL, not in
-the trips parquet.)
+| element | definition |
+|---|---|
+| engine floors | `dv_0945_tape ≥ $3M` AND `barnum ≥ 22` (the name has ≥ 22 days of tape history) |
+| ENTRY trigger | bar vwap < strict MIN of the prior 1200 bars — a fresh ~20-minute low |
+| entry liquidity | last-minute dollars ≥ $100k AND last-minute trade count ≥ 60 |
+| fill | NEXT bar's vwap (we cross) |
+| EXIT | bar vwap > strict MAX of the prior 300 bars — the first ~5-minute high (we rest); otherwise MOC |
+| leg state | a "leg" arms on the first new low and resets on a new 1200-bar high |
+| volatility floor | `volat_20m ≥ 40 bp` per 30s slot (slot-EmaMa of \|r\| on 30s slot vwaps, half-life 20m) |
+| stops | none — every price-acceptance stop tested destructive |
 
-### Sizing (🔒 S43az) & live plan
+### 3. The spec gates (v2.7) — which flushes qualify
 
-**SIZE ∝ (1/√volat_20m) × {A 3.36, B 2.02, C 1.17, D 1.00}** — pure empirical
-Kelly ratios on the per-tkd book (⚠ ≈ worst-observed-loss ratios, i.e. partly
-sample size; accepted, inside the honest 1.9–5.6 span). **Start: 1% of account
-on D** (~3.4% A) ≈ 1/200th Kelly. Tool: `scripts/equity/flushfader_kelly.py`.
-Backtest at start size: 2.70× over 6.5y, max DD −1.30%, one negative month in
-78, worst years (2022/23) ≈ +6.9%. Escalation: DRAFT in
-`docs/flushfader_escalation_policy.md` (not adopted); user's plan = trend-follow
-own equity, ramp 1%→10% in ~6 months, then +10–20%/mo on 3-month equity highs,
-halve + rethink on 3-month lows. Fills log (actual vs cross/rest sim) from day
-one; re-derive multipliers at 1,000 live trades.
+All ANDed on top of the signal. ⚠ Verify gates from the engine BANNER at run
+time, never by reading config.
+
+| gate | setting | what it demands |
+|---|---|---|
+| speed | `vwap/vwap_60_prev − 1 < −2%` | the price fell ≥ 2% in the last minute |
+| d1m | `vwap/hi_60 − 1 < −2%` | ≥ 2% below the last minute's high — the flush is happening NOW (speed AND d1m form the deep-flush conjunction; neither substitutes for the other) |
+| ssf | `ols_slope_since_flow × 6e5 ∈ [−375, −25)` bp/min | the decline since the flow anchor is real but not vertical |
+| dlv | `vwap/(dv_leg/vol_leg) − 1 < −3%` | ≥ 3% under the leg's own average traded price — sellers are underwater |
+| rflow | `ols_r_since_flow ≥ −0.95` | the decline is not one perfectly straight slide |
+| z20 | `z_20m < −1.5σ` (log space, vw moments) | statistically stretched vs the last 20 minutes |
+| K | `lows_since_first_low ∈ [26, 50]` | the leg has printed 26–50 new lows — mature, not yet exhausted |
+| eff20 | `abs(eff_20m) ∈ [0.30, 0.50)` | 20m path efficiency in the mid-band: directional, but the tape still trades both sides |
+| eff10 | `abs(eff_10m) ≥ 0.15` | the last 10 minutes still have direction |
+| vol10rate | `(vol_10/10)/(vol_60/60) ≥ 0.75` | volume is still arriving — the 10s rate is ≥ 75% of the 1m rate |
+| lows300 | `lows_since_first_low_300 ≥ 6` | ≥ 6 of the leg's lows are in the last 5 minutes — the pressure is fresh |
+| rngfront | `rng_300/rng_20m < 0.80` | the last-5m range is < 80% of the 20m range — not one single 5m collapse |
+| accel1020 | `(slope_600 − slope_1200) × 6e5 ≥ −80` bp/min | the 10m slope is not accelerating away from the 20m slope |
+| slope20 | `ols_slope_1200 × 6e5 < −10` bp/min | the 20-minute trend is genuinely down |
+| slope5 | `ols_slope_300 × 6e5 ≥ −400` bp/min | the last 5 minutes are not freefall |
+| cascade wait | after a halt resume: 1 halt → wait 120s; ≥ 3 halts → wait 1200s | do not catch the first knife after a halt |
+| halt detector | tape hole ≥ 58s AND pre-hole 5m range ≥ 4% AND pre-hole adjusted 1m gaps < 4 | recognizes halts from the tape itself (no external halt feed) |
+| e9 | `eff_9ema_10m ≥ −0.10` | the 9-EMA path efficiency is not whipsawing hard down (⚠ "off" for this gate is −∞, not 0) |
+
+### 4. The book filter — which qualifying trips get traded
+
+Applied post-hoc in the mc replay (`scripts/equity/flushfader_mc.fsx --where`),
+not in the engine. Reconstruction VERIFIED this session: the SQL below the
+tables reproduces the recorded book at exactly 7,044 trips.
+
+| filter | setting | meaning |
+|---|---|---|
+| price floor | `entry_px/adj_ratio ≥ $1` | $1+ in RAW tape dollars (the adjusted price is future information — §S43v) |
+| g60 | `gap_60 < 4` | ≤ 3 empty seconds in the last minute — continuous price discovery |
+| vote | ≥ 1 of the 6 voices below | at least one aggravating quality is present |
+| S-tier A | `halts_today ≥ 1 AND secs_since_halt ∈ [120, 1200)` | OR-ed in past the vote: halted today, 2–20 min after resume — the best cell in the playbook |
+
+The six voices:
+
+| voice | condition | meaning |
+|---|---|---|
+| v20 | `volat_20m × 1e4 ≥ 140 bp` | very high 20m volatility |
+| d20a | `(vwap/first_low_vwap)·(1+d_hi_flow) − 1 < −28%` | ≥ 28% below the leg's anchor — a deep cascade |
+| dslo | `vwap/sess_low − 1 ≥ +8%` | ≥ 8% above the session low — not sitting on the dead low |
+| ramp | `(volat_slope_20m − volat_slope_10m) × 2e4 < −12` | the 10m volatility is cooling relative to the 20m |
+| b390 | `bars_since_first_low ≤ 390` | the leg is young, not a stale grind |
+| haltband | `secs_since_halt ∈ [1200, 4800)` | 20–80 minutes after a halt resume |
+
+### 5. Sizing (locked S43az)
+
+Tiers from two features at signal time:
+
+| tier | `gap_adj_1200 < 15` (continuous 20m tape) | `ols_slope_60×6e5 ≤ −350` (steep 1m slope) | multiplier |
+|---|:---:|:---:|---:|
+| A | ✅ | ✅ | 3.36 |
+| B | ✅ | — | 2.02 |
+| C | — | ✅ | 1.17 |
+| D | — | — | 1.00 |
+
+**SIZE = BASE × multiplier × √(99bp / volat_20m)** — vol-normalised so every
+trade carries comparable risk. **BASE starts at 1% of account** (A ≈ 3.4%).
+The multipliers are the empirical-Kelly ratios of the tiers
+(`scripts/equity/flushfader_kelly.py`). Ramp-up = trend-follow our own equity
+curve: toward 10% BASE over ~6 months if all goes well, then +10–20%/month on
+month-end 3-month equity highs; halve and rethink on a month-end 3-month low
+(draft: `docs/flushfader_escalation_policy.md`). Fills log (actual vs
+cross/rest sim) from day one; re-derive multipliers at 1,000 live trades.
+
+### 6. RESULTS — the trading book, one trade per ticker-day
+
+1,231 trades / 1,094 ticker-days over 6.5 years (≈ 190 trades/year). Raw
+returns, per-trade:
+
+| | n | PF | win% | avg% | med% | worst% |
+|---|---:|---:|---:|---:|---:|---:|
+| **BOOK** | **1,231** | **4.015** | **78.1** | **+1.97** | **+2.31** | **−30.6** |
+| tier A | 138 | 8.069 | 78.3 | +3.34 | +3.24 | −6.3 |
+| tier B | 360 | 4.587 | 81.1 | +2.09 | +2.60 | −12.9 |
+| tier C | 214 | 3.790 | 78.5 | +1.97 | +2.04 | −10.3 |
+| tier D | 519 | 3.092 | 75.7 | +1.53 | +2.02 | −30.6 |
+| S-tier A (subset) | 38 | 37.106 | 86.8 | +3.92 | +3.58 | −1.2 |
+
+Every year is positive:
+
+| year | n | PF | avg% |
+|---|---:|---:|---:|
+| 2020 | 193 | 8.958 | +2.75 |
+| 2021 | 232 | 3.197 | +1.34 |
+| 2022 | 72 | 2.981 | +1.55 |
+| 2023 | 101 | 3.233 | +1.60 |
+| 2024 | 206 | 3.728 | +2.09 |
+| 2025 | 291 | 3.454 | +1.87 |
+| 2026 | 136 | 4.814 | +2.48 |
+
+At the starting size (1% D-base, vol-normalised, sequential compounding):
+**+6.6%/year average** (range +1.7% in 2022 to +9.3% in 2025), max drawdown
+over 6.5 years **−0.44%**, worst single trade **−0.25% of account**, 6 negative
+months of 78. Position sizes scale all of these linearly until the ramp meets
+the participation cap (per-trade notional ≤ 1% of trailing 20m dollar volume).
 
 ### Standing cautions
 
-Overfit magnitude unknowable until live — the user judges the edge robust even
-if the backtest flatters it. The lookahead protocol (`docs/lookahead_protocol.md`)
-is the reason this book survived when three sibling systems died; every new
-filter gets the disproportion test, the knowability clock, and a control.
+- **Overfit magnitude is unknowable until live.** The user judges the edge
+  itself robust even if the backtest flatters it; the escalation rules above
+  are the containment.
+- **The lookahead protocol (`docs/lookahead_protocol.md`) is why this book is
+  believed.** Every filter here has passed the disproportion test, the
+  knowability clock, and a control run. Any new filter must too.
+- The S-tier PF of 37 rests on 38 trades (5 losers) — treat the magnitude as
+  a small-sample reading; the cell's causal story (§S42p) is the reason it is
+  traded, not the number.
 
 **⏭ NEXT: live scanners + IBKR integration, then live at small size.**
