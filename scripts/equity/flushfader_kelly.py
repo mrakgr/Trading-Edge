@@ -21,16 +21,33 @@ ap.add_argument("--target-f", type=float, default=0.25)
 ap.add_argument("--tier", default="A")
 ap.add_argument("--w", type=float, default=None)
 ap.add_argument("--r-dis", type=float, default=-1.00)
+ap.add_argument("--no-book", action="store_true",
+                help="use the full v31_reference instead of the trading book")
 args = ap.parse_args()
 
 TRIPS = "/home/mrakgr/Trading-Edge/data/equity/flushfader/v39_vwapdist/trips_p*.parquet"
+# the trading-book filter ($1+ raw x g60 x vote/S-tier), reconstruction VERIFIED
+# to reproduce the recorded 7,044 mc=0 trips exactly (S43ba). NB S-tier is
+# halts_today >= 1 (with the engine cascade gate that means ht in {1,2}).
+BOOK_WHERE = """
+  gap_60 < 4 AND entry_px/adj_ratio >= 1 AND (
+    COALESCE(volat_20m*1e4 >= 140, false)
+    OR COALESCE((signal_vwap/first_low_vwap)*(1+d_hi_flow) - 1 < -0.28, false)
+    OR COALESCE(signal_vwap/sess_low - 1 >= 0.08, false)
+    OR COALESCE((volat_slope_20m - volat_slope_10m)*2e4 < -12, false)
+    OR COALESCE(bars_since_first_low <= 390, false)
+    OR COALESCE(secs_since_halt >= 1200 AND secs_since_halt < 4800, false)
+    OR COALESCE(halts_today >= 1 AND secs_since_halt >= 120 AND secs_since_halt < 1200, false))
+"""
 con = duckdb.connect()
 f_ = con.execute(f"""
 SELECT symbol, trade_date, entry_sec, exit_sec,
        ret_exit*sqrt(99.0/(volat_20m*1e4)) AS rn,
        CASE WHEN gap_adj_1200<15 AND ols_slope_60*6e5<=-350 THEN 'A'
             WHEN gap_adj_1200<15 THEN 'B' WHEN ols_slope_60*6e5<=-350 THEN 'C' ELSE 'D' END AS tier
-FROM read_parquet('{TRIPS}') ORDER BY symbol, trade_date, signal_sec
+FROM read_parquet('{TRIPS}')
+{'' if args.no_book else 'WHERE ' + BOOK_WHERE}
+ORDER BY symbol, trade_date, signal_sec
 """).fetchdf()
 keep, last, prev = np.zeros(len(f_), bool), -1, None
 sym = (f_.symbol + "_" + f_.trade_date.astype(str)).values
@@ -75,7 +92,8 @@ else:
         print(f"solved: w_disaster = {w:.6f}  (1 in {1/w:,.0f} trades)  so that f*_{t} = {args.target_f}")
 
 wtxt = f"{w:.6f} (1 in {1/w:,.0f})" if w > 0 else "0 (no disaster atom)"
-print(f"disaster: r = {RD*100:.0f}%  w = {wtxt}   base = per-tkd mc=1, {len(P):,} trips\n")
+base = "FULL v31_reference" if args.no_book else "TRADING BOOK ($1+ x g60 x vote/S-tier)"
+print(f"disaster: r = {RD*100:.0f}%  w = {wtxt}   base = {base}, per-tkd mc=1, {len(P):,} trips\n")
 print(f"{'tier':<6}{'n':>7}{'mean%':>8}{'worst%':>9}{'f*':>9}{'rel D':>8}{'rel A':>8}{'g(f*)%':>9}")
 o = {t: fstar(R[t], w) for t in "ABCD"}
 for t in "ABCD":

@@ -14040,7 +14040,7 @@ tables reproduces the recorded book at exactly 7,044 trips.
 | price floor | `entry_px/adj_ratio ≥ $1` | $1+ in RAW tape dollars (the adjusted price is future information — §S43v) |
 | g60 | `gap_60 < 4` | ≤ 3 empty seconds in the last minute — continuous price discovery |
 | vote | ≥ 1 of the 6 voices below | at least one aggravating quality is present |
-| S-tier A | `halts_today ≥ 1 AND secs_since_halt ∈ [120, 1200)` | OR-ed in past the vote: halted today, 2–20 min after resume — the best cell in the playbook |
+| S-tier A | `halts_today ≥ 1 AND secs_since_halt ∈ [120, 1200)` | OR-ed in past the vote: halted today, 2–20 min after resume — the best cell in the playbook. NB the ht≥1 is de facto **ht ∈ {1,2}**: the engine's cascade gate already rejects ht≥3 in this window. The §S42p causal lens is ht=1; the recorded book verifiably includes ht=2 (13 trips, whose cell independently reads PF 11.9) |
 
 The six voices:
 
