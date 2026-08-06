@@ -74,7 +74,8 @@ else:
     else:
         print(f"solved: w_disaster = {w:.6f}  (1 in {1/w:,.0f} trades)  so that f*_{t} = {args.target_f}")
 
-print(f"disaster: r = {RD*100:.0f}%  w = {w:.6f} (1 in {1/w:,.0f})   base = per-tkd mc=1, {len(P):,} trips\n")
+wtxt = f"{w:.6f} (1 in {1/w:,.0f})" if w > 0 else "0 (no disaster atom)"
+print(f"disaster: r = {RD*100:.0f}%  w = {wtxt}   base = per-tkd mc=1, {len(P):,} trips\n")
 print(f"{'tier':<6}{'n':>7}{'mean%':>8}{'worst%':>9}{'f*':>9}{'rel D':>8}{'rel A':>8}{'g(f*)%':>9}")
 o = {t: fstar(R[t], w) for t in "ABCD"}
 for t in "ABCD":
