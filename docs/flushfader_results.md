@@ -13945,6 +13945,11 @@ S43ax trap (worst-loss-keyed sizing measures SAMPLE SIZE: A's -12.8% floor rests
 
 ### 🔒 SIZING SPEC (v3) — replaces S43ax's 5.00/1.75/1.45
 
+> ⚠ **MULTIPLIERS SUPERSEDED (S43ba):** this set was derived on the WRONG BASE —
+> the unfiltered v31_reference dedup (6,385), not the trading book. Re-derived
+> on the book's per-tkd mc=1 (1,231): **{A 4.84, B 2.04, C 2.07, D 1.00}**
+> (user decision). B≈C on the book. Everything else in this section stands.
+
 **SIZE ∝ (1/√volat_20m) × tier {A 3.36, B 2.02, C 1.17, D 1.00}**, absolute scale
 **starting at 1% of account on D** (≈3.4% on A ≈ 1/200th of empirical Kelly),
 escalating with live evidence. Rationale for comfort: break-even on a -100% loss is
@@ -14059,15 +14064,19 @@ Tiers from two features at signal time:
 
 | tier | `gap_adj_1200 < 15` (continuous 20m tape) | `ols_slope_60×6e5 ≤ −350` (steep 1m slope) | multiplier |
 |---|:---:|:---:|---:|
-| A | ✅ | ✅ | 3.36 |
-| B | ✅ | — | 2.02 |
-| C | — | ✅ | 1.17 |
+| A | ✅ | ✅ | 4.84 |
+| B | ✅ | — | 2.04 |
+| C | — | ✅ | 2.07 |
 | D | — | — | 1.00 |
 
 **SIZE = BASE × multiplier × √(99bp / volat_20m)** — vol-normalised so every
-trade carries comparable risk. **BASE starts at 1% of account** (A ≈ 3.4%).
-The multipliers are the empirical-Kelly ratios of the tiers
-(`scripts/equity/flushfader_kelly.py`). Ramp-up = trend-follow our own equity
+trade carries comparable risk. **BASE starts at 1% of account** (A ≈ 4.8%).
+The multipliers are the pure empirical-Kelly ratios of the tiers on THIS book
+(per-tkd mc=1, 1,231 trades; `scripts/equity/flushfader_kelly.py`). Two notes:
+**B and C are equals on the trading book** (the book filter removes the junk
+that made C weak on the wider reference), and A's Kelly pins on its worst
+observed loss (−5.2% across 138 trades) — sample-size sensitive, revisited at
+the 1,000-live-trade re-derivation. Ramp-up = trend-follow our own equity
 curve: toward 10% BASE over ~6 months if all goes well, then +10–20%/month on
 month-end 3-month equity highs; halve and rethink on a month-end 3-month low
 (draft: `docs/flushfader_escalation_policy.md`). Fills log (actual vs
@@ -14100,8 +14109,8 @@ Every year is positive:
 | 2026 | 136 | 4.814 | +2.48 |
 
 At the starting size (1% D-base, vol-normalised, sequential compounding):
-**+6.6%/year average** (range +1.7% in 2022 to +9.3% in 2025), max drawdown
-over 6.5 years **−0.44%**, worst single trade **−0.25% of account**, 6 negative
+**+7.6%/year average** (range +2.2% in 2022 to +11.7% in 2025), max drawdown
+over 6.5 years **−0.52%**, worst single trade **−0.25% of account**, 8 negative
 months of 78. Position sizes scale all of these linearly until the ramp meets
 the participation cap (per-trade notional ≤ 1% of trailing 20m dollar volume).
 

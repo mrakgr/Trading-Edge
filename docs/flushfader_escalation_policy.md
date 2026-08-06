@@ -30,11 +30,14 @@ S43az, calibrated on the per-ticker-day mc=1 book (6,385 trades, 2020→2026-07)
 
 ```
 size(trade) = BASE × tier_mult × sqrt(99bp / volat_20m_bp)
-tier_mult   = { A 3.36, B 2.02, C 1.17, D 1.00 }     (S43az, 🔒)
+tier_mult   = { A 4.84, B 2.04, C 2.07, D 1.00 }     (S43ba, trading-book Kelly ratios, 🔒)
 BASE        = fraction of account for a D-tier trade at reference vol (99bp)
 ```
 
-**BASE starts at 1.0%** (⇒ A ≈ 3.4% at reference vol). Execution: cross the entry,
+**BASE starts at 1.0%** (⇒ A ≈ 4.8% at reference vol). ⚠ The §2 yardsticks
+below predate the S43ba multiplier update (they were computed on the wider
+reference at the older multipliers) — refresh them on the trading book at
+adoption time. Execution: cross the entry,
 rest the exit. mc = 1: one position per ticker-day; global concurrency per S43ay book.
 
 ## 2. Backtest yardsticks at BASE = 1% (what "normal" looks like)
