@@ -13956,3 +13956,73 @@ what evidence permits an increase, what drawdown forces an automatic cut. Second
 live priority: measure fills vs the sim's cross-the-entry / rest-the-exit assumption.
 Overfit magnitude unknowable until live; user judges the EDGE itself robust even if
 the backtest flatters it.
+
+## S43ba — SYSTEM RECAP (capstone entry before live; research phase closed 2026-08-06)
+
+**What FlushFader is.** A 1-second-tape mean-reversion LONG system for US equities:
+buy violent intraday flushes in liquid small-caps, exit into the bounce. Built
+S13→S43az over 2026-07/08 on the `flush-fader` branch; real-money intent. This
+entry recaps the locked state; details in the cited sections.
+
+### The pipeline
+
+1. **Universe: `mr_candidate_1s`** — 1s-tape-native, dollar-volume ≥ $2M ×
+   neff25, NO price floor, prior-only warmup (the clean §S39d replacement).
+   Book-level floor: **$1+ RAW** (`entry_px/adj_ratio`, never adjusted — §S43v).
+2. **Entry: SPEC v2.7** (= v2.6 + `eff_9ema_10m ≥ −0.10`) with the deep-flush
+   conjunction **`speed < −2% AND d1m < −2%`** (§S43t: one-dimensional axis,
+   nothing replaces the pair).
+3. **Book filter: `gap_60 < 4` (g60) AND (vote ≥ 1 of 6 OR S-tier A)** — roster
+   voices {v20≥140, d20a<−28, dslo≥8, ramp<−12, `bars_since_first_low`≤390,
+   haltband ssh∈[20,80m)} (§S42; esf retired as leg-age-in-disguise).
+4. **Execution:** cross the entry, rest the exit. One position per ticker-day
+   (per-tkd mc=1 is the honest accounting — §S43ay).
+
+### The headline numbers (production book, 7,044 mc=0 trips)
+
+| replay | trades | PF | med % | worst year |
+|---|---:|---:|---:|---:|
+| mc=1 (one global slot) | 1,178 | **4.168** | +2.00 | — |
+| mc=3 | 2,997 | **4.550** | +2.14 | 3.325 |
+
+### Per-tier profit factors (the forgotten numbers)
+
+Tiers: **A** = `gap_adj_1200<15` AND `ols_slope_60×6e5 ≤ −350` · **B** = gap only ·
+**C** = slope only · **D** = neither. Measured on the v31_reference (35,778, the
+sizing campaign's base) and its per-ticker-day mc=1 dedup (6,385):
+
+| tier | ref n | **ref PF** | win% | | per-tkd n | **per-tkd PF** | mean rn% |
+|---|---:|---:|---:|---|---:|---:|---:|
+| A | 2,242 | **4.830** | 78.5 | | 232 | **3.802** | 2.15 |
+| B | 3,715 | **4.018** | 80.9 | | 671 | **3.122** | 1.57 |
+| C | 7,758 | **2.545** | 73.3 | | 908 | **1.985** | 1.24 |
+| D | 22,063 | **2.132** | 72.7 | | 4,574 | **1.922** | 1.05 |
+| ALL | 35,778 | 2.512 | 74.1 | | 6,385 | 2.088 | 1.17 |
+
+(Raw-return PFs; vol-normalised PFs are within 0.07 everywhere. The per-tkd
+column is the honest one — dedup removes the cascade double-counting that
+flatters A/B. ⚠ Base note: the tier work conditions on the v31_reference, not
+the vote-filtered production book; the vote columns are derived in SQL, not in
+the trips parquet.)
+
+### Sizing (🔒 S43az) & live plan
+
+**SIZE ∝ (1/√volat_20m) × {A 3.36, B 2.02, C 1.17, D 1.00}** — pure empirical
+Kelly ratios on the per-tkd book (⚠ ≈ worst-observed-loss ratios, i.e. partly
+sample size; accepted, inside the honest 1.9–5.6 span). **Start: 1% of account
+on D** (~3.4% A) ≈ 1/200th Kelly. Tool: `scripts/equity/flushfader_kelly.py`.
+Backtest at start size: 2.70× over 6.5y, max DD −1.30%, one negative month in
+78, worst years (2022/23) ≈ +6.9%. Escalation: DRAFT in
+`docs/flushfader_escalation_policy.md` (not adopted); user's plan = trend-follow
+own equity, ramp 1%→10% in ~6 months, then +10–20%/mo on 3-month equity highs,
+halve + rethink on 3-month lows. Fills log (actual vs cross/rest sim) from day
+one; re-derive multipliers at 1,000 live trades.
+
+### Standing cautions
+
+Overfit magnitude unknowable until live — the user judges the edge robust even
+if the backtest flatters it. The lookahead protocol (`docs/lookahead_protocol.md`)
+is the reason this book survived when three sibling systems died; every new
+filter gets the disproportion test, the knowability clock, and a control.
+
+**⏭ NEXT: live scanners + IBKR integration, then live at small size.**
