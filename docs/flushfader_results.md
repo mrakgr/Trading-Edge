@@ -14049,7 +14049,7 @@ The six voices:
 | v20 | `volat_20m × 1e4 ≥ 140 bp` | very high 20m volatility |
 | d20a | `(vwap/first_low_vwap)·(1+d_hi_flow) − 1 < −28%` | ≥ 28% below the leg's anchor — a deep cascade |
 | dslo | `vwap/sess_low − 1 ≥ +8%` | ≥ 8% above the session low — not sitting on the dead low |
-| ramp | `(volat_slope_20m − volat_slope_10m) × 2e4 < −12` | the 10m volatility is cooling relative to the 20m |
+| ramp | `(volat_slope_20m − volat_slope_10m) × 2e4 < −12` | the 10m volatility slope exceeds the 20m — short-horizon volatility is EXPANDING rapidly |
 | b390 | `bars_since_first_low ≤ 390` | the leg is young, not a stale grind |
 | haltband | `secs_since_halt ∈ [1200, 4800)` | 20–80 minutes after a halt resume |
 
