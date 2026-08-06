@@ -12471,7 +12471,7 @@ mc=3 book at 3,336 @ 3.899 vs 3,330 @ 3.901). Rows below are all RAW.
 `*` = inside today's band; year columns = expectancy ratio vs the book:
 
 | \|eff_20m\| | n | PF | avg% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | <.10 | 31 | inf (0 losers) | +3.63 | 1.93 | 2.73 | 0.34 | 1.07 | 1.04 | - | - |
 | [.10,.20) | 286 | 3.42 | +2.02 | 1.24 | 2.04 | 1.54 | 0.25 | 0.22 | 0.42 | 0.89 |
 | [.20,.30) | 1,404 | 3.04 | +1.79 | 0.88 | 0.94 | 1.09 | 1.27 | 0.54 | 0.47 | 0.92 |
@@ -13966,16 +13966,40 @@ entry recaps the locked state; details in the cited sections.
 
 ### The pipeline
 
-1. **Universe: `mr_candidate_1s`** — 1s-tape-native, dollar-volume ≥ $2M ×
-   neff25, NO price floor, prior-only warmup (the clean §S39d replacement).
-   Book-level floor: **$1+ RAW** (`entry_px/adj_ratio`, never adjusted — §S43v).
-2. **Entry: SPEC v2.7** (= v2.6 + `eff_9ema_10m ≥ −0.10`) with the deep-flush
-   conjunction **`speed < −2% AND d1m < −2%`** (§S43t: one-dimensional axis,
-   nothing replaces the pair).
-3. **Book filter: `gap_60 < 4` (g60) AND (vote ≥ 1 of 6 OR S-tier A)** — roster
-   voices {v20≥140, d20a<−28, dslo≥8, ramp<−12, `bars_since_first_low`≤390,
-   haltband ssh∈[20,80m)} (§S42; esf retired as leg-age-in-disguise).
-4. **Execution:** cross the entry, rest the exit. One position per ticker-day
+1. **Universe: `mr_candidate_1s`** (rebuilt 2026-08-04, §S43u; warmup removed
+   §S40c). A ticker-day is admitted iff, over the 900 seconds of
+   [09:30, 09:45): **`dv_0945_tape ≥ $2M`** (1s-tape-native honest dollars,
+   Σ vwap·volume of OUR bars — never the adjusted candidate column, §S35)
+   **AND `n_bars_1s ≥ 200`** (the OCCUPANCY / gap-count gate: ≤ 700 of 900
+   seconds empty; it REPLACED `n_eff_shannon ≥ 25`, which was an
+   inverse-liquidity filter — the days it rejected had 3× the dollar volume).
+   **NO price floor, NO warmup** — IPO day 1 admitted, `barnum` recorded.
+   Both gates fold strictly before 09:45 = EntryStartMin (knowability ✅).
+   Build: `scripts/equity/build_mr_candidate_1s.fsx` (1,145,230 rows).
+2. **Signal/base (engine, unchanged since v1.x):** universe row AND engine tape
+   floor **`dv_0945_tape ≥ $3M`** AND `barnum ≥ 22`. ENTRY: vwap < prior
+   1200-bar strict MIN (new ~20m low) AND dv60 ≥ $100k AND tc60 ≥ 60; fill =
+   NEXT-bar vwap. EXIT: vwap > prior 300-bar strict MAX (~5m high) | MOC.
+   Leg: arm on first new low, reset on new 1200-bar high. `volat_20m ≥ 40bp`.
+   Entries 09:45–15:00 ET. Stops OFF.
+3. **SPEC v2.7 gates (all ANDed):** flush `speed < −2%/1m` AND `d1m < −2%`
+   (the deep-flush conjunction, §S43t) · ssf `ols_slope_since_flow×6e5 ∈
+   [−375,−25)` · dlv < −3% · rflow ≥ −0.95 · z20 < −1.5σ (log, vw) ·
+   K = `lows_since_first_low ∈ [26,50]` · |eff_20m| ∈ [0.30, 0.50) ·
+   |eff_10m| ≥ 0.15 · vol10rate ≥ 0.75 · lows300 ≥ 6 · rngfront < 0.80 ·
+   accel1020 ≥ −80 · slope20 < −10 · slope5 ≥ −400 · cascade waits (ht≥1:
+   120s, ht≥3: 1200s post-resume) · halt detector (run ≥ 58s × pre-hole 5m
+   rng ≥ 4% × pre-hole adj 1m gap < 4, v2.6) · **`eff_9ema_10m ≥ −0.10`**
+   (the v2.7 whipsaw knife; ⚠ off = −∞, not 0). Full card §S43a′ (v2.6 card
+   + banners); verify from the engine BANNER, never config.
+4. **Book filter (post-hoc in the mc replay `--where`): `$1+ RAW`
+   (`entry_px/adj_ratio ≥ 1`, never adjusted — §S43v/S43al) AND `gap_60 < 4`
+   (g60) AND (vote ≥ 1 of 6 OR S-tier A)** — roster voices {v20 ≥ 140bp,
+   d20a < −28%, dslo ≥ +8%, ramp < −12, `bars_since_first_low` ≤ 390,
+   haltband ssh ∈ [20,80m)} (§S43an; esf retired as leg-age-in-disguise).
+   S-tier A = `ht = 1 AND secs_since_halt ∈ [120, 1200)` — traded, "the best
+   trade in our entire playbook" (§S42p).
+5. **Execution:** cross the entry, rest the exit. One position per ticker-day
    (per-tkd mc=1 is the honest accounting — §S43ay).
 
 ### The headline numbers (production book, 7,044 mc=0 trips)
