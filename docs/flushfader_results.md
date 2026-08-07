@@ -13995,7 +13995,8 @@ Build: `scripts/equity/build_mr_candidate_1s.fsx`.
 ### 2. The signal — what makes a trip
 
 The engine walks 1s bars. Features fold from 09:30; entries allowed
-09:45–15:00 ET.
+09:45–15:00 ET (09:45–12:00 on NYSE early-close days — S43bc, the
+hour-before-close rule mirrored onto the 13:00 short close).
 
 | element | definition |
 |---|---|
@@ -14157,3 +14158,39 @@ trips on those days, none with `signal_sec` or `exit_sec` ≥ 13:00; the thin
 after-hours prints never passed the dv60/tc60 entry gates. Data hygiene only.
 (The legacy 10s dataset carries the same four bad days — momentum program is
 closed, not rebuilt.)
+
+---
+
+## S43bc — short-day entry cutoff 12:00 ET (2026-08-07)
+
+**The gap (user catch):** `EntryEndSec = 54000` (15:00) is the hour-before-close
+rule — but on NYSE early-close days the close is 13:00, so the cutoff never
+engaged and the engine would enter minutes before the short close and force-MOC
+immediately (RGC 2025-07-03: entry 12:53, MOC 12:58).
+
+**The measurement (12 in-sample short days, trading book per-tkd mc=1):**
+6 trades of 1,231 (~1/year, proportionate to short days being 0.7% of the
+calendar), ALL six winners, +19.2% summed raw return (0.8% of book P&L). Three
+entered after 12:00 (AHPI 12:30 +2.30%, ISPC 12:39 +0.91%, RGC 12:53 +2.41%).
+Regular-day afternoon is fine — 13:00–15:00 entries are 298 trades (24% of the
+book) at PF 4.151, as good as the morning; the 15:00 rule stands.
+
+**Decision (user):** keep trading short days, but mirror the hour-before-close
+rule: entries end **12:00 ET on early-close days**. In-sample cost: 3 winning
+trades over 6.5y; book PF 4.015 → 4.008 (conservative direction — not
+outcome-fitted). "Skip short days entirely" was considered and declined.
+
+**Implementation:** new `IntradayConfig.EntryEndSecShort` (default 43200 =
+12:00; CLI `--entry-end-sec-short`); the engine consults
+`Timezone.early_closes` per day (`TradingEdge.FlushFader` now references
+`TradingEdge.Orb`). ⚠ The rule keys on that calendar — keep it maintained
+through 2029+ before any live season (S43bb backfilled 2016–2022).
+
+**Control:** engine rerun over all 12 short days → 197 trips, latest signal
+11:59, and the trip set (symbol, secs, ret) is an EXACT match to the recorded
+reference restricted to `signal_sec <= 43200` — including on the four rebuilt
+days, which doubles as proof the rebuild reproduces pre-13:00 bars
+bit-identically. The recorded v39 trips parquet still contains the 59
+pre-rule short-day afternoon trips (256 → 197); post-hoc book SQL that must
+match the LIVE rule should add `NOT (short_day AND signal_sec > 43200)`.
+The OOS run embodies the rule natively.

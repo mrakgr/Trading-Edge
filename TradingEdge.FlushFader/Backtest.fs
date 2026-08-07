@@ -137,6 +137,9 @@ let defaultConfig =
                                         // 10:00-13:30 was a VwapReclaim-era throwback; use the full day)
           EntryEndSec      = 54000      // ⭐ 15:00 (S31b/S31c: after it, quality and
                                         // completion-room degrade together; 14:30 rejected)
+          EntryEndSecShort = 43200      // ⭐ S43bc: 12:00 on NYSE early-close days — the
+                                        // hour-before-close rule mirrored onto the 13:00 close
+                                        // (in-sample cost: 3 of 1,231 book trades, all winners)
           MocSec           = 57600 }    // 16:00
       Notional = 10_000.0
       MinDv0945 = 0.0               // 💀 DEPRECATED (S35): the candidate column = real

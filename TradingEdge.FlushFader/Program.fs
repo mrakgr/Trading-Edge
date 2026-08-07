@@ -71,6 +71,7 @@ type Args =
     // ----- timing -----
     | Entry_Start_Sec of int
     | Entry_End_Sec of int
+    | Entry_End_Sec_Short of int
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -123,7 +124,8 @@ type Args =
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: unlimited concurrent positions — every new low opens another trip, so it AVERAGES DOWN. Removes path dependency (every trip = an independent row) but PF is then ATTRIBUTION, not a portfolio number. 1 = a real book."
             | Workers _ -> "S39h: parallel day-workers (default: cores - 2). Trip SET is identical at any worker count; parquet row order is not."
             | Entry_Start_Sec _ -> "Earliest ET second (since midnight) an entry may fire. Default 35100 = 09:45 — the knowability floor itself (the old 10:00 was a VwapReclaim-era throwback). ⚠ Must be >= 35100."
-            | Entry_End_Sec _ -> "Latest ET second an entry may fire. Default 57000 = 15:50 (last 10m reserved for exits)."
+            | Entry_End_Sec _ -> "Latest ET second an entry may fire. Default 54000 = 15:00 (one hour before the regular close)."
+            | Entry_End_Sec_Short _ -> "S43bc: latest ET second an entry may fire on NYSE early-close days (13:00 ET close). Default 43200 = 12:00 — the hour-before-close rule mirrored."
 
 [<EntryPoint>]
 let main argv =
@@ -204,7 +206,8 @@ let main argv =
                     SpeedStopPct     = parsed.GetResult(Speed_Stop_Pct,     defaultValue = d.Intraday.SpeedStopPct)
                     MaxConcurrent    = parsed.GetResult(Max_Concurrent,     defaultValue = d.Intraday.MaxConcurrent)
                     EntryStartSec    = parsed.GetResult(Entry_Start_Sec,    defaultValue = d.Intraday.EntryStartSec)
-                    EntryEndSec      = parsed.GetResult(Entry_End_Sec,      defaultValue = d.Intraday.EntryEndSec) }
+                    EntryEndSec      = parsed.GetResult(Entry_End_Sec,      defaultValue = d.Intraday.EntryEndSec)
+                    EntryEndSecShort = parsed.GetResult(Entry_End_Sec_Short, defaultValue = d.Intraday.EntryEndSecShort) }
             MinDv0945 = parsed.GetResult(Min_Dv_0945, defaultValue = d.MinDv0945)
             MinRvol0945 = parsed.GetResult(Min_Rvol_0945, defaultValue = d.MinRvol0945)
             MinPrevClose = parsed.GetResult(Min_Prev_Close, defaultValue = d.MinPrevClose)

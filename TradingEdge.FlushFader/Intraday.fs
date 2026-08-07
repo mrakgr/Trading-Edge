@@ -803,13 +803,23 @@ type IntradayConfig =
                                  // (09:45) — the universe context (dv_0945 / rvol_0945_honest)
                                  // rides along in the output; entries before 09:45 would silently
                                  // make those columns lookahead (R4).
-      EntryEndSec: int           // 48600 = 13:30.
+      EntryEndSec: int           // 54000 = 15:00 — one hour before the regular close.
+      EntryEndSecShort: int      // ⭐ S43bc: entry cutoff on NYSE early-close days (13:00 ET
+                                 // close). 43200 = 12:00 — the hour-before-close rule mirrored.
+                                 // Without it EntryEndSec never engages on short days and the
+                                 // engine enters minutes before the short close and force-MOCs
+                                 // immediately (RGC 2025-07-03: entry 12:53, MOC 12:58).
       MocSec: int }              // 57600 = 16:00. Positions force-exit at the first bar >= this (its
                                  // own vwap — the auction-proximate print), and Flatten catches days
                                  // whose tape ends earlier (early closes).
 
 /// The FlushFader engine. One instance per (ticker, day).
 type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
+    // S43bc: short days use their own entry cutoff (see EntryEndSecShort doc).
+    let entryEndSec =
+        if TradingEdge.Orb.Timezone.early_closes.Contains day
+        then cfg.EntryEndSecShort
+        else cfg.EntryEndSec
     // ----- the entry/exit channels + the recorded channel set -----
     // MaxMa/MinMa pairs over vwap at six present-bar windows; session extremes
     // via RunMaxMa/RunMinMa. Entry/exit windows are validated in Program to
@@ -1755,7 +1765,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if w < active.Count then active.RemoveRange(w, active.Count - w)
 
         // ===== 6. entry signal (fills next bar) =====
-        let inWindow = bar.etSec >= cfg.EntryStartSec && bar.etSec <= cfg.EntryEndSec
+        let inWindow = bar.etSec >= cfg.EntryStartSec && bar.etSec <= entryEndSec
         let channelWarm = entryMin.Count = entryMin.WindowSize
         let floorsOk =
             (match dvSum60.State with ValueSome dv -> dv >= cfg.DvFloor60 | ValueNone -> false)

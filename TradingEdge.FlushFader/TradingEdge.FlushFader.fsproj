@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../TradingEdge.RollingMa/TradingEdge.RollingMa.fsproj" />
+    <ProjectReference Include="../TradingEdge.Orb/TradingEdge.Orb.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
