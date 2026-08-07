@@ -1350,3 +1350,21 @@ denominator. The edge wants ~20 bars.
    (catch names that are only up ~5% at 10:00 but will continue to 10–30% by close),
    entering early to capture the rest of the move. That's the next experiment —
    sweep the 10:00 move floor and compare PF + trip count to the close baseline.
+
+---
+
+## TODO (2026-08-07, from FlushFader S43bd) — audit `tightness_14` for the inverted-vol-axis trap
+
+FlushFader S43bd found that a range/vol ratio can silently become **pure
+inverse-volatility** when the numerator's variance is narrow relative to the
+denominator's (`exp(rng)/Σ|r|` came out corr 0.999 with `1/Σ|r|` — the +1
+term drowned the range; the z_20m numerator-corr diagnostic caught it).
+
+HighFlyer's `tightness_14` (**14-bar range / linear ATR**) is the same
+family and has never had the diagnostic run. **Check `corr(tightness_14,
+range_pct_14)` vs `corr(tightness_14, 1/atr_pct_14)`** — if the second
+dominates, the tightness continuum (PF 1.16 → 1.69 toward tight) is really
+an inverse-ATR axis wearing a costume, and the "tight base" story needs
+re-reading. Either way, a proper **range efficiency ratio** (range − offset
+handled correctly, FlushFader's `(H/L−1)/Σ|r|` form) is worth an audition on
+this system when it reopens.

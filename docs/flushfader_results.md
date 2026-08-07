@@ -14289,7 +14289,10 @@ z_20m numerator-corr diagnostic, again). Its table is just the VOL AXIS
 INVERTED — ref avg% falls monotonically +2.24 → +0.02 as the feature rises
 (high = quiet tape; volat≥140 is a voice for the same reason, opposite sign).
 H/L and H/L−1 are rank-identical standalone but NOT inside a ratio. The
-family's correct form stays `(H/L − 1)` (or ln) over Σ40|r|.
+family's correct form stays `(H/L − 1)` (or ln) over Σ40|r|. ⇒ CROSS-SYSTEM
+(user): HighFlyer's `tightness_14` (14-bar range / linear ATR) is the same
+family and has never had the numerator-corr diagnostic — audit TODO filed in
+docs/highflyer_v2_results.md.
 
 **⭐ PRE-REGISTERED OOS HYPOTHESIS (written before any OOS data was seen):**
 on 2016-08→2019-12 OOS, book-filtered per-tkd mc=1: (a) the bottom octile of
