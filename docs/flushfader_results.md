@@ -14239,6 +14239,17 @@ recovered-V shapes S40b flagged. The feature is at best a CONDITIONAL
 amplifier, which is exactly what the book-filtered pre-registration below
 tests.
 
+**Plain-numerator variant (user, from the daily swing system):**
+`(H/L − 1)/(40·volat_20m)` instead of ln(H/L) — corr with the log version
+**0.986** at this horizon (20m ranges are small; exp(x)−1 ≈ x — the log-vs-
+plain distinction only matters on daily-swing-sized ranges). Same tables,
+same verdict: reference hump (weak [0.3,0.35) = 1.48, tail [0.7+) = 1.1–1.6),
+book gradient (top zone PF ~8, small-n). Wrinkle: the tiny [0,0.3)
+ultra-choppy bucket is strong on BOTH bases (ref 3.90 @ 58, book 6.80 @ 22) —
+the low-end weakness is a BAND [0.3,0.4), not a tail, so no simple
+"trim below X" exists. Pre-registration unchanged (at corr .986 the
+numerator choice cannot flip it).
+
 **⭐ PRE-REGISTERED OOS HYPOTHESIS (written before any OOS data was seen):**
 on 2016-08→2019-12 OOS, book-filtered per-tkd mc=1: (a) the bottom octile of
 `rng_20m/(40·volat_20m)` (in-sample edge ≈ 0.34) underperforms the OOS book
