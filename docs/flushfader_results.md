@@ -14281,6 +14281,16 @@ the toxic-tail readout (opposite of its effect on the bar channel). Book
 exposure ≥0.65 is 5 trades (4 winners). If the voice audition ever happens,
 the candidate cut is the LINEAR slot ratio ≥ ~0.65.
 
+**☠ `exp(rng_slots_20m)/Σ40|r|` (H/L WITHOUT the −1) is a TRAP (user probe):**
+corr **0.999 with plain 1/Σ40|r|**, corr with eff_rng collapses to 0.232 — the
++1 term drowns the range: (1+x)/Σ = x/Σ + 1/Σ, and x (pct range, ~0.1–0.6)
+is narrow while 1/Σ varies severalfold, so the denominator takes over (the
+z_20m numerator-corr diagnostic, again). Its table is just the VOL AXIS
+INVERTED — ref avg% falls monotonically +2.24 → +0.02 as the feature rises
+(high = quiet tape; volat≥140 is a voice for the same reason, opposite sign).
+H/L and H/L−1 are rank-identical standalone but NOT inside a ratio. The
+family's correct form stays `(H/L − 1)` (or ln) over Σ40|r|.
+
 **⭐ PRE-REGISTERED OOS HYPOTHESIS (written before any OOS data was seen):**
 on 2016-08→2019-12 OOS, book-filtered per-tkd mc=1: (a) the bottom octile of
 `rng_20m/(40·volat_20m)` (in-sample edge ≈ 0.34) underperforms the OOS book
