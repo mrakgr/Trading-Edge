@@ -14127,3 +14127,33 @@ the participation cap (per-trade notional ≤ 1% of trailing 20m dollar volume).
   traded, not the number.
 
 **⏭ NEXT: live scanners + IBKR integration, then live at small size.**
+
+---
+
+## S43bb — OOS boundary declared + early-close calendar fix (2026-08-07)
+
+**🔒 IN-SAMPLE = 2020-01-02 → 2026-07-17.** The entire research program
+(S13→S43ba: the spec, the book filter, the tiers, the sizing multipliers) was
+fit on that window. **Everything outside it is OUT-OF-SAMPLE** — downloaded
+only after the book was frozen at S43ba, never seen by any research decision:
+
+- **backward:** 2016-08-08 → 2019-12-31 (the 10-year entitlement boundary;
+  pre-2016-08-07 files return 403 and are skipped)
+- **forward:** 2026-07-18 onward
+
+Download kicked off 2026-08-07 (`download-bulk-trades 2016-07-01 → 2026-08-06`,
+existing 1,642 days skip instantly). Pipeline for the OOS test, in order:
+`build_all_1s_bars.fsx` over the new days → rebuild `mr_candidate_1s` for the
+new range → run the FROZEN spec v2.7 + trading-book filter + per-tkd mc=1.
+**No re-tuning of any kind on OOS data** — the book is judged as frozen.
+
+**Early-close calendar fix (user catch).** `Timezone.early_closes` began at
+2023-07-03; the 13 NYSE 1pm closes from 2016-11-25 through 2022-11-25 were
+missing. Consequence: FOUR in-sample days (2020-11-27, 2020-12-24, 2021-11-26,
+2022-11-25) had been built with the regular 15:59 cutoff and carried 134k–272k
+after-hours prints each as phantom RTH bars. All four rebuilt (max bucket now
+46739 = 12:58). **Blast radius on the recorded book: zero** — 77 reference
+trips on those days, none with `signal_sec` or `exit_sec` ≥ 13:00; the thin
+after-hours prints never passed the dv60/tc60 entry gates. Data hygiene only.
+(The legacy 10s dataset carries the same four bad days — momentum program is
+closed, not rebuilt.)
