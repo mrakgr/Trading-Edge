@@ -14271,6 +14271,16 @@ bar-channel version is the "better-behaved" sizing-style variant precisely
 because it blurs it. Pre-registration unchanged (stated on the bar-channel
 ratio, book-conditional).
 
+**Linear-numerator SLOT variant** `(exp(rng_slots_20m)−1)/Σ40|r|` (user
+request): corr 0.978 with eff_rng_20m; ref quantiles q05 0.355 / med 0.455 /
+q95 0.571 / max 0.736. Same hump + book gradient, but the linear stretch
+SEPARATES the danger zone into its own buckets instead of smearing it into
+[0.6,0.65): ref mc=1 [0.65,0.7) = 23 @ PF 0.705 / −0.76%, [0.7,1.5) = 2 @
+both losers, avg −7.28%. For the SLOT feature the linear numerator sharpens
+the toxic-tail readout (opposite of its effect on the bar channel). Book
+exposure ≥0.65 is 5 trades (4 winners). If the voice audition ever happens,
+the candidate cut is the LINEAR slot ratio ≥ ~0.65.
+
 **⭐ PRE-REGISTERED OOS HYPOTHESIS (written before any OOS data was seen):**
 on 2016-08→2019-12 OOS, book-filtered per-tkd mc=1: (a) the bottom octile of
 `rng_20m/(40·volat_20m)` (in-sample edge ≈ 0.34) underperforms the OOS book
