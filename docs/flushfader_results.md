@@ -14217,6 +14217,28 @@ still +1.41%/trade) lifts PF 4.008 → 4.213 vs random same-frac trims p95 =
 4.169 — a marginal iso-trip pass, cutting positive-expectancy trades. NOT
 adopted; the book stays frozen.
 
+**⚠ THE GRADIENT INVERTS ON THE FULL REFERENCE (user follow-up)** —
+v31_reference per-tkd mc=1 (6,376), eff_rng_20m:
+
+| bucket | n | PF | win% | avg% | med% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| [0.3,0.35) | 614 | 1.806 | 67.8 | +0.97 | +1.89 | 1.78 | 2.14 | 1.47 | 3.43 | 1.41 | 1.96 | 1.39 |
+| [0.35,0.4) | 1,532 | 2.355 | 73.2 | +1.27 | +1.91 | 2.73 | 3.13 | 1.71 | 2.63 | 1.89 | 2.56 | 2.10 |
+| [0.4,0.45) | 2,008 | 2.096 | 71.6 | +1.12 | +1.85 | 3.00 | 2.56 | 1.57 | 1.36 | 2.77 | 1.88 | 1.52 |
+| [0.45,0.5) | 1,531 | 2.107 | 71.7 | +1.11 | +1.76 | 3.04 | 2.46 | 1.94 | 1.75 | 2.01 | 1.79 | 2.09 |
+| [0.5,0.55) | 570 | 2.036 | 72.5 | +1.05 | +1.78 | 2.20 | 2.32 | 1.84 | 1.15 | 2.29 | 3.25 | 1.34 |
+| [0.55,0.6) | 104 | 1.083 | 69.2 | +0.13 | +1.41 | 23.88 | 1.89 | · | · | 1.56 | 0.27 | 4.56 |
+| [0.6,0.65) | 17 | 0.606 | 52.9 | −0.71 | +0.11 | · | · | · | · | · | · | · |
+
+On the reference the shape is a HUMP — BOTH extremes weak (S40b's toxic high
+end survives; the literal bar-ratio is flat 1.7–2.5 with soggy tails, no
+monotone story). ⇒ **the book's positive gradient is an INTERACTION with the
+book voices, not a marginal effect of the feature** — inside the book, high
+range-per-vol selects orderly fadeable declines; outside it, it includes the
+recovered-V shapes S40b flagged. The feature is at best a CONDITIONAL
+amplifier, which is exactly what the book-filtered pre-registration below
+tests.
+
 **⭐ PRE-REGISTERED OOS HYPOTHESIS (written before any OOS data was seen):**
 on 2016-08→2019-12 OOS, book-filtered per-tkd mc=1: (a) the bottom octile of
 `rng_20m/(40·volat_20m)` (in-sample edge ≈ 0.34) underperforms the OOS book
