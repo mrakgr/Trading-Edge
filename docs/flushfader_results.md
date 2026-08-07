@@ -14289,7 +14289,22 @@ z_20m numerator-corr diagnostic, again). Its table is just the VOL AXIS
 INVERTED — ref avg% falls monotonically +2.24 → +0.02 as the feature rises
 (high = quiet tape; volat≥140 is a voice for the same reason, opposite sign).
 H/L and H/L−1 are rank-identical standalone but NOT inside a ratio. The
-family's correct form stays `(H/L − 1)` (or ln) over Σ40|r|. ⇒ CROSS-SYSTEM
+family's correct form stays `(H/L − 1)` (or ln) over Σ40|r|.
+
+**⭐ THE PROPER FORM (user, late 2026-08-07): fully linear —
+`(H − L) / Σ|V_i − V_{i−1}|` on slot vwaps, both legs in PRICE space.** A
+true Kaufman efficiency: triangle inequality pins it in (0,1], so the +1
+trap is structurally impossible; it is the honest analog of HighFlyer's
+tightness (linear/linear); and it fixes the log distortion exactly where
+this universe lives (on a −40% flush, ln compresses early expensive moves
+and inflates late cheap ones). Denominator answer for the record: the
+existing eff denominators are Σ|ln(V_i/V_{i−1})| — abs-of-log, never
+log-of-abs. ⚠ NOT reconstructible from recorded columns (only ln(H/L) and
+Σ|ln r| were stored) ⇒ needs a NEW RECORDED COLUMN (`eff_rng_lin_20m` +10m
+twin). Record-only ⇒ trip set stays bit-identical (S19) ⇒ does NOT violate
+the OOS freeze. Sequencing: add before the OOS run (spot-check one day vs
+v39 for exact trip match); in-sample reference gets it via a pure re-record
+run later. ⇒ CROSS-SYSTEM
 (user): HighFlyer's `tightness_14` (14-bar range / linear ATR) is the same
 family and has never had the numerator-corr diagnostic — audit TODO filed in
 docs/highflyer_v2_results.md.
