@@ -14304,7 +14304,18 @@ log-of-abs. ⚠ NOT reconstructible from recorded columns (only ln(H/L) and
 twin). Record-only ⇒ trip set stays bit-identical (S19) ⇒ does NOT violate
 the OOS freeze. Sequencing: add before the OOS run (spot-check one day vs
 v39 for exact trip match); in-sample reference gets it via a pure re-record
-run later. ⇒ CROSS-SYSTEM
+run later.
+
+**BUILT same night (user: "right now"):** `eff_rng_lin_20m/_10m` recorded
+columns added (SumMa of |ΔV| beside the |r| sums; (max−min)/Σ|ΔV| at emit).
+Control: 2024-03-14 rerun = EXACT trip-set match vs v39. Sample: H1 2022 +
+H1 2024 (4,494 trips) → **corr(lin, log) = 0.9965–0.9980** (10m twins
+0.9994+), and by 20m range band it only dips to 0.990 at 20–40% and 0.955 on
+the nine 40%+ trips, mean |diff| ~0.002. ⇒ **A MATCHED-LEGS EFFICIENCY RATIO
+SELF-CANCELS THE LOG DISTORTION** (both legs compress identically) — the
+family's real failure modes were the +1 constant and the range SOURCE, never
+log-vs-linear of a proper efficiency. Standalone range features and
+mixed-average ratios (range/ATR — HighFlyer) keep the audit motivation. ⇒ CROSS-SYSTEM
 (user): HighFlyer's `tightness_14` (14-bar range / linear ATR) is the same
 family and has never had the numerator-corr diagnostic — audit TODO filed in
 docs/highflyer_v2_results.md.

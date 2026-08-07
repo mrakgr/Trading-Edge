@@ -324,6 +324,12 @@ type FlushPosition =
       RngSlots10m: float         // 21-slot-vwap twin
       EffRng20m: float           // rng_slots_20m / Sum40|r| ∈ (0,1]
       EffRng10m: float           // rng_slots_10m / Sum20|r|
+      // ----- ⭐ S43bd (user 2026-08-07): the LINEAR twins — both legs in PRICE
+      // space: (H − L) / Σ|V_i − V_{i−1}| over the same slot vwaps. Triangle
+      // inequality pins (0,1]; no log distortion on crash-sized moves; the
+      // honest analog of HighFlyer's tightness. Record-only. -----
+      EffRngLin20m: float        // (max41 − min41) / Sum40|ΔV|
+      EffRngLin10m: float        // (max21 − min21) / Sum20|ΔV|
       // ----- ⭐ S43al (user 2026-08-05): the eff_9ema family. Same denominator as
       // eff_20m/eff_10m, but the NUMERATOR is a TREND-SIGNED sum of the very same
       // slot returns instead of the endpoint displacement ln(V_last/V_first):
@@ -1015,6 +1021,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // 30-bar warm-up-gap fringe, 471 trips @ 1.78).
     let slotLag = LagMa<float> 40                // slot vwap 40 emissions ago (eff numerator)
     let slotAbsSum = SumMa 40                    // Σ|r| over the same 40 returns (eff denominator)
+    // S43bd: linear twins — Σ|ΔV| in price space over the same 40/20 slot steps.
+    let slotAbsSumLin = SumMa 40
+    let slotAbsSumLin20 = SumMa 20
     let slotLag20 = LagMa<float> 20              // eff10m pair — same stream, half the horizon
     let slotAbsSum20 = SumMa 20
     // ⭐ S43al (user): the eff_9ema numerators. Σ s·r over the SAME 40 / 20 returns
@@ -1485,6 +1494,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                  ew20.Push ar
                  slotAbsSum.Push ar
                  slotAbsSum20.Push ar
+                 // S43bd: the same slot step in PRICE space for the linear twins
+                 slotAbsSumLin.Push (abs (v - pv))
+                 slotAbsSumLin20.Push (abs (v - pv))
                  // S43al: the trend-signed twin of this same return. slotEma9 has
                  // absorbed pv but NOT v (it is pushed below, with slotLag), so the
                  // sign is fixed strictly before r is realised — no lookahead.
@@ -1961,6 +1973,22 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                                   && slotAbsSum20.Count = slotAbsSum20.WindowSize
                                   && l > 0.0 && s > 0.0 ->
                              log (h / l) / s
+                         | _ -> nan)
+                      EffRngLin20m =
+                        (match slotMax41.State, slotMin41.State, slotAbsSumLin.State with
+                         | ValueSome h, ValueSome l, ValueSome s
+                             when slotMax41.Count = slotMax41.WindowSize
+                                  && slotAbsSumLin.Count = slotAbsSumLin.WindowSize
+                                  && s > 0.0 ->
+                             (h - l) / s
+                         | _ -> nan)
+                      EffRngLin10m =
+                        (match slotMax21.State, slotMin21.State, slotAbsSumLin20.State with
+                         | ValueSome h, ValueSome l, ValueSome s
+                             when slotMax21.Count = slotMax21.WindowSize
+                                  && slotAbsSumLin20.Count = slotAbsSumLin20.WindowSize
+                                  && s > 0.0 ->
+                             (h - l) / s
                          | _ -> nan)
                       // S43al: slotSgnSum and slotAbsSum are pushed on exactly the
                       // same slots, so their Counts are identical — one warmth
