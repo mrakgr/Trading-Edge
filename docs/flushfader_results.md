@@ -14197,6 +14197,35 @@ The OOS run embodies the rule natively.
 
 ---
 
+## S43bd — rng_20m/volat_20m breakdown (user beach idea) + PRE-REGISTERED OOS hypothesis (2026-08-07)
+
+**Feature:** 20m range per unit of 20m volatility. Two flavors, both recorded
+since S40: `eff_rng_20m` = rng_slots_20m/Σ40|r| ∈ (0,1], and the literal
+bar-channel `rng_20m/(40·volat_20m)` (corr 0.573 on the book; corr with
+volat_20m −0.390 — partially inverse-vol). History: S40b tested eff_rng as an
+eff20-band REPLACEMENT on the broad $1–$10 universe and rejected it; the high
+end there ([0.65,0.8)) was TOXIC (PF 0.49–0.75) via direction-blindness.
+
+**On the trading book (mc=0 7,021 / per-tkd mc=1 1,228, S43bc rule applied)
+the gradient is POSITIVE** — the gates already amputated the toxic tail (book
+q95 = 0.63): mc=1 bar-ratio octiles run bottom [0.22,0.34) = PF 2.789 /
+avg +1.60% (2022 cell 0.20) → top [0.55,1.23) = PF 5.505 / avg +2.33%;
+eff_rng buckets agree ([0.3,0.35) = 2.517/+1.41% vs [0.5,0.55) = 5.352/+2.20%).
+
+**But the trim fails to convince:** cutting eff_rng < 0.35 (105 mc=1 trips,
+still +1.41%/trade) lifts PF 4.008 → 4.213 vs random same-frac trims p95 =
+4.169 — a marginal iso-trip pass, cutting positive-expectancy trades. NOT
+adopted; the book stays frozen.
+
+**⭐ PRE-REGISTERED OOS HYPOTHESIS (written before any OOS data was seen):**
+on 2016-08→2019-12 OOS, book-filtered per-tkd mc=1: (a) the bottom octile of
+`rng_20m/(40·volat_20m)` (in-sample edge ≈ 0.34) underperforms the OOS book
+average; (b) the top quartile (≥ 0.50) outperforms it. If BOTH hold, the
+feature earns a substitution-test audition (vs volat/ramp voices) as a voice
+or sizing input; if not, it retires without cost.
+
+---
+
 ## TODO (user, 2026-08-07) — S-tier sizing to be split from A–D
 
 **S-tier A trades (halt-band voice, 38 @ PF 37.1) should be handled as their
