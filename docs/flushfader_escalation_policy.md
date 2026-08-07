@@ -34,6 +34,11 @@ tier_mult   = { A 4.84, B 2.04, C 2.07, D 1.00 }     (S43ba, trading-book Kelly 
 BASE        = fraction of account for a D-tier trade at reference vol (99bp)
 ```
 
+**TODO (user, 2026-08-07):** S-tier A trades become their OWN sizing class at
+scale-up — sized up MORE than plain A. Small-sample today (38 trades), so they
+ride as tier A until the §6 re-derivation, which should output five
+multipliers {S, A, B, C, D}.
+
 **BASE starts at 1.0%** (⇒ A ≈ 4.8% at reference vol). ⚠ The §2 yardsticks
 below predate the S43ba multiplier update (they were computed on the wider
 reference at the older multipliers) — refresh them on the trading book at

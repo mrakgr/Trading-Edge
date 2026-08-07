@@ -14194,3 +14194,13 @@ bit-identically. The recorded v39 trips parquet still contains the 59
 pre-rule short-day afternoon trips (256 → 197); post-hoc book SQL that must
 match the LIVE rule should add `NOT (short_day AND signal_sec > 43200)`.
 The OOS run embodies the rule natively.
+
+---
+
+## TODO (user, 2026-08-07) — S-tier sizing to be split from A–D
+
+**S-tier A trades (halt-band voice, 38 @ PF 37.1) should be handled as their
+own sizing class, not folded into tier A.** Small-sample today so it changes
+nothing at the starting size, but at scale-up time S-tier gets sized up MORE
+than plain A — the escalation policy's re-derivation checkpoint (1,000 live
+trades) should output five multipliers {S, A, B, C, D}, not four.
