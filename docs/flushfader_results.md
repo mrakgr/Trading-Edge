@@ -14315,7 +14315,21 @@ the nine 40%+ trips, mean |diff| ~0.002. ⇒ **A MATCHED-LEGS EFFICIENCY RATIO
 SELF-CANCELS THE LOG DISTORTION** (both legs compress identically) — the
 family's real failure modes were the +1 constant and the range SOURCE, never
 log-vs-linear of a proper efficiency. Standalone range features and
-mixed-average ratios (range/ATR — HighFlyer) keep the audit motivation. ⇒ CROSS-SYSTEM
+mixed-average ratios (range/ATR — HighFlyer) keep the audit motivation.
+
+Breakdown on the sample's spec trips (per-tkd mc=1, 792; mirrors the log
+feature as corr .996 demands — weak [0.3,0.35) band, [0.45,0.5) local best,
+thin top; the mc=0 [0.55,0.6) PF 15.4 @ 64 collapses to 7 trips at mc=1):
+
+| eff_rng_lin_20m | n | PF | win% | avg% | PF 2022 | PF 2024 |
+|---|---:|---:|---:|---:|---:|---:|
+| [0.30,0.35) | 86 | 1.270 | 60.5 | +0.44 | 1.34 | 1.22 |
+| [0.35,0.40) | 220 | 1.794 | 72.3 | +1.02 | 1.58 | 1.95 |
+| [0.40,0.45) | 257 | 1.812 | 70.8 | +0.94 | 1.19 | 2.45 |
+| [0.45,0.50) | 153 | 2.565 | 76.5 | +1.57 | 2.11 | 2.93 |
+| [0.50,0.55) | 66 | 1.947 | 77.3 | +0.93 | 1.49 | 2.37 |
+| [0.55,0.60) | 7 | 1.895 | 85.7 | +1.18 | · | · |
+| [0.60,1.01) | 2 | 0.521 | 50.0 | −1.19 | · | · | ⇒ CROSS-SYSTEM
 (user): HighFlyer's `tightness_14` (14-bar range / linear ATR) is the same
 family and has never had the numerator-corr diagnostic — audit TODO filed in
 docs/highflyer_v2_results.md.
