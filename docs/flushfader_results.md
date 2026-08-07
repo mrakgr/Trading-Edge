@@ -14241,14 +14241,35 @@ tests.
 
 **Plain-numerator variant (user, from the daily swing system):**
 `(H/L − 1)/(40·volat_20m)` instead of ln(H/L) — corr with the log version
-**0.986** at this horizon (20m ranges are small; exp(x)−1 ≈ x — the log-vs-
-plain distinction only matters on daily-swing-sized ranges). Same tables,
-same verdict: reference hump (weak [0.3,0.35) = 1.48, tail [0.7+) = 1.1–1.6),
-book gradient (top zone PF ~8, small-n). Wrinkle: the tiny [0,0.3)
-ultra-choppy bucket is strong on BOTH bases (ref 3.90 @ 58, book 6.80 @ 22) —
-the low-end weakness is a BAND [0.3,0.4), not a tail, so no simple
-"trim below X" exists. Pre-registration unchanged (at corr .986 the
-numerator choice cannot flip it).
+**0.986** at this horizon (20m ranges are small; exp(x)−1 ≈ x; the log-vs-
+plain distinction only matters on daily-swing-sized ranges). Wrinkle: the
+tiny [0,0.3) ultra-choppy bucket is strong on BOTH bases (ref 3.90 @ 58,
+book 6.80 @ 22) — the low-end weakness is a BAND [0.3,0.4), not a tail, so
+no simple "trim below X" exists.
+
+**⭐ RANGE SOURCE MATTERS, NOT THE LOG (user catch — the tails differ):**
+the bar-channel ratio's tail is NOT the eff_rng tail. Quantile-aligned on the
+reference mc=1 (cutoff-aligned comparison is invalid — eff_rng ≥ 0.55 is the
+top 2% while bar_ratio ≥ 0.55 is the top 29%):
+
+| slice | eff_rng (slot range) | bar_ratio (bar channel) |
+|---|---|---|
+| bottom 10% | 1.855 / +1.00% | 1.887 / +0.98% |
+| middle 80% | 2.154 / +1.15% | 2.145 / +1.12% |
+| top 10% | 1.823 / +0.90% | 1.886 / +1.16% |
+| top 5% | **1.422 / +0.57%** | 1.818 / +1.20% |
+| top 2% | **1.089 / +0.14%** | 1.593 / +1.02% |
+
+Bottom/middle agree; the TOXIC extreme tail exists only in the SLOT-range
+version (corr between the two features just 0.573). Mechanism: slot vwaps
+are wick-free, so extreme slot-range-per-|r| = sustained smooth
+one-directional travel (S38q "perfect linearity is bad" — cliffs and
+completed Vs); the bar channel mixes in 1s wick spikes and blurs that
+population to mediocre-not-toxic. ⇒ If this family ever auditions as a
+VOICE, use the SLOT version (its tail is the warning signal); the
+bar-channel version is the "better-behaved" sizing-style variant precisely
+because it blurs it. Pre-registration unchanged (stated on the bar-channel
+ratio, book-conditional).
 
 **⭐ PRE-REGISTERED OOS HYPOTHESIS (written before any OOS data was seen):**
 on 2016-08→2019-12 OOS, book-filtered per-tkd mc=1: (a) the bottom octile of
