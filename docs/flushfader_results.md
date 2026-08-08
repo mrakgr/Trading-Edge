@@ -14539,6 +14539,57 @@ confident and wrong conclusion.
 would convert the OOS set into a training set. Recorded as the priors to test
 if a future re-fit is ever justified.
 
+### ⭐⭐ `gap_adj_1200` — the liquidity gradient REPLICATES pre-2020 (user question)
+
+Does denser tape still pay off in 2016-2019, as it does post-2020? **Yes — the
+gradient is there at nearly identical magnitude; only the ABSOLUTE scale moved.**
+
+Absolute scale first (why the tier split is inoperative on the old tape):
+
+| window | q10 | median | q90 | share < 15 (tier A/B cut) |
+|---|---:|---:|---:|---:|
+| OOS back 2016-19 | 222 | **758** | 1072 | **1.0%** (8 trips) |
+| in-sample | 5 | 314 | 891 | 14.2% |
+| OOS fwd 2026 | 0 | 144 | 644 | 33.3% |
+
+The median 2016-2019 trip is missing 758 of 1200 bars (63%) vs 314 (26%)
+in-sample — so `gap_adj_1200 < 15` catches 8 trips pre-2020 and the A/B tier
+boundary simply does not exist there. Same era effect as `gap_60`.
+
+**Within-era quintiles** (each window bucketed by its OWN distribution, so
+"dense" means dense *for that era*), per-tkd mc=1, spec level:
+
+| quintile | OOS back range | n | PF | avg% | | in-sample range | n | PF | avg% |
+|---|---|---:|---:|---:|---|---|---:|---:|---:|
+| Q1 densest | [0,401] | 160 | 1.987 | +1.12 | | [0,36] | 1271 | 2.889 | **+1.64** |
+| Q2 | [401,669] | 159 | 2.396 | **+1.49** | | [36,193] | 1275 | 2.099 | +1.13 |
+| Q3 | [669,850] | 158 | 2.101 | +1.24 | | [193,453] | 1278 | 2.034 | +1.05 |
+| Q4 | [850,986] | 160 | 1.708 | +0.99 | | [453,737] | 1273 | 1.742 | +0.84 |
+| Q5 sparsest | [986,1183] | 160 | 1.313 | **+0.50** | | [737,1161] | 1279 | 1.834 | +0.90 |
+
+| window | densest Q1 | sparsest Q5 | spread | perm p | Spearman(gap_adj, ret) |
+|---|---:|---:|---:|---:|---:|
+| OOS back | +1.12% | +0.50% | **+0.62pp** | 0.115 | −0.0589 (p=0.096) |
+| in-sample | +1.64% | +0.90% | **+0.75pp** | 0.000 | −0.0865 (p<0.0001) |
+
+⇒ **the liquidity tendency is REAL and pre-dates 2020.** The Q1−Q5 spread is
++0.62pp OOS vs +0.75pp in-sample and the rank correlations are −0.059 vs
+−0.086 — the same sign, nearly the same size, only the significance differs
+(797 trips vs 6,376). Win rate also falls monotonically with sparseness in both
+(OOS 75.6%→62.5%; in-sample 75.5%→67.6%), which is the cleaner signal since it
+is tail-insensitive. OOS Q1 is not the top cell (Q2 is), so the OOS ordering is
+noisy in the middle, but the Q4/Q5 sag is consistent across both windows.
+
+**Interpretation.** Liquidity is a *relative* feature: what matters is whether
+this name's tape is dense FOR ITS ERA, not whether it clears a fixed bar count.
+The fixed thresholds (`gap_60 < 4`, `gap_adj_1200 < 15`) were calibrated on the
+modern tape and are effectively era gates — which is why the book collapsed
+backward. A percentile-based formulation would have transferred; a fixed one
+did not. ⚠ NOT a proposal to change the spec: the modern tape is the one we
+trade, thresholds are frozen, and re-cutting them on OOS data would burn the
+sample. Recorded as the design lesson for any future re-fit (and for the SHORT
+system, which will be specced from scratch).
+
 ### Candidate-table note
 
 Rebuilt over all 2,514 days: 1,431,802 rows (2016-08-08 → 2026-08-07), of which
