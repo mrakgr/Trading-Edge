@@ -14851,6 +14851,84 @@ current book.
 
 ---
 
+## ⭐⭐⭐ S43bh — TRIMMING DOESN'T FIX KELLY: it just promotes a new binding trade (2026-08-08)
+
+User asked for per-tier PF with the bottom 5% trimmed, reasoning that Kelly is
+"far too sensitive to max loss". The trim answers the threshold question
+outright and then exposes something bigger about the estimator.
+
+### 1. The threshold question is CLOSED — tier C was never damaged
+
+Bottom-5%-trimmed PF, per tier, at three candidate thresholds:
+
+| tier | full @516 | **trim @516** | trim @420 | trim @390 |
+|---|---:|---:|---:|---:|
+| A | 8.192 | 16.542 | 14.538 | 14.807 |
+| B | 4.608 | 12.775 | 13.408 | 13.424 |
+| C | **3.281** | **8.304** | 8.536 | 8.473 |
+| D | 3.131 | 7.414 | 7.201 | 7.395 |
+| BOOK | 3.932 | **9.581** | 9.611 | 9.620 |
+
+**Trimmed tier C is 8.304 / 8.536 / 8.473 across 516 / 420 / 390 — identical.**
+The whole "C is broken at 516" signal was ONE tail trade (CADL). The book
+trimmed spans 9.581–9.620, a 0.4% range. ⇒ there is NO body-level reason to
+prefer a tighter threshold; the choice only decides which tail trades land
+inside. **`secs <= 516` STANDS** (the principled, selectivity-matched value).
+⚠ Trimmed PFs are a COMPARATIVE diagnostic only — you cannot drop your worst
+trades in advance, so ~9.6 is not a tradeable expectation.
+
+### 2. ⭐⭐⭐ Empirical Kelly is `1/|worst KEPT loss|` at ANY trim depth
+
+Trimmed-Kelly multipliers came out A 1.58 / B 1.37 / **C 0.94** / D 1.00 — C
+still below D despite beating it on mean (+2.37% vs +2.14% rn) and PF (8.07 vs
+7.22). Why:
+
+| | C | D |
+|---|---:|---:|
+| worst rn after trim | −5.48% | −5.22% |
+| ruin cap `1/\|worst\|` | 18.23 | 19.14 |
+| **f\*** | 17.68 (**97.0% of cap**) | 18.74 (**97.9% of cap**) |
+
+f* still pins at ~97% of the cap AFTER trimming. The trim removed the old
+binding trade and simply promoted the next one. Sensitivity to trim depth:
+
+| trim | C f* | D f* | **C/D** |
+|---|---:|---:|---:|
+| 5% | 17.68 | 18.74 | **0.94** |
+| 8% | 30.46 | 29.02 | **1.05** |
+| 10% | 32.52 | 30.20 | 1.08 |
+| 15% | 66.68 | 59.17 | 1.13 |
+
+**The C/D ordering FLIPS between a 5% and an 8% trim.** Nothing about the tiers
+changes — only which single observation sits at the boundary. ⇒ **empirical
+Kelly on a finite sample estimates the sample's extreme order statistic, not
+the edge, and trimming RELOCATES that dependence rather than removing it.**
+This generalises S43ba's "worst-loss-keyed rules measure sample size": the fix
+is not a better trim, it is a different estimator.
+
+### 3. Body-based multiplier candidates (immune to the worst trade)
+
+| criterion | A | B | C | D |
+|---|---:|---:|---:|---:|
+| mean rn (trim 5%) | 1.52 | 1.13 | 1.11 | 1.00 |
+| mean rn (full) | 1.76 | 1.19 | 1.06 | 1.00 |
+| PF−1 (trim 5%) | 2.44 | 1.80 | 1.14 | 1.00 |
+| PF−1 (full) | 3.34 | 1.56 | 0.93 | 1.00 |
+| median rn (trim 5%) | 1.26 | 1.07 | 0.90 | 1.00 |
+| **current spec** | **4.84** | **2.04** | **2.07** | **1.00** |
+
+Every body measure agrees on the SHAPE — **A clearly ahead, B modest, C ≈ D** —
+and every one is far flatter than the spec's 4.84×. A/D ranges 1.26–3.34
+depending on criterion (the S43az warning that "the weighting choice moves tier
+A between 1.70 and 2.55 — state it, never inherit it", widened). The current
+4.84× spread is an artifact of which worst trade landed in which tier.
+
+⚠ NOT changed. The multiplier decision is the user's and the live-evidence
+checkpoint (1,000 trades) already exists. Recorded as: **if the multipliers are
+ever re-derived, do it on the BODY (mean or PF−1), not on empirical Kelly.**
+
+---
+
 ## TODO (user, 2026-08-07) — S-tier sizing to be split from A–D
 
 **S-tier A trades (halt-band voice, 38 @ PF 37.1) should be handled as their
