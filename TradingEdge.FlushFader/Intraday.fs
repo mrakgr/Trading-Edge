@@ -266,18 +266,31 @@ type BreachCounter() =
 type NewLowCounters() =
     let mutable bars = -1
     let mutable lows = -1
+    // ⭐ S43be (user 2026-08-08): the leg's first-low WALL-CLOCK second. `bars`
+    // counts PRESENT bars, so on a sparse tape 390 bars spans ~17 min where on
+    // a dense one it spans ~7.6 — the same threshold is a different feature per
+    // era. This lets the same leg age be expressed in SECONDS, which is
+    // era-invariant. -1 = disarmed.
+    let mutable firstLowSec = -1
     /// Bars since the FIRST new low of this down-leg. -1 = disarmed (no leg open).
     member _.BarsSinceFirstLow = bars
+    /// ET second of this leg's FIRST new low. -1 = disarmed.
+    member _.FirstLowSec = firstLowSec
+    /// Seconds elapsed since the leg's first low, given the current bar's ET
+    /// second. -1 = disarmed (mirrors BarsSinceFirstLow's convention).
+    member _.SecsSinceFirstLow (etSec: int) = if firstLowSec < 0 then -1 else etSec - firstLowSec
     /// Further new lows since the first of this leg. -1 = disarmed; 0 = this IS the
     /// first low; N = the (N+1)th low, i.e. averaged down N times.
     member _.LowsSinceFirstLow = lows
     /// Is a down-leg currently open?
     member _.Armed = bars >= 0
     /// A new low fired: arm the leg (idempotent), or count another low into it.
-    member _.OnNewLow () =
+    /// `etSec` stamps the leg's first low so its age can be read in seconds.
+    member _.OnNewLow (etSec: int) =
         if bars < 0 then
             bars <- 0
             lows <- 0
+            firstLowSec <- etSec
         else
             lows <- lows + 1
     /// Advance one bar. No-op while disarmed.
@@ -286,6 +299,7 @@ type NewLowCounters() =
     member _.Reset () =
         bars <- -1
         lows <- -1
+        firstLowSec <- -1
 
 /// Trip life-cycle. Exit SIGNALS are detected at a bar's close but FILL at the
 /// next present bar's vwap — PendingExit carries the reason across that bar.
@@ -369,6 +383,8 @@ type FlushPosition =
       // ----- ⭐ the down-leg counters (the point of V6), read at the signal
       // bar AFTER its OnNewLow — the entry bar IS a low, so both >= 0. -----
       BarsSinceFirstLow: int     // the leg's age in present bars
+      SecsSinceFirstLow: int     // ⭐ S43be: the SAME leg age in WALL-CLOCK seconds
+                                 // (era-invariant; the bar count is not — see S43be)
       LowsSinceFirstLow: int     // averaging-down depth (0 = the leg's first low)
       // ⭐ S38e: same events, TIGHTER resets — leg disarmed by a new 5m/10m
       // high instead of the 20m one (record-only)
@@ -1637,9 +1653,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                      armHiEff20 <- nan; armHiEff10 <- nan
                      armHiSlots20 <- 0; armHiSlots10 <- 0)
                 firstLowVwap <- bar.vwap
-            counters.OnNewLow()
-            counters300.OnNewLow()
-            counters600.OnNewLow()
+            counters.OnNewLow bar.etSec
+            counters300.OnNewLow bar.etSec
+            counters600.OnNewLow bar.etSec
 
         // ===== 5. advance open positions: forward marks, hold clock, exit signals =====
         // Exit precedence: moc > acceptance stops > target. Stops and target are
@@ -2030,6 +2046,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       // ⭐ read the counters NOW — the reset in step 7 must not
                       // affect this trip. The entry bar IS a low, so both >= 0.
                       BarsSinceFirstLow = counters.BarsSinceFirstLow
+                      SecsSinceFirstLow = counters.SecsSinceFirstLow bar.etSec
                       LowsSinceFirstLow = counters.LowsSinceFirstLow
                       BarsSinceFirstLow300 = counters300.BarsSinceFirstLow
                       LowsSinceFirstLow300 = counters300.LowsSinceFirstLow

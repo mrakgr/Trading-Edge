@@ -14513,28 +14513,25 @@ at 6.014). Conditioning explains the gap — but chasing it exposed a real defec
 that also invalidates the cross-era row.
 
 `esf` receives the **largest `g60` lift of any ordinary voice: +1.637 PF**
-(2.163 → 3.800), vs base +0.958, `dslo` +1.039, `v20` +0.695. Mechanism:
-**`bars_since_first_low <= 390` counts PRESENT bars, not seconds**, so its
-wall-clock span is a function of tape density:
+(2.163 → 3.800), vs base +0.958, `dslo` +1.039, `v20` +0.695 — i.e. `esf` trips
+are the most damaged by sparse tape. The suspected mechanism:
+**`bars_since_first_low <= 390` counts PRESENT bars, not seconds**, so the same
+threshold may span different wall-clock windows in different eras.
 
-| window | median gap_adj_1200 (esf trips) | present fraction | 390 present bars ≈ |
-|---|---:|---:|---:|
-| OOS back 2016-19 | 738 | 0.385 | **16.9 min** |
-| in-sample | 171 | 0.858 | **7.6 min** |
-| OOS fwd 2026 (esf trips) | 993 | 0.172 | 37.7 min |
+🛑 **RETRACTED (2026-08-08, same session): my first attempt to quantify that
+was WRONG.** I estimated "390 present bars ≈ 7.6 min in-sample / 16.9 min
+2016-19" by dividing 390 by a present-fraction derived from `gap_adj_1200`.
+That is invalid: `GapCounter(windowSecs)` measures the trailing **1200
+SECONDS**, so its density is the density AT THE SIGNAL — where the flush prints
+nearly every second — while a leg is typically an HOUR old and mostly quiet.
+Measured on a control day, median leg age is **3,634 s against ~841 bars**, a
+ratio of 0.23, not the 0.86 the extrapolation assumed. Any wall-clock claim
+must come from a recorded column, not from near-signal density.
 
-⇒ the gate means *"this leg is under ~8 minutes old"* in-sample and *"under
-~17 minutes old"* on the 2016-19 tape. **The OOS column for `esf` (2.530) is
-therefore NOT a replication test — it measures a different feature.** Same
-applies in weaker form to any bar-count field. This is the S38 lesson
-("state the rule in SECONDS, not in slot-boundary units") recurring in a place
-it was never applied.
-
-⚠ Live impact: NONE today — the modern tape is dense (present fraction ~0.86
-and rising), so `esf` ≈ its calibrated 7.6-minute window, and the forward
-window's density is higher still. The defect matters for (a) reading any
-cross-era table, (b) the SHORT system, which should express leg age in SECONDS
-from the start, and (c) any future re-fit. NOT changing the frozen spec.
+⇒ `secs_since_first_low` is now RECORDED by the engine (S43be; `NewLowCounters`
+stamps the leg's first-low ET second, record-only, control day bit-identical on
+every pre-existing column). The seconds-based recomputation of the `esf` voice
+follows below once all three windows carry it.
 
 ⚠ Caveats on every row above: the voice subsets OVERLAP (co-fire share on the
 OOS `$1+` set: `halt` 90% · `d20a` 89% · `v20` 79% · `ramp` 67% · `esf` 47% ·

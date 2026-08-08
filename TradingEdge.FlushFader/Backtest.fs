@@ -311,6 +311,7 @@ CREATE TABLE trips (
     hi_60 DOUBLE,
     rng_slots_20m DOUBLE, rng_slots_10m DOUBLE, eff_rng_20m DOUBLE, eff_rng_10m DOUBLE,
     eff_rng_lin_20m DOUBLE, eff_rng_lin_10m DOUBLE,
+    secs_since_first_low INTEGER,
     eff_9ema_20m DOUBLE, eff_9ema_10m DOUBLE,
     gap_300 INTEGER, gap_600 INTEGER, gap_1200 INTEGER,
     max_gap_run_1200 DOUBLE, max_gap_run_300 DOUBLE, big_gap_runs_1200 DOUBLE,
@@ -446,6 +447,7 @@ type TripSink(outDir: string) =
             f p.Hi60
             f p.RngSlots20m; f p.RngSlots10m; f p.EffRng20m; f p.EffRng10m
             f p.EffRngLin20m; f p.EffRngLin10m
+            i p.SecsSinceFirstLow
             f p.Eff9Ema20m; f p.Eff9Ema10m
             i p.Gap300; i p.Gap600; i p.Gap1200
             f p.MaxGapRun1200; f p.MaxGapRun300; f p.BigGapRuns1200
