@@ -14597,6 +14597,68 @@ trade, thresholds are frozen, and re-cutting them on OOS data would burn the
 sample. Recorded as the design lesson for any future re-fit (and for the SHORT
 system, which will be specced from scratch).
 
+### Liquidity by year — the tape densifying, and the gradient inside each year
+
+`gap_adj_1200` on spec trips (per-tkd mc=1). DENSE/SPARSE = split at **that
+year's own median**, so the right-hand block is a WITHIN-year gradient,
+immune to the decade-long drift on the left.
+
+| year | n | median gapadj | q25 | <15 | <200 | DENSE half n/win%/avg%/PF | SPARSE half n/win%/avg%/PF |
+|---|---:|---:|---:|---:|---:|---|---|
+| 2016 | 52 | 910 | 682 | 0.0% | 1.9% | 26 / 65.4 / −0.04 / 0.98 | 26 / 57.7 / +1.10 / 1.74 |
+| 2017 | 222 | 786 | 563 | 0.0% | 5.4% | 112 / 68.8 / +1.22 / 2.22 | 110 / 71.8 / +1.03 / 1.86 |
+| 2018 | 245 | 769 | 474 | 2.9% | 8.6% | 123 / **81.3** / +1.74 / 2.66 | 122 / 59.0 / +0.33 / 1.20 |
+| 2019 | 278 | 686 | 394 | 0.4% | 10.8% | 139 / 77.0 / +1.11 / 1.86 | 139 / 69.1 / +1.17 / 1.98 |
+| 2020 | 1080 | 416 | 99 | 11.9% | 35.6% | 541 / 76.3 / +1.68 / 3.31 | 539 / 69.4 / +1.16 / 2.19 |
+| 2021 | 1139 | 365 | 49 | 16.9% | 39.2% | 570 / 75.1 / +1.32 / 3.19 | 569 / 71.0 / +0.93 / 2.10 |
+| 2022 | 597 | 488 | 208 | 4.9% | 24.3% | 299 / 75.6 / +0.98 / 1.96 | 298 / 69.5 / +0.72 / 1.57 |
+| 2023 | 611 | 359 | 122 | 5.9% | 35.4% | 308 / 66.6 / +0.81 / 1.67 | 303 / 69.6 / +1.01 / 1.81 |
+| 2024 | 1085 | 287 | 60 | 13.5% | 41.8% | 543 / 74.0 / +1.43 / 2.40 | 542 / 70.1 / +0.94 / 1.84 |
+| 2025 | 1291 | 219 | 30 | 18.8% | 48.7% | 647 / 71.4 / +1.31 / 2.18 | 644 / 69.9 / +0.80 / 1.71 |
+| 2026 | 624 | 147 | 18 | 23.2% | 54.2% | 312 / 75.0 / +1.45 / 2.26 | 312 / 64.4 / +0.55 / 1.39 |
+
+**The drift is monotone and large:** median `gap_adj_1200` falls 910 → 147
+(2016 → 2026), i.e. a signal's 20-minute window went from ~76% missing bars to
+~12%. The `<15` share (the tier A/B cut) goes 0.0% → 23.2%. **2022 interrupts
+the trend** (median jumps 365 → 488, `<15` share halves) — the bear year pulled
+the flush population back into thinner names, which is worth remembering when
+reading 2022 cells anywhere in this document.
+
+**The within-year gradient is positive in 9 of 11 years** on win% (dense half
+wins more often), and the two exceptions are 2017 (68.8 vs 71.8, n=222) and
+2023 (66.6 vs 69.6) — 2023 being the year already flagged as the problem year
+at mc=1. On avg% it is positive in 8 of 11. So the liquidity effect is not a
+post-2020 artifact and not driven by the secular drift: it holds *inside* the
+sparse years too, at their own scale. 2018 is the strongest single-year
+reading (81.3% vs 59.0% win, +1.74% vs +0.33%).
+
+### `esf` (leg age ≤ 390): near-zero LIFT is the wrong metric — it is an ADMISSION voice
+
+The user asked why a voice with +0.03 in-sample lift is on the roster. The
+answer is that lift-vs-base measures the wrong thing for an OR-gate member.
+A voice's job is to ADMIT trips no other voice sees; if those admissions are
+profitable but merely *typical* for the book, lift reads ≈ 0 while the voice
+is still carrying its weight.
+
+| slice | n | PF | win% | avg% |
+|---|---:|---:|---:|---:|
+| IN-SAMPLE book mc=1 (full) | 1,068 | 3.887 | 78.0 | +1.94 |
+| IN-SAMPLE book WITHOUT the esf-only trips | 964 | 3.759 | 77.8 | +1.94 |
+| **IN-SAMPLE the esf-ONLY admissions** | **104** | **6.014** | **79.8** | **+1.97** |
+
+The 104 trips `esf` uniquely admits run **PF 6.01 at 79.8% win** — better than
+the book they join — and removing them costs the book 0.13 PF. At mc=0 the same
+slice is 508 trips @ PF 6.67. That is why it is on the roster, and the S43
+selection record backs it: the leg-age form was adopted because the roster
+carrying it beat the old `|esf|` roster **in all seven years** (PF 4.550 vs
+4.090, worst year +16.3%).
+
+⚠ **OOS, the admission story does NOT hold up**: the esf-only admissions are
+47 trips @ PF 1.137 / 61.7% win / +0.22% on the no-g60 base (vs the book's
++1.33%), and just 3 trips with g60. So `esf` remains the weakest roster member
+out-of-sample — but the in-sample case for its inclusion was sound and was
+never "it lifts the average". Corrected framing, not a corrected decision.
+
 ### Candidate-table note
 
 Rebuilt over all 2,514 days: 1,431,802 rows (2016-08-08 → 2026-08-07), of which
