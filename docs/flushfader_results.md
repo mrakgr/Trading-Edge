@@ -14367,6 +14367,100 @@ or sizing input; if not, it retires without cost.
 
 ---
 
+## ⭐⭐ S43be — THE OUT-OF-SAMPLE TEST (2026-08-08)
+
+Frozen spec v2.7 + S43bc short-day rule, same binary, **zero re-tuning**, run on
+data downloaded after the book froze. Universe rebuilt over the full 2,514-day
+slim set; daily/splits/dividends backfilled first.
+
+### The headline: the CORE REPLICATES, the BOOK FILTER DOES NOT TRANSFER
+
+**Spec v2.7 only (the mean-reversion core), per-ticker-day mc=1:**
+
+| window | n | PF | win% | avg% | med% | worst% |
+|---|---:|---:|---:|---:|---:|---:|
+| IN-SAMPLE 2020→2026-07 | 6,376 | 2.085 | 71.6 | +1.11 | +1.83 | −41.1 |
+| **OOS BACK 2016-08→2019** | **797** | **1.843** | **70.6** | **+1.07** | **+1.97** | −37.9 |
+| OOS FWD 2026-07-18→08-07 | 51 | 2.241 | 58.8 | +1.28 | +1.12 | −7.1 |
+
+OOS core mean/trade **+1.07% vs +1.11% in-sample — a 4bp gap on 797 trades**;
+bootstrap P(in-sample mean at n=797 ≤ OOS) = 37%, i.e. statistically
+indistinguishable. OOS core PF 1.843, 95% CI [1.49, 2.32], **P(PF>1) = 100%**.
+Every OOS year positive: 2016 1.32 (n=52) / 2017 2.02 / 2018 1.77 / 2019 1.92.
+⇒ **the mean-reversion edge is REAL and REGIME-INDEPENDENT.** The user's prior
+("the MR core is solid") is confirmed on data the system had never seen.
+
+**Trading book (the 6 voices + $1 + g60), per-tkd mc=1:**
+
+| window | n | PF | win% | avg% | worst% |
+|---|---:|---:|---:|---:|---:|
+| IN-SAMPLE | 1,228 | 4.008 | 78.0 | +1.97 | −30.6 |
+| **OOS BACK** | **52** | **1.746** | 71.2 | +1.19 | −20.4 |
+| OOS FWD | 13 | 1.306 | 46.2 | +0.51 | −5.0 |
+
+By year: 2016 0.998 (n=3) / 2017 3.884 (12) / 2018 3.747 (18) / **2019 0.781 (19)**.
+Bootstrap: OOS book PF 95% CI [0.81, 5.23]; drawing n=52 from the IN-SAMPLE book
+gives median PF 4.18 and puts the observed 1.746 at the **2.4th percentile** —
+so the book result is worse than in-sample luck explains, but on 52 trades that
+is a weak statement (P(PF>1) = 92%).
+
+### ⭐⭐⭐ WHY the book collapsed: `gap_60 < 4` IS A TAPE-DENSITY GATE
+
+Book trips/day: in-sample 4.27, OOS fwd 7.07, **OOS back 0.34** — a 12× drop.
+The cause is one term. Share of spec trips passing each book component:
+
+| window | $1+ | **g60 (gap_60<4)** | volat≥140 | halted |
+|---|---:|---:|---:|---:|
+| OOS back 2016-19 | 90% | **11%** | 20% | 8% |
+| in-sample | 79% | **41%** | 11% | 21% |
+| OOS fwd 2026 | 64% | **62%** | 29% | 40% |
+
+`gap_60` counts MISSING 1s bars in the last minute, so it measures how densely
+the tape prints — and message rates roughly quadrupled over the decade
+(sampled full-tape trades/day: 2017-03-15 35.3M · 2018-06-14 33.8M ·
+2019-09-12 42.9M · 2021-03-10 86.0M · 2024-06-12 85.7M · 2026-06-10 157.4M).
+Median gap_60 on spec trips: **OOS back 24, in-sample 6, OOS fwd 1**; the
+gap≥4 share is 88.9% / 59.1% / 37.7%. ⇒ **`gap_60 < 4` silently excludes the
+2016-2019 ERA, not just bad signals.** It is doing its job (it certifies
+bar-clock ≈ wall-clock, without which the 1s features do not mean what they
+say) — but it means the backward window can NEVER be a high-powered test of
+the book. 52 trades is the ceiling, not a finding about the voices.
+
+**Honest verdict.** (1) The MR core replicates OOS with no meaningful decay —
+this is the load-bearing result. (2) The book filter is untested OOS: its
+sample is too small, and the one gate that shrank it is an era filter rather
+than a signal filter. (3) Nothing here justifies changing the spec; the forward
+window (where the tape is DENSER than in-sample, 62% g60 pass) is the regime we
+will actually trade, and its 51 core trips read +1.28%/trade.
+
+### ⭐ The pre-registered hypothesis PASSES (both legs, both bases)
+
+Registered in S43bd BEFORE any OOS row was seen: (a) the bottom octile of
+`(H/L−1)/(40·volat_20m)` underperforms the OOS average; (b) the top quartile
+(≥0.50) outperforms.
+
+| base | overall | (a) bottom octile | (b) top quartile ≥0.50 |
+|---|---|---|---|
+| OOS book (n=52) | +1.19% / PF 1.746 | n=7, **−3.90%** / PF 0.11 ✅ | n=24, **+2.87%** / PF 8.15 ✅ |
+| OOS spec (n=797) | +1.07% / PF 1.843 | n=100, +0.64% / PF 1.51 ✅ | n=317, +1.27% / PF 2.11 ✅ |
+
+Both legs hold on both bases — the first genuinely pre-registered prediction of
+the program, confirmed. Effect size is modest on the spec base (the honest
+read: +0.20%/trade for the top quartile) and dramatic but small-n on the book.
+⇒ the range-efficiency family EARNS its substitution-test audition against the
+existing voices. Not adopted yet; auditioned next.
+
+### Candidate-table note
+
+Rebuilt over all 2,514 days: 1,431,802 rows (2016-08-08 → 2026-08-07), of which
+OOS back 270,480 / in-sample 1,145,891 / OOS fwd 15,431. In-sample rows passing
+`barnum >= 22` = 1,138,866. ⚠ Adding 2016-2019 in front of 2020 gives early-2020
+tickers real prior history, so the warmup gate now admits rows it previously
+excluded — an in-sample re-run would no longer reproduce v39/v40 exactly. The
+in-sample numbers quoted throughout this document predate that shift.
+
+---
+
 ## TODO (user, 2026-08-07) — S-tier sizing to be split from A–D
 
 **S-tier A trades (halt-band voice, 38 @ PF 37.1) should be handled as their

@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
-# S43be — the OOS pipeline, chained: wait for the 1s conversion, rebuild
-# mr_candidate_1s over the FULL slim dir, then run the FROZEN spec on both OOS
-# ranges. No re-tuning anywhere; the engine binary is the one built at S43bc/bd.
+# S43be — the OOS steps: rebuild mr_candidate_1s over the FULL slim dir, then run
+# the FROZEN spec on both OOS ranges. No re-tuning anywhere.
+#
+# ⚠ This script no longer waits for the 1s conversion. The wait loop used
+# `pgrep -f build_all_1s_bars`, which ALSO matches any shell whose command line
+# contains that string — including a monitoring command — so it could spin
+# forever after the conversion had finished. Run this only once the conversion
+# has exited (check: tail logs/build_1s_oos.log for "Processed N days").
 set -u
 cd /home/mrakgr/Trading-Edge
 
-echo "[$(date +%H:%M:%S)] waiting for build_all_1s_bars to finish..."
-while pgrep -f build_all_1s_bars >/dev/null; do sleep 60; done
-echo "[$(date +%H:%M:%S)] conversion done: $(ls data/intraday_1s_slim/*.parquet | wc -l) slim days"
+echo "[$(date +%H:%M:%S)] slim days available: $(ls data/intraday_1s_slim/*.parquet | wc -l)"
 
 # --- barnum-shift check: the candidate table's episode warmup (barnum >= 22) is
 # computed over the slim history. Adding 2016-2019 BEFORE 2020 gives early-2020
 # tickers real prior history, so some rows that were warmup-excluded become
-# eligible. Snapshot the old table's in-sample row count first so the shift is
+# eligible. Snapshot the old table's in-sample row count so the shift is
 # measurable rather than silent.
 python3 -c "
 import duckdb
