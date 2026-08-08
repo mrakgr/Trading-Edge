@@ -14329,7 +14329,31 @@ thin top; the mc=0 [0.55,0.6) PF 15.4 @ 64 collapses to 7 trips at mc=1):
 | [0.45,0.50) | 153 | 2.565 | 76.5 | +1.57 | 2.11 | 2.93 |
 | [0.50,0.55) | 66 | 1.947 | 77.3 | +0.93 | 1.49 | 2.37 |
 | [0.55,0.60) | 7 | 1.895 | 85.7 | +1.18 | · | · |
-| [0.60,1.01) | 2 | 0.521 | 50.0 | −1.19 | · | · | ⇒ CROSS-SYSTEM
+| [0.60,1.01) | 2 | 0.521 | 50.0 | −1.19 | · | · |
+
+**FULL REFERENCE (v40 re-record, 2026-08-08).** Re-record of 2020-01-02→
+2026-07-17 with the lin columns: **35,719 trips = 35,778 − the 59 short-day
+afternoon signals the S43bc rule now removes** (all 59 verified: 100% past
+12:00, 100% on early-close days); every other trip bit-matches v39. ⇒ v40 is
+the corrected reference. corr(lin, log) on the full set **0.9972**;
+eff_rng_lin_20m q05/med/q95 = 0.334/0.425/0.522. Per-tkd mc=1 (6,376):
+
+| eff_rng_lin_20m | n | PF | win% | avg% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| [0.30,0.35) | 627 | 1.897 | 69.4 | +1.05 | 1.84 | 2.36 | 1.66 | 3.55 | 1.62 | 1.86 | 1.41 |
+| [0.35,0.40) | 1,557 | 2.335 | 72.9 | +1.26 | 2.71 | 3.06 | 1.50 | 2.79 | 1.88 | 2.58 | 2.21 |
+| [0.40,0.45) | 1,995 | 2.081 | 71.1 | +1.12 | 2.89 | 2.49 | 1.65 | 1.36 | 2.50 | 1.93 | 1.61 |
+| [0.45,0.50) | 1,524 | 2.088 | 72.0 | +1.09 | 3.21 | 2.42 | 1.99 | 1.44 | 2.21 | 1.82 | 1.86 |
+| [0.50,0.55) | 550 | 2.144 | 72.9 | +1.11 | 2.70 | 2.68 | 2.07 | 1.39 | 2.14 | 2.70 | 1.34 |
+| [0.55,0.60) | 103 | **0.942** | 68.0 | **−0.11** | 2.14 | 1.61 | · | · | 1.51 | 0.26 | 4.21 |
+| [0.60,0.65) | 15 | **0.559** | 53.3 | **−0.87** | · | · | · | · | · | · | · |
+
+Same shape as the log twin (as corr .997 demands): hump, flat 2.0–2.3 middle,
+and the **toxic tail is REAL and NEGATIVE-EXPECTANCY** — [0.55,0.60) is 103
+trips at PF 0.94 / −0.11% and [0.60,0.65) is 15 at 0.56 / −0.87%. The linear
+form places that cliff at ~0.55 (vs ~0.60 on the log form). ⇒ the family's
+usable content is a HIGH-SIDE EXCLUSION, not a positive gradient; the book
+voices already exclude nearly all of it (book exposure ≥ 0.55 = 8 trips). ⇒ CROSS-SYSTEM
 (user): HighFlyer's `tightness_14` (14-bar range / linear ATR) is the same
 family and has never had the numerator-corr diagnostic — audit TODO filed in
 docs/highflyer_v2_results.md.
