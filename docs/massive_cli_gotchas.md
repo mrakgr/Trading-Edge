@@ -21,11 +21,28 @@ By contrast `download-bulk`, `download-bulk-trades` and `download-bulk-minute`
 are per-day files with a skip-if-exists stage — those ARE safe to run for a
 narrow range, and that is the normal way to backfill.
 
-## Daily-pipeline order for an OOS backfill
+## ⭐ Just use `backfill-daily`
 
-1. `download-bulk --start-date <first missing> --end-date <today>` → per-day
-   `data/daily_aggregates/{date}.csv.gz` (safe, incremental)
-2. `download-splits` / `download-dividends` FULL RANGE (see above)
-3. `ingest-data` → `daily_prices`, `splits`, `dividends` in `data/trading.db`
-4. only then rebuild `mr_candidate_1s` (it reads the daily-derived columns) and
-   run the engine.
+```
+dotnet run --project TradingEdge.Database -c Release -- backfill-daily
+```
+(or the Release binary directly). It runs the whole daily side in the right
+order and forces the full range on the two destructive verbs, so the footgun
+above cannot fire:
+
+1. daily aggregates from the resume point (day after `max(date)` in
+   `daily_prices`) → today — per-day files, skip-if-exists
+2. splits, FULL RANGE 2003-01-01 → today+1y (end date leads the calendar
+   because splits are announced ahead)
+3. dividends, FULL RANGE
+4. reference tickers — CS, ADRC + the ETF family, active AND delisted
+5. `ingest-data` equivalent: ingest + materialize derived tables
+   (`split_adjusted_prices` etc.)
+
+Flags: `--start-date/-s`, `--end-date/-e`, `--parallelism/-p` (default 12 —
+Massive throttles per connection, so this is the throughput dial),
+`--skip-tickers`, `--skip-ingest`. A failed aggregate download aborts before
+ingest, because a silently missing day truncates history; re-running resumes.
+
+Only then rebuild `mr_candidate_1s` (it reads the daily-derived columns) and
+run the engine.
