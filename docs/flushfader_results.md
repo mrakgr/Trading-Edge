@@ -14482,52 +14482,60 @@ FULL book therefore reads WORSE (+0.29%) than the same book without g60
 (62% pass rate forward), but its behaviour is regime-conditional and it should
 never be described as a pure quality gate.
 
-**Per-voice replication** (lift vs base, $1+ base, no g60; OOS permutation p):
+**Per-voice: BASE + EACH GATE INDIVIDUALLY.** (User, 2026-08-08: lift-vs-base
+is a misleading statistic for an OR-gate member — report the book each gate
+would build.) Base = spec v2.7 + `$1+` RAW, per-tkd mc=1, no `g60`; each row
+adds exactly ONE voice as the whole gate:
 
-| voice | IS lift | OOS lift | OOS n | p | verdict |
-|---|---:|---:|---:|---:|---|
-| `dslo` off-low ≥ 8% | +0.38 | **+0.81** | 182 | 0.002 | ⭐ REPLICATES (stronger OOS) |
-| `halt` ssh ∈ [20,80m) | +0.62 | **+1.08** | 20 | 0.149 | REPLICATES (small n) |
-| `esf` leg age ≤ 390 | +0.03 | **+0.55** | 88 | 0.131 | REPLICATES (stronger OOS) |
-| `ramp` vol-expansion | +0.86 | +0.01 | 24 | 0.512 | neutral, no power |
-| `v20` volat ≥ 140 | +1.16 | **−0.09** | 107 | 0.592 | ❌ FAILS OOS |
-| `d20a` deep < −28% | +0.87 | **−0.72** | 70 | 0.909 | ❌ FAILS OOS |
-| S-tier ht≥1 ssh[2,20m) | +2.01 | −3.52 | 3 | — | no sample |
+| gate added to base spec | IS n | IS PF | IS win% | IS avg% | OOS n | OOS PF | OOS win% | OOS avg% |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| **BASE** (no voice gate) | 5,206 | 2.156 | 72.2 | +1.13 | 729 | 1.857 | 71.1 | +1.07 |
+| `dslo` off-low ≥ 8% | 1,462 | 2.780 | 75.9 | +1.51 | **182** | **3.429** | **79.7** | **+1.88** |
+| `halt` ssh ∈ [20,80m) | 411 | 2.863 | 75.7 | +1.75 | 20 | **4.903** | 75.0 | +2.16 |
+| `esf` leg age ≤ 390 | 639 | 2.163 | 70.7 | +1.17 | 88 | **2.530** | 76.1 | +1.62 |
+| `ramp` vol-expansion < −12 | 151 | 2.700 | 74.2 | +1.99 | 24 | 1.668 | 66.7 | +1.09 |
+| `v20` volat ≥ 140 | 388 | 2.907 | 74.7 | +2.29 | 107 | **1.417** | 70.1 | **+0.98** |
+| `d20a` deep < −28% | 351 | 2.535 | 72.1 | +2.00 | 70 | **1.135** | 62.9 | **+0.35** |
+| S-tier ht≥1, ssh ∈ [2,20m) | 41 | 6.542 | 80.5 | +3.14 | 3 | 0.584 | 66.7 | −2.44 |
+| **ALL voices OR'd** (roster) | 2,344 | 2.574 | 74.5 | +1.48 | **325** | **1.953** | **73.5** | **+1.33** |
+| **+ `g60`** (the FULL book) | 1,068 | 3.887 | 78.0 | +1.94 | 40 | **1.143** | 67.5 | **+0.29** |
 
-🛑 **THE ABOVE TABLE IS MARGINAL, NOT INDEPENDENT — AND IT MISLED ME
-(user asked how it was computed; the answer invalidated the reading).** Each
-row is "trips where voice k fires" vs "trips where it doesn't", but the subsets
-OVERLAP heavily and the control group contains trips firing OTHER voices.
-Co-fire share on the OOS $1+ set: `halt` 90% · `d20a` 89% · `v20` 79% ·
-`ramp` 67% · `esf` 47% · `dslo` 40%. Also: 7 voices tested, no multiple-
-comparison correction (only `dslo` survives Bonferroni), and n ranges 3→182.
+**Read it as: every voice beats the base in-sample (PF 2.16 → 2.16–6.54), and
+four of seven still beat it OOS.** `dslo` is the standout — it is the only gate
+that is BETTER out-of-sample than in (PF 3.429 vs 2.780, win 79.7% vs 75.9%) —
+with `halt` (n=20) and `esf` (PF 2.530 vs 2.163 in-sample) also improving.
+`v20` and `d20a` collapse to roughly the base (1.417, 1.135 vs base 1.857 —
+i.e. they are WORSE than taking every trip), which is the volatility/depth pair
+behaving as regime-bound, exactly as prior S43 work predicted. `ramp` and
+S-tier have no OOS sample worth reading (24 and 3 trips).
 
-**Overlap-controlled: each voice ALONE (votes==1) vs trips firing NO voice
-(n=404, +0.87%):**
+The roster as a whole clears its base in both eras: 2.574 vs 2.156 in-sample,
+1.953 vs 1.857 OOS. Adding `g60` then LIFTS in-sample (3.887) and DESTROYS OOS
+(1.143 on 40 trips) — see the era-gate discussion above.
 
-| voice | n alone | avg% | vs no-voice | perm p |
+⚠ Caveats that apply to every row: the voice subsets OVERLAP (co-fire share on
+the OOS $1+ set: `halt` 90% · `d20a` 89% · `v20` 79% · `ramp` 67% · `esf` 47% ·
+`dslo` 40%), so these are the books each gate BUILDS, not independent
+contributions; and no multiple-comparison correction is applied across seven
+gates.
+
+**Leave-one-out on the OR gate** — what does REMOVING each voice cost the
+roster? (OOS `$1+` trips, no g60; full roster = 325 @ PF 1.953 / +1.33%.)
+
+| dropped voice | n | PF | avg% | Δ avg vs full |
 |---|---:|---:|---:|---:|
-| **`dslo` off-low ≥ 8%** | 110 | **+1.93** | **+1.07** | **0.005** |
-| `d20a` deep < −28% | 8 | +1.08 | +0.21 | 0.488 |
-| `v20` volat ≥ 140 | 22 | +0.80 | −0.07 | 0.556 |
-| `esf` leg age ≤ 390 | 47 | +0.22 | **−0.64** | 0.842 |
-| `ramp` vol-expansion | 8 | −0.02 | −0.89 | 0.748 |
-| `halt` ssh ∈ [20,80m) | 2 | — | no power | — |
+| (none — all 7) | 325 | 1.953 | +1.33 | — |
+| `dslo` | 215 | 1.569 | +1.02 | **−0.31** |
+| `halt` | 323 | 1.929 | +1.30 | −0.02 |
+| `d20a` | 317 | 1.954 | +1.34 | +0.01 |
+| `ramp` | 317 | 1.998 | +1.36 | +0.03 |
+| `v20` | 303 | 2.042 | +1.37 | +0.04 |
+| `esf` | 278 | 2.120 | +1.52 | +0.19 |
+| S-tier | 325 | 1.953 | +1.33 | +0.00 |
 
-**Leave-one-out on the OR gate** (full = 325 @ +1.33%, PF 1.953): drop `dslo`
-→ 215 @ +1.02% (**−0.31**, PF 1.569) — the only material loss. Drop `esf` →
-+1.52% (**+0.19**, PF 2.120); drop `v20` → +1.37% (+0.04); `ramp`/`halt`/
-S-tier ≈ 0.
-
-⇒ **CORRECTION: only `dslo` demonstrably replicates OOS.** The earlier reading
-("dslo, halt, esf replicate; the structural voices are durable") was an
-artifact of overlap: `esf` REVERSES to −0.64 once isolated, and `halt`'s
-apparent +1.08 rested on 20 trips of which 18 co-fired. The volatility/depth
-pair (`v20`, `d20a`) still shows no OOS lift, which remains consistent with the
-regime-bound reading, but the positive half of that story does not survive.
-**Honest statement: distance off the session low carries the pre-2020 voice
-edge; every other voice is unproven on this sample** (which is 325 trips with
-most voices firing <100 times — absence of evidence, not evidence of absence).
+Only `dslo` is load-bearing OOS; dropping `esf` would have IMPROVED the old-era
+roster. (In-sample the reverse holds — `esf`'s unique admissions run PF 6.01;
+see the admission-voice section below.)
 
 ⭐ METHOD NOTE for future audits: a family of overlapping OR-gate members can
 NEVER be judged by marginal one-vs-rest tables. Required: (a) co-fire matrix,
