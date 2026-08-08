@@ -14494,14 +14494,46 @@ never be described as a pure quality gate.
 | `d20a` deep < −28% | +0.87 | **−0.72** | 70 | 0.909 | ❌ FAILS OOS |
 | S-tier ht≥1 ssh[2,20m) | +2.01 | −3.52 | 3 | — | no sample |
 
-⭐ **The two failures are exactly the VOLATILITY/DEPTH pair** — the same family
-S43-era work already flagged as regime-bound ("a feature can be a good voice and
-a bad multiplier"; every catastrophic 2022 cell was high-vol-in-a-bear-year).
-2016-2019 was a low-vol, pre-meme regime, so "this name is unusually volatile /
-unusually deep" selected a different animal than it does post-2020. The three
-that replicate are STRUCTURAL, not regime: distance off the session low, leg
-age, and post-halt timing. That is a satisfying split — and it is the strongest
-argument yet that the halt/structure voices are the durable ones.
+🛑 **THE ABOVE TABLE IS MARGINAL, NOT INDEPENDENT — AND IT MISLED ME
+(user asked how it was computed; the answer invalidated the reading).** Each
+row is "trips where voice k fires" vs "trips where it doesn't", but the subsets
+OVERLAP heavily and the control group contains trips firing OTHER voices.
+Co-fire share on the OOS $1+ set: `halt` 90% · `d20a` 89% · `v20` 79% ·
+`ramp` 67% · `esf` 47% · `dslo` 40%. Also: 7 voices tested, no multiple-
+comparison correction (only `dslo` survives Bonferroni), and n ranges 3→182.
+
+**Overlap-controlled: each voice ALONE (votes==1) vs trips firing NO voice
+(n=404, +0.87%):**
+
+| voice | n alone | avg% | vs no-voice | perm p |
+|---|---:|---:|---:|---:|
+| **`dslo` off-low ≥ 8%** | 110 | **+1.93** | **+1.07** | **0.005** |
+| `d20a` deep < −28% | 8 | +1.08 | +0.21 | 0.488 |
+| `v20` volat ≥ 140 | 22 | +0.80 | −0.07 | 0.556 |
+| `esf` leg age ≤ 390 | 47 | +0.22 | **−0.64** | 0.842 |
+| `ramp` vol-expansion | 8 | −0.02 | −0.89 | 0.748 |
+| `halt` ssh ∈ [20,80m) | 2 | — | no power | — |
+
+**Leave-one-out on the OR gate** (full = 325 @ +1.33%, PF 1.953): drop `dslo`
+→ 215 @ +1.02% (**−0.31**, PF 1.569) — the only material loss. Drop `esf` →
++1.52% (**+0.19**, PF 2.120); drop `v20` → +1.37% (+0.04); `ramp`/`halt`/
+S-tier ≈ 0.
+
+⇒ **CORRECTION: only `dslo` demonstrably replicates OOS.** The earlier reading
+("dslo, halt, esf replicate; the structural voices are durable") was an
+artifact of overlap: `esf` REVERSES to −0.64 once isolated, and `halt`'s
+apparent +1.08 rested on 20 trips of which 18 co-fired. The volatility/depth
+pair (`v20`, `d20a`) still shows no OOS lift, which remains consistent with the
+regime-bound reading, but the positive half of that story does not survive.
+**Honest statement: distance off the session low carries the pre-2020 voice
+edge; every other voice is unproven on this sample** (which is 325 trips with
+most voices firing <100 times — absence of evidence, not evidence of absence).
+
+⭐ METHOD NOTE for future audits: a family of overlapping OR-gate members can
+NEVER be judged by marginal one-vs-rest tables. Required: (a) co-fire matrix,
+(b) fires-alone contrast against the no-member control, (c) leave-one-out on
+the gate itself. All three are cheap; the marginal table alone produced a
+confident and wrong conclusion.
 
 **No spec change.** These are OOS observations on 325 trips; acting on them
 would convert the OOS set into a training set. Recorded as the priors to test
