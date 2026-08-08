@@ -1351,20 +1351,21 @@ denominator. The edge wants ~20 bars.
    entering early to capture the rest of the move. That's the next experiment —
    sweep the 10:00 move floor and compare PF + trip count to the close baseline.
 
+
 ---
 
-## TODO (2026-08-07, from FlushFader S43bd) — audit `tightness_14` for the inverted-vol-axis trap
+## Note (resolved 2026-08-08) — `tightness_14` is already an efficiency ratio
 
-FlushFader S43bd found that a range/vol ratio can silently become **pure
-inverse-volatility** when the numerator's variance is narrow relative to the
-denominator's (`exp(rng)/Σ|r|` came out corr 0.999 with `1/Σ|r|` — the +1
-term drowned the range; the z_20m numerator-corr diagnostic caught it).
+Briefly flagged for FlushFader S43bd's inverted-vol-axis audit, then
+**cleared by inspection (user)**: `tightness_14` = 14-bar range / *average*
+ATR. Divide by the SUM of true ranges instead and it is literally the
+efficiency ratio, `range/(14·ATR)` = tightness/14 — a constant rescaling, so
+rankings and every bucket table are unchanged (tightness 7 = efficiency 0.5).
+It is a matched-legs ratio, the class FlushFader proved self-cancelling; the
+S43bd trap was an ADDITIVE constant in the numerator (`H/L` vs `H/L − 1`),
+which has no analog here. **No audit needed. The tight-base result stands.**
 
-HighFlyer's `tightness_14` (**14-bar range / linear ATR**) is the same
-family and has never had the diagnostic run. **Check `corr(tightness_14,
-range_pct_14)` vs `corr(tightness_14, 1/atr_pct_14)`** — if the second
-dominates, the tightness continuum (PF 1.16 → 1.69 toward tight) is really
-an inverse-ATR axis wearing a costume, and the "tight base" story needs
-re-reading. Either way, a proper **range efficiency ratio** (range − offset
-handled correctly, FlushFader's `(H/L−1)/Σ|r|` form) is worth an audition on
-this system when it reopens.
+Worth knowing for future work: expressing tightness on the /sum scale would
+have made the kinship with the efficiency-ratio family obvious years earlier.
+The one place log-vs-linear DOES matter is standalone range features on names
+that move hundreds of percent — there the two spaces genuinely disagree.

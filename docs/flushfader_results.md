@@ -14353,10 +14353,10 @@ and the **toxic tail is REAL and NEGATIVE-EXPECTANCY** — [0.55,0.60) is 103
 trips at PF 0.94 / −0.11% and [0.60,0.65) is 15 at 0.56 / −0.87%. The linear
 form places that cliff at ~0.55 (vs ~0.60 on the log form). ⇒ the family's
 usable content is a HIGH-SIDE EXCLUSION, not a positive gradient; the book
-voices already exclude nearly all of it (book exposure ≥ 0.55 = 8 trips). ⇒ CROSS-SYSTEM
-(user): HighFlyer's `tightness_14` (14-bar range / linear ATR) is the same
-family and has never had the numerator-corr diagnostic — audit TODO filed in
-docs/highflyer_v2_results.md.
+voices already exclude nearly all of it (book exposure ≥ 0.55 = 8 trips). ⇒ CROSS-SYSTEM (user, resolved
+2026-08-08): HighFlyer's `tightness_14` was briefly suspected, then CLEARED —
+range/average-ATR = range/(14·ATR) × 14, i.e. the efficiency ratio up to a
+constant, a matched-legs ratio with no additive term. No audit needed.
 
 **⭐ PRE-REGISTERED OOS HYPOTHESIS (written before any OOS data was seen):**
 on 2016-08→2019-12 OOS, book-filtered per-tkd mc=1: (a) the bottom octile of
