@@ -17,6 +17,10 @@ open TradingEdge.Database
 
 let private formatDate (d: DateTime) = d.ToString("yyyy-MM-dd")
 
+/// First day in the Massive daily-aggregate flat-file archive (= min(date) in
+/// `daily_prices`). The bootstrap floor for a from-scratch backfill.
+let private datasetStart = DateTime(2003, 9, 10)
+
 /// RFC 4180 CSV field quoting: wrap in quotes if the field contains a comma,
 /// quote, or newline; double up any embedded quotes.
 let private csvQuote (s: string) : string =
@@ -685,8 +689,11 @@ let private handleBackfillDaily (config: MassiveConfig) (args: ParseResults<Back
         |> Option.map DateTime.Parse
         |> Option.defaultValue DateTime.Now.Date
 
-    // Resume point: the day after the newest date already in daily_prices. Falls
-    // back to a 5-year window on a fresh database.
+    // Resume point: the day after the newest date already in daily_prices. On a
+    // fresh database, go back to the START OF THE ARCHIVE (user 2026-08-08) —
+    // a rolling 5-year default would silently bootstrap a truncated history, and
+    // split_adjusted_prices needs the full span. Days before the plan's
+    // entitlement window answer 403 and are reported as skipped, not fatal.
     let startDate =
         match args.TryGetResult BackfillDailyArgs.Start_Date with
         | Some d -> DateTime.Parse d
@@ -695,8 +702,8 @@ let private handleBackfillDaily (config: MassiveConfig) (args: ParseResults<Back
                 use conn = openConnection dbPath
                 match getDateRange conn with
                 | Some (_, maxDate) -> maxDate.AddDays 1.0
-                | None -> endDate.AddYears -5
-            else endDate.AddYears -5
+                | None -> datasetStart
+            else datasetStart
 
     printfn "=== backfill-daily ==="
     printfn "  aggregates : %s -> %s (parallelism %d)" (formatDate startDate) (formatDate endDate) parallelism
@@ -718,17 +725,24 @@ let private handleBackfillDaily (config: MassiveConfig) (args: ParseResults<Back
             S3Download.downloadDailyAggregates client startDate endDate "data/daily_aggregates"
                 tempDir parallelism 1 (Some S3Download.consoleProgress) cts.Token
             |> Async.RunSynchronously
-        let failed = results |> List.filter (function Failed _ -> true | _ -> false)
-        printfn "  downloaded %d, skipped %d, failed %d"
+        // 404s are holidays and already counted as Skipped. 403s are days before
+        // the plan's entitlement window (e.g. the 10-year limit on Developer) —
+        // expected on a from-scratch backfill, so they are reported, not fatal.
+        // Any OTHER failure IS fatal: a silently missing day truncates history.
+        let isForbidden (m: string) = m.Contains "Forbidden"
+        let allFailed = results |> List.choose (function Failed (d, m) -> Some (d, m) | _ -> None)
+        let entitlement, failed = allFailed |> List.partition (snd >> isForbidden)
+        printfn "  downloaded %d, skipped %d, outside entitlement %d, failed %d"
             (results |> List.filter (function Downloaded _ -> true | _ -> false) |> List.length)
             (results |> List.filter (function Skipped _ -> true | _ -> false) |> List.length)
-            failed.Length
-        // 404s are holidays and already counted as Skipped; a real Failed is fatal
-        // for a backfill because a missing day silently truncates the history.
+            entitlement.Length failed.Length
+        if not entitlement.IsEmpty then
+            let firstAllowed = entitlement |> List.map fst |> List.max
+            printfn "  (403 before %s — outside this plan's history entitlement)" (formatDate firstAllowed)
         if not failed.IsEmpty then
             ok <- false
-            for f in failed |> List.truncate 5 do
-                match f with Failed (d, m) -> eprintfn "  FAILED %s: %s" (formatDate d) m | _ -> ()
+            for (d, m) in failed |> List.truncate 5 do
+                eprintfn "  FAILED %s: %s" (formatDate d) m
 
     // --- 2/3. splits + dividends, ALWAYS full-range (the CSVs are rewritten whole).
     // End date leads the calendar: splits are announced months ahead.
