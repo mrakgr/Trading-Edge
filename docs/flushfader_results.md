@@ -14484,37 +14484,60 @@ never be described as a pure quality gate.
 
 **Per-voice: BASE + EACH GATE INDIVIDUALLY.** (User, 2026-08-08: lift-vs-base
 is a misleading statistic for an OR-gate member — report the book each gate
-would build.) Base = spec v2.7 + `$1+` RAW, per-tkd mc=1, no `g60`; each row
-adds exactly ONE voice as the whole gate:
+would build.) Base = spec v2.7 + `$1+` RAW, per-tkd mc=1. Shown BOTH with and
+without `g60`, because dropping it (needed for cross-era comparability) changes
+the in-sample picture materially:
 
-| gate added to base spec | IS n | IS PF | IS win% | IS avg% | OOS n | OOS PF | OOS win% | OOS avg% |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| **BASE** (no voice gate) | 5,206 | 2.156 | 72.2 | +1.13 | 729 | 1.857 | 71.1 | +1.07 |
-| `dslo` off-low ≥ 8% | 1,462 | 2.780 | 75.9 | +1.51 | **182** | **3.429** | **79.7** | **+1.88** |
-| `halt` ssh ∈ [20,80m) | 411 | 2.863 | 75.7 | +1.75 | 20 | **4.903** | 75.0 | +2.16 |
-| `esf` leg age ≤ 390 | 639 | 2.163 | 70.7 | +1.17 | 88 | **2.530** | 76.1 | +1.62 |
-| `ramp` vol-expansion < −12 | 151 | 2.700 | 74.2 | +1.99 | 24 | 1.668 | 66.7 | +1.09 |
-| `v20` volat ≥ 140 | 388 | 2.907 | 74.7 | +2.29 | 107 | **1.417** | 70.1 | **+0.98** |
-| `d20a` deep < −28% | 351 | 2.535 | 72.1 | +2.00 | 70 | **1.135** | 62.9 | **+0.35** |
-| S-tier ht≥1, ssh ∈ [2,20m) | 41 | 6.542 | 80.5 | +3.14 | 3 | 0.584 | 66.7 | −2.44 |
-| **ALL voices OR'd** (roster) | 2,344 | 2.574 | 74.5 | +1.48 | **325** | **1.953** | **73.5** | **+1.33** |
-| **+ `g60`** (the FULL book) | 1,068 | 3.887 | 78.0 | +1.94 | 40 | **1.143** | 67.5 | **+0.29** |
+| gate added to base spec | IS+g60 n | PF | avg% | IS no-g60 n | PF | avg% | OOS no-g60 n | PF | avg% |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **BASE** (no voice gate) | 1,636 | 3.114 | +1.61 | 5,206 | 2.156 | +1.13 | 729 | 1.857 | +1.07 |
+| `dslo` off-low ≥ 8% | 725 | 3.819 | +1.90 | 1,462 | 2.780 | +1.51 | **182** | **3.429** | **+1.88** |
+| `halt` ssh ∈ [20,80m) | 246 | 4.420 | +2.20 | 411 | 2.863 | +1.75 | 20 | 4.903 | +2.16 |
+| `v20` volat ≥ 140 | 237 | 3.603 | +2.47 | 388 | 2.907 | +2.29 | 107 | **1.417** | +0.98 |
+| `d20a` deep < −28% | 165 | 3.762 | +2.38 | 351 | 2.535 | +2.00 | 70 | **1.135** | +0.35 |
+| `ramp` vol-expansion | 85 | 3.595 | +2.19 | 151 | 2.700 | +1.99 | 24 | 1.668 | +1.09 |
+| **`esf` leg age ≤ 390** | **271** | **3.800** | +1.87 | 639 | **2.163** | +1.17 | 88 | 2.530 | +1.62 |
+| S-tier ht≥1, ssh ∈ [2,20m) | 36 | 48.170 | +4.11 | 41 | 6.542 | +3.14 | 3 | 0.584 | −2.44 |
+| **ALL voices OR'd** (roster) | 1,068 | 3.887 | +1.94 | 2,344 | 2.574 | +1.48 | **325** | **1.953** | **+1.33** |
 
-**Read it as: every voice beats the base in-sample (PF 2.16 → 2.16–6.54), and
-four of seven still beat it OOS.** `dslo` is the standout — it is the only gate
-that is BETTER out-of-sample than in (PF 3.429 vs 2.780, win 79.7% vs 75.9%) —
-with `halt` (n=20) and `esf` (PF 2.530 vs 2.163 in-sample) also improving.
-`v20` and `d20a` collapse to roughly the base (1.417, 1.135 vs base 1.857 —
-i.e. they are WORSE than taking every trip), which is the volatility/depth pair
-behaving as regime-bound, exactly as prior S43 work predicted. `ramp` and
-S-tier have no OOS sample worth reading (24 and 3 trips).
+In the REAL book conditioning (IS+g60) every voice clears the 3.114 base, and
+`esf` is mid-pack at 3.800 — it is NOT the near-base dud the no-g60 column
+suggests. Its unique admissions (esf the only voice firing, with g60) are 104
+trips @ **PF 6.014 / 79.8% win**; removing them costs the book 0.13 PF. That is
+the in-sample case for its inclusion, and it stands.
 
-The roster as a whole clears its base in both eras: 2.574 vs 2.156 in-sample,
-1.953 vs 1.857 OOS. Adding `g60` then LIFTS in-sample (3.887) and DESTROYS OOS
-(1.143 on 40 trips) — see the era-gate discussion above.
+### 🛑 `esf` IS A PRESENT-BAR COUNT — IT IS NOT THE SAME FEATURE ACROSS ERAS
 
-⚠ Caveats that apply to every row: the voice subsets OVERLAP (co-fire share on
-the OOS $1+ set: `halt` 90% · `d20a` 89% · `v20` 79% · `ramp` 67% · `esf` 47% ·
+The user flagged the apparent contradiction (`esf` at 2.163 vs its admissions
+at 6.014). Conditioning explains the gap — but chasing it exposed a real defect
+that also invalidates the cross-era row.
+
+`esf` receives the **largest `g60` lift of any ordinary voice: +1.637 PF**
+(2.163 → 3.800), vs base +0.958, `dslo` +1.039, `v20` +0.695. Mechanism:
+**`bars_since_first_low <= 390` counts PRESENT bars, not seconds**, so its
+wall-clock span is a function of tape density:
+
+| window | median gap_adj_1200 (esf trips) | present fraction | 390 present bars ≈ |
+|---|---:|---:|---:|
+| OOS back 2016-19 | 738 | 0.385 | **16.9 min** |
+| in-sample | 171 | 0.858 | **7.6 min** |
+| OOS fwd 2026 (esf trips) | 993 | 0.172 | 37.7 min |
+
+⇒ the gate means *"this leg is under ~8 minutes old"* in-sample and *"under
+~17 minutes old"* on the 2016-19 tape. **The OOS column for `esf` (2.530) is
+therefore NOT a replication test — it measures a different feature.** Same
+applies in weaker form to any bar-count field. This is the S38 lesson
+("state the rule in SECONDS, not in slot-boundary units") recurring in a place
+it was never applied.
+
+⚠ Live impact: NONE today — the modern tape is dense (present fraction ~0.86
+and rising), so `esf` ≈ its calibrated 7.6-minute window, and the forward
+window's density is higher still. The defect matters for (a) reading any
+cross-era table, (b) the SHORT system, which should express leg age in SECONDS
+from the start, and (c) any future re-fit. NOT changing the frozen spec.
+
+⚠ Caveats on every row above: the voice subsets OVERLAP (co-fire share on the
+OOS `$1+` set: `halt` 90% · `d20a` 89% · `v20` 79% · `ramp` 67% · `esf` 47% ·
 `dslo` 40%), so these are the books each gate BUILDS, not independent
 contributions; and no multiple-comparison correction is applied across seven
 gates.
