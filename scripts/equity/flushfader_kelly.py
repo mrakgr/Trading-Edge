@@ -25,17 +25,22 @@ ap.add_argument("--no-book", action="store_true",
                 help="use the full v31_reference instead of the trading book")
 args = ap.parse_args()
 
-TRIPS = "/home/mrakgr/Trading-Edge/data/equity/flushfader/v39_vwapdist/trips_p*.parquet"
-# the trading-book filter ($1+ raw x g60 x vote/S-tier), reconstruction VERIFIED
-# to reproduce the recorded 7,044 mc=0 trips exactly (S43ba). NB S-tier is
+TRIPS = "/home/mrakgr/Trading-Edge/data/equity/flushfader/v41_secs/trips_p*.parquet"
+# the trading-book filter ($1+ raw x g60 x vote/S-tier). NB S-tier is
 # halts_today >= 1 (with the engine cascade gate that means ht in {1,2}).
+# ⭐ S43bg (user 2026-08-08): the leg-age voice is now `secs_since_first_low
+# <= 516` (8.6 min), NOT `bars_since_first_low <= 390`. The bar count is
+# era-relative — it meant 9.1 min in 2020 and 7.6 min in 2026, a 16% silent
+# tightening as the tape densified (S43bf). 516s is the selectivity-matched
+# translation of the old rule, not a re-fit. Requires trips recorded by the
+# S43bf engine or later (v41_secs and after).
 BOOK_WHERE = """
   gap_60 < 4 AND entry_px/adj_ratio >= 1 AND (
     COALESCE(volat_20m*1e4 >= 140, false)
     OR COALESCE((signal_vwap/first_low_vwap)*(1+d_hi_flow) - 1 < -0.28, false)
     OR COALESCE(signal_vwap/sess_low - 1 >= 0.08, false)
     OR COALESCE((volat_slope_20m - volat_slope_10m)*2e4 < -12, false)
-    OR COALESCE(bars_since_first_low <= 390, false)
+    OR COALESCE(secs_since_first_low >= 0 AND secs_since_first_low <= 516, false)
     OR COALESCE(secs_since_halt >= 1200 AND secs_since_halt < 4800, false)
     OR COALESCE(halts_today >= 1 AND secs_since_halt >= 120 AND secs_since_halt < 1200, false))
 """

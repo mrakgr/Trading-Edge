@@ -13973,11 +13973,15 @@ are simulated fills at the NEXT bar's tape vwap. One position per ticker-day.
 
 | stage | count |
 |---|---:|
-| universe `mr_candidate_1s` (ticker-days, 2020-01 → 2026-07) | 1,145,230 |
+| universe `mr_candidate_1s` (ticker-days, 2020-01 → 2026-07) | 1,145,891 |
 | raw signal trips, every spec gate off (`base_v16`) | 2,184,698 |
-| trips passing the SPEC (`v31_reference`) | 35,778 |
-| trips passing the BOOK filter ($1+ raw × g60 × vote/S-tier) | 7,044 |
-| **one trade per ticker-day (mc=1 per tkd) — WHAT WE TRADE** | **1,231** |
+| trips passing the SPEC (`v41_secs`, 1,643 days) | 35,782 |
+| trips passing the BOOK filter ($1+ raw × g60 × vote/S-tier) | 7,458 |
+| **one trade per ticker-day (mc=1 per tkd) — WHAT WE TRADE** | **1,312** |
+
+⭐ Counts updated S43bg (2026-08-08): the leg-age voice is now seconds-based,
+and the archive gained the previously-missing day 2021-03-26 (S43bf). Prior
+revisions of this table read 35,778 / 7,044 / 1,231 on 1,642 days.
 
 ### 1. Universe — which ticker-days are in play
 
@@ -14056,7 +14060,7 @@ The six voices:
 | d20a | `(vwap/first_low_vwap)·(1+d_hi_flow) − 1 < −28%` | ≥ 28% below the leg's anchor — a deep cascade |
 | dslo | `vwap/sess_low − 1 ≥ +8%` | ≥ 8% above the session low — not sitting on the dead low |
 | ramp | `(volat_slope_20m − volat_slope_10m) × 2e4 < −12` | the 10m volatility slope exceeds the 20m — short-horizon volatility is EXPANDING rapidly |
-| b390 | `bars_since_first_low ≤ 390` | the leg is young, not a stale grind |
+| legage | `secs_since_first_low ≤ 516` (8.6 min) | the leg is young, not a stale grind. ⭐ S43bg: was `bars_since_first_low ≤ 390`; the bar count is era-relative (it silently tightened 9.1 → 7.6 min from 2020 to 2026 as the tape densified), seconds are invariant |
 | haltband | `secs_since_halt ∈ [1200, 4800)` | 20–80 minutes after a halt resume |
 
 ### 5. Sizing (locked S43az)
@@ -14085,34 +14089,42 @@ cross/rest sim) from day one; re-derive multipliers at 1,000 live trades.
 
 ### 6. RESULTS — the trading book, one trade per ticker-day
 
-1,231 trades / 1,094 ticker-days over 6.5 years (≈ 190 trades/year). Raw
-returns, per-trade:
+1,312 trades over 6.5 years (≈ 200 trades/year). Raw returns, per-trade.
+⭐ S43bg basis: seconds-based leg-age voice, v41_secs, 1,643 days:
 
 | | n | PF | win% | avg% | med% | worst% |
 |---|---:|---:|---:|---:|---:|---:|
-| **BOOK** | **1,231** | **4.015** | **78.1** | **+1.97** | **+2.31** | **−30.6** |
-| tier A | 138 | 8.069 | 78.3 | +3.34 | +3.24 | −6.3 |
-| tier B | 360 | 4.587 | 81.1 | +2.09 | +2.60 | −12.9 |
-| tier C | 214 | 3.790 | 78.5 | +1.97 | +2.04 | −10.3 |
-| tier D | 519 | 3.092 | 75.7 | +1.53 | +2.02 | −30.6 |
+| **BOOK** | **1,312** | **3.932** | **77.9** | **+1.92** | **+2.27** | **−30.6** |
+| tier A | 143 | 8.192 | 79.0 | +3.28 | +3.24 | −6.3 |
+| tier B | 396 | 4.608 | 81.1 | +2.05 | +2.46 | −12.9 |
+| tier C | 221 | 3.281 | 77.4 | +1.85 | +2.02 | −21.7 |
+| tier D | 552 | 3.131 | 75.5 | +1.51 | +1.97 | −30.6 |
 | S-tier A (subset) | 38 | 37.106 | 86.8 | +3.92 | +3.58 | −1.2 |
 
 Every year is positive:
 
 | year | n | PF | avg% |
 |---|---:|---:|---:|
-| 2020 | 193 | 8.958 | +2.75 |
-| 2021 | 232 | 3.197 | +1.34 |
-| 2022 | 72 | 2.981 | +1.55 |
-| 2023 | 101 | 3.233 | +1.60 |
-| 2024 | 206 | 3.728 | +2.09 |
-| 2025 | 291 | 3.454 | +1.87 |
-| 2026 | 136 | 4.814 | +2.48 |
+| 2020 | 204 | 8.086 | +2.67 |
+| 2021 | 261 | 3.276 | +1.33 |
+| 2022 | 76 | 3.112 | +1.56 |
+| 2023 | 107 | 3.254 | +1.57 |
+| 2024 | 219 | 3.298 | +1.95 |
+| 2025 | 305 | 3.534 | +1.89 |
+| 2026 | 140 | 4.897 | +2.47 |
 
 At the starting size (1% D-base, vol-normalised, sequential compounding):
-**+7.6%/year average** (range +2.2% in 2022 to +11.7% in 2025), max drawdown
-over 6.5 years **−0.52%**, worst single trade **−0.25% of account**, 8 negative
-months of 78. Position sizes scale all of these linearly until the ramp meets
+**+7.9%/year average** (range +2.4% in 2022 to +12.5% in 2025), max drawdown
+over 6.5 years **−0.68%**, worst single trade **−0.55% of account**, 8 negative
+months of 79.
+
+<details><summary>Previous basis (bars-based voice, 1,642 days) for comparison</summary>
+
+BOOK 1,231 @ PF 4.015 / 78.1% / +1.97%; tiers A 138 @ 8.069 · B 360 @ 4.587 ·
+C 214 @ 3.790 · D 519 @ 3.092; years 8.958 / 3.197 / 2.981 / 3.233 / 3.728 /
+3.454 / 4.814; +7.6%/yr, maxDD −0.52%, worst trade −0.25%.
+The swap costs 0.08 PF and adds 81 trades — see S43bg.
+</details> Position sizes scale all of these linearly until the ramp meets
 the participation cap (per-trade notional ≤ 1% of trailing 20m dollar volume).
 
 ### Standing cautions
@@ -14789,6 +14801,53 @@ OOS back 270,480 / in-sample 1,145,891 / OOS fwd 15,431. In-sample rows passing
 tickers real prior history, so the warmup gate now admits rows it previously
 excluded — an in-sample re-run would no longer reproduce v39/v40 exactly. The
 in-sample numbers quoted throughout this document predate that shift.
+
+---
+
+## ⭐ S43bg — SPEC CHANGE: leg-age voice is now `secs_since_first_low ≤ 516` (2026-08-08)
+
+**User decision.** The roster's 5th voice changes from `bars_since_first_low
+≤ 390` to **`secs_since_first_low ≤ 516`** (8.6 min). Rationale in S43bf: the
+bar count is era-relative and was still drifting — the same rule meant 9.1 min
+in 2020 and 7.6 min in 2026, a 16% silent tightening as the tape densified, and
+it would have kept tightening in live trading. 516s is the in-sample
+selectivity-matched translation (12.29% pass rate), NOT a re-fit.
+
+**ROSTER (v2.8):** `{v20 ≥ 140, d20a < −28%, dslo ≥ +8%, ramp < −12,
+secs_since_first_low ≤ 516, haltband ssh ∈ [20,80m)}` + S-tier
+`ht ≥ 1 ∧ ssh ∈ [2,20m)`. Everything else in spec v2.7 is unchanged.
+
+**Book effect** (also absorbs the recovered day 2021-03-26, S43bf):
+
+| | old (bars, 1,642 d) | new (secs, 1,643 d) |
+|---|---:|---:|
+| book trips mc=0 | 7,044 | 7,458 |
+| **traded (per-tkd mc=1)** | **1,231** | **1,312** |
+| PF | 4.015 | **3.932** |
+| win% | 78.1 | 77.9 |
+| avg%/trade | +1.97 | +1.92 |
+| at 1% D-base | +7.6%/yr, DD −0.52% | **+7.9%/yr, DD −0.68%** |
+
++81 trades, −0.08 PF, +0.3pp/year. The swap is ~PF-neutral by design — it was
+taken on CORRECTNESS grounds (an era-invariant rule), not to raise the number.
+
+**🔒 SIZING MULTIPLIERS ARE UNCHANGED: {A 4.84, B 2.04, C 2.07, D 1.00}.**
+Re-running `flushfader_kelly.py --r-dis 0` on the new book returns
+{A 4.84, B 2.05, **C 0.89**, D 1.00} — tier C collapsing below D. That is a
+ONE-TRADE artifact: CADL 2024-12-11 (−21.7% raw, −26.6% vol-normalised) is
+newly admitted (`secs`=480 ≤ 516; `bars`=460 > 390) and becomes C's worst
+observed loss, which is exactly what empirical Kelly keys on. This is the
+documented pathology — **"any sizing rule keyed on the worst observed loss
+measures sample size, not risk"** (S43ba). On every criterion that is not the
+single worst trade, C still ranks above D: PF 3.281 vs 3.131, avg +1.85% vs
++1.51%, win 77.4% vs 75.5%. ⇒ multipliers stay; revisit only at the
+1,000-live-trade re-derivation checkpoint.
+
+**Where the rule lives:** `scripts/equity/flushfader_kelly.py` `BOOK_WHERE`
+(updated, now reads `v41_secs`), the §4 voices table above, and this entry.
+⚠ Requires trips recorded by the S43bf engine or later — older parquets
+(`v31/v39/v40`) have no `secs_since_first_low` column and cannot express the
+current book.
 
 ---
 
