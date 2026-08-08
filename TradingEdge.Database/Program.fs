@@ -114,6 +114,28 @@ type IngestDataArgs =
             | Dividends_File _ -> "CSV file containing dividends (default: data/dividends.csv)"
             | Tickers_File _ -> "CSV file containing ETF/ETN ticker reference (default: data/tickers.csv)"
 
+/// ⭐ backfill-daily — the whole daily side in one shot (2026-08-08, user).
+/// Motivation: the four steps must run in a fixed ORDER and two of them have a
+/// destructive full-file-rewrite footgun (see docs/massive_cli_gotchas.md).
+/// Doing it by hand cost us a wrong-order rebuild and a truncated splits.csv.
+type BackfillDailyArgs =
+    | [<AltCommandLine("-s")>] Start_Date of string
+    | [<AltCommandLine("-e")>] End_Date of string
+    | [<AltCommandLine("-p")>] Parallelism of int
+    | [<AltCommandLine("-d")>] Database of string
+    | Skip_Tickers
+    | Skip_Ingest
+
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Start_Date _ -> "First day of aggregates to fetch. Default: the day after the newest date already in daily_prices (i.e. resume where the DB left off)."
+            | End_Date _ -> "Last day of aggregates to fetch (default: today; weekends/holidays skip themselves)."
+            | Parallelism _ -> "Concurrent S3 downloads for the daily aggregates (default: 12). Massive throttles PER CONNECTION, so this is the throughput dial."
+            | Database _ -> "DuckDB database path (default: data/trading.db)."
+            | Skip_Tickers -> "Skip the reference-ticker refresh (CS/ADRC/ETF/ETN/ETV/ETS)."
+            | Skip_Ingest -> "Download only; do not ingest or materialize."
+
 type DownloadTickersArgs =
     | [<AltCommandLine("-o")>] Output_File of string
 
@@ -272,6 +294,7 @@ type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Download_Bulk of ParseResults<DownloadBulkArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Bulk_Minute of ParseResults<DownloadBulkMinuteArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Bulk_Trades of ParseResults<DownloadBulkTradesArgs>
+    | [<CliPrefix(CliPrefix.None)>] Backfill_Daily of ParseResults<BackfillDailyArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Splits of ParseResults<DownloadSplitsArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Dividends of ParseResults<DownloadDividendsArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Intraday of ParseResults<DownloadIntradayArgs>
@@ -293,6 +316,7 @@ type Arguments =
             | Download_Bulk _ -> "Download daily aggregate files from Massive S3"
             | Download_Bulk_Minute _ -> "Download market-wide minute aggregate files from Massive S3 (zstd-compressed Parquet output)"
             | Download_Bulk_Trades _ -> "Download market-wide trades flat files from Massive S3 (zstd-compressed Parquet output)"
+            | Backfill_Daily _ -> "⭐ ONE-SHOT daily backfill: daily aggregates + splits + dividends + reference tickers, then ingest + materialize. Splits/dividends are always fetched FULL-RANGE (they rewrite their whole CSV)."
             | Download_Splits _ -> "Download stock splits from Massive API"
             | Download_Dividends _ -> "Download dividends from Polygon API"
             | Download_Intraday _ -> "Download intraday (minute/second) data for tickers"
@@ -431,6 +455,32 @@ let private handleDownloadBulkTrades (config: MassiveConfig) (args: ParseResults
     printfn ""
     printfn "Download complete: %d downloaded, %d skipped, %d failed" downloaded skipped failed
 
+/// ⚠ REWRITES data/splits.csv from ONLY the rows in [startDate, endDate] — the
+/// endpoint has no merge. Callers must pass the FULL history range (2003-01-01
+/// -> today + lead, since splits are announced ahead); a narrow range silently
+/// truncates split_adjusted_prices. See docs/massive_cli_gotchas.md.
+let private runSplitsDownload (apiKey: string) (startDate: DateTime) (endDate: DateTime option) : bool =
+    use httpClient = new HttpClient()
+    use cts = new CancellationTokenSource()
+    let result =
+        downloadSplitsWithConsoleProgress httpClient apiKey startDate endDate cts.Token
+        |> Async.RunSynchronously
+    match result with
+    | Ok splits ->
+        printfn ""
+        printfn "Downloaded %d splits" splits.Length
+        let outputPath = "data/splits.csv"
+        use writer = new StreamWriter(outputPath)
+        writer.WriteLine("ticker,execution_date,split_from,split_to,split_ratio")
+        for split in splits do
+            let dateStr = split.ExecutionDate.ToString("yyyy-MM-dd")
+            writer.WriteLine($"{split.Ticker},{dateStr},{split.SplitFrom},{split.SplitTo},{split.SplitRatio}")
+        printfn "Saved splits to %s" (Path.GetFullPath outputPath)
+        true
+    | Error msg ->
+        printfn "Error downloading splits: %s" msg
+        false
+
 let private handleDownloadSplits (config: MassiveConfig) (args: ParseResults<DownloadSplitsArgs>) =
     ensureDataDir ()
 
@@ -452,30 +502,32 @@ let private handleDownloadSplits (config: MassiveConfig) (args: ParseResults<Dow
         | None -> ""
 
     printfn "Downloading splits from %s%s" (formatDate startDate) endDateStr
+    runSplitsDownload config.ApiKey startDate endDate |> ignore
 
+/// ⚠ Same whole-file rewrite semantics as runSplitsDownload — pass the FULL range.
+let private runDividendsDownload (apiKey: string) (startDate: DateTime) (endDate: DateTime option) : bool =
     use httpClient = new HttpClient()
     use cts = new CancellationTokenSource()
-
     let result =
-        downloadSplitsWithConsoleProgress httpClient config.ApiKey startDate endDate cts.Token
+        downloadDividendsWithConsoleProgress httpClient apiKey startDate endDate cts.Token
         |> Async.RunSynchronously
-
     match result with
-    | Ok splits ->
+    | Ok dividends ->
         printfn ""
-        printfn "Downloaded %d splits" splits.Length
-
-        // Save to CSV for fast DuckDB ingestion
-        let outputPath = "data/splits.csv"
+        printfn "Downloaded %d dividends" dividends.Length
+        let outputPath = "data/dividends.csv"
         use writer = new StreamWriter(outputPath)
-        writer.WriteLine("ticker,execution_date,split_from,split_to,split_ratio")
-        for split in splits do
-            let dateStr = split.ExecutionDate.ToString("yyyy-MM-dd")
-            writer.WriteLine($"{split.Ticker},{dateStr},{split.SplitFrom},{split.SplitTo},{split.SplitRatio}")
-        printfn "Saved splits to %s" (Path.GetFullPath outputPath)
-
+        writer.WriteLine("ticker,ex_dividend_date,cash_amount,declaration_date,pay_date,frequency,dividend_type")
+        for d in dividends do
+            let exDateStr = d.ExDividendDate.ToString("yyyy-MM-dd")
+            let declDateStr = d.DeclarationDate |> Option.map (fun dt -> dt.ToString("yyyy-MM-dd")) |> Option.defaultValue ""
+            let payDateStr = d.PayDate |> Option.map (fun dt -> dt.ToString("yyyy-MM-dd")) |> Option.defaultValue ""
+            writer.WriteLine($"{d.Ticker},{exDateStr},{d.CashAmount},{declDateStr},{payDateStr},{d.Frequency},{d.DividendType}")
+        printfn "Saved dividends to %s" (Path.GetFullPath outputPath)
+        true
     | Error msg ->
-        printfn "Error downloading splits: %s" msg
+        printfn "Error downloading dividends: %s" msg
+        false
 
 let private handleDownloadDividends (config: MassiveConfig) (args: ParseResults<DownloadDividendsArgs>) =
     ensureDataDir ()
@@ -497,56 +549,13 @@ let private handleDownloadDividends (config: MassiveConfig) (args: ParseResults<
         | None -> ""
 
     printfn "Downloading dividends from %s%s" (formatDate startDate) endDateStr
+    runDividendsDownload config.ApiKey startDate endDate |> ignore
 
-    use httpClient = new HttpClient()
-    use cts = new CancellationTokenSource()
-
-    let result =
-        downloadDividendsWithConsoleProgress httpClient config.ApiKey startDate endDate cts.Token
-        |> Async.RunSynchronously
-
-    match result with
-    | Ok dividends ->
-        printfn ""
-        printfn "Downloaded %d dividends" dividends.Length
-
-        // Save to CSV for fast DuckDB ingestion
-        let outputPath = "data/dividends.csv"
-        use writer = new StreamWriter(outputPath)
-        writer.WriteLine("ticker,ex_dividend_date,cash_amount,declaration_date,pay_date,frequency,dividend_type")
-        for d in dividends do
-            let exDateStr = d.ExDividendDate.ToString("yyyy-MM-dd")
-            let declDateStr = d.DeclarationDate |> Option.map (fun dt -> dt.ToString("yyyy-MM-dd")) |> Option.defaultValue ""
-            let payDateStr = d.PayDate |> Option.map (fun dt -> dt.ToString("yyyy-MM-dd")) |> Option.defaultValue ""
-            writer.WriteLine($"{d.Ticker},{exDateStr},{d.CashAmount},{declDateStr},{payDateStr},{d.Frequency},{d.DividendType}")
-        printfn "Saved dividends to %s" (Path.GetFullPath outputPath)
-
-    | Error msg ->
-        printfn "Error downloading dividends: %s" msg
-
-let private handleIngestData (args: ParseResults<IngestDataArgs>) =
+/// The ingest + materialize step, callable with plain values (shared by
+/// `ingest-data` and `backfill-daily`).
+let private runIngest (dbPath: string) (csvDir: string) (splitsFile: string)
+                      (dividendsFile: string) (tickersFile: string) =
     ensureDataDir ()
-
-    let dbPath =
-        args.TryGetResult IngestDataArgs.Database
-        |> Option.defaultValue "data/trading.db"
-
-    let csvDir =
-        args.TryGetResult IngestDataArgs.Csv_Dir
-        |> Option.defaultValue "data/daily_aggregates"
-
-    let splitsFile =
-        args.TryGetResult IngestDataArgs.Splits_File
-        |> Option.defaultValue "data/splits.csv"
-
-    let dividendsFile =
-        args.TryGetResult IngestDataArgs.Dividends_File
-        |> Option.defaultValue "data/dividends.csv"
-
-    let tickersFile =
-        args.TryGetResult IngestDataArgs.Tickers_File
-        |> Option.defaultValue "data/tickers.csv"
-
     printfn "Database: %s" (Path.GetFullPath dbPath)
     printfn "CSV directory: %s" (Path.GetFullPath csvDir)
     printfn "Splits file: %s" (Path.GetFullPath splitsFile)
@@ -643,6 +652,125 @@ let private handleIngestData (args: ParseResults<IngestDataArgs>) =
     | None ->
         printfn "  Date range: (no data)"
 
+/// Reference tickers (CS, ADRC, ETF, ETN, ETV, ETS; active AND delisted) -> CSV.
+/// Full-snapshot semantics by nature: the endpoint has no date range.
+let private runTickersDownload (apiKey: string) (outputPath: string) : bool =
+    printfn "Downloading reference tickers from Polygon (CS, ADRC, ETF, ETN, ETV, ETS)..."
+    use httpClient = new HttpClient()
+    use cts = new CancellationTokenSource()
+    let result =
+        downloadAllReferenceTickers httpClient apiKey cts.Token
+        |> Async.RunSynchronously
+    match result with
+    | Ok rows ->
+        printfn ""
+        printfn "Downloaded %d reference tickers" rows.Length
+        // Names may contain commas, so we RFC-4180-quote them.
+        use writer = new StreamWriter(outputPath)
+        writer.WriteLine("ticker,name,type")
+        for (ticker, name, typ) in rows do
+            writer.WriteLine($"{csvQuote ticker},{csvQuote name},{csvQuote typ}")
+        printfn "Saved tickers to %s" (Path.GetFullPath outputPath)
+        true
+    | Error msg ->
+        eprintfn "Error downloading tickers: %s" msg
+        false
+
+let private handleBackfillDaily (config: MassiveConfig) (args: ParseResults<BackfillDailyArgs>) =
+    ensureDataDir ()
+    let dbPath = args.GetResult(BackfillDailyArgs.Database, defaultValue = "data/trading.db")
+    let parallelism = args.GetResult(BackfillDailyArgs.Parallelism, defaultValue = 12)
+    let endDate =
+        args.TryGetResult BackfillDailyArgs.End_Date
+        |> Option.map DateTime.Parse
+        |> Option.defaultValue DateTime.Now.Date
+
+    // Resume point: the day after the newest date already in daily_prices. Falls
+    // back to a 5-year window on a fresh database.
+    let startDate =
+        match args.TryGetResult BackfillDailyArgs.Start_Date with
+        | Some d -> DateTime.Parse d
+        | None ->
+            if File.Exists dbPath then
+                use conn = openConnection dbPath
+                match getDateRange conn with
+                | Some (_, maxDate) -> maxDate.AddDays 1.0
+                | None -> endDate.AddYears -5
+            else endDate.AddYears -5
+
+    printfn "=== backfill-daily ==="
+    printfn "  aggregates : %s -> %s (parallelism %d)" (formatDate startDate) (formatDate endDate) parallelism
+    printfn "  splits/divs: FULL RANGE (whole-file rewrite — see docs/massive_cli_gotchas.md)"
+    printfn "  database   : %s" (Path.GetFullPath dbPath)
+    printfn ""
+
+    let mutable ok = true
+
+    // --- 1. daily aggregates (per-day files, skip-if-exists — safe & incremental)
+    if startDate > endDate then
+        printfn "[1/4] daily aggregates: already current through %s — nothing to fetch." (formatDate endDate)
+    else
+        printfn "[1/4] daily aggregates %s -> %s" (formatDate startDate) (formatDate endDate)
+        use client = createS3Client config.S3AccessKey config.S3SecretKey
+        use cts = new CancellationTokenSource()
+        let tempDir = defaultBulkTempDir ()
+        let results =
+            S3Download.downloadDailyAggregates client startDate endDate "data/daily_aggregates"
+                tempDir parallelism 1 (Some S3Download.consoleProgress) cts.Token
+            |> Async.RunSynchronously
+        let failed = results |> List.filter (function Failed _ -> true | _ -> false)
+        printfn "  downloaded %d, skipped %d, failed %d"
+            (results |> List.filter (function Downloaded _ -> true | _ -> false) |> List.length)
+            (results |> List.filter (function Skipped _ -> true | _ -> false) |> List.length)
+            failed.Length
+        // 404s are holidays and already counted as Skipped; a real Failed is fatal
+        // for a backfill because a missing day silently truncates the history.
+        if not failed.IsEmpty then
+            ok <- false
+            for f in failed |> List.truncate 5 do
+                match f with Failed (d, m) -> eprintfn "  FAILED %s: %s" (formatDate d) m | _ -> ()
+
+    // --- 2/3. splits + dividends, ALWAYS full-range (the CSVs are rewritten whole).
+    // End date leads the calendar: splits are announced months ahead.
+    let refStart = DateTime(2003, 1, 1)
+    let refEnd = Some (endDate.AddYears 1)
+    printfn ""
+    printfn "[2/4] splits (full range %s -> %s)" (formatDate refStart) (formatDate refEnd.Value)
+    if not (runSplitsDownload config.ApiKey refStart refEnd) then ok <- false
+    printfn ""
+    printfn "[3/4] dividends (full range %s -> %s)" (formatDate refStart) (formatDate refEnd.Value)
+    if not (runDividendsDownload config.ApiKey refStart refEnd) then ok <- false
+
+    // --- 4. reference tickers (CS/ADRC + ETF family, active AND delisted)
+    printfn ""
+    if args.Contains BackfillDailyArgs.Skip_Tickers then
+        printfn "[4/4] reference tickers: SKIPPED (--skip-tickers)"
+    else
+        printfn "[4/4] reference tickers"
+        if not (runTickersDownload config.ApiKey "data/tickers.csv") then ok <- false
+
+    // --- ingest + materialize
+    printfn ""
+    if args.Contains BackfillDailyArgs.Skip_Ingest then
+        printfn "ingest: SKIPPED (--skip-ingest)"
+    elif not ok then
+        eprintfn "ingest: SKIPPED — a download step failed; fix it and re-run (downloads resume)."
+        exit 1
+    else
+        runIngest dbPath "data/daily_aggregates" "data/splits.csv" "data/dividends.csv" "data/tickers.csv"
+
+    printfn ""
+    printfn "=== backfill-daily %s ===" (if ok then "COMPLETE" else "FINISHED WITH ERRORS")
+    if not ok then exit 1
+
+let private handleIngestData (args: ParseResults<IngestDataArgs>) =
+    runIngest
+        (args.TryGetResult IngestDataArgs.Database |> Option.defaultValue "data/trading.db")
+        (args.TryGetResult IngestDataArgs.Csv_Dir |> Option.defaultValue "data/daily_aggregates")
+        (args.TryGetResult IngestDataArgs.Splits_File |> Option.defaultValue "data/splits.csv")
+        (args.TryGetResult IngestDataArgs.Dividends_File |> Option.defaultValue "data/dividends.csv")
+        (args.TryGetResult IngestDataArgs.Tickers_File |> Option.defaultValue "data/tickers.csv")
+
 let private handleDownloadTickers (config: MassiveConfig) (args: ParseResults<DownloadTickersArgs>) =
     ensureDataDir ()
 
@@ -650,31 +778,7 @@ let private handleDownloadTickers (config: MassiveConfig) (args: ParseResults<Do
         args.TryGetResult DownloadTickersArgs.Output_File
         |> Option.defaultValue "data/tickers.csv"
 
-    printfn "Downloading reference tickers from Polygon (CS, ADRC, ETF, ETN, ETV, ETS)..."
-
-    use httpClient = new HttpClient()
-    use cts = new CancellationTokenSource()
-
-    let result =
-        downloadAllReferenceTickers httpClient config.ApiKey cts.Token
-        |> Async.RunSynchronously
-
-    match result with
-    | Ok rows ->
-        printfn ""
-        printfn "Downloaded %d reference tickers" rows.Length
-
-        // Save to CSV for fast DuckDB ingestion via `ingest-data`.
-        // Names may contain commas, so we RFC-4180-quote them.
-        use writer = new StreamWriter(outputPath)
-        writer.WriteLine("ticker,name,type")
-        for (ticker, name, typ) in rows do
-            writer.WriteLine($"{csvQuote ticker},{csvQuote name},{csvQuote typ}")
-        printfn "Saved tickers to %s" (Path.GetFullPath outputPath)
-
-    | Error msg ->
-        eprintfn "Error downloading tickers: %s" msg
-        exit 1
+    if not (runTickersDownload config.ApiKey outputPath) then exit 1
 
 let private handleDownloadTickerEvents (config: MassiveConfig) (args: ParseResults<DownloadTickerEventsArgs>) =
     ensureDataDir ()
@@ -1124,6 +1228,9 @@ let main argv =
             | Download_Bulk_Trades args ->
                 let config = loadConfigOrFail configPath
                 handleDownloadBulkTrades config args
+            | Backfill_Daily args ->
+                let config = loadConfigOrFail configPath
+                handleBackfillDaily config args
             | Download_Splits args ->
                 let config = loadConfigOrFail configPath
                 handleDownloadSplits config args
