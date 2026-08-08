@@ -14687,6 +14687,100 @@ carrying it beat the old `|esf|` roster **in all seven years** (PF 4.550 vs
 out-of-sample — but the in-sample case for its inclusion was sound and was
 never "it lifts the average". Corrected framing, not a corrected decision.
 
+### ⭐⭐ S43bf — `secs_since_first_low`: the seconds-based `esf` (user request)
+
+New record-only engine column (`NewLowCounters` stamps the leg's first-low ET
+second). All three windows re-recorded (v41_secs / oos_back_secs /
+oos_fwd_secs); control day bit-identical on every pre-existing column.
+
+**1. The bar count IS era-relative — confirmed, at ~1.9× not the 2.2× I
+guessed.** Median wall-clock seconds per PRESENT bar of leg age:
+
+| window | n | med bars | med secs | med min | **secs/bar** |
+|---|---:|---:|---:|---:|---:|
+| OOS back 2016-19 | 797 | 829 | 2,169 | 36.1 | **2.53** |
+| in-sample 2020-26 | 6,386 | 803 | 1,266 | 21.1 | **1.33** |
+| OOS fwd 2026 | 51 | 1,000 | 1,290 | 21.5 | **1.12** |
+
+So `bars <= 390` selects legs of median age **11.3 min** on the 2016-19 tape vs
+**6.5 min** in-sample — the same threshold, a different feature.
+
+**2. ⚠ AND IT IS STILL DRIFTING — the gate silently tightens every year:**
+
+| year | secs/bar | `bars<=390` really means | bars needed for a fixed 516s |
+|---|---:|---:|---:|
+| 2016 | 2.68 | 17.4 min | 193 |
+| 2018 | 2.70 | 17.6 min | 191 |
+| 2019 | 2.05 | 13.3 min | 252 |
+| 2020 | 1.40 | 9.1 min | 367 |
+| 2021 | 1.33 | 8.7 min | 388 |
+| 2022 | 1.58 | 10.3 min | 327 |
+| 2023 | 1.31 | 8.5 min | 393 |
+| 2024 | 1.33 | 8.7 min | 387 |
+| 2025 | 1.17 | 7.6 min | 439 |
+| 2026 | 1.16 | 7.6 min | 443 |
+
+The rule meant 9.1 minutes in 2020 and means 7.6 today — a **16% silent
+tightening inside the in-sample period alone**, and it will keep going as the
+tape densifies. That is a live-forward problem, not just a backtest artifact.
+
+**3. The seconds form is BETTER as a gate.** Threshold calibrated IN-SAMPLE
+ONLY to match `bars<=390`'s selectivity (12.29% of `$1+` trips) ⇒ **516s
+(8.6 min)** — a translation, not a re-fit:
+
+| variant | IS+g60 n / PF / avg | IS no-g60 n / PF / avg | OOS n / PF / avg |
+|---|---|---|---|
+| BASE (no esf gate) | 1,641 / 3.116 / +1.61 | 5,216 / 2.157 / +1.13 | 729 / 1.857 / +1.07 |
+| `bars <= 390` (current) | 272 / 3.756 / +1.85 | 641 / 2.162 / +1.17 | 88 / 2.530 / +1.62 |
+| **`secs <= 516`** | **454 / 4.153 / +1.91** | **642 / 2.867 / +1.48** | **45 / 3.698 / +1.95** |
+
+At EQUAL in-sample selectivity (641 vs 642 trips) the seconds form gives PF
+2.867 vs 2.162, and it wins on all three bases. The two rules are NOT
+interchangeable: Jaccard overlap only **0.480** in-sample (416 both, 225
+bars-only, 226 secs-only) and 0.343 OOS — they select substantially different
+populations.
+
+**In-sample threshold sweep** (`$1+`, no g60; base PF 2.157) — tighter is
+monotonically better, so 390 bars was never the optimum:
+180s 4.695 (n=41) · 300s 3.054 (165) · 420s 2.501 (392) · **516s 2.867 (642)** ·
+600s 2.523 (867) · 900s 2.464 (1,644) · 1200s 2.408 (2,333) · 3600s 2.261.
+The OOS sweep — a CHECK, never used to choose — agrees on direction: 300s
+13.331 (10) · 420s 7.264 (27) · 516s 3.698 (45) · 600s 1.787 (59) · 1200s 2.124.
+
+**4. ⚠ BUT AT BOOK LEVEL THE SWAP IS ~NEUTRAL.** The other five voices already
+admit most of the good trips, so esf's marginal contribution is small either
+way (full book, per-tkd mc=1):
+
+| roster variant | IS n / PF / avg | OOS n / PF / avg |
+|---|---|---|
+| current `bars <= 390` | 1,072 / 3.884 / +1.94 | 40 / 1.143 / +0.29 |
+| swap → `secs <= 516` | 1,148 / 3.855 / +1.91 | 42 / 1.168 / +0.33 |
+| swap → `secs <= 420` | 1,079 / 3.907 / +1.94 | 39 / 1.113 / +0.24 |
+| no esf voice at all | 968 / 3.756 / +1.93 | 37 / 1.117 / +0.25 |
+
+⇒ **RECOMMENDATION (for the user's decision): swap to `secs <= 516`.** The case
+is CORRECTNESS, not performance — book PF is unchanged within noise
+(3.884 → 3.855), but the rule stops silently re-tuning itself as the tape
+densifies, and it is strictly better as a standalone gate on every base
+including OOS. `secs <= 420` reads marginally better in-sample (3.907) but
+choosing it WOULD be a re-fit; 516 is the selectivity-matched translation.
+⚠ Not applied — the spec stays frozen pending the user's call.
+
+### 🛑 A TRADING DAY WAS MISSING FROM THE IN-SAMPLE ARCHIVE: 2021-03-26
+
+Found via the v41 re-record: in-sample went 35,719 → 35,782 trips, and all 63
+new trips are on **2021-03-26** with none lost elsewhere. That day's trades file
+was absent from `/mnt/d/trading-edge-bulk/trades/` and was re-downloaded during
+the 2026-08-07 OOS sweep (which spans it); today's converter then built its 1s
+bars for the first time — it was the lone 2021 day among the 872 converted.
+`v39` and `v40` both hold ZERO trips for it.
+
+⇒ **every in-sample result in this document prior to S43bf was computed on
+1,642 trading days, not 1,643.** Impact is negligible in magnitude (63 of
+35,782 spec trips = 0.18%; the book gains 4 trips) but the gap existed for the
+entire research program. The archive is now complete: 2,514 day-files with no
+interior holes (verified 2016-08-08 → 2026-08-07).
+
 ### Candidate-table note
 
 Rebuilt over all 2,514 days: 1,431,802 rows (2016-08-08 → 2026-08-07), of which
