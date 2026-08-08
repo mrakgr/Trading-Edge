@@ -55,6 +55,52 @@ sql/schema/
 
 ## Database commands
 
+### ⭐ backfill-daily — the whole daily side in one shot
+
+**This is the normal way to bring the daily data up to date.** It runs the four
+downloads in the required order and then ingests + materializes, so you cannot
+get the order wrong or trip the overwrite footgun described below.
+
+```bash
+dotnet run --project TradingEdge.Database -c Release -- backfill-daily
+```
+
+No arguments needed: the start date defaults to **the day after `max(date)` in
+`daily_prices`**, so it resumes wherever the database left off. On a fresh
+database it bootstraps from the archive start, **2003-09-10**.
+
+Steps, in order:
+
+1. **daily aggregates** — per-day `data/daily_aggregates/{date}.csv.gz`,
+   skip-if-exists, so re-running is cheap
+2. **splits** — always FULL RANGE `2003-01-01 → today + 1 year` (the end date
+   leads the calendar because splits are announced ahead)
+3. **dividends** — always FULL RANGE
+4. **reference tickers** — CS, ADRC + the ETF family (ETF/ETN/ETV/ETS), active
+   *and* delisted
+5. **ingest + materialize** — same work as `ingest-data`, including
+   `split_adjusted_prices`
+
+Options:
+- `-s, --start-date <date>` override the resume point
+- `-e, --end-date <date>` (default today; weekends/holidays skip themselves)
+- `-p, --parallelism <n>` (default 12) — Massive throttles **per connection**,
+  so this is the throughput dial; a single-file day cannot go faster than one
+  connection allows
+- `-d, --database <path>` (default `data/trading.db`)
+- `--skip-tickers`, `--skip-ingest`
+
+> ⚠ **Why steps 2 and 3 are forced full-range.** `download-splits` and
+> `download-dividends` **rewrite their entire CSV** from just the rows in the
+> requested window — they do not merge. On 2026-08-08 a narrow-range splits
+> refresh replaced 27,680 rows (2003→2026) with 427. `backfill-daily` ignores
+> `--start-date` for these two so that cannot happen. See
+> [`docs/massive_cli_gotchas.md`](../docs/massive_cli_gotchas.md).
+
+A failed aggregate download aborts **before** ingest (a silently missing day
+truncates history); re-running resumes. Days older than your plan's history
+entitlement answer 403 and are reported as skipped, not fatal.
+
 ### ingest-data — load base tables + materialize
 
 Bulk-loads downloaded daily aggregates, splits, dividends, and the ticker reference into
@@ -138,12 +184,24 @@ TradingEdge.Database/
 ## Typical first-run order
 
 ```bash
+# everything — downloads in the right order, then ingest + materialize
+dotnet run --project TradingEdge.Database -c Release -- backfill-daily
+```
+
+Re-run that same command any time to bring the data current; it resumes from
+the newest date already in the database.
+
+<details>
+<summary>The equivalent by hand (only if you need one step in isolation)</summary>
+
+```bash
 # 1. download reference + history (download code lives in TradingEdge.Massive)
 dotnet run --project TradingEdge.Database -- download-tickers
 dotnet run --project TradingEdge.Database -- download-bulk      -s 2003-01-01
-dotnet run --project TradingEdge.Database -- download-splits    -s 2003-01-01
-dotnet run --project TradingEdge.Database -- download-dividends -s 2003-01-01
+dotnet run --project TradingEdge.Database -- download-splits    -s 2003-01-01   # ⚠ FULL RANGE ONLY
+dotnet run --project TradingEdge.Database -- download-dividends -s 2003-01-01   # ⚠ FULL RANGE ONLY
 
 # 2. load + materialize
 dotnet run --project TradingEdge.Database -- ingest-data
 ```
+</details>
