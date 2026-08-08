@@ -14559,18 +14559,25 @@ boundary simply does not exist there. Same era effect as `gap_60`.
 **Within-era quintiles** (each window bucketed by its OWN distribution, so
 "dense" means dense *for that era*), per-tkd mc=1, spec level:
 
-| quintile | OOS back range | n | PF | avg% | | in-sample range | n | PF | avg% |
-|---|---|---:|---:|---:|---|---|---:|---:|---:|
-| Q1 densest | [0,401] | 160 | 1.987 | +1.12 | | [0,36] | 1271 | 2.889 | **+1.64** |
-| Q2 | [401,669] | 159 | 2.396 | **+1.49** | | [36,193] | 1275 | 2.099 | +1.13 |
-| Q3 | [669,850] | 158 | 2.101 | +1.24 | | [193,453] | 1278 | 2.034 | +1.05 |
-| Q4 | [850,986] | 160 | 1.708 | +0.99 | | [453,737] | 1273 | 1.742 | +0.84 |
-| Q5 sparsest | [986,1183] | 160 | 1.313 | **+0.50** | | [737,1161] | 1279 | 1.834 | +0.90 |
+| quintile | OOS back range | n | PF | **win%** | avg% | | in-sample range | n | PF | **win%** | avg% |
+|---|---|---:|---:|---:|---:|---|---|---:|---:|---:|---:|
+| Q1 densest | [0,401] | 160 | 1.987 | **75.6** | +1.12 | | [0,36] | 1271 | 2.889 | **75.5** | +1.64 |
+| Q2 | [401,669] | 159 | 2.396 | 74.2 | +1.49 | | [36,193] | 1275 | 2.099 | 72.7 | +1.13 |
+| Q3 | [669,850] | 158 | 2.101 | 72.2 | +1.24 | | [193,453] | 1278 | 2.034 | 71.8 | +1.05 |
+| Q4 | [850,986] | 160 | 1.708 | 68.8 | +0.99 | | [453,737] | 1273 | 1.742 | 70.5 | +0.84 |
+| Q5 sparsest | [986,1183] | 160 | 1.313 | **62.5** | +0.50 | | [737,1161] | 1279 | 1.834 | **67.6** | +0.90 |
 
-| window | densest Q1 | sparsest Q5 | spread | perm p | Spearman(gap_adj, ret) |
-|---|---:|---:|---:|---:|---:|
-| OOS back | +1.12% | +0.50% | **+0.62pp** | 0.115 | −0.0589 (p=0.096) |
-| in-sample | +1.64% | +0.90% | **+0.75pp** | 0.000 | −0.0865 (p<0.0001) |
+**Win% is the column to read.** It falls monotonically with sparseness in BOTH
+windows (OOS 75.6 → 62.5, in-sample 75.5 → 67.6) — no reversals, unlike avg%
+(OOS Q2 tops Q1) or PF (in-sample Q5 > Q4). Being a frequency it is immune to
+the fat tail that makes PF and mean return jumpy at these sample sizes, so it
+is the cleanest evidence that the gradient is real rather than a few large
+winners landing in the dense buckets.
+
+| window | densest Q1 | sparsest Q5 | spread | perm p | win% Q1→Q5 | Spearman(gap_adj, ret) |
+|---|---:|---:|---:|---:|---:|---:|
+| OOS back | +1.12% | +0.50% | **+0.62pp** | 0.115 | 75.6 → 62.5 | −0.0589 (p=0.096) |
+| in-sample | +1.64% | +0.90% | **+0.75pp** | 0.000 | 75.5 → 67.6 | −0.0865 (p<0.0001) |
 
 ⇒ **the liquidity tendency is REAL and pre-dates 2020.** The Q1−Q5 spread is
 +0.62pp OOS vs +0.75pp in-sample and the rank correlations are −0.059 vs
