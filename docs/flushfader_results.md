@@ -14069,13 +14069,18 @@ Tiers from two features at signal time:
 
 | tier | `gap_adj_1200 < 15` (continuous 20m tape) | `ols_slope_60×6e5 ≤ −350` (steep 1m slope) | multiplier |
 |---|:---:|:---:|---:|
-| A | ✅ | ✅ | 4.84 |
-| B | ✅ | — | 2.04 |
-| C | — | ✅ | 2.07 |
-| D | — | — | 1.00 |
+| A | ✅ | ✅ | **2.44** |
+| B | ✅ | — | **1.80** |
+| C | — | ✅ | **1.14** |
+| D | — | — | **1.00** |
 
 **SIZE = BASE × multiplier × √(99bp / volat_20m)** — vol-normalised so every
-trade carries comparable risk. **BASE starts at 1% of account** (A ≈ 4.8%).
+trade carries comparable risk. **BASE starts at 1% of account** (A ≈ 2.4%).
+⭐ S43bi: multipliers are **PF−1 on the bottom-5%-trimmed book**. Empirical
+Kelly is RETIRED as the estimator — it pins at `1/|worst kept loss|` and so
+measures a sample order statistic, not the edge (S43bh: the C/D ordering
+flipped between a 5% and an 8% trim). Prior Kelly set was {4.84, 2.04, 2.07,
+1.00}.
 The multipliers are the pure empirical-Kelly ratios of the tiers on THIS book
 (per-tkd mc=1, 1,231 trades; `scripts/equity/flushfader_kelly.py`). Two notes:
 **B and C are equals on the trading book** (the book filter removes the junk
@@ -14831,7 +14836,11 @@ secs_since_first_low ≤ 516, haltband ssh ∈ [20,80m)}` + S-tier
 +81 trades, −0.08 PF, +0.3pp/year. The swap is ~PF-neutral by design — it was
 taken on CORRECTNESS grounds (an era-invariant rule), not to raise the number.
 
-**🔒 SIZING MULTIPLIERS ARE UNCHANGED: {A 4.84, B 2.04, C 2.07, D 1.00}.**
+**🔒 SIZING MULTIPLIERS — SUPERSEDED at S43bi by {A 2.44, B 1.80, C 1.14,
+D 1.00} (PF−1, bottom-5% trimmed). The paragraph below records why the Kelly
+set was retained at S43bg and is kept for history.**
+
+**{A 4.84, B 2.04, C 2.07, D 1.00} (S43bg, superseded).**
 Re-running `flushfader_kelly.py --r-dis 0` on the new book returns
 {A 4.84, B 2.05, **C 0.89**, D 1.00} — tier C collapsing below D. That is a
 ONE-TRADE artifact: CADL 2024-12-11 (−21.7% raw, −26.6% vol-normalised) is
@@ -14926,6 +14935,57 @@ A between 1.70 and 2.55 — state it, never inherit it", widened). The current
 ⚠ NOT changed. The multiplier decision is the user's and the live-evidence
 checkpoint (1,000 trades) already exists. Recorded as: **if the multipliers are
 ever re-derived, do it on the BODY (mean or PF−1), not on empirical Kelly.**
+
+---
+
+## ⭐⭐ S43bi — SIZING METRIC CHANGED: PF−1 (bottom-5% trimmed), NOT Kelly (2026-08-08)
+
+**User decision.** Empirical Kelly is retired as the multiplier estimator;
+**`PF−1` on the bottom-5%-trimmed distribution** replaces it. S43bh showed
+Kelly's f* pins at ~97% of `1/|worst kept loss|` at ANY trim depth, so it
+estimates a sample order statistic rather than the edge (the C/D ordering
+flipped between a 5% and an 8% trim). PF−1 was the user's original intuition
+and is the measure the program keeps re-deriving (E = qL × (PF−1)).
+
+🔒 **NEW MULTIPLIERS: {A 2.44, B 1.80, C 1.14, D 1.00}.**
+
+**Why the trimmed basis specifically — it removes a basis dependence:**
+
+| PF−1 ratio basis | A | B | C | D |
+|---|---:|---:|---:|---:|
+| raw returns, full sample | 3.37 | 1.69 | **1.07** | 1.00 |
+| vol-normalised `rn`, full | 3.34 | 1.56 | **0.93** | 1.00 |
+| raw returns, trim 5% | 2.42 | 1.84 | **1.14** | 1.00 |
+| **`rn`, trim 5% (ADOPTED)** | **2.44** | **1.80** | **1.14** | **1.00** |
+
+On the FULL sample raw and normalised disagree on whether C beats D — and the
+cause is again two single trades: **C's worst is −21.7% raw in a 66bp-vol name
+(normalising AMPLIFIES it to −26.6%), D's is −30.6% raw in a 149bp-vol name
+(normalising SHRINKS it to −25.0%)**. After the 5% trim the two bases agree to
+within 0.04. ⇒ the trimmed PF−1 is not merely a better estimator, its answer
+does not depend on the raw-vs-normalised modelling choice. `rn` is the correct
+basis in principle (the √vol term is applied separately in the size formula, so
+a raw-return multiplier would double-count volatility).
+
+**Effect at the 1% D-base starting size** (book = 1,312 trades, secs≤516):
+
+| | old Kelly set | **new PF−1 set** |
+|---|---:|---:|
+| A-trade at reference vol | 4.84% of account | **2.44%** |
+| avg return/year | +7.9% | **+5.5%** |
+| max drawdown (6.5y) | −0.68% | **−0.42%** |
+| worst single trade | −0.55% | **−0.30%** |
+| negative months | 8 / 79 | **6 / 79** |
+| per-year | +11.3 / +8.3 / +2.4 / +3.3 / +10.0 / +12.5 / +7.3 | **+7.9 / +6.3 / +1.8 / +2.3 / +6.5 / +8.6 / +5.2** |
+
+Lower return, proportionally lower risk — the flatter spread simply bets less
+on the tier signal. Every year stays positive. The BASE remains 1% of account
+on a D-tier trade at reference vol (99bp); the escalation ladder is unchanged.
+
+⚠ The trimmed PF−1 is estimated on trimmed data but APPLIED to untrimmed
+trading — you cannot drop your worst trades in advance. That is intentional:
+the trim is there to stop one observation dominating the RATIO, not to model
+the outcome distribution.
 
 ---
 

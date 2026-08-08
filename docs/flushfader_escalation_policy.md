@@ -30,7 +30,7 @@ S43az, calibrated on the per-ticker-day mc=1 book (6,385 trades, 2020→2026-07)
 
 ```
 size(trade) = BASE × tier_mult × sqrt(99bp / volat_20m_bp)
-tier_mult   = { A 4.84, B 2.04, C 2.07, D 1.00 }     (S43ba, trading-book Kelly ratios, 🔒)
+tier_mult   = { A 2.44, B 1.80, C 1.14, D 1.00 }     (S43bi: PF−1 on the bottom-5%-trimmed book; Kelly RETIRED — it estimated the worst-trade order statistic, S43bh, 🔒)
 BASE        = fraction of account for a D-tier trade at reference vol (99bp)
 ```
 
@@ -39,10 +39,10 @@ scale-up — sized up MORE than plain A. Small-sample today (38 trades), so they
 ride as tier A until the §6 re-derivation, which should output five
 multipliers {S, A, B, C, D}.
 
-**BASE starts at 1.0%** (⇒ A ≈ 4.8% at reference vol). ⚠ The §2 yardsticks
-below predate the S43ba multiplier update (they were computed on the wider
-reference at the older multipliers) — refresh them on the trading book at
-adoption time. Execution: cross the entry,
+**BASE starts at 1.0%** (⇒ A ≈ 2.4% at reference vol). ⚠ The §2 yardsticks below are STALE (computed on the wider reference at older
+multipliers). Current trading-book yardsticks at BASE = 1% with the S43bi
+multipliers: **+5.5%/yr average, max DD −0.42%, worst trade −0.30% of account,
+6 negative months of 79** (book = 1,312 trades, secs≤516). Execution: cross the entry,
 rest the exit. mc = 1: one position per ticker-day; global concurrency per S43ay book.
 
 ## 2. Backtest yardsticks at BASE = 1% (what "normal" looks like)
@@ -109,10 +109,13 @@ liquidity, revisit universe or accept sublinear sizing.
 
 ## 6. Re-derivation checkpoint
 
-At **1,000 live trades**: re-run `scripts/equity/flushfader_kelly.py` with the live
-trades appended (weighted 1:1 with backtest), recompute multipliers and the ceiling.
+At **1,000 live trades**: recompute multipliers as **PF−1 on the bottom-5%-trimmed
+distribution** (S43bi) with the live trades appended (weighted 1:1 with backtest),
+and revisit the ceiling. ⚠ Do NOT use empirical Kelly — S43bh showed f* pins at
+`1/|worst kept loss|` at any trim depth, so it estimates the sample's extreme
+order statistic rather than the edge.
 From that point live data is the authority; this document gets a v2. Until then the
-multipliers 3.36/2.02/1.17 are frozen — no mid-flight tier re-tuning off live
+multipliers {A 2.44, B 1.80, C 1.14, D 1.00} are frozen — no mid-flight tier re-tuning off live
 results (232 A-trades took 6.5 backtest years; a live quarter cannot re-estimate them).
 
 ## 7. Amendment rule
