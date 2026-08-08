@@ -14450,6 +14450,63 @@ read: +0.20%/trade for the top quartile) and dramatic but small-n on the book.
 ⇒ the range-efficiency family EARNS its substitution-test audition against the
 existing voices. Not adopted yet; auditioned next.
 
+### ⭐⭐ Decomposing the book filter on the pre-2020 trips (user question)
+
+The book is a conjunction: `$1+ RAW × gap_60<4 × (>=1 of 6 voices | S-tier)`.
+Only `gap_60` is era-crippled, so DROP IT and the voices become testable on a
+real OOS sample (325 trips instead of 52). Per-tkd mc=1, OOS back 2016-2019,
+base = all 797 spec trips @ +1.07%/trade, PF 1.843:
+
+| slice | n | PF | win% | avg% | lift vs base |
+|---|---:|---:|---:|---:|---:|
+| ALL spec trips | 797 | 1.843 | 70.6 | +1.07 | — |
+| $1+ only | 729 | 1.857 | 71.1 | +1.07 | +0.01 |
+| **g60 only** | 66 | 1.535 | 71.2 | **+0.75** | **−0.31** |
+| VOICE>=1 only | 354 | 1.836 | 71.8 | +1.22 | +0.16 |
+| VOICE=0 | 443 | 1.851 | 69.8 | +0.94 | −0.12 |
+| **$1+ AND VOICE>=1 (NO g60)** | **325** | **1.953** | **73.5** | **+1.33** | **+0.26** |
+| FULL BOOK (with g60) | 40 | 1.143 | 67.5 | **+0.29** | −0.77 |
+
+**Answer: YES, the voice family still works pre-2020 — but at roughly half
+strength, and `gap_60` INVERTS.** voice>=1 vs voice=0 on the $1+ base is
++1.33% vs +0.87%, a **+0.46pp** spread, permutation p = 0.097 one-sided
+(in-sample the same split is +1.48% vs +0.82%). Vote-stacking is directionally
+intact but noisy: 0 votes +0.94% · 1 vote +1.25% · 2 votes +0.96% · **>=3 votes
++1.70%** (n=41).
+
+⚠ **`gap_60 < 4` is a NEGATIVE filter pre-2020** (+0.75% vs +1.07% base) while
+being a strongly positive one in-sample (+1.49% vs +1.11%). It does not merely
+shrink the old sample — it selects the wrong names in a sparse-tape era. The
+FULL book therefore reads WORSE (+0.29%) than the same book without g60
+(+1.33%) on this window. For the modern tape g60 keeps its in-sample role
+(62% pass rate forward), but its behaviour is regime-conditional and it should
+never be described as a pure quality gate.
+
+**Per-voice replication** (lift vs base, $1+ base, no g60; OOS permutation p):
+
+| voice | IS lift | OOS lift | OOS n | p | verdict |
+|---|---:|---:|---:|---:|---|
+| `dslo` off-low ≥ 8% | +0.38 | **+0.81** | 182 | 0.002 | ⭐ REPLICATES (stronger OOS) |
+| `halt` ssh ∈ [20,80m) | +0.62 | **+1.08** | 20 | 0.149 | REPLICATES (small n) |
+| `esf` leg age ≤ 390 | +0.03 | **+0.55** | 88 | 0.131 | REPLICATES (stronger OOS) |
+| `ramp` vol-expansion | +0.86 | +0.01 | 24 | 0.512 | neutral, no power |
+| `v20` volat ≥ 140 | +1.16 | **−0.09** | 107 | 0.592 | ❌ FAILS OOS |
+| `d20a` deep < −28% | +0.87 | **−0.72** | 70 | 0.909 | ❌ FAILS OOS |
+| S-tier ht≥1 ssh[2,20m) | +2.01 | −3.52 | 3 | — | no sample |
+
+⭐ **The two failures are exactly the VOLATILITY/DEPTH pair** — the same family
+S43-era work already flagged as regime-bound ("a feature can be a good voice and
+a bad multiplier"; every catastrophic 2022 cell was high-vol-in-a-bear-year).
+2016-2019 was a low-vol, pre-meme regime, so "this name is unusually volatile /
+unusually deep" selected a different animal than it does post-2020. The three
+that replicate are STRUCTURAL, not regime: distance off the session low, leg
+age, and post-halt timing. That is a satisfying split — and it is the strongest
+argument yet that the halt/structure voices are the durable ones.
+
+**No spec change.** These are OOS observations on 325 trips; acting on them
+would convert the OOS set into a training set. Recorded as the priors to test
+if a future re-fit is ever justified.
+
 ### Candidate-table note
 
 Rebuilt over all 2,514 days: 1,431,802 rows (2016-08-08 → 2026-08-07), of which
