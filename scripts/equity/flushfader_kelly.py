@@ -25,7 +25,7 @@ ap.add_argument("--no-book", action="store_true",
                 help="use the full v31_reference instead of the trading book")
 args = ap.parse_args()
 
-TRIPS = "/home/mrakgr/Trading-Edge/data/equity/flushfader/v41_secs/trips_p*.parquet"
+TRIPS = "/home/mrakgr/Trading-Edge/data/equity/flushfader/v43_legtick/trips_p*.parquet"
 # the trading-book filter ($1+ raw x g60 x vote/S-tier). NB S-tier is
 # halts_today >= 1 (with the engine cascade gate that means ht in {1,2}).
 # ⭐ S43bg (user 2026-08-08): the leg-age voice is now `secs_since_first_low`,
@@ -44,6 +44,7 @@ BOOK_WHERE = """
     OR COALESCE(signal_vwap/sess_low - 1 >= 0.08, false)
     OR COALESCE((volat_slope_20m - volat_slope_10m)*2e4 < -12, false)
     OR COALESCE(secs_since_first_low >= 0 AND secs_since_first_low <= 450, false)
+    OR COALESCE(downticks_since_uptick >= 8, false)
     OR COALESCE(secs_since_halt >= 1200 AND secs_since_halt < 4800, false)
     OR COALESCE(halts_today >= 1 AND secs_since_halt >= 120 AND secs_since_halt < 1200, false))
 """

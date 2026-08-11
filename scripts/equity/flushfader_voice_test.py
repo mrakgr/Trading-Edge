@@ -21,7 +21,7 @@ warnings.filterwarnings("ignore")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--cand", nargs="+", required=True, help="SQL predicate(s) to test as a voice")
-ap.add_argument("--trips", default="data/equity/flushfader/v42_ticks/trips_p*.parquet")
+ap.add_argument("--trips", default="data/equity/flushfader/v43_legtick/trips_p*.parquet")
 ap.add_argument("--esf", type=int, default=450)
 ap.add_argument("--mult", type=float, nargs=4, default=[2.44, 1.80, 1.14, 1.00])
 ap.add_argument("--base", type=float, default=0.01)
@@ -34,6 +34,7 @@ VOICES = [
     ("dslo",     "signal_vwap/sess_low - 1 >= 0.08"),
     ("ramp",     "(volat_slope_20m - volat_slope_10m)*2e4 < -12"),
     ("legage",   f"secs_since_first_low >= 0 AND secs_since_first_low <= {args.esf}"),
+    ("dsu",      "downticks_since_uptick >= 8"),
     ("haltband", "secs_since_halt >= 1200 AND secs_since_halt < 4800"),
     ("Stier",    "halts_today >= 1 AND secs_since_halt >= 120 AND secs_since_halt < 1200"),
 ]

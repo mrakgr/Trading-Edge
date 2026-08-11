@@ -21,7 +21,7 @@ warnings.filterwarnings("ignore")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--esf", type=int, nargs="+", default=[450])   # SPEC v2.9 (S43bj)
-ap.add_argument("--trips", default="data/equity/flushfader/v41_secs/trips_p*.parquet")
+ap.add_argument("--trips", default="data/equity/flushfader/v43_legtick/trips_p*.parquet")
 ap.add_argument("--mult", type=float, nargs=4, default=[2.44, 1.80, 1.14, 1.00],
                 help="tier multipliers A B C D used by the equity sim (S43bi set)")
 ap.add_argument("--base", type=float, default=0.01, help="D-tier size at reference vol")
@@ -38,6 +38,7 @@ BOOK_WHERE = """
     OR COALESCE(signal_vwap/sess_low - 1 >= 0.08, false)
     OR COALESCE((volat_slope_20m - volat_slope_10m)*2e4 < -12, false)
     OR COALESCE(secs_since_first_low >= 0 AND secs_since_first_low <= {ESF}, false)
+    OR COALESCE(downticks_since_uptick >= 8, false)
     OR COALESCE(secs_since_halt >= 1200 AND secs_since_halt < 4800, false)
     OR COALESCE(halts_today >= 1 AND secs_since_halt >= 120 AND secs_since_halt < 1200, false))
 """

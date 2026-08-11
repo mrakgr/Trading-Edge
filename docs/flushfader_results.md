@@ -14052,7 +14052,7 @@ tables reproduces the recorded book at exactly 7,044 trips.
 | vote | ≥ 1 of the 6 voices below | at least one aggravating quality is present |
 | S-tier A | `halts_today ≥ 1 AND secs_since_halt ∈ [120, 1200)` | OR-ed in past the vote: halted today, 2–20 min after resume — the best cell in the playbook. NB the ht≥1 is de facto **ht ∈ {1,2}**: the engine's cascade gate already rejects ht≥3 in this window. The §S42p causal lens is ht=1; the recorded book verifiably includes ht=2 (13 trips, whose cell independently reads PF 11.9) |
 
-The six voices:
+The **seven** voices (S43bp added `dsu`):
 
 | voice | condition | meaning |
 |---|---|---|
@@ -14061,6 +14061,7 @@ The six voices:
 | dslo | `vwap/sess_low − 1 ≥ +8%` | ≥ 8% above the session low — not sitting on the dead low |
 | ramp | `(volat_slope_20m − volat_slope_10m) × 2e4 < −12` | the 10m volatility slope exceeds the 20m — short-horizon volatility is EXPANDING rapidly |
 | legage | `secs_since_first_low ≤ 450` (7.5 min) | the leg is young, not a stale grind. ⭐ S43bg: was `bars_since_first_low ≤ 390`; the bar count is era-relative (it silently tightened 9.1 → 7.6 min from 2020 to 2026 as the tape densified), seconds are invariant. ⭐ S43bj: 516 → **450** — 516 was selectivity-matched on the FULL $1+ trip set, but the book only ever trades the g60 universe, where parity is ~406s |
+| **dsu** | **`downticks_since_uptick ≥ 8`** | **⭐ S43bp: ≥ 8 consecutive down BARS with no uptick (ties do not reset). The tape has printed an uninterrupted down sequence. Uncorrelated with every other voice (\|ρ\| ≤ 0.19); the edge is the run's LENGTH — its magnitude carries nothing (S43bn §6)** |
 | haltband | `secs_since_halt ∈ [1200, 4800)` | 20–80 minutes after a halt resume |
 
 ### 5. Sizing (locked S43az)
@@ -15689,6 +15690,67 @@ drawdown gain is not distinguishable from luck either.
 `chg_since_last_uptick` is **not usable in any form**: not as a voice (S43bn §5),
 not as a refinement of `dsu ≥ 8` (S43bn §6), and not as a trim. Combined with
 S43bn, the run's MAGNITUDE is comprehensively dead while its LENGTH is not.
+
+---
+
+## 🔒⭐⭐ S43bp — SPEC CHANGE APPLIED: `downticks_since_uptick ≥ 8` IS THE 7th VOICE (2026-08-11)
+
+**User decision.** The roster gains a seventh voice. Evidence in S43bm (solo
+value + leave-one-out), mechanism in S43bn (run LENGTH, not magnitude).
+
+🔒 **ROSTER v3.0** = `{v20 ≥ 140, d20a < −28%, dslo ≥ +8%, ramp < −12,
+secs_since_first_low ≤ 450, `**`downticks_since_uptick ≥ 8`**`,
+haltband ssh ∈ [20,80m)}` + S-tier `ht ≥ 1 ∧ ssh ∈ [2,20m)`, vote ≥ 1.
+Everything else in spec v2.7 is unchanged.
+
+### The book (per-ticker-day mc=1, g60, `$1+` raw)
+
+| | 6 voices (S43bj) | **7 voices (adopted)** |
+|---|---:|---:|
+| mc=0 trips | 7,249 | 7,373 |
+| **traded** | 1,269 | **1,318** |
+| PF | 4.003 | **4.077** |
+| trimPF | 9.61 | 9.81 |
+| win% | 77.9 | 78.1 |
+| avg%/trade | +1.95 | +1.96 |
+| worst trade | −30.6% | −30.6% |
+| **per-year @1% D-base** | +5.39% | **+5.65%** |
+| **maxDD** | −0.40% | **−0.40%** |
+| worst account trade | −0.25% | −0.25% |
+
+⭐ **Return up, risk unchanged** — maxDD and the worst account trade are both
+identical to 4 decimal places of a percent.
+
+**Per tier:** A 146 @ 8.454 · B 402 @ 4.652 · C 223 @ 3.687 · D 547 @ 3.162
+(every tier improved). **Per year:** 8.514 / 3.352 / 3.068 / 3.431 / 3.688 /
+3.496 / 4.843 — every year ≥ 3.07, and every year at least as good as the
+6-voice book except 2024 (3.739 → 3.688).
+
+### 🔒 MULTIPLIERS UNCHANGED — {A 2.44, B 1.80, C 1.14, D 1.00}
+
+Re-derived on the new book (PF−1, `rn`, bottom-5% trimmed): **{2.48, 1.82,
+1.12, 1.00}** — within 0.04 of the adopted set on every tier, i.e. far inside
+the trim-convention noise band measured at S43bj. No change.
+
+### Where the rule lives
+
+`scripts/equity/flushfader_kelly.py`, `flushfader_book.py`,
+`flushfader_breakdown.py` (all three `BOOK_WHERE`/`BOOK_VOICES`),
+`flushfader_voice_test.py` (dsu moved from candidate to incumbent), the §4
+voices table above, and this entry. ⚠ **All four tools now default to
+`v43_legtick`** — `v41_secs` and earlier lack `downticks_since_uptick` and
+**cannot express the current book**.
+
+### ⚠ Standing caveats carried forward
+
+- 52 solo trades, with **zero in 2022** and only 4 in 2025.
+- The threshold 8 was chosen in-sample; the 8/9/10 plateau (4.077/4.053/4.061)
+  is reassurance, not independent evidence.
+- The backward OOS fails (S43bk §7). Per the S43bl ruling that is a regime
+  statement — the post-2020 tape is the stronger mean-reversion regime — but it
+  is not positive evidence either.
+- **Pre-registered:** if a high-volatility bear regime recurs live and the solo
+  trips stop behaving, `dsu` is the FIRST voice to drop.
 
 ---
 
