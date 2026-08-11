@@ -15741,6 +15741,35 @@ voices table above, and this entry. ⚠ **All four tools now default to
 `v43_legtick`** — `v41_secs` and earlier lack `downticks_since_uptick` and
 **cannot express the current book**.
 
+### ⭐⭐ THE PER-YEAR BREAKDOWN, ALL THREE STAGES (user request)
+
+The voice was evidenced at three different levels and they have **very
+different per-year strength**. `n / PF` per cell:
+
+| view | n | PF | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---:|---:|---|---|---|---|---|---|---|
+| **1. STANDALONE gate** (mc=1 inside the gate) | 228 | 5.680 | 52 / 10.24 | 54 / 3.42 | **5 / 13.80** | 17 / 13.94 | 32 / 4.00 | 45 / 7.75 | 23 / 4.50 |
+| *its base* (g60 `$1+`, mc=1) | 1,906 | 3.068 | 302 / 5.71 | 411 / 3.19 | 116 / 2.98 | 150 / 1.72 | 304 / 2.90 | 411 / 2.70 | 212 / 3.16 |
+| **2. SOLO trips** (what earns the seat) | 52 | 10.321 | 15 / 20.74 | 15 / 20.19 | **0 / —** | 5 / 33.29 | **7 / 1.77** | 4 / 9.66 | 6 / 7.53 |
+| **3. FULL 7-voice BOOK** | 1,318 | 4.077 | 215 / 8.51 | 262 / 3.35 | 74 / **3.07** | 108 / 3.43 | 218 / 3.69 | 299 / 3.50 | 142 / 4.84 |
+| *6-voice book* | 1,269 | 4.003 | 200 / 8.22 | 248 / 3.19 | 74 / **3.07** | 103 / 3.28 | 211 / 3.74 | 296 / 3.49 | 137 / 4.79 |
+
+- **Stage 1 is the strongest form of the evidence:** the standalone gate beats
+  its base in **all seven years**. But 2022 rests on 5 trades and 2023 on 17.
+- **Stage 2 is the honest form:** the solo trips are what a union roster
+  actually buys, and they are thin — **zero in 2022**, 4 in 2025, and 2024 is a
+  weak year (PF 1.77 on 7 trades).
+- **Stage 3:** better in 5 years, flat in 2022, slightly worse in 2024
+  (3.739 → 3.688).
+
+🛑 **THE VOICE IS INERT IN 2022.** The book reads **3.068 with AND without it** —
+identical, because `dsu` contributes no solo trades that year. So the single
+high-volatility bear regime in the sample provides **no evidence either way**:
+the voice does not damage 2022, but it was never tested by it. This is the
+sharpest statement of the sample limitation and it is exactly why the
+pre-registration below names `dsu` as the first voice to drop — in the next such
+regime we would be observing its behaviour for the first time.
+
 ### ⚠ Standing caveats carried forward
 
 - 52 solo trades, with **zero in 2022** and only 4 in 2025.
