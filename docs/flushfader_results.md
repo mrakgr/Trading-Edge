@@ -15520,6 +15520,110 @@ is the voice to drop first. ⚠ **Not applied — the user's call.**
 
 ---
 
+## ⭐⭐⭐ S43bn — RUN LENGTH vs RUN MAGNITUDE: the edge is the LENGTH (2026-08-11)
+
+User asked for three more record-only columns on top of S43bk's tick block:
+the tick counted over the LEG, new 20m LOWS since the last uptick, and the
+**% change during the runs**. Window `v43_legtick`; control = 35,782 trips and
+**all 250 pre-existing columns bit-identical to `v42_ticks`**.
+
+**The columns.** Counters: `lows_since_uptick` (new 20m lows, uptick-reset — the
+same events as K but reset by a bounce instead of by a new 20m high),
+`downticks_since_flow` / `upticks_since_flow` (down/up bars over the leg).
+Magnitudes, a full 2×2 — each run measured from the bar *before* it and from its
+*first* bar:
+
+| run | anchored BEFORE the run | anchored on its FIRST bar |
+|---|---|---|
+| downtick | `chg_since_last_uptick` | `chg_since_run_first_dn` |
+| 20m low | `chg_since_run_pre_low` | `chg_since_run_first_low` |
+
+⚠ Validation caught the zero-mass exactly where it must be: `first_dn` = 0 on
+precisely the trips with `dsu = 1`, `first_low` = 0 on precisely those with
+`lows_since_uptick = 1`. The "before" anchors are never identically 0 — which is
+why a first-bar anchor cannot be the only one.
+
+### 1. 🛑 `downticks_since_flow` IS LEG LENGTH IN DISGUISE — dead on arrival
+
+`corr(downticks_since_flow, bars_since_first_low) = **0.999**`, and the density
+`dnf/(bars+1)` is near-constant: **sd 0.022**, p5 0.486, p50 0.511, p95 0.549.
+A leg is ~50/50 up/down bars by construction, so the raw count measures only how
+long the leg is. This is the S43an `esf` trap exactly, caught before any
+breakdown was run.
+
+### 2. ⚠ `chg_since_run_pre_low` duplicates `chg_since_last_uptick` on 52%
+
+Byte-identical on **52.0%** of g60 trips (ρ 0.900) — after an uptick the very
+next bar usually takes out the channel, so the pre-low bar IS the uptick bar.
+`chg_since_run_first_dn` is never identical to it (0.0%). ⇒ of the four
+anchors, the informative pair is **uptick-anchored** and **first-low-anchored**.
+
+### 3. ⭐ The magnitudes are NOT the deep-flush axis rediscovered
+
+Spearman of all four against the incumbents: `speed` **0.16–0.27**, `d1m`
+**0.20–0.32**, `ols_slope_60` **|ρ| ≤ 0.04**, `K` ≤ 0.06, `bars_since_first_low`
+≤ 0.05. The deep-flush family spans a fixed 1-minute clock; these span a run of
+typically 2–3 bars. Different objects.
+
+### 4. Both new axes look good on the g60 base (mc=1 inside each bucket)
+
+`lows_since_uptick` — monotone: [1) 2.688 · [2) 2.946 · [3) 3.120 · [4) 3.065 ·
+[5) 3.196 · **[6,inf) 4.075 (n=421)** vs base 2.670.
+`chg_since_last_uptick` (%) — bigger drop is better: [−0.45,inf) 2.815 ·
+[−0.7,−0.45) 2.865 · [−1,−0.7) 3.156 · [−1.4,−1) 3.335 · [−2,−1.4) 3.182 ·
+**[−3,−2) 4.144 (n=594)** · [−6,−3) 3.598.
+
+### 5. ⭐⭐⭐ AND YET EVERY ONE OF THEM FAILS AS A VOICE — only `dsu ≥ 8` works
+
+Added to the 6-voice + S-tier book (`secs ≤ 450`, per-ticker-day mc=1):
+
+| candidate | book n | book PF | SOLO n | SOLO PF |
+|---|---:|---:|---:|---:|
+| *(incumbent)* | 1,269 | **4.003** | — | — |
+| **`dsu ≥ 8`** | 1,318 | **4.077** ✅ | 52 | **10.321** |
+| `lows_since_uptick ≥ 6` | 1,342 | 3.839 ❌ | 79 | 2.451 |
+| `lows_since_uptick ≥ 5` | 1,401 | 3.666 ❌ | 142 | 2.051 |
+| `chg_since_last_uptick ≤ −2%` | 1,366 | 3.561 ❌ | 119 | 1.646 |
+| `chg_since_run_first_low ≤ −1.5%` | 1,331 | 3.711 ❌ | 74 | 1.614 |
+| `chg_since_run_first_dn ≤ −2%` | 1,339 | 3.700 ❌ | 84 | 1.832 |
+
+**Every new candidate LOWERS book PF, and every one has SOLO trips below the
+book.** A clean monotone gradient on the g60 base predicts nothing about solo
+value — the union roster only ever sees what no other voice admits.
+
+### 6. ⭐⭐⭐ THE EDGE IS THE RUN'S LENGTH, NOT ITS MAGNITUDE
+
+Split `dsu ≥ 8` by the size of the move it produced:
+
+| candidate | SOLO n | SOLO PF |
+|---|---:|---:|
+| `dsu ≥ 8` ∧ `chg ≤ −1.5%` | 37 | 11.348 |
+| `dsu ≥ 8` ∧ `chg > −1.5%` | 21 | 10.631 |
+
+**The two halves are indistinguishable.** Eight downticks worth −0.5% is as good
+as eight downticks worth −3%. And magnitude cannot rescue a shorter run:
+`dsu ≥ 6 ∧ chg ≤ −2%` gives SOLO **0.904** — below break-even, worse than
+`dsu ≥ 6` alone. ⇒ **what the tape is signalling is the UNINTERRUPTED SEQUENCE
+of down prints, not the distance travelled.** The magnitude columns answer the
+user's question with a clear negative, which is exactly what they were recorded
+to establish.
+
+⚠ `dsu ≥ 8 ∧ lows_since_uptick ≥ 3` reads book **4.107** / solo 47 @ 18.385 —
+the best cell found. **Not recommended**: it is a second condition fitted on the
+same 52-trade solo set for +0.030 PF, and §5 just showed `lows_since_uptick` has
+no independent solo value.
+
+### Status
+
+Nothing changed in the spec. The S43bm recommendation is unaffected and now
+better supported: **`dsu ≥ 8` remains the only tick candidate that earns a
+roster seat**, and we now know its mechanism is run LENGTH, with magnitude
+excluded as the explanation. `downticks_since_flow`/`upticks_since_flow` and
+`chg_since_run_pre_low` should be treated as retired (kept in the engine at zero
+cost, but they measure leg length and a 52%-duplicate respectively).
+
+---
+
 ## TODO (user, 2026-08-07) — S-tier sizing to be split from A–D
 
 **S-tier A trades (halt-band voice, 38 @ PF 37.1) should be handled as their

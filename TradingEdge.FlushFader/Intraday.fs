@@ -417,6 +417,33 @@ type FlushPosition =
       Up120: int
       Gap120: int                // density companion for the 120 window (gap_15/30/60
                                  // already exist; 120 did not)
+      // ⭐ S43bn: the tick counted over the LEG, anchored on the leg's first 20m
+      // low (the same event as SecsSinceFirstLow) instead of on the last uptick.
+      // -1 = no leg armed. Density = DownticksSinceFlow / (BarsSinceFirstLow+1).
+      DownticksSinceFlow: int
+      UpticksSinceFlow: int
+      // ⭐ S43bo: NEW 20m LOWS since the last uptick (the signal bar is itself a
+      // low, so this is >= 1 on every trip). Same events as LowsSinceFirstLow,
+      // reset by a BOUNCE instead of by a new 20m high.
+      LowsSinceUptick: int
+      // ⭐ S43bp: the run's MAGNITUDE — vwap / (last uptick bar's vwap) - 1.
+      // Negative during a down run. Pairs with BOTH DownticksSinceUptick and
+      // LowsSinceUptick (same anchor); the per-tick and per-low rates are
+      // this / the respective counter. nan = no uptick yet this session.
+      ChgSinceLastUptick: float
+      // ⭐ S43bq: the same measure anchored on the bar BEFORE the run's first
+      // 20m low — the low sequence itself, inclusive of the drop that opened it.
+      // Never identically 0 (unlike a first-low anchor). Together with
+      // ChgSinceLastUptick this decomposes the run into "pre-sequence drift"
+      // and "the sequence".
+      ChgSinceRunPreLow: float
+      /// ⭐ S43bq-b: the twin anchored on the first low ITSELF. 0 when the signal
+      /// bar is that low; nan when no low has printed since the last uptick.
+      ChgSinceRunFirstLow: float
+      /// ⭐ S43bq-c: the downtick run's magnitude anchored on its FIRST DOWNTICK
+      /// bar (the twin of ChgSinceLastUptick, which anchors on the uptick before
+      /// it). 0 when the signal bar is that first downtick.
+      ChgSinceRunFirstDn: float
       TradeIdx: int              // ⭐ index of this SIGNAL within the down-leg (0 = the leg's
                                  // first trade); reset by the new-high leg reset. Diverges from
                                  // LowsSinceFirstLow wherever a low fired no trade (outside the
@@ -1184,6 +1211,60 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable dnSinceUp = 0                    // down bars since the last up bar
     let mutable dnRun = 0                        // strict consecutive down run
     let mutable lastUptickSec = -1               // -1 = no uptick yet this session
+    // ⭐ S43bn (user, 2026-08-11): the SAME tick counted over the LEG instead of
+    // over the run — downticks since the leg's first 20m low, i.e. anchored on
+    // the same event as `secs_since_first_low`/`bars_since_first_low` rather
+    // than on the last uptick. `dsu` asks "how clean is the tape RIGHT NOW";
+    // this asks "how one-sided has the WHOLE leg been". The uptick twin makes
+    // the balance and the density (vs bars_since_first_low) recoverable.
+    // -1 = disarmed, mirroring the NewLowCounters convention.
+    let mutable dnFlow = -1
+    let mutable upFlow = -1
+    // ⭐ S43bo (user, 2026-08-11): count NEW 20m LOWS — not downtick bars — and
+    // reset on every uptick. `dsu` counts every down BAR; this counts only the
+    // bars that actually took out the 20m channel, so it is the averaging-down
+    // depth of ONE uninterrupted down sequence. It sits between `dsu` (bar-level,
+    // uptick-reset) and `lows_since_first_low` (low-level, LEG-reset): same
+    // events as K, but reset by a bounce instead of by a new 20m high.
+    // ⚠ A new 20m low is ALWAYS a downtick (the strictly-prior min includes the
+    // previous bar, so vwap < prior min => vwap < prev vwap), hence a bar can
+    // never both reset and increment this counter.
+    let mutable lowsSinceUp = 0
+    // ⭐ S43bp (user, 2026-08-11): the MAGNITUDE of the run, not just its length.
+    // Anchor = the LAST UPTICK BAR's vwap (user's choice) — the same anchor both
+    // `dsu` and `lows_since_uptick` reset on, so ONE column serves both counters.
+    // `chg_since_last_uptick = vwap/anchor - 1` is negative during a down run;
+    // dividing it by either counter gives the per-downtick / per-low rate
+    // post-hoc, so no rate column is recorded. nan = no uptick yet this session.
+    let mutable lastUptickVwap = nan
+    // ⭐ S43bq (user, 2026-08-11): the SECOND anchor — the bar IMMEDIATELY
+    // BEFORE the first 20m low after the last uptick, i.e. the last print above
+    // the sequence. `chg_since_last_uptick` spans bounce -> now and can include
+    // flat/down bars that never took out the channel; this spans
+    // pre-first-low -> now, so it measures the low sequence ITSELF, inclusive of
+    // the drop that opened it.
+    // ⚠ Anchoring on the PRE-low bar rather than the first low itself is
+    // deliberate (user): anchoring on the low would read exactly 0 whenever the
+    // signal bar IS that first low (~half of all trips), collapsing the feature
+    // on the most common case. nan = no low since the last uptick (or day's
+    // first bar, which has no predecessor).
+    let mutable runPreLowVwap = nan
+    // ⭐ S43bq-b (user): BOTH anchors for the low run, studied side by side.
+    // pre-low  -> the sequence INCLUSIVE of the drop that opened it
+    // first-low -> the EXTENSION the sequence added beyond its own first low
+    // (identically 0 when the signal bar IS that first low — ~half of trips —
+    // which is exactly why it cannot be the only anchor). Their difference is
+    // the opening drop, so the pair decomposes the run.
+    let mutable runFirstLowVwap = nan
+    // ⭐ S43bq-c (user): the SAME two-anchor treatment for the DOWNTICK run, so
+    // both runs are measured the same way. Full 2x2:
+    //            run        | anchored BEFORE the run | anchored on its FIRST bar
+    //   downtick (dsu)      | last uptick bar         | first downtick bar
+    //   20m low (lows_su)   | bar before first low    | the first low itself
+    // The "before" anchors include the move that opened the run and are never
+    // identically 0; the "first bar" anchors read 0 when the signal bar IS that
+    // first bar, and measure only what the run added afterwards.
+    let mutable runFirstDnVwap = nan
     let sessVwap = RatioMa()
     let mutable openVwap : float voption = ValueNone
     let mutable cumVol = 0.0
@@ -1436,8 +1517,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if isUptick then
             dnSinceUp <- 0
             dnRun <- 0
+            lowsSinceUp <- 0          // S43bo: the bounce ends the low sequence
             lastUptickSec <- bar.etSec
+            lastUptickVwap <- bar.vwap   // S43bp: re-anchor the run's magnitude
+            runPreLowVwap <- nan         // S43bq: the next low starts a new sequence
+            runFirstLowVwap <- nan
+            runFirstDnVwap <- nan        // S43bq-c: the downtick run restarts too
         elif isDntick then
+            // S43bq-c: the FIRST downtick of this run anchors its magnitude
+            // (test BEFORE the increment).
+            if dnSinceUp = 0 then runFirstDnVwap <- bar.vwap
             dnSinceUp <- dnSinceUp + 1
             dnRun <- dnRun + 1
         else
@@ -1685,6 +1774,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         counters.Step()
         counters300.Step()
         counters600.Step()
+        // ⭐ S43bn: fold this bar's tick into the LEG totals. Runs with Step (so
+        // it counts bars ELAPSED since the first low) and BEFORE the arming
+        // branch below, which seeds the counters from the first-low bar itself.
+        if counters.Armed then
+            if isDntick then dnFlow <- dnFlow + 1
+            elif isUptick then upFlow <- upFlow + 1
         let isNewLow = match priorEntryMin with ValueSome lo -> bar.vwap < lo | ValueNone -> false
         let isNewHigh = match priorEntryMax with ValueSome hi -> bar.vwap > hi | ValueNone -> false
         if isNewLow then
@@ -1695,6 +1790,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 legVolAnchor <- cumVol - bar.volume
                 legTcAnchor <- cumTc - float bar.tradeCount
                 legDvAnchor <- cumDv - bar.vwap * bar.volume
+                // S43bn: seed the leg tick totals from THIS bar (same "first-low
+                // bar counts INTO the leg" rule as the participation anchors).
+                dnFlow <- (if isDntick then 1 else 0)
+                upFlow <- (if isUptick then 1 else 0)
                 // S40y/z: the first-low OLS + eff start HERE, this bar inclusive.
                 olsSinceFlow.Reset()
                 olsSinceFlow.Push (log bar.vwap)
@@ -1720,6 +1819,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                      armHiEff20 <- nan; armHiEff10 <- nan
                      armHiSlots20 <- 0; armHiSlots10 <- 0)
                 firstLowVwap <- bar.vwap
+            // S43bo: another 20m low inside the current (uptick-delimited)
+            // sequence. Safe to place here — a new low can never be an uptick.
+            // S43bq: the FIRST low of the sequence anchors the extension measure
+            // (test BEFORE the increment).
+            if lowsSinceUp = 0 then
+                runPreLowVwap <- prevVwap
+                runFirstLowVwap <- bar.vwap
+            lowsSinceUp <- lowsSinceUp + 1
             counters.OnNewLow bar.etSec
             counters300.OnNewLow bar.etSec
             counters600.OnNewLow bar.etSec
@@ -2201,6 +2308,21 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Up60 = (match upSum60.State with ValueSome v -> int v | ValueNone -> 0)
                       Up120 = (match upSum120.State with ValueSome v -> int v | ValueNone -> 0)
                       Gap120 = gap120.Gaps
+                      DownticksSinceFlow = dnFlow
+                      UpticksSinceFlow = upFlow
+                      LowsSinceUptick = lowsSinceUp
+                      ChgSinceLastUptick =
+                        (if Double.IsNaN lastUptickVwap || lastUptickVwap <= 0.0 then nan
+                         else bar.vwap / lastUptickVwap - 1.0)
+                      ChgSinceRunPreLow =
+                        (if Double.IsNaN runPreLowVwap || runPreLowVwap <= 0.0 then nan
+                         else bar.vwap / runPreLowVwap - 1.0)
+                      ChgSinceRunFirstLow =
+                        (if Double.IsNaN runFirstLowVwap || runFirstLowVwap <= 0.0 then nan
+                         else bar.vwap / runFirstLowVwap - 1.0)
+                      ChgSinceRunFirstDn =
+                        (if Double.IsNaN runFirstDnVwap || runFirstDnVwap <= 0.0 then nan
+                         else bar.vwap / runFirstDnVwap - 1.0)
                       HaltsToday = haltsToday
                       Halts1200 = (match haltSum1200.State with ValueSome v -> int v | ValueNone -> 0)
                       Halts600 = (match haltSum600.State with ValueSome v -> int v | ValueNone -> 0)
@@ -2392,6 +2514,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             dropSlopeHiFlow <- nan
             dropRHiFlow <- nan
             firstLowVwap <- nan
+            // S43bn: the leg is over — disarm the leg tick totals.
+            dnFlow <- -1
+            upFlow <- -1
             // S40y/z: the anchored OLS + eff reset with the leg (sinceHigh
             // re-anchors at the bar after this high; sinceFlow waits for the
             // next first low).

@@ -341,6 +341,7 @@ CREATE TABLE trips (
     dn_15 INTEGER, dn_30 INTEGER, dn_60 INTEGER, dn_120 INTEGER,
     up_15 INTEGER, up_30 INTEGER, up_60 INTEGER, up_120 INTEGER,
     gap_120 INTEGER,
+    downticks_since_flow INTEGER, upticks_since_flow INTEGER, lows_since_uptick INTEGER, chg_since_last_uptick DOUBLE, chg_since_run_pre_low DOUBLE, chg_since_run_first_low DOUBLE, chg_since_run_first_dn DOUBLE,
     qty DOUBLE, net_pnl DOUBLE
 )"""
 
@@ -482,6 +483,7 @@ type TripSink(outDir: string) =
             i p.Dn15; i p.Dn30; i p.Dn60; i p.Dn120
             i p.Up15; i p.Up30; i p.Up60; i p.Up120
             i p.Gap120
+            i p.DownticksSinceFlow; i p.UpticksSinceFlow; i p.LowsSinceUptick; f p.ChgSinceLastUptick; f p.ChgSinceRunPreLow; f p.ChgSinceRunFirstLow; f p.ChgSinceRunFirstDn
             f qty; f pnl
             row.EndRow()
             total <- total + 1L
