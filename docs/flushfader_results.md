@@ -15624,6 +15624,74 @@ cost, but they measure leg length and a 52%-duplicate respectively).
 
 ---
 
+## S43bo — `chg_since_last_uptick` ON THE BOOK: no trim survives the control (2026-08-11)
+
+User: *"Maybe big flushes don't make things better, but perhaps there will be an
+opportunity to lightly trim some of the ends."* Answer: **no.**
+
+Distribution on the traded book (n=1,269): p1 −4.05 · p5 −2.70 · p10 −2.13 ·
+p25 −1.37 · **p50 −0.85** · p75 −0.49 · p90 −0.26 · p95 −0.17 · p99 −0.09;
+min −15.79, max −0.038.
+
+### The fine table (traded book, partitioning — these ARE the 1,269 trades)
+
+| bucket % | n | PF | trimPF | win% | avg% | worst% | 20 | 21 | 22 | 23 | 24 | 25 | 26 |
+|---|---:|---:|---:|---:|---:|---:|---|---|---|---|---|---|---|
+| [−16,−4) | 14 | 15.639 | — | 85.7 | +6.11 | −5.7 | . | . | . | . | . | 93.6 | . |
+| [−4,−3) | 25 | **2.358** | 5.84 | 68.0 | +1.73 | −10.3 | . | . | . | . | 1.18 | 9.03 | 1.14 |
+| [−3,−2.2) | 79 | 3.160 | 9.96 | 81.0 | +2.35 | −30.6 | 25.8 | 2.55 | . | . | 3.43 | 5.62 | 2.17 |
+| [−2.2,−1.6) | 114 | 3.424 | 7.82 | 78.1 | +2.02 | −15.5 | 13.0 | 3.01 | . | 6.65 | 1.68 | 2.19 | 7.16 |
+| [−1.6,−1.2) | 162 | 3.944 | 9.72 | 77.2 | +1.98 | −13.6 | 7.92 | 11.4 | 3.61 | 3.45 | 2.42 | 2.79 | 4.38 |
+| [−1.2,−0.85) | 239 | **4.847** | 12.45 | 79.5 | +2.21 | −12.5 | 18.6 | 2.61 | 10.4 | 6.21 | 4.38 | 2.96 | 21.2 |
+| **[−0.85,−0.6)** | 204 | **6.266** | 17.65 | 82.4 | +2.25 | −10.3 | 7.62 | 9.89 | 17.0 | 2.24 | 6.32 | 7.12 | 4.45 |
+| **[−0.6,−0.42)** | 162 | **2.375** | 5.16 | 71.6 | +1.12 | −11.5 | 5.79 | 1.69 | 1.87 | 2.17 | 3.66 | 1.58 | 2.13 |
+| [−0.42,−0.28) | 126 | 3.307 | 7.04 | 75.4 | +1.38 | −8.1 | 2.61 | 2.04 | . | 3.26 | 7.82 | 2.93 | 7.58 |
+| [−0.28,−0.18) | 73 | 4.697 | 10.64 | 76.7 | +1.66 | −4.8 | 11.3 | 2.00 | 4.21 | . | 3.05 | 5.11 | inf |
+| [−0.18,inf) | 71 | 5.436 | 9.67 | 80.3 | +2.15 | −4.6 | 6.62 | 2.71 | . | 2.61 | 65.5 | 5.59 | 19.1 |
+| **ALL** | 1,269 | **4.003** | 9.61 | 77.9 | +1.95 | −30.6 | 8.22 | 3.19 | 3.07 | 3.28 | 3.74 | 3.49 | 4.79 |
+
+⭐ **It is NOT monotone on the book** — which reverses the g60-base reading in
+S43bn §4 where deeper was better. The peak is the MIDDLE ([−1.2,−0.6) at
+4.85–6.27) and there is a sharp dip at **[−0.6,−0.42) = 2.375**, which is
+**below the book in every single year** (5.79/1.69/1.87/2.17/3.66/1.58/2.13 vs
+8.22/3.19/3.07/3.28/3.74/3.49/4.79). That looked like the trim candidate.
+
+### Every trim FAILS the iso-trip control
+
+PF rises mechanically whenever trips are cut, so each candidate is compared
+against 4,000 RANDOM removals of the same number of traded trades:
+
+| trim | n | PF | random p50 | random p95 | **p** | per-year |
+|---|---:|---:|---:|---:|---:|---:|
+| *(none)* | 1,269 | 4.003 | — | — | — | **+5.39%** |
+| drop `chg ≤ −3%` | 1,253 | 4.011 | 3.996 | 4.083 | 0.364 | +5.28% |
+| drop `chg ≤ −2.2%` | 1,229 | 4.082 | 3.995 | 4.128 | 0.128 | +5.24% |
+| drop `chg ≥ −0.3%` | 1,226 | 4.128 | 3.996 | 4.138 | 0.059 | +5.34% |
+| drop `chg ≥ −0.42%` | 1,191 | 4.192 | 3.995 | 4.184 | **0.045** | +5.31% |
+| drop the dip [−0.6,−0.42) | 1,232 | 4.058 | 3.997 | 4.134 | 0.203 | +5.32% |
+| drop [−0.7,−0.40) | 1,199 | 4.134 | 3.993 | 4.177 | 0.097 | +5.26% |
+
+**Not one clears the bar**, and ⭐ **every single trim LOWERS the per-year
+return** — the PF gain is bought entirely by removing trades, not by removing
+bad ones. The dip band that looked so consistent per-year lands at **p = 0.203**:
+random removal of 37 traded trades beats it one time in five.
+
+The nearest miss is `drop chg ≥ −0.42%` at p = 0.045 — and that is not evidence:
+the threshold was chosen by reading the table above, and ~10 candidate cuts were
+examined, so one at p ≈ 0.05 is the expected yield of the search itself.
+
+⚠ One real (small) trade-off exists if wanted: `drop chg ≤ −2.5%` cuts maxDD
+**−0.40% → −0.30%** for −0.13%/yr. But its PF sits at p = 0.128, so the
+drawdown gain is not distinguishable from luck either.
+
+### Conclusion
+
+`chg_since_last_uptick` is **not usable in any form**: not as a voice (S43bn §5),
+not as a refinement of `dsu ≥ 8` (S43bn §6), and not as a trim. Combined with
+S43bn, the run's MAGNITUDE is comprehensively dead while its LENGTH is not.
+
+---
+
 ## TODO (user, 2026-08-07) — S-tier sizing to be split from A–D
 
 **S-tier A trades (halt-band voice, 38 @ PF 37.1) should be handled as their
