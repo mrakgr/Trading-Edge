@@ -15413,6 +15413,113 @@ before any of them becomes a rule.
 
 ---
 
+## ⭐⭐ S43bm — `dsu >= 8` AS A 7th ROSTER VOICE (user question, 2026-08-11)
+
+Tool: `scripts/equity/flushfader_voice_test.py` (new). Book = g60 ∧ `$1+` ∧
+(≥1 of 6 voices OR S-tier), `secs ≤ 450`, per-ticker-day mc=1.
+
+### 1. Book effect — it helps, modestly
+
+| | mc=0 | traded | PF | trimPF | win% | avg% | worst% |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| BOOK (6 voices + S-tier) | 7,249 | 1,269 | 4.003 | 9.61 | 77.9 | +1.95 | −30.6 |
+| **+ `dsu ≥ 8`** | 7,373 | **1,318** | **4.077** | 9.81 | 78.1 | +1.96 | −30.6 |
+| `dsu ≥ 8` **SOLO** (no incumbent admits it) | 124 | **52** | **10.321** | 37.46 | 82.7 | +2.26 | **−4.3** |
+
+At 1% D-base with the S43bi multipliers: per-year **+5.39% → +5.65%**, maxDD
+**−0.40% → −0.40%** (unchanged), worst trade **−0.25% → −0.25%** (unchanged).
+Every tier improves: A 8.11→8.45 (141→146), B 4.62→4.65 (386→402),
+C 3.65→3.69 (214→223), D 3.09→3.16 (528→547). Per year 8.22→8.51 / 3.19→3.35 /
+3.07→3.07 / 3.28→3.43 / **3.74→3.69** / 3.49→3.50 / 4.79→4.84 — only 2024 dips.
+
+### 2. ⭐⭐ LEAVE-ONE-OUT: it EARNS its seat, and it earns the MOST
+
+Full 7-voice + S-tier book = 1,318 @ 4.077. Drop each voice in turn
+(**ΔPF > 0 means the voice HURTS** — the book is better without it):
+
+| dropped | traded | PF | ΔPF | Δn |
+|---|---:|---:|---:|---:|
+| dslo | 942 | 4.237 | **+0.159** | −376 |
+| d20a | 1,283 | 4.168 | +0.090 | −35 |
+| v20 | 1,302 | 4.157 | +0.080 | −16 |
+| haltband | 1,281 | 4.127 | +0.050 | −37 |
+| ramp | 1,293 | 4.100 | +0.022 | −25 |
+| Stier | 1,309 | 4.070 | −0.008 | −9 |
+| legage | 1,202 | 4.041 | −0.037 | −116 |
+| **`dsu ≥ 8`** | **1,269** | **4.003** | **−0.074** | **−49** |
+
+**Only three voices earn their seat and `dsu ≥ 8` earns the most of any of
+them** — twice `legage`, nine times `Stier`. The other four are PF-dilutive and
+are carried for trip count.
+
+### 3. ⚠ THE THRESHOLD IS A CLIFF — but a LEGIBLE one, not one trade
+
+| threshold | book n | book PF | solo n | solo PF | solo trimPF |
+|---|---:|---:|---:|---:|---:|
+| `≥ 6` | 1,410 | **3.570** ❌ | 159 | 1.855 | 4.54 |
+| `≥ 7` | 1,358 | **3.834** ❌ | 101 | 2.759 | 5.86 |
+| **`≥ 8`** | 1,318 | **4.077** ✅ | 52 | 10.321 | 37.46 |
+| `≥ 9` | 1,301 | **4.053** ✅ | 33 | 10.515 | 50.21 |
+| `≥ 10` | 1,288 | **4.061** ✅ | 19 | **inf** | inf |
+
+Below 8 the voice **actively hurts**. 🛑 **I called this a one-trade artifact at
+S43bk §5 — that was WRONG.** The solo bands by exact `dsu` value show a
+**loss-magnitude cliff**, and the trimmed column moves with the raw one:
+
+| solo band | traded | PF | trimPF | win% | avg% | its worst four losses |
+|---|---:|---:|---:|---:|---:|---|
+| `dsu = 6` | 124 | 1.611 | 4.18 | 68.5 | +0.81 | **−27.7, −21.4, −21.3, −10.6** |
+| `dsu = 7` | 87 | 2.670 | 6.24 | 75.9 | +1.46 | **−21.9**, −6.6, −5.9, −4.7 |
+| `dsu = 8` | 47 | 9.357 | 33.96 | 80.9 | +2.24 | −4.3, −3.1, −1.8, −1.1 |
+| `dsu = 9` | 29 | 9.923 | 47.38 | 82.8 | +2.32 | −4.5, −1.4, −0.9, −0.5 |
+| `dsu ≥ 10` | 19 | **inf** | inf | **100.0** | +2.52 | *(no losers at all)* |
+
+The whole `dsu ≥ 8` solo set has **9 losers in 52 trades and its worst is
+−4.3%**; one band lower there are three losses beyond −21%. That is a real
+change in the loss distribution at 8, not a boundary accident — and it matches
+the S43bl finding that these features are **loss-avoidance, not win-enhancement**.
+
+### 4. The solo set is significant against the right null
+
+The correct pool is *g60 `$1+` trips that NO incumbent voice admits*
+(n=715 mc=1, PF 2.118, worst −27.7%; 6.0% of it loses worse than −4.3%).
+20,000 random 52-trade draws from that pool:
+
+| statistic | observed | p |
+|---|---|---:|
+| PF | 10.321 | **0.0034** |
+| worst loss | −4.3% | 0.0367 |
+| **both jointly** | | **0.0029** |
+
+### 5. ⚠ What argues against it
+
+- **52 solo trades**, spread 15/15/**0**/5/7/4/6 across 2020–26 — **no 2022
+  evidence at all**, and only 4 in 2025.
+- **The threshold was chosen by reading these tables.** The plateau at 8/9/10
+  (4.077/4.053/4.061) is reassurance that it is not a single lucky point, but it
+  is not independent evidence.
+- **The backward OOS fails** (S43bk §7). Per the S43bl user ruling that is a
+  regime statement, not a veto — but it is not positive evidence either.
+- **The gain is small**: +49 trades, +0.074 PF, +0.26%/yr. Risk is unchanged
+  (same maxDD, same worst trade), so this is a pure-return proposition.
+- ⚠ **`dn_30 ≥ 23` — the cross-base-consistency winner of S43bl — is a WORSE
+  voice**: book 1,301 @ 4.012 (+0.009, i.e. nothing), solo 34 @ 4.933.
+  **Cross-base consistency and voice value are different criteria**; do not
+  assume the S43bl ranking transfers.
+
+### Recommendation
+
+The evidence for `dsu ≥ 8` as voice #7 is **stronger than for any voice
+currently in the roster** on the one test that matters for a union (solo-trip
+value + leave-one-out), it is uncorrelated with every incumbent, it costs no
+drawdown, and the threshold cliff has a legible mechanism. Against that: 52
+trades, no 2022, an in-sample-chosen threshold, and a failed backward OOS.
+⇒ **Recommend adopting it, and pre-registering the 2022-equivalent test**: if a
+high-volatility bear regime recurs live and the solo trips stop behaving, this
+is the voice to drop first. ⚠ **Not applied — the user's call.**
+
+---
+
 ## TODO (user, 2026-08-07) — S-tier sizing to be split from A–D
 
 **S-tier A trades (halt-band voice, 38 @ PF 37.1) should be handled as their
