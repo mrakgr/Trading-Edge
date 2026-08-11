@@ -15313,13 +15313,62 @@ beat base, and on g60 the low-`dn_15` cell is the stronger of the two
 (4.27–4.50 on 601 trades vs 3.673 on 133). ⚠ Note the worst trade also sorts
 with it: −9.2/−12.4% in the low cells vs −30.6% in the middle.
 
-### 3. `dn_30 / dn_60 / dn_120` (g60, mc=1) — dn_30 is the cleanest
+### 3. `dn_30` / `dn_60` / `dn_120` (mc=1 replayed inside each bucket)
 
-`dn_30`: [13,15) 3.684 · [15,17) 2.889 · [17,19) 2.728 · [19,21) 3.369 ·
-[21,23) 2.479 · **[23,25) 4.495 (n=226)** · [25,inf) 4.811 (n=55) — U-shaped,
-consistent with §2 (both ends of the tick-balance axis beat the middle).
-`dn_60`: flat 2.86–3.16 until [45,inf) 4.441 (n=37). `dn_120`: flat 2.57–3.04
-until **[76,80) 4.186 (n=127)**, then dies at [80,inf) 2.710 (n=30) — a BAND.
+**`dn_30`** — base: g60 2.670 / full 2.085
+
+| bucket | g60 n | g60 PF | trimPF | win% | avg% | worst% | full n | full PF |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| [13,15) | 273 | **3.684** | 11.08 | 81.0 | +1.79 | −21.7 | 1,167 | 2.236 |
+| [15,17) | 922 | 2.889 | 7.16 | 76.6 | +1.60 | −27.6 | 3,016 | 2.189 |
+| [17,19) | 1,483 | 2.728 | 6.82 | 75.5 | +1.52 | −30.6 | 3,899 | 2.081 |
+| [19,21) | 1,332 | 3.369 | 8.12 | 77.0 | +1.80 | −28.1 | 2,894 | 2.441 |
+| [21,23) | 699 | 2.479 | 5.27 | 71.8 | +1.58 | −26.6 | 1,238 | 2.183 |
+| **[23,25)** | **226** | **4.495** | 10.49 | 78.3 | +2.49 | −11.3 | 318 | **3.415** |
+| **[25,inf)** | **55** | **4.811** | 12.00 | 80.0 | +3.24 | −9.7 | 68 | **4.034** |
+
+**`dn_60`** — base: g60 2.670 / full 2.085
+
+| bucket | g60 n | g60 PF | trimPF | win% | avg% | worst% | full n | full PF |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| [27,30) | 227 | 3.157 | 7.99 | 78.4 | +1.85 | −22.0 | 1,330 | 2.203 |
+| [30,33) | 912 | 2.942 | 7.28 | 77.4 | +1.59 | −24.7 | 3,154 | 1.973 |
+| [33,36) | 1,478 | 2.917 | 7.21 | 76.6 | +1.64 | −30.6 | 3,535 | 2.227 |
+| [36,39) | 1,139 | 2.937 | 7.03 | 75.6 | +1.65 | −26.8 | 2,076 | 2.467 |
+| [39,42) | 478 | 2.860 | 6.51 | 73.8 | +1.88 | −26.6 | 696 | 2.534 |
+| [42,45) | 148 | 3.020 | 5.69 | 76.4 | +2.30 | −12.0 | 179 | 3.107 |
+| [45,inf) | 37 | **4.441** | 9.47 | 78.4 | +3.16 | −9.3 | 38 | 4.540 |
+
+**`dn_120`** — base: g60 2.670 / full 2.085
+
+| bucket | g60 n | g60 PF | trimPF | win% | avg% | worst% | full n | full PF |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| [55,60) | 296 | 2.570 | 7.13 | 77.7 | +1.46 | −22.3 | 1,869 | 1.991 |
+| [60,64) | 868 | 3.037 | 7.36 | 77.0 | +1.63 | −26.8 | 2,907 | 2.159 |
+| [64,68) | 1,355 | 2.843 | 6.93 | 75.7 | +1.60 | −27.9 | 2,863 | 2.311 |
+| [68,72) | 1,016 | 2.821 | 6.69 | 75.9 | +1.65 | −30.6 | 1,582 | 2.411 |
+| [72,76) | 422 | 3.024 | 7.24 | 75.6 | +1.88 | −21.7 | 538 | 2.694 |
+| **[76,80)** | **127** | **4.186** | 10.72 | 77.2 | +2.58 | −22.8 | 144 | 3.112 |
+| [80,inf) | 30 | **2.710** | 4.44 | **63.3** | +2.06 | −7.2 | 31 | 2.748 |
+
+**Reading them:**
+- **`dn_30`** — the top end is clean and confirms on both bases (4.495/4.811 on
+  g60, 3.415/4.034 on full) and carries the best worst-trade in the table
+  (−11.3/−9.7%). The low end [13,15) is also above base at 3.684, but the middle
+  is **noisy rather than monotone** ([19,21) 3.369 breaks any U-shape), so
+  "both ends beat the middle" is only loosely true — ⚠ this corrects the
+  U-shaped characterisation in the first draft of this entry.
+- **`dn_60`** — flat 2.86–3.16 across 4,382 of its 4,419 g60 trades. Only
+  [45,inf) lifts, on **n=37**. That is the whole feature: one tiny bucket. It is
+  why `dn_60` fails the cross-base table in §4.
+- **`dn_120`** — a genuine **BAND**, not a floor: rises to 4.186 at [76,80) then
+  **dies at [80,inf)** (2.710, win% 63.3 — the lowest win rate in all three
+  tables). A floor at 76 would swallow the dead cell; only the band works, and
+  the band is 127 trades.
+
+⚠ Note the pattern across all three: the `avg%` and `worst%` columns improve
+monotonically with the count even where PF does not. The tail buckets are
+smaller-loss trades, not bigger-win trades.
 
 ### 4. ⭐⭐ THE $1 FLOOR IS DOING MORE WORK THAN ANY TICK GATE
 
