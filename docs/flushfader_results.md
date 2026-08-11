@@ -15059,6 +15059,184 @@ produced every table above), the §4 voices table, and this entry.
 
 ---
 
+## ⭐⭐ S43bk — 1s TICK DIRECTION (user request, 2026-08-11)
+
+New record-only engine columns. A **tick** = the sign of a present bar's vwap
+vs the PREVIOUS present bar's — the 1s slim dataset has no close column, so
+bar-vwap-to-bar-vwap IS the tick. Recorded: `downticks_since_uptick` (ties do
+NOT reset), `run_downticks` (strict run; any non-down bar resets),
+`secs_since_last_uptick`, `dn_15/30/60/120` + `up_15/30/60/120`, `gap_120`.
+Window: `v42_ticks` (in-sample). **Control: 35,782 trips and all 238
+pre-existing columns bit-identical to `v41_secs`.**
+
+⭐ Design note: the windowed counts are **era-invariant BY CONSTRUCTION** — the
+denominator is the window size, so the count IS the fraction × N. That is the
+opposite of a leg-age bar count (S43bf), which is unbounded and drifts with
+tape density. `secs_since_last_uptick` was recorded as the invariant twin of
+the run counter for the same reason, pre-emptively.
+
+### 1. ⭐⭐ It is NOT a re-discovery — the first candidate in a while that isn't
+
+Spearman of `downticks_since_uptick` against the incumbents (g60, n=10,689):
+
+| vs | ρ | vs | ρ |
+|---|---:|---|---:|
+| `run_downticks` | **0.999** | `ols_r_60` | 0.088 |
+| `secs_since_last_uptick` | **0.998** | `gap_120` | −0.085 |
+| `dn_15` | 0.387 | `d1m` | −0.082 |
+| `dn_30` | 0.265 | `gap_60` | −0.064 |
+| `dn_60` | 0.189 | `speed` | −0.058 |
+| `dn_120` | 0.140 | `secs_since_first_low` | −0.058 |
+| `tc_60` | 0.114 | `ols_slope_60` | 0.034 |
+| | | `volat_20m` | 0.015 |
+
+Nothing outside its own family exceeds 0.19. It is **not** the deep-flush axis
+(S43-passim: d1m/dlo1m/d2m/z/d1s are one feature with several names), not the
+perfect-line measure, not tape density. ⭐ ρ 0.999 with `run_downticks` means
+**the tie convention is irrelevant**, and 0.998 with the seconds twin means the
+tape is dense enough during a flush that runs and seconds coincide.
+
+### 2. 🛑 THE mc=0 READING IS A TRAP — AND SO IS FILTERING THE BOOK
+
+Three different questions, three different answers, on the SAME feature:
+
+| question | construction | `dsu ≥ 8` result | verdict |
+|---|---|---|---|
+| attribution | mc=0 g60 band table | 507 trips, PF **7.608** vs base 4.275, p<0.0001 | ⚠ overstates |
+| "does it sort trades I take anyway?" | filter the mc=1 book | 49 trades, PF **3.882** vs 4.003, non-monotone | **no** |
+| **"what if I traded only this?"** | **mc=1 replayed INSIDE the gate** | **228 trades, PF 5.680 vs 3.068** | **yes** |
+
+⇒ **the second and third are not the same test and can disagree completely.**
+Filtering the already-deduplicated book asks whether the feature re-ranks the
+book's own picks; replaying mc=1 inside the gate asks whether the feature
+should CHANGE which trip you take. This feature does the latter and not the
+former, and reporting either number alone would have been wrong.
+
+### 3. The standalone gate — mc=1 replayed inside each filtered set
+
+Base = g60 `$1+` at per-ticker-day mc=1: **1,906 trades, PF 3.068, +1.59%**.
+`p` is against a null that draws the SAME NUMBER OF TICKER-DAYS at random
+(not the same number of trips — trips within a ticker-day are not independent):
+
+| gate | n | PF | trimPF | win% | avg% | worst% | p |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `dsu ≥ 6` | 557 | 3.669 | 9.816 | 77.9 | +1.99 | −27.7 | 0.067 |
+| `dsu ≥ 7` | 377 | 4.216 | 11.279 | 79.6 | +2.21 | −21.9 | 0.024 |
+| **`dsu ≥ 8`** | **228** | **5.680** | **15.326** | **80.7** | **+2.56** | **−11.3** | **0.004** |
+| `dsu ≥ 10` | 91 | 8.371 | 20.468 | 82.4 | +2.97 | −8.8 | 0.005 |
+| `dn_120 ≥ 75` | 104 | 5.944 | 14.092 | 76.9 | +2.74 | −7.5 | 0.027 |
+
+Monotone in the threshold, and the trimmed column moves WITH the raw one, so
+it is not one tail trade. Per-year, `dsu ≥ 8` beats base in **every** year:
+10.236 / 3.422 / 13.800 / 13.935 / 3.996 / 7.752 / 4.500 (base 5.708 / 3.186 /
+2.982 / 1.721 / 2.900 / 2.704 / 3.158). 228 trades over **222 distinct
+ticker-days**; five worst −11.3 / −9.6 / −8.2 / −7.7 / −7.6% against the
+book's −30.6%.
+
+### 4. ⭐⭐ THE MECHANISM: it is an ENTRY-TIMING rule worth ~14 SECONDS
+
+Of the 228 `dsu ≥ 8` mc=1 trades, **167 are a DIFFERENT, LATER trip than the
+base mc=1 pick on the same ticker-day — median delay 14 seconds.** It is not
+finding new ticker-days; it is saying *wait ~14s longer, until the tape has
+printed 8 straight downticks with no bounce.* That single fact explains the §2
+table: filtering the book cannot see it, because the book has already taken the
+earlier trip.
+
+### 5. ❌ It does NOT earn a 7th roster seat (and `dn_120` fails outright)
+
+Solo trips (admitted by the new voice and by NO existing voice), book at
+`secs ≤ 450`, per-ticker-day mc=1:
+
+| | mc=0 | traded | PF | worst% | 7-voice book |
+|---|---:|---:|---:|---:|---|
+| BOOK (6 voices + S-tier) | 7,249 | 1,269 | 4.003 | −30.6 | — |
+| `dsu ≥ 8` solo | 124 | 52 | 10.321 | −4.3 | 1,318 @ **4.077** |
+| `dn_120 ∈ [75,80)` solo | 79 | 26 | **2.613** | −7.5 | 1,290 @ **3.972** |
+
+`dn_120` **fails the solo test outright** — its solo trips underperform the
+book and adding it LOWERS book PF. Its raw 10.566 band reading was trips the
+roster already admits. ⚠ And `dsu`'s solo case is **knife-edged**: sweeping the
+threshold gives solo PF 2.759 (≥7) → 10.321 (≥8) → 10.515 (≥9), and the cliff
+is ONE trade — the `[7,8)` solo band's worst is −21.9% and its next-worst is
+−6.6%. A 52-trade sample whose PF is set by which side of the threshold one
+trade lands on is not a basis for a spec change. ⇒ **NOT proposed as a voice.**
+
+### 6. The windowed counts — the weaker half of the request
+
+`dn_15` / `dn_30` / `dn_60` are essentially FLAT across their mass (PF 3.8–5.1
+on g60 mc=0, no monotone gradient). `dn_120` has a real band at **[75,80)** but
+dies above 80 (n=26, PF 2.721) — a BAND, not a floor — and overlaps `dsu ≥ 8`
+on only 50 trips of 507/410, i.e. the two are nearly independent.
+
+### 7. 🛑 IT FAILS THE BACKWARD OOS — THE FEATURE IS NOT ADOPTED
+
+Re-recorded both OOS windows (`oos_back_ticks` 2016-08-08→2019-12-31, 4,641
+trips; `oos_fwd_ticks` 2026-07-18→08-07, 337 trips). mc=1 replayed inside each
+gate, same construction as §3:
+
+**OOS BACK, base = `$1+` (n=729 mc=1, PF 1.857)** — the only OOS slice with a
+usable sample:
+
+| gate | n | PF | trimPF | win% | avg% | p |
+|---|---:|---:|---:|---:|---:|---:|
+| `dsu ≥ 6` | 200 | 1.656 | 3.820 | 72.5 | +0.93 | 0.737 |
+| `dsu ≥ 7` | 125 | 1.285 | 2.693 | 65.6 | +0.52 | 0.947 |
+| `dsu ≥ 8` | 80 | **1.359** | 2.221 | 62.5 | +0.61 | 0.865 |
+| `dsu ≥ 10` | 23 | **0.907** | 1.960 | 52.2 | −0.21 | 0.914 |
+
+**Every gate is BELOW base and the gradient runs the WRONG WAY** — in-sample PF
+rises 3.67 → 8.37 from `≥6` to `≥10`; OOS it falls 1.66 → 0.91. Win rate falls
+from 82.4% (in-sample `≥10`) to 52.2%. This is not a small-sample shrug: n=80
+at `≥8` with a reversed direction is a failure to replicate, not an absence of
+evidence. The g60 slice is unusable (71 mc=1 trades total — `gap_60 < 4` is a
+tape-density gate that passes ~11% pre-2020, S43be). OOS FORWARD is 6 trades at
+`dsu ≥ 8` — meaningless either way.
+
+### 8. ⭐⭐ AND THE ERA-INVARIANT TWIN FAILS **IN-SAMPLE** — ρ 0.998 HID IT
+
+`secs_since_last_uptick` was recorded as the era-invariant twin precisely for
+this case (S43bf's lesson). In-sample ρ(dsu, ssu) = **0.998**. At
+selectivity-matched thresholds (`dsu ≥ 8` = 3.13% of `$1+` trips ⇒ `ssu ≥ 14s`):
+
+| | in-sample n / PF / win / p | OOS back n / PF / win / p |
+|---|---|---|
+| `dsu ≥ 8` | 451 / **2.915** / 74.5% / 0.025 | 80 / 1.359 / 62.5% / 0.867 |
+| `ssu ≥ 14s` | 450 / **1.834** / 68.0% / 0.875 | 193 / 1.233 / 60.6% / 0.994 |
+
+**ρ = 0.998 and yet one is significant and the other is worse than random at
+matched selectivity.** The correlation lives entirely in the bulk (both are 1–3
+for most trips); the TAILS select different populations. `ssu ≥ 14s` with a
+short run means the run contained GAPS — so wall-clock-since-last-uptick
+conflates the downtick run with tape sparsity, and the sparse-tape trips are
+the bad ones. ⇒ **a near-perfect correlation between two forms of a feature
+says nothing about whether their THRESHOLDS select the same trades.** This is
+the mirror image of the S43ba substitution test: there, swapping a suspect in
+reproduced a table cell-for-cell and proved redundancy; here ρ 0.998 proves
+nothing at all.
+
+⚠ It also corrects §1's framing: the **windowed** counts (`dn_15…dn_120`) are
+era-invariant by construction, but **`dsu` is a RUN counter and is NOT** — it is
+unbounded and counts present bars, exactly the S43bf pathology. The pre-2020
+tape runs 1.20 secs/bar inside a downtick run vs 1.00 in-sample. That is a
+candidate explanation for the OOS failure, but the `ssu` result rules it out as
+the WHOLE story: the era-invariant form is not merely weaker OOS, it never
+worked in-sample.
+
+### Status — ❌ NOT ADOPTED
+
+**Nothing changed in the spec.** `dsu` is novel (uncorrelated with every
+incumbent), significant in-sample as a standalone entry-timing gate worth ~14
+seconds of patience, worthless as a roster voice, and **it does not replicate
+backward**. Under the S43bj rule — *set parameters to what the data says* — the
+data says no. Recorded in full because the negative is worth more than the
+finding: it is the clearest case yet of an mc=0 band table, an in-sample
+bootstrap, and a 0.998 correlation all pointing the same wrong way.
+
+The columns stay in the engine (record-only, zero cost) in case a future SHORT
+system or a different horizon revives them.
+
+---
+
 ## TODO (user, 2026-08-07) — S-tier sizing to be split from A–D
 
 **S-tier A trades (halt-band voice, 38 @ PF 37.1) should be handled as their
