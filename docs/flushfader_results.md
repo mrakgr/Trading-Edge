@@ -15222,7 +15222,18 @@ candidate explanation for the OOS failure, but the `ssu` result rules it out as
 the WHOLE story: the era-invariant form is not merely weaker OOS, it never
 worked in-sample.
 
-### Status — ❌ NOT ADOPTED
+### ⚠ STATUS SUPERSEDED BY S43bl — see the user ruling there
+
+The "not adopted" verdict below was mine, not the user's. **User ruling
+(2026-08-11): OOS exists to verify the CORE, not to veto a feature.** The
+**POST-2020 tape is the one with the stronger mean-reversion tendency** — the
+pre-2020 regime is the weaker, different one (base PF 1.857 backward vs 2.156
+in-sample, and 1.843 vs 2.085 at S43be). So a feature that works on the modern
+tape and not on the old one is describing a regime difference, not failing.
+The §7/§8 OOS results stand as recorded facts; they are no longer the decision.
+Full unconditioned breakdowns are in S43bl.
+
+### Status — ❌ NOT ADOPTED (retracted; see above)
 
 **Nothing changed in the spec.** `dsu` is novel (uncorrelated with every
 incumbent), significant in-sample as a standalone entry-timing gate worth ~14
@@ -15234,6 +15245,122 @@ bootstrap, and a 0.998 correlation all pointing the same wrong way.
 
 The columns stay in the engine (record-only, zero cost) in case a future SHORT
 system or a different horizon revives them.
+
+---
+
+## ⭐⭐ S43bl — TICK FEATURES: the UNCONDITIONED breakdowns (user request, 2026-08-11)
+
+**User ruling first:** *"We know that pre-2020 the market was different than
+afterwards and it has stronger mean reversion tendencies so I don't want to rule
+this feature out based on OOS testing. OOS is there just to verify the core."*
+⭐ The stronger mean-reversion regime is the **POST-2020** one (base PF 2.156
+in-sample vs 1.857 on 2016-19; 2.085 vs 1.843 at S43be) — the backward window is
+the alien regime, not the reference. ⇒ S43bk §7/§8 remain recorded facts but are
+**not** the decision. This entry is the breakdown as asked: the **full universe**
+and **g60**, with NO voice-family or deep-flush conditioning.
+
+⚠ **Three readings, and they are not interchangeable** (`--mc 0/1/2` in
+`flushfader_breakdown.py`). Under `--mc 1` **the bucket rows do NOT partition
+the ALL row** — each bucket is replayed as its own book, so every bucket can sit
+above the total (and does). That is not an error: mc=1 on the full base takes
+the FIRST trip per ticker-day, while mc=1 inside a bucket takes the first
+*qualifying* one, which is usually later.
+
+### The four bases (mc=1, in-sample)
+
+| base | trips (mc=0) | traded (mc=1) | PF | avg% |
+|---|---:|---:|---:|---:|
+| full (no filter) | 35,782 | 6,386 | 2.085 | +1.11 |
+| full ∧ `$1+` | 28,439 | 5,217 | 2.156 | — |
+| g60 (`gap_60<4`) | 14,671 | 2,528 | 2.670 | +1.49 |
+| g60 ∧ `$1+` | 10,689 | 1,906 | 3.068 | +1.59 |
+
+### 1. `downticks_since_uptick` — mc=1 replayed inside each bucket
+
+| bucket | full n | full PF | full trimPF | g60 n | g60 PF | g60 trimPF |
+|---|---:|---:|---:|---:|---:|---:|
+| [1,2) | 4,407 | 2.141 | 4.75 | 1,641 | 2.822 | 6.71 |
+| [2,3) | 4,549 | 2.229 | 4.83 | 1,756 | 3.126 | 7.29 |
+| [3,4) | 4,046 | 2.314 | 5.14 | 1,630 | 2.954 | 7.13 |
+| [4,5) | 3,116 | 2.296 | 5.09 | 1,313 | 3.096 | 7.59 |
+| [5,6) | 2,103 | 2.570 | 6.04 | 970 | 3.260 | 8.45 |
+| [6,8) | 1,478 | 2.457 | 5.50 | 719 | 3.020 | 8.14 |
+| [8,10) | 580 | 2.458 | 5.47 | 316 | 3.423 | 8.49 |
+| **[10,inf)** | **215** | **3.508** | **10.12** | **133** | **3.673** | **13.16** |
+| ALL | 6,386 | 2.085 | 4.44 | 2,528 | 2.670 | 6.12 |
+
+Gentle upward gradient; the action is the **≥10** tail. Far tamer than the
+`$1+`-conditioned reading in S43bk §3 (5.680 at ≥8) — see §4.
+
+### 2. `dn_15` RUNS THE OTHER WAY — FEW downticks is better (g60, mc=1)
+
+| dn_15 | n | PF | trimPF | win% | avg% | worst% |
+|---|---:|---:|---:|---:|---:|---:|
+| [5,6) | 18 | 4.851 | — | 77.8 | +1.80 | −3.7 |
+| **[6,7)** | **127** | **4.496** | 10.69 | 78.7 | +2.08 | −9.2 |
+| **[7,8)** | **474** | **4.273** | 9.95 | 79.1 | +2.04 | −12.4 |
+| [8,9) | 926 | 3.262 | 8.22 | 77.9 | +1.72 | −22.0 |
+| [9,11) | 1,877 | 2.782 | 6.83 | 75.4 | +1.56 | −30.6 |
+| [11,13) | 1,354 | 2.901 | 6.71 | 77.0 | +1.69 | −26.6 |
+| [13,inf) | 306 | 2.891 | 6.92 | 77.1 | +1.98 | −26.2 |
+| ALL | 2,528 | 2.670 | 6.12 | 74.7 | +1.49 | −30.6 |
+
+⭐⭐ **This is NOT a contradiction of §1.** `dn_15 ≥ dsu` by construction (only
+0.14% ties violate it), so `dn_15 < 8` and `dsu ≥ 8` are **mutually exclusive**.
+The two cells describe different shapes: `dsu ≥ 10` = a long clean run *now*;
+`dn_15 ∈ [6,8)` = a sharp recent drop **that was not preceded by a grind**. Both
+beat base, and on g60 the low-`dn_15` cell is the stronger of the two
+(4.27–4.50 on 601 trades vs 3.673 on 133). ⚠ Note the worst trade also sorts
+with it: −9.2/−12.4% in the low cells vs −30.6% in the middle.
+
+### 3. `dn_30 / dn_60 / dn_120` (g60, mc=1) — dn_30 is the cleanest
+
+`dn_30`: [13,15) 3.684 · [15,17) 2.889 · [17,19) 2.728 · [19,21) 3.369 ·
+[21,23) 2.479 · **[23,25) 4.495 (n=226)** · [25,inf) 4.811 (n=55) — U-shaped,
+consistent with §2 (both ends of the tick-balance axis beat the middle).
+`dn_60`: flat 2.86–3.16 until [45,inf) 4.441 (n=37). `dn_120`: flat 2.57–3.04
+until **[76,80) 4.186 (n=127)**, then dies at [80,inf) 2.710 (n=30) — a BAND.
+
+### 4. ⭐⭐ THE $1 FLOOR IS DOING MORE WORK THAN ANY TICK GATE
+
+Same gates, four bases, mc=1 replayed inside each (n / PF):
+
+| gate | full | full `$1+` | g60 | g60 `$1+` |
+|---|---|---|---|---|
+| **BASE** | 6,386 / **2.085** | 5,217 / **2.156** | 2,528 / **2.670** | 1,906 / **3.068** |
+| `dsu ≥ 8` | 631 / 2.552 | 451 / 2.915 | 340 / 3.528 | 228 / **5.680** |
+| `dsu ≥ 10` | 215 / 3.508 | 150 / 5.364 | 133 / 3.673 | 91 / **8.371** |
+| `dn_30 ≥ 23` | 326 / 3.302 | 187 / 4.004 | 232 / 4.253 | 129 / **6.460** |
+| `dn_60 ≥ 42` | 187 / 3.073 | 90 / 2.951 | 157 / 3.000 | 73 / 2.774 |
+| `dn_120 ≥ 76` | 154 / 2.784 | 85 / 4.492 | 138 / 3.574 | 75 / **7.253** |
+| `dn_15 < 8` | 1,780 / 2.484 | 1,516 / 2.478 | 516 / 4.035 | 408 / 4.102 |
+| `ssu ≥ 9s` | 1,290 / 2.099 | 1,111 / 2.118 | 219 / 4.360 | 154 / **6.634** |
+
+Reading it as **ratio to base**: `dsu ≥ 10` is 1.68× on full, 2.49× at `$1+`,
+1.38× on g60, **2.73×** at g60∧`$1+`. Every tick gate roughly DOUBLES its lift
+once the `$1` floor is applied. ⇒ **the tick edge lives in the `$1+` names**;
+sub-$1 high-downtick trips are the bad slice. (Consistent with the standing
+sub-$1 finding — those names are fee-dead anyway.)
+
+⭐ **`ssu ≥ 9s` is the diagnostic case**: 2.099 on full (≈ base, no edge) but
+4.360 on g60 (1.63×) and 6.634 at g60∧`$1+` (2.16×). Conditioning on a
+continuous tape is what makes the seconds form work, exactly as S43bk §8
+predicted — off g60 it selects gaps, on g60 it selects runs. **This rehabilitates
+`secs_since_last_uptick` as the era-invariant form, PROVIDED it is paired with
+g60.**
+
+⚠ **`dn_60` is the one that fails everywhere** (0.90–1.47×, worst at g60∧`$1+`).
+Of the six candidates it is the only one with no base on which it looks good.
+
+### Where this leaves it
+
+Nothing changed in the spec. The candidates now ranked by cross-base
+consistency, not by best cell: **`dn_30 ≥ 23`** (1.58/1.86/1.59/2.11 — the only
+one above 1.5× on all four) > `dsu ≥ 10` ≈ `dn_120 ≥ 76` (huge at g60∧`$1+`,
+modest elsewhere) > `dn_15 < 8` (broad, 408–1,780 trips, modest) > `ssu ≥ 9s`
+(g60-only) > `dn_60` (dead). ⚠ Every one of these is a THRESHOLD chosen by
+looking at these tables — the iso-trip and per-year discipline still applies
+before any of them becomes a rule.
 
 ---
 
