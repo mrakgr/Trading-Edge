@@ -392,6 +392,31 @@ type FlushPosition =
       LowsSinceFirstLow300: int
       BarsSinceFirstLow600: int
       LowsSinceFirstLow600: int
+      // ----- ⭐ S43bk (user, 2026-08-11): 1s TICK DIRECTION. A "tick" is the
+      // sign of this present bar's vwap vs the PREVIOUS present bar's — the 1s
+      // slim dataset has no close, so bar-vwap-to-bar-vwap IS the tick. Three
+      // shapes, all record-only:
+      //   (a) run counters — how long the tape has gone without an uptick;
+      //   (b) windowed counts over {15,30,60,120} PRESENT bars — these are
+      //       era-invariant BY CONSTRUCTION (denominator = the window size, so
+      //       the count IS the fraction × N), unlike a leg-age bar count;
+      //   (c) up counts alongside down, so `unchanged = N − up − dn` is
+      //       recoverable — vwap ties are not rare on round-number pinning
+      //       (the F21 phantom-tie lesson).
+      DownticksSinceUptick: int  // down bars since the last UP bar; ties do NOT reset
+      RunDownticks: int          // strict consecutive down run; ANY non-down bar resets
+      SecsSinceLastUptick: int   // the era-invariant twin of DownticksSinceUptick.
+                                 // -1 = no uptick yet this session.
+      Dn15: int
+      Dn30: int
+      Dn60: int
+      Dn120: int
+      Up15: int
+      Up30: int
+      Up60: int
+      Up120: int
+      Gap120: int                // density companion for the 120 window (gap_15/30/60
+                                 // already exist; 120 did not)
       TradeIdx: int              // ⭐ index of this SIGNAL within the down-leg (0 = the leg's
                                  // first trade); reset by the new-high leg reset. Diverges from
                                  // LowsSinceFirstLow wherever a low fired no trade (outside the
@@ -1112,6 +1137,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let gap60 = GapCounter(60, cfg.SessionStartSec)
     let gap30 = GapCounter(30, cfg.SessionStartSec)
     let gap15 = GapCounter(15, cfg.SessionStartSec)
+    let gap120 = GapCounter(120, cfg.SessionStartSec)   // S43bk: the 120-tick window's twin
     // S40l: the slow-window gap counters (rank-0 Rényi at 5m/10m/20m; bars +
     // gaps = the window's calendar span).
     let gap300 = GapCounter(300, cfg.SessionStartSec)
@@ -1143,6 +1169,21 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable lastHaltEnd = -1
     let mutable prevAdjGap60 = 0
     let mutable prevRng300 = nan
+    // ⭐ S43bk (user): the tick-direction block. `prevVwap` (set at the end of
+    // OnBar) is the previous PRESENT bar's vwap, so the sign of
+    // `bar.vwap - prevVwap` is this bar's tick. Windowed counts ride the same
+    // present-bar SumMa convention as every other window in the engine.
+    let dnSum15 = SumMa 15
+    let dnSum30 = SumMa 30
+    let dnSum60 = SumMa 60
+    let dnSum120 = SumMa 120
+    let upSum15 = SumMa 15
+    let upSum30 = SumMa 30
+    let upSum60 = SumMa 60
+    let upSum120 = SumMa 120
+    let mutable dnSinceUp = 0                    // down bars since the last up bar
+    let mutable dnRun = 0                        // strict consecutive down run
+    let mutable lastUptickSec = -1               // -1 = no uptick yet this session
     let sessVwap = RatioMa()
     let mutable openVwap : float voption = ValueNone
     let mutable cumVol = 0.0
@@ -1334,6 +1375,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         gap60.Push bar.etSec
         gap30.Push bar.etSec
         gap15.Push bar.etSec
+        gap120.Push bar.etSec
         gap300.Push bar.etSec
         gap600.Push bar.etSec
         gap1200.Push bar.etSec
@@ -1375,6 +1417,31 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         let adjGap300 = max 0 (gap300.Gaps - haltOverlap 300)
         let adjGap600 = max 0 (gap600.Gaps - haltOverlap 600)
         let adjGap1200 = max 0 (gap1200.Gaps - haltOverlap 1200)
+        // ⭐ S43bk tick direction. The day's FIRST present bar has no
+        // predecessor (prevVwap = nan) — both comparisons are false, so it
+        // counts as an UNCHANGED tick and touches no counter. Ties (vwap
+        // exactly equal, common on round-number pinning) likewise count as
+        // neither up nor down: they do not reset `dnSinceUp`, but they DO reset
+        // `dnRun`, which is the whole difference between the two run measures.
+        let isUptick = bar.vwap > prevVwap
+        let isDntick = bar.vwap < prevVwap
+        dnSum15.Push (if isDntick then 1.0 else 0.0)
+        dnSum30.Push (if isDntick then 1.0 else 0.0)
+        dnSum60.Push (if isDntick then 1.0 else 0.0)
+        dnSum120.Push (if isDntick then 1.0 else 0.0)
+        upSum15.Push (if isUptick then 1.0 else 0.0)
+        upSum30.Push (if isUptick then 1.0 else 0.0)
+        upSum60.Push (if isUptick then 1.0 else 0.0)
+        upSum120.Push (if isUptick then 1.0 else 0.0)
+        if isUptick then
+            dnSinceUp <- 0
+            dnRun <- 0
+            lastUptickSec <- bar.etSec
+        elif isDntick then
+            dnSinceUp <- dnSinceUp + 1
+            dnRun <- dnRun + 1
+        else
+            dnRun <- 0
         volSum5.Push bar.volume
         dvSum5.Push (bar.vwap * bar.volume)
         volSum10.Push bar.volume
@@ -2119,6 +2186,21 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       GapAdj300 = adjGap300
                       GapAdj600 = adjGap600
                       GapAdj1200 = adjGap1200
+                      // ⭐ S43bk: the signal bar's OWN tick is already folded in
+                      // (step 2 runs before the signal test), so a signal bar
+                      // that ticked down reads DownticksSinceUptick >= 1.
+                      DownticksSinceUptick = dnSinceUp
+                      RunDownticks = dnRun
+                      SecsSinceLastUptick = (if lastUptickSec < 0 then -1 else bar.etSec - lastUptickSec)
+                      Dn15 = (match dnSum15.State with ValueSome v -> int v | ValueNone -> 0)
+                      Dn30 = (match dnSum30.State with ValueSome v -> int v | ValueNone -> 0)
+                      Dn60 = (match dnSum60.State with ValueSome v -> int v | ValueNone -> 0)
+                      Dn120 = (match dnSum120.State with ValueSome v -> int v | ValueNone -> 0)
+                      Up15 = (match upSum15.State with ValueSome v -> int v | ValueNone -> 0)
+                      Up30 = (match upSum30.State with ValueSome v -> int v | ValueNone -> 0)
+                      Up60 = (match upSum60.State with ValueSome v -> int v | ValueNone -> 0)
+                      Up120 = (match upSum120.State with ValueSome v -> int v | ValueNone -> 0)
+                      Gap120 = gap120.Gaps
                       HaltsToday = haltsToday
                       Halts1200 = (match haltSum1200.State with ValueSome v -> int v | ValueNone -> 0)
                       Halts600 = (match haltSum600.State with ValueSome v -> int v | ValueNone -> 0)
