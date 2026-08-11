@@ -28,19 +28,22 @@ args = ap.parse_args()
 TRIPS = "/home/mrakgr/Trading-Edge/data/equity/flushfader/v41_secs/trips_p*.parquet"
 # the trading-book filter ($1+ raw x g60 x vote/S-tier). NB S-tier is
 # halts_today >= 1 (with the engine cascade gate that means ht in {1,2}).
-# ⭐ S43bg (user 2026-08-08): the leg-age voice is now `secs_since_first_low
-# <= 516` (8.6 min), NOT `bars_since_first_low <= 390`. The bar count is
-# era-relative — it meant 9.1 min in 2020 and 7.6 min in 2026, a 16% silent
-# tightening as the tape densified (S43bf). 516s is the selectivity-matched
-# translation of the old rule, not a re-fit. Requires trips recorded by the
-# S43bf engine or later (v41_secs and after).
+# ⭐ S43bg (user 2026-08-08): the leg-age voice is now `secs_since_first_low`,
+# NOT `bars_since_first_low <= 390`. The bar count is era-relative — it meant
+# 9.1 min in 2020 and 7.6 min in 2026, a 16% silent tightening as the tape
+# densified (S43bf). Requires trips recorded by the S43bf engine or later
+# (v41_secs and after).
+# ⭐ S43bj (user 2026-08-11): threshold TIGHTENED 516 -> 450. 516 was
+# selectivity-matched on the FULL $1+ trip set, but the book only ever trades
+# the g60 universe — parity THERE is ~406s. 450 sits inside [406, 490] and
+# drops CADL 2024-12-11 (secs 480), tier C's -21.7% outlier.
 BOOK_WHERE = """
   gap_60 < 4 AND entry_px/adj_ratio >= 1 AND (
     COALESCE(volat_20m*1e4 >= 140, false)
     OR COALESCE((signal_vwap/first_low_vwap)*(1+d_hi_flow) - 1 < -0.28, false)
     OR COALESCE(signal_vwap/sess_low - 1 >= 0.08, false)
     OR COALESCE((volat_slope_20m - volat_slope_10m)*2e4 < -12, false)
-    OR COALESCE(secs_since_first_low >= 0 AND secs_since_first_low <= 516, false)
+    OR COALESCE(secs_since_first_low >= 0 AND secs_since_first_low <= 450, false)
     OR COALESCE(secs_since_halt >= 1200 AND secs_since_halt < 4800, false)
     OR COALESCE(halts_today >= 1 AND secs_since_halt >= 120 AND secs_since_halt < 1200, false))
 """

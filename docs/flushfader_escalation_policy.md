@@ -42,7 +42,8 @@ multipliers {S, A, B, C, D}.
 **BASE starts at 1.0%** (⇒ A ≈ 2.4% at reference vol). ⚠ The §2 yardsticks below are STALE (computed on the wider reference at older
 multipliers). Current trading-book yardsticks at BASE = 1% with the S43bi
 multipliers: **+5.5%/yr average, max DD −0.42%, worst trade −0.30% of account,
-6 negative months of 79** (book = 1,312 trades, secs≤516). Execution: cross the entry,
+6 negative months of 79** (book = 1,269 trades, secs≤450 — S43bj; the 1,312-trade
+secs≤516 book gave +5.5%/−0.42%). Execution: cross the entry,
 rest the exit. mc = 1: one position per ticker-day; global concurrency per S43ay book.
 
 ## 2. Backtest yardsticks at BASE = 1% (what "normal" looks like)

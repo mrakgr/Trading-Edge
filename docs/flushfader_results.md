@@ -14060,7 +14060,7 @@ The six voices:
 | d20a | `(vwap/first_low_vwap)·(1+d_hi_flow) − 1 < −28%` | ≥ 28% below the leg's anchor — a deep cascade |
 | dslo | `vwap/sess_low − 1 ≥ +8%` | ≥ 8% above the session low — not sitting on the dead low |
 | ramp | `(volat_slope_20m − volat_slope_10m) × 2e4 < −12` | the 10m volatility slope exceeds the 20m — short-horizon volatility is EXPANDING rapidly |
-| legage | `secs_since_first_low ≤ 516` (8.6 min) | the leg is young, not a stale grind. ⭐ S43bg: was `bars_since_first_low ≤ 390`; the bar count is era-relative (it silently tightened 9.1 → 7.6 min from 2020 to 2026 as the tape densified), seconds are invariant |
+| legage | `secs_since_first_low ≤ 450` (7.5 min) | the leg is young, not a stale grind. ⭐ S43bg: was `bars_since_first_low ≤ 390`; the bar count is era-relative (it silently tightened 9.1 → 7.6 min from 2020 to 2026 as the tape densified), seconds are invariant. ⭐ S43bj: 516 → **450** — 516 was selectivity-matched on the FULL $1+ trip set, but the book only ever trades the g60 universe, where parity is ~406s |
 | haltband | `secs_since_halt ∈ [1200, 4800)` | 20–80 minutes after a halt resume |
 
 ### 5. Sizing (locked S43az)
@@ -14986,6 +14986,76 @@ on a D-tier trade at reference vol (99bp); the escalation ladder is unchanged.
 trading — you cannot drop your worst trades in advance. That is intentional:
 the trim is there to stop one observation dominating the RATIO, not to model
 the outcome distribution.
+
+---
+
+## ⭐ S43bj — SPEC CHANGE: leg-age threshold 516 → 450 (2026-08-11)
+
+**User decision.** The 516s value was the selectivity-matched translation of
+`bars ≤ 390` computed on the **full `$1+` trip set** — but the trading book
+only ever sees the **g60** universe, so that was the wrong base. Parity on the
+right base:
+
+| base | trips | `bars ≤ 390` passes | selectivity | **matching secs threshold** |
+|---|---:|---:|---:|---:|
+| `$1+`, all | 28,439 | 2,805 | 9.86% | **490** |
+| **`$1+` ∧ `gap_60 < 4`** | 10,689 | 1,367 | 12.79% | **406** |
+
+⇒ the principled band is **[406, 490]**, and 450 sits in the middle of it. It
+also drops **CADL 2024-12-11** (`secs` 480), the −21.7% trade that was tier C's
+worst and the sole reason C's Kelly multiplier collapsed below D at S43bg.
+
+**⭐ The book is FLAT across the whole band** — this was never a high-stakes
+choice (per-ticker-day mc=1, g60, $1+ raw; equity sim at 1% D-base with the
+S43bi multipliers):
+
+| secs ≤ | n | PF | win% | avg% | trimPF | per-year | maxDD | worst trade |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 390 | 1,218 | 3.990 | 77.8 | +1.97 | 9.620 | +5.18% | −0.41% | −0.25% |
+| 406 | 1,229 | 4.017 | 78.0 | +1.97 | 9.803 | +5.26% | −0.41% | −0.25% |
+| 420 | 1,238 | 3.996 | 77.9 | +1.96 | 9.611 | +5.25% | −0.41% | −0.25% |
+| **450 (ADOPTED)** | **1,269** | **4.003** | **77.9** | **+1.95** | **9.613** | **+5.39%** | **−0.40%** | **−0.25%** |
+| 480 | 1,285 | 3.899 | 77.8 | +1.93 | 9.513 | +5.37% | −0.42% | −0.30% |
+| 516 (old) | 1,312 | 3.932 | 77.9 | +1.92 | 9.581 | +5.48% | −0.42% | −0.30% |
+| 600 | 1,371 | 3.666 | 77.4 | +1.85 | 8.819 | +5.46% | −0.42% | −0.36% |
+
+PF spans 3.99–4.02 over 390–516 and only degrades at 600. The change costs
+−0.09%/yr of return and buys a 17% smaller worst trade.
+
+**Per-tier at 450** (vs 516 in brackets):
+
+| tier | n | PF | win% | avg% | worst% |
+|---|---:|---:|---:|---:|---:|
+| A | 141 (143) | 8.106 (8.192) | 78.7 | +3.28 | −6.3 |
+| B | 386 (396) | 4.623 (4.608) | 81.1 | +2.08 | −12.9 |
+| C | 214 (221) | **3.648** (3.281) | 77.6 | +1.94 | **−10.3** (−21.7) |
+| D | 528 (552) | 3.092 (3.131) | 75.6 | +1.52 | −30.6 |
+
+C's PF recovers 3.281 → 3.648 and its worst trade halves — exactly the CADL
+removal S43bh predicted, and consistent with S43bh's finding that C's *body*
+never changed (trimmed PF 8.30 → 8.54 across the same thresholds).
+
+### 🔒 MULTIPLIERS UNCHANGED — {A 2.44, B 1.80, C 1.14, D 1.00}
+
+Re-deriving PF−1 (bottom-5% trimmed, `rn`) at 450 gives {2.23, 1.87, 1.10,
+1.00}. **That is inside the estimator's own convention noise** — the *trim
+convention alone* moves the same 516 book by as much as the threshold change
+does:
+
+| trim convention | 516 | 450 |
+|---|---|---|
+| keep `r ≥ quantile(r, .05)` | A 2.49 B 1.77 C 1.03 | A 2.23 B 1.87 C 1.10 |
+| drop `floor(0.05n)` lowest | A 2.31 B 1.73 C 1.06 | A 2.30 B 1.83 C 1.04 |
+| drop `ceil(0.05n)` lowest | A 2.49 B 1.77 C 1.12 | A 2.47 B 1.87 C 1.10 |
+
+A ranges 2.19–2.49 and C 1.03–1.19 across every (threshold, convention) pair.
+The adopted set sits inside that band, so re-deriving would be chasing noise.
+⇒ **multipliers stay; the next legitimate re-derivation is the 1,000-live-trade
+checkpoint** (escalation policy §6).
+
+**Where the rule lives:** `scripts/equity/flushfader_kelly.py` `BOOK_WHERE`,
+`scripts/equity/flushfader_book.py` (new — the reusable book-stats harness that
+produced every table above), the §4 voices table, and this entry.
 
 ---
 
