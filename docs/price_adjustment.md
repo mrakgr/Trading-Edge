@@ -1,8 +1,9 @@
 # Price adjustment — splits and dividends
 
-**Status:** `daily_adjusted` built and validated 2026-08-12 (S43br).
-`split_adjusted_prices` still exists and is still what every engine reads;
-migration is in progress. Do not mix the two in one calculation.
+**Status:** `daily_adjusted` built and validated 2026-08-12 (S43br). **FlushFader
+is migrated** — engine, universe (`mr_candidate_1s_v2`) and analysis tools all run
+on the causal scheme, and the control passed (see §8). `split_adjusted_prices`
+still exists for the other systems. Do not mix the two in one calculation.
 
 > ✅ **Split errors are CORRECTED** (S43bs, 2026-08-12). Roughly 1 split date in 20
 > was contradicted by the price tape; `split_corrections` now resolves them
@@ -324,6 +325,34 @@ expected to be one.
 
 **Rebuild:** `dotnet run --project TradingEdge.Database -c Release -- ingest-data`
 then `python scripts/equity/validate_daily_adjusted.py` (exit 0 = clean).
+
+## 8. The FlushFader control — and a silent universe deletion
+
+Reference `v43_legtick` (adjusted tape) vs `v44_causal`, identical span and spec:
+**1,318 -> 1,325 book trades, PF 4.077 -> 4.085, per-year +5.65% -> +5.68%**, with
+maxDD, worst trade, win% and avg% unchanged. All 35,782 v43 trips reappear in v44
+with `ret_exit` identical to 2.2e-16 and **0 lost** — v44 is a strict superset.
+Indifferent and marginally better, which is what CLAUDE.md rule 6 says a genuine
+system should do.
+
+**The lookahead was real but INERT in the signal path**, because every intraday
+feature is a same-day ratio (common factors cancel) or a dollar quantity (already
+correct — the S29 fix divided volume by the same `adj_ratio` it multiplied price
+by). The migration's value is that the bug class is now impossible, not that it
+was costing P&L.
+
+🛑 **What it did find:** `adj_volume = CAST(raw_volume * split_adj_factor AS BIGINT)`
+truncates to **0** on extreme future reverse-splitters (MULN 2022-03-08:
+214,891,790 shares x 1/1.35e12 -> 0). That made `avgvol20_prior = 0`, hence
+`rvol_0945_honest = NULL`, hence `NULL >= 0` = NULL in the engine's candidate
+filter — **876 universe ticker-days (0.061%) were being silently deleted**, all
+extreme-dilution shells, exactly the class a long MR book wants. Raw DOUBLE volume
+fixes it by construction: 0 NULLs in `mr_candidate_1s_v2`.
+
+Separately, `avgvol20` was future-scaled on 134,203 ticker-days (9.37%) — AAPL
+2020-08-27 recorded 155.3M against a raw 38.8M. Dormant (MinRvol0945 defaults to
+0) but load-bearing if anyone had used `--min-rvol-0945`. See
+`docs/flushfader_results.md` §S43br for the full write-up.
 
 ⚠ Every acceptance test compares the table's implied return against an
 **independent raw calculation**, so a bug in the builder cannot hide behind its

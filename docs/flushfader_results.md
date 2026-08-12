@@ -15940,6 +15940,128 @@ materialized tables.
 
 ---
 
+## S43br/S43bs — CAUSAL price adjustment: the control passes, and finds a silent universe deletion
+
+**What changed (user, 2026-08-12).** Price adjustment was rebuilt from
+back-adjusted (`split_adjusted_prices`) to **causal forward** (`daily_adjusted`):
+raw `P` + `n` (cumulative split multiplier over `execution_date ≤ t`) + `cum_div`
+(cumulative cash, scaled by `n(ex−1)`). Every value depends only on events up to
+`t`, so **the `adj_ratio` lookahead class is structurally impossible** rather than
+something to re-audit. Full rationale in **`docs/price_adjustment.md`** — read that
+first; this section is the FlushFader-side result.
+
+Also fixed on the way: the splits/dividends ingest keys (reverse/forward split
+pairs were losing a leg; 1.5% of dividend records were dropped outright) and the
+343 tape-contradicted splits (**SHIFT 30 / REJECT 141**, diagnostic contradictions
+**171 → 0**).
+
+### ⭐ THE CONTROL (CLAUDE.md rule 6)
+
+Reference `v43_legtick` vs causal `v44_causal`, identical span 2020-01-02 →
+2026-07-15, identical spec:
+
+| | v43 (adjusted tape) | v44 (causal, raw tape) |
+|---|---:|---:|
+| sampler trips | 35,782 | **36,025** (+243) |
+| **book trades** | **1,318** | **1,325** (+7) |
+| **PF** | **4.077** | **4.085** |
+| win% / avg% / worst% | 78.1 / +1.96 / −30.6 | **78.1 / +1.96 / −30.6** |
+| trimPF | 9.814 | 9.905 |
+| per-year (1% D-base) | +5.65% | **+5.68%** |
+| maxDD / worst trade | −0.40% / −0.25% | **−0.40% / −0.25%** |
+| multipliers | A 2.48 B 1.82 C 1.12 D 1.00 | A 2.52 B 1.83 C 1.14 D 1.00 |
+
+**Indifferent, and marginally better — exactly what rule 6 says a genuine system
+should do.** Trip-level the two runs are the *same book*: all 35,782 v43 trips
+appear in v44 with `ret_exit` identical to **2.2e-16**, same `exit_reason`, same
+`exit_sec`; `entry_px` (v44 raw) matches `entry_px/adj_ratio` (v43) to 2.8e-14;
+**0 trips lost**. v44 is a strict SUPERSET.
+
+**Why nothing moved.** Predicted before looking, and it held: nothing in the
+signal path ever consumed the adjustment. Every intraday feature is either a
+same-day RATIO (any common factor cancels) or a DOLLAR quantity — and dollars were
+already right, because the S29 fix (2026-07-29) divided volume by the same
+`adj_ratio` it multiplied price by, so `vwap·volume = (raw·r)·(rawvol/r)` = real
+dollars either way. **The lookahead was REAL but INERT.** That is worth stating
+plainly: the migration's value is that the bug class is now impossible, not that
+it was costing P&L.
+
+### 🛑 THE FINDING: the legacy universe was silently deleting ticker-days
+
+The +243 trips are not noise — they are **33 ticker-days that produced ZERO trips
+in v43**, all serial reverse-split shells (MULN, ADTX, CETX, APVO, LGHL, GNLN,
+EJH, SMX) with legacy `adj_ratio` between **586,080 and 1.35e12**. The chain:
+
+```
+adj_volume = CAST(raw_volume * split_adj_factor AS BIGINT)      -- 01_split_adjusted_prices.sql
+MULN 2022-03-08:  214,891,790 shares * (1/1.35e12) = 1.6e-4  ->  CAST BIGINT  ->  0
+  -> avgvol20_prior = AVG(adj_volume) = 0
+  -> rvol_0945_honest = vol_0945_pm_tape / NULLIF(0,0) = NULL
+  -> the engine's candidate query `AND rvol_0945_honest >= $minrvol` (minrvol = 0)
+     evaluates NULL >= 0 = NULL  ->  ROW SILENTLY EXCLUDED
+```
+
+**876 universe ticker-days (0.061%) were being dropped this way**, and they are
+precisely the extreme-dilution shells a long mean-reversion book most wants. This
+was **silent survivorship** — no error, no warning, just a smaller universe.
+
+It is fixed by construction: `avgvol20` is now `n·AVG(volume/n)` over RAW DOUBLE
+volume, with no integer cast and no future factor. `rvol_0945_honest` is NULL on
+**0** v2 ticker-days (was 876).
+
+The 7 book trades this adds are ordinary, not outliers — mean **+1.84%**, 86% win,
+against a book averaging +1.96% at 78.1%:
+
+| symbol | date | ret |
+|---|---|---:|
+| MULN | 2022-03-08 | +4.79% |
+| MULN | 2022-02-28 | +3.04% |
+| LGHL | 2021-01-08 | +2.96% |
+| ADTX | 2023-12-12 | +1.52% |
+| CETX | 2021-03-10 | +1.46% |
+| ADTX | 2023-12-29 | +1.24% |
+| ADTX | 2024-08-07 | −2.12% |
+
+### A second, dormant lookahead in the same column
+
+`avgvol20` was future-scaled on **134,203 ticker-days (9.37%)** — AAPL 2020-08-27
+recorded 155.3M against a raw 38.8M, ×4 from a split four days LATER — because
+`adj_volume` carries the product of FUTURE splits. That denominator sits under
+`rvol_0945_honest`, the column the build script's own header called *"LIVE-SAFE.
+Gate on this one."* It never contaminated a book because `MinRvol0945` defaults to
+0, but `--min-rvol-0945` is documented as a sweep tool, so it was a loaded gun.
+Also fixed by the raw-volume rebuild.
+
+⚠ Do not conflate `adj_ratio != 1` (64% of the universe — mostly the DIVIDEND
+factor) with the volume split factor (9.37%). An earlier draft of this section did.
+
+### The visible payoff
+
+The `--min-prev-close` gate was
+`coalesce(prev_adj_close / nullif(adj_ratio, 0), 0) >= $minprevclose` — a ratio of
+two differently-scaled numbers, the exact shape CLAUDE.md rule 4 exists to catch.
+`close_m1` is already in day D's raw scale, so it is now
+`coalesce(close_m1, 0) >= $minprevclose`. Likewise the book's `$1` floor:
+`entry_px/adj_ratio >= 1` becomes plain `entry_px >= 1`.
+
+And `open_p1` now rides on every trip, so the S43bq overnight question is
+answerable from the book itself with no hand-rolled join.
+
+### Where the work lives
+
+`docs/price_adjustment.md` (the reference), `sql/schema/materialized/`
+(`02_split_corrections.sql`, `03_daily_adjusted.sql`),
+`scripts/equity/build_daily_episodes_causal_view.sql`,
+`build_mr_candidate_1s.fsx` (→ `mr_candidate_1s_v2`),
+`TradingEdge.FlushFader/{Backtest,Intraday}.fs`,
+`scripts/equity/flushfader_{common,causal_control,validate_daily_adjusted}.py`.
+
+⚠ **`v44_causal` is the reference book now.** `v43_legtick` and earlier read the
+legacy adjusted tape; the analysis tools auto-detect via
+`flushfader_common.raw_px_expr`, so both remain readable, but new work goes on v44.
+
+---
+
 ## TODO (user, 2026-08-07) — S-tier sizing to be split from A–D
 
 **S-tier A trades (halt-band voice, 38 @ PF 37.1) should be handled as their
