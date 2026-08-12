@@ -28,6 +28,11 @@ OpeningDriverV2 4.112→0.728, DipRiderV4 2.876→1.158). It survived a year bec
    §S43v). This is the **S35 contamination class recurring** — the engine already flags
    `--min-dv-0945` for the identical bug. **If you are multiplying by `adj_ratio`, stop and verify
    against `/mnt/d/trading-edge-bulk/trades/` — one query settles it.**
+   ⭐ **2026-08-12: `adj_ratio` IS BEING RETIRED.** `daily_adjusted` (raw `P` + causal
+   `n` + causal `cum_div`) makes this whole bug class structurally impossible — every
+   value depends only on events up to day D. Read `docs/price_adjustment.md` before
+   touching any price scaling. Engines still read `split_adjusted_prices`; migration
+   is in progress, so do NOT mix the two in one calculation.
 5. **Knowability clock:** for every field in a filter, write the earliest minute it is determined and
    compare it to `EntryStartMin`. `day_close` / `avgvol20` / `rvol_0945` / `close_fwd_*` = ❌ never.
    `med_bar_vol_0945` = ✅ only because `EntryStartMin = 09:45` — **aligned to the minute; lower the entry
