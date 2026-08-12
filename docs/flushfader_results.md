@@ -15783,6 +15783,163 @@ regime we would be observing its behaviour for the first time.
 
 ---
 
+## S43bq — MOC exits: hold to the NEXT OPEN instead? (user question, 2026-08-12)
+
+**Question (user):** trades that never reach a 5m high exit at the close. Would
+exiting on the **next open** be better? Thesis: *stocks strongly negative in the
+last hour have a significant positive edge on the next open.* Asked for the
+**full** and the **g60** universe.
+
+**Answer: no change. On g60 there is nothing to change at all, and on the full
+universe the effect is real in the population but has the wrong sign on exactly
+the tape MOC exits live in.**
+
+### 1. ⭐ THE G60 BOOK CONTAINS ZERO MOC EXITS
+
+`v43_legtick` has **35,782 trips: 35,607 `target`, 175 `moc`** (0.49%). MOC
+exits average **−6.16%** vs `target` **+1.53%**, so they look like the whole
+left tail — but:
+
+| exit_reason | n | gap_60 min | p5 | median | max | **n with gap_60 < 4** |
+|---|---:|---:|---:|---:|---:|---:|
+| `moc`    | 175 | **23** | 25 | 48 | 58 | **0** |
+| `target` | 35,607 | 0 | 0 | 6 | 59 | 14,671 |
+
+**Every single MOC exit has `gap_60 ≥ 23`.** The book requires `gap_60 < 4`, so
+**the traded book has no MOC exits whatsoever** — the MOC rule is dead code for
+the production system, and this exit change is a no-op there.
+
+Mechanically sensible: a 5m high fails to print only on a tape thin enough that
+the 5-minute channel never fills. The MOC exits traded a median of **535 of the
+last hour's 3,600 seconds** (p90 1,067, max 1,895). The book's left tail comes
+from *targets* hit at bad prices, not from MOC.
+
+### 2. Full universe: 175 trips are 43 ticker-days
+
+⚠ Trip-level stats are a clustering illusion here — one ticker-day contributed
+**15** trips. Deduplicated:
+
+| level | n | mean | median | win% | t |
+|---|---:|---:|---:|---:|---:|
+| trips | 175 | +1.523% | +1.969% | 62.9% | **+3.47** |
+| **ticker-days** | **43** | **+0.970%** | +0.813% | 55.8% | **+0.92** |
+
+Bootstrap 95% CI on the ticker-day overnight mean: **[−1.03%, +3.02%]** — straddles
+zero. Substituting the exit moves the 43 ticker-days from mean −4.65% / median
+−2.34% to mean −3.58% / median **−2.82%** — mean better, median worse. Nothing.
+
+### 3. The thesis at scale — 1,420,627 universe ticker-days
+
+Per ticker-day from the 1s tape, `lh_chg = vwap(last bar ≤16:00) / vwap(last bar
+≤15:00) − 1`; overnight from the daily tables. **Median** shown (the mean is not
+usable raw — see §5); YEAR columns.
+
+**Full 1s universe:**
+
+| last hour | n | med% | win% | 2016 | 2017 | 2018 | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---:|---:|---:|---|---|---|---|---|---|---|---|---|---|---|
+| <−6% | 4,210 | **−0.403** | 46.5 | 2.06 | 0.52 | 0.00 | −1.23 | −0.09 | 0.00 | −2.60 | −1.05 | 0.10 | −1.52 | 0.10 |
+| −6..−4 | 5,011 | +0.212 | 51.9 | 0.00 | −0.12 | 0.70 | 0.24 | 0.67 | 0.06 | −0.60 | −0.56 | 0.60 | 0.00 | 0.80 |
+| −4..−3 | 6,977 | **+0.251** | 53.1 | 0.18 | 0.26 | 0.31 | 0.00 | 0.60 | 0.00 | −0.10 | 0.07 | 0.67 | 0.00 | 0.55 |
+| −3..−2 | 20,063 | +0.213 | 53.6 | 0.00 | 0.11 | 0.37 | 0.00 | 0.35 | 0.22 | 0.00 | 0.21 | 0.58 | 0.09 | 0.10 |
+| −2..−1 | 82,815 | +0.179 | 54.3 | 0.04 | 0.12 | 0.22 | 0.06 | 0.41 | 0.22 | 0.17 | 0.13 | 0.30 | 0.08 | 0.00 |
+| −1..−0.5 | 158,213 | +0.118 | 54.1 | 0.00 | 0.11 | 0.07 | 0.05 | 0.33 | 0.16 | 0.10 | 0.08 | 0.12 | 0.08 | 0.06 |
+| −0.5..+0.5 | 885,177 | +0.049 | 52.3 | 0.05 | 0.06 | 0.04 | 0.07 | 0.16 | 0.10 | −0.02 | 0.00 | 0.05 | 0.05 | 0.00 |
+| +0.5..+2 | 222,073 | 0.000 | 49.6 | 0.17 | 0.00 | 0.09 | 0.05 | −0.03 | 0.15 | −0.12 | 0.00 | 0.05 | 0.07 | −0.02 |
+| +2..+4 | 27,223 | −0.213 | 43.9 | 0.18 | 0.00 | 0.06 | 0.00 | −0.72 | −0.09 | −0.42 | −0.19 | −0.04 | −0.14 | −0.04 |
+| +4..+6 | 4,813 | −0.921 | 38.6 | −0.10 | −0.32 | −0.15 | −0.23 | −2.17 | −0.66 | −1.50 | −1.85 | −0.48 | −0.63 | −0.47 |
+| **>+6%** | 4,052 | **−3.308** | **30.7** | 0.00 | −0.38 | −1.50 | −2.24 | −3.85 | −2.93 | −3.41 | −6.60 | −3.82 | −3.25 | −2.53 |
+
+ALL: n 1,420,627, median +0.051%, win 51.9%.
+
+**Three readings:**
+
+1. **The long side is real but small and it INVERTS in the deep tail.** The peak
+   is only **+0.25%** (−4..−3), and `<−6%` goes **negative** (−0.403%, win 46.5%).
+   A big last-hour flush is *continuation*, not reversal.
+2. **⭐⭐ THE SHORT SIDE IS THE BIG ONE.** `>+6%` in the last hour → median
+   **−3.31%** overnight, win **30.7%**, and it is negative in **10 of 11 years**.
+   `+4..+6` → −0.92%, win 38.6%. This is a far stronger and far more consistent
+   effect than anything on the long side — **directly relevant to SpikeFader**.
+3. It is monotone across the whole middle: the sign flips cleanly at 0.
+
+**Split by last-hour tape density** — this is what settles the MOC question:
+
+| last hour | LIQUID (≥3000/3600 s) n | med% | win% | THIN (<600/3600 s) n | med% | win% |
+|---|---:|---:|---:|---:|---:|---:|
+| <−6% | 601 | **+1.221** | 53.2 | 413 | **−0.877** | 41.2 |
+| −6..−4 | 416 | **+1.035** | **59.6** | 630 | **−0.795** | 37.3 |
+| −4..−3 | 564 | +0.625 | 55.1 | 700 | 0.000 | 46.1 |
+| −3..−2 | 1,218 | +0.611 | 58.9 | 1,630 | +0.028 | 50.1 |
+| −2..−1 | 3,623 | +0.346 | 56.8 | 4,329 | +0.080 | 51.1 |
+| >+6% | 646 | −4.675 | 36.2 | 430 | −3.561 | 24.7 |
+
+**The long-side effect is a LIQUIDITY effect, and it flips sign on thin tape.**
+On a continuously-traded name a −6..−4% last hour is worth **+1.04%** overnight
+at a 59.6% hit rate. On a name that trades <600 of 3,600 seconds the same setup
+is worth **−0.79%** at 37.3%. MOC exits are 100% in the thin column.
+
+Population matched exactly to the MOC exits' own profile (`nbars_lh < 1900` ∧
+`lh_chg < −2%`): **n = 24,903, median +0.120%, mean +0.076%, win 51.5%** — i.e.
+the 43-ticker-day sample's +0.97% is noise around an effect of roughly **+0.1%**,
+which is far below the spread on a name that traded 535 of 3,600 seconds.
+
+### 4. Verdict
+
+- **g60 / the trading book: no-op.** Zero MOC exits exist there.
+- **Full universe: do not switch.** 43 independent observations, CI straddling
+  zero, and the 24,903-obs matched population puts the true effect at ~+0.1%
+  gross — negative after the spread on tape this thin.
+- **⭐ The user's thesis is correct, but for liquid names and mostly on the SHORT
+  side.** It is not a fix for the MOC exit; it is a **standalone overnight
+  signal**, and the strongest version of it is fading a >+6% last hour.
+
+### 5. ⚠ Method notes
+
+- **Trip-level t-stats on MOC are meaningless** — 175 trips = 43 ticker-days,
+  one day contributing 15. t went **+3.47 → +0.92** on dedup.
+- **The overnight leg must NOT be built from `split_adjusted_prices`** — it
+  carries a live dividend-denominator bug (see below) that produced a
+  **+493,598%** overnight return (VISN 2026-04-27). Built here from **raw
+  `daily_prices` + `splits.split_ratio` + cash dividends added back**:
+  `overnight = [raw_open(D+1)·split_ratio(D+1) + cash_div(ex=D+1)] / raw_close(D) − 1`.
+- **`daily_prices.open` is the tradeable 09:30 RTH print** — verified against the
+  first 1s bar at/after 34200 on 20.3M ticker-days: median ratio **1.0000**,
+  p05 0.9965, p95 1.0039, **91.8% within 50bp**.
+- **The 1s slim `vwap` is RAW** (unadjusted) — `p1600/adj_close` has median
+  1.0177. Harmless for `lh_chg` (a same-day ratio: the factor cancels), but do
+  not mix 1s slim prices with adjusted daily prices in a level comparison.
+
+### 🛑 DATA BUG FOUND — `split_adjusted_prices` dividend denominator
+
+`TradingEdge.Database/sql/schema/materialized/01_split_adjusted_prices.sql` step 3
+computes the per-dividend factor as `f = 1 − adj_div / close_ON_the_ex_date`.
+The ex-date close is **already ex-dividend**, so the denominator is too small by
+exactly the dividend. The correct denominator is the **cum-dividend close** (the
+last close *before* the ex-date).
+
+Bites hard whenever the dividend exceeds ~half the price: **VISN** paid a **$10.00
+special** on a stock that closed **$19.53** (ex 2026-04-28, opened $9.90).
+`f = 1 − 10/9.90 = −0.0101` → hits the `GREATEST(…, 0.000001)` clamp → the whole
+pre-2026-04-28 history is multiplied by 1e-6 (`adj_close` = **$0.000020** against
+a raw $19.53). Correct: `f = 1 − 10/19.53 = 0.488`. Same for **LU** (2024-06-04,
+$2.37 on a $4.38 close). The clamp's comment calls `div ≥ price` "an economic
+absurdity / bad data" — it is neither; it is the *expected* output of the wrong
+denominator.
+
+**Scope: 92,749 rows across 72 tickers with `adj_close/raw_close < 0.01`.** Every
+dividend payer is also mis-scaled second-order (`1 − d/(P−d)` instead of
+`1 − d/P`). This is NOT the 2026-06-18 subtractive bug — that fix landed
+(commit `0ba63fe`) and `adj_close ≤ 0` is 0 rows today. **Not fixed here** —
+flagged for a decision, since rebuilding the table invalidates downstream
+materialized tables.
+
+### Where the work lives
+
+`scripts/equity/flushfader_overnight.py` (this study, reproduces every table above).
+
+---
+
 ## TODO (user, 2026-08-07) — S-tier sizing to be split from A–D
 
 **S-tier A trades (halt-band voice, 38 @ PF 37.1) should be handled as their
