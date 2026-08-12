@@ -16047,6 +16047,61 @@ two differently-scaled numbers, the exact shape CLAUDE.md rule 4 exists to catch
 And `open_p1` now rides on every trip, so the S43bq overnight question is
 answerable from the book itself with no hand-rolled join.
 
+### ⭐ S43bu — THE KNOWABILITY VERSION: 15:45 signal, MOC entry
+
+S43bt measured the last hour **15:00 → 16:00** and entered at the close. That is
+not implementable: **NYSE's MOC cutoff is 15:50**, so a signal needing the 16:00
+print cannot produce an MOC order. The knowable analogue stops at **15:45**,
+leaving a 15-minute blind window before the fill.
+
+**Signal fidelity:** `corr(lh45, lh60) = 0.843`. Of flushes visible at 15:45,
+**76%** are still < −6% at the close; but only **57%** of the eventual 16:00
+flushes were visible at 15:45. You see about half the setups, and a quarter of
+what you see recovers before you are filled.
+
+**The blind window is mildly HELPFUL, not harmful.** After a deep flush the stock
+keeps falling into the close, so the MOC fill is *better* than the signal price:
+
+| flush by 15:45 | n | median 15:45→16:00 | mean |
+|---|---:|---:|---:|
+| < −8% | 1,722 | **−0.252%** | −0.634% |
+| −8..−6% | 1,422 | +0.144% | −0.011% |
+| −6..−4% | 3,664 | +0.083% | +0.097% |
+
+**🛑 BUT THE MEDIAN FLIPS NEGATIVE.** At matched selectivity:
+
+| cut | n | PF | mean% | **median%** | worst-20 as %P&L |
+|---|---:|---:|---:|---:|---:|
+| 16:00 `gaps≤800/3600 × <−6%` (unusable) | 806 | 1.783 | +4.67 | **+0.92** | −20.7% |
+| 15:45 `gaps≤600/2700 × <−6%` | 694 | 1.516 | +3.63 | **−1.51** | −34.8% |
+| 15:45 `gaps≤600/2700 × <−8%` | 441 | **1.795** | **+5.83** | **−2.34** | −30.7% |
+
+PF survives — the best knowable cell matches the unusable one at 1.795 — but the
+trade becomes a **pure right-tail lottery**: more than half of entries lose, and
+the whole return is carried by the tail. Concentration worsens with it
+(−20.7% → −31/35% of P&L in the worst 20). That is a materially harder thing to
+size and to sit through than the 16:00 version's positive-median profile.
+
+**Per-year (knowable), all populated years:**
+
+| cell | n | PF | mean% | trd/yr | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | yrs<1 |
+|---|---:|---:|---:|---:|---|---|---|---|---|---|---|---:|
+| `gaps≤600 × <−8%` | 441 | **1.795** | +5.83 | 80 | 1.47 | 1.32 | 1.41 | 1.43 | 2.73 | 2.17 | 1.51 | **0** |
+| `gaps≤600 × <−6%` | 694 | 1.516 | +3.63 | 118 | 1.50 | 1.05 | 1.30 | 1.30 | 2.63 | 1.67 | 1.46 | **0** |
+| `gaps≤1200 × <−3%` | 3,675 | 1.324 | +1.36 | 613 | 1.41 | 1.29 | 1.02 | 1.19 | 1.97 | 1.05 | 1.46 | **0** |
+| `gaps≤900 × <−6%` | 989 | 1.323 | +2.25 | 173 | 1.33 | 1.06 | 0.98 | 1.11 | 2.23 | 1.32 | 1.29 | 1 |
+
+⚠ **The knowable PF surface is NOISIER than the 16:00 one** — non-monotone in the
+gap axis (`≤150` 1.637, `≤300` 1.384, `≤450` 1.320, `≤600` 1.516 at −6%). Picking
+the maximum cell out of a jumpy grid is a selection-bias trap; prefer a cell whose
+neighbours also hold up.
+
+⏭ **The obvious next move: do not use MOC.** The entry does not have to be an
+auction print — crossing the spread at ~15:58 with a market or marketable-limit
+order would let the signal run to ~15:55 and recover most of the gap between 1.516
+and 1.783, at the cost of the spread. On `gaps ≤ 600` names the tape is
+continuous by construction, so that spread should be small. Untested.
+
 ### ⭐⭐ THE LOSS DISTRIBUTION of the >+6% short — positive EV, ruinous tail
 
 The median said short. The tail says size it like an option you are writing.
