@@ -68,16 +68,42 @@
 DROP TABLE IF EXISTS daily_adjusted;
 CREATE TABLE daily_adjusted AS
 
--- Step 0: ⚠ COLLAPSE MULTIPLE SPLITS ON ONE DATE FIRST. A ticker can have more
--- than one split per execution_date (a reverse/forward PAIR — the odd-lot
--- squeeze-out; see sql/schema/tables/splits.sql). Their combined effect is the
--- PRODUCT of the ratios, which for a pair is 1.0 — no share-count change at all.
--- Without this step the cumulative window below emits one row per LEG and the
--- ASOF join picks an arbitrary one, reinstating the naked-ratio bug.
-WITH splits_by_date AS (
+-- Step 0a: ⭐ APPLY THE TAPE CORRECTIONS (02_split_corrections.sql, S43bs).
+-- ~5.5% of split dates are asserted by Polygon's reference data but contradicted
+-- by Polygon's own price tape. Applying those as recorded manufactures a
+-- discontinuity the market never had (TTSH x3000). The correction table resolves
+-- each into:
+--     SHIFT  -> the split is real, the recorded date is not: use corrected_date
+--               (Polygon logged an announcement/declaration date, e.g. IAU's 10:1
+--               is recorded 2010-06-17 but the tape divides by 10 on 2010-06-24)
+--     REJECT -> no day in +/-40 trading days is explained by the ratio: drop it.
+--               The tape is internally SELF-CONSISTENT across these dates, so
+--               dropping preserves continuity while applying would break it.
+-- Ratios below 1.25x are never corrected (scrip dividends — real, and too small
+-- for a one-day test to resolve), so they simply have no row here.
+-- ⚠ The join is at DATE grain, so every leg of a date shares its date's verdict —
+-- which is what we want: a pair is corrected as one action, never half-corrected.
+WITH splits_corrected AS (
+    SELECT s.ticker,
+           COALESCE(c.corrected_date, s.execution_date) AS execution_date,
+           s.split_ratio
+    FROM splits s
+    LEFT JOIN split_corrections c
+           ON c.ticker = s.ticker AND c.execution_date = s.execution_date
+    WHERE s.split_ratio > 0
+      AND COALESCE(c.action, 'KEEP') <> 'REJECT'
+),
+-- Step 0b: ⚠ COLLAPSE MULTIPLE SPLITS ON ONE DATE. A ticker can have more than
+-- one split per execution_date (a reverse/forward PAIR — the odd-lot squeeze-out;
+-- see sql/schema/tables/splits.sql). Their combined effect is the PRODUCT of the
+-- ratios, which for a pair is 1.0 — no share-count change at all. Without this
+-- step the cumulative window below emits one row per LEG and the ASOF join picks
+-- an arbitrary one, reinstating the naked-ratio bug.
+-- This also re-collapses correctly when a SHIFT lands on a date that already has
+-- a split: both then apply on the same day, and the product is the right answer.
+splits_by_date AS (
     SELECT ticker, execution_date, EXP(SUM(LN(split_ratio))) AS split_ratio
-    FROM splits
-    WHERE split_ratio > 0
+    FROM splits_corrected
     GROUP BY ticker, execution_date
 ),
 -- Step 1: n at each split execution_date = FORWARD cumulative product of ratios.

@@ -44,10 +44,21 @@ sql/schema/
 │   ├── intraday_prices_minute.sql
 │   └── intraday_prices_second.sql
 └── materialized/                    # derived tables (rebuilt on ingest-data)
-    └── 01_split_adjusted_prices.sql   # split + dividend adjusted (the only live derived table)
+    ├── 01_split_adjusted_prices.sql   # LEGACY back-adjusted prices (lookahead; being retired)
+    ├── 02_split_corrections.sql       # splits the price tape contradicts -> SHIFT / REJECT
+    └── 03_daily_adjusted.sql          # ⭐ CAUSAL forward adjustment: raw P + n + cum_div
 ```
 
-> `split_adjusted_prices` is the sole materialized table. The old `session_*`,
+> ⚠ The numeric prefixes are **load-bearing** — the folder is executed in NAME
+> order (`Database.getEmbeddedSqlFromFolder` sorts), and `03_daily_adjusted`
+> consumes the table `02_split_corrections` builds. Do not renumber one alone.
+>
+> ⭐ **`daily_adjusted` is the one to use.** `split_adjusted_prices` back-adjusts,
+> so its `adj_ratio` folds in every FUTURE split — a lookahead in any gate. See
+> `docs/price_adjustment.md`. Engines still read the old table; migration is in
+> progress, so never mix the two in one calculation.
+
+> Historically `split_adjusted_prices` was the sole materialized table. The old `session_*`,
 > `premarket_volume_daily`, `structure_levels`, `stock_volume_4w`, `trading_calendar`
 > tables and the `gap_play` / `continuation_plays` views belonged to the retired ORB /
 > gap-up research lineage and were removed — they made `ingest-data` slow (one

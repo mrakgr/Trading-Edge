@@ -40,6 +40,18 @@ def ret(ticker, d1, d2):
     return None if r is None else r[0]
 
 
+# ⚠ After 02_split_corrections.sql, `n` no longer tracks the RAW splits table:
+# REJECTed splits are not applied and SHIFTed ones move date. Every check that
+# reasons about n must use the APPLIED set, not `splits`.
+APPLIED_SPLITS = """
+  SELECT s.ticker, COALESCE(c.corrected_date, s.execution_date) AS execution_date,
+         s.split_ratio
+  FROM splits s
+  LEFT JOIN split_corrections c
+         ON c.ticker = s.ticker AND c.execution_date = s.execution_date
+  WHERE s.split_ratio > 0 AND COALESCE(c.action, 'KEEP') <> 'REJECT'
+"""
+
 print("=== 1. structural invariants ===")
 r = con.execute("""SELECT
   (SELECT count(*) FROM daily_adjusted) n_adj,
@@ -57,12 +69,13 @@ check("no inf / nan", int(r.nonfinite[0]) == 0)
 # multi-week gap in the series), so the step lands on the NEXT available bar. The
 # assertion is therefore that every step is explained by an event in (prev_date, date],
 # NOT by one exactly on `date` — 533 splits and 8,628 ex-dates fall in such gaps.
-check("every n step is explained by a split in (prev_date, date]", con.execute("""
-  WITH t AS (SELECT ticker, date, n,
+check("every n step is explained by an APPLIED split in (prev_date, date]", con.execute(f"""
+  WITH ap AS ({APPLIED_SPLITS}),
+       t AS (SELECT ticker, date, n,
                     lag(n)    OVER w pn, lag(date) OVER w pdate
              FROM daily_adjusted WINDOW w AS (PARTITION BY ticker ORDER BY date))
   SELECT count(*) FROM t WHERE pn IS NOT NULL AND n <> pn
-    AND NOT EXISTS (SELECT 1 FROM splits s WHERE s.ticker=t.ticker
+    AND NOT EXISTS (SELECT 1 FROM ap s WHERE s.ticker=t.ticker
                     AND s.execution_date > t.pdate AND s.execution_date <= t.date)
   """).fetchone()[0] == 0)
 check("every cum_div step is explained by an ex-date in (prev_date, date]", con.execute("""
@@ -113,7 +126,43 @@ bad = con.execute("""
 check("every in-range collision scales cash by n(ex-1)", bad == 0,
       f"{bad} rows used the post-split count")
 
-print("\n=== 4. SOURCE-DATA INVENTORY: splits contradicted by the price tape ===")
+print("\n=== 4. SPLIT CORRECTIONS (02_split_corrections.sql) ===")
+# The correction table is RECOMPUTED every materialize, so its action counts are a
+# silent-drift surface: a vendor data change could move them without anyone
+# noticing. Assert them, so a change has to be acknowledged rather than absorbed.
+EXPECT = {"SHIFT": 30, "REJECT": 141}
+act = dict(con.execute(
+    "SELECT action, count(*) FROM split_corrections GROUP BY 1").fetchall())
+print(f"  {act}")
+for k, v in EXPECT.items():
+    check(f"{k} count == {v}", act.get(k) == v, f"got {act.get(k)}")
+# ⭐ THE POINT OF THE WHOLE EXERCISE: after corrections, no split with a
+# DIAGNOSTIC ratio (>= 1.25x) may still be contradicted by the tape. Anything
+# surviving here is a detector bug, not residual vendor noise.
+diag = con.execute("""
+  WITH sc AS (SELECT s.ticker, COALESCE(c.corrected_date, s.execution_date) AS ed, s.split_ratio
+              FROM splits s LEFT JOIN split_corrections c
+                ON c.ticker=s.ticker AND c.execution_date=s.execution_date
+              WHERE s.split_ratio>0 AND COALESCE(c.action,'KEEP')<>'REJECT'),
+       sbd AS (SELECT ticker, ed, EXP(SUM(LN(split_ratio))) AS r FROM sc GROUP BY 1,2),
+       t AS (SELECT ticker,date,close, lag(close) OVER w AS pc
+             FROM daily_prices WINDOW w AS (PARTITION BY ticker ORDER BY date))
+  SELECT count(*) FROM sbd s JOIN t ON t.ticker=s.ticker AND t.date=s.ed
+  WHERE t.pc>0 AND t.close>0
+    AND abs(ln(t.close/t.pc*s.r)) >= abs(ln(t.close/t.pc))
+    AND abs(ln(s.r)) >= ln(1.25)""").fetchone()[0]
+check("no DIAGNOSTIC split (>=1.25x) is still tape-contradicted", diag == 0,
+      f"{diag} remain")
+# Known answers: Polygon logged announcement dates for these.
+for tkr, orig, want in [("IAU", "2010-06-17", "2010-06-24"),
+                        ("HEI", "2018-01-02", "2018-01-18"),
+                        ("BMI", "2016-08-29", "2016-09-16")]:
+    got = con.execute(f"""SELECT CAST(corrected_date AS VARCHAR) FROM split_corrections
+      WHERE ticker='{tkr}' AND execution_date=DATE '{orig}'""").fetchone()
+    check(f"{tkr} {orig} shifts to {want}", got is not None and got[0] == want,
+          f"got {got[0] if got else None}")
+
+print("\n=== 5. SOURCE-DATA INVENTORY: splits contradicted by the price tape ===")
 # A split ratio makes a testable prediction: total value P*n + C should be
 # CONTINUOUS across the execution date. Where it jumps, `splits` and `daily_prices`
 # disagree -- the ratio is recorded but the tape never split.
@@ -121,17 +170,22 @@ print("\n=== 4. SOURCE-DATA INVENTORY: splits contradicted by the price tape ===
 # `split_adjusted_prices` at least as badly (TTSH's bogus 3000:1 on 2025-12-16
 # divides its ENTIRE prior history down to $0.002147 there). Reported as an
 # inventory with a regression baseline rather than a builder pass/fail.
-BASELINE_BOGUS = 178   # post-ingest-fix (was 188 when splits/dividends were keyed on the date)
-inv = con.execute("""
+# ⚠ MEANING CHANGED with 02_split_corrections.sql: this now counts APPLIED splits
+# only. All 52 survivors are still CORROBORATED (the split explains the day better
+# than not applying it) and sit at a median price of $0.19 — penny-shell reverse
+# splits where a same-day squeeze on top of the split is ordinary. Not damage.
+BASELINE_BOGUS = 53    # was 178 post-ingest-fix, 188 originally
+inv = con.execute(f"""
   WITH t AS (SELECT ticker, date, close*n+cum_div tv,
                     lag(close*n+cum_div) OVER w ptv
              FROM daily_adjusted WINDOW w AS (PARTITION BY ticker ORDER BY date)),
+  ap AS ({APPLIED_SPLITS}),
   bad AS (SELECT t.ticker, t.date FROM t
-          JOIN splits s ON s.ticker=t.ticker AND s.execution_date=t.date
+          JOIN ap s ON s.ticker=t.ticker AND s.execution_date=t.date
           WHERE t.ptv > 0 AND abs(t.tv/t.ptv - 1) > 0.5)
   SELECT (SELECT count(*) FROM bad) n_bad,
          (SELECT count(DISTINCT ticker) FROM bad) n_tk,
-         (SELECT count(*) FROM splits) n_splits,
+         (SELECT count(*) FROM ap) n_splits,
          (SELECT count(*) FROM mr_candidate_1s u JOIN bad
             ON bad.ticker=u.ticker AND u.date >= bad.date) universe_tkds_after
   """).fetchdf()
@@ -142,7 +196,7 @@ print("  ⚠ pre-existing source defect, present in split_adjusted_prices too �
 check(f"bogus-split count has not regressed past the {BASELINE_BOGUS} baseline",
       nb <= BASELINE_BOGUS, f"now {nb}")
 
-print("\n=== 5. the S43bq overnight leg reproduces from the table alone ===")
+print("\n=== 6. the S43bq overnight leg reproduces from the table alone ===")
 r = con.execute("""
   WITH n AS (SELECT ticker, date, close, n, cum_div,
                     lead(open)    OVER w o1, lead(n) OVER w n1, lead(cum_div) OVER w c1

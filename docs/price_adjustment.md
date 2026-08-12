@@ -4,11 +4,11 @@
 `split_adjusted_prices` still exists and is still what every engine reads;
 migration is in progress. Do not mix the two in one calculation.
 
-> 🛑 **INTRADAY ONLY.** Roughly **1 split in 20** is wrong in the source data and
-> we have deliberately chosen not to correct it — safe here because an intraday
-> hold cannot straddle a split (contamination: **2 trips of 35,782**), but **not**
-> safe for anything held overnight or using long lookbacks. See §6 before reusing
-> this table in a swing or position system.
+> ✅ **Split errors are CORRECTED** (S43bs, 2026-08-12). Roughly 1 split date in 20
+> was contradicted by the price tape; `split_corrections` now resolves them
+> automatically on every materialize. **Zero splits with a diagnostic ratio
+> (≥ 1.25×) remain contradicted.** This table is no longer intraday-only — see §6
+> for what remains and why it is not damage.
 
 ---
 
@@ -165,7 +165,7 @@ the cash.
 
 `n(ex−1) = n(ex)` whenever there is no collision, so this is **one uniform rule**,
 not a special case. It is implemented by the strict `>` in the dividend ASOF join
-in `02_daily_adjusted.sql`.
+in `03_daily_adjusted.sql`.
 
 ## 5. The ingest keys (fixed 2026-08-12)
 
@@ -206,95 +206,116 @@ rows in [startDate, endDate]"*) into outright loss of the database.
 **Recovered:** splits 27,833 → **28,007** (+174); dividends 1,982,531 →
 **2,043,178** (+60,647, **3.1%**).
 
-## 6. Known residual: the vendor contradicts itself
+## 6. The vendor contradicts itself — and what we do about it
 
-**343 of 6,241 split dates (5.5%) are asserted by Polygon's reference data but
-show no corresponding move in Polygon's own flat-file tape.** This is *not* our
-bug, and it damages `split_adjusted_prices` too. Established 2026-08-12:
+**Polygon's splits reference data and Polygon's own flat-file tape disagree on
+~5.5% of split dates.** Both of our copies are faithful — `daily_prices` matches
+the S3 CSVs exactly and `splits` matches `/v3/reference/splits`. Established
+2026-08-12 (S43bs), it is:
 
-- `daily_prices` matches the original S3 CSVs **exactly**;
-- local `splits` matches `/v3/reference/splits` for 172 of 188 sampled;
-- **not** symbol reuse (0 of 174 flagged tickers have multiple FIGIs);
+- **not** ours — ingest fidelity is exact;
+- **not** symbol reuse — 0 of 174 flagged tickers have multiple FIGIs;
 - **not** a low-price artifact — contradicted splits have **median price $16.20**
-  and 76% are $5+, while penny stocks are the *most* reliable (0.6% contradicted
-  under 10¢ vs 12.3% at $5–20);
+  and 76% are $5+, while sub-10¢ splits are the *most* reliable (0.6% contradicted
+  vs 12.3% at $5–20);
 - **not** a fund artifact — ETFs are under-represented (4.7% vs 34.7% baseline).
 
-Two mechanisms are identified:
+A split ratio makes a **testable prediction**: the day's move should be explained
+by it. Where it is not, applying the ratio *creates* a discontinuity the market
+never had.
 
-- **Date misalignment (~32 cases).** The split is real, the date is off — usually
-  by exactly **+1 trading day**. `IAU`'s 10:1 shows in the tape on **2010-06-24**
-  (121.06 → 12.14, an exact 10× divide) but `splits` records **2010-06-17**.
-- **Spinoff offset.** `EXPE` 2011-12-21 is a *genuine* 1:2 reverse whose price
-  effect was cancelled by the simultaneous TripAdvisor spinoff. Spinoffs are not
-  modelled by either scheme.
+### `split_corrections` — computed, never curated
 
-After the §5 fix the **worst remaining contradicted ratio is 165×** (was
-32,000×), and `HON`'s phantom 2:1 reverse at $232 — a stale row Polygon no longer
-publishes — is gone.
+`sql/schema/materialized/02_split_corrections.sql` derives one row per
+contradicted split date from `splits` + `daily_prices`, on **every materialize**.
 
-### 🛑 DECISION (user, 2026-08-12): accept the errors — INTRADAY ONLY
+⭐ It is **recomputed, not hand-maintained**, and that is deliberate: a curated
+overlay *rots*. If Polygon later fixes a record upstream, a stale `SHIFT` would
+relocate a now-correct date, and the only guard would be remembering to re-run a
+diff. A derived table cannot go stale against its own inputs.
 
-**Roughly 1 split in 20 is wrong, and we are knowingly living with it.** For an
-intraday system that is defensible; **for anything holding overnight or longer it
-is not, and those splits would need manual intervention.** Read this section
-before reusing `daily_adjusted` in a swing or position system.
+`splits` itself is **never edited** — it stays a faithful vendor mirror so we can
+always re-derive.
 
-**Why it is safe for us.** FlushFader enters and exits inside one session, so no
-split or dividend can fall *inside* a holding window. `n` and `cum_div` are
-constant within a day, so they cancel out of every intraday return exactly —
-a wrong `n` cannot move an intraday P&L at all.
+| outcome | n | what it means |
+|---|---:|---|
+| **SHIFT** | 30 | The split is real; the recorded date is not. `execution_date` moves to the date the tape actually jumps. |
+| **REJECT** | 141 | No day within ±40 trading days is explained by the ratio (or only loosely, residual ≥ 5%). The split is dropped. |
+| *(no row)* | 172 | Ratio < 1.25× — **not errors**, see below. |
 
-The residual exposure is only via the **cross-day context columns**
-(`close_m1/m3/m7`, `close_p1/p3/p5`, `open_p1`), and because splits are rare
-events while those windows are days rather than years, it is minute:
+**⭐ Exactness, not proximity, is the evidence.** The far-offset cases are the
+*most* exact, on large stable names: FLIC residual 0.0008, BMI 0.0027 ($66), HEI
+0.0030 ($94), HBI 0.0103 ($114), JEF 0.0121 — at offsets of 11–40 trading days. A
+2:1 landing on 0.5014 thirteen days out is not coincidence. The mechanism shows in
+the pattern — HEI recorded 2018-01-02, tape jump 2018-01-18; CGNX 2017-11-16 →
+2017-12-04 — **Polygon logged an announcement/declaration date instead of the
+ex-date.** Worked check: IAU's 10:1 is recorded 2010-06-17 but the tape divides by
+exactly 10 on **2010-06-24** (121.06 → 12.14).
 
-| | count |
-|---|---:|
-| contradicted split dates | **343** of 6,241 (5.5%) |
-| universe ticker-days with one in `[D−7, D+5]` | **76** of 1,431,802 (**0.005%**) |
-| **trips in the traded book within ±7 days of one** | **2** of 35,782 |
+**REJECT, not repair.** Across those dates the tape is internally *self-consistent*
+— no discontinuity anywhere in the window — so dropping the split preserves that,
+while applying would manufacture a jump. Repairing the prices instead would need an
+external source of truth we do not have.
 
-So the headline 5.5% is a rate *per split event*; our actual contamination is
-**two trips**. Nothing is worth building on top of that.
+Two clauses in the detector are load-bearing and easy to get wrong:
 
-**Why a longer-horizon system cannot make the same call.** The exposure scales
-with how much calendar a calculation touches:
+- **The candidate day must be a genuine discontinuity** (`|ln m| ≥ ½|ln r|`).
+  Without it, any ordinary 1% day "matches" a 1.01 ratio; an early pass lacking it
+  reported 60.6% "found" that was almost entirely noise.
+- **The candidate day must not already carry a split of its own.** Otherwise its
+  move is double-counted. FSBK has two 3-for-2 splits — 2004-03-22 (phantom, tape
+  +1.0%) and 2004-04-26 (real, 37.01 → 24.85) — and without this clause the phantom
+  shifted onto the real one, making the date's product 1.5 × 1.5 = **2.25×** against
+  a tape showing 1.5×.
 
-- a multi-day or multi-week **hold** can straddle a split date, so a wrong `n`
-  lands directly in the trade's return rather than cancelling;
-- long **lookbacks** (52-week channels, multi-year ATR, drawdown series) sweep up
-  many split dates each, so the 5.5% per-event rate compounds toward "most long
-  histories contain at least one";
-- under back-adjustment the damage is *unbounded backwards* — one bad ratio
-  rewrites the entire prior history (TTSH → $0.002147).
+### The 172 that remain are scrip dividends, not damage
 
-For such a system the fix is not automatic: either adopt the corroboration test
-below and accept that it rejects genuine splits in spinoff cases, or curate the
-343 by hand against a second vendor. **Do not assume this table is clean for
-multi-day work simply because it validates clean for intraday.**
+Ratios under 1.25× are **not corrected**. 49.4% of them are co-dated with a
+dividend against a **10.7% baseline** (4.6× enriched) and their ratios cluster at
+1.01–1.05 — the signature of **scrip / stock dividends**, which genuinely change
+share count. A one-day test cannot resolve a 3% ratio against daily noise, so they
+stay applied by design.
 
-### The corroboration test (designed, NOT adopted)
+### What is left, honestly
 
-Apply a split only when it *reduces* the implied day's move —
-`|ln(m·ratio)| < |ln(m)|` where `m = close(t)/close(t−1)`. It is principled (a
-split factor's only job is cross-event comparability, so if the tape is already
-continuous, applying the factor *creates* a discontinuity), symmetric, and has no
-tuned threshold. It accepts AAPL 4:1 (0.033 < 1.353) and rejects TTSH
-(7.986 > 0.020), keeping 5,898 and rejecting 343.
+After corrections, **zero splits with a diagnostic ratio (≥ 1.25×) are still
+contradicted** — that is the acceptance test. Residual quality of the applied set,
+measured as how well each split explains its own day:
 
-It is **not enabled**: it would reject genuine splits wherever a spinoff offset
-the price move (EXPE 2011-12-21), which is the right trade for a price-ratio
-backtest but wrong if `n` must track true share count. Pending a decision, we
-apply every split as recorded, and
-`scripts/equity/validate_daily_adjusted.py` reports the count as an inventory
-with a regression baseline so it cannot grow silently.
+| residual after applying | n | share | median price |
+|---|---:|---:|---:|
+| < 5% (clean) | 3,718 | 61.0% | $25.58 |
+| 5–20% | 1,765 | 28.9% | $0.45 |
+| 20–100% | 582 | 9.5% | $0.26 |
+| 1–7× off | 34 | 0.6% | $0.15 |
+| **> 7× off (reorg-class)** | **1** | 0.02% | $0.10 |
+
+The residual is concentrated in **penny-stock reverse splits**, where a same-day
+squeeze on top of the split is ordinary rather than anomalous — note how the median
+price collapses as the residual grows.
+
+⚠ **The one reorg-class case, and the limitation it exposes.** `SDRL` 2018-07-03 is
+recorded as a **1-for-26,777** reverse split — Seadrill's Chapter 11 emergence,
+where old equity was largely cancelled and reissued. The tape moved ×181, not
+×26,777. It survives because **the corroboration test is *relative***: applying a
+wildly wrong ratio is still marginally "better" than applying nothing. No
+price-based test can separate "wrong ratio" from "huge real move" when both are
+large, so bankruptcy reorganisations encoded as extreme splits are a known blind
+spot. One case in 6,100.
+
+### Impact
+
+Correcting this changed **201 split dates**, touching **22 universe ticker-days**
+and **0 trips** in the FlushFader book. It is correctness work that unblocks
+overnight returns and future multi-day systems — not a P&L change, and it was not
+expected to be one.
 
 ## 7. Files
 
 | file | role |
 |---|---|
-| `TradingEdge.Database/sql/schema/materialized/02_daily_adjusted.sql` | builds the table; auto-registers via the folder glob (runs after `01_`) |
+| `.../materialized/02_split_corrections.sql` | resolves tape-contradicted splits (SHIFT / REJECT) |
+| `.../materialized/03_daily_adjusted.sql` | builds the table; consumes the corrections. ⚠ The `02_`/`03_` prefixes are load-bearing — the folder is executed in NAME order |
 | `TradingEdge.Database/sql/schema/tables/{splits,dividends}.sql` | `PRIMARY KEY(id)` + the rationale |
 | `TradingEdge.Massive/{SplitDownload,DividendDownload}.fs` | capture Polygon's `id`; `VendorId.require` throws if absent |
 | `TradingEdge.Massive/Types.fs` | `Split` / `Dividend` records |

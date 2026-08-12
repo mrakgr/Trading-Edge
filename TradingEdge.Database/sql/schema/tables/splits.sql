@@ -17,7 +17,7 @@
 -- ⚠ Consumers must therefore aggregate by (ticker, execution_date) — take the
 -- PRODUCT of split_ratio — before building any cumulative factor. A window
 -- function ordered by execution_date alone yields one row per leg and picks an
--- arbitrary one. `02_daily_adjusted.sql` does this in its splits_by_date CTE.
+-- arbitrary one. `03_daily_adjusted.sql` does this in its splits_by_date CTE.
 CREATE TABLE IF NOT EXISTS splits (
     id VARCHAR NOT NULL,
     ticker VARCHAR NOT NULL,
