@@ -16047,6 +16047,69 @@ two differently-scaled numbers, the exact shape CLAUDE.md rule 4 exists to catch
 And `open_p1` now rides on every trip, so the S43bq overnight question is
 answerable from the book itself with no hand-rolled join.
 
+### ⭐⭐ THE LOSS DISTRIBUTION of the >+6% short — positive EV, ruinous tail
+
+The median said short. The tail says size it like an option you are writing.
+
+| | ALL >+6% (n 4,051) | top 25% density (n 1,776) |
+|---|---|---|
+| p01 / p10 / p25 | −39.9 / −17.8 / −10.4 | −50.0 / −21.8 / −12.8 |
+| **median** | **−3.31** | **−3.51** |
+| p75 / p90 / p95 | +1.4 / +11.2 / +22.0 | +3.6 / +18.1 / +31.0 |
+| **p99 / p99.9 / max** | **+64.0 / +150.2 / +245.0** | **+86.3 / +171.7 / +245.0** |
+| mean | −2.65 | −1.87 |
+
+(overnight move; a short's P&L is the negative. **Short: mean +2.65%, median
++3.31%, PF 1.653.**)
+
+**⚠ DENSITY HELPS THE MEDIAN AND HURTS THE TAIL.** The top-25% filter that roughly
+triples the LONG edge moves the short's p99 loss from −64% to −86% and its mean
+from +2.65% to +1.87%. The continuously-traded names *are* the squeeze
+candidates — GME, OCGN, HOLO, GNS all sit in the top decile of tape density. The
+long and short sides want opposite filters.
+
+**How often it goes wrong:** >5% loss **16.7%** of the time, >10% **10.8%**,
+>20% **5.6%**, >50% **1.6%**, **>100% 0.4% (16 trades)**.
+
+**Concentration — the inverse of what you want.** The 50 worst trades (1.2% of
+the sample) cost **45% of total P&L**; the 20 worst cost 24.7%. PF 1.653 raw →
+2.506 excluding the 64 losses over 50%. Worst singles: TOP 2023-04-27 **+245%**,
+BNAI 2026-01-23 +235%, AHPI +167%, OCGN +153%, **GME 2021-01-26 +140%**.
+
+**Per year:** negative in 2016 (−6.3%, n 30) and 2017 (−2.8%, n 104), positive
+every year 2018–2026 (+1.0% to +5.8%, win 62–78%).
+
+**Filters do NOT rescue it.** An upper bound on the last-hour move does nothing
+(+6..+10 PF 1.76, +10..+20 1.57, +20..+40 1.85, >+40 1.02) — the −235% and −245%
+losses are in the *bulk* buckets, not the extreme. A price floor runs backwards:
+`<$1` is the BEST slice (PF 2.10) and `>$20` the worst (1.46), and sub-$1 is
+fee-dead and unborrowable anyway.
+
+**Clustering is the one piece of good news.** 227 losses >20% fall across 205
+distinct sessions — max 5 on any day (2020-02-27). They are idiosyncratic, not
+one correlated squeeze. But median positions per night is **2**, so there is
+almost no diversification to lean on either.
+
+**Sizing.** Equal-weight within a night, fixed fraction of account deployed:
+
+| deployed | terminal | CAGR | maxDD | worst night |
+|---|---|---|---|---|
+| 100% | **RUINED 2021-08-24** | — | −100% | −119.7% |
+| 50% | 6,974,369× | 385% | **−81.1%** | −59.9% |
+| 25% | 10,004× | 152% | −48.2% | −29.9% |
+| 10% | 52.3× | 48.7% | −20.9% | −12.0% |
+| **5%** | **7.6×** | **22.5%** | **−10.7%** | −6.0% |
+| 2% | 2.3× | 8.6% | −4.3% | −2.4% |
+
+⚠ The 50% row survives this particular path and is not a strategy — one worse
+night wipes it. **A short's loss is unbounded and there is no stopping out
+overnight**, so the sizing must assume a >100% single-name loss is reachable:
+0.4% of trades already did it.
+
+⚠ NOT MODELLED: borrow cost and availability (these are precisely the
+hard-to-borrow names), fees, and whether the MOC/MOO auction prints are
+attainable at size. All three cut the same way.
+
 ### Where the work lives
 
 `docs/price_adjustment.md` (the reference), `sql/schema/materialized/`
