@@ -146,7 +146,12 @@ let endDateOpt = parsed.TryGetResult End_Date
 let limitOpt = parsed.TryGetResult Limit
 
 let tradesDir = "data/bulk/trades"       // HDD source (symlink -> /mnt/d)
-let outDir = "data/intraday_1s_slim"     // SSD (repo root /dev/sde) — NOT data/bulk (that's the HDD)
+// ⚠ Overridable so a full rebuild writes BESIDE the live corpus instead of over
+// it — the old set stays usable until the new one is verified and swapped.
+let outDir =
+    match Environment.GetEnvironmentVariable "TE_1S_OUT_DIR" with
+    | null | "" -> "data/intraday_1s_slim"   // SSD (repo root /dev/sde) — NOT data/bulk (that's the HDD)
+    | d -> d
 Directory.CreateDirectory outDir |> ignore
 
 // SSD spill dir for the per-day sort (keep any DuckDB spill off the HDD).
@@ -162,8 +167,24 @@ let openCloseSetSql = TradeFilters.openCloseSetSql   // [17,25,19,8] — opening
 let excludeSetSql = TradeFilters.excludeSetSql       // [2,7,10,13,20,21,22,29,32,52,53]
 
 // Session window: bucket N starts at sessionStart + N*bucketDuration; keep
-// buckets in [sessionStart, sessionEnd) — excludes the closing auction minute
-// (16:00 prints leak into 15:59 via SIP ordering and distort downstream RVOLs).
+// buckets in [sessionStart, sessionEnd).
+//
+// ⭐⭐ 2026-08-12 (user): THE SESSION NOW RUNS TO MIDNIGHT — POST-MARKET INCLUDED.
+// It previously stopped at 15:59:00, i.e. the last bar was 15:58:59, to keep the
+// closing auction out (16:00 prints disseminate late and land in the 15:59 bucket
+// via SIP ordering, which distorted downstream RVOLs). Two costs became clear:
+//   * the LAST RTH MINUTE — typically the day's heaviest — was invisible to every
+//     study built on this corpus, and it is exactly the minute a close-entry
+//     strategy fills in (LongSnoozer, docs/longsnoozer_results.md);
+//   * the post-close session could not be examined AT ALL, so "is there an edge
+//     buying flushes after hours?" was unanswerable.
+// The auction-leak problem is real but is now the CONSUMER's to handle: the data
+// should carry what traded and let each study decide (exclude the 15:59 bucket,
+// treat the auction print separately, or use it). Truncating the source to dodge
+// one bucket cost two sessions' worth of tape.
+// ⚠ Downstream: anything folding "the whole session" now sees ~4 extra hours.
+// Re-derive rather than assume — RVOL denominators and any bar-count gate
+// (n_bars_1s, gap counts) change meaning.
 //
 // ⭐ Bucket 0 = 00:00 ET (midnight Eastern), NOT 08:30 ET (user, DECISION 9).
 // The 10s builder starts at 08:30 for simplicity/perf; here we start at midnight
@@ -175,8 +196,15 @@ let startHoursFromBase = 0.0
 let bucketDuration = TimeSpan.FromSeconds 1.0
 let bucketNs = int64 bucketDuration.TotalNanoseconds       // 1_000_000_000
 let sessionStart = TimeSpan(0, 0, 0)                       // 00:00 ET
-let regularEnd = TimeSpan(15, 59, 0)
-let earlyEnd = TimeSpan(12, 59, 0)
+// ⭐ MIDNIGHT, not 20:00. Measured on the raw tape (2026-08-07): trades run 04:00
+// to 20:00 ET and nowhere else — but hour 20 still carries ~9k prints that a
+// 20:00 bound would clip, and the empty hours cost NOTHING (no trades -> no bars,
+// so no rows and no bytes). Running to 24:00 removes the arbitrary boundary
+// entirely and captures any future overnight session (Blue Ocean et al, 20:00-04:00)
+// automatically, with no code change. The early-close distinction is moot at this
+// bound and is kept only so the variable names still read.
+let regularEnd = TimeSpan(24, 0, 0)
+let earlyEnd = TimeSpan(24, 0, 0)
 let maxSipDeltaNs = int64 (TimeSpan.FromMilliseconds 50.0).TotalNanoseconds
 
 let maxBucketFor (close: TimeSpan) =
