@@ -42,7 +42,8 @@ type Config =
       /// drops to seconds per day).
       MinRvol0945: float
       /// ⭐ Universe gate on the PRIOR day's close in day-D's raw (post-split) scale —
-      /// prev_adj_close / adj_ratio >= this. Knowable BEFORE the open (D-1 close),
+      /// close_m1 >= this — already in day D's RAW scale, no rescale. Knowable
+      /// BEFORE the open (D-1 close),
       /// unlike entry price. 0 = off (record-first). 2.0 = the ">=$2 stocks" universe
       /// (sub-$1 is priced out on every EU-accessible broker route).
       MinPrevClose: float
@@ -156,26 +157,41 @@ let defaultConfig =
 /// One candidate (ticker, day) from diprider_v6_candidate — the daily context
 /// that rides along on every trip for post-hoc slicing. Forward closes are
 /// REPORTED only.
+/// ⭐ S43br: every price here is in day D's RAW scale, and each reference day
+/// carries BOTH a price and a dividend increment — a return needs both endpoints'
+/// scale info when the share count changes:
+///     ret(D -> x) = (CloseX + DivX) / CloseD - 1
+/// Div* are NEGATIVE for past days (cash was paid between then and D). See
+/// docs/price_adjustment.md.
 type Candidate =
     { Ticker: string
       Date: DateOnly
-      PrevAdjClose: float
-      Close3d: float             // adjusted close 3 trading days back — chg_3d in SQL
-      DayClose: float
-      AdjRatio: float
-      CloseFwd1d: float
-      CloseFwd3d: float
-      CloseFwd5d: float
+      CloseD: float              // RAW close on D — no adjustment, ever
+      N: float                   // causal cumulative split multiplier at D
+      CloseM1: float             // prior close, in D's raw scale
+      DivM1: float
+      CloseM3: float             // close 3 trading days back — chg_3d in SQL
+      DivM3: float
+      CloseP1: float             // forward closes: REPORTED only, lookahead by design
+      DivP1: float
+      CloseP3: float
+      DivP3: float
+      CloseP5: float
+      DivP5: float
+      OpenP1: float              // next session's OPEN, in D's raw scale (S43bq)
       Dv0945: float
       Rvol0945Honest: float }
 
-/// The candidate table: `mr_candidate_1s` (S39 — 1s-tape-native, dv_0945_tape >= $2M x
-/// n_eff_shannon >= 25, 2020+) unless overridden via FF_CANDIDATE_TABLE (research: run a
+/// The candidate table: `mr_candidate_1s_v2` (S43br — the CAUSAL rebuild; 1s-tape-native,
+/// dv_0945_tape >= $2M x n_bars_1s >= 200, 2016+) unless overridden via FF_CANDIDATE_TABLE.
+/// ⚠ The legacy `mr_candidate_1s` will NOT work: its daily-context columns are
+/// back-adjusted and differently named (day_close/adj_ratio/prev_adj_close/close_fwd_*).
+/// (Research: run a
 /// breakdown against a different universe, e.g. the old 1m-gated diprider_v6_candidate or
 /// a restricted tkd table). Identifier-only (injection-safe). Fails fast on a bad value.
 let candidateTable =
     match Environment.GetEnvironmentVariable "FF_CANDIDATE_TABLE" with
-    | null | "" -> "mr_candidate_1s"
+    | null | "" -> "mr_candidate_1s_v2"
     | t when t |> Seq.forall (fun c -> Char.IsLetterOrDigit c || c = '_') -> t
     | bad -> failwithf "Invalid FF_CANDIDATE_TABLE %A (identifier chars only)" bad
 
@@ -213,12 +229,17 @@ let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDa
         else ""
     use cmd = conn.CreateCommand()
     cmd.CommandText <-
-        $"SELECT ticker, date, prev_adj_close, close_3d, day_close, adj_ratio,
-                 close_fwd_1d, close_fwd_3d, close_fwd_5d, dv_0945, rvol_0945_honest
+        // ⭐ close_m1 is ALREADY the prior close in D's raw scale, so the price
+        // floor is a plain comparison — no `/ adj_ratio` rescale, which is exactly
+        // the ratio-of-two-differently-scaled-numbers that CLAUDE.md rule 4 warns
+        // about. This is the visible payoff of the causal scheme.
+        $"SELECT ticker, date, close_d, n, close_m1, div_m1, close_m3, div_m3,
+                 close_p1, div_p1, close_p3, div_p3, close_p5, div_p5, open_p1,
+                 dv_0945, rvol_0945_honest
           FROM {table}
           WHERE date >= $start AND date <= $end AND dv_0945 >= $mindv
             AND rvol_0945_honest >= $minrvol
-            AND coalesce(prev_adj_close / nullif(adj_ratio, 0), 0) >= $minprevclose
+            AND coalesce(close_m1, 0) >= $minprevclose
             {prepassClause}
             {barnumClause}
           ORDER BY ticker, date"
@@ -234,15 +255,21 @@ let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDa
         out.Add(
             { Ticker = reader.GetString 0
               Date   = DateOnly.FromDateTime(reader.GetDateTime 1)
-              PrevAdjClose = dbl 2
-              Close3d = dbl 3
-              DayClose = dbl 4
-              AdjRatio = dbl 5
-              CloseFwd1d = dbl 6
-              CloseFwd3d = dbl 7
-              CloseFwd5d = dbl 8
-              Dv0945 = dbl 9
-              Rvol0945Honest = dbl 10 })
+              CloseD = dbl 2
+              N = dbl 3
+              CloseM1 = dbl 4
+              DivM1 = dbl 5
+              CloseM3 = dbl 6
+              DivM3 = dbl 7
+              CloseP1 = dbl 8
+              DivP1 = dbl 9
+              CloseP3 = dbl 10
+              DivP3 = dbl 11
+              CloseP5 = dbl 12
+              DivP5 = dbl 13
+              OpenP1 = dbl 14
+              Dv0945 = dbl 15
+              Rvol0945Honest = dbl 16 })
     out.ToArray()
 
 // ===========================================================================
@@ -258,7 +285,7 @@ let private RowsPerPart = 250_000
 
 let private tripTableSql = """
 CREATE TABLE trips (
-    symbol VARCHAR, trade_date VARCHAR, adj_ratio DOUBLE,
+    symbol VARCHAR, trade_date VARCHAR, n DOUBLE,
     signal_sec INTEGER, signal_vwap DOUBLE, entry_sec INTEGER, entry_px DOUBLE,
     volat_20m DOUBLE, volat_10m DOUBLE, rng_20m DOUBLE, eff_20m DOUBLE, eff_10m DOUBLE, slot_count INTEGER,
     rng_sess DOUBLE, rng_600 DOUBLE, rng_300 DOUBLE, rng_120 DOUBLE, rng_60 DOUBLE, rng_30 DOUBLE,
@@ -298,8 +325,9 @@ CREATE TABLE trips (
     vwma_60m_px DOUBLE, vwma_60m_sec INTEGER,
     exit_sec INTEGER, exit_px DOUBLE, exit_reason VARCHAR,
     ret_exit DOUBLE, bars_held INTEGER,
-    prev_adj_close DOUBLE, close_3d DOUBLE, day_close DOUBLE,
-    close_fwd_1d DOUBLE, close_fwd_3d DOUBLE, close_fwd_5d DOUBLE,
+    close_m1 DOUBLE, div_m1 DOUBLE, close_m3 DOUBLE, div_m3 DOUBLE, close_d DOUBLE,
+    close_p1 DOUBLE, div_p1 DOUBLE, close_p3 DOUBLE, div_p3 DOUBLE,
+    close_p5 DOUBLE, div_p5 DOUBLE, open_p1 DOUBLE,
     dv_0945 DOUBLE, rvol_0945_honest DOUBLE, dv_0945_tape DOUBLE,
     vwap_30_prev DOUBLE, hi_30 DOUBLE, vwap_30 DOUBLE, vwap_120 DOUBLE, vwap_180 DOUBLE,
     ols_slope_60 DOUBLE, ols_r_60 DOUBLE, ols_slope_120 DOUBLE, ols_r_120 DOUBLE,
@@ -397,7 +425,7 @@ type TripSink(outDir: string) =
             let inline s (x: string) = row.AppendValue x |> ignore
             s c.Ticker
             s (c.Date.ToString "yyyy-MM-dd")
-            f c.AdjRatio
+            f c.N
             i p.SignalSec; f p.SignalVwap; i p.EntrySec; f p.EntryPx
             f p.Volat20m; f p.Volat10m; f p.Rng20m; f p.Eff20m; f p.Eff10m; i p.SlotCount
             f p.RngSess; f p.Rng600; f p.Rng300; f p.Rng120; f p.Rng60; f p.Rng30
@@ -440,8 +468,9 @@ type TripSink(outDir: string) =
             i exitSec; f exitPx; s reason
             f (if p.EntryPx > 0.0 then exitPx / p.EntryPx - 1.0 else nan)
             i p.BarsHeld
-            f c.PrevAdjClose; f c.Close3d; f c.DayClose
-            f c.CloseFwd1d; f c.CloseFwd3d; f c.CloseFwd5d
+            f c.CloseM1; f c.DivM1; f c.CloseM3; f c.DivM3; f c.CloseD
+            f c.CloseP1; f c.DivP1; f c.CloseP3; f c.DivP3
+            f c.CloseP5; f c.DivP5; f c.OpenP1
             f c.Dv0945; f c.Rvol0945Honest; f p.Dv0945Tape
             f p.Vwap30Prev; f p.Hi30; f p.Vwap30; f p.Vwap120; f p.Vwap180
             f p.OlsSlope60; f p.OlsR60; f p.OlsSlope120; f p.OlsR120; f p.OlsSlope180; f p.OlsR180
@@ -506,11 +535,9 @@ type TripSink(outDir: string) =
 // ===========================================================================
 type SecEmitter
         ( conn: DuckDBConnection, path: string,
-          tickers: string[], adjRatio: IDictionary<string, float>,
-          sessionStartSec: int, mocSec: int ) =
+          tickers: string[], sessionStartSec: int, mocSec: int ) =
 
     member val Conn = conn
-    member val AdjRatio = adjRatio
 
     member val Sql =
         let tickerList = tickers |> Array.map (fun t -> "'" + t.Replace("'", "''") + "'") |> String.concat ","
@@ -524,25 +551,32 @@ type SecEmitter
         ORDER BY ticker, bucket"""
             (path.Replace("'", "''")) tickerList sessionStartSec mocSec
 
-    /// Stream every candidate-ticker present 1s bar for this date, split-
-    /// adjusted, in (ticker, bucket) order. `inline` so onNext fuses into the
-    /// read loop — this loop runs ~10^6-10^7 times per day.
+    /// Stream every candidate-ticker present 1s bar for this date, RAW, in
+    /// (ticker, bucket) order. `inline` so onNext fuses into the read loop — this
+    /// loop runs ~10^6-10^7 times per day.
+    ///
+    /// ⭐ S43br: THE TAPE IS NO LONGER SCALED. It used to be `vwap = raw * adj_ratio`
+    /// and `volume = raw / adj_ratio`, where adj_ratio folded in every FUTURE split —
+    /// so every intraday price carried future information, and price and volume had
+    /// to be kept on one scale by hand (the 2026-07-29 fix, after the DvFloor60 gate
+    /// went future-split-dependent and let 808 trips through on inflation alone, S29;
+    /// and S43v, where a second multiply made 71.4% of an "S-tier" book artifact).
+    ///
+    /// Raw is correct because every intraday feature is either a same-day RATIO (where
+    /// any common factor cancels) or a dollar quantity (where raw price x raw volume is
+    /// already real dollars). Cross-day context arrives pre-converted into D's raw scale
+    /// on the Candidate. Nothing left to multiply — so the double-multiply bug class is
+    /// gone, not merely audited for.
     member inline this.Process(onNext: string * SecBar -> unit) =
         use cmd = this.Conn.CreateCommand()
         cmd.CommandText <- this.Sql
         use reader = cmd.ExecuteReader()
         while reader.Read() do
             let ticker = reader.GetString 0
-            let r = this.AdjRatio.[ticker]
             let bar : SecBar =
                 { etSec      = reader.GetInt32 1
-                  vwap       = reader.GetDouble 2 * r
-                  // ⭐ volume divided by the SAME ratio (2026-07-29): price and
-                  // shares must share one scale or every vwap·volume product is
-                  // adj_ratio × real dollars — the DvFloor60 gate was future-
-                  // split-dependent (808 trips passed only via inflation, S29).
-                  // Ratios (vol_10/vol_60, vwap_60, VWMA) are unaffected.
-                  volume     = reader.GetDouble 3 / r
+                  vwap       = reader.GetDouble 2
+                  volume     = reader.GetDouble 3
                   tradeCount = reader.GetInt32 4 }
             onNext (ticker, bar)
 
@@ -625,9 +659,8 @@ let collectTrips (cfg: Config) (secDir: string)
                     tkds.Clear()
                     let path = IO.Path.Combine(secDir, sprintf "%s.parquet" (req.Date.ToString "yyyy-MM-dd"))
                     let byTicker = req.Cands |> Array.map (fun c -> c.Ticker, c) |> dict
-                    let adjRatio = req.Cands |> Array.map (fun c -> c.Ticker, c.AdjRatio) |> dict
                     let emitter = SecEmitter(conn, path, Array.map (fun (c: Candidate) -> c.Ticker) req.Cands,
-                                             adjRatio, cfg.Intraday.SessionStartSec, cfg.Intraday.MocSec)
+                                             cfg.Intraday.SessionStartSec, cfg.Intraday.MocSec)
                     let mutable curTicker : string = null
                     let flush () =
                         if not (isNull curTicker) then

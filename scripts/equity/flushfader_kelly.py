@@ -13,6 +13,9 @@ Usage:
   python lnw.py --r-dis -0.5        # disaster is -50% instead of -100%
 """
 import argparse, duckdb, numpy as np, warnings
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from flushfader_common import raw_px_expr
 from scipy import optimize
 warnings.filterwarnings("ignore")
 
@@ -38,7 +41,7 @@ TRIPS = "/home/mrakgr/Trading-Edge/data/equity/flushfader/v43_legtick/trips_p*.p
 # the g60 universe — parity THERE is ~406s. 450 sits inside [406, 490] and
 # drops CADL 2024-12-11 (secs 480), tier C's -21.7% outlier.
 BOOK_WHERE = """
-  gap_60 < 4 AND entry_px/adj_ratio >= 1 AND (
+  gap_60 < 4 AND {RAWPX} >= 1 AND (
     COALESCE(volat_20m*1e4 >= 140, false)
     OR COALESCE((signal_vwap/first_low_vwap)*(1+d_hi_flow) - 1 < -0.28, false)
     OR COALESCE(signal_vwap/sess_low - 1 >= 0.08, false)
@@ -49,6 +52,8 @@ BOOK_WHERE = """
     OR COALESCE(halts_today >= 1 AND secs_since_halt >= 120 AND secs_since_halt < 1200, false))
 """
 con = duckdb.connect()
+RAWPX, SCHEMA = raw_px_expr(con, TRIPS)
+BOOK_WHERE = BOOK_WHERE.replace("{RAWPX}", RAWPX)
 f_ = con.execute(f"""
 SELECT symbol, trade_date, entry_sec, exit_sec,
        ret_exit*sqrt(99.0/(volat_20m*1e4)) AS rn,

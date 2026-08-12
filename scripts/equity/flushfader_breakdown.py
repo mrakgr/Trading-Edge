@@ -24,6 +24,9 @@ Usage:
       --edges 1 2 3 4 5 6 8 --base full g60 --mc 1
 """
 import argparse, duckdb, numpy as np, warnings
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from flushfader_common import raw_px_expr
 warnings.filterwarnings("ignore")
 
 ap = argparse.ArgumentParser()
@@ -53,13 +56,15 @@ BOOK_VOICES = """(
 
 WHERE = {
     "full": "1=1",
-    "spec": "entry_px/adj_ratio >= 1",
+    "spec": "{RAWPX} >= 1",
     "g60":  "gap_60 < 4",
-    "g60p": "entry_px/adj_ratio >= 1 AND gap_60 < 4",
-    "book": "entry_px/adj_ratio >= 1 AND gap_60 < 4 AND "
+    "g60p": "{RAWPX} >= 1 AND gap_60 < 4",
+    "book": "{RAWPX} >= 1 AND gap_60 < 4 AND "
             + BOOK_VOICES.replace("{ESF}", str(args.esf)),
 }
 con = duckdb.connect()
+RAWPX, SCHEMA = raw_px_expr(con, args.trips)
+WHERE = {k: v.replace("{RAWPX}", RAWPX) for k, v in WHERE.items()}
 
 
 def mc1(f):

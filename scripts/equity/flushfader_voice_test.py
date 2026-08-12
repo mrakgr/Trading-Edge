@@ -17,6 +17,9 @@ Usage:
       --cand "downticks_since_uptick >= 8" "downticks_since_uptick >= 10"
 """
 import argparse, duckdb, numpy as np, warnings
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from flushfader_common import raw_px_expr
 warnings.filterwarnings("ignore")
 
 ap = argparse.ArgumentParser()
@@ -43,6 +46,7 @@ sel = ", ".join(f"COALESCE({e}, false) AS {n}" for n, e in VOICES) \
       + ", " + ", ".join(f"COALESCE({e}, false) AS cand{i}" for i, e in enumerate(args.cand))
 
 con = duckdb.connect()
+RAWPX, SCHEMA = raw_px_expr(con, args.trips)
 F = con.execute(f"""
 SELECT symbol, trade_date, signal_sec, entry_sec, exit_sec, ret_exit, volat_20m,
        substr(trade_date::VARCHAR,1,4) AS y,
@@ -50,7 +54,7 @@ SELECT symbol, trade_date, signal_sec, entry_sec, exit_sec, ret_exit, volat_20m,
             WHEN gap_adj_1200<15 THEN 'B'
             WHEN ols_slope_60*6e5<=-350 THEN 'C' ELSE 'D' END AS tier, {sel}
 FROM read_parquet('{args.trips}')
-WHERE entry_px/adj_ratio >= 1 AND gap_60 < 4
+WHERE {RAWPX} >= 1 AND gap_60 < 4
 ORDER BY symbol, trade_date, signal_sec""").fetchdf()
 V = {n: F[n].values for n in NAMES}
 INC = np.logical_or.reduce([V[n] for n, _ in VOICES])

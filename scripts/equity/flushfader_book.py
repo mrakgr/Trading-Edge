@@ -17,6 +17,9 @@ Usage:
   python scripts/equity/flushfader_book.py --esf 450 --mult 2.44 1.80 1.14 1.00
 """
 import argparse, duckdb, numpy as np, warnings
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from flushfader_common import raw_px_expr
 warnings.filterwarnings("ignore")
 
 ap = argparse.ArgumentParser()
@@ -30,9 +33,9 @@ ap.add_argument("--no-g60", action="store_true")
 args = ap.parse_args()
 
 # The trading-book filter. NB S-tier is halts_today >= 1 (the engine cascade
-# gate means ht in {1,2}). {ESF} is substituted per run.
+# gate means ht in {1,2}). {ESF} and {RAWPX} are substituted per run.
 BOOK_WHERE = """
-  {G60} entry_px/adj_ratio >= 1 AND (
+  {G60} {RAWPX} >= 1 AND (
     COALESCE(volat_20m*1e4 >= 140, false)
     OR COALESCE((signal_vwap/first_low_vwap)*(1+d_hi_flow) - 1 < -0.28, false)
     OR COALESCE(signal_vwap/sess_low - 1 >= 0.08, false)
@@ -45,9 +48,13 @@ BOOK_WHERE = """
 con = duckdb.connect()
 
 
+RAWPX, SCHEMA = raw_px_expr(con, args.trips)
+
+
 def book(esf):
-    where = BOOK_WHERE.replace("{ESF}", str(esf)).replace(
-        "{G60}", "" if args.no_g60 else "gap_60 < 4 AND")
+    where = (BOOK_WHERE.replace("{ESF}", str(esf))
+                       .replace("{RAWPX}", RAWPX)
+                       .replace("{G60}", "" if args.no_g60 else "gap_60 < 4 AND"))
     f = con.execute(f"""
     SELECT symbol, trade_date, signal_sec, entry_sec, exit_sec, ret_exit, volat_20m,
            ret_exit*sqrt(99.0/(volat_20m*1e4)) AS rn,
@@ -90,7 +97,8 @@ for esf in args.esf:
     P = book(esf)
     R = P.ret_exit.values
     print(f"\n{'='*78}\nsecs_since_first_low <= {esf}   (per-ticker-day mc=1, "
-          f"{'no g60' if args.no_g60 else 'g60'}, $1+ raw)\n{'='*78}")
+          f"{'no g60' if args.no_g60 else 'g60'}, $1+ raw via `{RAWPX}` — {SCHEMA})"
+          f"\n{'='*78}")
     n, p, w, a = stat(R)
     print(f"BOOK   n {n:>5}   PF {p:6.3f}   win {w:5.1f}%   avg {a:+6.2f}%   "
           f"worst {R.min()*100:+6.1f}%   trimPF {pf(R[R >= np.quantile(R, args.trim)]):6.3f}")

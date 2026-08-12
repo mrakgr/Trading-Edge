@@ -70,12 +70,22 @@ open TradingEdge.RollingMa
 // research window).
 // ===========================================================================
 
-/// One 1-second present bar from data/intraday_1s_slim/, split-adjusted to the
-/// candidate's daily scale. `etSec` = the `bucket` column: seconds since 00:00
-/// ET (RTH open = 34200, 09:45 = 35100, 16:00 = 57600). volume is FLOAT — the
-/// tape carries genuine fractional shares — and arrives SPLIT-ADJUSTED (raw
-/// shares / adj_ratio, mirroring vwap = raw × adj_ratio) so vwap·volume is
-/// honest dollars (S29 fix, 2026-07-29).
+/// One 1-second present bar from data/intraday_1s_slim/, exactly as the tape
+/// printed it. `etSec` = the `bucket` column: seconds since 00:00 ET (RTH open =
+/// 34200, 09:45 = 35100, 16:00 = 57600). volume is FLOAT — the tape carries
+/// genuine fractional shares.
+///
+/// ⭐ S43br: THESE ARE RAW. They used to arrive split-adjusted (`vwap = raw ×
+/// adj_ratio`, `volume = raw / adj_ratio`), which meant every intraday price
+/// carried a factor derived from FUTURE splits, and price and volume had to be
+/// held on one scale by hand so that vwap·volume stayed honest dollars (the S29
+/// fix, 2026-07-29 — before it, the DvFloor60 gate was future-split-dependent and
+/// admitted 808 trips on inflation alone).
+///
+/// Raw needs none of that: same-day ratios cancel any common factor, and raw
+/// price × raw volume is already real dollars. Cross-day context arrives
+/// pre-converted into day D's raw scale on the Candidate. See
+/// docs/price_adjustment.md.
 type SecBar =
     { etSec: int
       vwap: float
