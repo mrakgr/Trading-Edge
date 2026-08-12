@@ -99,6 +99,59 @@ which is far below the spread on a name that traded 535 of 3,600 seconds.
 
 ---
 
+## ⭐ S43bt — THE 2D GRID: gap count × flush depth
+
+The reference grid. Signal window **15:00 → 15:58:59** (the corpus end — see the
+banner above), gaps counted out of 3,600, entry at the close. Superseded for
+EXECUTION by S43bv, which moves the signal to 15:57 and the entry to a limit —
+but this is the surface the thresholds were found on, and the cell S43bv is
+measured against.
+
+**PF** — rows `gaps ≤ X` of 3,600, cols last-hour flush deeper than:
+
+| gaps≤ | <−2% | <−3% | <−4% | <−5% | <−6% | <−8% | <−10% |
+|---|---|---|---|---|---|---|---|
+| 200 | 1.913 | 1.924 | 1.857 | 1.958 | 2.165 | **2.379** | 2.309 |
+| 400 | 1.667 | 1.655 | 1.680 | 1.743 | 1.978 | 2.038 | 2.062 |
+| 600 | 1.570 | 1.577 | 1.573 | 1.590 | 1.687 | 1.666 | 1.601 |
+| **800** | 1.539 | 1.599 | 1.626 | 1.684 | **1.783** | 1.515 | 1.459 |
+| 1000 | 1.455 | 1.504 | 1.544 | 1.600 | 1.660 | 1.366 | 1.307 |
+| 1200 | 1.395 | 1.423 | 1.470 | 1.494 | 1.555 | 1.336 | 1.314 |
+| 1600 | 1.288 | 1.312 | 1.356 | 1.337 | 1.383 | 1.233 | 1.208 |
+| any | 1.139 | 1.117 | 1.117 | 1.123 | 1.136 | 1.076 | 1.096 |
+
+**Two readings.**
+
+**The gap axis dominates.** PF runs 2.17 → 1.14 top to bottom at `<−6%`, while
+moving along the flush axis inside any row shifts it by ~0.1–0.3. Tape continuity
+is the first-order variable; how far the stock fell is second-order.
+
+**⭐ There is a real interaction at the deep end.** On tight tapes (`gaps ≤ 400`)
+deeper flushes keep paying — PF rises monotonically through `<−10%`. On looser
+tapes (`gaps ≥ 800`) it **peaks at −6% and then collapses** (1.783 → 1.515 →
+1.459). A deep flush on a gappy tape is a different, worse animal than the same
+flush on a continuous one, so the two thresholds cannot be tuned independently.
+
+**The standout cell: `gaps ≤ 800 × <−6%`** — PF **1.783**, mean **+4.67%**,
+median **+0.92%**, n **806**, worst-20 concentration **−20.7%**, and per-year
+1.82 · 1.48 · 1.07 · 1.70 · 3.00 · 1.84 · 1.63 — **zero losing years**.
+`gaps ≤ 200 × <−8%` has the higher PF (2.379) but only 147 trades, a losing 2025
+and −40% concentration in its worst 20: a lottery ticket, not a book.
+
+**Frequency by year** (`gaps ≤ 800 × <−6%`) — the setup barely existed before 2020:
+
+| 2016 | 2017 | 2018 | 2019 | **2020** | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 3 | 4 | 8 | **114** | 199 | 56 | 56 | 97 | 150 | 118 |
+
+A 20–30× step change, not a drift — which is why absolute thresholds are the right
+instrument here (see the banner) and why the pre-2020 sparsity is the finding
+rather than something to normalise away.
+
+Grid tool: `scripts/equity/overnight_by_density.py`.
+
+---
+
 ## ⭐ S43bu — THE KNOWABILITY VERSION: 15:45 signal, MOC entry
 
 > 🛑 **SUPERSEDED BY S43bv — AND ITS PREMISE WAS WRONG.** The 1s corpus ends at
