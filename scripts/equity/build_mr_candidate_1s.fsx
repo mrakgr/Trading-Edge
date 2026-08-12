@@ -49,8 +49,8 @@
 // ⚠ SPAN: the 1s slim corpus starts 2020 — this table spans 2020+, not 2003+ like
 // `mr_candidate`. Point the engine at it with FF_CANDIDATE_TABLE=mr_candidate_1s.
 //
-// Columns (engine reads: ticker, date, prev_adj_close, close_3d, day_close, adj_ratio,
-// close_fwd_1d/3d/5d, dv_0945, rvol_0945_honest — all present):
+// Columns (the LEGACY engine reads prev_adj_close/close_3d/day_close/adj_ratio/
+// close_fwd_*; v2 renames those — see the S43br block below):
 //   n_bars_1s          # of PRESENT 1s bars 09:30-09:45 (max 900; absent seconds = no trades)
 //   tc_0945_tape       Σ trade_count 09:30-09:45
 //   vol_0945_tape      Σ volume 09:30-09:45
@@ -63,10 +63,30 @@
 //   n_eff_hhi          (Σv)²/Σv² — the order-2 twin (RECORDED; heavy-print alarm)
 //   open_0930_tape     first present 1s bar's vwap at/after 09:30 (session-open analog)
 //   vol_0945_pm_tape   premarket-inclusive Σ volume 04:00-09:45 (rvol numerator)
-//   rvol_0945          vol_0945_pm_tape / avgvol20 — ⚠ CONTAMINATED DENOMINATOR, report-only
+//   rvol_0945          vol_0945_pm_tape / avgvol20 — report-only (avgvol20 includes D)
 //   rvol_0945_honest   vol_0945_pm_tape / avgvol20_prior — LIVE-SAFE. Gate on this one.
-//   (+ the same daily-context columns as mr_candidate: prev_adj_close, close_3d, close_7d,
-//    day_close, adj_ratio, avgvol20, avgvol20_prior, close_fwd_1d/3d/5d)
+//
+// ⭐⭐ S43br (2026-08-12): THE DAILY-CONTEXT COLUMNS ARE REBUILT AND RENAMED.
+// They now come from `daily_episodes_causal` (over the CAUSAL `daily_adjusted`)
+// instead of `daily_episodes` (over the back-adjusted `split_adjusted_prices`),
+// and every one is expressed in day D's RAW scale. Renamed deliberately so a stale
+// query FAILS rather than silently reading raw prices as adjusted:
+//
+//     day_close       -> close_d      (RAW close on D)
+//     adj_ratio       -> n            (causal cumulative split multiplier)
+//     prev_adj_close  -> close_m1  + div_m1
+//     close_3d/7d     -> close_m3/m7 + div_m3/m7
+//     close_fwd_1/3/5 -> close_p1/p3/p5 + div_p1/p3/p5
+//     (new)              open_p1     next session's OPEN, in D's raw scale
+//
+// Each reference day carries BOTH a price and a dividend increment because a return
+// needs both endpoints' scale info:  ret = (close_x + div_x) / close_d - 1.
+// ⚠ avgvol20 / avgvol20_prior are now in D's RAW SHARE scale. The old
+// AVG(adj_volume) was raw x product-of-FUTURE-splits — a lookahead on 9.37% of the
+// universe, 134,203 ticker-days (AAPL 2020-08-27 recorded 155.3M vs a raw 38.8M,
+// x4 from a split four days later), sitting under the denominator of "LIVE-SAFE"
+// rvol_0945_honest. Dormant only because the engine's MinRvol0945 defaults to 0.
+// See docs/price_adjustment.md.
 //
 // Run:  dotnet fsi scripts/equity/build_mr_candidate_1s.fsx
 //       dotnet fsi scripts/equity/build_mr_candidate_1s.fsx -- --min-neff 25 --min-dv 2000000
@@ -81,6 +101,7 @@ type CliArgs =
     | Min_Dv of float
     | Min_Neff of float
     | Min_Bars of int
+    | [<AltCommandLine("-t")>] Table of string
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -90,6 +111,7 @@ type CliArgs =
             | Min_Dv _ -> "dv_0945_tape floor in raw dollars (default: 2e6)."
             | Min_Neff _ -> "n_eff_shannon floor — ⚠ RETIRED as the gate (S43u), 0 = off (default: 0)."
             | Min_Bars _ -> "n_bars_1s floor over [09:30,09:45) = 900 - gap count. THE (A') gate (default: 200)."
+            | Table _ -> "Destination table (default: mr_candidate_1s_v2). ⚠ v2 is the CAUSAL rebuild (S43br) with RENAMED columns; the engine still reads the legacy `mr_candidate_1s` until it is migrated."
 
 let parser = ArgumentParser.Create<CliArgs>(programName = "build_mr_candidate_1s.fsx")
 let parsed =
@@ -110,6 +132,12 @@ let minDv   = parsed.TryGetResult Min_Dv |> Option.defaultValue 2e6
 // (56.8% vs 54.0% kept). The two filters disagree on 20.9% of ticker-days.
 let minNeff = parsed.TryGetResult Min_Neff |> Option.defaultValue 0.0
 let minBars = parsed.TryGetResult Min_Bars |> Option.defaultValue 200
+// ⚠ Builds ALONGSIDE the legacy table by default. The column set is deliberately
+// RENAMED (day_close -> close_d, prev_adj_close -> close_m1, adj_ratio -> n, ...) so
+// a stale query fails LOUDLY rather than silently reading raw prices as adjusted —
+// which is exactly the failure mode CLAUDE.md rule 4 exists for. Swap the engine over
+// with FF_CANDIDATE_TABLE once the control run passes.
+let tbl = parsed.TryGetResult Table |> Option.defaultValue "mr_candidate_1s_v2"
 let glob = IO.Path.Combine(slimDir, "*.parquet").Replace("'", "''")
 
 // Seconds-since-ET-midnight anchors: premarket 04:00 = 14400, RTH open 09:30 = 34200,
@@ -120,8 +148,8 @@ let rthOpenSec = 34200
 let scanSec = 35100
 
 let sql = $"""
-DROP TABLE IF EXISTS mr_candidate_1s;
-CREATE TABLE mr_candidate_1s AS
+DROP TABLE IF EXISTS {tbl};
+CREATE TABLE {tbl} AS
 WITH
 -- (A') tape liquidity over OUR 1s bars. One aggregation pass: the Shannon/HHI effective
 -- counts use the monoid identities (H = ln Σv − Σ v·ln v / Σv), so no per-row volume
@@ -163,43 +191,76 @@ liq AS (
                         / sum(volume::DOUBLE) FILTER (bucket >= {rthOpenSec} AND volume > 0) )
                END >= {minNeff})
 ),
--- (B) episode-partitioned daily context — IDENTICAL to build_mr_candidate.fsx.
+-- (B) episode-partitioned daily context, expressed in day D's RAW scale (S43br).
+-- ⭐ Sourced from `daily_episodes_causal` (over `daily_adjusted`), NOT the legacy
+-- `daily_episodes` (over `split_adjusted_prices`). The old source was back-adjusted,
+-- so every column carried a FUTURE-split factor. See docs/price_adjustment.md.
+--
+-- Conversion of any other day t into D's scale (both endpoints needed — a return
+-- is not a ratio of levels when the share count changes):
+--     price  :  P(t) * n(t)/n(D)          div increment : (C(t) - C(D)) / n(D)
+--     ret    :  (close_x + div_x) / close_d - 1        for any stored day x
+-- and between two stored days: (px2 + div2 - px1 - div1) / px1.
+-- `div_m*` are NEGATIVE by construction (cash was paid between t and D) — correct.
 ctx AS (
     SELECT ticker, date,
-        adj_close AS day_close,
-        CASE WHEN raw_close > 0 THEN adj_close / raw_close END        AS adj_ratio,
-        LAG(adj_close, 1) OVER e                                      AS prev_adj_close,
-        LAG(adj_close, 3) OVER e                                      AS close_3d,
-        LAG(adj_close, 7) OVER e                                      AS close_7d,
-        AVG(adj_volume) OVER (PARTITION BY ticker, episode ORDER BY date
-                              ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS avgvol20,
+        close AS close_d,                                             -- RAW close on D
+        n,
+        LAG(close,1) OVER e * LAG(n,1) OVER e / n                     AS close_m1,
+        LAG(close,3) OVER e * LAG(n,3) OVER e / n                     AS close_m3,
+        LAG(close,7) OVER e * LAG(n,7) OVER e / n                     AS close_m7,
+        (LAG(cum_div,1) OVER e - cum_div) / n                         AS div_m1,
+        (LAG(cum_div,3) OVER e - cum_div) / n                         AS div_m3,
+        (LAG(cum_div,7) OVER e - cum_div) / n                         AS div_m7,
+        -- Forward columns + the NEXT SESSION'S OPEN (S43bq, user request): outcome
+        -- measurement only. Lookahead BY DESIGN — never gate on them.
+        LEAD(close,1) OVER e * LEAD(n,1) OVER e / n                   AS close_p1,
+        LEAD(close,3) OVER e * LEAD(n,3) OVER e / n                   AS close_p3,
+        LEAD(close,5) OVER e * LEAD(n,5) OVER e / n                   AS close_p5,
+        LEAD(open,1)  OVER e * LEAD(n,1) OVER e / n                   AS open_p1,
+        (LEAD(cum_div,1) OVER e - cum_div) / n                        AS div_p1,
+        (LEAD(cum_div,3) OVER e - cum_div) / n                        AS div_p3,
+        (LEAD(cum_div,5) OVER e - cum_div) / n                        AS div_p5,
+        -- ⭐ Volume in D's SHARE scale: volume(t) * n(D)/n(t) — the RECIPROCAL of the
+        -- price conversion, so price x volume (dollar volume) is scale-invariant.
+        -- ⚠ THIS FIXES A LOOKAHEAD. The old `AVG(adj_volume)` used
+        -- split_adjusted_prices' adj_volume = raw x product-of-FUTURE-splits, so
+        -- avgvol20 was FUTURE-SCALED on 134,203 of 1,431,802 universe ticker-days
+        -- (9.37 pct). AAPL 2020-08-27 recorded 155.3M against a raw 38.8M — x4 from
+        -- a split four days LATER. That denominator sits under `rvol_0945_honest`,
+        -- the column the old header called "LIVE-SAFE, gate on this one". It was
+        -- dormant only because the engine's MinRvol0945 defaults to 0.
+        -- (NB 64 pct of rows have adj_ratio != 1, but that is mostly the DIVIDEND
+        -- factor; adj_volume carries the split factor only. Do not conflate them.)
+        n * AVG(volume / n) OVER (PARTITION BY ticker, episode ORDER BY date
+                                  ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS avgvol20,
         -- LIVE-SAFE twin: the 20 bars ENDING AT D-1 (gate on this one, never avgvol20 — F14).
-        AVG(adj_volume) OVER (PARTITION BY ticker, episode ORDER BY date
-                              ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING) AS avgvol20_prior,
-        LEAD(adj_close, 1) OVER e                                     AS close_fwd_1d,
-        LEAD(adj_close, 3) OVER e                                     AS close_fwd_3d,
-        LEAD(adj_close, 5) OVER e                                     AS close_fwd_5d,
+        n * AVG(volume / n) OVER (PARTITION BY ticker, episode ORDER BY date
+                                  ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING) AS avgvol20_prior,
         -- D's position in its episode: prior-only, live-knowable. NOT COUNT(*) over the
         -- episode (that includes FUTURE days — see the header).
         ROW_NUMBER() OVER e                                           AS barnum
-    FROM daily_episodes
+    FROM daily_episodes_causal
     WINDOW e AS (PARTITION BY ticker, episode ORDER BY date)
 )
-SELECT c.ticker, c.date, c.barnum,
-    c.prev_adj_close, c.close_3d, c.close_7d, c.day_close, c.adj_ratio, c.avgvol20, c.avgvol20_prior,
-    c.close_fwd_1d, c.close_fwd_3d, c.close_fwd_5d,
+SELECT c.ticker, c.date, c.barnum, c.n,
+    c.close_d, c.close_m1, c.close_m3, c.close_m7, c.div_m1, c.div_m3, c.div_m7,
+    c.close_p1, c.close_p3, c.close_p5, c.open_p1, c.div_p1, c.div_p3, c.div_p5,
+    c.avgvol20, c.avgvol20_prior,
     l.n_bars_1s, l.tc_0945_tape, l.vol_0945_tape, l.dv_0945_tape, l.open_0930_tape,
     l.n_eff_shannon, l.n_eff_hhi, l.vol_0945_pm_tape,
     -- dv_0945 = the TAPE value (raw dollars). The old adj_ratio-scaled formula was the S35
     -- contamination; the engine's --min-dv-0945 gate defaults 0, THE floor is dv_0945_tape.
     l.dv_0945_tape AS dv_0945,
+    -- Now scale-consistent for the first time: a RAW tape numerator over a
+    -- D-raw-scale denominator. Previously raw / future-adjusted.
     l.vol_0945_pm_tape / NULLIF(c.avgvol20, 0)       AS rvol_0945,
     l.vol_0945_pm_tape / NULLIF(c.avgvol20_prior, 0) AS rvol_0945_honest
 FROM ctx c
 JOIN liq l ON l.ticker = c.ticker AND l.date = c.date;  -- INNER JOIN = the (A') prune
 -- (S40: the `WHERE c.barnum > 21` warmup is REMOVED — barnum is recorded instead.)
 
-CREATE UNIQUE INDEX mr_candidate_1s_ticker_date ON mr_candidate_1s (ticker, date);
+CREATE UNIQUE INDEX {tbl}_ticker_date ON {tbl} (ticker, date);
 """
 // (S39j max_slot_absr_bp volat-prepass column RETIRED from the build (user): the
 // provable trim only bought ~28.5% of streaming and the per-day fill cost ~7 min per
@@ -207,8 +268,8 @@ CREATE UNIQUE INDEX mr_candidate_1s_ticker_date ON mr_candidate_1s (ticker, date
 // trim. The engine's auto-trim clause is column-existence-guarded, so tables built
 // without the column just skip it.)
 
-printfn "Building `mr_candidate_1s` (dv_0945_tape >= $%.1fM AND n_bars_1s >= %d [gaps <= %d of 900]%s; CS/ADRC; NO warmup, NO price floor)"
-    (minDv / 1e6) minBars (900 - minBars)
+printfn "Building `%s` (dv_0945_tape >= $%.1fM AND n_bars_1s >= %d [gaps <= %d of 900]%s; CS/ADRC; NO warmup, NO price floor)"
+    tbl (minDv / 1e6) minBars (900 - minBars)
     (if minNeff > 0.0 then sprintf " AND n_eff_shannon >= %.0f" minNeff else "; n_eff gate OFF (S43u)")
 printfn "  db:      %s" (IO.Path.GetFullPath dbPath)
 printfn "  1s slim: %s" (IO.Path.GetFullPath slimDir)
@@ -232,14 +293,14 @@ exec "PRAGMA memory_limit='8GB'"
 exec sql
 sw.Stop()
 
-let rows    = scalar "SELECT COUNT(*) FROM mr_candidate_1s" :?> int64
-let tickers = scalar "SELECT COUNT(DISTINCT ticker) FROM mr_candidate_1s" :?> int64
-let days    = scalar "SELECT COUNT(DISTINCT date) FROM mr_candidate_1s" :?> int64
+let rows    = scalar $"SELECT COUNT(*) FROM {tbl}" :?> int64
+let tickers = scalar $"SELECT COUNT(DISTINCT ticker) FROM {tbl}" :?> int64
+let days    = scalar $"SELECT COUNT(DISTINCT date) FROM {tbl}" :?> int64
 printfn "Done in %.1fs: %d candidate rows, %d tickers, %d days" sw.Elapsed.TotalSeconds rows tickers days
 
 printfn "Per-year:"
 let cmd = conn.CreateCommand()
-cmd.CommandText <- "SELECT year(date), COUNT(*) FROM mr_candidate_1s GROUP BY 1 ORDER BY 1"
+cmd.CommandText <- $"SELECT year(date), COUNT(*) FROM {tbl} GROUP BY 1 ORDER BY 1"
 use reader = cmd.ExecuteReader()
 while reader.Read() do
     printfn "  %d  %d" (reader.GetInt64 0) (reader.GetInt64 1)
