@@ -4,6 +4,12 @@
 `split_adjusted_prices` still exists and is still what every engine reads;
 migration is in progress. Do not mix the two in one calculation.
 
+> 🛑 **INTRADAY ONLY.** Roughly **1 split in 20** is wrong in the source data and
+> we have deliberately chosen not to correct it — safe here because an intraday
+> hold cannot straddle a split (contamination: **2 trips of 35,782**), but **not**
+> safe for anything held overnight or using long lookbacks. See §6 before reusing
+> this table in a swing or position system.
+
 ---
 
 ## 1. The short version
@@ -227,13 +233,62 @@ After the §5 fix the **worst remaining contradicted ratio is 165×** (was
 32,000×), and `HON`'s phantom 2:1 reverse at $232 — a stale row Polygon no longer
 publishes — is gone.
 
-**Currently we apply every split as recorded.** `scripts/equity/validate_daily_adjusted.py`
-reports the count as an inventory with a regression baseline so it cannot grow
-silently. A **corroboration test** — apply a split only when it reduces the
-implied day's move, `|ln(m·ratio)| < |ln(m)|` where `m = close(t)/close(t−1)` — is
-designed and validated (accepts AAPL 4:1, rejects TTSH) but **not adopted**; it
-would reject genuine splits in the spinoff cases, which is a deliberate trade-off
-still pending a decision.
+### 🛑 DECISION (user, 2026-08-12): accept the errors — INTRADAY ONLY
+
+**Roughly 1 split in 20 is wrong, and we are knowingly living with it.** For an
+intraday system that is defensible; **for anything holding overnight or longer it
+is not, and those splits would need manual intervention.** Read this section
+before reusing `daily_adjusted` in a swing or position system.
+
+**Why it is safe for us.** FlushFader enters and exits inside one session, so no
+split or dividend can fall *inside* a holding window. `n` and `cum_div` are
+constant within a day, so they cancel out of every intraday return exactly —
+a wrong `n` cannot move an intraday P&L at all.
+
+The residual exposure is only via the **cross-day context columns**
+(`close_m1/m3/m7`, `close_p1/p3/p5`, `open_p1`), and because splits are rare
+events while those windows are days rather than years, it is minute:
+
+| | count |
+|---|---:|
+| contradicted split dates | **343** of 6,241 (5.5%) |
+| universe ticker-days with one in `[D−7, D+5]` | **76** of 1,431,802 (**0.005%**) |
+| **trips in the traded book within ±7 days of one** | **2** of 35,782 |
+
+So the headline 5.5% is a rate *per split event*; our actual contamination is
+**two trips**. Nothing is worth building on top of that.
+
+**Why a longer-horizon system cannot make the same call.** The exposure scales
+with how much calendar a calculation touches:
+
+- a multi-day or multi-week **hold** can straddle a split date, so a wrong `n`
+  lands directly in the trade's return rather than cancelling;
+- long **lookbacks** (52-week channels, multi-year ATR, drawdown series) sweep up
+  many split dates each, so the 5.5% per-event rate compounds toward "most long
+  histories contain at least one";
+- under back-adjustment the damage is *unbounded backwards* — one bad ratio
+  rewrites the entire prior history (TTSH → $0.002147).
+
+For such a system the fix is not automatic: either adopt the corroboration test
+below and accept that it rejects genuine splits in spinoff cases, or curate the
+343 by hand against a second vendor. **Do not assume this table is clean for
+multi-day work simply because it validates clean for intraday.**
+
+### The corroboration test (designed, NOT adopted)
+
+Apply a split only when it *reduces* the implied day's move —
+`|ln(m·ratio)| < |ln(m)|` where `m = close(t)/close(t−1)`. It is principled (a
+split factor's only job is cross-event comparability, so if the tape is already
+continuous, applying the factor *creates* a discontinuity), symmetric, and has no
+tuned threshold. It accepts AAPL 4:1 (0.033 < 1.353) and rejects TTSH
+(7.986 > 0.020), keeping 5,898 and rejecting 343.
+
+It is **not enabled**: it would reject genuine splits wherever a spinoff offset
+the price move (EXPE 2011-12-21), which is the right trade for a price-ratio
+backtest but wrong if `n` must track true share count. Pending a decision, we
+apply every split as recorded, and
+`scripts/equity/validate_daily_adjusted.py` reports the count as an inventory
+with a regression baseline so it cannot grow silently.
 
 ## 7. Files
 
