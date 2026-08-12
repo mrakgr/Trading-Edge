@@ -16049,6 +16049,13 @@ answerable from the book itself with no hand-rolled join.
 
 ### ⭐ S43bu — THE KNOWABILITY VERSION: 15:45 signal, MOC entry
 
+> 🛑 **SUPERSEDED BY S43bv — AND ITS PREMISE WAS WRONG.** The 1s corpus ends at
+> **15:58:59** (bucket 57539) on every day, so S43bt's "16:00" signal was really a
+> **15:58:59** signal: too late for an MOC order, but only by a minute. Amputating
+> to 15:45 gave up ~14 minutes of signal for no reason and destroyed the positive
+> median. The fix is to drop the auction entry, not the signal — see S43bv. Kept
+> for the record because the blind-window measurement below is still valid.
+
 S43bt measured the last hour **15:00 → 16:00** and entered at the close. That is
 not implementable: **NYSE's MOC cutoff is 15:50**, so a signal needing the 16:00
 print cannot produce an MOC order. The knowable analogue stops at **15:45**,
@@ -16101,6 +16108,65 @@ auction print — crossing the spread at ~15:58 with a market or marketable-limi
 order would let the signal run to ~15:55 and recover most of the gap between 1.516
 and 1.783, at the cost of the spread. On `gaps ≤ 600` names the tape is
 continuous by construction, so that spread should be small. Untested.
+
+### ⭐⭐ S43bv — THE TRADEABLE VERSION: 15:57 signal, 15:57-15:59 LIMIT entry
+
+**User (2026-08-12): the entry does not have to be an MOC order.** Rest a limit at
+15:57 and take the fill before the close. That removes the 15:50 cutoff constraint
+entirely — and it recovers everything S43bu's 15:45 amputation gave away.
+
+⚠ **First, a data fact that reframes all of this: the 1s corpus ends at 15:58:59**
+(bucket 57539) on **every** day — there is no 16:00 bar, and the last RTH minute is
+absent. So S43bt's "16:00 signal" was always a 15:58:59 signal. It was never 15
+minutes from tradeable; it was one.
+
+**Buying a flush with a limit is the favourable side of the trade.** Sellers are
+hitting bids into the close, so a resting bid fills readily and earns the spread
+rather than paying it. Measured: the 15:57–15:59 VWAP fill lands **below** the
+official close **51.8%** of the time (median −0.005%) — essentially free, with a
+slight edge. On identical trades:
+
+| entry | n | PF | mean% | median% |
+|---|---:|---:|---:|---:|
+| closing auction (MOC-style) | 805 | 1.541 | +3.17 | +1.01 |
+| **15:57–15:59 limit** | 805 | **1.561** | **+3.29** | **+1.02** |
+
+**⭐ THE RECOMMENDED CELL: `gaps ≤ 760 of 3420` × `lh57 < −4%`**
+
+| | |
+|---|---|
+| PF | **1.717** |
+| mean / median | **+3.40% / +1.01%** |
+| n | 1,392 (**232 trades/yr** at 2024–26 rates) |
+| per-year PF | 1.64 · 1.52 · 1.35 · 1.61 · 3.29 · 1.65 · 1.55 |
+| **years below 1.0** | **zero** (min 1.35) |
+| worst-20 as %P&L | **−18%** |
+
+Against the S43bt reference (`gaps≤800/3600 × <−6%`, PF 1.783, mean +4.67%, median
++0.92%, n 806): **more trades, better median, lower concentration, no losing
+year** — for 0.07 of PF. And unlike S43bt, this one is actually executable.
+
+Note the flush optimum **shifted from −6% to −4%**: with two fewer minutes of tape
+the same event measures shallower, so the threshold has to follow it. Runner-up
+`gaps ≤ 570 × <−4%`: PF 1.730, median +1.28%, 175/yr, also zero losing years.
+
+**Median grid (the axis that matters for sitting through it)** — positive
+everywhere at `gaps ≤ 950` for flushes between −2% and −6%, and turning negative
+only for the deep `<−8%` flushes on looser tapes:
+
+| gaps≤ | <−3% | <−4% | <−5% | <−6% | <−8% |
+|---|---|---|---|---|---|
+| 190 | +1.08 | +1.38 | +0.93 | +1.38 | +1.11 |
+| 570 | +0.83 | **+1.28** | +1.13 | +1.12 | −0.65 |
+| 760 | +0.73 | **+1.01** | +1.01 | +1.02 | −1.02 |
+| 950 | +0.61 | +0.72 | +0.60 | +0.63 | −1.77 |
+| 1140 | +0.59 | +0.63 | +0.17 | −0.18 | −1.71 |
+
+⏭ **FOLLOW-UP (user): rebuild the 1s bars for the WHOLE day.** The corpus
+currently stops at 15:58:59 and has no post-market. Two consequences: the last RTH
+minute — typically the day's heaviest — is invisible to every study here, and the
+post-close session cannot be examined at all. Rebuilding would also open a new
+question: **is there an edge buying flushes in the after-hours session?**
 
 ### ⭐⭐ THE LOSS DISTRIBUTION of the >+6% short — positive EV, ruinous tail
 
