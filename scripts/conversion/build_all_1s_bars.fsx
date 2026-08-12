@@ -203,6 +203,12 @@ let sessionStart = TimeSpan(0, 0, 0)                       // 00:00 ET
 // entirely and captures any future overnight session (Blue Ocean et al, 20:00-04:00)
 // automatically, with no code change. The early-close distinction is moot at this
 // bound and is kept only so the variable names still read.
+// ⚠ VERIFIED 2026-08-12: there are currently NO overnight prints in this feed —
+// every built day spans exactly 04:00 -> 20:00 ET, on both EDT and EST dates
+// (min bucket 14400 either way, so Timezone.baseTimeFromDateString handles DST
+// correctly). If you re-check this with an ad-hoc query, do NOT hardcode a UTC-4
+// offset: doing so shifts winter dates by an hour and manufactures a phantom
+// "05:00-21:00" session that looks exactly like overnight trading.
 let regularEnd = TimeSpan(24, 0, 0)
 let earlyEnd = TimeSpan(24, 0, 0)
 let maxSipDeltaNs = int64 (TimeSpan.FromMilliseconds 50.0).TotalNanoseconds
