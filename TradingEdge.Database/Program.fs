@@ -475,10 +475,13 @@ let private runSplitsDownload (apiKey: string) (startDate: DateTime) (endDate: D
         printfn "Downloaded %d splits" splits.Length
         let outputPath = "data/splits.csv"
         use writer = new StreamWriter(outputPath)
-        writer.WriteLine("ticker,execution_date,split_from,split_to,split_ratio")
+        // ⚠ `id` FIRST — Polygon's record id is the PRIMARY KEY. Keying on
+        // (ticker, execution_date) collapsed reverse/forward split PAIRS to a
+        // single leg; see sql/schema/tables/splits.sql.
+        writer.WriteLine("id,ticker,execution_date,split_from,split_to,split_ratio")
         for split in splits do
             let dateStr = split.ExecutionDate.ToString("yyyy-MM-dd")
-            writer.WriteLine($"{split.Ticker},{dateStr},{split.SplitFrom},{split.SplitTo},{split.SplitRatio}")
+            writer.WriteLine($"{split.Id},{split.Ticker},{dateStr},{split.SplitFrom},{split.SplitTo},{split.SplitRatio}")
         printfn "Saved splits to %s" (Path.GetFullPath outputPath)
         true
     | Error msg ->
@@ -521,12 +524,11 @@ let private runDividendsDownload (apiKey: string) (startDate: DateTime) (endDate
         printfn "Downloaded %d dividends" dividends.Length
         let outputPath = "data/dividends.csv"
         use writer = new StreamWriter(outputPath)
-        writer.WriteLine("ticker,ex_dividend_date,cash_amount,declaration_date,pay_date,frequency,dividend_type")
+        // ⚠ Reuse DividendDownload's serialization rather than repeating it — this
+        // was duplicated, and the copy here was missed when `id` was added.
+        writer.WriteLine DividendDownload.csvHeader
         for d in dividends do
-            let exDateStr = d.ExDividendDate.ToString("yyyy-MM-dd")
-            let declDateStr = d.DeclarationDate |> Option.map (fun dt -> dt.ToString("yyyy-MM-dd")) |> Option.defaultValue ""
-            let payDateStr = d.PayDate |> Option.map (fun dt -> dt.ToString("yyyy-MM-dd")) |> Option.defaultValue ""
-            writer.WriteLine($"{d.Ticker},{exDateStr},{d.CashAmount},{declDateStr},{payDateStr},{d.Frequency},{d.DividendType}")
+            writer.WriteLine(DividendDownload.dividendToCsvLine d)
         printfn "Saved dividends to %s" (Path.GetFullPath outputPath)
         true
     | Error msg ->

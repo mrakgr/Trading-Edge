@@ -68,9 +68,21 @@
 DROP TABLE IF EXISTS daily_adjusted;
 CREATE TABLE daily_adjusted AS
 
+-- Step 0: ⚠ COLLAPSE MULTIPLE SPLITS ON ONE DATE FIRST. A ticker can have more
+-- than one split per execution_date (a reverse/forward PAIR — the odd-lot
+-- squeeze-out; see sql/schema/tables/splits.sql). Their combined effect is the
+-- PRODUCT of the ratios, which for a pair is 1.0 — no share-count change at all.
+-- Without this step the cumulative window below emits one row per LEG and the
+-- ASOF join picks an arbitrary one, reinstating the naked-ratio bug.
+WITH splits_by_date AS (
+    SELECT ticker, execution_date, EXP(SUM(LN(split_ratio))) AS split_ratio
+    FROM splits
+    WHERE split_ratio > 0
+    GROUP BY ticker, execution_date
+),
 -- Step 1: n at each split execution_date = FORWARD cumulative product of ratios.
 -- (Log space for stability; ROWS ... CURRENT ROW makes the split dated t inclusive.)
-WITH split_cum AS (
+split_cum AS (
     SELECT
         ticker,
         execution_date,
@@ -79,8 +91,7 @@ WITH split_cum AS (
             ORDER BY execution_date ASC
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         )) AS n_at
-    FROM splits
-    WHERE split_ratio > 0
+    FROM splits_by_date
 ),
 -- Step 2: scale each dividend by the share count at the LAST CUM-DIVIDEND CLOSE.
 -- The ASOF predicate is STRICTLY `>` so a split dated on the ex-date itself is

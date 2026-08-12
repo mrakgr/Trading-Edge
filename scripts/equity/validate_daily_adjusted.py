@@ -121,7 +121,7 @@ print("\n=== 4. SOURCE-DATA INVENTORY: splits contradicted by the price tape ===
 # `split_adjusted_prices` at least as badly (TTSH's bogus 3000:1 on 2025-12-16
 # divides its ENTIRE prior history down to $0.002147 there). Reported as an
 # inventory with a regression baseline rather than a builder pass/fail.
-BASELINE_BOGUS = 188
+BASELINE_BOGUS = 178   # post-ingest-fix (was 188 when splits/dividends were keyed on the date)
 inv = con.execute("""
   WITH t AS (SELECT ticker, date, close*n+cum_div tv,
                     lag(close*n+cum_div) OVER w ptv

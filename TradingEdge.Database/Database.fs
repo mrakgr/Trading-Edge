@@ -22,6 +22,7 @@ type DailyPriceRow = {
 
 [<CLIMutable>]
 type SplitRow = {
+    id: string
     ticker: string
     execution_date: DateOnly
     split_from: float
@@ -257,6 +258,7 @@ let ingestDailyPricesFromGlob (connection: IDbConnection) (globPattern: string) 
 /// Convert Split to Dapper DynamicParameters
 let private toSplitParams (split: Split) : DynamicParameters =
     let p = DynamicParameters()
+    p.Add("id", split.Id)
     p.Add("ticker", split.Ticker)
     p.Add("execution_date", split.ExecutionDate.ToString("yyyy-MM-dd"))
     p.Add("split_from", split.SplitFrom)
@@ -264,10 +266,14 @@ let private toSplitParams (split: Split) : DynamicParameters =
     p.Add("split_ratio", split.SplitRatio)
     p
 
+/// ⚠ Conflict target is `id`, NOT (ticker, execution_date) — see splits.sql.
+/// Keying on the date collapsed reverse/forward pairs to one leg.
 let private splitUpsertSql = """
-    INSERT INTO splits (ticker, execution_date, split_from, split_to, split_ratio)
-    VALUES ($ticker, $execution_date, $split_from, $split_to, $split_ratio)
-    ON CONFLICT(ticker, execution_date) DO UPDATE SET
+    INSERT INTO splits (id, ticker, execution_date, split_from, split_to, split_ratio)
+    VALUES ($id, $ticker, $execution_date, $split_from, $split_to, $split_ratio)
+    ON CONFLICT(id) DO UPDATE SET
+        ticker = excluded.ticker,
+        execution_date = excluded.execution_date,
         split_from = excluded.split_from,
         split_to = excluded.split_to,
         split_ratio = excluded.split_ratio
@@ -311,8 +317,9 @@ let upsertSplits (connection: IDbConnection) (splits: Split array) : int =
 /// Bulk ingest splits directly from a CSV file using DuckDB's native CSV reader
 let ingestSplitsFromCsv (connection: IDbConnection) (filePath: string) : int64 =
     let sql = $"""
-        INSERT INTO splits (ticker, execution_date, split_from, split_to, split_ratio)
+        INSERT INTO splits (id, ticker, execution_date, split_from, split_to, split_ratio)
         SELECT 
+            id,
             ticker,
             execution_date::DATE,
             split_from,
@@ -320,6 +327,7 @@ let ingestSplitsFromCsv (connection: IDbConnection) (filePath: string) : int64 =
             split_ratio
         FROM read_csv('{filePath}',
             columns = {{
+                'id': 'VARCHAR',
                 'ticker': 'VARCHAR',
                 'execution_date': 'VARCHAR',
                 'split_from': 'DOUBLE',
@@ -328,7 +336,9 @@ let ingestSplitsFromCsv (connection: IDbConnection) (filePath: string) : int64 =
             }},
             header = true
         )
-        ON CONFLICT(ticker, execution_date) DO UPDATE SET
+        ON CONFLICT(id) DO UPDATE SET
+            ticker = excluded.ticker,
+            execution_date = excluded.execution_date,
             split_from = excluded.split_from,
             split_to = excluded.split_to,
             split_ratio = excluded.split_ratio
@@ -348,8 +358,9 @@ let getSplitCount (connection: IDbConnection) : int64 =
 /// Bulk ingest dividends directly from a CSV file using DuckDB's native CSV reader
 let ingestDividendsFromCsv (connection: IDbConnection) (filePath: string) : int64 =
     let sql = $"""
-        INSERT INTO dividends (ticker, ex_dividend_date, cash_amount, declaration_date, pay_date, frequency, dividend_type)
+        INSERT INTO dividends (id, ticker, ex_dividend_date, cash_amount, declaration_date, pay_date, frequency, dividend_type)
         SELECT
+            id,
             ticker,
             ex_dividend_date::DATE,
             cash_amount,
@@ -359,6 +370,7 @@ let ingestDividendsFromCsv (connection: IDbConnection) (filePath: string) : int6
             dividend_type
         FROM read_csv('{filePath}',
             columns = {{
+                'id': 'VARCHAR',
                 'ticker': 'VARCHAR',
                 'ex_dividend_date': 'VARCHAR',
                 'cash_amount': 'DOUBLE',
@@ -369,7 +381,9 @@ let ingestDividendsFromCsv (connection: IDbConnection) (filePath: string) : int6
             }},
             header = true
         )
-        ON CONFLICT(ticker, ex_dividend_date) DO UPDATE SET
+        ON CONFLICT(id) DO UPDATE SET
+            ticker = excluded.ticker,
+            ex_dividend_date = excluded.ex_dividend_date,
             cash_amount = excluded.cash_amount,
             declaration_date = excluded.declaration_date,
             pay_date = excluded.pay_date,
@@ -449,9 +463,10 @@ let getDailyPricesByTicker (connection: IDbConnection) (ticker: string) : DailyP
 /// Get splits for a specific ticker, ordered by execution date descending
 let getSplitsByTicker (connection: IDbConnection) (ticker: string) : Split array =
     connection.Query<SplitRow>(
-        "SELECT ticker, execution_date, split_from, split_to, split_ratio FROM splits WHERE ticker = $ticker ORDER BY execution_date DESC",
+        "SELECT id, ticker, execution_date, split_from, split_to, split_ratio FROM splits WHERE ticker = $ticker ORDER BY execution_date DESC",
         {| ticker = ticker |})
     |> Seq.map (fun row -> {
+        Id = row.id
         Ticker = row.ticker
         ExecutionDate = row.execution_date.ToDateTime(TimeOnly.MinValue)
         SplitFrom = row.split_from

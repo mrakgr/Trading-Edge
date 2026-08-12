@@ -16,6 +16,9 @@ let private jsonOptions =
 /// JSON response types for the Polygon dividends API
 [<CLIMutable>]
 type private DividendResult = {
+    [<JsonPropertyName("id")>]
+    Id: string
+
     [<JsonPropertyName("ticker")>]
     Ticker: string
 
@@ -61,6 +64,8 @@ let private tryParseDate (s: string) =
 let private parseDividendResult (r: DividendResult) : Dividend option =
     if r.CashAmount > 0.0 && not (String.IsNullOrWhiteSpace r.Ticker) then
         Some {
+            // See Split.Id — one ex-date routinely carries several payments.
+            Id = VendorId.require $"dividend {r.Ticker} {r.ExDividendDate}" r.Id
             Ticker = r.Ticker
             ExDividendDate = DateTime.Parse r.ExDividendDate
             CashAmount = r.CashAmount
@@ -71,13 +76,20 @@ let private parseDividendResult (r: DividendResult) : Dividend option =
         }
     else None
 
-let private csvHeader = "ticker,ex_dividend_date,cash_amount,declaration_date,pay_date,frequency,dividend_type"
+/// ⚠ `id` FIRST — it is the primary key. Changing this header intentionally
+/// INVALIDATES every existing monthly cache file (see cacheIsCurrent): a cache
+/// written under the old 7-column layout is missing rows that the old
+/// (ticker, ex_dividend_date) key dropped, so it must be re-fetched, not parsed.
+/// PUBLIC so the final data/dividends.csv writer uses the SAME serialization as
+/// the monthly cache. They used to be duplicated, and the copy in Program.fs was
+/// missed when `id` was added — producing a 7-column file the ingest rejected.
+let csvHeader = "id,ticker,ex_dividend_date,cash_amount,declaration_date,pay_date,frequency,dividend_type"
 
-let private dividendToCsvLine (d: Dividend) =
+let dividendToCsvLine (d: Dividend) =
     let exDateStr = d.ExDividendDate.ToString("yyyy-MM-dd")
     let declDateStr = d.DeclarationDate |> Option.map (fun dt -> dt.ToString("yyyy-MM-dd")) |> Option.defaultValue ""
     let payDateStr = d.PayDate |> Option.map (fun dt -> dt.ToString("yyyy-MM-dd")) |> Option.defaultValue ""
-    $"{d.Ticker},{exDateStr},{d.CashAmount},{declDateStr},{payDateStr},{d.Frequency},{d.DividendType}"
+    $"{d.Id},{d.Ticker},{exDateStr},{d.CashAmount},{declDateStr},{payDateStr},{d.Frequency},{d.DividendType}"
 
 /// Download all dividends for a single date range (sequential pagination)
 let private downloadDateRange
@@ -166,22 +178,37 @@ let private writeCacheCsv (path: string) (dividends: Dividend list) =
     for d in dividends do
         writer.WriteLine(dividendToCsvLine d)
 
-/// Read dividends from a cached CSV file
+/// ⭐ A cache file is usable ONLY if its header matches the current layout.
+/// Old caches predate the `id` key, so they are missing every row the old
+/// (ticker, ex_dividend_date) key collided away. Treating them as valid would
+/// silently re-import the very data loss this change exists to fix — so a
+/// header mismatch means "not cached", and the month is re-downloaded.
+let private cacheIsCurrent (path: string) : bool =
+    try
+        use r = new StreamReader(path)
+        match r.ReadLine() with
+        | null -> false
+        | h -> h.Trim() = csvHeader
+    with _ -> false
+
+/// Read dividends from a cached CSV file. Only ever called on a file that
+/// cacheIsCurrent has already approved, so the column layout is known.
 let private readCacheCsv (path: string) : Dividend list =
     let lines = File.ReadAllLines path
     lines
     |> Array.skip 1 // header
     |> Array.choose (fun line ->
         let parts = line.Split(',')
-        if parts.Length >= 7 then
+        if parts.Length >= 8 then
             Some ({
-                Ticker = parts.[0]
-                ExDividendDate = DateTime.Parse parts.[1]
-                CashAmount = float parts.[2]
-                DeclarationDate = if String.IsNullOrWhiteSpace parts.[3] then None else Some (DateTime.Parse parts.[3])
-                PayDate = if String.IsNullOrWhiteSpace parts.[4] then None else Some (DateTime.Parse parts.[4])
-                Frequency = int parts.[5]
-                DividendType = parts.[6]
+                Id = parts.[0]
+                Ticker = parts.[1]
+                ExDividendDate = DateTime.Parse parts.[2]
+                CashAmount = float parts.[3]
+                DeclarationDate = if String.IsNullOrWhiteSpace parts.[4] then None else Some (DateTime.Parse parts.[4])
+                PayDate = if String.IsNullOrWhiteSpace parts.[5] then None else Some (DateTime.Parse parts.[5])
+                Frequency = int parts.[6]
+                DividendType = parts.[7]
             } : Dividend)
         else None)
     |> Array.toList
@@ -209,9 +236,12 @@ let downloadDividendsWithConsoleProgress
         let cached, toDownload =
             months
             |> List.partition (fun (y, m) ->
-                // A month is cached if it's strictly before the current month AND the cache file exists
+                // A month is cached if it's strictly before the current month AND the cache file
+                // exists AND its header matches the CURRENT layout (see cacheIsCurrent — an
+                // old-layout cache is missing rows and must be re-downloaded, not reused).
                 (y < currentYear || (y = currentYear && m < currentMonth))
-                && File.Exists(monthCachePath cacheDir y m))
+                && File.Exists(monthCachePath cacheDir y m)
+                && cacheIsCurrent (monthCachePath cacheDir y m))
 
         printfn "Dividend months: %d total, %d cached, %d to download" months.Length cached.Length toDownload.Length
 

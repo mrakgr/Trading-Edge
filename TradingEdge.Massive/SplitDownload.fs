@@ -15,6 +15,9 @@ let private jsonOptions =
 /// JSON response types for the Massive splits API
 [<CLIMutable>]
 type private SplitResult = {
+    [<JsonPropertyName("id")>]
+    Id: string
+
     [<JsonPropertyName("ticker")>]
     Ticker: string
 
@@ -109,6 +112,7 @@ let downloadSplits
                             for r in results do
                                 if r.SplitFrom <> 0.0 && not (String.IsNullOrWhiteSpace r.Ticker) then
                                     allSplits.Add {
+                                        Id = VendorId.require $"split {r.Ticker} {r.ExecutionDate}" r.Id
                                         Ticker = r.Ticker
                                         ExecutionDate = DateTime.Parse(r.ExecutionDate)
                                         SplitFrom = r.SplitFrom
