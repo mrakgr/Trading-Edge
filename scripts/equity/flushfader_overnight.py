@@ -20,6 +20,13 @@ Three stages:
         overnight = [raw_open(D+1)*split_ratio(D+1) + cash_div(ex=D+1)] / raw_close(D) - 1
   * `daily_prices.open` IS the tradeable 09:30 RTH print (verified vs the first
     1s bar at/after bucket 34200: median ratio 1.0000, 91.8% within 50bp).
+  * ⚠ SUPERSEDED BY `mr_candidate_1s_v2.open_p1` (S43br). This script's split
+    lookup joins on `execution_date = <the next trading day>`, so it MISSES a
+    split that executes inside a multi-session gap. GSK 2022-07-18 -> 2022-07-22
+    (the Haleon demerger, 5:4 consolidation dated 2022-07-19, no sessions on
+    07-19/20/21) reads +3.81% here and the correct -16.95% from open_p1, whose
+    `n` attaches by ASOF. 1 row of 1,420,586 — the other 1,420,585 agree to 1e-9
+    — but prefer open_p1 for new work.
   * The 1s slim `vwap` is RAW. `lh_chg` is a same-day ratio so the adjustment
     factor cancels — but never compare a 1s slim level to an adjusted daily one.
   * MEDIAN is the headline statistic. The raw mean is unusable: 485 of 1.42M
