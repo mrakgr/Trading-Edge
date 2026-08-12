@@ -16,7 +16,7 @@ type DailyPriceRow = {
     high: float
     low: float
     close: float
-    volume: int64
+    volume: float
     transactions: int64
 }
 
@@ -204,7 +204,7 @@ let ingestDailyPricesFromCsvGz (connection: IDbConnection) (filePath: string) : 
         FROM read_csv('{filePath}',
             columns = {{
                 'ticker': 'VARCHAR',
-                'volume': 'BIGINT',
+                'volume': 'DOUBLE',
                 'open': 'DOUBLE',
                 'close': 'DOUBLE',
                 'high': 'DOUBLE',
@@ -235,7 +235,7 @@ let ingestDailyPricesFromGlob (connection: IDbConnection) (globPattern: string) 
         FROM read_csv('{globPattern}',
             columns = {{
                 'ticker': 'VARCHAR',
-                'volume': 'BIGINT',
+                'volume': 'DOUBLE',
                 'open': 'DOUBLE',
                 'close': 'DOUBLE',
                 'high': 'DOUBLE',

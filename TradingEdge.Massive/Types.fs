@@ -76,7 +76,9 @@ type DailyPrice = {
     High: float
     Low: float
     Close: float
-    Volume: int64
+    /// ⚠ float, not int64 — the tape carries FRACTIONAL share counts (Polygon
+    /// flat files since 2026-02-23). See sql/schema/tables/daily_prices.sql.
+    Volume: float
     Transactions: int64
 }
 

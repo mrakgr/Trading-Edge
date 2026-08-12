@@ -21,6 +21,13 @@
 -- A VIEW, not a table: the episode assignment is one LAG plus a running SUM, so
 -- it is always fresh when daily_adjusted is rebuilt and cannot go stale.
 --
+-- ⚠ DuckDB CACHES A VIEW'S COLUMN TYPES. If a base-table column changes type,
+-- every view over it fails with "Contents of view were altered: types don't
+-- match!" until re-created. Changing daily_prices.volume BIGINT -> DOUBLE broke
+-- this view and its legacy twin, and the failure surfaces in the CONSUMER
+-- (build_mr_candidate_1s.fsx), not here. Re-apply BOTH view files after any such
+-- change: this one and build_daily_episodes_view.sql.
+--
 -- Apply:  duckdb data/trading.db < scripts/equity/build_daily_episodes_causal_view.sql
 
 CREATE OR REPLACE VIEW daily_episodes_causal AS
