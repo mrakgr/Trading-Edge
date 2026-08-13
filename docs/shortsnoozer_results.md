@@ -35,9 +35,18 @@ your own. And rising pass-rates are a REAL increase in opportunity here, not fil
 drift: this setup went from 1–8/yr pre-2020 to 56–199/yr after. Forward frequency
 is what matters, so an absolute threshold is the right instrument.
 
-⚠ **The 1s corpus ends at 15:58:59** (bucket 57539) on every day — no 16:00 bar,
-no post-market, and the last RTH minute (typically the day's heaviest) is missing.
-A full-day rebuild is queued; every number here should be re-derived after it.
+🛑 **EVERY NUMBER IN THIS DOCUMENT IS MEASURED ON THE OLD, TRUNCATED CORPUS AND
+MUST BE RE-DERIVED.** When these studies ran, `data/intraday_1s_slim` ended at
+**15:58:59** (bucket 57539) — no 16:00 bar, no post-market, and the last RTH
+minute (typically the day's heaviest) missing entirely.
+
+**As of 2026-08-13 that path holds the FULL-DAY corpus: 04:00 → 20:00+ ET**
+(rebuilt 2026-08-12/13, +3.17% rows). The path did not change, so nothing below
+fails loudly — it is simply measured against a different tape than the one the
+code now reads. In particular **every gap count and `nbars` figure changes
+meaning**: the signal window that was "the last hour, 3,600 seconds" is no longer
+the end of the session, and `mr_candidate_1s_v2`'s own `n_bars_1s >= 200` gate is
+folded over a 16-hour day. Re-run before trusting any threshold here.
 
 ---
 
