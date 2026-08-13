@@ -219,6 +219,12 @@ let maxBucketFor (close: TimeSpan) =
 let buildOne (date: string) : double =
     let inPath = Path.Combine(tradesDir, $"{date}.parquet")
     let outPath = Path.Combine(outDir, $"{date}.parquet")
+    // ⭐ Write to `.tmp` and MOVE into place only on success — the same pattern
+    // S3Download.fs uses for its csv.gz/parquet conversions. Without it, killing
+    // the run mid-write leaves a 0-byte {date}.parquet that the resume logic below
+    // counts as "already built", silently leaving a permanent HOLE in the corpus.
+    // That happened on 2022-06-16 (user interrupted the 2026-08-12 rebuild).
+    let tmpPath = outPath + ".tmp"
 
     let dateOnly = DateOnly.ParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture)
     let isEarly = Timezone.early_closes.Contains dateOnly
@@ -233,7 +239,7 @@ let buildOne (date: string) : double =
     let endNsExclusive = baseNs + int64 (maxBucket + 1) * bucketNs
 
     let inEscaped = inPath.Replace("'", "''")
-    let outEscaped = outPath.Replace("'", "''")
+    let outEscaped = tmpPath.Replace("'", "''")   // COPY writes here; moved on success
     let spillEscaped = spillDir.Replace("'", "''")
 
     // All sums accumulate in DOUBLE (DuckDB default); only the final per-bar
@@ -294,12 +300,16 @@ COPY (
 """
 
     let sw = Diagnostics.Stopwatch.StartNew()
-    use conn = new DuckDBConnection("DataSource=:memory:")
-    conn.Open()
-    use cmd = conn.CreateCommand()
-    cmd.CommandText <- sql
-    cmd.CommandTimeout <- 0
-    cmd.ExecuteNonQuery() |> ignore
+    if File.Exists tmpPath then File.Delete tmpPath      // stale tmp from a killed run
+    (use conn = new DuckDBConnection("DataSource=:memory:")
+     conn.Open()
+     use cmd = conn.CreateCommand()
+     cmd.CommandText <- sql
+     cmd.CommandTimeout <- 0
+     cmd.ExecuteNonQuery() |> ignore)
+    // Only now does {date}.parquet exist. A kill at any point above leaves a .tmp,
+    // which the resume filter ignores, so the day is simply rebuilt next run.
+    File.Move(tmpPath, outPath, overwrite = true)
     sw.Stop()
     sw.Elapsed.TotalSeconds
 
@@ -308,10 +318,18 @@ let availableDates =
     |> Array.map Path.GetFileNameWithoutExtension
     |> Array.sort
 
+// ⚠ "*.parquet" does NOT match "*.parquet.tmp", so a partial write is correctly
+// ignored here — but guard the size too, so any legacy 0-byte stub from before the
+// atomic-write change is rebuilt rather than skipped forever.
 let alreadyDone =
     Directory.GetFiles(outDir, "*.parquet")
+    |> Array.filter (fun f -> FileInfo(f).Length > 0L)
     |> Array.map Path.GetFileNameWithoutExtension
     |> Set.ofArray
+
+// Sweep leftovers from any earlier killed run so they cannot accumulate.
+for stale in Directory.GetFiles(outDir, "*.parquet.tmp") do
+    try File.Delete stale with _ -> ()
 
 let inRange (d: string) =
     (match startDateOpt with Some s -> d >= s | None -> true)
