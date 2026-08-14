@@ -16206,3 +16206,48 @@ thin to trade, but the gap is narrowing.
 `aux_hi_60` rung, calendar-aware close — are **baked into the SPEC and the engine but
 are NOT yet reflected in `v44_causal`**. The next rebuild produces the first trips that
 carry them.
+
+### v45_nextopen — built by SPLICE, not by a full rebuild (user, 2026-08-14)
+
+⭐ **The user's call: none of the three changes can touch entries, so re-derive only
+the trips whose EXIT can move.** 42 days of 2,514 (**1.7%**), ~10 min instead of ~80.
+
+The premise, **verified rather than argued** — re-running the 42 days carrying `moc`
+trips and joining to v44 on `(symbol, trade_date, entry_sec)`:
+
+| v44 exit reason | trips | ret changed | exit_sec changed | entry_px changed |
+|---|---:|---:|---:|---:|
+| `target` | 1,157 | **0** | **0** | **0** |
+| `moc` | 181 | 181 | 181 | **0** |
+
+1,338 of 1,338 keys matched. Three reasons it holds: the mc=0 sampler opens a trip on
+every new low regardless of what is already open, so exits cannot feed back into
+entries; the rebuilt corpus only APPENDS tape at the session end, which can resolve an
+open trip but never leave one open that previously closed (so no NEW `moc` trips can
+appear); and no v44 trip was ever open past 12:48 on an early-close day, so
+`MocSecShort` moves nothing that exists. Zero of the 42 days are early closes.
+
+`scripts/equity/flushfader_splice_v45.py` asserts all of it — mismatched trip counts, a
+moved `target` trip, or a moved `entry_px` abort the write, so a silent bad splice is
+not possible.
+
+| | v44_causal | v45_nextopen |
+|---|---:|---:|
+| trips | 36,025 | 36,025 |
+| `target` | 35,844 | 35,866 |
+| `moc` / `next_open` | 181 | 159 |
+
+(35,844 + 22 = 35,866 and 181 − 22 = 159 — the 22 resolve in the newly-visible final
+RTH minute.) `ret_exit = exit_px/entry_px − 1` holds with max error **0.0**.
+
+⭐ **THE BOOK IS BYTE-FOR-BYTE IDENTICAL** — 1,325 trades, per-year **+5.68%**, maxDD
+−0.40%, same tier counts every year. Every `moc` trip fails the `gap_60 < 4` door, so
+none was ever in the traded book. Exactly the predicted outcome, and the reason this
+change is safe to make on a marginal result.
+
+⚠ **`aux_hi_60` covers only 1,179 of 35,866 trips (3.3%)** — the 42 re-run days. **The
+1m/2m/5m/10m/20m exit-window sweep is NOT answerable from v45**; it needs a full
+rebuild, which will pick the column up for free.
+
+The five analysis tools (`flushfader_{book,breakdown,kelly,overnight,voice_test}.py`)
+now default to `v45_nextopen`, off `v43_legtick`.

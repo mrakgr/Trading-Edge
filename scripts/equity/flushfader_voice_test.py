@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--cand", nargs="+", required=True, help="SQL predicate(s) to test as a voice")
-ap.add_argument("--trips", default="data/equity/flushfader/v43_legtick/trips_p*.parquet")
+ap.add_argument("--trips", default="data/equity/flushfader/v45_nextopen/trips_p*.parquet")
 ap.add_argument("--esf", type=int, default=450)
 ap.add_argument("--mult", type=float, nargs=4, default=[2.44, 1.80, 1.14, 1.00])
 ap.add_argument("--base", type=float, default=0.01)

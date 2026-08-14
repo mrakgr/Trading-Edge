@@ -28,7 +28,7 @@ ap.add_argument("--no-book", action="store_true",
                 help="use the full v31_reference instead of the trading book")
 args = ap.parse_args()
 
-TRIPS = "/home/mrakgr/Trading-Edge/data/equity/flushfader/v43_legtick/trips_p*.parquet"
+TRIPS = "/home/mrakgr/Trading-Edge/data/equity/flushfader/v45_nextopen/trips_p*.parquet"
 # the trading-book filter ($1+ raw x g60 x vote/S-tier). NB S-tier is
 # halts_today >= 1 (with the engine cascade gate that means ht in {1,2}).
 # ⭐ S43bg (user 2026-08-08): the leg-age voice is now `secs_since_first_low`,

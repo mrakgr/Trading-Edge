@@ -48,7 +48,7 @@ pd.set_option("display.max_columns", 60)
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--stage", choices=["moc", "pop", "all"], default="all")
-ap.add_argument("--trips", default="data/equity/flushfader/v43_legtick/trips_p*.parquet")
+ap.add_argument("--trips", default="data/equity/flushfader/v45_nextopen/trips_p*.parquet")
 ap.add_argument("--bars1s", default="data/intraday_1s_slim/*.parquet")
 ap.add_argument("--db", default="data/trading.db")
 ap.add_argument("--cache", default="data/equity/flushfader/lasthour_cache.parquet")

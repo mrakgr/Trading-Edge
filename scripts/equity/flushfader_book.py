@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--esf", type=int, nargs="+", default=[450])   # SPEC v2.9 (S43bj)
-ap.add_argument("--trips", default="data/equity/flushfader/v43_legtick/trips_p*.parquet")
+ap.add_argument("--trips", default="data/equity/flushfader/v45_nextopen/trips_p*.parquet")
 ap.add_argument("--mult", type=float, nargs=4, default=[2.44, 1.80, 1.14, 1.00],
                 help="tier multipliers A B C D used by the equity sim (S43bi set)")
 ap.add_argument("--base", type=float, default=0.01, help="D-tier size at reference vol")
