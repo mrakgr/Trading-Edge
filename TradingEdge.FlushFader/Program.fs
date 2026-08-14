@@ -72,6 +72,10 @@ type Args =
     | Entry_Start_Sec of int
     | Entry_End_Sec of int
     | Entry_End_Sec_Short of int
+    | Moc_Sec of int
+    | Moc_Sec_Short of int
+    | Exit_Channel_Bars_After_Hours of int
+    | After_Hours_Sec of int
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -126,6 +130,10 @@ type Args =
             | Entry_Start_Sec _ -> "Earliest ET second (since midnight) an entry may fire. Default 35100 = 09:45 — the knowability floor itself (the old 10:00 was a VwapReclaim-era throwback). ⚠ Must be >= 35100."
             | Entry_End_Sec _ -> "Latest ET second an entry may fire. Default 54000 = 15:00 (one hour before the regular close)."
             | Entry_End_Sec_Short _ -> "S43bc: latest ET second an entry may fire on NYSE early-close days (13:00 ET close). Default 43200 = 12:00 — the hour-before-close rule mirrored."
+            | Moc_Sec_Short _ -> "S43bx: the same bound on NYSE early-close days. Default 46800 = 13:00. The post-13:00 window there carries a median of 40 traded seconds of 10,800 (0.4%, vs 30.8% on a regular afternoon) and cannot form a 5m high on 88% of ticker-days, so it is treated as closed."
+            | Exit_Channel_Bars_After_Hours _ -> "S43bw: a TIGHTER exit channel that engages only after --after-hours-sec, because the channels count PRESENT BARS and post-market tape is sparse (a 300-bar '5m high' spans hours after 16:00). One of {30,60,120,300,600,1200}; 0 = off (default). ⚠ Inert unless --moc-sec is raised past --after-hours-sec."
+            | After_Hours_Sec _ -> "S43bw: ET second at which --exit-channel-bars-after-hours takes over. Default 57600 = 16:00."
+            | Moc_Sec _ -> "Latest ET second a position may be held; holders force-exit at the first bar >= this. Default 57600 = 16:00. ⭐ ALSO CAPS THE BAR QUERY (Backtest.fs SecReader), so raising it is what lets the post-market tape in at all — e.g. 86399 runs to the tape's end. Entries are unaffected (--entry-end-sec)."
 
 [<EntryPoint>]
 let main argv =
@@ -207,7 +215,12 @@ let main argv =
                     MaxConcurrent    = parsed.GetResult(Max_Concurrent,     defaultValue = d.Intraday.MaxConcurrent)
                     EntryStartSec    = parsed.GetResult(Entry_Start_Sec,    defaultValue = d.Intraday.EntryStartSec)
                     EntryEndSec      = parsed.GetResult(Entry_End_Sec,      defaultValue = d.Intraday.EntryEndSec)
-                    EntryEndSecShort = parsed.GetResult(Entry_End_Sec_Short, defaultValue = d.Intraday.EntryEndSecShort) }
+                    EntryEndSecShort = parsed.GetResult(Entry_End_Sec_Short, defaultValue = d.Intraday.EntryEndSecShort)
+                    MocSec           = parsed.GetResult(Moc_Sec,             defaultValue = d.Intraday.MocSec)
+                    MocSecShort      = parsed.GetResult(Moc_Sec_Short,       defaultValue = d.Intraday.MocSecShort)
+                    ExitChannelBarsAfterHours =
+                        parsed.GetResult(Exit_Channel_Bars_After_Hours, defaultValue = d.Intraday.ExitChannelBarsAfterHours)
+                    AfterHoursSec    = parsed.GetResult(After_Hours_Sec,     defaultValue = d.Intraday.AfterHoursSec) }
             MinDv0945 = parsed.GetResult(Min_Dv_0945, defaultValue = d.MinDv0945)
             MinRvol0945 = parsed.GetResult(Min_Rvol_0945, defaultValue = d.MinRvol0945)
             MinPrevClose = parsed.GetResult(Min_Prev_Close, defaultValue = d.MinPrevClose)
@@ -219,6 +232,18 @@ let main argv =
     // determined at 09:45 ET. Legal ONLY because entries start at/after 09:45; lower
     // the window and the universe selection itself becomes conditioned on the future —
     // the exact bug class that killed three systems on 2026-07-16. Fail loudly.
+    // S43bw: the after-hours channel is a SELECTION over the six maintained windows —
+    // an unlisted value would silently fall back to the RTH channel and the run would
+    // look like it tested something it did not.
+    if not (List.contains cfg.Intraday.ExitChannelBarsAfterHours [0; 30; 60; 120; 300; 600; 1200]) then
+        eprintfn "FATAL: --exit-channel-bars-after-hours %d is not one of {0,30,60,120,300,600,1200}."
+                 cfg.Intraday.ExitChannelBarsAfterHours
+        exit 1
+    if cfg.Intraday.ExitChannelBarsAfterHours > 0 && cfg.Intraday.MocSec <= cfg.Intraday.AfterHoursSec then
+        eprintfn "FATAL: --exit-channel-bars-after-hours is set but --moc-sec %d <= --after-hours-sec %d,"
+                 cfg.Intraday.MocSec cfg.Intraday.AfterHoursSec
+        eprintfn "  so no bar can ever reach the tighter channel. Raise --moc-sec (e.g. 72000 = 20:00)."
+        exit 1
     if cfg.Intraday.EntryStartSec < 35100 then
         eprintfn "FATAL: --entry-start-sec %d is before 09:45 (35100)." cfg.Intraday.EntryStartSec
         eprintfn "  The universe filter (dv_0945) and the recorded 09:45 context columns are only"
@@ -255,7 +280,7 @@ let main argv =
         (if cfg.MinPrevClose > 0.0 then sprintf "   AND prev raw close >= $%.2f" cfg.MinPrevClose else "")
     printfn "  ENTRY       = vwap < prior %d-bar MIN (strict; new ~20m low)   AND dv60 >= $%.0fk AND tc60 >= %.0f   (fill: NEXT bar vwap)"
         ic.EntryChannelBars (ic.DvFloor60 / 1e3) ic.TcFloor60
-    printfn "  EXIT        = vwap > prior %d-bar MAX (strict; ~5m high)  |  MOC   (fill: NEXT bar vwap)" ic.ExitChannelBars
+    printfn "  EXIT        = vwap > prior %d-bar MAX (strict; ~5m high)  |  else NEXT OPEN   (fill: NEXT bar vwap)" ic.ExitChannelBars
     printfn "  accept stops= new %d-bar low on vr>=%s | tcr>=%s | 1m pace < %s   ⭐ price-acceptance (NO level stop — V6: destructive)"
         ic.EntryChannelBars
         (if Double.IsPositiveInfinity ic.VolStopRatio then "off" else sprintf "%.0fx" ic.VolStopRatio)
@@ -300,6 +325,10 @@ let main argv =
         (if ic.MaxSlope20Bpm >= 0.0 then "off" else sprintf "%.0fbp/m" ic.MaxSlope20Bpm)
         (if Double.IsNegativeInfinity ic.MinSlope5Bpm then "off" else sprintf "%.0fbp/m" ic.MinSlope5Bpm)
     printfn "  entry window= %s-%s ET   features fold from %s ET" (hhmmss ic.EntryStartSec) (hhmmss ic.EntryEndSec) (hhmmss ic.SessionStartSec)
+    printfn "  close       = %s ET (%s on early closes) -> anything still open exits at the NEXT SESSION'S OPEN (S43bw/S43bx)"
+            (hhmmss ic.MocSec) (hhmmss ic.MocSecShort)
+    if ic.ExitChannelBarsAfterHours > 0 then
+        printfn "  ⚠ after-hours target = %d bars from %s ET" ic.ExitChannelBarsAfterHours (hhmmss ic.AfterHoursSec)
     if ic.MaxConcurrent <= 0 then
         printfn "  mode        = ⭐ SAMPLER (mc=0 unlimited → every new low opens another trip; averages down)"
         printfn "                PF/net below are ATTRIBUTION ONLY, not portfolio numbers."

@@ -17,7 +17,8 @@ future), **MinFader / MaxFader** (hold-to-close, future).
 | entry | vwap prints **strictly under the prior 1200-bar (~20m) MIN** of vwaps (present-bar window, strictly-prior snapshot) |
 | entry gates | 60-bar dollar-volume ≥ $100k AND 60-bar trade count ≥ 60; window 10:00-13:30 ET (V6's research window; hard floor 09:45 = knowability) |
 | fill | NEXT present bar's vwap (both sides) |
-| exit | vwap **strictly over the prior 300-bar (~5m) MAX** (V6 F16's direction) — else MOC. **NO STOP** (V6 F6: a stop is destructive here, PF 1.429→1.164) |
+| exit | vwap **strictly over the prior 300-bar (~5m) MAX** (V6 F16's direction) — **else HOLD OVERNIGHT and exit market-on-open the next session** (⭐ S43bw, user 2026-08-14; was "else MOC at the last bar"). **NO STOP** (V6 F6: a stop is destructive here, PF 1.429→1.164) |
+| close | **16:00 ET, and 13:00 ET on NYSE early-close days** (⭐ S43bx, user 2026-08-14 — calendar-aware, mirroring the entry cutoff). The post-13:00 window on half-days is not a session: median **40 traded seconds of 10,800**, and a 5m high cannot form on **88%** of ticker-days. No post-market trading on any day. |
 | leg machine | `NewLowCounters` ported verbatim from V6: armed by the leg's first new low; `bars_since_first_low` / `lows_since_first_low`; **reset on a new 1200-bar HIGH** (welded to the ENTRY channel — V6 reset on its exit window, which at 20m/20m coincided; with a 5m exit that would end legs mid-flush) |
 | K-gate | `--min-lows-into-leg K` = V6 F3's "wait for the Kth low", one trip per leg via the `legConsumed` latch (pair with `--max-concurrent 1`) |
 | mode | mc=0 sampler default (averages down; PF = attribution) |
@@ -16038,3 +16039,170 @@ own sizing class, not folded into tier A.** Small-sample today so it changes
 nothing at the starting size, but at scale-up time S-tier gets sized up MORE
 than plain A — the escalation policy's re-derivation checkpoint (1,000 live
 trades) should output five multipliers {S, A, B, C, D}, not four.
+
+---
+
+## S43bw — the MOC exit is retired: unresolved trips HOLD OVERNIGHT and exit at the next open (user decision, 2026-08-14)
+
+**The question (user).** *"I don't want these MOC trades to be on the last bar. The
+assumption should be that the MOC exits should instead be done on the next open. The
+target simply wasn't hit during the trading day and we leave the trade overnight."*
+
+Askable for the first time only because the 1s corpus was rebuilt to the full day
+(S43bv follow-up) — it previously stopped at **15:58:59**, so the 16:00 bound was
+enforced twice, once by the engine and once by the data.
+
+### Method — three arms, so two changes do not get confounded
+
+The v44 book was built on the OLD corpus, which lacked BOTH the final RTH minute and
+the post-market. Every arm below shares the same 181 unresolved trips, the same
+entries, and the same `entry_px`, so paired differences are the honest read.
+
+| arm | rule |
+|---|---|
+| `v44` | moc at the last bar, old corpus |
+| `ctl` | moc at 16:00, **new** corpus — isolates the newly-visible final RTH minute |
+| `ovn` | 16:00 → next open, no post-market |
+| `ah5m` | post-market runs, SAME 5m target, else next open |
+| `ah1m` | post-market runs, TIGHTER 1m target after 16:00, else next open |
+
+⭐ The 1m arm required an engine change, not a query: `aux_hi_60` records the FIRST 1m
+high **after entry**, which fires in-hours for 98.7% of these trips. "First 1m high
+after 16:00" is a different quantity that no recorded column holds. Hence
+`--exit-channel-bars-after-hours` (default 0 = off).
+
+### ⭐ THE RESULT — the next open wins; the post-market makes it WORSE
+
+| rule | mean | median | win% | PF | worst |
+|---|---:|---:|---:|---:|---:|
+| v44 moc at the last bar | −5.98% | −3.01% | 13.3% | 0.022 | −32.1% |
+| **⭐ ovn 16:00 → next open** | **−3.55%** | −2.69% | **33.7%** | **0.395** | −39.0% |
+| ah5m post-mkt 5m tgt → open | −4.45% | −2.60% | 29.3% | 0.148 | −30.4% |
+| ah1m post-mkt 1m tgt → open | −5.00% | −2.19% | 19.9% | 0.094 | −30.8% |
+
+Paired vs the next-open rule: `ah5m` **−0.90pp** (45 better / 59 worse), `ah1m`
+**−1.45pp** (62 / 87), `ah1m − ah5m` **−0.55pp** (28 / 75).
+
+**Why tightening BACKFIRES.** The 1m target does its mechanical job — it resolves
+171 of 181 instead of 126 — but it resolves them at prices **1.54pp below where the
+stock opens the next morning**. It sells the first twitch of a bounce in thin
+post-market tape and forfeits the overnight reversal. Tightening fires it more often,
+so `ah1m` is worse than `ah5m`. ⚠ A pre-registered prediction that these bleed, so
+exiting sooner should help, was **wrong** — the bleed reverses overnight.
+
+### The unresolved bucket IS the illiquid one (user hypothesis, confirmed)
+
+| | n | med `gap_60` | med `gap_1200` | med `dv_0945` |
+|---|---:|---:|---:|---:|
+| resolved (`target`) | 35,844 | 6 | 256 | $14.46M |
+| **unresolved (`moc`)** | **181** | **48** | **1,067** | **$3.98M** |
+
+Only ~133 of the last 1,200 seconds trade at all. The instinct was right about the
+bucket — what does **not** follow is continued decline overnight.
+
+### ⚠ THE EDGE IS NOT MONOTONE IN THINNESS, AND IT IS FRAGILE
+
+| `gap_1200` bucket | n | v44 | ovn | ovn − v44 |
+|---|---:|---:|---:|---:|
+| < 900 | 21 | −10.98% | −12.91% | **−1.92pp** |
+| 900–1100 | 97 | −7.82% | −2.91% | **+4.91pp** |
+| ≥ 1100 (thinnest) | 63 | −1.48% | −1.40% | +0.07pp |
+
+The whole benefit sits in one middle bucket; the thinnest names gain nothing and the
+least-thin are hurt. Bootstrapping the overall **+2.43pp** by **ticker-day** (44 of
+them — the mc=0 sampler opens many trips per name, so per-trip resampling would badly
+overstate it): **95% CI [−0.27, +5.63] pp, P(worse) = 0.044.** Marginal. It is the
+best of four options with a wide interval, and since all four are deep losers that
+never reach the book, choosing the least-bad costs nothing to get wrong.
+
+### Scope — this moves ZERO production P&L
+
+All 181 fail the book door `gap_60 < 4`, so the traded book contains **no** unresolved
+exits. The change makes the sampler honest and matters only if that door ever loosens.
+
+### Implementation
+
+- `Backtest.fs TripSink.Add` — a `moc` exit becomes `next_open` at `open_p1 + div_p1`.
+  `exit_px` carries the dividend, so **`ret_exit = exit_px/entry_px − 1` still holds on
+  every row** (verified: max error 0.0 on both exit kinds in every arm). `exit_sec`
+  stays the last intraday bar's second — when trading stopped, not when the fill lands.
+- Fallback: no next session (last day of sample, delisting) leaves `open_p1` NULL →
+  the old last-bar behaviour. 67 of 36,025 trips carry a NULL `open_p1`.
+- ⭐ The label is **`next_open`**, not the `ovn` first used — it names the FILL, like
+  `target` and `moc` do, and "ovn" read as "opening" to anyone who had not seen S43bq
+  (user, 2026-08-14).
+- New CLI: `--moc-sec`, `--exit-channel-bars-after-hours`, `--after-hours-sec`. Setting
+  the after-hours target without raising `--moc-sec` past the boundary now **exits 1**
+  rather than silently testing nothing.
+- New recorded column **`aux_hi_60_px` / `aux_hi_60_sec`** — the 1m rung, so the
+  1m/2m/5m/10m/20m exit sweep is answerable post-hoc from here on.
+
+Scripts: `scripts/equity/flushfader_moc_extended.py`,
+`scripts/equity/flushfader_afterhours_target.py`.
+
+---
+
+## S43bx — the close is CALENDAR-AWARE: 13:00 on early-close days (user, 2026-08-14)
+
+**Why it became load-bearing.** `MocSec` was a flat 57600 on every day. Harmless while
+the corpus stopped at 15:58:59; after the full-day rebuild it made the engine read
+**~3 hours of post-close tape as if it were RTH** on the 21 NYSE half-days.
+
+### The liquidity study (`scripts/equity/earlyclose_liquidity.py`)
+
+88,776 candidate ticker-days. ⭐ Early closes are all holiday-adjacent (Jul 3, the
+Friday after Thanksgiving, Dec 24), so they are compared against the **nearest regular
+trading days on either side** — an annual average would confound "half-day" with
+"holiday week". W1 = [09:30,13:00), W2 = [13:00,16:00).
+
+| group | W2 traded seconds (med) | % of 10,800s | W2/W1 per-second |
+|---|---:|---:|---:|
+| **early-close** | **40** | **0.4%** | **0.011** |
+| regular (matched) | 3,326 | 30.8% | 1.009 |
+| regular (broad) | 3,445 | 31.9% | 1.017 |
+
+A regular afternoon trades at the same per-second rate as its own morning (1.009). The
+early-close afternoon runs at **1.1% of that**.
+
+⭐ **The metric that matters is DENSITY, not dollars** — every channel counts PRESENT
+BARS, so a "5m high" is 300 traded seconds however long they take:
+
+| group | ≥300 bars in W2 (a 5m high is possible) | ≥60 bars (1m) |
+|---|---:|---:|
+| **early-close** | **11.8%** | **39.1%** |
+| regular | 100.0% | 100.0% |
+
+**On 88.2% of early-close ticker-days a 5m high cannot form at all.** The exit rule is
+not impaired there — it is undefined.
+
+### ⚠ The dollar figure says the opposite of what it appears to
+
+W2 dollar volume is 24% of the morning's ($26.2M median), which does not sound empty.
+Decomposed (2024-11-29):
+
+| slice | bars | $ | % of W2 dollars |
+|---|---:|---:|---:|
+| exactly 13:00:00 — the closing auction | 10,666 | $49.3B | **32.3%** |
+| 13:00:01–13:01 | 9,465 | $45.4B | **29.7%** |
+| 13:01–13:10 | 38,009 | $2.3B | 1.5% |
+| 13:10–14:00 | 107,901 | $28.1B | 18.4% |
+| 14:00–16:00 | 174,542 | $27.6B | 18.1% |
+
+**62% of the window's dollars land in its first 60 seconds** — the closing auction and
+its late-disseminating prints, which a continuous-tape rule cannot participate in.
+
+### Decision + implementation
+
+`MocSecShort = 46800` (13:00), selected per-day exactly as `EntryEndSecShort` already
+is. It bounds **both** the engine's exit logic and the bar query, so the near-empty
+post-13:00 tape is never read. Anything still open at 13:00 goes overnight and exits
+market-on-open the next session, per S43bw. CLI: `--moc-sec-short`.
+
+⚠ **Drifting — re-measure, do not assume.** 2016–19 saw 0–6% of early-close ticker-days
+reach 300 bars in W2; 2024–25 sees 15–18% (median 52–68 traded seconds). Still far too
+thin to trade, but the gap is narrowing.
+
+⚠ **No full rebuild was run** (user: ~80 min). The three changes — next-open exit, the
+`aux_hi_60` rung, calendar-aware close — are **baked into the SPEC and the engine but
+are NOT yet reflected in `v44_causal`**. The next rebuild produces the first trips that
+carry them.

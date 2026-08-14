@@ -67,6 +67,8 @@ let defaultConfig =
                                         // on its new HIGH. {60,120,300,600,1200}.
           ExitChannelBars  = 300        // ⭐ the ~5m reversion target (V6 F16's direction).
                                         // {30,60,120,300,600,1200}.
+          ExitChannelBarsAfterHours = 0 // OFF — one target all session (see Intraday.fs).
+          AfterHoursSec    = 57600      // 16:00, where the tighter target would take over.
           DvFloor60        = 100_000.0  // >= $100k traded over the last 60 present bars at the signal
           TcFloor60        = 60.0       // >= 60 trades over the same window (1/sec — kills the
                                         // block-print-only tape)
@@ -141,7 +143,8 @@ let defaultConfig =
           EntryEndSecShort = 43200      // ⭐ S43bc: 12:00 on NYSE early-close days — the
                                         // hour-before-close rule mirrored onto the 13:00 close
                                         // (in-sample cost: 3 of 1,231 book trades, all winners)
-          MocSec           = 57600 }    // 16:00
+          MocSec           = 57600      // 16:00
+          MocSecShort      = 46800 }    // ⭐ S43bx: 13:00 on NYSE early-close days
       Notional = 10_000.0
       MinDv0945 = 0.0               // 💀 DEPRECATED (S35): the candidate column = real
                                     // dollars × adj_ratio (future-split-dependent).
@@ -307,6 +310,7 @@ CREATE TABLE trips (
     vwap_5_prev DOUBLE, vwap_10_prev DOUBLE,
     dollar_vol_60 DOUBLE, cum_vol DOUBLE, cum_tc DOUBLE,
     fwd_vwap_60 DOUBLE, fwd_vwap_300 DOUBLE, fwd_vwap_600 DOUBLE, fwd_vwap_1200 DOUBLE,
+    aux_hi_60_px DOUBLE, aux_hi_60_sec INTEGER,
     aux_hi_120_px DOUBLE, aux_hi_120_sec INTEGER,
     aux_hi_300_px DOUBLE, aux_hi_300_sec INTEGER,
     aux_hi_600_px DOUBLE, aux_hi_600_sec INTEGER,
@@ -414,7 +418,46 @@ type TripSink(outDir: string) =
     member _.Add (c: Candidate) (notional: float) (p: FlushPosition) =
         match p.State with
         | Holding | PendingExit _ -> failwith "TripSink.Add on an unfinished position (Flatten first)"
-        | ExitedAt (exitSec, exitPx, reason) ->
+        | ExitedAt (exitSec, lastBarPx, rawReason) ->
+            // ⭐⭐ S43bw (user 2026-08-14): AN UNRESOLVED POSITION NO LONGER SELLS
+            // INTO THE LAST BAR. A "moc" exit means the 5m-high target simply was
+            // not hit during the session — that is not a reason to dump stock into
+            // the close at whatever the tape prints. The position is HELD OVERNIGHT
+            // and exits at the NEXT SESSION'S OPEN ("next_open").
+            //
+            // Measured on the 181 v44 moc trips (all four rules, same trips):
+            //     moc @16:00 old corpus   mean -5.98%  med -3.01%  win 13.3%  PF 0.022
+            //     moc @16:00 new corpus   mean -4.85%  med -2.47%  win 18.2%  PF 0.157
+            //     run to the tape's end   mean -4.29%  med -2.19%  win 23.2%  PF 0.140
+            //  ⭐ hold to the next OPEN    mean -3.36%  med -1.69%  win 41.4%  PF 0.422
+            // Letting the trade run into the POST-MARKET is not the answer (+0.56pp
+            // over the 16:00 bound, and 55 of 181 never resolve even by 20:00 — the
+            // channels count PRESENT BARS, so a "5m high" spans hours on thin tape).
+            // The next open is, and it more than doubles the win rate.
+            // ⚠ It also lengthens the left tail: worst -30.2% -> -39.0%. There is no
+            // stopping out overnight — the same asymmetry that sank ShortSnoozer.
+            //
+            // exit_px carries the OPEN PLUS THE DIVIDEND increment, so it is exit
+            // PROCEEDS per share and `ret_exit = exit_px/entry_px - 1` still holds
+            // for every row. Both terms already arrive in day D's raw scale, so they
+            // are directly comparable to entry_px (S43br); div_p1 is recorded
+            // separately, so folding it in loses nothing. It is nonzero on 6 of
+            // 36,025 trips and on none of the moc ones.
+            //
+            // exit_sec stays the LAST INTRADAY BAR's second — when trading stopped,
+            // not when the fill happens. `exit_reason = 'next_open'` is what marks the
+            // gap. The label names the FILL, like 'target' and 'moc' do — an earlier
+            // 'ovn' named the overnight HOLD instead and read as "opening" to everyone
+            // who had not seen the S43bq study it came from (user, 2026-08-14).
+            //
+            // Fallback: no next session (last day of the sample, delisting) leaves
+            // open_p1 NULL -> NaN. Those keep the old last-bar 'moc' behaviour, since
+            // there is no open to exit into. 67 of 36,025 trips carry a NULL open_p1.
+            let toNextOpen = rawReason = "moc" && not (Double.IsNaN c.OpenP1) && c.OpenP1 > 0.0
+            let exitPx =
+                if toNextOpen then c.OpenP1 + (if Double.IsNaN c.DivP1 then 0.0 else c.DivP1)
+                else lastBarPx
+            let reason = if toNextOpen then "next_open" else rawReason
             let qty = notional / p.EntryPx
             let pnl = qty * (exitPx - p.EntryPx)
             let row = appender.CreateRow()
@@ -449,6 +492,7 @@ type TripSink(outDir: string) =
             f p.FwdVwap60; f p.FwdVwap300; f p.FwdVwap600; f p.FwdVwap1200
             let inline auxSec (s: int) =
                 if s < 0 then row.AppendNullValue() |> ignore else row.AppendValue s |> ignore
+            f p.AuxHi60; auxSec p.AuxSec60
             f p.AuxHi120; auxSec p.AuxSec120
             f p.AuxHi300; auxSec p.AuxSec300
             f p.AuxHi600; auxSec p.AuxSec600
@@ -659,8 +703,14 @@ let collectTrips (cfg: Config) (secDir: string)
                     tkds.Clear()
                     let path = IO.Path.Combine(secDir, sprintf "%s.parquet" (req.Date.ToString "yyyy-MM-dd"))
                     let byTicker = req.Cands |> Array.map (fun c -> c.Ticker, c) |> dict
+                    // ⭐ S43bx: the bar query's upper bound is the DAY'S close, so on
+                    // early-close days the near-empty post-13:00 tape is never read
+                    // (it is also never acted on — IntradaySystem uses the same bound).
+                    let dayMocSec =
+                        if TradingEdge.Orb.Timezone.early_closes.Contains req.Date
+                        then cfg.Intraday.MocSecShort else cfg.Intraday.MocSec
                     let emitter = SecEmitter(conn, path, Array.map (fun (c: Candidate) -> c.Ticker) req.Cands,
-                                             cfg.Intraday.SessionStartSec, cfg.Intraday.MocSec)
+                                             cfg.Intraday.SessionStartSec, dayMocSec)
                     let mutable curTicker : string = null
                     let flush () =
                         if not (isNull curTicker) then

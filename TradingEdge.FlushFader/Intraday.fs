@@ -691,6 +691,12 @@ type FlushPosition =
       // aux_hi_300 ~= the real exit at the defaults (both strict `>`; aux additionally
       // requires the high strictly after the fill bar) — near-agreement is a smoke test.
       // Tracked until retirement (>= +20m after entry), like the forward marks. -----
+      // ⭐ S43bw (user 2026-08-14): the 60-bar (~1m) rung, added so TIGHTENING the
+      // exit target is answerable post-hoc instead of by re-running. The sweep
+      // previously bottomed out at 120 (~2m), which is the wrong side of the
+      // production 300 (~5m) to test "take the reversion sooner".
+      AuxHi60: float
+      AuxSec60: int
       AuxHi120: float
       AuxSec120: int
       AuxHi300: float
@@ -755,6 +761,17 @@ type IntradayConfig =
                                  // Also the leg-reset channel: a new N-bar HIGH ends the down-leg.
       ExitChannelBars: int       // ⭐ EXIT: vwap > the prior N-bar MAX (strict) -> target. Default
                                  // 300 (~5m) — V6 F16's direction. NO other exit before MOC.
+      // ⭐ S43bw (user 2026-08-14): a SECOND, TIGHTER exit channel that engages only
+      // after AfterHoursSec. The motive is that every channel here counts PRESENT
+      // BARS, not wall-clock: post-market tape is sparse, so a 300-bar "5m high"
+      // can span hours after 16:00 (measured: 55 of 181 unresolved trips never made
+      // one even by 20:00). A 60-bar rung is reachable on thin tape.
+      // 0 = OFF (use ExitChannelBars all session) — the default, so this is inert
+      // until asked for. Must be one of {30,60,120,300,600,1200}.
+      // ⚠ Only reachable when MocSec > AfterHoursSec; at the production MocSec
+      // (57600 = AfterHoursSec) there are no bars past the boundary to act on.
+      ExitChannelBarsAfterHours: int
+      AfterHoursSec: int         // 57600 = 16:00. Where the tighter channel takes over.
       DvFloor60: float           // hard gate: Sum60(vwap*volume) >= this at the signal bar. $ terms.
       TcFloor60: float           // hard gate: Sum60(tradeCount) >= this.
       // ⭐ VOLATILITY BAND — RECORD-FIRST for MR: the breakout F10 calibration does NOT
@@ -893,17 +910,36 @@ type IntradayConfig =
                                  // Without it EntryEndSec never engages on short days and the
                                  // engine enters minutes before the short close and force-MOCs
                                  // immediately (RGC 2025-07-03: entry 12:53, MOC 12:58).
-      MocSec: int }              // 57600 = 16:00. Positions force-exit at the first bar >= this (its
-                                 // own vwap — the auction-proximate print), and Flatten catches days
-                                 // whose tape ends earlier (early closes).
+      MocSec: int                // 57600 = 16:00. Positions stop trading at the first bar >= this
+                                 // and exit at the NEXT SESSION'S OPEN (S43bw), and Flatten catches
+                                 // days whose tape ends earlier.
+      // ⭐⭐ S43bx (user 2026-08-14): THE CLOSE IS CALENDAR-AWARE, exactly as the entry
+      // cutoff already was. 46800 = 13:00 on NYSE early-close days.
+      //
+      // This became load-bearing when the 1s corpus was extended to midnight: a flat
+      // 57600 made the engine read ~3 HOURS OF POST-CLOSE TAPE as if it were RTH on
+      // half-days. Measured over 9,759 early-close candidate ticker-days vs matched
+      // neighbouring regular days:
+      //     traded seconds in [13:00,16:00)   median   40 of 10,800  (0.4%)
+      //     same window on a REGULAR day      median 3,326 of 10,800 (30.8%)
+      //     per-second rate vs that day's own morning:  0.011  vs  1.009
+      // ⭐ A 5m (300-bar) high CANNOT FORM on 88.2% of those ticker-days — there are
+      // not 300 traded seconds in the whole window — so the exit rule is not merely
+      // impaired there, it is undefined. Dollar volume looks respectable (24% of the
+      // morning's) only because 62% of it lands in the FIRST 60 SECONDS: the closing
+      // auction and its late-disseminating prints, which a continuous-tape rule
+      // cannot participate in.
+      // ⚠ Drifting: 2016-19 saw 0-6% of ticker-days reach 300 bars, 2024-25 sees
+      // 15-18%. Still far too thin to trade, but re-measure rather than assume.
+      MocSecShort: int }
 
 /// The FlushFader engine. One instance per (ticker, day).
 type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // S43bc: short days use their own entry cutoff (see EntryEndSecShort doc).
-    let entryEndSec =
-        if TradingEdge.Orb.Timezone.early_closes.Contains day
-        then cfg.EntryEndSecShort
-        else cfg.EntryEndSec
+    let isEarlyClose = TradingEdge.Orb.Timezone.early_closes.Contains day
+    let entryEndSec = if isEarlyClose then cfg.EntryEndSecShort else cfg.EntryEndSec
+    // S43bx: ...and their own CLOSE (see MocSecShort doc).
+    let mocSec = if isEarlyClose then cfg.MocSecShort else cfg.MocSec
     // ----- the entry/exit channels + the recorded channel set -----
     // MaxMa/MinMa pairs over vwap at six present-bar windows; session extremes
     // via RunMaxMa/RunMinMa. Entry/exit windows are validated in Program to
@@ -1753,6 +1789,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // The aux-mark logic (step 5) reads the counters AS OF THE PREVIOUS BAR
         // ("previous snapshot's bars-since-high = 0 -> mark on the current
         // bar") — snapshot them before this bar's update.
+        let prevBr60 = br60.BarsSinceBreach
         let prevBr120 = br120.BarsSinceBreach
         let prevBr300 = br300.BarsSinceBreach
         let prevBr600 = br600.BarsSinceBreach
@@ -1845,7 +1882,18 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // Exit precedence: moc > acceptance stops > target. Stops and target are
         // mutually exclusive on one bar (a new entry-channel LOW cannot also be a
         // new exit-channel HIGH: prior max >= prior min).
-        let targetHit = match sExitMax with ValueSome hi -> bar.vwap > hi | ValueNone -> false
+        // ⭐ S43bw: past AfterHoursSec the target may switch to a tighter channel
+        // (see ExitChannelBarsAfterHours). All six snapshots are already maintained
+        // strictly-prior, so this is a selection, not a new structure. Inert at the
+        // default 0.
+        let sTargetMax =
+            if cfg.ExitChannelBarsAfterHours > 0 && bar.etSec >= cfg.AfterHoursSec then
+                match cfg.ExitChannelBarsAfterHours with
+                | 30 -> sMax30 | 60 -> sMax60 | 120 -> sMax120
+                | 300 -> sMax300 | 600 -> sMax600 | 1200 -> sMax1200
+                | _ -> sExitMax
+            else sExitMax
+        let targetHit = match sTargetMax with ValueSome hi -> bar.vwap > hi | ValueNone -> false
         // ⭐ the price-acceptance stops: qualified FRESH lows only (see config)
         let rate60vs1200 (s60: SumMa) (s1200: SumMa) =
             if s60.Count = s60.WindowSize && s1200.Count = s1200.WindowSize then
@@ -1892,12 +1940,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 if Double.IsNaN px && prevBr = 0 && prevEtSec > p.EntrySec
                 then struct (bar.vwap, bar.etSec)
                 else struct (px, sec)
+            let struct (hi60, sc60) = auxStep p.AuxHi60 p.AuxSec60 prevBr60
             let struct (hi120, sc120) = auxStep p.AuxHi120 p.AuxSec120 prevBr120
             let struct (hi300, sc300) = auxStep p.AuxHi300 p.AuxSec300 prevBr300
             let struct (hi600, sc600) = auxStep p.AuxHi600 p.AuxSec600 prevBr600
             let struct (hi1200, sc1200) = auxStep p.AuxHi1200 p.AuxSec1200 prevBr1200
             let p =
                 { p with
+                    AuxHi60 = hi60; AuxSec60 = sc60
                     AuxHi120 = hi120; AuxSec120 = sc120
                     AuxHi300 = hi300; AuxSec300 = sc300
                     AuxHi600 = hi600; AuxSec600 = sc600
@@ -1907,7 +1957,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             // mark still unresolved at/past MocSec resolves at this bar (the moc
             // fallback — sec >= MocSec distinguishes it post-hoc).
             let inline maStep px sec prevX =
-                if Double.IsNaN px && (bar.etSec >= cfg.MocSec || (prevX && prevEtSec > p.EntrySec))
+                if Double.IsNaN px && (bar.etSec >= mocSec || (prevX && prevEtSec > p.EntrySec))
                 then struct (bar.vwap, bar.etSec)
                 else struct (px, sec)
             let struct (m10p, m10s) = maStep p.Ma10Px p.Ma10Sec prevXMa10
@@ -1943,7 +1993,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             let p =
                 match p.State with
                 | Holding ->
-                    if bar.etSec >= cfg.MocSec then
+                    if bar.etSec >= mocSec then
                         // the 16:00 bar IS the auction-proximate print — fill here, not next bar
                         { p with State = ExitedAt (bar.etSec, bar.vwap, "moc") }
                     elif volStopHit then { p with State = PendingExit "vol_stop" }
@@ -1958,6 +2008,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             // counter just hit 0 fills next bar; retiring now would lose it)
             match p.State with
             | ExitedAt _ when not (Double.IsNaN p.FwdVwap1200)
+                              && not (Double.IsNaN p.AuxHi60 && br60.BarsSinceBreach = 0)
                               && not (Double.IsNaN p.AuxHi120 && br120.BarsSinceBreach = 0)
                               && not (Double.IsNaN p.AuxHi300 && br300.BarsSinceBreach = 0)
                               && not (Double.IsNaN p.AuxHi600 && br600.BarsSinceBreach = 0)
@@ -2469,6 +2520,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       FwdVwap300 = nan
                       FwdVwap600 = nan
                       FwdVwap1200 = nan
+                      AuxHi60 = nan
+                      AuxSec60 = -1
                       AuxHi120 = nan
                       AuxSec120 = -1
                       AuxHi300 = nan
