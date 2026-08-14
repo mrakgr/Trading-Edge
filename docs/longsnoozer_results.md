@@ -35,18 +35,15 @@ your own. And rising pass-rates are a REAL increase in opportunity here, not fil
 drift: this setup went from 1–8/yr pre-2020 to 56–199/yr after. Forward frequency
 is what matters, so an absolute threshold is the right instrument.
 
-🛑 **EVERY NUMBER IN THIS DOCUMENT IS MEASURED ON THE OLD, TRUNCATED CORPUS AND
-MUST BE RE-DERIVED.** When these studies ran, `data/intraday_1s_slim` ended at
-**15:58:59** (bucket 57539) — no 16:00 bar, no post-market, and the last RTH
-minute (typically the day's heaviest) missing entirely.
+✅ **RE-DERIVED ON THE FULL-DAY CORPUS, 2026-08-14 (§S43by, at the end of this
+document).** The tables in the body below were measured against the old corpus,
+which ended at **15:58:59** — no 16:00 bar, and the last RTH minute (the heaviest
+of the session, and exactly where this system fills) missing entirely. They are
+kept for provenance. **§S43by supersedes them and is what you should read.**
 
-**As of 2026-08-13 that path holds the FULL-DAY corpus: 04:00 → 20:00+ ET**
-(rebuilt 2026-08-12/13, +3.17% rows). The path did not change, so nothing below
-fails loudly — it is simply measured against a different tape than the one the
-code now reads. In particular **every gap count and `nbars` figure changes
-meaning**: the signal window that was "the last hour, 3,600 seconds" is no longer
-the end of the session, and `mr_candidate_1s_v2`'s own `n_bars_1s >= 200` gate is
-folded over a 16-hour day. Re-run before trusting any threshold here.
+⭐ The headline survived: `gaps ≤ 760 × lh < −4%` reproduces at **PF 1.702 / mean
++3.26% / median +1.03% / n 1,397** on the rebuilt tape with a tradeable last-minute
+entry, against 1.717 / +3.40% / +1.01% / 1,392 before. The spec is real.
 
 ---
 
@@ -286,3 +283,144 @@ minute — typically the day's heaviest — is invisible to every study here, an
 post-close session cannot be examined at all. Rebuilding would also open a new
 question: **is there an edge buying flushes in the after-hours session?**
 
+
+---
+
+# ⭐ S43by (2026-08-14) — RE-DERIVED on the full-day corpus, with the last-minute entry
+
+Everything above was measured on a 1s tape ending 15:58:59. This section replaces it.
+New cache: `scripts/equity/snoozer_build_cache.py` → `snoozer_cache.parquet`,
+**1,429,281 universe ticker-days**, 7,568 tickers, 2016-08-08 → 2026-08-06.
+Grid tool: `scripts/equity/snoozer_grid.py`. Window study: `snoozer_windows.py`.
+
+## The knowability ladder — three decision times
+
+You cannot condition an order on tape that has not printed. Each signal window comes
+in three flavours, each paired with the fill window that starts where its signal stops:
+
+| suffix | signal to | limit rests in | gaps out of |
+|---|---|---|---|
+| *(none)* | 16:00 | — ⚠ **UNTRADEABLE**, upper bound only | 3600 |
+| `k` | 15:57 | 15:57 → 16:00 | 3420 |
+| ⭐ `k59` | **15:59** | **15:59 → 16:00** | **3540** |
+
+⭐ `k59` is the user's 2026-08-14 request ("limit entries in the last minute") and is
+now the default. It keeps 3 more minutes of signal AND buys the fill the heaviest
+minute of the session — the half of the trade the old corpus could not see at all.
+
+## ⭐⭐ §1 DOES A SHORTER WINDOW HELP? No — 60m wins at matched selectivity
+
+⚠ **THE TRAP.** Thresholds are NOT comparable across windows: "−6% in 5 minutes" is a
+far rarer and more extreme event than "−6% in an hour", so a fixed-threshold table
+measures the *threshold*, not the window. The comparison must be at MATCHED n.
+
+Median overnight %, the n most-negative ticker-days by each window:
+
+| n | 60m | 30m | 15m | 5m |
+|---:|---:|---:|---:|---:|
+| 2,500 | **−1.02** | −1.51 | −1.18 | −1.88 |
+| 10,000 | **+0.12** | +0.02 | 0.00 | −0.19 |
+| 25,000 | +0.23 | **+0.26** | +0.14 | 0.00 |
+
+**60m is the signal.** 30m only ties at the loosest cut; 15m and 5m are worse everywhere.
+
+⭐ **There IS a real effect in the short windows, but it points the other way.** A
+sharp *recent* decline **continues down** overnight — 5m `[−6,−4)` = **−2.77%**, win
+38.2% — where an hour-long grind bounces (60m `[−6,−4)` = **+0.33%**, win 53.8%). Late,
+fast selling is information; a slow drift is exhaustion. That is a SHORT-side
+observation and does not belong to this system.
+
+## ⭐⭐ §2 THE PF GRID — `gaps ≤ row` × `last hour < col`, entry `k59`
+
+RAW PF (n). One trade = one ticker-day, unlevered, pre-cost.
+
+| gaps≤ | <−2% | <−3% | <−4% | <−5% | <−6% | <−8% | <−10% |
+|---|---|---|---|---|---|---|---|
+| 200 | 1.831 (1,222) | 1.845 (714) | 1.803 (450) | 1.896 (344) | 2.114 (272) | 2.383 (182) | **2.492 (125)** |
+| 400 | 1.627 (2,133) | 1.636 (1,199) | 1.644 (777) | 1.691 (587) | 1.850 (461) | 1.909 (298) | 1.842 (215) |
+| 600 | 1.555 (3,144) | 1.570 (1,742) | 1.556 (1,114) | 1.586 (840) | 1.634 (669) | 1.627 (436) | 1.652 (309) |
+| **760** | 1.589 (4,030) | 1.654 (2,182) | **1.702 (1,397)** | 1.762 (1,045) | **1.848 (822)** | 1.560 (538) | 1.526 (381) |
+| 900 | 1.523 (4,869) | 1.591 (2,588) | 1.641 (1,637) | 1.693 (1,215) | 1.750 (955) | 1.444 (627) | 1.401 (448) |
+| 1200 | 1.411 (6,983) | 1.451 (3,572) | 1.487 (2,215) | 1.530 (1,610) | 1.573 (1,244) | 1.387 (818) | 1.370 (581) |
+| 1800 | 1.319 (13,564) | 1.358 (6,447) | 1.390 (3,882) | 1.381 (2,693) | 1.406 (2,037) | 1.271 (1,292) | 1.259 (906) |
+| all | 1.182 (36,259) | 1.178 (16,155) | 1.174 (9,174) | 1.182 (5,913) | 1.200 (4,170) | 1.152 (2,421) | 1.174 (1,566) |
+
+TRIMMED PF (bottom 5% of trades dropped) — what the SIZING decision should read:
+
+| gaps≤ | <−2% | <−3% | <−4% | <−6% | <−8% |
+|---|---|---|---|---|---|
+| 200 | 3.242 (1,160) | 2.874 (678) | 2.620 (427) | 2.973 (258) | 3.313 (172) |
+| **760** | 2.786 (3,828) | 2.607 (2,072) | **2.507 (1,327)** | **2.588 (780)** | 2.104 (511) |
+| 1200 | 2.535 (6,633) | 2.332 (3,393) | 2.228 (2,104) | 2.224 (1,181) | 1.894 (777) |
+| all | 2.196 (34,446) | 1.981 (15,347) | 1.856 (8,715) | 1.772 (3,961) | 1.640 (2,300) |
+
+**Density is monotone and load-bearing on every window** — tightening the gap cut lifts
+the long side at every depth (60m, 5,000 most-negative: all names +0.00% → densest 25%
+**+0.47%**). Liquid names, exactly as before.
+
+## ⭐ §3 THE CONTROL PASSED, AND THE DEEPER CUT CAME BACK
+
+| cell | n | PF | mean% | med% | win% | worst% | yrs PF<1 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `gaps≤760 × <−4%` (the old spec) | 1,397 | 1.702 | +3.26 | +1.03 | 55 | −55.2 | 1 |
+| ⭐ `gaps≤760 × <−6%` | 822 | **1.848** | **+4.86** | **+1.21** | 53 | −55.2 | **0** |
+| `gaps≤600 × <−6%` | 669 | 1.634 | +3.60 | +1.22 | 53 | −55.2 | 2 |
+| `gaps≤1200 × <−3%` | 3,572 | 1.451 | +1.63 | +0.63 | 55 | −70.5 | 0 |
+
+Per-year PF for `gaps≤760 × <−6%`: 2019 2.99 · 2020 1.95 · 2021 1.50 · 2022 1.10 ·
+2023 1.72 · 2024 3.16 · 2025 1.88 · 2026 1.69 — **no losing year**.
+
+⭐ **The old spec reproduces almost exactly** (1.702/+3.26%/+1.03%/1,397 vs the old
+corpus's 1.717/+3.40%/+1.01%/1,392). The rebuild neither created nor destroyed the edge.
+
+⭐ **The −6% threshold is back.** S43bv had to loosen it to −4% because amputating the
+signal at 15:57 made the same event measure shallower. `k59` restores 3 of those
+minutes, and with them the deeper cut — and it is the deeper cut that has zero losing
+years. This is the S43bv lesson confirmed from the other direction: **the threshold
+must track the measurement window.**
+
+Trades/year for `gaps≤760 × <−4%`: 2016 1 · 2017 6 · 2018 10 · 2019 14 · 2020 230 ·
+2021 331 · 2022 102 · 2023 84 · 2024 159 · 2025 234 · 2026 226. The single losing year
+(2018, PF 0.386) is **10 trades** — the setup barely existed pre-2020. Rising frequency
+is a real increase in opportunity, not filter drift (see the absolute-threshold note).
+
+## ⭐ §4 THE LAST-MINUTE ENTRY — and why it helps the LONG specifically
+
+| entry | `<−4%` PF | `<−6%` PF |
+|---|---:|---:|
+| `k57` → limit 15:57–16:00 | **1.755** | 1.607 |
+| ⭐ `k59` → limit 15:59–16:00 | 1.702 | **1.848** |
+
+The mechanism, measured on the gated population (`gaps ≤ 760`):
+
+| regime | n | fill below close | median fill vs close |
+|---|---:|---:|---:|
+| flush `chg60k59 < −4%` | 1,397 | **64.9%** | **−0.065%** |
+| quiet | 72,238 | 51.7% | −0.000% |
+| rally `chg60k59 > +4%` | 1,438 | 58.1% | −0.031% |
+
+**The last minute keeps drifting in the direction of the move**, so a limit resting in
+it buys a flush **6.5bp below the official close** — the long side is paid to enter.
+(The mirror image is why it *hurts* the short — see `docs/shortsnoozer_results.md`.)
+The old 51.8% close-beating figure holds up on the newly-visible minute: **52.0%**
+universe-wide.
+
+⭐ **Fills are not a constraint** (user was right to push back on this): inside the
+spec's own door (`gaps ≤ 760 of 3540`) there are **ZERO** unfillable ticker-days,
+the median trades all **60 of 60** seconds, and even the worst 1% trades 57 of 60.
+Universe-wide the no-fill rate is 0.407% — and that population includes the thin tail
+this system never touches.
+
+## Recommended spec (research; still not built)
+
+    universe   mr_candidate_1s_v2  (dv_0945_tape >= $2M, n_bars_1s >= 200)
+    signal     chg60k59 = vwap(<=15:59)/vwap(<=15:00) - 1  <  -6%
+    density    gaps <= 760 of 3540 seconds in (15:00, 15:59]
+    entry      LIMIT resting 15:59-16:00
+    exit       next session's OPEN (market-on-open)
+    -> PF 1.848, mean +4.86%, median +1.21%, win 53%, n 822 (~137/yr), 0 losing years
+
+⚠ **worst trade −55.2%.** The overnight gap is unstoppable — there is no exit between
+the close and the next open. Size on trimmed PF−1, never on empirical Kelly.
+⚠ Unlevered, pre-cost, and one trade per ticker-day with no concurrency limit. A real
+book needs a position cap and a borrow/fee model before any of this is tradeable.

@@ -35,18 +35,15 @@ your own. And rising pass-rates are a REAL increase in opportunity here, not fil
 drift: this setup went from 1–8/yr pre-2020 to 56–199/yr after. Forward frequency
 is what matters, so an absolute threshold is the right instrument.
 
-🛑 **EVERY NUMBER IN THIS DOCUMENT IS MEASURED ON THE OLD, TRUNCATED CORPUS AND
-MUST BE RE-DERIVED.** When these studies ran, `data/intraday_1s_slim` ended at
-**15:58:59** (bucket 57539) — no 16:00 bar, no post-market, and the last RTH
-minute (typically the day's heaviest) missing entirely.
+✅ **RE-DERIVED ON THE FULL-DAY CORPUS, 2026-08-14 (§S43by, at the end of this
+document).** The tables below were measured against the old corpus, which ended at
+**15:58:59**, AND at the official close — an entry no order placed before 16:00 can
+achieve. They are kept for provenance. **§S43by supersedes them.**
 
-**As of 2026-08-13 that path holds the FULL-DAY corpus: 04:00 → 20:00+ ET**
-(rebuilt 2026-08-12/13, +3.17% rows). The path did not change, so nothing below
-fails loudly — it is simply measured against a different tape than the one the
-code now reads. In particular **every gap count and `nbars` figure changes
-meaning**: the signal window that was "the last hour, 3,600 seconds" is no longer
-the end of the session, and `mr_candidate_1s_v2`'s own `n_bars_1s >= 200` gate is
-folded over a 16-hour day. Re-run before trusting any threshold here.
+🛑 **THE RE-DERIVATION MADE THIS WORSE, NOT BETTER.** With a tradeable last-minute
+limit entry the headline cell falls from **PF 1.653 → 1.137** and picks up two losing
+years. The ruinous tail is untouched (worst **−234.6%**). **Still NOT ADOPTED**, now
+with a tradeable-entry number to say so rather than an inference.
 
 ---
 
@@ -152,3 +149,90 @@ LongSnoozer/FlushFader filter on faith.
 3. **Does the limit-entry finding transfer?** LongSnoozer gains from resting a bid
    into sellers. The mirror — resting an offer into buyers on a +6% rally — has not
    been measured, and an uptick rule may bind.
+
+---
+
+# 🛑 S43by (2026-08-14) — RE-DERIVED: a tradeable entry roughly halves the edge
+
+New cache `snoozer_cache.parquet` (1,429,281 ticker-days). Tools:
+`scripts/equity/snoozer_{build_cache,windows,grid}.py`. Full method — the knowability
+ladder, the matched-selectivity argument, the fill study — is written up once in
+`docs/longsnoozer_results.md` §S43by and not repeated here.
+
+## §1 DOES A SHORTER WINDOW HELP? The raw tables say yes. They are wrong.
+
+By fixed threshold, shorter windows look dramatically better:
+
+| `>+6%` band | n | median overnight |
+|---|---:|---:|
+| 60m | 4,443 | −3.80% |
+| 30m | 2,722 | −4.91% |
+| 15m | 1,589 | −5.89% |
+| 5m | **525** | **−7.66%** |
+
+⚠ **This is a threshold artefact.** "+6% in 5 minutes" is a far rarer, far more extreme
+event than "+6% in an hour" — the 5m row is simply a smaller, deeper tail. At MATCHED
+selectivity the ordering **inverts completely**:
+
+| n most positive | 60m | 30m | 15m | 5m |
+|---:|---:|---:|---:|---:|
+| 500 | **−8.48** | −7.96 | −7.66 | −7.44 |
+| 1,000 | **−7.51** | −6.96 | −6.60 | −6.89 |
+| 2,500 | **−5.36** | −5.12 | −5.14 | −4.83 |
+| 10,000 | **−1.91** | −1.95 | −1.59 | −1.39 |
+
+**60m is the best window at every selectivity, on this side too.** The shorter windows
+are not a better signal; they are a narrower one.
+
+## 🛑 §2 THE TRADEABLE NUMBER — entry `k59` (signal to 15:59, limit 15:59–16:00)
+
+| cell | n | PF | mean% | med% | win% | **worst%** | yrs PF<1 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `gaps≤760 × >+4%` | 1,438 | 1.026 | +0.17 | +2.05 | 60 | **−312.5** | 4 |
+| `gaps≤760 × >+6%` | 838 | **1.137** | +1.06 | +4.44 | 64 | **−234.6** | 2 |
+| `gaps≤600 × >+6%` | 697 | 1.074 | +0.61 | +4.52 | 64 | −234.6 | 2 |
+| `gaps≤600 × >+8%` | 486 | 1.062 | +0.61 | +6.05 | 66 | −234.6 | 3 |
+| `gaps≤1200 × >+3%` | 3,631 | 1.152 | +0.64 | +1.07 | 59 | −312.5 | 4 |
+
+Against the old (close-entry, old-corpus) headline of **PF 1.653, mean +2.65%, no
+losing year**, the best tradeable cell is **PF 1.137, mean +1.06%, two losing years**.
+
+⭐ **The median is +4.44% and the mean is +1.06%.** That gap IS the finding — a 64%
+win rate is being eaten by a tail that a median cannot see. Per-year for
+`gaps≤760 × >+6%`: 2017 0.72 · 2018 1.56 · 2019 2.72 · 2020 0.95 · 2021 1.15 ·
+2022 1.08 · 2023 1.31 · 2024 1.30 · 2025 1.19 · 2026 1.03. Most years sit just above
+break-even; the good years are early and thin.
+
+## ⭐⭐ §3 WHY THE ENTRY HURTS THIS SIDE AND HELPS THE LONG
+
+The same measurement, opposite consequence. On the gated population (`gaps ≤ 760`),
+where the 15:59–16:00 limit fills relative to the official close:
+
+| regime | n | fill below close | median fill vs close |
+|---|---:|---:|---:|
+| flush `< −4%` | 1,397 | 64.9% | −0.065% |
+| quiet | 72,238 | 51.7% | −0.000% |
+| **rally `> +4%`** | 1,438 | **58.1%** | **−0.031%** |
+
+**The last minute keeps drifting in the direction of the move.** A long buying a flush
+therefore fills 6.5bp BELOW the close — paid to enter. A short selling a rally also
+fills below the close — **3.1bp of pure give-up**, every trade, because a short wants
+to sell HIGH. The close-entry number was flattering precisely because the close is the
+best price this side ever sees, and it is unreachable.
+
+This is the LONG/SHORT ASYMMETRY again, in a third place: the two sides wanted opposite
+density filters (S43bs), opposite tail treatment, and now opposite entry mechanics.
+**Do not port a LongSnoozer component to this system on faith.**
+
+## 🛑 Verdict — unchanged, now on better evidence
+
+**NOT ADOPTED.** PF 1.137 pre-cost and pre-borrow, on an unlevered book with no
+concurrency cap, carrying a −234.6% worst trade and 0.4% of trades losing more than
+100% of notional with no way to stop out overnight. Borrow costs and hard-to-borrow
+availability on exactly the names that rally 6% into a close are not modelled and would
+land squarely on the remaining 13.7 points of edge.
+
+⏭ If this is revisited, the question is not the window (settled: 60m) or the entry
+(settled: it costs you). It is whether the tail can be **capped structurally** — a
+married put, a defined-risk spread, or a hard notional cap per name — because no
+filter tried so far touches it, and density makes it worse.
