@@ -16251,3 +16251,63 @@ rebuild, which will pick the column up for free.
 
 The five analysis tools (`flushfader_{book,breakdown,kelly,overnight,voice_test}.py`)
 now default to `v45_nextopen`, off `v43_legtick`.
+
+---
+
+## S43cc (2026-08-14) — the book WIDENS to all four segments (user decision)
+
+Prompted by the broker order-flow analysis (`docs/flushfader_broker_volume.md`). The
+candidate set splits into four DISJOINT segments on two independent checks — the
+`gap_60 < 4` liquidity door and the 8-voice roster:
+
+| segment | door | roster | trades | PF | win% | avg% | worst% | losing yrs |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| **A++** | pass | pass | 1,325 | 4.085 | 78.1 | +1.96 | −30.6 | 0 |
+| **A+** | pass | fail | 717 | 2.095 | 72.8 | +1.03 | −27.7 | 1 |
+| **B++** | fail | pass | 1,327 | 1.926 | 71.5 | +1.12 | −36.7 | 0 |
+| **B+** | fail | fail | 2,636 | 1.803 | 69.5 | +0.83 | −41.1 | 0 |
+
+**All four are +EV.** A++ is the current production book; the other three have simply
+never been traded. User (2026-08-14): *"It would be worth it to trade the lower tier
+books. We'd be just throwing away value by not doing so."*
+
+### ⭐ What widening is worth, at the 10% base
+
+mc=1 applied ACROSS the combined book (one position per stock at a time), so this is
+what would actually be run — not the sum of the standalone segments:
+
+| book | trades | PF | avg% | acct/yr | maxDD | worst trade on acct | losing yrs |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| A++ only (today) | 1,325 | 4.085 | +1.96 | **+73.2%** | −3.9% | −2.50% | 0 |
+| A++ + A+ | 1,917 | 3.063 | +1.58 | +89.0% | −5.6% | −3.65% | 0 |
+| A++ + B++ | 2,446 | 2.606 | +1.52 | +104.7% | −5.8% | −4.11% | 0 |
+| **all four** | 5,246 | 2.177 | +1.15 | **+207.7%** | −7.4% | −4.48% | 0 |
+
+⭐ **Widening nearly triples the annual return (73% → 208%) for roughly double the
+drawdown (−3.9% → −7.4%), with zero losing years in every configuration.** PF falls
+from 4.09 to 2.18, but PF is a per-TRADE quality measure — adding weaker-but-positive
+trades must lower it, and is still correct while drawdown stays this small.
+
+### Net of commission
+
+At $0.0015/share, median entry price **$4.06**, so a round trip costs **0.074% of
+notional** — a function of SHARE PRICE, not account size:
+
+| book | gross acct/yr | net of commission | drag |
+|---|---:|---:|---:|
+| A++ only | +73.2% | +69.2% | −4.0pp |
+| **all four** | +207.7% | **+182.0%** | −25.7pp |
+
+The decision survives the cost comfortably: 182% vs 69%.
+
+⚠ ECN/routing/SEC/TAF are still NOT modelled. FlushFader fills PASSIVELY on both legs,
+so add rebates could offset a meaningful share of the commission — that is the open
+question with the broker, and at 0.074%/round-trip it is not a rounding error.
+
+⚠ **Capacity was re-checked and an old figure was wrong.** A previous `max_gross`
+computation concatenated per-day frames and then took a GLOBAL cumsum, so exposure
+accumulated across days and read ~14x too high. Corrected (per-day curve, exits sorted
+before entries so same-second handovers do not double-count), peak simultaneous
+exposure at the 10% base is **0.87x equity for A++ and 3.33x for all four** — inside
+4:1 intraday margin. p99 is only 0.89x on the full book, so the 3.33x peak is a rare
+pile-up that a concurrent-position cap would contain.

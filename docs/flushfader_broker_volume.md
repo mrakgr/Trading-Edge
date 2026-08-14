@@ -15,6 +15,11 @@ session and are closed market-on-open the next morning. No leverage is held over
 **One trade = 2 executions** (one to open, one to close), same share count each way.
 Average order is roughly **3,300–4,900 shares / $11,000–14,500 notional**.
 
+⭐ **The median entry price is about $4.** These are low-priced, liquid, actively
+traded names, so per-share pricing is relatively expensive against notional: at
+$0.0015/share a round trip costs **~0.074% of position value**. That makes the
+routing and rebate treatment (below) materially important to us.
+
 ## The four segments
 
 The strategy ranks its candidates on two independent checks: a **liquidity filter**
@@ -29,7 +34,20 @@ candidate trade lands in exactly one:
 | **B++** | fail | pass |
 | **B+** | fail | fail |
 
-A++ is what is traded today. The others are candidates for widening the book.
+A++ is what is traded today. **All four tiers are profitable, so the intention is to
+trade all of them** — backtested results per tier, 2020-01 → 2026-07:
+
+| tier | trades | profit factor | win rate | avg return/trade | worst trade | losing years |
+|---|---:|---:|---:|---:|---:|---:|
+| **A++** | 1,325 | 4.09 | 78.1% | +1.96% | −30.6% | 0 of 7 |
+| **A+** | 717 | 2.10 | 72.8% | +1.03% | −27.7% | 1 of 7 |
+| **B++** | 1,327 | 1.93 | 71.5% | +1.12% | −36.7% | 0 of 7 |
+| **B+** | 2,636 | 1.80 | 69.5% | +0.83% | −41.1% | 0 of 7 |
+
+Profit factor = gross profit / gross loss. Returns are per trade on position notional,
+gross of commissions and fees. The lower tiers are less profitable per trade but far
+more numerous, and none of them loses money — which is why the account is intended to
+run the full set rather than A++ alone.
 
 ## Order flow by segment, each traded on its own
 
