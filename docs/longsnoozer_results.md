@@ -424,3 +424,102 @@ this system never touches.
 the close and the next open. Size on trimmed PF−1, never on empirical Kelly.
 ⚠ Unlevered, pre-cost, and one trade per ticker-day with no concurrency limit. A real
 book needs a position cap and a borrow/fee model before any of this is tradeable.
+
+---
+
+# ⭐⭐ S43cb (2026-08-14) — the SECOND lever: last-hour DOLLAR SHAPE
+
+## Where it came from
+
+Chasing "why did the ShortSnoozer PF collapse?" (S43ca) turned up a feature nobody
+had designed: **last-hour dollars ÷ first-15-minutes dollars**. It beat the gap count
+on the short side and was only ~53% overlapping with it. This section tests it here.
+
+⚠ **It was almost dismissed as an artefact.** The 15-minute denominator was in the
+cache only because `dv_0945_tape` is the universe gate. Sweeping the reference window
+properly (`snoozer_openref_sweep.py`) showed the choice is real: PF decays
+monotonically as the reference lengthens, 3.48 (15m) → 2.58 (rest of day) on the short
+side. Comparing the closing hour to the day's OPENING BURST carries information that
+comparing it to the whole day does not.
+
+## ⭐⭐ THE SIGN IS OPPOSITE TO THE SHORT SIDE
+
+On `chg60k59 < −6%` (n 4,168), keeping 25% by each lever:
+
+| lever | n | PF | mean | median | worst |
+|---|---:|---:|---:|---:|---:|
+| baseline | 4,168 | 1.198 | +0.94% | −0.31% | −90 |
+| ⭐ RANDOM same-n control | 1,041 | 1.219 | +1.00% | −0.01% | −90 |
+| **LOW** shape (the SHORT's lever) | 1,041 | **0.829** | −1.04% | −3.59% | −79 |
+| **HIGH** shape, 15m ref | 1,041 | 1.984 | +3.40% | +1.21% | −90 |
+| **HIGH** shape, 30m ref | 1,041 | **2.186** | +3.61% | +1.29% | −90 |
+| HIGH `lh_over_rest` | 1,042 | 2.174 | +2.70% | +1.58% | −90 |
+| dense tape (low gaps) | 1,042 | 1.698 | +4.00% | +0.71% | −70 |
+
+**Importing the short side's filter gives PF 0.829 with 7 losing years — worse than
+baseline AND worse than random.** Flipping it gives ~2.2.
+
+⭐ **One variable, read from both ends: the overnight move continues in the direction
+the closing hour's PARTICIPATION points.** Heavy, continuous late selling is real
+supply that exhausts and bounces. A light, gappy late rally is nobody, and it fades.
+
+⚠ The reference window is a SHALLOW optimum — 15m and 30m share 89% of their picks and
+trade places by selectivity cut. **"Short reference beats long" is robust; "30m beats
+15m" is not.** Do not tune inside the 5m–30m plateau.
+
+## ⭐ THE TWO-LEVER GRID (`snoozer_grid2.py --side long --ref 30`)
+
+RAW PF (n), `chg60k59 < −6%`, entry `k59`. Rows tighten PERSISTENCE, columns tighten
+SHAPE:
+
+| gaps≤ | shape ≥ q10% | shape ≥ q25% | shape ≥ q50% | shape: all |
+|---|---|---|---|---|
+| 200 | . | **3.967 (68)** | 2.907 (135) | 2.140 (270) |
+| 400 | 3.326 (46) | **3.651 (115)** | 2.719 (230) | 1.863 (459) |
+| **760** | 3.304 (82) | **3.591 (205)** | 2.274 (410) | 1.855 (820) |
+| 1200 | 3.172 (125) | 2.855 (311) | 2.079 (621) | 1.570 (1,241) |
+| 1800 | 2.790 (204) | 2.650 (508) | 1.983 (1,016) | 1.407 (2,032) |
+| all | 2.314 (417) | 2.186 (1,041) | 1.677 (2,081) | 1.198 (4,162) |
+
+Both axes are monotone and they compose — the incumbent spec sits in the rightmost
+column, i.e. it was using only one of the two available levers.
+
+## ⭐ THE REVISED SPEC
+
+| cell | n | PF | mean% | med% | win% | worst% | losing yrs |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `gaps≤760 × <−6%` (**S43by spec**) | 820 | 1.855 | +4.90 | +1.21 | 53 | −55 | 0 |
+| ⭐ `gaps≤760 × shape≥q25% × <−6%` | 205 | **3.591** | **+7.64** | **+4.13** | **65** | **−30** | **0** |
+| `gaps≤760 × shape≥q50% × <−6%` | 410 | 2.274 | +5.26 | +2.56 | 58 | −36 | 0 |
+| `gaps≤400 × shape≥q25% × <−6%` | 115 | 3.651 | +8.66 | +2.47 | 63 | −30 | 0 |
+| `gaps≤1200 × shape≥q25% × <−4%` | 553 | 2.405 | +3.52 | +1.30 | 63 | −69 | 0 |
+
+Per-year for the recommended cell: 2020 3.10 · 2021 2.46 · 2022 2.09 · 2023 6.85 ·
+2024 4.83 · 2025 2.78 · 2026 5.15 — **no losing year**.
+
+⭐ **The shape lever nearly doubles PF (1.855 → 3.591) AND cuts the worst trade
+−55% → −30%** — the first thing on this side to move the tail rather than just the
+centre.
+
+⚠ **The cost is trade count: 820 → 205, about 34/yr.** The `q50%` variant (410 trades,
+PF 2.274, worst −36%) is the middle option and is the one to prefer if concurrency
+ever matters more than per-trade edge.
+
+⚠ Pre-2020 cells are empty (`.` = fewer than 5 trades). This setup barely existed
+before 2020 — see the absolute-threshold note in §S43by. The seven years shown are the
+whole out-of-sample story.
+
+## Spec v2 (research; still not built)
+
+    universe   mr_candidate_1s_v2
+    signal     chg60k59 = vwap(<=15:59)/vwap(<=15:00) - 1  <  -6%
+    density    gaps <= 760 of 3540 seconds in (15:00, 15:59]        PERSISTENCE
+    ⭐ shape    dv(15:00-16:00) / dv(09:30-10:00)  >= its 75th pct  MAGNITUDE
+    entry      LIMIT resting 15:59-16:00
+    exit       next session's OPEN
+    -> PF 3.591, mean +7.64%, median +4.13%, win 65%, n 205 (~34/yr), 0 losing years,
+       worst trade -30%
+
+⚠ Unlevered, pre-cost, one trade per ticker-day, no concurrency cap. The shape cut is
+a QUANTILE of the gated population, so a live implementation needs it restated as an
+absolute threshold (a per-day cross-sectional rank would be LOOKAHEAD).

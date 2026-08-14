@@ -40,6 +40,12 @@ document).** The tables below were measured against the old corpus, which ended 
 **15:58:59**, AND at the official close — an entry no order placed before 16:00 can
 achieve. They are kept for provenance. **§S43by supersedes them.**
 
+⭐⭐ **2026-08-14, S43cb: THE TAIL IS FINALLY MOVING.** A second lever (last-hour
+dollar SHAPE) stacked with tape persistence takes the best cell to **PF 5.198 with a
+worst trade of −64%** — the first time this system's worst loss has come in under
+100% of notional. Read §S43cb at the end before anything below. It is still not
+adopted, but the disqualifier is no longer untouchable.
+
 ✅ **THE EDGE SURVIVES A TRADEABLE ENTRY.** `>+6%` reproduces at **PF 1.706**
 (close entry, new corpus) vs the old 1.653, and a real 15:59 limit entry costs only
 **1.706 → 1.643**. The corpus rebuild and the knowability constraint both leave it
@@ -284,3 +290,104 @@ the window (**60m**, at matched selectivity), the entry (**15:59 limit**, costin
 question is the only one that ever mattered: whether the tail can be **capped
 structurally** — a married put, a defined-risk spread, or a hard notional cap per
 name — because no filter tried so far touches it, and density makes it worse.
+
+---
+
+# ⭐⭐ S43cb (2026-08-14) — the SECOND lever, and the first real dent in the tail
+
+## The feature
+
+**`shape` = last-hour dollars ÷ first-15-minutes dollars.** Found by accident while
+decomposing the S43ca mis-attribution — the 15-minute denominator was in the cache
+only because `dv_0945_tape` is the universe gate.
+
+⚠ **It was nearly discarded as an artefact, and the sweep is what saved it.**
+`snoozer_openref_sweep.py` walks the reference window 5m → 15m → 30m → 60m → 90m →
+rest-of-day at matched selectivity:
+
+| reference | PF | mean | median | losing yrs |
+|---|---:|---:|---:|---:|
+| baseline | 1.643 | +2.60% | +3.33% | |
+| ⭐ RANDOM same-n | 1.611 | +2.62% | +3.57% | |
+| first 5m | 3.430 | +5.61% | +5.95% | 0 |
+| **first 15m** | **3.476** | +5.63% | +6.00% | 0 |
+| first 30m | 3.174 | +5.37% | +5.98% | 0 |
+| first 60m | 2.967 | +5.27% | +6.06% | 0 |
+| first 90m | 2.983 | +5.33% | +6.01% | 0 |
+| rest of day (~5.5h) | 2.580 | +5.12% | +6.12% | 0 |
+
+**Monotone decay in reference length.** Comparing the closing hour to the day's
+OPENING BURST carries information that comparing it to the whole day does not — the
+midday lull dilutes the signal. Every rung beats the random floor of 1.611, so the
+whole family is real; the ordering is the finding.
+
+⚠ **Shallow optimum.** 15m and 30m share 92% of their picks, and by selectivity cut
+30m wins at q10% (3.95) while 5m wins at q50% (2.38). **"Short reference beats long"
+is robust — rest-of-day is last at every cut. "15m beats 30m" is not.** Do not tune
+inside the 5m–30m plateau.
+
+⚠ Three things called "thin tape" are NOT interchangeable, and one is harmful:
+
+| measure | PF | vs baseline 1.666 |
+|---|---:|---|
+| `shape` (dollars vs open), lowest 25% | 3.414 | ✅ |
+| gap count, thinnest 25% | 2.670 | ✅ |
+| `vol_lh / avgvol20_prior`, lowest 25% | **1.275** | ❌ worse than doing nothing |
+
+ρ between the first and third is **0.008**. "Shorts want thin tape" is right and
+underdetermined — the operationalisation decides the result.
+
+## ⭐ THE TWO-LEVER GRID (`snoozer_grid2.py --side short --ref 15`)
+
+RAW PF (n), `chg60k59 > +6%`. Rows loosen PERSISTENCE toward thinner tape, columns
+tighten SHAPE toward a quieter close:
+
+| gaps≥ | shape ≤ q10% | shape ≤ q25% | shape ≤ q50% | shape: all |
+|---|---|---|---|---|
+| 3000 | 2.966 (36) | 3.645 (88) | 3.761 (176) | 2.632 (352) |
+| **2500** | 3.218 (109) | **5.198 (273)** | 3.996 (545) | 2.702 (1,090) |
+| 2000 | 3.353 (183) | **4.028 (456)** | 3.665 (911) | 2.741 (1,821) |
+| 1500 | 3.374 (247) | 3.369 (617) | 3.031 (1,234) | 2.242 (2,468) |
+| 1000 | 3.847 (302) | 3.448 (754) | 2.816 (1,508) | 2.114 (3,016) |
+| 0 (all) | 3.143 (409) | 3.476 (1,021) | 2.244 (2,042) | 1.640 (4,084) |
+
+## ⭐⭐ THE TAIL, AT LAST
+
+| cell | n | PF | mean% | med% | win% | **worst%** | losing yrs |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `>+6%` alone (S43by spec) | 4,084 | 1.640 | +2.60 | +3.33 | 69 | **−245** | — |
+| `gaps≥2000 × shape≤q25%` | 456 | 4.028 | +5.78 | +5.95 | 80 | −123 | 1 |
+| ⭐ `gaps≥2500 × shape≤q25%` | 273 | **5.198** | **+6.56** | +6.04 | **82** | **−64** | 1 |
+| `gaps≥2000 × shape≤q50%` | 911 | 3.665 | +5.28 | +5.64 | 80 | −123 | 1 |
+| `gaps≥2000 × shape all` | 1,821 | 2.741 | +3.65 | +3.24 | 73 | −123 | 2 |
+
+**Worst trade −245% → −64%.** For the first time no trade in the book loses more than
+its notional, which was the single disqualifying property of this system.
+
+🛑 **BUT READ THE YEARS BEFORE BELIEVING IT.** `gaps≥2500 × shape≤q25%`:
+2017 5.29 · 2018 1.89 · **2019 0.47** · 2020 4.33 · **2021 16.49** · 2022 2.91 ·
+**2023 57.39** · 2024 6.73 · 2025 6.23 · 2026 4.65.
+
+A 57.39 and a 16.49 are not profit factors, they are **near-zero-loss years on ~25
+trades**. n = 273 over 10 years is ~25/yr, so single-year cells are 20-30 trades and
+the headline 5.198 is carried by two of them. The `gaps≥2000 × shape≤q50%` cell
+(911 trades, PF 3.665, worst −123%) is the honest middle: four times the sample,
+still a −123% tail.
+
+## 🛑 Verdict — NOT ADOPTED, but the objection has changed
+
+The tail is no longer untouchable: density + shape cut it from −245% to −123% at
+n=911, and to −64% at n=273. What blocks adoption now is **sample size and year
+concentration**, not an unmanageable loss distribution.
+
+⏭ To move this forward the questions are, in order:
+1. **Does the −64% cell survive out of sample?** It is 25 trades/yr with two carrier
+   years. Everything else is secondary until this is answered.
+2. **Borrow.** Names that rally 6%+ into a close on thin tape are exactly the
+   hard-to-borrow list. Unmodelled, and it lands on the edge directly.
+3. **The overnight stop** (S43bz): a post-market cover at 17:00 moved the ungated
+   worst trade −245% → −169%. Untested in combination with these two levers, and it
+   attacks the same tail from a different direction — it may be redundant now.
+
+Settled and not to be re-litigated: window **60m**; entry **15:59 limit** (−0.06 PF);
+density **thin, not dense**; reference window **short (5m–30m), not the full day**.
