@@ -16271,17 +16271,40 @@ candidate set splits into four DISJOINT segments on two independent checks — t
 never been traded. User (2026-08-14): *"It would be worth it to trade the lower tier
 books. We'd be just throwing away value by not doing so."*
 
-### ⭐ What widening is worth, at the 10% base
+### ⚠ SIZING: THE TIER LADDER APPLIES TO A++ ONLY (user, 2026-08-14)
+
+The multipliers A 2.44 / B 1.80 / C 1.14 / D 1.00 were fitted on the A++ book. User
+asked whether they apply to the other three; re-deriving per segment by the SAME method
+(trimmed PF-1 on vol-normalised returns, scaled to D = 1.00) says **they do not**:
+
+| segment | A | B | C | D |
+|---|---|---|---|---|
+| **A++** | **2.52** (147) | **1.83** (402) | 1.14 (225) | 1.00 (551) |
+| A+ | 1.19 (29) | 1.18 (172) | 1.46 (89) | 1.00 (427) |
+| B++ | — (0) | — (4) | 1.28 (270) | 1.00 (1,053) |
+| B+ | — (0) | — (3) | **0.77** (281) | 1.00 (2,352) |
+
+A++ reproduces the incumbent ladder (2.52/1.83/1.14 vs 2.44/1.80/1.14). Outside it the
+ordering FLATTENS (A+: C above both A and B) or INVERTS (B+: C at 0.77 underperforms D
+— the tier that gets a 1.14x boost in A++ is the worst one there).
+
+⭐ Tier A requires `gap_adj_1200 < 15`, a tight-tape condition highly correlated with
+the `gap_60 < 4` door, so **B++ and B+ hold ZERO A-tier and 3-4 B-tier trades** — the
+question is nearly moot for them. Everything outside A++ therefore sizes FLAT at the
+base, still volatility-normalised.
+
+### ⭐ What widening is worth, at the 10% base (tiers on A++ only)
 
 mc=1 applied ACROSS the combined book (one position per stock at a time), so this is
-what would actually be run — not the sum of the standalone segments:
+what would actually be run — not the sum of the standalone segments. Net = after
+$0.0015/share commission, which is `2 x rate / entry_px` of notional per round trip:
 
-| book | trades | PF | avg% | acct/yr | maxDD | worst trade on acct | losing yrs |
+| book | trades | PF | acct/yr gross | **acct/yr net** | maxDD | worst trade on acct | losing yrs |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| A++ only (today) | 1,325 | 4.085 | +1.96 | **+73.2%** | −3.9% | −2.50% | 0 |
-| A++ + A+ | 1,917 | 3.063 | +1.58 | +89.0% | −5.6% | −3.65% | 0 |
-| A++ + B++ | 2,446 | 2.606 | +1.52 | +104.7% | −5.8% | −4.11% | 0 |
-| **all four** | 5,246 | 2.177 | +1.15 | **+207.7%** | −7.4% | −4.48% | 0 |
+| A++ only (today) | 1,325 | 4.085 | +73.2% | **+69.2%** | −4.0% | −2.50% | 0 |
+| A++ + A+ | 1,917 | 3.063 | +84.0% | +77.9% | −4.4% | −3.50% | 0 |
+| A++ + B++ | 2,446 | 2.606 | +102.8% | +95.1% | −5.6% | −4.12% | 0 |
+| **all four** | 5,246 | 2.177 | **+195.6%** | **+172.0%** | −7.8% | −4.48% | 0 |
 
 ⭐ **Widening nearly triples the annual return (73% → 208%) for roughly double the
 drawdown (−3.9% → −7.4%), with zero losing years in every configuration.** PF falls
@@ -16293,12 +16316,11 @@ trades must lower it, and is still correct while drawdown stays this small.
 At $0.0015/share, median entry price **$4.06**, so a round trip costs **0.074% of
 notional** — a function of SHARE PRICE, not account size:
 
-| book | gross acct/yr | net of commission | drag |
-|---|---:|---:|---:|
-| A++ only | +73.2% | +69.2% | −4.0pp |
-| **all four** | +207.7% | **+182.0%** | −25.7pp |
+The decision survives the cost comfortably: **+172.0% vs +69.2% net**.
 
-The decision survives the cost comfortably: 182% vs 69%.
+⚠ An earlier draft applied the A++ tier ladder to all four segments and read +207.7%
+gross / +182.0% net for the wide book. Correcting it to flat sizing outside A++ costs
+about 12pp of the headline (+195.6% / +172.0%) and leaves the conclusion unchanged.
 
 ⚠ ECN/routing/SEC/TAF are still NOT modelled. FlushFader fills PASSIVELY on both legs,
 so add rebates could offset a meaningful share of the commission — that is the open

@@ -98,8 +98,27 @@ def mc1(d):
 
 
 def sizes(d):
-    return np.array([args.base * MU[t] * np.sqrt(99.0 / (v * 1e4))
-                     for t, v in zip(d.tier.values, d.volat_20m.values)])
+    """⭐ TIER MULTIPLIERS APPLY TO A++ ONLY (user 2026-08-14).
+
+    The ladder A 2.44 / B 1.80 / C 1.14 / D 1.00 was fitted on the A++ book, and
+    re-deriving it per segment shows it does NOT transfer — same method, scaled to
+    D = 1.00:
+
+        A++   A 2.52 (147)  B 1.83 (402)  C 1.14 (225)  D 1.00 (551)
+        A+    A 1.19  (29)  B 1.18 (172)  C 1.46  (89)  D 1.00 (427)
+        B++   A   .   (0)   B   .    (4)  C 1.28 (270)  D 1.00 (1053)
+        B+    A   .   (0)   B   .    (3)  C 0.77 (281)  D 1.00 (2352)
+
+    A++ reproduces the incumbent ladder. Outside it the ordering flattens (A+: C
+    above both A and B) or INVERTS (B+: C at 0.77 underperforms D). Tier A requires
+    `gap_adj_1200 < 15`, a tight-tape condition highly correlated with the gap_60
+    door, so B++/B+ are ~90% D-tier and the question is nearly moot there anyway.
+
+    Everything outside A++ therefore sizes FLAT at the base, still
+    volatility-normalised."""
+    mult = np.where(d.seg.values == "A++",
+                    np.array([MU[t] for t in d.tier.values]), 1.0)
+    return args.base * mult * np.sqrt(99.0 / (d.volat_20m.values * 1e4))
 
 
 def exposure_curve(d, size):
