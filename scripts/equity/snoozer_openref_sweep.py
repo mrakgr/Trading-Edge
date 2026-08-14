@@ -3,7 +3,7 @@
 ⭐ USER (2026-08-14): "would using the first 30m or 60m dollar volume be better as
 reference than just the first 15?"
 
-Background. `lh_over_open15` = last-hour dollars / first-15-minutes dollars beat both
+Background. `dv_over_open15` = last-hour dollars / first-15-minutes dollars beat both
 the gap count (PF 3.419 vs 2.645) and the user's last-hour-vs-rest-of-day feature
 (2.580) on the ShortSnoozer population. But 15 minutes was never CHOSEN — it is the
 window `dv_0945_tape` happens to cover because it is the universe gate. So the
@@ -11,8 +11,8 @@ reference length is an unswept free parameter, and this sweeps it: 5 / 15 / 30 /
 90 minutes, plus rest-of-day (~5.5h) as the long end of the same ladder.
 
 ⚠ LEVELS ARE NOT COMPARABLE ACROSS THE LADDER — a longer reference window
-mechanically holds more dollars, so `lh_over_open90` is numerically smaller than
-`lh_over_open5` for the same day. Only the ORDERING within each column is meaningful,
+mechanically holds more dollars, so `dv_over_open90` is numerically smaller than
+`dv_over_open5` for the same day. Only the ORDERING within each column is meaningful,
 which is why every cut here is a QUANTILE, never an absolute threshold.
 
 ⚠ MATCHED SELECTIVITY + a same-n RANDOM control on every row. PF rises mechanically
@@ -50,9 +50,9 @@ print(f"side={args.side}  |chg60k59| > {args.chg}  population {N:,}\n")
 PF = ("sum(CASE WHEN r>0 THEN r ELSE 0 END) / "
       "nullif(-sum(CASE WHEN r<0 THEN r ELSE 0 END), 0)")
 
-LADDER = [("first  5m", "lh_over_open5"), ("first 15m", "lh_over_open15"),
-          ("first 30m", "lh_over_open30"), ("first 60m", "lh_over_open60"),
-          ("first 90m", "lh_over_open90"), ("rest of day (~5.5h)", "lh_over_rest")]
+LADDER = [("first  5m", "dv_over_open5"), ("first 15m", "dv_over_open15"),
+          ("first 30m", "dv_over_open30"), ("first 60m", "dv_over_open60"),
+          ("first 90m", "dv_over_open90"), ("rest of day (~5.5h)", "dv_over_rest")]
 
 print("=" * 175)
 print(f"⭐ §1 THE OPENING-REFERENCE SWEEP — keep the lowest {args.q:.0%} of "

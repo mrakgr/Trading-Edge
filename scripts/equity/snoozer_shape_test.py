@@ -9,11 +9,11 @@ here ρ 0.008 measures read 3.41 vs 1.28; ρ tells you nothing about a gate).
 
 Features, all knowable at 16:00, all built from Σ(vwap x volume) per bucket:
 
-    lh_over_rest    (E+F)/(A+B+C+D)             the user's ask, directly
+    dv_over_rest    (E+F)/(A+B+C+D)             the user's ask, directly
     lh_share        (E+F)/(A..F)                bounded [0,1], scale-free twin
     lh_rate         per-second last hour / per-second rest-of-day    1.0 = flat day
     tc_rate         the same on TRADE COUNT rather than dollars
-    lh_over_open    (E+F)/A                     ⚠ the S43ca accident, kept as the
+    dv_over_open    (E+F)/A                     ⚠ the S43ca accident, kept as the
                                                 incumbent to beat — its denominator
                                                 is the universe gate, which is a
                                                 coincidence, not a design
@@ -58,14 +58,24 @@ print(f"side={args.side}  signal |chg60k59| > {args.chg}  population {N:,}\n")
 PF = ("sum(CASE WHEN r>0 THEN r ELSE 0 END) / "
       "nullif(-sum(CASE WHEN r<0 THEN r ELSE 0 END), 0)")
 
-# (label, expression, direction) — 'lo' keeps the LOW tail, 'hi' the high tail
-LEVERS = [("lh_over_rest  (E+F)/(A..D)", "lh_over_rest", "lo"),
-          ("lh_share      (E+F)/total", "lh_share", "lo"),
-          ("lh_rate       pace vs day", "lh_rate", "lo"),
-          ("tc_rate       trade-count pace", "tc_rate", "lo"),
-          ("lh_over_open  (E+F)/A  [incumbent]", "lh_over_open", "lo"),
-          ("f_share_of_lh F/(E+F)", "f_share_of_lh", "lo"),
-          ("gaps          persistence", "gaps", "hi")]
+# ⭐ (label, expression, direction the SHORT side wants). The LONG side wants the
+# OPPOSITE on every one of these — established in S43cb, where importing the short's
+# sign gave PF 0.829, worse than a random subsample. So the direction is flipped
+# wholesale by `--side` rather than listed twice.
+LEVERS_SHORT = [
+    ("$  dv_over_open15   [incumbent]", "dv_over_open15", "lo"),
+    ("$  dv_over_open30", "dv_over_open30", "lo"),
+    ("$  dv_over_rest", "dv_over_rest", "lo"),
+    ("⭐ BAR bar_over_open15", "bar_over_open15", "lo"),
+    ("⭐ BAR bar_over_open30", "bar_over_open30", "lo"),
+    ("⭐ BAR bar_over_open5", "bar_over_open5", "lo"),
+    ("⭐ BAR bar_over_rest", "bar_over_rest", "lo"),
+    ("   tc_rate  (trade count)", "tc_rate", "lo"),
+    ("   gaps     (absolute persistence)", "gaps", "hi"),
+]
+FLIP = {"lo": "hi", "hi": "lo"}
+LEVERS = ([(l, e, d) for l, e, d in LEVERS_SHORT] if args.side == "short"
+          else [(l, e, FLIP[d]) for l, e, d in LEVERS_SHORT])
 
 print("=" * 170)
 print(f"§1 SUBSTITUTION TEST — each lever cut to the same selectivity (q={args.q})")

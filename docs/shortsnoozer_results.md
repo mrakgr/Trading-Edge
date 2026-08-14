@@ -391,3 +391,43 @@ concentration**, not an unmanageable loss distribution.
 
 Settled and not to be re-litigated: window **60m**; entry **15:59 limit** (−0.06 PF);
 density **thin, not dense**; reference window **short (5m–30m), not the full day**.
+
+
+---
+
+## S43cd (2026-08-14) — the BAR-COUNT family on the short side
+
+Method, normalisation, and the overlap analysis are written up once in
+`docs/longsnoozer_results.md` §S43cd. Short-side result only here.
+
+`chg60k59 > +6%`, n 4,085, matched selectivity n = 1,022:
+
+| lever | PF | mean% | med% | **worst%** |
+|---|---:|---:|---:|---:|
+| no filter | 1.643 | +2.60 | +3.33 | −245 |
+| ⭐ RANDOM same-n | 1.613 | +2.63 | +3.57 | −155 |
+| **$ `dv_over_open15`** | **3.476** | **+5.63** | +6.00 | −152 |
+| $ `dv_over_open30` | 3.174 | +5.37 | +5.98 | −152 |
+| $ `dv_over_rest` | 2.580 | +5.12 | +6.12 | −152 |
+| **BAR `bar_over_open5`** | 3.031 | +4.42 | +4.74 | **−123** |
+| **BAR `bar_over_open30`** | 3.025 | +4.40 | +4.94 | **−123** |
+| **BAR `bar_over_open15`** | 3.008 | +4.37 | +4.77 | **−123** |
+| BAR `bar_over_rest` | 2.015 | +3.63 | +5.20 | −152 |
+| `tc_rate` | 2.407 | +4.91 | +6.27 | −152 |
+| `gaps` (absolute) | 2.645 | +3.44 | +3.40 | −123 |
+
+⭐ **Bar counts sit between dollars and gaps on PF (3.01-3.03 vs 3.476 and 2.645) and
+carry the SMALLER TAIL (−123 vs −152).**
+
+That matters more here than the PF ranking suggests. This system is not blocked on
+expectancy — it is blocked entirely on the tail (§S43cb: worst −245% ungated, −123% at
+`gaps ≥ 2000 × shape ≤ q50`). A lever that gives up 0.45 PF to hold the worst trade at
+−123% is buying the thing that actually disqualifies the book.
+
+⚠ The reference window is nearly irrelevant for bar counts (3.008 / 3.025 / 3.031)
+where it was decisive for dollars (3.476 at 15m → 2.580 at rest-of-day). Do not carry
+the dollar family's "short reference beats long" finding across — it does not apply.
+
+⏭ NOT YET TESTED: `dv_over_open15 ∧ bar_over_open5` stacked. At 64% overlap there is
+room, and it pairs the best-PF lever with the best-tail lever — the natural next step
+given that the tail is the binding constraint.

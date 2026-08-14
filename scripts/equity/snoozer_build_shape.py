@@ -75,7 +75,7 @@ args = ap.parse_args()
 if os.path.exists(args.out) and not args.force:
     raise SystemExit(f"{args.out} exists — pass --force to rebuild")
 
-con = duckdb.connect(config={"memory_limit": "12GB", "threads": 8})
+con = duckdb.connect(config={"memory_limit": "6GB", "threads": 6})
 con.execute("SET enable_progress_bar=false")
 
 t0 = time.time()
@@ -97,7 +97,19 @@ SELECT CAST(regexp_extract(filename, '(\\d{{4}}-\\d{{2}}-\\d{{2}})', 1) AS DATE)
        sum(vwap*volume) FILTER (bucket >  55800 AND bucket <= 57600) AS dvF,
        sum(trade_count) FILTER (bucket >= 34200 AND bucket < 54000)  AS tcDay,
        sum(trade_count) FILTER (bucket >  54000 AND bucket <= 57600) AS tcLh,
-       count(*)         FILTER (bucket >= 34200 AND bucket < 54000)  AS nbDay
+       count(*)         FILTER (bucket >= 34200 AND bucket < 54000)  AS nbDay,
+       -- ⭐ S43cd (user 2026-08-14): BAR COUNTS on the same buckets as the dollar
+       -- family. A bar = one second that traded at all, so this measures PRESENCE
+       -- where dv measures MAGNITUDE. The ratio is RELATIVE persistence, which the
+       -- absolute gap count cannot express: a name trading 850/900s at the open and
+       -- 2000/3600s in the last hour has DECAYED, while 300/900 -> 1200/3600 has
+       -- IMPROVED, and both can land on the same absolute gap count.
+       count(*) FILTER (bucket >= 34200 AND bucket < 34500) AS nbO5,
+       count(*) FILTER (bucket >= 34500 AND bucket < 35100) AS nbO15,
+       count(*) FILTER (bucket >= 35100 AND bucket < 36000) AS nbO30,
+       count(*) FILTER (bucket >= 36000 AND bucket < 37800) AS nbO60,
+       count(*) FILTER (bucket >= 37800 AND bucket < 39600) AS nbO90,
+       count(*) FILTER (bucket >  54000 AND bucket <= 57600) AS nbLh
 FROM read_parquet('{args.bars1s}', filename = true)
 WHERE bucket >= 34200 AND bucket <= 57600
 GROUP BY 1, 2""")
@@ -111,6 +123,17 @@ COPY (
          r.nb60k59, r.nb30k59, r.px_lim_1559_1600, r.dv_0945_tape,
          s.dvO5, s.dvO15, s.dvO30, s.dvO60, s.dvO90,
          s.dvA, s.dvB, s.dvC, s.dvD, s.dvE, s.dvF, s.tcDay, s.tcLh, s.nbDay,
+         s.nbO5, s.nbO15, s.nbO30, s.nbO60, s.nbO90, s.nbLh,
+         -- ⭐ BAR-COUNT twins of dv_over_open*. ⚠ RATE-NORMALISED, unlike the dollar
+         -- versions: a bar count is capped by the window length (900 seconds cannot
+         -- exceed 900 bars), so an un-normalised ratio would be bounded by the window
+         -- ratio itself and would compress at the top. Dividing each side by its own
+         -- window makes 1.0 mean "the last hour traded as continuously as the open".
+         (s.nbLh/3600.0) / nullif((s.nbO5+s.nbO15)/900.0, 0)          AS bar_over_open15,
+         (s.nbLh/3600.0) / nullif((s.nbO5+s.nbO15+s.nbO30)/1800.0, 0) AS bar_over_open30,
+         (s.nbLh/3600.0) / nullif(s.nbO5/300.0, 0)                    AS bar_over_open5,
+         (s.nbLh/3600.0) / nullif((s.nbO5+s.nbO15+s.nbO30+s.nbO60)/3600.0, 0) AS bar_over_open60,
+         (s.nbLh/3600.0) / nullif(s.nbDay/19800.0, 0)                 AS bar_over_rest,
          -- ⭐ cumulative opening references: first 5 / 15 / 30 / 60 / 90 minutes
          s.dvO5                                              AS dv_open5,
          s.dvO5+s.dvO15                                      AS dv_open15,
@@ -121,15 +144,15 @@ COPY (
          -- longer reference window mechanically has more dollars, so the LEVELS are
          -- not comparable across the ladder. Only the ORDERING within each column
          -- matters, and every test below cuts on a quantile, so that is sufficient.
-         (s.dvE+s.dvF) / nullif(s.dvO5, 0)                   AS lh_over_open5,
-         (s.dvE+s.dvF) / nullif(s.dvO5+s.dvO15, 0)           AS lh_over_open15,
-         (s.dvE+s.dvF) / nullif(s.dvO5+s.dvO15+s.dvO30, 0)   AS lh_over_open30,
-         (s.dvE+s.dvF) / nullif(s.dvO5+s.dvO15+s.dvO30+s.dvO60, 0) AS lh_over_open60,
-         (s.dvE+s.dvF) / nullif(s.dvO5+s.dvO15+s.dvO30+s.dvO60+s.dvO90, 0) AS lh_over_open90,
+         (s.dvE+s.dvF) / nullif(s.dvO5, 0)                   AS dv_over_open5,
+         (s.dvE+s.dvF) / nullif(s.dvO5+s.dvO15, 0)           AS dv_over_open15,
+         (s.dvE+s.dvF) / nullif(s.dvO5+s.dvO15+s.dvO30, 0)   AS dv_over_open30,
+         (s.dvE+s.dvF) / nullif(s.dvO5+s.dvO15+s.dvO30+s.dvO60, 0) AS dv_over_open60,
+         (s.dvE+s.dvF) / nullif(s.dvO5+s.dvO15+s.dvO30+s.dvO60+s.dvO90, 0) AS dv_over_open90,
          (s.dvE + s.dvF)                                  AS dv_lh,
          (s.dvA + s.dvB + s.dvC + s.dvD)                  AS dv_rest,
          -- ⭐ the user's feature: last hour vs the REST of the day
-         (s.dvE + s.dvF) / nullif(s.dvA+s.dvB+s.dvC+s.dvD, 0)          AS lh_over_rest,
+         (s.dvE + s.dvF) / nullif(s.dvA+s.dvB+s.dvC+s.dvD, 0)          AS dv_over_rest,
          -- scale-free twin, bounded [0,1]
          (s.dvE + s.dvF) / nullif(s.dvA+s.dvB+s.dvC+s.dvD+s.dvE+s.dvF, 0) AS lh_share,
          -- RATE ratio: 1.0 = the last hour traded at the day's average pace
@@ -137,7 +160,7 @@ COPY (
          -- trade-count shape, which need not agree with dollar shape
          (s.tcLh/3600.0) / nullif(s.tcDay/19800.0, 0)                  AS tc_rate,
          -- the S43ca proxy, kept ONLY so the new features can be compared to it
-         (s.dvE + s.dvF) / nullif(s.dvA, 0)                            AS lh_over_open,
+         (s.dvE + s.dvF) / nullif(s.dvA, 0)                            AS dv_over_open,
          -- final-30m concentration: is the move happening on a burst or a fade?
          s.dvF / nullif(s.dvE + s.dvF, 0)                              AS f_share_of_lh,
          (r.open_p1 + r.div_p1)/nullif(r.close_d,0) - 1                AS ovn_from_close,
@@ -149,9 +172,9 @@ COPY (
 print(f"  join+write {time.time()-t1:.0f}s -> {args.out}")
 
 print(con.execute(f"""SELECT count(*) n,
-    round(median(lh_over_rest),4) AS med_lh_over_rest,
+    round(median(dv_over_rest),4) AS med_dv_over_rest,
     round(median(lh_share),4)     AS med_lh_share,
     round(median(lh_rate),3)      AS med_lh_rate,
     round(median(tc_rate),3)      AS med_tc_rate,
-    count(*) FILTER (lh_over_rest IS NULL) AS null_lh_over_rest
+    count(*) FILTER (dv_over_rest IS NULL) AS null_dv_over_rest
     FROM read_parquet('{args.out}')""").fetchdf().to_string(index=False))

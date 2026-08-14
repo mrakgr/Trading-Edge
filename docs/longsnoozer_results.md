@@ -453,7 +453,7 @@ On `chg60k59 < −6%` (n 4,168), keeping 25% by each lever:
 | **LOW** shape (the SHORT's lever) | 1,041 | **0.829** | −1.04% | −3.59% | −79 |
 | **HIGH** shape, 15m ref | 1,041 | 1.984 | +3.40% | +1.21% | −90 |
 | **HIGH** shape, 30m ref | 1,041 | **2.186** | +3.61% | +1.29% | −90 |
-| HIGH `lh_over_rest` | 1,042 | 2.174 | +2.70% | +1.58% | −90 |
+| HIGH `dv_over_rest` | 1,042 | 2.174 | +2.70% | +1.58% | −90 |
 | dense tape (low gaps) | 1,042 | 1.698 | +4.00% | +0.71% | −70 |
 
 **Importing the short side's filter gives PF 0.829 with 7 losing years — worse than
@@ -523,3 +523,69 @@ whole out-of-sample story.
 ⚠ Unlevered, pre-cost, one trade per ticker-day, no concurrency cap. The shape cut is
 a QUANTILE of the gated population, so a live implementation needs it restated as an
 absolute threshold (a per-day cross-sectional rank would be LOOKAHEAD).
+
+---
+
+## S43cd (2026-08-14) — the BAR-COUNT family: a third lever, better on the tail
+
+**User idea.** The `dv_over_open*` family compares last-hour DOLLARS to opening
+dollars. The bar-count twin compares last-hour PRESENCE to opening presence:
+
+    bar_over_openN = (nbLh/3600) / (nbOpenN/openN_secs)
+
+⭐ **RATE-NORMALISED, unlike the dollar family.** A bar count is hard-capped by window
+length (900 seconds cannot yield more than 900 bars), so a raw ratio would be bounded
+by the window ratio itself and compress at the top. Dividing each side by its own
+window makes **1.0 mean "as continuous now as at the open"** — and the universe median
+lands at **1.005**, so the normalisation has a real zero point. Dollars have no such
+cap, which is why `dv_over_*` stays a plain ratio (median 3.155).
+
+⭐ It expresses something the ABSOLUTE gap count cannot: a name trading 850/900s at the
+open and 2,000/3,600s into the close has **decayed**, while 300/900 → 1,200/3,600 has
+**improved** — and both can land on the same absolute gap count.
+
+### Long side (`chg60k59 < −6%`, n 4,165, matched n 1,042)
+
+| lever | PF | mean% | **worst%** |
+|---|---:|---:|---:|
+| ⭐ RANDOM same-n | 1.321 | +1.56 | −58 |
+| **$ `dv_over_open30`** | **2.194** | +3.63 | −90 |
+| $ `dv_over_rest` | 2.174 | +2.70 | −90 |
+| `tc_rate` | 2.125 | +2.60 | −90 |
+| BAR `bar_over_open30` | 1.844 | **+3.97** | −90 |
+| BAR `bar_over_open5` | 1.754 | +3.31 | **−55** |
+| `gaps` (absolute) | 1.702 | **+4.02** | −70 |
+| BAR `bar_over_open15` | 1.591 | +2.82 | −70 |
+
+Dollars win on PF. But `bar_over_open5` gives the **best tail of any lever (−55 vs
+−90)** and `gaps` the best mean with the worst PF — the levers trade off rather than
+ranking cleanly.
+
+### ⭐ THE OVERLAP MATRIX — three clusters, not one family
+
+| | dv_open15 | bar_open15 | gaps |
+|---|---:|---:|---:|
+| **dv_over_open15** | — | 66% | 53% |
+| **bar_over_open15** | 66% | — | **75%** |
+| **gaps** | 53% | 75% | — |
+
+Dollar family 92% internally coherent, bar family 86–93%, and **`gaps` sits 75% with
+bar counts but only 53% with dollars**. Exactly the expected structure: bar counts and
+gaps both measure PRESENCE, dollars measure MAGNITUDE. So bar counts are not a
+replacement for either — they are a smoothed, RELATIVE version of `gaps`, which is why
+they inherit its tail behaviour while picking up part of the dollar family's edge.
+
+⚠ The reference window barely matters for bar counts (short side: 3.008 / 3.025 /
+3.031 across 15m/30m/5m) where it mattered a lot for dollars (3.476 → 2.580 across
+15m → rest-of-day). Consistent with a saturating PRESENCE measure vs a MAGNITUDE one.
+
+**Practical read: dollars stay the primary lever on both sides; bar counts are the
+better instrument if the TAIL is what is being optimised** — which on ShortSnoozer,
+where the tail is the entire disqualifier, may matter more than the PF given up.
+
+Build: `snoozer_build_barcounts.py` (its own light scan — adding these six aggregates
+to `snoozer_build_shape.py` OOM-killed it twice at 13.4GB RSS; reading only
+`ticker`+`bucket` instead of also `vwap`+`volume` is what makes it affordable).
+
+⚠ **NAMING**: `lh_over_*` was renamed **`dv_over_*`** (user) so the prefix says which
+quantity is compared, pairing with `bar_over_*`. `lh` = last hour throughout.

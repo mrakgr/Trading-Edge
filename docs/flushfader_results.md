@@ -16333,3 +16333,157 @@ before entries so same-second handovers do not double-count), peak simultaneous
 exposure at the 10% base is **0.87x equity for A++ and 3.33x for all four** — inside
 4:1 intraday margin. p99 is only 0.89x on the full book, so the 3.33x peak is a rare
 pile-up that a concurrent-position cap would contain.
+
+---
+
+## S43cd/S43ce (2026-08-14) — RELATIVE TAPE SHAPE: works on the wide book, fails three ways on A++
+
+**User idea.** The Snoozer systems gained a second lever from *relative* tape shape
+(last-hour dollars ÷ opening dollars, §S43cb). Does the same idea work here — bar
+counts and dollar volume at the signal, measured against the SAME DAY's opening 15
+minutes?
+
+### The two features, and why they are a DECOMPOSITION rather than one ratio
+
+⭐ The trip schema measures the two quantities on **different clocks**, and mixing them
+silently would be wrong:
+
+| quantity | clock | consequence |
+|---|---|---|
+| `gap_N` | **wall-clock** — `GapCounter(N)` keeps present seconds in `(t−N, t]` and reports `span − count` | bars in the last N seconds = `N − gap_N`, exactly |
+| `dollar_vol_N` | **present-bar** — `SumMa N` over the last N bars that TRADED | its wall-clock span is longer whenever there are gaps, and is NOT recoverable from `gap_N` |
+
+⚠ The engine's own header flags this: *"Every window is a PRESENT-BAR-COUNT window…
+The GapCounter features (missing seconds in the trailing WALL-CLOCK window) measure
+exactly what this convention hides."* The gap counters are the deliberate exception —
+user challenged the reading and the code confirms it.
+
+So they cannot be divided into one "$/wall-second". Kept apart:
+
+    pers_N  = ((N − gap_N)/N)          / (n_bars_1s/900)      CONTINUITY vs the open
+    inten_N = (dollar_vol_N/N)         / (dv_0945_tape/n_bars_1s)   DOLLARS PER
+                                                              TRADED SECOND vs the open
+
+Both = 1.0 means "same as the opening 15 minutes". Knowability: `dollar_vol_N` is a
+trailing sum at the signal; `n_bars_1s` / `dv_0945_tape` are fixed at 09:45 and every
+entry is at or after 09:45. No lookahead.
+
+⚠ **A user variant, tested and rejected**: dividing the open by 900 WALL-CLOCK seconds
+instead of by its present-bar count gives `inten × (n_bars_1s/900)` — intensity times
+the open's own density. It measured WORSE at every window (2.502 / 2.242 / 2.287 vs
+2.764 / 2.567 / 2.683). Same-clock-both-sides wins.
+
+### ⭐ ON THE WIDE BOOK (all four segments, 5,246 trades) — IT WORKS
+
+Substitution test, matched selectivity q=0.25, both directions:
+
+| lever | dir | PF | mean% | worst% |
+|---|---|---:|---:|---:|
+| no filter | | 2.177 | +1.15 | −41 |
+| ⭐ RANDOM same-n | | **2.082** | +1.10 | −41 |
+| `gap_60` [incumbent, absolute] | LOW | **3.144** | +1.63 | −31 |
+| `inten_60` | HIGH | 2.764 | +1.37 | −29 |
+| `inten_1200` | HIGH | 2.683 | +1.34 | −29 |
+| `pers_1200` | HIGH | 2.534 | +1.45 | −37 |
+| `dvrate_60` (the /900 variant) | HIGH | 2.502 | +1.22 | −29 |
+
+⭐ **Direction is HIGH on both** — FlushFader wants a tape MORE continuous and BIGGER
+per traded second than the open. Same sign as LongSnoozer, opposite to ShortSnoozer.
+Fifth instance of that asymmetry.
+
+⚠ **Unlike the Snoozers, the absolute `gap_60` still beats every relative feature.**
+Plausible reason: an intraday system needs enough tape RIGHT NOW to capture a 5-minute
+reversion; "busier than this morning" does not guarantee that, a low absolute gap does.
+
+**They stack, and the payoff is the TAIL:**
+
+| cell | n | PF | mean% | **worst%** |
+|---|---:|---:|---:|---:|
+| baseline (all four) | 5,246 | 2.177 | +1.15 | −41 |
+| `gap_60 < 4` (the A++ door) | 1,650 | 3.114 | +1.61 | −31 |
+| **`gap_60 < 4` ∧ `inten_60 ≥ q75`** | 481 | **3.649** | +1.72 | **−15** |
+| `gap_60 < 4` ∧ `pers_1200 ≥ q75` | 849 | 3.592 | **+1.86** | −22 |
+| ⭐ `gap_60 < 4` ∧ `inten_60 ≥ q50` | 857 | 3.519 | +1.69 | −17 |
+| ⭐ RANDOM same-n (481) | 481 | 1.783 | +0.90 | −41 |
+
+**Worst trade −31% → −15%** against a random floor of 1.783. The `q50` row is the
+practical one — 857 trades instead of 481 for nearly all the tail benefit.
+
+### 🛑 ON THE A++ BOOK — THREE APPLICATIONS, THREE FAILURES
+
+All on the 1,325-trade production book.
+
+**1. OR-ed into the A/B tier door** (`gap_adj_1200 < 15 OR inten_1200 ≥ T`), user
+request. Neutral to noise:
+
+| threshold | acct/yr | maxDD |
+|---|---:|---:|
+| baseline | **+74.8%** | −3.9% |
+| q80 | +74.7% | −3.7% |
+| q85 | +77.0% | −3.8% |
+| q90 | +69.4% | −3.7% |
+| q95 | +67.7% | −3.6% |
+
+Non-monotone and straddling baseline. ⭐ The mechanism is visible in the re-derived
+ladder: 140 trades move C/D → A/B and **dilute them** — B falls 1.83 → 1.61, C falls
+1.14 → **0.99** (below D). Promoting them is exactly offset by demoting everyone else.
+Using `inten_1200` alone as the discriminator gives **+54.9%/yr** vs +74.8%.
+
+**2. As a 9th VOICE.** `inten_60 ≥ 1.148` admits 93 trades (111 solo trips @ PF 2.911)
+and raises account return +5.68% → +5.94% — but **FAILS leave-one-out**, the roster's
+own criterion:
+
+    dropped cand0  ->  PF 4.085,  dPF +0.137   (dPF > 0 = the voice HURTS)
+
+the worst seat in the augmented roster bar `dslo` (+0.200). `pers_1200 ≥ 1.275` fails
+harder: 45 solo trips at **PF 1.147**, win 62%, avg +0.20%.
+
+⭐ **And the question is moot anyway.** The book requires `gap_60 < 4`, so anything a
+new voice admits passed the door and failed all eight voices — i.e. it is an **A+
+segment trade**, and §S43cc already takes A+ wholesale. A voice that admits a subset of
+trades already being traded buys nothing.
+
+**3. As a SIZING lever** (user request; exposure-neutral, every variant rescaled to the
+incumbent's mean position size so the test measures ALLOCATION, not leverage):
+
+| band | range | n | PF | trimPF−1 | mult |
+|---|---|---:|---:|---:|---:|
+| I1 | [0.02, 0.40) | 442 | 3.456 | 6.98 | 1.00 |
+| **I2** | [0.40, 0.88) | 441 | **5.014** | **12.39** | **1.77** |
+| I3 | [0.88, 15.69) | 442 | 4.076 | 8.38 | 1.20 |
+
+🛑 **The ladder is a HUMP, not a gradient** — the middle band is best, so any monotone
+size rule is fitting the hump's position. Inside the tiers it is worse still: A peaks
+at I1, B at I3, C and D at I2 — four independent noise patterns (and A×I1 reads 36.67
+on **37 trades**).
+
+| variant (equal mean size 14.33%) | acct/yr | maxDD | worst trade |
+|---|---:|---:|---:|
+| **tier only (incumbent)** | **+73.2%** | **−3.91%** | −2.50% |
+| inten only | +67.1% | −5.16% | −2.63% |
+| tier × inten (multiplicative) | +74.0% | −4.73% | −2.51% |
+| tier × inten (2D cells) | +76.0% | −4.77% | −2.27% |
+
++0.8pp of return for +0.8pp of drawdown — no gain in return-per-unit-risk. The 2D
+variant fits 12 multipliers on 1,325 trades and is evaluated on the same trades, so it
+is in-sample by construction. Per-year, the entire gain is **2021**; 2023-2026 are
+flat-to-worse.
+
+### ⭐⭐ THE CONCLUSION: the feature lives OUTSIDE A++, not inside it
+
+0 for 3 on A++, clearly positive on the wide book. The consistent explanation is that
+**the `gap_60 < 4` door plus the eight-voice roster have already extracted what
+relative shape measures**, so inside A++ there is nothing left for it — while the
+5,246-trade four-segment book has no roster filtering it first.
+
+⏭ Given §S43cc's decision to trade all four segments, `gap_60 < 4 ∧ inten_60 ≥ q50` is
+the natural next thing to test AS A SEGMENT-LEVEL FILTER — on B++/B+, where the roster
+never ran. Not attempted yet.
+
+⚠ The q50/q75 cuts are QUANTILES of the population shown; a live rule needs the
+absolute value (a per-day cross-sectional rank would be lookahead). On the g60
+population `inten_60` q80 = 1.148, `inten_1200` q80 = 0.832, `pers_1200` q80 = 1.275.
+
+Tools: `flushfader_shape_test.py`, `flushfader_shape_breakdown.py`,
+`flushfader_tier_inten.py`, `flushfader_inten_sizing.py`. Augmented trip set with the
+features attached: `data/equity/flushfader/v45_shape/`.

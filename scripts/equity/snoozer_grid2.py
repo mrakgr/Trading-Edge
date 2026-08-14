@@ -53,7 +53,7 @@ ap.add_argument("--ref", choices=["5", "15", "30", "60", "90", "rest"], default=
 ap.add_argument("--trim", type=float, default=0.05)
 args = ap.parse_args()
 
-SHAPE = ("lh_over_rest" if args.ref == "rest" else f"lh_over_open{args.ref}")
+SHAPE = ("dv_over_rest" if args.ref == "rest" else f"dv_over_open{args.ref}")
 # ⭐ SIGN CONVENTION: `r` is the return TO THE TRADE, so both sides read identically.
 sign = "" if args.side == "long" else "-"
 cmp_ = "<" if args.side == "long" else ">"
