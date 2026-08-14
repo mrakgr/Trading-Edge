@@ -589,3 +589,73 @@ to `snoozer_build_shape.py` OOM-killed it twice at 13.4GB RSS; reading only
 
 ⚠ **NAMING**: `lh_over_*` was renamed **`dv_over_*`** (user) so the prefix says which
 quantity is compared, pairing with `bar_over_*`. `lh` = last hour throughout.
+
+---
+
+# ⏭ NEXT SESSION (queued 2026-08-14 ~19:50)
+
+## 1. ⭐ VOLATILITY FEATURES for the Snoozer family (user request)
+
+**The ask:** compute volatility over the **first 30m**, the **first 60m**, and the
+**whole day**, and do a breakdown — the same treatment `dv_over_*` and `bar_over_*`
+already got.
+
+### Use the LOCKED measure, not a fresh one
+
+`project_surgerider_vol_bakeoff_2026-07-21` settled this: **slot-EmaMa of |r| on 30s
+slot vwaps** beat r², path-RV and every kernel tried, 43/43 days. The fixed-window
+analogue is:
+
+    slot vwaps on 30s buckets  ->  r_i = ln(vwap_i / vwap_{i-1})  ->  mean |r_i|
+
+⚠ Do NOT reach for stdev or close-to-close — that is the comparison the bake-off
+already lost. ⚠ And `volat_*` = VOLATILITY while `vol_*` = VOLUME in this codebase.
+
+### The windows, and the feature family that follows
+
+| window | buckets | note |
+|---|---|---|
+| open 30m | 34200–35999 | |
+| open 60m | 34200–37799 | |
+| day (to 15:00) | 34200–53999 | the denominator for a "rest of day" twin |
+| last hour | 54001–57600 | measure to **15:59** for the k59 entry |
+
+Then mirror the two existing families — today's lesson is that the **RELATIVE** framing
+is the productive one:
+
+    volat_over_open30 = volat(last hour) / volat(first 30m)
+    volat_over_open60 = volat(last hour) / volat(first 60m)
+    volat_over_rest   = volat(last hour) / volat(09:30-15:00)
+
+⭐ These are ALREADY RATE-FREE (a mean per-slot |r| does not scale with window length),
+so unlike `bar_over_*` they need **no rate normalisation** and unlike `dv_over_*` their
+1.0 point is meaningful as-is.
+
+### The hypothesis worth pre-registering
+
+Both Snoozer sides key on **participation** (§S43cb: the overnight move continues in
+the direction the closing hour's participation points). Volatility is a different
+axis — *how far price moves per unit of activity* rather than how much activity there
+is. So it may be genuinely orthogonal to both the dollar and bar families, or it may
+just be a noisier proxy for them.
+
+⚠ **Decide it with the substitution test + a RANDOM same-n control + the overlap
+matrix**, never ρ. Today produced two cautionary cases: ρ 0.008 measures reading
+PF 3.41 vs 1.28, and three "thin tape" measures ranking 3.41 / 2.67 / 1.28 with one
+actively WORSE than baseline.
+
+### Build note — do NOT extend `snoozer_build_shape.py`
+
+That scan **OOM-killed twice** (13.4GB RSS on a 15GB box, at both 12GB and 6GB DuckDB
+limits) when six aggregates were added. Follow `snoozer_build_barcounts.py`: a separate
+light scan reading only the columns it needs, then a join. The 30s-slot reduction makes
+this heavier than the bar-count scan, so consider aggregating to slots first and
+computing returns in a second pass.
+
+## 2. ⏭ `pers` / `inten` on the B++ and B+ segments (deferred from today)
+
+§S43cd found relative shape works on the WIDE book but is 0-for-3 inside A++, and
+explained it: the `gap_60 < 4` door plus the eight-voice roster have already extracted
+what it measures. **B++ and B+ have never been touched by the roster**, so they are
+where the feature should have the most room. Test `inten_60 >= q50` and `pers_1200`
+there as segment-level filters, with the random control.

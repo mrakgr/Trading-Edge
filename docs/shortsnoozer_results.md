@@ -431,3 +431,23 @@ the dollar family's "short reference beats long" finding across — it does not 
 ⏭ NOT YET TESTED: `dv_over_open15 ∧ bar_over_open5` stacked. At 64% overlap there is
 room, and it pairs the best-PF lever with the best-tail lever — the natural next step
 given that the tail is the binding constraint.
+
+
+---
+
+## ⏭ NEXT SESSION (queued 2026-08-14)
+
+**Volatility features** are queued for the Snoozer family — see
+`docs/longsnoozer_results.md` §NEXT SESSION for the full design (locked measure,
+windows, the relative family, the build note about not extending the shape scan).
+
+Short-side specifics to carry in:
+
+- The binding constraint here is the **TAIL**, not expectancy. Judge any volatility
+  feature on `worst%` and p99 first, PF second — that is the opposite emphasis to the
+  long side, and it is how `bar_over_*` earned its place despite losing 0.45 PF.
+- ⏭ Still untested from §S43cd: **`dv_over_open15` ∧ `bar_over_open5`** stacked. 64%
+  overlap, pairs the best-PF lever with the best-tail lever.
+- ⚠ Expect the SIGN to be flipped from the long side on anything that works. Four
+  features have now behaved that way (density, dollar shape, entry mechanics, tail);
+  importing a long-side sign gave PF 0.829, worse than random.
