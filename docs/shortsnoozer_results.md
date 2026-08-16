@@ -1090,6 +1090,104 @@ Script: `scripts/equity/snoozer_volat_quiet.py`.
 
 ---
 
+# 🛑 S43ct (2026-08-16) — inside the QUIET cell: intensity does nothing, and persistence's spectacular inversion is a 2020 ARTEFACT
+
+⭐ USER: *"Let's focus on this cell. Do intensity and persistence make a difference
+inside it?"*
+
+Cell = `gaps ≥ 1000 ∧ chg > +6% ∧ volat_open30 < 40bp` — n = 542, PF 3.248,
+worst −49%, median price $16.97, median closing-hour dollars $31.2M.
+
+⚠ **Both directions were tested for every feature**, not the incumbent short-side sign
+only: the quiet cell is a different name population from the one those signs were fitted
+on ($16.97 vs $3.78 median price), and four features have already flipped between the
+two Snoozer systems.
+
+## §1 INTENSITY: nothing, in any window, in either direction
+
+| filter | n | PF | pctile |
+|---|---:|---:|---:|
+| `dv_over_open15` ≤ / ≥ cell median | 271 | 3.230 / 3.269 | 48.0 / 54.5 |
+| `dv_over_open30` ≤ / ≥ | 271 | 3.155 / 3.360 | 42.0 / 60.4 |
+| `dv_over_open60` ≤ / ≥ | 270 | 2.788 / 3.585 | 14.6 / 72.4 |
+| `dv_over_rest` ≤ / ≥ | 271 | 3.456 / 3.039 | 63.8 / 30.2 |
+
+**Eight measurements, all between the 15th and 72nd percentile.** Intensity — the
+feature that took the wide short book from 2.114 to 2.781 — is pure chance here. The
+quiet cell has already selected on whatever it was measuring.
+
+## ⚠⚠ §2 PERSISTENCE looked like the find of the session. It is not.
+
+| filter | n | PF | PFtrim | mean% | win% | worst5% | WORST% | pctile |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 🛑 `bar_over_open15` ≤ median (**incumbent sign**) | 271 | **1.696** | 2.933 | +1.28 | 59 | −15.4 | −49 | **0.0** |
+| ⭐ `bar_over_open15` ≥ median (**opposite**) | 271 | **6.938** | 16.926 | +4.57 | 73 | −9.0 | −21 | **100.0** |
+| `bar_over_open30` ≤ / ≥ | 271 | 1.850 / 6.180 | | | | | | 0.0 / 100.0 |
+| `bar_over_open60` ≤ / ≥ | 271 | 1.853 / 5.868 | | | | | | 0.0 / 100.0 |
+| `volat_lh` ≤ median | 271 | 4.627 | 7.788 | +3.44 | 65 | −7.6 | **−9** | 98.9 |
+
+A complete sign inversion at 0.0 vs 100.0 percentile, across all three windows, and it
+**replicated at `chg > +8%`** (9.419 at the 97th vs 3.379 at the 1.7th). It would have
+been the strongest single result in this document.
+
+### 🛑 THE 2020 CONTROL KILLS IT
+
+2020 is **39% of the quiet cell** (212 of 542) and its PF there is 6.26. A filter that
+preferentially selects 2020 dates inherits that without having any edge. It does:
+
+| variant | n | PF | worst% | pctile | **2020 share** |
+|---|---:|---:|---:|---:|---:|
+| the cell (all years) | 542 | 3.248 | −49 | — | 39% |
+| the cell EX-2020 | 330 | **1.807** | −24 | — | — |
+| EX-2020 + `bar_over_open15` ≥ | 165 | 1.976 | −21 | **69.2** | **54%** |
+| EX-2020 + `bar_over_open30` ≥ | 165 | 2.064 | −21 | **75.3** | **52%** |
+| EX-2020 + `bar_over_open60` ≥ | 165 | 2.301 | −21 | **91.5** | **51%** |
+| 🛑 EX-2020 + `volat_lh` ≤ | 165 | **1.081** | −9 | **0.1** | 41% |
+
+**PF 6.938 → 1.976, percentile 100.0 → 69.2.** The high-persistence half is **54% 2020**
+against the cell's own 39% — it is a 2020 selector. `volat_lh` is worse still: **98.9 →
+0.1**, a total reversal, and it carried **5 losing years** even in the full sample.
+
+⭐ **The physical mechanism confirms it is a name-type selector, not a signal:**
+
+    bar HI  n=271  open-15m 301/900 bars (33%)  last-hr 1812/3540 (51%)  price $23.21  $44.1M
+    bar LO  n=271  open-15m 514/900 bars (57%)  last-hr 1390/3540 (39%)  price $11.58  $21.0M
+
+`bar_over_open15` HIGH selects **larger, more liquid names that were DORMANT in the
+morning and woke up in the afternoon**. 2020 was full of them. Outside 2020 they are
+ordinary.
+
+## ⚠⚠ §3 The important side-effect: the `chg > +6%` cell is far more 2020-dependent than `chg > +8%`
+
+    chg > +6%  cell:  full PF 3.248  ->  EX-2020  1.807   (worst -49% -> -24%)
+    chg > +8%  cell:  full PF 5.310  ->  EX-2020  3.619   (worst -21% -> -21%)
+
+**The user's other instinct — raising the signal threshold — is the durable one.** At
++8% the cell keeps PF 3.619 without 2020; at +6% it falls to 1.807, barely above the
+2.114 gate it came from. ⭐ **`chg > +8%` should be the operating point, and §S43cs's
+`chg > +6%` row should be read as the weaker variant it is.**
+
+⭐ **The tail claim survives everywhere** — worst −24% (chg>+6%) and −21% (chg>+8%)
+with 2020 removed. That is the part of §S43cs that does not depend on the regime.
+
+## Verdict
+
+**Neither intensity nor persistence adds inside the quiet cell.** The quiet-volatility
+filter appears to be doing all the work by itself, which is consistent with §S43cs's
+substitution table where only volatility measures cleared the null. The spec stays:
+
+    chg60k59 > +8%  ∧  gaps >= 1000  ∧  volat_open30 < 40bp
+
+⚠ **METHOD NOTE, third time in this thread.** The failure mode was again a subgroup
+composition effect: §S43cf's null came from a cell already selected on volatility,
+§S43cs's median splits came from a bimodal relation, and this one came from a filter
+selecting a single year. **When a cell is dominated by one regime, run the
+leave-that-regime-out control BEFORE writing anything down.**
+
+Script: `scripts/equity/snoozer_quiet_features.py` (the 2020 control is §3 of it).
+
+---
+
 ## ⏭ NEXT SESSION (queued 2026-08-14)
 
 ⚠ **Volatility is DONE — see §S43cf above (negative result).** Still open:
