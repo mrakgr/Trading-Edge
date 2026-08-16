@@ -839,6 +839,130 @@ Script: `snoozer_gap_ratio.py`.
 
 ---
 
+# 🛑⭐ S43cr (2026-08-16) — CORRECTION: volatility DOES matter here. And the long-system shape does NOT transfer.
+
+## 🛑 §1 CORRECTION to §S43cf — "nothing survives on the short side" was WRONG
+
+⭐ USER: *"So the volatility split for this is real. Weren't you telling me at some
+point that the volatility didn't matter?"*
+
+Yes — §S43cf concluded *"SHORT: nothing survives"* for volatility. That conclusion was
+measured on ONE cell and does not generalise. §S43co found the opposite on a wider
+population and reported it as a new finding rather than flagging it as a REVERSAL; this
+section makes the correction explicit.
+
+**The mechanism — the §S43cf cell had already selected high-volatility names:**
+
+| cell | n | median `volat_open30` | HIGH PF | LOW PF | ΔPF | pctile | null p95/p50 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| §S43cf `gaps≥2000 ∧ shape≤q25` | 759 | **125.4bp** | 3.899 | 4.016 | **−0.117** | 46.5 | 1.401 |
+| §S43co gate `gaps≥1000` | 3,016 | 81.7bp | 2.409 | 1.689 | **+0.721** | **95.7** | 1.138 |
+| §S43cp ctx `I+B+G+` | 1,323 | 109.1bp | 3.369 | 2.363 | **+1.007** | 86.9 | 1.220 |
+
+The short population's median `volat_open30` is **81.9bp**. The §S43cf cell's median is
+**125.4bp and its q25 is 97.3bp** — so **more than 75% of that cell was already above
+the population median.** Splitting it at its own median compared high-vol against
+very-high-vol; there was no contrast left to measure. Its noise floor was also 1.401
+against the wider gate's 1.138.
+
+⭐ **This is the §S43cd mechanism recurring** — "the door and the roster already
+extracted it". A feature that measures null INSIDE a narrow cell may simply be the
+thing that cell was already selecting on. **Always print the cell's own distribution of
+the candidate feature against the population's before concluding a null.**
+
+The user's read of the lattice was correct: `V+I+B+G+` 3.181 vs `V−I+B+G+` 2.117 is a
+real ΔPF of +1.064 on 951 vs 372 trades.
+
+## ⭐ §2 Volatility here is a RISK/RETURN DIAL, not a selector
+
+Sequential build, volatility split LAST into terciles of the final cell:
+
+| step | n | PF | mean% | med% | win% | p5% | worst5% | worst% | loss% |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `gaps ≥ 1000` | 3,016 | 2.114 | +3.14 | +3.07 | 70 | −15.7 | −35.8 | −168 | 30 |
+| + `dv_over_open30 ≤ q50` | 1,508 | 2.781 | +4.67 | +5.08 | 76 | −15.4 | −36.2 | −152 | 24 |
+| ⭐ + `bar_over_open15 ≤ q50` | 754 | **3.242** | +4.45 | +4.87 | **78** | **−11.1** | **−27.4** | −123 | **22** |
+| ↳ **V-LOW** [0, 94)bp | 251 | 3.000 | +3.07 | +3.26 | **80** | **−8.2** | **−21.0** | **−64** | **20** |
+| ↳ **V-MID** [94, 132)bp | 251 | 3.027 | +4.14 | +4.79 | 77 | −8.8 | −28.7 | **−64** | 23 |
+| ↳ **V-HIGH** [132, ∞)bp | 252 | **3.582** | **+6.13** | **+6.41** | 78 | −13.5 | −33.1 | −123 | 22 |
+
+⭐⭐ **Mean is monotone (+3.07 → +4.14 → +6.13) and the tail degrades in lockstep
+(−21.0 → −28.7 → −33.1) while PF stays flat at 3.0–3.6.** All three cells are
+tradeable; volatility chooses HOW MUCH TAIL you accept, not WHETHER to trade. That is
+the same role it played in §S43co §4 and the same role the GAP ratio played in §S43cq —
+three independent measurements of one property of this system.
+
+⚠ `V-HIGH`'s 2023 reads 192.97 on n=39 (near-zero-loss) and it prints 0.64 in 2019 and
+0.60 in 2021. **The tail ORDERING is the trustworthy part; the PF advantage is not.**
+
+## 🛑 §3 THE LONG-SYSTEM SHAPE DOES NOT TRANSFER
+
+⭐ USER: *"For the long system we got rid of the absolute gaps, and only kept a
+volatility band + 2 relative features... Maybe we could do it this time as well."*
+
+Tried directly. **It does not work here, for two separate reasons.**
+
+### (a) Absolute `gaps` is NOT redundant — but the useful threshold is much tighter
+
+| rule | n | PF | PFtrim | worst5% | worst% | pctile vs `I+×B+` |
+|---|---:|---:|---:|---:|---:|---:|
+| `I+ × B+` (NO gaps) — the long-system shape | 1,659 | 2.406 | 7.183 | −36.9 | −152 | — |
+| + `gaps ≥ 1000` | 1,633 | 2.446 | 7.475 | −36.5 | −152 | 89.0 |
+| ⭐ + **`gaps ≥ q50` (1831s)** | 1,323 | **2.932** | 9.567 | **−30.0** | **−123** | **99.9** |
+| (control) + `gaps < 1000` | 26 | 1.289 | 2.705 | −54.5 | −55 | — |
+
+⭐ **`gaps ≥ 1000` really IS nearly redundant** — it removes only **26 of 1,659 trades**
+once the two relative features are applied, which is why it looked droppable. But the
+tighter **`gaps ≥ 1831s` adds materially: 2.406 → 2.932 at the 99.9 percentile, with the
+tail improving −36.9% → −30.0% and the worst trade −152% → −123%.**
+
+This is consistent with §S43cp's lattice, where `G` was the ONLY feature positive in
+**5/5** contexts on the short side, while on the long side it was erratic (3/4, and just
+64.4 percentile on the wide bucket) — which is why dropping it there was free.
+**The two systems disagree about absolute gaps, and both readings are correct for their
+own side.**
+
+### (b) There is no clean volatility BAND on this side
+
+Fine bp bands within `I+ × B+`, no gaps filter (n = 1,659):
+
+| band bp | n | PF | mean% | worst5% | yrs<1 |
+|---|---:|---:|---:|---:|---:|
+| [30, 45) | 44 | 3.707 | +2.92 | −9.4 | 0 |
+| [45, 60) | 127 | 1.701 | +1.52 | −26.0 | 1 |
+| [60, 80) | 231 | 2.124 | +2.21 | −22.5 | 2 |
+| [80, 100) | 280 | 1.839 | +2.40 | −34.4 | 2 |
+| [100, 120) | 272 | 2.842 | +4.20 | −28.1 | 2 |
+| [120, 140) | 192 | 2.136 | +3.88 | −54.1 | 2 |
+| [140, 170) | 221 | 1.994 | +3.77 | −53.7 | 1 |
+| [170, 210) | 163 | 4.132 | +8.21 | −41.3 | 0 |
+| [210, 260) | 86 | 2.393 | +6.16 | −52.3 | 1 |
+| [260, ∞) | 33 | 5.901 | +9.63 | −29.3 | 0 |
+
+🛑 **It oscillates — 3.71 / 1.70 / 2.12 / 1.84 / 2.84 / 2.14 / 1.99 / 4.13 / 2.39 /
+5.90 — with no plateau anywhere.** Contrast the long side (§S43cm), where PF was flat at
+2.60–2.80 across a 60–120bp span and fell off cleanly outside it. **A band needs a
+plateau to be a band; this is a dial with noise on it.** Imposing `volat ≥ 100bp` raises
+PF (2.406 → 2.643) but WORSENS the tail (−36.9% → −43.3%), which is §2's dial again.
+
+### Verdict
+
+**Do not mirror the long-system shape.** The short system's three-feature core is
+`gaps ≥ q50 ∧ dv_over_open30 ≤ q50 ∧ bar_over_open* ≤ q50`, with volatility applied
+AFTERWARDS as a size dial rather than as a band. Two candidate structures, both
+un-adopted:
+
+    WIDE   I+ x B+ x gaps>=1831s              n=1,323  PF 2.932  worst-5% -30.0%
+    TIGHT  gaps>=1000 -> dv30 -> bar15        n=  754  PF 3.242  worst-5% -27.4%
+           (sequential thresholds, §S43co)
+
+⚠ **NOT ADOPTED, and the tail still disqualifies it** — worst trade −123% in both. See
+the banner at the top of this document.
+
+Scripts: `snoozer_complements.py --side short`, `snoozer_gap_ratio.py`.
+
+---
+
 ## ⏭ NEXT SESSION (queued 2026-08-14)
 
 ⚠ **Volatility is DONE — see §S43cf above (negative result).** Still open:
