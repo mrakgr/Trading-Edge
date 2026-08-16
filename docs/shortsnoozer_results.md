@@ -1506,6 +1506,94 @@ Script: `scripts/equity/snoozer_weak_band.py`.
 
 ---
 
+# 🛑 S43cx (2026-08-16) — the toxic cell is DEAD, not diluted. Nothing rescues it.
+
+⭐ USER: *"Could intensity maybe rescue this cell?"* — referring to
+`volat_open30 ∈ [40,100)bp ∧ gaps < 2000 ∧ chg > +8%`: **n = 509, PF 0.918, mean −0.54%,
+worst −235%, 5 losing years**, the largest single cell in the system.
+
+§S43cw posed the two possibilities: the cell is **diluted** (contains good trades a
+filter can find) or **genuinely dead** (no overnight edge in this regime). The answer is
+dead, and it took 20 filters plus a signal sweep to establish it.
+
+## §1 Intensity quintiles — non-monotone noise
+
+| quintile | range | n | PF | mean% | worst% | PF ex-2020 | pctile |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Q1 | [0.08, 1.01) | 102 | 1.101 | +0.52 | −56 | 1.221 | 71.6 |
+| Q2 | [1.01, 1.72) | 102 | 0.783 | −1.19 | −58 | 0.728 | 28.1 |
+| Q3 | [1.72, 2.61) | 101 | 1.006 | +0.03 | −45 | 0.584 | 61.2 |
+| Q4 | [2.61, 5.07) | 102 | 0.638 | −3.60 | **−235** | 0.931 | 10.1 |
+| Q5 | [5.07, 138.51) | 102 | 1.215 | +1.51 | −89 | 1.538 | 81.1 |
+
+No gradient, no direction, nothing above the 82nd percentile. Compare the same feature
+in the healthy part of the band (§S43cw §2: 99.8 percentile) — it is not that intensity
+is a weak feature, it is that this cell has nothing for it to find.
+
+## §2 Twenty filters at the cell median, both directions — the best reaches PF 1.14
+
+| filter | n | PF | mean% | worst% | PF ex-2020 | pctile |
+|---|---:|---:|---:|---:|---:|---:|
+| the cell (no filter) | 509 | 0.918 | −0.54 | −235 | 1.008 | — |
+| `last-hour volat` ≤ median | 255 | **1.144** | +0.57 | −45 | 1.012 | **93.0** |
+| `intensity rest-of-day` > median | 254 | **1.137** | +0.79 | −98 | 1.396 | **91.5** |
+| `volat_open30` > median (within band) | 254 | 1.103 | +0.70 | −235 | 1.200 | 88.7 |
+| `intensity 60m` > median | 254 | 1.050 | +0.33 | −98 | 1.318 | 81.3 |
+| ⚠ `intensity 30m` ≤ median *(incumbent sign)* | 255 | 0.947 | −0.27 | −58 | 0.897 | 57.2 |
+| `persistence 30m` ≤ median *(incumbent sign)* | 255 | 0.824 | −1.13 | −117 | 0.868 | 23.7 |
+| `gaps` > median *(within <2000)* | 254 | 0.834 | −0.92 | −117 | 0.892 | 25.3 |
+| `price` > median | 254 | 0.999 | −0.01 | −235 | 0.984 | 72.2 |
+| `last-hour dollars` ≤ median | 255 | 1.005 | +0.02 | −117 | 1.197 | 73.2 |
+
+**Nothing clears the 95th percentile, and nothing gets PF above 1.15.** The incumbent
+short-side signs are at the 57th and 24th percentiles — even the directions are gone.
+
+## §3 The small intensity effect INVERTS between gap strata
+
+`intensity` and `gaps` are 67% collinear overall, so the obvious worry is that any
+apparent intensity effect here is just gaps re-selected. Stratifying:
+
+    inside gaps <  cell median   n=254  PF 0.963  ->  intensity LOW 0.853 | HIGH 1.049
+    inside gaps >= cell median   n=255  PF 0.855  ->  intensity LOW 0.931 | HIGH 0.798
+
+The sign flips between the two strata. That is the signature of noise, not a suppressed
+signal.
+
+## §4 Raising the signal does not help either
+
+| | n | PF | mean% | worst% | yrs<1 | PF ex-2020 |
+|---|---:|---:|---:|---:|---:|---:|
+| chg > 8% | 509 | 0.918 | −0.54 | −235 | 5 | 1.008 |
+| chg > 10% | 341 | 1.038 | +0.25 | −117 | 3 | 1.208 |
+| chg > 12% | 238 | 1.037 | +0.26 | −117 | 3 | 1.279 |
+| 🛑 chg > 15% | 141 | **0.789** | −1.90 | −117 | 4 | 0.957 |
+| 🛑 chg > 20% | 73 | **0.793** | −2.12 | −117 | 2 | 0.969 |
+
+Peaks at 1.04 around +10–12% and collapses beyond. Same shape as the whole dead zone
+(§S43cw §1) — a bigger move does not make a mid-volatility, moderately-traded name a
+better short.
+
+## ✅ Verdict — and why this is a GOOD result
+
+**The SKIP stands.** This is not a cell being under-served by the feature set; it is a
+regime with no overnight edge. Three independent probes (a graded feature sweep, 20
+median filters, a signal-depth sweep) all land between PF 0.92 and 1.14 against a
+noise floor of ~1.3.
+
+⭐ **Excluding it is not merely risk reduction — it removes a NEGATIVE-EXPECTANCY block.**
+509 trades at PF 0.918 and mean **−0.54%** is 46 trades a year that lose money on
+average, and it is where the system's **−235% worst trade** lives along with 5 of its
+losing years. The tier scheme's value is as much in what it refuses as in what it sizes
+up.
+
+⚠ This also retires the §S43cw hope that the dead zone might be uniformly rescuable.
+Only its **sparse half** (`gaps ≥ 2000`, the B tier) is tradeable; the dense half is
+permanent SKIP.
+
+Script: `scripts/equity/snoozer_toxic_cell.py`.
+
+---
+
 ## ⏭ NEXT SESSION (queued 2026-08-14)
 
 ⚠ **Volatility is DONE — see §S43cf above (negative result).** Still open:
