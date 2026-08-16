@@ -1142,6 +1142,122 @@ single random-half control, §S43cf).
 
 ---
 
+# ⭐⭐ S43ck (2026-08-16) — ONE OPENING WINDOW FOR THE SYSTEM: 30m, and KEEP relative persistence
+
+⭐ USER: *"Just like we're evaluating volatility during set windows, we should do the
+same for relative gaps and relative dollar volume. So far we have 4 main features:
+volatility, absolute gaps, relative dv (intensity) and relative gaps (persistence).
+We'll probably omit the last one and use absolute rather than relative persistence...
+I feel that for whatever system we pick, we should use the same opening window for the
+features, either 30m or 60m. Probably 30m."*
+
+## Why the alignment was needed
+
+`shape` = `dv_over_open15`, and **that window was never chosen** — it is what
+`dv_0945_tape` covers, because that column is the FlushFader UNIVERSE GATE. S43cb swept
+the reference length only on the SHORT side and found a shallow optimum there. The long
+side never had the sweep. Volatility then arrived with its own independent ladder. So
+the system was mixing a 15-minute denominator with a 60-minute volatility window for no
+reason anyone chose.
+
+⚠ `gaps` (= 3540 − nb60k59, seconds of (15:00,15:59] that did not trade) has NO opening
+window by construction, so it cannot vote on W.
+
+Everything below is a one-sided MEDIAN split (§S43cj), so every single-feature cell is
+exactly n/2 — matched by construction, nothing chosen in-sample.
+
+## ⭐ §1 Per family, on the full 4,164 (base PF 1.200)
+
+| family | 15m | 30m | 60m | best |
+|---|---:|---:|---:|---|
+| **volatility** `volat_open*` | 1.556 | **1.574** | 1.509 | 30m — but FLAT (range 0.065) |
+| **intensity** `dv_over_open*` | 1.621 | 1.677 | **1.723** | ⭐ 60m, and MONOTONE |
+| **persistence** `bar_over_open*` | 1.532 | 1.531 | **1.603** | 60m |
+| ⚠ **absolute gaps** (no window) | — | 1.390 | — | worst single feature |
+
+Losing years: volatility 1/1/1 · intensity 2/**1**/2 · persistence 2/2/2.
+Worst-5%: volatility −22.3/−23.3/−23.8 · intensity −28.7/−28.3/−28.2.
+
+⭐⭐ **The inherited 15m is the WORST choice for intensity, and the relation is
+monotone (1.621 → 1.677 → 1.723).** The universe gate's window was actively costing
+the long side. Note this is the OPPOSITE of the short side, where §S43cb found 15m beat
+rest-of-day 3.476 → 2.580 — another sign-flip between the two systems.
+
+⚠ No window wins for all three families. 60m takes intensity and persistence, 30m takes
+volatility. The decision therefore rests on the COMBINED spec, not on §1.
+
+## ⭐⭐ §2 The combined spec, three filters at a COMMON quantile q
+
+`volat_open{W}` low ∧ `dv_over_open{W}` high ∧ `bar_over_open{W}` high:
+
+| q | W=15m | W=30m | W=60m |
+|---|---|---|---|
+| 70% | 1.838 (n=1893, 1 yr<1) | 1.733 (n=1917, **0**) | 1.722 (n=1941, 2) |
+| 60% | 2.116 (n=1454, 1) | **2.172** (n=1470, 2) | 2.137 (n=1515, **0**) |
+| 50% | 2.329 (n=1084, 2) | **2.420** (n=1092, 2) | 2.334 (n=1158, 2) |
+| 40% | 2.439 (n=767, 1) | **2.451** (n=791, 1) | 2.387 (n=828, 1) |
+
+Two-filter version (`vol × int`, no persistence) at q=50%: 15m 2.033 (2 losing yrs),
+30m 2.013 (**0**), 60m 2.042 (**0**).
+
+⭐ **30m wins the three-filter spec at q=40/50/60.** ⚠ But the margins are 0.03–0.09 PF
+on n≈1,100 — well inside the noise floor. **The honest statement is that W barely
+matters once the three features are combined**, and 30m is chosen because it never
+loses, not because it demonstrably wins. The user's instinct was right for a reason the
+single-feature table does not show.
+
+## 🛑 §3 THE ONE PLACE THE DATA DISAGREES WITH THE PLAN
+
+The proposal was to drop relative persistence and keep absolute `gaps`. Tested directly
+at W=30m, on the `vol × int` cell (n=1,509, PF 2.013, 0 losing years):
+
+| rule | n | PF | mean% | med% | win% | p5% | worst5% | loss% | yrs<1 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| base `vol × int` | 1,509 | 2.013 | +2.46 | +1.40 | 62 | −12.0 | −21.7 | 38 | **0** |
+| + ABSOLUTE `gaps` | 756 | 2.636 | +4.07 | +2.52 | 63 | −12.1 | −20.1 | 37 | 1 |
+| ⭐ + RELATIVE `bar_over_open30` | 755 | **2.888** | +3.97 | +2.30 | **67** | −10.9 | −19.4 | **33** | **0** |
+| ⭐⭐ + **BOTH** | 545 | **3.258** | **+4.89** | **+2.99** | 66 | −11.0 | **−17.0** | 34 | **0** |
+
+**Relative persistence BEATS absolute gaps** — 2.888 vs 2.636, better tail, better loss
+rate, 0 losing years against 1. A paired bootstrap over 4,000 resamples of the base cell
+puts **P(relative > absolute) = 80%**, point estimate +0.252, 90% CI [−0.221, +0.729].
+Not decisive on its own — but it leans the opposite way to the plan, and nothing here
+supports dropping the relative twin.
+
+⭐⭐ **Better still: they are NOT substitutes.** Overlap is only 72%, ρ = −0.405, and
+**BOTH together reach PF 3.258 with the best tail in the entire study (worst-5%
+−17.0%) and 0 losing years.** Absolute gaps asks "did the tape stop?", relative
+persistence asks "did it stop MORE than this name usually does?" — the same
+absolute/relative distinction that S43cd found for dollars, and it resolves the same
+way: keep both.
+
+**RECOMMENDATION: keep all four features.** Dropping relative persistence costs
+3.258 → 2.636 (−19%) and gives back a losing year.
+
+## The aligned spec
+
+    LONG, W = 30m:
+      chg60k59 < -6%                        the signal
+      volat_open30   <= median (~104bp)     volatility   — buys survival
+      dv_over_open30 >= median (~0.50)      intensity    — buys expectancy
+      bar_over_open30 >= median             persistence  (RELATIVE)
+      gaps           <= median (~1844s)     persistence  (ABSOLUTE)
+      LIMIT 15:59-16:00, exit next open
+    -> n = 545, PF 3.258, mean +4.89%, median +2.99%, win 66%,
+       worst-5% -17.0%, loss rate 34%, ZERO losing years
+
+⚠ All thresholds are medians of the FULL population, i.e. absolute values, not
+per-day ranks. ⚠ 545 trades over 11 years ≈ 50/yr.
+
+⚠ **Intensity genuinely prefers 60m** (monotone 1.621/1.677/1.723) and is the one
+family with a real reason to keep its own window. Aligning it to 30m is a deliberate
+concession to system simplicity, not a free choice — worth revisiting if intensity ever
+becomes the binding lever.
+
+Script: `snoozer_window_alignment.py`.
+
+---
+
 # ⏭ NEXT SESSION (queued 2026-08-14 ~19:50)
 
 ⚠ **Item 1 below is DONE — see §S43cf above.** Items 2+ still open.
