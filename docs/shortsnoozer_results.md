@@ -963,6 +963,133 @@ Scripts: `snoozer_complements.py --side short`, `snoozer_gap_ratio.py`.
 
 ---
 
+# ⭐⭐⭐ S43cs (2026-08-16) — THE QUIET CELL: the tail disqualifier finally breaks
+
+⭐ USER: *"What if we do a vol breakdown on just the gaps ≥ 1000 feature? We could also
+maybe try raising the chg60k59 >= 10%."*
+
+Both parts of that were right, and together they produce **the first ShortSnoozer cell
+whose worst trade is smaller than a normal stop.**
+
+## Why `gaps ≥ 1000` was the right place to look
+
+Median `volat_open30` on `gaps ≥ 1000` is **81.7bp** against the population's **81.9bp**
+— the gate is NOT volatility-selected, unlike the §S43cf cell (125.4bp) that produced
+the false null. This is the population where volatility can actually be measured.
+
+## ⭐⭐ §1 The relation is BIMODAL — which is why every median split misread it
+
+`gaps ≥ 1000 ∧ chg > +6%` (n = 3,016, PF 2.114):
+
+| band bp | n | PF | PFtrim | mean% | med% | win% | p5% | worst5% | worst% | loss% | yrs<1 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| ⭐⭐ **[0, 40)** | 542 | **3.248** | 6.417 | +2.93 | +1.64 | 66 | **−7.4** | **−12.6** | **−49** | 34 | 1 |
+| 🛑 [40, 60) | 535 | **1.208** | 2.602 | +0.59 | +1.23 | 64 | −14.8 | −30.4 | −89 | 36 | **4** |
+| 🛑 [60, 80) | 402 | **1.380** | 3.196 | +1.12 | +2.03 | 67 | −16.4 | −32.8 | −117 | 33 | 2 |
+| [80, 100) | 378 | 1.857 | 4.253 | +2.50 | +3.72 | 72 | −17.1 | −33.5 | −95 | 28 | 2 |
+| [100, 120) | 318 | 2.672 | 7.047 | +4.26 | +5.01 | 74 | −16.5 | −32.4 | −64 | 26 | 2 |
+| [120, 150) | 307 | 2.012 | 7.982 | +3.95 | +5.90 | 76 | −19.2 | −58.3 | −123 | 24 | 2 |
+| ⭐ [150, 190) | 274 | 3.165 | 10.262 | +6.29 | +7.37 | 78 | −17.0 | −40.9 | −152 | 22 | 2 |
+| [190, 240) | 145 | 1.939 | 6.944 | +5.14 | +7.10 | 77 | −32.7 | −76.9 | −168 | 23 | 1 |
+| ⭐ [240, ∞) | 115 | 3.801 | 12.735 | +9.88 | +10.80 | 79 | −22.1 | −52.1 | −92 | 21 | 0 |
+
+⭐⭐ **TWO separate good regions — the very QUIET tape and the very VIOLENT tape — with
+a dead zone at 40–80bp.** The population median is 81.9bp, so **every median split in
+this document has been lumping the excellent [0,40) with the terrible [40,80)** and
+calling the result "LOW". That is why §S43co read `volat_open30` HIGH at the 95.8
+percentile and LOW at 0.1: the HIGH half won because the LOW half was diluted, not
+because quiet tape is bad. **Third correction in this thread with the same root cause —
+a median split on a non-monotone relation.**
+
+## ⭐⭐⭐ §2 Raising the signal threshold DEEPENS the quiet cell
+
+`gaps ≥ 1000 ∧ volat_open30 < 40bp`, sweeping `chg60k59`:
+
+| chg > | ctx n | ctx PF | ctx worst% | cell n | PF | pctile | mean% | med% | win% | p5% | worst5% | **WORST%** | **>100% losses** | loss% | yrs<1 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| +6% | 3,016 | 2.114 | −168 | 542 | 3.248 | 99.7 | +2.93 | +1.64 | 66 | −7.4 | −12.6 | **−49** | **0** | 34 | 1 |
+| ⭐ **+8%** | 1,569 | 2.167 | −168 | **200** | **5.310** | **99.6** | +4.24 | +2.30 | 74 | **−6.7** | **−11.1** | **−21** | **0** | 26 | **0** |
+| +10% | 954 | 2.143 | −168 | 103 | 4.338 | 95.1 | +4.51 | +3.30 | 74 | −8.3 | −12.9 | −21 | **0** | 26 | **0** |
+| +12% | 606 | 2.064 | −168 | 54 | 9.799 | 98.7 | +6.87 | +4.92 | 83 | −5.5 | −11.5 | −13 | **0** | 17 | **0** |
+| +15% | 341 | 1.845 | −168 | 30 | 10.562 | 96.1 | +7.81 | +5.58 | 90 | −6.1 | −13.1 | −13 | **0** | 10 | **0** |
+
+⭐⭐⭐ **THIS IS THE DISQUALIFIER GONE.** The banner at the top of this document says
+*"STILL NOT ADOPTED — and the reason is the TAIL, which nothing has touched: worst trade
+−245%, 0.4% of trades lose more than 100% of notional."*
+
+In the `chg > +8%` quiet cell: **worst trade −21%, ZERO trades losing over 100%,
+p5 −6.7%, zero losing years.** The context it is drawn from still has a −168% worst
+trade; the cell has none of them. Nothing else in this study has come close — the best
+prior tail was −64% (§S43cb).
+
+⚠ **`chg > +8%` is the operating point.** +12% and +15% look better but are 54 and 30
+trades; +8% keeps 200 with the tail already collapsed.
+
+## ⭐⭐ §3 It is NOT a price or liquidity proxy
+
+Matched-n (200) substitutes inside the same `chg > +8%` gate:
+
+| filter | n | PF | pctile | mean% | worst5% | WORST% |
+|---|---:|---:|---:|---:|---:|---:|
+| ⭐ **`volat_open30 < 40bp`** | 200 | **5.310** | **99.6** | +4.24 | **−11.1** | **−21** |
+| ⭐ `volat_lh` LOW (the same idea, last hour) | 200 | 5.061 | 99.8 | +3.56 | −8.8 | **−17** |
+| 🛑 `close_d` HIGH | 200 | 1.366 | 2.8 | +1.41 | −46.1 | −98 |
+| 🛑 `dv_lh` HIGH | 200 | 1.223 | 1.6 | +1.04 | −61.4 | −98 |
+| 🛑 `gaps` LOW | 200 | 1.636 | 13.4 | +3.35 | −65.8 | −98 |
+
+**Only volatility works, and BOTH volatility windows work** (opening 5.310 / last-hour
+5.061, worst −21% / −17%). Price and dollar volume are at the 2.8 and 1.6 percentiles
+with −98% worst trades. The quiet names ARE bigger and more liquid — median price
+**$17.16 vs $3.78**, last-hour dollars **$36.5M vs $6.1M** — but that correlation is not
+the mechanism, and gating on it directly fails.
+
+⭐ **The reading:** a low-volatility name that nonetheless ran +8% in the closing hour is
+a name doing something genuinely out of character, on a tape that does not squeeze. The
+ruinous shorts in this system have always been the sub-$5, high-volatility, thin names
+(GME, OCGN, HOLO, GNS — §S43bv). This filter removes exactly that population, and it
+does so by measuring the morning, hours before the entry.
+
+## ⚠ §4 The caveats, and they are real
+
+**2020 is 79 of the 200 trades (40%).** Excluding it:
+
+    full cell        n=200  PF 5.310  mean +4.24%  med +2.30%  win 74%  worst -21%  loss 26%
+    EXCLUDING 2020   n=121  PF 3.619  mean +3.10%  med +1.63%  win 68%  worst -21%  loss 32%
+    2020 only        n= 79  PF 9.824  mean +5.99%  med +4.49%  win 85%  worst -13%  loss 15%
+
+⭐ **The edge survives (3.619) and the tail is UNCHANGED at −21%** — the tail claim, which
+is the whole point, does not depend on 2020 at all. But half the PF does.
+
+⚠⚠ **Frequency is low and very uneven:** 2016 n=3 · 2017 n=1 · 2018 n=12 · 2019 n=3 ·
+2020 n=79 · 2021 n=47 · 2022 n=14 · 2023 n=2 · 2024 n=6 · 2025 n=20 · 2026 n=13.
+**Median ~13/yr, and four years have fewer than 5 trades.** This is not a book that can
+be sized on its own; it is a high-quality satellite.
+
+⚠ Still unmodelled, and all three cut the same way: borrow cost and availability, fees,
+and whether the 15:59 limit and the next open are attainable at size. These are less
+alarming here than for the wider book — median price $17.16 and $36.5M of closing-hour
+dollars is a very different borrow proposition from a $3.78 name on $6.1M — but they are
+still unmodelled.
+
+## The candidate spec (⚠ NOT ADOPTED — borrow unmodelled)
+
+    SHORT-QUIET:
+      chg60k59       > +8%          the signal, raised from +6%
+      gaps           >= 1000        thin late tape (absolute)
+      volat_open30   <  40bp        ⭐ the quiet-morning filter
+      LIMIT 15:59-16:00, cover next open
+    -> n = 200, PF 5.310, mean +4.24%, median +2.30%, win 74%,
+       p5 -6.7%, worst-5% -11.1%, WORST TRADE -21%, zero >100% losses,
+       zero losing years, ~13 trades/yr
+
+⚠ The two relative features (`dv_over_open30`, `bar_over_open*`) are NOT in this spec —
+they have not been tested on top of the quiet cell and n=200 does not have room for
+them. That is the next test, not an omission by choice.
+
+Script: `scripts/equity/snoozer_volat_quiet.py`.
+
+---
+
 ## ⏭ NEXT SESSION (queued 2026-08-14)
 
 ⚠ **Volatility is DONE — see §S43cf above (negative result).** Still open:
