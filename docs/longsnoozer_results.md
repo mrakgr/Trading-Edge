@@ -740,6 +740,11 @@ it removes the trades where −6% never meant anything.
 ∧ volat_open60 ≤ ~66bp`, LIMIT 15:59–16:00, exit next open.
 PF 4.875 · mean +6.33% · median +4.45% · win 74% · worst −24% · **0 losing years**.
 
+⚠ **SUPERSEDED IN FORM by §S43ch** — a one-sided `≤ T` floor is the wrong shape. The
+relation is an INVERTED U and the quietest decile is *below* baseline; use a BAND.
+The wide-book form `shape ≥ q50 ∧ volat_open15 ∈ [34, 83)bp` (n=851, PF 2.250) is the
+better-evidenced spec. The direction and the tail claim are unchanged.
+
 Scripts: `snoozer_build_volat.py` (cache) · `snoozer_volat_test.py` (deciles,
 substitution, stacking, overlap) · `snoozer_volat_robust.py` (bootstrap + sweep).
 
@@ -842,6 +847,81 @@ pre-volatility system could not reach at any selectivity, and is the more credib
 basis for sizing.
 
 Script: `snoozer_volat_ladder.py`.
+
+---
+
+# ⭐⭐ S43ch (2026-08-16) — it is an INVERTED U, not a floor: the median split was hiding the bottom decile
+
+⭐ USER: *"When testing the vol features, are you just looking at the bottom half using
+the median as the threshold?"*
+
+Yes — §S43cf §1 and §S43cg §1 both cut at the **cell median**. That was deliberate (it
+fixes `k = n/2` so the bootstrap null is identical across features, which is what makes
+the percentile column comparable across the ladder) but it is a COARSE instrument: it
+cannot distinguish a monotone gradient from one good decile, and only ONE threshold
+sweep had been run — `volat_open60`, on the narrow 370-trade cell.
+
+Swept on the 2,082-trade cell, **the gradient is not monotone.**
+
+## The decile table the median split was averaging over
+
+`volat_open15` inside `shape >= q50` (n = 2,082, base PF 1.621):
+
+| band | range | n | PF | mean% | med% | win% | p5% | worst5% | loss% |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| **D1** | 3–34bp | 209 | **1.559** | +1.17 | +1.46 | 67 | −11.0 | −20.1 | **33** |
+| D2 | 34–47bp | 208 | **2.691** | +2.70 | +2.25 | 69 | −7.0 | −20.3 | 31 |
+| D3 | 47–57bp | 208 | **2.747** | +2.79 | +1.47 | 66 | −9.9 | −13.4 | 34 |
+| D4 | 57–69bp | 208 | 1.597 | +1.31 | +0.79 | 56 | −10.5 | −17.9 | 44 |
+| D5 | 69–83bp | 208 | 2.127 | +2.81 | +1.11 | 58 | −11.0 | −20.0 | 42 |
+| D6 | 83–99bp | 208 | 1.791 | +2.52 | +1.17 | 59 | −14.0 | −26.9 | 41 |
+| D7 | 99–118bp | 208 | 2.041 | +3.67 | +0.95 | 56 | −15.4 | −20.8 | 44 |
+| D8 | 118–150bp | 208 | 1.697 | +3.60 | −0.25 | 50 | −19.7 | −32.1 | 50 |
+| D9 | 150–198bp | 208 | 1.276 | +2.25 | −3.08 | 43 | −30.6 | −42.7 | 57 |
+| D10 | 198–914bp | 209 | 1.119 | +0.98 | −3.89 | 44 | −25.7 | −37.3 | **56** |
+
+⭐ **D1 — the QUIETEST decile — reads 1.559, BELOW the 1.621 base.** The cumulative
+sweep agrees: bottom-10% gives lift 0.96× at the 43.2 percentile (nothing), and for
+`volat_open30` bottom-10% is 0.73× at the **7.8** percentile — actively harmful.
+
+## ⭐ Why: the TAIL is monotone even though PF is not
+
+Read the last two columns straight down — loss rate 33% → 56%, worst-5% −20% → −37%,
+p5 −11% → −26%. Risk rises monotonically with volatility exactly as §S43cg claimed.
+But D1's MEDIAN return is only +1.46%: an ultra-quiet name has small moves, so the
+overnight bounce is small too. **Good tail, poor payoff.** The two effects cross around
+D2–D3, which is where PF peaks.
+
+This also explains why the median split still worked — the median sits at ~83bp, far
+enough out that the weak bottom decile is diluted by D2–D5.
+
+## The band, and how much of it is load-bearing
+
+| rule | n | PF | lift | pctile | mean% | med% | win% | p5% | worst5% | loss% |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **`shape >= q50`, n = 2,082** | | | | | | | | | | |
+| base | 2,082 | 1.621 | 1.00× | 6.1 | +2.38 | +0.99 | 57 | −18.8 | −28.7 | 43 |
+| `< 83bp` (floor only) | 1,049 | 2.081 | 1.28× | 100.0 | +2.14 | +1.42 | 63 | −10.3 | −18.2 | 37 |
+| `[34, 118)bp` | 1,263 | 2.118 | 1.31× | 100.0 | +2.70 | +1.33 | 61 | −12.0 | −20.2 | 39 |
+| ⭐ **`[34, 83)bp`** | 851 | **2.250** | **1.39×** | 100.0 | +2.42 | +1.43 | 63 | −10.2 | **−17.7** | 37 |
+| **no filter at all, n = 4,164** | | | | | | | | | | |
+| base | 4,164 | 1.200 | 1.00× | 3.0 | +0.95 | −0.30 | 49 | −20.3 | −30.6 | 51 |
+| `< 83bp` (floor only) | 1,213 | 1.927 | 1.61× | 100.0 | +1.91 | +1.30 | 62 | −10.5 | −18.1 | 38 |
+| ⭐ **`[34, 83)bp`** | 1,014 | **2.061** | **1.72×** | 100.0 | +2.13 | +1.26 | 61 | −10.3 | −17.2 | 39 |
+
+⚠ **The UPPER bound is the load-bearing half.** Adding the lower bound buys ~8% of PF
+for ~19% of the trades and moves the tail almost not at all (−18.2% → −17.7%). It is
+removing LOW-PAYOFF trades, not risky ones — a real refinement, but not the lever, and
+the first thing to drop if trade count matters.
+
+⚠ Per-year, the band does NOT repair the two weak years — `shape >= q50` base reads
+0.78 (2016) / 0.81 (2019); the `[34,118)` band reads 0.22 (n=10) / 0.87. It lifts the
+good years (2018 1.10 → 2.77, 2024 2.41 → 4.16, 2025 1.12 → 1.99) rather than fixing
+the bad ones.
+
+⚠ **Thresholds are ABSOLUTE bp and were read off a decile grid, so treat 34 and 83 as
+the centre of a plateau, not tuned values.** D2–D5 all sit between 1.60 and 2.75 with
+overlapping intervals at these counts; do not narrow the band further on this evidence.
 
 ---
 
