@@ -1399,6 +1399,108 @@ Script: `snoozer_complements.py`.
 
 ---
 
+# ⭐⭐ S43cm (2026-08-16) — IS THE UPPER HALF OF T2 TRADEABLE? Yes, but only its bottom third
+
+⭐ USER: *"Is the upper half of T2 specifically tradable? How does it compare to the
+bottom half of T2? Have we done well by putting the cutoff at the median or could we
+loosen it to T1 + T2?"*
+
+Volat_open30 landmarks: **T1/T2 edge 76.6bp · MEDIAN 104.2bp · T2/T3 edge 136.9bp.**
+So the median sits almost exactly in the middle of T2, and the question is whether the
+half of T2 above it earns its place.
+
+## §1 T2 split at the median, inside the `I+B+G+` book (n=1,212)
+
+| band | n | PF raw | PF trim5 | mean% | med% | win% | worst5% | loss% | yrs<1 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| T1 all [0, 77)bp | 596 | 2.594 | 4.545 | +3.14 | +2.34 | **66** | **−17.0** | **34** | 1 |
+| ⭐ **T2 LOWER** [77, 104)bp | 189 | **2.749** | 4.261 | **+6.28** | **+3.71** | 57 | −25.2 | 43 | **0** |
+| ⚠ T2 UPPER [104, 137)bp | 167 | 1.881 | 2.717 | +4.94 | **−0.71** | 49 | −33.1 | 51 | 1 |
+| 🛑 T3 all [137, 900)bp | 260 | 1.106 | 1.426 | +0.97 | −5.34 | 40 | −40.9 | 60 | 3 |
+
+⭐⭐ **T2's LOWER half is the best band in the system on raw PF (2.749) and mean
+(+6.28%)** — better than T1 on both. T1 wins on tail, win rate and loss rate. The
+median cutoff is therefore slicing T2 at a real seam, not arbitrarily.
+
+## ⭐ §2 But T2's upper half is NOT homogeneous — it splits again at ~120bp
+
+Fine fixed-bp bands, same book:
+
+| band bp | n | PF | mean% | med% | win% | worst5% | loss% | yrs<1 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| ⚠ [0, 30) | 141 | 1.891 | +1.66 | +2.30 | 68 | −15.0 | 32 | **3** |
+| ⭐ **[30, 45)** | 159 | **3.389** | +3.01 | +2.36 | 69 | **−11.5** | **31** | **0** |
+| ⭐ **[45, 60)** | 145 | **3.230** | +4.31 | +2.56 | 66 | −16.3 | 34 | **0** |
+| [60, 77) | 155 | 2.265 | +3.58 | +2.36 | 60 | −24.4 | 40 | 1 |
+| [77, 90) | 110 | 2.645 | +5.41 | +4.73 | 56 | −24.7 | 44 | **0** |
+| [90, 104) | 74 | 2.804 | **+7.57** | +2.99 | 55 | −26.5 | 45 | **0** |
+| ⭐ **[104, 120)** | 92 | **2.420** | +6.19 | +1.96 | 57 | −27.5 | 43 | **0** |
+| 🛑 **[120, 137)** | 76 | **1.500** | +3.52 | **−3.05** | 41 | −37.6 | 59 | **3** |
+| 🛑 [137, 170) | 100 | 0.689 | −2.93 | −8.03 | 32 | −38.4 | 68 | 4 |
+
+**Answer: the upper half of T2 is half tradeable.** `[104, 120)` is a perfectly good
+cell — PF 2.420, mean +6.19%, **zero losing years**. `[120, 137)` is not: PF 1.500,
+**negative median**, 3 losing years. Treating "T2 upper" as one block averages a good
+cell with a bad one.
+
+⚠⚠ **And `[0, 30)` is the WORST band below 120bp** — PF 1.891 with **3 losing years**,
+against 3.389 for `[30, 45)`. The §S43ch inverted U reproduces on `volat_open30`, at the
+same place: the very quietest tape is not the best tape.
+
+## §3 So where should the cutoff go?
+
+Cumulative keep-below-T on the `I+B+G+` book:
+
+| keep < T | n | PF | mean% | med% | win% | worst5% | yrs<1 | P&L proxy (n × mean) |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 60bp | 445 | 2.799 | +3.00 | +2.31 | 68 | −14.2 | **0** | 1,337 |
+| 77bp (T1) | 600 | 2.601 | +3.15 | +2.34 | 66 | −16.8 | 1 | 1,891 |
+| 104bp (**current**) | 784 | 2.644 | +3.88 | +2.44 | 63 | −19.0 | 1 | 3,046 |
+| **120bp** | 876 | 2.604 | +4.13 | +2.42 | 63 | −20.5 | 1 | **3,616** |
+| 137bp (T1+T2) | 952 | 2.392 | +4.08 | +2.24 | 61 | −23.1 | **0** | 3,883 |
+| 200bp | 1,105 | 1.847 | +3.25 | +1.50 | 57 | −27.3 | 2 | 3,586 |
+
+⭐ **PF is FLAT — 2.60 to 2.80 — anywhere from 60bp to 120bp.** The median cutoff is not
+special; it is simply inside a wide plateau. **So the answer to "have we done well by
+putting the cutoff at the median" is: we have done neither well nor badly — the choice
+barely matters between 60 and 120.** What DOES matter is stopping before 137.
+
+⚠ Loosening all the way to T1+T2 (137bp) is where PF finally breaks (2.392) because it
+swallows the bad `[120,137)` slice — but note it also reaches 0 losing years and the
+highest P&L proxy. That apparent contradiction is the [120,137) band being bad on
+MEDIAN and consistency while still carrying enough winners to lift the aggregate mean.
+Trading it at a reduced size, not excluding it, is the resolution consistent with §S43cl.
+
+## ⭐⭐ §4 The refined band — and the lower bound matters far MORE on `G−`
+
+| book | rule | n | PF | mean% | med% | win% | worst5% | loss% | yrs<1 | P&L proxy |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **G+** | current `< 104bp` | 785 | 2.651 | +3.90 | +2.45 | 63 | **−19.0** | 37 | 1 | 3,059 |
+| **G+** | ⭐ `[30, 120)bp` | 735 | **2.698** | **+4.60** | +2.62 | 62 | −21.5 | 38 | 1 | **3,381** |
+| **G+** | `[30, 137)bp` | 811 | 2.445 | +4.50 | +2.22 | 60 | −24.4 | 40 | **0** | 3,649 |
+| **G−** | current `< 104bp` | 307 | 1.720 | +1.43 | +1.25 | 67 | −25.2 | 33 | 1 | 440 |
+| **G−** | ⭐⭐ `[30, 120)bp` | 256 | **2.776** | **+2.65** | +1.42 | **68** | **−16.5** | **32** | **0** | **677** |
+
+⭐⭐ **On the `G−` book the refined band is transformative: PF 1.720 → 2.776, worst-5%
+−25.2% → −16.5%, one losing year → zero, and a HIGHER P&L proxy (677 vs 440) on FEWER
+trades (256 vs 307).** That also explains the §S43cl anomaly where `V+I+B+G−` had a
+trim lift of 2.74 — its losers were concentrated in the volatility tails the median
+split left in.
+
+On `G+` the same band is a modest gain (+11% P&L proxy, PF 2.651 → 2.698) bought with a
+slightly worse tail. Per-year it trades 2026 (4.64 → 2.67) for 2017/2023/2024
+(4.58→5.59, 3.12→3.53, 5.11→5.62).
+
+⚠ Neither variant repairs 2016 (0.29 → 0.63, n≈5) or 2019 (0.80 → 0.62, n≈20). Those
+two years have now survived every feature in this study and are a separate problem.
+
+**RECOMMENDED:** `volat_open30 ∈ [30, 120)bp` on both books, with `[120, 137)` retained
+as a reduced-size cell rather than excluded.
+
+Script: the sweeps are one-off; `snoozer_complements.py` carries the lattice.
+
+---
+
 # ⏭ NEXT SESSION (queued 2026-08-14 ~19:50)
 
 ⚠ **Item 1 below is DONE — see §S43cf above.** Items 2+ still open.
