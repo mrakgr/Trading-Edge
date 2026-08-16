@@ -1501,6 +1501,116 @@ Script: the sweeps are one-off; `snoozer_complements.py` carries the lattice.
 
 ---
 
+# ⭐⭐⭐ S43cn (2026-08-16) — THE REBUILT BOOK: drop G, split volatility, split B (but only where it helps)
+
+⭐ USER: *"I'll take your recommendation. I guess with this we should consider dropping
+the G as a sizeup cell. But then we should consider the [30,60) and [60,120) as two
+separate volatility cells and size-up on the former. We're measuring volatility based on
+the first 30m off the open, right? ... The only question that will remain is whether
+splitting the I+ and B+ features into the bottom and top halves would give a benefit."*
+
+✅ **Confirmed: `volat_open30` is 09:30–10:00**, the first 30 minutes off the open.
+
+## ⭐ §1 Dropping `G` is right — it INVERTS between the two volatility cells
+
+| base `I+B+` | n | PF | mean% | win% | worst5% | yrs<1 |
+|---|---:|---:|---:|---:|---:|---:|
+| volat [30,60), **G merged** | 476 | **3.452** | +3.31 | 68 | **−12.1** | **0** |
+|   + G+ | 304 | 3.297 | +3.63 | 67 | −13.6 | 0 |
+|   + G− | 172 | **3.909** | +2.76 | 69 | **−7.9** | 0 |
+| volat [60,120), **G merged** | 515 | **2.435** | +4.82 | 59 | −25.9 | 1 |
+|   + G+ | 431 | **2.508** | +5.29 | 58 | −25.3 | 1 |
+|   + G− | 84 | 1.927 | +2.41 | 64 | −27.7 | 3 |
+
+⭐ **`G−` BEATS `G+` in the quiet cell (3.909 vs 3.297) and loses in the loud one
+(1.927 vs 2.508).** Once volatility is banded properly, absolute gaps has no consistent
+sign — exactly the §S43cl finding (`G` positive in only 3/4 lattice contexts) sharpened.
+Merging is not a concession; it is the correct read. **Dropping `G` is free.**
+
+## ⭐⭐ §2 The two volatility cells are genuinely different animals
+
+| cell | n | PF | PFtrim | mean% | med% | win% | p5% | worst5% | loss% | yrs<1 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **volat [30,60)** `I+B+` | 476 | 3.452 | 6.226 | +3.31 | +1.87 | **68** | **−7.1** | **−12.1** | **32** | **0** |
+| **volat [60,120)** `I+B+` | 515 | 2.435 | 3.952 | **+4.82** | **+2.62** | 59 | −15.9 | −25.9 | 41 | 1 |
+| 🛑 dropped [120,137) | 78 | 1.494 | 2.024 | +3.41 | −3.05 | 41 | −28.2 | −37.6 | 59 | 3 |
+
+**−12.1% worst-5% is the best tail anywhere in this study** (prior best −17.0%).
+
+⚠ **One amendment to the plan.** The proposal was to size up on `[30,60)`. That is right
+on TAIL but not on EDGE: `[60,120)` carries a 46% higher mean (+4.82% vs +3.31%) and a
+higher median. They deserve comparable size for OPPOSITE reasons — `[30,60)` is the
+survival cell, `[60,120)` the expectancy cell. §3 makes `[60,120)` the stronger of the
+two once `B` is split.
+
+## ⭐⭐⭐ §3 Splitting `I+`/`B+` — the answer DIFFERS between the two cells
+
+Quartile thresholds: `inten` q50 0.50 / q75 1.18 · `pers` q50 0.65 / q75 0.93.
+Percentiles are against 1,500 random same-n subsets OF THAT CELL.
+
+**volat [30,60) — base PF 3.452:**
+
+| sub-cell | n | PF | mean% | worst5% | pctile |
+|---|---:|---:|---:|---:|---:|
+| `I++` (any B+) | 368 | 3.822 | +3.68 | −12.2 | 88.1 |
+| `I++ × B++` | 241 | 3.958 | +3.72 | −12.0 | 80.8 |
+| `B++` (any I+) | 273 | 3.222 | +3.26 | −13.1 | 30.3 |
+| ⚠ `I+lo × B++` | 32 | 0.924 | −0.23 | −21.4 | **0.5** |
+
+🛑 **NOTHING clears 95.** In the quiet cell the split is NOT worth the complication —
+the cell is already homogeneous. (The one real pocket is `I+lo × B++` at the 0.5
+percentile, but it is 32 trades.)
+
+**volat [60,120) — base PF 2.435:**
+
+| sub-cell | n | PF | mean% | med% | win% | worst5% | yrs<1 | pctile |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| ⭐⭐ **`B++` (any I+)** | 211 | **4.152** | **+8.52** | +3.37 | 62 | **−19.1** | **0** | **99.9** |
+| `I++ × B++` | 158 | 3.966 | +8.30 | +3.50 | 59 | −19.7 | 0 | 99.0 |
+| `I+lo × B++` | 53 | 4.793 | +9.17 | +3.37 | 70 | −20.0 | 0 | 95.0 |
+| 🛑 `I++ × B+lo` | 118 | 1.749 | +2.56 | +0.78 | 55 | −23.3 | **3** | 8.7 |
+| 🛑 `I+lo × B+lo` | 186 | 1.505 | +2.05 | +2.07 | 57 | −33.2 | 1 | **0.3** |
+
+⭐⭐ **Split `B`, not `I`.** `B++` alone reaches the 99.9 percentile and works
+IRRESPECTIVE of `I` (both `I++×B++` and `I+lo×B++` clear 95; the two `B+lo` cells sit at
+8.7 and 0.3). `I++` adds nothing once `B++` is imposed — `B++`(any I) 4.152 vs
+`I++×B++` 3.966. Third confirmation that **relative persistence is the strongest feature
+in this system** (§S43ck, §S43cl §3).
+
+## ⭐⭐⭐ §4 THE REBUILT BOOK
+
+| cell | rule | n | PF | PFtrim | mean% | med% | win% | worst5% | loss% | yrs<1 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **A++** | `volat[30,60) ∧ I+ ∧ B+` | 476 | 3.452 | 6.226 | +3.31 | +1.87 | **68** | **−12.1** | **32** | **0** |
+| **A+** | `volat[60,120) ∧ I+ ∧ B++` | 211 | **4.152** | 6.466 | **+8.52** | **+3.37** | 62 | −19.1 | 38 | **0** |
+| **B++** | `volat[60,120) ∧ I+ ∧ B+lo` | 304 | 1.590 | 2.622 | +2.25 | +1.40 | 56 | −29.1 | 44 | 1 |
+| ⭐ **A++ + A+** | | **687** | **3.781** | **6.558** | **+4.91** | +2.29 | **66** | **−14.8** | 34 | **0** |
+
+Per year, `A++ + A+`: 0.55(6) · 2.96(14) · 6.43(17) · **1.13(9)** · 4.74(169) ·
+2.22(160) · 4.15(65) · 4.35(50) · 7.76(55) · 3.07(74) · 6.06(68).
+⭐ **2019 finally goes positive (1.13)** — the first structure in this study to fix it.
+
+At A++ 1.0× / A+ 1.0× / B++ 0.35×, the P&L split is 43.6% / 49.7% / 6.6%. The two
+full-size cells are ~93% of P&L on 687 trades (≈62/yr).
+
+## ⚠⚠ Two caveats that must travel with this
+
+1. ⚠⚠ **`A+` is essentially UNTESTED before 2020** — fewer than 5 trades in each of
+   2016–2019, so its entire record is 6 years, and it is 49.7% of projected P&L. The
+   early years are thin in the population generally (54–192 trades/yr vs 400–640 later),
+   but `A+`'s hit rate there is lower still. **Do not treat `A+`'s 4.152 as an 11-year
+   number.** `A++` spans all years.
+2. ⚠ `A++`'s 2026 cell reads 29.78 on n=46 — a near-zero-loss year doing heavy lifting
+   in the headline PF. The tail and win-rate claims are stable across years; the PF
+   magnitude is not.
+
+⚠ Thresholds are absolute (`volat_open30` in bp; `inten`/`pers` at population quantiles
+0.50/0.75 = 0.50/1.18 and 0.65/0.93). Nothing is a per-day rank.
+
+Scripts: `snoozer_complements.py` for the lattice; these sweeps are one-off.
+
+---
+
 # ⏭ NEXT SESSION (queued 2026-08-14 ~19:50)
 
 ⚠ **Item 1 below is DONE — see §S43cf above.** Items 2+ still open.
