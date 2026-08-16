@@ -1188,6 +1188,114 @@ Script: `scripts/equity/snoozer_quiet_features.py` (the 2020 control is §3 of i
 
 ---
 
+# ⭐⭐ S43cu (2026-08-16) — the marginal table was mis-COUNTED, and persistence should be DROPPED
+
+⭐ USER: *"I am thinking of maybe removing persistence from the mix for the short system.
+Maybe a slowdown simply isn't as strong of a signal as one would expect it to be for the
+short system, but I am confused as to why it is 2/5? Shouldn't there be 16 different
+systems to consider it in?"*
+
+## 🛑 §1 The counting was wrong — and it made the features LOOK comparable when they were not
+
+With 4 features, holding the other three fixed gives **2³ = 8 contexts** per feature (not
+16 — 16 is the number of CELLS in the lattice; each marginal comparison uses two cells,
+so 8 comparisons). §S43cp's table then **silently dropped any context with fewer than 40
+trades on either side**, which left different features judged on DIFFERENT context sets:
+V and I kept 6, B and G kept 5. **"B is 2/5" and "G is 5/5" were never comparable
+numbers.** My error, and the fix is to print all 8 and flag the thin ones.
+
+| feature | ΔPF>0 (all 8) | median ΔPF | ⭐ n-weighted mean ΔPF | (old, mis-counted) |
+|---|---|---:|---:|---|
+| **G** thin tape | **8/8** | +1.176 | **+1.551** | 5/5 |
+| **I** quiet close | **7/8** | +1.049 | **+0.998** | 5/6 |
+| V high volatility | 5/8 | +0.450 | +0.426 | 4/6 |
+| 🛑 **B** gappy persistence | **3/8** | **−0.465** | **−0.796** | 2/5 |
+
+n-weighted uses `min(+n, −n)` so a context whose minority side is 17 trades cannot
+outvote one with 900. **The corrected picture makes B look WORSE, not better.**
+
+## ⭐⭐ §2 But the reason is COLLINEARITY, not that slowdown hurts
+
+Pairwise agreement between the four favourable halves (50% = independent):
+
+| | V | I | B | G |
+|---|---|---|---|---|
+| **V** | — | 75% | 65% | 53% |
+| **I** | 75% | — | **81%** | 67% |
+| **B** | 65% | **81%** | — | **78%** |
+| **G** | 53% | 67% | **78%** | — |
+
+**`B` is 81% the same pick as `I` and 78% the same as `G`.** It is the most redundant of
+the four. `V` and `G` are nearly independent at 53%.
+
+The consequence is visible directly — `B+` share inside each context:
+
+| context | ctx n | B+ n | B− n | B+ share |
+|---|---:|---:|---:|---:|
+| 🛑 `V+I+G+` | 976 | 951 | **25** | **97%** |
+| 🛑 `V−I+G+` | 389 | 372 | **17** | **96%** |
+| `V+I−G+` | 104 | 68 | 36 | 65% |
+| `V+I+G−` | 564 | 270 | 294 | 48% |
+| `V−I−G+` | 573 | 207 | 366 | 36% |
+| `V+I−G−` | 398 | 40 | 358 | 10% |
+| `V−I−G−` | 967 | 68 | 899 | **7%** |
+
+⭐ **In the two best contexts there is essentially NO variation left in `B` — 96–97% of
+those cells are already `B+`.** The catastrophic ΔPFs that drove the negative
+(−4.831 at `V+I+G+`, −3.185 at `V−I+G+`) compare **951 trades against 25** and **372
+against 17**, where the tiny complements read PF 8.012 and 5.302. Those are noise, not
+evidence that dense tape is better. **The marginal-value framework simply cannot measure
+a feature that has no variation left to measure.**
+
+## ⭐⭐⭐ §3 The decisive test: does `B` add ON TOP of the others?
+
+Sequential, threshold = median of the cell it refines, percentile vs 3,000 random
+same-n subsets of that cell:
+
+| base | base n | base PF | + B n | + B PF | pctile | worst5% (base) |
+|---|---:|---:|---:|---:|---:|---|
+| `G+` only | 2,042 | 2.568 | 1,021 | 3.018 | **93.8** | −30.3 (−29.4) |
+| `G+ I+` | 1,365 | 3.006 | 683 | 3.131 | **64.0** | −29.2 (−29.5) |
+| `G+ I+ V+` | 976 | 3.246 | 488 | 3.354 | **59.8** | −28.3 (−32.4) |
+
+⭐⭐ **`B` adds only when `I` is ABSENT.** On `G+` alone it reaches 93.8; add intensity
+and it drops to 64.0, add volatility too and 59.8. That is exactly what 81% collinearity
+with `I` predicts — and `I` is much the stronger of the pair (7/8 and +0.998 against
+3/8 and −0.796).
+
+⚠ **This also downgrades §S43co.** That section reported *"`bar_over_open30` DOES add:
+2.781 → 3.012"* — but §S43cq's percentile for that same row was **74.1**, and
+`bar_over_open15`'s was **89.4**. Neither ever cleared 95. I stated it as a genuine
+addition on the strength of the PF and tail movement without leading with the
+percentile. **Persistence has never cleared the bar on this side.**
+
+## ✅ VERDICT: drop persistence from the short system
+
+The user's instinct is right, and for a sharper reason than "slowdown isn't a strong
+signal":
+
+1. It is **81% redundant with intensity**, which is strictly better on every measure.
+2. It **adds nothing once intensity is applied** (64.0 / 59.8 percentile).
+3. Its best-ever showing was **89.4** (§S43cq), below the 95 bar.
+4. Inside the quiet cell it does nothing, and its apparent inversion there was a **2020
+   composition artefact** (§S43ct).
+5. Swapping to the gap-ratio parameterisation does not rescue it (§S43cq).
+
+**The short system is three features: `gaps` (absolute, thin tape) × `dv_over_open30`
+(quiet close) × volatility.** ⚠ The ONE thing lost is the tail: §S43co's `+bar15` step
+improved worst-5% −36.2% → −27.4% and worst −152% → −123%. That gain was real even
+though the PF gain was not, so **if the tail is the binding constraint, keep it as an
+optional tail filter rather than a core feature** — and note §S43cs's quiet-volatility
+cell achieves a far better tail (−21%) without it.
+
+⚠ **METHOD:** print every context, flag the thin ones, and n-weight. A ratio like "2/5"
+hides both how many comparisons were discarded and how lopsided the survivors were.
+
+Script: the corrected 8-context table is in
+`scripts/equity/snoozer_complements.py` §4 (re-run with the fix below).
+
+---
+
 ## ⏭ NEXT SESSION (queued 2026-08-14)
 
 ⚠ **Volatility is DONE — see §S43cf above (negative result).** Still open:

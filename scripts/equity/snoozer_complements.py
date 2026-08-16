@@ -221,11 +221,19 @@ print("  ⚠ mean% on the SHORT side is inflated by the same fat right tail that
       "its\n    worst trades ruinous; a cell can lead on FLAT P&L and still be "
       "untradeable.")
 
-print(f"\n{'='*205}\n⭐ §4 MARGINAL VALUE OF EACH FEATURE across the lattice — "
+print(f"\n{'='*205}\n⭐ §4 MARGINAL VALUE OF EACH FEATURE — ALL 2^3 = 8 CONTEXTS, "
       f"holding the other three fixed\n{'='*205}")
+# ⚠⚠ S43cu: an earlier version DROPPED any context with < 40 trades on either side.
+# That left different features judged on different context sets (V,I kept 6; B,G kept
+# 5), so "B is 2/5" and "G is 5/5" were not comparable numbers. Print all 8, flag the
+# thin ones, and n-WEIGHT — otherwise a context whose minority side is 17 trades
+# outvotes one with 900.
 rows = []
 for k in "VIBG":
     others = [o for o in "VIBG" if o != k]
+    wsum = wtot = 0.0
+    npos = ntot = 0
+    sub = []
     for combo in itertools.product([1, 0], repeat=3):
         base = np.ones(n, bool)
         lab = ""
@@ -233,25 +241,46 @@ for k in "VIBG":
             base &= good[o] if bit else ~good[o]
             lab += f"{o}{'+' if bit else '−'}"
         mp, mm = base & good[k], base & ~good[k]
-        if mp.sum() < 40 or mm.sum() < 40:
+        if mp.sum() < 5 or mm.sum() < 5:
+            sub.append({"holding the other three": lab, "ctx n": int(base.sum()),
+                        "n (+)": int(mp.sum()), "PF (+)": np.nan,
+                        "n (−)": int(mm.sum()), "PF (−)": np.nan,
+                        "ΔPF": np.nan, "flag": "⚠ unmeasurable"})
             continue
-        # ⚠ generic column names — per-feature keys ("V+ n", "I+ n", ...) make pandas
-        # union them into one NaN-riddled frame.
-        rows.append({"feature": k, "holding the other three": lab,
-                     "n (feature +)": int(mp.sum()),
-                     "PF (feature +)": round(pf(r[mp]), 3),
-                     "n (feature −)": int(mm.sum()),
-                     "PF (feature −)": round(pf(r[mm]), 3),
-                     "ΔPF": round(pf(r[mp]) - pf(r[mm]), 3)})
-M = pd.DataFrame(rows)
-for k in "VIBG":
-    sub = M[M.feature == k]
-    if len(sub) == 0:
-        continue
+        d = pf(r[mp]) - pf(r[mm])
+        npos += d > 0
+        ntot += 1
+        w = min(mp.sum(), mm.sum())
+        wsum += d * w
+        wtot += w
+        sub.append({"holding the other three": lab, "ctx n": int(base.sum()),
+                    "n (+)": int(mp.sum()), "PF (+)": round(pf(r[mp]), 3),
+                    "n (−)": int(mm.sum()), "PF (−)": round(pf(r[mm]), 3),
+                    "ΔPF": round(d, 3),
+                    "flag": "⚠ thin" if w < 40 else ""})
+    S4 = pd.DataFrame(sub)
     print(f"\n  --- {k} ---")
-    print(sub.drop(columns="feature").to_string(index=False))
-    print(f"      ΔPF > 0 in {int((sub['ΔPF'] > 0).sum())}/{len(sub)} contexts, "
-          f"median Δ {sub['ΔPF'].median():+.3f}")
+    print(S4.to_string(index=False))
+    fat = S4[(S4.flag == "") & S4.ΔPF.notna()]
+    print(f"      all 8:      ΔPF > 0 in {npos}/{ntot}, median {S4['ΔPF'].median():+.3f}")
+    print(f"      ⭐ n-WEIGHTED mean ΔPF = {wsum/wtot:+.3f}   "
+          f"(weight = min(+n, −n))")
+    if len(fat):
+        print(f"      non-thin:   ΔPF > 0 in {int((fat['ΔPF']>0).sum())}/{len(fat)}, "
+              f"median {fat['ΔPF'].median():+.3f}")
+
+print(f"\n{'='*205}\n⭐ §4b COLLINEARITY — a feature with no variation left inside a "
+      f"context cannot be measured there\n{'='*205}")
+rows = []
+for a in "VIBG":
+    row = {"feature": a, "n(+)": int(good[a].sum())}
+    for b in "VIBG":
+        row[b] = "—" if a == b else f"{100*(good[a] & good[b]).sum()/good[a].sum():.0f}%"
+    rows.append(row)
+print(pd.DataFrame(rows).to_string(index=False))
+print("  share of A+ that is also B+.  50% = independent, 80%+ = nearly the same pick.")
+print("  ⚠ Read §4 THROUGH this table: a huge negative ΔPF in a context where the")
+print("    feature is 97% one-sided is 25 trades of noise, not evidence.")
 
 print(f"\n{'='*205}\n⭐ §5 VOLATILITY IN TERCILES (user: \"might be worth breaking "
       f"volatility down into terciles instead of halves\")\n{'='*205}")
