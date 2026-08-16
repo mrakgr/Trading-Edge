@@ -1878,6 +1878,43 @@ Script: `scripts/equity/snoozer_dollars_vs_gaps.py` (now cuts at `gaps >= 2000`)
 
 ---
 
+# ⏭ WHERE THE SHORT SYSTEM STANDS (2026-08-16, session close)
+
+⭐ USER: *"For the short system, the dominant features are the gap counts and
+volatility. We managed to drain the spike risk from short selling significantly, but
+these are pretty illiquid stocks. Completely different from the long system. It might
+end up being that only the volat < 40 cell might end up be tradable after we look at
+spreads, but even so that might be good enough."*
+
+**Two features carry this system: `gaps` (absolute last-hour sparsity) and
+`volat_open30` (first-30m volatility).** Everything else was tested and dropped —
+relative persistence (§S43cu), relative gap ratios (§S43cq), intensity (§S43cv, redundant
+with gaps at ρ 0.67), `volat_over_day` (§S43co, chance on the wide bucket).
+
+**What was achieved:** worst trade **−245% → −15%** on the S cell, and the system's
+negative-expectancy half identified and excluded (§S43cx). The tail was the sole
+disqualifier at the start of the day.
+
+⚠ **THE OPEN QUESTION IS LIQUIDITY, NOT EDGE.** Median closing-hour dollars by tier:
+S/quiet ≈ $31–36M at $17 median price, but the high-volatility tiers sit at $0.9–2.1M on
+$2–3 stock (§S43cy). Spreads and borrow are unmodelled everywhere.
+
+## ⏭ NEXT STEPS ON THIS SYSTEM (user, session close)
+
+1. ⭐ **Spread study before anything else.** The user's read: *"only the volat < 40 cell
+   might end up be tradable after we look at spreads, but even so that might be good
+   enough."* Measure realised spread at 15:59–16:00 per tier from the 1s tape.
+2. ⭐ **Passive entry — post on the ASK rather than crossing.** *"With the higher vol
+   cells, we could try putting limit orders on the ask and see if they get hit to avoid
+   paying the spread. We should [be] doing that for the volat < 40 cell as well."*
+   ⚠ This needs a FILL MODEL, not just a price: a resting offer only fills if the tape
+   trades through it, and `feedback_lookahead_in_fill_sim` applies — fill at the VWAP of
+   available same-side flow, never assume a scratch.
+3. ⏭ Re-cut the §S43cw tier book with a price floor (never done).
+4. ⏭ Borrow availability on the $2–5 names, which decides whether tiers B and C exist.
+
+---
+
 ## ⏭ NEXT SESSION (queued 2026-08-14)
 
 ⚠ **Volatility is DONE — see §S43cf above (negative result).** Still open:
