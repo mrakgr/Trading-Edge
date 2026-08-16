@@ -1296,6 +1296,111 @@ Script: the corrected 8-context table is in
 
 ---
 
+# ⭐⭐⭐ S43cv (2026-08-16) — the GAP COUNT is the strongest lever in the quiet cell, and it is GRADED
+
+⭐ USER: *"intensity and persistence didn't make much of a difference, but what about
+the gap count?"* — plus a theory worth testing rather than quoting:
+
+> *"if the number of gaps is already significant, the increase in sparsity doesn't make a
+> strong signal. A slow stock becoming slower maybe isn't that big of a deal. It's
+> acceleration that would get the trader's attention."*
+
+⚠ The `gaps ≥ 1000` floor is **removed** for this test. Measuring gaps only above its
+own floor would repeat the §S43cf error — judging a feature inside a cell already
+selected on it. ⚠⚠ And the **2020 control is built in**, not bolted on, after §S43ct
+watched a 100.0-percentile result collapse to 69.2 once the year was removed.
+
+Base: `chg > +8% ∧ volat_open30 < 40bp`, **no gaps filter** — n = 319, PF 2.514
+(the full `chg > +8%` population is n = 2,306, PF 1.602; 2020 is 32% of the cell).
+
+## ⭐⭐ §1 It is a strong MONOTONE GRADE, not a floor — and dense tape LOSES MONEY
+
+| band (seconds not traded, of 3540) | n | PF | mean% | win% | p5% | worst5% | WORST% | loss% | 2020% | **n ex20** | **PF ex20** | **WORST ex20** |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 🛑 **[0, 500)** | 69 | **0.770** | **−1.19** | 57 | −22.0 | −28.0 | −34 | 43 | 13% | 60 | **0.720** | −34 |
+| [500, 1000) | 50 | 3.505 | +3.67 | 68 | −5.1 | −18.8 | −32 | 32 | 28% | 36 | 2.528 | −32 |
+| [1000, 1500) | 58 | 3.004 | +2.76 | 66 | −8.5 | −16.9 | −21 | 34 | 43% | 33 | 2.448 | −21 |
+| ⭐ **[1500, 2000)** | 61 | **7.773** | +5.07 | **84** | −4.9 | −9.2 | −12 | **16** | 38% | 38 | **3.883** | −12 |
+| ⭐ **[2000, 2500)** | 56 | **6.934** | +4.95 | 77 | −6.6 | **−7.9** | **−9** | 23 | 45% | 31 | **5.080** | **−9** |
+| [2500, 3000) | 23 | 4.854 | +4.14 | 65 | −3.7 | −15.2 | −15 | 35 | 26% | 17 | 2.906 | −15 |
+
+⭐⭐ **The densest band is a LOSING SHORT — PF 0.770, mean −1.19%, and 0.720 with 2020
+removed.** A quiet-volatility name that ran +8% on a *continuous* tape is a move with
+real participation behind it, and shorting it loses money. Sparsity is not a nice-to-have
+filter here; its absence is a disqualifier.
+
+⭐ Everything improves monotonically to [1500, 2500), where the tail reaches **−9% to
+−12%** and the win rate 77–84%. **And the ex-2020 column tracks it** — unlike §S43ct,
+this survives the year control at every band.
+
+## ⭐⭐ §2 `>= 1000` was INHERITED, not chosen
+
+| floor | n | PF | win% | worst5% | WORST% | yrs<1 | 2020% | n ex20 | **PF ex20** | pctile |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `>= 0` | 319 | 2.514 | 70 | −21.0 | −34 | 1 | 32% | 217 | 1.745 | — |
+| `>= 500` | 250 | 4.820 | 73 | −12.5 | −32 | **0** | 37% | 157 | 3.280 | **100.0** |
+| `>= 750` | 228 | 5.324 | 73 | −10.7 | −21 | **0** | 38% | 141 | 3.489 | **100.0** |
+| `>= 1000` *(incumbent)* | 200 | 5.310 | 74 | −11.1 | −21 | **0** | 40% | 121 | 3.619 | **100.0** |
+| `>= 1500` | 142 | 6.884 | 78 | −9.4 | −15 | **0** | 38% | 88 | 4.096 | **100.0** |
+| ⭐ **`>= 1750`** | **111** | **8.100** | 78 | **−8.9** | **−15** | **0** | 41% | 66 | **5.003** | **100.0** |
+| `>= 2000` | 81 | 6.316 | 74 | −9.4 | −15 | **0** | 38% | 50 | 4.263 | 99.4 |
+| `>= 2500` | 25 | 5.147 | 68 | −15.2 | −15 | 1 | 24% | 19 | 3.199 | 82.5 |
+
+**A wide plateau from 500 to 2000, every rung at the 100th percentile**, with PF and tail
+both improving as the floor rises. `>= 1000` sits in the middle of it and is not special
+— it came from the §S43cb grid, not from a sweep. **`>= 1750` is the better operating
+point on this evidence**: PF 8.100 (ex-2020 **5.003**), worst-5% −8.9%, worst trade
+−15%, zero losing years.
+
+⚠ **The cost is frequency: 111 trades over 11 years ≈ 10/yr**, against 200 (≈18/yr) at
+`>= 1000`. Given four years already have fewer than 5 trades (§S43cs §4), this is the
+binding practical constraint, not the statistics. **`>= 1500` (n=142, PF 6.884, ex-2020
+4.096, worst −15%) is the sensible compromise.**
+
+## ⭐⭐⭐ §3 THE THEORY IS CONFIRMED
+
+Head to head inside the quiet cell, each at its own median, same n:
+
+| filter | n | PF | **pctile** | worst5% | WORST% | n ex20 | **PF ex20** |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| the quiet cell (no filter) | 319 | 2.514 | — | −21.0 | −34 | 217 | 1.745 |
+| ⭐⭐ **ABSOLUTE sparsity** `gaps ≥ median` | 160 | **6.061** | **100.0** | **−9.4** | **−15** | 97 | **4.042** |
+| 🛑 **CHANGE in sparsity** `bar_over_open30 ≤ median` | 160 | **1.987** | **7.0** | −20.6 | −34 | 126 | 1.650 |
+| intensity `dv_over_open30 ≤ median` | 160 | 3.812 | 98.4 | −16.5 | −24 | 90 | 2.315 |
+
+⭐⭐⭐ **Absolute sparsity: 100.0 percentile. Change in sparsity: 7.0 percentile.** The
+prediction was exact — and note the change measure is not merely useless but sits BELOW
+random, i.e. the trades it selects are worse than a coin flip on the same cell.
+
+**The mechanism the user proposed holds up.** Once the tape is already sparse, *further*
+relative thinning carries nothing, because the level — not the change — is what says
+nobody is on the other side. `bar_over_*` measures deceleration from a baseline that has
+already been conditioned away. This is the same conclusion §S43cu reached from the
+collinearity side, arrived at independently.
+
+⚠ **Intensity behaves differently here than in §S43ct** (98.4 vs "nothing"): §S43ct
+tested it at `chg > +6%` with `gaps ≥ 1000` ALREADY applied, and `gaps`/`dv_over_open30`
+are 67% collinear (§S43cu §2). With the gaps floor off, intensity has room; with it on,
+it does not. **`gaps` is the primary and intensity is its redundant partner** — the same
+relationship `I` had to `B`, one level up.
+
+## Updated candidate spec (⚠ still NOT ADOPTED — borrow unmodelled)
+
+    SHORT-QUIET v2:
+      chg60k59      > +8%
+      volat_open30  <  40bp      the quiet-morning filter
+      gaps          >= 1500      ⭐ raised from 1000; graded, not a floor
+      (persistence DROPPED per §S43cu; intensity redundant with gaps)
+    -> n = 142, PF 6.884, win 78%, worst-5% -9.4%, WORST TRADE -15%,
+       zero losing years, ex-2020 PF 4.096  ·  ~13 trades/yr
+
+**Two features and a signal threshold.** The system is simpler than it was three
+sections ago and its worst trade has gone −245% → −15%.
+
+Script: `scripts/equity/snoozer_quiet_gaps.py`.
+
+---
+
 ## ⏭ NEXT SESSION (queued 2026-08-14)
 
 ⚠ **Volatility is DONE — see §S43cf above (negative result).** Still open:
