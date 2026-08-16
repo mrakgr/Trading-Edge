@@ -1706,7 +1706,18 @@ Script: `scripts/equity/snoozer_highvol.py`.
 
 ---
 
-# ⭐⭐⭐ S43cz (2026-08-16) — the curveball lands: ABSOLUTE last-hour DOLLARS replaces gaps, and survives the price floor
+# ⚠️ S43cz (2026-08-16) — ABSOLUTE last-hour DOLLARS vs gaps  🛑 **LARGELY RETRACTED — see §S43da below**
+
+> 🛑🛑 **THE CENTRAL CLAIM OF THIS SECTION IS WRONG.** §2 compared `gaps` at the
+> **median of each base** against `dollars` at the median, while §1 and the whole rest
+> of this document use the spec threshold **`gaps >= 2000`**. In `volat >= 100bp ∧
+> px >= $2` the median gap count is **1,587s**, so the median cut INCLUDES the
+> `[1500,2000)` band that §S43cy had already shown is dead (PF 1.112). Gaps was
+> handicapped with a threshold this document had itself refuted. At `gaps >= 2000` it
+> does NOT fail the price floor. **Read §S43da instead; the tables below are kept only
+> for provenance.** (User caught it: *"I see you're comparing gaps high and dollars low,
+> but I am not sure what the trade count for those is. Are you comparing the median
+> values?"*)
 
 ⭐ USER: *"Could gaps be replaced with absolute dollar volume?"*
 
@@ -1787,6 +1798,83 @@ better tail (−17.8% vs −23.2%) and zero losing years against one.
 `gaps` still adds anything on top of `dollars` given ρ = −0.864.
 
 Script: `scripts/equity/snoozer_dollars_vs_gaps.py`.
+
+---
+
+# 🛑⭐ S43da (2026-08-16) — CORRECTION: at the spec threshold, `gaps >= 2000` does NOT fail the price floor
+
+⭐ USER: *"But volat ≥ 100bp have a high pf when the gaps >= 2000? I see you're comparing
+gaps high and dollars low, but I am not sure what the trade count for those is. Are you
+comparing the median values?"*
+
+**Yes — and that was the error.** §S43cz §2 cut BOTH features at the median of each base.
+For `dollars` that is fine; for `gaps` it is not, because the median lands inside a band
+this document had already measured as dead.
+
+| base | n | median `gaps` | share with `gaps ≥ 2000` |
+|---|---:|---:|---:|
+| volat ≥ 100bp, all prices | 1,100 | **1,665s** | 42% |
+| volat ≥ 100bp, px ≥ $2 | 707 | **1,587s** | 40% |
+| volat ≥ 100bp, px ≥ $5 | 369 | **1,477s** | 38% |
+| volat [40,100), px ≥ $5 | 495 | 1,620s | 38% |
+
+§S43cy §1 measured `gaps [1500,2000)` at **PF 1.112, 5.5 percentile** — a known dead
+band. A median cut at 1,477–1,665s sweeps it in; `gaps ≥ 2000` excludes it. The two
+conventions are not interchangeable and §S43cz put them in adjacent tables without
+saying so.
+
+## ⭐ The corrected comparison — `gaps ≥ 2000` vs `dollars` cut to THE SAME n
+
+| region | price | base PF | `gaps ≥ 2000` | n | pctile | `dollars` matched-n | pctile |
+|---|---|---:|---:|---:|---:|---:|---:|
+| volat < 40bp | all | 2.514 | **6.316** | 81 | 99.2 | 5.842 | 99.0 |
+| volat < 40bp | ≥ $2 | 2.948 | **5.997** | 78 | 97.4 | 4.976 | 92.7 |
+| ⭐ volat < 40bp | ≥ $5 | 3.549 | 6.038 | 65 | 90.9 | **8.718** | **98.0** |
+| volat [40,100) | all | 1.245 | **2.775** | 378 | 100.0 | 1.838 | 99.6 |
+| volat [40,100) | ≥ $2 | 1.274 | **2.377** | 298 | 100.0 | 1.947 | 99.1 |
+| volat [40,100) | ≥ $5 | 1.269 | **2.958** | 187 | 99.9 | 2.510 | 99.8 |
+| ⭐ volat ≥ 100bp | all | 1.728 | 3.419 | 457 | 100.0 | **4.372** | 100.0 |
+| volat ≥ 100bp | ≥ $2 | 1.422 | **2.524** | 286 | **100.0** | 2.277 | 99.5 |
+| volat ≥ 100bp | ≥ $5 | 1.402 | 2.472 | 141 | **98.7** | 2.580 | 98.6 |
+
+## 🛑 What is retracted
+
+1. **"`gaps` FAILS THE NULL under a price floor (70.7 / 76.3 percentile)."** ❌ At
+   `gaps ≥ 2000` those cells read **100.0** and **98.7**. The failure was entirely the
+   median cut dragging in the dead `[1500,2000)` band.
+2. **"`dollars` beats `gaps` at px ≥ $5 in volat [40,100)" (2.613 vs 2.073).** ❌ At the
+   spec threshold `gaps` wins **2.958 vs 2.510**.
+3. **"`gaps ≥ 2000` was working largely by selecting cheap stock."** ❌ It holds its
+   percentile at every price floor. §S43cy's conclusion that the high-vol region weakens
+   above $2 stands (base PF 1.728 → 1.422 → 1.402), but that is the REGION thinning, not
+   the feature failing.
+
+## ✅ What survives
+
+`dollars` genuinely wins in exactly **two** cells:
+
+    volat >= 100bp, all prices     dollars 4.372 vs gaps 3.419   (ex-2020 4.320 vs 3.314)
+    volat <  40bp,  px >= $5       dollars 8.718 vs gaps 6.038   (ex-2020 5.662 vs 3.728)
+
+The second is still the best cell found in this study — **n=65, PF 8.718, worst-5%
+−7.4%, worst −9%, zero >100% losses, zero losing years, median price $16.58** — and it
+does beat the `gaps` version of the same cell. ⚠ But n=65 is **6 trades/yr**, half what
+§S43cz reported for its median-cut version (n=124).
+
+**Everywhere else `gaps ≥ 2000` is equal or better. The honest answer to the original
+question is NO: absolute dollars is a near-equal alternative that wins in two corners,
+not a replacement.** ρ = −0.864 between them, so this was always going to be a close
+call decided by threshold placement — which is exactly why the placement has to be the
+same on both sides of the comparison.
+
+⚠⚠ **METHOD, and this is the fourth time in this thread.** Every one of these errors has
+been a comparison whose two sides were not constructed the same way: unmatched n
+(§S43cj), a single control draw (§S43cf), a subgroup composition effect (§S43ct), and now
+mismatched threshold conventions. **State the cut convention explicitly in every
+comparison table, and use the SPEC threshold when one exists rather than a fresh
+quantile.**
+
+Script: `scripts/equity/snoozer_dollars_vs_gaps.py` (now cuts at `gaps >= 2000`).
 
 ---
 
