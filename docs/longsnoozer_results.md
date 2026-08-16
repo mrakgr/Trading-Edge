@@ -1037,16 +1037,108 @@ On the FULL 4,164 population, with `volat_open30 ∈ [30, 85)bp`:
 | **`volat_open30` band only** | 1,398 | 1.828 | +2.02 | +1.21 | 60 | −11.7 | −21.4 | 40 | **2022** |
 | ⭐ **BOTH** | 1,038 | **2.217** | +2.64 | +1.49 | 62 | −10.9 | −19.8 | 38 | **2019** |
 
-⭐ **Volatility ALONE beats `shape` ALONE** (1.828 vs 1.621) on 33% fewer trades, with a
-far better tail (−21.4% vs −28.7%) and only ONE losing year against two. At 74% overlap
-they still stack to 2.217. **Volatility is the stronger of the two levers on this
-system** — a reversal of the §S43cb ordering, which had `shape` as the primary.
+🛑 **THIS ROW COMPARISON IS NOT MATCHED — SEE §S43cj.** The volatility band keeps 1,398
+trades and `shape >= q50` keeps 2,082, so reading "volatility alone (1.828) beats shape
+alone (1.621)" off this table is a SELECTIVITY ARTEFACT, exactly the error
+`feedback_iso_trip_control_for_stacked_features` exists to prevent. At matched n,
+`shape` is slightly AHEAD on PF at every cut. The stacking result (2.217 from both, at
+74% overlap) stands — only the head-to-head claim was wrong.
 
 ⚠ Neither fixes 2019, and the combined rule's 2016 cell is 0.14 on n=8. The weak years
 are a different variable; see the §NEXT SESSION note.
 
 Script: the head-to-head is a one-off; the reusable pieces are `snoozer_volat_ladder.py`
 and `snoozer_volat_robust.py`.
+
+---
+
+# ⭐⭐ S43cj (2026-08-16) — the PLAIN MEDIAN split, and two corrections
+
+⭐ USER: *"I don't really like that you're clipping the lower band though. What if you
+used the median as the threshold, how would the features compare then?"*
+
+Right instinct — the lower bound of §S43ch bought ~8% of PF for 19% of the trades and
+is the piece most likely to be fitted. Here is every feature as a plain ONE-SIDED
+median split, no band, no per-feature window search, so nothing is chosen in-sample.
+
+## §1 On the 2k bucket (`shape >= q50`, n = 2,082, base PF 1.621, worst-5% −28.7%, loss 43%)
+
+| feature | rule | n | PF | lift | pctile | mean% | med% | win% | p5% | worst5% | loss% | yrs<1 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `volat_day` | ≤ 39.4bp | 1,041 | **2.169** | 1.34× | 100.0 | +2.13 | +1.75 | **66** | −9.7 | −18.4 | **34** | 1 |
+| `volat_dayfull` | ≤ 39.5bp | 1,041 | 2.115 | 1.30× | 100.0 | +1.99 | +1.63 | **66** | −9.6 | −18.1 | **34** | 1 |
+| `volat_open15` | ≤ 82.6bp | 1,041 | 2.081 | 1.28× | 100.0 | +2.15 | +1.43 | 63 | −10.4 | −18.2 | 37 | 2 |
+| `volat_open30` | ≤ 70.7bp | 1,041 | 2.061 | 1.27× | 100.0 | +2.06 | +1.51 | 64 | −10.1 | −19.2 | 36 | 1 |
+| `volat_lh` | ≤ 39.2bp | 1,041 | 2.034 | 1.25× | 100.0 | +1.87 | +1.50 | 64 | −9.7 | **−17.1** | 36 | 1 |
+| ⚠ `shape` | ≥ 2.0 | 1,041 | 1.984 | 1.22× | 99.5 | **+3.40** | +1.21 | 59 | −15.8 | −27.3 | 41 | 2 |
+| `volat_open60` | ≤ 58.9bp | 1,041 | 1.980 | 1.22× | 99.9 | +2.03 | +1.45 | 64 | −10.5 | −20.9 | 36 | 2 |
+| `volat_over_open30` | ≥ 0.6 | 1,041 | 1.821 | 1.12× | 94.7 | +3.13 | +1.21 | 58 | −17.7 | −30.1 | 42 | 2 |
+| `volat_over_open15` | ≥ 0.5 | 1,041 | 1.770 | 1.09× | 89.1 | +3.00 | +1.05 | 56 | −17.0 | −29.7 | 44 | 2 |
+| `volat_over_day` | ≥ 1.0 | 1,041 | 1.725 | 1.06× | 80.8 | +2.44 | +1.21 | 60 | −15.3 | −28.5 | 40 | 3 |
+| ⚠ `gaps` | ≤ 1431 | 1,042 | 1.666 | 1.03× | 64.4 | +3.20 | +1.22 | 54 | −21.5 | −30.6 | 46 | 1 |
+
+Dropping the band costs remarkably little: `volat_open15` goes 2.096 (banded) → 2.081
+(median), `volat_open30` 2.217 → 2.061. **The lower bound was worth ~0.02–0.16 PF, not
+a structural part of the effect.** Every absolute window still sits at 99.9–100.0
+percentile, and the relative family still trails.
+
+## ⚠⚠ §2 CORRECTION 1 — the ranking is NOT stable across populations
+
+The same median splits on the FULL 4,164 (base PF 1.200):
+
+| feature | rule | n | PF | lift | mean% | win% | worst5% | loss% | yrs<1 | rank here / on 2k |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| ⚠ `shape` | ≥ 0.9 | 2,082 | **1.621** | 1.35× | +2.38 | 57 | −28.7 | 43 | 2 | 1st / 6th |
+| ⭐ `volat_open30` | ≤ 104.2bp | 2,082 | 1.574 | 1.31× | +1.64 | 58 | −23.3 | 42 | **1** | 2nd / 4th |
+| ⭐ `volat_open15` | ≤ 122.4bp | 2,082 | 1.556 | 1.30× | +1.58 | 57 | −22.3 | 43 | **1** | 3rd / 3rd |
+| `volat_open60` | ≤ 85.9bp | 2,082 | 1.509 | 1.26× | +1.46 | 58 | −23.8 | 42 | **1** | 4th / 7th |
+| `volat_dayfull` | ≤ 51.9bp | 2,082 | 1.417 | 1.18× | +1.10 | 58 | −21.5 | 42 | 2 | 5th / 2nd |
+| ⚠ `gaps` | ≤ 1844 | 2,083 | 1.390 | 1.16× | +2.15 | 49 | −32.6 | 51 | 3 | 8th / 11th |
+| ⚠ `volat_day` | ≤ 52.6bp | 2,082 | **1.386** | 1.16× | +1.05 | 58 | −22.0 | 42 | 2 | **9th / 1st** |
+| `volat_lh` | ≤ 45.4bp | 2,082 | 1.346 | 1.12× | +0.96 | 56 | −21.6 | 44 | 3 | 11th / 5th |
+
+⚠⚠ **`volat_day` is 1st on the 2k bucket and 9th on the full population.** So is
+`volat_lh` (5th → 11th). The afternoon-anchored windows only look good once `shape` has
+already been applied — their apparent edge is partly `shape`'s, re-expressed.
+
+⭐ **Only `volat_open15` and `volat_open30` are stable**, sitting 2nd–4th in BOTH
+populations with 1 losing year each. **The opening windows are the robust choice**, and
+they have the operational advantage anyway (known by 09:45/10:00, so they can gate a
+watchlist hours before the 15:59 entry). §S43ci's nomination of `volat_open30` survives
+— but for this reason, not the one given there.
+
+## 🛑 §3 CORRECTION 2 — "volatility alone beats shape alone" was a SELECTIVITY ARTEFACT
+
+§S43ci compared the `volat_open30` band at **n=1,398** against `shape ≥ q50` at
+**n=2,082** and concluded volatility was the stronger lever. Those are different
+selectivities; PF rises mechanically as trades are cut. At MATCHED n:
+
+| keep | `volat_open30 ≤ T` | | | | `shape ≥ T` | | | |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| | PF | worst5% | loss% | yrs<1 | PF | worst5% | loss% | yrs<1 |
+| 50% (n=2,082) | 1.574 | **−23.3** | 42 | **1** | **1.621** | −28.7 | 43 | 2 |
+| 40% (n=1,666) | 1.693 | **−22.2** | 40 | **1** | **1.831** | −28.2 | 41 | 2 |
+| 34% (n=1,399) | 1.809 | **−20.9** | 38 | **0** | **1.847** | −28.6 | 42 | 2 |
+| 25% (n=1,041) | 1.944 | **−18.1** | 37 | **0** | **1.984** | −27.3 | 41 | 2 |
+
+And the direct fix to the §S43ci row — the band against a `shape` cut at the same n:
+
+    volat_open30 [30,85)bp   n=1,398  PF 1.828  worst5% -21.4%  loss 40%  1 losing yr
+    shape >= 1.48            n=1,398  PF 1.848  worst5% -28.6%  loss 41%  2 losing yrs
+
+**`shape` is slightly ahead on PF at every cut.** The reversal claimed in §S43ci is
+WITHDRAWN — `shape` remains the higher-PF lever, as §S43cb had it.
+
+⭐ **But the "different jobs" reading is now much stronger, not weaker.** At every
+matched cut volatility delivers a **7–9pp better worst-5%**, a lower loss rate, and
+**0–1 losing years against `shape`'s 2**, while `shape` carries nearly double the mean
+return (+3.40% vs +1.85% at 25%). `shape` buys expectancy; volatility buys survival.
+That is why they stack to 2.217 at 74% overlap, and it is the honest form of the claim.
+
+⚠ Lesson repeated: `feedback_iso_trip_control_for_stacked_features` — **never compare
+two filters that keep different numbers of trades.** This is the second time in this
+session that an unmatched comparison produced a wrong headline (the first was the
+single random-half control, §S43cf).
 
 ---
 
