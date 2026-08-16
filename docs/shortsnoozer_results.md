@@ -1594,6 +1594,118 @@ Script: `scripts/equity/snoozer_toxic_cell.py`.
 
 ---
 
+# ⭐⭐ S43cy (2026-08-16) — the `volat >= 100bp` region: tradeable, but the edge is SUB-$5 and therefore may not be borrowable
+
+⭐ USER: *"Let's look at the volat >= 100bp region next."*
+
+The third and last volatility region, and the one with the best expectancy and the worst
+tail in the whole system:
+
+| region (chg > +8%) | n | PF | mean% | med% | win% | worst5% | WORST% | >100% losses | PF ex-2020 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **volat ≥ 100bp** | 1,100 | 1.728 | **+4.64** | **+8.30** | 76 | **−81.2** | **−245** | **15** | 1.813 |
+| volat [40,100)bp | 887 | 1.245 | +1.13 | +3.04 | 68 | −49.9 | −235 | 2 | 1.387 |
+| volat < 40bp | 319 | 2.514 | +2.98 | +2.18 | 70 | −21.0 | −34 | **0** | 1.745 |
+
+## ⭐ §1 Gaps rescues it, and the tail collapses with it
+
+| gaps band | n | PF | mean% | win% | worst5% | WORST% | >100% loss | PF ex-2020 | pctile |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 🛑 [0, 500) | 203 | 1.120 | +1.60 | 70 | −111.9 | −155 | **6** | 1.156 | 1.9 |
+| 🛑 [500, 1000) | 155 | 1.415 | +3.67 | 74 | −111.9 | **−245** | **4** | 1.562 | 21.6 |
+| [1000, 1500) | 154 | 2.797 | +8.24 | 79 | −62.6 | −92 | **0** | 2.959 | 93.3 |
+| 🛑 [1500, 2000) | 131 | 1.112 | +0.91 | 74 | −111.9 | −168 | 3 | 1.290 | 5.5 |
+| ⭐ **[2000, 2500)** | 173 | **3.927** | +6.94 | 78 | **−38.4** | −105 | 1 | **3.737** | **100.0** |
+| ⭐ **[2500, 3000)** | 165 | **3.668** | +6.51 | **82** | **−34.9** | **−64** | **0** | 3.573 | 99.5 |
+| [3000, 3541) | 119 | 2.551 | +4.63 | 76 | −41.9 | −123 | 1 | 2.477 | 85.8 |
+
+Cumulative: **`gaps >= 2000` → n = 457, PF 3.419, mean +6.18%, worst-5% −37.0%,
+2 of 457 losing >100%, ex-2020 3.314, 100.0 percentile.** The 15 catastrophic losses in
+the raw region drop to 2.
+
+⚠ The `[1500,2000)` dip to 1.112 between two strong neighbours is not explicable and is
+probably noise; it is a reason to use the cumulative `>= 2000` cut rather than trusting
+band-level detail.
+
+## 🛑 §2 CORRECTION to §S43cw — the threshold does NOT keep rising
+
+§S43cw claimed *"the gap threshold required rises with volatility"*. With the third
+region measured, that is **not monotone**:
+
+| region | threshold that works | best cell |
+|---|---|---|
+| volat < 40bp | `gaps ≥ 500` | 1500–1750 |
+| volat [40,100)bp | `gaps ≥ 2000` | 2000+ |
+| volat [100,150)bp | `gaps ≥ 2000` | 2.785 |
+| volat [150,240)bp | `gaps ≥ 2000` | **3.846** |
+| ⚠ volat [240,∞)bp | **`gaps ≥ 1500`** | **6.239** |
+
+The true shape is a **step, not a ramp**: quiet tape needs little sparsity, everything
+else needs a lot — and the most violent band needs *less* again. The "rising threshold"
+phrasing in §S43cw should be read as "quiet tape is the exception", not as a monotone law.
+
+⭐ The region is also **not uniform**. `volat [150,240) ∧ gaps ≥ 2000` is the standout:
+**n = 152, PF 3.846, mean +6.84%, worst −48%, ZERO >100% losses, ZERO losing years,
+ex-2020 4.136.** And `volat ≥ 240 ∧ gaps ≥ 1500`: n = 72, PF 6.239, worst −38%, zero
+losing years — but 6.5 trades/yr.
+
+## ⚠⚠ §3 THE FINDING THAT DECIDES WHETHER ANY OF THIS IS REAL MONEY
+
+Inside `volat ≥ 100 ∧ gaps ≥ 2500`, **price is by far the strongest remaining feature** —
+and it points the wrong way for tradeability:
+
+    price <= median   n=142  PF 8.153  win 85%  worst5% -18.5%  ex-2020 7.176  pctile 99.9
+    price >  median   n=142  PF 1.674  win 75%  worst5% -50.2%  ex-2020 1.789  pctile  0.1
+
+**Median entry price of the cell is $2.88.** Broken out:
+
+| price | n | share | PF | mean% | win% | worst5% | WORST% | med last-hr $ | PF ex-2020 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 🛑 $0–1 | 38 | 13% | 4.420 | +8.71 | 79 | −38.1 | −38 | **$0.9M** | 4.598 |
+| 🛑 **$1–2** | 63 | 22% | **28.451** | +8.52 | **89** | **−5.1** | **−8** | **$0.9M** | 19.007 |
+| $2–5 | 92 | 32% | 3.406 | +5.29 | 79 | −29.2 | −64 | $1.4M | 3.338 |
+| $5–10 | 51 | 18% | 5.890 | +8.59 | 82 | −20.2 | −24 | $2.1M | 6.588 |
+| 🛑 $10–20 | 21 | 7% | **0.555** | −4.17 | 67 | −123.3 | **−123** | $2.9M | 0.525 |
+| 🛑 $20+ | 19 | 7% | **0.485** | −4.16 | 63 | −45.1 | −45 | $6.3M | 0.688 |
+
+🛑🛑 **The PF 8.153 is almost entirely the $1–2 bucket at PF 28.451** — 63 trades on names
+doing **$0.9M** of closing-hour volume. The document header already records that *"sub-$1
+is fee-dead and unborrowable anyway"*, and $1–2 at $0.9M of daily closing liquidity is
+the same problem one dollar up.
+
+Imposing a tradeable price floor:
+
+| floor | n | PF | mean% | worst5% | WORST% | yrs<1 | PF ex-2020 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| none | 284 | 3.144 | +5.72 | −36.1 | −123 | 2 | 3.055 |
+| `px ≥ $1` | 246 | 2.958 | +5.26 | −37.5 | −123 | 2 | 2.845 |
+| `px ≥ $2` | 183 | **2.181** | +4.14 | −43.7 | −123 | 2 | 2.275 |
+| 🛑 `px ≥ $5` | 91 | **1.617** | +2.98 | −60.2 | −123 | 3 | 1.795 |
+
+**A $2 floor takes it from 3.144 to 2.181; a $5 floor to 1.617.** This region's quality is
+substantially a low-price artefact of a kind we cannot trade.
+
+⭐ Contrast the S tier (§S43cw), whose quiet names had a **median price of $17.16 and
+$36.5M** of closing-hour dollars, and where price was at the **2.8th** percentile — it
+does not need cheap stock to work. **That is now the strongest argument for the S tier
+over the high-volatility tiers, and it is a borrow argument, not a statistical one.**
+
+## Provisional placing
+
+    C tier   volat >= 100bp AND gaps >= 2000 AND px >= $2
+             -> n ~ 300, PF ~2.2, mean +4.1%, worst -123%
+             size SMALL, and only if borrow is confirmed on $2-5 names
+
+⚠ **NOT ADOPTED, and less attractive than its headline PF suggests.** The honest summary
+of the three regions: the quiet tier is the only one whose edge survives a price floor.
+
+⏭ Untested: whether `volat [150,240) ∧ gaps ≥ 2000` (PF 3.846, worst −48%, zero >100%
+losses) keeps its edge above $2 — it is the one high-volatility cell worth that check.
+
+Script: `scripts/equity/snoozer_highvol.py`.
+
+---
+
 ## ⏭ NEXT SESSION (queued 2026-08-14)
 
 ⚠ **Volatility is DONE — see §S43cf above (negative result).** Still open:
