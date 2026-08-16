@@ -19,13 +19,32 @@ been chosen after looking at these tables — §3 tried 20 variants per side, so
 threshold sweep (a real lever is a PLATEAU, not a spike) and the per-year column, not a
 smaller p-value.
 
+## ⭐ THE BASE CELL IS A FREE PARAMETER (user, 2026-08-16)
+
+*"Instead of the 370 trade incumbent, we should verify the volatility feature against
+shape >= q50%. The 2k trade bucket would give us much better confirmation."*
+
+Exactly right, and for a reason worth stating: a 370-trade cell splits into halves of
+185, where the bootstrap null's own p95 sits ~28% above its median. A feature can only
+be measured against that noise floor, not below it. Widening the base cell lowers the
+floor, so a lever that is real gets MORE significant as the cell grows while an artefact
+of the narrow cell decays. That divergence is the actual test — more informative than
+any single percentile.
+
+`--base` selects the cell:
+
+    q75      gaps <= 760 AND shape >= q75    n ~   370   the §S43cf incumbent
+    q50      gaps <= 760 AND shape >= q50    n ~   740
+    shape50  shape >= q50 (NO gaps filter)   n ~ 2,082   ⭐ the user's 2k bucket
+    all      no filter                       n ~ 4,164   the whole population
+
 ## Sections
 
-  §1  bootstrap percentile for every §3 candidate, both iso-trip controls included
+  §1  bootstrap percentile for every candidate, both iso-trip controls included
   §2  ABSOLUTE threshold sweep — a live spec cannot gate on a median
   §3  the surviving cell's full per-year record
 
-Usage:  python scripts/equity/snoozer_volat_robust.py --side long
+Usage:  python scripts/equity/snoozer_volat_robust.py --side long --base shape50
 """
 import argparse
 
@@ -43,6 +62,7 @@ ap.add_argument("--side", choices=["long", "short"], default="long")
 ap.add_argument("--chg", type=float, default=0.06)
 ap.add_argument("--boot", type=int, default=2000)
 ap.add_argument("--seed", type=int, default=20260816)
+ap.add_argument("--base", choices=["q75", "q50", "shape50", "all"], default="q75")
 args = ap.parse_args()
 
 sign = "-" if args.side == "short" else ""
@@ -66,13 +86,16 @@ FROM read_parquet('{args.shape}') s
 JOIN read_parquet('{args.volat}') v ON v.ticker = s.ticker AND v.date = s.date
 WHERE {cond} AND s.ovn_from_lim59 IS NOT NULL AND s.dv_lh > 0
   AND s.dv_over_open15 IS NOT NULL""")
-INC = (f"gaps {gap_op} {GAP_T} AND shape {shp_op} "
-       f"(SELECT quantile_cont(shape, {SHP_Q}) FROM S)")
+SHQ = {"q75": SHP_Q, "q50": 0.5, "shape50": 0.5}.get(args.base)
+GAPC = f"gaps {gap_op} {GAP_T}" if args.base in ("q75", "q50") else "TRUE"
+SHPC = ("TRUE" if args.base == "all" else
+        f"shape {shp_op} (SELECT quantile_cont(shape, {SHQ}) FROM S)")
+INC = f"{GAPC} AND {SHPC}"
 C = con.execute(f"SELECT * FROM S WHERE {INC}").fetchdf()
 r = C.r.values
 n = len(C)
-print(f"side={args.side}   incumbent cell  gaps {gap_op} {GAP_T} AND shape "
-      f"{shp_op} q{SHP_Q:.0%}   n = {n:,}")
+print(f"side={args.side}   base='{args.base}'   {GAPC}  AND  {SHPC.split('(SELECT')[0]}"
+      f"{'' if args.base == 'all' else f'q{SHQ:.0%}'}   n = {n:,}")
 
 
 def pf(x):

@@ -692,7 +692,13 @@ trades is above 1.0:
 
 ⚠ 2026 (30.89, n=31) and 2022 (18.50, n=11) are near-zero-loss cells and carry more
 of the headline than their trade counts suggest. The claim that survives is the
-**tail cut**, which is visible in every year, not the PF magnitude.
+**tail cut**, not the PF magnitude — and §S43cg below confirms it holds all the way
+out to the full 4,164-trade population.
+
+⚠ **State the tail in p5 / worst-5% terms, NOT "the worst trade".** §S43cg §4 shows
+`min` is unstable enough to invert the conclusion: on the wide cells it sits at −90%
+for every volatility cut AND for the base, while p5 goes −18.8% → −10.1%. This is
+`feedback_trim_bottom_5pct_when_comparing` biting in a new place.
 
 ## ⭐⭐ It is NOT a liquidity proxy — the substitution test
 
@@ -736,6 +742,106 @@ PF 4.875 · mean +6.33% · median +4.45% · win 74% · worst −24% · **0 losin
 
 Scripts: `snoozer_build_volat.py` (cache) · `snoozer_volat_test.py` (deciles,
 substitution, stacking, overlap) · `snoozer_volat_robust.py` (bootstrap + sweep).
+
+---
+
+# ⭐⭐ S43cg (2026-08-16) — CONFIRMED on 2,082 and 4,164 trades, and it is the ONLY TAIL LEVER
+
+⭐ USER: *"Instead of the 370 trade incumbent, we should verify the volatility feature
+against shape ≥ q50%. The 2k trade bucket would give us much better confirmation."*
+
+## Why widening is the right test, not merely a bigger one
+
+A 370-trade cell splits into halves of 185, where the bootstrap null's **own p95 sits
+26.6% above its median**. Nothing can be resolved below that floor. Widening drops it:
+
+| base cell | n | base PF | null p50 | null p95 | ⚠ floor p95/p50 | `volat_open60` PF | pctile |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `gaps ≤ 760 ∧ shape ≥ q75` | 370 | 2.296 | 2.299 | 2.910 | **1.266** | 4.875 | 100.0 |
+| `gaps ≤ 760 ∧ shape ≥ q50` | 622 | 1.868 | 1.876 | 2.257 | 1.203 | 3.380 | 100.0 |
+| ⭐ `shape ≥ q50` (no gaps) | 2,082 | 1.621 | 1.630 | 1.822 | 1.118 | 1.980 | 99.9 |
+| no filter at all | 4,164 | 1.200 | 1.198 | 1.331 | **1.110** | 1.509 | 100.0 |
+
+So a real lever should get MORE significant as the cell grows (the floor drops faster
+than the effect), while an artefact of the narrow cut decays toward the floor. **That
+divergence is the test.**
+
+⚠ The four cells are NESTED — this is one population read at four depths, not four
+independent confirmations.
+
+## ⭐ §1 It survives everywhere; the incumbent levers do not
+
+Bootstrap percentile, each feature cut at its own median WITHIN each cell:
+
+| feature (cut at cell median) | 370 | 622 | **2,082** | **4,164** |
+|---|---:|---:|---:|---:|
+| `volat_open15` ≤ | 100.0 | 100.0 | **100.0** | **100.0** |
+| `volat_open30` ≤ | 100.0 | 100.0 | 99.9 | 100.0 |
+| `volat_open60` ≤ | 100.0 | 100.0 | 99.9 | 100.0 |
+| `volat_day` ≤ | 99.9 | 99.2 | 100.0 | 99.0 |
+| `volat_dayfull` ≤ | 99.9 | 98.4 | 100.0 | 99.6 |
+| `volat_lh` ≤ | 99.7 | 98.9 | 100.0 | 96.1 |
+| `volat_over_open30` ≥ | 98.7 | 99.8 | 94.9 | 99.7 |
+| ⚠ `volat_over_day` ≥ | 97.5 | 97.0 | **81.0** | **74.2** |
+| ⚠ `gaps` (INCUMBENT) | 83.4 | 96.9 | **64.4** | 99.2 |
+| `shape` (INCUMBENT) | 71.9 | 99.0 | 99.6 | 100.0 |
+
+Three readings:
+
+1. ⭐ **The three opening-volatility windows are pinned at 99.9–100.0 at every depth.**
+   Nothing else in the table is that stable.
+2. ⚠ **`volat_over_day` DECAYS — 97.5 → 97.0 → 81.0 → 74.2.** That is the artefact
+   signature the ladder was built to catch, and it is precisely the feature that
+   looked best on the SHORT side (§S43cf, 94.8). The ladder is working.
+3. ⚠ **`gaps` is erratic (83.4 / 96.9 / 64.4 / 99.2)** — the incumbent persistence
+   lever is the least stable thing here.
+
+⚠ **The LIFT SHRINKS as the cell widens** — `volat_open60` runs 2.12× / 1.81× / 1.22× /
+1.26× the base PF. It is real at every depth but does the most work INSIDE the tight
+`gaps ∧ shape` cell, i.e. it interacts with the incumbents rather than replacing them.
+`shape`'s lift moves the other way (1.09× → 1.30× → 1.22× → 1.35×).
+
+## ⭐⭐ §2 THE HEADLINE: volatility is the only lever that touches the TAIL
+
+Mean of the **worst 5%** (never `min` — see below):
+
+| feature | 370 | 622 | 2,082 | 4,164 |
+|---|---|---|---|---|
+| base | −26.7% | −28.6% | −28.7% | −30.6% |
+| **`volat_open15` ≤ med** | **−14.3%** | **−16.0%** | **−18.2%** | **−22.3%** |
+| `volat_open30` ≤ med | −14.3% | −16.7% | −19.2% | −23.3% |
+| `volat_open60` ≤ med | −14.3% | −17.2% | −20.9% | −23.8% |
+| `volat_dayfull` ≤ med | −14.6% | −20.2% | −18.1% | −21.5% |
+| `volat_over_open30` ≥ med | −23.1% | −27.6% | −30.1% | −29.3% |
+| ⚠ `gaps` (INCUMBENT) | −26.6% | −27.3% | **−30.6%** | **−32.6%** |
+| ⚠ `shape` (INCUMBENT) | −25.2% | −26.6% | −27.3% | −28.7% |
+
+**Neither incumbent lever touches the tail at any width** — `gaps` actually makes it
+WORSE on the two wide cells. `gaps` and `shape` raise PF by finding winners; only
+absolute volatility removes losses. Supporting percentiles on `shape ≥ q50` (n=2,082):
+
+    base            PF 1.621   p1 -33.0   p5 -18.8   worst5% -28.7   loss rate 43%
+    + volat_open30  PF 2.061   p1 -22.0   p5 -10.1   worst5% -19.2   loss rate 36%
+
+and on the full 4,164: p5 −20.3 → −13.4, worst-5% −30.6 → −23.3, loss rate 51% → 42%.
+
+⚠⚠ **`min` LIES HERE and would have reversed the conclusion.** On both wide cells the
+single worst trade is −90% for the base AND for every volatility cut — reading it
+alone says "the tail cut does not survive widening", which is false in every robust
+statistic. `feedback_trim_bottom_5pct_when_comparing` in a new place: the worst trade
+is the least stable number in the book, so **report p5 / worst-5% / loss rate**.
+
+## Practical consequence
+
+The `gaps ≤ 760` door can be dropped without losing the volatility result: on
+`shape ≥ q50` alone, `gaps` reads 64.4 percentile while `volat_open15` reads 100.0.
+The tight `gaps ∧ shape ≥ q75 ∧ volat_open60` spec (PF 4.875, n=370) remains the
+best-performing cell, but the wide `shape ≥ q50 ∧ volat_open30 ≤ med` book —
+**n=1,041, PF 2.061, worst-5% −19.2%** — is 2.8× the trade count at a PF the
+pre-volatility system could not reach at any selectivity, and is the more credible
+basis for sizing.
+
+Script: `snoozer_volat_ladder.py`.
 
 ---
 
