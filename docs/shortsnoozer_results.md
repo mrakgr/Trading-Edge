@@ -727,6 +727,118 @@ Script: `snoozer_complements.py --side short`.
 
 ---
 
+# ⭐⭐ S43cq (2026-08-16) — RELATIVE GAP counts vs RELATIVE BAR counts: the premise is right, the conclusion is not
+
+⭐ USER: *"Instead of using bar counts, it might be better to use relative gap counts as
+the persistence feature in the short system since it prefers absolute high gap counts.
+Gap counts and bar count ratios don't measure the same thing and it might be better to
+use gap count ratios."*
+
+## The reasoning is sound and worth stating
+
+With `b` = fraction of seconds that traded,
+
+    bar_over_openW = b_lh / b_open           ratio of PRESENCE rates
+    gap_over_openW = (1−b_lh) / (1−b_open)   ratio of ABSENCE rates
+
+These are **not** monotone transforms of each other, and they resolve in opposite
+regimes: where both windows are near-continuous the BAR ratio saturates at 1 while the
+GAP ratio has unbounded range; where both are thin it is the reverse. The short system
+selects THIN late tape (`gaps ≥ 1831s` of 3540, `b_lh ≈ 0.48`) against a much denser
+open (median 486 gaps of 1800, `b ≈ 0.73`), so the gap ratio *should* have the better
+resolution here.
+
+✅ **The premise checks out empirically** — Spearman −0.652 / −0.676 / −0.713 at
+15/30/60m with only 74–79% pick overlap. A reparameterisation would be ±1.000 and 100%.
+**They really are different features.**
+
+⚠ **The denominator degenerates: 155 of 4,084 short ticker-days (3.8%) have a ZERO-gap
+opening 30m** (252 of 4,164 on the long side). Dropping them would silently delete the
+most continuously-traded names — the squeeze candidates §S43bv warns about. Both sides
+get **+1 Laplace smoothing**: `((gapsLh+1)/3541) / ((gapsOpenW+1)/(W+1))`. With a median
+of 486 opening gaps that is a ~0.2% correction on ordinary rows.
+
+## 🛑 §1 Head to head — BAR wins everywhere that matters
+
+Percentile is against 1,500 random same-n subsets of the same context.
+
+**Whole population (n = 4,084, PF 1.640):**
+
+| filter | n | PF | mean% | med% | worst5% | pctile |
+|---|---:|---:|---:|---:|---:|---:|
+| ⭐ BAR `bar_over_open15 ≤ q50` | 2,042 | **2.156** | +3.35 | +3.80 | **−36.6** | **100.0** |
+| BAR `bar_over_open30 ≤ q50` | 2,042 | 2.083 | +3.24 | +3.86 | −37.8 | 99.9 |
+| GAP `gap_over_open30 ≥ q50` | 2,042 | 1.750 | +3.10 | +4.72 | −49.3 | 86.8 |
+| 🛑 GAP `gap_over_open15 ≥ q50` | 2,042 | 1.618 | +2.72 | **+4.43** | −53.1 | **40.9** |
+
+**In the sequential build** (`gaps ≥ 1000` → `dv_over_open30 ≤ q50`, n = 1,508, PF 2.781):
+
+| + filter | n | PF | mean% | med% | win% | p5% | worst5% | worst% | pctile |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| ⭐⭐ **BAR `bar_over_open15`** | 754 | **3.242** | +4.45 | +4.87 | 78 | **−11.1** | **−27.4** | **−123** | **89.4** |
+| BAR `bar_over_open30` | 754 | 3.012 | +4.38 | +5.03 | 78 | −12.1 | −30.5 | −123 | 74.1 |
+| GAP `gap_over_open15` | 754 | 2.992 | **+5.53** | **+6.13** | **79** | −17.2 | −40.1 | −152 | 72.8 |
+| BAR `bar_over_open60` | 754 | 2.922 | +4.35 | +5.09 | 77 | −13.1 | −31.7 | −123 | 67.9 |
+| 🛑 GAP `gap_over_open30` | 754 | 2.614 | +5.05 | +6.12 | 78 | −17.8 | −45.1 | −152 | **29.9** |
+
+⭐⭐ **THE PATTERN IS THE SAME ONE VOLATILITY SHOWED (§S43co §4): the GAP ratio buys
+MEAN and MEDIAN at a materially WORSE TAIL.** At matched n=754, GAP delivers +5.53%
+mean / +6.13% median against BAR's +4.45% / +4.87%, but its worst-5% is −40.1% against
+−27.4% and its worst trade −152% against −123%. **On a system whose only disqualifier is
+the tail, that trade is the wrong way round.** BAR is the correct choice, for the same
+reason `volat_open30` LOW was.
+
+⭐ **Incidental finding: `bar_over_open15` beats `bar_over_open30`** in the sequential
+build (3.242 vs 3.012, better tail on every measure, 89.4 vs 74.1 percentile). Consistent
+with §S43co §1 — this side prefers the SHORTEST reference window. ⚠ It breaks the 30m
+alignment of §S43ck; whether that is worth 0.23 PF and 3pp of worst-5% is a judgement
+call, but the 15m version should be the default here unless alignment is being enforced.
+
+## §2 Across the lattice, GAP is marginally more consistent — but both fail the same way
+
+Threshold = median of each context (§S43co):
+
+| holding | ctx PF | BAR ΔPF | GAP ΔPF |
+|---|---:|---:|---:|
+| `V+I+G+` | 3.246 | +0.197 | +0.390 |
+| `V+I+G−` | 1.635 | −0.130 | +0.201 |
+| `V+I−G+` | 1.375 | +0.262 | +0.567 |
+| `V+I−G−` | 1.133 | −0.229 | −0.047 |
+| `V−I+G+` | 2.241 | −0.221 | +0.645 |
+| `V−I+G−` | 1.270 | +0.517 | −1.172 |
+| 🛑 `V−I−G+` | 2.026 | **−3.868** | **−3.920** |
+| `V−I−G−` | 1.143 | −1.123 | −0.432 |
+| | | **3/8, med −0.175** | **4/8, med +0.077** |
+
+GAP is nominally more consistent, but **both collapse identically in `V−I−G+`** (Δ ≈
+−3.9: the context PF is 2.026, the favourable half reads ~1.1 and the unfavourable half
+~5.0). That single inversion — quiet-volatility, loud-close, thin-tape — is what makes
+relative persistence unreliable on this side, and swapping the parameterisation does not
+touch it. **Neither is a general short-side feature** (§S43cp).
+
+## §3 On the LONG side they are a dead heat
+
+Sequential build (`gaps ≤ 760` → `dv_over_open30 ≥ q50`, n = 410, PF 2.274):
+
+    + BAR bar_over_open30   205   PF 3.228   worst5% −22.3   pctile 99.6
+    + GAP gap_over_open30   205   PF 3.301   worst5% −22.3   pctile 99.5
+
+Identical within noise, despite Spearman being only −0.484 there. The long side sits in
+the dense regime where BOTH parameterisations resolve, so it is indifferent — which is
+itself evidence that the short-side difference is real and regime-driven rather than
+arbitrary.
+
+## Verdict
+
+**Keep `bar_over_open*`. The hypothesis was well-reasoned and the features genuinely
+differ, but the gap ratio loses head-to-head on this side, and it loses specifically on
+the axis this system cannot afford to lose on.** The one change worth making is
+`bar_over_open15` over `bar_over_open30`.
+
+Script: `snoozer_gap_ratio.py`.
+
+---
+
 ## ⏭ NEXT SESSION (queued 2026-08-14)
 
 ⚠ **Volatility is DONE — see §S43cf above (negative result).** Still open:
