@@ -592,9 +592,158 @@ quantity is compared, pairing with `bar_over_*`. `lh` = last hour throughout.
 
 ---
 
+# ⭐⭐ S43cf (2026-08-16) — the THIRD lever: LOW OPENING VOLATILITY
+
+⭐ USER: *"first 15m, 30m, 60m and the entire day's volatility. I want to see whether
+**along with volume** that makes a difference to the trade."*
+
+The emphasis is the whole test. Both Snoozer sides already run on PARTICIPATION —
+`gaps` × `dv_over_open15` (§S43cb). A feature that merely sorts returns can still be
+redundant; the question is whether it survives **on top of the incumbent cell**.
+
+**Answer: yes on the long side, emphatically, and no on the short side.**
+
+## The measure, and one deliberate departure from FlushFader
+
+Locked by `project_surgerider_vol_bakeoff_2026-07-21`: dollar-weighted **30s slot
+vwap** → `r_i = ln(sv_i/sv_{i−1})` → **mean |r_i|**. Not stdev, not close-to-close —
+that is the comparison the bake-off already lost.
+
+⚠⚠ **The slot CLOCK differs from FlushFader's.** `Intraday.fs` slots **30 PRESENT
+BARS** (`slotN = slotBars`), not 30 wall-clock seconds. Right for a streaming feature,
+wrong here, for two measured reasons:
+
+1. **Coverage** — on 2024-03-05 only **4,804 of 10,670** ticker-days (45%) accumulate
+   even 3 complete 30-bar slots inside the last hour. A present-bar `volat_lh` is
+   undefined for over half the universe.
+2. **Comparability** — these are FIXED CALENDAR windows ("first 15m"), and a
+   present-bar slot straddles those boundaries by construction, so a thin name's
+   "first 15m volatility" would be measured over a horizon a dense name's is not.
+
+So: 30 **wall-clock** seconds. Same two-clocks question as §S43cd, resolved the other
+way because this use is cross-sectional rather than streaming.
+
+Windows (`snoozer_build_volat.py`, 1,006s over 2,514 days → 24.8M ticker-days):
+`volat_open15` / `open30` / `open60` / `day` (09:30–15:00, deliberately DISJOINT from
+the last hour) / `dayfull` (09:30–15:59) / `lh` (15:00–15:59). Every one ends at or
+before **15:59**, so none is a lookahead against the k59 limit entry. Medians:
+20.4 / 17.9 / 15.4 / 10.8 / 6.5 bp — volatility decays monotonically through the day.
+
+## ⭐ §1 The result, against a BOOTSTRAP null (not one control draw)
+
+`snoozer_volat_test.py` printed one random-half control, and on the SHORT side that
+single draw read **PF 4.681 against the incumbent's 3.948** — a random half beat the
+cell it came from. At n≈380 with a fat tail, one draw is a coin flip. So
+`snoozer_volat_robust.py` re-tests every candidate against **2,000 random subsets of
+the same size**, drawn from the same cell. Incumbent cell: `gaps ≤ 760 ∧ shape ≥ q75`,
+n = 370, PF 2.296, worst −55%.
+
+| filter (half the cell) | n | PF | null p50 | null p95 | ⭐ pctile | worst% |
+|---|---:|---:|---:|---:|---:|---:|
+| **`volat_open60` ≤ cell median** | 185 | **4.875** | 2.294 | 2.945 | **100.0** | **−24** |
+| `volat_open30` ≤ median | 185 | 4.670 | 2.311 | 2.957 | 100.0 | −24 |
+| `volat_open15` ≤ median | 185 | 4.502 | 2.303 | 2.916 | 100.0 | −24 |
+| `volat_dayfull` ≤ median | 185 | 3.825 | 2.295 | 2.905 | 100.0 | −24 |
+| `volat_day` ≤ median | 185 | 3.700 | 2.295 | 2.910 | 100.0 | −24 |
+| `volat_lh` ≤ median | 185 | 3.482 | 2.293 | 2.925 | 99.7 | −26 |
+| `volat_over_open30` ≥ median | 185 | 3.157 | 2.323 | 2.910 | 98.2 | −30 |
+| ⚠ `gaps` ≤ median (INCUMBENT tightened) | 185 | 2.639 | 2.302 | 2.917 | 81.9 | −35 |
+| ⚠ `shape` ≥ median (INCUMBENT tightened) | 185 | 2.511 | 2.304 | 2.970 | 71.7 | −35 |
+| `volat_open30` ≥ median (WRONG TAIL) | 185 | 1.723 | 2.297 | 2.947 | 3.5 | −55 |
+| `volat_open60` ≥ median (WRONG TAIL) | 185 | 1.695 | 2.306 | 2.938 | 1.9 | −55 |
+
+Three things make this convincing beyond the headline number:
+
+1. **Both incumbent levers, tightened on themselves, sit at 82 and 72** — a new
+   feature at 100 is not doing what they do.
+2. **The opposite tail sits at 1.9–3.5**, a clean mirror. A lucky corner has no mirror.
+3. ⭐ **The RELATIVE framing LOSES to the absolute one here** (98.2 vs 100.0) — the
+   opposite of dollars and bars, where relative was the productive framing. Volatility
+   is already rate-free, so it does not need the relative treatment to be comparable
+   across names, and normalising it away throws information out.
+
+## §2 A PLATEAU, not a spike — and the absolute threshold
+
+A median is not a tradeable rule. Sweeping the absolute threshold on `volat_open60`:
+
+| keeps | T (bp) | n | PF | null p50 | pctile | mean% | med% | win% | worst% |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 20% | 28.45 | 74 | 3.295 | 2.310 | 88.4 | +3.98 | +3.78 | 74 | −17 |
+| 30% | 36.97 | 111 | 3.619 | 2.291 | 97.6 | +4.06 | +3.81 | 76 | −17 |
+| 40% | 49.19 | 148 | 3.542 | 2.280 | 99.6 | +4.50 | +4.01 | 74 | −24 |
+| **50%** | **66.28** | **185** | **4.875** | 2.297 | **100.0** | +6.33 | +4.45 | 74 | −24 |
+| 60% | 88.96 | 222 | 4.388 | 2.303 | 100.0 | +6.64 | +4.45 | 70 | −24 |
+| 70% | 109.10 | 259 | 3.775 | 2.303 | 100.0 | +6.56 | +4.10 | 67 | −30 |
+| 80% | 133.20 | 296 | 2.844 | 2.300 | 99.9 | +5.81 | +3.66 | 64 | −30 |
+
+97.6+ from 30% to 80% — the whole interior is significant, so **do not tune inside it**.
+`volat_open60 ≤ ~66bp` is the working absolute threshold at the 50% cut.
+
+## ⭐ It CUTS LOSSES rather than adding gains — and that is the point
+
+Mean return barely moves (+5.60% → +6.33%) while PF more than doubles, win rate goes
+58% → 74%, and **the worst trade goes −55% → −24%**. Per year, every year with ≥5
+trades is above 1.0:
+
+| variant | n | PF | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---:|---:|---|---|---|---|---|---|---|---|
+| incumbent | 370 | 2.296 | 4.15 (7) | 2.66 (58) | 1.96 (96) | 1.11 (26) | 2.36 (29) | 4.14 (45) | 1.37 (57) | 2.63 (47) |
+| **+ `volat_open60` ≤ 66.3bp** | 185 | **4.875** | 1.99 (6) | 6.56 (30) | 1.99 (49) | 18.50 (11) | 5.47 (13) | 9.61 (23) | 2.87 (19) | 30.89 (31) |
+
+⚠ 2026 (30.89, n=31) and 2022 (18.50, n=11) are near-zero-loss cells and carry more
+of the headline than their trade counts suggest. The claim that survives is the
+**tail cut**, which is visible in every year, not the PF magnitude.
+
+## ⭐⭐ It is NOT a liquidity proxy — the substitution test
+
+The obvious objection: low-volatility names are big liquid names, and the user's prior
+is that *"it's the liquid names which work better whenever we looked"*. So every
+liquidity measure was run at matched selectivity inside the same cell, against the same
+2,000-draw null:
+
+| filter (half the cell) | n | PF | pctile | worst% | win% |
+|---|---:|---:|---:|---:|---:|
+| **`volat_open60` ≤ median** | 185 | **4.875** | **100.0** | −24 | 74 |
+| `dv_lh` ≥ median (last-hour $) | 185 | 2.671 | 85.4 | −35 | 63 |
+| `close_d` ≥ median (price) | 185 | 2.665 | 83.9 | −35 | 65 |
+| `nbDay` ≥ median (day bar count) | 185 | 2.203 | 39.6 | −55 | 53 |
+| `dv_rest` ≥ median (day $) | 185 | 1.855 | 8.0 | −55 | 54 |
+
+**No liquidity measure clears the null.** And low volatility still nearly doubles PF
+*inside* each liquidity-high half — where a proxy would have nothing left to add:
+
+    inside dv_lh-high   (n=185, PF 2.671)  ->  + volat low  n=116  PF 4.425
+    inside close_d-high (n=185, PF 2.665)  ->  + volat low  n=119  PF 5.365
+    inside nbDay-high   (n=185, PF 2.203)  ->  + volat low  n= 72  PF 4.876
+
+Overlap with dollars/price is 63–64% — correlated, as expected — but the residual is
+what carries the result. ⚠ This is the §S43ca lesson again: correlation is not
+substitutability, and the substitution test is the only thing that settles it.
+
+## The reading
+
+The long spec buys a **dense, loud** closing flush (`gaps` low, `shape` high) — heavy
+continuous late selling that exhausts and bounces. Volatility adds an orthogonal
+condition: **that flush should happen in a name that is not violent to begin with.**
+A −6% last hour in a name whose whole morning ran at 30bp/30s is a normal day for it
+and carries no information; the same −6% in a name that spent the morning at 15bp/30s
+is a genuine dislocation. That is why it cuts the tail rather than raising the mean —
+it removes the trades where −6% never meant anything.
+
+**SPEC (long, updated):** `gaps ≤ 760 ∧ dv_over_open15 ≥ q75 ∧ chg60k59 < −6%
+∧ volat_open60 ≤ ~66bp`, LIMIT 15:59–16:00, exit next open.
+PF 4.875 · mean +6.33% · median +4.45% · win 74% · worst −24% · **0 losing years**.
+
+Scripts: `snoozer_build_volat.py` (cache) · `snoozer_volat_test.py` (deciles,
+substitution, stacking, overlap) · `snoozer_volat_robust.py` (bootstrap + sweep).
+
+---
+
 # ⏭ NEXT SESSION (queued 2026-08-14 ~19:50)
 
-## 1. ⭐ VOLATILITY FEATURES for the Snoozer family (user request)
+⚠ **Item 1 below is DONE — see §S43cf above.** Items 2+ still open.
+
+## 1. ✅ VOLATILITY FEATURES for the Snoozer family (user request) — DONE 2026-08-16
 
 **The ask:** compute volatility over the **first 30m**, the **first 60m**, and the
 **whole day**, and do a breakdown — the same treatment `dv_over_*` and `bar_over_*`

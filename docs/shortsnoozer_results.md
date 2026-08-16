@@ -435,19 +435,70 @@ given that the tail is the binding constraint.
 
 ---
 
+# 🛑 S43cf (2026-08-16) — VOLATILITY DOES NOT WORK ON THIS SIDE
+
+⭐ USER: *"first 15m, 30m, 60m and the entire day's volatility... whether along with
+volume that makes a difference."* Full method, measure and clock decision in
+`docs/longsnoozer_results.md` §S43cf, where the long side gets a **third lever**
+(`volat_open60 ≤ 66bp`, PF 2.296 → 4.875, worst −55% → −24%, 100.0 bootstrap pctile).
+
+**Here, nothing survives.** Incumbent cell `gaps ≥ 2000 ∧ shape ≤ q25`, n = 759,
+PF 3.948, worst −123%. Against 2,000 random same-size subsets of that cell:
+
+| filter (half the cell) | n | PF | null p50 | null p95 | pctile | worst% |
+|---|---:|---:|---:|---:|---:|---:|
+| `volat_over_day` ≥ median | 380 | 5.546 | 3.934 | **5.568** | 94.8 | −57 |
+| ⚠ `gaps` ≤ median (incumbent, WRONG way) | 381 | 5.215 | 3.938 | 5.451 | 92.2 | −105 |
+| `volat_open60` ≤ median | 380 | 4.521 | 3.909 | 5.521 | 76.0 | −64 |
+| ⚠ `shape` ≤ median (incumbent tightened) | 380 | 4.485 | 3.917 | 5.434 | 75.0 | −64 |
+| `volat_lh` ≤ median | 380 | 4.156 | 3.944 | 5.487 | 60.1 | −105 |
+| `volat_day` ≥ median | 380 | 3.991 | 3.940 | 5.405 | 53.4 | −123 |
+| `volat_open30` ≤ median | 380 | 3.962 | 3.939 | 5.600 | 51.5 | −64 |
+
+**The best candidate (94.8) does not clear its own null's p95 (5.568 vs 5.546).**
+Every ABSOLUTE volatility window lands at 33–76 — i.e. nothing. The threshold sweep on
+`volat_over_day` runs 82.2 / 97.5 / 95.6 / 95.0 / 97.5 / 96.5 / 48.6 across keeps of
+20–80%: it hovers ON the significance boundary rather than sitting above it, and
+per-year it prints 0.64 (2019) and 1.06 (2018).
+
+⚠⚠ **THE METHODOLOGICAL FINDING, which matters more than the null result.**
+`snoozer_volat_test.py`'s single random-half control read **PF 4.681 against the
+incumbent's 3.948** — *a random half of the cell beat the cell it came from*. One draw
+at n≈380 with this tail is a coin flip, and reading it as a control would have
+promoted `volat_over_day` (5.546) as a clear winner. It is not: 4.8% of random halves
+do better. **Bootstrap the control on any short-side cell** — the fat tail that makes
+this system hard to size is the same thing that makes single-draw controls useless.
+See `feedback_iso_trip_control_for_stacked_features`.
+
+⚠ Note in passing (not pursued): `gaps ≤ cell median` reads 92.2 — INSIDE the thin-tape
+cell, the *less* thin half does better. The `gaps ≥` half reads 4.0. The persistence
+lever may be non-monotone past its own threshold; worth a look, but it is a
+re-derivation of §S43cb, not a volatility result.
+
+## Why the asymmetry is coherent
+
+The long spec buys a dense, loud flush, so "is this name violent to begin with?" is
+new information — it separates a real dislocation from a normal day for that name. The
+short spec already keys on **thin and quiet** tape, and a thin quiet tape is a
+low-volatility tape: the incumbent levers have already consumed that axis. The 62–73%
+overlap between `volat_lh` and `volat_open30`/`volat_day` picks confirms the
+volatility family is largely one variable here, and `shape` overlaps it by only 0–5%
+precisely because `shape` is measuring the thing that already worked.
+
+**No change to the short spec.** `gaps ≥ 2500 ∧ shape ≤ q25 ∧ chg60k59 > +6%` stands.
+
+---
+
 ## ⏭ NEXT SESSION (queued 2026-08-14)
 
-**Volatility features** are queued for the Snoozer family — see
-`docs/longsnoozer_results.md` §NEXT SESSION for the full design (locked measure,
-windows, the relative family, the build note about not extending the shape scan).
+⚠ **Volatility is DONE — see §S43cf above (negative result).** Still open:
 
-Short-side specifics to carry in:
-
-- The binding constraint here is the **TAIL**, not expectancy. Judge any volatility
+- The binding constraint here is the **TAIL**, not expectancy. Judge any new
   feature on `worst%` and p99 first, PF second — that is the opposite emphasis to the
   long side, and it is how `bar_over_*` earned its place despite losing 0.45 PF.
 - ⏭ Still untested from §S43cd: **`dv_over_open15` ∧ `bar_over_open5`** stacked. 64%
   overlap, pairs the best-PF lever with the best-tail lever.
 - ⚠ Expect the SIGN to be flipped from the long side on anything that works. Four
   features have now behaved that way (density, dollar shape, entry mechanics, tail);
-  importing a long-side sign gave PF 0.829, worse than random.
+  importing a long-side sign gave PF 0.829, worse than random. ⭐ Volatility is the
+  first feature that does not flip — it simply **does not transfer at all**.
