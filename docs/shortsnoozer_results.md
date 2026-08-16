@@ -1401,6 +1401,111 @@ Script: `scripts/equity/snoozer_quiet_gaps.py`.
 
 ---
 
+# ⭐⭐⭐ S43cw (2026-08-16) — THE TIER BOOK: the dead zone IS rescuable, and it is the VOLUME tier
+
+⭐ USER: *"Let's write this down as an S tier cell, but the [500,1500) band is worth
+trading as well with more moderate size... I want to look at the weak cells where the
+volat_open30 is in [40,100) bps. Those had really low PFs. I wonder if the 3 features can
+rescue it somehow. Also we should try raising chg60k59 from 6 to 8 and higher."*
+
+## §1 Raising the signal does NOT rescue the dead zone on its own
+
+`volat_open30 ∈ [40, 100)bp`, no other filter:
+
+| | n | PF | mean% | worst% | yrs<1 | PF ex-2020 |
+|---|---:|---:|---:|---:|---:|---:|
+| chg > 6% | 1,697 | 1.234 | +0.88 | −235 | 4 | 1.361 |
+| chg > 8% | 887 | 1.245 | +1.13 | −235 | 4 | 1.387 |
+| chg > 10% | 533 | 1.338 | +1.66 | −117 | 1 | 1.542 |
+| chg > 12% | 345 | 1.332 | +1.78 | −117 | 3 | 1.600 |
+| 🛑 chg > 15% | 194 | **0.984** | −0.11 | −117 | 2 | 1.152 |
+| *(ref)* volat < 40bp, chg > 8% | 319 | 2.514 | +2.98 | −34 | 1 | 1.745 |
+| *(ref)* volat ≥ 150bp, chg > 8% | 560 | 1.964 | +6.44 | −245 | 1 | 2.103 |
+
+It creeps from 1.234 to ~1.34 and then **collapses at +15%**. The dead zone is not a
+weak-signal problem.
+
+## ⭐⭐ §2 GAPS rescues it — but the threshold is MUCH higher than in the quiet cell
+
+Gap bands inside the dead zone at `chg > +8%`:
+
+| gaps band | n | PF | mean% | win% | worst5% | WORST% | yrs<1 | PF ex-2020 | pctile |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 🛑 [0, 500) | 164 | 1.021 | +0.16 | 63 | −58.5 | −96 | 3 | 1.256 | 20.6 |
+| 🛑 [500, 1000) | 96 | 0.919 | −0.66 | 61 | −94.6 | **−235** | 3 | 0.897 | 16.0 |
+| 🛑 [1000, 1500) | 112 | **0.711** | −2.16 | 60 | −81.2 | −117 | 3 | 0.790 | 3.2 |
+| 🛑 [1500, 2000) | 137 | 1.005 | +0.02 | 61 | −41.0 | −89 | 3 | 0.933 | 19.7 |
+| ⭐ **[2000, 2500)** | 162 | **2.556** | +3.42 | 76 | −27.5 | −54 | 1 | **2.760** | 99.7 |
+| ⭐ **[2500, 3541)** | 216 | **2.989** | +3.35 | 76 | **−20.5** | −64 | 1 | **3.613** | **100.0** |
+
+⭐⭐⭐ **THE UNIFYING STRUCTURE: the gap threshold required RISES WITH VOLATILITY.**
+
+    volat < 40bp        gaps >= 500 already works (PF 4.820); optimum 1500-1750
+    volat [40,100)bp    everything below 2000 is DEAD (0.71-1.02); needs gaps >= 2000
+
+Physically coherent, and it extends the user's own theory (§S43cv): sparsity is evidence
+that nobody is on the other side, and **the noisier the tape, the more absence you need
+before that inference is safe.** A single global `gaps` threshold was always going to
+misprice one regime or the other.
+
+⚠ Persistence and intensity also read high inside the dead zone (96.7–100.0), unlike in
+the quiet cell — but they are 78% and 67% collinear with `gaps` (§S43cu §2), and `gaps`
+is the one that survives everywhere. Not carried into the spec.
+
+## ⭐⭐⭐ §3 THE TIER BOOK (all at `chg60k59 > +8%`)
+
+| tier | rule | n | /yr | PF | mean% | med% | win% | p5% | worst5% | **WORST%** | loss% | yrs<1 | **PF ex-2020** |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| ⭐ **S** | `volat<40 ∧ gaps≥1500` | 142 | 12.9 | **6.884** | +4.85 | +3.18 | **78** | −6.0 | **−9.4** | **−15** | **22** | **0** | 4.096 |
+| **A** | `volat<40 ∧ gaps∈[500,1500)` | 108 | 9.8 | 3.244 | +3.18 | +1.59 | 67 | −6.5 | −16.7 | −32 | 33 | **0** | 2.497 |
+| ⭐ **B** | `volat∈[40,100) ∧ gaps≥2000` | **378** | **34.4** | 2.775 | +3.38 | +3.28 | 76 | −11.3 | −23.8 | −64 | 24 | 1 | **3.200** |
+| 🛑 SKIP | `volat<40 ∧ gaps<500` | 69 | 6.3 | 0.770 | −1.19 | +1.02 | 57 | −22.0 | −28.0 | −34 | 43 | 2 | 0.720 |
+| 🛑 SKIP | `volat∈[40,100) ∧ gaps<2000` | **509** | 46.3 | 0.918 | −0.54 | +2.71 | 61 | −29.3 | −63.8 | **−235** | 39 | **5** | 1.008 |
+
+⭐⭐ **The B tier is the find of this section.** It is **2.7× the size of S** (378 vs 142,
+34/yr vs 13/yr), and **its ex-2020 PF (3.200) is HIGHER than its full-sample PF
+(2.775)** — the only tier that is not 2020-flattered. Its per-year record is also the
+best distributed: every year has 15–62 trades, against S's four empty years.
+
+⚠ **The second SKIP cell is the toxic one and it is the largest single cell in the
+system** — 509 trades, PF 0.918, **worst −235%**, 5 losing years. Excluding it is where
+most of the risk reduction comes from, not from picking S.
+
+Combined:
+
+| book | n | /yr | PF | mean% | win% | worst5% | WORST% | yrs<1 | PF ex-2020 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| S + A | 250 | 22.7 | **4.820** | +4.13 | 73 | −12.5 | −32 | **0** | 3.280 |
+| ⭐ **S + A + B** | **628** | **57.1** | **3.333** | +3.68 | 75 | −19.6 | **−64** | 1 | **3.223** |
+
+At **S 1.00× / A 0.50× / B 0.35×** the sized P&L splits **53% / 13% / 34%** — so unlike
+the long system (§S43cl), the lesser tiers carry a full third of the book here.
+
+⚠ Per-year, `S` is thin: 2016/2017/2019/2023 have fewer than 3 trades and 2020 reads
+25.64 on n=54. **`S` is a satellite; `B` is the book.**
+
+## Where this leaves the system
+
+    ShortSnoozer (candidate, ⚠ NOT ADOPTED — borrow/fees/fills unmodelled):
+      chg60k59 > +8%
+      S     volat_open30 <  40bp   AND gaps >= 1500     size 1.00
+      A     volat_open30 <  40bp   AND gaps in [500,1500)   size 0.50
+      B     volat_open30 in [40,100)bp AND gaps >= 2000  size 0.35
+      SKIP  everything else, and in particular volat[40,100) with gaps < 2000
+      LIMIT 15:59-16:00, cover next open
+
+**Worst trade −245% → −64%, PF 1.640 → 3.333, on 57 trades/yr.** Persistence and
+intensity are both out (§S43cu, §S43cv). ⚠ The −64% still means a single name can cost
+two-thirds of its notional overnight, so this is a small-size satellite, not a core book.
+
+⏭ **NOT YET DONE:** the `volat ≥ 100bp` region is untouched by this tier scheme —
+§S43cs showed [150,190) at 3.165 and [240,∞) at 3.801, so there is probably a fourth
+tier there, with an even higher gap threshold if the pattern holds.
+
+Script: `scripts/equity/snoozer_weak_band.py`.
+
+---
+
 ## ⏭ NEXT SESSION (queued 2026-08-14)
 
 ⚠ **Volatility is DONE — see §S43cf above (negative result).** Still open:
