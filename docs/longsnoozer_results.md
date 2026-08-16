@@ -623,11 +623,44 @@ wrong here, for two measured reasons:
 So: 30 **wall-clock** seconds. Same two-clocks question as §S43cd, resolved the other
 way because this use is cross-sectional rather than streaming.
 
-Windows (`snoozer_build_volat.py`, 1,006s over 2,514 days → 24.8M ticker-days):
-`volat_open15` / `open30` / `open60` / `day` (09:30–15:00, deliberately DISJOINT from
-the last hour) / `dayfull` (09:30–15:59) / `lh` (15:00–15:59). Every one ends at or
-before **15:59**, so none is a lookahead against the k59 limit entry. Medians:
-20.4 / 17.9 / 15.4 / 10.8 / 6.5 bp — volatility decays monotonically through the day.
+## ⭐ THE WINDOWS — what each feature actually covers
+
+All six are the SAME measure over different slots. Five of the six are **cumulative
+from the open**; only `volat_lh` is a standalone segment.
+
+| feature | clock | length | knowable at | median |
+|---|---|---|---|---:|
+| `volat_open15` | 09:30 → 09:45 | 15 min | 09:45 | 20.4bp |
+| `volat_open30` | 09:30 → **10:00** | 30 min | 10:00 | 17.9bp |
+| `volat_open60` | 09:30 → **10:30** | 60 min | 10:30 | 15.4bp |
+| `volat_day` | 09:30 → **15:00** | 5.5 h | 15:00 | 10.8bp |
+| `volat_lh` | **15:00 → 15:59** | 59 min | 15:59 | 6.5bp |
+| `volat_dayfull` | 09:30 → **15:59** | 6.5 h | 15:59 | 10.3bp |
+
+Plus the relative twins `volat_over_open15 / _open30 / _open60 / _day`, all of the form
+`volat_lh / volat_<window>`: below 1.0 = the closing hour was calmer than the opening
+window, above 1.0 = it heated up.
+
+⚠ **`volat_day` STOPS at 15:00** so it is disjoint from the last hour — a "day"
+volatility containing the last hour would be partly made of the thing it is being used
+to explain, since the −6% signal lives there. `volat_dayfull` is the literal "entire
+day" and is the only opening-anchored window that overlaps `volat_lh`.
+
+⚠ **`volat_lh` stops at 15:59, not 16:00** — that is when the k59 limit entry decides.
+Measuring to the close would be a lookahead against our own fill. Every window in the
+table ends at or before 15:59, so none is a lookahead.
+
+⚠ **The four opening/day windows are NESTED**, hence 62–82% shared picks. They are
+close to ONE variable read at four horizons, not four features — which is why they all
+land at 99.9–100.0 percentile together and why their internal ranking shuffles between
+cell widths.
+
+⚠ **Volatility DECAYS through the session** (20.4 → 17.9 → 15.4 → 10.8 → 6.5bp), so bp
+thresholds are NOT transferable between windows. The `[34, 83)bp` band of §S43ch is
+calibrated on `volat_open15` specifically; the equivalent cut on `volat_day` sits at
+roughly half those numbers.
+
+Build: `snoozer_build_volat.py`, 1,006s over 2,514 days → 24.8M ticker-days.
 
 ## ⭐ §1 The result, against a BOOTSTRAP null (not one control draw)
 
@@ -922,6 +955,98 @@ the bad ones.
 ⚠ **Thresholds are ABSOLUTE bp and were read off a decile grid, so treat 34 and 83 as
 the centre of a plateau, not tuned values.** D2–D5 all sit between 1.60 and 2.75 with
 overlapping intervals at these counts; do not narrow the band further on this evidence.
+
+---
+
+# ⭐⭐ S43ci (2026-08-16) — WHICH volatility feature is best? A matched-selectivity head-to-head
+
+⭐ USER: *"On the 2k bucket, which feature works the best? You've only shown me
+percentiles so far."*
+
+Fair — a percentile answers "is it real", not "which is best". Every feature below
+keeps **exactly the same number of trades** and picks its own best CONTIGUOUS band of
+deciles, so the comparison is at matched selectivity and each feature is shown at its
+own optimum rather than at an arbitrary median split.
+
+⚠ Each feature chooses the best of 6 candidate windows, so these PFs carry a mild
+in-sample selection premium. The defence is that the ranking is stable across two
+selectivities and that all six volatility windows cluster tightly — not a smaller p.
+
+## Base: `shape ≥ q50`, n = 2,082, PF 1.621, mean +2.38%, worst-5% −28.7%, loss 43%
+
+**KEEP 5 of 10 deciles (50%)**
+
+| feature | best band | n | PF | lift | mean% | med% | win% | p5% | worst5% | loss% | yrs<1 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| ⭐ **`volat_open30`** | D2–D6 [30, 85)bp | 1,040 | **2.217** | 1.37× | +2.61 | +1.48 | 62 | −10.7 | −19.6 | 38 | 1 |
+| `volat_day` | D1–D5 [2, 39)bp | 1,041 | 2.169 | 1.34× | +2.13 | +1.75 | **66** | −9.7 | −18.4 | **34** | 1 |
+| `volat_open60` | D2–D6 [25, 72)bp | 1,040 | 2.134 | 1.32× | +2.55 | +1.58 | 62 | −11.0 | −21.6 | 38 | 1 |
+| `volat_dayfull` | D1–D5 [4, 39)bp | 1,041 | 2.115 | 1.30× | +1.99 | +1.63 | **66** | −9.6 | −18.1 | **34** | 1 |
+| `volat_open15` | D2–D6 [34, 99)bp | 1,040 | 2.096 | 1.29× | +2.43 | +1.35 | 61 | −10.9 | −19.8 | 39 | 1 |
+| `volat_lh` | D1–D5 [9, 39)bp | 1,041 | 2.034 | 1.25× | +1.87 | +1.50 | 64 | −9.7 | **−17.1** | 36 | 1 |
+| ⚠ `shape` (INCUMBENT) | D6–D10 | 1,041 | 1.984 | 1.22× | **+3.40** | +1.21 | 59 | −15.8 | −27.3 | 41 | 2 |
+| `volat_over_open30` | D6–D10 | 1,041 | 1.821 | 1.12× | +3.13 | +1.21 | 58 | −17.7 | −30.1 | 42 | 2 |
+| `volat_over_open15` | D6–D10 | 1,041 | 1.770 | 1.09× | +3.00 | +1.05 | 56 | −17.0 | −29.7 | 44 | 2 |
+| `volat_over_day` | D5–D9 | 1,040 | 1.758 | 1.08× | +2.42 | +1.23 | 60 | −15.3 | −26.7 | 40 | 1 |
+| ⚠ `gaps` (INCUMBENT) | D1–D5 | 1,040 | 1.669 | 1.03× | +3.22 | +1.23 | 54 | −21.5 | −30.6 | 46 | 1 |
+
+**KEEP 4 of 10 deciles (40%)** — same ordering at the top:
+
+| feature | best band | n | PF | lift | worst5% | loss% |
+|---|---|---:|---:|---:|---:|---:|
+| ⭐ **`volat_open30`** | D2–D5 [30, 71)bp | 832 | **2.374** | 1.46× | −17.1 | 37 |
+| `volat_open15` | D2–D5 [34, 83)bp | 832 | 2.220 | 1.37× | −17.9 | 38 |
+| `volat_dayfull` | D1–D4 [4, 33)bp | 833 | 2.181 | 1.35× | −17.0 | 33 |
+| `volat_day` | D2–D5 [16, 39)bp | 832 | 2.178 | 1.34× | −18.9 | 36 |
+| `volat_open60` | D3–D6 [33, 72)bp | 832 | 2.163 | 1.33× | −21.9 | 39 |
+| `volat_lh` | D1–D4 [9, 32)bp | 833 | 2.094 | 1.29× | −16.5 | 33 |
+| ⚠ `shape` | D7–D10 | 833 | 1.884 | 1.16× | −28.4 | 41 |
+| ⚠ `gaps` | D1–D4 | 832 | 1.736 | 1.07× | −28.9 | 46 |
+
+## The readings
+
+⭐ **`volat_open30` wins at both selectivities** — 2.217 and 2.374, band ≈ **[30, 85)bp**.
+
+⚠⚠ **But the volatility family is a statistical TIE.** At n≈1,041 the bootstrap noise
+floor is 1.12 (§S43cg §3), i.e. ±0.26 PF. The six windows span 2.034–2.217, a range of
+0.18 — INSIDE the floor. `volat_open30` is the point estimate, not a demonstrated
+winner over `volat_day` or `volat_open15`. Choose on secondary grounds:
+
+- **`volat_open30` / `open15`** are known by **10:00 / 09:45** — hours before the
+  entry, so they can gate an intraday watchlist rather than a 15:59 decision.
+- **`volat_day` / `dayfull` / `lh`** need no LOWER bound (they pick D1–D5, a plain
+  floor) and give the best win rate (66%) and loss rate (34%) — but are only known at
+  15:00 / 15:59.
+- ⭐ **`volat_lh` has the best tail of all** (worst-5% −17.1%, −16.5% at the tighter
+  cut) despite the lowest PF. If the tail is the binding constraint, it is the pick.
+
+⭐ **THE TRADE-OFF vs `shape` is explicit here.** `shape` has the HIGHEST mean return
+(+3.40% vs +2.61%) and the WORST tail (−27.3% vs −19.6%). `shape` finds big winners;
+volatility removes losses. They are doing different jobs, which is why they stack.
+
+⚠ **`gaps` is barely a feature at this width** — 1.03× lift, 65.8 percentile.
+
+## Is `shape` still needed? Yes — they stack
+
+On the FULL 4,164 population, with `volat_open30 ∈ [30, 85)bp`:
+
+| rule | n | PF | mean% | med% | win% | p5% | worst5% | loss% | losing years |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| base | 4,164 | 1.200 | +0.95 | −0.30 | 49 | −20.3 | −30.6 | 51 | 2018, 2019, 2022 |
+| `shape ≥ q50` only | 2,082 | 1.621 | +2.38 | +0.99 | 57 | −18.8 | −28.7 | 43 | 2016, 2019 |
+| **`volat_open30` band only** | 1,398 | 1.828 | +2.02 | +1.21 | 60 | −11.7 | −21.4 | 40 | **2022** |
+| ⭐ **BOTH** | 1,038 | **2.217** | +2.64 | +1.49 | 62 | −10.9 | −19.8 | 38 | **2019** |
+
+⭐ **Volatility ALONE beats `shape` ALONE** (1.828 vs 1.621) on 33% fewer trades, with a
+far better tail (−21.4% vs −28.7%) and only ONE losing year against two. At 74% overlap
+they still stack to 2.217. **Volatility is the stronger of the two levers on this
+system** — a reversal of the §S43cb ordering, which had `shape` as the primary.
+
+⚠ Neither fixes 2019, and the combined rule's 2016 cell is 0.14 on n=8. The weak years
+are a different variable; see the §NEXT SESSION note.
+
+Script: the head-to-head is a one-off; the reusable pieces are `snoozer_volat_ladder.py`
+and `snoozer_volat_robust.py`.
 
 ---
 
