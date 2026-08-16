@@ -606,6 +606,127 @@ win-rate columns are the trustworthy ones.
 
 ---
 
+# ⭐⭐ S43cp (2026-08-16) — THE 16-CELL COMPLEMENTS TABLE: the short edge is BROAD and SHALLOW
+
+⭐ USER: *"We'll have to convert the dv_over_open30 and bar_over_open30 so they use
+absolute thresholds like the long system did... I also want to see the net profit %
+figures. In the long system that revealed that the A++ cells have 3/4th of the profit.
+I want to see whether that holds for the short system as well."*
+
+**Answer: it does NOT hold. The short side is far more spread out.**
+
+Four binary features, all at ABSOLUTE population medians (n = 4,084), `+` = favourable
+FOR THIS SYSTEM — ⚠ **every direction is inverted from the long side**:
+
+    V+  volat_open30    >= 81.9bp    HIGH volatility
+    I+  dv_over_open30  <= 0.99      LOW intensity   (QUIET close vs the open)
+    B+  bar_over_open30 <= 0.76      LOW rel. persistence (GAPPY close)
+    G+  gaps            >= 1831s     HIGH gaps       (THIN tape)
+
+⚠ The script's legend was printing the LONG-side directions on a short run — fixed.
+⚠ Sorted by RAW PF here: short-side **trim lifts run 1.8–3.4** (long side: 1.3–1.7), so
+the trimmed column re-ranks cells on which losers get dropped rather than on edge.
+
+## §1 The 16 cells
+
+| cell | score | n | share% | PF raw | PF trim5 | mean% | med% | win% | p5% | worst5% | loss% | yrs<1 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `V+I+B−G+` | 3 | 25 | 0.6 | 8.012 | 19.525 | +8.36 | +5.36 | 76 | −6.2 | −11.3 | 24 | 0 |
+| `V−I+B−G+` | 2 | 17 | 0.4 | 5.302 | — | +6.88 | +0.68 | 65 | −7.4 | −9.4 | 35 | 0 |
+| ⭐ **`V+I+B+G+`** | 4 | **951** | **23.3** | **3.181** | 10.846 | **+5.04** | +5.41 | **78** | −13.0 | −32.8 | **22** | 1 |
+| `V−I−B−G+` | 1 | 366 | 9.0 | 2.844 | 6.575 | +2.59 | +1.57 | 67 | −7.7 | **−15.8** | 33 | 2 |
+| `V−I+B+G+` | 3 | 372 | 9.1 | 2.117 | 5.896 | +2.02 | +2.33 | 73 | −9.5 | −23.4 | 27 | 1 |
+| `V−I+B+G−` | 2 | 66 | 1.6 | 1.768 | 3.538 | +2.25 | +1.79 | 64 | −15.3 | −27.0 | 36 | 1 |
+| ⚠ `V+I+B−G−` | 2 | 294 | 7.2 | 1.752 | 4.030 | **+4.92** | **+9.09** | 75 | −36.9 | **−75.0** | 25 | 1 |
+| `V+I+B+G−` | 3 | 270 | 6.6 | 1.485 | 3.607 | +2.70 | +5.22 | 68 | −26.1 | −66.1 | 32 | 1 |
+| `V+I−B+G+` | 3 | 68 | 1.7 | 1.401 | 2.506 | +1.92 | +4.06 | 66 | −26.1 | −39.0 | 34 | 0 |
+| ⚠ `V+I−B−G+` | 2 | 36 | 0.9 | 1.343 | 5.023 | +2.58 | +1.01 | 58 | −20.4 | **−167.6** | 42 | 0 |
+| `V+I−B+G−` | 2 | 40 | 1.0 | 1.286 | 2.854 | +2.36 | +11.29 | 72 | −41.8 | −90.6 | 28 | 1 |
+| `V−I−B+G+` | 2 | 207 | 5.1 | 1.248 | 2.638 | +0.65 | +1.43 | 65 | −15.1 | −27.0 | 35 | 2 |
+| `V−I−B−G−` | 0 | 899 | 22.0 | 1.202 | 2.369 | +0.80 | +1.82 | 61 | −19.5 | −39.4 | 39 | 3 |
+| ⚠ `V+I−B−G−` | 1 | 358 | 8.8 | 1.120 | 2.023 | +1.31 | +8.45 | 68 | −58.3 | **−98.6** | 32 | 2 |
+| 🛑 `V−I+B−G−` | 1 | 47 | 1.2 | 0.739 | 1.002 | −1.01 | −0.57 | 45 | −12.2 | −17.6 | 55 | 1 |
+| 🛑 `V−I−B+G−` | 1 | 68 | 1.7 | 0.539 | 1.054 | −2.38 | −0.26 | 47 | −22.9 | −48.5 | 53 | 2 |
+
+⭐⭐ **14 of 16 cells have POSITIVE mean.** On the long side, 3 laddered cells were
+negative and covered **34.7% of the population**; here the two negative cells are 115
+trades (2.8%). **The short edge is nearly everywhere; the long edge is concentrated.**
+
+## ⭐⭐ §2 NET PROFIT SHARE — the answer to the user's question
+
+FLAT = `n × mean%`, the profit if every cell were traded at EQUAL size. This is the
+sizing-model-free measure and the one the A++-share claim must be judged on.
+
+| cell | book | n | mean% | FLAT P&L | flat % | flat cum % | SIZED % | sized cum % |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| ⭐ `V+I+B+G+` | A++ | 951 | +5.04 | 4,793 | **47.4%** | 47.4% | 72.9% | 72.9% |
+| ⚠ `V+I+B−G−` | A+ | 294 | +4.92 | 1,446 | **14.3%** | 61.7% | 6.8% | 93.6% |
+| `V−I−B−G+` | A+ | 366 | +2.59 | 948 | 9.4% | 71.1% | 8.2% | 81.1% |
+| `V−I+B+G+` | A+ | 372 | +2.02 | 751 | 7.4% | 78.5% | 5.7% | 86.8% |
+| `V+I+B+G−` | B++ | 270 | +2.70 | 729 | 7.2% | 85.8% | 2.9% | 96.5% |
+| `V−I−B−G−` | B++ | 899 | +0.80 | 719 | 7.1% | 92.9% | 1.5% | 99.3% |
+| `V+I−B−G−` | B++ | 358 | +1.31 | 469 | 4.6% | 97.5% | 0.7% | 100.0% |
+| others (4 cells) | B++ | 549 | — | 414 | 4.1% | 101.6% | 1.2% | — |
+| 🛑 `V−I−B+G−` | SKIP | 68 | −2.38 | −162 | −1.6% | 100.0% | 0.0% | 100.0% |
+
+| | LONG (§S43cl) | SHORT (here) |
+|---|---|---|
+| top cell, flat P&L share | 75.9% | **47.4%** |
+| cells to reach ~78% | **2** (87.6%) | **4** (78.5%) |
+| cells to reach ~93% | 3 | **6** |
+| population sizing to ZERO | **34.7%** | **2.8%** |
+| cells with negative mean | 3 of 11 | 2 of 16 |
+
+⭐⭐ **The 3/4 concentration does NOT transfer.** The short's single A++ cell is 47.4% of
+flat P&L, and it takes FOUR cells to reach what two did on the long side. The SIZED
+column reads 72.9% only because the §2 ladder assigns A++ a 1.00 multiplier and the
+next cell 0.57 — **that number is the sizing model talking, not the profit
+distribution.** For "where does the money live", read the FLAT column.
+
+⚠⚠ **`V+I+B−G−` is the trap in this table.** It is the SECOND-largest flat contributor
+(14.3%) on a +4.92% mean and a **+9.09% median** — and it carries a **−75.0% worst-5%**.
+The short side's mean is inflated by the same fat right tail that makes its losses
+ruinous, so **flat P&L share systematically OVERSTATES the tradeable value of the
+high-volatility `G−` cells**. `V+I−B−G−` (−98.6%) and `V+I−B−G+` (−167.6%) are worse.
+The ladder is right to cut them to 0.10–0.31×; the flat column is not a size
+recommendation.
+
+## ⭐ §3 Marginal value — and `B` INVERTS its role between the systems
+
+| feature | ΔPF > 0 in | median ΔPF | fails in |
+|---|---|---:|---|
+| **G** thin tape | **5/5** | +0.710 | — |
+| **I** quiet close | **5/6** | **+0.750** | `V−B−G−` (−0.463) |
+| V high volatility | 4/6 | +0.450 | `I+B+G−`, `I−B−G−` |
+| 🛑 **B** gappy rel. persistence | **2/5** | **−0.267** | `V−I−G+` (**−1.596**), `V−I−G−`, `V+I+G−` |
+
+⭐⭐ **`B` is the MOST reliable feature on the long side (4/4, median +0.578) and the
+LEAST on the short side (2/5, median −0.267).** §S43co found it adding 2.781 → 3.012 —
+that holds, but ONLY inside the `I+G+` context it was measured in. Across the lattice it
+is negative on average. **Do not promote `bar_over_open30` to a general short-side
+filter**; it is a conditional refinement of the `quiet ∧ thin` cell.
+
+## §4 Volatility terciles × score
+
+| tercile | score | n | PF raw | mean% | med% | win% | worst5% | loss% |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| ⭐ **T3** [112, 1065)bp | 3 | 626 | **3.322** | **+5.84** | +6.31 | **79** | −37.4 | **21** |
+| T3 | 1 | 275 | 1.889 | +6.23 | +11.36 | 80 | **−93.3** | 20 |
+| T3 | 0 | 230 | 1.102 | +1.26 | +10.38 | 69 | **−115.5** | 31 |
+| T2 [56, 112)bp | 3 | 573 | 2.408 | +2.83 | +3.40 | 75 | −25.4 | 25 |
+| ⭐ **T1** [4, 56)bp | 3 | 124 | 2.870 | +2.21 | +1.97 | 70 | **−12.7** | 30 |
+| T1 | 1 | 360 | 2.050 | +1.99 | +1.50 | 66 | −22.0 | 34 |
+
+Same two-cell structure as the long side but **mirrored into the opposite tercile**:
+**T3 score-3 is the expectancy cell** (PF 3.322, mean +5.84%) and **T1 score-3 the
+survival cell** (worst-5% −12.7%, the best tail in the short study). ⚠ T3 at low scores
+is where the −93% and −115% worst-5% figures live — high volatility without the other
+three features is exactly the squeeze profile §S43bv warned about.
+
+Script: `snoozer_complements.py --side short`.
+
+---
+
 ## ⏭ NEXT SESSION (queued 2026-08-14)
 
 ⚠ **Volatility is DONE — see §S43cf above (negative result).** Still open:

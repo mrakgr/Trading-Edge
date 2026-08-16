@@ -142,10 +142,21 @@ assert D.n.sum() == n, f"cells sum to {D.n.sum()}, not {n}"
 
 print(f"\n{'='*205}\n⭐⭐ §1 THE 16 CELLS — disjoint, exhaustive (n sums to "
       f"{D.n.sum():,}), sorted by trimmed PF\n{'='*205}")
-print(D.sort_values("PF trim5", ascending=False).to_string(index=False))
-print("  V+ = LOW volat · I+ = HIGH intensity · B+ = HIGH rel. persistence · "
-      "G+ = LOW gaps   (+ is always the favourable side)")
+print(D.sort_values("PF raw", ascending=False).to_string(index=False))
+# ⚠ the legend MUST follow --side; every direction flips (§S43cb, §S43co)
+if args.side == "long":
+    print(f"  V+ = volat_open{W} LOW (<= {THR['V']:.1f}bp) · I+ = intensity HIGH "
+          f"(>= {THR['I']:.2f}) · B+ = rel. persistence HIGH (>= {THR['B']:.2f}) · "
+          f"G+ = gaps LOW (<= {THR['G']:.0f}s)")
+else:
+    print(f"  V+ = volat_open{W} HIGH (>= {THR['V']:.1f}bp) · I+ = intensity LOW "
+          f"(<= {THR['I']:.2f}, QUIET close) · B+ = rel. persistence LOW "
+          f"(<= {THR['B']:.2f}, GAPPY close) · G+ = gaps HIGH (>= {THR['G']:.0f}s, "
+          f"THIN tape)")
+print("  (+ is always the favourable side FOR THAT SYSTEM — every direction flips)")
 print("  ⚠ READ n BEFORE PF. A thin cell's PF is a hint, not a measurement.")
+print("  ⚠ sorted by RAW PF: on the short side trim lifts run 1.8-3.4, so the trimmed")
+print("    column re-ranks cells on which losers get dropped rather than on edge.")
 
 print(f"\n{'='*205}\n⭐ §2 THE SIZING LADDER — trimmed PF − 1, scaled to the BEST "
       f"cell = 1.00 (so every multiplier is a FRACTION of full size)\n{'='*205}")
@@ -178,21 +189,37 @@ print("  ⚠ multipliers are on RAW returns — see the header for why vol-norma
 print("  ⚠ 'trim lift' > ~2 means the cell's PF depends heavily on dropping its worst "
       "5%; treat its rank with suspicion.")
 
-print(f"\n{'='*205}\n§3 EXPECTED CONTRIBUTION — does trading the lesser cells "
-      f"actually pay?\n{'='*205}")
-tot = (S.n * S.mult * S["mean%"]).sum()
+print(f"\n{'='*205}\n⭐ §3 NET PROFIT SHARE — does trading the lesser cells actually "
+      f"pay?\n{'='*205}")
+# ⭐ TWO books, because they answer different questions:
+#   FLAT  = n x mean%   — the P&L if every cell were traded at the same size. This is
+#           the honest "where does the profit live" measure, independent of any sizing
+#           model, and it is what the A++-share claim should be judged on.
+#   SIZED = n x mult x mean% — the P&L under the §2 ladder.
+S = S.copy()
+S["flat"] = S.n * S["mean%"]
+S["sized"] = S.n * S.mult * S["mean%"]
+tf, ts = S.flat.sum(), S.sized.sum()
 run = []
-acc = 0.0
+af = asz = 0.0
 for _, q in S.iterrows():
-    c = q.n * q.mult * q["mean%"]
-    acc += c
-    run.append({"cell": q.cell, "book": q.book, "n": int(q.n), "mult": q.mult,
-                "mean%": q["mean%"],
-                "contribution": round(c, 0),
-                "% of total": f"{c/tot*100:.1f}%",
-                "cumulative %": f"{acc/tot*100:.1f}%"})
+    af += q.flat
+    asz += q.sized
+    run.append({"cell": q.cell, "book": q.book, "n": int(q.n), "mean%": q["mean%"],
+                "mult": q.mult,
+                "FLAT P&L": round(q.flat),
+                "flat %": f"{q.flat/tf*100:.1f}%",
+                "flat cum %": f"{af/tf*100:.1f}%",
+                "SIZED P&L": round(q.sized),
+                "sized %": f"{q.sized/ts*100:.1f}%",
+                "sized cum %": f"{asz/ts*100:.1f}%"})
 print(pd.DataFrame(run).to_string(index=False))
-print("  contribution = n x mult x mean% — the P&L weight of the cell at its own size.")
+print("  FLAT  = n x mean%  — profit if every cell were traded at EQUAL size "
+      "(sizing-model-free).")
+print("  SIZED = n x mult x mean% — profit under the §2 ladder.")
+print("  ⚠ mean% on the SHORT side is inflated by the same fat right tail that makes "
+      "its\n    worst trades ruinous; a cell can lead on FLAT P&L and still be "
+      "untradeable.")
 
 print(f"\n{'='*205}\n⭐ §4 MARGINAL VALUE OF EACH FEATURE across the lattice — "
       f"holding the other three fixed\n{'='*205}")
