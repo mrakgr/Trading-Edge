@@ -1258,6 +1258,147 @@ Script: `snoozer_window_alignment.py`.
 
 ---
 
+# ⭐⭐ S43cl (2026-08-16) — THE 16-CELL COMPLEMENTS TABLE: a size ladder, not a threshold
+
+⭐ USER: *"All of these are worth trading, just with different sizes. Let's make a
+complements table... There should be a total of 16 combinations. That should be more
+informative than trying to pick the thresholds. We know what our A++ book would be, but
+on live trading we'd want to trade the lesser cells with smaller size."*
+
+This is §S43cc's broker-doc lesson applied to the Snoozer: the trades outside the top
+cell had PF ≈ 2 and were being thrown away. A threshold answers "in or out"; a lattice
+answers "how much".
+
+Four binary features at W = 30m, `+` always the favourable side:
+
+    V  volat_open30    <= 104.2bp    LOW volatility
+    I  dv_over_open30  >= 0.50       HIGH intensity
+    B  bar_over_open30 >= 0.65       HIGH relative persistence
+    G  gaps            <= 1844s      LOW absolute gaps
+
+The 16 cells are DISJOINT and exhaust the 4,164-trade population (verified by assert).
+
+## ⚠ FIRST — what the §S43ck `vol × int` cell actually was (user's question)
+
+Both plain MEDIAN splits, bottom-half volatility and top-half intensity — not terciles.
+It held 1,509 rather than the ~1,041 independence predicts because **the two features
+are strongly rank-correlated: Spearman −0.607**, so V+ and I+ co-occur **1.45× more
+than chance**. Consequence for everything below: **the cells are very unequal and the
+corners are thin**. Read n before PF.
+
+## ⭐⭐ §1 The ladder
+
+| cell | book | n | share% | PF raw | PF trim5 | ⚠ trim lift | mult | mean% | med% | win% | worst5% | loss% | yrs<1 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `V+I+B+G−` | A++ | 307 | 7.4 | 1.720 | 4.712 | **2.74** | 1.000 | +1.43 | +1.25 | **67** | −25.2 | **33** | 1 |
+| ⭐ `V+I+B+G+` | A++ | 785 | 18.9 | **2.651** | 4.457 | 1.68 | 0.931 | **+3.90** | **+2.45** | 63 | **−19.0** | 37 | 1 |
+| `V−I+B−G−` | A+ | 81 | 1.9 | 1.636 | 2.376 | 1.45 | 0.371 | +2.20 | +0.75 | 57 | −21.8 | 43 | 2 |
+| `V+I−B+G+` | A+ | 68 | 1.6 | 1.571 | 2.373 | 1.51 | 0.370 | +2.17 | +1.35 | 57 | −23.1 | 43 | 1 |
+| `V+I−B−G+` | B++ | 64 | 1.5 | 1.277 | 1.881 | 1.47 | 0.237 | +1.09 | −1.19 | 47 | −21.2 | 53 | 1 |
+| `V+I+B−G−` | B++ | 361 | 8.7 | 1.083 | 1.855 | 1.71 | 0.230 | +0.23 | +0.43 | 54 | −23.3 | 46 | 2 |
+| `V−I+B+G+` | B++ | 427 | 10.3 | 1.325 | 1.765 | 1.33 | 0.206 | +2.52 | −3.22 | 44 | −37.9 | 56 | 3 |
+| `V−I−B+G+` | B++ | 429 | 10.3 | 1.167 | 1.536 | 1.32 | 0.144 | +1.42 | −4.81 | 38 | −40.3 | 62 | 3 |
+| 🛑 `V−I−B−G−` | SKIP | 827 | 19.9 | 0.828 | 1.144 | 1.38 | 0 | **−0.87** | −2.32 | 40 | −27.8 | 60 | **8** |
+| 🛑 `V+I−B−G−` | SKIP | 439 | 10.5 | 0.698 | 1.090 | 1.56 | 0 | **−1.21** | −0.55 | 46 | −29.2 | 54 | 6 |
+| 🛑 `V−I−B−G+` | SKIP | 222 | 5.3 | 0.648 | 0.849 | 1.31 | 0 | **−2.80** | −5.35 | 32 | −35.5 | 68 | 6 |
+
+(5 cells with n < 60 — 154 trades — omitted from the ladder; the full 16 are in §1 of
+the script output.)
+
+⚠⚠ **`V+I+B+G−` tops the TRIMMED column but its trim lift is 2.74** — its PF nearly
+triples when the worst 5% is dropped, and its RAW PF is only 1.720 against
+`V+I+B+G+`'s 2.651. **The real A++ cell is `V+I+B+G+`** (n=785, 18.9% of the
+population, mean +3.90%, best tail at −19.0%). Trim lift is printed precisely so a cell
+that is one bad trade away from mediocrity cannot quietly rank first.
+
+⚠⚠ **THREE CELLS HAVE trimmed PF > 1 AND NEGATIVE RAW MEAN** and are forced to size 0.
+Trimming exists to COMPARE cells whose tails are uncertain, NOT to decide whether an
+edge exists — dropping the worst 5% flips a losing cell above 1.0 and would otherwise
+hand it real money. `V−I−B−G−` is 19.9% of the population with **8 losing years**.
+
+⚠ Multipliers are trimmed PF − 1 scaled to the best cell, on RAW returns. The house
+standard vol-normalises, but the natural normaliser here is `volat_open30` — one of the
+four cell-defining features — so dividing by it would make the sizing signal partly BE
+the cell definition. Left un-normalised deliberately.
+
+## §2 Does trading the lesser cells actually pay?
+
+| cell | book | n | mult | mean% | % of total P&L | cumulative |
+|---|---|---:|---:|---:|---:|---:|
+| `V+I+B+G+` | A++ | 785 | 0.931 | +3.90 | **75.9%** | 75.9% |
+| `V+I+B+G−` | A++ | 307 | 1.000 | +1.43 | 11.7% | 87.6% |
+| `V−I+B+G+` | B++ | 427 | 0.206 | +2.52 | 5.9% | 93.5% |
+| `V−I−B+G+` | B++ | 429 | 0.144 | +1.42 | 2.3% | 95.8% |
+| `V−I+B−G−` | A+ | 81 | 0.371 | +2.20 | 1.8% | 97.6% |
+| `V+I−B+G+` | A+ | 68 | 0.370 | +2.17 | 1.5% | 99.1% |
+| others | B++ | 425 | 0.23 | — | 0.9% | 100% |
+
+⚠ **The honest answer is that the lesser cells add ~12%, not the ~50% the FlushFader
+widening added.** The two A++ cells are 87.6% of P&L on 26% of the trades. The B++
+tier is worth having (8.2% for 856 trades at ~0.2× size) but this system is far more
+concentrated than FlushFader's was — because 34.7% of the population sizes to ZERO here,
+which had no analogue there.
+
+## ⭐ §3 Marginal value of each feature, holding the other three fixed
+
+| feature | ΔPF > 0 in | median ΔPF | fails in |
+|---|---|---:|---|
+| **B** relative persistence | **4/4** | **+0.578** | — |
+| **I** intensity | **5/5** | +0.405 | — |
+| G absolute gaps | 3/4 | +0.589 | `V−I−B−` (−0.180) |
+| ⚠ **V** volatility | **3/5** | +0.404 | `I+B−G−` (**−0.554**), `I−B−G−` (−0.131) |
+
+⭐⭐ **Volatility is the LEAST consistent of the four across the lattice**, and it fails
+specifically in `B−G−` contexts — i.e. when BOTH persistence measures are unfavourable.
+Low volatility helps when the tape held together and hurts when it did not. That is a
+genuine interaction, and it qualifies §S43cf/cg: volatility is the best TAIL lever but
+it is not unconditionally additive.
+
+⭐ **Relative persistence `B` is the most reliable feature in the system** — positive in
+every context tested, largest median Δ. Further evidence against dropping it (§S43ck).
+
+## ⭐ §4 Volatility in TERCILES × how many of the other three are favourable
+
+⭐ USER: *"it might be worth breaking the volatility down into terciles instead of
+halves."* Yes — and it is arguably the better instrument, because it prices the
+volatility GRADIENT that a median split flattens:
+
+| volat tercile | I+B+G score | n | PF raw | PF trim5 | mean% | med% | win% | worst5% | loss% |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **T1** [2, 77)bp | 3 | 596 | **2.594** | 4.545 | +3.14 | +2.34 | 66 | **−17.0** | **34** |
+| T1 | 2 | 328 | 1.599 | 4.316 | +1.26 | +1.18 | 66 | −26.5 | 34 |
+| T1 | 1 | 294 | 1.301 | 2.336 | +0.78 | +0.61 | 55 | −23.2 | 45 |
+| T1 | 0 | 170 | 0.976 | 1.544 | −0.07 | +0.19 | 51 | −20.4 | 49 |
+| **T2** [77, 137)bp | 3 | 356 | 2.246 | 3.331 | **+5.65** | +1.36 | 53 | −29.7 | 47 |
+| T2 | 2 | 211 | 1.560 | 2.220 | +2.37 | +0.12 | 52 | −24.9 | 48 |
+| T2 | 1 | 257 | 0.603 | 0.855 | −2.08 | −1.71 | 43 | −31.2 | 57 |
+| T2 | 0 | 564 | 0.674 | 0.973 | −1.48 | −1.61 | 41 | −27.6 | 59 |
+| ⚠ **T3** [137, 897)bp | 3 | 260 | 1.106 | 1.426 | +0.97 | −5.34 | 40 | −40.9 | 60 |
+| T3 | 2 | 385 | 1.170 | 1.525 | +1.52 | −5.26 | 37 | −40.9 | 63 |
+| T3 | 1 | 211 | 0.907 | 1.176 | −0.65 | −4.66 | 37 | −31.4 | 63 |
+| T3 | 0 | 532 | 0.862 | 1.201 | −0.75 | −2.51 | 39 | −30.7 | 61 |
+
+Three clean readings the binary lattice cannot express:
+
+1. ⭐ **T3 is untradeable at ANY score.** Its best cell is PF 1.106 with a −40.9% worst-5%
+   and a NEGATIVE median. 33% of the population can be cut on volatility alone.
+2. ⭐ **T1 is tradeable down to score 1** (PF 1.301) while T2 collapses below score 2
+   (0.603, 0.674). The score threshold for entry DEPENDS on the volatility tercile —
+   a genuine 2-D structure.
+3. ⚠ **T2 score 3 has the HIGHEST MEAN of the whole table (+5.65%)** but a −29.7%
+   worst-5% and a +1.36% median against T1's +2.34%. Restates §S43ch: low volatility
+   means smaller moves in BOTH directions, so T1 wins on PF and tail while T2 wins on
+   mean. Which you prefer is a sizing question, not a selection one.
+
+⚠ No inverted-U is visible at tercile resolution — T1 > T2 > T3 monotonically at every
+score. That does NOT contradict §S43ch: T1 spans 2–77bp and so CONTAINS both the weak
+bottom decile (3–34bp) and the strong D2–D3, averaging them. The inverted U is a
+decile-scale feature; do not conclude from this table that the lower bound is unneeded.
+
+Script: `snoozer_complements.py`.
+
+---
+
 # ⏭ NEXT SESSION (queued 2026-08-14 ~19:50)
 
 ⚠ **Item 1 below is DONE — see §S43cf above.** Items 2+ still open.
