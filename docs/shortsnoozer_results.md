@@ -489,6 +489,123 @@ precisely because `shape` is measuring the thing that already worked.
 
 ---
 
+# ⭐⭐ S43co (2026-08-16) — the short side rebuilt on the 30m window: `bar_over_open30` ADDS, `volat_over_day` is DEAD
+
+⭐ USER: *"let's make the baseline cell the 2.816 (1,508) one with gaps >= 1000 and
+shape ≤ q50%... We'll replace shape with dv_over_open30 and also add bar_over_open30.
+Hmmm, it does seem like volat_over_day ≥ median is giving an improvement. We need to
+check this on a bigger bucket though."*
+
+✅ Baseline reproduced exactly: `chg60k59 > +6% ∧ gaps ≥ 1000 ∧ shape ≤ q50` →
+**n = 1,508, PF 2.816**. ⚠ Note the quantile is computed WITHIN the `gaps ≥ 1000`
+subset, not globally — a global q50 gives n=1,761 / PF 2.556 instead. The grid
+(`snoozer_grid2.py`) has always done it this way; it matters and is easy to miss.
+
+## §1 Swapping the shape window costs almost nothing
+
+On the `gaps ≥ 1000` gate (n = 3,016, PF 2.114), each filter at its q50, percentile vs
+1,500 random same-n subsets of the gate:
+
+| filter | n | PF | worst5% | yrs<1 | pctile |
+|---|---:|---:|---:|---:|---:|
+| `dv_over_open15` (incumbent) | 1,508 | **2.816** | −35.5 | 1 | 100.0 |
+| ⭐ `dv_over_open30` | 1,508 | 2.781 | −36.2 | 1 | 100.0 |
+| `dv_over_open60` | 1,507 | 2.708 | −35.7 | 1 | 99.9 |
+| `bar_over_open60` | 1,508 | 2.494 | −36.0 | 2 | 98.3 |
+| `bar_over_open30` | 1,508 | 2.371 | −36.3 | 1 | 93.9 |
+| `bar_over_open15` | 1,508 | 2.356 | −34.7 | 2 | 92.9 |
+
+**The 15m→30m swap costs 0.035 PF** — the alignment to a common 30m window (§S43ck) is
+effectively free on this side too. ⚠ Unlike the long side, where intensity was MONOTONE
+in favour of 60m, the short side prefers the SHORTEST reference. That is consistent with
+§S43cb's original short-side sweep (15m 3.476 → rest-of-day 2.580) and is the sign-flip
+pattern again.
+
+## ⭐⭐ §2 `volat_over_day` DIES on the bigger bucket — exactly as the ladder predicted
+
+§S43cf flagged `volat_over_day ≥ median` at the 94.8 percentile on the narrow 759-trade
+cell, and §S43cg's ladder showed it DECAYING across widths (97.5 → 97.0 → 81.0 → 74.2).
+On the n=3,016 gate:
+
+| feature | n | PF | mean% | worst5% | pctile |
+|---|---:|---:|---:|---:|---:|
+| ⭐ `volat_open30` **HIGH** | 1,508 | **2.409** | +4.68 | −44.5 | **95.8** |
+| `volat_open15` HIGH | 1,508 | 2.367 | +4.59 | −44.1 | 92.7 |
+| 🛑 **`volat_over_day` HIGH** | 1,508 | 2.122 | +3.10 | −36.5 | **51.9** |
+| 🛑 `volat_over_day` low | 1,508 | 2.106 | +3.18 | −35.1 | 47.8 |
+| `volat_open30` **low** | 1,508 | 1.689 | +1.59 | −26.1 | **0.1** |
+
+🛑 **`volat_over_day` is at chance in BOTH directions (51.9 / 47.8).** The 94.8 was
+narrow-cell noise, and the ladder called it correctly. **Do not use it.**
+
+⭐⭐ **What IS real is ABSOLUTE volatility — and it flips sign from the long side.**
+`volat_open30` HIGH sits at 95.8 and LOW at 0.1, a clean inversion of the long side's
+`volat_open30` low. **Fifth feature to flip between the two systems** (after density,
+dollar shape, entry mechanics, tail behaviour).
+
+⚠ But look at the tail column: HIGH volatility buys PF and mean at a −44.5% worst-5%
+against the gate's −35.8%, while LOW volatility gives −26.1%. On a system where the
+tail is the binding constraint, that is not a free lunch — see §4.
+
+## ⭐⭐ §3 `bar_over_open30` DOES add — but only at the right threshold
+
+⚠⚠ **METHOD NOTE, and it changes the answer.** Applying `bar_over_open30 ≤ q50` where
+q50 is the median of the `gaps ≥ 1000` GATE gives PF 2.639 — it HURTS. Applying it at
+the median of the cell it actually refines (`gaps ∧ dv30`) gives **3.012** — it helps,
+on both PF and tail. Same feature, same direction, opposite conclusion. **Build
+sequentially: each threshold is the median OF THE CELL IT REFINES.**
+
+| step | n | PF | PFtrim | mean% | med% | win% | p5% | worst5% | worst% | loss% | yrs<1 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| population `chg > +6%` | 4,084 | 1.640 | 4.181 | +2.59 | +3.32 | 69 | −21.5 | −49.1 | −245 | 31 | 2 |
+| + `gaps ≥ 1000` | 3,016 | 2.114 | 5.786 | +3.14 | +3.07 | 70 | −15.7 | −35.8 | −168 | 30 | 2 |
+| + `dv_over_open30 ≤ q50` | 1,508 | 2.781 | 8.975 | +4.67 | +5.08 | 76 | −15.4 | −36.2 | −152 | 24 | 1 |
+| ⭐ + `bar_over_open30 ≤ q50` | 754 | **3.012** | 9.859 | +4.38 | +5.03 | **78** | **−12.1** | **−30.5** | −123 | **22** | 1 |
+| + `volat_open30` HIGH | 377 | 3.055 | 10.198 | **+5.39** | **+6.26** | 77 | −14.2 | −37.7 | −123 | 2 | 2 |
+| ⭐ + `volat_open30` LOW | 377 | 2.947 | 9.044 | +3.37 | +3.81 | 78 | **−9.9** | **−23.9** | **−64** | **22** | 1 |
+
+⭐ **`bar_over_open30` is a genuine addition: PF 2.781 → 3.012 AND the tail improves
+on every measure** (p5 −15.4 → −12.1, worst-5% −36.2 → −30.5, worst −152 → −123,
+loss rate 24% → 22%). It confirms the §S43cd read that bar counts are the better
+TAIL instrument on this side.
+
+## ⭐⭐ §4 On the short side volatility is a TAIL DIAL, not a PF lever
+
+The last two rows are the same size (377) and near-identical PF (3.055 vs 2.947), but:
+
+    volat HIGH   mean +5.39%  med +6.26%   worst-5% −37.7%   worst −123%   2 losing yrs
+    volat LOW    mean +3.37%  med +3.81%   worst-5% −23.9%   worst  −64%   1 losing yr
+
+**HIGH buys 2pp of mean for 14pp of worst-5% and 59pp of worst trade.** Since the tail
+is this system's binding constraint (§S43cb: −245% raw worst; a −100%+ short is a
+margin event, not a drawdown), **`volat_open30` LOW is the correct choice here despite
+scoring worse standalone.** That is the exact opposite trade-off from the long side,
+where low volatility improved BOTH PF and tail.
+
+⚠⚠ **2023 IS DOING ENORMOUS WORK** — it reads 31.58 in the `+bar30` cell and **108.45**
+in the `volat HIGH` cell. Those are near-zero-loss cells, and any PF at or below them in
+this section should be read as "positive", not as its printed magnitude. The tail and
+win-rate columns are the trustworthy ones.
+
+## The short spec, updated
+
+    SHORT, W = 30m:
+      chg60k59 > +6%
+      gaps            >= 1000       ABSOLUTE persistence — THIN tape
+      dv_over_open30  <= q50        intensity   — QUIET close vs the open
+      bar_over_open30 <= q50        relative persistence — GAPPY close
+      (thresholds SEQUENTIAL: each is the median of the cell it refines)
+      LIMIT 15:59-16:00, cover next open
+    -> n = 754, PF 3.012, mean +4.38%, median +5.03%, win 78%,
+       p5 -12.1%, worst-5% -30.5%, worst -123%, loss rate 22%
+
+    Optional tail cell: + volat_open30 LOW -> n = 377, PF 2.947, worst -64%.
+
+⚠ Every direction is INVERTED from the long side except that both want their own
+`dv_over_open` extreme — long HIGH, short LOW. Do not import a long-side sign.
+
+---
+
 ## ⏭ NEXT SESSION (queued 2026-08-14)
 
 ⚠ **Volatility is DONE — see §S43cf above (negative result).** Still open:
