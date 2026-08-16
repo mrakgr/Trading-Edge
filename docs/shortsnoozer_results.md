@@ -1706,6 +1706,90 @@ Script: `scripts/equity/snoozer_highvol.py`.
 
 ---
 
+# ⭐⭐⭐ S43cz (2026-08-16) — the curveball lands: ABSOLUTE last-hour DOLLARS replaces gaps, and survives the price floor
+
+⭐ USER: *"Could gaps be replaced with absolute dollar volume?"*
+
+**Yes — and in the regions where it matters most it is strictly better, because it keeps
+working on borrowable stock where `gaps` does not.**
+
+⚠ The obvious trap was that low dollar volume is just low price re-labelled, which is the
+confound that undermined §S43cy. Measured: **Spearman(dv_lh, price) = 0.441** — related
+but not the same. **Spearman(dv_lh, gaps) = −0.864** — the two candidate features are
+nearly the same variable, so this is a question of PARAMETERISATION, not of a new signal.
+
+## §1 In `volat ≥ 100bp`, dollars beats gaps outright
+
+Last-hour dollar quintiles (n = 1,100, PF 1.728):
+
+| quintile | n | PF | worst5% | >100% loss | med px | PF ex-2020 | pctile |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| ⭐ Q1 $0.05–2.02M | 220 | **4.379** | −33.2 | 1 | $1.75 | 4.264 | **100.0** |
+| ⭐ Q2 $2.02–5.74M | 220 | **4.000** | −28.8 | 1 | $2.20 | 3.981 | 99.9 |
+| Q3 $5.74–15.05M | 220 | 2.128 | −69.9 | 2 | $3.01 | 2.218 | 80.9 |
+| 🛑 Q4 $15.05–46.09M | 220 | 1.308 | −101.7 | 6 | $3.77 | 1.553 | 8.1 |
+| 🛑 Q5 $46.09M+ | 220 | 1.063 | −114.6 | 5 | $7.17 | 1.027 | 0.8 |
+
+Cleanly monotone. Matched at n = 457 against the incumbent:
+
+    GAPS >= 2000              PF 3.419  worst-5% -37.0%  2x >100%  1 losing yr  ex20 3.314
+    last-hour dollars LOW     PF 4.372  worst-5% -31.0%  2x >100%  0 losing yr  ex20 4.320
+
+## ⭐⭐⭐ §2 THE DECISIVE DIFFERENCE — behaviour under a price floor
+
+§S43cy concluded this region dies above $2. **That was true of `gaps`, not of the region.**
+
+| region | price floor | base PF | `GAPS` high | pctile | `DOLLARS` low | pctile |
+|---|---|---:|---:|---:|---:|---:|
+| volat < 40bp | all | 2.514 | **6.061** | 100.0 | 3.743 | 98.2 |
+| volat < 40bp | ≥ $2 | 2.948 | **6.240** | 99.9 | 4.017 | 92.3 |
+| ⭐ volat < 40bp | ≥ $5 | 3.549 | 6.574 | 99.6 | **7.278** | **99.9** |
+| volat [40,100) | all | 1.245 | **2.154** | 100.0 | 1.737 | 99.7 |
+| volat [40,100) | ≥ $2 | 1.274 | 1.983 | 99.6 | **2.100** | 100.0 |
+| ⭐ volat [40,100) | ≥ $5 | 1.269 | 2.073 | 98.9 | **2.613** | 100.0 |
+| volat ≥ 100 | all | 1.728 | 2.528 | 99.9 | **3.361** | 100.0 |
+| 🛑 volat ≥ 100 | ≥ $2 | 1.422 | **1.528** | **70.7** | **2.081** | **99.6** |
+| 🛑 volat ≥ 100 | ≥ $5 | 1.402 | **1.597** | **76.3** | **2.214** | **98.7** |
+
+⭐⭐⭐ **In the high-volatility region under a tradeable price floor, `gaps` FAILS THE
+NULL (70.7 and 76.3 percentile) while `dollars` clears it comfortably (99.6, 98.7).**
+`gaps ≥ 2000` was working on that region largely by selecting cheap stock; strip the
+cheap stock out and it stops working. Absolute dollars does not have that dependence.
+
+⭐ **The general rule that emerges:** `gaps` is the better parameterisation on **quiet,
+unrestricted** books; `dollars` is the better one **once a price floor is imposed, and
+increasingly so as volatility rises.** They are −0.864 correlated, so this is one
+underlying quantity — but which end you measure it from decides whether the edge survives
+contact with a borrow desk.
+
+## ⭐⭐ §3 The best cell found in this entire study
+
+    volat_open30 < 40bp  AND  px >= $5  AND  last-hour dollars <= median
+    -> n = 124   PF 7.278   worst-5% -7.5%   WORST TRADE -9%
+       zero >100% losses · zero losing years · ex-2020 PF 4.243 · median price $16.85
+
+**A −9% worst trade on $17 stock.** Every prior candidate either had a ruinous tail or
+lived below $2. This one has neither, and it is the same quiet-volatility cell as the S
+tier with `dollars` substituted for `gaps` and a $5 floor added.
+
+⚠ n = 124 over 11 years ≈ **11 trades/yr**, and §S43cs already flagged that four years
+of the quiet cell have fewer than 5 trades. Frequency, not edge, is now the binding
+constraint on this system.
+
+## Consequences for the tier book (§S43cw)
+
+⚠ **The tier definitions should be re-derived with `dv_lh` in place of `gaps`, and with a
+price floor**, which was not done there. §S43cw's B tier in particular used
+`gaps ≥ 2000` on `volat [40,100)`, and at `px ≥ $5` dollars beats it 2.613 vs 2.073 with a
+better tail (−17.8% vs −23.2%) and zero losing years against one.
+
+⏭ NOT DONE: re-cutting all three tiers on `dollars × price floor`, and checking whether
+`gaps` still adds anything on top of `dollars` given ρ = −0.864.
+
+Script: `scripts/equity/snoozer_dollars_vs_gaps.py`.
+
+---
+
 ## ⏭ NEXT SESSION (queued 2026-08-14)
 
 ⚠ **Volatility is DONE — see §S43cf above (negative result).** Still open:
