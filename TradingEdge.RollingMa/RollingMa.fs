@@ -572,7 +572,12 @@ type CalendarMeanMa(days: int) =
 // like the other structures here.
 [<Sealed>]
 type OlsSlopeMa(windowSize: int) =
-    let q = Queue<struct (float * float)>(windowSize)   // (x = absolute push index, y)
+    // ⭐ Only y is stored. x is the ABSOLUTE push index, and eviction is FIFO with
+    // exactly one removal per push once full, so the departing point's x is always
+    // `idx - windowSize` at the top of Push — derivable, never stored. Halves the
+    // buffer (8 bytes/point instead of 16) and is bit-identical: the same ox value
+    // enters the same subtractions in the same order.
+    let q = Queue<float>(windowSize)
     let mutable sx  = 0.0    // Σx
     let mutable sy  = 0.0    // Σy
     let mutable sxx = 0.0    // Σx²
@@ -613,12 +618,13 @@ type OlsSlopeMa(windowSize: int) =
     /// point when the window is full, subtracting its exact contribution.
     member _.Push (y: float) =
         if q.Count = windowSize then
-            let struct (ox, oy) = q.Dequeue()
+            let oy = q.Dequeue()
+            let ox = idx - float windowSize          // the departing point's x
             sx <- sx - ox; sy <- sy - oy
             sxx <- sxx - ox * ox; sxy <- sxy - ox * oy; syy <- syy - oy * oy
         let x = idx
         idx <- idx + 1.0
-        q.Enqueue(struct (x, y))
+        q.Enqueue y
         sx <- sx + x; sy <- sy + y
         sxx <- sxx + x * x; sxy <- sxy + x * y; syy <- syy + y * y
 
@@ -791,3 +797,146 @@ type SlidingAgg<'T>(zero: 'T, combine: 'T -> 'T -> 'T) =
         front.Pop() |> ignore
 
     member _.Query = combine (topAgg front) (topAgg back)
+
+// =============================================================================
+// QUEUE SHARING — one ring buffer, many windows
+// =============================================================================
+//
+// An engine that keeps N windows over ONE stream pays N copies of the same data,
+// one Queue per window. Share the ELEMENTS in a single ring and let every window
+// read the element it is evicting out of it.
+//
+// SCOPE: invertible aggregates only — sums, and OLS (which already subtracts the
+// evicted point's exact contribution). max/min are NOT invertible: you cannot
+// Remove an arbitrary value from a monotonic deque. That is a property of the
+// aggregate, not a limitation here; MaxMa/MinMa keep their own structures.
+//
+// ⚠ THE TRADE. The ring stores ELEMENTS, so an evicting window recomputes its
+// projection of the evicted element instead of reading a stored float. That pays
+// only when many projections share the ring. With one projection it LOSES — a
+// 1200 ring of 24-byte bars is 28.8 KB against a 1200-float queue's 9.6 KB.
+//
+// ⚠⚠ BIT-EXACTNESS AGAINST RollingMa/OlsSlopeMa. Two invariants, or the sums
+// drift in the last bits and take every downstream ratio with them:
+//   1. REMOVE BEFORE ADD. RollingMa.Push removes the dequeued element FIRST, and
+//      (s - a) + b <> (s + b) - a in floating point.
+//   2. ADD IS UNCONDITIONAL. A window accumulates during warmup and only starts
+//      evicting once it is already full.
+// Verified bit for bit by TradingEdge.Scanner/Engine/Roll_Test.fsx.
+
+/// An aggregate that can absorb an element and give it back.
+type IRoll<'T> =
+    abstract Add    : 'T -> unit
+    abstract Remove : 'T -> unit
+    abstract Reset  : unit -> unit
+
+/// One shared ring feeding many windows. `rolls` pairs a window size with the
+/// aggregates reading that size.
+[<Sealed>]
+type WindowRoller<'T>(rolls: (int * IRoll<'T>[])[]) =
+    do if rolls.Length = 0 then invalidArg "rolls" "WindowRoller needs at least one window"
+    let maxW = rolls |> Array.map fst |> Array.max
+    // maxW + 1 slots: when the widest window evicts position (count-1-maxW) the
+    // newest is (count-1), so maxW+1 positions must be live. Writing at
+    // count % L never clobbers a needed slot because maxW is not a multiple of L.
+    let buf : 'T[] = Array.zeroCreate (maxW + 1)
+    let mutable count = 0
+
+    member _.Count = count
+    member _.MaxWindow = maxW
+
+    member _.Push(b: 'T) =
+        buf.[count % buf.Length] <- b
+        count <- count + 1
+        for (w, rs) in rolls do
+            if count > w then
+                // the element leaving the window: logical position count-1-w
+                let a = buf.[(count - 1 - w) % buf.Length]
+                for r in rs do
+                    r.Remove a          // ⚠ remove BEFORE add — RollingMa order
+                    r.Add b
+            else
+                for r in rs do r.Add b  // warmup: accumulate, evict nothing
+
+    /// Sever the window — the >45-day listing-gap reset (see RollingMa.Reset).
+    member _.Reset() =
+        count <- 0
+        for (_, rs) in rolls do
+            for r in rs do r.Reset()
+
+/// Σ of a projection over a shared window. Mirrors SumMa exactly: `State` is
+/// ValueNone while empty, and `Count` saturates at the window size because a full
+/// window removes then adds.
+[<Sealed>]
+type SumRoll<'T>(windowSize: int, project: 'T -> float) =
+    let mutable sum = 0.0
+    let mutable n = 0
+    member _.WindowSize = windowSize
+    member _.Count = n
+    member _.State = if n = 0 then ValueNone else ValueSome sum
+    interface IRoll<'T> with
+        member _.Add b    = sum <- sum + project b; n <- n + 1
+        member _.Remove b = sum <- sum - project b; n <- n - 1
+        member _.Reset () = sum <- 0.0; n <- 0
+
+/// Rolling OLS slope + R² over a shared window — the IRoll form of OlsSlopeMa.
+///
+/// ⭐ OLS is invertible: OlsSlopeMa already evicts by subtracting the oldest
+/// point's exact contribution, so it fits this design unchanged in arithmetic.
+/// The only thing it needs that the ring cannot supply is each point's
+/// x-coordinate, which is its ABSOLUTE push index. Adds and removes each advance
+/// in lock step (one remove per add once full), so two independent counters
+/// reproduce the x's exactly: `addX` for the arriving point, `remX` for the
+/// departing one. No index is stored, and none needs to be.
+[<Sealed>]
+type OlsRoll<'T>(windowSize: int, project: 'T -> float) =
+    let mutable sx  = 0.0
+    let mutable sy  = 0.0
+    let mutable sxx = 0.0
+    let mutable sxy = 0.0
+    let mutable syy = 0.0
+    let mutable addX = 0.0      // x of the NEXT arriving point
+    let mutable remX = 0.0      // x of the NEXT departing point
+    let mutable n = 0
+
+    member _.Count = n
+    member _.WindowSize = windowSize
+
+    /// OLS slope (y-per-push), or ValueNone with <2 points.
+    member _.Slope : float voption =
+        let fn = float n
+        let dxx = fn * sxx - sx * sx
+        if n >= 2 && dxx > 0.0 then ValueSome ((fn * sxy - sx * sy) / dxx) else ValueNone
+
+    member this.State = this.Slope
+
+    /// R² ∈ [0,1], or ValueNone with <2 points or a flat window.
+    member _.R2 : float voption =
+        let fn = float n
+        let dxx = fn * sxx - sx * sx
+        let dyy = fn * syy - sy * sy
+        if n >= 2 && dxx > 0.0 && dyy > 0.0 then
+            let dxy = fn * sxy - sx * sy
+            ValueSome (dxy * dxy / (dxx * dyy))
+        else ValueNone
+
+    interface IRoll<'T> with
+        // ⚠ Term-for-term and in the SAME ORDER as OlsSlopeMa.Push, so the
+        // floating-point result is identical rather than merely equivalent.
+        member _.Add b =
+            let x = addX
+            let y = project b
+            addX <- addX + 1.0
+            sx <- sx + x; sy <- sy + y
+            sxx <- sxx + x * x; sxy <- sxy + x * y; syy <- syy + y * y
+            n <- n + 1
+        member _.Remove b =
+            let ox = remX
+            let oy = project b
+            remX <- remX + 1.0
+            sx <- sx - ox; sy <- sy - oy
+            sxx <- sxx - ox * ox; sxy <- sxy - ox * oy; syy <- syy - oy * oy
+            n <- n - 1
+        member _.Reset () =
+            sx <- 0.0; sy <- 0.0; sxx <- 0.0; sxy <- 0.0; syy <- 0.0
+            addX <- 0.0; remX <- 0.0; n <- 0
