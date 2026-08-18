@@ -198,7 +198,10 @@ let candidateTable =
     | t when t |> Seq.forall (fun c -> Char.IsLetterOrDigit c || c = '_') -> t
     | bad -> failwithf "Invalid FF_CANDIDATE_TABLE %A (identifier chars only)" bad
 
-let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: DateOnly) (minDv0945: float) (minRvol0945: float) (minPrevClose: float) (minVolat20m: float) (minBarnum: int) : Candidate[] =
+/// ⭐ Public since 2026-08-18: the live scanner reads the SAME candidate set so a
+/// parity run cannot differ by universe. (Live, the universe is computed in-stream
+/// at 09:45; this stays the historical/parity path.)
+let readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: DateOnly) (minDv0945: float) (minRvol0945: float) (minPrevClose: float) (minVolat20m: float) (minBarnum: int) : Candidate[] =
     let table = candidateTable
     // ⭐ S39j volat-prepass trim (user): mr_candidate_1s carries max_slot_absr_bp =
     // the day's MAX |30s-slot log return| (engine slot definition, bp). volat_20m
