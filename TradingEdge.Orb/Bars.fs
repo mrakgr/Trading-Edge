@@ -170,11 +170,21 @@ type Bar1s =
 /// ⚠ This does NOT apply the engine-side `vwap > 0 AND volume > 0` filter; that
 /// lives at the consumer boundary (FlushFader's SecEmitter), and the parquet
 /// corpus contains such bars. Do not add it here or the corpus will not match.
-/// ⚠ REORDER TOLERANCE IS NOT IMPLEMENTED. The SQL builder is a GROUP BY, so a
-/// late straggler still lands in its own second; this roll-on-advance version
-/// would drop it. Measured 28 out-of-order rows in 27.8M (2016-08-08). The
-/// tolerance `k` must be derived from data in P2 before this is used to build a
-/// corpus. Until then treat this type as UNVERIFIED against the SQL path.
+/// ⭐ REORDER TOLERANCE IS ZERO — MEASURED, not assumed (2026-08-18). The SQL
+/// builder is a GROUP BY and so is order-immune; this roll-on-advance version is
+/// not, and would drop any trade arriving for an already-closed second. It never
+/// happens on this tape:
+///   * the day files are PERFECTLY sorted by (ticker, sip_timestamp): 0 order
+///     violations in 27,840,603 rows (2016-08-08) and 104,529,025 (2025-06-16);
+///   * `sequence_number` is NOT the sort key — it has 270 / 940 violations under
+///     file order — and `participant_timestamp` is 10-14% non-monotonic (a TRF
+///     print disseminated late carries an old venue clock). Neither may be used
+///     as the bucketing clock;
+///   * the COALESCE fallback to participant_timestamp NEVER fires: sip_timestamp
+///     is non-zero and non-null on all 553M rows sampled across 2016-2026.
+/// So ts == sip_timestamp, monotonic per ticker, and no buffer is required.
+/// ⚠ STILL OPEN FOR THE LIVE FEED — a WebSocket is only as ordered as the wire.
+/// Re-measure against the live Polygon stream before trusting k = 0 there.
 type BarAccumulator() =
     let mutable bucket = -1
     let mutable pv = 0.0
