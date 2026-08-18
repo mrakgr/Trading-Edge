@@ -135,6 +135,23 @@ let maskOf (conditions: int[]) : uint64 =
         m <- m ||| (1UL <<< c)
     m
 
+/// `maskOf` for a DuckDB `UTINYINT[]` column, which DuckDB.NET materialises as
+/// `List<byte>`. Indexed rather than enumerated so no enumerator is allocated —
+/// this runs ~10^8 times per trading day.
+/// ⚠ Guards the 0..63 range. .NET MASKS the shift count (`1UL <<< 64` = 1UL), so
+/// an out-of-range code would silently alias onto code 0 — i.e. quietly change
+/// the filter. Measured max code is 53 on 2016-08-08 / 2020-03-16 / 2025-06-16 /
+/// 2026-06-09 (21-24 distinct codes, min 2), so this never fires today; it exists
+/// so a future feed change fails loudly instead.
+let maskOfBytes (conditions: Collections.Generic.IReadOnlyList<byte>) : uint64 =
+    let mutable m = 0UL
+    for i in 0 .. conditions.Count - 1 do
+        let c = conditions.[i]
+        if c > 63uy then
+            failwithf "Bars.maskOfBytes: condition code %d is outside the 0..63 mask range" c
+        m <- m ||| (1UL <<< int c)
+    m
+
 /// True iff this trade belongs in a 1s bar. `mask` from `maskOf`.
 let inline keepByMask (mask: uint64) (sipTs: int64) (participantTs: int64)
                       (price: float) (size: float) : bool =
