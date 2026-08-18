@@ -61,7 +61,9 @@
 // lever. Profiled on a heavy 3.0 GB day (2026-06-09, ~182M raw trades, 6 threads):
 //
 //   raw read+decompress (warm) ............... ~1.4-1.8s
-//   + full condition filter (52M survive) .... ~12s wall  (~58s CPU / 6 threads)
+//   + full condition filter (169M survive) ... ~12s wall  (~58s CPU / 6 threads)
+//     ⚠ was written as "52M" — that reflected an older lit-only (trf_id = 0)
+//     filter. Re-measured 2026-08-18: 181,709,268 raw -> 168,792,412 kept (92.9%).
 //   + GROUP BY (ticker,bucket) + aggs ........ ~13s   (grouping/sort ≈ free)
 //   + ORDER BY + zstd-9 write ................ ~13-14s (zstd-9 vs -3: same wall,
 //                                                        17% smaller file)
@@ -158,13 +160,10 @@ Directory.CreateDirectory outDir |> ignore
 let spillDir = Path.Combine(outDir, ".duckdb_tmp")
 Directory.CreateDirectory spillDir |> ignore
 
-// Reuse the two canonical condition sets from TradeFilters. We do NOT use
-// whereClauseSql (bakes in trf_id = 0, DECISION 2 drops it) NOR conditionsSqlClause
-// (it folds open/close into the conditions only) — DECISION 7 needs open/close to
-// override BOTH the exclude set AND the 50 ms delta cap, so we assemble the
-// predicate from the raw sets.
-let openCloseSetSql = TradeFilters.openCloseSetSql   // [17,25,19,8] — opening/closing auction prints
-let excludeSetSql = TradeFilters.excludeSetSql       // [2,7,10,13,20,21,22,29,32,52,53]
+// ⭐ 2026-08-18: the filter, clock and bucket math moved to TradingEdge.Orb.Bars
+// so this bulk builder and the live STREAMING builder cannot drift apart. Bars
+// documents at length why this is NOT TradeFilters.whereClauseSql (that one is
+// lit-only with no delta cap, and lets open/close override the exclude set only).
 
 // Session window: bucket N starts at sessionStart + N*bucketDuration; keep
 // buckets in [sessionStart, sessionEnd).
@@ -192,10 +191,6 @@ let excludeSetSql = TradeFilters.excludeSetSql       // [2,7,10,13,20,21,22,29,3
 // extended/24-7 hours. RTH open = bucket 34,200 (9.5h * 3600). We therefore use a
 // LOCAL startHoursFromBase = 0.0 rather than Timezone.startHoursFromBase (8.5),
 // which is shared with the 10s builder and must not change.
-let startHoursFromBase = 0.0
-let bucketDuration = TimeSpan.FromSeconds 1.0
-let bucketNs = int64 bucketDuration.TotalNanoseconds       // 1_000_000_000
-let sessionStart = TimeSpan(0, 0, 0)                       // 00:00 ET
 // ⭐ MIDNIGHT, not 20:00. Measured on the raw tape (2026-08-07): trades run 04:00
 // to 20:00 ET and nowhere else — but hour 20 still carries ~9k prints that a
 // 20:00 bound would clip, and the empty hours cost NOTHING (no trades -> no bars,
@@ -209,12 +204,9 @@ let sessionStart = TimeSpan(0, 0, 0)                       // 00:00 ET
 // correctly). If you re-check this with an ad-hoc query, do NOT hardcode a UTC-4
 // offset: doing so shifts winter dates by an hour and manufactures a phantom
 // "05:00-21:00" session that looks exactly like overnight trading.
-let regularEnd = TimeSpan(24, 0, 0)
-let earlyEnd = TimeSpan(24, 0, 0)
-let maxSipDeltaNs = int64 (TimeSpan.FromMilliseconds 50.0).TotalNanoseconds
-
-let maxBucketFor (close: TimeSpan) =
-    int ((close - sessionStart - bucketDuration).TotalSeconds / bucketDuration.TotalSeconds)
+// All of the above is now Bars.StartHoursFromBase / BucketNs / SessionEndHours /
+// maxBucket / MaxSipDeltaNs. Early closes are moot at a 24:00 bound (earlyEnd =
+// regularEnd), so the branch that used to select between them is gone.
 
 let buildOne (date: string) : double =
     let inPath = Path.Combine(tradesDir, $"{date}.parquet")
@@ -226,17 +218,9 @@ let buildOne (date: string) : double =
     // That happened on 2022-06-16 (user interrupted the 2026-08-12 rebuild).
     let tmpPath = outPath + ".tmp"
 
-    let dateOnly = DateOnly.ParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture)
-    let isEarly = Timezone.early_closes.Contains dateOnly
-    let maxBucket = maxBucketFor (if isEarly then earlyEnd else regularEnd)
-
-    let baseUtc =
-        Timezone.baseTimeFromDateString(date).AddHours(startHoursFromBase)
-    // TimeSpan.TotalNanoseconds (.NET 8+) — exact for our range (verified 0 error
-    // vs Ticks*100 across 2003-2028; the values are 100 ns multiples so they land
-    // on representable doubles). int64 cast: TotalNanoseconds is a double.
-    let baseNs = int64 (baseUtc - DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalNanoseconds
-    let endNsExclusive = baseNs + int64 (maxBucket + 1) * bucketNs
+    let maxBucket = Bars.maxBucket
+    let baseNs = Bars.baseNsForDate date
+    let endNsExclusive = Bars.endNsExclusive baseNs
 
     let inEscaped = inPath.Replace("'", "''")
     let outEscaped = tmpPath.Replace("'", "''")   // COPY writes here; moved on success
@@ -256,29 +240,20 @@ COPY (
     WITH filtered AS (
         SELECT
             ticker,
-            COALESCE(NULLIF(sip_timestamp, 0), participant_timestamp) AS ts,
+            {Bars.tsExprSql} AS ts,
             price,
             size
         FROM read_parquet('{inEscaped}')
-        WHERE size > 0
-          AND price > 0
-          AND (
-              -- DECISION 7: opening/closing auction prints are kept UNCONDITIONALLY
-              -- (bypass both the 50 ms delta cap and the exclude-conditions test) —
-              -- auction crosses disseminate late (p99 ~388 ms) and are anchor prices.
-              list_has_any(conditions, {openCloseSetSql})
-              OR (
-                  ( sip_timestamp = 0
-                    OR participant_timestamp = 0
-                    OR (sip_timestamp - participant_timestamp) <= {maxSipDeltaNs} )
-                  AND NOT list_has_any(conditions, {excludeSetSql})
-              )
-          )
+        -- DECISION 2 + 7, from TradingEdge.Orb.Bars: all venues (no trf_id filter);
+        -- opening/closing auction prints bypass BOTH the 50 ms delta cap and the
+        -- exclude-conditions test, because they disseminate late (p99 ~388 ms) and
+        -- are the session's anchor prices.
+        WHERE {Bars.whereClauseSql}
     ),
     bucketed AS (
         SELECT
             ticker,
-            CAST(FLOOR((ts - {baseNs})::DOUBLE / {bucketNs}) AS INTEGER) AS bucket,
+            {Bars.bucketExprSql baseNs} AS bucket,
             ts,
             price,
             size

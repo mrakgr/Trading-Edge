@@ -2,13 +2,19 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
-  <!-- Reduced to a small trade-data helper library: Eastern-timezone conversion
-       (Timezone) + lit-only trade-condition SQL/row filters (TradeFilters), used
-       by TradingEdge.Massive. The ORB / 10s-bar / binary-tape lineage that used to
-       live here (TradeLoader, TradeBinary, Convert, Pipeline, the Program CLI) was
-       retired with the ORB study; see the cleanup commits. -->
+  <!-- A small trade-data helper library:
+         Timezone     — Eastern-timezone conversion + the early-close calendar
+         TradeFilters — LIT-ONLY (trf_id = 0) condition sets and SQL, ORB/1m lineage
+         Bars         — the 1-SECOND BAR convention (all venues + 50 ms SIP-delta
+                        cap + DECISION 7 auction override), shared by the bulk SQL
+                        builder and the live streaming builder. ⚠ NOT the same
+                        filter as TradeFilters — see the banner in Bars.fs.
+       The ORB / 10s-bar / binary-tape lineage that used to live here (TradeLoader,
+       TradeBinary, Convert, Pipeline, the Program CLI) was retired with the ORB
+       study; see the cleanup commits. -->
   <ItemGroup>
     <Compile Include="Timezone.fs" />
     <Compile Include="TradeFilters.fs" />
+    <Compile Include="Bars.fs" />
   </ItemGroup>
 </Project>
