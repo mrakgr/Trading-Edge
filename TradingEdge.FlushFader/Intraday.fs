@@ -931,7 +931,28 @@ type IntradayConfig =
       // cannot participate in.
       // ⚠ Drifting: 2016-19 saw 0-6% of ticker-days reach 300 bars, 2024-25 sees
       // 15-18%. Still far too thin to trade, but re-measure rather than assume.
-      MocSecShort: int }
+      MocSecShort: int
+
+      /// ⭐⭐ LIVE-SLIM (2026-08-18). Disables the POST-EXIT COUNTERFACTUAL
+      /// apparatus wholesale — the machinery that keeps an already-exited
+      /// position alive so fwd_vwap_*/aux_hi_*/ma_*/vwma_* can be marked. That
+      /// exists to study EXIT VARIANTS post-hoc; a live system needs none of it.
+      /// ⚠ They must be disabled TOGETHER. The retire predicate requires all 12
+      /// MA/VWMA marks resolved, and maStep resolves any unresolved mark at the
+      /// MOC bar — so merely skipping the MA pushes keeps positions active LONGER
+      /// and perturbs aux_hi_* (measured: SHAZ 2026-06-09 aux_hi_1200 went NULL ->
+      /// 62.4799@53617). Live mode therefore also retires on exit immediately.
+      /// The {10..60}m MA and {30..60}m VWMA exit
+      /// marks are RECORDED-ONLY counterfactuals — they feed nothing but the
+      /// ma_*/vwma_* trip columns (verified: their only consumers are the
+      /// prevXMa*/prevXVw* crossing flags, which already NaN-guard). They are
+      /// also the single largest memory term in the engine: 34,200 of the
+      /// 63,304 windowed slots, i.e. 267 KB of the 495 KB of raw doubles.
+      /// Set true in the LIVE scanner: the windows are allocated at depth 1 and
+      /// never pushed, so sumMean/sumRatio return nan and those columns record
+      /// NULL. Leave FALSE for research — the marks are how exit variants get
+      /// studied post-hoc.
+      LiveSlim: bool }
 
 /// The FlushFader engine. One instance per (ticker, day).
 type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
@@ -1093,23 +1114,25 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let dvSum60 = SumMa 60                       // Σ vwap·volume — the liquidity floor + vwap_60
     // ⭐ MA-exit machinery (user, 2026-07-29): rolling sums for the {10..60}m means.
     // Simple price MA = pxSumN/count; VWMA = dvSumN/volSumN. All partial-tolerant.
-    let pxSum600 = SumMa 600
-    let pxSum1200 = SumMa 1200
-    let pxSum1800 = SumMa 1800
-    let pxSum2400 = SumMa 2400
-    let pxSum3000 = SumMa 3000
-    let pxSum3600 = SumMa 3600
+    /// depth 1 (and never pushed) when the marks are off — see cfg.LiveSlim
+    let maW n = if cfg.LiveSlim then 1 else n
+    let pxSum600 = SumMa (maW 600)
+    let pxSum1200 = SumMa (maW 1200)
+    let pxSum1800 = SumMa (maW 1800)
+    let pxSum2400 = SumMa (maW 2400)
+    let pxSum3000 = SumMa (maW 3000)
+    let pxSum3600 = SumMa (maW 3600)
     let dvSum600 = SumMa 600
     // (no dvSum1200 here — the engine already maintains one below for vwap_1200;
     // a duplicate binding SHADOWED it and its double-push corrupted both. ⚠)
-    let dvSum1800 = SumMa 1800
-    let dvSum2400 = SumMa 2400
-    let dvSum3000 = SumMa 3000
-    let dvSum3600 = SumMa 3600
-    let volSum1800 = SumMa 1800
-    let volSum2400 = SumMa 2400
-    let volSum3000 = SumMa 3000
-    let volSum3600 = SumMa 3600
+    let dvSum1800 = SumMa (maW 1800)
+    let dvSum2400 = SumMa (maW 2400)
+    let dvSum3000 = SumMa (maW 3000)
+    let dvSum3600 = SumMa (maW 3600)
+    let volSum1800 = SumMa (maW 1800)
+    let volSum2400 = SumMa (maW 2400)
+    let volSum3000 = SumMa (maW 3000)
+    let volSum3600 = SumMa (maW 3600)
     let dvSum1200 = SumMa 1200                   // Σ vwap·volume over 20m — the 20m rolling VWAP
     // ⭐ S41q (user): z-score raw moments — Σv·p², Σv·ln p, Σv·(ln p)² per window
     // (both NORMAL- and LOG-space vw-σ derivable post-hoc; ln(vwap) != vw-mean of
@@ -1605,24 +1628,26 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         dv2Sum300.Push (bar.vwap * bar.vwap * bar.volume)
         dlvSum300.Push (log bar.vwap * bar.volume)
         dlv2Sum300.Push (log bar.vwap * log bar.vwap * bar.volume)
-        pxSum600.Push bar.vwap
-        pxSum1200.Push bar.vwap
-        pxSum1800.Push bar.vwap
-        pxSum2400.Push bar.vwap
-        pxSum3000.Push bar.vwap
-        pxSum3600.Push bar.vwap
+        if not cfg.LiveSlim then
+            pxSum600.Push bar.vwap
+            pxSum1200.Push bar.vwap
+            pxSum1800.Push bar.vwap
+            pxSum2400.Push bar.vwap
+            pxSum3000.Push bar.vwap
+            pxSum3600.Push bar.vwap
         dvSum600.Push (bar.vwap * bar.volume)
         dv2Sum600.Push (bar.vwap * bar.vwap * bar.volume)
         dlvSum600.Push (log bar.vwap * bar.volume)
         dlv2Sum600.Push (log bar.vwap * log bar.vwap * bar.volume)
-        dvSum1800.Push (bar.vwap * bar.volume)
-        dvSum2400.Push (bar.vwap * bar.volume)
-        dvSum3000.Push (bar.vwap * bar.volume)
-        dvSum3600.Push (bar.vwap * bar.volume)
-        volSum1800.Push bar.volume
-        volSum2400.Push bar.volume
-        volSum3000.Push bar.volume
-        volSum3600.Push bar.volume
+        if not cfg.LiveSlim then
+            dvSum1800.Push (bar.vwap * bar.volume)
+            dvSum2400.Push (bar.vwap * bar.volume)
+            dvSum3000.Push (bar.vwap * bar.volume)
+            dvSum3600.Push (bar.vwap * bar.volume)
+            volSum1800.Push bar.volume
+            volSum2400.Push bar.volume
+            volSum3000.Push bar.volume
+            volSum3600.Push bar.volume
         dvSum1200.Push (bar.vwap * bar.volume)
         dv2Sum1200.Push (bar.vwap * bar.vwap * bar.volume)
         dlvSum1200.Push (log bar.vwap * bar.volume)
@@ -2007,6 +2032,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             // aux mark is about to fill off THIS bar's high (an unset mark whose
             // counter just hit 0 fills next bar; retiring now would lose it)
             match p.State with
+            // ⭐ LIVE: nothing is marked after the exit, so retire at once.
+            | ExitedAt _ when cfg.LiveSlim -> retired.Add p
             | ExitedAt _ when not (Double.IsNaN p.FwdVwap1200)
                               && not (Double.IsNaN p.AuxHi60 && br60.BarsSinceBreach = 0)
                               && not (Double.IsNaN p.AuxHi120 && br120.BarsSinceBreach = 0)
