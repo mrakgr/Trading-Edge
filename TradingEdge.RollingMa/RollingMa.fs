@@ -2,6 +2,7 @@ module TradingEdge.RollingMa
 
 open System
 open System.Collections.Generic
+open System.Runtime.CompilerServices
 open Nito.Collections
 
 // =============================================================================
@@ -881,20 +882,29 @@ type WindowRoller<'T>(rolls: (int * IRoll<'T>[])[]) =
 /// Σ of a projection over a shared window. Mirrors SumMa exactly: `State` is
 /// ValueNone while empty, and `Count` saturates at the window size because a full
 /// window removes then adds.
-[<Sealed>]
-type SumRoll<'T>(windowSize: int, project: 'T -> float) =
+///
+/// ⭐ `Project` is an ABSTRACT METHOD, not a lambda field (user, 2026-08-19).
+/// A closure costs an extra dereference on every call — load the `project`
+/// field, then its vtable — and the ring calls the projection on EVERY Add and
+/// EVERY Remove, so that is two extra objects touched per window per bar. An
+/// override on `this` reuses the header the caller has already loaded. Specialise
+/// by INHERITING and overriding once per projection; see Engine/Roll.fs.
+[<AbstractClass>]
+type SumRoll<'T>(windowSize: int) =
     let mutable sum = 0.0
     let mutable n = 0
+    /// The scalar this window sums out of an element.
+    abstract Project : 'T -> float
     member _.WindowSize = windowSize
     member _.Count = n
     member _.State = if n = 0 then ValueNone else ValueSome sum
     interface IRoll<'T> with
         member _.WindowSize = windowSize
-        member _.Add b    = sum <- sum + project b; n <- n + 1
-        member _.Remove b = sum <- sum - project b; n <- n - 1
+        member this.Add b    = sum <- sum + this.Project b; n <- n + 1
+        member this.Remove b = sum <- sum - this.Project b; n <- n - 1
         // (sum - old) + nu, exactly as Remove-then-Add produces it. n is
         // unchanged: a full window loses one and gains one.
-        member _.Roll (a, b) = sum <- sum - project a + project b
+        member this.Roll (a, b) = sum <- sum - this.Project a + this.Project b
         member _.Reset () = sum <- 0.0; n <- 0
 
 /// Rolling OLS slope + R² over a shared window — the IRoll form of OlsSlopeMa.
@@ -906,8 +916,8 @@ type SumRoll<'T>(windowSize: int, project: 'T -> float) =
 /// in lock step (one remove per add once full), so two independent counters
 /// reproduce the x's exactly: `addX` for the arriving point, `remX` for the
 /// departing one. No index is stored, and none needs to be.
-[<Sealed>]
-type OlsRoll<'T>(windowSize: int, project: 'T -> float) =
+[<AbstractClass>]
+type OlsRoll<'T>(windowSize: int) =
     let mutable sx  = 0.0
     let mutable sy  = 0.0
     let mutable sxx = 0.0
@@ -916,6 +926,10 @@ type OlsRoll<'T>(windowSize: int, project: 'T -> float) =
     let mutable addX = 0.0      // x of the NEXT arriving point
     let mutable remX = 0.0      // x of the NEXT departing point
     let mutable n = 0
+
+    /// The scalar this window regresses. See SumRoll for why it is an abstract
+    /// method rather than a lambda field.
+    abstract Project : 'T -> float
 
     member _.Count = n
     member _.WindowSize = windowSize
@@ -938,37 +952,34 @@ type OlsRoll<'T>(windowSize: int, project: 'T -> float) =
             ValueSome (dxy * dxy / (dxx * dyy))
         else ValueNone
 
+    // ⚠⚠ ONE definition of each half of the arithmetic. Add, Remove and Roll all
+    // route through these, so the three CANNOT drift apart term by term — which
+    // is the whole risk, since parity rests on the exact operation ORDER rather
+    // than on the algebra. Term-for-term and in the SAME ORDER as
+    // OlsSlopeMa.Push, so the result is identical rather than merely equivalent.
+    // `n` is deliberately left to the callers: Roll nets it out (-1 then +1).
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member private this.AddPoint (b: 'T) =
+        let x = addX
+        let y = this.Project b
+        addX <- addX + 1.0
+        sx <- sx + x; sy <- sy + y
+        sxx <- sxx + x * x; sxy <- sxy + x * y; syy <- syy + y * y
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member private this.RemovePoint (b: 'T) =
+        let ox = remX
+        let oy = this.Project b
+        remX <- remX + 1.0
+        sx <- sx - ox; sy <- sy - oy
+        sxx <- sxx - ox * ox; sxy <- sxy - ox * oy; syy <- syy - oy * oy
+
     interface IRoll<'T> with
         member _.WindowSize = windowSize
-        // ⚠ Term-for-term and in the SAME ORDER as OlsSlopeMa.Push, so the
-        // floating-point result is identical rather than merely equivalent.
-        member _.Add b =
-            let x = addX
-            let y = project b
-            addX <- addX + 1.0
-            sx <- sx + x; sy <- sy + y
-            sxx <- sxx + x * x; sxy <- sxy + x * y; syy <- syy + y * y
-            n <- n + 1
-        member _.Remove b =
-            let ox = remX
-            let oy = project b
-            remX <- remX + 1.0
-            sx <- sx - ox; sy <- sy - oy
-            sxx <- sxx - ox * ox; sxy <- sxy - ox * oy; syy <- syy - oy * oy
-            n <- n - 1
-        // ⚠ The two halves below are copied TERM FOR TERM from Remove and Add
-        // above, in that order. n nets out (-1 then +1) so it is not touched.
-        member _.Roll (a, b) =
-            let ox = remX
-            let oy = project a
-            remX <- remX + 1.0
-            sx <- sx - ox; sy <- sy - oy
-            sxx <- sxx - ox * ox; sxy <- sxy - ox * oy; syy <- syy - oy * oy
-            let x = addX
-            let y = project b
-            addX <- addX + 1.0
-            sx <- sx + x; sy <- sy + y
-            sxx <- sxx + x * x; sxy <- sxy + x * y; syy <- syy + y * y
+        member this.Add b    = this.AddPoint b; n <- n + 1
+        member this.Remove b = this.RemovePoint b; n <- n - 1
+        // ⚠ REMOVE BEFORE ADD. n nets out, so it is not touched.
+        member this.Roll (a, b) = this.RemovePoint a; this.AddPoint b
         member _.Reset () =
             sx <- 0.0; sy <- 0.0; sxx <- 0.0; sxy <- 0.0; syy <- 0.0
             addX <- 0.0; remX <- 0.0; n <- 0
