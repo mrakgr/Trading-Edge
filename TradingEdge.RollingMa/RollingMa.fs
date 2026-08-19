@@ -829,12 +829,28 @@ type IRoll<'T> =
     abstract Add    : 'T -> unit
     abstract Remove : 'T -> unit
     abstract Reset  : unit -> unit
+    /// Evict `old` and absorb `nu` in ONE interface call — the steady state, and
+    /// the only path a full window ever takes. Halves the dispatch on the hot
+    /// loop. ⚠ MUST be term-for-term `Remove old` followed by `Add nu`: the
+    /// engine's parity rests on `(s - a) + b`, which is not `(s + b) - a`.
+    abstract Roll   : old: 'T * nu: 'T -> unit
+    /// The window this aggregate expects to be driven at. WindowRoller checks it
+    /// against the size it is registered under — see the constructor's note.
+    abstract WindowSize : int
 
 /// One shared ring feeding many windows. `rolls` pairs a window size with the
 /// aggregates reading that size.
 [<Sealed>]
 type WindowRoller<'T>(rolls: (int * IRoll<'T>[])[]) =
     do if rolls.Length = 0 then invalidArg "rolls" "WindowRoller needs at least one window"
+    // ⚠⚠ THE MIS-REGISTRATION GUARD. With one shared ring the window size lives
+    // at the REGISTRATION site, not in the aggregate's own Push, so registering
+    // a 180-bar sum under 120 is a silent wrong answer rather than a crash. It
+    // cannot be silent here.
+    do for (w, rs) in rolls do
+        for r in rs do
+            if r.WindowSize <> w then
+                invalidArg "rolls" (sprintf "roll declared at window %d registered under %d" r.WindowSize w)
     let maxW = rolls |> Array.map fst |> Array.max
     // maxW + 1 slots: when the widest window evicts position (count-1-maxW) the
     // newest is (count-1), so maxW+1 positions must be live. Writing at
@@ -852,9 +868,7 @@ type WindowRoller<'T>(rolls: (int * IRoll<'T>[])[]) =
             if count > w then
                 // the element leaving the window: logical position count-1-w
                 let a = buf.[(count - 1 - w) % buf.Length]
-                for r in rs do
-                    r.Remove a          // ⚠ remove BEFORE add — RollingMa order
-                    r.Add b
+                for r in rs do r.Roll(a, b)   // ⚠ remove BEFORE add — RollingMa order
             else
                 for r in rs do r.Add b  // warmup: accumulate, evict nothing
 
@@ -875,8 +889,12 @@ type SumRoll<'T>(windowSize: int, project: 'T -> float) =
     member _.Count = n
     member _.State = if n = 0 then ValueNone else ValueSome sum
     interface IRoll<'T> with
+        member _.WindowSize = windowSize
         member _.Add b    = sum <- sum + project b; n <- n + 1
         member _.Remove b = sum <- sum - project b; n <- n - 1
+        // (sum - old) + nu, exactly as Remove-then-Add produces it. n is
+        // unchanged: a full window loses one and gains one.
+        member _.Roll (a, b) = sum <- sum - project a + project b
         member _.Reset () = sum <- 0.0; n <- 0
 
 /// Rolling OLS slope + R² over a shared window — the IRoll form of OlsSlopeMa.
@@ -921,6 +939,7 @@ type OlsRoll<'T>(windowSize: int, project: 'T -> float) =
         else ValueNone
 
     interface IRoll<'T> with
+        member _.WindowSize = windowSize
         // ⚠ Term-for-term and in the SAME ORDER as OlsSlopeMa.Push, so the
         // floating-point result is identical rather than merely equivalent.
         member _.Add b =
@@ -937,6 +956,19 @@ type OlsRoll<'T>(windowSize: int, project: 'T -> float) =
             sx <- sx - ox; sy <- sy - oy
             sxx <- sxx - ox * ox; sxy <- sxy - ox * oy; syy <- syy - oy * oy
             n <- n - 1
+        // ⚠ The two halves below are copied TERM FOR TERM from Remove and Add
+        // above, in that order. n nets out (-1 then +1) so it is not touched.
+        member _.Roll (a, b) =
+            let ox = remX
+            let oy = project a
+            remX <- remX + 1.0
+            sx <- sx - ox; sy <- sy - oy
+            sxx <- sxx - ox * ox; sxy <- sxy - ox * oy; syy <- syy - oy * oy
+            let x = addX
+            let y = project b
+            addX <- addX + 1.0
+            sx <- sx + x; sy <- sy + y
+            sxx <- sxx + x * x; sxy <- sxy + x * y; syy <- syy + y * y
         member _.Reset () =
             sx <- 0.0; sy <- 0.0; sxx <- 0.0; sxy <- 0.0; syy <- 0.0
             addX <- 0.0; remX <- 0.0; n <- 0
