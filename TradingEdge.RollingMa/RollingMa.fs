@@ -799,6 +799,62 @@ type SlidingAgg<'T>(zero: 'T, combine: 'T -> 'T -> 'T) =
 
     member _.Query = combine (topAgg front) (topAgg back)
 
+/// OLS SLOPE of the last `n` pushed values against their ORDER (x = 0..n-1),
+/// computed FROM SCRATCH on demand over any sub-window of one fixed ring.
+///
+/// ⭐ WHY THIS IS NOT `OlsSlopeMa` / `OlsRoll`. Three real differences, not
+/// style — the incremental rolls are the wrong shape for this job:
+///
+///   1. **Many windows, one ring.** The caller wants the slope over the last 40
+///      AND the last 20 of the SAME stream. An incremental roll maintains one
+///      window per instance, so that is two instances and two copies of the data.
+///   2. **Relative x.** The incremental rolls carry the ABSOLUTE push index,
+///      which is right for them and wrong here: by the close this stream is
+///      ~780 pushes deep, so `dxx = n·Σxx − (Σx)²` would be formed as a
+///      difference of two ~1e9 quantities instead of two ~2e4 ones — four
+///      decimal digits surrendered to cancellation for no benefit.
+///   3. **Lazy.** It is read only at SIGNAL bars, a handful per ticker-day.
+///      O(n) on demand beats O(1) on every one of ~780 pushes.
+///
+/// Partial windows are allowed: `n = min Count window`, nan below 3.
+[<Sealed>]
+type RingOlsMa(capacity: int) =
+    let buf = Array.create capacity nan
+    let mutable count = 0
+
+    member _.Capacity = capacity
+    /// Total pushes, NOT clamped to capacity — it is the ring's write cursor.
+    member _.Count = count
+
+    member _.Push (v: float) =
+        buf.[count % capacity] <- v
+        count <- count + 1
+
+    /// Slope over the last `min(count, window)` values. nan below 3 values or on
+    /// a degenerate x-spread.
+    member _.Slope (window: int) =
+        let n = min count window
+        if n < 3 then nan
+        else
+            let mutable sx = 0.0
+            let mutable sy = 0.0
+            let mutable sxy = 0.0
+            let mutable sxx = 0.0
+            for i in 0 .. n - 1 do
+                let x = float i
+                let y = buf.[(count - n + i) % capacity]
+                sx <- sx + x
+                sy <- sy + y
+                sxy <- sxy + x * y
+                sxx <- sxx + x * x
+            let nf = float n
+            let dx = nf * sxx - sx * sx
+            if dx <= 0.0 then nan else (nf * sxy - sx * sy) / dx
+
+    member _.Reset () =
+        Array.fill buf 0 capacity nan
+        count <- 0
+
 // =============================================================================
 // QUEUE SHARING — one ring buffer, many windows
 // =============================================================================
