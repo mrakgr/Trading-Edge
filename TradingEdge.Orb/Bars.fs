@@ -69,23 +69,66 @@ let excludeSetSql = TradeFilters.excludeSetSql
 /// venue clock only when SIP is 0. Live-parity — the live feed comes via a SIP.
 let tsExprSql = "COALESCE(NULLIF(sip_timestamp, 0), participant_timestamp)"
 
+/// ⭐⭐ TIMESTAMP PRECISION OF THE ROW FILTER.
+///
+/// The bulk parquet carries NANOSECOND sip/participant timestamps. The LIVE
+/// Massive WebSocket carries MILLISECONDS (measured 2026-08-21: `t` is 13
+/// digits). Bucketing is unaffected either way — floor(ns/1e9) = floor(ms/1e3)
+/// identically — but the delta cap compares a DIFFERENCE, so truncating both
+/// sides to ms widens `<= 50ms` to an effective `<= 51ms`.
+///
+/// Measured on 2026-06-09: 38,360 of 181,709,268 trades are admitted that the ns
+/// rule rejects and ZERO the other way, every one with a true delta in
+/// (50, 51] ms. The direction is structural, not incidental: only a trade whose
+/// true delta lies just ABOVE the cap can survive truncation.
+///
+/// ⭐ Building the corpus at `Millisecond` makes backtest and live agree BY
+/// CONSTRUCTION rather than by repeated measurement — which is the same argument
+/// that motivated forking the engine and sharing the bar library.
+type TimestampPrecision =
+    /// The tape's native resolution. What the existing corpus was built at.
+    | Nanosecond
+    /// The live feed's resolution, imposed on the tape.
+    | Millisecond
+
+/// ⚠⚠ `//`, NOT `/`. In DuckDB `/` on integers is FLOAT division, so
+/// `(sip_timestamp / 1000000) * 1000000` round-trips a 19-digit integer through
+/// a double — which cannot hold it — and comes back approximately unchanged.
+/// The first version of this shipped with `/` and produced a corpus that was the
+/// NANOSECOND one plus float noise: identical bar count, identical ticker count,
+/// and exactly 3 corrupted bars out of 31,127,627. A no-op is what near-identity
+/// looks like; the giveaway was that the trade count moved the WRONG WAY
+/// (ms must admit MORE trades, never fewer).
+let private tsAtSql (p: TimestampPrecision) (col: string) =
+    match p with
+    | Nanosecond -> col
+    | Millisecond -> sprintf "((%s // 1000000) * 1000000)" col
+
 /// DECISION 7 — auction prints bypass BOTH the delta cap and the exclude set.
-let conditionsAndDeltaSql =
+let conditionsAndDeltaSqlAt (p: TimestampPrecision) =
     sprintf
         "(
               list_has_any(conditions, %s)
               OR (
                   ( sip_timestamp = 0
                     OR participant_timestamp = 0
-                    OR (sip_timestamp - participant_timestamp) <= %d )
+                    OR (%s - %s) <= %d )
                   AND NOT list_has_any(conditions, %s)
               )
           )"
-        openCloseSetSql MaxSipDeltaNs excludeSetSql
+        openCloseSetSql
+        (tsAtSql p "sip_timestamp") (tsAtSql p "participant_timestamp")
+        MaxSipDeltaNs excludeSetSql
+
+let conditionsAndDeltaSql = conditionsAndDeltaSqlAt Nanosecond
 
 /// Full row filter for the 1s corpus. NOTE: no trf_id clause — by design.
-let whereClauseSql =
-    sprintf "size > 0\n          AND price > 0\n          AND %s" conditionsAndDeltaSql
+let whereClauseSqlAt (p: TimestampPrecision) =
+    sprintf "size > 0\n          AND price > 0\n          AND %s" (conditionsAndDeltaSqlAt p)
+
+/// The historical default. ⚠ Unchanged, so every existing caller keeps the
+/// nanosecond corpus it was built and audited against.
+let whereClauseSql = whereClauseSqlAt Nanosecond
 
 /// `bucket` expression given the UTC-nanosecond origin of 00:00 ET on the date.
 let bucketExprSql (baseNs: int64) =

@@ -127,6 +127,7 @@ type CliArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
     | [<AltCommandLine("-e")>] End_Date of string
     | [<AltCommandLine("-n")>] Limit of int
+    | Ms_Precision
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -134,6 +135,7 @@ type CliArgs =
             | Start_Date _ -> "First date to build (yyyy-MM-dd, inclusive). Default: earliest available trades file."
             | End_Date _ -> "Last date to build (yyyy-MM-dd, inclusive). Default: latest available trades file."
             | Limit _ -> "Cap on the number of days built this run (applied after date filter). Default: no cap."
+            | Ms_Precision -> "⭐ Build at the LIVE FEED'S MILLISECOND precision: truncate sip/participant to ms before the 50ms delta cap, exactly as the Massive WebSocket forces. Makes backtest and live agree BY CONSTRUCTION. ⚠ Produces a DIFFERENT corpus — set TE_1S_OUT_DIR and build beside the existing one, never over it."
 
 let parser = ArgumentParser.Create<CliArgs>(programName = "build_all_1s_bars.fsx")
 let cliArgs = fsi.CommandLineArgs |> Array.skip 1
@@ -146,6 +148,7 @@ let parsed =
 let startDateOpt = parsed.TryGetResult Start_Date
 let endDateOpt = parsed.TryGetResult End_Date
 let limitOpt = parsed.TryGetResult Limit
+let precision = if parsed.Contains Ms_Precision then Bars.Millisecond else Bars.Nanosecond
 
 let tradesDir = "data/bulk/trades"       // HDD source (symlink -> /mnt/d)
 // ⚠ Overridable so a full rebuild writes BESIDE the live corpus instead of over
@@ -248,7 +251,7 @@ COPY (
         -- opening/closing auction prints bypass BOTH the 50 ms delta cap and the
         -- exclude-conditions test, because they disseminate late (p99 ~388 ms) and
         -- are the session's anchor prices.
-        WHERE {Bars.whereClauseSql}
+        WHERE {Bars.whereClauseSqlAt precision}
     ),
     bucketed AS (
         SELECT
