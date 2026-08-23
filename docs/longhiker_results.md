@@ -894,3 +894,91 @@ separable here — **neither one is interpretable without the other.**
 ⚠⚠ The headline cell still reads **+0.02 bp in 2026** on 2.4M trips. Every lever found so far is
 real, year-stable, and ~50-100× too small to pay for a round trip. **The open question is entirely
 whether stacking concentrates them, and the 2026 column is the only one that answers it.**
+
+---
+
+# S10 — `ddz` vs THE EFF FAMILY, AND THE TIME CONFOUND THAT BREAKS S7c (2026-08-23)
+
+## S10a — The correlations
+
+Pearson over 343M trips (`lddz` = ln(ddz); the ratio has a heavy right tail, so where the two
+disagree, believe the log):
+
+| | ddz | lddz |
+|---|---|---|
+| **eff_open** | **−0.533** | **−0.622** |
+| **eff_20m** | **−0.534** | **−0.563** |
+| **eff_10m** | −0.305 | −0.350 |
+| volat_20m | −0.104 | −0.090 |
+| dd_20m | +0.301 | +0.224 |
+| gap_60 | −0.071 | −0.090 |
+| vol_r_300 | +0.015 | +0.007 |
+| **bars_present** | **+0.507** | **+0.371** |
+
+⭐ **`ddz` and `eff_open` are the most correlated cross-family pair in the study (−0.53 / −0.62).**
+Mechanically obvious in hindsight: a move that gives back little relative to its own volatility *is*
+an efficient move. They are two measurements of "how clean is this".
+
+## ⚠⚠ S10b — But BOTH are session-time clocks, and that breaks S7c
+
+`corr(ddz, bars_present) = +0.507` and `corr(eff_open, bars_present) = −0.402`. Mean `bars_present`
+across the ddz bands runs **606 → 1,278 → 1,821 → 2,345 → 3,080 → 4,152** — i.e. `ddz < 2` is
+essentially *"it is 09:45"* and `ddz > 14` is *"it is midday"*. Neither S7c nor any eff table
+controlled for this.
+
+**`ddz` inside a fixed time bucket** (median `r30s` bp):
+
+| bucket | z1 <2 | z2 2-4 | z3 4-6 | z4 6-9 | z5 9-14 | z6 14+ | n (M) |
+|---|---|---|---|---|---|---|---|
+| **09:45-10** | 0.188 | 0.142 | 0.178 | 0.193 | 0.188 | 0.163 | 94.5 |
+| 10-10:30 | 0.109 | 0.104 | 0.097 | 0.080 | 0.057 | 0.431 | 105.2 |
+| 10:30-11:30 | 0.105 | 0.086 | 0.063 | 0.070 | 0.064 | 0.043 | 82.5 |
+| 11:30-13:30 | 0.122 | 0.081 | 0.046 | 0.060 | 0.027 | 0.030 | 45.3 |
+| 13:30-15:50 | 0.064 | 0.026 | 0.026 | 0.008 | 0.006 | 0.002 | 15.4 |
+
+💀 **In the largest bucket (09:45-10:00, 94.5M trips) the ddz gradient is GONE — flat at ~0.18
+across all six bands.** And holding eff_open fixed *inside* that bucket, it **reverses and rises**:
+
+| eff_open (09:45-10 only) | z1 <2 | z2 2-4 | z3 4-6 | z4 6-9 |
+|---|---|---|---|---|
+| 0.30-0.40 | 0.044 | 0.106 | 0.134 | **0.174** |
+| 0.40-0.50 | 0.137 | 0.129 | 0.193 | **0.364** |
+| 0.50-0.60 | 0.171 | 0.195 | 0.259 | **0.556** |
+| 0.60+ | 0.211 | 0.235 | 0.283 | — |
+
+💀💀 **S7c IS RETRACTED.** "ddz monotone decreasing in every one of seven years, the cleanest signal
+in the study" was **the time-of-day effect wearing a drawdown costume.** The monotone ladder came
+from ddz sorting trips by session time, not by give-back. Inside a fixed bucket it is flat (t1) or
+sign-reversed with eff held fixed, and only survives in t2-t5 where it is again confounded with the
+same clock. ⚠ The `dd_20m` results in S7a/S7b inherit this doubt — they were never time-controlled
+either.
+
+## ⭐ S10c — `eff_open` SURVIVES the same control
+
+Median `r30s` bp, inside each bucket:
+
+| bucket | eff 0.30-0.40 | 0.40-0.50 | 0.50-0.60 | 0.60+ | n (M) |
+|---|---|---|---|---|---|
+| 09:45-10 | 0.099 | 0.118 | 0.170 | **0.226** | 94.5 |
+| 10-10:30 | 0.095 | 0.086 | 0.142 | **0.151** | 105.2 |
+| 10:30-11:30 | 0.046 | 0.104 | 0.143 | **0.266** | 82.5 |
+| 11:30-13:30 | 0.061 | 0.085 | 0.097 | 0.025 | 45.3 |
+| 13:30-15:50 | 0.016 | 0.007 | 0.004 | 0.188 | 15.4 |
+
+⭐ Monotone-rising inside every bucket that carries volume (t1-t3 = 282M of 343M trips). **`eff_open`
+is a real feature and `ddz` is not** — the exact opposite of what S5a and S7c concluded. (S5a's
+"eff_open is dead" was the h5m horizon error, corrected in S6a; this is the time control confirming
+S6a.)
+
+## ⭐⭐ S10d — The biggest single effect in LongHiker is the CLOCK
+
+Look down any column of either table: **09:45-10:00 → 13:30-15:50 costs roughly 3× the edge**
+(0.188 → 0.064 at z1; 0.099 → 0.016 at eff 0.30-0.40). No feature found so far moves the number as
+much as *what time it is*. The Hitchhiker is a morning pattern, and every breakdown from here must
+either fix the bucket or carry it as a control column.
+
+⚠ The methodological pattern is now three-for-three: **S3b** generalised from one month, **S5**
+read the wrong horizon, **S7c** read an uncontrolled confound. Each time the artifact was
+*monotone, year-stable and huge* — none of those properties distinguishes a signal from a
+confound. The only things that have caught it are the year table, the production-exit table, and
+the time control. Run all three before anything is called a feature.
