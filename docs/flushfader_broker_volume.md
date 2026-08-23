@@ -1,5 +1,13 @@
 # Projected order flow — US equities intraday strategy
 
+> ⚠ **NANOSECOND-ERA FIGURES (pre-2026-08-22).** Every number here derives from
+> the FlushFader book computed on the **nanosecond** 1s corpus. That corpus was
+> rebuilt at **millisecond** precision on 2026-08-22 (to match the live feed) and
+> the ns one deleted. The book is materially unchanged — 256 of 260 trades
+> identical, PF 4.313 → 4.306, win/avg/worst/tiers/equity-per-year all the same —
+> so the conclusions here stand, but exact figures are ns-era. See the banner at
+> the top of `flushfader_results.md`.
+
 Prepared 2026-08-14. **$100,000 account. Commission assumed $0.0015/share.**
 Figures are backtested over 2020-01 → 2026-07 (7 years) and expressed as monthly
 averages.

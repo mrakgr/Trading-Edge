@@ -1,5 +1,48 @@
 # FlushFader — 1s LONG mean reversion (production tier)
 
+> ## ⚠⚠ EVERY RESULT BELOW WAS COMPUTED ON **NANOSECOND** BARS — 2026-08-22
+>
+> The 1s corpus was rebuilt at **MILLISECOND** timestamp precision on 2026-08-22
+> and the nanosecond corpus was **deleted**. Every number in this document — the
+> books, the PFs, the trip counts, every S-numbered experiment — predates that
+> and was produced against ns bars and the ns universe. **Results from here on
+> use ms bars.**
+>
+> **Why the change.** The live Massive WebSocket carries millisecond timestamps;
+> the bulk tape carries nanoseconds. The 1s row filter compares
+> `sip - participant <= 50ms`, so ms truncation widens that cap to an effective
+> 51ms — admitting ~23,233 trades/day that the ns rule rejects, and **zero** the
+> other way (measured over 85.8M trades, 2026-08-21). Building the corpus at ms
+> makes backtest and live agree **by construction** rather than by repeated
+> measurement.
+>
+> **How much it moves the numbers** — measured over the 1-year audit window
+> (237,105 ticker-days), ns → ms:
+>
+> | | ns | ms |
+> |---|---|---|
+> | trips | 6,289 | 6,290 &nbsp;(⚠ 31 in / 30 out, not +1) |
+> | book n | 260 | 260 — **256 IDENTICAL** |
+> | book PF | 4.313 | 4.306 |
+> | win / avg / worst | 76.9% / +2.24% / −12.9% | **unchanged** |
+> | tiers | A38 B80 C46 D96 | **unchanged** |
+> | equity per year / maxDD | +4.35% / −0.24% | **unchanged** |
+>
+> The 4 book trades that differ are the **same ticker-day and same tier** with
+> entry shifted **1–10 seconds** — a gate crossing a second earlier, not a
+> different trade. ⭐ The universe change is **inert**: ms bars + ns universe and
+> ms bars + ms universe produce byte-identical trip sets.
+>
+> ⭐ So the conclusion of every experiment below stands; the third decimal place
+> may not. Treat exact figures as ns-era, and **do not compare a new ms-era
+> number against an old ns-era one** without re-running the baseline.
+>
+> ⏭ To reproduce an ns-era result: rebuild from `data/bulk/trades` with
+> `build_all_1s_bars.fsx --ns-precision` into a **separate** `TE_1S_OUT_DIR`
+> (~13 h; the builder refuses to mix precisions in one corpus), and rebuild the
+> universe from those bars. See `data/intraday_1s_slim/PRECISION.txt` and
+> [[project_ms_corpus_2026-08-22]].
+
 **Started 2026-07-28.** The first system of the **productionization arc**: porting the four
 1m mean-reversion systems to 1-second bars, one by one, into real-money-tier systems.
 FlushFader is the 1s successor to **DipRiderV6** (`docs/diprider_v6_results.md`), built on

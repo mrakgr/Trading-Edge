@@ -127,7 +127,7 @@ type CliArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
     | [<AltCommandLine("-e")>] End_Date of string
     | [<AltCommandLine("-n")>] Limit of int
-    | Ms_Precision
+    | Ns_Precision
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -135,7 +135,7 @@ type CliArgs =
             | Start_Date _ -> "First date to build (yyyy-MM-dd, inclusive). Default: earliest available trades file."
             | End_Date _ -> "Last date to build (yyyy-MM-dd, inclusive). Default: latest available trades file."
             | Limit _ -> "Cap on the number of days built this run (applied after date filter). Default: no cap."
-            | Ms_Precision -> "⭐ Build at the LIVE FEED'S MILLISECOND precision: truncate sip/participant to ms before the 50ms delta cap, exactly as the Massive WebSocket forces. Makes backtest and live agree BY CONSTRUCTION. ⚠ Produces a DIFFERENT corpus — set TE_1S_OUT_DIR and build beside the existing one, never over it."
+            | Ns_Precision -> "Build at the tape's NANOSECOND precision. ⚠ NOT the default any more: the live feed is MILLISECOND, so an ns corpus disagrees with live by ~23k trades/day. The ns corpus was deleted 2026-08-22. Use this only to reproduce a pre-2026-08-22 result, and ALWAYS with TE_1S_OUT_DIR pointing somewhere else — mixing precisions inside one corpus is undetectable afterwards."
 
 let parser = ArgumentParser.Create<CliArgs>(programName = "build_all_1s_bars.fsx")
 let cliArgs = fsi.CommandLineArgs |> Array.skip 1
@@ -148,7 +148,10 @@ let parsed =
 let startDateOpt = parsed.TryGetResult Start_Date
 let endDateOpt = parsed.TryGetResult End_Date
 let limitOpt = parsed.TryGetResult Limit
-let precision = if parsed.Contains Ms_Precision then Bars.Millisecond else Bars.Nanosecond
+// ⭐ MILLISECOND IS THE DEFAULT (2026-08-22). The live feed is ms, so the corpus
+// is ms; ns is now the exceptional case and must be asked for explicitly.
+let precision = if parsed.Contains Ns_Precision then Bars.Nanosecond else Bars.Millisecond
+
 
 let tradesDir = "data/bulk/trades"       // HDD source (symlink -> /mnt/d)
 // ⚠ Overridable so a full rebuild writes BESIDE the live corpus instead of over
@@ -158,6 +161,25 @@ let outDir =
     | null | "" -> "data/intraday_1s_slim"   // SSD (repo root /dev/sde) — NOT data/bulk (that's the HDD)
     | d -> d
 Directory.CreateDirectory outDir |> ignore
+
+// ⚠⚠ MIXING PRECISIONS INSIDE ONE CORPUS IS UNDETECTABLE AFTERWARDS — the files
+// look identical and only the trade counts differ, by ~0.02%. The corpus carries
+// a PRECISION.txt marker; refuse to write into one built the other way.
+let precisionMarker = Path.Combine(outDir, "PRECISION.txt")
+let markerSaysMs =
+    File.Exists precisionMarker && (File.ReadAllText precisionMarker).Contains "MILLISECOND"
+let existingDays = Directory.GetFiles(outDir, "*.parquet").Length
+if existingDays > 0 then
+    match precision, markerSaysMs with
+    | Bars.Nanosecond, true ->
+        eprintfn "🛑 %s holds a MILLISECOND corpus (%d days) but this run is --ns-precision." outDir existingDays
+        eprintfn "   Mixing precisions in one corpus cannot be detected later. Set TE_1S_OUT_DIR elsewhere."
+        exit 1
+    | Bars.Millisecond, false ->
+        eprintfn "🛑 %s holds %d day(s) with no MILLISECOND marker — it looks like a NANOSECOND corpus." outDir existingDays
+        eprintfn "   Refusing to add ms days to it. Set TE_1S_OUT_DIR elsewhere."
+        exit 1
+    | _ -> ()
 
 // SSD spill dir for the per-day sort (keep any DuckDB spill off the HDD).
 let spillDir = Path.Combine(outDir, ".duckdb_tmp")
