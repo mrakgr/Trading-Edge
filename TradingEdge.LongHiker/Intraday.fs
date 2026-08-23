@@ -192,8 +192,22 @@ type LhPosition =
       // >= 0 is this slot's log distance below its own 40-slot high, and dd_20m
       // is the MAX of d over the last 40 slots — "the worst the move has been
       // underwater against its 20m high, in the last 20m". -----
-      Dd20m: float
-      Dd10m: float               // 20-slot twin of both halves
+      // ⭐ THE MAX-WINDOW FAMILY (user, 2026-08-23). Same reference high — always
+      // the 40-slot (20m) one — and the same per-slot distance `dd_now_20m`; only
+      // the length of the running MAX changes. So the three read as "the worst
+      // give-back against the 20m high in the last 20m / 10m / 5m", and the
+      // SPREAD between them dates the drawdown: dd_20m >> dd_20m_w10 means the
+      // damage is old and already walked off, dd_20m ~= dd_20m_w10 means it is
+      // happening now.
+      // ⚠ NESTED BY CONSTRUCTION, so this is a free invariant on every trip:
+      //     dd_20m >= dd_20m_w20 >= dd_20m_w10 >= dd_now_20m >= 0
+      Dd20m: float               // MaxMa 40 of dd_now_20m  (== the w40 member)
+      Dd20mW20: float            // MaxMa 20 of dd_now_20m  (~ last 10m)
+      Dd20mW10: float            // MaxMa 10 of dd_now_20m  (~ last 5m)
+      // ⚠ dd_10m is the ODD ONE OUT and stays that way on purpose: its reference
+      // high is the 20-SLOT high, not the 40-slot one, so it is a different
+      // measurement rather than a fourth member of the family above.
+      Dd10m: float
       DdNow20m: float            // the CURRENT slot's distance below its 40-slot high
       DdNow10m: float
       // ----- levels (raw prices; every distance is derived in SQL) -----
@@ -450,8 +464,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let slotAbs20 = SumMa 20
     let slotMax40 = MaxMa 40                     // the drawdown reference highs
     let slotMax20 = MaxMa 20
-    let ddRun40 = MaxMa 40                       // MaxMa OF the slot drawdowns -> dd_20m
-    let ddRun20 = MaxMa 20
+    // ⚠ THREE MAXES OVER ONE STREAM (ddNow40), not three different distances —
+    // ddRun20/ddRun10 are fed the SAME 40-slot-referenced value as ddRun40.
+    // ddRun10m below is the separate 20-slot-referenced measure.
+    let ddRun40 = MaxMa 40                       // -> dd_20m
+    let ddRunW20 = MaxMa 20                      // -> dd_20m_w20
+    let ddRunW10 = MaxMa 10                      // -> dd_20m_w10
+    let ddRun10m = MaxMa 20                      // -> dd_10m (20-slot reference high)
     let mutable prevSlotVwap : float voption = ValueNone
     let mutable firstSlotVwap = nan
     let mutable lastSlotVwap = nan
@@ -562,8 +581,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             slotMax20.Push v
             ddNow40 <- (match slotMax40.State with ValueSome h when h > 0.0 && v > 0.0 -> log (h / v) | _ -> nan)
             ddNow20 <- (match slotMax20.State with ValueSome h when h > 0.0 && v > 0.0 -> log (h / v) | _ -> nan)
-            if not (Double.IsNaN ddNow40) then ddRun40.Push ddNow40
-            if not (Double.IsNaN ddNow20) then ddRun20.Push ddNow20
+            if not (Double.IsNaN ddNow40) then
+                ddRun40.Push ddNow40
+                ddRunW20.Push ddNow40
+                ddRunW10.Push ddNow40
+            if not (Double.IsNaN ddNow20) then ddRun10m.Push ddNow20
             if slotCount = 0 then firstSlotVwap <- v
             lastSlotVwap <- v
             slotCount <- slotCount + 1
@@ -690,7 +712,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                           EffOpen = effOpen
                           EffOpenSlots = slotCount
                           Dd20m = vv ddRun40.State
-                          Dd10m = vv ddRun20.State
+                          Dd20mW20 = vv ddRunW20.State
+                          Dd20mW10 = vv ddRunW10.State
+                          Dd10m = vv ddRun10m.State
                           DdNow20m = ddNow40
                           DdNow10m = ddNow20
                           OpenPx = openPx

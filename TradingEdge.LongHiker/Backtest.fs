@@ -167,7 +167,8 @@ CREATE TABLE trips (
     signal_sec INTEGER, signal_vwap DOUBLE, entry_sec INTEGER, entry_px DOUBLE,
     volat_20m DOUBLE, volat_10m DOUBLE, volat_open DOUBLE, slot_count INTEGER,
     eff_20m DOUBLE, eff_10m DOUBLE, eff_open DOUBLE, eff_open_slots INTEGER,
-    dd_20m DOUBLE, dd_10m DOUBLE, dd_now_20m DOUBLE, dd_now_10m DOUBLE,
+    dd_20m DOUBLE, dd_20m_w20 DOUBLE, dd_20m_w10 DOUBLE, dd_10m DOUBLE,
+    dd_now_20m DOUBLE, dd_now_10m DOUBLE,
     open_px DOUBLE, sess_hi DOUBLE, sess_lo DOUBLE, sess_vwap DOUBLE,
     hi_60 DOUBLE, hi_120 DOUBLE, hi_300 DOUBLE, hi_600 DOUBLE, hi_1200 DOUBLE,
     lo_60 DOUBLE, lo_120 DOUBLE, lo_300 DOUBLE, lo_600 DOUBLE, lo_1200 DOUBLE,
@@ -256,7 +257,8 @@ type TripSink(outDir: string) =
             i p.SignalSec; f p.SignalVwap; i p.EntrySec; f p.EntryPx
             f p.Volat20m; f p.Volat10m; f p.VolatOpen; i p.SlotCount
             f p.Eff20m; f p.Eff10m; f p.EffOpen; i p.EffOpenSlots
-            f p.Dd20m; f p.Dd10m; f p.DdNow20m; f p.DdNow10m
+            f p.Dd20m; f p.Dd20mW20; f p.Dd20mW10; f p.Dd10m
+            f p.DdNow20m; f p.DdNow10m
             f p.OpenPx; f p.SessHi; f p.SessLo; f p.SessVwap
             f p.Hi60; f p.Hi120; f p.Hi300; f p.Hi600; f p.Hi1200
             f p.Lo60; f p.Lo120; f p.Lo300; f p.Lo600; f p.Lo1200

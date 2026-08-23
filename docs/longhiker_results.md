@@ -107,8 +107,29 @@ been underwater against its 20m high, in the last 20m".
 
 | column | meaning |
 |---|---|
-| `dd_20m` / `dd_10m` | `MaxMa` 40 / 20 **of** the slot drawdowns |
 | `dd_now_20m` / `dd_now_10m` | the *current* slot's distance below its 40 / 20-slot high |
+| `dd_20m` / `dd_20m_w20` / `dd_20m_w10` | ⭐ `MaxMa` **40 / 20 / 10** of `dd_now_20m` |
+| `dd_10m` | `MaxMa` 20 of `dd_now_10m` — the odd one out (20-slot *reference high*) |
+
+⭐ **The max-window family** (user, 2026-08-23, after the S3d result). Same reference high — always
+the 40-slot (20m) one — and the same per-slot distance; only the length of the running max changes.
+They read as *"the worst give-back against the 20m high in the last 20m / 10m / 5m"*, and the
+**spread between them dates the drawdown**: `dd_20m >> dd_20m_w10` means the damage is old and
+already walked off; `dd_20m ≈ dd_20m_w10` means it is happening now. Nested by construction, so
+every trip carries a free invariant:
+
+```
+dd_20m >= dd_20m_w20 >= dd_20m_w10 >= dd_now_20m >= 0
+```
+
+Verified over all 323,368 trips of 2026-08-20: **zero violations, zero nulls.** Means 61.6 / 54.5 /
+45.5 / 24.9 bp. ⚠ `ρ(dd_20m, dd_20m_w20) = 0.974` — the w20 member may not be earning its place;
+`ρ(dd_20m, dd_20m_w10) = 0.871`. Decide that with the substitution test, not with ρ
+(`feedback_high_correlation_proves_nothing`), and note the likely-useful quantity is the **ratio**
+`dd_20m_w10 / dd_20m`, which is derivable in SQL and not stored.
+
+⚠ `dd_10m` stays outside the family on purpose: its reference high is the 20-slot high, so it is a
+different measurement rather than a fourth member.
 
 **⭐ Time measures** — wall-clock seconds since the last strict new N-present-bar high / low, for
 N ∈ {60,120,300,600,1200} bars (1m/2m/5m/10m/20m): `secs_since_hi_*`, `secs_since_lo_*`.
