@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- LongHiker — 1-SECOND-bar intraday MOMENTUM (long-only): the quantified
+       SMB "Hitchhiker" pattern (user, 2026-08-23) — a clean, efficient move off
+       the open that you ride rather than fade. The FIRST momentum system built
+       on the 1s tape, and the direct INVERSE of FlushFader's thesis, so it runs
+       as its own engine rather than a flag on the Fader family.
+
+       THE SAMPLER SHAPE IS DIFFERENT ON PURPOSE (user): FlushFader fires on a
+       discrete EVENT (a new 20m low) and each trip is a distinct opportunity.
+       LongHiker fires on a STATE (efficiency-since-the-open above a level) and
+       therefore enters on EVERY bar the state holds, exiting on a pure BAR
+       TIMESTOP. Averaging entries across the whole move is what removes the
+       microstructure noise that a single-entry momentum backtest cannot separate
+       from edge.
+
+       Pipeline 1 = the shared MR candidate universe (mr_candidate_1s_v2 — no
+       need to reinvent it); pipeline 2 = the per-(ticker,day) engine over
+       data/intraday_1s_slim/. Everything but the ER gate and the liquidity
+       floors is a RECORDED COLUMN, sliced post-hoc over the trip parquet. -->
+  <ItemGroup>
+    <Compile Include="Roll.fs" />
+    <Compile Include="Intraday.fs" />
+    <Compile Include="Backtest.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../TradingEdge.RollingMa/TradingEdge.RollingMa.fsproj" />
+    <ProjectReference Include="../TradingEdge.Orb/TradingEdge.Orb.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Argu" Version="6.2.5" />
+    <PackageReference Include="FSharp.Control.TaskSeq" Version="0.4.0" />
+    <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.4" />
+    <PackageReference Include="Nito.Collections.Deque" Version="1.2.1" />
+  </ItemGroup>
+
+</Project>
